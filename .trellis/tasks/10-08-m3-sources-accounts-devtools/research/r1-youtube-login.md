@@ -61,7 +61,7 @@
 ADR 0029 與 design §6.4 要定的值：
 
 - **`url`**：`https://accounts.google.com/ServiceLogin?service=youtube&continue=https://www.youtube.com/`。
-- **UA 不能是單一固定字串**：Android 只有「系統 UA 拿掉 `; wv`」能過，桌面 UA 被擋；Windows 用 WebView2 預設就能過。這是「嵌入式 WebView 要像一般瀏覽器」的平台事，與音源無關，建議改成宿主的平台層負責（Android 拿掉 `; wv`、Windows 不設），manifest 拿掉 `userAgent` 欄位。
+- **UA 不能是單一固定字串**：Android 只有「系統 UA 拿掉 `; wv`」能過，桌面 UA 被擋；Windows 用 WebView2 預設就能過。這是「嵌入式 WebView 要像一般瀏覽器」的平台事，與音源無關，改成宿主的平台層負責（Android 拿掉 `; wv`、Windows 不設），manifest 拿掉 `userAgent` 欄位（2026-10-08 擁有者決定）。
 - **`cookieHosts`**：`https://www.youtube.com`。
 - **`doneCookies`**：`SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`，**只以 youtube.com 的 cookie 判定**：google.com 的同名 cookie 在 `SetSID` 之前就出現，用它判定會在 YouTube 還沒拿到登入時關頁。
 - **流程不能以網址判定完成**：Android 登入後會插入 `gds.google.com` 的提示頁，最後落在 `m.youtube.com`，不是 `www.youtube.com`；以 cookie 判定就不受影響。
@@ -69,15 +69,17 @@ ADR 0029 與 design §6.4 要定的值：
 
 PR 9 要處理的：
 
-- **套件與建置**：二選一，交擁有者決定（見下）。兩條路的 Windows 都要 `CMakeLists.txt` 的 STL1011 define。
+- **套件與建置**：用 6.2.0-beta.3（見下）。兩條路的 Windows 都要 `CMakeLists.txt` 的 STL1011 define。
 - **Windows 跳轉卡住**：google.com 已有必要 cookie、youtube.com 一段時間仍沒有時，提示「登入沒有完成，重試」；重試先重建 `WebViewEnvironment` 再開登入頁（未驗證能救），救不回就請使用者重開 App（已驗證：重開後登入狀態還在，再開登入頁就完成）。視窗消失那次沒有記錄可查，PR 9 實測時盯著。
 
-### 套件選擇（待擁有者決定）
+### 套件選擇（2026-10-08 擁有者決定：B，6.2.0-beta.3）
 
 | 方案 | 內容 | 風險 |
 |---|---|---|
 | A. 6.1.5（stable）＋ AGP 退路旗標 | `app/android/gradle.properties` 加 `android.r8.proguardAndroidTxt.disallowed=false` | 旗標是 AGP 的暫時退路，之後的 AGP 會拿掉；到時要等 #2897 的 6.1.x 或 6.2.0 stable。只建置過，release APK 沒有實跑登入 |
-| B. 6.2.0-beta.3 | 不用 Gradle 旗標 | beta，2024-11 起至今沒有 stable；全域規則只在沒有可行 stable 時用 beta |
+| B. 6.2.0-beta.3 | 不用 Gradle 旗標 | beta，2024-11 起至今沒有 stable；登入只在 6.1.5 實測過，PR 9 的實測第一次驗 beta.3 |
+
+選 B 的理由：6.1.5 那條線 2024-10 後沒有新版、backport PR 沒人合併；AGP 旗標是會被拿掉的暫時退路，選 A 只是把換版往後推；beta.3 與 6.1.5 API 相容，PR 9 的登入出問題時退回 A 只改兩行設定（連 `pubspec.lock` 一起還原）。全域規則「沒有可行 stable 時才用 beta」在這裡成立：唯一的 stable 要靠暫時旗標才建得起來。
 
 ## 收尾
 

@@ -62,7 +62,7 @@
 | 首次啟動引導 | §7.6 | 6 | M3a |
 | `CredentialStore`、帳號表、每音源設定表、注入、登出 | §6.1–§6.3、§6.6 | 7 | M3a |
 | QR 登入、帳號頁 | §6.4、§6.7 | 8 | M3a |
-| YouTube 網頁登入、貼上 cookie | §6.4 | 9（依 R1） | M3a |
+| YouTube 網頁登入、貼上 cookie | §6.4 | 9 | M3a |
 | 失效與刷新 | §6.5 | 10 | M3a |
 | 開發者模式、「關於」版本列、Debug 路由與概覽 | §12.1 | 11 | M3b |
 | Log 與錯誤歷史、網路 | §12.3 | 12 | M3b |
@@ -253,11 +253,10 @@ manifest：
 ```ts
 login?: {
   methods: ('qr' | 'webView' | 'cookie')[];
-  webView?: {                       // methods 含 'webView' 時必填；R1 後定案（§6.4）
+  webView?: {                       // methods 含 'webView' 時必填（§6.4）；UA 由平台層決定，不在這裡
     url: string;                    // 登入頁，網域在 allowedHosts
-    userAgent: string | null;       // 完整 UA 字串；空＝平台 WebView 預設
     cookieHosts: string[];          // 取 cookie 的網址（每個在 allowedHosts）
-    doneCookies: string[];          // 這些 cookie 都出現就算登入完成
+    doneCookies: string[];          // cookieHosts 的 cookie 裡這些都出現就算登入完成
   } | null;
   refresh?: 'onStartup' | null;     // 宣告支援刷新與時機（ADR 0012 §決定 5）
   browseAsLoggedInDefault?: boolean | null;  // 「以登入身分瀏覽與播放」的預設，空＝開
@@ -431,16 +430,18 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 |---|---|---|
 | B 站 | `qr` | ADR 0012「B 站、網易以 QR 為主」；PiliPlus |
 | 網易 | `qr` | 同上 |
-| YouTube | `webView`、`cookie`（R1 不通過時只有 `cookie`） | ADR 0012 §決定 4；ytmusicapi 的瀏覽器 cookie |
+| YouTube | `webView`、`cookie` | ADR 0012 §決定 4；ytmusicapi 的瀏覽器 cookie |
 
 這拿掉了舊版 B 站的 WebView 分頁與 Android 網易的 WebView（§16 第 4 條）。
 
 - **QR**：`loginQrStart` → 以 `qr_flutter` 4.1.0 畫出 `qrText`（舊版用的套件；2023-05 後沒有新版，但 2.1M 次／30 天下載，功能完整；壞掉時換 `pretty_qr_code` 3.6.0，兩者都只依賴 `qr`）→ 每 2 秒 `loginQrPoll`，`scanned` 顯示「已掃描，請在手機上確認」，`expired` 顯示「已過期」與「重新產生」→ `done` 取得憑證 → `loginVerify` → 寫入。離開畫面停止輪詢。
-- **App 內網頁登入**（依 R1，§16 不列；R1 不通過就整段不做，平台能力也不加）：
-  - 套件 `flutter_inappwebview` 6.1.5（最新 stable，2024-10-08；不用 6.2.0-beta）。舊版在 Android 與 Windows（WebView2）都用過；`CookieManager.getCookies`、`deleteCookies` 在 Windows 可用，`InAppWebViewSettings.userAgent` 可設（context7）。其他候選見 ADR 0029。
-  - 平台層 `lib/platform/login_webview/`：`LoginWebView { Widget build(LoginWebViewSpec spec, {onCookies}); Future<Map<String,String>> cookies(List<Uri> hosts); Future<void> clear(List<Uri> hosts); Future<void> clearAll(); }`；宣告 `PlatformCapabilities.loginWebView`（Android、Windows 真，R1 通過後）。
+- **App 內網頁登入**（R1 通過，`research/r1-youtube-login.md`；ADR 0029 §決定 9）：
+  - 套件 `flutter_inappwebview` 6.2.0-beta.3（釘死；2026-10-08 擁有者決定）。6.1.5 的 Android 部分在 AGP 9.1.0 要靠會被拿掉的暫時旗標才建得起來，beta.3 原樣能建、API 相容。兩者的 Windows 都要在 `app/windows/CMakeLists.txt` 加 `add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)`（MSVC 14.51 的 STL1011）。其他候選見 ADR 0029。
+  - 平台層 `lib/platform/login_webview/`：`LoginWebView { Widget build(LoginWebViewSpec spec, {onCookies}); Future<Map<String,String>> cookies(List<Uri> hosts); Future<void> clear(List<Uri> hosts); Future<void> clearAll(); }`；宣告 `PlatformCapabilities.loginWebView`（Android、Windows 真）。`clear` 對每個網址 `getCookies` 後逐一以名稱、domain、path 刪除（`getCookies(accounts.google.com)` 也回 `.google.com` 的 cookie）。
+  - **UA 由平台層決定**：Android 取 `InAppWebViewController.getDefaultUserAgent()` 拿掉 `; wv`（也處理沒有空白的 `;wv`），其餘不動；Windows 不設。R1：Android 的桌面 Chrome UA 被擋在 `/v3/signin/rejected`；Windows 的預設與桌面 UA 都能登入。
   - Windows 以 `WebViewEnvironment.create(settings: WebViewEnvironmentSettings(userDataFolder: <資料目錄>/webview))`，dev 與 prod 的 WebView 資料跟著資料目錄分開，「重設資料」能整個刪。
-  - 流程：開 manifest 的 `webView.url`、設 `userAgent` → 每次 `onLoadStop` 讀 `cookieHosts` 的 cookie → `doneCookies` 都出現時關頁 → `loginVerify` → 寫入。取到的 cookie 只交 `loginVerify`，不進 log。
+  - 流程：開 manifest 的 `webView.url` → 每次 `onLoadStop` 讀 `cookieHosts` 的 cookie → `doneCookies` 都出現時關頁 → `loginVerify` → 寫入。取到的 cookie 只交 `loginVerify`，不進 log。**不以網址判定完成**：Android 登入後會先插入 `gds.google.com` 的提示頁，最後落在 `m.youtube.com`；Google 帳號的同名 cookie 在 `.google.com`、`SetSID` 之前就出現，所以只看 `cookieHosts`。
+  - **跳轉卡住**（R1 在 Windows 看到，原因未明）：`url` 的網域已有 cookie、`cookieHosts` 的 `doneCookies` 15 秒內仍沒齊時，顯示「登入沒有完成」與「重試」；重試在 Windows 重建 `WebViewEnvironment`（同一個使用者資料目錄）再開登入頁，Android 重建 WebView。仍不行就提示重開 App（R1 驗證過：重開後登入狀態還在，再開登入頁就完成）。
 - **貼上 cookie**：多行輸入框，接受瀏覽器 DevTools 複製的 `name=value; name2=value2` 或 Netscape `cookies.txt`；宿主解析成 `cookies` 表 → `loginVerify` → 寫入。輸入框的內容不進 log、不進錯誤報告。說明文字附「如何取得」的通用步驟（不指名音源）。
 - 三種方式之後都是「`loginVerify` 通過才寫入」：先寫 `CredentialStore`，成功後寫 `accounts`（`status = active`、`logged_in_at`），再登記遮蔽。`loginVerify` 拋錯就不寫，顯示錯誤（ADR 0013 的呈現表）。
 
@@ -741,7 +742,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 |---|---|---|---|---|
 | `flutter_secure_storage` | 11.2.0 | `CredentialStore`（ADR 0012 §決定 3） | `lib/platform/` | 7 |
 | `qr_flutter` | 4.1.0 | QR 登入畫面 | `lib/ui/accounts` | 8 |
-| `flutter_inappwebview` | 6.1.5 | App 內網頁登入（依 R1） | `lib/platform/` | 9 |
+| `flutter_inappwebview` | 6.2.0-beta.3 | App 內網頁登入（ADR 0029 §決定 9；用 beta 的理由見 ADR 0029） | `lib/platform/` | 9 |
 | `pub_semver` | 2.2.1 | 插件版本比對 | `lib/plugins/repository` | 4 |
 | `file_picker` | 13.1.0 | 從檔案安裝插件、選開發資料夾、存診斷包（ADR 0009 §決定 6） | `lib/platform/` | 5 |
 | `url_launcher` | 6.3.3 | 「在 GitHub 回報」 | `lib/platform/` | 13 |
@@ -750,7 +751,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 | `package_info_plus` | 10.2.2 | 「關於」的版本列、`ErrorReport` 與診斷包的 App 版本（`lib/` 現在沒有任何讀版本的地方） | `lib/platform/`（M1 已列入 `platformPackages`） | 11 |
 
 - 沒有選的：`file_selector`（ADR 0025 原寫，改用 ADR 0009 已定的 `file_picker`，矛盾 2）；`webview_flutter` 4.14.1（沒有 Windows）、`webview_windows` 0.4.0（2024-02，只有 Windows）、`desktop_webview_window` 0.3.0（獨立視窗，取 cookie 的能力沒查到）；`pretty_qr_code` 3.6.0（備案）。
-- `flutter_inappwebview` 6.1.5 兩年沒有 stable 新版、6.2.0 還在 beta：由 R1 在 Flutter 3.47.5 實測建置（§16 不列，R1 的結果決定）。
+- `flutter_inappwebview`：R1 實測 6.1.5 在 AGP 9.1.0 建不起來（`proguard-android.txt`），6.2.0-beta.3 可以；擁有者 2026-10-08 決定用 beta.3，6.2.0 出 stable 就換。從 beta 退回 6.1.5 時要連 `pubspec.lock` 一起還原（lockfile 會留著 beta 的 `_platform_interface`）。
 - 加了原生插件的 PR（7、9、11、13、15，以及 5 的 `file_picker`）照 M2 的做法保留真正新增的 plugin registrant，並以 `zipalign -c -P 16` 確認 Android 新增的原生庫是 16KB 對齊（ADR 0010 §後果）。
 
 ## 15. 文件更正
@@ -770,7 +771,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 | ADR 0025 §決定 7、10 | 更正（M3）：`file_selector.getDirectoryPath`／`getSaveLocation` 改用 ADR 0009 §決定 6 的 `file_picker`（13.1.0）的 `getDirectoryPath`、`saveFile`；「file_picker 沒有 SAF」不成立（13.x 有 Android SAF 選項），Android 插件開發仍另立 ADR（矛盾 2） | PR 0 |
 | ADR 0025 §決定 9 | 更正（M3）：自動備份＝以 SQLite `VACUUM INTO` 把資料庫複製到 `backups/fmp-<時間>.db`；「從備份還原」＝換回該檔並重啟。憑證不在資料庫，還原後要重新登入。M4 的 E16 匯出格式另定（矛盾 1，§16 第 7 條） | PR 0 |
 | ADR 0026 §決定 3 | 修訂（2026-10-08，M3 規劃時擁有者決定）：M3 拆成 M3a「三音源與帳號」與 M3b「開發工具、排程器、電台、Mix、分 P」，M4 依賴 M3b；明細見 `milestones.md` | PR 0 |
-| ADR 0029 | 依 R1 的結果定案 App 內網頁登入的部分（套件、`login.webView` 欄位、`loginWebView` 能力），狀態仍「提議中」直到核准 | R1 後、PR 0 前 |
+| ADR 0029 | 已依 R1 定案 App 內網頁登入的部分（套件、`login.webView` 欄位、UA 歸平台層、`loginWebView` 能力），狀態仍「提議中」直到核准 | 已完成（R1 後） |
 | `milestones.md` § M3 | 拆成 M3a、M3b 兩節與兩列（依賴：M3a←M2、M3b←M3a、M4←M3b）；範圍加「設定『關於』區塊的版本列（開發者模式入口；其餘內容 M9）」（矛盾 4）；驗收照 `prd.md`（加 ADR 測試的項目，矛盾 13） | PR 0 |
 | `09-26-fmp-rewrite/task.json` | 子任務清單加本任務 | 已在本規劃的 commit `f7736306` 加入 |
 | `app/AGENTS.md` | § 網路「目前（M2）的認證來源是 `NoCredentials`」、§ 插件的 `checks.json`「只收兩個能力」、§ 資料層、§ 平台層、§ Lint 隨各 PR 改寫；加 § 排程器、§ 帳號、§ 電台 | 各 PR |

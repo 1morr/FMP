@@ -43,10 +43,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**：規劃中（2026-10-08）。prd／design／implement 與 ADR 0028–0031 草稿待擁有者核准；R1 還沒做。
+- **狀態**：規劃中（2026-10-08）。prd／design／implement 與 ADR 0028–0031 草稿待擁有者核准；R1 已完成（通過，結果已回填）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條 2026-10-08 確認，全部照建議。
 - **已合併進 `main`**：（無）
-- **下一步**：R1（擁有者在場時）→ 回填 ADR 0029 與 design §6.4 → 擁有者核准 → PR 0。
+- **下一步**：擁有者核准 → PR 0。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-plugin-lifecycle`）；
@@ -109,7 +109,9 @@
 - 高風險先做：R1；PR 1（800 KB 插件在 QuickJS isolate 的效能、Android 時長未知）；PR 2（eapi 加密、`X-Real-IP`）。
 - 同時開兩個以上動 schema 的分支時，各自的 schema 版本號在後合併的那個 PR 重排。
 
-## R1. YouTube App 內網頁登入實測（研究，不寫 `app/`）
+## R1. YouTube App 內網頁登入實測（研究，不寫 `app/`）——已完成（2026-10-08，通過）
+
+結果與決定見 `research/r1-youtube-login.md`；已回填 ADR 0029、design §5、§6.4、§14、§15 與 `prd.md`。以下是當時的計畫。
 
 目的：回答 `phase2-plan.md:238` 的 §8 實測「YouTube App 內網頁登入（桌面 UA）是否仍可用」，決定 ADR 0029 的 WebView 部分與 PR 9 的範圍。最高風險，核准設計前做（`m3-decisions.md` §4）。
 
@@ -253,22 +255,22 @@
   - 真實（擁有者的帳號，擁有者自己掃 QR）：兩平台各登入 B 站、網易一次 → 一次帶憑證的搜尋（網路紀錄 `credentials: true`）→ 關掉「以登入身分瀏覽與播放」再搜尋一次（`false`）→ 登出（再搜尋 `false`）。截圖避開帳號列。
 - 依賴：4、7。模型：opus（帳號頁與登入畫面的版面與互動沒有定稿）。
 
-## 9. YouTube 網頁登入與貼上 cookie（design §6.4，依 R1）
+## 9. YouTube 網頁登入與貼上 cookie（design §6.4）
 
-R1 通過時：
+網頁登入（R1 通過，design §6.4）：
 
-- [ ] 平台層 `lib/platform/login_webview/`（`flutter_inappwebview` 6.1.5；Windows 的 `WebViewEnvironment` 使用者資料在資料目錄的 `webview/`），宣告 `loginWebView`（R1 通過的平台）。
-- [ ] 登入畫面：開 manifest 的 `webView.url` 與 `userAgent`、`doneCookies` 齊了就關頁、`loginVerify`、寫入。
-- [ ] 登出與移除插件時清 `cookieHosts` 的 WebView cookie（PR 7 留的那一步）。
-- [ ] fmp-plugins：YouTube manifest 的 `login.webView`（值照 R1 的結果）。
+- [ ] 平台層 `lib/platform/login_webview/`（`flutter_inappwebview` 6.2.0-beta.3 釘死；Windows 的 `WebViewEnvironment` 使用者資料在資料目錄的 `webview/`；`app/windows/CMakeLists.txt` 加 STL1011 的 define），Android 與 Windows 宣告 `loginWebView`。UA：Android 拿掉 `; wv`、Windows 不設。
+- [ ] 登入畫面：開 manifest 的 `webView.url`、`cookieHosts` 的 `doneCookies` 齊了就關頁、`loginVerify`、寫入；跳轉卡住的提示與重試（design §6.4）。
+- [ ] 登出與移除插件時清 `cookieHosts` 與 `url` 的 WebView cookie（PR 7 留的那一步）。
+- [ ] fmp-plugins：YouTube manifest 的 `login.webView`：`url` `https://accounts.google.com/ServiceLogin?service=youtube&continue=https://www.youtube.com/`、`cookieHosts` `["https://www.youtube.com"]`、`doneCookies` `["SAPISID", "__Secure-1PSID", "__Secure-3PSID"]`。
 
-兩種情況都做：
+另外：
 
 - [ ] 貼上 cookie 的畫面：多行輸入、兩種格式的解析、通用的「如何取得」說明；輸入內容不進 log 與錯誤報告。
 - [ ] YouTube 插件的 `SAPISIDHASH` 以 `authHeaders` 送出。
-- 測試：cookie 字串與 `cookies.txt` 的解析（含壞行）；輸入內容不出現在 log（假 cookie 掃描）；`loginWebView` 宣告為假的平台不出現「網頁登入」；WebView 的清除以假 `LoginWebView` 斷言；`platform_test.dart`。
-- 實測（真實，擁有者的 Google 測試帳號，擁有者自己輸入密碼）：兩平台以網頁登入（R1 不通過時改貼上 cookie：擁有者自己從瀏覽器複製貼上）→ 帶憑證的搜尋與播放各一次 → 登出 → 以 `CookieManager` 的名稱檢查（開發入口或 log 的名稱清單）確認 cookie 不在。**這就是 §8 的 YouTube App 內網頁登入實測**，結果寫進 PR 描述與 `research/m3a-acceptance.md`。
-- 依賴：8、R1。模型：opus（平台層新能力加登入畫面的互動；依 R1 結果定細節）。
+- 測試：cookie 字串與 `cookies.txt` 的解析（含壞行）；輸入內容不出現在 log（假 cookie 掃描）；`loginWebView` 宣告為假的平台不出現「網頁登入」；完成只看 `cookieHosts` 的 cookie（其他網域的同名 cookie 不算）；Android UA 轉換（`; wv`、`;wv`、沒有標記）；卡住提示的計時；WebView 的清除以假 `LoginWebView` 斷言；`platform_test.dart`。
+- 實測（真實，擁有者的 Google 測試帳號，擁有者自己輸入密碼）：兩平台以網頁登入（beta.3 的登入在這裡第一次實測；登入有問題時退回 6.1.5 加 AGP 旗標 `android.r8.proguardAndroidTxt.disallowed=false`，連 `pubspec.lock` 一起還原）→ 貼上 cookie 一次（擁有者自己從瀏覽器複製貼上）→ 帶憑證的搜尋與播放各一次 → 登出 → 以 `CookieManager` 的名稱檢查（開發入口或 log 的名稱清單）確認 cookie 不在。**這就是 §8 的 YouTube App 內網頁登入實測**，結果寫進 PR 描述與 `research/m3a-acceptance.md`。
+- 依賴：8、R1。模型：opus（平台層新能力加登入畫面的互動）。
 
 ## 10. 失效與刷新（design §6.5）
 
@@ -288,7 +290,7 @@ R1 通過時：
 - **步驟**：
   1. 清掉 dev 資料目錄（含 secure storage：Android 解除安裝 dev 重裝；Windows 刪 dev 的 application support 與 WebView 資料）→ 啟動 → 首次啟動引導裝三個官方插件。
   2. 三個音源各搜尋一次、播一首（YouTube 的交接、網易的試聽各看一次）。
-  3. 帳號頁：B 站 QR、網易 QR、YouTube 網頁登入（R1 不通過時貼上 cookie）各一次 → 各一次帶憑證的搜尋 → YouTube 關掉「以登入身分瀏覽與播放」再搜尋一次。
+  3. 帳號頁：B 站 QR、網易 QR、YouTube 網頁登入各一次 → 各一次帶憑證的搜尋 → YouTube 關掉「以登入身分瀏覽與播放」再搜尋一次。
   4. 重啟 App：三個帳號仍登入、B 站啟動刷新跑過一次。
   5. 插件頁：停用網易（chip 消失、佇列裡的網易曲目標「音源已停用」並被跳過）→ 啟用；檢查更新（沒有更新時顯示已是最新）。
   6. 登出 YouTube（cookie 名稱不在）；移除網易（帳號列、storage、快取項目都不在；歷史裡的網易曲目標「音源未安裝」）。
@@ -488,8 +490,9 @@ R1 通過時：
 
 | 風險 | 處理 |
 |---|---|
-| Google 擋嵌入式瀏覽器登入（R1 不通過） | 決定 8：只提供貼上 cookie；PR 9 縮成貼上 cookie，不加 WebView 依賴與平台能力 |
-| `flutter_inappwebview` 6.1.5 在 Flutter 3.47.5 建不起來（兩年沒有 stable） | R1 先建置；不行就同上只提供貼上 cookie。之後 6.2.0 出 stable 再評估 |
+| Google 之後擋嵌入式瀏覽器登入（R1 時 Android 的桌面 UA 已被擋） | 決定 8：只提供貼上 cookie；YouTube manifest 拿掉 `webView` 即可，不必發 App |
+| `flutter_inappwebview` 6.2.0-beta.3 的登入有問題、或之後的 Flutter／AGP／MSVC 建不起來 | 退回 6.1.5＋AGP 旗標（R1 建置過）；6.2.0 出 stable 就換；Windows 的 STL1011 define 在上游修好時拿掉 |
+| Windows 登入後跳轉卡住或程序消失（R1 看到、原因未明） | design §6.4 的提示與重試；PR 9 與 M3a 驗收實測時盯著 |
 | YouTube.js 約 800 KB 在 QuickJS isolate 載入太慢，或 YouTube 封鎖目前的 client | PR 1 量兩平台的載入時間；超過 3 秒再談延遲載入或縮小打包。client 被擋時只改插件（ADR 0014 §決定 10 的補充），不發 App |
 | Android 上時長未知的串流前瞻接不上（M2 待辦 2） | PR 1 實機確認；不排前瞻、以 `completed` 換歌（design §5.4）。PR 1 的這一部分可單獨 revert |
 | 網易 eapi 加密或 `-460` 風控讓匿名取流失敗 | PR 2 先以最少的真實連線確認；失敗時具名回報 blocker，網易在 M3a 驗收裡標「只驗到搜尋」並請擁有者決定（M1 遇到 B 站風控的同一做法） |

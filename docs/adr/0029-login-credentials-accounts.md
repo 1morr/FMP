@@ -1,6 +1,6 @@
 # 0029 — 登入由插件的匯出完成、憑證以 cookie 表存在 secure storage、失效在插件呼叫層單飛刷新
 
-- 狀態：提議中（**App 內網頁登入的部分依 R1 的結果定案**，見 `.trellis/tasks/10-08-m3-sources-accounts-devtools/research/r1-youtube-login.md`）
+- 狀態：提議中（App 內網頁登入的部分已依 R1 定案，實測見 `.trellis/tasks/10-08-m3-sources-accounts-devtools/research/r1-youtube-login.md`）
 - 日期：2026-10-08
 - 影響範圍：`app/lib/plugins/accounts/`（`CredentialStore`、帳號服務、單飛刷新）、`app/lib/platform/secure_storage/`、`app/lib/platform/login_webview/`、`app/lib/core/network/` 的認證攔截器、manifest 的 `login` 欄位與 `fmp-plugin.d.ts`、資料表 `accounts`、`source_settings`、帳號頁
 
@@ -28,13 +28,15 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 - **dio `QueuedInterceptor`**（ADR 0012 的字面）：判定在插件的 JS 內，dio 層只看到 HTTP 狀態，看不到 B 站的 `code: -101`。否決。
 - **插件呼叫層**：插件丟 `CredentialInvalid` 時宿主刷新並重跑整個插件呼叫；重跑時請求自然帶新憑證（等同「以新憑證重建請求」）。採用。
 
-### 登入 WebView 套件（依 R1 定案）
+### 登入 WebView 套件
 
-- **`flutter_inappwebview` 6.1.5**：舊版在 Android 與 Windows（WebView2）都用過；`CookieManager.getCookies`／`deleteCookies` 在 Windows 可用、UA 可設。缺點：最新 stable 是 2024-10，6.2.0 仍是 beta，要實測能否在 Flutter 3.47 建置。
+- **`flutter_inappwebview` 6.1.5**（最新 stable，2024-10）：R1 在兩平台登入成功（Android、Windows WebView2）；`CookieManager` 讀得到 HttpOnly cookie、`deleteCookies` 有效。但它的 Android 部分在 `app/` 用的 AGP 9.1.0 建不起來（`proguard-android.txt` 已不支援），要靠 AGP 的暫時退路旗標 `android.r8.proguardAndroidTxt.disallowed=false`；6.1.x 的修正（上游 PR #2897）還沒合併。旗標會隨之後的 AGP 拿掉。否決。
+- **`flutter_inappwebview` 6.2.0-beta.3**（2026-02）：維護者的開發線，Android 在 AGP 9.1.0 原樣建得起來，API 與 6.1.5 相容（R1 的探針不改一行就建得起來）。缺點：beta，2024-11 起沒有 stable；R1 的登入實測用的是 6.1.5，beta.3 只建置過。採用：全域規則「沒有可行 stable 時才用 beta」在這裡成立——唯一的 stable 要靠一個會被拿掉的 AGP 旗標才建得起來。
+- 兩者的 Windows 部分在 MSVC 14.51 都要 `add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)`（插件用 `<experimental/coroutine>`，STL1011）。
 - **`webview_flutter` 4.14.1**：官方維護，但沒有 Windows。否決。
 - **`webview_windows` 0.4.0**：只有 Windows，2024-02 後沒有新版。否決。
 - **`desktop_webview_window` 0.3.0**：獨立視窗，取 cookie 的能力沒查到。否決。
-- **只提供貼上 cookie**：最簡單，體驗較差；是 R1 不通過時的退路（`phase2-plan.md:238`）。
+- **只提供貼上 cookie**：最簡單，體驗較差；是網頁登入失效時的退路（`phase2-plan.md:238`），與網頁登入並存。
 
 ### secure storage 套件
 
@@ -43,7 +45,7 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 ## 決定
 
 1. **manifest 的 `login`**：`{methods: ('qr' | 'webView' | 'cookie')[], webView?, refresh?: 'onStartup' | null, browseAsLoggedInDefault?: boolean, automationRisk?: boolean}`。
-   - `webView`（methods 含 `webView` 時必填）：`{url, userAgent, cookieHosts, doneCookies}`——登入頁、UA（完整字串或空＝平台預設；R1 定）、取 cookie 的網址、齊了就算完成的 cookie 名稱。宿主開 WebView，沒有任何音源分支。
+   - `webView`（methods 含 `webView` 時必填）：`{url, cookieHosts, doneCookies}`——登入頁、取 cookie 的網址、`cookieHosts` 的 cookie 裡齊了就算完成的名稱。宿主開 WebView，沒有任何音源分支。UA 不在 manifest：讓嵌入式 WebView 像一般瀏覽器是平台的事，由平台層決定（決定 9）。
    - `browseAsLoggedInDefault`：「以登入身分瀏覽與播放」的預設（空＝開，ADR 0012 §決定 6）。
    - `automationRisk`：真時開關旁顯示通用說明「以登入身分大量請求可能被視為自動化行為（推測）」（ADR 0012 對 YouTube 的要求，宿主不認得 YouTube）。
 2. **匯出**：
@@ -65,11 +67,14 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - 宿主在插件呼叫層單飛：同一插件同時只有一個刷新；宣告 `refresh` 的插件刷新成功就寫入並**重跑原呼叫一次**；不支援刷新、回 `null` 或刷新失敗就標 `invalidated`：保留憑證、停止帶它、提示一次附「登入」（ADR 0012 §決定 5、ADR 0013 的呈現表）。
    - 啟動刷新：宣告 `refresh: 'onStartup'` 的插件，在第一幀之後、網路狀態第一次是 `Online` 時呼叫一次 `loginRefresh`（ADR 0016「離線中不發背景請求」）。不做全面的帳號驗證。
 8. **登入方式**：UI 顯示「`methods` ∩ 平台有能力」。`qr`、`cookie` 不需要平台能力；`webView` 需要平台層宣告 `loginWebView`。官方插件：B 站與網易 `qr`；YouTube `webView` 與 `cookie`。
-9. **App 內網頁登入（R1 後定案）**：
-   - 通過時：`flutter_inappwebview` 6.1.5，平台層 `lib/platform/login_webview/` 實作，宣告 `loginWebView`（R1 通過的平台）；Windows 的 WebView2 使用者資料放在 App 資料目錄下，dev 與 prod 分開、「重設資料」能整個刪；`onLoadStop` 時讀 `cookieHosts` 的 cookie，`doneCookies` 齊了就交 `loginVerify`。
-   - 不通過時：不加 WebView 依賴與平台能力，YouTube 只提供貼上 cookie；本節改寫成「不採用，理由見 R1」。
+9. **App 內網頁登入**（R1 通過，Android 與 Windows）：
+   - `flutter_inappwebview` 6.2.0-beta.3（釘死），平台層 `lib/platform/login_webview/` 實作，Android 與 Windows 宣告 `loginWebView`。`app/windows/CMakeLists.txt` 加上面的 STL1011 define。
+   - **UA 由平台層決定**：Android 用系統 WebView 的 UA 拿掉 `; wv`（R1：桌面 Chrome UA 會被 Google 擋在 `/v3/signin/rejected`）；Windows 不設，用 WebView2 預設（R1：預設與桌面 UA 都能登入）。
+   - Windows 的 WebView2 使用者資料放在 App 資料目錄下，dev 與 prod 分開、「重設資料」能整個刪。
+   - **完成以 cookie 判定，不以網址判定**：每次 `onLoadStop` 讀 `cookieHosts` 的 cookie，`doneCookies` 齊了就交 `loginVerify`。只看 `cookieHosts` 網域的 cookie：Google 帳號的同名 cookie 在 `.google.com`，`SetSID` 之前就出現。登入後的落點也不固定（Android 會先插入 `gds.google.com` 的提示頁，最後到 `m.youtube.com`）。
+   - **跳轉卡住**：R1 在 Windows 看到登入後停在 `SetSID`（或程序消失），重開 App 後再開登入頁就完成。登入頁在 `url` 的網域已有 cookie、`cookieHosts` 一段時間仍沒齊時，提示「登入沒有完成」與重試；重試重建 WebView 環境再開登入頁。
 10. **貼上 cookie**：接受 `name=value; …` 與 Netscape `cookies.txt` 兩種格式，解析成 `cookies` 表再 `loginVerify`；輸入內容不進 log 與錯誤報告。
-11. **登出**：清該插件的憑證、帳號列、遮蔽登記、記憶體 cookie jar、WebView 中 `cookieHosts` 的 cookie；`source_settings` 保留。移除插件與重設資料的範圍見 ADR 0030 與 ADR 0025。
+11. **登出**：清該插件的憑證、帳號列、遮蔽登記、記憶體 cookie jar、WebView 中 `cookieHosts` 與 `url` 網址讀得到的 cookie（逐一以名稱、domain、path 刪除）；`source_settings` 保留。移除插件與重設資料的範圍見 ADR 0030 與 ADR 0025。
 
 採用的慣例：ytmusicapi 的瀏覽器 cookie 與 `SAPISIDHASH`；PiliPlus 的 QR 輪詢；Finamp 的已知值遮蔽（ADR 0011）；舊版 `youtube_login_page.dart` 的登入網址與必要 cookie（`SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`）。
 
@@ -79,7 +84,8 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 - 壞的：每個插件要自己寫帳號資訊驗證、憑證無效判定表與刷新（B 站要純 JS 的 RSA-OAEP）；`loginVerify` 期間插件要自己組 `Cookie`；`login*` 執行期間同一個 client 上其他請求的 `Set-Cookie` 也不存（登入期間插件只做登入，可接受）；重跑整個插件呼叫比重送單一請求多花一點時間。
 - 之後要注意：
   - YouTube 的網頁登入可能隨 Google 的政策失效，屆時只剩貼上 cookie（manifest 拿掉 `webView` 即可，不必發 App）；
-  - `flutter_inappwebview` 6.2.0 出 stable 時評估升級；
+  - `flutter_inappwebview` 6.2.0 出 stable 就換到 stable；上游修好 STL1011 就拿掉 Windows 的 define；
+  - Windows 登入後跳轉卡住的原因沒查到（R1 重現不出來），之後的實測要盯著；
   - Linux 沒有 WebView 與 keyring 時的行為在 Linux 平台任務決定（ADR 0012 §決定 8）；
   - 舊憑證的匯入在 M5，轉成本 ADR 的形狀。
 
@@ -92,4 +98,5 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 - 單飛刷新：刷新後重跑的請求帶新憑證；三個並行的呼叫只刷新一次；不支援刷新時標失效且只提示一次；限流與網路錯誤不標失效（ADR 0012 §如何確認）。
 - 三個官方插件的「憑證無效」判定表以手寫的錯誤 fixture 走契約測試（`credentialsAttached` 為真才判定，為假的同樣回應不判定）。
 - 登出、移除插件、重設資料後 `CredentialStore` 為空，之後的請求不帶憑證。
+- 網頁登入：只有 `cookieHosts` 的 cookie 能讓 `doneCookies` 成立（其他網域的同名 cookie 不算）；Android 的 UA 轉換拿掉 `; wv`、其餘不動；`loginWebView` 為假的平台不出現「網頁登入」；登出以假 `LoginWebView` 斷言清除的網址。
 - 實機（ADR 0027，真實）：每個音源登入一次、帶憑證的搜尋、登出；YouTube 的網頁登入（或貼上 cookie）是 M3a 驗收的 §8 項目。

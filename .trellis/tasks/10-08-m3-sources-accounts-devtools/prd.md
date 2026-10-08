@@ -1,7 +1,7 @@
 # M3 三音源、帳號與開發工具
 
 > 擁有者核准 prd／design／implement 之前不開工（ADR 0026 §決定 1）。技術決定在 `design.md`，PR 順序在 `implement.md`。
-> 新 ADR 0028–0031 是草稿（提議中），隨本規劃一起核准；0029 的 App 內網頁登入部分等 R1 的結果定案。
+> 新 ADR 0028–0031 是草稿（提議中），隨本規劃一起核准；0029 的 App 內網頁登入部分已依 R1 的結果定案。
 
 ## 目標
 
@@ -17,7 +17,7 @@
 - 研究：
   - `research/m3-scope-digest.md`：各 ADR 的 M3 範圍、14 條矛盾、33 條未定之處；
   - `research/m3-decisions.md`：矛盾的處理、未定之處的甲乙丙分類與建議、PR 順序草案、擁有者對丙類五題的決定；
-  - `research/r1-youtube-login.md`：R1 的結果（R1 做完才有）。
+  - `research/r1-youtube-login.md`：R1 的結果（兩平台通過）。
 - 未定之處逐條的決定見 `design.md` §0。
 
 ## 擁有者的決定
@@ -29,7 +29,7 @@
    - 擁有者另開一個 Google 測試帳號，給 R1 與 YouTube 網頁登入的 PR 用；B 站、網易用擁有者指定的帳號。
    - 登入時由擁有者自己輸入密碼或掃 QR；代理不輸入、不讀取密碼。
    - 平常的插件 PR 只用匿名的真實連線，操作最少。
-   - 登入相關的實測 Android 與 Windows 兩平台都做。R1 失敗時 YouTube 只提供貼上 cookie（`phase2-plan.md:238` 已定的退路）。
+   - 登入相關的實測 Android 與 Windows 兩平台都做。R1（2026-10-08）兩平台都通過，YouTube 提供 App 內網頁登入與貼上 cookie；之後網頁登入失效時退回只提供貼上 cookie（`phase2-plan.md:238` 已定的退路）。
 3. **電台對齊舊版主體**：導覽加「電台」、電台清單、以網址新增、排序、刪除、搜尋頁「加為電台」、直播狀態輪詢、播放頁的直播版。粉絲勳章匯入與首頁的電台區塊在 M4。
 4. **Mix 從 YouTube 曲目選單開始**：曲目選單的「開始 Mix」，規則照舊版（禁止隨機、禁止加入、插入與打亂，清空佇列就退出 Mix，重啟後恢復）。歌單形態的 Mix 在 M4。
 5. **`trackDetail` 在 M3b 最後一個 PR（PR 21）**。
@@ -51,7 +51,7 @@
 - 宿主 API v1 的擴充：`HttpRequest.idempotent`、`authHeaders`、`login` 契約（ADR 0028、0029）。
 - `1morr/fmp-plugins`：CI、`index.json`、B 站插件的修正（HTML 實體、多尺寸封面、版本號）（ADR 0030）。
 - 插件生命週期：啟用與停用、安裝前確認、從 index 安裝與更新（SHA-256）、移除；插件頁；首次啟動引導（ADR 0030）。
-- 帳號：`CredentialStore`、帳號表、每音源設定表（「以登入身分瀏覽與播放」）、憑證注入與 Cookie 合併、登出；B 站與網易 QR 登入、YouTube App 內網頁登入（依 R1）與貼上 cookie；失效與刷新（ADR 0012、0029）。
+- 帳號：`CredentialStore`、帳號表、每音源設定表（「以登入身分瀏覽與播放」）、憑證注入與 Cookie 合併、登出；B 站與網易 QR 登入、YouTube App 內網頁登入（R1 通過）與貼上 cookie；失效與刷新（ADR 0012、0029）。
 - 設定頁加「帳號」「插件」兩個區塊。
 
 ### M3b 開發工具、排程器、電台、Mix、分 P（PR 11–21）
@@ -82,7 +82,7 @@
 
 - [ ] Android 模擬器與 Windows 各做一次端到端操作，步驟照 `implement.md` § M3a 驗收（從首次啟動引導安裝官方插件；三個音源各搜尋、播放；B 站 QR、網易 QR、YouTube 網頁登入或貼上 cookie 各登入一次；「以登入身分瀏覽與播放」開關；登出；停用、更新、移除插件），證據寫進 `research/m3a-acceptance.md`。
 - [ ] ADR 0012、0013（三個音源的錯誤對應）、0014、0015 §決定 6、0016（插件頁與登入的離線狀態）、0028（`idempotent`、`login` 的檢查案例）、0029、0030 的測試，逐項對到 `implement.md` § M3a 驗收的表，證據寫進 `research/m3-adr-tests.md`。
-- [ ] §8：YouTube App 內網頁登入（ADR 0012）。R1 通過時以 App 內網頁登入驗；R1 不通過時記錄「只提供貼上 cookie」並以貼上 cookie 驗。
+- [ ] §8：YouTube App 內網頁登入（ADR 0012）。以 App 內網頁登入在兩平台驗（R1 已通過）。
 - [ ] `milestones.md` 的 M3a 狀態與勾選已更新。
 
 ### M3b
@@ -95,7 +95,4 @@
 
 ## 未決
 
-只剩一件，其餘都在 design 定案：
-
-1. **R1 的結果**（`implement.md` § R1）：決定 ADR 0029 的 App 內網頁登入部分、manifest `login.webView` 的欄位（固定 UA 字串或宿主的「桌面 UA」）、PR 9 的範圍。
-（`design.md` §16 的確認清單：2026-10-08 擁有者確認 14 條全部照建議。）
+無。`design.md` §16 的確認清單：2026-10-08 擁有者確認 14 條全部照建議。R1 的結果（2026-10-08）：兩平台通過；擁有者決定 UA 由平台層決定、套件用 `flutter_inappwebview` 6.2.0-beta.3（ADR 0029 §決定 9）。
