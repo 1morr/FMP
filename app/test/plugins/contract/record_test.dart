@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../support/fake_http_adapter.dart';
 import 'contract_runner.dart';
+import 'ip_scrub.dart';
 import 'plugin_copy.dart';
 
 // 錄製模式（prd 擁有者決定 8）。會真的連網的只有最後一個 `live` 測試：
@@ -20,6 +21,7 @@ ResponseBody _upstream(RequestOptions options) => switch (options.uri.path) {
     200,
     body: jsonEncode({
       'demo_session': 'FAKE_DEMO_SESSION_0001',
+      'peer': '93.184.216.34',
       'list': [
         {'id': 'a1', 'name': 'Tone A', 'owner': 'FMP', 'ms': 2000},
         {'id': 'a2', 'name': 'Tone B', 'owner': 'FMP', 'ms': 3000},
@@ -89,6 +91,8 @@ void main() {
       'set-cookie': ['demo_session=***; Path=/'],
     });
     expect((response['jsonBody']! as Map)['demo_session'], '***');
+    // 錄製者的 IP 換成文件位址。
+    expect((response['jsonBody']! as Map)['peer'], scrubbedIpv4);
     expect(
       (_read(directory, 'resolveStream')['response']! as Map)['jsonBody'],
       {'code': 403},

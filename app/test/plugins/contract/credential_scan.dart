@@ -7,6 +7,7 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
 import 'fixture.dart';
+import 'ip_scrub.dart';
 
 // 憑證檢查：fixture、插件的 log、串流 headers 裡不得有未遮蔽的憑證
 // （ADR 0015 §如何確認、ADR 0011、ADR 0012）。兩道獨立的檢查：
@@ -128,6 +129,7 @@ List<String> scanFixture(
       ...names.unredactedInJson(response.jsonBody, 'response.jsonBody'),
     ])
       '$name: $path is not redacted',
+    ...ipProblems(name, fixture),
   ]);
   return problems;
 }

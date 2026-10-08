@@ -7,6 +7,7 @@ import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 
 import 'fixture.dart';
+import 'ip_scrub.dart';
 
 // 錄製與重播接在網路層最底部的 dio `HttpClientAdapter`
 // （`SourceHttpClientFactory` 的 `createAdapter`，ADR 0015 §決定 5）：攔截器
@@ -112,31 +113,33 @@ final class RecordingAdapter implements HttpClientAdapter {
     }
     final json = _json(text);
     recorded.add(
-      HttpFixture(
-        recordedAt: now().toUtc().toIso8601String(),
-        request: FixtureRequest(
-          method: options.method,
-          url: options.uri.toString(),
-          headers: {
-            for (final MapEntry(:key, :value) in options.headers.entries)
-              if (value != null) key.toLowerCase(): '$value',
-          },
-          body: switch (options.data) {
-            final String body => body,
-            _ => null,
-          },
-        ),
-        response: FixtureResponse(
-          status: response.statusCode,
-          headers: {
-            for (final MapEntry(:key, :value) in response.headers.entries)
-              if (!droppedResponseHeaders.contains(key.toLowerCase()))
-                key.toLowerCase(): value,
-          },
-          body: json == null ? text : null,
-          jsonBody: json,
-        ),
-      ).redacted(_redactor),
+      scrubFixtureIps(
+        HttpFixture(
+          recordedAt: now().toUtc().toIso8601String(),
+          request: FixtureRequest(
+            method: options.method,
+            url: options.uri.toString(),
+            headers: {
+              for (final MapEntry(:key, :value) in options.headers.entries)
+                if (value != null) key.toLowerCase(): '$value',
+            },
+            body: switch (options.data) {
+              final String body => body,
+              _ => null,
+            },
+          ),
+          response: FixtureResponse(
+            status: response.statusCode,
+            headers: {
+              for (final MapEntry(:key, :value) in response.headers.entries)
+                if (!droppedResponseHeaders.contains(key.toLowerCase()))
+                  key.toLowerCase(): value,
+            },
+            body: json == null ? text : null,
+            jsonBody: json,
+          ),
+        ).redacted(_redactor),
+      ),
     );
     return _copy(response, bytes);
   }
