@@ -265,6 +265,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   在搜尋再按一次 App 退到背景，`logcat -b events` 沒有 `wm_finish_activity`，從桌面圖示回來時沒有新的
   `App started`、搜尋字與分頁都在；播放中按返回音樂繼續。
 
+- 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android 與 Windows 共用一個實作
+  `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。目前只有
+  `pickFile(extension:)`（插件頁的「從檔案安裝」），存檔與選資料夾跟著 PR 15、16 加。副檔名只是篩選：Android
+  把它轉成 MIME（`MimeTypeMap`）交給 SAF，選到的內容由呼叫端照格式驗（插件安裝檔解析標頭）。閘門：
+  `platform_test.dart` 的宣告與實作型別、`file_picker_dialogs_test.dart`（以假的 `FilePickerPlatform`：篩選是
+  `FileType.custom` 加副檔名、讀出內容、取消是 `null`）；系統對話框本身只能實機驗。
+
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
 `lib/platform/` 以外的平台判斷。
@@ -747,6 +754,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
     cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。WebView cookie、排程器的步驟由之後的 PR 加在刪列之前。閘門：
     `plugin_installer_test.dart` 的 `removing` 群組（含 `skips the cache step…`）。
+  - 從網址安裝：`PluginDownloader.downloadFile` 經同一個宿主 client 下載（上限同插件檔）並只讀標頭 manifest，
+    安裝走 `installSource`（沒有來源 index、沒有 checks、之後不會有更新）。閘門：`plugin_installer_test.dart` 的
+    `downloading from a URL…`、`downloading something that is not a plugin…`。
+  - `PluginRepository.changes()`、`PluginIndexRepository.changes()`：聽 drift 的 `tableUpdates`（理由同歷史表），插件頁
+    以它重讀。閘門：`plugin_repository_test.dart` 的 `changes fires…` 兩例。
   - 顯示名稱 `pluginNameProvider`（`lib/ui/plugins/plugin_name.dart`）：清單上是 manifest 的 `name`，停用的是
     「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`。
   - `Redactor` 的媒體 CDN 規則以插件 id 為鍵（`setMediaCdns`），插件更新、重新載入時取代而不累加；header 與鍵名
@@ -1260,6 +1272,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
+- 設定頁的區塊（`SettingsSection`）：外觀、播放、網路是 ADR 0011 的設定組（design §9.8 的順序），之後是
+  「插件」（不是設定表，是插件頁，M3 design §6.7）；帳號（第一個）在 M3 PR 8、關於（最後一個）在 PR 11 才加，
+  之前不放空殼。插件頁自己有分頁與捲動的清單，所以不包在設定組那個捲動的欄裡，填滿右側（窄版是點進去的那一頁）。
+  閘門：`settings_page_test.dart` 的 `… plugins come after network and open the plugin page`（1000、400 寬）。
 - 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
@@ -1278,10 +1294,36 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）與設定頁（外觀、播放、網路三組）在窄（400）與寬（1000）視窗
-  通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
+  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組）與插件頁（已安裝、可安裝、安裝的
+  確認框）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
+- 插件頁（`lib/ui/plugins/plugins_page.dart`，ADR 0030 §決定 6–11，M3 design §7.5）：
+  - 讀什麼：已安裝的插件讀資料庫（`installedPluginsProvider`，含停用的，離線照常）；每份 index（官方的在前、自訂的照加入
+    順序）在打開插件頁時讀一次（`indexOutcomeProvider(url)`，autoDispose，頁面不在就丟掉），「檢查更新」整個 family
+    `invalidate` 重讀（ADR 0014 §決定 7：只在這兩個時候比對）。讀失敗是 `IndexFailed` 結果、`log.report` 一次，不丟出。
+    更新只看插件自己的 `source_index_url`，而且那份要在目前的清單上（刪掉的自訂插件庫不再檢查）。閘門：
+    `plugins_page_test.dart` 的 `updates` 群組（`opening the page shows updates…`、`a plugin is not updated from another
+    repository`、`check for updates reads the repositories again`）。
+  - 標記：已停用（`installed_plugins.enabled`）、沒有回應（清單上那個實例的 `health`）、有更新（`updateStatus` 不是
+    `none`）；`apiVersion` 不相容的新版本是停用的「需要更新 FMP」按鈕，可安裝那一筆同樣。「開發中」在 PR 16（開發資料夾）才有
+    來源，現在沒有。閘門：`the installed tab`、`the available tab` 群組。
+  - 啟用開關只經 `PluginRegistry.setEnabled`；開關自己是一個語意節點、名稱是「啟用「插件名」」（不包 container 的話會
+    併進 Card 的節點、名稱變成卡上所有的字）。閘門：`the switch disables and enables a plugin and writes it`。
+  - 確認框（`plugin_dialogs.dart` 的 `confirmInstall`）：內容一律取自要裝的那份 `.js` 的 manifest（從 index 裝的是
+    `prepare` 下載並驗過的），列名稱、作者、版本、翻譯過的能力（`capabilityName`，exhaustive）、網域與「以你的登入身分」
+    警告；不是官方插件庫來的（自訂插件庫、檔案、網址）另加「非官方來源」；更新只在 `needsConfirmation` 時問、只列新增的能力與
+    網域，「全部更新」逐個問這種、其餘直接更新；從檔案或網址裝到已安裝的 id 上時寫出被取代的版本。預期內的拒絕
+    （`PrepareRejected`）是警告提示、記 warning，不開確認框。移除先確認。閘門：`the available tab`（`installing asks with
+    the downloaded manifest…`、`… unofficial`、`a file that does not match the repository…`）、`updates`（`… lists only
+    those…`、`update all asks only…`）、`installing from a file or a URL`、`removing asks first…`。
+  - 動作在等網路或資料庫時頁面頂端有進度條，其他動作停用（一次只做一件事，對話框開著不算）；動作用的 provider 在第一個
+    `await` 之前讀好，之後只在 `mounted` 時碰 `ref`（對話框期間視窗跨斷點，設定頁會換位置重建這一頁）。這條沒有閘門，
+    review 時看。
+  - 離線：可安裝分頁所有 index 都讀不到時，不在 `online` 是共用的 `OfflineMessage` 加「重試」，在 `online` 是一般的失敗；
+    只有部分讀不到時那一段寫「無法讀取」加重試。已安裝分頁不受影響。閘門：`offline (…)` 兩例、`online but unreadable…`。
+  - 管理插件庫：官方的一列不能刪；加入先提示「非官方來源」，只收 `https`（`parseHttpsUrl`：有主機、沒有 user info），已在
+    清單上的不重複加。閘門：`repositories` 群組、`only https URLs…`。
 - 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
   曲名、「作者 · 播放時刻」。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的

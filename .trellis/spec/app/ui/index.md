@@ -30,6 +30,8 @@ lib/ui/
                        # 可編輯的佇列（QueueView：分頁與底部面板共用）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   tracks/              # TrackRowMenu：搜尋結果、歷史、佇列的一列曲目共用的選單（右鍵、長按、「⋯」）
+  plugins/             # pluginNameProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
+                       # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -221,6 +223,22 @@ try {
   `Tooltip` 的 `message`（名稱在 `Semantics`，`find.byTooltip` 找不到）；拖曳用 `TestGesture`（把手用
   `DragStartBehavior.down`，位移就是寬度變化）；寫入次數用 `tableUpdates` 的通知數（`now_playing_panel_test.dart` 的
   `_countWrites`）；資料庫要真的事件迴圈（`_store`、`_stored` 包 `runAsync`），寫入加 stream 回來要兩次 `loadSettings`。
+
+## 插件頁
+
+規則與閘門見 `app/AGENTS.md` § 介面的「插件頁」；ADR 0030 §決定 6–11。
+
+- 設定頁加一個不是設定組的區塊：`SettingsSection` 加一個值與它的名稱，`detail` 的 `switch` 決定它要不要包在捲動的欄裡
+  （自己有捲動清單的像插件頁就不包，填滿剩下的高度）。
+- 插件頁的動作照 `_install` 的寫法：provider 在第一個 `await` 之前讀好；等網路或資料庫的那段包 `_work`（進度條、其他
+  動作停用），對話框不包；`await` 之後先看 `mounted` 再碰 `ref` 或開下一個對話框。失敗用 `_failed`（`Toaster.error` 加一句
+  「無法…：原因」），預期內的拒絕用 `_rejected`。
+- 加一個能力：`capabilityName` 的 `switch` 會指出要加的字串（`plugins.capabilityNames.<能力>`，三個語言）。
+- 測試用 `PluginPageHarness`（`test/ui/support/plugin_page_harness.dart`）：外殼的 `ShellHarness` 加上同一個資料庫上的真插件
+  載入器（QuickJS）、查表的假下載（`publish` 放一份 index 與它的 `.js`，SHA 照內容算；沒列的網址是 `NetworkError`）、
+  假的檔案對話框。插件以 `install` 直接寫進資料庫（包 `tester.runAsync`），開頁後 `settle`（真的事件迴圈加 `pump`，背景
+  isolate 與 drift 都要它）；按鈕用 `find.bySubtype<ButtonStyleButton>()` 找（`widgetWithText` 只認確切型別）。沒有回應的
+  插件以 `UnresponsivePlugin` 經 `PluginRegistry.register` 換上去，不跑真的看門狗。
 
 ## 播放列與封面
 
