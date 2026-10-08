@@ -43,11 +43,16 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**：規劃已於 2026-10-08 由擁有者核准（ADR 0028–0031 已採納）；PR 0（文件更正與 milestones 拆分）進行中；R1 已完成（通過，結果已回填）。
-- **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條 2026-10-08 確認，全部照建議。
-- **已合併進 `main`**：PR 0（#220）。
-- **PR 1 未結的事**：Windows 播 YouTube 開串流回 403（VISIONOS `mp4/aac`，itag 139／140），之後本機被 YouTube 暫時標記「確認你不是機器人」，沒能查完；Android 已端到端通過。`fmp-plugins` 的 YouTube PR 等 Windows 驗過再合併；查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`（Node 對同一個網址比對 itag 139／140／251 與 UA，分辨「aac 被擋」與「播放器走了不同出口」）。
-- **下一步**：PR 0 合併後做 PR 1。
+- **狀態**（2026-10-09）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
+- **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3。
+- **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）。
+- **進行中**：
+  - **PR 3**：FMP 端在分支 `feat/m3-index-endpoint`（任務 `10-09-m3-index-endpoint`）：`lib/core/endpoints.dart` 官方 index 網址、manifest 加選填 `description`（上限 200，慣例 Obsidian），design §7.1 加一行更正。實作中。fmp-plugins 端在本機分支 `feat/ci-and-index`（已 commit、未推）：`tool/build_index.dart`＋測試、`index.json`、`.github/workflows/ci.yml`（`FMP_REF` 寫在 workflow 的 `env`，不是 repo 變數：改 repo 設定要問擁有者）、B 站解 HTML 實體＋封面多尺寸＋1.0.0＋重錄 fixture。**FMP 端合併後**：三個插件 manifest 補 `description`、`build_index` 從 manifest 帶 `description`、重產 index、`FMP_REF` 改成新的 main SHA，再推、開 PR、證明 CI 會紅（沒升版本的 commit）再 revert。
+  - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，等 Windows 驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；之後本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-08～09 每隔數十分鐘以 `<scratchpad>/ytdiag/diag.mjs` 試 1 次仍未解除，推測要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。fmp-plugins 的 CI 要等它合併後才涵蓋 YouTube（動態列目錄，不必改 workflow）。
+- **待擁有者回覆**：GitHub secret scanning 對 fmp-plugins `youtube/youtube.js` 的警告（#1）是 YouTube.js 內建的公開 InnerTube key（舊版 FMP 也有），不是外洩；是否由代理以 `gh` 關掉（false positive），等擁有者同意。
+- **下一步**：PR 3 收尾 → PR 5（插件頁，opus：自訂版面）、PR 7（CredentialStore，sonnet；schema v8）可依序做；PR 6 依賴 3、5。
+- **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
+- **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
 - **每個 PR 的固定流程**：
   1. 從最新 `main` 開分支（Conventional Commits 的英文分支名，例如 `feat/app-plugin-lifecycle`）；

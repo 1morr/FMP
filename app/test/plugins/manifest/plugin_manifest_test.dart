@@ -42,6 +42,7 @@ void main() {
     expect(parsed.rateLimitPolicy, isNull);
     expect(parsed.defaults, isEmpty);
     expect(parsed.icon, isNull);
+    expect(parsed.description, isEmpty);
   });
 
   test('parses the optional fields', () {
@@ -115,6 +116,40 @@ void main() {
       PluginManifest.parse(manifest({'icon': icon})).icon.toString(),
       icon,
     );
+  });
+
+  group('description', () {
+    test('is read, and null or absent is empty', () {
+      expect(
+        PluginManifest.parse(manifest({'description': 'A source'})).description,
+        'A source',
+      );
+      expect(
+        PluginManifest.parse(manifest({'description': null})).description,
+        isEmpty,
+      );
+    });
+
+    test('accepts the limit and rejects one more character', () {
+      final max = PluginManifest.maxDescriptionLength;
+      expect(
+        PluginManifest.parse(manifest({'description': '音' * max}))
+            .description
+            .runes,
+        hasLength(max),
+      );
+      expect(
+        () => PluginManifest.parse(manifest({'description': '音' * (max + 1)})),
+        _rejectedAs<ParseError>(),
+      );
+    });
+
+    test('must be a string', () {
+      expect(
+        () => PluginManifest.parse(manifest({'description': 3})),
+        _rejectedAs<ParseError>(),
+      );
+    });
   });
 
   group('apiVersion', () {

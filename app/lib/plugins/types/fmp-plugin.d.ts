@@ -53,6 +53,8 @@ export interface FmpPluginManifest {
   defaults?: Record<string, unknown> | null;
   /** `https` 網址（網域在 allowedHosts）或 `data:image/…;base64,`（≤ 64 KiB）。 */
   icon?: string | null;
+  /** 一句描述，最多 200 字元；沒寫等於空字串。 */
+  description?: string | null;
 }
 
 export interface FmpRetryPolicy {
