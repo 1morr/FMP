@@ -362,7 +362,7 @@ TrackDetail = {
 - **候選備援順序不升為規範**（§8.13）：輸出本來就是「依優先序排好的候選串流」（ADR 0014 §決定 5），順序由各插件決定。
 - **`X-Real-IP`**（舊版對寫入請求附偽造的 `118.88.88.88`，B3）：PR 2 以匿名真實連線各測一次「不帶」與「帶」的搜尋與取流，結果寫進 PR 描述與插件 README；處理見 §16 第 14 條。
 - 音質對應 `high`→`exhigh`、`medium`→`standard`、`low`→`standard`（舊版的 `lossless` 需要 VIP，M3 不送；登入後的 VIP 音質之後再談）。
-- 錯誤對應：`code: -460`（風控）→ `VerificationRequired`；`code: 404`／空 `url` → `Unavailable`（原因依 `fee`）；「憑證無效」判定表（PR 10）：帶憑證的請求（`credentialsAttached` 為真）回 `code: 301`。
+- 錯誤對應：`code: -460`（風控）→ `VerificationRequired`；`code: 404`／空 `url` → `Unavailable`（原因依 `fee`）；更正（PR 2）：照舊版 #87，`code` 404 且 `fee` 0 是匿名被擋 → `AuthRequired`，沒有原因可對的空網址 → `NotFound`（`Unavailable` 必須帶原因）；「憑證無效」判定表（PR 10）：帶憑證的請求（`credentialsAttached` 為真）回 `code: 301`。
 - 同一個插件之後（M7）多宣告 `lyrics` 就是網易歌詞源（能力屬於插件，ADR 0014 §決定 2、4）。
 
 ### 5.3 B 站（既有，PR 3、8、10、18、20、21 跟著改）

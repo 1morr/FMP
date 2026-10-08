@@ -171,7 +171,7 @@
 - [ ] fmp-plugins：`netease/`（`search`、`resolveStream`、`previewOnly`、eapi 的純 JS AES 與 MD5、音質對應、錯誤對應表、manifest 1.0.0、`checks.json`、命令列錄的 fixture）。
 - [ ] `X-Real-IP` 實測（design §5.2，§16 第 14 條）：匿名真實連線，「不帶」與「帶」的搜尋與取流各一次，結果寫進 PR 描述與插件 README，依 §16 第 14 條的確認結果實作。
 - 測試：網易的契約（DTO、`previewOnly` 的 fixture、錯誤對應 `-460` → `VerificationRequired`、媒體請求不帶憑證）；`fmp_source_id_literal` 的案例。
-- 實測（真實，匿名）：兩平台搜尋一次、播一首；一首只有試聽的歌在「跳過試聽片段」開與關各一次（M2 的行為：跳過並提示／標「試聽」播放）。
+- 實測（真實，匿名）：兩平台搜尋一次、播一首。一首只有試聽的歌在「跳過試聽片段」開與關各一次（M2 的行為：跳過並提示／標「試聽」播放）——更正（PR 2 實作時）：匿名拿不到試聽片段（VIP 歌回 `-110`、沒有 `freeTrialInfo`），延到登入後在 M3a 驗收做（第 3 步的帳號登入之後）。
 - 依賴：0。模型：sonnet（舊 Dart 程式碼就是規格；eapi 加密或 `X-Real-IP` 的結果與計畫不同時停下回報）。
 
 ## 3. `fmp-plugins`：CI、`index.json`、B 站修正（design §5.3、§7.1、§7.2）
@@ -291,8 +291,8 @@
 - **模式**：真實（三個官方插件、擁有者指定的帳號；YouTube 用測試帳號），只做下列步驟；錯誤與離線用 `fmp-test`（重播）。
 - **步驟**：
   1. 清掉 dev 資料目錄（含 secure storage：Android 解除安裝 dev 重裝；Windows 刪 dev 的 application support 與 WebView 資料）→ 啟動 → 首次啟動引導裝三個官方插件。
-  2. 三個音源各搜尋一次、播一首（YouTube 的交接、網易的試聽各看一次）。
-  3. 帳號頁：B 站 QR、網易 QR、YouTube 網頁登入各一次 → 各一次帶憑證的搜尋 → YouTube 關掉「以登入身分瀏覽與播放」再搜尋一次。
+  2. 三個音源各搜尋一次、播一首（YouTube 的交接看一次）。
+  3. 帳號頁：B 站 QR、網易 QR、YouTube 網頁登入各一次 → 各一次帶憑證的搜尋 → YouTube 關掉「以登入身分瀏覽與播放」再搜尋一次 → 網易登入後一首只有試聽的歌在「跳過試聽片段」開與關各一次（匿名拿不到試聽片段，PR 2）。
   4. 重啟 App：三個帳號仍登入、B 站啟動刷新跑過一次。
   5. 插件頁：停用網易（chip 消失、佇列裡的網易曲目標「音源已停用」並被跳過）→ 啟用；檢查更新（沒有更新時顯示已是最新）。
   6. 登出 YouTube（cookie 名稱不在）；移除網易（帳號列、storage、快取項目都不在；歷史裡的網易曲目標「音源未安裝」）。

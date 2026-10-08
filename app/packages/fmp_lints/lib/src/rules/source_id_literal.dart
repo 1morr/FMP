@@ -7,12 +7,14 @@ import 'package:analyzer/error/error.dart';
 
 import '../package_path.dart';
 
-/// 官方插件的 id。M3 加 `youtube`、`netease`（`netease` 在 PR 2）。
+/// 官方插件的 id。M3 加 `youtube`、`netease`。
 const officialPluginIds = {
   // ignore: fmp_lints/fmp_source_id_literal — 規則本身的清單
   'bilibili',
   // ignore: fmp_lints/fmp_source_id_literal — 規則本身的清單
   'youtube',
+  // ignore: fmp_lints/fmp_source_id_literal — 規則本身的清單
+  'netease',
 };
 
 /// 可以寫官方插件 id 的地方：舊資料匯入要對應舊資料的音源，測試要造資料。
