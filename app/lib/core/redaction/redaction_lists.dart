@@ -52,7 +52,8 @@ const builtInKeyNames = <String>[
   'password',
 ];
 
-/// 已知媒體 CDN：串流網址裡的簽名、使用者 IP 與 id，以及（YouTube 的）到期時間。
+/// 已知媒體 CDN：串流網址裡的簽名、使用者 IP 與 id。到期時間（B 站 `deadline`、
+/// YouTube `expire`）不遮。
 const builtInMediaCdns = <MediaCdn>[
   // Bilibili upos；`e` 是編碼過的簽名內容，`mid` 是使用者 id、`oi` 由 IP 算出，
   // `buvid` 是請求帶的裝置 id，`hdnts` 是 Akamai 鏡像的 token（`exp=…~hmac=…`）。
