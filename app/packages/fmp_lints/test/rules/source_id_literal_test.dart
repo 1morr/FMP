@@ -27,6 +27,10 @@ const id = [!"bilibili"!];
 bool isYoutube(String id) => id == [!'youtube'!];
 ''');
 
+  Future<void> test_neteaseId() => assertLints('lib/ui/page.dart', '''
+bool isNetease(String id) => id == [!'netease'!];
+''');
+
   // 不報
 
   Future<void> test_allowedDirectories() async {
@@ -42,6 +46,7 @@ bool isYoutube(String id) => id == [!'youtube'!];
 const label = 'Bilibili';
 const key = 'bilibili_cookie';
 const other = 'youtube_music';
+const neteaseKey = 'netease_cookie';
 const sentence = 'from bilibili';
 ''');
 
