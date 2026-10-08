@@ -487,6 +487,17 @@
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
 
+### PR 7 留下的
+
+1. **prod 與舊版 App 共用 secure storage 檔**：Windows 的 `%APPDATA%/com.personal/fmp/flutter_secure_storage.dat` 舊版（`flutter_secure_storage` 10.x）也在用；新版 prod 以鍵前綴 `fmp.` 區分，`deleteAll` 只刪自己的前綴。切換（M9）前確認舊版的鍵沒有 `fmp.` 開頭，並決定舊版憑證要不要遷移或清掉。
+2. **`Redactor.unregisterSecret` 沒有引用計數**：兩個插件剛好有同一個 cookie 值時，一個登出會連帶取消另一個的遮蔽。機率低；要修就在 `Redactor` 加計數，並補測試。
+3. **`PluginHost` 每個帶 `authHeaders` 的請求都呼叫 `Redactor.addRules`**，每次重新編譯 regex。YouTube 的 innertube 請求都會觸發；PR 9 實機若量到影響，改成名稱已登記就跳過。
+4. **登出先刪憑證、後清 jar**：中間的極短窗口，jar 裡伺服器設的同名 cookie 可能送出一次。PR 8 加「登入期間 jar 不存」之後再評估要不要調換順序。
+5. **`save` 寫入 storage 成功、帳號列寫入失敗**時，記憶體仍是舊憑證、storage 已是新的；下次啟動的對齊會把它收斂。PR 8 的登入流程要把這種失敗回報成登入失敗。
+6. **插件更新的窗口裡 `clearCookies` 只清最新那個 client 的 jar**。
+7. **「暫時無法讀取」時 `credentialCookieNames` 回空集合**：這段期間 jar 可能送出同名 cookie。PR 8 讓登入回應不進 jar 之後，jar 理論上不會有憑證 cookie。
+8. **Linux CI 加了 `libsecret-1-dev`**：`flutter_secure_storage_linux` 的 CMake 要它。Linux 還沒宣告 `secureStorage`，Linux 平台任務再決定要不要開。
+
 ## 待升級
 
 - `flutter_inappwebview`：6.2.0 出 stable 時評估升級（目前 6.1.5 是 2024-10 的版本）。
