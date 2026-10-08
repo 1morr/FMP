@@ -14,6 +14,7 @@ import 'generated/schema_v3.dart' as v3;
 import 'generated/schema_v4.dart' as v4;
 import 'generated/schema_v5.dart' as v5;
 import 'generated/schema_v6.dart' as v6;
+import 'generated/schema_v7.dart' as v7;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -533,5 +534,117 @@ void main() {
     addTearDown(db.close);
 
     await expectLayoutStateRules(db);
+  });
+
+  // v7 給 installed_plugins 加三欄、新增 plugin_indexes（ADR 0030）：升級前裝好的插件仍啟用、
+  // 內容與 storage 不變，使用者設定過的值原樣保留，新表升級後是空的。
+  test('migration from v6 to v7 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 6,
+      newVersion: 7,
+      createOld: v6.DatabaseAtV6.new,
+      createNew: v7.DatabaseAtV7.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v6.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.networkSettings,
+          const v6.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        );
+        batch.insert(
+          oldDb.installedPlugins,
+          const v6.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.pluginStorage,
+          const v6.PluginStorageData(
+            pluginId: 'bilibili',
+            key: 'buvid3',
+            value: 'v',
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v7.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ]);
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v7.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        ]);
+        // 升級前裝好的插件仍啟用，內容不變，沒有來源 index、沒有檢查案例。
+        expect(await newDb.select(newDb.installedPlugins).get(), [
+          const v7.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 1,
+          ),
+        ]);
+        expect(await newDb.select(newDb.pluginStorage).get(), hasLength(1));
+        expect(await newDb.select(newDb.pluginIndexes).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectPluginLifecycleSchema(AppDatabase db) async {
+    // 新裝的列預設啟用；plugin_indexes 的主鍵是網址。
+    await db.customStatement(
+      "INSERT INTO installed_plugins (id, version, manifest_json, script, "
+      "installed_at) VALUES ('p', '1.0.0', '{}', 's', 1)",
+    );
+    final enabled = await db
+        .customSelect('SELECT enabled FROM installed_plugins')
+        .getSingle();
+    expect(enabled.read<int>('enabled'), 1);
+    await db.customStatement(
+      "INSERT INTO plugin_indexes (url, added_at) VALUES ('https://a.test/i', 1)",
+    );
+    await expectLater(
+      db.customStatement(
+        "INSERT INTO plugin_indexes (url, added_at) "
+        "VALUES ('https://a.test/i', 2)",
+      ),
+      throwsA(anything),
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6]) {
+    test(
+      'migration from v$from to v7 adds the plugin lifecycle schema',
+      () async {
+        final schema = await verifier.schemaAt(from);
+        final db = AppDatabase(schema.newConnection());
+        await verifier.migrateAndValidate(db, 7);
+
+        await expectPluginLifecycleSchema(db);
+        await db.close();
+      },
+    );
+  }
+
+  test('a new database has the plugin lifecycle schema', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectPluginLifecycleSchema(db);
   });
 }

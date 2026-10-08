@@ -22,6 +22,7 @@ part 'app_database.g.dart';
     NetworkSettingsTable,
     PlaybackSettingsTable,
     InstalledPluginsTable,
+    PluginIndexesTable,
     PluginStorageTable,
     TracksTable,
     QueueEntriesTable,
@@ -35,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,6 +73,22 @@ class AppDatabase extends _$AppDatabase {
             },
             from5To6: (m, schema) async {
               await m.create(schema.layoutState);
+            },
+            from6To7: (m, schema) async {
+              // 既有的列 `enabled` 是預設的真（ADR 0030 §決定 7）。
+              await m.addColumn(
+                schema.installedPlugins,
+                schema.installedPlugins.enabled,
+              );
+              await m.addColumn(
+                schema.installedPlugins,
+                schema.installedPlugins.sourceIndexUrl,
+              );
+              await m.addColumn(
+                schema.installedPlugins,
+                schema.installedPlugins.checksJson,
+              );
+              await m.create(schema.pluginIndexes);
             },
           ),
         );
