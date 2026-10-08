@@ -144,10 +144,11 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 規則與閘門見 `app/AGENTS.md` § 插件的「插件庫與生命週期」。
 
 - 流程（UI 在插件頁）：`readIndex` → `updateStatus` 決定要不要更新 → `prepare`（下載、驗 SHA、比對 manifest）→ 以
-  `PreparedPlugin` 的 `file.manifest`、`addedCapabilities`、`addedHosts` 做確認對話框 → `installPrepared(confirmed:)`。
+  `Prepared.plugin`（`PreparedPlugin`） 的 `file.manifest`、`addedCapabilities`、`addedHosts` 做確認對話框 → `installPrepared(confirmed:)`。
   從檔案或網址安裝仍走 `installBytes`／`installSource`（沒有來源 index、沒有 checks）。
-- 預期內的拒絕（SHA 不符、manifest 與 index 不一致、需要更新 FMP）是 `PluginRejected`，其他失敗是 `AppError`；呼叫端
-  兩種都要接。
+- 預期內的拒絕（SHA 不符、manifest 與 index 不一致、需要更新 FMP）是回傳值：`prepare` 回 `PrepareResult`
+  （`Prepared`／`PrepareRejected`），`readIndex` 回 `IndexReadResult`（`IndexRead`／`IndexRejected`）；其他失敗丟 `AppError`。
+  呼叫端用 `switch` 接，兩種都要處理。
 - 測試：`PluginDownloader(fetch:, log:)` 的 `fetch` 注入一個查表的假函式，不碰網路；移除用 `CacheHarness`
   （`test/data/cache/cache_harness.dart`）開一個真的快取庫。寫法看 `plugin_installer_test.dart` 的
   `plugin repository` 群組。

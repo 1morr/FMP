@@ -586,8 +586,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `host_fetch.dart`（ADR 0030 §決定 5）：讀插件 index、下載插件檔與 `checks.json`。底層是媒體 client（規則不另寫一份）：
 不帶憑證、沒有 cookie jar、只准 `https`、不准 user info、逾時與大小上限（index 1 MiB、插件檔 8 MiB、checks 256 KiB）。
 差別只有兩個：允許網域是該網址自己的 host，**不含子網域**（`AllowedHosts(exact: true)`），轉址換 host 就失敗；
-網路紀錄的 `client` 是 `host`。內容先寫進每次不同的暫存目錄、讀完就刪。閘門：`test/core/network/host_fetch_test.dart`
-（無憑證、只准 https、轉址到別的 host 與子網域都不發出、超過上限、不留暫存目錄、網路紀錄）、`allowed_hosts_test.dart`
+網路紀錄的 `client` 是 `host`，`pluginId` 欄位是空字串；請求丟出的 `AppError` 的 `pluginId` 是 `null`（不是 `''`：
+呈現層會拿它去查「音源未安裝」）。內容先寫進每次不同的暫存目錄、讀完就刪。閘門：`test/core/network/host_fetch_test.dart`
+（無憑證、只准 https、轉址到別的 host 與子網域都不發出、超過上限、不留暫存目錄、網路紀錄、`an error from a host request carries no plugin id`）；
+`toaster_test.dart` 的 `an error without a plugin id never names an uninstalled source`、`allowed_hosts_test.dart`
 的 `exact lists…`。
 
 ### 媒體 client
@@ -680,10 +682,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
   型別不比對，review 時看。
 - 插件庫與生命週期（`lib/plugins/repository/`、`install/plugin_installer.dart`，ADR 0030，UI 在插件頁）：
-  - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 是
-    `PluginRejected(appUpdateRequired)`（不是 `AppError`：UI 要分得出「需要更新 FMP」）；`apiVersion` 不是
+  - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 回
+    `IndexRejected(appUpdateRequired)`（預期內的結果，不是 `AppError`、也不是例外：UI 要分得出「需要更新 FMP」）；`apiVersion` 不是
     `hostApiVersion` 的那一筆照樣解析（`isCompatible` 為假），到 `prepare` 才以同一個理由拒絕、不下載。
-    `PluginRejected` 的 `hashMismatch`（提示「插件庫剛更新，請稍後再試」）、`manifestMismatch` 同理。
+    `prepare` 回 `PrepareRejected` 而不丟例外：`hashMismatch`（提示「插件庫剛更新，請稍後再試」）、`manifestMismatch`、
+    `appUpdateRequired` 都是預期內的結果，其餘失敗（網路、解析）仍丟 `AppError`。
     閘門：`plugin_index_test.dart`；`prepare` 的那一條是 `plugin_installer_test.dart` 的 `an apiVersion the host
     does not support…`。
   - `PluginDownloader.prepare`：下載 → SHA-256（針對位元組）→ 解析標頭 manifest → 與 index 那一筆比 id、版本、
@@ -698,8 +701,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。閘門：
     `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
   - 移除（`PluginInstaller.remove`）：關閉 runtime → `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
-    cascade）；曲目保留。每一步可重複，失敗停在那一步。憑證、帳號、排程器的步驟由之後的 PR 加在刪列之前。閘門：
-    `plugin_installer_test.dart` 的 `removing` 群組。
+    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。憑證、帳號、排程器的步驟由之後的 PR 加在刪列之前。閘門：
+    `plugin_installer_test.dart` 的 `removing` 群組（含 `skips the cache step…`）。
   - 顯示名稱 `pluginNameProvider`（`lib/ui/plugins/plugin_name.dart`）：清單上是 manifest 的 `name`，停用的是
     「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`。
   - `Redactor` 的媒體 CDN 規則以插件 id 為鍵（`setMediaCdns`），插件更新、重新載入時取代而不累加；header 與鍵名
