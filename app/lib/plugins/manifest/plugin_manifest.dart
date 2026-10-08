@@ -56,7 +56,8 @@ enum PluginCapability {
   }
 }
 
-/// manifest 追加的遮蔽名單（交給 `Redactor.addRules`，ADR 0011 §決定 3）。
+/// manifest 追加的遮蔽名單（交給 `Redactor.addRules`、`Redactor.setMediaCdns`，
+/// ADR 0011 §決定 3）。
 final class PluginRedaction {
   const PluginRedaction({
     this.headerNames = const [],

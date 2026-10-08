@@ -438,7 +438,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 門面 `Log` 是唯一的 log 入口；`print`、`debugPrint`、`dart:developer` 的 `log`、
   `package:talker*` 只准在 `lib/core/logging/`。閘門：lint `fmp_log_facade`。
 - `Redactor` 是唯一的遮蔽函式，名單只在 `redaction_lists.dart`（插件以 `addRules`
-  追加）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
+  追加 header 與鍵名、以 `setMediaCdns` 設媒體 CDN）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
   歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
   欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
   網路紀錄經門面寫入，閘門見「網路」；診斷包（M3）出現時各自補測試。
@@ -680,13 +680,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
   型別不比對，review 時看。
 - 插件庫與生命週期（`lib/plugins/repository/`、`install/plugin_installer.dart`，ADR 0030，UI 在插件頁）：
-  - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 或插件的 `apiVersion` 不是
-    `hostApiVersion` 是 `PluginRejected(appUpdateRequired)`（不是 `AppError`：UI 要分得出「需要更新 FMP」）。
+  - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 是
+    `PluginRejected(appUpdateRequired)`（不是 `AppError`：UI 要分得出「需要更新 FMP」）；`apiVersion` 不是
+    `hostApiVersion` 的那一筆照樣解析（`isCompatible` 為假），到 `prepare` 才以同一個理由拒絕、不下載。
     `PluginRejected` 的 `hashMismatch`（提示「插件庫剛更新，請稍後再試」）、`manifestMismatch` 同理。
-    閘門：`plugin_index_test.dart`。
+    閘門：`plugin_index_test.dart`；`prepare` 的那一條是 `plugin_installer_test.dart` 的 `an apiVersion the host
+    does not support…`。
   - `PluginDownloader.prepare`：下載 → SHA-256（針對位元組）→ 解析標頭 manifest → 與 index 那一筆比 id、版本、
     `apiVersion`、能力、網域，不符都拒裝且不寫資料庫。確認內容取自下載到的 `.js`。`checks.json` 驗證不過或下載失敗
-    只記 warning，插件照裝、`checksJson` 為空。新增的能力或網域（`PreparedPlugin.needsConfirmation`）沒確認
+    只記 warning，插件照裝、`checksJson` 為空。新安裝、或更新時能力或網域增加（`PreparedPlugin.needsConfirmation`）而沒確認
     （`installPrepared(confirmed: false)`）會丟 `StateError`。閘門：`plugin_installer_test.dart` 的 `plugin repository`
     群組。
   - `updateStatus`：semver 只升不降（`pub_semver` 只准在 `lib/plugins/repository/`），只從 `source_index_url` 相同的
@@ -1373,9 +1375,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     不會偏），以及 expanded 以上的「正在播放面板」勾選項（compact、medium 沒有面板，所以沒有；見上面的面板條目）。閘門：`player_page_test.dart` 的 `speed`、
     `playback_controller_test.dart` 的 `the speed is observable…`、`now_playing_publisher_test.dart` 的 `a new speed is
     pushed…`。
-  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。佇列見下一條。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查插件的
-    manifest 名稱、查不到用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（含開啟時的捲動位置、臨時播放不標目前這首、
-    未安裝的音源顯示插件 id、五千首只建看得到的列）、`plugin_installer_test.dart` 的 `pluginNameProvider gives the manifest name…`。
+  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。佇列見下一條。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查（見 § 插件的
+    「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（含開啟時的捲動位置、
+    臨時播放不標目前這首、查不到名稱時顯示插件 id、五千首只建看得到的列）、`test/ui/plugins/plugin_name_test.dart`。
   - 佇列（`lib/ui/player/queue_view.dart` 的 `QueueView`，design §7.3）：佇列分頁（expanded 以上）與底部面板
     （compact、medium，`showQueueSheet`）共用同一個 widget。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
     `clear`、提示「已清空佇列」，取消不動；清空後播放頁與面板一起關，提示等它們關掉的那一幀之後才發：提示的位移在顯示當下
