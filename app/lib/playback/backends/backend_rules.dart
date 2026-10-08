@@ -108,7 +108,9 @@ bool isSelectableOutputDevice(String name) =>
 /// Android 音訊中斷的種類：audio_session 的 `AudioInterruptionType` 一對一
 /// 轉過來（`AudioInterruptionEvent.type`）。暫停類是 `AUDIOFOCUS_LOSS_TRANSIENT`，
 /// duck 是 `…_CAN_DUCK`，unknown 是 `AUDIOFOCUS_LOSS`（不會再拿回焦點：
-/// audio_session 的原生端此時就放掉焦點，之後不會有結束的事件）。
+/// audio_session 的原生端此時就放掉焦點，之後不會有結束的事件）。只對 Android
+/// 成立：audio_session 在 iOS 的中斷開始一律報 unknown、之後照樣有結束，接
+/// iOS 時要另外對應。
 enum InterruptionKind { pause, duck, unknown }
 
 /// 中斷開始或結束時，後端要做的事（design §7.6）。
@@ -120,8 +122,12 @@ enum InterruptionResponse {
   /// duck 結束：輸出回到使用者的音量。
   unduck,
 
-  /// 發 `Interrupted`：由控制器決定暫停。
+  /// 發 `Interrupted(transient: true)`：由控制器決定暫停，結束時續播。
   interrupted,
+
+  /// 發 `Interrupted(transient: false)`：永久失去焦點，不會有結束的事件，控制器
+  /// 暫停且不續播。
+  lost,
 
   /// 發 `InterruptionEnded(resume: true)`：控制器只在原本因中斷而暫停時續播。
   endedResumable,
@@ -142,8 +148,8 @@ InterruptionResponse respondToInterruption({
 }) => switch ((begin, kind)) {
   (true, InterruptionKind.duck) => InterruptionResponse.duck,
   (false, InterruptionKind.duck) => InterruptionResponse.unduck,
-  (true, InterruptionKind.pause || InterruptionKind.unknown) =>
-    InterruptionResponse.interrupted,
+  (true, InterruptionKind.pause) => InterruptionResponse.interrupted,
+  (true, InterruptionKind.unknown) => InterruptionResponse.lost,
   (false, InterruptionKind.pause) => InterruptionResponse.endedResumable,
   (false, InterruptionKind.unknown) => InterruptionResponse.ended,
 };

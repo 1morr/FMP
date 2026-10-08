@@ -492,8 +492,8 @@ final class PlaybackSession {
   void _onEvent(BackendEvent event) {
     // 輸出事件不屬於來源：沒有來源（停下、等重試）時也交給控制器。
     switch (event) {
-      case Interrupted():
-        return _emit(const AudioInterrupted());
+      case Interrupted(:final transient):
+        return _emit(AudioInterrupted(transient: transient));
       case InterruptionEnded(:final resume):
         return _emit(AudioInterruptionEnded(resume: resume));
       case BecameNoisy():

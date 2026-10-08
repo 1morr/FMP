@@ -254,6 +254,17 @@ void main() {
       expect(h.last.controls, contains(MediaControl.play));
     });
 
+    harness('a permanent loss of focus is not held', (h) {
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      h.backend.audioInterrupted(transient: false);
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.controller.state, isA<Paused>());
+      expect(h.last.phase, MediaPhase.ready);
+      expect(h.last.playing, isFalse);
+    });
+
     harness('a pause by the user is not held', (h) {
       h.queue([track('a'), track('b')]);
       h.playAt(0);

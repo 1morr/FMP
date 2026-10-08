@@ -2326,6 +2326,39 @@ void main() {
       });
     });
 
+    // 別的播放器開始播（AUDIOFOCUS_LOSS）之後不會有結束的事件：旗標留著的話系統
+    // 媒體控制一直裝成在播放，前景服務與喚醒鎖不放。
+    test('a permanent loss of focus pauses without raising the flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        final changes = <bool>[];
+        h.controller.pausedByInterruptionChanges.listen(changes.add);
+
+        h.backend.audioInterrupted(transient: false);
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isFalse);
+        expect(changes, isEmpty);
+        expect(h.logged('Audio focus lost; pausing'), hasLength(1));
+      });
+    });
+
+    test('losing focus for good during a call drops the flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+
+        h.backend.audioInterrupted(transient: false);
+        h.elapse(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isFalse);
+      });
+    });
+
     test('a song the user paused is not resumed by the end', () {
       fakeAsync((async) {
         final h = playing(async);

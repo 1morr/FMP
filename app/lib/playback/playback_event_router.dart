@@ -100,8 +100,12 @@ final class SourceInterrupted extends SourceEvent {
 }
 
 /// 別的 App 拿走音訊焦點（Android 的來電、別的播放器；後端的 `Interrupted`）。
+/// [transient]：暫時的中斷，之後會有 [AudioInterruptionEnded]；為假是永久失去
+/// 焦點，不會再有結束的事件。
 final class AudioInterrupted extends SessionEvent {
-  const AudioInterrupted();
+  const AudioInterrupted({required this.transient});
+
+  final bool transient;
 }
 
 /// 音訊中斷結束（後端的 `InterruptionEnded`）。[resume]：暫停類的中斷結束、
@@ -237,8 +241,8 @@ final class ResumeAfterInterruption extends EventAction {
   const ResumeAfterInterruption();
 }
 
-/// 暫停，之後不自己續播：拔耳機（不從喇叭大聲播出來），以及不會續播的中斷
-/// 結束。原本因中斷而暫停的也不再續播。
+/// 暫停，之後不自己續播：拔耳機（不從喇叭大聲播出來）、永久失去焦點，以及不
+/// 會續播的中斷結束。原本因中斷而暫停的也不再續播。
 final class PauseWithoutResuming extends EventAction {
   const PauseWithoutResuming();
 }
@@ -254,8 +258,13 @@ EventAction routePlaybackEvent(SessionEvent event, PlaybackSnapshot snapshot) =>
       SourceEvent() => _routeSourceEvent(event, snapshot),
       // 輸出事件不屬於任何來源，不比對代。只有原本在出聲才因中斷暫停：
       // 停著（`Idle`）的話續播會從頭開始一首沒在播的歌。
-      AudioInterrupted() when snapshot.wantsSound =>
+      AudioInterrupted(transient: true) when snapshot.wantsSound =>
         const PauseForInterruption(),
+      // 永久失去焦點不會有結束的事件：暫停、不等續播。來電中又失去焦點的，
+      // 也不再當成「因中斷而暫停」（系統媒體控制才不會一直裝成在播放）。
+      AudioInterrupted(transient: false)
+          when snapshot.wantsSound || snapshot.pausedByInterruption =>
+        const PauseWithoutResuming(),
       AudioInterrupted() => const IgnoreEvent(),
       // 使用者在中斷期間自己按了播放或暫停，暫停就不再是中斷造成的。
       AudioInterruptionEnded() when !snapshot.pausedByInterruption =>

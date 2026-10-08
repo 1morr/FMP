@@ -290,6 +290,8 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   interruption ended; resuming`，同一首從原位置續播、沒有新的 `Opening stream`。中斷前先按暫停的，
   結束時沒有 `resuming`。拔耳機：`BECOMING_NOISY` 是受保護的系統廣播，shell 送不出去；模擬器做不到時
   記為未驗，log 是 `Audio becoming noisy` 與 `Headphones unplugged; pausing`。
+  永久失去焦點（播放中開別的會播音樂的 App）：`Audio interruption`（`type: unknown`、`response: lost`）接著
+  `Audio focus lost; pausing`，之後 `dumpsys media_session` 是 `PAUSED`、通知可以滑掉（不是 `BUFFERING`）。
 - 輸出裝置（Windows）：裝置清單第一次就緒時，有記住的裝置會記 `Preferred output device restored` 或
   `… is not connected`；使用者選的記 `Output device selected`（`device` 是 mpv 的裝置名，系統預設是
   `auto`）。播放中停用正在輸出的裝置：`Output device failed`（`error` 是 mpv 的那一行）接著 `Output

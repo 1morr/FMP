@@ -890,13 +890,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `handleInterruptions: false` 關掉 just_audio 的內建處理（0.10.6 在 duck 結束時無條件把音量乘 2），
   自己聽 audio_session：duck 只把引擎輸出乘 0.5，不改使用者音量、不通知上層；duck 以外的任何
   中斷事件都還原（`duckedAfter`：duck 中轉成暫停類或 unknown 類中斷時，audio_session 之後報的是
-  暫停類的結束或什麼都不報，等不到 duck 的結束）。暫停類與
-  unknown 類中斷發 `Interrupted`，暫停類結束發 `InterruptionEnded(resume: true)`，拔耳機發
+  暫停類的結束或什麼都不報，等不到 duck 的結束）。暫停類中斷發 `Interrupted(transient: true)`，
+  unknown 類（`AUDIOFOCUS_LOSS`：別的播放器開始播，之後沒有結束的事件）發 `Interrupted(transient: false)`，
+  暫停類結束發 `InterruptionEnded(resume: true)`，拔耳機發
   `BecameNoisy`（對應表是 `respondToInterruption`）。焦點的取得與釋放仍由 just_audio 的
   `handleAudioSessionActivation` 管，「換歌不放焦點」不變。暫停與續播由路由器決定、控制器執行：
   在出聲時中斷才暫停並記下「因中斷而暫停」；中斷結束只續播這種暫停；使用者在中斷期間按了播放或
   暫停、拔耳機都清掉它（拔耳機後不從喇叭續播）；中斷期間按下一首不清掉它，新的那首載入後停著、
-  中斷結束時續播；`Idle` 時的中斷不會在結束時開始播放；等重試時
+  中斷結束時續播；永久失去焦點只暫停、不記「因中斷而暫停」，來電中又失去焦點的也清掉它（等不到
+  結束，留著的話系統媒體控制一直裝成在播放、前景服務不放）；`Idle` 時的中斷不會在結束時開始播放；等重試時
   的中斷取消那次重試，結束時從原位置重新開流。Android 8 起系統自動 duck
   （`setWillPauseWhenDucked(false)` 是 audio_session 的預設），App 收不到 duck 的回呼，所以實機
   幾乎看不到 duck 那一支。控制器對外給 `pausedByInterruption`、`pausedByInterruptionChanges`
@@ -904,7 +906,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   按播放或暫停、拔耳機、停下為假；中斷結束的續播發出後到後端報出播放之前（狀態仍是 `Paused`）
   仍為真（`_resumingFromInterruption`），否則系統那邊會在續播前一刻先看到暫停。閘門：
   `backend_rules_test.dart` 的 `audio interruptions (Android)`、`playback_event_router_test.dart` 的
-  `output events`、`playback_controller_test.dart` 的 `audio interruptions` 群組（含三個 `flag` 案例）。`JustAudioBackend` 接
+  `output events`、`playback_controller_test.dart` 的 `audio interruptions` 群組（名稱含 `flag` 的五個案例，
+  其中兩個是永久失去焦點）。`JustAudioBackend` 接
   audio_session 的那幾行在 `flutter test` 裡建不起來，沒有自動閘門：實機以模擬器的來電觸發
   （見 spec）。
 - 輸出裝置（只有 Windows，design §7.6）：`AudioBackend.outputDevices` 列 mpv 的
@@ -1073,7 +1076,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     之後按播放從原處繼續）。
   閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`；
   中斷：`a pause by an interruption holds the session as playing`、`the held session never shows paused…`（續播前一刻不先推暫停，
-  拿掉控制器的 `_resumingFromInterruption` 會紅）、`pausing from the notification during an interruption…`、`a pause by the user is not held`）、
+  拿掉控制器的 `_resumingFromInterruption` 會紅）、`pausing from the notification during an interruption…`、`a pause by the user is not held`、
+  `a permanent loss of focus is not held`）、
   `playback_providers_test.dart` 的 `system media controls`（組裝點接線、`the artwork of the restored song waits for
   the cache store`）；Android 的通知、鎖定畫面、
   `dumpsys media_session` 與媒體鍵，Windows 的媒體卡片、封面與經工作階段送的指令，都沒有自動閘門，實機驗。

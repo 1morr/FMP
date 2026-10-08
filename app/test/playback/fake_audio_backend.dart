@@ -212,8 +212,10 @@ final class FakeAudioBackend implements AudioBackend {
   void endEarlyFor(BackendSource source) =>
       _events.add(SourceEnded(id: source.id, end: TrackEndReason.endedEarly));
 
-  /// 別的 App 拿走音訊焦點（Android 的暫停類中斷）。
-  void audioInterrupted() => _events.add(const Interrupted());
+  /// 別的 App 拿走音訊焦點：[transient] 是暫停類的中斷（來電），為假是永久失去
+  /// 焦點（別的播放器開始播，之後沒有結束的事件）。
+  void audioInterrupted({bool transient = true}) =>
+      _events.add(Interrupted(transient: transient));
 
   /// 中斷結束；[resume] 是暫停類的中斷結束。
   void audioInterruptionEnded({bool resume = true}) =>

@@ -782,6 +782,7 @@ final class PlaybackController {
       case PauseWithoutResuming():
         _log.info(switch (event) {
           HeadphonesUnplugged() => 'Headphones unplugged; pausing',
+          AudioInterrupted() => 'Audio focus lost; pausing',
           _ => 'Audio interruption ended; staying paused',
         }, tag: _tag);
         unawaited(pause());
