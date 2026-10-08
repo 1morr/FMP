@@ -11,6 +11,7 @@ lib/core/network/
   source_http_client.dart  # SourceHttpClientFactory、SourceHttpClient、SourceRequest、SourceResponse、RequestCancelled
   interceptors.dart        # part：五個攔截器、每次送出的狀態 _Attempt、只收自己 host 的 cookie jar
   media_http_client.dart   # MediaHttpClientFactory、MediaHttpClient、MediaDownload
+  host_fetch.dart          # HostFetch：宿主自己的請求（index、插件檔、checks），底層是媒體 client
   http_rules.dart          # 兩種 client 共用：網域、轉址、限流語意、傳輸錯誤的對應
   network_log.dart         # networkLogTag、NetworkClient、NetworkRecordIds、writeNetworkRecord
   auth.dart                # AuthRequirement、decideAuth、CredentialSource、NoCredentials
@@ -156,6 +157,16 @@ final download = await media!.download(
   的，用 `pumpUntil` 等）。暫存目錄在 `setUp` 建，失敗的案例斷言目錄是空的。
 - 逾時用 `fakeAsync`：只在還沒收到資料、沒碰到檔案的情況下用（`.part` 收到第一塊才建立）。
   真的檔案 I/O 在 fakeAsync 裡不會完成。
+
+## 宿主自己的請求
+
+```dart
+final bytes = await hostFetch.fetch(Uri.parse(url), maxBytes: pluginFileMaxBytes);
+```
+
+- 規則與閘門見 `app/AGENTS.md` § 網路的「宿主自己的請求」。`MediaHttpClientFactory.create` 的 `client`、
+  `exactHosts` 兩個參數就是為它開的：新的呼叫端想要不帶憑證、host 精確比對時照這個做法，不要另建 `Dio`。
+- 測試用 `test/support/fake_http_adapter.dart`，`HostFetch(log:, createAdapter:)` 注入；`redirect()` 造轉址。
 
 ## 媒體 header
 

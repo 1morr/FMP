@@ -24,8 +24,12 @@ lib/plugins/
     plugin_host.dart          # PluginHost（主 isolate）：網路、storage、憑證、log、hostApiShapes
     script_errors.dart        # 結構化錯誤 → AppError
   install/
-    plugin_installer.dart     # PluginInstaller：解析 → 載入 → 寫入 → 註冊
+    plugin_installer.dart     # PluginInstaller：解析 → 載入 → 寫入 → 註冊；installPrepared、remove
     dev_plugin_entry.dart     # dev 的開發入口
+  repository/                 # 插件庫（ADR 0030）
+    plugin_index.dart         # PluginIndex、PluginIndexEntry、PluginRejected／PluginRejection
+    plugin_downloader.dart    # PluginDownloader：讀 index、下載並驗證（SHA、manifest 比對、checks）
+    plugin_updates.dart       # updateStatus（semver）、addedAccess（新增的能力與網域）
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
 
 test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
@@ -134,6 +138,23 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - 跑：`FMP_PLUGIN_DIR=<絕對路徑> flutter test test/plugins/contract/contract_test.dart`；沒設
   `FMP_PLUGIN_DIR` 就是跑 `app/` 內的測試插件（裸 `flutter test` 已包含）。失敗訊息列出每一條
   違反，例如 `search: request #1 (GET …) does not match fixtures/search/001.json (GET …)`。
+
+## 插件庫與生命週期
+
+規則與閘門見 `app/AGENTS.md` § 插件的「插件庫與生命週期」。
+
+- 流程（UI 在插件頁）：`readIndex` → `updateStatus` 決定要不要更新 → `prepare`（下載、驗 SHA、比對 manifest）→ 以
+  `PreparedPlugin` 的 `file.manifest`、`addedCapabilities`、`addedHosts` 做確認對話框 → `installPrepared(confirmed:)`。
+  從檔案或網址安裝仍走 `installBytes`／`installSource`（沒有來源 index、沒有 checks）。
+- 預期內的拒絕（SHA 不符、manifest 與 index 不一致、需要更新 FMP）是 `PluginRejected`，其他失敗是 `AppError`；呼叫端
+  兩種都要接。
+- 測試：`PluginDownloader(fetch:, log:)` 的 `fetch` 注入一個查表的假函式，不碰網路；移除用 `CacheHarness`
+  （`test/data/cache/cache_harness.dart`）開一個真的快取庫。寫法看 `plugin_installer_test.dart` 的
+  `plugin repository` 群組。
+- 停用的插件不在 `pluginRegistryProvider` 的 Map 裡，要區分「停用」與「未安裝」用
+  `PluginRegistry.isDisabled`（Map 每次改變都會發出新值，讀它的 provider 會跟著重建）。
+- 移除時之後的 PR 要加的步驟（憑證、帳號、排程器）加在 `PluginInstaller.remove` 刪 `installed_plugins` 列之前，並在
+  `removing` 群組加對應的斷言。
 
 ## 在 App 裡試插件
 
