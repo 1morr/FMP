@@ -8,8 +8,9 @@
 |---|---|---|---|
 | M1 | 骨架＋曳光彈 | — | 完成（2026-10-01，#173–#194；`archive/2026-10/09-28-m1-skeleton-tracer`） |
 | M2 | 完整播放 | M1 | 完成（2026-10-08，#196–#219；`archive/2026-10/10-01-m2-full-playback`） |
-| M3 | 三音源、帳號與開發工具 | M2 | 未開始 |
-| M4 | 音樂庫與同步 | M3 | 未開始 |
+| M3a | 三音源與帳號 | M2 | 未開始（任務 `10-08-m3-sources-accounts-devtools`，PR 1–10） |
+| M3b | 開發工具、排程器、電台、Mix、分 P | M3a | 未開始（同上，PR 11–21） |
+| M4 | 音樂庫與同步 | M3b | 未開始 |
 | M5 | 舊資料匯入 | M4 | 未開始 |
 | M6 | 下載 | M5 | 未開始 |
 | M7 | 歌詞 | M5 | 未開始 |
@@ -58,19 +59,34 @@
   - [x] 兩平台端到端操作（驗收時抓到並修好三個 bug，見證據檔「發現與修正」）
   - [x] ADR 0016、0018 的測試，與啟動維護清單、log 保留 7 天的測試（範圍見 M2 `design.md` §12 第 3 條）
 
-## M3 三音源、帳號與開發工具
+## M3a 三音源與帳號
 
 - **做完**：三個音源都能搜尋、播放、登入。
+- **任務**：`.trellis/tasks/10-08-m3-sources-accounts-devtools`（PR 1–10；規劃時擁有者決定把 M3 拆成 M3a、M3b，2026-10-08）。
 - **範圍**：
-  - YouTube、網易雲插件；B 站分 P（E2）、Mix（E13）、電台直播（E12）；
-  - 帳號與 `CredentialStore`、`AuthRequirement`（ADR 0012，E6）；
-  - `1morr/fmp-plugins` repo、CI、`index.json`；插件頁；首次啟動引導（ADR 0014）；
-  - Debug 頁與插件開發工具（ADR 0025、0015 §7）；錯誤詳細頁、GitHub 回報、`.github/ISSUE_TEMPLATE/bug_report.yml`（ADR 0023）。
-  - 背景排程器（ADR 0017）與 lint `fmp_periodic_timer_owner`，第一個工作是電台狀態（2026-10-01 從 M2 移來）；`QueueModel` 的 `mix`、`live` 模式。
+  - YouTube、網易雲插件；宿主 API 的 `idempotent`、`authHeaders`、`login`（ADR 0028、0029）；
+  - 帳號與 `CredentialStore`、`AuthRequirement`、三種登入方式（QR、App 內網頁登入、貼上 cookie）、失效與刷新（ADR 0012、0029，E6）；
+  - `1morr/fmp-plugins` repo、CI、`index.json`；插件生命週期與插件頁；首次啟動引導（ADR 0014、0030）；
+  - 設定頁的「帳號」「插件」區塊。
 - **驗收**：
   - [ ] 兩平台端到端操作
-  - [ ] ADR 0017 排程器的測試
+  - [ ] ADR 0012、0013、0014、0015 §決定 6、0016、0028、0029、0030 的測試（逐項對到任務的 `research/m3-adr-tests.md`）
   - [ ] §8：YouTube App 內網頁登入（ADR 0012）
+
+## M3b 開發工具、排程器、電台、Mix、分 P
+
+- **做完**：Debug 頁與插件開發工具可用；電台、Mix、B 站分 P 都能用。
+- **任務**：同 M3a（PR 11–21）。
+- **範圍**：
+  - Debug 頁與開發者模式、診斷包、插件開發工具與健康檢查（ADR 0025、0015 §7）；設定「關於」區塊的版本列（開發者模式入口；其餘內容 M9）；
+  - 錯誤詳細頁、GitHub 回報、`.github/ISSUE_TEMPLATE/bug_report.yml`（ADR 0023）；
+  - 背景排程器（ADR 0017）與 lint `fmp_periodic_timer_owner`，第一個工作是電台狀態（2026-10-01 從 M2 移來）；
+  - 電台直播（E12）、Mix（E13）、`QueueModel` 的 `mix`、`live` 模式（ADR 0018、0031）；
+  - B 站分 P（E2）、曲目詳細 `trackDetail`（ADR 0028）。
+- **驗收**：
+  - [ ] 兩平台端到端操作
+  - [ ] ADR 0017 排程器的測試與 lint `fmp_periodic_timer_owner` 的雙向變異測試
+  - [ ] ADR 0015 §決定 7、0016、0018、0023 §決定 4、0025、0028、0031 的測試（逐項對到任務的 `research/m3-adr-tests.md`）
   - [ ] §8：加入 Debug 頁的里程碑實測（ADR 0025）
 
 ## M4 音樂庫與同步
