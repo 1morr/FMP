@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "Sections 3.1-3.2 schema; 4.2 authHeaders and credentialsAttached; 4.3 FmpLoginCredentials; 6.1-6.3 CredentialStore, accounts, injection and cookie merge; 6.6 logout and removal; 7.4 removal order; 14 dependencies"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Credential storage, auth markers, invalidation, browse-as-logged-in"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "Login credentials, cookies not via jar"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Changing schema: full migration flow and tests"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "SourceHttpClient, interceptors, network log, redaction"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin host API shapes, registry, installer"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer and capabilities"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}
