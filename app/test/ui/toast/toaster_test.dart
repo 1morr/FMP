@@ -88,6 +88,18 @@ void main() {
       );
     });
 
+    test('an error without a plugin id never names an uninstalled source', () {
+      final toasts = toaster();
+      toasts.error(
+        RateLimited(),
+        operation: 'Index request failed',
+        tag: 'plugins',
+      );
+
+      expect(shown.single.message, isNot(contains('未安裝')));
+      expect(shown.single.message, isNot(contains('已停用')));
+    });
+
     test('a sentence wraps the mapped message; the key stays class and '
         'plugin', () {
       fakeAsync((async) {

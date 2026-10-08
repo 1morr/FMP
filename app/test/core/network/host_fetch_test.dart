@@ -143,4 +143,17 @@ void main() {
     expect(fields['status'], 200);
     expect(fields['bytes'], 3);
   });
+
+  test('an error from a host request carries no plugin id', () async {
+    setUpFetch((_) => reply(429, headers: {'Retry-After': '5'}));
+
+    await expectLater(
+      read('https://raw.example.test/index.json'),
+      throwsA(isA<RateLimited>().having((e) => e.pluginId, 'pluginId', isNull)),
+    );
+    await expectLater(
+      read('http://raw.example.test/index.json'),
+      throwsA(isA<Unsupported>().having((e) => e.pluginId, 'pluginId', isNull)),
+    );
+  });
 }

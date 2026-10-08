@@ -44,7 +44,7 @@ final class HostFetch {
   /// 讀 [url] 的內容，最多 [maxBytes] 位元組。
   Future<Uint8List> fetch(Uri url, {required int maxBytes}) async {
     final client = _factory.create(
-      pluginId: '',
+      pluginId: null,
       allowedHosts: [url.host],
       client: NetworkClient.host,
       exactHosts: true,

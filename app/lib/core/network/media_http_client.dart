@@ -49,13 +49,13 @@ final class MediaHttpClientFactory {
   final NetworkRecordIds _recordIds;
   final HttpClientAdapter Function() _createAdapter;
 
-  /// [pluginId] 的媒體 client。[allowedHosts] 是 manifest 的允許網域，與同一個
+  /// [pluginId] 的媒體 client（宿主自己的請求為 `null`）。[allowedHosts] 是 manifest 的允許網域，與同一個
   /// 插件的 API client 相同。
   ///
   /// [client] 是網路紀錄的 `client` 欄位；[exactHosts] 讓允許網域不含子網域
   /// （`HostFetch` 用，轉址不得換 host）。
   MediaHttpClient create({
-    required String pluginId,
+    required String? pluginId,
     required Iterable<String> allowedHosts,
     NetworkClient client = NetworkClient.media,
     bool exactHosts = false,
@@ -120,7 +120,7 @@ final class MediaHttpClient {
     required this._reportOutcome,
   });
 
-  final String pluginId;
+  final String? pluginId;
   final AllowedHosts _allowedHosts;
   final NetworkClient _client;
   final Dio _dio;

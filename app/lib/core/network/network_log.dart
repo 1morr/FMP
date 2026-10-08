@@ -39,7 +39,7 @@ void writeNetworkRecord(
   Log log, {
   required NetworkClient client,
   required int id,
-  required String pluginId,
+  required String? pluginId,
   required String method,
   required Uri uri,
   required bool failed,
@@ -55,7 +55,7 @@ void writeNetworkRecord(
   tag: networkLogTag,
   fields: {
     'id': id,
-    'pluginId': pluginId,
+    'pluginId': pluginId ?? '',
     'client': client.wireName,
     'method': method,
     'host': uri.host,
