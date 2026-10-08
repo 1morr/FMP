@@ -81,7 +81,7 @@
 ### M3a
 
 - [ ] Android 模擬器與 Windows 各做一次端到端操作，步驟照 `implement.md` § M3a 驗收（從首次啟動引導安裝官方插件；三個音源各搜尋、播放；B 站 QR、網易 QR、YouTube 網頁登入或貼上 cookie 各登入一次；「以登入身分瀏覽與播放」開關；登出；停用、更新、移除插件），證據寫進 `research/m3a-acceptance.md`。
-- [ ] ADR 0012、0013（三個音源的錯誤對應）、0014、0015 §決定 6、0016（插件頁與登入的離線狀態）、0029、0030 的測試，逐項對到 `implement.md` § M3a 驗收的表，證據寫進 `research/m3-adr-tests.md`。
+- [ ] ADR 0012、0013（三個音源的錯誤對應）、0014、0015 §決定 6、0016（插件頁與登入的離線狀態）、0028（`idempotent`、`login` 的檢查案例）、0029、0030 的測試，逐項對到 `implement.md` § M3a 驗收的表，證據寫進 `research/m3-adr-tests.md`。
 - [ ] §8：YouTube App 內網頁登入（ADR 0012）。R1 通過時以 App 內網頁登入驗；R1 不通過時記錄「只提供貼上 cookie」並以貼上 cookie 驗。
 - [ ] `milestones.md` 的 M3a 狀態與勾選已更新。
 
@@ -89,7 +89,7 @@
 
 - [ ] Android 模擬器與 Windows 各做一次端到端操作，步驟照 `implement.md` § M3b 驗收，證據寫進 `research/m3b-acceptance.md`。
 - [ ] ADR 0017 排程器的測試與 lint `fmp_periodic_timer_owner` 的雙向變異測試。
-- [ ] ADR 0015 §決定 7、0018（Mix 修剪、開直播後音樂結果不播出也不再解析、直播重連）、0023 §決定 4、0025、0028、0031 的測試，逐項對到 `implement.md` § M3b 驗收的表，證據寫進 `research/m3-adr-tests.md`。
+- [ ] ADR 0015 §決定 7、0016（電台頁的離線狀態）、0018（Mix 修剪、開直播後音樂結果不播出也不再解析、直播重連）、0023 §決定 4、0025、0028、0031 的測試，逐項對到 `implement.md` § M3b 驗收的表，證據寫進 `research/m3-adr-tests.md`。
 - [ ] §8：加入 Debug 頁的里程碑實測（ADR 0025）：Windows release 版開啟開發者模式、重啟後仍開啟、從總開關關掉；Debug 頁看到一次搜尋的網路摘要；匯出的診斷包以解壓工具打開。
 - [ ] `milestones.md` 的 M3b 狀態與勾選已更新；本任務 `finish`、`archive`。
 

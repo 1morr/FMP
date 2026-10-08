@@ -51,9 +51,9 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - `loginVerify(credentials) → {userId, displayName, avatar?}`：宿主在三種方式之後都先呼叫它，通過才寫入（ADR 0012 §決定 4）；
    - `loginRefresh(credentials) → credentials | null`：`null`＝不需要或沒有新的；刷新失敗拋 `CredentialInvalid`。
    - `loginVerify`、`loginRefresh` 呼叫時憑證還沒寫入，由插件以傳進來的憑證自己組 `Cookie`、請求標 `auth: 'never'`；宿主在呼叫前就把這組值登記到遮蔽函式。
-3. **憑證的形狀**：`{cookies: Record<string, string>, extra?: Record<string, string>}`，`fmp.credentials.get()` 回傳它或 `null`。`CredentialStore` 以 `credentials:<插件 id>` 存它的 JSON；dev 與 prod 以鍵前綴與命名空間分開（ADR 0015 §決定 8）。
+3. **憑證的形狀**：`FmpLoginCredentials = {cookies: Record<string, string>, extra?: Record<string, string>}`，`fmp.credentials.get()` 回傳它或 `null`。`CredentialStore` 以 `credentials.<插件 id>` 存它的 JSON；dev 與 prod 以鍵前綴與命名空間分開（ADR 0015 §決定 8）。鍵只用檔名安全的字元：Windows 實作以鍵直接當檔名（`<鍵>.secure`），`:` 不合法。
 4. **注入**：認證攔截器只在 `decideAuth` 為 `attach` 時，把憑證的 `cookies` 合併進 `Cookie`，再加上請求的 `authHeaders`（插件從 cookie 算出的 header，例如 `SAPISIDHASH`；名稱一律進遮蔽的 header 名單）。**同名 cookie 以憑證為準**，其次是插件自己送的 header，最後是 cookie jar（舊版也是合併）。`omit`、`refuse` 時 `authHeaders` 整個丟掉。帶不帶憑證仍只由 `auth` 一處決定。
-5. **`CredentialStore`**：`flutter_secure_storage` 11.2.0，經平台層 `SecureStorage`；Android 一律 `resetOnError: false`。讀取失敗時狀態為「暫時無法讀取」（只在記憶體）、不帶憑證、30 秒後重讀，不刪除。載入、寫入時登記遮蔽，登出、移除時取消。
+5. **`CredentialStore`**：`flutter_secure_storage` 11.2.0，經平台層 `SecureStorage`；Android 一律 `resetOnError: false`。讀取失敗時狀態為「暫時無法讀取」（只在記憶體）、不帶憑證、30 秒後重讀，不刪除。載入、寫入時登記遮蔽（短於遮蔽函式下限的值略過，它們不是秘密），登出、移除時取消。
 6. **帳號表與每音源設定**：
    - `accounts(plugin_id 主鍵, user_id, display_name, avatar_json, status: active | invalidated, logged_in_at, last_refresh_at, last_refresh_result)`。是否登入只看 `CredentialStore`；啟動時帳號列與憑證不一致就刪掉多的那一邊。不存 VIP。
    - `source_settings(plugin_id 主鍵, browse_as_logged_in 可空)`：ADR 0011 §決定 7 的每音源設定表。

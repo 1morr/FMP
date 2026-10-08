@@ -44,7 +44,7 @@
 ## 進度與交接（compact 後從這裡接）
 
 - **狀態**：規劃中（2026-10-08）。prd／design／implement 與 ADR 0028–0031 草稿待擁有者核准；R1 還沒做。
-- **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條待確認。
+- **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條 2026-10-08 確認，全部照建議。
 - **已合併進 `main`**：（無）
 - **下一步**：R1（擁有者在場時）→ 回填 ADR 0029 與 design §6.4 → 擁有者核准 → PR 0。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -63,7 +63,7 @@
   6. 使用者看得到的改動，由主對話照 `verify-on-device` 實機驗證兩平台，回報含平台與模式；
   7. 派 opus `trellis-check`，要它試著攻破安全相關的部分（憑證、遮蔽、插件 API、安裝與 SHA、WebView cookie、診斷包、GitHub 網址）；
   8. 把後續待辦寫進本檔的「留下的後續」；
-  9. `git checkout --` 還原只有換行差異的產生檔：**逐檔**以 `git diff --ignore-all-space --ignore-cr-at-eol` 確認是空的才還原；加了原生插件的 PR（5、7、9、13、15）有真正新增的註冊要保留；
+  9. `git checkout --` 還原只有換行差異的產生檔：**逐檔**以 `git diff --ignore-all-space --ignore-cr-at-eol` 確認是空的才還原；加了原生插件的 PR（5、7、9、11、13、15）有真正新增的註冊要保留；
   10. 分開 commit（subject ≤ 72 字元，Conventional Commits）；
   11. `task.py finish`，再 `archive <slug> --no-commit --skip-branch-validation`，把 archive commit 掉；
   12. push，`gh pr create`（繁中描述＋review 指南）——照已核可計畫做的 PR 直接 push（擁有者 2026-10-07 的規則），計畫外的先問；
@@ -93,7 +93,7 @@
 |---|---|---|---|---|---|
 | R1 | — | — | 11 | M3a 驗收 | M3b |
 | 0 | 擁有者核准、R1 | — | 12 | 11 | M3b |
-| 1 | 0 | M3a | 13 | 11 | M3b |
+| 1 | 0 | M3a | 13 | 11、12 | M3b |
 | 2 | 0 | M3a | 14 | 11 | M3b |
 | 3 | 1、2 | M3a | 15 | 13、14 | M3b |
 | 4 | 0 | M3a | 16 | 11、14 | M3b |
@@ -137,10 +137,10 @@
 
 ## 0. 規劃檔、ADR 與文件更正
 
-- [ ] 本任務的 `prd.md`（補上 design §16 的確認結果）、`design.md`、`implement.md`、`research/`（含 R1）commit。
+- [ ] 本任務的 `prd.md`、`design.md`、`implement.md`、`research/`（含 R1）commit。
 - [ ] ADR 0028–0031：依確認結果修訂，狀態改「已採納」、日期改核准日。
-- [ ] design §15 標「PR 0」的更正（確認後的那幾條依結果加或不加）。
-- [ ] `milestones.md` § M3 拆成 M3a、M3b（範圍、驗收、依賴）；`09-26-fmp-rewrite/task.json` 的子任務清單（工作區已有未提交的改動，一併整理）。
+- [ ] design §15 標「PR 0」的更正（§16 已全部確認，全部加）。
+- [ ] `milestones.md` § M3 拆成 M3a、M3b（範圍、驗收、依賴）。`09-26-fmp-rewrite/task.json` 的子任務清單已在規劃時加入本任務。
 - 驗證：`main` 上有本任務目錄；`milestones.md` 的 M3a／M3b 範圍與 design §1.1 一致；`git grep` 新 ADR 的引用都對得上檔名。
 - 依賴：擁有者核准、R1。模型：sonnet（文件，照清單）。
 
@@ -150,6 +150,7 @@
 
 - [ ] FMP：`HttpRequest.idempotent`（`fmp-plugin.d.ts`、`hostApiShapes`、`SourceHttpClient` 的重試判斷）；ADR 0013 §決定 4 的那一行已在 PR 0。
 - [ ] FMP：`officialPluginIds` 加 `youtube`；`fmp_source_id_literal` 的案例。
+- [ ] FMP：`googlevideo.com` 的 `expire` 從內建遮蔽的簽名參數移除（design §5.1；不然錄下的 fixture 沒有期限，`expiresAtPattern` 的契約檢查必紅），`redactor_test.dart` 跟著改。
 - [ ] FMP：Android 時長未知的處理（design §5.4）：先實機看 YouTube 串流在 just_audio 有沒有時長事件；沒有就在 `PlaybackSession` 不排時長未知的前瞻，dartdoc 寫明。
 - [ ] fmp-plugins：`youtube/`（打包腳本、YouTube.js 18.1.0、`youtube.js` 產物、manifest 1.0.0、`checks.json` 的 `search` 與 `resolveStream`（含 `expiresAtPattern`）、錯誤對應表、遮蔽名單）；以命令列錄 fixture（匿名，兩個案例）。
 - 測試：
@@ -203,7 +204,7 @@
 - [ ] 離線：可安裝分頁讀不到 index 時的離線空狀態。
 - 測試：widget 測試（design §7.5 的閘門）；guideline 400／1000 寬；`platform_test.dart` 的 `files`；`install_search_play_test.dart` 若受影響照改。
 - 實測（真實：`raw.githubusercontent.com`，插件請求最少）：
-  - 兩平台：插件頁看到三個官方插件 → 安裝 YouTube（確認框列出能力與網域）→ 停用 B 站（搜尋 chip 消失）→ 再啟用 → 移除網易（帳號、storage、快取項目都不在：以 `dbq.sh` 查 Android、Windows 查 dev 的 `fmp.db`）→ 從檔案安裝 `fmp-test`（「非官方來源」）。
+  - 兩平台：插件頁看到三個官方插件 → 安裝 YouTube（確認框列出能力與網域）→ 停用 B 站（搜尋 chip 消失）→ 再啟用 → 移除網易（帳號、storage、快取項目都不在：照 `verify-on-device` skill 的 `references/runtime-state.md` 讀 dev 的 `fmp.db`，Android 以 `adb exec-out run-as … cat files/fmp.db` 拉回來）→ 從檔案安裝 `fmp-test`（「非官方來源」）。
   - 更新流程：在 `fmp-plugins` 開暫時分支 `test/m3-update-flow`，把它的 raw `index.json` 加成自訂 index → 從它安裝一個插件 → 在分支上升版號 → 檢查更新、更新；再升一次並加一個網域 → 確認框列出新增網域。**push 這個暫時分支前先問擁有者**（計畫外的 push），驗完刪分支。
 - 依賴：3、4。模型：opus（插件頁的版面與互動沒有定稿，要自己定）。
 
@@ -218,14 +219,14 @@
 
 - [ ] 平台層 `lib/platform/secure_storage/`（`flutter_secure_storage` 11.2.0，`resetOnError: false`、鍵前綴與 `storageNamespace`），宣告 `secureStorage`。
 - [ ] schema：`accounts`、`source_settings`；repository 與 migration。
-- [ ] `lib/plugins/accounts/credential_store.dart`：讀取失敗的「暫時無法讀取」與 30 秒重讀、啟動對齊、遮蔽登記與取消、實作 `CredentialSource`；`fmp.credentials.get()` 回傳 `FmpCredentials`。
+- [ ] `lib/plugins/accounts/credential_store.dart`：讀取失敗的「暫時無法讀取」與 30 秒重讀、啟動對齊、遮蔽登記與取消、實作 `CredentialSource`；`fmp.credentials.get()` 回傳 `FmpLoginCredentials`（`d.ts` 與 shapes 同步）。
 - [ ] 認證攔截器：Cookie 三方合併（同名以憑證為準）、`authHeaders` 只在 attach；`HttpRequest.authHeaders` 進 `d.ts` 與 shapes；cookie 攔截器併 jar 時跳過已有的名稱。
 - [ ] 登出的資料面（`AccountService.logout`：憑證、帳號列、遮蔽、記憶體 jar；WebView 那一步在 PR 9 接上）。
 - [ ] `app/AGENTS.md` § 網路的認證段改寫；加 § 帳號。
 - 測試：
   - `auth_test.dart`：三種標記 × 三種狀態，以假的 `CredentialStore`（取代 `NoCredentials` 版本）；
   - 合併規則（三方同名、只有 jar、只有插件 header）；`authHeaders` 在 omit 與 refuse 時不出現；`invalidated` 時不帶；
-  - `credential_store_test.dart`：讀取失敗不刪、30 秒後重讀、啟動對齊兩種、遮蔽登記（log 與網路紀錄不出現假 cookie 值）；
+  - `credential_store_test.dart`：讀取失敗不刪、30 秒後重讀、啟動對齊兩種、遮蔽登記（log 與網路紀錄不出現假 cookie 值；短於 `Redactor.minimumSecretLength` 的值略過、不讓寫入失敗）；
   - 登出後 `CredentialStore` 為空、之後的請求不帶憑證（ADR 0012 §如何確認）；
   - migration 三種；`platform_test.dart` 的 `secureStorage`。
 - 實測：沒有使用者看得到的改動（登入在 PR 8）。新增 `integration_test/secure_storage_test.dart`（寫一筆假值、讀回、刪除、`deleteAll` 只刪自己的前綴），兩平台各跑一次；Windows 另確認 `.secure` 檔在 dev 的 application support 目錄、不在 prod 的。
@@ -300,6 +301,7 @@ R1 通過時：
 | 0012 | 刷新後重送帶新憑證；三個音源的「憑證無效」判定表；限流與網路錯誤不標失效 | 10 |
 | 0012 | 登出、移除插件後 `CredentialStore` 為空且請求不帶憑證（重設資料在 M3b PR 14） | 7、9 |
 | 0013 | 三個音源的錯誤對應（錄下或手改的錯誤 fixture） | 1、2、10 |
+| 0028 | `idempotent` 的 POST 重試、沒標的不重試；`login` 的檢查案例格式與 `requiresLogin`；型別定義一致 | 1、8 |
 | 0014 | manifest 能力與匯出一致（含 `login`）、`apiVersion` 不相容拒載 | 1、8 |
 | 0014 | 三個插件的契約（遮蔽、媒體不帶憑證、錯誤對應）；lint `fmp_source_id_literal` 加兩個 id | 1、2、3 |
 | 0015 §決定 6 | 插件庫 CI 以固定 FMP 版本跑契約；fixture 掃描 | 3 |
@@ -316,6 +318,7 @@ R1 通過時：
 ## 11. 開發者模式、「關於」、Debug 路由與概覽（design §3.3、§12.1）
 
 - [ ] schema：`developer_settings`（四欄一次建好）；Notifier 的 `developerMode`、`logLevel` setter。
+- [ ] 平台層讀 App 版本（`package_info_plus` 10.2.2，design §14）。
 - [ ] 設定頁「關於」區塊：版本列（版本、flavor）、連點 7 次（第 2 次起提示、離開歸零）。
 - [ ] Debug 路由與 redirect；設定頁的 Debug 入口；list-detail 的八個區塊骨架（其他 PR 填內容，這個 PR 只有概覽，其餘區塊不顯示，各 PR 加一個）。
 - [ ] 概覽：總開關（關閉時同一筆寫入清空 `log_level` 與 `plugin_dev_folder`）、log 層級（`debug`／`info`，接 log 門面）、版本／flavor／平台／資料目錄（`~` 代換）、快取用量連結。
@@ -363,8 +366,8 @@ R1 通過時：
 
 ## 16. 健康檢查與插件開發工具（design §12.5）
 
-- [ ] adapter 移到 `lib/core/network/fixture_adapters.dart`、契約測試改引用；`restrictedImports`；ADR 0015 §決定 6 的更正。
-- [ ] 案例期望的判斷抽到 `lib/plugins/health/check_expectations.dart`，契約執行器改引用。
+- [ ] `lib/plugins/json_shape.dart` 移到 `lib/core/`；adapter 與 `fixture.dart` 移到 `lib/core/network/`、契約測試改引用；`restrictedImports`；ADR 0015 §決定 6 的更正（design §12.5）。
+- [ ] `checks.json` 的解析與案例期望的判斷移到 `lib/plugins/health/`，契約執行器與 `type_definitions_test.dart` 改引用。
 - [ ] 健康檢查區塊：全部或單一插件、一次一個、略過、`health` tag。
 - [ ] 平台層：`files` 加 `getDirectoryPath`；宣告 `pluginDevTools`（Windows 真、Android 假）。
 - [ ] 插件開發區塊：選資料夾、開發中標記、重新載入、真實／錄製／重播切換、案例單跑全跑、以 App 內登入錄 fixture。

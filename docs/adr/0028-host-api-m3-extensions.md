@@ -52,7 +52,7 @@ ADR 0014 §決定 4 列了 12 個能力，§決定 5 定了宿主 API v1，但�
 5. **`multiPart`**：`TrackSummary` 加選填 `partCount`；`multiPart({sourceId}) → {parts: [{cid, title, durationMs?, index}]}`。每個分 P 是一首曲目（ADR 0005）。
 6. **`trackDetail`**：`trackDetail({sourceId, cid?}) → {description?, publishedAt?, uploaderAvatar?, album?, stats?: [{kind, count}]}`；`kind` 是封閉的 union（`view`、`like`、`favorite`、`comment`、`share`、`danmaku`、`coin`），宿主依它挑圖示與翻譯，不顯示插件給的文字。
 7. **`checks.json`**：每個能力一個鍵，案例形狀與 `search` 相同（`input`＋`expect`）；`login` 的案例是 `loginVerify`，`live` 的是 `liveStatus`。案例可標 `requiresLogin: true`：契約測試照常重播，Debug 頁健康檢查在未登入時標「略過」，命令列錄製略過它。
-8. **被取代的請求**：不經宿主取消網路工作。控制器以代際檢查丟掉被取代的 `resolveStream`／`resolveLive` 結果，不播出、不再發解析；已送出的 HTTP 讓它跑完。ADR 0018 §決定 6 加一行更正指到這裡。
+8. **被取代的請求**：不經宿主取消網路工作。控制器以代際檢查丟掉被取代的 `resolveStream`／`resolveLive` 結果，不播出、不再發解析；已送出的 HTTP 讓它跑完。ADR 0018 §決定 6 與 §決定 9（「開直播必然取消進行中的音樂請求」）各加一行更正指到這裡。
 9. **同步點**：每加一個欄位或匯出，同一個 PR 改 `fmp-plugin.d.ts`、Dart 端的 shapes、`SourcePlugin` 的方法與 `FmpChecks`。`SourcePlugin` 的方法只在引入它的 PR 加。
 
 採用的慣例：MusicFree、LX Music 的插件以函式匯出各能力、App 依匯出出現入口；gRPC 的冪等宣告；舊版 `video_detail.dart`、`radio_station.dart`、`mix_session_coordinator.dart` 的欄位與行為作規格。

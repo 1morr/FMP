@@ -123,6 +123,7 @@ lib/
     errors/error_report.dart        # ErrorReport（§13）
     network/
       fixture_adapters.dart         # 從 test/plugins/contract/ 移來（§12.5，矛盾 10）
+      fixture.dart                  # FmpFixture 的解析，adapter 依賴它，一起移來（§12.5）
       host_fetch.dart               # 讀 index、下載插件與 checks.json（§7.1）
   data/repositories/                # accounts、source_settings、radio_stations、scheduler_runs、plugin_indexes 等
   platform/
@@ -134,7 +135,7 @@ lib/
   plugins/
     accounts/                       # CredentialStore、AccountService、單飛刷新（§6）
     repository/                     # index 讀取、比對、安裝與更新流程（§7）
-    health/                         # 健康檢查（§12.5）
+    health/                         # 健康檢查；checks.json 的解析與案例期望（§12.5）
     dev/                            # 插件開發工具：資料夾載入、模式切換（§12.5）
   playback/
     mix_session.dart                # Mix 的補歌與修剪（§10）
@@ -159,10 +160,10 @@ lib/
 
 | 規則 | 改動 | PR |
 |---|---|---|
-| `fmp_layer_imports` 的 `platformPackages` | 加 `flutter_secure_storage`、`flutter_inappwebview`、`file_picker`、`share_plus`、`url_launcher`（只准在 `lib/platform/`；依序在 PR 7、9、5、15、13 加） | 7、9、5、15、13 |
+| `fmp_layer_imports` 的 `platformPackages` | 加 `share_plus`、`url_launcher`（只准在 `lib/platform/`；PR 15、13 加）。`flutter_secure_storage`、`flutter_inappwebview`、`file_picker`、`package_info_plus` 在 M1 就已列入，不必改 | 15、13 |
 | `fmp_layer_imports` 的 `externalPackageOwners` | `qr_flutter: lib/ui/accounts`、`archive: lib/app/diagnostics`、`pub_semver: lib/plugins/repository` | 8、15、4 |
 | `fmp_layer_imports` 的 `forbiddenLayerImports` | `core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`；`scheduler/`、`radio/` 不 import `ui/`；`scheduler/` 不 import `radio/`、`plugins/` | 17、18 |
-| `fmp_layer_imports` 的 `restrictedImports` | `lib/core/network/fixture_adapters.dart` 只給 `lib/plugins/dev/`（測試不受限） | 16 |
+| `fmp_layer_imports` 的 `restrictedImports` | `lib/core/network/fixture_adapters.dart`、`fixture.dart` 只給 `lib/plugins/dev/`（`fixture.dart` 另給 `fixture_adapters.dart`；測試不受限） | 16 |
 | `fmp_source_id_literal` 的 `officialPluginIds` | 加 `youtube`（PR 1）、`netease`（PR 2）；與舊版 `lib/data/models/source_ids.dart:17-18` 相同，M5 對照不轉換（§8.32） | 1、2 |
 | 新規則 `fmp_periodic_timer_owner` | `Timer.periodic`、`Stream.periodic` 只准在 `lib/scheduler/`、`lib/playback/`（ADR 0017 §如何確認、ADR 0018 §決定 11）。ADR 0021 的桌面歌詞查游標在 M7 加進允許清單，現在不預留 | 17 |
 
@@ -271,7 +272,7 @@ login?: {
 | `loginVerify` | `(credentials) → {userId, displayName, avatar?: Artwork[]}` | 三種方式拿到憑證之後、寫入之前（ADR 0012 §決定 4） |
 | `loginRefresh` | `(credentials) → credentials \| null` | 宣告 `refresh` 的插件：啟動時（§6.5）與失效時；`null`＝不需要或沒有新的；刷新失敗拋 `CredentialInvalid` |
 
-- **憑證的形狀**：`FmpCredentials = {cookies: Record<string, string>, extra?: Record<string, string> | null}`。`cookies` 是 cookie 名稱對值；`extra` 給不是 cookie 的東西（B 站刷新用的 `refresh_token`）。`fmp.credentials.get()` 回傳這個形狀或 `null`。
+- **憑證的形狀**：`FmpLoginCredentials = {cookies: Record<string, string>, extra?: Record<string, string> | null}`。`cookies` 是 cookie 名稱對值；`extra` 給不是 cookie 的東西（B 站刷新用的 `refresh_token`）。`fmp.credentials.get()` 回傳這個形狀或 `null`（現在回 `Record<string, string> | null`）。名稱不用 `FmpCredentials`：`fmp-plugin.d.ts` 裡它已是 `fmp.credentials` 那個宿主 API 物件的 interface。
 - **`loginVerify`／`loginRefresh` 自己帶憑證**：這兩個呼叫時新憑證還沒寫入，宿主沒得注入；插件以傳進來的 `credentials` 自己組 `Cookie` header，請求標 `auth: 'never'`。宿主在呼叫前就把這組憑證的值登記到遮蔽函式，失敗也不取消登記（值本來就是秘密）。
 - **QR 的 `done`**：插件從輪詢回應的 `Set-Cookie`（`HttpResponse.headers['set-cookie']`）取出憑證回傳。
 
@@ -312,7 +313,7 @@ login?: {
 ```ts
 TrackDetail = {
   description?: string | null;
-  publishedAt?: number | null;            // unix 秒
+  publishedAt?: number | null;            // UTC epoch 毫秒（同 StreamCandidate.expiresAt）
   uploaderAvatar?: Artwork[] | null;
   album?: string | null;                  // 網易
   stats?: {kind: 'view'|'like'|'favorite'|'comment'|'share'|'danmaku'|'coin', count: number}[] | null;
@@ -344,7 +345,8 @@ TrackDetail = {
 - `resolveStream`：先匿名（VISIONOS 等不需要 PO token 的 client），依 `formats` 與 `quality` 挑 opus／aac；`expiresAt` 從網址的 `expire` 參數讀（取代舊版寫死的 1 小時，D9）；`checks.json` 的 `expiresAtPattern` 是 `[?&]expire=(\d+)`。
 - innertube 的 POST 標 `idempotent: true`（§4.2）。
 - 錯誤對應表（ADR 0013 §決定 2，插件目錄內）：「確認你不是機器人」→ `VerificationRequired`；`LOGIN_REQUIRED`（年齡限制）→ `Unavailable(age)`；`UNPLAYABLE` 地區 → `Unavailable(region)`；429 由網路層轉 `RateLimited`。「憑證無效」判定表在 PR 10 加：帶憑證的請求回 401，或回應的 `responseContext` 表示已登出。
-- 遮蔽名單追加：`SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`、`__Secure-3PAPISID`、`LOGIN_INFO` 等 cookie 名（key 名單）；`googlevideo.com` 的簽名參數（`sig`、`lsig`）加進 `mediaCdns`。
+- 遮蔽名單：Google 帳號 cookie 名（`SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`、`__Secure-3PAPISID`、`LOGIN_INFO` 等）與 `googlevideo.com` 的簽名參數已在 M1 的內建名單（`lib/core/redaction/redaction_lists.dart`），插件不必追加。
+- **`googlevideo.com` 的 `expire` 從內建的簽名參數移除**（PR 1）：它在內建名單裡，錄 fixture 時整個參數被拿掉（`redactor_test.dart` 的 googlevideo 案例），重播時插件讀不到期限，`expiresAtPattern` 的契約檢查必紅。`expire` 是公開的到期時間、不是憑證，與 B 站 `deadline` 不遮的理由相同（`redaction_lists.dart` 的註解）。閘門：`redactor_test.dart` 的 googlevideo 案例改成 `expire` 保留、`sig`、`ip` 等照拿掉。
 - 效能風險：約 800 KB 的插件在 QuickJS isolate 的載入時間，PR 1 以 `plugin_runtime_benchmark_test.dart` 兩平台量一次，寫進 PR 描述；超過 3 秒再談（延遲載入或縮小打包）。
 
 ### 5.2 網易雲（`netease`，PR 2 起）
@@ -378,12 +380,13 @@ TrackDetail = {
 - **套件**：`flutter_secure_storage` 11.2.0（ADR 0012 §決定 3 的 11.x，2026-09-16 發佈）。
   - Android：RSA-OAEP 包 AES-GCM 的金鑰（11.x 的預設）。**`AndroidOptions(resetOnError: false)`**：套件預設讀取失敗時清空，違反 ADR 0012「讀取失敗時不刪除」。
   - Windows：值以 AES-GCM 加密存在 application support 目錄的 `.secure` 檔，金鑰在 Credential Manager（`flutter_secure_storage_windows` 4.2.2 的 README）。所以沒有 Credential Manager 單筆約 2.5 KB 的限制，YouTube 的整組 cookie 放得下。
-  - dev 與 prod 分開（ADR 0015 §決定 8）：Android 以 `applicationIdSuffix` 自然分開；Windows 的 application support 目錄依 ProductName 分開。PR 7 實機確認兩個 flavor 的檔案在不同目錄，另以鍵前綴 `fmp-dev:`／`fmp:` 再保險一次（`AndroidOptions.storageNamespace` 同值）。
+  - dev 與 prod 分開（ADR 0015 §決定 8）：Android 以 `applicationIdSuffix` 自然分開；Windows 的 application support 目錄依 ProductName 分開。PR 7 實機確認兩個 flavor 的檔案在不同目錄，另以鍵前綴 `fmp-dev.`／`fmp.` 再保險一次（`AndroidOptions.storageNamespace` 為 `fmp-dev`／`fmp`）。
+  - **鍵只用檔名安全的字元**（小寫英數、`.`、`-`）：Windows 實作直接以鍵當 `<鍵>.secure` 的檔名，不做跳脫（`flutter_secure_storage_windows` 的 `Write`／`Read`），`:` 在 NTFS 是替代資料流的分隔，`readAll` 也列不到。插件 id 只有小寫英數與 `-`，可以直接放進鍵。
 - **平台層** `lib/platform/secure_storage/`：介面 `SecureStorage { read(key), write(key, value), delete(key), deleteAll() }`（`deleteAll` 只刪自己前綴的鍵，不呼叫套件的全刪），宣告 `PlatformCapabilities.secureStorage`（Android、Windows 真）。`flutter_secure_storage` 只准在平台層（§2.2）。
-- **`CredentialStore`**（`lib/plugins/accounts/credential_store.dart`）：唯一憑證來源，鍵 `credentials:<pluginId>`，值是 §4.3 `FmpCredentials` 的 JSON。
+- **`CredentialStore`**（`lib/plugins/accounts/credential_store.dart`）：唯一憑證來源，鍵 `credentials.<pluginId>`（加上 §6.1 的前綴），值是 §4.3 `FmpLoginCredentials` 的 JSON。
   - 讀取：啟動時每個裝了 `login` 插件各讀一次放記憶體；之後請求只讀記憶體。
   - **讀取失敗**：該插件狀態為「暫時無法讀取」（記憶體），不刪除、不帶憑證，30 秒後重讀一次（一次性 `Timer`），帳號頁顯示「暫時無法讀取，稍後重試」。
-  - 載入或寫入時把每個 cookie 值與 `extra` 值登記到遮蔽函式；登出或移除時取消登記。
+  - 載入或寫入時把每個 cookie 值與 `extra` 值登記到遮蔽函式；登出或移除時取消登記。短於 `Redactor.minimumSecretLength`（4）的值不登記：`registerSecret` 對它們拋 `ArgumentError`，而 B 站這類網站會一起回 `home_feed_column=5` 之類的短值，不略過的話登入整個失敗。這種值也不是秘密（真正的憑證 cookie 都更長）。
 - 實作 `CredentialSource`（`core/network/auth.dart`）：`credentialHeaders(pluginId)` 在 `status == invalidated` 或沒有憑證時回 `null`（已失效：保留憑證、停止帶它，ADR 0012 §決定 5）。
 
 ### 6.2 帳號表與每音源設定
@@ -498,20 +501,21 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 
 ### 7.3 啟用與停用（§8.17）
 
-- `installed_plugins.enabled`（預設真）。停用＝不載入 runtime：不出現在搜尋 chip、帳號頁、健康檢查、排程器（ADR 0017 §決定 5 立即移除它的工作）；佇列與 Mix 裡它的曲目照「音源未安裝」跳過並標示；電台列標「音源已停用」、點了提示；憑證與 storage 保留。
+- `installed_plugins.enabled`（預設真）。停用＝不載入 runtime：不出現在搜尋 chip、帳號頁、健康檢查、排程器（ADR 0017 §決定 5 立即移除它的工作）；佇列與 Mix 裡它的曲目照「音源未安裝」的方式跳過，標「音源已停用」（`pluginNameProvider`，PR 4）；電台列標「音源已停用」、點了提示；憑證與 storage 保留。
 - **「沒有回應」**是執行期狀態（ADR 0014 的看門狗），到重啟為止，不存資料庫；插件頁直接把它停用（M1 follow-up：插件無限迴圈呼叫宿主 API 時只會一直 `NetworkError`、不會被看門狗停用，使用者手動停用解決）。
 - 慣例：VS Code 的擴充功能啟用與停用、MusicFree 的「禁用」。
 - 閘門：`plugin_registry_test.dart`：停用後 registry 沒有它、啟用後載入；`enabled` 跨重啟；排程器的工作被移除（PR 17 後補一條）。
 
 ### 7.4 安裝、更新、移除（§8.18）
 
-- **安裝前確認**（ADR 0014 §決定 6）：對話框列出名稱、作者、版本、能力（翻譯過的名稱）、會連的網域，警告「此腳本會以你的登入身分存取這些網站」；從檔案或網址安裝另加「非官方來源」。dev 的 `--fmp-dev-plugin` 入口照舊跳過確認（prod 不讀）。
+- **安裝前確認**（ADR 0014 §決定 6）：對話框列出名稱、作者、版本、能力（翻譯過的名稱）、會連的網域，警告「此腳本會以你的登入身分存取這些網站」；從檔案或網址安裝另加「非官方來源」。
+  - 從 index 安裝：先下載並驗過 SHA-256，**對話框的內容取自下載到的 `.js` 標頭 manifest**；它的 `id`、`version`、`apiVersion`、`capabilities`、`allowedHosts` 與 index 那一筆不同就拒裝。自訂 index 的 SHA 由同一份 index 提供，只驗得了「檔案是 index 說的那個」，驗不了 index 自己寫的能力與網域。更新時「新增的能力或網域」也以兩份 manifest 比。dev 的 `--fmp-dev-plugin` 入口照舊跳過確認（prod 不讀）。
 - **更新**：只在打開插件頁或按「檢查更新」時比對 index（ADR 0014 §決定 7）；semver 只升不降（`pub_semver` 2.2.1，Dart 團隊維護）；`apiVersion` 不相容時顯示「需要更新 FMP」並停用按鈕。同 id 更新保留 storage 與憑證。**能力或網域比目前版本多時**，先列出新增的部分再確認（§16 第 11 條）；「全部更新」遇到這種插件就逐個問，沒有增加的直接更新。慣例：Chrome 擴充功能要求新權限時先停用等確認、Android 的權限變更提示。
 - 更新後佇列與網址快取以新插件重新解析（M2 PR 7 的快取鍵含插件實例，`plugin_installer_test.dart` 已有；M3 實機第一次有入口，M2 待辦 8）。
 - **移除**：確認框 → 關閉 runtime → `CredentialStore` 刪除與遮蔽取消登記 → 刪 WebView 中該插件 `cookieHosts` 的 cookie → 刪 `accounts`、`source_settings` 列 → `CacheStore.removePlugin`（M2 已有）→ 排程器移除工作（PR 17 起）→ 刪 `installed_plugins` 列（`plugin_storage` cascade）。中途失敗就停在那一步、記錯、提示；再按一次從頭跑（每一步都可重複）。
 - **曲目保留**，顯示「音源未安裝」取代目前顯示插件 id 的做法（`pluginNameProvider`）；電台列同樣保留（§16 第 10 條）。
 - **Redactor 去重**（M1 待辦 14）：插件更新與重新載入時，`Redactor` 的 `_mediaCdns` 以插件 id 為鍵取代，不再累加。
-- 閘門：`plugin_installer_test.dart`：SHA 不符拒裝且不寫資料庫；semver 降版不顯示更新；`apiVersion` 不符；更新保留 storage 與憑證；能力或網域增加時回傳「需要確認」；移除後每一步的資料都不在（CredentialStore、accounts、cache 項目、storage、installed_plugins）；移除中途失敗後重跑可完成。
+- 閘門：`plugin_installer_test.dart`：SHA 不符拒裝且不寫資料庫；index 的能力或網域與 `.js` manifest 不同時拒裝；semver 降版不顯示更新；`apiVersion` 不符；更新保留 storage 與憑證；能力或網域增加時回傳「需要確認」；移除後每一步的資料都不在（CredentialStore、accounts、cache 項目、storage、installed_plugins）；移除中途失敗後重跑可完成。
 
 ### 7.5 插件頁（§8.20）
 
@@ -651,6 +655,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 - **控制的東西**：設定頁的 Debug 入口、錯誤提示的「詳細」（§13）、log 層級可調到 debug、Debug 路由、插件開發工具。
 - **路由閘門**：開發者模式關閉時 Debug 路由一律 redirect 回設定頁。
 - **版面**：沿用設定頁的 list-detail（ADR 0024），八個區塊照 ADR 0025 §決定 2 的表；全部用 token 與 slang 字串。
+- **版本的來源**：平台層讀 `package_info_plus`（§14），版本號來自 pubspec（發版時等於 release-please manifest，ADR 0022）。
 - **概覽**：總開關、log 層級、版本／flavor／平台／資料目錄（顯示時以 `~` 代換家目錄，§12.4）、快取用量連結（到設定頁「網路」）、診斷包（§12.4，PR 15 加）。
 - 閘門：ADR 0025 §如何確認的開發者模式三項（連點 7 次寫入、關閉清空 `logLevel` 與卸載、dev flavor 預設開）；widget 測試（關閉時直接進 Debug 路由被 redirect、設定頁入口只在開啟時）。
 
@@ -675,8 +680,8 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 ### 12.4 診斷包（ADR 0025 §決定 10、ADR 0011 §決定 6，§8.28）
 
 - **內容**：`diagnostics.txt`、`diagnostics.json`（版本、flavor、平台與版本、語系、各插件的 id／版本／啟用、各音源是否登入（是／否）、非敏感設定摘要（各組欄位，`plugin_dev_folder` 只寫有無））、目前的 log 檔。產生時組裝一次。不含帳號名稱、硬體識別、歌單內容。
-- **資料目錄的使用者名稱**（M1 待辦 13）：遮蔽函式把使用者家目錄登記為已知值、換成 `~`（Finamp 的已知值替換，ADR 0011 §決定 3）；`App started` 的 `dataDirectory` 因此在 log 檔與診斷包都是 `~\…`。
-- **動作**：「複製」（純文字摘要）；「存檔」：`fmp-diagnostics-<時間>.zip`，以 `file_picker` 13.1.0 的 `saveFile(bytes:)`（桌面是存檔對話框；Android 走 SAF。`file_picker` 取代 ADR 0025 寫的 `file_selector`，矛盾 2）；「分享」：`share_plus` 13.3.1，只在宣告 `PlatformCapabilities.shareFiles` 的平台顯示（Android、Windows 10 1809 起都有）。
+- **資料目錄的使用者名稱**（M1 待辦 13）：遮蔽函式把使用者家目錄登記為已知值、換成 `~`（Finamp 的已知值替換，ADR 0011 §決定 3）；`App started` 的 `dataDirectory` 因此在 log 檔與診斷包都是 `~\…`。`Redactor` 現在只有換成 `***` 的 `registerSecret`，要加一個帶替換字串的登記；登記要在 `main()` 寫 `App started` 之前。
+- **動作**：「複製」（純文字摘要）；「存檔」：`fmp-diagnostics-<時間>.zip`，以 `file_picker` 13.1.0 的 `saveFile(bytes:)`（桌面是存檔對話框；Android 走 SAF。`file_picker` 取代 ADR 0025 寫的 `file_selector`，矛盾 2）；「分享」：`share_plus` 13.3.1，只在宣告 `PlatformCapabilities.shareFiles` 的平台顯示（Android、Windows 都支援分享檔案，pub.dev 的平台表；Windows 的最低版本沒有寫明，PR 15 實機確認）。
 - **zip**：`archive` 4.3.0（舊版用 4.2），在 isolate 壓。
 - **第一次匯出**提醒「送出前請檢查」，與 GitHub 回報共用 `report_reminder_dismissed`。
 - **暫存**：分享用的 zip 寫在快取目錄，分享後刪；殘留的由啟動維護清單的新項目「診斷包暫存」清掉（M2 design §6 留的登記點）。
@@ -687,8 +692,10 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 - **健康檢查**：對已安裝且啟用的插件，以真實連線跑它的檢查案例；手動觸發「全部」或單一插件，一次跑一個插件。
   - 案例來源：從 index 安裝的插件用 `installed_plugins.checks_json`；開發中的插件讀資料夾的 `checks.json`；從檔案或網址安裝的顯示「沒有檢查案例」（§16 第 12 條）。
   - 結果：每案例通過／失敗、耗時、`AppError` 類別；`requiresLogin` 而未登入的標「略過」。結果以 tag `health` 經 log 門面寫入，不另存。
-  - 契約執行器的「案例期望」判斷（成功筆數、非空欄位、錯誤類別）從 `test/plugins/contract/` 抽到 `lib/plugins/health/check_expectations.dart`，契約測試改為引用它，判斷只有一份。
-- **adapter 移進 `lib/core/network/fixture_adapters.dart`**（矛盾 10，M1 待辦 11）：錄製與重播的 `HttpClientAdapter` 從 `test/plugins/contract/fixture_adapters.dart` 移來，格式不變；`test/plugins/contract/` 改為引用它。`restrictedImports` 只准 `lib/plugins/dev/` import（§2.2）。ADR 0015 §決定 6 的更正加一行。
+  - `checks.json` 的解析（`test/plugins/contract/checks.dart` 的 `parseChecks`、`checkShapes`）與契約執行器的「案例期望」判斷（成功筆數、非空欄位、錯誤類別）從 `test/plugins/contract/` 移到 `lib/plugins/health/`：健康檢查要讀 `installed_plugins.checks_json`，解析目前只在 `test/`。契約測試改為引用它，判斷只有一份；`type_definitions_test.dart` 比對 `checkShapes` 的位置跟著改。
+- **adapter 移進 `lib/core/network/fixture_adapters.dart`**（矛盾 10，M1 待辦 11）：錄製與重播的 `HttpClientAdapter` 從 `test/plugins/contract/fixture_adapters.dart` 移來，格式不變；它依賴的 `fixture.dart`（`FmpFixture` 的解析與 `fixtureShapes`）一起移到 `lib/core/network/`。`test/plugins/contract/` 改為引用它們。`restrictedImports` 只准 `lib/plugins/dev/` import（§2.2）。ADR 0015 §決定 6 的更正加一行。
+  - `fixture.dart` 用 `lib/plugins/json_shape.dart` 的 `JsonShape`／`JsonFields`，而 `lib/core/` 不准 import `lib/plugins/`（`forbiddenLayerImports`）：`json_shape.dart` 先移到 `lib/core/`（它不依賴插件的任何東西），`lib/plugins/` 改 import 新位置。adapter 不能反過來放 `lib/plugins/dev/`：`dio` 只准在 `lib/core/network/`（`externalPackageOwners`）。
+  - `SourceHttpClientFactory` 只接受一個外部給的 `HttpClientAdapter`，不 import `fixture_adapters.dart`；由 `lib/plugins/dev/` 建好 adapter 傳進去。
 - **插件開發**（只在宣告 `pluginDevTools` 的平台：Windows 真、Android 假）：
   - 「選擇資料夾」以 `file_picker` 的 `getDirectoryPath`，路徑存 `plugin_dev_folder`；資料夾裡的插件目錄（`.js` 加 `checks.json` 加 `fixtures/`，和契約執行器同一格式）標「開發中」，本次執行取代同 id 的已安裝插件，卸載後恢復已安裝版。
   - 「重新載入」：拆掉該插件的 runtime 再重建（LX Music「切換＝銷毀重建」）。
@@ -722,10 +729,11 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 | `url_launcher` | 6.3.3 | 「在 GitHub 回報」 | `lib/platform/` | 13 |
 | `archive` | 4.3.0 | 診斷包 zip | `lib/app/diagnostics` | 15 |
 | `share_plus` | 13.3.1 | 分享診斷包 | `lib/platform/` | 15 |
+| `package_info_plus` | 10.2.2 | 「關於」的版本列、`ErrorReport` 與診斷包的 App 版本（`lib/` 現在沒有任何讀版本的地方） | `lib/platform/`（M1 已列入 `platformPackages`） | 11 |
 
 - 沒有選的：`file_selector`（ADR 0025 原寫，改用 ADR 0009 已定的 `file_picker`，矛盾 2）；`webview_flutter` 4.14.1（沒有 Windows）、`webview_windows` 0.4.0（2024-02，只有 Windows）、`desktop_webview_window` 0.3.0（獨立視窗，取 cookie 的能力沒查到）；`pretty_qr_code` 3.6.0（備案）。
 - `flutter_inappwebview` 6.1.5 兩年沒有 stable 新版、6.2.0 還在 beta：由 R1 在 Flutter 3.47.5 實測建置（§16 不列，R1 的結果決定）。
-- 加了原生插件的 PR（7、9、13、15，以及 5 的 `file_picker`）照 M2 的做法保留真正新增的 plugin registrant，並以 `zipalign -c -P 16` 確認 Android 新增的原生庫是 16KB 對齊（ADR 0010 §後果）。
+- 加了原生插件的 PR（7、9、11、13、15，以及 5 的 `file_picker`）照 M2 的做法保留真正新增的 plugin registrant，並以 `zipalign -c -P 16` 確認 Android 新增的原生庫是 16KB 對齊（ADR 0010 §後果）。
 
 ## 15. 文件更正
 
@@ -734,19 +742,19 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 | 文件 | 更正 | 何時 |
 |---|---|---|
 | ADR 0012 §決定 1 | 補充（M3）：匿名 cookie 由插件存在自己的 storage（`plugin_storage` 表）；登入後的 Cookie 與插件自己送的同名 cookie 以憑證為準合併（ADR 0029）（矛盾 6） | PR 0 |
-| ADR 0012 §決定 5 | 補充（M3）：「`QueuedInterceptor` 單飛」由 ADR 0029 細化：判定在插件內，單飛刷新與重送做在插件呼叫層，重跑整個插件呼叫（§6.5，§16 第 1 條） | PR 0（確認後） |
+| ADR 0012 §決定 5 | 補充（M3）：「`QueuedInterceptor` 單飛」由 ADR 0029 細化：判定在插件內，單飛刷新與重送做在插件呼叫層，重跑整個插件呼叫（§6.5，§16 第 1 條） | PR 0 |
 | ADR 0013 §決定 4 | 補充（M3）：音源以 `HttpRequest.idempotent` 標語意冪等的 POST（ADR 0028） | PR 0 |
 | ADR 0014 §決定 5 | 補充（M3）：「發佈」指 `app/` 第一個 prod 版本對外發佈（M9 切換）；在那之前 v1 可加選填欄位與匯出，`fmp-plugins` 同一輪跟上（矛盾 11） | PR 0 |
-| ADR 0015 §決定 6 | 更正（M3）：錄製與重播的 adapter 移到 `lib/core/network/`（App 內開發工具使用），`app/test/plugins/contract/` 改為引用它，格式不變；上一則更正的「放進 `lib/` 違反分層」只指 QuickJS 與零聯網的測試準備（矛盾 10） | PR 16 |
-| ADR 0018 §決定 6 | 更正（M3）：被取代的請求不經宿主取消網路工作；控制器以代際檢查丟掉結果、不再發解析，已送出的 HTTP 讓它跑完（ADR 0028）。§如何確認的「開直播取消進行中的音樂請求」改為「開直播後，進行中的音樂解析結果不播出、不再發解析」（§4.9，§16 第 2 條） | PR 0（確認後） |
-| ADR 0018 §決定 9 | 更正（M3）：直播重連改用 §決定 7 的 1／3／9 秒；1／3／10 是舊版 `RadioReconnectConfig` 的值，沒有刻意區分（矛盾 7，§16 第 3 條） | PR 0（確認後） |
+| ADR 0015 §決定 6 | 更正（M3）：錄製與重播的 adapter 與 fixture 格式的解析移到 `lib/core/network/`、`checks.json` 的解析與案例期望移到 `lib/plugins/health/`（App 內開發工具與健康檢查使用），`app/test/plugins/contract/` 改為引用它們，格式不變；上一則更正的「放進 `lib/` 違反分層」只指 QuickJS 與零聯網的測試準備（矛盾 10） | PR 16 |
+| ADR 0018 §決定 6 | 更正（M3）：被取代的請求不經宿主取消網路工作；控制器以代際檢查丟掉結果、不再發解析，已送出的 HTTP 讓它跑完（ADR 0028）。§如何確認的「開直播取消進行中的音樂請求」改為「開直播後，進行中的音樂解析結果不播出、不再發解析」（§4.9，§16 第 2 條） | PR 0 |
+| ADR 0018 §決定 9 | 更正（M3）：「開直播必然取消進行中的音樂請求」照 §決定 6 的更正，指進行中的音樂解析結果被丟掉、不播出、不再發解析；直播重連改用 §決定 7 的 1／3／9 秒；1／3／10 是舊版 `RadioReconnectConfig` 的值，沒有刻意區分（矛盾 7，§4.9，§16 第 2、3 條） | PR 0 |
 | ADR 0024 §決定 6 | 補充（M3）：設定頁除 ADR 0011 的設定組外，另有「帳號」（第一個）、「插件」、「關於」，開發者模式下最後一個是 Debug 頁入口；這些不是設定表（矛盾 12） | PR 0 |
 | ADR 0025 §決定 7、10 | 更正（M3）：`file_selector.getDirectoryPath`／`getSaveLocation` 改用 ADR 0009 §決定 6 的 `file_picker`（13.1.0）的 `getDirectoryPath`、`saveFile`；「file_picker 沒有 SAF」不成立（13.x 有 Android SAF 選項），Android 插件開發仍另立 ADR（矛盾 2） | PR 0 |
-| ADR 0025 §決定 9 | 更正（M3）：自動備份＝以 SQLite `VACUUM INTO` 把資料庫複製到 `backups/fmp-<時間>.db`；「從備份還原」＝換回該檔並重啟。憑證不在資料庫，還原後要重新登入。M4 的 E16 匯出格式另定（矛盾 1，§16 第 7 條） | PR 0（確認後） |
+| ADR 0025 §決定 9 | 更正（M3）：自動備份＝以 SQLite `VACUUM INTO` 把資料庫複製到 `backups/fmp-<時間>.db`；「從備份還原」＝換回該檔並重啟。憑證不在資料庫，還原後要重新登入。M4 的 E16 匯出格式另定（矛盾 1，§16 第 7 條） | PR 0 |
 | ADR 0026 §決定 3 | 修訂（2026-10-08，M3 規劃時擁有者決定）：M3 拆成 M3a「三音源與帳號」與 M3b「開發工具、排程器、電台、Mix、分 P」，M4 依賴 M3b；明細見 `milestones.md` | PR 0 |
 | ADR 0029 | 依 R1 的結果定案 App 內網頁登入的部分（套件、`login.webView` 欄位、`loginWebView` 能力），狀態仍「提議中」直到核准 | R1 後、PR 0 前 |
 | `milestones.md` § M3 | 拆成 M3a、M3b 兩節與兩列（依賴：M3a←M2、M3b←M3a、M4←M3b）；範圍加「設定『關於』區塊的版本列（開發者模式入口；其餘內容 M9）」（矛盾 4）；驗收照 `prd.md`（加 ADR 測試的項目，矛盾 13） | PR 0 |
-| `09-26-fmp-rewrite/task.json` | 子任務清單加本任務（工作區已有未提交的改動，一併整理） | PR 0 |
+| `09-26-fmp-rewrite/task.json` | 子任務清單加本任務 | 已在本規劃的 commit `f7736306` 加入 |
 | `app/AGENTS.md` | § 網路「目前（M2）的認證來源是 `NoCredentials`」、§ 插件的 `checks.json`「只收兩個能力」、§ 資料層、§ 平台層、§ Lint 隨各 PR 改寫；加 § 排程器、§ 帳號、§ 電台 | 各 PR |
 | `.trellis/spec/app/plugins/index.md` | 「寫一個插件」加 `login`、`live`、`mix`、`multiPart`、`trackDetail` 的寫法與 `requiresLogin` | 各 PR |
 | `fmp-plugins/README.md` | 「目前沒有發佈版本」改寫成 index 與 CI 的說明 | PR 3 |
