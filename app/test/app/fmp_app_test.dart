@@ -16,12 +16,14 @@ import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../plugins/plugin_harness.dart';
 import '../support/fake_network_interfaces.dart';
+import '../support/credentials.dart';
 import '../support/memory_database.dart';
 
 void main() {
@@ -43,6 +45,7 @@ void main() {
           appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
           redactorProvider.overrideWithValue(redactor),
           logProvider.overrideWithValue(log),
+          secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
           platformCapabilitiesProvider.overrideWithValue(capabilities),
           networkInterfacesProvider.overrideWithValue(
             interfaces ?? FakeNetworkInterfaces(),
@@ -272,6 +275,7 @@ void main() {
       const capabilities = PlatformCapabilities(
         dataDirectory: true,
         singleInstance: false,
+        secureStorage: false,
         fontFallback: FontFallback(
           traditionalChinese: ['TC Font'],
           simplifiedChinese: ['SC Font'],

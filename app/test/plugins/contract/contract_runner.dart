@@ -20,6 +20,8 @@ import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:path/path.dart' as p;
 
+import '../../support/credentials.dart';
+
 import 'checks.dart';
 import 'credential_scan.dart';
 import 'fixture.dart';
@@ -457,16 +459,24 @@ final class _Environment {
         installedAt: DateTime.utc(2026),
       ),
     );
+    // 契約只重播或錄不需要登入的案例：沒有憑證的存放。
+    final credentials = credentialStoreFor(
+      database,
+      redactor: redactor,
+      log: log,
+    );
     final loader = ScriptPluginLoader(
       log: log,
       redactor: redactor,
       httpClients: SourceHttpClientFactory(
         log: log,
+        credentials: credentials,
         createAdapter: () => _adapter(redactor),
         wait: _wait,
         random: math.Random(7),
       ),
       storage: PluginStorageRepository(database),
+      credentials: credentials,
     );
     final plugin = await loader.load(file);
     loaded = true;

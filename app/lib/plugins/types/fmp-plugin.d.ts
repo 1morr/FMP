@@ -172,6 +172,11 @@ export interface HttpRequest {
   body?: string | null;
   /** 帶不帶登入憑證（ADR 0012），預設 never。 */
   auth?: 'never' | 'userPreference' | 'required' | null;
+  /**
+   * 只在宿主判定要帶憑證時才加上的 header（例如從 cookie 算出來的 `Authorization: SAPISIDHASH …`）；
+   * 未登入、開關關閉、已失效或 auth 為 never 時整個丟掉。名稱一律進遮蔽名單。
+   */
+  authHeaders?: Record<string, string> | null;
   /** 空＝依方法（只有冪等方法重試）；true 讓語意冪等的 POST 也重試，false 一律不重試。 */
   idempotent?: boolean | null;
 }
@@ -184,6 +189,11 @@ export interface HttpResponse {
   headers: Record<string, string[]>;
   /** 以 UTF-8 解碼（不合法的位元組換成 U+FFFD）。 */
   body: string;
+  /**
+   * 這次請求有沒有真的帶憑證。「憑證無效」的判定（401 等）只在它為 true 的回應上成立：
+   * 沒帶憑證的 401 是匿名請求被拒，不是憑證失效。
+   */
+  credentialsAttached?: boolean;
 }
 
 export interface FmpHttp {
@@ -204,9 +214,17 @@ export interface FmpStorage {
   delete(key: string): Promise<void>;
 }
 
+/** 登入憑證的形狀（ADR 0029 §決定 3）。值是秘密：不要寫進 log 或 storage。 */
+export interface FmpLoginCredentials {
+  /** cookie 名稱對值。 */
+  cookies: Record<string, string>;
+  /** 不是 cookie 的東西（例如刷新用的 refresh_token）。 */
+  extra?: Record<string, string> | null;
+}
+
 export interface FmpCredentials {
-  /** 這個插件自己的登入憑證；M1 一律 null。 */
-  get(): Promise<Record<string, string> | null>;
+  /** 這個插件自己的登入憑證；沒登入、暫時讀不到或已失效時為 null。 */
+  get(): Promise<FmpLoginCredentials | null>;
 }
 
 /** 寫進宿主的 log（經遮蔽），tag 是插件 id。 */

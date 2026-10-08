@@ -4,6 +4,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/install/plugin_installer.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
@@ -22,6 +23,7 @@ ProviderContainer _container(PluginHarness plugins, CacheStore? cache) {
       appDatabaseProvider.overrideWithValue(plugins.database),
       logProvider.overrideWithValue(plugins.log),
       redactorProvider.overrideWithValue(plugins.redactor),
+      credentialStoreProvider.overrideWithValue(plugins.credentials),
       sourceHttpClientFactoryProvider.overrideWithValue(plugins.httpClients),
       mediaHttpClientFactoryProvider.overrideWithValue(
         plugins.mediaHttpClients,

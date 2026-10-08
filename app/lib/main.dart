@@ -24,6 +24,7 @@ import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -110,6 +111,8 @@ Future<void> main(List<String> arguments) async {
         platformCapabilitiesProvider.overrideWithValue(platform.capabilities),
         networkInterfacesProvider.overrideWithValue(platform.networkInterfaces),
         systemMediaControlsProvider.overrideWithValue(platform.mediaControls),
+        // 憑證的唯一存放處；有資料目錄的平台（Android、Windows）都有。
+        secureStorageProvider.overrideWithValue(platform.secureStorage!),
         // 快取目錄只交給快取模組開（cacheStoreProvider）；開不起來 App 照常。
         cacheDirectoryProvider.overrideWithValue(platform.cacheDirectory!),
         // 插件的開發入口只在 dev（devPluginPath 在 prod 回 null；理由見
