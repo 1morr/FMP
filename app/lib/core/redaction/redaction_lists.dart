@@ -63,7 +63,9 @@ const builtInMediaCdns = <MediaCdn>[
   MediaCdn(host: 'bilivideo.cn', signedQueryParameters: _bilibiliSigned),
   MediaCdn(host: 'akamaized.net', signedQueryParameters: _bilibiliSigned),
   MediaCdn(host: 'szbdyd.com', signedQueryParameters: _bilibiliSigned),
-  // YouTube
+  // YouTube；`expire`（到期的 unix 秒）同 B 站的 `deadline`，不遮：公開的時間戳、
+  // 不是憑證，網址少了 `sig`／`lsig` 照樣不能用；fixture 留著它，契約的
+  // `expiresAtPattern`（`[?&]expire=(\d+)`）才核對得了 `expiresAt`（design §5.1）。
   MediaCdn(
     host: 'googlevideo.com',
     signedQueryParameters: {
@@ -72,7 +74,6 @@ const builtInMediaCdns = <MediaCdn>[
       'signature',
       'sparams',
       'lsparams',
-      'expire',
       'ip',
       'ipbits',
       'ei',
