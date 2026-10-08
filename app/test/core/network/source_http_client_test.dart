@@ -609,11 +609,12 @@ void main() {
       expect(harness.waits, isEmpty);
     });
 
-    test('idempotent only changes retrying, not the redirect hop', () async {
+    test('idempotent carries over a redirect that keeps the POST', () async {
       var calls = 0;
       final harness = Harness(
         (options) => switch (options.uri.path) {
-          '/a' => redirect('/b'),
+          // 307 保留 POST：302 會改成 GET，GET 本來就重試，驗不到這條。
+          '/a' => redirect('/b', status: 307),
           _ => ++calls < 2 ? throw refused(options) : reply(200),
         },
       );
