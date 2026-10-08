@@ -46,6 +46,9 @@ dependencies:
   drift: ^2.35.0
   # flutter_cache_manager 的 FileSystem 介面回傳它的 File 型別（lib/data/cache/）。
   file: ^7.0.1
+  # 從檔案安裝插件時選 .js（ADR 0009 §決定 6、ADR 0030 §決定 8）；只准在
+  # lib/platform/ import（fmp_layer_imports）。
+  file_picker: ^13.1.0
   flutter:
     sdk: flutter
   # 插件的 JS 引擎（ADR 0014 §決定 2），只准在 lib/plugins/runtime/ import
