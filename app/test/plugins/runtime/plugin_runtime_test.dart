@@ -155,6 +155,50 @@ export async function fetchIt() {
       expect(record.fields['pluginId'], 'plugin-a');
     });
 
+    test('http.request passes idempotent on to the retry decision', () async {
+      var calls = 0;
+      final harness = PluginHarness(
+        handler: (options) => ++calls % 2 == 1
+            ? throw DioException.connectionError(
+                requestOptions: options,
+                reason: 'refused',
+              )
+            : reply(200),
+      );
+      final runtime = await harness.runtime('''
+export async function marked() {
+  const response = await fmp.http.request({
+    url: 'https://example.test/', method: 'POST', idempotent: true,
+  });
+  return response.status;
+}
+export async function unmarked() {
+  try {
+    await fmp.http.request({ url: 'https://example.test/', method: 'POST' });
+    return 'ok';
+  } catch (e) {
+    return e.fmpError;
+  }
+}
+export async function badType() {
+  try {
+    await fmp.http.request({ url: 'https://example.test/', idempotent: 'yes' });
+    return 'ok';
+  } catch (e) {
+    return e.name;
+  }
+}
+''');
+
+      expect(await runtime.invoke('marked', null), 200);
+      expect(harness.adapter.requests, hasLength(2));
+      harness.adapter.requests.clear();
+      calls = 0;
+      expect(await runtime.invoke('unmarked', null), 'NetworkError');
+      expect(harness.adapter.requests, hasLength(1));
+      expect(await runtime.invoke('badType', null), 'TypeError');
+    });
+
     test('a host outside the manifest is refused without a request', () async {
       final harness = PluginHarness();
       final runtime = await harness.runtime('''

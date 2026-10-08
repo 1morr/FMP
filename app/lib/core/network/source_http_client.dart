@@ -40,6 +40,7 @@ final class SourceRequest {
     this.headers = const {},
     this.body,
     this.auth = AuthRequirement.never,
+    this.idempotent,
   });
 
   final Uri url;
@@ -53,6 +54,10 @@ final class SourceRequest {
 
   /// 帶不帶憑證（ADR 0012 §決定 2）。
   final AuthRequirement auth;
+
+  /// 空＝依 [method]；`true` 讓語意冪等的 POST 也重試，`false` 一律不重試
+  /// （ADR 0028 §決定 2）。只影響重試。
+  final bool? idempotent;
 }
 
 /// 請求的結果。狀態碼不在網路層判斷：429 與帶 `Retry-After` 的 503 以外，
@@ -283,6 +288,7 @@ final class SourceHttpClient {
             error,
             attempt: retry,
             method: request.method,
+            idempotent: request.idempotent,
             policy: _retryPolicy,
           )
           ? delayFor(
@@ -335,6 +341,7 @@ final class SourceHttpClient {
       },
       body: toGet ? null : hop.body,
       auth: crossHost ? AuthRequirement.never : hop.auth,
+      idempotent: hop.idempotent,
     );
   }
 }

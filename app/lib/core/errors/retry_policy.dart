@@ -58,6 +58,7 @@ bool isIdempotent(String method) => _idempotentMethods.contains(method);
 ///
 /// [attempt] 是已經重試過的次數（原本那次失敗後為 0）。四個條件都成立才重試：
 /// - 請求冪等（[isIdempotent]；RFC 9110 §9.2.2：非冪等請求不該自動重試）；
+///   [idempotent] 非空時以它為準（音源標語意冪等的 POST，ADR 0028 §決定 2）；
 /// - [AppError.retryable] 為真；
 /// - [attempt] 還沒到 [RetryPolicy.maxRetries]；
 /// - 沒有 `Retry-After`，或它沒超過 [RetryPolicy.maxRetryAfter]。
@@ -66,9 +67,10 @@ bool shouldRetry(
   required int attempt,
   required String method,
   required RetryPolicy policy,
+  bool? idempotent,
 }) {
   RangeError.checkNotNegative(attempt, 'attempt');
-  return isIdempotent(method) &&
+  return (idempotent ?? isIdempotent(method)) &&
       error.retryable &&
       attempt < policy.maxRetries &&
       _withinRetryAfterLimit(error, policy);

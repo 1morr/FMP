@@ -170,6 +170,8 @@ export interface HttpRequest {
   body?: string | null;
   /** 帶不帶登入憑證（ADR 0012），預設 never。 */
   auth?: 'never' | 'userPreference' | 'required' | null;
+  /** 空＝依方法（只有冪等方法重試）；true 讓語意冪等的 POST 也重試，false 一律不重試。 */
+  idempotent?: boolean | null;
 }
 
 export interface HttpResponse {
