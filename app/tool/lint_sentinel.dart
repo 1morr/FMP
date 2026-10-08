@@ -27,6 +27,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:material_ui/material_ui.dart' as m;
+import 'package:pub_semver/pub_semver.dart';
 
 class Dio {
   Dio();
@@ -68,6 +69,8 @@ const _expectedMessages = [
   'package:cached_network_image* is only allowed in lib/ui/artwork/',
   // externalPackageOwners 的 audio_session（Android 的音訊中斷）
   'package:audio_session* is only allowed in lib/playback/backends/',
+  // externalPackageOwners 的 pub_semver（插件庫的版本比較）
+  'package:pub_semver* is only allowed in lib/plugins/repository/',
 ];
 
 Future<void> main() async {

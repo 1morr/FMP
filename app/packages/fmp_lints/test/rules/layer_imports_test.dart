@@ -289,6 +289,33 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // ADR 0030：pub_semver 只在插件庫流程；同前綴的 pub_semver_x 算同系列，
+  // 名稱相似但不同系列（pub_semvers）不算。
+  Future<void> test_pubSemverOutsideThePluginRepository() async {
+    for (final path in [
+      'lib/plugins/plugin_registry.dart',
+      'lib/plugins/repository_helpers/update.dart',
+      'lib/ui/plugins/plugin_page.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:pub_semver/pub_semver.dart'!];\n"
+        "import [!'package:pub_semver_extras/pub_semver_extras.dart'!];\n",
+      );
+    }
+  }
+
+  Future<void> test_pubSemverInThePluginRepository() async {
+    await assertLints(
+      'lib/plugins/repository/plugin_updates.dart',
+      "import 'package:pub_semver/pub_semver.dart';\n",
+    );
+    await assertLints(
+      'lib/plugins/plugin_registry.dart',
+      "import 'package:pub_semvers/pub_semvers.dart';\n",
+    );
+  }
+
   Future<void> test_restrictedPlaybackFilesFromAllowedImporters() async {
     await assertLints(
       'lib/playback/playback_session.dart',

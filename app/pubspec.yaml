@@ -82,6 +82,8 @@ dependencies:
   media_kit_libs_windows_audio: ^1.0.9
   path: ^1.9.1
   path_provider: ^2.1.6
+  # 插件版本比較（ADR 0030 §決定 4）；只准在 lib/plugins/repository/ import（fmp_layer_imports）。
+  pub_semver: ^2.2.1
   # 介面字串（ADR 0024 §決定 7）。不用 slang_flutter：翻譯以 Riverpod 注入
   # （lib/ui/i18n/），不用 slang 的 LocaleSettings／TranslationProvider。
   slang: ^4.19.2
