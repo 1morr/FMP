@@ -81,6 +81,8 @@ final class PluginRegistry extends AsyncNotifier<Map<String, SourcePlugin>> {
       }
       _media.clear();
     });
+    // 重建時以資料庫為準，不沿用上一次的停用清單。
+    _disabled.clear();
     final plugins = <String, SourcePlugin>{};
     for (final installed in await repository.list()) {
       if (!installed.enabled) {
@@ -178,7 +180,13 @@ final class PluginRegistry extends AsyncNotifier<Map<String, SourcePlugin>> {
         final plugin = await ref
             .read(scriptPluginLoaderProvider)
             .load(PluginFile.parse(installed.script));
-        await repository.setEnabled(pluginId, enabled: true);
+        try {
+          await repository.setEnabled(pluginId, enabled: true);
+        } on Object {
+          // 旗標沒寫進去就不加入清單：關掉剛載入的 runtime，不留下背景 isolate。
+          plugin.close();
+          rethrow;
+        }
         await register(plugin);
         return;
       }
