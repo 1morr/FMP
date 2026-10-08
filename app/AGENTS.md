@@ -216,6 +216,25 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   缺欄位先清）、`platform_test.dart`
   的 `system media controls on Windows`（宣告與初始化失敗）、`now_playing_publisher_test.dart` 的
   `position refresh`、`artwork url`；`layer_imports_test.dart` 的 `smtc_windows` 案例守「只在 `lib/platform/`」。
+- Android 的前景服務與中斷（`media_controls_android.dart`）：`androidStopForegroundOnPause: true`，暫停時
+  `audio_service` 放掉前景服務、通知可以滑掉（舊版也是這樣，省電）。來電等中斷把播放暫停後，掛斷時控制器
+  自動續播，`audio_service` 的 `enterPlayingState` 要重新 `startForegroundService`，但 App 這時在背景，
+  Android 12 起拒絕（`ForegroundServiceStartNotAllowedException`，logcat `Background started FGS:
+  Disallowed`），例外只進 `AudioService.asyncError`；之後服務不在前景，約 1 分鐘 `am_stop_idle_service`、
+  再約 1.5 分鐘 `am_freeze`，音樂就停了（模擬器實測，2026-10-08）。所以只在「因中斷而暫停」的期間
+  （`MediaPhase.interrupted`）對 `audio_service` 回報 `playing: true` 加 `AudioProcessingState.buffering`：
+  `exitPlayingState` 不會跑、前景服務不放，buffering 讓系統不推算進度；續播時不必從背景重新啟動前景服務。
+  不改成永遠不放前景服務：一般暫停放掉是想要的行為。轉換是純函數 `androidPlaybackStateOf`；Windows 的
+  `smtcStatusOf` 把 `interrupted` 對成 SMTC 的暫停（Windows 沒有這個問題，也不會出現這個 phase，列舉要完整）。
+  `AudioService.asyncError` 由 `AndroidSystemMediaControls` 在初始化後聽，以 `log.report`（tag
+  `media-controls`）記下，不提示使用者（`AppPlatform.withMediaControls(log:)` 交給實作）。閘門：
+  `media_controls_android_test.dart`（`interrupted` → playing 加 buffering 加暫停鍵、一般階段不變；`reportAsyncErrors`
+  記 log、取消後不再記）、`media_controls_windows_test.dart` 的 `status`、`now_playing_publisher_test.dart` 的中斷案例。
+  **沒有自動閘門、要實機驗**：`audio_service` 的 `asyncError` stream 是私有的，`AndroidSystemMediaControls`
+  聽的是不是它、以及真的來電後前景服務有沒有留住，只能在 Android 模擬器驗：背景播放中
+  `adb emu gsm call 5551234`、`gsm cancel 5551234`，掛斷後音樂續播，`logcat` 沒有 `Background started FGS:
+  Disallowed`，`logcat -b events` 之後沒有 `am_stop_idle_service`、`am_freeze`；`dumpsys media_session` 在中斷期間
+  是 `BUFFERING`。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
   下面的覆寫**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
@@ -879,9 +898,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   中斷結束時續播；`Idle` 時的中斷不會在結束時開始播放；等重試時
   的中斷取消那次重試，結束時從原位置重新開流。Android 8 起系統自動 duck
   （`setWillPauseWhenDucked(false)` 是 audio_session 的預設），App 收不到 duck 的回呼，所以實機
-  幾乎看不到 duck 那一支。閘門：`backend_rules_test.dart` 的
-  `audio interruptions (Android)`、`playback_event_router_test.dart` 的 `output events`、
-  `playback_controller_test.dart` 的 `audio interruptions` 群組。`JustAudioBackend` 接
+  幾乎看不到 duck 那一支。控制器對外給 `pausedByInterruption`、`pausedByInterruptionChanges`
+  （只在改變時發出，唯讀；`NowPlayingPublisher` 讀，見 § 系統媒體控制）：中斷暫停起為真，使用者
+  按播放或暫停、拔耳機、停下為假；中斷結束的續播發出後到後端報出播放之前（狀態仍是 `Paused`）
+  仍為真（`_resumingFromInterruption`），否則系統那邊會在續播前一刻先看到暫停。閘門：
+  `backend_rules_test.dart` 的 `audio interruptions (Android)`、`playback_event_router_test.dart` 的
+  `output events`、`playback_controller_test.dart` 的 `audio interruptions` 群組（含三個 `flag` 案例）。`JustAudioBackend` 接
   audio_session 的那幾行在 `flutter test` 裡建不起來，沒有自動閘門：實機以模擬器的來電觸發
   （見 spec）。
 - 輸出裝置（只有 Windows，design §7.6）：`AudioBackend.outputDevices` 列 mpv 的
@@ -1039,12 +1061,18 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 按鈕依能力推導：有目前曲目才有上一首；播放中、`Loading`、`Buffering`、`Retrying` 是暫停鍵，其他是播放鍵；
     有下一首或循環全部才有下一首。
   - 還沒按播放的 `Idle`（含啟動恢復後）是 `MediaPhase.idle`：系統不顯示通知、不搶前景。
+  - 因音訊中斷而暫停（`Paused` 且 `pausedByInterruption`）是 `MediaPhase.interrupted`、`playing: true`、按鈕是
+    暫停鍵，位置照暫停（不外推）。理由在 § 平台層的 Android 前景服務：這段期間對 Android 要裝成還在播放，
+    前景服務才不會放掉。使用者從通知按暫停時控制器的 `pause()` 清掉旗標，phase 回到 `ready`、`playing: false`，
+    前景服務照常放掉；平常的暫停（使用者按的、其他原因）不經這條，耗電行為不變。
   - 封面經 `artworkCacheManagerProvider`（design §4.3）取得本機檔、以 `file://` 交給平台（`artworkFile`，Android 用），晚於
     其他欄位送出；拿不到就不帶封面。同一張的原網址另放 `artworkUrl`，和曲目一起送出（Windows 用，見 § 平台層）。啟動恢復時快取庫與插件清單多半還沒好，組裝點先等它們（`cacheStoreProvider.future`、
     `pluginRegistryProvider.future`）再拿 cache manager：publisher 每首只問一次。
   - 系統指令一律呼叫控制器：播放、暫停、上一首、下一首、seek；停止當作暫停（擁有者決定：位置與佇列保留，
     之後按播放從原處繼續）。
-  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`）、
+  閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`；
+  中斷：`a pause by an interruption holds the session as playing`、`the held session never shows paused…`（續播前一刻不先推暫停，
+  拿掉控制器的 `_resumingFromInterruption` 會紅）、`pausing from the notification during an interruption…`、`a pause by the user is not held`）、
   `playback_providers_test.dart` 的 `system media controls`（組裝點接線、`the artwork of the restored song waits for
   the cache store`）；Android 的通知、鎖定畫面、
   `dumpsys media_session` 與媒體鍵，Windows 的媒體卡片、封面與經工作階段送的指令，都沒有自動閘門，實機驗。

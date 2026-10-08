@@ -145,9 +145,12 @@ smtc.PlaybackTimeline smtcTimelineOf(NowPlaying nowPlaying) {
 
 /// 播放狀態：載入與緩衝是 `changing`，其餘依 [NowPlaying.playing]；
 /// [MediaPhase.idle] 不顯示（`closed`，實際上由停用處理）。
+/// [MediaPhase.interrupted] 是 Android 為了留住前景服務才有的階段，SMTC 沒有這個
+/// 問題，照實顯示暫停。
 smtc.PlaybackStatus smtcStatusOf(NowPlaying nowPlaying) =>
     switch (nowPlaying.phase) {
       MediaPhase.idle => smtc.PlaybackStatus.closed,
+      MediaPhase.interrupted => smtc.PlaybackStatus.paused,
       MediaPhase.loading ||
       MediaPhase.buffering => smtc.PlaybackStatus.changing,
       MediaPhase.ready =>

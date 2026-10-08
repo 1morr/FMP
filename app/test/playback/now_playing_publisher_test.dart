@@ -204,6 +204,66 @@ void main() {
       expect(h.last.position, greaterThan(Duration.zero));
     });
 
+    harness('a pause by an interruption holds the session as playing', (h) {
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      h.elapse(const Duration(seconds: 3));
+      h.backend.audioInterrupted();
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.controller.state, isA<Paused>());
+      expect(h.last.phase, MediaPhase.interrupted);
+      expect(h.last.playing, isTrue);
+      expect(h.last.controls, contains(MediaControl.pause));
+      expect(h.last.controls, isNot(contains(MediaControl.play)));
+      // 位置照暫停：停在中斷當下，不外推。
+      expect(h.last.position, h.controller.position);
+    });
+
+    harness('the held session never shows paused between the interruption '
+        'and the resumed song playing', (h) {
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      h.backend.audioInterrupted();
+      h.elapse(const Duration(milliseconds: 100));
+      expect(h.last.phase, MediaPhase.interrupted);
+      final from = h.published.length;
+      h.elapse(const Duration(seconds: 30));
+      h.backend.audioInterruptionEnded();
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.controller.state, isA<Playing>());
+      expect(h.published.skip(from).where((p) => !p.playing), isEmpty);
+      expect(h.last.phase, MediaPhase.ready);
+      expect(h.last.playing, isTrue);
+    });
+
+    harness('pausing from the notification during an interruption releases '
+        'the hold', (h) {
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      h.backend.audioInterrupted();
+      h.elapse(const Duration(milliseconds: 100));
+      expect(h.last.phase, MediaPhase.interrupted);
+
+      h.controls.send(const MediaPause());
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.last.phase, MediaPhase.ready);
+      expect(h.last.playing, isFalse);
+      expect(h.last.controls, contains(MediaControl.play));
+    });
+
+    harness('a pause by the user is not held', (h) {
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      unawaited(h.controller.pause());
+      h.settle();
+
+      expect(h.last.phase, MediaPhase.ready);
+      expect(h.last.playing, isFalse);
+    });
+
     harness('next only exists when there is a next track or loop all', (h) {
       h.queue([track('a'), track('b')]);
       h.playAt(1);

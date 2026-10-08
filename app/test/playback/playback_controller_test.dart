@@ -2253,6 +2253,79 @@ void main() {
       });
     });
 
+    test('the flag is up from the interruption until the resumed song '
+        'plays', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        final changes = <bool>[];
+        h.controller.pausedByInterruptionChanges.listen(changes.add);
+        expect(h.controller.pausedByInterruption, isFalse);
+
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isTrue);
+        expect(changes, [true]);
+
+        h.backend.audioInterruptionEnded();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.pausedByInterruption, isFalse);
+        expect(changes, [true, false]);
+      });
+    });
+
+    test('pausing or playing during the interruption drops the flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        final changes = <bool>[];
+        h.controller.pausedByInterruptionChanges.listen(changes.add);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isFalse);
+        expect(changes, [true, false]);
+
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.pausedByInterruption, isFalse);
+      });
+    });
+
+    test('unplugged headphones and an end that does not resume drop the '
+        'flag', () {
+      fakeAsync((async) {
+        final h = playing(async);
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+        h.backend.becameNoisy();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isFalse);
+
+        unawaited(h.controller.play());
+        h.elapse(const Duration(milliseconds: 100));
+        h.backend.audioInterrupted();
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.pausedByInterruption, isTrue);
+        h.backend.audioInterruptionEnded(resume: false);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.pausedByInterruption, isFalse);
+      });
+    });
+
     test('a song the user paused is not resumed by the end', () {
       fakeAsync((async) {
         final h = playing(async);

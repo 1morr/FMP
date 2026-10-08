@@ -318,6 +318,11 @@ void main() {
         smtc.PlaybackStatus.changing,
       );
       expect(smtcStatusOf(nowPlaying()), smtc.PlaybackStatus.playing);
+      // Android 為了留住前景服務才有的階段（對系統是在播）：SMTC 照實顯示暫停。
+      expect(
+        smtcStatusOf(nowPlaying(phase: MediaPhase.interrupted)),
+        smtc.PlaybackStatus.paused,
+      );
       expect(
         smtcStatusOf(nowPlaying(playing: false)),
         smtc.PlaybackStatus.paused,

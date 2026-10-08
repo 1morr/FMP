@@ -66,6 +66,7 @@ final class NowPlayingPublisher {
       ..add(controller.states.listen((_) => _refresh()))
       ..add(controller.queueStates.listen((_) => _refresh()))
       ..add(controller.speedChanges.listen((_) => _refresh()))
+      ..add(controller.pausedByInterruptionChanges.listen((_) => _refresh()))
       ..add(
         controller.seeks.listen(
           (position) => _refresh(position: position, force: true),
@@ -191,10 +192,15 @@ final class NowPlayingPublisher {
   NowPlaying _build(QueueState queue, PlaybackState state, Duration position) {
     final track = queue.current;
     if (track == null) return NowPlaying.nothing;
-    final playing = switch (state) {
-      Playing() || Loading() || Buffering() || Retrying() => true,
-      Paused() || Idle() || Failed() => false,
-    };
+    // 因中斷而暫停：對系統仍是播放中（Android 的前景服務不放，見
+    // MediaPhase.interrupted）；使用者暫停會清掉旗標，回到一般的暫停。
+    final interrupted = state is Paused && _controller.pausedByInterruption;
+    final playing = interrupted
+        ? true
+        : switch (state) {
+            Playing() || Loading() || Buffering() || Retrying() => true,
+            Paused() || Idle() || Failed() => false,
+          };
     return NowPlaying(
       id: track.key.toString(),
       title: track.title,
@@ -206,6 +212,7 @@ final class NowPlayingPublisher {
         Idle() => MediaPhase.idle,
         Loading() => MediaPhase.loading,
         Buffering() || Retrying() => MediaPhase.buffering,
+        Paused() when interrupted => MediaPhase.interrupted,
         Playing() || Paused() || Failed() => MediaPhase.ready,
       },
       playing: playing,
