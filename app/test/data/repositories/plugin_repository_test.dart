@@ -107,7 +107,47 @@ void main() {
     });
   });
 
+  test('changes fires after an install, a toggle and a removal', () async {
+    final repository = PluginRepository(memoryDatabase());
+    var events = 0;
+    final subscription = repository.changes().listen((_) => events++);
+    addTearDown(subscription.cancel);
+
+    await repository.install(plugin('a'));
+    await Future<void>.delayed(Duration.zero);
+    final afterInstall = events;
+    await repository.setEnabled('a', enabled: false);
+    await Future<void>.delayed(Duration.zero);
+    final afterToggle = events;
+    await repository.remove('a');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(afterInstall, greaterThan(0));
+    expect(afterToggle, greaterThan(afterInstall));
+    expect(events, greaterThan(afterToggle));
+  });
+
   group('custom indexes', () {
+    test('changes fires after an add and a removal, not for plugins', () async {
+      final database = memoryDatabase();
+      final repository = PluginIndexRepository(database);
+      var events = 0;
+      final subscription = repository.changes().listen((_) => events++);
+      addTearDown(subscription.cancel);
+
+      await PluginRepository(database).install(plugin('a'));
+      await Future<void>.delayed(Duration.zero);
+      expect(events, 0);
+      await repository.add('https://a.test/i.json', DateTime.utc(2026, 1, 1));
+      await Future<void>.delayed(Duration.zero);
+      final afterAdd = events;
+      await repository.remove('https://a.test/i.json');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(afterAdd, greaterThan(0));
+      expect(events, greaterThan(afterAdd));
+    });
+
     test('adds, lists oldest first and removes', () async {
       final repository = PluginIndexRepository(memoryDatabase());
 

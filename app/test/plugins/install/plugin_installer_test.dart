@@ -453,6 +453,42 @@ void main() {
       current: current,
     ) as Prepared).plugin;
 
+    test(
+      'downloading from a URL reads the manifest and installs nothing',
+      () async {
+        final harness = PluginHarness();
+        final text = source(capabilities: ['search', 'resolveStream']);
+        final asked = <String>[];
+
+        final file = await downloader(harness, {
+          'https://files.test/a.js': text,
+        }, asked).downloadFile(Uri.parse('https://files.test/a.js'));
+
+        expect(asked, ['https://files.test/a.js']);
+        expect(file.manifest.id, 'plugin-a');
+        expect(file.manifest.capabilities, {
+          PluginCapability.search,
+          PluginCapability.resolveStream,
+        });
+        expect(file.source, text);
+        expect(await installedCount(harness), 0);
+      },
+    );
+
+    test(
+      'downloading something that is not a plugin is a ParseError',
+      () async {
+        final harness = PluginHarness();
+
+        await expectLater(
+          downloader(harness, {
+            'https://files.test/a.js': 'export const x = 1;',
+          }).downloadFile(Uri.parse('https://files.test/a.js')),
+          throwsA(isA<ParseError>()),
+        );
+      },
+    );
+
     test('a file that does not match the SHA-256 is refused and nothing is '
         'written', () async {
       final harness = PluginHarness();
