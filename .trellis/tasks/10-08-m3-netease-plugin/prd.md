@@ -26,4 +26,5 @@ App 能以 `--fmp-dev-plugin` 裝上網易雲插件，匿名搜尋並播放；�
 
 - [ ] 網易的契約（`FMP_PLUGIN_DIR=../fmp-plugins/netease`）全綠：DTO、媒體請求不帶憑證、fixture 掃描（含 IP）；`npm test` 的錯誤對應；`fmp_source_id_literal` 的案例。
 - [ ] 驗證清單全綠（`app/AGENTS.md` § 驗證）。
-- [ ] 實機（主對話做；**真實，匿名**）：兩平台搜尋一次、播一首；一首只有試聽的歌在「跳過試聽片段」開與關各一次（跳過並提示／標「試聽」播放）。
+- [ ] 實機（主對話做；**真實，匿名**）：兩平台搜尋一次、播一首。
+- 試聽的實機驗收延到登入之後（PR 8 起；M3a 驗收）：匿名時 VIP 歌回 `code` -110、沒有網址也沒有 `freeTrialInfo`（帶了 `X-Real-IP` 也一樣），拿不到試聽片段。`previewOnly` 的判斷以 `test/resolve.test.js` 的手寫回應守。
