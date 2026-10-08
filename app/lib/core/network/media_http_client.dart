@@ -49,11 +49,16 @@ final class MediaHttpClientFactory {
   final NetworkRecordIds _recordIds;
   final HttpClientAdapter Function() _createAdapter;
 
-  /// [pluginId] 的媒體 client。[allowedHosts] 是 manifest 的允許網域，與同一個
+  /// [pluginId] 的媒體 client（宿主自己的請求為 `null`）。[allowedHosts] 是 manifest 的允許網域，與同一個
   /// 插件的 API client 相同。
+  ///
+  /// [client] 是網路紀錄的 `client` 欄位；[exactHosts] 讓允許網域不含子網域
+  /// （`HostFetch` 用，轉址不得換 host）。
   MediaHttpClient create({
-    required String pluginId,
+    required String? pluginId,
     required Iterable<String> allowedHosts,
+    NetworkClient client = NetworkClient.media,
+    bool exactHosts = false,
   }) {
     // 沒有認證與 cookie 攔截器，也沒有 cookie jar：請求上只有呼叫端給、經
     // mediaRequestHeaders 過濾的 header（ADR 0012 §決定 1）。
@@ -65,7 +70,8 @@ final class MediaHttpClientFactory {
     )..httpClientAdapter = _createAdapter();
     return MediaHttpClient._(
       pluginId: pluginId,
-      allowedHosts: AllowedHosts(allowedHosts),
+      allowedHosts: AllowedHosts(allowedHosts, exact: exactHosts),
+      client: client,
       dio: dio,
       log: _log,
       recordIds: _recordIds,
@@ -107,14 +113,16 @@ final class MediaHttpClient {
   MediaHttpClient._({
     required this.pluginId,
     required this._allowedHosts,
+    required this._client,
     required this._dio,
     required this._log,
     required this._recordIds,
     required this._reportOutcome,
   });
 
-  final String pluginId;
+  final String? pluginId;
   final AllowedHosts _allowedHosts;
+  final NetworkClient _client;
   final Dio _dio;
   final Log _log;
   final NetworkRecordIds _recordIds;
@@ -217,7 +225,7 @@ final class MediaHttpClient {
       final cancelled = failure is RequestCancelled;
       writeNetworkRecord(
         _log,
-        client: NetworkClient.media,
+        client: _client,
         id: recordId,
         pluginId: pluginId,
         method: 'GET',

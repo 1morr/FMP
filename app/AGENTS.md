@@ -337,6 +337,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （既有表的使用者值不變）與 `migration from v<N> to v6 creates layout_state…`（v1–v5 各一例：單列 CHECK、
   寬度 > 1600 寫不進去）、`a new database has layout_state with its checks`。
 
+- `installed_plugins` 的 `enabled`、`source_index_url`、`checks_json` 與 `plugin_indexes` 是 schema v7（ADR 0030
+  §決定 6、7）。`enabled` 預設真，升級前裝好的插件仍啟用；更新（`PluginRepository.install` 的 upsert）不動
+  `enabled`，停用的插件更新後仍停用，`source_index_url` 與 `checks_json` 則每次安裝都以傳入的值覆蓋（新版本的
+  檢查案例驗證不過時，舊版本的不留）。閘門：
+  `migration_test.dart` 的 v6→v7 資料完整性與 `migration from v<N> to v7 adds the plugin lifecycle schema`
+  （v1–v6 各一例）、`plugin_repository_test.dart` 的 `enabled and index source`、`custom indexes`。
+
 ### 快取庫
 
 `lib/data/cache/`（ADR 0016 §決定 1–4、design §4.2–§4.4）。測試在 `test/data/cache/`，下面寫的
@@ -431,7 +438,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 門面 `Log` 是唯一的 log 入口；`print`、`debugPrint`、`dart:developer` 的 `log`、
   `package:talker*` 只准在 `lib/core/logging/`。閘門：lint `fmp_log_facade`。
 - `Redactor` 是唯一的遮蔽函式，名單只在 `redaction_lists.dart`（插件以 `addRules`
-  追加）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
+  追加 header 與鍵名、以 `setMediaCdns` 設媒體 CDN）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
   歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
   欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
   網路紀錄經門面寫入，閘門見「網路」；診斷包（M3）出現時各自補測試。
@@ -540,7 +547,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie）。沒有閘門，
   review 時看。
 - 網路紀錄：tag `network`，每次送出一筆，欄位 `id`、`pluginId`、`client`（`source`／
-  `media`）、`method`、`host`、`path`、`query`、`status`、`ms`、`bytes`、`error`、
+  `media`／`host`，`host` 的 `pluginId` 是空字串）、`method`、`host`、`path`、`query`、`status`、`ms`、`bytes`、`error`、
   `credentials`、`retry`；不記 body。未登入而拒絕的 `required` 請求沒送出，也有一筆（沒有
   `status`、`ms`），`AuthRequired` 帶它的 id。失敗或狀態碼 ≥ 400 用 `warning`，其餘
   `debug`。欄位名稱與 `client` 的值是 log 檔的持久化格式（`network_log.dart`）；網路層
@@ -573,6 +580,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 媒體 header：媒體 client 的每一跳、交給播放後端的串流 headers，一律先經
   `mediaRequestHeaders`：只留 `Referer`、`User-Agent`、`Origin`、`Range`。閘門：
   `media_headers_test.dart`；後端確實經過它，見「播放」。
+
+### 宿主自己的請求
+
+`host_fetch.dart`（ADR 0030 §決定 5）：讀插件 index、下載插件檔與 `checks.json`。底層是媒體 client（規則不另寫一份）：
+不帶憑證、沒有 cookie jar、只准 `https`、不准 user info、逾時與大小上限（index 1 MiB、插件檔 8 MiB、checks 256 KiB）。
+差別只有兩個：允許網域是該網址自己的 host，**不含子網域**（`AllowedHosts(exact: true)`），轉址換 host 就失敗；
+網路紀錄的 `client` 是 `host`，`pluginId` 欄位是空字串；請求丟出的 `AppError` 的 `pluginId` 是 `null`（不是 `''`：
+呈現層會拿它去查「音源未安裝」）。內容先寫進每次不同的暫存目錄、讀完就刪。閘門：`test/core/network/host_fetch_test.dart`
+（無憑證、只准 https、轉址到別的 host 與子網域都不發出、超過上限、不留暫存目錄、網路紀錄、`an error from a host request carries no plugin id`）；
+`toaster_test.dart` 的 `an error without a plugin id never names an uninstalled source`、`allowed_hosts_test.dart`
+的 `exact lists…`。
 
 ### 媒體 client
 
@@ -663,6 +681,32 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `hostApiShapes`，`FmpHost` 對 prelude 實際建出的 `fmp`，能力、錯誤名稱、`Unavailable` 原因三個
   union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
   型別不比對，review 時看。
+- 插件庫與生命週期（`lib/plugins/repository/`、`install/plugin_installer.dart`，ADR 0030，UI 在插件頁）：
+  - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 回
+    `IndexRejected(appUpdateRequired)`（預期內的結果，不是 `AppError`、也不是例外：UI 要分得出「需要更新 FMP」）；`apiVersion` 不是
+    `hostApiVersion` 的那一筆照樣解析（`isCompatible` 為假），到 `prepare` 才以同一個理由拒絕、不下載。
+    `prepare` 回 `PrepareRejected` 而不丟例外：`hashMismatch`（提示「插件庫剛更新，請稍後再試」）、`manifestMismatch`、
+    `appUpdateRequired` 都是預期內的結果，其餘失敗（網路、解析）仍丟 `AppError`。
+    閘門：`plugin_index_test.dart`；`prepare` 的那一條是 `plugin_installer_test.dart` 的 `an apiVersion the host
+    does not support…`。
+  - `PluginDownloader.prepare`：下載 → SHA-256（針對位元組）→ 解析標頭 manifest → 與 index 那一筆比 id、版本、
+    `apiVersion`、能力、網域，不符都拒裝且不寫資料庫。確認內容取自下載到的 `.js`。`checks.json` 驗證不過或下載失敗
+    只記 warning，插件照裝、`checksJson` 為空。新安裝、或更新時能力或網域增加（`PreparedPlugin.needsConfirmation`）而沒確認
+    （`installPrepared(confirmed: false)`）會丟 `StateError`。閘門：`plugin_installer_test.dart` 的 `plugin repository`
+    群組。
+  - `updateStatus`：semver 只升不降（`pub_semver` 只准在 `lib/plugins/repository/`），只從 `source_index_url` 相同的
+    index 更新；`apiVersion` 不相容是 `needsAppUpdate`。閘門：同群組的 `update status…`、lint
+    `fmp_layer_imports` 的 `test_pubSemver*`。
+  - 停用（`PluginRegistry.setEnabled`）：存進資料庫、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
+    插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。閘門：
+    `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
+  - 移除（`PluginInstaller.remove`）：關閉 runtime → `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
+    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。憑證、帳號、排程器的步驟由之後的 PR 加在刪列之前。閘門：
+    `plugin_installer_test.dart` 的 `removing` 群組（含 `skips the cache step…`）。
+  - 顯示名稱 `pluginNameProvider`（`lib/ui/plugins/plugin_name.dart`）：清單上是 manifest 的 `name`，停用的是
+    「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`。
+  - `Redactor` 的媒體 CDN 規則以插件 id 為鍵（`setMediaCdns`），插件更新、重新載入時取代而不累加；header 與鍵名
+    名單仍只增不減。閘門：`redactor_test.dart` 的 `setting a plugin again replaces…`。
 - 開發入口：dev flavor 啟動時安裝 `--fmp-dev-plugin=<路徑>` 或環境變數 `FMP_DEV_PLUGIN` 指的檔案；
   Android 以 `adb shell am start -n com.personal.fmp.dev/com.personal.fmp.MainActivity --esal
   dart_entrypoint_args --fmp-dev-plugin=<App 讀得到的路徑>` 帶參數。prod 不讀：這條路徑跳過安裝前的
@@ -1334,9 +1378,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     不會偏），以及 expanded 以上的「正在播放面板」勾選項（compact、medium 沒有面板，所以沒有；見上面的面板條目）。閘門：`player_page_test.dart` 的 `speed`、
     `playback_controller_test.dart` 的 `the speed is observable…`、`now_playing_publisher_test.dart` 的 `a new speed is
     pushed…`。
-  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。佇列見下一條。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查插件的
-    manifest 名稱、查不到用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（含開啟時的捲動位置、臨時播放不標目前這首、
-    未安裝的音源顯示插件 id、五千首只建看得到的列）、`plugin_installer_test.dart` 的 `pluginNameProvider gives the manifest name…`。
+  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。佇列見下一條。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查（見 § 插件的
+    「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（含開啟時的捲動位置、
+    臨時播放不標目前這首、查不到名稱時顯示插件 id、五千首只建看得到的列）、`test/ui/plugins/plugin_name_test.dart`。
   - 佇列（`lib/ui/player/queue_view.dart` 的 `QueueView`，design §7.3）：佇列分頁（expanded 以上）與底部面板
     （compact、medium，`showQueueSheet`）共用同一個 widget。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
     `clear`、提示「已清空佇列」，取消不動；清空後播放頁與面板一起關，提示等它們關掉的那一幀之後才發：提示的位移在顯示當下
@@ -1440,7 +1484,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

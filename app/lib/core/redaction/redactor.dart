@@ -20,7 +20,6 @@ final class Redactor {
   Redactor() {
     _headerNames.addAll(builtInHeaderNames);
     _keyNames.addAll(builtInKeyNames);
-    _mediaCdns.addAll(builtInMediaCdns);
     _compile();
   }
 
@@ -29,7 +28,7 @@ final class Redactor {
 
   final _headerNames = <String>{};
   final _keyNames = <String>{};
-  final _mediaCdns = <MediaCdn>[];
+  final _pluginMediaCdns = <String, List<MediaCdn>>{};
   final _secrets = <String>{};
 
   /// 依長度由長到短，讓較長的憑證先被換掉。
@@ -89,16 +88,21 @@ final class Redactor {
     caseSensitive: false,
   );
 
-  /// 追加遮蔽名單（音源插件用）。名單只增不減：多遮一項的代價遠小於漏遮。
+  /// 追加 header 與鍵名的遮蔽名單（音源插件用）。名單只增不減：多遮一項的代價遠小於
+  /// 漏遮。
   void addRules({
     Iterable<String> headerNames = const [],
     Iterable<String> keyNames = const [],
-    Iterable<MediaCdn> mediaCdns = const [],
   }) {
     _headerNames.addAll(headerNames.where((name) => name.isNotEmpty));
     _keyNames.addAll(keyNames.where((name) => name.isNotEmpty));
-    _mediaCdns.addAll(mediaCdns);
     _compile();
+  }
+
+  /// 設定 [pluginId] 追加的媒體 CDN 規則，取代它之前登記的（插件更新、重新載入時
+  /// 不累加；ADR 0030 §決定 9）。內建規則不受影響。
+  void setMediaCdns(String pluginId, Iterable<MediaCdn> mediaCdns) {
+    _pluginMediaCdns[pluginId] = List.unmodifiable(mediaCdns);
   }
 
   /// 登記一個已知的憑證值；之後任何輸出裡出現它都換成 [redactedValue]。
@@ -210,7 +214,13 @@ final class Redactor {
     final uri = Uri.tryParse(text);
     if (uri == null || !uri.hasAuthority) return matched;
     // 內建與插件追加的規則可能同時符合同一個 host，全部合併套用。
-    final cdns = _mediaCdns.where((cdn) => cdn.matches(uri.host)).toList();
+    final cdns = [
+      for (final cdn in [
+        ...builtInMediaCdns,
+        for (final list in _pluginMediaCdns.values) ...list,
+      ])
+        if (cdn.matches(uri.host)) cdn,
+    ];
     if (cdns.isEmpty) return matched;
 
     final signed = {

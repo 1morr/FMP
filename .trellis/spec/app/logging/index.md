@@ -14,7 +14,7 @@ lib/core/logging/
   uncaught_errors.dart  # routeUncaughtErrors：FlutterError／PlatformDispatcher → 門面
 lib/core/redaction/
   redaction_lists.dart  # 內建名單：header、鍵名、媒體 CDN（MediaCdn）
-  redactor.dart         # Redactor：redact、redactObject、redactValue、addRules、registerSecret
+  redactor.dart         # Redactor：redact、redactObject、redactValue、addRules、setMediaCdns、registerSecret
 ```
 
 ## 寫一筆 log
@@ -45,8 +45,8 @@ log.warning(
   - 媒體 CDN → `builtInMediaCdns`，`host` 涵蓋子網域，`signedQueryParameters` 列要去掉
     的參數，路徑本身帶簽章時設 `signedPath: true`。同一個網址符合多條規則（內建與插件
     追加的）時全部合併：參數取聯集，任一條 `signedPath` 為真就換路徑。
-- 只有某個插件知道的：插件載入時呼叫 `Redactor.addRules(...)`（M1 的 B 站插件在 PR 9）。
-  名單只增不減。
+- 只有某個插件知道的：插件載入時呼叫 `Redactor.addRules(...)`（header、鍵名，只增不減）與
+  `Redactor.setMediaCdns(pluginId, ...)`（媒體 CDN，以插件 id 為鍵取代，插件更新時不累加）。
 - 內建名單變嚴格，插件庫（`1morr/fmp-plugins`）既有的 fixture 可能過不了契約測試的
   「再遮一次不變」掃描：同一個 PR 裡用新名單跑一次各插件的契約測試，紅了就重錄，或照
   遮蔽函式的輸出改那幾個值（例如拿掉 `buvid=***`），在插件庫另開 PR。

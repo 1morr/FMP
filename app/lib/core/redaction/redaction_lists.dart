@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 // 遮蔽名單（ADR 0011 §決定 3）。全 App 只有這一份；音源插件以
-// `Redactor.addRules` 追加自己的名單，不另寫遮蔽邏輯。
+// `Redactor.addRules`、`Redactor.setMediaCdns` 追加自己的名單，不另寫遮蔽邏輯。
 //
 // 名稱比對一律不分大小寫。鍵名採「以名稱結尾」：`token` 也涵蓋 `access_token`、
 // `x-csrf-token`，寧可多遮也不漏。舊專案 `lib/core/logger.dart` 的名單是起點；

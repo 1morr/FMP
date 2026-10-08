@@ -24,6 +24,8 @@ final externalPackageOwners = <String, String>{
   'dio': 'lib/core/network',
   'cookie_jar': 'lib/core/network',
   'flutter_js': 'lib/plugins/runtime',
+  // ADR 0030：插件版本比較（semver）只在插件庫流程。
+  'pub_semver': 'lib/plugins/repository',
   // ADR 0016：圖片的 cache manager 接到統一快取庫，widget 只在封面元件。
   'flutter_cache_manager': 'lib/data/cache',
   'cached_network_image': 'lib/ui/artwork',

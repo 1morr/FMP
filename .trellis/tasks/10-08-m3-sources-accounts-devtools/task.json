@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "10-08-m3-youtube-plugin",
-    "10-08-m3-netease-plugin"
+    "10-08-m3-netease-plugin",
+    "10-08-m3-plugin-lifecycle"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

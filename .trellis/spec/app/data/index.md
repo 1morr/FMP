@@ -120,6 +120,14 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - 測試：差量編輯以固定種子的隨機序列比對一個 `List`（`a seeded run of random edits…`）；
   一萬首整份取代的耗時（目前約 150–230 ms）印在測試輸出，超過 500 ms 要在 PR 描述說明。
 
+## 插件（`plugin_repository.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `installed_plugins`（schema v7）。
+
+- `PluginRepository.install` 是 upsert，`enabled` 不在 companion 裡所以更新不動它；要改啟用用 `setEnabled`。
+  `source_index_url`、`checks_json` 每次安裝都以傳入值覆蓋。
+- `PluginIndexRepository`（`plugin_indexes`）：`add` 用 `insertOrIgnore`，同網址保留最早的加入時間。
+
 ## 版面狀態（`layout_state_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。

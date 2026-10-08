@@ -32,6 +32,10 @@ final pluginRepositoryProvider = Provider<PluginRepository>(
   (ref) => PluginRepository(ref.watch(appDatabaseProvider)),
 );
 
+final pluginIndexRepositoryProvider = Provider<PluginIndexRepository>(
+  (ref) => PluginIndexRepository(ref.watch(appDatabaseProvider)),
+);
+
 final pluginStorageRepositoryProvider = Provider<PluginStorageRepository>(
   (ref) => PluginStorageRepository(ref.watch(appDatabaseProvider)),
 );

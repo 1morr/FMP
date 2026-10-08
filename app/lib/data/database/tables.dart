@@ -86,8 +86,33 @@ class InstalledPluginsTable extends Table {
   /// UTC epoch 毫秒。
   late final installedAt = integer().map(const EpochMillisecondsConverter())();
 
+  /// 啟用與否（ADR 0030 §決定 7）；停用的插件不載入。升級前裝好的列為真。
+  late final enabled = boolean().withDefault(const Constant(true))();
+
+  /// 來自哪個 index 網址；空＝從檔案或網址安裝（ADR 0030 §決定 6）。
+  late final sourceIndexUrl = text().nullable()();
+
+  /// 從 index 安裝時一併存的 `checks.json` 原文，給健康檢查用；沒有就是空。
+  late final checksJson = text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
+}
+
+/// 使用者加的自訂插件 index（ADR 0030 §決定 6）。官方 index 不存在這裡，網址在
+/// `endpoints.dart`。
+@DataClassName('PluginIndexRow')
+class PluginIndexesTable extends Table {
+  @override
+  String get tableName => 'plugin_indexes';
+
+  late final url = text()();
+
+  /// UTC epoch 毫秒。
+  late final addedAt = integer().map(const EpochMillisecondsConverter())();
+
+  @override
+  Set<Column<Object>> get primaryKey => {url};
 }
 
 /// 每個插件自己的 key／value（ADR 0014 §決定 5）。移除插件時由外鍵的

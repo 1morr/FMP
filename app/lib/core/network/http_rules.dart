@@ -20,7 +20,7 @@ const _redirectStatuses = {301, 302, 303, 307, 308};
 void requireAllowedHost(
   AllowedHosts allowedHosts,
   Uri url, {
-  required String pluginId,
+  required String? pluginId,
 }) {
   if (allowedHosts.allows(url)) return;
   throw Unsupported(
@@ -48,7 +48,7 @@ Uri redirectTarget({
   required String location,
   required int redirects,
   required AllowedHosts allowedHosts,
-  required String pluginId,
+  required String? pluginId,
   required int networkRecordId,
 }) {
   if (redirects >= maxRedirects) {
@@ -91,7 +91,7 @@ RateLimited? rateLimitedResponse(
   int statusCode,
   Map<String, List<String>> headers, {
   required DateTime now,
-  required String pluginId,
+  required String? pluginId,
   required int networkRecordId,
 }) {
   if (statusCode != 429 && statusCode != 503) return null;
@@ -110,7 +110,7 @@ RateLimited? rateLimitedResponse(
 /// 其他是 [UnexpectedError]。取消由呼叫端先處理。
 AppError transportError(
   DioException error, {
-  required String pluginId,
+  required String? pluginId,
   required int networkRecordId,
 }) {
   NetworkError network({bool retryable = true}) => NetworkError(

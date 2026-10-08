@@ -1306,6 +1306,43 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
       ).withConverter<DateTime>(
         $InstalledPluginsTableTable.$converterinstalledAt,
       );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _sourceIndexUrlMeta = const VerificationMeta(
+    'sourceIndexUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceIndexUrl = GeneratedColumn<String>(
+    'source_index_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _checksJsonMeta = const VerificationMeta(
+    'checksJson',
+  );
+  @override
+  late final GeneratedColumn<String> checksJson = GeneratedColumn<String>(
+    'checks_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1313,6 +1350,9 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
     manifestJson,
     script,
     installedAt,
+    enabled,
+    sourceIndexUrl,
+    checksJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1358,6 +1398,27 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
     } else if (isInserting) {
       context.missing(_scriptMeta);
     }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('source_index_url')) {
+      context.handle(
+        _sourceIndexUrlMeta,
+        sourceIndexUrl.isAcceptableOrUnknown(
+          data['source_index_url']!,
+          _sourceIndexUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('checks_json')) {
+      context.handle(
+        _checksJsonMeta,
+        checksJson.isAcceptableOrUnknown(data['checks_json']!, _checksJsonMeta),
+      );
+    }
     return context;
   }
 
@@ -1389,6 +1450,18 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
           data['${effectivePrefix}installed_at'],
         )!,
       ),
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      sourceIndexUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_index_url'],
+      ),
+      checksJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}checks_json'],
+      ),
     );
   }
 
@@ -1411,12 +1484,24 @@ class InstalledPluginRow extends DataClass
 
   /// UTC epoch 毫秒。
   final DateTime installedAt;
+
+  /// 啟用與否（ADR 0030 §決定 7）；停用的插件不載入。升級前裝好的列為真。
+  final bool enabled;
+
+  /// 來自哪個 index 網址；空＝從檔案或網址安裝（ADR 0030 §決定 6）。
+  final String? sourceIndexUrl;
+
+  /// 從 index 安裝時一併存的 `checks.json` 原文，給健康檢查用；沒有就是空。
+  final String? checksJson;
   const InstalledPluginRow({
     required this.id,
     required this.version,
     required this.manifestJson,
     required this.script,
     required this.installedAt,
+    required this.enabled,
+    this.sourceIndexUrl,
+    this.checksJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1430,6 +1515,13 @@ class InstalledPluginRow extends DataClass
         $InstalledPluginsTableTable.$converterinstalledAt.toSql(installedAt),
       );
     }
+    map['enabled'] = Variable<bool>(enabled);
+    if (!nullToAbsent || sourceIndexUrl != null) {
+      map['source_index_url'] = Variable<String>(sourceIndexUrl);
+    }
+    if (!nullToAbsent || checksJson != null) {
+      map['checks_json'] = Variable<String>(checksJson);
+    }
     return map;
   }
 
@@ -1440,6 +1532,13 @@ class InstalledPluginRow extends DataClass
       manifestJson: Value(manifestJson),
       script: Value(script),
       installedAt: Value(installedAt),
+      enabled: Value(enabled),
+      sourceIndexUrl: sourceIndexUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceIndexUrl),
+      checksJson: checksJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(checksJson),
     );
   }
 
@@ -1454,6 +1553,9 @@ class InstalledPluginRow extends DataClass
       manifestJson: serializer.fromJson<String>(json['manifestJson']),
       script: serializer.fromJson<String>(json['script']),
       installedAt: serializer.fromJson<DateTime>(json['installedAt']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      sourceIndexUrl: serializer.fromJson<String?>(json['sourceIndexUrl']),
+      checksJson: serializer.fromJson<String?>(json['checksJson']),
     );
   }
   @override
@@ -1465,6 +1567,9 @@ class InstalledPluginRow extends DataClass
       'manifestJson': serializer.toJson<String>(manifestJson),
       'script': serializer.toJson<String>(script),
       'installedAt': serializer.toJson<DateTime>(installedAt),
+      'enabled': serializer.toJson<bool>(enabled),
+      'sourceIndexUrl': serializer.toJson<String?>(sourceIndexUrl),
+      'checksJson': serializer.toJson<String?>(checksJson),
     };
   }
 
@@ -1474,12 +1579,20 @@ class InstalledPluginRow extends DataClass
     String? manifestJson,
     String? script,
     DateTime? installedAt,
+    bool? enabled,
+    Value<String?> sourceIndexUrl = const Value.absent(),
+    Value<String?> checksJson = const Value.absent(),
   }) => InstalledPluginRow(
     id: id ?? this.id,
     version: version ?? this.version,
     manifestJson: manifestJson ?? this.manifestJson,
     script: script ?? this.script,
     installedAt: installedAt ?? this.installedAt,
+    enabled: enabled ?? this.enabled,
+    sourceIndexUrl: sourceIndexUrl.present
+        ? sourceIndexUrl.value
+        : this.sourceIndexUrl,
+    checksJson: checksJson.present ? checksJson.value : this.checksJson,
   );
   InstalledPluginRow copyWithCompanion(InstalledPluginsTableCompanion data) {
     return InstalledPluginRow(
@@ -1492,6 +1605,13 @@ class InstalledPluginRow extends DataClass
       installedAt: data.installedAt.present
           ? data.installedAt.value
           : this.installedAt,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      sourceIndexUrl: data.sourceIndexUrl.present
+          ? data.sourceIndexUrl.value
+          : this.sourceIndexUrl,
+      checksJson: data.checksJson.present
+          ? data.checksJson.value
+          : this.checksJson,
     );
   }
 
@@ -1502,14 +1622,25 @@ class InstalledPluginRow extends DataClass
           ..write('version: $version, ')
           ..write('manifestJson: $manifestJson, ')
           ..write('script: $script, ')
-          ..write('installedAt: $installedAt')
+          ..write('installedAt: $installedAt, ')
+          ..write('enabled: $enabled, ')
+          ..write('sourceIndexUrl: $sourceIndexUrl, ')
+          ..write('checksJson: $checksJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, version, manifestJson, script, installedAt);
+  int get hashCode => Object.hash(
+    id,
+    version,
+    manifestJson,
+    script,
+    installedAt,
+    enabled,
+    sourceIndexUrl,
+    checksJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1518,7 +1649,10 @@ class InstalledPluginRow extends DataClass
           other.version == this.version &&
           other.manifestJson == this.manifestJson &&
           other.script == this.script &&
-          other.installedAt == this.installedAt);
+          other.installedAt == this.installedAt &&
+          other.enabled == this.enabled &&
+          other.sourceIndexUrl == this.sourceIndexUrl &&
+          other.checksJson == this.checksJson);
 }
 
 class InstalledPluginsTableCompanion
@@ -1528,6 +1662,9 @@ class InstalledPluginsTableCompanion
   final Value<String> manifestJson;
   final Value<String> script;
   final Value<DateTime> installedAt;
+  final Value<bool> enabled;
+  final Value<String?> sourceIndexUrl;
+  final Value<String?> checksJson;
   final Value<int> rowid;
   const InstalledPluginsTableCompanion({
     this.id = const Value.absent(),
@@ -1535,6 +1672,9 @@ class InstalledPluginsTableCompanion
     this.manifestJson = const Value.absent(),
     this.script = const Value.absent(),
     this.installedAt = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.sourceIndexUrl = const Value.absent(),
+    this.checksJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   InstalledPluginsTableCompanion.insert({
@@ -1543,6 +1683,9 @@ class InstalledPluginsTableCompanion
     required String manifestJson,
     required String script,
     required DateTime installedAt,
+    this.enabled = const Value.absent(),
+    this.sourceIndexUrl = const Value.absent(),
+    this.checksJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        version = Value(version),
@@ -1555,6 +1698,9 @@ class InstalledPluginsTableCompanion
     Expression<String>? manifestJson,
     Expression<String>? script,
     Expression<int>? installedAt,
+    Expression<bool>? enabled,
+    Expression<String>? sourceIndexUrl,
+    Expression<String>? checksJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1563,6 +1709,9 @@ class InstalledPluginsTableCompanion
       if (manifestJson != null) 'manifest_json': manifestJson,
       if (script != null) 'script': script,
       if (installedAt != null) 'installed_at': installedAt,
+      if (enabled != null) 'enabled': enabled,
+      if (sourceIndexUrl != null) 'source_index_url': sourceIndexUrl,
+      if (checksJson != null) 'checks_json': checksJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1573,6 +1722,9 @@ class InstalledPluginsTableCompanion
     Value<String>? manifestJson,
     Value<String>? script,
     Value<DateTime>? installedAt,
+    Value<bool>? enabled,
+    Value<String?>? sourceIndexUrl,
+    Value<String?>? checksJson,
     Value<int>? rowid,
   }) {
     return InstalledPluginsTableCompanion(
@@ -1581,6 +1733,9 @@ class InstalledPluginsTableCompanion
       manifestJson: manifestJson ?? this.manifestJson,
       script: script ?? this.script,
       installedAt: installedAt ?? this.installedAt,
+      enabled: enabled ?? this.enabled,
+      sourceIndexUrl: sourceIndexUrl ?? this.sourceIndexUrl,
+      checksJson: checksJson ?? this.checksJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1607,6 +1762,15 @@ class InstalledPluginsTableCompanion
         ),
       );
     }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (sourceIndexUrl.present) {
+      map['source_index_url'] = Variable<String>(sourceIndexUrl.value);
+    }
+    if (checksJson.present) {
+      map['checks_json'] = Variable<String>(checksJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1621,6 +1785,225 @@ class InstalledPluginsTableCompanion
           ..write('manifestJson: $manifestJson, ')
           ..write('script: $script, ')
           ..write('installedAt: $installedAt, ')
+          ..write('enabled: $enabled, ')
+          ..write('sourceIndexUrl: $sourceIndexUrl, ')
+          ..write('checksJson: $checksJson, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PluginIndexesTableTable extends PluginIndexesTable
+    with TableInfo<$PluginIndexesTableTable, PluginIndexRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PluginIndexesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _urlMeta = const VerificationMeta('url');
+  @override
+  late final GeneratedColumn<String> url = GeneratedColumn<String>(
+    'url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> addedAt =
+      GeneratedColumn<int>(
+        'added_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($PluginIndexesTableTable.$converteraddedAt);
+  @override
+  List<GeneratedColumn> get $columns => [url, addedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plugin_indexes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PluginIndexRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('url')) {
+      context.handle(
+        _urlMeta,
+        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_urlMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {url};
+  @override
+  PluginIndexRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PluginIndexRow(
+      url: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}url'],
+      )!,
+      addedAt: $PluginIndexesTableTable.$converteraddedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}added_at'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $PluginIndexesTableTable createAlias(String alias) {
+    return $PluginIndexesTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converteraddedAt =
+      const EpochMillisecondsConverter();
+}
+
+class PluginIndexRow extends DataClass implements Insertable<PluginIndexRow> {
+  final String url;
+
+  /// UTC epoch 毫秒。
+  final DateTime addedAt;
+  const PluginIndexRow({required this.url, required this.addedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['url'] = Variable<String>(url);
+    {
+      map['added_at'] = Variable<int>(
+        $PluginIndexesTableTable.$converteraddedAt.toSql(addedAt),
+      );
+    }
+    return map;
+  }
+
+  PluginIndexesTableCompanion toCompanion(bool nullToAbsent) {
+    return PluginIndexesTableCompanion(
+      url: Value(url),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory PluginIndexRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PluginIndexRow(
+      url: serializer.fromJson<String>(json['url']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'url': serializer.toJson<String>(url),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+    };
+  }
+
+  PluginIndexRow copyWith({String? url, DateTime? addedAt}) =>
+      PluginIndexRow(url: url ?? this.url, addedAt: addedAt ?? this.addedAt);
+  PluginIndexRow copyWithCompanion(PluginIndexesTableCompanion data) {
+    return PluginIndexRow(
+      url: data.url.present ? data.url.value : this.url,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PluginIndexRow(')
+          ..write('url: $url, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(url, addedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PluginIndexRow &&
+          other.url == this.url &&
+          other.addedAt == this.addedAt);
+}
+
+class PluginIndexesTableCompanion extends UpdateCompanion<PluginIndexRow> {
+  final Value<String> url;
+  final Value<DateTime> addedAt;
+  final Value<int> rowid;
+  const PluginIndexesTableCompanion({
+    this.url = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PluginIndexesTableCompanion.insert({
+    required String url,
+    required DateTime addedAt,
+    this.rowid = const Value.absent(),
+  }) : url = Value(url),
+       addedAt = Value(addedAt);
+  static Insertable<PluginIndexRow> custom({
+    Expression<String>? url,
+    Expression<int>? addedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (url != null) 'url': url,
+      if (addedAt != null) 'added_at': addedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PluginIndexesTableCompanion copyWith({
+    Value<String>? url,
+    Value<DateTime>? addedAt,
+    Value<int>? rowid,
+  }) {
+    return PluginIndexesTableCompanion(
+      url: url ?? this.url,
+      addedAt: addedAt ?? this.addedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (url.present) {
+      map['url'] = Variable<String>(url.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<int>(
+        $PluginIndexesTableTable.$converteraddedAt.toSql(addedAt.value),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PluginIndexesTableCompanion(')
+          ..write('url: $url, ')
+          ..write('addedAt: $addedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3860,6 +4243,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PlaybackSettingsTableTable(this);
   late final $InstalledPluginsTableTable installedPluginsTable =
       $InstalledPluginsTableTable(this);
+  late final $PluginIndexesTableTable pluginIndexesTable =
+      $PluginIndexesTableTable(this);
   late final $PluginStorageTableTable pluginStorageTable =
       $PluginStorageTableTable(this);
   late final $TracksTableTable tracksTable = $TracksTableTable(this);
@@ -3895,6 +4280,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     networkSettingsTable,
     playbackSettingsTable,
     installedPluginsTable,
+    pluginIndexesTable,
     pluginStorageTable,
     tracksTable,
     queueEntriesTable,
@@ -4647,6 +5033,9 @@ typedef $$InstalledPluginsTableTableCreateCompanionBuilder =
       required String manifestJson,
       required String script,
       required DateTime installedAt,
+      Value<bool> enabled,
+      Value<String?> sourceIndexUrl,
+      Value<String?> checksJson,
       Value<int> rowid,
     });
 typedef $$InstalledPluginsTableTableUpdateCompanionBuilder =
@@ -4656,6 +5045,9 @@ typedef $$InstalledPluginsTableTableUpdateCompanionBuilder =
       Value<String> manifestJson,
       Value<String> script,
       Value<DateTime> installedAt,
+      Value<bool> enabled,
+      Value<String?> sourceIndexUrl,
+      Value<String?> checksJson,
       Value<int> rowid,
     });
 
@@ -4729,6 +5121,21 @@ class $$InstalledPluginsTableTableFilterComposer
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
 
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceIndexUrl => $composableBuilder(
+    column: $table.sourceIndexUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get checksJson => $composableBuilder(
+    column: $table.checksJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> pluginStorageTableRefs(
     Expression<bool> Function($$PluginStorageTableTableFilterComposer f) f,
   ) {
@@ -4788,6 +5195,21 @@ class $$InstalledPluginsTableTableOrderingComposer
     column: $table.installedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceIndexUrl => $composableBuilder(
+    column: $table.sourceIndexUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get checksJson => $composableBuilder(
+    column: $table.checksJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$InstalledPluginsTableTableAnnotationComposer
@@ -4818,6 +5240,19 @@ class $$InstalledPluginsTableTableAnnotationComposer
         column: $table.installedAt,
         builder: (column) => column,
       );
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceIndexUrl => $composableBuilder(
+    column: $table.sourceIndexUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get checksJson => $composableBuilder(
+    column: $table.checksJson,
+    builder: (column) => column,
+  );
 
   Expression<T> pluginStorageTableRefs<T extends Object>(
     Expression<T> Function($$PluginStorageTableTableAnnotationComposer a) f,
@@ -4890,6 +5325,9 @@ class $$InstalledPluginsTableTableTableManager
                 Value<String> manifestJson = const Value.absent(),
                 Value<String> script = const Value.absent(),
                 Value<DateTime> installedAt = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<String?> sourceIndexUrl = const Value.absent(),
+                Value<String?> checksJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsTableCompanion(
                 id: id,
@@ -4897,6 +5335,9 @@ class $$InstalledPluginsTableTableTableManager
                 manifestJson: manifestJson,
                 script: script,
                 installedAt: installedAt,
+                enabled: enabled,
+                sourceIndexUrl: sourceIndexUrl,
+                checksJson: checksJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4906,6 +5347,9 @@ class $$InstalledPluginsTableTableTableManager
                 required String manifestJson,
                 required String script,
                 required DateTime installedAt,
+                Value<bool> enabled = const Value.absent(),
+                Value<String?> sourceIndexUrl = const Value.absent(),
+                Value<String?> checksJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsTableCompanion.insert(
                 id: id,
@@ -4913,6 +5357,9 @@ class $$InstalledPluginsTableTableTableManager
                 manifestJson: manifestJson,
                 script: script,
                 installedAt: installedAt,
+                enabled: enabled,
+                sourceIndexUrl: sourceIndexUrl,
+                checksJson: checksJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4974,6 +5421,168 @@ typedef $$InstalledPluginsTableTableProcessedTableManager =
       (InstalledPluginRow, $$InstalledPluginsTableTableReferences),
       InstalledPluginRow,
       PrefetchHooks Function({bool pluginStorageTableRefs})
+    >;
+typedef $$PluginIndexesTableTableCreateCompanionBuilder =
+    PluginIndexesTableCompanion Function({
+      required String url,
+      required DateTime addedAt,
+      Value<int> rowid,
+    });
+typedef $$PluginIndexesTableTableUpdateCompanionBuilder =
+    PluginIndexesTableCompanion Function({
+      Value<String> url,
+      Value<DateTime> addedAt,
+      Value<int> rowid,
+    });
+
+class $$PluginIndexesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $PluginIndexesTableTable> {
+  $$PluginIndexesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get addedAt =>
+      $composableBuilder(
+        column: $table.addedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+}
+
+class $$PluginIndexesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $PluginIndexesTableTable> {
+  $$PluginIndexesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PluginIndexesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PluginIndexesTableTable> {
+  $$PluginIndexesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get url =>
+      $composableBuilder(column: $table.url, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+}
+
+class $$PluginIndexesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PluginIndexesTableTable,
+          PluginIndexRow,
+          $$PluginIndexesTableTableFilterComposer,
+          $$PluginIndexesTableTableOrderingComposer,
+          $$PluginIndexesTableTableAnnotationComposer,
+          $$PluginIndexesTableTableCreateCompanionBuilder,
+          $$PluginIndexesTableTableUpdateCompanionBuilder,
+          (
+            PluginIndexRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PluginIndexesTableTable,
+              PluginIndexRow
+            >,
+          ),
+          PluginIndexRow,
+          PrefetchHooks Function()
+        > {
+  $$PluginIndexesTableTableTableManager(
+    _$AppDatabase db,
+    $PluginIndexesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PluginIndexesTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PluginIndexesTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PluginIndexesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> url = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PluginIndexesTableCompanion(
+                url: url,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String url,
+                required DateTime addedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PluginIndexesTableCompanion.insert(
+                url: url,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PluginIndexesTableTable, PluginIndexRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $PluginIndexesTableTable,
+                    PluginIndexRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PluginIndexesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PluginIndexesTableTable,
+      PluginIndexRow,
+      $$PluginIndexesTableTableFilterComposer,
+      $$PluginIndexesTableTableOrderingComposer,
+      $$PluginIndexesTableTableAnnotationComposer,
+      $$PluginIndexesTableTableCreateCompanionBuilder,
+      $$PluginIndexesTableTableUpdateCompanionBuilder,
+      (
+        PluginIndexRow,
+        BaseReferences<_$AppDatabase, $PluginIndexesTableTable, PluginIndexRow>,
+      ),
+      PluginIndexRow,
+      PrefetchHooks Function()
     >;
 typedef $$PluginStorageTableTableCreateCompanionBuilder =
     PluginStorageTableCompanion Function({
@@ -6814,6 +7423,8 @@ class $AppDatabaseManager {
       $$PlaybackSettingsTableTableTableManager(_db, _db.playbackSettingsTable);
   $$InstalledPluginsTableTableTableManager get installedPluginsTable =>
       $$InstalledPluginsTableTableTableManager(_db, _db.installedPluginsTable);
+  $$PluginIndexesTableTableTableManager get pluginIndexesTable =>
+      $$PluginIndexesTableTableTableManager(_db, _db.pluginIndexesTable);
   $$PluginStorageTableTableTableManager get pluginStorageTable =>
       $$PluginStorageTableTableTableManager(_db, _db.pluginStorageTable);
   $$TracksTableTableTableManager get tracksTable =>

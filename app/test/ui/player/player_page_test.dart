@@ -647,7 +647,7 @@ void main() {
       expect(find.text('Test Source'), findsOneWidget);
     });
 
-    testWidgets('the details name a source that is not installed by its id', (
+    testWidgets('the details name a source without a name by its id', (
       tester,
     ) async {
       final h = ShellHarness();

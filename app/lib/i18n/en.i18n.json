@@ -181,6 +181,10 @@
     "cancel": "Cancel",
     "cleared": "Cache cleared"
   },
+  "sources": {
+    "notInstalled": "Source not installed",
+    "disabled": "Source disabled"
+  },
   "errors": {
     "network": "Network connection failed. Check your connection and try again.",
     "rateLimited": "Too many requests to {source}. Try again later.",
