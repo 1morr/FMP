@@ -65,6 +65,25 @@ final class PreparedPlugin {
       !isUpdate || addedCapabilities.isNotEmpty || addedHosts.isNotEmpty;
 }
 
+/// [PluginDownloader.prepare] 的結果：可以確認、安裝，或預期內的拒絕（資料有
+/// 問題或太新，不是 bug；其他失敗仍是 [AppError]）。
+sealed class PrepareResult {
+  const PrepareResult();
+}
+
+final class Prepared extends PrepareResult {
+  const Prepared(this.plugin);
+
+  final PreparedPlugin plugin;
+}
+
+final class PrepareRejected extends PrepareResult {
+  const PrepareRejected(this.reason, {required this.pluginId});
+
+  final PluginRejection reason;
+  final String pluginId;
+}
+
 /// 讀 index、下載並驗證插件檔（ADR 0030 §決定 1、5、8）。
 final class PluginDownloader {
   PluginDownloader({required this._fetch, required this._log});
@@ -72,41 +91,41 @@ final class PluginDownloader {
   final Future<Uint8List> Function(Uri url, {required int maxBytes}) _fetch;
   final Log _log;
 
-  /// 讀 [url] 的 index。網路錯誤與解析錯誤是 [AppError]；`indexVersion` 不支援是
-  /// [PluginRejected]。
-  Future<PluginIndex> readIndex(Uri url) async {
+  /// 讀 [url] 的 index。網路錯誤與解析錯誤是 [AppError]；`indexVersion` 不支援回
+  /// [IndexRejected]。
+  Future<IndexReadResult> readIndex(Uri url) async {
     final bytes = await _fetch(url, maxBytes: indexMaxBytes);
     return PluginIndex.parse(_utf8(bytes));
   }
 
   /// 下載 [entry]（來自 [indexUrl]）並驗證，回傳可以確認、安裝的內容。
   ///
-  /// - `apiVersion` 宿主不支援：[PluginRejected]（appUpdateRequired），不下載。
-  /// - SHA-256 不符：[PluginRejected]（hashMismatch）。
+  /// - `apiVersion` 宿主不支援：[PrepareRejected]（appUpdateRequired），不下載。
+  /// - SHA-256 不符：[PrepareRejected]（hashMismatch）。
   /// - `.js` 標頭 manifest 的 id、版本、`apiVersion`、能力、網域與 [entry] 不同：
-  ///   [PluginRejected]（manifestMismatch）。
+  ///   [PrepareRejected]（manifestMismatch）。
   /// - [current]（已安裝同 id 的）存在時比較新增的能力與網域；新版本不比已安裝的高
   ///   也不擋，由呼叫端先用 [updateStatus] 決定要不要更新。
   /// - `checks.json` 下載失敗或驗證不過：記 warning、`checksJson` 為 `null`，插件
   ///   照裝。
-  Future<PreparedPlugin> prepare(
+  Future<PrepareResult> prepare(
     PluginIndexEntry entry, {
     required Uri indexUrl,
     InstalledPlugin? current,
   }) async {
     if (!entry.isCompatible) {
-      throw PluginRejected(
+      return PrepareRejected(
         PluginRejection.appUpdateRequired,
         pluginId: entry.id,
       );
     }
     final bytes = await _fetch(entry.url, maxBytes: pluginFileMaxBytes);
     if (_hash(bytes) != entry.sha256) {
-      throw PluginRejected(PluginRejection.hashMismatch, pluginId: entry.id);
+      return PrepareRejected(PluginRejection.hashMismatch, pluginId: entry.id);
     }
     final file = PluginFile.decode(bytes);
     if (!_matches(entry, file.manifest)) {
-      throw PluginRejected(
+      return PrepareRejected(
         PluginRejection.manifestMismatch,
         pluginId: entry.id,
       );
@@ -115,13 +134,15 @@ final class PluginDownloader {
       current == null ? null : PluginManifest.parse(current.manifestJson),
       file.manifest,
     );
-    return PreparedPlugin(
-      file: file,
-      sourceIndexUrl: indexUrl.toString(),
-      checksJson: await _checks(entry),
-      isUpdate: current != null,
-      addedCapabilities: added.capabilities,
-      addedHosts: added.hosts,
+    return Prepared(
+      PreparedPlugin(
+        file: file,
+        sourceIndexUrl: indexUrl.toString(),
+        checksJson: await _checks(entry),
+        isUpdate: current != null,
+        addedCapabilities: added.capabilities,
+        addedHosts: added.hosts,
+      ),
     );
   }
 

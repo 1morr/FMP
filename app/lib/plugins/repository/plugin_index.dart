@@ -9,7 +9,7 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 /// 宿主讀得懂的 `index.json` 版本（ADR 0030 §決定 1）。
 const supportedIndexVersion = 1;
 
-/// 為什麼拒絕一個 index 或安裝檔。UI 依它顯示 ADR 0030 規定的提示。
+/// 為什麼拒絕一個 index 或安裝檔（預期內的結果，不是例外）。UI 依它顯示 ADR 0030 規定的提示。
 enum PluginRejection {
   /// 下載到的檔案與 index 的 SHA-256 不符：插件庫剛更新，請稍後再試。
   hashMismatch,
@@ -21,19 +21,24 @@ enum PluginRejection {
   appUpdateRequired,
 }
 
-/// 插件庫流程裡「預期內」的拒絕：資料有問題或太新，不是 bug。其他失敗
-/// （網路、解析、載入）仍是 [AppError]。
-final class PluginRejected implements Exception {
-  const PluginRejected(this.reason, {this.pluginId});
+/// 讀 index 的結果。`indexVersion` 太新是預期內的結果（[IndexRejected]），
+/// 不是例外；其他失敗（網路、格式）仍是 [AppError]。
+sealed class IndexReadResult {
+  const IndexReadResult();
+}
+
+/// 讀到、解析好的 index。
+final class IndexRead extends IndexReadResult {
+  const IndexRead(this.index);
+
+  final PluginIndex index;
+}
+
+/// index 的 `indexVersion` 宿主不支援：需要更新 FMP。
+final class IndexRejected extends IndexReadResult {
+  const IndexRejected(this.reason);
 
   final PluginRejection reason;
-
-  /// 被拒的插件 id；index 本身被拒時為 `null`。
-  final String? pluginId;
-
-  @override
-  String toString() =>
-      'PluginRejected(${reason.name}${pluginId == null ? '' : ', $pluginId'})';
 }
 
 const indexShape = <String, bool>{'indexVersion': true, 'plugins': true};
@@ -155,16 +160,16 @@ final class PluginIndex {
   const PluginIndex(this.plugins);
 
   /// 解析 index 原文。欄位封閉：不認得的欄位整個拒收（[ParseError]）；
-  /// `indexVersion` 不是 [supportedIndexVersion] 是 [PluginRejected]
+  /// `indexVersion` 不是 [supportedIndexVersion] 回 [IndexRejected]
   /// （[PluginRejection.appUpdateRequired]），不去讀其餘欄位。
-  factory PluginIndex.parse(String text) {
+  static IndexReadResult parse(String text) {
     try {
       final json = jsonDecode(text);
       final version = json is Map<String, Object?>
           ? json['indexVersion']
           : null;
       if (version is int && version != supportedIndexVersion) {
-        throw const PluginRejected(PluginRejection.appUpdateRequired);
+        return const IndexRejected(PluginRejection.appUpdateRequired);
       }
       final fields = JsonFields(json, indexShape, path: 'index');
       final entries = [
@@ -172,7 +177,7 @@ final class PluginIndex {
           PluginIndexEntry.fromJson(item, path: 'index.plugins[$i]'),
       ];
       if (fields.integer('indexVersion') != supportedIndexVersion) {
-        throw const PluginRejected(PluginRejection.appUpdateRequired);
+        return const IndexRejected(PluginRejection.appUpdateRequired);
       }
       final ids = <String>{};
       for (final entry in entries) {
@@ -180,7 +185,7 @@ final class PluginIndex {
           throw FormatException('index: "${entry.id}" is listed twice');
         }
       }
-      return PluginIndex(List.unmodifiable(entries));
+      return IndexRead(PluginIndex(List.unmodifiable(entries)));
     } on FormatException catch (error, stackTrace) {
       throw ParseError(cause: error, stackTrace: stackTrace);
     }

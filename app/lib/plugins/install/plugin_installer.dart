@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
@@ -20,8 +21,25 @@ final pluginInstallerProvider = Provider<PluginInstaller>(
         ref.read(pluginRegistryProvider.notifier).register(plugin),
     unregister: (id) =>
         ref.read(pluginRegistryProvider.notifier).unregister(id),
-    removeCache: (id) async =>
-        (await ref.read(cacheStoreProvider.future)).removePlugin(id),
+    removeCache: (id) async {
+      final CacheStore store;
+      try {
+        store = await ref.read(cacheStoreProvider.future);
+      } on Object catch (error, stackTrace) {
+        // 快取庫開不起來：沒有東西可刪，不讓它擋住移除（開啟失敗已記過 error）。
+        ref
+            .read(logProvider)
+            .warning(
+              'Cache store unavailable; skipping the cache step of a removal',
+              tag: 'plugins',
+              fields: {'pluginId': id},
+              error: error,
+              stackTrace: stackTrace,
+            );
+        return;
+      }
+      await store.removePlugin(id);
+    },
   ),
 );
 

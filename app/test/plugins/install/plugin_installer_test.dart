@@ -416,7 +416,7 @@ void main() {
       log: harness.log,
     );
 
-    Future<PreparedPlugin> prepare(
+    Future<PrepareResult> prepare(
       PluginHarness harness,
       String text,
       PluginIndexEntry theEntry, {
@@ -430,17 +430,31 @@ void main() {
     Future<int> installedCount(PluginHarness harness) async =>
         (await harness.plugins.list()).length;
 
-    Matcher rejected(PluginRejection reason) => throwsA(
-      isA<PluginRejected>().having((e) => e.reason, 'reason', reason),
-    );
+    Matcher rejected(PluginRejection reason) =>
+        isA<PrepareRejected>().having((e) => e.reason, 'reason', reason);
+
+    /// 預期成功的 [prepare]：不是 [Prepared] 就讓測試失敗。
+    Future<PreparedPlugin> preparedOf(
+      PluginHarness harness,
+      String text,
+      PluginIndexEntry theEntry, {
+      Map<String, String> more = const {},
+      InstalledPlugin? current,
+    }) async => (await prepare(
+      harness,
+      text,
+      theEntry,
+      more: more,
+      current: current,
+    ) as Prepared).plugin;
 
     test('a file that does not match the SHA-256 is refused and nothing is '
         'written', () async {
       final harness = PluginHarness();
       final text = source();
 
-      await expectLater(
-        prepare(harness, text, entry(text, sha256Override: 'a' * 64)),
+      expect(
+        await prepare(harness, text, entry(text, sha256Override: 'a' * 64)),
         rejected(PluginRejection.hashMismatch),
       );
 
@@ -460,8 +474,8 @@ void main() {
       for (final MapEntry(:key, :value) in differences.entries) {
         final harness = PluginHarness();
 
-        await expectLater(
-          prepare(harness, text, value),
+        expect(
+          await prepare(harness, text, value),
           rejected(PluginRejection.manifestMismatch),
           reason: key,
         );
@@ -476,8 +490,8 @@ void main() {
       final text = source();
       final asked = <String>[];
 
-      await expectLater(
-        downloader(
+      expect(
+        await downloader(
           harness,
           {},
           asked,
@@ -553,7 +567,7 @@ void main() {
       final text = source();
       final checksUrl = Uri.parse('https://index.test/checks.json');
       const checks = '{"search":{"input":{}}}';
-      final prepared = await prepare(
+      final prepared = await preparedOf(
         harness,
         text,
         entry(text, checksUrl: checksUrl, checksSha: hash(utf8.encode(checks))),
@@ -578,13 +592,13 @@ void main() {
       final text = source();
       final checksUrl = Uri.parse('https://index.test/checks.json');
 
-      final wrongHash = await prepare(
+      final wrongHash = await preparedOf(
         harness,
         text,
         entry(text, checksUrl: checksUrl, checksSha: 'b' * 64),
         more: {checksUrl.toString(): '{}'},
       );
-      final missing = await prepare(
+      final missing = await preparedOf(
         harness,
         text,
         entry(text, checksUrl: checksUrl, checksSha: 'b' * 64),
@@ -615,19 +629,19 @@ void main() {
       );
       final unchanged = source(version: '1.1.0');
 
-      final moreCapabilities = await prepare(
+      final moreCapabilities = await preparedOf(
         harness,
         withCapability,
         entry(withCapability),
         current: current,
       );
-      final moreHosts = await prepare(
+      final moreHosts = await preparedOf(
         harness,
         withHost,
         entry(withHost),
         current: current,
       );
-      final same = await prepare(
+      final same = await preparedOf(
         harness,
         unchanged,
         entry(unchanged),
@@ -658,7 +672,7 @@ void main() {
       await harness.storage.write('plugin-a', 'buvid', 'kept');
       final text = source(version: '1.1.0');
 
-      final prepared = await prepare(
+      final prepared = await preparedOf(
         harness,
         text,
         entry(text),
@@ -727,6 +741,31 @@ void main() {
         await expectLater(
           plugin.search(SearchQuery(keyword: 'x')),
           throwsA(isA<AppError>()),
+        );
+      });
+
+      test('skips the cache step with a warning when the cache store cannot '
+          'open', () async {
+        final harness = PluginHarness();
+        final container = _container(
+          harness,
+          extra: [
+            cacheStoreProvider.overrideWith(
+              (ref) async => throw StateError('cache.db is broken'),
+            ),
+          ],
+        );
+        final installer = container.read(pluginInstallerProvider);
+        await installer.installSource(source());
+
+        await installer.remove('plugin-a').timeout(const Duration(seconds: 5));
+
+        expect(await harness.plugins.byId('plugin-a'), isNull);
+        expect(
+          harness.log.history.where(
+            (r) => r.message.contains('skipping the cache step'),
+          ),
+          hasLength(1),
         );
       });
 

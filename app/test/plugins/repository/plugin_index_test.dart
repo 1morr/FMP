@@ -29,9 +29,13 @@ String index({
   ...extra,
 });
 
+/// 解析出 index；不是 [IndexRead] 就讓測試失敗。
+PluginIndex parseIndex(String text) =>
+    (PluginIndex.parse(text) as IndexRead).index;
+
 void main() {
   test('parses an index', () {
-    final parsed = PluginIndex.parse(
+    final parsed = parseIndex(
       index(
         plugins: [
           entry({
@@ -73,20 +77,18 @@ void main() {
   test('an indexVersion other than 1 is refused as needing a newer app', () {
     for (final version in [0, 2]) {
       expect(
-        () => PluginIndex.parse(index(version: version)),
-        throwsA(
-          isA<PluginRejected>().having(
-            (e) => e.reason,
-            'reason',
-            PluginRejection.appUpdateRequired,
-          ),
+        PluginIndex.parse(index(version: version)),
+        isA<IndexRejected>().having(
+          (e) => e.reason,
+          'reason',
+          PluginRejection.appUpdateRequired,
         ),
       );
     }
     // 新版 index 多出來的欄位不比版本號先被當成格式錯誤。
     expect(
-      () => PluginIndex.parse(index(version: 2, extra: {'new': true})),
-      throwsA(isA<PluginRejected>()),
+      PluginIndex.parse(index(version: 2, extra: {'new': true})),
+      isA<IndexRejected>(),
     );
   });
 
@@ -117,7 +119,7 @@ void main() {
   });
 
   test('a plugin with another apiVersion parses but is not compatible', () {
-    final parsed = PluginIndex.parse(
+    final parsed = parseIndex(
       index(
         plugins: [
           entry({'apiVersion': 2}),
