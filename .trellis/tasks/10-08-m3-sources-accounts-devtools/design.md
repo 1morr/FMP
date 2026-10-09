@@ -453,6 +453,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
   - `lib/plugins/accounts/` 的 `AccountGuard` 包住對插件的每次呼叫：呼叫丟 `CredentialInvalid` 時，同一插件只有一個刷新在跑（`Future` 共用）。
   - 插件宣告 `refresh`：`loginRefresh(目前憑證)` → 拿到新憑證就寫入（`last_refresh_result = refreshed`）並**重跑原呼叫一次**（新的呼叫會帶新憑證，等同「以新憑證重建請求」）；回 `null` 或拋錯 → 標 `invalidated`。
   - 沒有宣告 `refresh`：直接標 `invalidated`。
+  - 更正（M3 PR 10）：「拋錯」限 `CredentialInvalid`；刷新時的網路錯誤、限流等其他錯誤記 `last_refresh_result = failed`、帳號維持 `active` 並把錯誤往上丟（ADR 0012：網路錯誤不算失效）。
   - 標 `invalidated`：保留憑證、之後不帶、提示一次「{音源}的登入已失效」附「登入」（ADR 0013 §決定 5 的呈現表）；重跑不發生，原呼叫的錯誤照常往上。重新登入（回到 `active`）後下一次失效會再提示。
 - **啟動刷新**：宣告 `refresh: 'onStartup'` 且有憑證的插件，在第一幀之後、網路狀態第一次是 `Online` 時呼叫一次 `loginRefresh`（ADR 0016「離線中不發背景請求」）。不登記成排程器工作（不是週期工作），也不進啟動維護清單（那份是一次性的本機維護）；由 `AccountService` 自己聽網路狀態，跑過就不再跑。
 - **不做全面驗證**：啟動時不對每個帳號打帳號資訊 API（舊版的 `verifyAllAccountStatuses`）；只有帶了憑證的請求才可能觸發失效（ADR 0012）。
@@ -460,6 +461,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 - 閘門：
   - 刷新後重跑的那次請求帶的是新憑證（ADR 0012 §如何確認）；同時三個呼叫失效只刷新一次；
   - 每個音源的「憑證無效」判定表（契約 fixture：401／-101／301 各一，`credentialsAttached` 為真；另各一條 `credentialsAttached` 為假的同樣回應，不判定）；限流與網路錯誤不標失效；
+    - 更正（M3 PR 10）：判定表照 PR 1 的先例以插件 repo 的 Node 測試守（輸入回應與 `credentialsAttached`），不用契約 fixture；ADR 0015 §決定 4 的每能力一條案例不變。
   - 啟動刷新在 `noInterface` 時不發、變 `Online` 後發一次。
 
 ### 6.6 登出、移除插件、重設資料

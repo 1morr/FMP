@@ -694,7 +694,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 帳號
 
-`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。失效與刷新在之後的 PR。
+`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。
 
 - 憑證只有一個來源 `CredentialStore`：secure storage 的 `credentials.<插件 id>`（`LoginCredentials` 的 JSON）。
   記憶體只放讀進來的狀態，請求只讀記憶體；每個查詢都等 `ready`（啟動載入完成），所以啟動時的請求不會在憑證
@@ -741,6 +741,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （沒宣告是開）：`ScriptPluginLoader` 載入成功時把它交給 `CredentialStore.setBrowseAsLoggedInDefault`，請求都來自載入了的
   插件。帳號頁的開關以同一條規則顯示，寫入經 `AccountService.setBrowseAsLoggedIn`。閘門：`account_service_test.dart` 的
   `browse as logged in` 群組。
+- 失效與刷新（`AccountGuard`，`account_guard.dart`，design §6.5）：判定在插件，插件丟 `CredentialInvalid` 時由守衛在**插件呼叫層**
+  處理，不在 dio 的攔截器（判定在 JS 內）。`ScriptSourcePlugin` 的能力呼叫（`search`、`resolveStream`，`_invoke` 一處）
+  都經它；`login*` 匯出不經（它們自己負責憑證）。只有 `CredentialInvalid` 觸發，而且呼叫開始時要有可用憑證；網路錯誤、
+  限流、風控不觸發。流程：同一插件單飛刷新（共用 `Future`）；呼叫開始時的憑證和現在的不同＝已被別的呼叫刷新過，直接重跑，
+  不再刷新。宣告 `refresh`：`loginRefresh(目前憑證)` 拿到新憑證就寫入（`CredentialStore.replace`，`refreshed`）並**重跑原呼叫
+  一次**（新的呼叫讀到新憑證）；回 `null` 或丟 `CredentialInvalid` 就標 `invalidated`（`CredentialStore.invalidate`，保留憑證、
+  不再帶）；沒宣告 `refresh` 直接標。重跑又被拒也標，不再重跑。刷新時的其他錯誤（網路、限流）不標失效，記 `failed` 並丟出
+  那個錯誤。每次從 `active` 轉成 `invalidated` 發一次 `AccountInvalidated`（`accountInvalidationsProvider`），外殼提示一次
+  「{音源}的登入已失效」附「登入」（到設定頁的帳號區塊）；重新登入回到 `active` 後下一次失效再提示。閘門：
+  `account_guard_test.dart`（`a rejected credential`：重跑帶新憑證、三個並行刷新一次、不支援刷新、`null`、被拒、重跑又被拒不
+  循環、刷新網路錯誤；`other failures`）、`accounts_section_test.dart` 的 `a rejected credential prompts…`。
+- 啟動刷新（`AccountService.refreshOnStartup`、`accountStartupRefreshProvider`）：宣告 `refresh: 'onStartup'` 且有可用憑證的
+  插件，在第一幀之後（`FmpApp` 讀 provider）、**網路狀態第一次是 `online` 時**各 `loginRefresh` 一次（與失效時的刷新共用
+  單飛），整個執行只跑一次；先等網路狀態的第一次介面檢查（`NetworkStatusNotifier.whenFirstChecked`），因為網路狀態的預設是 `online`，沒查過就不知道有沒有網路。不是排程器
+  工作、不在啟動維護清單。結果寫帳號列的 `last_refresh_at`／`last_refresh_result`：新憑證 `refreshed`、`null` `unchanged`、
+  被拒標失效並 `failed`（提示一次）、網路錯誤等 `failed` 但帳號仍可用。帳號頁對宣告 `refresh` 的插件顯示最後刷新的時間與
+  結果。不做全面驗證（啟動時不對每個帳號打帳號資訊 API）。閘門：`account_guard_test.dart` 的 `startup refresh`、
+  `the startup refresh provider`（離線不發、上線後發一次、之後不再發）、`accounts_section_test.dart` 的
+  `shows the last refresh…`、`a failed refresh…`。
+- 「憑證無效」判定表（`credentialsAttached` 為真的 401、`-101` 等）在各插件的目錄內，由插件 repo 的 Node 測試守（輸入回應
+  與 `credentialsAttached`），不是契約 fixture（ADR 0015 §決定 4 每能力一條案例；PR 1 的先例）。沒有閘門：本 repo 不守。
   憑證的值只用假值寫測試（`FAKE_…`）。
 
 ## 插件
@@ -1351,7 +1372,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     閘門：`accounts_section_test.dart` 的 `availableLoginMethods…`、`one card per…`、`without secure storage…`。
   - 已登入：頭像（帳號列的 `avatar_json`，經那個插件的封面快取）、名稱、狀態（正常／已失效／暫時無法讀取，取自
     `CredentialStore.state`）、「以登入身分瀏覽與播放」開關（`automationRisk` 時附說明）、登出（先確認）；已失效時多「重新
-    登入」（只有一種方式時；幾種時照列每一種）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
+    登入」（只有一種方式時；幾種時照列每一種）；宣告 `refresh` 的插件另有一行「最後刷新：時間，結果」（時間用裝置本地時間與
+    `MaterialLocalizations`，同歷史頁）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
     `accounts_section_test.dart` 的 `a QR login with the test plugin…`、`an invalidated account…`、`unreadable credentials…`、
     `offline…`。
   - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中

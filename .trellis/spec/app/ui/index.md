@@ -269,6 +269,10 @@ try {
 - 三種登入方式都接上了（M3 PR 9）。加新的一種時：`LoginMethod` 加值，`availableLoginMethods`、`_AccountCard` 的按鈕與
   `_login` 的 `switch` 會指出要補的地方。QR 與貼上 cookie 在對話框裡驗證寫入、回 `Account`；網頁登入的頁面只交回
   cookie，關頁後 `_login` 才 `AccountService.login`（包 `_work`，State 不在了就不包）。
+- 失效提示在外殼：`AppShell` 聽 `accountInvalidationsProvider`，`Toaster.warning` 附「登入」動作（`_openAccounts`：換到設定頁、
+  選帳號區塊）。事件類別 `AccountInvalidated` 刻意不定義 `==`，同一插件失效、重新登入、再失效才都會通知。測試造失效用
+  `harness.plugins.guard.run(...)` 丟 `CredentialInvalid`；外殼的測試環境只認得它自己的測試音源名稱，提示裡的音源名稱要
+  `overrides: [pluginNameProvider('<id>').overrideWithValue('<名稱>')]`。最後刷新那行的測試給 `_signIn(lastRefreshAt:, lastRefreshResult:)`。
 - 測試用 `PluginPageHarness.create(tester)`（平台預設宣告有 secure storage；`secureStorage: false` 測沒有的平台），插件以
   `pluginScript(..., login: {...})` 或 `testPluginFile` 寫進資料庫。造已登入的狀態在假時間 zone 呼叫
   `h.plugins.credentials.save(...)` 再 `pump`（不要包 `runAsync`，理由見插件頁那一節）。QR 對話框的輪詢是假計時器：
