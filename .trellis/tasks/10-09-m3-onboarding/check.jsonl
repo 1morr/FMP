@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "Section 7.6 first-run onboarding; 7.4 install confirmation; 7.5 plugin page rows to reuse"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Design system, in-place guidance (decision 9)"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Offline empty state (decision 7)"}
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "Plugin repository and install flow"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI layer patterns, plugin page harness, guideline tests"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin repository, installer and registry APIs"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}
