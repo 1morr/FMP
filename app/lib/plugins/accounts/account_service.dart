@@ -1,14 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
@@ -23,8 +27,46 @@ final accountServiceProvider = Provider<AccountService>(
     clearCookies: ref.watch(sourceHttpClientFactoryProvider).clearCookies,
     plugins: ref.watch(pluginRepositoryProvider),
     loginWebView: ref.watch(loginWebViewProvider),
+    guard: ref.watch(accountGuardProvider),
   ),
 );
+
+/// 啟動刷新（design §6.5）：第一幀之後讀一次（`FmpApp`）就開始等網路；網路狀態第一次
+/// 是 `online` 時對宣告 `refresh: 'onStartup'` 的插件各刷新一次，之後不再跑。離線時
+/// 不發請求（ADR 0016 §決定 6）。不是排程器的工作，也不在啟動維護清單裡。
+final accountStartupRefreshProvider = Provider<void>((ref) {
+  // 預設狀態是 online，要先查過介面才知道真的有沒有網路。
+  var checked = false;
+  var started = false;
+  void start(NetworkStatus status) {
+    if (!checked || started || status != NetworkStatus.online) return;
+    started = true;
+    unawaited(() async {
+      final log = ref.read(logProvider);
+      final service = ref.read(accountServiceProvider);
+      try {
+        final plugins = await ref.read(pluginRegistryProvider.future);
+        if (!ref.mounted) return;
+        await service.refreshOnStartup(plugins.values);
+      } on Object catch (error, stackTrace) {
+        log.error(
+          'Startup credential refresh failed',
+          tag: 'credentials',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }());
+  }
+
+  ref.listen(networkStatusProvider, (_, status) => start(status));
+  unawaited(() async {
+    await ref.read(networkStatusProvider.notifier).whenFirstChecked();
+    if (!ref.mounted) return;
+    checked = true;
+    start(ref.read(networkStatusProvider));
+  }());
+});
 
 /// 登出時要清的 WebView 網址：`cookieHosts` 與登入頁 `url`（ADR 0029 §決定 11）。登入頁的
 /// 網域（Google 帳號）也有登入狀態，不清的話下次開登入頁就直接登入。
@@ -43,6 +85,7 @@ final class AccountService {
     required this._clearCookies,
     required this._plugins,
     required this._loginWebView,
+    required this._guard,
   });
 
   final CredentialStore _credentials;
@@ -55,6 +98,7 @@ final class AccountService {
 
   /// 平台的登入 WebView；平台沒有這個能力時為 `null`。
   final LoginWebView? _loginWebView;
+  final AccountGuard _guard;
 
   /// 三種登入方式共用的最後一步（ADR 0012 §決定 4）：[plugin] 的 `loginVerify` 通過
   /// 才寫入——先 secure storage、再帳號列（`active`、登入時間）、再登記遮蔽
@@ -111,6 +155,22 @@ final class AccountService {
     final webView = PluginManifest.parse(installed.manifestJson).login?.webView;
     if (webView == null) return;
     await loginWebView.clear(loginWebViewHosts(webView));
+  }
+
+  /// 啟動刷新（design §6.5）：[plugins] 裡宣告 `refresh: 'onStartup'` 而且有可用憑證的，
+  /// 各呼叫一次 `loginRefresh`（與失效時的刷新共用單飛）。結果寫進帳號列：新憑證
+  /// `refreshed`、沒有新的 `unchanged`、被拒 `failed` 並標已失效（提示一次）；網路錯誤
+  /// 等 `failed` 但帳號仍可用。一個插件失敗不擋其他插件。
+  Future<void> refreshOnStartup(Iterable<SourcePlugin> plugins) async {
+    for (final plugin in plugins) {
+      if (plugin.manifest.login?.refresh != LoginRefresh.onStartup) continue;
+      try {
+        await _guard.refresh(plugin, rejected: false);
+      } on AppError {
+        // 失敗已由 AccountGuard 記進 log 與帳號列，不擋其他插件。
+        continue;
+      }
+    }
   }
 
   /// 移除插件時的帳號面：[logout] 加上刪 `source_settings`（design §7.4）。

@@ -5,6 +5,7 @@ import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
@@ -20,15 +21,24 @@ import 'package:fmp/plugins/source_plugin.dart';
 /// `login*` 匯出執行期間，這個插件的 API client 不把回應的 `Set-Cookie` 存進 cookie
 /// jar（ADR 0029 §決定 2）：登入回應設的 cookie 是憑證，只經 `CredentialStore` 與
 /// 注入送出。插件照樣讀得到回應的 header。
+///
+/// 能力呼叫（`search`、`resolveStream`）經 [AccountGuard]：插件丟 `CredentialInvalid`
+/// 時刷新憑證並重跑一次（design §6.5）。
 final class ScriptSourcePlugin implements SourcePlugin {
-  ScriptSourcePlugin._(this.manifest, this._runtime, this._http, this._redactor)
-    : _allowedHosts = AllowedHosts(manifest.allowedHosts);
+  ScriptSourcePlugin._(
+    this.manifest,
+    this._runtime,
+    this._http,
+    this._redactor,
+    this._guard,
+  ) : _allowedHosts = AllowedHosts(manifest.allowedHosts);
 
   @override
   final PluginManifest manifest;
   final PluginRuntime _runtime;
   final SourceHttpClient _http;
   final Redactor _redactor;
+  final AccountGuard _guard;
   final AllowedHosts _allowedHosts;
 
   @override
@@ -109,7 +119,10 @@ final class ScriptSourcePlugin implements SourcePlugin {
         stackTrace: StackTrace.current,
       );
     }
-    return _runtime.invoke(capability.wireName, argument);
+    return _guard.run(
+      this,
+      () => _runtime.invoke(capability.wireName, argument),
+    );
   }
 
   /// 呼叫 `login*` 匯出 [function]：manifest 沒宣告它（沒有 `login`、methods 沒有
@@ -157,6 +170,7 @@ final class ScriptPluginLoader {
     required this._httpClients,
     required this._storage,
     required this._credentials,
+    required this._guard,
     this._callTimeout = defaultPluginCallTimeout,
     this._livenessGrace = defaultLivenessGrace,
   });
@@ -166,6 +180,7 @@ final class ScriptPluginLoader {
   final SourceHttpClientFactory _httpClients;
   final PluginStorageRepository _storage;
   final CredentialStore _credentials;
+  final AccountGuard _guard;
   final Duration _callTimeout;
   final Duration _livenessGrace;
 
@@ -227,7 +242,7 @@ final class ScriptPluginLoader {
       manifest.id,
       manifest.login?.browseAsLoggedInDefault ?? true,
     );
-    return ScriptSourcePlugin._(manifest, runtime, http, _redactor);
+    return ScriptSourcePlugin._(manifest, runtime, http, _redactor, _guard);
   }
 
   /// manifest 要求的匯出（[PluginManifest.requiredExports]）與實際匯出不一致之處；

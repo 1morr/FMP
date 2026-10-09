@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/core_providers.dart';
@@ -288,6 +289,60 @@ final class CredentialStore implements CredentialSource {
         await _accounts.upsert(account);
         _set(account.pluginId, credentials, account.status);
         _changed();
+      });
+
+  /// 刷新拿到新憑證：寫入（先 secure storage、再帳號列的最後刷新紀錄 `refreshed`），
+  /// 記憶體換成新的；狀態仍是 `active`。沒有帳號列（已登出）時什麼都不做，新憑證
+  /// 不能復活登出的帳號。丟出寫入的錯誤，記憶體不變。
+  Future<void> replace(String pluginId, LoginCredentials credentials) =>
+      _serial(() async {
+        final account = await _accounts.byId(pluginId);
+        if (account == null) return;
+        await _storage.write(_key(pluginId), jsonEncode(credentials.toJson()));
+        final updated = account.withRefresh(
+          status: AccountStatus.active,
+          refreshedAt: clock.now().toUtc(),
+          result: RefreshResult.refreshed,
+        );
+        await _accounts.upsert(updated);
+        _set(pluginId, credentials, updated.status);
+        _changed();
+      });
+
+  /// 記下一次沒有換憑證的刷新（`unchanged`、`failed`）：只寫帳號列。沒有帳號列時
+  /// 什麼都不做。
+  Future<void> recordRefresh(String pluginId, RefreshResult result) =>
+      _serial(() async {
+        final account = await _accounts.byId(pluginId);
+        if (account == null) return;
+        await _accounts.upsert(
+          account.withRefresh(refreshedAt: clock.now().toUtc(), result: result),
+        );
+        _changed();
+      });
+
+  /// [pluginId] 的憑證被音源拒絕（ADR 0012 §決定 5）：帳號列標 `invalidated`，記憶體
+  /// 的狀態跟著改，憑證保留、之後不帶。回傳這次是不是從 `active` 轉過來的——已經是
+  /// 失效、沒有憑證或讀不到時是 `false`，呼叫端據此只提示一次。[result] 是同時記下的
+  /// 最後刷新結果。
+  Future<bool> invalidate(String pluginId, {RefreshResult? result}) =>
+      _serial(() async {
+        final entry = _entries[pluginId];
+        if (entry == null || entry.state != CredentialState.active) {
+          return false;
+        }
+        final account = await _accounts.byId(pluginId);
+        if (account == null) return false;
+        await _accounts.upsert(
+          account.withRefresh(
+            status: AccountStatus.invalidated,
+            refreshedAt: result == null ? null : clock.now().toUtc(),
+            result: result,
+          ),
+        );
+        _set(pluginId, entry.credentials!, AccountStatus.invalidated);
+        _changed();
+        return true;
       });
 
   /// 刪除 [pluginId] 的憑證與遮蔽登記（登出、移除插件）。帳號列由呼叫端刪。沒有

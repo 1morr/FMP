@@ -7,6 +7,7 @@ import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
@@ -45,6 +46,7 @@ final scriptPluginLoaderProvider = Provider<ScriptPluginLoader>(
     httpClients: ref.watch(sourceHttpClientFactoryProvider),
     storage: ref.watch(pluginStorageRepositoryProvider),
     credentials: ref.watch(credentialStoreProvider),
+    guard: ref.watch(accountGuardProvider),
   ),
 );
 
