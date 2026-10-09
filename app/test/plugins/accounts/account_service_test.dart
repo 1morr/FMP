@@ -398,6 +398,33 @@ void main() {
       });
     });
 
+    // 使用者在手機上確認之前就關了畫面：還在路上的那一次輪詢即使回 done 也不登入
+    // （design §6.4「離開畫面停止輪詢」；已經進到驗證的才照樣寫入）。
+    test('a poll that comes back done after leaving logs nothing in', () {
+      fakeAsync((async) {
+        final setup = _Setup();
+        final gate = Completer<void>();
+        final plugin = _GatedPlugin(
+          gate,
+          result: const LoginQrPoll(
+            LoginQrStatus.done,
+            credentials: _credentials,
+          ),
+        );
+        final login = setup.qr(plugin);
+        unawaited(login.start());
+        async.elapse(qrPollInterval);
+
+        login.dispose();
+        gate.complete();
+        async.elapse(qrPollInterval * 3);
+
+        expect(plugin.calls, ['start', 'poll token-1']);
+        expect(setup.storage.values, isEmpty);
+        expect(async.pendingTimers, isEmpty);
+      });
+    });
+
     test('a failed poll stops and is reported once', () {
       fakeAsync((async) {
         final setup = _Setup();
@@ -556,16 +583,20 @@ export async function loginVerify(credentials) {
   });
 }
 
-/// `loginQrPoll` 等 [gate] 完成才回 `waiting`：模擬離開畫面時還在路上的輪詢。
+/// `loginQrPoll` 等 [gate] 完成才回 [result]：模擬離開畫面時還在路上的輪詢。
 final class _GatedPlugin extends _LoginPlugin {
-  _GatedPlugin(this.gate);
+  _GatedPlugin(
+    this.gate, {
+    this.result = const LoginQrPoll(LoginQrStatus.waiting),
+  });
 
   final Completer<void> gate;
+  final LoginQrPoll result;
 
   @override
   Future<LoginQrPoll> loginQrPoll(String token) async {
     calls.add('poll $token');
     await gate.future;
-    return const LoginQrPoll(LoginQrStatus.waiting);
+    return result;
   }
 }

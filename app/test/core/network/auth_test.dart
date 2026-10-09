@@ -2,7 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/source_http_client.dart';
+import 'package:fmp/core/redaction/redactor.dart';
 
 import '../../support/credentials.dart';
 import '../../support/fake_http_adapter.dart';
@@ -265,6 +269,46 @@ void main() {
       await harness.get('https://example.test/later');
       await harness.get('https://example.test/check');
       expect(_cookie(harness), 'later=FAKE_LATER_COOKIE');
+    });
+
+    // 計數是每個 client 一個：一個插件在登入，別的插件的回應照存。
+    test('a login holds only its own client', () async {
+      final adapter = FakeHttpAdapter(
+        (options) => switch (options.uri.path) {
+          '/later' => reply(
+            200,
+            headers: {'Set-Cookie': 'later=FAKE_LATER_COOKIE; Path=/'},
+          ),
+          _ => reply(200),
+        },
+      );
+      final factory = SourceHttpClientFactory(
+        log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+        credentials: const NoCredentials(),
+        createAdapter: () => adapter,
+      );
+      SourceHttpClient client(String id) =>
+          factory.create(pluginId: id, allowedHosts: allowedHosts);
+      final a = client('plugin-a');
+      final b = client('plugin-b');
+      addTearDown(a.close);
+      addTearDown(b.close);
+      Future<String?> send(SourceHttpClient client, String path) async {
+        await client.send(
+          SourceRequest(Uri.parse('https://example.test$path')),
+        );
+        return adapter.requests.last.headers['cookie'] as String?;
+      }
+
+      final login = Completer<void>();
+      final held = a.withoutSavingCookies(() => login.future);
+      await send(a, '/later');
+      await send(b, '/later');
+
+      expect(await send(a, '/check'), isNull);
+      expect(await send(b, '/check'), 'later=FAKE_LATER_COOKIE');
+      login.complete();
+      await held;
     });
 
     test('a failed login gives the jar back', () async {

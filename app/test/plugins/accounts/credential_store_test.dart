@@ -213,6 +213,37 @@ void main() {
       expect(await store.state('bilibili'), CredentialState.none);
     });
 
+    // 憑證寫好、帳號列沒寫進去：登入失敗、這次執行不帶它，下次啟動對齊刪掉。
+    test('a failed account write fails the save; the next start removes the '
+        'credentials', () async {
+      final setup = _Setup();
+      await setup.install('bilibili');
+      final store = setup.create();
+      await store.ready;
+      await setup.database.customStatement(
+        'CREATE TRIGGER fail_accounts BEFORE INSERT ON accounts '
+        "BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+      );
+
+      await expectLater(
+        store.save(_account('bilibili'), _credentials),
+        throwsA(anything),
+      );
+
+      expect(setup.storage.values, contains('credentials.bilibili'));
+      expect(await store.state('bilibili'), CredentialState.none);
+      expect(await store.credentialMaterial('bilibili'), isNull);
+      // 遮蔽只在寫入成功後登記（登入流程裡 loginVerify 呼叫前已經登記過）。
+      expect(setup.redactor.redact(_sessdata), _sessdata);
+
+      await setup.database.customStatement('DROP TRIGGER fail_accounts');
+      final next = setup.create();
+      await next.ready;
+
+      expect(setup.storage.values, isEmpty);
+      expect(await next.state('bilibili'), CredentialState.none);
+    });
+
     test(
       'delete clears the storage and the memory, and can be repeated',
       () async {
