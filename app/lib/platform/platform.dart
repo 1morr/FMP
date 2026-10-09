@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:fmp/core/app_flavor.dart';
@@ -19,6 +20,8 @@ import 'package:fmp/platform/files/file_picker_dialogs.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
+import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_android.dart';
 import 'package:fmp/platform/media_controls/media_controls_windows.dart';
@@ -37,11 +40,13 @@ final class AppPlatform {
     this.cacheDirectory,
     this.secureStorage,
     this.fileDialogs,
+    this.loginWebView,
     this.mediaControls,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
        assert(capabilities.files == (fileDialogs != null)),
+       assert(capabilities.loginWebView == (loginWebView != null)),
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
        assert((capabilities.cache != null) == (cacheDirectory != null)),
        assert(capabilities.secureStorage == (secureStorage != null)),
@@ -78,6 +83,7 @@ final class AppPlatform {
         cache: androidCacheSizes,
         secureStorage: true,
         files: true,
+        loginWebView: true,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       dataDirectory: AndroidAppDataDirectory(
@@ -91,10 +97,33 @@ final class AppPlatform {
       ),
       secureStorage: FlutterSecureStorageAdapter.system(flavor),
       fileDialogs: const FilePickerDialogs(),
+      loginWebView: InAppLoginWebView.android(),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
     ),
-    TargetPlatform.windows => AppPlatform._(
+    TargetPlatform.windows => _windows(flavor, windowsMediaControls),
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.iOS ||
+    TargetPlatform.fuchsia => AppPlatform._(
+      capabilities: PlatformCapabilities.none,
+    ),
+  };
+
+  static AppPlatform _windows(
+    AppFlavor flavor,
+    Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+  ) {
+    final dataDirectory = WindowsAppDataDirectory(
+      flavor: flavor,
+      executablePath: Platform.resolvedExecutable,
+      roamingAppDataPath: Platform.environment['APPDATA'],
+      applicationSupportPath: () async =>
+          (await getApplicationSupportDirectory()).path,
+      documentsPath: () async =>
+          (await getApplicationDocumentsDirectory()).path,
+    );
+    return AppPlatform._(
       capabilities: const PlatformCapabilities(
         dataDirectory: true,
         singleInstance: true,
@@ -104,37 +133,31 @@ final class AppPlatform {
         cache: windowsCacheSizes,
         secureStorage: true,
         files: true,
+        loginWebView: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
           positionRefresh: Duration(seconds: 5),
         ),
       ),
-      dataDirectory: WindowsAppDataDirectory(
-        flavor: flavor,
-        executablePath: Platform.resolvedExecutable,
-        roamingAppDataPath: Platform.environment['APPDATA'],
-        applicationSupportPath: () async =>
-            (await getApplicationSupportDirectory()).path,
-        documentsPath: () async =>
-            (await getApplicationDocumentsDirectory()).path,
-      ),
+      dataDirectory: dataDirectory,
       networkInterfaces: ConnectivityPlusInterfaces.system(),
       cacheDirectory: CacheDirectory(
         applicationCachePath: _applicationCachePath,
       ),
       secureStorage: FlutterSecureStorageAdapter.system(flavor),
       fileDialogs: const FilePickerDialogs(),
+      // WebView2 的使用者資料跟著資料目錄（dev 與 prod 分開、重設資料一起刪）。
+      loginWebView: InAppLoginWebView.windows(
+        userDataFolder: () async => p.join(
+          (await dataDirectory.resolve()).path,
+          loginWebViewDirectoryName,
+        ),
+      ),
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
-    ),
-    TargetPlatform.linux ||
-    TargetPlatform.macOS ||
-    TargetPlatform.iOS ||
-    TargetPlatform.fuchsia => AppPlatform._(
-      capabilities: PlatformCapabilities.none,
-    ),
-  };
+    );
+  }
 
   final PlatformCapabilities capabilities;
 
@@ -153,6 +176,9 @@ final class AppPlatform {
 
   /// 檔案對話框；[PlatformCapabilities.files] 為假時為 `null`。
   final FileDialogs? fileDialogs;
+
+  /// 登入 WebView；[PlatformCapabilities.loginWebView] 為假時為 `null`。
+  final LoginWebView? loginWebView;
 
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
@@ -186,6 +212,7 @@ final class AppPlatform {
       cacheDirectory: cacheDirectory,
       secureStorage: secureStorage,
       fileDialogs: fileDialogs,
+      loginWebView: loginWebView,
       mediaControls: controls,
     );
   }
