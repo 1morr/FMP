@@ -85,11 +85,12 @@ final class UnresponsivePlugin implements SourcePlugin {
 /// `NetworkError`，不聯網）與假的檔案對話框。快取庫開不起來：移除插件時略過快取那一步
 /// （那一步由 `plugin_installer_test.dart` 守）。
 final class PluginPageHarness {
-  PluginPageHarness._({this.dialogs}) {
+  PluginPageHarness._({this.dialogs, bool registrySources = false}) {
     shell = ShellHarness(
       database: plugins.database,
       fileDialogs: dialogs,
       cacheUnavailable: true,
+      registrySources: registrySources,
       extraOverrides: [
         redactorProvider.overrideWithValue(plugins.redactor),
         credentialStoreProvider.overrideWithValue(plugins.credentials),
@@ -114,8 +115,12 @@ final class PluginPageHarness {
   static Future<PluginPageHarness> create(
     WidgetTester tester, {
     FakeFileDialogs? dialogs,
+    bool registrySources = false,
   }) async {
-    final harness = PluginPageHarness._(dialogs: dialogs);
+    final harness = PluginPageHarness._(
+      dialogs: dialogs,
+      registrySources: registrySources,
+    );
     var loaded = false;
     unawaited(harness.plugins.credentials.ready.then((_) => loaded = true));
     await tester.pump();

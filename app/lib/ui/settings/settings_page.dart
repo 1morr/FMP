@@ -31,9 +31,13 @@ enum SettingsSection {
 /// 回到清單的同時外殼也跳回第一頁。
 final class SettingsBack {
   bool Function() _release = () => false;
+  void Function(SettingsSection section) _show = (_) {};
 
   /// 設定頁在返回鍵該回到分組清單時回到清單並回傳 `true`；否則什麼都不做、回傳 `false`。
   bool release() => _release();
+
+  /// 設定頁選到 [section]（搜尋頁的「前往插件頁」）。
+  void show(SettingsSection section) => _show(section);
 }
 
 /// 設定頁（ADR 0024 §決定 6、ADR 0011 §決定 7 的分組）。
@@ -64,13 +68,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void initState() {
     super.initState();
     widget.back._release = _releaseGroup;
+    widget.back._show = _showSection;
   }
 
   @override
   void didUpdateWidget(SettingsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.back._release = _releaseGroup;
+    widget.back._show = _showSection;
   }
+
+  void _showSection(SettingsSection section) =>
+      setState(() => _selected = section);
 
   bool _releaseGroup() {
     final narrow = switch (WindowClass.of(context)) {

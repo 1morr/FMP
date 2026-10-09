@@ -110,6 +110,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
   }
 
+  /// 搜尋頁的「前往插件頁」：換到設定頁並選「插件」區塊。
+  void _openPlugins() {
+    _select(ShellDestination.settings);
+    _settingsBack.show(SettingsSection.plugins);
+  }
+
   // ---- 快捷鍵（播放類在 PlaybackShortcuts）-----------------------------------
 
   /// F6：從焦點所在的區往下一區，跳過不在畫面上或沒有可聚焦項目的區。焦點
@@ -200,7 +206,10 @@ class _AppShellState extends ConsumerState<AppShell> {
               index: _destination.index,
               sizing: StackFit.expand,
               children: [
-                SearchPage(fieldFocusNode: _searchField),
+                SearchPage(
+                  fieldFocusNode: _searchField,
+                  onOpenPlugins: _openPlugins,
+                ),
                 const HistoryPage(),
                 SettingsPage(
                   visible: _destination == ShellDestination.settings,

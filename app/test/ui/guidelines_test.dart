@@ -422,6 +422,60 @@ void main() {
         });
       }
 
+      // 首次啟動引導（M3 PR 6）：搜尋頁的插件清單（一個已裝、一個要更新 FMP）與一次確認
+      // 的對話框。
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        final width = size.width;
+
+        Future<PluginPageHarness> openOnboarding(WidgetTester tester) async {
+          final h = await PluginPageHarness.create(
+            tester,
+            registrySources: true,
+          );
+          h.publish(
+            [
+              pluginScript('plugin-a', name: 'Alpha', description: 'Search'),
+              pluginScript('plugin-b', name: 'Beta'),
+              pluginScript('plugin-d', name: 'Delta'),
+            ],
+            apiVersions: {'plugin-d': 2},
+          );
+          await tester.runAsync(
+            () => h.install(
+              pluginScript('plugin-b', name: 'Beta'),
+              enabled: false,
+            ),
+          );
+          await h.shell.pumpShell(tester, size: size, brightness: brightness);
+          await h.settle(tester);
+          expect(
+            find.text('Install plugins to start searching'),
+            findsOneWidget,
+          );
+          return h;
+        }
+
+        testWidgets('the onboarding at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openOnboarding(tester);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the onboarding confirmation at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openOnboarding(tester);
+          await tester.tap(find.widgetWithText(FilledButton, 'Install'));
+          await h.settle(tester);
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(find.text('Install these plugins?'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
       // 右側「正在播放」面板（M2 PR 19）：有歌、1000 與 1800 寬；面板裡的詳細資料、
       // 收起鈕與拖曳把手。
       for (final width in const [1000.0, 1800.0]) {

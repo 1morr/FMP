@@ -219,6 +219,7 @@
     "remove": "移除",
     "install": "安裝",
     "installTitle": "安裝「{name}」？",
+    "installAllTitle": "安裝這些插件？",
     "updateTitle": "更新「{name}」？",
     "byline": "作者 {author} · 版本 {version}",
     "addedAccess": "新版本比目前的版本多了下列能力或網域，確認後才會更新。",
@@ -281,6 +282,15 @@
       "lyrics": "歌詞",
       "login": "登入"
     }
+  },
+  "onboarding": {
+    "title": "安裝插件才能開始搜尋",
+    "body": "插件讓 FMP 連到各個音樂來源。勾選想用的；之後隨時可以到「設定 > 插件」調整。",
+    "later": "稍後再說",
+    "goToPlugins": "前往插件頁",
+    "loading": "正在載入插件",
+    "installedCount": "已安裝的插件：{count}",
+    "failedTitle": "有些插件沒有裝成功"
   },
   "errors": {
     "network": "網路連線失敗，請檢查網路後再試",

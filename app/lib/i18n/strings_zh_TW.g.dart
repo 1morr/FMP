@@ -69,6 +69,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$sources$zh_TW.internal(_root);
   late final Translations$plugins$zh_TW plugins =
       Translations$plugins$zh_TW.internal(_root);
+  late final Translations$onboarding$zh_TW onboarding =
+      Translations$onboarding$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
       Translations$errors$zh_TW.internal(_root);
 }
@@ -779,6 +781,9 @@ class Translations$plugins$zh_TW {
   /// zh-TW: '安裝「{name}」？'
   String installTitle({required Object name}) => '安裝「${name}」？';
 
+  /// zh-TW: '安裝這些插件？'
+  String get installAllTitle => '安裝這些插件？';
+
   /// zh-TW: '更新「{name}」？'
   String updateTitle({required Object name}) => '更新「${name}」？';
 
@@ -932,6 +937,36 @@ class Translations$plugins$zh_TW {
 
   late final Translations$plugins$capabilityNames$zh_TW capabilityNames =
       Translations$plugins$capabilityNames$zh_TW.internal(_root);
+}
+
+// Path: onboarding
+class Translations$onboarding$zh_TW {
+  Translations$onboarding$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '安裝插件才能開始搜尋'
+  String get title => '安裝插件才能開始搜尋';
+
+  /// zh-TW: '插件讓 FMP 連到各個音樂來源。勾選想用的；之後隨時可以到「設定 > 插件」調整。'
+  String get body => '插件讓 FMP 連到各個音樂來源。勾選想用的；之後隨時可以到「設定 > 插件」調整。';
+
+  /// zh-TW: '稍後再說'
+  String get later => '稍後再說';
+
+  /// zh-TW: '前往插件頁'
+  String get goToPlugins => '前往插件頁';
+
+  /// zh-TW: '正在載入插件'
+  String get loading => '正在載入插件';
+
+  /// zh-TW: '已安裝的插件：{count}'
+  String installedCount({required Object count}) => '已安裝的插件：${count}';
+
+  /// zh-TW: '有些插件沒有裝成功'
+  String get failedTitle => '有些插件沒有裝成功';
 }
 
 // Path: errors

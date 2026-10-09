@@ -90,6 +90,9 @@ class TranslationsZhCn extends Translations
   late final Translations$plugins$zh_CN plugins =
       Translations$plugins$zh_CN.internal(_root);
   @override
+  late final Translations$onboarding$zh_CN onboarding =
+      Translations$onboarding$zh_CN.internal(_root);
+  @override
   late final Translations$errors$zh_CN errors =
       Translations$errors$zh_CN.internal(_root);
 }
@@ -631,6 +634,8 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   @override
   String installTitle({required Object name}) => '安装“${name}”？';
   @override
+  String get installAllTitle => '安装这些插件？';
+  @override
   String updateTitle({required Object name}) => '更新“${name}”？';
   @override
   String byline({required Object author, required Object version}) =>
@@ -736,6 +741,31 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   @override
   late final Translations$plugins$capabilityNames$zh_CN capabilityNames =
       Translations$plugins$capabilityNames$zh_CN.internal(_root);
+}
+
+// Path: onboarding
+class Translations$onboarding$zh_CN extends Translations$onboarding$zh_TW {
+  Translations$onboarding$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '安装插件后才能开始搜索';
+  @override
+  String get body => '插件让 FMP 连接各个音乐来源。勾选想用的；之后随时可以到“设置 > 插件”调整。';
+  @override
+  String get later => '稍后再说';
+  @override
+  String get goToPlugins => '前往插件页';
+  @override
+  String get loading => '正在加载插件';
+  @override
+  String installedCount({required Object count}) => '已安装的插件：${count}';
+  @override
+  String get failedTitle => '有些插件没有安装成功';
 }
 
 // Path: errors
