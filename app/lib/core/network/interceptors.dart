@@ -136,11 +136,19 @@ String _cookieHeader(Map<String, String> cookies) =>
 ///    jar 時跳過兩種名稱：請求的 `Cookie` header 已有的（同名以 header 為準，
 ///    header 已經併過憑證）、以及該插件憑證裡有的——不論這次請求有沒有帶憑證，
 ///    憑證的 cookie 只經注入送出，不從 jar 送出（ADR 0029 §決定 4）。
+/// 3. 插件的 `login*` 匯出執行期間（[_CookieHold]）不存回應的 cookie（ADR 0029
+///    §決定 2）。
 final class _OwnHostCookieManager extends CookieManager {
-  _OwnHostCookieManager(super.cookieJar, this._pluginId, this._credentials);
+  _OwnHostCookieManager(
+    super.cookieJar,
+    this._pluginId,
+    this._credentials,
+    this._hold,
+  );
 
   final String _pluginId;
   final CredentialSource _credentials;
+  final _CookieHold _hold;
 
   @override
   Future<String> loadCookies(RequestOptions options) async {
@@ -161,6 +169,7 @@ final class _OwnHostCookieManager extends CookieManager {
 
   @override
   Future<void> saveCookies(Response<Object?> response) {
+    if (_hold.count > 0) return Future.value();
     final headers = {...response.headers.map}
       ..remove(HttpHeaders.locationHeader);
     return super.saveCookies(
@@ -171,6 +180,12 @@ final class _OwnHostCookieManager extends CookieManager {
       ),
     );
   }
+}
+
+/// 「登入中」：計數大於 0 時 cookie 管理不存回應的 `Set-Cookie`
+/// （[SourceHttpClient.withoutSavingCookies]）。每個 client 一個。
+final class _CookieHold {
+  int count = 0;
 }
 
 /// 每插件一個的記憶體 cookie jar。`cookie_jar` 的 `DefaultCookieJar` 照單收下

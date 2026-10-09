@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/core_providers.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/network/auth.dart';
 import 'package:fmp/core/redaction/redactor.dart';
@@ -13,6 +14,7 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 
 const _tag = 'credentials';
 
@@ -53,8 +55,8 @@ enum CredentialState {
 /// 顯示資訊存 `accounts`，記憶體只放讀進來的狀態，請求只讀記憶體。
 ///
 /// 建立後立刻開始載入（[ready]）：所有查詢都等它完成，所以啟動時的請求不會在
-/// 憑證讀進來之前以匿名送出。載入時每個已安裝的插件讀一次，帳號列與憑證不一致
-/// 就刪掉多的那一邊（寫入中斷或移除不完整的殘留）。
+/// 憑證讀進來之前以匿名送出。載入時每個宣告 `login` 的已安裝插件（加上有帳號列的）
+/// 讀一次，帳號列與憑證不一致就刪掉多的那一邊（寫入中斷或移除不完整的殘留）。
 ///
 /// 讀取失敗（含內容壞掉）不刪除：該插件為 [CredentialState.unreadable]，
 /// [credentialRetryDelay] 後重讀一次。
@@ -86,6 +88,10 @@ final class CredentialStore implements CredentialSource {
 
   final _entries = <String, _Entry>{};
 
+  /// 插件 manifest 宣告的「以登入身分瀏覽與播放」預設（[setBrowseAsLoggedInDefault]）。
+  final _browseDefaults = <String, bool>{};
+  final _changes = StreamController<void>.broadcast();
+
   /// 載入、重讀、[save]、[delete] 依序執行的鏈：重讀從 storage 拿到舊值時若
   /// 中間有登出或重新登入，舊值不能在之後蓋回記憶體（登出後又帶憑證、新憑證的
   /// 遮蔽登記被取消）。
@@ -108,7 +114,8 @@ final class CredentialStore implements CredentialSource {
         for (final account in await _accounts.list()) account.pluginId: account,
       };
       final ids = {
-        for (final plugin in await _plugins.list()) plugin.id,
+        for (final plugin in await _plugins.list())
+          if (_declaresLogin(plugin.manifestJson)) plugin.id,
         ...accounts.keys,
       };
       for (final id in ids) {
@@ -123,6 +130,20 @@ final class CredentialStore implements CredentialSource {
       );
     }
     _scheduleRetry();
+    _changed();
+  }
+
+  /// manifest 宣告了 `login`。解析不了的插件也載入不了，當作沒有。
+  static bool _declaresLogin(String manifestJson) {
+    try {
+      return PluginManifest.parse(manifestJson).login != null;
+    } on AppError {
+      return false;
+    }
+  }
+
+  void _changed() {
+    if (!_changes.isClosed) _changes.add(null);
   }
 
   /// [_read]，但對齊時的寫入失敗只記錄，不擋住其他插件。
@@ -218,6 +239,7 @@ final class CredentialStore implements CredentialSource {
         stackTrace: stackTrace,
       );
     }
+    _changed();
   }
 
   void _set(
@@ -226,24 +248,18 @@ final class CredentialStore implements CredentialSource {
     AccountStatus status,
   ) {
     _forget(pluginId);
-    for (final value in credentials.values) {
-      if (value.length >= Redactor.minimumSecretLength) {
-        _redactor.registerSecret(value);
-      }
-    }
+    credentials.registerWith(_redactor);
     _entries[pluginId] = _Entry(credentials, status);
   }
 
   /// 清掉 [pluginId] 在記憶體的狀態並取消遮蔽登記。
   void _forget(String pluginId) {
-    final credentials = _entries.remove(pluginId)?.credentials;
-    if (credentials == null) return;
-    for (final value in credentials.values) {
-      if (value.length >= Redactor.minimumSecretLength) {
-        _redactor.unregisterSecret(value);
-      }
-    }
+    _entries.remove(pluginId)?.credentials?.unregisterFrom(_redactor);
   }
+
+  /// 憑證的狀態可能變了（載入、重讀、[save]、[delete] 之後）時發出；畫面以它重讀
+  /// [state]。
+  Stream<void> get changes => _changes.stream;
 
   /// [pluginId] 現在的狀態。
   Future<CredentialState> state(String pluginId) async {
@@ -269,6 +285,7 @@ final class CredentialStore implements CredentialSource {
         );
         await _accounts.upsert(account);
         _set(account.pluginId, credentials, account.status);
+        _changed();
       });
 
   /// 刪除 [pluginId] 的憑證與遮蔽登記（登出、移除插件）。帳號列由呼叫端刪。沒有
@@ -276,13 +293,21 @@ final class CredentialStore implements CredentialSource {
   Future<void> delete(String pluginId) => _serial(() async {
     await _storage.delete(_key(pluginId));
     _forget(pluginId);
+    _changed();
   });
+
+  /// [pluginId] 的 manifest 宣告的「以登入身分瀏覽與播放」預設（`login.
+  /// browseAsLoggedInDefault`，沒宣告是開）。插件載入時由 `ScriptPluginLoader` 設，
+  /// 請求都來自載入了的插件，所以 [browseAsLoggedIn] 讀得到。
+  void setBrowseAsLoggedInDefault(String pluginId, bool value) =>
+      _browseDefaults[pluginId] = value;
 
   /// 停止重讀的計時器。
   void dispose() {
     _disposed = true;
     _retry?.cancel();
     _retry = null;
+    unawaited(_changes.close());
   }
 
   @override
@@ -299,10 +324,13 @@ final class CredentialStore implements CredentialSource {
     return _entries[pluginId]?.credentials?.cookies.keys.toSet() ?? const {};
   }
 
-  /// 沒設定過就是開（ADR 0012 §決定 6 的預設；manifest 宣告的預設在 PR 8）。
+  /// 沒設定過就是 manifest 宣告的預設（[setBrowseAsLoggedInDefault]，ADR 0012
+  /// §決定 6），沒宣告是開。
   @override
   Future<bool> browseAsLoggedIn(String pluginId) async =>
-      await _settings.browseAsLoggedIn(pluginId) ?? true;
+      await _settings.browseAsLoggedIn(pluginId) ??
+      _browseDefaults[pluginId] ??
+      true;
 }
 
 final class _Entry {

@@ -140,6 +140,7 @@ final class SourceHttpClientFactory {
   }) {
     final hosts = AllowedHosts(allowedHosts);
     final jar = _OwnHostCookieJar(hosts);
+    final hold = _CookieHold();
     // Dio 只在 lib/core/network/ 建立（fmp_http_client_owner）：這裡與
     // MediaHttpClientFactory.create。
     final dio =
@@ -154,7 +155,7 @@ final class SourceHttpClientFactory {
             _AuthInterceptor(_credentials),
             // 每插件一個記憶體 cookie jar；要跨重啟的匿名 cookie 由插件自己
             // 存（app/AGENTS.md § 網路）。
-            _OwnHostCookieManager(jar, pluginId, _credentials),
+            _OwnHostCookieManager(jar, pluginId, _credentials, hold),
             _ErrorMappingInterceptor(_now),
             _ThrottleInterceptor(switch (rateLimitPolicy) {
               null => null,
@@ -168,6 +169,7 @@ final class SourceHttpClientFactory {
       retryPolicy: retryPolicy,
       dio: dio,
       cookieJar: jar,
+      cookieHold: hold,
       nextRecordId: _recordIds.next,
       reportOutcome: _reportOutcome,
       wait: _wait,
@@ -203,6 +205,7 @@ final class SourceHttpClient {
     required this._retryPolicy,
     required this._dio,
     required this._cookieJar,
+    required this._cookieHold,
     required this._nextRecordId,
     required this._reportOutcome,
     required this._wait,
@@ -215,6 +218,7 @@ final class SourceHttpClient {
   final RetryPolicy _retryPolicy;
   final Dio _dio;
   final CookieJar _cookieJar;
+  final _CookieHold _cookieHold;
   final void Function(SourceHttpClient client) _onClose;
   final int Function() _nextRecordId;
   final RequestOutcomeSink _reportOutcome;
@@ -253,6 +257,19 @@ final class SourceHttpClient {
 
   /// 清掉這個 client 的記憶體 cookie jar。
   Future<void> clearCookies() => _cookieJar.deleteAll();
+
+  /// 跑 [action] 的期間，回應的 `Set-Cookie` 不存進這個 client 的 cookie jar（插件的
+  /// `login*` 匯出，ADR 0029 §決定 2：登入回應設的 cookie 是憑證，不能落進 jar 繞過
+  /// `auth`）。範圍是整個 client，不分是哪一次插件呼叫發的請求；重疊時最後一個結束
+  /// 才恢復。回應的 header 照樣交給呼叫端。
+  Future<T> withoutSavingCookies<T>(Future<T> Function() action) async {
+    _cookieHold.count++;
+    try {
+      return await action();
+    } finally {
+      _cookieHold.count--;
+    }
+  }
 
   /// 關閉底層的連線。
   void close() {
