@@ -40,7 +40,8 @@ enum RefreshOutcome {
   /// 拿到新憑證，已寫入。
   refreshed,
 
-  /// 沒有新的憑證（`loginRefresh` 回 `null`），啟動刷新用。
+  /// 沒有新的憑證（啟動刷新時 `loginRefresh` 回 `null`）、沒有可用憑證，或刷新期間登出、
+  /// 重新登入（結果不寫）。
   unchanged,
 
   /// 憑證被拒而且換不到新的：已標 `invalidated`。
@@ -58,6 +59,8 @@ enum RefreshOutcome {
 /// - 刷新時的網路錯誤、限流等不是憑證的問題：不標失效，丟出刷新的錯誤。
 /// - 只有 [CredentialInvalid] 觸發這一切；呼叫當時沒有可用憑證時也不處理（沒帶憑證
 ///   的請求不可能是憑證失效）。
+/// - 寫入（新憑證、刷新結果、標失效）只對刷新或被拒的那組憑證做：期間登出或重新
+///   登入了，那次的結果就丟掉（`CredentialStore` 以現在的憑證比對）。
 final class AccountGuard {
   AccountGuard({required this._credentials, required this._log});
 
@@ -87,13 +90,27 @@ final class AccountGuard {
       if (now == before) {
         final outcome = await refresh(plugin, rejected: true);
         if (outcome != RefreshOutcome.refreshed) {
+          // 併進了啟動刷新（`null` 在那裡是 `unchanged`）：這次的憑證是被拒的，照樣
+          // 標失效。已經標過、或期間換了憑證時 invalidate 什麼都不做。
+          if (outcome == RefreshOutcome.unchanged) {
+            await _guarded(
+              pluginId,
+              () => _invalidate(pluginId, RefreshResult.failed, of: before),
+            );
+          }
           rethrow;
         }
       }
+      final retried = await _credentials.activeCredentials(pluginId);
       try {
         return await call();
       } on CredentialInvalid {
-        await _invalidate(pluginId, RefreshResult.failed);
+        if (retried != null) {
+          await _guarded(
+            pluginId,
+            () => _invalidate(pluginId, RefreshResult.failed, of: retried),
+          );
+        }
         rethrow;
       }
     }
@@ -111,7 +128,10 @@ final class AccountGuard {
     final pluginId = plugin.manifest.id;
     final running = _refreshing[pluginId];
     if (running != null) return running;
-    final started = _refresh(plugin, rejected: rejected);
+    final started = _guarded(
+      pluginId,
+      () => _refresh(plugin, rejected: rejected),
+    );
     _refreshing[pluginId] = started;
     unawaited(
       started.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
@@ -133,7 +153,7 @@ final class AccountGuard {
     if (plugin.manifest.login?.refresh == null) {
       // 不支援刷新：被拒就是失效；啟動刷新不會走到（只對宣告的插件跑）。
       if (rejected) {
-        await _invalidate(pluginId, RefreshResult.failed);
+        await _invalidate(pluginId, RefreshResult.failed, of: current);
         return RefreshOutcome.invalidated;
       }
       return RefreshOutcome.unchanged;
@@ -142,22 +162,33 @@ final class AccountGuard {
     try {
       refreshed = await plugin.loginRefresh(current);
     } on CredentialInvalid {
-      await _invalidate(pluginId, RefreshResult.failed);
+      await _invalidate(pluginId, RefreshResult.failed, of: current);
       return RefreshOutcome.invalidated;
     } on AppError catch (error) {
       _log.report('Failed to refresh the credentials', error, tag: _tag);
-      await _credentials.recordRefresh(pluginId, RefreshResult.failed);
+      await _credentials.recordRefresh(
+        pluginId,
+        RefreshResult.failed,
+        of: current,
+      );
       rethrow;
     }
     if (refreshed == null) {
       if (rejected) {
-        await _invalidate(pluginId, RefreshResult.failed);
+        await _invalidate(pluginId, RefreshResult.failed, of: current);
         return RefreshOutcome.invalidated;
       }
-      await _credentials.recordRefresh(pluginId, RefreshResult.unchanged);
+      await _credentials.recordRefresh(
+        pluginId,
+        RefreshResult.unchanged,
+        of: current,
+      );
       return RefreshOutcome.unchanged;
     }
-    await _credentials.replace(pluginId, refreshed);
+    // 刷新期間登出或重新登入了：新憑證不寫（不能復活登出的帳號、蓋掉新登入的）。
+    if (!await _credentials.replace(pluginId, refreshed, replacing: current)) {
+      return RefreshOutcome.unchanged;
+    }
     _log.info(
       'Credentials refreshed',
       tag: _tag,
@@ -166,8 +197,14 @@ final class AccountGuard {
     return RefreshOutcome.refreshed;
   }
 
-  Future<void> _invalidate(String pluginId, RefreshResult result) async {
-    if (!await _credentials.invalidate(pluginId, result: result)) return;
+  Future<void> _invalidate(
+    String pluginId,
+    RefreshResult result, {
+    required LoginCredentials of,
+  }) async {
+    if (!await _credentials.invalidate(pluginId, of: of, result: result)) {
+      return;
+    }
     _log.warning(
       'Credentials were rejected; marked invalidated',
       tag: _tag,
@@ -175,6 +212,24 @@ final class AccountGuard {
     );
     if (!_invalidations.isClosed) {
       _invalidations.add(AccountInvalidated(pluginId));
+    }
+  }
+
+  /// 執行 [action]，`AppError` 以外的失敗（secure storage、資料庫的寫入）包成
+  /// [UnexpectedError]：插件呼叫的呼叫端只接 `AppError`（ADR 0013 §決定 2）。
+  static Future<T> _guarded<T>(
+    String pluginId,
+    Future<T> Function() action,
+  ) async {
+    try {
+      return await action();
+    } on AppError {
+      rethrow;
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        AppError.wrap(error, stackTrace, pluginId: pluginId),
+        stackTrace,
+      );
     }
   }
 
