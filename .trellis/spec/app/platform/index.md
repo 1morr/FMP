@@ -24,7 +24,11 @@ lib/platform/
 初始化，所以宣告在組裝點、`AppPlatform.withMediaControls` 在 `main()` 初始化，失敗時改宣告為沒有；
 兩個平台各一個實作檔，轉換成平台格式的部分寫成頂層純函數，單元測試不必建系統物件；Windows 的轉接器
 以建構子收 `SMTCWindows`，呼叫順序用 `implements` 它的假物件測，不載入 Rust 端）、`files/`（介面＋一個以套件
-命名的實作 `file_picker_dialogs.dart` 給兩個平台；測試換掉套件的 `FilePickerPlatform.instance`，不開系統對話框）。
+命名的實作 `file_picker_dialogs.dart` 給兩個平台；測試換掉套件的 `FilePickerPlatform.instance`，不開系統對話框）、
+`login_webview/`（介面＋一個以套件命名的實作 `flutter_inappwebview_login.dart` 給兩個平台：差異（UA、WebView2 環境、
+刪 cookie 的方法）以建構子注入，`.android()`／`.windows()` 兩個 factory 在組裝點選；套件的 `CookieManager` 也由建構子
+注入，單元測試以 `implements CookieManager` 的假物件測讀刪，WebView 本身只能實機驗。Windows 要資料目錄才知道 WebView2 的
+使用者資料放哪，組裝點把 `dataDirectory.resolve()` 包成函式交給它，第一次用到才解析）。
 
 ## 加一個能力
 

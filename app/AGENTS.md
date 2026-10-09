@@ -272,6 +272,26 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `platform_test.dart` 的宣告與實作型別、`file_picker_dialogs_test.dart`（以假的 `FilePickerPlatform`：篩選是
   `FileType.custom` 加副檔名、讀出內容、取消是 `null`）；系統對話框本身只能實機驗。
 
+- 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
+  Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
+  `windows/CMakeLists.txt` 的 STL1011 define 才建得起來）。介面只開頁、報「一頁載入完成」、讀與刪 cookie、重建環境，
+  完成與否由呼叫端判斷（見「帳號」）。
+  - UA 由這一層決定，不由插件給：Android 是系統 WebView 的 UA 拿掉 `; wv`／`;wv`（`androidLoginUserAgent`，R1：桌面 UA
+    與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入）。
+  - Windows 的 WebView2 使用者資料在資料目錄的 `webview/`（`loginWebViewDirectoryName`；不給的話是程式旁的
+    `fmp.exe.WebView2`，dev 與 prod 混在一起），環境第一次用到才建，`reset` 後重建（同一個目錄，登入狀態留著）。
+    cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。
+  - `cookies(hosts)` 只回問到的網址讀得到的（`getCookies`），同名時前面的網址優先。`clear` 逐一刪 `getCookies` 讀到的
+    再讀一次，還讀得到就丟 `StateError`（訊息只有數量）。Android 以 `Secure` 的過期 cookie 蓋掉、host-only 的不帶
+    `Domain`：套件的 `deleteCookie` 不帶 `Secure`，Chromium 拒收 `__Secure-`／`__Host-` 開頭的那種設定，Google 的
+    `__Secure-1PSID` 會刪不掉；`getCookies` 回報的 domain 是 Chromium 的格式（網域 cookie 以 `.` 開頭）。Windows 用
+    `deleteCookie`（WebView2 以名稱、domain、path 刪）。
+  - 閘門：`login_webview_test.dart`（UA 三種、只回問到的網址、兩種刪法，含 Chromium 規則下套件 `deleteCookie` 會留下
+    cookie 的對照組、刪不掉時丟錯）、`platform_test.dart`。WebView 本身、cookie 真的刪掉只能實機驗（登出後以名稱檢查）。
+  - Linux 沒有登入 WebView（ADR 0012 §決定 8）：App 直接依賴本機的 `packages/flutter_inappwebview_linux_stub`（純 Dart、
+    什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：
+    `linux_webview_stub_test.dart`（`.flutter-plugins-dependencies` 的 Linux 解析與 `linux/flutter/generated_plugins.cmake`）。
+
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
 `lib/platform/` 以外的平台判斷。
@@ -674,8 +694,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 帳號
 
-`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。網頁登入、貼上 cookie、
-失效與刷新在之後的 PR。
+`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。失效與刷新在之後的 PR。
 
 - 憑證只有一個來源 `CredentialStore`：secure storage 的 `credentials.<插件 id>`（`LoginCredentials` 的 JSON）。
   記憶體只放讀進來的狀態，請求只讀記憶體；每個查詢都等 `ready`（啟動載入完成），所以啟動時的請求不會在憑證
@@ -690,8 +709,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 遮蔽：載入與寫入時把每個 cookie 值與 `extra` 值登記到 `Redactor`，登出與移除時取消；短於
   `Redactor.minimumSecretLength` 的值略過（`registerSecret` 對它們會拋錯，而 B 站會一起回 `home_feed_column=5`）。
   閘門：`credential_store_test.dart` 的 `redaction`。
-- 登出（`AccountService.logout`）：憑證 → `accounts` 列 → 該插件的記憶體 cookie jar；`source_settings` 保留。每一步
-  可重複。WebView 的 cookie 在網頁登入的 PR 接上。閘門：`credential_store_test.dart` 的 `logging out`。
+- 登出（`AccountService.logout`）：憑證 → 登入 WebView 的 cookie → `accounts` 列 → 該插件的記憶體 cookie jar；
+  `source_settings` 保留。每一步可重複，失敗停在那一步。WebView 那一步只在平台有登入 WebView、插件（還在
+  `installed_plugins`）的 manifest 宣告 `login.webView` 時做，清 `cookieHosts` 與登入頁 `url`（`loginWebViewHosts`：登入頁
+  那一端也是登入狀態，不清的話下次一開就直接登入）。移除插件走同一條（design §7.4 的順序：憑證 → WebView → 帳號列）。
+  閘門：`credential_store_test.dart` 的 `logging out`、`account_service_test.dart` 的 `logging out clears the login web view`、
+  `plugin_installer_test.dart` 的 `clears the login web view…`。
 - 登入（`AccountService.login`，三種方式共用）：插件的 `loginVerify` 通過才寫入——先 secure storage、再帳號列
   （`active`、登入時間）、再登記遮蔽（`CredentialStore.save`）；驗證丟錯什麼都不寫，寫入失敗包成 `AppError`（登入失敗）。
   `loginVerify`／`loginRefresh` 呼叫前就把傳入憑證的值登記到遮蔽（失敗也不取消；短值同上略過），`loginRefresh` 回的新憑證
@@ -701,6 +724,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   下一次，不是週期計時器）；`scanned` 照常續輪詢、`expired` 停、`done` 交 `AccountService.login`；`start` 重新產生時舊的
   結果作廢；`dispose`（離開畫面）取消計時器，還在路上的輪詢回來後不再排。失敗經 `log.report`（tag `accounts`）後停在
   失敗狀態。閘門：`account_service_test.dart` 的 `QR login` 群組（fakeAsync，結束時沒有待執行的計時器）。
+- 網頁登入（`WebLogin`，`web_login.dart`）：**完成只看 cookie、只看 `cookieHosts`**——每一頁載入完成就讀 `cookieHosts`
+  的 cookie，`doneCookies` 都有值就完成，交出 `cookieHosts` 讀到的全部 cookie。不看網址（Android 登入後會先插入 Google 的
+  提示頁，最後落在 `m.youtube.com`）；別的網域的同名 cookie 不算（Google 帳號的 `SID` 等在 `.google.com`，跳回 YouTube
+  之前就有）。**跳轉卡住**：登入頁 `url` 讀得到的 cookie 已經有全部 `doneCookies`（登入頁那一端已經登入，R1 看到的情況），
+  `cookieHosts` 卻 15 秒內沒齊；只看「`url` 有 cookie」會把還在輸入密碼的使用者當成卡住（登入頁一打開就有 cookie）。計時是
+  一次性 `Timer`，到時再讀一次 cookie 才下結論。重試先拿掉 WebView、等那一幀畫完才 `LoginWebView.reset`（環境不能在
+  WebView 還用著時丟掉），重試過還卡住就改請使用者重開 App。cookie 的值不進 log。閘門：`web_login_test.dart`（含
+  fakeAsync 的計時、換掉的 WebView 的計時器不作用、離開時取消、log 掃描）。
+- 貼上 cookie（`parseCookieText`，`cookie_text.dart`）：逐行判斷，`Cookie` 標頭（`name=value; …`，可帶 `Cookie:`）與
+  Netscape `cookies.txt`（7 欄、tab 或被換成的空白；`#HttpOnly_` 開頭的是 cookie，其他 `#` 是註解）可以混著貼；讀不懂的
+  行或片段略過，同名以後面的為準，值原樣保留。輸入的內容不進 log 與錯誤報告（對話框只 `log.report` 驗證的錯誤，
+  `loginVerify` 之前值已登記遮蔽）。閘門：`cookie_text_test.dart`、`accounts_section_test.dart` 的 `pasting cookies…`
+  （外殼的 log 不登記這些值，寫進去就會原樣出現）。
 - 「以登入身分瀏覽與播放」讀 `source_settings.browse_as_logged_in`，空就是 manifest 的 `login.browseAsLoggedInDefault`
   （沒宣告是開）：`ScriptPluginLoader` 載入成功時把它交給 `CredentialStore.setBrowseAsLoggedInDefault`，請求都來自載入了的
   插件。帳號頁的開關以同一條規則顯示，寫入經 `AccountService.setBrowseAsLoggedIn`。閘門：`account_service_test.dart` 的
@@ -778,7 +814,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
   - 移除（`PluginInstaller.remove`）：關閉 runtime → 憑證與遮蔽登記、`accounts`、`source_settings`
     （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
-    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。WebView cookie、排程器的步驟由之後的 PR 加在刪列之前。閘門：
+    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。登入 WebView 的 cookie 在帳號那一步裡（見「帳號」的登出），排程器的步驟由之後的 PR
+    加在刪列之前。閘門：
     `plugin_installer_test.dart` 的 `removing` 群組（含 `skips the cache step…`）。
   - 從網址安裝：`PluginDownloader.downloadFile` 經同一個宿主 client 下載（上限同插件檔）並只讀標頭 manifest，
     安裝走 `installSource`（沒有來源 index、沒有 checks、之後不會有更新）。閘門：`plugin_installer_test.dart` 的
@@ -798,7 +835,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   同目錄的 `tone.wav`（`asset:///…`）。prod 的建置只留下空目錄，沒有檔案。實機以
   `--fmp-dev-plugin` 裝它的 `.js`，搜尋任何關鍵字都有結果、都播得出來；關鍵字剛好是 `fail`
   時以 `RateLimited` 失敗（離線看錯誤提示）；`missing`、`preview`、`flaky`、`unavailable` 給播放
-  恢復的實機驗證；假的 QR 登入（第二次輪詢就完成，憑證 `fake-session-0000`）給帳號頁的實機驗證，它不發請求，
+  恢復的實機驗證；假的 QR 登入（第二次輪詢就完成，憑證 `fake-session-0000`）與貼上 cookie（任何值不空的 `fmp_test_session`）給帳號頁的
+  實機驗證，它不發請求，
   帶不帶憑證要看 `account_service_test.dart`（`test_plugin/README.md`）。閘門：
   `test/plugins/test_plugin_bundle_test.dart`。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
@@ -1309,13 +1347,21 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     登入時才向插件清單要那個插件）。沒有就是空狀態加「前往插件頁」。區塊一直在，不隨插件有無出現或消失（設定頁的順序與寬版
     預設的第一組不跳）。閘門：`accounts_section_test.dart` 的 `without a plugin that declares login…`、`one card per…`。
   - 登入按鈕是「methods ∩ 這個 App 在這個平台做得到的」（`availableLoginMethods`）：沒有 secure storage 一個都沒有；`qr`
-    一律有；`webView` 要平台層的網頁登入、`cookie` 的畫面都在 M3 PR 9，現在都沒有。沒有任何一種時寫「這個平台還不能登入」。
+    與 `cookie` 一律有；`webView` 要平台宣告 `loginWebView`。沒有任何一種時寫「這個平台還不能登入」。
     閘門：`accounts_section_test.dart` 的 `availableLoginMethods…`、`one card per…`、`without secure storage…`。
   - 已登入：頭像（帳號列的 `avatar_json`，經那個插件的封面快取）、名稱、狀態（正常／已失效／暫時無法讀取，取自
     `CredentialStore.state`）、「以登入身分瀏覽與播放」開關（`automationRisk` 時附說明）、登出（先確認）；已失效時多「重新
     登入」（只有一種方式時；幾種時照列每一種）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
     `accounts_section_test.dart` 的 `a QR login with the test plugin…`、`an invalidated account…`、`unreadable credentials…`、
     `offline…`。
+  - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中
+    頂端有進度條，卡住時 WebView 上方是警告色的「登入沒有完成」加「重試」。完成時頁面自己關閉、交回 cookie，**關頁之後**
+    才在帳號頁驗證與寫入（design §6.4；頁面開著時設定頁可能換位置重建，那時照樣驗證，只是沒有進度條）。全螢幕頁、裡面是
+    平台的 WebView，所以進 `toast_layering_test.dart`（開 `about:blank`，平台沒有登入 WebView 時跳過）。閘門：
+    `accounts_section_test.dart` 的 `web login` 群組（只看 `cookieHosts`、登出清 WebView、卡住、重試、重開 App 的提示）。
+  - 貼上 cookie 是對話框（`cookie_login_dialog.dart`）：多行輸入框（關掉個人化學習）、「如何取得」的通用步驟（不指名
+    音源）與警告；讀不到 cookie 或驗證失敗時留在對話框、輸入不清，錯誤寫在輸入框下（不在 online 時寫離線的原因，不換成
+    整塊的離線空狀態，輸入才留得住）。閘門：`accounts_section_test.dart` 的 `pasting cookies…`。
   - QR 登入是對話框（`qr_login_dialog.dart`，不是全螢幕頁，所以不進 `toast_layering_test.dart`）：QR 碼一律白底黑點（不跟
     主題，`AppLayout.qrBackground`），過期時蓋遮罩並給「重新產生」，失敗時給「重試」；Esc、取消或點外面關閉並停止輪詢。
     `qr_flutter` 只准在 `lib/ui/accounts/`（`fmp_layer_imports`）。閘門：`closing the QR dialog stops the login`、guideline
@@ -1339,7 +1385,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組）、插件頁（已安裝、可安裝、安裝的
-  確認框）與帳號頁（三種狀態的卡、QR 登入對話框）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
+  確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
 - 插件頁（`lib/ui/plugins/plugins_page.dart`，ADR 0030 §決定 6–11，M3 design §7.5）：
