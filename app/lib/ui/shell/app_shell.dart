@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -17,6 +18,7 @@ import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
@@ -116,6 +118,32 @@ class _AppShellState extends ConsumerState<AppShell> {
     _settingsBack.show(SettingsSection.plugins);
   }
 
+  /// 憑證被音源拒絕：提示一次，附「登入」到設定頁的帳號區塊（design §6.5、ADR 0013 §決定 5）。
+  void _onAccountInvalidated(
+    AsyncValue<AccountInvalidated>? previous,
+    AsyncValue<AccountInvalidated> next,
+  ) {
+    if (next case AsyncData(:final value)
+        when !identical(previous?.value, value)) {
+      final t = ref.read(translationsProvider).accounts;
+      final name =
+          ref.read(pluginNameProvider(value.pluginId)) ?? value.pluginId;
+      ref
+          .read(toasterProvider)
+          .warning(
+            t.invalidatedPrompt(name: name),
+            action: ToastAction(label: t.signIn, onPressed: _openAccounts),
+          );
+    }
+  }
+
+  /// 失效提示的「登入」：換到設定頁並選「帳號」區塊。
+  void _openAccounts() {
+    if (!mounted) return;
+    _select(ShellDestination.settings);
+    _settingsBack.show(SettingsSection.accounts);
+  }
+
   // ---- 快捷鍵（播放類在 PlaybackShortcuts）-----------------------------------
 
   /// F6：從焦點所在的區往下一區，跳過不在畫面上或沒有可聚焦項目的區。焦點
@@ -187,6 +215,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     ref.listen(playbackEventsProvider, _onPlaybackEvent);
+    ref.listen(accountInvalidationsProvider, _onAccountInvalidated);
     ref.listen(playerPageOpenProvider, _onPlayerPageOpen);
     // 記住的版面狀態先讀好，播放頁一開就是上次的分頁。
     ref.listen(layoutStateProvider, (_, _) {});

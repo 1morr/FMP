@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
@@ -369,6 +370,22 @@ class _AccountCard extends ConsumerWidget {
                 ),
               ],
             ),
+            if (loggedIn &&
+                plugin.login.refresh != null &&
+                account?.lastRefreshAt != null)
+              Padding(
+                padding: EdgeInsets.only(top: spacing.x2, right: spacing.x2),
+                child: Text(
+                  _lastRefreshText(
+                    context,
+                    ref.watch(translationsProvider),
+                    account!,
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             if (loggedIn)
               Padding(
                 padding: EdgeInsets.only(top: spacing.x2, right: spacing.x2),
@@ -408,6 +425,22 @@ class _AccountCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 「最後刷新：日期 時間，結果」。時間是裝置本地時間，格式跟著介面語言（同歷史頁）。
+String _lastRefreshText(BuildContext context, Translations t, Account account) {
+  final a = t.accounts;
+  final at = account.lastRefreshAt!.toLocal();
+  final dates = MaterialLocalizations.of(context);
+  final time =
+      '${dates.formatMediumDate(at)} '
+      '${dates.formatTimeOfDay(TimeOfDay.fromDateTime(at), alwaysUse24HourFormat: true)}';
+  final result = switch (account.lastRefreshResult) {
+    RefreshResult.refreshed => a.refreshRefreshed,
+    RefreshResult.unchanged => a.refreshUnchanged,
+    RefreshResult.failed || null => a.refreshFailed,
+  };
+  return a.lastRefresh(time: time, result: result);
 }
 
 /// 帳號的頭像；沒登入、沒有頭像或讀不到時是人像圖示。頭像只是裝飾，名稱在旁邊。

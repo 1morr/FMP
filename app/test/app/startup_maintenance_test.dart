@@ -18,10 +18,13 @@ import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:path/path.dart' as p;
 
+import '../support/credentials.dart';
 import '../support/fake_network_interfaces.dart';
 import '../support/memory_database.dart';
 
@@ -76,6 +79,8 @@ void main() {
             PlatformCapabilities.none,
           ),
           networkInterfacesProvider.overrideWithValue(FakeNetworkInterfaces()),
+          secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
+          loginWebViewProvider.overrideWithValue(null),
           startupMaintenanceTasksProvider.overrideWithValue([
             StartupMaintenanceTask(
               id: 'count',

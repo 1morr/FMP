@@ -14,6 +14,7 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/qr_login.dart';
@@ -154,6 +155,7 @@ final class _Setup {
       clearCookies: (_) async {},
       plugins: plugins,
       loginWebView: loginWebView,
+      guard: AccountGuard(credentials: credentials, log: log),
     );
   }
 
@@ -554,6 +556,7 @@ export async function loginVerify(credentials) {
       clearCookies: harness.httpClients.clearCookies,
       plugins: harness.plugins,
       loginWebView: null,
+      guard: harness.guard,
     );
     final login = QrLogin(
       plugin: plugin,

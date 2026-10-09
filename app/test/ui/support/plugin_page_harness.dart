@@ -11,6 +11,7 @@ import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/platform/files/files.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
@@ -110,6 +111,7 @@ final class PluginPageHarness {
         ...overrides,
         redactorProvider.overrideWithValue(plugins.redactor),
         credentialStoreProvider.overrideWithValue(plugins.credentials),
+        accountGuardProvider.overrideWithValue(plugins.guard),
         sourceHttpClientFactoryProvider.overrideWithValue(plugins.httpClients),
         mediaHttpClientFactoryProvider.overrideWithValue(
           plugins.mediaHttpClients,

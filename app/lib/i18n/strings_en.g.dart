@@ -837,6 +837,20 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String get relogin => 'Sign in again';
   @override
+  String get signIn => 'Sign in';
+  @override
+  String invalidatedPrompt({required Object name}) =>
+      'The sign-in to ${name} is no longer valid';
+  @override
+  String lastRefresh({required Object time, required Object result}) =>
+      'Last refreshed: ${time}, ${result}';
+  @override
+  String get refreshRefreshed => 'credentials renewed';
+  @override
+  String get refreshUnchanged => 'no change needed';
+  @override
+  String get refreshFailed => 'failed';
+  @override
   String get logout => 'Sign out';
   @override
   String noMethod({required Object name}) =>
@@ -929,8 +943,6 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String loginRejected({required Object name}) =>
       '${name} didn\'t accept the sign-in. Try again.';
-  @override
-  String get signIn => 'Sign in';
 }
 
 // Path: errors

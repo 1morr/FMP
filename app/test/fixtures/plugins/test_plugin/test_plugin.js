@@ -7,7 +7,7 @@
   "apiVersion": 1,
   "capabilities": ["search", "resolveStream", "login"],
   "allowedHosts": [],
-  "login": { "methods": ["qr", "cookie"] }
+  "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
 ==/FMP Plugin== */
 
@@ -49,6 +49,17 @@ const FAKE_QR_TEXT = 'fmp-test://login';
 const FAKE_SESSION_COOKIE = 'fmp_test_session';
 const FAKE_SESSION = 'fake-session-0000';
 
+// 失效與刷新（design §6.5），不連網。插件不發請求，看不到 `credentialsAttached`，
+// 所以以 `fmp.credentials.get()` 是否有憑證當「這次帶了憑證」。狀態存在 storage 的
+// `expiry`：
+// - 關鍵字剛好是 `expired`、已登入：第一次丟 CredentialInvalid（expiry＝pending），宿主
+//   呼叫 loginRefresh 換成新憑證（expiry＝renewed）後重跑，這次成功並清掉 expiry。
+// - 關鍵字剛好是 `expired-hard`、已登入：丟 CredentialInvalid（expiry＝hard），
+//   loginRefresh 也以 CredentialInvalid 失敗，帳號轉成已失效；重新登入清掉 expiry。
+// - 其他時候 loginRefresh 回 null（啟動刷新：沒有變動）。
+const EXPIRED_KEYWORD = 'expired';
+const EXPIRED_HARD_KEYWORD = 'expired-hard';
+
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
 let qrCount = 0;
@@ -72,6 +83,16 @@ function sourceIdFor(keyword, index, hz) {
 export async function search(query) {
   if (query.keyword === FAIL_KEYWORD) {
     throw { fmpError: 'RateLimited', message: 'forced failure for on-device checks' };
+  }
+  if (query.keyword === EXPIRED_KEYWORD || query.keyword === EXPIRED_HARD_KEYWORD) {
+    const credentials = await fmp.credentials.get();
+    const hard = query.keyword === EXPIRED_HARD_KEYWORD;
+    const expiry = await fmp.storage.get('expiry');
+    if (credentials !== null && (hard || expiry !== 'renewed')) {
+      await fmp.storage.set('expiry', hard ? 'hard' : 'pending');
+      throw { fmpError: 'CredentialInvalid', message: 'forced failure for on-device checks' };
+    }
+    await fmp.storage.delete('expiry');
   }
   const prefix = (await fmp.storage.get('titlePrefix')) ?? 'Test tone';
   const start = (query.page - 1) * PAGE_SIZE;
@@ -148,9 +169,27 @@ export function loginQrPoll(token) {
   return { status: 'done', credentials: { cookies: { [FAKE_SESSION_COOKIE]: FAKE_SESSION } } };
 }
 
-export function loginVerify(credentials) {
+export async function loginVerify(credentials) {
   if (!credentials.cookies[FAKE_SESSION_COOKIE]) {
     throw { fmpError: 'CredentialInvalid', message: 'no fake session cookie of the test plugin' };
   }
+  await fmp.storage.delete('expiry');
   return { userId: 'fmp-test-user', displayName: 'FMP Test User' };
+}
+
+export async function loginRefresh(credentials) {
+  const expiry = await fmp.storage.get('expiry');
+  if (expiry === 'hard') {
+    throw { fmpError: 'CredentialInvalid', message: 'forced failure for on-device checks' };
+  }
+  if (expiry !== 'pending') return null;
+  const renewals = Number((await fmp.storage.get('renewals')) ?? '0') + 1;
+  await fmp.storage.set('renewals', String(renewals));
+  await fmp.storage.set('expiry', 'renewed');
+  return {
+    cookies: {
+      ...credentials.cookies,
+      [FAKE_SESSION_COOKIE]: `fake-session-${String(renewals).padStart(4, '0')}`,
+    },
+  };
 }
