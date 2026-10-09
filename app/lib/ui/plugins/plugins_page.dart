@@ -27,6 +27,7 @@ import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/plugins/plugin_dialogs.dart';
 import 'package:fmp/ui/plugins/plugin_text.dart';
+import 'package:fmp/ui/plugins/plugin_widgets.dart';
 import 'package:fmp/ui/plugins/plugins_state.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -660,11 +661,11 @@ class _InstalledCard extends ConsumerWidget {
     final description = manifest?.description ?? '';
     final status = update?.status ?? PluginUpdateStatus.none;
     final tags = [
-      if (!plugin.enabled) _Tag(text: p.tagDisabled),
+      if (!plugin.enabled) PluginTag(text: p.tagDisabled),
       if (plugin.enabled && unresponsive)
-        _Tag(text: p.tagUnresponsive, tone: _TagTone.error),
+        PluginTag(text: p.tagUnresponsive, tone: PluginTagTone.error),
       if (status != PluginUpdateStatus.none)
-        _Tag(text: p.tagUpdate, tone: _TagTone.primary),
+        PluginTag(text: p.tagUpdate, tone: PluginTagTone.primary),
     ];
     return Card.outlined(
       margin: EdgeInsets.zero,
@@ -682,7 +683,7 @@ class _InstalledCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _Heading(
+                  child: PluginHeading(
                     name: name,
                     byline: p.versionAuthor(
                       version: plugin.version,
@@ -795,14 +796,14 @@ class _EntryCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _Heading(
+              child: PluginHeading(
                 name: entry.name,
                 byline: p.versionAuthor(
                   version: entry.version,
                   author: entry.author,
                 ),
                 description: entry.description,
-                tags: [if (installed) _Tag(text: p.tagInstalled)],
+                tags: [if (installed) PluginTag(text: p.tagInstalled)],
               ),
             ),
             SizedBox(width: spacing.x3),
@@ -812,88 +813,6 @@ class _EntryCard extends ConsumerWidget {
                 child: Text(entry.isCompatible ? p.install : p.needsAppUpdate),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 卡片的名稱、版本與作者、說明與標記。
-class _Heading extends StatelessWidget {
-  const _Heading({
-    required this.name,
-    required this.byline,
-    required this.description,
-    required this.tags,
-  });
-
-  final String name;
-  final String byline;
-  final String description;
-  final List<Widget> tags;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = AppTokens.of(context).spacing;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(name, style: theme.textTheme.titleMedium),
-        Text(
-          byline,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        if (description.isNotEmpty) ...[
-          SizedBox(height: spacing.x1),
-          Text(description, style: theme.textTheme.bodyMedium),
-        ],
-        if (tags.isNotEmpty) ...[
-          SizedBox(height: spacing.x2),
-          Wrap(spacing: spacing.x2, runSpacing: spacing.x1, children: tags),
-        ],
-      ],
-    );
-  }
-}
-
-enum _TagTone { neutral, primary, error }
-
-/// 小標記（已停用、沒有回應、有更新、已安裝）：只是文字，不能點。
-class _Tag extends StatelessWidget {
-  const _Tag({required this.text, this.tone = _TagTone.neutral});
-
-  final String text;
-  final _TagTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = AppTokens.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final (background, foreground) = switch (tone) {
-      _TagTone.neutral => (
-        scheme.surfaceContainerHighest,
-        scheme.onSurfaceVariant,
-      ),
-      _TagTone.primary => (scheme.primaryContainer, scheme.onPrimaryContainer),
-      _TagTone.error => (scheme.errorContainer, scheme.onErrorContainer),
-    };
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(tokens.radius.small),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: tokens.spacing.x2,
-          vertical: tokens.spacing.x1,
-        ),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelMedium
-              ?.copyWith(color: foreground),
         ),
       ),
     );
