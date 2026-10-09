@@ -71,6 +71,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$plugins$zh_TW.internal(_root);
   late final Translations$onboarding$zh_TW onboarding =
       Translations$onboarding$zh_TW.internal(_root);
+  late final Translations$accounts$zh_TW accounts =
+      Translations$accounts$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
       Translations$errors$zh_TW.internal(_root);
 }
@@ -293,6 +295,9 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: '設定'
   String get title => '設定';
+
+  /// zh-TW: '帳號'
+  String get accounts => '帳號';
 
   /// zh-TW: '外觀'
   String get appearance => '外觀';
@@ -967,6 +972,122 @@ class Translations$onboarding$zh_TW {
 
   /// zh-TW: '有些插件沒有裝成功'
   String get failedTitle => '有些插件沒有裝成功';
+}
+
+// Path: accounts
+class Translations$accounts$zh_TW {
+  Translations$accounts$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '沒有可以登入的音源'
+  String get none => '沒有可以登入的音源';
+
+  /// zh-TW: '安裝支援登入的插件之後，就能在這裡登入。'
+  String get noneHint => '安裝支援登入的插件之後，就能在這裡登入。';
+
+  /// zh-TW: '前往插件頁'
+  String get goToPlugins => '前往插件頁';
+
+  /// zh-TW: '無法讀取帳號'
+  String get loadFailed => '無法讀取帳號';
+
+  /// zh-TW: '處理中'
+  String get working => '處理中';
+
+  /// zh-TW: '未登入'
+  String get notLoggedIn => '未登入';
+
+  /// zh-TW: '正常'
+  String get statusActive => '正常';
+
+  /// zh-TW: '已失效'
+  String get statusInvalidated => '已失效';
+
+  /// zh-TW: '暫時無法讀取，稍後重試'
+  String get statusUnreadable => '暫時無法讀取，稍後重試';
+
+  /// zh-TW: '以登入身分瀏覽與播放'
+  String get browseAsLoggedIn => '以登入身分瀏覽與播放';
+
+  /// zh-TW: '以登入身分大量請求可能被視為自動化行為（推測）'
+  String get automationRisk => '以登入身分大量請求可能被視為自動化行為（推測）';
+
+  /// zh-TW: 'QR 登入'
+  String get loginQr => 'QR 登入';
+
+  /// zh-TW: '網頁登入'
+  String get loginWebView => '網頁登入';
+
+  /// zh-TW: '貼上 cookie'
+  String get loginCookie => '貼上 cookie';
+
+  /// zh-TW: '重新登入'
+  String get relogin => '重新登入';
+
+  /// zh-TW: '登出'
+  String get logout => '登出';
+
+  /// zh-TW: '這個平台還不能登入「{name}」'
+  String noMethod({required Object name}) => '這個平台還不能登入「${name}」';
+
+  /// zh-TW: '登出「{name}」？'
+  String logoutTitle({required Object name}) => '登出「${name}」？';
+
+  /// zh-TW: 'FMP 裡這個音源的登入資料會刪除。「以登入身分瀏覽與播放」的設定會保留。'
+  String get logoutBody => 'FMP 裡這個音源的登入資料會刪除。「以登入身分瀏覽與播放」的設定會保留。';
+
+  /// zh-TW: '登出'
+  String get confirmLogout => '登出';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '已登入「{name}」'
+  String loggedIn({required Object name}) => '已登入「${name}」';
+
+  /// zh-TW: '已登出「{name}」'
+  String loggedOut({required Object name}) => '已登出「${name}」';
+
+  /// zh-TW: '無法登入「{name}」：{reason}'
+  String loginFailed({required Object name, required Object reason}) =>
+      '無法登入「${name}」：${reason}';
+
+  /// zh-TW: '無法登出「{name}」：{reason}'
+  String logoutFailed({required Object name, required Object reason}) =>
+      '無法登出「${name}」：${reason}';
+
+  /// zh-TW: '無法儲存設定：{reason}'
+  String settingFailed({required Object reason}) => '無法儲存設定：${reason}';
+
+  /// zh-TW: '以 QR 碼登入「{name}」'
+  String qrTitle({required Object name}) => '以 QR 碼登入「${name}」';
+
+  /// zh-TW: '登入用的 QR 碼'
+  String get qrImage => '登入用的 QR 碼';
+
+  /// zh-TW: '正在產生 QR 碼'
+  String get qrStarting => '正在產生 QR 碼';
+
+  /// zh-TW: '用手機上的 App 掃描 QR 碼'
+  String get qrWaiting => '用手機上的 App 掃描 QR 碼';
+
+  /// zh-TW: '已掃描，請在手機上確認'
+  String get qrScanned => '已掃描，請在手機上確認';
+
+  /// zh-TW: 'QR 碼已過期'
+  String get qrExpired => 'QR 碼已過期';
+
+  /// zh-TW: '正在確認登入'
+  String get qrVerifying => '正在確認登入';
+
+  /// zh-TW: '重新產生'
+  String get qrRegenerate => '重新產生';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
 }
 
 // Path: errors

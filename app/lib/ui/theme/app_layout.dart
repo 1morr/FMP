@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 /// 元件的固定尺寸（ADR 0024 §決定 1）。和 `AppTokens` 的間距不同，這些是某個
 /// 元件自己的上限或寬度，隨元件出現時加。
 abstract final class AppLayout {
@@ -57,4 +59,16 @@ abstract final class AppLayout {
   static const double panelMaxWidth = 1600;
   static const double panelHandleWidth = 8;
   static const double panelKeyboardStep = 16;
+
+  /// 帳號頁的頭像（M3 list item 的 leading avatar）。
+  static const double accountAvatar = 40;
+
+  /// QR 登入畫面的 QR 碼邊長（舊版也是 200）。
+  static const double qrCodeSize = 200;
+
+  /// QR 碼一律白底黑點、不跟主題：深色主題下反色的 QR 碼不少掃描器讀不了。過期時蓋在
+  /// QR 碼上的白色遮罩的不透明度。
+  static const Color qrBackground = Color(0xFFFFFFFF);
+  static const Color qrForeground = Color(0xFF000000);
+  static const double qrExpiredScrimOpacity = 0.9;
 }

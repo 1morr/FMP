@@ -26,12 +26,14 @@ import '../support/memory_database.dart';
 /// 測試插件的安裝檔（`test/fixtures/plugins/test_plugin/`）。
 final testPluginFile = File('test/fixtures/plugins/test_plugin/test_plugin.js');
 
-/// 組一個安裝檔：標頭加上 [body]（ES module）。
+/// 組一個安裝檔：標頭加上 [body]（ES module）。[login] 是 manifest 的 `login`
+/// （JSON 文字）。
 String pluginSource(
   String body, {
   String id = 'plugin-a',
   List<String> capabilities = const ['search'],
   List<String> allowedHosts = const ['example.test'],
+  String? login,
 }) =>
     '''
 /* ==FMP Plugin==
@@ -42,6 +44,7 @@ String pluginSource(
   "author": "FMP tests",
   "apiVersion": 1,
   "capabilities": [${capabilities.map((c) => '"$c"').join(', ')}],
+  ${login == null ? '' : '"login": $login,'}
   "allowedHosts": [${allowedHosts.map((h) => '"$h"').join(', ')}]
 }
 ==/FMP Plugin== */

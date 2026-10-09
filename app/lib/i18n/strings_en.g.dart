@@ -85,6 +85,10 @@ class TranslationsEn extends Translations
   late final Translations$onboarding$en onboarding =
       Translations$onboarding$en._(_root);
   @override
+  late final Translations$accounts$en accounts = Translations$accounts$en._(
+    _root,
+  );
+  @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
 }
 
@@ -265,6 +269,8 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   // Translations
   @override
   String get title => 'Settings';
+  @override
+  String get accounts => 'Accounts';
   @override
   String get appearance => 'Appearance';
   @override
@@ -787,6 +793,94 @@ class Translations$onboarding$en extends Translations$onboarding$zh_TW {
       'Plugins installed: ${count}';
   @override
   String get failedTitle => 'Some plugins weren\'t installed';
+}
+
+// Path: accounts
+class Translations$accounts$en extends Translations$accounts$zh_TW {
+  Translations$accounts$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get none => 'No sources to sign in to';
+  @override
+  String get noneHint =>
+      'Install a plugin that supports sign-in, then sign in here.';
+  @override
+  String get goToPlugins => 'Go to plugins';
+  @override
+  String get loadFailed => 'Couldn\'t read the accounts';
+  @override
+  String get working => 'Working';
+  @override
+  String get notLoggedIn => 'Not signed in';
+  @override
+  String get statusActive => 'Active';
+  @override
+  String get statusInvalidated => 'Expired';
+  @override
+  String get statusUnreadable => 'Temporarily unreadable, retrying soon';
+  @override
+  String get browseAsLoggedIn => 'Browse and play while signed in';
+  @override
+  String get automationRisk =>
+      'Many requests while signed in may be treated as automated (unconfirmed)';
+  @override
+  String get loginQr => 'Sign in with QR code';
+  @override
+  String get loginWebView => 'Sign in on the web';
+  @override
+  String get loginCookie => 'Paste cookies';
+  @override
+  String get relogin => 'Sign in again';
+  @override
+  String get logout => 'Sign out';
+  @override
+  String noMethod({required Object name}) =>
+      'Signing in to ${name} isn\'t available on this platform yet';
+  @override
+  String logoutTitle({required Object name}) => 'Sign out of ${name}?';
+  @override
+  String get logoutBody =>
+      'FMP deletes its sign-in data for this source. The "Browse and play while signed in" setting stays.';
+  @override
+  String get confirmLogout => 'Sign out';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String loggedIn({required Object name}) => 'Signed in to ${name}';
+  @override
+  String loggedOut({required Object name}) => 'Signed out of ${name}';
+  @override
+  String loginFailed({required Object name, required Object reason}) =>
+      'Couldn\'t sign in to ${name}: ${reason}';
+  @override
+  String logoutFailed({required Object name, required Object reason}) =>
+      'Couldn\'t sign out of ${name}: ${reason}';
+  @override
+  String settingFailed({required Object reason}) =>
+      'Couldn\'t save the setting: ${reason}';
+  @override
+  String qrTitle({required Object name}) => 'Sign in to ${name} with a QR code';
+  @override
+  String get qrImage => 'Sign-in QR code';
+  @override
+  String get qrStarting => 'Creating the QR code';
+  @override
+  String get qrWaiting => 'Scan the QR code with the app on your phone';
+  @override
+  String get qrScanned => 'Scanned. Confirm on your phone';
+  @override
+  String get qrExpired => 'The QR code has expired';
+  @override
+  String get qrVerifying => 'Checking the sign-in';
+  @override
+  String get qrRegenerate => 'New QR code';
+  @override
+  String get retry => 'Retry';
 }
 
 // Path: errors

@@ -74,6 +74,7 @@ final class ShellHarness {
     this.fileDialogs,
     this.cacheUnavailable = false,
     this.registrySources = false,
+    this.secureStorage = false,
     this.extraOverrides = const [],
   }) : backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
@@ -142,6 +143,10 @@ final class ShellHarness {
   /// 之後搜尋頁怎麼變時用（首次啟動引導）。
   final bool registrySources;
 
+  /// 平台宣告有 secure storage（`PlatformCapabilities.secureStorage`）：帳號頁的登入
+  /// 按鈕依它出現。實作本身由 [extraOverrides] 的 `credentialStoreProvider` 給。
+  final bool secureStorage;
+
   /// 加在最後的 override（要和上面不重複）。
   final List<Override> extraOverrides;
 
@@ -183,7 +188,7 @@ final class ShellHarness {
       PlatformCapabilities(
         dataDirectory: true,
         singleInstance: false,
-        secureStorage: false,
+        secureStorage: secureStorage,
         fontFallback: FontFallback.none,
         playback: outputDeviceSelection
             ? const PlaybackSupport(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -10,10 +11,13 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/platform/files/files.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -28,6 +32,7 @@ import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../playback/fake_audio_backend.dart';
+import '../plugins/plugin_harness.dart';
 import '../support/memory_database.dart';
 import 'support/fake_artwork.dart';
 import 'support/plugin_page_harness.dart';
@@ -308,6 +313,22 @@ void main() {
           handle.dispose();
         });
 
+        // 設定頁寬版的第一組是帳號（M3 PR 8）：外觀另外點開。
+        testWidgets('appearance settings at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Appearance'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(AppearanceControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('playback settings at $width', (tester) async {
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
@@ -416,6 +437,87 @@ void main() {
           await h.settle(tester);
           await tester.pumpAndSettle();
           expect(find.text('Install Gamma?'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // 帳號（M3 PR 8）：未登入（測試插件，QR）、已登入、已失效（自動化說明）三張卡，
+      // 與 QR 登入的對話框。
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        final width = size.width;
+
+        Future<PluginPageHarness> openAccounts(WidgetTester tester) async {
+          final h = await PluginPageHarness.create(tester);
+          await tester.runAsync(() async {
+            await h.install(testPluginFile.readAsStringSync());
+            for (final (id, name, risk) in [
+              ('plugin-a', 'Alpha', true),
+              ('plugin-b', 'Beta', false),
+            ]) {
+              await h.install(
+                pluginScript(
+                  id,
+                  name: name,
+                  login: {
+                    'methods': ['qr'],
+                    'automationRisk': risk,
+                  },
+                ),
+              );
+            }
+          });
+          // 憑證的存取在假時間 zone 裡跑（見 PluginPageHarness.create）。
+          for (final (id, status) in [
+            ('plugin-a', AccountStatus.invalidated),
+            ('plugin-b', AccountStatus.active),
+          ]) {
+            unawaited(
+              h.plugins.credentials.save(
+                Account(
+                  pluginId: id,
+                  userId: 'u',
+                  displayName: 'Someone',
+                  status: status,
+                  loggedInAt: DateTime.utc(2026, 10, 9),
+                ),
+                const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA'}),
+              ),
+            );
+            await tester.pump();
+          }
+          await h.shell.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.settle(tester);
+          // 窄版（含 1000 寬時右側面板占掉的內容區）先是分組清單。
+          if (find.text('Expired').evaluate().isEmpty) {
+            await tester.tap(find.text('Accounts'));
+            await h.settle(tester);
+          }
+          await tester.pumpAndSettle();
+          expect(find.text('Expired'), findsOneWidget);
+          return h;
+        }
+
+        testWidgets('the accounts at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openAccounts(tester);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the QR login at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openAccounts(tester);
+          await tester.tap(find.text('Sign in with QR code'));
+          await h.settle(tester);
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(
+            find.text('Scan the QR code with the app on your phone'),
+            findsOneWidget,
+          );
 
           await expectGuidelines(tester);
           handle.dispose();

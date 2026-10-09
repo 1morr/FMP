@@ -46,6 +46,9 @@ final class _GatedStorage implements SecureStorage {
   final _inner = InMemorySecureStorage();
   Completer<void>? gate;
 
+  /// 依序讀過的鍵。
+  final reads = <String>[];
+
   Map<String, String> get values => _inner.values;
 
   set readError(Object? error) => _inner.readError = error;
@@ -54,6 +57,7 @@ final class _GatedStorage implements SecureStorage {
 
   @override
   Future<String?> read(String key) async {
+    reads.add(key);
     final value = await _inner.read(key);
     if (gate case final gate?) await gate.future;
     return value;
@@ -100,11 +104,24 @@ final class _Setup {
     return store;
   }
 
-  Future<void> install(String id) => plugins.install(
+  /// 在 `installed_plugins` 放一列；[login] 為假時 manifest 沒有宣告 `login`。
+  Future<void> install(String id, {bool login = true}) => plugins.install(
     InstalledPlugin(
       id: id,
       version: '1.0.0',
-      manifestJson: '{}',
+      manifestJson: jsonEncode({
+        'id': id,
+        'name': id,
+        'version': '1.0.0',
+        'author': 'FMP tests',
+        'apiVersion': 1,
+        'capabilities': ['search', if (login) 'login'],
+        'allowedHosts': ['example.test'],
+        if (login)
+          'login': {
+            'methods': ['qr'],
+          },
+      }),
       script: '',
       installedAt: DateTime.utc(2026),
     ),
@@ -272,6 +289,27 @@ void main() {
       expect(setup.warnings(), hasLength(1));
       // 沒有載入的憑證，值也沒有被登記到遮蔽函式。
       expect(setup.redactor.redact(_sessdata), _sessdata);
+    });
+
+    test('a plugin that does not declare login is not read', () async {
+      final setup = _Setup();
+      await setup.install('bilibili', login: false);
+      setup.storage.values['credentials.bilibili'] = jsonEncode(
+        _credentials.toJson(),
+      );
+
+      final store = setup.create();
+      await store.ready;
+
+      // 沒讀它：沒有對齊（憑證還在、沒有 warning）。
+      expect(setup.storage.reads, isNot(contains('credentials.bilibili')));
+      expect(setup.storage.values, contains('credentials.bilibili'));
+      expect(setup.warnings(), isEmpty);
+      // 同樣的插件宣告了 login 就讀（對照）。
+      await setup.install('bilibili');
+      final declared = setup.create();
+      await declared.ready;
+      expect(setup.storage.reads, contains('credentials.bilibili'));
     });
 
     test('an account of a plugin that is gone is still aligned', () async {

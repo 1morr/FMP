@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
@@ -25,6 +26,25 @@ void main() {
     (tester) async {
       final h = await openSettings(tester, 1000);
 
+      // 第一組是帳號（design §6.7 的順序）。
+      expect(find.byType(AccountsSection), findsOneWidget);
+      expect(
+        tester
+            .widget<ListTile>(find.widgetWithText(ListTile, 'Accounts'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester.getTopLeft(find.widgetWithText(ListTile, 'Accounts')).dy,
+        lessThan(
+          tester.getTopLeft(find.widgetWithText(ListTile, 'Appearance')).dy,
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(ListTile, 'Appearance'));
+      await h.loadSettings(tester);
+
+      expect(find.byType(AccountsSection), findsNothing);
       expect(find.byType(AppearanceControls), findsOneWidget);
       expect(find.byType(RadioListTile<LocaleSetting?>), findsNWidgets(4));
       expect(
@@ -143,8 +163,8 @@ void main() {
   });
 
   for (final width in [1000.0, 400.0]) {
-    testWidgets('$width wide: plugins come after network and open the plugin '
-        'page', (tester) async {
+    testWidgets('$width wide: accounts come first, plugins after network and '
+        'open the plugin page', (tester) async {
       final h = await PluginPageHarness.create(tester);
       await h.shell.pumpShell(
         tester,
@@ -155,7 +175,13 @@ void main() {
       await h.settle(tester);
 
       final sections = [
-        for (final title in ['Appearance', 'Playback', 'Network', 'Plugins'])
+        for (final title in [
+          'Accounts',
+          'Appearance',
+          'Playback',
+          'Network',
+          'Plugins',
+        ])
           tester.getCenter(find.widgetWithText(ListTile, title)).dy,
       ];
       expect(sections, orderedEquals([...sections]..sort()));
@@ -189,7 +215,9 @@ void main() {
   testWidgets('both appearance settings can go back to following the system', (
     tester,
   ) async {
-    await openSettings(tester, 1000);
+    final h = await openSettings(tester, 1000);
+    await tester.tap(find.widgetWithText(ListTile, 'Appearance'));
+    await h.loadSettings(tester);
 
     expect(find.text('System'), findsOneWidget, reason: 'theme');
     expect(find.text('System default'), findsOneWidget, reason: 'language');

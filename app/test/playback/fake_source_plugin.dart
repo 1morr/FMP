@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
@@ -64,6 +65,21 @@ final class FakeSourcePlugin implements SourcePlugin {
       previewOnly: previewOnly(request),
     );
   }
+
+  @override
+  Future<LoginQrCode> loginQrStart() => throw UnimplementedError('login');
+
+  @override
+  Future<LoginQrPoll> loginQrPoll(String token) =>
+      throw UnimplementedError('login');
+
+  @override
+  Future<LoginAccount> loginVerify(LoginCredentials credentials) =>
+      throw UnimplementedError('login');
+
+  @override
+  Future<LoginCredentials?> loginRefresh(LoginCredentials credentials) =>
+      throw UnimplementedError('login');
 
   @override
   void close() {}

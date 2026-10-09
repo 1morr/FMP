@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/stream_preferences.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
 import 'checks.dart';
@@ -32,6 +34,81 @@ void main() {
           .toSet(),
       sourceDtoShapes['StreamCandidate']!.keys.toSet(),
     );
+    expect(
+      accountFields(const LoginAccount(userId: 'u', displayName: 'd')).keys
+          .toSet(),
+      sourceDtoShapes['LoginAccount']!.keys.toSet(),
+    );
+  });
+
+  group('the login check', () {
+    const credentials = '{"cookies": {"SESSDATA": "***"}}';
+
+    test('runs loginVerify with the credentials and requires a login', () {
+      final check = parseChecks(
+        '{"login": {"input": $credentials, "expect": {"minItems": 1, '
+        '"nonEmpty": ["userId", "displayName"]}, "requiresLogin": true}}',
+      ).single;
+
+      expect(check.capability, PluginCapability.login);
+      expect(check.input, const LoginCredentials(cookies: {'SESSDATA': '***'}));
+      expect(check.requiresLogin, isTrue);
+      expect(
+        check.expectation.evaluate(
+          result: const LoginAccount(userId: 'u', displayName: ''),
+          describe: (_) => '',
+        ),
+        ['item 0: "displayName" is empty'],
+      );
+    });
+
+    test('the other cases do not require a login', () {
+      expect(
+        parseChecks('{"search": {"input": $_search, "expect": {}}}')
+            .single
+            .requiresLogin,
+        isFalse,
+      );
+    });
+
+    for (final (name, text, message) in [
+      (
+        'requiresLogin is missing',
+        '{"login": {"input": $credentials, "expect": {}}}',
+        'missing required field "requiresLogin"',
+      ),
+      (
+        'requiresLogin is false',
+        '{"login": {"input": $credentials, "expect": {}, '
+            '"requiresLogin": false}}',
+        'checks.login.requiresLogin: must be true',
+      ),
+      (
+        'the input is not credentials',
+        '{"login": {"input": {"SESSDATA": "***"}, "expect": {}, '
+            '"requiresLogin": true}}',
+        'checks.login.input',
+      ),
+      (
+        'a field LoginAccount does not have',
+        '{"login": {"input": $credentials, "expect": {"nonEmpty": '
+            '["vip"]}, "requiresLogin": true}}',
+        'LoginAccount has no field "vip"',
+      ),
+    ]) {
+      test('rejects when $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
   });
 
   group('parseChecks', () {

@@ -253,9 +253,9 @@ Future<List<String>> runCheck(
 /// `NetworkError`）就那個案例什麼都不寫，原本的 fixture 不動，並回報原因。
 /// 網路層重試成功的請求照樣寫：失敗的那幾次沒有回應，不會被錄到。
 ///
-/// 只錄得了不需要登入的案例：認證來源是 `NoCredentials`，要登入的請求會以
-/// `AuthRequired` 失敗。`meta.edited` 的 fixture 是手寫或手改的，那個案例略過
-/// 不錄。重試照真的時間等（不像重播立刻重送）；[wait] 換掉等待，給執行器自己
+/// 只錄得了不需要登入的案例：沒有憑證，要登入的請求會以 `AuthRequired` 失敗；
+/// 標了 `requiresLogin` 的案例（login 的 `loginVerify`）略過不錄（命令列沒有憑證，
+/// design §4.8）。`meta.edited` 的 fixture 是手寫或手改的，那個案例略過不錄。重試照真的時間等（不像重播立刻重送）；[wait] 換掉等待，給執行器自己
 /// 的測試用。
 Future<({List<String> problems, List<String> skipped})> recordContract(
   Directory directory, {
@@ -271,6 +271,10 @@ Future<({List<String> problems, List<String> skipped})> recordContract(
   final skipped = <String>[];
   for (final check in plugin.checks) {
     final name = check.capability.wireName;
+    if (check.requiresLogin) {
+      skipped.add('$name: requires a login');
+      continue;
+    }
     final existing = plugin.fixtures[name] ?? const [];
     if (existing.any((named) => named.fixture.edited != null)) {
       skipped.add('$name: has hand-edited fixtures');

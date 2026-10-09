@@ -104,7 +104,14 @@ void main() {
       'login',
     ]);
     expect(
-      PluginManifest.parse(manifest({'capabilities': names})).capabilities,
+      PluginManifest.parse(
+        manifest({
+          'capabilities': names,
+          'login': {
+            'methods': ['qr'],
+          },
+        }),
+      ).capabilities,
       PluginCapability.values.toSet(),
     );
   });
@@ -188,12 +195,209 @@ void main() {
           'capabilities': ['search', 'teleport'],
         },
       ),
-      ('a login method (not in M1)', {'login': 'cookie'}),
+      (
+        'an unknown login method',
+        {
+          'capabilities': ['search', 'login'],
+          'login': {
+            'methods': ['qr', 'passkey'],
+          },
+        },
+      ),
+      (
+        'an unknown refresh timing',
+        {
+          'capabilities': ['search', 'login'],
+          'login': {
+            'methods': ['qr'],
+            'refresh': 'hourly',
+          },
+        },
+      ),
     ]) {
       test(description, () {
         expect(
           () => PluginManifest.parse(manifest(changes)),
           _rejectedAs<Unsupported>(),
+        );
+      });
+    }
+  });
+
+  group('login', () {
+    const webView = {
+      'url': 'https://accounts.example.test/signin',
+      'cookieHosts': ['https://example.test'],
+      'doneCookies': ['SID', 'HSID'],
+    };
+    Map<String, Object?> withLogin(Map<String, Object?> login) => {
+      'capabilities': ['search', 'login'],
+      'allowedHosts': ['example.test'],
+      'login': login,
+    };
+
+    test('reads every field', () {
+      final parsed = PluginManifest.parse(
+        manifest(
+          withLogin({
+            'methods': ['webView', 'cookie'],
+            'webView': webView,
+            'refresh': 'onStartup',
+            'browseAsLoggedInDefault': false,
+            'automationRisk': true,
+          }),
+        ),
+      );
+
+      final login = parsed.login!;
+      expect(login.methods, {LoginMethod.webView, LoginMethod.cookie});
+      expect(
+        login.webView!.url,
+        Uri.parse('https://accounts.example.test/signin'),
+      );
+      expect(login.webView!.cookieHosts, [Uri.parse('https://example.test')]);
+      expect(login.webView!.doneCookies, ['SID', 'HSID']);
+      expect(login.refresh, LoginRefresh.onStartup);
+      expect(login.browseAsLoggedInDefault, isFalse);
+      expect(login.automationRisk, isTrue);
+    });
+
+    test('the optional fields have their defaults', () {
+      final login = PluginManifest.parse(
+        manifest(
+          withLogin({
+            'methods': ['qr'],
+            'webView': null,
+            'refresh': null,
+          }),
+        ),
+      ).login!;
+
+      expect(login.methods, {LoginMethod.qr});
+      expect(login.webView, isNull);
+      expect(login.refresh, isNull);
+      expect(login.browseAsLoggedInDefault, isTrue);
+      expect(login.automationRisk, isFalse);
+    });
+
+    test('no login capability means no login', () {
+      expect(PluginManifest.parse(manifest()).login, isNull);
+      expect(PluginManifest.parse(manifest({'login': null})).login, isNull);
+    });
+
+    test('the required exports follow the methods and the refresh', () {
+      PluginManifest parse(Map<String, Object?> login) =>
+          PluginManifest.parse(manifest(withLogin(login)));
+
+      expect(
+        parse({
+          'methods': ['qr'],
+        }).requiredExports,
+        {'search', 'loginVerify', 'loginQrStart', 'loginQrPoll'},
+      );
+      expect(
+        parse({
+          'methods': ['cookie'],
+          'refresh': 'onStartup',
+        }).requiredExports,
+        {'search', 'loginVerify', 'loginRefresh'},
+      );
+      expect(PluginManifest.parse(manifest()).requiredExports, {'search'});
+    });
+
+    for (final (description, changes) in <(String, Map<String, Object?>)>[
+      (
+        'a login without the login capability',
+        {
+          'login': {
+            'methods': ['qr'],
+          },
+        },
+      ),
+      (
+        'the login capability without a login',
+        {
+          'capabilities': ['search', 'login'],
+        },
+      ),
+      ('a login that is not an object', withLogin({})..['login'] = 'cookie'),
+      ('no methods', withLogin({'methods': <String>[]})),
+      (
+        'a method listed twice',
+        withLogin({
+          'methods': ['qr', 'qr'],
+        }),
+      ),
+      (
+        'the webView method without a webView',
+        withLogin({
+          'methods': ['webView'],
+        }),
+      ),
+      (
+        'a webView without the webView method',
+        withLogin({
+          'methods': ['qr'],
+          'webView': webView,
+        }),
+      ),
+      (
+        'a login page on another host',
+        withLogin({
+          'methods': ['webView'],
+          'webView': {...webView, 'url': 'https://evil.test/signin'},
+        }),
+      ),
+      (
+        'an http login page',
+        withLogin({
+          'methods': ['webView'],
+          'webView': {...webView, 'url': 'http://example.test/signin'},
+        }),
+      ),
+      (
+        'a cookie host on another host',
+        withLogin({
+          'methods': ['webView'],
+          'webView': {
+            ...webView,
+            'cookieHosts': ['https://evil.test'],
+          },
+        }),
+      ),
+      (
+        'no cookie hosts',
+        withLogin({
+          'methods': ['webView'],
+          'webView': {...webView, 'cookieHosts': <String>[]},
+        }),
+      ),
+      (
+        'no done cookies',
+        withLogin({
+          'methods': ['webView'],
+          'webView': {...webView, 'doneCookies': <String>[]},
+        }),
+      ),
+      (
+        'an unknown login field',
+        withLogin({
+          'methods': ['qr'],
+          'userAgent': 'Chrome',
+        }),
+      ),
+      (
+        'an unknown webView field',
+        withLogin({
+          'methods': ['webView'],
+          'webView': {...webView, 'userAgent': 'Chrome'},
+        }),
+      ),
+    ]) {
+      test('rejects $description as ParseError', () {
+        expect(
+          () => PluginManifest.parse(manifest(changes)),
+          _rejectedAs<ParseError>(),
         );
       });
     }
