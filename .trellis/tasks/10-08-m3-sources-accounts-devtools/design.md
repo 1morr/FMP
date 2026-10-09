@@ -755,6 +755,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 
 - 沒有選的：`file_selector`（ADR 0025 原寫，改用 ADR 0009 已定的 `file_picker`，矛盾 2）；`webview_flutter` 4.14.1（沒有 Windows）、`webview_windows` 0.4.0（2024-02，只有 Windows）、`desktop_webview_window` 0.3.0（獨立視窗，取 cookie 的能力沒查到）；`pretty_qr_code` 3.6.0（備案）。
 - `flutter_inappwebview`：R1 實測 6.1.5 在 AGP 9.1.0 建不起來（`proguard-android.txt`），6.2.0-beta.3 可以；擁有者 2026-10-08 決定用 beta.3，6.2.0 出 stable 就換。從 beta 退回 6.1.5 時要連 `pubspec.lock` 一起還原（lockfile 會留著 beta 的 `_platform_interface`）。
+  - 更正（M3 PR 9）：Linux 以本機 stub 取代 `flutter_inappwebview_linux`，避免 WPE 依賴；Linux 的 WebView 在 Linux 任務決定（ADR 0012 §決定 8）。
 - 加了原生插件的 PR（7、9、11、13、15，以及 5 的 `file_picker`）照 M2 的做法保留真正新增的 plugin registrant，並以 `zipalign -c -P 16` 確認 Android 新增的原生庫是 16KB 對齊（ADR 0010 §後果）。
 
 ## 15. 文件更正
