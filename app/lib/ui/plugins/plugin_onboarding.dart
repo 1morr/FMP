@@ -61,7 +61,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   @override
   OnboardingState build() => const OnboardingState();
 
-  void dismiss() => state = state.copyWith(dismissed: true);
+  /// 「稍後再說」：連同失敗的清單一起收起，否則全部失敗時引導收不掉。
+  void dismiss() => state = state.copyWith(dismissed: true, failures: const []);
 
   void begin() => state = state.copyWith(working: true, failures: const []);
 
@@ -250,7 +251,7 @@ class _PluginOnboardingState extends ConsumerState<PluginOnboarding> {
             FilledButton(
               onPressed: state.working || selected.isEmpty
                   ? null
-                  : () => _install(selected),
+                  : () => _install({for (final entry in selected) entry.id}),
               child: Text(p.install),
             ),
             // 已經有音源（裝了一部分）時，這顆只是關掉失敗的清單。
@@ -270,9 +271,12 @@ class _PluginOnboardingState extends ConsumerState<PluginOnboarding> {
     );
   }
 
-  /// 下載並驗證 [entries]，一次確認後依序安裝；失敗的記下來、其餘照裝。整批結束前引導
-  /// 一直顯示（[OnboardingState.working]），所以這個 State 不會在中途被拆掉。
-  Future<void> _install(List<PluginIndexEntry> entries) async {
+  /// 重讀官方 index，下載並驗證勾選的 [ids]，一次確認後依序安裝；失敗的記下來、其餘照裝。
+  /// 整批結束前引導一直顯示（[OnboardingState.working]），所以這個 State 不會在中途被拆掉。
+  ///
+  /// 先重讀 index：SHA 不符多半是插件庫剛更新（「請稍後再試」），再按一次要比的是新的那
+  /// 一份，不是畫面打開時讀的。讀不到時畫面換成離線或失敗的狀態（附「重試」），不裝。
+  Future<void> _install(Set<String> ids) async {
     final t = ref.read(translationsProvider);
     final repository = ref.read(pluginRepositoryProvider);
     final downloader = ref.read(pluginDownloaderProvider);
@@ -286,13 +290,21 @@ class _PluginOnboardingState extends ConsumerState<PluginOnboarding> {
     var installed = 0;
     notifier.begin();
     try {
+      final outcome = await ref.refresh(
+        indexOutcomeProvider(officialPluginIndexUrl).future,
+      );
+      if (outcome is! IndexLoaded) return;
+      final installedIds = {for (final p in await repository.list()) p.id};
+      final entries = [
+        for (final entry in outcome.index.plugins)
+          if (ids.contains(entry.id) && !installedIds.contains(entry.id)) entry,
+      ];
       final ready = <PreparedPlugin>[];
       for (final entry in entries) {
         try {
           final result = await downloader.prepare(
             entry,
             indexUrl: Uri.parse(officialPluginIndexUrl),
-            current: await repository.byId(entry.id),
           );
           switch (result) {
             case PrepareRejected(:final reason):
@@ -338,10 +350,13 @@ class _PluginOnboardingState extends ConsumerState<PluginOnboarding> {
         }
       }
     } finally {
+      // 在 finally 裡：全部在下載階段失敗時上面是提早 return。
       notifier.finish(failures);
-    }
-    if (installed > 0) {
-      toaster.success(t.onboarding.installedCount(count: installed));
+      // 有失敗時引導留著、裝好的標「已安裝」：頁面本身就是結果，不另跳提示（它會蓋住
+      // 底部的按鈕）。
+      if (failures.isEmpty && installed > 0) {
+        toaster.success(t.onboarding.installedCount(count: installed));
+      }
     }
   }
 }

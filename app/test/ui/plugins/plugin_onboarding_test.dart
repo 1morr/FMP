@@ -189,6 +189,21 @@ void main() {
     expect(find.text('Alpha'), findsOneWidget);
   });
 
+  testWidgets('Install reads the index again; when that fails nothing is '
+      'installed and Retry is offered', (tester) async {
+    final h = await _open(tester, published: [_a]);
+    h.remote.clear();
+
+    await tester.tap(_button('Install'));
+    await h.settle(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(await h.stored(tester), isEmpty);
+    expect(find.text("Couldn't read the plugin repositories"), findsOneWidget);
+    expect(_button('Retry'), findsOneWidget);
+  });
+
   testWidgets('a plugin that fails is listed, the others are still '
       'installed', (tester) async {
     final h = await PluginPageHarness.create(tester, registrySources: true);
@@ -219,10 +234,10 @@ void main() {
       ),
       findsOneWidget,
     );
+    // 引導還在、Alpha 標著「已安裝」：頁面本身就是結果，不另跳提示蓋住底部的按鈕。
+    expect(find.text('Installed'), findsOneWidget);
+    expect(find.text('Plugins installed: 1'), findsNothing);
 
-    // 「已安裝」的提示蓋在按鈕上，等它消失。
-    await tester.pump(const Duration(seconds: 7));
-    await tester.pump(const Duration(seconds: 1));
     await tester.ensureVisible(_button('Close'));
     await tester.tap(_button('Close'));
     await tester.pump(const Duration(milliseconds: 500));
@@ -251,6 +266,37 @@ void main() {
     expect(find.text("Some plugins weren't installed"), findsOneWidget);
     expect(await h.stored(tester), isEmpty);
     expect(_button('Install'), findsOneWidget);
+
+    // 「插件庫剛更新，請稍後再試」：再按一次要讀新的 index，不是拿舊的那一份再比一次。
+    h.publish([_a]);
+    await tester.tap(_button('Install'));
+    await h.settle(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    await _confirm(tester, h);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect({for (final p in await h.stored(tester)) p.id}, {'plugin-a'});
+    expect(_title, findsNothing);
+  });
+
+  testWidgets('Later after everything failed puts the onboarding away', (
+    tester,
+  ) async {
+    final h = await PluginPageHarness.create(tester, registrySources: true);
+    h.publish([_a], sha256Overrides: {'plugin-a': 'f' * 64});
+    await h.shell.pumpShell(tester);
+    await h.settle(tester);
+    await tester.tap(_button('Install'));
+    await h.settle(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text("Some plugins weren't installed"), findsOneWidget);
+
+    await tester.tap(_button('Later'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(_title, findsNothing);
+    expect(find.text("Some plugins weren't installed"), findsNothing);
+    expect(find.text('No sources to search'), findsOneWidget);
   });
 
   testWidgets('Later shows the plain empty state, whose button opens the '
@@ -269,5 +315,19 @@ void main() {
     expect(find.text('No plugins installed'), findsOneWidget);
     expect(find.text('Installed'), findsOneWidget);
     expect(find.text('Available'), findsOneWidget);
+  });
+
+  testWidgets('Go to plugins opens the plugin section on a narrow window '
+      'too', (tester) async {
+    final h = await _open(tester, published: [_a], size: const Size(400, 800));
+
+    await tester.tap(_button('Later'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(_button('Go to plugins'));
+    await h.settle(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('No plugins installed'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
   });
 }
