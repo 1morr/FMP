@@ -276,7 +276,9 @@ final class CredentialStore implements CredentialSource {
   }
 
   /// 登入成功後寫入（驗證已在呼叫端做完）：先 secure storage、再帳號列。中途
-  /// 失敗只會留下沒有帳號列的憑證，下次載入時對齊刪掉。丟出寫入的錯誤。
+  /// 失敗時記憶體不變（這次執行不帶新憑證）；第一次登入留下的是沒有帳號列的憑證，
+  /// 下次載入時對齊刪掉；重新登入（已有帳號列）時舊列留著，下次載入時新憑證配舊列
+  /// 的狀態與顯示資訊，再登入一次就蓋掉。丟出寫入的錯誤。
   Future<void> save(Account account, LoginCredentials credentials) =>
       _serial(() async {
         await _storage.write(

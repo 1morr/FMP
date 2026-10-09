@@ -40,8 +40,8 @@ final class AccountService {
   /// 才寫入——先 secure storage、再帳號列（`active`、登入時間）、再登記遮蔽
   /// （`CredentialStore.save`）。驗證丟錯就什麼都不寫、原樣丟出。
   ///
-  /// 寫入失敗包成 `AppError` 丟出，當作登入失敗：secure storage 寫好而帳號列沒寫的
-  /// 殘留，下次啟動時對齊刪掉。
+  /// 寫入失敗包成 `AppError` 丟出，當作登入失敗；secure storage 寫好而帳號列沒寫的
+  /// 殘留怎麼收尾見 `CredentialStore.save`。
   Future<Account> login(
     SourcePlugin plugin,
     LoginCredentials credentials,
