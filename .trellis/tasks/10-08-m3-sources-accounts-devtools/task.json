@@ -25,7 +25,8 @@
     "10-09-m3-index-endpoint",
     "10-09-m3-credential-store",
     "10-09-m3-plugin-page",
-    "10-09-m3-onboarding"
+    "10-09-m3-onboarding",
+    "10-09-m3-login"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
