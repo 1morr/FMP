@@ -253,7 +253,8 @@ try {
   `confirmInstall` 不動。
 - 測試：`PluginPageHarness.create(tester, registrySources: true)`（搜尋的音源讀真的插件清單，不是 `ShellHarness` 的假插件），
   `h.publish([...])` 放官方 index，`h.shell.pumpShell`。`working` 時進度條一直在動，`pumpAndSettle` 不會結束：用
-  `h.settle` 加 `pump(Duration)`。成功提示會蓋住頁面底部的按鈕，要點之前先 `pump` 過它的時間。
+  `h.settle` 加 `pump(Duration)`。全部裝好時的成功提示會蓋住頁面底部，之後要點底部的東西先 `pump` 過它的時間（有失敗時不跳）。
+  按「安裝」會重讀 index：要測「插件庫修好之後再按一次」就在按之前重新 `h.publish`。
 
 ## 播放列與封面
 
