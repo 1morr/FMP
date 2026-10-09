@@ -15,6 +15,7 @@ environment:
 # 所以 app/ 本身就是根，不另設外層 pubspec。
 workspace:
   - packages/fmp_lints
+  - packages/flutter_inappwebview_linux_stub
 
 dependencies:
   # 系統媒體控制的 Android 實作（ADR 0018 §決定 8）：通知、鎖定畫面、媒體鍵。
@@ -61,6 +62,17 @@ dependencies:
   # 快取庫與媒體 client，只准在 lib/data/cache/ import（fmp_layer_imports）。
   # 它帶進 sqflite（Android 原生庫）；App 不用它的預設索引。
   flutter_cache_manager: ^3.4.5
+  # App 內網頁登入（ADR 0029 §決定 9）；只准在 lib/platform/ import
+  # （fmp_layer_imports）。釘死 beta：唯一的 stable 6.1.5 的 Android 部分在 AGP 9
+  # 要靠會被拿掉的暫時旗標才建得起來（R1）。6.2.0 出 stable 就換；退回 6.1.5 時
+  # 連 pubspec.lock 一起還原（lockfile 會留著 beta 的 platform_interface）。
+  # Windows 的 STL1011 define 在 windows/CMakeLists.txt。
+  flutter_inappwebview: 6.2.0-beta.3
+  # Linux 不用套件預設的 flutter_inappwebview_linux（WPE WebKit，建置與執行都要裝 WPE）：
+  # 直接依賴的實作優先於 default_package，換成什麼都不做的本機 stub。Linux 沒有登入
+  # WebView（ADR 0012 §決定 8）。理由與閘門見 packages/flutter_inappwebview_linux_stub。
+  flutter_inappwebview_linux_stub:
+    path: packages/flutter_inappwebview_linux_stub
   # 憑證存放（ADR 0012 §決定 3、ADR 0029 §決定 5）；只准在 lib/platform/ import
   # （fmp_layer_imports）。
   flutter_secure_storage: ^11.2.0
