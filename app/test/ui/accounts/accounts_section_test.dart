@@ -26,6 +26,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../plugins/plugin_harness.dart';
 import '../../support/fake_login_webview.dart';
 import '../support/plugin_page_harness.dart';
+import '../support/shell_harness.dart';
 
 Finder _button(String text) => find.ancestor(
   of: find.text(text),
@@ -539,6 +540,75 @@ void main() {
     await _openAccounts(tester, h);
 
     expect(find.textContaining(', failed'), findsOneWidget);
+  });
+
+  group('a rejected credential during a user action', () {
+    // ADR 0013 §決定 5：憑證無效「刷新失敗才提示一次需重新登入」。守衛的提示（附「登入」）
+    // 先發，接著同一個失敗從搜尋或播放以錯誤提示送來：畫面上只能有一則，而且是附「登入」
+    // 的那則（錯誤提示會把它換掉，使用者就沒有路去帳號頁）。
+    const prompt = 'The sign-in to Test Source is no longer valid';
+
+    /// 外殼的假插件 `fmp-test`，加上 `login`（不能刷新）：守衛只讀 manifest。
+    final loginPlugin = _FakePlugin(
+      PluginFile.parse(
+        pluginScript(
+          'fmp-test',
+          name: 'Test Source',
+          login: {
+            'methods': ['qr'],
+          },
+        ),
+      ).manifest,
+    );
+
+    Never reject() => throw CredentialInvalid(pluginId: 'fmp-test');
+
+    void expectOnlyThePrompt() {
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text(prompt), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text('Sign in'),
+        ),
+        findsOneWidget,
+      );
+    }
+
+    testWidgets('a search shows only the prompt, and still fails inline', (
+      tester,
+    ) async {
+      late final PluginPageHarness h;
+      h = await PluginPageHarness.create(
+        tester,
+        onSearch: (_) => h.plugins.guard.run(loginPlugin, reject),
+      );
+      await _signIn(tester, h, 'fmp-test');
+      await h.shell.pumpShell(tester, collapsePanel: true);
+
+      await tester.enterText(find.byType(TextField), 'x');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await h.settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expectOnlyThePrompt();
+      expect(find.text('Search failed'), findsOneWidget);
+    });
+
+    testWidgets('a track that cannot be resolved shows only the prompt', (
+      tester,
+    ) async {
+      final h = await PluginPageHarness.create(tester);
+      await _signIn(tester, h, 'fmp-test');
+      h.shell.plugin.respond = (_) => h.plugins.guard.run(loginPlugin, reject);
+      await h.shell.pumpShell(tester, collapsePanel: true);
+
+      await h.shell.play(tester, [summary('a')]);
+      await h.settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expectOnlyThePrompt();
+    });
   });
 
   testWidgets('a rejected credential prompts with a way to the account '

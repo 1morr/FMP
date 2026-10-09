@@ -17,6 +17,7 @@ import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
+import '../../support/credentials.dart';
 import '../../support/fake_http_adapter.dart';
 import '../../support/fake_network_interfaces.dart';
 import '../../support/pump_until.dart';
@@ -265,6 +266,101 @@ void main() {
         CredentialState.active,
       );
       expect(f.invalidations, isEmpty);
+    });
+  });
+
+  group('while a refresh is in flight', () {
+    /// `/refresh` 等到 [release] 才回；[reached] 在它被呼叫時完成。
+    ({
+      Completer<void> reached,
+      Completer<void> release,
+      FutureOr<ResponseBody> Function(RequestOptions) handler,
+    })
+    gate() {
+      final reached = Completer<void>();
+      final release = Completer<void>();
+      return (
+        reached: reached,
+        release: release,
+        handler: (options) async {
+          if (options.uri.path != '/refresh') return _server(options);
+          if (!reached.isCompleted) reached.complete();
+          await release.future;
+          return reply(200);
+        },
+      );
+    }
+
+    InMemorySecureStorage storage(_Fixture f) => f.harness.secureStorage;
+
+    test('a sign-out does not come back with the new credentials', () async {
+      final g = gate();
+      final f = await _Fixture.create(handler: g.handler);
+
+      final search = f.search();
+      await g.reached.future;
+      // 登出的第一步（刪憑證）已做完、帳號列還沒刪的那一刻，刷新回來了。
+      await f.harness.credentials.delete('plugin-a');
+      g.release.complete();
+      await expectLater(search, throwsA(isA<CredentialInvalid>()));
+
+      expect(
+        await f.harness.credentials.state('plugin-a'),
+        CredentialState.none,
+      );
+      expect(storage(f).values, isEmpty);
+      expect((await f.account()).lastRefreshResult, isNull);
+      expect(f.invalidations, isEmpty);
+    });
+
+    test('a new sign-in is not overwritten or invalidated', () async {
+      const other = LoginCredentials(
+        cookies: {'SESSDATA': 'FAKE_OTHER_SESSION'},
+      );
+      final g = gate();
+      final f = await _Fixture.create(handler: g.handler);
+
+      final search = f.search();
+      await g.reached.future;
+      await f.harness.credentials.save(_account(), other);
+      g.release.complete();
+      await expectLater(search, throwsA(isA<CredentialInvalid>()));
+
+      expect(await f.harness.credentials.activeCredentials('plugin-a'), other);
+      final account = await f.account();
+      expect(account.status, AccountStatus.active);
+      expect(account.lastRefreshResult, isNull);
+      expect(f.invalidations, isEmpty);
+    });
+
+    test('a call rejected during the startup refresh is invalidated when '
+        'that refresh has nothing new', () async {
+      final g = gate();
+      final f = await _Fixture.create(
+        credentials: _nothingNew,
+        handler: g.handler,
+      );
+
+      final startup = f.service.refreshOnStartup([f.plugin]);
+      await g.reached.future;
+      final call = f.harness.guard.run<void>(
+        f.plugin,
+        () => throw CredentialInvalid(
+          pluginId: 'plugin-a',
+          cause: StateError('rejected'),
+          stackTrace: StackTrace.current,
+        ),
+      );
+      await settle();
+      g.release.complete();
+      await expectLater(call, throwsA(isA<CredentialInvalid>()));
+      await startup;
+
+      expect(f.refreshes, 1);
+      final account = await f.account();
+      expect(account.status, AccountStatus.invalidated);
+      expect(account.lastRefreshResult, RefreshResult.failed);
+      expect(f.invalidations, hasLength(1));
     });
   });
 

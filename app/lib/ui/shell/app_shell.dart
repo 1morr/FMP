@@ -128,9 +128,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       final t = ref.read(translationsProvider).accounts;
       final name =
           ref.read(pluginNameProvider(value.pluginId)) ?? value.pluginId;
+      // 同一個失敗接著以錯誤提示送來（搜尋、播放）時由 Toaster 去重，留下這則。
       ref
           .read(toasterProvider)
-          .warning(
+          .credentialInvalidated(
+            value.pluginId,
             t.invalidatedPrompt(name: name),
             action: ToastAction(label: t.signIn, onPressed: _openAccounts),
           );

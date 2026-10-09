@@ -109,9 +109,30 @@ final class Toaster {
         message: sentence == null ? message : sentence(message),
         action: action,
       ),
-      key: (error.typeName, pluginId),
+      key: _errorKey(error),
     );
   }
+
+  /// [pluginId] 的登入被音源拒絕、轉成已失效（`AccountGuard` 的事件）：以警告顯示
+  /// [message] 與「登入」[action]，並佔住 [CredentialInvalid]＋該音源的錯誤去重鍵。
+  ///
+  /// 守衛先標失效、發事件，原呼叫的錯誤才往上：同一個失敗接著從搜尋、播放以 [error]
+  /// 送來時就被去重掉，不會把這則換成沒有「登入」的錯誤提示（ADR 0013 §決定 5：刷新
+  /// 失敗才提示一次需重新登入）。錯誤歷史照常由 [error] 寫。這則本身不看那個鍵：就算
+  /// 錯誤提示先到，也由它換掉。
+  void credentialInvalidated(
+    String pluginId,
+    String message, {
+    required ToastAction action,
+  }) {
+    _show(
+      Toast(kind: ToastKind.warning, message: message, action: action),
+      key: (ToastKind.warning, message),
+    );
+    _lastShown[_errorKey(CredentialInvalid(pluginId: pluginId))] = clock.now();
+  }
+
+  static Object _errorKey(AppError error) => (error.typeName, error.pluginId);
 
   void _message(ToastKind kind, String message, ToastAction? action) => _show(
     Toast(kind: kind, message: message, action: action),
