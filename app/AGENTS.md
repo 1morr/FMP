@@ -748,10 +748,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不再刷新。宣告 `refresh`：`loginRefresh(目前憑證)` 拿到新憑證就寫入（`CredentialStore.replace`，`refreshed`）並**重跑原呼叫
   一次**（新的呼叫讀到新憑證）；回 `null` 或丟 `CredentialInvalid` 就標 `invalidated`（`CredentialStore.invalidate`，保留憑證、
   不再帶）；沒宣告 `refresh` 直接標。重跑又被拒也標，不再重跑。刷新時的其他錯誤（網路、限流）不標失效，記 `failed` 並丟出
-  那個錯誤。每次從 `active` 轉成 `invalidated` 發一次 `AccountInvalidated`（`accountInvalidationsProvider`），外殼提示一次
-  「{音源}的登入已失效」附「登入」（到設定頁的帳號區塊）；重新登入回到 `active` 後下一次失效再提示。閘門：
+  那個錯誤。併進進行中的啟動刷新而它回 `null`（`unchanged`）時，被拒的那次照樣標失效。寫入（`replace`、`recordRefresh`、
+  `invalidate`）只對刷新或被拒的那組憑證做：`CredentialStore` 以記憶體裡現在的憑證比對，刷新期間登出（憑證已刪、帳號列還在）
+  或重新登入時那次的結果丟掉，不復活、不蓋掉、不標失效。每次從 `active` 轉成 `invalidated` 發一次 `AccountInvalidated`
+  （`accountInvalidationsProvider`），外殼以 `Toaster.credentialInvalidated` 提示一次「{音源}的登入已失效」附「登入」（到設定頁的
+  帳號區塊）；它佔住 `CredentialInvalid`＋該音源的錯誤去重鍵，同一個失敗接著從搜尋、播放以 `Toaster.error` 送來的錯誤提示被
+  去重（仍寫錯誤歷史），畫面上只留附「登入」的那則（ADR 0013 §決定 5）。重新登入回到 `active` 後下一次失效再提示。閘門：
   `account_guard_test.dart`（`a rejected credential`：重跑帶新憑證、三個並行刷新一次、不支援刷新、`null`、被拒、重跑又被拒不
-  循環、刷新網路錯誤；`other failures`）、`accounts_section_test.dart` 的 `a rejected credential prompts…`。
+  循環、刷新網路錯誤；`while a refresh is in flight`：登出、重新登入、併進啟動刷新；`other failures`）、
+  `toaster_test.dart` 的 `an invalidated sign-in`、`accounts_section_test.dart` 的 `a rejected credential prompts…` 與
+  `a rejected credential during a user action`（搜尋、播放各一，只有一則提示）。
 - 啟動刷新（`AccountService.refreshOnStartup`、`accountStartupRefreshProvider`）：宣告 `refresh: 'onStartup'` 且有可用憑證的
   插件，在第一幀之後（`FmpApp` 讀 provider）、**網路狀態第一次是 `online` 時**各 `loginRefresh` 一次（與失效時的刷新共用
   單飛），整個執行只跑一次；先等網路狀態的第一次介面檢查（`NetworkStatusNotifier.whenFirstChecked`），因為網路狀態的預設是 `online`，沒查過就不知道有沒有網路。不是排程器
@@ -762,7 +768,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `shows the last refresh…`、`a failed refresh…`。
 - 「憑證無效」判定表（`credentialsAttached` 為真的 401、`-101` 等）在各插件的目錄內，由插件 repo 的 Node 測試守（輸入回應
   與 `credentialsAttached`），不是契約 fixture（ADR 0015 §決定 4 每能力一條案例；PR 1 的先例）。沒有閘門：本 repo 不守。
-  憑證的值只用假值寫測試（`FAKE_…`）。
+- 憑證的值只用假值寫測試（`FAKE_…`）。
 
 ## 插件
 
