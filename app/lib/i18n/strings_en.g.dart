@@ -876,11 +876,55 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String get qrExpired => 'The QR code has expired';
   @override
-  String get qrVerifying => 'Checking the sign-in';
+  String get verifying => 'Checking the sign-in';
   @override
   String get qrRegenerate => 'New QR code';
   @override
   String get retry => 'Retry';
+  @override
+  String get close => 'Close';
+  @override
+  String webTitle({required Object name}) => 'Sign in to ${name}';
+  @override
+  String get webLoading => 'Opening the sign-in page';
+  @override
+  String get webStuckTitle => 'The sign-in didn\'t finish';
+  @override
+  String get webStuckBody =>
+      'The page stopped while redirecting. Retry opens the sign-in page again; you usually won\'t need to enter your password again.';
+  @override
+  String get webStuckRestart =>
+      'It still didn\'t finish. Close FMP, open it again and choose "Sign in on the web" once more; the sign-in on the web is kept.';
+  @override
+  String get webFailed => 'Couldn\'t open the sign-in page';
+  @override
+  String cookieTitle({required Object name}) => 'Paste cookies for ${name}';
+  @override
+  String get cookieLabel => 'Cookies';
+  @override
+  String get cookieHint => 'name=value; name2=value2';
+  @override
+  String get cookieHelpTitle => 'How to get them';
+  @override
+  String get cookieStep1 =>
+      'Sign in to the website in a browser on your computer.';
+  @override
+  String get cookieStep2 =>
+      'Press F12 to open the developer tools, reload the page in the Network tab and pick a request to that website.';
+  @override
+  String get cookieStep3 =>
+      'Find "Cookie" in the request headers, copy the whole value and paste it above.';
+  @override
+  String get cookieFile =>
+      'You can also paste a cookies.txt file (Netscape format) exported by a browser extension.';
+  @override
+  String get cookieWarning =>
+      'Cookies are your sign-in. Don\'t share them. FMP keeps them only on this device.';
+  @override
+  String get cookieEmpty =>
+      'No cookies found. Paste name=value pairs or the contents of a cookies.txt file.';
+  @override
+  String get signIn => 'Sign in';
 }
 
 // Path: errors

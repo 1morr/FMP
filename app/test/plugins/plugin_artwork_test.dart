@@ -4,6 +4,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/install/plugin_installer.dart';
@@ -30,6 +31,7 @@ ProviderContainer _container(PluginHarness plugins, CacheStore? cache) {
       ),
       scriptPluginLoaderProvider.overrideWithValue(plugins.loader),
       devPluginPathProvider.overrideWithValue(null),
+      loginWebViewProvider.overrideWithValue(null),
       cacheStoreProvider.overrideWithValue(
         cache == null
             ? AsyncError<CacheStore>(StateError('no cache'), StackTrace.empty)

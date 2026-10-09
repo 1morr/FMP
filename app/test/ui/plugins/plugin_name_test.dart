@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/install/plugin_installer.dart';
@@ -24,6 +25,7 @@ ProviderContainer _container(PluginHarness harness, AppLocale locale) {
         harness.mediaHttpClients,
       ),
       scriptPluginLoaderProvider.overrideWithValue(harness.loader),
+      loginWebViewProvider.overrideWithValue(null),
       translationsProvider.overrideWithValue(locale.buildSync()),
     ],
   );

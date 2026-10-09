@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
@@ -13,7 +14,9 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/accounts/accounts_state.dart';
+import 'package:fmp/ui/accounts/cookie_login_dialog.dart';
 import 'package:fmp/ui/accounts/qr_login_dialog.dart';
+import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -130,42 +133,63 @@ class _AccountsSectionState extends ConsumerState<AccountsSection> {
   Future<void> _login(LoginPlugin plugin, LoginMethod method) async {
     final t = _t;
     final toaster = ref.read(toasterProvider);
+    final accounts = ref.read(accountServiceProvider);
+    final loginWebView = ref.read(loginWebViewProvider);
     final name = plugin.manifest.name;
     final registry = ref.read(pluginRegistryProvider.future);
     String failed(String reason) =>
         t.accounts.loginFailed(name: name, reason: reason);
+    void fail(AppError error) => toaster.error(
+      error,
+      operation: 'Failed to sign in',
+      tag: _tag,
+      sentence: failed,
+    );
     final SourcePlugin? source;
     try {
       source = (await registry)[plugin.id];
     } on Object catch (error, stackTrace) {
-      if (mounted) {
-        _failed(
-          AppError.wrap(error, stackTrace, pluginId: plugin.id),
-          'Failed to sign in',
-          failed,
-        );
-      }
+      if (mounted) fail(AppError.wrap(error, stackTrace, pluginId: plugin.id));
       return;
     }
     if (!mounted) return;
     if (source == null) {
       // 已啟用卻沒載入（載入失敗）：插件頁看得到原因。
-      _failed(
+      fail(
         UnexpectedError(
           pluginId: plugin.id,
           cause: StateError('The plugin is enabled but not loaded'),
           stackTrace: StackTrace.current,
         ),
-        'Failed to sign in',
-        failed,
       );
       return;
     }
-    final account = switch (method) {
-      LoginMethod.qr => await showQrLogin(context, plugin: source, name: name),
-      // 不會出現：availableLoginMethods 還沒有這兩種（M3 PR 9）。
-      LoginMethod.webView || LoginMethod.cookie => null,
-    };
+    final Account? account;
+    switch (method) {
+      case LoginMethod.qr:
+        account = await showQrLogin(context, plugin: source, name: name);
+      case LoginMethod.cookie:
+        account = await showCookieLogin(context, plugin: source, name: name);
+      case LoginMethod.webView:
+        // availableLoginMethods 只在平台有登入 WebView、manifest 有 webView 時給這一種。
+        final credentials = await showWebLogin(
+          context,
+          webView: loginWebView!,
+          spec: plugin.login.webView!,
+          name: name,
+        );
+        if (credentials == null) return;
+        // 頁面關了才驗證（design §6.4）。這一頁可能已經換位置重建（State 不在）：照樣
+        // 驗證寫入，使用者已經登入了，只是沒有進度條。
+        final verified = source;
+        Future<Account> verify() => accounts.login(verified, credentials);
+        try {
+          account = await (mounted ? _work(verify) : verify());
+        } on Object catch (error, stackTrace) {
+          fail(AppError.wrap(error, stackTrace, pluginId: plugin.id));
+          return;
+        }
+    }
     if (account != null) toaster.success(t.accounts.loggedIn(name: name));
   }
 

@@ -344,6 +344,7 @@ void main() {
               playback: null,
               networkInterfaces: false,
               files: false,
+              loginWebView: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 1,
                 memoryImages: 1,

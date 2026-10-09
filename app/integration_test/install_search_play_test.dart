@@ -20,6 +20,7 @@ import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/playback/playback_providers.dart';
@@ -261,6 +262,7 @@ final class _AppRun {
               playback: _playback,
               networkInterfaces: false,
               files: false,
+              loginWebView: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 16,
                 memoryImages: 50,
@@ -277,6 +279,7 @@ final class _AppRun {
           // 插件的 HTTP client 經 CredentialStore 讀憑證：給一個空的記憶體
           // 存放（CI 的 runner 不一定有 keyring，這個測試也不登入）。
           secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
+          loginWebViewProvider.overrideWithValue(null),
           // 網路狀態只看請求結果：這個測試不看系統的網路介面。
           networkInterfacesProvider.overrideWithValue(null),
           audioBackendProvider.overrideWith((ref) {

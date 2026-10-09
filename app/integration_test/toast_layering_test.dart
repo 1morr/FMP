@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
+import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/platform/platform.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
+import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -18,7 +22,7 @@ import '../test/ui/support/shell_harness.dart';
 // ToastHost 與 MaterialApp 和 App 相同（FmpApp 的 builder），視窗是裝置自己的
 // 大小；插件與播放後端用測試的假實作（不連網、不出聲）。同一組斷言在
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
-// 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a）：
+// 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -48,10 +52,21 @@ void main() {
 
   /// 送出一則提示，斷言它在最上層：點在文字中央打到的是提示本身，沒有被
   /// 路由或遮罩蓋住，而且整則在視窗內。
-  Future<void> expectToastOnTop(WidgetTester tester, ShellHarness h) async {
+  Future<void> expectToastOnTop(
+    WidgetTester tester,
+    ShellHarness h, {
+    bool settle = true,
+  }) async {
     const message = 'Toast above the route';
     h.toaster.warning(message);
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      // 頁面上有一直在動的東西時：提示出現的動畫走完就好。
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
     expect(find.text(message).hitTestable(), findsOneWidget);
     final view = tester.view;
     final window = Offset.zero & (view.physicalSize / view.devicePixelRatio);
@@ -99,6 +114,34 @@ void main() {
     await expectToastOnTop(tester, h);
     expect(find.text('A full-screen page'), findsOneWidget);
   });
+
+  // 網頁登入（M3 PR 9）：全螢幕頁裡是平台真的 WebView（Android 的系統 WebView、Windows 的
+  // WebView2），提示要在它之上。開的是 about:blank，不連網；平台沒有登入 WebView（Linux）時
+  // 跳過。WebView 起不來時頁面換成錯誤狀態，提示照樣要在最上層。
+  final loginWebView = AppPlatform.current(AppFlavor.dev).loginWebView;
+  testWidgets('a toast shows above the web login', (tester) async {
+    final (h, shell) = await pumpShell(tester);
+    unawaited(
+      showWebLogin(
+        shell,
+        webView: loginWebView!,
+        spec: PluginLoginWebView(
+          url: Uri.parse('about:blank'),
+          cookieHosts: [Uri.parse('https://example.test')],
+          doneCookies: const ['SID'],
+        ),
+        name: 'Test Source',
+      ),
+    );
+    // 載入中的進度條一直在動：不等 settle。
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(WebLoginPage), findsOneWidget);
+
+    await expectToastOnTop(tester, h, settle: false);
+    expect(find.byType(WebLoginPage), findsOneWidget);
+  }, skip: loginWebView == null);
 
   // 播放頁蓋住外殼的播放列與導覽：提示的底部位移只剩底部安全區（ADR 0023 §決定 2），
   // 關掉播放頁後回到外殼量到的高度。

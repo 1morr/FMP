@@ -93,9 +93,8 @@ final accountViewProvider = StreamProvider.autoDispose
 /// 平台有能力」），依 [LoginMethod] 的順序。
 ///
 /// - 沒有 secure storage 就一個都沒有：憑證沒地方放（ADR 0012 §決定 3）。
-/// - `qr` 不需要平台能力。
-/// - `webView` 要平台層的 App 內網頁登入，還沒有實作（M3 PR 9），一律沒有。
-/// - `cookie` 不需要平台能力，但貼上 cookie 的畫面在 M3 PR 9 才有，現在沒有。
+/// - `qr`、`cookie` 不需要平台能力。
+/// - `webView` 要平台層的登入 WebView（`PlatformCapabilities.loginWebView`）。
 List<LoginMethod> availableLoginMethods(
   PluginLogin login,
   PlatformCapabilities capabilities,
@@ -104,9 +103,8 @@ List<LoginMethod> availableLoginMethods(
     for (final method in LoginMethod.values)
       if (login.methods.contains(method))
         if (switch (method) {
-          LoginMethod.qr => true,
-          LoginMethod.webView => false,
-          LoginMethod.cookie => false,
+          LoginMethod.qr || LoginMethod.cookie => true,
+          LoginMethod.webView => capabilities.loginWebView,
         })
           method,
 ];

@@ -87,7 +87,7 @@ class _QrLoginDialogState extends ConsumerState<QrLoginDialog> {
           QrLoginShowing(scanned: false) => a.qrWaiting,
           QrLoginShowing(scanned: true) => a.qrScanned,
           QrLoginExpired() => a.qrExpired,
-          QrLoginVerifying() || QrLoginDone() => a.qrVerifying,
+          QrLoginVerifying() || QrLoginDone() => a.verifying,
           // 失敗的原因寫在上面那一塊。
           QrLoginFailed() => null,
         };

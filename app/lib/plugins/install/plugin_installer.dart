@@ -105,13 +105,13 @@ final class PluginInstaller {
     );
   }
 
-  /// 移除 [pluginId]（ADR 0030 §決定 10）：關閉 runtime → 憑證與遮蔽登記、帳號、
-  /// 每音源設定 → 刪快取項目 → 刪 `installed_plugins` 列（`plugin_storage` 由外鍵
-  /// cascade）。曲目與電台保留。
+  /// 移除 [pluginId]（ADR 0030 §決定 10）：關閉 runtime → 憑證與遮蔽登記、登入
+  /// WebView 的 cookie、帳號、每音源設定（`AccountService.removePlugin`，WebView 那一步
+  /// 要讀 `installed_plugins` 的 manifest，所以在刪列之前）→ 刪快取項目 → 刪
+  /// `installed_plugins` 列（`plugin_storage` 由外鍵 cascade）。曲目與電台保留。
   ///
-  /// 每一步都可重複：中途失敗就停在那一步並丟出錯誤，再呼叫一次從頭跑完。之後的
-  /// 里程碑在對應的位置加：WebView cookie（帳號頁 PR，接在帳號之前）、排程器的
-  /// 工作（背景排程 PR），都在刪 `installed_plugins` 列之前。
+  /// 每一步都可重複：中途失敗就停在那一步並丟出錯誤，再呼叫一次從頭跑完。排程器的
+  /// 工作（背景排程 PR）之後加在刪 `installed_plugins` 列之前。
   Future<void> remove(String pluginId) async {
     try {
       await _unregister(pluginId);

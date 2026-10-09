@@ -22,6 +22,7 @@ import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
@@ -72,6 +73,7 @@ final class ShellHarness {
     this.artworkManager,
     this.database,
     this.fileDialogs,
+    this.loginWebView,
     this.cacheUnavailable = false,
     this.registrySources = false,
     this.secureStorage = false,
@@ -139,6 +141,9 @@ final class ShellHarness {
   /// 平台的檔案對話框；給了平台就宣告 `files`。
   final FileDialogs? fileDialogs;
 
+  /// 平台的登入 WebView；給了平台就宣告 `loginWebView`。
+  final LoginWebView? loginWebView;
+
   /// 搜尋的音源讀真的插件清單（`searchSourcesProvider` 不 override）：要看安裝、停用
   /// 之後搜尋頁怎麼變時用（首次啟動引導）。
   final bool registrySources;
@@ -183,6 +188,7 @@ final class ShellHarness {
       searchSourcesProvider.overrideWithValue(AsyncData(sources)),
     networkInterfacesProvider.overrideWithValue(interfaces),
     fileDialogsProvider.overrideWithValue(fileDialogs),
+    loginWebViewProvider.overrideWithValue(loginWebView),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。
     platformCapabilitiesProvider.overrideWithValue(
       PlatformCapabilities(
@@ -199,6 +205,7 @@ final class ShellHarness {
             : null,
         networkInterfaces: false,
         files: fileDialogs != null,
+        loginWebView: loginWebView != null,
         cache: const CacheSizes(
           defaultLimitMebibytes: 128,
           memoryImages: 1,

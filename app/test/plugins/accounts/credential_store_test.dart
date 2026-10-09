@@ -612,6 +612,8 @@ void main() {
         accounts: setup.accounts,
         settings: setup.settings,
         clearCookies: factory.clearCookies,
+        plugins: setup.plugins,
+        loginWebView: null,
       );
       await client.send(SourceRequest(Uri.parse('https://example.test/seed')));
       await setup.settings.setBrowseAsLoggedIn('bilibili', value: true);
@@ -645,6 +647,8 @@ void main() {
         accounts: setup.accounts,
         settings: setup.settings,
         clearCookies: (_) async {},
+        plugins: setup.plugins,
+        loginWebView: null,
       );
 
       await service.removePlugin('bilibili');

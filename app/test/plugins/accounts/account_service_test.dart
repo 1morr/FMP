@@ -8,7 +8,9 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
@@ -20,6 +22,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 import '../../support/credentials.dart';
+import '../../support/fake_login_webview.dart';
 import '../../support/fake_http_adapter.dart';
 import '../../support/memory_database.dart';
 import '../plugin_harness.dart';
@@ -130,9 +133,10 @@ final class _OrderedStorage implements SecureStorage {
 
 /// 一個 [AccountService] 與它用到的東西（記憶體資料庫）。
 final class _Setup {
-  _Setup() {
-    final database = memoryDatabase();
+  _Setup({this.loginWebView}) {
+    database = memoryDatabase();
     accounts = AccountRepository(database);
+    plugins = PluginRepository(database);
     settings = SourceSettingsRepository(database);
     storage = _OrderedStorage(accounts);
     log = Log(redactor: redactor, minimumLevel: LogLevel.debug);
@@ -148,10 +152,15 @@ final class _Setup {
       accounts: accounts,
       settings: settings,
       clearCookies: (_) async {},
+      plugins: plugins,
+      loginWebView: loginWebView,
     );
   }
 
+  final FakeLoginWebView? loginWebView;
   final redactor = Redactor();
+  late final AppDatabase database;
+  late final PluginRepository plugins;
   late final Log log;
   late final AccountRepository accounts;
   late final SourceSettingsRepository settings;
@@ -543,6 +552,8 @@ export async function loginVerify(credentials) {
       accounts: AccountRepository(harness.database),
       settings: SourceSettingsRepository(harness.database),
       clearCookies: harness.httpClients.clearCookies,
+      plugins: harness.plugins,
+      loginWebView: null,
     );
     final login = QrLogin(
       plugin: plugin,
@@ -580,6 +591,103 @@ export async function loginVerify(credentials) {
     for (final record in harness.log.history) {
       expect('${record.message} ${record.fields}', isNot(contains(_sessdata)));
     }
+  });
+
+  group('logging out clears the login web view', () {
+    final page = Uri.parse('https://accounts.example.test/login');
+    final site = Uri.parse('https://www.example.test');
+    final other = Uri.parse('https://other.example.test');
+
+    /// 在 `installed_plugins` 放 `plugin-a`；[webView] 時 manifest 宣告網頁登入。
+    Future<void> install(_Setup setup, {required bool webView}) =>
+        setup.plugins.install(
+          InstalledPlugin(
+            id: 'plugin-a',
+            version: '1.0.0',
+            manifestJson: jsonEncode({
+              'id': 'plugin-a',
+              'name': 'Plugin A',
+              'version': '1.0.0',
+              'author': 'FMP tests',
+              'apiVersion': 1,
+              'capabilities': ['search', 'login'],
+              'allowedHosts': ['example.test'],
+              'login': {
+                'methods': [if (webView) 'webView', 'cookie'],
+                if (webView)
+                  'webView': {
+                    'url': '$page',
+                    'cookieHosts': ['$site'],
+                    'doneCookies': ['SID'],
+                  },
+              },
+            }),
+            script: '',
+            installedAt: DateTime.utc(2026, 10, 9),
+          ),
+        );
+
+    FakeLoginWebView signedInWebView() => FakeLoginWebView()
+      ..setCookies(site, {'SID': 'FAKE_SITE_SID_123'})
+      ..setCookies(page, {'SID': 'FAKE_PAGE_SID_123'})
+      ..setCookies(other, {'SID': 'FAKE_OTHER_SID_123'});
+
+    test('the cookie hosts and the sign-in page, after the credentials and '
+        'before the account row', () async {
+      final webView = signedInWebView()..clearError = StateError('webview');
+      final setup = _Setup(loginWebView: webView);
+      await install(setup, webView: true);
+      await setup.service.login(_LoginPlugin(), _credentials);
+
+      // 停在 WebView 那一步：憑證已經刪了，帳號列還在。
+      await expectLater(
+        setup.service.logout('plugin-a'),
+        throwsA(isA<StateError>()),
+      );
+      expect(setup.storage.values, isEmpty);
+      expect(await setup.accounts.list(), hasLength(1));
+      expect(webView.cleared, isEmpty);
+
+      webView.clearError = null;
+      await setup.service.logout('plugin-a');
+      await setup.service.logout('plugin-a');
+
+      expect(await setup.accounts.list(), isEmpty);
+      expect(webView.cleared, [
+        [site, page],
+        [site, page],
+      ]);
+      expect(await webView.cookies([site, page]), isEmpty);
+      // 別的網址的 cookie 不動。
+      expect(await webView.cookies([other]), {'SID': 'FAKE_OTHER_SID_123'});
+    });
+
+    test('removing the plugin clears it too', () async {
+      final webView = signedInWebView();
+      final setup = _Setup(loginWebView: webView);
+      await install(setup, webView: true);
+
+      await setup.service.removePlugin('plugin-a');
+
+      expect(webView.cleared, [
+        [site, page],
+      ]);
+    });
+
+    test('nothing to clear without a webView login or without the '
+        'platform web view', () async {
+      final webView = signedInWebView();
+      final withoutLogin = _Setup(loginWebView: webView);
+      await install(withoutLogin, webView: false);
+      await withoutLogin.service.logout('plugin-a');
+      // 已經移除（沒有那一列）也不清。
+      await _Setup(loginWebView: webView).service.logout('plugin-a');
+      expect(webView.cleared, isEmpty);
+
+      final withoutPlatform = _Setup();
+      await install(withoutPlatform, webView: true);
+      await withoutPlatform.service.logout('plugin-a');
+    });
   });
 }
 

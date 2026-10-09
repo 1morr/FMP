@@ -14,6 +14,7 @@ import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/account.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
@@ -30,6 +31,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 import 'package:path/path.dart' as p;
 
 import '../../data/cache/cache_harness.dart';
+import '../../support/fake_login_webview.dart';
 import '../../support/pump_until.dart';
 import '../plugin_harness.dart';
 
@@ -38,6 +40,7 @@ import '../plugin_harness.dart';
 ProviderContainer _container(
   PluginHarness harness, {
   String? devPluginPath,
+  LoginWebView? loginWebView,
   List<Override> extra = const [],
 }) {
   final container = ProviderContainer(
@@ -53,6 +56,7 @@ ProviderContainer _container(
       ),
       scriptPluginLoaderProvider.overrideWithValue(harness.loader),
       devPluginPathProvider.overrideWithValue(devPluginPath),
+      loginWebViewProvider.overrideWithValue(loginWebView),
       ...extra,
     ],
   );
@@ -845,6 +849,65 @@ void main() {
           ),
           hasLength(1),
         );
+      });
+
+      test('clears the login web view of a plugin that signs in on the web, '
+          'after the credentials and before the row', () async {
+        final harness = PluginHarness();
+        final site = Uri.parse('https://www.example.test');
+        final page = Uri.parse('https://accounts.example.test/login');
+        final webView = FakeLoginWebView()
+          ..setCookies(site, {'SID': 'FAKE_SITE_SID_123'})
+          ..clearError = StateError('web view');
+        final container = _container(
+          harness,
+          loginWebView: webView,
+          extra: [
+            cacheStoreProvider.overrideWith(
+              (ref) async => throw StateError('no cache in this test'),
+            ),
+          ],
+        );
+        final installer = container.read(pluginInstallerProvider);
+        await installer.installSource(
+          pluginSource(
+            'export function search() {}\n'
+            'export function loginVerify() {}',
+            capabilities: ['search', 'login'],
+            login:
+                '{"methods": ["webView"], "webView": {"url": "$page", '
+                '"cookieHosts": ["$site"], "doneCookies": ["SID"]}}',
+          ),
+        );
+        await harness.credentials.save(
+          Account(
+            pluginId: 'plugin-a',
+            userId: 'u',
+            displayName: 'Someone',
+            status: AccountStatus.active,
+            loggedInAt: DateTime.utc(2026, 10, 9),
+          ),
+          const LoginCredentials(cookies: {'SID': 'FAKE_SITE_SID_123'}),
+        );
+
+        // 停在 WebView：憑證已刪，帳號列與插件列還在。
+        await expectLater(
+          installer.remove('plugin-a'),
+          throwsA(isA<AppError>()),
+        );
+        expect(harness.secureStorage.values, isEmpty);
+        expect(await AccountRepository(harness.database).list(), hasLength(1));
+        expect(await harness.plugins.byId('plugin-a'), isNotNull);
+
+        webView.clearError = null;
+        await installer.remove('plugin-a');
+
+        expect(webView.cleared, [
+          [site, page],
+        ]);
+        expect(await webView.cookies([site]), isEmpty);
+        expect(await AccountRepository(harness.database).list(), isEmpty);
+        expect(await harness.plugins.byId('plugin-a'), isNull);
       });
 
       test('can be run again after a step failed', () async {
