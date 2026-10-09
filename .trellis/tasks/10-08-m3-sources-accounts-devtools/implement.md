@@ -488,6 +488,14 @@
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
 
+### PR 8 留下的
+
+1. **`cookie` 與 `webView` 的登入按鈕**：`availableLoginMethods` 目前只開 `qr`；PR 9 打開這兩種（`webView` 依 `PlatformCapabilities.loginWebView`）。
+2. **最後刷新時間與結果**的顯示留給 PR 10。
+3. **已啟用卻載入失敗的插件按登入只得到「預期外的錯誤」提示**：與 PR 5 留下的第 2 條同一個根源（registry 沒暴露載入失敗），一起處理。
+4. **插件圖示**：帳號卡與插件頁都還沒畫 manifest 的 `icon`。
+5. **插件端（fmp-plugins）**：B 站、網易的 QR 登入與 `loginVerify`，資料見 `archive/2026-10/10-09-m3-login/research/qr-login-apis.md`。網易 weapi 要純 JS 的 AES-CBC 與無 padding RSA，現有 `post()` 沒傳 `auth`、非 200 就拋、不回 headers。B 站 `businessError` 少 `-111`。
+
 ### PR 5 留下的
 
 1. **「開發中」標記沒做**：它的來源是開發資料夾（design §12.5），PR 16 才有；`--fmp-dev-plugin` 裝的插件在資料庫裡與從檔案裝的沒有分別。PR 16 加上。
