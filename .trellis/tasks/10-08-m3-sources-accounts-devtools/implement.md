@@ -46,14 +46,20 @@
 - **狀態**（2026-10-09）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3。
 - **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）；PR 3 的 FMP 端（#224）與 fmp-plugins#6（index、CI、B 站 1.0.0、網易 1.0.1；`FMP_REF`＝`fcb52d28`；Version Bump 會紅已在 `214e01c` 證明並 revert；raw `index.json` 可讀、SHA 相符）；PR 7（#225，schema v8；secure storage 整合測試兩平台通過）。
-- **進行中**：
-  - **PR 5**（#226，`feat/m3-plugin-page`，任務 `10-09-m3-plugin-page` 未封存）：CI 綠、opus 審過、Android 實測通過。**等擁有者**：Windows 實測（滑鼠與鍵盤自動化要先問）、更新流程實測（push `fmp-plugins` 暫時分支 `test/m3-update-flow` 要先問）。合併前封存任務。
-  - **PR 6**（#227，`feat/m3-onboarding`，base 是 `feat/m3-plugin-page`，任務 `10-09-m3-onboarding` 未封存）：opus 審過、Android 實測通過；stacked PR 不跑 CI（`ci.yml` 只認 base `main`），#226 合併後改 base 再等 CI。**等擁有者**：Windows 實測。
-  - **PR 8**（#228，`feat/m3-login`，base 是 `feat/m3-onboarding`，任務 `10-09-m3-login` 未封存）：opus 審過、Android 重播實測通過。插件端 fmp-plugins#7（draft，`feat/login-qr`：B 站、網易 1.1.0 的 QR 登入；網易 RSA 用 bn.js，QuickJS 沒有 BigInt）本機契約重播兩個都過。**等擁有者**：Windows 實測；真實 QR 登入（擁有者自己掃）。合併順序：#226 → #227 → #228 → fmp-plugins#7 的 `FMP_REF` 改成新 main 再轉正式 PR。
-  - **PR 5 的更新流程**：已在 Android 實測完（2026-10-09，暫時分支已刪）。
-  - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，已 rebase 到新 main、補 `description`、加進 index，CI 全綠（含 YouTube 契約與單元測試）；等 Windows 播放驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-09 再試仍是 `LOGIN_REQUIRED`，要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。
-- **待擁有者回覆**：GitHub secret scanning 對 fmp-plugins `youtube/youtube.js` 的警告（#1）是 YouTube.js 內建的公開 InnerTube key（舊版 FMP 也有），不是外洩；是否由代理以 `gh` 關掉（false positive），等擁有者同意。
-- **下一步**：PR 9（網頁登入、貼上 cookie；opus；疊在 `feat/m3-login`）、PR 10（失效與刷新）。擁有者回來後：換代理節點驗 YouTube、Windows 實測（#226–#228）、真實 QR 登入、PR 9 的 Google 測試帳號登入。
+- **進行中**（M3a 的實作 PR 全部開了，都在等擁有者）：
+  - **FMP 的 stacked PR**（每個都 opus 審過、Android 重播實測通過；只有 base `main` 的 #226 跑 CI，其餘改 base 後才跑）：
+    - #226 PR 5 插件頁（`feat/m3-plugin-page`，CI 綠；更新流程已實測）
+    - #227 PR 6 首次引導（`feat/m3-onboarding`）
+    - #228 PR 8 登入、QR、帳號區塊（`feat/m3-login`）
+    - #229 PR 9 網頁登入、貼上 cookie（`feat/m3-web-login`；Linux 以 stub 取代 `flutter_inappwebview_linux`，Linux 建置要等 CI）
+    - #230 PR 10 失效與刷新（`feat/m3-refresh`）
+    - 任務 `10-09-m3-plugin-page`、`-onboarding`、`-login`、`-web-login`、`-refresh` 都還沒封存：各自合併前封存。
+  - **fmp-plugins**：#7（draft，`feat/login-qr`：B 站、網易 QR 登入 1.1.0）→ #8（draft，`feat/login-refresh`，base `feat/login-qr`：B 站刷新、判定表 1.2.0）；#4（draft，`feat/youtube`：播放＋登入 `d6da2cd`，worktree `../fmp-plugins-yt`）。三個插件對 `feat/m3-refresh` 的契約重播都過。FMP 那串合併後：`FMP_REF` 改新 main、轉正式 PR、等 CI。
+  - **合併順序**：#226 → #227 → #228 → #229 → #230（每個合併後下一個改 base 到 `main`、等 CI 綠）→ fmp-plugins #7 → #8 → #4。
+  - **YouTube 播放**：Windows 開 VISIONOS `mp4/aac` 回 403；本機代理出口被 YouTube 標成機器人（2026-10-09 仍 `LOGIN_REQUIRED`），要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。
+- **等擁有者的實機與真實操作**：Windows 實測（#226–#230，滑鼠與鍵盤自動化要先問）；B 站、網易真實 QR 登入（擁有者掃）、帶憑證搜尋、開關、登出、重啟後的 B 站啟動刷新（`86095` 等刷新碼的實際行為）；YouTube 網頁登入（Google 測試帳號，擁有者輸入密碼）、登出後以 cookie 名稱確認 Android 的 WebView cookie 真的刪掉。
+- **待擁有者回覆**：無（secret scanning 警告擁有者已手動關閉；PR 5 的暫時分支已同意並用完刪除）。
+- **下一步**：擁有者回來後依上面的實機清單驗證、依合併順序合併，然後 M3a 驗收（本檔「M3a 驗收」）；M3b（PR 11 起）在 M3a 驗收合併後才開。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
