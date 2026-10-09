@@ -1362,6 +1362,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 貼上 cookie 是對話框（`cookie_login_dialog.dart`）：多行輸入框（關掉個人化學習）、「如何取得」的通用步驟（不指名
     音源）與警告；讀不到 cookie 或驗證失敗時留在對話框、輸入不清，錯誤寫在輸入框下（不在 online 時寫離線的原因，不換成
     整塊的離線空狀態，輸入才留得住）。閘門：`accounts_section_test.dart` 的 `pasting cookies…`。
+  - 登入時插件以 `CredentialInvalid` 拒絕（`loginVerify` 不接受這次的憑證）不顯示類別表的「登入已失效，請重新登入」——那是
+    已存的憑證被拒；QR 對話框與網頁登入的提示用 `loginErrorMessage`（`accounts.loginRejected`），貼上 cookie 用
+    `accounts.cookieRejected`。閘門：`accounts_section_test.dart` 的 `a sign-in the plugin rejects…` 群組與 `pasting cookies…`。
   - QR 登入是對話框（`qr_login_dialog.dart`，不是全螢幕頁，所以不進 `toast_layering_test.dart`）：QR 碼一律白底黑點（不跟
     主題，`AppLayout.qrBackground`），過期時蓋遮罩並給「重新產生」，失敗時給「重試」；Esc、取消或點外面關閉並停止輪詢。
     `qr_flutter` 只准在 `lib/ui/accounts/`（`fmp_layer_imports`）。閘門：`closing the QR dialog stops the login`、guideline

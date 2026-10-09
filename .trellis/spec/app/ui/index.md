@@ -33,7 +33,7 @@ lib/ui/
   plugins/             # pluginNameProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
-  accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider 與登入方式的交集（accounts_state）、
+  accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider、登入方式的交集與登入失敗的訊息（accounts_state）、
                        # QR 登入對話框（qr_login_dialog）；qr_flutter 只准在這裡；網頁登入的全螢幕頁
                        # （web_login_page）、貼上 cookie 的對話框（cookie_login_dialog）
   format/              # 時長與位元組數的文字

@@ -497,6 +497,8 @@
 3. **WebView 清不掉會擋住登出與移除**（照 design §7.4「失敗就停在那一步」）：登出時憑證已先刪，帳號列留著會在下次啟動對齊刪掉；但若 Windows 沒有 WebView2 會一直卡住。要不要改成記 warning、略過，實機遇到再決定。
 4. **卡住判定**改成「`url` 讀得到的 cookie 已有全部 `doneCookies`、`cookieHosts` 仍沒齊」（照字面「`url` 網域有任何 cookie」會在使用者輸入密碼時就誤報）；design §6.4 的那句是筆誤等級，真實登入時確認 15 秒的門檻。
 5. **APK 多了約 3.4 MB 的套件 asset**（`t-rex.html`、`web_support.js`）；要瘦身再看 `flutter_inappwebview` 的 asset 排除方式。
+6. **`flutter_inappwebview` 的 debug log**：debug build 會以 `developer.log` 輸出 `onLoadStop` 網址與頁面 console（Google 跳轉網址可能帶 token），只到 VM service／IDE，不進 FMP 的 log、錯誤歷史、診斷包，release 不輸出。要關就在平台層設 `PlatformInAppWebViewController.debugLoggingSettings.enabled = false`。
+7. **貼上 cookie 對話框在「驗證中」關掉**，驗證仍跑完並寫入（不跳成功提示），與 QR 一致；要不要在驗證中禁止關閉，之後決定。
 
 ### PR 8 留下的
 
