@@ -2,7 +2,7 @@
 //
 // 插件是一個 .js 檔：開頭以 `/* ==FMP Plugin==` 與 `==/FMP Plugin== */` 包一段
 // JSON manifest（FmpPluginManifest），之後是 ES2020 module，每個宣告的能力匯出
-// 一個同名函式。宿主 API 在全域的 `fmp`（FmpHost）；`console` 轉到 `fmp.log`。
+// 一個同名函式（login 例外，見 FmpPluginExports）。宿主 API 在全域的 `fmp`（FmpHost）；`console` 轉到 `fmp.log`。
 // 沒有 fetch、setTimeout、檔案系統，也碰不到其他插件的資料。
 //
 // 物件的欄位是封閉的：多出不認得的欄位，宿主整個拒收（ParseError）。選填欄位
@@ -37,15 +37,18 @@ export interface FmpPluginManifest {
   author: string;
   /** 必須等於宿主支援的版本。 */
   apiVersion: 1;
-  /** 不能是空的；每個能力要有同名的匯出函式，反之亦然。 */
+  /**
+   * 不能是空的；每個能力要有同名的匯出函式，反之亦然。'login' 的匯出是 loginVerify
+   * 等幾個（FmpPluginExports）。
+   */
   capabilities: FmpCapability[];
   /**
    * 可以連的網域：只有小寫 host，涵蓋子網域。請求、串流與封面網址、圖示都
    * 只能在這些網域。
    */
   allowedHosts: string[];
-  /** M1 沒有登入，只能省略或 null。 */
-  login?: null;
+  /** 宣告 'login' 能力時必填，沒宣告時不能有（ADR 0029 §決定 1）。 */
+  login?: FmpLogin | null;
   retry?: FmpRetryPolicy | null;
   rateLimit?: FmpRateLimitPolicy | null;
   /** 追加到宿主的遮蔽名單（只增不減）。 */
@@ -55,6 +58,35 @@ export interface FmpPluginManifest {
   icon?: string | null;
   /** 一句描述，最多 200 字元；沒寫等於空字串。 */
   description?: string | null;
+}
+
+export type FmpLoginMethod = 'qr' | 'webView' | 'cookie';
+
+export type FmpLoginRefresh = 'onStartup';
+
+export interface FmpLogin {
+  /**
+   * 支援的登入方式，不能是空的；宿主顯示其中這個 App 在這個平台做得到的。
+   * 含 'qr' 時要匯出 loginQrStart、loginQrPoll。
+   */
+  methods: FmpLoginMethod[];
+  /** methods 含 'webView' 時必填，沒有時不能給。UA 由宿主的平台層決定。 */
+  webView?: FmpLoginWebView | null;
+  /** 支援刷新與時機；給了就要匯出 loginRefresh。 */
+  refresh?: FmpLoginRefresh | null;
+  /** 「以登入身分瀏覽與播放」沒設定過時的值，預設 true。 */
+  browseAsLoggedInDefault?: boolean | null;
+  /** true：開關旁顯示「以登入身分大量請求可能被視為自動化行為（推測）」。 */
+  automationRisk?: boolean | null;
+}
+
+export interface FmpLoginWebView {
+  /** 登入頁：`https`，網域在 allowedHosts。 */
+  url: string;
+  /** 取 cookie 的網址（每個都是 allowedHosts 內的 `https`），不能是空的。 */
+  cookieHosts: string[];
+  /** cookieHosts 的 cookie 裡這些名稱都出現就算登入完成，不能是空的。 */
+  doneCookies: string[];
 }
 
 export interface FmpRetryPolicy {
@@ -159,6 +191,32 @@ export interface StreamCandidate {
   bitrate?: number | null;
   /** 網址的期限（UTC epoch 毫秒），從網址本身讀。 */
   expiresAt?: number | null;
+}
+
+/** loginQrStart 的回傳值。 */
+export interface LoginQrCode {
+  /** 畫成 QR 碼的文字，不能是空的。 */
+  qrText: string;
+  /** 交給 loginQrPoll 的不透明字串，不能是空的。 */
+  token: string;
+}
+
+export type LoginQrStatus = 'waiting' | 'scanned' | 'expired' | 'done';
+
+/** loginQrPoll 的回傳值。 */
+export interface LoginQrPoll {
+  status: LoginQrStatus;
+  /** status 為 'done' 時必填（例如從輪詢回應的 set-cookie 取出），其他時候不能給。 */
+  credentials?: FmpLoginCredentials | null;
+}
+
+/** loginVerify 的回傳值：憑證屬於哪個帳號。 */
+export interface LoginAccount {
+  userId: string;
+  /** 帳號頁顯示的名稱。 */
+  displayName: string;
+  /** 頭像；`https`，網域在 allowedHosts。 */
+  avatar?: Artwork[] | null;
 }
 
 // ---------------------------------------------------------------- 宿主 API
@@ -281,10 +339,32 @@ export interface FmpError {
 
 // ---------------------------------------------------------------- 匯出
 
-/** 插件 module 的匯出：宣告了哪個能力就匯出哪個。 */
+/**
+ * 插件 module 的匯出：宣告了哪個能力就匯出哪個，沒宣告的不能匯出。'login' 能力匯出
+ * loginVerify；methods 含 'qr' 時加 loginQrStart、loginQrPoll；宣告 refresh 時加
+ * loginRefresh（ADR 0029 §決定 2）。
+ */
 export interface FmpPluginExports {
   search?(query: SearchQuery): SearchPage | Promise<SearchPage>;
   resolveStream?(request: StreamRequest): StreamResult | Promise<StreamResult>;
+  /** 使用者按「QR 登入」時。 */
+  loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
+  /** QR 畫面開著時每 2 秒一次。 */
+  loginQrPoll?(token: string): LoginQrPoll | Promise<LoginQrPoll>;
+  /**
+   * 拿到憑證之後、寫入之前，三種登入方式都會呼叫；通過才寫入。憑證還沒寫入，宿主不會
+   * 注入：自己以 credentials 組 Cookie header、請求標 auth: 'never'。宿主在呼叫前已把
+   * 這組值加進遮蔽。這個函式（與其他 login*）執行期間，回應的 set-cookie 不存進
+   * cookie jar，但讀得到。
+   */
+  loginVerify?(credentials: FmpLoginCredentials): LoginAccount | Promise<LoginAccount>;
+  /**
+   * 刷新憑證：新的憑證，或不需要／沒有新的時 null；刷新失敗拋 CredentialInvalid。
+   * 憑證的注入與遮蔽同 loginVerify。
+   */
+  loginRefresh?(
+    credentials: FmpLoginCredentials,
+  ): FmpLoginCredentials | null | Promise<FmpLoginCredentials | null>;
 }
 
 // ---------------------------------------------------------------- 契約檢查
@@ -300,10 +380,11 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這兩個。 */
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這三個。 */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
+  login?: FmpLoginCheck | null;
 }
 
 export interface FmpSearchCheck {
@@ -323,7 +404,22 @@ export interface FmpResolveStreamCheck {
   expiresAtPattern?: string | null;
 }
 
-/** 成功；回傳的清單（search 的 items、resolveStream 的 candidates）符合條件。 */
+/**
+ * login 的案例跑 loginVerify。重播時輸入是手寫的假憑證（fixture 裡的值遮過），不需要
+ * 真的登入；命令列錄製略過它。
+ */
+export interface FmpLoginCheck {
+  input: FmpLoginCredentials;
+  /** 成功時 nonEmpty 的名稱同 LoginAccount。 */
+  expect: FmpExpectSuccess | FmpExpectError;
+  /** 必須是 true：這條案例要登入才有意義。 */
+  requiresLogin: true;
+}
+
+/**
+ * 成功；回傳的清單（search 的 items、resolveStream 的 candidates，login 是那一個
+ * LoginAccount）符合條件。
+ */
 export interface FmpExpectSuccess {
   /** 至少幾筆，預設 0。 */
   minItems?: number | null;

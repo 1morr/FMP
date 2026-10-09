@@ -12,10 +12,10 @@ const hostApiVersion = 1;
 
 /// 插件能力（ADR 0014 §決定 4）。
 ///
-/// 每個能力對應腳本裡一個同名的匯出函式（[wireName]）：manifest 宣告的能力都要
-/// 匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。M1 只有 [search] 與
-/// [resolveStream] 有宿主端的方法（`SourcePlugin`），其他能力認得、檢查匯出，
-/// 但還沒有人呼叫。
+/// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login] 例外：它的匯出是
+/// [LoginExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
+/// 都要匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。只有已經有
+/// `SourcePlugin` 方法的能力有人呼叫，其他能力認得、檢查匯出。
 enum PluginCapability {
   search,
   resolveStream,
@@ -56,6 +56,100 @@ enum PluginCapability {
   }
 }
 
+/// `login` 能力的匯出函式（ADR 0029 §決定 2）。名稱是插件的介面。
+abstract final class LoginExports {
+  /// `() → LoginQrCode`：methods 含 `qr` 時要匯出。
+  static const qrStart = 'loginQrStart';
+
+  /// `(token) → LoginQrPoll`：methods 含 `qr` 時要匯出。
+  static const qrPoll = 'loginQrPoll';
+
+  /// `(credentials) → LoginAccount`：一律要匯出（三種方式拿到憑證後都先驗證）。
+  static const verify = 'loginVerify';
+
+  /// `(credentials) → credentials | null`：宣告 `refresh` 時要匯出。
+  static const refresh = 'loginRefresh';
+
+  static const all = {qrStart, qrPoll, verify, refresh};
+}
+
+/// 登入方式（ADR 0029 §決定 1）。宿主顯示「插件宣告的 ∩ 這個 App 在這個平台做得到的」。
+enum LoginMethod {
+  qr,
+  webView,
+  cookie;
+
+  /// manifest 用的名稱，與 [name] 分開寫死。
+  String get wireName => switch (this) {
+    qr => 'qr',
+    webView => 'webView',
+    cookie => 'cookie',
+  };
+
+  static LoginMethod? fromWireName(String name) {
+    for (final method in values) {
+      if (method.wireName == name) return method;
+    }
+    return null;
+  }
+}
+
+/// 刷新憑證的時機（ADR 0012 §決定 5）。
+enum LoginRefresh {
+  /// 啟動後第一次連上網路時刷新一次。
+  onStartup;
+
+  String get wireName => switch (this) {
+    onStartup => 'onStartup',
+  };
+}
+
+/// manifest 的 `login.webView`：App 內網頁登入要開的頁與完成的條件（ADR 0029
+/// §決定 9）。網址都在 manifest 的允許網域內。
+final class LoginWebView {
+  const LoginWebView({
+    required this.url,
+    required this.cookieHosts,
+    required this.doneCookies,
+  });
+
+  /// 登入頁。
+  final Uri url;
+
+  /// 取 cookie 的網址。
+  final List<Uri> cookieHosts;
+
+  /// [cookieHosts] 的 cookie 裡這些名稱都出現就算登入完成。
+  final List<String> doneCookies;
+}
+
+/// manifest 的 `login`（ADR 0029 §決定 1）：宣告了 [PluginCapability.login] 才有，
+/// 反之亦然。
+final class PluginLogin {
+  const PluginLogin({
+    required this.methods,
+    this.webView,
+    this.refresh,
+    this.browseAsLoggedInDefault = true,
+    this.automationRisk = false,
+  });
+
+  /// 不是空的。
+  final Set<LoginMethod> methods;
+
+  /// [methods] 含 [LoginMethod.webView] 時才有。
+  final LoginWebView? webView;
+
+  /// 支援刷新與時機；`null` 是不支援。
+  final LoginRefresh? refresh;
+
+  /// 「以登入身分瀏覽與播放」沒設定過時的值（ADR 0012 §決定 6）。
+  final bool browseAsLoggedInDefault;
+
+  /// 開關旁顯示「以登入身分大量請求可能被視為自動化行為（推測）」。
+  final bool automationRisk;
+}
+
 /// manifest 追加的遮蔽名單（交給 `Redactor.addRules`、`Redactor.setMediaCdns`，
 /// ADR 0011 §決定 3）。
 final class PluginRedaction {
@@ -87,13 +181,14 @@ final class PluginManifest {
     this.defaults = const {},
     this.icon,
     this.description = '',
+    this.login,
   });
 
   /// 解析 manifest 的 JSON 文字。
   ///
   /// - 不是 JSON、欄位缺少或型別不對、格式不合：[ParseError]；
-  /// - `apiVersion` 不是 [hostApiVersion]、有不認得的能力、`login` 不是空值（M1
-  ///   還沒有登入）：[Unsupported]。
+  /// - `apiVersion` 不是 [hostApiVersion]、有不認得的能力、登入方式或刷新時機：
+  ///   [Unsupported]。
   ///
   /// 原因只在 `cause`（進 log）；使用者訊息用子類的預設 key。
   static PluginManifest parse(String json) {
@@ -159,6 +254,33 @@ final class PluginManifest {
   /// 一句描述（插件頁與 index 顯示）；沒寫就是空字串，最多 [maxDescriptionLength] 字元。
   final String description;
 
+  /// 登入的宣告；沒有 [PluginCapability.login] 時是 `null`。
+  final PluginLogin? login;
+
+  /// 腳本一定要匯出的函式：每個能力一個同名的，`login` 換成 [LoginExports.verify]，
+  /// methods 含 `qr` 時加 [LoginExports.qrStart]、[LoginExports.qrPoll]，宣告
+  /// `refresh` 時加 [LoginExports.refresh]。
+  Set<String> get requiredExports => {
+    for (final capability in capabilities)
+      if (capability != PluginCapability.login) capability.wireName,
+    if (login case final login?) ...[
+      LoginExports.verify,
+      if (login.methods.contains(LoginMethod.qr)) ...[
+        LoginExports.qrStart,
+        LoginExports.qrPoll,
+      ],
+      if (login.refresh != null) LoginExports.refresh,
+    ],
+  };
+
+  /// 宿主認得的匯出名稱：匯出了它們卻不在 [requiredExports] 裡就拒絕載入（宣告與
+  /// 匯出雙向一致）。其他名稱的匯出不管。
+  static final knownExports = {
+    for (final capability in PluginCapability.values)
+      if (capability != PluginCapability.login) capability.wireName,
+    ...LoginExports.all,
+  };
+
   /// id 的格式：1–[maxIdLength] 個小寫英數與 `-`，不以 `-` 開頭或結尾。它是
   /// 曲目鍵的第一段（`TrackKey`），所以不能有 `:`。
   static bool isValidId(String id) => _idPattern.hasMatch(id);
@@ -221,6 +343,18 @@ const mediaCdnShape = <String, bool>{
   'signedQueryParameters': false,
   'signedPath': false,
 };
+const loginShape = <String, bool>{
+  'methods': true,
+  'webView': false,
+  'refresh': false,
+  'browseAsLoggedInDefault': false,
+  'automationRisk': false,
+};
+const loginWebViewShape = <String, bool>{
+  'url': true,
+  'cookieHosts': true,
+  'doneCookies': true,
+};
 
 /// manifest 的欄位表，鍵是 `fmp-plugin.d.ts` 裡的 interface 名稱。
 const manifestShapes = <String, JsonShape>{
@@ -229,6 +363,8 @@ const manifestShapes = <String, JsonShape>{
   'FmpRateLimitPolicy': rateLimitShape,
   'FmpRedaction': redactionShape,
   'FmpMediaCdn': mediaCdnShape,
+  'FmpLogin': loginShape,
+  'FmpLoginWebView': loginWebViewShape,
 };
 
 /// 格式合法但這個版本不支援（轉成 [Unsupported]）。
@@ -254,19 +390,23 @@ PluginManifest _fromJson(Object? json) {
   }
   // 版本在 parse 開頭已經比對過；這裡只確認它是整數。
   fields.integer('apiVersion');
-  if (fields.raw('login') != null) {
-    throw const _UnsupportedManifest('manifest.login: login is not supported');
-  }
   final allowedHosts = [
     for (final (index, host) in fields.stringList('allowedHosts').indexed)
       _host(host, 'manifest.allowedHosts[$index]'),
   ];
+  final capabilities = _capabilities(fields.stringList('capabilities'));
+  final login = _login(fields.optionalObject('login'), allowedHosts);
+  if ((login != null) != capabilities.contains(PluginCapability.login)) {
+    throw const FormatException(
+      'manifest.login: required exactly when the login capability is declared',
+    );
+  }
   return PluginManifest(
     id: id,
     name: fields.nonEmptyString('name'),
     version: fields.nonEmptyString('version'),
     author: fields.nonEmptyString('author'),
-    capabilities: _capabilities(fields.stringList('capabilities')),
+    capabilities: capabilities,
     allowedHosts: List.unmodifiable(allowedHosts),
     retryPolicy: _retry(fields.optionalObject('retry')),
     rateLimitPolicy: _rateLimit(fields.optionalObject('rateLimit')),
@@ -274,6 +414,82 @@ PluginManifest _fromJson(Object? json) {
     defaults: Map.unmodifiable(fields.optionalObject('defaults') ?? const {}),
     icon: _icon(fields.optionalString('icon'), allowedHosts),
     description: _description(fields.optionalString('description')),
+    login: login,
+  );
+}
+
+PluginLogin? _login(Map<String, Object?>? json, List<String> allowedHosts) {
+  if (json == null) return null;
+  final fields = JsonFields(json, loginShape, path: 'manifest.login');
+  final names = fields.stringList('methods');
+  if (names.isEmpty) {
+    throw const FormatException('manifest.login.methods: must not be empty');
+  }
+  final methods = <LoginMethod>{};
+  for (final name in names) {
+    final method = LoginMethod.fromWireName(name);
+    if (method == null) {
+      throw _UnsupportedManifest('manifest.login.methods: unknown "$name"');
+    }
+    if (!methods.add(method)) {
+      throw FormatException('manifest.login.methods: "$name" is listed twice');
+    }
+  }
+  final webView = fields.optionalObject('webView');
+  if ((webView != null) != methods.contains(LoginMethod.webView)) {
+    throw const FormatException(
+      'manifest.login.webView: required exactly when the methods include '
+      '"webView"',
+    );
+  }
+  final refresh = fields.optionalString('refresh');
+  return PluginLogin(
+    methods: Set.unmodifiable(methods),
+    webView: webView == null ? null : _loginWebView(webView, allowedHosts),
+    refresh: switch (refresh) {
+      null => null,
+      _ when refresh == LoginRefresh.onStartup.wireName =>
+        LoginRefresh.onStartup,
+      _ => throw _UnsupportedManifest(
+        'manifest.login.refresh: unknown "$refresh"',
+      ),
+    },
+    browseAsLoggedInDefault:
+        fields.optionalBool('browseAsLoggedInDefault') ?? true,
+    automationRisk: fields.optionalBool('automationRisk') ?? false,
+  );
+}
+
+LoginWebView _loginWebView(
+  Map<String, Object?> json,
+  List<String> allowedHosts,
+) {
+  const path = 'manifest.login.webView';
+  final fields = JsonFields(json, loginWebViewShape, path: path);
+  final hosts = AllowedHosts(allowedHosts);
+  Uri url(String value, String path) {
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.userInfo.isNotEmpty || !hosts.allows(uri)) {
+      throw FormatException('$path: must be an https URL on an allowed host');
+    }
+    return uri;
+  }
+
+  List<String> names(String key) {
+    final values = fields.stringList(key);
+    if (values.isEmpty || values.any((value) => value.isEmpty)) {
+      throw FormatException('$path.$key: must be a non-empty list');
+    }
+    return values;
+  }
+
+  return LoginWebView(
+    url: url(fields.string('url'), '$path.url'),
+    cookieHosts: List.unmodifiable([
+      for (final (index, value) in names('cookieHosts').indexed)
+        url(value, '$path.cookieHosts[$index]'),
+    ]),
+    doneCookies: List.unmodifiable(names('doneCookies')),
   );
 }
 
