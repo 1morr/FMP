@@ -26,6 +26,8 @@ final externalPackageOwners = <String, String>{
   'flutter_js': 'lib/plugins/runtime',
   // ADR 0030：插件版本比較（semver）只在插件庫流程。
   'pub_semver': 'lib/plugins/repository',
+  // design §2.2：QR 碼只在 QR 登入畫面畫。
+  'qr_flutter': 'lib/ui/accounts',
   // ADR 0016：圖片的 cache manager 接到統一快取庫，widget 只在封面元件。
   'flutter_cache_manager': 'lib/data/cache',
   'cached_network_image': 'lib/ui/artwork',

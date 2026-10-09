@@ -28,6 +28,7 @@ import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:material_ui/material_ui.dart' as m;
 import 'package:pub_semver/pub_semver.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class Dio {
   Dio();
@@ -71,6 +72,8 @@ const _expectedMessages = [
   'package:audio_session* is only allowed in lib/playback/backends/',
   // externalPackageOwners 的 pub_semver（插件庫的版本比較）
   'package:pub_semver* is only allowed in lib/plugins/repository/',
+  // externalPackageOwners 的 qr_flutter（QR 登入畫面）
+  'package:qr_flutter* is only allowed in lib/ui/accounts/',
 ];
 
 Future<void> main() async {
