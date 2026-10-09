@@ -924,6 +924,12 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   String get cookieEmpty =>
       'No cookies found. Paste name=value pairs or the contents of a cookies.txt file.';
   @override
+  String cookieRejected({required Object name}) =>
+      '${name} didn\'t accept these cookies. Copy them again from a page where you\'re signed in.';
+  @override
+  String loginRejected({required Object name}) =>
+      '${name} didn\'t accept the sign-in. Try again.';
+  @override
   String get signIn => 'Sign in';
 }
 

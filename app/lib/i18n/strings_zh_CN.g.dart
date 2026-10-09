@@ -890,6 +890,11 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
   @override
   String get cookieEmpty => '没有读到 Cookie。请粘贴 name=value 格式的内容或 cookies.txt。';
   @override
+  String cookieRejected({required Object name}) =>
+      '“${name}”不接受这些 Cookie。请从已登录的页面重新复制。';
+  @override
+  String loginRejected({required Object name}) => '“${name}”没有接受这次登录，请再试一次。';
+  @override
   String get signIn => '登录';
 }
 

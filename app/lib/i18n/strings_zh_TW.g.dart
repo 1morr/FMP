@@ -1141,6 +1141,13 @@ class Translations$accounts$zh_TW {
   /// zh-TW: '沒有讀到 cookie。請貼上 name=value 的內容或 cookies.txt。'
   String get cookieEmpty => '沒有讀到 cookie。請貼上 name=value 的內容或 cookies.txt。';
 
+  /// zh-TW: '「{name}」不接受這些 cookie。請從已登入的頁面重新複製。'
+  String cookieRejected({required Object name}) =>
+      '「${name}」不接受這些 cookie。請從已登入的頁面重新複製。';
+
+  /// zh-TW: '「{name}」沒有接受這次登入，請再試一次。'
+  String loginRejected({required Object name}) => '「${name}」沒有接受這次登入，請再試一次。';
+
   /// zh-TW: '登入'
   String get signIn => '登入';
 }

@@ -139,11 +139,15 @@ class _AccountsSectionState extends ConsumerState<AccountsSection> {
     final registry = ref.read(pluginRegistryProvider.future);
     String failed(String reason) =>
         t.accounts.loginFailed(name: name, reason: reason);
+    // 驗證時被拒（CredentialInvalid）不是「登入已失效」：換成登入的說法
+    // （loginErrorMessage）。
     void fail(AppError error) => toaster.error(
       error,
       operation: 'Failed to sign in',
       tag: _tag,
-      sentence: failed,
+      sentence: error is CredentialInvalid
+          ? (_) => t.accounts.loginRejected(name: name)
+          : failed,
     );
     final SourcePlugin? source;
     try {

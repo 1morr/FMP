@@ -11,8 +11,8 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/accounts/qr_login.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/ui/accounts/accounts_state.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
-import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -169,7 +169,7 @@ class _QrLoginDialogState extends ConsumerState<QrLoginDialog> {
         ),
         QrLoginFailed(:final error) => EmptyState(
           icon: Icons.error_outline,
-          title: errorMessage(t, error, sourceName: widget.name),
+          title: loginErrorMessage(t, error, name: widget.name),
         ),
       };
 }

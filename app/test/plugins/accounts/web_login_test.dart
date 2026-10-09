@@ -107,6 +107,38 @@ void main() {
     });
   });
 
+  test('two page loads in a row complete once', () {
+    fakeAsync((async) {
+      final setup = _Setup();
+      var done = 0;
+      setup.login.addListener(() {
+        if (setup.login.value is WebLoginDone) done++;
+      });
+      setup.webView.setCookies(_site, _siteCookies);
+      // 兩次載入完成都在讀 cookie 的途中（還沒 flush）。
+      unawaited(setup.login.pageLoaded());
+      unawaited(setup.login.pageLoaded());
+      async.flushMicrotasks();
+
+      expect(setup.login.value, isA<WebLoginDone>());
+      expect(done, 1);
+      setup.login.dispose();
+    });
+  });
+
+  test('leaving while the cookies are being read does nothing', () {
+    fakeAsync((async) {
+      final setup = _Setup();
+      setup.webView.setCookies(_site, _siteCookies);
+      setup.webView.setCookies(_page, _signedIn);
+      unawaited(setup.login.pageLoaded());
+      // 讀 cookie 回來之前離開：之後不改值（dispose 後改值會丟錯）、不起計時器。
+      setup.login.dispose();
+      async.flushMicrotasks();
+      expect(async.pendingTimers, isEmpty);
+    });
+  });
+
   group('a stuck redirect', () {
     test('is reported 15 seconds after the sign-in page has signed in', () {
       fakeAsync((async) {

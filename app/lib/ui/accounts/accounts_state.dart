@@ -4,12 +4,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
+import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/plugins/plugins_state.dart';
 
 // 帳號頁讀的資料（ADR 0029 §決定 6、8，design §6.7）。插件清單讀資料庫，不讀插件清單
@@ -133,3 +136,15 @@ List<TrackArtwork> avatarOf(Account account) {
           ),
   ];
 }
+
+/// 登入失敗（QR、網頁登入）給使用者看的訊息，[name] 是插件的顯示名稱。登入時的
+/// [CredentialInvalid] 是插件不接受這次拿到的憑證（`loginVerify` 拒絕），不是類別表的
+/// 「登入已失效，請重新登入」（那是已存的憑證被拒，ADR 0013 §決定 5）；其餘照
+/// [errorMessage]。貼上 cookie 的對話框另有指向輸入的說法（`accounts.cookieRejected`）。
+String loginErrorMessage(
+  Translations t,
+  AppError error, {
+  required String name,
+}) => error is CredentialInvalid
+    ? t.accounts.loginRejected(name: name)
+    : errorMessage(t, error, sourceName: name);

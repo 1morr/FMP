@@ -69,6 +69,24 @@ export function loginVerify(credentials) {
       '"cookieHosts": ["https://www.example.test"], "doneCookies": ["SID"]}}',
 );
 
+/// `loginVerify` 一律以 `CredentialInvalid` 拒絕的插件：三種登入方式都有（QR 第一次輪詢就
+/// `done`），看登入時被拒的訊息（不是「登入已失效」）。
+final _rejectingPlugin = pluginSource(
+  '''
+export function search() {}
+export function loginQrStart() { return { qrText: 'fmp-test://reject', token: 't' }; }
+export function loginQrPoll() {
+  return { status: 'done', credentials: { cookies: { SID: 'FAKE_QR_SID_123' } } };
+}
+export function loginVerify() { throw { fmpError: 'CredentialInvalid' }; }
+''',
+  id: 'plugin-r',
+  capabilities: ['search', 'login'],
+  login:
+      '{"methods": ["qr", "webView", "cookie"], "webView": {"url": "$_pageText", '
+      '"cookieHosts": ["https://www.example.test"], "doneCookies": ["SID"]}}',
+);
+
 /// 已登入 [pluginId]（[status]）。憑證的存取排在 CredentialStore 在假時間 zone 建好的鏈上：
 /// 在這個 zone 呼叫、pump 讓它跑完（見 PluginPageHarness.create）。
 Future<void> _signIn(
@@ -612,6 +630,58 @@ void main() {
     });
   });
 
+  group('a sign-in the plugin rejects says so, not that it expired', () {
+    const name = 'Plugin plugin-r';
+    const rejected = "$name didn't accept the sign-in. Try again.";
+
+    Future<(PluginPageHarness, FakeLoginWebView)> open(
+      WidgetTester tester,
+    ) async {
+      final webView = FakeLoginWebView();
+      final h = await PluginPageHarness.create(tester, loginWebView: webView);
+      await tester.runAsync(() => h.install(_rejectingPlugin));
+      await _openAccounts(tester, h);
+      return (h, webView);
+    }
+
+    testWidgets('QR', (tester) async {
+      final (h, _) = await open(tester);
+      await tester.tap(_inCard(name, _button('Sign in with QR code')));
+      await h.settle(tester);
+      await tester.pump(const Duration(seconds: 2));
+      await h.settle(tester);
+      await h.settle(tester);
+
+      expect(
+        find.descendant(
+          of: find.byType(QrLoginDialog),
+          matching: find.text(rejected),
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('expired'), findsNothing);
+      expect(h.plugins.secureStorage.values, isEmpty);
+    });
+
+    testWidgets('web', (tester) async {
+      final (h, webView) = await open(tester);
+      await tester.tap(_inCard(name, _button('Sign in on the web')));
+      await h.settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+      webView.setCookies(_site, {'SID': 'FAKE_SITE_SID_123'});
+      webView.loadPage();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await h.settle(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(WebLoginPage), findsNothing);
+      expect(find.text(rejected), findsOneWidget);
+      expect(find.textContaining('expired'), findsNothing);
+      expect(h.plugins.secureStorage.values, isEmpty);
+    });
+  });
+
   testWidgets('pasting cookies: unreadable text and a rejected cookie stay in '
       'the dialog, a cookies.txt signs in, nothing reaches the log', (
     tester,
@@ -649,7 +719,12 @@ void main() {
     await tester.tap(_button('Sign in'));
     await h.settle(tester);
     expect(find.byType(CookieLoginDialog), findsOneWidget);
-    expect(errorText(), isNotNull);
+    // 被拒是貼的 cookie 不對，不是「登入已失效」。
+    expect(
+      errorText(),
+      "$name didn't accept these cookies. Copy them again from a page where "
+      "you're signed in.",
+    );
     expect(find.text(wrong), findsOneWidget, reason: 'the input stays');
     expect(h.plugins.secureStorage.values, isEmpty);
 

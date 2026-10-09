@@ -103,6 +103,9 @@ class _CookieLoginDialogState extends ConsumerState<CookieLoginDialog> {
       switch (network) {
         NetworkStatus.noInterface => t.offline.noInterface,
         NetworkStatus.unreachable => t.offline.unreachable,
+        // 被拒是貼的 cookie 不對，不是「登入已失效」（loginErrorMessage）。
+        NetworkStatus.online when error is CredentialInvalid =>
+          t.accounts.cookieRejected(name: widget.name),
         NetworkStatus.online => errorMessage(t, error, sourceName: widget.name),
       };
 

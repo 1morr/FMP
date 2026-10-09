@@ -346,6 +346,8 @@
     "cookieFile": "也可以粘贴浏览器扩展导出的 cookies.txt（Netscape 格式）内容。",
     "cookieWarning": "Cookie 相当于你的登录，不要交给别人。FMP 只把它保存在这台设备上。",
     "cookieEmpty": "没有读到 Cookie。请粘贴 name=value 格式的内容或 cookies.txt。",
+    "cookieRejected": "“{name}”不接受这些 Cookie。请从已登录的页面重新复制。",
+    "loginRejected": "“{name}”没有接受这次登录，请再试一次。",
     "signIn": "登录"
   },
   "errors": {

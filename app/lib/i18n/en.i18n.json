@@ -346,6 +346,8 @@
     "cookieFile": "You can also paste a cookies.txt file (Netscape format) exported by a browser extension.",
     "cookieWarning": "Cookies are your sign-in. Don't share them. FMP keeps them only on this device.",
     "cookieEmpty": "No cookies found. Paste name=value pairs or the contents of a cookies.txt file.",
+    "cookieRejected": "{name} didn't accept these cookies. Copy them again from a page where you're signed in.",
+    "loginRejected": "{name} didn't accept the sign-in. Try again.",
     "signIn": "Sign in"
   },
   "errors": {

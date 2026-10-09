@@ -346,6 +346,8 @@
     "cookieFile": "也可以貼上瀏覽器擴充功能匯出的 cookies.txt（Netscape 格式）內容。",
     "cookieWarning": "Cookie 等同你的登入，不要交給別人。FMP 只把它存在這台裝置上。",
     "cookieEmpty": "沒有讀到 cookie。請貼上 name=value 的內容或 cookies.txt。",
+    "cookieRejected": "「{name}」不接受這些 cookie。請從已登入的頁面重新複製。",
+    "loginRejected": "「{name}」沒有接受這次登入，請再試一次。",
     "signIn": "登入"
   },
   "errors": {
