@@ -31,7 +31,8 @@ lib/ui/
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   tracks/              # TrackRowMenu：搜尋結果、歷史、佇列的一列曲目共用的選單（右鍵、長按、「⋯」）
   plugins/             # pluginNameProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
-                       # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）
+                       # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
+                       # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -240,6 +241,19 @@ try {
   `CredentialStore` 一建立就開始的資料庫載入跑完，否則之後 `runAsync` 裡的寫入排在它後面、永遠等不到 drift 的鎖。插件以 `install` 直接寫進資料庫（包 `tester.runAsync`），開頁後 `settle`（真的事件迴圈加 `pump`，背景
   isolate 與 drift 都要它）；按鈕用 `find.bySubtype<ButtonStyleButton>()` 找（`widgetWithText` 只認確切型別）。沒有回應的
   插件以 `UnresponsivePlugin` 經 `PluginRegistry.register` 換上去，不跑真的看門狗。
+
+## 首次啟動引導
+
+規則與閘門見 `app/AGENTS.md` § 介面的「首次啟動引導」；ADR 0030 §決定 12。
+
+- 引導是搜尋頁在 `showOnboarding` 為真時換上的內容區（`PluginOnboarding`）；狀態在 `onboardingProvider`（`working`、
+  `failures`、`dismissed`）。安裝流程在 `_install`，照插件頁的寫法：provider 在第一個 `await` 之前讀好；因為 `working`
+  讓引導留到整批結束，流程中途 State 不會被拆掉，但開對話框前仍看 `mounted`。
+- 列用 `PluginHeading`、`PluginTag`（`plugin_widgets.dart`，與插件頁共用）；多個插件的確認用 `confirmInstallAll`，單一插件的
+  `confirmInstall` 不動。
+- 測試：`PluginPageHarness.create(tester, registrySources: true)`（搜尋的音源讀真的插件清單，不是 `ShellHarness` 的假插件），
+  `h.publish([...])` 放官方 index，`h.shell.pumpShell`。`working` 時進度條一直在動，`pumpAndSettle` 不會結束：用
+  `h.settle` 加 `pump(Duration)`。成功提示會蓋住頁面底部的按鈕，要點之前先 `pump` 過它的時間。
 
 ## 播放列與封面
 

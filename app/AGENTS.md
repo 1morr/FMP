@@ -1327,6 +1327,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `online but unreadable…`。
   - 管理插件庫：官方的一列不能刪；加入先提示「非官方來源」，只收 `https`（`parseHttpsUrl`：有主機、沒有 user info），已在
     清單上的（含官方的）不重複加。閘門：`repositories`、`repositories already listed` 群組、`only https URLs…`。
+- 首次啟動引導（`lib/ui/plugins/plugin_onboarding.dart`，ADR 0030 §決定 12，M3 design §7.6）：
+  - 觸發：搜尋頁的 `searchSourcesProvider` 是空的（沒有已啟用、能搜尋、可用的插件）而且使用者沒按「稍後再說」；dev flavor
+    的 `fmp-test` 有 `search`，所以不出現，不另判 flavor。引導讀官方 index（`indexOutcomeProvider(officialPluginIndexUrl)`，與
+    插件頁同一個 provider），官方插件預設全勾（只記取消勾選的）；已安裝（含已停用）的與需要更新 FMP 的列出但不能勾。
+  - 一次確認（`confirmInstallAll`，每個插件的能力與網域取自下載並驗過的 `.js` manifest，一則共同警告）後依序安裝；下載階段被拒
+    或裝失敗的記下來、其餘照裝，引導留著列出失敗（「關閉」收起）。取消確認什麼都不裝。第一個插件裝好時搜尋頁就有音源了，所以
+    整批結束前引導以 `OnboardingState.working` 留著，State 不會中途被拆掉。
+  - 「稍後再說」只活在這次執行（`OnboardingState.dismissed`，不寫資料庫）；之後的空狀態附「前往插件頁」（`SettingsBack.show`
+    把外殼換到設定頁的「插件」區塊）。讀不到 index：不在 `online` 是 `OfflineMessage`，`online` 是一般的失敗畫面，都附「重試」。
+  - 閘門：`test/ui/plugins/plugin_onboarding_test.dart`（零插件時列出、一次確認與裝好後消失、取消與取消勾選、全部停用時再出現、
+    離線與重試、部分失敗、全部失敗、「稍後再說」與前往插件頁）、guideline 測試的 `the onboarding…` 400／1000 寬。
 - 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
   曲名、「作者 · 播放時刻」。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
