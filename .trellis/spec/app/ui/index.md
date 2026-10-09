@@ -33,6 +33,8 @@ lib/ui/
   plugins/             # pluginNameProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
+  accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider 與登入方式的交集（accounts_state）、
+                       # QR 登入對話框（qr_login_dialog）；qr_flutter 只准在這裡
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -255,6 +257,21 @@ try {
   `h.publish([...])` 放官方 index，`h.shell.pumpShell`。`working` 時進度條一直在動，`pumpAndSettle` 不會結束：用
   `h.settle` 加 `pump(Duration)`。全部裝好時的成功提示會蓋住頁面底部，之後要點底部的東西先 `pump` 過它的時間（有失敗時不跳）。
   按「安裝」會重讀 index：要測「插件庫修好之後再按一次」就在按之前重新 `h.publish`。
+
+## 帳號頁
+
+規則與閘門見 `app/AGENTS.md` § 介面的「帳號頁」；ADR 0029 §決定 8，M3 design §6.7。
+
+- 卡片清單讀 `loginPluginsProvider`（資料庫的已安裝清單篩出已啟用、宣告 `login` 的），每張卡讀
+  `accountViewProvider(pluginId)`（`CredentialStore.changes` 與 `source_settings` 變動就重讀）。動作照插件頁的寫法
+  （`_work`、`_failed`、`mounted`）；要插件本身（登入）時才 `ref.read(pluginRegistryProvider.future)`。
+- 加一種登入方式（M3 PR 9）：`availableLoginMethods` 的 `switch` 打開那一種，`_AccountCard` 的按鈕與 `_login` 的
+  `switch` 會指出要補的地方。
+- 測試用 `PluginPageHarness.create(tester)`（平台預設宣告有 secure storage；`secureStorage: false` 測沒有的平台），插件以
+  `pluginScript(..., login: {...})` 或 `testPluginFile` 寫進資料庫。造已登入的狀態在假時間 zone 呼叫
+  `h.plugins.credentials.save(...)` 再 `pump`（不要包 `runAsync`，理由見插件頁那一節）。QR 對話框的輪詢是假計時器：
+  `pump(2 秒)` 後 `h.settle` 讓插件的回覆回來；對話框關閉還要 `pump` 過它的動畫。`CredentialStore` 的 `unreadable`
+  不好造，以 `overrides: [accountViewProvider(id).overrideWith(...)]` 給畫面看的狀態。
 
 ## 播放列與封面
 

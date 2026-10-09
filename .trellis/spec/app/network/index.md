@@ -70,6 +70,8 @@ if (response.credentialsAttached && response.statusCode == 401) { /* 憑證無�
   § 帳號）。介面只回材料（cookie 表、標頭、憑證的 cookie 名稱），合併在 `interceptors.dart`：認證攔截器併請求自己的
   `Cookie` 與憑證（同名憑證為準），cookie 管理（`_OwnHostCookieManager.loadCookies`）併 jar 時跳過 header 已有的名稱
   與憑證的名稱。想改合併規則就改這兩處，不要在別處拼 `Cookie`。
+- 插件的 `login*` 匯出執行期間 jar 不存回應的 cookie：`client.withoutSavingCookies(() => …)`（計數在 `_CookieHold`，
+  `_OwnHostCookieManager.saveCookies` 看它）。範圍是整個 client，不要改成辨識是哪一次插件呼叫。
 - 登出要清的記憶體 jar 在 client 內：`SourceHttpClientFactory.clearCookies(pluginId)`（工廠記著每個插件目前的 client，
   client 關閉時自己移除，更新時新 client 先建、舊的後關）。
 
