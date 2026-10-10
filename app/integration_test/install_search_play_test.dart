@@ -27,6 +27,8 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/plugins/repository/plugin_index.dart';
+import 'package:fmp/ui/plugins/plugins_state.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -284,6 +286,11 @@ final class _AppRun {
             return backend;
           }),
           devPluginPathProvider.overrideWithValue(devPlugin),
+          // 還沒有插件時搜尋頁的首次引導會讀官方 index：給一份空的，不發請求
+          // （這個測試從開發入口與資料庫裝插件，不看引導）。
+          indexOutcomeProvider.overrideWith(
+            (ref, url) async => const IndexLoaded(PluginIndex([])),
+          ),
         ],
         child: const FmpApp(flavor: AppFlavor.dev),
       ),
