@@ -57,8 +57,8 @@
   - **fmp-plugins**：#7（draft，`feat/login-qr`：B 站、網易 QR 登入 1.1.0）→ #8（draft，`feat/login-refresh`，base `feat/login-qr`：B 站刷新、判定表 1.2.0）；#4（draft，`feat/youtube`：播放＋登入，到 `df0d756`，worktree `../fmp-plugins-yt`）。三個插件對 `feat/m3-refresh` 的契約重播都過。FMP 那串合併後：`FMP_REF` 改新 main、轉正式 PR、等 CI。
   - **合併順序**：#226 → #227 → #228 → #229 → #230（每個合併後下一個改 base 到 `main`、等 CI 綠）→ fmp-plugins #7 → #8 → #4。
   - **YouTube 播放**（2026-10-10 Windows 真實，擁有者的 Google 測試帳號）：先前的 403 與機器人標記沒再出現；登入後 player 回 400 是 VISIONOS 不收瀏覽器 cookie，#4 改成 player 請求不帶憑證（`df0d756` 為止），登入只影響搜尋與帳號資訊。收 cookie 的 client（`WEB_EMBEDDED`、`TV`）目前被 YouTube 拒絕，原型在 fmp-plugins 分支 `wip/youtube-cookie-clients`（不合併）。細節在 #4 的描述。
-- **Windows 已實測**（擁有者同意自動化）：首次引導、從檔案安裝；B 站、網易真實 QR 登入、帶憑證搜尋、開關、登出；B 站啟動刷新（`unchanged`）；YouTube 網頁登入、登入中搜尋與播放、登出（WebView cookie 見「PR 9 留下的」第 8 條）；`fmp-test` 的 `expired`（刷新後成功、帳號頁「已更新憑證」）與 `expired-hard`（已失效、提示附「登入」、點了到帳號頁）。
-- **等擁有者的實機與真實操作**：貼上 cookie（擁有者從瀏覽器複製）；Android 的 YouTube 網頁登入（擁有者輸入密碼）與登出後以 cookie 名稱確認 WebView cookie 刪掉（「PR 9 留下的」第 2 條）；`86095` 等刷新碼的實際行為（要等憑證真的過期）。
+- **Windows 已實測**（擁有者同意自動化）：首次引導、從檔案安裝；B 站、網易真實 QR 登入、帶憑證搜尋、開關、登出；B 站啟動刷新（`unchanged`）；YouTube 網頁登入、登入中搜尋與播放、貼上 cookie 登入與帶憑證搜尋、登出（WebView cookie 見「PR 9 留下的」第 8 條；改成清全部後 14 → 0）；Android：YouTube 網頁登入、帶憑證搜尋、登出後 WebView 50 → 0；`toast_layering_test.dart` 兩平台 4／4；`fmp-test` 的 `expired`（刷新後成功、帳號頁「已更新憑證」）與 `expired-hard`（已失效、提示附「登入」、點了到帳號頁）。
+- **等擁有者的實機與真實操作**：`86095` 等刷新碼的實際行為（要等憑證真的過期，不擋合併）。其餘實機項目都做完了，下一步是依合併順序合併。
 - **待擁有者回覆**：無（secret scanning 警告擁有者已手動關閉；PR 5 的暫時分支已同意並用完刪除）。
 - **下一步**：擁有者回來後依上面的實機清單驗證、依合併順序合併，然後 M3a 驗收（本檔「M3a 驗收」）；M3b（PR 11 起）在 M3a 驗收合併後才開。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。

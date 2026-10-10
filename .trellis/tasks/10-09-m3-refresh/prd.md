@@ -25,6 +25,6 @@
 
 - [ ] design §6.5 的閘門：刷新後重跑的那次請求帶新憑證；三個並行呼叫失效只刷新一次；不支援刷新時標失效；只提示一次、重新登入後再提示；限流與網路錯誤不標失效；啟動刷新在 `noInterface` 時不發、變 `Online` 後發一次、只發一次。
 - [ ] 帳號區塊顯示最後刷新時間與結果的 widget 測試（guideline 400／1000）。
-- [x] 登出與移除插件呼叫 `clearAll` 一次（其他網域的 cookie 也清掉）；清完 `loginWebViewHosts` 還讀得到就丟錯、停在 WebView 那一步、可重來；沒有 `login.webView` 或平台沒有登入 WebView 時不清。實機：Android 真實 YouTube 登入後登出，WebView 的 `Cookies` 資料庫沒有任何 cookie（只讀名稱）。（2026-10-10：Android 模擬器登出前 50 個、登出後與 35 秒後都是 0；Windows 等貼上 cookie 那次一起驗。）
+- [x] 登出與移除插件呼叫 `clearAll` 一次（其他網域的 cookie 也清掉）；清完 `loginWebViewHosts` 還讀得到就丟錯、停在 WebView 那一步、可重來；沒有 `login.webView` 或平台沒有登入 WebView 時不清。實機：Android 真實 YouTube 登入後登出，WebView 的 `Cookies` 資料庫沒有任何 cookie（只讀名稱）。（2026-10-10：Android 模擬器登出前 50 個、登出後與 35 秒後都是 0；Windows 以貼上 cookie 登入 YouTube 後登出，先前留下的 `.google.com.tw` 10 個與分區 4 個清成 0，B 站帳號不受影響。）
 - [ ] 驗證清單全綠。
 - [ ] 實機（重播）：兩平台以 `fmp-test` 的 `expired` 看刷新後成功、`expired-hard` 看失效提示附「登入」；重啟後啟動刷新跑一次（帳號頁最後刷新時間更新）。真實（B 站）在插件端合併、擁有者登入後做。
