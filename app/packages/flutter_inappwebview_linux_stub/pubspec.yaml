@@ -19,7 +19,7 @@ dependencies:
 # flutter_inappwebview_linux：App 直接依賴的實作優先於 default_package（Flutter 工具
 # flutter_plugins.dart 的 _resolveImplementationOfPlugin）。純 Dart、沒有原生碼，
 # 所以 linux/flutter/generated_plugins.cmake 不列任何 flutter_inappwebview 的原生插件。
-# 閘門：app/test/platform/linux_webview_stub_test.dart。Linux 的 WebView 在 Linux 平台任務
+# 閘門：app/test/platform/webview_stub_test.dart。Linux 的 WebView 在 Linux 平台任務
 # 決定（ADR 0012 §決定 8），屆時刪掉這個套件。
 flutter:
   plugin:

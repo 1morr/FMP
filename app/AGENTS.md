@@ -288,7 +288,10 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     實機驗（登出後以名稱檢查）。
   - Linux 沒有登入 WebView（ADR 0012 §決定 8）：App 直接依賴本機的 `packages/flutter_inappwebview_linux_stub`（純 Dart、
     什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：
-    `linux_webview_stub_test.dart`（`.flutter-plugins-dependencies` 的 Linux 解析與 `linux/flutter/generated_plugins.cmake`）。
+    `webview_stub_test.dart`（`.flutter-plugins-dependencies` 的 Linux、macOS 解析、
+    `linux/flutter/generated_plugins.cmake`、`macos/Flutter/GeneratedPluginRegistrant.swift`）。
+  - macOS 同樣沒有登入 WebView：`flutter_inappwebview_macos` 1.2.0-beta.3 在目前的 Xcode 編不過，改依賴本機的
+    `packages/flutter_inappwebview_macos_stub`（作法同 Linux），macOS 的 WebView 在 macOS 平台任務決定。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
