@@ -75,6 +75,7 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - **跳轉卡住**：R1 在 Windows 看到登入後停在 `SetSID`（或程序消失），重開 App 後再開登入頁就完成。登入頁在 `url` 的網域已有 cookie、`cookieHosts` 一段時間仍沒齊時，提示「登入沒有完成」與重試；重試重建 WebView 環境再開登入頁。
 10. **貼上 cookie**：接受 `name=value; …` 與 Netscape `cookies.txt` 兩種格式，解析成 `cookies` 表再 `loginVerify`；輸入內容不進 log 與錯誤報告。
 11. **登出**：清該插件的憑證、帳號列、遮蔽登記、記憶體 cookie jar、WebView 中 `cookieHosts` 與 `url` 網址讀得到的 cookie（逐一以名稱、domain、path 刪除）；`source_settings` 保留。移除插件與重設資料的範圍見 ADR 0030 與 ADR 0025。
+   - 更正（2026-10-10，M3 PR 10）：Windows 與 Android 真實 YouTube 登入後實測，以網址刪會留下 Google 寫到地區網域的工作階段 cookie（`.google.com.tw`）與 YouTube 的分區 cookie（CHIPS）；登出改清登入 WebView 的全部 cookie，清完確認 `cookieHosts` 與 `url` 讀不到。登入 WebView 只在登入時用、憑證另存，不影響其他音源（擁有者決定）。
 
 採用的慣例：ytmusicapi 的瀏覽器 cookie 與 `SAPISIDHASH`；PiliPlus 的 QR 輪詢；Finamp 的已知值遮蔽（ADR 0011）；舊版 `youtube_login_page.dart` 的登入網址與必要 cookie（`SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`）。
 
@@ -98,5 +99,5 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 - 單飛刷新：刷新後重跑的請求帶新憑證；三個並行的呼叫只刷新一次；不支援刷新時標失效且只提示一次；限流與網路錯誤不標失效（ADR 0012 §如何確認）。
 - 三個官方插件的「憑證無效」判定表以手寫的錯誤 fixture 走契約測試（`credentialsAttached` 為真才判定，為假的同樣回應不判定）。
 - 登出、移除插件、重設資料後 `CredentialStore` 為空，之後的請求不帶憑證。
-- 網頁登入：只有 `cookieHosts` 的 cookie 能讓 `doneCookies` 成立（其他網域的同名 cookie 不算）；Android 的 UA 轉換拿掉 `; wv`、其餘不動；`loginWebView` 為假的平台不出現「網頁登入」；登出以假 `LoginWebView` 斷言清除的網址。
+- 網頁登入：只有 `cookieHosts` 的 cookie 能讓 `doneCookies` 成立（其他網域的同名 cookie 不算）；Android 的 UA 轉換拿掉 `; wv`、其餘不動；`loginWebView` 為假的平台不出現「網頁登入」；登出以假 `LoginWebView` 斷言清除的網址（更正（2026-10-10，M3 PR 10）：改為斷言清全部 cookie、清完 `cookieHosts` 與 `url` 還讀得到就丟錯，見決定 11 的更正）。
 - 實機（ADR 0027，真實）：每個音源登入一次、帶憑證的搜尋、登出；YouTube 的網頁登入（或貼上 cookie）是 M3a 驗收的 §8 項目。
