@@ -492,7 +492,7 @@
 
 ### PR 9 留下的
 
-1. **Linux 建置只能靠 CI 驗**：`flutter_inappwebview_linux` 以本機 stub（`app/packages/flutter_inappwebview_linux_stub`）取代，本機建不了 Linux；stacked PR 不跑 CI，整串回到 base `main` 時要看 Linux 建置與整合測試 job。Linux 的 WebView 在 Linux 平台任務決定（ADR 0012 §決定 8），定了就刪 stub。
+1. **Linux、macOS 建置只能靠 CI 驗**：`flutter_inappwebview_linux` 以本機 stub（`app/packages/flutter_inappwebview_linux_stub`）取代，本機建不了 Linux；stacked PR 不跑 CI，整串回到 base `main` 時要看 Linux 建置與整合測試 job。Linux 的 WebView 在 Linux 平台任務決定（ADR 0012 §決定 8），定了就刪 stub。macOS 同樣以 `app/packages/flutter_inappwebview_macos_stub` 取代 `flutter_inappwebview_macos`（1.2.0-beta.3 在目前的 Xcode 編不過），macOS 建置也只能看 CI；macOS 平台任務定了 WebView 就刪。
 2. **Android 的 WebView cookie 刪除**：套件的 `deleteCookie` 不帶 `Secure`，Chromium 拒收，改成送帶 `Secure` 的過期 cookie；只以原始碼推斷，**要在真實 Google 登入後以 cookie 名稱確認真的刪掉**。
 3. **WebView 清不掉會擋住登出與移除**（照 design §7.4「失敗就停在那一步」）：登出時憑證已先刪，帳號列留著會在下次啟動對齊刪掉；但若 Windows 沒有 WebView2 會一直卡住。要不要改成記 warning、略過，實機遇到再決定。
 4. **卡住判定**改成「`url` 讀得到的 cookie 已有全部 `doneCookies`、`cookieHosts` 仍沒齊」（照字面「`url` 網域有任何 cookie」會在使用者輸入密碼時就誤報）；design §6.4 的那句是筆誤等級，真實登入時確認 15 秒的門檻。
