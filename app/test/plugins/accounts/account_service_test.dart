@@ -635,7 +635,7 @@ export async function loginVerify(credentials) {
       ..setCookies(page, {'SID': 'FAKE_PAGE_SID_123'})
       ..setCookies(other, {'SID': 'FAKE_OTHER_SID_123'});
 
-    test('the cookie hosts and the sign-in page, after the credentials and '
+    test('every web view cookie, after the credentials and '
         'before the account row', () async {
       final webView = signedInWebView()..clearError = StateError('webview');
       final setup = _Setup(loginWebView: webView);
@@ -649,20 +649,47 @@ export async function loginVerify(credentials) {
       );
       expect(setup.storage.values, isEmpty);
       expect(await setup.accounts.list(), hasLength(1));
-      expect(webView.cleared, isEmpty);
+      expect(webView.clearedAll, 0);
 
       webView.clearError = null;
       await setup.service.logout('plugin-a');
       await setup.service.logout('plugin-a');
 
       expect(await setup.accounts.list(), isEmpty);
-      expect(webView.cleared, [
-        [site, page],
-        [site, page],
-      ]);
+      expect(webView.clearedAll, 2);
       expect(await webView.cookies([site, page]), isEmpty);
-      // 別的網址的 cookie 不動。
-      expect(await webView.cookies([other]), {'SID': 'FAKE_OTHER_SID_123'});
+      // 其他網域（地區網域之類）的 cookie 也一併清掉。
+      expect(await webView.cookies([other]), isEmpty);
+    });
+
+    test('cookies left after clearing are an error that names only the '
+        'count', () async {
+      // 名稱各不相同，數量才看得出確認的是哪些網址：cookieHosts 與登入頁兩台（2 個），
+      // 其他網域的不算。
+      final webView = FakeLoginWebView()
+        ..setCookies(site, {'SID': 'FAKE_SITE_SID_123'})
+        ..setCookies(page, {'LSID': 'FAKE_PAGE_LSID_123'})
+        ..setCookies(other, {'OTHER': 'FAKE_OTHER_123'})
+        ..ignoreClearAll = true;
+      final setup = _Setup(loginWebView: webView);
+      await install(setup, webView: true);
+      await setup.service.login(_LoginPlugin(), _credentials);
+
+      await expectLater(
+        setup.service.logout('plugin-a'),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('2 login web view cookies'),
+              isNot(contains('FAKE_')),
+            ),
+          ),
+        ),
+      );
+      expect(webView.clearedAll, 1);
+      expect(await setup.accounts.list(), hasLength(1));
     });
 
     test('removing the plugin clears it too', () async {
@@ -672,9 +699,7 @@ export async function loginVerify(credentials) {
 
       await setup.service.removePlugin('plugin-a');
 
-      expect(webView.cleared, [
-        [site, page],
-      ]);
+      expect(webView.clearedAll, 1);
     });
 
     test('nothing to clear without a webView login or without the '
@@ -685,7 +710,7 @@ export async function loginVerify(credentials) {
       await withoutLogin.service.logout('plugin-a');
       // 已經移除（沒有那一列）也不清。
       await _Setup(loginWebView: webView).service.logout('plugin-a');
-      expect(webView.cleared, isEmpty);
+      expect(webView.clearedAll, 0);
 
       final withoutPlatform = _Setup();
       await install(withoutPlatform, webView: true);

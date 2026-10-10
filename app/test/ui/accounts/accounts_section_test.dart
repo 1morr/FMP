@@ -784,9 +784,7 @@ void main() {
       await h.settle(tester);
 
       expect(h.plugins.secureStorage.values, isEmpty);
-      expect(webView.cleared, [
-        [_site, _page],
-      ]);
+      expect(webView.clearedAll, 1);
     });
 
     testWidgets('a stuck redirect offers a retry, then a restart', (

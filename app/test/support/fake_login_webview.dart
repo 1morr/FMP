@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 
 /// 假的登入 WebView：cookie 以網址的主機名稱存（[setCookies]），讀的時候只回問到的網址那一台
-/// 主機的——和真的一樣，別的網域的同名 cookie 讀不到。記下每次 [build]、[clear]、
-/// [clearAll]、[reset]。畫面是一塊空白（[key]），以 [loadPage] 模擬一頁載入完成。
+/// 主機的——和真的一樣，別的網域的同名 cookie 讀不到。記下每次 [build]、[clearAll]、
+/// [reset]。畫面是一塊空白（[key]），以 [loadPage] 模擬一頁載入完成。
 final class FakeLoginWebView implements LoginWebView {
   /// [build] 回傳的 widget 的 key。
   static const key = ValueKey('fake-login-web-view');
@@ -14,15 +14,17 @@ final class FakeLoginWebView implements LoginWebView {
   /// 每次 [build] 的頁。
   final built = <LoginWebViewSpec>[];
 
-  /// 每次 [clear] 的網址。
-  final cleared = <List<Uri>>[];
+  /// [clearAll] 成功呼叫的次數。
   var clearedAll = 0;
+
+  /// 真時 [clearAll] 只計次、什麼都不刪（平台靜默刪不掉）。
+  var ignoreClearAll = false;
   var resets = 0;
 
   /// 每次 [cookies] 問的網址（看有沒有問別的網域）。
   final asked = <List<Uri>>[];
 
-  /// 非空時 [clear] 拋這個。
+  /// 非空時 [clearAll] 拋這個。
   Object? clearError;
 
   VoidCallback? _onLoadStop;
@@ -64,18 +66,10 @@ final class FakeLoginWebView implements LoginWebView {
   }
 
   @override
-  Future<void> clear(List<Uri> hosts) async {
-    if (clearError case final error?) throw error;
-    cleared.add(hosts);
-    for (final host in hosts) {
-      _cookies.remove(host.host);
-    }
-  }
-
-  @override
   Future<void> clearAll() async {
+    if (clearError case final error?) throw error;
     clearedAll++;
-    _cookies.clear();
+    if (!ignoreClearAll) _cookies.clear();
   }
 
   @override

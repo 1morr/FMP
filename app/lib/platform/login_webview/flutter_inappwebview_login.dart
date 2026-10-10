@@ -13,51 +13,6 @@ final _webViewMarker = RegExp(r'; ?wv(?=[;)])');
 String androidLoginUserAgent(String systemUserAgent) =>
     systemUserAgent.replaceAll(_webViewMarker, '');
 
-/// 刪掉 [url] 讀到的 [cookie]。
-typedef DeleteCookie = Future<void> Function(
-  CookieManager manager,
-  WebUri url,
-  Cookie cookie,
-);
-
-/// Android 的刪法：以同名、同 domain、同 path、`Secure` 的過期 cookie 蓋掉。
-///
-/// 套件的 `deleteCookie` 在 Android 送的是不帶 `Secure` 的過期 cookie，Chromium 拒收
-/// `__Secure-`／`__Host-` 開頭而不帶 `Secure` 的 cookie（Google 的 `__Secure-1PSID`
-/// 就刪不掉）。`getCookies` 回的 domain 是 Chromium 的格式：網域 cookie 以 `.` 開頭，
-/// host-only 的是主機名稱；後者要不帶 `Domain` 才是同一個 cookie（帶了會變成另一個網域
-/// cookie，`__Host-` 更是整個被拒）。網址只會是 `https`（manifest 驗過）。
-Future<void> expireCookie(
-  CookieManager manager,
-  WebUri url,
-  Cookie cookie,
-) async {
-  final domain = cookie.domain;
-  await manager.setCookie(
-    url: url,
-    name: cookie.name,
-    value: '',
-    domain: domain != null && domain.startsWith('.') ? domain : null,
-    path: cookie.path ?? '/',
-    maxAge: -1,
-    isSecure: true,
-  );
-}
-
-/// Windows 的刪法：WebView2 以名稱、domain、path 刪（`DeleteCookiesWithDomainAndPath`）。
-Future<void> deleteCookieByName(
-  CookieManager manager,
-  WebUri url,
-  Cookie cookie,
-) async {
-  await manager.deleteCookie(
-    url: url,
-    name: cookie.name,
-    domain: cookie.domain,
-    path: cookie.path ?? '/',
-  );
-}
-
 /// [LoginWebView] 的實作，Android 與 Windows 共用：`flutter_inappwebview` 6.2.0-beta.3
 /// （ADR 0029 §決定 9）。兩個平台的差異從建構子注入：
 ///
@@ -67,12 +22,10 @@ Future<void> deleteCookieByName(
 ///   資料目錄（不給的話 WebView2 用程式旁的 `fmp.exe.WebView2`，dev 與 prod 混在一起）。
 ///   第一次用到才建立，[reset] 之後重建。Android 沒有環境（WebView 的資料在 App 的私有
 ///   目錄，dev 與 prod 以 applicationId 分開）。
-/// - 刪 cookie 的方法：[expireCookie]／[deleteCookieByName]。
 final class InAppLoginWebView implements LoginWebView {
   InAppLoginWebView({
     required this._userAgent,
     required this._createEnvironment,
-    required this._deleteCookie,
     this._cookieManager = _systemCookieManager,
   });
 
@@ -82,7 +35,6 @@ final class InAppLoginWebView implements LoginWebView {
       await InAppWebViewController.getDefaultUserAgent(),
     ),
     createEnvironment: null,
-    deleteCookie: expireCookie,
   );
 
   /// Windows 的實作；[userDataFolder] 是 WebView2 的使用者資料目錄。
@@ -95,7 +47,6 @@ final class InAppLoginWebView implements LoginWebView {
         userDataFolder: await userDataFolder(),
       ),
     ),
-    deleteCookie: deleteCookieByName,
   );
 
   static CookieManager _systemCookieManager(WebViewEnvironment? environment) =>
@@ -106,7 +57,6 @@ final class InAppLoginWebView implements LoginWebView {
 
   /// 建立 WebView2 的環境；`null` 是這個平台沒有環境。
   final Future<WebViewEnvironment> Function()? _createEnvironment;
-  final DeleteCookie _deleteCookie;
   final CookieManager Function(WebViewEnvironment? environment) _cookieManager;
 
   Future<WebViewEnvironment>? _environment;
@@ -152,22 +102,6 @@ final class InAppLoginWebView implements LoginWebView {
       }
     }
     return result;
-  }
-
-  @override
-  Future<void> clear(List<Uri> hosts) async {
-    final manager = await _manager();
-    for (final host in hosts) {
-      final url = WebUri.uri(host);
-      for (final cookie in await manager.getCookies(url: url)) {
-        await _deleteCookie(manager, url, cookie);
-      }
-    }
-    // 刪不掉的不會報錯（平台各自吞掉）：讀一次確認。訊息只有數量。
-    final left = (await cookies(hosts)).length;
-    if (left > 0) {
-      throw StateError('$left login web view cookies are left after clearing');
-    }
   }
 
   @override

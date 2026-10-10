@@ -68,8 +68,8 @@ final accountStartupRefreshProvider = Provider<void>((ref) {
   }());
 });
 
-/// 登出時要清的 WebView 網址：`cookieHosts` 與登入頁 `url`（ADR 0029 §決定 11）。登入頁的
-/// 網域（Google 帳號）也有登入狀態，不清的話下次開登入頁就直接登入。
+/// 登出清完 WebView 後要確認讀不到 cookie 的網址：`cookieHosts` 與登入頁 `url`（ADR 0029
+/// §決定 11）。登入頁的網域（Google 帳號）也有登入狀態，不清的話下次開登入頁就直接登入。
 List<Uri> loginWebViewHosts(PluginLoginWebView webView) => [
   ...webView.cookieHosts,
   webView.url,
@@ -138,8 +138,10 @@ final class AccountService {
   /// 憑證先刪所以之後的請求不會再帶它。
   ///
   /// WebView 那一步只在平台有登入 WebView、而且插件（還在 `installed_plugins`）的 manifest
-  /// 宣告 `login.webView` 時做：清 [loginWebViewHosts]。移除插件時也走這裡，順序照
-  /// design §7.4（憑證 → WebView → 帳號列）。
+  /// 宣告 `login.webView` 時做：清登入 WebView 的全部 cookie，再確認 [loginWebViewHosts]
+  /// 讀不到任何 cookie（還有就丟 [StateError]）。不能只以網址刪：Google 會把工作階段
+  /// cookie 寫到地區網域，分區（CHIPS）cookie 也以網址刪不到（ADR 0029 §決定 11 更正）。
+  /// 移除插件時也走這裡，順序照 design §7.4（憑證 → WebView → 帳號列）。
   Future<void> logout(String pluginId) async {
     await _credentials.delete(pluginId);
     await _clearWebView(pluginId);
@@ -154,7 +156,13 @@ final class AccountService {
     if (installed == null) return;
     final webView = PluginManifest.parse(installed.manifestJson).login?.webView;
     if (webView == null) return;
-    await loginWebView.clear(loginWebViewHosts(webView));
+    await loginWebView.clearAll();
+    // 刪不掉的不會報錯（平台各自吞掉）：讀一次確認。訊息只有數量，不含值。
+    final left = (await loginWebView.cookies(loginWebViewHosts(webView)))
+        .length;
+    if (left > 0) {
+      throw StateError('$left login web view cookies are left after clearing');
+    }
   }
 
   /// 啟動刷新（design §6.5）：[plugins] 裡宣告 `refresh: 'onStartup'` 而且有可用憑證的，

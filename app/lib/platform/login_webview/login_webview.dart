@@ -35,11 +35,8 @@ abstract interface class LoginWebView {
   /// 讀得到的：別的網域的同名 cookie 不在裡面。
   Future<Map<String, String>> cookies(List<Uri> hosts);
 
-  /// 刪掉 [hosts] 這些網址讀得到的每個 cookie（以名稱、domain、path 逐一刪除）。刪完還讀得
-  /// 到時丟 [StateError]（訊息不含值）。沒有 cookie 時什麼都不做，可重複呼叫。
-  Future<void> clear(List<Uri> hosts);
-
-  /// 刪掉 WebView 的全部 cookie（重設資料）。
+  /// 刪掉登入 WebView 的全部 cookie（登出、移除插件、重設資料）。平台可能靜默刪不掉，呼叫端
+  /// 用 [cookies] 確認。沒有 cookie 時什麼都不做，可重複呼叫。
   Future<void> clearAll();
 
   /// 丟掉 WebView 的執行環境，下一個 [build] 重新建立（跳轉卡住時的重試）。呼叫前先把

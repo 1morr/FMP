@@ -902,9 +902,7 @@ void main() {
         webView.clearError = null;
         await installer.remove('plugin-a');
 
-        expect(webView.cleared, [
-          [site, page],
-        ]);
+        expect(webView.clearedAll, 1);
         expect(await webView.cookies([site]), isEmpty);
         expect(await AccountRepository(harness.database).list(), isEmpty);
         expect(await harness.plugins.byId('plugin-a'), isNull);
