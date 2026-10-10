@@ -30,8 +30,8 @@
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
 - CI 另有五個平台的建置 job（都是 `--flavor prod --release`，iOS 加 `--no-codesign`；macOS、
   iOS 再建一次 `--flavor dev --debug`），以及 Linux（xvfb）與 Windows 的整合測試 job：
-  `install_search_play_test.dart`、`toast_layering_test.dart`。真後端的契約與插件量測只在實機
-  手動跑。
+  `install_search_play_test.dart`、`toast_layering_test.dart`，Windows 另跑 `secure_storage_test.dart`。
+  真後端的契約與插件量測只在實機手動跑。
 - 桌面裝置一次 `flutter test` 只能跑一個整合測試檔：flutter_tools 每個桌面裝置只有一個 log
   reader，第一個檔案的 App 結束時就關了，第二個檔案的 App 報 `Unable to start the app on the
   device`（`desktop_device.dart` 的 `DesktopLogReader`）。多個檔案就分開下指令，CI 也是一檔一步。
@@ -191,7 +191,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 - Secure storage（`lib/platform/secure_storage/`，ADR 0012 §決定 3、ADR 0029 §決定 5）：`PlatformCapabilities.secureStorage`
   （Android、Windows）。鍵只准小寫英數、`.`、`-`（Windows 直接當檔名），實作加上 `fmp-dev.`／`fmp.` 前綴，
   `deleteAll` 只刪自己前綴的鍵、不呼叫套件的全刪。Android 的 `resetOnError` 一律關：套件預設讀取失敗就清空，
-  違反「讀取失敗不刪除」。`flutter_secure_storage` 只准在平台層（`platformPackages`）。閘門：
+  違反「讀取失敗不刪除」。`flutter_secure_storage` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：
   `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`）、
   `platform_test.dart`；真的寫讀刪是 `integration_test/secure_storage_test.dart`（手動，Windows 另在 CI）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
@@ -280,7 +280,8 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入）。
   - Windows 的 WebView2 使用者資料在資料目錄的 `webview/`（`loginWebViewDirectoryName`；不給的話是程式旁的
     `fmp.exe.WebView2`，dev 與 prod 混在一起），環境第一次用到才建，`reset` 後重建（同一個目錄，登入狀態留著）。
-    cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。
+    cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。環境這一段（目錄位置、延後建立、`reset`、讀刪經同一個
+    環境）沒有閘門：`login_webview_test.dart` 注入的是沒有環境的實作，review 時看；實機看資料目錄下有 `webview/`、程式旁沒有 `fmp.exe.WebView2`。
   - `cookies(hosts)` 只回問到的網址讀得到的（`getCookies`），同名時前面的網址優先。刪除只有 `clearAll`
     （`deleteAllCookies`）：Google 會把工作階段 cookie 寫到地區網域、分區（CHIPS）cookie 以網址刪不到，所以不以網址刪
     （ADR 0029 §決定 11 更正）；平台可能靜默失敗，由呼叫端用 `cookies` 確認。
@@ -376,12 +377,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `enabled`，停用的插件更新後仍停用，`source_index_url` 與 `checks_json` 則每次安裝都以傳入的值覆蓋（新版本的
   檢查案例驗證不過時，舊版本的不留）。閘門：
   `migration_test.dart` 的 v6→v7 資料完整性與 `migration from v<N> to v7 adds the plugin lifecycle schema`
-  （v1–v6 各一例）、`plugin_repository_test.dart` 的 `enabled and index source`、`custom indexes`。
+  （v1–v6 各一例）與 `a new database has the plugin lifecycle schema`、`plugin_repository_test.dart` 的
+  `enabled and index source`、`custom indexes`。
 - `accounts` 與 `source_settings` 是 schema v8（ADR 0029 §決定 6）：帳號的非機密顯示資訊與每音源設定，主鍵
   都是插件 id，**沒有外鍵到 `installed_plugins`**（插件移除後的清理由 `PluginInstaller.remove` 做）。是否登入只看
   `CredentialStore`，`accounts` 不存「已登入」。新表升級後是空的，其他表的值不動。閘門：`migration_test.dart` 的
   v7→v8 資料完整性與 `migration from v<N> to v8 adds the account schema`（v1–v7 各一例）、
-  `account_repository_test.dart`（含 `stored format`）。
+  `a new database has the account schema`、`account_repository_test.dart`（含 `stored format…`）。移除插件時
+  兩張表都清掉的閘門是 `plugin_installer_test.dart` 的 `removing` 群組。
 
 ### 快取庫
 
@@ -477,7 +480,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 門面 `Log` 是唯一的 log 入口；`print`、`debugPrint`、`dart:developer` 的 `log`、
   `package:talker*` 只准在 `lib/core/logging/`。閘門：lint `fmp_log_facade`。
 - `Redactor` 是唯一的遮蔽函式，名單只在 `redaction_lists.dart`（插件以 `addRules`
-  追加 header 與鍵名、以 `setMediaCdns` 設媒體 CDN）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
+  追加 header 與鍵名、以 `setMediaCdns` 設媒體 CDN；憑證的值由 `CredentialStore` 以 `registerSecret` 逐值登記，見「帳號」，
+  閘門 `redactor_test.dart` 的 `known credential values`）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
   歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
   欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
   網路紀錄經門面寫入，閘門見「網路」；診斷包（M3）出現時各自補測試。
@@ -526,7 +530,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `.trellis/spec/app/errors/index.md`。
 
 - 音源邊界以上只看得到 `AppError`：音源把自己的錯誤碼轉好，其他例外在邊界以
-  `AppError.wrap` 包成 `UnexpectedError`。閘門：PR 9 的插件契約測試；在那之前沒有。
+  `AppError.wrap` 包成 `UnexpectedError`。閘門：`plugin_runtime_test.dart` 的 `errors` 群組（結構化錯誤轉成該類別、
+  其他拋出的值是 `UnexpectedError`）、插件契約執行器（`contract_runner_test.dart`：失敗案例比 `AppError` 類別）。
 - `AppError` 沒有可以直接顯示的字串：使用者訊息只有 `messageKey`／`messageArgs`；
   `messageArgs` 是 `Map<ErrorMessageArg, int>`，放不進插件或伺服器的文字；音源名稱由呈現層
   以 `pluginId` 查。原始 error 與 stackTrace 是函式庫私有欄位，`toString()` 不含它們。閘門：
@@ -583,16 +588,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `requests that were not sent or were cancelled report nothing`。
 - cookie：每插件一個記憶體 jar，網路層不持久化。匿名 cookie（B 站 `buvid`）要跨重啟
   時，由插件從回應的 `Set-Cookie` 取值寫進自己的 storage（`plugin_storage`，ADR 0014
-  §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie）。沒有閘門，
-  review 時看。
+  §決定 5），下次以 `Cookie` header 帶上（cookie 管理會併進 jar 的 cookie，同名以 header 為準）。合併這半條的閘門：
+  `auth_test.dart` 的 `Cookie merging` 群組（`the plugin header wins over the jar when nothing is attached`、
+  `with only the jar, the jar is sent`）；插件自己存取 `buvid` 在插件 repo，本 repo 沒有閘門。
 - 網路紀錄：tag `network`，每次送出一筆，欄位 `id`、`pluginId`、`client`（`source`／
   `media`／`host`，`host` 的 `pluginId` 是空字串）、`method`、`host`、`path`、`query`、`status`、`ms`、`bytes`、`error`、
   `credentials`、`retry`；不記 body。未登入而拒絕的 `required` 請求沒送出，也有一筆（沒有
   `status`、`ms`），`AuthRequired` 帶它的 id。失敗或狀態碼 ≥ 400 用 `warning`，其餘
   `debug`。欄位名稱與 `client` 的值是 log 檔的持久化格式（`network_log.dart`）；網路層
-  產生的 `AppError` 帶那一筆的 `networkRecordId`。兩種 client 的工廠共用一個
-  `NetworkRecordIds`（`networkRecordIdsProvider`），id 在同一次執行裡不重複。閘門：兩個
-  client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
+  產生的 `AppError` 帶那一筆的 `networkRecordId`。兩種 client 的工廠與宿主請求（`hostFetchProvider`，
+  `lib/plugins/repository/plugin_downloader.dart`）共用一個 `NetworkRecordIds`（`networkRecordIdsProvider`），id 在同一次
+  執行裡不重複。閘門：兩個 client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
   歷史與 log 檔）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
   client 的 id 接續）；provider 的接線沒有閘門，review 時看。
 - 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入；認證來源是 `CredentialSource`
@@ -620,13 +626,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `online`；失敗不改變 `noInterface`（介面消失前送出的請求晚一點才失敗）。回到前景時查到
   有介面不算「介面變化」，`unreachable` 留著。時間以 `clock` 讀，不開計時器。閘門：
   `network_status_test.dart`（轉換表逐列；fakeAsync 裡跑完後沒有待執行的計時器）、
-  兩個 client 測試的 `network status` 群組。兩個工廠的 provider（`plugin_registry.dart`）都
+  兩個 client 測試的 `network status` 群組。兩個工廠的 provider（`plugin_registry.dart`）與 `hostFetchProvider` 都
   接同一個 `NetworkStatusNotifier.report`；接線沒有閘門，review 時看。
 - 網路狀態不擋使用者發起的請求，`noInterface` 也照送（ADR 0016 §決定 7 的更正）：
   Windows 的 `connectivity_plus` 只把 Network List Manager 判定「連得上網際網路」
   （NCSI）的連線算成有介面，在 proxy、VPN 後面會誤報 `noInterface`，送出去拿到回應才
-  回得到 `online`。不在 `online` 時不發背景請求（§決定 6；M2 還沒有背景請求，出現時
-  補閘門）。閘門：`network_status_test.dart` 的 `a response`（`noInterface` 收到回應回到
+  回得到 `online`。不在 `online` 時不發背景請求（§決定 6）：目前的背景請求只有啟動刷新（頁面打開時讀的插件 index 不算，是那一頁的內容），它等第一次 `online`
+  （閘門見「帳號」的啟動刷新）；之後加的背景工作各自補閘門。使用者發起的那半條的閘門：`network_status_test.dart` 的 `a response`（`noInterface` 收到回應回到
   `online`）、`search_page_test.dart` 的 `offline` 群組（`noInterface` 仍送出搜尋）。
 - Android 8 起背景收不到介面變化，`FmpApp` 在回到 `resumed` 時以 `recheckInterfaces`
   再查一次。閘門：`fmp_app_test.dart` 的
@@ -655,7 +661,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `allowedHosts` 建立，`mediaClient(pluginId)` 取得；插件被取代或清單釋放時關閉。閘門：
   `plugin_installer_test.dart` 的 `media clients` 群組（允許網域與 manifest 一致、更新後
   換成新網域、舊的關閉）。
-- 目前唯一的呼叫端是封面：`artworkCacheManagerProvider(pluginId)`
+- 每插件的那一個目前唯一的呼叫端是封面（宿主請求每次另建一個不屬於插件的，見上一節）：`artworkCacheManagerProvider(pluginId)`
   （`lib/plugins/plugin_artwork.dart`）以快取庫加上那個插件的媒體 client 組出 cache manager；
   清單裡那個插件的實例換掉（更新）時跟著重建、拿到新的 client，其他插件的變動不重建。閘門：
   `test/plugins/plugin_artwork_test.dart`。
@@ -702,8 +708,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   讀進來之前以匿名送出。是否登入只看它。啟動只讀 manifest 宣告 `login` 的已安裝插件加上有帳號列的（design §6.1）。
   閘門：`credential_store_test.dart` 的 `a plugin that does not declare login is not read`。
 - 讀取失敗（含內容壞掉）時該插件為 `unreadable`：不帶、**不刪**，30 秒後重讀一次（一次性 `Timer`），重讀仍失敗就
-  維持，不再排。啟動載入時帳號列與憑證不一致就刪掉多的那一邊並記 warning。載入、重讀、`save`、`delete` 排成一條
-  依序執行：重讀從 storage 拿到的舊值不能蓋掉期間的登出或重新登入（否則登出後又帶憑證）。閘門：
+  維持，不再排。啟動載入時帳號列與憑證不一致就刪掉多的那一邊並記 warning。載入、重讀與每個寫入（`save`、`delete`、`replace`、
+  `recordRefresh`、`invalidate`）排成一條依序執行：重讀從 storage 拿到的舊值不能蓋掉期間的登出或重新登入（否則登出後又帶憑證）。閘門：
   `credential_store_test.dart`（`a read failure`，含 `… during the re-read …` 兩例；`loading at startup`）。
 - 已失效（`accounts.status = invalidated`）的憑證保留、不帶，`fmp.credentials.get()` 也回 `null`，但它的 cookie 名稱
   照樣擋在 jar 之外。閘門：`credential_store_test.dart`、`plugin_runtime_test.dart` 的 `credentials`。
@@ -758,7 +764,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   帳號區塊）；它佔住 `CredentialInvalid`＋該音源的錯誤去重鍵，同一個失敗接著從搜尋、播放以 `Toaster.error` 送來的錯誤提示被
   去重（仍寫錯誤歷史），畫面上只留附「登入」的那則（ADR 0013 §決定 5）。重新登入回到 `active` 後下一次失效再提示。閘門：
   `account_guard_test.dart`（`a rejected credential`：重跑帶新憑證、三個並行刷新一次、不支援刷新、`null`、被拒、重跑又被拒不
-  循環、刷新網路錯誤；`while a refresh is in flight`：登出、重新登入、併進啟動刷新；`other failures`）、
+  循環、刷新網路錯誤；`while a refresh is in flight`：登出、重新登入、併進啟動刷新；`other failures`：限流、網路錯誤、
+  匿名的 401，風控 `VerificationRequired` 沒有案例，靠守衛只 catch `CredentialInvalid`）、
   `toaster_test.dart` 的 `an invalidated sign-in`、`accounts_section_test.dart` 的 `a rejected credential prompts…` 與
   `a rejected credential during a user action`（搜尋、播放各一，只有一則提示）。
 - 啟動刷新（`AccountService.refreshOnStartup`、`accountStartupRefreshProvider`）：宣告 `refresh: 'onStartup'` 且有可用憑證的
@@ -768,7 +775,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   被拒標失效並 `failed`（提示一次）、網路錯誤等 `failed` 但帳號仍可用。帳號頁對宣告 `refresh` 的插件顯示最後刷新的時間與
   結果。不做全面驗證（啟動時不對每個帳號打帳號資訊 API）。閘門：`account_guard_test.dart` 的 `startup refresh`、
   `the startup refresh provider`（離線不發、上線後發一次、之後不再發）、`accounts_section_test.dart` 的
-  `shows the last refresh…`、`a failed refresh…`。
+  `shows the last refresh…`、`a failed refresh…`。`FmpApp` 在第一幀之後讀這個 provider 的那一行沒有閘門，review 時看。
 - 「憑證無效」判定表（`credentialsAttached` 為真的 401、`-101` 等）在各插件的目錄內，由插件 repo 的 Node 測試守（輸入回應
   與 `credentialsAttached`），不是契約 fixture（ADR 0015 §決定 4 每能力一條案例；PR 1 的先例）。沒有閘門：本 repo 不守。
 - 憑證的值只用假值寫測試（`FAKE_…`）。
@@ -820,8 +827,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`pubspec.yaml` 的註解）。它的 Linux 建置不會把 QuickJS 的 `.so` 裝進 App 的 `bundle/lib`，
   `linux/CMakeLists.txt` 自己補；少了它插件在 Linux 一載入就失敗，閘門是 CI 的 Linux 整合測試。
 - `fmp-plugin.d.ts` 與 Dart 端一致：interface 的欄位與必填對 `manifestShapes`、`sourceDtoShapes`、
-  `hostApiShapes`，`FmpHost` 對 prelude 實際建出的 `fmp`，能力、錯誤名稱、`Unavailable` 原因三個
-  union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
+  `hostApiShapes`，`FmpHost` 對 prelude 實際建出的 `fmp`，能力、錯誤名稱、`Unavailable` 原因、音質與登入
+  （`LoginMethod`、`LoginRefresh`、`LoginQrStatus`）的 union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
   型別不比對，review 時看。
 - 插件庫與生命週期（`lib/plugins/repository/`、`install/plugin_installer.dart`，ADR 0030，UI 在插件頁）：
   - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 回
@@ -840,8 +847,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     index 更新；`apiVersion` 不相容是 `needsAppUpdate`。閘門：同群組的 `update status…`、lint
     `fmp_layer_imports` 的 `test_pubSemver*`。
   - 停用（`PluginRegistry.setEnabled`）：存進資料庫、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
-    插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。閘門：
-    `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
+    插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫（沒有測試，review 時看）。更新停用中的插件寫進新版本但不加入清單。閘門：
+    `plugin_registry_test.dart`（storage 保留有測，憑證保留沒有：`setEnabled` 不碰 `CredentialStore`，review 時看）、
+    `plugin_installer_test.dart` 的 `updating a disabled plugin…`。
   - 移除（`PluginInstaller.remove`）：關閉 runtime → 憑證與遮蔽登記、`accounts`、`source_settings`
     （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
     cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。登入 WebView 的 cookie 在帳號那一步裡（見「帳號」的登出），排程器的步驟由之後的 PR
@@ -853,7 +861,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - `PluginRepository.changes()`、`PluginIndexRepository.changes()`：聽 drift 的 `tableUpdates`（理由同歷史表），插件頁
     以它重讀。閘門：`plugin_repository_test.dart` 的 `changes fires…` 兩例。
   - 顯示名稱 `pluginNameProvider`（`lib/ui/plugins/plugin_name.dart`）：清單上是 manifest 的 `name`，停用的是
-    「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`。
+    「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`
+    （`null` 那一支沒有測試）。
   - `Redactor` 的媒體 CDN 規則以插件 id 為鍵（`setMediaCdns`），插件更新、重新載入時取代而不累加；header 與鍵名
     名單仍只增不減。閘門：`redactor_test.dart` 的 `setting a plugin again replaces…`。
 - 開發入口：dev flavor 啟動時安裝 `--fmp-dev-plugin=<路徑>` 或環境變數 `FMP_DEV_PLUGIN` 指的檔案；
@@ -866,9 +875,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `--fmp-dev-plugin` 裝它的 `.js`，搜尋任何關鍵字都有結果、都播得出來；關鍵字剛好是 `fail`
   時以 `RateLimited` 失敗（離線看錯誤提示）；`missing`、`preview`、`flaky`、`unavailable` 給播放
   恢復的實機驗證；假的 QR 登入（第二次輪詢就完成，憑證 `fake-session-0000`）與貼上 cookie（任何值不空的 `fmp_test_session`）給帳號頁的
-  實機驗證，它不發請求，
-  帶不帶憑證要看 `account_service_test.dart`（`test_plugin/README.md`）。閘門：
-  `test/plugins/test_plugin_bundle_test.dart`。第二個測試插件
+  實機驗證，登入後的關鍵字 `expired`（刷新後成功）、`expired-hard`（刷新也被拒、轉成已失效）與啟動刷新（`unchanged`）給失效與
+  刷新的實機驗證。它不發請求，
+  帶不帶憑證要看 `account_service_test.dart`（細節在 `test_plugin/README.md`）。閘門：
+  `test/plugins/test_plugin_bundle_test.dart`（搜尋與播放的關鍵字、只在 dev 打包）；登入只有 `checks.json` 的 `login` 案例經
+  `contract_test.dart` 跑 `loginVerify`，QR、`expired`、`expired-hard` 沒有閘門，實機驗。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
 - 插件目錄（契約檢查的單位）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
   一條；只收 `SourcePlugin` 已有方法的能力）、`fixtures/<能力>/*.json`（依檔名是請求順序）。格式
