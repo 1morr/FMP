@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/auth.dart';
+import 'package:fmp/core/network/source_http_client.dart';
+import 'package:fmp/core/redaction/redactor.dart';
 
 import '../../support/credentials.dart';
 import '../../support/fake_http_adapter.dart';
@@ -209,6 +215,115 @@ void main() {
       );
 
       expect(_cookie(harness), 'buvid3=FAKE_PLUGIN_BUVID; SESSDATA=$_sessdata');
+    });
+  });
+
+  // 登入回應設的 cookie 是憑證，不能落進 jar（ADR 0029 §決定 2，design §6.3）。插件
+  // 呼叫層的版本在 script_source_plugin_test.dart 的 `login`。
+  group('a login does not store its cookies', () {
+    Harness loginHarness() => Harness(
+      (options) => switch (options.uri.path) {
+        '/login' => reply(
+          200,
+          headers: {'Set-Cookie': 'SESSDATA=$_sessdata; Path=/'},
+        ),
+        '/later' => reply(
+          200,
+          headers: {'Set-Cookie': 'later=FAKE_LATER_COOKIE; Path=/'},
+        ),
+        _ => reply(200),
+      },
+      credentials: const NoCredentials(),
+    );
+
+    test('a response during the login is not stored, a later one is', () async {
+      final harness = loginHarness();
+
+      final response = await harness.client.withoutSavingCookies(
+        () => harness.get('https://example.test/login'),
+      );
+      // 呼叫端照樣讀得到 header（QR 的 done 從這裡取憑證）。
+      expect(response.headers['set-cookie'], [contains(_sessdata)]);
+      await harness.get('https://example.test/check');
+      expect(_cookie(harness), isNull);
+
+      await harness.get('https://example.test/later');
+      await harness.get('https://example.test/check');
+      expect(_cookie(harness), 'later=FAKE_LATER_COOKIE');
+    });
+
+    test('overlapping logins hold until the last one ends', () async {
+      final harness = loginHarness();
+      final first = Completer<void>();
+
+      final outer = harness.client.withoutSavingCookies(() => first.future);
+      await harness.client.withoutSavingCookies(
+        () => harness.get('https://example.test/later'),
+      );
+      await harness.get('https://example.test/login');
+      await harness.get('https://example.test/check');
+      expect(_cookie(harness), isNull, reason: 'the outer login still runs');
+
+      first.complete();
+      await outer;
+      await harness.get('https://example.test/later');
+      await harness.get('https://example.test/check');
+      expect(_cookie(harness), 'later=FAKE_LATER_COOKIE');
+    });
+
+    // 計數是每個 client 一個：一個插件在登入，別的插件的回應照存。
+    test('a login holds only its own client', () async {
+      final adapter = FakeHttpAdapter(
+        (options) => switch (options.uri.path) {
+          '/later' => reply(
+            200,
+            headers: {'Set-Cookie': 'later=FAKE_LATER_COOKIE; Path=/'},
+          ),
+          _ => reply(200),
+        },
+      );
+      final factory = SourceHttpClientFactory(
+        log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+        credentials: const NoCredentials(),
+        createAdapter: () => adapter,
+      );
+      SourceHttpClient client(String id) =>
+          factory.create(pluginId: id, allowedHosts: allowedHosts);
+      final a = client('plugin-a');
+      final b = client('plugin-b');
+      addTearDown(a.close);
+      addTearDown(b.close);
+      Future<String?> send(SourceHttpClient client, String path) async {
+        await client.send(
+          SourceRequest(Uri.parse('https://example.test$path')),
+        );
+        return adapter.requests.last.headers['cookie'] as String?;
+      }
+
+      final login = Completer<void>();
+      final held = a.withoutSavingCookies(() => login.future);
+      await send(a, '/later');
+      await send(b, '/later');
+
+      expect(await send(a, '/check'), isNull);
+      expect(await send(b, '/check'), 'later=FAKE_LATER_COOKIE');
+      login.complete();
+      await held;
+    });
+
+    test('a failed login gives the jar back', () async {
+      final harness = loginHarness();
+
+      await expectLater(
+        harness.client.withoutSavingCookies<void>(
+          () => Future.error(StateError('login failed')),
+        ),
+        throwsStateError,
+      );
+      await harness.get('https://example.test/later');
+      await harness.get('https://example.test/check');
+
+      expect(_cookie(harness), 'later=FAKE_LATER_COOKIE');
     });
   });
 

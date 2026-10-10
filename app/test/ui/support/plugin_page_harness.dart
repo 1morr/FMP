@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/endpoints.dart';
@@ -23,6 +24,7 @@ import '../../plugins/plugin_harness.dart';
 import 'shell_harness.dart';
 
 /// 一個插件的安裝檔：每個能力匯出一個同名函式（內容不重要，插件頁不呼叫它們）。
+/// [login] 是 manifest 的 `login`：給了就加上 `login` 能力與它要的匯出。
 String pluginScript(
   String id, {
   String name = '',
@@ -30,6 +32,7 @@ String pluginScript(
   List<String> capabilities = const ['search'],
   List<String> hosts = const ['example.test'],
   String description = '',
+  Map<String, Object?>? login,
 }) {
   final manifest = jsonEncode({
     'id': id,
@@ -37,12 +40,15 @@ String pluginScript(
     'version': version,
     'author': 'FMP tests',
     'apiVersion': 1,
-    'capabilities': capabilities,
+    'capabilities': [...capabilities, if (login != null) 'login'],
     'allowedHosts': hosts,
     if (description.isNotEmpty) 'description': description,
+    'login': ?login,
   });
-  return '/* ==FMP Plugin==\n$manifest\n==/FMP Plugin== */\n'
-      '${[for (final c in capabilities) 'export function $c() { return null; }'].join('\n')}\n';
+  final header = '/* ==FMP Plugin==\n$manifest\n==/FMP Plugin== */\n';
+  final exports = PluginFile.parse(header).manifest.requiredExports;
+  return '$header'
+      '${[for (final e in exports) 'export function $e() { return null; }'].join('\n')}\n';
 }
 
 /// 假的檔案對話框：回傳 [file]（`null` 是取消），記下問過的副檔名。
@@ -85,13 +91,20 @@ final class UnresponsivePlugin implements SourcePlugin {
 /// `NetworkError`，不聯網）與假的檔案對話框。快取庫開不起來：移除插件時略過快取那一步
 /// （那一步由 `plugin_installer_test.dart` 守）。
 final class PluginPageHarness {
-  PluginPageHarness._({this.dialogs, bool registrySources = false}) {
+  PluginPageHarness._({
+    this.dialogs,
+    bool registrySources = false,
+    bool secureStorage = true,
+    List<Override> overrides = const [],
+  }) {
     shell = ShellHarness(
       database: plugins.database,
       fileDialogs: dialogs,
       cacheUnavailable: true,
       registrySources: registrySources,
+      secureStorage: secureStorage,
       extraOverrides: [
+        ...overrides,
         redactorProvider.overrideWithValue(plugins.redactor),
         credentialStoreProvider.overrideWithValue(plugins.credentials),
         sourceHttpClientFactoryProvider.overrideWithValue(plugins.httpClients),
@@ -112,14 +125,21 @@ final class PluginPageHarness {
   /// 那是假時間 zone，它的 microtask 只在 `pump` 時執行；若測試先進 `runAsync` 寫資料庫，
   /// 載入的查詢排在 drift 的鎖後面、輪到它時卻等不到 `pump`，後面的寫入就永遠等不到鎖。
   /// 所以先 `pump` 一次讓它跑完（記憶體資料庫只需要 microtask）。
+  ///
+  /// [secureStorage] 是平台宣告（帳號頁的登入按鈕看它）；憑證一律存在 [PluginHarness]
+  /// 的記憶體 secure storage。[overrides] 加在外殼的 override 之後。
   static Future<PluginPageHarness> create(
     WidgetTester tester, {
     FakeFileDialogs? dialogs,
     bool registrySources = false,
+    bool secureStorage = true,
+    List<Override> overrides = const [],
   }) async {
     final harness = PluginPageHarness._(
       dialogs: dialogs,
       registrySources: registrySources,
+      secureStorage: secureStorage,
+      overrides: overrides,
     );
     var loaded = false;
     unawaited(harness.plugins.credentials.ready.then((_) => loaded = true));

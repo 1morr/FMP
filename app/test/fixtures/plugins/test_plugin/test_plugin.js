@@ -5,8 +5,9 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream"],
-  "allowedHosts": []
+  "capabilities": ["search", "resolveStream", "login"],
+  "allowedHosts": [],
+  "login": { "methods": ["qr"] }
 }
 ==/FMP Plugin== */
 
@@ -40,6 +41,16 @@ const UNAVAILABLE_KEYWORD = 'unavailable';
 
 // `flaky-` 曲目各自解析過幾次（插件的 isolate 活著就一直留著）。
 const flakyCalls = new Map();
+
+// 假的 QR 登入（ADR 0029），不連網：每次產生的 QR 碼內容固定，第二次輪詢就完成，
+// 交出一個一看就是假的憑證；`loginVerify` 只認它。
+const FAKE_QR_TEXT = 'fmp-test://login';
+const FAKE_SESSION_COOKIE = 'fmp_test_session';
+const FAKE_SESSION = 'fake-session-0000';
+
+// 每個 QR 碼（token）已經輪詢過幾次。
+const qrPolls = new Map();
+let qrCount = 0;
 
 function sourceIdFor(keyword, index, hz) {
   switch (keyword) {
@@ -116,4 +127,29 @@ export async function resolveStream(request) {
       },
     ],
   };
+}
+
+export function loginQrStart() {
+  qrCount += 1;
+  const token = `qr-${qrCount}`;
+  qrPolls.set(token, 0);
+  return { qrText: FAKE_QR_TEXT, token };
+}
+
+export function loginQrPoll(token) {
+  if (!qrPolls.has(token)) return { status: 'expired' };
+  const polls = qrPolls.get(token) + 1;
+  if (polls < 2) {
+    qrPolls.set(token, polls);
+    return { status: 'waiting' };
+  }
+  qrPolls.delete(token);
+  return { status: 'done', credentials: { cookies: { [FAKE_SESSION_COOKIE]: FAKE_SESSION } } };
+}
+
+export function loginVerify(credentials) {
+  if (credentials.cookies[FAKE_SESSION_COOKIE] !== FAKE_SESSION) {
+    throw { fmpError: 'CredentialInvalid', message: 'not the fake session of the test plugin' };
+  }
+  return { userId: 'fmp-test-user', displayName: 'FMP Test User' };
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/json_shape.dart';
 
 // 宿主與插件交換的 DTO，apiVersion 1（ADR 0014 §決定 5）。
@@ -45,6 +46,9 @@ const sourceDtoShapes = <String, JsonShape>{
     'bitrate': false,
     'expiresAt': false,
   },
+  'LoginQrCode': {'qrText': true, 'token': true},
+  'LoginQrPoll': {'status': true, 'credentials': false},
+  'LoginAccount': {'userId': true, 'displayName': true, 'avatar': false},
 };
 
 /// 搜尋的輸入。
@@ -393,4 +397,114 @@ String _sourceId(JsonFields fields, String path) {
     throw FormatException('$path.sourceId: empty or contains ":"');
   }
   return sourceId;
+}
+
+/// `loginQrStart` 的回傳值（ADR 0029 §決定 2）。
+@immutable
+final class LoginQrCode {
+  const LoginQrCode({required this.qrText, required this.token});
+
+  factory LoginQrCode.fromJson(Object? json) {
+    final fields = JsonFields(
+      json,
+      sourceDtoShapes['LoginQrCode']!,
+      path: 'LoginQrCode',
+    );
+    return LoginQrCode(
+      qrText: fields.nonEmptyString('qrText'),
+      token: fields.nonEmptyString('token'),
+    );
+  }
+
+  /// 畫成 QR 碼的文字。
+  final String qrText;
+
+  /// 交給 `loginQrPoll` 的不透明字串。
+  final String token;
+}
+
+/// QR 登入的進度（`fmp-plugin.d.ts` 的 `LoginQrStatus`）。
+enum LoginQrStatus {
+  waiting,
+  scanned,
+  expired,
+  done;
+
+  /// 插件介面上的名稱，與 [name] 分開寫死。
+  String get wireName => switch (this) {
+    waiting => 'waiting',
+    scanned => 'scanned',
+    expired => 'expired',
+    done => 'done',
+  };
+}
+
+/// `loginQrPoll` 的回傳值。
+@immutable
+final class LoginQrPoll {
+  const LoginQrPoll(this.status, {this.credentials})
+    : assert((status == LoginQrStatus.done) == (credentials != null));
+
+  /// [LoginQrStatus.done] 一定帶憑證，其他狀態不能帶。
+  factory LoginQrPoll.fromJson(Object? json) {
+    const path = 'LoginQrPoll';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final name = fields.string('status');
+    final status = LoginQrStatus.values.firstWhere(
+      (value) => value.wireName == name,
+      orElse: () => throw FormatException('$path.status: unknown "$name"'),
+    );
+    final credentials = fields.raw('credentials');
+    if ((status == LoginQrStatus.done) != (credentials != null)) {
+      throw const FormatException(
+        '$path.credentials: required exactly when the status is "done"',
+      );
+    }
+    return LoginQrPoll(
+      status,
+      credentials: credentials == null
+          ? null
+          : LoginCredentials.fromJson(credentials),
+    );
+  }
+
+  final LoginQrStatus status;
+  final LoginCredentials? credentials;
+}
+
+/// `loginVerify` 的回傳值：憑證屬於哪個帳號（ADR 0012 §決定 4）。
+@immutable
+final class LoginAccount {
+  const LoginAccount({
+    required this.userId,
+    required this.displayName,
+    this.avatar = const [],
+  });
+
+  factory LoginAccount.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'LoginAccount';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    return LoginAccount(
+      userId: fields.nonEmptyString('userId'),
+      displayName: fields.nonEmptyString('displayName'),
+      avatar: List.unmodifiable([
+        for (final (index, item)
+            in (fields.optionalList('avatar') ?? []).indexed)
+          Artwork._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: '$path.avatar[$index]',
+          ),
+      ]),
+    );
+  }
+
+  final String userId;
+  final String displayName;
+
+  /// 多尺寸頭像；沒有就是空的。
+  final List<Artwork> avatar;
 }

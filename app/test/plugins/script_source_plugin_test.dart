@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
+import '../support/fake_http_adapter.dart';
 import 'plugin_harness.dart';
 
 final _formats = [StreamFormat(container: 'mp4', codec: 'aac')];
@@ -334,6 +337,288 @@ void main() {
         '{"sourceId":"bv1","cid":9,"purpose":"playback",'
         '"formats":[{"container":"mp4","codec":"aac"}]}',
       );
+    });
+  });
+
+  group('login exports', () {
+    const qr = '{"methods": ["qr"]}';
+    const qrExports =
+        'export function loginQrStart() {}\n'
+        'export function loginQrPoll() {}\n';
+    const verify = 'export function loginVerify() {}\n';
+    const search = 'export function search() {}\n';
+
+    Future<void> refused(String body, {String? login = qr}) => expectLater(
+      PluginHarness().load(
+        pluginSource(
+          body,
+          capabilities: ['search', if (login != null) 'login'],
+          login: login,
+        ),
+      ),
+      throwsA(isA<Unsupported>()),
+    );
+
+    test(
+      'the login capability needs loginVerify, not a login export',
+      () async {
+        final plugin = await PluginHarness().load(
+          pluginSource(
+            '$search$qrExports$verify',
+            capabilities: ['search', 'login'],
+            login: qr,
+          ),
+        );
+
+        expect(plugin.manifest.login, isNotNull);
+        await refused('$search$qrExports');
+        await refused('$search${qrExports}export function login() {}\n');
+      },
+    );
+
+    test('qr needs loginQrStart and loginQrPoll', () async {
+      await refused('$search${verify}export function loginQrStart() {}\n');
+      await refused('$search${verify}export function loginQrPoll() {}\n');
+    });
+
+    test('refresh needs loginRefresh', () async {
+      const refreshing = '{"methods": ["cookie"], "refresh": "onStartup"}';
+      final plugin = await PluginHarness().load(
+        pluginSource(
+          '$search${verify}export function loginRefresh() {}\n',
+          capabilities: ['search', 'login'],
+          login: refreshing,
+        ),
+      );
+
+      expect(plugin.manifest.login!.refresh, isNotNull);
+      await refused('$search$verify', login: refreshing);
+    });
+
+    test('a login export that is not declared is refused', () async {
+      await refused('$search$verify', login: null);
+      // methods 沒有 qr 卻匯出 QR 的函式；沒宣告 refresh 卻匯出 loginRefresh。
+      await refused(
+        '$search$verify$qrExports',
+        login: '{"methods": ["cookie"]}',
+      );
+      await refused(
+        '$search$qrExports${verify}export function loginRefresh() {}\n',
+      );
+    });
+  });
+
+  group('login', () {
+    const qrSource = '''
+export function search() { return { items: [], hasMore: false }; }
+export function loginQrStart() { return { qrText: 'https://example.test/qr?k=1', token: 'T1' }; }
+export function loginQrPoll(token) {
+  return token === 'T1'
+    ? { status: 'done', credentials: { cookies: { SESSDATA: 'FAKE_SESSDATA_123' } } }
+    : { status: 'expired' };
+}
+export function loginVerify(credentials) {
+  return {
+    userId: '42',
+    displayName: credentials.cookies.SESSDATA === 'FAKE_SESSDATA_123' ? 'Tester' : 'Other',
+    avatar: [{ url: 'https://example.test/face.jpg', width: 96 }],
+  };
+}
+''';
+
+    Future<ScriptSourcePlugin> load(
+      String body, {
+      PluginHarness? harness,
+      String login = '{"methods": ["qr"]}',
+    }) => (harness ?? PluginHarness()).load(
+      pluginSource(body, capabilities: ['search', 'login'], login: login),
+    );
+
+    test('runs the QR exports and decodes what they return', () async {
+      final plugin = await load(qrSource);
+
+      final code = await plugin.loginQrStart();
+      final done = await plugin.loginQrPoll(code.token);
+      final expired = await plugin.loginQrPoll('T2');
+      final account = await plugin.loginVerify(done.credentials!);
+
+      expect(code.qrText, 'https://example.test/qr?k=1');
+      expect(done.status, LoginQrStatus.done);
+      expect(done.credentials!.cookies, {'SESSDATA': 'FAKE_SESSDATA_123'});
+      expect(expired.status, LoginQrStatus.expired);
+      expect(expired.credentials, isNull);
+      expect(account.userId, '42');
+      expect(account.displayName, 'Tester');
+      expect(
+        account.avatar.single.url,
+        Uri.parse('https://example.test/face.jpg'),
+      );
+    });
+
+    test('a method that is not declared is Unsupported', () async {
+      final plugin = await load(
+        'export function search() {}\nexport function loginVerify() {}\n',
+        login: '{"methods": ["cookie"]}',
+      );
+
+      expect(plugin.loginQrStart, throwsA(isA<Unsupported>()));
+      expect(
+        () => plugin.loginRefresh(const LoginCredentials(cookies: {})),
+        throwsA(isA<Unsupported>()),
+      );
+    });
+
+    for (final (description, poll) in [
+      ('done without credentials', "{ status: 'done' }"),
+      (
+        'credentials before done',
+        "{ status: 'waiting', credentials: { cookies: {} } }",
+      ),
+      ('an unknown status', "{ status: 'confirmed' }"),
+    ]) {
+      test('a poll with $description is a ParseError', () async {
+        final plugin = await load(
+          qrSource.replaceFirst(
+            RegExp(r'export function loginQrPoll[\s\S]*?\n}\n'),
+            'export function loginQrPoll() { return $poll; }\n',
+          ),
+        );
+
+        await expectLater(plugin.loginQrPoll('T1'), throwsA(isA<ParseError>()));
+      });
+    }
+
+    test('an avatar outside the allowed hosts is a ParseError', () async {
+      final plugin = await load(
+        qrSource.replaceFirst(
+          'https://example.test/face.jpg',
+          'https://evil.test/face.jpg',
+        ),
+      );
+
+      await expectLater(
+        plugin.loginVerify(const LoginCredentials(cookies: {})),
+        throwsA(isA<ParseError>()),
+      );
+    });
+
+    test('loginVerify registers the credentials first and keeps them when it '
+        'fails', () async {
+      final harness = PluginHarness();
+      final plugin = await load(
+        "export function search() {}\n"
+        "export function loginQrStart() {}\nexport function loginQrPoll() {}\n"
+        "export function loginVerify(c) {\n"
+        "  fmp.log.info('verifying ' + c.cookies.SESSDATA);\n"
+        "  throw { fmpError: 'CredentialInvalid', message: 'bad ' + c.cookies.SESSDATA };\n"
+        "}\n",
+        harness: harness,
+      );
+
+      await expectLater(
+        plugin.loginVerify(
+          const LoginCredentials(
+            cookies: {'SESSDATA': 'FAKE_SESSDATA_123', 'short': '5'},
+          ),
+        ),
+        throwsA(isA<CredentialInvalid>()),
+      );
+
+      // 插件自己的 log 已經遮掉；失敗之後仍登記著。短值不登記（也不讓呼叫失敗）。
+      expect(
+        harness.records('plugin-a').single.message,
+        isNot(contains('FAKE_SESSDATA_123')),
+      );
+      expect(
+        harness.redactor.redact('x FAKE_SESSDATA_123'),
+        isNot(contains('FAKE_SESSDATA_123')),
+      );
+    });
+
+    test('loginRefresh gives new credentials, registered, or null', () async {
+      final harness = PluginHarness();
+      final plugin = await load(
+        'export function search() {}\nexport function loginVerify() {}\n'
+        'export function loginRefresh(c) {\n'
+        "  return c.cookies.SESSDATA === 'FAKE_OLD_SESSDATA'\n"
+        "    ? { cookies: { SESSDATA: 'FAKE_NEW_SESSDATA' }, extra: { refresh_token: 'FAKE_NEW_REFRESH' } }\n"
+        '    : null;\n'
+        '}\n',
+        harness: harness,
+        login: '{"methods": ["cookie"], "refresh": "onStartup"}',
+      );
+
+      final refreshed = await plugin.loginRefresh(
+        const LoginCredentials(cookies: {'SESSDATA': 'FAKE_OLD_SESSDATA'}),
+      );
+      final unchanged = await plugin.loginRefresh(
+        const LoginCredentials(cookies: {'SESSDATA': 'FAKE_OTHER_SESSDATA'}),
+      );
+
+      expect(refreshed!.cookies, {'SESSDATA': 'FAKE_NEW_SESSDATA'});
+      expect(refreshed.extra, {'refresh_token': 'FAKE_NEW_REFRESH'});
+      expect(unchanged, isNull);
+      for (final value in [
+        'FAKE_OLD_SESSDATA',
+        'FAKE_OTHER_SESSDATA',
+        'FAKE_NEW_SESSDATA',
+        'FAKE_NEW_REFRESH',
+      ]) {
+        expect(harness.redactor.redact(value), isNot(value), reason: value);
+      }
+    });
+
+    test('responses during a login export do not go into the cookie jar, '
+        'later ones do', () async {
+      final harness = PluginHarness(
+        handler: (options) => switch (options.uri.path) {
+          '/login' => reply(
+            200,
+            headers: {'Set-Cookie': 'SESSDATA=FAKE_SESSDATA_123; Path=/'},
+          ),
+          '/anon' => reply(
+            200,
+            headers: {'Set-Cookie': 'buvid3=FAKE_BUVID_456; Path=/'},
+          ),
+          _ => reply(200, body: '{"items": [], "hasMore": false}'),
+        },
+      );
+      final plugin = await load('''
+export async function search({ keyword }) {
+  const response = await fmp.http.request({ url: 'https://example.test/' + keyword });
+  return JSON.parse(response.body.startsWith('{') ? response.body : '{"items": [], "hasMore": false}');
+}
+export async function loginQrStart() {
+  await fmp.http.request({ url: 'https://example.test/login' });
+  return { qrText: 'x', token: 't' };
+}
+export async function loginQrPoll() {
+  const response = await fmp.http.request({ url: 'https://example.test/login' });
+  const header = response.headers['set-cookie'][0];
+  const value = header.substring('SESSDATA='.length, header.indexOf(';'));
+  return { status: 'done', credentials: { cookies: { SESSDATA: value } } };
+}
+export async function loginVerify() {
+  await fmp.http.request({ url: 'https://example.test/login' });
+  return { userId: '1', displayName: 'Tester' };
+}
+''', harness: harness);
+      String? cookie() =>
+          harness.adapter.requests.last.headers['cookie'] as String?;
+
+      await plugin.loginQrStart();
+      final poll = await plugin.loginQrPoll('t');
+      await plugin.loginVerify(poll.credentials!);
+      await plugin.search(SearchQuery(keyword: 'check'));
+
+      // 插件讀得到回應的 set-cookie，但 jar 裡沒有它。
+      expect(poll.credentials!.cookies, {'SESSDATA': 'FAKE_SESSDATA_123'});
+      expect(cookie(), isNull);
+
+      await plugin.search(SearchQuery(keyword: 'anon'));
+      await plugin.search(SearchQuery(keyword: 'check'));
+
+      expect(cookie(), 'buvid3=FAKE_BUVID_456');
     });
   });
 }

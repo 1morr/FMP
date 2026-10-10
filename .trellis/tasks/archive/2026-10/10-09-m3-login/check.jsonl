@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "Sections 4.3 login contract; 4.8 checks.json login case; 6.3 jar and login responses; 6.4 QR flow; 6.6 logout; 6.7 accounts page"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Accounts, login methods, browse-as-logged-in, invalidation"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "Login exports, credentials shape, jar rule"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Design system, settings sections, dialogs"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Manifest parsing, host API shapes, loader capability checks"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "Cookie jar, auth interceptor, redaction"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI layer patterns, settings sections, guideline tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}

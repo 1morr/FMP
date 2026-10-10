@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream"]',
-        '"capabilities": ["search"]',
+        '"capabilities": ["search", "resolveStream", "login"]',
+        '"capabilities": ["search", "login"]',
       );
 
       expect(

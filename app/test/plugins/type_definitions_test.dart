@@ -188,6 +188,29 @@ export function shape() {
     });
   });
 
+  test(
+    'the login unions match LoginMethod, LoginRefresh and LoginQrStatus',
+    () {
+      expect(_union(_dts, 'FmpLoginMethod'), {
+        for (final method in LoginMethod.values) method.wireName,
+      });
+      expect(_union(_dts, 'FmpLoginRefresh'), {
+        for (final refresh in LoginRefresh.values) refresh.wireName,
+      });
+      expect(_union(_dts, 'LoginQrStatus'), {
+        for (final status in LoginQrStatus.values) status.wireName,
+      });
+      // 變異：多一個值就對不上。
+      expect(
+        _union(
+          _dts.replaceFirst("'qr' | 'webView'", "'qr' | 'passkey' | 'webView'"),
+          'FmpLoginMethod',
+        ),
+        isNot({for (final method in LoginMethod.values) method.wireName}),
+      );
+    },
+  );
+
   test('every error name maps to the AppError of that name', () {
     final names = _union(_dts, 'FmpErrorName');
 

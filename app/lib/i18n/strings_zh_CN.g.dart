@@ -93,6 +93,9 @@ class TranslationsZhCn extends Translations
   late final Translations$onboarding$zh_CN onboarding =
       Translations$onboarding$zh_CN.internal(_root);
   @override
+  late final Translations$accounts$zh_CN accounts =
+      Translations$accounts$zh_CN.internal(_root);
+  @override
   late final Translations$errors$zh_CN errors =
       Translations$errors$zh_CN.internal(_root);
 }
@@ -272,6 +275,8 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   // Translations
   @override
   String get title => '设置';
+  @override
+  String get accounts => '账号';
   @override
   String get appearance => '外观';
   @override
@@ -766,6 +771,89 @@ class Translations$onboarding$zh_CN extends Translations$onboarding$zh_TW {
   String installedCount({required Object count}) => '已安装的插件：${count}';
   @override
   String get failedTitle => '有些插件没有安装成功';
+}
+
+// Path: accounts
+class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
+  Translations$accounts$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get none => '没有可以登录的音源';
+  @override
+  String get noneHint => '安装支持登录的插件之后，就能在这里登录。';
+  @override
+  String get goToPlugins => '前往插件页';
+  @override
+  String get loadFailed => '无法读取账号';
+  @override
+  String get working => '处理中';
+  @override
+  String get notLoggedIn => '未登录';
+  @override
+  String get statusActive => '正常';
+  @override
+  String get statusInvalidated => '已失效';
+  @override
+  String get statusUnreadable => '暂时无法读取，稍后重试';
+  @override
+  String get browseAsLoggedIn => '以登录身份浏览与播放';
+  @override
+  String get automationRisk => '以登录身份大量请求可能被视为自动化行为（推测）';
+  @override
+  String get loginQr => '扫码登录';
+  @override
+  String get loginWebView => '网页登录';
+  @override
+  String get loginCookie => '粘贴 Cookie';
+  @override
+  String get relogin => '重新登录';
+  @override
+  String get logout => '退出登录';
+  @override
+  String noMethod({required Object name}) => '此平台还不能登录“${name}”';
+  @override
+  String logoutTitle({required Object name}) => '退出登录“${name}”？';
+  @override
+  String get logoutBody => 'FMP 中这个音源的登录数据会被删除。“以登录身份浏览与播放”的设置会保留。';
+  @override
+  String get confirmLogout => '退出登录';
+  @override
+  String get cancel => '取消';
+  @override
+  String loggedIn({required Object name}) => '已登录“${name}”';
+  @override
+  String loggedOut({required Object name}) => '已退出登录“${name}”';
+  @override
+  String loginFailed({required Object name, required Object reason}) =>
+      '无法登录“${name}”：${reason}';
+  @override
+  String logoutFailed({required Object name, required Object reason}) =>
+      '无法退出登录“${name}”：${reason}';
+  @override
+  String settingFailed({required Object reason}) => '无法保存设置：${reason}';
+  @override
+  String qrTitle({required Object name}) => '扫码登录“${name}”';
+  @override
+  String get qrImage => '登录用的二维码';
+  @override
+  String get qrStarting => '正在生成二维码';
+  @override
+  String get qrWaiting => '用手机上的 App 扫描二维码';
+  @override
+  String get qrScanned => '已扫描，请在手机上确认';
+  @override
+  String get qrExpired => '二维码已过期';
+  @override
+  String get qrVerifying => '正在确认登录';
+  @override
+  String get qrRegenerate => '重新生成';
+  @override
+  String get retry => '重试';
 }
 
 // Path: errors

@@ -49,9 +49,11 @@
 - **進行中**：
   - **PR 5**（#226，`feat/m3-plugin-page`，任務 `10-09-m3-plugin-page` 未封存）：CI 綠、opus 審過、Android 實測通過。**等擁有者**：Windows 實測（滑鼠與鍵盤自動化要先問）、更新流程實測（push `fmp-plugins` 暫時分支 `test/m3-update-flow` 要先問）。合併前封存任務。
   - **PR 6**（#227，`feat/m3-onboarding`，base 是 `feat/m3-plugin-page`，任務 `10-09-m3-onboarding` 未封存）：opus 審過、Android 實測通過；stacked PR 不跑 CI（`ci.yml` 只認 base `main`），#226 合併後改 base 再等 CI。**等擁有者**：Windows 實測。
+  - **PR 8**（#228，`feat/m3-login`，base 是 `feat/m3-onboarding`，任務 `10-09-m3-login` 未封存）：opus 審過、Android 重播實測通過。插件端 fmp-plugins#7（draft，`feat/login-qr`：B 站、網易 1.1.0 的 QR 登入；網易 RSA 用 bn.js，QuickJS 沒有 BigInt）本機契約重播兩個都過。**等擁有者**：Windows 實測；真實 QR 登入（擁有者自己掃）。合併順序：#226 → #227 → #228 → fmp-plugins#7 的 `FMP_REF` 改成新 main 再轉正式 PR。
+  - **PR 5 的更新流程**：已在 Android 實測完（2026-10-09，暫時分支已刪）。
   - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，已 rebase 到新 main、補 `description`、加進 index，CI 全綠（含 YouTube 契約與單元測試）；等 Windows 播放驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-09 再試仍是 `LOGIN_REQUIRED`，要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。
 - **待擁有者回覆**：GitHub secret scanning 對 fmp-plugins `youtube/youtube.js` 的警告（#1）是 YouTube.js 內建的公開 InnerTube key（舊版 FMP 也有），不是外洩；是否由代理以 `gh` 關掉（false positive），等擁有者同意。
-- **下一步**：PR 8（`login`、QR、帳號頁；opus；疊在 `feat/m3-onboarding` 上）→ PR 9、10。PR 8 的真實登入要擁有者自己掃 QR。
+- **下一步**：PR 9（網頁登入、貼上 cookie；opus；疊在 `feat/m3-login`）、PR 10（失效與刷新）。擁有者回來後：換代理節點驗 YouTube、Windows 實測（#226–#228）、真實 QR 登入、PR 9 的 Google 測試帳號登入。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -487,6 +489,14 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 8 留下的
+
+1. **`cookie` 與 `webView` 的登入按鈕**：`availableLoginMethods` 目前只開 `qr`；PR 9 打開這兩種（`webView` 依 `PlatformCapabilities.loginWebView`）。
+2. **最後刷新時間與結果**的顯示留給 PR 10。
+3. **已啟用卻載入失敗的插件按登入只得到「預期外的錯誤」提示**：與 PR 5 留下的第 2 條同一個根源（registry 沒暴露載入失敗），一起處理。
+4. **插件圖示**：帳號卡與插件頁都還沒畫 manifest 的 `icon`。
+5. **插件端（fmp-plugins）**：B 站、網易的 QR 登入與 `loginVerify`，資料見 `archive/2026-10/10-09-m3-login/research/qr-login-apis.md`。網易 weapi 要純 JS 的 AES-CBC 與無 padding RSA，現有 `post()` 沒傳 `auth`、非 200 就拋、不回 headers。B 站 `businessError` 少 `-111`。
 
 ### PR 5 留下的
 

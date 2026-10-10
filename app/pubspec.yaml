@@ -90,6 +90,9 @@ dependencies:
   path_provider: ^2.1.6
   # 插件版本比較（ADR 0030 §決定 4）；只准在 lib/plugins/repository/ import（fmp_layer_imports）。
   pub_semver: ^2.2.1
+  # QR 登入畫面畫 QR 碼（design §6.4、§14）；只准在 lib/ui/accounts/ import
+  # （fmp_layer_imports）。2023-05 後沒有新版，壞掉時換 pretty_qr_code。
+  qr_flutter: ^4.1.0
   # 介面字串（ADR 0024 §決定 7）。不用 slang_flutter：翻譯以 Riverpod 注入
   # （lib/ui/i18n/），不用 slang 的 LocaleSettings／TranslationProvider。
   slang: ^4.19.2

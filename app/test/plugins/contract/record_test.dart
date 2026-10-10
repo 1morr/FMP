@@ -116,6 +116,21 @@ void main() {
     expect(_read(directory, 'search'), before);
   });
 
+  // 命令列沒有憑證（design §4.8）：login 的案例略過，其他照錄。
+  test('skips a case that requires a login', () async {
+    final directory = copyPlugin('test_plugin');
+    final upstream = FakeHttpAdapter(_upstream);
+
+    final recording = await recordContract(directory, network: () => upstream);
+
+    expect(recording.problems, isEmpty);
+    expect(recording.skipped, ['login: requires a login']);
+    expect(
+      Directory(p.join(directory.path, 'fixtures', 'login')).existsSync(),
+      isFalse,
+    );
+  });
+
   test('writes nothing for a case whose outcome misses the check', () async {
     // 連線失敗：案例以 NetworkError 結束，不是 checks.json 期望的成功。原本的
     // fixture 一個位元組都不動。

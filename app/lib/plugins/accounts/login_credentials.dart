@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:fmp/core/redaction/redactor.dart';
+
 /// 登入憑證的形狀（`fmp-plugin.d.ts` 的 `FmpLoginCredentials`，ADR 0029 §決定 3）。
 ///
 /// `cookies` 是 cookie 名稱對值；`extra` 給不是 cookie 的東西（B 站刷新用的
@@ -34,6 +36,26 @@ final class LoginCredentials {
 
   /// 每個秘密值：cookie 值與 `extra` 值。
   Iterable<String> get values => [...cookies.values, ...extra.values];
+
+  /// 把 [values] 登記到 [redactor]。短於 [Redactor.minimumSecretLength] 的略過：
+  /// `registerSecret` 對它們會拋錯，而 B 站會一起回 `home_feed_column=5` 這種不是
+  /// 秘密的短值。
+  void registerWith(Redactor redactor) {
+    for (final value in values) {
+      if (value.length >= Redactor.minimumSecretLength) {
+        redactor.registerSecret(value);
+      }
+    }
+  }
+
+  /// 取消 [registerWith] 的登記。
+  void unregisterFrom(Redactor redactor) {
+    for (final value in values) {
+      if (value.length >= Redactor.minimumSecretLength) {
+        redactor.unregisterSecret(value);
+      }
+    }
+  }
 
   static Map<String, String> _strings(Object? value, String field) {
     if (value is! Map<String, Object?> ||

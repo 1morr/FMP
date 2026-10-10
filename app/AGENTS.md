@@ -582,7 +582,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 憑證的 cookie 不從 cookie jar 送出（ADR 0029 §決定 4）：cookie 管理併 jar 時，跳過請求 `Cookie` header 已有的
   名稱與該插件憑證的 cookie 名稱，不論這次有沒有帶憑證、憑證有沒有失效。閘門：`auth_test.dart` 的
   `credential cookies never come from the jar`（jar 先放同名 cookie：attach、開關關閉、`never`、已失效）。
-  「登入期間 jar 不存回應的 `Set-Cookie`」是登入 PR 的事，到時加閘門。
+- 登入期間 jar 不存回應的 `Set-Cookie`（ADR 0029 §決定 2）：`ScriptSourcePlugin` 跑 `login*` 匯出時包在
+  `SourceHttpClient.withoutSavingCookies` 裡，範圍是整個 client（不分是哪一次插件呼叫，同 design §4.9 的理由），重疊時
+  最後一個結束才恢復；回應的 header 照樣交給插件。閘門：`auth_test.dart` 的 `a login does not store its cookies`（之後的
+  回應照存、重疊、失敗也恢復）、`script_source_plugin_test.dart` 的 `responses during a login export…`、
+  `account_service_test.dart` 的 `after a real QR login, never and a switched-off preference carry no credential cookie`。
 - `SourceResponse.credentialsAttached`（插件看到的 `HttpResponse.credentialsAttached`）只在這次送出的那一跳
   真的 attach 時為真；插件的「憑證無效」判定只能在它為真的回應上成立。閘門：`auth_test.dart`、
   `source_http_client_test.dart` 的 `credentialsAttached describes the hop…`。`authHeaders` 的名稱由
@@ -670,11 +674,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 帳號
 
-`lib/plugins/accounts/`（ADR 0012、0029）。登入流程、帳號頁在之後的 PR；這裡只有憑證存放與登出。
+`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。網頁登入、貼上 cookie、
+失效與刷新在之後的 PR。
 
 - 憑證只有一個來源 `CredentialStore`：secure storage 的 `credentials.<插件 id>`（`LoginCredentials` 的 JSON）。
   記憶體只放讀進來的狀態，請求只讀記憶體；每個查詢都等 `ready`（啟動載入完成），所以啟動時的請求不會在憑證
-  讀進來之前以匿名送出。是否登入只看它。
+  讀進來之前以匿名送出。是否登入只看它。啟動只讀 manifest 宣告 `login` 的已安裝插件加上有帳號列的（design §6.1）。
+  閘門：`credential_store_test.dart` 的 `a plugin that does not declare login is not read`。
 - 讀取失敗（含內容壞掉）時該插件為 `unreadable`：不帶、**不刪**，30 秒後重讀一次（一次性 `Timer`），重讀仍失敗就
   維持，不再排。啟動載入時帳號列與憑證不一致就刪掉多的那一邊並記 warning。載入、重讀、`save`、`delete` 排成一條
   依序執行：重讀從 storage 拿到的舊值不能蓋掉期間的登出或重新登入（否則登出後又帶憑證）。閘門：
@@ -686,7 +692,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`credential_store_test.dart` 的 `redaction`。
 - 登出（`AccountService.logout`）：憑證 → `accounts` 列 → 該插件的記憶體 cookie jar；`source_settings` 保留。每一步
   可重複。WebView 的 cookie 在網頁登入的 PR 接上。閘門：`credential_store_test.dart` 的 `logging out`。
-- 「以登入身分瀏覽與播放」讀 `source_settings.browse_as_logged_in`，空就是開（manifest 的預設在登入 PR）。
+- 登入（`AccountService.login`，三種方式共用）：插件的 `loginVerify` 通過才寫入——先 secure storage、再帳號列
+  （`active`、登入時間）、再登記遮蔽（`CredentialStore.save`）；驗證丟錯什麼都不寫，寫入失敗包成 `AppError`（登入失敗）。
+  `loginVerify`／`loginRefresh` 呼叫前就把傳入憑證的值登記到遮蔽（失敗也不取消；短值同上略過），`loginRefresh` 回的新憑證
+  也登記。閘門：`account_service_test.dart` 的 `login` 群組、`script_source_plugin_test.dart` 的 `loginVerify registers…`、
+  `loginRefresh gives new credentials…`。
+- QR 登入（`QrLogin`，`qr_login.dart`）：`loginQrStart` 之後每 2 秒 `loginQrPoll`，以一次性 `Timer` 接力（上一次回來才排
+  下一次，不是週期計時器）；`scanned` 照常續輪詢、`expired` 停、`done` 交 `AccountService.login`；`start` 重新產生時舊的
+  結果作廢；`dispose`（離開畫面）取消計時器，還在路上的輪詢回來後不再排。失敗經 `log.report`（tag `accounts`）後停在
+  失敗狀態。閘門：`account_service_test.dart` 的 `QR login` 群組（fakeAsync，結束時沒有待執行的計時器）。
+- 「以登入身分瀏覽與播放」讀 `source_settings.browse_as_logged_in`，空就是 manifest 的 `login.browseAsLoggedInDefault`
+  （沒宣告是開）：`ScriptPluginLoader` 載入成功時把它交給 `CredentialStore.setBrowseAsLoggedInDefault`，請求都來自載入了的
+  插件。帳號頁的開關以同一條規則顯示，寫入經 `AccountService.setBrowseAsLoggedIn`。閘門：`account_service_test.dart` 的
+  `browse as logged in` 群組。
   憑證的值只用假值寫測試（`FAKE_…`）。
 
 ## 插件
@@ -698,8 +716,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   包一段 JSON manifest，之後是 ES module。讀 manifest 不執行腳本。manifest 與 DTO 的物件是封閉的：
   不認得的欄位整個拒收。閘門：`test/plugins/manifest/`。
 - 能力與匯出函式同名、雙向一致：宣告了沒匯出、匯出了能力名稱卻沒宣告，都拒絕載入
-  （`Unsupported`）；其他名稱的匯出不管。`apiVersion` 必須等於 `hostApiVersion`。閘門：
-  `script_source_plugin_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+  （`Unsupported`）；其他名稱的匯出不管。`login` 例外：它的匯出是 `loginVerify`，methods 含 `qr` 時加 `loginQrStart`、
+  `loginQrPoll`，宣告 `refresh` 時加 `loginRefresh`（`PluginManifest.requiredExports`），同樣雙向一致。`apiVersion` 必須
+  等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
+  `plugin_manifest_test.dart`。
+- manifest 的 `login`（ADR 0029 §決定 1）：有 `login` 能力才有、反之亦然；methods 不空、不重複，含 `webView` 才有
+  `webView`（反之亦然），它的 `url`、`cookieHosts` 都是 `allowedHosts` 內的 `https`；格式錯是 `ParseError`，不認得的方式或
+  刷新時機是 `Unsupported`。閘門：`plugin_manifest_test.dart` 的 `login` 群組、`rejects as Unsupported`。
+- `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
+  `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
+  `record_test.dart` 的 `skips a case that requires a login`。
 - manifest 的 `allowedHosts` 管插件交給宿主的每個網址：`fmp.http.request`（網路層擋，見「網路」）、
   串流候選（另外只准 `asset:///`，給測試插件）、封面、圖示。閘門：`script_source_plugin_test.dart`
   的 `returned values`、`plugin_runtime_test.dart` 的 `a host outside the manifest…`。
@@ -772,7 +798,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   同目錄的 `tone.wav`（`asset:///…`）。prod 的建置只留下空目錄，沒有檔案。實機以
   `--fmp-dev-plugin` 裝它的 `.js`，搜尋任何關鍵字都有結果、都播得出來；關鍵字剛好是 `fail`
   時以 `RateLimited` 失敗（離線看錯誤提示）；`missing`、`preview`、`flaky`、`unavailable` 給播放
-  恢復的實機驗證（`test_plugin/README.md`）。閘門：
+  恢復的實機驗證；假的 QR 登入（第二次輪詢就完成，憑證 `fake-session-0000`）給帳號頁的實機驗證，它不發請求，
+  帶不帶憑證要看 `account_service_test.dart`（`test_plugin/README.md`）。閘門：
   `test/plugins/test_plugin_bundle_test.dart`。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
 - 插件目錄（契約檢查的單位）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
@@ -1272,10 +1299,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
-- 設定頁的區塊（`SettingsSection`）：外觀、播放、網路是 ADR 0011 的設定組（design §9.8 的順序），之後是
-  「插件」（不是設定表，是插件頁，M3 design §6.7）；帳號（第一個）在 M3 PR 8、關於（最後一個）在 PR 11 才加，
-  之前不放空殼。插件頁自己有分頁與捲動的清單，所以不包在設定組那個捲動的欄裡，填滿右側（窄版是點進去的那一頁）。
-  閘門：`settings_page_test.dart` 的 `… plugins come after network and open the plugin page`（1000、400 寬）。
+- 設定頁的區塊（`SettingsSection`）：第一個是「帳號」，之後外觀、播放、網路是 ADR 0011 的設定組（design §9.8 的順序），
+  最後是「插件」（帳號與插件不是設定表，M3 design §6.7）；關於（最後一個）在 PR 11 才加，之前不放空殼。帳號頁與插件頁
+  自己有捲動的清單（或置中的空狀態），所以不包在設定組那個捲動的欄裡，填滿右側（窄版是點進去的那一頁）。寬版預設選的是
+  帳號。閘門：`settings_page_test.dart` 的 `… accounts come first, plugins after network and open the plugin page`
+  （1000、400 寬）、`expanded and wider: groups on the left…`。
+- 帳號頁（`lib/ui/accounts/`，ADR 0029 §決定 8，M3 design §6.7）：
+  - 每個宣告 `login` 的**已啟用**插件一張卡（讀資料庫的已安裝清單，不讀插件清單：沒有這種插件時不建 `CredentialStore`；
+    登入時才向插件清單要那個插件）。沒有就是空狀態加「前往插件頁」。區塊一直在，不隨插件有無出現或消失（設定頁的順序與寬版
+    預設的第一組不跳）。閘門：`accounts_section_test.dart` 的 `without a plugin that declares login…`、`one card per…`。
+  - 登入按鈕是「methods ∩ 這個 App 在這個平台做得到的」（`availableLoginMethods`）：沒有 secure storage 一個都沒有；`qr`
+    一律有；`webView` 要平台層的網頁登入、`cookie` 的畫面都在 M3 PR 9，現在都沒有。沒有任何一種時寫「這個平台還不能登入」。
+    閘門：`accounts_section_test.dart` 的 `availableLoginMethods…`、`one card per…`、`without secure storage…`。
+  - 已登入：頭像（帳號列的 `avatar_json`，經那個插件的封面快取）、名稱、狀態（正常／已失效／暫時無法讀取，取自
+    `CredentialStore.state`）、「以登入身分瀏覽與播放」開關（`automationRisk` 時附說明）、登出（先確認）；已失效時多「重新
+    登入」（只有一種方式時；幾種時照列每一種）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
+    `accounts_section_test.dart` 的 `a QR login with the test plugin…`、`an invalidated account…`、`unreadable credentials…`、
+    `offline…`。
+  - QR 登入是對話框（`qr_login_dialog.dart`，不是全螢幕頁，所以不進 `toast_layering_test.dart`）：QR 碼一律白底黑點（不跟
+    主題，`AppLayout.qrBackground`），過期時蓋遮罩並給「重新產生」，失敗時給「重試」；Esc、取消或點外面關閉並停止輪詢。
+    `qr_flutter` 只准在 `lib/ui/accounts/`（`fmp_layer_imports`）。閘門：`closing the QR dialog stops the login`、guideline
+    測試的 `the QR login at …`。
 - 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
@@ -1294,8 +1338,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組）與插件頁（已安裝、可安裝、安裝的
-  確認框）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
+  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組）、插件頁（已安裝、可安裝、安裝的
+  確認框）與帳號頁（三種狀態的卡、QR 登入對話框）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
 - 插件頁（`lib/ui/plugins/plugins_page.dart`，ADR 0030 §決定 6–11，M3 design §7.5）：
@@ -1587,7 +1631,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

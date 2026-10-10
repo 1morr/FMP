@@ -13,5 +13,10 @@
       "formats": [{ "container": "wav", "codec": "pcm_s16le" }]
     },
     "expect": { "minItems": 1, "nonEmpty": ["url", "container", "codec"] }
+  },
+  "login": {
+    "input": { "cookies": { "fmp_test_session": "fake-session-0000" } },
+    "expect": { "minItems": 1, "nonEmpty": ["userId", "displayName"] },
+    "requiresLogin": true
   }
 }

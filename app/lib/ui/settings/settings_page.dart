@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
@@ -11,9 +12,10 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 設定頁的區塊，依清單上的順序（M3 design §6.7）。外觀、播放、網路是 ADR 0011 的
-/// 設定組；插件不是設定表，是插件頁（ADR 0030 §決定 11），同樣以 list-detail 呈現。
-/// 帳號（第一個）與關於（最後一個）跟著實作它們的 PR 加。
+/// 設定組；帳號與插件不是設定表，是帳號頁（ADR 0029 §決定 8）與插件頁（ADR 0030
+/// §決定 11），同樣以 list-detail 呈現。關於（最後一個）跟著實作它的 PR 加。
 enum SettingsSection {
+  accounts(Icons.account_circle_outlined),
   appearance(Icons.palette_outlined),
   playback(Icons.play_circle_outline),
   network(Icons.public),
@@ -97,6 +99,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
     String name(SettingsSection group) => switch (group) {
+      SettingsSection.accounts => t.accounts,
       SettingsSection.appearance => t.appearance,
       SettingsSection.playback => t.playback,
       SettingsSection.network => t.network,
@@ -147,24 +150,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
+    // 帳號頁與插件頁自己有捲動的清單（與置中的空狀態）：不包在捲動的欄裡，填滿剩下的
+    // 高度。
+    Widget filling(
+      SettingsSection group,
+      Widget page, {
+      required bool heading,
+    }) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (heading)
+          Padding(
+            padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
+            child: sectionTitle(group),
+          ),
+        Expanded(child: page),
+      ],
+    );
     Widget detail(SettingsSection group, {required bool heading}) =>
         switch (group) {
-          // 插件頁自己有分頁與捲動的清單：不包在捲動的欄裡，填滿剩下的高度。
-          SettingsSection.plugins => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (heading)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    spacing.x4,
-                    spacing.x4,
-                    spacing.x4,
-                    0,
-                  ),
-                  child: sectionTitle(group),
-                ),
-              const Expanded(child: PluginsPage()),
-            ],
+          SettingsSection.accounts => filling(
+            group,
+            AccountsSection(
+              onOpenPlugins: () => _showSection(SettingsSection.plugins),
+            ),
+            heading: heading,
+          ),
+          SettingsSection.plugins => filling(
+            group,
+            const PluginsPage(),
+            heading: heading,
           ),
           SettingsSection.appearance => scrolling(
             group,

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/stream_preferences.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/script_errors.dart';
@@ -10,21 +11,22 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（M1 是 search、resolveStream）；其他能力的鍵是
-// 不認得的欄位，整個檔案拒收。
+// SourcePlugin 已有方法的那些（search、resolveStream，login 跑 loginVerify）；
+// 其他能力的鍵是不認得的欄位，整個檔案拒收。
 //
 // 形狀與 `lib/plugins/types/fmp-plugin.d.ts` 的 `FmpChecks` 等一致
 // （test/plugins/type_definitions_test.dart 比對）。
 
 /// checks.json 的欄位表，鍵是 `fmp-plugin.d.ts` 裡的 interface 名稱。
 const checkShapes = <String, JsonShape>{
-  'FmpChecks': {'search': false, 'resolveStream': false},
+  'FmpChecks': {'search': false, 'resolveStream': false, 'login': false},
   'FmpSearchCheck': {'input': true, 'expect': true},
   'FmpResolveStreamCheck': {
     'input': true,
     'expect': true,
     'expiresAtPattern': false,
   },
+  'FmpLoginCheck': {'input': true, 'expect': true, 'requiresLogin': true},
   'FmpExpectSuccess': {'minItems': false, 'nonEmpty': false},
   'FmpExpectError': {'error': true, 'reason': false},
 };
@@ -36,6 +38,7 @@ const _capabilities = {
     check: 'FmpResolveStreamCheck',
     item: 'StreamCandidate',
   ),
+  PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
 /// 一條檢查案例。
@@ -45,13 +48,17 @@ final class PluginCheck {
     this.input,
     this.expectation, {
     this.expiresAtPattern,
+    this.requiresLogin = false,
   });
 
   final PluginCapability capability;
 
-  /// [SearchQuery] 或 [StreamRequest]。
+  /// [SearchQuery]、[StreamRequest] 或 [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
+
+  /// 案例要登入才有意義（design §4.8）：重播照跑，命令列錄製略過。
+  final bool requiresLogin;
 
   /// resolveStream：網址裡的期限（[expiresAtProblems]）。
   final RegExp? expiresAtPattern;
@@ -71,6 +78,7 @@ final class PluginCheck {
   Future<Object> run(SourcePlugin plugin) => switch (input) {
     final SearchQuery query => plugin.search(query),
     final StreamRequest request => plugin.resolveStream(request),
+    final LoginCredentials credentials => plugin.loginVerify(credentials),
     _ => throw StateError('No host method for ${capability.wireName}'),
   };
 }
@@ -110,10 +118,15 @@ PluginCheck _check(
   try {
     input = switch (capability) {
       PluginCapability.search => _searchQuery(fields.raw('input'), path),
+      PluginCapability.login => _credentials(fields.raw('input'), path),
       _ => _streamRequest(fields.raw('input'), path),
     };
   } on ArgumentError catch (error) {
     throw FormatException('$path.input: ${error.message}');
+  }
+  if (capability == PluginCapability.login &&
+      fields.optionalBool('requiresLogin') != true) {
+    throw FormatException('$path.requiresLogin: must be true');
   }
   final expectation = _expectation(fields.raw('expect'), '$path.expect', item);
   final pattern = fields.optionalString('expiresAtPattern');
@@ -129,7 +142,16 @@ PluginCheck _check(
     expiresAtPattern: pattern == null
         ? null
         : _expiresAtPattern(pattern, '$path.expiresAtPattern'),
+    requiresLogin: capability == PluginCapability.login,
   );
+}
+
+LoginCredentials _credentials(Object? json, String path) {
+  try {
+    return LoginCredentials.fromJson(json);
+  } on FormatException catch (error) {
+    throw FormatException('$path.input: ${error.message}');
+  }
 }
 
 /// 剛好一個擷取群組的正規式。
@@ -355,7 +377,15 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
   final StreamResult stream => [
     for (final candidate in stream.candidates) candidateFields(candidate),
   ],
+  final LoginAccount account => [accountFields(account)],
   _ => throw ArgumentError.value(result, 'result'),
+};
+
+/// [LoginAccount] 的欄位，名稱同 `sourceDtoShapes['LoginAccount']`。
+Map<String, Object?> accountFields(LoginAccount account) => {
+  'userId': account.userId,
+  'displayName': account.displayName,
+  'avatar': account.avatar,
 };
 
 /// [TrackSummary] 的欄位，名稱同 `sourceDtoShapes['TrackSummary']`。

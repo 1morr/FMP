@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -18,6 +18,16 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
     模擬器開飛航模式）停在「等待網路連線」，網路回來後從原位置自動續播。
   - `unavailable`：第一頁第一首以 `Unavailable`（版權）失敗。兩首一起加進佇列
     播放，第一首跳過並提示原因。
+
+  假的 QR 登入（`login.methods` 只有 `qr`，不連網），給帳號頁的實機驗證：
+  - 「設定 > 帳號」的「FMP Test Plugin」按「QR 登入」：QR 碼的內容固定是
+    `fmp-test://login`（掃了也沒用）。第一次輪詢（2 秒後）是 `waiting`，第二次
+    （4 秒後）就 `done`，交出憑證 `fmp_test_session=fake-session-0000`。
+  - `loginVerify` 只認這個假憑證，回帳號「FMP Test User」（沒有頭像）；其他值以
+    `CredentialInvalid` 失敗。
+  - 登入之後開關「以登入身分瀏覽與播放」、登出都走真的流程（`CredentialStore`、
+    `source_settings`）。這個插件不發請求，所以看不出請求帶不帶憑證：那部分由
+    `test/plugins/accounts/account_service_test.dart` 以會發請求的插件守。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -33,7 +43,8 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 
 ## 契約檢查
 
-`checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search` 與
-`resolveStream` 都期望成功（每個能力只有一條，`missing` 的那一首由
+`checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
+`resolveStream` 與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

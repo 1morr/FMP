@@ -316,6 +316,32 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // design §2.2：qr_flutter 只在 QR 登入畫面（lib/ui/accounts/）；名稱相似但不同
+  // 系列（qr_flutters）不算。
+  Future<void> test_qrFlutterOutsideTheAccountsPages() async {
+    for (final path in [
+      'lib/ui/settings/settings_page.dart',
+      'lib/ui/accounts_extra/qr.dart',
+      'lib/plugins/accounts/qr_login.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:qr_flutter/qr_flutter.dart'!];\n",
+      );
+    }
+  }
+
+  Future<void> test_qrFlutterInTheAccountsPages() async {
+    await assertLints(
+      'lib/ui/accounts/qr_login_dialog.dart',
+      "import 'package:qr_flutter/qr_flutter.dart';\n",
+    );
+    await assertLints(
+      'lib/ui/settings/settings_page.dart',
+      "import 'package:qr_flutters/qr_flutters.dart';\n",
+    );
+  }
+
   Future<void> test_restrictedPlaybackFilesFromAllowedImporters() async {
     await assertLints(
       'lib/playback/playback_session.dart',

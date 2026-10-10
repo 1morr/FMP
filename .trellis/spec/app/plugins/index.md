@@ -33,7 +33,8 @@ lib/plugins/
   accounts/                   # 憑證與帳號（見 § 帳號）
     login_credentials.dart    # LoginCredentials：{cookies, extra?}
     credential_store.dart     # CredentialStore：secure storage 的憑證、狀態、遮蔽登記
-    account_service.dart      # AccountService：登出、移除插件的帳號面
+    account_service.dart      # AccountService：登入（驗證通過才寫入）、登出、移除插件的帳號面、開關
+    qr_login.dart             # QrLogin：QR 登入的輪詢（一次性 Timer 接力）與狀態
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
 
 test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
@@ -174,6 +175,16 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   需要 `ProviderContainer` 的測試要 override `credentialStoreProvider`（`harness.credentials`），App 層的測試
   override `secureStorageProvider`。
 - 憑證值用 `FAKE_…` 開頭的假值，遮蔽才好斷言。
+- 寫一個會登入的插件：manifest 加 `login`（形狀在 `fmp-plugin.d.ts` 的 `FmpLogin`）與 `login` 能力，匯出照
+  `PluginManifest.requiredExports`（`loginVerify` 一定要；`qr` 加 `loginQrStart`、`loginQrPoll`；`refresh` 加
+  `loginRefresh`）。`loginVerify` 自己以傳進來的憑證組 `Cookie`、請求標 `auth: 'never'`；QR 的 `done` 從輪詢回應的
+  `headers['set-cookie']` 取憑證（jar 不會存它）。範本是 `fmp-test` 的假 QR，會發請求的寫法看
+  `account_service_test.dart` 最後一個案例。
+- 登入流程的測試：`QrLogin` 的計時在 `fakeAsync` 裡跑，插件用 `account_service_test.dart` 的 `_LoginPlugin`（腳本化的
+  `loginQrPoll`），結尾斷言 `async.pendingTimers` 是空的；要真的 QuickJS 與 HTTP 時給 `QrLogin(interval:)` 一個很短的間隔、
+  聽它的 `value` 等到 `QrLoginDone`。
+- `PluginHarness` 的 `pluginSource(..., login: '<JSON>')` 加 manifest 的 `login`；插件頁的 `pluginScript(..., login: {...})`
+  會一併匯出 `login` 要的函式。
 
 ## 在 App 裡試插件
 

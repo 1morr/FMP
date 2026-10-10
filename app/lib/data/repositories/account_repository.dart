@@ -139,4 +139,10 @@ final class SourceSettingsRepository {
   Future<void> remove(String pluginId) => (_database.delete(
     _database.sourceSettingsTable,
   )..where((t) => t.pluginId.equals(pluginId))).go();
+
+  /// `source_settings` 有任何變動時發出，給帳號頁重讀。聽 drift 的 `tableUpdates`
+  /// 而不是 `watch()` 查詢，理由同 `PlayHistoryRepository.changes`。
+  Stream<void> changes() => _database
+      .tableUpdates(TableUpdateQuery.onTable(_database.sourceSettingsTable))
+      .map((_) {});
 }
