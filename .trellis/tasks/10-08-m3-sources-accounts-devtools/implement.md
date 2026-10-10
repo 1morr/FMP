@@ -500,13 +500,13 @@
 ### PR 9 留下的
 
 1. **Linux 建置只能靠 CI 驗**：`flutter_inappwebview_linux` 以本機 stub（`app/packages/flutter_inappwebview_linux_stub`）取代，本機建不了 Linux；stacked PR 不跑 CI，整串回到 base `main` 時要看 Linux 建置與整合測試 job。Linux 的 WebView 在 Linux 平台任務決定（ADR 0012 §決定 8），定了就刪 stub。
-2. **Android 的 WebView cookie 刪除**：套件的 `deleteCookie` 不帶 `Secure`，Chromium 拒收，改成送帶 `Secure` 的過期 cookie；只以原始碼推斷，**要在真實 Google 登入後以 cookie 名稱確認真的刪掉**。
+2. ~~**Android 的 WebView cookie 刪除**~~：PR 10 改成登出清全部 cookie（第 8 條），逐一刪除與 Android 的 `Secure` 繞法一起拿掉；實機確認改在第 8 條。
 3. **WebView 清不掉會擋住登出與移除**（照 design §7.4「失敗就停在那一步」）：登出時憑證已先刪，帳號列留著會在下次啟動對齊刪掉；但若 Windows 沒有 WebView2 會一直卡住。要不要改成記 warning、略過，實機遇到再決定。
 4. **卡住判定**改成「`url` 讀得到的 cookie 已有全部 `doneCookies`、`cookieHosts` 仍沒齊」（照字面「`url` 網域有任何 cookie」會在使用者輸入密碼時就誤報）；design §6.4 的那句是筆誤等級，真實登入時確認 15 秒的門檻。
 5. **APK 多了約 3.4 MB 的套件 asset**（`t-rex.html`、`web_support.js`）；要瘦身再看 `flutter_inappwebview` 的 asset 排除方式。
 6. **`flutter_inappwebview` 的 debug log**：debug build 會以 `developer.log` 輸出 `onLoadStop` 網址與頁面 console（Google 跳轉網址可能帶 token），只到 VM service／IDE，不進 FMP 的 log、錯誤歷史、診斷包，release 不輸出。要關就在平台層設 `PlatformInAppWebViewController.debugLoggingSettings.enabled = false`。
 7. **貼上 cookie 對話框在「驗證中」關掉**，驗證仍跑完並寫入（不跳成功提示），與 QR 一致；要不要在驗證中禁止關閉，之後決定。
-8. **Windows 登出後 WebView 留下的 cookie**（2026-10-10 真實 YouTube 登入後登出，讀 WebView2 `Cookies` 資料庫的名稱欄）：`.google.com`（17）與 `accounts.google.com`（7）全清，`.youtube.com` 24 個清掉 20 個（含三個 `doneCookies`）。留下兩類：`.youtube.com` 4 個分區 cookie（CHIPS，`top_frame_site_key` 是 `https://youtube.com`；`VISITOR_INFO1_LIVE` 等訪客 cookie，以網址刪不到）；Google 登入時寫到地區網域的 `.google.com.tw` 10 個（`SID`、`__Secure-1PSID` 等工作階段 cookie），不在 `cookieHosts`、`url` 底下。後者不會送到 `accounts.google.com` 與 YouTube，但 Google 工作階段留在 WebView 資料裡。修法候選：登出時清全部 WebView cookie（平台層已有 `clearAll`；登入 WebView 只在登入時用，憑證另存），待擁有者決定。
+8. **Windows 登出後 WebView 留下的 cookie**（2026-10-10 真實 YouTube 登入後登出，讀 WebView2 `Cookies` 資料庫的名稱欄）：`.google.com`（17）與 `accounts.google.com`（7）全清，`.youtube.com` 24 個清掉 20 個（含三個 `doneCookies`）。留下兩類：`.youtube.com` 4 個分區 cookie（CHIPS，`top_frame_site_key` 是 `https://youtube.com`；`VISITOR_INFO1_LIVE` 等訪客 cookie，以網址刪不到）；Google 登入時寫到地區網域的 `.google.com.tw` 10 個（`SID`、`__Secure-1PSID` 等工作階段 cookie），不在 `cookieHosts`、`url` 底下。後者不會送到 `accounts.google.com` 與 YouTube，但 Google 工作階段留在 WebView 資料裡。Android 真實登入後也有同樣兩類（`.google.com.tw` 10 個、分區 5 個）。**擁有者 2026-10-10 決定**：登出與移除插件清登入 WebView 的全部 cookie，放在 PR 10（#230，prd 第 7 條；ADR 0029、0030 與 design 已加更正）。
 
 ### PR 8 留下的
 

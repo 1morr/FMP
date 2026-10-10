@@ -14,6 +14,7 @@
 4. 帳號區塊：顯示最後刷新時間與結果（宣告 `refresh` 時）。
 5. `fmp-test`：關鍵字 `expired` 的搜尋在帶憑證時回 `CredentialInvalid`，刷新後成功；另有一個關鍵字讓刷新失敗（`expired-hard` 之類）以看到失效提示；`fmp-test` 宣告 `refresh: 'onStartup'`；README。
 6. 三語言；`app/AGENTS.md`（§ 帳號）與 spec。
+7. **登出與移除插件清登入 WebView 的全部 cookie**（PR 9 的後續，擁有者 2026-10-10 決定；放在這個 PR 以免重排整串 stacked PR）：Windows 真實 YouTube 登入後登出，以網址刪留下 Google 寫到地區網域的工作階段 cookie（`.google.com.tw`）與 YouTube 的分區 cookie（CHIPS），Android 登入後也有同樣兩類。登入 WebView 只在登入時用、憑證另存，清全部不影響其他音源。`AccountService` 的 WebView 那一步改成 `clearAll` 後讀 `loginWebViewHosts` 確認沒有剩下（剩下就丟 `StateError`，訊息只有數量）；`LoginWebView.clear(hosts)` 與 Android 的 `Secure` 過期繞法、Windows 的逐一刪除沒有呼叫端了，連同測試一起刪。ADR 0029 §決定 11、ADR 0030 §決定 10、design §6.4／§6.6／§7.4 各加一行更正。
 
 ## 不做
 
@@ -24,5 +25,6 @@
 
 - [ ] design §6.5 的閘門：刷新後重跑的那次請求帶新憑證；三個並行呼叫失效只刷新一次；不支援刷新時標失效；只提示一次、重新登入後再提示；限流與網路錯誤不標失效；啟動刷新在 `noInterface` 時不發、變 `Online` 後發一次、只發一次。
 - [ ] 帳號區塊顯示最後刷新時間與結果的 widget 測試（guideline 400／1000）。
+- [x] 登出與移除插件呼叫 `clearAll` 一次（其他網域的 cookie 也清掉）；清完 `loginWebViewHosts` 還讀得到就丟錯、停在 WebView 那一步、可重來；沒有 `login.webView` 或平台沒有登入 WebView 時不清。實機：Android 真實 YouTube 登入後登出，WebView 的 `Cookies` 資料庫沒有任何 cookie（只讀名稱）。（2026-10-10：Android 模擬器登出前 50 個、登出後與 35 秒後都是 0；Windows 等貼上 cookie 那次一起驗。）
 - [ ] 驗證清單全綠。
 - [ ] 實機（重播）：兩平台以 `fmp-test` 的 `expired` 看刷新後成功、`expired-hard` 看失效提示附「登入」；重啟後啟動刷新跑一次（帳號頁最後刷新時間更新）。真實（B 站）在插件端合併、擁有者登入後做。

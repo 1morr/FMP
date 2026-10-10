@@ -439,6 +439,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 - **App 內網頁登入**（R1 通過，`research/r1-youtube-login.md`；ADR 0029 §決定 9）：
   - 套件 `flutter_inappwebview` 6.2.0-beta.3（釘死；2026-10-08 擁有者決定）。6.1.5 的 Android 部分在 AGP 9.1.0 要靠會被拿掉的暫時旗標才建得起來，beta.3 原樣能建、API 相容。兩者的 Windows 都要在 `app/windows/CMakeLists.txt` 加 `add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)`（MSVC 14.51 的 STL1011）。其他候選見 ADR 0029。
   - 平台層 `lib/platform/login_webview/`：`LoginWebView { Widget build(LoginWebViewSpec spec, {onCookies}); Future<Map<String,String>> cookies(List<Uri> hosts); Future<void> clear(List<Uri> hosts); Future<void> clearAll(); }`；宣告 `PlatformCapabilities.loginWebView`（Android、Windows 真）。`clear` 對每個網址 `getCookies` 後逐一以名稱、domain、path 刪除（`getCookies(accounts.google.com)` 也回 `.google.com` 的 cookie）。
+    - 更正（M3 PR 10）：Windows 與 Android 真實 YouTube 登入後實測，以網址刪會留下 Google 寫到地區網域的工作階段 cookie（`.google.com.tw`）與 YouTube 的分區 cookie（CHIPS）；`clear(hosts)` 拿掉，登出與移除插件改用 `clearAll`，再讀 `loginWebViewHosts` 確認讀不到（ADR 0029 §決定 11 的更正）。
   - **UA 由平台層決定**：Android 取 `InAppWebViewController.getDefaultUserAgent()` 拿掉 `; wv`（也處理沒有空白的 `;wv`），其餘不動；Windows 不設。R1：Android 的桌面 Chrome UA 被擋在 `/v3/signin/rejected`；Windows 的預設與桌面 UA 都能登入。
   - Windows 以 `WebViewEnvironment.create(settings: WebViewEnvironmentSettings(userDataFolder: <資料目錄>/webview))`，dev 與 prod 的 WebView 資料跟著資料目錄分開，「重設資料」能整個刪。
   - 流程：開 manifest 的 `webView.url` → 每次 `onLoadStop` 讀 `cookieHosts` 的 cookie → `doneCookies` 都出現時關頁 → `loginVerify` → 寫入。取到的 cookie 只交 `loginVerify`，不進 log。**不以網址判定完成**：Android 登入後會先插入 `gds.google.com` 的提示頁，最後落在 `m.youtube.com`；Google 帳號的同名 cookie 在 `.google.com`、`SetSID` 之前就出現，所以只看 `cookieHosts`。
@@ -468,7 +469,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 
 | 動作 | 清什麼 |
 |---|---|
-| 登出（帳號頁，確認框） | 該插件的 `CredentialStore` 項目、`accounts` 列、遮蔽登記、該插件的記憶體 cookie jar、WebView 中 `login.webView.cookieHosts` 的 cookie（有 WebView 時）。`source_settings` 保留 |
+| 登出（帳號頁，確認框） | 該插件的 `CredentialStore` 項目、`accounts` 列、遮蔽登記、該插件的記憶體 cookie jar、登入 WebView 的全部 cookie（插件宣告 `login.webView`、平台有 WebView 時；更正（M3 PR 10），原為 `cookieHosts` 的 cookie）。`source_settings` 保留 |
 | 移除插件 | 上一列全部，加上 §7.4 的移除流程 |
 | 重設資料（Debug 頁，§12.2） | 資料庫、`SecureStorage.deleteAll()`、WebView 全部資料（`clearAll`）、快取 |
 
@@ -533,7 +534,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
   - 更正（M3 PR 5）：從自訂 index 安裝也加「非官方來源」（自訂 index 同樣沒經 FMP 審查）；只有官方 index 不加。
 - **更新**：只在打開插件頁或按「檢查更新」時比對 index（ADR 0014 §決定 7）；semver 只升不降（`pub_semver` 2.2.1，Dart 團隊維護）；`apiVersion` 不相容時顯示「需要更新 FMP」並停用按鈕。同 id 更新保留 storage 與憑證。**能力或網域比目前版本多時**，先列出新增的部分再確認（§16 第 11 條）；「全部更新」遇到這種插件就逐個問，沒有增加的直接更新。慣例：Chrome 擴充功能要求新權限時先停用等確認、Android 的權限變更提示。
 - 更新後佇列與網址快取以新插件重新解析（M2 PR 7 的快取鍵含插件實例，`plugin_installer_test.dart` 已有；M3 實機第一次有入口，M2 待辦 8）。
-- **移除**：確認框 → 關閉 runtime → `CredentialStore` 刪除與遮蔽取消登記 → 刪 WebView 中該插件 `cookieHosts` 的 cookie → 刪 `accounts`、`source_settings` 列 → `CacheStore.removePlugin`（M2 已有）→ 排程器移除工作（PR 17 起）→ 刪 `installed_plugins` 列（`plugin_storage` cascade）。中途失敗就停在那一步、記錯、提示；再按一次從頭跑（每一步都可重複）。
+- **移除**：確認框 → 關閉 runtime → `CredentialStore` 刪除與遮蔽取消登記 → 清登入 WebView 的全部 cookie（更正（M3 PR 10），原為該插件 `cookieHosts` 的 cookie；§6.6）→ 刪 `accounts`、`source_settings` 列 → `CacheStore.removePlugin`（M2 已有）→ 排程器移除工作（PR 17 起）→ 刪 `installed_plugins` 列（`plugin_storage` cascade）。中途失敗就停在那一步、記錯、提示；再按一次從頭跑（每一步都可重複）。
 - **曲目保留**，顯示「音源未安裝」取代目前顯示插件 id 的做法（`pluginNameProvider`）；電台列同樣保留（§16 第 10 條）。
 - **Redactor 去重**（M1 待辦 14）：插件更新與重新載入時，`Redactor` 的 `_mediaCdns` 以插件 id 為鍵取代，不再累加。
 - 閘門：`plugin_installer_test.dart`：SHA 不符拒裝且不寫資料庫；index 的能力或網域與 `.js` manifest 不同時拒裝；semver 降版不顯示更新；`apiVersion` 不符；更新保留 storage 與憑證；能力或網域增加時回傳「需要確認」；移除後每一步的資料都不在（CredentialStore、accounts、cache 項目、storage、installed_plugins）；移除中途失敗後重跑可完成。
