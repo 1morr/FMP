@@ -62,6 +62,7 @@ final class PublisherHarness {
       skipPreviewClips: () => true,
       networkStatus: () => NetworkStatus.online,
       networkStatusChanges: const Stream.empty(),
+      pluginChanges: const Stream.empty(),
       preferredOutputDevice: () async => null,
       saveOutputDevice: (_) async {},
     );

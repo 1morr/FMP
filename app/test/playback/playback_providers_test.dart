@@ -14,6 +14,7 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -330,6 +331,66 @@ void main() {
 
       await historyBecomes(database, ['b']);
     });
+  });
+
+  // 停用（`setEnabled`）與移除（`PluginInstaller.remove` 的 `unregister`）都是插件清單
+  // 改了：組裝點把它交給控制器，前瞻屬於那個插件的就放掉，引擎不會接上它。跳過的
+  // 行為在 `playback_controller_test.dart` 的 `a source that was disabled or removed`。
+  group('a plugin that is disabled or removed', () {
+    for (final (name, goAway)
+        in <(String, Future<void> Function(PluginRegistry))>[
+          (
+            'disabling',
+            (registry) => registry.setEnabled('fmp-other', enabled: false),
+          ),
+          ('removing', (registry) => registry.unregister('fmp-other')),
+        ]) {
+      test('$name it drops the look-ahead of its song', () async {
+        final database = memoryDatabase();
+        await PluginRepository(database).install(
+          InstalledPlugin(
+            id: 'fmp-other',
+            version: '1.0.0',
+            manifestJson: '{}',
+            script: '',
+            installedAt: DateTime.utc(2026, 10, 10),
+          ),
+        );
+        final plugin = FakeSourcePlugin(
+          (request) => [candidate('${request.sourceId}.m4a')],
+        );
+        final other = FakeSourcePlugin(
+          (request) => [candidate('${request.sourceId}.m4a')],
+          id: 'fmp-other',
+        );
+        final backend = FakeAudioBackend(
+          durationOf: (_) => const Duration(minutes: 5),
+        );
+        final container = await start(
+          database,
+          backend: backend,
+          overrides: [
+            pluginRegistryProvider.overrideWithBuild(
+              (ref, notifier) => {'fmp-test': plugin, 'fmp-other': other},
+            ),
+          ],
+        );
+        container.listen(playbackControllerProvider, (_, _) {});
+        final controller = container.read(playbackControllerProvider);
+        await container.read(pluginRegistryProvider.future);
+
+        controller.addToQueue([
+          track('a'),
+          const TrackInfo(sourceTypeId: 'fmp-other', sourceId: 'b', title: 'b'),
+        ]);
+        await controller.jumpTo(0);
+        await pumpUntil(() => backend.nextSources.isNotEmpty);
+        expect(backend.nextSources.last?.url.path, '/b.m4a');
+
+        await goAway(container.read(pluginRegistryProvider.notifier));
+        await pumpUntil(() => backend.nextSources.last == null);
+      });
+    }
   });
 }
 

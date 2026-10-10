@@ -91,6 +91,9 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
   ref.listen(playbackPreferencesProvider, (_, _) {});
   final networkChanges = StreamController<NetworkStatus>.broadcast();
   ref.listen(networkStatusProvider, (_, status) => networkChanges.add(status));
+  // 插件被停用或移除（清單改了）時控制器放掉它的前瞻；同樣不重建控制器。
+  final pluginChanges = StreamController<void>.broadcast();
+  ref.listen(pluginRegistryProvider, (_, _) => pluginChanges.add(null));
   final controller = PlaybackController(
     session: PlaybackSession(
       backend: ref.watch(audioBackendProvider),
@@ -107,6 +110,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     skipPreviewClips: () => ref.read(skipPreviewClipsProvider),
     networkStatus: () => ref.read(networkStatusProvider),
     networkStatusChanges: networkChanges.stream,
+    pluginChanges: pluginChanges.stream,
     // 裝置清單第一次就緒時才讀：等資料庫的值讀出來，不拿還沒載入的空設定。
     preferredOutputDevice: () async =>
         (await ref.read(playbackPreferencesProvider.future)).outputDevice?.id,
@@ -164,6 +168,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     unawaited(lifecycleChanges.close());
     unawaited(controller.dispose());
     unawaited(networkChanges.close());
+    unawaited(pluginChanges.close());
   });
   return controller;
 });
