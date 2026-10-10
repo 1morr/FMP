@@ -87,6 +87,9 @@ class TranslationsZhCn extends Translations
   late final Translations$sources$zh_CN sources =
       Translations$sources$zh_CN.internal(_root);
   @override
+  late final Translations$plugins$zh_CN plugins =
+      Translations$plugins$zh_CN.internal(_root);
+  @override
   late final Translations$errors$zh_CN errors =
       Translations$errors$zh_CN.internal(_root);
 }
@@ -274,6 +277,8 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   String get back => '返回';
   @override
   String get playback => '播放';
+  @override
+  String get plugins => '插件';
 }
 
 // Path: player
@@ -551,6 +556,188 @@ class Translations$sources$zh_CN extends Translations$sources$zh_TW {
   String get disabled => '音源已停用';
 }
 
+// Path: plugins
+class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
+  Translations$plugins$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get tabInstalled => '已安装';
+  @override
+  String get tabAvailable => '可安装';
+  @override
+  String get checkUpdates => '检查更新';
+  @override
+  String get updateAll => '全部更新';
+  @override
+  String get more => '更多选项';
+  @override
+  String get installFromFile => '从文件安装';
+  @override
+  String get installFromUrl => '从网址安装';
+  @override
+  String get manageIndexes => '管理插件库';
+  @override
+  String get working => '处理中';
+  @override
+  String get noneInstalled => '还没有安装插件';
+  @override
+  String get noneInstalledHint => '到“可安装”标签页挑选要安装的插件';
+  @override
+  String versionAuthor({required Object version, required Object author}) =>
+      '${version} · ${author}';
+  @override
+  String get tagDisabled => '已停用';
+  @override
+  String get tagUnresponsive => '无响应';
+  @override
+  String get tagUpdate => '有更新';
+  @override
+  String get tagInstalled => '已安装';
+  @override
+  String enable({required Object name}) => '启用“${name}”';
+  @override
+  String get showDetails => '详细信息';
+  @override
+  String get hideDetails => '收起详细信息';
+  @override
+  String get capabilities => '能力';
+  @override
+  String get hosts => '会连接的域名';
+  @override
+  String get source => '来源';
+  @override
+  String get listSeparator => '、';
+  @override
+  String get sourceOfficial => '官方插件库';
+  @override
+  String sourceCustom({required Object url}) => '自定义插件库：${url}';
+  @override
+  String get sourceLocal => '从文件或网址安装';
+  @override
+  String get customIndex => '自定义插件库';
+  @override
+  String updateTo({required Object version}) => '更新到 ${version}';
+  @override
+  String get needsAppUpdate => '需要更新 FMP';
+  @override
+  String get remove => '移除';
+  @override
+  String get install => '安装';
+  @override
+  String installTitle({required Object name}) => '安装“${name}”？';
+  @override
+  String updateTitle({required Object name}) => '更新“${name}”？';
+  @override
+  String byline({required Object author, required Object version}) =>
+      '作者 ${author} · 版本 ${version}';
+  @override
+  String get addedAccess => '新版本比当前版本多了以下能力或域名，确认后才会更新。';
+  @override
+  String get addedCapabilities => '新增的能力';
+  @override
+  String get addedHosts => '新增的域名';
+  @override
+  String get loginWarning => '此脚本会以你的登录身份访问这些网站。';
+  @override
+  String get unofficial => '非官方来源：这个插件没有经过 FMP 审查。';
+  @override
+  String replaces({required Object version}) => '会替换已安装的版本 ${version}。';
+  @override
+  String get cancel => '取消';
+  @override
+  String get confirmInstall => '安装';
+  @override
+  String get confirmUpdate => '更新';
+  @override
+  String removeTitle({required Object name}) => '移除“${name}”？';
+  @override
+  String get removeBody => '插件及其数据、登录、缓存都会删除。曲目会保留，显示“音源未安装”。';
+  @override
+  String get confirmRemove => '移除';
+  @override
+  String installed({required Object name}) => '已安装“${name}”';
+  @override
+  String updated({required Object name, required Object version}) =>
+      '已将“${name}”更新到 ${version}';
+  @override
+  String updatedCount({required Object count}) => '已更新 ${count} 个插件';
+  @override
+  String removed({required Object name}) => '已移除“${name}”';
+  @override
+  String get upToDate => '插件都是最新版本';
+  @override
+  String updatesFound({required Object count}) => '有 ${count} 个插件可以更新';
+  @override
+  String get checkFailed => '有插件库读取失败，可能还有更新没找到';
+  @override
+  String get hashMismatch => '插件库刚更新，请稍后再试';
+  @override
+  String get manifestMismatch => '插件文件与插件库的数据不一致，未安装';
+  @override
+  String get appUpdateRequired => '需要更新 FMP 才能安装这个插件';
+  @override
+  String installFailed({required Object name, required Object reason}) =>
+      '无法安装“${name}”：${reason}';
+  @override
+  String installFileFailed({required Object reason}) => '无法安装插件：${reason}';
+  @override
+  String updateFailed({required Object name, required Object reason}) =>
+      '无法更新“${name}”：${reason}';
+  @override
+  String removeFailed({required Object name, required Object reason}) =>
+      '无法移除“${name}”：${reason}';
+  @override
+  String enableFailed({required Object name, required Object reason}) =>
+      '无法启用“${name}”：${reason}';
+  @override
+  String disableFailed({required Object name, required Object reason}) =>
+      '无法停用“${name}”：${reason}';
+  @override
+  String get indexLoadFailed => '无法读取这个插件库';
+  @override
+  String get indexNeedsAppUpdate => '需要更新 FMP 才能读取这个插件库';
+  @override
+  String get indexEmpty => '这个插件库没有插件';
+  @override
+  String get allFailed => '无法读取插件库';
+  @override
+  String get retry => '重试';
+  @override
+  String get urlLabel => '插件文件的网址（https）';
+  @override
+  String get urlInvalid => '请输入以 https 开头的网址';
+  @override
+  String get download => '下载';
+  @override
+  String get indexesTitle => '插件库';
+  @override
+  String get addIndex => '添加插件库';
+  @override
+  String get indexUrlLabel => 'index.json 的网址（https）';
+  @override
+  String get indexWarning => '非官方来源：这个列表的插件没有经过 FMP 审查。';
+  @override
+  String get add => '添加';
+  @override
+  String get removeIndex => '移除这个插件库';
+  @override
+  String get indexAdded => '已添加插件库';
+  @override
+  String get indexRemoved => '已移除插件库';
+  @override
+  String get indexExists => '这个插件库已在列表中';
+  @override
+  String get close => '关闭';
+  @override
+  late final Translations$plugins$capabilityNames$zh_CN capabilityNames =
+      Translations$plugins$capabilityNames$zh_CN.internal(_root);
+}
+
 // Path: errors
 class Translations$errors$zh_CN extends Translations$errors$zh_TW {
   Translations$errors$zh_CN.internal(TranslationsZhCn root)
@@ -587,6 +774,42 @@ class Translations$errors$zh_CN extends Translations$errors$zh_TW {
   @override
   late final Translations$errors$unavailableReasons$zh_CN unavailableReasons =
       Translations$errors$unavailableReasons$zh_CN.internal(_root);
+}
+
+// Path: plugins.capabilityNames
+class Translations$plugins$capabilityNames$zh_CN
+    extends Translations$plugins$capabilityNames$zh_TW {
+  Translations$plugins$capabilityNames$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get search => '搜索';
+  @override
+  String get resolveStream => '播放';
+  @override
+  String get trackDetail => '曲目详情';
+  @override
+  String get multiPart => '分P';
+  @override
+  String get importPlaylist => '导入歌单';
+  @override
+  String get libraryRead => '读取音乐库';
+  @override
+  String get libraryWrite => '修改音乐库';
+  @override
+  String get charts => '排行榜';
+  @override
+  String get live => '直播';
+  @override
+  String get mix => 'Mix';
+  @override
+  String get lyrics => '歌词';
+  @override
+  String get login => '登录';
 }
 
 // Path: errors.unavailableReasons

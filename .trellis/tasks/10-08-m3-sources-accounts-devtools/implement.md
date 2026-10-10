@@ -487,6 +487,15 @@
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
 
+### PR 5 留下的
+
+1. **「開發中」標記沒做**：它的來源是開發資料夾（design §12.5），PR 16 才有；`--fmp-dev-plugin` 裝的插件在資料庫裡與從檔案裝的沒有分別。PR 16 加上。
+2. **已啟用卻載入失敗的插件沒有標記**：不在 registry 的插件清單、也不是停用，開關看起來是開著的。要做就由 registry 暴露載入失敗的狀態，插件頁加一個標記與測試。
+3. **已安裝清單還沒讀好或讀失敗時，可安裝分頁對已裝的插件顯示「安裝」**：按下去會走成換來源（或降版）的更新。本機資料庫通常比 index 快，沒有 repro；要修就在已安裝清單讀好前停用可安裝分頁的按鈕。
+4. **`plugins_page.dart` 的 `_install`、`_confirmFile` 只接 `AppError`**：`repository.byId` 拋 drift 的錯誤時變成沒人接的非同步錯誤。
+5. **從檔案安裝沒有大小上限**（從網址安裝是 8 MiB）。
+6. **沒有網域的插件（`fmp-test`）在詳細資料裡仍顯示空的「Sites it connects to」標題**（Android 實測看到）；確認框已經省略，詳細資料應比照。
+
 ### PR 7 留下的
 
 1. **prod 與舊版 App 共用 secure storage 檔**：Windows 的 `%APPDATA%/com.personal/fmp/flutter_secure_storage.dat` 舊版（`flutter_secure_storage` 10.x）也在用；新版 prod 以鍵前綴 `fmp.` 區分，`deleteAll` 只刪自己的前綴。切換（M9）前確認舊版的鍵沒有 `fmp.` 開頭，並決定舊版憑證要不要遷移或清掉。

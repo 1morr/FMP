@@ -528,6 +528,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 
 - **安裝前確認**（ADR 0014 §決定 6）：對話框列出名稱、作者、版本、能力（翻譯過的名稱）、會連的網域，警告「此腳本會以你的登入身分存取這些網站」；從檔案或網址安裝另加「非官方來源」。
   - 從 index 安裝：先下載並驗過 SHA-256，**對話框的內容取自下載到的 `.js` 標頭 manifest**；它的 `id`、`version`、`apiVersion`、`capabilities`、`allowedHosts` 與 index 那一筆不同就拒裝。自訂 index 的 SHA 由同一份 index 提供，只驗得了「檔案是 index 說的那個」，驗不了 index 自己寫的能力與網域。更新時「新增的能力或網域」也以兩份 manifest 比。dev 的 `--fmp-dev-plugin` 入口照舊跳過確認（prod 不讀）。
+  - 更正（M3 PR 5）：從自訂 index 安裝也加「非官方來源」（自訂 index 同樣沒經 FMP 審查）；只有官方 index 不加。
 - **更新**：只在打開插件頁或按「檢查更新」時比對 index（ADR 0014 §決定 7）；semver 只升不降（`pub_semver` 2.2.1，Dart 團隊維護）；`apiVersion` 不相容時顯示「需要更新 FMP」並停用按鈕。同 id 更新保留 storage 與憑證。**能力或網域比目前版本多時**，先列出新增的部分再確認（§16 第 11 條）；「全部更新」遇到這種插件就逐個問，沒有增加的直接更新。慣例：Chrome 擴充功能要求新權限時先停用等確認、Android 的權限變更提示。
 - 更新後佇列與網址快取以新插件重新解析（M2 PR 7 的快取鍵含插件實例，`plugin_installer_test.dart` 已有；M3 實機第一次有入口，M2 待辦 8）。
 - **移除**：確認框 → 關閉 runtime → `CredentialStore` 刪除與遮蔽取消登記 → 刪 WebView 中該插件 `cookieHosts` 的 cookie → 刪 `accounts`、`source_settings` 列 → `CacheStore.removePlugin`（M2 已有）→ 排程器移除工作（PR 17 起）→ 刪 `installed_plugins` 列（`plugin_storage` cascade）。中途失敗就停在那一步、記錯、提示；再按一次從頭跑（每一步都可重複）。

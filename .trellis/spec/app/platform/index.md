@@ -23,7 +23,8 @@ lib/platform/
 選項寫成公開的靜態函式讓測試核對）、`media_controls/`（介面＋值型別＋一個實作；實作要在啟動時
 初始化，所以宣告在組裝點、`AppPlatform.withMediaControls` 在 `main()` 初始化，失敗時改宣告為沒有；
 兩個平台各一個實作檔，轉換成平台格式的部分寫成頂層純函數，單元測試不必建系統物件；Windows 的轉接器
-以建構子收 `SMTCWindows`，呼叫順序用 `implements` 它的假物件測，不載入 Rust 端）。
+以建構子收 `SMTCWindows`，呼叫順序用 `implements` 它的假物件測，不載入 Rust 端）、`files/`（介面＋一個以套件
+命名的實作 `file_picker_dialogs.dart` 給兩個平台；測試換掉套件的 `FilePickerPlatform.instance`，不開系統對話框）。
 
 ## 加一個能力
 

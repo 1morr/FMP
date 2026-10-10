@@ -67,6 +67,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$network$zh_TW.internal(_root);
   late final Translations$sources$zh_TW sources =
       Translations$sources$zh_TW.internal(_root);
+  late final Translations$plugins$zh_TW plugins =
+      Translations$plugins$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
       Translations$errors$zh_TW.internal(_root);
 }
@@ -301,6 +303,9 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: '播放'
   String get playback => '播放';
+
+  /// zh-TW: '插件'
+  String get plugins => '插件';
 }
 
 // Path: player
@@ -669,6 +674,266 @@ class Translations$sources$zh_TW {
   String get disabled => '音源已停用';
 }
 
+// Path: plugins
+class Translations$plugins$zh_TW {
+  Translations$plugins$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '已安裝'
+  String get tabInstalled => '已安裝';
+
+  /// zh-TW: '可安裝'
+  String get tabAvailable => '可安裝';
+
+  /// zh-TW: '檢查更新'
+  String get checkUpdates => '檢查更新';
+
+  /// zh-TW: '全部更新'
+  String get updateAll => '全部更新';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '從檔案安裝'
+  String get installFromFile => '從檔案安裝';
+
+  /// zh-TW: '從網址安裝'
+  String get installFromUrl => '從網址安裝';
+
+  /// zh-TW: '管理插件庫'
+  String get manageIndexes => '管理插件庫';
+
+  /// zh-TW: '處理中'
+  String get working => '處理中';
+
+  /// zh-TW: '還沒有安裝插件'
+  String get noneInstalled => '還沒有安裝插件';
+
+  /// zh-TW: '到「可安裝」分頁挑選要安裝的插件'
+  String get noneInstalledHint => '到「可安裝」分頁挑選要安裝的插件';
+
+  /// zh-TW: '{version} · {author}'
+  String versionAuthor({required Object version, required Object author}) =>
+      '${version} · ${author}';
+
+  /// zh-TW: '已停用'
+  String get tagDisabled => '已停用';
+
+  /// zh-TW: '沒有回應'
+  String get tagUnresponsive => '沒有回應';
+
+  /// zh-TW: '有更新'
+  String get tagUpdate => '有更新';
+
+  /// zh-TW: '已安裝'
+  String get tagInstalled => '已安裝';
+
+  /// zh-TW: '啟用「{name}」'
+  String enable({required Object name}) => '啟用「${name}」';
+
+  /// zh-TW: '詳細資料'
+  String get showDetails => '詳細資料';
+
+  /// zh-TW: '收起詳細資料'
+  String get hideDetails => '收起詳細資料';
+
+  /// zh-TW: '能力'
+  String get capabilities => '能力';
+
+  /// zh-TW: '會連的網域'
+  String get hosts => '會連的網域';
+
+  /// zh-TW: '來源'
+  String get source => '來源';
+
+  /// zh-TW: '、'
+  String get listSeparator => '、';
+
+  /// zh-TW: '官方插件庫'
+  String get sourceOfficial => '官方插件庫';
+
+  /// zh-TW: '自訂插件庫：{url}'
+  String sourceCustom({required Object url}) => '自訂插件庫：${url}';
+
+  /// zh-TW: '從檔案或網址安裝'
+  String get sourceLocal => '從檔案或網址安裝';
+
+  /// zh-TW: '自訂插件庫'
+  String get customIndex => '自訂插件庫';
+
+  /// zh-TW: '更新到 {version}'
+  String updateTo({required Object version}) => '更新到 ${version}';
+
+  /// zh-TW: '需要更新 FMP'
+  String get needsAppUpdate => '需要更新 FMP';
+
+  /// zh-TW: '移除'
+  String get remove => '移除';
+
+  /// zh-TW: '安裝'
+  String get install => '安裝';
+
+  /// zh-TW: '安裝「{name}」？'
+  String installTitle({required Object name}) => '安裝「${name}」？';
+
+  /// zh-TW: '更新「{name}」？'
+  String updateTitle({required Object name}) => '更新「${name}」？';
+
+  /// zh-TW: '作者 {author} · 版本 {version}'
+  String byline({required Object author, required Object version}) =>
+      '作者 ${author} · 版本 ${version}';
+
+  /// zh-TW: '新版本比目前的版本多了下列能力或網域，確認後才會更新。'
+  String get addedAccess => '新版本比目前的版本多了下列能力或網域，確認後才會更新。';
+
+  /// zh-TW: '新增的能力'
+  String get addedCapabilities => '新增的能力';
+
+  /// zh-TW: '新增的網域'
+  String get addedHosts => '新增的網域';
+
+  /// zh-TW: '此腳本會以你的登入身分存取這些網站。'
+  String get loginWarning => '此腳本會以你的登入身分存取這些網站。';
+
+  /// zh-TW: '非官方來源：這個插件沒有經過 FMP 審查。'
+  String get unofficial => '非官方來源：這個插件沒有經過 FMP 審查。';
+
+  /// zh-TW: '會取代已安裝的版本 {version}。'
+  String replaces({required Object version}) => '會取代已安裝的版本 ${version}。';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '安裝'
+  String get confirmInstall => '安裝';
+
+  /// zh-TW: '更新'
+  String get confirmUpdate => '更新';
+
+  /// zh-TW: '移除「{name}」？'
+  String removeTitle({required Object name}) => '移除「${name}」？';
+
+  /// zh-TW: '插件與它的資料、登入、快取都會刪除。曲目會保留，顯示「音源未安裝」。'
+  String get removeBody => '插件與它的資料、登入、快取都會刪除。曲目會保留，顯示「音源未安裝」。';
+
+  /// zh-TW: '移除'
+  String get confirmRemove => '移除';
+
+  /// zh-TW: '已安裝「{name}」'
+  String installed({required Object name}) => '已安裝「${name}」';
+
+  /// zh-TW: '已將「{name}」更新到 {version}'
+  String updated({required Object name, required Object version}) =>
+      '已將「${name}」更新到 ${version}';
+
+  /// zh-TW: '已更新 {count} 個插件'
+  String updatedCount({required Object count}) => '已更新 ${count} 個插件';
+
+  /// zh-TW: '已移除「{name}」'
+  String removed({required Object name}) => '已移除「${name}」';
+
+  /// zh-TW: '插件都是最新版本'
+  String get upToDate => '插件都是最新版本';
+
+  /// zh-TW: '有 {count} 個插件可以更新'
+  String updatesFound({required Object count}) => '有 ${count} 個插件可以更新';
+
+  /// zh-TW: '有插件庫讀不到，可能還有更新沒找到'
+  String get checkFailed => '有插件庫讀不到，可能還有更新沒找到';
+
+  /// zh-TW: '插件庫剛更新，請稍後再試'
+  String get hashMismatch => '插件庫剛更新，請稍後再試';
+
+  /// zh-TW: '插件檔與插件庫的資料不一致，沒有安裝'
+  String get manifestMismatch => '插件檔與插件庫的資料不一致，沒有安裝';
+
+  /// zh-TW: '需要更新 FMP 才能安裝這個插件'
+  String get appUpdateRequired => '需要更新 FMP 才能安裝這個插件';
+
+  /// zh-TW: '無法安裝「{name}」：{reason}'
+  String installFailed({required Object name, required Object reason}) =>
+      '無法安裝「${name}」：${reason}';
+
+  /// zh-TW: '無法安裝插件：{reason}'
+  String installFileFailed({required Object reason}) => '無法安裝插件：${reason}';
+
+  /// zh-TW: '無法更新「{name}」：{reason}'
+  String updateFailed({required Object name, required Object reason}) =>
+      '無法更新「${name}」：${reason}';
+
+  /// zh-TW: '無法移除「{name}」：{reason}'
+  String removeFailed({required Object name, required Object reason}) =>
+      '無法移除「${name}」：${reason}';
+
+  /// zh-TW: '無法啟用「{name}」：{reason}'
+  String enableFailed({required Object name, required Object reason}) =>
+      '無法啟用「${name}」：${reason}';
+
+  /// zh-TW: '無法停用「{name}」：{reason}'
+  String disableFailed({required Object name, required Object reason}) =>
+      '無法停用「${name}」：${reason}';
+
+  /// zh-TW: '無法讀取這個插件庫'
+  String get indexLoadFailed => '無法讀取這個插件庫';
+
+  /// zh-TW: '需要更新 FMP 才能讀取這個插件庫'
+  String get indexNeedsAppUpdate => '需要更新 FMP 才能讀取這個插件庫';
+
+  /// zh-TW: '這個插件庫沒有插件'
+  String get indexEmpty => '這個插件庫沒有插件';
+
+  /// zh-TW: '無法讀取插件庫'
+  String get allFailed => '無法讀取插件庫';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '插件檔的網址（https）'
+  String get urlLabel => '插件檔的網址（https）';
+
+  /// zh-TW: '請輸入 https 開頭的網址'
+  String get urlInvalid => '請輸入 https 開頭的網址';
+
+  /// zh-TW: '下載'
+  String get download => '下載';
+
+  /// zh-TW: '插件庫'
+  String get indexesTitle => '插件庫';
+
+  /// zh-TW: '加入插件庫'
+  String get addIndex => '加入插件庫';
+
+  /// zh-TW: 'index.json 的網址（https）'
+  String get indexUrlLabel => 'index.json 的網址（https）';
+
+  /// zh-TW: '非官方來源：這個清單的插件沒有經過 FMP 審查。'
+  String get indexWarning => '非官方來源：這個清單的插件沒有經過 FMP 審查。';
+
+  /// zh-TW: '加入'
+  String get add => '加入';
+
+  /// zh-TW: '移除這個插件庫'
+  String get removeIndex => '移除這個插件庫';
+
+  /// zh-TW: '已加入插件庫'
+  String get indexAdded => '已加入插件庫';
+
+  /// zh-TW: '已移除插件庫'
+  String get indexRemoved => '已移除插件庫';
+
+  /// zh-TW: '這個插件庫已在清單上'
+  String get indexExists => '這個插件庫已在清單上';
+
+  /// zh-TW: '關閉'
+  String get close => '關閉';
+
+  late final Translations$plugins$capabilityNames$zh_TW capabilityNames =
+      Translations$plugins$capabilityNames$zh_TW.internal(_root);
+}
+
 // Path: errors
 class Translations$errors$zh_TW {
   Translations$errors$zh_TW.internal(this._root);
@@ -714,6 +979,51 @@ class Translations$errors$zh_TW {
 
   late final Translations$errors$unavailableReasons$zh_TW unavailableReasons =
       Translations$errors$unavailableReasons$zh_TW.internal(_root);
+}
+
+// Path: plugins.capabilityNames
+class Translations$plugins$capabilityNames$zh_TW {
+  Translations$plugins$capabilityNames$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '搜尋'
+  String get search => '搜尋';
+
+  /// zh-TW: '播放'
+  String get resolveStream => '播放';
+
+  /// zh-TW: '曲目詳細資料'
+  String get trackDetail => '曲目詳細資料';
+
+  /// zh-TW: '分 P'
+  String get multiPart => '分 P';
+
+  /// zh-TW: '匯入歌單'
+  String get importPlaylist => '匯入歌單';
+
+  /// zh-TW: '讀取音樂庫'
+  String get libraryRead => '讀取音樂庫';
+
+  /// zh-TW: '修改音樂庫'
+  String get libraryWrite => '修改音樂庫';
+
+  /// zh-TW: '排行榜'
+  String get charts => '排行榜';
+
+  /// zh-TW: '直播'
+  String get live => '直播';
+
+  /// zh-TW: 'Mix'
+  String get mix => 'Mix';
+
+  /// zh-TW: '歌詞'
+  String get lyrics => '歌詞';
+
+  /// zh-TW: '登入'
+  String get login => '登入';
 }
 
 // Path: errors.unavailableReasons

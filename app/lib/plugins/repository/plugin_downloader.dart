@@ -98,6 +98,12 @@ final class PluginDownloader {
     return PluginIndex.parse(_utf8(bytes));
   }
 
+  /// 從網址安裝（ADR 0030 §決定 8）：下載 [url] 的安裝檔並讀出標頭 manifest（不
+  /// 執行腳本）。沒有 index 可比對，確認對話框的內容取自這個 manifest。上限同 index
+  /// 的插件檔；網路、大小、格式的失敗都是 [AppError]。
+  Future<PluginFile> downloadFile(Uri url) async =>
+      PluginFile.decode(await _fetch(url, maxBytes: pluginFileMaxBytes));
+
   /// 下載 [entry]（來自 [indexUrl]）並驗證，回傳可以確認、安裝的內容。
   ///
   /// - `apiVersion` 宿主不支援：[PrepareRejected]（appUpdateRequired），不下載。

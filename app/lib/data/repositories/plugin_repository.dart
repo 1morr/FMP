@@ -118,6 +118,13 @@ final class PluginRepository {
     _database.installedPluginsTable,
   )..where((t) => t.id.equals(id))).go();
 
+  /// `installed_plugins` 有任何變動（安裝、更新、啟用或停用、移除）時發出，給插件頁
+  /// 重讀。聽 drift 的 `tableUpdates` 而不是 `watch()` 查詢，理由同
+  /// `PlayHistoryRepository.changes`。
+  Stream<void> changes() => _database
+      .tableUpdates(TableUpdateQuery.onTable(_database.installedPluginsTable))
+      .map((_) {});
+
   static InstalledPlugin _fromRow(InstalledPluginRow row) => InstalledPlugin(
     id: row.id,
     version: row.version,
@@ -184,4 +191,9 @@ final class PluginIndexRepository {
   Future<void> remove(String url) => (_database.delete(
     _database.pluginIndexesTable,
   )..where((t) => t.url.equals(url))).go();
+
+  /// `plugin_indexes` 有任何變動（加入、移除）時發出。
+  Stream<void> changes() => _database
+      .tableUpdates(TableUpdateQuery.onTable(_database.pluginIndexesTable))
+      .map((_) {});
 }

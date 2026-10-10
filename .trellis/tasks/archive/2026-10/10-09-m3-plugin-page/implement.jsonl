@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "Sections 6.7 settings section order; 7.1 index; 7.3 enable/disable; 7.4 install/update/remove confirmations and gates; 7.5 plugin page; 14 file_picker"}
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "Plugin repository and lifecycle decisions"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Install confirmation, updates, removal keeps tracks"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Design system, layouts, list-detail, guidelines"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Offline empty state"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Platform layer, file_picker capability"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI layer patterns, guideline tests"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer and capabilities"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin registry, installer and repository APIs"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}

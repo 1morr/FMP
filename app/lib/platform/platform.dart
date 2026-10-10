@@ -15,6 +15,8 @@ import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
+import 'package:fmp/platform/files/file_picker_dialogs.dart';
+import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
@@ -34,10 +36,12 @@ final class AppPlatform {
     this.networkInterfaces,
     this.cacheDirectory,
     this.secureStorage,
+    this.fileDialogs,
     this.mediaControls,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
+       assert(capabilities.files == (fileDialogs != null)),
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
        assert((capabilities.cache != null) == (cacheDirectory != null)),
        assert(capabilities.secureStorage == (secureStorage != null)),
@@ -73,6 +77,7 @@ final class AppPlatform {
         networkInterfaces: true,
         cache: androidCacheSizes,
         secureStorage: true,
+        files: true,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       dataDirectory: AndroidAppDataDirectory(
@@ -85,6 +90,7 @@ final class AppPlatform {
         applicationCachePath: _applicationCachePath,
       ),
       secureStorage: FlutterSecureStorageAdapter.system(flavor),
+      fileDialogs: const FilePickerDialogs(),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
     ),
@@ -97,6 +103,7 @@ final class AppPlatform {
         networkInterfaces: true,
         cache: windowsCacheSizes,
         secureStorage: true,
+        files: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
@@ -117,6 +124,7 @@ final class AppPlatform {
         applicationCachePath: _applicationCachePath,
       ),
       secureStorage: FlutterSecureStorageAdapter.system(flavor),
+      fileDialogs: const FilePickerDialogs(),
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
     ),
@@ -142,6 +150,9 @@ final class AppPlatform {
 
   /// 憑證存放；[PlatformCapabilities.secureStorage] 為假時為 `null`。
   final SecureStorage? secureStorage;
+
+  /// 檔案對話框；[PlatformCapabilities.files] 為假時為 `null`。
+  final FileDialogs? fileDialogs;
 
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
@@ -174,6 +185,7 @@ final class AppPlatform {
       networkInterfaces: networkInterfaces,
       cacheDirectory: cacheDirectory,
       secureStorage: secureStorage,
+      fileDialogs: fileDialogs,
       mediaControls: controls,
     );
   }

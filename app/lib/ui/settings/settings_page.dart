@@ -3,19 +3,23 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 設定的分組（ADR 0011 §決定 7），依 design §9.8 的順序：外觀、播放、網路。
-enum SettingsGroup {
+/// 設定頁的區塊，依清單上的順序（M3 design §6.7）。外觀、播放、網路是 ADR 0011 的
+/// 設定組；插件不是設定表，是插件頁（ADR 0030 §決定 11），同樣以 list-detail 呈現。
+/// 帳號（第一個）與關於（最後一個）跟著實作它們的 PR 加。
+enum SettingsSection {
   appearance(Icons.palette_outlined),
   playback(Icons.play_circle_outline),
-  network(Icons.public);
+  network(Icons.public),
+  plugins(Icons.extension_outlined);
 
-  const SettingsGroup(this.icon);
+  const SettingsSection(this.icon);
 
   final IconData icon;
 }
@@ -54,7 +58,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   /// 使用者點進去的那一組；`null` 是還沒選（窄版顯示清單，寬版用第一組）。
-  SettingsGroup? _selected;
+  SettingsSection? _selected;
 
   @override
   void initState() {
@@ -83,10 +87,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final t = ref.watch(translationsProvider).settings;
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
-    String name(SettingsGroup group) => switch (group) {
-      SettingsGroup.appearance => t.appearance,
-      SettingsGroup.playback => t.playback,
-      SettingsGroup.network => t.network,
+    String name(SettingsSection group) => switch (group) {
+      SettingsSection.appearance => t.appearance,
+      SettingsSection.playback => t.playback,
+      SettingsSection.network => t.network,
+      SettingsSection.plugins => t.plugins,
     };
     Widget header(Widget? leading, String text, TextStyle? style) => Padding(
       padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
@@ -100,12 +105,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
     final title = header(null, t.title, theme.textTheme.headlineSmall);
-    Widget list(SettingsGroup? selected) => Column(
+    Widget list(SettingsSection? selected) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         title,
         SizedBox(height: spacing.x2),
-        for (final group in SettingsGroup.values)
+        for (final group in SettingsSection.values)
           ListTile(
             leading: Icon(group.icon),
             title: Text(name(group)),
@@ -114,27 +119,60 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
       ],
     );
-    Widget detail(SettingsGroup group, {required bool heading}) =>
-        SingleChildScrollView(
-          padding: EdgeInsets.all(spacing.x4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    Widget sectionTitle(SettingsSection group) => Semantics(
+      header: true,
+      child: Text(name(group), style: theme.textTheme.titleLarge),
+    );
+    // 設定組：控制項放在捲動的欄裡。
+    Widget scrolling(
+      SettingsSection group,
+      Widget controls, {
+      required bool heading,
+    }) => SingleChildScrollView(
+      padding: EdgeInsets.all(spacing.x4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (heading) ...[sectionTitle(group), SizedBox(height: spacing.x4)],
+          controls,
+        ],
+      ),
+    );
+    Widget detail(SettingsSection group, {required bool heading}) =>
+        switch (group) {
+          // 插件頁自己有分頁與捲動的清單：不包在捲動的欄裡，填滿剩下的高度。
+          SettingsSection.plugins => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (heading) ...[
-                Semantics(
-                  header: true,
-                  child: Text(name(group), style: theme.textTheme.titleLarge),
+              if (heading)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    spacing.x4,
+                    spacing.x4,
+                    spacing.x4,
+                    0,
+                  ),
+                  child: sectionTitle(group),
                 ),
-                SizedBox(height: spacing.x4),
-              ],
-              switch (group) {
-                SettingsGroup.appearance => const AppearanceControls(),
-                SettingsGroup.playback => const PlaybackControls(),
-                SettingsGroup.network => const NetworkControls(),
-              },
+              const Expanded(child: PluginsPage()),
             ],
           ),
-        );
+          SettingsSection.appearance => scrolling(
+            group,
+            const AppearanceControls(),
+            heading: heading,
+          ),
+          SettingsSection.playback => scrolling(
+            group,
+            const PlaybackControls(),
+            heading: heading,
+          ),
+          SettingsSection.network => scrolling(
+            group,
+            const NetworkControls(),
+            heading: heading,
+          ),
+        };
     return switch (WindowClass.of(context)) {
       WindowClass.compact || WindowClass.medium => switch (_selected) {
         null => list(null),
@@ -162,12 +200,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         children: [
           SizedBox(
             width: AppLayout.settingsListWidth,
-            child: list(_selected ?? SettingsGroup.values.first),
+            child: list(_selected ?? SettingsSection.values.first),
           ),
           const VerticalDivider(),
           Expanded(
             child: detail(
-              _selected ?? SettingsGroup.values.first,
+              _selected ?? SettingsSection.values.first,
               heading: true,
             ),
           ),

@@ -2,9 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
+import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/plugin_page_harness.dart';
 import '../support/shell_harness.dart';
 
 void main() {
@@ -139,6 +141,50 @@ void main() {
       isTrue,
     );
   });
+
+  for (final width in [1000.0, 400.0]) {
+    testWidgets('$width wide: plugins come after network and open the plugin '
+        'page', (tester) async {
+      final h = await PluginPageHarness.create(tester);
+      await h.shell.pumpShell(
+        tester,
+        size: Size(width, 800),
+        collapsePanel: true,
+      );
+      await tester.tap(find.text('Settings').first);
+      await h.settle(tester);
+
+      final sections = [
+        for (final title in ['Appearance', 'Playback', 'Network', 'Plugins'])
+          tester.getCenter(find.widgetWithText(ListTile, title)).dy,
+      ];
+      expect(sections, orderedEquals([...sections]..sort()));
+      expect(find.byType(PluginsPage), findsNothing);
+
+      await tester.tap(find.widgetWithText(ListTile, 'Plugins'));
+      await h.settle(tester);
+
+      expect(find.byType(PluginsPage), findsOneWidget);
+      expect(find.text('Installed'), findsOneWidget);
+      expect(find.text('Available'), findsOneWidget);
+      expect(find.text('No plugins installed'), findsOneWidget);
+      if (width < 600) {
+        // 窄版：標題列是區塊名稱與返回鈕，回到清單。
+        expect(find.text('Plugins'), findsOneWidget);
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pump();
+        expect(find.byType(PluginsPage), findsNothing);
+      } else {
+        expect(find.byType(VerticalDivider), findsOneWidget);
+        expect(
+          tester
+              .widget<ListTile>(find.widgetWithText(ListTile, 'Plugins'))
+              .selected,
+          isTrue,
+        );
+      }
+    });
+  }
 
   testWidgets('both appearance settings can go back to following the system', (
     tester,

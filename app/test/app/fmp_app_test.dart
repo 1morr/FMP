@@ -282,6 +282,7 @@ void main() {
         ),
         playback: null,
         networkInterfaces: false,
+        files: false,
         cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);

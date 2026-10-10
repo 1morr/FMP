@@ -343,6 +343,7 @@ void main() {
               fontFallback: FontFallback.none,
               playback: null,
               networkInterfaces: false,
+              files: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 1,
                 memoryImages: 1,
