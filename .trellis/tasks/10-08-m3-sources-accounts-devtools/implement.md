@@ -45,12 +45,13 @@
 
 - **狀態**（2026-10-09）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3。
-- **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）；PR 3 的 FMP 端（#224）與 fmp-plugins#6（index、CI、B 站 1.0.0、網易 1.0.1；`FMP_REF`＝`fcb52d28`；Version Bump 會紅已在 `214e01c` 證明並 revert；raw `index.json` 可讀、SHA 相符）。
+- **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）；PR 3 的 FMP 端（#224）與 fmp-plugins#6（index、CI、B 站 1.0.0、網易 1.0.1；`FMP_REF`＝`fcb52d28`；Version Bump 會紅已在 `214e01c` 證明並 revert；raw `index.json` 可讀、SHA 相符）；PR 7（#225，schema v8；secure storage 整合測試兩平台通過）。
 - **進行中**：
-  - **PR 7**：分支 `feat/m3-credential-store`（任務 `10-09-m3-credential-store`，schema v8），sonnet 實作中；之後 opus 審查、兩平台跑 `integration_test/secure_storage_test.dart`、Windows 確認 `.secure` 在 dev 的目錄。
-  - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，等 Windows 驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；之後本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-08～09 每隔數十分鐘以 `<scratchpad>/ytdiag/diag.mjs` 試 1 次仍未解除，推測要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。合併前要 rebase 到 fmp-plugins 的新 main：manifest 加 `description`、重產 `index.json`；CI 會自動涵蓋 YouTube（動態列目錄）。
+  - **PR 5**（#226，`feat/m3-plugin-page`，任務 `10-09-m3-plugin-page` 未封存）：CI 綠、opus 審過、Android 實測通過。**等擁有者**：Windows 實測（滑鼠與鍵盤自動化要先問）、更新流程實測（push `fmp-plugins` 暫時分支 `test/m3-update-flow` 要先問）。合併前封存任務。
+  - **PR 6**（#227，`feat/m3-onboarding`，base 是 `feat/m3-plugin-page`，任務 `10-09-m3-onboarding` 未封存）：opus 審過、Android 實測通過；stacked PR 不跑 CI（`ci.yml` 只認 base `main`），#226 合併後改 base 再等 CI。**等擁有者**：Windows 實測。
+  - **PR 1 的 YouTube 插件**：fmp-plugins#4 是 draft，已 rebase 到新 main、補 `description`、加進 index，CI 全綠（含 YouTube 契約與單元測試）；等 Windows 播放驗過再合併。Windows 開 VISIONOS `mp4/aac`（itag 139／140）回 403；本機（代理出口）被 YouTube 標記「確認你不是機器人」，2026-10-09 再試仍是 `LOGIN_REQUIRED`，要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。
 - **待擁有者回覆**：GitHub secret scanning 對 fmp-plugins `youtube/youtube.js` 的警告（#1）是 YouTube.js 內建的公開 InnerTube key（舊版 FMP 也有），不是外洩；是否由代理以 `gh` 關掉（false positive），等擁有者同意。
-- **下一步**：PR 7 收尾 → PR 5（插件頁，opus：自訂版面；更新流程的實測要 push fmp-plugins 暫時分支 `test/m3-update-flow`，**先問擁有者**）→ PR 6（依賴 5）→ PR 8（依賴 4、7）。
+- **下一步**：PR 8（`login`、QR、帳號頁；opus；疊在 `feat/m3-onboarding` 上）→ PR 9、10。PR 8 的真實登入要擁有者自己掃 QR。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。

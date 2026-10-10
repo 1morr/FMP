@@ -73,6 +73,7 @@ final class ShellHarness {
     this.database,
     this.fileDialogs,
     this.cacheUnavailable = false,
+    this.registrySources = false,
     this.extraOverrides = const [],
   }) : backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
@@ -137,6 +138,10 @@ final class ShellHarness {
   /// 平台的檔案對話框；給了平台就宣告 `files`。
   final FileDialogs? fileDialogs;
 
+  /// 搜尋的音源讀真的插件清單（`searchSourcesProvider` 不 override）：要看安裝、停用
+  /// 之後搜尋頁怎麼變時用（首次啟動引導）。
+  final bool registrySources;
+
   /// 加在最後的 override（要和上面不重複）。
   final List<Override> extraOverrides;
 
@@ -169,7 +174,8 @@ final class ShellHarness {
     appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
     logProvider.overrideWithValue(log),
     toasterProvider.overrideWithValue(toaster),
-    searchSourcesProvider.overrideWithValue(AsyncData(sources)),
+    if (!registrySources)
+      searchSourcesProvider.overrideWithValue(AsyncData(sources)),
     networkInterfacesProvider.overrideWithValue(interfaces),
     fileDialogsProvider.overrideWithValue(fileDialogs),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。

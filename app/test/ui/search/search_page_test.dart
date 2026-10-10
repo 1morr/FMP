@@ -25,14 +25,6 @@ void main() {
   }
 
   group('states', () {
-    testWidgets('no source can search', (tester) async {
-      final h = ShellHarness(sources: []);
-      await h.pumpShell(tester);
-
-      expect(find.text('No sources to search'), findsOneWidget);
-      expect(find.byType(ChoiceChip), findsNothing);
-    });
-
     testWidgets('before searching, while loading, with no results', (
       tester,
     ) async {

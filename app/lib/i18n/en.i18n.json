@@ -219,6 +219,7 @@
     "remove": "Remove",
     "install": "Install",
     "installTitle": "Install {name}?",
+    "installAllTitle": "Install these plugins?",
     "updateTitle": "Update {name}?",
     "byline": "By {author} · version {version}",
     "addedAccess": "The new version asks for more than the installed one. It is only updated after you confirm.",
@@ -281,6 +282,15 @@
       "lyrics": "Lyrics",
       "login": "Sign-in"
     }
+  },
+  "onboarding": {
+    "title": "Install plugins to start searching",
+    "body": "Plugins connect FMP to music sources. Pick the ones you want; you can change this any time in Settings > Plugins.",
+    "later": "Later",
+    "goToPlugins": "Go to plugins",
+    "loading": "Loading plugins",
+    "installedCount": "Plugins installed: {count}",
+    "failedTitle": "Some plugins weren't installed"
   },
   "errors": {
     "network": "Network connection failed. Check your connection and try again.",

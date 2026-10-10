@@ -17,6 +17,8 @@ import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
+import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/plugins/repository/plugin_downloader.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
@@ -47,6 +49,13 @@ void main() {
           logProvider.overrideWithValue(log),
           secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
           platformCapabilitiesProvider.overrideWithValue(capabilities),
+          // 沒有插件時搜尋頁的引導會讀官方 index：測試不聯網，讀不到。
+          pluginDownloaderProvider.overrideWithValue(
+            PluginDownloader(
+              fetch: (_, {required maxBytes}) async => throw NetworkError(),
+              log: log,
+            ),
+          ),
           networkInterfacesProvider.overrideWithValue(
             interfaces ?? FakeNetworkInterfaces(),
           ),

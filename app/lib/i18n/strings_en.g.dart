@@ -82,6 +82,9 @@ class TranslationsEn extends Translations
   @override
   late final Translations$plugins$en plugins = Translations$plugins$en._(_root);
   @override
+  late final Translations$onboarding$en onboarding =
+      Translations$onboarding$en._(_root);
+  @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
 }
 
@@ -640,6 +643,8 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   @override
   String installTitle({required Object name}) => 'Install ${name}?';
   @override
+  String get installAllTitle => 'Install these plugins?';
+  @override
   String updateTitle({required Object name}) => 'Update ${name}?';
   @override
   String byline({required Object author, required Object version}) =>
@@ -755,6 +760,33 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   @override
   late final Translations$plugins$capabilityNames$en capabilityNames =
       Translations$plugins$capabilityNames$en._(_root);
+}
+
+// Path: onboarding
+class Translations$onboarding$en extends Translations$onboarding$zh_TW {
+  Translations$onboarding$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Install plugins to start searching';
+  @override
+  String get body =>
+      'Plugins connect FMP to music sources. Pick the ones you want; you can change this any time in Settings > Plugins.';
+  @override
+  String get later => 'Later';
+  @override
+  String get goToPlugins => 'Go to plugins';
+  @override
+  String get loading => 'Loading plugins';
+  @override
+  String installedCount({required Object count}) =>
+      'Plugins installed: ${count}';
+  @override
+  String get failedTitle => 'Some plugins weren\'t installed';
 }
 
 // Path: errors

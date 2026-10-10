@@ -11,6 +11,7 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/offline/offline.dart';
+import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/search/source_chips.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -25,10 +26,17 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 /// 離線（design §5.4）：不在 `online` 時照常送出使用者的搜尋（系統的回報可能
 /// 是錯的），失敗時結果區換成離線空狀態與「重試」；已有的結果照常顯示。
 class SearchPage extends ConsumerStatefulWidget {
-  const SearchPage({super.key, required this.fieldFocusNode});
+  const SearchPage({
+    super.key,
+    required this.fieldFocusNode,
+    required this.onOpenPlugins,
+  });
 
   /// 輸入框的焦點；外殼的 Ctrl+F 以它把焦點移到輸入框。
   final FocusNode fieldFocusNode;
+
+  /// 開插件頁（設定頁的「插件」區塊）；沒有音源的空狀態有一個入口。
+  final VoidCallback onOpenPlugins;
 
   @override
   ConsumerState<SearchPage> createState() => _SearchPageState();
@@ -55,6 +63,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final spacing = tokens.spacing;
     final sources = ref.watch(searchSourcesProvider);
     final search = ref.watch(searchProvider);
+    final onboarding = ref.watch(onboardingProvider);
     final network = ref.watch(networkStatusProvider);
     final list = sources.value ?? const [];
     final selected = selectedSourceOf(search.sourceId, list);
@@ -111,26 +120,39 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ],
         Expanded(
           child: switch (sources) {
-            AsyncData() when list.isEmpty => EmptyState(
-              icon: Icons.extension_off_outlined,
-              title: t.noSources,
-              body: t.noSourcesHint,
-            ),
+            // 首次啟動引導（ADR 0030 §決定 12）：沒有音源，或正在裝、還有失敗要看。
+            AsyncData()
+                when showOnboarding(
+                  hasSource: list.isNotEmpty,
+                  state: onboarding,
+                ) =>
+              PluginOnboarding(hasSource: list.isNotEmpty),
+            AsyncData() when list.isEmpty => _noSources(),
             AsyncData() => _Results(
               state: search,
               network: network,
               onRetry: _retry,
             ),
             // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
-            AsyncError() => EmptyState(
-              icon: Icons.extension_off_outlined,
-              title: t.noSources,
-              body: t.noSourcesHint,
-            ),
+            AsyncError() => _noSources(),
             AsyncLoading() => _Loading(label: t.loadingSources),
           },
         ),
       ],
+    );
+  }
+
+  /// 沒有音源又不顯示引導（按了「稍後再說」，或插件清單載入失敗）。
+  Widget _noSources() {
+    final t = ref.watch(translationsProvider);
+    return EmptyState(
+      icon: Icons.extension_off_outlined,
+      title: t.search.noSources,
+      body: t.search.noSourcesHint,
+      action: FilledButton.tonal(
+        onPressed: widget.onOpenPlugins,
+        child: Text(t.onboarding.goToPlugins),
+      ),
     );
   }
 

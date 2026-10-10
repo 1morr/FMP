@@ -139,6 +139,77 @@ class _InstallDialog extends StatelessWidget {
   }
 }
 
+/// 首次啟動引導的確認（ADR 0030 §決定 12）：一次列出 [plugins] 每一個的能力與網域，
+/// 下面一則共同的警告；使用者按了安裝才是 `true`。
+Future<bool> confirmInstallAll(
+  BuildContext context,
+  Translations t,
+  List<InstallConfirmation> plugins,
+) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => _InstallAllDialog(t: t, plugins: plugins),
+    ) ??
+    false;
+
+class _InstallAllDialog extends StatelessWidget {
+  const _InstallAllDialog({required this.t, required this.plugins});
+
+  final Translations t;
+  final List<InstallConfirmation> plugins;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = t.plugins;
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    return AlertDialog(
+      title: Text(p.installAllTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final plugin in plugins) ...[
+              Text(plugin.manifest.name, style: theme.textTheme.titleSmall),
+              Text(
+                p.byline(
+                  author: plugin.manifest.author,
+                  version: plugin.manifest.version,
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SizedBox(height: spacing.x1),
+              Text(
+                '${p.capabilities}: ${capabilityNames(t, plugin.capabilities).join(p.listSeparator)}',
+                style: theme.textTheme.bodyMedium,
+              ),
+              Text(
+                '${p.hosts}: ${(plugin.hosts.toList()..sort()).join(p.listSeparator)}',
+                style: theme.textTheme.bodyMedium,
+              ),
+              SizedBox(height: spacing.x3),
+            ],
+            WarningNote(text: p.loginWarning),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(p.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(p.confirmInstall),
+        ),
+      ],
+    );
+  }
+}
+
 /// 移除 [name] 的確認；使用者按了移除才是 `true`。
 Future<bool> confirmRemove(
   BuildContext context,
