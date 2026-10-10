@@ -116,7 +116,7 @@ void main() {
   });
 
   // 網頁登入（M3 PR 9）：全螢幕頁裡是平台真的 WebView（Android 的系統 WebView、Windows 的
-  // WebView2），提示要在它之上。開的是 about:blank，不連網；平台沒有登入 WebView（Linux）時
+  // WebView2），提示要在它之上。開的是 about:blank，不連網；平台沒有登入 WebView（Linux、macOS）時
   // 跳過。WebView 起不來時頁面換成錯誤狀態，提示照樣要在最上層。
   final loginWebView = AppPlatform.current(AppFlavor.dev).loginWebView;
   testWidgets('a toast shows above the web login', (tester) async {
@@ -133,9 +133,25 @@ void main() {
         name: 'Test Source',
       ),
     );
-    // 載入中的進度條一直在動：不等 settle。
-    for (var i = 0; i < 20; i++) {
+    // 載入中的進度條一直在動：不等 settle。改成等到第一頁載入完成（進度條不再是不定長度）
+    // 或頁面換成 WebView 失敗狀態（兩者進度條都是 determinate）。flutter_inappwebview_windows
+    // 的 CustomPlatformView 初始化是非同步的，完成時不檢查 mounted 就 setState；初始化還沒
+    // 完成就結束測試、拆掉 WebView，會在測試之後丟出 setState() after dispose()。
+    var waited = Duration.zero;
+    while (true) {
       await tester.pump(const Duration(milliseconds: 100));
+      waited += const Duration(milliseconds: 100);
+      final indicator = find.descendant(
+        of: find.byType(WebLoginPage),
+        matching: find.byType(LinearProgressIndicator),
+      );
+      if (indicator.evaluate().isNotEmpty &&
+          tester.widget<LinearProgressIndicator>(indicator).value != null) {
+        break;
+      }
+      if (waited >= const Duration(seconds: 30)) {
+        fail('The web login did not finish its first page load in 30 s');
+      }
     }
     expect(find.byType(WebLoginPage), findsOneWidget);
 
