@@ -497,6 +497,18 @@
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
 
+### M3a 驗收留下的
+
+`app/AGENTS.md` 審查時標成「沒有閘門，review 時看」的地方，要補就補這些測試（都不擋 M3b）：
+
+1. `fmp_app_test.dart`：第一幀之後讀 `accountStartupRefreshProvider`。
+2. `login_webview_test.dart`：注入假的 WebView2 環境，測延後建立、`reset`、建立失敗不留下壞的環境、讀與清都經同一個環境。
+3. `account_guard_test.dart`：`VerificationRequired` 不刷新、不標失效。
+4. `plugin_registry_test.dart`：停用後憑證保留；插件沒有回應時不寫 `enabled`。
+5. `plugin_name_test.dart`：清單還沒載入時是 `null`（優先度低）。
+6. 測試插件的 QR、`expired`、`expired-hard`：加進 `test_plugin_bundle_test.dart`。
+7. **B 站錯誤對應表的單元測試**（ADR 0013 的對照只有「部分」）：fmp-plugins 本機分支 `test/bilibili-errors`（`f857d9e`，對應表搬進 `bilibili/src/errors.js`、`test/errors.test.js`、1.2.1）已備好，push 與開 PR 等擁有者同意。
+
 ### PR 9 留下的
 
 1. **Linux、macOS 建置只能靠 CI 驗**：`flutter_inappwebview_linux` 以本機 stub（`app/packages/flutter_inappwebview_linux_stub`）取代，本機建不了 Linux；stacked PR 不跑 CI，整串回到 base `main` 時要看 Linux 建置與整合測試 job。Linux 的 WebView 在 Linux 平台任務決定（ADR 0012 §決定 8），定了就刪 stub。macOS 同樣以 `app/packages/flutter_inappwebview_macos_stub` 取代 `flutter_inappwebview_macos`（1.2.0-beta.3 在目前的 Xcode 編不過），macOS 建置也只能看 CI；macOS 平台任務定了 WebView 就刪。
