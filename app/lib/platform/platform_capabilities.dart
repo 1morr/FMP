@@ -30,6 +30,7 @@ final class PlatformCapabilities {
     required this.cache,
     required this.secureStorage,
     required this.files,
+    required this.loginWebView,
     this.mediaControls,
   });
 
@@ -43,6 +44,7 @@ final class PlatformCapabilities {
     cache: null,
     secureStorage: false,
     files: false,
+    loginWebView: false,
     mediaControls: null,
   );
 
@@ -77,6 +79,10 @@ final class PlatformCapabilities {
   /// 有檔案對話框的實作（`files/`）：插件頁的「從檔案安裝」依它出現。
   final bool files;
 
+  /// 有 App 內網頁登入的 WebView（`login_webview/`，ADR 0029 §決定 9）：帳號頁的「網頁
+  /// 登入」依它出現，登出與移除插件時依它清 WebView 的 cookie。
+  final bool loginWebView;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -91,5 +97,6 @@ final class PlatformCapabilities {
     cache: cache,
     secureStorage: secureStorage,
     files: files,
+    loginWebView: loginWebView,
   );
 }

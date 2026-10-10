@@ -32,6 +32,11 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# flutter_inappwebview（登入 WebView，ADR 0029 §決定 9）的 Windows 端還在用
+# <experimental/coroutine>，MSVC 14.51 起以 STL1011 中斷建置（6.1.5 與
+# 6.2.0-beta.3 都是）。上游修好就拿掉。
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by

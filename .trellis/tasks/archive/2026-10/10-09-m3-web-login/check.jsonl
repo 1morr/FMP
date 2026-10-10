@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "Sections 6.4 web login, stuck redirect, cookie paste; 6.6 logout and removal; 7.4 removal order; 14 flutter_inappwebview"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/research/r1-youtube-login.md", "reason": "R1 on-device findings: UA, cookie completion, Windows environment, stuck redirect"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "Web view login decision 9, credentials rules"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Login methods, accounts"}
+{"file": "docs/adr/0009-platform-layer-with-declared-capabilities.md", "reason": "Platform layer and capabilities"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer patterns"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI patterns, full-screen routes, guideline tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Test conventions"}

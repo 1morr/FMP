@@ -33,8 +33,9 @@ lib/ui/
   plugins/             # pluginNameProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
-  accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider 與登入方式的交集（accounts_state）、
-                       # QR 登入對話框（qr_login_dialog）；qr_flutter 只准在這裡
+  accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider、登入方式的交集與登入失敗的訊息（accounts_state）、
+                       # QR 登入對話框（qr_login_dialog）；qr_flutter 只准在這裡；網頁登入的全螢幕頁
+                       # （web_login_page）、貼上 cookie 的對話框（cookie_login_dialog）
   format/              # 時長與位元組數的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
@@ -265,12 +266,17 @@ try {
 - 卡片清單讀 `loginPluginsProvider`（資料庫的已安裝清單篩出已啟用、宣告 `login` 的），每張卡讀
   `accountViewProvider(pluginId)`（`CredentialStore.changes` 與 `source_settings` 變動就重讀）。動作照插件頁的寫法
   （`_work`、`_failed`、`mounted`）；要插件本身（登入）時才 `ref.read(pluginRegistryProvider.future)`。
-- 加一種登入方式（M3 PR 9）：`availableLoginMethods` 的 `switch` 打開那一種，`_AccountCard` 的按鈕與 `_login` 的
-  `switch` 會指出要補的地方。
+- 三種登入方式都接上了（M3 PR 9）。加新的一種時：`LoginMethod` 加值，`availableLoginMethods`、`_AccountCard` 的按鈕與
+  `_login` 的 `switch` 會指出要補的地方。QR 與貼上 cookie 在對話框裡驗證寫入、回 `Account`；網頁登入的頁面只交回
+  cookie，關頁後 `_login` 才 `AccountService.login`（包 `_work`，State 不在了就不包）。
 - 測試用 `PluginPageHarness.create(tester)`（平台預設宣告有 secure storage；`secureStorage: false` 測沒有的平台），插件以
   `pluginScript(..., login: {...})` 或 `testPluginFile` 寫進資料庫。造已登入的狀態在假時間 zone 呼叫
   `h.plugins.credentials.save(...)` 再 `pump`（不要包 `runAsync`，理由見插件頁那一節）。QR 對話框的輪詢是假計時器：
-  `pump(2 秒)` 後 `h.settle` 讓插件的回覆回來；對話框關閉還要 `pump` 過它的動畫。`CredentialStore` 的 `unreadable`
+  `pump(2 秒)` 後 `h.settle` 讓插件的回覆回來；對話框關閉還要 `pump` 過它的動畫。
+  網頁登入：`PluginPageHarness.create(tester, loginWebView: FakeLoginWebView())`（`test/support/fake_login_webview.dart`；
+  平台就宣告 `loginWebView`），插件的 manifest 要有 `login.webView`。假 WebView 的 cookie 以主機名稱存（`setCookies`），
+  `loadPage()` 模擬一頁載入完成；頁面載入中的進度條一直在動，不用 `pumpAndSettle`，按按鈕後先 `h.settle`（等插件清單）
+  再 `pump`。卡住的計時直接 `pump(webLoginStuckAfter)`。`CredentialStore` 的 `unreadable`
   不好造，以 `overrides: [accountViewProvider(id).overrideWith(...)]` 給畫面看的狀態。
 
 ## 播放列與封面

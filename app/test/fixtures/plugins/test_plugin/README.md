@@ -19,12 +19,15 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   - `unavailable`：第一頁第一首以 `Unavailable`（版權）失敗。兩首一起加進佇列
     播放，第一首跳過並提示原因。
 
-  假的 QR 登入（`login.methods` 只有 `qr`，不連網），給帳號頁的實機驗證：
+  假的登入（`login.methods` 是 `qr` 與 `cookie`，不連網），給帳號頁的實機驗證：
   - 「設定 > 帳號」的「FMP Test Plugin」按「QR 登入」：QR 碼的內容固定是
     `fmp-test://login`（掃了也沒用）。第一次輪詢（2 秒後）是 `waiting`，第二次
     （4 秒後）就 `done`，交出憑證 `fmp_test_session=fake-session-0000`。
-  - `loginVerify` 只認這個假憑證，回帳號「FMP Test User」（沒有頭像）；其他值以
-    `CredentialInvalid` 失敗。
+  - 按「貼上 cookie」：貼 `fmp_test_session=` 加任何值（例如
+    `fmp_test_session=fake-session-0000`；`cookies.txt` 格式的一行也可以）就能登入。
+  - `loginVerify` 只看有沒有值不空的 `fmp_test_session`，有就回帳號「FMP Test User」
+    （沒有頭像）；沒有就以 `CredentialInvalid` 失敗（貼錯的 cookie 看得到失敗訊息）。
+  - 沒有 `webView`：網頁登入要真的網站，只在真實模式驗。
   - 登入之後開關「以登入身分瀏覽與播放」、登出都走真的流程（`CredentialStore`、
     `source_settings`）。這個插件不發請求，所以看不出請求帶不帶憑證：那部分由
     `test/plugins/accounts/account_service_test.dart` 以會發請求的插件守。

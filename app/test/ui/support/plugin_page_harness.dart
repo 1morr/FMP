@@ -21,6 +21,7 @@ import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../plugins/plugin_harness.dart';
+import '../../support/fake_login_webview.dart';
 import 'shell_harness.dart';
 
 /// 一個插件的安裝檔：每個能力匯出一個同名函式（內容不重要，插件頁不呼叫它們）。
@@ -93,6 +94,7 @@ final class UnresponsivePlugin implements SourcePlugin {
 final class PluginPageHarness {
   PluginPageHarness._({
     this.dialogs,
+    this.loginWebView,
     bool registrySources = false,
     bool secureStorage = true,
     List<Override> overrides = const [],
@@ -100,6 +102,7 @@ final class PluginPageHarness {
     shell = ShellHarness(
       database: plugins.database,
       fileDialogs: dialogs,
+      loginWebView: loginWebView,
       cacheUnavailable: true,
       registrySources: registrySources,
       secureStorage: secureStorage,
@@ -127,16 +130,19 @@ final class PluginPageHarness {
   /// 所以先 `pump` 一次讓它跑完（記憶體資料庫只需要 microtask）。
   ///
   /// [secureStorage] 是平台宣告（帳號頁的登入按鈕看它）；憑證一律存在 [PluginHarness]
-  /// 的記憶體 secure storage。[overrides] 加在外殼的 override 之後。
+  /// 的記憶體 secure storage。[loginWebView] 給了平台就宣告網頁登入。[overrides] 加在外殼
+  /// 的 override 之後。
   static Future<PluginPageHarness> create(
     WidgetTester tester, {
     FakeFileDialogs? dialogs,
+    FakeLoginWebView? loginWebView,
     bool registrySources = false,
     bool secureStorage = true,
     List<Override> overrides = const [],
   }) async {
     final harness = PluginPageHarness._(
       dialogs: dialogs,
+      loginWebView: loginWebView,
       registrySources: registrySources,
       secureStorage: secureStorage,
       overrides: overrides,
@@ -152,6 +158,7 @@ final class PluginPageHarness {
 
   final plugins = PluginHarness();
   final FakeFileDialogs? dialogs;
+  final FakeLoginWebView? loginWebView;
   late final ShellHarness shell;
 
   /// 網址 → 內容。

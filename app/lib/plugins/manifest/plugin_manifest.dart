@@ -106,8 +106,8 @@ enum LoginRefresh {
 
 /// manifest 的 `login.webView`：App 內網頁登入要開的頁與完成的條件（ADR 0029
 /// §決定 9）。網址都在 manifest 的允許網域內。
-final class LoginWebView {
-  const LoginWebView({
+final class PluginLoginWebView {
+  const PluginLoginWebView({
     required this.url,
     required this.cookieHosts,
     required this.doneCookies,
@@ -138,7 +138,7 @@ final class PluginLogin {
   final Set<LoginMethod> methods;
 
   /// [methods] 含 [LoginMethod.webView] 時才有。
-  final LoginWebView? webView;
+  final PluginLoginWebView? webView;
 
   /// 支援刷新與時機；`null` 是不支援。
   final LoginRefresh? refresh;
@@ -460,7 +460,7 @@ PluginLogin? _login(Map<String, Object?>? json, List<String> allowedHosts) {
   );
 }
 
-LoginWebView _loginWebView(
+PluginLoginWebView _loginWebView(
   Map<String, Object?> json,
   List<String> allowedHosts,
 ) {
@@ -483,7 +483,7 @@ LoginWebView _loginWebView(
     return values;
   }
 
-  return LoginWebView(
+  return PluginLoginWebView(
     url: url(fields.string('url'), '$path.url'),
     cookieHosts: List.unmodifiable([
       for (final (index, value) in names('cookieHosts').indexed)

@@ -18,6 +18,7 @@ import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/accounts/web_login.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -33,6 +34,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../playback/fake_audio_backend.dart';
 import '../plugins/plugin_harness.dart';
+import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
 import 'support/fake_artwork.dart';
 import 'support/plugin_page_harness.dart';
@@ -443,8 +445,8 @@ void main() {
         });
       }
 
-      // 帳號（M3 PR 8）：未登入（測試插件，QR）、已登入、已失效（自動化說明）三張卡，
-      // 與 QR 登入的對話框。
+      // 帳號（M3 PR 8）：未登入（測試插件，QR 與貼上 cookie）、已登入、已失效（自動化說明）
+      // 三張卡，QR 登入與貼上 cookie 的對話框，網頁登入卡住時的頁面（PR 9）。
       for (final size in const [Size(400, 800), Size(1000, 700)]) {
         final width = size.width;
 
@@ -518,6 +520,70 @@ void main() {
             find.text('Scan the QR code with the app on your phone'),
             findsOneWidget,
           );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the cookie login at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openAccounts(tester);
+          await tester.tap(find.text('Paste cookies'));
+          await h.settle(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('How to get them'), findsOneWidget);
+          // 帶著錯誤訊息的樣子（錯誤色的字也要過對比度）。
+          await tester.enterText(find.byType(TextField), 'not a cookie');
+          await tester.tap(find.text('Sign in'));
+          await tester.pumpAndSettle();
+          expect(find.textContaining('No cookies found'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 網頁登入（M3 PR 9）：卡住時 WebView 上方的警告條（假的 WebView 是一塊空白）。
+        testWidgets('the web login at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final webView = FakeLoginWebView();
+          final h = await PluginPageHarness.create(
+            tester,
+            loginWebView: webView,
+          );
+          await tester.runAsync(
+            () => h.install(
+              pluginScript(
+                'plugin-w',
+                name: 'Web',
+                login: {
+                  'methods': ['webView'],
+                  'webView': {
+                    'url': 'https://accounts.example.test/login',
+                    'cookieHosts': ['https://www.example.test'],
+                    'doneCookies': ['SID'],
+                  },
+                },
+              ),
+            ),
+          );
+          await h.shell.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.settle(tester);
+          if (find.text('Sign in on the web').evaluate().isEmpty) {
+            await tester.tap(find.text('Accounts'));
+            await h.settle(tester);
+          }
+          await tester.tap(find.text('Sign in on the web'));
+          await h.settle(tester);
+          await tester.pump(const Duration(milliseconds: 500));
+          webView
+            ..setCookies(Uri.parse('https://accounts.example.test'), {
+              'SID': 'FAKE_PAGE_SID',
+            })
+            ..loadPage();
+          await tester.pump();
+          await tester.pump(webLoginStuckAfter);
+          expect(find.text("The sign-in didn't finish"), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

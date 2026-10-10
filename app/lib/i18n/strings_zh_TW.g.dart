@@ -1081,13 +1081,75 @@ class Translations$accounts$zh_TW {
   String get qrExpired => 'QR 碼已過期';
 
   /// zh-TW: '正在確認登入'
-  String get qrVerifying => '正在確認登入';
+  String get verifying => '正在確認登入';
 
   /// zh-TW: '重新產生'
   String get qrRegenerate => '重新產生';
 
   /// zh-TW: '重試'
   String get retry => '重試';
+
+  /// zh-TW: '關閉'
+  String get close => '關閉';
+
+  /// zh-TW: '登入「{name}」'
+  String webTitle({required Object name}) => '登入「${name}」';
+
+  /// zh-TW: '正在開啟登入頁'
+  String get webLoading => '正在開啟登入頁';
+
+  /// zh-TW: '登入沒有完成'
+  String get webStuckTitle => '登入沒有完成';
+
+  /// zh-TW: '頁面停在跳轉中。按「重試」重新開啟登入頁，通常不必再輸入一次帳號密碼。'
+  String get webStuckBody => '頁面停在跳轉中。按「重試」重新開啟登入頁，通常不必再輸入一次帳號密碼。';
+
+  /// zh-TW: '還是沒有完成。請關閉 FMP 再重新開啟，然後再按一次「網頁登入」；網頁上的登入狀態會保留。'
+  String get webStuckRestart =>
+      '還是沒有完成。請關閉 FMP 再重新開啟，然後再按一次「網頁登入」；網頁上的登入狀態會保留。';
+
+  /// zh-TW: '無法開啟登入頁'
+  String get webFailed => '無法開啟登入頁';
+
+  /// zh-TW: '貼上「{name}」的 cookie'
+  String cookieTitle({required Object name}) => '貼上「${name}」的 cookie';
+
+  /// zh-TW: 'Cookie'
+  String get cookieLabel => 'Cookie';
+
+  /// zh-TW: 'name=value; name2=value2'
+  String get cookieHint => 'name=value; name2=value2';
+
+  /// zh-TW: '如何取得'
+  String get cookieHelpTitle => '如何取得';
+
+  /// zh-TW: '在電腦的瀏覽器登入這個網站。'
+  String get cookieStep1 => '在電腦的瀏覽器登入這個網站。';
+
+  /// zh-TW: '按 F12 開啟開發者工具，在「網路」分頁重新整理頁面，選一個送往這個網站的請求。'
+  String get cookieStep2 => '按 F12 開啟開發者工具，在「網路」分頁重新整理頁面，選一個送往這個網站的請求。';
+
+  /// zh-TW: '在請求標頭找到「Cookie」，複製整個值貼在上面。'
+  String get cookieStep3 => '在請求標頭找到「Cookie」，複製整個值貼在上面。';
+
+  /// zh-TW: '也可以貼上瀏覽器擴充功能匯出的 cookies.txt（Netscape 格式）內容。'
+  String get cookieFile => '也可以貼上瀏覽器擴充功能匯出的 cookies.txt（Netscape 格式）內容。';
+
+  /// zh-TW: 'Cookie 等同你的登入，不要交給別人。FMP 只把它存在這台裝置上。'
+  String get cookieWarning => 'Cookie 等同你的登入，不要交給別人。FMP 只把它存在這台裝置上。';
+
+  /// zh-TW: '沒有讀到 cookie。請貼上 name=value 的內容或 cookies.txt。'
+  String get cookieEmpty => '沒有讀到 cookie。請貼上 name=value 的內容或 cookies.txt。';
+
+  /// zh-TW: '「{name}」不接受這些 cookie。請從已登入的頁面重新複製。'
+  String cookieRejected({required Object name}) =>
+      '「${name}」不接受這些 cookie。請從已登入的頁面重新複製。';
+
+  /// zh-TW: '「{name}」沒有接受這次登入，請再試一次。'
+  String loginRejected({required Object name}) => '「${name}」沒有接受這次登入，請再試一次。';
+
+  /// zh-TW: '登入'
+  String get signIn => '登入';
 }
 
 // Path: errors

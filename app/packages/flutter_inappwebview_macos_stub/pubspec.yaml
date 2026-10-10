@@ -1,0 +1,30 @@
+name: flutter_inappwebview_macos_stub
+description: >-
+  FMP 的 flutter_inappwebview macOS 實作，什麼都不做：取代套件預設的
+  flutter_inappwebview_macos，macOS 建置不必編它的原生碼。
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.4
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+# flutter_inappwebview_macos 1.2.0-beta.3（目前最新）在現在的 Xcode／Swift 編不過
+# （WebAuthenticationSession.swift 的 presentationAnchor(for:) 要 @MainActor），也沒有
+# 修好的版本。macOS 宣告沒有登入 WebView（PlatformCapabilities.loginWebView 為假），
+# App 不會在 macOS 呼叫 flutter_inappwebview。這個實作只是讓 Flutter 選它而不選預設的
+# flutter_inappwebview_macos：App 直接依賴的實作優先於 default_package（Flutter 工具
+# flutter_plugins.dart 的 _resolveImplementationOfPlugin）。純 Dart、沒有原生碼。
+# 閘門：app/test/platform/webview_stub_test.dart。macOS 的 WebView 在 macOS 平台任務
+# 決定（ADR 0012 §決定 8），屆時刪掉這個套件。
+flutter:
+  plugin:
+    implements: flutter_inappwebview
+    platforms:
+      macos:
+        dartPluginClass: InAppWebViewMacosStub

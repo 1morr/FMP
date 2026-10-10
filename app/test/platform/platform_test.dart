@@ -17,6 +17,7 @@ import 'package:fmp/platform/files/file_picker_dialogs.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
+import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
@@ -25,7 +26,7 @@ void main() {
   group('AppPlatform.assemble', () {
     test('Android has a data directory, picks glyphs by locale, plays '
         'with just_audio without choosing an output device, sees network '
-        'interfaces, has a cache and file dialogs', () {
+        'interfaces, has a cache, file dialogs and a login web view', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.android,
         AppFlavor.dev,
@@ -51,6 +52,8 @@ void main() {
       expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
       expect(platform.capabilities.files, isTrue);
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.loginWebView, isTrue);
+      expect(platform.loginWebView, isA<InAppLoginWebView>());
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
       // 系統依速度自己外推位置，不重推。
       expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
@@ -58,7 +61,7 @@ void main() {
 
     test('Windows has a data directory, a single instance, named fonts, '
         'plays with media_kit and chooses output devices, sees network '
-        'interfaces, has a cache and file dialogs', () {
+        'interfaces, has a cache, file dialogs and a login web view', () {
       final platform = AppPlatform.assemble(
         TargetPlatform.windows,
         AppFlavor.dev,
@@ -82,6 +85,8 @@ void main() {
       expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
       expect(platform.capabilities.files, isTrue);
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.loginWebView, isTrue);
+      expect(platform.loginWebView, isA<InAppLoginWebView>());
       // SMTC：不能 seek、播放中每 5 秒重推位置；實作要啟動時初始化，所以
       // assemble 之後還沒有（withMediaControls）。
       expect(platform.capabilities.mediaControls?.supportsSeek, isFalse);
@@ -113,6 +118,8 @@ void main() {
         expect(platform.secureStorage, isNull);
         expect(platform.capabilities.files, isFalse);
         expect(platform.fileDialogs, isNull);
+        expect(platform.capabilities.loginWebView, isFalse);
+        expect(platform.loginWebView, isNull);
         expect(platform.capabilities.mediaControls, isNull);
         expect(platform.mediaControls, isNull);
         for (final language in FontLanguage.values) {
@@ -165,6 +172,8 @@ void main() {
       expect(platform.dataDirectory, isA<AndroidAppDataDirectory>());
       expect(platform.capabilities.files, isTrue);
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.loginWebView, isTrue);
+      expect(platform.loginWebView, isA<InAppLoginWebView>());
     });
 
     test('a platform without the capability initializes nothing', () async {

@@ -15,6 +15,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -48,6 +49,7 @@ void main() {
           redactorProvider.overrideWithValue(redactor),
           logProvider.overrideWithValue(log),
           secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
+          loginWebViewProvider.overrideWithValue(null),
           platformCapabilitiesProvider.overrideWithValue(capabilities),
           // 沒有插件時搜尋頁的引導會讀官方 index：測試不聯網，讀不到。
           pluginDownloaderProvider.overrideWithValue(
@@ -292,6 +294,7 @@ void main() {
         playback: null,
         networkInterfaces: false,
         files: false,
+        loginWebView: false,
         cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);
