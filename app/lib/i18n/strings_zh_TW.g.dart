@@ -1027,6 +1027,25 @@ class Translations$accounts$zh_TW {
   /// zh-TW: '重新登入'
   String get relogin => '重新登入';
 
+  /// zh-TW: '登入'
+  String get signIn => '登入';
+
+  /// zh-TW: '{name}的登入已失效'
+  String invalidatedPrompt({required Object name}) => '${name}的登入已失效';
+
+  /// zh-TW: '最後刷新：{time}，{result}'
+  String lastRefresh({required Object time, required Object result}) =>
+      '最後刷新：${time}，${result}';
+
+  /// zh-TW: '已更新憑證'
+  String get refreshRefreshed => '已更新憑證';
+
+  /// zh-TW: '不需要更新'
+  String get refreshUnchanged => '不需要更新';
+
+  /// zh-TW: '失敗'
+  String get refreshFailed => '失敗';
+
   /// zh-TW: '登出'
   String get logout => '登出';
 
@@ -1147,9 +1166,6 @@ class Translations$accounts$zh_TW {
 
   /// zh-TW: '「{name}」沒有接受這次登入，請再試一次。'
   String loginRejected({required Object name}) => '「${name}」沒有接受這次登入，請再試一次。';
-
-  /// zh-TW: '登入'
-  String get signIn => '登入';
 }
 
 // Path: errors

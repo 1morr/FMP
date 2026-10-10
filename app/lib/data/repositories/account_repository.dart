@@ -32,6 +32,22 @@ final class Account {
   final DateTime? lastRefreshAt;
   final RefreshResult? lastRefreshResult;
 
+  /// 狀態與最近一次刷新的紀錄換成新的；沒給的欄位不動。
+  Account withRefresh({
+    AccountStatus? status,
+    DateTime? refreshedAt,
+    RefreshResult? result,
+  }) => Account(
+    pluginId: pluginId,
+    userId: userId,
+    displayName: displayName,
+    avatarJson: avatarJson,
+    status: status ?? this.status,
+    loggedInAt: loggedInAt,
+    lastRefreshAt: refreshedAt ?? lastRefreshAt,
+    lastRefreshResult: result ?? lastRefreshResult,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is Account &&
@@ -102,6 +118,14 @@ final class AccountRepository {
           lastRefreshResult: row.lastRefreshResult,
         ),
     ];
+  }
+
+  /// [pluginId] 的帳號；沒有是 `null`。
+  Future<Account?> byId(String pluginId) async {
+    for (final account in await list()) {
+      if (account.pluginId == pluginId) return account;
+    }
+    return null;
   }
 
   /// 沒有這個帳號時什麼都不做。

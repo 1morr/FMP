@@ -813,6 +813,19 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
   @override
   String get relogin => '重新登录';
   @override
+  String get signIn => '登录';
+  @override
+  String invalidatedPrompt({required Object name}) => '${name}的登录已失效';
+  @override
+  String lastRefresh({required Object time, required Object result}) =>
+      '最后刷新：${time}，${result}';
+  @override
+  String get refreshRefreshed => '已更新凭证';
+  @override
+  String get refreshUnchanged => '无需更新';
+  @override
+  String get refreshFailed => '失败';
+  @override
   String get logout => '退出登录';
   @override
   String noMethod({required Object name}) => '此平台还不能登录“${name}”';
@@ -894,8 +907,6 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
       '“${name}”不接受这些 Cookie。请从已登录的页面重新复制。';
   @override
   String loginRejected({required Object name}) => '“${name}”没有接受这次登录，请再试一次。';
-  @override
-  String get signIn => '登录';
 }
 
 // Path: errors

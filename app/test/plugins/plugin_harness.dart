@@ -12,6 +12,7 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/runtime/plugin_host.dart';
@@ -69,6 +70,7 @@ final class PluginHarness {
       log: log,
       storage: secureStorage,
     );
+    guard = AccountGuard(credentials: credentials, log: log);
     // 重試的等待立刻完成。
     httpClients = SourceHttpClientFactory(
       log: log,
@@ -87,6 +89,7 @@ final class PluginHarness {
       httpClients: httpClients,
       storage: storage,
       credentials: credentials,
+      guard: guard,
       callTimeout: callTimeout,
       livenessGrace: livenessGrace,
     );
@@ -104,6 +107,9 @@ final class PluginHarness {
   /// 憑證存放：接在記憶體資料庫與 [secureStorage]。
   late final CredentialStore credentials;
   final secureStorage = InMemorySecureStorage();
+
+  /// 插件呼叫層的失效處理，載入的插件都經它。
+  late final AccountGuard guard;
   late final SourceHttpClientFactory httpClients;
 
   /// 媒體 client 的工廠，和 [httpClients] 用同一個假 adapter。

@@ -13,6 +13,7 @@ import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -92,6 +93,7 @@ void main() {
       httpClients: SourceHttpClientFactory(log: log, credentials: credentials),
       storage: PluginStorageRepository(database),
       credentials: credentials,
+      guard: AccountGuard(credentials: credentials, log: log),
     );
     final testPlugin = PluginFile.parse(
       await rootBundle.loadString(_testPluginAsset),

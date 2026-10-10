@@ -5,23 +5,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/account.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
+import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
+import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/accounts/accounts_state.dart';
 import 'package:fmp/ui/accounts/cookie_login_dialog.dart';
 import 'package:fmp/ui/accounts/qr_login_dialog.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../plugins/plugin_harness.dart';
 import '../../support/fake_login_webview.dart';
 import '../support/plugin_page_harness.dart';
+import '../support/shell_harness.dart';
 
 Finder _button(String text) => find.ancestor(
   of: find.text(text),
@@ -94,6 +99,8 @@ Future<void> _signIn(
   PluginPageHarness h,
   String pluginId, {
   AccountStatus status = AccountStatus.active,
+  DateTime? lastRefreshAt,
+  RefreshResult? lastRefreshResult,
 }) async {
   var saved = false;
   unawaited(
@@ -105,6 +112,8 @@ Future<void> _signIn(
             displayName: 'Someone',
             status: status,
             loggedInAt: DateTime.utc(2026, 10, 9),
+            lastRefreshAt: lastRefreshAt,
+            lastRefreshResult: lastRefreshResult,
           ),
           const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_123'}),
         )
@@ -453,6 +462,196 @@ void main() {
     );
   });
 
+  testWidgets('shows the last refresh only for plugins that refresh', (
+    tester,
+  ) async {
+    final h = await PluginPageHarness.create(tester);
+    await tester.runAsync(() async {
+      await h.install(
+        pluginScript(
+          'plugin-a',
+          name: 'Alpha',
+          login: {
+            'methods': ['qr'],
+            'refresh': 'onStartup',
+          },
+        ),
+      );
+      await h.install(
+        pluginScript(
+          'plugin-b',
+          name: 'Beta',
+          login: {
+            'methods': ['qr'],
+          },
+        ),
+      );
+    });
+    for (final (id, result) in [
+      ('plugin-a', RefreshResult.unchanged),
+      ('plugin-b', RefreshResult.refreshed),
+    ]) {
+      await _signIn(
+        tester,
+        h,
+        id,
+        lastRefreshAt: DateTime.utc(2026, 10, 9, 8, 30),
+        lastRefreshResult: result,
+      );
+    }
+    await _openAccounts(tester, h);
+
+    expect(
+      _inCard('Alpha', find.textContaining('Last refreshed: ')),
+      findsOneWidget,
+    );
+    expect(
+      _inCard('Alpha', find.textContaining('no change needed')),
+      findsOneWidget,
+    );
+    // 沒宣告 refresh 的插件，就算帳號列有紀錄也不顯示。
+    expect(
+      _inCard('Beta', find.textContaining('Last refreshed')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a failed refresh is shown as failed', (tester) async {
+    final h = await PluginPageHarness.create(tester);
+    await tester.runAsync(
+      () => h.install(
+        pluginScript(
+          'plugin-a',
+          name: 'Alpha',
+          login: {
+            'methods': ['qr'],
+            'refresh': 'onStartup',
+          },
+        ),
+      ),
+    );
+    await _signIn(
+      tester,
+      h,
+      'plugin-a',
+      lastRefreshAt: DateTime.utc(2026, 10, 9, 8, 30),
+      lastRefreshResult: RefreshResult.failed,
+    );
+    await _openAccounts(tester, h);
+
+    expect(find.textContaining(', failed'), findsOneWidget);
+  });
+
+  group('a rejected credential during a user action', () {
+    // ADR 0013 §決定 5：憑證無效「刷新失敗才提示一次需重新登入」。守衛的提示（附「登入」）
+    // 先發，接著同一個失敗從搜尋或播放以錯誤提示送來：畫面上只能有一則，而且是附「登入」
+    // 的那則（錯誤提示會把它換掉，使用者就沒有路去帳號頁）。
+    const prompt = 'The sign-in to Test Source is no longer valid';
+
+    /// 外殼的假插件 `fmp-test`，加上 `login`（不能刷新）：守衛只讀 manifest。
+    final loginPlugin = _FakePlugin(
+      PluginFile.parse(
+        pluginScript(
+          'fmp-test',
+          name: 'Test Source',
+          login: {
+            'methods': ['qr'],
+          },
+        ),
+      ).manifest,
+    );
+
+    Never reject() => throw CredentialInvalid(pluginId: 'fmp-test');
+
+    void expectOnlyThePrompt() {
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text(prompt), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.text('Sign in'),
+        ),
+        findsOneWidget,
+      );
+    }
+
+    testWidgets('a search shows only the prompt, and still fails inline', (
+      tester,
+    ) async {
+      late final PluginPageHarness h;
+      h = await PluginPageHarness.create(
+        tester,
+        onSearch: (_) => h.plugins.guard.run(loginPlugin, reject),
+      );
+      await _signIn(tester, h, 'fmp-test');
+      await h.shell.pumpShell(tester, collapsePanel: true);
+
+      await tester.enterText(find.byType(TextField), 'x');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await h.settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expectOnlyThePrompt();
+      expect(find.text('Search failed'), findsOneWidget);
+    });
+
+    testWidgets('a track that cannot be resolved shows only the prompt', (
+      tester,
+    ) async {
+      final h = await PluginPageHarness.create(tester);
+      await _signIn(tester, h, 'fmp-test');
+      h.shell.plugin.respond = (_) => h.plugins.guard.run(loginPlugin, reject);
+      await h.shell.pumpShell(tester, collapsePanel: true);
+
+      await h.shell.play(tester, [summary('a')]);
+      await h.settle(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expectOnlyThePrompt();
+    });
+  });
+
+  testWidgets('a rejected credential prompts with a way to the account '
+      'section', (tester) async {
+    // 外殼的測試環境只認得它自己的測試音源的名稱。
+    final h = await PluginPageHarness.create(
+      tester,
+      overrides: [pluginNameProvider('plugin-a').overrideWithValue('Alpha')],
+    );
+    final source = pluginScript(
+      'plugin-a',
+      name: 'Alpha',
+      login: {
+        'methods': ['qr'],
+      },
+    );
+    await tester.runAsync(() => h.install(source));
+    await _signIn(tester, h, 'plugin-a');
+    await h.shell.pumpShell(tester, collapsePanel: true);
+    expect(find.byType(AccountsSection), findsNothing);
+
+    // 插件的能力呼叫丟 CredentialInvalid，又不能刷新。
+    unawaited(
+      h.plugins.guard
+          .run<void>(
+            _FakePlugin(PluginFile.parse(source).manifest),
+            () => throw CredentialInvalid(pluginId: 'plugin-a'),
+          )
+          .then<void>((_) {}, onError: (Object _) {}),
+    );
+    await h.settle(tester);
+
+    expect(
+      find.text('The sign-in to Alpha is no longer valid'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Sign in'));
+    await h.settle(tester);
+    expect(find.byType(AccountsSection), findsOneWidget);
+    expect(_inCard('Alpha', find.text('Expired')), findsOneWidget);
+  });
+
   testWidgets('unreadable credentials say so and can still be signed out', (
     tester,
   ) async {
@@ -585,9 +784,7 @@ void main() {
       await h.settle(tester);
 
       expect(h.plugins.secureStorage.values, isEmpty);
-      expect(webView.cleared, [
-        [_site, _page],
-      ]);
+      expect(webView.clearedAll, 1);
     });
 
     testWidgets('a stuck redirect offers a retry, then a restart', (
@@ -765,6 +962,33 @@ void main() {
   });
 
   for (final width in [400.0, 1000.0]) {
+    testWidgets('$width wide: the last refresh fits', (tester) async {
+      final h = await PluginPageHarness.create(tester);
+      await tester.runAsync(
+        () => h.install(
+          pluginScript(
+            'plugin-a',
+            name: 'Alpha',
+            login: {
+              'methods': ['qr'],
+              'refresh': 'onStartup',
+            },
+          ),
+        ),
+      );
+      await _signIn(
+        tester,
+        h,
+        'plugin-a',
+        lastRefreshAt: DateTime.utc(2026, 10, 9, 8, 30),
+        lastRefreshResult: RefreshResult.refreshed,
+      );
+      await _openAccounts(tester, h, size: Size(width, 800));
+
+      expect(find.textContaining('Last refreshed: '), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('$width wide: the section and the QR dialog fit', (
       tester,
     ) async {
@@ -779,4 +1003,15 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+/// 守衛只讀 manifest 的插件。
+final class _FakePlugin implements SourcePlugin {
+  _FakePlugin(this.manifest);
+
+  @override
+  final PluginManifest manifest;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -14,6 +14,7 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 
@@ -614,6 +615,7 @@ void main() {
         clearCookies: factory.clearCookies,
         plugins: setup.plugins,
         loginWebView: null,
+        guard: AccountGuard(credentials: store, log: setup.log),
       );
       await client.send(SourceRequest(Uri.parse('https://example.test/seed')));
       await setup.settings.setBrowseAsLoggedIn('bilibili', value: true);
@@ -649,6 +651,7 @@ void main() {
         clearCookies: (_) async {},
         plugins: setup.plugins,
         loginWebView: null,
+        guard: AccountGuard(credentials: store, log: setup.log),
       );
 
       await service.removePlugin('bilibili');

@@ -14,6 +14,7 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
@@ -481,6 +482,7 @@ final class _Environment {
       ),
       storage: PluginStorageRepository(database),
       credentials: credentials,
+      guard: AccountGuard(credentials: credentials, log: log),
     );
     final plugin = await loader.load(file);
     loaded = true;

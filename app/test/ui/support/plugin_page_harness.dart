@@ -11,11 +11,13 @@ import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/platform/files/files.dart';
+import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/repository/plugin_downloader.dart';
+import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:material_ui/material_ui.dart';
@@ -98,8 +100,10 @@ final class PluginPageHarness {
     bool registrySources = false,
     bool secureStorage = true,
     List<Override> overrides = const [],
+    FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
   }) {
     shell = ShellHarness(
+      onSearch: onSearch,
       database: plugins.database,
       fileDialogs: dialogs,
       loginWebView: loginWebView,
@@ -110,6 +114,7 @@ final class PluginPageHarness {
         ...overrides,
         redactorProvider.overrideWithValue(plugins.redactor),
         credentialStoreProvider.overrideWithValue(plugins.credentials),
+        accountGuardProvider.overrideWithValue(plugins.guard),
         sourceHttpClientFactoryProvider.overrideWithValue(plugins.httpClients),
         mediaHttpClientFactoryProvider.overrideWithValue(
           plugins.mediaHttpClients,
@@ -131,7 +136,7 @@ final class PluginPageHarness {
   ///
   /// [secureStorage] 是平台宣告（帳號頁的登入按鈕看它）；憑證一律存在 [PluginHarness]
   /// 的記憶體 secure storage。[loginWebView] 給了平台就宣告網頁登入。[overrides] 加在外殼
-  /// 的 override 之後。
+  /// 的 override 之後。[onSearch] 是外殼的假插件（`fmp-test`）的搜尋。
   static Future<PluginPageHarness> create(
     WidgetTester tester, {
     FakeFileDialogs? dialogs,
@@ -139,8 +144,10 @@ final class PluginPageHarness {
     bool registrySources = false,
     bool secureStorage = true,
     List<Override> overrides = const [],
+    FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
   }) async {
     final harness = PluginPageHarness._(
+      onSearch: onSearch,
       dialogs: dialogs,
       loginWebView: loginWebView,
       registrySources: registrySources,

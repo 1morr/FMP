@@ -219,6 +219,70 @@ void main() {
     });
   });
 
+  group('an invalidated sign-in', () {
+    void reject(Toaster toasts, String pluginId) => toasts.error(
+      CredentialInvalid(pluginId: pluginId),
+      operation: 'Search failed',
+      tag: 'search',
+    );
+
+    test('keeps its prompt over the same failure that follows as an error', () {
+      fakeAsync((async) {
+        final toasts = toaster();
+        final action = ToastAction(label: '登入', onPressed: () {});
+
+        toasts.credentialInvalidated('bilibili', '已失效', action: action);
+        reject(toasts, 'bilibili');
+        // 別的音源、別的類別照常。
+        reject(toasts, 'netease');
+        toasts.error(
+          NetworkError(pluginId: 'bilibili'),
+          operation: 'Search failed',
+          tag: 'search',
+        );
+
+        expect(
+          [for (final t in shown) (t.kind, t.action)],
+          [
+            (ToastKind.warning, action),
+            (ToastKind.error, null),
+            (ToastKind.error, null),
+          ],
+        );
+        // 被去重的錯誤仍寫進錯誤歷史。
+        expect(
+          log.history.where((record) => record.message == 'Search failed'),
+          hasLength(3),
+        );
+
+        async.elapse(Toaster.dedupeWindow);
+        reject(toasts, 'bilibili');
+        expect(shown, hasLength(4));
+      });
+    });
+
+    test('replaces an error that arrived first', () {
+      final toasts = toaster();
+      final action = ToastAction(label: '登入', onPressed: () {});
+
+      reject(toasts, 'bilibili');
+      toasts.credentialInvalidated('bilibili', '已失效', action: action);
+
+      expect(shown.last.action, action);
+    });
+
+    test('an unrelated change to the prompt text does not stop the '
+        'deduplication', () {
+      final toasts = toaster();
+      final action = ToastAction(label: '登入', onPressed: () {});
+
+      toasts.credentialInvalidated('bilibili', '登入已失效（改過）', action: action);
+      reject(toasts, 'bilibili');
+
+      expect(shown, hasLength(1));
+    });
+  });
+
   test('without a host the toasts are dropped', () {
     final toasts = Toaster(
       log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),

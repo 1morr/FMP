@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/core/core_providers.dart';
@@ -289,6 +290,79 @@ final class CredentialStore implements CredentialSource {
         _set(account.pluginId, credentials, account.status);
         _changed();
       });
+
+  /// [pluginId] 現在可以帶的憑證仍是 [credentials]（`active`）。刷新期間登出（記憶體已清）
+  /// 或重新登入（換成別的憑證）後是假：那次刷新的結果不能寫到現在的帳號上。
+  bool _stillActive(String pluginId, LoginCredentials credentials) {
+    final entry = _entries[pluginId];
+    return entry?.state == CredentialState.active &&
+        entry!.credentials == credentials;
+  }
+
+  /// 刷新拿到新憑證：把 [replacing] 換成 [credentials]（先 secure storage、再帳號列的
+  /// 最後刷新紀錄 `refreshed`），記憶體換成新的；狀態仍是 `active`。回傳有沒有寫入：
+  /// 記憶體的憑證已經不是 [replacing]（刷新期間登出、重新登入或已標失效）或沒有帳號列
+  /// 時什麼都不做、回 `false`——新憑證不能復活登出的帳號，也不能蓋掉重新登入的。丟出
+  /// 寫入的錯誤，記憶體不變。
+  Future<bool> replace(
+    String pluginId,
+    LoginCredentials credentials, {
+    required LoginCredentials replacing,
+  }) => _serial(() async {
+    if (!_stillActive(pluginId, replacing)) return false;
+    final account = await _accounts.byId(pluginId);
+    if (account == null) return false;
+    await _storage.write(_key(pluginId), jsonEncode(credentials.toJson()));
+    final updated = account.withRefresh(
+      status: AccountStatus.active,
+      refreshedAt: clock.now().toUtc(),
+      result: RefreshResult.refreshed,
+    );
+    await _accounts.upsert(updated);
+    _set(pluginId, credentials, updated.status);
+    _changed();
+    return true;
+  });
+
+  /// 記下一次沒有換憑證的刷新（`unchanged`、`failed`）：只寫帳號列。刷新的憑證
+  /// [of] 已經不是現在的（同 [replace]）或沒有帳號列時什麼都不做。
+  Future<void> recordRefresh(
+    String pluginId,
+    RefreshResult result, {
+    required LoginCredentials of,
+  }) => _serial(() async {
+    if (!_stillActive(pluginId, of)) return;
+    final account = await _accounts.byId(pluginId);
+    if (account == null) return;
+    await _accounts.upsert(
+      account.withRefresh(refreshedAt: clock.now().toUtc(), result: result),
+    );
+    _changed();
+  });
+
+  /// [pluginId] 的憑證 [of] 被音源拒絕（ADR 0012 §決定 5）：帳號列標 `invalidated`，記憶體
+  /// 的狀態跟著改，憑證保留、之後不帶。回傳這次是不是從 `active` 轉過來的——已經是
+  /// 失效、沒有憑證、讀不到，或現在的憑證已經不是 [of]（期間重新登入、被刷新）時是
+  /// `false`，呼叫端據此只提示一次。[result] 是同時記下的最後刷新結果。
+  Future<bool> invalidate(
+    String pluginId, {
+    required LoginCredentials of,
+    RefreshResult? result,
+  }) => _serial(() async {
+    if (!_stillActive(pluginId, of)) return false;
+    final account = await _accounts.byId(pluginId);
+    if (account == null) return false;
+    await _accounts.upsert(
+      account.withRefresh(
+        status: AccountStatus.invalidated,
+        refreshedAt: result == null ? null : clock.now().toUtc(),
+        result: result,
+      ),
+    );
+    _set(pluginId, of, AccountStatus.invalidated);
+    _changed();
+    return true;
+  });
 
   /// 刪除 [pluginId] 的憑證與遮蔽登記（登出、移除插件）。帳號列由呼叫端刪。沒有
   /// 憑證時什麼都不做；可重複呼叫。

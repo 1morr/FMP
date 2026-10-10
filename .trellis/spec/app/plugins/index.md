@@ -35,6 +35,7 @@ lib/plugins/
     credential_store.dart     # CredentialStore：secure storage 的憑證、狀態、遮蔽登記
     account_service.dart      # AccountService：登入（驗證通過才寫入）、登出、移除插件的帳號面、開關
     qr_login.dart             # QrLogin：QR 登入的輪詢（一次性 Timer 接力）與狀態
+    account_guard.dart        # AccountGuard：能力呼叫丟 CredentialInvalid 時單飛刷新、重跑一次、標 invalidated
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
 
 test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
@@ -183,6 +184,9 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - 登入流程的測試：`QrLogin` 的計時在 `fakeAsync` 裡跑，插件用 `account_service_test.dart` 的 `_LoginPlugin`（腳本化的
   `loginQrPoll`），結尾斷言 `async.pendingTimers` 是空的；要真的 QuickJS 與 HTTP 時給 `QrLogin(interval:)` 一個很短的間隔、
   聽它的 `value` 等到 `QrLoginDone`。
+- 失效與刷新的測試：`account_guard_test.dart` 的 `_script`（`search` 在帶憑證的 401 丟 `CredentialInvalid`、`loginRefresh` 依舊憑證
+  的值回新憑證／`null`／拋錯，並打 `/refresh` 讓測試數次數）。`PluginHarness.guard` 是載入的插件都經的守衛；
+  要看提示就聽 `harness.guard.invalidations`。`fmp-test` 的 `expired`／`expired-hard` 關鍵字是實機重播用（README）。
 - `PluginHarness` 的 `pluginSource(..., login: '<JSON>')` 加 manifest 的 `login`；插件頁的 `pluginScript(..., login: {...})`
   會一併匯出 `login` 要的函式。
 

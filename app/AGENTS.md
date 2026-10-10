@@ -274,20 +274,18 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 
 - 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
   Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
-  `windows/CMakeLists.txt` 的 STL1011 define 才建得起來）。介面只開頁、報「一頁載入完成」、讀與刪 cookie、重建環境，
+  `windows/CMakeLists.txt` 的 STL1011 define 才建得起來）。介面只開頁、報「一頁載入完成」、讀 cookie、清全部 cookie、重建環境，
   完成與否由呼叫端判斷（見「帳號」）。
   - UA 由這一層決定，不由插件給：Android 是系統 WebView 的 UA 拿掉 `; wv`／`;wv`（`androidLoginUserAgent`，R1：桌面 UA
     與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入）。
   - Windows 的 WebView2 使用者資料在資料目錄的 `webview/`（`loginWebViewDirectoryName`；不給的話是程式旁的
     `fmp.exe.WebView2`，dev 與 prod 混在一起），環境第一次用到才建，`reset` 後重建（同一個目錄，登入狀態留著）。
     cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。
-  - `cookies(hosts)` 只回問到的網址讀得到的（`getCookies`），同名時前面的網址優先。`clear` 逐一刪 `getCookies` 讀到的
-    再讀一次，還讀得到就丟 `StateError`（訊息只有數量）。Android 以 `Secure` 的過期 cookie 蓋掉、host-only 的不帶
-    `Domain`：套件的 `deleteCookie` 不帶 `Secure`，Chromium 拒收 `__Secure-`／`__Host-` 開頭的那種設定，Google 的
-    `__Secure-1PSID` 會刪不掉；`getCookies` 回報的 domain 是 Chromium 的格式（網域 cookie 以 `.` 開頭）。Windows 用
-    `deleteCookie`（WebView2 以名稱、domain、path 刪）。
-  - 閘門：`login_webview_test.dart`（UA 三種、只回問到的網址、兩種刪法，含 Chromium 規則下套件 `deleteCookie` 會留下
-    cookie 的對照組、刪不掉時丟錯）、`platform_test.dart`。WebView 本身、cookie 真的刪掉只能實機驗（登出後以名稱檢查）。
+  - `cookies(hosts)` 只回問到的網址讀得到的（`getCookies`），同名時前面的網址優先。刪除只有 `clearAll`
+    （`deleteAllCookies`）：Google 會把工作階段 cookie 寫到地區網域、分區（CHIPS）cookie 以網址刪不到，所以不以網址刪
+    （ADR 0029 §決定 11 更正）；平台可能靜默失敗，由呼叫端用 `cookies` 確認。
+  - 閘門：`login_webview_test.dart`（UA 三種、只回問到的網址、`clearAll`）、`platform_test.dart`。cookie 真的刪掉只能
+    實機驗（登出後以名稱檢查）。
   - Linux 沒有登入 WebView（ADR 0012 §決定 8）：App 直接依賴本機的 `packages/flutter_inappwebview_linux_stub`（純 Dart、
     什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：
     `webview_stub_test.dart`（`.flutter-plugins-dependencies` 的 Linux、macOS 解析、
@@ -697,7 +695,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 帳號
 
-`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。失效與刷新在之後的 PR。
+`lib/plugins/accounts/`（ADR 0012、0029），畫面在 `lib/ui/accounts/`（見「介面」的帳號頁）。
 
 - 憑證只有一個來源 `CredentialStore`：secure storage 的 `credentials.<插件 id>`（`LoginCredentials` 的 JSON）。
   記憶體只放讀進來的狀態，請求只讀記憶體；每個查詢都等 `ready`（啟動載入完成），所以啟動時的請求不會在憑證
@@ -714,8 +712,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`credential_store_test.dart` 的 `redaction`。
 - 登出（`AccountService.logout`）：憑證 → 登入 WebView 的 cookie → `accounts` 列 → 該插件的記憶體 cookie jar；
   `source_settings` 保留。每一步可重複，失敗停在那一步。WebView 那一步只在平台有登入 WebView、插件（還在
-  `installed_plugins`）的 manifest 宣告 `login.webView` 時做，清 `cookieHosts` 與登入頁 `url`（`loginWebViewHosts`：登入頁
-  那一端也是登入狀態，不清的話下次一開就直接登入）。移除插件走同一條（design §7.4 的順序：憑證 → WebView → 帳號列）。
+  `installed_plugins`）的 manifest 宣告 `login.webView` 時做：`clearAll` 清登入 WebView 的全部 cookie，再讀
+  `loginWebViewHosts`（`cookieHosts` 與登入頁 `url`），還讀得到就丟 `StateError`（訊息只有數量）。登入頁那一端也是登入狀態，
+  不清的話下次一開就直接登入；Google 寫到地區網域的 cookie 與分區 cookie 以網址刪不到，所以清全部。移除插件走同一條
+  （design §7.4 的順序：憑證 → WebView → 帳號列）。
   閘門：`credential_store_test.dart` 的 `logging out`、`account_service_test.dart` 的 `logging out clears the login web view`、
   `plugin_installer_test.dart` 的 `clears the login web view…`。
 - 登入（`AccountService.login`，三種方式共用）：插件的 `loginVerify` 通過才寫入——先 secure storage、再帳號列
@@ -744,7 +744,34 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （沒宣告是開）：`ScriptPluginLoader` 載入成功時把它交給 `CredentialStore.setBrowseAsLoggedInDefault`，請求都來自載入了的
   插件。帳號頁的開關以同一條規則顯示，寫入經 `AccountService.setBrowseAsLoggedIn`。閘門：`account_service_test.dart` 的
   `browse as logged in` 群組。
-  憑證的值只用假值寫測試（`FAKE_…`）。
+- 失效與刷新（`AccountGuard`，`account_guard.dart`，design §6.5）：判定在插件，插件丟 `CredentialInvalid` 時由守衛在**插件呼叫層**
+  處理，不在 dio 的攔截器（判定在 JS 內）。`ScriptSourcePlugin` 的能力呼叫（`search`、`resolveStream`，`_invoke` 一處）
+  都經它；`login*` 匯出不經（它們自己負責憑證）。只有 `CredentialInvalid` 觸發，而且呼叫開始時要有可用憑證；網路錯誤、
+  限流、風控不觸發。流程：同一插件單飛刷新（共用 `Future`）；呼叫開始時的憑證和現在的不同＝已被別的呼叫刷新過，直接重跑，
+  不再刷新。宣告 `refresh`：`loginRefresh(目前憑證)` 拿到新憑證就寫入（`CredentialStore.replace`，`refreshed`）並**重跑原呼叫
+  一次**（新的呼叫讀到新憑證）；回 `null` 或丟 `CredentialInvalid` 就標 `invalidated`（`CredentialStore.invalidate`，保留憑證、
+  不再帶）；沒宣告 `refresh` 直接標。重跑又被拒也標，不再重跑。刷新時的其他錯誤（網路、限流）不標失效，記 `failed` 並丟出
+  那個錯誤。併進進行中的啟動刷新而它回 `null`（`unchanged`）時，被拒的那次照樣標失效。寫入（`replace`、`recordRefresh`、
+  `invalidate`）只對刷新或被拒的那組憑證做：`CredentialStore` 以記憶體裡現在的憑證比對，刷新期間登出（憑證已刪、帳號列還在）
+  或重新登入時那次的結果丟掉，不復活、不蓋掉、不標失效。每次從 `active` 轉成 `invalidated` 發一次 `AccountInvalidated`
+  （`accountInvalidationsProvider`），外殼以 `Toaster.credentialInvalidated` 提示一次「{音源}的登入已失效」附「登入」（到設定頁的
+  帳號區塊）；它佔住 `CredentialInvalid`＋該音源的錯誤去重鍵，同一個失敗接著從搜尋、播放以 `Toaster.error` 送來的錯誤提示被
+  去重（仍寫錯誤歷史），畫面上只留附「登入」的那則（ADR 0013 §決定 5）。重新登入回到 `active` 後下一次失效再提示。閘門：
+  `account_guard_test.dart`（`a rejected credential`：重跑帶新憑證、三個並行刷新一次、不支援刷新、`null`、被拒、重跑又被拒不
+  循環、刷新網路錯誤；`while a refresh is in flight`：登出、重新登入、併進啟動刷新；`other failures`）、
+  `toaster_test.dart` 的 `an invalidated sign-in`、`accounts_section_test.dart` 的 `a rejected credential prompts…` 與
+  `a rejected credential during a user action`（搜尋、播放各一，只有一則提示）。
+- 啟動刷新（`AccountService.refreshOnStartup`、`accountStartupRefreshProvider`）：宣告 `refresh: 'onStartup'` 且有可用憑證的
+  插件，在第一幀之後（`FmpApp` 讀 provider）、**網路狀態第一次是 `online` 時**各 `loginRefresh` 一次（與失效時的刷新共用
+  單飛），整個執行只跑一次；先等網路狀態的第一次介面檢查（`NetworkStatusNotifier.whenFirstChecked`），因為網路狀態的預設是 `online`，沒查過就不知道有沒有網路。不是排程器
+  工作、不在啟動維護清單。結果寫帳號列的 `last_refresh_at`／`last_refresh_result`：新憑證 `refreshed`、`null` `unchanged`、
+  被拒標失效並 `failed`（提示一次）、網路錯誤等 `failed` 但帳號仍可用。帳號頁對宣告 `refresh` 的插件顯示最後刷新的時間與
+  結果。不做全面驗證（啟動時不對每個帳號打帳號資訊 API）。閘門：`account_guard_test.dart` 的 `startup refresh`、
+  `the startup refresh provider`（離線不發、上線後發一次、之後不再發）、`accounts_section_test.dart` 的
+  `shows the last refresh…`、`a failed refresh…`。
+- 「憑證無效」判定表（`credentialsAttached` 為真的 401、`-101` 等）在各插件的目錄內，由插件 repo 的 Node 測試守（輸入回應
+  與 `credentialsAttached`），不是契約 fixture（ADR 0015 §決定 4 每能力一條案例；PR 1 的先例）。沒有閘門：本 repo 不守。
+- 憑證的值只用假值寫測試（`FAKE_…`）。
 
 ## 插件
 
@@ -1354,7 +1381,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     閘門：`accounts_section_test.dart` 的 `availableLoginMethods…`、`one card per…`、`without secure storage…`。
   - 已登入：頭像（帳號列的 `avatar_json`，經那個插件的封面快取）、名稱、狀態（正常／已失效／暫時無法讀取，取自
     `CredentialStore.state`）、「以登入身分瀏覽與播放」開關（`automationRisk` 時附說明）、登出（先確認）；已失效時多「重新
-    登入」（只有一種方式時；幾種時照列每一種）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
+    登入」（只有一種方式時；幾種時照列每一種）；宣告 `refresh` 的插件另有一行「最後刷新：時間，結果」（時間用裝置本地時間與
+    `MaterialLocalizations`，同歷史頁）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
     `accounts_section_test.dart` 的 `a QR login with the test plugin…`、`an invalidated account…`、`unreadable credentials…`、
     `offline…`。
   - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中

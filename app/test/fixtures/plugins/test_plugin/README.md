@@ -31,6 +31,18 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   - 登入之後開關「以登入身分瀏覽與播放」、登出都走真的流程（`CredentialStore`、
     `source_settings`）。這個插件不發請求，所以看不出請求帶不帶憑證：那部分由
     `test/plugins/accounts/account_service_test.dart` 以會發請求的插件守。
+  失效與刷新（`login.refresh` 是 `onStartup`，不連網，給帳號頁與失效提示的實機驗證）。
+  這個插件不發請求，看不到 `credentialsAttached`，所以以「已登入」當作這次帶了憑證，
+  狀態存在 plugin storage 的 `expiry`：
+  - 登入後搜尋 `expired`：第一次以 `CredentialInvalid` 失敗，宿主呼叫 `loginRefresh`
+    換成新憑證（`fmp_test_session=fake-session-0001`，之後每次加一），再重跑一次就成功
+    （使用者只看到搜尋結果；帳號頁的「最後刷新」更新為「已更新憑證」）。再搜一次 `expired`
+    又重來一輪。
+  - 登入後搜尋 `expired-hard`：`CredentialInvalid`，而且 `loginRefresh` 也以
+    `CredentialInvalid` 失敗，帳號轉成「已失效」，提示「…的登入已失效」附「登入」。重新
+    登入（`loginVerify`）清掉狀態。
+  - 沒有進行中的 `expired` 時，`loginRefresh` 回 `null`：重啟 App 後的啟動刷新跑一次，
+    帳號頁的最後刷新是「不需要更新」。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權

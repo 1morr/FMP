@@ -112,6 +112,13 @@ final networkStatusProvider =
 final class NetworkStatusNotifier extends Notifier<NetworkStatus> {
   final _machine = NetworkStatusMachine();
 
+  /// 第一次介面檢查（[whenFirstChecked]）。狀態的預設是 `online`，要等它才知道真的有
+  /// 沒有網路。
+  Future<void> _firstCheck = Future.value();
+
+  /// 建立時查的第一次介面完成（沒有介面實作時已經完成）。
+  Future<void> whenFirstChecked() => _firstCheck;
+
   @override
   NetworkStatus build() {
     final interfaces = ref.watch(networkInterfacesProvider);
@@ -125,7 +132,7 @@ final class NetworkStatusNotifier extends Notifier<NetworkStatus> {
             _readFailed(error, stackTrace),
       );
       ref.onDispose(subscription.cancel);
-      unawaited(recheckInterfaces());
+      _firstCheck = recheckInterfaces();
     }
     return _machine.status;
   }

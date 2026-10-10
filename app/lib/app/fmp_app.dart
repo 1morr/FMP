@@ -12,6 +12,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -69,6 +70,8 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     // 啟動維護在第一幀之後跑一次，不拖慢第一個畫面（ADR 0017 §決定 1）。
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // 宣告啟動刷新的插件，網路第一次上線時刷新憑證（design §6.5）。
+      ref.read(accountStartupRefreshProvider);
       unawaited(
         runStartupMaintenance(
           ref.read(startupMaintenanceTasksProvider),
