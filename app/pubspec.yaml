@@ -16,6 +16,7 @@ environment:
 workspace:
   - packages/fmp_lints
   - packages/flutter_inappwebview_linux_stub
+  - packages/flutter_inappwebview_macos_stub
 
 dependencies:
   # 系統媒體控制的 Android 實作（ADR 0018 §決定 8）：通知、鎖定畫面、媒體鍵。
@@ -73,6 +74,10 @@ dependencies:
   # WebView（ADR 0012 §決定 8）。理由與閘門見 packages/flutter_inappwebview_linux_stub。
   flutter_inappwebview_linux_stub:
     path: packages/flutter_inappwebview_linux_stub
+  # macOS 同理：flutter_inappwebview_macos 1.2.0-beta.3 在目前的 Xcode 編不過，macOS 也沒有登入
+  # WebView（ADR 0012 §決定 8），換成本機 stub。理由與閘門見 packages/flutter_inappwebview_macos_stub。
+  flutter_inappwebview_macos_stub:
+    path: packages/flutter_inappwebview_macos_stub
   # 憑證存放（ADR 0012 §決定 3、ADR 0029 §決定 5）；只准在 lib/platform/ import
   # （fmp_layer_imports）。
   flutter_secure_storage: ^11.2.0
