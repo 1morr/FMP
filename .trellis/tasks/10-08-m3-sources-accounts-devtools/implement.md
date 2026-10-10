@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-09）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
+- **狀態**（2026-10-10）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3。
 - **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）；PR 3 的 FMP 端（#224）與 fmp-plugins#6（index、CI、B 站 1.0.0、網易 1.0.1；`FMP_REF`＝`fcb52d28`；Version Bump 會紅已在 `214e01c` 證明並 revert；raw `index.json` 可讀、SHA 相符）；PR 7（#225，schema v8；secure storage 整合測試兩平台通過）。
 - **進行中**（M3a 的實作 PR 全部開了，都在等擁有者）：
@@ -54,10 +54,11 @@
     - #229 PR 9 網頁登入、貼上 cookie（`feat/m3-web-login`；Linux 以 stub 取代 `flutter_inappwebview_linux`，Linux 建置要等 CI）
     - #230 PR 10 失效與刷新（`feat/m3-refresh`）
     - 任務 `10-09-m3-plugin-page`、`-onboarding`、`-login`、`-web-login`、`-refresh` 都還沒封存：各自合併前封存。
-  - **fmp-plugins**：#7（draft，`feat/login-qr`：B 站、網易 QR 登入 1.1.0）→ #8（draft，`feat/login-refresh`，base `feat/login-qr`：B 站刷新、判定表 1.2.0）；#4（draft，`feat/youtube`：播放＋登入 `d6da2cd`，worktree `../fmp-plugins-yt`）。三個插件對 `feat/m3-refresh` 的契約重播都過。FMP 那串合併後：`FMP_REF` 改新 main、轉正式 PR、等 CI。
+  - **fmp-plugins**：#7（draft，`feat/login-qr`：B 站、網易 QR 登入 1.1.0）→ #8（draft，`feat/login-refresh`，base `feat/login-qr`：B 站刷新、判定表 1.2.0）；#4（draft，`feat/youtube`：播放＋登入，到 `df0d756`，worktree `../fmp-plugins-yt`）。三個插件對 `feat/m3-refresh` 的契約重播都過。FMP 那串合併後：`FMP_REF` 改新 main、轉正式 PR、等 CI。
   - **合併順序**：#226 → #227 → #228 → #229 → #230（每個合併後下一個改 base 到 `main`、等 CI 綠）→ fmp-plugins #7 → #8 → #4。
-  - **YouTube 播放**：Windows 開 VISIONOS `mp4/aac` 回 403；本機代理出口被 YouTube 標成機器人（2026-10-09 仍 `LOGIN_REQUIRED`），要擁有者換代理節點。查法見 `archive/2026-10/10-08-m3-youtube-plugin/research/on-device.md`。
-- **等擁有者的實機與真實操作**：Windows 實測（#226–#230，滑鼠與鍵盤自動化要先問）；B 站、網易真實 QR 登入（擁有者掃）、帶憑證搜尋、開關、登出、重啟後的 B 站啟動刷新（`86095` 等刷新碼的實際行為）；YouTube 網頁登入（Google 測試帳號，擁有者輸入密碼）、登出後以 cookie 名稱確認 Android 的 WebView cookie 真的刪掉。
+  - **YouTube 播放**（2026-10-10 Windows 真實，擁有者的 Google 測試帳號）：先前的 403 與機器人標記沒再出現；登入後 player 回 400 是 VISIONOS 不收瀏覽器 cookie，#4 改成 player 請求不帶憑證（`df0d756` 為止），登入只影響搜尋與帳號資訊。收 cookie 的 client（`WEB_EMBEDDED`、`TV`）目前被 YouTube 拒絕，原型在 fmp-plugins 分支 `wip/youtube-cookie-clients`（不合併）。細節在 #4 的描述。
+- **Windows 已實測**（擁有者同意自動化）：首次引導、從檔案安裝；B 站、網易真實 QR 登入、帶憑證搜尋、開關、登出；B 站啟動刷新（`unchanged`）；YouTube 網頁登入、登入中搜尋與播放、登出（WebView cookie 見「PR 9 留下的」第 8 條）；`fmp-test` 的 `expired`（刷新後成功、帳號頁「已更新憑證」）與 `expired-hard`（已失效、提示附「登入」、點了到帳號頁）。
+- **等擁有者的實機與真實操作**：貼上 cookie（擁有者從瀏覽器複製）；Android 的 YouTube 網頁登入（擁有者輸入密碼）與登出後以 cookie 名稱確認 WebView cookie 刪掉（「PR 9 留下的」第 2 條）；`86095` 等刷新碼的實際行為（要等憑證真的過期）。
 - **待擁有者回覆**：無（secret scanning 警告擁有者已手動關閉；PR 5 的暫時分支已同意並用完刪除）。
 - **下一步**：擁有者回來後依上面的實機清單驗證、依合併順序合併，然後 M3a 驗收（本檔「M3a 驗收」）；M3b（PR 11 起）在 M3a 驗收合併後才開。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
@@ -505,6 +506,7 @@
 5. **APK 多了約 3.4 MB 的套件 asset**（`t-rex.html`、`web_support.js`）；要瘦身再看 `flutter_inappwebview` 的 asset 排除方式。
 6. **`flutter_inappwebview` 的 debug log**：debug build 會以 `developer.log` 輸出 `onLoadStop` 網址與頁面 console（Google 跳轉網址可能帶 token），只到 VM service／IDE，不進 FMP 的 log、錯誤歷史、診斷包，release 不輸出。要關就在平台層設 `PlatformInAppWebViewController.debugLoggingSettings.enabled = false`。
 7. **貼上 cookie 對話框在「驗證中」關掉**，驗證仍跑完並寫入（不跳成功提示），與 QR 一致；要不要在驗證中禁止關閉，之後決定。
+8. **Windows 登出後 WebView 留下的 cookie**（2026-10-10 真實 YouTube 登入後登出，讀 WebView2 `Cookies` 資料庫的名稱欄）：`.google.com`（17）與 `accounts.google.com`（7）全清，`.youtube.com` 24 個清掉 20 個（含三個 `doneCookies`）。留下兩類：`.youtube.com` 4 個分區 cookie（CHIPS，`top_frame_site_key` 是 `https://youtube.com`；`VISITOR_INFO1_LIVE` 等訪客 cookie，以網址刪不到）；Google 登入時寫到地區網域的 `.google.com.tw` 10 個（`SID`、`__Secure-1PSID` 等工作階段 cookie），不在 `cookieHosts`、`url` 底下。後者不會送到 `accounts.google.com` 與 YouTube，但 Google 工作階段留在 WebView 資料裡。修法候選：登出時清全部 WebView cookie（平台層已有 `clearAll`；登入 WebView 只在登入時用，憑證另存），待擁有者決定。
 
 ### PR 8 留下的
 
