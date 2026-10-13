@@ -125,6 +125,9 @@ dependencies:
   # log 門面的歷史與分派（ADR 0011 §決定 1）；只准在 lib/core/logging/
   # import（fmp_log_facade）。
   talker: ^5.1.20
+  # 「在 GitHub 回報」開瀏覽器（M3 design §13）；只准在 lib/platform/ import
+  # （fmp_layer_imports）。
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   # 播放列的 golden（ADR 0024 §如何確認）。只用它的 CI 版（文字畫成色塊），

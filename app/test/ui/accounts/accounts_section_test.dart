@@ -281,6 +281,7 @@ void main() {
       secureStorage: secureStorage,
       files: false,
       loginWebView: loginWebView,
+      urlOpener: false,
     );
     const all = PluginLogin(
       methods: {LoginMethod.cookie, LoginMethod.webView, LoginMethod.qr},

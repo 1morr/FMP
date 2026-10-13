@@ -31,6 +31,7 @@ final class PlatformCapabilities {
     required this.secureStorage,
     required this.files,
     required this.loginWebView,
+    required this.urlOpener,
     this.mediaControls,
   });
 
@@ -45,6 +46,7 @@ final class PlatformCapabilities {
     secureStorage: false,
     files: false,
     loginWebView: false,
+    urlOpener: false,
     mediaControls: null,
   );
 
@@ -83,6 +85,10 @@ final class PlatformCapabilities {
   /// 登入」依它出現，登出與移除插件時依它清 WebView 的 cookie。
   final bool loginWebView;
 
+  /// 有用瀏覽器開網址的實作（`url_opener/`）：錯誤詳細頁的「在 GitHub 回報」依它決定開網址，
+  /// 沒有時只複製並顯示網址（ADR 0023 §決定 4）。
+  final bool urlOpener;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -98,5 +104,6 @@ final class PlatformCapabilities {
     secureStorage: secureStorage,
     files: files,
     loginWebView: loginWebView,
+    urlOpener: urlOpener,
   );
 }

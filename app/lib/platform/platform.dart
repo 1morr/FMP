@@ -30,6 +30,8 @@ import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
+import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
+import 'package:fmp/platform/url_opener/url_opener.dart';
 
 /// 平台層的組裝點（ADR 0009 §決定 1–4）：依平台組出能力宣告與各能力的
 /// 實作。整個 App 只有這裡判斷平台；lint `fmp_platform_checks` 擋的是
@@ -44,12 +46,14 @@ final class AppPlatform {
     this.secureStorage,
     this.fileDialogs,
     this.loginWebView,
+    this.urlOpener,
     this.mediaControls,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
        assert(capabilities.files == (fileDialogs != null)),
        assert(capabilities.loginWebView == (loginWebView != null)),
+       assert(capabilities.urlOpener == (urlOpener != null)),
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
        assert((capabilities.cache != null) == (cacheDirectory != null)),
        assert(capabilities.secureStorage == (secureStorage != null)),
@@ -87,10 +91,14 @@ final class AppPlatform {
         secureStorage: true,
         files: true,
         loginWebView: true,
+        urlOpener: true,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       // 資料目錄在 App 的沙盒裡，路徑不含使用者名稱：沒有要換成 `~` 的家目錄。
-      appInfo: const PackageInfoAppInfo(platform: 'Android'),
+      appInfo: PackageInfoAppInfo(
+        platform: 'Android',
+        osVersion: Platform.operatingSystemVersion,
+      ),
       dataDirectory: AndroidAppDataDirectory(
         flavor: flavor,
         applicationSupportPath: () async =>
@@ -103,6 +111,7 @@ final class AppPlatform {
       secureStorage: FlutterSecureStorageAdapter.system(flavor),
       fileDialogs: const FilePickerDialogs(),
       loginWebView: InAppLoginWebView.android(),
+      urlOpener: const UrlLauncherOpener(),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
     ),
@@ -139,6 +148,7 @@ final class AppPlatform {
         secureStorage: true,
         files: true,
         loginWebView: true,
+        urlOpener: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
@@ -147,6 +157,7 @@ final class AppPlatform {
       ),
       appInfo: PackageInfoAppInfo(
         platform: 'Windows',
+        osVersion: Platform.operatingSystemVersion,
         homeDirectory: Platform.environment['USERPROFILE'],
       ),
       dataDirectory: dataDirectory,
@@ -163,6 +174,7 @@ final class AppPlatform {
           loginWebViewDirectoryName,
         ),
       ),
+      urlOpener: const UrlLauncherOpener(),
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
     );
@@ -192,6 +204,9 @@ final class AppPlatform {
 
   /// 登入 WebView；[PlatformCapabilities.loginWebView] 為假時為 `null`。
   final LoginWebView? loginWebView;
+
+  /// 網址開啟器；[PlatformCapabilities.urlOpener] 為假時為 `null`。
+  final UrlOpener? urlOpener;
 
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
@@ -227,6 +242,7 @@ final class AppPlatform {
       secureStorage: secureStorage,
       fileDialogs: fileDialogs,
       loginWebView: loginWebView,
+      urlOpener: urlOpener,
       mediaControls: controls,
     );
   }

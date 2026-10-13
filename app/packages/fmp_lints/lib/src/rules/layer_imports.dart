@@ -54,6 +54,7 @@ const platformPackages = [
   'package_info_plus',
   'flutter_inappwebview',
   'flutter_secure_storage',
+  'url_launcher',
 ];
 
 /// 左邊目錄內的檔案不得 import 右邊的目錄。
