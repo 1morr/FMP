@@ -13,7 +13,6 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/history/history_state.dart';
-import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../support/memory_database.dart';
@@ -126,11 +125,7 @@ void main() {
         'of the artist', (tester) async {
       await withClock(Clock.fixed(now), () async {
         final h = ShellHarness(
-          extraOverrides: [
-            sourceUnavailableProvider.overrideWith(
-              (ref, id) => 'Source not installed',
-            ),
-          ],
+          sourceUnavailable: (ref, id) => 'Source not installed',
         );
         await h.pumpApp(tester, const HistoryPage());
         await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));

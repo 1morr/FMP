@@ -2,16 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
-import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
-import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
@@ -89,6 +89,13 @@ Future<void> _setAutoScroll(WidgetTester tester, ShellHarness h) async {
   await h.loadSettings(tester);
 }
 
+class _ReasonNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) => state = value;
+}
+
 void main() {
   group('the list', () {
     testWidgets('a song of a source that cannot be used shows why instead of '
@@ -97,11 +104,8 @@ void main() {
         tester,
         ids: ['a'],
         harness: ShellHarness(
-          extraOverrides: [
-            sourceUnavailableProvider.overrideWith(
-              (ref, id) => id == 'gone' ? 'Source disabled' : null,
-            ),
-          ],
+          sourceUnavailable: (ref, id) =>
+              id == 'gone' ? 'Source disabled' : null,
         ),
       );
       expect(
@@ -126,6 +130,37 @@ void main() {
       expect(
         find.descendant(of: _row('a'), matching: find.text('Uploader a')),
         findsOneWidget,
+      );
+    });
+
+    testWidgets('the reason follows the source becoming unavailable', (
+      tester,
+    ) async {
+      final unavailable = NotifierProvider<_ReasonNotifier, String?>(
+        _ReasonNotifier.new,
+      );
+      final h = await _openQueue(
+        tester,
+        ids: ['a'],
+        harness: ShellHarness(
+          sourceUnavailable: (ref, id) => ref.watch(unavailable),
+        ),
+      );
+      expect(
+        find.descendant(of: _row('a'), matching: find.text('Uploader a')),
+        findsOneWidget,
+      );
+
+      h.container(tester).read(unavailable.notifier).set('Source disabled');
+      await tester.pump();
+
+      expect(
+        find.descendant(of: _row('a'), matching: find.text('Source disabled')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: _row('a'), matching: find.text('Uploader a')),
+        findsNothing,
       );
     });
 
