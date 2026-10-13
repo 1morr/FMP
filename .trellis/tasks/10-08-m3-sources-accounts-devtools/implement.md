@@ -508,6 +508,8 @@
 5. `plugin_name_test.dart`：清單還沒載入時是 `null`（優先度低）。
 6. 測試插件的 QR、`expired`、`expired-hard`：加進 `test_plugin_bundle_test.dart`。
 7. **B 站錯誤對應表的單元測試**（ADR 0013 的對照只有「部分」）：fmp-plugins 本機分支 `test/bilibili-errors`（`f857d9e`，對應表搬進 `bilibili/src/errors.js`、`test/errors.test.js`、1.2.1）已備好，push 與開 PR 等擁有者同意。
+8. **停用或移除音源後，它已準備好的前瞻仍會播出**（驗收第 5 步在 Android 真實模式發現；擋 M3a 驗收）：修正在本機分支 `fix/disabled-source-playback`（worktree `.claude/worktrees/agent-aaf6390816ae81fc5`，4 個 commit 到 `604c3567`）。插件清單一改就放掉已消失插件的前瞻，單曲循環的下一圈準備前也查插件；opus 審查後補了單曲循環的漏洞，變異測試全紅、全部測試 2287 通過。實機（重播，兩個測試插件）Android 與 Windows 都驗過：停用 → `Look-ahead dropped: source unavailable`，下一首 → `Unsupported` 跳過、不開流；重新啟用 → 正常解析出聲。push 與開 PR 等擁有者同意。跳過時的提示是類別表的通用「發生預期外的錯誤」（`Unsupported` 與未安裝相同，ADR 0013），曲目標「音源已停用」。
+9. **Android 的暫停媒體鍵會切換播放**（M2 範圍，不擋 M3a）：`audio_service` 0.18.19 把 `KEYCODE_MEDIA_PAUSE`／`PLAY` 都轉成 `MediaButton.media`，預設 `click` 是切換；已暫停時收到暫停會開始播。藍牙耳機分開送播放與暫停鍵時會碰到。要修就覆寫 `_Handler.click`，或另開 issue，等擁有者決定。
 
 ### PR 9 留下的
 
