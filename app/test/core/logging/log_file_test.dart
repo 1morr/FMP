@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logging/log_file.dart';
+import 'package:fmp/core/logging/log_record.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
@@ -213,6 +214,144 @@ void main() {
       broken.write('{"n":1}');
       await broken.flush();
       expect(broken.failureCount, 1);
+    });
+  });
+
+  // Debug 頁的「清除 log」（ADR 0025 §決定 3）。
+  group('clear', () {
+    late Directory logs;
+    setUp(() => logs = Directory(p.join(temp.path, 'logs')));
+
+    test(
+      'deletes the current file and every rotated one, nothing else',
+      () async {
+        final file = LogFile(logs, maxBytes: 40);
+        for (var i = 0; i < 6; i++) {
+          file.write('{"n":$i,"pad":"xxxxxxxxxxxxxxxx"}');
+        }
+        await file.flush();
+        File(p.join(logs.path, 'notes.txt')).writeAsStringSync('keep');
+        expect(logFileNames(logs), contains('fmp.1.jsonl'));
+
+        await file.clear();
+
+        expect(logFileNames(logs), ['notes.txt']);
+      },
+    );
+
+    test('lines queued before it are written and then deleted; lines written '
+        'after it survive', () async {
+      final file = LogFile(logs);
+      file.write('{"n":"before"}');
+      final cleared = file.clear();
+      // clear() 之後、同一輪事件迴圈內寫的：不能和清除之前的行落在同一批。
+      file.write('{"n":"after"}');
+      await cleared;
+      await file.flush();
+
+      expect(await file.currentFile.readAsLines(), ['{"n":"after"}']);
+    });
+
+    test(
+      'a missing directory is fine and the size is re-read afterwards',
+      () async {
+        // 一行 29 位元組（含換行）：兩行放得下，三行就要輪替。
+        const line = '{"n":1,"pad":"xxxxxxxxxxxx"}';
+        final file = LogFile(logs, maxBytes: 70);
+        await file.clear();
+        file.write(line);
+        await file.flush();
+        await file.clear();
+        // 清除後目前檔案的大小歸零：兩行放得下，不該因為殘留的大小（29）提早輪替。
+        file
+          ..write(line)
+          ..write(line);
+        await file.flush();
+
+        expect(logFileNames(logs), ['fmp.jsonl']);
+        expect(await file.currentFile.readAsLines(), [line, line]);
+        expect(file.failureCount, 0);
+      },
+    );
+
+    test('a failure reaches the caller and later writes still run', () async {
+      final broken = LogFile(_UnlistableDirectory(logs.path));
+
+      await expectLater(broken.clear(), throwsA(isA<FileSystemException>()));
+      broken.write('{"n":1}');
+      await broken.flush();
+      expect(broken.failureCount, 1);
+    });
+  });
+
+  // 「含之前的紀錄」讀回 log 檔（ADR 0025 §決定 3）。
+  group('readStored', () {
+    late Directory logs;
+    setUp(() => logs = Directory(p.join(temp.path, 'logs')));
+
+    String line(int n, {String tag = 'test'}) => LogRecord(
+      time: DateTime.utc(2026, 10, 13, 12, 0, n),
+      level: LogLevel.info,
+      tag: tag,
+      message: 'message $n',
+    ).toJsonLine();
+
+    List<String> messages(List<LogRecord> records) => [
+      for (final record in records) record.message,
+    ];
+
+    test('reads every file oldest first and skips bad lines', () async {
+      logs.createSync(recursive: true);
+      File(p.join(logs.path, 'fmp.2.jsonl'))
+          .writeAsStringSync('${line(1)}\nnot json\n${line(2)}\n');
+      File(p.join(logs.path, 'fmp.1.jsonl'))
+          .writeAsStringSync('${line(3)}\n{"time": "broken"}\n\n');
+      File(p.join(logs.path, 'fmp.jsonl')).writeAsStringSync('${line(4)}\n');
+      File(p.join(logs.path, 'other.jsonl')).writeAsStringSync('${line(9)}\n');
+
+      final records = await LogFile(logs).readStored();
+
+      expect(messages(records), [
+        'message 1',
+        'message 2',
+        'message 3',
+        'message 4',
+      ]);
+    });
+
+    test('lines still waiting in the write queue are included', () async {
+      final file = LogFile(logs)..write(line(1));
+
+      expect(messages(await file.readStored()), ['message 1']);
+    });
+
+    test('stops at the byte limit, newest files first', () async {
+      logs.createSync(recursive: true);
+      final lineBytes = '${line(1)}\n'.length;
+      File(p.join(logs.path, 'fmp.1.jsonl'))
+          .writeAsStringSync('${line(1)}\n${line(2)}\n');
+      File(p.join(logs.path, 'fmp.jsonl'))
+          .writeAsStringSync('${line(3)}\n${line(4)}\n');
+
+      // 剛好放得下新的那個檔：舊的不讀。
+      expect(
+        messages(await LogFile(logs).readStored(maxBytes: lineBytes * 2)),
+        ['message 3', 'message 4'],
+      );
+      // 切在行界上：那一行是完整的，不能連它也丟掉。
+      expect(
+        messages(await LogFile(logs).readStored(maxBytes: lineBytes * 3)),
+        ['message 2', 'message 3', 'message 4'],
+      );
+      // 放得下三行半：舊檔只取尾端，被切開的第一行解析不出來，不會變成半筆。
+      expect(
+        messages(await LogFile(logs).readStored(maxBytes: lineBytes * 3 + 10)),
+        ['message 2', 'message 3', 'message 4'],
+      );
+    });
+
+    test('a missing directory has nothing to read', () async {
+      expect(await LogFile(logs).readStored(), isEmpty);
     });
   });
 }

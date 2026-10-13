@@ -71,4 +71,7 @@ abstract final class AppLayout {
   static const Color qrBackground = Color(0xFFFFFFFF);
   static const Color qrForeground = Color(0xFF000000);
   static const double qrExpiredScrimOpacity = 0.9;
+
+  /// Debug 頁 Log、網路區塊工具列上篩選控制項（搜尋框、下拉）的寬度。
+  static const double debugFilterWidth = 200;
 }

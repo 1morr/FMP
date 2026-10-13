@@ -364,6 +364,110 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   String get cacheUsage => '缓存用量';
   @override
   String cacheUsageValue({required Object size}) => '${size}，在「设置 → 网络」中管理';
+  @override
+  String get log => '日志与错误历史';
+  @override
+  String get network => '网络';
+  @override
+  String get cancel => '取消';
+  @override
+  String get logSearchHint => '搜索日志';
+  @override
+  String get filterLevelAll => '所有级别';
+  @override
+  String filterLevelFrom({required Object level}) => '${level} 及以上';
+  @override
+  String get filterTagAll => '所有 tag';
+  @override
+  String get errorsOnly => '只看错误';
+  @override
+  String get includeEarlier => '包含之前的记录';
+  @override
+  String get earlierLoading => '正在读取日志文件';
+  @override
+  String get earlierFailed => '无法读取日志文件';
+  @override
+  String logCount({required Object shown, required Object total}) =>
+      '${shown} / ${total} 条';
+  @override
+  String get logEmpty => '没有记录';
+  @override
+  String get logNoMatch => '没有符合筛选的记录';
+  @override
+  String get logCopy => '复制已筛选';
+  @override
+  String logCopied({required Object count}) => '已复制 ${count} 条';
+  @override
+  String get logCopyNothing => '没有可复制的内容';
+  @override
+  String get logClear => '清除日志';
+  @override
+  String get logClearTitle => '清除日志？';
+  @override
+  String get logClearBody => '这会删除本次运行的记录和本机上的日志文件，无法恢复。';
+  @override
+  String get logCleared => '已清除日志';
+  @override
+  String get logClearFailed => '无法删除日志文件';
+  @override
+  String get netSearchHint => '搜索请求';
+  @override
+  String get netSourceAll => '所有音源';
+  @override
+  String get netSourceApp => '应用（非插件）';
+  @override
+  String get netStatusAll => '所有状态';
+  @override
+  String get netStatusFailed => '失败';
+  @override
+  String get netEmpty => '没有网络记录';
+  @override
+  String get netEmptyHint => '本次运行发出的请求会列在这里。';
+  @override
+  String get netNoMatch => '没有符合筛选的请求';
+  @override
+  String netCount({required Object shown, required Object total}) =>
+      '${shown} / ${total} 条';
+  @override
+  String get netUnknown => '—';
+  @override
+  String get netDetailUrl => '网址';
+  @override
+  String get netDetailQuery => 'Query';
+  @override
+  String get netDetailNoQuery => '无';
+  @override
+  String get netDetailStatus => '状态';
+  @override
+  String get netDetailDuration => '耗时';
+  @override
+  String get netDetailSize => '大小';
+  @override
+  String get netDetailSource => '音源';
+  @override
+  String get netDetailClient => 'Client';
+  @override
+  String get netDetailCredentials => '已携带凭证';
+  @override
+  String get netDetailRetry => '重试次数';
+  @override
+  String get netDetailError => '错误类型';
+  @override
+  String get netDetailNoError => '无';
+  @override
+  String get netDetailRelated => '对应的错误记录';
+  @override
+  String get netDetailNoRelated => '无';
+  @override
+  String get netDetailTime => '时间';
+  @override
+  String get yes => '是';
+  @override
+  String get no => '否';
+  @override
+  String netDuration({required Object ms}) => '${ms} ms';
+  @override
+  String get close => '关闭';
 }
 
 // Path: player
