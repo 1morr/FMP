@@ -16,7 +16,7 @@
 
 ## 驗收
 
-- [ ] `research/m3-adr-tests.md` 的 M3a 段：上表每一列都有測試或 PR 描述的對應，或在「需要主對話決定」說明。
-- [ ] `app/AGENTS.md` 的審查結果寫進 PR 描述；文件與程式一致。
-- [ ] `research/m3a-acceptance.md`：兩平台 8 個步驟逐條的結果與真實請求清單。
-- [ ] `milestones.md` 的 M3a 標為完成。
+- [x] `research/m3-adr-tests.md` 的 M3a 段：上表每一列都有測試或 PR 描述的對應，或在「需要主對話決定」說明。
+- [x] `app/AGENTS.md` 的審查結果寫進 PR 描述；文件與程式一致。
+- [x] `research/m3a-acceptance.md`：兩平台 8 個步驟逐條的結果與真實請求清單。
+- [x] `milestones.md` 的 M3a 標為完成。
