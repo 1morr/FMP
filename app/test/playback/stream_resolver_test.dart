@@ -361,11 +361,14 @@ void main() {
     test('a cached stream is not given out once its plugin is disabled or '
         'removed', () async {
       // 停用、移除都是從插件清單拿掉：快取裡還有效的那一筆也不給，和沒裝一樣是
-      // Unsupported（控制器照「音源未安裝」跳過）。
+      // Unsupported（控制器照「音源未安裝」跳過）。再啟用是新載入的實例，重新解析。
       final plugin = FakeSourcePlugin((request) => [candidate('a.m4a')]);
-      var installed = true;
+      final reloaded = FakeSourcePlugin(
+        (request) => [candidate('reloaded-a.m4a')],
+      );
+      FakeSourcePlugin? current = plugin;
       final resolver = StreamResolver(
-        plugin: (id) => installed && id == plugin.manifest.id ? plugin : null,
+        plugin: (id) => id == current?.manifest.id ? current : null,
         formats: formats,
         preferences: () => highOpusFirst,
         log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
@@ -373,7 +376,7 @@ void main() {
       await resolver.resolve(track('a'));
       expect(resolver.hasPlugin('fmp-test'), isTrue);
 
-      installed = false;
+      current = null;
       expect(resolver.hasPlugin('fmp-test'), isFalse);
       await expectLater(
         resolver.resolve(track('a')),
@@ -381,6 +384,11 @@ void main() {
           isA<Unsupported>().having((e) => e.pluginId, 'pluginId', 'fmp-test'),
         ),
       );
+      expect(plugin.requests, hasLength(1));
+
+      current = reloaded;
+      final again = await resolver.resolve(track('a'));
+      expect(again.candidates.single.url.path, '/reloaded-a.m4a');
       expect(plugin.requests, hasLength(1));
     });
 

@@ -277,7 +277,11 @@ final class PlaybackSession {
       _clearLookAhead();
       await _backend.setNext(null);
     }
-    if (target == null) return;
+    // 插件被停用或移除了：不當前瞻，到那首時照「音源未安裝」跳過（單曲循環的
+    // 下一圈也是，它不經快取，不先查就會重播目前這首）。
+    if (target == null || !_resolver.hasPlugin(target.track.sourceTypeId)) {
+      return;
+    }
     // 重播目前這首（單曲循環）：網址還能用就照用目前開著的那個候選，不再問
     // 快取（換候選時快取裡的那一筆已經作廢，再解析會拿回開不起來的第一個）。
     if (target.index == null &&

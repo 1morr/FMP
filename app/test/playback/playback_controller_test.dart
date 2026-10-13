@@ -879,6 +879,29 @@ void main() {
         expect(h.controller.queue.currentIndex, 1);
       });
     });
+
+    test('turning on loop one after its source went away does not prepare '
+        'the next lap', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([otherTrack('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.nextSources.last?.url.path, '/b.m4a');
+
+        // 前瞻是另一個音源的 b，不放掉；之後開單曲循環才指向 a 的下一圈。
+        h.removePlugin('fmp-other');
+        h.controller
+          ..cycleLoopMode()
+          ..cycleLoopMode();
+        h.settle();
+        expect(h.backend.nextSources.last, isNull);
+
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+        expect(h.logged('Look-ahead handover'), isEmpty);
+        expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+        expect(h.events, [skippedAsUnsupported(otherTrack('a'))]);
+      });
+    });
   });
 
   group('recovery', () {
