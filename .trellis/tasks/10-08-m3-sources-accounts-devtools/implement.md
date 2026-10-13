@@ -507,9 +507,12 @@
 4. `plugin_registry_test.dart`：停用後憑證保留；插件沒有回應時不寫 `enabled`。
 5. `plugin_name_test.dart`：清單還沒載入時是 `null`（優先度低）。
 6. 測試插件的 QR、`expired`、`expired-hard`：加進 `test_plugin_bundle_test.dart`。
-7. **B 站錯誤對應表的單元測試**（ADR 0013 的對照只有「部分」）：fmp-plugins 本機分支 `test/bilibili-errors`（`f857d9e`，對應表搬進 `bilibili/src/errors.js`、`test/errors.test.js`、1.2.1）已備好，push 與開 PR 等擁有者同意。
-8. **停用或移除音源後，它已準備好的前瞻仍會播出**（驗收第 5 步在 Android 真實模式發現；擋 M3a 驗收）：修正在本機分支 `fix/disabled-source-playback`（worktree `.claude/worktrees/agent-aaf6390816ae81fc5`，4 個 commit 到 `604c3567`）。插件清單一改就放掉已消失插件的前瞻，單曲循環的下一圈準備前也查插件；opus 審查後補了單曲循環的漏洞，變異測試全紅、全部測試 2287 通過。實機（重播，兩個測試插件）Android 與 Windows 都驗過：停用 → `Look-ahead dropped: source unavailable`，下一首 → `Unsupported` 跳過、不開流；重新啟用 → 正常解析出聲。push 與開 PR 等擁有者同意。跳過時的提示是類別表的通用「發生預期外的錯誤」（`Unsupported` 與未安裝相同，ADR 0013），曲目標「音源已停用」。
-9. **Android 的暫停媒體鍵會切換播放**（M2 範圍，不擋 M3a）：`audio_service` 0.18.19 把 `KEYCODE_MEDIA_PAUSE`／`PLAY` 都轉成 `MediaButton.media`，預設 `click` 是切換；已暫停時收到暫停會開始播。藍牙耳機分開送播放與暫停鍵時會碰到。要修就覆寫 `_Handler.click`，或另開 issue，等擁有者決定。
+7. **B 站錯誤對應表的單元測試**（ADR 0013 的對照只有「部分」）：fmp-plugins#9 已合併（對應表搬進 `bilibili/src/errors.js`、`test/errors.test.js` 15 個測試、1.2.1）。宿主 API 沒變，`FMP_REF` 不動。
+8. **停用或移除音源後，它已準備好的前瞻仍會播出**（驗收第 5 步在 Android 真實模式發現，擋 M3a 驗收）：#232 已合併。插件清單一改就放掉已消失插件的前瞻，單曲循環的下一圈準備前也查插件。Android 真實模式重驗：停用網易後按下一首，網易那首以 `Unsupported` 跳過、沒有網易請求，接著播 B 站那首。停用時正在播的那首照播完（擁有者決定）。
+9. **Android 的暫停媒體鍵會切換播放**（M2 範圍，不擋 M3a）：開成 #233（`audio_service` 0.18.19 把 `KEYCODE_MEDIA_PAUSE`／`PLAY` 都轉成 `MediaButton.media`，預設 `click` 是切換）。
+10. **佇列與歷史沒有標「音源已停用」「音源未安裝」，跳過提示是通用訊息**（驗收第 5 步發現；ADR 0030 §決定 7 的「標示」只做到曲目詳情）：擁有者選了補程式，#234 已合併：佇列列與歷史列以原因取代上傳者，跳過與停止的提示寫出原因。沒做、之後再看：播放列、播放頁、右側面板不標（曲目詳情已標）；之後的歌單、電台等曲目清單到各自的里程碑照同樣做。
+11. **網易的試聽片段沒有實測**（驗收第 3 步）：擁有者的網易帳號是黑膠 VIP，拿到的都是完整音檔，暫時沒有非 VIP 帳號。以 `playback_controller_test.dart` 的試聽案例與 M2 驗收第 13 步（`fmp-test` 的 `preview`）為證；有非 VIP 帳號時補。
+12. **磁碟音訊快取**（擁有者在驗收時提出，想要）：現在音訊只在播放引擎的記憶體裡緩衝（ExoPlayer 往前約 50 秒、mpv 的記憶體快取），換歌、重開就丟，重播同一首要重新下載；寫進磁碟的只有封面（`cache.db`）與記憶體裡的串流網址。擁有者要的是 Spotify 那種邊聽邊存、預存下一首的磁碟快取。ADR 0016 §考慮過的選項把「邊聽邊存」列為凍結期後的新功能，要新 ADR（快取的定義、容量上限、各音源條款、和下載〔ADR 0020〕的關係），不擋 M3a。
 
 ### PR 9 留下的
 

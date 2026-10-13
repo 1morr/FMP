@@ -46,7 +46,7 @@ PR 用 `git log -S"<測試名>"` 找第一個加入該測試的 commit，再找�
 | 0012 | 登出後 `CredentialStore` 為空且請求不帶憑證 | `test/plugins/accounts/credential_store_test.dart` 的 group `logging out` 的 `removes the credentials and the account, keeps source settings, and later requests carry nothing`（斷言儲存空、帳號列空、狀態 `none`、之後的請求沒有 `cookie` 標頭、`credentialsAttached` 為假、遮蔽登記取消）；`test/core/network/auth_test.dart` 的 `logged out, the jar is sent as it was` | #225（PR 7）；WebView 那一步見下一列 | 有 |
 | 0012 | 移除插件後 `CredentialStore` 為空 | `test/plugins/accounts/credential_store_test.dart` 的 `removing a plugin also drops its source settings`；`test/plugins/install/plugin_installer_test.dart` 的 group `removing` 的 `leaves no storage, cache entry, row or runtime of the plugin …`（斷言另一個插件的憑證留著、被移除的為 `CredentialState.none`、帳號列不在） | #225、#223（安裝器的移除流程） | 有 |
 | 0012 | 登出與移除時清登入 WebView 的 cookie | `test/plugins/accounts/account_service_test.dart` 的 group `logging out clears the login web view`（`every web view cookie, after the credentials and …`、`cookies left after clearing are an error that names only the …`、`removing the plugin clears it too`、`nothing to clear without a webView login or without the …`）；`test/plugins/install/plugin_installer_test.dart` 的 `clears the login web view of a plugin that signs in on the web, …` | #229（PR 9） | 有（cookie 真的從系統 WebView 刪掉只能實機驗，未列入 M3a 的自動測試） |
-| 0013 | 錯誤對應：B 站 | `fmp-plugins:` `bilibili/test/login.test.js` 的 `loginQrPoll unknown data.code and top-level failures use the business error mapping`、`loginVerify: other failures keep their usual category`、`-111 is AuthRequired in the shared business mapping …`；`bilibili/test/refresh.test.js` 的 `network, HTTP, risk and format failures are not CredentialInvalid`（412、-352 → `RateLimited`）。**沒有**測 `-404`／`62002` → `NotFound`、`-10403` → `Unavailable(region)`、`87007` → `Unavailable(membership)`、`-503` → `NetworkError` | p#7、p#8 | 部分（見「需要主對話決定」1） |
+| 0013 | 錯誤對應：B 站 | `fmp-plugins:` `bilibili/test/login.test.js` 的 `loginQrPoll unknown data.code and top-level failures use the business error mapping`、`loginVerify: other failures keep their usual category`、`-111 is AuthRequired in the shared business mapping …`；`bilibili/test/refresh.test.js` 的 `network, HTTP, risk and format failures are not CredentialInvalid`（412、-352 → `RateLimited`）。**沒有**測 `-404`／`62002` → `NotFound`、`-10403` → `Unavailable(region)`、`87007` → `Unavailable(membership)`、`-503` → `NetworkError` | p#7、p#8 | 部分（見「需要主對話決定」1）→ 有（p#9） |
 | 0013 | 錯誤對應：網易 | `fmp-plugins:` `netease/test/errors.test.js` 的 `top-level -460 is verification`、`top-level 301 needs login, other codes are unexpected`、`HTTP status`、`no url … -> …`（10 個取不到網址的組合：會員、版權、需登入、不存在）、`flag & 4 alone is not a vip marker` | p#5（PR 2） | 有 |
 | 0013 | 錯誤對應：YouTube | `fmp-plugins:` `youtube/test/errors.test.js` 的 `${status}: ${reason} -> ${fmpError}`（`UNPLAYABLE` 的版權、會員、`ERROR`、`CONTENT_CHECK_REQUIRED` 等）；`youtube/test/resolve.test.js` 的 `resolveStream: playability ERROR on every client is NotFound, not a thrown YouTube.js error` | p#4（PR 1；`resolve.test.js` 在後來的修正 commit `945e4cf`） | 有 |
 | 0013 | 宿主端：插件錯誤名稱對 `AppError`；HTTP 層錯誤對應 | `test/plugins/type_definitions_test.dart` 的 `every error name maps to the AppError of that name`；`test/core/network/source_http_client_test.dart` 的 group `error mapping`（逾時與連線失敗、429／503 與 `Retry-After`） | #183（M1）、M1 的 HTTP client | 有 |
@@ -81,7 +81,7 @@ PR 用 `git log -S"<測試名>"` 找第一個加入該測試的 commit，再找�
 ### 統計
 
 - 子項目（表列）共 **44**（0012：13、0013：4、0028：4、0014：5、0015：3、0016：3、0029：6、0030：6）。
-  - 有：**43**；部分：**1**（0013 B 站）；沒有：**0**。
+  - 有：**43**；部分：**1**（0013 B 站）；沒有：**0**。p#9 合併後是有 **44**、部分 **0**。
 - 「有」之中需附註的：
   - 0012「三個插件的契約重播」與 0014「三個插件的契約：重播通過」、0015「以固定 FMP 版本跑契約」：證據是插件庫 CI（FMP 這邊的 `contract_test.dart` 只重播兩個測試插件），沒有 FMP 端的測試。
   - 0012「登出與移除時清 WebView」：測試用假的 `LoginWebView`，cookie 真的從系統 WebView 刪掉只能實機驗（M3a 驗收第 6 步）。
@@ -96,3 +96,10 @@ PR 用 `git log -S"<測試名>"` 找第一個加入該測試的 commit，再找�
 4. **0012「AuthRequirement 三種 × 三種狀態」的 PR 歸屬**：`auth_test.dart` 的決策表與攔截器案例首建於 M1 的 #182（`NoCredentials`），PR 7（#225）在同一個檔案加了 `FakeCredentials`、已失效與 Cookie 合併；`git log -S` 的「第一個 commit」是 M1，不是表上的 PR 7。我把兩個 PR 都寫上，並接受 M1 就有的案例當證據（作法同 M2 對 `RecoveryPolicy` 的決定）。
 5. **0012 的「重設資料在 M3b PR 14」**：表上括號註明，登出與移除之外的「重設資料」後 `CredentialStore` 為空，不在 M3a，這次沒有計入；M3b 驗收再補。
 6. **0015 §決定 6 的 CI 只有 workflow 本身與 PR 描述當證據**：workflow 沒有測試，`index`／`Version Bump` job 的變紅證據是 p#6 描述的 `214e01c`（已 revert）。若要更硬的閘門，可以在 `fmp-plugins` 加一個檢查 `FMP_REF` 為 40 字元 SHA 的測試；沒有 repro 或失效條件前我不建議做，請決定。
+
+### 主對話的處理（2026-10-13）
+
+1. **B 站錯誤對應**：擁有者同意補。fmp-plugins #9（已合併，B 站 1.2.1）把 `businessError`、`statusError` 搬進 `bilibili/src/errors.js` 並匯出，`bilibili/test/errors.test.js` 逐碼測 `code ${code} -> ${fmpError}`（`-101／-111／-403` → `AuthRequired`、`-404／62002／62004／62012` → `NotFound`、`-10403` → `Unavailable(region)`、`87007／87008` → `Unavailable(membership)`、`-503` → `NetworkError`、其他 → `UnexpectedError`）與 `every risk-control code is RateLimited`。拿掉 `-111`、`62012`、`87008`、`-503`、`-352`、`-10403` 任一碼，各有一個測試變紅。宿主 API 沒變，`FMP_REF` 不動。
+2. **錯誤 fixture 的形式**：接受。PR 1 已以 ADR 0015 §決定 4（每能力一條契約案例）更正，三個插件都以插件庫的 Node 測試守對應表。
+3. **YouTube 的登入與判定表在 p#4**：接受，對照表照實際的 PR 寫。
+4. **`AuthRequirement` 決策表首建於 M1**：接受 M1 就有的案例當證據，作法同 M2 對 `RecoveryPolicy` 的決定。
