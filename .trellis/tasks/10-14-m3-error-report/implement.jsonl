@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§13 error detail page and report; §14 dependencies"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §13 checklist"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toaster, one action per toast, detail page and report (§決定 4), how to verify"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "AppError categories, developer-mode details"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "Log facade, redaction, error history"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "Developer mode, error history opens the detail page"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI patterns, toast, routes, guideline tests, Debug page"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer interfaces and capabilities"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Log facade and record format"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "AppError and report()"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}
