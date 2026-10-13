@@ -10,6 +10,7 @@ import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/playback_speed.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -115,6 +116,7 @@ final class PlaybackController {
   final _plays = StreamController<CountedPlay>.broadcast();
 
   PlaybackState _state = const Idle();
+  DateTime _stateSince = clock.now();
 
   /// 使用者要不要出聲：暫停中開始的一首載入後停在暫停。
   bool _playWhenReady = true;
@@ -196,6 +198,26 @@ final class PlaybackController {
   Stream<PlaybackState> get states => _states.stream;
 
   QueueState get queue => _queue.state;
+
+  /// 播放狀態的唯讀快照（Debug 頁，ADR 0025 §決定 5）；[backend] 是後端名稱。
+  /// [progress] 是最近一次的位置，由呼叫端從 [progress] stream 帶進來。
+  PlaybackDiagnostics diagnostics({
+    required String backend,
+    PlaybackProgress? progress,
+  }) {
+    final track = _queue.state.current;
+    return PlaybackDiagnostics(
+      backend: backend,
+      state: _state,
+      stateSince: _stateSince,
+      trackKey: track == null ? null : '${track.key}',
+      pluginId: track?.sourceTypeId,
+      stream: _session.streamDiagnostics,
+      outputDevice: _session.selectedOutputDevice,
+      progress: progress,
+      queue: QueueDiagnostics.of(_queue.state),
+    );
+  }
 
   Stream<QueueState> get queueStates => _queueStates.stream;
 
@@ -1110,6 +1132,7 @@ final class PlaybackController {
     // 沒有欄位的狀態是 const 單例；Retrying、Failed 每次都是新的。
     if (identical(state, _state)) return;
     _state = state;
+    _stateSince = clock.now();
     if (state is! Paused && _resumingFromInterruption) {
       _resumingFromInterruption = false;
       _announceInterruption();

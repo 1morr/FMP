@@ -3457,4 +3457,96 @@ void main() {
       });
     });
   });
+
+  group('diagnostics', () {
+    test(
+      'reports the stream, the backend and the queue around the current',
+      () {
+        fakeAsync((async) {
+          const speakers = OutputDevice(id: 'wasapi/x', name: 'Test Speakers');
+          final devices = FakeOutputDevices([speakers]);
+          final h = Harness(
+            async,
+            respond: (request) => [
+              candidate('${request.sourceId}.m4a', bitrate: 128000),
+            ],
+            outputDevices: devices,
+          );
+          unawaited(
+            h.playQueue([
+              for (var i = 0; i < 13; i++) track('t$i'),
+            ], startIndex: 6),
+          );
+          h.elapse(const Duration(milliseconds: 100));
+          unawaited(h.controller.selectOutputDevice(speakers));
+          h.settle();
+
+          final d = h.controller.diagnostics(backend: 'media_kit');
+          expect(d.backend, 'media_kit');
+          expect(d.state, isA<Playing>());
+          expect(d.trackKey, 'fmp-test:t6');
+          expect(d.pluginId, 'fmp-test');
+          expect(d.stream?.container, 'mp4');
+          expect(d.stream?.codec, 'aac');
+          expect(d.stream?.bitrate, 128000);
+          expect(d.stream?.sourceType, 'network');
+          expect(d.outputDevice?.name, 'Test Speakers');
+          // 前後各 5 首，依佇列的順序。
+          expect(d.queue.total, 13);
+          expect(d.queue.currentIndex, 6);
+          expect(d.queue.before, [for (var i = 1; i < 6; i++) 'fmp-test:t$i']);
+          expect(d.queue.after, [for (var i = 7; i < 12; i++) 'fmp-test:t$i']);
+        });
+      },
+    );
+
+    test('the window is cut at both ends of the queue', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([for (var i = 0; i < 3; i++) track('t$i')]));
+        h.elapse(const Duration(milliseconds: 100));
+        var d = h.controller.diagnostics(backend: 'just_audio');
+        expect(d.queue.before, isEmpty);
+        expect(d.queue.after, ['fmp-test:t1', 'fmp-test:t2']);
+
+        unawaited(h.controller.jumpTo(2));
+        h.elapse(const Duration(milliseconds: 100));
+        d = h.controller.diagnostics(backend: 'just_audio');
+        expect(d.queue.before, ['fmp-test:t0', 'fmp-test:t1']);
+        expect(d.queue.after, isEmpty);
+      });
+    });
+
+    test('an empty player has no stream, track or output device', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        final d = h.controller.diagnostics(backend: 'just_audio');
+        expect(d.state, isA<Idle>());
+        expect(d.trackKey, isNull);
+        expect(d.stream, isNull);
+        expect(d.outputDevice, isNull);
+        expect(d.queue.total, 0);
+        expect(d.queue.currentIndex, isNull);
+        expect(d.nextRetryAt, isNull);
+      });
+    });
+
+    test('a retry reports when the next attempt happens', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          respond: (request) => throw NetworkError(pluginId: 'fmp-test'),
+        );
+        // 控制器建立之後過一段時間才失敗：開始時間是進入 Retrying 的那一刻，不是建立時。
+        h.elapse(const Duration(seconds: 7));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.settle();
+        final startedAt = h.now();
+        final d = h.controller.diagnostics(backend: 'just_audio');
+        expect(d.state, isA<Retrying>());
+        expect(d.stateSince, startedAt);
+        expect(d.nextRetryAt, startedAt.add(const Duration(seconds: 1)));
+      });
+    });
+  });
 }

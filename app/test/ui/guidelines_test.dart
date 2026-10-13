@@ -17,12 +17,16 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/tracks_repository.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
+import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
+import 'package:fmp/ui/debug/debug_playback.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
@@ -475,6 +479,75 @@ void main() {
             handle.dispose();
           });
         }
+
+        // 播放狀態與資料庫區塊（M3 PR 14a）：有在播的內容；表的列頁與檢查結果。
+        Future<ShellHarness> openDebugSection(
+          WidgetTester tester,
+          String section,
+        ) async {
+          final h = ShellHarness(redactor: Redactor());
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Debug'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ListTile, section));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          return h;
+        }
+
+        testWidgets('the Debug Playback section at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openDebugSection(tester, 'Playback');
+          expect(find.byType(DebugPlayback), findsOneWidget);
+          // 空狀態。
+          await expectGuidelines(tester);
+
+          await h.play(tester, [summary('a'), summary('b'), summary('c')]);
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pump();
+          expect(find.text('Copy snapshot'), findsOneWidget);
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the Debug Database section at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openDebugSection(tester, 'Database');
+          expect(find.byType(DebugDatabase), findsOneWidget);
+          // 表清單。
+          await expectGuidelines(tester);
+
+          // 一張有列的表（要有東西才看得到表格）。
+          await tester.runAsync(
+            () =>
+                TracksRepository(
+                  h.container(tester).read(appDatabaseProvider),
+                ).upsert([
+                  const TrackInfo(
+                    sourceTypeId: 'fmp-test',
+                    sourceId: 'a',
+                    title:
+                        'A song with a title long enough to need truncating '
+                        'when the cell is narrow',
+                  ),
+                ]),
+          );
+          await tester.tap(find.text('tracks'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await expectGuidelines(tester);
+
+          // 檢查結果（表的列頁還開著）。
+          await tester.tap(find.text('Check'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('No problems found'), findsOneWidget);
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
       }
 
       // 錯誤詳細頁（M3 PR 13）：欄位與按鈕，以及第一次回報前的提醒對話框。

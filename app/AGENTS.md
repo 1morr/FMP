@@ -1559,7 +1559,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、資料庫。窄版點進區塊後，標題列的返回鈕與系統返回鍵
     先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
@@ -1578,6 +1578,22 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     錯誤紀錄（`matchingErrors`；id 只在同一次執行唯一，所以只比對記憶體歷史）。閘門：`debug_network_state_test.dart`（欄位對得上
     `writeNetworkRecord`、依音源與狀態碼類別篩選、`matchingErrors`）、`debug_log_network_test.dart` 的 `the Network section`（含
     `fake credentials never reach the detail or the copied log`：詳細與 Log 區塊複製出去的都只有遮過的值）。
+  - 播放狀態（`debug_playback.dart`、`lib/playback/playback_diagnostics.dart`，ADR 0025 §決定 5，M3 design §12.3）：唯讀，區塊裡沒有播放控制。
+    快照 `PlaybackDiagnostics` 由 `PlaybackController.diagnostics(backend:)` 組：控制器既有的 `PlaybackState` 與 `QueueState`（不改兩者的形狀）、
+    `PlaybackSession.streamDiagnostics`（選中候選的容器、編碼、位元率、網路或 asset、第幾個候選、網址）與 `selectedOutputDevice`（後端 `outputDevices.selected`，
+    Android 與選系統預設時為空），後端名稱由 `playbackDiagnosticsProvider` 依平台宣告的 `AudioBackendKind` 給。`Retrying` 的下次重試時間是控制器記的
+    `_stateSince`（`_setState` 時的 `clock.now()`）加 `Retrying.delay`，等網路時沒有。佇列只列曲目鍵，前後各 `QueueDiagnostics.window`（5）首，依佇列在畫面上的順序（不是隨機的播放順序）。
+    位置跟著進度 stream（`playbackProgressProvider`）每秒重算，不開計時器。「複製快照」輸出 `toJson(redactor)` 的 JSON：每個字串（含串流網址）都經
+    `Redactor`，不含曲目標題、標頭與引擎給的原始錯誤（錯誤只有 `typeName`）；區塊畫面上插件給的字串（曲目鍵、插件 id、容器、編碼、裝置名）也經同一個函式，網址不顯示。
+    閘門：`playback_diagnostics_test.dart`（簽名網址、假 token、登記的憑證值都不出現在 JSON）、`debug_playback_database_test.dart` 的 `copies a redacted JSON snapshot`（畫面與 JSON 都沒有登記的值）、
+    `playback_controller_test.dart` 的 `diagnostics` 群組（欄位、前後各 5 首在頭尾的邊界、重試時間）、`debug_playback_database_test.dart` 的 `playback section`。
+  - 資料庫（`debug_database.dart`、`lib/data/repositories/database_inspector.dart`，ADR 0025 §決定 8，M3 design §12.2）：唯讀，只有 `lib/data/` 碰 drift。
+    `DatabaseInspector` 列 `allTables` 與筆數；`rows(表, 頁)` 每頁 `pageSize`（50）列，表名必須在 `allTables` 裡（才進得了 SQL 字串），讀的是儲存的原值（時間是 epoch 毫秒）；
+    每個值經 `Redactor.redact`，`plugin_storage.value` 整欄是 `***`（`maskedColumns`）；`installed_plugins.script` 只顯示長度（`lengthOnlyColumns`：公開的插件原始碼，YouTube 約 800 KB，整份跑遮蔽要上百毫秒）。`check()` 報告 `PRAGMA integrity_check`、`PRAGMA foreign_key_check`
+    與孤兒曲目數，不修；孤兒的條件與 `TracksRepository.deleteOrphans` 共用同一個常數（`_orphanCondition`），新的參照者只加在那裡。「檔案遺失的下載數」等 M6 有下載紀錄再加。
+    備份、還原、重設在 M3 PR 14b。閘門：`database_inspector_test.dart`（50 列分頁、`plugin_storage` 整欄遮蔽、`script` 只顯示長度、其他欄經遮蔽、外鍵關掉寫一筆違規列後報告列出它、乾淨的資料庫無問題、孤兒數＝`deleteOrphans` 刪的筆數、非資料庫的表名被拒）、
+    `debug_playback_database_test.dart` 的 `database section`。
+  - 播放狀態與資料庫也過 guideline：`the Debug Playback section`（空狀態與在播）、`the Debug Database section`（表清單、有列的表、檢查結果）。
   - 這兩個區塊自己有捲動的清單，不包在區塊的捲動欄裡（`DebugPage` 的 `filling`，同設定頁）；窄與寬版都在 `guidelines_test.dart` 的
     `the Debug Log section`、`the Debug Network section` 過 guideline（含展開的一筆與單筆詳細的對話框）。
 - 首次啟動引導（`lib/ui/plugins/plugin_onboarding.dart`，ADR 0030 §決定 12，M3 design §7.6）：

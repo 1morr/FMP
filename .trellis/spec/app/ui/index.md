@@ -25,7 +25,7 @@ lib/ui/
   search/              # 搜尋頁、searchProvider、音源 chip 列
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
-  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路）
+  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路、播放狀態、資料庫）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails、
                        # 可編輯的佇列（QueueView：分頁與底部面板共用）
@@ -240,6 +240,10 @@ try {
 - 加一個區塊（PR 14、16 各加）：`DebugSection` 依 ADR 0025 §決定 2 表上的順序加一個值與圖示，`_name` 與 `_body` 的
   `detail` 兩個 `switch` 會指出要補的地方（名稱放 `debug.*`，三個語言）；區塊的 widget 放 `lib/ui/debug/`。只在某些平台有的
   區塊（插件開發）讀 `platformCapabilitiesProvider` 決定列不列出。新的區塊加進 guideline 測試的 `the Debug overview at …` 旁邊。
+- 播放狀態與資料庫區塊（PR 14a）：資料來自 `playbackDiagnosticsProvider`（播放層組好的快照）與 `databaseInspectorProvider`
+  （資料層的唯讀查詢），widget 不自己查 drift、不讀控制器的私有狀態。可選取的文字（`SelectableText`）在 guideline 測試會因
+  點擊目標小於 48 而紅：表格的格子用 `Text`。測試在 `test/ui/debug/debug_playback_database_test.dart`；`ShellHarness` 要給
+  `redactor:`（資料庫與播放快照都要遮蔽函式）。
 - 區塊內容放在 `detail` 那個捲動的欄裡；自己有捲動清單的區塊（Log、網路）照設定頁 `filling` 的寫法填滿高度（`DebugPage` 的
   `filling`）。這類區塊的狀態：記憶體歷史讀 `logHistoryProvider`（不要自己監聽 `Log.changes`），篩選條件放在 widget 的 State；
   資料轉換與篩選寫成 `debug_*_state.dart` 裡的純函數，單元測試直接測。

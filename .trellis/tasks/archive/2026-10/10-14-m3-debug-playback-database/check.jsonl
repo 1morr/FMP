@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§12.2 database section; §12.3 playback state"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §14 checklist"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "Sections 5 (playback) and 8 (database), how to verify"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Sealed PlaybackState, QueueState, PlaybackController the only control entry"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "Redaction"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback layer, session, backends"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Data layer, drift only in lib/data, tables"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI patterns, Debug page sections, guideline tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}
