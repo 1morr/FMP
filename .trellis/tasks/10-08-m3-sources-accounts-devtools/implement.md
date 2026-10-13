@@ -497,6 +497,23 @@
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
 
+### M3a 驗收留下的
+
+`app/AGENTS.md` 審查時標成「沒有閘門，review 時看」的地方，要補就補這些測試（都不擋 M3b）：
+
+1. `fmp_app_test.dart`：第一幀之後讀 `accountStartupRefreshProvider`。
+2. `login_webview_test.dart`：注入假的 WebView2 環境，測延後建立、`reset`、建立失敗不留下壞的環境、讀與清都經同一個環境。
+3. `account_guard_test.dart`：`VerificationRequired` 不刷新、不標失效。
+4. `plugin_registry_test.dart`：停用後憑證保留；插件沒有回應時不寫 `enabled`。
+5. ~~`plugin_name_test.dart`：清單還沒載入時是 `null`~~：#234 補上（`gives the manifest name of a loaded plugin…` 開頭的斷言）。
+6. 測試插件的 QR、`expired`、`expired-hard`：加進 `test_plugin_bundle_test.dart`。
+7. **B 站錯誤對應表的單元測試**（ADR 0013 的對照只有「部分」）：fmp-plugins#9 已合併（對應表搬進 `bilibili/src/errors.js`、`test/errors.test.js` 15 個測試、1.2.1）。宿主 API 沒變，`FMP_REF` 不動。
+8. **停用或移除音源後，它已準備好的前瞻仍會播出**（驗收第 5 步在 Android 真實模式發現，擋 M3a 驗收）：#232 已合併。插件清單一改就放掉已消失插件的前瞻，單曲循環的下一圈準備前也查插件。Android 真實模式重驗：停用網易後按下一首，網易那首以 `Unsupported` 跳過、沒有網易請求，接著播 B 站那首。停用時正在播的那首照播完（擁有者決定）。
+9. **Android 的暫停媒體鍵會切換播放**（M2 範圍，不擋 M3a）：開成 #233（`audio_service` 0.18.19 把 `KEYCODE_MEDIA_PAUSE`／`PLAY` 都轉成 `MediaButton.media`，預設 `click` 是切換）。
+10. **佇列與歷史沒有標「音源已停用」「音源未安裝」，跳過提示是通用訊息**（驗收第 5 步發現；ADR 0030 §決定 7 的「標示」只做到曲目詳情）：擁有者選了補程式，#234 已合併：佇列列與歷史列以原因取代上傳者，跳過與停止的提示寫出原因。沒做、之後再看：播放列、播放頁、右側面板不標（曲目詳情已標）；之後的歌單、電台等曲目清單到各自的里程碑照同樣做。
+11. **網易的試聽片段沒有實測**（驗收第 3 步）：擁有者的網易帳號是黑膠 VIP，拿到的都是完整音檔，暫時沒有非 VIP 帳號。以 `playback_controller_test.dart` 的試聽案例與 M2 驗收第 13 步（`fmp-test` 的 `preview`）為證；有非 VIP 帳號時補。
+12. **磁碟音訊快取**（擁有者在驗收時提出，想要）：現在音訊只在播放引擎的記憶體裡緩衝（ExoPlayer 往前約 50 秒、mpv 的記憶體快取），換歌、重開就丟，重播同一首要重新下載；寫進磁碟的只有封面（`cache.db`）與記憶體裡的串流網址。擁有者要的是 Spotify 那種邊聽邊存、預存下一首的磁碟快取。ADR 0016 §考慮過的選項把「邊聽邊存」列為凍結期後的新功能，要新 ADR（快取的定義、容量上限、各音源條款、和下載〔ADR 0020〕的關係），不擋 M3a。
+
 ### PR 9 留下的
 
 1. **Linux、macOS 建置只能靠 CI 驗**：`flutter_inappwebview_linux` 以本機 stub（`app/packages/flutter_inappwebview_linux_stub`）取代，本機建不了 Linux；stacked PR 不跑 CI，整串回到 base `main` 時要看 Linux 建置與整合測試 job。Linux 的 WebView 在 Linux 平台任務決定（ADR 0012 §決定 8），定了就刪 stub。macOS 同樣以 `app/packages/flutter_inappwebview_macos_stub` 取代 `flutter_inappwebview_macos`（1.2.0-beta.3 在目前的 Xcode 編不過），macOS 建置也只能看 CI；macOS 平台任務定了 WebView 就刪。

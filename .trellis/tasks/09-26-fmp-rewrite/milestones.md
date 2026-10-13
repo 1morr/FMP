@@ -8,7 +8,7 @@
 |---|---|---|---|
 | M1 | 骨架＋曳光彈 | — | 完成（2026-10-01，#173–#194；`archive/2026-10/09-28-m1-skeleton-tracer`） |
 | M2 | 完整播放 | M1 | 完成（2026-10-08，#196–#219；`archive/2026-10/10-01-m2-full-playback`） |
-| M3a | 三音源與帳號 | M2 | 未開始（任務 `10-08-m3-sources-accounts-devtools`，PR 1–10） |
+| M3a | 三音源與帳號 | M2 | 完成（2026-10-13，FMP #220–#234、fmp-plugins #4–#9；任務 `10-08-m3-sources-accounts-devtools`） |
 | M3b | 開發工具、排程器、電台、Mix、分 P | M3a | 未開始（同上，PR 11–21） |
 | M4 | 音樂庫與同步 | M3b | 未開始 |
 | M5 | 舊資料匯入 | M4 | 未開始 |
@@ -68,10 +68,10 @@
   - 帳號與 `CredentialStore`、`AuthRequirement`、三種登入方式（QR、App 內網頁登入、貼上 cookie）、失效與刷新（ADR 0012、0029，E6）；
   - `1morr/fmp-plugins` repo、CI、`index.json`；插件生命週期與插件頁；首次啟動引導（ADR 0014、0030）；
   - 設定頁的「帳號」「插件」區塊。
-- **驗收**：
-  - [ ] 兩平台端到端操作
-  - [ ] ADR 0012、0013、0014、0015 §決定 6、0016、0028、0029、0030 的測試（逐項對到任務的 `research/m3-adr-tests.md`）
-  - [ ] §8：YouTube App 內網頁登入（ADR 0012）
+- **驗收**（證據：任務的 `research/m3a-acceptance.md`、`research/m3-adr-tests.md` 的 M3a 段）：
+  - [x] 兩平台端到端操作（抓到並修好兩個缺陷：停用音源的前瞻仍會播 #232、佇列與歷史沒有標示 #234；網易試聽片段因擁有者是黑膠 VIP 沒有實測，Windows 離線以 widget 測試為證）
+  - [x] ADR 0012、0013、0014、0015 §決定 6、0016、0028、0029、0030 的測試（逐項對到任務的 `research/m3-adr-tests.md`；B 站錯誤對應表的缺口由 fmp-plugins #9 補上）
+  - [x] §8：YouTube App 內網頁登入（ADR 0012）：兩平台各登入、登出一次，登出後 WebView 的 cookie 為 0
 
 ## M3b 開發工具、排程器、電台、Mix、分 P
 

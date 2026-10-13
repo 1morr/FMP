@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "M3a acceptance section: ADR test table and end-to-end steps"}
+{"file": ".trellis/tasks/archive/2026-10/10-01-m2-full-playback/research/m2-adr-tests.md", "reason": "Format for the ADR test mapping"}
+{"file": ".trellis/tasks/archive/2026-10/10-01-m2-full-playback/research/m2-acceptance.md", "reason": "Format for the end-to-end evidence"}
+{"file": "app/AGENTS.md", "reason": "Network, plugins, accounts, data sections to audit"}
