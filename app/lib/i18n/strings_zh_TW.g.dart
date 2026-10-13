@@ -407,6 +407,161 @@ class Translations$debug$zh_TW {
 
   /// zh-TW: '{size}，在「設定 → 網路」管理'
   String cacheUsageValue({required Object size}) => '${size}，在「設定 → 網路」管理';
+
+  /// zh-TW: 'Log 與錯誤歷史'
+  String get log => 'Log 與錯誤歷史';
+
+  /// zh-TW: '網路'
+  String get network => '網路';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '搜尋 log'
+  String get logSearchHint => '搜尋 log';
+
+  /// zh-TW: '所有層級'
+  String get filterLevelAll => '所有層級';
+
+  /// zh-TW: '{level} 以上'
+  String filterLevelFrom({required Object level}) => '${level} 以上';
+
+  /// zh-TW: '所有 tag'
+  String get filterTagAll => '所有 tag';
+
+  /// zh-TW: '只看錯誤'
+  String get errorsOnly => '只看錯誤';
+
+  /// zh-TW: '含之前的紀錄'
+  String get includeEarlier => '含之前的紀錄';
+
+  /// zh-TW: '正在讀取 log 檔'
+  String get earlierLoading => '正在讀取 log 檔';
+
+  /// zh-TW: '無法讀取 log 檔'
+  String get earlierFailed => '無法讀取 log 檔';
+
+  /// zh-TW: '{shown} / {total} 筆'
+  String logCount({required Object shown, required Object total}) =>
+      '${shown} / ${total} 筆';
+
+  /// zh-TW: '沒有紀錄'
+  String get logEmpty => '沒有紀錄';
+
+  /// zh-TW: '沒有符合篩選的紀錄'
+  String get logNoMatch => '沒有符合篩選的紀錄';
+
+  /// zh-TW: '複製已篩選'
+  String get logCopy => '複製已篩選';
+
+  /// zh-TW: '已複製 {count} 筆'
+  String logCopied({required Object count}) => '已複製 ${count} 筆';
+
+  /// zh-TW: '沒有可複製的內容'
+  String get logCopyNothing => '沒有可複製的內容';
+
+  /// zh-TW: '清除 log'
+  String get logClear => '清除 log';
+
+  /// zh-TW: '清除 log？'
+  String get logClearTitle => '清除 log？';
+
+  /// zh-TW: '這會刪除這次執行的紀錄與本機上的 log 檔，無法復原。'
+  String get logClearBody => '這會刪除這次執行的紀錄與本機上的 log 檔，無法復原。';
+
+  /// zh-TW: '已清除 log'
+  String get logCleared => '已清除 log';
+
+  /// zh-TW: '無法刪除 log 檔'
+  String get logClearFailed => '無法刪除 log 檔';
+
+  /// zh-TW: '搜尋請求'
+  String get netSearchHint => '搜尋請求';
+
+  /// zh-TW: '所有音源'
+  String get netSourceAll => '所有音源';
+
+  /// zh-TW: 'App（非插件）'
+  String get netSourceApp => 'App（非插件）';
+
+  /// zh-TW: '所有狀態'
+  String get netStatusAll => '所有狀態';
+
+  /// zh-TW: '失敗'
+  String get netStatusFailed => '失敗';
+
+  /// zh-TW: '沒有網路紀錄'
+  String get netEmpty => '沒有網路紀錄';
+
+  /// zh-TW: '這次執行發出的請求會列在這裡。'
+  String get netEmptyHint => '這次執行發出的請求會列在這裡。';
+
+  /// zh-TW: '沒有符合篩選的請求'
+  String get netNoMatch => '沒有符合篩選的請求';
+
+  /// zh-TW: '{shown} / {total} 筆'
+  String netCount({required Object shown, required Object total}) =>
+      '${shown} / ${total} 筆';
+
+  /// zh-TW: '—'
+  String get netUnknown => '—';
+
+  /// zh-TW: '網址'
+  String get netDetailUrl => '網址';
+
+  /// zh-TW: 'Query'
+  String get netDetailQuery => 'Query';
+
+  /// zh-TW: '無'
+  String get netDetailNoQuery => '無';
+
+  /// zh-TW: '狀態'
+  String get netDetailStatus => '狀態';
+
+  /// zh-TW: '耗時'
+  String get netDetailDuration => '耗時';
+
+  /// zh-TW: '大小'
+  String get netDetailSize => '大小';
+
+  /// zh-TW: '音源'
+  String get netDetailSource => '音源';
+
+  /// zh-TW: 'Client'
+  String get netDetailClient => 'Client';
+
+  /// zh-TW: '有帶憑證'
+  String get netDetailCredentials => '有帶憑證';
+
+  /// zh-TW: '重試次數'
+  String get netDetailRetry => '重試次數';
+
+  /// zh-TW: '錯誤類型'
+  String get netDetailError => '錯誤類型';
+
+  /// zh-TW: '無'
+  String get netDetailNoError => '無';
+
+  /// zh-TW: '對應的錯誤紀錄'
+  String get netDetailRelated => '對應的錯誤紀錄';
+
+  /// zh-TW: '無'
+  String get netDetailNoRelated => '無';
+
+  /// zh-TW: '時間'
+  String get netDetailTime => '時間';
+
+  /// zh-TW: '是'
+  String get yes => '是';
+
+  /// zh-TW: '否'
+  String get no => '否';
+
+  /// zh-TW: '{ms} ms'
+  String netDuration({required Object ms}) => '${ms} ms';
+
+  /// zh-TW: '關閉'
+  String get close => '關閉';
 }
 
 // Path: player

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/debug/debug_log.dart';
+import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -11,10 +13,12 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// Debug 頁的區塊，依清單上的順序。ADR 0025 §決定 2 的表有八個，各自跟著實作它的 PR
-/// 加（之前不放空殼）：Log 與錯誤歷史、網路（M3 PR 12），播放狀態、資料庫、重設資料
-/// （PR 14），音源健康檢查、插件開發（PR 16；插件開發只在平台宣告 `pluginDevTools` 時列出）。
+/// 加（之前不放空殼）：播放狀態、資料庫、重設資料（M3 PR 14），音源健康檢查、插件開發
+/// （PR 16；插件開發只在平台宣告 `pluginDevTools` 時列出）。新的區塊照表上的順序插進來。
 enum DebugSection {
-  overview(Icons.dashboard_outlined);
+  overview(Icons.dashboard_outlined),
+  log(Icons.article_outlined),
+  network(Icons.swap_vert);
 
   const DebugSection(this.icon);
 
@@ -131,30 +135,49 @@ class _DebugPageState extends ConsumerState<DebugPage> {
           ),
       ],
     );
-    Widget detail(DebugSection section, {required bool heading}) =>
-        SingleChildScrollView(
-          padding: EdgeInsets.all(spacing.x4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (heading) ...[
-                Semantics(
-                  header: true,
-                  child: Text(
-                    _name(t, section),
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
-                SizedBox(height: spacing.x4),
-              ],
-              switch (section) {
-                DebugSection.overview => DebugOverview(
-                  onShowCacheSettings: _showCacheSettings,
-                ),
-              },
-            ],
+    Widget title(DebugSection section) => Semantics(
+      header: true,
+      child: Text(_name(t, section), style: theme.textTheme.titleLarge),
+    );
+    // Log 與網路自己有捲動的清單：不包在捲動的欄裡，填滿剩下的高度（設定頁的 `filling`）。
+    Widget filling(
+      DebugSection section,
+      Widget page, {
+      required bool heading,
+    }) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (heading)
+          Padding(
+            padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
+            child: title(section),
           ),
-        );
+        Expanded(child: page),
+      ],
+    );
+    Widget detail(DebugSection section, {required bool heading}) =>
+        switch (section) {
+          DebugSection.overview => SingleChildScrollView(
+            padding: EdgeInsets.all(spacing.x4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (heading) ...[title(section), SizedBox(height: spacing.x4)],
+                DebugOverview(onShowCacheSettings: _showCacheSettings),
+              ],
+            ),
+          ),
+          DebugSection.log => filling(
+            section,
+            const DebugLog(),
+            heading: heading,
+          ),
+          DebugSection.network => filling(
+            section,
+            const DebugNetwork(),
+            heading: heading,
+          ),
+        };
     if (narrow) {
       return selected == null ? list(null) : detail(selected, heading: false);
     }
@@ -172,5 +195,7 @@ class _DebugPageState extends ConsumerState<DebugPage> {
   static String _name(Translations$debug$zh_TW t, DebugSection section) =>
       switch (section) {
         DebugSection.overview => t.overview,
+        DebugSection.log => t.log,
+        DebugSection.network => t.network,
       };
 }

@@ -180,6 +180,76 @@ void main() {
     expect(log.history.single.message, 'still recorded');
     expect(log.file!.failureCount, 1);
   });
+
+  group('clear', () {
+    test('empties the memory history and the log files, and says so', () async {
+      final log = newLog();
+      var changes = 0;
+      log.changes.listen((_) => changes++);
+      log.info('one', tag: 't');
+      log.warning('two', tag: 't');
+      await log.file!.flush();
+      expect(changes, 2);
+
+      await log.clear();
+
+      expect(log.history, isEmpty);
+      expect(log.file!.currentFile.existsSync(), isFalse);
+      expect(changes, 3);
+
+      // 清掉之後照常記錄。
+      log.info('three', tag: 't');
+      await log.file!.flush();
+      expect(log.history.single.message, 'three');
+      expect(
+        parseLogLines(await log.file!.currentFile.readAsString()),
+        hasLength(1),
+      );
+    });
+
+    test('is queued behind the writes in flight', () async {
+      final log = newLog();
+      for (var i = 0; i < 50; i++) {
+        log.info('line $i', tag: 't');
+      }
+
+      // 沒等寫入完成就清除：寫入先落地，然後被刪；不會留下清除之後才出現的檔案。
+      await log.clear();
+      await log.file!.flush();
+
+      expect(log.file!.currentFile.existsSync(), isFalse);
+      expect(log.file!.failureCount, 0);
+    });
+
+    test('without a log file only the history is cleared', () async {
+      final log = Log(redactor: redactor, minimumLevel: LogLevel.debug);
+      log.info('one', tag: 't');
+
+      await log.clear();
+
+      expect(log.history, isEmpty);
+    });
+  });
+
+  test('the history and the log file hold the same records', () async {
+    // Debug 頁合併「含之前的紀錄」時靠整行相同去重（mergeLogRecords）：這次執行寫的每一筆在
+    // 記憶體與檔案裡必須逐字相同。
+    final log = newLog();
+    log.warning(
+      'Search failed',
+      tag: 'search',
+      error: 'boom',
+      fields: {'type': 'NetworkError', 'networkRecordId': 7},
+    );
+    log.info('plain', tag: 'app');
+
+    final stored = await log.file!.readStored();
+
+    expect(
+      [for (final record in stored) record.toJsonLine()],
+      [for (final record in log.history) record.toJsonLine()],
+    );
+  });
 }
 
 /// 錯誤訊息帶著憑證的例外（例如把請求整個印出來的 HTTP 例外）。

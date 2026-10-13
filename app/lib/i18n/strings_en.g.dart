@@ -358,6 +358,112 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   @override
   String cacheUsageValue({required Object size}) =>
       '${size} · manage it in Settings › Network';
+  @override
+  String get log => 'Log & errors';
+  @override
+  String get network => 'Network';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get logSearchHint => 'Search the log';
+  @override
+  String get filterLevelAll => 'All levels';
+  @override
+  String filterLevelFrom({required Object level}) => '${level} and above';
+  @override
+  String get filterTagAll => 'All tags';
+  @override
+  String get errorsOnly => 'Errors only';
+  @override
+  String get includeEarlier => 'Include earlier records';
+  @override
+  String get earlierLoading => 'Reading the log files';
+  @override
+  String get earlierFailed => 'Couldn\'t read the log files';
+  @override
+  String logCount({required Object shown, required Object total}) =>
+      '${shown} of ${total} records';
+  @override
+  String get logEmpty => 'No records';
+  @override
+  String get logNoMatch => 'No records match the filters';
+  @override
+  String get logCopy => 'Copy filtered';
+  @override
+  String logCopied({required Object count}) => 'Copied ${count} records';
+  @override
+  String get logCopyNothing => 'Nothing to copy';
+  @override
+  String get logClear => 'Clear log';
+  @override
+  String get logClearTitle => 'Clear the log?';
+  @override
+  String get logClearBody =>
+      'This deletes this run\'s records and the log files on this device. It can\'t be undone.';
+  @override
+  String get logCleared => 'Log cleared';
+  @override
+  String get logClearFailed => 'Couldn\'t delete the log files';
+  @override
+  String get netSearchHint => 'Search requests';
+  @override
+  String get netSourceAll => 'All sources';
+  @override
+  String get netSourceApp => 'App (no plugin)';
+  @override
+  String get netStatusAll => 'All statuses';
+  @override
+  String get netStatusFailed => 'Failed';
+  @override
+  String get netEmpty => 'No requests recorded';
+  @override
+  String get netEmptyHint =>
+      'Requests the app sends during this run appear here.';
+  @override
+  String get netNoMatch => 'No requests match the filters';
+  @override
+  String netCount({required Object shown, required Object total}) =>
+      '${shown} of ${total} requests';
+  @override
+  String get netUnknown => '—';
+  @override
+  String get netDetailUrl => 'URL';
+  @override
+  String get netDetailQuery => 'Query';
+  @override
+  String get netDetailNoQuery => 'None';
+  @override
+  String get netDetailStatus => 'Status';
+  @override
+  String get netDetailDuration => 'Duration';
+  @override
+  String get netDetailSize => 'Size';
+  @override
+  String get netDetailSource => 'Source';
+  @override
+  String get netDetailClient => 'Client';
+  @override
+  String get netDetailCredentials => 'Credentials attached';
+  @override
+  String get netDetailRetry => 'Retry';
+  @override
+  String get netDetailError => 'Error type';
+  @override
+  String get netDetailNoError => 'None';
+  @override
+  String get netDetailRelated => 'Matching error records';
+  @override
+  String get netDetailNoRelated => 'None';
+  @override
+  String get netDetailTime => 'Time';
+  @override
+  String get yes => 'Yes';
+  @override
+  String get no => 'No';
+  @override
+  String netDuration({required Object ms}) => '${ms} ms';
+  @override
+  String get close => 'Close';
 }
 
 // Path: player

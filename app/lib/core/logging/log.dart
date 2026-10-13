@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:talker/talker.dart' as talker;
 
@@ -50,11 +52,30 @@ final class Log {
   /// log 檔；沒有資料目錄的平台為 `null`。
   final LogFile? file;
 
+  final _changes = StreamController<void>.broadcast(sync: true);
+
+  /// 記憶體歷史每多一筆或被 [clear] 清掉就發一次（同步）。Debug 頁的 Log 區塊靠它更新；
+  /// 低於 [minimumLevel] 被丟掉的不算。
+  Stream<void> get changes => _changes.stream;
+
   /// 記憶體歷史，由舊到新。內容都已遮蔽。
   List<LogRecord> get history => [
     for (final data in _talker.history)
       if (data is _RecordLog) data.record,
   ];
+
+  /// 遮蔽一個網址（[Redactor.redact]）。網路紀錄要先遮完整網址再拆成欄位：媒體 CDN
+  /// 的簽名參數只在看得到主機時才認得出來（`writeNetworkRecord`）。
+  String redactUrl(Uri uri) => _redactor.redact(uri.toString());
+
+  /// 清掉記憶體歷史與 log 檔（Debug 頁的「清除 log」，ADR 0025 §決定 3）。檔案那一半排在
+  /// [LogFile] 的寫入佇列上（[LogFile.clear]），和進行中的寫入、輪替不互相打架；回傳的
+  /// future 在檔案刪完時完成，刪檔失敗時帶著錯誤。
+  Future<void> clear() {
+    _talker.cleanHistory();
+    _changes.add(null);
+    return file?.clear() ?? Future<void>.value();
+  }
 
   void debug(
     String message, {
@@ -154,6 +175,7 @@ final class Log {
     }
     // 原始的 error 與 stackTrace 不交給 talker：它的歷史會原樣留著。
     _talker.logCustom(_RecordLog(record));
+    _changes.add(null);
   }
 }
 

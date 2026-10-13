@@ -8,6 +8,7 @@ import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
@@ -19,6 +20,8 @@ import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
+import 'package:fmp/ui/debug/debug_log.dart';
+import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
@@ -401,6 +404,75 @@ void main() {
           await expectGuidelines(tester);
           handle.dispose();
         });
+
+        // Log 與網路區塊（M3 PR 12）：有各層級的紀錄與各狀態的請求、展開一筆。
+        for (final section in ['Log', 'Network']) {
+          testWidgets('the Debug $section section at $width', (tester) async {
+            final handle = tester.ensureSemantics();
+            final h = ShellHarness();
+            h.log.minimumLevel = LogLevel.debug;
+            h.log
+              ..debug('a debug record', tag: 'app')
+              ..info('an info record', tag: 'app')
+              ..warning('a warning record', tag: 'net')
+              ..error(
+                'an error record',
+                tag: 'app',
+                error: 'boom',
+                fields: {'type': 'ParseError'},
+              );
+            for (final status in [200, 404, 503, null]) {
+              writeNetworkRecord(
+                h.log,
+                client: NetworkClient.source,
+                id: status ?? 0,
+                pluginId: 'alpha',
+                method: 'GET',
+                uri: Uri.parse('https://api.example.test/search?q=song'),
+                failed: status == null || status >= 400,
+                credentials: false,
+                retry: 0,
+                status: status,
+                ms: 120,
+                bytes: status == null ? null : 2048,
+              );
+            }
+            await h.pumpShell(tester, size: size, brightness: brightness);
+            await tester.tap(find.text('Settings').first);
+            await h.loadSettings(tester);
+            await tester.tap(find.text('Debug'));
+            await h.loadSettings(tester);
+            await tester.pumpAndSettle();
+            await tester.tap(
+              find.widgetWithText(
+                ListTile,
+                section == 'Log' ? 'Log & errors' : section,
+              ),
+            );
+            await h.loadSettings(tester);
+            await tester.pumpAndSettle();
+            expect(
+              find.byType(section == 'Log' ? DebugLog : DebugNetwork),
+              findsOneWidget,
+            );
+            await expectGuidelines(tester);
+
+            // 展開的一筆（Log）與單筆詳細的對話框（網路）。
+            await tester.tap(
+              section == 'Log'
+                  ? find.text('an error record')
+                  : find.textContaining('api.example.test/search').first,
+            );
+            await tester.pumpAndSettle();
+            if (section == 'Network') {
+              expect(find.byType(AlertDialog), findsOneWidget);
+            } else {
+              expect(find.textContaining('ParseError'), findsOneWidget);
+            }
+            await expectGuidelines(tester);
+            handle.dispose();
+          });
+        }
       }
 
       // 插件頁（M3 PR 5）：已安裝（停用、有更新、展開詳細資料）、可安裝、安裝的確認框

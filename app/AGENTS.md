@@ -504,8 +504,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 遮蔽本身拋錯時，門面把那筆換成只有層級與失敗型別的 `Redaction failed` 紀錄，不退回
   原文。閘門：`log_test.dart` 的 `a record that cannot be redacted`。
 - log 檔：資料目錄的 `logs/fmp.jsonl`，JSON Lines，單檔 2MB，輪替成 `fmp.1.jsonl`、
-  `fmp.2.jsonl`，共 3 個。欄位名稱與層級字串是持久化格式（Debug 頁在 M3 讀舊檔）。
+  `fmp.2.jsonl`，共 3 個。欄位名稱與層級字串是持久化格式（Debug 頁的「含之前的紀錄」讀舊檔）。
   閘門：`test/core/logging/log_record_test.dart` 的 `stored format`、`log_file_test.dart`。
+- 刪檔與讀檔都排在 `LogFile` 的寫入佇列上，不從外面動 `logs/`：`Log.clear()`（清記憶體歷史加 `LogFile.clear()`）刪掉全部 log 檔，
+  清除之前排入的行先寫完再刪、`clear()` 之後寫的行不受影響（寫入以「批」排隊，`clear()` 封起目前這一批）；`LogFile.readStored()`
+  在 isolate 讀回檔案，最多 `logReadLimitBytes`（6MB，剛好是 3 個 2MB 檔），從最新的檔往回讀，放不下的檔只取尾端（被切開的第一行是半截 JSON，
+  當壞行略過）。`Log.changes` 在每筆進歷史與清除時同步發一次（Debug 頁靠它更新）。閘門：`log_file_test.dart` 的 `clear`、
+  `readStored` 群組，`log_test.dart` 的 `clear`（含 `is queued behind the writes in flight`）。這次執行寫的每一筆在記憶體與檔案裡
+  逐字相同（Debug 頁合併去重靠它）：閘門 `log_test.dart` 的 `the history and the log file hold the same records`。
 - 寫檔失敗不拋出、不影響 App，次數與最後一個錯誤留在 `LogFile.failureCount`／
   `lastFailure`。沒有資料目錄的平台只有記憶體歷史。
 - 層級：建置的預設是 debug build 為 `debug`、profile／release 為 `info`（`buildDefaultLogLevel`，ADR 0011 §決定 2），
@@ -616,11 +622,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `media`／`host`，`host` 的 `pluginId` 是空字串）、`method`、`host`、`path`、`query`、`status`、`ms`、`bytes`、`error`、
   `credentials`、`retry`；不記 body。未登入而拒絕的 `required` 請求沒送出，也有一筆（沒有
   `status`、`ms`），`AuthRequired` 帶它的 id。失敗或狀態碼 ≥ 400 用 `warning`，其餘
-  `debug`。欄位名稱與 `client` 的值是 log 檔的持久化格式（`network_log.dart`）；網路層
+  `info`（ADR 0025 §決定 4：release 的預設層級也看得到）。網址先整個遮過（`Log.redactUrl`）再拆成
+  `host`、`path`、`query`，拆開後遮蔽函式認不出媒體 CDN 的簽名參數。欄位名稱與 `client` 的值是 log 檔的持久化格式（`network_log.dart`）；網路層
   產生的 `AppError` 帶那一筆的 `networkRecordId`。兩種 client 的工廠與宿主請求（`hostFetchProvider`，
   `lib/plugins/repository/plugin_downloader.dart`）共用一個 `NetworkRecordIds`（`networkRecordIdsProvider`），id 在同一次
   執行裡不重複。閘門：兩個 client 測試的 `network log` 群組（欄位逐一比對；query 裡的假憑證與 body 不出現在記憶體
-  歷史與 log 檔）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
+  歷史與 log 檔；`media CDN signatures are redacted before the URL is split`）、`media_http_client_test.dart` 的 `no Cookie or Authorization…`（兩種
   client 的 id 接續）；provider 的接線沒有閘門，review 時看。
 - 認證：請求宣告 `AuthRequirement`，攔截器只依 `decideAuth` 的表注入；認證來源是 `CredentialSource`
   （實作是 `CredentialStore`，見 § 帳號），回傳憑證材料（cookie 表與標頭），不回拼好的 `Cookie` 字串。
@@ -1520,12 +1527,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在只有概覽。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路。窄版點進區塊後，標題列的返回鈕與系統返回鍵
     先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
     （家目錄換成 `~`，`homeRelativePath`：不分大小寫、只比對整段目錄名稱）、快取用量（各類加總）的連結：先 pop 這一頁再經
     `SettingsBack.show(network)` 選設定頁的「網路」。閘門：`debug_page_test.dart` 的 `the overview`（含 release 與 debug build 的預設標示）、`homeRelativePath` 群組。
+  - Log 與錯誤歷史（`debug_log.dart`、`debug_log_state.dart`，ADR 0025 §決定 3，M3 design §12.3）：預設是這次執行的記憶體歷史
+    （`logHistoryProvider`，`Log.changes` 後 250ms 合併成一次快照），最新的在最上面；「含之前的紀錄」（只在有 log 檔的平台出現）
+    把 `LogFile.readStored()` 與記憶體歷史合成一份（`mergeLogRecords`）：同一筆的判準是整行內容（`toJsonLine`）逐字相同，同時間的
+    檔案在前。篩選是層級（以上）、tag（完全相同）、文字（不分大小寫，比對 `formatLogRecord` 的全文）；「只看錯誤」＝警告以上
+    （ADR 0011 §決定 5 的錯誤歷史，`isErrorRecord`）。點一筆只在原地展開欄位、error、stackTrace，詳細頁在 PR 13。「複製已篩選」複製
+    篩選後的純文字（由舊到新），「清除 log」確認後呼叫 `Log.clear()`。閘門：`debug_log_state_test.dart`（合併、篩選、格式）、
+    `debug_log_network_test.dart` 的 `the Log section`（篩選、只看錯誤、複製、清除要確認、清除後記憶體與檔案都空、含之前的紀錄不重複）。
+  - 網路（`debug_network.dart`、`debug_network_state.dart`，ADR 0025 §決定 4）：資料就是記憶體歷史裡 tag `network` 的紀錄
+    （`NetworkEntry.tryParse` 讀 `writeNetworkRecord` 的欄位，不另存、不讀 log 檔），最新的在最上面。篩選是音源（空字串＝宿主自己的請求）、狀態碼類別（2xx／3xx／4xx／5xx，
+    沒有狀態碼＝失敗，`StatusClass`）、文字。單筆詳細是對話框，列出遮過的 query、錯誤類型與 `networkRecordId` 對得上該筆 `id` 的
+    錯誤紀錄（`matchingErrors`；id 只在同一次執行唯一，所以只比對記憶體歷史）。閘門：`debug_network_state_test.dart`（欄位對得上
+    `writeNetworkRecord`、依音源與狀態碼類別篩選、`matchingErrors`）、`debug_log_network_test.dart` 的 `the Network section`（含
+    `fake credentials never reach the detail or the copied log`：詳細與 Log 區塊複製出去的都只有遮過的值）。
+  - 這兩個區塊自己有捲動的清單，不包在區塊的捲動欄裡（`DebugPage` 的 `filling`，同設定頁）；窄與寬版都在 `guidelines_test.dart` 的
+    `the Debug Log section`、`the Debug Network section` 過 guideline（含展開的一筆與單筆詳細的對話框）。
 - 首次啟動引導（`lib/ui/plugins/plugin_onboarding.dart`，ADR 0030 §決定 12，M3 design §7.6）：
   - 觸發：搜尋頁的 `searchSourcesProvider` 是空的（沒有已啟用、能搜尋、可用的插件）而且使用者沒按「稍後再說」；dev flavor
     的 `fmp-test` 有 `search`，所以不出現，不另判 flavor。引導讀官方 index（`indexOutcomeProvider(officialPluginIndexUrl)`，與

@@ -89,7 +89,9 @@ final class ShellHarness {
     this.flavor = AppFlavor.dev,
     this.buildLogLevel = LogLevelSetting.info,
     this.extraOverrides = const [],
-  }) : backend = FakeAudioBackend(
+    Log? log,
+  }) : log = log ?? Log(redactor: Redactor(), minimumLevel: LogLevel.warning),
+       backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
          outputDevices: outputDevices,
        ),
@@ -113,11 +115,11 @@ final class ShellHarness {
           plugin: (id) => id == plugin.manifest.id ? plugin : null,
           formats: const [PlayableFormat('mp4', 'aac')],
           preferences: () => _readStreamPreferences(),
-          log: log,
+          log: this.log,
         ),
-        log: log,
+        log: this.log,
       ),
-      log: log,
+      log: this.log,
       // 和 App 的組裝點一樣讀「播放」設定（記憶體資料庫裡的值）與網路狀態；
       // 解析時的偏好也是（見 resolver 的 preferences）。
       temporaryReturnSettings: () => _readReturnSettings(),
@@ -130,7 +132,7 @@ final class ShellHarness {
       saveOutputDevice: (device) => _saveOutputDevice(device),
     );
     toaster = Toaster(
-      log: log,
+      log: this.log,
       translations: AppLocale.en.buildSync,
       sourceName: (_) => null,
     );
@@ -197,7 +199,9 @@ final class ShellHarness {
 
   /// 曲目長 3 分鐘：測試期間不會自己播完。
   final FakeAudioBackend backend;
-  final log = Log(redactor: Redactor(), minimumLevel: LogLevel.warning);
+
+  /// 門面；不給就是只記警告以上、沒有 log 檔的記憶體門面。Debug 頁測試要 log 檔時給自己的。
+  final Log log;
   late final PlaybackController controller;
   late final Toaster toaster;
 
