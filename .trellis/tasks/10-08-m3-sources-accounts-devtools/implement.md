@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、PR 12（#238）已合併；PR 13（子任務 `10-14-m3-error-report`，分支 `feat/app-error-report`）。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14 拆成 14a（唯讀：播放狀態、資料庫瀏覽與檢查，子任務 `10-14-m3-debug-playback-database`，分支 `feat/app-debug-playback-database`）與 14b（備份、還原、重設、重啟）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
 - **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
@@ -356,8 +356,9 @@
 
 ## 14. 播放狀態、資料庫、重設資料（design §12.2、§12.3）
 
-- [ ] `PlaybackDiagnostics`（`PlaybackSession` 提供）與播放狀態區塊、複製快照。
-- [ ] 資料庫區塊：唯讀瀏覽、檢查、從備份還原。
+- [x] `PlaybackDiagnostics`（`PlaybackSession` 提供）與播放狀態區塊、複製快照（14a）。
+- [x] 資料庫區塊：唯讀瀏覽、檢查（14a）。
+- [ ] 從備份還原；檢查有問題時的「從備份還原」「重設資料」按鈕（14b）。
 - [ ] 重設資料：`VACUUM INTO` 備份、二次確認、清空（資料庫、`SecureStorage.deleteAll`、WebView `clearAll`、快取）、重啟（Windows 自己重啟；Android 提示手動重開，並確認重開時 `main()` 重跑：`SystemNavigator.pop` 因 `AudioServiceActivity` 的 cached engine／前景服務沒重跑時，改成先停掉 audio_service 再結束 process，實作在這個 PR 決定、寫進 `app/AGENTS.md`，design §12.2）。
 - 測試：ADR 0025 §如何確認的資料檢查兩項、重設兩項、遮蔽（播放快照、資料庫瀏覽）；從備份還原後資料等於備份；重設後 `CredentialStore` 為空且請求不帶憑證（ADR 0012 §如何確認的「重設所有資料」）。
 - 實測（重播）：兩平台看播放狀態（重試中的下次重試時間）、瀏覽 `plugin_storage` 的值是 `***`、檢查乾淨；重設資料（先備份）→ 重開後是空的 → 從備份還原 → 資料回來、要重新登入。Android 另確認重設並重開後 `main()` 重跑（log 出現新的 `App started`、不是沿用舊 process），沒有就走上面的 audio_service 方案再驗一次。
@@ -482,6 +483,14 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 14a 留下的
+
+1. **拆分**（主對話決定）：PR 14 拆成 14a（唯讀）與 14b（備份、還原、重設、重啟），會改資料的部分單獨審查與實機驗證。
+2. **重試中的「下次重試時間」沒在實機看到**：`fmp-test` 的 `flaky` 在 `online` 時只重試中約一秒，Debug 頁是全螢幕路由、沒有播放控制，來不及切過去。由 `playback_controller_test.dart` 的 `a retry reports when the next attempt happens` 守（審查修過它原本測不到的問題）。
+3. **`installed_plugins.script` 只顯示長度**：審查提出、主對話實測（桌面一次遮蔽 YouTube 腳本平均 133 ms）後改的；`database_inspector_test.dart` 守。
+4. **Windows 暫停中換輸出裝置**，播放狀態區塊要等下一次狀態或進度事件才更新（播放中每秒刷新）。影響小，沒動。
+5. **Android 播放中 `uiautomator dump` 拿不到 idle 狀態**，實機讀播放狀態區塊要用截圖。
 
 ### PR 13 留下的
 
