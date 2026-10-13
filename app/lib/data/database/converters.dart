@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/stream_preferences.dart';
@@ -177,6 +178,25 @@ final class RefreshResultConverter
     RefreshResult.refreshed => 'refreshed',
     RefreshResult.unchanged => 'unchanged',
     RefreshResult.failed => 'failed',
+  };
+}
+
+/// [LogLevelSetting] ↔ `debug`／`info`：與 log 檔的層級字串相同。
+final class LogLevelSettingConverter
+    extends TypeConverter<LogLevelSetting, String> {
+  const LogLevelSettingConverter();
+
+  @override
+  LogLevelSetting fromSql(String fromDb) => switch (fromDb) {
+    'debug' => LogLevelSetting.debug,
+    'info' => LogLevelSetting.info,
+    _ => throw FormatException('Unknown log level in the database', fromDb),
+  };
+
+  @override
+  String toSql(LogLevelSetting value) => switch (value) {
+    LogLevelSetting.debug => 'debug',
+    LogLevelSetting.info => 'info',
   };
 }
 

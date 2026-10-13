@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
+import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
@@ -68,3 +69,8 @@ final accountRepositoryProvider = Provider<AccountRepository>(
 final sourceSettingsRepositoryProvider = Provider<SourceSettingsRepository>(
   (ref) => SourceSettingsRepository(ref.watch(appDatabaseProvider)),
 );
+
+final developerSettingsRepositoryProvider =
+    Provider<DeveloperSettingsRepository>(
+      (ref) => DeveloperSettingsRepository(ref.watch(appDatabaseProvider)),
+    );
