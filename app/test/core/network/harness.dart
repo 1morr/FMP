@@ -63,6 +63,7 @@ final class Harness {
     RetryPolicy retryPolicy = const RetryPolicy(),
     RateLimitPolicy? rateLimitPolicy,
     LogFile? logFile,
+    List<String> allowedHosts = allowedHosts,
   }) : adapter = FakeHttpAdapter(handler) {
     log = Log(
       redactor: Redactor(),
@@ -125,6 +126,7 @@ final class MediaHarness {
   MediaHarness(
     FutureOr<ResponseBody> Function(RequestOptions options) handler, {
     LogFile? logFile,
+    List<String> allowedHosts = allowedHosts,
   }) : adapter = FakeHttpAdapter(handler) {
     log = Log(
       redactor: Redactor(),

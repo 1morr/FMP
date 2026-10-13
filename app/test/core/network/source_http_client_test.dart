@@ -706,7 +706,7 @@ void main() {
       final record = harness.records.single;
       expect(record.fields['error'], 'Cancelled');
       // 取消是呼叫端要的，不算失敗。
-      expect(record.level, LogLevel.debug);
+      expect(record.level, LogLevel.info);
     });
   });
 
@@ -853,7 +853,7 @@ void main() {
       );
 
       final record = harness.records.single;
-      expect(record.level, LogLevel.debug);
+      expect(record.level, LogLevel.info);
       expect(record.message, 'HTTP request');
       expect(record.fields, {
         'id': 1,
@@ -935,6 +935,40 @@ void main() {
         }
       },
     );
+
+    // 拆成 host／path／query 之後遮蔽函式認不出 CDN：先遮整個網址再拆。
+    test('media CDN signatures are redacted before the URL is split', () async {
+      final harness = Harness((_) => reply(200), allowedHosts: _mediaCdnHosts);
+      for (final url in [
+        'https://upos-sz-mirror.bilivideo.com/upgcxcode/x.m4s'
+            '?e=FAKE_E_123&deadline=1700000000&upsig=FAKE_UPSIG_123'
+            '&mid=FAKE_MID_123',
+        'https://rr1---sn-fake.googlevideo.com/videoplayback'
+            '?expire=1700000000&sig=FAKE_SIG_123&ip=192.0.2.1',
+        'https://m701.music.126.net/20261014/FAKE_PATH_SIG_123/obj/song.mp3'
+            '?authSecret=FAKE_AUTH_123',
+      ]) {
+        await harness.get(url);
+      }
+
+      final history = jsonEncode([
+        for (final record in harness.log.history) record.toJsonLine(),
+      ]);
+      expect(history, contains('deadline=1700000000'));
+      expect(history, contains('expire=1700000000'));
+      expect(history, contains('music.126.net'));
+      for (final secret in [
+        'FAKE_E_123',
+        'FAKE_UPSIG_123',
+        'FAKE_MID_123',
+        'FAKE_SIG_123',
+        '192.0.2.1',
+        'FAKE_PATH_SIG_123',
+        'FAKE_AUTH_123',
+      ]) {
+        expect(history, isNot(contains(secret)));
+      }
+    });
 
     test('every request gets the next id', () async {
       final harness = Harness((_) => reply(200));
@@ -1028,3 +1062,5 @@ void main() {
     );
   });
 }
+
+const _mediaCdnHosts = ['bilivideo.com', 'googlevideo.com', 'music.126.net'];

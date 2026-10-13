@@ -31,10 +31,11 @@ final class NetworkRecordIds {
 }
 
 /// 寫一筆網路紀錄（ADR 0011 §決定 4）：每次送出一筆摘要，經 log 門面寫入，
-/// 不記 body。query 原樣交給門面，由遮蔽函式處理。
+/// 不記 body。網址先整個遮過（[Log.redactUrl]）再拆成 `host`、`path`、
+/// `query`：拆開之後遮蔽函式就認不出媒體 CDN 的簽名參數與帶簽章的路徑。
 ///
-/// [failed]：產生了錯誤，或狀態碼 ≥ 400。失敗用 `warning`，release 的預設
-/// 層級（info）也看得到；其餘用 `debug`。
+/// [failed]：產生了錯誤，或狀態碼 ≥ 400，用 `warning`；其餘用 `info`，release 的
+/// 預設層級也看得到（ADR 0025 §決定 4，Debug 頁的網路區塊）。
 void writeNetworkRecord(
   Log log, {
   required NetworkClient client,
@@ -49,23 +50,26 @@ void writeNetworkRecord(
   int? ms,
   int? bytes,
   String? error,
-}) => log.write(
-  failed ? LogLevel.warning : LogLevel.debug,
-  failed ? 'HTTP request failed' : 'HTTP request',
-  tag: networkLogTag,
-  fields: {
-    'id': id,
-    'pluginId': pluginId ?? '',
-    'client': client.wireName,
-    'method': method,
-    'host': uri.host,
-    'path': uri.path,
-    if (uri.hasQuery) 'query': uri.query,
-    'status': ?status,
-    'ms': ?ms,
-    'bytes': ?bytes,
-    'error': ?error,
-    'credentials': credentials,
-    'retry': retry,
-  },
-);
+}) {
+  final shown = Uri.parse(log.redactUrl(uri));
+  log.write(
+    failed ? LogLevel.warning : LogLevel.info,
+    failed ? 'HTTP request failed' : 'HTTP request',
+    tag: networkLogTag,
+    fields: {
+      'id': id,
+      'pluginId': pluginId ?? '',
+      'client': client.wireName,
+      'method': method,
+      'host': shown.host,
+      'path': shown.path,
+      if (shown.hasQuery) 'query': shown.query,
+      'status': ?status,
+      'ms': ?ms,
+      'bytes': ?bytes,
+      'error': ?error,
+      'credentials': credentials,
+      'retry': retry,
+    },
+  );
+}

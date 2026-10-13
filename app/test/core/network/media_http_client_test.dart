@@ -465,7 +465,7 @@ void main() {
       await pumpUntil(() => released, reason: 'the response was not released');
       expect(harness.outcomes, isEmpty);
       final record = harness.records.single;
-      expect(record.level, LogLevel.debug);
+      expect(record.level, LogLevel.info);
       expect(record.fields['error'], 'Cancelled');
       expect(files(), isEmpty);
     });
@@ -610,7 +610,7 @@ void main() {
         await harness.download('https://example.test/a', to: destination);
 
         final [hop, last] = harness.records;
-        expect(hop.level, LogLevel.debug);
+        expect(hop.level, LogLevel.info);
         expect(hop.message, 'HTTP request');
         expect(hop.fields, {
           'id': 1,
@@ -667,6 +667,43 @@ void main() {
         }
       },
     );
+
+    // 拆成 host／path／query 之後遮蔽函式認不出 CDN：先遮整個網址再拆。
+    test('media CDN signatures are redacted before the URL is split', () async {
+      final harness = MediaHarness(
+        (_) => reply(200, body: 'x'),
+        allowedHosts: _mediaCdnHosts,
+      );
+      for (final url in [
+        'https://upos-sz-mirror.bilivideo.com/upgcxcode/x.m4s'
+            '?e=FAKE_E_123&deadline=1700000000&upsig=FAKE_UPSIG_123'
+            '&mid=FAKE_MID_123',
+        'https://rr1---sn-fake.googlevideo.com/videoplayback'
+            '?expire=1700000000&sig=FAKE_SIG_123&ip=192.0.2.1',
+        'https://m701.music.126.net/20261014/FAKE_PATH_SIG_123/obj/song.mp3'
+            '?authSecret=FAKE_AUTH_123',
+      ]) {
+        await harness.download(url, to: destination);
+      }
+
+      final history = jsonEncode([
+        for (final record in harness.log.history) record.toJsonLine(),
+      ]);
+      expect(history, contains('deadline=1700000000'));
+      expect(history, contains('expire=1700000000'));
+      expect(history, contains('music.126.net'));
+      for (final secret in [
+        'FAKE_E_123',
+        'FAKE_UPSIG_123',
+        'FAKE_MID_123',
+        'FAKE_SIG_123',
+        '192.0.2.1',
+        'FAKE_PATH_SIG_123',
+        'FAKE_AUTH_123',
+      ]) {
+        expect(history, isNot(contains(secret)));
+      }
+    });
   });
 
   // ADR 0016 §決定 6：每一跳的結果進網路狀態，最多一次。
@@ -720,3 +757,5 @@ void main() {
     });
   });
 }
+
+const _mediaCdnHosts = ['bilivideo.com', 'googlevideo.com', 'music.126.net'];
