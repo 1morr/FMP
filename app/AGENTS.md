@@ -841,7 +841,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `fmp_layer_imports` 的 `test_pubSemver*`。
   - 停用（`PluginRegistry.setEnabled`）：存進資料庫、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
     插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。
-    停用與移除後佇列裡它的曲目照「音源未安裝」跳過、準備好的前瞻放掉（見「播放」）。閘門：
+    停用後佇列裡它的曲目照「音源已停用」、移除後照「音源未安裝」跳過，準備好的前瞻放掉（見「播放」）。閘門：
     `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
   - 移除（`PluginInstaller.remove`）：關閉 runtime → 憑證與遮蔽登記、`accounts`、`source_settings`
     （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
@@ -855,6 +855,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     以它重讀。閘門：`plugin_repository_test.dart` 的 `changes fires…` 兩例。
   - 顯示名稱 `pluginNameProvider`（`lib/ui/plugins/plugin_name.dart`）：清單上是 manifest 的 `name`，停用的是
     「音源已停用」，沒安裝的是「音源未安裝」，清單未載入完是 `null`。閘門：`test/ui/plugins/plugin_name_test.dart`。
+  - 不可用原因 `sourceUnavailableProvider`（同檔）：音源停用回「音源已停用」、沒安裝回「音源未安裝」，在清單上（已安裝且啟用）
+    與清單未載入完時是 `null`；`pluginNameProvider` 在清單以外的插件上就是它的值。佇列與歷史列、跳過提示用它。閘門：
+    `test/ui/plugins/plugin_name_test.dart`。
   - `Redactor` 的媒體 CDN 規則以插件 id 為鍵（`setMediaCdns`），插件更新、重新載入時取代而不累加；header 與鍵名
     名單仍只增不減。閘門：`redactor_test.dart` 的 `setting a plugin again replaces…`。
 - 開發入口：dev flavor 啟動時安裝 `--fmp-dev-plugin=<路徑>` 或環境變數 `FMP_DEV_PLUGIN` 指的檔案；
@@ -968,7 +971,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`Look-ahead dropped: source unavailable`），之後要準備前瞻時先查插件（單曲循環的下一圈不經快取，
   不查就會重播）、解析中的前瞻回來時再查一次；所以引擎不會自己接上它，
   手動下一首也拿不到它，到那首時 `StreamResolver` 先查插件、快取裡的那筆也不給，回 `Unsupported`、
-  照恢復表立即跳過（提示的音源名稱是 `pluginNameProvider` 的「音源已停用」／「音源未安裝」）。
+  照恢復表立即跳過（解析器的 `Unsupported` 只有通用訊息；`app_shell.dart` 在錯誤是 `Unsupported` 且 `error.pluginId` 的音源不可用時，把提示的原因換成 `sourceUnavailableProvider` 的「音源已停用」／「音源未安裝」，其他錯誤不動。閘門：`app_shell_test.dart` 的 `a song of a disabled source is skipped with that as the reason`、`stopping at the only song of a disabled source says so`）。
   正在播的那一首不停（單曲循環的下一圈算下一次播放，不播）。閘門：`playback_controller_test.dart` 的
   `a source that was disabled or removed` 群組、`stream_resolver_test.dart` 的 `a cached stream is not
   given out once its plugin is disabled or removed`、`playback_providers_test.dart` 的 `a plugin that
@@ -1478,7 +1481,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     guideline 測試的 `the onboarding…` 400／1000 寬。
 - 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
-  曲名、「作者 · 播放時刻」。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
+  曲名、「作者 · 播放時刻」（音源停用或未安裝時，原因取代作者；閘門：`history_page_test.dart` 的 `a song of a source that is not installed shows why in place of the artist`）。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
   那麼多筆），一萬筆不一次載入；本機資料，離線照常可用、封面讀不到是佔位圖。點一列是臨時播放；選單（右鍵、長按、
   尾端「⋯」）有播放、下一首播放、加入佇列、從歷史移除：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
   提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
@@ -1623,7 +1626,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （compact、medium，`showQueueSheet`）共用同一個 widget。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
     `clear`、提示「已清空佇列」，取消不動；清空後播放頁與面板一起關，提示等它們關掉的那一幀之後才發：提示的位移在顯示當下
     決定，頁面還開著時是底部安全區，compact 的導覽列會被蓋住），隨機開著時下面多一行「隨機順序跟著位置；拖曳只換歌，
-    不改順序」。每列是封面、曲名、上傳者、時長、「⋯」選單與拖曳把手；目前這首以主色標示（臨時播放中不標，因為
+    不改順序」。每列是封面、曲名、上傳者、時長、「⋯」選單與拖曳把手（音源停用或未安裝時，原因取代上傳者，且列監看 `sourceUnavailableProvider`；閘門：`queue_view_test.dart` 的 `a song of a source that cannot be used shows why instead of the uploader`、`the reason follows the source becoming unavailable`）；目前這首以主色標示（臨時播放中不標，因為
     `currentIndex` 是回到佇列時的位置）；點一下 `jumpTo`；選單有「下一首播放」（`moveToNext`，目前這首沒有這項）與「從佇列
     移除」（`removeAt`，不提示，同歷史頁）。固定列高的 `ReorderableListView.builder`、`buildDefaultDragHandles: false`：
     只有把手（`ReorderableDragStartListener`）能拖，長按留給選單；放下呼叫 `move`（用 `onReorderItem`，它的 `newIndex`
