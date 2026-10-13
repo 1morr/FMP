@@ -32,7 +32,8 @@ lib/platform/
 真的開瀏覽器只能實機驗）、`login_webview/`（介面＋一個以套件命名的實作 `flutter_inappwebview_login.dart` 給兩個平台：差異（UA、WebView2 環境）
 以建構子注入，`.android()`／`.windows()` 兩個 factory 在組裝點選；套件的 `CookieManager` 也由建構子
 注入，單元測試以 `implements CookieManager` 的假物件測讀與清除，WebView 本身只能實機驗。Windows 要資料目錄才知道 WebView2 的
-使用者資料放哪，組裝點把 `dataDirectory.resolve()` 包成函式交給它，第一次用到才解析）。
+使用者資料放哪，組裝點把 `dataDirectory.resolve()` 包成函式交給它，第一次用到才解析）、`app_restart/`（介面＋每平台一個實作；`exit` 與啟動行程都從建構子注入，單元測試核對呼叫順序；
+實作依 `mediaControls`（Android 要收掉媒體工作階段，它在 `withMediaControls` 之後才有），所以 `AppPlatform.restarter` 是 getter、用工廠建；`restartsItself` 宣告 App 會不會自己再起來）。
 
 ## 加一個能力
 
