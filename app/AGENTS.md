@@ -965,7 +965,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   of a removed last song…`）。
 - 插件停用或移除（從 `PluginRegistry` 的清單拿掉）時，它的曲目照「音源未安裝」跳過：組裝點把清單的
   每次改變交給控制器（`pluginChanges`），session 放掉屬於那個插件的前瞻、清掉後端的
-  （`Look-ahead dropped: source unavailable`），解析中的前瞻回來時也不設；所以引擎不會自己接上它，
+  （`Look-ahead dropped: source unavailable`），之後要準備前瞻時先查插件（單曲循環的下一圈不經快取，
+  不查就會重播）、解析中的前瞻回來時再查一次；所以引擎不會自己接上它，
   手動下一首也拿不到它，到那首時 `StreamResolver` 先查插件、快取裡的那筆也不給，回 `Unsupported`、
   照恢復表立即跳過（提示的音源名稱是 `pluginNameProvider` 的「音源已停用」／「音源未安裝」）。
   正在播的那一首不停（單曲循環的下一圈算下一次播放，不播）。閘門：`playback_controller_test.dart` 的
