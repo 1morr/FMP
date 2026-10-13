@@ -106,6 +106,9 @@ class TranslationsZhCn extends Translations
   @override
   late final Translations$errors$zh_CN errors =
       Translations$errors$zh_CN.internal(_root);
+  @override
+  late final Translations$errorReport$zh_CN errorReport =
+      Translations$errorReport$zh_CN.internal(_root);
 }
 
 // Path: startup
@@ -468,6 +471,8 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   String netDuration({required Object ms}) => '${ms} ms';
   @override
   String get close => '关闭';
+  @override
+  String get logDetail => '详细';
 }
 
 // Path: player
@@ -1126,6 +1131,76 @@ class Translations$errors$zh_CN extends Translations$errors$zh_TW {
   @override
   late final Translations$errors$unavailableReasons$zh_CN unavailableReasons =
       Translations$errors$unavailableReasons$zh_CN.internal(_root);
+}
+
+// Path: errorReport
+class Translations$errorReport$zh_CN extends Translations$errorReport$zh_TW {
+  Translations$errorReport$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '错误详情';
+  @override
+  String get actionDetail => '详细';
+  @override
+  String get actionReport => '反馈';
+  @override
+  String get copy => '复制';
+  @override
+  String get copied => '已复制';
+  @override
+  String get reportOnGitHub => '在 GitHub 反馈';
+  @override
+  String get reportCopied => '报告已复制，请粘贴到 GitHub 的“错误报告”一栏';
+  @override
+  String get openFailed => '无法打开浏览器，请自行打开下方的网址';
+  @override
+  String get manualHint => '请在浏览器打开以下网址，并粘贴已复制的报告';
+  @override
+  String get reminderTitle => '提交前请检查';
+  @override
+  String get reminderBody =>
+      'FMP 的 GitHub 仓库是公开的，所有人都看得到报告。报告已遮蔽 cookie、token 与签名网址，但提交前请再检查一次内容。';
+  @override
+  String get reminderDontAsk => '不再提醒';
+  @override
+  String get reminderContinue => '继续';
+  @override
+  String get cancel => '取消';
+  @override
+  String get time => '时间';
+  @override
+  String get type => '错误类型';
+  @override
+  String get reason => '原因类别';
+  @override
+  String get source => '音源';
+  @override
+  String get action => '用户操作';
+  @override
+  String get module => '模块';
+  @override
+  String get request => '请求';
+  @override
+  String get status => '状态码';
+  @override
+  String get duration => '耗时';
+  @override
+  String get requestError => '请求错误';
+  @override
+  String get noRequest => '没有对应的请求记录';
+  @override
+  String get app => 'App';
+  @override
+  String get system => '系统';
+  @override
+  String get cause => '原因';
+  @override
+  String get stackTrace => 'Stack trace';
 }
 
 // Path: plugins.capabilityNames

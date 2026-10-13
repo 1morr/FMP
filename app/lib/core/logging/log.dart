@@ -138,7 +138,10 @@ final class Log {
   );
 
   /// 寫一筆 log。[tag] 是模組或音源 id；[fields] 會遞迴遮蔽。不會拋出。
-  void write(
+  ///
+  /// 回傳寫進歷史的那筆（已遮蔽）；低於 [minimumLevel] 被丟掉時為 `null`。錯誤詳細頁靠它
+  /// 從 `report` 的那一筆組報告（ADR 0023 §決定 4）。
+  LogRecord? write(
     LogLevel level,
     String message, {
     required String tag,
@@ -146,7 +149,7 @@ final class Log {
     StackTrace? stackTrace,
     Map<String, Object?> fields = const {},
   }) {
-    if (level.index < minimumLevel.index) return;
+    if (level.index < minimumLevel.index) return null;
     final time = DateTime.now().toUtc();
     LogRecord record;
     try {
@@ -176,6 +179,7 @@ final class Log {
     // 原始的 error 與 stackTrace 不交給 talker：它的歷史會原樣留著。
     _talker.logCustom(_RecordLog(record));
     _changes.add(null);
+    return record;
   }
 }
 

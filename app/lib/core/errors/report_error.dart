@@ -12,9 +12,12 @@ extension AppErrorReport on Log {
   /// 否則是 `error`。原始 error 與 stackTrace 交給門面遮蔽；型別、音源、網路
   /// 紀錄 id、可否重試與 `Retry-After` 放結構化欄位，Debug 頁依它們篩選。
   ///
+  /// 回傳寫進歷史的那筆（已遮蔽）；層級被濾掉時為 `null`。錯誤提示的「詳細」與「回報」
+  /// 由它組 `ErrorReport`。
+  ///
   /// [level] 只給未捕捉錯誤的處理器（`routeUncaughtErrors`）用：沒人接的錯誤
   /// 一律是 `error`，不論 [AppError.expected]。處理過的錯誤不傳，層級不自己選。
-  void report(
+  LogRecord? report(
     String message,
     AppError error, {
     required String tag,

@@ -148,7 +148,8 @@
     "yes": "Yes",
     "no": "No",
     "netDuration": "{ms} ms",
-    "close": "Close"
+    "close": "Close",
+    "logDetail": "Details"
   },
   "player": {
     "play": "Play",
@@ -453,5 +454,36 @@
       "age": "age restricted",
       "previewOnly": "preview only"
     }
+  },
+  "errorReport": {
+    "title": "Error details",
+    "actionDetail": "Details",
+    "actionReport": "Report",
+    "copy": "Copy",
+    "copied": "Copied",
+    "reportOnGitHub": "Report on GitHub",
+    "reportCopied": "Report copied. Paste it into the \"Error report\" field on GitHub.",
+    "openFailed": "Could not open the browser. Open the address below yourself.",
+    "manualHint": "Open this address in a browser and paste the copied report.",
+    "reminderTitle": "Check before you submit",
+    "reminderBody": "The FMP repository on GitHub is public, so anyone can read the report. Cookies, tokens and signed URLs are masked, but check the content once more before you submit.",
+    "reminderDontAsk": "Don't remind me again",
+    "reminderContinue": "Continue",
+    "cancel": "Cancel",
+    "time": "Time",
+    "type": "Error type",
+    "reason": "Reason",
+    "source": "Source",
+    "action": "Action",
+    "module": "Module",
+    "request": "Request",
+    "status": "Status",
+    "duration": "Duration",
+    "requestError": "Request error",
+    "noRequest": "No matching request record",
+    "app": "App",
+    "system": "System",
+    "cause": "Cause",
+    "stackTrace": "Stack trace"
   }
 }

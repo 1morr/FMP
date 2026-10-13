@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/core/app_flavor.dart';
+import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -24,7 +27,7 @@ import '../test/ui/support/shell_harness.dart';
 // 大小；插件與播放後端用測試的假實作（不連網、不出聲）。同一組斷言在
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
 // 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9；
-// Debug 頁，M3 PR 11）：
+// Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -33,7 +36,8 @@ void main() {
 
   /// 開外殼；回傳外殼的 context（開對話框、推路由用）。
   Future<(ShellHarness, BuildContext)> pumpShell(WidgetTester tester) async {
-    final h = ShellHarness();
+    // 錯誤詳細頁讀 `redactorProvider`；ShellHarness 不給就不 override。
+    final h = ShellHarness(redactor: Redactor());
     await tester.pumpWidget(
       ProviderScope(
         overrides: h.overrides,
@@ -115,6 +119,22 @@ void main() {
 
     await expectToastOnTop(tester, h);
     expect(find.text('A full-screen page'), findsOneWidget);
+  });
+
+  // 錯誤詳細頁（M3 PR 13）：提示的「詳細」「回報」推上去的全螢幕路由。
+  testWidgets('a toast shows above the error detail page', (tester) async {
+    final (h, shell) = await pumpShell(tester);
+    final record = h.log.report(
+      'Search failed',
+      ParseError(pluginId: 'alpha'),
+      tag: 'search',
+    )!;
+    unawaited(openErrorDetail(Navigator.of(shell), record));
+    await tester.pumpAndSettle();
+    expect(find.byType(ErrorDetailPage), findsOneWidget);
+
+    await expectToastOnTop(tester, h);
+    expect(find.byType(ErrorDetailPage), findsOneWidget);
   });
 
   // Debug 頁（M3 PR 11）：從設定頁的入口開的全螢幕 route（dev 的開發者模式預設開）。

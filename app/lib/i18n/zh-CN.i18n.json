@@ -148,7 +148,8 @@
     "yes": "是",
     "no": "否",
     "netDuration": "{ms} ms",
-    "close": "关闭"
+    "close": "关闭",
+    "logDetail": "详细"
   },
   "player": {
     "play": "播放",
@@ -453,5 +454,36 @@
       "age": "有年龄限制",
       "previewOnly": "仅可试听片段"
     }
+  },
+  "errorReport": {
+    "title": "错误详情",
+    "actionDetail": "详细",
+    "actionReport": "反馈",
+    "copy": "复制",
+    "copied": "已复制",
+    "reportOnGitHub": "在 GitHub 反馈",
+    "reportCopied": "报告已复制，请粘贴到 GitHub 的“错误报告”一栏",
+    "openFailed": "无法打开浏览器，请自行打开下方的网址",
+    "manualHint": "请在浏览器打开以下网址，并粘贴已复制的报告",
+    "reminderTitle": "提交前请检查",
+    "reminderBody": "FMP 的 GitHub 仓库是公开的，所有人都看得到报告。报告已遮蔽 cookie、token 与签名网址，但提交前请再检查一次内容。",
+    "reminderDontAsk": "不再提醒",
+    "reminderContinue": "继续",
+    "cancel": "取消",
+    "time": "时间",
+    "type": "错误类型",
+    "reason": "原因类别",
+    "source": "音源",
+    "action": "用户操作",
+    "module": "模块",
+    "request": "请求",
+    "status": "状态码",
+    "duration": "耗时",
+    "requestError": "请求错误",
+    "noRequest": "没有对应的请求记录",
+    "app": "App",
+    "system": "系统",
+    "cause": "原因",
+    "stackTrace": "Stack trace"
   }
 }

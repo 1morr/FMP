@@ -28,7 +28,7 @@ const _reviewedSurface = {
   'AppError.typeName': 'String',
   'AppError.toString()': 'String',
   'Unavailable.reason': 'UnavailableReason?',
-  'AppErrorReport.report()': 'void',
+  'AppErrorReport.report()': 'LogRecord?',
 };
 
 /// 型別是字串、或裝得下任意文字的成員中，允許的例外。

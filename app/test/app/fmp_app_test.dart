@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_scope.dart';
 import 'package:fmp/app/fmp_app.dart';
@@ -15,16 +16,20 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
+import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
+import 'package:fmp/platform/url_opener/url_opener.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/plugins/repository/plugin_downloader.dart';
 import 'package:fmp/settings/developer_settings.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../plugins/plugin_harness.dart';
@@ -58,6 +63,14 @@ void main() {
           logProvider.overrideWithValue(log),
           secureStorageProvider.overrideWithValue(InMemorySecureStorage()),
           loginWebViewProvider.overrideWithValue(null),
+          urlOpenerProvider.overrideWithValue(null),
+          appInfoProvider.overrideWithValue(
+            const AppInfo(
+              version: '2.0.0',
+              platform: 'Windows',
+              osVersion: 'Windows 11 (test)',
+            ),
+          ),
           platformCapabilitiesProvider.overrideWithValue(capabilities),
           // 沒有插件時搜尋頁的引導會讀官方 index：測試不聯網，讀不到。
           pluginDownloaderProvider.overrideWithValue(
@@ -232,6 +245,33 @@ void main() {
     expect(kept('Probe with developer mode off'), isTrue);
   });
 
+  // ADR 0023 §決定 4：App 裡真的 `toasterProvider`（不是測試替身）讀開發者模式、經
+  // `FmpApp` 交給 `MaterialApp.navigatorKey` 的根 key 開詳細頁。少接任何一段，提示就沒有
+  // 「詳細」或按了不開頁。
+  testWidgets('an error toast opens the detail page through the root '
+      'navigator', (tester) async {
+    await pumpApp(tester);
+    await settle(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+
+    // dev flavor 沒設定過時開發者模式是開的：每則錯誤都附「詳細」。
+    container
+        .read(toasterProvider)
+        .error(
+          ParseError(pluginId: 'alpha'),
+          operation: 'Search failed',
+          tag: 'search',
+        );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Details'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ErrorDetailPage), findsOneWidget);
+    expect(find.text('ParseError'), findsOneWidget);
+  });
+
   group('appearance', () {
     setUp(() {
       dispatcher.localesTestValue = [const Locale('en', 'US')];
@@ -381,6 +421,7 @@ void main() {
         networkInterfaces: false,
         files: false,
         loginWebView: false,
+        urlOpener: false,
         cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);

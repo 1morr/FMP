@@ -18,8 +18,10 @@ MaterialApp fmpMaterialApp({
   required List<String> fontFamilyFallback,
   required Widget home,
   TransitionBuilder? builder,
+  GlobalKey<NavigatorState>? navigatorKey,
 }) => MaterialApp(
   title: title,
+  navigatorKey: navigatorKey,
   theme: buildAppTheme(
     Brightness.light,
     fontFamilyFallback: fontFamilyFallback,

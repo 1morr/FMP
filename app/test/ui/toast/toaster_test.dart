@@ -11,14 +11,21 @@ import 'package:fmp/ui/toast/toaster.dart';
 void main() {
   late Log log;
   late List<Toast> shown;
+  late List<LogRecord> opened;
 
   /// 以繁中與固定的插件名稱建一個 [Toaster]，記下它送出的提示。
-  Toaster toaster({AppLocale locale = AppLocale.zhTw}) {
-    log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
+  Toaster toaster({
+    AppLocale locale = AppLocale.zhTw,
+    bool developerMode = false,
+    LogLevel minimumLevel = LogLevel.debug,
+  }) {
+    log = Log(redactor: Redactor(), minimumLevel: minimumLevel);
     final toaster = Toaster(
       log: log,
       translations: locale.buildSync,
       sourceName: (pluginId) => pluginId == 'bilibili' ? 'Bilibili' : null,
+      developerMode: () => developerMode,
+      openErrorDetail: opened.add,
     );
     shown = [];
     toaster.toasts.listen(shown.add);
@@ -55,6 +62,118 @@ void main() {
         (ToastKind.warning, '空間不足', null),
       ],
     );
+  });
+
+  setUp(() => opened = []);
+
+  // ADR 0023 §決定 4：開發者模式每則附「詳細」；一般使用者只有 Unsupported、
+  // UnexpectedError 附「回報」；兩者開同一個詳細頁，開的是 report 寫的那筆。
+  group('error actions', () {
+    void fail(Toaster toasts, AppError error) =>
+        toasts.error(error, operation: 'Search failed', tag: 'search');
+
+    test('developer mode: every error has Details', () {
+      final toasts = toaster(developerMode: true);
+      for (final error in [
+        NetworkError(),
+        RateLimited(pluginId: 'bilibili'),
+        ParseError(),
+        Unsupported(),
+        UnexpectedError(),
+      ]) {
+        fail(toasts, error);
+      }
+      // 去重以類別加音源為鍵，五個類別各一則。
+      expect(shown.map((t) => t.action?.label), everyElement('詳細'));
+      expect(shown, hasLength(5));
+    });
+
+    test('normal mode: only Unsupported and UnexpectedError have Report', () {
+      final toasts = toaster();
+      final errors = <AppError>[
+        NetworkError(),
+        RateLimited(pluginId: 'bilibili'),
+        AuthRequired(pluginId: 'bilibili'),
+        CredentialInvalid(pluginId: 'bilibili'),
+        VerificationRequired(pluginId: 'bilibili'),
+        Unavailable(pluginId: 'bilibili'),
+        NotFound(),
+        ParseError(),
+        Unsupported(),
+        UnexpectedError(),
+      ];
+      for (final error in errors) {
+        fail(toasts, error);
+      }
+
+      expect(
+        {
+          for (var i = 0; i < errors.length; i++)
+            errors[i].typeName: shown[i].action?.label,
+        },
+        {
+          'NetworkError': null,
+          'RateLimited': null,
+          'AuthRequired': null,
+          'CredentialInvalid': null,
+          'VerificationRequired': null,
+          'Unavailable': null,
+          'NotFound': null,
+          'ParseError': null,
+          'Unsupported': '回報',
+          'UnexpectedError': '回報',
+        },
+      );
+    });
+
+    test('Details and Report open the record report() wrote', () {
+      final toasts = toaster(developerMode: true);
+      fail(toasts, ParseError(pluginId: 'bilibili'));
+      shown.single.action!.onPressed();
+
+      expect(opened, [same(log.history.single)]);
+      expect(opened.single.fields['type'], 'ParseError');
+
+      final normal = toaster();
+      fail(normal, UnexpectedError());
+      shown.single.action!.onPressed();
+      expect(opened.last, same(log.history.single));
+      expect(opened.last.fields['type'], 'UnexpectedError');
+    });
+
+    test('the caller action wins over Details and Report', () {
+      final toasts = toaster(developerMode: true);
+      final custom = ToastAction(label: '登入', onPressed: () {});
+      toasts.error(
+        UnexpectedError(),
+        operation: 'Search failed',
+        tag: 'search',
+        action: custom,
+      );
+
+      expect(shown.single.action, same(custom));
+    });
+
+    test('no action when the level filtered the record out', () {
+      final toasts = toaster(developerMode: true, minimumLevel: LogLevel.error);
+      // NetworkError 是預期內的（warning），被濾掉：沒有紀錄可看。
+      fail(toasts, NetworkError());
+      expect(log.history, isEmpty);
+      expect(shown.single.action, isNull);
+
+      // 同一個門面上 bug 類（error 層級）的錯誤照常附動作。
+      fail(toasts, ParseError());
+      expect(shown.last.action?.label, '詳細');
+    });
+
+    test('plain messages never get an action', () {
+      final toasts = toaster(developerMode: true);
+      toasts
+        ..success('a')
+        ..info('b')
+        ..warning('c');
+      expect(shown.map((t) => t.action), everyElement(isNull));
+    });
   });
 
   group('errors', () {

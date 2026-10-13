@@ -81,6 +81,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$accounts$zh_TW.internal(_root);
   late final Translations$errors$zh_TW errors =
       Translations$errors$zh_TW.internal(_root);
+  late final Translations$errorReport$zh_TW errorReport =
+      Translations$errorReport$zh_TW.internal(_root);
 }
 
 // Path: startup
@@ -562,6 +564,9 @@ class Translations$debug$zh_TW {
 
   /// zh-TW: '關閉'
   String get close => '關閉';
+
+  /// zh-TW: '詳細'
+  String get logDetail => '詳細';
 }
 
 // Path: player
@@ -1462,6 +1467,103 @@ class Translations$errors$zh_TW {
 
   late final Translations$errors$unavailableReasons$zh_TW unavailableReasons =
       Translations$errors$unavailableReasons$zh_TW.internal(_root);
+}
+
+// Path: errorReport
+class Translations$errorReport$zh_TW {
+  Translations$errorReport$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '錯誤詳細'
+  String get title => '錯誤詳細';
+
+  /// zh-TW: '詳細'
+  String get actionDetail => '詳細';
+
+  /// zh-TW: '回報'
+  String get actionReport => '回報';
+
+  /// zh-TW: '複製'
+  String get copy => '複製';
+
+  /// zh-TW: '已複製'
+  String get copied => '已複製';
+
+  /// zh-TW: '在 GitHub 回報'
+  String get reportOnGitHub => '在 GitHub 回報';
+
+  /// zh-TW: '報告已複製，請貼到 GitHub 的「錯誤報告」欄位'
+  String get reportCopied => '報告已複製，請貼到 GitHub 的「錯誤報告」欄位';
+
+  /// zh-TW: '無法開啟瀏覽器，請自行開啟下方的網址'
+  String get openFailed => '無法開啟瀏覽器，請自行開啟下方的網址';
+
+  /// zh-TW: '請在瀏覽器開啟以下網址，並貼上已複製的報告'
+  String get manualHint => '請在瀏覽器開啟以下網址，並貼上已複製的報告';
+
+  /// zh-TW: '送出前請檢查'
+  String get reminderTitle => '送出前請檢查';
+
+  /// zh-TW: 'FMP 的 GitHub repo 是公開的，所有人都看得到報告。報告已遮蔽 cookie、token 與簽名網址，但送出前請再檢查一次內容。'
+  String get reminderBody =>
+      'FMP 的 GitHub repo 是公開的，所有人都看得到報告。報告已遮蔽 cookie、token 與簽名網址，但送出前請再檢查一次內容。';
+
+  /// zh-TW: '不再提醒'
+  String get reminderDontAsk => '不再提醒';
+
+  /// zh-TW: '繼續'
+  String get reminderContinue => '繼續';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '時間'
+  String get time => '時間';
+
+  /// zh-TW: '錯誤類型'
+  String get type => '錯誤類型';
+
+  /// zh-TW: '原因類別'
+  String get reason => '原因類別';
+
+  /// zh-TW: '音源'
+  String get source => '音源';
+
+  /// zh-TW: '使用者動作'
+  String get action => '使用者動作';
+
+  /// zh-TW: '模組'
+  String get module => '模組';
+
+  /// zh-TW: '請求'
+  String get request => '請求';
+
+  /// zh-TW: '狀態碼'
+  String get status => '狀態碼';
+
+  /// zh-TW: '耗時'
+  String get duration => '耗時';
+
+  /// zh-TW: '請求錯誤'
+  String get requestError => '請求錯誤';
+
+  /// zh-TW: '沒有對應的請求紀錄'
+  String get noRequest => '沒有對應的請求紀錄';
+
+  /// zh-TW: 'App'
+  String get app => 'App';
+
+  /// zh-TW: '系統'
+  String get system => '系統';
+
+  /// zh-TW: '原因'
+  String get cause => '原因';
+
+  /// zh-TW: 'Stack trace'
+  String get stackTrace => 'Stack trace';
 }
 
 // Path: plugins.capabilityNames
