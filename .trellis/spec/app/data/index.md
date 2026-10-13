@@ -103,7 +103,8 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   檢查主鍵，直接 `position = position + 1` 會在中途撞到下一列。
 - 寫曲目一律 `TracksRepository.upsert`（`ON CONFLICT DO UPDATE`）；被佇列參照的列用 REPLACE 會因為
   `RESTRICT` 失敗。同一個曲目鍵在同一批裡出現多次時，最後一份的顯示資料留下。
-- 孤兒清理的查詢（`deleteOrphans`）是各參照者的 `NOT IN` 子查詢；加一張參照 `tracks` 的表時，同一個
+- 孤兒清理的查詢（`deleteOrphans`）是各參照者的 `NOT IN` 子查詢，條件寫在 `TracksRepository._orphanCondition`，
+  Debug 頁的 `countOrphans` 共用它；加一張參照 `tracks` 的表時，同一個
   PR 把它加進去，並在 `queue_repository_test.dart` 的 `only unreferenced tracks are orphans` 加一個
   被它參照的案例。`queue_entries.track_key` 有索引（`queue_entries_track_key`）：`RESTRICT` 的檢查在刪每一列曲目時
   要查佇列，沒有索引就是每列掃一次。一萬首佇列加一萬個孤兒（清空一份大佇列之後）：沒有索引約 9.3 秒，
