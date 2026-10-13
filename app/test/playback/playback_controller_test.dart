@@ -31,6 +31,10 @@ import 'fake_source_plugin.dart';
 TrackInfo track(String id) =>
     TrackInfo(sourceTypeId: 'fmp-test', sourceId: id, title: 'Song $id');
 
+/// 第二個音源（[Harness.otherPlugin]）的曲目。
+TrackInfo otherTrack(String id) =>
+    TrackInfo(sourceTypeId: 'fmp-other', sourceId: id, title: 'Other $id');
+
 /// 控制器加假後端、假插件與 log，全部在 [async] 的假時間裡。
 final class Harness {
   Harness(
@@ -43,6 +47,10 @@ final class Harness {
   }) : plugin = FakeSourcePlugin(
          respond ?? (request) => [candidate('${request.sourceId}.m4a')],
        ),
+       otherPlugin = FakeSourcePlugin(
+         (request) => [candidate('${request.sourceId}.m4a')],
+         id: 'fmp-other',
+       ),
        backend = FakeAudioBackend(
          durationOf: (_) => trackLength,
          failsToOpen: failsToOpen ?? (_) => false,
@@ -53,7 +61,7 @@ final class Harness {
       session: PlaybackSession(
         backend: backend,
         resolver: StreamResolver(
-          plugin: (id) => id == plugin.manifest.id ? plugin : null,
+          plugin: (id) => _plugins[id],
           formats: const [PlayableFormat('mp4', 'aac')],
           preferences: () => streamPreferences,
           log: log,
@@ -65,6 +73,7 @@ final class Harness {
       skipPreviewClips: () => skipPreviewClips,
       networkStatus: () => network,
       networkStatusChanges: _networkChanges.stream,
+      pluginChanges: _pluginChanges.stream,
       preferredOutputDevice: () async => preferredOutputDevice,
       saveOutputDevice: (device) async => savedOutputDevices.add(device),
     );
@@ -74,6 +83,21 @@ final class Harness {
   }
 
   final _networkChanges = StreamController<NetworkStatus>.broadcast();
+  final _pluginChanges = StreamController<void>.broadcast();
+
+  /// 插件清單：resolver 以 id 從這裡找插件。
+  late final _plugins = {
+    plugin.manifest.id: plugin,
+    otherPlugin.manifest.id: otherPlugin,
+  };
+
+  /// 插件 [id] 被停用或移除（從清單拿掉），並通知控制器（同 `PluginRegistry` 發出
+  /// 新的清單）。
+  void removePlugin(String id) {
+    _plugins.remove(id);
+    _pluginChanges.add(null);
+    settle();
+  }
 
   /// 控制器讀到的網路狀態；改它用 [setNetwork]。
   NetworkStatus network = NetworkStatus.online;
@@ -102,6 +126,9 @@ final class Harness {
 
   final FakeAsync async;
   final FakeSourcePlugin plugin;
+
+  /// 第二個音源 `fmp-other`（[otherTrack]），可以 [removePlugin]。
+  final FakeSourcePlugin otherPlugin;
   final FakeAudioBackend backend;
   final log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
   late final PlaybackController controller;
@@ -731,6 +758,148 @@ void main() {
           everyElement(403),
         );
         expect(h.logged('Stream failed'), isNotEmpty);
+      });
+    });
+  });
+
+  // 停用或移除插件＝它不在清單上（design：停用即卸載 runtime）。佇列裡它的曲目
+  // 照「音源未安裝」跳過：解析得到 Unsupported，提示的音源名稱由
+  // pluginNameProvider 給「音源已停用」或「音源未安裝」。
+  group('a source that was disabled or removed', () {
+    Matcher skippedAsUnsupported(TrackInfo skipped) => isA<TrackSkipped>()
+        .having((e) => e.track, 'track', skipped)
+        .having(
+          (e) => e.error,
+          'error',
+          isA<Unsupported>().having((e) => e.pluginId, 'pluginId', 'fmp-other'),
+        );
+
+    test('next skips a song whose source went away after its look-ahead was '
+        'prepared, like an uninstalled source', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(seconds: 60));
+        unawaited(h.playQueue([track('a'), otherTrack('b'), track('c')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.nextSources.last?.url.path, '/b.m4a');
+
+        h.removePlugin('fmp-other');
+        unawaited(h.controller.next());
+        h.elapse(const Duration(milliseconds: 100));
+
+        // b 的解析結果還在網址快取裡，但不開它。
+        expect(h.openedPaths, ['/a.m4a', '/c.m4a']);
+        expect(h.events, [skippedAsUnsupported(otherTrack('b'))]);
+        expect(h.controller.queue.currentIndex, 2);
+        expect(h.controller.state, isA<Playing>());
+      });
+    });
+
+    test('the engine does not take over the look-ahead of a source that went '
+        'away; the song is skipped when its turn comes', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([track('a'), otherTrack('b'), track('c')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.nextSources.last?.url.path, '/b.m4a');
+
+        h.removePlugin('fmp-other');
+        expect(h.backend.nextSources.last, isNull);
+        expect(
+          h.logged('Look-ahead dropped: source unavailable').single.fields,
+          {'track': 'fmp-other:b'},
+        );
+
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+        expect(h.logged('Look-ahead handover'), isEmpty);
+        expect(h.openedPaths, ['/a.m4a', '/c.m4a']);
+        expect(h.events, [skippedAsUnsupported(otherTrack('b'))]);
+        expect(h.controller.queue.currentIndex, 2);
+        expect(h.controller.state, isA<Playing>());
+      });
+    });
+
+    test('a look-ahead still resolving when its source goes away is not '
+        'prepared', () {
+      fakeAsync((async) {
+        final gate = Completer<void>();
+        final h = Harness(async);
+        h.otherPlugin.respond = (request) async {
+          await gate.future;
+          return [candidate('${request.sourceId}.m4a')];
+        };
+        unawaited(h.playQueue([track('a'), otherTrack('b'), track('c')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.otherPlugin.resolvedCount('b'), 1);
+
+        h.removePlugin('fmp-other');
+        gate.complete();
+        h.settle();
+        expect(h.backend.nextSources, isEmpty);
+
+        h.elapse(const Duration(seconds: 2));
+        expect(h.openedPaths, ['/a.m4a', '/c.m4a']);
+        expect(h.events, [skippedAsUnsupported(otherTrack('b'))]);
+      });
+    });
+
+    test('a look-ahead of another source stays', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([track('a'), track('b'), otherTrack('c')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        h.removePlugin('fmp-other');
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+
+        expect(h.backend.nextSources.map((s) => s?.url.path), ['/b.m4a']);
+        expect(h.logged('Look-ahead handover'), hasLength(1));
+        expect(h.controller.queue.currentIndex, 1);
+      });
+    });
+
+    test('under loop one the next lap of a song whose source went away is '
+        'not played', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([otherTrack('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        h.controller
+          ..cycleLoopMode()
+          ..cycleLoopMode();
+        h.settle();
+        expect(h.backend.nextSources.last?.url.path, '/a.m4a');
+
+        h.removePlugin('fmp-other');
+        expect(h.backend.nextSources.last, isNull);
+
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+        expect(h.logged('Look-ahead handover'), isEmpty);
+        expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+        expect(h.events, [skippedAsUnsupported(otherTrack('a'))]);
+        expect(h.controller.queue.currentIndex, 1);
+      });
+    });
+
+    test('turning on loop one after its source went away does not prepare '
+        'the next lap', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        unawaited(h.playQueue([otherTrack('a'), track('b')]));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.backend.nextSources.last?.url.path, '/b.m4a');
+
+        // 前瞻是另一個音源的 b，不放掉；之後開單曲循環才指向 a 的下一圈。
+        h.removePlugin('fmp-other');
+        h.controller
+          ..cycleLoopMode()
+          ..cycleLoopMode();
+        h.settle();
+        expect(h.backend.nextSources.last, isNull);
+
+        h.elapse(const Duration(seconds: 2, milliseconds: 100));
+        expect(h.logged('Look-ahead handover'), isEmpty);
+        expect(h.openedPaths, ['/a.m4a', '/b.m4a']);
+        expect(h.events, [skippedAsUnsupported(otherTrack('a'))]);
       });
     });
   });
@@ -2926,6 +3095,7 @@ void main() {
             skipPreviewClips: () => true,
             networkStatus: () => NetworkStatus.online,
             networkStatusChanges: const Stream.empty(),
+            pluginChanges: const Stream.empty(),
             preferredOutputDevice: () async => null,
             saveOutputDevice: (_) async {},
           );

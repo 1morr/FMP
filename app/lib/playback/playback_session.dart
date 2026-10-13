@@ -37,7 +37,8 @@ typedef NextTrack = ({int? index, TrackKeyParts track});
 /// 控制器依「跳過試聽片段」決定跳過或照播。候選有期限時，在過期前
 /// （[ResolvedStream.expiryMargin]）作廢快取、重新解析並換掉前瞻；手動下一首時
 /// 由控制器以 [isFresh] 檢查。解析都經 [StreamResolver] 的網址快取，所以前瞻解析
-/// 過的那首之後再播（或前瞻還在解析時就要播）不會再問插件。
+/// 過的那首之後再播（或前瞻還在解析時就要播）不會再問插件。前瞻的插件被停用或
+/// 移除時放掉它（[dropLookAheadOfMissingPlugin]）。
 ///
 /// 每次開始一首（含重試、換候選、接上前瞻）都換一個「代」：還在進行的解析回來
 /// 時代已經不同，結果就丟掉。插件的 `resolveStream` 沒有取消參數，M1 不取消網路
@@ -276,7 +277,11 @@ final class PlaybackSession {
       _clearLookAhead();
       await _backend.setNext(null);
     }
-    if (target == null) return;
+    // 插件被停用或移除了：不當前瞻，到那首時照「音源未安裝」跳過（單曲循環的
+    // 下一圈也是，它不經快取，不先查就會重播目前這首）。
+    if (target == null || !_resolver.hasPlugin(target.track.sourceTypeId)) {
+      return;
+    }
     // 重播目前這首（單曲循環）：網址還能用就照用目前開著的那個候選，不再問
     // 快取（換候選時快取裡的那一筆已經作廢，再解析會拿回開不起來的第一個）。
     if (target.index == null &&
@@ -297,8 +302,10 @@ final class PlaybackSession {
       _log.report('Look-ahead resolution failed', error, tag: _tag);
       return;
     }
+    // 解析期間插件被停用或移除了：同 [dropLookAheadOfMissingPlugin]，不當前瞻。
     if (request != _lookAheadRequest ||
-        _current?.generation != current.generation) {
+        _current?.generation != current.generation ||
+        !_resolver.hasPlugin(target.track.sourceTypeId)) {
       return;
     }
     await _setLookAhead(target.index, stream);
@@ -375,6 +382,25 @@ final class PlaybackSession {
       fields: {'track': '${stream.track}'},
     );
     await _setLookAhead(lookAhead.index, stream);
+  }
+
+  /// 插件清單改了：前瞻的插件不在清單上（被停用或移除）就放掉它、清掉後端的
+  /// 前瞻。引擎因此不會自己接上它，手動下一首也拿不到它（[takeLookAhead]）；
+  /// 到那首時解析得到 `Unsupported`，控制器照「音源未安裝」跳過。清前瞻的修改
+  /// 還在後端排隊時引擎就接上了，照「被換掉的前瞻」停下（[_onEvent]）。
+  Future<void> dropLookAheadOfMissingPlugin() async {
+    final lookAhead = _lookAhead;
+    if (lookAhead == null ||
+        _resolver.hasPlugin(lookAhead.stream.track.sourceTypeId)) {
+      return;
+    }
+    _log.info(
+      'Look-ahead dropped: source unavailable',
+      tag: _tag,
+      fields: {'track': '${lookAhead.stream.track}'},
+    );
+    _clearLookAhead();
+    await _backend.setNext(null);
   }
 
   /// 取走位置 [queueIndex] 的前瞻解析結果（手動下一首、跳過時沿用）。單曲

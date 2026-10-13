@@ -44,7 +44,9 @@ typedef OutputDeviceState = ({
 /// 佇列的每個編輯都重新指定前瞻（[PlaybackSession.retargetLookAhead]），引擎接上
 /// 的一定是佇列當下的下一首。臨時播放中不準備佇列的前瞻：臨時曲目播完回到的那
 /// 一首要從快照的位置開始，不能由引擎從頭接上（舊版「臨時播放不預取」）。單曲
-/// 循環的前瞻是目前這首的同一份解析結果，接上時佇列不動。
+/// 循環的前瞻是目前這首的同一份解析結果，接上時佇列不動。插件被停用或移除時
+/// 放掉它的前瞻（[PlaybackSession.dropLookAheadOfMissingPlugin]），它的曲目到時
+/// 解析得到 `Unsupported`，照「音源未安裝」跳過。
 ///
 /// 每個非同步步驟回來時以 [PlaybackSession.generation] 比對，代不同就丟掉結果。
 ///
@@ -58,7 +60,8 @@ final class PlaybackController {
   /// 在臨時播放回到佇列時讀，[skipPreviewClips] 在遇到試聽片段時讀，
   /// [networkStatus] 在失敗時讀；[networkStatusChanges] 是之後的每次改變。
   /// [preferredOutputDevice] 在輸出裝置清單第一次就緒時讀（記住的裝置 id），
-  /// [saveOutputDevice] 在使用者選裝置時寫。
+  /// [saveOutputDevice] 在使用者選裝置時寫。[pluginChanges] 在插件清單每次改變
+  /// 時發出（停用、移除的插件不在清單上，它的前瞻要放掉）。
   PlaybackController({
     required this._session,
     required this._log,
@@ -66,12 +69,16 @@ final class PlaybackController {
     required this._skipPreviewClips,
     required this._networkStatus,
     required Stream<NetworkStatus> networkStatusChanges,
+    required Stream<void> pluginChanges,
     required this._preferredOutputDevice,
     required this._saveOutputDevice,
   }) {
     _sessionEvents = _session.events.listen(_onSessionEvent);
     _progressEvents = _session.progress.listen(_onProgress);
     _networkChanges = networkStatusChanges.listen(_onNetworkStatus);
+    _pluginChanges = pluginChanges.listen(
+      (_) => unawaited(_session.dropLookAheadOfMissingPlugin()),
+    );
     _outputDeviceLists = _session.outputDeviceLists?.listen(_onOutputDevices);
   }
 
@@ -91,6 +98,7 @@ final class PlaybackController {
   late final StreamSubscription<SessionEvent> _sessionEvents;
   late final StreamSubscription<PlaybackProgress> _progressEvents;
   late final StreamSubscription<NetworkStatus> _networkChanges;
+  late final StreamSubscription<void> _pluginChanges;
   StreamSubscription<List<OutputDevice>>? _outputDeviceLists;
 
   final _queue = QueueModel();
@@ -570,6 +578,7 @@ final class PlaybackController {
     await _sessionEvents.cancel();
     await _progressEvents.cancel();
     await _networkChanges.cancel();
+    await _pluginChanges.cancel();
     await _states.close();
     await _queueStates.close();
     await _events.close();

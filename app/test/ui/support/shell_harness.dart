@@ -113,6 +113,8 @@ final class ShellHarness {
       skipPreviewClips: () => _readSkipPreviewClips(),
       networkStatus: () => _readNetworkStatus(),
       networkStatusChanges: _networkChanges.stream,
+      // 插件清單在這個 harness 裡不變。
+      pluginChanges: const Stream.empty(),
       preferredOutputDevice: () => _readPreferredOutputDevice(),
       saveOutputDevice: (device) => _saveOutputDevice(device),
     );

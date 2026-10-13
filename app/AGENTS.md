@@ -840,7 +840,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     index 更新；`apiVersion` 不相容是 `needsAppUpdate`。閘門：同群組的 `update status…`、lint
     `fmp_layer_imports` 的 `test_pubSemver*`。
   - 停用（`PluginRegistry.setEnabled`）：存進資料庫、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
-    插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。閘門：
+    插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫。更新停用中的插件寫進新版本但不加入清單。
+    停用與移除後佇列裡它的曲目照「音源未安裝」跳過、準備好的前瞻放掉（見「播放」）。閘門：
     `plugin_registry_test.dart`、`plugin_installer_test.dart` 的 `updating a disabled plugin…`。
   - 移除（`PluginInstaller.remove`）：關閉 runtime → 憑證與遮蔽登記、`accounts`、`source_settings`
     （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
@@ -962,6 +963,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （拖曳、下一首播放、附加、移除、開隨機各一例，`an edit that keeps the next song…`、
   `the engine taking over the replaced look-ahead…`、`the engine taking over the look-ahead
   of a removed last song…`）。
+- 插件停用或移除（從 `PluginRegistry` 的清單拿掉）時，它的曲目照「音源未安裝」跳過：組裝點把清單的
+  每次改變交給控制器（`pluginChanges`），session 放掉屬於那個插件的前瞻、清掉後端的
+  （`Look-ahead dropped: source unavailable`），之後要準備前瞻時先查插件（單曲循環的下一圈不經快取，
+  不查就會重播）、解析中的前瞻回來時再查一次；所以引擎不會自己接上它，
+  手動下一首也拿不到它，到那首時 `StreamResolver` 先查插件、快取裡的那筆也不給，回 `Unsupported`、
+  照恢復表立即跳過（提示的音源名稱是 `pluginNameProvider` 的「音源已停用」／「音源未安裝」）。
+  正在播的那一首不停（單曲循環的下一圈算下一次播放，不播）。閘門：`playback_controller_test.dart` 的
+  `a source that was disabled or removed` 群組、`stream_resolver_test.dart` 的 `a cached stream is not
+  given out once its plugin is disabled or removed`、`playback_providers_test.dart` 的 `a plugin that
+  is disabled or removed`（停用與移除各一例，經真的 `PluginRegistry`）。
 - 前瞻開不起來（`AudioBackend.setNext` 的 dartdoc）：後端不接上它，目前這首照常播完；先發
   `SourceFailed(前瞻, open)`、再發目前這首的 `SourceEnded`，不發 `SourceAdvanced`，之後不再說在播。
   ExoPlayer 換到沒預備好的前瞻時先報新的索引（`ready`、沒有時長），錯誤之後才到；mpv 預開失敗時記
