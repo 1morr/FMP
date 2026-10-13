@@ -9,6 +9,8 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
+import 'package:fmp/platform/app_restart/app_restart_android.dart';
+import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
@@ -63,6 +65,9 @@ void main() {
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      // 沒有正規的「重啟自己」：結束行程後由使用者再開。
+      expect(platform.capabilities.restartsItself, isFalse);
+      expect(platform.restarter, isA<AndroidAppRestarter>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
@@ -102,6 +107,8 @@ void main() {
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      expect(platform.capabilities.restartsItself, isTrue);
+      expect(platform.restarter, isA<WindowsAppRestarter>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
       // SMTC：不能 seek、播放中每 5 秒重推位置；實作要啟動時初始化，所以
@@ -138,6 +145,8 @@ void main() {
         expect(platform.fileDialogs, isNull);
         expect(platform.capabilities.urlOpener, isFalse);
         expect(platform.urlOpener, isNull);
+        expect(platform.capabilities.restartsItself, isFalse);
+        expect(platform.restarter, isNull);
         expect(platform.capabilities.loginWebView, isFalse);
         expect(platform.loginWebView, isNull);
         expect(platform.capabilities.mediaControls, isNull);

@@ -32,6 +32,7 @@ final class PlatformCapabilities {
     required this.files,
     required this.loginWebView,
     required this.urlOpener,
+    required this.restartsItself,
     this.mediaControls,
   });
 
@@ -47,6 +48,7 @@ final class PlatformCapabilities {
     files: false,
     loginWebView: false,
     urlOpener: false,
+    restartsItself: false,
     mediaControls: null,
   );
 
@@ -89,6 +91,10 @@ final class PlatformCapabilities {
   /// 沒有時只複製並顯示網址（ADR 0023 §決定 4）。
   final bool urlOpener;
 
+  /// 重設資料、從備份還原之後 App 會自己再起來（`app_restart/`）。沒有時行程結束後要使用者
+  /// 手動再開，對話框要寫明（Android；M3 design §12.2）。
+  final bool restartsItself;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -105,5 +111,6 @@ final class PlatformCapabilities {
     files: files,
     loginWebView: loginWebView,
     urlOpener: urlOpener,
+    restartsItself: restartsItself,
   );
 }

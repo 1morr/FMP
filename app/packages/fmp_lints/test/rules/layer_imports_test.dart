@@ -42,7 +42,8 @@ class LayerImportsTest extends FmpRuleTest {
     "import [!'package:path_provider/path_provider.dart'!];\n"
         "import [!'package:window_manager/window_manager.dart'!];\n"
         "import [!'package:smtc_windows/smtc_windows.dart'!];\n"
-        "import [!'package:url_launcher/url_launcher.dart'!];\n",
+        "import [!'package:url_launcher/url_launcher.dart'!];\n"
+        "import [!'package:audio_service_platform_interface/audio_service_platform_interface.dart'!];\n",
   );
 
   Future<void> test_ownerPackagesOutsideTheirDirectory() => assertLints(

@@ -2,6 +2,7 @@
 #include <flutter/flutter_view_controller.h>
 #include <shobjidl.h>
 #include <windows.h>
+#include <wchar.h>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -15,6 +16,35 @@ constexpr wchar_t kMainWindowTitle[] = L"" FMP_DISPLAY_NAME;
 constexpr wchar_t kAppUserModelId[] = L"" FMP_APP_USER_MODEL_ID;
 constexpr wchar_t kSingleInstanceMutexName[] =
     L"Local\\" FMP_SINGLE_INSTANCE_NAME;
+
+// 重設資料或還原之後，舊行程以這個參數啟動新行程（lib/platform/app_restart/
+// app_restart_windows.dart 的 restartedFromArgumentPrefix），值是舊行程的 pid。
+constexpr wchar_t kRestartedFromArgument[] = L"--fmp-restarted-from=";
+constexpr DWORD kPreviousInstanceWaitMilliseconds = 10000;
+
+// 命令列裡 --fmp-restarted-from=<pid> 的 pid；沒有或不是數字回 0。
+DWORD ParseRestartedFromPid(const wchar_t *command_line) {
+  const wchar_t *found = ::wcsstr(command_line, kRestartedFromArgument);
+  if (found == nullptr) {
+    return 0;
+  }
+  return static_cast<DWORD>(
+      ::wcstoul(found + ::wcslen(kRestartedFromArgument), nullptr, 10));
+}
+
+// 等舊行程結束（最多 10 秒）。必須在建立單一實例 mutex 之前：舊行程還活著時 mutex 還在，
+// 新行程會被當成第二個實例擋掉。舊行程已經不在（OpenProcess 失敗）就不用等。
+void WaitForPreviousInstance(DWORD pid) {
+  if (pid == 0 || pid == ::GetCurrentProcessId()) {
+    return;
+  }
+  HANDLE previous = ::OpenProcess(SYNCHRONIZE, FALSE, pid);
+  if (previous == nullptr) {
+    return;
+  }
+  ::WaitForSingleObject(previous, kPreviousInstanceWaitMilliseconds);
+  ::CloseHandle(previous);
+}
 
 // 把已在執行的同 flavor 實例帶到前景；照舊版 windows/runner/main.cpp。
 void ActivateExistingInstance() {
@@ -39,6 +69,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
   // 系統媒體控制與工作列分組都以 AUMID 認 App；dev 與 prod 各自一個。
   ::SetCurrentProcessExplicitAppUserModelID(kAppUserModelId);
+
+  // 重啟出來的新行程先等舊行程結束，舊行程的 mutex 才會釋放。
+  WaitForPreviousInstance(ParseRestartedFromPid(command_line));
 
   // 第二個同 flavor 的實例把第一個帶到前景後結束。
   HANDLE single_instance_mutex =
