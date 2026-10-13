@@ -469,6 +469,141 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   String get close => 'Close';
   @override
   String get logDetail => 'Details';
+  @override
+  String get playback => 'Playback';
+  @override
+  String get database => 'Database';
+  @override
+  String get pbEmpty => 'Nothing is playing';
+  @override
+  String get pbEmptyHint =>
+      'Play something or queue a track and the backend, stream and queue show up here.';
+  @override
+  String get pbCopy => 'Copy snapshot';
+  @override
+  String get pbCopied => 'Snapshot copied';
+  @override
+  String get pbState => 'State';
+  @override
+  String get pbStateIdle => 'Idle';
+  @override
+  String get pbStateLoading => 'Loading';
+  @override
+  String get pbStatePlaying => 'Playing';
+  @override
+  String get pbStatePaused => 'Paused';
+  @override
+  String get pbStateBuffering => 'Buffering';
+  @override
+  String get pbStateRetrying => 'Waiting to retry';
+  @override
+  String get pbStateWaitingNetwork => 'Waiting for network';
+  @override
+  String get pbStateFailed => 'Stopped';
+  @override
+  String get pbError => 'Error type';
+  @override
+  String get pbRetryAttempt => 'Retry attempt';
+  @override
+  String get pbNextRetry => 'Next retry';
+  @override
+  String get pbTrack => 'Track';
+  @override
+  String get pbPlugin => 'Plugin';
+  @override
+  String get pbBackend => 'Backend';
+  @override
+  String get pbOutputDevice => 'Output device';
+  @override
+  String get pbOutputDefault => 'System default or not applicable';
+  @override
+  String get pbStream => 'Stream';
+  @override
+  String get pbSourceNetwork => 'network';
+  @override
+  String get pbSourceAsset => 'bundled asset';
+  @override
+  String pbCandidate({required Object index, required Object count}) =>
+      'candidate ${index} / ${count}';
+  @override
+  String get pbUnknown => '—';
+  @override
+  String get pbPosition => 'Position';
+  @override
+  String get pbQueue => 'Queue';
+  @override
+  String get pbQueueEmpty => 'The queue is empty';
+  @override
+  String pbQueueSummary({required Object total, required Object index}) =>
+      '${total} tracks, current is #${index}';
+  @override
+  String get pbBefore => 'Before';
+  @override
+  String get pbAfter => 'After';
+  @override
+  String get pbNone => 'none';
+  @override
+  String get pbShuffle => 'Shuffle';
+  @override
+  String get pbLoop => 'Repeat';
+  @override
+  String get pbLoopOff => 'off';
+  @override
+  String get pbLoopAll => 'all';
+  @override
+  String get pbLoopOne => 'one';
+  @override
+  String get pbTemporary =>
+      'Temporary play (the current index is where the queue resumes)';
+  @override
+  String get dbTables => 'Tables';
+  @override
+  String dbRowCount({required Object count}) => '${count} rows';
+  @override
+  String get dbBack => 'Back to the table list';
+  @override
+  String dbPage({
+    required Object page,
+    required Object pages,
+    required Object total,
+  }) => 'Page ${page} / ${pages}, ${total} rows';
+  @override
+  String get dbPrevious => 'Previous page';
+  @override
+  String get dbNext => 'Next page';
+  @override
+  String get dbNoRows => 'This table is empty';
+  @override
+  String get dbNull => 'NULL';
+  @override
+  String get dbLoadFailed => 'Could not read the database';
+  @override
+  String get dbCheck => 'Check';
+  @override
+  String get dbChecking => 'Checking…';
+  @override
+  String get dbCheckClean => 'No problems found';
+  @override
+  String get dbCheckProblems => 'Problems found';
+  @override
+  String get dbIntegrity => 'Integrity (integrity_check)';
+  @override
+  String get dbForeignKeys => 'Foreign keys (foreign_key_check)';
+  @override
+  String get dbOk => 'OK';
+  @override
+  String dbViolation({
+    required Object table,
+    required Object rowId,
+    required Object parent,
+  }) => '${table} rowid ${rowId} has no matching row in ${parent}';
+  @override
+  String get dbOrphans => 'Orphan tracks';
+  @override
+  String dbOrphansValue({required Object count}) =>
+      '${count} (removed automatically at startup, not damage)';
+  @override
+  String get dbCheckFailed => 'The check failed';
 }
 
 // Path: player

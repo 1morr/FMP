@@ -3,22 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
+import 'package:fmp/ui/debug/debug_playback.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// Debug 頁的區塊，依清單上的順序。ADR 0025 §決定 2 的表有八個，各自跟著實作它的 PR
-/// 加（之前不放空殼）：播放狀態、資料庫、重設資料（M3 PR 14），音源健康檢查、插件開發
+/// 加（之前不放空殼）：重設資料（M3 PR 14b），音源健康檢查、插件開發
 /// （PR 16；插件開發只在平台宣告 `pluginDevTools` 時列出）。新的區塊照表上的順序插進來。
 enum DebugSection {
   overview(Icons.dashboard_outlined),
   log(Icons.article_outlined),
-  network(Icons.swap_vert);
+  network(Icons.swap_vert),
+  playback(Icons.graphic_eq),
+  database(Icons.storage_outlined);
 
   const DebugSection(this.icon);
 
@@ -177,6 +181,16 @@ class _DebugPageState extends ConsumerState<DebugPage> {
             const DebugNetwork(),
             heading: heading,
           ),
+          DebugSection.playback => filling(
+            section,
+            const DebugPlayback(),
+            heading: heading,
+          ),
+          DebugSection.database => filling(
+            section,
+            const DebugDatabase(),
+            heading: heading,
+          ),
         };
     if (narrow) {
       return selected == null ? list(null) : detail(selected, heading: false);
@@ -197,5 +211,7 @@ class _DebugPageState extends ConsumerState<DebugPage> {
         DebugSection.overview => t.overview,
         DebugSection.log => t.log,
         DebugSection.network => t.network,
+        DebugSection.playback => t.playback,
+        DebugSection.database => t.database,
       };
 }

@@ -567,6 +567,199 @@ class Translations$debug$zh_TW {
 
   /// zh-TW: '詳細'
   String get logDetail => '詳細';
+
+  /// zh-TW: '播放狀態'
+  String get playback => '播放狀態';
+
+  /// zh-TW: '資料庫'
+  String get database => '資料庫';
+
+  /// zh-TW: '沒有在播放'
+  String get pbEmpty => '沒有在播放';
+
+  /// zh-TW: '播放或排入佇列後，這裡會顯示後端、串流與佇列的狀態。'
+  String get pbEmptyHint => '播放或排入佇列後，這裡會顯示後端、串流與佇列的狀態。';
+
+  /// zh-TW: '複製快照'
+  String get pbCopy => '複製快照';
+
+  /// zh-TW: '已複製快照'
+  String get pbCopied => '已複製快照';
+
+  /// zh-TW: '狀態'
+  String get pbState => '狀態';
+
+  /// zh-TW: '閒置'
+  String get pbStateIdle => '閒置';
+
+  /// zh-TW: '載入中'
+  String get pbStateLoading => '載入中';
+
+  /// zh-TW: '播放中'
+  String get pbStatePlaying => '播放中';
+
+  /// zh-TW: '已暫停'
+  String get pbStatePaused => '已暫停';
+
+  /// zh-TW: '緩衝中'
+  String get pbStateBuffering => '緩衝中';
+
+  /// zh-TW: '等待重試'
+  String get pbStateRetrying => '等待重試';
+
+  /// zh-TW: '等網路'
+  String get pbStateWaitingNetwork => '等網路';
+
+  /// zh-TW: '已停止'
+  String get pbStateFailed => '已停止';
+
+  /// zh-TW: '錯誤類型'
+  String get pbError => '錯誤類型';
+
+  /// zh-TW: '重試次數'
+  String get pbRetryAttempt => '重試次數';
+
+  /// zh-TW: '下次重試'
+  String get pbNextRetry => '下次重試';
+
+  /// zh-TW: '曲目'
+  String get pbTrack => '曲目';
+
+  /// zh-TW: '插件'
+  String get pbPlugin => '插件';
+
+  /// zh-TW: '後端'
+  String get pbBackend => '後端';
+
+  /// zh-TW: '輸出裝置'
+  String get pbOutputDevice => '輸出裝置';
+
+  /// zh-TW: '系統預設或不適用'
+  String get pbOutputDefault => '系統預設或不適用';
+
+  /// zh-TW: '串流'
+  String get pbStream => '串流';
+
+  /// zh-TW: '網路'
+  String get pbSourceNetwork => '網路';
+
+  /// zh-TW: '內附 asset'
+  String get pbSourceAsset => '內附 asset';
+
+  /// zh-TW: '候選 {index} / {count}'
+  String pbCandidate({required Object index, required Object count}) =>
+      '候選 ${index} / ${count}';
+
+  /// zh-TW: '—'
+  String get pbUnknown => '—';
+
+  /// zh-TW: '位置'
+  String get pbPosition => '位置';
+
+  /// zh-TW: '佇列'
+  String get pbQueue => '佇列';
+
+  /// zh-TW: '佇列是空的'
+  String get pbQueueEmpty => '佇列是空的';
+
+  /// zh-TW: '共 {total} 首，目前第 {index} 首'
+  String pbQueueSummary({required Object total, required Object index}) =>
+      '共 ${total} 首，目前第 ${index} 首';
+
+  /// zh-TW: '前面'
+  String get pbBefore => '前面';
+
+  /// zh-TW: '後面'
+  String get pbAfter => '後面';
+
+  /// zh-TW: '無'
+  String get pbNone => '無';
+
+  /// zh-TW: '隨機'
+  String get pbShuffle => '隨機';
+
+  /// zh-TW: '循環'
+  String get pbLoop => '循環';
+
+  /// zh-TW: '關閉'
+  String get pbLoopOff => '關閉';
+
+  /// zh-TW: '全部'
+  String get pbLoopAll => '全部';
+
+  /// zh-TW: '單曲'
+  String get pbLoopOne => '單曲';
+
+  /// zh-TW: '臨時播放中（目前位置是回到佇列時的那一首）'
+  String get pbTemporary => '臨時播放中（目前位置是回到佇列時的那一首）';
+
+  /// zh-TW: '資料表'
+  String get dbTables => '資料表';
+
+  /// zh-TW: '{count} 筆'
+  String dbRowCount({required Object count}) => '${count} 筆';
+
+  /// zh-TW: '回到資料表清單'
+  String get dbBack => '回到資料表清單';
+
+  /// zh-TW: '第 {page} / {pages} 頁，共 {total} 筆'
+  String dbPage({
+    required Object page,
+    required Object pages,
+    required Object total,
+  }) => '第 ${page} / ${pages} 頁，共 ${total} 筆';
+
+  /// zh-TW: '上一頁'
+  String get dbPrevious => '上一頁';
+
+  /// zh-TW: '下一頁'
+  String get dbNext => '下一頁';
+
+  /// zh-TW: '這張表沒有資料'
+  String get dbNoRows => '這張表沒有資料';
+
+  /// zh-TW: 'NULL'
+  String get dbNull => 'NULL';
+
+  /// zh-TW: '無法讀取資料庫'
+  String get dbLoadFailed => '無法讀取資料庫';
+
+  /// zh-TW: '檢查'
+  String get dbCheck => '檢查';
+
+  /// zh-TW: '檢查中…'
+  String get dbChecking => '檢查中…';
+
+  /// zh-TW: '沒有發現問題'
+  String get dbCheckClean => '沒有發現問題';
+
+  /// zh-TW: '發現問題'
+  String get dbCheckProblems => '發現問題';
+
+  /// zh-TW: '完整性（integrity_check）'
+  String get dbIntegrity => '完整性（integrity_check）';
+
+  /// zh-TW: '外鍵（foreign_key_check）'
+  String get dbForeignKeys => '外鍵（foreign_key_check）';
+
+  /// zh-TW: '正常'
+  String get dbOk => '正常';
+
+  /// zh-TW: '{table} 的 rowid {rowId} 找不到父表 {parent} 的列'
+  String dbViolation({
+    required Object table,
+    required Object rowId,
+    required Object parent,
+  }) => '${table} 的 rowid ${rowId} 找不到父表 ${parent} 的列';
+
+  /// zh-TW: '孤兒曲目'
+  String get dbOrphans => '孤兒曲目';
+
+  /// zh-TW: '{count} 首（啟動時會自動清掉，不算損壞）'
+  String dbOrphansValue({required Object count}) => '${count} 首（啟動時會自動清掉，不算損壞）';
+
+  /// zh-TW: '檢查失敗'
+  String get dbCheckFailed => '檢查失敗';
 }
 
 // Path: player

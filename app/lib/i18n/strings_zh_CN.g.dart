@@ -473,6 +473,138 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   String get close => '关闭';
   @override
   String get logDetail => '详细';
+  @override
+  String get playback => '播放状态';
+  @override
+  String get database => '数据库';
+  @override
+  String get pbEmpty => '没有在播放';
+  @override
+  String get pbEmptyHint => '播放或加入队列后，这里会显示后端、流与队列的状态。';
+  @override
+  String get pbCopy => '复制快照';
+  @override
+  String get pbCopied => '已复制快照';
+  @override
+  String get pbState => '状态';
+  @override
+  String get pbStateIdle => '空闲';
+  @override
+  String get pbStateLoading => '加载中';
+  @override
+  String get pbStatePlaying => '播放中';
+  @override
+  String get pbStatePaused => '已暂停';
+  @override
+  String get pbStateBuffering => '缓冲中';
+  @override
+  String get pbStateRetrying => '等待重试';
+  @override
+  String get pbStateWaitingNetwork => '等网络';
+  @override
+  String get pbStateFailed => '已停止';
+  @override
+  String get pbError => '错误类型';
+  @override
+  String get pbRetryAttempt => '重试次数';
+  @override
+  String get pbNextRetry => '下次重试';
+  @override
+  String get pbTrack => '曲目';
+  @override
+  String get pbPlugin => '插件';
+  @override
+  String get pbBackend => '后端';
+  @override
+  String get pbOutputDevice => '输出设备';
+  @override
+  String get pbOutputDefault => '系统默认或不适用';
+  @override
+  String get pbStream => '流';
+  @override
+  String get pbSourceNetwork => '网络';
+  @override
+  String get pbSourceAsset => '内置 asset';
+  @override
+  String pbCandidate({required Object index, required Object count}) =>
+      '候选 ${index} / ${count}';
+  @override
+  String get pbUnknown => '—';
+  @override
+  String get pbPosition => '位置';
+  @override
+  String get pbQueue => '队列';
+  @override
+  String get pbQueueEmpty => '队列是空的';
+  @override
+  String pbQueueSummary({required Object total, required Object index}) =>
+      '共 ${total} 首，当前第 ${index} 首';
+  @override
+  String get pbBefore => '前面';
+  @override
+  String get pbAfter => '后面';
+  @override
+  String get pbNone => '无';
+  @override
+  String get pbShuffle => '随机';
+  @override
+  String get pbLoop => '循环';
+  @override
+  String get pbLoopOff => '关闭';
+  @override
+  String get pbLoopAll => '全部';
+  @override
+  String get pbLoopOne => '单曲';
+  @override
+  String get pbTemporary => '临时播放中（当前位置是回到队列时的那一首）';
+  @override
+  String get dbTables => '数据表';
+  @override
+  String dbRowCount({required Object count}) => '${count} 条';
+  @override
+  String get dbBack => '回到数据表列表';
+  @override
+  String dbPage({
+    required Object page,
+    required Object pages,
+    required Object total,
+  }) => '第 ${page} / ${pages} 页，共 ${total} 条';
+  @override
+  String get dbPrevious => '上一页';
+  @override
+  String get dbNext => '下一页';
+  @override
+  String get dbNoRows => '这张表没有数据';
+  @override
+  String get dbNull => 'NULL';
+  @override
+  String get dbLoadFailed => '无法读取数据库';
+  @override
+  String get dbCheck => '检查';
+  @override
+  String get dbChecking => '检查中…';
+  @override
+  String get dbCheckClean => '没有发现问题';
+  @override
+  String get dbCheckProblems => '发现问题';
+  @override
+  String get dbIntegrity => '完整性（integrity_check）';
+  @override
+  String get dbForeignKeys => '外键（foreign_key_check）';
+  @override
+  String get dbOk => '正常';
+  @override
+  String dbViolation({
+    required Object table,
+    required Object rowId,
+    required Object parent,
+  }) => '${table} 的 rowid ${rowId} 找不到父表 ${parent} 的行';
+  @override
+  String get dbOrphans => '孤儿曲目';
+  @override
+  String dbOrphansValue({required Object count}) => '${count} 首（启动时会自动清掉，不算损坏）';
+  @override
+  String get dbCheckFailed => '检查失败';
 }
 
 // Path: player
