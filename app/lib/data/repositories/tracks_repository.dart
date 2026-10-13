@@ -41,12 +41,27 @@ final class TracksRepository {
   /// 清單呼叫）。目前的參照者是 `queue_entries` 與 `play_history`；歌單項目（M4）、
   /// 下載紀錄（M6）各自在它們加表的 PR 加進這個查詢。
   Future<int> deleteOrphans() => _database.customUpdate(
-    'DELETE FROM tracks WHERE track_key NOT IN '
-    '(SELECT track_key FROM queue_entries) '
-    'AND track_key NOT IN (SELECT track_key FROM play_history)',
+    'DELETE FROM tracks WHERE $_orphanCondition',
     updates: {_database.tracksTable},
     updateKind: UpdateKind.delete,
   );
+
+  /// [deleteOrphans] 現在會刪幾列（Debug 頁資料庫的檢查，只讀）。
+  Future<int> countOrphans() async {
+    final row = await _database
+        .customSelect(
+          'SELECT COUNT(*) AS n FROM tracks WHERE $_orphanCondition',
+          readsFrom: {_database.tracksTable},
+        )
+        .getSingle();
+    return row.read<int>('n');
+  }
+
+  /// 「沒有被任何東西參照」的條件：[deleteOrphans] 與 [countOrphans] 共用同一份，
+  /// 新的參照者只加在這裡。
+  static const _orphanCondition =
+      'track_key NOT IN (SELECT track_key FROM queue_entries) '
+      'AND track_key NOT IN (SELECT track_key FROM play_history)';
 
   /// `tracks` 的一列轉成上層的 [TrackInfo]；佇列與播放歷史讀曲目都經它。
   static TrackInfo toTrackInfo(TrackRow row) => TrackInfo(
