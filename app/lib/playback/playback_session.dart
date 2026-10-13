@@ -7,6 +7,7 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
+import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/stream_resolver.dart';
@@ -94,6 +95,21 @@ final class PlaybackSession {
 
   /// 目前來源最後回報的位置；沒有來源或還沒回報過時為 `null`。
   Duration? get position => _current?.progress?.position;
+
+  /// 目前開著的串流（Debug 頁的播放狀態，唯讀）；沒有來源時為 `null`。
+  StreamDiagnostics? get streamDiagnostics {
+    final current = _current;
+    if (current == null) return null;
+    final chosen = current.stream.candidates[current.candidate];
+    return StreamDiagnostics(
+      url: chosen.url,
+      candidate: current.candidate,
+      candidateCount: current.stream.candidates.length,
+      container: chosen.container,
+      codec: chosen.codec,
+      bitrate: chosen.bitrate,
+    );
+  }
 
   /// 目前的來源還有沒開過的候選。
   bool get hasOtherCandidate {
@@ -232,6 +248,9 @@ final class PlaybackSession {
 
   /// 能選輸出裝置（只有 Windows）。
   bool get selectsOutputDevice => _backend.outputDevices != null;
+
+  /// 後端目前選的輸出裝置；不能選的平台或選系統預設時為 `null`（Debug 頁的播放狀態）。
+  OutputDevice? get selectedOutputDevice => _backend.outputDevices?.selected;
 
   /// 可選的輸出裝置（不含系統預設）：先給目前的清單，之後每次插拔；不能選的
   /// 平台為 `null`。

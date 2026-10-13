@@ -19,6 +19,7 @@ import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
 import 'package:fmp/playback/now_playing_publisher.dart';
 import 'package:fmp/playback/play_history_recorder.dart';
+import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -260,3 +261,25 @@ final playbackPreviewProvider = StreamProvider<bool>((ref) async* {
 final playbackProgressProvider = StreamProvider<PlaybackProgress>(
   (ref) => ref.watch(playbackControllerProvider).progress,
 );
+
+/// Debug 頁「播放狀態」的快照（唯讀）。狀態、佇列、進度任一改變就重算；進度每秒來一次，
+/// 位置因此每秒刷新，不另開計時器（ADR 0025 §決定 5）。
+final playbackDiagnosticsProvider = Provider<PlaybackDiagnostics>((ref) {
+  ref.watch(playbackStateProvider);
+  ref.watch(playbackQueueProvider);
+  final progress = ref.watch(playbackProgressProvider).value;
+  return ref
+      .watch(playbackControllerProvider)
+      .diagnostics(
+        // 平台沒宣告播放（未驗證的平台，走不到這裡）時沒有名稱可報。
+        backend: switch (ref
+            .watch(platformCapabilitiesProvider)
+            .playback
+            ?.backend) {
+          AudioBackendKind.justAudio => 'just_audio',
+          AudioBackendKind.mediaKit => 'media_kit',
+          null => 'unknown',
+        },
+        progress: progress,
+      );
+});
