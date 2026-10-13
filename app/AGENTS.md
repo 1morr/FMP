@@ -275,6 +275,8 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   - Android（`AndroidAppRestarter`）：沒有正規的「重啟自己」，先 `publish(NowPlaying.nothing)` 加 `dispose()` 收掉系統媒體工作階段與前景服務，再 `exit(0)`，由使用者再開（對話框寫明）。
     **為什麼不能只靠 `SystemNavigator.pop`**：它只結束 Activity；`MainActivity` 與 audio_service 共用的 `FlutterEngine`、前景服務讓行程活著。實測（2026-10-14，Android 模擬器）暫停播放（media session 還在）時按返回鍵回到桌面，
     行程 pid 不變，再開 App 只是把原本的 task 帶回前景（`am start` 回 "Activity not started, its current task has been brought to the front"），log 的 `App started` 沒有增加、`main()` 沒重跑；那樣 App 會拿著已被刪掉重建的資料庫繼續跑。
+    `AndroidSystemMediaControls.dispose()` 要 `await` 平台介面的 `stopService`（`audio_service_platform_interface`）：`audio_service` 自己是在 `playbackState` 的監聽裡非同步呼叫它，
+    緊接著 `exit(0)` 時平台還沒收到，`NO_CLEAR` 的媒體通知留在通知清單（2026-10-14 實測：改前重設後 `dumpsys notification` 還有一筆，改後播放中、暫停中都是 0 筆）。沒有自動閘門，改動後實機看 `dumpsys notification`。
     收掉工作階段丟錯也照樣 `exit`（`finally`）。閘門：`app_restart_test.dart` 的 `Android`（先收工作階段再結束、收不掉也結束、沒有媒體控制照常結束）、`platform_test.dart`。行程結束後通知消失、重開時 `main()` 重跑只能實機驗。
 
 - 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android 與 Windows 共用
