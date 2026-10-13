@@ -8,6 +8,7 @@ final class AppInfo {
   const AppInfo({
     required this.version,
     required this.platform,
+    required this.osVersion,
     this.homeDirectory,
   });
 
@@ -18,6 +19,9 @@ final class AppInfo {
   /// 平台的名稱（`Android`、`Windows`）。是產品名稱，不翻譯。
   final String platform;
 
+  /// 系統的版本字串（`Platform.operatingSystemVersion`），錯誤報告用（ADR 0023 §決定 4）。
+  final String osVersion;
+
   /// 使用者的家目錄；顯示路徑時換成 `~`，畫面與截圖才不帶使用者名稱（M3 design
   /// §12.4）。資料目錄不在家目錄底下的平台（Android 的沙盒）為 `null`。
   final String? homeDirectory;
@@ -27,15 +31,16 @@ final class AppInfo {
       other is AppInfo &&
       other.version == version &&
       other.platform == platform &&
+      other.osVersion == osVersion &&
       other.homeDirectory == homeDirectory;
 
   @override
-  int get hashCode => Object.hash(version, platform, homeDirectory);
+  int get hashCode => Object.hash(version, platform, osVersion, homeDirectory);
 
   @override
   String toString() =>
       'AppInfo(version: $version, platform: $platform, '
-      'homeDirectory: $homeDirectory)';
+      'osVersion: $osVersion, homeDirectory: $homeDirectory)';
 }
 
 /// 讀 [AppInfo]。實作有 Android 與 Windows（`package_info_app_info.dart`），由

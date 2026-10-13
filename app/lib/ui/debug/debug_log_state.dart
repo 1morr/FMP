@@ -44,14 +44,19 @@ final storedLogRecordsProvider = FutureProvider.autoDispose<List<LogRecord>>(
 /// 同時在兩邊，所以「同一筆」就是整行內容（時間到微秒、層級、tag、訊息、欄位）逐字相同的那
 /// 一筆：log 檔的一行就是 [LogRecord.toJsonLine]，讀回來再寫出去不變。時間相同的維持原來的
 /// 先後（檔案的在前）。
+///
+/// 兩邊都有的那筆留記憶體裡的物件：錯誤詳細頁以「是不是記憶體歷史裡的那個物件」判斷紀錄是不是
+/// 這次執行的，才去對網路紀錄（`networkRecordId` 只在同一次執行唯一）。
 List<LogRecord> mergeLogRecords(
   List<LogRecord> stored,
   List<LogRecord> memory,
 ) {
+  final inMemory = {for (final record in memory) record.toJsonLine(): record};
   final seen = <String>{};
   final merged = <LogRecord>[];
   for (final record in [...stored, ...memory]) {
-    if (seen.add(record.toJsonLine())) merged.add(record);
+    final line = record.toJsonLine();
+    if (seen.add(line)) merged.add(inMemory[line] ?? record);
   }
   final order = {for (var i = 0; i < merged.length; i++) merged[i]: i};
   merged.sort((a, b) {

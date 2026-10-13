@@ -47,6 +47,17 @@ void main() {
       ]);
     });
 
+    // 錯誤詳細頁靠物件身分判斷「這次執行的紀錄」（才對網路紀錄）：重複的那筆要是記憶體的。
+    test('a record in both lists is the memory instance', () {
+      final shared = _record(3, 'shared', fields: {'k': 1});
+      final fromFile = LogRecord.tryParseJsonLine(shared.toJsonLine())!;
+
+      final merged = mergeLogRecords([fromFile], [shared]);
+
+      expect(merged, hasLength(1));
+      expect(merged.single, same(shared));
+    });
+
     test('keeps records that only differ in a field or in the time', () {
       final a = _record(1, 'x', fields: {'n': 1});
       final b = _record(1, 'x', fields: {'n': 2});

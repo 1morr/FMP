@@ -1,0 +1,45 @@
+name: 回報問題
+description: 回報 FMP 的錯誤或異常行為
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        這個 repo 是公開的，所有人都看得到你貼上的內容。錯誤報告已遮蔽 cookie、token 與簽名網址，送出前仍請再檢查一次。
+        插件（音源）的問題也請回報在這裡，維護者會轉到插件庫。
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述
+      description: 發生了什麼事？你原本預期會怎樣？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟
+      description: 怎麼做才會再出現？
+      placeholder: |
+        1. 開啟 …
+        2. 點選 …
+        3. 看到 …
+  - type: textarea
+    id: report
+    attributes:
+      label: 錯誤報告
+      description: 在錯誤詳細頁按「複製」或「在 GitHub 回報」，把複製的內容貼在這裡。
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App 版本
+      description: 「設定 → 關於」的版本列；錯誤報告裡也有。
+      placeholder: 例如 2.0.0
+  - type: input
+    id: platform
+    attributes:
+      label: 平台
+      description: 作業系統與版本。
+      placeholder: 例如 Android 15、Windows 11

@@ -11,6 +11,7 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_log_state.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 
@@ -27,7 +28,7 @@ void main() {
     Log? log,
     void Function(ShellHarness h)? seed,
   }) async {
-    final h = ShellHarness(log: log);
+    final h = ShellHarness(log: log, redactor: Redactor());
     // 先清掉 harness 自己記的，測試只看自己寫的。
     h.log.minimumLevel = LogLevel.debug;
     await tester.runAsync(h.log.clear);
@@ -161,6 +162,40 @@ void main() {
   });
 
   group('the Log section', () {
+    // ADR 0025 §決定 3：`report` 寫的錯誤紀錄（有 `fields.type`）展開後有「詳細」，開
+    // 和提示同一個詳細頁；別的紀錄沒有。
+    testWidgets(
+      'an error record opens the detail page, others have no button',
+      (tester) async {
+        await openSection(
+          tester,
+          'Log & errors',
+          seed: (h) {
+            h.log
+              ..info('plain message', tag: 'app', fields: {'a': 1})
+              ..report(
+                'Search failed',
+                ParseError(pluginId: 'alpha'),
+                tag: 'search',
+              );
+          },
+        );
+
+        await tester.tap(find.text('plain message'));
+        await tester.pumpAndSettle();
+        expect(find.text('Details'), findsNothing);
+
+        await tester.tap(find.text('Search failed'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, 'Details'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ErrorDetailPage), findsOneWidget);
+        expect(find.text('ParseError'), findsOneWidget);
+        expect(find.text('alpha'), findsWidgets);
+      },
+    );
+
     testWidgets('lists this run, newest first, with a count', (tester) async {
       await openSection(tester, 'Log & errors', seed: seedLog);
 

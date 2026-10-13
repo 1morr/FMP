@@ -41,7 +41,8 @@ class LayerImportsTest extends FmpRuleTest {
     'lib/settings/theme.dart',
     "import [!'package:path_provider/path_provider.dart'!];\n"
         "import [!'package:window_manager/window_manager.dart'!];\n"
-        "import [!'package:smtc_windows/smtc_windows.dart'!];\n",
+        "import [!'package:smtc_windows/smtc_windows.dart'!];\n"
+        "import [!'package:url_launcher/url_launcher.dart'!];\n",
   );
 
   Future<void> test_ownerPackagesOutsideTheirDirectory() => assertLints(
@@ -249,7 +250,8 @@ class LayerImportsTest extends FmpRuleTest {
     );
     await assertLints(
       'lib/platform/media_controls/media_controls_windows.dart',
-      "import 'package:smtc_windows/smtc_windows.dart' as smtc;\n",
+      "import 'package:smtc_windows/smtc_windows.dart' as smtc;\n"
+          "import 'package:url_launcher/url_launcher.dart';\n",
     );
     await assertLints(
       'lib/playback/backends/just_audio_backend.dart',

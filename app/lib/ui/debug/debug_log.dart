@@ -9,6 +9,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/ui/debug/debug_log_state.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -17,8 +18,8 @@ import 'package:fmp/ui/toast/toaster.dart';
 /// Debug 頁的「Log 與錯誤歷史」（ADR 0025 §決定 3）。
 ///
 /// 預設看這次執行的記憶體歷史，最新的在最上面；「含之前的紀錄」把 log 檔讀回來合併進去
-/// （`mergeLogRecords`）。「只看錯誤」就是錯誤歷史（警告以上）；單筆的詳細頁在 M3 PR 13，
-/// 這裡點一筆只是在原地展開欄位、error 與 stackTrace。
+/// （`mergeLogRecords`）。「只看錯誤」就是錯誤歷史（警告以上）；點一筆在原地展開欄位、error 與
+/// stackTrace；`Log.report` 寫的錯誤紀錄（有 `fields.type`）另有「詳細」，開 `ErrorDetailPage`。
 class DebugLog extends ConsumerStatefulWidget {
   const DebugLog({super.key});
 
@@ -274,6 +275,8 @@ class _LogRow extends StatelessWidget {
       '${formatLogTime(record.time)} · ${record.level.wireName} · ${record.tag}',
     );
     final leading = ExcludeSemantics(child: Icon(icon, color: color));
+    // `Log.report` 寫的錯誤紀錄才有類型欄位：開詳細頁（ADR 0023 §決定 4、ADR 0025 §決定 3）。
+    final isError = record.fields['type'] is String;
     final hasDetail =
         record.fields.isNotEmpty ||
         record.error != null ||
@@ -302,6 +305,18 @@ class _LogRow extends StatelessWidget {
             style: theme.textTheme.bodySmall,
           ),
         ),
+        if (isError)
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Consumer(
+              builder: (context, ref, _) => TextButton.icon(
+                icon: const Icon(Icons.open_in_new),
+                label: Text(ref.watch(translationsProvider).debug.logDetail),
+                onPressed: () =>
+                    unawaited(openErrorDetail(Navigator.of(context), record)),
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -117,6 +117,11 @@ final class DeveloperNotifier extends StreamNotifier<Developer> {
         : repository.turnOffDeveloperMode();
   }
 
+  /// 錯誤回報的「送出前請檢查」不再提醒（ADR 0023 §決定 4）：只寫這個欄位。
+  Future<void> dismissReportReminder() => ref
+      .read(developerSettingsRepositoryProvider)
+      .write(reportReminderDismissed: true);
+
   /// 只寫 log 層級這個欄位；`null` 清回沒設定過（這個建置的預設）。
   Future<void> setLogLevel(LogLevelSetting? level) {
     final repository = ref.read(developerSettingsRepositoryProvider);

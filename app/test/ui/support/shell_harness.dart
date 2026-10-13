@@ -29,6 +29,7 @@ import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/url_opener/url_opener.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -44,6 +45,7 @@ import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -81,6 +83,8 @@ final class ShellHarness {
     this.artworkManager,
     this.database,
     this.fileDialogs,
+    this.urlOpener,
+    this.redactor,
     this.loginWebView,
     this.cacheUnavailable = false,
     this.registrySources = false,
@@ -135,6 +139,11 @@ final class ShellHarness {
       log: this.log,
       translations: AppLocale.en.buildSync,
       sourceName: (_) => null,
+      developerMode: () => toastDeveloperMode,
+      openErrorDetail: (record) {
+        final navigator = navigatorKey.currentState;
+        if (navigator != null) unawaited(openErrorDetail(navigator, record));
+      },
     );
     addTearDown(toaster.dispose);
   }
@@ -155,6 +164,13 @@ final class ShellHarness {
 
   /// 平台的檔案對話框；給了平台就宣告 `files`。
   final FileDialogs? fileDialogs;
+
+  /// 平台的網址開啟器；`null` 是沒有這個能力（錯誤詳細頁只複製並顯示網址）。
+  final UrlOpener? urlOpener;
+
+  /// 遮蔽函式；錯誤詳細頁讀它（`redactorProvider`）。不給就不 override：用 `PluginHarness` 的
+  /// 測試（插件頁）自己經 `extraOverrides` 給，同一個 provider 不能 override 兩次。
+  final Redactor? redactor;
 
   /// 平台的登入 WebView；給了平台就宣告 `loginWebView`。
   final LoginWebView? loginWebView;
@@ -184,6 +200,7 @@ final class ShellHarness {
   static const appInfo = AppInfo(
     version: '1.2.3',
     platform: 'Windows',
+    osVersion: 'Windows 11 (test)',
     homeDirectory: '/home/tester',
   );
 
@@ -204,6 +221,13 @@ final class ShellHarness {
   final Log log;
   late final PlaybackController controller;
   late final Toaster toaster;
+
+  /// 根 Navigator 的 key（提示的「詳細」「回報」用它開錯誤詳細頁，和 `FmpApp` 一樣）。
+  final navigatorKey = GlobalKey<NavigatorState>();
+
+  /// 提示當成開發者模式開著（錯誤提示附「詳細」）。和設定裡的開發者模式無關：後者在 dev
+  /// flavor 預設就開，這個預設關，只有要測提示的動作時才開。
+  bool toastDeveloperMode = false;
 
   /// 由 [overrides] 的 `playbackControllerProvider` 接上 provider。
   late TemporaryReturnSettings Function() _readReturnSettings;
@@ -229,6 +253,8 @@ final class ShellHarness {
       searchSourcesProvider.overrideWithValue(AsyncData(sources)),
     networkInterfacesProvider.overrideWithValue(interfaces),
     fileDialogsProvider.overrideWithValue(fileDialogs),
+    urlOpenerProvider.overrideWithValue(urlOpener),
+    if (redactor != null) redactorProvider.overrideWithValue(redactor!),
     loginWebViewProvider.overrideWithValue(loginWebView),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。
     platformCapabilitiesProvider.overrideWithValue(
@@ -246,6 +272,7 @@ final class ShellHarness {
             : null,
         networkInterfaces: false,
         files: fileDialogs != null,
+        urlOpener: urlOpener != null,
         loginWebView: loginWebView != null,
         cache: const CacheSizes(
           defaultLimitMebibytes: 128,
@@ -337,6 +364,7 @@ final class ShellHarness {
             Brightness.dark => ThemeModeSetting.dark,
           }),
           fontFamilyFallback: const [],
+          navigatorKey: navigatorKey,
           builder: (context, navigator) =>
               WindowClassScope(child: ToastHost(child: navigator!)),
           home: home,

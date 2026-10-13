@@ -20,7 +20,8 @@ void routeUncaughtErrors(Log log, PlatformDispatcher dispatcher) {
   FlutterError.onError = (details) {
     const message = 'Uncaught Flutter error';
     if (details.exception case final AppError error) {
-      return log.report(message, error, tag: 'flutter', level: LogLevel.error);
+      log.report(message, error, tag: 'flutter', level: LogLevel.error);
+      return;
     }
     log.error(
       message,

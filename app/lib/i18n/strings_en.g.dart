@@ -94,6 +94,9 @@ class TranslationsEn extends Translations
   );
   @override
   late final Translations$errors$en errors = Translations$errors$en._(_root);
+  @override
+  late final Translations$errorReport$en errorReport =
+      Translations$errorReport$en._(_root);
 }
 
 // Path: startup
@@ -464,6 +467,8 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   String netDuration({required Object ms}) => '${ms} ms';
   @override
   String get close => 'Close';
+  @override
+  String get logDetail => 'Details';
 }
 
 // Path: player
@@ -1169,6 +1174,79 @@ class Translations$errors$en extends Translations$errors$zh_TW {
   @override
   late final Translations$errors$unavailableReasons$en unavailableReasons =
       Translations$errors$unavailableReasons$en._(_root);
+}
+
+// Path: errorReport
+class Translations$errorReport$en extends Translations$errorReport$zh_TW {
+  Translations$errorReport$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Error details';
+  @override
+  String get actionDetail => 'Details';
+  @override
+  String get actionReport => 'Report';
+  @override
+  String get copy => 'Copy';
+  @override
+  String get copied => 'Copied';
+  @override
+  String get reportOnGitHub => 'Report on GitHub';
+  @override
+  String get reportCopied =>
+      'Report copied. Paste it into the "Error report" field on GitHub.';
+  @override
+  String get openFailed =>
+      'Could not open the browser. Open the address below yourself.';
+  @override
+  String get manualHint =>
+      'Open this address in a browser and paste the copied report.';
+  @override
+  String get reminderTitle => 'Check before you submit';
+  @override
+  String get reminderBody =>
+      'The FMP repository on GitHub is public, so anyone can read the report. Cookies, tokens and signed URLs are masked, but check the content once more before you submit.';
+  @override
+  String get reminderDontAsk => 'Don\'t remind me again';
+  @override
+  String get reminderContinue => 'Continue';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get time => 'Time';
+  @override
+  String get type => 'Error type';
+  @override
+  String get reason => 'Reason';
+  @override
+  String get source => 'Source';
+  @override
+  String get action => 'Action';
+  @override
+  String get module => 'Module';
+  @override
+  String get request => 'Request';
+  @override
+  String get status => 'Status';
+  @override
+  String get duration => 'Duration';
+  @override
+  String get requestError => 'Request error';
+  @override
+  String get noRequest => 'No matching request record';
+  @override
+  String get app => 'App';
+  @override
+  String get system => 'System';
+  @override
+  String get cause => 'Cause';
+  @override
+  String get stackTrace => 'Stack trace';
 }
 
 // Path: plugins.capabilityNames

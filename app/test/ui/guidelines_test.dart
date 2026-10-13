@@ -23,6 +23,7 @@ import 'package:fmp/plugins/accounts/web_login.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -42,6 +43,7 @@ import '../plugins/plugin_harness.dart';
 import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
 import 'support/fake_artwork.dart';
+import 'support/fake_url_opener.dart';
 import 'support/plugin_page_harness.dart';
 import 'support/shell_harness.dart';
 
@@ -473,6 +475,45 @@ void main() {
             handle.dispose();
           });
         }
+      }
+
+      // 錯誤詳細頁（M3 PR 13）：欄位與按鈕，以及第一次回報前的提醒對話框。
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        testWidgets('the error detail page at ${size.width}', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            urlOpener: FakeUrlOpener(),
+            redactor: Redactor(),
+          );
+          final record = h.log.report(
+            'Search failed',
+            ParseError(
+              pluginId: 'alpha',
+              cause: StateError('bad payload'),
+              stackTrace: StackTrace.fromString(
+                '#0      parse (package:alpha/x.js:1)',
+              ),
+            ),
+            tag: 'search',
+          )!;
+          await h.pumpApp(
+            tester,
+            ErrorDetailPage(record: record),
+            size: size,
+            brightness: brightness,
+          );
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(ErrorDetailPage), findsOneWidget);
+          await expectGuidelines(tester);
+
+          await tester.tap(find.text('Report on GitHub'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('Check before you submit'), findsOneWidget);
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
       }
 
       // 插件頁（M3 PR 5）：已安裝（停用、有更新、展開詳細資料）、可安裝、安裝的確認框

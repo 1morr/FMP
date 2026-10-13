@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/app/app_lifecycle.dart';
 import 'package:fmp/app/app_material.dart';
+import 'package:fmp/app/root_navigator.dart';
 import 'package:fmp/app/startup_maintenance.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
@@ -102,6 +103,7 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     );
     return fmpMaterialApp(
       title: widget.flavor.displayName,
+      navigatorKey: ref.watch(rootNavigatorKeyProvider),
       locale: ref.watch(uiLocaleProvider),
       themeMode: themeModeOf(themeMode ?? ThemeModeSetting.system),
       fontFamilyFallback: ref.watch(fontFamilyFallbackProvider),

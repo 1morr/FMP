@@ -32,6 +32,18 @@ void main() {
     expect(log.history.map((r) => r.level), [LogLevel.warning, LogLevel.error]);
   });
 
+  // 錯誤詳細頁與提示的動作靠這個回傳值組報告（ADR 0023 §決定 4）。
+  test('returns the record it wrote, null when the level filters it', () {
+    final written = log.report('Search failed', ParseError(), tag: 'search');
+
+    expect(written, same(log.history.single));
+    expect(written!.fields['type'], 'ParseError');
+
+    log.minimumLevel = LogLevel.error;
+    expect(log.report('Search failed', NetworkError(), tag: 'search'), isNull);
+    expect(log.history, hasLength(1));
+  });
+
   test('an explicit level (uncaught errors only) overrides expected', () {
     log.report(
       'Uncaught error',

@@ -6,6 +6,9 @@ abstract final class AppLayout {
   /// 桌面上提示（Toast）的最大寬度（ADR 0023 §決定 2）。
   static const double toastMaxWidth = 560;
 
+  /// 錯誤詳細頁內容的最大寬度（寬螢幕上不拉成一整行，stack trace 才好讀）。
+  static const double errorDetailMaxWidth = 720;
+
   /// 列表與播放列上的小封面（M3 list item 的 leading 圖片尺寸）。
   static const double artworkThumbnail = 48;
 

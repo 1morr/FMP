@@ -42,7 +42,34 @@ void main() {
     },
   );
 
+  test('https links can be opened (url_launcher package visibility)', () {
+    // Android 11 起 canLaunch／launch 要查得到能處理 https 的 App，否則「在 GitHub 回報」
+    // 在有些裝置上開不了。
+    expect(queriesViewHttps(manifest), isTrue);
+  });
+
   group('parser mutations', () {
+    test('a missing, changed or commented-out https query is caught', () {
+      const query = '<data android:scheme="https"/>';
+      expect(manifest, contains(query));
+      for (final mutated in [
+        manifest.replaceFirst(query, ''),
+        manifest.replaceFirst(query, '<data android:scheme="http"/>'),
+        manifest.replaceFirst(query, '<!-- $query -->'),
+      ]) {
+        expect(queriesViewHttps(mutated), isFalse);
+      }
+    });
+
+    test('whitespace and attribute spacing in the query change nothing', () {
+      final reformatted = manifest.replaceFirst(
+        '<data android:scheme="https"/>',
+        '<data   android:scheme = "https" ></data>',
+      );
+      expect(reformatted, isNot(manifest));
+      expect(queriesViewHttps(reformatted), isTrue);
+    });
+
     const permission =
         '<uses-permission android:name="android.permission.WAKE_LOCK"/>';
 
@@ -162,3 +189,26 @@ Set<String> intentActions(XmlElement component) => {
     for (final action in filter.findElements('action'))
       ?action.getAttribute('android:name'),
 };
+
+/// `<queries>` 有一個 `<intent>`：動作是 VIEW、資料的 scheme 是 https。
+bool queriesViewHttps(String manifest) {
+  for (final queries in XmlDocument.parse(
+    manifest,
+  ).rootElement.findElements('queries')) {
+    for (final intent in queries.findElements('intent')) {
+      final viewsHttps =
+          intent
+              .findElements('action')
+              .any(
+                (action) =>
+                    action.getAttribute('android:name') ==
+                    'android.intent.action.VIEW',
+              ) &&
+          intent
+              .findElements('data')
+              .any((data) => data.getAttribute('android:scheme') == 'https');
+      if (viewsHttps) return true;
+    }
+  }
+  return false;
+}

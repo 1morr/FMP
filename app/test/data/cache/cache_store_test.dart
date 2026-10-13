@@ -345,6 +345,7 @@ void main() {
               networkInterfaces: false,
               files: false,
               loginWebView: false,
+              urlOpener: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 1,
                 memoryImages: 1,

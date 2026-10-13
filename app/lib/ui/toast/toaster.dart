@@ -1,13 +1,17 @@
 import 'dart:async';
 
 import 'package:clock/clock.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/app/root_navigator.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/settings/developer_settings.dart';
+import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
@@ -55,6 +59,8 @@ final class Toaster {
     required this._log,
     required this._translations,
     required this._sourceName,
+    this._developerMode = _never,
+    this._openErrorDetail,
   });
 
   /// 同一類提示在這段時間內只顯示一次（ADR 0013 §決定 5 的「短時間」）。
@@ -63,6 +69,12 @@ final class Toaster {
   final Log _log;
   final Translations Function() _translations;
   final String? Function(String pluginId) _sourceName;
+  final bool Function() _developerMode;
+
+  /// 開錯誤詳細頁；沒給就不附「詳細」「回報」。
+  final void Function(LogRecord record)? _openErrorDetail;
+
+  static bool _never() => false;
 
   final _toasts = StreamController<Toast>.broadcast(sync: true);
   final _lastShown = <Object, DateTime>{};
@@ -87,6 +99,10 @@ final class Toaster {
   /// [operation] 是失敗的動作（英文，例如 `'Search failed'`），[tag] 是模組
   /// 或音源 id，比照 `log.report`。去重以「錯誤類別＋音源」為鍵。
   ///
+  /// 動作（每則最多一個）：[action] 優先；沒給時開發者模式開著附「詳細」，否則 [Unsupported]、
+  /// [UnexpectedError] 附「回報」（ADR 0023 §決定 4），兩者開同一個詳細頁。層級被濾掉、沒有
+  /// 寫進錯誤歷史時沒有紀錄可看，不附。
+  ///
   /// [sentence] 把錯誤訊息放進一句翻譯過的話（例如「已跳過「歌名」：訊息」），
   /// 收到的是依類別表翻譯好的訊息；沒給就只顯示訊息。
   void error(
@@ -96,7 +112,7 @@ final class Toaster {
     String Function(String message)? sentence,
     ToastAction? action,
   }) {
-    _log.report(operation, error, tag: tag);
+    final record = _log.report(operation, error, tag: tag);
     final pluginId = error.pluginId;
     final message = errorMessage(
       _translations(),
@@ -107,7 +123,7 @@ final class Toaster {
       Toast(
         kind: ToastKind.error,
         message: sentence == null ? message : sentence(message),
-        action: action,
+        action: action ?? _detailAction(error, record),
       ),
       key: _errorKey(error),
     );
@@ -130,6 +146,20 @@ final class Toaster {
       key: (ToastKind.warning, message),
     );
     _lastShown[_errorKey(CredentialInvalid(pluginId: pluginId))] = clock.now();
+  }
+
+  ToastAction? _detailAction(AppError error, LogRecord? record) {
+    final open = _openErrorDetail;
+    if (record == null || open == null) return null;
+    final t = _translations().errorReport;
+    final label = _developerMode()
+        ? t.actionDetail
+        : switch (error) {
+            Unsupported() || UnexpectedError() => t.actionReport,
+            _ => null,
+          };
+    if (label == null) return null;
+    return ToastAction(label: label, onPressed: () => open(record));
   }
 
   static Object _errorKey(AppError error) => (error.typeName, error.pluginId);
@@ -158,6 +188,13 @@ final toasterProvider = Provider<Toaster>((ref) {
     log: ref.watch(logProvider),
     translations: () => ref.read(translationsProvider),
     sourceName: (pluginId) => ref.read(pluginNameProvider(pluginId)),
+    developerMode: () =>
+        ref.read(developerProvider).value?.developerMode ?? false,
+    openErrorDetail: (record) {
+      final navigator = ref.read(rootNavigatorKeyProvider).currentState;
+      if (navigator == null) return;
+      unawaited(openErrorDetail(navigator, record));
+    },
   );
   ref.onDispose(toaster.dispose);
   return toaster;

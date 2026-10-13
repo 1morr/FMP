@@ -24,6 +24,7 @@ import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
+import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
 
 void main() {
   group('AppPlatform.assemble', () {
@@ -40,6 +41,7 @@ void main() {
       // 沙盒裡的資料目錄不含使用者名稱：沒有要換成 `~` 的家目錄。
       final appInfo = platform.appInfo! as PackageInfoAppInfo;
       expect(appInfo.platform, 'Android');
+      expect(appInfo.osVersion, Platform.operatingSystemVersion);
       expect(appInfo.homeDirectory, isNull);
       expect(platform.capabilities.singleInstance, isFalse);
       expect(platform.capabilities.fontFallback, same(androidFontFallback));
@@ -59,6 +61,8 @@ void main() {
       expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
       expect(platform.capabilities.files, isTrue);
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.urlOpener, isTrue);
+      expect(platform.urlOpener, isA<UrlLauncherOpener>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
@@ -78,6 +82,7 @@ void main() {
       expect(platform.dataDirectory, isA<WindowsAppDataDirectory>());
       final appInfo = platform.appInfo! as PackageInfoAppInfo;
       expect(appInfo.platform, 'Windows');
+      expect(appInfo.osVersion, Platform.operatingSystemVersion);
       expect(appInfo.homeDirectory, Platform.environment['USERPROFILE']);
       expect(platform.capabilities.singleInstance, isTrue);
       expect(platform.capabilities.fontFallback, same(windowsFontFallback));
@@ -95,6 +100,8 @@ void main() {
       expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
       expect(platform.capabilities.files, isTrue);
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.urlOpener, isTrue);
+      expect(platform.urlOpener, isA<UrlLauncherOpener>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
       // SMTC：不能 seek、播放中每 5 秒重推位置；實作要啟動時初始化，所以
@@ -129,6 +136,8 @@ void main() {
         expect(platform.secureStorage, isNull);
         expect(platform.capabilities.files, isFalse);
         expect(platform.fileDialogs, isNull);
+        expect(platform.capabilities.urlOpener, isFalse);
+        expect(platform.urlOpener, isNull);
         expect(platform.capabilities.loginWebView, isFalse);
         expect(platform.loginWebView, isNull);
         expect(platform.capabilities.mediaControls, isNull);
@@ -184,6 +193,8 @@ void main() {
       expect(platform.dataDirectory, isA<AndroidAppDataDirectory>());
       expect(platform.capabilities.files, isTrue);
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.urlOpener, isTrue);
+      expect(platform.urlOpener, isA<UrlLauncherOpener>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
     });

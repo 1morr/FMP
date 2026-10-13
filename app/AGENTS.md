@@ -268,13 +268,19 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   在搜尋再按一次 App 退到背景，`logcat -b events` 沒有 `wm_finish_activity`，從桌面圖示回來時沒有新的
   `App started`、搜尋字與分頁都在；播放中按返回音樂繼續。
 
-- 版本號與平台名稱（`lib/platform/app_info/`，M3 design §12.1）：`AppPlatform.appInfo`，Android 與 Windows 共用
+- 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android 與 Windows 共用
   `PackageInfoAppInfo`（`package_info_plus`；Windows 端是 FFI 讀執行檔的 `ProductVersion`，沒有原生的 plugin registrant）。
   不是能力宣告：沒有畫面依它決定入口，只有能跑主 App 的平台有，`main()` 在 `runApp` 之前讀一次、以 `appInfoProvider`
   注入。`homeDirectory`（Windows 是 `USERPROFILE`，Android 為空：沙盒路徑不含使用者名稱）給畫面把資料目錄顯示成
   `~\…`（`homeRelativePath`）。閘門：`platform_test.dart`（兩個平台的實作、平台名稱與家目錄，未驗證平台為空）、
   `app_info_test.dart`（以套件的 `setMockInitialValues` 讀版本）；真的版本號只能實機看（「關於」的版本列）。
 
+- 開網址（`lib/platform/url_opener/`，ADR 0023 §決定 4）：`PlatformCapabilities.urlOpener`（Android、Windows），一個實作
+  `UrlLauncherOpener`（`url_launcher`，`launchUrl(mode: LaunchMode.externalApplication)`：一律交給外部瀏覽器；開不了或
+  `PlatformException` 回 `false`，不拋）。Android 11 起要在 `AndroidManifest.xml` 的 `<queries>` 宣告能開 https 的 intent。
+  `url_launcher` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：`url_launcher_opener_test.dart`（模式、
+  失敗回 `false`）、`platform_test.dart`、`layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`／`test_ownerDirectoriesMayImport`、
+  `android_manifest_test.dart` 的 https query（含變異案例）。真的開瀏覽器只能實機驗。
 - 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android 與 Windows 共用一個實作
   `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。目前只有
   `pickFile(extension:)`（插件頁的「從檔案安裝」），存檔與選資料夾跟著 PR 15、16 加。副檔名只是篩選：Android
@@ -396,7 +402,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `a new database has the account schema`、`account_repository_test.dart`（含 `stored format…`）。移除插件時
   兩張表都清掉的閘門是 `plugin_installer_test.dart` 的 `removing` 群組。
 - `developer_settings` 是 schema v9（ADR 0025 §決定 1、M3 design §3.3）：「開發者」組，單列、四欄全可空，一次建好
-  （`plugin_dev_folder` 在 PR 16、`report_reminder_dismissed` 在 PR 13 才有人讀寫）。`log_level` 存 `debug`／`info`
+  （`plugin_dev_folder` 在 PR 16 才有人讀寫；`report_reminder_dismissed` 由錯誤詳細頁在 PR 13 讀寫）。`log_level` 存 `debug`／`info`
   （與 log 檔的層級字串相同，寫在 `LogLevelSettingConverter`）。新表升級後是空的。閘門：`migration_test.dart` 的 v8→v9
   資料完整性與 `migration from v<N> to v9 adds the developer settings`（v1–v8 各一例：單列、四欄為空）、`a new database
   has the developer settings`、`developer_settings_repository_test.dart`（`stored format`、只寫給的欄位、`clear`）。
@@ -567,6 +573,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 被處理的錯誤一律經 `log.report(...)`（`report_error.dart`，`app_error.dart` 的 `part`）
   寫進錯誤歷史，那是唯一讀得到原始 error 的路徑。閘門：`report_error_test.dart`
   驗層級、欄位與遮蔽；「處理了卻沒 report」沒有閘門，review 時看。
+- 錯誤報告（`error_report.dart`，ADR 0023 §決定 4）：`ErrorReport.fromRecord` 由 `log.report` 寫的那筆已遮蔽的 `LogRecord` 組成
+  （`Log.write`／`report` 回傳寫進歷史的那筆，被層級濾掉時是 `null`），不另存報告 id，也沒有第二條路拿到原始 error 或 stackTrace。
+  請求摘要以 `fields.networkRecordId` 在**傳入的**記憶體歷史找 tag `network`、`id` 相同的那筆（還要音源相同、時間不晚於錯誤）：
+  `networkRecordId` 只在同一次執行唯一，所以前幾次執行的紀錄（log 檔讀回）呼叫端傳空清單，報告就沒有請求摘要；詳細頁以「紀錄是
+  不是記憶體歷史裡的那個物件」判斷，所以 Debug 頁的 `mergeLogRecords` 對兩邊都有的那筆留記憶體的物件。組報告時每個文字欄位
+  （含版本字串等外來欄位）再過一次 `Redactor`（之後才登記的憑證值；頁面顯示的欄位與 Markdown 是同一份），整份 Markdown 輸出前
+  再遮一次。code block 用 `~` 的 fence：`bug_report.yml` 的 `render: markdown` 把欄位包進反引號的 code block，內層用反引號會
+  提早結束它。閘門：`error_report_test.dart`（欄位、有無請求、撞號與前次執行不誤配、Markdown 格式與 `~` fence、假 cookie／token／
+  簽名網址／query 不出現在 Markdown，含「紀錄沒遮乾淨時最後一道擋住」與「組報告時每個欄位再遮一次」）、`report_error_test.dart` 的
+  `returns the record it wrote…`、`debug_log_state_test.dart` 的 `a record in both lists is the memory instance`。
 - 重試只有網路層一層，用 `retry_policy.dart` 的純函數；Riverpod 的重試已關（見
   「Riverpod」）。閘門：`retry_policy_test.dart`；網路層的重試見「網路」。
 - 禁止空 catch 與靜默吞錯。閘門：lint `fmp_no_empty_catch`（只擋空的本體；catch 了
@@ -1430,6 +1446,22 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
+- 提示與錯誤詳細頁（`lib/ui/errors/error_detail_page.dart`，ADR 0023 §決定 4，M3 design §13）：
+  - `Toaster.error` 的動作（每則最多一個）：呼叫端給的 `action` 優先；沒給時開發者模式開著附「詳細」，否則 `Unsupported`、
+    `UnexpectedError` 附「回報」，其餘沒有；`log.report` 回傳 `null`（層級被濾掉）時沒有紀錄可看，不附。動作開同一個詳細頁，
+    頁面是 `rootNavigatorKeyProvider`（`lib/app/root_navigator.dart`，給 `MaterialApp.navigatorKey`）的 Navigator 上推的全螢幕路由，
+    `ToastHost` 包在 Navigator 外面，所以頁面之上仍看得到提示。閘門：`toaster_test.dart` 的 `error actions`、`error_detail_page_test.dart`
+    的 `the toast actions open this page`、`fmp_app_test.dart` 的 `an error toast opens the detail page through the root navigator`
+    （App 裡真的 `toasterProvider` 與 `FmpApp` 的 `navigatorKey`）、`integration_test/toast_layering_test.dart`（詳細頁）。
+  - 詳細頁顯示 `ErrorReport` 的欄位（文字可選取）；「複製」複製 Markdown；「在 GitHub 回報」先複製，再以 `UrlOpener` 開
+    `endpoints.dart` 的 `newIssueUrl`，**報告內容不進網址**（網址會被瀏覽器記錄、有長度上限）。第一次按先跳「送出前請檢查」
+    對話框（repo 是公開的），勾「不再提醒」並繼續才寫 `developer_settings.report_reminder_dismissed`，取消什麼都不做；設定還沒載入完
+    時當成沒關過（頁面 `watch` 著 `developerProvider`：Riverpod 3 會暫停沒有人聽的 provider，只 `read` 拿不到值）。平台沒有 `urlOpener` 能力、或開不了時，頁面顯示網址文字讓使用者自己開。報告一律回報到 `1morr/FMP`
+    （插件的問題由維護者 Transfer 到插件庫）。閘門：`error_detail_page_test.dart`（複製的是 Markdown、開的網址等於常數且不含報告內容、
+    提醒只問一次、取消不開不寫、沒有能力時只複製並顯示網址）、`guidelines_test.dart` 的 `the error detail page`（窄與寬、淺色與深色，
+    含提醒對話框）。
+  - `.github/ISSUE_TEMPLATE/bug_report.yml`（繁中）：必填「問題描述」「錯誤報告」（`render: markdown`）、標籤 `bug`。閘門：
+    `test/github/bug_report_template_test.dart`（解析 YAML，含改壞會紅、改文字與順序不會紅的變異案例）。
 - 設定頁的區塊（`SettingsSection`）：第一個是「帳號」，之後外觀、播放、網路是 ADR 0011 的設定組（design §9.8 的順序），
   之後是「插件」、最後是「關於」（帳號、插件、關於不是設定表，M3 design §6.7）；開發者模式下清單最後多一列 Debug，它開 Debug 頁
   （另一個 route），不是區塊。清單本身會捲動（七列在矮的視窗放不下）。帳號頁與插件頁
@@ -1537,9 +1569,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （`logHistoryProvider`，`Log.changes` 後 250ms 合併成一次快照），最新的在最上面；「含之前的紀錄」（只在有 log 檔的平台出現）
     把 `LogFile.readStored()` 與記憶體歷史合成一份（`mergeLogRecords`）：同一筆的判準是整行內容（`toJsonLine`）逐字相同，同時間的
     檔案在前。篩選是層級（以上）、tag（完全相同）、文字（不分大小寫，比對 `formatLogRecord` 的全文）；「只看錯誤」＝警告以上
-    （ADR 0011 §決定 5 的錯誤歷史，`isErrorRecord`）。點一筆只在原地展開欄位、error、stackTrace，詳細頁在 PR 13。「複製已篩選」複製
+    （ADR 0011 §決定 5 的錯誤歷史，`isErrorRecord`）。點一筆在原地展開欄位、error、stackTrace；`Log.report` 寫的錯誤紀錄（有 `fields.type`）展開後另有「詳細」，開錯誤詳細頁（見「提示與錯誤詳細頁」）。「複製已篩選」複製
     篩選後的純文字（由舊到新），「清除 log」確認後呼叫 `Log.clear()`。閘門：`debug_log_state_test.dart`（合併、篩選、格式）、
-    `debug_log_network_test.dart` 的 `the Log section`（篩選、只看錯誤、複製、清除要確認、清除後記憶體與檔案都空、含之前的紀錄不重複）。
+    `debug_log_network_test.dart` 的 `the Log section`（篩選、只看錯誤、複製、清除要確認、清除後記憶體與檔案都空、含之前的紀錄不重複、錯誤紀錄的「詳細」開詳細頁而別的紀錄沒有）。
   - 網路（`debug_network.dart`、`debug_network_state.dart`，ADR 0025 §決定 4）：資料就是記憶體歷史裡 tag `network` 的紀錄
     （`NetworkEntry.tryParse` 讀 `writeNetworkRecord` 的欄位，不另存、不讀 log 檔），最新的在最上面。篩選是音源（空字串＝宿主自己的請求）、狀態碼類別（2xx／3xx／4xx／5xx，
     沒有狀態碼＝失敗，`StatusClass`）、文字。單筆詳細是對話框，列出遮過的 query、錯誤類型與 `networkRecordId` 對得上該筆 `id` 的

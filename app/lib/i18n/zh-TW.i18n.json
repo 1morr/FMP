@@ -148,7 +148,8 @@
     "yes": "是",
     "no": "否",
     "netDuration": "{ms} ms",
-    "close": "關閉"
+    "close": "關閉",
+    "logDetail": "詳細"
   },
   "player": {
     "play": "播放",
@@ -453,5 +454,36 @@
       "age": "有年齡限制",
       "previewOnly": "只有試聽片段"
     }
+  },
+  "errorReport": {
+    "title": "錯誤詳細",
+    "actionDetail": "詳細",
+    "actionReport": "回報",
+    "copy": "複製",
+    "copied": "已複製",
+    "reportOnGitHub": "在 GitHub 回報",
+    "reportCopied": "報告已複製，請貼到 GitHub 的「錯誤報告」欄位",
+    "openFailed": "無法開啟瀏覽器，請自行開啟下方的網址",
+    "manualHint": "請在瀏覽器開啟以下網址，並貼上已複製的報告",
+    "reminderTitle": "送出前請檢查",
+    "reminderBody": "FMP 的 GitHub repo 是公開的，所有人都看得到報告。報告已遮蔽 cookie、token 與簽名網址，但送出前請再檢查一次內容。",
+    "reminderDontAsk": "不再提醒",
+    "reminderContinue": "繼續",
+    "cancel": "取消",
+    "time": "時間",
+    "type": "錯誤類型",
+    "reason": "原因類別",
+    "source": "音源",
+    "action": "使用者動作",
+    "module": "模組",
+    "request": "請求",
+    "status": "狀態碼",
+    "duration": "耗時",
+    "requestError": "請求錯誤",
+    "noRequest": "沒有對應的請求紀錄",
+    "app": "App",
+    "system": "系統",
+    "cause": "原因",
+    "stackTrace": "Stack trace"
   }
 }

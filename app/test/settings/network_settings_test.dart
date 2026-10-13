@@ -29,6 +29,7 @@ void main() {
           networkInterfaces: false,
           files: false,
           loginWebView: false,
+          urlOpener: false,
           cache: CacheSizes(
             defaultLimitMebibytes: defaultLimit,
             memoryImages: 1,
