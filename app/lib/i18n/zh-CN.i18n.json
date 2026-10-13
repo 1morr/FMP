@@ -70,7 +70,34 @@
     "network": "网络",
     "back": "返回",
     "playback": "播放",
-    "plugins": "插件"
+    "plugins": "插件",
+    "about": "关于",
+    "debug": "Debug"
+  },
+  "about": {
+    "version": "版本",
+    "versionValue": "{version}（{flavor}）",
+    "tapsLeft": "再点 {count} 次即可开启开发者模式",
+    "developerModeOn": "已开启开发者模式",
+    "alreadyDeveloper": "开发者模式已经开启"
+  },
+  "debug": {
+    "title": "Debug",
+    "overview": "概览",
+    "developerMode": "开发者模式",
+    "developerModeHint": "关闭后设置页不再显示 Debug，日志级别回到默认",
+    "logLevel": "日志级别",
+    "logLevelInfo": "info",
+    "logLevelDebug": "debug",
+    "logLevelDebugHint": "记录更多细节，日志文件也会变大",
+    "logLevelDefault": "{level}（默认）",
+    "app": "应用",
+    "version": "版本",
+    "flavor": "Flavor",
+    "platform": "平台",
+    "dataDirectory": "数据目录",
+    "cacheUsage": "缓存用量",
+    "cacheUsageValue": "{size}，在「设置 → 网络」中管理"
   },
   "player": {
     "play": "播放",

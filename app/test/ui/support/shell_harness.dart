@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/app/app_scope.dart';
+import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
@@ -12,10 +14,13 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
+import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
@@ -32,6 +37,7 @@ import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/search/search_state.dart';
@@ -80,6 +86,8 @@ final class ShellHarness {
     this.registrySources = false,
     this.secureStorage = false,
     this.sourceUnavailable = _noUnavailableSource,
+    this.flavor = AppFlavor.dev,
+    this.buildLogLevel = LogLevelSetting.info,
     this.extraOverrides = const [],
   }) : backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
@@ -160,8 +168,25 @@ final class ShellHarness {
   /// `sourceUnavailableProvider` 的值（音源停用或未安裝的原因）；預設沒有不可用的音源。
   final String? Function(Ref ref, String pluginId) sourceUnavailable;
 
+  /// 這個建置的 flavor：「開發者」組的預設跟著它（dev 開、prod 關）。
+  final AppFlavor flavor;
+
+  /// 這個建置的預設 log 層級（`buildLogLevelProvider`）。`flutter test` 永遠是 debug build，
+  /// 所以固定下來：預設是 release 的 info，要看 debug build 給 [LogLevelSetting.debug]。
+  final LogLevelSetting buildLogLevel;
+
   /// 加在最後的 override（要和上面不重複）。
   final List<Override> extraOverrides;
+
+  /// 「關於」與 Debug 頁概覽讀的版本與平台。家目錄是資料目錄的上層，概覽顯示成 `~/…`。
+  static const appInfo = AppInfo(
+    version: '1.2.3',
+    platform: 'Windows',
+    homeDirectory: '/home/tester',
+  );
+
+  /// 資料目錄（Debug 頁的概覽顯示它）；測試不在這裡讀寫檔案。
+  static final dataDirectory = Directory('/home/tester/fmp-dev');
 
   final FakeSourcePlugin plugin;
   late final List<SourcePlugin> sources;
@@ -192,6 +217,10 @@ final class ShellHarness {
     appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
     logProvider.overrideWithValue(log),
     toasterProvider.overrideWithValue(toaster),
+    appFlavorProvider.overrideWithValue(flavor),
+    buildLogLevelProvider.overrideWithValue(buildLogLevel),
+    appInfoProvider.overrideWithValue(appInfo),
+    dataDirectoryProvider.overrideWithValue(dataDirectory),
     if (!registrySources)
       searchSourcesProvider.overrideWithValue(AsyncData(sources)),
     networkInterfacesProvider.overrideWithValue(interfaces),

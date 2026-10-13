@@ -10,8 +10,10 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/developer.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
@@ -20,6 +22,7 @@ import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/plugins/repository/plugin_downloader.dart';
+import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
@@ -38,13 +41,18 @@ void main() {
     AppDatabase? database,
     PlatformCapabilities capabilities = PlatformCapabilities.none,
     FakeNetworkInterfaces? interfaces,
+    // 建置模式固定下來（`flutter test` 永遠是 debug build）：預設是 release 的 info。
+    LogLevelSetting buildLogLevel = LogLevelSetting.info,
+    LogLevel initialLogLevel = LogLevel.debug,
   }) async {
     final redactor = Redactor();
-    final log = Log(redactor: redactor, minimumLevel: LogLevel.debug);
+    final log = Log(redactor: redactor, minimumLevel: initialLogLevel);
     await tester.pumpWidget(
       appProviderScope(
         overrides: [
           dataDirectoryProvider.overrideWithValue(Directory('/data/fmp-dev')),
+          appFlavorProvider.overrideWithValue(AppFlavor.dev),
+          buildLogLevelProvider.overrideWithValue(buildLogLevel),
           appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
           redactorProvider.overrideWithValue(redactor),
           logProvider.overrideWithValue(log),
@@ -144,6 +152,84 @@ void main() {
     await tester.pump();
     expect(interfaces.checks, 2);
     expect(find.text('No network connection'), findsWidgets);
+  });
+
+  // 「開發者」組的 log 層級接到門面（ADR 0025 §決定 1）：debug 時 debug 紀錄進記憶體歷史，
+  // 改回 info 後不進。建置固定為 release（預設 info），info 才真的濾掉 debug。
+  testWidgets('the log level setting decides whether debug records reach the '
+      'history', (tester) async {
+    final database = memoryDatabase();
+    final log = await pumpApp(tester, database: database);
+    await settle(tester);
+    final repository = DeveloperSettingsRepository(database);
+    bool kept(String message) =>
+        log.history.any((record) => record.message == message);
+
+    // release 沒設定過是 info：harness 開的 debug 門面被調回來。
+    expect(log.minimumLevel, LogLevel.info);
+    log.debug('Probe at the default', tag: 'test');
+    expect(kept('Probe at the default'), isFalse);
+
+    await tester.runAsync(
+      () => repository.write(logLevel: LogLevelSetting.debug),
+    );
+    await settle(tester);
+    log.debug('Probe at debug', tag: 'test');
+    expect(kept('Probe at debug'), isTrue);
+    expect(
+      log.history.where((record) => record.message == 'Log level applied'),
+      isNotEmpty,
+    );
+
+    await tester.runAsync(
+      () => repository.write(logLevel: LogLevelSetting.info),
+    );
+    await settle(tester);
+    log.debug('Probe back at info', tag: 'test');
+    expect(kept('Probe back at info'), isFalse);
+
+    // 關掉開發者模式也回到 info（同一筆寫入清掉層級）。
+    await tester.runAsync(
+      () => repository.write(logLevel: LogLevelSetting.debug),
+    );
+    await settle(tester);
+    await tester.runAsync(repository.turnOffDeveloperMode);
+    await settle(tester);
+    log.debug('Probe after turning it off', tag: 'test');
+    expect(kept('Probe after turning it off'), isFalse);
+  });
+
+  // ADR 0011 §決定 2：debug build 的預設是 debug。沒設定過與關掉開發者模式後都是它。
+  testWidgets('in a debug build debug records reach the history by default, '
+      'also with developer mode off', (tester) async {
+    final database = memoryDatabase();
+    final log = await pumpApp(
+      tester,
+      database: database,
+      buildLogLevel: LogLevelSetting.debug,
+      // 門面從另一個層級開始：看得出是設定把它改成 debug。
+      initialLogLevel: LogLevel.info,
+    );
+    await settle(tester);
+    bool kept(String message) =>
+        log.history.any((record) => record.message == message);
+
+    expect(log.minimumLevel, LogLevel.debug);
+    log.debug('Probe at the debug build default', tag: 'test');
+    expect(kept('Probe at the debug build default'), isTrue);
+
+    final repository = DeveloperSettingsRepository(database);
+    await tester.runAsync(
+      () => repository.write(logLevel: LogLevelSetting.info),
+    );
+    await settle(tester);
+    log.debug('Probe at info', tag: 'test');
+    expect(kept('Probe at info'), isFalse);
+
+    await tester.runAsync(repository.turnOffDeveloperMode);
+    await settle(tester);
+    log.debug('Probe with developer mode off', tag: 'test');
+    expect(kept('Probe with developer mode off'), isTrue);
   });
 
   group('appearance', () {

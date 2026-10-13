@@ -64,6 +64,10 @@ class TranslationsEn extends Translations
     _root,
   );
   @override
+  late final Translations$about$en about = Translations$about$en._(_root);
+  @override
+  late final Translations$debug$en debug = Translations$debug$en._(_root);
+  @override
   late final Translations$player$en player = Translations$player$en._(_root);
   @override
   late final Translations$playerPage$en playerPage =
@@ -281,6 +285,79 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   String get playback => 'Playback';
   @override
   String get plugins => 'Plugins';
+  @override
+  String get about => 'About';
+  @override
+  String get debug => 'Debug';
+}
+
+// Path: about
+class Translations$about$en extends Translations$about$zh_TW {
+  Translations$about$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get version => 'Version';
+  @override
+  String versionValue({required Object version, required Object flavor}) =>
+      '${version} (${flavor})';
+  @override
+  String tapsLeft({required Object count}) =>
+      'Taps left to turn on developer mode: ${count}';
+  @override
+  String get developerModeOn => 'Developer mode is on';
+  @override
+  String get alreadyDeveloper => 'Developer mode is already on';
+}
+
+// Path: debug
+class Translations$debug$en extends Translations$debug$zh_TW {
+  Translations$debug$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Debug';
+  @override
+  String get overview => 'Overview';
+  @override
+  String get developerMode => 'Developer mode';
+  @override
+  String get developerModeHint =>
+      'Turning it off hides Debug from the settings and sets the log level back to the default';
+  @override
+  String get logLevel => 'Log level';
+  @override
+  String get logLevelInfo => 'info';
+  @override
+  String get logLevelDebug => 'debug';
+  @override
+  String get logLevelDebugHint =>
+      'Records more detail, and the log files grow faster';
+  @override
+  String logLevelDefault({required Object level}) => '${level} (default)';
+  @override
+  String get app => 'App';
+  @override
+  String get version => 'Version';
+  @override
+  String get flavor => 'Flavor';
+  @override
+  String get platform => 'Platform';
+  @override
+  String get dataDirectory => 'Data directory';
+  @override
+  String get cacheUsage => 'Cache usage';
+  @override
+  String cacheUsageValue({required Object size}) =>
+      '${size} · manage it in Settings › Network';
 }
 
 // Path: player

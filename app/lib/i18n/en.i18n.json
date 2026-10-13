@@ -70,7 +70,34 @@
     "network": "Network",
     "back": "Back",
     "playback": "Playback",
-    "plugins": "Plugins"
+    "plugins": "Plugins",
+    "about": "About",
+    "debug": "Debug"
+  },
+  "about": {
+    "version": "Version",
+    "versionValue": "{version} ({flavor})",
+    "tapsLeft": "Taps left to turn on developer mode: {count}",
+    "developerModeOn": "Developer mode is on",
+    "alreadyDeveloper": "Developer mode is already on"
+  },
+  "debug": {
+    "title": "Debug",
+    "overview": "Overview",
+    "developerMode": "Developer mode",
+    "developerModeHint": "Turning it off hides Debug from the settings and sets the log level back to the default",
+    "logLevel": "Log level",
+    "logLevelInfo": "info",
+    "logLevelDebug": "debug",
+    "logLevelDebugHint": "Records more detail, and the log files grow faster",
+    "logLevelDefault": "{level} (default)",
+    "app": "App",
+    "version": "Version",
+    "flavor": "Flavor",
+    "platform": "Platform",
+    "dataDirectory": "Data directory",
+    "cacheUsage": "Cache usage",
+    "cacheUsageValue": "{size} · manage it in Settings › Network"
   },
   "player": {
     "play": "Play",

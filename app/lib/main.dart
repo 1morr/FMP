@@ -19,6 +19,7 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
+import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/files/files.dart';
@@ -38,6 +39,7 @@ Future<void> main(List<String> arguments) async {
   final redactor = Redactor();
   final log = Log(
     redactor: redactor,
+    // 這個建置的預設層級；「開發者」組的值由 FmpApp 讀出來之後套用（ADR 0025 §決定 1）。
     minimumLevel: buildDefaultLogLevel,
     file: directory == null
         ? null
@@ -92,6 +94,8 @@ Future<void> main(List<String> arguments) async {
     );
     return;
   }
+  // 版本號與平台名稱：「關於」的版本列與 Debug 頁的概覽讀它（M3 design §12.1）。
+  final appInfo = await platform.appInfo!.read();
   // 系統媒體控制在資料庫開好之後初始化；失敗就宣告為沒有，App 照常啟動。
   platform = await platform.withMediaControls(
     log: log,
@@ -107,6 +111,8 @@ Future<void> main(List<String> arguments) async {
     appProviderScope(
       overrides: [
         appDatabaseProvider.overrideWithValue(database),
+        appFlavorProvider.overrideWithValue(flavor),
+        appInfoProvider.overrideWithValue(appInfo),
         dataDirectoryProvider.overrideWithValue(directory),
         logProvider.overrideWithValue(log),
         redactorProvider.overrideWithValue(redactor),

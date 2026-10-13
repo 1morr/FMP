@@ -69,6 +69,14 @@ class TranslationsZhCn extends Translations
   late final Translations$settings$zh_CN settings =
       Translations$settings$zh_CN.internal(_root);
   @override
+  late final Translations$about$zh_CN about = Translations$about$zh_CN.internal(
+    _root,
+  );
+  @override
+  late final Translations$debug$zh_CN debug = Translations$debug$zh_CN.internal(
+    _root,
+  );
+  @override
   late final Translations$player$zh_CN player =
       Translations$player$zh_CN.internal(_root);
   @override
@@ -287,6 +295,75 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   String get playback => '播放';
   @override
   String get plugins => '插件';
+  @override
+  String get about => '关于';
+  @override
+  String get debug => 'Debug';
+}
+
+// Path: about
+class Translations$about$zh_CN extends Translations$about$zh_TW {
+  Translations$about$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get version => '版本';
+  @override
+  String versionValue({required Object version, required Object flavor}) =>
+      '${version}（${flavor}）';
+  @override
+  String tapsLeft({required Object count}) => '再点 ${count} 次即可开启开发者模式';
+  @override
+  String get developerModeOn => '已开启开发者模式';
+  @override
+  String get alreadyDeveloper => '开发者模式已经开启';
+}
+
+// Path: debug
+class Translations$debug$zh_CN extends Translations$debug$zh_TW {
+  Translations$debug$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Debug';
+  @override
+  String get overview => '概览';
+  @override
+  String get developerMode => '开发者模式';
+  @override
+  String get developerModeHint => '关闭后设置页不再显示 Debug，日志级别回到默认';
+  @override
+  String get logLevel => '日志级别';
+  @override
+  String get logLevelInfo => 'info';
+  @override
+  String get logLevelDebug => 'debug';
+  @override
+  String get logLevelDebugHint => '记录更多细节，日志文件也会变大';
+  @override
+  String logLevelDefault({required Object level}) => '${level}（默认）';
+  @override
+  String get app => '应用';
+  @override
+  String get version => '版本';
+  @override
+  String get flavor => 'Flavor';
+  @override
+  String get platform => '平台';
+  @override
+  String get dataDirectory => '数据目录';
+  @override
+  String get cacheUsage => '缓存用量';
+  @override
+  String cacheUsageValue({required Object size}) => '${size}，在「设置 → 网络」中管理';
 }
 
 // Path: player

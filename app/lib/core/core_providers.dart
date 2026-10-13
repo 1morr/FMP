@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 
@@ -16,5 +17,13 @@ final logProvider = Provider<Log>(
 final redactorProvider = Provider<Redactor>(
   (ref) => throw UnimplementedError(
     'redactorProvider is overridden by main() with the log redactor',
+  ),
+);
+
+/// 這個建置的 flavor（`main()` 從 `appFlavor` 解析後 override；沒 override 就讀會拋錯）。
+/// 「開發者」組的預設（dev 開、prod 關，ADR 0025 §決定 1）與「關於」的版本列讀它。
+final appFlavorProvider = Provider<AppFlavor>(
+  (ref) => throw UnimplementedError(
+    'appFlavorProvider is overridden by main() with the build flavor',
   ),
 );
