@@ -103,6 +103,9 @@ dependencies:
   # 打包（每個 ABI 多幾 MB，ADR 0018 否決的做法），所以只加 Windows 那一個。它
   # 停在 2023-09 的 libmpv，建置時從 GitHub 下載。
   media_kit_libs_windows_audio: ^1.0.9
+  # App 的版本號（「關於」的版本列、Debug 頁概覽，M3 design §12.1）；只准在
+  # lib/platform/ import（fmp_layer_imports）。
+  package_info_plus: ^10.2.2
   path: ^1.9.1
   path_provider: ^2.1.6
   # 插件版本比較（ADR 0030 §決定 4）；只准在 lib/plugins/repository/ import（fmp_layer_imports）。

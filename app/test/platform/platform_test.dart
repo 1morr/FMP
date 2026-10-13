@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
@@ -6,6 +8,7 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
+import 'package:fmp/platform/app_info/package_info_app_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
@@ -34,6 +37,10 @@ void main() {
 
       expect(platform.capabilities.dataDirectory, isTrue);
       expect(platform.dataDirectory, isA<AndroidAppDataDirectory>());
+      // 沙盒裡的資料目錄不含使用者名稱：沒有要換成 `~` 的家目錄。
+      final appInfo = platform.appInfo! as PackageInfoAppInfo;
+      expect(appInfo.platform, 'Android');
+      expect(appInfo.homeDirectory, isNull);
       expect(platform.capabilities.singleInstance, isFalse);
       expect(platform.capabilities.fontFallback, same(androidFontFallback));
       expect(platform.capabilities.playback, same(androidPlaybackSupport));
@@ -69,6 +76,9 @@ void main() {
 
       expect(platform.capabilities.dataDirectory, isTrue);
       expect(platform.dataDirectory, isA<WindowsAppDataDirectory>());
+      final appInfo = platform.appInfo! as PackageInfoAppInfo;
+      expect(appInfo.platform, 'Windows');
+      expect(appInfo.homeDirectory, Platform.environment['USERPROFILE']);
       expect(platform.capabilities.singleInstance, isTrue);
       expect(platform.capabilities.fontFallback, same(windowsFontFallback));
       expect(platform.capabilities.playback, same(windowsPlaybackSupport));
@@ -108,6 +118,7 @@ void main() {
 
         expect(platform.capabilities.dataDirectory, isFalse);
         expect(platform.dataDirectory, isNull);
+        expect(platform.appInfo, isNull);
         expect(platform.capabilities.singleInstance, isFalse);
         expect(platform.capabilities.playback, isNull);
         expect(platform.capabilities.networkInterfaces, isFalse);
@@ -168,6 +179,7 @@ void main() {
       expect(platform.mediaControls, isNull);
       expect(platform.capabilities.mediaControls, isNull);
       // 其他能力不受影響。
+      expect(platform.appInfo, isA<PackageInfoAppInfo>());
       expect(platform.capabilities.playback, same(androidPlaybackSupport));
       expect(platform.dataDirectory, isA<AndroidAppDataDirectory>());
       expect(platform.capabilities.files, isTrue);
