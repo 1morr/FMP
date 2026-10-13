@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b 開工：PR 11（子任務 `10-13-m3-developer-mode`，分支 `feat/app-developer-mode`）。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11 已合併（#237）；PR 12（子任務 `10-13-m3-debug-log-network`，分支 `feat/app-debug-log-network`）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
 - **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
@@ -337,8 +337,8 @@
 
 ## 12. Log 與錯誤歷史、網路（design §12.3）
 
-- [ ] Log 區塊：記憶體歷史、「含之前的紀錄」（isolate 解析、6 MB 上限）、篩選、只看錯誤、複製、清除（排進 `LogFile` 寫入佇列）；匯出 log 檔在 PR 15 接上存檔。
-- [ ] 網路區塊：清單、篩選、單筆詳細、對應錯誤紀錄。
+- [x] Log 區塊：記憶體歷史、「含之前的紀錄」（isolate 解析、6 MB 上限）、篩選、只看錯誤、複製、清除（排進 `LogFile` 寫入佇列）；匯出 log 檔在 PR 15 接上存檔。
+- [x] 網路區塊：清單、篩選、單筆詳細、對應錯誤紀錄。
 - 測試：網路篩選（ADR 0025 §如何確認）；清除後記憶體與檔案都空；壞行略過（M1 已有）；widget 測試。
 - 實測（重播＋一次真實 B 站搜尋）：§8 的「Debug 頁看到一次搜尋的網路摘要」（Windows release）；Android 看篩選。
 - 依賴：11。模型：sonnet（區塊版面沿用 PR 11 的骨架與清單元件）。
@@ -482,6 +482,13 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 12 留下的
+
+1. **網路紀錄的媒體 CDN 簽名沒遮**（M1 起的漏洞，PR 12 審查發現、PR 12 一併修）：`writeNetworkRecord` 先拆網址再交給門面，遮蔽函式看不到主機就認不出 CDN。改成先 `Log.redactUrl` 再拆；兩個 client 測試的 `media CDN signatures are redacted before the URL is split` 守著。成功的請求同時照 ADR 0025 §決定 4 改成 `info`（原本是 `debug`，release 的網路區塊只看得到失敗的）。
+2. **效能**：開著「含之前的紀錄」時，每次 250ms 快照都對最多 6MB 的檔案紀錄重算 `toJsonLine` 與排序；debug 層級下 log 大量湧入可能卡頓。沒有 repro，沒動；要做就在 `_DebugLogState` 快取檔案那份的鍵集合，只算記憶體那 1,000 筆。
+3. **網路區塊的音源篩選顯示插件 id**（`bilibili`），不是名稱（`Bilibili`）。小事，之後順手改用 `pluginNameProvider`。
+4. **搜尋頁按「清除」後切換音源 chip，會用上一次送出的關鍵字重搜**（Android 實機：清空輸入框後點 Bilibili，送出了 `keyword=fail`）。是搜尋頁既有行為，不是 PR 12 的改動；是否該改是產品決定，記下待擁有者看。
 
 ### PR 11 留下的
 
