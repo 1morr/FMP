@@ -6,7 +6,8 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 
 /// 這個建置的預設層級（ADR 0011 §決定 2）：debug build 是 [LogLevel.debug]，
-/// profile 與 release 是 [LogLevel.info]。開發者模式調整層級在 M3。
+/// profile 與 release 是 [LogLevel.info]。`main()` 以它建門面；「開發者」組的 log 層級
+/// 沒設定過、或開發者模式關著時也是它（`buildLogLevelProvider`）。
 LogLevel get buildDefaultLogLevel =>
     kDebugMode ? LogLevel.debug : LogLevel.info;
 
@@ -42,8 +43,9 @@ final class Log {
   final Redactor _redactor;
   late final talker.Talker _talker;
 
-  /// 低於這個層級的紀錄直接丟掉，不進任何輸出。
-  final LogLevel minimumLevel;
+  /// 低於這個層級的紀錄直接丟掉，不進任何輸出。App 裡由「開發者」組的 log 層級
+  /// （ADR 0025 §決定 1）在執行中改它，所以不是 final；改了只影響之後的紀錄。
+  LogLevel minimumLevel;
 
   /// log 檔；沒有資料目錄的平台為 `null`。
   final LogFile? file;

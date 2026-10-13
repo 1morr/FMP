@@ -16,6 +16,7 @@ import 'generated/schema_v5.dart' as v5;
 import 'generated/schema_v6.dart' as v6;
 import 'generated/schema_v7.dart' as v7;
 import 'generated/schema_v8.dart' as v8;
+import 'generated/schema_v9.dart' as v9;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -757,5 +758,137 @@ void main() {
     addTearDown(db.close);
 
     await expectAccountSchema(db);
+  });
+
+  // v9 新增 developer_settings（ADR 0025 §決定 1、M3 design §3.3）：既有的資料與使用者設定過的
+  // 值原樣保留，新表升級後是空的（沒設定過＝dev 開、prod 關的預設）。
+  test('migration from v8 to v9 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 8,
+      newVersion: 9,
+      createOld: v8.DatabaseAtV8.new,
+      createNew: v9.DatabaseAtV9.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v8.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.networkSettings,
+          const v8.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        );
+        batch.insert(
+          oldDb.installedPlugins,
+          const v8.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 0,
+          ),
+        );
+        batch.insert(
+          oldDb.accounts,
+          const v8.AccountsData(
+            pluginId: 'bilibili',
+            userId: 'u',
+            displayName: 'n',
+            status: 'invalidated',
+            loggedInAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.sourceSettings,
+          const v8.SourceSettingsData(
+            pluginId: 'bilibili',
+            browseAsLoggedIn: 0,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v9.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ]);
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v9.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        ]);
+        expect(await newDb.select(newDb.installedPlugins).get(), [
+          const v9.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 0,
+          ),
+        ]);
+        expect(await newDb.select(newDb.accounts).get(), [
+          const v9.AccountsData(
+            pluginId: 'bilibili',
+            userId: 'u',
+            displayName: 'n',
+            status: 'invalidated',
+            loggedInAt: 1790000000000,
+          ),
+        ]);
+        // 使用者關掉的「以登入身分瀏覽與播放」仍是關。
+        expect(await newDb.select(newDb.sourceSettings).get(), [
+          const v9.SourceSettingsData(
+            pluginId: 'bilibili',
+            browseAsLoggedIn: 0,
+          ),
+        ]);
+        expect(await newDb.select(newDb.developerSettings).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectDeveloperSettingsSchema(AppDatabase db) async {
+    // 單列，四個欄位都可空（空＝沒設定過，ADR 0011 §決定 7）。
+    await db.customStatement('INSERT INTO developer_settings (id) VALUES (1)');
+    final row = await db
+        .customSelect(
+          'SELECT developer_mode, log_level, plugin_dev_folder, '
+          'report_reminder_dismissed FROM developer_settings',
+        )
+        .getSingle();
+    expect(row.data, {
+      'developer_mode': null,
+      'log_level': null,
+      'plugin_dev_folder': null,
+      'report_reminder_dismissed': null,
+    });
+    await expectLater(
+      db.customStatement('INSERT INTO developer_settings (id) VALUES (2)'),
+      throwsA(anything),
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8]) {
+    test('migration from v$from to v9 adds the developer settings', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 9);
+
+      await expectDeveloperSettingsSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has the developer settings', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectDeveloperSettingsSchema(db);
   });
 }

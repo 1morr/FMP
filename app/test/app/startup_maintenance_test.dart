@@ -72,6 +72,7 @@ void main() {
       appProviderScope(
         overrides: [
           dataDirectoryProvider.overrideWithValue(Directory('/data/fmp-dev')),
+          appFlavorProvider.overrideWithValue(AppFlavor.dev),
           appDatabaseProvider.overrideWithValue(memoryDatabase()),
           redactorProvider.overrideWithValue(Redactor()),
           logProvider.overrideWithValue(log),

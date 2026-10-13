@@ -35,6 +35,10 @@ log.warning(
 - 網址、header、body 片段照原樣放進 `fields` 或 error，交給遮蔽函式；不要為了 log 另寫
   截斷或去 query 的函式（舊專案的 `redactStreamUrl` 就是這種第二條路）。
 - `Log` 實例由 `main()` 建立。之後要在其他模組用，經 provider 或建構子注入，不另建實例。
+- 最低層級（`Log.minimumLevel`）：`main()` 以建置預設 `buildDefaultLogLevel`（debug build 是 debug，其他是 info）建門面，
+  之後由 `FmpApp` 依「開發者」組的生效層級改（ADR 0025 §決定 1）；release 要看 debug 紀錄，在 Debug 頁的概覽把 log 層級改成
+  debug。設定層讀建置預設經 `buildLogLevelProvider`，測試 override 它來驗兩種建置（`flutter test` 永遠是 debug build）。
+  測試自己建的 `Log` 不經 `FmpApp`，層級就是建構時給的。
 
 ## 加一個遮蔽名單項目
 

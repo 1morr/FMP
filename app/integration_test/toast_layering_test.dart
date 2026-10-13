@@ -8,6 +8,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
+import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -22,7 +23,8 @@ import '../test/ui/support/shell_harness.dart';
 // ToastHost 與 MaterialApp 和 App 相同（FmpApp 的 builder），視窗是裝置自己的
 // 大小；插件與播放後端用測試的假實作（不連網、不出聲）。同一組斷言在
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
-// 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9）：
+// 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9；
+// Debug 頁，M3 PR 11）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -113,6 +115,20 @@ void main() {
 
     await expectToastOnTop(tester, h);
     expect(find.text('A full-screen page'), findsOneWidget);
+  });
+
+  // Debug 頁（M3 PR 11）：從設定頁的入口開的全螢幕 route（dev 的開發者模式預設開）。
+  testWidgets('a toast shows above the Debug page', (tester) async {
+    final (h, _) = await pumpShell(tester);
+    // 介面語言跟著機器的系統語言：以圖示找導覽項與入口，不用介面字串。
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.bug_report_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(DebugPage), findsOneWidget);
+
+    await expectToastOnTop(tester, h);
+    expect(find.byType(DebugPage), findsOneWidget);
   });
 
   // 網頁登入（M3 PR 9）：全螢幕頁裡是平台真的 WebView（Android 的系統 WebView、Windows 的

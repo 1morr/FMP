@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§3.1 developer_settings table, §3.3 settings group defaults, §12.1 developer mode, About, Debug route and overview"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §11 checklist"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "Developer mode, Debug page sections, how to verify"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Settings list-detail layout and About section"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change procedure and migration tests"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Settings group and Notifier patterns"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI layer patterns, tokens, slang strings, guideline tests"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform layer for package_info_plus"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Log facade and level handling"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}

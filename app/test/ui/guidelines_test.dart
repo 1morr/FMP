@@ -19,10 +19,12 @@ import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
+import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/settings/about_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
@@ -356,6 +358,45 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(NetworkControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 「關於」與 Debug 頁（M3 PR 11）：dev 的開發者模式預設開，清單最後有 Debug。
+        testWidgets('the about section at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('About'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(AboutSection), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the Debug overview at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Debug'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          // 窄版先是區塊清單：清單本身也要過，再點進概覽。
+          if (size.width < 600) {
+            expect(find.byType(DebugOverview), findsNothing);
+            await expectGuidelines(tester);
+            await tester.tap(find.text('Overview'));
+            await h.loadSettings(tester);
+            await tester.pumpAndSettle();
+          }
+          expect(find.byType(DebugOverview), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

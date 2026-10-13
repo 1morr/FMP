@@ -15,6 +15,7 @@ import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/settings/appearance_settings.dart';
+import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
@@ -51,6 +52,19 @@ class _FmpAppState extends ConsumerState<FmpApp> {
               ),
             },
           );
+    }, fireImmediately: true);
+    // log 層級跟著「開發者」組（ADR 0025 §決定 1）：資料庫的值讀出來之前是 `main()` 給的
+    // 建置預設，之後每次改設定當下生效。改了記一筆，實機對得上是哪個層級。
+    ref.listenManual(developerProvider, (_, next) {
+      final level = next.value?.minimumLogLevel;
+      final log = ref.read(logProvider);
+      if (level == null || level == log.minimumLevel) return;
+      log.minimumLevel = level;
+      log.info(
+        'Log level applied',
+        tag: 'app',
+        fields: {'level': level.wireName},
+      );
     }, fireImmediately: true);
     // 插件的開發入口（只在 dev 有路徑）：啟動時安裝一次。結果寫進 log，裝好
     // 的插件出現在搜尋頁的音源列。

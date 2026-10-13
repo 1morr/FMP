@@ -289,6 +289,7 @@ final class _AppRun {
             return backend;
           }),
           devPluginPathProvider.overrideWithValue(devPlugin),
+          appFlavorProvider.overrideWithValue(AppFlavor.dev),
           // 還沒有插件時搜尋頁的首次引導會讀官方 index：給一份空的，不發請求
           // （這個測試從開發入口與資料庫裝插件，不看引導）。
           indexOutcomeProvider.overrideWith(

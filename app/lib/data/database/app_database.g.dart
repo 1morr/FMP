@@ -5018,6 +5018,416 @@ class SourceSettingsTableCompanion extends UpdateCompanion<SourceSettingsRow> {
   }
 }
 
+class $DeveloperSettingsTableTable extends DeveloperSettingsTable
+    with TableInfo<$DeveloperSettingsTableTable, DeveloperSettingsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DeveloperSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    check: () => id.equals(1),
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _developerModeMeta = const VerificationMeta(
+    'developerMode',
+  );
+  @override
+  late final GeneratedColumn<bool> developerMode = GeneratedColumn<bool>(
+    'developer_mode',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("developer_mode" IN (0, 1))',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<LogLevelSetting?, String>
+  logLevel =
+      GeneratedColumn<String>(
+        'log_level',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<LogLevelSetting?>(
+        $DeveloperSettingsTableTable.$converterlogLeveln,
+      );
+  static const VerificationMeta _pluginDevFolderMeta = const VerificationMeta(
+    'pluginDevFolder',
+  );
+  @override
+  late final GeneratedColumn<String> pluginDevFolder = GeneratedColumn<String>(
+    'plugin_dev_folder',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reportReminderDismissedMeta =
+      const VerificationMeta('reportReminderDismissed');
+  @override
+  late final GeneratedColumn<bool> reportReminderDismissed =
+      GeneratedColumn<bool>(
+        'report_reminder_dismissed',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("report_reminder_dismissed" IN (0, 1))',
+        ),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    developerMode,
+    logLevel,
+    pluginDevFolder,
+    reportReminderDismissed,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'developer_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DeveloperSettingsRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('developer_mode')) {
+      context.handle(
+        _developerModeMeta,
+        developerMode.isAcceptableOrUnknown(
+          data['developer_mode']!,
+          _developerModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('plugin_dev_folder')) {
+      context.handle(
+        _pluginDevFolderMeta,
+        pluginDevFolder.isAcceptableOrUnknown(
+          data['plugin_dev_folder']!,
+          _pluginDevFolderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('report_reminder_dismissed')) {
+      context.handle(
+        _reportReminderDismissedMeta,
+        reportReminderDismissed.isAcceptableOrUnknown(
+          data['report_reminder_dismissed']!,
+          _reportReminderDismissedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DeveloperSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DeveloperSettingsRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      developerMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}developer_mode'],
+      ),
+      logLevel: $DeveloperSettingsTableTable.$converterlogLeveln.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}log_level'],
+        ),
+      ),
+      pluginDevFolder: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plugin_dev_folder'],
+      ),
+      reportReminderDismissed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}report_reminder_dismissed'],
+      ),
+    );
+  }
+
+  @override
+  $DeveloperSettingsTableTable createAlias(String alias) {
+    return $DeveloperSettingsTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<LogLevelSetting, String> $converterlogLevel =
+      const LogLevelSettingConverter();
+  static TypeConverter<LogLevelSetting?, String?> $converterlogLeveln =
+      NullAwareTypeConverter.wrap($converterlogLevel);
+}
+
+class DeveloperSettingsRow extends DataClass
+    implements Insertable<DeveloperSettingsRow> {
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  final int id;
+  final bool? developerMode;
+  final LogLevelSetting? logLevel;
+
+  /// 插件開發資料夾的路徑（ADR 0025 §決定 7，M3 PR 16）。
+  final String? pluginDevFolder;
+
+  /// 「送出前請檢查」不再提醒（ADR 0023 §決定 4、ADR 0025 §決定 10，M3 PR 13）。
+  final bool? reportReminderDismissed;
+  const DeveloperSettingsRow({
+    required this.id,
+    this.developerMode,
+    this.logLevel,
+    this.pluginDevFolder,
+    this.reportReminderDismissed,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || developerMode != null) {
+      map['developer_mode'] = Variable<bool>(developerMode);
+    }
+    if (!nullToAbsent || logLevel != null) {
+      map['log_level'] = Variable<String>(
+        $DeveloperSettingsTableTable.$converterlogLeveln.toSql(logLevel),
+      );
+    }
+    if (!nullToAbsent || pluginDevFolder != null) {
+      map['plugin_dev_folder'] = Variable<String>(pluginDevFolder);
+    }
+    if (!nullToAbsent || reportReminderDismissed != null) {
+      map['report_reminder_dismissed'] = Variable<bool>(
+        reportReminderDismissed,
+      );
+    }
+    return map;
+  }
+
+  DeveloperSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return DeveloperSettingsTableCompanion(
+      id: Value(id),
+      developerMode: developerMode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(developerMode),
+      logLevel: logLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logLevel),
+      pluginDevFolder: pluginDevFolder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluginDevFolder),
+      reportReminderDismissed: reportReminderDismissed == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reportReminderDismissed),
+    );
+  }
+
+  factory DeveloperSettingsRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DeveloperSettingsRow(
+      id: serializer.fromJson<int>(json['id']),
+      developerMode: serializer.fromJson<bool?>(json['developerMode']),
+      logLevel: serializer.fromJson<LogLevelSetting?>(json['logLevel']),
+      pluginDevFolder: serializer.fromJson<String?>(json['pluginDevFolder']),
+      reportReminderDismissed: serializer.fromJson<bool?>(
+        json['reportReminderDismissed'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'developerMode': serializer.toJson<bool?>(developerMode),
+      'logLevel': serializer.toJson<LogLevelSetting?>(logLevel),
+      'pluginDevFolder': serializer.toJson<String?>(pluginDevFolder),
+      'reportReminderDismissed': serializer.toJson<bool?>(
+        reportReminderDismissed,
+      ),
+    };
+  }
+
+  DeveloperSettingsRow copyWith({
+    int? id,
+    Value<bool?> developerMode = const Value.absent(),
+    Value<LogLevelSetting?> logLevel = const Value.absent(),
+    Value<String?> pluginDevFolder = const Value.absent(),
+    Value<bool?> reportReminderDismissed = const Value.absent(),
+  }) => DeveloperSettingsRow(
+    id: id ?? this.id,
+    developerMode: developerMode.present
+        ? developerMode.value
+        : this.developerMode,
+    logLevel: logLevel.present ? logLevel.value : this.logLevel,
+    pluginDevFolder: pluginDevFolder.present
+        ? pluginDevFolder.value
+        : this.pluginDevFolder,
+    reportReminderDismissed: reportReminderDismissed.present
+        ? reportReminderDismissed.value
+        : this.reportReminderDismissed,
+  );
+  DeveloperSettingsRow copyWithCompanion(DeveloperSettingsTableCompanion data) {
+    return DeveloperSettingsRow(
+      id: data.id.present ? data.id.value : this.id,
+      developerMode: data.developerMode.present
+          ? data.developerMode.value
+          : this.developerMode,
+      logLevel: data.logLevel.present ? data.logLevel.value : this.logLevel,
+      pluginDevFolder: data.pluginDevFolder.present
+          ? data.pluginDevFolder.value
+          : this.pluginDevFolder,
+      reportReminderDismissed: data.reportReminderDismissed.present
+          ? data.reportReminderDismissed.value
+          : this.reportReminderDismissed,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DeveloperSettingsRow(')
+          ..write('id: $id, ')
+          ..write('developerMode: $developerMode, ')
+          ..write('logLevel: $logLevel, ')
+          ..write('pluginDevFolder: $pluginDevFolder, ')
+          ..write('reportReminderDismissed: $reportReminderDismissed')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    developerMode,
+    logLevel,
+    pluginDevFolder,
+    reportReminderDismissed,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DeveloperSettingsRow &&
+          other.id == this.id &&
+          other.developerMode == this.developerMode &&
+          other.logLevel == this.logLevel &&
+          other.pluginDevFolder == this.pluginDevFolder &&
+          other.reportReminderDismissed == this.reportReminderDismissed);
+}
+
+class DeveloperSettingsTableCompanion
+    extends UpdateCompanion<DeveloperSettingsRow> {
+  final Value<int> id;
+  final Value<bool?> developerMode;
+  final Value<LogLevelSetting?> logLevel;
+  final Value<String?> pluginDevFolder;
+  final Value<bool?> reportReminderDismissed;
+  const DeveloperSettingsTableCompanion({
+    this.id = const Value.absent(),
+    this.developerMode = const Value.absent(),
+    this.logLevel = const Value.absent(),
+    this.pluginDevFolder = const Value.absent(),
+    this.reportReminderDismissed = const Value.absent(),
+  });
+  DeveloperSettingsTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.developerMode = const Value.absent(),
+    this.logLevel = const Value.absent(),
+    this.pluginDevFolder = const Value.absent(),
+    this.reportReminderDismissed = const Value.absent(),
+  });
+  static Insertable<DeveloperSettingsRow> custom({
+    Expression<int>? id,
+    Expression<bool>? developerMode,
+    Expression<String>? logLevel,
+    Expression<String>? pluginDevFolder,
+    Expression<bool>? reportReminderDismissed,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (developerMode != null) 'developer_mode': developerMode,
+      if (logLevel != null) 'log_level': logLevel,
+      if (pluginDevFolder != null) 'plugin_dev_folder': pluginDevFolder,
+      if (reportReminderDismissed != null)
+        'report_reminder_dismissed': reportReminderDismissed,
+    });
+  }
+
+  DeveloperSettingsTableCompanion copyWith({
+    Value<int>? id,
+    Value<bool?>? developerMode,
+    Value<LogLevelSetting?>? logLevel,
+    Value<String?>? pluginDevFolder,
+    Value<bool?>? reportReminderDismissed,
+  }) {
+    return DeveloperSettingsTableCompanion(
+      id: id ?? this.id,
+      developerMode: developerMode ?? this.developerMode,
+      logLevel: logLevel ?? this.logLevel,
+      pluginDevFolder: pluginDevFolder ?? this.pluginDevFolder,
+      reportReminderDismissed:
+          reportReminderDismissed ?? this.reportReminderDismissed,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (developerMode.present) {
+      map['developer_mode'] = Variable<bool>(developerMode.value);
+    }
+    if (logLevel.present) {
+      map['log_level'] = Variable<String>(
+        $DeveloperSettingsTableTable.$converterlogLeveln.toSql(logLevel.value),
+      );
+    }
+    if (pluginDevFolder.present) {
+      map['plugin_dev_folder'] = Variable<String>(pluginDevFolder.value);
+    }
+    if (reportReminderDismissed.present) {
+      map['report_reminder_dismissed'] = Variable<bool>(
+        reportReminderDismissed.value,
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DeveloperSettingsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('developerMode: $developerMode, ')
+          ..write('logLevel: $logLevel, ')
+          ..write('pluginDevFolder: $pluginDevFolder, ')
+          ..write('reportReminderDismissed: $reportReminderDismissed')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5048,6 +5458,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTableTable accountsTable = $AccountsTableTable(this);
   late final $SourceSettingsTableTable sourceSettingsTable =
       $SourceSettingsTableTable(this);
+  late final $DeveloperSettingsTableTable developerSettingsTable =
+      $DeveloperSettingsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -5078,6 +5490,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     layoutStateTable,
     accountsTable,
     sourceSettingsTable,
+    developerSettingsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -8654,6 +9067,238 @@ typedef $$SourceSettingsTableTableProcessedTableManager =
       SourceSettingsRow,
       PrefetchHooks Function()
     >;
+typedef $$DeveloperSettingsTableTableCreateCompanionBuilder =
+    DeveloperSettingsTableCompanion Function({
+      Value<int> id,
+      Value<bool?> developerMode,
+      Value<LogLevelSetting?> logLevel,
+      Value<String?> pluginDevFolder,
+      Value<bool?> reportReminderDismissed,
+    });
+typedef $$DeveloperSettingsTableTableUpdateCompanionBuilder =
+    DeveloperSettingsTableCompanion Function({
+      Value<int> id,
+      Value<bool?> developerMode,
+      Value<LogLevelSetting?> logLevel,
+      Value<String?> pluginDevFolder,
+      Value<bool?> reportReminderDismissed,
+    });
+
+class $$DeveloperSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $DeveloperSettingsTableTable> {
+  $$DeveloperSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get developerMode => $composableBuilder(
+    column: $table.developerMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<LogLevelSetting?, LogLevelSetting, String>
+  get logLevel => $composableBuilder(
+    column: $table.logLevel,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get pluginDevFolder => $composableBuilder(
+    column: $table.pluginDevFolder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reportReminderDismissed => $composableBuilder(
+    column: $table.reportReminderDismissed,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DeveloperSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $DeveloperSettingsTableTable> {
+  $$DeveloperSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get developerMode => $composableBuilder(
+    column: $table.developerMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logLevel => $composableBuilder(
+    column: $table.logLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluginDevFolder => $composableBuilder(
+    column: $table.pluginDevFolder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reportReminderDismissed => $composableBuilder(
+    column: $table.reportReminderDismissed,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DeveloperSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DeveloperSettingsTableTable> {
+  $$DeveloperSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get developerMode => $composableBuilder(
+    column: $table.developerMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<LogLevelSetting?, String> get logLevel =>
+      $composableBuilder(column: $table.logLevel, builder: (column) => column);
+
+  GeneratedColumn<String> get pluginDevFolder => $composableBuilder(
+    column: $table.pluginDevFolder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reportReminderDismissed => $composableBuilder(
+    column: $table.reportReminderDismissed,
+    builder: (column) => column,
+  );
+}
+
+class $$DeveloperSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DeveloperSettingsTableTable,
+          DeveloperSettingsRow,
+          $$DeveloperSettingsTableTableFilterComposer,
+          $$DeveloperSettingsTableTableOrderingComposer,
+          $$DeveloperSettingsTableTableAnnotationComposer,
+          $$DeveloperSettingsTableTableCreateCompanionBuilder,
+          $$DeveloperSettingsTableTableUpdateCompanionBuilder,
+          (
+            DeveloperSettingsRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DeveloperSettingsTableTable,
+              DeveloperSettingsRow
+            >,
+          ),
+          DeveloperSettingsRow,
+          PrefetchHooks Function()
+        > {
+  $$DeveloperSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $DeveloperSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DeveloperSettingsTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$DeveloperSettingsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DeveloperSettingsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool?> developerMode = const Value.absent(),
+                Value<LogLevelSetting?> logLevel = const Value.absent(),
+                Value<String?> pluginDevFolder = const Value.absent(),
+                Value<bool?> reportReminderDismissed = const Value.absent(),
+              }) => DeveloperSettingsTableCompanion(
+                id: id,
+                developerMode: developerMode,
+                logLevel: logLevel,
+                pluginDevFolder: pluginDevFolder,
+                reportReminderDismissed: reportReminderDismissed,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool?> developerMode = const Value.absent(),
+                Value<LogLevelSetting?> logLevel = const Value.absent(),
+                Value<String?> pluginDevFolder = const Value.absent(),
+                Value<bool?> reportReminderDismissed = const Value.absent(),
+              }) => DeveloperSettingsTableCompanion.insert(
+                id: id,
+                developerMode: developerMode,
+                logLevel: logLevel,
+                pluginDevFolder: pluginDevFolder,
+                reportReminderDismissed: reportReminderDismissed,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $DeveloperSettingsTableTable,
+                    DeveloperSettingsRow
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $DeveloperSettingsTableTable,
+                    DeveloperSettingsRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DeveloperSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DeveloperSettingsTableTable,
+      DeveloperSettingsRow,
+      $$DeveloperSettingsTableTableFilterComposer,
+      $$DeveloperSettingsTableTableOrderingComposer,
+      $$DeveloperSettingsTableTableAnnotationComposer,
+      $$DeveloperSettingsTableTableCreateCompanionBuilder,
+      $$DeveloperSettingsTableTableUpdateCompanionBuilder,
+      (
+        DeveloperSettingsRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DeveloperSettingsTableTable,
+          DeveloperSettingsRow
+        >,
+      ),
+      DeveloperSettingsRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8687,4 +9332,9 @@ class $AppDatabaseManager {
       $$AccountsTableTableTableManager(_db, _db.accountsTable);
   $$SourceSettingsTableTableTableManager get sourceSettingsTable =>
       $$SourceSettingsTableTableTableManager(_db, _db.sourceSettingsTable);
+  $$DeveloperSettingsTableTableTableManager get developerSettingsTable =>
+      $$DeveloperSettingsTableTableTableManager(
+        _db,
+        _db.developerSettingsTable,
+      );
 }

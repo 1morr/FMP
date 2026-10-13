@@ -70,7 +70,34 @@
     "network": "網路",
     "back": "返回",
     "playback": "播放",
-    "plugins": "插件"
+    "plugins": "插件",
+    "about": "關於",
+    "debug": "Debug"
+  },
+  "about": {
+    "version": "版本",
+    "versionValue": "{version}（{flavor}）",
+    "tapsLeft": "再點 {count} 次即可開啟開發者模式",
+    "developerModeOn": "已開啟開發者模式",
+    "alreadyDeveloper": "開發者模式已經開啟"
+  },
+  "debug": {
+    "title": "Debug",
+    "overview": "概覽",
+    "developerMode": "開發者模式",
+    "developerModeHint": "關閉後設定頁不再顯示 Debug，log 層級回到預設",
+    "logLevel": "Log 層級",
+    "logLevelInfo": "info",
+    "logLevelDebug": "debug",
+    "logLevelDebugHint": "多記下細節，log 檔也會變大",
+    "logLevelDefault": "{level}（預設）",
+    "app": "App",
+    "version": "版本",
+    "flavor": "Flavor",
+    "platform": "平台",
+    "dataDirectory": "資料目錄",
+    "cacheUsage": "快取用量",
+    "cacheUsageValue": "{size}，在「設定 → 網路」管理"
   },
   "player": {
     "play": "播放",

@@ -268,6 +268,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   在搜尋再按一次 App 退到背景，`logcat -b events` 沒有 `wm_finish_activity`，從桌面圖示回來時沒有新的
   `App started`、搜尋字與分頁都在；播放中按返回音樂繼續。
 
+- 版本號與平台名稱（`lib/platform/app_info/`，M3 design §12.1）：`AppPlatform.appInfo`，Android 與 Windows 共用
+  `PackageInfoAppInfo`（`package_info_plus`；Windows 端是 FFI 讀執行檔的 `ProductVersion`，沒有原生的 plugin registrant）。
+  不是能力宣告：沒有畫面依它決定入口，只有能跑主 App 的平台有，`main()` 在 `runApp` 之前讀一次、以 `appInfoProvider`
+  注入。`homeDirectory`（Windows 是 `USERPROFILE`，Android 為空：沙盒路徑不含使用者名稱）給畫面把資料目錄顯示成
+  `~\…`（`homeRelativePath`）。閘門：`platform_test.dart`（兩個平台的實作、平台名稱與家目錄，未驗證平台為空）、
+  `app_info_test.dart`（以套件的 `setMockInitialValues` 讀版本）；真的版本號只能實機看（「關於」的版本列）。
+
 - 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android 與 Windows 共用一個實作
   `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。目前只有
   `pickFile(extension:)`（插件頁的「從檔案安裝」），存檔與選資料夾跟著 PR 15、16 加。副檔名只是篩選：Android
@@ -388,6 +395,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   v7→v8 資料完整性與 `migration from v<N> to v8 adds the account schema`（v1–v7 各一例）、
   `a new database has the account schema`、`account_repository_test.dart`（含 `stored format…`）。移除插件時
   兩張表都清掉的閘門是 `plugin_installer_test.dart` 的 `removing` 群組。
+- `developer_settings` 是 schema v9（ADR 0025 §決定 1、M3 design §3.3）：「開發者」組，單列、四欄全可空，一次建好
+  （`plugin_dev_folder` 在 PR 16、`report_reminder_dismissed` 在 PR 13 才有人讀寫）。`log_level` 存 `debug`／`info`
+  （與 log 檔的層級字串相同，寫在 `LogLevelSettingConverter`）。新表升級後是空的。閘門：`migration_test.dart` 的 v8→v9
+  資料完整性與 `migration from v<N> to v9 adds the developer settings`（v1–v8 各一例：單列、四欄為空）、`a new database
+  has the developer settings`、`developer_settings_repository_test.dart`（`stored format`、只寫給的欄位、`clear`）。
 
 ### 快取庫
 
@@ -468,7 +480,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 開好的資料庫（`appDatabaseProvider`，`lib/data/providers.dart`）、資料目錄
   （`dataDirectoryProvider`，`lib/platform/app_data_directory/`）、網路介面
   （`networkInterfacesProvider`，`lib/platform/connectivity/`）與快取目錄
-  （`cacheDirectoryProvider`，`lib/platform/cache_directory/`）只由 `main()` 以
+  （`cacheDirectoryProvider`，`lib/platform/cache_directory/`）、flavor（`appFlavorProvider`，`lib/core/core_providers.dart`）
+  與版本號（`appInfoProvider`，`lib/platform/app_info/`）只由 `main()` 以
   `overrides` 注入；沒 override 就讀會拋錯。快取庫不由 `main()` 開，見「快取庫」。測試照樣
   override（記憶體資料庫、`test/support/fake_network_interfaces.dart`；不看介面的整合測試給
   `null`）。
@@ -495,7 +508,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`test/core/logging/log_record_test.dart` 的 `stored format`、`log_file_test.dart`。
 - 寫檔失敗不拋出、不影響 App，次數與最後一個錯誤留在 `LogFile.failureCount`／
   `lastFailure`。沒有資料目錄的平台只有記憶體歷史。
-- 層級：debug build 為 `debug`，profile／release 為 `info`；console 只在 debug build。
+- 層級：建置的預設是 debug build 為 `debug`、profile／release 為 `info`（`buildDefaultLogLevel`，ADR 0011 §決定 2），
+  `main()` 以它建門面；之後跟著「開發者」組的生效層級（見「設定」）：`FmpApp` 監看 `developerProvider`、把
+  `Log.minimumLevel` 改成生效的層級（改了記一筆 `Log level applied`）。閘門：`fmp_app_test.dart` 的 `the log level setting
+  decides whether debug records reach the history`（建置固定為 release：預設 info、debug 進歷史、改回 info 與關掉開發者模式
+  後不進）與 `in a debug build debug records reach the history by default, also with developer mode off`。console 只在
+  debug build。
   未捕捉的錯誤（`FlutterError.onError`、`PlatformDispatcher.onError`）經門面以 `error`
   寫入；是 `AppError` 的改走 `log.report`（才寫得出原因），以 `level` 參數固定為
   `error`，不依 `expected`（沒人接就是沒處理）。`level` 只給這裡用，處理過的錯誤不傳。
@@ -1351,6 +1369,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的 v2→v3 兩例、`test/ui/settings/playback_controls_test.dart`（含兩列倒退秒數各寫各的欄位、
   沒記住位置時兩列都停用、`choosing a play history limit writes only that field`、`the scroll switch…`）、`playback_settings_test.dart`
   的 `lowering the play history limit trims the history right away`。
+- 「開發者」組（`developer_settings`，ADR 0025 §決定 1、M3 design §3.3）：開發者模式沒設定過時 dev flavor 開、prod 關
+  （預設讀 `appFlavorProvider`）；log 層級的生效值是「開發者模式開著 → 存的值，沒存過是建置預設；關著 → 建置預設」，存的值
+  不動。建置預設讀 `buildLogLevelProvider`（debug build 是 debug，其他是 info；App 不 override，測試一律 override，因為
+  `flutter test` 永遠是 debug build）。關閉開發者
+  模式是**一筆寫入**（`DeveloperSettingsRepository.turnOffDeveloperMode`：`developer_mode` 假、`log_level` 與
+  `plugin_dev_folder` 清空），監看的一方看不到「模式關了、層級仍是 debug」的中間值；開啟只寫 `developer_mode`。卸載
+  開發中插件的那一半在 PR 16。閘門：`test/settings/developer_settings_test.dart`（兩個 flavor 的預設、使用者值優先、關著時
+  層級是 info、開啟只寫一欄、關閉的下一個值就全部清掉、層級的 setter 只寫一欄與清回）、
+  `developer_settings_repository_test.dart` 的 `turning developer mode off` 群組（`is a single write`）；兩種建置的預設與生效值：
+  `developer_settings_test.dart` 的 `an unset log level is the build default…`、`the stored log level counts only while developer
+  mode is on…`、`in a debug build the notifier defaults to debug`。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、
@@ -1395,7 +1424,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
 - 設定頁的區塊（`SettingsSection`）：第一個是「帳號」，之後外觀、播放、網路是 ADR 0011 的設定組（design §9.8 的順序），
-  最後是「插件」（帳號與插件不是設定表，M3 design §6.7）；關於（最後一個）在 PR 11 才加，之前不放空殼。帳號頁與插件頁
+  之後是「插件」、最後是「關於」（帳號、插件、關於不是設定表，M3 design §6.7）；開發者模式下清單最後多一列 Debug，它開 Debug 頁
+  （另一個 route），不是區塊。清單本身會捲動（七列在矮的視窗放不下）。帳號頁與插件頁
   自己有捲動的清單（或置中的空狀態），所以不包在設定組那個捲動的欄裡，填滿右側（窄版是點進去的那一頁）。寬版預設選的是
   帳號。閘門：`settings_page_test.dart` 的 `… accounts come first, plugins after network and open the plugin page`
   （1000、400 寬）、`expanded and wider: groups on the left…`。
@@ -1445,7 +1475,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組）、插件頁（已安裝、可安裝、安裝的
+  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -1478,6 +1508,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `online but unreadable…`。
   - 管理插件庫：官方的一列不能刪；加入先提示「非官方來源」，只收 `https`（`parseHttpsUrl`：有主機、沒有 user info），已在
     清單上的（含官方的）不重複加。閘門：`repositories`、`repositories already listed` 群組、`only https URLs…`。
+- 「關於」（`lib/ui/settings/about_section.dart`，ADR 0024 §決定 9，M3 只有版本列）：版本列是「版本號（flavor）」，連點 7 次
+  開啟開發者模式（ADR 0025 §決定 1）：第 2 次起 `Toaster.info`「再點 n 次…」、第 7 次寫入後「已開啟」，已經開著時每次點都
+  說已開啟；計數在這個區塊被換掉或外殼換到別的分頁（`visible` 變假）時歸零。設定還沒讀出來時不計數。提示照常經 5 秒去重：
+  離開又回來後 5 秒內的同一則不會再出現。閘門：`about_section_test.dart`（7 次與每則提示、只寫 `developer_mode`、離開區塊與
+  離開設定頁都歸零、dev 預設開）。
+- Debug 頁（`lib/ui/debug/`，ADR 0025 §決定 1、2，M3 design §12.1）：
+  - 入口只有設定頁清單最後那一列，`openDebugPage` 推一般的 `MaterialPageRoute`（標題列有返回鈕、不是 fullscreenDialog）；
+    是全螢幕 route，所以進 `toast_layering_test.dart`。不在外殼底下：播放類快捷鍵在這一頁不作用（沒有包 `PlaybackShortcuts`）。
+  - 路由閘門：`developerProvider` 讀到關著（或讀取失敗）時頁面不顯示任何工具，並在那一幀之後關掉自己（最上層就 pop，
+    被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
+    `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
+  - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
+    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在只有概覽。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
+    閘門：`debug_page_test.dart` 的 `layout` 群組。
+  - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
+    （家目錄換成 `~`，`homeRelativePath`：不分大小寫、只比對整段目錄名稱）、快取用量（各類加總）的連結：先 pop 這一頁再經
+    `SettingsBack.show(network)` 選設定頁的「網路」。閘門：`debug_page_test.dart` 的 `the overview`（含 release 與 debug build 的預設標示）、`homeRelativePath` 群組。
 - 首次啟動引導（`lib/ui/plugins/plugin_onboarding.dart`，ADR 0030 §決定 12，M3 design §7.6）：
   - 觸發：搜尋頁的 `searchSourcesProvider` 是空的（沒有已啟用、能搜尋、可用的插件）而且使用者沒按「稍後再說」；dev flavor
     的 `fmp-test` 有 `search`，所以不出現，不另判 flavor。引導讀官方 index（`indexOutcomeProvider(officialPluginIndexUrl)`，與

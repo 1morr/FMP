@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
+import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
+import 'package:fmp/ui/settings/about_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
@@ -12,14 +17,16 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 設定頁的區塊，依清單上的順序（M3 design §6.7）。外觀、播放、網路是 ADR 0011 的
-/// 設定組；帳號與插件不是設定表，是帳號頁（ADR 0029 §決定 8）與插件頁（ADR 0030
-/// §決定 11），同樣以 list-detail 呈現。關於（最後一個）跟著實作它的 PR 加。
+/// 設定組；帳號、插件、關於不是設定表，是帳號頁（ADR 0029 §決定 8）、插件頁（ADR 0030
+/// §決定 11）與版本列（ADR 0024 §決定 9），同樣以 list-detail 呈現。開發者模式下清單最後
+/// 多一列 Debug：它開另一個 route（Debug 頁），不是區塊。
 enum SettingsSection {
   accounts(Icons.account_circle_outlined),
   appearance(Icons.palette_outlined),
   playback(Icons.play_circle_outline),
   network(Icons.public),
-  plugins(Icons.extension_outlined);
+  plugins(Icons.extension_outlined),
+  about(Icons.info_outline);
 
   const SettingsSection(this.icon);
 
@@ -104,7 +111,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SettingsSection.playback => t.playback,
       SettingsSection.network => t.network,
       SettingsSection.plugins => t.plugins,
+      SettingsSection.about => t.about,
     };
+    final developerMode =
+        ref.watch(developerProvider).value?.developerMode ?? false;
     Widget header(Widget? leading, String text, TextStyle? style) => Padding(
       padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
       child: Row(
@@ -117,8 +127,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
     final title = header(null, t.title, theme.textTheme.headlineSmall);
-    Widget list(SettingsSection? selected) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // 清單會捲動：開發者模式下有七列，矮的視窗（橫向的手機）放不下。
+    Widget list(SettingsSection? selected) => ListView(
       children: [
         title,
         SizedBox(height: spacing.x2),
@@ -128,6 +138,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             title: Text(name(group)),
             selected: group == selected,
             onTap: () => setState(() => _selected = group),
+          ),
+        if (developerMode)
+          ListTile(
+            leading: const Icon(Icons.bug_report_outlined),
+            title: Text(t.debug),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => unawaited(
+              openDebugPage(
+                context,
+                // 外殼的 SettingsBack 指向目前的 State：Debug 頁開著時這一頁可能換位置重建。
+                onShowCacheSettings: () =>
+                    widget.back.show(SettingsSection.network),
+              ),
+            ),
           ),
       ],
     );
@@ -194,6 +218,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           SettingsSection.network => scrolling(
             group,
             const NetworkControls(),
+            heading: heading,
+          ),
+          SettingsSection.about => scrolling(
+            group,
+            AboutSection(visible: widget.visible),
             heading: heading,
           ),
         };

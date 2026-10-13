@@ -29,7 +29,8 @@
     "10-09-m3-login",
     "10-09-m3-web-login",
     "10-09-m3-refresh",
-    "10-10-m3a-acceptance"
+    "10-10-m3a-acceptance",
+    "10-13-m3-developer-mode"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

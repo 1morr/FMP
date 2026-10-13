@@ -55,6 +55,12 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$offline$zh_TW.internal(_root);
   late final Translations$settings$zh_TW settings =
       Translations$settings$zh_TW.internal(_root);
+  late final Translations$about$zh_TW about = Translations$about$zh_TW.internal(
+    _root,
+  );
+  late final Translations$debug$zh_TW debug = Translations$debug$zh_TW.internal(
+    _root,
+  );
   late final Translations$player$zh_TW player =
       Translations$player$zh_TW.internal(_root);
   late final Translations$playerPage$zh_TW playerPage =
@@ -313,6 +319,94 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: '插件'
   String get plugins => '插件';
+
+  /// zh-TW: '關於'
+  String get about => '關於';
+
+  /// zh-TW: 'Debug'
+  String get debug => 'Debug';
+}
+
+// Path: about
+class Translations$about$zh_TW {
+  Translations$about$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '版本'
+  String get version => '版本';
+
+  /// zh-TW: '{version}（{flavor}）'
+  String versionValue({required Object version, required Object flavor}) =>
+      '${version}（${flavor}）';
+
+  /// zh-TW: '再點 {count} 次即可開啟開發者模式'
+  String tapsLeft({required Object count}) => '再點 ${count} 次即可開啟開發者模式';
+
+  /// zh-TW: '已開啟開發者模式'
+  String get developerModeOn => '已開啟開發者模式';
+
+  /// zh-TW: '開發者模式已經開啟'
+  String get alreadyDeveloper => '開發者模式已經開啟';
+}
+
+// Path: debug
+class Translations$debug$zh_TW {
+  Translations$debug$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: 'Debug'
+  String get title => 'Debug';
+
+  /// zh-TW: '概覽'
+  String get overview => '概覽';
+
+  /// zh-TW: '開發者模式'
+  String get developerMode => '開發者模式';
+
+  /// zh-TW: '關閉後設定頁不再顯示 Debug，log 層級回到預設'
+  String get developerModeHint => '關閉後設定頁不再顯示 Debug，log 層級回到預設';
+
+  /// zh-TW: 'Log 層級'
+  String get logLevel => 'Log 層級';
+
+  /// zh-TW: 'info'
+  String get logLevelInfo => 'info';
+
+  /// zh-TW: 'debug'
+  String get logLevelDebug => 'debug';
+
+  /// zh-TW: '多記下細節，log 檔也會變大'
+  String get logLevelDebugHint => '多記下細節，log 檔也會變大';
+
+  /// zh-TW: '{level}（預設）'
+  String logLevelDefault({required Object level}) => '${level}（預設）';
+
+  /// zh-TW: 'App'
+  String get app => 'App';
+
+  /// zh-TW: '版本'
+  String get version => '版本';
+
+  /// zh-TW: 'Flavor'
+  String get flavor => 'Flavor';
+
+  /// zh-TW: '平台'
+  String get platform => '平台';
+
+  /// zh-TW: '資料目錄'
+  String get dataDirectory => '資料目錄';
+
+  /// zh-TW: '快取用量'
+  String get cacheUsage => '快取用量';
+
+  /// zh-TW: '{size}，在「設定 → 網路」管理'
+  String cacheUsageValue({required Object size}) => '${size}，在「設定 → 網路」管理';
 }
 
 // Path: player

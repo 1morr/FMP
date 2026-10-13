@@ -24,7 +24,8 @@ lib/ui/
                        # now_playing_panel（右側面板、把手、面板寬度規則）
   search/              # 搜尋頁、searchProvider、音源 chip 列
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
-  settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項
+  settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
+  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（目前是概覽）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails、
                        # 可編輯的佇列（QueueView：分頁與底部面板共用）
@@ -227,6 +228,21 @@ try {
   `Tooltip` 的 `message`（名稱在 `Semantics`，`find.byTooltip` 找不到）；拖曳用 `TestGesture`（把手用
   `DragStartBehavior.down`，位移就是寬度變化）；寫入次數用 `tableUpdates` 的通知數（`now_playing_panel_test.dart` 的
   `_countWrites`）；資料庫要真的事件迴圈（`_store`、`_stored` 包 `runAsync`），寫入加 stream 回來要兩次 `loadSettings`。
+
+## Debug 頁
+
+規則與閘門見 `app/AGENTS.md` § 介面的「Debug 頁」；ADR 0025 §決定 1、2，M3 design §12.1。
+
+- 加一個區塊（M3 PR 12 起各加一個）：`DebugSection` 依 ADR 0025 §決定 2 表上的順序加一個值與圖示，`_name` 與 `_body` 的
+  `detail` 兩個 `switch` 會指出要補的地方（名稱放 `debug.*`，三個語言）；區塊的 widget 放 `lib/ui/debug/`。只在某些平台有的
+  區塊（插件開發）讀 `platformCapabilitiesProvider` 決定列不列出。新的區塊加進 guideline 測試的 `the Debug overview at …` 旁邊。
+- 區塊內容放在 `detail` 那個捲動的欄裡；自己有捲動清單的區塊（之後的 Log、網路）照設定頁 `filling` 的寫法改成填滿高度。
+- 要離開 Debug 頁去設定頁的某一組時，照概覽的快取用量：先 `Navigator.pop` 這一頁，再呼叫設定頁給的 callback（它經外殼的
+  `SettingsBack.show` 選組，Debug 頁開著期間設定頁換位置重建也找得到）。
+- 測試：`ShellHarness(flavor: …, buildLogLevel: …)`（dev 的開發者模式預設開；要關著用 `AppFlavor.prod`，或先寫
+  `developerSettingsRepositoryProvider`；建置模式預設固定為 release 的 info，要看 debug build 給 `LogLevelSetting.debug`），
+  開設定頁後點清單的「Debug」列；Debug 頁看整個視窗的寬度（不受面板影響）。概覽讀的 `appInfoProvider`、`dataDirectoryProvider`
+  由 harness 給（家目錄 `/home/tester`）。提示會去重 5 秒：測「離開後重新計數」這類同一則提示要再出現的，先 `pump` 過 6 秒。
 
 ## 插件頁
 

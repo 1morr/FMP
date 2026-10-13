@@ -2,9 +2,10 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v8（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// Schema v9（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
 // queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
-// installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8））。
+// installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
+// developer_settings（v9））。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -300,4 +301,28 @@ class SourceSettingsTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {pluginId};
+}
+
+/// 「開發者」設定，單列（ADR 0025 §決定 1、M3 design §3.3）。欄位為空＝使用者沒設定過，
+/// 預設只在 Notifier 套用。四個欄位在 M3 PR 11 一次建好，setter 跟著用到它的 PR 加。
+@DataClassName('DeveloperSettingsRow')
+class DeveloperSettingsTable extends Table {
+  @override
+  String get tableName => 'developer_settings';
+
+  /// 固定為 1；CHECK 讓第二列插不進去。
+  late final IntColumn id = integer().check(id.equals(1))();
+  late final developerMode = boolean().nullable()();
+  late final logLevel = text().nullable().map(
+    const LogLevelSettingConverter(),
+  )();
+
+  /// 插件開發資料夾的路徑（ADR 0025 §決定 7，M3 PR 16）。
+  late final pluginDevFolder = text().nullable()();
+
+  /// 「送出前請檢查」不再提醒（ADR 0023 §決定 4、ADR 0025 §決定 10，M3 PR 13）。
+  late final reportReminderDismissed = boolean().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 }

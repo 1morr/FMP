@@ -14,7 +14,7 @@
   - CI 彙總 job `CI Result` 通過；
   - PR 描述附 review 指南；動到 `fmp-plugins` 的附該 repo 的 PR 連結。
 - **實機驗證**（ADR 0027，design §1.3）：
-  - 使用者看得到的 PR 在 Android 模擬器與 Windows 都照 `verify-on-device` skill 驗，回報寫明平台與模式。
+  - 使用者看得到的 PR 照 `verify-on-device` skill 在 Android 模擬器驗；改到平台各自實作的（ADR 0027 §決定 3 的 2026-10-13 修訂）再驗 Windows。回報寫明平台與模式。
   - 預設重播（dev flavor＋測試插件 `fmp-test`）；`fmp-test` 隨各 PR 加 `login`、`live`、`mix`、`multiPart`、`trackDetail` 的假實作與關鍵字（寫進它的 README），讓 UI 能以重播驗。
   - 改動本身是插件、網路層、登入，或在錄 fixture 時才用真實連線，只做最少的操作，不批次、不迴圈。
 - **真實帳號與真實連線**（決定 2）：
@@ -43,24 +43,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-10）：規劃已核准（ADR 0028–0031 已採納）；R1 通過。
-- **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3。
-- **已合併進 `main`**：PR 0（#220）；PR 1 的 FMP 端（#221）；PR 2 的 FMP 端（#222）與 fmp-plugins#5（網易）；PR 4（#223，schema v7）；PR 3 的 FMP 端（#224）與 fmp-plugins#6（index、CI、B 站 1.0.0、網易 1.0.1；`FMP_REF`＝`fcb52d28`；Version Bump 會紅已在 `214e01c` 證明並 revert；raw `index.json` 可讀、SHA 相符）；PR 7（#225，schema v8；secure storage 整合測試兩平台通過）。
-- **進行中**（M3a 的實作 PR 全部開了，都在等擁有者）：
-  - **FMP 的 stacked PR**（每個都 opus 審過、Android 重播實測通過；只有 base `main` 的 #226 跑 CI，其餘改 base 後才跑）：
-    - #226 PR 5 插件頁（`feat/m3-plugin-page`，CI 綠；更新流程已實測）
-    - #227 PR 6 首次引導（`feat/m3-onboarding`）
-    - #228 PR 8 登入、QR、帳號區塊（`feat/m3-login`）
-    - #229 PR 9 網頁登入、貼上 cookie（`feat/m3-web-login`；Linux 以 stub 取代 `flutter_inappwebview_linux`，Linux 建置要等 CI）
-    - #230 PR 10 失效與刷新（`feat/m3-refresh`）
-    - 任務 `10-09-m3-plugin-page`、`-onboarding`、`-login`、`-web-login`、`-refresh` 都還沒封存：各自合併前封存。
-  - **fmp-plugins**：#7（draft，`feat/login-qr`：B 站、網易 QR 登入 1.1.0）→ #8（draft，`feat/login-refresh`，base `feat/login-qr`：B 站刷新、判定表 1.2.0）；#4（draft，`feat/youtube`：播放＋登入，到 `df0d756`，worktree `../fmp-plugins-yt`）。三個插件對 `feat/m3-refresh` 的契約重播都過。FMP 那串合併後：`FMP_REF` 改新 main、轉正式 PR、等 CI。
-  - **合併順序**：#226 → #227 → #228 → #229 → #230（每個合併後下一個改 base 到 `main`、等 CI 綠）→ fmp-plugins #7 → #8 → #4。
-  - **YouTube 播放**（2026-10-10 Windows 真實，擁有者的 Google 測試帳號）：先前的 403 與機器人標記沒再出現；登入後 player 回 400 是 VISIONOS 不收瀏覽器 cookie，#4 改成 player 請求不帶憑證（`df0d756` 為止），登入只影響搜尋與帳號資訊。收 cookie 的 client（`WEB_EMBEDDED`、`TV`）目前被 YouTube 拒絕，原型在 fmp-plugins 分支 `wip/youtube-cookie-clients`（不合併）。細節在 #4 的描述。
-- **Windows 已實測**（擁有者同意自動化）：首次引導、從檔案安裝；B 站、網易真實 QR 登入、帶憑證搜尋、開關、登出；B 站啟動刷新（`unchanged`）；YouTube 網頁登入、登入中搜尋與播放、貼上 cookie 登入與帶憑證搜尋、登出（WebView cookie 見「PR 9 留下的」第 8 條；改成清全部後 14 → 0）；Android：YouTube 網頁登入、帶憑證搜尋、登出後 WebView 50 → 0；`toast_layering_test.dart` 兩平台 4／4；`fmp-test` 的 `expired`（刷新後成功、帳號頁「已更新憑證」）與 `expired-hard`（已失效、提示附「登入」、點了到帳號頁）。
-- **等擁有者的實機與真實操作**：`86095` 等刷新碼的實際行為（要等憑證真的過期，不擋合併）。其餘實機項目都做完了，下一步是依合併順序合併。
-- **待擁有者回覆**：無（secret scanning 警告擁有者已手動關閉；PR 5 的暫時分支已同意並用完刪除）。
-- **下一步**：擁有者回來後依上面的實機清單驗證、依合併順序合併，然後 M3a 驗收（本檔「M3a 驗收」）；M3b（PR 11 起）在 M3a 驗收合併後才開。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b 開工：PR 11（子任務 `10-13-m3-developer-mode`，分支 `feat/app-developer-mode`）。
+- **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
+- **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
+- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -76,7 +62,7 @@
      - `dart analyze --fatal-infos`、`flutter analyze`、`flutter test`
      - `dart run tool/lint_sentinel.dart`（動到 lint 時）
      - 需要時建置（`flutter build apk --flavor dev --debug`、`flutter build windows --flavor dev`）
-  6. 使用者看得到的改動，由主對話照 `verify-on-device` 實機驗證兩平台，回報含平台與模式；
+  6. 使用者看得到的改動，由主對話照 `verify-on-device` 實機驗證（Android；改到平台各自實作的再加 Windows），回報含平台與模式；
   7. 派 opus `trellis-check`，要它試著攻破安全相關的部分（憑證、遮蔽、插件 API、安裝與 SHA、WebView cookie、診斷包、GitHub 網址）；
   8. 把後續待辦寫進本檔的「留下的後續」；
   9. `git checkout --` 還原只有換行差異的產生檔：**逐檔**以 `git diff --ignore-all-space --ignore-cr-at-eol` 確認是空的才還原；加了原生插件的 PR（5、7、9、11、13、15）有真正新增的註冊要保留；
@@ -496,6 +482,12 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 11 留下的
+
+1. **資料庫的 `log_level` 存了不認得的字串時**（資料庫損壞或之後降版），`developerProvider` 一直是錯誤：Debug 入口消失，也沒有地方關掉開發者模式。沒有 repro，沒修；要修就讓轉換器把不認得的值當成沒設定，並加測試。
+2. **release 存了 `debug` 時，資料庫讀出來之前的啟動紀錄用建置預設 `info`**：那幾百毫秒的 debug 紀錄會丟掉。已知取捨，`app/AGENTS.md` 的「Log 與遮蔽」有寫。
+3. **`homeRelativePath`**：AppData 被重導到家目錄以外（例如網路上的漫遊設定檔）時，資料目錄原樣顯示、看得到使用者名稱。很少見，沒處理；診斷包的家目錄替換在 PR 15。
 
 ### M3a 驗收留下的
 

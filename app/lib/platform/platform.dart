@@ -9,6 +9,8 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
+import 'package:fmp/platform/app_info/app_info.dart';
+import 'package:fmp/platform/app_info/package_info_app_info.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
@@ -35,6 +37,7 @@ import 'package:fmp/platform/secure_storage/secure_storage.dart';
 final class AppPlatform {
   AppPlatform._({
     required this.capabilities,
+    this.appInfo,
     this.dataDirectory,
     this.networkInterfaces,
     this.cacheDirectory,
@@ -86,6 +89,8 @@ final class AppPlatform {
         loginWebView: true,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
+      // 資料目錄在 App 的沙盒裡，路徑不含使用者名稱：沒有要換成 `~` 的家目錄。
+      appInfo: const PackageInfoAppInfo(platform: 'Android'),
       dataDirectory: AndroidAppDataDirectory(
         flavor: flavor,
         applicationSupportPath: () async =>
@@ -140,6 +145,10 @@ final class AppPlatform {
           positionRefresh: Duration(seconds: 5),
         ),
       ),
+      appInfo: PackageInfoAppInfo(
+        platform: 'Windows',
+        homeDirectory: Platform.environment['USERPROFILE'],
+      ),
       dataDirectory: dataDirectory,
       networkInterfaces: ConnectivityPlusInterfaces.system(),
       cacheDirectory: CacheDirectory(
@@ -160,6 +169,10 @@ final class AppPlatform {
   }
 
   final PlatformCapabilities capabilities;
+
+  /// 版本號與平台名稱；只有能跑主 App 的平台（有資料目錄的 Android、Windows）有，其他
+  /// 平台為 `null`。不是能力宣告：沒有畫面依它決定入口，`main()` 沒有資料目錄就不會讀它。
+  final AppInfoReader? appInfo;
 
   /// App 資料目錄；[PlatformCapabilities.dataDirectory] 為假時為 `null`。
   final AppDataDirectory? dataDirectory;
@@ -207,6 +220,7 @@ final class AppPlatform {
       capabilities: controls == null
           ? capabilities.withoutMediaControls()
           : capabilities,
+      appInfo: appInfo,
       dataDirectory: dataDirectory,
       networkInterfaces: networkInterfaces,
       cacheDirectory: cacheDirectory,
