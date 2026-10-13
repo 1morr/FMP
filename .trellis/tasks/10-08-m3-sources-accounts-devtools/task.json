@@ -32,7 +32,8 @@
     "10-10-m3a-acceptance",
     "10-13-m3-developer-mode",
     "10-13-m3-debug-log-network",
-    "10-14-m3-error-report"
+    "10-14-m3-error-report",
+    "10-14-m3-debug-playback-database"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
