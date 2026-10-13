@@ -11,6 +11,7 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -260,7 +261,10 @@ class _QueueRow extends ConsumerWidget {
     final t = ref.watch(translationsProvider).playerPage;
     final tokens = AppTokens.of(context);
     final track = entry.track;
-    final uploader = track.uploader;
+    // 音源停用或移除時，副標題改說原因（ADR 0030 §決定 7、10）。
+    final uploader =
+        ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
+        track.uploader;
     final duration = track.duration;
     return TrackRowMenu(
       moreTooltip: t.queueMore,

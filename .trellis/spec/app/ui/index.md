@@ -30,7 +30,7 @@ lib/ui/
                        # 可編輯的佇列（QueueView：分頁與底部面板共用）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   tracks/              # TrackRowMenu：搜尋結果、歷史、佇列的一列曲目共用的選單（右鍵、長按、「⋯」）
-  plugins/             # pluginNameProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
+  plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
   accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider、登入方式的交集與登入失敗的訊息（accounts_state）、

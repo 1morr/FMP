@@ -642,6 +642,78 @@ void main() {
       );
     });
 
+    testWidgets(
+      'a song of a disabled source is skipped with that as the reason',
+      (tester) async {
+        final h = ShellHarness(
+          sourceUnavailable: (ref, id) =>
+              id == 'fmp-test' ? 'Source disabled' : null,
+        );
+        h.plugin.respond = (request) => request.sourceId == 'a'
+            ? throw Unsupported(pluginId: 'fmp-test')
+            : [candidate('${request.sourceId}.m4a')];
+        await h.pumpShell(tester);
+
+        await h.play(tester, [summary('a'), summary('b')]);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('Skipped "Song a": Source disabled'), findsOneWidget);
+      },
+    );
+
+    // 下面兩個是防過度套用的負面測試：還原改動後它們不會變紅，這是預期的。
+    testWidgets('only an unsupported error is reworded for a disabled source', (
+      tester,
+    ) async {
+      final h = ShellHarness(sourceUnavailable: (ref, id) => 'Source disabled');
+      h.plugin.respond = (request) => request.sourceId == 'a'
+          ? throw NotFound(pluginId: 'fmp-test')
+          : [candidate('${request.sourceId}.m4a')];
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.text('Skipped "Song a": Not found. It may have been removed.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a generic unsupported error keeps the generic reason', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      h.plugin.respond = (request) => request.sourceId == 'a'
+          ? throw Unsupported(pluginId: 'fmp-test')
+          : [candidate('${request.sourceId}.m4a')];
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.text('Skipped "Song a": Something went wrong.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('stopping at the only song of a disabled source says so', (
+      tester,
+    ) async {
+      final h = ShellHarness(sourceUnavailable: (ref, id) => 'Source disabled');
+      h.plugin.respond = (_) => throw Unsupported(pluginId: 'fmp-test');
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a')]);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("Can't play \"Song a\": Source disabled"),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('stopping at the only song says which and why', (tester) async {
       final h = ShellHarness();
       h.plugin.respond = (_) => throw NotFound(pluginId: 'fmp-test');
