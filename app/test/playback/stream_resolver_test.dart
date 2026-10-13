@@ -358,6 +358,40 @@ void main() {
       expect(updated.requests, hasLength(2));
     });
 
+    test('a cached stream is not given out once its plugin is disabled or '
+        'removed', () async {
+      // 停用、移除都是從插件清單拿掉：快取裡還有效的那一筆也不給，和沒裝一樣是
+      // Unsupported（控制器照「音源未安裝」跳過）。再啟用是新載入的實例，重新解析。
+      final plugin = FakeSourcePlugin((request) => [candidate('a.m4a')]);
+      final reloaded = FakeSourcePlugin(
+        (request) => [candidate('reloaded-a.m4a')],
+      );
+      FakeSourcePlugin? current = plugin;
+      final resolver = StreamResolver(
+        plugin: (id) => id == current?.manifest.id ? current : null,
+        formats: formats,
+        preferences: () => highOpusFirst,
+        log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+      );
+      await resolver.resolve(track('a'));
+      expect(resolver.hasPlugin('fmp-test'), isTrue);
+
+      current = null;
+      expect(resolver.hasPlugin('fmp-test'), isFalse);
+      await expectLater(
+        resolver.resolve(track('a')),
+        throwsA(
+          isA<Unsupported>().having((e) => e.pluginId, 'pluginId', 'fmp-test'),
+        ),
+      );
+      expect(plugin.requests, hasLength(1));
+
+      current = reloaded;
+      final again = await resolver.resolve(track('a'));
+      expect(again.candidates.single.url.path, '/reloaded-a.m4a');
+      expect(plugin.requests, hasLength(1));
+    });
+
     test('a failed resolution is shared, then not kept', () async {
       var fail = true;
       final gate = Completer<void>();

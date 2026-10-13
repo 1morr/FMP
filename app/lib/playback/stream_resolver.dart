@@ -56,7 +56,7 @@ final class StreamResolver {
   final _pending = <_CacheKey, Future<ResolvedStream>>{};
 
   /// 解析 [track] 的播放串流：快取裡還有效的直接回傳，正在解析的共用同一個
-  /// 請求。音源沒裝是 `Unsupported`。
+  /// 請求。音源不在插件清單上（沒裝、停用、移除）是 `Unsupported`，先於快取檢查。
   Future<ResolvedStream> resolve(TrackKeyParts track) {
     final plugin = _plugin(track.sourceTypeId);
     if (plugin == null) {
@@ -84,6 +84,10 @@ final class StreamResolver {
           _pending.remove(key);
         });
   }
+
+  /// [pluginId] 的插件在清單上：停用、移除（或沒裝）的不在，[resolve] 對它的曲目
+  /// 一律是 `Unsupported`，快取裡的那幾筆也不給。
+  bool hasPlugin(String pluginId) => _plugin(pluginId) != null;
 
   /// 播放 [stream] 失敗（開不起來、中斷、被拒）：作廢快取裡的那一筆，下次要這
   /// 首時重新解析。那一筆已經被較新的解析結果取代時不動。

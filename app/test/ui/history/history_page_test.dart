@@ -121,6 +121,21 @@ void main() {
       });
     });
 
+    testWidgets('a song of a source that is not installed shows why in place '
+        'of the artist', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = ShellHarness(
+          sourceUnavailable: (ref, id) => 'Source not installed',
+        );
+        await h.pumpApp(tester, const HistoryPage());
+        await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
+        await reload(tester, h);
+
+        expect(find.text('Source not installed · 14:05'), findsOneWidget);
+        expect(find.textContaining('Artist'), findsNothing);
+      });
+    });
+
     test('groupByDay starts a group at each local day change', () {
       PlayHistoryEntry entry(int id, DateTime local) => PlayHistoryEntry(
         id: id,

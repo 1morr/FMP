@@ -63,6 +63,8 @@ TrackSummary summary(
 /// 外殼與頁面的測試環境：可以搜尋、可以解析的假插件，假後端上的真
 /// `PlaybackController`，記憶體資料庫、[Toaster] 與有介面的假網路介面
 /// （[interfaces]）。介面語言是英文（測試的系統語言 `en_US`）。
+String? _noUnavailableSource(Ref ref, String pluginId) => null;
+
 final class ShellHarness {
   ShellHarness({
     FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
@@ -77,6 +79,7 @@ final class ShellHarness {
     this.cacheUnavailable = false,
     this.registrySources = false,
     this.secureStorage = false,
+    this.sourceUnavailable = _noUnavailableSource,
     this.extraOverrides = const [],
   }) : backend = FakeAudioBackend(
          durationOf: (_) => const Duration(minutes: 3),
@@ -113,6 +116,8 @@ final class ShellHarness {
       skipPreviewClips: () => _readSkipPreviewClips(),
       networkStatus: () => _readNetworkStatus(),
       networkStatusChanges: _networkChanges.stream,
+      // 插件清單在這個 harness 裡不變。
+      pluginChanges: const Stream.empty(),
       preferredOutputDevice: () => _readPreferredOutputDevice(),
       saveOutputDevice: (device) => _saveOutputDevice(device),
     );
@@ -151,6 +156,9 @@ final class ShellHarness {
   /// 平台宣告有 secure storage（`PlatformCapabilities.secureStorage`）：帳號頁的登入
   /// 按鈕依它出現。實作本身由 [extraOverrides] 的 `credentialStoreProvider` 給。
   final bool secureStorage;
+
+  /// `sourceUnavailableProvider` 的值（音源停用或未安裝的原因）；預設沒有不可用的音源。
+  final String? Function(Ref ref, String pluginId) sourceUnavailable;
 
   /// 加在最後的 override（要和上面不重複）。
   final List<Override> extraOverrides;
@@ -216,6 +224,9 @@ final class ShellHarness {
     pluginNameProvider.overrideWith(
       (ref, pluginId) =>
           pluginId == plugin.manifest.id ? plugin.manifest.name : null,
+    ),
+    sourceUnavailableProvider.overrideWith(
+      (ref, pluginId) => sourceUnavailable(ref, pluginId),
     ),
     if (artworkManager != null)
       artworkCacheManagerProvider.overrideWith((ref, _) => artworkManager),

@@ -58,6 +58,32 @@ void main() {
     expect(container.read(pluginNameProvider('fmp-test')), 'Source disabled');
   });
 
+  test('sourceUnavailableProvider is null for a loaded plugin and while '
+      'loading, and names why a missing one cannot be used', () async {
+    final harness = PluginHarness();
+    final container = _container(harness, AppLocale.en);
+    expect(container.read(sourceUnavailableProvider('fmp-test')), isNull);
+    await container
+        .read(pluginInstallerProvider)
+        .installBytes(testPluginFile.readAsBytesSync());
+    await container.read(pluginRegistryProvider.future);
+
+    expect(container.read(sourceUnavailableProvider('fmp-test')), isNull);
+    expect(
+      container.read(sourceUnavailableProvider('not-installed')),
+      'Source not installed',
+    );
+
+    await container
+        .read(pluginRegistryProvider.notifier)
+        .setEnabled('fmp-test', enabled: false);
+
+    expect(
+      container.read(sourceUnavailableProvider('fmp-test')),
+      'Source disabled',
+    );
+  });
+
   test('the texts follow the interface language', () async {
     for (final (locale, notInstalled) in [
       (AppLocale.zhTw, '音源未安裝'),

@@ -505,7 +505,7 @@
 2. `login_webview_test.dart`：注入假的 WebView2 環境，測延後建立、`reset`、建立失敗不留下壞的環境、讀與清都經同一個環境。
 3. `account_guard_test.dart`：`VerificationRequired` 不刷新、不標失效。
 4. `plugin_registry_test.dart`：停用後憑證保留；插件沒有回應時不寫 `enabled`。
-5. `plugin_name_test.dart`：清單還沒載入時是 `null`（優先度低）。
+5. ~~`plugin_name_test.dart`：清單還沒載入時是 `null`~~：#234 補上（`gives the manifest name of a loaded plugin…` 開頭的斷言）。
 6. 測試插件的 QR、`expired`、`expired-hard`：加進 `test_plugin_bundle_test.dart`。
 7. **B 站錯誤對應表的單元測試**（ADR 0013 的對照只有「部分」）：fmp-plugins#9 已合併（對應表搬進 `bilibili/src/errors.js`、`test/errors.test.js` 15 個測試、1.2.1）。宿主 API 沒變，`FMP_REF` 不動。
 8. **停用或移除音源後，它已準備好的前瞻仍會播出**（驗收第 5 步在 Android 真實模式發現，擋 M3a 驗收）：#232 已合併。插件清單一改就放掉已消失插件的前瞻，單曲循環的下一圈準備前也查插件。Android 真實模式重驗：停用網易後按下一首，網易那首以 `Unsupported` 跳過、沒有網易請求，接著播 B 站那首。停用時正在播的那首照播完（擁有者決定）。
