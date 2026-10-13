@@ -205,8 +205,7 @@ class _DayHeader extends ConsumerWidget {
 }
 
 /// 一筆紀錄：封面、曲名、「作者 · 播放時刻」、「⋯」。音源不可用時作者換成原因。點一下
-/// 臨時播放；選單在右鍵、
-/// 長按與「⋯」，三處同一份（[TrackRowMenu]）。
+/// 臨時播放；選單在右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]）。
 class _HistoryTile extends ConsumerWidget {
   const _HistoryTile({super.key, required this.entry});
 

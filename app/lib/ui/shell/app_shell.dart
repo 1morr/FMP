@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
-import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
@@ -162,10 +161,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// 因音源停用或未安裝而播不了時的原因。解析器對這種情況丟的 [Unsupported] 只有通用
   /// 訊息（「發生錯誤」），使用者要看到的是音源已停用／未安裝。
-  String? _unavailableReason(AppError error, TrackInfo track) =>
-      error is Unsupported
-      ? ref.read(sourceUnavailableProvider(track.sourceTypeId))
-      : null;
+  String? _unavailableReason(AppError error) {
+    final pluginId = error is Unsupported ? error.pluginId : null;
+    return pluginId == null
+        ? null
+        : ref.read(sourceUnavailableProvider(pluginId));
+  }
 
   /// 播放控制器的一次性事件轉成提示（design §7.9）。在 listener 裡呼叫，不在
   /// build 裡：`Toaster` 同步送出，`ToastHost` 會馬上 `showSnackBar`。錯誤的
@@ -187,7 +188,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           );
         case TrackSkipped(:final error, :final track):
-          final unavailable = _unavailableReason(error, track);
+          final unavailable = _unavailableReason(error);
           toaster.error(
             error,
             operation: 'Track skipped',
@@ -199,7 +200,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           );
         // 只有這一首播不了：說是哪一首、為什麼。
         case PlaybackStopped(:final error, :final track, failedInARow: 1):
-          final unavailable = _unavailableReason(error, track);
+          final unavailable = _unavailableReason(error);
           toaster.error(
             error,
             operation: 'Playback stopped',
