@@ -3,7 +3,7 @@ name: verify-on-device
 description: >-
   在 Android 模擬器與 Windows 桌面版實機驗證 `app/`（新 App）的改動：啟動、操作、讀畫面
   與 log、收尾。`app/` 的使用者看得到的改動（UI、播放、下載、歌詞、設定、原生身分、
-  平台能力）在回報前都要用它驗，Android 與 Windows 各一次；也用在被要求在裝置上跑、
+  平台能力）在回報前都要用它驗：Android 每次都驗，改到平台各自實作的再驗 Windows；也用在被要求在裝置上跑、
   截圖、點、觀察新 App 時。根目錄舊專案（`lib/`）的緊急修正改用 `verify-legacy-on-device`。
 ---
 
@@ -25,7 +25,10 @@ description: >-
   App 還沒有每插件的重播開關（ADR 0015 §決定 5 只做到契約測試），目前重播就是測試插件。
 - **真實連線只在**：改動本身是插件、網路層、登入，或正在錄 fixture。只做最少的操作（搜尋
   一次、播一首），不批次、不迴圈。上游改版交給 Debug 頁的健康檢查，不靠每個 PR 的實機驗證。
-- **平台**：Android 模擬器與 Windows 每個使用者看得到的 PR 都驗。Linux、macOS、iOS 在各自的
+- **平台**（ADR 0027 §決定 3 的 2026-10-13 修訂）：Android 模擬器每個使用者看得到的 PR 都驗。Windows 只在
+  PR 改到這些地方時驗：`lib/platform/`、`lib/playback/backends/`、`android/`、`windows/`、帶原生程式碼的依賴、
+  只在桌面出現的互動（快捷鍵、焦點區、滑鼠右鍵與 hover、視窗、輸出裝置、右側面板）；回報寫明為什麼驗或
+  不驗 Windows。寬版版面在模擬器橫向（914dp）驗。里程碑驗收兩個平台都走完整流程。Linux、macOS、iOS 在各自的
   平台任務加進 `references/`，現在不驗。
 - 操作一律走 UI（搜尋頁點一首就開始播）；UI 還沒有入口的功能（安裝插件）用開發入口
   （`references/runtime-state.md` § 開發入口）。
