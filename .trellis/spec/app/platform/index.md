@@ -25,6 +25,9 @@ lib/platform/
 兩個平台各一個實作檔，轉換成平台格式的部分寫成頂層純函數，單元測試不必建系統物件；Windows 的轉接器
 以建構子收 `SMTCWindows`，呼叫順序用 `implements` 它的假物件測，不載入 Rust 端）、`files/`（介面＋一個以套件
 命名的實作 `file_picker_dialogs.dart` 給兩個平台；測試換掉套件的 `FilePickerPlatform.instance`，不開系統對話框）、
+`app_info/`（值型別 `AppInfo`＋讀取介面＋一個以套件命名的實作 `package_info_app_info.dart` 給兩個平台；平台名稱與家目錄由組裝點
+給，版本由套件讀；不是能力宣告，所以 `PlatformCapabilities` 沒有欄位，`AppPlatform.appInfo` 在未驗證平台為空；`main()` 讀一次後
+以 provider 注入，測試以套件的 `PackageInfo.setMockInitialValues` 換掉平台端）、
 `login_webview/`（介面＋一個以套件命名的實作 `flutter_inappwebview_login.dart` 給兩個平台：差異（UA、WebView2 環境）
 以建構子注入，`.android()`／`.windows()` 兩個 factory 在組裝點選；套件的 `CookieManager` 也由建構子
 注入，單元測試以 `implements CookieManager` 的假物件測讀與清除，WebView 本身只能實機驗。Windows 要資料目錄才知道 WebView2 的

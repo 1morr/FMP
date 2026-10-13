@@ -139,6 +139,14 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - `status`、`last_refresh_result` 的字串寫在 `converters.dart`；測試 `account_repository_test.dart` 的 `stored format`
   直接查表斷言。
 
+## 開發者設定（`developer_settings_repository.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `developer_settings`（schema v9）與 § 設定的「開發者」組。
+
+- 單列設定表的一般形狀（`write`／`clear` 涵蓋四欄），另有 `turnOffDeveloperMode` 一次寫三欄（見 settings spec）。
+- `log_level` 的字串在 `LogLevelSettingConverter`；Dart 端是 `lib/domain/developer.dart` 的 `LogLevelSetting`（只有 debug、info），
+  對到門面的 `LogLevel` 在設定層（`Developer.minimumLogLevel`），資料層不碰 log。
+
 ## 版面狀態（`layout_state_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。

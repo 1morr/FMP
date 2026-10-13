@@ -37,6 +37,14 @@
 - 兩列「倒退秒數」（臨時播放回佇列、重啟恢復）共用設定頁的 `rewindOptions`（選項、「（預設）」標示、
   記住播放位置關著時停用）；新的同類欄位照它加，不另寫一份。重啟恢復的倒退在啟動時讀一次
   （`QueueStore.attach` 的 `restartSettings`，組裝點等資料庫的值讀出來再給），改設定不影響已經恢復的佇列。
+- 一個動作要同時改好幾個欄位、而且監看的一方不該看到中間值時（關閉開發者模式：`developer_mode` 假、`log_level` 與
+  `plugin_dev_folder` 清空），在 repository 寫成一個方法、一次 upsert（`DeveloperSettingsRepository.turnOffDeveloperMode`），
+  不在 Notifier 裡接連呼叫 `write` 與 `clear`。測試以 `tableUpdates` 數資料庫的寫入通知（只有一次）來守（`is a single write`）：
+  drift 的 `watch()` 會把緊接著的兩次寫入併成一個值，只看「下一個值就是最終狀態」分不出拆成兩筆的寫法。
+- 預設依 flavor 或建置模式而不同的欄位（開發者模式：dev 開、prod 關；log 層級：debug build 是 debug、其他是 info）在
+  Notifier 的 `build` 讀 `appFlavorProvider`、`buildLogLevelProvider`，解析函式收它們當參數（`resolveDeveloper`）；測試直接
+  以各種組合呼叫解析函式，Notifier 的測試 override 這兩個 provider。不在解析函式裡讀 `kDebugMode`：`flutter test` 永遠是
+  debug build，release 的行為就測不到。
 - 設定方法一個欄位一個，只寫那個欄位（`repository.write(themeMode: ...)`）。參數可空，
   `null` 是「清回沒設定過」，走 `repository.clear(themeMode: true)`：`write` 的 `null`
   表示「沒給、不動」，兩者不能共用一個方法。

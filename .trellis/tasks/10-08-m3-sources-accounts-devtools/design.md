@@ -207,7 +207,7 @@ lib/
 | 欄位 | 設定名 | 預設 | 說明 | PR |
 |---|---|---|---|---|
 | `developer_mode` | 開發者模式 | prod 關、dev 開 | ADR 0025 §決定 1 | 11 |
-| `log_level` | log 層級 | `info` | `debug`／`info`；開發者模式關閉時同一筆寫入清空 | 11 |
+| `log_level` | log 層級 | 建置預設（更正 2026-10-13，PR 11：debug build 是 `debug`，其他是 `info`；ADR 0011 只定了 release 的 `info`） | `debug`／`info`；開發者模式關閉時同一筆寫入清空 | 11 |
 | `plugin_dev_folder` | 插件開發資料夾 | 空 | 只有宣告 `pluginDevTools` 的平台寫；開發者模式關閉時清空（卸載） | 16 |
 | `report_reminder_dismissed` | 「送出前請檢查」不再提醒 | 關 | GitHub 回報與診斷包共用（ADR 0023 §決定 4、ADR 0025 §決定 10）。存在這一組只是位置，一般使用者回報時也讀它（§8.28） | 13 |
 
