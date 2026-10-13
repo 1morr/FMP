@@ -76,10 +76,14 @@ log.warning(
   資料格式：`log_record_test.dart` 的 `stored format` 會紅，要一起想舊檔怎麼讀。
 - 讀檔一律用 `parseLogLines`：壞行略過、不中止。
 - 寫入走 `LogFile.write`（不等待）；要讀檔或匯出前先 `await flush()`。
-- 會刪、改名 log 檔的操作（保留期限 `deleteExpired`，之後 Debug 頁的「清除 log」）寫成
+- 會刪、改名、整檔讀取 log 檔的操作（保留期限 `deleteExpired`、Debug 頁的「清除 log」`clear`、「含之前的紀錄」`readStored`）寫成
   `LogFile` 的方法、排進它的寫入佇列，不從外面直接動 `logs/`：輪替也在那條佇列上改名，
   不排隊就會交錯。錯誤經回傳的 future 交給呼叫端，佇列本身不能帶著錯誤往下傳（否則之後
-  的寫入全被跳過）；`log_file_test.dart` 的 `retention` 群組是例子。
+  的寫入全被跳過）；`log_file_test.dart` 的 `retention` 群組是例子。新的操作用 `_exclusive` 排隊。
+- 寫入以「批」排隊（`_openBatch`）：`clear()` 把目前這一批封起來，這樣 `clear()` 之後寫的行一定在刪檔之後才落地。
+  讀檔的實作 `_readStoredFiles` 是頂層函數，只收路徑與數字（要送進 isolate，不能帶 `LogFile`）。
+- 界面要隨歷史更新時聽 `Log.changes`（同步發，監聽端不要做重的事；Debug 頁合併成 250ms 一次），清記憶體歷史一律走 `Log.clear()`，
+  不直接動 talker。
 
 ## 測試
 
