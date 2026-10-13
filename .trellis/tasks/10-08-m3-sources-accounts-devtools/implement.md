@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11 已合併（#237）；PR 12（子任務 `10-13-m3-debug-log-network`，分支 `feat/app-debug-log-network`）。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、PR 12（#238）已合併；PR 13（子任務 `10-14-m3-error-report`，分支 `feat/app-error-report`）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
 - **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
@@ -345,11 +345,11 @@
 
 ## 13. `ErrorReport`、錯誤詳細頁、GitHub 回報（design §13）
 
-- [ ] `ErrorReport` 與 `Log.report` 的關聯；`Toaster` 的「詳細」（開發者模式）與「回報」（`Unsupported`、`UnexpectedError`）。
-- [ ] 詳細頁（全螢幕路由）、複製 Markdown、「在 GitHub 回報」與第一次提醒（`report_reminder_dismissed` 的 setter）。
-- [ ] 平台層 `lib/platform/url_opener/`（`url_launcher` 6.3.3），宣告 `urlOpener`。
-- [ ] `endpoints.dart` 加 GitHub 新增 issue 網址；`.github/ISSUE_TEMPLATE/bug_report.yml`（繁中）。
-- [ ] Debug 頁 Log 區塊的「只看錯誤」點一筆開詳細頁。
+- [x] `ErrorReport` 與 `Log.report` 的關聯；`Toaster` 的「詳細」（開發者模式）與「回報」（`Unsupported`、`UnexpectedError`）。
+- [x] 詳細頁（全螢幕路由）、複製 Markdown、「在 GitHub 回報」與第一次提醒（`report_reminder_dismissed` 的 setter）。
+- [x] 平台層 `lib/platform/url_opener/`（`url_launcher` 6.3.3），宣告 `urlOpener`。
+- [x] `endpoints.dart` 加 GitHub 新增 issue 網址；`.github/ISSUE_TEMPLATE/bug_report.yml`（繁中）。
+- [x] Debug 頁 Log 區塊的「只看錯誤」點一筆開詳細頁。
 - 測試：ADR 0023 §如何確認的四項（按鈕、遮蔽、網址不含內容）；`toast_layering_test.dart` 加詳細頁；`bug_report.yml` 的結構測試（YAML 解析：必要欄位、`render: markdown`、標籤；`app/test/` 以讀檔測試守，`.github/**` 已觸發 `app` job）。
 - 實測（重播）：兩平台 `fmp-test` 的 `fail` 關鍵字：開發者模式下「詳細」→ 複製 → 「在 GitHub 回報」開瀏覽器到範本頁（不送出）；關掉開發者模式後以會丟 `UnexpectedError` 的關鍵字看「回報」。
 - 依賴：11。模型：sonnet（ADR 0023 與 design 已定版面要素）。
@@ -482,6 +482,14 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 13 留下的
+
+1. **與 design §13 的差異**（主對話決定）：不另存報告 id。`Log.write`／`report()` 回傳寫入的 `LogRecord?`，提示與 Debug 頁都由那筆紀錄組 `ErrorReport`；前幾次執行的紀錄沒有請求摘要。提示的動作：呼叫端的優先，其次開發者模式的「詳細」，再其次 `Unsupported`／`UnexpectedError` 的「回報」。
+2. **GitHub 範本外層 fence**：`render: markdown` 會把欄位包進反引號 code block，所以報告內層用 `~~~`。這是依 CommonMark 推論，第一次真的回報時看一下渲染結果。
+3. **Android 模擬器的 Chrome 停在首次執行的條款頁**（不接受第三方條款），範本頁只在 Windows（Edge 開到「New issue」）確認；Android 以 logcat 的 `VIEW dat=https://github.com/...` 為證。`template=bug_report.yml` 要合併到 main 之後才會顯示表單。
+4. **測試插件沒有會丟 `UnexpectedError` 的關鍵字**：一般使用者的「回報」以 `Unsupported`（停用音源後播放）驗。要補就在 `test_plugin.js` 加一個關鍵字。
+5. **整合測試會清掉 dev App 的資料**（Android 跑完 `toast_layering_test` 後插件與設定都不見了）：之後的實機驗證先跑整合測試，再裝插件。
 
 ### PR 12 留下的
 
