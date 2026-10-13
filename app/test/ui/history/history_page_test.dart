@@ -13,6 +13,7 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/history/history_state.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../support/memory_database.dart';
@@ -118,6 +119,25 @@ void main() {
         await reload(tester, h);
 
         expect(find.text('14:05'), findsOneWidget);
+      });
+    });
+
+    testWidgets('a song of a source that is not installed shows why in place '
+        'of the artist', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = ShellHarness(
+          extraOverrides: [
+            sourceUnavailableProvider.overrideWith(
+              (ref, id) => 'Source not installed',
+            ),
+          ],
+        );
+        await h.pumpApp(tester, const HistoryPage());
+        await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
+        await reload(tester, h);
+
+        expect(find.text('Source not installed · 14:05'), findsOneWidget);
+        expect(find.textContaining('Artist'), findsNothing);
       });
     });
 

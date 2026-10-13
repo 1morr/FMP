@@ -14,6 +14,7 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -203,7 +204,8 @@ class _DayHeader extends ConsumerWidget {
   }
 }
 
-/// 一筆紀錄：封面、曲名、「作者 · 播放時刻」、「⋯」。點一下臨時播放；選單在右鍵、
+/// 一筆紀錄：封面、曲名、「作者 · 播放時刻」、「⋯」。音源不可用時作者換成原因。點一下
+/// 臨時播放；選單在右鍵、
 /// 長按與「⋯」，三處同一份（[TrackRowMenu]）。
 class _HistoryTile extends ConsumerWidget {
   const _HistoryTile({super.key, required this.entry});
@@ -214,7 +216,10 @@ class _HistoryTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).history;
     final track = entry.track;
-    final uploader = track.uploader;
+    // 音源停用或移除時，「作者」的位置改說原因（ADR 0030 §決定 7、10）。
+    final uploader =
+        ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
+        track.uploader;
     final local = entry.playedAt.toLocal();
     // HH:mm：24 小時制，不隨系統的 12 小時設定（日界與時刻都依裝置的本地時間）。
     final time = MaterialLocalizations.of(context).formatTimeOfDay(

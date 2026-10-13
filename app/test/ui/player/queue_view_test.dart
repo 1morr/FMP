@@ -4,12 +4,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
@@ -89,6 +91,44 @@ Future<void> _setAutoScroll(WidgetTester tester, ShellHarness h) async {
 
 void main() {
   group('the list', () {
+    testWidgets('a song of a source that cannot be used shows why instead of '
+        'the uploader', (tester) async {
+      final h = await _openQueue(
+        tester,
+        ids: ['a'],
+        harness: ShellHarness(
+          extraOverrides: [
+            sourceUnavailableProvider.overrideWith(
+              (ref, id) => id == 'gone' ? 'Source disabled' : null,
+            ),
+          ],
+        ),
+      );
+      expect(
+        h.controller.addToQueue([
+          const TrackInfo(
+            sourceTypeId: 'gone',
+            sourceId: 'x',
+            title: 'Song x',
+            uploader: 'Someone',
+          ),
+        ]),
+        isTrue,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.descendant(of: _row('x'), matching: find.text('Source disabled')),
+        findsOneWidget,
+      );
+      expect(find.text('Someone'), findsNothing);
+      expect(
+        find.descendant(of: _row('a'), matching: find.text('Uploader a')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('shows the count and one row per song, current marked', (
       tester,
     ) async {

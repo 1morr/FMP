@@ -14,6 +14,7 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -638,6 +639,92 @@ void main() {
       expect(h.controller.queue.current?.sourceId, 'b');
       expect(
         find.text('Skipped "Song a": Not available: copyright restriction'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'a song of a disabled source is skipped with that as the reason',
+      (tester) async {
+        final h = ShellHarness(
+          extraOverrides: [
+            sourceUnavailableProvider.overrideWith(
+              (ref, id) => id == 'fmp-test' ? 'Source disabled' : null,
+            ),
+          ],
+        );
+        h.plugin.respond = (request) => request.sourceId == 'a'
+            ? throw Unsupported(pluginId: 'fmp-test')
+            : [candidate('${request.sourceId}.m4a')];
+        await h.pumpShell(tester);
+
+        await h.play(tester, [summary('a'), summary('b')]);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('Skipped "Song a": Source disabled'), findsOneWidget);
+      },
+    );
+
+    testWidgets('only an unsupported error is reworded for a disabled source', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        extraOverrides: [
+          sourceUnavailableProvider.overrideWith(
+            (ref, id) => 'Source disabled',
+          ),
+        ],
+      );
+      h.plugin.respond = (request) => request.sourceId == 'a'
+          ? throw NotFound(pluginId: 'fmp-test')
+          : [candidate('${request.sourceId}.m4a')];
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.text('Skipped "Song a": Not found. It may have been removed.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a generic unsupported error keeps the generic reason', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      h.plugin.respond = (request) => request.sourceId == 'a'
+          ? throw Unsupported(pluginId: 'fmp-test')
+          : [candidate('${request.sourceId}.m4a')];
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.text('Skipped "Song a": Something went wrong.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('stopping at the only song of a disabled source says so', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        extraOverrides: [
+          sourceUnavailableProvider.overrideWith(
+            (ref, id) => 'Source disabled',
+          ),
+        ],
+      );
+      h.plugin.respond = (_) => throw Unsupported(pluginId: 'fmp-test');
+      await h.pumpShell(tester);
+
+      await h.play(tester, [summary('a')]);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("Can't play \"Song a\": Source disabled"),
         findsOneWidget,
       );
     });
