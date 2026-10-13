@@ -760,6 +760,90 @@ class Translations$debug$zh_TW {
 
   /// zh-TW: '檢查失敗'
   String get dbCheckFailed => '檢查失敗';
+
+  /// zh-TW: '重設資料'
+  String get reset => '重設資料';
+
+  /// zh-TW: '清空資料庫（含設定、歌單、佇列與播放歷史）、所有音源的登入憑證、登入網頁的資料與快取，然後重啟 App。不會動 log 檔、備份與已下載的檔案。'
+  String get resetBody =>
+      '清空資料庫（含設定、歌單、佇列與播放歷史）、所有音源的登入憑證、登入網頁的資料與快取，然後重啟 App。不會動 log 檔、備份與已下載的檔案。';
+
+  /// zh-TW: '清空之前會先把資料庫備份到資料目錄的 backups 資料夾；備份失敗就什麼都不清。憑證不在備份裡，還原後要重新登入。'
+  String get resetBackupNote =>
+      '清空之前會先把資料庫備份到資料目錄的 backups 資料夾；備份失敗就什麼都不清。憑證不在備份裡，還原後要重新登入。';
+
+  /// zh-TW: '重設資料…'
+  String get resetButton => '重設資料…';
+
+  /// zh-TW: '無法備份資料庫，沒有清除任何資料：{message}'
+  String resetBackupFailed({required Object message}) =>
+      '無法備份資料庫，沒有清除任何資料：${message}';
+
+  /// zh-TW: '重設所有資料？'
+  String get resetConfirmTitle => '重設所有資料？';
+
+  /// zh-TW: '資料庫已備份到 {path}。按下「清空並重啟」會清空資料庫、憑證、登入網頁的資料與快取，除了這份備份之外無法復原。'
+  String resetConfirmBody({required Object path}) =>
+      '資料庫已備份到 ${path}。按下「清空並重啟」會清空資料庫、憑證、登入網頁的資料與快取，除了這份備份之外無法復原。';
+
+  /// zh-TW: '完成後 App 會自動重新啟動。'
+  String get resetRestartsItself => '完成後 App 會自動重新啟動。';
+
+  /// zh-TW: '完成後 App 會關閉，請自己重新開啟。'
+  String get resetRestartsManually => '完成後 App 會關閉，請自己重新開啟。';
+
+  /// zh-TW: '我了解這會清空所有資料'
+  String get resetUnderstand => '我了解這會清空所有資料';
+
+  /// zh-TW: '清空並重啟'
+  String get resetConfirm => '清空並重啟';
+
+  /// zh-TW: '正在清空…'
+  String get resetWorking => '正在清空…';
+
+  /// zh-TW: '重設沒有完成：{message}'
+  String resetFailed({required Object message}) => '重設沒有完成：${message}';
+
+  /// zh-TW: '立即備份'
+  String get dbBackUp => '立即備份';
+
+  /// zh-TW: '已備份到 {path}'
+  String dbBackedUp({required Object path}) => '已備份到 ${path}';
+
+  /// zh-TW: '無法備份資料庫：{message}'
+  String dbBackUpFailed({required Object message}) => '無法備份資料庫：${message}';
+
+  /// zh-TW: '從備份還原'
+  String get dbRestore => '從備份還原';
+
+  /// zh-TW: '選擇要還原的備份'
+  String get dbRestoreTitle => '選擇要還原的備份';
+
+  /// zh-TW: '沒有備份。先按「立即備份」，或重設資料時會自動建立。'
+  String get dbRestoreEmpty => '沒有備份。先按「立即備份」，或重設資料時會自動建立。';
+
+  /// zh-TW: '無法讀取備份清單：{message}'
+  String dbRestoreListFailed({required Object message}) =>
+      '無法讀取備份清單：${message}';
+
+  /// zh-TW: '從這份備份還原？'
+  String get dbRestoreConfirmTitle => '從這份備份還原？';
+
+  /// zh-TW: '備份時間：{time}。目前的資料庫會改名留在資料目錄（fmp.db.before-restore-…），換成這份備份。備份不含登入憑證，還原後要重新登入。'
+  String dbRestoreConfirmBody({required Object time}) =>
+      '備份時間：${time}。目前的資料庫會改名留在資料目錄（fmp.db.before-restore-…），換成這份備份。備份不含登入憑證，還原後要重新登入。';
+
+  /// zh-TW: '還原並重啟'
+  String get dbRestoreConfirm => '還原並重啟';
+
+  /// zh-TW: '正在還原…'
+  String get dbRestoreWorking => '正在還原…';
+
+  /// zh-TW: '還原沒有完成：{message}'
+  String dbRestoreFailed({required Object message}) => '還原沒有完成：${message}';
+
+  /// zh-TW: '可以從備份還原，或重設資料。'
+  String get dbCheckProblemsActions => '可以從備份還原，或重設資料。';
 }
 
 // Path: player

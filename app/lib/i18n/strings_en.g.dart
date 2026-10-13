@@ -604,6 +604,70 @@ class Translations$debug$en extends Translations$debug$zh_TW {
       '${count} (removed automatically at startup, not damage)';
   @override
   String get dbCheckFailed => 'The check failed';
+  @override
+  String get reset => 'Reset data';
+  @override
+  String get resetBody =>
+      'Clears the database (settings, playlists, queue and play history), every source\'s login credentials, the login web view data and the cache, then restarts the app. Log files, backups and downloaded files are left alone.';
+  @override
+  String get resetBackupNote =>
+      'The database is backed up to the backups folder in the data directory first; if the backup fails nothing is cleared. Credentials are not in the backup, so you sign in again after restoring.';
+  @override
+  String get resetButton => 'Reset data…';
+  @override
+  String resetBackupFailed({required Object message}) =>
+      'Could not back up the database, nothing was cleared: ${message}';
+  @override
+  String get resetConfirmTitle => 'Reset all data?';
+  @override
+  String resetConfirmBody({required Object path}) =>
+      'The database was backed up to ${path}. "Clear and restart" clears the database, credentials, login web view data and cache, and cannot be undone except through that backup.';
+  @override
+  String get resetRestartsItself => 'The app restarts by itself afterwards.';
+  @override
+  String get resetRestartsManually =>
+      'The app closes afterwards; open it again yourself.';
+  @override
+  String get resetUnderstand => 'I understand this clears all data';
+  @override
+  String get resetConfirm => 'Clear and restart';
+  @override
+  String get resetWorking => 'Clearing…';
+  @override
+  String resetFailed({required Object message}) =>
+      'The reset did not finish: ${message}';
+  @override
+  String get dbBackUp => 'Back up now';
+  @override
+  String dbBackedUp({required Object path}) => 'Backed up to ${path}';
+  @override
+  String dbBackUpFailed({required Object message}) =>
+      'Could not back up the database: ${message}';
+  @override
+  String get dbRestore => 'Restore from backup';
+  @override
+  String get dbRestoreTitle => 'Choose a backup to restore';
+  @override
+  String get dbRestoreEmpty =>
+      'There are no backups. Press "Back up now"; resetting data also creates one.';
+  @override
+  String dbRestoreListFailed({required Object message}) =>
+      'Could not read the backup list: ${message}';
+  @override
+  String get dbRestoreConfirmTitle => 'Restore from this backup?';
+  @override
+  String dbRestoreConfirmBody({required Object time}) =>
+      'Backup time: ${time}. The current database is renamed and kept in the data directory (fmp.db.before-restore-…) and replaced by this backup. Backups do not contain login credentials, so you sign in again afterwards.';
+  @override
+  String get dbRestoreConfirm => 'Restore and restart';
+  @override
+  String get dbRestoreWorking => 'Restoring…';
+  @override
+  String dbRestoreFailed({required Object message}) =>
+      'The restore did not finish: ${message}';
+  @override
+  String get dbCheckProblemsActions =>
+      'You can restore from a backup or reset the data.';
 }
 
 // Path: player

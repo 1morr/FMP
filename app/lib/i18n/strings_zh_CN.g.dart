@@ -605,6 +605,64 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   String dbOrphansValue({required Object count}) => '${count} 首（启动时会自动清掉，不算损坏）';
   @override
   String get dbCheckFailed => '检查失败';
+  @override
+  String get reset => '重置数据';
+  @override
+  String get resetBody =>
+      '清空数据库（含设置、歌单、队列与播放历史）、所有音源的登录凭证、登录网页的数据与缓存，然后重启 App。不会动 log 文件、备份与已下载的文件。';
+  @override
+  String get resetBackupNote =>
+      '清空之前会先把数据库备份到数据目录的 backups 文件夹；备份失败就什么都不清。凭证不在备份里，还原后要重新登录。';
+  @override
+  String get resetButton => '重置数据…';
+  @override
+  String resetBackupFailed({required Object message}) =>
+      '无法备份数据库，没有清除任何数据：${message}';
+  @override
+  String get resetConfirmTitle => '重置所有数据？';
+  @override
+  String resetConfirmBody({required Object path}) =>
+      '数据库已备份到 ${path}。按下“清空并重启”会清空数据库、凭证、登录网页的数据与缓存，除了这份备份之外无法恢复。';
+  @override
+  String get resetRestartsItself => '完成后 App 会自动重新启动。';
+  @override
+  String get resetRestartsManually => '完成后 App 会关闭，请自己重新打开。';
+  @override
+  String get resetUnderstand => '我了解这会清空所有数据';
+  @override
+  String get resetConfirm => '清空并重启';
+  @override
+  String get resetWorking => '正在清空…';
+  @override
+  String resetFailed({required Object message}) => '重置没有完成：${message}';
+  @override
+  String get dbBackUp => '立即备份';
+  @override
+  String dbBackedUp({required Object path}) => '已备份到 ${path}';
+  @override
+  String dbBackUpFailed({required Object message}) => '无法备份数据库：${message}';
+  @override
+  String get dbRestore => '从备份还原';
+  @override
+  String get dbRestoreTitle => '选择要还原的备份';
+  @override
+  String get dbRestoreEmpty => '没有备份。先按“立即备份”，或重置数据时会自动创建。';
+  @override
+  String dbRestoreListFailed({required Object message}) =>
+      '无法读取备份列表：${message}';
+  @override
+  String get dbRestoreConfirmTitle => '从这份备份还原？';
+  @override
+  String dbRestoreConfirmBody({required Object time}) =>
+      '备份时间：${time}。当前的数据库会改名留在数据目录（fmp.db.before-restore-…），换成这份备份。备份不含登录凭证，还原后要重新登录。';
+  @override
+  String get dbRestoreConfirm => '还原并重启';
+  @override
+  String get dbRestoreWorking => '正在还原…';
+  @override
+  String dbRestoreFailed({required Object message}) => '还原没有完成：${message}';
+  @override
+  String get dbCheckProblemsActions => '可以从备份还原，或重置数据。';
 }
 
 // Path: player
