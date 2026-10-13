@@ -125,7 +125,11 @@ try {
   要設回 0。
 - 要看狀態變化或事件跳提示（播放控制器的 `events`），在 `ref.listen` 的 callback 裡呼叫
   `Toaster`，不在 `build` 裡：`Toaster` 同步送出，`ToastHost` 當場 `showSnackBar`。
-- M1 沒有「詳細」與「回報」（ADR 0023 §決定 4 延到 M3，和 Debug 頁的錯誤歷史一起做）。
+- `error` 的動作是自動附的，頁面不用管：開發者模式附「詳細」、一般使用者只有 `Unsupported`、`UnexpectedError` 附「回報」，
+  都開 `ErrorDetailPage`（`openErrorDetail(navigator, record)`）；要換成自己的動作才傳 `action`（會取代它）。Debug 頁的錯誤紀錄
+  用同一個 `openErrorDetail`。規則與閘門見 `app/AGENTS.md` § 介面的「提示與錯誤詳細頁」。
+- 測試提示的動作：`ShellHarness.toaster` 已接上 `navigatorKey`，`toastDeveloperMode = true` 當成開發者模式；網址開啟器用
+  `test/ui/support/fake_url_opener.dart`（`ShellHarness(urlOpener: …)`，不給就是平台沒有這個能力）。
 
 ## 外殼、快捷鍵與焦點
 
