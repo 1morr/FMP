@@ -22,13 +22,16 @@ lib/ui/
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區）、導覽類快捷鍵表、PlaybackShortcuts（播放類快捷鍵表）、
                        # now_playing_panel（右側面板、把手、面板寬度規則）
-  search/              # 搜尋頁、searchProvider、音源 chip 列
+  search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
+  radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、資料庫）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails、
-                       # 可編輯的佇列（QueueView：分頁與底部面板共用）
+                       # 可編輯的佇列（QueueView：分頁與底部面板共用）、
+                       # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
+                       # LiveFacts、LiveDetails、StatusTag）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   tracks/              # TrackRowMenu：搜尋結果、歷史、佇列的一列曲目共用的選單（右鍵、長按、「⋯」）
   plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
@@ -37,7 +40,7 @@ lib/ui/
   accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider、登入方式的交集與登入失敗的訊息（accounts_state）、
                        # QR 登入對話框（qr_login_dialog）；qr_flutter 只准在這裡；網頁登入的全螢幕頁
                        # （web_login_page）、貼上 cookie 的對話框（cookie_login_dialog）
-  format/              # 時長與位元組數的文字
+  format/              # 時長、位元組數與人數（CLDR 縮寫，formatCount）的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
 
@@ -133,8 +136,8 @@ try {
 
 ## 外殼、快捷鍵與焦點
 
-- 導覽項只有 `ShellDestination` 的兩個；頁面放在內容區的 `IndexedStack`（換頁不丟狀態，沒選的
-  頁面焦點被排除）。
+- 導覽項是 `ShellDestination` 的四個（搜尋｜歷史｜電台｜設定）；頁面放在內容區的 `IndexedStack`（換頁不丟狀態，沒選的
+  頁面焦點被排除），三種導覽元件的項目照它的順序各寫一份。
 - 加一個 App 內快捷鍵（ADR 0024 §決定 8 的表）：
   1. 播放類：`playback_shortcuts.dart` 加一個 `Intent`、`playbackShortcuts` 的一列與
      `PlaybackShortcuts` 的 action（讀控制器放在 `onInvoke` 裡，建構時讀會在沒有後端的環境拋錯）；
@@ -316,6 +319,25 @@ try {
   `loadPage()` 模擬一頁載入完成；頁面載入中的進度條一直在動，不用 `pumpAndSettle`，按按鈕後先 `h.settle`（等插件清單）
   再 `pump`。卡住的計時直接 `pump(webLoginStuckAfter)`。`CredentialStore` 的 `unreadable`
   不好造，以 `overrides: [accountViewProvider(id).overrideWith(...)]` 給畫面看的狀態。
+
+## 電台頁與直播
+
+規則與閘門見 `app/AGENTS.md` § 介面的「電台頁」「搜尋頁的直播間模式」「直播版」；ADR 0031 §決定 3–5、7。
+
+- 判斷「有沒有在播」一律用 `hasNowPlaying(queue)`，不要再寫 `queue.current != null`：直播時 `current` 是 `null`，那樣寫的元件
+  （播放列、播放頁、佇列面板的自動關閉、外殼的 Ctrl+L／Q）會在直播時消失或自己關掉。直播的內容讀 `nowPlayingLiveProvider`。
+- 新的直播狀態：階段（`LivePhase`）加在 `LiveBadge` 的 `switch`，播放狀態（重連、停止、失敗）加在 `liveStatusLabel`；兩個都是
+  exhaustive，編譯器會指出。只對佇列有意義的新播放鍵用 `_QueueAction` 包（直播時接下、不做事）。
+- 一列「標記＋主播」用 `TaggedLine`（`Wrap`：放不下時主播換行、兩者都省略不撐破列）。不要改成 `Text.rich` 的
+  `WidgetSpan`：那裡面的字不在 guideline 的對比度檢查範圍內（變異驗證時把標記的字改成看不清楚，guideline 照樣綠）。
+- 測試：`ShellHarness(live: true)` 讓測試插件宣告 `live`（`onLiveSearch`、`onLiveStatus`、`onResolveLive`、`onLiveRoomFromUrl`
+  給回應）；電台要向插件清單要插件時另給 `registryOfSources: true`。`h.liveInfoJob` 是控制器登記的 `live-info`，呼叫它當作排程器
+  到期（人數、標題更新）。
+- 電台頁在外殼的 `IndexedStack` 裡一直監看 `radio_stations`，所以**種資料要在假時間裡直接 `await`**（記憶體資料庫只靠微任務）；
+  包在 `runAsync` 裡的交易等不到假時間裡那個查詢放開的鎖，測試會卡到逾時。寫好之後才 `listen` `backgroundSchedulerProvider` 與
+  `radioStatusJobsProvider`（App 裡是 `FmpApp` 常駐它們，手動刷新要它們）；之後讀資料庫看 `radioStationsProvider` 的值，不在
+  `runAsync` 裡查。見 `test/ui/radio/radio_page_test.dart` 的 `_openRadio`。
+- 直播播放中進度一直在走（已收聽時間），`pumpAndSettle` 等不到靜止：用 `pump(Duration)`。
 
 ## 播放列與封面
 
