@@ -28,6 +28,37 @@ NowPlaying nowPlaying({
 );
 
 void main() {
+  group('a live room', () {
+    NowPlaying live({bool seekable = false}) => NowPlaying(
+      id: 'fmp-test:room',
+      title: 'Room',
+      uploader: 'Host',
+      phase: MediaPhase.ready,
+      playing: true,
+      position: const Duration(seconds: 90),
+      controls: const [MediaControl.pause],
+      seekable: seekable,
+    );
+
+    test('has no seek action and only the pause button', () {
+      final state = androidPlaybackStateOf(live());
+
+      expect(state.systemActions, {audio.MediaAction.stop});
+      expect(state.controls, [audio.MediaControl.pause]);
+    });
+
+    test('a seekable song keeps the seek action', () {
+      expect(androidPlaybackStateOf(live(seekable: true)).systemActions, {
+        audio.MediaAction.seek,
+        audio.MediaAction.stop,
+      });
+      expect(androidPlaybackStateOf(nowPlaying()).systemActions, {
+        audio.MediaAction.seek,
+        audio.MediaAction.stop,
+      });
+    });
+  });
+
   group('the playback state', () {
     test('follows the phase and whether it plays', () {
       final idle = androidPlaybackStateOf(

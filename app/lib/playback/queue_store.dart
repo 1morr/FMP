@@ -19,8 +19,8 @@ typedef RestartSettings = ({bool rememberPosition, Duration rewind});
 ///
 /// 存檔時機：佇列操作當下；播放中每 [checkpointInterval]（一次性的週期計時器，
 /// 只在 [Playing] 時開，ADR 0018 §決定 11 允許的播放模組）；暫停、seek、App 進入
-/// `hidden`／`paused`；音量與靜音改變。臨時播放不持久化：它期間資料庫停在進入時的
-/// 佇列那一首與快照位置，位置存檔不覆寫。
+/// `hidden`／`paused`；音量與靜音改變。臨時播放與直播不持久化：它們期間資料庫停在
+/// 進入時的佇列那一首與快照位置，位置存檔不覆寫（直播中關 App，重開時回到那份佇列）。
 ///
 /// 寫入一個接一個、同時只有一個在跑，連續的觸發合併成一次：每次寫的是當下想要的
 /// 狀態與資料庫已有的狀態之差（前綴與後綴相同的列不動，其後的列平移）。沒有恢復
@@ -196,11 +196,11 @@ final class QueueStore {
     _queueKeys = _keysOf(next);
     final same = _sameCurrent(previous, next);
     if (!same) _holdingRestored = false;
-    if (next.temporary case final temporary?) {
-      // 臨時播放：資料庫停在佇列那一首與快照位置；快照是倒退過的起點時（還在等
-      // 恢復的那一首）維持存的位置。
+    if (next.returnSnapshot case final snapshot?) {
+      // 臨時播放或直播：資料庫停在佇列那一首與快照位置；快照是倒退過的起點時（還在
+      // 等恢復的那一首）維持存的位置。
       if (!_holdingRestored) {
-        _positionMs = temporary.snapshot.position.inMilliseconds;
+        _positionMs = snapshot.position.inMilliseconds;
       }
     } else if (!same) {
       // 目前這首換了：從頭，之後的存檔再更新。拖曳只搬動位置、不換目前這首，
@@ -213,7 +213,7 @@ final class QueueStore {
   void _onState(PlaybackState state) {
     switch (state) {
       case Playing():
-        if (_queue.temporary == null) _holdingRestored = false;
+        if (!_queue.isOutsideQueue) _holdingRestored = false;
         _timer ??= Timer.periodic(checkpointInterval, (_) => _checkpoint());
       case Paused():
         _stopTimer();
@@ -221,7 +221,7 @@ final class QueueStore {
       case Idle():
         // 放掉來源（佇列播完、清空、停止）：下次從這首的開頭。
         _stopTimer();
-        if (_queue.temporary == null && !_holdingRestored) {
+        if (!_queue.isOutsideQueue && !_holdingRestored) {
           _positionMs = 0;
           _schedule();
         }
@@ -231,7 +231,7 @@ final class QueueStore {
   }
 
   void _onSeek(Duration position) {
-    if (_queue.temporary != null) return;
+    if (_queue.isOutsideQueue) return;
     _positionMs = position.inMilliseconds;
     _schedule();
   }
@@ -255,11 +255,11 @@ final class QueueStore {
   }
 
   /// 把控制器現在的位置記成想要的位置。沒有來源可問（`Idle`、`Failed`）、在臨時
-  /// 播放時、或恢復的那一首還沒播出來（[_holdingRestored]）時不動：重啟恢復後還沒按播放時控制器的位置是倒退過的，存回去會越退
+  /// 播放或直播時、或恢復的那一首還沒播出來（[_holdingRestored]）時不動：重啟恢復後還沒按播放時控制器的位置是倒退過的，存回去會越退
   /// 越多。
   void _checkpoint() {
     final controller = _controller;
-    if (controller == null || _queue.temporary != null || _holdingRestored) {
+    if (controller == null || _queue.isOutsideQueue || _holdingRestored) {
       return;
     }
     switch (controller.state) {

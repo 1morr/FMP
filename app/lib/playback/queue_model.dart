@@ -4,15 +4,19 @@ import 'package:flutter/foundation.dart';
 
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 
-/// 佇列在播的是什麼（ADR 0018 §決定 4）。`mix`、`live` 跟著它們的插件能力在
-/// M3 加；`detached` 不做（臨時播放涵蓋了它）。
+/// 佇列在播的是什麼（ADR 0018 §決定 4）。`mix` 跟著它的插件能力在 M3 PR 19 加；
+/// `detached` 不做（臨時播放涵蓋了它）。
 enum QueueMode {
   /// 播佇列裡的歌。
   queue,
 
   /// 播一首不在佇列裡的歌，結束後回到佇列（D1）。
   temporary,
+
+  /// 收聽一個直播間（ADR 0018 §決定 9）；結束後回到佇列。不持久化。
+  live,
 }
 
 /// 佇列的一個位置。同一首可以出現在兩個位置，以位置區分。
@@ -65,6 +69,15 @@ final class TemporaryPlay {
   final QueueSnapshot snapshot;
 }
 
+/// 收聽直播中的直播間與進入時的佇列快照（同臨時播放，ADR 0031 §決定 7）。
+@immutable
+final class LivePlay {
+  const LivePlay({required this.target, required this.snapshot});
+
+  final LiveTarget target;
+  final QueueSnapshot snapshot;
+}
+
 /// 佇列的一份快照（ADR 0018 §決定 4）。與播放狀態沒有共同欄位：播到哪一首
 /// 只在這裡。
 @immutable
@@ -75,6 +88,7 @@ final class QueueState {
     this.loopMode = LoopMode.off,
     this.shuffleOrder,
     this.temporary,
+    this.live,
   }) : assert(
          currentIndex == null ||
              (currentIndex >= 0 && currentIndex < entries.length),
@@ -99,21 +113,38 @@ final class QueueState {
   /// 臨時播放中的曲目與快照；不在臨時播放時為 `null`。
   final TemporaryPlay? temporary;
 
-  QueueMode get mode =>
-      temporary == null ? QueueMode.queue : QueueMode.temporary;
+  /// 收聽中的直播間與快照；不在收聽直播時為 `null`。與 [temporary] 不會同時有值。
+  final LivePlay? live;
+
+  QueueMode get mode => live != null
+      ? QueueMode.live
+      : temporary != null
+      ? QueueMode.temporary
+      : QueueMode.queue;
 
   bool get shuffleEnabled => shuffleOrder != null;
 
-  /// 正在播（或要播）的曲目：臨時播放中是臨時的那首，否則是佇列目前這首。
-  TrackInfo? get current =>
-      temporary?.track ??
-      switch (currentIndex) {
-        final index? => entries[index].track,
-        null => null,
-      };
+  /// 在播的是佇列以外的東西（臨時播放或直播）：資料庫停在進入時的佇列那一首與
+  /// [returnSnapshot]，不跟著寫。
+  bool get isOutsideQueue => temporary != null || live != null;
 
-  /// [QueueModel.moveNext] 會不會換曲目。臨時播放中一律是（回到佇列）。
+  /// 離開臨時播放或直播、回到佇列時的快照；在佇列裡為 `null`。
+  QueueSnapshot? get returnSnapshot => temporary?.snapshot ?? live?.snapshot;
+
+  /// 正在播（或要播）的曲目：臨時播放中是臨時的那首，否則是佇列目前這首。收聽
+  /// 直播時不是曲目，為 `null`（直播的內容看 [live]，佇列照舊在 [entries]）。
+  TrackInfo? get current => live != null
+      ? null
+      : temporary?.track ??
+            switch (currentIndex) {
+              final index? => entries[index].track,
+              null => null,
+            };
+
+  /// [QueueModel.moveNext] 會不會換曲目。臨時播放中一律是（回到佇列）；收聽直播
+  /// 時上一首、下一首都停用。
   bool get hasNext {
+    if (live != null) return false;
     if (temporary != null) return true;
     final index = currentIndex;
     if (index == null) return false;
@@ -188,6 +219,7 @@ final class QueueModel {
   /// 隨機開啟時本輪的位置排列，目前這首在 `_order.indexOf(_current)`。
   List<int>? _order;
   TemporaryPlay? _temporary;
+  LivePlay? _live;
 
   /// 目前這首之後有幾個位置是「下一首播放」連續加入的（清單與排列上都緊接在
   /// 目前這首之後）。
@@ -204,6 +236,7 @@ final class QueueModel {
   /// [moveNext] 之後的目前這首；不會換曲目時為 `null`。臨時播放中是回到佇列
   /// 的那一首（從快照的位置開始，不是開頭）。
   ({int index, TrackInfo track})? get next {
+    if (_live != null) return null;
     final index = _temporary != null ? _current : _following();
     if (index == null) return null;
     return (index: index, track: _entries[index].track);
@@ -213,6 +246,7 @@ final class QueueModel {
 
   /// 往下一首（播完、按下一首、被跳過都是它）。臨時播放中是回到佇列。
   QueueStep moveNext() {
+    if (_live != null) return const QueueUnchanged();
     if (_temporary != null) return _returnToQueue();
     if (!_advance()) return const QueueUnchanged();
     _publish();
@@ -222,6 +256,7 @@ final class QueueModel {
   /// 上一首：[position]（目前這首播到的位置）超過 [restartThreshold] 就回到
   /// 開頭，否則往排列的前一個；前面沒有歌時回到開頭。臨時播放中是回到佇列。
   QueueStep movePrevious({required Duration position}) {
+    if (_live != null) return const QueueUnchanged();
     if (_temporary != null) return _returnToQueue();
     final current = _current;
     if (current == null) return const QueueUnchanged();
@@ -247,6 +282,7 @@ final class QueueModel {
   void jumpTo(int index) {
     RangeError.checkValidIndex(index, _entries, 'index');
     _temporary = null;
+    _live = null;
     final current = _current!;
     if (_order case final order? when index != current) {
       order.remove(index);
@@ -267,11 +303,41 @@ final class QueueModel {
   }) {
     final snapshot =
         _temporary?.snapshot ??
+        _live?.snapshot ??
         (_current == null
             ? QueueSnapshot.empty
             : QueueSnapshot(position: position, playing: playing));
     _temporary = TemporaryPlay(track: track, snapshot: snapshot);
+    _live = null;
     _publish();
+  }
+
+  /// 收聽 [target]。還不是臨時播放或直播時記下快照（同 [playTemporary]）；已經是
+  /// 其中之一時只換內容、快照維持進入時的那份（換台不會把中途的臨時曲目或上一個
+  /// 直播間當成要回去的地方）。
+  void playLive(
+    LiveTarget target, {
+    required Duration position,
+    required bool playing,
+  }) {
+    final snapshot =
+        _live?.snapshot ??
+        _temporary?.snapshot ??
+        (_current == null
+            ? QueueSnapshot.empty
+            : QueueSnapshot(position: position, playing: playing));
+    _live = LivePlay(target: target, snapshot: snapshot);
+    _temporary = null;
+    _publish();
+  }
+
+  /// 停止收聽、回到佇列（直播頁的停止）。不在收聽直播時什麼都不變。
+  QueueStep stopLive() {
+    final live = _live;
+    if (live == null) return const QueueUnchanged();
+    _live = null;
+    _publish();
+    return ReturnedToQueue(live.snapshot);
   }
 
   // ---- 加入 -----------------------------------------------------------------
@@ -300,6 +366,7 @@ final class QueueModel {
         : (currentIndex ?? 0).clamp(0, tracks.length - 1);
     _loop = loopMode;
     _temporary = null;
+    _live = null;
     _playNextRun = 0;
     _order = switch ((shuffle, _current)) {
       (false, _) => null,
@@ -321,6 +388,7 @@ final class QueueModel {
     _entries = [for (final track in tracks) QueueEntry(track)];
     _current = startIndex;
     _temporary = null;
+    _live = null;
     _playNextRun = 0;
     if (_order != null) _order = _orderStartingAt(startIndex);
     _publish();
@@ -485,6 +553,7 @@ final class QueueModel {
     _current = null;
     if (_order != null) _order = [];
     _temporary = null;
+    _live = null;
     _playNextRun = 0;
     _publish();
   }
@@ -555,17 +624,28 @@ final class QueueModel {
     return ReturnedToQueue(snapshot);
   }
 
-  /// 臨時播放中佇列的那一首換了：快照的位置屬於原本那首，改成從頭。
+  /// 臨時播放或直播中佇列的那一首換了：快照的位置屬於原本那首，改成從頭。
   void _resetSnapshotPosition() {
     final temporary = _temporary;
-    if (temporary == null) return;
-    _temporary = TemporaryPlay(
-      track: temporary.track,
-      snapshot: QueueSnapshot(
-        position: Duration.zero,
-        playing: temporary.snapshot.playing,
-      ),
-    );
+    if (temporary != null) {
+      _temporary = TemporaryPlay(
+        track: temporary.track,
+        snapshot: QueueSnapshot(
+          position: Duration.zero,
+          playing: temporary.snapshot.playing,
+        ),
+      );
+    }
+    final live = _live;
+    if (live != null) {
+      _live = LivePlay(
+        target: live.target,
+        snapshot: QueueSnapshot(
+          position: Duration.zero,
+          playing: live.snapshot.playing,
+        ),
+      );
+    }
   }
 
   /// 所有位置的隨機排列，[first] 排第一。
@@ -596,6 +676,7 @@ final class QueueModel {
       loopMode: _loop,
       shuffleOrder: order == null ? null : List.unmodifiable(order),
       temporary: _temporary,
+      live: _live,
     );
   }
 }

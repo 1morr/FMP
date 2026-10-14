@@ -74,6 +74,30 @@ final class _FakeSmtc implements smtc.SMTCWindows {
 }
 
 void main() {
+  group('a live room', () {
+    final live = nowPlaying(
+      id: 'room',
+      duration: null,
+      controls: const [MediaControl.pause],
+    );
+
+    test('has no duration on the timeline', () {
+      final timeline = smtcTimelineOf(live);
+
+      expect(timeline.endTimeMs, 0);
+      expect(timeline.positionMs, 12000);
+    });
+
+    test('enables only the pause button', () {
+      final config = smtcConfigOf(live);
+
+      expect(config.pauseEnabled, isTrue);
+      expect(config.playEnabled, isFalse);
+      expect(config.prevEnabled, isFalse);
+      expect(config.nextEnabled, isFalse);
+    });
+  });
+
   group('the adapter', () {
     late _FakeSmtc fake;
     late WindowsSystemMediaControls controls;

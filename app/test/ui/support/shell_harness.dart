@@ -140,6 +140,8 @@ final class ShellHarness {
       pluginChanges: const Stream.empty(),
       preferredOutputDevice: () => _readPreferredOutputDevice(),
       saveOutputDevice: (device) => _saveOutputDevice(device),
+      registerLiveInfoJob: (_, _) {},
+      unregisterLiveInfoJob: () {},
     );
     toaster = Toaster(
       log: this.log,

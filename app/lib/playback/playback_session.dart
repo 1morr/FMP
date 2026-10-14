@@ -11,6 +11,7 @@ import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/stream_resolver.dart';
+import 'package:fmp/plugins/source_dto.dart';
 
 /// 前瞻要接的曲目：佇列裡的位置與曲目；位置為 `null` 是重播目前這首（單曲
 /// 循環，佇列不動）。
@@ -170,6 +171,18 @@ final class PlaybackSession {
     unawaited(_backend.stop());
     return _resolver.resolve(track);
   }
+
+  /// 解析直播間 [roomId]，丟出 `AppError`。同 [resolve]，解析期間不讓上一個來源
+  /// 繼續出聲；直播流不排前瞻、不進網址快取。
+  Future<ResolvedStream> resolveLive(String pluginId, String roomId) {
+    unawaited(_backend.stop());
+    return _resolver.resolveLive(pluginId, roomId);
+  }
+
+  /// 直播間 [roomId] 現在的狀態（提前結束後的確認與收聽中的 `live-info`），查詢
+  /// 失敗丟出 `AppError`。
+  Future<LiveRoom> liveStatus(String pluginId, String roomId) =>
+      _resolver.liveStatus(pluginId, roomId);
 
   /// 以 [stream] 的第一個候選取代後端的清單，從 [position] 開始；[play] 為假
   /// 時載入後停在暫停。

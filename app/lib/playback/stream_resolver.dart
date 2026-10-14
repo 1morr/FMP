@@ -102,6 +102,40 @@ final class StreamResolver {
     );
   }
 
+  /// 解析直播間 [roomId] 的串流（ADR 0018 §決定 9）。直播流沒有穩定的網址，不進
+  /// 快取、也不共用進行中的請求：每次都問插件。音源不在插件清單上是 `Unsupported`。
+  /// 回傳的 [ResolvedStream.track] 以（插件, 房間）當鍵，只用在 log。
+  Future<ResolvedStream> resolveLive(String pluginId, String roomId) async {
+    final plugin = _plugin(pluginId);
+    if (plugin == null) throw Unsupported(pluginId: pluginId);
+    final preferences = _preferences();
+    _log.info(
+      'Resolving live stream',
+      tag: _tag,
+      fields: {'plugin': pluginId, 'room': roomId},
+    );
+    final result = await plugin.resolveLive(
+      LiveStreamRequest(roomId: roomId, formats: _requestFormats(preferences)),
+    );
+    return ResolvedStream(
+      track: TrackKeyParts(sourceTypeId: pluginId, sourceId: roomId),
+      candidates: result.candidates,
+    );
+  }
+
+  /// 直播間 [roomId] 現在的狀態。查詢失敗丟出 `AppError`（D10：不當成未開播）。
+  Future<LiveRoom> liveStatus(String pluginId, String roomId) {
+    final plugin = _plugin(pluginId);
+    if (plugin == null) return Future.error(Unsupported(pluginId: pluginId));
+    return plugin.liveStatus(LiveRoomQuery(roomId: roomId));
+  }
+
+  /// 送給插件的格式：平台可播的，依格式偏好重排。
+  List<StreamFormat> _requestFormats(StreamPreferences preferences) => [
+    for (final format in _orderFormats(_formats, preferences.formatPriority))
+      StreamFormat(container: format.container, codec: format.codec),
+  ];
+
   Future<ResolvedStream> _fetch(
     SourcePlugin plugin,
     TrackKeyParts track,
@@ -111,13 +145,7 @@ final class StreamResolver {
       StreamRequest(
         sourceId: track.sourceId,
         cid: track.cid,
-        formats: [
-          for (final format in _orderFormats(
-            _formats,
-            preferences.formatPriority,
-          ))
-            StreamFormat(container: format.container, codec: format.codec),
-        ],
+        formats: _requestFormats(preferences),
         quality: preferences.quality,
       ),
     );

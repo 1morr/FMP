@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/queue_model.dart';
 
 TrackInfo track(String id) =>
@@ -750,6 +751,100 @@ void main() {
       queue.playTemporary(track('t'), position: Duration.zero, playing: true);
       expect(currentId(queue.state), 't');
       expect(queue.state.entries, hasLength(10000));
+    });
+  });
+
+  group('live play', () {
+    const room = LiveTarget(pluginId: 'fmp-test', roomId: 'r1', title: 'Room');
+    const other = LiveTarget(pluginId: 'fmp-test', roomId: 'r2', title: 'Two');
+
+    QueueModel playing() => QueueModel()
+      ..replace(tracks(['a', 'b']), startIndex: 1)
+      ..playLive(room, position: const Duration(seconds: 42), playing: true);
+
+    test('keeps the queue, has no current track and disables next', () {
+      final queue = playing();
+      final state = queue.state;
+
+      expect(state.mode, QueueMode.live);
+      expect(state.live?.target, room);
+      expect(state.current, isNull);
+      expect(state.currentIndex, 1);
+      expect(ids(state), ['a', 'b']);
+      expect(state.hasNext, isFalse);
+      expect(state.isOutsideQueue, isTrue);
+      expect(queue.next, isNull);
+      expect(queue.moveNext(), isA<QueueUnchanged>());
+      expect(
+        queue.movePrevious(position: Duration.zero),
+        isA<QueueUnchanged>(),
+      );
+      expect(queue.state.mode, QueueMode.live);
+    });
+
+    test('stopping returns the snapshot taken on entering', () {
+      final queue = playing();
+
+      final step = queue.stopLive();
+
+      expect(step, isA<ReturnedToQueue>());
+      final snapshot = (step as ReturnedToQueue).snapshot;
+      expect(snapshot.position, const Duration(seconds: 42));
+      expect(snapshot.playing, isTrue);
+      expect(queue.state.mode, QueueMode.queue);
+      expect(queue.state.live, isNull);
+      expect(currentId(queue.state), 'b');
+      // 不在直播時停止什麼都不變。
+      expect(queue.stopLive(), isA<QueueUnchanged>());
+    });
+
+    test('another room keeps the earliest snapshot', () {
+      final queue = playing()
+        ..playLive(other, position: const Duration(seconds: 5), playing: false);
+
+      expect(queue.state.live?.target, other);
+      expect(queue.state.live?.snapshot.position, const Duration(seconds: 42));
+      expect(queue.state.live?.snapshot.playing, isTrue);
+    });
+
+    test('a temporary track and a live room share one snapshot', () {
+      final queue = playing()
+        ..playTemporary(track('t'), position: Duration.zero, playing: false);
+      expect(queue.state.mode, QueueMode.temporary);
+      expect(queue.state.live, isNull);
+      expect(
+        queue.state.temporary?.snapshot.position,
+        const Duration(seconds: 42),
+      );
+
+      queue.playLive(room, position: Duration.zero, playing: false);
+      expect(queue.state.mode, QueueMode.live);
+      expect(queue.state.temporary, isNull);
+      expect(queue.state.live?.snapshot.position, const Duration(seconds: 42));
+    });
+
+    test('picking a queue entry, replacing and clearing leave the live '
+        'room', () {
+      for (final leave in <void Function(QueueModel)>[
+        (queue) => queue.jumpTo(0),
+        (queue) => queue.replace(tracks(['x', 'y'])),
+        (queue) => queue.clear(),
+      ]) {
+        final queue = playing();
+        leave(queue);
+        expect(queue.state.live, isNull);
+        expect(queue.state.mode, QueueMode.queue);
+      }
+    });
+
+    test('removing the queue track while live restarts it from the top', () {
+      final queue = playing()..remove(1);
+
+      expect(queue.state.mode, QueueMode.live);
+      expect(queue.state.live?.snapshot.position, Duration.zero);
+      expect(queue.state.live?.snapshot.playing, isTrue);
+      expect(currentId(queue.state), isNull);
+      expect(queue.state.currentIndex, 0);
     });
   });
 
