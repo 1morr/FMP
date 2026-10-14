@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
-        '"capabilities": ["search", "live", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "login"]',
       );
 
       expect(
@@ -399,8 +399,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
-        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "login"]',
       );
 
       expect(
@@ -414,8 +414,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "login"]',
       );
 
       expect(
@@ -429,8 +429,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "login"]',
       );
 
       expect(
@@ -457,6 +457,41 @@ void main() {
       () async {
         final directory = copyPlugin('test_plugin');
         edit(directory, 'test_plugin.js', "'Part two'", "'Second part'");
+
+        expect(await runContract(directory), isEmpty);
+      },
+    );
+
+    test('a trackDetail check for a plugin without the capability', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
+      );
+
+      expect(
+        await runContract(directory),
+        contains('checks.json: trackDetail is not a declared capability'),
+      );
+    });
+
+    test('a trackDetail check that expects a field the detail lacks', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(directory, 'test_plugin.js', "    album: 'Test album',\n", '');
+
+      expect(
+        await runContract(directory),
+        contains(contains('"album" is empty')),
+      );
+    });
+
+    test(
+      'a trackDetail check that renames an unrelated thing stays green',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(directory, 'test_plugin.js', "'Test album'", "'Another album'");
 
         expect(await runContract(directory), isEmpty);
       },

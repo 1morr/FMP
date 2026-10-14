@@ -134,6 +134,14 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<TrackDetail> trackDetail(TrackDetailQuery query) async {
+    final json = await _invoke(PluginCapability.trackDetail, query.toJson());
+    return _decode(
+      () => TrackDetail.fromJson(json, allowedHosts: _allowedHosts),
+    );
+  }
+
+  @override
   Future<LoginQrCode> loginQrStart() async {
     final json = await _login(LoginExports.qrStart, null);
     return _decode(() => LoginQrCode.fromJson(json));

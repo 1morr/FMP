@@ -298,6 +298,40 @@ export interface MixBatch {
   cursor?: string | null;
 }
 
+/** trackDetail 的統計種類：封閉的 union，宿主依它挑圖示與翻譯，不顯示插件給的文字。 */
+export type TrackStatKind =
+  | 'view'
+  | 'like'
+  | 'favorite'
+  | 'comment'
+  | 'share'
+  | 'danmaku'
+  | 'coin';
+
+/** trackDetail 的輸入。 */
+export interface TrackDetailQuery {
+  sourceId: string;
+  /** 分 P 的 cid（非負整數）。 */
+  cid?: number | null;
+}
+
+/** trackDetail 的回傳值：曲目的詳細資料，欄位都可以沒有。 */
+export interface TrackDetail {
+  description?: string | null;
+  /** UTC epoch 毫秒（非負整數，同 StreamCandidate.expiresAt）。 */
+  publishedAt?: number | null;
+  /** 上傳者頭像；`https`，網域在 allowedHosts。 */
+  uploaderAvatar?: Artwork[] | null;
+  album?: string | null;
+  stats?: TrackStat[] | null;
+}
+
+export interface TrackStat {
+  kind: TrackStatKind;
+  /** 非負整數。 */
+  count: number;
+}
+
 /** multiPart 的輸入。 */
 export interface MultiPartQuery {
   sourceId: string;
@@ -462,6 +496,8 @@ export interface FmpPluginExports {
   mix?(query: MixSeedQuery | MixContinueQuery): MixBatch | Promise<MixBatch>;
   /** 'multiPart' 能力：一支影片的分 P。能力名稱就是匯出名稱。 */
   multiPart?(query: MultiPartQuery): MultiPartResult | Promise<MultiPartResult>;
+  /** 'trackDetail' 能力：曲目的詳細資料。能力名稱就是匯出名稱。 */
+  trackDetail?(query: TrackDetailQuery): TrackDetail | Promise<TrackDetail>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -495,13 +531,14 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這六個。 */
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這七個。 */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
   live?: FmpLiveCheck | null;
   mix?: FmpMixCheck | null;
   multiPart?: FmpMultiPartCheck | null;
+  trackDetail?: FmpTrackDetailCheck | null;
   login?: FmpLoginCheck | null;
 }
 
@@ -520,6 +557,12 @@ export interface FmpMixCheck {
 /** multiPart 的案例；成功時回傳的 parts 是檢查的清單，nonEmpty 的名稱是 cid、title、durationMs、index。 */
 export interface FmpMultiPartCheck {
   input: MultiPartQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+}
+
+/** trackDetail 的案例；成功時回傳的 TrackDetail 是那一筆，nonEmpty 的名稱同 TrackDetail。 */
+export interface FmpTrackDetailCheck {
+  input: TrackDetailQuery;
   expect: FmpExpectSuccess | FmpExpectError;
 }
 

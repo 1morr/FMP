@@ -251,6 +251,34 @@ void main() {
     expect(shown.problems.join(), contains('expected at least 4 items'));
   });
 
+  test('a trackDetail case fetches the detail and shows it', () async {
+    plugin('test_plugin');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.trackDetail);
+
+    final shown = result(container, 'fmp-test', PluginCapability.trackDetail)!;
+    expect(shown.outcome, DevCaseOutcome.passed, reason: '${shown.problems}');
+    expect(shown.value, contains('Test album'));
+  });
+
+  test('a trackDetail case whose detail lacks a field fails', () async {
+    final directory = plugin('test_plugin');
+    contract.edit(
+      directory,
+      'test_plugin.js',
+      "    album: 'Test album',\n",
+      '',
+    );
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.trackDetail);
+
+    final shown = result(container, 'fmp-test', PluginCapability.trackDetail)!;
+    expect(shown.outcome, DevCaseOutcome.failed);
+    expect(shown.problems.join(), contains('"album" is empty'));
+  });
+
   test('a mix case that expects too many tracks fails', () async {
     final directory = plugin('test_plugin');
     contract.edit(directory, 'checks.json', '"minItems": 5', '"minItems": 6');

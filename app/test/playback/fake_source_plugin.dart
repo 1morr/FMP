@@ -16,6 +16,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     bool live = false,
     bool mix = false,
     bool multiPart = false,
+    bool trackDetail = false,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -27,6 +28,7 @@ final class FakeSourcePlugin implements SourcePlugin {
            if (live) PluginCapability.live,
            if (mix) PluginCapability.mix,
            if (multiPart) PluginCapability.multiPart,
+           if (trackDetail) PluginCapability.trackDetail,
          },
          allowedHosts: const ['cdn.example'],
        );
@@ -60,6 +62,10 @@ final class FakeSourcePlugin implements SourcePlugin {
   // 分 P（`multiPart: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
   FutureOr<MultiPartResult> Function(MultiPartQuery query)? onMultiPart;
   final multiPartQueries = <MultiPartQuery>[];
+
+  // 曲目詳細（`trackDetail: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
+  FutureOr<TrackDetail> Function(TrackDetailQuery query)? onTrackDetail;
+  final trackDetailQueries = <TrackDetailQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -136,6 +142,14 @@ final class FakeSourcePlugin implements SourcePlugin {
     final handler = onMultiPart;
     if (handler == null) throw UnimplementedError('multiPart');
     multiPartQueries.add(query);
+    return handler(query);
+  }
+
+  @override
+  Future<TrackDetail> trackDetail(TrackDetailQuery query) async {
+    final handler = onTrackDetail;
+    if (handler == null) throw UnimplementedError('trackDetail');
+    trackDetailQueries.add(query);
     return handler(query);
   }
 

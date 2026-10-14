@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`、`live`、`mix`、`multiPart`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`live`、`mix`、`multiPart`、`trackDetail`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -78,6 +78,10 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `parts-220` | 3 | 三個分 P（cid 22001–22003） | 展開、點 P2 播放、選單加入全部 |
   | `parts-440` | 沒有 | 兩個分 P（cid 44001、44002） | 不知道分 P 數：展開鈕照顯示，選單先取分 P 再套用到全部 |
   | `parts-880` | 沒有 | 一個分 P | 展開後鈕消失；選單照單曲處理 |
+- 曲目詳細（`trackDetail`，不連網，給播放頁「詳細」分頁的實機驗證）：看搜尋結果裡的曲目（點開播放頁的詳細分頁）。
+  `tone-440` 有完整的資料（六行的簡介、2024-05-17 的發佈時間、專輯、七種統計；沒有 `uploaderAvatar`，因為
+  `allowedHosts` 是空的，頭像的顯示由 widget 測試守）；`tone-880` 以 `NetworkError` 失敗（看詳細區的失敗與重試）；
+  其他曲目回空的詳細資料（詳細區不多顯示東西）。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -101,7 +105,7 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

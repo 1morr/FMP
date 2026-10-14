@@ -76,6 +76,15 @@ const sourceDtoShapes = <String, JsonShape>{
     'durationMs': false,
     'index': true,
   },
+  'TrackDetailQuery': {'sourceId': true, 'cid': false},
+  'TrackDetail': {
+    'description': false,
+    'publishedAt': false,
+    'uploaderAvatar': false,
+    'album': false,
+    'stats': false,
+  },
+  'TrackStat': {'kind': true, 'count': true},
 };
 
 /// 搜尋的輸入。
@@ -911,4 +920,134 @@ final class MultiPart {
     partIndex: index,
     parentTitle: video.title,
   );
+}
+
+/// `trackDetail` 的輸入（ADR 0028 §決定 6）；也是 checks.json 的 `trackDetail` 案例
+/// 的輸入。
+@immutable
+final class TrackDetailQuery {
+  TrackDetailQuery({required this.sourceId, this.cid}) {
+    if (sourceId.trim().isEmpty) {
+      throw ArgumentError.value(sourceId, 'sourceId', 'must not be empty');
+    }
+  }
+
+  final String sourceId;
+  final int? cid;
+
+  Map<String, Object?> toJson() => {
+    'sourceId': sourceId,
+    if (cid != null) 'cid': cid,
+  };
+}
+
+/// 統計的種類（`fmp-plugin.d.ts` 的 `TrackStatKind`）。封閉的 union：宿主依它挑圖示與
+/// 翻譯，不顯示插件給的文字。
+enum TrackStatKind {
+  view,
+  like,
+  favorite,
+  comment,
+  share,
+  danmaku,
+  coin;
+
+  /// 插件介面上的名稱，與 [name] 分開寫死。
+  String get wireName => switch (this) {
+    view => 'view',
+    like => 'like',
+    favorite => 'favorite',
+    comment => 'comment',
+    share => 'share',
+    danmaku => 'danmaku',
+    coin => 'coin',
+  };
+
+  static TrackStatKind? fromWireName(String name) {
+    for (final kind in values) {
+      if (kind.wireName == name) return kind;
+    }
+    return null;
+  }
+}
+
+/// 一項統計。
+@immutable
+final class TrackStat {
+  const TrackStat({required this.kind, required this.count});
+
+  factory TrackStat._fromJson(Object? json, {required String path}) {
+    final fields = JsonFields(json, sourceDtoShapes['TrackStat']!, path: path);
+    final name = fields.string('kind');
+    final kind = TrackStatKind.fromWireName(name);
+    if (kind == null) throw FormatException('$path.kind: unknown "$name"');
+    return TrackStat(kind: kind, count: fields.integer('count'));
+  }
+
+  final TrackStatKind kind;
+
+  /// 非負整數。
+  final int count;
+}
+
+/// `trackDetail` 的回傳值：曲目的詳細資料，欄位都可以沒有。
+@immutable
+final class TrackDetail {
+  const TrackDetail({
+    this.description,
+    this.publishedAt,
+    this.uploaderAvatar = const [],
+    this.album,
+    this.stats = const [],
+  });
+
+  factory TrackDetail.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'TrackDetail';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final publishedAt = fields.optionalInteger('publishedAt');
+    // DateTime 的上限是 8.64e15 毫秒：超過的不是時間。
+    if (publishedAt != null && publishedAt > 8640000000000000) {
+      throw const FormatException('$path.publishedAt: out of range');
+    }
+    return TrackDetail(
+      description: fields.optionalString('description'),
+      publishedAt: publishedAt == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(publishedAt, isUtc: true),
+      uploaderAvatar: List.unmodifiable([
+        for (final (index, item)
+            in (fields.optionalList('uploaderAvatar') ?? []).indexed)
+          Artwork._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: '$path.uploaderAvatar[$index]',
+          ),
+      ]),
+      album: fields.optionalString('album'),
+      stats: List.unmodifiable([
+        for (final (index, item)
+            in (fields.optionalList('stats') ?? []).indexed)
+          TrackStat._fromJson(item, path: '$path.stats[$index]'),
+      ]),
+    );
+  }
+
+  final String? description;
+
+  /// UTC。
+  final DateTime? publishedAt;
+  final List<Artwork> uploaderAvatar;
+  final String? album;
+  final List<TrackStat> stats;
+
+  /// 沒有任何欄位有內容。
+  bool get isEmpty =>
+      (description ?? '').trim().isEmpty &&
+      publishedAt == null &&
+      uploaderAvatar.isEmpty &&
+      (album ?? '').trim().isEmpty &&
+      stats.isEmpty;
 }

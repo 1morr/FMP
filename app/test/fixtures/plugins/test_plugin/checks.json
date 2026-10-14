@@ -26,6 +26,10 @@
     "input": { "sourceId": "parts-220" },
     "expect": { "minItems": 3, "nonEmpty": ["cid", "title", "durationMs", "index"] }
   },
+  "trackDetail": {
+    "input": { "sourceId": "tone-440" },
+    "expect": { "minItems": 1, "nonEmpty": ["description", "publishedAt", "album", "stats"] }
+  },
   "login": {
     "input": { "cookies": { "fmp_test_session": "fake-session-0000" } },
     "expect": { "minItems": 1, "nonEmpty": ["userId", "displayName"] },
