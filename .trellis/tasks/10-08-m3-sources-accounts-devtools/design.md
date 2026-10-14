@@ -531,7 +531,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 - `installed_plugins.enabled`（預設真）。停用＝不載入 runtime：不出現在搜尋 chip、帳號頁、健康檢查、排程器（ADR 0017 §決定 5 立即移除它的工作）；佇列與 Mix 裡它的曲目照「音源未安裝」的方式跳過，標「音源已停用」（`pluginNameProvider`，PR 4）；電台列標「音源已停用」、點了提示；憑證與 storage 保留。
 - **「沒有回應」**是執行期狀態（ADR 0014 的看門狗），到重啟為止，不存資料庫；插件頁直接把它停用（M1 follow-up：插件無限迴圈呼叫宿主 API 時只會一直 `NetworkError`、不會被看門狗停用，使用者手動停用解決）。
 - 慣例：VS Code 的擴充功能啟用與停用、MusicFree 的「禁用」。
-- 閘門：`plugin_registry_test.dart`：停用後 registry 沒有它、啟用後載入；`enabled` 跨重啟；排程器的工作被移除（PR 17 後補一條）。
+- 閘門：`plugin_registry_test.dart`：停用後 registry 沒有它、啟用後載入；`enabled` 跨重啟；停用後排程器的工作被移除（`disabling a plugin removes its scheduler jobs…`，PR 17）。
 
 ### 7.4 安裝、更新、移除（§8.18）
 
@@ -541,6 +541,7 @@ UI 顯示「manifest `login.methods` ∩ 平台有能力」：`qr`、`cookie` �
 - **更新**：只在打開插件頁或按「檢查更新」時比對 index（ADR 0014 §決定 7）；semver 只升不降（`pub_semver` 2.2.1，Dart 團隊維護）；`apiVersion` 不相容時顯示「需要更新 FMP」並停用按鈕。同 id 更新保留 storage 與憑證。**能力或網域比目前版本多時**，先列出新增的部分再確認（§16 第 11 條）；「全部更新」遇到這種插件就逐個問，沒有增加的直接更新。慣例：Chrome 擴充功能要求新權限時先停用等確認、Android 的權限變更提示。
 - 更新後佇列與網址快取以新插件重新解析（M2 PR 7 的快取鍵含插件實例，`plugin_installer_test.dart` 已有；M3 實機第一次有入口，M2 待辦 8）。
 - **移除**：確認框 → 關閉 runtime → `CredentialStore` 刪除與遮蔽取消登記 → 清登入 WebView 的全部 cookie（更正（M3 PR 10），原為該插件 `cookieHosts` 的 cookie；§6.6）→ 刪 `accounts`、`source_settings` 列 → `CacheStore.removePlugin`（M2 已有）→ 排程器移除工作（PR 17 起）→ 刪 `installed_plugins` 列（`plugin_storage` cascade）。中途失敗就停在那一步、記錯、提示；再按一次從頭跑（每一步都可重複）。
+- 更正（M3 PR 17）：排程器移除工作改為移除流程的第一步（ADR 0017 §決定 5 的「立即」；放在刪快取之後，關閉 runtime 到刪列之間到期的工作會拿到已關閉的插件）。
 - **曲目保留**，顯示「音源未安裝」取代目前顯示插件 id 的做法（`pluginNameProvider`）；電台列同樣保留（§16 第 10 條）。
 - **Redactor 去重**（M1 待辦 14）：插件更新與重新載入時，`Redactor` 的 `_mediaCdns` 以插件 id 為鍵取代，不再累加。
 - 閘門：`plugin_installer_test.dart`：SHA 不符拒裝且不寫資料庫；index 的能力或網域與 `.js` manifest 不同時拒裝；semver 降版不顯示更新；`apiVersion` 不符；更新保留 storage 與憑證；能力或網域增加時回傳「需要確認」；移除後每一步的資料都不在（CredentialStore、accounts、cache 項目、storage、installed_plugins）；移除中途失敗後重跑可完成。

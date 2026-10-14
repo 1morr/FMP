@@ -176,7 +176,7 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   `plugin repository` 群組。
 - 停用的插件不在 `pluginRegistryProvider` 的 Map 裡，要區分「停用」與「未安裝」用
   `PluginRegistry.isDisabled`（Map 每次改變都會發出新值，讀它的 provider 會跟著重建）。
-- 移除時之後的 PR 要加的步驟（憑證、帳號、排程器）加在 `PluginInstaller.remove` 刪 `installed_plugins` 列之前，並在
+- 移除插件的新步驟加在 `PluginInstaller.remove` 刪 `installed_plugins` 列之前（現有：排程器（第一步）、runtime、帳號、快取），並在
   `removing` 群組加對應的斷言。
 
 ## 帳號
