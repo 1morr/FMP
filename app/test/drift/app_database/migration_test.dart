@@ -20,6 +20,7 @@ import 'generated/schema_v9.dart' as v9;
 import 'generated/schema_v10.dart' as v10;
 import 'generated/schema_v11.dart' as v11;
 import 'generated/schema_v12.dart' as v12;
+import 'generated/schema_v13.dart' as v13;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1177,5 +1178,88 @@ void main() {
     addTearDown(db.close);
 
     await expectRadioStationsSchema(db);
+  });
+
+  // v13 在 player_state 加 Mix 的五欄（ADR 0031 §決定 11、M3 design §3.1）：既有的列
+  // 原樣保留，新欄位都是 NULL（`mode` 空＝一般佇列），M2 的恢復行為不變。
+  test('migration from v12 to v13 keeps the stored queue state', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 12,
+      newVersion: 13,
+      createOld: v12.DatabaseAtV12.new,
+      createNew: v13.DatabaseAtV13.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.playerState,
+          const v12.PlayerStateData(
+            id: 1,
+            currentPosition: 3,
+            positionMs: 83000,
+            loopMode: 'all',
+            shuffleEnabled: 1,
+            volume: 0.4,
+            muted: 1,
+            updatedAt: 1790000000000,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        // 使用者的值不變，Mix 的欄位是空的。
+        expect(await newDb.select(newDb.playerState).get(), [
+          const v13.PlayerStateData(
+            id: 1,
+            currentPosition: 3,
+            positionMs: 83000,
+            loopMode: 'all',
+            shuffleEnabled: 1,
+            volume: 0.4,
+            muted: 1,
+            updatedAt: 1790000000000,
+          ),
+        ]);
+      },
+    );
+  });
+
+  Future<void> expectPlayerMixSchema(AppDatabase db) async {
+    // 持久化格式：`mode` 的字串寫死，Mix 的四欄都是文字且可空。
+    await db.customStatement(
+      "INSERT INTO player_state (id, position_ms, loop_mode, shuffle_enabled, "
+      "volume, muted, updated_at, mode, mix_plugin_id, mix_id, mix_title, "
+      "mix_cursor) VALUES (1, 0, 'off', 0, 1, 0, 1, 'mix', 'youtube', 'RD1', "
+      "'My Mix', 'abc')",
+    );
+    final row = await db
+        .customSelect(
+          'SELECT mode, mix_plugin_id, mix_id, mix_title, mix_cursor '
+          'FROM player_state',
+        )
+        .getSingle();
+    expect(row.data, {
+      'mode': 'mix',
+      'mix_plugin_id': 'youtube',
+      'mix_id': 'RD1',
+      'mix_title': 'My Mix',
+      'mix_cursor': 'abc',
+    });
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+    test('migration from v$from to v13 adds the mix columns', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 13);
+
+      await expectPlayerMixSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has the mix columns', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectPlayerMixSchema(db);
   });
 }

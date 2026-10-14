@@ -3340,6 +3340,57 @@ class $PlayerStateTableTable extends PlayerStateTable
     ),
   );
   @override
+  late final GeneratedColumnWithTypeConverter<PlayerMode?, String> mode =
+      GeneratedColumn<String>(
+        'mode',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<PlayerMode?>($PlayerStateTableTable.$convertermoden);
+  static const VerificationMeta _mixPluginIdMeta = const VerificationMeta(
+    'mixPluginId',
+  );
+  @override
+  late final GeneratedColumn<String> mixPluginId = GeneratedColumn<String>(
+    'mix_plugin_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mixIdMeta = const VerificationMeta('mixId');
+  @override
+  late final GeneratedColumn<String> mixId = GeneratedColumn<String>(
+    'mix_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mixTitleMeta = const VerificationMeta(
+    'mixTitle',
+  );
+  @override
+  late final GeneratedColumn<String> mixTitle = GeneratedColumn<String>(
+    'mix_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _mixCursorMeta = const VerificationMeta(
+    'mixCursor',
+  );
+  @override
+  late final GeneratedColumn<String> mixCursor = GeneratedColumn<String>(
+    'mix_cursor',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
   late final GeneratedColumnWithTypeConverter<DateTime, int> updatedAt =
       GeneratedColumn<int>(
         'updated_at',
@@ -3357,6 +3408,11 @@ class $PlayerStateTableTable extends PlayerStateTable
     shuffleEnabled,
     volume,
     muted,
+    mode,
+    mixPluginId,
+    mixId,
+    mixTitle,
+    mixCursor,
     updatedAt,
   ];
   @override
@@ -3418,6 +3474,33 @@ class $PlayerStateTableTable extends PlayerStateTable
     } else if (isInserting) {
       context.missing(_mutedMeta);
     }
+    if (data.containsKey('mix_plugin_id')) {
+      context.handle(
+        _mixPluginIdMeta,
+        mixPluginId.isAcceptableOrUnknown(
+          data['mix_plugin_id']!,
+          _mixPluginIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mix_id')) {
+      context.handle(
+        _mixIdMeta,
+        mixId.isAcceptableOrUnknown(data['mix_id']!, _mixIdMeta),
+      );
+    }
+    if (data.containsKey('mix_title')) {
+      context.handle(
+        _mixTitleMeta,
+        mixTitle.isAcceptableOrUnknown(data['mix_title']!, _mixTitleMeta),
+      );
+    }
+    if (data.containsKey('mix_cursor')) {
+      context.handle(
+        _mixCursorMeta,
+        mixCursor.isAcceptableOrUnknown(data['mix_cursor']!, _mixCursorMeta),
+      );
+    }
     return context;
   }
 
@@ -3457,6 +3540,28 @@ class $PlayerStateTableTable extends PlayerStateTable
         DriftSqlType.bool,
         data['${effectivePrefix}muted'],
       )!,
+      mode: $PlayerStateTableTable.$convertermoden.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}mode'],
+        ),
+      ),
+      mixPluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mix_plugin_id'],
+      ),
+      mixId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mix_id'],
+      ),
+      mixTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mix_title'],
+      ),
+      mixCursor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mix_cursor'],
+      ),
       updatedAt: $PlayerStateTableTable.$converterupdatedAt.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.int,
@@ -3473,6 +3578,10 @@ class $PlayerStateTableTable extends PlayerStateTable
 
   static TypeConverter<LoopMode, String> $converterloopMode =
       const LoopModeConverter();
+  static TypeConverter<PlayerMode, String> $convertermode =
+      const PlayerModeConverter();
+  static TypeConverter<PlayerMode?, String?> $convertermoden =
+      NullAwareTypeConverter.wrap($convertermode);
   static TypeConverter<DateTime, int> $converterupdatedAt =
       const EpochMillisecondsConverter();
 }
@@ -3490,6 +3599,15 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
   /// 0–1；靜音時是取消靜音後回到的值。
   final double volume;
   final bool muted;
+
+  /// 空（舊版的列）或 `queue`＝一般佇列；`mix`＝Mix，身分在下面四欄（M3 PR 19）。
+  final PlayerMode? mode;
+  final String? mixPluginId;
+  final String? mixId;
+  final String? mixTitle;
+
+  /// 插件的不透明字串；空＝這個 Mix 沒有更多。
+  final String? mixCursor;
   final DateTime updatedAt;
   const PlayerStateRow({
     required this.id,
@@ -3499,6 +3617,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
     required this.shuffleEnabled,
     required this.volume,
     required this.muted,
+    this.mode,
+    this.mixPluginId,
+    this.mixId,
+    this.mixTitle,
+    this.mixCursor,
     required this.updatedAt,
   });
   @override
@@ -3517,6 +3640,23 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
     map['shuffle_enabled'] = Variable<bool>(shuffleEnabled);
     map['volume'] = Variable<double>(volume);
     map['muted'] = Variable<bool>(muted);
+    if (!nullToAbsent || mode != null) {
+      map['mode'] = Variable<String>(
+        $PlayerStateTableTable.$convertermoden.toSql(mode),
+      );
+    }
+    if (!nullToAbsent || mixPluginId != null) {
+      map['mix_plugin_id'] = Variable<String>(mixPluginId);
+    }
+    if (!nullToAbsent || mixId != null) {
+      map['mix_id'] = Variable<String>(mixId);
+    }
+    if (!nullToAbsent || mixTitle != null) {
+      map['mix_title'] = Variable<String>(mixTitle);
+    }
+    if (!nullToAbsent || mixCursor != null) {
+      map['mix_cursor'] = Variable<String>(mixCursor);
+    }
     {
       map['updated_at'] = Variable<int>(
         $PlayerStateTableTable.$converterupdatedAt.toSql(updatedAt),
@@ -3536,6 +3676,19 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
       shuffleEnabled: Value(shuffleEnabled),
       volume: Value(volume),
       muted: Value(muted),
+      mode: mode == null && nullToAbsent ? const Value.absent() : Value(mode),
+      mixPluginId: mixPluginId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mixPluginId),
+      mixId: mixId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mixId),
+      mixTitle: mixTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mixTitle),
+      mixCursor: mixCursor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mixCursor),
       updatedAt: Value(updatedAt),
     );
   }
@@ -3553,6 +3706,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
       shuffleEnabled: serializer.fromJson<bool>(json['shuffleEnabled']),
       volume: serializer.fromJson<double>(json['volume']),
       muted: serializer.fromJson<bool>(json['muted']),
+      mode: serializer.fromJson<PlayerMode?>(json['mode']),
+      mixPluginId: serializer.fromJson<String?>(json['mixPluginId']),
+      mixId: serializer.fromJson<String?>(json['mixId']),
+      mixTitle: serializer.fromJson<String?>(json['mixTitle']),
+      mixCursor: serializer.fromJson<String?>(json['mixCursor']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -3567,6 +3725,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
       'shuffleEnabled': serializer.toJson<bool>(shuffleEnabled),
       'volume': serializer.toJson<double>(volume),
       'muted': serializer.toJson<bool>(muted),
+      'mode': serializer.toJson<PlayerMode?>(mode),
+      'mixPluginId': serializer.toJson<String?>(mixPluginId),
+      'mixId': serializer.toJson<String?>(mixId),
+      'mixTitle': serializer.toJson<String?>(mixTitle),
+      'mixCursor': serializer.toJson<String?>(mixCursor),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -3579,6 +3742,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
     bool? shuffleEnabled,
     double? volume,
     bool? muted,
+    Value<PlayerMode?> mode = const Value.absent(),
+    Value<String?> mixPluginId = const Value.absent(),
+    Value<String?> mixId = const Value.absent(),
+    Value<String?> mixTitle = const Value.absent(),
+    Value<String?> mixCursor = const Value.absent(),
     DateTime? updatedAt,
   }) => PlayerStateRow(
     id: id ?? this.id,
@@ -3590,6 +3758,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
     shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
     volume: volume ?? this.volume,
     muted: muted ?? this.muted,
+    mode: mode.present ? mode.value : this.mode,
+    mixPluginId: mixPluginId.present ? mixPluginId.value : this.mixPluginId,
+    mixId: mixId.present ? mixId.value : this.mixId,
+    mixTitle: mixTitle.present ? mixTitle.value : this.mixTitle,
+    mixCursor: mixCursor.present ? mixCursor.value : this.mixCursor,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   PlayerStateRow copyWithCompanion(PlayerStateTableCompanion data) {
@@ -3607,6 +3780,13 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
           : this.shuffleEnabled,
       volume: data.volume.present ? data.volume.value : this.volume,
       muted: data.muted.present ? data.muted.value : this.muted,
+      mode: data.mode.present ? data.mode.value : this.mode,
+      mixPluginId: data.mixPluginId.present
+          ? data.mixPluginId.value
+          : this.mixPluginId,
+      mixId: data.mixId.present ? data.mixId.value : this.mixId,
+      mixTitle: data.mixTitle.present ? data.mixTitle.value : this.mixTitle,
+      mixCursor: data.mixCursor.present ? data.mixCursor.value : this.mixCursor,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -3621,6 +3801,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
           ..write('shuffleEnabled: $shuffleEnabled, ')
           ..write('volume: $volume, ')
           ..write('muted: $muted, ')
+          ..write('mode: $mode, ')
+          ..write('mixPluginId: $mixPluginId, ')
+          ..write('mixId: $mixId, ')
+          ..write('mixTitle: $mixTitle, ')
+          ..write('mixCursor: $mixCursor, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -3635,6 +3820,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
     shuffleEnabled,
     volume,
     muted,
+    mode,
+    mixPluginId,
+    mixId,
+    mixTitle,
+    mixCursor,
     updatedAt,
   );
   @override
@@ -3648,6 +3838,11 @@ class PlayerStateRow extends DataClass implements Insertable<PlayerStateRow> {
           other.shuffleEnabled == this.shuffleEnabled &&
           other.volume == this.volume &&
           other.muted == this.muted &&
+          other.mode == this.mode &&
+          other.mixPluginId == this.mixPluginId &&
+          other.mixId == this.mixId &&
+          other.mixTitle == this.mixTitle &&
+          other.mixCursor == this.mixCursor &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -3659,6 +3854,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
   final Value<bool> shuffleEnabled;
   final Value<double> volume;
   final Value<bool> muted;
+  final Value<PlayerMode?> mode;
+  final Value<String?> mixPluginId;
+  final Value<String?> mixId;
+  final Value<String?> mixTitle;
+  final Value<String?> mixCursor;
   final Value<DateTime> updatedAt;
   const PlayerStateTableCompanion({
     this.id = const Value.absent(),
@@ -3668,6 +3868,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
     this.shuffleEnabled = const Value.absent(),
     this.volume = const Value.absent(),
     this.muted = const Value.absent(),
+    this.mode = const Value.absent(),
+    this.mixPluginId = const Value.absent(),
+    this.mixId = const Value.absent(),
+    this.mixTitle = const Value.absent(),
+    this.mixCursor = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
   PlayerStateTableCompanion.insert({
@@ -3678,6 +3883,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
     required bool shuffleEnabled,
     required double volume,
     required bool muted,
+    this.mode = const Value.absent(),
+    this.mixPluginId = const Value.absent(),
+    this.mixId = const Value.absent(),
+    this.mixTitle = const Value.absent(),
+    this.mixCursor = const Value.absent(),
     required DateTime updatedAt,
   }) : positionMs = Value(positionMs),
        loopMode = Value(loopMode),
@@ -3693,6 +3903,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
     Expression<bool>? shuffleEnabled,
     Expression<double>? volume,
     Expression<bool>? muted,
+    Expression<String>? mode,
+    Expression<String>? mixPluginId,
+    Expression<String>? mixId,
+    Expression<String>? mixTitle,
+    Expression<String>? mixCursor,
     Expression<int>? updatedAt,
   }) {
     return RawValuesInsertable({
@@ -3703,6 +3918,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
       if (shuffleEnabled != null) 'shuffle_enabled': shuffleEnabled,
       if (volume != null) 'volume': volume,
       if (muted != null) 'muted': muted,
+      if (mode != null) 'mode': mode,
+      if (mixPluginId != null) 'mix_plugin_id': mixPluginId,
+      if (mixId != null) 'mix_id': mixId,
+      if (mixTitle != null) 'mix_title': mixTitle,
+      if (mixCursor != null) 'mix_cursor': mixCursor,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
@@ -3715,6 +3935,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
     Value<bool>? shuffleEnabled,
     Value<double>? volume,
     Value<bool>? muted,
+    Value<PlayerMode?>? mode,
+    Value<String?>? mixPluginId,
+    Value<String?>? mixId,
+    Value<String?>? mixTitle,
+    Value<String?>? mixCursor,
     Value<DateTime>? updatedAt,
   }) {
     return PlayerStateTableCompanion(
@@ -3725,6 +3950,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
       shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
       volume: volume ?? this.volume,
       muted: muted ?? this.muted,
+      mode: mode ?? this.mode,
+      mixPluginId: mixPluginId ?? this.mixPluginId,
+      mixId: mixId ?? this.mixId,
+      mixTitle: mixTitle ?? this.mixTitle,
+      mixCursor: mixCursor ?? this.mixCursor,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -3755,6 +3985,23 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
     if (muted.present) {
       map['muted'] = Variable<bool>(muted.value);
     }
+    if (mode.present) {
+      map['mode'] = Variable<String>(
+        $PlayerStateTableTable.$convertermoden.toSql(mode.value),
+      );
+    }
+    if (mixPluginId.present) {
+      map['mix_plugin_id'] = Variable<String>(mixPluginId.value);
+    }
+    if (mixId.present) {
+      map['mix_id'] = Variable<String>(mixId.value);
+    }
+    if (mixTitle.present) {
+      map['mix_title'] = Variable<String>(mixTitle.value);
+    }
+    if (mixCursor.present) {
+      map['mix_cursor'] = Variable<String>(mixCursor.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<int>(
         $PlayerStateTableTable.$converterupdatedAt.toSql(updatedAt.value),
@@ -3773,6 +4020,11 @@ class PlayerStateTableCompanion extends UpdateCompanion<PlayerStateRow> {
           ..write('shuffleEnabled: $shuffleEnabled, ')
           ..write('volume: $volume, ')
           ..write('muted: $muted, ')
+          ..write('mode: $mode, ')
+          ..write('mixPluginId: $mixPluginId, ')
+          ..write('mixId: $mixId, ')
+          ..write('mixTitle: $mixTitle, ')
+          ..write('mixCursor: $mixCursor, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -8960,6 +9212,11 @@ typedef $$PlayerStateTableTableCreateCompanionBuilder =
       required bool shuffleEnabled,
       required double volume,
       required bool muted,
+      Value<PlayerMode?> mode,
+      Value<String?> mixPluginId,
+      Value<String?> mixId,
+      Value<String?> mixTitle,
+      Value<String?> mixCursor,
       required DateTime updatedAt,
     });
 typedef $$PlayerStateTableTableUpdateCompanionBuilder =
@@ -8971,6 +9228,11 @@ typedef $$PlayerStateTableTableUpdateCompanionBuilder =
       Value<bool> shuffleEnabled,
       Value<double> volume,
       Value<bool> muted,
+      Value<PlayerMode?> mode,
+      Value<String?> mixPluginId,
+      Value<String?> mixId,
+      Value<String?> mixTitle,
+      Value<String?> mixCursor,
       Value<DateTime> updatedAt,
     });
 
@@ -9016,6 +9278,32 @@ class $$PlayerStateTableTableFilterComposer
 
   ColumnFilters<bool> get muted => $composableBuilder(
     column: $table.muted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PlayerMode?, PlayerMode, String> get mode =>
+      $composableBuilder(
+        column: $table.mode,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get mixPluginId => $composableBuilder(
+    column: $table.mixPluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mixId => $composableBuilder(
+    column: $table.mixId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mixTitle => $composableBuilder(
+    column: $table.mixTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mixCursor => $composableBuilder(
+    column: $table.mixCursor,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9070,6 +9358,31 @@ class $$PlayerStateTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mixPluginId => $composableBuilder(
+    column: $table.mixPluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mixId => $composableBuilder(
+    column: $table.mixId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mixTitle => $composableBuilder(
+    column: $table.mixTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mixCursor => $composableBuilder(
+    column: $table.mixCursor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -9111,6 +9424,23 @@ class $$PlayerStateTableTableAnnotationComposer
 
   GeneratedColumn<bool> get muted =>
       $composableBuilder(column: $table.muted, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PlayerMode?, String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+
+  GeneratedColumn<String> get mixPluginId => $composableBuilder(
+    column: $table.mixPluginId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mixId =>
+      $composableBuilder(column: $table.mixId, builder: (column) => column);
+
+  GeneratedColumn<String> get mixTitle =>
+      $composableBuilder(column: $table.mixTitle, builder: (column) => column);
+
+  GeneratedColumn<String> get mixCursor =>
+      $composableBuilder(column: $table.mixCursor, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<DateTime, int> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -9160,6 +9490,11 @@ class $$PlayerStateTableTableTableManager
                 Value<bool> shuffleEnabled = const Value.absent(),
                 Value<double> volume = const Value.absent(),
                 Value<bool> muted = const Value.absent(),
+                Value<PlayerMode?> mode = const Value.absent(),
+                Value<String?> mixPluginId = const Value.absent(),
+                Value<String?> mixId = const Value.absent(),
+                Value<String?> mixTitle = const Value.absent(),
+                Value<String?> mixCursor = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => PlayerStateTableCompanion(
                 id: id,
@@ -9169,6 +9504,11 @@ class $$PlayerStateTableTableTableManager
                 shuffleEnabled: shuffleEnabled,
                 volume: volume,
                 muted: muted,
+                mode: mode,
+                mixPluginId: mixPluginId,
+                mixId: mixId,
+                mixTitle: mixTitle,
+                mixCursor: mixCursor,
                 updatedAt: updatedAt,
               ),
           createCompanionCallback:
@@ -9180,6 +9520,11 @@ class $$PlayerStateTableTableTableManager
                 required bool shuffleEnabled,
                 required double volume,
                 required bool muted,
+                Value<PlayerMode?> mode = const Value.absent(),
+                Value<String?> mixPluginId = const Value.absent(),
+                Value<String?> mixId = const Value.absent(),
+                Value<String?> mixTitle = const Value.absent(),
+                Value<String?> mixCursor = const Value.absent(),
                 required DateTime updatedAt,
               }) => PlayerStateTableCompanion.insert(
                 id: id,
@@ -9189,6 +9534,11 @@ class $$PlayerStateTableTableTableManager
                 shuffleEnabled: shuffleEnabled,
                 volume: volume,
                 muted: muted,
+                mode: mode,
+                mixPluginId: mixPluginId,
+                mixId: mixId,
+                mixTitle: mixTitle,
+                mixCursor: mixCursor,
                 updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0

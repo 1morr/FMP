@@ -7,6 +7,7 @@ import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
@@ -44,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -121,6 +122,23 @@ class AppDatabase extends _$AppDatabase {
               await m.addColumn(
                 schema.networkSettings,
                 schema.networkSettings.radioStatusIntervalMinutes,
+              );
+            },
+            from12To13: (m, schema) async {
+              // 既有的列 `mode` 是空＝一般佇列，M2 的恢復行為不變。
+              await m.addColumn(schema.playerState, schema.playerState.mode);
+              await m.addColumn(
+                schema.playerState,
+                schema.playerState.mixPluginId,
+              );
+              await m.addColumn(schema.playerState, schema.playerState.mixId);
+              await m.addColumn(
+                schema.playerState,
+                schema.playerState.mixTitle,
+              );
+              await m.addColumn(
+                schema.playerState,
+                schema.playerState.mixCursor,
               );
             },
           ),

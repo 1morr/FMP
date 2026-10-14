@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
+import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/track_info.dart';
 
 /// `player_state` 那一列（design §3.2）。音量與靜音隨佇列存在這裡，不是設定；
@@ -18,6 +20,7 @@ final class PlayerState {
     required this.shuffleEnabled,
     required this.volume,
     required this.muted,
+    this.mix,
   });
 
   /// 佇列目前這首的位置；佇列是空的時為 `null`。
@@ -32,6 +35,9 @@ final class PlayerState {
   final double volume;
   final bool muted;
 
+  /// 佇列是 Mix 時的身分（`mode = mix`）；一般佇列為 `null`。
+  final MixIdentity? mix;
+
   @override
   bool operator ==(Object other) =>
       other is PlayerState &&
@@ -40,7 +46,8 @@ final class PlayerState {
       other.loopMode == loopMode &&
       other.shuffleEnabled == shuffleEnabled &&
       other.volume == volume &&
-      other.muted == muted;
+      other.muted == muted &&
+      other.mix == mix;
 
   @override
   int get hashCode => Object.hash(
@@ -50,13 +57,14 @@ final class PlayerState {
     shuffleEnabled,
     volume,
     muted,
+    mix,
   );
 
   @override
   String toString() =>
       'PlayerState(currentPosition: $currentPosition, position: $position, '
       'loopMode: $loopMode, shuffleEnabled: $shuffleEnabled, '
-      'volume: $volume, muted: $muted)';
+      'volume: $volume, muted: $muted, mix: $mix)';
 }
 
 /// 佇列的每個位置與它的隨機名次（沒開隨機時全是 `null`）；兩個清單等長，依位置
@@ -135,6 +143,17 @@ final class QueueRepository {
       shuffleEnabled: row.shuffleEnabled,
       volume: row.volume,
       muted: row.muted,
+      // 身分欄位缺一個就當一般佇列（資料不完整，不猜）。
+      mix: switch ((row.mode, row.mixPluginId, row.mixId, row.mixTitle)) {
+        (PlayerMode.mix, final pluginId?, final mixId?, final title?) =>
+          MixIdentity(
+            pluginId: pluginId,
+            mixId: mixId,
+            title: title,
+            cursor: row.mixCursor,
+          ),
+        _ => null,
+      },
     );
   }
 
@@ -159,6 +178,11 @@ final class QueueRepository {
             shuffleEnabled: Value(player.shuffleEnabled),
             volume: Value(player.volume),
             muted: Value(player.muted),
+            mode: Value(player.mix == null ? PlayerMode.queue : PlayerMode.mix),
+            mixPluginId: Value(player.mix?.pluginId),
+            mixId: Value(player.mix?.mixId),
+            mixTitle: Value(player.mix?.title),
+            mixCursor: Value(player.mix?.cursor),
             updatedAt: Value(clock.now().toUtc()),
           ),
         );
