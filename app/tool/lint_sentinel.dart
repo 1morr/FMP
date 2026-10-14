@@ -19,6 +19,7 @@ const _violations = {
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart';
@@ -29,6 +30,7 @@ import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:material_ui/material_ui.dart' as m;
 import 'package:pub_semver/pub_semver.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 class Dio {
   Dio();
@@ -74,6 +76,10 @@ const _expectedMessages = [
   'package:pub_semver* is only allowed in lib/plugins/repository/',
   // externalPackageOwners 的 qr_flutter（QR 登入畫面）
   'package:qr_flutter* is only allowed in lib/ui/accounts/',
+  // externalPackageOwners 的 archive（診斷包的 zip）
+  'package:archive* is only allowed in lib/app/diagnostics/',
+  // platformPackages 的 share_plus（分享診斷包）
+  'package:share_plus* is only allowed in lib/platform/',
 ];
 
 Future<void> main() async {

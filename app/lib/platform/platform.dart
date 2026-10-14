@@ -33,6 +33,8 @@ import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
+import 'package:fmp/platform/share/share.dart';
+import 'package:fmp/platform/share/share_plus_file_sharer.dart';
 import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
 
@@ -50,6 +52,7 @@ final class AppPlatform {
     this.fileDialogs,
     this.loginWebView,
     this.urlOpener,
+    this.fileSharer,
     this.mediaControls,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
     AppRestarter Function(SystemMediaControls? mediaControls)? restarterFactory,
@@ -60,6 +63,7 @@ final class AppPlatform {
        assert(capabilities.files == (fileDialogs != null)),
        assert(capabilities.loginWebView == (loginWebView != null)),
        assert(capabilities.urlOpener == (urlOpener != null)),
+       assert(capabilities.shareFiles == (fileSharer != null)),
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
        assert((capabilities.cache != null) == (cacheDirectory != null)),
        assert(capabilities.secureStorage == (secureStorage != null)),
@@ -99,6 +103,7 @@ final class AppPlatform {
         loginWebView: true,
         urlOpener: true,
         restartsItself: false,
+        shareFiles: true,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       // 資料目錄在 App 的沙盒裡，路徑不含使用者名稱：沒有要換成 `~` 的家目錄。
@@ -119,6 +124,7 @@ final class AppPlatform {
       fileDialogs: const FilePickerDialogs(),
       loginWebView: InAppLoginWebView.android(),
       urlOpener: const UrlLauncherOpener(),
+      fileSharer: SharePlusFileSharer(),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
       restarterFactory: AndroidAppRestarter.forMediaControls,
@@ -158,6 +164,7 @@ final class AppPlatform {
         loginWebView: true,
         urlOpener: true,
         restartsItself: true,
+        shareFiles: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
@@ -184,6 +191,7 @@ final class AppPlatform {
         ),
       ),
       urlOpener: const UrlLauncherOpener(),
+      fileSharer: SharePlusFileSharer(),
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
       restarterFactory: (_) => WindowsAppRestarter.system(),
@@ -217,6 +225,9 @@ final class AppPlatform {
 
   /// 網址開啟器；[PlatformCapabilities.urlOpener] 為假時為 `null`。
   final UrlOpener? urlOpener;
+
+  /// 檔案分享；[PlatformCapabilities.shareFiles] 為假時為 `null`。
+  final FileSharer? fileSharer;
 
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
@@ -259,6 +270,7 @@ final class AppPlatform {
       fileDialogs: fileDialogs,
       loginWebView: loginWebView,
       urlOpener: urlOpener,
+      fileSharer: fileSharer,
       mediaControls: controls,
       restarterFactory: _restarterFactory,
     );

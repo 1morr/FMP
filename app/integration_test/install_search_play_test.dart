@@ -267,6 +267,7 @@ final class _AppRun {
               loginWebView: false,
               urlOpener: false,
               restartsItself: false,
+              shareFiles: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 16,
                 memoryImages: 50,

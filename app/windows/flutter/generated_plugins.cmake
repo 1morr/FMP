@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_js
   flutter_secure_storage_windows
   media_kit_libs_windows_audio
+  share_plus
   url_launcher_windows
 )
 

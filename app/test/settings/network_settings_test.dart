@@ -31,6 +31,7 @@ void main() {
           loginWebView: false,
           urlOpener: false,
           restartsItself: false,
+          shareFiles: false,
           cache: CacheSizes(
             defaultLimitMebibytes: defaultLimit,
             memoryImages: 1,

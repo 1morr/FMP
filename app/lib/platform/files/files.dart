@@ -1,13 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 系統的檔案對話框（ADR 0009 §決定 6）。目前只有選檔（從檔案安裝插件，ADR 0030
-/// §決定 8）；存檔與選資料夾跟著用到它們的 PR 加（design §12.4、§12.5）。實作有
-/// Android 與 Windows（`file_picker_dialogs.dart`），由 `platform.dart` 組裝。
+/// 系統的檔案對話框（ADR 0009 §決定 6）。有選檔（從檔案安裝插件，ADR 0030 §決定 8）
+/// 與存檔（診斷包與 log 檔，ADR 0025 §決定 10）；選資料夾跟著用到它的 PR 加（design
+/// §12.5）。實作有 Android 與 Windows（`file_picker_dialogs.dart`），由 `platform.dart` 組裝。
 abstract interface class FileDialogs {
   /// 讓使用者選一個副檔名是 [extension]（不含點，例如 `js`）的檔案，讀出內容。
   /// 使用者取消時回 `null`。
   Future<PickedFile?> pickFile({required String extension});
+
+  /// 讓使用者選存放的位置（桌面是存檔對話框，Android 是 SAF 的建立文件），把 [bytes] 以
+  /// 預設檔名 [name] 寫進去。回傳存好的檔案位置；使用者取消回 `null`。
+  Future<Uri?> saveFile({
+    required String name,
+    required Uint8List bytes,
+    required String mimeType,
+  });
 }
 
 /// 使用者選的檔案。

@@ -91,6 +91,7 @@ void main() {
             loginWebView: false,
             urlOpener: false,
             restartsItself: false,
+            shareFiles: false,
             cache: const CacheSizes(
               defaultLimitMebibytes: 1,
               memoryImages: 1,
