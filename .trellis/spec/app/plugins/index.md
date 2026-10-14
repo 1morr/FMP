@@ -10,7 +10,6 @@
 lib/plugins/
   source_plugin.dart          # SourcePlugin：App 其他部分只認它
   source_dto.dart             # DTO v1 與 sourceDtoShapes（欄位表）
-  json_shape.dart             # JsonShape、JsonFields：封閉物件的解碼
   script_source_plugin.dart   # ScriptSourcePlugin、ScriptPluginLoader（載入、匯出檢查）
   plugin_registry.dart        # pluginRegistryProvider：已載入的插件與各自的媒體 client
   manifest/
@@ -39,12 +38,22 @@ lib/plugins/
   health/
     checks.dart               # checks.json 的解析、checkShapes、期望的比對（契約執行器與健康檢查共用）
     health_check.dart         # HealthCheck：Debug 頁的健康檢查（一次一個插件、已存憑證、tag health 的 log）
+  dev/                        # 插件開發工具（M3 PR 16b；隔離執行與插件目錄的讀取，命令列契約執行器共用）
+    plugin_folder.dart        # pluginDirectories、PluginFolder.read（插件目錄的格式）、writeFixtures
+    case_runner.dart          # runIsolatedCase（隔離環境跑一個案例）、loadIsolated、recordCase
+    describe_error.dart       # describeError（寫一行已遮蔽的原因，tag 與訊息是參數）
+    dev_folder.dart           # pluginDevFolderProvider、DevPlugin／DevFolderState、scanDevFolder
+    plugin_development.dart   # PluginDevelopment：載入／卸載／重新載入／對齊 installed_plugins 的標記列
+    dev_case_runs.dart        # DevCaseRuns：每插件的模式（重播｜錄製｜真實）與跑案例
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
 
-test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
-  contract_runner.dart        # PluginDirectory、runContract／runCheck／recordContract
+lib/core/network/fixture/     # 只給 lib/plugins/dev/（restrictedImports）
   fixture.dart                # fixture 格式、fixtureShapes、遮蔽、重播的網址比對
-  fixture_adapters.dart       # ReplayAdapter、RecordingAdapter（dio 最底層的 adapter）
+  fixture_adapters.dart       # ReplayAdapter、RecordingAdapter、CaseTransport／CaseTransports
+  ip_scrub.dart               # 錄製時換掉公網 IP
+
+test/plugins/contract/        # 命令列契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
+  contract_runner.dart        # PluginDirectory、runContract／runCheck／recordContract（薄的一層，呼叫 lib/plugins/dev/）
   credential_scan.dart        # fixture、log、串流 headers 的憑證檢查
   contract_test.dart          # 重播的入口（FMP_PLUGIN_DIR）
   record_test.dart            # 錄製（live 測試是真實連線的入口）
@@ -143,6 +152,10 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   那個案例。手寫的 fixture 也要是遮過的樣子（值寫 `***`），掃描不會放過。
 - 會變的 query 參數（時間戳、簽名）在 fixture 裡寫 `***` 就不比值；鍵名名單上的參數錄的時候
   已經是 `***`，媒體 CDN 規則上的簽名參數則整個拿掉。
+- App 內錄製（M3 PR 16b）：Windows 的 dev build，Debug → 插件開發 → 選資料夾（例如 `fmp-plugins` 的複本）→ 該插件卡片選「錄製」
+  → 跑一個案例。與命令列錄製同一個函式（`recordCase`），但在隔離環境（空 storage）裡跑，所以 fixture 重播時不依賴 App 裡的狀態；
+  需要登入的案例用已存的憑證當 `loginVerify` 的輸入（16c 用它重錄）；錄到的回應若還看得到帳號的 id、名稱或頭像網址就不寫，
+  先把那些回應欄位（例如 B 站 nav 的 `uname`、`mid`、`face`）加進 manifest 的 `redaction.keyNames`。誤錄用 `git checkout` 還原。
 - 跑：`FMP_PLUGIN_DIR=<絕對路徑> flutter test test/plugins/contract/contract_test.dart`；沒設
   `FMP_PLUGIN_DIR` 就是跑 `app/` 內的測試插件（裸 `flutter test` 已包含）。失敗訊息列出每一條
   違反，例如 `search: request #1 (GET …) does not match fixtures/search/001.json (GET …)`。

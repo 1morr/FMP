@@ -149,6 +149,13 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - 測試用真的檔案資料庫（`openAppDatabase` 開在 `Directory.systemTemp`），不是 `memoryDatabase()`：要驗檔案本身。
   另開備份檔數筆數會觸發 drift 的「同一個類別開多次」警告，測試開頭設 `driftRuntimeOptions.dontWarnAboutMultipleDatabases`。
 
+## 插件開發工具補的列（`plugin_repository.dart`，schema v10）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `installed_plugins.from_dev_folder`。
+
+- `putDevFolderRow`（沒有列就插入標記列、有標記列就更新內容、有已安裝的列一個欄位都不動，回傳是不是標記列）與 `removeDevFolderRows`
+  （刪標記列中不在 `keep` 的）各一個 transaction，只由 `PluginDevelopment` 呼叫；`install` 一律寫 `from_dev_folder = false`。
+
 ## 開發者設定（`developer_settings_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `developer_settings`（schema v9）與 § 設定的「開發者」組。
