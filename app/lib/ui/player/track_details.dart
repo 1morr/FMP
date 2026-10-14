@@ -2,7 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/player/track_detail_parts.dart';
+import 'package:fmp/ui/player/track_detail_provider.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -10,7 +14,8 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 一首曲目的詳細資料：封面、曲名、上傳者、時長、音源名稱（design §9.3）。播放頁的
-/// 「詳細」分頁與（M2 PR 19 的）右側「正在播放」面板共用。M3 有 `trackDetail` 時補欄位。
+/// 「詳細」分頁與（M2 PR 19 的）右側「正在播放」面板共用。插件宣告 `trackDetail` 時在下面
+/// 補發佈時間、專輯、統計與簡介，上傳者旁加頭像（design §11.2）；取不到只在這一區顯示失敗與重試。
 class TrackDetails extends ConsumerWidget {
   const TrackDetails({super.key, required this.track});
 
@@ -26,6 +31,20 @@ class TrackDetails extends ConsumerWidget {
         ref.watch(pluginNameProvider(track.sourceTypeId)) ?? track.sourceTypeId;
     final uploader = track.uploader;
     final duration = track.duration;
+    final key = track.key;
+    final declared = declaresTrackDetail(
+      ref.watch(
+        pluginRegistryProvider.select(
+          (plugins) => plugins.value?[track.sourceTypeId],
+        ),
+      ),
+    );
+    final detailAsync = declared ? ref.watch(trackDetailProvider(key)) : null;
+    final detail = detailAsync?.value;
+    final avatar = [
+      for (final image in detail?.uploaderAvatar ?? const <Artwork>[])
+        TrackArtwork(url: image.url, width: image.width),
+    ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.maxWidth.isFinite
@@ -50,13 +69,43 @@ class TrackDetails extends ConsumerWidget {
               Text(track.displayTitle, style: theme.textTheme.titleLarge),
               SizedBox(height: spacing.x4),
               if (uploader != null)
-                DetailsField(label: t.detailsUploader, value: uploader),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (avatar.isNotEmpty) ...[
+                      ClipOval(
+                        child: ArtworkImage(
+                          pluginId: track.sourceTypeId,
+                          artwork: avatar,
+                          size: spacing.x10,
+                          rounded: false,
+                        ),
+                      ),
+                      SizedBox(width: spacing.x3),
+                    ],
+                    Expanded(
+                      child: DetailsField(
+                        label: t.detailsUploader,
+                        value: uploader,
+                      ),
+                    ),
+                  ],
+                ),
               if (duration != null)
                 DetailsField(
                   label: t.detailsDuration,
                   value: formatDuration(duration),
                 ),
               DetailsField(label: t.detailsSource, value: source),
+              if (detailAsync != null)
+                if (detailAsync.isLoading)
+                  const TrackDetailPlaceholder()
+                else if (detailAsync.hasError)
+                  TrackDetailFailure(
+                    onRetry: () => ref.invalidate(trackDetailProvider(key)),
+                  )
+                else if (detail != null)
+                  TrackDetailFields(detail: detail),
             ],
           ),
         );

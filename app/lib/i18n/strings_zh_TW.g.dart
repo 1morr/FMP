@@ -1335,6 +1335,51 @@ class Translations$playerPage$zh_TW {
   /// zh-TW: '音源'
   String get detailsSource => '音源';
 
+  /// zh-TW: '發佈時間'
+  String get detailsPublished => '發佈時間';
+
+  /// zh-TW: '專輯'
+  String get detailsAlbum => '專輯';
+
+  /// zh-TW: '簡介'
+  String get detailsDescription => '簡介';
+
+  /// zh-TW: '展開'
+  String get detailsExpand => '展開';
+
+  /// zh-TW: '收起'
+  String get detailsCollapse => '收起';
+
+  /// zh-TW: '正在載入詳細資料'
+  String get detailsLoading => '正在載入詳細資料';
+
+  /// zh-TW: '無法取得詳細資料'
+  String get detailsFailed => '無法取得詳細資料';
+
+  /// zh-TW: '重試'
+  String get detailsRetry => '重試';
+
+  /// zh-TW: '播放'
+  String get statView => '播放';
+
+  /// zh-TW: '按讚'
+  String get statLike => '按讚';
+
+  /// zh-TW: '收藏'
+  String get statFavorite => '收藏';
+
+  /// zh-TW: '評論'
+  String get statComment => '評論';
+
+  /// zh-TW: '分享'
+  String get statShare => '分享';
+
+  /// zh-TW: '彈幕'
+  String get statDanmaku => '彈幕';
+
+  /// zh-TW: '投幣'
+  String get statCoin => '投幣';
+
   /// zh-TW: '佇列（Ctrl+Q）'
   String get queueTooltip => '佇列（Ctrl+Q）';
 

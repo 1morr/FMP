@@ -39,6 +39,8 @@ import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/track_detail_parts.dart';
+import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
@@ -204,6 +206,76 @@ void main() {
 
       for (final size in const [Size(400, 800), Size(1000, 700)]) {
         final width = size.width;
+
+        // 曲目詳細區（M3 PR 21）：完整資料、取不到、載入中。
+        Future<void> pumpDetails(
+          WidgetTester tester,
+          FutureOr<TrackDetail> Function(TrackDetailQuery query) onDetail,
+        ) async {
+          final h = ShellHarness(trackDetail: true, registryOfSources: true);
+          h.plugin.onTrackDetail = onDetail;
+          await h.pumpApp(
+            tester,
+            const Scaffold(
+              body: TrackDetails(
+                track: TrackInfo(
+                  sourceTypeId: 'fmp-test',
+                  sourceId: 'a',
+                  title: 'Song a',
+                  uploader: 'Uploader a',
+                ),
+              ),
+            ),
+            size: size,
+            brightness: brightness,
+          );
+          await tester.pump();
+          await tester.pump();
+        }
+
+        testWidgets('the track details with data at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await pumpDetails(
+            tester,
+            (_) => TrackDetail(
+              description: List.generate(8, (i) => 'Line $i').join('\n'),
+              publishedAt: DateTime.utc(2024, 5, 17, 12),
+              album: 'The album',
+              stats: [
+                for (final kind in TrackStatKind.values)
+                  TrackStat(kind: kind, count: 12345),
+              ],
+            ),
+          );
+          expect(find.text('Published'), findsOneWidget);
+          expect(find.text('Show more'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the track details that failed at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await pumpDetails(
+            tester,
+            (_) => throw NetworkError(pluginId: 'fmp-test'),
+          );
+          expect(find.text('Retry'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the track details while loading at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await pumpDetails(tester, (_) => Completer<TrackDetail>().future);
+          expect(find.byType(TrackDetailPlaceholder), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
 
         testWidgets('search, before searching, at $width', (tester) async {
           final handle = tester.ensureSemantics();

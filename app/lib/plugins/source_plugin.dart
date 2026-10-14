@@ -45,6 +45,9 @@ abstract interface class SourcePlugin {
   /// [PluginCapability.multiPart]：一支影片的分 P（ADR 0028 §決定 5）。
   Future<MultiPartResult> multiPart(MultiPartQuery query);
 
+  /// [PluginCapability.trackDetail]：曲目的詳細資料（ADR 0028 §決定 6）。
+  Future<TrackDetail> trackDetail(TrackDetailQuery query);
+
   /// [PluginCapability.login] 的 QR 登入（methods 含 `qr`）：產生一個 QR 碼。
   Future<LoginQrCode> loginQrStart();
 

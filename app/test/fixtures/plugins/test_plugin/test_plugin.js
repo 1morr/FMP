@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -99,6 +99,14 @@ let mixCount = 0;
 const PARTS_KEYWORD = 'parts';
 const PART_TITLES = ['Part one', 'Part two', 'Part three'];
 const PART_COUNTS = { 220: 3, 440: 2, 880: 1 };
+
+// 曲目詳細（ADR 0028 §決定 6），不連網：
+// - tone-440：完整的詳細資料（長簡介、發佈時間、專輯、七種統計；allowedHosts 是空的，
+//   沒有可用的頭像網址，所以沒有 uploaderAvatar）；
+// - tone-880：以 NetworkError 失敗，看詳細區的失敗與重試；
+// - 其他曲目：空的詳細資料。
+const DETAIL_FULL_ID = 'tone-440';
+const DETAIL_FAIL_ID = 'tone-880';
 
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
@@ -344,5 +352,33 @@ export function multiPart(query) {
       durationMs: 2000,
       index: index + 1,
     })),
+  };
+}
+
+export function trackDetail(query) {
+  if (query.sourceId === DETAIL_FAIL_ID) {
+    throw { fmpError: 'NetworkError', message: 'test detail failure' };
+  }
+  if (query.sourceId !== DETAIL_FULL_ID) return {};
+  return {
+    description: [
+      'A long description for the test track.',
+      'It has several lines so the collapsed view cuts it off.',
+      'Line three.',
+      'Line four.',
+      'Line five.',
+      'Line six, only visible after expanding.',
+    ].join('\n'),
+    publishedAt: Date.UTC(2024, 4, 17, 8, 30),
+    album: 'Test album',
+    stats: [
+      { kind: 'view', count: 46000000 },
+      { kind: 'like', count: 1234567 },
+      { kind: 'favorite', count: 98765 },
+      { kind: 'comment', count: 4321 },
+      { kind: 'share', count: 321 },
+      { kind: 'danmaku', count: 12 },
+      { kind: 'coin', count: 0 },
+    ],
   };
 }

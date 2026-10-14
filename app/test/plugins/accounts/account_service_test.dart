@@ -120,6 +120,10 @@ final class _LoginPlugin implements SourcePlugin {
       throw UnimplementedError('multiPart');
 
   @override
+  Future<TrackDetail> trackDetail(TrackDetailQuery query) =>
+      throw UnimplementedError('trackDetail');
+
+  @override
   Future<StreamResult> resolveLive(LiveStreamRequest request) =>
       throw UnimplementedError('live');
 

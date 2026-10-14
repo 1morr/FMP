@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，login 跑 loginVerify）；
+// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，login 跑 loginVerify）；
 // 其他能力的鍵是不認得的欄位，整個檔案拒收。
 //
 // 形狀與 `lib/plugins/types/fmp-plugin.d.ts` 的 `FmpChecks` 等一致
@@ -25,11 +25,13 @@ const checkShapes = <String, JsonShape>{
     'live': false,
     'mix': false,
     'multiPart': false,
+    'trackDetail': false,
     'login': false,
   },
   'FmpLiveCheck': {'input': true, 'expect': true},
   'FmpMixCheck': {'input': true, 'expect': true},
   'FmpMultiPartCheck': {'input': true, 'expect': true},
+  'FmpTrackDetailCheck': {'input': true, 'expect': true},
   'FmpSearchCheck': {'input': true, 'expect': true},
   'FmpResolveStreamCheck': {
     'input': true,
@@ -54,6 +56,10 @@ const _capabilities = {
     check: 'FmpMultiPartCheck',
     item: 'MultiPartItem',
   ),
+  PluginCapability.trackDetail: (
+    check: 'FmpTrackDetailCheck',
+    item: 'TrackDetail',
+  ),
   PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
@@ -70,7 +76,8 @@ final class PluginCheck {
   final PluginCapability capability;
 
   /// [SearchQuery]、[StreamRequest]、[LiveRoomQuery]（live 的 `liveStatus`）、
-  /// [MixSeedQuery]（mix 以 seed 開始）、[MultiPartQuery]（multiPart）或
+  /// [MixSeedQuery]（mix 以 seed 開始）、[MultiPartQuery]（multiPart）、
+  /// [TrackDetailQuery]（trackDetail）或
   /// [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
@@ -101,6 +108,7 @@ final class PluginCheck {
         final LiveRoomQuery query => plugin.liveStatus(query),
         final MixSeedQuery query => plugin.mix(query),
         final MultiPartQuery query => plugin.multiPart(query),
+        final TrackDetailQuery query => plugin.trackDetail(query),
         final LoginCredentials fixture => plugin.loginVerify(
           credentials ?? fixture,
         ),
@@ -147,6 +155,10 @@ PluginCheck _check(
       PluginCapability.live => _liveRoomQuery(fields.raw('input'), path),
       PluginCapability.mix => _mixSeedQuery(fields.raw('input'), path),
       PluginCapability.multiPart => _multiPartQuery(fields.raw('input'), path),
+      PluginCapability.trackDetail => _trackDetailQuery(
+        fields.raw('input'),
+        path,
+      ),
       _ => _streamRequest(fields.raw('input'), path),
     };
   } on ArgumentError catch (error) {
@@ -281,6 +293,18 @@ MultiPartQuery _multiPartQuery(Object? json, String path) {
     path: '$path.input',
   );
   return MultiPartQuery(sourceId: fields.string('sourceId'));
+}
+
+TrackDetailQuery _trackDetailQuery(Object? json, String path) {
+  final fields = JsonFields(
+    json,
+    sourceDtoShapes['TrackDetailQuery']!,
+    path: '$path.input',
+  );
+  return TrackDetailQuery(
+    sourceId: fields.string('sourceId'),
+    cid: fields.optionalInteger('cid'),
+  );
 }
 
 StreamRequest _streamRequest(Object? json, String path) {
@@ -448,7 +472,21 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
   final MultiPartResult result => [
     for (final part in result.parts) multiPartFields(part),
   ],
+  final TrackDetail detail => [trackDetailFields(detail)],
   _ => throw ArgumentError.value(result, 'result'),
+};
+
+/// [TrackDetail] 的欄位，名稱同 `sourceDtoShapes['TrackDetail']`（`publishedAt` 是 UTC
+/// epoch 毫秒，`stats` 每項是 `{kind, count}`）。
+Map<String, Object?> trackDetailFields(TrackDetail detail) => {
+  'description': detail.description,
+  'publishedAt': detail.publishedAt?.millisecondsSinceEpoch,
+  'uploaderAvatar': detail.uploaderAvatar,
+  'album': detail.album,
+  'stats': [
+    for (final stat in detail.stats)
+      {'kind': stat.kind.wireName, 'count': stat.count},
+  ],
 };
 
 /// [LiveRoom] 的欄位，名稱同 `sourceDtoShapes['LiveRoom']`（`status` 是插件介面上的名稱）。

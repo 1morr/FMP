@@ -1025,6 +1025,36 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   @override
   String get detailsSource => 'Source';
   @override
+  String get detailsPublished => 'Published';
+  @override
+  String get detailsAlbum => 'Album';
+  @override
+  String get detailsDescription => 'Description';
+  @override
+  String get detailsExpand => 'Show more';
+  @override
+  String get detailsCollapse => 'Show less';
+  @override
+  String get detailsLoading => 'Loading details';
+  @override
+  String get detailsFailed => 'Could not load the details';
+  @override
+  String get detailsRetry => 'Retry';
+  @override
+  String get statView => 'Views';
+  @override
+  String get statLike => 'Likes';
+  @override
+  String get statFavorite => 'Favorites';
+  @override
+  String get statComment => 'Comments';
+  @override
+  String get statShare => 'Shares';
+  @override
+  String get statDanmaku => 'Danmaku';
+  @override
+  String get statCoin => 'Coins';
+  @override
   String get queueTooltip => 'Queue (Ctrl+Q)';
   @override
   String queueCount({required Object count}) => '${count} in queue';

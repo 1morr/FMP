@@ -257,6 +257,53 @@ export function shape() {
     expect(mutated.contains(PluginCapability.multiPart.wireName), isFalse);
   });
 
+  test('the trackDetail export is named after the capability in the d.ts', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    expect(exports.contains(PluginCapability.trackDetail.wireName), isTrue);
+    // 變異：d.ts 少了 trackDetail 匯出就對不上。
+    final mutated = _interfaces(
+      _dts.replaceFirst('  trackDetail?(', '  trackDetailRenamed?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(mutated.contains(PluginCapability.trackDetail.wireName), isFalse);
+  });
+
+  test('the stat kinds match TrackStatKind', () {
+    final expected = {for (final kind in TrackStatKind.values) kind.wireName};
+
+    expect(_union(_dts, 'TrackStatKind'), expected);
+    // 變異：d.ts 少一種、或多一種，比對就紅。
+    expect(
+      _union(_dts.replaceFirst("\n  | 'coin';", ';'), 'TrackStatKind'),
+      isNot(expected),
+    );
+    expect(
+      _union(
+        _dts.replaceFirst("| 'coin';", "| 'coin' | 'tip';"),
+        'TrackStatKind',
+      ),
+      isNot(expected),
+    );
+    // 無關的格式變動（多一個空白）不影響。
+    expect(
+      _union(_dts.replaceFirst("| 'coin';", "|   'coin';"), 'TrackStatKind'),
+      expected,
+    );
+  });
+
+  test('the trackDetail fields match between the d.ts and Dart', () {
+    expect(_interfaces(_dts)['TrackStat']!['count'], isTrue);
+    expect(sourceDtoShapes['TrackDetail']!['stats'], isFalse);
+    expect(_interfaces(_dts)['TrackDetail']!['stats'], isFalse);
+    // 變異：d.ts 把 TrackStat.count 改成選填，欄位表比對就紅。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst('  count: number;', '  count?: number;'),
+      ),
+      isNotEmpty,
+    );
+  });
+
   test('partCount and the part fields match between the d.ts and Dart', () {
     expect(sourceDtoShapes['TrackSummary']!['partCount'], isFalse);
     expect(_interfaces(_dts)['TrackSummary']!['partCount'], isFalse);

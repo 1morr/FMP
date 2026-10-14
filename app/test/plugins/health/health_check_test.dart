@@ -81,6 +81,19 @@ const _multiPartCheck =
     '"multiPart": {"input": {"sourceId": "s"}, '
     '"expect": {"minItems": 2, "nonEmpty": ["cid", "title", "index"]}}';
 
+/// trackDetail 打 `/detail`：200 回一筆詳細，其他狀態碼一律拋錯。
+const _trackDetailScript = '''
+export async function trackDetail({ sourceId }) {
+  const response = await fmp.http.request({ url: 'https://example.test/detail', auth: 'userPreference' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return { description: sourceId, stats: [{ kind: 'view', count: 1 }] };
+}
+''';
+
+const _trackDetailCheck =
+    '"trackDetail": {"input": {"sourceId": "s"}, '
+    '"expect": {"minItems": 1, "nonEmpty": ["description", "stats"]}}';
+
 const _mixCheck =
     '"mix": {"input": {"seed": {"sourceId": "s"}}, '
     '"expect": {"minItems": 2, "nonEmpty": ["sourceId", "title"]}}';
@@ -108,6 +121,7 @@ final class _Spec {
     this.live = false,
     this.mix = false,
     this.multiPart = false,
+    this.trackDetail = false,
   });
 
   final String id;
@@ -117,6 +131,7 @@ final class _Spec {
   final bool live;
   final bool mix;
   final bool multiPart;
+  final bool trackDetail;
 }
 
 Future<
@@ -142,13 +157,15 @@ _setup(
         script: pluginSource(
           '$_script${spec.login ? _loginScript : ''}'
           '${spec.live ? _liveScript : ''}${spec.mix ? _mixScript : ''}'
-          '${spec.multiPart ? _multiPartScript : ''}',
+          '${spec.multiPart ? _multiPartScript : ''}'
+          '${spec.trackDetail ? _trackDetailScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
             if (spec.live) 'live',
             if (spec.mix) 'mix',
             if (spec.multiPart) 'multiPart',
+            if (spec.trackDetail) 'trackDetail',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -342,6 +359,44 @@ void main() {
         [multiPart],
         handler: (options) =>
             reply(options.uri.path == '/parts' ? 500 : 200, body: '{}'),
+      );
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.last.outcome, HealthOutcome.failed);
+    });
+  });
+
+  group('a trackDetail case', () {
+    final detail = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_trackDetailCheck}',
+      trackDetail: true,
+    );
+
+    test('fetches the detail and passes', () async {
+      final s = await _setup([detail]);
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(s.requests.where((r) => r.startsWith('/detail')), hasLength(1));
+    });
+
+    test('fails when the detail request fails', () async {
+      final s = await _setup(
+        [detail],
+        handler: (options) =>
+            reply(options.uri.path == '/detail' ? 500 : 200, body: '{}'),
       );
       await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
       final cases = s.container

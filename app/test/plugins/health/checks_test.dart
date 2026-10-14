@@ -21,6 +21,13 @@ String _withPattern(String pattern, {String expect = '{"minItems": 1}'}) =>
     '"expiresAtPattern": "$pattern"}}';
 
 void main() {
+  test('the detail fields cover the TrackDetail shape', () {
+    expect(
+      trackDetailFields(const TrackDetail()).keys.toSet(),
+      sourceDtoShapes['TrackDetail']!.keys.toSet(),
+    );
+  });
+
   test('the item fields cover the DTO shapes', () {
     // nonEmpty 以 d.ts 的欄位名稱檢查：DTO 多了欄位，這兩張表也要多。
     expect(
@@ -160,6 +167,71 @@ void main() {
         'a field MultiPartItem does not have',
         _check('multiPart', input, '{"nonEmpty": ["uploader"]}'),
         'MultiPartItem has no field "uploader"',
+      ),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+  });
+
+  group('the trackDetail check', () {
+    const input = '{"sourceId": "a", "cid": 2}';
+
+    test('fetches the detail of a track and reads it as one item', () {
+      final check = parseChecks(
+        _check(
+          'trackDetail',
+          input,
+          '{"minItems": 1, "nonEmpty": ["description", "stats"]}',
+        ),
+      ).single;
+
+      expect(check.capability, PluginCapability.trackDetail);
+      expect(check.input, isA<TrackDetailQuery>());
+      expect((check.input as TrackDetailQuery).sourceId, 'a');
+      expect((check.input as TrackDetailQuery).cid, 2);
+      expect(check.requiresLogin, isFalse);
+      const detail = TrackDetail(description: 'About');
+      expect(check.expectation.evaluate(result: detail, describe: (_) => ''), [
+        'item 0: "stats" is empty',
+      ]);
+      expect(
+        check.expectation.evaluate(
+          result: const TrackDetail(
+            description: 'About',
+            stats: [TrackStat(kind: TrackStatKind.view, count: 1)],
+          ),
+          describe: (_) => '',
+        ),
+        isEmpty,
+      );
+    });
+
+    for (final (name, text, message) in [
+      (
+        'an empty source id',
+        _check('trackDetail', '{"sourceId": " "}', '{}'),
+        'checks.trackDetail.input: must not be empty',
+      ),
+      (
+        'an unknown input field',
+        _check('trackDetail', '{"sourceId": "a", "part": 1}', '{}'),
+        'unknown field "part"',
+      ),
+      (
+        'a field TrackDetail does not have',
+        _check('trackDetail', input, '{"nonEmpty": ["uploader"]}'),
+        'TrackDetail has no field "uploader"',
       ),
     ]) {
       test('rejects $name', () {
