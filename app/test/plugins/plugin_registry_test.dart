@@ -4,9 +4,11 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
 
 import 'plugin_harness.dart';
 
@@ -22,6 +24,8 @@ ProviderContainer _container(PluginHarness harness) {
         harness.mediaHttpClients,
       ),
       scriptPluginLoaderProvider.overrideWithValue(harness.loader),
+      // 停用插件會動到排程器，排程器看網路狀態；沒有介面實作時狀態固定在線上。
+      networkInterfacesProvider.overrideWithValue(null),
     ],
   );
   addTearDown(container.dispose);
@@ -93,6 +97,40 @@ void main() {
     expect(registry.mediaClient('plugin-a'), isNotNull);
     expect((await harness.plugins.byId('plugin-a'))!.enabled, isTrue);
   });
+
+  test(
+    'disabling a plugin removes its scheduler jobs, other jobs stay',
+    () async {
+      final harness = PluginHarness();
+      await _store(harness, 'plugin-a');
+      await _store(harness, 'plugin-b');
+      final container = _container(harness);
+      await container.read(pluginRegistryProvider.future);
+      final scheduler = container.read(backgroundSchedulerProvider.notifier);
+      for (final (id, pluginId) in [
+        ('a-job', 'plugin-a'),
+        ('b-job', 'plugin-b'),
+        ('free-job', null),
+      ]) {
+        // 間隔關閉：不會自己跑，只用 runNow 看它還在不在。
+        scheduler.register(
+          SchedulerJob(
+            id: id,
+            pluginId: pluginId,
+            interval: null,
+            run: (_) async {},
+          ),
+        );
+      }
+      final registry = container.read(pluginRegistryProvider.notifier);
+
+      await registry.setEnabled('plugin-a', enabled: false);
+
+      expect(await scheduler.runNow('a-job'), RunNowResult.unknown);
+      expect(await scheduler.runNow('b-job'), RunNowResult.completed);
+      expect(await scheduler.runNow('free-job'), RunNowResult.completed);
+    },
+  );
 
   test('enabled survives a restart', () async {
     final harness = PluginHarness();

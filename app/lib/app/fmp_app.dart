@@ -16,6 +16,7 @@ import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -79,6 +80,13 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     // （M3 PR 16b）。其他平台生效資料夾一律是 null，只做對齊。
     ref.listenManual(
       pluginDevelopmentProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    // 背景排程器常駐：Riverpod 3 沒人聽的 provider 會被暫停，排程器要一直收生命週期與
+    // 網路狀態（ADR 0017 §決定 3）。
+    ref.listenManual(
+      backgroundSchedulerProvider,
       (_, _) {},
       fireImmediately: true,
     );

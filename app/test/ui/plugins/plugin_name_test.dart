@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -25,6 +26,8 @@ ProviderContainer _container(PluginHarness harness, AppLocale locale) {
         harness.mediaHttpClients,
       ),
       scriptPluginLoaderProvider.overrideWithValue(harness.loader),
+      // 停用、移除插件會動到排程器，排程器看網路狀態；沒有介面實作時狀態固定在線上。
+      networkInterfacesProvider.overrideWithValue(null),
       loginWebViewProvider.overrideWithValue(null),
       translationsProvider.overrideWithValue(locale.buildSync()),
     ],

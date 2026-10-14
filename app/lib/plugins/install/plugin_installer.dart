@@ -13,6 +13,7 @@ import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/repository/plugin_downloader.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
 
 final pluginInstallerProvider = Provider<PluginInstaller>(
   (ref) => PluginInstaller(
@@ -23,6 +24,7 @@ final pluginInstallerProvider = Provider<PluginInstaller>(
     unregister: (id) =>
         ref.read(pluginRegistryProvider.notifier).unregister(id),
     removeAccount: ref.read(accountServiceProvider).removePlugin,
+    removeJobs: ref.read(backgroundSchedulerProvider.notifier).unregisterPlugin,
     removeCache: (id) async {
       final CacheStore store;
       try {
@@ -63,6 +65,7 @@ final class PluginInstaller {
     required this._unregister,
     required this._removeAccount,
     required this._removeCache,
+    required this._removeJobs,
     this._now = DateTime.now,
   });
 
@@ -72,6 +75,7 @@ final class PluginInstaller {
   final Future<void> Function(String pluginId) _unregister;
   final Future<void> Function(String pluginId) _removeAccount;
   final Future<void> Function(String pluginId) _removeCache;
+  final void Function(String pluginId) _removeJobs;
   final DateTime Function() _now;
 
   /// 安裝檔的位元組（UTF-8）。錯誤都是 `AppError`，見 [PluginFile.decode]、
@@ -105,15 +109,17 @@ final class PluginInstaller {
     );
   }
 
-  /// 移除 [pluginId]（ADR 0030 §決定 10）：關閉 runtime → 憑證與遮蔽登記、登入
-  /// WebView 的 cookie、帳號、每音源設定（`AccountService.removePlugin`，WebView 那一步
-  /// 要讀 `installed_plugins` 的 manifest，所以在刪列之前）→ 刪快取項目 → 刪
-  /// `installed_plugins` 列（`plugin_storage` 由外鍵 cascade）。曲目與電台保留。
+  /// 移除 [pluginId]（ADR 0030 §決定 10）：移除排程器的工作（ADR 0017 §決定 5 的
+  /// 「立即」：放在第一步，後面幾步的期間到期的工作不會拿到已關閉的插件）→ 關閉
+  /// runtime → 憑證與遮蔽登記、登入 WebView 的 cookie、帳號、每音源設定
+  /// （`AccountService.removePlugin`，WebView 那一步要讀 `installed_plugins` 的
+  /// manifest，所以在刪列之前）→ 刪快取項目 → 刪 `installed_plugins` 列
+  /// （`plugin_storage` 由外鍵 cascade）。曲目與電台保留。
   ///
-  /// 每一步都可重複：中途失敗就停在那一步並丟出錯誤，再呼叫一次從頭跑完。排程器的
-  /// 工作（背景排程 PR）之後加在刪 `installed_plugins` 列之前。
+  /// 每一步都可重複：中途失敗就停在那一步並丟出錯誤，再呼叫一次從頭跑完。
   Future<void> remove(String pluginId) async {
     try {
+      _removeJobs(pluginId);
       await _unregister(pluginId);
       await _removeAccount(pluginId);
       await _removeCache(pluginId);
