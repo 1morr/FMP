@@ -96,13 +96,13 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 - 系統媒體控制看 `NowPlayingPublisher._refresh` 的 `track`／`live` 分支。
 - 佇列分頁的「在播」列（`queue_view.dart`）也問 `isOutsideQueue`；`PlaybackController.diagnostics` 與 `QueueDiagnostics` 要報出新的那一種
   （直播報直播間，`queue.live`）。
-- 控制器的附屬工作（`live-info`）在 `dispose` 裡同步移除，而 `dispose` 是在 provider 的 onDispose 裡呼叫：組裝點的 callback 不能在那時碰 ref
-  或別的 provider（見 `playbackControllerProvider` 的 `liveInfoScheduler`／`disposing`）。
+- 控制器的附屬工作（`live-info`）在 `dispose` 裡移除，那時在 provider 的 onDispose 裡：組裝點的 callback 照 `playbackControllerProvider` 的
+  `liveInfoScheduler`／`disposing` 寫（理由見 `app/AGENTS.md` § 播放「直播」的 `live-info`）。
 
 ## Mix（佇列的一種身分，不是「佇列以外」）
 
-Mix 的佇列仍是 `queue`：`QueueState.mix`（`MixIdentity`，在 `lib/domain/`，資料層要存它）有值，且臨時播放與直播期間照舊有值，結束回到 Mix 佇列。
-所以不要拿 `mode == QueueMode.queue` 判斷「在佇列裡」，用 `QueueState.inQueue`（`!isOutsideQueue`）。規則與閘門見 `app/AGENTS.md` § 播放「Mix」。
+Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdentity`，在 `lib/domain/`，資料層要存它）有值時 `mode` 是 `mix`，臨時播放與直播期間
+`mode` 是那兩個、`mix` 照舊有值，結束回到 Mix 佇列。所以不要拿 `mode == QueueMode.queue` 判斷「在佇列裡」，用 `QueueState.inQueue`（`!isOutsideQueue`）。規則與閘門見 `app/AGENTS.md` § 播放「Mix」。
 
 - 佇列編輯的禁止在 `QueueModel`（`append`／`playNext` 回 `false`、`setShuffle(true)` 不動），UI 的停用只是提示；控制器 `_add` 另外先擋，才不會發 `QueueFull`。
   新增一個「加入類」入口時，同時想它在 Mix 中該不該停用。
