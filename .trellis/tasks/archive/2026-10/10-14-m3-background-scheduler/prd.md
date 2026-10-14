@@ -23,7 +23,7 @@
    - **失敗與退避**：工作丟錯時，依 1、2、4… 分鐘退避，上限為該工作的間隔。
      - 錯誤是 `AppError` 且帶 `retryAfter` 時，以 `retryAfter` 為準。
      - 成功後退避歸零，下次到期是成功時間加間隔。
-     - 錯誤以 log 門面記一筆 `warning`（帶 error，tag `scheduler`，欄位含 job id 與 plugin id），讓它進錯誤歷史。不跳提示（ADR 0013 §決定 5）。
+     - 錯誤經 `log.report`（tag `scheduler`，`AppError.wrap` 帶 plugin id）進錯誤歷史，另記一行 info（審查時由 warning 改正，照 `app/AGENTS.md` § Log）。不跳提示（ADR 0013 §決定 5）。
    - **上次成功時間**：成功時寫進 `scheduler_runs`；登記時讀出來算下一次到期，所以重啟後照算。過期的那次成功不寫。
    - **手動刷新** `runNow(id)`：
      - 不看間隔。回傳值讓呼叫端分得出四種情況：「跑完」「離線（沒有發）」「沒有這個工作」「已經在跑（不開第二個）」。
