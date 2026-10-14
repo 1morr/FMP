@@ -25,7 +25,7 @@ lib/ui/
   search/              # 搜尋頁、searchProvider、音源 chip 列
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
-  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路、播放狀態、資料庫）
+  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、資料庫）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails、
                        # 可編輯的佇列（QueueView：分頁與底部面板共用）
