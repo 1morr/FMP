@@ -12,6 +12,7 @@ import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
 
 /// 網路紀錄的 id，兩種 HTTP client 共用：同一次執行裡不重複。
 final networkRecordIdsProvider = Provider<NetworkRecordIds>(
@@ -227,6 +228,8 @@ final class PluginRegistry extends AsyncNotifier<Map<String, SourcePlugin>> {
       return;
     }
     await repository.setEnabled(pluginId, enabled: false);
+    // 停用的插件不再排工作（ADR 0017 §決定 5）。
+    ref.read(backgroundSchedulerProvider.notifier).unregisterPlugin(pluginId);
     await unregister(pluginId);
     _disabled.add(pluginId);
     state = AsyncData(Map.unmodifiable({...?state.value}));

@@ -330,3 +330,19 @@ class DeveloperSettingsTable extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// 排程器的上次成功時間（ADR 0017 §決定 2、M3 design §3.1）：每個工作 id 一列，重啟後
+/// 照它算下一次到期。沒有外鍵到 `installed_plugins`，工作 id 只是字串。
+@DataClassName('SchedulerRunRow')
+class SchedulerRunsTable extends Table {
+  @override
+  String get tableName => 'scheduler_runs';
+
+  late final jobId = text()();
+  late final lastSuccessAt = integer().map(
+    const EpochMillisecondsConverter(),
+  )();
+
+  @override
+  Set<Column<Object>> get primaryKey => {jobId};
+}

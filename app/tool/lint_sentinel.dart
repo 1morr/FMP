@@ -17,6 +17,7 @@ import 'package:yaml/yaml.dart';
 const _violations = {
   'lib/ui/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'dart:async';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
@@ -49,10 +50,20 @@ void violations(m.BuildContext context) {
   const id = 'bilibili';
   const url = 'https://example.com';
   Dio();
+  Timer.periodic(const Duration(seconds: 1), (_) {});
   Platform.isAndroid;
   m.ScaffoldMessenger.of(context);
   const m.EdgeInsets.all(8);
 }
+''',
+  // forbiddenLayerImports：排程器不 import 介面；core 不 import 排程器。
+  'lib/scheduler/lint_sentinel_violations.dart': r'''
+// tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/ui/toast/toast.dart';
+''',
+  'lib/core/lint_sentinel_violations.dart': r'''
+// tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/scheduler/background_scheduler.dart';
 ''',
   'test/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
@@ -81,6 +92,9 @@ const _expectedMessages = [
   'package:qr_flutter* is only allowed in lib/ui/accounts/',
   // externalPackageOwners 的 archive（診斷包的 zip）
   'package:archive* is only allowed in lib/app/diagnostics/',
+  // forbiddenLayerImports 的 scheduler／core
+  'lib/scheduler/ must not import lib/ui/',
+  'lib/core/ must not import lib/scheduler/',
   // platformPackages 的 share_plus（分享診斷包）
   'package:share_plus* is only allowed in lib/platform/',
 ];

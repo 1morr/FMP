@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/search/search_state.dart';
@@ -54,6 +55,8 @@ void main() {
           harness.mediaHttpClients,
         ),
         scriptPluginLoaderProvider.overrideWithValue(harness.loader),
+        // 停用、移除插件會動到排程器，排程器看網路狀態；沒有介面實作時狀態固定在線上。
+        networkInterfacesProvider.overrideWithValue(null),
       ],
     );
     addTearDown(container.dispose);

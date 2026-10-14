@@ -14,6 +14,7 @@ import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/account.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
@@ -28,6 +29,7 @@ import 'package:fmp/plugins/repository/plugin_index.dart';
 import 'package:fmp/plugins/repository/plugin_updates.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
 import 'package:path/path.dart' as p;
 
 import '../../data/cache/cache_harness.dart';
@@ -56,6 +58,8 @@ ProviderContainer _container(
       ),
       scriptPluginLoaderProvider.overrideWithValue(harness.loader),
       devPluginPathProvider.overrideWithValue(devPluginPath),
+      // 移除插件會動到排程器，排程器看網路狀態；沒有介面實作時狀態固定在線上。
+      networkInterfacesProvider.overrideWithValue(null),
       loginWebViewProvider.overrideWithValue(loginWebView),
       ...extra,
     ],
@@ -764,7 +768,17 @@ void main() {
           source().replaceAll('plugin-a', 'plugin-b'),
         );
         await harness.storage.write('plugin-a', 'buvid', 'x');
+        final scheduler = container.read(backgroundSchedulerProvider.notifier);
         for (final id in ['plugin-a', 'plugin-b']) {
+          // 間隔關閉：不會自己跑，只用 runNow 看它還在不在。
+          scheduler.register(
+            SchedulerJob(
+              id: '$id-job',
+              pluginId: id,
+              interval: null,
+              run: (_) async {},
+            ),
+          );
           await harness.credentials.save(
             Account(
               pluginId: id,
@@ -791,6 +805,9 @@ void main() {
         await installer.remove('plugin-a');
 
         expect(await harness.plugins.byId('plugin-a'), isNull);
+        // 排程器的工作：移除的插件沒有了，另一個插件的還在。
+        expect(await scheduler.runNow('plugin-a-job'), RunNowResult.unknown);
+        expect(await scheduler.runNow('plugin-b-job'), RunNowResult.completed);
         expect(await harness.storage.read('plugin-a', 'buvid'), isNull);
         // 憑證（含遮蔽登記）、帳號列、每音源設定都不在；另一個插件的不動。
         expect(harness.secureStorage.values.keys, ['credentials.plugin-b']);
@@ -914,6 +931,7 @@ void main() {
         await container.read(pluginInstallerProvider).installSource(source());
         final registry = container.read(pluginRegistryProvider.notifier);
         var failures = 1;
+        var jobsRemoved = 0;
         final installer = PluginInstaller(
           loader: harness.loader,
           repository: harness.plugins,
@@ -923,19 +941,47 @@ void main() {
           removeCache: (_) async {
             if (failures-- > 0) throw StateError('disk is gone');
           },
+          removeJobs: (_) => jobsRemoved++,
         );
 
         await expectLater(
           installer.remove('plugin-a'),
           throwsA(isA<AppError>()),
         );
-        // 停在快取那一步：資料庫的列還在，可以再按一次。
+        // 停在快取那一步：資料庫的列還在，可以再按一次；排程器的工作在第一步就移除了。
         expect(await harness.plugins.byId('plugin-a'), isNotNull);
+        expect(jobsRemoved, 1);
 
         await installer.remove('plugin-a');
 
         expect(await harness.plugins.byId('plugin-a'), isNull);
+        expect(jobsRemoved, 2);
         await installer.remove('plugin-a');
+      });
+
+      test('removes the scheduler jobs before anything else', () async {
+        final harness = PluginHarness();
+        final container = _container(harness);
+        await container.read(pluginInstallerProvider).installSource(source());
+        final registry = container.read(pluginRegistryProvider.notifier);
+        final steps = <String>[];
+        final installer = PluginInstaller(
+          loader: harness.loader,
+          repository: harness.plugins,
+          register: registry.register,
+          unregister: (id) async {
+            steps.add('unregister');
+            await registry.unregister(id);
+          },
+          removeAccount: (_) async => steps.add('account'),
+          removeCache: (_) async => steps.add('cache'),
+          removeJobs: (_) => steps.add('jobs'),
+        );
+
+        await installer.remove('plugin-a');
+
+        // ADR 0017 §決定 5「立即移除」：後面幾步的期間，到期的工作不會拿到已關閉的插件。
+        expect(steps, ['jobs', 'unregister', 'account', 'cache']);
       });
     });
   });

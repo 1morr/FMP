@@ -18,6 +18,7 @@ import 'generated/schema_v7.dart' as v7;
 import 'generated/schema_v8.dart' as v8;
 import 'generated/schema_v9.dart' as v9;
 import 'generated/schema_v10.dart' as v10;
+import 'generated/schema_v11.dart' as v11;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -963,5 +964,108 @@ void main() {
         .customSelect('SELECT from_dev_folder FROM installed_plugins')
         .getSingle();
     expect(row.data['from_dev_folder'], 0);
+  });
+
+  // v11 新增 scheduler_runs（ADR 0017 §決定 2、M3 design §3.1）：既有的資料與使用者設定過的值
+  // 原樣保留，新表升級後是空的（所有工作都視為從沒成功過）。
+  test('migration from v10 to v11 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 10,
+      newVersion: 11,
+      createOld: v10.DatabaseAtV10.new,
+      createNew: v11.DatabaseAtV11.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.networkSettings,
+          const v10.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        );
+        batch.insert(
+          oldDb.installedPlugins,
+          const v10.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 0,
+            fromDevFolder: 0,
+          ),
+        );
+        batch.insert(
+          oldDb.developerSettings,
+          const v10.DeveloperSettingsData(
+            id: 1,
+            developerMode: 1,
+            logLevel: 'debug',
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        // 使用者設定過的值不變。
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v11.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        ]);
+        expect(await newDb.select(newDb.installedPlugins).get(), [
+          const v11.InstalledPluginsData(
+            id: 'bilibili',
+            version: '1.0.0',
+            manifestJson: '{"id":"bilibili"}',
+            script: 'export const a = 1;',
+            installedAt: 1790000000000,
+            enabled: 0,
+            fromDevFolder: 0,
+          ),
+        ]);
+        expect(await newDb.select(newDb.developerSettings).get(), [
+          const v11.DeveloperSettingsData(
+            id: 1,
+            developerMode: 1,
+            logLevel: 'debug',
+          ),
+        ]);
+        expect(await newDb.select(newDb.schedulerRuns).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectSchedulerRunsSchema(AppDatabase db) async {
+    // 以工作 id 為主鍵；時間存 UTC epoch 毫秒（持久化格式）。
+    await db.customStatement(
+      "INSERT INTO scheduler_runs (job_id, last_success_at) "
+      "VALUES ('radio-status:bilibili', 1790000000000)",
+    );
+    final row = await db
+        .customSelect('SELECT job_id, last_success_at FROM scheduler_runs')
+        .getSingle();
+    expect(row.data, {
+      'job_id': 'radio-status:bilibili',
+      'last_success_at': 1790000000000,
+    });
+    await expectLater(
+      db.customStatement(
+        "INSERT INTO scheduler_runs (job_id, last_success_at) "
+        "VALUES ('radio-status:bilibili', 1)",
+      ),
+      throwsA(anything),
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+    test('migration from v$from to v11 adds scheduler_runs', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 11);
+
+      await expectSchedulerRunsSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has scheduler_runs', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectSchedulerRunsSchema(db);
   });
 }

@@ -436,6 +436,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `putDevFolderRow` 遇到已安裝的列一個欄位都不動、回傳假。閘門：`migration_test.dart` 的 v9→v10 資料完整性與
   `a new database defaults from_dev_folder to false`、`plugin_repository_test.dart` 的 `development folder rows`
   （只刪標記列、`install` 轉成已安裝）、`plugin_development_test.dart`（殘留列刪除且已安裝的列與 storage 留下）。
+- `scheduler_runs` 是 schema v11（ADR 0017 §決定 2、M3 design §3.1）：排程器的上次成功時間，`job_id` 為主鍵、`last_success_at` 為
+  UTC epoch 毫秒；不建外鍵到 `installed_plugins`（工作 id 只是字串）。新表升級後是空的＝所有工作視為從沒成功過。
+  閘門：`migration_test.dart` 的 v10→v11 資料完整性（使用者設定過的值不變）與 `migration from v<N> to v11 adds scheduler_runs`
+  （v1–v10 各一例：主鍵、時間格式）、`a new database has scheduler_runs`。
 
 ### 快取庫
 
@@ -926,15 +930,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - `updateStatus`：semver 只升不降（`pub_semver` 只准在 `lib/plugins/repository/`），只從 `source_index_url` 相同的
     index 更新；`apiVersion` 不相容是 `needsAppUpdate`。閘門：同群組的 `update status…`、lint
     `fmp_layer_imports` 的 `test_pubSemver*`。
-  - 停用（`PluginRegistry.setEnabled`）：存進資料庫、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
+  - 停用（`PluginRegistry.setEnabled`）：存進資料庫、移除它的排程器工作、關閉 runtime 與媒體 client，憑證與 storage 保留；啟動不載入停用的
     插件；啟用時載入失敗則旗標不變。「沒有回應」不寫資料庫（沒有測試，review 時看）。更新停用中的插件寫進新版本但不加入清單。
     停用後佇列裡它的曲目照「音源已停用」、移除後照「音源未安裝」跳過，準備好的前瞻放掉（見「播放」）。閘門：
     `plugin_registry_test.dart`（storage 保留有測，憑證保留沒有：`setEnabled` 不碰 `CredentialStore`，review 時看）、
     `plugin_installer_test.dart` 的 `updating a disabled plugin…`。
-  - 移除（`PluginInstaller.remove`）：關閉 runtime → 憑證與遮蔽登記、`accounts`、`source_settings`
-    （`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
-    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。登入 WebView 的 cookie 在帳號那一步裡（見「帳號」的登出），排程器的步驟由之後的 PR
-    加在刪列之前。閘門：
+  - 移除（`PluginInstaller.remove`）：排程器的工作（`unregisterPlugin`，第一步：後面幾步的期間到期的工作不會拿到已關閉的插件）→ 關閉
+    runtime → 憑證與遮蔽登記、`accounts`、`source_settings`（`AccountService.removePlugin`）→ `CacheStore.removePlugin` → 刪 `installed_plugins` 列（storage
+    cascade）；曲目保留。快取庫開不起來（`cacheStoreProvider` 是錯誤）時略過快取那一步、記 warning，不擋移除。每一步可重複，失敗停在那一步。登入 WebView 的 cookie 在帳號那一步裡（見「帳號」的登出）。
+    閘門：
     `plugin_installer_test.dart` 的 `removing` 群組（含 `skips the cache step…`）。
   - 從網址安裝：`PluginDownloader.downloadFile` 經同一個宿主 client 下載（上限同插件檔）並只讀標頭 manifest，
     安裝走 `installSource`（沒有來源 index、沒有 checks、之後不會有更新）。閘門：`plugin_installer_test.dart` 的
@@ -1018,6 +1022,35 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 插件頁（見「介面」）：開發中的卡片不能啟用、更新、移除，閘門 `plugins_page_test.dart` 的 `plugins in development`。
 - 執行器看不到的：插件接住並吞掉「網域不在清單」的錯誤（網路層照樣不送出）；插件自己拋的
   `ParseError` 與 DTO 驗證失敗的 `ParseError` 分不出來。沒有閘門，已知限制。
+
+## 排程器
+
+`lib/scheduler/background_scheduler.dart`（ADR 0017，M3 PR 17）：會發網路請求的週期工作的唯一擁有者。目前沒有工作登記：
+電台狀態在 PR 18，排行與匯入歌單的刷新在 M4。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
+
+登記一個工作：`ref.read(backgroundSchedulerProvider.notifier).register(SchedulerJob(id:, pluginId:, interval:, run:))`。
+
+- `id` 也是 `scheduler_runs` 的鍵；同 id 再登記是取代，舊的進行中那次視為過期。`pluginId` 非空時，同一個插件的工作依序執行，
+  插件停用（`PluginRegistry.setEnabled`）或移除（`PluginInstaller.remove`，在刪 `installed_plugins` 列之前）時整批移除。
+  `interval` 為 `null` 是關閉：不自動跑，只有 `runNow` 會跑它。
+- `run` 長時間的工作要看 `JobContext.isCurrent`：工作被移除、被取代或排程器釋放後為假，這時丟掉結果、不寫任何東西；排程器也不替
+  那一次記上次成功時間。
+- 工作丟錯：排程器經 `log.report`（tag `scheduler`，`AppError.wrap` 帶工作的 `pluginId`）寫進錯誤歷史，再記一行 info
+  `Background job backed off`（`jobId`、`pluginId`、`failures`、`retryInMs`），不跳提示；退避 1、2、4… 分鐘，上限為該工作的間隔，
+  `AppError.retryAfter` 優先；退避只往後延，不會讓工作比「上次成功加間隔」更早跑；成功後歸零。手動刷新（`runNow`）失敗時同樣退避，
+  但把錯誤重新丟給呼叫端、排程器不記 log：手動操作的錯誤由呼叫端決定要不要提示（ADR 0013 §決定 5）。
+- `runNow` 不看間隔也不看 App 是否可見，但離線不發，且一樣受並行限制（沒有空位就排隊，先於自動的工作）。排隊期間工作被移除、
+  斷線或排程器釋放，就不執行、以 `unknown`／`offline` 結束。
+- 只有一個一次性 `Timer`，對準最早到期（含退避中）的工作；到期、生命週期或網路狀態改變、登記變動時重算。App 不可見
+  （`hidden`、`paused`）或網路不是 `online` 時沒有計時器；進行中的工作跑完、不開新的。回到可見或在線時，已到期的工作各跑一次。
+  沒有上次成功時間的工作視為已到期（App 啟動視同變可見），但啟動時先等網路狀態的第一次介面檢查（`whenFirstChecked`；狀態預設是
+  `online`），離線啟動才不會先發出去。全域同時最多 2 個。
+- 週期計時器只准在 `lib/scheduler/` 與 `lib/playback/`（lint `fmp_periodic_timer_owner`）；排程器不 import `ui/`、`radio/`、
+  `plugins/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`fmp_layer_imports` 的 `forbiddenLayerImports`）。
+- 閘門：`test/scheduler/background_scheduler_test.dart`（ADR 0017 §如何確認的七項、同插件依序、全域最多 2 個、手動刷新排隊與
+  排隊中結束、取代與移除時的過期、手動失敗不提早自動跑、錯誤經 `report`、等第一次介面檢查），`plugin_registry_test.dart` 的 `disabling a plugin removes its scheduler jobs…`，
+  `plugin_installer_test.dart` 的 `removing`（工作最先移除、中途失敗重跑可完成）。排程器在真機上的行為（最小化、切到背景、
+  飛航模式）等 PR 18 有第一個工作時才能實機看。
 
 ## 播放
 
@@ -1972,7 +2005,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |
@@ -1985,6 +2018,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 | `fmp_toast_entry` | `SnackBar(`、`ScaffoldMessenger.of`／`.maybeOf`、`showSnackBar`、`clearSnackBars` | `toastDirectory`（`lib/ui/toast/`） |
 | `fmp_design_tokens` | `lib/ui/` 內：`EdgeInsets`／`EdgeInsetsDirectional` 的參數、`SizedBox` 的 `width`／`height`／`dimension` 與傳給它的 `Size`、`BorderRadius.circular`／`.all`、`BorderRadiusDirectional`、`Radius.circular`／`.elliptical`、`fontSize:` 用 `0` 以外的數字字面值；`Color(…)`、`Color.fromARGB`／`fromRGBO`／`from` 帶數字字面值（`0` 也算）；`Colors` | `uiDirectory`、`themeDirectory`（`lib/ui/theme/` 豁免） |
 | `fmp_material_import` | import／export `package:flutter/material.dart`、`cupertino.dart`（全 package） | `frozenDesignLibraries` |
+| `fmp_periodic_timer_owner` | `Timer.periodic`、`Stream.periodic`（含建構子與函式引用的寫法；以名稱判斷，型別別名認不出；文件註解的引用不算） | `periodicTimerOwners`（`lib/scheduler/`、`lib/playback/`） |
 
 允許清單都是 `packages/fmp_lints/lib/src/rules/` 裡的常數。閘門：
 

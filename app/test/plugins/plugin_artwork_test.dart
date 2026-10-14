@@ -4,6 +4,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
@@ -30,6 +31,8 @@ ProviderContainer _container(PluginHarness plugins, CacheStore? cache) {
         plugins.mediaHttpClients,
       ),
       scriptPluginLoaderProvider.overrideWithValue(plugins.loader),
+      // 停用、移除插件會動到排程器，排程器看網路狀態；沒有介面實作時狀態固定在線上。
+      networkInterfacesProvider.overrideWithValue(null),
       devPluginPathProvider.overrideWithValue(null),
       loginWebViewProvider.overrideWithValue(null),
       cacheStoreProvider.overrideWithValue(

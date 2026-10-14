@@ -156,6 +156,13 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - `putDevFolderRow`（沒有列就插入標記列、有標記列就更新內容、有已安裝的列一個欄位都不動，回傳是不是標記列）與 `removeDevFolderRows`
   （刪標記列中不在 `keep` 的）各一個 transaction，只由 `PluginDevelopment` 呼叫；`install` 一律寫 `from_dev_folder = false`。
 
+## 排程器的上次成功時間（`scheduler_runs_repository.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `scheduler_runs`（schema v11）與 § 排程器。
+
+- `SchedulerRunsRepository`：`all()`（排程器啟動時一次讀完）、`record(jobId, at)`（upsert）。工作移除時不刪列：同 id 再登記時沿用。
+  時間存毫秒，排程器寫入前也先取到毫秒，記憶體與資料庫的到期時間才一致。
+
 ## 開發者設定（`developer_settings_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `developer_settings`（schema v9）與 § 設定的「開發者」組。
