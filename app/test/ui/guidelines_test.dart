@@ -23,6 +23,7 @@ import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
+import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
@@ -51,6 +52,7 @@ import 'support/fake_artwork.dart';
 import 'support/fake_data_reset.dart';
 import 'support/fake_file_sharer.dart';
 import 'support/fake_url_opener.dart';
+import 'support/health_page.dart';
 import 'support/plugin_page_harness.dart';
 import 'support/shell_harness.dart';
 
@@ -601,6 +603,21 @@ void main() {
           await tester.pump(const Duration(seconds: 1));
           await tester.pump();
           expect(find.text('Copy snapshot'), findsOneWidget);
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the Debug Health section at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openHealth(tester, size: size, brightness: brightness);
+          expect(find.byType(DebugHealth), findsOneWidget);
+          // 清單：有案例、沒有案例、停用。
+          await expectGuidelines(tester);
+
+          // 結果：通過、略過與失敗。
+          await tester.tap(find.text('Check all'));
+          await settleHealth(tester);
+          expect(find.textContaining('Failed'), findsWidgets);
           await expectGuidelines(tester);
           handle.dispose();
         });

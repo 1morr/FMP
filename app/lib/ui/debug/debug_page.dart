@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
+import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/settings/developer_settings.dart';
@@ -16,13 +17,14 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// Debug 頁的區塊，依清單上的順序。ADR 0025 §決定 2 的表有八個，各自跟著實作它的 PR
-/// 加（之前不放空殼）：音源健康檢查、插件開發
-/// （M3 PR 16；插件開發只在平台宣告 `pluginDevTools` 時列出）。新的區塊照表上的順序插進來。
+/// 加（之前不放空殼）：插件開發（M3 PR 16b；只在平台宣告 `pluginDevTools` 時列出）。
+/// 新的區塊照表上的順序插進來。
 enum DebugSection {
   overview(Icons.dashboard_outlined),
   log(Icons.article_outlined),
   network(Icons.swap_vert),
   playback(Icons.graphic_eq),
+  health(Icons.health_and_safety_outlined),
   database(Icons.storage_outlined),
   reset(Icons.restart_alt);
 
@@ -188,6 +190,11 @@ class _DebugPageState extends ConsumerState<DebugPage> {
             const DebugPlayback(),
             heading: heading,
           ),
+          DebugSection.health => filling(
+            section,
+            const DebugHealth(),
+            heading: heading,
+          ),
           DebugSection.database => filling(
             section,
             const DebugDatabase(),
@@ -224,6 +231,7 @@ class _DebugPageState extends ConsumerState<DebugPage> {
         DebugSection.log => t.log,
         DebugSection.network => t.network,
         DebugSection.playback => t.playback,
+        DebugSection.health => t.health,
         DebugSection.database => t.database,
         DebugSection.reset => t.reset,
       };

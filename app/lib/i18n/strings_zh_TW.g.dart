@@ -611,6 +611,61 @@ class Translations$debug$zh_TW {
   /// zh-TW: '資料庫'
   String get database => '資料庫';
 
+  /// zh-TW: '音源健康檢查'
+  String get health => '音源健康檢查';
+
+  /// zh-TW: '對已安裝且啟用的插件用真實連線跑檢查案例（需要登入的案例用已存的憑證）。一次只檢查一個插件。'
+  String get hcHint => '對已安裝且啟用的插件用真實連線跑檢查案例（需要登入的案例用已存的憑證）。一次只檢查一個插件。';
+
+  /// zh-TW: '全部檢查'
+  String get hcAll => '全部檢查';
+
+  /// zh-TW: '檢查'
+  String get hcCheck => '檢查';
+
+  /// zh-TW: '檢查中…'
+  String get hcChecking => '檢查中…';
+
+  /// zh-TW: '沒有檢查案例'
+  String get hcNone => '沒有檢查案例';
+
+  /// zh-TW: '已停用'
+  String get hcDisabled => '已停用';
+
+  /// zh-TW: '{count} 個案例'
+  String hcCount({required Object count}) => '${count} 個案例';
+
+  /// zh-TW: '檢查案例讀不懂'
+  String get hcUnreadable => '檢查案例讀不懂';
+
+  /// zh-TW: '通過'
+  String get hcPassed => '通過';
+
+  /// zh-TW: '失敗'
+  String get hcFailed => '失敗';
+
+  /// zh-TW: '略過（未登入）'
+  String get hcSkipped => '略過（未登入）';
+
+  /// zh-TW: '無法檢查：{problem}'
+  String hcProblem({required Object problem}) => '無法檢查：${problem}';
+
+  /// zh-TW: '無法檢查：插件沒有載入（見 log）'
+  String get hcNotLoaded => '無法檢查：插件沒有載入（見 log）';
+
+  /// zh-TW: '還沒有安裝的插件'
+  String get hcEmpty => '還沒有安裝的插件';
+
+  /// zh-TW: '{capability} · {outcome} · {ms} ms'
+  String hcCase({
+    required Object capability,
+    required Object outcome,
+    required Object ms,
+  }) => '${capability} · ${outcome} · ${ms} ms';
+
+  /// zh-TW: '錯誤類別：{type}'
+  String hcErrorType({required Object type}) => '錯誤類別：${type}';
+
   /// zh-TW: '沒有在播放'
   String get pbEmpty => '沒有在播放';
 

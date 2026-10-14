@@ -501,6 +501,46 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   @override
   String get database => 'Database';
   @override
+  String get health => 'Source health check';
+  @override
+  String get hcHint =>
+      'Runs each installed, enabled plugin\'s check cases over the real network (cases that need a login use the stored credentials). One plugin at a time.';
+  @override
+  String get hcAll => 'Check all';
+  @override
+  String get hcCheck => 'Check';
+  @override
+  String get hcChecking => 'Checking…';
+  @override
+  String get hcNone => 'No check cases';
+  @override
+  String get hcDisabled => 'Disabled';
+  @override
+  String hcCount({required Object count}) => 'Cases: ${count}';
+  @override
+  String get hcUnreadable => 'Check cases cannot be read';
+  @override
+  String get hcPassed => 'Passed';
+  @override
+  String get hcFailed => 'Failed';
+  @override
+  String get hcSkipped => 'Skipped (not logged in)';
+  @override
+  String hcProblem({required Object problem}) => 'Cannot check: ${problem}';
+  @override
+  String get hcNotLoaded =>
+      'Cannot check: the plugin is not loaded (see the log)';
+  @override
+  String get hcEmpty => 'No plugins installed';
+  @override
+  String hcCase({
+    required Object capability,
+    required Object outcome,
+    required Object ms,
+  }) => '${capability} · ${outcome} · ${ms} ms';
+  @override
+  String hcErrorType({required Object type}) => 'Error type: ${type}';
+  @override
   String get pbEmpty => 'Nothing is playing';
   @override
   String get pbEmptyHint =>
