@@ -16,9 +16,11 @@ import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
@@ -28,8 +30,8 @@ import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
-/// 外殼的導覽項。
-enum ShellDestination { search, history, settings }
+/// 外殼的導覽項，依畫面上的順序（ADR 0031 §決定 3：搜尋｜歷史｜電台｜設定）。
+enum ShellDestination { search, history, radio, settings }
 
 /// App 的外殼（ADR 0024 §決定 3、5、8）：導覽、內容、播放列三區。
 ///
@@ -153,7 +155,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _nextRegion() => focusNextRegion(_regions);
 
   void _openPlayer(PlayerPageEntry entry) {
-    if (ref.read(playbackQueueProvider).value?.current == null) return;
+    if (!hasNowPlaying(ref.read(playbackQueueProvider).value)) return;
     unawaited(openPlayerPage(context, entry: entry));
   }
 
@@ -235,8 +237,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     // 記住的版面狀態先讀好，播放頁一開就是上次的分頁。
     ref.listen(layoutStateProvider, (_, _) {});
     final t = ref.watch(translationsProvider).shell;
+    // 收聽直播時沒有曲目（`current` 是 `null`），播放列照樣在（直播版）。
     final hasTrack = ref.watch(
-      playbackQueueProvider.select((queue) => queue.value?.current != null),
+      playbackQueueProvider.select((queue) => hasNowPlaying(queue.value)),
     );
 
     final windowClass = WindowClass.of(context);
@@ -255,6 +258,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   onOpenPlugins: _openPlugins,
                 ),
                 const HistoryPage(),
+                const RadioPage(),
                 SettingsPage(
                   visible: _destination == ShellDestination.settings,
                   back: _settingsBack,
@@ -333,6 +337,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                       label: t.history,
                     ),
                     NavigationDestination(
+                      icon: const Icon(Icons.radio_outlined),
+                      selectedIcon: const Icon(Icons.radio),
+                      label: t.radio,
+                    ),
+                    NavigationDestination(
                       icon: const Icon(Icons.settings_outlined),
                       selectedIcon: const Icon(Icons.settings),
                       label: t.settings,
@@ -368,6 +377,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                       label: Text(t.history),
                     ),
                     NavigationRailDestination(
+                      icon: const Icon(Icons.radio_outlined),
+                      selectedIcon: const Icon(Icons.radio),
+                      label: Text(t.radio),
+                    ),
+                    NavigationRailDestination(
                       icon: const Icon(Icons.settings_outlined),
                       selectedIcon: const Icon(Icons.settings),
                       label: Text(t.settings),
@@ -380,6 +394,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onSelected: onSelected,
                 search: t.search,
                 history: t.history,
+                radio: t.radio,
                 settings: t.settings,
               ),
             }),
@@ -474,6 +489,7 @@ class _PermanentDrawer extends StatelessWidget {
     required this.onSelected,
     required this.search,
     required this.history,
+    required this.radio,
     required this.settings,
   });
 
@@ -481,6 +497,7 @@ class _PermanentDrawer extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final String search;
   final String history;
+  final String radio;
   final String settings;
 
   @override
@@ -501,6 +518,11 @@ class _PermanentDrawer extends StatelessWidget {
           icon: const Icon(Icons.history_outlined),
           selectedIcon: const Icon(Icons.history),
           label: Text(history),
+        ),
+        NavigationDrawerDestination(
+          icon: const Icon(Icons.radio_outlined),
+          selectedIcon: const Icon(Icons.radio),
+          label: Text(radio),
         ),
         NavigationDrawerDestination(
           icon: const Icon(Icons.settings_outlined),

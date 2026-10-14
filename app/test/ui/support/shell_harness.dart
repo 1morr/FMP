@@ -37,6 +37,7 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
@@ -92,6 +93,8 @@ final class ShellHarness {
     this.pluginDevTools = false,
     this.cacheUnavailable = false,
     this.registrySources = false,
+    this.registryOfSources = false,
+    bool live = false,
     this.secureStorage = false,
     this.restartsItself = false,
     this.dataReset,
@@ -108,6 +111,7 @@ final class ShellHarness {
        plugin = FakeSourcePlugin(
          (request) => [candidate('${request.sourceId}.m4a')],
          name: 'Test Source',
+         live: live,
          onSearch:
              onSearch ??
              (query) => SearchPage(
@@ -140,8 +144,8 @@ final class ShellHarness {
       pluginChanges: const Stream.empty(),
       preferredOutputDevice: () => _readPreferredOutputDevice(),
       saveOutputDevice: (device) => _saveOutputDevice(device),
-      registerLiveInfoJob: (_, _) {},
-      unregisterLiveInfoJob: () {},
+      registerLiveInfoJob: (_, run) => liveInfoJob = run,
+      unregisterLiveInfoJob: () => liveInfoJob = null,
     );
     toaster = Toaster(
       log: this.log,
@@ -192,6 +196,14 @@ final class ShellHarness {
   /// 搜尋的音源讀真的插件清單（`searchSourcesProvider` 不 override）：要看安裝、停用
   /// 之後搜尋頁怎麼變時用（首次啟動引導）。
   final bool registrySources;
+
+  /// 插件清單（`pluginRegistryProvider`）就是 [sources]：電台（以網址新增、狀態工作）要
+  /// 向插件清單要插件。不和 [registrySources] 一起用。
+  final bool registryOfSources;
+
+  /// 收聽直播時控制器登記的 `live-info` 更新（排程器每分鐘跑的那一個）；不在收聽時為
+  /// `null`。測試直接呼叫它，當作排程器到期。
+  Future<void> Function()? liveInfoJob;
 
   /// 平台宣告有 secure storage（`PlatformCapabilities.secureStorage`）：帳號頁的登入
   /// 按鈕依它出現。實作本身由 [extraOverrides] 的 `credentialStoreProvider` 給。
@@ -272,6 +284,12 @@ final class ShellHarness {
     dataDirectoryProvider.overrideWithValue(dataDirectory),
     if (!registrySources)
       searchSourcesProvider.overrideWithValue(AsyncData(sources)),
+    if (registryOfSources)
+      pluginRegistryProvider.overrideWithBuild(
+        (ref, notifier) => {
+          for (final source in sources) source.manifest.id: source,
+        },
+      ),
     networkInterfacesProvider.overrideWithValue(interfaces),
     fileDialogsProvider.overrideWithValue(fileDialogs),
     urlOpenerProvider.overrideWithValue(urlOpener),

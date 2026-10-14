@@ -16,8 +16,9 @@ import 'package:fmp/ui/shell/shell_shortcuts.dart';
 // 對話框開著時焦點在對話框的 route 裡，這些鍵不作用。
 //
 // 這幾個鍵同時是文字編輯鍵（空白鍵、Ctrl／Shift 加方向鍵，Ctrl+S、Ctrl+R 之類的
-// 組合鍵也不該在打字時觸發），所以 action 都用 [TextInputAwareAction]：焦點在輸入
-// 框時停用，`Shortcuts` 不處理，按鍵往上交給文字編輯。
+// 組合鍵也不該在打字時觸發），所以 action 都用 [TextInputAwareAction]（只對佇列有意義的
+// 那幾個用 `_QueueAction`，規則相同，另外在收聽直播時不做事）：焦點在輸入框時停用，
+// `Shortcuts` 不處理，按鍵往上交給文字編輯。
 
 /// 播放與暫停。
 final class PlayPauseIntent extends Intent {
@@ -116,23 +117,30 @@ class PlaybackShortcuts extends ConsumerWidget {
           PlayPauseIntent: TextInputAwareAction<PlayPauseIntent>(
             onInvoke: (_) => _playPause(ref),
           ),
-          PreviousTrackIntent: TextInputAwareAction<PreviousTrackIntent>(
+          // 直播沒有上一首、下一首與位置；隨機、循環是佇列的設定，直播時畫面上沒有它們的
+          // 按鈕。這幾個鍵在直播時不做事（[_QueueAction]）。
+          PreviousTrackIntent: _QueueAction<PreviousTrackIntent>(
+            controller,
             onInvoke: (_) => unawaited(controller().previous()),
           ),
-          NextTrackIntent: TextInputAwareAction<NextTrackIntent>(
+          NextTrackIntent: _QueueAction<NextTrackIntent>(
+            controller,
             onInvoke: (_) => unawaited(controller().next()),
           ),
-          SeekByIntent: TextInputAwareAction<SeekByIntent>(
+          SeekByIntent: _QueueAction<SeekByIntent>(
+            controller,
             onInvoke: (intent) => _seekBy(ref, intent.offset),
           ),
           VolumeByIntent: TextInputAwareAction<VolumeByIntent>(
             onInvoke: (intent) => _volumeBy(ref, intent.percent),
           ),
-          ToggleShuffleIntent: TextInputAwareAction<ToggleShuffleIntent>(
+          ToggleShuffleIntent: _QueueAction<ToggleShuffleIntent>(
+            controller,
             onInvoke: (_) =>
                 controller().setShuffle(!controller().queue.shuffleEnabled),
           ),
-          CycleLoopIntent: TextInputAwareAction<CycleLoopIntent>(
+          CycleLoopIntent: _QueueAction<CycleLoopIntent>(
+            controller,
             onInvoke: (_) => controller().cycleLoopMode(),
           ),
         },
@@ -141,6 +149,8 @@ class PlaybackShortcuts extends ConsumerWidget {
     );
   }
 
+  /// 空白鍵：直播時暫停就是停止串流（ADR 0031 §決定 7），再按一次重新取流；控制器的
+  /// `pause`、`play` 已經是這個規則。
   static void _playPause(WidgetRef ref) {
     final controller = ref.read(playbackControllerProvider);
     switch (controller.state) {
@@ -180,4 +190,23 @@ class PlaybackShortcuts extends ConsumerWidget {
     final next = ((controller.volume * 100).round() + percent).clamp(0, 100);
     unawaited(controller.setVolume(next / 100));
   }
+}
+
+/// 只對佇列有意義的播放鍵（上一首、下一首、seek、隨機、循環）：焦點在輸入框時停用（同
+/// [TextInputAwareAction]）；正在收聽直播時接下按鍵、什麼都不做，而不是停用：讓按鍵往上傳的
+/// 話，App 根的預設快捷鍵把 Ctrl+方向鍵當成捲動，會去捲頁面的清單。[controller] 在按鍵時才讀
+/// （同 [PlaybackShortcuts] 的說明）。
+final class _QueueAction<T extends Intent> extends CallbackAction<T> {
+  _QueueAction(this.controller, {required void Function(T intent) onInvoke})
+    : super(
+        onInvoke: (intent) {
+          if (controller().queue.live == null) onInvoke(intent);
+          return null;
+        },
+      );
+
+  final PlaybackController Function() controller;
+
+  @override
+  bool isEnabled(T intent) => !focusInTextInput();
 }

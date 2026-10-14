@@ -14,6 +14,7 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -46,7 +47,7 @@ void main() {
             reason: '$type at $width',
           );
         }
-        // 三種導覽元件都是三個項目：搜尋、歷史、設定。
+        // 三種導覽元件都是四個項目：搜尋、歷史、電台、設定（ADR 0031 §決定 3）。
         final count = switch (expected) {
           NavigationBar =>
             tester
@@ -65,10 +66,31 @@ void main() {
                 .whereType<NavigationDrawerDestination>()
                 .length,
         };
-        expect(count, 3, reason: 'destinations at $width');
-        for (final label in ['Search', 'History', 'Settings']) {
-          expect(find.text(label), findsOneWidget, reason: '$label at $width');
+        expect(count, 4, reason: 'destinations at $width');
+        for (final label in ['Search', 'History', 'Radio', 'Settings']) {
+          expect(
+            find.descendant(
+              of: find.byType(expected),
+              matching: find.text(label),
+            ),
+            findsOneWidget,
+            reason: '$label at $width',
+          );
         }
+        // 順序：搜尋｜歷史｜電台｜設定。
+        final xs = [
+          for (final label in ['Search', 'History', 'Radio', 'Settings'])
+            tester.getCenter(
+              find.descendant(
+                of: find.byType(expected),
+                matching: find.text(label),
+              ),
+            ),
+        ];
+        final along = expected == NavigationBar
+            ? [for (final offset in xs) offset.dx]
+            : [for (final offset in xs) offset.dy];
+        expect(along, orderedEquals([...along]..sort()), reason: 'order');
       });
     }
 
@@ -80,6 +102,17 @@ void main() {
       await tester.pump();
 
       expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+      expect(find.byType(SearchPage).hitTestable(), findsNothing);
+    });
+
+    testWidgets('selecting Radio shows the radio page', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+
+      await tester.tap(find.text('Radio'));
+      await tester.pump();
+
+      expect(find.byType(RadioPage).hitTestable(), findsOneWidget);
       expect(find.byType(SearchPage).hitTestable(), findsNothing);
     });
 
@@ -981,7 +1014,7 @@ void main() {
       return calls;
     }
 
-    for (final label in ['History', 'Settings']) {
+    for (final label in ['History', 'Radio', 'Settings']) {
       testWidgets('on $label it goes back to Search', (tester) async {
         final h = ShellHarness();
         await h.pumpShell(tester);

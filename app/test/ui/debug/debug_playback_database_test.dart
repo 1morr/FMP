@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -8,10 +9,12 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
 
 // Debug 頁的播放狀態與資料庫區塊（M3 PR 14a，ADR 0025 §決定 5、8）。
@@ -90,6 +93,26 @@ void main() {
       expect(fact(tester, 'After'), 'fmp-test:b\nfmp-test:c');
       // 這個 harness 沒有輸出裝置可選：不寫成假的裝置名。
       expect(fact(tester, 'Output device'), 'System default or not applicable');
+    });
+
+    // 收聽直播（M3 PR 18b 的診斷）：標明「直播中」，曲目那一列換成直播間（`插件:房間`）。
+    testWidgets('a live room says so and names the room', (tester) async {
+      final h = await openSection(tester, 'Playback');
+      h.plugin.onResolveLive = (request) => [
+        candidate('${request.roomId}.flv'),
+      ];
+      await h.play(tester, [summary('a')]);
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r', title: 'Room'),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(find.textContaining('Listening to a live room'), findsOneWidget);
+      expect(fact(tester, 'Live room'), 'fmp-test:r');
+      expect(find.widgetWithText(ListTile, 'Track'), findsNothing);
     });
 
     testWidgets('the position follows the progress stream', (tester) async {

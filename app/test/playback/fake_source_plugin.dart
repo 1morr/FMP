@@ -43,6 +43,8 @@ final class FakeSourcePlugin implements SourcePlugin {
   FutureOr<List<StreamCandidate>> Function(LiveStreamRequest request)?
   onResolveLive;
   FutureOr<LiveRoomRef?> Function(LiveUrlQuery query)? onLiveRoomFromUrl;
+  FutureOr<LiveSearchPage> Function(LiveSearchQuery query)? onLiveSearch;
+  final liveSearches = <LiveSearchQuery>[];
   final liveStatusQueries = <LiveRoomQuery>[];
   final liveRequests = <LiveStreamRequest>[];
   final liveUrlQueries = <LiveUrlQuery>[];
@@ -78,8 +80,12 @@ final class FakeSourcePlugin implements SourcePlugin {
   }
 
   @override
-  Future<LiveSearchPage> liveSearch(LiveSearchQuery query) =>
-      throw UnimplementedError('live');
+  Future<LiveSearchPage> liveSearch(LiveSearchQuery query) async {
+    final handler = onLiveSearch;
+    if (handler == null) throw UnimplementedError('live');
+    liveSearches.add(query);
+    return handler(query);
+  }
 
   @override
   Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query) async {
