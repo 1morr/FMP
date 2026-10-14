@@ -1,0 +1,14 @@
+{"file": ".trellis/tasks/10-14-m3-plugin-dev-tools/prd.md", "reason": "Acceptance tests and on-device checks to verify against"}
+{"file": ".trellis/tasks/10-14-m3-plugin-dev-tools/design.md", "reason": "Decisions and interfaces the implementation must match"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§12.5 requirements and §2.2 lint table"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "Fixture redaction and replay matching; contract runner behaviour must not change"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "How-to-verify items: developer mode off unloads the folder, pluginDevTools widget test"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Credentials must not leak into fixtures, results or logs"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "loginVerify credential input and redaction registration"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin layer quality check"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change and migration tests quality check"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Capability declaration quality check"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI quality check: tokens, slang, guideline tests"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "Redaction quality check"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "Lint mutation tests and sentinel"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing quality check"}
