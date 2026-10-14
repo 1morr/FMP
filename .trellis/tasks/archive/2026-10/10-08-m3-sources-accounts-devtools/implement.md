@@ -46,7 +46,7 @@
 - **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）、15（#242）已合併；PR 16 拆成 16a（健康檢查，#244 已合併）、16b（插件開發工具，#245 已合併）、16c（以 App 內登入重錄 `requiresLogin` 的案例，要擁有者登入；先做「PR 16b 留下的」第 6 條）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
-- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（#251、fmp-plugins#11）已合併。PR 20（#252、fmp-plugins#12）已合併。PR 21（曲目詳細，子任務 `archive/2026-10/10-14-m3-track-detail`）實作、審查與 Windows 實機完成（手機直式沒有詳細區）；之後是 M3b 驗收。
+- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（#251、fmp-plugins#11）已合併。PR 20（#252、fmp-plugins#12）已合併。PR 21（#253、fmp-plugins#13）已合併。**M3b 驗收完成（2026-10-15）**：證據 `research/m3b-acceptance.md`，`milestones.md` 已勾；驗收中修了 YouTube 觀看數（fmp-plugins #14）；16c 移到 #254，`live-info` 停用後不恢復開成 #255。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -382,7 +382,7 @@
 - [x] 平台層：`files` 加 `getDirectoryPath`；宣告 `pluginDevTools`（Windows 真、Android 假）。
 - [x] 插件開發區塊：選資料夾、開發中標記、重新載入、真實／錄製／重播切換、案例單跑全跑、以 App 內登入錄 fixture。
 - [x] `plugin_dev_folder` 的 setter；關閉開發者模式時卸載。載入開發資料夾的插件時 `installed_plugins` 補一列（沒有同 id 的已安裝列才補；來源標開發資料夾、`enabled` 為真，`plugin_storage` 的外鍵才寫得進去），移除開發資料夾時刪這列（cascade 掉 storage）；有同 id 的已安裝列時沿用、不覆寫、不刪（design §12.5；來源標記的存放方式與殘留列的清理在這個 PR 決定）。
-- [ ] （16c）fmp-plugins：以 App 內工具（已登入）重錄標 `requiresLogin` 的案例（M3 只有各插件的 `login` 案例）；fixture 的憑證欄位遮蔽後提交。
+- [ ] （16c，移到 issue #254，不擋 M3b）fmp-plugins：以 App 內工具（已登入）重錄標 `requiresLogin` 的案例（M3 只有各插件的 `login` 案例）；fixture 的憑證欄位遮蔽後提交。
 - 測試：design §12.5 的閘門；M1 的契約測試全綠；lint 的 `restrictedImports` 案例；`requiresLogin` 的案例在已登入時以已存憑證跑、未登入標「略過」；開發資料夾的插件寫得進 `plugin_storage`、移除資料夾後那一列與 storage 都不在，沿用已安裝列的情況卸載後已安裝版的 manifest、腳本與 storage 不變。
 - 實測：Windows（重播＋真實各一次）：選 `fmp-plugins` 的本機 clone → B 站標「開發中」→ 重播模式全跑通過 → 改一行 log 重新載入看到新 log → 錄製模式跑 `search`（真實，一個案例）→ 檢查寫出的 fixture 沒有憑證 → 卸載；健康檢查全部跑一次（真實，三個插件各一輪，最少操作）。Android：插件開發區塊不出現、健康檢查跑一次 `fmp-test`。
 - 依賴：11、14。模型：opus（插件開發工具的版面與模式切換的互動沒有定稿）。
@@ -480,10 +480,10 @@
 | 0028 | `live`、`mix`、`multiPart`、`trackDetail` 的型別定義一致與契約案例；`requiresLogin` 的略過 | 16、18–21 |
 | 0031 | 電台清單、以網址新增、狀態工作、Mix 入口只在宣告時出現 | 18、19 |
 
-- [ ] 上表逐項在 PR 描述或測試檔找到對應，寫進 `research/m3-adr-tests.md` 的 M3b 段。
-- [ ] `milestones.md` 的 M3b 狀態與勾選（ADR 0026 §如何確認：未打勾不能 archive）。
-- [ ] `app/AGENTS.md` 的排程器、電台、播放、Debug、介面段落與實際一致，opus 審查一次。
-- [ ] 本任務 `finish`、`archive`。
+- [x] 上表逐項在 PR 描述或測試檔找到對應，寫進 `research/m3-adr-tests.md` 的 M3b 段。
+- [x] `milestones.md` 的 M3b 狀態與勾選（ADR 0026 §如何確認：未打勾不能 archive）。
+- [x] `app/AGENTS.md` 的排程器、電台、播放、Debug、介面段落與實際一致，opus 審查一次。
+- [x] 本任務 `finish`、`archive`。
 
 ## 留下的後續
 

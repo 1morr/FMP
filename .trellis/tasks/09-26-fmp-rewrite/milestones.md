@@ -8,8 +8,8 @@
 |---|---|---|---|
 | M1 | 骨架＋曳光彈 | — | 完成（2026-10-01，#173–#194；`archive/2026-10/09-28-m1-skeleton-tracer`） |
 | M2 | 完整播放 | M1 | 完成（2026-10-08，#196–#219；`archive/2026-10/10-01-m2-full-playback`） |
-| M3a | 三音源與帳號 | M2 | 完成（2026-10-13，FMP #220–#234、fmp-plugins #4–#9；任務 `10-08-m3-sources-accounts-devtools`） |
-| M3b | 開發工具、排程器、電台、Mix、分 P | M3a | 未開始（同上，PR 11–21） |
+| M3a | 三音源與帳號 | M2 | 完成（2026-10-13，FMP #220–#234、fmp-plugins #4–#9；任務 `archive/2026-10/10-08-m3-sources-accounts-devtools`） |
+| M3b | 開發工具、排程器、電台、Mix、分 P | M3a | 完成（2026-10-15，FMP #237–#253、fmp-plugins #10–#14；16c 移到 #254） |
 | M4 | 音樂庫與同步 | M3b | 未開始 |
 | M5 | 舊資料匯入 | M4 | 未開始 |
 | M6 | 下載 | M5 | 未開始 |
@@ -88,7 +88,7 @@
 ## M3a 三音源與帳號
 
 - **做完**：三個音源都能搜尋、播放、登入。
-- **任務**：`.trellis/tasks/10-08-m3-sources-accounts-devtools`（PR 1–10；規劃時擁有者決定把 M3 拆成 M3a、M3b，2026-10-08）。
+- **任務**：`.trellis/tasks/archive/2026-10/10-08-m3-sources-accounts-devtools`（PR 1–10；規劃時擁有者決定把 M3 拆成 M3a、M3b，2026-10-08）。
 - **範圍**：
   - YouTube、網易雲插件；宿主 API 的 `idempotent`、`authHeaders`、`login`（ADR 0028、0029）；
   - 帳號與 `CredentialStore`、`AuthRequirement`、三種登入方式（QR、App 內網頁登入、貼上 cookie）、失效與刷新（ADR 0012、0029，E6）；
@@ -109,11 +109,11 @@
   - 背景排程器（ADR 0017）與 lint `fmp_periodic_timer_owner`，第一個工作是電台狀態（2026-10-01 從 M2 移來）；
   - 電台直播（E12）、Mix（E13）、`QueueModel` 的 `mix`、`live` 模式（ADR 0018、0031）；
   - B 站分 P（E2）、曲目詳細 `trackDetail`（ADR 0028）。
-- **驗收**：
-  - [ ] 兩平台端到端操作
-  - [ ] ADR 0017 排程器的測試與 lint `fmp_periodic_timer_owner` 的雙向變異測試
-  - [ ] ADR 0015 §決定 7、0016、0018、0023 §決定 4、0025、0028、0031 的測試（逐項對到任務的 `research/m3-adr-tests.md`）
-  - [ ] §8：加入 Debug 頁的里程碑實測（ADR 0025）
+- **驗收**（證據：任務的 `research/m3b-acceptance.md`、`research/m3-adr-tests.md` 的 M3b 段）：
+  - [x] 兩平台端到端操作（驗收中修了 YouTube 詳細的觀看數，fmp-plugins #14；第 4 步錯誤回報引用 #239 的實機；16c 要擁有者登入，移到 #254）
+  - [x] ADR 0017 排程器的測試與 lint `fmp_periodic_timer_owner` 的雙向變異測試
+  - [x] ADR 0015 §決定 7、0016、0018、0023 §決定 4、0025、0028、0031 的測試（63 項：56 測試、6 實機、1 缺口「重設後已下載的檔案仍在」等 M6 有下載時補）
+  - [x] §8：加入 Debug 頁的里程碑實測（ADR 0025）：Windows release 的開發者模式重啟、網路摘要、診斷包解壓、關閉後卸載開發資料夾
 
 ## M4 音樂庫與同步
 
