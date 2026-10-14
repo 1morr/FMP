@@ -97,9 +97,17 @@ final class Harness {
   };
 
   /// 插件 [id] 被停用或移除（從清單拿掉），並通知控制器（同 `PluginRegistry` 發出
-  /// 新的清單）。
+  /// 新的清單）。排程器先移除這個插件的工作（`unregisterPlugin`），包括 `live-info`。
   void removePlugin(String id) {
     _plugins.remove(id);
+    liveInfoJobs.removeWhere((job) => job.pluginId == id);
+    _pluginChanges.add(null);
+    settle();
+  }
+
+  /// 把 [removePlugin] 拿掉的 [plugin] 放回清單（重新啟用），並通知控制器。
+  void restorePlugin(FakeSourcePlugin plugin) {
+    _plugins[plugin.manifest.id] = plugin;
     _pluginChanges.add(null);
     settle();
   }
