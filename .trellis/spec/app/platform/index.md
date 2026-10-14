@@ -28,7 +28,7 @@ lib/platform/
 `app_info/`（值型別 `AppInfo`＋讀取介面＋一個以套件命名的實作 `package_info_app_info.dart` 給兩個平台；平台名稱、系統版本（`Platform.operatingSystemVersion`）與家目錄由組裝點
 給，版本由套件讀；不是能力宣告，所以 `PlatformCapabilities` 沒有欄位，`AppPlatform.appInfo` 在未驗證平台為空；`main()` 讀一次後
 以 provider 注入，測試以套件的 `PackageInfo.setMockInitialValues` 換掉平台端）、
-`url_opener/`（介面＋一個以套件命名的實作 `url_launcher_opener.dart` 給兩個平台；`launchUrl` 從建構子注入，單元測試核對模式與失敗路徑，
+`share/`（介面 `FileSharer`＋一個以套件命名的實作 `share_plus_file_sharer.dart` 給兩個平台；`SharePlus.instance.share` 從建構子注入，單元測試核對檔案與 MIME；`shareFiles` 回的布林是「平台有沒有回報分享結果」，讓呼叫端決定能不能馬上刪暫存檔——Windows 一開視窗就回、接收端之後才讀檔；Android 的 `share_plus` 會先把檔案複製到它自己的 `cacheDir/share_plus/`，下一次分享才清，所以原檔回報結束後就能刪）、`url_opener/`（介面＋一個以套件命名的實作 `url_launcher_opener.dart` 給兩個平台；`launchUrl` 從建構子注入，單元測試核對模式與失敗路徑，
 真的開瀏覽器只能實機驗）、`login_webview/`（介面＋一個以套件命名的實作 `flutter_inappwebview_login.dart` 給兩個平台：差異（UA、WebView2 環境）
 以建構子注入，`.android()`／`.windows()` 兩個 factory 在組裝點選；套件的 `CookieManager` 也由建構子
 注入，單元測試以 `implements CookieManager` 的假物件測讀與清除，WebView 本身只能實機驗。Windows 要資料目錄才知道 WebView2 的
