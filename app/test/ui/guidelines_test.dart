@@ -16,15 +16,19 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
+import 'package:fmp/domain/radio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
+import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/radio/radio_status_jobs.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
@@ -50,6 +54,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 
 import '../playback/fake_audio_backend.dart';
+import '../playback/fake_source_plugin.dart';
 import '../plugins/dev/dev_support.dart' show tempFolder;
 import '../plugins/plugin_harness.dart';
 import '../support/fake_login_webview.dart';
@@ -321,6 +326,136 @@ void main() {
           await h.play(tester, [summary('a')]);
           await tester.pumpAndSettle(const Duration(seconds: 1));
           expect(find.text('Song c'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 電台頁（M3 PR 18c）：空清單、四種狀態的列（開播中附直播標題）。
+        testWidgets('radio, empty, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Radio'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('No stations yet'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('radio with stations at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.loadSettings(tester);
+          final repository = h.container(tester).read(radioRepositoryProvider);
+          // 假時間裡寫：電台頁已經在監看這張表（見 radio_page_test 的說明）。
+          for (final (id, status, liveTitle) in [
+            ('a', RadioLiveStatus.live, 'Tonight on air'),
+            ('b', RadioLiveStatus.offline, null),
+            ('c', null, null),
+            ('d', RadioLiveStatus.offline, null),
+          ]) {
+            await repository.add(
+              pluginId: 'fmp-test',
+              roomId: id,
+              title: 'Station $id',
+              hostName: 'Host $id',
+              artwork: _trackArtwork(TestArtwork.darkest),
+              addedAt: DateTime.utc(2026, 10, 14),
+              liveStatus: status,
+              liveTitle: liveTitle,
+            );
+          }
+          await h.loadSettings(tester);
+          final stations = h
+              .container(tester)
+              .read(radioStationsProvider)
+              .value!;
+          h
+              .container(tester)
+              .read(radioQueryFailuresProvider.notifier)
+              .mark(stations.last.id);
+          await tester.tap(find.text('Radio'));
+          await h.loadSettings(tester);
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Tonight on air'), findsOneWidget);
+          expect(find.text('Check failed'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 搜尋頁的直播間模式（M3 PR 18c）：分段鈕、篩選與直播間結果。
+        testWidgets('search in live room mode at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(live: true);
+          h.plugin.onLiveSearch = (_) => const LiveSearchPage(
+            items: [
+              LiveRoom(
+                roomId: 'r1',
+                title: 'Room one',
+                hostName: 'Host one',
+                status: LiveRoomStatus.live,
+                online: 12345,
+              ),
+              LiveRoom(
+                roomId: 'r2',
+                title: 'Room two',
+                hostName: 'Host two',
+                status: LiveRoomStatus.offline,
+              ),
+            ],
+            hasMore: false,
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Live rooms'));
+          await tester.pump();
+          await tester.enterText(find.byType(TextField), 'night');
+          await tester.testTextInput.receiveAction(TextInputAction.search);
+          await tester.pump();
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+          expect(find.text('Room one'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 播放列的直播版（M3 PR 18c）；1000 寬時右側面板也是直播版。
+        testWidgets('the live player bar at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await _listening(tester, size, brightness);
+          expect(find.textContaining('watching'), findsWidgets);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 播放頁的直播版（M3 PR 18c）：直播間的封面當背景，毛玻璃上的標記、已收聽與人數。
+        testWidgets('the live player page at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await _listening(tester, size, brightness);
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(PlayerBar.titleKey),
+                  matching: find.byType(Text),
+                )
+                .first,
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(find.byType(PlayerPage), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
@@ -1213,6 +1348,53 @@ void main() {
       }
     });
   }
+}
+
+List<TrackArtwork> _trackArtwork(TestArtwork artwork) => [
+  for (final image in artwork.artwork)
+    TrackArtwork(url: image.url, width: image.width),
+];
+
+/// 收聽一個直播間（有封面、主播與人數），佇列裡另有一首。
+Future<ShellHarness> _listening(
+  WidgetTester tester,
+  Size size,
+  Brightness brightness,
+) async {
+  final h = ShellHarness(live: true, artworkManager: FakeArtworkManager());
+  h.plugin
+    ..onResolveLive = ((request) => [candidate('${request.roomId}.flv')])
+    ..onLiveStatus = ((query) => LiveRoom(
+      roomId: query.roomId,
+      title: 'Late night radio',
+      hostName: 'Host r',
+      status: LiveRoomStatus.live,
+      online: 12345,
+    ));
+  await h.pumpShell(tester, size: size, brightness: brightness);
+  await h.play(tester, [summary('a')]);
+  await tester.pump(const Duration(milliseconds: 200));
+  unawaited(
+    h.controller.playLive(
+      LiveTarget(
+        pluginId: 'fmp-test',
+        roomId: 'r',
+        title: 'Late night radio',
+        hostName: 'Host r',
+        artwork: _trackArtwork(TestArtwork.darkest),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+  await h.liveInfoJob!();
+  await tester.pump();
+  // 封面的解碼是真的非同步工作。
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 100)),
+  );
+  await tester.pump(const Duration(milliseconds: 500));
+  return h;
 }
 
 const _hant = Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');

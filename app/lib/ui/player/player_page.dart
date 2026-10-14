@@ -12,6 +12,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/playback_speed.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -21,9 +22,11 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/glass_panel.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/player/track_details.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
@@ -282,14 +285,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   @override
   Widget build(BuildContext context) {
     ref.listen(
-      playbackQueueProvider.select((queue) => queue.value?.current != null),
-      (_, hasTrack) {
-        if (!hasTrack) _removeSelf();
+      playbackQueueProvider.select((queue) => hasNowPlaying(queue.value)),
+      (_, playing) {
+        if (!playing) _removeSelf();
       },
     );
     final queue = ref.watch(playbackQueueProvider).value;
     final track = queue?.current;
-    if (queue == null || track == null) {
+    // 收聽直播時沒有曲目（`current` 是 `null`）：直播版（ADR 0031 §決定 7）。
+    final live = ref.watch(nowPlayingLiveProvider);
+    if (queue == null || (track == null && live == null)) {
       // 佇列在頁面第一次 build 之前就空了時，上面的 listen 看不到那次改變；不留下一個
       // 沒有收合鈕的空白頁。
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -310,11 +315,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       padding: EdgeInsets.all(spacing.x4),
       child: GlassPanel(child: child),
     );
+    final backdrop = live?.toTrackInfo() ?? track!;
+    final details = live != null
+        ? LiveDetails(info: live)
+        : TrackDetails(track: track!);
     final left = region(
       _controls,
       _MainColumn(
-        track: track,
-        queue: queue,
+        pluginId: backdrop.sourceTypeId,
+        artwork: backdrop.artwork,
+        transport: live != null
+            ? _LiveTransport(info: live)
+            : _Transport(track: track!, queue: queue),
         onClose: _close,
         // compact、medium 的歌詞那一面在這一欄裡；更寬的版面歌詞在別欄。
         lyricsFace: !_hasTabs && _lyricsFace,
@@ -339,8 +351,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   tabs: PlayerTab.values,
                   selected: tab,
                   onSelected: _select,
-                  track: track,
-                  queue: queue,
+                  details: details,
                 ),
               ),
             ),
@@ -369,8 +380,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                   tabs: const [PlayerTab.queue, PlayerTab.details],
                   selected: tab,
                   onSelected: _select,
-                  track: track,
-                  queue: queue,
+                  details: details,
                 ),
               ),
             ),
@@ -414,7 +424,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _Backdrop(track: track),
+                  _Backdrop(track: backdrop),
                   SafeArea(child: body),
                 ],
               ),
@@ -466,20 +476,25 @@ class _Backdrop extends StatelessWidget {
   }
 }
 
-/// 封面欄（左欄）：頂端的收合鈕、封面、毛玻璃上的曲名、進度與控制。compact、medium 時
-/// 封面可以換成歌詞。
+/// 封面欄（左欄）：頂端的收合鈕、封面、毛玻璃上的曲名、進度與控制（[transport]；直播是
+/// 直播版）。compact、medium 時封面可以換成歌詞。
 class _MainColumn extends ConsumerWidget {
   const _MainColumn({
-    required this.track,
-    required this.queue,
+    required this.pluginId,
+    required this.artwork,
+    required this.transport,
     required this.onClose,
     required this.lyricsFace,
     required this.onOpenQueue,
     required this.onToggleFace,
   });
 
-  final TrackInfo track;
-  final QueueState queue;
+  /// 封面所屬的插件與封面（曲目或直播間的）。
+  final String pluginId;
+  final List<TrackArtwork> artwork;
+
+  /// 毛玻璃上的曲名與控制。
+  final Widget transport;
   final VoidCallback onClose;
   final bool lyricsFace;
 
@@ -531,8 +546,8 @@ class _MainColumn extends ConsumerWidget {
                     ? GlassPanel(child: const _NoLyrics())
                     : Center(
                         child: ArtworkImage(
-                          pluginId: track.sourceTypeId,
-                          artwork: track.artwork,
+                          pluginId: pluginId,
+                          artwork: artwork,
                           size: size,
                         ),
                       );
@@ -556,11 +571,112 @@ class _MainColumn extends ConsumerWidget {
         ),
         Padding(
           padding: EdgeInsets.all(spacing.x4),
-          child: GlassPanel(
-            child: _Transport(track: track, queue: queue),
-          ),
+          child: GlassPanel(child: transport),
         ),
       ],
+    );
+  }
+}
+
+/// 直播版的控制區（ADR 0031 §決定 7）：直播標題、狀態與主播、標記與已收聽時間與人數，
+/// 播放（暫停就是停止串流）、停止收聽、「⋯」。沒有進度條，也沒有上一首、下一首、隨機、循環。
+class _LiveTransport extends ConsumerWidget {
+  const _LiveTransport({required this.info});
+
+  final LiveInfo info;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final translations = ref.watch(translationsProvider);
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    final state = ref.watch(playbackStateProvider).value ?? const Idle();
+    final status = liveStatusLabel(
+      translations,
+      state,
+      info,
+      sourceName: ref.watch(pluginNameProvider(info.target.pluginId)),
+    );
+    final host = info.hostName;
+    final hasMenu = hasNowPlayingPanel(WindowClass.of(context));
+    return Padding(
+      padding: EdgeInsets.all(spacing.x4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            info.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleLarge,
+          ),
+          if (status != null || host != null)
+            _StatusLine(
+              status: status,
+              uploader: host,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          SizedBox(height: spacing.x2),
+          LiveFacts(info: info),
+          SizedBox(height: spacing.x2),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              PlayPauseButton(state: state),
+              const StopLiveButton(),
+              // 直播的「⋯」只有面板的勾選項（直播沒有播放速度）；compact、medium 沒有面板。
+              if (hasMenu) const _MoreMenu(live: true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 曲名下那一行：狀態（主色）在前、上傳者或主播在後，放不下就省略；狀態改變時讀出來
+/// （live region），不搶焦點。
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({
+    required this.status,
+    required this.uploader,
+    required this.style,
+  });
+
+  final String? status;
+  final String? uploader;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = this.status;
+    final uploader = this.uploader;
+    return Semantics(
+      liveRegion: status != null,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            if (status != null)
+              TextSpan(
+                text: status,
+                style: TextStyle(color: theme.colorScheme.primary),
+              ),
+            if (status != null && uploader != null)
+              WidgetSpan(
+                child: SizedBox(width: AppTokens.of(context).spacing.x2),
+              ),
+            if (uploader != null) TextSpan(text: uploader),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      ),
     );
   }
 }
@@ -597,26 +713,10 @@ class _Transport extends ConsumerWidget {
             style: theme.textTheme.titleLarge,
           ),
           if (status != null || uploader != null)
-            // 狀態在前、放不下就省略；狀態改變時讀出來（live region），不搶焦點。
-            Semantics(
-              liveRegion: status != null,
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    if (status != null)
-                      TextSpan(
-                        text: status,
-                        style: TextStyle(color: theme.colorScheme.primary),
-                      ),
-                    if (status != null && uploader != null)
-                      WidgetSpan(child: SizedBox(width: spacing.x2)),
-                    if (uploader != null) TextSpan(text: uploader),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: subtitleStyle,
-              ),
+            _StatusLine(
+              status: status,
+              uploader: uploader,
+              style: subtitleStyle,
             ),
           const ProgressRow(),
           Wrap(
@@ -638,9 +738,12 @@ class _Transport extends ConsumerWidget {
 }
 
 /// 「⋯」：播放速度（不持久化，重啟回到 1.0；design §7.6），以及 expanded 以上的
-/// 「正在播放面板」勾選項（design §9.3；compact、medium 沒有面板）。
+/// 「正在播放面板」勾選項（design §9.3；compact、medium 沒有面板）。直播（[live]）只有
+/// 面板的勾選項：直播跟著實際時間，沒有播放速度。
 class _MoreMenu extends ConsumerWidget {
-  const _MoreMenu();
+  const _MoreMenu({this.live = false});
+
+  final bool live;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -659,26 +762,27 @@ class _MoreMenu extends ConsumerWidget {
             onChanged: (_) => rememberPanel(ref, expanded: !panelExpanded),
             child: Text(t.shell.panelMenuItem),
           ),
-        SubmenuButton(
-          leadingIcon: const Icon(Icons.speed),
-          menuChildren: [
-            for (final option in speedOptions)
-              Semantics(
-                selected: option == speed,
-                child: MenuItemButton(
-                  leadingIcon: Visibility.maintain(
-                    visible: option == speed,
-                    child: const Icon(Icons.check),
+        if (!live)
+          SubmenuButton(
+            leadingIcon: const Icon(Icons.speed),
+            menuChildren: [
+              for (final option in speedOptions)
+                Semantics(
+                  selected: option == speed,
+                  child: MenuItemButton(
+                    leadingIcon: Visibility.maintain(
+                      visible: option == speed,
+                      child: const Icon(Icons.check),
+                    ),
+                    onPressed: () => unawaited(
+                      ref.read(playbackControllerProvider).setSpeed(option),
+                    ),
+                    child: Text(t.playerPage.speedValue(speed: option)),
                   ),
-                  onPressed: () => unawaited(
-                    ref.read(playbackControllerProvider).setSpeed(option),
-                  ),
-                  child: Text(t.playerPage.speedValue(speed: option)),
                 ),
-              ),
-          ],
-          child: Text(t.playerPage.speed),
-        ),
+            ],
+            child: Text(t.playerPage.speed),
+          ),
       ],
     );
   }
@@ -702,15 +806,15 @@ class _PlayerTabs extends ConsumerStatefulWidget {
     required this.tabs,
     required this.selected,
     required this.onSelected,
-    required this.track,
-    required this.queue,
+    required this.details,
   });
 
   final List<PlayerTab> tabs;
   final PlayerTab selected;
   final ValueChanged<PlayerTab> onSelected;
-  final TrackInfo track;
-  final QueueState queue;
+
+  /// 「詳細」分頁的內容：曲目的 [TrackDetails] 或直播間的 [LiveDetails]。
+  final Widget details;
 
   @override
   ConsumerState<_PlayerTabs> createState() => _PlayerTabsState();
@@ -761,7 +865,7 @@ class _PlayerTabsState extends ConsumerState<_PlayerTabs>
           child: switch (selected) {
             PlayerTab.lyrics => const _NoLyrics(),
             PlayerTab.queue => const QueueView(),
-            PlayerTab.details => TrackDetails(track: widget.track),
+            PlayerTab.details => widget.details,
           },
         ),
       ],

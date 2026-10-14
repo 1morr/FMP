@@ -12,9 +12,15 @@ import '../../data/cache/cache_harness.dart';
 import '../support/shell_harness.dart';
 
 void main() {
-  /// 選中的快取上限（MiB）。
-  int? selectedLimit(WidgetTester tester) =>
-      tester.widget<RadioGroup<int>>(find.byType(RadioGroup<int>)).groupValue;
+  /// 選中的快取上限（MiB）：第一組選項（第二組是電台狀態刷新間隔）。
+  int? selectedLimit(WidgetTester tester) => tester
+      .widget<RadioGroup<int>>(find.byType(RadioGroup<int>).first)
+      .groupValue;
+
+  /// 選中的電台狀態刷新間隔（分，0 是關閉）。
+  int? selectedInterval(WidgetTester tester) => tester
+      .widget<RadioGroup<int>>(find.byType(RadioGroup<int>).last)
+      .groupValue;
 
   /// 以真的（暫存目錄上的）快取庫開設定頁的「網路」組。
   Future<(ShellHarness, CacheHarness, CacheStore)> openNetwork(
@@ -35,7 +41,11 @@ void main() {
       );
     }
     final h = ShellHarness(cacheStore: store);
-    await h.pumpApp(tester, const NetworkControls());
+    // 設定頁裡這一組在捲動的欄裡（電台間隔在快取之後，矮的視窗放不下）。
+    await h.pumpApp(
+      tester,
+      const SingleChildScrollView(child: NetworkControls()),
+    );
     await h.loadSettings(tester);
     return (h, cache, store);
   }
@@ -76,8 +86,52 @@ void main() {
     );
     expect(stored, const NetworkSettings(cacheLimitMebibytes: 512));
     expect(find.text('128 MB'), findsOneWidget);
-    expect(find.textContaining('(default)'), findsNothing);
+    expect(find.textContaining('MB (default)'), findsNothing);
     expect(selectedLimit(tester), 512);
+  });
+
+  // 電台狀態刷新間隔（ADR 0017 §決定 6、ADR 0031 §決定 6）：關閉／1／3／5／10 分，沒設定過是 5 分。
+  testWidgets('an unset radio interval is 5 minutes and says so', (
+    tester,
+  ) async {
+    await openNetwork(tester);
+
+    expect(find.text('Radio status refresh'), findsOneWidget);
+    expect(find.text('5 min (default)'), findsOneWidget);
+    for (final other in ['Off', '1 min', '3 min', '10 min']) {
+      expect(find.text(other), findsOneWidget);
+    }
+    expect(selectedInterval(tester), 5);
+  });
+
+  testWidgets('picking a radio interval writes only that field', (
+    tester,
+  ) async {
+    final (h, _, _) = await openNetwork(tester);
+
+    await tester.ensureVisible(find.text('Off'));
+    await tester.tap(find.text('Off'));
+    await h.loadSettings(tester);
+    Future<NetworkSettings?> stored() => tester.runAsync(
+      () => h.container(tester).read(networkSettingsRepositoryProvider).read(),
+    );
+    expect(
+      await stored(),
+      const NetworkSettings(radioStatusIntervalMinutes: 0),
+    );
+    expect(selectedInterval(tester), 0);
+    expect(find.text('5 min'), findsOneWidget, reason: 'no longer the default');
+
+    await tester.ensureVisible(find.text('10 min'));
+    await tester.tap(find.text('10 min'));
+    await h.loadSettings(tester);
+    expect(
+      await stored(),
+      const NetworkSettings(radioStatusIntervalMinutes: 10),
+    );
+    expect(selectedInterval(tester), 10);
+    // 快取上限沒有被寫入。
+    expect(selectedLimit(tester), 128);
   });
 
   testWidgets('shows the artwork usage', (tester) async {

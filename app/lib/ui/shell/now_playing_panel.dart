@@ -11,6 +11,7 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -126,7 +127,8 @@ class _NowPlayingPanelSideState extends ConsumerState<NowPlayingPanelSide> {
   }
 }
 
-/// 面板本身：標題列（收起鈕）加目前這首的 [TrackDetails]；佇列是空的時是空狀態。
+/// 面板本身：標題列（收起鈕）加目前這首的 [TrackDetails]（收聽直播時是直播間的 [LiveDetails]，
+/// 附停止鈕）；沒有在播的是空狀態。
 /// 底色是主題的 surface，不用毛玻璃（毛玻璃只在播放頁，ADR 0024 §決定 1）。
 class NowPlayingPanel extends ConsumerWidget {
   const NowPlayingPanel({super.key});
@@ -139,6 +141,8 @@ class NowPlayingPanel extends ConsumerWidget {
     final current = ref.watch(
       playbackQueueProvider.select((queue) => queue.value?.current),
     );
+    // 收聽直播時沒有曲目：直播間的詳細，附停止鈕（ADR 0031 §決定 7）。
+    final live = ref.watch(nowPlayingLiveProvider);
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
       child: Column(
@@ -173,12 +177,14 @@ class NowPlayingPanel extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: current == null
-                ? EmptyState(
-                    icon: Icons.music_note_outlined,
-                    title: t.panelEmpty,
-                  )
-                : TrackDetails(track: current),
+            child: switch ((current, live)) {
+              (_, final live?) => LiveDetails(info: live, showStop: true),
+              (final current?, null) => TrackDetails(track: current),
+              (null, null) => EmptyState(
+                icon: Icons.music_note_outlined,
+                title: t.panelEmpty,
+              ),
+            },
           ),
         ],
       ),

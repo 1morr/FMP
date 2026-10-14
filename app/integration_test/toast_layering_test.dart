@@ -7,12 +7,14 @@ import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
@@ -20,6 +22,7 @@ import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../test/playback/fake_source_plugin.dart';
 import '../test/ui/support/shell_harness.dart';
 
 // ADR 0023 §如何確認的實機那一項：提示在全螢幕頁與對話框之上看得到。外殼、
@@ -27,7 +30,7 @@ import '../test/ui/support/shell_harness.dart';
 // 大小；插件與播放後端用測試的假實作（不連網、不出聲）。同一組斷言在
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
 // 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9；
-// Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13）：
+// Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13；播放頁的直播版，M3 PR 18c）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -35,9 +38,12 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   /// 開外殼；回傳外殼的 context（開對話框、推路由用）。
-  Future<(ShellHarness, BuildContext)> pumpShell(WidgetTester tester) async {
+  Future<(ShellHarness, BuildContext)> pumpShell(
+    WidgetTester tester, {
+    bool live = false,
+  }) async {
     // 錯誤詳細頁讀 `redactorProvider`；ShellHarness 不給就不 override。
-    final h = ShellHarness(redactor: Redactor());
+    final h = ShellHarness(redactor: Redactor(), live: live);
     await tester.pumpWidget(
       ProviderScope(
         overrides: h.overrides,
@@ -231,5 +237,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PlayerPage), findsNothing);
     expect(container.read(toastBottomInsetProvider), withBar);
+  });
+
+  // 播放頁的直播版（M3 PR 18c）：同一個 route，畫面換成直播間；已收聽時間一直在走，不等
+  // pumpAndSettle。
+  testWidgets('a toast shows above the live player page', (tester) async {
+    final (h, _) = await pumpShell(tester, live: true);
+    h.plugin.onResolveLive = (request) => [candidate('${request.roomId}.flv')];
+    unawaited(
+      h.controller.playLive(
+        const LiveTarget(
+          pluginId: 'fmp-test',
+          roomId: 'r',
+          title: 'Room r',
+          hostName: 'Host r',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byKey(PlayerBar.titleKey),
+            matching: find.byType(Text),
+          )
+          .first,
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(
+      find.descendant(
+        of: find.byType(PlayerPage),
+        matching: find.byType(LiveFacts),
+      ),
+      findsOneWidget,
+    );
+
+    await expectToastOnTop(tester, h, settle: false);
+    expect(find.byType(PlayerPage), findsOneWidget);
   });
 }

@@ -4,17 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/output_device.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/playback/playback_controller.dart' show OutputDeviceState;
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -53,42 +56,109 @@ class PlayerBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final queue = ref.watch(playbackQueueProvider).value;
+    final live = ref.watch(nowPlayingLiveProvider);
     final current = queue?.current;
-    if (queue == null || current == null) return const SizedBox.shrink();
+    if (queue == null || (current == null && live == null)) {
+      return const SizedBox.shrink();
+    }
     final state = ref.watch(playbackStateProvider).value ?? const Idle();
-    final previewing = ref.watch(playbackPreviewProvider).value ?? false;
-    final t = ref.watch(translationsProvider).player;
-    final status = playbackStatusLabel(t, state, previewing: previewing);
+    final translations = ref.watch(translationsProvider);
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
+
+    // 直播（ADR 0031 §決定 7）：直播標題、主播與標記、已收聽時間、人數取代曲名與進度條，
+    // 停止鈕取代上一首、下一首；隨機、循環是佇列的事，不在這裡。
+    final String pluginId;
+    final List<TrackArtwork> artwork;
+    final String title;
+    final String? uploader;
+    final String? status;
+    if (live != null) {
+      pluginId = live.target.pluginId;
+      artwork = live.artwork;
+      title = live.title;
+      uploader = live.hostName;
+      status = liveStatusLabel(
+        translations,
+        state,
+        live,
+        sourceName: ref.watch(pluginNameProvider(pluginId)),
+      );
+    } else {
+      final track = current!;
+      pluginId = track.sourceTypeId;
+      artwork = track.artwork;
+      title = track.title;
+      uploader = track.uploader;
+      status = playbackStatusLabel(
+        translations.player,
+        state,
+        previewing: ref.watch(playbackPreviewProvider).value ?? false,
+      );
+    }
 
     final trackRow = Row(
       children: [
         ArtworkImage(
-          pluginId: current.sourceTypeId,
-          artwork: current.artwork,
+          pluginId: pluginId,
+          artwork: artwork,
           size: AppLayout.artworkThumbnail,
         ),
         SizedBox(width: spacing.x3),
         Expanded(
           key: titleKey,
-          child: _TrackText(
-            title: current.title,
-            uploader: current.uploader,
-            status: status,
-          ),
+          child: _TrackText(title: title, uploader: uploader, status: status),
         ),
       ],
     );
     // 點曲名與封面那一塊開播放頁；點擊區與右邊的按鈕分開（ADR 0024 §決定 5）。
     final track = _OpenPlayerArea(child: trackRow);
-    const previous = PreviousButton();
-    final next = NextButton(enabled: queue.hasNext);
     final playPause = PlayPauseButton(state: state);
-    final shuffle = ShuffleButton(enabled: queue.shuffleEnabled);
-    final loop = LoopButton(mode: queue.loopMode);
-    const progress = ProgressRow();
     final selectsDevice = ref.watch(outputDeviceSelectionProvider);
+    final Widget progress = live == null
+        ? const ProgressRow()
+        : Padding(
+            padding: EdgeInsets.symmetric(vertical: spacing.x1),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: LiveFacts(info: live),
+            ),
+          );
+    final more = _MoreMenu(
+      queue: queue,
+      live: live != null,
+      selectsDevice: selectsDevice,
+      panelToggle: panelToggle,
+    );
+    final (compactControls, mediumControls, wideControls) = live == null
+        ? (
+            <Widget>[playPause, NextButton(enabled: queue.hasNext)],
+            <Widget>[
+              const PreviousButton(),
+              playPause,
+              NextButton(enabled: queue.hasNext),
+              const _VolumeMenu(),
+              more,
+            ],
+            <Widget>[
+              ShuffleButton(enabled: queue.shuffleEnabled),
+              const PreviousButton(),
+              playPause,
+              NextButton(enabled: queue.hasNext),
+              LoopButton(mode: queue.loopMode),
+            ],
+          )
+        : (
+            <Widget>[playPause, const StopLiveButton()],
+            <Widget>[
+              playPause,
+              const StopLiveButton(),
+              const _VolumeMenu(),
+              // 直播時「⋯」只剩開關面板與輸出裝置，兩個都沒有就不放。
+              if (panelToggle || selectsDevice) more,
+            ],
+            <Widget>[playPause, const StopLiveButton()],
+          );
 
     return Material(
       color: theme.colorScheme.surfaceContainer,
@@ -105,8 +175,7 @@ class PlayerBar extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(child: track),
-                  playPause,
-                  next,
+                  ...compactControls,
                 ],
               ),
             ],
@@ -118,15 +187,7 @@ class PlayerBar extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(child: track),
-                  previous,
-                  playPause,
-                  next,
-                  const _VolumeMenu(),
-                  _MoreMenu(
-                    queue: queue,
-                    selectsDevice: selectsDevice,
-                    panelToggle: panelToggle,
-                  ),
+                  ...mediumControls,
                 ],
               ),
             ],
@@ -144,9 +205,18 @@ class PlayerBar extends ConsumerWidget {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [shuffle, previous, playPause, next, loop],
+                      children: wideControls,
                     ),
-                    progress,
+                    if (live == null)
+                      progress
+                    else
+                      Padding(
+                        padding: EdgeInsets.only(bottom: spacing.x1),
+                        child: LiveFacts(
+                          info: live,
+                          alignment: WrapAlignment.center,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -285,11 +355,15 @@ class _TrackText extends StatelessWidget {
 class _MoreMenu extends ConsumerWidget {
   const _MoreMenu({
     required this.queue,
+    required this.live,
     required this.selectsDevice,
     required this.panelToggle,
   });
 
   final QueueState queue;
+
+  /// 收聽直播：隨機與循環是佇列的設定，不列。
+  final bool live;
   final bool selectsDevice;
   final bool panelToggle;
 
@@ -305,18 +379,21 @@ class _MoreMenu extends ConsumerWidget {
       tooltip: t.more,
       icon: const Icon(Icons.more_horiz),
       menuChildren: [
-        CheckboxMenuButton(
-          value: queue.shuffleEnabled,
-          onChanged: (_) => ref
-              .read(playbackControllerProvider)
-              .setShuffle(!queue.shuffleEnabled),
-          child: Text(t.shuffle),
-        ),
-        MenuItemButton(
-          leadingIcon: Icon(loopIcon(queue.loopMode)),
-          onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
-          child: Text(loopLabel(translations, queue.loopMode)),
-        ),
+        if (!live) ...[
+          CheckboxMenuButton(
+            value: queue.shuffleEnabled,
+            onChanged: (_) => ref
+                .read(playbackControllerProvider)
+                .setShuffle(!queue.shuffleEnabled),
+            child: Text(t.shuffle),
+          ),
+          MenuItemButton(
+            leadingIcon: Icon(loopIcon(queue.loopMode)),
+            onPressed: () =>
+                ref.read(playbackControllerProvider).cycleLoopMode(),
+            child: Text(loopLabel(translations, queue.loopMode)),
+          ),
+        ],
         if (panelToggle)
           CheckboxMenuButton(
             value: panelExpanded,

@@ -11,6 +11,7 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -341,9 +342,9 @@ class _QueueSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(
-      playbackQueueProvider.select((queue) => queue.value?.current != null),
-      (_, hasTrack) {
-        if (hasTrack) return;
+      playbackQueueProvider.select((queue) => hasNowPlaying(queue.value)),
+      (_, playing) {
+        if (playing) return;
         // 面板上可能還有對話框（清空的確認）：移除自己的 route，不是 pop 最上面的。
         final route = ModalRoute.of(context);
         if (route != null && route.isActive) {

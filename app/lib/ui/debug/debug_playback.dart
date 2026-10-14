@@ -71,7 +71,12 @@ class DebugPlayback extends ConsumerWidget {
           fact(t.pbNextRetry, formatLogTime(at)),
         if (state case Retrying(:final error) || Failed(:final error))
           fact(t.pbError, error.typeName),
-        fact(t.pbTrack, _or(diagnostics.trackKey, redact, t.pbUnknown)),
+        // 收聽直播時 `trackKey` 是直播間（`插件:房間`）。
+        if (queue.live) Text(t.pbLive, style: theme.textTheme.titleSmall),
+        fact(
+          queue.live ? t.pbLiveRoom : t.pbTrack,
+          _or(diagnostics.trackKey, redact, t.pbUnknown),
+        ),
         fact(t.pbPlugin, _or(diagnostics.pluginId, redact, t.pbUnknown)),
         fact(t.pbBackend, diagnostics.backend),
         fact(

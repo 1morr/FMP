@@ -82,6 +82,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$network$en network = Translations$network$en._(_root);
   @override
+  late final Translations$radio$en radio = Translations$radio$en._(_root);
+  @override
   late final Translations$sources$en sources = Translations$sources$en._(_root);
   @override
   late final Translations$plugins$en plugins = Translations$plugins$en._(_root);
@@ -134,6 +136,8 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   @override
   String get history => 'History';
   @override
+  String get radio => 'Radio';
+  @override
   String get panelTitle => 'Now playing';
   @override
   String get panelEmpty => 'Nothing is playing';
@@ -160,6 +164,8 @@ class Translations$search$en extends Translations$search$zh_TW {
   // Translations
   @override
   String get hint => 'Search songs';
+  @override
+  String get roomHint => 'Search live rooms';
   @override
   String get clear => 'Clear';
   @override
@@ -193,6 +199,20 @@ class Translations$search$en extends Translations$search$zh_TW {
   String get addedToNext => 'Added to play next';
   @override
   String get addedToQueue => 'Added to queue';
+  @override
+  String get modeTracks => 'Songs';
+  @override
+  String get modeRooms => 'Live rooms';
+  @override
+  String get filterAll => 'All';
+  @override
+  String get filterLive => 'Live';
+  @override
+  String get filterOffline => 'Offline';
+  @override
+  String get listen => 'Listen';
+  @override
+  String get addToRadio => 'Add to Radio';
 }
 
 // Path: history
@@ -714,6 +734,11 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   String get pbTemporary =>
       'Temporary play (the current index is where the queue resumes)';
   @override
+  String get pbLive =>
+      'Listening to a live room (returns to the queue when stopped)';
+  @override
+  String get pbLiveRoom => 'Live room';
+  @override
   String get dbTables => 'Tables';
   @override
   String dbRowCount({required Object count}) => '${count} rows';
@@ -914,6 +939,28 @@ class Translations$player$en extends Translations$player$zh_TW {
   String get outputDevice => 'Output device';
   @override
   String get systemDefault => 'System default';
+  @override
+  String get liveBadge => 'Live';
+  @override
+  String get liveEnded => 'Live ended';
+  @override
+  String get liveStatusFailed => 'Status check failed';
+  @override
+  String get liveStopped => 'Stopped';
+  @override
+  String get liveReconnecting => 'Reconnecting';
+  @override
+  String liveCannotPlay({required Object reason}) => 'Can\'t play: ${reason}';
+  @override
+  String liveListened({required Object time}) => 'Listened ${time}';
+  @override
+  String liveOnline({required Object count}) => '${count} watching';
+  @override
+  String get stopLive => 'Stop listening';
+  @override
+  String get liveHost => 'Host';
+  @override
+  String get liveViewers => 'Viewers';
 }
 
 // Path: playerPage
@@ -1101,6 +1148,99 @@ class Translations$network$en extends Translations$network$zh_TW {
   String get cancel => 'Cancel';
   @override
   String get cleared => 'Cache cleared';
+  @override
+  String get radioInterval => 'Radio status refresh';
+  @override
+  String get radioIntervalHint =>
+      'How often stations are checked for going live; not while FMP is in the background or offline.';
+  @override
+  String get radioIntervalOff => 'Off';
+  @override
+  String radioIntervalMinutes({required Object minutes}) => '${minutes} min';
+  @override
+  String optionDefault({required Object label}) => '${label} (default)';
+}
+
+// Path: radio
+class Translations$radio$en extends Translations$radio$zh_TW {
+  Translations$radio$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Radio';
+  @override
+  String get addFromUrl => 'Add from a URL';
+  @override
+  String get refresh => 'Refresh status';
+  @override
+  String get urlTitle => 'Add a station from a URL';
+  @override
+  String get urlLabel => 'Live room URL';
+  @override
+  String get add => 'Add';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get added => 'Added to Radio';
+  @override
+  String get alreadyAdded => 'Already in your stations';
+  @override
+  String get unrecognizedUrl => 'This URL isn\'t recognized';
+  @override
+  String addFailed({required Object reason}) =>
+      'Couldn\'t add the station: ${reason}';
+  @override
+  String get refreshed => 'Station status updated';
+  @override
+  String get nothingToRefresh => 'No stations to refresh';
+  @override
+  String refreshFailed({required Object reason}) =>
+      'Couldn\'t refresh the status: ${reason}';
+  @override
+  String get refreshOffline =>
+      'Offline, not refreshed: showing the last known status';
+  @override
+  String get retry => 'Retry';
+  @override
+  String get working => 'Working';
+  @override
+  String get empty => 'No stations yet';
+  @override
+  String get emptyHint =>
+      'On the Search page, switch to "Live rooms" and choose "Add to Radio" from a result\'s menu, or add a live room by its URL.';
+  @override
+  String get statusLive => 'Live';
+  @override
+  String get statusOffline => 'Offline';
+  @override
+  String get statusFailed => 'Check failed';
+  @override
+  String get statusUnchecked => 'Not checked yet';
+  @override
+  String get more => 'More options';
+  @override
+  String get remove => 'Remove';
+  @override
+  String get removeTitle => 'Remove the station?';
+  @override
+  String removeBody({required Object title}) =>
+      '"${title}" is removed from your stations.';
+  @override
+  String get removed => 'Station removed';
+  @override
+  String removeFailed({required Object reason}) =>
+      'Couldn\'t remove the station: ${reason}';
+  @override
+  String get reorder => 'Drag to reorder';
+  @override
+  String reorderFailed({required Object reason}) =>
+      'Couldn\'t reorder the stations: ${reason}';
+  @override
+  String cannotPlay({required Object reason}) => 'Can\'t play: ${reason}';
 }
 
 // Path: sources

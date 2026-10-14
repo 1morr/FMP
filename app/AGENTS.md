@@ -1072,7 +1072,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 電台
 
-`lib/radio/`（ADR 0031 §決定 1、2、6，M3 PR 18b；電台頁、搜尋頁直播間模式與設定列在 PR 18c）：使用者存的直播間清單，沒有外鍵到
+`lib/radio/`（ADR 0031 §決定 1、2、6，M3 PR 18b；電台頁、搜尋頁直播間模式與設定列在 PR 18c，見 § 介面）：使用者存的直播間清單，沒有外鍵到
 `installed_plugins`（schema 見 § 資料層）。`lib/radio/` 用資料、插件與排程器，不 import `ui/`，`scheduler/` 不認得它。
 
 - **清單與四種顯示狀態**：`radioStationsProvider`（資料庫，依 `sort_order`）加 `radioQueryFailuresProvider`（記憶體裡最近一次查詢失敗的電台 id）
@@ -1466,7 +1466,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   (no look-ahead)`）、`play_history_recorder_test.dart`（順序、保留筆數、`a failed write is reported…`、
   `nothing is written or reported after dispose`）、
   `playback_providers_test.dart` 的 `play history`（組裝點接線與設定讀取）。
-- 直播（`playLive`／`stopLive`，ADR 0018 §決定 9、ADR 0031 §決定 7、M3 design §9.4；介面在 PR 18c）。契約：
+- 直播（`playLive`／`stopLive`，ADR 0018 §決定 9、ADR 0031 §決定 7、M3 design §9.4；畫面見 § 介面的「直播版」）。契約：
   - **模式**：`QueueMode.live`，`QueueState.live`（`LivePlay`：目標加進入時的佇列快照）與臨時播放互斥；進入時記快照（佇列目前位置、播放位置、
     是不是在播），已在臨時播放或直播時只換內容、**快照維持第一次進入時的那份**；回到佇列的規則就是臨時播放的（含「臨時播放回佇列倒退秒數」，
     design §9.4 的更正）。直播時 `QueueState.current` 是 `null`（直播不是曲目；佇列照舊在 `entries`），
@@ -1546,7 +1546,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `an unset language follows the system as it changes`、`fmp_app_test.dart` 的 `an unset language follows the system`。
 - 「網路」組（`network_settings`）有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
   512／1024）與電台狀態刷新間隔（`radioStatusInterval`：空＝5 分，`0`＝關閉，對外是 `Duration?`，`null`＝關閉；選項
-  `radioStatusIntervalOptionsMinutes` 0／1／3／5／10，`setRadioStatusInterval` 收別的值丟 `ArgumentError`；設定列在 PR 18c）；
+  `radioStatusIntervalOptionsMinutes` 0／1／3／5／10，`setRadioStatusInterval` 收別的值丟 `ArgumentError`；設定頁「網路」組在清除快取之後，沒設定過的 5 分標「（預設）」，閘門 `network_controls_test.dart` 的 `an unset radio interval…`、`picking a radio interval writes only that field`）；
   舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：`network_settings_test.dart` 的 `the radio status interval`、
   `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
   未設定）、`network_settings_repository_test.dart`（`clear` 群組直接查表是 `NULL`、
@@ -1689,7 +1689,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
   `settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗）、歷史頁（空的、有紀錄加播放列）、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  或連不上時搜尋失敗、直播間模式的結果）、歷史頁（空的、有紀錄加播放列）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -1778,6 +1778,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `_stateSince`（`_setState` 時的 `clock.now()`）加 `Retrying.delay`，等網路時沒有。佇列只列曲目鍵，前後各 `QueueDiagnostics.window`（5）首，依佇列在畫面上的順序（不是隨機的播放順序）。
     位置跟著進度 stream（`playbackProgressProvider`）每秒重算，不開計時器。「複製快照」輸出 `toJson(redactor)` 的 JSON：每個字串（含串流網址）都經
     `Redactor`，不含曲目標題、標頭與引擎給的原始錯誤（錯誤只有 `typeName`）；區塊畫面上插件給的字串（曲目鍵、插件 id、容器、編碼、裝置名）也經同一個函式，網址不顯示。
+    收聽直播時區塊標「直播中」，曲目那一列換成「直播間」（`插件:房間`，`QueueDiagnostics.live`）；閘門 `debug_playback_database_test.dart` 的 `a live room says so…`。
     閘門：`playback_diagnostics_test.dart`（簽名網址、假 token、登記的憑證值都不出現在 JSON）、`debug_playback_database_test.dart` 的 `copies a redacted JSON snapshot`（畫面與 JSON 都沒有登記的值）、
     `playback_controller_test.dart` 的 `diagnostics` 群組（欄位、前後各 5 首在頭尾的邊界、重試時間）、`debug_playback_database_test.dart` 的 `playback section`。
   - 資料庫（`debug_database.dart`、`lib/data/repositories/database_inspector.dart`，ADR 0025 §決定 8，M3 design §12.2）：唯讀，只有 `lib/data/` 碰 drift。
@@ -1834,10 +1835,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
   在它上面）、medium 與 expanded `NavigationRail`、large 以上常駐 `NavigationDrawer`；都是 Material
-  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是搜尋｜歷史｜設定（M2 PR 15 加歷史；
+  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是搜尋｜歷史｜電台｜設定（M2 PR 15 加歷史、M3 PR 18c 加電台，ADR 0031 §決定 3；
   `ShellDestination` 的順序就是 `IndexedStack` 的順序）。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時
-  不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的 `navigation per window class`（含每種元件三個項目、
-  `selecting History shows the history page`）。
+  不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的 `navigation per window class`（含每種元件四個項目與順序、
+  `selecting History shows the history page`、`selecting Radio shows the radio page`）。
 - 右側「正在播放」面板（`lib/ui/shell/now_playing_panel.dart`，design §9.4，ADR 0024 §決定 3）：
   - 出現：整個視窗 >= 840（expanded 以上，`hasNowPlayingPanel`）而且沒收起。compact、medium 沒有面板也沒有任何開關。
     面板在內容區（頁面）右邊、中間是拖曳把手；播放列在兩者下方橫跨，所以開關面板不改變播放列的分段。頁面的
@@ -2005,6 +2006,38 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     頁內焦點區是控制區｜（extraLarge 的）歌詞欄｜右欄分頁（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
+- 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3）：
+  - 讀 `radioEntriesProvider`（本機資料，離線照常顯示存的狀態）。每列是封面、標題、狀態標記加主播、開播中而且和標題不同時的
+    直播標題、「⋯」（刪除，先確認）、拖曳把手（同佇列：只有把手能拖，`onReorderItem` 後整批 `reorder`，資料庫追上之前照拖曳後的
+    順序畫；寫入失敗時回到資料庫的順序並提示，閘門 `a reorder that fails to save goes back to the stored order`）。四種狀態的標記（`RadioStatusTag`）顏色與圖示都不同，「查詢失敗」是警告色，不是未開播的樣子（D10）；標記（含直播的
+    `LiveBadge`）的字對背景在淺深兩種主題都 ≥ 4.5，閘門 `test/ui/radio/status_tag_test.dart`（guideline 測試的對比度以整列的語意節點
+    量，量不到列裡標記的字）。音源停用或未安裝的
+    列留著、主播換成 `sourceUnavailableProvider` 的原因，點了跳警告、不收聽。正在收聽的那一列以主色標示。閘門：
+    `test/ui/radio/radio_page_test.dart` 的 `the list`、`listening`、`editing` 群組。
+  - 「以網址新增」是對話框，結果三種各一則提示（加入是成功、已在清單是資訊、認不得是警告），插件拋的 `AppError` 照
+    `Toaster.error`（「無法新增電台：原因」）。「刷新狀態」呼叫 `RadioService.refresh`：`offline`（排程器沒發請求）不跳提示，
+    清單上方一行說明「沒有刷新、是上次查到的狀態」加重試，回到 `online` 就收起（外殼已有離線橫幅，清單是本機資料不換成
+    `OfflineMessage`）；`nothingToRefresh` 是資訊提示。新增、刷新進行中頂端有進度條、兩個鈕停用（同插件頁）。閘門：
+    `adding from a URL`、`refreshing` 群組。
+- 搜尋頁的直播間模式（ADR 0031 §決定 5，M3 design §9.5）：選的音源宣告 `live` 時搜尋框下有「曲目｜直播間」
+  （`SegmentedButton`），直播間模式另有「全部｜開播中｜未開播」（`ChoiceChip`，`SearchState.roomFilter` 傳進
+  `LiveSearchQuery.status`）。模式在 `SearchNotifier`：換到沒宣告 `live` 的音源（使用者換，或音源清單變了）就退回曲目；換音源、
+  模式、篩選都換代、清掉結果，搜過的關鍵字照樣重搜。結果列是封面、標題、狀態加主播、人數、「⋯」（收聽、加為電台）；點一下
+  `playLive`；錯誤、空結果、離線、載入更多與曲目共用 `_Results`。閘門：`test/ui/search/search_live_test.dart`（音源清單變了而退回曲目是
+  `the live source leaving the list goes back to songs`）。
+- 直播版（ADR 0031 §決定 7，M3 design §9.4）：直播時 `QueueState.current` 是 `null`，播放列、播放頁、右側面板、佇列面板與外殼
+  判斷「有沒有在播」一律用 `hasNowPlaying`（曲目或直播間），直播內容讀 `nowPlayingLiveProvider`（`playbackLiveProvider` 還沒跟上
+  佇列時先用佇列裡的目標）。三處都沒有進度條、上一首、下一首、隨機、循環；有停止鈕（`stopLive`）、主播、`LiveFacts`（「直播中」
+  標記、出聲時的已收聽時間、人數）。階段：重新連線中、等待網路連線、已停止（暫停就是停止串流）、無法播放寫在主播前面
+  （`liveStatusLabel`）；直播已結束、查詢失敗換掉「直播中」標記（`LiveBadge`，查詢失敗是警告色）。播放頁的「詳細」分頁與右側
+  面板是 `LiveDetails`（面板多一個「停止收聽」鈕）；播放頁直播時的「⋯」只有面板勾選項（沒有播放速度）。佇列分頁照常是原佇列、
+  沒有一列標成在播。閘門：`test/ui/player/live_player_test.dart`（三種寬度的播放列、三種階段、播放頁兩種寬度、佇列與詳細分頁、
+  佇列是空的時停止就關、面板）、`player_page_test.dart` 的 `in a live room no queue row is marked current`。
+- 直播時的快捷鍵：空白鍵照常（控制器的 `pause` 就是停止串流）；上一首、下一首、Shift+←／→、Ctrl+S、Ctrl+R 在
+  `PlaybackShortcuts` 的 `_QueueAction` **接下按鍵、什麼都不做**——不是停用：停用會讓按鍵往上傳，App 根的預設快捷鍵把
+  Ctrl+方向鍵當成捲動，去捲頁面的清單（debug 下 `PrimaryScrollController` 有多個位置時是 assertion）。閘門：
+  `live_player_test.dart` 的 `shortcuts while listening`（Ctrl+S、Ctrl+R 不改佇列的設定，拿掉判斷會紅；每個鍵的 `handled` 都是真，
+  改成直播時停用會紅）。
 - 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
   依序換區、跳過不在畫面上的播放列。閘門：`app_shell_test.dart` 的 `focus regions` 群組。
 - 只有圖示的按鈕以 tooltip 當名稱（附按鍵，如「隨機播放（Ctrl+S）」，翻譯檔的 `*Tooltip`），不另外給

@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§9.3 radio page and navigation, §9.4 live player UI, §9.5 live search mode, §3.3 settings"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules, §18 checklist and on-device steps, 'PR 18b 留下的' handover"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "Radio navigation, page, live search mode, live playback UI"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "Design system, breakpoints and navigation, keyboard and focus, accessibility, guideline tests"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "Offline states (decision 7)"}
+{"file": "docs/adr/0023-unified-toast.md", "reason": "Toasts and error presentation"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI patterns, guideline tests, i18n"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Live state providers and playback rules"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Settings rows"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}

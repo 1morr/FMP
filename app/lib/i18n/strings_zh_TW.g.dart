@@ -71,6 +71,9 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$playback$zh_TW.internal(_root);
   late final Translations$network$zh_TW network =
       Translations$network$zh_TW.internal(_root);
+  late final Translations$radio$zh_TW radio = Translations$radio$zh_TW.internal(
+    _root,
+  );
   late final Translations$sources$zh_TW sources =
       Translations$sources$zh_TW.internal(_root);
   late final Translations$plugins$zh_TW plugins =
@@ -123,6 +126,9 @@ class Translations$shell$zh_TW {
   /// zh-TW: '歷史'
   String get history => '歷史';
 
+  /// zh-TW: '電台'
+  String get radio => '電台';
+
   /// zh-TW: '正在播放'
   String get panelTitle => '正在播放';
 
@@ -155,6 +161,9 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '搜尋歌曲'
   String get hint => '搜尋歌曲';
+
+  /// zh-TW: '搜尋直播間'
+  String get roomHint => '搜尋直播間';
 
   /// zh-TW: '清除'
   String get clear => '清除';
@@ -203,6 +212,27 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '已加入佇列'
   String get addedToQueue => '已加入佇列';
+
+  /// zh-TW: '曲目'
+  String get modeTracks => '曲目';
+
+  /// zh-TW: '直播間'
+  String get modeRooms => '直播間';
+
+  /// zh-TW: '全部'
+  String get filterAll => '全部';
+
+  /// zh-TW: '開播中'
+  String get filterLive => '開播中';
+
+  /// zh-TW: '未開播'
+  String get filterOffline => '未開播';
+
+  /// zh-TW: '收聽'
+  String get listen => '收聽';
+
+  /// zh-TW: '加為電台'
+  String get addToRadio => '加為電台';
 }
 
 // Path: history
@@ -910,6 +940,12 @@ class Translations$debug$zh_TW {
   /// zh-TW: '臨時播放中（目前位置是回到佇列時的那一首）'
   String get pbTemporary => '臨時播放中（目前位置是回到佇列時的那一首）';
 
+  /// zh-TW: '直播中（停止後回到佇列）'
+  String get pbLive => '直播中（停止後回到佇列）';
+
+  /// zh-TW: '直播間'
+  String get pbLiveRoom => '直播間';
+
   /// zh-TW: '資料表'
   String get dbTables => '資料表';
 
@@ -1178,6 +1214,39 @@ class Translations$player$zh_TW {
 
   /// zh-TW: '系統預設'
   String get systemDefault => '系統預設';
+
+  /// zh-TW: '直播中'
+  String get liveBadge => '直播中';
+
+  /// zh-TW: '直播已結束'
+  String get liveEnded => '直播已結束';
+
+  /// zh-TW: '查詢失敗'
+  String get liveStatusFailed => '查詢失敗';
+
+  /// zh-TW: '已停止'
+  String get liveStopped => '已停止';
+
+  /// zh-TW: '重新連線中'
+  String get liveReconnecting => '重新連線中';
+
+  /// zh-TW: '無法播放：{reason}'
+  String liveCannotPlay({required Object reason}) => '無法播放：${reason}';
+
+  /// zh-TW: '已收聽 {time}'
+  String liveListened({required Object time}) => '已收聽 ${time}';
+
+  /// zh-TW: '{count} 人在看'
+  String liveOnline({required Object count}) => '${count} 人在看';
+
+  /// zh-TW: '停止收聽'
+  String get stopLive => '停止收聽';
+
+  /// zh-TW: '主播'
+  String get liveHost => '主播';
+
+  /// zh-TW: '觀看人數'
+  String get liveViewers => '觀看人數';
 }
 
 // Path: playerPage
@@ -1412,6 +1481,126 @@ class Translations$network$zh_TW {
 
   /// zh-TW: '已清除快取'
   String get cleared => '已清除快取';
+
+  /// zh-TW: '電台狀態刷新間隔'
+  String get radioInterval => '電台狀態刷新間隔';
+
+  /// zh-TW: '多久查一次電台是否開播；App 在背景或離線時不查。'
+  String get radioIntervalHint => '多久查一次電台是否開播；App 在背景或離線時不查。';
+
+  /// zh-TW: '關閉'
+  String get radioIntervalOff => '關閉';
+
+  /// zh-TW: '{minutes} 分鐘'
+  String radioIntervalMinutes({required Object minutes}) => '${minutes} 分鐘';
+
+  /// zh-TW: '{label}（預設）'
+  String optionDefault({required Object label}) => '${label}（預設）';
+}
+
+// Path: radio
+class Translations$radio$zh_TW {
+  Translations$radio$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '電台'
+  String get title => '電台';
+
+  /// zh-TW: '以網址新增'
+  String get addFromUrl => '以網址新增';
+
+  /// zh-TW: '刷新狀態'
+  String get refresh => '刷新狀態';
+
+  /// zh-TW: '以網址新增電台'
+  String get urlTitle => '以網址新增電台';
+
+  /// zh-TW: '直播間網址'
+  String get urlLabel => '直播間網址';
+
+  /// zh-TW: '新增'
+  String get add => '新增';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '已加入電台'
+  String get added => '已加入電台';
+
+  /// zh-TW: '已在電台清單'
+  String get alreadyAdded => '已在電台清單';
+
+  /// zh-TW: '無法辨識這個網址'
+  String get unrecognizedUrl => '無法辨識這個網址';
+
+  /// zh-TW: '無法新增電台：{reason}'
+  String addFailed({required Object reason}) => '無法新增電台：${reason}';
+
+  /// zh-TW: '已更新電台狀態'
+  String get refreshed => '已更新電台狀態';
+
+  /// zh-TW: '沒有可以刷新的電台'
+  String get nothingToRefresh => '沒有可以刷新的電台';
+
+  /// zh-TW: '無法刷新狀態：{reason}'
+  String refreshFailed({required Object reason}) => '無法刷新狀態：${reason}';
+
+  /// zh-TW: '離線中，沒有刷新：顯示的是上次查到的狀態'
+  String get refreshOffline => '離線中，沒有刷新：顯示的是上次查到的狀態';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '處理中'
+  String get working => '處理中';
+
+  /// zh-TW: '還沒有電台'
+  String get empty => '還沒有電台';
+
+  /// zh-TW: '在搜尋頁切到「直播間」，從結果的選單「加為電台」；或以直播間的網址新增。'
+  String get emptyHint => '在搜尋頁切到「直播間」，從結果的選單「加為電台」；或以直播間的網址新增。';
+
+  /// zh-TW: '開播中'
+  String get statusLive => '開播中';
+
+  /// zh-TW: '未開播'
+  String get statusOffline => '未開播';
+
+  /// zh-TW: '查詢失敗'
+  String get statusFailed => '查詢失敗';
+
+  /// zh-TW: '還沒查過'
+  String get statusUnchecked => '還沒查過';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '刪除'
+  String get remove => '刪除';
+
+  /// zh-TW: '刪除電台？'
+  String get removeTitle => '刪除電台？';
+
+  /// zh-TW: '「{title}」會從電台清單移除。'
+  String removeBody({required Object title}) => '「${title}」會從電台清單移除。';
+
+  /// zh-TW: '已刪除電台'
+  String get removed => '已刪除電台';
+
+  /// zh-TW: '無法刪除電台：{reason}'
+  String removeFailed({required Object reason}) => '無法刪除電台：${reason}';
+
+  /// zh-TW: '拖曳以排序'
+  String get reorder => '拖曳以排序';
+
+  /// zh-TW: '無法調整順序：{reason}'
+  String reorderFailed({required Object reason}) => '無法調整順序：${reason}';
+
+  /// zh-TW: '無法收聽：{reason}'
+  String cannotPlay({required Object reason}) => '無法收聽：${reason}';
 }
 
 // Path: sources

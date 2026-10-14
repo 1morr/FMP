@@ -50,13 +50,13 @@ class TrackDetails extends ConsumerWidget {
               Text(track.title, style: theme.textTheme.titleLarge),
               SizedBox(height: spacing.x4),
               if (uploader != null)
-                _Field(label: t.detailsUploader, value: uploader),
+                DetailsField(label: t.detailsUploader, value: uploader),
               if (duration != null)
-                _Field(
+                DetailsField(
                   label: t.detailsDuration,
                   value: formatDuration(duration),
                 ),
-              _Field(label: t.detailsSource, value: source),
+              DetailsField(label: t.detailsSource, value: source),
             ],
           ),
         );
@@ -65,8 +65,9 @@ class TrackDetails extends ConsumerWidget {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.value});
+/// 詳細資料的一欄：小標題加內容（直播間的詳細也用它）。
+class DetailsField extends StatelessWidget {
+  const DetailsField({super.key, required this.label, required this.value});
 
   final String label;
   final String value;

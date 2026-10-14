@@ -3,15 +3,21 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/format/count_text.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
+import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/search/source_chips.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -67,6 +73,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final network = ref.watch(networkStatusProvider);
     final list = sources.value ?? const [];
     final selected = selectedSourceOf(search.sourceId, list);
+    // 直播間模式只在選的音源宣告 `live` 時（ADR 0031 §決定 5）；換到沒宣告的音源時
+    // notifier 已退回曲目，這裡再擋一次，畫面不會停在沒有分段鈕的直播間模式。
+    final hasLive = hasLiveRooms(selected);
+    final rooms = hasLive && search.mode == SearchMode.rooms;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -86,7 +96,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             textInputAction: TextInputAction.search,
             onSubmitted: _submit,
             decoration: InputDecoration(
-              hintText: t.hint,
+              hintText: rooms ? t.roomHint : t.hint,
               prefixIcon: const Icon(Icons.search),
               suffixIcon: ListenableBuilder(
                 listenable: _text,
@@ -117,6 +127,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 unawaited(ref.read(searchProvider.notifier).selectSource(id)),
           ),
           SizedBox(height: spacing.x2),
+          if (hasLive) ...[
+            _ModeBar(rooms: rooms, filter: search.roomFilter),
+            SizedBox(height: spacing.x2),
+          ],
         ],
         Expanded(
           child: switch (sources) {
@@ -130,6 +144,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             AsyncData() when list.isEmpty => _noSources(),
             AsyncData() => _Results(
               state: search,
+              rooms: rooms,
               network: network,
               onRetry: _retry,
             ),
@@ -163,11 +178,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 class _Results extends ConsumerWidget {
   const _Results({
     required this.state,
+    required this.rooms,
     required this.network,
     required this.onRetry,
   });
 
   final SearchState state;
+
+  /// 直播間模式：結果是直播間（[SearchState.rooms]）。
+  final bool rooms;
   final NetworkStatus network;
   final VoidCallback onRetry;
 
@@ -187,33 +206,98 @@ class _Results extends ConsumerWidget {
         title: t.failed,
         action: retry,
       ),
-      SearchPhase.loaded when state.items.isEmpty => EmptyState(
+      SearchPhase.loaded when state.isEmpty => EmptyState(
         icon: Icons.search_off,
         title: t.noResults(keyword: state.keyword),
       ),
       SearchPhase.loaded ||
-      SearchPhase.loadingMore => _ResultList(state: state),
+      SearchPhase.loadingMore => _ResultList(state: state, rooms: rooms),
     };
   }
 }
 
-class _ResultList extends ConsumerWidget {
-  const _ResultList({required this.state});
+/// 選的音源宣告 `live` 時搜尋框下的「曲目｜直播間」分段鈕（M3 的 segmented button：在同一頁
+/// 切換檢視），直播間模式另有「全部｜開播中｜未開播」篩選（M3 的 filter chip，同音源 chip
+/// 列的寫法；舊版 `LiveRoomFilter`）。窄的時候篩選換到下一行。
+class _ModeBar extends ConsumerWidget {
+  const _ModeBar({required this.rooms, required this.filter});
 
-  final SearchState state;
+  final bool rooms;
+  final LiveRoomStatus? filter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).search;
     final spacing = AppTokens.of(context).spacing;
-    final items = state.items;
+    final notifier = ref.read(searchProvider.notifier);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: spacing.x4),
+      child: Wrap(
+        spacing: spacing.x4,
+        runSpacing: spacing.x2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SegmentedButton<SearchMode>(
+            segments: [
+              ButtonSegment(
+                value: SearchMode.tracks,
+                icon: const Icon(Icons.music_note_outlined),
+                label: Text(t.modeTracks),
+              ),
+              ButtonSegment(
+                value: SearchMode.rooms,
+                icon: const Icon(Icons.sensors),
+                label: Text(t.modeRooms),
+              ),
+            ],
+            selected: {rooms ? SearchMode.rooms : SearchMode.tracks},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) =>
+                unawaited(notifier.selectMode(selection.single)),
+          ),
+          if (rooms)
+            Wrap(
+              spacing: spacing.x2,
+              children: [
+                for (final (value, label) in [
+                  (null, t.filterAll),
+                  (LiveRoomStatus.live, t.filterLive),
+                  (LiveRoomStatus.offline, t.filterOffline),
+                ])
+                  ChoiceChip(
+                    label: Text(label),
+                    selected: filter == value,
+                    onSelected: (_) =>
+                        unawaited(notifier.selectRoomFilter(value)),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultList extends ConsumerWidget {
+  const _ResultList({required this.state, required this.rooms});
+
+  final SearchState state;
+  final bool rooms;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).search;
+    final spacing = AppTokens.of(context).spacing;
+    final count = rooms ? state.rooms.length : state.items.length;
     final footer = state.hasMore || state.phase == SearchPhase.loadingMore;
     return ListView.builder(
       padding: EdgeInsets.only(bottom: spacing.x4),
-      itemCount: items.length + (footer ? 1 : 0),
+      itemCount: count + (footer ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index < items.length) {
-          return _TrackTile(track: items[index].toTrackInfo());
+        if (index < count) {
+          return rooms
+              ? _RoomTile(hit: state.rooms[index])
+              : _TrackTile(track: state.items[index].toTrackInfo());
         }
         return Padding(
           padding: EdgeInsets.all(spacing.x2),
@@ -297,6 +381,113 @@ class _TrackTile extends ConsumerWidget {
           ],
         ),
         onTap: play,
+        onLongPress: openMenu,
+      ),
+    );
+  }
+}
+
+/// 一個直播間結果：封面、標題、狀態與主播、人數、「⋯」（收聽、加為電台）。點一下收聽
+/// （`playLive`）；選單照曲目列的 [TrackRowMenu]。
+class _RoomTile extends ConsumerWidget {
+  const _RoomTile({required this.hit});
+
+  final LiveRoomHit hit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final translations = ref.watch(translationsProvider);
+    final t = translations.search;
+    final room = hit.room;
+    final host = room.hostName;
+    final online = room.online;
+    final artwork = [
+      for (final image in room.artwork)
+        TrackArtwork(url: image.url, width: image.width),
+    ];
+
+    void listen() => unawaited(
+      ref
+          .read(playbackControllerProvider)
+          .playLive(
+            LiveTarget(
+              pluginId: hit.pluginId,
+              roomId: room.roomId,
+              title: room.title,
+              hostName: host,
+              artwork: artwork,
+            ),
+          ),
+    );
+
+    Future<void> addToRadio() async {
+      final radio = ref.read(translationsProvider).radio;
+      final toaster = ref.read(toasterProvider);
+      try {
+        switch (await ref
+            .read(radioServiceProvider)
+            .addRoom(hit.pluginId, room)) {
+          case AddRadioResult.added:
+            toaster.success(radio.added);
+          case AddRadioResult.alreadyAdded:
+            toaster.info(radio.alreadyAdded);
+          // 以 LiveRoom 直接寫入，沒有網址要認。
+          case AddRadioResult.unrecognizedUrl:
+            break;
+        }
+      } on AppError catch (error) {
+        toaster.error(
+          error,
+          operation: 'Failed to add a radio station',
+          tag: 'radio',
+          sentence: (reason) => radio.addFailed(reason: reason),
+        );
+      }
+    }
+
+    return TrackRowMenu(
+      moreTooltip: t.more,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.play_arrow),
+          onPressed: listen,
+          child: Text(t.listen),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.radio),
+          onPressed: () => unawaited(addToRadio()),
+          child: Text(t.addToRadio),
+        ),
+      ],
+      builder: (context, more, openMenu) => ListTile(
+        leading: ArtworkImage(
+          pluginId: hit.pluginId,
+          artwork: artwork,
+          size: AppLayout.artworkThumbnail,
+        ),
+        title: Text(room.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: TaggedLine(
+          tag: RadioStatusTag(
+            status: switch (room.status) {
+              LiveRoomStatus.live => RadioStatus.live,
+              LiveRoomStatus.offline => RadioStatus.offline,
+            },
+          ),
+          text: host,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (online != null)
+              Text(
+                translations.player.liveOnline(
+                  count: formatCount(ref.watch(uiLocaleProvider), online),
+                ),
+              ),
+            more,
+          ],
+        ),
+        onTap: listen,
         onLongPress: openMenu,
       ),
     );

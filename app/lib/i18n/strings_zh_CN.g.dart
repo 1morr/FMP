@@ -92,6 +92,10 @@ class TranslationsZhCn extends Translations
   late final Translations$network$zh_CN network =
       Translations$network$zh_CN.internal(_root);
   @override
+  late final Translations$radio$zh_CN radio = Translations$radio$zh_CN.internal(
+    _root,
+  );
+  @override
   late final Translations$sources$zh_CN sources =
       Translations$sources$zh_CN.internal(_root);
   @override
@@ -146,6 +150,8 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get history => '历史';
   @override
+  String get radio => '电台';
+  @override
   String get panelTitle => '正在播放';
   @override
   String get panelEmpty => '没有正在播放的歌曲';
@@ -172,6 +178,8 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   // Translations
   @override
   String get hint => '搜索歌曲';
+  @override
+  String get roomHint => '搜索直播间';
   @override
   String get clear => '清除';
   @override
@@ -204,6 +212,20 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   String get addedToNext => '已添加为下一首播放';
   @override
   String get addedToQueue => '已添加到队列';
+  @override
+  String get modeTracks => '曲目';
+  @override
+  String get modeRooms => '直播间';
+  @override
+  String get filterAll => '全部';
+  @override
+  String get filterLive => '开播中';
+  @override
+  String get filterOffline => '未开播';
+  @override
+  String get listen => '收听';
+  @override
+  String get addToRadio => '添加到电台';
 }
 
 // Path: history
@@ -708,6 +730,10 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   @override
   String get pbTemporary => '临时播放中（当前位置是回到队列时的那一首）';
   @override
+  String get pbLive => '直播中（停止后回到队列）';
+  @override
+  String get pbLiveRoom => '直播间';
+  @override
   String get dbTables => '数据表';
   @override
   String dbRowCount({required Object count}) => '${count} 条';
@@ -897,6 +923,28 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   String get outputDevice => '输出设备';
   @override
   String get systemDefault => '系统默认';
+  @override
+  String get liveBadge => '直播中';
+  @override
+  String get liveEnded => '直播已结束';
+  @override
+  String get liveStatusFailed => '查询失败';
+  @override
+  String get liveStopped => '已停止';
+  @override
+  String get liveReconnecting => '重新连接中';
+  @override
+  String liveCannotPlay({required Object reason}) => '无法播放：${reason}';
+  @override
+  String liveListened({required Object time}) => '已收听 ${time}';
+  @override
+  String liveOnline({required Object count}) => '${count} 人在看';
+  @override
+  String get stopLive => '停止收听';
+  @override
+  String get liveHost => '主播';
+  @override
+  String get liveViewers => '观看人数';
 }
 
 // Path: playerPage
@@ -1073,6 +1121,91 @@ class Translations$network$zh_CN extends Translations$network$zh_TW {
   String get cancel => '取消';
   @override
   String get cleared => '已清除缓存';
+  @override
+  String get radioInterval => '电台状态刷新间隔';
+  @override
+  String get radioIntervalHint => '多久查一次电台是否开播；App 在后台或离线时不查。';
+  @override
+  String get radioIntervalOff => '关闭';
+  @override
+  String radioIntervalMinutes({required Object minutes}) => '${minutes} 分钟';
+  @override
+  String optionDefault({required Object label}) => '${label}（默认）';
+}
+
+// Path: radio
+class Translations$radio$zh_CN extends Translations$radio$zh_TW {
+  Translations$radio$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '电台';
+  @override
+  String get addFromUrl => '通过网址添加';
+  @override
+  String get refresh => '刷新状态';
+  @override
+  String get urlTitle => '通过网址添加电台';
+  @override
+  String get urlLabel => '直播间网址';
+  @override
+  String get add => '添加';
+  @override
+  String get cancel => '取消';
+  @override
+  String get added => '已添加到电台';
+  @override
+  String get alreadyAdded => '已在电台列表中';
+  @override
+  String get unrecognizedUrl => '无法识别这个网址';
+  @override
+  String addFailed({required Object reason}) => '无法添加电台：${reason}';
+  @override
+  String get refreshed => '已更新电台状态';
+  @override
+  String get nothingToRefresh => '没有可以刷新的电台';
+  @override
+  String refreshFailed({required Object reason}) => '无法刷新状态：${reason}';
+  @override
+  String get refreshOffline => '离线中，未刷新：显示的是上次查到的状态';
+  @override
+  String get retry => '重试';
+  @override
+  String get working => '处理中';
+  @override
+  String get empty => '还没有电台';
+  @override
+  String get emptyHint => '在搜索页切换到“直播间”，从结果的菜单“添加到电台”；或通过直播间的网址添加。';
+  @override
+  String get statusLive => '开播中';
+  @override
+  String get statusOffline => '未开播';
+  @override
+  String get statusFailed => '查询失败';
+  @override
+  String get statusUnchecked => '尚未查询';
+  @override
+  String get more => '更多选项';
+  @override
+  String get remove => '删除';
+  @override
+  String get removeTitle => '删除电台？';
+  @override
+  String removeBody({required Object title}) => '“${title}”将从电台列表中移除。';
+  @override
+  String get removed => '已删除电台';
+  @override
+  String removeFailed({required Object reason}) => '无法删除电台：${reason}';
+  @override
+  String get reorder => '拖动以排序';
+  @override
+  String reorderFailed({required Object reason}) => '无法调整顺序：${reason}';
+  @override
+  String cannotPlay({required Object reason}) => '无法收听：${reason}';
 }
 
 // Path: sources
