@@ -41,7 +41,8 @@
     "10-14-m3-background-scheduler",
     "10-14-m3-live-capability",
     "10-14-m3-radio-live",
-    "10-14-m3-radio-ui"
+    "10-14-m3-radio-ui",
+    "10-14-m3-mix"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
