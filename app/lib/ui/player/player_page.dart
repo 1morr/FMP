@@ -723,7 +723,10 @@ class _Transport extends ConsumerWidget {
             alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              ShuffleButton(enabled: queue.shuffleEnabled),
+              ShuffleButton(
+                enabled: queue.shuffleEnabled,
+                locked: queue.mix != null,
+              ),
               const PreviousButton(),
               PlayPauseButton(state: state),
               NextButton(enabled: queue.hasNext),

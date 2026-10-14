@@ -215,6 +215,30 @@ void main() {
     expect(shown.errorType, 'NetworkError');
   });
 
+  test('a mix case starts a mix by seed and shows the tracks', () async {
+    plugin('test_plugin');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.mix);
+
+    final shown = result(container, 'fmp-test', PluginCapability.mix)!;
+    expect(shown.outcome, DevCaseOutcome.passed, reason: '${shown.problems}');
+    expect(shown.value, contains('Test mix track 1'));
+    expect(shown.value, contains('Test mix track 5'));
+  });
+
+  test('a mix case that expects too many tracks fails', () async {
+    final directory = plugin('test_plugin');
+    contract.edit(directory, 'checks.json', '"minItems": 5', '"minItems": 6');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.mix);
+
+    final shown = result(container, 'fmp-test', PluginCapability.mix)!;
+    expect(shown.outcome, DevCaseOutcome.failed);
+    expect(shown.problems.join(), contains('expected at least 6 items'));
+  });
+
   group('record', () {
     Future<ProviderContainer> recording() async {
       plugin('http_test_plugin', keepFixtures: false);

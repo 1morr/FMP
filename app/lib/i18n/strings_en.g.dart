@@ -196,6 +196,12 @@ class Translations$search$en extends Translations$search$zh_TW {
   @override
   String get addToQueue => 'Add to queue';
   @override
+  String get playNextInMix => 'Play next (unavailable in a Mix)';
+  @override
+  String get addToQueueInMix => 'Add to queue (unavailable in a Mix)';
+  @override
+  String get startMix => 'Start Mix';
+  @override
   String get addedToNext => 'Added to play next';
   @override
   String get addedToQueue => 'Added to queue';
@@ -245,6 +251,12 @@ class Translations$history$en extends Translations$history$zh_TW {
   String get playNext => 'Play next';
   @override
   String get addToQueue => 'Add to queue';
+  @override
+  String get playNextInMix => 'Play next (unavailable in a Mix)';
+  @override
+  String get addToQueueInMix => 'Add to queue (unavailable in a Mix)';
+  @override
+  String get startMix => 'Start Mix';
   @override
   String get addedToNext => 'Added to play next';
   @override
@@ -739,6 +751,8 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   @override
   String get pbLiveRoom => 'Live room';
   @override
+  String get pbMix => 'Mix';
+  @override
   String get dbTables => 'Tables';
   @override
   String dbRowCount({required Object count}) => '${count} rows';
@@ -922,6 +936,10 @@ class Translations$player$en extends Translations$player$zh_TW {
   @override
   String get shuffleTooltip => 'Shuffle (Ctrl+S)';
   @override
+  String get shuffleInMixTooltip => 'Shuffle is unavailable in a Mix';
+  @override
+  String get shuffleInMix => 'Shuffle (unavailable in a Mix)';
+  @override
   String get loopOffTooltip => 'Repeat: off (Ctrl+R)';
   @override
   String get loopAllTooltip => 'Repeat: all (Ctrl+R)';
@@ -1005,6 +1023,10 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   @override
   String get queueShuffleNote =>
       'The shuffle order follows positions; dragging only swaps songs, not the order';
+  @override
+  String queueMixNote({required Object title}) => 'Mix: ${title}';
+  @override
+  String get queueStartMix => 'Start Mix';
   @override
   String get queueClear => 'Clear the queue';
   @override

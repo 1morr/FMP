@@ -2,11 +2,11 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v12（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// Schema v13（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
 // queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
 // installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
 // developer_settings（v9）、scheduler_runs（v11）、radio_stations 與
-// network_settings 的電台間隔（v12））。
+// network_settings 的電台間隔（v12）、player_state 的 Mix 五欄（v13））。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -217,6 +217,15 @@ class PlayerStateTable extends Table {
   /// 0–1；靜音時是取消靜音後回到的值。
   late final volume = real()();
   late final muted = boolean()();
+
+  /// 空（舊版的列）或 `queue`＝一般佇列；`mix`＝Mix，身分在下面四欄（M3 PR 19）。
+  late final mode = text().nullable().map(const PlayerModeConverter())();
+  late final mixPluginId = text().nullable()();
+  late final mixId = text().nullable()();
+  late final mixTitle = text().nullable()();
+
+  /// 插件的不透明字串；空＝這個 Mix 沒有更多。
+  late final mixCursor = text().nullable()();
   late final updatedAt = integer().map(const EpochMillisecondsConverter())();
 
   @override

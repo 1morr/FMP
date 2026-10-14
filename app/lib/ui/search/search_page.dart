@@ -23,6 +23,7 @@ import 'package:fmp/ui/search/source_chips.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 搜尋頁：輸入框、音源 chip 列、結果列表。點一首是臨時播放（D1）：不動佇列，
@@ -329,6 +330,9 @@ class _TrackTile extends ConsumerWidget {
     final uploader = track.uploader;
     final duration = track.duration;
 
+    final inMix = ref.watch(inMixProvider);
+    final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
+
     void play() =>
         unawaited(ref.read(playbackControllerProvider).playTemporary(track));
 
@@ -354,14 +358,20 @@ class _TrackTile extends ConsumerWidget {
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.queue_play_next),
-          onPressed: playNext,
-          child: Text(t.playNext),
+          onPressed: inMix ? null : playNext,
+          child: Text(inMix ? t.playNextInMix : t.playNext),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.add_to_queue),
-          onPressed: addToQueue,
-          child: Text(t.addToQueue),
+          onPressed: inMix ? null : addToQueue,
+          child: Text(inMix ? t.addToQueueInMix : t.addToQueue),
         ),
+        if (canMix)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.auto_awesome),
+            onPressed: () => unawaited(startMixFrom(ref, track)),
+            child: Text(t.startMix),
+          ),
       ],
       builder: (context, more, openMenu) => ListTile(
         leading: ArtworkImage(

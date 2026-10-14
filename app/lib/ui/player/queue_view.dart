@@ -17,6 +17,7 @@ import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 可編輯的佇列清單（M2 PR 18b，design §7.3）。播放頁的佇列分頁（expanded 以上）與
@@ -39,6 +40,9 @@ class QueueView extends ConsumerStatefulWidget {
 
   /// 「清空佇列」鈕；測試以它找。
   static const clearKey = ValueKey('queue-clear');
+
+  /// Mix 佇列的標題列；測試以它找。
+  static const mixNoteKey = ValueKey('queue-mix-note');
 
   @override
   ConsumerState<QueueView> createState() => _QueueViewState();
@@ -193,6 +197,35 @@ class _QueueViewState extends ConsumerState<QueueView> {
             ],
           ),
         ),
+        if (queue.mix case final mix?)
+          Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: spacing.x4,
+              end: spacing.x4,
+              bottom: spacing.x2,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: theme.textTheme.bodySmall?.fontSize,
+                  color: theme.colorScheme.primary,
+                ),
+                SizedBox(width: spacing.x1),
+                Expanded(
+                  child: Text(
+                    t.queueMixNote(title: mix.title),
+                    key: QueueView.mixNoteKey,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (queue.shuffleEnabled)
           Padding(
             padding: EdgeInsetsDirectional.only(
@@ -266,6 +299,7 @@ class _QueueRow extends ConsumerWidget {
         ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
         track.uploader;
     final duration = track.duration;
+    final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
     return TrackRowMenu(
       moreTooltip: t.queueMore,
       menuChildren: [
@@ -275,6 +309,12 @@ class _QueueRow extends ConsumerWidget {
             onPressed: () =>
                 ref.read(playbackControllerProvider).moveToNext(index),
             child: Text(t.queuePlayNext),
+          ),
+        if (canMix)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.auto_awesome),
+            onPressed: () => unawaited(startMixFrom(ref, track)),
+            child: Text(t.queueStartMix),
           ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.remove_circle_outline),

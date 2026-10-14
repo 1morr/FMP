@@ -130,6 +130,14 @@ final class StreamResolver {
     return plugin.liveStatus(LiveRoomQuery(roomId: roomId));
   }
 
+  /// 向 [pluginId] 的插件要一批 Mix 曲目（開始或續取，ADR 0028 §決定 4）。音源不在
+  /// 插件清單上是 `Unsupported`。不進快取：每次都是新的一批。
+  Future<MixBatch> mix(String pluginId, MixQuery query) {
+    final plugin = _plugin(pluginId);
+    if (plugin == null) return Future.error(Unsupported(pluginId: pluginId));
+    return plugin.mix(query);
+  }
+
   /// 送給插件的格式：平台可播的，依格式偏好重排。
   List<StreamFormat> _requestFormats(StreamPreferences preferences) => [
     for (final format in _orderFormats(_formats, preferences.formatPriority))

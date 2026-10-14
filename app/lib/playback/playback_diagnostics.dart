@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -44,6 +45,7 @@ final class QueueDiagnostics {
     required this.loopMode,
     required this.temporary,
     this.live = false,
+    this.mix,
   });
 
   /// 目前這首前後各列幾首。
@@ -68,6 +70,7 @@ final class QueueDiagnostics {
       loopMode: queue.loopMode,
       temporary: queue.temporary != null,
       live: queue.live != null,
+      mix: queue.mix,
     );
   }
 
@@ -86,6 +89,9 @@ final class QueueDiagnostics {
   /// 現在在收聽直播：[currentIndex] 是回到佇列時的那一首，
   /// [PlaybackDiagnostics.trackKey] 是直播間。
   final bool live;
+
+  /// 佇列是 Mix 時的身分（臨時播放與直播期間照舊有值）；一般佇列為 `null`。
+  final MixIdentity? mix;
 }
 
 /// 播放狀態的唯讀快照（ADR 0025 §決定 5、M3 design §12.3）：控制器既有的狀態與佇列，
@@ -186,6 +192,13 @@ final class PlaybackDiagnostics {
         'loopMode': queue.loopMode.name,
         'temporary': queue.temporary,
         'live': queue.live,
+        // 標題不放（同曲目標題）；cursor 是插件的不透明字串，只記有沒有。
+        if (queue.mix case final mix?)
+          'mix': {
+            'pluginId': redact(mix.pluginId),
+            'mixId': redact(mix.mixId),
+            'hasCursor': mix.cursor != null,
+          },
       },
     };
   }

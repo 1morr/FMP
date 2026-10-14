@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -78,6 +78,17 @@ const LIVE_URL = /^https:\/\/fmp\.test\/live\/([a-z-]+)$/;
 
 // live-ended 已經查過幾次狀態。
 let liveEndedChecks = 0;
+
+// Mix（ADR 0028 §決定 4），不連網。任何 seed 都開一個新的 Mix（mixId 每次不同，重啟
+// 後也不會撞上佇列裡還留著的舊曲目鍵），每批 5 首，曲目鍵是 `mix-<mixId>-<n>`：
+// - 第一批 n＝1–5，cursor 是 `2`；
+// - 第二批 n＝3、6–9，cursor 是 `3`：第 3 首刻意重複第一批的，驗證宿主去重；
+// - 第三批 n＝10–14，沒有 cursor：Mix 到此為止，宿主改以佇列最後一首當 seed 開新的一批。
+const MIX_BATCHES = {
+  2: { numbers: [3, 6, 7, 8, 9], cursor: '3' },
+  3: { numbers: [10, 11, 12, 13, 14], cursor: null },
+};
+let mixCount = 0;
 
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
@@ -152,7 +163,7 @@ export async function resolveStream(request) {
     if (calls % 2 === 1) {
       throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
     }
-  } else if (!/^(tone|preview)-\d+$/.test(request.sourceId)) {
+  } else if (!/^(tone|preview)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
     throw { fmpError: 'NotFound', message: `no such tone: ${request.sourceId}` };
   }
   // 內附的音檔只有 440 Hz 一個；其他音高也回它。
@@ -266,5 +277,38 @@ export function resolveLive(request) {
         expiresAt: null,
       },
     ],
+  };
+}
+
+function mixTracks(mixId, numbers) {
+  return numbers.map((number) => ({
+    sourceId: `mix-${mixId}-${number}`,
+    title: `Test mix track ${number}`,
+    uploader: 'FMP',
+    durationMs: 2000,
+    artwork: [],
+  }));
+}
+
+export function mix(query) {
+  if (query.seed) {
+    mixCount += 1;
+    const mixId = `m${mixCount}x${Date.now().toString(36)}`;
+    return {
+      mixId,
+      title: `Test mix ${mixCount}`,
+      tracks: mixTracks(mixId, [1, 2, 3, 4, 5]),
+      cursor: '2',
+    };
+  }
+  const batch = MIX_BATCHES[query.cursor];
+  if (batch === undefined) {
+    throw { fmpError: 'NotFound', message: `no such mix cursor: ${query.cursor}` };
+  }
+  return {
+    mixId: query.mixId,
+    title: 'Test mix',
+    tracks: mixTracks(query.mixId, batch.numbers),
+    cursor: batch.cursor,
   };
 }

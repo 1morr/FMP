@@ -389,6 +389,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的 `indexes queue_entries.track_key`（升級來的與全新建的兩例，漏了 `m.create` 時升級驗證與該例會紅）。
   閘門：`queue_repository_test.dart`（`RESTRICT` 與孤兒、差量編輯的隨機序列、`a write is one transaction`、
   `stored format`、一萬首整份取代的耗時）、`migration_test.dart` 的 v3→v4 三例。
+- `player_state` 的 Mix 五欄是 schema v13（M3 PR 19）：`mode`（空或 `queue`＝一般佇列，`mix`；字串在 `PlayerModeConverter`）、
+  `mix_plugin_id`、`mix_id`、`mix_title`、`mix_cursor`。讀回時 `mode = mix` 而身分欄位缺任何一個（`mix_cursor` 除外，空＝這個
+  Mix 沒有更多）就當一般佇列，不猜。臨時播放與直播不持久化，所以沒有它們的 `mode`。閘門：`migration_test.dart` 的
+  `migration from v12 to v13 keeps the stored queue state`（舊列的值原樣、新欄位是空）與 `migration from v$from to v13 adds the
+  mix columns`（每個舊版升級、全新建的資料庫各一例）、`queue_store_test.dart` 的 `a mix` 群組
+  （`a stored mode of queue, or no mode at all…`、`a stored mix with a missing field…`）。
 - `play_history` 是 schema v5（design §3.2、§7.8）：一次播放一列（`id` 自增、`track_key` 外鍵 `tracks`
   `ON DELETE RESTRICT`、`played_at` UTC epoch 毫秒），同一首聽兩次是兩列。孤兒的定義是「沒有被佇列也沒有被
   播放歷史參照」：`TracksRepository.deleteOrphans` 與啟動維護的 `orphan-tracks` 都排除歷史參照的曲目；清除歷史
@@ -898,6 +904,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - manifest 的 `login`（ADR 0029 §決定 1）：有 `login` 能力才有、反之亦然；methods 不空、不重複，含 `webView` 才有
   `webView`（反之亦然），它的 `url`、`cookieHosts` 都是 `allowedHosts` 內的 `https`；格式錯是 `ParseError`，不認得的方式或
   刷新時機是 `Unsupported`。閘門：`plugin_manifest_test.dart` 的 `login` 群組、`rejects as Unsupported`。
+- `mix`（ADR 0028 §決定 4，M3 PR 19）：匯出就叫 `mix`（和能力同名，不像 `live` 有四個），輸入是 `{seed: {sourceId, cid?}}`
+  （開始，`MixSeedQuery`）或 `{mixId, cursor}`（續取，`MixContinueQuery`，`cursor` 不能是空字串），回傳 `{mixId, title, tracks, cursor?}`：
+  **`cursor` 沒有或 `null` 是這個 Mix 沒有更多**（`fmp-plugin.d.ts` 寫成選填，因為欄位表的必填不收 `null`），宿主下一次補歌改以佇列
+  最後一首當 `seed` 開新的一批，`mixId` 可以換。`tracks` 的曲目鍵第一段由宿主填成插件 id。請求怎麼標 `auth` 由插件決定，同 `live`。
+  去重是宿主做的（`QueueModel.extendMix`，見 § 播放），插件不必管佇列裡有什麼。閘門：`mix_capability_test.dart`（匯出與能力一致、
+  兩種輸入的 JSON、回傳值驗證、`fmp-test` 的三批）、`type_definitions_test.dart` 的 `the mix export is named after the capability…`、
+  `the cursor of a mix batch is optional…`（兩個都含變異）。
+- `checks.json` 的 `mix` 案例以 `seed` 開始一個 Mix，檢查的清單是回傳的 `tracks`（`nonEmpty` 的名稱同 `TrackSummary`）；重播照跑、命令列
+  錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the mix check`、`contract_runner_test.dart` 的 `a mix check…`、`health_check_test.dart`
+  的 `a mix case`、`dev_case_runs_test.dart` 的 `a mix case…`。
 - `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
   `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
   `record_test.dart` 的 `skips a case that requires a login`。
@@ -1099,7 +1115,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 播放
 
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
-`.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、收聽直播（`playLive`、`stopLive`，見下方「直播」）、加入
+`.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、收聽直播（`playLive`、`stopLive`，見下方「直播」）、開始 Mix（`startMix`，見下方「Mix」）、加入
 （`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
 （`move`）、移到下一首（`moveToNext`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
 上一首與下一首、seek、音量（`setVolume`）、靜音（`toggleMute`）、速度（`setSpeed`）、輸出裝置
@@ -1495,6 +1511,29 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `live_info_wiring_test.dart`（真的排程器：登記後馬上一次、之後每分鐘、停止後不再跑；收聽中重建控制器後工作不在）、
   `live_playback_test.dart` 的 `the playback diagnostics report the room…`、`player_page_test.dart` 的 `in a live room no queue row is marked current`、`queue_model_test.dart` 的 `live play`、
   `playback_event_router_test.dart` 的 `a live room`、`queue_store_test.dart` 的 `a live room is never stored…`／`a restart during a live room…`。
+- Mix（`startMix`，ADR 0031 §決定 8–11、M3 design §10；入口在曲目選單，見 § 介面）。契約：
+  - **模式**：`QueueMode.mix`＝`QueueState.mix`（`MixIdentity`：插件 id、`mixId`、標題、`cursor`）有值，且不在臨時播放或直播（那兩個期間 `mode` 是
+    它們，`mix` 仍在，結束回到 Mix 佇列）。開始時 `MixSession.start` 向插件要第一批，`QueueModel.startMix` **取代整個佇列**（原佇列不另存、
+    臨時播放與直播就此結束、隨機關掉、循環維持）；插件的錯誤原樣丟出、佇列不動，由 UI 顯示。
+  - **被拒絕的操作**：隨機（`setShuffle(true)`）、加入佇列、下一首播放在 `QueueModel` 被拒（`append`／`playNext` 回 `false`、隨機不開），
+    控制器的 `_add` 先擋並**不發 `QueueFull`**（入口本來就停用，不是佇列滿了）。拖曳、移除單首、佇列選單的「下一首播放」（移到下一首，是重排）照常。
+    清空佇列或移除最後一首就退出 Mix（`mix` 清掉、一般佇列）；`replace` 也是。
+  - **修剪**：`QueueModel._trimMix` 在每次發佈佇列時，已播（排在目前這首之前）超過 `maxMixPlayed`＝100 首就刪最舊的；剛好 100 首不刪，目前這首與
+    還沒播的不動。佇列項目沿用實例，持久化的差量（`QueueStore`）因此是「前面少一段、其後平移」。
+  - **補歌**（`lib/playback/mix_session.dart`，**不經排程器**，是播放核心的事件，請求經 `StreamResolver.mix`／`PlaybackSession.mix`）：每首開始時
+    （`_beginTrack` 與前瞻接上）之後只剩 1 首以下就呼叫 `mix({mixId, cursor})`；`cursor` 空就以佇列最後一首當 `seed`，Mix 身分換成回傳的
+    `mixId` 與標題。回來的曲目以曲目鍵去重（`extendMix`）後附加。**標題只在回傳的 `mixId` 與目前的不同時才換**：續取的批次插件不一定給得出原標題
+    （重啟後沒有地方記，YouTube 插件回 `Mix`），照原本的。同時只有一個補歌；補到之前 Mix 被換掉或退出（`MixIdentity` 不相等）就丟掉結果。失敗或去重後
+    一首都沒有時只 `log.report`（tag `mix`），不提示；**同一個佇列項目內不重試**，下一首開始再試。插件停用或移除時不補（靜默），它的曲目照一般的
+    「音源未安裝」跳過。
+  - **播到底**：佇列沒有下一首而補歌還在跑時，控制器停在 `Loading`、等補歌結束（`MixSession.whenIdle`）再決定：有下一首就往下播，沒有才停在 `Idle`；
+    等的期間使用者換了歌（播放代變了）就不再接手。最後一首播不了而要跳過（`SkipTrack`）時同樣先等補歌，有下一首才跳、沒有才 `Failed`
+    （只有一首的 Mix 照連續跳過的上限直接停，ADR 0018 §決定 7）。
+  - **持久化與恢復**：`player_state` 存 `mode` 與 `mix_*`（見 § 資料層），`QueueStore` 照佇列寫入、恢復時交給 `restore(mix:)`（存的資料有 Mix 又開著隨機時以 Mix 為準）；
+    重啟後是 `Idle`，按播放那首開始時照常補歌（`cursor` 空一樣換種子）。
+  閘門：`queue_model_test.dart` 的 `mix` 群組（取代佇列、拒絕、清空退出、修剪 100／101、`extendMix` 去重與上限、臨時播放與直播回到 Mix、恢復）、`mix_session_test.dart`
+  （補歌時機、續取／換種子、標題規則、單一補歌、同一首不重試、結果過期丟掉、`whenIdle`、開始）、`mix_playback_test.dart`（控制器上的三批與換種子、
+  被拒絕的操作不發事件、臨時播放回到 Mix、播到底等補歌與其三種結果、最後一首被跳過時等補歌的兩種結果）、`queue_store_test.dart` 的 `a mix` 群組（寫入、補歌後的 cursor、修剪與補歌同一次寫入的差量、臨時播放與直播期間身分仍在資料庫、重啟恢復、舊列的 `mode` 為空）。
 - 系統媒體控制（design §8.2）：`NowPlayingPublisher`（`lib/playback/`，照 `QueueStore` 的分工，只聽控制器的
   輸出、不改它的狀態）是唯一出口，在 `playbackControllerProvider` 組裝點、平台宣告有 `mediaControls` 而且
   初始化成功時才建。規則：
@@ -1779,6 +1818,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     位置跟著進度 stream（`playbackProgressProvider`）每秒重算，不開計時器。「複製快照」輸出 `toJson(redactor)` 的 JSON：每個字串（含串流網址）都經
     `Redactor`，不含曲目標題、標頭與引擎給的原始錯誤（錯誤只有 `typeName`）；區塊畫面上插件給的字串（曲目鍵、插件 id、容器、編碼、裝置名）也經同一個函式，網址不顯示。
     收聽直播時區塊標「直播中」，曲目那一列換成「直播間」（`插件:房間`，`QueueDiagnostics.live`）；閘門 `debug_playback_database_test.dart` 的 `a live room says so…`。
+    佇列是 Mix 時佇列區塊多一列「Mix」（`插件:mixId`，`QueueDiagnostics.mix`），JSON 的 `queue.mix` 只有插件 id、`mixId` 與 `hasCursor`：標題與插件的 cursor 不輸出；
+    閘門 `debug_playback_database_test.dart` 的 `a mix names its identity…`／`a plain queue has no mix row`、`playback_diagnostics_test.dart` 的 `a mix is reported by its identity…`。
     閘門：`playback_diagnostics_test.dart`（簽名網址、假 token、登記的憑證值都不出現在 JSON）、`debug_playback_database_test.dart` 的 `copies a redacted JSON snapshot`（畫面與 JSON 都沒有登記的值）、
     `playback_controller_test.dart` 的 `diagnostics` 群組（欄位、前後各 5 首在頭尾的邊界、重試時間）、`debug_playback_database_test.dart` 的 `playback section`。
   - 資料庫（`debug_database.dart`、`lib/data/repositories/database_inspector.dart`，ADR 0025 §決定 8，M3 design §12.2）：唯讀，只有 `lib/data/` 碰 drift。
@@ -2033,6 +2074,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   面板是 `LiveDetails`（面板多一個「停止收聽」鈕）；播放頁直播時的「⋯」只有面板勾選項（沒有播放速度）。佇列分頁照常是原佇列、
   沒有一列標成在播。閘門：`test/ui/player/live_player_test.dart`（三種寬度的播放列、三種階段、播放頁兩種寬度、佇列與詳細分頁、
   佇列是空的時停止就關、面板）、`player_page_test.dart` 的 `in a live room no queue row is marked current`。
+- Mix 的介面（ADR 0031 §決定 8–9，M3 PR 19；佇列與補歌的契約見 § 播放的 Mix）：
+  - 「開始 Mix」在搜尋結果、播放歷史與佇列的曲目選單（`TrackRowMenu`）；**只在曲目所屬的插件宣告 `mix` 時出現**
+    （`canStartMixProvider`，讀 `pluginRegistryProvider`，停用或移除的插件為假），宿主沒有音源分支。點下去 `startMixFrom`：失敗用
+    `Toaster.error` 顯示、佇列不動。
+  - Mix 中（`inMixProvider`＝`QueueState.mix != null`）停用且附說明：搜尋與歷史選單的「加入佇列」「下一首播放」改寫成「…（Mix 中無法使用）」並
+    `onPressed: null`；播放列與播放頁的隨機鈕（`ShuffleButton.locked`）tooltip 改成「Mix 中無法隨機播放」、播放列「⋯」選單的隨機勾選項改寫成
+    「隨機播放（Mix 中無法使用）」並停用。Ctrl+S 照樣呼叫控制器，由佇列拒絕。沒有「打亂佇列」的入口，所以沒有要停用的。
+    佇列選單的「下一首播放」是重排（`moveToNext`），Mix 中照常。
+  - 佇列分頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
+  閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、佇列標題兩種寬度、佇列列選單）、
+  `history_page_test.dart` 的 `the Mix items of the menu`、`guidelines_test.dart` 的 `the queue of a mix`（寬 400／1000、淺色與深色）。
 - 直播時的快捷鍵：空白鍵照常（控制器的 `pause` 就是停止串流）；上一首、下一首、Shift+←／→、Ctrl+S、Ctrl+R 在
   `PlaybackShortcuts` 的 `_QueueAction` **接下按鍵、什麼都不做**——不是停用：停用會讓按鍵往上傳，App 根的預設快捷鍵把
   Ctrl+方向鍵當成捲動，去捲頁面的清單（debug 下 `PrimaryScrollController` 有多個位置時是 assertion）。閘門：

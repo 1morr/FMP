@@ -141,7 +141,10 @@ class PlayerBar extends ConsumerWidget {
               more,
             ],
             <Widget>[
-              ShuffleButton(enabled: queue.shuffleEnabled),
+              ShuffleButton(
+                enabled: queue.shuffleEnabled,
+                locked: queue.mix != null,
+              ),
               const PreviousButton(),
               playPause,
               NextButton(enabled: queue.hasNext),
@@ -382,10 +385,12 @@ class _MoreMenu extends ConsumerWidget {
         if (!live) ...[
           CheckboxMenuButton(
             value: queue.shuffleEnabled,
-            onChanged: (_) => ref
-                .read(playbackControllerProvider)
-                .setShuffle(!queue.shuffleEnabled),
-            child: Text(t.shuffle),
+            onChanged: queue.mix != null
+                ? null
+                : (_) => ref
+                      .read(playbackControllerProvider)
+                      .setShuffle(!queue.shuffleEnabled),
+            child: Text(queue.mix != null ? t.shuffleInMix : t.shuffle),
           ),
           MenuItemButton(
             leadingIcon: Icon(loopIcon(queue.loopMode)),

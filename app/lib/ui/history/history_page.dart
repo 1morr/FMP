@@ -18,6 +18,7 @@ import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 歷史頁（design §9.7）：播放過的歌依時間倒序、以本地日期分組（今天、昨天、
@@ -226,6 +227,9 @@ class _HistoryTile extends ConsumerWidget {
       alwaysUse24HourFormat: true,
     );
 
+    final inMix = ref.watch(inMixProvider);
+    final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
+
     void play() =>
         unawaited(ref.read(playbackControllerProvider).playTemporary(track));
 
@@ -265,14 +269,20 @@ class _HistoryTile extends ConsumerWidget {
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.queue_play_next),
-          onPressed: playNext,
-          child: Text(t.playNext),
+          onPressed: inMix ? null : playNext,
+          child: Text(inMix ? t.playNextInMix : t.playNext),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.add_to_queue),
-          onPressed: addToQueue,
-          child: Text(t.addToQueue),
+          onPressed: inMix ? null : addToQueue,
+          child: Text(inMix ? t.addToQueueInMix : t.addToQueue),
         ),
+        if (canMix)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.auto_awesome),
+            onPressed: () => unawaited(startMixFrom(ref, track)),
+            child: Text(t.startMix),
+          ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.delete_outline),
           onPressed: () => unawaited(remove()),

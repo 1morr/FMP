@@ -235,6 +235,32 @@ export function shape() {
     expect(mutated.containsAll(LiveExports.all), isFalse);
   });
 
+  test('the mix export is named after the capability in the d.ts', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    expect(exports.contains(PluginCapability.mix.wireName), isTrue);
+    // 變異：d.ts 少了 mix 匯出就對不上。
+    final mutated = _interfaces(
+      _dts.replaceFirst('  mix?(', '  mixRenamed?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(mutated.contains(PluginCapability.mix.wireName), isFalse);
+  });
+
+  test('the cursor of a mix batch is optional in the d.ts and the shape', () {
+    expect(sourceDtoShapes['MixBatch']!['cursor'], isFalse);
+    expect(_interfaces(_dts)['MixBatch']!['cursor'], isFalse);
+    // 變異：d.ts 把 cursor 改成必填，欄位表比對就紅。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst(
+          '  cursor?: string | null;\n}',
+          '  cursor: string | null;\n}',
+        ),
+      ),
+      isNotEmpty,
+    );
+  });
+
   test('every error name maps to the AppError of that name', () {
     final names = _union(_dts, 'FmpErrorName');
 

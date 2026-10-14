@@ -10,6 +10,7 @@ import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
+import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
 import 'package:material_ui/material_ui.dart';
@@ -24,11 +25,12 @@ void main() {
     WidgetTester tester,
     String section, {
     double width = 1000,
+    double height = 900,
     Redactor? redactor,
     Future<void> Function(ShellHarness h)? beforeOpen,
   }) async {
     final h = ShellHarness(redactor: redactor ?? Redactor());
-    await h.pumpShell(tester, size: Size(width, 900), collapsePanel: true);
+    await h.pumpShell(tester, size: Size(width, height), collapsePanel: true);
     await beforeOpen?.call(h);
     await tester.tap(find.text('Settings').first);
     await h.loadSettings(tester);
@@ -113,6 +115,35 @@ void main() {
       expect(find.textContaining('Listening to a live room'), findsOneWidget);
       expect(fact(tester, 'Live room'), 'fmp-test:r');
       expect(find.widgetWithText(ListTile, 'Track'), findsNothing);
+    });
+
+    // Mix（M3 PR 19）：佇列區塊多一列 Mix 身分（`插件:mixId`），標題不列。
+    testWidgets('a mix names its identity in the queue', (tester) async {
+      // 佇列區塊在清單下方：拉高視窗讓它建出來。
+      final h = await openSection(tester, 'Playback', height: 2000);
+      h.plugin.onMix = (query) => MixBatch(
+        mixId: 'm1',
+        title: 'My mix',
+        tracks: [summary('a'), summary('b')],
+        cursor: 'c2',
+      );
+      unawaited(h.controller.startMix(summary('seed').toTrackInfo()));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(fact(tester, 'Mix'), 'fmp-test:m1');
+      expect(find.textContaining('My mix'), findsNothing);
+    });
+
+    testWidgets('a plain queue has no mix row', (tester) async {
+      final h = await openSection(tester, 'Playback', height: 2000);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      // 佇列區塊的最後一列建出來了，沒有 Mix 那一列才有意義。
+      expect(find.widgetWithText(ListTile, 'Repeat'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'Mix'), findsNothing);
     });
 
     testWidgets('the position follows the progress stream', (tester) async {

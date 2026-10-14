@@ -209,6 +209,12 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   @override
   String get addToQueue => '添加到队列';
   @override
+  String get playNextInMix => '下一首播放（Mix 中无法使用）';
+  @override
+  String get addToQueueInMix => '加入队列（Mix 中无法使用）';
+  @override
+  String get startMix => '开始 Mix';
+  @override
   String get addedToNext => '已添加为下一首播放';
   @override
   String get addedToQueue => '已添加到队列';
@@ -258,6 +264,12 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   String get playNext => '下一首播放';
   @override
   String get addToQueue => '加入队列';
+  @override
+  String get playNextInMix => '下一首播放（Mix 中无法使用）';
+  @override
+  String get addToQueueInMix => '加入队列（Mix 中无法使用）';
+  @override
+  String get startMix => '开始 Mix';
   @override
   String get addedToNext => '已加入下一首播放';
   @override
@@ -734,6 +746,8 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   @override
   String get pbLiveRoom => '直播间';
   @override
+  String get pbMix => 'Mix';
+  @override
   String get dbTables => '数据表';
   @override
   String dbRowCount({required Object count}) => '${count} 条';
@@ -906,6 +920,10 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   @override
   String get shuffleTooltip => '随机播放（Ctrl+S）';
   @override
+  String get shuffleInMixTooltip => 'Mix 中无法随机播放';
+  @override
+  String get shuffleInMix => '随机播放（Mix 中无法使用）';
+  @override
   String get loopOffTooltip => '循环：关闭（Ctrl+R）';
   @override
   String get loopAllTooltip => '循环：全部（Ctrl+R）';
@@ -988,6 +1006,10 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   String queueCount({required Object count}) => '共 ${count} 首';
   @override
   String get queueShuffleNote => '随机顺序跟着位置；拖动只换歌，不改顺序';
+  @override
+  String queueMixNote({required Object title}) => 'Mix：${title}';
+  @override
+  String get queueStartMix => '开始 Mix';
   @override
   String get queueClear => '清空队列';
   @override

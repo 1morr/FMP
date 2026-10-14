@@ -66,7 +66,7 @@ void main() {
     expect(state.plugins.map((plugin) => plugin.id), ['fmp-test']);
     expect(state.plugins.single.load, DevLoad.loaded);
     expect(state.plugins.single.replacedVersion, isNull);
-    expect(state.plugins.single.cases, hasLength(4));
+    expect(state.plugins.single.cases, hasLength(5));
     expect(versionOf(container, 'fmp-test'), '1.0.0');
     expect((await harness.plugins.byId('fmp-test'))!.fromDevFolder, isTrue);
     // 外鍵：有列，storage 寫得進去。

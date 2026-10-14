@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§3.1 player_state columns, §4.5 mix export, §4.8 checks.json, §10 Mix rules and gates"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §19 checklist"}
+{"file": "docs/adr/0028-host-api-m3-extensions.md", "reason": "mix capability contract"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Queue modes, mix trimming (decision 4), skipping (7), persistence (10)"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "Mix entry point and rules (decisions 8-11)"}
+{"file": "docs/audit/playback.md", "reason": "Legacy Mix behaviour §3.11"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change procedure"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback core patterns"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Capability wiring, DTO shapes, contract tests"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "Menus, disabled states, guideline tests, i18n"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}

@@ -270,6 +270,32 @@ export interface LiveStreamRequest {
   formats: StreamFormat[];
 }
 
+/** mix 的輸入之一：以一首曲目開始 Mix（也是 checks.json 的 mix 案例的輸入）。 */
+export interface MixSeedQuery {
+  seed: MixSeed;
+}
+
+export interface MixSeed {
+  sourceId: string;
+  cid?: number | null;
+}
+
+/** mix 的輸入之二：續取下一批，mixId 與 cursor 是上一批回傳的。 */
+export interface MixContinueQuery {
+  mixId: string;
+  cursor: string;
+}
+
+/** mix 的回傳值：一批曲目。 */
+export interface MixBatch {
+  /** Mix 身分的一半（另一半是插件 id），不能是空的；開新的一批時可以換一個。 */
+  mixId: string;
+  title: string;
+  tracks: TrackSummary[];
+  /** 插件的不透明字串；沒有或 null 表示這個 Mix 沒有更多，宿主改以佇列最後一首當種子再開一批。 */
+  cursor?: string | null;
+}
+
 // ---------------------------------------------------------------- 宿主 API
 
 export interface HttpRequest {
@@ -406,6 +432,11 @@ export interface FmpPluginExports {
   liveStatus?(query: LiveRoomQuery): LiveRoom | Promise<LiveRoom>;
   /** 直播流；expiresAt 可以是空的。 */
   resolveLive?(request: LiveStreamRequest): StreamResult | Promise<StreamResult>;
+  /**
+   * 'mix' 能力：輸入是 MixSeedQuery 或 MixContinueQuery（有 seed 就是開始）。能力名稱就是
+   * 匯出名稱。請求的 auth 由插件決定。
+   */
+  mix?(query: MixSeedQuery | MixContinueQuery): MixBatch | Promise<MixBatch>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -439,17 +470,24 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這四個。 */
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這五個。 */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
   live?: FmpLiveCheck | null;
+  mix?: FmpMixCheck | null;
   login?: FmpLoginCheck | null;
 }
 
 /** live 的案例跑 liveStatus；成功時回傳的 LiveRoom 是那一筆，nonEmpty 的名稱同 LiveRoom。 */
 export interface FmpLiveCheck {
   input: LiveRoomQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+}
+
+/** mix 的案例以 seed 開始一個 Mix；成功時回傳的 tracks 是檢查的清單，nonEmpty 的名稱同 TrackSummary。 */
+export interface FmpMixCheck {
+  input: MixSeedQuery;
   expect: FmpExpectSuccess | FmpExpectError;
 }
 

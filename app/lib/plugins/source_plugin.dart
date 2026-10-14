@@ -38,6 +38,10 @@ abstract interface class SourcePlugin {
   /// 直播流；`expiresAt` 可以是空的。
   Future<StreamResult> resolveLive(LiveStreamRequest request);
 
+  /// [PluginCapability.mix]：開始一個 Mix（[MixSeedQuery]）或續取下一批
+  /// （[MixContinueQuery]，ADR 0028 §決定 4）。
+  Future<MixBatch> mix(MixQuery query);
+
   /// [PluginCapability.login] 的 QR 登入（methods 含 `qr`）：產生一個 QR 碼。
   Future<LoginQrCode> loginQrStart();
 

@@ -1345,6 +1345,51 @@ void main() {
           await expectGuidelines(tester);
           handle.dispose();
         });
+
+        // Mix 的佇列（M3 PR 19）：標題列說這是哪個 Mix，隨機鈕停用並附說明。
+        testWidgets('the queue of a mix at ${size.width}', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            mix: true,
+            registryOfSources: true,
+            artworkManager: FakeArtworkManager(),
+          );
+          h.plugin.onMix = (query) => MixBatch(
+            mixId: 'm1',
+            title: 'Late night mix',
+            tracks: [for (final id in 'abcd'.split('')) summary(id)],
+            cursor: 'c2',
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          unawaited(h.controller.startMix(summary('seed').toTrackInfo()));
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(PlayerBar.titleKey),
+                  matching: find.byType(Text),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          if (size.width < 840) {
+            await tester.tap(find.byKey(PlayerPage.queueKey));
+          } else {
+            await tester.tap(find.widgetWithText(Tab, 'Queue'));
+          }
+          await tester.pumpAndSettle();
+          expect(find.byType(QueueView), findsOneWidget);
+          expect(find.byKey(QueueView.mixNoteKey), findsOneWidget);
+          expect(find.text('Mix: Late night mix'), findsOneWidget);
+          expect(
+            find.byTooltip('Shuffle is unavailable in a Mix'),
+            findsWidgets,
+          );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
       }
     });
   }

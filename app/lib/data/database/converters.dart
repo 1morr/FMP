@@ -4,6 +4,7 @@ import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
@@ -113,6 +114,24 @@ final class LoopModeConverter extends TypeConverter<LoopMode, String> {
     LoopMode.off => 'off',
     LoopMode.all => 'all',
     LoopMode.one => 'one',
+  };
+}
+
+/// [PlayerMode] ↔ `queue`／`mix`。
+final class PlayerModeConverter extends TypeConverter<PlayerMode, String> {
+  const PlayerModeConverter();
+
+  @override
+  PlayerMode fromSql(String fromDb) => switch (fromDb) {
+    'queue' => PlayerMode.queue,
+    'mix' => PlayerMode.mix,
+    _ => throw FormatException('Unknown player mode in the database', fromDb),
+  };
+
+  @override
+  String toSql(PlayerMode value) => switch (value) {
+    PlayerMode.queue => 'queue',
+    PlayerMode.mix => 'mix',
   };
 }
 

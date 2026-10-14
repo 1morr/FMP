@@ -59,6 +59,19 @@ export async function liveStatus({ roomId }) {
 }
 ''';
 
+/// mix 打 `/mix`：200 回五首，其他狀態碼一律拋錯。
+const _mixScript = '''
+export async function mix({ seed }) {
+  const response = await fmp.http.request({ url: 'https://example.test/mix', auth: 'userPreference' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return { mixId: 'm', title: 'Mix', tracks: [1, 2].map((n) => ({ sourceId: seed.sourceId + n, title: 'T' + n })) };
+}
+''';
+
+const _mixCheck =
+    '"mix": {"input": {"seed": {"sourceId": "s"}}, '
+    '"expect": {"minItems": 2, "nonEmpty": ["sourceId", "title"]}}';
+
 const _liveCheck =
     '"live": {"input": {"roomId": "r1"}, '
     '"expect": {"minItems": 1, "nonEmpty": ["roomId", "hostName"]}}';
@@ -80,6 +93,7 @@ final class _Spec {
     this.enabled = true,
     this.login = false,
     this.live = false,
+    this.mix = false,
   });
 
   final String id;
@@ -87,6 +101,7 @@ final class _Spec {
   final bool enabled;
   final bool login;
   final bool live;
+  final bool mix;
 }
 
 Future<
@@ -111,11 +126,12 @@ _setup(
         manifestJson: jsonEncode({'id': spec.id, 'name': 'Plugin ${spec.id}'}),
         script: pluginSource(
           '$_script${spec.login ? _loginScript : ''}'
-          '${spec.live ? _liveScript : ''}',
+          '${spec.live ? _liveScript : ''}${spec.mix ? _mixScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
             if (spec.live) 'live',
+            if (spec.mix) 'mix',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -233,6 +249,44 @@ void main() {
         [live],
         handler: (options) =>
             reply(options.uri.path == '/room' ? 500 : 200, body: '{}'),
+      );
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.last.outcome, HealthOutcome.failed);
+    });
+  });
+
+  group('a mix case', () {
+    final mix = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_mixCheck}',
+      mix: true,
+    );
+
+    test('starts a mix by seed and passes', () async {
+      final s = await _setup([mix]);
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(s.requests.where((r) => r.startsWith('/mix')), hasLength(1));
+    });
+
+    test('fails when the mix request fails', () async {
+      final s = await _setup(
+        [mix],
+        handler: (options) =>
+            reply(options.uri.path == '/mix' ? 500 : 200, body: '{}'),
       );
       await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
       final cases = s.container

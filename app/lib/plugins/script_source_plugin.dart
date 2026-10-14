@@ -116,6 +116,18 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<MixBatch> mix(MixQuery query) async {
+    final json = await _invoke(PluginCapability.mix, query.toJson());
+    return _decode(
+      () => MixBatch.fromJson(
+        json,
+        sourceTypeId: manifest.id,
+        allowedHosts: _allowedHosts,
+      ),
+    );
+  }
+
+  @override
   Future<LoginQrCode> loginQrStart() async {
     final json = await _login(LoginExports.qrStart, null);
     return _decode(() => LoginQrCode.fromJson(json));

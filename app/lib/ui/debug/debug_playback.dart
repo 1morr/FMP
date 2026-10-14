@@ -113,6 +113,8 @@ class DebugPlayback extends ConsumerWidget {
           fact(t.pbShuffle, queue.shuffle ? t.yes : t.no),
           fact(t.pbLoop, _loopText(t, queue.loopMode)),
           if (queue.temporary) Text(t.pbTemporary),
+          if (queue.mix case final mix?)
+            fact(t.pbMix, redact('${mix.pluginId}:${mix.mixId}')),
         ],
       ],
     );

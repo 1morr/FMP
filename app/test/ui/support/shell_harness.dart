@@ -95,6 +95,7 @@ final class ShellHarness {
     this.registrySources = false,
     this.registryOfSources = false,
     bool live = false,
+    bool mix = false,
     this.secureStorage = false,
     this.restartsItself = false,
     this.dataReset,
@@ -112,6 +113,7 @@ final class ShellHarness {
          (request) => [candidate('${request.sourceId}.m4a')],
          name: 'Test Source',
          live: live,
+         mix: mix,
          onSearch:
              onSearch ??
              (query) => SearchPage(

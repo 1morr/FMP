@@ -207,6 +207,15 @@ class Translations$search$zh_TW {
   /// zh-TW: '加入佇列'
   String get addToQueue => '加入佇列';
 
+  /// zh-TW: '下一首播放（Mix 中無法使用）'
+  String get playNextInMix => '下一首播放（Mix 中無法使用）';
+
+  /// zh-TW: '加入佇列（Mix 中無法使用）'
+  String get addToQueueInMix => '加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '開始 Mix'
+  String get startMix => '開始 Mix';
+
   /// zh-TW: '已加入下一首播放'
   String get addedToNext => '已加入下一首播放';
 
@@ -273,6 +282,15 @@ class Translations$history$zh_TW {
 
   /// zh-TW: '加入佇列'
   String get addToQueue => '加入佇列';
+
+  /// zh-TW: '下一首播放（Mix 中無法使用）'
+  String get playNextInMix => '下一首播放（Mix 中無法使用）';
+
+  /// zh-TW: '加入佇列（Mix 中無法使用）'
+  String get addToQueueInMix => '加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '開始 Mix'
+  String get startMix => '開始 Mix';
 
   /// zh-TW: '已加入下一首播放'
   String get addedToNext => '已加入下一首播放';
@@ -946,6 +964,9 @@ class Translations$debug$zh_TW {
   /// zh-TW: '直播間'
   String get pbLiveRoom => '直播間';
 
+  /// zh-TW: 'Mix'
+  String get pbMix => 'Mix';
+
   /// zh-TW: '資料表'
   String get dbTables => '資料表';
 
@@ -1188,6 +1209,12 @@ class Translations$player$zh_TW {
   /// zh-TW: '隨機播放（Ctrl+S）'
   String get shuffleTooltip => '隨機播放（Ctrl+S）';
 
+  /// zh-TW: 'Mix 中無法隨機播放'
+  String get shuffleInMixTooltip => 'Mix 中無法隨機播放';
+
+  /// zh-TW: '隨機播放（Mix 中無法使用）'
+  String get shuffleInMix => '隨機播放（Mix 中無法使用）';
+
   /// zh-TW: '循環：關閉（Ctrl+R）'
   String get loopOffTooltip => '循環：關閉（Ctrl+R）';
 
@@ -1304,6 +1331,12 @@ class Translations$playerPage$zh_TW {
 
   /// zh-TW: '隨機順序跟著位置；拖曳只換歌，不改順序'
   String get queueShuffleNote => '隨機順序跟著位置；拖曳只換歌，不改順序';
+
+  /// zh-TW: 'Mix：{title}'
+  String queueMixNote({required Object title}) => 'Mix：${title}';
+
+  /// zh-TW: '開始 Mix'
+  String get queueStartMix => '開始 Mix';
 
   /// zh-TW: '清空佇列'
   String get queueClear => '清空佇列';

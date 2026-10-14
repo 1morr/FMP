@@ -6,6 +6,7 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/track_info.dart';
 
 import '../../support/memory_database.dart';
@@ -423,8 +424,68 @@ void main() {
         'shuffle_enabled': 1,
         'volume': 0.5,
         'muted': 1,
+        // 一般佇列寫 `queue`，Mix 的欄位是空的。
+        'mode': 'queue',
+        'mix_plugin_id': null,
+        'mix_id': null,
+        'mix_title': null,
+        'mix_cursor': null,
         'updated_at': DateTime.utc(2026, 10, 7, 12).millisecondsSinceEpoch,
       });
+    });
+
+    test('a mix is written as mode mix with its identity', () async {
+      await writeAll(
+        [track('a')],
+        player: const PlayerState(
+          currentPosition: 0,
+          position: Duration.zero,
+          loopMode: LoopMode.off,
+          shuffleEnabled: false,
+          volume: 1,
+          muted: false,
+          mix: MixIdentity(
+            pluginId: 'fmp-test',
+            mixId: 'RD1',
+            title: 'My mix',
+            cursor: 'next',
+          ),
+        ),
+      );
+
+      final row = await database
+          .customSelect(
+            'SELECT mode, mix_plugin_id, mix_id, mix_title, mix_cursor '
+            'FROM player_state',
+          )
+          .getSingle();
+      expect(row.data, {
+        'mode': 'mix',
+        'mix_plugin_id': 'fmp-test',
+        'mix_id': 'RD1',
+        'mix_title': 'My mix',
+        'mix_cursor': 'next',
+      });
+      expect((await repository.readPlayerState())?.mix?.cursor, 'next');
+    });
+
+    test('a mix without a cursor reads back without one', () async {
+      await writeAll(
+        [track('a')],
+        player: const PlayerState(
+          currentPosition: 0,
+          position: Duration.zero,
+          loopMode: LoopMode.off,
+          shuffleEnabled: false,
+          volume: 1,
+          muted: false,
+          mix: MixIdentity(pluginId: 'fmp-test', mixId: 'RD1', title: 'T'),
+        ),
+      );
+
+      final stored = (await repository.readPlayerState())!.mix!;
+      expect(stored.cursor, isNull);
+      expect(stored.mixId, 'RD1');
     });
 
     test('the loop modes are written as fixed strings', () async {
