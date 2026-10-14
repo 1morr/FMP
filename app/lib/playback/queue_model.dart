@@ -3,14 +3,19 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 
-/// 佇列在播的是什麼（ADR 0018 §決定 4）。`mix` 跟著它的插件能力在 M3 PR 19 加；
-/// `detached` 不做（臨時播放涵蓋了它）。
+/// 佇列在播的是什麼（ADR 0018 §決定 4）。`detached` 不做（臨時播放涵蓋了它）。
 enum QueueMode {
   /// 播佇列裡的歌。
   queue,
+
+  /// 佇列是一個 Mix（ADR 0031 §決定 9）：隨機、加入、下一首播放被拒絕，已播超過
+  /// [QueueModel.maxMixPlayed] 首時刪最舊的已播項目，清空佇列就退出。臨時播放與
+  /// 直播進行中時 [QueueState.mode] 是那兩個，[QueueState.mix] 仍在。
+  mix,
 
   /// 播一首不在佇列裡的歌，結束後回到佇列（D1）。
   temporary,
@@ -89,6 +94,7 @@ final class QueueState {
     this.shuffleOrder,
     this.temporary,
     this.live,
+    this.mix,
   }) : assert(
          currentIndex == null ||
              (currentIndex >= 0 && currentIndex < entries.length),
@@ -116,10 +122,16 @@ final class QueueState {
   /// 收聽中的直播間與快照；不在收聽直播時為 `null`。與 [temporary] 不會同時有值。
   final LivePlay? live;
 
+  /// 佇列是 Mix 時的身分（含補歌用的 cursor）；一般佇列為 `null`。臨時播放與直播
+  /// 期間照舊有值：它們結束後回到的是 Mix 佇列。
+  final MixIdentity? mix;
+
   QueueMode get mode => live != null
       ? QueueMode.live
       : temporary != null
       ? QueueMode.temporary
+      : mix != null
+      ? QueueMode.mix
       : QueueMode.queue;
 
   bool get shuffleEnabled => shuffleOrder != null;
@@ -127,6 +139,9 @@ final class QueueState {
   /// 在播的是佇列以外的東西（臨時播放或直播）：資料庫停在進入時的佇列那一首與
   /// [returnSnapshot]，不跟著寫。
   bool get isOutsideQueue => temporary != null || live != null;
+
+  /// 在播的是佇列裡的歌（含 Mix），不是臨時播放或直播。
+  bool get inQueue => !isOutsideQueue;
 
   /// 離開臨時播放或直播、回到佇列時的快照；在佇列裡為 `null`。
   QueueSnapshot? get returnSnapshot => temporary?.snapshot ?? live?.snapshot;
@@ -207,6 +222,9 @@ final class QueueModel {
   /// 佇列最多幾首（ADR 0018 §決定 4）。
   static const maxLength = 10000;
 
+  /// Mix 佇列最多留幾首已播的（ADR 0018 §決定 4）：超過就刪最舊的。
+  static const maxMixPlayed = 100;
+
   /// 上一首時播放超過這個長度就回到開頭。
   static const restartThreshold = Duration(seconds: 3);
 
@@ -220,6 +238,7 @@ final class QueueModel {
   List<int>? _order;
   TemporaryPlay? _temporary;
   LivePlay? _live;
+  MixIdentity? _mix;
 
   /// 目前這首之後有幾個位置是「下一首播放」連續加入的（清單與排列上都緊接在
   /// 目前這首之後）。
@@ -352,6 +371,7 @@ final class QueueModel {
     required LoopMode loopMode,
     required bool shuffle,
     List<int>? shuffleOrder,
+    MixIdentity? mix,
   }) {
     assert(
       shuffleOrder == null ||
@@ -367,8 +387,10 @@ final class QueueModel {
     _loop = loopMode;
     _temporary = null;
     _live = null;
+    _mix = mix;
     _playNextRun = 0;
-    _order = switch ((shuffle, _current)) {
+    // Mix 不能隨機：存的資料有 Mix 又開了隨機（不該發生）時以 Mix 為準。
+    _order = switch ((shuffle && mix == null, _current)) {
       (false, _) => null,
       (true, null) => [],
       (true, final current?) => shuffleOrder ?? _orderStartingAt(current),
@@ -389,14 +411,50 @@ final class QueueModel {
     _current = startIndex;
     _temporary = null;
     _live = null;
+    _mix = null;
     _playNextRun = 0;
     if (_order != null) _order = _orderStartingAt(startIndex);
     _publish();
     return true;
   }
 
-  /// 加在佇列最後。會超過 [maxLength] 就整批不加、回傳 `false`。
+  /// 開始 Mix（ADR 0031 §決定 9）：以 [tracks] **取代整個佇列**（原佇列不另存），
+  /// 進入 Mix 模式、從第一首開始；臨時播放與直播就此結束，隨機關掉，循環維持。
+  /// [tracks] 是空的或超過 [maxLength] 就什麼都不做、回傳 `false`。
+  bool startMix(MixIdentity mix, List<TrackInfo> tracks) {
+    if (tracks.isEmpty || tracks.length > maxLength) return false;
+    _entries = [for (final track in tracks) QueueEntry(track)];
+    _current = 0;
+    _temporary = null;
+    _live = null;
+    _order = null;
+    _mix = mix;
+    _playNextRun = 0;
+    _publish();
+    return true;
+  }
+
+  /// 補歌（ADR 0031 §決定 10）：把 [tracks] 附加在 Mix 佇列最後，已在佇列裡的曲目鍵
+  /// （含這一批自己重複的）丟掉，Mix 身分換成 [mix]（新的 cursor，或換了種子後新的
+  /// `mixId`）。回傳實際附加幾首。不是 Mix 時什麼都不做、回傳 0；會超過 [maxLength]
+  /// 的部分不加。
+  int extendMix(MixIdentity mix, List<TrackInfo> tracks) {
+    if (_mix == null) return 0;
+    final seen = {for (final entry in _entries) '${entry.track.key}'};
+    final fresh = [
+      for (final track in tracks)
+        if (seen.add('${track.key}')) track,
+    ].take(maxLength - _entries.length).toList();
+    _entries.addAll([for (final track in fresh) QueueEntry(track)]);
+    _mix = mix;
+    _publish();
+    return fresh.length;
+  }
+
+  /// 加在佇列最後。會超過 [maxLength] 就整批不加、回傳 `false`；Mix 中一律拒絕
+  /// （回傳 `false`、不改佇列）。
   bool append(List<TrackInfo> tracks) {
+    if (_mix != null) return false;
     if (_entries.length + tracks.length > maxLength) return false;
     if (tracks.isEmpty) return true;
     final start = _entries.length;
@@ -416,8 +474,9 @@ final class QueueModel {
   }
 
   /// 下一首播放：排在目前這首（臨時播放中是快照的那一首）之後，接在之前
-  /// 連續加入的後面。會超過 [maxLength] 就整批不加、回傳 `false`。
+  /// 連續加入的後面。會超過 [maxLength] 就整批不加、回傳 `false`；Mix 中一律拒絕。
   bool playNext(List<TrackInfo> tracks) {
+    if (_mix != null) return false;
     if (_entries.length + tracks.length > maxLength) return false;
     if (tracks.isEmpty) return true;
     final added = [for (final track in tracks) QueueEntry(track)];
@@ -517,6 +576,7 @@ final class QueueModel {
     if (_entries.length == 1) {
       _entries = [];
       _current = null;
+      _mix = null;
       if (_order != null) _order = [];
       _playNextRun = 0;
       _resetSnapshotPosition();
@@ -547,13 +607,15 @@ final class QueueModel {
     _publish();
   }
 
-  /// 清空佇列並結束臨時播放（呼叫端停止播放）。循環與隨機的開關不變。
+  /// 清空佇列並結束臨時播放（呼叫端停止播放）。循環與隨機的開關不變；Mix 也就此
+  /// 退出（回到空的一般佇列）。
   void clear() {
     _entries = [];
     _current = null;
     if (_order != null) _order = [];
     _temporary = null;
     _live = null;
+    _mix = null;
     _playNextRun = 0;
     _publish();
   }
@@ -564,6 +626,8 @@ final class QueueModel {
   /// 依清單往下。
   void setShuffle(bool enabled) {
     if (enabled == (_order != null)) return;
+    // Mix 不能隨機（ADR 0031 §決定 9）：拒絕，不改佇列。
+    if (enabled && _mix != null) return;
     if (enabled) {
       _order = switch (_current) {
         final current? => _orderStartingAt(current),
@@ -667,7 +731,20 @@ final class QueueModel {
     return order;
   }
 
+  /// Mix 已播超過 [maxMixPlayed] 首時刪最舊的已播項目（排在目前這首之前的）：剛好
+  /// 那麼多不刪，目前這首與還沒播的不動。Mix 沒有隨機，所以排列與「下一首播放」
+  /// 的連續計數都不受影響。
+  void _trimMix() {
+    final current = _current;
+    if (_mix == null || current == null) return;
+    final excess = current - maxMixPlayed;
+    if (excess <= 0) return;
+    _entries.removeRange(0, excess);
+    _current = current - excess;
+  }
+
   void _publish() {
+    _trimMix();
     _nextRound = null;
     final order = _order;
     _state = QueueState(
@@ -677,6 +754,7 @@ final class QueueModel {
       shuffleOrder: order == null ? null : List.unmodifiable(order),
       temporary: _temporary,
       live: _live,
+      mix: _mix,
     );
   }
 }

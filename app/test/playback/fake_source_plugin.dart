@@ -14,6 +14,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     String name = 'Fake',
     this.onSearch,
     bool live = false,
+    bool mix = false,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -23,6 +24,7 @@ final class FakeSourcePlugin implements SourcePlugin {
            PluginCapability.resolveStream,
            if (onSearch != null) PluginCapability.search,
            if (live) PluginCapability.live,
+           if (mix) PluginCapability.mix,
          },
          allowedHosts: const ['cdn.example'],
        );
@@ -48,6 +50,10 @@ final class FakeSourcePlugin implements SourcePlugin {
   final liveStatusQueries = <LiveRoomQuery>[];
   final liveRequests = <LiveStreamRequest>[];
   final liveUrlQueries = <LiveUrlQuery>[];
+
+  // Mix（`mix: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
+  FutureOr<MixBatch> Function(MixQuery query)? onMix;
+  final mixQueries = <MixQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -109,6 +115,14 @@ final class FakeSourcePlugin implements SourcePlugin {
     if (handler == null) throw UnimplementedError('live');
     liveRequests.add(request);
     return StreamResult(candidates: await handler(request));
+  }
+
+  @override
+  Future<MixBatch> mix(MixQuery query) async {
+    final handler = onMix;
+    if (handler == null) throw UnimplementedError('mix');
+    mixQueries.add(query);
+    return handler(query);
   }
 
   @override

@@ -63,6 +63,10 @@ const sourceDtoShapes = <String, JsonShape>{
   'LiveUrlQuery': {'url': true},
   'LiveRoomRef': {'roomId': true},
   'LiveStreamRequest': {'roomId': true, 'formats': true},
+  'MixSeedQuery': {'seed': true},
+  'MixSeed': {'sourceId': true, 'cid': false},
+  'MixContinueQuery': {'mixId': true, 'cursor': true},
+  'MixBatch': {'mixId': true, 'title': true, 'tracks': true, 'cursor': false},
 };
 
 /// 搜尋的輸入。
@@ -718,4 +722,96 @@ final class LiveStreamRequest {
     'roomId': roomId,
     'formats': [for (final format in formats) format.toJson()],
   };
+}
+
+/// `mix` 的輸入（ADR 0028 §決定 4）：以一首曲目開始一個 Mix，或以上一批回傳的
+/// `mixId` 與 `cursor` 續取。
+sealed class MixQuery {
+  const MixQuery();
+
+  Map<String, Object?> toJson();
+}
+
+/// 以 [sourceId]（與分 P 的 [cid]）為種子開始 Mix；也是 checks.json 的 `mix`
+/// 案例的輸入。
+@immutable
+final class MixSeedQuery extends MixQuery {
+  MixSeedQuery({required this.sourceId, this.cid}) {
+    if (sourceId.trim().isEmpty) {
+      throw ArgumentError.value(sourceId, 'sourceId', 'must not be empty');
+    }
+  }
+
+  final String sourceId;
+  final int? cid;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'seed': {'sourceId': sourceId, if (cid != null) 'cid': cid},
+  };
+}
+
+/// 以 [mixId] 與插件上一次給的 [cursor] 續取下一批。
+@immutable
+final class MixContinueQuery extends MixQuery {
+  MixContinueQuery({required this.mixId, required this.cursor}) {
+    if (mixId.trim().isEmpty) {
+      throw ArgumentError.value(mixId, 'mixId', 'must not be empty');
+    }
+    if (cursor.isEmpty) {
+      throw ArgumentError.value(cursor, 'cursor', 'must not be empty');
+    }
+  }
+
+  final String mixId;
+  final String cursor;
+
+  @override
+  Map<String, Object?> toJson() => {'mixId': mixId, 'cursor': cursor};
+}
+
+/// `mix` 的一批結果。
+@immutable
+final class MixBatch {
+  const MixBatch({
+    required this.mixId,
+    required this.title,
+    required this.tracks,
+    this.cursor,
+  });
+
+  factory MixBatch.fromJson(
+    Object? json, {
+    required String sourceTypeId,
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'MixBatch';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final cursor = fields.optionalString('cursor');
+    if (cursor != null && cursor.isEmpty) {
+      throw const FormatException('$path.cursor: must not be empty');
+    }
+    return MixBatch(
+      mixId: fields.nonEmptyString('mixId'),
+      title: fields.nonEmptyString('title'),
+      tracks: List.unmodifiable([
+        for (final (index, item) in fields.list('tracks').indexed)
+          TrackSummary._fromJson(
+            item,
+            sourceTypeId: sourceTypeId,
+            allowedHosts: allowedHosts,
+            path: '$path.tracks[$index]',
+          ),
+      ]),
+      cursor: cursor,
+    );
+  }
+
+  /// Mix 身分的一半（另一半是插件 id）。
+  final String mixId;
+  final String title;
+  final List<TrackSummary> tracks;
+
+  /// 插件的不透明字串；`null` 是這個 Mix 沒有更多。
+  final String? cursor;
 }

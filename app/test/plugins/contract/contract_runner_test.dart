@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "login"]',
-        '"capabilities": ["search", "live", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
+        '"capabilities": ["search", "live", "mix", "login"]',
       );
 
       expect(
@@ -399,14 +399,51 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "login"]',
-        '"capabilities": ["search", "resolveStream", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
+        '"capabilities": ["search", "resolveStream", "mix", "login"]',
       );
 
       expect(
         await runContract(directory),
         contains('checks.json: live is not a declared capability'),
       );
+    });
+
+    test('a mix check for a plugin without the mix capability', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "login"]',
+      );
+
+      expect(
+        await runContract(directory),
+        contains('checks.json: mix is not a declared capability'),
+      );
+    });
+
+    test('a mix check that expects more tracks than the batch has', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(directory, _checks, '"minItems": 5', '"minItems": 6');
+
+      expect(
+        await runContract(directory),
+        contains(contains('expected at least 6 items, got 5')),
+      );
+    });
+
+    test('a mix check that renames an unrelated thing stays green', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        'title: `Test mix track \${number}`',
+        'title: `Renamed \${number}`',
+      );
+
+      expect(await runContract(directory), isEmpty);
     });
 
     test('a live check that expects the wrong room state', () async {

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -120,6 +121,43 @@ void main() {
       expect(waiting.toJson(Redactor()).containsKey('nextRetryAt'), isFalse);
       expect(waiting.toJson(Redactor())['state'], 'waitingForNetwork');
     });
+  });
+
+  test('a mix is reported by its identity, without the title or cursor', () {
+    const queue = QueueDiagnostics(
+      total: 1,
+      currentIndex: 0,
+      before: [],
+      after: [],
+      shuffle: false,
+      loopMode: LoopMode.off,
+      temporary: false,
+      mix: MixIdentity(
+        pluginId: 'fmp-test',
+        mixId: 'm1',
+        title: 'FAKE_TITLE_VALUE',
+        cursor: 'FAKE_CURSOR_VALUE',
+      ),
+    );
+    final json = PlaybackDiagnostics(
+      backend: 'media_kit',
+      state: const Playing(),
+      stateSince: DateTime.utc(2026, 10, 14, 12),
+      queue: queue,
+    ).toJson(Redactor());
+
+    expect((json['queue']! as Map)['mix'], {
+      'pluginId': 'fmp-test',
+      'mixId': 'm1',
+      'hasCursor': true,
+    });
+    expect(jsonEncode(json), isNot(contains('FAKE_TITLE_VALUE')));
+    expect(jsonEncode(json), isNot(contains('FAKE_CURSOR_VALUE')));
+    // 一般佇列沒有這個鍵。
+    expect(
+      (snapshot().toJson(Redactor())['queue']! as Map).containsKey('mix'),
+      isFalse,
+    );
   });
 
   test('an asset URL is reported as an asset source', () {

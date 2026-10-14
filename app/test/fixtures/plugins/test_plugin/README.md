@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`、`live`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`live`、`mix`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -57,6 +57,18 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `live-broken` | `NetworkError` | `NetworkError` | 查詢失敗（搜尋結果裡標開播中） |
 
   `live-ended` 的次數不跨 App 重啟；要再看一次「開播中」就重開 App。
+- Mix（`mix`，不連網，給「開始 Mix」的實機驗證）：任何曲目的選單「開始 Mix」都開一個新的 Mix
+  （標題 `Test mix <n>`；`mixId` 每次不同），曲目鍵是 `mix-<mixId>-<n>`，串流都是 `tone.wav`（2 秒），
+  每批 5 首：
+
+  | 批次 | 曲目 `n` | `cursor` | 用途 |
+  |---|---|---|---|
+  | 第一批（seed） | 1–5 | `2` | 開始 |
+  | 第二批（續取） | 3、6–9 | `3` | 第 3 首重複第一批的：宿主去重後只附加 4 首 |
+  | 第三批（續取） | 10–14 | 沒有 | Mix 到此為止：下一次補歌改以佇列最後一首當 seed 開新的一批（新的 `mixId`） |
+
+  每首開始時之後只剩 1 首以下就補，所以佇列的第 4 首開始時補第二批（佇列 9 首）、第 8 首開始時補第三批（佇列 14 首）、
+  第 13 首開始時換種子（`cursor` 已空，以佇列最後一首開新的一批）。其他 `cursor` 以 `NotFound` 失敗。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -80,7 +92,7 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

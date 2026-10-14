@@ -11,6 +11,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/history/history_state.dart';
 import 'package:material_ui/material_ui.dart';
@@ -545,6 +546,94 @@ void main() {
         h.container(tester).read(historyProvider).value!.entries.length,
         greaterThan(historyPageSize),
       );
+    });
+  });
+
+  group('the Mix items of the menu', () {
+    Future<ShellHarness> openWith(
+      WidgetTester tester, {
+      bool mix = true,
+    }) async {
+      final h = ShellHarness(mix: mix, registryOfSources: true);
+      h.plugin.onMix = (query) => MixBatch(
+        mixId: 'm1',
+        title: 'Mix',
+        tracks: [
+          for (final id in ['m1', 'm2'])
+            TrackSummary(sourceTypeId: 'fmp-test', sourceId: id, title: id),
+        ],
+      );
+      await h.pumpApp(tester, const HistoryPage());
+      await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
+      await reload(tester, h);
+      return h;
+    }
+
+    Finder item(String label) => find.widgetWithText(MenuItemButton, label);
+
+    testWidgets('Start Mix is there when the source has mix', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        await openWith(tester);
+        await tester.tap(find.byTooltip('More options').first);
+        await tester.pumpAndSettle();
+
+        expect(item('Start Mix'), findsOneWidget);
+      });
+    });
+
+    testWidgets('Start Mix is not there when the source has no mix', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        await openWith(tester, mix: false);
+        await tester.tap(find.byTooltip('More options').first);
+        await tester.pumpAndSettle();
+
+        expect(item('Start Mix'), findsNothing);
+        expect(item('Play'), findsOneWidget);
+      });
+    });
+
+    testWidgets('starting a mix replaces the queue', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openWith(tester);
+        await tester.tap(find.byTooltip('More options').first);
+        await tester.pumpAndSettle();
+
+        await tester.tap(item('Start Mix'));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(h.controller.queue.mode, QueueMode.mix);
+        expect((h.plugin.mixQueries.first as MixSeedQuery).sourceId, 'a');
+      });
+    });
+
+    testWidgets('play next and add to queue are disabled inside a mix', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openWith(tester);
+        unawaited(h.controller.startMix(track('seed')));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.tap(find.byTooltip('More options').first);
+        await tester.pumpAndSettle();
+
+        for (final label in [
+          'Play next (unavailable in a Mix)',
+          'Add to queue (unavailable in a Mix)',
+        ]) {
+          expect(item(label), findsOneWidget);
+          expect(
+            tester.widget<MenuItemButton>(item(label)).onPressed,
+            isNull,
+            reason: label,
+          );
+        }
+        expect(h.controller.queue.entries, hasLength(2));
+      });
     });
   });
 }

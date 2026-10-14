@@ -6,11 +6,13 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/playback_speed.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/playback/live_play.dart';
+import 'package:fmp/playback/mix_session.dart';
 import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_events.dart';
@@ -125,6 +127,16 @@ final class PlaybackController {
   StreamSubscription<List<OutputDevice>>? _outputDeviceLists;
 
   final _queue = QueueModel();
+  late final _mix = MixSession(
+    queue: _queue,
+    fetch: _session.mix,
+    hasPlugin: _session.hasPlugin,
+    log: _log,
+    onChanged: () {
+      if (!_disposed) _queueEdited();
+    },
+  );
+  bool _disposed = false;
   final _states = StreamController<PlaybackState>.broadcast();
   final _queueStates = StreamController<QueueState>.broadcast();
   final _events = StreamController<PlaybackEvent>.broadcast();
@@ -347,6 +359,7 @@ final class PlaybackController {
     required LoopMode loopMode,
     required bool shuffle,
     List<int>? shuffleOrder,
+    MixIdentity? mix,
     required Duration position,
     required double volume,
     required bool muted,
@@ -361,6 +374,7 @@ final class PlaybackController {
       loopMode: loopMode,
       shuffle: shuffle,
       shuffleOrder: shuffleOrder,
+      mix: mix,
     );
     _volume = volume.clamp(0, 1).toDouble();
     _muted = muted;
@@ -377,6 +391,8 @@ final class PlaybackController {
         'positionMs': position.inMilliseconds,
         'loop': _queue.state.loopMode.name,
         'shuffle': _queue.state.shuffleEnabled,
+        if (_queue.state.mix case final mix?)
+          'mix': '${mix.pluginId}:${mix.mixId}',
         'muted': muted,
       },
     );
@@ -386,16 +402,17 @@ final class PlaybackController {
   /// 臨時播放 [track]（D1）：不放進佇列，播完或按上一首、下一首回到佇列進入
   /// 時的那一首。已經在臨時播放時只換曲目，回到的點不變。
   Future<void> playTemporary(TrackInfo track) {
-    if (_queue.state.mode == QueueMode.queue) {
+    if (_queue.state.inQueue) {
       _returnLoadsQueueTrack = switch (_state) {
         Idle() || Failed() => false,
         Loading() || Playing() || Paused() || Buffering() || Retrying() => true,
       };
     }
     final kept = switch ((_restoredPosition, _queue.state.current)) {
-      (final position?, final current?)
-          when _queue.state.mode == QueueMode.queue =>
-        (position: position, key: current.key),
+      (final position?, final current?) when _queue.state.inQueue => (
+        position: position,
+        key: current.key,
+      ),
       _ => _keptRestored,
     };
     _queue.playTemporary(track, position: _position, playing: _wantsSound);
@@ -412,16 +429,17 @@ final class PlaybackController {
   /// 也不再發解析（M3 design §4.9）。已經在收聽時只換直播間，快照維持第一次進入時的
   /// 那份。
   Future<void> playLive(LiveTarget target) {
-    if (_queue.state.mode == QueueMode.queue) {
+    if (_queue.state.inQueue) {
       _returnLoadsQueueTrack = switch (_state) {
         Idle() || Failed() => false,
         Loading() || Playing() || Paused() || Buffering() || Retrying() => true,
       };
     }
     final kept = switch ((_restoredPosition, _queue.state.current)) {
-      (final position?, final current?)
-          when _queue.state.mode == QueueMode.queue =>
-        (position: position, key: current.key),
+      (final position?, final current?) when _queue.state.inQueue => (
+        position: position,
+        key: current.key,
+      ),
       _ => _keptRestored,
     };
     _queue.playLive(target, position: _position, playing: _wantsSound);
@@ -445,8 +463,21 @@ final class PlaybackController {
     return _follow(step);
   }
 
+  /// 以 [seed] 為種子開始 Mix（ADR 0031 §決定 9）：插件回來的曲目**取代整個佇列**，
+  /// 從第一首開始播；臨時播放與直播就此結束。插件的錯誤（`AppError`）原樣丟出，
+  /// 佇列不動，由呼叫端顯示。
+  Future<void> startMix(TrackInfo seed) async {
+    await _mix.start(seed);
+    if (_disposed) return;
+    _emitQueue();
+    _consecutiveSkips = 0;
+    _setPlayWhenReady(true);
+    await _beginTrack();
+  }
+
   /// 加在佇列最後。會超過佇列上限就整批不加、發 [QueueFull]，回傳 `false`。
-  /// 佇列原本是空的時第一首成為目前這首，但不開始播。
+  /// 佇列原本是空的時第一首成為目前這首，但不開始播。Mix 中一律拒絕（回傳
+  /// `false`、不發事件，入口本來就停用）。
   bool addToQueue(List<TrackInfo> tracks) => _add(tracks, _queue.append);
 
   /// 下一首播放：排在目前這首（臨時播放中是回到的那一首）之後，接在之前連續
@@ -468,8 +499,7 @@ final class PlaybackController {
   /// 在 `Idle`。
   Future<void> removeAt(int index) {
     final before = _queue.state;
-    final removesPlaying =
-        before.mode == QueueMode.queue && index == before.currentIndex;
+    final removesPlaying = before.inQueue && index == before.currentIndex;
     _queue.remove(index);
     if (!removesPlaying) {
       _queueEdited();
@@ -700,6 +730,7 @@ final class PlaybackController {
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     _cancelRetry();
     _stallTimer?.cancel();
     _unregisterLiveInfo();
@@ -786,6 +817,10 @@ final class PlaybackController {
   }
 
   bool _add(List<TrackInfo> tracks, bool Function(List<TrackInfo>) add) {
+    if (_queue.state.mix != null) {
+      _log.info('Mix queue; nothing added', tag: _tag);
+      return false;
+    }
     if (!add(tracks)) {
       _log.info(
         'Queue full; nothing added',
@@ -817,6 +852,7 @@ final class PlaybackController {
     _startedFromRestore = fromRestore;
     _countPlayOnAudible = countsAsPlay && !fromRestore;
     _resetTrackCounters();
+    _mix.trackStarted();
     return _load(prepared: prepared, position: position);
   }
 
@@ -963,6 +999,7 @@ final class PlaybackController {
         _playedSinceLoad = Duration.zero;
         _lastPosition = null;
         unawaited(_session.prepareLookAhead(_nextTrack));
+        _mix.trackStarted();
       case RepeatTrack():
         // 單曲循環而前瞻沒來得及接上：從頭再播，網址從快取拿。
         unawaited(_beginTrack());
@@ -971,11 +1008,12 @@ final class PlaybackController {
         // 回到佇列。路由器只在 hasNext 時給這個動作。
         unawaited(_moveNext());
       case FinishQueue():
-        _log.info('Queue finished', tag: _tag);
-        _session.release();
-        _resumeAt = Duration.zero;
-        _setPreview(null);
-        _setState(const Idle());
+        // Mix 的補歌還在跑：等它回來，有新的曲目就往下播（ADR 0031 §決定 10）。
+        if (_mix.refilling) {
+          unawaited(_finishAfterRefill());
+        } else {
+          _finishQueue();
+        }
       case Recover(:final failure, :final error, :final position):
         if (action.endedEarly) {
           _log.report('Stream ended early', error, tag: _tag);
@@ -983,6 +1021,29 @@ final class PlaybackController {
         // 串流本身失敗了：網址不再從快取拿，重試與之後再播都重新解析。
         _session.invalidateCurrentStream();
         unawaited(_recover(failure, error, position));
+    }
+  }
+
+  void _finishQueue() {
+    _log.info('Queue finished', tag: _tag);
+    _session.release();
+    _resumeAt = Duration.zero;
+    _setPreview(null);
+    _setState(const Idle());
+  }
+
+  /// 佇列播到底而 Mix 的補歌還在跑：停在載入，補歌結束後有下一首就往下播，沒有才
+  /// 停。等待期間使用者換了歌（代變了）就不再接手。
+  Future<void> _finishAfterRefill() async {
+    final generation = _session.generation;
+    _log.info('Queue end reached during a mix refill; waiting', tag: _tag);
+    _setState(const Loading());
+    await _mix.whenIdle;
+    if (_disposed || generation != _session.generation) return;
+    if (_queue.state.hasNext) {
+      await _moveNext();
+    } else {
+      _finishQueue();
     }
   }
 
@@ -1107,6 +1168,16 @@ final class PlaybackController {
         return;
       case SkipTrack():
         _consecutiveSkips++;
+        // Mix 的最後一首被跳過而補歌還在跑：同播到底，等它回來再決定往下或停。
+        if (_queue.next == null && _mix.refilling) {
+          final generation = _session.generation;
+          _log.info(
+            'Skip at the end of a mix; waiting for the refill',
+            tag: _tag,
+          );
+          await _mix.whenIdle;
+          if (_disposed || generation != _session.generation) return;
+        }
         final skipped = _queue.state.current;
         // 臨時播放中是回到佇列（佇列是空的時沒有可去的地方，停下）。
         if (_queue.next == null || skipped == null) {

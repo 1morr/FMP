@@ -184,6 +184,13 @@ final class PlaybackSession {
   Future<LiveRoom> liveStatus(String pluginId, String roomId) =>
       _resolver.liveStatus(pluginId, roomId);
 
+  /// 向 [pluginId] 的插件要一批 Mix 曲目，丟出 `AppError`（`MixSession` 呼叫）。
+  Future<MixBatch> mix(String pluginId, MixQuery query) =>
+      _resolver.mix(pluginId, query);
+
+  /// [pluginId] 的插件在清單上（沒停用、沒移除）。
+  bool hasPlugin(String pluginId) => _resolver.hasPlugin(pluginId);
+
   /// 以 [stream] 的第一個候選取代後端的清單，從 [position] 開始；[play] 為假
   /// 時載入後停在暫停。
   Future<void> open(

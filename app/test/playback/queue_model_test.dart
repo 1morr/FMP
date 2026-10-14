@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -1119,6 +1120,313 @@ void main() {
       expect(upcoming(queue.state).first, 'x');
       expect(queue.moveNext(), isA<MovedToTrack>());
       expect(currentId(queue.state), 'x');
+    });
+  });
+
+  group('mix', () {
+    const mix = MixIdentity(
+      pluginId: 'fmp-test',
+      mixId: 'm1',
+      title: 'My mix',
+      cursor: 'c1',
+    );
+
+    QueueModel started([int count = 5]) {
+      final queue = QueueModel()..replace(tracks(['x', 'y']), startIndex: 1);
+      expect(queue.startMix(mix, numbered(count)), isTrue);
+      return queue;
+    }
+
+    test('starting replaces the whole queue and plays from the first', () {
+      final queue = QueueModel(random: Random(1))
+        ..replace(tracks(['x', 'y', 'z']), startIndex: 2)
+        ..setShuffle(true)
+        ..cycleLoopMode();
+      queue.playTemporary(
+        track('t'),
+        position: const Duration(seconds: 5),
+        playing: true,
+      );
+
+      expect(queue.startMix(mix, numbered(5)), isTrue);
+      final state = queue.state;
+
+      expect(state.mode, QueueMode.mix);
+      expect(state.mix, mix);
+      expect(ids(state), ['0', '1', '2', '3', '4']);
+      expect(state.currentIndex, 0);
+      // 臨時播放結束，隨機關掉，循環維持。
+      expect(state.temporary, isNull);
+      expect(state.shuffleEnabled, isFalse);
+      expect(state.loopMode, LoopMode.all);
+    });
+
+    test('an empty mix is not started', () {
+      final queue = QueueModel()..replace(tracks(['x']));
+
+      expect(queue.startMix(mix, const []), isFalse);
+      expect(queue.state.mix, isNull);
+      expect(ids(queue.state), ['x']);
+    });
+
+    test('shuffle, add and play next are refused and change nothing', () {
+      final queue = started();
+      final before = queue.state;
+
+      queue.setShuffle(true);
+      expect(queue.append(tracks(['a'])), isFalse);
+      expect(queue.playNext(tracks(['b'])), isFalse);
+
+      expect(queue.state.shuffleEnabled, isFalse);
+      expect(ids(queue.state), ids(before));
+      expect(queue.state.currentIndex, before.currentIndex);
+      expect(queue.state.mix, mix);
+    });
+
+    test('the same operations work again outside a mix', () {
+      final queue = started();
+      queue.clear();
+
+      expect(queue.append(tracks(['a'])), isTrue);
+      queue.setShuffle(true);
+      expect(queue.state.shuffleEnabled, isTrue);
+    });
+
+    test('dragging and removing a song still work', () {
+      final queue = started();
+
+      queue.move(4, 1);
+      queue.remove(0);
+
+      expect(ids(queue.state), ['4', '1', '2', '3']);
+      expect(queue.state.mix, mix);
+    });
+
+    test('clearing the queue leaves the mix', () {
+      final queue = started();
+
+      queue.clear();
+
+      expect(queue.state.mode, QueueMode.queue);
+      expect(queue.state.mix, isNull);
+      expect(queue.state.entries, isEmpty);
+    });
+
+    test('removing the last song leaves the mix', () {
+      final queue = QueueModel()..startMix(mix, numbered(1));
+
+      queue.remove(0);
+
+      expect(queue.state.mix, isNull);
+    });
+
+    test('replacing the queue leaves the mix', () {
+      final queue = started();
+
+      queue.replace(tracks(['a', 'b']));
+
+      expect(queue.state.mix, isNull);
+    });
+
+    test('skipping goes to the next song like the queue', () {
+      final queue = started();
+
+      expect(queue.moveNext(), isA<MovedToTrack>());
+      expect(currentId(queue.state), '1');
+      expect(queue.state.mode, QueueMode.mix);
+    });
+
+    test('a temporary play comes back to the mix queue', () {
+      final queue = started();
+      queue.moveNext();
+
+      queue.playTemporary(
+        track('t'),
+        position: const Duration(seconds: 9),
+        playing: true,
+      );
+      expect(queue.state.mode, QueueMode.temporary);
+      expect(queue.state.mix, mix);
+      // 臨時播放中同樣不能加入。
+      expect(queue.append(tracks(['a'])), isFalse);
+
+      final step = queue.moveNext();
+
+      expect(step, isA<ReturnedToQueue>());
+      expect(queue.state.mode, QueueMode.mix);
+      expect(currentId(queue.state), '1');
+    });
+
+    test('a live room comes back to the mix queue', () {
+      final queue = started();
+      queue.moveNext();
+
+      queue.playLive(
+        const LiveTarget(pluginId: 'fmp-test', roomId: 'r1', title: 'Room'),
+        position: const Duration(seconds: 9),
+        playing: true,
+      );
+      expect(queue.state.mode, QueueMode.live);
+      expect(queue.state.mix, mix);
+      expect(queue.playNext(tracks(['a'])), isFalse);
+
+      final step = queue.stopLive();
+
+      expect(step, isA<ReturnedToQueue>());
+      expect(queue.state.mode, QueueMode.mix);
+      expect(queue.state.mix, mix);
+      expect(currentId(queue.state), '1');
+    });
+
+    test('starting a mix in a live room ends the room', () {
+      final queue = QueueModel()..replace(tracks(['x']));
+      queue.playLive(
+        const LiveTarget(pluginId: 'fmp-test', roomId: 'r1', title: 'Room'),
+        position: Duration.zero,
+        playing: true,
+      );
+
+      expect(queue.startMix(mix, numbered(3)), isTrue);
+
+      expect(queue.state.live, isNull);
+      expect(queue.state.mode, QueueMode.mix);
+      expect(currentId(queue.state), '0');
+    });
+
+    group('extending', () {
+      test('appends the new songs and takes the new identity', () {
+        final queue = started();
+        const next = MixIdentity(
+          pluginId: 'fmp-test',
+          mixId: 'm1',
+          title: 'My mix',
+          cursor: 'c2',
+        );
+
+        final added = queue.extendMix(next, numbered(8).skip(5).toList());
+
+        expect(added, 3);
+        expect(ids(queue.state), ['0', '1', '2', '3', '4', '5', '6', '7']);
+        expect(queue.state.mix, next);
+        expect(queue.state.currentIndex, 0);
+      });
+
+      test('drops songs already queued, and repeats inside the batch', () {
+        final queue = started();
+
+        final added = queue.extendMix(mix, [
+          track('3'),
+          track('5'),
+          track('5'),
+          track('6'),
+        ]);
+
+        expect(added, 2);
+        expect(ids(queue.state), ['0', '1', '2', '3', '4', '5', '6']);
+      });
+
+      test('a batch of only known songs adds nothing but keeps the cursor', () {
+        final queue = started();
+        final next = mix.copyWith(cursor: 'c9');
+
+        expect(queue.extendMix(next, numbered(3)), 0);
+        expect(queue.state.mix?.cursor, 'c9');
+      });
+
+      test('outside a mix nothing is added', () {
+        final queue = QueueModel()..replace(tracks(['a']));
+
+        expect(queue.extendMix(mix, tracks(['b'])), 0);
+        expect(ids(queue.state), ['a']);
+        expect(queue.state.mix, isNull);
+      });
+
+      test('stops at the queue limit', () {
+        final queue = QueueModel()
+          ..startMix(mix, numbered(QueueModel.maxLength - 1));
+
+        final added = queue.extendMix(mix, [track('a'), track('b')]);
+
+        expect(added, 1);
+        expect(queue.state.entries, hasLength(QueueModel.maxLength));
+      });
+    });
+
+    group('trimming the played songs', () {
+      /// 一個 [total] 首的 Mix，播到位置 [at]。
+      QueueModel playedTo(int at, {int total = 130}) {
+        final queue = QueueModel()..startMix(mix, numbered(total));
+        for (var i = 0; i < at; i++) {
+          queue.moveNext();
+        }
+        return queue;
+      }
+
+      test('exactly 100 played songs are kept', () {
+        final queue = playedTo(100);
+
+        expect(queue.state.currentIndex, 100);
+        expect(queue.state.entries, hasLength(130));
+        expect(queue.state.entries.first.track.sourceId, '0');
+      });
+
+      test('the 101st played song drops the oldest played one', () {
+        final queue = playedTo(101);
+        final state = queue.state;
+
+        expect(state.entries, hasLength(129));
+        expect(state.currentIndex, 100);
+        expect(state.entries.first.track.sourceId, '1');
+        expect(currentId(state), '101');
+        // 還沒播的原封不動。
+        expect(state.entries.last.track.sourceId, '129');
+      });
+
+      test('keeps removing one per song after that', () {
+        final queue = playedTo(105);
+        final state = queue.state;
+
+        expect(state.currentIndex, 100);
+        expect(state.entries.first.track.sourceId, '5');
+        expect(currentId(state), '105');
+      });
+
+      test('the current entry keeps its identity across a trim', () {
+        final queue = playedTo(100);
+        queue.moveNext();
+        final before = queue.state;
+
+        // 目前這首是同一個佇列項目（持久化比的是實例）。
+        final current = before.entries[before.currentIndex!];
+        queue.extendMix(mix, [track('extra')]);
+
+        expect(
+          identical(queue.state.entries[queue.state.currentIndex!], current),
+          isTrue,
+        );
+      });
+
+      test('a queue that is not a mix is never trimmed', () {
+        final queue = QueueModel()..replace(numbered(130), startIndex: 129);
+
+        expect(queue.state.entries, hasLength(130));
+        expect(queue.state.currentIndex, 129);
+      });
+    });
+
+    test('restoring brings the identity back and turns shuffle off', () {
+      final queue = QueueModel(random: Random(1))
+        ..restore(
+          tracks: numbered(4),
+          currentIndex: 2,
+          loopMode: LoopMode.off,
+          shuffle: true,
+          mix: mix,
+        );
+
+      expect(queue.state.mix, mix);
+      expect(queue.state.shuffleEnabled, isFalse);
+      expect(queue.state.currentIndex, 2);
     });
   });
 }

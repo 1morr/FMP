@@ -120,6 +120,87 @@ void main() {
     }
   });
 
+  group('the mix check', () {
+    const input = '{"seed": {"sourceId": "a", "cid": 2}}';
+
+    test('starts a mix by seed and reads the tracks of the batch', () {
+      final check = parseChecks(
+        _check(
+          'mix',
+          input,
+          '{"minItems": 2, "nonEmpty": ["sourceId", "uploader"]}',
+        ),
+      ).single;
+
+      expect(check.capability, PluginCapability.mix);
+      expect(check.input, isA<MixSeedQuery>());
+      expect((check.input as MixSeedQuery).sourceId, 'a');
+      expect((check.input as MixSeedQuery).cid, 2);
+      expect(check.requiresLogin, isFalse);
+      final batch = MixBatch(
+        mixId: 'm',
+        title: 'Mix',
+        tracks: const [
+          TrackSummary(sourceTypeId: 'p', sourceId: 'a', title: 't'),
+        ],
+      );
+      expect(check.expectation.evaluate(result: batch, describe: (_) => ''), [
+        'expected at least 2 items, got 1',
+        'item 0: "uploader" is empty',
+      ]);
+    });
+
+    test('is read in the order search, resolveStream, live, mix', () {
+      final checks = parseChecks(
+        '{"mix": {"input": $input, "expect": {}}, '
+        '"live": {"input": {"roomId": "r"}, "expect": {}}, '
+        '"search": {"input": $_search, "expect": {}}}',
+      );
+
+      expect(checks.map((check) => check.capability.wireName), [
+        'search',
+        'live',
+        'mix',
+      ]);
+    });
+
+    for (final (name, text, message) in [
+      (
+        'an empty source id',
+        _check('mix', '{"seed": {"sourceId": " "}}', '{}'),
+        'checks.mix.input: must not be empty',
+      ),
+      (
+        'a continuation instead of a seed',
+        _check('mix', '{"mixId": "m", "cursor": "c"}', '{}'),
+        'unknown field "mixId"',
+      ),
+      (
+        'a seed without a source id',
+        _check('mix', '{"seed": {"cid": 1}}', '{}'),
+        'missing required field "sourceId"',
+      ),
+      (
+        'a field TrackSummary does not have',
+        _check('mix', input, '{"nonEmpty": ["mixId"]}'),
+        'TrackSummary has no field "mixId"',
+      ),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+  });
+
   group('the login check', () {
     const credentials = '{"cookies": {"SESSDATA": "***"}}';
 

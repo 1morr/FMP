@@ -64,20 +64,24 @@ class NextButton extends ConsumerWidget {
 }
 
 /// 隨機開關（ADR 0018 §決定 5：隨機以位置為單位）。
+///
+/// [locked]（Mix 中，ADR 0031 §決定 9）時停用，tooltip 說明原因。
 class ShuffleButton extends ConsumerWidget {
-  const ShuffleButton({super.key, required this.enabled});
+  const ShuffleButton({super.key, required this.enabled, this.locked = false});
 
   final bool enabled;
+  final bool locked;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
-      tooltip: t.shuffleTooltip,
+      tooltip: locked ? t.shuffleInMixTooltip : t.shuffleTooltip,
       isSelected: enabled,
       icon: const Icon(Icons.shuffle),
-      onPressed: () =>
-          ref.read(playbackControllerProvider).setShuffle(!enabled),
+      onPressed: locked
+          ? null
+          : () => ref.read(playbackControllerProvider).setShuffle(!enabled),
     );
   }
 }

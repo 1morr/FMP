@@ -18,6 +18,10 @@
     "input": { "roomId": "live-ok" },
     "expect": { "minItems": 1, "nonEmpty": ["roomId", "title", "hostName", "online"] }
   },
+  "mix": {
+    "input": { "seed": { "sourceId": "tone-440" } },
+    "expect": { "minItems": 5, "nonEmpty": ["sourceId", "title", "uploader", "durationMs"] }
+  },
   "login": {
     "input": { "cookies": { "fmp_test_session": "fake-session-0000" } },
     "expect": { "minItems": 1, "nonEmpty": ["userId", "displayName"] },

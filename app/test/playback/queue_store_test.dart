@@ -11,6 +11,7 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/domain/loop_mode.dart';
+import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
@@ -1025,6 +1026,284 @@ void main() {
       expect(at(false, 0), Duration.zero);
       expect(at(false, 10), Duration.zero);
       expect(at(true, 120), Duration.zero);
+    });
+  });
+
+  group('a mix', () {
+    MixBatch batch(
+      Iterable<String> ids, {
+      String mixId = 'm1',
+      String title = 'My mix',
+      String? cursor,
+    }) => MixBatch(
+      mixId: mixId,
+      title: title,
+      tracks: [
+        for (final id in ids)
+          TrackSummary(sourceTypeId: 'fmp-test', sourceId: id, title: 'S $id'),
+      ],
+      cursor: cursor,
+    );
+
+    const identity = MixIdentity(
+      pluginId: 'fmp-test',
+      mixId: 'm1',
+      title: 'My mix',
+      cursor: 'c2',
+    );
+
+    /// 開始一個 5 首的 Mix 並寫進資料庫。
+    void startMix(StoreHarness h) {
+      h.plugin.onMix = (query) =>
+          batch(['a', 'b', 'c', 'd', 'e'], cursor: 'c2');
+      unawaited(h.controller.startMix(track('seed')));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+    }
+
+    /// 存檔後「重新啟動」。
+    void restart(StoreHarness h) {
+      h.store.dispose();
+      unawaited(h.controller.dispose());
+      h.settle();
+      h.open();
+    }
+
+    storeTest('is written with its identity and the queue it replaced', (h) {
+      h.controller.addToQueue([track('x'), track('y')]);
+      h.settle();
+
+      startMix(h);
+
+      expect(h.storedQueue.entries.map((t) => t.sourceId), [
+        'a',
+        'b',
+        'c',
+        'd',
+        'e',
+      ]);
+      expect(h.storedPlayer?.currentPosition, 0);
+      expect(h.storedPlayer?.mix, identity);
+    });
+
+    storeTest('stores the songs and the cursor that a refill brings', (h) {
+      startMix(h);
+      h.plugin.onMix = (query) => batch(['e', 'f', 'g'], cursor: 'c3');
+
+      // 第 4 首開始：之後只剩 1 首，補歌。
+      unawaited(h.controller.jumpTo(3));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+
+      expect(h.storedQueue.entries.map((t) => t.sourceId), [
+        'a',
+        'b',
+        'c',
+        'd',
+        'e',
+        'f',
+        'g',
+      ]);
+      expect(h.storedPlayer?.mix?.cursor, 'c3');
+      expect(h.storedPlayer?.mix?.title, 'My mix');
+    });
+
+    storeTest('a mix that has no more is stored without a cursor', (h) {
+      startMix(h);
+      h.plugin.onMix = (query) => batch(['f'], cursor: null);
+
+      unawaited(h.controller.jumpTo(3));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+
+      expect(h.storedPlayer?.mix?.cursor, isNull);
+      expect(h.storedPlayer?.mix?.mixId, 'm1');
+    });
+
+    storeTest('leaving the mix clears the identity', (h) {
+      startMix(h);
+
+      unawaited(h.controller.clear());
+      h.settle();
+      h.flush();
+
+      expect(h.storedPlayer?.mix, isNull);
+      expect(h.storedQueue.entries, isEmpty);
+    });
+
+    storeTest('trimmed and refilled songs are stored as the queue has them', (
+      h,
+    ) {
+      List<String> memory() => [
+        for (final entry in h.controller.queue.entries) entry.track.sourceId,
+      ];
+      List<String> stored() => [
+        for (final track in h.storedQueue.entries) track.sourceId,
+      ];
+      h.plugin.onMix = (query) => switch (query) {
+        MixSeedQuery() => batch([
+          for (var i = 0; i < 103; i++) 's$i',
+        ], cursor: 'c2'),
+        MixContinueQuery() => batch(['x', 'y'], cursor: 'c3'),
+      };
+      unawaited(h.controller.startMix(track('seed')));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+
+      // 第 103 首：前面刪掉 2 首、後面補 2 首，同一次寫入。
+      unawaited(h.controller.jumpTo(102));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+
+      expect(memory().first, 's2');
+      expect(memory().last, 'y');
+      expect(stored(), memory());
+      expect(h.storedPlayer?.currentPosition, 100);
+
+      // 只有前面少一首。
+      unawaited(h.controller.jumpTo(101));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+
+      expect(memory().first, 's3');
+      expect(stored(), memory());
+      expect(h.storedPlayer?.currentPosition, 100);
+
+      restart(h);
+
+      expect(memory().first, 's3');
+      expect(memory(), hasLength(102));
+      expect(h.controller.queue.currentIndex, 100);
+      expect(h.controller.queue.mix?.cursor, 'c3');
+    });
+
+    storeTest('a live room keeps the identity in the database', (h) {
+      startMix(h);
+
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r1', title: 'Room'),
+        ),
+      );
+      h.elapse(const Duration(milliseconds: 500));
+      h.flush();
+
+      expect(h.controller.queue.mode, QueueMode.live);
+      expect(h.storedPlayer?.mix, identity);
+
+      restart(h);
+
+      expect(h.controller.queue.mode, QueueMode.mix);
+      expect(h.controller.queue.mix, identity);
+    });
+
+    storeTest('a temporary play keeps the identity in the database', (h) {
+      startMix(h);
+
+      unawaited(h.controller.playTemporary(track('t')));
+      h.elapse(const Duration(milliseconds: 500));
+      h.flush();
+
+      expect(h.storedPlayer?.mix, identity);
+      expect(h.storedQueue.entries.map((t) => t.sourceId), [
+        'a',
+        'b',
+        'c',
+        'd',
+        'e',
+      ]);
+    });
+
+    storeTest('a restart brings the mix back, idle, with its cursor', (h) {
+      startMix(h);
+      h.plugin.onMix = (query) => batch(['e', 'f'], cursor: 'c3');
+      unawaited(h.controller.jumpTo(3));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+
+      restart(h);
+
+      final queue = h.controller.queue;
+      expect(queue.mode, QueueMode.mix);
+      expect(queue.mix?.mixId, 'm1');
+      expect(queue.mix?.title, 'My mix');
+      expect(queue.mix?.cursor, 'c3');
+      expect(queue.entries, hasLength(6));
+      expect(queue.currentIndex, 3);
+      expect(h.controller.state, isA<Idle>());
+      expect(h.backend.opened, isEmpty);
+    });
+
+    storeTest('a restored mix refills when its next song starts', (h) {
+      startMix(h);
+      restart(h);
+      h.plugin.onMix = (query) {
+        expect(query, isA<MixContinueQuery>());
+        return batch(['f', 'g'], cursor: 'c3');
+      };
+
+      unawaited(h.controller.jumpTo(3));
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.controller.queue.entries, hasLength(7));
+      expect(h.controller.queue.mix?.cursor, 'c3');
+    });
+
+    storeTest('a restored mix without a cursor seeds from the last song', (h) {
+      h.plugin.onMix = (query) => batch(['a', 'b'], cursor: null);
+      unawaited(h.controller.startMix(track('seed')));
+      h.elapse(const Duration(milliseconds: 100));
+      h.flush();
+      restart(h);
+      h.plugin.onMix = (query) {
+        expect((query as MixSeedQuery).sourceId, 'b');
+        return batch(['b', 'x'], mixId: 'm2', title: 'Next', cursor: 'n2');
+      };
+
+      unawaited(h.controller.jumpTo(0));
+      h.elapse(const Duration(milliseconds: 100));
+
+      expect(h.controller.queue.mix?.mixId, 'm2');
+      expect(h.controller.queue.mix?.title, 'Next');
+      expect(h.controller.queue.entries.map((e) => e.track.sourceId), [
+        'a',
+        'b',
+        'x',
+      ]);
+    });
+
+    storeTest('a stored mode of queue, or no mode at all, restores a queue', (
+      h,
+    ) {
+      h.controller.addToQueue([track('a'), track('b')]);
+      h.settle();
+      h.flush();
+      // 舊版的列沒有 Mix 的欄位。
+      h.read(
+        () => h.database.customStatement(
+          'UPDATE player_state SET mode = NULL, mix_plugin_id = NULL, '
+          'mix_id = NULL, mix_title = NULL, mix_cursor = NULL',
+        ),
+      );
+
+      restart(h);
+
+      expect(h.controller.queue.mode, QueueMode.queue);
+      expect(h.controller.queue.mix, isNull);
+      expect(h.controller.queue.entries, hasLength(2));
+    });
+
+    storeTest('a stored mix with a missing field restores a plain queue', (h) {
+      startMix(h);
+      h.read(
+        () =>
+            h.database.customStatement('UPDATE player_state SET mix_id = NULL'),
+      );
+
+      restart(h);
+
+      expect(h.controller.queue.mix, isNull);
+      expect(h.controller.queue.entries, hasLength(5));
     });
   });
 }

@@ -123,6 +123,7 @@ final class QueueStore {
         loopMode: player?.loopMode ?? LoopMode.off,
         shuffle: shuffle,
         shuffleOrder: shuffle ? _orderOf(stored.shuffleRanks) : null,
+        mix: player?.mix,
         position: restoredPosition(
           player?.position ?? Duration.zero,
           rememberPosition: settings.rememberPosition,
@@ -310,6 +311,7 @@ final class QueueStore {
       shuffleEnabled: queue.shuffleEnabled,
       volume: _volume,
       muted: _muted,
+      mix: queue.mix,
     );
 
     final (:prefix, :suffix) = commonEnds(_storedKeys, keys);
