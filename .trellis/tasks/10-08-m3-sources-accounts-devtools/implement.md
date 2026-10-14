@@ -46,7 +46,7 @@
 - **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）、15（#242）已合併；PR 16 拆成 16a（健康檢查，#244 已合併）、16b（插件開發工具，#245 已合併）、16c（以 App 內登入重錄 `requiresLogin` 的案例，要擁有者登入；先做「PR 16b 留下的」第 6 條）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
-- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（Mix，子任務 `archive/2026-10/10-14-m3-mix`）實作、審查與 Android 實機完成；19-plugins（YouTube `mix`）待真實驗證。
+- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（#251、fmp-plugins#11）已合併。PR 20（分 P，子任務 `archive/2026-10/10-14-m3-multi-part`）實作、審查與 Android 實機完成；20-plugins 待 FMP 合併後更新 `FMP_REF`。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -432,10 +432,10 @@
 
 ## 20. B 站分 P（design §4.6、§11.1）
 
-- [ ] 宿主：`TrackSummary.partCount`、`multiPart` 匯出、`checks.json`。
-- [ ] 搜尋結果的展開、分 P 列、影片選單套用全部分 P；佇列、歷史、播放頁的「影片標題 · P2 分 P 標題」。
-- [ ] fmp-plugins：B 站 `partCount`（搜尋回應的 `page`）與 `multiPart`（`/x/player/pagelist`）。
-- [ ] `fmp-test`：一首三個分 P 的曲目。
+- [x] 宿主：`TrackSummary.partCount`、`multiPart` 匯出、`checks.json`；`tracks` 加 `part_index`、`parent_title`（schema v14）。
+- [x] 搜尋結果的展開、分 P 列、影片選單套用全部分 P；佇列、歷史、播放頁的「影片標題 · P2 分 P 標題」（佇列與歷史沒有分組版面，只用標題呈現，見 design §11.1 更正）。
+- [ ] fmp-plugins（20-plugins，另開 PR）：B 站 `partCount`（搜尋回應的 `page`，實際回應已沒有，多半是空）與 `multiPart`（`/x/player/pagelist`）。
+- [x] `fmp-test`：三首分 P 狀況不同的曲目（關鍵字 `parts`，README）。
 - 測試：design §11.1 的閘門。
 - 實測：重播：兩平台以 `fmp-test` 展開、點 P2、選單加入全部分 P。真實（B 站匿名）：一支多 P 影片展開、播 P2。
 - 依賴：M3a 驗收。模型：sonnet（照舊版 `_PageTile`）。
@@ -488,6 +488,14 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 20 留下的
+
+1. **`partCount` 是提示**（主對話決定）：B 站搜尋回應已經沒有每筆的 `page`，所以多半不知道分 P 數；不知道時也顯示展開鈕，取到只有一個分 P 就收起並隱藏，影片選單在不知道時先取分 P（舊版也是用到才取 `pagelist`）。design §11.1 已加更正。
+2. **佇列與歷史不分組**（主對話決定）：佇列是每列各自可拖的固定列高、歷史只有日期標題，沒有群組標題可掛；組合標題「影片標題 · P2 分 P 標題」足以認出同一支影片。真的分組在 M4 歌單詳情（舊版也只有那裡有）。
+3. **M4 匯入要帶分 P 兩欄**（審查發現）：帶 cid 卻沒帶 `partIndex`／`parentTitle` 的 upsert 會照「最後寫入為準」清掉那一 P 的兩欄；M3 沒有這種路徑。
+4. **`MultiPartResult` 不拒收重複的 cid 或 index**（審查記下，沒有 repro，不修）。
+5. **B 站 `multiPart` 的契約案例**用 `BV1YmHx6QEV6`（2026-10 時 9 個分 P，較新的影片，下架就換）；`BV1xx411c79H` 等舊版測試用的 BV 都只有一個分 P。
 
 ### PR 19 留下的
 

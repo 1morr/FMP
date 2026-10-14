@@ -3279,6 +3279,332 @@ i1.GeneratedColumn<String> _column_77(String aliasedName) =>
       type: i1.DriftSqlType.string,
       $customConstraints: 'NULL',
     );
+
+final class Schema14 extends i0.VersionedSchema {
+  Schema14({required super.database}) : super(version: 14);
+  @override
+  late final List<i1.DatabaseSchemaEntity> entities = [
+    appearanceSettings,
+    networkSettings,
+    playbackSettings,
+    installedPlugins,
+    pluginIndexes,
+    pluginStorage,
+    tracks,
+    queueEntries,
+    playerState,
+    playHistory,
+    layoutState,
+    accounts,
+    sourceSettings,
+    developerSettings,
+    schedulerRuns,
+    radioStations,
+    queueEntriesTrackKey,
+    playHistoryPlayedAt,
+    playHistoryTrackKey,
+  ];
+  late final Shape0 appearanceSettings = Shape0(
+    source: i0.VersionedTable(
+      entityName: 'appearance_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_0, _column_1, _column_2],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape17 networkSettings = Shape17(
+    source: i0.VersionedTable(
+      entityName: 'network_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_0, _column_3, _column_66],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape4 playbackSettings = Shape4(
+    source: i0.VersionedTable(
+      entityName: 'playback_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_12,
+        _column_13,
+        _column_14,
+        _column_15,
+        _column_16,
+        _column_17,
+        _column_18,
+        _column_19,
+        _column_20,
+        _column_21,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape15 installedPlugins = Shape15(
+    source: i0.VersionedTable(
+      entityName: 'installed_plugins',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_4,
+        _column_5,
+        _column_6,
+        _column_7,
+        _column_8,
+        _column_45,
+        _column_46,
+        _column_47,
+        _column_63,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape11 pluginIndexes = Shape11(
+    source: i0.VersionedTable(
+      entityName: 'plugin_indexes',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(url)'],
+      columns: [_column_48, _column_49],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape3 pluginStorage = Shape3(
+    source: i0.VersionedTable(
+      entityName: 'plugin_storage',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(plugin_id, "key")'],
+      columns: [_column_9, _column_10, _column_11],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape20 tracks = Shape20(
+    source: i0.VersionedTable(
+      entityName: 'tracks',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(track_key)'],
+      columns: [
+        _column_22,
+        _column_23,
+        _column_24,
+        _column_25,
+        _column_26,
+        _column_27,
+        _column_28,
+        _column_29,
+        _column_30,
+        _column_78,
+        _column_79,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape6 queueEntries = Shape6(
+    source: i0.VersionedTable(
+      entityName: 'queue_entries',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(position)'],
+      columns: [_column_31, _column_32, _column_33],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape19 playerState = Shape19(
+    source: i0.VersionedTable(
+      entityName: 'player_state',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_0,
+        _column_34,
+        _column_35,
+        _column_36,
+        _column_37,
+        _column_38,
+        _column_39,
+        _column_73,
+        _column_74,
+        _column_75,
+        _column_76,
+        _column_77,
+        _column_30,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape8 playHistory = Shape8(
+    source: i0.VersionedTable(
+      entityName: 'play_history',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [],
+      columns: [_column_40, _column_32, _column_41],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape9 layoutState = Shape9(
+    source: i0.VersionedTable(
+      entityName: 'layout_state',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_0, _column_42, _column_43, _column_44],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape12 accounts = Shape12(
+    source: i0.VersionedTable(
+      entityName: 'accounts',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(plugin_id)'],
+      columns: [
+        _column_50,
+        _column_51,
+        _column_52,
+        _column_53,
+        _column_54,
+        _column_55,
+        _column_56,
+        _column_57,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape13 sourceSettings = Shape13(
+    source: i0.VersionedTable(
+      entityName: 'source_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(plugin_id)'],
+      columns: [_column_50, _column_58],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape14 developerSettings = Shape14(
+    source: i0.VersionedTable(
+      entityName: 'developer_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_0, _column_59, _column_60, _column_61, _column_62],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape16 schedulerRuns = Shape16(
+    source: i0.VersionedTable(
+      entityName: 'scheduler_runs',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(job_id)'],
+      columns: [_column_64, _column_65],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape18 radioStations = Shape18(
+    source: i0.VersionedTable(
+      entityName: 'radio_stations',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['UNIQUE(plugin_id, room_id)'],
+      columns: [
+        _column_40,
+        _column_50,
+        _column_67,
+        _column_26,
+        _column_68,
+        _column_29,
+        _column_69,
+        _column_49,
+        _column_70,
+        _column_71,
+        _column_72,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index queueEntriesTrackKey = i1.Index(
+    'queue_entries_track_key',
+    'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
+  );
+  final i1.Index playHistoryPlayedAt = i1.Index(
+    'play_history_played_at',
+    'CREATE INDEX play_history_played_at ON play_history (played_at)',
+  );
+  final i1.Index playHistoryTrackKey = i1.Index(
+    'play_history_track_key',
+    'CREATE INDEX play_history_track_key ON play_history (track_key)',
+  );
+}
+
+class Shape20 extends i0.VersionedTable {
+  Shape20({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get trackKey =>
+      columnsByName['track_key']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get sourceTypeId =>
+      columnsByName['source_type_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get sourceId =>
+      columnsByName['source_id']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get cid =>
+      columnsByName['cid']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get title =>
+      columnsByName['title']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<String> get uploader =>
+      columnsByName['uploader']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get durationMs =>
+      columnsByName['duration_ms']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get artworkJson =>
+      columnsByName['artwork_json']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get updatedAt =>
+      columnsByName['updated_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get partIndex =>
+      columnsByName['part_index']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get parentTitle =>
+      columnsByName['parent_title']! as i1.GeneratedColumn<String>;
+}
+
+i1.GeneratedColumn<int> _column_78(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'part_index',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NULL',
+    );
+i1.GeneratedColumn<String> _column_79(String aliasedName) =>
+    i1.GeneratedColumn<String>(
+      'parent_title',
+      aliasedName,
+      true,
+      type: i1.DriftSqlType.string,
+      $customConstraints: 'NULL',
+    );
 i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
@@ -3292,6 +3618,7 @@ i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema11 schema) from10To11,
   required Future<void> Function(i1.Migrator m, Schema12 schema) from11To12,
   required Future<void> Function(i1.Migrator m, Schema13 schema) from12To13,
+  required Future<void> Function(i1.Migrator m, Schema14 schema) from13To14,
 }) {
   return (currentVersion, database) async {
     switch (currentVersion) {
@@ -3355,6 +3682,11 @@ i0.MigrationStepWithVersion migrationSteps({
         final migrator = i1.Migrator(database, schema);
         await from12To13(migrator, schema);
         return 13;
+      case 13:
+        final schema = Schema14(database: database);
+        final migrator = i1.Migrator(database, schema);
+        await from13To14(migrator, schema);
+        return 14;
       default:
         throw ArgumentError.value('Unknown migration from $currentVersion');
     }
@@ -3374,6 +3706,7 @@ i1.OnUpgrade stepByStep({
   required Future<void> Function(i1.Migrator m, Schema11 schema) from10To11,
   required Future<void> Function(i1.Migrator m, Schema12 schema) from11To12,
   required Future<void> Function(i1.Migrator m, Schema13 schema) from12To13,
+  required Future<void> Function(i1.Migrator m, Schema14 schema) from13To14,
 }) => i0.VersionedSchema.stepByStepHelper(
   step: migrationSteps(
     from1To2: from1To2,
@@ -3388,5 +3721,6 @@ i1.OnUpgrade stepByStep({
     from10To11: from10To11,
     from11To12: from11To12,
     from12To13: from12To13,
+    from13To14: from13To14,
   ),
 );

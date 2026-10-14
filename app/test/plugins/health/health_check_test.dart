@@ -68,6 +68,19 @@ export async function mix({ seed }) {
 }
 ''';
 
+/// multiPart 打 `/parts`：200 回兩個分 P，其他狀態碼一律拋錯。
+const _multiPartScript = '''
+export async function multiPart({ sourceId }) {
+  const response = await fmp.http.request({ url: 'https://example.test/parts', auth: 'userPreference' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return { parts: [1, 2].map((n) => ({ cid: n, title: sourceId + n, index: n })) };
+}
+''';
+
+const _multiPartCheck =
+    '"multiPart": {"input": {"sourceId": "s"}, '
+    '"expect": {"minItems": 2, "nonEmpty": ["cid", "title", "index"]}}';
+
 const _mixCheck =
     '"mix": {"input": {"seed": {"sourceId": "s"}}, '
     '"expect": {"minItems": 2, "nonEmpty": ["sourceId", "title"]}}';
@@ -94,6 +107,7 @@ final class _Spec {
     this.login = false,
     this.live = false,
     this.mix = false,
+    this.multiPart = false,
   });
 
   final String id;
@@ -102,6 +116,7 @@ final class _Spec {
   final bool login;
   final bool live;
   final bool mix;
+  final bool multiPart;
 }
 
 Future<
@@ -126,12 +141,14 @@ _setup(
         manifestJson: jsonEncode({'id': spec.id, 'name': 'Plugin ${spec.id}'}),
         script: pluginSource(
           '$_script${spec.login ? _loginScript : ''}'
-          '${spec.live ? _liveScript : ''}${spec.mix ? _mixScript : ''}',
+          '${spec.live ? _liveScript : ''}${spec.mix ? _mixScript : ''}'
+          '${spec.multiPart ? _multiPartScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
             if (spec.live) 'live',
             if (spec.mix) 'mix',
+            if (spec.multiPart) 'multiPart',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -287,6 +304,44 @@ void main() {
         [mix],
         handler: (options) =>
             reply(options.uri.path == '/mix' ? 500 : 200, body: '{}'),
+      );
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.last.outcome, HealthOutcome.failed);
+    });
+  });
+
+  group('a multiPart case', () {
+    final multiPart = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_multiPartCheck}',
+      multiPart: true,
+    );
+
+    test('fetches the parts and passes', () async {
+      final s = await _setup([multiPart]);
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(s.requests.where((r) => r.startsWith('/parts')), hasLength(1));
+    });
+
+    test('fails when the parts request fails', () async {
+      final s = await _setup(
+        [multiPart],
+        handler: (options) =>
+            reply(options.uri.path == '/parts' ? 500 : 200, body: '{}'),
       );
       await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
       final cases = s.container

@@ -139,6 +139,8 @@ export interface TrackSummary {
   /** 非負整數毫秒。 */
   durationMs?: number | null;
   artwork?: Artwork[] | null;
+  /** 搜尋結果知道的分 P 數（正整數），只是提示：沒有是不知道（宿主仍顯示展開鈕），1 是確定單 P。沒宣告 multiPart 能力時宿主不看它。 */
+  partCount?: number | null;
 }
 
 export interface Artwork {
@@ -296,6 +298,27 @@ export interface MixBatch {
   cursor?: string | null;
 }
 
+/** multiPart 的輸入。 */
+export interface MultiPartQuery {
+  sourceId: string;
+}
+
+/** multiPart 的回傳值：這支影片的所有分 P，至少一個。每個分 P 是一首曲目（曲目鍵含 cid）。 */
+export interface MultiPartResult {
+  parts: MultiPartItem[];
+}
+
+export interface MultiPartItem {
+  /** 分 P 的 cid（非負整數）。 */
+  cid: number;
+  /** 分 P 的標題；宿主顯示成「影片標題 · P2 分 P 標題」。 */
+  title: string;
+  /** 非負整數毫秒。 */
+  durationMs?: number | null;
+  /** 從 1 起。 */
+  index: number;
+}
+
 // ---------------------------------------------------------------- 宿主 API
 
 export interface HttpRequest {
@@ -437,6 +460,8 @@ export interface FmpPluginExports {
    * 匯出名稱。請求的 auth 由插件決定。
    */
   mix?(query: MixSeedQuery | MixContinueQuery): MixBatch | Promise<MixBatch>;
+  /** 'multiPart' 能力：一支影片的分 P。能力名稱就是匯出名稱。 */
+  multiPart?(query: MultiPartQuery): MultiPartResult | Promise<MultiPartResult>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -470,12 +495,13 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這五個。 */
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這六個。 */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
   live?: FmpLiveCheck | null;
   mix?: FmpMixCheck | null;
+  multiPart?: FmpMultiPartCheck | null;
   login?: FmpLoginCheck | null;
 }
 
@@ -488,6 +514,12 @@ export interface FmpLiveCheck {
 /** mix 的案例以 seed 開始一個 Mix；成功時回傳的 tracks 是檢查的清單，nonEmpty 的名稱同 TrackSummary。 */
 export interface FmpMixCheck {
   input: MixSeedQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+}
+
+/** multiPart 的案例；成功時回傳的 parts 是檢查的清單，nonEmpty 的名稱是 cid、title、durationMs、index。 */
+export interface FmpMultiPartCheck {
+  input: MultiPartQuery;
   expect: FmpExpectSuccess | FmpExpectError;
 }
 

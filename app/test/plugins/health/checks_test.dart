@@ -120,6 +120,63 @@ void main() {
     }
   });
 
+  group('the multiPart check', () {
+    const input = '{"sourceId": "a"}';
+
+    test('fetches the parts of a video and reads them as items', () {
+      final check = parseChecks(
+        _check(
+          'multiPart',
+          input,
+          '{"minItems": 2, "nonEmpty": ["cid", "title", "durationMs"]}',
+        ),
+      ).single;
+
+      expect(check.capability, PluginCapability.multiPart);
+      expect(check.input, isA<MultiPartQuery>());
+      expect((check.input as MultiPartQuery).sourceId, 'a');
+      expect(check.requiresLogin, isFalse);
+      const result = MultiPartResult(
+        parts: [MultiPart(cid: 1, title: 'P1', index: 1)],
+      );
+      expect(check.expectation.evaluate(result: result, describe: (_) => ''), [
+        'expected at least 2 items, got 1',
+        'item 0: "durationMs" is empty',
+      ]);
+    });
+
+    for (final (name, text, message) in [
+      (
+        'an empty source id',
+        _check('multiPart', '{"sourceId": " "}', '{}'),
+        'checks.multiPart.input: must not be empty',
+      ),
+      (
+        'an unknown input field',
+        _check('multiPart', '{"sourceId": "a", "cid": 1}', '{}'),
+        'unknown field "cid"',
+      ),
+      (
+        'a field MultiPartItem does not have',
+        _check('multiPart', input, '{"nonEmpty": ["uploader"]}'),
+        'MultiPartItem has no field "uploader"',
+      ),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+  });
+
   group('the mix check', () {
     const input = '{"seed": {"sourceId": "a", "cid": 2}}';
 

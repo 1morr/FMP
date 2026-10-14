@@ -295,7 +295,11 @@ class _HistoryTile extends ConsumerWidget {
           artwork: track.artwork,
           size: AppLayout.artworkThumbnail,
         ),
-        title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(
+          track.displayTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
           uploader == null ? time : t.subtitle(artist: uploader, time: time),
           maxLines: 1,

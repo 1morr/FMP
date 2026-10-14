@@ -707,7 +707,7 @@ class _Transport extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            track.title,
+            track.displayTitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleLarge,

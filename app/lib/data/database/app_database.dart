@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -140,6 +140,11 @@ class AppDatabase extends _$AppDatabase {
                 schema.playerState,
                 schema.playerState.mixCursor,
               );
+            },
+            from13To14: (m, schema) async {
+              // 既有的曲目都不是分 P：兩欄是空的。
+              await m.addColumn(schema.tracks, schema.tracks.partIndex);
+              await m.addColumn(schema.tracks, schema.tracks.parentTitle);
             },
           ),
         );

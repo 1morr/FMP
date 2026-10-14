@@ -42,6 +42,9 @@ abstract interface class SourcePlugin {
   /// （[MixContinueQuery]，ADR 0028 §決定 4）。
   Future<MixBatch> mix(MixQuery query);
 
+  /// [PluginCapability.multiPart]：一支影片的分 P（ADR 0028 §決定 5）。
+  Future<MultiPartResult> multiPart(MultiPartQuery query);
+
   /// [PluginCapability.login] 的 QR 登入（methods 含 `qr`）：產生一個 QR 碼。
   Future<LoginQrCode> loginQrStart();
 

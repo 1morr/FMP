@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
-        '"capabilities": ["search", "live", "mix", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "live", "mix", "multiPart", "login"]',
       );
 
       expect(
@@ -399,8 +399,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
-        '"capabilities": ["search", "resolveStream", "mix", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "login"]',
       );
 
       expect(
@@ -414,8 +414,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "multiPart", "login"]',
       );
 
       expect(
@@ -423,6 +423,44 @@ void main() {
         contains('checks.json: mix is not a declared capability'),
       );
     });
+
+    test('a multiPart check for a plugin without the capability', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "login"]',
+      );
+
+      expect(
+        await runContract(directory),
+        contains('checks.json: multiPart is not a declared capability'),
+      );
+    });
+
+    test(
+      'a multiPart check that expects more parts than the video has',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(directory, _checks, '"minItems": 3', '"minItems": 4');
+
+        expect(
+          await runContract(directory),
+          contains(contains('expected at least 4 items, got 3')),
+        );
+      },
+    );
+
+    test(
+      'a multiPart check that renames an unrelated thing stays green',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(directory, 'test_plugin.js', "'Part two'", "'Second part'");
+
+        expect(await runContract(directory), isEmpty);
+      },
+    );
 
     test('a mix check that expects more tracks than the batch has', () async {
       final directory = copyPlugin('test_plugin');

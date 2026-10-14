@@ -16,6 +16,8 @@ final class TrackInfo {
     this.uploader,
     this.duration,
     this.artwork = const [],
+    this.partIndex,
+    this.parentTitle,
   });
 
   /// 曲目鍵的三段（`TrackKey.format`）：音源（插件 id）、音源內的 id、分 P 的 cid。
@@ -30,6 +32,23 @@ final class TrackInfo {
   /// 多尺寸封面（ADR 0016 §決定 4）。
   final List<TrackArtwork> artwork;
 
+  /// 分 P 曲目才有（M3 design §11.1）：分 P 的序號（從 1 起）與影片標題；[title] 是
+  /// 分 P 的標題。顯示用 [displayTitle]。
+  final int? partIndex;
+  final String? parentTitle;
+
+  /// 分 P 的標籤「P2 分 P 標題」；不是分 P 曲目時是 [title]。
+  String get partLabel => switch (partIndex) {
+    final index? => 'P$index $title',
+    null => title,
+  };
+
+  /// 顯示用的標題：分 P 曲目是「影片標題 · P2 分 P 標題」，其他是 [title]。
+  String get displayTitle => switch (parentTitle) {
+    final parent? when partIndex != null => '$parent · $partLabel',
+    _ => title,
+  };
+
   TrackKeyParts get key =>
       TrackKeyParts(sourceTypeId: sourceTypeId, sourceId: sourceId, cid: cid);
 
@@ -43,7 +62,9 @@ final class TrackInfo {
           other.title == title &&
           other.uploader == uploader &&
           other.duration == duration &&
-          listEquals(other.artwork, artwork);
+          listEquals(other.artwork, artwork) &&
+          other.partIndex == partIndex &&
+          other.parentTitle == parentTitle;
 
   @override
   int get hashCode => Object.hash(
@@ -54,6 +75,8 @@ final class TrackInfo {
     uploader,
     duration,
     Object.hashAll(artwork),
+    partIndex,
+    parentTitle,
   );
 }
 

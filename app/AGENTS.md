@@ -395,6 +395,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `migration from v12 to v13 keeps the stored queue state`（舊列的值原樣、新欄位是空）與 `migration from v$from to v13 adds the
   mix columns`（每個舊版升級、全新建的資料庫各一例）、`queue_store_test.dart` 的 `a mix` 群組
   （`a stored mode of queue, or no mode at all…`、`a stored mix with a missing field…`）。
+- `tracks` 的分 P 兩欄是 schema v14（M3 PR 20）：`part_index`（分 P 的序號，從 1 起）與 `parent_title`（影片標題），都可空，
+  只有分 P 曲目有值；分 P 曲目的 `title` 是分 P 的標題，顯示用 `TrackInfo.displayTitle`（兩欄都有時是「影片標題 · P2 分 P 標題」，
+  否則是 `title`）。搜尋結果的 `partCount` 只在記憶體，不存。曲目鍵照舊含 cid（ADR 0005），所以每個分 P 是一列。M5 匯入時舊的
+  `pageNum` 對應 `part_index`、`parentTitle` 對應 `parent_title`。閘門：`migration_test.dart` 的 `migration from v13 to v14 keeps the
+  stored tracks`（舊列原樣、新欄位是空）與 `migration from v$from to v14 adds the part columns`（每個舊版升級、全新建的資料庫各一例）、
+  `queue_repository_test.dart` 的 `stored format`（欄位名與值）與 `reads back the queue…`（含分 P 曲目）、`play_history_repository_test.dart` 的
+  `a part keeps its index and the video title`、`queue_store_test.dart` 的 `brings back a multi-part track…`。
 - `play_history` 是 schema v5（design §3.2、§7.8）：一次播放一列（`id` 自增、`track_key` 外鍵 `tracks`
   `ON DELETE RESTRICT`、`played_at` UTC epoch 毫秒），同一首聽兩次是兩列。孤兒的定義是「沒有被佇列也沒有被
   播放歷史參照」：`TracksRepository.deleteOrphans` 與啟動維護的 `orphan-tracks` 都排除歷史參照的曲目；清除歷史
@@ -911,6 +918,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   去重是宿主做的（`QueueModel.extendMix`，見 § 播放），插件不必管佇列裡有什麼。閘門：`mix_capability_test.dart`（匯出與能力一致、
   兩種輸入的 JSON、回傳值驗證、`fmp-test` 的三批）、`type_definitions_test.dart` 的 `the mix export is named after the capability…`、
   `the cursor of a mix batch is optional…`（兩個都含變異）。
+- `multiPart`（ADR 0028 §決定 5，M3 PR 20）：匯出就叫 `multiPart`（和能力同名），輸入 `{sourceId}`，回傳 `{parts: [{cid, title, durationMs?,
+  index}]}`（至少一個，`index` 從 1 起，不認得的欄位拒收）；`TrackSummary` 加選填 `partCount`（正整數）。**`partCount` 只是提示**：空是不知道
+  （B 站的搜尋回應沒有，所以多半是空），1 是確定單 P。每個分 P 是一首曲目（`MultiPart.toTrackInfo(video)`：`sourceId` 是影片的、`cid`、
+  `title`、時長用分 P 的，上傳者與封面沿用影片，`part_index` 與 `parent_title` 見 § 資料層）。請求怎麼標 `auth` 由插件決定。閘門：
+  `multi_part_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證、`partCount` 的讀取、由分 P 建出的曲目、`fmp-test` 的三種狀況）、
+  `type_definitions_test.dart` 的 `the multiPart export is named after the capability…`、`partCount and the part fields match…`（含變異）。
+- `checks.json` 的 `multiPart` 案例取一支影片的分 P，檢查的清單是回傳的 `parts`（`nonEmpty` 的名稱是 `cid`、`title`、`durationMs`、`index`）；
+  重播照跑、命令列錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the multiPart check`、`contract_runner_test.dart` 的 `a multiPart check…`、
+  `health_check_test.dart` 的 `a multiPart case`、`dev_case_runs_test.dart` 的 `a multiPart case…`。
 - `checks.json` 的 `mix` 案例以 `seed` 開始一個 Mix，檢查的清單是回傳的 `tracks`（`nonEmpty` 的名稱同 `TrackSummary`）；重播照跑、命令列
   錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the mix check`、`contract_runner_test.dart` 的 `a mix check…`、`health_check_test.dart`
   的 `a mix case`、`dev_case_runs_test.dart` 的 `a mix case…`。
@@ -2085,6 +2101,21 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 佇列分頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
   閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、佇列標題兩種寬度、佇列列選單）、
   `history_page_test.dart` 的 `the Mix items of the menu`、`guidelines_test.dart` 的 `the queue of a mix`（寬 400／1000、淺色與深色）。
+- 分 P 的介面（M3 PR 20，design §11.1、契約見 § 插件的 `multiPart`；狀態在 `lib/ui/search/video_parts.dart`）：
+  - 搜尋結果的影片列尾有展開鈕：**插件宣告 `multiPart`，且 `partCount` 空或大於 1，且還沒取到「只有一個分 P」**
+    （`showsExpandButton`）。展開才呼叫 `multiPart`，取過的存在記憶體（`videoPartsProvider`，鍵是 `TrackKey.formatGroup`），不再取；取到的只有一個分 P
+    就自動收起、鈕不再顯示，不報錯。取不到時列下面多一列「無法載入分 P」與重試，同時以 `Toaster.error` 顯示。載入中鈕換成帶語意名稱的轉圈。
+    新的搜尋（`SearchNotifier.search`，含換音源、換模式後的重搜）一開始就收起所有影片（`VideoParts.collapseAll`），取過的分 P 留著。
+  - 展開後每個分 P 是縮排的一列（「P2 分 P 標題」、時長、「⋯」），一首獨立的曲目：點一下臨時播放，選單照曲目列。點影片本身照舊臨時播放，不帶 cid。
+  - 影片選單的「下一首播放」「加入佇列」：顯示展開鈕的條件成立時（含 `partCount` 空）先取分 P，**多於一個就全部放進去，否則只放影片本身**；取不到時
+    以統一提示顯示、什麼都不加。`partCount` 為 1 或插件沒宣告 `multiPart` 時不取。
+  - 播放列、播放頁、右側面板、佇列、播放歷史、系統媒體控制與「已跳過」提示都顯示 `TrackInfo.displayTitle`。**佇列與歷史沒有依影片分組的版面**：
+    佇列是固定列高、每列各自拖曳排序的清單，歷史只有日期標題；分 P 靠標題「影片標題 · P2 分 P 標題」認出是同一支影片，沒有群組標題（`TrackKey.formatGroup`
+    目前只用在這裡的展開狀態鍵）。要分組得新設計版面，另開。
+  閘門：`test/ui/search/search_parts_test.dart`（展開鈕的四種條件、展開呼叫 `multiPart` 且不重取、新的搜尋收起且不重取、點分 P 臨時播放、單一分 P 收起、
+  失敗與重試、載入中轉圈、影片選單的全部分 P／未知數量取一個／已知單 P 不取／無能力不取／取不到不加、Mix 中影片與分 P 的兩項都停用）、
+  `test/ui/tracks/part_display_test.dart`（播放列、播放頁、佇列、歷史、「已跳過」提示）、`now_playing_publisher_test.dart` 的 `a part pushes the video title…`、
+  `guidelines_test.dart` 的 `search results with the parts expanded／failed`、`the queue with multi-part tracks`（寬 400／1000、淺色與深色）。
 - 直播時的快捷鍵：空白鍵照常（控制器的 `pause` 就是停止串流）；上一首、下一首、Shift+←／→、Ctrl+S、Ctrl+R 在
   `PlaybackShortcuts` 的 `_QueueAction` **接下按鍵、什麼都不做**——不是停用：停用會讓按鍵往上傳，App 根的預設快捷鍵把
   Ctrl+方向鍵當成捲動，去捲頁面的清單（debug 下 `PrimaryScrollController` 有多個位置時是 assertion）。閘門：

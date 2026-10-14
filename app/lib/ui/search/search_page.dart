@@ -8,6 +8,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
@@ -20,6 +21,7 @@ import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/search/source_chips.dart';
+import 'package:fmp/ui/search/video_parts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -298,7 +300,10 @@ class _ResultList extends ConsumerWidget {
         if (index < count) {
           return rooms
               ? _RoomTile(hit: state.rooms[index])
-              : _TrackTile(track: state.items[index].toTrackInfo());
+              : _TrackTile(
+                  track: state.items[index].toTrackInfo(),
+                  partCount: state.items[index].partCount,
+                );
         }
         return Padding(
           padding: EdgeInsets.all(spacing.x2),
@@ -319,10 +324,18 @@ class _ResultList extends ConsumerWidget {
 
 /// 一首搜尋結果：封面、曲名、上傳者、時長、「⋯」。點一下臨時播放；選單在
 /// 右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]）。
+///
+/// 分 P（design §11.1）：插件宣告 `multiPart` 時，列尾多一個展開鈕（[partCount] 是
+/// 提示：空是不知道，照樣顯示；1 是確定單 P，不顯示），展開時列出分 P，每個分 P 是
+/// 一首曲目（[_PartTile]）。選單的「下一首播放」「加入佇列」在有多個分 P 時套用到
+/// 全部（還沒取過就先取）。點影片本身照舊臨時播放：不帶 cid，插件取第一 P。
 class _TrackTile extends ConsumerWidget {
-  const _TrackTile({required this.track});
+  const _TrackTile({required this.track, required this.partCount});
 
   final TrackInfo track;
+
+  /// 搜尋結果知道的分 P 數；空是不知道。
+  final int? partCount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -332,6 +345,189 @@ class _TrackTile extends ConsumerWidget {
 
     final inMix = ref.watch(inMixProvider);
     final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
+    final plugin = ref.watch(
+      pluginRegistryProvider.select(
+        (plugins) => plugins.value?[track.sourceTypeId],
+      ),
+    );
+    final entry = ref.watch(
+      videoPartsProvider.select(
+        (entries) =>
+            entries[VideoParts.keyOf(track.sourceTypeId, track.sourceId)],
+      ),
+    );
+    final expandable = showsExpandButton(
+      plugin: plugin,
+      partCount: partCount,
+      entry: entry,
+    );
+    final expanded = expandable && (entry?.expanded ?? false);
+
+    void play() =>
+        unawaited(ref.read(playbackControllerProvider).playTemporary(track));
+
+    // 加入佇列、下一首播放要放的曲目：有多個分 P 時是全部分 P，否則就是影片本身。
+    // 取分 P 失敗時以統一提示顯示，什麼都不加。
+    Future<void> addWith({required bool next, required String added}) async {
+      final controller = ref.read(playbackControllerProvider);
+      final toaster = ref.read(toasterProvider);
+      final parts = ref.read(videoPartsProvider.notifier);
+      var tracks = [track];
+      if (expandable) {
+        try {
+          final loaded = await parts.load(plugin!, track.sourceId);
+          if (loaded.length > 1) {
+            tracks = [for (final part in loaded) part.toTrackInfo(track)];
+          }
+        } on AppError catch (error) {
+          toaster.error(
+            error,
+            operation: 'Failed to load the parts',
+            tag: 'search',
+          );
+          return;
+        }
+      }
+      if (next ? controller.playNext(tracks) : controller.addToQueue(tracks)) {
+        toaster.success(added);
+      }
+    }
+
+    Future<void> toggleParts() async {
+      final toaster = ref.read(toasterProvider);
+      final error = await ref
+          .read(videoPartsProvider.notifier)
+          .toggle(plugin!, track.sourceId);
+      if (error != null) {
+        toaster.error(
+          error,
+          operation: 'Failed to load the parts',
+          tag: 'search',
+        );
+      }
+    }
+
+    final tile = TrackRowMenu(
+      moreTooltip: t.more,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.play_arrow),
+          onPressed: play,
+          child: Text(t.play),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.queue_play_next),
+          onPressed: inMix
+              ? null
+              : () => unawaited(addWith(next: true, added: t.addedToNext)),
+          child: Text(inMix ? t.playNextInMix : t.playNext),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.add_to_queue),
+          onPressed: inMix
+              ? null
+              : () => unawaited(addWith(next: false, added: t.addedToQueue)),
+          child: Text(inMix ? t.addToQueueInMix : t.addToQueue),
+        ),
+        if (canMix)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.auto_awesome),
+            onPressed: () => unawaited(startMixFrom(ref, track)),
+            child: Text(t.startMix),
+          ),
+      ],
+      builder: (context, more, openMenu) => ListTile(
+        leading: ArtworkImage(
+          pluginId: track.sourceTypeId,
+          artwork: track.artwork,
+          size: AppLayout.artworkThumbnail,
+        ),
+        title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: uploader == null
+            ? null
+            : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (duration != null) Text(formatDuration(duration)),
+            if (expandable)
+              entry?.phase == PartsPhase.loading
+                  ? _PartsSpinner(label: t.loadingParts)
+                  : IconButton(
+                      tooltip: expanded ? t.hideParts : t.showParts,
+                      icon: Icon(
+                        expanded ? Icons.expand_less : Icons.expand_more,
+                      ),
+                      onPressed: () => unawaited(toggleParts()),
+                    ),
+            more,
+          ],
+        ),
+        onTap: play,
+        onLongPress: openMenu,
+      ),
+    );
+    if (!expanded || entry == null) return tile;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        tile,
+        if (entry.phase == PartsPhase.failed)
+          ListTile(
+            leading: const Icon(Icons.error_outline),
+            title: Text(t.partsFailed),
+            trailing: TextButton(
+              onPressed: () => unawaited(toggleParts()),
+              child: Text(t.retry),
+            ),
+          ),
+        for (final part in entry.parts)
+          _PartTile(
+            track: part.toTrackInfo(track),
+            canMix: canMix,
+            inMix: inMix,
+          ),
+      ],
+    );
+  }
+}
+
+/// 載入分 P 時取代展開鈕的轉圈（和鈕同大，列不會跳動）。
+class _PartsSpinner extends StatelessWidget {
+  const _PartsSpinner({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: kMinInteractiveDimension,
+    child: Center(
+      child: SizedBox.square(
+        dimension: AppLayout.partsSpinner,
+        child: CircularProgressIndicator(strokeWidth: 2, semanticsLabel: label),
+      ),
+    ),
+  );
+}
+
+/// 展開後的一個分 P（一首曲目）：「P2 分 P 標題」、時長、「⋯」。縮排在影片列之下；
+/// 點一下臨時播放，選單照曲目列。
+class _PartTile extends ConsumerWidget {
+  const _PartTile({
+    required this.track,
+    required this.canMix,
+    required this.inMix,
+  });
+
+  final TrackInfo track;
+  final bool canMix;
+  final bool inMix;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).search;
+    final spacing = AppTokens.of(context).spacing;
+    final duration = track.duration;
 
     void play() =>
         unawaited(ref.read(playbackControllerProvider).playTemporary(track));
@@ -374,15 +570,16 @@ class _TrackTile extends ConsumerWidget {
           ),
       ],
       builder: (context, more, openMenu) => ListTile(
-        leading: ArtworkImage(
-          pluginId: track.sourceTypeId,
-          artwork: track.artwork,
-          size: AppLayout.artworkThumbnail,
+        contentPadding: EdgeInsetsDirectional.only(
+          start: AppLayout.artworkThumbnail + spacing.x4,
+          end: spacing.x4,
         ),
-        title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: uploader == null
-            ? null
-            : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+        dense: true,
+        title: Text(
+          track.partLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

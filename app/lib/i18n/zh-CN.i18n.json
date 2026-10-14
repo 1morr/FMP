@@ -46,7 +46,11 @@
     "filterLive": "开播中",
     "filterOffline": "未开播",
     "listen": "收听",
-    "addToRadio": "添加到电台"
+    "addToRadio": "添加到电台",
+    "showParts": "展开分P",
+    "hideParts": "收起分P",
+    "loadingParts": "正在载入分P",
+    "partsFailed": "无法载入分P"
   },
   "history": {
     "title": "播放历史",

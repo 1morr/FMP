@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`、`live`、`mix`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`live`、`mix`、`multiPart`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -69,6 +69,15 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 
   每首開始時之後只剩 1 首以下就補，所以佇列的第 4 首開始時補第二批（佇列 9 首）、第 8 首開始時補第三批（佇列 14 首）、
   第 13 首開始時換種子（`cursor` 已空，以佇列最後一首開新的一批）。其他 `cursor` 以 `NotFound` 失敗。
+- 分 P（`multiPart`，不連網，給搜尋結果的展開與影片選單的實機驗證）：搜尋關鍵字剛好是 `parts` 時，
+  三首是三種狀況；其他關鍵字的曲目都帶 `partCount: 1`（確定單 P，不顯示展開鈕）。每個分 P 的曲目鍵
+  含 cid，串流都是 `tone.wav`，標題是 `Part one`、`Part two`、`Part three`，各 2 秒：
+
+  | sourceId | 搜尋結果的 `partCount` | `multiPart` | 用途 |
+  |---|---|---|---|
+  | `parts-220` | 3 | 三個分 P（cid 22001–22003） | 展開、點 P2 播放、選單加入全部 |
+  | `parts-440` | 沒有 | 兩個分 P（cid 44001、44002） | 不知道分 P 數：展開鈕照顯示，選單先取分 P 再套用到全部 |
+  | `parts-880` | 沒有 | 一個分 P | 展開後鈕消失；選單照單曲處理 |
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -92,7 +101,7 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

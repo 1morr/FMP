@@ -227,6 +227,30 @@ void main() {
     expect(shown.value, contains('Test mix track 5'));
   });
 
+  test('a multiPart case fetches the parts and shows them', () async {
+    plugin('test_plugin');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.multiPart);
+
+    final shown = result(container, 'fmp-test', PluginCapability.multiPart)!;
+    expect(shown.outcome, DevCaseOutcome.passed, reason: '${shown.problems}');
+    expect(shown.value, contains('Part one'));
+    expect(shown.value, contains('Part three'));
+  });
+
+  test('a multiPart case that expects too many parts fails', () async {
+    final directory = plugin('test_plugin');
+    contract.edit(directory, 'checks.json', '"minItems": 3', '"minItems": 4');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.multiPart);
+
+    final shown = result(container, 'fmp-test', PluginCapability.multiPart)!;
+    expect(shown.outcome, DevCaseOutcome.failed);
+    expect(shown.problems.join(), contains('expected at least 4 items'));
+  });
+
   test('a mix case that expects too many tracks fails', () async {
     final directory = plugin('test_plugin');
     contract.edit(directory, 'checks.json', '"minItems": 5', '"minItems": 6');

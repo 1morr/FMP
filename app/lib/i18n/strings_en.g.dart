@@ -219,6 +219,14 @@ class Translations$search$en extends Translations$search$zh_TW {
   String get listen => 'Listen';
   @override
   String get addToRadio => 'Add to Radio';
+  @override
+  String get showParts => 'Show parts';
+  @override
+  String get hideParts => 'Hide parts';
+  @override
+  String get loadingParts => 'Loading parts';
+  @override
+  String get partsFailed => 'Couldn’t load the parts';
 }
 
 // Path: history

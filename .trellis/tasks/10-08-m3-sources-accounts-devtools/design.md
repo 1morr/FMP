@@ -191,6 +191,7 @@ lib/
 | `scheduler_runs` | `job_id` text 主鍵、`last_success_at` int | 排程器的上次成功時間（ADR 0017 §決定 2） | 17 |
 | `radio_stations` | `id` int 自增主鍵、`plugin_id` text、`room_id` text、`title` text、`host_name` text?、`artwork_json` text?、`sort_order` int、`added_at` int、`live_status` text?（`live`／`offline`）、`live_title` text?、`status_checked_at` int?；唯一（`plugin_id`、`room_id`） | 電台清單（§9.1）。最後一次查到的直播狀態也存這裡，啟動時先顯示（ADR 0017 §決定 3「先顯示快取」） | 18 |
 | `network_settings`（既有） | 加 `radio_status_interval_minutes` int? | 電台狀態刷新間隔（§8.4） | 18 |
+| `tracks`（既有） | 加 `part_index` int?（分 P 的序號，從 1 起）、`parent_title` text?（影片標題） | 更正（M3 PR 20）：分 P 曲目的顯示資料；`title` 是分 P 的標題，顯示「影片標題 · P2 分 P 標題」；搜尋結果的 `partCount` 不存；M5 匯入時舊的 `pageNum` → `part_index`、`parentTitle` → `parent_title` | 20 |
 | `player_state`（既有） | 加 `mode` text?（空或 `queue`／`mix`）、`mix_plugin_id` text?、`mix_id` text?、`mix_title` text?、`mix_cursor` text? | ADR 0018 §決定 10 的「模式」「Mix 身分」（M2 design §7.7 留給 M3）。`temporary`、`live` 不持久化（§9.4、§10） | 19 |
 
 更正（M3 PR 16b）：`installed_plugins` 另加 `from_dev_folder` bool（預設假，插件開發工具補的列，插件開發 design §3.4），schema v10。
@@ -662,6 +663,8 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 
 ### 11.1 B 站分 P（§8.5，ADR 0028）
 
+- 更正（M3 PR 20）：`partCount` 是提示——B 站的搜尋回應已經沒有 `page`，所以多半是空。展開鈕在插件宣告 `multiPart` 且 `partCount` 空或大於 1 時顯示（1 才隱藏）；展開取回只有一個分 P 就收起並不再顯示鈕；影片選單在 `partCount` 空時也先取分 P，多於一個才套用到全部，否則照單曲處理。
+- 更正（M3 PR 20）：佇列與歷史沒有依影片分組的版面（固定列高的可拖曳清單、只有日期標題），分 P 以標題「影片標題 · P2 分 P 標題」呈現；群組標題另開。
 - 搜尋結果列：插件宣告 `multiPart` 且 `partCount > 1` 時，尾端有展開鈕（舊版 `_PageTile`）。展開時呼叫 `multiPart`，列出分 P（「P2 分 P 標題」、時長）；每個分 P 是一首曲目，點一下臨時播放、選單照曲目列。
 - 點影片本身：臨時播放第一個分 P（舊版先播原曲目再載入分 P；新版 `TrackSummary` 不帶 cid 時插件 `resolveStream` 本來就取第一 P，行為相同）。
 - 影片的選單（加入佇列、下一首播放）：分 P 數 > 1 時套用到全部分 P（舊版：有多個分 P 時動作套用到全部）。

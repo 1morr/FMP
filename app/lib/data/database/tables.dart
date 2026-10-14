@@ -169,6 +169,10 @@ class TracksTable extends Table {
   /// 最後一次 upsert。
   late final updatedAt = integer().map(const EpochMillisecondsConverter())();
 
+  /// 分 P 曲目才有：分 P 的序號（從 1 起）與影片標題（M3 design §3.1、§11.1）。
+  late final partIndex = integer().nullable()();
+  late final parentTitle = text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {trackKey};
 }

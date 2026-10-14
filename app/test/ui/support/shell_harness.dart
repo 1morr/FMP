@@ -62,6 +62,7 @@ TrackSummary summary(
   String id, {
   Duration? duration,
   List<Artwork> artwork = const [],
+  int? partCount,
 }) => TrackSummary(
   sourceTypeId: 'fmp-test',
   sourceId: id,
@@ -69,6 +70,7 @@ TrackSummary summary(
   uploader: 'Uploader $id',
   duration: duration ?? const Duration(minutes: 3, seconds: 5),
   artwork: artwork,
+  partCount: partCount,
 );
 
 /// 外殼與頁面的測試環境：可以搜尋、可以解析的假插件，假後端上的真
@@ -96,6 +98,7 @@ final class ShellHarness {
     this.registryOfSources = false,
     bool live = false,
     bool mix = false,
+    bool multiPart = false,
     this.secureStorage = false,
     this.restartsItself = false,
     this.dataReset,
@@ -114,6 +117,7 @@ final class ShellHarness {
          name: 'Test Source',
          live: live,
          mix: mix,
+         multiPart: multiPart,
          onSearch:
              onSearch ??
              (query) => SearchPage(

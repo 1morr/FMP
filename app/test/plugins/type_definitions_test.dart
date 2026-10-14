@@ -246,6 +246,35 @@ export function shape() {
     expect(mutated.contains(PluginCapability.mix.wireName), isFalse);
   });
 
+  test('the multiPart export is named after the capability in the d.ts', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    expect(exports.contains(PluginCapability.multiPart.wireName), isTrue);
+    // 變異：d.ts 少了 multiPart 匯出就對不上。
+    final mutated = _interfaces(
+      _dts.replaceFirst('  multiPart?(', '  multiPartRenamed?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(mutated.contains(PluginCapability.multiPart.wireName), isFalse);
+  });
+
+  test('partCount and the part fields match between the d.ts and Dart', () {
+    expect(sourceDtoShapes['TrackSummary']!['partCount'], isFalse);
+    expect(_interfaces(_dts)['TrackSummary']!['partCount'], isFalse);
+    expect(sourceDtoShapes['MultiPartItem']!['durationMs'], isFalse);
+    expect(_interfaces(_dts)['MultiPartItem']!['index'], isTrue);
+    // 變異：d.ts 把 partCount 改成必填、或少了分 P 的 index，欄位表比對就紅。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst('  partCount?: number', '  partCount: number'),
+      ),
+      isNotEmpty,
+    );
+    expect(
+      _shapeDifferences(_dts.replaceFirst('  index: number;\n', '')),
+      isNotEmpty,
+    );
+  });
+
   test('the cursor of a mix batch is optional in the d.ts and the shape', () {
     expect(sourceDtoShapes['MixBatch']!['cursor'], isFalse);
     expect(_interfaces(_dts)['MixBatch']!['cursor'], isFalse);

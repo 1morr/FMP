@@ -21,6 +21,7 @@ import 'generated/schema_v10.dart' as v10;
 import 'generated/schema_v11.dart' as v11;
 import 'generated/schema_v12.dart' as v12;
 import 'generated/schema_v13.dart' as v13;
+import 'generated/schema_v14.dart' as v14;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1261,5 +1262,96 @@ void main() {
     addTearDown(db.close);
 
     await expectPlayerMixSchema(db);
+  });
+
+  // v14 在 tracks 加分 P 的兩欄（M3 design §3.1、§11.1）：既有的曲目都不是分 P，
+  // 原樣保留，新欄位是 NULL。
+  test('migration from v13 to v14 keeps the stored tracks', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 13,
+      newVersion: 14,
+      createOld: v13.DatabaseAtV13.new,
+      createNew: v14.DatabaseAtV14.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.tracks,
+          const v13.TracksData(
+            trackKey: 'bilibili:BV1:100',
+            sourceTypeId: 'bilibili',
+            sourceId: 'BV1',
+            cid: 100,
+            title: 'Song',
+            uploader: 'Up',
+            durationMs: 1000,
+            artworkJson: '[{"url":"https://i.example/a.jpg"}]',
+            updatedAt: 1790000000000,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.tracks).get(), [
+          const v14.TracksData(
+            trackKey: 'bilibili:BV1:100',
+            sourceTypeId: 'bilibili',
+            sourceId: 'BV1',
+            cid: 100,
+            title: 'Song',
+            uploader: 'Up',
+            durationMs: 1000,
+            artworkJson: '[{"url":"https://i.example/a.jpg"}]',
+            updatedAt: 1790000000000,
+          ),
+        ]);
+      },
+    );
+  });
+
+  Future<void> expectTrackPartSchema(AppDatabase db) async {
+    // 持久化格式：序號是整數、影片標題是文字，兩欄都可空。
+    await db.customStatement(
+      "INSERT INTO tracks (track_key, source_type_id, source_id, cid, title, "
+      "updated_at, part_index, parent_title) VALUES "
+      "('bilibili:BV1:2', 'bilibili', 'BV1', 2, 'Part two', 1, 2, 'Video')",
+    );
+    await db.customStatement(
+      "INSERT INTO tracks (track_key, source_type_id, source_id, title, "
+      "updated_at) VALUES ('bilibili:BV2', 'bilibili', 'BV2', 'Single', 1)",
+    );
+    final rows = await db
+        .customSelect(
+          'SELECT track_key, part_index, parent_title FROM tracks '
+          'ORDER BY track_key',
+        )
+        .get();
+    expect(
+      [for (final row in rows) row.data],
+      [
+        {
+          'track_key': 'bilibili:BV1:2',
+          'part_index': 2,
+          'parent_title': 'Video',
+        },
+        {'track_key': 'bilibili:BV2', 'part_index': null, 'parent_title': null},
+      ],
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]) {
+    test('migration from v$from to v14 adds the part columns', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 14);
+
+      await expectTrackPartSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has the part columns', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectTrackPartSchema(db);
   });
 }

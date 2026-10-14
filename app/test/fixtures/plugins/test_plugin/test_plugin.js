@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "mix", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -90,6 +90,16 @@ const MIX_BATCHES = {
 };
 let mixCount = 0;
 
+// 分 P（ADR 0028 §決定 5），不連網。關鍵字剛好是 `parts` 時，三首各是一種分 P 狀況：
+// - parts-220：搜尋結果帶 partCount 3；multiPart 回三個分 P（cid 22001–22003）。
+// - parts-440：搜尋結果沒有 partCount（B 站的搜尋回應就沒有）；multiPart 回兩個分 P
+//   （cid 44001、44002）：展開鈕照顯示，影片選單先取分 P 再套用到全部。
+// - parts-880：沒有 partCount；multiPart 只回一個分 P：展開後鈕消失，選單照單曲處理。
+// 其他關鍵字的曲目都帶 partCount 1（確定單 P，不顯示展開鈕）。
+const PARTS_KEYWORD = 'parts';
+const PART_TITLES = ['Part one', 'Part two', 'Part three'];
+const PART_COUNTS = { 220: 3, 440: 2, 880: 1 };
+
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
 let qrCount = 0;
@@ -104,6 +114,8 @@ function sourceIdFor(keyword, index, hz) {
       return `preview-${hz}`;
     case FLAKY_KEYWORD:
       return `flaky-${hz}`;
+    case PARTS_KEYWORD:
+      return `parts-${hz}`;
     default:
       return `tone-${hz}`;
   }
@@ -132,8 +144,14 @@ export async function search(query) {
     uploader: 'FMP',
     durationMs: 2000,
     artwork: [],
+    ...partCountFor(query.keyword, hz),
   }));
   return { items, hasMore: start + PAGE_SIZE < TONES.length };
+}
+
+function partCountFor(keyword, hz) {
+  if (keyword !== PARTS_KEYWORD) return { partCount: 1 };
+  return hz === 220 ? { partCount: 3 } : {};
 }
 
 export async function resolveStream(request) {
@@ -163,7 +181,7 @@ export async function resolveStream(request) {
     if (calls % 2 === 1) {
       throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
     }
-  } else if (!/^(tone|preview)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
+  } else if (!/^(tone|preview|parts)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
     throw { fmpError: 'NotFound', message: `no such tone: ${request.sourceId}` };
   }
   // 內附的音檔只有 440 Hz 一個；其他音高也回它。
@@ -310,5 +328,21 @@ export function mix(query) {
     title: 'Test mix',
     tracks: mixTracks(query.mixId, batch.numbers),
     cursor: batch.cursor,
+  };
+}
+
+export function multiPart(query) {
+  const match = /^parts-(\d+)$/.exec(query.sourceId);
+  const count = match === null ? undefined : PART_COUNTS[Number(match[1])];
+  if (count === undefined) {
+    throw { fmpError: 'NotFound', message: `no such multi-part video: ${query.sourceId}` };
+  }
+  return {
+    parts: PART_TITLES.slice(0, count).map((title, index) => ({
+      cid: Number(match[1]) * 100 + index + 1,
+      title,
+      durationMs: 2000,
+      index: index + 1,
+    })),
   };
 }

@@ -15,6 +15,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     this.onSearch,
     bool live = false,
     bool mix = false,
+    bool multiPart = false,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -25,6 +26,7 @@ final class FakeSourcePlugin implements SourcePlugin {
            if (onSearch != null) PluginCapability.search,
            if (live) PluginCapability.live,
            if (mix) PluginCapability.mix,
+           if (multiPart) PluginCapability.multiPart,
          },
          allowedHosts: const ['cdn.example'],
        );
@@ -54,6 +56,10 @@ final class FakeSourcePlugin implements SourcePlugin {
   // Mix（`mix: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
   FutureOr<MixBatch> Function(MixQuery query)? onMix;
   final mixQueries = <MixQuery>[];
+
+  // 分 P（`multiPart: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
+  FutureOr<MultiPartResult> Function(MultiPartQuery query)? onMultiPart;
+  final multiPartQueries = <MultiPartQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -122,6 +128,14 @@ final class FakeSourcePlugin implements SourcePlugin {
     final handler = onMix;
     if (handler == null) throw UnimplementedError('mix');
     mixQueries.add(query);
+    return handler(query);
+  }
+
+  @override
+  Future<MultiPartResult> multiPart(MultiPartQuery query) async {
+    final handler = onMultiPart;
+    if (handler == null) throw UnimplementedError('multiPart');
+    multiPartQueries.add(query);
     return handler(query);
   }
 

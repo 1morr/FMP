@@ -215,7 +215,7 @@ final class NowPlayingPublisher {
           };
     return NowPlaying(
       id: track.key.toString(),
-      title: track.title,
+      title: track.displayTitle,
       uploader: track.uploader,
       // 直播沒有時長，後端回報什麼都不採用。
       duration: isLive ? null : _duration ?? track.duration,

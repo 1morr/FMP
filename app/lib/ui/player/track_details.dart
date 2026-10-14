@@ -47,7 +47,7 @@ class TrackDetails extends ConsumerWidget {
                 ),
               ),
               SizedBox(height: spacing.x4),
-              Text(track.title, style: theme.textTheme.titleLarge),
+              Text(track.displayTitle, style: theme.textTheme.titleLarge),
               SizedBox(height: spacing.x4),
               if (uploader != null)
                 DetailsField(label: t.detailsUploader, value: uploader),
