@@ -874,9 +874,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不認得的欄位整個拒收。閘門：`test/plugins/manifest/`。
 - 能力與匯出函式同名、雙向一致：宣告了沒匯出、匯出了能力名稱卻沒宣告，都拒絕載入
   （`Unsupported`）；其他名稱的匯出不管。`login` 例外：它的匯出是 `loginVerify`，methods 含 `qr` 時加 `loginQrStart`、
-  `loginQrPoll`，宣告 `refresh` 時加 `loginRefresh`（`PluginManifest.requiredExports`），同樣雙向一致。`apiVersion` 必須
-  等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
-  `plugin_manifest_test.dart`。
+  `loginQrPoll`，宣告 `refresh` 時加 `loginRefresh`（`PluginManifest.requiredExports`），同樣雙向一致。`live` 也例外：
+  匯出是 `liveSearch`、`liveRoomFromUrl`、`liveStatus`、`resolveLive` 四個，宣告就要全有（`LiveExports`），也沒有名叫 `live` 的匯出。
+  `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
+  `live_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+- `live`（ADR 0028 §決定 3，M3 PR 18a；只有宿主的契約，電台與播放在 18b、18c）：`liveStatus` 查詢失敗一律拋錯，
+  不能回 `offline`（D10）：宿主把拋錯顯示成「查詢失敗」，`offline` 只表示查到了而且沒開播；插件吞掉錯誤回 `offline` 是插件的 bug，
+  宿主分不出來，本 repo 沒有閘門守（`fmp-test` 的 `live-broken` 只示範正確的行為）。
+  四個呼叫都經 `AccountGuard`（`CredentialInvalid` 時刷新重跑），但帶不帶憑證仍是插件在每個請求上標 `auth: 'userPreference'`
+  決定（宿主沒有「這個呼叫是直播」的資訊，ADR 0012 §決定 2 的「電台」由插件落實）。`liveRoomFromUrl` 回 `null` 是「不是我的網址」。
+  閘門：`live_capability_test.dart`（回傳值驗證、拋錯保持拋錯、`credentials follow the user preference`）。
+- `checks.json` 的 `live` 案例跑 `liveStatus`（輸入 `{roomId}`），重播照跑、命令列錄製照錄（匿名）；成功時 `nonEmpty` 的名稱同
+  `LiveRoom`。閘門：`checks_test.dart` 的 `the live check`、`contract_runner_test.dart`（宣告與案例一致、期望不符、無關改動不紅）、
+  `health_check_test.dart` 的 `a live case`、`dev_case_runs_test.dart` 的 `a live case`。
 - manifest 的 `login`（ADR 0029 §決定 1）：有 `login` 能力才有、反之亦然；methods 不空、不重複，含 `webView` 才有
   `webView`（反之亦然），它的 `url`、`cookieHosts` 都是 `allowedHosts` 內的 `https`；格式錯是 `ParseError`，不認得的方式或
   刷新時機是 `Unsupported`。閘門：`plugin_manifest_test.dart` 的 `login` 群組、`rejects as Unsupported`。
@@ -912,7 +922,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `linux/CMakeLists.txt` 自己補；少了它插件在 Linux 一載入就失敗，閘門是 CI 的 Linux 整合測試。
 - `fmp-plugin.d.ts` 與 Dart 端一致：interface 的欄位與必填對 `manifestShapes`、`sourceDtoShapes`、
   `hostApiShapes`，`FmpHost` 對 prelude 實際建出的 `fmp`，能力、錯誤名稱、`Unavailable` 原因、音質與登入
-  （`LoginMethod`、`LoginRefresh`、`LoginQrStatus`）的 union 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
+  （`LoginMethod`、`LoginRefresh`、`LoginQrStatus`）與 `LiveRoomStatus` 的 union，`FmpPluginExports` 含 `LiveExports` 對 Dart 的列舉。閘門：`test/plugins/type_definitions_test.dart`（含變異案例）。函式參數的
   型別不比對，review 時看。
 - 插件庫與生命週期（`lib/plugins/repository/`、`install/plugin_installer.dart`，ADR 0030，UI 在插件頁）：
   - `PluginIndex.parse` 欄位封閉（表外欄位 `ParseError`），`indexVersion` 不是 1 回

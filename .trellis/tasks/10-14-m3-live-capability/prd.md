@@ -21,7 +21,7 @@
 2. **腳本插件的實作**
    - `script_source_plugin.dart`、worker 協定、`fmp-plugin.d.ts` 都要對應。
    - 回傳形狀不符時，與現有方法一樣轉成 `AppError`。
-   - `live` 的四個呼叫都以 `userPreference` 發請求（ADR 0012 §決定 2 的「電台」）：跟著使用者的「以登入身分瀏覽」設定。比照現有的 `search`，對應方式由宿主決定，插件分不出來。
+   - `live` 的四個呼叫都以 `userPreference` 發請求（ADR 0012 §決定 2 的「電台」）：跟著使用者的「以登入身分瀏覽」設定。更正（實作時）：`userPreference` 是插件在每個請求上標的 `auth`（預設 `never`），宿主不知道一次呼叫是不是直播；宿主決定的只是標了 `userPreference` 的請求帶不帶憑證（登入狀態與開關），插件分不出來。
    - manifest 宣告 `live` 時，載入檢查要求四個匯出都在，比照現有能力的檢查。
 3. **`checks.json` 的 `live` 案例**（design §4.8）
    - 鍵是 `live`，案例呼叫 `liveStatus`，格式與 `search` 相同（`input` 加 `expect`）。
@@ -38,7 +38,7 @@
      | roomId | `liveStatus` | `resolveLive` | 用途 |
      |---|---|---|---|
      | `live-ok` | 開播中，人數固定 | 新的 60 秒音檔 `live.wav`（8 kHz 單聲道，越小越好） | 一般收聽 |
-     | `live-offline` | 未開播 | 拋 `Unavailable` | 未開播 |
+     | `live-offline` | 未開播 | 拋 `NotFound`（更正：插件丟的 `Unavailable` 必須有原因，現有原因都會誤導，例如「所在地區不提供」） | 未開播 |
      | `live-drop` | 一律開播中 | `tone.wav`（2 秒） | 提前結束後重連：每次重連又在 2 秒後結束 |
      | `live-ended` | 這個 isolate 第一次查是開播中，之後都是未開播 | `tone.wav` | 提前結束後問狀態，得到「直播已結束」 |
      | `live-broken` | 拋 `NetworkError` | 拋 `NetworkError` | 查詢失敗 |

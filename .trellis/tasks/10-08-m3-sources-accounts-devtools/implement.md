@@ -46,7 +46,7 @@
 - **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）、15（#242）已合併；PR 16 拆成 16a（健康檢查，#244 已合併）、16b（插件開發工具，#245 已合併）、16c（以 App 內登入重錄 `requiresLogin` 的案例，要擁有者登入；先做「PR 16b 留下的」第 6 條）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
-- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，子任務 `archive/2026-10/10-14-m3-background-scheduler`）實作與審查完成，沒有使用者看得到的改動、不做實機；下一個是 18。
+- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（宿主 `live`，子任務 `10-14-m3-live-capability`）實作與審查完成。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -399,14 +399,18 @@
 
 ## 18. 電台與直播（design §3.1、§4.4、§9）
 
-- [ ] 宿主：`live` 的四個匯出（`SourcePlugin`、`d.ts`、shapes、`checks.json` 的 `live` 案例）。
+拆成四塊（主對話決定，2026-10-14）：**18a** 宿主的 `live` 能力與 `fmp-test` 的假實作（沒有使用者看得到的改動，不做實機）；
+**18a-plugins** `fmp-plugins` 的 B 站 `live`（另開 PR，fixture 匿名真實連線錄）；**18b** `radio_stations`、電台服務、狀態工作、播放的 `live` 模式；
+**18c** 導覽、電台頁、搜尋頁直播間模式、播放頁與播放列直播版、設定列，兩平台實機。
+
+- [x] 宿主（18a）：`live` 的四個匯出（`SourcePlugin`、`d.ts`、shapes、`checks.json` 的 `live` 案例）。`live` 的匯出是 `LiveExports` 四個，沒有名叫 `live` 的匯出（`PluginManifest.requiredExports`）。
 - [ ] schema：`radio_stations`、`network_settings.radio_status_interval_minutes`；設定頁「網路」組加一列。
 - [ ] `lib/radio/`：清單、以網址新增、加為電台、狀態工作（`radio-status:<pluginId>`）；收聽中的 `live-info` 工作。
 - [ ] 播放：`QueueMode.live`、`playLive`、停止回佇列、暫停＝停止、提前結束先問狀態再以 1／3／9 秒重連、開直播丟掉進行中的解析、`NowPlaying` 的直播欄位、不持久化。
 - [ ] 介面：導覽「電台」（搜尋｜歷史｜電台｜設定）、電台頁、搜尋頁的直播間模式與篩選、播放頁與播放列的直播版。
 - [ ] ADR 0018 §決定 6、9 的更正已在 PR 0（確認後）；`forbiddenLayerImports` 的 `radio/`。
-- [ ] fmp-plugins：B 站 `live`（四個匯出、`checks.json` 的 `liveStatus` 案例、匿名錄的 fixture）。
-- [ ] `fmp-test`：`live` 的假實作（一個開播中、一個未開播、一個會「提前結束」再重連的直播間；`liveStatus` 拋錯的房間）。
+- [ ] fmp-plugins：B 站 `live`（四個匯出、`checks.json` 的 `liveStatus` 案例、匿名錄的 fixture）（18a-plugins）。
+- [x] `fmp-test`：`live` 的假實作（五個固定直播間，見其 README；18a）。
 - 測試：design §9.2、§9.4、§9.5 的閘門；ADR 0018 §如何確認更正後的「開直播後音樂結果不播出、不再解析」；`navigation per window class` 四個導覽項；離線（電台頁）；migration 三種。
 - 實測：
   - 重播：兩平台以 `fmp-test`：搜尋頁直播間模式 → 加為電台 → 以網址新增 → 排序 → 播放 → 停止回到原佇列與位置 → 提前結束後重連 → 間隔設 1 分，背景／最小化時 log 沒有狀態工作、回前景後到期的跑一次 → 飛航模式時不跑。
