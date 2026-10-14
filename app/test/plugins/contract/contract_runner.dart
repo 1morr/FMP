@@ -23,7 +23,8 @@ import 'package:path/path.dart' as p;
 
 import '../../support/credentials.dart';
 
-import 'checks.dart';
+import 'package:fmp/plugins/health/checks.dart';
+
 import 'credential_scan.dart';
 import 'fixture.dart';
 import 'fixture_adapters.dart';
@@ -31,7 +32,7 @@ import 'fixture_adapters.dart';
 // 插件契約執行器（ADR 0015 §決定 6）。對一個插件目錄：
 //
 //   <目錄>/<任意名稱>.js           安裝檔（只能有一個）
-//   <目錄>/checks.json             檢查案例（checks.dart）
+//   <目錄>/checks.json             檢查案例（lib/plugins/health/checks.dart）
 //   <目錄>/fixtures/<能力>/*.json  該案例依序的請求與回應（fixture.dart）
 //
 // 以重播執行每個案例，回傳違反契約之處（空的就是通過）。每個案例各自一份

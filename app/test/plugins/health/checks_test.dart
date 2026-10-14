@@ -5,7 +5,7 @@ import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
-import 'checks.dart';
+import 'package:fmp/plugins/health/checks.dart';
 
 String _check(String capability, String input, String expect) =>
     '{"$capability": {"input": $input, "expect": $expect}}';
