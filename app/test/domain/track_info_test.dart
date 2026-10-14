@@ -22,6 +22,41 @@ void main() {
       expect(part.partLabel, 'P2 Second');
     });
 
+    test('a part titled with its own number shows the number once', () {
+      const numbered = TrackInfo(
+        sourceTypeId: 'bilibili',
+        sourceId: 'BV1',
+        cid: 3,
+        title: 'P3',
+        partIndex: 3,
+        parentTitle: 'The video',
+      );
+
+      expect(numbered.partLabel, 'P3');
+      expect(numbered.displayTitle, 'The video · P3');
+      // 變異：標題只是長得像（P30、別的序號）時照樣加上序號。
+      expect(
+        const TrackInfo(
+          sourceTypeId: 'bilibili',
+          sourceId: 'BV1',
+          cid: 3,
+          title: 'P30',
+          partIndex: 3,
+        ).partLabel,
+        'P3 P30',
+      );
+      expect(
+        const TrackInfo(
+          sourceTypeId: 'bilibili',
+          sourceId: 'BV1',
+          cid: 3,
+          title: 'P2',
+          partIndex: 3,
+        ).partLabel,
+        'P3 P2',
+      );
+    });
+
     test('a track that is not a part shows its title', () {
       expect(video.displayTitle, 'The video');
       expect(video.partLabel, 'The video');

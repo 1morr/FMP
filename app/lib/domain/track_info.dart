@@ -37,8 +37,10 @@ final class TrackInfo {
   final int? partIndex;
   final String? parentTitle;
 
-  /// 分 P 的標籤「P2 分 P 標題」；不是分 P 曲目時是 [title]。
+  /// 分 P 的標籤「P2 分 P 標題」；不是分 P 曲目時是 [title]。分 P 沒有自己的標題時插件
+  /// 給的就是 `P<序號>`，這時只顯示一次（不寫成「P3 P3」）。
   String get partLabel => switch (partIndex) {
+    final index? when title == 'P$index' => title,
     final index? => 'P$index $title',
     null => title,
   };

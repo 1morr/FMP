@@ -1009,6 +1009,36 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   @override
   String get detailsSource => '音源';
   @override
+  String get detailsPublished => '发布时间';
+  @override
+  String get detailsAlbum => '专辑';
+  @override
+  String get detailsDescription => '简介';
+  @override
+  String get detailsExpand => '展开';
+  @override
+  String get detailsCollapse => '收起';
+  @override
+  String get detailsLoading => '正在加载详细信息';
+  @override
+  String get detailsFailed => '无法获取详细信息';
+  @override
+  String get detailsRetry => '重试';
+  @override
+  String get statView => '播放';
+  @override
+  String get statLike => '点赞';
+  @override
+  String get statFavorite => '收藏';
+  @override
+  String get statComment => '评论';
+  @override
+  String get statShare => '分享';
+  @override
+  String get statDanmaku => '弹幕';
+  @override
+  String get statCoin => '投币';
+  @override
   String get queueTooltip => '队列（Ctrl+Q）';
   @override
   String queueCount({required Object count}) => '共 ${count} 首';

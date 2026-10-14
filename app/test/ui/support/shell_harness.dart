@@ -99,6 +99,7 @@ final class ShellHarness {
     bool live = false,
     bool mix = false,
     bool multiPart = false,
+    bool trackDetail = false,
     this.secureStorage = false,
     this.restartsItself = false,
     this.dataReset,
@@ -118,6 +119,7 @@ final class ShellHarness {
          live: live,
          mix: mix,
          multiPart: multiPart,
+         trackDetail: trackDetail,
          onSearch:
              onSearch ??
              (query) => SearchPage(
