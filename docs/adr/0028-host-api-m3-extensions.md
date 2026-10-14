@@ -70,6 +70,7 @@ ADR 0014 §決定 4 列了 12 個能力，§決定 5 定了宿主 API v1，但�
 
 - `type_definitions_test.dart`：`fmp-plugin.d.ts` 的新欄位、新匯出、`stats.kind` 等 union 與 Dart 端一致（含變異案例）。
 - `script_source_plugin_test.dart`：宣告 `live`、`mix`、`multiPart`、`trackDetail` 而沒有匯出對應函式時拒載；多出的欄位拒收。
+  - 更正（2026-10-15，M3b 驗收）：這些案例在各能力自己的測試檔（`live_capability_test.dart`、`mix_capability_test.dart`、`multi_part_capability_test.dart`、`track_detail_capability_test.dart`），不在 `script_source_plugin_test.dart`。
 - `source_http_client_test.dart` 的 `retry`：標 `idempotent` 的 POST 重試、沒標的不重試；`auth`：`credentialsAttached` 只在帶了憑證時為真。
 - `checks_test.dart`、`contract_runner_test.dart`：新能力的案例格式、`requiresLogin` 在重播照跑、命令列錄製略過；健康檢查：已登入用已存憑證跑、未登入標略過。
 - 控制器測試：解析中開直播（或換歌），解析完成後後端只收到新的流，`resolveStream` 的呼叫次數不變。
