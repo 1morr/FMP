@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart' as audio;
+import 'package:audio_service_platform_interface/audio_service_platform_interface.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -64,8 +65,13 @@ final class AndroidSystemMediaControls implements SystemMediaControls {
     handler.playbackState.add(androidPlaybackStateOf(nowPlaying));
   }
 
+  /// 只有重啟流程（`AndroidAppRestarter`）在結束行程前呼叫。先等平台收掉前景服務、通知與
+  /// media session：`audio_service` 自己是在 `playbackState` 的監聽裡非同步呼叫
+  /// `stopService`，緊接著 `exit(0)` 時平台還沒收到，`NO_CLEAR` 的媒體通知會殘留（2026-10-14
+  /// Android 模擬器實測）。
   @override
   Future<void> dispose() async {
+    await AudioServicePlatform.instance.stopService(const StopServiceRequest());
     await _asyncErrors.cancel();
     await _handler.close();
   }

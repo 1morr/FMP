@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/app/app_scope.dart';
+import 'package:fmp/app/data_reset.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -89,6 +90,8 @@ final class ShellHarness {
     this.cacheUnavailable = false,
     this.registrySources = false,
     this.secureStorage = false,
+    this.restartsItself = false,
+    this.dataReset,
     this.sourceUnavailable = _noUnavailableSource,
     this.flavor = AppFlavor.dev,
     this.buildLogLevel = LogLevelSetting.info,
@@ -183,6 +186,13 @@ final class ShellHarness {
   /// 按鈕依它出現。實作本身由 [extraOverrides] 的 `credentialStoreProvider` 給。
   final bool secureStorage;
 
+  /// 平台宣告重設資料、還原之後 App 會自己重啟（Windows）；預設是 Android 的行為（要手動重開）。
+  final bool restartsItself;
+
+  /// Debug 頁的備份、還原與重設（`dataResetProvider`）；不給就不 override，用到會讀到真的
+  /// 實作所需的 provider 而拋錯。
+  final DataReset? dataReset;
+
   /// `sourceUnavailableProvider` 的值（音源停用或未安裝的原因）；預設沒有不可用的音源。
   final String? Function(Ref ref, String pluginId) sourceUnavailable;
 
@@ -255,6 +265,7 @@ final class ShellHarness {
     fileDialogsProvider.overrideWithValue(fileDialogs),
     urlOpenerProvider.overrideWithValue(urlOpener),
     if (redactor != null) redactorProvider.overrideWithValue(redactor!),
+    if (dataReset != null) dataResetProvider.overrideWithValue(dataReset!),
     loginWebViewProvider.overrideWithValue(loginWebView),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。
     platformCapabilitiesProvider.overrideWithValue(
@@ -273,6 +284,7 @@ final class ShellHarness {
         networkInterfaces: false,
         files: fileDialogs != null,
         urlOpener: urlOpener != null,
+        restartsItself: restartsItself,
         loginWebView: loginWebView != null,
         cache: const CacheSizes(
           defaultLimitMebibytes: 128,

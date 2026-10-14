@@ -27,6 +27,7 @@ import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
+import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
@@ -47,6 +48,7 @@ import '../plugins/plugin_harness.dart';
 import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
 import 'support/fake_artwork.dart';
+import 'support/fake_data_reset.dart';
 import 'support/fake_url_opener.dart';
 import 'support/plugin_page_harness.dart';
 import 'support/shell_harness.dart';
@@ -407,6 +409,63 @@ void main() {
           }
           expect(find.byType(DebugOverview), findsOneWidget);
 
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 重設資料與備份還原（M3 PR 14b）：區塊本身、重設的確認對話框、還原的備份清單。
+        testWidgets('the Debug reset section at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            dataReset: FakeDataReset(listed: [FakeDataReset.made]),
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Debug'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Reset data'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(DebugReset), findsOneWidget);
+          await expectGuidelines(tester);
+
+          await tester.tap(find.text('Reset data…'));
+          await tester.pumpAndSettle();
+          expect(find.text('Reset all data?'), findsOneWidget);
+          await expectGuidelines(tester);
+          await tester.tap(find.byType(CheckboxListTile));
+          // 按鈕從停用換成啟用有色彩動畫，停下來再量對比。
+          await tester.pumpAndSettle();
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the Debug restore dialogs at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            redactor: Redactor(),
+            dataReset: FakeDataReset(listed: [FakeDataReset.made]),
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Debug'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Database'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await expectGuidelines(tester);
+
+          await tester.tap(find.text('Restore from backup'));
+          await tester.pumpAndSettle();
+          expect(find.text('Choose a backup to restore'), findsOneWidget);
+          await expectGuidelines(tester);
+          await tester.tap(find.text('2 KB'));
+          await tester.pumpAndSettle();
+          expect(find.text('Restore from this backup?'), findsOneWidget);
           await expectGuidelines(tester);
           handle.dispose();
         });

@@ -268,6 +268,17 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   在搜尋再按一次 App 退到背景，`logcat -b events` 沒有 `wm_finish_activity`，從桌面圖示回來時沒有新的
   `App started`、搜尋字與分頁都在；播放中按返回音樂繼續。
 
+- 結束並重啟（`lib/platform/app_restart/`，M3 design §12.2）：`PlatformCapabilities.restartsItself`（Windows 真、Android 假），`AppPlatform.restarter`（`appRestarterProvider`）。重設資料與從備份還原用它，呼叫前先 `LogFile.flush`。
+  - Windows（`WindowsAppRestarter`）：以 `Platform.resolvedExecutable` 脫離式啟動新行程，**只帶** `--fmp-restarted-from=<目前 pid>`（不沿用原本的命令列，例如 `--fmp-dev-plugin`），再 `exit(0)`；啟動失敗就不結束並把錯誤丟出。
+    `windows/runner/main.cpp` 看到這個參數時先 `OpenProcess(SYNCHRONIZE)` 等舊行程結束（最多 10 秒），**再**建立單一實例的 mutex，否則新行程會被舊行程還握著的 mutex 擋掉。Dart 端的參數解析（`devPluginPath`）只認自己的參數，忽略它。
+    閘門：`app_restart_test.dart` 的 `Windows`（假的 launcher：參數、先啟動再結束、啟動失敗不結束、前綴字串）、`platform_test.dart`。**`main.cpp` 的等待沒有自動閘門**（C++ 沒有單元測試）：改動後建置 Windows 並實機驗（重設或還原後視窗自己回來、log 有新的 `App started`）。
+  - Android（`AndroidAppRestarter`）：沒有正規的「重啟自己」，先 `publish(NowPlaying.nothing)` 加 `dispose()` 收掉系統媒體工作階段與前景服務，再 `exit(0)`，由使用者再開（對話框寫明）。
+    **為什麼不能只靠 `SystemNavigator.pop`**：它只結束 Activity；`MainActivity` 與 audio_service 共用的 `FlutterEngine`、前景服務讓行程活著。實測（2026-10-14，Android 模擬器）暫停播放（media session 還在）時按返回鍵回到桌面，
+    行程 pid 不變，再開 App 只是把原本的 task 帶回前景（`am start` 回 "Activity not started, its current task has been brought to the front"），log 的 `App started` 沒有增加、`main()` 沒重跑；那樣 App 會拿著已被刪掉重建的資料庫繼續跑。
+    `AndroidSystemMediaControls.dispose()` 要 `await` 平台介面的 `stopService`（`audio_service_platform_interface`）：`audio_service` 自己是在 `playbackState` 的監聽裡非同步呼叫它，
+    緊接著 `exit(0)` 時平台還沒收到，`NO_CLEAR` 的媒體通知留在通知清單（2026-10-14 實測：改前重設後 `dumpsys notification` 還有一筆，改後播放中、暫停中都是 0 筆）。沒有自動閘門，改動後實機看 `dumpsys notification`。
+    收掉工作階段丟錯也照樣 `exit`（`finally`）。閘門：`app_restart_test.dart` 的 `Android`（先收工作階段再結束、收不掉也結束、沒有媒體控制照常結束）、`platform_test.dart`。行程結束後通知消失、重開時 `main()` 重跑只能實機驗。
+
 - 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android 與 Windows 共用
   `PackageInfoAppInfo`（`package_info_plus`；Windows 端是 FFI 讀執行檔的 `ProductVersion`，沒有原生的 plugin registrant）。
   不是能力宣告：沒有畫面依它決定入口，只有能跑主 App 的平台有，`main()` 在 `runApp` 之前讀一次、以 `appInfoProvider`
@@ -1559,7 +1570,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、資料庫。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、資料庫、重設資料。窄版點進區塊後，標題列的返回鈕與系統返回鍵
     先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
@@ -1591,8 +1602,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `DatabaseInspector` 列 `allTables` 與筆數；`rows(表, 頁)` 每頁 `pageSize`（50）列，表名必須在 `allTables` 裡（才進得了 SQL 字串），讀的是儲存的原值（時間是 epoch 毫秒）；
     每個值經 `Redactor.redact`，`plugin_storage.value` 整欄是 `***`（`maskedColumns`）；`installed_plugins.script` 只顯示長度（`lengthOnlyColumns`：公開的插件原始碼，YouTube 約 800 KB，整份跑遮蔽要上百毫秒）。`check()` 報告 `PRAGMA integrity_check`、`PRAGMA foreign_key_check`
     與孤兒曲目數，不修；孤兒的條件與 `TracksRepository.deleteOrphans` 共用同一個常數（`_orphanCondition`），新的參照者只加在那裡。「檔案遺失的下載數」等 M6 有下載紀錄再加。
-    備份、還原、重設在 M3 PR 14b。閘門：`database_inspector_test.dart`（50 列分頁、`plugin_storage` 整欄遮蔽、`script` 只顯示長度、其他欄經遮蔽、外鍵關掉寫一筆違規列後報告列出它、乾淨的資料庫無問題、孤兒數＝`deleteOrphans` 刪的筆數、非資料庫的表名被拒）、
+    備份、還原、重設見下一條。閘門：`database_inspector_test.dart`（50 列分頁、`plugin_storage` 整欄遮蔽、`script` 只顯示長度、其他欄經遮蔽、外鍵關掉寫一筆違規列後報告列出它、乾淨的資料庫無問題、孤兒數＝`deleteOrphans` 刪的筆數、非資料庫的表名被拒）、
     `debug_playback_database_test.dart` 的 `database section`。
+  - 備份、從備份還原與重設資料（`debug_data_actions.dart`、`debug_reset.dart`、`lib/app/data_reset.dart`、`lib/data/database/database_backups.dart`，ADR 0025 §決定 8、9，M3 design §12.2）：
+    - 備份是 SQLite 的 `VACUUM INTO`，檔案 `<資料目錄>/backups/fmp-<UTC 時間，毫秒，不含冒號>.db`，是一個能直接開的完整資料庫。**不含憑證**（憑證在 secure storage），還原後要重新登入。
+      目標已存在（同一毫秒）就拋、不覆蓋；失敗時清掉寫到一半的檔。閘門：`database_backups_test.dart` 的 `create`（備份開得起來且各表筆數相同、檔名、同名拒絕、目錄建不起來）。
+    - 重設資料的順序（`DataReset` 介面，實作 `AppDataReset`，UI 只依介面）：UI 先 `backUp()`，**失敗就停在那裡、什麼都不清**（toast 顯示原因）；成功才開對話框列出備份位置（家目錄換成 `~`），
+      勾選「我了解」才能按「清空並重啟」（第二道確認）；確認後 `resetAndRestart(備份)` 依序：`SecureStorage.deleteAll()` → 登入 WebView `clearAll()`（平台沒有就略過）→ 快取（`CacheStore.clear()` 加記憶體 `ImageCache`）→
+      資料庫（`DatabaseBackups.erase`：關閉後刪 `fmp.db` 與 `-wal`／`-shm`／`-journal`，下次啟動重建空的）→ 寫完 log（`LogFile.flush`）→ `AppRestarter.restart()`。不動 log 檔與 `backups/`。
+      `resetAndRestart` 收的是剛做的備份，檔案不在或是空的就丟 `StateError`、什麼都不清，所以沒有備份就清不了；某一步丟錯就停在那一步，之後的不做（不回滾：前面清掉的憑證已經沒了）。
+      **資料庫一關閉就沒有回頭路**：`DatabaseBackups.restore`／`erase` 在關閉之後才失敗（`isClosed` 為真）時，`AppDataReset` 記下錯誤、照樣寫完 log 並重啟再丟出，不讓 App 留在已關閉的資料庫上跑；關閉之前的失敗（備份不見、複製失敗）只丟出，App 還能用。
+      閘門：`data_reset_test.dart`（順序與 log 在重啟前已寫進檔、重設後資料庫是空的／憑證存放是空的（`CredentialStore` 為 `none`、不給憑證）／log 與備份還在、備份裡有被清掉的資料、備份不見時什麼都不清、
+      沒有 WebView 的平台略過、中途失敗停在那一步）、`debug_reset_test.dart` 的 `reset section`（先備份、沒勾不能按、取消不清、備份失敗不開對話框也不清、Android 寫手動重開、Windows 寫自動重啟）。
+    - 從備份還原：Debug 頁「資料庫」的「從備份還原」列出 `backups/`（時間、大小，最新在前）→ 選一個 → 確認 → `DatabaseBackups.restore`：先把備份複製成 `fmp.db.restoring`（失敗時原資料庫還沒動）→ 關閉資料庫 →
+      原 `fmp.db`（與 `-wal`／`-shm`／`-journal`）改名 `….before-restore-<時間>` 留著 → 暫存檔改名 `fmp.db`（換上去失敗就改回來）→ 重啟。還原前先清 secure storage 的憑證與登入 WebView 的資料（備份不含憑證，留著會配上備份裡的 `accounts` 列；`data_reset_test.dart` 的 `replaces the data, clears the credentials, then restarts`），快取不動。
+      不先驗備份檔內容：壞的備份會讓下次啟動停在資料庫錯誤頁，原檔仍在旁邊。閘門：`database_backups_test.dart` 的 `restore`（資料等於備份、原檔改名留著、殘留 journal 被移開、換檔失敗時原檔改回來、備份不見時資料庫仍可用）、`data_reset_test.dart` 的 `restoring`（含關閉之前失敗不重啟、關閉之後失敗照樣重啟）、`debug_reset_test.dart` 的 `database section`。
+    - 「資料庫」區塊另有「立即備份」；「檢查」有問題（`integrity_check` 或外鍵）時報告卡片多「從備份還原」「重設資料」兩個按鈕（孤兒曲目不算問題）。閘門：`debug_reset_test.dart` 的 `a check with problems offers restore and reset`、`a clean check offers no recovery buttons`。
+    - 這個流程中途關了資料庫，之後到行程結束之間，仍在跑的資料庫查詢（佇列持久化、設定串流）會丟 `StateError`，預期由 `routeUncaughtErrors` 記進 log（沒有實測）。沒有自動閘門。
+    - guideline：`the Debug reset section`（區塊、確認對話框、勾選後）、`the Debug restore dialogs`（資料庫區塊、備份清單、確認），400／1000 寬、淺色深色。
   - 播放狀態與資料庫也過 guideline：`the Debug Playback section`（空狀態與在播）、`the Debug Database section`（表清單、有列的表、檢查結果）。
   - 這兩個區塊自己有捲動的清單，不包在區塊的捲動欄裡（`DebugPage` 的 `filling`，同設定頁）；窄與寬版都在 `guidelines_test.dart` 的
     `the Debug Log section`、`the Debug Network section` 過 guideline（含展開的一筆與單筆詳細的對話框）。

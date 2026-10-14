@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14 拆成 14a（唯讀：播放狀態、資料庫瀏覽與檢查，子任務 `10-14-m3-debug-playback-database`，分支 `feat/app-debug-playback-database`）與 14b（備份、還原、重設、重啟）。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）已合併；PR 14b（備份、還原、重設、重啟，子任務 `10-14-m3-reset-and-restore`，分支 `feat/app-reset-and-restore`）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
 - **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
@@ -358,8 +358,8 @@
 
 - [x] `PlaybackDiagnostics`（`PlaybackSession` 提供）與播放狀態區塊、複製快照（14a）。
 - [x] 資料庫區塊：唯讀瀏覽、檢查（14a）。
-- [ ] 從備份還原；檢查有問題時的「從備份還原」「重設資料」按鈕（14b）。
-- [ ] 重設資料：`VACUUM INTO` 備份、二次確認、清空（資料庫、`SecureStorage.deleteAll`、WebView `clearAll`、快取）、重啟（Windows 自己重啟；Android 提示手動重開，並確認重開時 `main()` 重跑：`SystemNavigator.pop` 因 `AudioServiceActivity` 的 cached engine／前景服務沒重跑時，改成先停掉 audio_service 再結束 process，實作在這個 PR 決定、寫進 `app/AGENTS.md`，design §12.2）。
+- [x] 從備份還原；檢查有問題時的「從備份還原」「重設資料」按鈕（14b）。
+- [x] 重設資料（14b）：`VACUUM INTO` 備份、二次確認、清空（資料庫、`SecureStorage.deleteAll`、WebView `clearAll`、快取）、重啟（Windows 自己重啟；Android 提示手動重開，並確認重開時 `main()` 重跑：`SystemNavigator.pop` 因 `AudioServiceActivity` 的 cached engine／前景服務沒重跑時，改成先停掉 audio_service 再結束 process，實作在這個 PR 決定、寫進 `app/AGENTS.md`，design §12.2）。
 - 測試：ADR 0025 §如何確認的資料檢查兩項、重設兩項、遮蔽（播放快照、資料庫瀏覽）；從備份還原後資料等於備份；重設後 `CredentialStore` 為空且請求不帶憑證（ADR 0012 §如何確認的「重設所有資料」）。
 - 實測（重播）：兩平台看播放狀態（重試中的下次重試時間）、瀏覽 `plugin_storage` 的值是 `***`、檢查乾淨；重設資料（先備份）→ 重開後是空的 → 從備份還原 → 資料回來、要重新登入。Android 另確認重設並重開後 `main()` 重跑（log 出現新的 `App started`、不是沿用舊 process），沒有就走上面的 audio_service 方案再驗一次。
 - 依賴：11（重設要清的憑證與 WebView 在 M3a 已有）。模型：sonnet（ADR 0025 與 design 已定流程）。
@@ -483,6 +483,14 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 14b 留下的
+
+1. **Android 重啟的做法**（實測後決定，`app/AGENTS.md` § 平台層有寫）：`SystemNavigator.pop` 之後行程與 engine 活著、重開時 `main()` 不重跑；改成 `AndroidSystemMediaControls.dispose()` 先 `await` 平台的 `stopService`，再 `exit(0)`。審查預測的「通知殘留」實機重現（`dumpsys notification` 有一筆 `NO_CLEAR` 的媒體通知），改後播放中、暫停中都是 0 筆。
+2. **還原也清憑證與登入 WebView**（照 design §12.2 的「還原後要重新登入」）：留著的話現在的憑證會配上備份裡的 `accounts` 列。
+3. **沒做的小事**（審查列出）：重設前的備份階段沒有進度遮罩（連按會開兩個流程）；還原不檢查備份內容（AGENTS.md 有寫）；兩次改名之間被殺掉時下次啟動是空資料庫（原檔仍在 `.before-restore-…`）；Windows 重啟的新行程繼承環境變數 `FMP_DEV_PLUGIN`（只影響 dev）；`clearAll()` 只清 cookie。
+4. **`main.cpp` 的等待、Android 通知與 `main()` 重跑沒有自動閘門**，改動後要實機驗。
+5. **備份清單的時間**：Windows 顯示本地時間、模擬器的時區是 UTC，兩邊看起來差 8 小時是時區不同，不是 bug。
 
 ### PR 14a 留下的
 

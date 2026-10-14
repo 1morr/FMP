@@ -11,6 +11,9 @@ import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart'
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
+import 'package:fmp/platform/app_restart/app_restart.dart';
+import 'package:fmp/platform/app_restart/app_restart_android.dart';
+import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
@@ -49,8 +52,11 @@ final class AppPlatform {
     this.urlOpener,
     this.mediaControls,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
+    AppRestarter Function(SystemMediaControls? mediaControls)? restarterFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
+       _restarterFactory = restarterFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
+       assert(capabilities.dataDirectory == (restarterFactory != null)),
        assert(capabilities.files == (fileDialogs != null)),
        assert(capabilities.loginWebView == (loginWebView != null)),
        assert(capabilities.urlOpener == (urlOpener != null)),
@@ -92,6 +98,7 @@ final class AppPlatform {
         files: true,
         loginWebView: true,
         urlOpener: true,
+        restartsItself: false,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       // 資料目錄在 App 的沙盒裡，路徑不含使用者名稱：沒有要換成 `~` 的家目錄。
@@ -114,6 +121,7 @@ final class AppPlatform {
       urlOpener: const UrlLauncherOpener(),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
+      restarterFactory: AndroidAppRestarter.forMediaControls,
     ),
     TargetPlatform.windows => _windows(flavor, windowsMediaControls),
     TargetPlatform.linux ||
@@ -149,6 +157,7 @@ final class AppPlatform {
         files: true,
         loginWebView: true,
         urlOpener: true,
+        restartsItself: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
@@ -177,6 +186,7 @@ final class AppPlatform {
       urlOpener: const UrlLauncherOpener(),
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
+      restarterFactory: (_) => WindowsAppRestarter.system(),
     );
   }
 
@@ -212,6 +222,12 @@ final class AppPlatform {
   final SystemMediaControls? mediaControls;
 
   final Future<SystemMediaControls> Function(Log log)? _mediaControlsFactory;
+  final AppRestarter Function(SystemMediaControls? mediaControls)?
+  _restarterFactory;
+
+  /// 重設資料與還原之後的重啟；沒有資料目錄的平台為 `null`。Android 的實作要收掉系統媒體
+  /// 工作階段，所以依 [mediaControls]（[withMediaControls] 之後才有）組出來，每次讀都建一個新的。
+  AppRestarter? get restarter => _restarterFactory?.call(mediaControls);
 
   /// 初始化系統媒體控制，回傳帶著它的平台。`main()` 在開好資料庫之後、`runApp`
   /// 之前呼叫一次。失敗時呼叫 [onFailure]、宣告改為沒有（ADR 0009 §決定 2），
@@ -244,6 +260,7 @@ final class AppPlatform {
       loginWebView: loginWebView,
       urlOpener: urlOpener,
       mediaControls: controls,
+      restarterFactory: _restarterFactory,
     );
   }
 }

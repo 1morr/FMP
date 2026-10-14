@@ -9,20 +9,22 @@ import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
+import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// Debug 頁的區塊，依清單上的順序。ADR 0025 §決定 2 的表有八個，各自跟著實作它的 PR
-/// 加（之前不放空殼）：重設資料（M3 PR 14b），音源健康檢查、插件開發
-/// （PR 16；插件開發只在平台宣告 `pluginDevTools` 時列出）。新的區塊照表上的順序插進來。
+/// 加（之前不放空殼）：音源健康檢查、插件開發
+/// （M3 PR 16；插件開發只在平台宣告 `pluginDevTools` 時列出）。新的區塊照表上的順序插進來。
 enum DebugSection {
   overview(Icons.dashboard_outlined),
   log(Icons.article_outlined),
   network(Icons.swap_vert),
   playback(Icons.graphic_eq),
-  database(Icons.storage_outlined);
+  database(Icons.storage_outlined),
+  reset(Icons.restart_alt);
 
   const DebugSection(this.icon);
 
@@ -191,6 +193,16 @@ class _DebugPageState extends ConsumerState<DebugPage> {
             const DebugDatabase(),
             heading: heading,
           ),
+          DebugSection.reset => SingleChildScrollView(
+            padding: EdgeInsets.all(spacing.x4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (heading) ...[title(section), SizedBox(height: spacing.x4)],
+                const DebugReset(),
+              ],
+            ),
+          ),
         };
     if (narrow) {
       return selected == null ? list(null) : detail(selected, heading: false);
@@ -213,5 +225,6 @@ class _DebugPageState extends ConsumerState<DebugPage> {
         DebugSection.network => t.network,
         DebugSection.playback => t.playback,
         DebugSection.database => t.database,
+        DebugSection.reset => t.reset,
       };
 }

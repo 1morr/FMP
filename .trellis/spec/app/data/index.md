@@ -140,6 +140,15 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - `status`、`last_refresh_result` 的字串寫在 `converters.dart`；測試 `account_repository_test.dart` 的 `stored format`
   直接查表斷言。
 
+## 備份與還原（`database_backups.dart`）
+
+規則與閘門見 `app/AGENTS.md` § 介面的 Debug 頁「備份、從備份還原與重設資料」。
+
+- 不是 repository：`DatabaseBackups(database, 資料目錄, log)` 管檔案（`backups/fmp-<UTC>.db`、還原、刪檔），因為
+  `VACUUM INTO` 與「關閉後換檔」都得在 `lib/data/`。`restore`、`erase` 結束後資料庫已關閉，呼叫端必須接著結束行程。
+- 測試用真的檔案資料庫（`openAppDatabase` 開在 `Directory.systemTemp`），不是 `memoryDatabase()`：要驗檔案本身。
+  另開備份檔數筆數會觸發 drift 的「同一個類別開多次」警告，測試開頭設 `driftRuntimeOptions.dontWarnAboutMultipleDatabases`。
+
 ## 開發者設定（`developer_settings_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `developer_settings`（schema v9）與 § 設定的「開發者」組。

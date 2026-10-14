@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§12.2 backup format, reset data, restart, restore from backup"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §14 checklist"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "Sections 8 (database: restore, reset buttons) and 9 (reset data), how to verify"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "Database, backup format"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "Credentials in secure storage; reset clears them"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Data layer, drift only in lib/data"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Platform interfaces, capabilities, windows runner"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI patterns, Debug page sections, dialogs, guideline tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}

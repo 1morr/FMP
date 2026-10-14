@@ -422,6 +422,7 @@ void main() {
         files: false,
         loginWebView: false,
         urlOpener: false,
+        restartsItself: false,
         cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);

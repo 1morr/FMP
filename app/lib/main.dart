@@ -20,6 +20,7 @@ import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
+import 'package:fmp/platform/app_restart/app_restart.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/files/files.dart';
@@ -122,6 +123,7 @@ Future<void> main(List<String> arguments) async {
         fileDialogsProvider.overrideWithValue(platform.fileDialogs),
         loginWebViewProvider.overrideWithValue(platform.loginWebView),
         urlOpenerProvider.overrideWithValue(platform.urlOpener),
+        appRestarterProvider.overrideWithValue(platform.restarter!),
         systemMediaControlsProvider.overrideWithValue(platform.mediaControls),
         // 憑證的唯一存放處；有資料目錄的平台（Android、Windows）都有。
         secureStorageProvider.overrideWithValue(platform.secureStorage!),

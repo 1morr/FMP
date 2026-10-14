@@ -1,16 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/database_inspector.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/debug/debug_data_actions.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// Debug 頁的「資料庫」（ADR 0025 §決定 8）：唯讀。表清單與筆數，點進去看分頁的列（值已經
-/// 由 [DatabaseInspector] 遮蔽），「檢查」只報告、不修。備份、還原、重設在 M3 PR 14b。
+/// Debug 頁的「資料庫」（ADR 0025 §決定 8）：唯讀瀏覽。表清單與筆數，點進去看分頁的列（值已經
+/// 由 [DatabaseInspector] 遮蔽），「檢查」只報告、不修；有問題時提供「從備份還原」與「重設資料」。
+/// 另有「立即備份」與「從備份還原」（流程在 `debug_data_actions.dart`）。
 class DebugDatabase extends ConsumerStatefulWidget {
   const DebugDatabase({super.key});
 
@@ -77,6 +81,16 @@ class _DebugDatabaseState extends ConsumerState<DebugDatabase> {
                     _report = report;
                   });
                 },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.save_alt),
+                label: Text(t.dbBackUp),
+                onPressed: () => unawaited(backUpNow(context, ref)),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.settings_backup_restore),
+                label: Text(t.dbRestore),
+                onPressed: () => unawaited(startRestore(context, ref)),
               ),
             ],
           ),
@@ -269,6 +283,24 @@ class _CheckReport extends ConsumerWidget {
                         ].join('\n'),
                 ),
                 item(t.dbOrphans, t.dbOrphansValue(count: result.orphanTracks)),
+                if (result.hasProblems) ...[
+                  Text(t.dbCheckProblemsActions),
+                  SizedBox(height: AppTokens.of(context).spacing.x2),
+                  Wrap(
+                    spacing: AppTokens.of(context).spacing.x2,
+                    runSpacing: AppTokens.of(context).spacing.x2,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => unawaited(startRestore(context, ref)),
+                        child: Text(t.dbRestore),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => unawaited(startReset(context, ref)),
+                        child: Text(t.resetButton),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
