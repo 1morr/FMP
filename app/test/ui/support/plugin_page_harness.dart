@@ -66,6 +66,20 @@ final class FakeFileDialogs implements FileDialogs {
     extensions.add(extension);
     return file;
   }
+
+  /// 存檔的結果：`null` 是取消。
+  Uri? saveResult = Uri.file('/fake/saved.zip');
+  final saves = <({String name, Uint8List bytes, String mimeType})>[];
+
+  @override
+  Future<Uri?> saveFile({
+    required String name,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    saves.add((name: name, bytes: bytes, mimeType: mimeType));
+    return saveResult;
+  }
 }
 
 /// 一個沒有回應的插件（看門狗判定之後的樣子）：插件頁只讀它的 manifest 與 health。

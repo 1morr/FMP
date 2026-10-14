@@ -362,6 +362,33 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   String cacheUsageValue({required Object size}) =>
       '${size} · manage it in Settings › Network';
   @override
+  String get diagnostics => 'Diagnostics';
+  @override
+  String get diagnosticsHint =>
+      'A summary of this app\'s version, plugins and settings, plus the log files. Account names are left out.';
+  @override
+  String get diagnosticsCopy => 'Copy summary';
+  @override
+  String get diagnosticsSave => 'Save as file';
+  @override
+  String get diagnosticsShare => 'Share';
+  @override
+  String get diagnosticsCopied => 'Summary copied';
+  @override
+  String get exportSaved => 'Saved';
+  @override
+  String exportFailed({required Object message}) =>
+      'Couldn\'t create the file: ${message}';
+  @override
+  String get exportReminderBody =>
+      'The file holds this app\'s version, plugins, settings and recent log records. Cookies, tokens and signed URLs are masked and account names are left out, but check the content once more before you send it to anyone.';
+  @override
+  String get logExport => 'Export log files';
+  @override
+  String get logExportSave => 'Save as file';
+  @override
+  String get logExportShare => 'Share';
+  @override
   String get log => 'Log & errors';
   @override
   String get network => 'Network';

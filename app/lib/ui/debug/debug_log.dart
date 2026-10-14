@@ -7,6 +7,8 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/ui/debug/debug_export.dart';
 import 'package:fmp/ui/debug/debug_log_state.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
@@ -59,6 +61,7 @@ class _DebugLogState extends ConsumerState<DebugLog> {
     final t = ref.watch(translationsProvider).debug;
     final spacing = AppTokens.of(context).spacing;
     final hasFile = ref.watch(logProvider.select((log) => log.file != null));
+    final capabilities = ref.watch(platformCapabilitiesProvider);
     final memory = ref.watch(logHistoryProvider).value ?? const <LogRecord>[];
     final stored = _earlier ? ref.watch(storedLogRecordsProvider) : null;
     final all = _records(memory, stored?.value ?? const <LogRecord>[]);
@@ -145,6 +148,31 @@ class _DebugLogState extends ConsumerState<DebugLog> {
                 tooltip: t.logCopy,
                 onPressed: () => unawaited(_copy(shown)),
               ),
+              if (hasFile && (capabilities.files || capabilities.shareFiles))
+                PopupMenuButton<ExportAction>(
+                  icon: const Icon(Icons.ios_share),
+                  tooltip: t.logExport,
+                  onSelected: (action) => unawaited(
+                    exportBundle(
+                      context,
+                      ref,
+                      kind: ExportKind.logs,
+                      action: action,
+                    ),
+                  ),
+                  itemBuilder: (_) => [
+                    if (capabilities.files)
+                      PopupMenuItem(
+                        value: ExportAction.save,
+                        child: Text(t.logExportSave),
+                      ),
+                    if (capabilities.shareFiles)
+                      PopupMenuItem(
+                        value: ExportAction.share,
+                        child: Text(t.logExportShare),
+                      ),
+                  ],
+                ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
                 tooltip: t.logClear,

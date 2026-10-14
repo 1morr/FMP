@@ -30,6 +30,7 @@ import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/share/share.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
@@ -85,6 +86,7 @@ final class ShellHarness {
     this.database,
     this.fileDialogs,
     this.urlOpener,
+    this.fileSharer,
     this.redactor,
     this.loginWebView,
     this.cacheUnavailable = false,
@@ -170,6 +172,9 @@ final class ShellHarness {
 
   /// 平台的網址開啟器；`null` 是沒有這個能力（錯誤詳細頁只複製並顯示網址）。
   final UrlOpener? urlOpener;
+
+  /// 平台的檔案分享；給了平台就宣告 `shareFiles`（診斷包的「分享」依它出現）。
+  final FileSharer? fileSharer;
 
   /// 遮蔽函式；錯誤詳細頁讀它（`redactorProvider`）。不給就不 override：用 `PluginHarness` 的
   /// 測試（插件頁）自己經 `extraOverrides` 給，同一個 provider 不能 override 兩次。
@@ -264,6 +269,7 @@ final class ShellHarness {
     networkInterfacesProvider.overrideWithValue(interfaces),
     fileDialogsProvider.overrideWithValue(fileDialogs),
     urlOpenerProvider.overrideWithValue(urlOpener),
+    fileSharerProvider.overrideWithValue(fileSharer),
     if (redactor != null) redactorProvider.overrideWithValue(redactor!),
     if (dataReset != null) dataResetProvider.overrideWithValue(dataReset!),
     loginWebViewProvider.overrideWithValue(loginWebView),
@@ -284,6 +290,7 @@ final class ShellHarness {
         networkInterfaces: false,
         files: fileDialogs != null,
         urlOpener: urlOpener != null,
+        shareFiles: fileSharer != null,
         restartsItself: restartsItself,
         loginWebView: loginWebView != null,
         cache: const CacheSizes(

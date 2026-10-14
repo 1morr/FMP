@@ -7,7 +7,9 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/settings/developer_settings.dart';
+import 'package:fmp/ui/debug/debug_export.dart';
 import 'package:fmp/ui/format/byte_size.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
@@ -29,7 +31,7 @@ String homeRelativePath(String path, String? home) {
 }
 
 /// Debug 頁的「概覽」（ADR 0025 §決定 2）：最上方是開發者模式的總開關，接著 log 層級、
-/// App 與平台的資訊、快取用量的連結。診斷包在 M3 PR 15 加在這裡。
+/// App 與平台的資訊、快取用量的連結、診斷包。
 class DebugOverview extends ConsumerWidget {
   const DebugOverview({super.key, required this.onShowCacheSettings});
 
@@ -46,6 +48,7 @@ class DebugOverview extends ConsumerWidget {
     final flavor = ref.watch(appFlavorProvider);
     final directory = ref.watch(dataDirectoryProvider);
     final usage = ref.watch(cacheUsageProvider).value;
+    final capabilities = ref.watch(platformCapabilitiesProvider);
     final spacing = AppTokens.of(context).spacing;
     final textTheme = Theme.of(context).textTheme;
     Widget fact(String label, String value) => ListTile(
@@ -111,6 +114,48 @@ class DebugOverview extends ConsumerWidget {
           subtitle: Text(t.cacheUsageValue(size: formatByteSize(cacheBytes))),
           trailing: const Icon(Icons.chevron_right),
           onTap: onShowCacheSettings,
+        ),
+        SizedBox(height: spacing.x4),
+        Text(t.diagnostics, style: textTheme.titleSmall),
+        SizedBox(height: spacing.x1),
+        Text(t.diagnosticsHint, style: textTheme.bodySmall),
+        SizedBox(height: spacing.x2),
+        Wrap(
+          spacing: spacing.x2,
+          runSpacing: spacing.x2,
+          children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.copy_outlined),
+              label: Text(t.diagnosticsCopy),
+              onPressed: () => unawaited(copyDiagnosticsSummary(ref)),
+            ),
+            if (capabilities.files)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.save_alt),
+                label: Text(t.diagnosticsSave),
+                onPressed: () => unawaited(
+                  exportBundle(
+                    context,
+                    ref,
+                    kind: ExportKind.diagnostics,
+                    action: ExportAction.save,
+                  ),
+                ),
+              ),
+            if (capabilities.shareFiles)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.share_outlined),
+                label: Text(t.diagnosticsShare),
+                onPressed: () => unawaited(
+                  exportBundle(
+                    context,
+                    ref,
+                    kind: ExportKind.diagnostics,
+                    action: ExportAction.share,
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );

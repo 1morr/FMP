@@ -12,6 +12,7 @@ import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/settings/developer_settings.dart';
+import 'package:fmp/ui/errors/submit_reminder.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -80,24 +81,10 @@ class _ErrorDetailPageState extends ConsumerState<ErrorDetailPage> {
   Future<void> _reportOnGitHub() async {
     final t = ref.read(translationsProvider).errorReport;
     final toaster = ref.read(toasterProvider);
-    // 設定還沒載入完時當成沒關過提醒：多問一次，比沒問就把內容送去公開的 repo 好。
-    final dismissed = ref
-        .read(developerProvider)
-        .value
-        ?.stored
-        .reportReminderDismissed;
-    if (dismissed != true) {
-      // true：繼續並不再提醒；false：只繼續；null：取消，什麼都不做。
-      final answer = await showDialog<bool>(
-        context: context,
-        builder: (context) => const _ReminderDialog(),
-      );
-      if (answer == null) return;
-      if (answer) {
-        await ref.read(developerProvider.notifier).dismissReportReminder();
-      }
-      if (!mounted) return;
+    if (!await confirmSubmitReminder(context, ref, body: t.reminderBody)) {
+      return;
     }
+    if (!mounted) return;
     await Clipboard.setData(ClipboardData(text: _report.toMarkdown()));
     final opener = ref.read(urlOpenerProvider);
     if (opener == null) {
@@ -255,51 +242,6 @@ class _Field extends StatelessWidget {
             Text(value, style: style),
         ],
       ),
-    );
-  }
-}
-
-/// 第一次「在 GitHub 回報」前的提醒（repo 是公開的）。回傳 `true`：繼續並不再提醒；
-/// `false`：只繼續；`null`（取消、點外面）：什麼都不做。
-class _ReminderDialog extends ConsumerStatefulWidget {
-  const _ReminderDialog();
-
-  @override
-  ConsumerState<_ReminderDialog> createState() => _ReminderDialogState();
-}
-
-class _ReminderDialogState extends ConsumerState<_ReminderDialog> {
-  var _dontAsk = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ref.watch(translationsProvider).errorReport;
-    return AlertDialog(
-      title: Text(t.reminderTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(t.reminderBody),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: _dontAsk,
-            title: Text(t.reminderDontAsk),
-            onChanged: (value) => setState(() => _dontAsk = value ?? false),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(t.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_dontAsk),
-          child: Text(t.reminderContinue),
-        ),
-      ],
     );
   }
 }

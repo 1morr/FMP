@@ -49,6 +49,7 @@ import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
 import 'support/fake_artwork.dart';
 import 'support/fake_data_reset.dart';
+import 'support/fake_file_sharer.dart';
 import 'support/fake_url_opener.dart';
 import 'support/plugin_page_harness.dart';
 import 'support/shell_harness.dart';
@@ -392,7 +393,11 @@ void main() {
 
         testWidgets('the Debug overview at $width', (tester) async {
           final handle = tester.ensureSemantics();
-          final h = ShellHarness();
+          // 有存檔與分享的平台：診斷包的三個按鈕都在。
+          final h = ShellHarness(
+            fileDialogs: FakeFileDialogs(),
+            fileSharer: FakeFileSharer(),
+          );
           await h.pumpShell(tester, size: size, brightness: brightness);
           await tester.tap(find.text('Settings').first);
           await h.loadSettings(tester);
@@ -408,6 +413,34 @@ void main() {
             await tester.pumpAndSettle();
           }
           expect(find.byType(DebugOverview), findsOneWidget);
+          expect(find.text('Share'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 診斷包第一次匯出前的「送出前請檢查」提醒（M3 PR 15）。
+        testWidgets('the Debug export reminder at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            fileDialogs: FakeFileDialogs(),
+            redactor: Redactor(),
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Debug'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          if (size.width < 600) {
+            await tester.tap(find.text('Overview'));
+            await h.loadSettings(tester);
+            await tester.pumpAndSettle();
+          }
+          await tester.ensureVisible(find.text('Save as file'));
+          await tester.tap(find.text('Save as file'));
+          await tester.pumpAndSettle();
+          expect(find.text('Check before you submit'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

@@ -410,6 +410,43 @@ class Translations$debug$zh_TW {
   /// zh-TW: '{size}，在「設定 → 網路」管理'
   String cacheUsageValue({required Object size}) => '${size}，在「設定 → 網路」管理';
 
+  /// zh-TW: '診斷包'
+  String get diagnostics => '診斷包';
+
+  /// zh-TW: '這個 App 的版本、插件與設定摘要，加上 log 檔；不含帳號名稱。'
+  String get diagnosticsHint => '這個 App 的版本、插件與設定摘要，加上 log 檔；不含帳號名稱。';
+
+  /// zh-TW: '複製摘要'
+  String get diagnosticsCopy => '複製摘要';
+
+  /// zh-TW: '存成檔案'
+  String get diagnosticsSave => '存成檔案';
+
+  /// zh-TW: '分享'
+  String get diagnosticsShare => '分享';
+
+  /// zh-TW: '已複製摘要'
+  String get diagnosticsCopied => '已複製摘要';
+
+  /// zh-TW: '已儲存'
+  String get exportSaved => '已儲存';
+
+  /// zh-TW: '無法產生檔案：{message}'
+  String exportFailed({required Object message}) => '無法產生檔案：${message}';
+
+  /// zh-TW: '檔案裡有這個 App 的版本、插件、設定與最近的 log 紀錄。Cookie、token 與簽名網址已遮蔽，帳號名稱不在裡面，送給任何人之前仍請再檢查一次內容。'
+  String get exportReminderBody =>
+      '檔案裡有這個 App 的版本、插件、設定與最近的 log 紀錄。Cookie、token 與簽名網址已遮蔽，帳號名稱不在裡面，送給任何人之前仍請再檢查一次內容。';
+
+  /// zh-TW: '匯出 log 檔'
+  String get logExport => '匯出 log 檔';
+
+  /// zh-TW: '存成檔案'
+  String get logExportSave => '存成檔案';
+
+  /// zh-TW: '分享'
+  String get logExportShare => '分享';
+
   /// zh-TW: 'Log 與錯誤歷史'
   String get log => 'Log 與錯誤歷史';
 

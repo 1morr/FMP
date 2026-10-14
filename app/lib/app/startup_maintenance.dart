@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/app/diagnostics/diagnostics_service.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 
 /// 啟動維護的一個項目（ADR 0017 §決定 1）。
 final class StartupMaintenanceTask {
@@ -29,6 +31,20 @@ final startupMaintenanceTasksProvider = Provider<List<StartupMaintenanceTask>>((
         final deleted = await file.deleteExpired();
         log.info(
           'Deleted expired log files',
+          tag: _tag,
+          fields: {'count': deleted},
+        );
+      },
+    ),
+    StartupMaintenanceTask(
+      id: 'diagnostics-temp',
+      run: () async {
+        // 分享診斷包時的暫存 zip；正常會在分享後刪掉，殘留的在這裡清（ADR 0025 §決定 10）。
+        final deleted = await deleteDiagnosticsTemp(
+          ref.read(dataDirectoryProvider),
+        );
+        log.info(
+          'Deleted leftover diagnostics files',
           tag: _tag,
           fields: {'count': deleted},
         );
