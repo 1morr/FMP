@@ -65,9 +65,20 @@ const forbiddenLayerImports = <String, List<String>>{
   'lib/core': _upperLayers,
   'lib/domain': _upperLayers,
   // 設定的 Notifier、播放、插件都讀資料層；反過來 import 就是循環。
-  'lib/data': ['lib/ui', 'lib/settings', 'lib/playback', 'lib/plugins'],
+  'lib/data': [
+    'lib/ui',
+    'lib/settings',
+    'lib/playback',
+    'lib/plugins',
+    'lib/scheduler',
+    'lib/radio',
+  ],
   // 介面讀播放（控制器、狀態 stream）；播放（含系統媒體控制的組裝）不認得介面。
   'lib/playback': ['lib/ui'],
+  // 排程器只認得資料與網路狀態：它不知道誰登記工作（電台、插件），也不碰介面。
+  'lib/scheduler': ['lib/ui', 'lib/radio', 'lib/plugins'],
+  // 電台用資料、插件與排程器，背景工作不依賴介面。
+  'lib/radio': ['lib/ui'],
 };
 
 const _upperLayers = [
@@ -76,6 +87,8 @@ const _upperLayers = [
   'lib/plugins',
   'lib/data',
   'lib/settings',
+  'lib/scheduler',
+  'lib/radio',
 ];
 
 /// 只有自己目錄內能 import 的目錄（ADR 0010）。

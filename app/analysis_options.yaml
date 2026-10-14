@@ -59,6 +59,7 @@ plugins:
       fmp_toast_entry: true
       fmp_design_tokens: true
       fmp_material_import: true
+      fmp_periodic_timer_owner: true
   # 規則都是 warning，預設開啟。
   riverpod_lint:
     version: ^3.1.9

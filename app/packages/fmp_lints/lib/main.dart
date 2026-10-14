@@ -10,6 +10,7 @@ import 'src/rules/log_facade.dart';
 import 'src/rules/material_import.dart';
 import 'src/rules/no_empty_catch.dart';
 import 'src/rules/no_for_testing.dart';
+import 'src/rules/periodic_timer_owner.dart';
 import 'src/rules/platform_checks.dart';
 import 'src/rules/source_id_literal.dart';
 import 'src/rules/test_waits.dart';
@@ -36,6 +37,7 @@ List<AnalysisRule> fmpRules() => [
   ToastEntry(),
   DesignTokens(),
   MaterialImport(),
+  PeriodicTimerOwner(),
 ];
 
 class FmpLintsPlugin extends Plugin {

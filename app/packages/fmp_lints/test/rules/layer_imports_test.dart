@@ -257,6 +257,67 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // 排程器與電台（M3）：下層不認得它們，它們也不 import 介面；排程器另外不認得
+  // 電台與插件（登記工作的人，不是被它呼叫的人）。
+  Future<void> test_lowerLayersImportSchedulerOrRadio() async {
+    await assertLints(
+      'lib/core/network/network_status.dart',
+      "import [!'package:test/scheduler/background_scheduler.dart'!];\n"
+          "import [!'../../radio/radio_service.dart'!];\n",
+    );
+    await assertLints(
+      'lib/domain/track_key.dart',
+      "import [!'package:test/scheduler/background_scheduler.dart'!];\n",
+    );
+    await assertLints(
+      'lib/data/repositories/scheduler_runs_repository.dart',
+      "import [!'package:test/radio/radio_service.dart'!];\n"
+          "import [!'../../scheduler/background_scheduler.dart'!];\n",
+    );
+  }
+
+  Future<void> test_schedulerImportsUiRadioOrPlugins() async {
+    await assertLints(
+      'lib/scheduler/background_scheduler.dart',
+      "import [!'package:test/ui/toast/toast.dart'!];\n"
+          "import [!'../radio/radio_service.dart'!];\n"
+          "import [!'package:test/plugins/plugin_registry.dart'!];\n",
+    );
+    await assertLints(
+      'lib/radio/radio_status_job.dart',
+      "import [!'package:test/ui/toast/toast.dart'!];\n",
+    );
+  }
+
+  // 反方向與近似名稱不報：電台與介面讀排程器、排程器讀 core／data／app，
+  // `scheduler_x`、`radio_x` 開頭的別的目錄不是它們。
+  Future<void> test_schedulerNearMisses() async {
+    await assertLints(
+      'lib/scheduler/background_scheduler.dart',
+      "import 'package:test/core/network/network_status.dart';\n"
+          "import 'package:test/data/repositories/scheduler_runs_repository.dart';\n"
+          "import 'package:test/app/app_lifecycle.dart';\n"
+          "import 'package:test/ui_helpers/x.dart';\n"
+          "// import 'package:test/ui/toast/toast.dart';\n",
+    );
+    await assertLints(
+      'lib/radio/radio_near_miss.dart',
+      "import 'package:test/scheduler/background_scheduler.dart';\n"
+          "import 'package:test/plugins/plugin_registry.dart';\n"
+          "import 'package:test/data/repositories/scheduler_runs_repository.dart';\n",
+    );
+    await assertLints(
+      'lib/ui/radio/radio_page.dart',
+      "import 'package:test/radio/radio_service.dart';\n"
+          "import 'package:test/scheduler/background_scheduler.dart';\n",
+    );
+    await assertLints(
+      'lib/core/network/network_status.dart',
+      "import 'package:test/scheduler_extras/x.dart';\n"
+          "import 'package:test/radio_extras/x.dart';\n",
+    );
+  }
+
   // 反方向照常；名稱以 `ui` 開頭的別的目錄、`playback` 開頭的介面檔不報。
   Future<void> test_uiMayImportPlayback() async {
     await assertLints(
