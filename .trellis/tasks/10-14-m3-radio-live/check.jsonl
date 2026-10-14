@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§3.1 radio_stations, §3.3 settings, §8 scheduler, §9.1-9.2 radio list and status job, §9.4 live playback, §4.9 superseded requests"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §18 split"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "Radio decisions 1, 2, 6, 7"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "Playback controller, decisions 6, 7, 9 with corrections"}
+{"file": "docs/adr/0017-background-task-scheduler.md", "reason": "Scheduler jobs"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "Schema change procedure, repositories"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Playback core patterns"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "Media controls"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Settings groups"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}
