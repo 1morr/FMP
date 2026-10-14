@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）已合併；PR 15（診斷包，子任務 `10-14-m3-diagnostics`，分支 `feat/app-diagnostics`）。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）、15（#242）已合併；PR 16 拆成 16a（健康檢查，子任務 `10-14-m3-health-check`，分支 `feat/app-health-check`）、16b（插件開發工具，子任務 `10-14-m3-plugin-dev-tools`，opus 已寫好 prd／design／implement，待 16a 合併後實作）、16c（以 App 內登入重錄 `requiresLogin` 的案例，要擁有者登入）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
 - **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
@@ -377,8 +377,8 @@
 ## 16. 健康檢查與插件開發工具（design §12.5）
 
 - [ ] `lib/plugins/json_shape.dart` 移到 `lib/core/`；adapter 與 `fixture.dart` 移到 `lib/core/network/`、契約測試改引用；`restrictedImports`；ADR 0015 §決定 6 的更正（design §12.5）。
-- [ ] `checks.json` 的解析與案例期望的判斷移到 `lib/plugins/health/`，契約執行器與 `type_definitions_test.dart` 改引用。
-- [ ] 健康檢查區塊：全部或單一插件、一次一個、略過、`health` tag。
+- [x] `checks.json` 的解析與案例期望的判斷移到 `lib/plugins/health/`，契約執行器與 `type_definitions_test.dart` 改引用。
+- [x] 健康檢查區塊（16a）：全部或單一插件、一次一個、略過、`health` tag。
 - [ ] 平台層：`files` 加 `getDirectoryPath`；宣告 `pluginDevTools`（Windows 真、Android 假）。
 - [ ] 插件開發區塊：選資料夾、開發中標記、重新載入、真實／錄製／重播切換、案例單跑全跑、以 App 內登入錄 fixture。
 - [ ] `plugin_dev_folder` 的 setter；關閉開發者模式時卸載。載入開發資料夾的插件時 `installed_plugins` 補一列（沒有同 id 的已安裝列才補；來源標開發資料夾、`enabled` 為真，`plugin_storage` 的外鍵才寫得進去），移除開發資料夾時刪這列（cascade 掉 storage）；有同 id 的已安裝列時沿用、不覆寫、不刪（design §12.5；來源標記的存放方式與殘留列的清理在這個 PR 決定）。
@@ -483,6 +483,13 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 16a 留下的
+
+1. **拆分**（主對話決定）：PR 16 拆成 16a（健康檢查）、16b（插件開發工具）、16c（App 內登入重錄 `requiresLogin` 的案例，擁有者在時做）。
+2. **16b 的設計偏離父 design §12.5 的一句**（主對話接受）：「真實｜錄製｜重播」只作用於跑案例，每個案例在隔離環境執行；App 內的開發中插件一律真實連線。理由與 schema v10 的 `from_dev_folder` 見 `10-14-m3-plugin-dev-tools/prd.md` 末的「主對話的決定」。已知限制：隔離環境只把已存憑證當 `loginVerify` 的輸入，M4 出現需要登入的非 login 案例時要補。
+3. **健康檢查可能讓帳號被標成已失效**：已登入時案例帶憑證，被拒就走 `AccountGuard` 的刷新與失效，和 App 平常一致（審查認為合理，沒改）。
+4. **`app/` 根目錄 `dart format .` 會撞到 `build/` 底下的 cargokit 產物**（gitignore 的本機建置產物）：驗證時改用 `lib test tool integration_test packages`，CI 沒有 `build/` 不受影響。
 
 ### PR 15 留下的
 

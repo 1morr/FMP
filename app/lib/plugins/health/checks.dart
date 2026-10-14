@@ -74,13 +74,17 @@ final class PluginCheck {
         _ => const [],
       };
 
-  /// 以 [plugin] 執行這個案例。
-  Future<Object> run(SourcePlugin plugin) => switch (input) {
-    final SearchQuery query => plugin.search(query),
-    final StreamRequest request => plugin.resolveStream(request),
-    final LoginCredentials credentials => plugin.loginVerify(credentials),
-    _ => throw StateError('No host method for ${capability.wireName}'),
-  };
+  /// 以 [plugin] 執行這個案例。[credentials] 只給 login 案例：換掉檔案裡的假憑證，
+  /// 用該音源已存的真憑證（健康檢查，design §4.8）；其他案例忽略它。
+  Future<Object> run(SourcePlugin plugin, {LoginCredentials? credentials}) =>
+      switch (input) {
+        final SearchQuery query => plugin.search(query),
+        final StreamRequest request => plugin.resolveStream(request),
+        final LoginCredentials fixture => plugin.loginVerify(
+          credentials ?? fixture,
+        ),
+        _ => throw StateError('No host method for ${capability.wireName}'),
+      };
 }
 
 /// 解析 checks.json；格式不對拋 [FormatException]。

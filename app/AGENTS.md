@@ -1584,7 +1584,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、資料庫、重設資料。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、資料庫、重設資料。窄版點進區塊後，標題列的返回鈕與系統返回鍵
     先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
@@ -1597,6 +1597,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （ADR 0011 §決定 5 的錯誤歷史，`isErrorRecord`）。點一筆在原地展開欄位、error、stackTrace；`Log.report` 寫的錯誤紀錄（有 `fields.type`）展開後另有「詳細」，開錯誤詳細頁（見「提示與錯誤詳細頁」）。「複製已篩選」複製
     篩選後的純文字（由舊到新），「清除 log」確認後呼叫 `Log.clear()`。閘門：`debug_log_state_test.dart`（合併、篩選、格式）、
     `debug_log_network_test.dart` 的 `the Log section`（篩選、只看錯誤、複製、清除要確認、清除後記憶體與檔案都空、含之前的紀錄不重複、錯誤紀錄的「詳細」開詳細頁而別的紀錄沒有）。
+  - 音源健康檢查（`debug_health.dart`、`lib/plugins/health/`，ADR 0025 §決定 6，M3 design §12.5）：對已安裝且啟用的插件，以
+    **App 已載入的那個插件**（真實連線、帶已存憑證）跑 `installed_plugins.checks_json` 的案例；`checks.json` 的解析與期望
+    （`PluginCheck`、`parseChecks`、`checkShapes`、`CheckExpectation`）只有 `lib/plugins/health/checks.dart` 一份，契約執行器
+    （`test/plugins/contract/`）與健康檢查共用。手動觸發「全部檢查」或單一插件，**一次只跑一個插件**：`HealthCheck.busy` 為真時
+    再按不開第二輪，全部依序跑，每個插件開跑前重讀一次（前面的插件跑的期間被停用或移除的不跑）。停用的插件與沒有 `checks_json` 的插件（從檔案、網址或開發入口安裝）不跑，畫面標「已停用」「沒有檢查案例」；啟用卻不在已載入清單上的標「沒有載入」（`notLoaded`）。
+    `requiresLogin` 的案例：該音源已登入就用 `CredentialStore.activeCredentials` 的憑證當 `loginVerify` 的輸入（不是案例檔的假值），
+    未登入標「略過」、不發請求。`loginVerify` 回的帳號（名稱、頭像）只拿來比對期望，不進結果與 log。結果（通過／失敗／略過、耗時、`AppError` 類別、說明）只留在記憶體，說明經遮蔽函式（錯誤只用 `toString()`，不含原始 error）；
+    每個案例另以 tag `health` 寫一筆 log（`pluginId`、`capability`、`result`、`durationMs`、`errorType`），沒有新表。插件丟出 `AppError`
+    以外的東西或期望不符都只標失敗、不中斷整輪。閘門：`health_check_test.dart`（略過與已存憑證、結果與 log 沒有帳號名稱與憑證值、一次一個與不開第二輪、跑的期間被停用、沒有載入、停用與無案例、
+    log 欄位、失敗說明、非 `AppError`）、`debug_health_test.dart`（清單、進度、結果）、`guidelines_test.dart` 的 `the Debug Health section`。
   - 網路（`debug_network.dart`、`debug_network_state.dart`，ADR 0025 §決定 4）：資料就是記憶體歷史裡 tag `network` 的紀錄
     （`NetworkEntry.tryParse` 讀 `writeNetworkRecord` 的欄位，不另存、不讀 log 檔），最新的在最上面。篩選是音源（空字串＝宿主自己的請求）、狀態碼類別（2xx／3xx／4xx／5xx，
     沒有狀態碼＝失敗，`StatusClass`）、文字。單筆詳細是對話框，列出遮過的 query、錯誤類型與 `networkRecordId` 對得上該筆 `id` 的

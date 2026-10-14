@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§12.5 health checks (case sources, results, health tag, checks parsing moves to lib/plugins/health); §4.8 requiresLogin"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §16 checklist"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "§決定 6 health checks, section order"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "§決定 4 checks.json, §決定 6-7 contract runner"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin layer, registry, contract tests"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI patterns, Debug page sections, guideline tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}

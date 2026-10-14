@@ -9,7 +9,8 @@ import 'package:fmp/plugins/runtime/plugin_host.dart';
 import 'package:fmp/plugins/runtime/script_errors.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
-import 'contract/checks.dart';
+import 'package:fmp/plugins/health/checks.dart';
+
 import 'contract/fixture.dart';
 import 'plugin_harness.dart';
 

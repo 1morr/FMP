@@ -503,6 +503,44 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   @override
   String get database => '数据库';
   @override
+  String get health => '音源健康检查';
+  @override
+  String get hcHint => '对已安装且启用的插件用真实连接跑检查用例（需要登录的用例使用已存的凭证）。一次只检查一个插件。';
+  @override
+  String get hcAll => '全部检查';
+  @override
+  String get hcCheck => '检查';
+  @override
+  String get hcChecking => '检查中…';
+  @override
+  String get hcNone => '没有检查用例';
+  @override
+  String get hcDisabled => '已停用';
+  @override
+  String hcCount({required Object count}) => '${count} 个用例';
+  @override
+  String get hcUnreadable => '检查用例无法读取';
+  @override
+  String get hcPassed => '通过';
+  @override
+  String get hcFailed => '失败';
+  @override
+  String get hcSkipped => '跳过（未登录）';
+  @override
+  String hcProblem({required Object problem}) => '无法检查：${problem}';
+  @override
+  String get hcNotLoaded => '无法检查：插件没有加载（见 log）';
+  @override
+  String get hcEmpty => '还没有安装的插件';
+  @override
+  String hcCase({
+    required Object capability,
+    required Object outcome,
+    required Object ms,
+  }) => '${capability} · ${outcome} · ${ms} ms';
+  @override
+  String hcErrorType({required Object type}) => '错误类别：${type}';
+  @override
   String get pbEmpty => '没有在播放';
   @override
   String get pbEmptyHint => '播放或加入队列后，这里会显示后端、流与队列的状态。';

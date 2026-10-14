@@ -36,11 +36,13 @@ lib/plugins/
     account_service.dart      # AccountService：登入（驗證通過才寫入）、登出、移除插件的帳號面、開關
     qr_login.dart             # QrLogin：QR 登入的輪詢（一次性 Timer 接力）與狀態
     account_guard.dart        # AccountGuard：能力呼叫丟 CredentialInvalid 時單飛刷新、重跑一次、標 invalidated
+  health/
+    checks.dart               # checks.json 的解析、checkShapes、期望的比對（契約執行器與健康檢查共用）
+    health_check.dart         # HealthCheck：Debug 頁的健康檢查（一次一個插件、已存憑證、tag health 的 log）
   types/fmp-plugin.d.ts       # 給插件作者的 TypeScript 型別
 
 test/plugins/contract/        # 契約執行器（只在測試裡，理由見 PR 9b 的 research/notes.md）
   contract_runner.dart        # PluginDirectory、runContract／runCheck／recordContract
-  checks.dart                 # checks.json、checkShapes、期望的比對
   fixture.dart                # fixture 格式、fixtureShapes、遮蔽、重播的網址比對
   fixture_adapters.dart       # ReplayAdapter、RecordingAdapter（dio 最底層的 adapter）
   credential_scan.dart        # fixture、log、串流 headers 的憑證檢查
@@ -253,6 +255,6 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - `test/plugins/` 全綠（含契約執行器）；新的宿主 API 有隔離案例；`type_definitions_test.dart` 綠。
 - `lib/plugins/` 以外沒有 import `flutter_js`；沒有網址字面值（`fmp_url_literal`）。
 - 改了 `fmp` 形狀或 DTO：`fmp-plugin.d.ts` 一起改，`app/AGENTS.md` § 插件若規則變了也改。
-- 加了 DTO 欄位：`test/plugins/contract/checks.dart` 的 `trackFields`／`candidateFields` 一起加
-  （`checks_test.dart` 比對）；`SourcePlugin` 加了能力的方法：`checkShapes['FmpChecks']`、
+- 加了 DTO 欄位：`lib/plugins/health/checks.dart` 的 `trackFields`／`candidateFields` 一起加
+  （`test/plugins/health/checks_test.dart` 比對）；`SourcePlugin` 加了能力的方法：`checkShapes['FmpChecks']`、
   `PluginCheck.run` 與 d.ts 的 `FmpChecks` 一起加。
