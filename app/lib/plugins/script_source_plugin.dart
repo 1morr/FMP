@@ -128,6 +128,12 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<MultiPartResult> multiPart(MultiPartQuery query) async {
+    final json = await _invoke(PluginCapability.multiPart, query.toJson());
+    return _decode(() => MultiPartResult.fromJson(json));
+  }
+
+  @override
   Future<LoginQrCode> loginQrStart() async {
     final json = await _login(LoginExports.qrStart, null);
     return _decode(() => LoginQrCode.fromJson(json));

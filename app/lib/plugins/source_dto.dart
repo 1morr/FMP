@@ -27,6 +27,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'uploader': false,
     'durationMs': false,
     'artwork': false,
+    'partCount': false,
   },
   'Artwork': {'url': true, 'width': false},
   'StreamRequest': {
@@ -67,6 +68,14 @@ const sourceDtoShapes = <String, JsonShape>{
   'MixSeed': {'sourceId': true, 'cid': false},
   'MixContinueQuery': {'mixId': true, 'cursor': true},
   'MixBatch': {'mixId': true, 'title': true, 'tracks': true, 'cursor': false},
+  'MultiPartQuery': {'sourceId': true},
+  'MultiPartResult': {'parts': true},
+  'MultiPartItem': {
+    'cid': true,
+    'title': true,
+    'durationMs': false,
+    'index': true,
+  },
 };
 
 /// 搜尋的輸入。
@@ -136,6 +145,7 @@ final class TrackSummary {
     this.uploader,
     this.duration,
     this.artwork = const [],
+    this.partCount,
   });
 
   factory TrackSummary._fromJson(
@@ -166,6 +176,7 @@ final class TrackSummary {
             path: '$path.artwork[$index]',
           ),
       ]),
+      partCount: fields.optionalInteger('partCount', min: 1),
     );
   }
 
@@ -180,6 +191,10 @@ final class TrackSummary {
 
   /// 多尺寸封面（ADR 0016 §決定 4）；宿主挑最接近顯示尺寸的一張。
   final List<Artwork> artwork;
+
+  /// 搜尋結果知道的分 P 數（ADR 0028 §決定 5），只是提示：空是不知道（展開鈕照顯示），
+  /// 1 是確定單 P（不顯示）。只在記憶體，不存。
+  final int? partCount;
 
   /// 插件以外（佇列、歷史）用的曲目：欄位逐一照搬。
   TrackInfo toTrackInfo() => TrackInfo(
@@ -814,4 +829,86 @@ final class MixBatch {
 
   /// 插件的不透明字串；`null` 是這個 Mix 沒有更多。
   final String? cursor;
+}
+
+/// `multiPart` 的輸入（ADR 0028 §決定 5）。
+@immutable
+final class MultiPartQuery {
+  MultiPartQuery({required this.sourceId}) {
+    if (sourceId.trim().isEmpty) {
+      throw ArgumentError.value(sourceId, 'sourceId', 'must not be empty');
+    }
+  }
+
+  final String sourceId;
+
+  Map<String, Object?> toJson() => {'sourceId': sourceId};
+}
+
+/// `multiPart` 的回傳值：一支影片的分 P。
+@immutable
+final class MultiPartResult {
+  const MultiPartResult({required this.parts});
+
+  factory MultiPartResult.fromJson(Object? json) {
+    const path = 'MultiPartResult';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final parts = [
+      for (final (index, item) in fields.list('parts').indexed)
+        MultiPart._fromJson(item, path: '$path.parts[$index]'),
+    ];
+    if (parts.isEmpty) {
+      throw const FormatException('$path.parts: must not be empty');
+    }
+    return MultiPartResult(parts: List.unmodifiable(parts));
+  }
+
+  final List<MultiPart> parts;
+}
+
+/// 一個分 P。
+@immutable
+final class MultiPart {
+  const MultiPart({
+    required this.cid,
+    required this.title,
+    this.duration,
+    required this.index,
+  });
+
+  factory MultiPart._fromJson(Object? json, {required String path}) {
+    final fields = JsonFields(
+      json,
+      sourceDtoShapes['MultiPartItem']!,
+      path: path,
+    );
+    final durationMs = fields.optionalInteger('durationMs');
+    return MultiPart(
+      cid: fields.integer('cid'),
+      title: fields.nonEmptyString('title'),
+      duration: durationMs == null ? null : Duration(milliseconds: durationMs),
+      index: fields.integer('index', min: 1),
+    );
+  }
+
+  final int cid;
+  final String title;
+  final Duration? duration;
+
+  /// 從 1 起。
+  final int index;
+
+  /// 這個分 P 的曲目（ADR 0005：每個分 P 是一首曲目）：音源內的 id、上傳者與封面
+  /// 沿用 [video]（影片本身），其餘用分 P 的；影片標題記在 `parentTitle`。
+  TrackInfo toTrackInfo(TrackInfo video) => TrackInfo(
+    sourceTypeId: video.sourceTypeId,
+    sourceId: video.sourceId,
+    cid: cid,
+    title: title,
+    uploader: video.uploader,
+    duration: duration,
+    artwork: video.artwork,
+    partIndex: index,
+    parentTitle: video.title,
+  );
 }

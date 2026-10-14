@@ -116,6 +116,10 @@ final class _LoginPlugin implements SourcePlugin {
   Future<MixBatch> mix(MixQuery query) => throw UnimplementedError('mix');
 
   @override
+  Future<MultiPartResult> multiPart(MultiPartQuery query) =>
+      throw UnimplementedError('multiPart');
+
+  @override
   Future<StreamResult> resolveLive(LiveStreamRequest request) =>
       throw UnimplementedError('live');
 

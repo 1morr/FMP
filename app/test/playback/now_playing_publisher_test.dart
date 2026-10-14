@@ -249,6 +249,23 @@ void main() {
       ]);
     });
 
+    // 分 P（M3 PR 20）：系統媒體控制顯示「影片標題 · P2 分 P 標題」，id 是含 cid 的曲目鍵。
+    harness('a part pushes the video title with the part label', (h) {
+      h.queue([
+        const TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'v',
+          cid: 12,
+          title: 'Second',
+          partIndex: 2,
+          parentTitle: 'The video',
+        ),
+      ]);
+
+      expect(h.last.title, 'The video · P2 Second');
+      expect(h.last.id, 'fmp-test:v:12');
+    });
+
     harness('a restored queue that was not played stays idle', (h) {
       expect(
         h.controller.restore(

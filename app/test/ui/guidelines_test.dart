@@ -236,6 +236,55 @@ void main() {
           handle.dispose();
         });
 
+        // 分 P 的搜尋結果（M3 PR 20）：影片列有展開鈕，展開後列出分 P、取分 P 失敗時有重試。
+        for (final failed in [false, true]) {
+          testWidgets(
+            'search results with the parts ${failed ? 'failed' : 'expanded'} '
+            'at $width',
+            (tester) async {
+              final handle = tester.ensureSemantics();
+              final h = ShellHarness(
+                multiPart: true,
+                registryOfSources: true,
+                onSearch: (_) => SearchPage(
+                  items: [summary('a', partCount: 3), summary('b')],
+                  hasMore: false,
+                ),
+              );
+              h.plugin.onMultiPart = (_) => failed
+                  ? throw RateLimited(pluginId: 'fmp-test')
+                  : MultiPartResult(
+                      parts: [
+                        for (var i = 1; i <= 3; i++)
+                          MultiPart(
+                            cid: i,
+                            title: 'Part $i',
+                            duration: Duration(seconds: 30 * i),
+                            index: i,
+                          ),
+                      ],
+                    );
+              await h.pumpShell(tester, size: size, brightness: brightness);
+              await tester.enterText(find.byType(TextField), 'song');
+              await tester.testTextInput.receiveAction(TextInputAction.search);
+              await tester.pump();
+              await tester.pump();
+              await tester.tap(find.byTooltip('Show parts').first);
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 300));
+              FocusManager.instance.primaryFocus?.unfocus();
+              await tester.pumpAndSettle(const Duration(seconds: 10));
+              expect(
+                find.text(failed ? 'Couldn’t load the parts' : 'P2 Part 2'),
+                findsOneWidget,
+              );
+
+              await expectGuidelines(tester);
+              handle.dispose();
+            },
+          );
+        }
+
         for (final status in [
           NetworkStatus.noInterface,
           NetworkStatus.unreachable,
@@ -1341,6 +1390,52 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(QueueView), findsOneWidget);
           expect(find.textContaining('shuffle order'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 分 P 曲目的佇列（M3 PR 20）：顯示「影片標題 · P2 分 P 標題」。
+        testWidgets('the queue with multi-part tracks at ${size.width}', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          expect(
+            h.controller.addToQueue([
+              for (var i = 1; i <= 3; i++)
+                TrackInfo(
+                  sourceTypeId: 'fmp-test',
+                  sourceId: 'v',
+                  cid: i,
+                  title: 'Part $i',
+                  uploader: 'Uploader',
+                  partIndex: i,
+                  parentTitle: 'The video',
+                ),
+            ]),
+            isTrue,
+          );
+          unawaited(h.controller.jumpTo(0));
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(PlayerBar.titleKey),
+                  matching: find.byType(Text),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          if (size.width < 840) {
+            await tester.tap(find.byKey(PlayerPage.queueKey));
+          } else {
+            await tester.tap(find.widgetWithText(Tab, 'Queue'));
+          }
+          await tester.pumpAndSettle();
+          expect(find.byType(QueueView), findsOneWidget);
+          expect(find.text('The video · P2 Part 2'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

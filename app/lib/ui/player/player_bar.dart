@@ -88,7 +88,7 @@ class PlayerBar extends ConsumerWidget {
       final track = current!;
       pluginId = track.sourceTypeId;
       artwork = track.artwork;
-      title = track.title;
+      title = track.displayTitle;
       uploader = track.uploader;
       status = playbackStatusLabel(
         translations.player,

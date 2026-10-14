@@ -232,6 +232,14 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   String get listen => '收听';
   @override
   String get addToRadio => '添加到电台';
+  @override
+  String get showParts => '展开分P';
+  @override
+  String get hideParts => '收起分P';
+  @override
+  String get loadingParts => '正在载入分P';
+  @override
+  String get partsFailed => '无法载入分P';
 }
 
 // Path: history

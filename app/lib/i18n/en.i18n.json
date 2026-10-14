@@ -46,7 +46,11 @@
     "filterLive": "Live",
     "filterOffline": "Offline",
     "listen": "Listen",
-    "addToRadio": "Add to Radio"
+    "addToRadio": "Add to Radio",
+    "showParts": "Show parts",
+    "hideParts": "Hide parts",
+    "loadingParts": "Loading parts",
+    "partsFailed": "Couldn’t load the parts"
   },
   "history": {
     "title": "Play history",

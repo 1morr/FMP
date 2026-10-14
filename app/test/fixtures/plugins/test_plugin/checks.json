@@ -22,6 +22,10 @@
     "input": { "seed": { "sourceId": "tone-440" } },
     "expect": { "minItems": 5, "nonEmpty": ["sourceId", "title", "uploader", "durationMs"] }
   },
+  "multiPart": {
+    "input": { "sourceId": "parts-220" },
+    "expect": { "minItems": 3, "nonEmpty": ["cid", "title", "durationMs", "index"] }
+  },
   "login": {
     "input": { "cookies": { "fmp_test_session": "fake-session-0000" } },
     "expect": { "minItems": 1, "nonEmpty": ["userId", "displayName"] },

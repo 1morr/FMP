@@ -551,6 +551,30 @@ void main() {
       expect(h.logged('Playback restored'), hasLength(1));
     });
 
+    storeTest('brings back a multi-part track with its index and video title', (
+      h,
+    ) {
+      const part = TrackInfo(
+        sourceTypeId: 'fmp-test',
+        sourceId: 'v',
+        cid: 22,
+        title: 'Second',
+        partIndex: 2,
+        parentTitle: 'The video',
+      );
+      h.controller.addToQueue([track('a'), part]);
+      h.settle();
+      h.store.dispose();
+      unawaited(h.controller.dispose());
+      h.settle();
+
+      h.open();
+
+      final restored = h.controller.queue.entries[1].track;
+      expect(restored, part);
+      expect(restored.displayTitle, 'The video · P2 Second');
+    });
+
     for (final (remember, rewind, expected) in [
       (true, 0, 83),
       (true, 10, 73),

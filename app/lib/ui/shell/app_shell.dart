@@ -196,7 +196,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             operation: 'Track skipped',
             tag: 'playback',
             sentence: (reason) => t.trackSkipped(
-              title: track.title,
+              title: track.displayTitle,
               reason: unavailable ?? reason,
             ),
           );
@@ -207,8 +207,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             error,
             operation: 'Playback stopped',
             tag: 'playback',
-            sentence: (reason) =>
-                t.cannotPlay(title: track.title, reason: unavailable ?? reason),
+            sentence: (reason) => t.cannotPlay(
+              title: track.displayTitle,
+              reason: unavailable ?? reason,
+            ),
           );
         // 連續跳過到上限：每一首的原因已經在跳過時提示過（同類的被去重），
         // 這裡說停下來了。錯誤仍寫進錯誤歷史。
@@ -218,7 +220,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               .report('Playback stopped', error, tag: 'playback');
           toaster.warning(t.stoppedAfterFailures(count: failedInARow));
         case PreviewPlaying(:final track):
-          toaster.info(t.previewPlaying(title: track.title));
+          toaster.info(t.previewPlaying(title: track.displayTitle));
         // 已經暫停（不跳過）；原因（mpv 的那一行）已由播放模組寫進 log。選過的
         // 裝置失敗時已改用系統預設；失敗的本來就是系統預設時只說已暫停。
         case OutputDeviceFailed(:final fellBack):

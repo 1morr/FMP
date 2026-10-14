@@ -7,6 +7,7 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/ui/search/video_parts.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
 /// 可以搜尋的音源：已載入、宣告了 `search`、沒有停用的插件，照插件清單的順序。
@@ -153,7 +154,8 @@ final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
   SearchNotifier.new,
 );
 
-/// 搜尋與「載入更多」。新的搜尋開始後，之前還沒回來的結果丟掉。
+/// 搜尋與「載入更多」。新的搜尋開始後，之前還沒回來的結果丟掉，展開的分 P 收起
+/// （[VideoParts.collapseAll]）。
 ///
 /// 失敗經 [Toaster.error] 提示（使用者按了搜尋，屬於使用者動作的回饋）。
 /// 網路狀態不擋使用者的搜尋，`noInterface`、`unreachable` 都照常送出（ADR 0016
@@ -216,6 +218,7 @@ final class SearchNotifier extends Notifier<SearchState> {
     if (trimmed.isEmpty || source == null) return;
     final generation = ++_generation;
     state = state.restart(keyword: trimmed, phase: SearchPhase.loading);
+    ref.read(videoPartsProvider.notifier).collapseAll();
     await _load(source, trimmed, page: 1, generation: generation);
   }
 

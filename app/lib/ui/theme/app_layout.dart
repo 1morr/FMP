@@ -63,6 +63,9 @@ abstract final class AppLayout {
   static const double panelHandleWidth = 8;
   static const double panelKeyboardStep = 16;
 
+  /// 搜尋結果列取分 P 時取代展開鈕的轉圈尺寸（鈕本身是 [kMinInteractiveDimension]）。
+  static const double partsSpinner = 20;
+
   /// 帳號頁的頭像（M3 list item 的 leading avatar）。
   static const double accountAvatar = 40;
 

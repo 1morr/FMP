@@ -242,6 +242,18 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '加為電台'
   String get addToRadio => '加為電台';
+
+  /// zh-TW: '展開分 P'
+  String get showParts => '展開分 P';
+
+  /// zh-TW: '收合分 P'
+  String get hideParts => '收合分 P';
+
+  /// zh-TW: '正在載入分 P'
+  String get loadingParts => '正在載入分 P';
+
+  /// zh-TW: '無法載入分 P'
+  String get partsFailed => '無法載入分 P';
 }
 
 // Path: history
