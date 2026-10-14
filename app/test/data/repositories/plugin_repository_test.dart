@@ -249,4 +249,112 @@ void main() {
       expect(await storage.read('a', 'buvid'), 'x');
     });
   });
+
+  group('development folder rows', () {
+    InstalledPlugin marked(String id, {String version = '1.0.0'}) =>
+        InstalledPlugin(
+          id: id,
+          version: version,
+          manifestJson: '{"id":"$id"}',
+          script: 'export default {};',
+          installedAt: DateTime.utc(2026, 9, 29, 12, 30, 15, 250),
+          fromDevFolder: true,
+        );
+
+    test('inserts a marked row when there is none', () async {
+      final repository = PluginRepository(memoryDatabase());
+
+      expect(await repository.putDevFolderRow(plugin('a')), isTrue);
+
+      expect(await repository.byId('a'), marked('a'));
+    });
+
+    test('updates the content of a marked row', () async {
+      final repository = PluginRepository(memoryDatabase());
+      await repository.putDevFolderRow(plugin('a'));
+
+      final updated = InstalledPlugin(
+        id: 'a',
+        version: '2.0.0',
+        manifestJson: '{"id":"a","v":2}',
+        script: 'export const x = 2;',
+        installedAt: DateTime.utc(2030),
+      );
+      expect(await repository.putDevFolderRow(updated), isTrue);
+
+      final row = (await repository.byId('a'))!;
+      expect(row.version, '2.0.0');
+      expect(row.manifestJson, '{"id":"a","v":2}');
+      expect(row.script, 'export const x = 2;');
+      expect(row.fromDevFolder, isTrue);
+    });
+
+    test('leaves an installed row untouched', () async {
+      final repository = PluginRepository(memoryDatabase());
+      final installed = InstalledPlugin(
+        id: 'a',
+        version: '1.0.0',
+        manifestJson: '{"id":"a"}',
+        script: 'installed',
+        installedAt: DateTime.utc(2026),
+        enabled: true,
+        sourceIndexUrl: 'https://example.invalid/index.json',
+        checksJson: '{}',
+      );
+      await repository.install(installed);
+      await repository.setEnabled('a', enabled: false);
+      final before = (await repository.byId('a'))!;
+
+      expect(
+        await repository.putDevFolderRow(plugin('a', version: '9.9.9')),
+        isFalse,
+      );
+
+      // 每個欄位都不動（含 manifest、來源 index、安裝時間）。
+      expect(await repository.byId('a'), before);
+      expect(before.fromDevFolder, isFalse);
+      expect(before.enabled, isFalse);
+    });
+
+    test(
+      'removes marked rows with their storage, never installed ones',
+      () async {
+        final database = memoryDatabase();
+        final plugins = PluginRepository(database);
+        final storage = PluginStorageRepository(database);
+        await plugins.install(plugin('installed'));
+        await plugins.putDevFolderRow(plugin('marked'));
+        await plugins.putDevFolderRow(plugin('kept'));
+        await storage.write('installed', 'k', 'i');
+        await storage.write('marked', 'k', 'm');
+        await storage.write('kept', 'k', 'p');
+
+        final removed = await plugins.removeDevFolderRows(keep: {'kept'});
+
+        expect(removed, ['marked']);
+        expect(await plugins.byId('marked'), isNull);
+        expect(await storage.read('marked', 'k'), isNull);
+        expect(await plugins.byId('installed'), isNotNull);
+        expect(await storage.read('installed', 'k'), 'i');
+        expect(await plugins.byId('kept'), isNotNull);
+        expect(await storage.read('kept', 'k'), 'p');
+        expect(await plugins.removeDevFolderRows(), ['kept']);
+        expect(await plugins.byId('installed'), isNotNull);
+      },
+    );
+
+    test('installing converts a marked row and keeps its storage', () async {
+      final database = memoryDatabase();
+      final plugins = PluginRepository(database);
+      final storage = PluginStorageRepository(database);
+      await plugins.putDevFolderRow(plugin('a'));
+      await storage.write('a', 'k', 'v');
+
+      await plugins.install(plugin('a', version: '2.0.0'));
+
+      expect((await plugins.byId('a'))!.fromDevFolder, isFalse);
+      expect(await plugins.removeDevFolderRows(), isEmpty);
+      expect(await storage.read('a', 'k'), 'v');
+    });
+  });
 }

@@ -98,6 +98,10 @@ class InstalledPluginsTable extends Table {
   /// 從 index 安裝時一併存的 `checks.json` 原文，給健康檢查用；沒有就是空。
   late final checksJson = text().nullable()();
 
+  /// 真＝這一列是插件開發工具為了 `plugin_storage` 的外鍵補的，不是使用者裝的
+  /// （M3 PR 16b）；每次套用開發資料夾時對齊，不屬於資料夾的標記列會被刪掉。
+  late final fromDevFolder = boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

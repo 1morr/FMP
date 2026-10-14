@@ -1343,6 +1343,21 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _fromDevFolderMeta = const VerificationMeta(
+    'fromDevFolder',
+  );
+  @override
+  late final GeneratedColumn<bool> fromDevFolder = GeneratedColumn<bool>(
+    'from_dev_folder',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("from_dev_folder" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1353,6 +1368,7 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
     enabled,
     sourceIndexUrl,
     checksJson,
+    fromDevFolder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1419,6 +1435,15 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
         checksJson.isAcceptableOrUnknown(data['checks_json']!, _checksJsonMeta),
       );
     }
+    if (data.containsKey('from_dev_folder')) {
+      context.handle(
+        _fromDevFolderMeta,
+        fromDevFolder.isAcceptableOrUnknown(
+          data['from_dev_folder']!,
+          _fromDevFolderMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1462,6 +1487,10 @@ class $InstalledPluginsTableTable extends InstalledPluginsTable
         DriftSqlType.string,
         data['${effectivePrefix}checks_json'],
       ),
+      fromDevFolder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}from_dev_folder'],
+      )!,
     );
   }
 
@@ -1493,6 +1522,10 @@ class InstalledPluginRow extends DataClass
 
   /// 從 index 安裝時一併存的 `checks.json` 原文，給健康檢查用；沒有就是空。
   final String? checksJson;
+
+  /// 真＝這一列是插件開發工具為了 `plugin_storage` 的外鍵補的，不是使用者裝的
+  /// （M3 PR 16b）；每次套用開發資料夾時對齊，不屬於資料夾的標記列會被刪掉。
+  final bool fromDevFolder;
   const InstalledPluginRow({
     required this.id,
     required this.version,
@@ -1502,6 +1535,7 @@ class InstalledPluginRow extends DataClass
     required this.enabled,
     this.sourceIndexUrl,
     this.checksJson,
+    required this.fromDevFolder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1522,6 +1556,7 @@ class InstalledPluginRow extends DataClass
     if (!nullToAbsent || checksJson != null) {
       map['checks_json'] = Variable<String>(checksJson);
     }
+    map['from_dev_folder'] = Variable<bool>(fromDevFolder);
     return map;
   }
 
@@ -1539,6 +1574,7 @@ class InstalledPluginRow extends DataClass
       checksJson: checksJson == null && nullToAbsent
           ? const Value.absent()
           : Value(checksJson),
+      fromDevFolder: Value(fromDevFolder),
     );
   }
 
@@ -1556,6 +1592,7 @@ class InstalledPluginRow extends DataClass
       enabled: serializer.fromJson<bool>(json['enabled']),
       sourceIndexUrl: serializer.fromJson<String?>(json['sourceIndexUrl']),
       checksJson: serializer.fromJson<String?>(json['checksJson']),
+      fromDevFolder: serializer.fromJson<bool>(json['fromDevFolder']),
     );
   }
   @override
@@ -1570,6 +1607,7 @@ class InstalledPluginRow extends DataClass
       'enabled': serializer.toJson<bool>(enabled),
       'sourceIndexUrl': serializer.toJson<String?>(sourceIndexUrl),
       'checksJson': serializer.toJson<String?>(checksJson),
+      'fromDevFolder': serializer.toJson<bool>(fromDevFolder),
     };
   }
 
@@ -1582,6 +1620,7 @@ class InstalledPluginRow extends DataClass
     bool? enabled,
     Value<String?> sourceIndexUrl = const Value.absent(),
     Value<String?> checksJson = const Value.absent(),
+    bool? fromDevFolder,
   }) => InstalledPluginRow(
     id: id ?? this.id,
     version: version ?? this.version,
@@ -1593,6 +1632,7 @@ class InstalledPluginRow extends DataClass
         ? sourceIndexUrl.value
         : this.sourceIndexUrl,
     checksJson: checksJson.present ? checksJson.value : this.checksJson,
+    fromDevFolder: fromDevFolder ?? this.fromDevFolder,
   );
   InstalledPluginRow copyWithCompanion(InstalledPluginsTableCompanion data) {
     return InstalledPluginRow(
@@ -1612,6 +1652,9 @@ class InstalledPluginRow extends DataClass
       checksJson: data.checksJson.present
           ? data.checksJson.value
           : this.checksJson,
+      fromDevFolder: data.fromDevFolder.present
+          ? data.fromDevFolder.value
+          : this.fromDevFolder,
     );
   }
 
@@ -1625,7 +1668,8 @@ class InstalledPluginRow extends DataClass
           ..write('installedAt: $installedAt, ')
           ..write('enabled: $enabled, ')
           ..write('sourceIndexUrl: $sourceIndexUrl, ')
-          ..write('checksJson: $checksJson')
+          ..write('checksJson: $checksJson, ')
+          ..write('fromDevFolder: $fromDevFolder')
           ..write(')'))
         .toString();
   }
@@ -1640,6 +1684,7 @@ class InstalledPluginRow extends DataClass
     enabled,
     sourceIndexUrl,
     checksJson,
+    fromDevFolder,
   );
   @override
   bool operator ==(Object other) =>
@@ -1652,7 +1697,8 @@ class InstalledPluginRow extends DataClass
           other.installedAt == this.installedAt &&
           other.enabled == this.enabled &&
           other.sourceIndexUrl == this.sourceIndexUrl &&
-          other.checksJson == this.checksJson);
+          other.checksJson == this.checksJson &&
+          other.fromDevFolder == this.fromDevFolder);
 }
 
 class InstalledPluginsTableCompanion
@@ -1665,6 +1711,7 @@ class InstalledPluginsTableCompanion
   final Value<bool> enabled;
   final Value<String?> sourceIndexUrl;
   final Value<String?> checksJson;
+  final Value<bool> fromDevFolder;
   final Value<int> rowid;
   const InstalledPluginsTableCompanion({
     this.id = const Value.absent(),
@@ -1675,6 +1722,7 @@ class InstalledPluginsTableCompanion
     this.enabled = const Value.absent(),
     this.sourceIndexUrl = const Value.absent(),
     this.checksJson = const Value.absent(),
+    this.fromDevFolder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   InstalledPluginsTableCompanion.insert({
@@ -1686,6 +1734,7 @@ class InstalledPluginsTableCompanion
     this.enabled = const Value.absent(),
     this.sourceIndexUrl = const Value.absent(),
     this.checksJson = const Value.absent(),
+    this.fromDevFolder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        version = Value(version),
@@ -1701,6 +1750,7 @@ class InstalledPluginsTableCompanion
     Expression<bool>? enabled,
     Expression<String>? sourceIndexUrl,
     Expression<String>? checksJson,
+    Expression<bool>? fromDevFolder,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1712,6 +1762,7 @@ class InstalledPluginsTableCompanion
       if (enabled != null) 'enabled': enabled,
       if (sourceIndexUrl != null) 'source_index_url': sourceIndexUrl,
       if (checksJson != null) 'checks_json': checksJson,
+      if (fromDevFolder != null) 'from_dev_folder': fromDevFolder,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1725,6 +1776,7 @@ class InstalledPluginsTableCompanion
     Value<bool>? enabled,
     Value<String?>? sourceIndexUrl,
     Value<String?>? checksJson,
+    Value<bool>? fromDevFolder,
     Value<int>? rowid,
   }) {
     return InstalledPluginsTableCompanion(
@@ -1736,6 +1788,7 @@ class InstalledPluginsTableCompanion
       enabled: enabled ?? this.enabled,
       sourceIndexUrl: sourceIndexUrl ?? this.sourceIndexUrl,
       checksJson: checksJson ?? this.checksJson,
+      fromDevFolder: fromDevFolder ?? this.fromDevFolder,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1771,6 +1824,9 @@ class InstalledPluginsTableCompanion
     if (checksJson.present) {
       map['checks_json'] = Variable<String>(checksJson.value);
     }
+    if (fromDevFolder.present) {
+      map['from_dev_folder'] = Variable<bool>(fromDevFolder.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1788,6 +1844,7 @@ class InstalledPluginsTableCompanion
           ..write('enabled: $enabled, ')
           ..write('sourceIndexUrl: $sourceIndexUrl, ')
           ..write('checksJson: $checksJson, ')
+          ..write('fromDevFolder: $fromDevFolder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6240,6 +6297,7 @@ typedef $$InstalledPluginsTableTableCreateCompanionBuilder =
       Value<bool> enabled,
       Value<String?> sourceIndexUrl,
       Value<String?> checksJson,
+      Value<bool> fromDevFolder,
       Value<int> rowid,
     });
 typedef $$InstalledPluginsTableTableUpdateCompanionBuilder =
@@ -6252,6 +6310,7 @@ typedef $$InstalledPluginsTableTableUpdateCompanionBuilder =
       Value<bool> enabled,
       Value<String?> sourceIndexUrl,
       Value<String?> checksJson,
+      Value<bool> fromDevFolder,
       Value<int> rowid,
     });
 
@@ -6340,6 +6399,11 @@ class $$InstalledPluginsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get fromDevFolder => $composableBuilder(
+    column: $table.fromDevFolder,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> pluginStorageTableRefs(
     Expression<bool> Function($$PluginStorageTableTableFilterComposer f) f,
   ) {
@@ -6414,6 +6478,11 @@ class $$InstalledPluginsTableTableOrderingComposer
     column: $table.checksJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get fromDevFolder => $composableBuilder(
+    column: $table.fromDevFolder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$InstalledPluginsTableTableAnnotationComposer
@@ -6455,6 +6524,11 @@ class $$InstalledPluginsTableTableAnnotationComposer
 
   GeneratedColumn<String> get checksJson => $composableBuilder(
     column: $table.checksJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get fromDevFolder => $composableBuilder(
+    column: $table.fromDevFolder,
     builder: (column) => column,
   );
 
@@ -6532,6 +6606,7 @@ class $$InstalledPluginsTableTableTableManager
                 Value<bool> enabled = const Value.absent(),
                 Value<String?> sourceIndexUrl = const Value.absent(),
                 Value<String?> checksJson = const Value.absent(),
+                Value<bool> fromDevFolder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsTableCompanion(
                 id: id,
@@ -6542,6 +6617,7 @@ class $$InstalledPluginsTableTableTableManager
                 enabled: enabled,
                 sourceIndexUrl: sourceIndexUrl,
                 checksJson: checksJson,
+                fromDevFolder: fromDevFolder,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6554,6 +6630,7 @@ class $$InstalledPluginsTableTableTableManager
                 Value<bool> enabled = const Value.absent(),
                 Value<String?> sourceIndexUrl = const Value.absent(),
                 Value<String?> checksJson = const Value.absent(),
+                Value<bool> fromDevFolder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsTableCompanion.insert(
                 id: id,
@@ -6564,6 +6641,7 @@ class $$InstalledPluginsTableTableTableManager
                 enabled: enabled,
                 sourceIndexUrl: sourceIndexUrl,
                 checksJson: checksJson,
+                fromDevFolder: fromDevFolder,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

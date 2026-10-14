@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -101,6 +101,13 @@ class AppDatabase extends _$AppDatabase {
             },
             from8To9: (m, schema) async {
               await m.create(schema.developerSettings);
+            },
+            from9To10: (m, schema) async {
+              // 既有的列都是使用者裝的：`from_dev_folder` 取預設的假。
+              await m.addColumn(
+                schema.installedPlugins,
+                schema.installedPlugins.fromDevFolder,
+              );
             },
           ),
         );
