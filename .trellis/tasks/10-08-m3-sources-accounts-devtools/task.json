@@ -43,7 +43,8 @@
     "10-14-m3-radio-live",
     "10-14-m3-radio-ui",
     "10-14-m3-mix",
-    "10-14-m3-multi-part"
+    "10-14-m3-multi-part",
+    "10-14-m3-track-detail"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
