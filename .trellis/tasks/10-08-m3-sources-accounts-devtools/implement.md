@@ -46,7 +46,7 @@
 - **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）、15（#242）已合併；PR 16 拆成 16a（健康檢查，#244 已合併）、16b（插件開發工具，#245 已合併）、16c（以 App 內登入重錄 `requiresLogin` 的案例，要擁有者登入；先做「PR 16b 留下的」第 6 條）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
-- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）已合併；18c（介面，子任務 `archive/2026-10/10-14-m3-radio-ui`）實作、審查與兩平台實機完成。
+- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（Mix，子任務 `10-14-m3-mix`）實作、審查與 Android 實機完成；19-plugins（YouTube `mix`）待真實驗證。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -419,12 +419,13 @@
 
 ## 19. Mix（design §3.1、§4.5、§10）
 
-- [ ] 宿主：`mix` 匯出（`SourcePlugin`、`d.ts`、shapes、`checks.json`）。
-- [ ] schema：`player_state` 的 `mode`、`mix_*`；`queue_store` 的持久化與恢復。
-- [ ] `QueueModel` 的 `mix` 模式（禁止的操作、清空退出、100 首修剪）；`MixSession` 的補歌。
-- [ ] `TrackRowMenu` 的「開始 Mix」（宣告 `mix` 時）；隨機鈕與禁止的選單項目在 Mix 中停用並附說明。
-- [ ] fmp-plugins：YouTube `mix`（`RD<videoId>`、continuation 當 `cursor`）。
-- [ ] `fmp-test`：`mix` 的假實作（每批 5 首、三批後 `cursor` 為空）。
+- 拆成 19（FMP，下面前五項）與 19-plugins（fmp-plugins 的 YouTube `mix`，另開 PR）。
+- [x] 宿主：`mix` 匯出（`SourcePlugin`、`d.ts`、shapes、`checks.json`）。
+- [x] schema（v13）：`player_state` 的 `mode`、`mix_*`；`queue_store` 的持久化與恢復。
+- [x] `QueueModel` 的 `mix` 模式（禁止的操作、清空退出、100 首修剪）；`MixSession` 的補歌。
+- [x] `TrackRowMenu` 的「開始 Mix」（宣告 `mix` 時）；隨機鈕與禁止的選單項目在 Mix 中停用並附說明；佇列分頁顯示 Mix 標題。
+- [ ] fmp-plugins：YouTube `mix`（`RD<videoId>`、continuation 當 `cursor`）（19-plugins）。
+- [x] `fmp-test`：`mix` 的假實作（每批 5 首、第二批重複一首、三批後 `cursor` 為空）。
 - 測試：design §10 的閘門（ADR 0018 §如何確認的 Mix 修剪）；migration 三種（M2 的恢復測試不改期望全綠）。
 - 實測：重播：兩平台以 `fmp-test` 開始 Mix → 補歌三次與換種子 → 禁止的操作 → 重啟後仍是 Mix → 清空退出。真實（YouTube 匿名）：開始 Mix、播到倒數第二首觸發補歌一次。
 - 依賴：M3a 驗收（YouTube 插件）。模型：sonnet（規則照舊版與 design 已定；入口沿用 `TrackRowMenu`）。
@@ -487,6 +488,15 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 19 留下的
+
+1. **佇列分頁的「下一首播放」在 Mix 中可用**（主對話接受）：它是重排（同拖曳），舊版禁止的是從外面插入；搜尋、歷史選單的「加入佇列」「下一首播放」停用並附說明。
+2. **Mix 標題只在 `mixId` 換了才更新**（主對話決定）：續取的批次沿用存的標題，YouTube 插件重啟後續取拿不到標題。
+3. **循環「全部」時，Mix 最後一首播完會繞回第一首**（審查發現，沒定）：正常情況補歌在倒數第二首就觸發，只有補歌失敗才會碰到；要不要在 Mix 中停用循環，等有人在意再決定。
+4. **一批超過 10,000 首時 `startMix` 會靜默失敗**、**有 Mix 身分但佇列空的恢復**（審查記下，沒有 repro，不修）。
+5. **YouTube 匿名 `/next` 沒有 `continuations`**（錄 fixture 時發現）：插件改用自己的 cursor（`v1:<最後一首>:<索引>`，以 `playlistIndex` 續取同一個 `RD` 清單），`mixId` 與標題不變；續取是否真的往後推，在 YouTube 真實實機確認（19-plugins）。
+6. **實機沒等到修剪**：Android 重播跑到 70 首、已播約 56 首，沒超過 100；修剪由 `queue_model_test`、`queue_store_test` 守。Windows 依 2026-10-13 的規則不驗（沒動平台層與播放後端）。
 
 ### PR 18c 留下的
 

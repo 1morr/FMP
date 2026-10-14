@@ -14,6 +14,7 @@ lib/playback/
   playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull、TrackSkipped、PlaybackStopped、PreviewPlaying、OutputDeviceFailed）
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
   queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、直播、上限、restore）
+  mix_session.dart          # MixSession：開始 Mix、補歌（單一進行中、同一首不重試、去重、換種子）；規則見 app/AGENTS.md § 播放「Mix」
   live_play.dart            # LiveTarget、LiveInfo、LivePhase：收聽直播的輸入與給畫面的即時資訊（直播規則見 app/AGENTS.md § 播放「直播」）
   queue_store.dart          # QueueStore：佇列與播放狀態的持久化、啟動恢復（聽控制器的 stream，不改它的狀態）
   now_playing_publisher.dart # NowPlayingPublisher：系統媒體控制的唯一出口，系統指令回控制器
@@ -97,6 +98,19 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   （直播報直播間，`queue.live`）。
 - 控制器的附屬工作（`live-info`）在 `dispose` 裡同步移除，而 `dispose` 是在 provider 的 onDispose 裡呼叫：組裝點的 callback 不能在那時碰 ref
   或別的 provider（見 `playbackControllerProvider` 的 `liveInfoScheduler`／`disposing`）。
+
+## Mix（佇列的一種身分，不是「佇列以外」）
+
+Mix 的佇列仍是 `queue`：`QueueState.mix`（`MixIdentity`，在 `lib/domain/`，資料層要存它）有值，且臨時播放與直播期間照舊有值，結束回到 Mix 佇列。
+所以不要拿 `mode == QueueMode.queue` 判斷「在佇列裡」，用 `QueueState.inQueue`（`!isOutsideQueue`）。規則與閘門見 `app/AGENTS.md` § 播放「Mix」。
+
+- 佇列編輯的禁止在 `QueueModel`（`append`／`playNext` 回 `false`、`setShuffle(true)` 不動），UI 的停用只是提示；控制器 `_add` 另外先擋，才不會發 `QueueFull`。
+  新增一個「加入類」入口時，同時想它在 Mix 中該不該停用。
+- 修剪在 `_publish`（所有改 `_current` 或附加的編輯都經它），所以新的換曲目操作不必另外處理；佇列項目沿用實例，`QueueStore` 的差量因此是「前面少一段」。
+- `MixSession` 不碰控制器：吃 `QueueModel`、一個取批次的函式（`PlaybackSession.mix`）、`hasPlugin` 與「佇列變了」的回呼。控制器在每首開始（`_beginTrack` 與前瞻接上）呼叫
+  `trackStarted()`，在 `FinishQueue` 時看 `refilling` 決定要不要等（`_finishAfterRefill`）。測試 `MixSession` 用真的 `QueueModel` 加 `FakeSourcePlugin(mix: true)` 的
+  `onMix`；經控制器的測試用 `playback_controller_test.dart` 的 `Harness`（`h.plugin.onMix`），第一個 `mixQueries` 是開始本身。
+- 新增持久化的 Mix 欄位：`PlayerState.mix`（`QueueRepository`）→ `QueueStore` 的 `_writeOnce` 與 `attach` → `PlaybackController.restore(mix:)` → `QueueModel.restore`。
 
 ## 改佇列
 
