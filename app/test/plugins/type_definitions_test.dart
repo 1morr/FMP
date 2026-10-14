@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/stream_preferences.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/plugin_host.dart';
 import 'package:fmp/plugins/runtime/script_errors.dart';
@@ -11,7 +11,8 @@ import 'package:fmp/plugins/source_dto.dart';
 
 import 'package:fmp/plugins/health/checks.dart';
 
-import 'contract/fixture.dart';
+import 'package:fmp/core/network/fixture/fixture.dart';
+
 import 'plugin_harness.dart';
 
 // `lib/plugins/types/fmp-plugin.d.ts` 是給插件作者的介面說明。這裡以一個只

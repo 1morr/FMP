@@ -57,7 +57,7 @@
   每個案例的 fixture 整組重寫；有 `meta.edited` 的案例略過（手寫的錯誤案例不被蓋掉）；結果不符
   checks.json 期望的案例（例如連線失敗）什麼都不寫、原本的檔案不動。閘門：`record_test.dart`。
   錄完同一個測試以重播再跑一次。
-  錄製寫檔前（`Redactor` 之後）把 IP 位址（IPv4、全球單播 IPv6，含版本字串如 `Chrome/156.0.0.0`）換成文件位址（`test/plugins/contract/ip_scrub.dart`）；
+  錄製寫檔前（`Redactor` 之後）把 IP 位址（IPv4、全球單播 IPv6，含版本字串如 `Chrome/156.0.0.0`）換成文件位址（`lib/core/network/fixture/ip_scrub.dart`）；
   手寫的 fixture 也受同一道檢查。閘門：`ip_scrub_test.dart`、`credential_scan.dart` 的 `ipProblems`（`contract_test.dart` 與 `fixture_scan_test.dart` 都經 `scanFixture`）。
 - golden 測試（`alchemist`）在裸 `flutter test` 裡，只比 CI 版（文字畫成色塊，Windows 產生的圖
   在 CI 的 Linux 上逐像素相同；平台版在 `test/flutter_test_config.dart` 關掉）。改了版面就

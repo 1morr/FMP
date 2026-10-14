@@ -4,7 +4,7 @@ import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 
 // 宿主與插件交換的 DTO，apiVersion 1（ADR 0014 §決定 5）。
 //

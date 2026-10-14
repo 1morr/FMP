@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/script_errors.dart';
 import 'package:fmp/plugins/source_dto.dart';

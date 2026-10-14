@@ -8,8 +8,9 @@ import 'package:fmp/core/redaction/redactor.dart';
 
 import 'contract_runner.dart';
 import 'credential_scan.dart';
-import 'fixture.dart';
-import 'fixture_adapters.dart';
+
+import 'package:fmp/core/network/fixture/fixture.dart';
+import 'package:fmp/core/network/fixture/fixture_adapters.dart';
 
 // fixture 掃描（ADR 0015 §如何確認：掃描所有 fixture 不得有未遮蔽憑證）與重播
 // 的網址比對。掃描的兩道檢查各自有會紅與不該紅的案例。

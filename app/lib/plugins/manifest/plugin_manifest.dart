@@ -4,7 +4,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/errors/retry_policy.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/redaction/redaction_lists.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 
 /// 宿主支援的插件 API 版本（ADR 0014 §決定 5）。manifest 的 `apiVersion` 必須
 /// 等於它；宿主 API 或 DTO 有不相容的改動時加一。

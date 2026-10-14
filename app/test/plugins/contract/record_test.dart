@@ -8,7 +8,9 @@ import 'package:path/path.dart' as p;
 
 import '../../support/fake_http_adapter.dart';
 import 'contract_runner.dart';
-import 'ip_scrub.dart';
+
+import 'package:fmp/core/network/fixture/ip_scrub.dart';
+
 import 'plugin_copy.dart';
 
 // 錄製模式（prd 擁有者決定 8）。會真的連網的只有最後一個 `live` 測試：

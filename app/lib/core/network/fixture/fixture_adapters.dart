@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 
-import 'fixture.dart';
-import 'ip_scrub.dart';
+import 'package:fmp/core/network/fixture/fixture.dart';
+import 'package:fmp/core/network/fixture/ip_scrub.dart';
 
 // 錄製與重播接在網路層最底部的 dio `HttpClientAdapter`
 // （`SourceHttpClientFactory` 的 `createAdapter`，ADR 0015 §決定 5）：攔截器
@@ -166,4 +167,69 @@ final class RecordingAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) => _network.close(force: force);
+}
+
+/// 一個案例送出請求的方式（ADR 0015 §決定 5、7）。每個案例建一個、只建一次 client：
+/// `SourceHttpClientFactory(createAdapter: transport.createAdapter)`。
+sealed class CaseTransport {
+  HttpClientAdapter createAdapter();
+
+  /// 比對不到、送到清單外、回應不是 UTF-8 等；空的就是沒有。
+  List<String> get problems;
+}
+
+/// 重播：包 [ReplayAdapter]。
+final class ReplayTransport extends CaseTransport {
+  ReplayTransport._(this._adapter);
+
+  final ReplayAdapter _adapter;
+
+  @override
+  HttpClientAdapter createAdapter() => _adapter;
+
+  @override
+  List<String> get problems => _adapter.problems.toList();
+
+  /// 沒被請求用到的 fixture 名稱。
+  List<String> get unused => _adapter.unused;
+}
+
+/// 真實連線；[record] 為真時包 [RecordingAdapter]。
+final class NetworkTransport extends CaseTransport {
+  NetworkTransport._(this._network, this._recorder);
+
+  final HttpClientAdapter Function() _network;
+  final RecordingAdapter? _recorder;
+
+  @override
+  HttpClientAdapter createAdapter() => _recorder ?? _network();
+
+  @override
+  List<String> get problems => _recorder?.problems ?? const [];
+
+  /// 錄到的 fixture；[record] 為假時永遠是空的。
+  List<HttpFixture> get recorded => _recorder?.recorded ?? const [];
+}
+
+/// 建 [CaseTransport]。真實連線的 adapter 來自 [network]，測試換成假上游。
+final class CaseTransports {
+  const CaseTransports({this.network = IOHttpClientAdapter.new});
+
+  final HttpClientAdapter Function() network;
+
+  ReplayTransport replay(
+    List<NamedFixture> fixtures,
+    Redactor redactor,
+    AllowedHosts allowedHosts,
+  ) => ReplayTransport._(ReplayAdapter(fixtures, redactor, allowedHosts));
+
+  NetworkTransport real() => NetworkTransport._(network, null);
+
+  NetworkTransport record(
+    Redactor redactor, {
+    DateTime Function() now = DateTime.now,
+  }) => NetworkTransport._(
+    network,
+    RecordingAdapter(network(), redactor, now: now),
+  );
 }
