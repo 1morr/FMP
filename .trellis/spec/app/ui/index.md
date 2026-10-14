@@ -26,7 +26,7 @@ lib/ui/
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
-  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、資料庫）
+  debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在
                        # track_detail_parts，trackDetailProvider 與記憶體 LRU 在 track_detail_provider）、
@@ -243,7 +243,7 @@ try {
 
 規則與閘門見 `app/AGENTS.md` § 介面的「Debug 頁」；ADR 0025 §決定 1、2，M3 design §12.1。
 
-- 加一個區塊（PR 14、16 各加）：`DebugSection` 依 ADR 0025 §決定 2 表上的順序加一個值與圖示，`_name` 與 `_body` 的
+- 加一個區塊：`DebugSection` 依 ADR 0025 §決定 2 表上的順序加一個值與圖示，`_name` 與 `_body` 的
   `detail` 兩個 `switch` 會指出要補的地方（名稱放 `debug.*`，三個語言）；區塊的 widget 放 `lib/ui/debug/`。只在某些平台有的
   區塊（插件開發）讀 `platformCapabilitiesProvider` 決定列不列出。新的區塊加進 guideline 測試的 `the Debug overview at …` 旁邊。
 - 播放狀態與資料庫區塊（PR 14a）：資料來自 `playbackDiagnosticsProvider`（播放層組好的快照）與 `databaseInspectorProvider`

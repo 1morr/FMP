@@ -437,7 +437,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `a new database has the account schema`、`account_repository_test.dart`（含 `stored format…`）。移除插件時
   兩張表都清掉的閘門是 `plugin_installer_test.dart` 的 `removing` 群組。
 - `developer_settings` 是 schema v9（ADR 0025 §決定 1、M3 design §3.3）：「開發者」組，單列、四欄全可空，一次建好
-  （`plugin_dev_folder` 在 PR 16 才有人讀寫；`report_reminder_dismissed` 由錯誤詳細頁在 PR 13 讀寫）。`log_level` 存 `debug`／`info`
+  （`plugin_dev_folder` 給插件開發工具，`report_reminder_dismissed` 給錯誤詳細頁）。`log_level` 存 `debug`／`info`
   （與 log 檔的層級字串相同，寫在 `LogLevelSettingConverter`）。新表升級後是空的。閘門：`migration_test.dart` 的 v8→v9
   資料完整性與 `migration from v<N> to v9 adds the developer settings`（v1–v8 各一例：單列、四欄為空）、`a new database
   has the developer settings`、`developer_settings_repository_test.dart`（`stored format`、只寫給的欄位、`clear`）。
@@ -457,7 +457,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`plugin_id`＋`room_id` 唯一、`sort_order`、最後一次查到的 `live_status`／`live_title`／`status_checked_at`）。不建外鍵到
   `installed_plugins`：插件停用、移除後電台保留；`live_status` 只有 `live`／`offline`，**「查詢失敗」不存**（D10，只在記憶體，見 § 電台）。
   `RadioRepository.add` 在 transaction 裡先查重再接在 `max(sort_order)` 後面，重複回 `false`（不用 `insertOrIgnore`：它不說有沒有寫）；
-  `reorder` 整批重寫 `sort_order`。間隔欄位空＝預設 5 分，`0`＝關閉（Notifier 只收 0／1／3／5／10）。
+  `reorder` 整批重寫 `sort_order`。間隔欄位的語意見 § 設定的「網路」組。
   閘門：`migration_test.dart` 的 v11→v12 資料完整性（使用者設定過的快取上限不變、新欄位是空的）與 `migration from v<N> to v12 adds
   radio_stations…`（v1–v11 各一例：狀態字串、毫秒時間、唯一鍵）、`radio_repository_test.dart`（含 `stored format`）、
   `network_settings_repository_test.dart` 的 `radio status interval`。
@@ -615,7 +615,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `startup_maintenance_test.dart` 的 `orphan-tracks…`、`play_history_repository_test.dart` 的 `orphan cleanup keeps tracks…`）。項目一個接一個 await，卡住的項目會擋住
   後面的，所以項目只放有限的本機工作。閘門：`test/app/startup_maintenance_test.dart`
   （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`、`diagnostics-temp`、`orphan-tracks`）。不跳提示（清單
-  拿不到 `Toaster`）、不放空的登記點、週期性工作不放這裡（M3 的排程器）沒有閘門，
+  拿不到 `Toaster`）、不放空的登記點、週期性工作不放這裡（放 § 排程器）沒有閘門，
   review 時看。
 
 ## 錯誤
@@ -899,47 +899,39 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   匯出是 `liveSearch`、`liveRoomFromUrl`、`liveStatus`、`resolveLive` 四個，宣告就要全有（`LiveExports`），也沒有名叫 `live` 的匯出。
   `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
   `live_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
-- `live`（ADR 0028 §決定 3，M3 PR 18a；只有宿主的契約，電台與播放在 18b、18c）：`liveStatus` 查詢失敗一律拋錯，
+- `live`（ADR 0028 §決定 3；電台見 § 電台，收聽見 § 播放的「直播」）：`liveStatus` 查詢失敗一律拋錯，
   不能回 `offline`（D10）：宿主把拋錯顯示成「查詢失敗」，`offline` 只表示查到了而且沒開播；插件吞掉錯誤回 `offline` 是插件的 bug，
   宿主分不出來，本 repo 沒有閘門守（`fmp-test` 的 `live-broken` 只示範正確的行為）。
   四個呼叫都經 `AccountGuard`（`CredentialInvalid` 時刷新重跑），但帶不帶憑證仍是插件在每個請求上標 `auth: 'userPreference'`
   決定（宿主沒有「這個呼叫是直播」的資訊，ADR 0012 §決定 2 的「電台」由插件落實）。`liveRoomFromUrl` 回 `null` 是「不是我的網址」。
   閘門：`live_capability_test.dart`（回傳值驗證、拋錯保持拋錯、`credentials follow the user preference`）。
-- `checks.json` 的 `live` 案例跑 `liveStatus`（輸入 `{roomId}`），重播照跑、命令列錄製照錄（匿名）；成功時 `nonEmpty` 的名稱同
-  `LiveRoom`。閘門：`checks_test.dart` 的 `the live check`、`contract_runner_test.dart`（宣告與案例一致、期望不符、無關改動不紅）、
-  `health_check_test.dart` 的 `a live case`、`dev_case_runs_test.dart` 的 `a live case`。
 - manifest 的 `login`（ADR 0029 §決定 1）：有 `login` 能力才有、反之亦然；methods 不空、不重複，含 `webView` 才有
   `webView`（反之亦然），它的 `url`、`cookieHosts` 都是 `allowedHosts` 內的 `https`；格式錯是 `ParseError`，不認得的方式或
   刷新時機是 `Unsupported`。閘門：`plugin_manifest_test.dart` 的 `login` 群組、`rejects as Unsupported`。
-- `mix`（ADR 0028 §決定 4，M3 PR 19）：匯出就叫 `mix`（和能力同名，不像 `live` 有四個），輸入是 `{seed: {sourceId, cid?}}`
-  （開始，`MixSeedQuery`）或 `{mixId, cursor}`（續取，`MixContinueQuery`，`cursor` 不能是空字串），回傳 `{mixId, title, tracks, cursor?}`：
-  **`cursor` 沒有或 `null` 是這個 Mix 沒有更多**（`fmp-plugin.d.ts` 寫成選填，因為欄位表的必填不收 `null`），宿主下一次補歌改以佇列
-  最後一首當 `seed` 開新的一批，`mixId` 可以換。`tracks` 的曲目鍵第一段由宿主填成插件 id。請求怎麼標 `auth` 由插件決定，同 `live`。
-  去重是宿主做的（`QueueModel.extendMix`，見 § 播放），插件不必管佇列裡有什麼。閘門：`mix_capability_test.dart`（匯出與能力一致、
+- `mix`（ADR 0028 §決定 4）：匯出就叫 `mix`（和能力同名），開始（`MixSeedQuery`）與續取（`MixContinueQuery`）是同一個匯出，
+  形狀在 `fmp-plugin.d.ts`。**回傳的 `cursor` 沒有或 `null` 是這個 Mix 沒有更多**（d.ts 寫成選填，因為欄位表的必填不收 `null`；
+  空字串拒收），宿主下一次補歌改以佇列最後一首當 `seed` 開新的一批，`mixId` 可以換。`tracks` 的曲目鍵第一段由宿主填成插件 id。
+  請求怎麼標 `auth` 由插件決定，同 `live`。去重是宿主做的（`QueueModel.extendMix`，見 § 播放），插件不必管佇列裡有什麼。閘門：`mix_capability_test.dart`（匯出與能力一致、
   兩種輸入的 JSON、回傳值驗證、`fmp-test` 的三批）、`type_definitions_test.dart` 的 `the mix export is named after the capability…`、
   `the cursor of a mix batch is optional…`（兩個都含變異）。
-- `multiPart`（ADR 0028 §決定 5，M3 PR 20）：匯出就叫 `multiPart`（和能力同名），輸入 `{sourceId}`，回傳 `{parts: [{cid, title, durationMs?,
-  index}]}`（至少一個，`index` 從 1 起，不認得的欄位拒收）；`TrackSummary` 加選填 `partCount`（正整數）。**`partCount` 只是提示**：空是不知道
+- `multiPart`（ADR 0028 §決定 5）：匯出就叫 `multiPart`（和能力同名），回傳至少一個分 P（`index` 從 1 起）；`TrackSummary` 的選填
+  `partCount`（正整數）。形狀在 `fmp-plugin.d.ts`。**`partCount` 只是提示**：空是不知道
   （B 站的搜尋回應沒有，所以多半是空），1 是確定單 P。每個分 P 是一首曲目（`MultiPart.toTrackInfo(video)`：`sourceId` 是影片的、`cid`、
   `title`、時長用分 P 的，上傳者與封面沿用影片，`part_index` 與 `parent_title` 見 § 資料層）。請求怎麼標 `auth` 由插件決定。閘門：
   `multi_part_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證、`partCount` 的讀取、由分 P 建出的曲目、`fmp-test` 的三種狀況）、
   `type_definitions_test.dart` 的 `the multiPart export is named after the capability…`、`partCount and the part fields match…`（含變異）。
-- `checks.json` 的 `multiPart` 案例取一支影片的分 P，檢查的清單是回傳的 `parts`（`nonEmpty` 的名稱是 `cid`、`title`、`durationMs`、`index`）；
-  重播照跑、命令列錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the multiPart check`、`contract_runner_test.dart` 的 `a multiPart check…`、
-  `health_check_test.dart` 的 `a multiPart case`、`dev_case_runs_test.dart` 的 `a multiPart case…`。
-- `trackDetail`（ADR 0028 §決定 6，M3 PR 21）：匯出就叫 `trackDetail`（和能力同名），輸入 `{sourceId, cid?}`，回傳 `{description?, publishedAt?,
-  uploaderAvatar?, album?, stats?: [{kind, count}]}`，欄位都可以沒有或 `null`。`publishedAt` 是 UTC epoch 毫秒（非負、不超過 `DateTime` 的上限）；
-  `uploaderAvatar` 的網域照 `Artwork`（`https`、在 `allowedHosts`）；`stats.kind` 是封閉的 union（`TrackStatKind`：`view`、`like`、`favorite`、`comment`、
-  `share`、`danmaku`、`coin`），**不認得的 `kind` 整筆拒收成 `ParseError`**（不會悄悄丟掉），`count` 是非負整數；宿主依 `kind` 挑圖示與翻譯，不顯示
-  插件給的文字。沒宣告 `trackDetail` 時呼叫是 `Unsupported`。閘門：`track_detail_capability_test.dart`（匯出與能力一致、輸入的 JSON、
-  回傳值驗證含未知 `kind`／負的 `count`／頭像網域）、`type_definitions_test.dart` 的 `the trackDetail export is named after the capability…`、
-  `the stat kinds match TrackStatKind`、`the trackDetail fields match…`（含變異）。
-- `checks.json` 的 `trackDetail` 案例取一首曲目的詳細，檢查的清單是回傳的那一筆（`nonEmpty` 的名稱同 `TrackDetail`：`description`、`publishedAt`、
-  `uploaderAvatar`、`album`、`stats`）；重播照跑、命令列錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the trackDetail check`、
-  `contract_runner_test.dart` 的 `a trackDetail check…`、`health_check_test.dart` 的 `a trackDetail case`、`dev_case_runs_test.dart` 的 `a trackDetail case…`。
-- `checks.json` 的 `mix` 案例以 `seed` 開始一個 Mix，檢查的清單是回傳的 `tracks`（`nonEmpty` 的名稱同 `TrackSummary`）；重播照跑、命令列
-  錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the mix check`、`contract_runner_test.dart` 的 `a mix check…`、`health_check_test.dart`
-  的 `a mix case`、`dev_case_runs_test.dart` 的 `a mix case…`。
+- `trackDetail`（ADR 0028 §決定 6）：匯出就叫 `trackDetail`（和能力同名），回傳的欄位都可以沒有或 `null`，形狀在 `fmp-plugin.d.ts`。
+  `publishedAt` 是 UTC epoch 毫秒（非負、不超過 `DateTime` 的上限）；`uploaderAvatar` 的網域照 `Artwork`；`stats.kind` 是封閉的 union
+  （`TrackStatKind`），**不認得的 `kind` 整筆拒收成 `ParseError`**（不會悄悄丟掉）：宿主依 `kind` 挑圖示與翻譯，不顯示插件給的文字，
+  所以新的種類要先改宿主。閘門：`track_detail_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證含未知 `kind`／負的
+  `count`／頭像網域）、`type_definitions_test.dart` 的 `the trackDetail export is named after the capability…`、`the stat kinds match
+  TrackStatKind`、`the trackDetail fields match…`（含變異）。
+- `checks.json` 的 `live`、`mix`、`multiPart`、`trackDetail` 案例各呼叫那個能力一次（`live` 跑 `liveStatus`、`mix` 以 `seed` 開始），
+  檢查的清單是回傳的那一份（直播間、`tracks`、`parts`、那一筆詳細），`nonEmpty` 的名稱是該 DTO 的欄位名；重播照跑、命令列錄製照錄
+  （匿名）。閘門：`checks_test.dart` 的 `the live check`／`the mix check`／`the multiPart check`／`the trackDetail check`、
+  `contract_runner_test.dart` 的 `a live check…`／`a mix check…`／`a multiPart check…`／`a trackDetail check…`（四種都有「沒宣告能力」；
+  `live`、`mix`、`trackDetail` 另有期望不符，`live`、`mix` 另有改無關處不紅）、`health_check_test.dart` 的 `a live case`／`a mix case`／
+  `a multiPart case`／`a trackDetail case`、`dev_case_runs_test.dart` 的 `a live case…`／`a mix case…`／`a multiPart case…`／`a trackDetail case…`。
 - `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
   `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
   `record_test.dart` 的 `skips a case that requires a login`。
@@ -1110,33 +1102,26 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 閘門：`test/scheduler/background_scheduler_test.dart`（ADR 0017 §如何確認的七項、同插件依序、全域最多 2 個、手動刷新排隊與
   排隊中結束、取代與移除時的過期、手動失敗不提早自動跑、錯誤經 `report`、等第一次介面檢查），`plugin_registry_test.dart` 的 `disabling a plugin removes its scheduler jobs…`，
   `plugin_installer_test.dart` 的 `removing`（工作最先移除、中途失敗重跑可完成）。排程器在真機上的行為（最小化、切到背景、
-  飛航模式）要在 PR 18c 有電台頁之後實機看。
+  飛航模式）沒有自動閘門，在電台頁實機看。
 
 ## 電台
 
-`lib/radio/`（ADR 0031 §決定 1、2、6，M3 PR 18b；電台頁、搜尋頁直播間模式與設定列在 PR 18c，見 § 介面）：使用者存的直播間清單，沒有外鍵到
-`installed_plugins`（schema 見 § 資料層）。`lib/radio/` 用資料、插件與排程器，不 import `ui/`，`scheduler/` 不認得它。
+`lib/radio/`（ADR 0031 §決定 1、2、6；畫面見 § 介面的電台頁）：使用者存的直播間清單，沒有外鍵到 `installed_plugins`（schema 見
+§ 資料層）。`lib/radio/` 用資料、插件與排程器，不 import `ui/`，`scheduler/` 不認得它（lint 見 § Lint）。
 
-- **清單與四種顯示狀態**：`radioStationsProvider`（資料庫，依 `sort_order`）加 `radioQueryFailuresProvider`（記憶體裡最近一次查詢失敗的電台 id）
-  合成 `radioEntriesProvider`，每列 `RadioEntry.status` 是 `live`／`offline`／`queryFailed`／`unchecked` 四選一。**「查詢失敗」只在記憶體**，
-  不寫進資料庫、不當成未開播，重啟回到資料庫存的狀態（D10）；下一次查詢成功就清掉。
-- **新增**（`RadioService`）：`addFromUrl` 依插件清單的順序問每個**已啟用**（在 `pluginRegistryProvider` 裡）而且宣告 `live` 的插件
-  `liveRoomFromUrl`，第一個回 `roomId` 的勝出，再 `liveStatus` 取顯示資料；**寫入與判斷重複用 `liveStatus` 回傳的 `roomId`**（B 站短號回長號）。
-  結果 `AddRadioResult`：`unrecognizedUrl`／`alreadyAdded`／`added`；失敗一律是 `AppError`（插件的原樣丟出，其他的包成 `UnexpectedError`），不寫入，
-  由呼叫端提示；插件拋錯就停，不再問下一個。`addRoom` 是「加為電台」，
-  直接以 `LiveRoom` 寫入。`remove`、`reorder`（拖曳後的 id 順序整批重寫）。
-- **狀態工作**（`RadioStatusJobs`，常駐，`FmpApp` 聽著）：每個「已啟用、宣告 `live`、清單裡有電台」的插件一個 `radio-status:<pluginId>`，間隔取
-  `networkProvider` 的 `radioStatusInterval`（`null`＝關閉＝登記成 `interval: null`，只有手動刷新會跑）。工作依序 `liveStatus` 每個電台，成功就更新資料庫
-  的狀態欄位；**單一電台失敗只標那一列「查詢失敗」，其他繼續；全部失敗才丟錯讓排程器退避**；用 `JobContext.isCurrent` 丟掉過期的結果。只在插件實例、間隔、
-  或「有沒有電台」改變時才重新登記（電台增減不打斷進行中的那次，工作每次跑都重新讀清單）；插件停用時排程器已移除它的工作，重新啟用（新實例）時登記回來。
-  不在 `onDispose` 移除工作（生命週期裡不能碰別的 provider；它跟排程器一樣常駐到 App 結束）。
-- **手動刷新**：`RadioService.refresh()` 對每個登記中的工作 `runNow`，回 `RadioRefreshResult`：`completed`／`offline`（排程器說離線）／
-  `nothingToRefresh`；工作全部失敗的錯誤在全部結束後重新丟出。
-- 啟動時先顯示資料庫存的狀態，排程器照上次成功時間到期才跑（ADR 0017 §決定 3）。
-- 直播播放在 § 播放的「直播」。
+- **「查詢失敗」只在記憶體**（`radioQueryFailuresProvider`，D10）：不寫進資料庫、不當成未開播，重啟回到資料庫存的狀態；下一次查詢
+  成功就清掉。畫面的四種狀態（`RadioEntry.status`）由資料庫的狀態加這份標記合成。
+- **新增**（`RadioService.addFromUrl`）只問已啟用（在 `pluginRegistryProvider` 裡）而且宣告 `live` 的插件，第一個認得網址的勝出；**寫入與
+  判斷重複用 `liveStatus` 回傳的 `roomId`**，不用網址裡的（B 站短號回長號）。失敗一律是 `AppError`、不寫入，插件拋錯就停、不再問下一個。
+- **狀態工作**（`RadioStatusJobs`，`FmpApp` 常駐）：每個「已啟用、宣告 `live`、清單裡有電台」的插件一個 `radio-status:<pluginId>`，
+  間隔是「網路」組的電台狀態刷新間隔（關閉＝`interval: null`，只有手動刷新會跑）。**單一電台失敗只標那一列「查詢失敗」，其他繼續；
+  全部失敗才丟錯讓排程器退避**（一個壞房間不讓整個插件退避）。只在插件實例、間隔或「有沒有電台」改變時重新登記，電台增減不打斷進行中
+  的那次（工作每次跑都重讀清單）。不在 `onDispose` 移除工作：生命週期裡不能碰別的 provider，它跟排程器一樣常駐到 App 結束。
+- **手動刷新**（`RadioService.refresh`）對每個登記中的工作 `runNow`；離線回 `offline`（沒有發請求），某個插件的工作全部失敗時錯誤在全部
+  結束後重新丟出，由呼叫端提示。
 - 閘門：`test/radio/radio_test.dart`（以網址新增：第一個認得的勝出、都不認得、用長號判斷重複、停用或沒有 `live` 的插件不會被問到、插件失敗不寫入、不是 `AppError` 的失敗包成 `UnexpectedError`；加為電台與重複；
   四種狀態；狀態工作：依序查並存、單一失敗只標那一列且工作不退避、全部失敗退避、過期結果被丟掉、停用／重新啟用／電台增減／間隔改變（含 0 只關排程不關手動）、
-  離線不跑；手動刷新三種結果與錯誤）、`radio_repository_test.dart`。`fmp_layer_imports` 的 `radio/` 規則見 § Lint。
+  離線不跑；手動刷新三種結果與錯誤）、`radio_repository_test.dart`。
 
 ## 播放
 
@@ -1518,17 +1503,18 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - **取流**：`StreamResolver.resolveLive` 每次都問插件（不進網址快取）；`PlaybackSession.resolveLive` 先停掉目前的來源，同音樂的 `resolve`。
     **開直播時進行中的音樂解析結果以代際丟掉**（`beginRequest` 換代），不播出也不再因它發解析（ADR 0018 §決定 6 的更正）。
   - **暫停就是停止串流**：`pause()` 換代、放掉來源、狀態 `Paused`；再按播放重新 `resolveLive`（`Idle`、`Failed` 時按播放也是重新取流）。
-  - **提前結束**（`PlaybackSnapshot.live` 讓路由器把「來源結束」不論原因都當提前結束）：`decideLiveRecovery`（`recovery_policy.dart`，純函數）決定——
-    離線時等網路（不計次數）；在線時重連次數沒用完就 `ConfirmThenReconnect`：**先問 `liveStatus`**，是 `live` 才等 1／3／9 秒重新取流（共 3 次，
+  - **失敗與提前結束**（`PlaybackSnapshot.live` 讓路由器把「來源結束」不論原因都當提前結束）：`decideLiveRecovery`（`recovery_policy.dart`，純函數）決定——
+    網路類的失敗（解析時的 `NetworkError`、`RateLimited`，開不起來、中斷、提前結束、緩衝飢餓）離線時等網路（不計次數）；在線時重連次數沒用完就 `ConfirmThenReconnect`：**先問 `liveStatus`**，是 `live` 才等 1／3／9 秒重新取流（共 3 次，
     每次失敗都再問一次；正常收聽 10 秒後次數歸零），不是 `live` 停在「直播已結束」，拋錯停在「查詢失敗」（D10，**不當成未開播**）；用完 `LiveGiveUp`＝直播已結束；
     解析時插件說無法取得、需登入等重試不會好的錯誤 `LiveStop`＝`Failed`，不重連。
   - **給畫面的狀態**：`PlaybackController.live`／`liveChanges`（`playbackLiveProvider`）是 `LiveInfo`（目標、最新的標題、主播、封面、人數、`LivePhase`：
     `listening`／`ended`／`statusFailed`）；已收聽時間是進度 stream 的位置（每次重新取流從 0 起算）。`ended` 的 `PlaybackState` 是 `Idle`、
     `statusFailed` 與 `LiveStop` 是 `Failed(error)`，重連是 `Retrying`；三種都**留在直播模式**，按播放重試，`stopLive()` 才回佇列。
   - **`live-info`**：`playLive` 時經建構子的 `registerLiveInfoJob` 登記到排程器（`liveInfoJobId`＝`live-info`、`liveInfoInterval`＝固定 1 分鐘、所屬插件
-    是直播間的插件，組裝點 `playbackControllerProvider` 接上），每次到期呼叫 `liveStatus` 更新 `LiveInfo` 的標題與人數；失敗只記 warning、不中斷播放；
+    是直播間的插件，組裝點 `playbackControllerProvider` 接上），每次到期呼叫 `liveStatus` 更新 `LiveInfo` 的標題、主播、封面與人數；失敗只記 warning、不中斷播放、排程器不退避；
     離開直播（或停在已結束、查詢失敗）時移除；換到同插件的別的直播間不重新登記。控制器釋放時（`playbackControllerProvider` 重建，例如改 log 層級）
     也移除：組裝點用登記時拿到的排程器、在 onDispose 回呼結束後才移除（回呼裡不能碰別的 provider），不然舊控制器的工作會每分鐘失敗一次。
+    工作 id 固定，上次成功時間照樣寫進 `scheduler_runs`：上次成功不到 1 分鐘就重新登記（停了又開、換到別的插件的直播間）時不會馬上跑，等到期（沒有閘門）。
   - **Debug 頁與診斷包**：直播時 `PlaybackDiagnostics.trackKey`／`pluginId` 是直播間（`插件:房間`），`queue.live` 為真、`currentIndex` 是回到的那一首；
     佇列分頁不標任何一列是在播的（同臨時播放，`QueueState.isOutsideQueue`）。
   閘門：`live_playback_test.dart`（進入記快照停止回佇列、回佇列照倒退秒數、暫停原本停著的佇列仍停著、換台快照不變、點佇列離開、上一首下一首 seek 不動、臨時播放接手同一份快照、
@@ -1637,8 +1623,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不動。建置預設讀 `buildLogLevelProvider`（debug build 是 debug，其他是 info；App 不 override，測試一律 override，因為
   `flutter test` 永遠是 debug build）。關閉開發者
   模式是**一筆寫入**（`DeveloperSettingsRepository.turnOffDeveloperMode`：`developer_mode` 假、`log_level` 與
-  `plugin_dev_folder` 清空），監看的一方看不到「模式關了、層級仍是 debug」的中間值；開啟只寫 `developer_mode`。卸載
-  開發中插件的那一半在 PR 16。閘門：`test/settings/developer_settings_test.dart`（兩個 flavor 的預設、使用者值優先、關著時
+  `plugin_dev_folder` 清空），監看的一方看不到「模式關了、層級仍是 debug」的中間值；開啟只寫 `developer_mode`。開發資料夾跟著
+  變成 `null`，開發中的插件卸載（§ 插件的插件開發工具）。閘門：`test/settings/developer_settings_test.dart`（兩個 flavor 的預設、使用者值優先、關著時
   層級是 info、開啟只寫一欄、關閉的下一個值就全部清掉、層級的 setter 只寫一欄與清回）、
   `developer_settings_repository_test.dart` 的 `turning developer mode off` 群組（`is a single write`）；兩種建置的預設與生效值：
   `developer_settings_test.dart` 的 `an unset log level is the build default…`、`the stored log level counts only while developer
@@ -1766,8 +1752,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `plugins_page_test.dart` 的 `updates` 群組（`opening the page shows updates…`、`a plugin is not updated from another
     repository`、`an older version in the repository is never offered`、`check for updates reads the repositories again`）。
   - 標記：已停用（`installed_plugins.enabled`）、沒有回應（清單上那個實例的 `health`）、有更新（`updateStatus` 不是
-    `none`）；`apiVersion` 不相容的新版本是停用的「需要更新 FMP」按鈕，可安裝那一筆同樣。「開發中」在 PR 16（開發資料夾）才有
-    來源，現在沒有。閘門：`the installed tab`、`the available tab` 群組。
+    `none`）；`apiVersion` 不相容的新版本是停用的「需要更新 FMP」按鈕，可安裝那一筆同樣。「開發中」見 § 插件的插件開發工具。
+    閘門：`the installed tab`、`the available tab` 群組。
   - 啟用開關只經 `PluginRegistry.setEnabled`；開關自己是一個語意節點、名稱是「啟用「插件名」」（不包 container 的話會
     併進 Card 的節點、名稱變成卡上所有的字）。搜尋頁的音源 chip 讀插件清單，停用就消失。閘門：`the switch disables and
     enables a plugin and writes it`、`test/ui/search/search_sources_test.dart`。
@@ -1799,7 +1785,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、插件開發（只在平台宣告 `pluginDevTools` 時列出，清單與內容都看它）、資料庫、重設資料。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    `DebugSection`（ADR 0025 §決定 2 的八個）；插件開發只在平台宣告 `pluginDevTools` 時列出，清單與內容都看它。窄版點進區塊後，標題列的返回鈕與系統返回鍵
     先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄

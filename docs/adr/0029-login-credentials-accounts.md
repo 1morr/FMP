@@ -67,7 +67,7 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - 宿主在插件呼叫層單飛：同一插件同時只有一個刷新；宣告 `refresh` 的插件刷新成功就寫入並**重跑原呼叫一次**；不支援刷新、回 `null` 或刷新失敗就標 `invalidated`：保留憑證、停止帶它、提示一次附「登入」（ADR 0012 §決定 5、ADR 0013 的呈現表）。
    - 啟動刷新：宣告 `refresh: 'onStartup'` 的插件，在第一幀之後、網路狀態第一次是 `Online` 時呼叫一次 `loginRefresh`（ADR 0016「離線中不發背景請求」）。不做全面的帳號驗證。
 8. **登入方式**：UI 顯示「`methods` ∩ 平台有能力」。`qr`、`cookie` 不需要平台能力；`webView` 需要平台層宣告 `loginWebView`。官方插件：B 站與網易 `qr`；YouTube `webView` 與 `cookie`。
-9. **App 內網頁登入**（R1 通過，Android 與 Windows；實測見 `.trellis/tasks/10-08-m3-sources-accounts-devtools/research/r1-youtube-login.md`）：
+9. **App 內網頁登入**（R1 通過，Android 與 Windows；實測見 `.trellis/tasks/archive/2026-10/10-08-m3-sources-accounts-devtools/research/r1-youtube-login.md`）：
    - `flutter_inappwebview` 6.2.0-beta.3（釘死），平台層 `lib/platform/login_webview/` 實作，Android 與 Windows 宣告 `loginWebView`。`app/windows/CMakeLists.txt` 加上面的 STL1011 define。
    - **UA 由平台層決定**：Android 用系統 WebView 的 UA 拿掉 `; wv`（R1：桌面 Chrome UA 會被 Google 擋在 `/v3/signin/rejected`）；Windows 不設，用 WebView2 預設（R1：預設與桌面 UA 都能登入）。
    - Windows 的 WebView2 使用者資料放在 App 資料目錄下，dev 與 prod 分開、「重設資料」能整個刪。
