@@ -368,6 +368,31 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   @override
   String cacheUsageValue({required Object size}) => '${size}，在「设置 → 网络」中管理';
   @override
+  String get diagnostics => '诊断包';
+  @override
+  String get diagnosticsHint => '这个 App 的版本、插件与设置摘要，加上 log 文件；不含账号名称。';
+  @override
+  String get diagnosticsCopy => '复制摘要';
+  @override
+  String get diagnosticsSave => '存成文件';
+  @override
+  String get diagnosticsShare => '分享';
+  @override
+  String get diagnosticsCopied => '已复制摘要';
+  @override
+  String get exportSaved => '已保存';
+  @override
+  String exportFailed({required Object message}) => '无法生成文件：${message}';
+  @override
+  String get exportReminderBody =>
+      '文件里有这个 App 的版本、插件、设置与最近的 log 记录。Cookie、token 与签名网址已遮蔽，账号名称不在里面，发给任何人之前仍请再检查一次内容。';
+  @override
+  String get logExport => '导出 log 文件';
+  @override
+  String get logExportSave => '存成文件';
+  @override
+  String get logExportShare => '分享';
+  @override
   String get log => '日志与错误历史';
   @override
   String get network => '网络';

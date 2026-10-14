@@ -235,6 +235,8 @@ try {
 
 ## Debug 頁
 
+- 診斷包與 log 匯出（`debug_export.dart`，M3 PR 15）：UI 只呼叫 `exportBundle(context, ref, kind:, action:)` 與 `copyDiagnosticsSummary(ref)`；組裝、zip、暫存都在 `lib/app/diagnostics/`（規則與閘門見 `app/AGENTS.md` § 診斷包）。第一次匯出前的「送出前請檢查」用共用的 `confirmSubmitReminder(context, ref, body:)`（`lib/ui/errors/submit_reminder.dart`），與 GitHub 回報同一個「不再提醒」設定；新增要把內容送出裝置的動作時也走它。按鈕依 `capabilities.files`／`shareFiles` 出現，不寫平台判斷。widget 測試的 zip 在另一個 isolate 壓，要等真實時間：用 `settleUntil`（輪詢條件），不要固定 `pump` 幾次。
+
 規則與閘門見 `app/AGENTS.md` § 介面的「Debug 頁」；ADR 0025 §決定 1、2，M3 design §12.1。
 
 - 加一個區塊（PR 14、16 各加）：`DebugSection` 依 ADR 0025 §決定 2 表上的順序加一個值與圖示，`_name` 與 `_body` 的

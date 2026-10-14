@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_scope.dart';
+import 'package:fmp/app/diagnostics/diagnostics_service.dart';
 import 'package:fmp/app/fmp_app.dart';
 import 'package:fmp/app/startup_maintenance.dart';
 import 'package:fmp/core/app_flavor.dart';
@@ -125,6 +126,7 @@ void main() {
         overrides: [
           logProvider.overrideWithValue(log),
           appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
+          dataDirectoryProvider.overrideWithValue(temp),
         ],
       );
       addTearDown(container.dispose);
@@ -154,6 +156,8 @@ void main() {
         [
           'Deleted expired log files',
           'Startup maintenance task finished',
+          'Deleted leftover diagnostics files',
+          'Startup maintenance task finished',
           'Deleted orphan tracks',
           'Startup maintenance task finished',
         ],
@@ -174,8 +178,32 @@ void main() {
         ],
         [
           {'id': 'log-retention', 'outcome': 'ok'},
+          {'id': 'diagnostics-temp', 'outcome': 'ok'},
           {'id': 'orphan-tracks', 'outcome': 'ok'},
         ],
+      );
+    });
+
+    test('diagnostics-temp deletes the leftover share files only', () async {
+      final leftover = Directory(
+        p.join(temp.path, diagnosticsTempDirectoryName),
+      )..createSync();
+      File(p.join(leftover.path, 'fmp-diagnostics-20261014-153009.zip'))
+          .writeAsBytesSync([1]);
+      final keep = File(p.join(temp.path, 'fmp.db'))..writeAsBytesSync([1]);
+      final log = newLog();
+
+      await runDefault(log);
+
+      expect(leftover.existsSync(), isFalse);
+      expect(keep.existsSync(), isTrue);
+      expect(
+        maintenance(log)
+            .firstWhere(
+              (r) => r.message == 'Deleted leftover diagnostics files',
+            )
+            .fields,
+        {'count': 1},
       );
     });
 

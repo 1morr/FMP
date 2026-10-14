@@ -283,7 +283,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `PackageInfoAppInfo`（`package_info_plus`；Windows 端是 FFI 讀執行檔的 `ProductVersion`，沒有原生的 plugin registrant）。
   不是能力宣告：沒有畫面依它決定入口，只有能跑主 App 的平台有，`main()` 在 `runApp` 之前讀一次、以 `appInfoProvider`
   注入。`homeDirectory`（Windows 是 `USERPROFILE`，Android 為空：沙盒路徑不含使用者名稱）給畫面把資料目錄顯示成
-  `~\…`（`homeRelativePath`）。閘門：`platform_test.dart`（兩個平台的實作、平台名稱與家目錄，未驗證平台為空）、
+  `~\…`（`homeRelativePath`）；`AppInfoReader.homeDirectory` 是同步的 getter，`main()` 在寫第一筆 log 之前就用它登記遮蔽（見「Log 與遮蔽」）。閘門：`platform_test.dart`（兩個平台的實作、平台名稱與家目錄，未驗證平台為空）、
   `app_info_test.dart`（以套件的 `setMockInitialValues` 讀版本）；真的版本號只能實機看（「關於」的版本列）。
 
 - 開網址（`lib/platform/url_opener/`，ADR 0023 §決定 4）：`PlatformCapabilities.urlOpener`（Android、Windows），一個實作
@@ -293,11 +293,19 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   失敗回 `false`）、`platform_test.dart`、`layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`／`test_ownerDirectoriesMayImport`、
   `android_manifest_test.dart` 的 https query（含變異案例）。真的開瀏覽器只能實機驗。
 - 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android 與 Windows 共用一個實作
-  `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。目前只有
-  `pickFile(extension:)`（插件頁的「從檔案安裝」），存檔與選資料夾跟著 PR 15、16 加。副檔名只是篩選：Android
+  `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。有
+  `pickFile(extension:)`（插件頁的「從檔案安裝」）與 `saveFile(name:, bytes:, mimeType:)`（診斷包與 log 檔的存檔：桌面是存檔對話框，
+  Android 走 SAF 的建立文件；取消回 `null`），選資料夾跟著 PR 16 加。副檔名只是篩選：Android
   把它轉成 MIME（`MimeTypeMap`）交給 SAF，選到的內容由呼叫端照格式驗（插件安裝檔解析標頭）。閘門：
   `platform_test.dart` 的宣告與實作型別、`file_picker_dialogs_test.dart`（以假的 `FilePickerPlatform`：篩選是
-  `FileType.custom` 加副檔名、讀出內容、取消是 `null`）；系統對話框本身只能實機驗。
+  `FileType.custom` 加副檔名、讀出內容、存檔的檔名／內容／MIME、取消是 `null`）；系統對話框本身只能實機驗。
+- 檔案分享（`lib/platform/share/`，ADR 0025 §決定 10，M3 design §12.4）：`PlatformCapabilities.shareFiles`（Android、Windows 真；Linux 不能分享檔案；
+  Windows 10 1809 以前 `share_plus` 會拋錯，經提示顯示），一個實作 `SharePlusFileSharer`（`share_plus`，`SharePlus.instance.share` 從建構子注入）。
+  `shareFiles` 回 `true`＝平台回報了分享的結果（完成或取消），回 `false`＝視窗開了但平台不回報（Windows 的 `DataTransferManager` 一開視窗就回
+  `unavailable`、接收端之後才讀檔），呼叫端據此決定能不能馬上刪暫存檔（Android 的 `share_plus` 先把檔案複製到它的 `cacheDir/share_plus/`，
+  那份留到下一次分享才清，在 App 的私有快取裡）。`share_plus`（含 `share_plus_*`）只准在平台層（lint `fmp_layer_imports` 的
+  `platformPackages`）。閘門：`share_plus_file_sharer_test.dart`（檔案與 MIME、`true`／`false` 的對應、開不起來拋出）、`platform_test.dart`、
+  `layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`。系統分享視窗本身只能實機驗。
 
 - 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
   Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
@@ -517,7 +525,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門 `redactor_test.dart` 的 `known credential values`）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
   歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
   欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
-  網路紀錄經門面寫入，閘門見「網路」；診斷包（M3）出現時各自補測試。
+  網路紀錄經門面寫入，閘門見「網路」；診斷包的遮蔽測試見「診斷包」。
+- 使用者的家目錄由 `Redactor.registerHomeDirectory` 登記，輸出裡出現就換成 `~`（M3 design §12.4：資料目錄的路徑含使用者名稱，log 檔與診斷包因此是 `~\…`）。
+  分隔符 `\`、`/` 與 JSON 跳脫過的 `\\` 都算，不分大小寫，只換整段目錄名稱（`C:\Users\al` 不吃掉 `C:\Users\alice`，也不吃 `C:\Users\al.b`）；
+  `null`、空字串與去掉結尾分隔符後短於 4 個字元的路徑不登記。**`main()` 必須在寫 `App started` 之前登記**（用 `AppInfoReader.homeDirectory`）：順序在 `main()` 裡，
+  **沒有自動閘門**（`main()` 沒有測試），改動 `main()` 時 review 看，實機看 log 檔的 `App started` 是 `~\…`。閘門：`redactor_test.dart` 的 `home directory`
+  （三種寫法、整段目錄名稱、結尾分隔符、不登記的路徑、再次登記取代）、`log_test.dart` 的 `the home directory is ~ in the history and the log file`。
+  登記之前（更早的版本）寫進 log 檔的行在本機不改寫（過了 7 天保留期限自然消失）；送出裝置的診斷包與「匯出 log 檔」以現在的遮蔽函式重遮（`redactLogLines`，見「診斷包」）。
 - 遮蔽本身拋錯時，門面把那筆換成只有層級與失敗型別的 `Redaction failed` 紀錄，不退回
   原文。閘門：`log_test.dart` 的 `a record that cannot be redacted`。
 - log 檔：資料目錄的 `logs/fmp.jsonl`，JSON Lines，單檔 2MB，輪替成 `fmp.1.jsonl`、
@@ -560,11 +574,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `startupMaintenanceTasksProvider`（有序清單，新項目加在那裡）。`FmpApp` 在第一幀之後
   （`initState` 排的 post-frame callback，每次掛上只一次；`main()` 只掛一次）依序跑；
   每項各自 try，失敗經 `log.report` 進錯誤歷史後接著跑下一項，不重試；每項跑完寫一筆
-  tag `maintenance` 的 log（`id`、`outcome`）。清單目前依序是 `log-retention`、`orphan-tracks`
+  tag `maintenance` 的 log（`id`、`outcome`）。清單目前依序是 `log-retention`、`diagnostics-temp`（刪資料目錄底下殘留的診斷包分享暫存 `diagnostics-tmp/`，見「診斷包」）、`orphan-tracks`
   （刪沒有被佇列、播放歷史參照的 `tracks` 列，記 `Deleted orphan tracks` 與 `count`；閘門：
   `startup_maintenance_test.dart` 的 `orphan-tracks…`、`play_history_repository_test.dart` 的 `orphan cleanup keeps tracks…`）。項目一個接一個 await，卡住的項目會擋住
   後面的，所以項目只放有限的本機工作。閘門：`test/app/startup_maintenance_test.dart`
-  （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`、`orphan-tracks`）。不跳提示（清單
+  （畫過第一幀才跑、重建不重跑、失敗隔離、預設清單的 `log-retention`、`diagnostics-temp`、`orphan-tracks`）。不跳提示（清單
   拿不到 `Toaster`）、不放空的登記點、週期性工作不放這裡（M3 的排程器）沒有閘門，
   review 時看。
 
@@ -1575,7 +1589,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
     （家目錄換成 `~`，`homeRelativePath`：不分大小寫、只比對整段目錄名稱）、快取用量（各類加總）的連結：先 pop 這一頁再經
-    `SettingsBack.show(network)` 選設定頁的「網路」。閘門：`debug_page_test.dart` 的 `the overview`（含 release 與 debug build 的預設標示）、`homeRelativePath` 群組。
+    `SettingsBack.show(network)` 選設定頁的「網路」；最下面是診斷包（見「診斷包」）。閘門：`debug_page_test.dart` 的 `the overview`（含 release 與 debug build 的預設標示）、`homeRelativePath` 群組。
   - Log 與錯誤歷史（`debug_log.dart`、`debug_log_state.dart`，ADR 0025 §決定 3，M3 design §12.3）：預設是這次執行的記憶體歷史
     （`logHistoryProvider`，`Log.changes` 後 250ms 合併成一次快照），最新的在最上面；「含之前的紀錄」（只在有 log 檔的平台出現）
     把 `LogFile.readStored()` 與記憶體歷史合成一份（`mergeLogRecords`）：同一筆的判準是整行內容（`toJsonLine`）逐字相同，同時間的
@@ -1852,6 +1866,26 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   50 MiB、Windows 200 張／80 MiB，沿用舊版），`main()` 在 `runApp` 前套用，不開放設定。閘門：
   `platform_test.dart` 的宣告與數字；`main()` 的套用沒有測試。
 
+## 診斷包
+
+`lib/app/diagnostics/`（ADR 0025 §決定 3、10，ADR 0011 §決定 6，M3 design §12.4）。UI 在 `lib/ui/debug/debug_export.dart`、概覽的診斷包區與 Log 區塊的「匯出 log 檔」。
+
+- `DiagnosticsService` 產生時組裝一次：`diagnostics.txt` 與 `diagnostics.json` 來自同一份資料（`DiagnosticsReport.build`：整份先經 `Redactor.redactValue`，純文字輸出前再遮一次；
+  **JSON 不再對編碼後的整段遮蔽**——header 名單的值遮到行尾，會連結尾引號一起吃掉、輸出不是合法 JSON），加上全部的 log 檔（`LogFile.readAll`，排在寫入佇列後，檔名照舊）。
+  **log 檔送出前以現在的遮蔽函式重遮**（`redactLogFiles` → `redactLogLines`，在 isolate）：寫入時只遮得到當時登記的東西，家目錄登記之前（更早的版本）、
+  憑證登記之前的行仍帶原值。解析得出的行逐欄位重遮再編碼（仍是 JSON Lines），壞行整行遮，空行略過；「匯出 log 檔」走同一條。
+  資料見 `diagnosticsDataProvider`：版本／flavor／建置模式、平台名稱／系統版本／資料目錄、語系、各已安裝插件的 id／版本／啟用與（宣告 `login` 的）是否登入與憑證狀態、
+  外觀／網路／播放／開發者各組的生效值。**不含**帳號名稱、輸出裝置名稱（只寫有沒有選）、插件開發資料夾的路徑（只寫有沒有設）、歌單內容。欄位名要避開遮蔽名單的鍵名（`…sid`、`…token`）。
+- zip 由 `archive` 在 isolate 壓（`zipEntries`；`archive` 只准在 `lib/app/diagnostics/`，lint `fmp_layer_imports` 的 `externalPackageOwners`）。檔名 `fmp-diagnostics-<yyyyMMdd-HHmmss>.zip`、`fmp-logs-….zip`，本機時間、不含冒號。
+- 動作：「複製摘要」（純文字進剪貼簿，不開提醒）；「存成檔案」（`FileDialogs.saveFile`，依 `capabilities.files`）；「分享」（`FileSharer`，只在 `capabilities.shareFiles` 的平台出現）。
+  存檔或分享前先跳「送出前請檢查」（`confirmSubmitReminder`）：與 GitHub 回報**共用**「開發者」組的 `report_reminder_dismissed`，取消什麼都不做，勾「不再提醒」才寫入。使用者在存檔對話框取消不提示成功。
+- 分享用的 zip 寫在**資料目錄**底下的 `diagnostics-tmp/`（不是快取目錄：快取目錄只給快取模組，lint `restrictedImports`，而且快取庫開啟時會清掉根目錄裡不認得的東西）。
+  每次分享先清掉整個目錄；`shareFiles` 回 `true` 才立刻刪檔，回 `false`（Windows）留著，由下一次分享前的清理與啟動維護清單的 `diagnostics-temp` 刪。分享開不起來就刪檔並拋出。
+- 閘門：`test/app/diagnostics_test.dart`（txt／json 同一份資料且都遮蔽、zip 內容與檔名、`lines written before the home directory was registered…`（登記之前寫的行在兩種 zip 都遮掉、仍是 JSON Lines）、假憑證／假簽名網址／假帳號名稱／假家目錄四種都不出現、`DiagnosticsExporter` 的存檔／取消／分享／不回報／開不起來、`deleteDiagnosticsTemp` 只刪暫存目錄）、
+  `log_record_test.dart` 的 `redactLogLines`（逐欄位重遮、壞行與空行、已遮過的不變）、
+  `debug_export_test.dart`（按鈕依能力顯示、提醒第一次問且與 GitHub 回報共用設定、存檔與分享流程、Log 匯出只有 log 檔）、`guidelines_test.dart` 的 `the Debug overview`／`the Debug export reminder`（400 與 1000 寬、淺色深色）。
+  **沒有自動閘門**：系統存檔對話框與分享視窗本身、zip 在真實 App 裡打得開、Windows 的 `DataTransferManager`，只能實機驗。
+
 ## 零聯網
 
 ADR 0015 §決定 3 的兩道防線：
@@ -1883,7 +1917,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:fmp/core/redaction/redactor.dart';
+
 /// log 層級（ADR 0011 §決定 2）。順序即嚴重程度。
 enum LogLevel {
   debug,
@@ -105,6 +107,24 @@ final class LogRecord {
     return null;
   }
 
+  /// 以 [redactor] 再遮一次每個欄位（與門面寫入時同一套：文字欄位 [Redactor.redact]、
+  /// [fields] [Redactor.redactValue]）。已遮過的內容再遮一次不變；用在寫入之後才登記的
+  /// 家目錄或憑證值（[redactLogLines]）。
+  LogRecord redactedWith(Redactor redactor) {
+    final redactedFields = redactor.redactValue(fields);
+    return LogRecord(
+      time: time,
+      level: level,
+      tag: redactor.redact(tag),
+      message: redactor.redact(message),
+      error: error == null ? null : redactor.redact(error!),
+      stackTrace: stackTrace == null ? null : redactor.redact(stackTrace!),
+      fields: redactedFields is Map<String, Object?>
+          ? redactedFields
+          : const {},
+    );
+  }
+
   @override
   String toString() => 'LogRecord(${toJsonLine()})';
 }
@@ -115,3 +135,26 @@ List<LogRecord> parseLogLines(String content) => [
   for (final line in const LineSplitter().convert(content))
     if (line.trim().isNotEmpty) ?LogRecord.tryParseJsonLine(line),
 ];
+
+/// 以目前的 [redactor] 再遮一次 log 檔的內容，輸出仍是 JSON Lines（一行一筆、換行結尾）。
+///
+/// log 檔寫入時已經遮蔽，但遮蔽函式只認得「寫入當時」登記的東西：家目錄登記之前（更早的版本）、
+/// 憑證值登記之前寫的行仍帶原值。診斷包與「匯出 log 檔」送出裝置前一律經這裡（ADR 0025
+/// §決定 10）。解析得出的行逐欄位重遮再編碼（不對整行遮：header 名單的值遮到行尾，會吃掉 JSON
+/// 的結尾引號）；解析不出的壞行整行經 [Redactor.redact]，照樣留著（它不是 JSON，遮到行尾也
+/// 不會更壞）；空行略過。
+String redactLogLines(String content, Redactor redactor) {
+  final buffer = StringBuffer();
+  for (final line in const LineSplitter().convert(content)) {
+    if (line.trim().isEmpty) continue;
+    final record = LogRecord.tryParseJsonLine(line);
+    buffer
+      ..write(
+        record == null
+            ? redactor.redact(line)
+            : record.redactedWith(redactor).toJsonLine(),
+      )
+      ..write('\n');
+  }
+  return buffer.toString();
+}

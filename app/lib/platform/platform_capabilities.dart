@@ -33,6 +33,7 @@ final class PlatformCapabilities {
     required this.loginWebView,
     required this.urlOpener,
     required this.restartsItself,
+    required this.shareFiles,
     this.mediaControls,
   });
 
@@ -49,6 +50,7 @@ final class PlatformCapabilities {
     loginWebView: false,
     urlOpener: false,
     restartsItself: false,
+    shareFiles: false,
     mediaControls: null,
   );
 
@@ -95,6 +97,10 @@ final class PlatformCapabilities {
   /// 手動再開，對話框要寫明（Android；M3 design §12.2）。
   final bool restartsItself;
 
+  /// 有用系統分享視窗送出檔案的實作（`share/`）：診斷包與 log 檔的「分享」依它出現（ADR 0025
+  /// §決定 10）。Linux 不能分享檔案；Windows 10 1809 以前 `share_plus` 會拋錯，經提示顯示。
+  final bool shareFiles;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -112,5 +118,6 @@ final class PlatformCapabilities {
     loginWebView: loginWebView,
     urlOpener: urlOpener,
     restartsItself: restartsItself,
+    shareFiles: shareFiles,
   );
 }

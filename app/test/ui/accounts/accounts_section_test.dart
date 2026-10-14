@@ -283,6 +283,7 @@ void main() {
       loginWebView: loginWebView,
       urlOpener: false,
       restartsItself: false,
+      shareFiles: false,
     );
     const all = PluginLogin(
       methods: {LoginMethod.cookie, LoginMethod.webView, LoginMethod.qr},

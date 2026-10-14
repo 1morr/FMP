@@ -82,6 +82,8 @@ log.warning(
   的寫入全被跳過）；`log_file_test.dart` 的 `retention` 群組是例子。新的操作用 `_exclusive` 排隊。
 - 寫入以「批」排隊（`_openBatch`）：`clear()` 把目前這一批封起來，這樣 `clear()` 之後寫的行一定在刪檔之後才落地。
   讀檔的實作 `_readStoredFiles` 是頂層函數，只收路徑與數字（要送進 isolate，不能帶 `LogFile`）。
+- 讀出全部 log 檔的原始位元組（診斷包與「匯出 log 檔」）用 `LogFile.readAll()`：同樣排進寫入佇列、檔名照舊、編號小的在前。要送出裝置的內容不能照原樣放：先經 `redactLogLines`（`log_record.dart`）以現在的遮蔽函式重遮，寫入當時還沒登記的家目錄與憑證才遮得到；它逐欄位重遮、重新編碼，輸出仍是 JSON Lines。
+- 使用者的家目錄在 `main()` 寫第一筆 log 之前用 `Redactor.registerHomeDirectory` 登記，之後任何輸出（log、診斷包、錯誤報告）裡出現就是 `~`；測試遮蔽家目錄時用明顯的假路徑（`C:\Users\FAKE_USER`），並同時驗 `\\`（JSON 跳脫）與 `/` 的寫法。
 - 界面要隨歷史更新時聽 `Log.changes`（同步發，監聽端不要做重的事；Debug 頁合併成 250ms 一次），清記憶體歷史一律走 `Log.clear()`，
   不直接動 talker。
 

@@ -26,6 +26,7 @@ import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
+import 'package:fmp/platform/share/share_plus_file_sharer.dart';
 import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
 
 void main() {
@@ -65,6 +66,8 @@ void main() {
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.fileSharer, isA<SharePlusFileSharer>());
       // 沒有正規的「重啟自己」：結束行程後由使用者再開。
       expect(platform.capabilities.restartsItself, isFalse);
       expect(platform.restarter, isA<AndroidAppRestarter>());
@@ -107,6 +110,8 @@ void main() {
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.fileSharer, isA<SharePlusFileSharer>());
       expect(platform.capabilities.restartsItself, isTrue);
       expect(platform.restarter, isA<WindowsAppRestarter>());
       expect(platform.capabilities.loginWebView, isTrue);
@@ -145,6 +150,9 @@ void main() {
         expect(platform.fileDialogs, isNull);
         expect(platform.capabilities.urlOpener, isFalse);
         expect(platform.urlOpener, isNull);
+        expect(platform.capabilities.shareFiles, isFalse);
+        expect(platform.fileSharer, isNull);
+        expect(platform.appInfo, isNull);
         expect(platform.capabilities.restartsItself, isFalse);
         expect(platform.restarter, isNull);
         expect(platform.capabilities.loginWebView, isFalse);
@@ -204,6 +212,8 @@ void main() {
       expect(platform.fileDialogs, isA<FilePickerDialogs>());
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.fileSharer, isA<SharePlusFileSharer>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
     });

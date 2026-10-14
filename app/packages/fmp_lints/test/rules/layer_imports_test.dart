@@ -43,6 +43,8 @@ class LayerImportsTest extends FmpRuleTest {
         "import [!'package:window_manager/window_manager.dart'!];\n"
         "import [!'package:smtc_windows/smtc_windows.dart'!];\n"
         "import [!'package:url_launcher/url_launcher.dart'!];\n"
+        "import [!'package:share_plus/share_plus.dart'!];\n"
+        "import [!'package:share_plus_platform_interface/share_plus_platform_interface.dart'!];\n"
         "import [!'package:audio_service_platform_interface/audio_service_platform_interface.dart'!];\n",
   );
 
@@ -342,6 +344,33 @@ class LayerImportsTest extends FmpRuleTest {
     await assertLints(
       'lib/ui/settings/settings_page.dart',
       "import 'package:qr_flutters/qr_flutters.dart';\n",
+    );
+  }
+
+  // design §2.2：archive 只在診斷包的組裝（lib/app/diagnostics/）；名稱相似但不同系列
+  // （archives）不算。
+  Future<void> test_archiveOutsideTheDiagnostics() async {
+    for (final path in [
+      'lib/app/app_scope.dart',
+      'lib/app/diagnostics_extra/zip.dart',
+      'lib/ui/debug/debug_overview.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:archive/archive.dart'!];\n"
+        "import [!'package:archive_io/archive_io.dart'!];\n",
+      );
+    }
+  }
+
+  Future<void> test_archiveInTheDiagnostics() async {
+    await assertLints(
+      'lib/app/diagnostics/diagnostics_zip.dart',
+      "import 'package:archive/archive.dart';\n",
+    );
+    await assertLints(
+      'lib/ui/debug/debug_overview.dart',
+      "import 'package:archives/archives.dart';\n",
     );
   }
 

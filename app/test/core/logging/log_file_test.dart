@@ -284,6 +284,37 @@ void main() {
     });
   });
 
+  group('readAll', () {
+    test('returns every log file by name, newest first, untouched', () async {
+      final directory = Directory(p.join(temp.path, 'logs'))..createSync();
+      File(p.join(directory.path, 'fmp.jsonl')).writeAsStringSync('{"n":3}\n');
+      File(p.join(directory.path, 'fmp.2.jsonl'))
+          .writeAsStringSync('{"n":1}\n');
+      File(p.join(directory.path, 'fmp.1.jsonl'))
+          .writeAsStringSync('{"n":2}\n');
+      File(p.join(directory.path, 'other.txt')).writeAsStringSync('x');
+      final file = LogFile(directory);
+
+      final all = await file.readAll();
+
+      expect(
+        [for (final f in all) f.name],
+        ['fmp.jsonl', 'fmp.1.jsonl', 'fmp.2.jsonl'],
+      );
+      expect(String.fromCharCodes(all.first.bytes), '{"n":3}\n');
+    });
+
+    test('waits for queued writes and tolerates a missing directory', () async {
+      final file = LogFile(Directory(p.join(temp.path, 'none')));
+      expect(await file.readAll(), isEmpty);
+
+      file.write('{"n":1}');
+      final all = await file.readAll();
+
+      expect(String.fromCharCodes(all.single.bytes), '{"n":1}\n');
+    });
+  });
+
   // 「含之前的紀錄」讀回 log 檔（ADR 0025 §決定 3）。
   group('readStored', () {
     late Directory logs;

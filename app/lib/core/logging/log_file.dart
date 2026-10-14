@@ -106,6 +106,28 @@ final class LogFile {
     );
   }
 
+  /// 讀出全部的 log 檔（目前的與輪替的）的原始內容，檔名照舊（`fmp.jsonl`、`fmp.1.jsonl`…），
+  /// 編號小的（較新的）在前。診斷包與「匯出 log 檔」用（ADR 0025 §決定 3、10）。排在寫入佇列裡，
+  /// 所以排入的行都已寫入；目錄不存在回空清單。
+  Future<List<({String name, Uint8List bytes})>> readAll() =>
+      _exclusive(_readAll);
+
+  Future<List<({String name, Uint8List bytes})>> _readAll() async {
+    if (!await directory.exists()) return const [];
+    final files = <(int, File)>[];
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final match = _anyName.firstMatch(p.basename(entity.path));
+      if (match == null) continue;
+      files.add((int.parse(match.group(1)?.substring(1) ?? '0'), entity));
+    }
+    files.sort((a, b) => a.$1.compareTo(b.$1));
+    return [
+      for (final (_, file) in files)
+        (name: p.basename(file.path), bytes: await file.readAsBytes()),
+    ];
+  }
+
   /// 排進寫入佇列。佇列只管先後：錯誤經回傳的 future 交給呼叫端，之後的寫入照常排。
   Future<T> _exclusive<T>(Future<T> Function() task) {
     final result = _queue.then((_) => task());

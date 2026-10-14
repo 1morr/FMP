@@ -14,6 +14,7 @@ const redactedValue = '***';
 /// 3. 網址：任何主機的 userinfo 換掉；已知媒體 CDN 的網址（含整段百分比
 ///    編碼、JSON 跳脫斜線的寫法）去除簽名參數，路徑帶簽章的換掉路徑段。
 /// 4. 已知憑證值：逐字換掉（帳號層登記目前的實際值，Finamp 的做法）。
+/// 5. 使用者的家目錄：換成 `~`（[registerHomeDirectory]），路徑裡才不帶使用者名稱。
 ///
 /// 名單從 `redaction_lists.dart` 起算，插件以 [addRules] 追加。
 final class Redactor {
@@ -121,6 +122,40 @@ final class Redactor {
     _sortSecrets();
   }
 
+  /// 登記使用者的家目錄；之後任何輸出裡出現它都換成 `~`（M3 design §12.4：資料目錄的路徑
+  /// 含使用者名稱，log 檔與診斷包因此是 `~\…`）。再次呼叫取代之前登記的。
+  ///
+  /// 不分大小寫；分隔符 `\`、`/` 與 JSON 跳脫過的 `\\` 都算（Windows 路徑兩種斜線都有人寫，
+  /// 診斷包的 JSON 裡反斜線是兩個）。只換整段目錄名稱：家目錄 `C:\Users\al` 不吃掉
+  /// `C:\Users\alice`。`null`，以及去掉結尾分隔符後短於 [minimumSecretLength] 的（`C:`、
+  /// `/`、`/a`）不登記：這種路徑不含使用者名稱，換掉只會把一般文字切碎。
+  void registerHomeDirectory(String? path) {
+    _homeDirectory = null;
+    if (path == null) return;
+    final trimmed = path.replaceFirst(_trailingSeparators, '');
+    if (trimmed.length < minimumSecretLength) return;
+    final segments = [
+      for (final segment in trimmed.split(_separators))
+        if (segment.isNotEmpty) RegExp.escape(segment),
+    ];
+    if (segments.isEmpty) return;
+    final leading = _separators.matchAsPrefix(trimmed) == null
+        ? ''
+        : _separatorPattern;
+    _homeDirectory = RegExp(
+      '(?<![\\w.-])$leading${segments.join(_separatorPattern)}(?![\\w-]|\\.\\w)',
+      caseSensitive: false,
+    );
+  }
+
+  static final _separators = RegExp(r'[\\/]+');
+  static final _trailingSeparators = RegExp(r'[\\/]+$');
+
+  /// 目錄之間的分隔：`/`，或一到四個反斜線（原樣、JSON 跳脫過、再被包進另一個 JSON）。
+  static const _separatorPattern = r'(?:\\{1,4}|/)';
+
+  RegExp? _homeDirectory;
+
   /// 取消登記（登出、換帳號時）。沒登記過的值直接略過。
   void unregisterSecret(String value) {
     _secrets.removeAll(_forms(value));
@@ -138,6 +173,9 @@ final class Redactor {
         .replaceAllMapped(_encodedUrlPattern, (m) => _redactEncodedUrl(m[0]!));
     for (final secret in _secretsLongestFirst) {
       result = result.replaceAll(secret, redactedValue);
+    }
+    if (_homeDirectory case final home?) {
+      result = result.replaceAll(home, '~');
     }
     return result;
   }

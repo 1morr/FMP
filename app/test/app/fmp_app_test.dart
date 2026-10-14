@@ -423,6 +423,7 @@ void main() {
         loginWebView: false,
         urlOpener: false,
         restartsItself: false,
+        shareFiles: false,
         cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);

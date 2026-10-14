@@ -33,6 +33,34 @@ final class _FakePicker extends FilePickerPlatform {
   }
 }
 
+/// 換掉 `file_picker` 的存檔：記下收到的檔名、內容與 MIME，回傳 [result]（`null` 是取消）。
+final class _FakeSaver extends FilePickerPlatform {
+  _FakeSaver(this.result);
+
+  final Uri? result;
+  String? fileName;
+  Uint8List? bytes;
+  String? mimeType;
+
+  @override
+  Future<Uri?> saveFile({
+    String? dialogTitle,
+    required String fileName,
+    required Uint8List bytes,
+    String mimeType = 'application/octet-stream',
+    String? initialDirectory,
+    Function(FilePickerStatus)? onFileSaving,
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async {
+    this.fileName = fileName;
+    this.bytes = bytes;
+    this.mimeType = mimeType;
+    return result;
+  }
+}
+
 /// 只有名稱與內容的檔案；其他成員這裡用不到。
 final class _File extends PlatformFile {
   _File(this.name, this.text);
@@ -70,5 +98,37 @@ void main() {
     FilePickerPlatform.instance = _FakePicker(null);
 
     expect(await const FilePickerDialogs().pickFile(extension: 'js'), isNull);
+  });
+
+  test(
+    'saves the bytes under the name and MIME type and returns the place',
+    () async {
+      final fake = _FakeSaver(Uri.file('/fake/fmp-logs.zip'));
+      FilePickerPlatform.instance = fake;
+
+      final saved = await const FilePickerDialogs().saveFile(
+        name: 'fmp-logs.zip',
+        bytes: Uint8List.fromList([1, 2, 3]),
+        mimeType: 'application/zip',
+      );
+
+      expect(saved, Uri.file('/fake/fmp-logs.zip'));
+      expect(fake.fileName, 'fmp-logs.zip');
+      expect(fake.bytes, [1, 2, 3]);
+      expect(fake.mimeType, 'application/zip');
+    },
+  );
+
+  test('a cancelled save dialog is null', () async {
+    FilePickerPlatform.instance = _FakeSaver(null);
+
+    expect(
+      await const FilePickerDialogs().saveFile(
+        name: 'x.zip',
+        bytes: Uint8List(0),
+        mimeType: 'application/zip',
+      ),
+      isNull,
+    );
   });
 }

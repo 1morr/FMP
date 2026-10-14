@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:fmp/platform/files/files.dart';
 
@@ -18,4 +19,11 @@ final class FilePickerDialogs implements FileDialogs {
     if (file == null) return null;
     return PickedFile(name: file.name, bytes: await file.readAsBytes());
   }
+
+  @override
+  Future<Uri?> saveFile({
+    required String name,
+    required Uint8List bytes,
+    required String mimeType,
+  }) => FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: mimeType);
 }

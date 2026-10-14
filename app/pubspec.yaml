@@ -39,6 +39,9 @@ dependencies:
   connectivity_plus: ^7.3.1
   # 插件宿主 API 的 crypto.md5／sha256（ADR 0014 §決定 5）。
   crypto: ^3.0.7
+  # 診斷包的 zip（M3 design §12.4），在 isolate 壓；只准在 lib/app/diagnostics/ import
+  # （fmp_layer_imports）。
+  archive: ^4.5.2
   # 網路層（ADR 0012 §決定 1）：每插件一個 dio 與記憶體 cookie jar。三個都只准
   # 在 lib/core/network/ import（fmp_layer_imports）。
   cookie_jar: ^4.0.9
@@ -129,6 +132,8 @@ dependencies:
   # 「在 GitHub 回報」開瀏覽器（M3 design §13）；只准在 lib/platform/ import
   # （fmp_layer_imports）。
   url_launcher: ^6.3.3
+  # 分享診斷包（M3 design §12.4）；只准在 lib/platform/ import（fmp_layer_imports）。
+  share_plus: ^13.3.1
 
 dev_dependencies:
   # 播放列的 golden（ADR 0024 §如何確認）。只用它的 CI 版（文字畫成色塊），

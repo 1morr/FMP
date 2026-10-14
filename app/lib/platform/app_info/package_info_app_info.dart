@@ -14,6 +14,7 @@ final class PackageInfoAppInfo implements AppInfoReader {
 
   final String platform;
   final String osVersion;
+  @override
   final String? homeDirectory;
 
   @override

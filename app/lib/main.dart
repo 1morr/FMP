@@ -29,6 +29,7 @@ import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
+import 'package:fmp/platform/share/share.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 
@@ -38,7 +39,10 @@ Future<void> main(List<String> arguments) async {
   var platform = AppPlatform.current(flavor);
   // 沒有資料目錄的平台不啟動資料層，也沒有 log 檔（能力宣告 dataDirectory 為假）。
   final directory = await platform.dataDirectory?.resolve();
-  final redactor = Redactor();
+  // 資料目錄與之後的路徑在 log 檔與診斷包都是 `~\…`，不帶使用者名稱；要在寫第一筆 log 之前
+  // 登記（M3 design §12.4）。
+  final redactor = Redactor()
+    ..registerHomeDirectory(platform.appInfo?.homeDirectory);
   final log = Log(
     redactor: redactor,
     // 這個建置的預設層級；「開發者」組的值由 FmpApp 讀出來之後套用（ADR 0025 §決定 1）。
@@ -48,8 +52,8 @@ Future<void> main(List<String> arguments) async {
         : LogFile(Directory(p.join(directory.path, logDirectoryName))),
   );
   routeUncaughtErrors(log, PlatformDispatcher.instance);
-  // 實機驗證以這一筆確認是哪個 flavor、資料在哪（沒有身分頁了）。資料目錄的
-  // 路徑可能含使用者名稱：log 檔只在本機，診斷包（M3）匯出時另外處理。
+  // 實機驗證以這一筆確認是哪個 flavor、資料在哪（沒有身分頁了）。資料目錄的路徑可能含使用者
+  // 名稱，門面遮蔽時已把家目錄換成 `~`。
   log.info(
     'App started',
     tag: 'app',
@@ -123,6 +127,7 @@ Future<void> main(List<String> arguments) async {
         fileDialogsProvider.overrideWithValue(platform.fileDialogs),
         loginWebViewProvider.overrideWithValue(platform.loginWebView),
         urlOpenerProvider.overrideWithValue(platform.urlOpener),
+        fileSharerProvider.overrideWithValue(platform.fileSharer),
         appRestarterProvider.overrideWithValue(platform.restarter!),
         systemMediaControlsProvider.overrideWithValue(platform.mediaControls),
         // 憑證的唯一存放處；有資料目錄的平台（Android、Windows）都有。

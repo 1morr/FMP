@@ -43,7 +43,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）已合併；PR 14b（備份、還原、重設、重啟，子任務 `10-14-m3-reset-and-restore`，分支 `feat/app-reset-and-restore`）。
+- **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）已合併；PR 15（診斷包，子任務 `10-14-m3-diagnostics`，分支 `feat/app-diagnostics`）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
 - **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。
@@ -366,10 +366,10 @@
 
 ## 15. 診斷包（design §12.4）
 
-- [ ] `lib/app/diagnostics/`：組裝 `diagnostics.txt`／`.json`、zip（`archive` 4.3.0，isolate）。
-- [ ] 平台層：`files` 加 `saveFile`；`lib/platform/share/`（`share_plus` 13.3.1），宣告 `shareFiles`。
-- [ ] 概覽的診斷包：複製、存檔、分享；第一次匯出的提醒（共用 `report_reminder_dismissed`）；Log 區塊的「匯出 log 檔」接同一個管道。
-- [ ] 遮蔽函式登記家目錄為已知值（M1 待辦 13）；啟動維護清單加「診斷包暫存」。
+- [x] `lib/app/diagnostics/`：組裝 `diagnostics.txt`／`.json`、zip（`archive` 4.3.0，isolate）。
+- [x] 平台層：`files` 加 `saveFile`；`lib/platform/share/`（`share_plus` 13.3.1），宣告 `shareFiles`。
+- [x] 概覽的診斷包：複製、存檔、分享；第一次匯出的提醒（共用 `report_reminder_dismissed`）；Log 區塊的「匯出 log 檔」接同一個管道。
+- [x] 遮蔽函式登記家目錄為已知值（M1 待辦 13）；啟動維護清單加「診斷包暫存」。
 - 測試：design §12.4 的閘門；ADR 0011 的遮蔽測試加四種。
 - 實測（重播）：§8 的「匯出的診斷包能以解壓工具打開」（Windows release，存檔後以 Windows 檔案總管或 `Expand-Archive` 打開、三個檔都在、`dataDirectory` 是 `~\…`）；Android 分享到檔案 App 一次。
 - 依賴：13、14。模型：sonnet。
@@ -483,6 +483,16 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 15 留下的
+
+1. **網路紀錄的 query 可能帶使用者 id**（審查提出）：B 站的 `mid`、`uid`、`vmid` 不在鍵名名單上；是 id 不是名稱，但附在公開 issue 上能找到帳號。M3 的請求沒有帶 uid 的，M4 讀收藏、歌單時會有。M4 前開 issue 擴充名單（要重跑各插件的契約測試）。
+2. **家目錄的兩種寫法遮不到**：8.3 短檔名（`C:\Users\ABCDEF~1\…`）與百分比編碼的路徑。目前 log 沒看到，風險低。
+3. **Windows 的分享面板是強制回應的**：開著時 FMP 視窗停用，Esc 關不掉、Alt+F4 可以（實機驗證時發現；不是 App 的問題，記給之後的實機驗證）。分享後 zip 留在 `diagnostics-tmp/`，下次分享前或啟動維護時刪（實測 `count:1`）。
+4. **Android 取消分享也寫一筆 `Exported … share`**：`share_plus` 的結果是 dismissed 時應該不寫。小事。
+5. **診斷包的 `reportReminderDismissed` 是按下前一刻的值**：同一次匯出時勾「不再提醒」，包裡仍是 `no`。小事。
+6. **版本**：`archive` 改成直接依賴 4.5.2（design 寫 4.3.0）；`share_plus` 13.3.1。
+7. **暫存目錄在資料目錄的 `diagnostics-tmp/`**，不是快取目錄：`lib/platform/cache_directory` 受 `restrictedImports` 限制，快取庫開啟時也會清掉不認得的東西。
 
 ### PR 14b 留下的
 

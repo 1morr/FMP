@@ -28,6 +28,8 @@ final externalPackageOwners = <String, String>{
   'pub_semver': 'lib/plugins/repository',
   // design §2.2：QR 碼只在 QR 登入畫面畫。
   'qr_flutter': 'lib/ui/accounts',
+  // design §2.2：診斷包的 zip 只在組裝診斷包的模組壓。
+  'archive': 'lib/app/diagnostics',
   // ADR 0016：圖片的 cache manager 接到統一快取庫，widget 只在封面元件。
   'flutter_cache_manager': 'lib/data/cache',
   'cached_network_image': 'lib/ui/artwork',
@@ -55,6 +57,7 @@ const platformPackages = [
   'flutter_inappwebview',
   'flutter_secure_storage',
   'url_launcher',
+  'share_plus',
 ];
 
 /// 左邊目錄內的檔案不得 import 右邊的目錄。
