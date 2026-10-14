@@ -379,6 +379,96 @@ void main() {
     });
   });
 
+  group('home directory', () {
+    const home = r'C:\Users\FAKE_USER';
+
+    test('is replaced with ~ in every spelling of the path', () {
+      redactor.registerHomeDirectory(home);
+
+      expect(
+        redactor.redact(r'dir C:\Users\FAKE_USER\AppData\Roaming\fmp'),
+        r'dir ~\AppData\Roaming\fmp',
+      );
+      // JSON 跳脫過的反斜線（診斷包的 diagnostics.json）。
+      expect(
+        redactor.redact(r'{"dataDirectory":"C:\\Users\\FAKE_USER\\fmp"}'),
+        r'{"dataDirectory":"~\\fmp"}',
+      );
+      // 再被包進另一個 JSON 字串（四個反斜線）。
+      expect(
+        redactor.redact(r'"{\"dir\":\"C:\\\\Users\\\\FAKE_USER\\\\fmp\"}"'),
+        r'"{\"dir\":\"~\\\\fmp\"}"',
+      );
+      expect(
+        redactor.redact('file:///C:/Users/FAKE_USER/fmp/db'),
+        'file:///~/fmp/db',
+      );
+      expect(redactor.redact(r'c:\users\fake_user'), '~');
+      expect(redactor.redact(r'at C:\Users\FAKE_USER.'), r'at ~.');
+    });
+
+    test('a trailing separator on the registered path does not matter', () {
+      redactor.registerHomeDirectory(r'C:\Users\FAKE_USER\');
+
+      expect(redactor.redact(r'C:\Users\FAKE_USER\fmp'), r'~\fmp');
+    });
+
+    test('only whole directory names are replaced', () {
+      redactor.registerHomeDirectory(r'C:\Users\FAKE');
+
+      expect(
+        redactor.redact(r'C:\Users\FAKE_USER\fmp C:\Users\FAKE.NAME'),
+        r'C:\Users\FAKE_USER\fmp C:\Users\FAKE.NAME',
+      );
+      expect(redactor.redact(r'C:\Users\FAKE.'), '~.');
+    });
+
+    test('also covers a POSIX home directory', () {
+      redactor.registerHomeDirectory('/home/fake_user');
+
+      expect(redactor.redact('in /home/fake_user/.config'), 'in ~/.config');
+      expect(
+        redactor.redact('in /mnt/home/fake_user/x'),
+        'in /mnt/home/fake_user/x',
+      );
+    });
+
+    test('null, empty and too short paths are not registered', () {
+      for (final path in [null, '', r'C:\', 'C:', '/', '/a']) {
+        redactor.registerHomeDirectory(path);
+        expect(
+          redactor.redact(r'C:\ and /a and C: stay'),
+          r'C:\ and /a and C: stay',
+          reason: 'path: $path',
+        );
+      }
+    });
+
+    test('registering again replaces the earlier path', () {
+      redactor
+        ..registerHomeDirectory(home)
+        ..registerHomeDirectory(r'D:\Users\FAKE_OTHER');
+
+      expect(redactor.redact(r'C:\Users\FAKE_USER\x'), r'C:\Users\FAKE_USER\x');
+      expect(redactor.redact(r'D:\Users\FAKE_OTHER\x'), r'~\x');
+    });
+
+    test('structured values and nested keys are replaced too', () {
+      redactor.registerHomeDirectory(home);
+
+      expect(
+        redactor.redactValue({
+          'dir': r'C:\Users\FAKE_USER\fmp',
+          'list': [r'C:\Users\FAKE_USER'],
+        }),
+        {
+          'dir': r'~\fmp',
+          'list': ['~'],
+        },
+      );
+    });
+  });
+
   group('redactValue', () {
     test('recurses into maps and lists and returns JSON-safe values', () {
       redactor.registerSecret('FAKE_REGISTERED_123');

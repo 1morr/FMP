@@ -250,6 +250,27 @@ void main() {
       [for (final record in log.history) record.toJsonLine()],
     );
   });
+
+  test('the home directory is ~ in the history and the log file', () async {
+    // main() 在寫 `App started` 之前登記家目錄；這裡走同一條路：登記、寫一筆有資料目錄的紀錄。
+    redactor.registerHomeDirectory(r'C:\Users\FAKE_USER');
+    final log = newLog();
+
+    log.info(
+      'App started',
+      tag: 'app',
+      fields: {'dataDirectory': r'C:\Users\FAKE_USER\AppData\Roaming\fmp'},
+    );
+    log.warning(r'Cannot read C:\Users\FAKE_USER\x', tag: 'app');
+
+    final content = await fileContent(log);
+    expect(content, isNot(contains('FAKE_USER')));
+    expect(content, contains(r'"dataDirectory":"~\\AppData\\Roaming\\fmp"'));
+    expect(
+      [for (final record in log.history) record.toJsonLine()].join(),
+      isNot(contains('FAKE_USER')),
+    );
+  });
 }
 
 /// 錯誤訊息帶著憑證的例外（例如把請求整個印出來的 HTTP 例外）。
