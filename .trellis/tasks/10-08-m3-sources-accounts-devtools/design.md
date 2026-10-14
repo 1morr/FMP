@@ -719,7 +719,7 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 
 ### 12.5 健康檢查與插件開發工具（ADR 0015 §決定 7、ADR 0025 §決定 6–7，§8.27）
 
-更正（M3 PR 16b）：「切換模式時重建該插件的 client」改為：模式只作用於跑案例，每個案例在隔離環境（空的 storage 與憑證、新的 runtime 與 client）以對應的 adapter 執行（`10-14-m3-plugin-dev-tools/design.md` §3.1）；開發資料夾補的 `installed_plugins` 列以 `from_dev_folder` 標記，殘留列在下一次啟動（每次套用資料夾）時刪（同檔 §3.4）。
+更正（M3 PR 16b）：「切換模式時重建該插件的 client」改為：模式只作用於跑案例，每個案例在隔離環境（空的 storage 與憑證、新的 runtime 與 client）以對應的 adapter 執行（`archive/2026-10/10-14-m3-plugin-dev-tools/design.md` §3.1）；開發資料夾補的 `installed_plugins` 列以 `from_dev_folder` 標記，殘留列在下一次啟動（每次套用資料夾）時刪（同檔 §3.4）。
 
 - **健康檢查**：對已安裝且啟用的插件，以真實連線跑它的檢查案例；手動觸發「全部」或單一插件，一次跑一個插件。
   - 案例來源：從 index 安裝的插件用 `installed_plugins.checks_json`；開發中的插件讀資料夾的 `checks.json`；從檔案或網址安裝的顯示「沒有檢查案例」（§16 第 12 條）。
