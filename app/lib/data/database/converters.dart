@@ -5,6 +5,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
+import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 // 列舉與時間存進資料庫的格式（ADR 0010 §決定 2）。字串逐一寫死，不用 enum 的
@@ -197,6 +198,26 @@ final class LogLevelSettingConverter
   String toSql(LogLevelSetting value) => switch (value) {
     LogLevelSetting.debug => 'debug',
     LogLevelSetting.info => 'info',
+  };
+}
+
+/// [RadioLiveStatus] ↔ `live`／`offline`：與插件介面的 `LiveRoomStatus` 同名，但
+/// 這裡是持久化格式，與 Dart 端的名稱分開寫死。
+final class RadioLiveStatusConverter
+    extends TypeConverter<RadioLiveStatus, String> {
+  const RadioLiveStatusConverter();
+
+  @override
+  RadioLiveStatus fromSql(String fromDb) => switch (fromDb) {
+    'live' => RadioLiveStatus.live,
+    'offline' => RadioLiveStatus.offline,
+    _ => throw FormatException('Unknown live status in the database', fromDb),
+  };
+
+  @override
+  String toSql(RadioLiveStatus value) => switch (value) {
+    RadioLiveStatus.live => 'live',
+    RadioLiveStatus.offline => 'offline',
   };
 }
 

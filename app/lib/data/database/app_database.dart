@@ -8,6 +8,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
+import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
 part 'app_database.g.dart';
@@ -35,6 +36,7 @@ part 'app_database.g.dart';
     SourceSettingsTable,
     DeveloperSettingsTable,
     SchedulerRunsTable,
+    RadioStationsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -42,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -112,6 +114,14 @@ class AppDatabase extends _$AppDatabase {
             },
             from10To11: (m, schema) async {
               await m.create(schema.schedulerRuns);
+            },
+            from11To12: (m, schema) async {
+              await m.create(schema.radioStations);
+              // 既有的列這一欄是空的＝沒設定過，預設只在 Notifier 套用。
+              await m.addColumn(
+                schema.networkSettings,
+                schema.networkSettings.radioStatusIntervalMinutes,
+              );
             },
           ),
         );

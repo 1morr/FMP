@@ -13,6 +13,7 @@ import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/data/repositories/scheduler_runs_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 
@@ -87,4 +88,8 @@ final databaseInspectorProvider = Provider<DatabaseInspector>(
     ref.watch(appDatabaseProvider),
     ref.watch(redactorProvider),
   ),
+);
+
+final radioRepositoryProvider = Provider<RadioRepository>(
+  (ref) => RadioRepository(ref.watch(appDatabaseProvider)),
 );

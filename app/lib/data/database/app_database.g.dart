@@ -297,8 +297,23 @@ class $NetworkSettingsTableTable extends NetworkSettingsTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _radioStatusIntervalMinutesMeta =
+      const VerificationMeta('radioStatusIntervalMinutes');
   @override
-  List<GeneratedColumn> get $columns => [id, cacheLimitMb];
+  late final GeneratedColumn<int> radioStatusIntervalMinutes =
+      GeneratedColumn<int>(
+        'radio_status_interval_minutes',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cacheLimitMb,
+    radioStatusIntervalMinutes,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -323,6 +338,15 @@ class $NetworkSettingsTableTable extends NetworkSettingsTable
         ),
       );
     }
+    if (data.containsKey('radio_status_interval_minutes')) {
+      context.handle(
+        _radioStatusIntervalMinutesMeta,
+        radioStatusIntervalMinutes.isAcceptableOrUnknown(
+          data['radio_status_interval_minutes']!,
+          _radioStatusIntervalMinutesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -340,6 +364,10 @@ class $NetworkSettingsTableTable extends NetworkSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}cache_limit_mb'],
       ),
+      radioStatusIntervalMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}radio_status_interval_minutes'],
+      ),
     );
   }
 
@@ -356,13 +384,25 @@ class NetworkSettingsRow extends DataClass
 
   /// 快取上限（MiB）；空＝平台宣告的預設（ADR 0016 §決定 3）。
   final int? cacheLimitMb;
-  const NetworkSettingsRow({required this.id, this.cacheLimitMb});
+
+  /// 電台狀態刷新間隔（分）；`0`＝關閉，空＝預設（ADR 0017 §決定 6、M3 design §3.3）。
+  final int? radioStatusIntervalMinutes;
+  const NetworkSettingsRow({
+    required this.id,
+    this.cacheLimitMb,
+    this.radioStatusIntervalMinutes,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     if (!nullToAbsent || cacheLimitMb != null) {
       map['cache_limit_mb'] = Variable<int>(cacheLimitMb);
+    }
+    if (!nullToAbsent || radioStatusIntervalMinutes != null) {
+      map['radio_status_interval_minutes'] = Variable<int>(
+        radioStatusIntervalMinutes,
+      );
     }
     return map;
   }
@@ -373,6 +413,10 @@ class NetworkSettingsRow extends DataClass
       cacheLimitMb: cacheLimitMb == null && nullToAbsent
           ? const Value.absent()
           : Value(cacheLimitMb),
+      radioStatusIntervalMinutes:
+          radioStatusIntervalMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(radioStatusIntervalMinutes),
     );
   }
 
@@ -384,6 +428,9 @@ class NetworkSettingsRow extends DataClass
     return NetworkSettingsRow(
       id: serializer.fromJson<int>(json['id']),
       cacheLimitMb: serializer.fromJson<int?>(json['cacheLimitMb']),
+      radioStatusIntervalMinutes: serializer.fromJson<int?>(
+        json['radioStatusIntervalMinutes'],
+      ),
     );
   }
   @override
@@ -392,15 +439,22 @@ class NetworkSettingsRow extends DataClass
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'cacheLimitMb': serializer.toJson<int?>(cacheLimitMb),
+      'radioStatusIntervalMinutes': serializer.toJson<int?>(
+        radioStatusIntervalMinutes,
+      ),
     };
   }
 
   NetworkSettingsRow copyWith({
     int? id,
     Value<int?> cacheLimitMb = const Value.absent(),
+    Value<int?> radioStatusIntervalMinutes = const Value.absent(),
   }) => NetworkSettingsRow(
     id: id ?? this.id,
     cacheLimitMb: cacheLimitMb.present ? cacheLimitMb.value : this.cacheLimitMb,
+    radioStatusIntervalMinutes: radioStatusIntervalMinutes.present
+        ? radioStatusIntervalMinutes.value
+        : this.radioStatusIntervalMinutes,
   );
   NetworkSettingsRow copyWithCompanion(NetworkSettingsTableCompanion data) {
     return NetworkSettingsRow(
@@ -408,6 +462,9 @@ class NetworkSettingsRow extends DataClass
       cacheLimitMb: data.cacheLimitMb.present
           ? data.cacheLimitMb.value
           : this.cacheLimitMb,
+      radioStatusIntervalMinutes: data.radioStatusIntervalMinutes.present
+          ? data.radioStatusIntervalMinutes.value
+          : this.radioStatusIntervalMinutes,
     );
   }
 
@@ -415,50 +472,61 @@ class NetworkSettingsRow extends DataClass
   String toString() {
     return (StringBuffer('NetworkSettingsRow(')
           ..write('id: $id, ')
-          ..write('cacheLimitMb: $cacheLimitMb')
+          ..write('cacheLimitMb: $cacheLimitMb, ')
+          ..write('radioStatusIntervalMinutes: $radioStatusIntervalMinutes')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, cacheLimitMb);
+  int get hashCode => Object.hash(id, cacheLimitMb, radioStatusIntervalMinutes);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is NetworkSettingsRow &&
           other.id == this.id &&
-          other.cacheLimitMb == this.cacheLimitMb);
+          other.cacheLimitMb == this.cacheLimitMb &&
+          other.radioStatusIntervalMinutes == this.radioStatusIntervalMinutes);
 }
 
 class NetworkSettingsTableCompanion
     extends UpdateCompanion<NetworkSettingsRow> {
   final Value<int> id;
   final Value<int?> cacheLimitMb;
+  final Value<int?> radioStatusIntervalMinutes;
   const NetworkSettingsTableCompanion({
     this.id = const Value.absent(),
     this.cacheLimitMb = const Value.absent(),
+    this.radioStatusIntervalMinutes = const Value.absent(),
   });
   NetworkSettingsTableCompanion.insert({
     this.id = const Value.absent(),
     this.cacheLimitMb = const Value.absent(),
+    this.radioStatusIntervalMinutes = const Value.absent(),
   });
   static Insertable<NetworkSettingsRow> custom({
     Expression<int>? id,
     Expression<int>? cacheLimitMb,
+    Expression<int>? radioStatusIntervalMinutes,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (cacheLimitMb != null) 'cache_limit_mb': cacheLimitMb,
+      if (radioStatusIntervalMinutes != null)
+        'radio_status_interval_minutes': radioStatusIntervalMinutes,
     });
   }
 
   NetworkSettingsTableCompanion copyWith({
     Value<int>? id,
     Value<int?>? cacheLimitMb,
+    Value<int?>? radioStatusIntervalMinutes,
   }) {
     return NetworkSettingsTableCompanion(
       id: id ?? this.id,
       cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
+      radioStatusIntervalMinutes:
+          radioStatusIntervalMinutes ?? this.radioStatusIntervalMinutes,
     );
   }
 
@@ -471,6 +539,11 @@ class NetworkSettingsTableCompanion
     if (cacheLimitMb.present) {
       map['cache_limit_mb'] = Variable<int>(cacheLimitMb.value);
     }
+    if (radioStatusIntervalMinutes.present) {
+      map['radio_status_interval_minutes'] = Variable<int>(
+        radioStatusIntervalMinutes.value,
+      );
+    }
     return map;
   }
 
@@ -478,7 +551,8 @@ class NetworkSettingsTableCompanion
   String toString() {
     return (StringBuffer('NetworkSettingsTableCompanion(')
           ..write('id: $id, ')
-          ..write('cacheLimitMb: $cacheLimitMb')
+          ..write('cacheLimitMb: $cacheLimitMb, ')
+          ..write('radioStatusIntervalMinutes: $radioStatusIntervalMinutes')
           ..write(')'))
         .toString();
   }
@@ -5708,6 +5782,691 @@ class SchedulerRunsTableCompanion extends UpdateCompanion<SchedulerRunRow> {
   }
 }
 
+class $RadioStationsTableTable extends RadioStationsTable
+    with TableInfo<$RadioStationsTableTable, RadioStationRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RadioStationsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _pluginIdMeta = const VerificationMeta(
+    'pluginId',
+  );
+  @override
+  late final GeneratedColumn<String> pluginId = GeneratedColumn<String>(
+    'plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roomIdMeta = const VerificationMeta('roomId');
+  @override
+  late final GeneratedColumn<String> roomId = GeneratedColumn<String>(
+    'room_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hostNameMeta = const VerificationMeta(
+    'hostName',
+  );
+  @override
+  late final GeneratedColumn<String> hostName = GeneratedColumn<String>(
+    'host_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _artworkJsonMeta = const VerificationMeta(
+    'artworkJson',
+  );
+  @override
+  late final GeneratedColumn<String> artworkJson = GeneratedColumn<String>(
+    'artwork_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> addedAt =
+      GeneratedColumn<int>(
+        'added_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($RadioStationsTableTable.$converteraddedAt);
+  @override
+  late final GeneratedColumnWithTypeConverter<RadioLiveStatus?, String>
+  liveStatus =
+      GeneratedColumn<String>(
+        'live_status',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<RadioLiveStatus?>(
+        $RadioStationsTableTable.$converterliveStatusn,
+      );
+  static const VerificationMeta _liveTitleMeta = const VerificationMeta(
+    'liveTitle',
+  );
+  @override
+  late final GeneratedColumn<String> liveTitle = GeneratedColumn<String>(
+    'live_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime?, int> statusCheckedAt =
+      GeneratedColumn<int>(
+        'status_checked_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>(
+        $RadioStationsTableTable.$converterstatusCheckedAtn,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    pluginId,
+    roomId,
+    title,
+    hostName,
+    artworkJson,
+    sortOrder,
+    addedAt,
+    liveStatus,
+    liveTitle,
+    statusCheckedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'radio_stations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RadioStationRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('plugin_id')) {
+      context.handle(
+        _pluginIdMeta,
+        pluginId.isAcceptableOrUnknown(data['plugin_id']!, _pluginIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pluginIdMeta);
+    }
+    if (data.containsKey('room_id')) {
+      context.handle(
+        _roomIdMeta,
+        roomId.isAcceptableOrUnknown(data['room_id']!, _roomIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roomIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('host_name')) {
+      context.handle(
+        _hostNameMeta,
+        hostName.isAcceptableOrUnknown(data['host_name']!, _hostNameMeta),
+      );
+    }
+    if (data.containsKey('artwork_json')) {
+      context.handle(
+        _artworkJsonMeta,
+        artworkJson.isAcceptableOrUnknown(
+          data['artwork_json']!,
+          _artworkJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sortOrderMeta);
+    }
+    if (data.containsKey('live_title')) {
+      context.handle(
+        _liveTitleMeta,
+        liveTitle.isAcceptableOrUnknown(data['live_title']!, _liveTitleMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {pluginId, roomId},
+  ];
+  @override
+  RadioStationRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RadioStationRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      pluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plugin_id'],
+      )!,
+      roomId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}room_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      hostName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}host_name'],
+      ),
+      artworkJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artwork_json'],
+      ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      addedAt: $RadioStationsTableTable.$converteraddedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}added_at'],
+        )!,
+      ),
+      liveStatus: $RadioStationsTableTable.$converterliveStatusn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}live_status'],
+        ),
+      ),
+      liveTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}live_title'],
+      ),
+      statusCheckedAt: $RadioStationsTableTable.$converterstatusCheckedAtn
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.int,
+              data['${effectivePrefix}status_checked_at'],
+            ),
+          ),
+    );
+  }
+
+  @override
+  $RadioStationsTableTable createAlias(String alias) {
+    return $RadioStationsTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converteraddedAt =
+      const EpochMillisecondsConverter();
+  static TypeConverter<RadioLiveStatus, String> $converterliveStatus =
+      const RadioLiveStatusConverter();
+  static TypeConverter<RadioLiveStatus?, String?> $converterliveStatusn =
+      NullAwareTypeConverter.wrap($converterliveStatus);
+  static TypeConverter<DateTime, int> $converterstatusCheckedAt =
+      const EpochMillisecondsConverter();
+  static TypeConverter<DateTime?, int?> $converterstatusCheckedAtn =
+      NullAwareTypeConverter.wrap($converterstatusCheckedAt);
+}
+
+class RadioStationRow extends DataClass implements Insertable<RadioStationRow> {
+  final int id;
+  final String pluginId;
+
+  /// 音源內的直播間 id（`liveStatus` 回傳的那個，不一定是網址裡的）。
+  final String roomId;
+  final String title;
+  final String? hostName;
+
+  /// `[{url, width?}]` 的 JSON，同 `tracks.artwork_json`；沒有封面為空。
+  final String? artworkJson;
+
+  /// 清單順序，由小到大；拖曳後整批重寫。
+  final int sortOrder;
+  final DateTime addedAt;
+
+  /// 最後一次查到的狀態；還沒查過為空。
+  final RadioLiveStatus? liveStatus;
+  final String? liveTitle;
+  final DateTime? statusCheckedAt;
+  const RadioStationRow({
+    required this.id,
+    required this.pluginId,
+    required this.roomId,
+    required this.title,
+    this.hostName,
+    this.artworkJson,
+    required this.sortOrder,
+    required this.addedAt,
+    this.liveStatus,
+    this.liveTitle,
+    this.statusCheckedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['plugin_id'] = Variable<String>(pluginId);
+    map['room_id'] = Variable<String>(roomId);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || hostName != null) {
+      map['host_name'] = Variable<String>(hostName);
+    }
+    if (!nullToAbsent || artworkJson != null) {
+      map['artwork_json'] = Variable<String>(artworkJson);
+    }
+    map['sort_order'] = Variable<int>(sortOrder);
+    {
+      map['added_at'] = Variable<int>(
+        $RadioStationsTableTable.$converteraddedAt.toSql(addedAt),
+      );
+    }
+    if (!nullToAbsent || liveStatus != null) {
+      map['live_status'] = Variable<String>(
+        $RadioStationsTableTable.$converterliveStatusn.toSql(liveStatus),
+      );
+    }
+    if (!nullToAbsent || liveTitle != null) {
+      map['live_title'] = Variable<String>(liveTitle);
+    }
+    if (!nullToAbsent || statusCheckedAt != null) {
+      map['status_checked_at'] = Variable<int>(
+        $RadioStationsTableTable.$converterstatusCheckedAtn.toSql(
+          statusCheckedAt,
+        ),
+      );
+    }
+    return map;
+  }
+
+  RadioStationsTableCompanion toCompanion(bool nullToAbsent) {
+    return RadioStationsTableCompanion(
+      id: Value(id),
+      pluginId: Value(pluginId),
+      roomId: Value(roomId),
+      title: Value(title),
+      hostName: hostName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hostName),
+      artworkJson: artworkJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artworkJson),
+      sortOrder: Value(sortOrder),
+      addedAt: Value(addedAt),
+      liveStatus: liveStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(liveStatus),
+      liveTitle: liveTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(liveTitle),
+      statusCheckedAt: statusCheckedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(statusCheckedAt),
+    );
+  }
+
+  factory RadioStationRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RadioStationRow(
+      id: serializer.fromJson<int>(json['id']),
+      pluginId: serializer.fromJson<String>(json['pluginId']),
+      roomId: serializer.fromJson<String>(json['roomId']),
+      title: serializer.fromJson<String>(json['title']),
+      hostName: serializer.fromJson<String?>(json['hostName']),
+      artworkJson: serializer.fromJson<String?>(json['artworkJson']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      liveStatus: serializer.fromJson<RadioLiveStatus?>(json['liveStatus']),
+      liveTitle: serializer.fromJson<String?>(json['liveTitle']),
+      statusCheckedAt: serializer.fromJson<DateTime?>(json['statusCheckedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'pluginId': serializer.toJson<String>(pluginId),
+      'roomId': serializer.toJson<String>(roomId),
+      'title': serializer.toJson<String>(title),
+      'hostName': serializer.toJson<String?>(hostName),
+      'artworkJson': serializer.toJson<String?>(artworkJson),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+      'liveStatus': serializer.toJson<RadioLiveStatus?>(liveStatus),
+      'liveTitle': serializer.toJson<String?>(liveTitle),
+      'statusCheckedAt': serializer.toJson<DateTime?>(statusCheckedAt),
+    };
+  }
+
+  RadioStationRow copyWith({
+    int? id,
+    String? pluginId,
+    String? roomId,
+    String? title,
+    Value<String?> hostName = const Value.absent(),
+    Value<String?> artworkJson = const Value.absent(),
+    int? sortOrder,
+    DateTime? addedAt,
+    Value<RadioLiveStatus?> liveStatus = const Value.absent(),
+    Value<String?> liveTitle = const Value.absent(),
+    Value<DateTime?> statusCheckedAt = const Value.absent(),
+  }) => RadioStationRow(
+    id: id ?? this.id,
+    pluginId: pluginId ?? this.pluginId,
+    roomId: roomId ?? this.roomId,
+    title: title ?? this.title,
+    hostName: hostName.present ? hostName.value : this.hostName,
+    artworkJson: artworkJson.present ? artworkJson.value : this.artworkJson,
+    sortOrder: sortOrder ?? this.sortOrder,
+    addedAt: addedAt ?? this.addedAt,
+    liveStatus: liveStatus.present ? liveStatus.value : this.liveStatus,
+    liveTitle: liveTitle.present ? liveTitle.value : this.liveTitle,
+    statusCheckedAt: statusCheckedAt.present
+        ? statusCheckedAt.value
+        : this.statusCheckedAt,
+  );
+  RadioStationRow copyWithCompanion(RadioStationsTableCompanion data) {
+    return RadioStationRow(
+      id: data.id.present ? data.id.value : this.id,
+      pluginId: data.pluginId.present ? data.pluginId.value : this.pluginId,
+      roomId: data.roomId.present ? data.roomId.value : this.roomId,
+      title: data.title.present ? data.title.value : this.title,
+      hostName: data.hostName.present ? data.hostName.value : this.hostName,
+      artworkJson: data.artworkJson.present
+          ? data.artworkJson.value
+          : this.artworkJson,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      liveStatus: data.liveStatus.present
+          ? data.liveStatus.value
+          : this.liveStatus,
+      liveTitle: data.liveTitle.present ? data.liveTitle.value : this.liveTitle,
+      statusCheckedAt: data.statusCheckedAt.present
+          ? data.statusCheckedAt.value
+          : this.statusCheckedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RadioStationRow(')
+          ..write('id: $id, ')
+          ..write('pluginId: $pluginId, ')
+          ..write('roomId: $roomId, ')
+          ..write('title: $title, ')
+          ..write('hostName: $hostName, ')
+          ..write('artworkJson: $artworkJson, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('liveStatus: $liveStatus, ')
+          ..write('liveTitle: $liveTitle, ')
+          ..write('statusCheckedAt: $statusCheckedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    pluginId,
+    roomId,
+    title,
+    hostName,
+    artworkJson,
+    sortOrder,
+    addedAt,
+    liveStatus,
+    liveTitle,
+    statusCheckedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RadioStationRow &&
+          other.id == this.id &&
+          other.pluginId == this.pluginId &&
+          other.roomId == this.roomId &&
+          other.title == this.title &&
+          other.hostName == this.hostName &&
+          other.artworkJson == this.artworkJson &&
+          other.sortOrder == this.sortOrder &&
+          other.addedAt == this.addedAt &&
+          other.liveStatus == this.liveStatus &&
+          other.liveTitle == this.liveTitle &&
+          other.statusCheckedAt == this.statusCheckedAt);
+}
+
+class RadioStationsTableCompanion extends UpdateCompanion<RadioStationRow> {
+  final Value<int> id;
+  final Value<String> pluginId;
+  final Value<String> roomId;
+  final Value<String> title;
+  final Value<String?> hostName;
+  final Value<String?> artworkJson;
+  final Value<int> sortOrder;
+  final Value<DateTime> addedAt;
+  final Value<RadioLiveStatus?> liveStatus;
+  final Value<String?> liveTitle;
+  final Value<DateTime?> statusCheckedAt;
+  const RadioStationsTableCompanion({
+    this.id = const Value.absent(),
+    this.pluginId = const Value.absent(),
+    this.roomId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.hostName = const Value.absent(),
+    this.artworkJson = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.liveStatus = const Value.absent(),
+    this.liveTitle = const Value.absent(),
+    this.statusCheckedAt = const Value.absent(),
+  });
+  RadioStationsTableCompanion.insert({
+    this.id = const Value.absent(),
+    required String pluginId,
+    required String roomId,
+    required String title,
+    this.hostName = const Value.absent(),
+    this.artworkJson = const Value.absent(),
+    required int sortOrder,
+    required DateTime addedAt,
+    this.liveStatus = const Value.absent(),
+    this.liveTitle = const Value.absent(),
+    this.statusCheckedAt = const Value.absent(),
+  }) : pluginId = Value(pluginId),
+       roomId = Value(roomId),
+       title = Value(title),
+       sortOrder = Value(sortOrder),
+       addedAt = Value(addedAt);
+  static Insertable<RadioStationRow> custom({
+    Expression<int>? id,
+    Expression<String>? pluginId,
+    Expression<String>? roomId,
+    Expression<String>? title,
+    Expression<String>? hostName,
+    Expression<String>? artworkJson,
+    Expression<int>? sortOrder,
+    Expression<int>? addedAt,
+    Expression<String>? liveStatus,
+    Expression<String>? liveTitle,
+    Expression<int>? statusCheckedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (pluginId != null) 'plugin_id': pluginId,
+      if (roomId != null) 'room_id': roomId,
+      if (title != null) 'title': title,
+      if (hostName != null) 'host_name': hostName,
+      if (artworkJson != null) 'artwork_json': artworkJson,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (addedAt != null) 'added_at': addedAt,
+      if (liveStatus != null) 'live_status': liveStatus,
+      if (liveTitle != null) 'live_title': liveTitle,
+      if (statusCheckedAt != null) 'status_checked_at': statusCheckedAt,
+    });
+  }
+
+  RadioStationsTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? pluginId,
+    Value<String>? roomId,
+    Value<String>? title,
+    Value<String?>? hostName,
+    Value<String?>? artworkJson,
+    Value<int>? sortOrder,
+    Value<DateTime>? addedAt,
+    Value<RadioLiveStatus?>? liveStatus,
+    Value<String?>? liveTitle,
+    Value<DateTime?>? statusCheckedAt,
+  }) {
+    return RadioStationsTableCompanion(
+      id: id ?? this.id,
+      pluginId: pluginId ?? this.pluginId,
+      roomId: roomId ?? this.roomId,
+      title: title ?? this.title,
+      hostName: hostName ?? this.hostName,
+      artworkJson: artworkJson ?? this.artworkJson,
+      sortOrder: sortOrder ?? this.sortOrder,
+      addedAt: addedAt ?? this.addedAt,
+      liveStatus: liveStatus ?? this.liveStatus,
+      liveTitle: liveTitle ?? this.liveTitle,
+      statusCheckedAt: statusCheckedAt ?? this.statusCheckedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (pluginId.present) {
+      map['plugin_id'] = Variable<String>(pluginId.value);
+    }
+    if (roomId.present) {
+      map['room_id'] = Variable<String>(roomId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (hostName.present) {
+      map['host_name'] = Variable<String>(hostName.value);
+    }
+    if (artworkJson.present) {
+      map['artwork_json'] = Variable<String>(artworkJson.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<int>(
+        $RadioStationsTableTable.$converteraddedAt.toSql(addedAt.value),
+      );
+    }
+    if (liveStatus.present) {
+      map['live_status'] = Variable<String>(
+        $RadioStationsTableTable.$converterliveStatusn.toSql(liveStatus.value),
+      );
+    }
+    if (liveTitle.present) {
+      map['live_title'] = Variable<String>(liveTitle.value);
+    }
+    if (statusCheckedAt.present) {
+      map['status_checked_at'] = Variable<int>(
+        $RadioStationsTableTable.$converterstatusCheckedAtn.toSql(
+          statusCheckedAt.value,
+        ),
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RadioStationsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('pluginId: $pluginId, ')
+          ..write('roomId: $roomId, ')
+          ..write('title: $title, ')
+          ..write('hostName: $hostName, ')
+          ..write('artworkJson: $artworkJson, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('liveStatus: $liveStatus, ')
+          ..write('liveTitle: $liveTitle, ')
+          ..write('statusCheckedAt: $statusCheckedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5742,6 +6501,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $DeveloperSettingsTableTable(this);
   late final $SchedulerRunsTableTable schedulerRunsTable =
       $SchedulerRunsTableTable(this);
+  late final $RadioStationsTableTable radioStationsTable =
+      $RadioStationsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -5774,6 +6535,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sourceSettingsTable,
     developerSettingsTable,
     schedulerRunsTable,
+    radioStationsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -5983,11 +6745,13 @@ typedef $$NetworkSettingsTableTableCreateCompanionBuilder =
     NetworkSettingsTableCompanion Function({
       Value<int> id,
       Value<int?> cacheLimitMb,
+      Value<int?> radioStatusIntervalMinutes,
     });
 typedef $$NetworkSettingsTableTableUpdateCompanionBuilder =
     NetworkSettingsTableCompanion Function({
       Value<int> id,
       Value<int?> cacheLimitMb,
+      Value<int?> radioStatusIntervalMinutes,
     });
 
 class $$NetworkSettingsTableTableFilterComposer
@@ -6006,6 +6770,11 @@ class $$NetworkSettingsTableTableFilterComposer
 
   ColumnFilters<int> get cacheLimitMb => $composableBuilder(
     column: $table.cacheLimitMb,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get radioStatusIntervalMinutes => $composableBuilder(
+    column: $table.radioStatusIntervalMinutes,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6028,6 +6797,11 @@ class $$NetworkSettingsTableTableOrderingComposer
     column: $table.cacheLimitMb,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get radioStatusIntervalMinutes => $composableBuilder(
+    column: $table.radioStatusIntervalMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NetworkSettingsTableTableAnnotationComposer
@@ -6044,6 +6818,11 @@ class $$NetworkSettingsTableTableAnnotationComposer
 
   GeneratedColumn<int> get cacheLimitMb => $composableBuilder(
     column: $table.cacheLimitMb,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get radioStatusIntervalMinutes => $composableBuilder(
+    column: $table.radioStatusIntervalMinutes,
     builder: (column) => column,
   );
 }
@@ -6093,17 +6872,21 @@ class $$NetworkSettingsTableTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<int?> cacheLimitMb = const Value.absent(),
+                Value<int?> radioStatusIntervalMinutes = const Value.absent(),
               }) => NetworkSettingsTableCompanion(
                 id: id,
                 cacheLimitMb: cacheLimitMb,
+                radioStatusIntervalMinutes: radioStatusIntervalMinutes,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 Value<int?> cacheLimitMb = const Value.absent(),
+                Value<int?> radioStatusIntervalMinutes = const Value.absent(),
               }) => NetworkSettingsTableCompanion.insert(
                 id: id,
                 cacheLimitMb: cacheLimitMb,
+                radioStatusIntervalMinutes: radioStatusIntervalMinutes,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -9772,6 +10555,347 @@ typedef $$SchedulerRunsTableTableProcessedTableManager =
       SchedulerRunRow,
       PrefetchHooks Function()
     >;
+typedef $$RadioStationsTableTableCreateCompanionBuilder =
+    RadioStationsTableCompanion Function({
+      Value<int> id,
+      required String pluginId,
+      required String roomId,
+      required String title,
+      Value<String?> hostName,
+      Value<String?> artworkJson,
+      required int sortOrder,
+      required DateTime addedAt,
+      Value<RadioLiveStatus?> liveStatus,
+      Value<String?> liveTitle,
+      Value<DateTime?> statusCheckedAt,
+    });
+typedef $$RadioStationsTableTableUpdateCompanionBuilder =
+    RadioStationsTableCompanion Function({
+      Value<int> id,
+      Value<String> pluginId,
+      Value<String> roomId,
+      Value<String> title,
+      Value<String?> hostName,
+      Value<String?> artworkJson,
+      Value<int> sortOrder,
+      Value<DateTime> addedAt,
+      Value<RadioLiveStatus?> liveStatus,
+      Value<String?> liveTitle,
+      Value<DateTime?> statusCheckedAt,
+    });
+
+class $$RadioStationsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $RadioStationsTableTable> {
+  $$RadioStationsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get roomId => $composableBuilder(
+    column: $table.roomId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hostName => $composableBuilder(
+    column: $table.hostName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artworkJson => $composableBuilder(
+    column: $table.artworkJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get addedAt =>
+      $composableBuilder(
+        column: $table.addedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<RadioLiveStatus?, RadioLiveStatus, String>
+  get liveStatus => $composableBuilder(
+    column: $table.liveStatus,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get liveTitle => $composableBuilder(
+    column: $table.liveTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime?, DateTime, int>
+  get statusCheckedAt => $composableBuilder(
+    column: $table.statusCheckedAt,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+}
+
+class $$RadioStationsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $RadioStationsTableTable> {
+  $$RadioStationsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get roomId => $composableBuilder(
+    column: $table.roomId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hostName => $composableBuilder(
+    column: $table.hostName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artworkJson => $composableBuilder(
+    column: $table.artworkJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get liveStatus => $composableBuilder(
+    column: $table.liveStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get liveTitle => $composableBuilder(
+    column: $table.liveTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get statusCheckedAt => $composableBuilder(
+    column: $table.statusCheckedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RadioStationsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RadioStationsTableTable> {
+  $$RadioStationsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get pluginId =>
+      $composableBuilder(column: $table.pluginId, builder: (column) => column);
+
+  GeneratedColumn<String> get roomId =>
+      $composableBuilder(column: $table.roomId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get hostName =>
+      $composableBuilder(column: $table.hostName, builder: (column) => column);
+
+  GeneratedColumn<String> get artworkJson => $composableBuilder(
+    column: $table.artworkJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<RadioLiveStatus?, String> get liveStatus =>
+      $composableBuilder(
+        column: $table.liveStatus,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get liveTitle =>
+      $composableBuilder(column: $table.liveTitle, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime?, int> get statusCheckedAt =>
+      $composableBuilder(
+        column: $table.statusCheckedAt,
+        builder: (column) => column,
+      );
+}
+
+class $$RadioStationsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RadioStationsTableTable,
+          RadioStationRow,
+          $$RadioStationsTableTableFilterComposer,
+          $$RadioStationsTableTableOrderingComposer,
+          $$RadioStationsTableTableAnnotationComposer,
+          $$RadioStationsTableTableCreateCompanionBuilder,
+          $$RadioStationsTableTableUpdateCompanionBuilder,
+          (
+            RadioStationRow,
+            BaseReferences<
+              _$AppDatabase,
+              $RadioStationsTableTable,
+              RadioStationRow
+            >,
+          ),
+          RadioStationRow,
+          PrefetchHooks Function()
+        > {
+  $$RadioStationsTableTableTableManager(
+    _$AppDatabase db,
+    $RadioStationsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RadioStationsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RadioStationsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RadioStationsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> pluginId = const Value.absent(),
+                Value<String> roomId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> hostName = const Value.absent(),
+                Value<String?> artworkJson = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<RadioLiveStatus?> liveStatus = const Value.absent(),
+                Value<String?> liveTitle = const Value.absent(),
+                Value<DateTime?> statusCheckedAt = const Value.absent(),
+              }) => RadioStationsTableCompanion(
+                id: id,
+                pluginId: pluginId,
+                roomId: roomId,
+                title: title,
+                hostName: hostName,
+                artworkJson: artworkJson,
+                sortOrder: sortOrder,
+                addedAt: addedAt,
+                liveStatus: liveStatus,
+                liveTitle: liveTitle,
+                statusCheckedAt: statusCheckedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String pluginId,
+                required String roomId,
+                required String title,
+                Value<String?> hostName = const Value.absent(),
+                Value<String?> artworkJson = const Value.absent(),
+                required int sortOrder,
+                required DateTime addedAt,
+                Value<RadioLiveStatus?> liveStatus = const Value.absent(),
+                Value<String?> liveTitle = const Value.absent(),
+                Value<DateTime?> statusCheckedAt = const Value.absent(),
+              }) => RadioStationsTableCompanion.insert(
+                id: id,
+                pluginId: pluginId,
+                roomId: roomId,
+                title: title,
+                hostName: hostName,
+                artworkJson: artworkJson,
+                sortOrder: sortOrder,
+                addedAt: addedAt,
+                liveStatus: liveStatus,
+                liveTitle: liveTitle,
+                statusCheckedAt: statusCheckedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RadioStationsTableTable, RadioStationRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RadioStationsTableTable,
+                    RadioStationRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RadioStationsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RadioStationsTableTable,
+      RadioStationRow,
+      $$RadioStationsTableTableFilterComposer,
+      $$RadioStationsTableTableOrderingComposer,
+      $$RadioStationsTableTableAnnotationComposer,
+      $$RadioStationsTableTableCreateCompanionBuilder,
+      $$RadioStationsTableTableUpdateCompanionBuilder,
+      (
+        RadioStationRow,
+        BaseReferences<
+          _$AppDatabase,
+          $RadioStationsTableTable,
+          RadioStationRow
+        >,
+      ),
+      RadioStationRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9812,4 +10936,6 @@ class $AppDatabaseManager {
       );
   $$SchedulerRunsTableTableTableManager get schedulerRunsTable =>
       $$SchedulerRunsTableTableTableManager(_db, _db.schedulerRunsTable);
+  $$RadioStationsTableTableTableManager get radioStationsTable =>
+      $$RadioStationsTableTableTableManager(_db, _db.radioStationsTable);
 }
