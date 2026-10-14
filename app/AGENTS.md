@@ -440,6 +440,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   UTC epoch 毫秒；不建外鍵到 `installed_plugins`（工作 id 只是字串）。新表升級後是空的＝所有工作視為從沒成功過。
   閘門：`migration_test.dart` 的 v10→v11 資料完整性（使用者設定過的值不變）與 `migration from v<N> to v11 adds scheduler_runs`
   （v1–v10 各一例：主鍵、時間格式）、`a new database has scheduler_runs`。
+- `radio_stations` 與 `network_settings.radio_status_interval_minutes` 是 schema v12（ADR 0031 §決定 1、M3 design §3.1）：電台清單
+  （`plugin_id`＋`room_id` 唯一、`sort_order`、最後一次查到的 `live_status`／`live_title`／`status_checked_at`）。不建外鍵到
+  `installed_plugins`：插件停用、移除後電台保留；`live_status` 只有 `live`／`offline`，**「查詢失敗」不存**（D10，只在記憶體，見 § 電台）。
+  `RadioRepository.add` 在 transaction 裡先查重再接在 `max(sort_order)` 後面，重複回 `false`（不用 `insertOrIgnore`：它不說有沒有寫）；
+  `reorder` 整批重寫 `sort_order`。間隔欄位空＝預設 5 分，`0`＝關閉（Notifier 只收 0／1／3／5／10）。
+  閘門：`migration_test.dart` 的 v11→v12 資料完整性（使用者設定過的快取上限不變、新欄位是空的）與 `migration from v<N> to v12 adds
+  radio_stations…`（v1–v11 各一例：狀態字串、毫秒時間、唯一鍵）、`radio_repository_test.dart`（含 `stored format`）、
+  `network_settings_repository_test.dart` 的 `radio status interval`。
 
 ### 快取庫
 
@@ -1035,8 +1043,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 排程器
 
-`lib/scheduler/background_scheduler.dart`（ADR 0017，M3 PR 17）：會發網路請求的週期工作的唯一擁有者。目前沒有工作登記：
-電台狀態在 PR 18，排行與匯入歌單的刷新在 M4。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
+`lib/scheduler/background_scheduler.dart`（ADR 0017，M3 PR 17）：會發網路請求的週期工作的唯一擁有者。目前的工作：
+`radio-status:<pluginId>`（§ 電台）與收聽直播時的 `live-info`（§ 播放）；排行與匯入歌單的刷新在 M4。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
 
 登記一個工作：`ref.read(backgroundSchedulerProvider.notifier).register(SchedulerJob(id:, pluginId:, interval:, run:))`。
 
@@ -1060,12 +1068,38 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 閘門：`test/scheduler/background_scheduler_test.dart`（ADR 0017 §如何確認的七項、同插件依序、全域最多 2 個、手動刷新排隊與
   排隊中結束、取代與移除時的過期、手動失敗不提早自動跑、錯誤經 `report`、等第一次介面檢查），`plugin_registry_test.dart` 的 `disabling a plugin removes its scheduler jobs…`，
   `plugin_installer_test.dart` 的 `removing`（工作最先移除、中途失敗重跑可完成）。排程器在真機上的行為（最小化、切到背景、
-  飛航模式）等 PR 18 有第一個工作時才能實機看。
+  飛航模式）要在 PR 18c 有電台頁之後實機看。
+
+## 電台
+
+`lib/radio/`（ADR 0031 §決定 1、2、6，M3 PR 18b；電台頁、搜尋頁直播間模式與設定列在 PR 18c）：使用者存的直播間清單，沒有外鍵到
+`installed_plugins`（schema 見 § 資料層）。`lib/radio/` 用資料、插件與排程器，不 import `ui/`，`scheduler/` 不認得它。
+
+- **清單與四種顯示狀態**：`radioStationsProvider`（資料庫，依 `sort_order`）加 `radioQueryFailuresProvider`（記憶體裡最近一次查詢失敗的電台 id）
+  合成 `radioEntriesProvider`，每列 `RadioEntry.status` 是 `live`／`offline`／`queryFailed`／`unchecked` 四選一。**「查詢失敗」只在記憶體**，
+  不寫進資料庫、不當成未開播，重啟回到資料庫存的狀態（D10）；下一次查詢成功就清掉。
+- **新增**（`RadioService`）：`addFromUrl` 依插件清單的順序問每個**已啟用**（在 `pluginRegistryProvider` 裡）而且宣告 `live` 的插件
+  `liveRoomFromUrl`，第一個回 `roomId` 的勝出，再 `liveStatus` 取顯示資料；**寫入與判斷重複用 `liveStatus` 回傳的 `roomId`**（B 站短號回長號）。
+  結果 `AddRadioResult`：`unrecognizedUrl`／`alreadyAdded`／`added`；失敗一律是 `AppError`（插件的原樣丟出，其他的包成 `UnexpectedError`），不寫入，
+  由呼叫端提示；插件拋錯就停，不再問下一個。`addRoom` 是「加為電台」，
+  直接以 `LiveRoom` 寫入。`remove`、`reorder`（拖曳後的 id 順序整批重寫）。
+- **狀態工作**（`RadioStatusJobs`，常駐，`FmpApp` 聽著）：每個「已啟用、宣告 `live`、清單裡有電台」的插件一個 `radio-status:<pluginId>`，間隔取
+  `networkProvider` 的 `radioStatusInterval`（`null`＝關閉＝登記成 `interval: null`，只有手動刷新會跑）。工作依序 `liveStatus` 每個電台，成功就更新資料庫
+  的狀態欄位；**單一電台失敗只標那一列「查詢失敗」，其他繼續；全部失敗才丟錯讓排程器退避**；用 `JobContext.isCurrent` 丟掉過期的結果。只在插件實例、間隔、
+  或「有沒有電台」改變時才重新登記（電台增減不打斷進行中的那次，工作每次跑都重新讀清單）；插件停用時排程器已移除它的工作，重新啟用（新實例）時登記回來。
+  不在 `onDispose` 移除工作（生命週期裡不能碰別的 provider；它跟排程器一樣常駐到 App 結束）。
+- **手動刷新**：`RadioService.refresh()` 對每個登記中的工作 `runNow`，回 `RadioRefreshResult`：`completed`／`offline`（排程器說離線）／
+  `nothingToRefresh`；工作全部失敗的錯誤在全部結束後重新丟出。
+- 啟動時先顯示資料庫存的狀態，排程器照上次成功時間到期才跑（ADR 0017 §決定 3）。
+- 直播播放在 § 播放的「直播」。
+- 閘門：`test/radio/radio_test.dart`（以網址新增：第一個認得的勝出、都不認得、用長號判斷重複、停用或沒有 `live` 的插件不會被問到、插件失敗不寫入、不是 `AppError` 的失敗包成 `UnexpectedError`；加為電台與重複；
+  四種狀態；狀態工作：依序查並存、單一失敗只標那一列且工作不退避、全部失敗退避、過期結果被丟掉、停用／重新啟用／電台增減／間隔改變（含 0 只關排程不關手動）、
+  離線不跑；手動刷新三種結果與錯誤）、`radio_repository_test.dart`。`fmp_layer_imports` 的 `radio/` 規則見 § Lint。
 
 ## 播放
 
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
-`.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、加入
+`.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、收聽直播（`playLive`、`stopLive`，見下方「直播」）、加入
 （`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
 （`move`）、移到下一首（`moveToNext`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
 上一首與下一首、seek、音量（`setVolume`）、靜音（`toggleMute`）、速度（`setSpeed`）、輸出裝置
@@ -1432,6 +1466,35 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   (no look-ahead)`）、`play_history_recorder_test.dart`（順序、保留筆數、`a failed write is reported…`、
   `nothing is written or reported after dispose`）、
   `playback_providers_test.dart` 的 `play history`（組裝點接線與設定讀取）。
+- 直播（`playLive`／`stopLive`，ADR 0018 §決定 9、ADR 0031 §決定 7、M3 design §9.4；介面在 PR 18c）。契約：
+  - **模式**：`QueueMode.live`，`QueueState.live`（`LivePlay`：目標加進入時的佇列快照）與臨時播放互斥；進入時記快照（佇列目前位置、播放位置、
+    是不是在播），已在臨時播放或直播時只換內容、**快照維持第一次進入時的那份**；回到佇列的規則就是臨時播放的（含「臨時播放回佇列倒退秒數」，
+    design §9.4 的更正）。直播時 `QueueState.current` 是 `null`（直播不是曲目；佇列照舊在 `entries`），
+    `hasNext` 為假、上一首、下一首、seek 都不做事；在佇列點一首（`jumpTo`）、臨時播放、清空都會離開直播。
+  - **不持久化**：`QueueStore` 把直播和臨時播放一樣當「佇列以外」（`QueueState.isOutsideQueue`／`returnSnapshot`），各種存檔時機不覆寫資料庫，
+    也沒有 `player_state` 的直播欄位；直播中關 App，重開回到進入時的佇列。直播不排前瞻、不算播放歷史。
+  - **取流**：`StreamResolver.resolveLive` 每次都問插件（不進網址快取）；`PlaybackSession.resolveLive` 先停掉目前的來源，同音樂的 `resolve`。
+    **開直播時進行中的音樂解析結果以代際丟掉**（`beginRequest` 換代），不播出也不再因它發解析（ADR 0018 §決定 6 的更正）。
+  - **暫停就是停止串流**：`pause()` 換代、放掉來源、狀態 `Paused`；再按播放重新 `resolveLive`（`Idle`、`Failed` 時按播放也是重新取流）。
+  - **提前結束**（`PlaybackSnapshot.live` 讓路由器把「來源結束」不論原因都當提前結束）：`decideLiveRecovery`（`recovery_policy.dart`，純函數）決定——
+    離線時等網路（不計次數）；在線時重連次數沒用完就 `ConfirmThenReconnect`：**先問 `liveStatus`**，是 `live` 才等 1／3／9 秒重新取流（共 3 次，
+    每次失敗都再問一次；正常收聽 10 秒後次數歸零），不是 `live` 停在「直播已結束」，拋錯停在「查詢失敗」（D10，**不當成未開播**）；用完 `LiveGiveUp`＝直播已結束；
+    解析時插件說無法取得、需登入等重試不會好的錯誤 `LiveStop`＝`Failed`，不重連。
+  - **給畫面的狀態**：`PlaybackController.live`／`liveChanges`（`playbackLiveProvider`）是 `LiveInfo`（目標、最新的標題、主播、封面、人數、`LivePhase`：
+    `listening`／`ended`／`statusFailed`）；已收聽時間是進度 stream 的位置（每次重新取流從 0 起算）。`ended` 的 `PlaybackState` 是 `Idle`、
+    `statusFailed` 與 `LiveStop` 是 `Failed(error)`，重連是 `Retrying`；三種都**留在直播模式**，按播放重試，`stopLive()` 才回佇列。
+  - **`live-info`**：`playLive` 時經建構子的 `registerLiveInfoJob` 登記到排程器（`liveInfoJobId`＝`live-info`、`liveInfoInterval`＝固定 1 分鐘、所屬插件
+    是直播間的插件，組裝點 `playbackControllerProvider` 接上），每次到期呼叫 `liveStatus` 更新 `LiveInfo` 的標題與人數；失敗只記 warning、不中斷播放；
+    離開直播（或停在已結束、查詢失敗）時移除；換到同插件的別的直播間不重新登記。控制器釋放時（`playbackControllerProvider` 重建，例如改 log 層級）
+    也移除：組裝點用登記時拿到的排程器、在 onDispose 回呼結束後才移除（回呼裡不能碰別的 provider），不然舊控制器的工作會每分鐘失敗一次。
+  - **Debug 頁與診斷包**：直播時 `PlaybackDiagnostics.trackKey`／`pluginId` 是直播間（`插件:房間`），`queue.live` 為真、`currentIndex` 是回到的那一首；
+    佇列分頁不標任何一列是在播的（同臨時播放，`QueueState.isOutsideQueue`）。
+  閘門：`live_playback_test.dart`（進入記快照停止回佇列、回佇列照倒退秒數、暫停原本停著的佇列仍停著、換台快照不變、點佇列離開、上一首下一首 seek 不動、臨時播放接手同一份快照、
+  暫停＝停止再播放重新取流、`liveStatus` 先問、重連間隔 1／3／9 秒共 3 次與用完、`offline` 不重連、拋錯顯示查詢失敗不重連、離線等網路、10 秒後次數歸零、
+  取不到流不重連、解析中開直播音樂結果被丟掉且 `resolveStream` 次數不變、`live-info` 登記／更新／失敗不中斷／結果過期被丟、`decideLiveRecovery` 的表）、
+  `live_info_wiring_test.dart`（真的排程器：登記後馬上一次、之後每分鐘、停止後不再跑；收聽中重建控制器後工作不在）、
+  `live_playback_test.dart` 的 `the playback diagnostics report the room…`、`player_page_test.dart` 的 `in a live room no queue row is marked current`、`queue_model_test.dart` 的 `live play`、
+  `playback_event_router_test.dart` 的 `a live room`、`queue_store_test.dart` 的 `a live room is never stored…`／`a restart during a live room…`。
 - 系統媒體控制（design §8.2）：`NowPlayingPublisher`（`lib/playback/`，照 `QueueStore` 的分工，只聽控制器的
   輸出、不改它的狀態）是唯一出口，在 `playbackControllerProvider` 組裝點、平台宣告有 `mediaControls` 而且
   初始化成功時才建。規則：
@@ -1450,6 +1513,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `pluginRegistryProvider.future`）再拿 cache manager：publisher 每首只問一次。
   - 系統指令一律呼叫控制器：播放、暫停、上一首、下一首、seek；停止當作暫停（擁有者決定：位置與佇列保留，
     之後按播放從原處繼續）。
+  - 收聽直播時（`queue.live != null`）系統看到的是直播間，不是佇列：標題用 `LiveInfo.title`（`live-info` 更新後跟著變）、
+    上傳者是主播、封面取直播間的（`LiveInfo.toTrackInfo`，同一條 `artworkCacheManagerProvider` 路徑）；**沒有時長**（後端回報什麼都不採用）、
+    `NowPlaying.seekable` 為假（Android 不給 `seek` 系統動作）、按鈕只有播放／暫停（沒有上一首、下一首）。Windows 的 SMTC 時長為 0、
+    上一首、下一首不啟用。閘門：`now_playing_publisher_test.dart` 的 `a live room`（含後端回報時長仍為空、封面取直播間的、停止後佇列那首的時長
+    與按鈕回來）、`media_controls_android_test.dart` 與 `media_controls_windows_test.dart` 的 `a live room`。
   閘門：`now_playing_publisher_test.dart`（推什麼、何時推、封面、六種指令含停止＝暫停、`position refresh`、`artwork url`；
   中斷：`a pause by an interruption holds the session as playing`、`the held session never shows paused…`（續播前一刻不先推暫停，
   拿掉控制器的 `_resumingFromInterruption` 會紅）、`pausing from the notification during an interruption…`、`a pause by the user is not held`、
@@ -1476,8 +1544,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 語言沒設定過時跟隨系統的語言偏好清單（執行中改變也跟）：取清單中第一個對得到
   zh-TW／zh-CN／en 的，全都對不到才用 base locale zh-TW（ADR 0024 §決定 7）。閘門：`appearance_settings_test.dart` 的
   `an unset language follows the system as it changes`、`fmp_app_test.dart` 的 `an unset language follows the system`。
-- 「網路」組（`network_settings`）目前只有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
-  512／1024）；舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：
+- 「網路」組（`network_settings`）有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
+  512／1024）與電台狀態刷新間隔（`radioStatusInterval`：空＝5 分，`0`＝關閉，對外是 `Duration?`，`null`＝關閉；選項
+  `radioStatusIntervalOptionsMinutes` 0／1／3／5／10，`setRadioStatusInterval` 收別的值丟 `ArgumentError`；設定列在 PR 18c）；
+  舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：`network_settings_test.dart` 的 `the radio status interval`、
   `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
   未設定）、`network_settings_repository_test.dart`（`clear` 群組直接查表是 `NULL`、
   `stored format`）。
