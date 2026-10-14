@@ -34,6 +34,7 @@ final class PlatformCapabilities {
     required this.urlOpener,
     required this.restartsItself,
     required this.shareFiles,
+    required this.pluginDevTools,
     this.mediaControls,
   });
 
@@ -51,6 +52,7 @@ final class PlatformCapabilities {
     urlOpener: false,
     restartsItself: false,
     shareFiles: false,
+    pluginDevTools: false,
     mediaControls: null,
   );
 
@@ -101,6 +103,10 @@ final class PlatformCapabilities {
   /// §決定 10）。Linux 不能分享檔案；Windows 10 1809 以前 `share_plus` 會拋錯，經提示顯示。
   final bool shareFiles;
 
+  /// 插件開發工具（M3 PR 16b，ADR 0025 §決定 7）：從資料夾載入插件，要能選資料夾並讀
+  /// 目錄（`files/` 的 `pickDirectory`）。Android 沒有：讀任意目錄要 SAF，另立 ADR。
+  final bool pluginDevTools;
+
   /// 有系統媒體控制的實作（`media_controls/`）：通知、鎖定畫面、媒體鍵。沒有
   /// 時為 `null`；實作在啟動時初始化失敗也會改成 `null`（ADR 0009 §決定 2）。
   final MediaControlsSupport? mediaControls;
@@ -119,5 +125,6 @@ final class PlatformCapabilities {
     urlOpener: urlOpener,
     restartsItself: restartsItself,
     shareFiles: shareFiles,
+    pluginDevTools: pluginDevTools,
   );
 }

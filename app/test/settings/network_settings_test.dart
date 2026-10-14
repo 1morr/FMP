@@ -32,6 +32,7 @@ void main() {
           urlOpener: false,
           restartsItself: false,
           shareFiles: false,
+          pluginDevTools: false,
           cache: CacheSizes(
             defaultLimitMebibytes: defaultLimit,
             memoryImages: 1,

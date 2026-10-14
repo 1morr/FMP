@@ -67,6 +67,7 @@ void main() {
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
       expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.capabilities.pluginDevTools, isFalse);
       expect(platform.fileSharer, isA<SharePlusFileSharer>());
       // 沒有正規的「重啟自己」：結束行程後由使用者再開。
       expect(platform.capabilities.restartsItself, isFalse);
@@ -111,6 +112,7 @@ void main() {
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
       expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.capabilities.pluginDevTools, isTrue);
       expect(platform.fileSharer, isA<SharePlusFileSharer>());
       expect(platform.capabilities.restartsItself, isTrue);
       expect(platform.restarter, isA<WindowsAppRestarter>());
@@ -151,6 +153,7 @@ void main() {
         expect(platform.capabilities.urlOpener, isFalse);
         expect(platform.urlOpener, isNull);
         expect(platform.capabilities.shareFiles, isFalse);
+        expect(platform.capabilities.pluginDevTools, isFalse);
         expect(platform.fileSharer, isNull);
         expect(platform.appInfo, isNull);
         expect(platform.capabilities.restartsItself, isFalse);
@@ -213,6 +216,7 @@ void main() {
       expect(platform.capabilities.urlOpener, isTrue);
       expect(platform.urlOpener, isA<UrlLauncherOpener>());
       expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.capabilities.pluginDevTools, isFalse);
       expect(platform.fileSharer, isA<SharePlusFileSharer>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());

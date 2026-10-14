@@ -424,6 +424,7 @@ void main() {
         urlOpener: false,
         restartsItself: false,
         shareFiles: false,
+        pluginDevTools: false,
         cache: null,
       );
       final log = await pumpApp(tester, capabilities: capabilities);

@@ -92,6 +92,7 @@ void main() {
             urlOpener: false,
             restartsItself: false,
             shareFiles: false,
+            pluginDevTools: false,
             cache: const CacheSizes(
               defaultLimitMebibytes: 1,
               memoryImages: 1,

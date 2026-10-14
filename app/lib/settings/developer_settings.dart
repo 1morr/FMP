@@ -129,4 +129,12 @@ final class DeveloperNotifier extends StreamNotifier<Developer> {
         ? repository.clear(logLevel: true)
         : repository.write(logLevel: level);
   }
+
+  /// 只寫插件開發資料夾這個欄位（M3 PR 16b）；`null` 清回沒選過。
+  Future<void> setPluginDevFolder(String? path) {
+    final repository = ref.read(developerSettingsRepositoryProvider);
+    return path == null
+        ? repository.clear(pluginDevFolder: true)
+        : repository.write(pluginDevFolder: path);
+  }
 }

@@ -89,6 +89,7 @@ final class ShellHarness {
     this.fileSharer,
     this.redactor,
     this.loginWebView,
+    this.pluginDevTools = false,
     this.cacheUnavailable = false,
     this.registrySources = false,
     this.secureStorage = false,
@@ -182,6 +183,9 @@ final class ShellHarness {
 
   /// 平台的登入 WebView；給了平台就宣告 `loginWebView`。
   final LoginWebView? loginWebView;
+
+  /// 平台宣告插件開發工具（Debug 頁的「插件開發」區塊依它出現）。
+  final bool pluginDevTools;
 
   /// 搜尋的音源讀真的插件清單（`searchSourcesProvider` 不 override）：要看安裝、停用
   /// 之後搜尋頁怎麼變時用（首次啟動引導）。
@@ -291,6 +295,7 @@ final class ShellHarness {
         files: fileDialogs != null,
         urlOpener: urlOpener != null,
         shareFiles: fileSharer != null,
+        pluginDevTools: pluginDevTools,
         restartsItself: restartsItself,
         loginWebView: loginWebView != null,
         cache: const CacheSizes(
