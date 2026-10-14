@@ -15,6 +15,7 @@ PlaybackSnapshot snapshot({
   bool repeatsTrack = false,
   bool wantsSound = true,
   bool pausedByInterruption = false,
+  bool live = false,
 }) => PlaybackSnapshot(
   generation: _generation,
   playWhenReady: playWhenReady,
@@ -23,6 +24,7 @@ PlaybackSnapshot snapshot({
   resumeAt: _resumeAt,
   wantsSound: wantsSound,
   pausedByInterruption: pausedByInterruption,
+  live: live,
 );
 
 Matcher recovers<F extends PlaybackFailure, E extends AppError>({
@@ -36,6 +38,43 @@ Matcher recovers<F extends PlaybackFailure, E extends AppError>({
     .having((a) => a.endedEarly, 'endedEarly', endedEarly);
 
 void main() {
+  group('a live room', () {
+    SourceFinished finished(TrackEndReason end) => SourceFinished(
+      generation: _generation,
+      pluginId: 'fmp-test',
+      end: end,
+      lastPosition: _lastPosition,
+    );
+
+    for (final end in TrackEndReason.values) {
+      test('treats a source that finished ($end) as an early end', () {
+        // 沒有下一首、單曲循環都不影響：直播沒有「播完」。
+        for (final (hasNext, repeats) in [(false, false), (true, true)]) {
+          expect(
+            routePlaybackEvent(
+              finished(end),
+              snapshot(live: true, hasNext: hasNext, repeatsTrack: repeats),
+            ),
+            recovers<StreamInterrupted, NetworkError>(
+              position: Duration.zero,
+              endedEarly: end == TrackEndReason.endedEarly,
+            ),
+          );
+        }
+      });
+    }
+
+    test('without a live room the same event still finishes the queue', () {
+      expect(
+        routePlaybackEvent(
+          finished(TrackEndReason.completed),
+          snapshot(hasNext: false),
+        ),
+        isA<FinishQueue>(),
+      );
+    });
+  });
+
   group('an event from an older generation is ignored', () {
     for (final event in <SourceEvent>[
       const SourceBuffering(generation: _generation - 1, wasReady: true),

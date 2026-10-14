@@ -14,12 +14,14 @@ import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/queue_store.dart';
 import 'package:fmp/playback/stream_resolver.dart';
+import 'package:fmp/plugins/source_dto.dart';
 
 import '../support/memory_database.dart';
 import 'fake_audio_backend.dart';
@@ -59,6 +61,13 @@ final class StoreHarness {
       await resolveGate?.future;
       return [candidate('${request.sourceId}.m4a')];
     });
+    plugin
+      ..onResolveLive = ((request) => [candidate('${request.roomId}.flv')])
+      ..onLiveStatus = ((query) => LiveRoom(
+        roomId: query.roomId,
+        title: 'Room',
+        status: LiveRoomStatus.live,
+      ));
     backend = FakeAudioBackend(durationOf: (_) => const Duration(minutes: 5));
     controller = PlaybackController(
       session: PlaybackSession(
@@ -83,6 +92,8 @@ final class StoreHarness {
       pluginChanges: const Stream.empty(),
       preferredOutputDevice: () async => null,
       saveOutputDevice: (_) async {},
+      registerLiveInfoJob: (_, _) {},
+      unregisterLiveInfoJob: () {},
     );
     store = QueueStore(repository: repository, log: log);
     beforeAttach?.call(controller);
@@ -368,6 +379,59 @@ void main() {
       expect(h.storedPlayer!.currentPosition, 1);
       expect(h.storedPlayer!.position, snapshot);
       expect(h.storedQueue.entries.map((t) => t.sourceId), ['a', 'b']);
+    });
+
+    storeTest('a live room is never stored: the database keeps the snapshot', (
+      h,
+    ) {
+      h.controller.addToQueue([track('a'), track('b')]);
+      unawaited(h.controller.jumpTo(1));
+      h.elapse(const Duration(seconds: 30));
+      final snapshot = h.controller.position;
+
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r1', title: 'Room'),
+        ),
+      );
+      h.elapse(const Duration(seconds: 5));
+      expect(h.controller.queue.mode, QueueMode.live);
+      expect(h.storedPlayer!.currentPosition, 1);
+      expect(h.storedPlayer!.position, snapshot);
+
+      // 收聽期間的存檔時機（定時、進背景、暫停、停止）都不覆寫，也不留下直播的痕跡。
+      h.elapse(const Duration(seconds: 25));
+      h.lifecycle.add(AppLifecycleState.hidden);
+      unawaited(h.controller.pause());
+      h.elapse(const Duration(seconds: 1));
+      expect(h.storedPlayer!.currentPosition, 1);
+      expect(h.storedPlayer!.position, snapshot);
+      expect(h.storedQueue.entries.map((t) => t.sourceId), ['a', 'b']);
+    });
+
+    storeTest('a restart during a live room returns to the queue snapshot', (
+      h,
+    ) {
+      h.controller.addToQueue([track('a'), track('b')]);
+      unawaited(h.controller.jumpTo(0));
+      h.elapse(const Duration(seconds: 30));
+      final snapshot = h.controller.position;
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r1', title: 'Room'),
+        ),
+      );
+      h.elapse(const Duration(seconds: 5));
+      h.store.dispose();
+      unawaited(h.controller.dispose());
+      h.settle();
+
+      h.open();
+
+      expect(h.controller.queue.mode, QueueMode.queue);
+      expect(h.controller.live, isNull);
+      expect(h.controller.queue.currentIndex, 0);
+      expect(h.controller.position, snapshot);
     });
 
     storeTest('a restart after a temporary play returns to the snapshot', (h) {

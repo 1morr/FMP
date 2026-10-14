@@ -46,6 +46,7 @@ final class Harness {
     FakeOutputDevices? outputDevices,
   }) : plugin = FakeSourcePlugin(
          respond ?? (request) => [candidate('${request.sourceId}.m4a')],
+         live: true,
        ),
        otherPlugin = FakeSourcePlugin(
          (request) => [candidate('${request.sourceId}.m4a')],
@@ -76,6 +77,10 @@ final class Harness {
       pluginChanges: _pluginChanges.stream,
       preferredOutputDevice: () async => preferredOutputDevice,
       saveOutputDevice: (device) async => savedOutputDevices.add(device),
+      registerLiveInfoJob: (pluginId, run) {
+        liveInfoJobs.add((pluginId: pluginId, run: run));
+      },
+      unregisterLiveInfoJob: () => liveInfoJobs.clear(),
     );
     controller.states.listen(states.add);
     controller.events.listen(events.add);
@@ -116,6 +121,9 @@ final class Harness {
 
   /// 控制器每次寫進設定的輸出裝置，依序。
   final savedOutputDevices = <OutputDevice?>[];
+
+  /// 登記中的 `live-info` 工作（所屬插件與到期時要跑的更新）；停止收聽後是空的。
+  final liveInfoJobs = <({String pluginId, Future<void> Function() run})>[];
 
   /// 網路狀態變成 [status]，並通知控制器。
   void setNetwork(NetworkStatus status) {
@@ -3098,6 +3106,8 @@ void main() {
             pluginChanges: const Stream.empty(),
             preferredOutputDevice: () async => null,
             saveOutputDevice: (_) async {},
+            registerLiveInfoJob: (_, _) {},
+            unregisterLiveInfoJob: () {},
           );
           addTearDown(controller.dispose);
           addTearDown(backend.dispose);

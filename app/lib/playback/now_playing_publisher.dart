@@ -7,6 +7,7 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -65,6 +66,7 @@ final class NowPlayingPublisher {
     _subscriptions
       ..add(controller.states.listen((_) => _refresh()))
       ..add(controller.queueStates.listen((_) => _refresh()))
+      ..add(controller.liveChanges.listen((_) => _refresh()))
       ..add(controller.speedChanges.listen((_) => _refresh()))
       ..add(controller.pausedByInterruptionChanges.listen((_) => _refresh()))
       ..add(
@@ -131,7 +133,9 @@ final class NowPlayingPublisher {
   void _refresh({Duration? position, bool force = false}) {
     if (_disposed) return;
     final queue = _controller.queue;
-    final track = queue.current;
+    final live = _controller.live;
+    // 收聽直播時，系統看到的是直播間（標題、主播、封面），不是佇列。
+    final track = queue.live == null ? queue.current : live?.toTrackInfo();
     if (track == null) {
       _artworkOf = null;
       _artwork = null;
@@ -146,6 +150,8 @@ final class NowPlayingPublisher {
       queue,
       _controller.state,
       position ?? _controller.position,
+      track,
+      live: queue.live == null ? null : live,
     );
     final last = _last;
     if (last != null) {
@@ -189,9 +195,15 @@ final class NowPlayingPublisher {
     _refresh();
   }
 
-  NowPlaying _build(QueueState queue, PlaybackState state, Duration position) {
-    final track = queue.current;
+  NowPlaying _build(
+    QueueState queue,
+    PlaybackState state,
+    Duration position,
+    TrackInfo? track, {
+    LiveInfo? live,
+  }) {
     if (track == null) return NowPlaying.nothing;
+    final isLive = live != null;
     // 因中斷而暫停：對系統仍是播放中（Android 的前景服務不放，見
     // MediaPhase.interrupted）；使用者暫停會清掉旗標，回到一般的暫停。
     final interrupted = state is Paused && _controller.pausedByInterruption;
@@ -205,7 +217,8 @@ final class NowPlayingPublisher {
       id: track.key.toString(),
       title: track.title,
       uploader: track.uploader,
-      duration: _duration ?? track.duration,
+      // 直播沒有時長，後端回報什麼都不採用。
+      duration: isLive ? null : _duration ?? track.duration,
       artworkFile: _artwork,
       artworkUrl: pickArtwork(track.artwork, artworkPixels)?.url,
       phase: switch (state) {
@@ -218,11 +231,13 @@ final class NowPlayingPublisher {
       playing: playing,
       position: position,
       speed: _controller.speed,
+      // 直播只有播放／暫停（暫停就是停止串流），沒有上一首、下一首。
       controls: [
-        MediaControl.previous,
+        if (!isLive) MediaControl.previous,
         if (playing) MediaControl.pause else MediaControl.play,
         if (queue.hasNext) MediaControl.next,
       ],
+      seekable: !isLive,
     );
   }
 

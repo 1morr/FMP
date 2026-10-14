@@ -16,6 +16,7 @@ import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
+import 'package:fmp/radio/radio_status_jobs.dart';
 import 'package:fmp/scheduler/background_scheduler.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/developer_settings.dart';
@@ -90,6 +91,8 @@ class _FmpAppState extends ConsumerState<FmpApp> {
       (_, _) {},
       fireImmediately: true,
     );
+    // 電台狀態工作跟著插件清單、電台清單與間隔設定登記到排程器（ADR 0031 §決定 6）。
+    ref.listenManual(radioStatusJobsProvider, (_, _) {}, fireImmediately: true);
     // 回到前景時再查一次網路介面：Android 8 起背景收不到介面變化
     // （connectivity_plus 的 README）。事件觸發，不輪詢。
     ref.listenManual(appLifecycleProvider, (previous, next) {

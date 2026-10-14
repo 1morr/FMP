@@ -89,6 +89,36 @@ final class StopPlayback extends RecoveryAction {
   const StopPlayback();
 }
 
+/// 直播的恢復動作（[decideLiveRecovery]）。
+@immutable
+sealed class LiveRecoveryAction {
+  const LiveRecoveryAction();
+}
+
+/// 先問 `liveStatus`：是 `live` 才等 [delay] 後重連（重新取流），這是第 [attempt]
+/// 次（從 1 起算）；不是就停在「直播已結束」，問不到就停在「查詢失敗」。
+final class ConfirmThenReconnect extends LiveRecoveryAction {
+  const ConfirmThenReconnect({required this.delay, required this.attempt});
+
+  final Duration delay;
+  final int attempt;
+}
+
+/// 停在原地等網路（不計次數），網路回到 `online` 時重新取流。
+final class LiveWaitForNetwork extends LiveRecoveryAction {
+  const LiveWaitForNetwork();
+}
+
+/// 重連用完了：停在「直播已結束」。
+final class LiveGiveUp extends LiveRecoveryAction {
+  const LiveGiveUp();
+}
+
+/// 重試也不會好的錯誤（無法取得、需登入…）：停在 `Failed`，不重連。
+final class LiveStop extends LiveRecoveryAction {
+  const LiveStop();
+}
+
 /// 重試的等待：1、3、9 秒，共 3 次。
 const retryDelays = [
   Duration(seconds: 1),
@@ -107,6 +137,51 @@ const retryResetAfter = Duration(seconds: 10);
 
 /// 開流被這些 HTTP 狀態碼拒絕時先重新解析：網址多半是過期或被 CDN 拒絕。
 const reResolveStatuses = {403, 404, 410};
+
+/// 直播失敗後怎麼辦（ADR 0018 §決定 9，M3 design §9.4）。直播沒有「下一首」可跳，
+/// 也沒有候選可換：
+///
+/// - 網路造成的失敗（解析時的 [NetworkError]、[RateLimited]，開不起來、中斷、提前
+///   結束、緩衝飢餓）：離線時等網路，不計次數；在線時 [reconnects] 還沒用完就
+///   [ConfirmThenReconnect]（延遲沿用 [retryDelays]，1／3／9 秒共 3 次），用完
+///   [LiveGiveUp]。
+/// - 解析時插件說無法取得、找不到、需登入、不支援…：[LiveStop]，重連不會好。
+///
+/// [reconnects] 是這個直播間已經重連過幾次（正常收聽 [retryResetAfter] 後歸零）。
+LiveRecoveryAction decideLiveRecovery(
+  PlaybackFailure failure, {
+  required NetworkStatus network,
+  required int reconnects,
+}) {
+  LiveRecoveryAction reconnect() => switch (network) {
+    NetworkStatus.online when reconnects < retryDelays.length =>
+      ConfirmThenReconnect(
+        delay: retryDelays[reconnects],
+        attempt: reconnects + 1,
+      ),
+    NetworkStatus.online => const LiveGiveUp(),
+    _ => const LiveWaitForNetwork(),
+  };
+
+  return switch (failure) {
+    ResolveFailed(:final error) => switch (error) {
+      NetworkError() || RateLimited() => reconnect(),
+      Unavailable() ||
+      NotFound() ||
+      AuthRequired() ||
+      CredentialInvalid() ||
+      VerificationRequired() ||
+      Unsupported() ||
+      ParseError() ||
+      UnexpectedError() => const LiveStop(),
+    },
+    // 直播沒有試聽片段。
+    PreviewOnly() => const LiveStop(),
+    StreamUnopenable() ||
+    StreamInterrupted() ||
+    BufferingStalled() => reconnect(),
+  };
+}
 
 /// 依 [failure] 決定下一步。
 ///

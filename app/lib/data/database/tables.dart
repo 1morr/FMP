@@ -2,10 +2,11 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v9（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// Schema v12（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
 // queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
 // installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
-// developer_settings（v9））。
+// developer_settings（v9）、scheduler_runs（v11）、radio_stations 與
+// network_settings 的電台間隔（v12））。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -38,6 +39,9 @@ class NetworkSettingsTable extends Table {
 
   /// 快取上限（MiB）；空＝平台宣告的預設（ADR 0016 §決定 3）。
   late final cacheLimitMb = integer().nullable()();
+
+  /// 電台狀態刷新間隔（分）；`0`＝關閉，空＝預設（ADR 0017 §決定 6、M3 design §3.3）。
+  late final radioStatusIntervalMinutes = integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -345,4 +349,42 @@ class SchedulerRunsTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {jobId};
+}
+
+/// 電台清單（ADR 0031 §決定 1、M3 design §3.1）：使用者存的直播間。最後一次查到的直播狀態也
+/// 存在這裡，啟動時先顯示（ADR 0017 §決定 3）；「查詢失敗」只在記憶體，不存。沒有外鍵到
+/// `installed_plugins`：插件移除或停用時電台保留，重新安裝後恢復。
+@DataClassName('RadioStationRow')
+class RadioStationsTable extends Table {
+  @override
+  String get tableName => 'radio_stations';
+
+  late final id = integer().autoIncrement()();
+  late final pluginId = text()();
+
+  /// 音源內的直播間 id（`liveStatus` 回傳的那個，不一定是網址裡的）。
+  late final roomId = text()();
+  late final title = text()();
+  late final hostName = text().nullable()();
+
+  /// `[{url, width?}]` 的 JSON，同 `tracks.artwork_json`；沒有封面為空。
+  late final artworkJson = text().nullable()();
+
+  /// 清單順序，由小到大；拖曳後整批重寫。
+  late final sortOrder = integer()();
+  late final addedAt = integer().map(const EpochMillisecondsConverter())();
+
+  /// 最後一次查到的狀態；還沒查過為空。
+  late final liveStatus = text().nullable().map(
+    const RadioLiveStatusConverter(),
+  )();
+  late final liveTitle = text().nullable()();
+  late final statusCheckedAt = integer().nullable().map(
+    const EpochMillisecondsConverter(),
+  )();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {pluginId, roomId},
+  ];
 }

@@ -227,9 +227,8 @@ class _QueueViewState extends ConsumerState<QueueView> {
                 key: ObjectKey(entries[index]),
                 index: index,
                 entry: entries[index],
-                // 臨時播放中 `currentIndex` 是回到佇列時的位置，不是在播的那首。
-                selected:
-                    queue.temporary == null && index == queue.currentIndex,
+                // 臨時播放與直播中 `currentIndex` 是回到佇列時的位置，不是在播的那首。
+                selected: !queue.isOutsideQueue && index == queue.currentIndex,
                 isQueueCurrent: index == queue.currentIndex,
               ),
             ),

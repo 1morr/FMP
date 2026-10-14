@@ -13,12 +13,13 @@ lib/playback/
   playback_event_router.dart # SessionEvent（SourceEvent 與輸出事件）、routePlaybackEvent（純函數）與它的動作
   playback_events.dart      # PlaybackEvent（控制器的 events：QueueFull、TrackSkipped、PlaybackStopped、PreviewPlaying、OutputDeviceFailed）
   playback_state.dart       # sealed PlaybackState、PlaybackProgress
-  queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、上限、restore）
+  queue_model.dart          # QueueModel、QueueState、QueueStep（純 Dart：模式、循環、位置式隨機、臨時播放、直播、上限、restore）
+  live_play.dart            # LiveTarget、LiveInfo、LivePhase：收聽直播的輸入與給畫面的即時資訊（直播規則見 app/AGENTS.md § 播放「直播」）
   queue_store.dart          # QueueStore：佇列與播放狀態的持久化、啟動恢復（聽控制器的 stream，不改它的狀態）
   now_playing_publisher.dart # NowPlayingPublisher：系統媒體控制的唯一出口，系統指令回控制器
   play_history_recorder.dart # PlayHistoryRecorder：聽控制器的 plays，寫播放歷史（寫失敗只 report）
   stream_resolver.dart      # StreamResolver（記憶體網址快取）、ResolvedStream（期限、previewOnly）
-  recovery_policy.dart      # decideRecovery 與它的輸入、輸出型別、各個常數（純函數）
+  recovery_policy.dart      # decideRecovery、decideLiveRecovery 與它們的輸入、輸出型別、各個常數（純函數）
   playback_providers.dart   # audioBackendProvider、playbackControllerProvider、temporaryReturnSettingsProvider、
                             # skipPreviewClipsProvider、狀態／佇列／試聽／進度／事件 stream
   backends/
@@ -70,6 +71,10 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   的 `switch` 編譯器會指出要補的提示。
 - 時間：計時器只有一次性的（重試的等待、緩衝飢餓）；要「播了多久」就累計位置，不開週期計時器。
 
+直播的恢復另有一條：`decideLiveRecovery`（先問 `liveStatus` 再重連；沒有跳過、候選、重新解析）。新的直播失敗情況在它加一個
+`LiveRecoveryAction` 並在 `live_playback_test.dart` 的 `decideLiveRecovery` 群組加案例；控制器的 `_recoverLive` 的 `switch` 編譯器會指出。
+計數用 `_liveReconnects`，和 `_retries` 一起在 `_resetTrackCounters` 與 `_onProgress` 歸零。
+
 狀態、位置、事件都帶來源 id，session 只轉目前來源的。每個非同步步驟回來時比對
 `session.generation`，不同就丟掉結果。
 
@@ -77,6 +82,21 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 在 `routePlaybackEvent`（新的判斷先在這裡加一個事件或動作，並在
 `playback_event_router_test.dart` 加案例）；改狀態、動佇列、恢復計數在控制器。session 要給
 控制器新的資訊時，加在 `SessionEvent` 或 `PlaybackSnapshot`，不讓控制器 import 後端。
+
+## 加一種「佇列以外」的播放
+
+臨時播放與直播都是 `QueueState` 的一個可空欄位（`temporary`、`live`，互斥），共用 `isOutsideQueue`／`returnSnapshot`。新增第三種時：
+
+- `QueueModel` 加欄位與進入／離開的方法，**進入時沿用既有的快照**（已在其中一種時快照不變）；`jumpTo`、`replace`、`restore`、`clear` 都要清掉它，
+  `_resetSnapshotPosition` 要一併重設它的快照位置；`current` 該不該是 `null` 要想清楚（直播是 `null`：不是曲目）。
+- `QueueStore` 一律問 `isOutsideQueue`，不要直接看某一個欄位，才不會把它的位置寫進資料庫。
+- 控制器：`_load` 依模式分派（重試、等網路後的重新開流都走它），`_recover` 依模式分派，`_emitQueue` 的 `_syncLive` 這類「離開時清掉附屬狀態」要在
+  這一個出口做（所有離開方式都經它）。
+- 系統媒體控制看 `NowPlayingPublisher._refresh` 的 `track`／`live` 分支。
+- 佇列分頁的「在播」列（`queue_view.dart`）也問 `isOutsideQueue`；`PlaybackController.diagnostics` 與 `QueueDiagnostics` 要報出新的那一種
+  （直播報直播間，`queue.live`）。
+- 控制器的附屬工作（`live-info`）在 `dispose` 裡同步移除，而 `dispose` 是在 provider 的 onDispose 裡呼叫：組裝點的 callback 不能在那時碰 ref
+  或別的 provider（見 `playbackControllerProvider` 的 `liveInfoScheduler`／`disposing`）。
 
 ## 改佇列
 

@@ -137,6 +137,7 @@ final class PlaybackSnapshot {
     required this.resumeAt,
     required this.wantsSound,
     required this.pausedByInterruption,
+    this.live = false,
   });
 
   /// 目前的代（`PlaybackSession.generation`）。
@@ -160,6 +161,10 @@ final class PlaybackSnapshot {
 
   /// 目前的暫停是音訊中斷造成的，中斷結束時續播。
   final bool pausedByInterruption;
+
+  /// 在收聽直播：直播沒有「播完」，來源結束（不論原因）都是提前結束，交給
+  /// 直播的恢復（`decideLiveRecovery`）。
+  final bool live;
 }
 
 /// [routePlaybackEvent] 的結論。
@@ -294,6 +299,12 @@ EventAction _routeSourceEvent(SourceEvent event, PlaybackSnapshot snapshot) {
       first: !wasReady,
     ),
     LookAheadTookOver(:final end) => AdoptLookAhead(end: end),
+    SourceFinished(:final pluginId, :final end) when snapshot.live => Recover(
+      failure: const StreamInterrupted(),
+      error: NetworkError(pluginId: pluginId),
+      position: Duration.zero,
+      endedEarly: end == TrackEndReason.endedEarly,
+    ),
     SourceFinished(end: TrackEndReason.completed) when snapshot.repeatsTrack =>
       const RepeatTrack(),
     SourceFinished(end: TrackEndReason.completed) =>

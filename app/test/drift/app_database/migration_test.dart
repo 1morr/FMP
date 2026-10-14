@@ -19,6 +19,7 @@ import 'generated/schema_v8.dart' as v8;
 import 'generated/schema_v9.dart' as v9;
 import 'generated/schema_v10.dart' as v10;
 import 'generated/schema_v11.dart' as v11;
+import 'generated/schema_v12.dart' as v12;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1067,5 +1068,114 @@ void main() {
     addTearDown(db.close);
 
     await expectSchedulerRunsSchema(db);
+  });
+
+  // v12 新增 radio_stations 並在 network_settings 加電台狀態間隔（ADR 0031 §決定 1、
+  // M3 design §3.1）：既有的資料與使用者設定過的值原樣保留；新表是空的，新欄位在舊列上
+  // 是 NULL（＝沒設定過，預設只在 Notifier 套用）。
+  test('migration from v11 to v12 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 11,
+      newVersion: 12,
+      createOld: v11.DatabaseAtV11.new,
+      createNew: v12.DatabaseAtV12.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.networkSettings,
+          const v11.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        );
+        batch.insert(
+          oldDb.schedulerRuns,
+          const v11.SchedulerRunsData(
+            jobId: 'radio-status:bilibili',
+            lastSuccessAt: 1790000000000,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        // 使用者設定過的快取上限不變，新欄位是空的。
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v12.NetworkSettingsData(id: 1, cacheLimitMb: 512),
+        ]);
+        expect(await newDb.select(newDb.schedulerRuns).get(), [
+          const v12.SchedulerRunsData(
+            jobId: 'radio-status:bilibili',
+            lastSuccessAt: 1790000000000,
+          ),
+        ]);
+        expect(await newDb.select(newDb.radioStations).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectRadioStationsSchema(AppDatabase db) async {
+    // 持久化格式：狀態字串寫死、時間存 UTC epoch 毫秒、（插件, 房間）唯一。
+    await db.customStatement(
+      "INSERT INTO radio_stations (plugin_id, room_id, title, sort_order, "
+      "added_at, live_status, live_title, status_checked_at) VALUES "
+      "('bilibili', '5440', 'T', 0, 1790000000000, 'live', 'Now', 1790000060000)",
+    );
+    final row = await db
+        .customSelect(
+          'SELECT plugin_id, room_id, host_name, artwork_json, sort_order, '
+          'added_at, live_status, live_title, status_checked_at '
+          'FROM radio_stations',
+        )
+        .getSingle();
+    expect(row.data, {
+      'plugin_id': 'bilibili',
+      'room_id': '5440',
+      'host_name': null,
+      'artwork_json': null,
+      'sort_order': 0,
+      'added_at': 1790000000000,
+      'live_status': 'live',
+      'live_title': 'Now',
+      'status_checked_at': 1790000060000,
+    });
+    await expectLater(
+      db.customStatement(
+        "INSERT INTO radio_stations (plugin_id, room_id, title, sort_order, "
+        "added_at) VALUES ('bilibili', '5440', 'Dup', 1, 1)",
+      ),
+      throwsA(anything),
+    );
+    // 另一個插件的同一個房間 id 是另一個電台。
+    await db.customStatement(
+      "INSERT INTO radio_stations (plugin_id, room_id, title, sort_order, "
+      "added_at) VALUES ('other', '5440', 'Other', 1, 1)",
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+    test('migration from v$from to v12 adds radio_stations and the '
+        'status interval column', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 12);
+
+      await expectRadioStationsSchema(db);
+      // 沒有設定過：新欄位是 NULL。
+      if (from >= 2) {
+        await db.customStatement(
+          'INSERT OR IGNORE INTO network_settings (id) VALUES (1)',
+        );
+        final interval = await db
+            .customSelect(
+              'SELECT radio_status_interval_minutes AS v FROM network_settings',
+            )
+            .getSingle();
+        expect(interval.data['v'], equals(null));
+      }
+      await db.close();
+    });
+  }
+
+  test('a new database has radio_stations', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectRadioStationsSchema(db);
   });
 }

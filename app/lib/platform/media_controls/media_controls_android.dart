@@ -101,8 +101,12 @@ audio.PlaybackState androidPlaybackStateOf(NowPlaying nowPlaying) =>
             MediaControl.next => audio.MediaControl.skipToNext,
           },
       ],
-      // seek 讓 Android 13 起的通知有進度條；不放快轉、倒轉。
-      systemActions: const {audio.MediaAction.seek, audio.MediaAction.stop},
+      // seek 讓 Android 13 起的通知有進度條；不放快轉、倒轉。直播沒有時長與可 seek
+      // 的位置，不給 seek。
+      systemActions: {
+        if (nowPlaying.seekable) audio.MediaAction.seek,
+        audio.MediaAction.stop,
+      },
       processingState: switch (nowPlaying.phase) {
         MediaPhase.idle => audio.AudioProcessingState.idle,
         MediaPhase.loading => audio.AudioProcessingState.loading,

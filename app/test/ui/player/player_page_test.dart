@@ -8,6 +8,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -18,6 +19,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_source_plugin.dart';
 import '../support/fake_artwork.dart';
 import '../support/shell_harness.dart';
 
@@ -627,6 +629,37 @@ void main() {
       await _openByTap(tester);
       await tester.tap(find.widgetWithText(Tab, 'Queue'));
       await tester.pumpAndSettle();
+
+      final rows = tester.widgetList<ListTile>(find.byType(ListTile));
+      expect(rows, hasLength(2));
+      expect(rows.where((row) => row.selected), isEmpty);
+    });
+
+    // 直播時 `currentIndex` 也是回到佇列時的位置；佇列分頁照常顯示原佇列（M3 design §9.4）。
+    testWidgets('in a live room no queue row is marked current', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      h.plugin.onResolveLive = (request) => [
+        candidate('${request.roomId}.flv'),
+      ];
+      await h.pumpApp(tester, const Scaffold(body: QueueView()));
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        tester
+            .widgetList<ListTile>(find.byType(ListTile))
+            .where((row) => row.selected),
+        hasLength(1),
+      );
+
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r', title: 'Room'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       final rows = tester.widgetList<ListTile>(find.byType(ListTile));
       expect(rows, hasLength(2));

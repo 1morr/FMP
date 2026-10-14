@@ -13,6 +13,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     String id = 'fmp-test',
     String name = 'Fake',
     this.onSearch,
+    bool live = false,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -21,6 +22,7 @@ final class FakeSourcePlugin implements SourcePlugin {
          capabilities: {
            PluginCapability.resolveStream,
            if (onSearch != null) PluginCapability.search,
+           if (live) PluginCapability.live,
          },
          allowedHosts: const ['cdn.example'],
        );
@@ -35,6 +37,15 @@ final class FakeSourcePlugin implements SourcePlugin {
 
   final requests = <StreamRequest>[];
   final searches = <SearchQuery>[];
+
+  // 直播（`live: true` 時才有能力）：沒設定的處理函式呼叫就拋 UnimplementedError。
+  FutureOr<LiveRoom> Function(LiveRoomQuery query)? onLiveStatus;
+  FutureOr<List<StreamCandidate>> Function(LiveStreamRequest request)?
+  onResolveLive;
+  FutureOr<LiveRoomRef?> Function(LiveUrlQuery query)? onLiveRoomFromUrl;
+  final liveStatusQueries = <LiveRoomQuery>[];
+  final liveRequests = <LiveStreamRequest>[];
+  final liveUrlQueries = <LiveUrlQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -71,16 +82,28 @@ final class FakeSourcePlugin implements SourcePlugin {
       throw UnimplementedError('live');
 
   @override
-  Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query) =>
-      throw UnimplementedError('live');
+  Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query) async {
+    final handler = onLiveRoomFromUrl;
+    if (handler == null) throw UnimplementedError('live');
+    liveUrlQueries.add(query);
+    return handler(query);
+  }
 
   @override
-  Future<LiveRoom> liveStatus(LiveRoomQuery query) =>
-      throw UnimplementedError('live');
+  Future<LiveRoom> liveStatus(LiveRoomQuery query) async {
+    final handler = onLiveStatus;
+    if (handler == null) throw UnimplementedError('live');
+    liveStatusQueries.add(query);
+    return handler(query);
+  }
 
   @override
-  Future<StreamResult> resolveLive(LiveStreamRequest request) =>
-      throw UnimplementedError('live');
+  Future<StreamResult> resolveLive(LiveStreamRequest request) async {
+    final handler = onResolveLive;
+    if (handler == null) throw UnimplementedError('live');
+    liveRequests.add(request);
+    return StreamResult(candidates: await handler(request));
+  }
 
   @override
   Future<LoginQrCode> loginQrStart() => throw UnimplementedError('login');

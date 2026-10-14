@@ -92,6 +92,7 @@ final class NowPlaying {
     required this.position,
     this.speed = 1.0,
     this.controls = const [],
+    this.seekable = true,
   });
 
   /// 沒有曲目：[MediaPhase.idle]，沒有按鈕。
@@ -126,6 +127,10 @@ final class NowPlaying {
   final double speed;
   final List<MediaControl> controls;
 
+  /// 系統的進度條能不能拖。直播為假（沒有時長、沒有可 seek 的位置）；平台自己不支援
+  /// seek 時（[MediaControlsSupport.supportsSeek]）不管這個值。
+  final bool seekable;
+
   bool get hasTrack => id.isNotEmpty;
 
   NowPlaying copyWith({Duration? position, Uri? artworkFile}) => NowPlaying(
@@ -140,6 +145,7 @@ final class NowPlaying {
     position: position ?? this.position,
     speed: speed,
     controls: controls,
+    seekable: seekable,
   );
 
   @override
@@ -156,6 +162,7 @@ final class NowPlaying {
           other.playing == playing &&
           other.position == position &&
           other.speed == speed &&
+          other.seekable == seekable &&
           listEquals(other.controls, controls);
 
   @override
@@ -170,6 +177,7 @@ final class NowPlaying {
     playing,
     position,
     speed,
+    seekable,
     Object.hashAll(controls),
   );
 }

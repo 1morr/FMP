@@ -12,11 +12,13 @@ import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/now_playing_publisher.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_session.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/stream_resolver.dart';
+import 'package:fmp/plugins/source_dto.dart';
 
 import 'fake_audio_backend.dart';
 import 'fake_media_controls.dart';
@@ -65,10 +67,15 @@ final class PublisherHarness {
       pluginChanges: const Stream.empty(),
       preferredOutputDevice: () async => null,
       saveOutputDevice: (_) async {},
+      registerLiveInfoJob: (_, run) => liveInfoRun = run,
+      unregisterLiveInfoJob: () => liveInfoRun = null,
     );
     publisher = NowPlayingPublisher(
       controls: controls,
-      artworkFile: artwork ?? (_) async => null,
+      artworkFile: (track) async {
+        requestedArtwork.add(track);
+        return artwork == null ? null : artwork(track);
+      },
       log: log,
       positionRefresh: positionRefresh,
     )..attach(controller);
@@ -78,6 +85,12 @@ final class PublisherHarness {
   final FakeSourcePlugin plugin;
   final FakeAudioBackend backend;
   final controls = FakeMediaControls();
+
+  /// 登記中的 `live-info` 工作要跑的更新。
+  Future<void> Function()? liveInfoRun;
+
+  /// 向封面來源要過封面的曲目，依序。
+  final requestedArtwork = <TrackInfo>[];
   final log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
   late final PlaybackController controller;
   late final NowPlayingPublisher publisher;
@@ -119,6 +132,98 @@ void main() {
       });
     });
   }
+
+  group('a live room', () {
+    final room = LiveTarget(
+      pluginId: 'fmp-test',
+      roomId: 'r1',
+      title: 'Room',
+      hostName: 'Host',
+      artwork: [TrackArtwork(url: Uri.parse('https://cdn.example/room.jpg'))],
+    );
+
+    void prepare(PublisherHarness h) {
+      h.plugin
+        ..onResolveLive = ((request) => [candidate('${request.roomId}.flv')])
+        ..onLiveStatus = ((query) => LiveRoom(
+          roomId: query.roomId,
+          title: 'Room',
+          status: LiveRoomStatus.live,
+        ));
+    }
+
+    harness('shows the room, with no duration, no seek and only pause', (h) {
+      prepare(h);
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      unawaited(h.controller.playLive(room));
+      h.elapse(const Duration(seconds: 2));
+
+      // 後端對這個串流回報了 5 分鐘的時長（假後端），直播不採用。
+      expect(h.last.id, 'fmp-test:r1');
+      expect(h.last.title, 'Room');
+      expect(h.last.uploader, 'Host');
+      expect(h.last.duration, isNull);
+      expect(h.last.seekable, isFalse);
+      expect(h.last.playing, isTrue);
+      expect(h.last.phase, MediaPhase.ready);
+      expect(h.last.controls, [MediaControl.pause]);
+    });
+
+    harness(
+      'pausing shows the play button, and stopping brings the queue track '
+      'back with its previous, next and seek',
+      (h) {
+        prepare(h);
+        h.queue([track('a'), track('b')]);
+        h.playAt(0);
+        unawaited(h.controller.playLive(room));
+        h.elapse(const Duration(seconds: 2));
+
+        unawaited(h.controller.pause());
+        h.settle();
+        expect(h.last.controls, [MediaControl.play]);
+        expect(h.last.playing, isFalse);
+
+        unawaited(h.controller.stopLive());
+        h.elapse(const Duration(seconds: 1));
+        expect(h.last.title, 'Song a');
+        expect(h.last.seekable, isTrue);
+        expect(h.last.duration, const Duration(minutes: 5));
+        expect(h.last.controls, contains(MediaControl.previous));
+        expect(h.last.controls, contains(MediaControl.next));
+      },
+    );
+
+    harness('a new title from live-info is pushed', (h) {
+      prepare(h);
+      h.queue([track('a')]);
+      h.playAt(0);
+      unawaited(h.controller.playLive(room));
+      h.elapse(const Duration(seconds: 2));
+      h.plugin.onLiveStatus = (query) => LiveRoom(
+        roomId: query.roomId,
+        title: 'Late night',
+        status: LiveRoomStatus.live,
+      );
+
+      unawaited(h.liveInfoRun!());
+      h.settle();
+
+      expect(h.last.title, 'Late night');
+    });
+
+    harness('asks for the cover of the room, not of the queue track', (h) {
+      prepare(h);
+      h.queue([track('a')]);
+      h.playAt(0);
+      unawaited(h.controller.playLive(room));
+      h.elapse(const Duration(seconds: 2));
+
+      expect(h.requestedArtwork.map((track) => track.title), contains('Room'));
+      expect(h.last.artworkFile, Uri.parse('file:///Room.jpg'));
+    }, artwork: (track) async => Uri.parse('file:///${track.title}.jpg'));
+  });
 
   group('what is pushed', () {
     harness('an empty queue pushes the idle nothing', (h) {

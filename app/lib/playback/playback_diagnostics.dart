@@ -43,6 +43,7 @@ final class QueueDiagnostics {
     required this.shuffle,
     required this.loopMode,
     required this.temporary,
+    this.live = false,
   });
 
   /// 目前這首前後各列幾首。
@@ -66,6 +67,7 @@ final class QueueDiagnostics {
       shuffle: queue.shuffleEnabled,
       loopMode: queue.loopMode,
       temporary: queue.temporary != null,
+      live: queue.live != null,
     );
   }
 
@@ -80,6 +82,10 @@ final class QueueDiagnostics {
 
   /// 現在是臨時播放：[currentIndex] 是回到佇列時的那一首。
   final bool temporary;
+
+  /// 現在在收聽直播：[currentIndex] 是回到佇列時的那一首，
+  /// [PlaybackDiagnostics.trackKey] 是直播間。
+  final bool live;
 }
 
 /// 播放狀態的唯讀快照（ADR 0025 §決定 5、M3 design §12.3）：控制器既有的狀態與佇列，
@@ -105,7 +111,8 @@ final class PlaybackDiagnostics {
   /// [state] 開始的時間。
   final DateTime stateSince;
 
-  /// 正在播（或要播）的曲目鍵與它的插件 id；沒有曲目時為 `null`。
+  /// 正在播（或要播）的曲目鍵與它的插件 id；收聽直播時是直播間（`插件:房間`）；都沒有時
+  /// 為 `null`。
   final String? trackKey;
   final String? pluginId;
   final StreamDiagnostics? stream;
@@ -178,6 +185,7 @@ final class PlaybackDiagnostics {
         'shuffle': queue.shuffle,
         'loopMode': queue.loopMode.name,
         'temporary': queue.temporary,
+        'live': queue.live,
       },
     };
   }

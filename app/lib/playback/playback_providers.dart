@@ -17,6 +17,7 @@ import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/audio_backends.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/now_playing_publisher.dart';
 import 'package:fmp/playback/play_history_recorder.dart';
 import 'package:fmp/playback/playback_diagnostics.dart';
@@ -29,6 +30,7 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/stream_resolver.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
 import 'package:fmp/settings/playback_settings.dart';
 
 /// 平台宣告的播放能力；沒有時（未驗證的平台）讀它會拋 `Unsupported`。那些
@@ -95,6 +97,11 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
   // 插件被停用或移除（清單改了）時控制器放掉它的前瞻；同樣不重建控制器。
   final pluginChanges = StreamController<void>.broadcast();
   ref.listen(pluginRegistryProvider, (_, _) => pluginChanges.add(null));
+  // `live-info` 移除時用登記時拿到的排程器。控制器在下面的 onDispose 裡釋放、同步移除
+  // 它，而生命週期回呼裡不能碰 ref 或別的 provider（Riverpod 3 的 assert；排程器重排
+  // 時會讀網路狀態）：釋放時排到回呼結束之後再移除。
+  BackgroundScheduler? liveInfoScheduler;
+  var disposing = false;
   final controller = PlaybackController(
     session: PlaybackSession(
       backend: ref.watch(audioBackendProvider),
@@ -117,6 +124,31 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
         (await ref.read(playbackPreferencesProvider.future)).outputDevice?.id,
     saveOutputDevice: (device) =>
         ref.read(playbackPreferencesProvider.notifier).setOutputDevice(device),
+    // 收聽直播時的 `live-info`：固定 1 分鐘，所屬插件停用或移除時排程器一併移除。
+    registerLiveInfoJob: (pluginId, run) {
+      final scheduler = ref.read(backgroundSchedulerProvider.notifier);
+      liveInfoScheduler = scheduler;
+      scheduler.register(
+        SchedulerJob(
+          id: liveInfoJobId,
+          pluginId: pluginId,
+          interval: liveInfoInterval,
+          run: (context) async {
+            if (context.isCurrent) await run();
+          },
+        ),
+      );
+    },
+    unregisterLiveInfoJob: () {
+      final scheduler = liveInfoScheduler;
+      liveInfoScheduler = null;
+      if (scheduler == null) return;
+      if (disposing) {
+        scheduleMicrotask(() => scheduler.unregister(liveInfoJobId));
+      } else {
+        scheduler.unregister(liveInfoJobId);
+      }
+    },
   );
   // 佇列與播放狀態的持久化（design §7.7）：讀回上次的狀態交給控制器（`Idle`、
   // 不解析），再跟著它存。重啟倒退的兩個設定在恢復時讀一次，等資料庫的值讀出來。
@@ -163,6 +195,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
               ?.positionRefresh,
         )..attach(controller));
   ref.onDispose(() {
+    disposing = true;
     publisher?.dispose();
     recorder.dispose();
     store.dispose();
@@ -234,6 +267,14 @@ final playbackStateProvider = StreamProvider<PlaybackState>((ref) async* {
   final controller = ref.watch(playbackControllerProvider);
   yield controller.state;
   yield* controller.states;
+});
+
+/// 收聽中的直播間（標題、人數、階段）：先給目前的值，之後每次改變；不在收聽直播時
+/// 為 `null`。已收聽時間是 [playbackProgressProvider] 的位置。
+final playbackLiveProvider = StreamProvider<LiveInfo?>((ref) async* {
+  final controller = ref.watch(playbackControllerProvider);
+  yield controller.live;
+  yield* controller.liveChanges;
 });
 
 /// 佇列：先給目前的值，之後每次改變。

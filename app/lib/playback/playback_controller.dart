@@ -10,6 +10,7 @@ import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/playback_speed.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_diagnostics.dart';
 import 'package:fmp/playback/playback_event_router.dart';
 import 'package:fmp/playback/playback_events.dart';
@@ -18,6 +19,13 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/playback/recovery_policy.dart';
 import 'package:fmp/playback/stream_resolver.dart';
+import 'package:fmp/plugins/source_dto.dart';
+
+/// 收聽直播時的 `live-info` 排程工作的 id（ADR 0017 §決定 1、ADR 0031 §決定 6）。
+const liveInfoJobId = 'live-info';
+
+/// `live-info` 的間隔：固定 1 分鐘，不可設定。
+const liveInfoInterval = Duration(minutes: 1);
 
 /// 臨時播放回到佇列時要的兩個設定值（「播放」設定組），在回到佇列的當下讀。
 typedef TemporaryReturnSettings = ({bool rememberPosition, Duration rewind});
@@ -51,6 +59,12 @@ typedef OutputDeviceState = ({
 ///
 /// 每個非同步步驟回來時以 [PlaybackSession.generation] 比對，代不同就丟掉結果。
 ///
+/// 收聽直播（[playLive]，ADR 0018 §決定 9）：進入時記下佇列快照（同臨時播放），
+/// 停止或在佇列點一首就回到佇列；直播不持久化、不排前瞻，不算播放歷史。暫停就是
+/// 停止串流，再播放時重新取流。來源結束（不論原因）先問 `liveStatus`，仍在直播才以
+/// [decideLiveRecovery] 的 1／3／9 秒重連；沒在直播停在「直播已結束」，問不到停在
+/// 「查詢失敗」（D10）。直播間的即時資訊在 [live]，由收聽中的 `live-info` 工作更新。
+///
 /// 失敗由 [decideRecovery] 決定怎麼辦（ADR 0018 §決定 7、design §7.5）；計數
 /// （重試、重新解析、換候選、連續跳過）只在這裡改。網路狀態不是 `online` 時停在
 /// 這首等網路，回到 `online` 立刻從原位置重試（design §5.3）。緩衝飢餓以一次性
@@ -62,7 +76,10 @@ final class PlaybackController {
   /// [networkStatus] 在失敗時讀；[networkStatusChanges] 是之後的每次改變。
   /// [preferredOutputDevice] 在輸出裝置清單第一次就緒時讀（記住的裝置 id），
   /// [saveOutputDevice] 在使用者選裝置時寫。[pluginChanges] 在插件清單每次改變
-  /// 時發出（停用、移除的插件不在清單上，它的前瞻要放掉）。
+  /// 時發出（停用、移除的插件不在清單上，它的前瞻要放掉）。[registerLiveInfoJob]
+  /// 在開始收聽時登記 `live-info` 工作（[liveInfoJobId]、[liveInfoInterval]，所屬
+  /// 插件是 `pluginId`），[run] 是每次到期要跑的更新；[unregisterLiveInfoJob] 在
+  /// 停止收聽時移除它。控制器不認得排程器，組裝點接上。
   PlaybackController({
     required this._session,
     required this._log,
@@ -73,6 +90,8 @@ final class PlaybackController {
     required Stream<void> pluginChanges,
     required this._preferredOutputDevice,
     required this._saveOutputDevice,
+    required this._registerLiveInfoJob,
+    required this._unregisterLiveInfoJob,
   }) {
     _sessionEvents = _session.events.listen(_onSessionEvent);
     _progressEvents = _session.progress.listen(_onProgress);
@@ -96,6 +115,9 @@ final class PlaybackController {
   final NetworkStatus Function() _networkStatus;
   final Future<String?> Function() _preferredOutputDevice;
   final Future<void> Function(OutputDevice? device) _saveOutputDevice;
+  final void Function(String pluginId, Future<void> Function() run)
+  _registerLiveInfoJob;
+  final void Function() _unregisterLiveInfoJob;
   late final StreamSubscription<SessionEvent> _sessionEvents;
   late final StreamSubscription<PlaybackProgress> _progressEvents;
   late final StreamSubscription<NetworkStatus> _networkChanges;
@@ -114,6 +136,7 @@ final class PlaybackController {
   final _speedChanges = StreamController<double>.broadcast();
   final _seeks = StreamController<Duration>.broadcast();
   final _plays = StreamController<CountedPlay>.broadcast();
+  final _liveChanges = StreamController<LiveInfo?>.broadcast();
 
   PlaybackState _state = const Idle();
   DateTime _stateSince = clock.now();
@@ -192,7 +215,26 @@ final class PlaybackController {
   bool _candidateSwitched = false;
   int _consecutiveSkips = 0;
 
+  /// 這個直播間已經重連過幾次（[decideLiveRecovery]）；正常收聽 [retryResetAfter]
+  /// 後歸零。
+  int _liveReconnects = 0;
+
+  /// 收聽中的直播間的即時資訊；不在收聽直播時為 `null`。只在 [QueueState.live] 有
+  /// 值時存在（[_syncLive]）。
+  LiveInfo? _liveInfo;
+
+  /// `live-info` 工作登記了，與它所屬的插件（換到別的插件的直播間要重新登記）。
+  bool _liveInfoRegistered = false;
+  String? _liveInfoPlugin;
+
   PlaybackState get state => _state;
+
+  /// 收聽中的直播間（標題、人數、階段）；不在收聽直播時為 `null`。已收聽時間是
+  /// [progress] 的位置。
+  LiveInfo? get live => _liveInfo;
+
+  /// [live] 的變化（進入、更新、結束）。
+  Stream<LiveInfo?> get liveChanges => _liveChanges.stream;
 
   /// 狀態的變化（只在改變時發出）。
   Stream<PlaybackState> get states => _states.stream;
@@ -206,12 +248,18 @@ final class PlaybackController {
     PlaybackProgress? progress,
   }) {
     final track = _queue.state.current;
+    // 收聽直播時沒有曲目：報直播間（插件:房間），串流是直播流。
+    final live = _queue.state.live?.target;
     return PlaybackDiagnostics(
       backend: backend,
       state: _state,
       stateSince: _stateSince,
-      trackKey: track == null ? null : '${track.key}',
-      pluginId: track?.sourceTypeId,
+      trackKey: switch ((track, live)) {
+        (final track?, _) => '${track.key}',
+        (null, final live?) => '${live.pluginId}:${live.roomId}',
+        (null, null) => null,
+      },
+      pluginId: track?.sourceTypeId ?? live?.pluginId,
       stream: _session.streamDiagnostics,
       outputDevice: _session.selectedOutputDevice,
       progress: progress,
@@ -304,9 +352,7 @@ final class PlaybackController {
     required bool muted,
   }) {
     final queue = _queue.state;
-    if (queue.entries.isNotEmpty ||
-        queue.temporary != null ||
-        _state is! Idle) {
+    if (queue.entries.isNotEmpty || queue.isOutsideQueue || _state is! Idle) {
       return false;
     }
     _queue.restore(
@@ -359,6 +405,44 @@ final class PlaybackController {
     final started = _beginTrack();
     _keptRestored = kept;
     return started;
+  }
+
+  /// 收聽 [target]（ADR 0018 §決定 9）：記下佇列快照（目前位置、播放位置、是不是在
+  /// 播），經 `resolveLive` 取流，不排前瞻。進行中的音樂解析結果以代際丟掉、不播出
+  /// 也不再發解析（M3 design §4.9）。已經在收聽時只換直播間，快照維持第一次進入時的
+  /// 那份。
+  Future<void> playLive(LiveTarget target) {
+    if (_queue.state.mode == QueueMode.queue) {
+      _returnLoadsQueueTrack = switch (_state) {
+        Idle() || Failed() => false,
+        Loading() || Playing() || Paused() || Buffering() || Retrying() => true,
+      };
+    }
+    final kept = switch ((_restoredPosition, _queue.state.current)) {
+      (final position?, final current?)
+          when _queue.state.mode == QueueMode.queue =>
+        (position: position, key: current.key),
+      _ => _keptRestored,
+    };
+    _queue.playLive(target, position: _position, playing: _wantsSound);
+    _liveInfo = LiveInfo.of(target);
+    _emitLive();
+    _emitQueue();
+    _consecutiveSkips = 0;
+    _setPlayWhenReady(true);
+    final started = _beginLive();
+    _keptRestored = kept;
+    return started;
+  }
+
+  /// 停止收聽、回到進入前的佇列（規則同臨時播放回到佇列）。不在收聽直播時什麼都
+  /// 不做。
+  Future<void> stopLive() {
+    if (_queue.state.mode != QueueMode.live) return Future.value();
+    final step = _queue.stopLive();
+    _emitQueue();
+    _consecutiveSkips = 0;
+    return _follow(step);
   }
 
   /// 加在佇列最後。會超過佇列上限就整批不加、發 [QueueFull]，回傳 `false`。
@@ -442,6 +526,16 @@ final class PlaybackController {
 
   Future<void> play() async {
     _setPlayWhenReady(true);
+    if (_queue.state.mode == QueueMode.live) {
+      switch (_state) {
+        case Playing() || Loading() || Buffering() || Retrying():
+          return;
+        // 暫停就是停止串流；停在「直播已結束」「查詢失敗」或失敗時按播放也是重新取流。
+        case Paused() || Idle() || Failed():
+          _liveReconnects = 0;
+          return _loadLive();
+      }
+    }
     switch (_state) {
       case Paused() || Loading() || Buffering():
         if (_session.hasSource) {
@@ -466,6 +560,18 @@ final class PlaybackController {
 
   Future<void> pause() async {
     _setPlayWhenReady(false);
+    if (_queue.state.mode == QueueMode.live) {
+      switch (_state) {
+        case Paused() || Idle() || Failed():
+          return;
+        // 直播沒有可回頭的位置：暫停就是停止串流，再按播放時重新取流。
+        case Playing() || Loading() || Buffering() || Retrying():
+          _cancelRetry();
+          _session.newGeneration();
+          _setState(const Paused());
+          return _session.stop();
+      }
+    }
     switch (_state) {
       case Playing() || Buffering() || Loading():
         if (_session.hasSource) await _session.pause();
@@ -497,6 +603,8 @@ final class PlaybackController {
   }
 
   Future<void> seek(Duration position) async {
+    // 直播沒有可 seek 的位置。
+    if (_queue.state.mode == QueueMode.live) return;
     if (!_seeks.isClosed) _seeks.add(position);
     if (!_session.hasSource) {
       _resumeAt = position;
@@ -594,6 +702,7 @@ final class PlaybackController {
   Future<void> dispose() async {
     _cancelRetry();
     _stallTimer?.cancel();
+    _unregisterLiveInfo();
     await _outputDeviceLists?.cancel();
     // dispose 的同步部分先換一代：還在進行的解析回來時不再開流或設定前瞻。
     await _session.dispose();
@@ -611,6 +720,7 @@ final class PlaybackController {
     await _outputDeviceStates.close();
     await _seeks.close();
     await _plays.close();
+    await _liveChanges.close();
   }
 
   // ---- 換曲目 ---------------------------------------------------------------
@@ -715,6 +825,7 @@ final class PlaybackController {
     _retries = 0;
     _reResolves = 0;
     _candidateSwitched = false;
+    _liveReconnects = 0;
   }
 
   /// 解析（或用 [prepared]）並交給後端，從 [position] 開始。插件說只有試聽
@@ -723,6 +834,8 @@ final class PlaybackController {
     Duration position = Duration.zero,
     ResolvedStream? prepared,
   }) async {
+    // 收聽直播時重試、等網路後的重新開流都走直播的路徑。
+    if (_queue.state.mode == QueueMode.live) return _loadLive();
     final track = _queue.state.current;
     if (track == null) return;
     final key = track.key;
@@ -794,6 +907,7 @@ final class PlaybackController {
         resumeAt: _resumeAt,
         wantsSound: _wantsSound,
         pausedByInterruption: _pausedByInterruption,
+        live: _queue.state.mode == QueueMode.live,
       ),
     );
     switch (action) {
@@ -828,7 +942,10 @@ final class PlaybackController {
           _consecutiveSkips = 0;
           _countPlay();
         }
-        if (first) unawaited(_session.prepareLookAhead(_nextTrack));
+        // 直播不排前瞻。
+        if (first && _queue.state.mode != QueueMode.live) {
+          unawaited(_session.prepareLookAhead(_nextTrack));
+        }
       case AdoptLookAhead():
         // 單曲循環的前瞻是同一首：佇列不動。佇列的前瞻一定是佇列當下的下一首
         // （每次編輯都重新指定），臨時播放中沒有佇列的前瞻。
@@ -874,7 +991,11 @@ final class PlaybackController {
   void _onProgress(PlaybackProgress progress) {
     final last = _lastPosition;
     _lastPosition = progress.position;
-    if (last == null || _state is! Playing || _retries == 0) return;
+    if (last == null ||
+        _state is! Playing ||
+        (_retries == 0 && _liveReconnects == 0)) {
+      return;
+    }
     final step = progress.position - last;
     if (step <= Duration.zero || step > _maxProgressStep) return;
     _playedSinceLoad += step;
@@ -885,6 +1006,7 @@ final class PlaybackController {
       fields: {'track': '${_queue.state.current?.key}', 'retries': _retries},
     );
     _retries = 0;
+    _liveReconnects = 0;
   }
 
   // ---- 恢復 -----------------------------------------------------------------
@@ -893,7 +1015,9 @@ final class PlaybackController {
     PlaybackFailure failure,
     AppError error,
     Duration position,
-  ) => _apply(_decide(failure, error), error, position);
+  ) => _queue.state.mode == QueueMode.live
+      ? _recoverLive(failure, error)
+      : _apply(_decide(failure, error), error, position);
 
   /// 以目前的計數、網路狀態與設定問 [decideRecovery]，記一筆 log。
   RecoveryAction _decide(PlaybackFailure failure, AppError error) {
@@ -1087,6 +1211,23 @@ final class PlaybackController {
 
   /// 緩衝飢餓（[bufferingStallTimeout]）：作廢網址、交給 [decideRecovery]。
   void _onBufferingStalled() {
+    if (_queue.state.live case final live?) {
+      _log.warning(
+        'Buffering stalled',
+        tag: _tag,
+        fields: {
+          'live': '${live.target.pluginId}:${live.target.roomId}',
+          'seconds': bufferingStallTimeout.inSeconds,
+        },
+      );
+      unawaited(
+        _recoverLive(
+          const BufferingStalled(),
+          NetworkError(pluginId: live.target.pluginId),
+        ),
+      );
+      return;
+    }
     final track = _queue.state.current;
     if (track == null) return;
     _log.warning(
@@ -1261,6 +1402,212 @@ final class PlaybackController {
   }
 
   void _emitQueue() {
+    _syncLive();
     if (!_queueStates.isClosed) _queueStates.add(_queue.state);
+  }
+
+  // ---- 直播 -----------------------------------------------------------------
+
+  /// 開始收聽 [QueueState.live]：重設這次收聽的恢復計數，登記 `live-info`。
+  Future<void> _beginLive() {
+    _restoredPosition = null;
+    _keptRestored = null;
+    _startedFromRestore = false;
+    // 直播不算播放歷史。
+    _countPlayOnAudible = false;
+    _resetTrackCounters();
+    return _loadLive();
+  }
+
+  /// 取直播流並交給後端（從 0 開始，沒有可回頭的位置）。取流失敗交給
+  /// [_recoverLive]。
+  Future<void> _loadLive() async {
+    final live = _queue.state.live;
+    if (live == null) return;
+    final target = live.target;
+    final generation = _session.beginRequest(
+      TrackKeyParts(sourceTypeId: target.pluginId, sourceId: target.roomId),
+      position: Duration.zero,
+    );
+    _cancelRetry();
+    _resumeAt = Duration.zero;
+    _playedSinceLoad = Duration.zero;
+    _lastPosition = null;
+    _setPreview(null);
+    _setLivePhase(LivePhase.listening);
+    _registerLiveInfo();
+    _setState(const Loading());
+    _log.info(
+      'Live requested',
+      tag: _tag,
+      fields: {'plugin': target.pluginId, 'room': target.roomId},
+    );
+    final ResolvedStream stream;
+    try {
+      stream = await _session.resolveLive(target.pluginId, target.roomId);
+    } on AppError catch (error) {
+      if (generation != _session.generation) return;
+      _log.report('Live stream resolution failed', error, tag: _tag);
+      return _recoverLive(ResolveFailed(error), error);
+    }
+    if (generation != _session.generation) return;
+    await _session.open(stream, position: Duration.zero, play: _playWhenReady);
+  }
+
+  /// 直播失敗後怎麼辦（[decideLiveRecovery]）。要重連時先問 `liveStatus`，仍在直播
+  /// 才等 [ConfirmThenReconnect.delay] 後重新取流；沒在直播停在「直播已結束」，
+  /// 問不到停在「查詢失敗」。
+  Future<void> _recoverLive(PlaybackFailure failure, AppError error) async {
+    final live = _queue.state.live;
+    if (live == null) return;
+    final target = live.target;
+    final action = decideLiveRecovery(
+      failure,
+      network: _networkStatus(),
+      reconnects: _liveReconnects,
+    );
+    _log.info(
+      'Live recovery',
+      tag: _tag,
+      fields: {
+        'plugin': target.pluginId,
+        'room': target.roomId,
+        'error': error.typeName,
+        'reconnects': _liveReconnects,
+        'action': switch (action) {
+          ConfirmThenReconnect() => 'confirmThenReconnect',
+          LiveWaitForNetwork() => 'waitForNetwork',
+          LiveGiveUp() => 'giveUp',
+          LiveStop() => 'stop',
+        },
+      },
+    );
+    switch (action) {
+      case LiveStop():
+        return _haltLive(Failed(error), LivePhase.listening);
+      case LiveGiveUp():
+        return _haltLive(const Idle(), LivePhase.ended);
+      case LiveWaitForNetwork():
+        // 同 [WaitForNetwork]：不計次數，網路回來時重新取流。
+        final generation = _session.newGeneration();
+        _waitingForNetwork = generation;
+        _setState(Retrying(error: error, attempt: 0, delay: null));
+        return _session.stop();
+      case ConfirmThenReconnect(:final delay, :final attempt):
+        final generation = _session.newGeneration();
+        _cancelRetry();
+        _setState(const Loading());
+        unawaited(_session.stop());
+        final LiveRoom room;
+        try {
+          room = await _session.liveStatus(target.pluginId, target.roomId);
+        } on AppError catch (statusError) {
+          if (generation != _session.generation) return;
+          _log.report('Live status check failed', statusError, tag: _tag);
+          return _haltLive(Failed(statusError), LivePhase.statusFailed);
+        }
+        if (generation != _session.generation) return;
+        _applyRoom(room);
+        if (room.status != LiveRoomStatus.live) {
+          return _haltLive(const Idle(), LivePhase.ended);
+        }
+        _liveReconnects++;
+        _setState(Retrying(error: error, attempt: attempt, delay: delay));
+        _retryTimer = Timer(delay, () {
+          _retryTimer = null;
+          if (generation == _session.generation) unawaited(_loadLive());
+        });
+    }
+  }
+
+  /// 停下收聽（直播已結束、查詢失敗、失敗）但留在直播模式：[state] 與 [phase] 讓
+  /// 畫面說明原因，`live-info` 不再更新；按播放會重新取流。
+  Future<void> _haltLive(PlaybackState state, LivePhase phase) {
+    _clearInterruption();
+    _session.newGeneration();
+    _cancelRetry();
+    _setLivePhase(phase);
+    _unregisterLiveInfo();
+    _setState(state);
+    return _session.stop();
+  }
+
+  /// 每次 `live-info` 到期：更新標題與人數。失敗不中斷播放，下一次再試。
+  Future<void> _refreshLiveInfo() async {
+    final target = _liveInfo?.target;
+    if (target == null) return;
+    final LiveRoom room;
+    try {
+      room = await _session.liveStatus(target.pluginId, target.roomId);
+    } on AppError catch (error) {
+      _log.warning(
+        'Live info refresh failed',
+        tag: _tag,
+        error: error,
+        fields: {'plugin': target.pluginId, 'room': target.roomId},
+      );
+      return;
+    }
+    // 等的期間換台或停止了：丟掉。
+    if (_liveInfo?.target != target) return;
+    _applyRoom(room);
+  }
+
+  void _applyRoom(LiveRoom room) {
+    final info = _liveInfo;
+    if (info == null) return;
+    _setLive(
+      info.copyWith(
+        title: room.title,
+        hostName: room.hostName,
+        artwork: room.artwork.isEmpty
+            ? null
+            : [
+                for (final image in room.artwork)
+                  TrackArtwork(url: image.url, width: image.width),
+              ],
+        online: room.online,
+      ),
+    );
+  }
+
+  void _setLivePhase(LivePhase phase) {
+    final info = _liveInfo;
+    if (info == null || info.phase == phase) return;
+    _setLive(info.copyWith(phase: phase));
+  }
+
+  void _setLive(LiveInfo? info) {
+    if (info == _liveInfo) return;
+    _liveInfo = info;
+    _emitLive();
+  }
+
+  void _emitLive() {
+    if (!_liveChanges.isClosed) _liveChanges.add(_liveInfo);
+  }
+
+  /// 佇列離開了直播（停止、點選佇列、臨時播放、清空）：放掉直播資訊與 `live-info`。
+  void _syncLive() {
+    if (_queue.state.live != null || _liveInfo == null) return;
+    _liveInfo = null;
+    _unregisterLiveInfo();
+    _emitLive();
+  }
+
+  void _registerLiveInfo() {
+    final pluginId = _liveInfo?.target.pluginId;
+    if (pluginId == null) return;
+    if (_liveInfoRegistered && _liveInfoPlugin == pluginId) return;
+    _liveInfoRegistered = true;
+    _liveInfoPlugin = pluginId;
+    _registerLiveInfoJob(pluginId, _refreshLiveInfo);
+  }
+
+  void _unregisterLiveInfo() {
+    if (!_liveInfoRegistered) return;
+    _liveInfoRegistered = false;
+    _liveInfoPlugin = null;
+    _unregisterLiveInfoJob();
   }
 }

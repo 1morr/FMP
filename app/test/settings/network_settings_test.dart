@@ -96,6 +96,70 @@ void main() {
     });
   });
 
+  group('the radio status interval', () {
+    Network resolve(NetworkSettings stored) =>
+        resolveNetwork(stored, defaultCacheLimitMebibytes: 256);
+
+    test('is 5 minutes when never set', () {
+      expect(
+        resolve(NetworkSettings.empty).radioStatusInterval,
+        const Duration(minutes: 5),
+      );
+    });
+
+    test('0 minutes means off', () {
+      expect(
+        resolve(const NetworkSettings(radioStatusIntervalMinutes: 0))
+            .radioStatusInterval,
+        isNull,
+      );
+    });
+
+    test('a value the user set survives, and the default is not stored', () {
+      expect(
+        resolve(const NetworkSettings(radioStatusIntervalMinutes: 1))
+            .radioStatusInterval,
+        const Duration(minutes: 1),
+      );
+    });
+
+    test('the notifier accepts only off, 1, 3, 5 and 10', () async {
+      final container = containerFor(memoryDatabase());
+      final events = networks(container);
+      await events.moveNext();
+      final notifier = container.read(networkProvider.notifier);
+
+      for (final minutes in [2, 4, 15, -1, 60]) {
+        expect(
+          () => notifier.setRadioStatusInterval(minutes),
+          throwsArgumentError,
+          reason: '$minutes',
+        );
+      }
+      for (final minutes in radioStatusIntervalOptionsMinutes) {
+        await notifier.setRadioStatusInterval(minutes);
+        await events.moveNext();
+        expect(events.current.stored.radioStatusIntervalMinutes, minutes);
+      }
+    });
+
+    test('null clears it back to the default', () async {
+      final container = containerFor(memoryDatabase());
+      final events = networks(container);
+      await events.moveNext();
+      final notifier = container.read(networkProvider.notifier);
+      await notifier.setRadioStatusInterval(0);
+      await events.moveNext();
+      expect(events.current.radioStatusInterval, isNull);
+
+      await notifier.setRadioStatusInterval(null);
+
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.radioStatusInterval, const Duration(minutes: 5));
+      expect(events.current.stored, NetworkSettings.empty);
+    });
+  });
+
   group('NetworkNotifier', () {
     test('an unset limit reads as the platform default', () async {
       final events = networks(

@@ -163,6 +163,15 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - `SchedulerRunsRepository`：`all()`（排程器啟動時一次讀完）、`record(jobId, at)`（upsert）。工作移除時不刪列：同 id 再登記時沿用。
   時間存毫秒，排程器寫入前也先取到毫秒，記憶體與資料庫的到期時間才一致。
 
+## 電台（`radio_repository.dart`，schema v12）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `radio_stations` 與 § 電台。
+
+- `RadioRepository`：`watch`／`list`（依 `sort_order`、再依 `id`）、`add`、`remove`、`reorder`、`updateStatus`，只加有人呼叫的方法。`add` 在
+  transaction 裡先查（插件, 房間）再取 `max(sort_order) + 1`，重複回 `false`；刪掉中間的列後 `sort_order` 會有空洞，無妨（只比大小）。
+- `RadioStation` 的封面存 `tracks.artwork_json` 同一種 JSON（重用 `TracksRepository.encodeArtwork`／`decodeArtwork`）。「查詢失敗」不是它的欄位。
+- 測試：`radio_repository_test.dart`；`stored format` 直接查表斷言狀態字串與毫秒。
+
 ## 開發者設定（`developer_settings_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `developer_settings`（schema v9）與 § 設定的「開發者」組。
