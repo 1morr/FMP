@@ -384,14 +384,56 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "login"]',
-        '"capabilities": ["search", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "login"]',
+        '"capabilities": ["search", "live", "login"]',
       );
 
       expect(
         await runContract(directory),
         contains('checks.json: resolveStream is not a declared capability'),
       );
+    });
+
+    test('a live check for a plugin without the live capability', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        '"capabilities": ["search", "resolveStream", "live", "login"]',
+        '"capabilities": ["search", "resolveStream", "login"]',
+      );
+
+      expect(
+        await runContract(directory),
+        contains('checks.json: live is not a declared capability'),
+      );
+    });
+
+    test('a live check that expects the wrong room state', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        _checks,
+        '"input": { "roomId": "live-ok" }',
+        '"input": { "roomId": "live-broken" }',
+      );
+
+      expect(
+        await runContract(directory),
+        contains(contains('expected success')),
+      );
+    });
+
+    test('a live check that renames an unrelated thing stays green', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        "title: 'Test live room'",
+        "title: 'Renamed'",
+      );
+
+      expect(await runContract(directory), isEmpty);
     });
 
     test('an unknown field in checks.json', () async {

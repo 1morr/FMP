@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/design.md", "reason": "§4.1 host API principles, §4.4 live exports, §4.8 checks.json, §12.5 dev tools case runner"}
+{"file": ".trellis/tasks/10-08-m3-sources-accounts-devtools/implement.md", "reason": "General PR rules and §18 checklist"}
+{"file": "docs/adr/0028-host-api-m3-extensions.md", "reason": "live capability contract"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "Capability declaration and plugin loading"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "checks.json, contract runner, fmp-test"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "Plugin layer patterns, DTO shapes, contract tests"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "Testing conventions"}

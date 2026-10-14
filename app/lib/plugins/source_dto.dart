@@ -49,6 +49,20 @@ const sourceDtoShapes = <String, JsonShape>{
   'LoginQrCode': {'qrText': true, 'token': true},
   'LoginQrPoll': {'status': true, 'credentials': false},
   'LoginAccount': {'userId': true, 'displayName': true, 'avatar': false},
+  'LiveSearchQuery': {'keyword': true, 'page': true, 'status': false},
+  'LiveSearchPage': {'items': true, 'hasMore': true},
+  'LiveRoom': {
+    'roomId': true,
+    'title': true,
+    'hostName': false,
+    'artwork': false,
+    'status': true,
+    'online': false,
+  },
+  'LiveRoomQuery': {'roomId': true},
+  'LiveUrlQuery': {'url': true},
+  'LiveRoomRef': {'roomId': true},
+  'LiveStreamRequest': {'roomId': true, 'formats': true},
 };
 
 /// 搜尋的輸入。
@@ -507,4 +521,201 @@ final class LoginAccount {
 
   /// 多尺寸頭像；沒有就是空的。
   final List<Artwork> avatar;
+}
+
+/// 直播間的狀態（`fmp-plugin.d.ts` 的 `LiveRoomStatus`）。
+enum LiveRoomStatus {
+  live,
+  offline;
+
+  /// 插件介面上的名稱，與 [name] 分開寫死。
+  String get wireName => switch (this) {
+    live => 'live',
+    offline => 'offline',
+  };
+
+  static LiveRoomStatus? fromWireName(String name) {
+    for (final status in values) {
+      if (status.wireName == name) return status;
+    }
+    return null;
+  }
+}
+
+/// `liveSearch` 的輸入（ADR 0028 §決定 3）。
+@immutable
+final class LiveSearchQuery {
+  LiveSearchQuery({required this.keyword, this.page = 1, this.status}) {
+    if (keyword.trim().isEmpty) {
+      throw ArgumentError.value(keyword, 'keyword', 'must not be empty');
+    }
+    RangeError.checkValueInInterval(page, 1, 1 << 31, 'page');
+  }
+
+  final String keyword;
+
+  /// 從 1 開始。
+  final int page;
+
+  /// 「開播中／未開播」篩選；`null` 是全部。
+  final LiveRoomStatus? status;
+
+  Map<String, Object?> toJson() => {
+    'keyword': keyword,
+    'page': page,
+    if (status case final status?) 'status': status.wireName,
+  };
+}
+
+/// `liveSearch` 的一頁結果。
+@immutable
+final class LiveSearchPage {
+  const LiveSearchPage({required this.items, required this.hasMore});
+
+  factory LiveSearchPage.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'LiveSearchPage';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final hasMore = fields.optionalBool('hasMore');
+    return LiveSearchPage(
+      items: List.unmodifiable([
+        for (final (index, item) in fields.list('items').indexed)
+          LiveRoom._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: '$path.items[$index]',
+          ),
+      ]),
+      hasMore:
+          hasMore ?? (throw const FormatException('$path.hasMore: missing')),
+    );
+  }
+
+  final List<LiveRoom> items;
+  final bool hasMore;
+}
+
+/// 一個直播間（ADR 0028 §決定 3）。
+@immutable
+final class LiveRoom {
+  const LiveRoom({
+    required this.roomId,
+    required this.title,
+    this.hostName,
+    this.artwork = const [],
+    required this.status,
+    this.online,
+  });
+
+  /// 解碼插件回傳的 `LiveRoom`（`liveStatus` 的回傳值）。
+  factory LiveRoom.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) => LiveRoom._fromJson(json, allowedHosts: allowedHosts, path: 'LiveRoom');
+
+  factory LiveRoom._fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+    required String path,
+  }) {
+    final fields = JsonFields(json, sourceDtoShapes['LiveRoom']!, path: path);
+    final name = fields.string('status');
+    final status = LiveRoomStatus.fromWireName(name);
+    if (status == null) {
+      throw FormatException('$path.status: unknown "$name"');
+    }
+    return LiveRoom(
+      roomId: fields.nonEmptyString('roomId'),
+      title: fields.nonEmptyString('title'),
+      hostName: fields.optionalString('hostName'),
+      artwork: List.unmodifiable([
+        for (final (index, item)
+            in (fields.optionalList('artwork') ?? []).indexed)
+          Artwork._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: '$path.artwork[$index]',
+          ),
+      ]),
+      status: status,
+      online: fields.optionalInteger('online'),
+    );
+  }
+
+  /// 音源內的直播間 id。
+  final String roomId;
+  final String title;
+  final String? hostName;
+  final List<Artwork> artwork;
+  final LiveRoomStatus status;
+
+  /// 觀看人數；不知道就是 `null`。
+  final int? online;
+}
+
+/// `liveStatus` 的輸入（也是 checks.json 的 `live` 案例的輸入）。
+@immutable
+final class LiveRoomQuery {
+  LiveRoomQuery({required this.roomId}) {
+    if (roomId.trim().isEmpty) {
+      throw ArgumentError.value(roomId, 'roomId', 'must not be empty');
+    }
+  }
+
+  final String roomId;
+
+  Map<String, Object?> toJson() => {'roomId': roomId};
+}
+
+/// `liveRoomFromUrl` 的輸入。
+@immutable
+final class LiveUrlQuery {
+  LiveUrlQuery({required this.url}) {
+    if (url.trim().isEmpty) {
+      throw ArgumentError.value(url, 'url', 'must not be empty');
+    }
+  }
+
+  final String url;
+
+  Map<String, Object?> toJson() => {'url': url};
+}
+
+/// `liveRoomFromUrl` 認得網址時的回傳值。
+@immutable
+final class LiveRoomRef {
+  const LiveRoomRef({required this.roomId});
+
+  factory LiveRoomRef.fromJson(Object? json) {
+    const path = 'LiveRoomRef';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    return LiveRoomRef(roomId: fields.nonEmptyString('roomId'));
+  }
+
+  final String roomId;
+}
+
+/// `resolveLive` 的輸入。
+@immutable
+final class LiveStreamRequest {
+  LiveStreamRequest({required this.roomId, required this.formats}) {
+    if (roomId.trim().isEmpty) {
+      throw ArgumentError.value(roomId, 'roomId', 'must not be empty');
+    }
+    if (formats.isEmpty) {
+      throw ArgumentError.value(formats, 'formats', 'must not be empty');
+    }
+  }
+
+  final String roomId;
+
+  /// 平台能播的格式，依使用者的格式偏好排過（同 [StreamRequest.formats]）。
+  final List<StreamFormat> formats;
+
+  Map<String, Object?> toJson() => {
+    'roomId': roomId,
+    'formats': [for (final format in formats) format.toJson()],
+  };
 }

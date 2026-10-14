@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`live`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -43,6 +43,20 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
     登入（`loginVerify`）清掉狀態。
   - 沒有進行中的 `expired` 時，`loginRefresh` 回 `null`：重啟 App 後的啟動刷新跑一次，
     帳號頁的最後刷新是「不需要更新」。
+- 直播（`live`，不連網，給電台的實機驗證）：固定五個直播間，`liveSearch` 任何關鍵字都
+  回這五個（`status` 篩選有效，`hasMore` 為假；關鍵字剛好是 `fail` 時以 `RateLimited` 失敗），
+  `liveRoomFromUrl` 認 `https://fmp.test/live/<roomId>`（roomId 是下面五個之一，其他網址
+  回 `null`）：
+
+  | roomId | `liveStatus` | `resolveLive` | 用途 |
+  |---|---|---|---|
+  | `live-ok` | 開播中，人數 42 | `live.wav`（60 秒） | 一般收聽 |
+  | `live-offline` | 未開播 | `NotFound`（錯誤裡沒有「未開播」；`Unavailable` 的原因都會誤導） | 未開播 |
+  | `live-drop` | 一律開播中 | `tone.wav`（2 秒） | 提前結束後重連：每次重連又在 2 秒後結束 |
+  | `live-ended` | 插件的 isolate 活著期間第一次查是開播中，之後都是未開播 | `tone.wav` | 提前結束後問狀態，得到「直播已結束」 |
+  | `live-broken` | `NetworkError` | `NetworkError` | 查詢失敗（搜尋結果裡標開播中） |
+
+  `live-ended` 的次數不跨 App 重啟；要再看一次「開播中」就重開 App。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -56,10 +70,17 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 
 以 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 釋出至公有領域。
 
+## `live.wav` 的來源與授權
+
+`live-ok` 直播間的串流：60 秒 220 Hz 正弦波（約 -20 dBFS，整數個週期），8 kHz 單聲道
+16-bit PCM，960 044 bytes。2026-10-14 以 Python 標準庫 `wave` 合成，沒有取材任何既有錄音，
+以 CC0 1.0 釋出至公有領域。選 16-bit 是因為各平台後端都確定能播；8-bit 約一半大小，
+但沒有實機驗過。
+
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream` 與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

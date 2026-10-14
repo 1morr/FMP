@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（search、resolveStream，login 跑 loginVerify）；
+// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，login 跑 loginVerify）；
 // 其他能力的鍵是不認得的欄位，整個檔案拒收。
 //
 // 形狀與 `lib/plugins/types/fmp-plugin.d.ts` 的 `FmpChecks` 等一致
@@ -19,7 +19,13 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 /// checks.json 的欄位表，鍵是 `fmp-plugin.d.ts` 裡的 interface 名稱。
 const checkShapes = <String, JsonShape>{
-  'FmpChecks': {'search': false, 'resolveStream': false, 'login': false},
+  'FmpChecks': {
+    'search': false,
+    'resolveStream': false,
+    'live': false,
+    'login': false,
+  },
+  'FmpLiveCheck': {'input': true, 'expect': true},
   'FmpSearchCheck': {'input': true, 'expect': true},
   'FmpResolveStreamCheck': {
     'input': true,
@@ -38,6 +44,7 @@ const _capabilities = {
     check: 'FmpResolveStreamCheck',
     item: 'StreamCandidate',
   ),
+  PluginCapability.live: (check: 'FmpLiveCheck', item: 'LiveRoom'),
   PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
@@ -53,7 +60,8 @@ final class PluginCheck {
 
   final PluginCapability capability;
 
-  /// [SearchQuery]、[StreamRequest] 或 [LoginCredentials]（login 的 `loginVerify`）。
+  /// [SearchQuery]、[StreamRequest]、[LiveRoomQuery]（live 的 `liveStatus`）或
+  /// [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
 
@@ -80,6 +88,7 @@ final class PluginCheck {
       switch (input) {
         final SearchQuery query => plugin.search(query),
         final StreamRequest request => plugin.resolveStream(request),
+        final LiveRoomQuery query => plugin.liveStatus(query),
         final LoginCredentials fixture => plugin.loginVerify(
           credentials ?? fixture,
         ),
@@ -123,6 +132,7 @@ PluginCheck _check(
     input = switch (capability) {
       PluginCapability.search => _searchQuery(fields.raw('input'), path),
       PluginCapability.login => _credentials(fields.raw('input'), path),
+      PluginCapability.live => _liveRoomQuery(fields.raw('input'), path),
       _ => _streamRequest(fields.raw('input'), path),
     };
   } on ArgumentError catch (error) {
@@ -222,6 +232,15 @@ SearchQuery _searchQuery(Object? json, String path) {
     keyword: fields.string('keyword'),
     page: fields.integer('page', min: 1),
   );
+}
+
+LiveRoomQuery _liveRoomQuery(Object? json, String path) {
+  final fields = JsonFields(
+    json,
+    sourceDtoShapes['LiveRoomQuery']!,
+    path: '$path.input',
+  );
+  return LiveRoomQuery(roomId: fields.string('roomId'));
 }
 
 StreamRequest _streamRequest(Object? json, String path) {
@@ -382,7 +401,18 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
     for (final candidate in stream.candidates) candidateFields(candidate),
   ],
   final LoginAccount account => [accountFields(account)],
+  final LiveRoom room => [liveRoomFields(room)],
   _ => throw ArgumentError.value(result, 'result'),
+};
+
+/// [LiveRoom] 的欄位，名稱同 `sourceDtoShapes['LiveRoom']`（`status` 是插件介面上的名稱）。
+Map<String, Object?> liveRoomFields(LiveRoom room) => {
+  'roomId': room.roomId,
+  'title': room.title,
+  'hostName': room.hostName,
+  'artwork': room.artwork,
+  'status': room.status.wireName,
+  'online': room.online,
 };
 
 /// [LoginAccount] 的欄位，名稱同 `sourceDtoShapes['LoginAccount']`。

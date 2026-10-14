@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:yaml/yaml.dart';
 
@@ -151,6 +152,128 @@ void main() {
         expect((await resolve(second)).candidates, hasLength(1));
       },
     );
+  });
+
+  // 電台的實機驗證（ADR 0028 §決定 3）：五個固定的直播間，不連網。
+  group('live rooms', () {
+    late ScriptSourcePlugin plugin;
+    final formats = [StreamFormat(container: 'wav', codec: 'pcm_s16le')];
+
+    setUp(() async {
+      plugin = await PluginHarness().load(testPluginFile.readAsStringSync());
+    });
+
+    Future<LiveRoom> status(String roomId) =>
+        plugin.liveStatus(LiveRoomQuery(roomId: roomId));
+    Future<Uri> stream(String roomId) async => (await plugin.resolveLive(
+      LiveStreamRequest(roomId: roomId, formats: formats),
+    )).candidates.first.url;
+    Future<List<String>> search([LiveRoomStatus? status]) async => [
+      for (final room in (await plugin.liveSearch(
+        LiveSearchQuery(keyword: 'any', status: status),
+      )).items)
+        room.roomId,
+    ];
+
+    test('search returns the five rooms and filters by status', () async {
+      const all = [
+        'live-ok',
+        'live-offline',
+        'live-drop',
+        'live-ended',
+        'live-broken',
+      ];
+      final page = await plugin.liveSearch(LiveSearchQuery(keyword: 'x'));
+
+      expect(page.hasMore, isFalse);
+      expect(await search(), all);
+      expect(await search(LiveRoomStatus.offline), ['live-offline']);
+      expect(
+        await search(LiveRoomStatus.live),
+        all.where((id) => id != 'live-offline'),
+      );
+    });
+
+    test('searching "fail" is rate limited, other keywords are not', () async {
+      await expectLater(
+        plugin.liveSearch(LiveSearchQuery(keyword: 'fail')),
+        throwsA(isA<RateLimited>()),
+      );
+      expect(
+        (await plugin.liveSearch(LiveSearchQuery(keyword: 'failure'))).items,
+        isNotEmpty,
+      );
+    });
+
+    test('only https://fmp.test/live/<known room> is a room url', () async {
+      Future<String?> room(String url) async =>
+          (await plugin.liveRoomFromUrl(LiveUrlQuery(url: url)))?.roomId;
+
+      expect(await room('https://fmp.test/live/live-ok'), 'live-ok');
+      expect(await room('https://fmp.test/live/live-broken'), 'live-broken');
+      expect(await room('https://fmp.test/live/unknown'), isNull);
+      expect(await room('https://fmp.test/live/live-ok/extra'), isNull);
+      expect(await room('https://other.test/live/live-ok'), isNull);
+    });
+
+    test(
+      'live-ok is live with a fixed audience and plays the 60 s file',
+      () async {
+        final room = await status('live-ok');
+        final url = await stream('live-ok');
+
+        expect(room.status, LiveRoomStatus.live);
+        expect(room.online, 42);
+        expect(url.scheme, 'asset');
+        expect(url.path, '/test/fixtures/plugins/test_plugin/live.wav');
+        final bytes = File(url.path.substring(1)).lengthSync();
+        // 8 kHz 單聲道 16-bit、60 秒，加 44 bytes 的標頭。
+        expect(bytes, 8000 * 2 * 60 + 44);
+      },
+    );
+
+    test('live-offline is offline and cannot be resolved', () async {
+      expect((await status('live-offline')).status, LiveRoomStatus.offline);
+      await expectLater(stream('live-offline'), throwsA(isA<NotFound>()));
+    });
+
+    test(
+      'live-drop is always live and streams the 2 s tone each time',
+      () async {
+        for (var i = 0; i < 3; i++) {
+          expect((await status('live-drop')).status, LiveRoomStatus.live);
+          expect(
+            (await stream('live-drop')).path,
+            '/test/fixtures/plugins/test_plugin/tone.wav',
+          );
+        }
+      },
+    );
+
+    test('live-ended is live on the first check and offline after', () async {
+      expect((await status('live-ended')).status, LiveRoomStatus.live);
+      expect((await status('live-ended')).status, LiveRoomStatus.offline);
+      expect((await status('live-ended')).status, LiveRoomStatus.offline);
+      // 每個 isolate 各自算：換一個插件從頭開始。
+      final fresh = await PluginHarness().load(
+        testPluginFile.readAsStringSync(),
+      );
+      expect(
+        (await fresh.liveStatus(LiveRoomQuery(roomId: 'live-ended'))).status,
+        LiveRoomStatus.live,
+      );
+    });
+
+    test('live-broken fails with NetworkError, never offline', () async {
+      await expectLater(status('live-broken'), throwsA(isA<NetworkError>()));
+      await expectLater(stream('live-broken'), throwsA(isA<NetworkError>()));
+      expect(await search(LiveRoomStatus.live), contains('live-broken'));
+    });
+
+    test('an unknown room is NotFound', () async {
+      await expectLater(status('nope'), throwsA(isA<NotFound>()));
+      await expectLater(stream('nope'), throwsA(isA<NotFound>()));
+    });
   });
 
   test('the test plugin is bundled only in the dev flavor', () {

@@ -186,6 +186,35 @@ void main() {
     },
   );
 
+  test('a live case runs liveStatus and shows the room', () async {
+    plugin('test_plugin');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.live);
+
+    final shown = result(container, 'fmp-test', PluginCapability.live)!;
+    expect(shown.outcome, DevCaseOutcome.passed, reason: '${shown.problems}');
+    expect(shown.value, contains('Test live room'));
+    expect(shown.value, contains('"status": "live"'));
+  });
+
+  test('a live case against a broken room fails, not offline', () async {
+    final directory = plugin('test_plugin');
+    contract.edit(
+      directory,
+      'checks.json',
+      '"input": { "roomId": "live-ok" }',
+      '"input": { "roomId": "live-broken" }',
+    );
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.live);
+
+    final shown = result(container, 'fmp-test', PluginCapability.live)!;
+    expect(shown.outcome, DevCaseOutcome.failed);
+    expect(shown.errorType, 'NetworkError');
+  });
+
   group('record', () {
     Future<ProviderContainer> recording() async {
       plugin('http_test_plugin', keepFixtures: false);

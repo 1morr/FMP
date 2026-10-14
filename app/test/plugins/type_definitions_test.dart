@@ -213,6 +213,28 @@ export function shape() {
     },
   );
 
+  test('the live room statuses match LiveRoomStatus', () {
+    expect(_union(_dts, 'LiveRoomStatus'), {
+      for (final status in LiveRoomStatus.values) status.wireName,
+    });
+    // 變異：少一個值就對不上。
+    expect(
+      _union(_dts.replaceFirst(" | 'offline'", ''), 'LiveRoomStatus'),
+      isNot({for (final status in LiveRoomStatus.values) status.wireName}),
+    );
+  });
+
+  test('the live exports match LiveExports and the d.ts exports', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    expect(exports.containsAll(LiveExports.all), isTrue);
+    // 變異：d.ts 少一個匯出就對不上。
+    final mutated = _interfaces(
+      _dts.replaceFirst('  liveStatus?(', '  liveStatusRenamed?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(mutated.containsAll(LiveExports.all), isFalse);
+  });
+
   test('every error name maps to the AppError of that name', () {
     final names = _union(_dts, 'FmpErrorName');
 

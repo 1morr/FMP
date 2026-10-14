@@ -67,6 +67,22 @@ final class FakeSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<LiveSearchPage> liveSearch(LiveSearchQuery query) =>
+      throw UnimplementedError('live');
+
+  @override
+  Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query) =>
+      throw UnimplementedError('live');
+
+  @override
+  Future<LiveRoom> liveStatus(LiveRoomQuery query) =>
+      throw UnimplementedError('live');
+
+  @override
+  Future<StreamResult> resolveLive(LiveStreamRequest request) =>
+      throw UnimplementedError('live');
+
+  @override
   Future<LoginQrCode> loginQrStart() => throw UnimplementedError('login');
 
   @override

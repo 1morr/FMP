@@ -12,8 +12,8 @@ const hostApiVersion = 1;
 
 /// 插件能力（ADR 0014 §決定 4）。
 ///
-/// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login] 例外：它的匯出是
-/// [LoginExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
+/// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login]、[live] 例外：
+/// 它們的匯出是 [LoginExports]、[LiveExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
 /// 都要匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。只有已經有
 /// `SourcePlugin` 方法的能力有人呼叫，其他能力認得、檢查匯出。
 enum PluginCapability {
@@ -71,6 +71,24 @@ abstract final class LoginExports {
   static const refresh = 'loginRefresh';
 
   static const all = {qrStart, qrPoll, verify, refresh};
+}
+
+/// `live` 能力的匯出函式（ADR 0028 §決定 3）。名稱是插件的介面；宣告 `live` 就
+/// 四個都要匯出。
+abstract final class LiveExports {
+  /// `({keyword, page, status?}) → {items, hasMore}`。
+  static const search = 'liveSearch';
+
+  /// `({url}) → {roomId} | null`。
+  static const roomFromUrl = 'liveRoomFromUrl';
+
+  /// `({roomId}) → LiveRoom`：查詢失敗一律拋錯，不能回未開播。
+  static const status = 'liveStatus';
+
+  /// `({roomId, formats}) → StreamResult`。
+  static const resolve = 'resolveLive';
+
+  static const all = {search, roomFromUrl, status, resolve};
 }
 
 /// 登入方式（ADR 0029 §決定 1）。宿主顯示「插件宣告的 ∩ 這個 App 在這個平台做得到的」。
@@ -262,7 +280,10 @@ final class PluginManifest {
   /// `refresh` 時加 [LoginExports.refresh]。
   Set<String> get requiredExports => {
     for (final capability in capabilities)
-      if (capability != PluginCapability.login) capability.wireName,
+      if (capability != PluginCapability.login &&
+          capability != PluginCapability.live)
+        capability.wireName,
+    if (capabilities.contains(PluginCapability.live)) ...LiveExports.all,
     if (login case final login?) ...[
       LoginExports.verify,
       if (login.methods.contains(LoginMethod.qr)) ...[
@@ -277,7 +298,10 @@ final class PluginManifest {
   /// 匯出雙向一致）。其他名稱的匯出不管。
   static final knownExports = {
     for (final capability in PluginCapability.values)
-      if (capability != PluginCapability.login) capability.wireName,
+      if (capability != PluginCapability.login &&
+          capability != PluginCapability.live)
+        capability.wireName,
+    ...LiveExports.all,
     ...LoginExports.all,
   };
 

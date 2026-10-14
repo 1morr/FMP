@@ -39,6 +39,85 @@ void main() {
           .toSet(),
       sourceDtoShapes['LoginAccount']!.keys.toSet(),
     );
+    expect(
+      liveRoomFields(
+        const LiveRoom(roomId: 'r', title: 't', status: LiveRoomStatus.live),
+      ).keys.toSet(),
+      sourceDtoShapes['LiveRoom']!.keys.toSet(),
+    );
+  });
+
+  group('the live check', () {
+    const input = '{"roomId": "r1"}';
+
+    test('runs liveStatus on the room and reads the LiveRoom fields', () {
+      final check = parseChecks(
+        _check(
+          'live',
+          input,
+          '{"minItems": 1, "nonEmpty": ["roomId", "online"]}',
+        ),
+      ).single;
+
+      expect(check.capability, PluginCapability.live);
+      expect(check.input, isA<LiveRoomQuery>());
+      expect((check.input as LiveRoomQuery).roomId, 'r1');
+      expect(check.requiresLogin, isFalse);
+      expect(
+        check.expectation.evaluate(
+          result: const LiveRoom(
+            roomId: 'r1',
+            title: 't',
+            status: LiveRoomStatus.live,
+          ),
+          describe: (_) => '',
+        ),
+        ['item 0: "online" is empty'],
+      );
+    });
+
+    test('is read in the order search, resolveStream, live', () {
+      final checks = parseChecks(
+        '{"live": {"input": $input, "expect": {}}, '
+        '"search": {"input": $_search, "expect": {}}}',
+      );
+
+      expect(checks.map((check) => check.capability.wireName), [
+        'search',
+        'live',
+      ]);
+    });
+
+    for (final (name, text, message) in [
+      (
+        'an empty room id',
+        _check('live', '{"roomId": " "}', '{}'),
+        'checks.live.input: must not be empty',
+      ),
+      (
+        'an input with a keyword',
+        _check('live', '{"roomId": "r1", "keyword": "k"}', '{}'),
+        'unknown field "keyword"',
+      ),
+      (
+        'a field LiveRoom does not have',
+        _check('live', input, '{"nonEmpty": ["viewers"]}'),
+        'LiveRoom has no field "viewers"',
+      ),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
   });
 
   group('the login check', () {

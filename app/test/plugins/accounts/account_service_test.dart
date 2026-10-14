@@ -101,6 +101,22 @@ final class _LoginPlugin implements SourcePlugin {
       throw UnimplementedError('resolveStream');
 
   @override
+  Future<LiveSearchPage> liveSearch(LiveSearchQuery query) =>
+      throw UnimplementedError('live');
+
+  @override
+  Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query) =>
+      throw UnimplementedError('live');
+
+  @override
+  Future<LiveRoom> liveStatus(LiveRoomQuery query) =>
+      throw UnimplementedError('live');
+
+  @override
+  Future<StreamResult> resolveLive(LiveStreamRequest request) =>
+      throw UnimplementedError('live');
+
+  @override
   void close() {}
 }
 
