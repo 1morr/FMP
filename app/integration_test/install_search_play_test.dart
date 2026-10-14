@@ -268,6 +268,7 @@ final class _AppRun {
               urlOpener: false,
               restartsItself: false,
               shareFiles: false,
+              pluginDevTools: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 16,
                 memoryImages: 50,

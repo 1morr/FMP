@@ -284,6 +284,7 @@ void main() {
       urlOpener: false,
       restartsItself: false,
       shareFiles: false,
+      pluginDevTools: false,
     );
     const all = PluginLogin(
       methods: {LoginMethod.cookie, LoginMethod.webView, LoginMethod.qr},

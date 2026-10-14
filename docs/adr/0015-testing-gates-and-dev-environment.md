@@ -64,6 +64,7 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
    媒體請求不帶憑證（0012）、只連 manifest 網域、log 經遮蔽（0011）。插件庫 CI 以固定的 FMP 版本執行；`app/` 的 CI 對 `app/test/fixtures/plugins/`
    內的測試插件執行（合成資料、播放本機音檔），不依賴官方插件庫；同一個測試插件也供開發版離線開發。
    更正（2026-09-30，M1）：執行器不是獨立套件，放在 `app/test/plugins/contract/`，以 `flutter test` 加環境變數 `FMP_PLUGIN_DIR` 對任一插件目錄執行。QuickJS 與零聯網的準備在 `app/test/`，獨立套件會與 `fmp` 互相依賴，錄製與重播的 adapter 放進 `lib/` 也違反分層；插件庫 CI 一樣是 checkout 固定版本的 FMP 再執行。
+   更正（2026-10-14，M3 PR 16b）：錄製與重播的 adapter 與 fixture 格式的解析移到 `lib/core/network/fixture/`、`checks.json` 的解析與案例期望移到 `lib/plugins/health/`、插件目錄的讀取與每個案例的隔離執行環境與寫檔移到 `lib/plugins/dev/`（App 內開發工具與健康檢查使用），`app/test/plugins/contract/` 改為引用它們、只留憑證掃描等測試專用的檢查，格式不變；上一則更正的「放進 `lib/` 違反分層」只指零聯網的測試準備（矛盾 10）。
 7. **App 內插件開發工具**：開發者模式下從資料夾載入插件（先限桌面平台，由平台層宣告）、重新載入、跑案例看 log、
    以 App 內登入錄 fixture、每插件切換真實／錄製／重播。命令列只負責重播。版面見 ADR 0025。
    更正（2026-09-30，M1）：命令列的契約執行器也能錄製，限不需要登入的案例，打 `live` tag 手動執行、寫檔前經遮蔽；需要登入的錄製仍只在 App 內。理由：App 內工具在 M3，M1 的 B 站 fixture 要能先錄、過時能重錄。

@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/developer_settings_repository.dart';
+import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
+import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:material_ui/material_ui.dart';
@@ -20,9 +22,16 @@ void main() {
     AppFlavor flavor = AppFlavor.dev,
     LogLevelSetting buildLogLevel = LogLevelSetting.info,
     bool? developerMode,
+    bool pluginDevTools = false,
     double width = 1000,
   }) async {
-    final h = ShellHarness(flavor: flavor, buildLogLevel: buildLogLevel);
+    final h = ShellHarness(
+      flavor: flavor,
+      buildLogLevel: buildLogLevel,
+      pluginDevTools: pluginDevTools,
+      // 插件開發區塊用遮蔽函式顯示路徑。
+      redactor: pluginDevTools ? Redactor() : null,
+    );
     await h.pumpShell(tester, size: Size(width, 800), collapsePanel: true);
     if (developerMode != null) {
       await tester.runAsync(
@@ -126,6 +135,35 @@ void main() {
       expect(find.byType(DebugPage), findsNothing);
       expect(find.byType(SettingsPage).hitTestable(), findsOneWidget);
       expect(debugEntry, findsNothing);
+    });
+  });
+
+  group('the plugin development section (ADR 0025 §如何確認)', () {
+    final entry = find.widgetWithText(ListTile, 'Plugin development');
+
+    testWidgets('is neither listed nor shown on a platform without '
+        'pluginDevTools', (tester) async {
+      final h = await openSettings(tester);
+      await openDebug(tester, h);
+
+      expect(entry, findsNothing);
+      expect(find.byType(DebugPluginDev), findsNothing);
+    });
+
+    testWidgets('sits between the health check and the database when the '
+        'platform declares it', (tester) async {
+      final h = await openSettings(tester, pluginDevTools: true);
+      await openDebug(tester, h);
+
+      expect(entry, findsOneWidget);
+      double top(String name) =>
+          tester.getTopLeft(find.widgetWithText(ListTile, name)).dy;
+      expect(top('Source health check'), lessThan(top('Plugin development')));
+      expect(top('Plugin development'), lessThan(top('Database')));
+      await tester.tap(entry);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(DebugPluginDev), findsOneWidget);
     });
   });
 

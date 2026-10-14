@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:pub_semver/pub_semver.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 
 /// 宿主讀得懂的 `index.json` 版本（ADR 0030 §決定 1）。

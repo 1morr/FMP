@@ -8,7 +8,7 @@ import 'package:fmp/core/network/source_http_client.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 
 /// 宿主 API 的 JSON 形狀，鍵是 `fmp-plugin.d.ts` 裡的 interface 名稱。
 const hostApiShapes = <String, JsonShape>{

@@ -129,6 +129,7 @@
    - 更正（2026-10-08，M3 PR 0）：上面的 `file_selector.getDirectoryPath` 改用 ADR 0009 §決定 6 的 `file_picker`（13.1.0）的 `getDirectoryPath`；「file_picker 沒有 SAF」不成立（13.x 有 Android SAF 選項），Android 插件開發仍另立 ADR。
    - 「重新載入」按鈕：拆掉該插件的 JS runtime 再重建。
    - 每插件可切換真實、錄製、重播；錄製的 fixture 經遮蔽後寫到插件資料夾的 `fixtures/`。
+   - 補充（2026-10-14，M3 PR 16b）：真實／錄製／重播是跑案例的模式，每個案例在隔離環境（空的 storage 與憑證、新的 runtime 與 client）以對應的 adapter 執行，與命令列契約執行器同一份程式碼；App 其他地方用到的開發中插件一律真實連線。開發工具補的 `installed_plugins` 列以 `from_dev_folder` 標記，每次套用資料夾（含啟動）時對齊。
    - 案例可單跑或全跑，顯示已遮蔽的回傳值與錯誤；log 預設篩成該插件的 tag。
 8. **資料庫**
    - **唯讀瀏覽**：

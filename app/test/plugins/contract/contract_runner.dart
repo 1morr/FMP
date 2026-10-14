@@ -1,35 +1,28 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
-import 'package:drift/drift.dart' show DatabaseConnection;
-import 'package:drift/native.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
-import 'package:fmp/core/network/source_http_client.dart';
+import 'package:fmp/core/network/fixture/fixture_adapters.dart';
 import 'package:fmp/core/redaction/redactor.dart';
-import 'package:fmp/data/database/app_database.dart';
-import 'package:fmp/data/repositories/plugin_repository.dart';
-import 'package:fmp/data/repositories/plugin_storage_repository.dart';
-import 'package:fmp/plugins/accounts/account_guard.dart';
-import 'package:fmp/plugins/manifest/plugin_file.dart';
-import 'package:fmp/plugins/manifest/plugin_manifest.dart';
-import 'package:fmp/plugins/script_source_plugin.dart';
-import 'package:fmp/plugins/source_dto.dart';
-import 'package:path/path.dart' as p;
-
-import '../../support/credentials.dart';
-
+import 'package:fmp/plugins/dev/case_runner.dart' as runner;
+import 'package:fmp/plugins/dev/describe_error.dart' as describer;
+import 'package:fmp/plugins/dev/case_runner.dart'
+    show CaseRun, loadIsolated, recordCase, runIsolatedCase;
+import 'package:fmp/plugins/dev/plugin_folder.dart';
 import 'package:fmp/plugins/health/checks.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
+import 'package:fmp/plugins/source_dto.dart';
 
 import 'credential_scan.dart';
-import 'fixture.dart';
-import 'fixture_adapters.dart';
 
-// 插件契約執行器（ADR 0015 §決定 6）。對一個插件目錄：
+export 'package:fmp/plugins/dev/plugin_folder.dart' show pluginDirectories;
+
+// 插件契約執行器（ADR 0015 §決定 6）的命令列入口：插件目錄的讀取與每個案例的
+// 隔離執行環境在 lib/plugins/dev/（App 內開發工具共用），這裡加上只有測試要的
+// 檢查：fixture 的網域與憑證掃描、串流 headers 與 log 的憑證檢查。
 //
 //   <目錄>/<任意名稱>.js           安裝檔（只能有一個）
 //   <目錄>/checks.json             檢查案例（lib/plugins/health/checks.dart）
@@ -39,113 +32,23 @@ import 'fixture_adapters.dart';
 // 記憶體資料庫、log、遮蔽函式與 HTTP client，案例之間不共用 storage 與
 // cookie。入口是 contract_test.dart（重播）與 record_test.dart（錄製）。
 
-/// 插件目錄的清單：[root] 本身有 `.js` 檔就是一個插件目錄，否則是它底下有
-/// `.js` 檔的子目錄（依名稱排序）。
-List<Directory> pluginDirectories(Directory root) {
-  if (_scripts(root).isNotEmpty) return [root];
-  return [
-    for (final entry
-        in root.listSync()..sort((a, b) => a.path.compareTo(b.path)))
-      if (entry is Directory && _scripts(entry).isNotEmpty) entry,
-  ];
-}
-
-List<File> _scripts(Directory directory) => [
-  for (final entry in directory.listSync())
-    if (entry is File && entry.path.endsWith('.js')) entry,
-];
-
-/// 讀好的插件目錄。讀的時候發現的問題在 [problems]，其他部分盡量讀。
-final class PluginDirectory {
-  PluginDirectory._(this.directory);
-
-  /// 讀 [directory]：安裝檔、checks.json、fixture（格式、網域、憑證）。
-  factory PluginDirectory.read(Directory directory) {
-    final plugin = PluginDirectory._(directory);
-    final scripts = _scripts(directory);
-    if (scripts.length != 1) {
-      plugin.problems.add(
-        'expected one .js install file, found ${scripts.length}',
-      );
-      return plugin;
-    }
-    try {
-      plugin.file = PluginFile.parse(scripts.single.readAsStringSync());
-    } on AppError catch (error) {
-      plugin.problems.add('install file: ${describeError(error)}');
-      return plugin;
-    }
-    plugin
-      .._readChecks()
-      .._readFixtures();
-    return plugin;
-  }
-
-  final Directory directory;
-  PluginFile? file;
-  final checks = <PluginCheck>[];
-
-  /// 依能力名稱（`fixtures/` 底下的目錄名），依檔名排序。
-  final fixtures = <String, List<NamedFixture>>{};
-  final problems = <String>[];
-
-  PluginManifest get manifest => file!.manifest;
-
-  /// 測試名稱用。
-  String get label => switch (file) {
-    null => p.basename(directory.path),
-    final file => '${file.manifest.id} (${p.basename(directory.path)})',
-  };
-
-  void _readChecks() {
-    final checksFile = File(p.join(directory.path, 'checks.json'));
-    if (!checksFile.existsSync()) {
-      problems.add('checks.json is missing');
-      return;
-    }
-    try {
-      checks.addAll(parseChecks(checksFile.readAsStringSync()));
-    } on FormatException catch (error) {
-      problems.add('checks.json: ${error.message}');
-      return;
-    }
-    for (final check in checks) {
-      if (!manifest.capabilities.contains(check.capability)) {
-        problems.add(
-          'checks.json: ${check.capability.wireName} is not a declared '
-          'capability',
-        );
-      }
-    }
-  }
-
-  void _readFixtures() {
-    final root = Directory(p.join(directory.path, 'fixtures'));
-    if (!root.existsSync()) return;
-    final checked = {for (final check in checks) check.capability.wireName};
-    final allowedHosts = AllowedHosts(manifest.allowedHosts);
-    final redactor = redactorFor(manifest);
-    final names = CredentialNames.of(manifest);
-    for (final entry in root.listSync()) {
-      final name = p.basename(entry.path);
-      if (entry is! Directory) {
-        problems.add('fixtures/$name: fixtures go in fixtures/<capability>/');
-        continue;
-      }
-      if (!checked.contains(name)) {
-        problems.add('fixtures/$name: checks.json has no $name check');
-      }
-      final files = [
-        for (final file in entry.listSync())
-          if (file is File && file.path.endsWith('.json')) file,
-      ]..sort((a, b) => p.basename(a.path).compareTo(p.basename(b.path)));
-      fixtures[name] = [
-        for (final file in files)
-          if (_readFixture(file, 'fixtures/$name/${p.basename(file.path)}')
-              case final fixture?)
-            (name: 'fixtures/$name/${p.basename(file.path)}', fixture: fixture),
-      ];
-      for (final (:name, :fixture) in fixtures[name]!) {
+/// 讀好的插件目錄：[PluginFolder.read] 加上 fixture 的網域與憑證掃描。
+abstract final class PluginDirectory {
+  static PluginFolder read(Directory directory) {
+    // 掃描用的名單依 manifest 建一次。
+    PluginManifest? scanned;
+    late AllowedHosts allowedHosts;
+    late Redactor redactor;
+    late CredentialNames names;
+    return PluginFolder.read(
+      directory,
+      inspectFixture: (manifest, name, fixture, problems) {
+        if (!identical(scanned, manifest)) {
+          scanned = manifest;
+          allowedHosts = AllowedHosts(manifest.allowedHosts);
+          redactor = redactorFor(manifest);
+          names = CredentialNames.of(manifest);
+        }
         final url = Uri.parse(fixture.request.url);
         if (!allowedHosts.allows(url)) {
           problems.add(
@@ -153,17 +56,8 @@ final class PluginDirectory {
           );
         }
         problems.addAll(scanFixture(name, fixture, redactor, names));
-      }
-    }
-  }
-
-  HttpFixture? _readFixture(File file, String name) {
-    try {
-      return HttpFixture.fromJson(jsonDecode(file.readAsStringSync()));
-    } on FormatException catch (error) {
-      problems.add('$name: ${error.message}');
-      return null;
-    }
+      },
+    );
   }
 }
 
@@ -177,12 +71,12 @@ Redactor redactorFor(PluginManifest manifest) => Redactor()
   ..setMediaCdns(manifest.id, manifest.redaction.mediaCdns);
 
 /// 把 [error] 寫成一行：類別名與遮蔽過的原因（原因只有 `log.report` 讀得到）。
-String describeError(AppError error, [Log? log]) {
-  final target = log ?? Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
-  target.report('Contract check', error, tag: 'contract');
-  final cause = target.history.last.error;
-  return cause == null ? error.typeName : '${error.typeName}: $cause';
-}
+String describeError(AppError error, [Log? log]) => describer.describeError(
+  error,
+  log ?? Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+  tag: 'contract',
+  message: 'Contract check',
+);
 
 /// 整個插件目錄：[PluginDirectory.read]、[checkPluginDirectory]、每個案例的
 /// [runCheck]。回傳所有違反之處。
@@ -195,70 +89,59 @@ Future<List<String>> runContract(Directory directory) async {
 }
 
 /// 讀取時的問題，加上載入一次（能力與匯出一致、腳本讀得懂）。
-Future<List<String>> checkPluginDirectory(PluginDirectory plugin) async {
+Future<List<String>> checkPluginDirectory(PluginFolder plugin) async {
   final file = plugin.file;
   if (file == null) return plugin.problems;
-  final environment = _Environment(
-    (redactor) => ReplayAdapter(
-      const [],
-      redactor,
-      AllowedHosts(file.manifest.allowedHosts),
-    ),
-  );
-  try {
-    (await environment.load(file)).close();
-    return plugin.problems;
-  } on AppError catch (error) {
-    return [
-      ...plugin.problems,
-      'load: ${describeError(error, environment.log)}',
-    ];
-  } finally {
-    await environment.close();
-  }
+  final redactor = Redactor();
+  final log = _facade(redactor);
+  final error = await loadIsolated(file: file, log: log, redactor: redactor);
+  if (error == null) return plugin.problems;
+  return [...plugin.problems, 'load: ${describeError(error, log)}'];
 }
 
-/// 以重播執行 [check]：[_execute] 的檢查，加上每個請求都對上 fixture、每個
-/// fixture 都被用到。
+/// 以重播執行 [check]：隔離執行（lib/plugins/dev/case_runner.dart）的檢查，加上
+/// 串流 headers 與 log 的憑證檢查、每個請求都對上 fixture、每個 fixture 都被用到。
 ///
 /// [log] 換掉這個案例的 log（預設是以案例的遮蔽函式建的門面）：執行器自己的
 /// 測試以它造一個沒接上插件遮蔽名單的 log，證明檢查看得到插件寫的 log。
 Future<List<String>> runCheck(
-  PluginDirectory plugin,
+  PluginFolder plugin,
   PluginCheck check, {
   Log Function(Redactor redactor) log = _facade,
 }) async {
   final name = check.capability.wireName;
-  late final ReplayAdapter replay;
-  final environment = _Environment(
-    (redactor) => replay = ReplayAdapter(
-      plugin.fixtures[name] ?? const [],
-      redactor,
-      AllowedHosts(plugin.manifest.allowedHosts),
-    ),
-    log: log,
+  final redactor = Redactor();
+  final caseLog = log(redactor);
+  final transport = const CaseTransports().replay(
+    plugin.fixtures[name] ?? const [],
+    redactor,
+    AllowedHosts(plugin.manifest.allowedHosts),
   );
-  final (:problems, matched: _) = await _execute(plugin, check, environment);
-  if (!environment.loaded) return problems;
+  final run = await runIsolatedCase(
+    file: plugin.file!,
+    check: check,
+    transport: transport,
+    log: caseLog,
+    redactor: redactor,
+    reportTag: 'contract',
+    reportMessage: 'Contract check',
+  );
+  final problems = [for (final problem in run.problems) '$name: $problem'];
+  if (!run.loaded) return problems;
   return [
     ...problems,
-    for (final problem in replay.problems) '$name: $problem',
-    for (final unused in replay.unused) '$name: $unused was not requested',
+    ..._scanProblems(name, plugin.manifest, run, caseLog, redactor),
+    for (final problem in transport.problems) '$name: $problem',
+    for (final unused in transport.unused) '$name: $unused was not requested',
   ];
 }
 
 /// 錄製（prd 擁有者決定 8）：以 [network] 真的送出每個案例的請求，遮蔽後寫進
 /// `fixtures/<能力>/001.json`…（先刪掉那個能力原本的 fixture）。回傳違反之處
-/// 與略過的案例。
-///
-/// 只有案例的結果符合 checks.json 的期望才寫；不符（例如連線失敗是
-/// `NetworkError`）就那個案例什麼都不寫，原本的 fixture 不動，並回報原因。
-/// 網路層重試成功的請求照樣寫：失敗的那幾次沒有回應，不會被錄到。
-///
-/// 只錄得了不需要登入的案例：沒有憑證，要登入的請求會以 `AuthRequired` 失敗；
-/// 標了 `requiresLogin` 的案例（login 的 `loginVerify`）略過不錄（命令列沒有憑證，
-/// design §4.8）。`meta.edited` 的 fixture 是手寫或手改的，那個案例略過不錄。重試照真的時間等（不像重播立刻重送）；[wait] 換掉等待，給執行器自己
-/// 的測試用。
+/// 與略過的案例。規則在 `recordCase`（lib/plugins/dev/case_runner.dart）：
+/// 只有案例的結果符合 checks.json 的期望才寫；`requiresLogin` 的案例（命令列沒有
+/// 憑證，design §4.8）與有 `meta.edited` 的 fixture 略過。重試照真的時間等
+/// （不像重播立刻重送）；[wait] 換掉等待，給執行器自己的測試用。
 Future<({List<String> problems, List<String> skipped})> recordContract(
   Directory directory, {
   required HttpClientAdapter Function() network,
@@ -273,227 +156,48 @@ Future<({List<String> problems, List<String> skipped})> recordContract(
   final skipped = <String>[];
   for (final check in plugin.checks) {
     final name = check.capability.wireName;
-    if (check.requiresLogin) {
-      skipped.add('$name: requires a login');
-      continue;
-    }
-    final existing = plugin.fixtures[name] ?? const [];
-    if (existing.any((named) => named.fixture.edited != null)) {
-      skipped.add('$name: has hand-edited fixtures');
-      continue;
-    }
-    late final RecordingAdapter recorder;
-    final environment = _Environment(
-      (redactor) => recorder = RecordingAdapter(network(), redactor, now: now),
-      wait: wait ?? _delay,
+    final redactor = Redactor();
+    final log = _facade(redactor);
+    final result = await recordCase(
+      plugin,
+      check,
+      transport: CaseTransports(network: network, now: now).record(redactor),
+      log: log,
+      redactor: redactor,
+      reportTag: 'contract',
+      reportMessage: 'Contract check',
+      wait: wait ?? runner.realWait,
     );
-    final outcome = await _execute(plugin, check, environment);
-    problems.addAll(outcome.problems);
-    if (!environment.loaded) continue;
-    if (recorder.problems.isNotEmpty) {
-      problems.addAll([
-        for (final problem in recorder.problems) '$name: $problem',
-      ]);
-      continue;
+    if (result.skipped case final reason?) skipped.add(reason);
+    if (result.run case final run? when run.loaded) {
+      problems.addAll(_scanProblems(name, plugin.manifest, run, log, redactor));
     }
-    if (!outcome.matched) {
-      problems.add(
-        '$name: fixtures not written: the outcome does not match checks.json',
-      );
-      continue;
-    }
-    _writeFixtures(
-      Directory(p.join(directory.path, 'fixtures', name)),
-      recorder.recorded,
-    );
+    problems.addAll(result.problems);
   }
   return (problems: problems, skipped: skipped);
 }
 
-void _writeFixtures(Directory target, List<HttpFixture> fixtures) {
-  if (target.existsSync()) {
-    for (final entry in target.listSync()) {
-      if (entry is File && entry.path.endsWith('.json')) entry.deleteSync();
-    }
-  }
-  if (fixtures.isEmpty) {
-    if (target.existsSync() && target.listSync().isEmpty) target.deleteSync();
-    return;
-  }
-  target.createSync(recursive: true);
-  for (final (index, fixture) in fixtures.indexed) {
-    File(p.join(target.path, '${'${index + 1}'.padLeft(3, '0')}.json'))
-        .writeAsStringSync(fixture.encode());
-  }
-}
-
-/// 載入插件、執行 [check]，檢查：錯誤都是 `AppError`、案例的期望（DTO 驗證
-/// 失敗是 `ParseError`，期望成功時就不符；`expiresAtPattern` 也算期望）、沒有
-/// 試著連清單外的網域、串流 headers 不帶憑證、log 都遮蔽過。[matched]：結果符合案例的期望。
-Future<({List<String> problems, bool matched})> _execute(
-  PluginDirectory plugin,
-  PluginCheck check,
-  _Environment environment,
-) async {
-  try {
-    return await _executeLoaded(plugin, check, environment);
-  } finally {
-    await environment.close();
-  }
-}
-
-Future<({List<String> problems, bool matched})> _executeLoaded(
-  PluginDirectory plugin,
-  PluginCheck check,
-  _Environment environment,
-) async {
-  final name = check.capability.wireName;
-  final ScriptSourcePlugin source;
-  try {
-    source = await environment.load(plugin.file!);
-  } on AppError catch (error) {
-    return (
-      problems: ['$name: load: ${describeError(error, environment.log)}'],
-      matched: false,
-    );
-  }
-  Object? result;
-  AppError? error;
-  final problems = <String>[];
-  try {
-    result = await check.run(source);
-  } on AppError catch (thrown) {
-    error = thrown;
-  } on Object catch (thrown) {
-    problems.add('$name: threw ${thrown.runtimeType}, not an AppError');
-  } finally {
-    source.close();
-  }
-  // 每個錯誤只 report 一次。
-  final descriptions = Map<AppError, String>.identity();
-  String describe(AppError error) => descriptions.putIfAbsent(
-    error,
-    () => describeError(error, environment.log),
-  );
-  final names = CredentialNames.of(plugin.manifest);
-  if (error != null) {
-    final description = describe(error);
-    // 網路層不送出清單外的請求，丟 Unsupported（原因 `Host not allowed`、
-    // `Redirect to a host not allowed`）。插件自己接住吞掉的看不到。
-    if (error is Unsupported && description.contains('not allowed')) {
-      problems.add(
-        '$name: tried to reach a host outside allowedHosts ($description)',
-      );
-    }
-  }
-  // 沒丟 AppError 以外的東西、沒試著出網域，才比對期望。
-  final mismatches = problems.isEmpty
-      ? [
-          ...check.expectation.evaluate(
-            result: result,
-            error: error,
-            describe: describe,
-          ),
-          ...check.extraProblems(result),
-        ]
-      : null;
-  problems.addAll([
-    for (final problem in mismatches ?? const <String>[]) '$name: $problem',
-  ]);
-  if (result case final StreamResult stream) {
-    problems.addAll([
+/// 串流 headers 不帶憑證、log 都遮蔽過（帶 `<能力>: ` 前綴）。
+List<String> _scanProblems(
+  String name,
+  PluginManifest manifest,
+  CaseRun run,
+  Log log,
+  Redactor redactor,
+) {
+  final names = CredentialNames.of(manifest);
+  return [
+    if (run.result case final StreamResult stream)
       for (final problem in mediaHeaderProblems(
         stream.candidates,
-        environment.redactor,
+        redactor,
         names,
       ))
         '$name: $problem',
-    ]);
-  }
-  problems.addAll([
-    for (final problem in inspectLog(
-      environment.log.history,
-      environment.redactor,
-      names,
-    ))
+    for (final problem in inspectLog(log.history, redactor, names))
       '$name: $problem',
-  ]);
-  return (problems: problems, matched: mismatches?.isEmpty ?? false);
+  ];
 }
-
-/// 一個案例的執行環境。
-final class _Environment {
-  _Environment(
-    this._adapter, {
-    this._wait = _noWait,
-    Log Function(Redactor redactor) log = _facade,
-  }) : _createLog = log;
-
-  final HttpClientAdapter Function(Redactor redactor) _adapter;
-
-  /// 重試與限流的等待：重播不等，錄製照真的時間等。
-  final Future<void> Function(Duration delay) _wait;
-  final Log Function(Redactor redactor) _createLog;
-  final redactor = Redactor();
-
-  /// 插件與宿主寫的 log；檢查的是它的歷史。
-  late final Log log = _createLog(redactor);
-
-  /// 插件載入成功過。
-  bool loaded = false;
-
-  /// 每個案例一份記憶體資料庫，案例結束就關（drift 在 debug 下會對同時開著的
-  /// 多個 `AppDatabase` 警告）。
-  AppDatabase? _database;
-
-  Future<void> close() async => _database?.close();
-
-  Future<ScriptSourcePlugin> load(PluginFile file) async {
-    final database = _database = AppDatabase(
-      DatabaseConnection(
-        NativeDatabase.memory(),
-        closeStreamsSynchronously: true,
-      ),
-    );
-    // storage 有外鍵：先放一列（內容不重要）。
-    await PluginRepository(database).install(
-      InstalledPlugin(
-        id: file.manifest.id,
-        version: file.manifest.version,
-        manifestJson: file.manifestJson,
-        script: '',
-        installedAt: DateTime.utc(2026),
-      ),
-    );
-    // 契約只重播或錄不需要登入的案例：沒有憑證的存放。
-    final credentials = credentialStoreFor(
-      database,
-      redactor: redactor,
-      log: log,
-    );
-    final loader = ScriptPluginLoader(
-      log: log,
-      redactor: redactor,
-      httpClients: SourceHttpClientFactory(
-        log: log,
-        credentials: credentials,
-        createAdapter: () => _adapter(redactor),
-        wait: _wait,
-        random: math.Random(7),
-      ),
-      storage: PluginStorageRepository(database),
-      credentials: credentials,
-      guard: AccountGuard(credentials: credentials, log: log),
-    );
-    final plugin = await loader.load(file);
-    loaded = true;
-    return plugin;
-  }
-}
-
-Future<void> _noWait(Duration _) async {}
-
-Future<void> _delay(Duration delay) => Future<void>.delayed(delay);
 
 /// 案例的 log：經 [redactor] 的門面，debug 以上都留。
 Log _facade(Redactor redactor) =>

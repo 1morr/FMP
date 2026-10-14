@@ -206,6 +206,28 @@ void main() {
     expect(values.current.logLevel, LogLevelSetting.info);
   });
 
+  test(
+    'the plugin folder setter writes only that field; null clears it',
+    () async {
+      final database = memoryDatabase();
+      final container = containerFor(database, AppFlavor.dev);
+      final values = developers(container);
+      expect(await values.moveNext(), isTrue);
+      final notifier = container.read(developerProvider.notifier);
+
+      await notifier.setPluginDevFolder(r'C:\plugins');
+      expect(await values.moveNext(), isTrue);
+      expect(
+        values.current.stored,
+        const DeveloperSettings(pluginDevFolder: r'C:\plugins'),
+      );
+
+      await notifier.setPluginDevFolder(null);
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.stored, DeveloperSettings.empty);
+    },
+  );
+
   test('the log level setter writes only that field; null clears it', () async {
     final database = memoryDatabase();
     final container = containerFor(database, AppFlavor.dev);

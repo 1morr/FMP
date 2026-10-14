@@ -345,6 +345,7 @@ void main() {
               urlOpener: false,
               restartsItself: false,
               shareFiles: false,
+              pluginDevTools: false,
               cache: CacheSizes(
                 defaultLimitMebibytes: 256,
                 memoryImages: 1,
@@ -502,6 +503,9 @@ final class _FakeDialogs implements FileDialogs {
 
   @override
   Future<PickedFile?> pickFile({required String extension}) async => null;
+
+  @override
+  Future<String?> pickDirectory() async => null;
 
   @override
   Future<Uri?> saveFile({

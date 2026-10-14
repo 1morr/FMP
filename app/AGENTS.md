@@ -57,7 +57,7 @@
   每個案例的 fixture 整組重寫；有 `meta.edited` 的案例略過（手寫的錯誤案例不被蓋掉）；結果不符
   checks.json 期望的案例（例如連線失敗）什麼都不寫、原本的檔案不動。閘門：`record_test.dart`。
   錄完同一個測試以重播再跑一次。
-  錄製寫檔前（`Redactor` 之後）把 IP 位址（IPv4、全球單播 IPv6，含版本字串如 `Chrome/156.0.0.0`）換成文件位址（`test/plugins/contract/ip_scrub.dart`）；
+  錄製寫檔前（`Redactor` 之後）把 IP 位址（IPv4、全球單播 IPv6，含版本字串如 `Chrome/156.0.0.0`）換成文件位址（`lib/core/network/fixture/ip_scrub.dart`）；
   手寫的 fixture 也受同一道檢查。閘門：`ip_scrub_test.dart`、`credential_scan.dart` 的 `ipProblems`（`contract_test.dart` 與 `fixture_scan_test.dart` 都經 `scanFixture`）。
 - golden 測試（`alchemist`）在裸 `flutter test` 裡，只比 CI 版（文字畫成色塊，Windows 產生的圖
   在 CI 的 Linux 上逐像素相同；平台版在 `test/flutter_test_config.dart` 關掉）。改了版面就
@@ -295,10 +295,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 - 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android 與 Windows 共用一個實作
   `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。有
   `pickFile(extension:)`（插件頁的「從檔案安裝」）與 `saveFile(name:, bytes:, mimeType:)`（診斷包與 log 檔的存檔：桌面是存檔對話框，
-  Android 走 SAF 的建立文件；取消回 `null`），選資料夾跟著 PR 16 加。副檔名只是篩選：Android
+  Android 走 SAF 的建立文件；取消回 `null`）與 `pickDirectory()`（插件開發資料夾；回絕對路徑，取消回 `null`）。副檔名只是篩選：Android
   把它轉成 MIME（`MimeTypeMap`）交給 SAF，選到的內容由呼叫端照格式驗（插件安裝檔解析標頭）。閘門：
   `platform_test.dart` 的宣告與實作型別、`file_picker_dialogs_test.dart`（以假的 `FilePickerPlatform`：篩選是
-  `FileType.custom` 加副檔名、讀出內容、存檔的檔名／內容／MIME、取消是 `null`）；系統對話框本身只能實機驗。
+  `FileType.custom` 加副檔名、讀出內容、存檔的檔名／內容／MIME、選資料夾、取消是 `null`）；系統對話框本身只能實機驗。
+- 插件開發工具（M3 PR 16b，ADR 0025 §決定 7）：`PlatformCapabilities.pluginDevTools`，Windows 真、Android 假（讀任意目錄要 SAF，
+  另立 ADR）；依賴 `files` 的 `pickDirectory`。Debug 頁的「插件開發」區塊與 `PluginDevelopment` 的載入都看它。閘門：
+  `platform_test.dart`（Android 假、Windows 真、未驗證的平台假）、`debug_page_test.dart` 的 `the plugin development section`。
 - 檔案分享（`lib/platform/share/`，ADR 0025 §決定 10，M3 design §12.4）：`PlatformCapabilities.shareFiles`（Android、Windows 真；Linux 不能分享檔案；
   Windows 10 1809 以前 `share_plus` 會拋錯，經提示顯示），一個實作 `SharePlusFileSharer`（`share_plus`，`SharePlus.instance.share` 從建構子注入）。
   `shareFiles` 回 `true`＝平台回報了分享的結果（完成或取消），回 `false`＝視窗開了但平台不回報（Windows 的 `DataTransferManager` 一開視窗就回
@@ -425,6 +428,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （與 log 檔的層級字串相同，寫在 `LogLevelSettingConverter`）。新表升級後是空的。閘門：`migration_test.dart` 的 v8→v9
   資料完整性與 `migration from v<N> to v9 adds the developer settings`（v1–v8 各一例：單列、四欄為空）、`a new database
   has the developer settings`、`developer_settings_repository_test.dart`（`stored format`、只寫給的欄位、`clear`）。
+- `installed_plugins.from_dev_folder` 是 schema v10（M3 PR 16b，插件開發 design §3.4）：真＝這一列是插件開發工具為了
+  `plugin_storage` 的外鍵補的，不是使用者裝的；預設假，升級前的列都是假。存在資料庫而不是記憶體集合：App 在開著開發資料夾時
+  被結束，下次啟動才分得出哪一列是補的。`PluginDevelopment` 每次套用資料夾（含啟動、資料夾為 `null`）時刪掉不屬於資料夾的
+  標記列（storage 經外鍵一起刪），所以殘留列在**下一次啟動**清掉；`PluginRegistry.build` 略過標記列。
+  `PluginRepository.install` 一律寫假（開發中被正式安裝的插件，那一列轉成已安裝的列，卸載時不會被刪）；
+  `putDevFolderRow` 遇到已安裝的列一個欄位都不動、回傳假。閘門：`migration_test.dart` 的 v9→v10 資料完整性與
+  `a new database defaults from_dev_folder to false`、`plugin_repository_test.dart` 的 `development folder rows`
+  （只刪標記列、`install` 轉成已安裝）、`plugin_development_test.dart`（殘留列刪除且已安裝的列與 storage 留下）。
 
 ### 快取庫
 
@@ -953,10 +964,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/plugins/test_plugin_bundle_test.dart`（搜尋與播放的關鍵字、只在 dev 打包）；登入只有 `checks.json` 的 `login` 案例經
   `contract_test.dart` 跑 `loginVerify`，QR、`expired`、`expired-hard` 沒有閘門，實機驗。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
-- 插件目錄（契約檢查的單位）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
+- 插件目錄（契約檢查與 App 內開發工具的單位；讀取在 `lib/plugins/dev/plugin_folder.dart`）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
   一條；只收 `SourcePlugin` 已有方法的能力）、`fixtures/<能力>/*.json`（依檔名是請求順序）。格式
-  寫在 `fmp-plugin.d.ts` 的 `FmpChecks`、`FmpFixture`。執行器對每個案例各開一份資料庫、log 與
-  client，檢查：能力與匯出一致、DTO 驗證、案例期望（成功的筆數與非空欄位，或失敗的 `AppError`
+  寫在 `fmp-plugin.d.ts` 的 `FmpChecks`、`FmpFixture`。每個案例在隔離環境（`lib/plugins/dev/case_runner.dart` 的
+  `runIsolatedCase`：各開一份記憶體資料庫、空的憑證存放、新的 runtime 與 client）裡跑，命令列契約執行器
+  （`test/plugins/contract/`，只留憑證掃描與網域檢查）與 App 內開發工具共用；執行器檢查：能力與匯出一致、DTO 驗證、案例期望（成功的筆數與非空欄位，或失敗的 `AppError`
   類別與 `Unavailable` 原因）、沒試著連清單外的網域、串流 headers 不帶憑證、log 與 fixture 都遮蔽
   過。閘門：`test/plugins/contract/contract_runner_test.dart`（每種違反一個會紅的變異，另有改無關
   處不紅的案例）、`checks_test.dart`。
@@ -979,6 +991,31 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   UTF-8 的 body 不錄。`app/` 內每個 fixture 都要「再遮一次不變」且名單上的欄位值是 `***`。閘門：
   `fixture_scan_test.dart`（`every fixture in app/ is redacted`，兩道檢查各有會紅與不紅的案例）、
   `record_test.dart`（假上游錄出的檔案沒有假憑證、重播通過）。
+- 插件開發工具（M3 PR 16b，ADR 0025 §決定 7；`lib/plugins/dev/`）：
+  - 開發資料夾的每個插件目錄載入成「開發中」，取代同 id 的已安裝版（`PluginDevelopment`：卸下上一次的、掃描、對齊
+    `installed_plugins` 標記列、恢復已安裝版、載入新的；所有動作排進同一條序列）。沒有已安裝的列就補一列標記列（見「資料層」的
+    `from_dev_folder`）；有就沿用，version／manifest／script／enabled 不動、storage 共用。卸載（資料夾變 `null`、關閉開發者模式、
+    平台沒有 `pluginDevTools`）時刪標記列、恢復已安裝版。載入失敗（含重新載入、manifest 的 id 改變）**不退回已安裝版**：插件不在
+    清單上，卡片標「載入失敗」與已遮蔽的原因。不監看檔案：「重新載入」「重新掃描資料夾」都是手動。
+    閘門：`plugin_development_test.dart`（沒有／有同 id 的列、殘留列、關閉開發者模式、平台沒有能力、重新載入關掉舊 runtime、載入失敗、
+    id 重複、重新掃描、id 改變）。
+  - **真實｜錄製｜重播只決定「跑案例」的方式**，不是 App 裡那個插件的網路開關：`DevCaseRuns` 每個案例各自在隔離環境以對應的
+    adapter 跑（重播＝`ReplayTransport`、錄製＝`NetworkTransport(record)`、真實＝`NetworkTransport`），預設重播；App 其他地方用到
+    的開發中插件一律真實連線。理由：在帶著 storage 快取的插件上錄的 fixture（B 站 `wbiKeys` 有值就少發請求）在 CI 的空 storage
+    重播會對不上。錄製走 `recordCase`，與命令列 `recordContract` 同一個函式（結果符合 `checks.json` 且錄製沒有問題才寫、手改過的
+    略過、寫檔前經 `Redactor`）；寫檔前檢查代際（跑的途中換資料夾或卸載就不寫）。`requiresLogin`：重播用 `checks.json` 的假憑證，
+    真實與錄製用已存的憑證當 `loginVerify` 的輸入，沒登入略過、不連網。遮蔽函式不認得帳號名稱，所以 `recordCase` 在錄到的流量裡還看得到
+    `LoginAccount` 的 `userId`、`displayName` 或頭像網址時不寫（`accountLeaks`），要插件把那些回應欄位加進 `manifest.redaction.keyNames`
+    （fixture 進公開的插件 repo）。回傳值經 `Redactor.redactValue` 顯示，`LoginAccount` 一律顯示
+    `***`。一次只跑一個案例（整個區塊）。閘門：`dev_case_runs_test.dart`（預設重播、隔離不碰 App 的 storage、錄製的檔案沒有假憑證
+    且與命令列逐位元組相同、手改過的略過、結果不符不寫、帳號資訊沒遮蔽不寫與遮了才寫、`requiresLogin` 兩種、一次一個、換資料夾與
+    卸載的代際丟棄、每案例一筆 log）。
+  - 健康檢查對開發中的插件讀資料夾的 `checks.json`（`PluginDevelopment.checksJsonFor`）。閘門：`health_check_test.dart`。
+  - 已知限制（沒有閘門）：registry 重建會丟掉開發版（registry 目前從不重建）；開發版 manifest 比已安裝版多的能力（如 `login`），
+    讀列的元件（例如 `CredentialStore`）看到的是已安裝版的 manifest；只有開發資料夾才有的插件卸載時只刪列與 storage，帳號列與憑證
+    保留（要清就先在帳號頁登出）；隔離環境只把已存憑證當 `loginVerify` 的輸入，M4 出現「需要登入、但不是 login 能力」的案例時
+    要讓隔離環境帶上該音源的憑證；debug build 下案例與 App 的資料庫同時開著，drift 會印「多個資料庫」的警告（無害）。
+  - 插件頁（見「介面」）：開發中的卡片不能啟用、更新、移除，閘門 `plugins_page_test.dart` 的 `plugins in development`。
 - 執行器看不到的：插件接住並吞掉「網域不在清單」的錯誤（網路層照樣不送出）；插件自己拋的
   `ParseError` 與 DTO 驗證失敗的 `ParseError` 分不出來。沒有閘門，已知限制。
 
@@ -1584,7 +1621,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、資料庫、重設資料。窄版點進區塊後，標題列的返回鈕與系統返回鍵
+    `DebugSection`，ADR 0025 §決定 2 的八個各跟著實作它的 PR 加，現在有概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、插件開發（只在平台宣告 `pluginDevTools` 時列出，清單與內容都看它）、資料庫、重設資料。窄版點進區塊後，標題列的返回鈕與系統返回鍵
     先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
     閘門：`debug_page_test.dart` 的 `layout` 群組。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
@@ -1607,6 +1644,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     每個案例另以 tag `health` 寫一筆 log（`pluginId`、`capability`、`result`、`durationMs`、`errorType`），沒有新表。插件丟出 `AppError`
     以外的東西或期望不符都只標失敗、不中斷整輪。閘門：`health_check_test.dart`（略過與已存憑證、結果與 log 沒有帳號名稱與憑證值、一次一個與不開第二輪、跑的期間被停用、沒有載入、停用與無案例、
     log 欄位、失敗說明、非 `AppError`）、`debug_health_test.dart`（清單、進度、結果）、`guidelines_test.dart` 的 `the Debug Health section`。
+  - 插件開發（`debug_plugin_dev.dart`、`lib/plugins/dev/`，ADR 0025 §決定 7，M3 PR 16b；規則見「插件」）：單欄，上面一張資料夾卡（選擇資料夾、
+    重新掃描、卸載、套用中的進度條、資料夾層級的問題），下面每個插件一張卡片——標記（開發中、取代已安裝 x、載入失敗與原因）、模式
+    `SegmentedButton`（重播｜錄製｜真實）、重新載入、查看 log、全部執行；每個案例一列（狀態、耗時、模式、錯誤類別），點開看錯誤與問題、
+    錄製的「已寫入 n 個 fixture」、回傳值（縮排 JSON，可選取與複製）。選錄製時卡片顯示一行警告（不跳確認框：誤錄用 `git checkout` 還原）。
+    套用中停用選擇／重新掃描／卸載／重新載入；有案例在跑時停用所有執行鈕與那個插件的模式切換。「查看 log」切到 Log 區塊並把 tag
+    篩選設成該插件 id（`DebugLog.initialTag`，以 `ValueKey` 重設；之後從清單點 Log 不帶篩選）。閘門：`debug_plugin_dev_test.dart`、
+    `debug_page_test.dart` 的 `the plugin development section`、`guidelines_test.dart` 的 `the Debug Plugin Development section`
+    與 `the installed plugins in development`。
   - 網路（`debug_network.dart`、`debug_network_state.dart`，ADR 0025 §決定 4）：資料就是記憶體歷史裡 tag `network` 的紀錄
     （`NetworkEntry.tryParse` 讀 `writeNetworkRecord` 的欄位，不另存、不讀 log 檔），最新的在最上面。篩選是音源（空字串＝宿主自己的請求）、狀態碼類別（2xx／3xx／4xx／5xx，
     沒有狀態碼＝失敗，`StatusClass`）、文字。單筆詳細是對話框，列出遮過的 query、錯誤類型與 `networkRecordId` 對得上該筆 `id` 的
@@ -1927,7 +1972,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

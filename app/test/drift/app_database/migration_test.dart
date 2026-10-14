@@ -17,6 +17,7 @@ import 'generated/schema_v6.dart' as v6;
 import 'generated/schema_v7.dart' as v7;
 import 'generated/schema_v8.dart' as v8;
 import 'generated/schema_v9.dart' as v9;
+import 'generated/schema_v10.dart' as v10;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -890,5 +891,77 @@ void main() {
     addTearDown(db.close);
 
     await expectDeveloperSettingsSchema(db);
+  });
+
+  // v10 在 installed_plugins 加 from_dev_folder（M3 PR 16b）：升級前的列都是使用者裝的，
+  // 取預設的假；其他欄位與它的 storage 原樣保留。
+  test(
+    'migration from v9 to v10 marks existing plugins as installed',
+    () async {
+      await verifier.testWithDataIntegrity(
+        oldVersion: 9,
+        newVersion: 10,
+        createOld: v9.DatabaseAtV9.new,
+        createNew: v10.DatabaseAtV10.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          batch.insert(
+            oldDb.installedPlugins,
+            const v9.InstalledPluginsData(
+              id: 'bilibili',
+              version: '1.0.0',
+              manifestJson: '{"id":"bilibili"}',
+              script: 'export const a = 1;',
+              installedAt: 1790000000000,
+              enabled: 0,
+              checksJson: '{"search":{}}',
+            ),
+          );
+          batch.insert(
+            oldDb.pluginStorage,
+            const v9.PluginStorageData(
+              pluginId: 'bilibili',
+              key: 'wbiKeys',
+              value: 'v',
+            ),
+          );
+        },
+        validateItems: (newDb) async {
+          expect(await newDb.select(newDb.installedPlugins).get(), [
+            const v10.InstalledPluginsData(
+              id: 'bilibili',
+              version: '1.0.0',
+              manifestJson: '{"id":"bilibili"}',
+              script: 'export const a = 1;',
+              installedAt: 1790000000000,
+              enabled: 0,
+              checksJson: '{"search":{}}',
+              fromDevFolder: 0,
+            ),
+          ]);
+          expect(await newDb.select(newDb.pluginStorage).get(), [
+            const v10.PluginStorageData(
+              pluginId: 'bilibili',
+              key: 'wbiKeys',
+              value: 'v',
+            ),
+          ]);
+        },
+      );
+    },
+  );
+
+  test('a new database defaults from_dev_folder to false', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.customStatement(
+      "INSERT INTO installed_plugins (id, version, manifest_json, script, "
+      "installed_at) VALUES ('p', '1', '{}', '', 0)",
+    );
+    final row = await db
+        .customSelect('SELECT from_dev_folder FROM installed_plugins')
+        .getSingle();
+    expect(row.data['from_dev_folder'], 0);
   });
 }

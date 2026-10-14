@@ -1,4 +1,4 @@
-import 'fixture.dart';
+import 'package:fmp/core/network/fixture/fixture.dart';
 
 // 錄製者的公網 IP 不得留在 fixture 裡（repo 是公開的）。YouTube 的 `sw.js_data`
 // （JSPB 陣列，位置式、沒有鍵名）、innertube 請求的 `context.client.remoteHost`、

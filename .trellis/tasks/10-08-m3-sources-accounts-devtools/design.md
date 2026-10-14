@@ -150,6 +150,8 @@ lib/
 .github/ISSUE_TEMPLATE/bug_report.yml
 ```
 
+- 更正（M3 PR 16b）：`fixture.dart`、`fixture_adapters.dart` 與 `ip_scrub.dart` 在 `lib/core/network/fixture/`（一個目錄，`restrictedImports` 一條），不是上面兩個平鋪檔案。
+
 - **`lib/scheduler/`、`lib/radio/` 是新的頂層目錄**：
   - 排程器要存「上次成功時間」（`data/`）並看網路狀態（`core/`），而 `core/` 不准 import `data/`；`app/` 沒有 `services/`（§8.25，`m3-decisions.md` 的建議）。
   - 電台要用資料（電台表）、插件（`live`）、排程器（狀態工作），不屬於任何既有層；放 `ui/` 會讓背景工作依賴介面，放 `scheduler/` 會讓排程器認得電台。
@@ -166,6 +168,8 @@ lib/
 | `fmp_layer_imports` 的 `restrictedImports` | `lib/core/network/fixture_adapters.dart`、`fixture.dart` 只給 `lib/plugins/dev/`（`fixture.dart` 另給 `fixture_adapters.dart`；測試不受限） | 16 |
 | `fmp_source_id_literal` 的 `officialPluginIds` | 加 `youtube`（PR 1）、`netease`（PR 2）；與舊版 `lib/data/models/source_ids.dart:17-18` 相同，M5 對照不轉換（§8.32） | 1、2 |
 | 新規則 `fmp_periodic_timer_owner` | `Timer.periodic`、`Stream.periodic` 只准在 `lib/scheduler/`、`lib/playback/`（ADR 0017 §如何確認、ADR 0018 §決定 11）。ADR 0021 的桌面歌詞查游標在 M7 加進允許清單，現在不預留 | 17 |
+
+更正（M3 PR 16b）：`restrictedImports` 那一列是一條 `lib/core/network/fixture`（目錄）→ `lib/plugins/dev`、`lib/core/network/fixture`，不是 `fixture_adapters.dart`、`fixture.dart` 兩個檔案。
 
 - 每條都照 `.trellis/spec/app/lints/index.md` 寫雙向變異案例，在 `tool/lint_sentinel.dart` 加違規行；同步 `app/AGENTS.md` § Lint 的表。
 - `fmp_periodic_timer_owner` 的變異：`lib/radio/` 裡的 `Timer.periodic` 報、`lib/scheduler/` 不報；改名成 `Timer.periodicLike`（同名前綴的自訂方法）不報、`Timer.run` 不報；`Stream.periodic` 一樣兩向。
@@ -188,6 +192,8 @@ lib/
 | `radio_stations` | `id` int 自增主鍵、`plugin_id` text、`room_id` text、`title` text、`host_name` text?、`artwork_json` text?、`sort_order` int、`added_at` int、`live_status` text?（`live`／`offline`）、`live_title` text?、`status_checked_at` int?；唯一（`plugin_id`、`room_id`） | 電台清單（§9.1）。最後一次查到的直播狀態也存這裡，啟動時先顯示（ADR 0017 §決定 3「先顯示快取」） | 18 |
 | `network_settings`（既有） | 加 `radio_status_interval_minutes` int? | 電台狀態刷新間隔（§8.4） | 18 |
 | `player_state`（既有） | 加 `mode` text?（空或 `queue`／`mix`）、`mix_plugin_id` text?、`mix_id` text?、`mix_title` text?、`mix_cursor` text? | ADR 0018 §決定 10 的「模式」「Mix 身分」（M2 design §7.7 留給 M3）。`temporary`、`live` 不持久化（§9.4、§10） | 19 |
+
+更正（M3 PR 16b）：`installed_plugins` 另加 `from_dev_folder` bool（預設假，插件開發工具補的列，插件開發 design §3.4），schema v10。
 
 - **不建外鍵到 `installed_plugins`**：插件移除後曲目、電台都保留並標「音源未安裝」（ADR 0014 §決定 8、§16 第 10 條），`plugin_id` 只是字串。
 - **`accounts` 沒有「已登入」欄位**：是否登入只看 `CredentialStore`（ADR 0012 §決定 3）。啟動時有帳號列卻沒有憑證就刪那一列；憑證「暫時無法讀取」只在記憶體（§6.2）。
@@ -712,6 +718,8 @@ ADR 0017 §如何確認的七項各一組單元測試（假時鐘、假生命週
 - 閘門：診斷包不含假憑證、假簽名網址、帳號名稱、家目錄的使用者名稱（ADR 0011 的遮蔽測試加這四種）；zip 可以解開、三個檔都在；未宣告 `shareFiles` 的平台不顯示「分享」（widget）；啟動維護清單刪掉殘留的暫存 zip。
 
 ### 12.5 健康檢查與插件開發工具（ADR 0015 §決定 7、ADR 0025 §決定 6–7，§8.27）
+
+更正（M3 PR 16b）：「切換模式時重建該插件的 client」改為：模式只作用於跑案例，每個案例在隔離環境（空的 storage 與憑證、新的 runtime 與 client）以對應的 adapter 執行（`archive/2026-10/10-14-m3-plugin-dev-tools/design.md` §3.1）；開發資料夾補的 `installed_plugins` 列以 `from_dev_folder` 標記，殘留列在下一次啟動（每次套用資料夾）時刪（同檔 §3.4）。
 
 - **健康檢查**：對已安裝且啟用的插件，以真實連線跑它的檢查案例；手動觸發「全部」或單一插件，一次跑一個插件。
   - 案例來源：從 index 安裝的插件用 `installed_plugins.checks_json`；開發中的插件讀資料夾的 `checks.json`；從檔案或網址安裝的顯示「沒有檢查案例」（§16 第 12 條）。

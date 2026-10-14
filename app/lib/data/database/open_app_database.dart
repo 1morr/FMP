@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show DatabaseConnection;
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 
@@ -30,3 +31,8 @@ Future<AppDatabase> openAppDatabase(Directory dataDirectory) async {
   }
   return database;
 }
+
+/// 記憶體資料庫（插件開發工具與契約執行器的隔離環境，每個案例一份）。
+AppDatabase openInMemoryDatabase() => AppDatabase(
+  DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true),
+);

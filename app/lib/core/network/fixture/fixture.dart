@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:fmp/core/redaction/redactor.dart';
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 
 // fixture：一次 HTTP 請求與它的回應，一個 JSON 檔（ADR 0015 §決定 5）。欄位名稱
 // 沿用 WireMock stub mapping（`request.method`／`url`、`response.status`／

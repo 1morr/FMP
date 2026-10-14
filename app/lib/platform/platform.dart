@@ -104,6 +104,8 @@ final class AppPlatform {
         urlOpener: true,
         restartsItself: false,
         shareFiles: true,
+        // 讀任意目錄要 SAF（ADR 0025「之後要注意」）：另立 ADR 前不提供。
+        pluginDevTools: false,
         mediaControls: MediaControlsSupport(supportsSeek: true),
       ),
       // 資料目錄在 App 的沙盒裡，路徑不含使用者名稱：沒有要換成 `~` 的家目錄。
@@ -165,6 +167,7 @@ final class AppPlatform {
         urlOpener: true,
         restartsItself: true,
         shareFiles: true,
+        pluginDevTools: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,

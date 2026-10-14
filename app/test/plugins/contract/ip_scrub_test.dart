@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'credential_scan.dart';
-import 'fixture.dart';
-import 'ip_scrub.dart';
+
+import 'package:fmp/core/network/fixture/fixture.dart';
+import 'package:fmp/core/network/fixture/ip_scrub.dart';
 
 import 'package:fmp/core/redaction/redactor.dart';
 

@@ -167,6 +167,48 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // M3 design §12.5：fixture 的錄製、重播與格式只給插件開發工具。registry、名稱相近的
+  // `lib/plugins/devtools/`、介面、網路層的其他檔案都報；別名、相對路徑、export 一樣報。
+  Future<void> test_fixtureFromOutside() async {
+    for (final path in [
+      'lib/plugins/plugin_registry.dart',
+      'lib/plugins/devtools/x.dart',
+      'lib/ui/debug/debug_page.dart',
+      'lib/core/network/source_http_client.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:test/core/network/fixture/fixture.dart'!] as f;\n",
+      );
+    }
+    await assertLints(
+      'lib/ui/debug/debug_log.dart',
+      "import [!'../../core/network/fixture/fixture.dart'!];\n"
+          "export [!'package:test/core/network/fixture/fixture_adapters.dart'!];\n",
+    );
+  }
+
+  Future<void> test_fixtureFromAllowedImporters() async {
+    for (final path in [
+      'lib/plugins/dev/case_runner.dart',
+      'lib/core/network/fixture/fixture_adapters.dart',
+      'test/plugins/contract/contract_runner.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import 'package:test/core/network/fixture/fixture.dart';\n",
+      );
+    }
+    // 名稱相近的別的檔案與目錄、註解與字串裡提到的不報。
+    await assertLints(
+      'lib/core/network/source_http_client.dart',
+      "import 'package:test/core/network/fixture_helpers.dart';\n"
+          "import 'package:test/core/network/fixtures/x.dart';\n"
+          "// import 'package:test/core/network/fixture/fixture.dart';\n"
+          "const text = \"import 'fixture/fixture.dart';\";\n",
+    );
+  }
+
   Future<void> test_legacyImportFromOutside() => assertLints(
     'lib/data/database.dart',
     "import [!'package:test/legacy_import/reader.dart'!];\n",

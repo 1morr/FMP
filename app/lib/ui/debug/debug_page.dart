@@ -7,9 +7,11 @@ import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
+import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
@@ -17,14 +19,15 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// Debug 頁的區塊，依清單上的順序。ADR 0025 §決定 2 的表有八個，各自跟著實作它的 PR
-/// 加（之前不放空殼）：插件開發（M3 PR 16b；只在平台宣告 `pluginDevTools` 時列出）。
-/// 新的區塊照表上的順序插進來。
+/// 加（之前不放空殼）：[pluginDev] 只在平台宣告 `pluginDevTools` 時列出。新的區塊照表上
+/// 的順序插進來。
 enum DebugSection {
   overview(Icons.dashboard_outlined),
   log(Icons.article_outlined),
   network(Icons.swap_vert),
   playback(Icons.graphic_eq),
   health(Icons.health_and_safety_outlined),
+  pluginDev(Icons.extension_outlined),
   database(Icons.storage_outlined),
   reset(Icons.restart_alt);
 
@@ -66,6 +69,9 @@ class _DebugPageState extends ConsumerState<DebugPage> {
   /// 使用者點進去的那一塊；`null` 是還沒選（窄版顯示清單，寬版用第一個）。
   DebugSection? _selected;
 
+  /// 「查看 log」帶進 Log 區塊的 tag 篩選（插件 id）；從清單點 Log 時是 `null`。
+  String? _logTag;
+
   var _leaving = false;
 
   /// 開發者模式關著：在這一幀之後關掉這一頁。在最上層就 pop（有轉場），被蓋住了（例如
@@ -100,7 +106,11 @@ class _DebugPageState extends ConsumerState<DebugPage> {
       WindowClass.compact || WindowClass.medium => true,
       _ => false,
     };
-    final selected = _selected;
+    // 平台沒有插件開發工具：清單與內容都沒有這一塊（ADR 0025 §如何確認）。
+    final sections = _sections(ref.watch(platformCapabilitiesProvider));
+    final selected = _selected != null && sections.contains(_selected)
+        ? _selected
+        : null;
     final inSection = narrow && selected != null;
     return PopScope(
       canPop: !inSection,
@@ -119,14 +129,26 @@ class _DebugPageState extends ConsumerState<DebugPage> {
               : null,
         ),
         body: open == true && !_leaving
-            ? _body(t.debug, narrow: narrow, selected: selected)
+            ? _body(t.debug, sections, narrow: narrow, selected: selected)
             : const SizedBox.shrink(),
       ),
     );
   }
 
+  static List<DebugSection> _sections(PlatformCapabilities capabilities) => [
+    for (final section in DebugSection.values)
+      if (section != DebugSection.pluginDev || capabilities.pluginDevTools)
+        section,
+  ];
+
+  void _viewLog(String pluginId) => setState(() {
+    _logTag = pluginId;
+    _selected = DebugSection.log;
+  });
+
   Widget _body(
-    Translations$debug$zh_TW t, {
+    Translations$debug$zh_TW t,
+    List<DebugSection> sections, {
     required bool narrow,
     required DebugSection? selected,
   }) {
@@ -134,12 +156,15 @@ class _DebugPageState extends ConsumerState<DebugPage> {
     final spacing = AppTokens.of(context).spacing;
     Widget list(DebugSection? selected) => ListView(
       children: [
-        for (final section in DebugSection.values)
+        for (final section in sections)
           ListTile(
             leading: Icon(section.icon),
             title: Text(_name(t, section)),
             selected: section == selected,
-            onTap: () => setState(() => _selected = section),
+            onTap: () => setState(() {
+              _selected = section;
+              _logTag = null;
+            }),
           ),
       ],
     );
@@ -177,7 +202,8 @@ class _DebugPageState extends ConsumerState<DebugPage> {
           ),
           DebugSection.log => filling(
             section,
-            const DebugLog(),
+            // key：換 tag 就重建，篩選才會重設成新的 tag。
+            DebugLog(key: ValueKey(_logTag), initialTag: _logTag),
             heading: heading,
           ),
           DebugSection.network => filling(
@@ -193,6 +219,11 @@ class _DebugPageState extends ConsumerState<DebugPage> {
           DebugSection.health => filling(
             section,
             const DebugHealth(),
+            heading: heading,
+          ),
+          DebugSection.pluginDev => filling(
+            section,
+            DebugPluginDev(onViewLog: _viewLog),
             heading: heading,
           ),
           DebugSection.database => filling(
@@ -214,7 +245,7 @@ class _DebugPageState extends ConsumerState<DebugPage> {
     if (narrow) {
       return selected == null ? list(null) : detail(selected, heading: false);
     }
-    final shown = selected ?? DebugSection.values.first;
+    final shown = selected ?? sections.first;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -232,6 +263,7 @@ class _DebugPageState extends ConsumerState<DebugPage> {
         DebugSection.network => t.network,
         DebugSection.playback => t.playback,
         DebugSection.health => t.health,
+        DebugSection.pluginDev => t.pluginDev,
         DebugSection.database => t.database,
         DebugSection.reset => t.reset,
       };

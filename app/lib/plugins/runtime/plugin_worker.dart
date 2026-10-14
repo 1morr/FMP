@@ -5,7 +5,7 @@ import 'dart:isolate';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_js/flutter_js.dart';
 
-import 'package:fmp/plugins/json_shape.dart';
+import 'package:fmp/core/json_shape.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/runtime/js_prelude.dart';
 import 'package:fmp/plugins/runtime/worker_protocol.dart';

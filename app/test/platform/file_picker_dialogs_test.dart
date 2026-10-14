@@ -33,6 +33,23 @@ final class _FakePicker extends FilePickerPlatform {
   }
 }
 
+/// 換掉 `file_picker` 的選資料夾：回傳 [result]（`null` 是取消）。
+final class _FakeDirectoryPicker extends FilePickerPlatform {
+  _FakeDirectoryPicker(this.result);
+
+  final String? result;
+
+  @override
+  Future<String?> getDirectoryPath({
+    String? dialogTitle,
+    String? initialDirectory,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => result;
+}
+
 /// 換掉 `file_picker` 的存檔：記下收到的檔名、內容與 MIME，回傳 [result]（`null` 是取消）。
 final class _FakeSaver extends FilePickerPlatform {
   _FakeSaver(this.result);
@@ -92,6 +109,14 @@ void main() {
     expect(fake.extensions, ['js']);
     expect(picked?.name, 'plugin.js');
     expect(utf8.decode(picked!.bytes), 'export {};');
+  });
+
+  test('picks a directory and a cancelled dialog is null', () async {
+    FilePickerPlatform.instance = _FakeDirectoryPicker(r'C:\plugins');
+    expect(await const FilePickerDialogs().pickDirectory(), r'C:\plugins');
+
+    FilePickerPlatform.instance = _FakeDirectoryPicker(null);
+    expect(await const FilePickerDialogs().pickDirectory(), isNull);
   });
 
   test('a cancelled dialog is null', () async {

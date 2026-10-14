@@ -67,6 +67,16 @@ final class FakeFileDialogs implements FileDialogs {
     return file;
   }
 
+  /// 選資料夾的結果：`null` 是取消。
+  String? directory;
+  var directoryPicks = 0;
+
+  @override
+  Future<String?> pickDirectory() async {
+    directoryPicks++;
+    return directory;
+  }
+
   /// 存檔的結果：`null` 是取消。
   Uri? saveResult = Uri.file('/fake/saved.zip');
   final saves = <({String name, Uint8List bytes, String mimeType})>[];
@@ -113,10 +123,12 @@ final class PluginPageHarness {
     this.loginWebView,
     bool registrySources = false,
     bool secureStorage = true,
+    bool pluginDevTools = false,
     List<Override> overrides = const [],
     FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
   }) {
     shell = ShellHarness(
+      pluginDevTools: pluginDevTools,
       onSearch: onSearch,
       database: plugins.database,
       fileDialogs: dialogs,
@@ -157,10 +169,12 @@ final class PluginPageHarness {
     FakeLoginWebView? loginWebView,
     bool registrySources = false,
     bool secureStorage = true,
+    bool pluginDevTools = false,
     List<Override> overrides = const [],
     FutureOr<SearchPage> Function(SearchQuery query)? onSearch,
   }) async {
     final harness = PluginPageHarness._(
+      pluginDevTools: pluginDevTools,
       onSearch: onSearch,
       dialogs: dialogs,
       loginWebView: loginWebView,

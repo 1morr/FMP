@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -7,13 +8,16 @@ import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/plugins/plugin_dialogs.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../plugins/dev/dev_support.dart' show tempFolder;
 import '../support/plugin_page_harness.dart';
 
 const _custom = 'https://custom.test/index.json';
@@ -851,6 +855,132 @@ void main() {
         ]);
       });
     }
+  });
+
+  // 開發資料夾載入的插件（M3 PR 16b，design §3.5）：不能啟用、更新、移除，否則會蓋掉開發版
+  // 或刪掉它正在用的列。
+  group('plugins in development', () {
+    final a11 = pluginScript(
+      'plugin-a',
+      name: 'Alpha',
+      version: '1.1.0',
+      capabilities: ['search', 'resolveStream'],
+      hosts: ['a.example.test'],
+    );
+    final b11 = pluginScript('plugin-b', name: 'Beta', version: '1.1.0');
+
+    Future<PluginPageHarness> open(WidgetTester tester) async {
+      final h = await PluginPageHarness.create(tester, pluginDevTools: true)
+        ..publish([a11, b11]);
+      final folder = tempFolder();
+      final directory = Directory('${folder.path}/alpha')..createSync();
+      File('${directory.path}/alpha.js').writeAsStringSync(
+        pluginScript(
+          'plugin-a',
+          name: 'Alpha Dev',
+          version: '1.2.0',
+          capabilities: ['search', 'resolveStream'],
+          hosts: ['a.example.test'],
+        ),
+      );
+      await tester.runAsync(() async {
+        await h.install(_a, indexUrl: officialPluginIndexUrl);
+        await h.install(_b, indexUrl: officialPluginIndexUrl);
+        await DeveloperSettingsRepository(h.plugins.database)
+            .write(developerMode: true, pluginDevFolder: folder.path);
+      });
+      await h.open(tester);
+      for (var i = 0; i < 400; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 25)),
+        );
+        await tester.pump(const Duration(milliseconds: 25));
+        final state = h.container(tester).read(pluginDevelopmentProvider);
+        if (state != null && !state.busy) break;
+      }
+      await tester.pumpAndSettle();
+      return h;
+    }
+
+    testWidgets('the card is tagged, shows the dev version and locks the '
+        'enable switch, update and remove', (tester) async {
+      await open(tester);
+
+      expect(find.text('In development'), findsOneWidget);
+      // 名稱與版本是載入的開發版（已安裝的是 Alpha 1.0.0）。
+      expect(_card('Alpha Dev'), findsOneWidget);
+      expect(find.textContaining('1.2.0'), findsOneWidget);
+      expect(find.text('Alpha'), findsNothing);
+      expect(
+        tester
+            .widget<Switch>(
+              find.descendant(
+                of: _card('Alpha Dev'),
+                matching: find.byType(Switch),
+              ),
+            )
+            .onChanged,
+        isNull,
+      );
+      expect(_inCard('Alpha Dev', _button('Remove')), findsOneWidget);
+      expect(
+        _enabled(tester, _inCard('Alpha Dev', _button('Remove'))),
+        isFalse,
+      );
+      expect(
+        find.descendant(
+          of: _card('Alpha Dev'),
+          matching: find.textContaining('Plugin development'),
+        ),
+        findsOneWidget,
+      );
+      // 沒有標記的插件照舊。
+      expect(
+        tester
+            .widget<Switch>(
+              find.descendant(of: _card('Beta'), matching: find.byType(Switch)),
+            )
+            .onChanged,
+        isNotNull,
+      );
+    });
+
+    testWidgets('update all skips the plugin in development', (tester) async {
+      final h = await open(tester);
+      // 兩個都有更新；開發中的那個不算。
+      expect(find.text('Update available'), findsNWidgets(2));
+      expect(_inCard('Alpha Dev', _button('Update to 1.1.0')), findsOneWidget);
+      expect(
+        _enabled(tester, _inCard('Alpha Dev', _button('Update to 1.1.0'))),
+        isFalse,
+      );
+
+      await tester.tap(_button('Update all'));
+      await h.settle(tester);
+      await tester.pumpAndSettle();
+
+      final stored = await h.stored(tester);
+      expect(stored.firstWhere((p) => p.id == 'plugin-a').version, '1.0.0');
+      expect(stored.firstWhere((p) => p.id == 'plugin-b').version, '1.1.0');
+    });
+
+    testWidgets('the available tab shows the tag and no install button', (
+      tester,
+    ) async {
+      final h = await open(tester);
+
+      await _openAvailable(tester, h);
+
+      expect(
+        find.descendant(
+          of: _card('Alpha'),
+          matching: find.text('In development'),
+        ),
+        findsOneWidget,
+      );
+      expect(_inCard('Alpha', _button('Install')), findsNothing);
+      expect(_inCard('Beta', find.text('Installed')), findsOneWidget);
+    });
   });
 
   test('only https URLs with a host and no user info are accepted', () {

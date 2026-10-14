@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,12 +12,14 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/health/health_check.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 
 import '../../playback/fake_source_plugin.dart';
 import '../../support/fake_http_adapter.dart';
 import '../../support/pump_until.dart';
+import '../dev/dev_support.dart';
 import '../plugin_harness.dart';
 
 // 健康檢查（M3 PR 16a，ADR 0025 §決定 6）。不連網：插件跑在真的 QuickJS，HTTP 是假 adapter。
@@ -342,5 +345,43 @@ void main() {
     final s = await _setup([_Spec('plugin-a')]);
     final before = s.harness.database.allTables.map((t) => t.actualTableName);
     expect(before, isNot(contains(contains('health'))));
+  });
+
+  test('a plugin in development runs the checks.json of its folder, not the '
+      'installed row', () async {
+    final harness = PluginHarness(handler: (_) => reply(200));
+    // 已安裝的列沒有案例；資料夾的 checks.json 有 search。
+    await storeInstalled(harness, pluginSource(_script, id: 'plugin-a'));
+    final folder = tempFolder();
+    final directory = Directory('${folder.path}/plugin-a')..createSync();
+    File('${directory.path}/plugin-a.js')
+        .writeAsStringSync(pluginSource(_script, id: 'plugin-a'));
+    File('${directory.path}/checks.json').writeAsStringSync('{$_searchCheck}');
+    await selectFolder(harness, folder);
+    final container = devContainer(
+      harness,
+      overrides: [
+        credentialStoreProvider.overrideWithValue(harness.credentials),
+      ],
+    );
+    container.listen(pluginDevelopmentProvider, (_, _) {});
+    await pumpUntil(
+      () => container.read(pluginDevelopmentProvider)?.busy == false,
+      maxRounds: 1000,
+    );
+
+    await container.read(healthCheckProvider.notifier).runOne('plugin-a');
+
+    final result = container.read(healthCheckProvider).results['plugin-a']!;
+    expect(result.cases.single.outcome, HealthOutcome.passed);
+    // 卸載之後回到已安裝的列：它沒有案例，不跑。
+    await selectFolder(harness, null);
+    await pumpUntil(
+      () => container.read(pluginDevelopmentProvider) == null,
+      maxRounds: 1000,
+    );
+    container.invalidate(healthCheckProvider);
+    await container.read(healthCheckProvider.notifier).runOne('plugin-a');
+    expect(container.read(healthCheckProvider).results, isEmpty);
   });
 }

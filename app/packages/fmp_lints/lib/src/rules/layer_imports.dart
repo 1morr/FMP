@@ -101,6 +101,8 @@ const restrictedImports = <String, List<String>>{
     'lib/data/cache',
     'lib/main.dart',
   ],
+  // M3 design §12.5：fixture 的錄製、重播與格式只給插件開發工具（契約執行器在 test/，不受限）。
+  'lib/core/network/fixture': ['lib/plugins/dev', 'lib/core/network/fixture'],
 };
 
 /// `fmp_layer_imports`：依賴方向表（ADR 0015 §決定 2）。

@@ -26,4 +26,7 @@ final class FilePickerDialogs implements FileDialogs {
     required Uint8List bytes,
     required String mimeType,
   }) => FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: mimeType);
+
+  @override
+  Future<String?> pickDirectory() => FilePicker.getDirectoryPath();
 }

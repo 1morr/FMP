@@ -25,6 +25,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:fmp/core/network/fixture/fixture.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:material_ui/material_ui.dart' as m;
@@ -67,6 +68,8 @@ const _expectedMessages = [
   'lib/playback/backends/audio_backend.dart is only imported from',
   // restrictedImports（`package:fmp/platform/cache_directory/…`）
   'lib/platform/cache_directory is only imported from',
+  // restrictedImports（`package:fmp/core/network/fixture/…`）
+  'lib/core/network/fixture is only imported from',
   // externalPackageOwners 的兩個圖片快取套件
   'package:flutter_cache_manager* is only allowed in lib/data/cache/',
   'package:cached_network_image* is only allowed in lib/ui/artwork/',

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/data/repositories/plugin_repository.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/health/health_check.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
@@ -21,6 +22,8 @@ class DebugHealth extends ConsumerWidget {
     final t = ref.watch(translationsProvider).debug;
     final installed = ref.watch(installedPluginsProvider).value;
     final health = ref.watch(healthCheckProvider);
+    // 開發中的插件案例數讀資料夾的 checks.json（M3 PR 16b）；狀態變了就重畫。
+    ref.watch(pluginDevelopmentProvider);
     final spacing = AppTokens.of(context).spacing;
     if (installed == null) return const SizedBox.shrink();
     if (installed.isEmpty) {
@@ -64,7 +67,7 @@ class _PluginRow extends ConsumerWidget {
     final result = health.results[plugin.id];
     final running = health.running == plugin.id;
     final name = _name(plugin);
-    final count = _caseCount(plugin);
+    final count = _caseCount(ref, plugin);
     // checks_json 讀不懂（-1）仍可以按「檢查」：跑了才看得到哪裡不對（hcProblem）。
     final runnable = plugin.enabled && count != 0;
     final subtitle = [
@@ -127,9 +130,12 @@ class _PluginRow extends ConsumerWidget {
   }
 
   /// 案例數；沒有 checks_json 是 0，讀不懂是 -1。
-  static int _caseCount(InstalledPlugin plugin) {
+  static int _caseCount(WidgetRef ref, InstalledPlugin plugin) {
     try {
-      return readChecks(plugin.checksJson)?.length ?? 0;
+      final json = ref
+          .read(pluginDevelopmentProvider.notifier)
+          .checksJsonFor(plugin);
+      return readChecks(json)?.length ?? 0;
     } on FormatException {
       return -1;
     }

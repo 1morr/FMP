@@ -2,8 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 系統的檔案對話框（ADR 0009 §決定 6）。有選檔（從檔案安裝插件，ADR 0030 §決定 8）
-/// 與存檔（診斷包與 log 檔，ADR 0025 §決定 10）；選資料夾跟著用到它的 PR 加（design
-/// §12.5）。實作有 Android 與 Windows（`file_picker_dialogs.dart`），由 `platform.dart` 組裝。
+/// 與存檔（診斷包與 log 檔，ADR 0025 §決定 10）與選資料夾（插件開發工具，ADR 0025 §決定 7）。實作有 Android 與 Windows（`file_picker_dialogs.dart`），由 `platform.dart` 組裝。
 abstract interface class FileDialogs {
   /// 讓使用者選一個副檔名是 [extension]（不含點，例如 `js`）的檔案，讀出內容。
   /// 使用者取消時回 `null`。
@@ -16,6 +15,9 @@ abstract interface class FileDialogs {
     required Uint8List bytes,
     required String mimeType,
   });
+
+  /// 讓使用者選一個資料夾，回傳它的絕對路徑；使用者取消回 `null`。
+  Future<String?> pickDirectory();
 }
 
 /// 使用者選的檔案。

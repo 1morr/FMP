@@ -15,6 +15,7 @@ final class InstalledPlugin {
     this.enabled = true,
     this.sourceIndexUrl,
     this.checksJson,
+    this.fromDevFolder = false,
   });
 
   /// 音源 id。
@@ -37,6 +38,10 @@ final class InstalledPlugin {
   /// 從 index 安裝時一併存的 `checks.json` 原文，給健康檢查用。
   final String? checksJson;
 
+  /// 真＝這一列是插件開發工具為了 `plugin_storage` 的外鍵補的，不是使用者裝的
+  /// （M3 PR 16b）。
+  final bool fromDevFolder;
+
   @override
   bool operator ==(Object other) =>
       other is InstalledPlugin &&
@@ -47,7 +52,8 @@ final class InstalledPlugin {
       other.installedAt == installedAt &&
       other.enabled == enabled &&
       other.sourceIndexUrl == sourceIndexUrl &&
-      other.checksJson == checksJson;
+      other.checksJson == checksJson &&
+      other.fromDevFolder == fromDevFolder;
 
   @override
   int get hashCode => Object.hash(
@@ -59,6 +65,7 @@ final class InstalledPlugin {
     enabled,
     sourceIndexUrl,
     checksJson,
+    fromDevFolder,
   );
 
   @override
@@ -88,8 +95,70 @@ final class PluginRepository {
           installedAt: plugin.installedAt,
           sourceIndexUrl: Value(plugin.sourceIndexUrl),
           checksJson: Value(plugin.checksJson),
+          // 開發中同 id 被正式安裝：標記列轉成已安裝的列，卸載開發資料夾時不會被刪。
+          fromDevFolder: const Value(false),
         ),
       );
+
+  /// 開發資料夾載入一個插件時為 `plugin_storage` 的外鍵補一列（M3 PR 16b）。回傳這個
+  /// id 是不是標記列：
+  ///
+  /// - 沒有列：插入標記列；
+  /// - 有標記列：更新 version／manifest／script；
+  /// - 有已安裝的列：一個欄位都不動（storage 共用），回傳假。
+  ///
+  /// 一個 transaction。
+  Future<bool> putDevFolderRow(InstalledPlugin plugin) =>
+      _database.transaction(() async {
+        final table = _database.installedPluginsTable;
+        final row = await (_database.select(
+          table,
+        )..where((t) => t.id.equals(plugin.id))).getSingleOrNull();
+        if (row == null) {
+          await _database
+              .into(table)
+              .insert(
+                InstalledPluginsTableCompanion.insert(
+                  id: plugin.id,
+                  version: plugin.version,
+                  manifestJson: plugin.manifestJson,
+                  script: plugin.script,
+                  installedAt: plugin.installedAt,
+                  fromDevFolder: const Value(true),
+                ),
+              );
+          return true;
+        }
+        if (!row.fromDevFolder) return false;
+        await (_database.update(
+          table,
+        )..where((t) => t.id.equals(plugin.id))).write(
+          InstalledPluginsTableCompanion(
+            version: Value(plugin.version),
+            manifestJson: Value(plugin.manifestJson),
+            script: Value(plugin.script),
+          ),
+        );
+        return true;
+      });
+
+  /// 刪掉標記列中不在 [keep] 的（storage 由外鍵一起刪），回傳刪掉的 id。已安裝的列
+  /// 一律不碰。
+  Future<List<String>> removeDevFolderRows({Set<String> keep = const {}}) =>
+      _database.transaction(() async {
+        final table = _database.installedPluginsTable;
+        final rows = await (_database.select(
+          table,
+        )..where((t) => t.fromDevFolder.equals(true))).get();
+        final ids = [
+          for (final row in rows)
+            if (!keep.contains(row.id)) row.id,
+        ];
+        for (final id in ids) {
+          await (_database.delete(table)..where((t) => t.id.equals(id))).go();
+        }
+        return ids;
+      });
 
   /// 啟用或停用；沒有這個插件時什麼都不做。
   Future<void> setEnabled(String id, {required bool enabled}) =>
@@ -134,6 +203,7 @@ final class PluginRepository {
     enabled: row.enabled,
     sourceIndexUrl: row.sourceIndexUrl,
     checksJson: row.checksJson,
+    fromDevFolder: row.fromDevFolder,
   );
 }
 

@@ -90,6 +90,9 @@ final class PluginRegistry extends AsyncNotifier<Map<String, SourcePlugin>> {
     _disabled.clear();
     final plugins = <String, SourcePlugin>{};
     for (final installed in await repository.list()) {
+      // 插件開發工具補的列不是已安裝的插件：有資料夾時由 `PluginDevelopment` 載入
+      // 開發版，沒有時它在下一次套用資料夾時刪掉這一列（M3 PR 16b）。
+      if (installed.fromDevFolder) continue;
       if (!installed.enabled) {
         _disabled.add(installed.id);
         continue;
@@ -167,6 +170,30 @@ final class PluginRegistry extends AsyncNotifier<Map<String, SourcePlugin>> {
     if (previous != null) {
       _open.remove(previous);
       previous.close();
+    }
+  }
+
+  /// 開發資料夾卸載後恢復 [pluginId] 的已安裝版（M3 PR 16b）：有未標記且啟用的列就載入並
+  /// [register]（失敗照 `build` 的做法 `log.report`）；停用的放回停用清單；沒有列（或只有
+  /// 標記列）什麼都不做。
+  Future<void> restoreInstalled(String pluginId) async {
+    final installed = await ref.read(pluginRepositoryProvider).byId(pluginId);
+    if (installed == null || installed.fromDevFolder) return;
+    if (!installed.enabled) {
+      final built = await future;
+      _disabled.add(pluginId);
+      state = AsyncData(Map.unmodifiable({...(state.value ?? built)}));
+      return;
+    }
+    try {
+      final plugin = await ref
+          .read(scriptPluginLoaderProvider)
+          .load(PluginFile.parse(installed.script));
+      await register(plugin);
+    } on AppError catch (error) {
+      ref
+          .read(logProvider)
+          .report('Failed to load an installed plugin', error, tag: 'plugins');
     }
   }
 
