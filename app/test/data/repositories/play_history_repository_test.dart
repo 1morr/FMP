@@ -51,6 +51,23 @@ void main() {
       expect(entries.first.track, track('b'));
     });
 
+    test('a part keeps its index and the video title', () async {
+      const part = TrackInfo(
+        sourceTypeId: 'fmp-test',
+        sourceId: 'v',
+        cid: 5,
+        title: 'Second',
+        partIndex: 2,
+        parentTitle: 'The video',
+      );
+      await repository.record(part, playedAt: at(1), limit: 10);
+
+      final entries = await repository.page(limit: 10);
+
+      expect(entries.single.track, part);
+      expect(entries.single.track.displayTitle, 'The video · P2 Second');
+    });
+
     test('the same song twice is two entries with the latest title', () async {
       await repository.record(
         track('a', title: 'Old'),

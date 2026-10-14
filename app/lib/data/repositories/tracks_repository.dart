@@ -27,6 +27,8 @@ final class TracksRepository {
           title: track.title,
           uploader: Value(track.uploader),
           durationMs: Value(track.duration?.inMilliseconds),
+          partIndex: Value(track.partIndex),
+          parentTitle: Value(track.parentTitle),
           artworkJson: Value(encodeArtwork(track.artwork)),
           updatedAt: now,
         ),
@@ -75,6 +77,8 @@ final class TracksRepository {
       null => null,
     },
     artwork: decodeArtwork(row.artworkJson),
+    partIndex: row.partIndex,
+    parentTitle: row.parentTitle,
   );
 
   /// 曲目的封面存成 `[{url, width?}]`（ADR 0016 §決定 4 的 DTO 原樣）；沒有封面

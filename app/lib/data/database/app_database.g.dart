@@ -2506,6 +2506,28 @@ class $TracksTableTable extends TracksTable
         type: DriftSqlType.int,
         requiredDuringInsert: true,
       ).withConverter<DateTime>($TracksTableTable.$converterupdatedAt);
+  static const VerificationMeta _partIndexMeta = const VerificationMeta(
+    'partIndex',
+  );
+  @override
+  late final GeneratedColumn<int> partIndex = GeneratedColumn<int>(
+    'part_index',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parentTitleMeta = const VerificationMeta(
+    'parentTitle',
+  );
+  @override
+  late final GeneratedColumn<String> parentTitle = GeneratedColumn<String>(
+    'parent_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     trackKey,
@@ -2517,6 +2539,8 @@ class $TracksTableTable extends TracksTable
     durationMs,
     artworkJson,
     updatedAt,
+    partIndex,
+    parentTitle,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2592,6 +2616,21 @@ class $TracksTableTable extends TracksTable
         ),
       );
     }
+    if (data.containsKey('part_index')) {
+      context.handle(
+        _partIndexMeta,
+        partIndex.isAcceptableOrUnknown(data['part_index']!, _partIndexMeta),
+      );
+    }
+    if (data.containsKey('parent_title')) {
+      context.handle(
+        _parentTitleMeta,
+        parentTitle.isAcceptableOrUnknown(
+          data['parent_title']!,
+          _parentTitleMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2639,6 +2678,14 @@ class $TracksTableTable extends TracksTable
           data['${effectivePrefix}updated_at'],
         )!,
       ),
+      partIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}part_index'],
+      ),
+      parentTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_title'],
+      ),
     );
   }
 
@@ -2668,6 +2715,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
 
   /// 最後一次 upsert。
   final DateTime updatedAt;
+
+  /// 分 P 曲目才有：分 P 的序號（從 1 起）與影片標題（M3 design §3.1、§11.1）。
+  final int? partIndex;
+  final String? parentTitle;
   const TrackRow({
     required this.trackKey,
     required this.sourceTypeId,
@@ -2678,6 +2729,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     this.durationMs,
     this.artworkJson,
     required this.updatedAt,
+    this.partIndex,
+    this.parentTitle,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2703,6 +2756,12 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
         $TracksTableTable.$converterupdatedAt.toSql(updatedAt),
       );
     }
+    if (!nullToAbsent || partIndex != null) {
+      map['part_index'] = Variable<int>(partIndex);
+    }
+    if (!nullToAbsent || parentTitle != null) {
+      map['parent_title'] = Variable<String>(parentTitle);
+    }
     return map;
   }
 
@@ -2723,6 +2782,12 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ? const Value.absent()
           : Value(artworkJson),
       updatedAt: Value(updatedAt),
+      partIndex: partIndex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(partIndex),
+      parentTitle: parentTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentTitle),
     );
   }
 
@@ -2741,6 +2806,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       durationMs: serializer.fromJson<int?>(json['durationMs']),
       artworkJson: serializer.fromJson<String?>(json['artworkJson']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      partIndex: serializer.fromJson<int?>(json['partIndex']),
+      parentTitle: serializer.fromJson<String?>(json['parentTitle']),
     );
   }
   @override
@@ -2756,6 +2823,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'durationMs': serializer.toJson<int?>(durationMs),
       'artworkJson': serializer.toJson<String?>(artworkJson),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'partIndex': serializer.toJson<int?>(partIndex),
+      'parentTitle': serializer.toJson<String?>(parentTitle),
     };
   }
 
@@ -2769,6 +2838,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     Value<int?> durationMs = const Value.absent(),
     Value<String?> artworkJson = const Value.absent(),
     DateTime? updatedAt,
+    Value<int?> partIndex = const Value.absent(),
+    Value<String?> parentTitle = const Value.absent(),
   }) => TrackRow(
     trackKey: trackKey ?? this.trackKey,
     sourceTypeId: sourceTypeId ?? this.sourceTypeId,
@@ -2779,6 +2850,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     durationMs: durationMs.present ? durationMs.value : this.durationMs,
     artworkJson: artworkJson.present ? artworkJson.value : this.artworkJson,
     updatedAt: updatedAt ?? this.updatedAt,
+    partIndex: partIndex.present ? partIndex.value : this.partIndex,
+    parentTitle: parentTitle.present ? parentTitle.value : this.parentTitle,
   );
   TrackRow copyWithCompanion(TracksTableCompanion data) {
     return TrackRow(
@@ -2797,6 +2870,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ? data.artworkJson.value
           : this.artworkJson,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      partIndex: data.partIndex.present ? data.partIndex.value : this.partIndex,
+      parentTitle: data.parentTitle.present
+          ? data.parentTitle.value
+          : this.parentTitle,
     );
   }
 
@@ -2811,7 +2888,9 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('uploader: $uploader, ')
           ..write('durationMs: $durationMs, ')
           ..write('artworkJson: $artworkJson, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('partIndex: $partIndex, ')
+          ..write('parentTitle: $parentTitle')
           ..write(')'))
         .toString();
   }
@@ -2827,6 +2906,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     durationMs,
     artworkJson,
     updatedAt,
+    partIndex,
+    parentTitle,
   );
   @override
   bool operator ==(Object other) =>
@@ -2840,7 +2921,9 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.uploader == this.uploader &&
           other.durationMs == this.durationMs &&
           other.artworkJson == this.artworkJson &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.partIndex == this.partIndex &&
+          other.parentTitle == this.parentTitle);
 }
 
 class TracksTableCompanion extends UpdateCompanion<TrackRow> {
@@ -2853,6 +2936,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
   final Value<int?> durationMs;
   final Value<String?> artworkJson;
   final Value<DateTime> updatedAt;
+  final Value<int?> partIndex;
+  final Value<String?> parentTitle;
   final Value<int> rowid;
   const TracksTableCompanion({
     this.trackKey = const Value.absent(),
@@ -2864,6 +2949,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
     this.durationMs = const Value.absent(),
     this.artworkJson = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.partIndex = const Value.absent(),
+    this.parentTitle = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TracksTableCompanion.insert({
@@ -2876,6 +2963,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
     this.durationMs = const Value.absent(),
     this.artworkJson = const Value.absent(),
     required DateTime updatedAt,
+    this.partIndex = const Value.absent(),
+    this.parentTitle = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : trackKey = Value(trackKey),
        sourceTypeId = Value(sourceTypeId),
@@ -2892,6 +2981,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
     Expression<int>? durationMs,
     Expression<String>? artworkJson,
     Expression<int>? updatedAt,
+    Expression<int>? partIndex,
+    Expression<String>? parentTitle,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2904,6 +2995,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
       if (durationMs != null) 'duration_ms': durationMs,
       if (artworkJson != null) 'artwork_json': artworkJson,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (partIndex != null) 'part_index': partIndex,
+      if (parentTitle != null) 'parent_title': parentTitle,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2918,6 +3011,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
     Value<int?>? durationMs,
     Value<String?>? artworkJson,
     Value<DateTime>? updatedAt,
+    Value<int?>? partIndex,
+    Value<String?>? parentTitle,
     Value<int>? rowid,
   }) {
     return TracksTableCompanion(
@@ -2930,6 +3025,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
       durationMs: durationMs ?? this.durationMs,
       artworkJson: artworkJson ?? this.artworkJson,
       updatedAt: updatedAt ?? this.updatedAt,
+      partIndex: partIndex ?? this.partIndex,
+      parentTitle: parentTitle ?? this.parentTitle,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2966,6 +3063,12 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
         $TracksTableTable.$converterupdatedAt.toSql(updatedAt.value),
       );
     }
+    if (partIndex.present) {
+      map['part_index'] = Variable<int>(partIndex.value);
+    }
+    if (parentTitle.present) {
+      map['parent_title'] = Variable<String>(parentTitle.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2984,6 +3087,8 @@ class TracksTableCompanion extends UpdateCompanion<TrackRow> {
           ..write('durationMs: $durationMs, ')
           ..write('artworkJson: $artworkJson, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('partIndex: $partIndex, ')
+          ..write('parentTitle: $parentTitle, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8435,6 +8540,8 @@ typedef $$TracksTableTableCreateCompanionBuilder =
       Value<int?> durationMs,
       Value<String?> artworkJson,
       required DateTime updatedAt,
+      Value<int?> partIndex,
+      Value<String?> parentTitle,
       Value<int> rowid,
     });
 typedef $$TracksTableTableUpdateCompanionBuilder =
@@ -8448,6 +8555,8 @@ typedef $$TracksTableTableUpdateCompanionBuilder =
       Value<int?> durationMs,
       Value<String?> artworkJson,
       Value<DateTime> updatedAt,
+      Value<int?> partIndex,
+      Value<String?> parentTitle,
       Value<int> rowid,
     });
 
@@ -8557,6 +8666,16 @@ class $$TracksTableTableFilterComposer
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
 
+  ColumnFilters<int> get partIndex => $composableBuilder(
+    column: $table.partIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentTitle => $composableBuilder(
+    column: $table.parentTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> queueEntriesTableRefs(
     Expression<bool> Function($$QueueEntriesTableTableFilterComposer f) f,
   ) {
@@ -8661,6 +8780,16 @@ class $$TracksTableTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get partIndex => $composableBuilder(
+    column: $table.partIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentTitle => $composableBuilder(
+    column: $table.parentTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TracksTableTableAnnotationComposer
@@ -8704,6 +8833,14 @@ class $$TracksTableTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<DateTime, int> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get partIndex =>
+      $composableBuilder(column: $table.partIndex, builder: (column) => column);
+
+  GeneratedColumn<String> get parentTitle => $composableBuilder(
+    column: $table.parentTitle,
+    builder: (column) => column,
+  );
 
   Expression<T> queueEntriesTableRefs<T extends Object>(
     Expression<T> Function($$QueueEntriesTableTableAnnotationComposer a) f,
@@ -8797,6 +8934,8 @@ class $$TracksTableTableTableManager
                 Value<int?> durationMs = const Value.absent(),
                 Value<String?> artworkJson = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<int?> partIndex = const Value.absent(),
+                Value<String?> parentTitle = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TracksTableCompanion(
                 trackKey: trackKey,
@@ -8808,6 +8947,8 @@ class $$TracksTableTableTableManager
                 durationMs: durationMs,
                 artworkJson: artworkJson,
                 updatedAt: updatedAt,
+                partIndex: partIndex,
+                parentTitle: parentTitle,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8821,6 +8962,8 @@ class $$TracksTableTableTableManager
                 Value<int?> durationMs = const Value.absent(),
                 Value<String?> artworkJson = const Value.absent(),
                 required DateTime updatedAt,
+                Value<int?> partIndex = const Value.absent(),
+                Value<String?> parentTitle = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TracksTableCompanion.insert(
                 trackKey: trackKey,
@@ -8832,6 +8975,8 @@ class $$TracksTableTableTableManager
                 durationMs: durationMs,
                 artworkJson: artworkJson,
                 updatedAt: updatedAt,
+                partIndex: partIndex,
+                parentTitle: parentTitle,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

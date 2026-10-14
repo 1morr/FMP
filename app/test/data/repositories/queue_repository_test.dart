@@ -18,6 +18,8 @@ TrackInfo track(
   String? uploader,
   Duration? duration,
   List<TrackArtwork> artwork = const [],
+  int? partIndex,
+  String? parentTitle,
 }) => TrackInfo(
   sourceTypeId: 'fmp-test',
   sourceId: id,
@@ -26,6 +28,8 @@ TrackInfo track(
   uploader: uploader,
   duration: duration,
   artwork: artwork,
+  partIndex: partIndex,
+  parentTitle: parentTitle,
 );
 
 const _player = PlayerState(
@@ -89,6 +93,7 @@ void main() {
           ],
         ),
         track('b'),
+        track('v', cid: 12, partIndex: 2, parentTitle: 'The video'),
       ];
       // 同一首可以出現在兩個位置。
       tracks.add(tracks[0]);
@@ -101,11 +106,15 @@ void main() {
         muted: true,
       );
       await writeAll(tracks, player: player);
-      await repository.write(shuffleRanks: {0: 2, 1: 0, 2: 1}, player: player);
+      await repository.write(
+        shuffleRanks: {0: 3, 1: 0, 2: 1, 3: 2},
+        player: player,
+      );
 
       final stored = await repository.readQueue();
-      expect(stored.entries, [tracks[0], tracks[1], tracks[2]]);
-      expect(stored.shuffleRanks, [2, 0, 1]);
+      expect(stored.entries, tracks);
+      expect(stored.entries[2].displayTitle, 'The video · P2 Song v');
+      expect(stored.shuffleRanks, [3, 0, 1, 2]);
       expect(await repository.readPlayerState(), player);
     },
   );
@@ -354,6 +363,7 @@ void main() {
               ],
             ),
             track('b'),
+            track('c', cid: 3, partIndex: 2, parentTitle: 'The video'),
           ],
           player: const PlayerState(
             currentPosition: 1,
@@ -393,6 +403,8 @@ void main() {
               '[{"url":"https://cdn.example/a.jpg","width":64},'
               '{"url":"https://cdn.example/b.jpg"}]',
           'updated_at': DateTime.utc(2026, 10, 7, 12).millisecondsSinceEpoch,
+          'part_index': null,
+          'parent_title': null,
         },
         {
           'track_key': 'fmp-test:b',
@@ -404,6 +416,21 @@ void main() {
           'duration_ms': null,
           'artwork_json': null,
           'updated_at': DateTime.utc(2026, 10, 7, 12).millisecondsSinceEpoch,
+          'part_index': null,
+          'parent_title': null,
+        },
+        {
+          'track_key': 'fmp-test:c:3',
+          'source_type_id': 'fmp-test',
+          'source_id': 'c',
+          'cid': 3,
+          'title': 'Song c',
+          'uploader': null,
+          'duration_ms': null,
+          'artwork_json': null,
+          'updated_at': DateTime.utc(2026, 10, 7, 12).millisecondsSinceEpoch,
+          'part_index': 2,
+          'parent_title': 'The video',
         },
       ]);
       final entries = await database
@@ -412,6 +439,7 @@ void main() {
       expect(entries.map((row) => row.data).toList(), [
         {'position': 0, 'track_key': 'fmp-test:a:9', 'shuffle_rank': 1},
         {'position': 1, 'track_key': 'fmp-test:b', 'shuffle_rank': 0},
+        {'position': 2, 'track_key': 'fmp-test:c:3', 'shuffle_rank': null},
       ]);
       final player = await database
           .customSelect('SELECT * FROM player_state')
