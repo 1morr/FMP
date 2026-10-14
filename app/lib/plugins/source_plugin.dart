@@ -25,6 +25,19 @@ abstract interface class SourcePlugin {
   /// 是不是只有試聽片段。
   Future<StreamResult> resolveStream(StreamRequest request);
 
+  /// [PluginCapability.live]：搜尋直播間（ADR 0028 §決定 3）。
+  Future<LiveSearchPage> liveSearch(LiveSearchQuery query);
+
+  /// 這個網址是不是這個插件的直播間網址；不是回 `null`。插件可以為短網址發請求。
+  Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query);
+
+  /// 直播間現在的狀態。**查詢失敗一律拋錯，不能回 [LiveRoomStatus.offline]**
+  /// （D10）：呼叫端把拋錯顯示成「查詢失敗」，未開播是另一回事。
+  Future<LiveRoom> liveStatus(LiveRoomQuery query);
+
+  /// 直播流；`expiresAt` 可以是空的。
+  Future<StreamResult> resolveLive(LiveStreamRequest request);
+
   /// [PluginCapability.login] 的 QR 登入（methods 含 `qr`）：產生一個 QR 碼。
   Future<LoginQrCode> loginQrStart();
 

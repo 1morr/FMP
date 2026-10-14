@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "login"],
+  "capabilities": ["search", "resolveStream", "live", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -18,6 +18,7 @@ const TONES = [220, 440, 880];
 const PAGE_SIZE = 2;
 const TONE_ASSET = 'asset:///test/fixtures/plugins/test_plugin/tone.wav';
 const MISSING_ASSET = 'asset:///test/fixtures/plugins/test_plugin/missing.wav';
+const LIVE_ASSET = 'asset:///test/fixtures/plugins/test_plugin/live.wav';
 
 // 關鍵字剛好是它時，搜尋以限流失敗：實機不連網也能看到錯誤提示（ADR 0027
 // 「測試插件不足以涵蓋某類 UI 時先補測試插件」）。
@@ -59,6 +60,24 @@ const FAKE_SESSION = 'fake-session-0000';
 // - 其他時候 loginRefresh 回 null（啟動刷新：沒有變動）。
 const EXPIRED_KEYWORD = 'expired';
 const EXPIRED_HARD_KEYWORD = 'expired-hard';
+
+// 直播（ADR 0028 §決定 3），不連網。固定五個直播間，行為見 README：
+// - live-ok：一直開播中，串流是 60 秒的 live.wav。
+// - live-offline：未開播，解析串流以 NotFound 失敗。
+// - live-drop：一直開播中，但串流只有 2 秒：每次重連又在 2 秒後結束。
+// - live-ended：這個 isolate 第一次查是開播中，之後都是未開播（提前結束後問狀態）。
+// - live-broken：查狀態與解析串流都以 NetworkError 失敗（搜尋結果裡標開播中）。
+const LIVE_ROOMS = [
+  { roomId: 'live-ok', title: 'Test live room', hostName: 'FMP', status: 'live', online: 42 },
+  { roomId: 'live-offline', title: 'Test offline room', hostName: 'FMP', status: 'offline' },
+  { roomId: 'live-drop', title: 'Test dropping room', hostName: 'FMP', status: 'live', online: 7 },
+  { roomId: 'live-ended', title: 'Test ending room', hostName: 'FMP', status: 'live', online: 3 },
+  { roomId: 'live-broken', title: 'Test broken room', hostName: 'FMP', status: 'live', online: 1 },
+];
+const LIVE_URL = /^https:\/\/fmp\.test\/live\/([a-z-]+)$/;
+
+// live-ended 已經查過幾次狀態。
+let liveEndedChecks = 0;
 
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
@@ -191,5 +210,61 @@ export async function loginRefresh(credentials) {
       ...credentials.cookies,
       [FAKE_SESSION_COOKIE]: `fake-session-${String(renewals).padStart(4, '0')}`,
     },
+  };
+}
+
+export function liveSearch(query) {
+  if (query.keyword === FAIL_KEYWORD) {
+    throw { fmpError: 'RateLimited', message: 'forced failure for on-device checks' };
+  }
+  const items = LIVE_ROOMS.filter((room) => !query.status || room.status === query.status).map(
+    (room) => ({ ...room, artwork: [] }),
+  );
+  return { items, hasMore: false };
+}
+
+export function liveRoomFromUrl(query) {
+  const match = LIVE_URL.exec(query.url);
+  if (match === null || !LIVE_ROOMS.some((room) => room.roomId === match[1])) return null;
+  return { roomId: match[1] };
+}
+
+function liveRoom(roomId) {
+  const room = LIVE_ROOMS.find((candidate) => candidate.roomId === roomId);
+  if (room === undefined) throw { fmpError: 'NotFound', message: `no such live room: ${roomId}` };
+  return room;
+}
+
+export function liveStatus(query) {
+  const room = liveRoom(query.roomId);
+  if (room.roomId === 'live-broken') {
+    throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
+  }
+  if (room.roomId === 'live-ended') {
+    liveEndedChecks += 1;
+    return { ...room, artwork: [], status: liveEndedChecks === 1 ? 'live' : 'offline' };
+  }
+  return { ...room, artwork: [] };
+}
+
+export function resolveLive(request) {
+  const room = liveRoom(request.roomId);
+  if (room.roomId === 'live-offline') {
+    // 沒有「未開播」的錯誤：NotFound（現在沒有串流）比 Unavailable 的任何原因都不誤導。
+    throw { fmpError: 'NotFound', message: 'the live room is offline' };
+  }
+  if (room.roomId === 'live-broken') {
+    throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
+  }
+  return {
+    candidates: [
+      {
+        url: room.roomId === 'live-ok' ? LIVE_ASSET : TONE_ASSET,
+        container: 'wav',
+        codec: 'pcm_s16le',
+        bitrate: room.roomId === 'live-ok' ? 128000 : 256000,
+        expiresAt: null,
+      },
+    ],
   };
 }

@@ -47,6 +47,22 @@ export async function loginVerify(credentials) {
 }
 ''';
 
+/// liveStatus 打 `/room`：200 是開播中，其他狀態碼一律拋錯（不回未開播）。
+const _liveScript = '''
+export function liveSearch() { return { items: [], hasMore: false }; }
+export function liveRoomFromUrl() { return null; }
+export function resolveLive() { return { candidates: [{ url: 'https://example.test/a' }] }; }
+export async function liveStatus({ roomId }) {
+  const response = await fmp.http.request({ url: 'https://example.test/room', auth: 'userPreference' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return { roomId, title: 'Room', hostName: 'Host', status: 'live' };
+}
+''';
+
+const _liveCheck =
+    '"live": {"input": {"roomId": "r1"}, '
+    '"expect": {"minItems": 1, "nonEmpty": ["roomId", "hostName"]}}';
+
 const _searchCheck =
     '"search": {"input": {"keyword": "k", "page": 1}, '
     '"expect": {"minItems": 1, "nonEmpty": ["title"]}}';
@@ -63,12 +79,14 @@ final class _Spec {
     this.checks = '{$_searchCheck}',
     this.enabled = true,
     this.login = false,
+    this.live = false,
   });
 
   final String id;
   final String? checks;
   final bool enabled;
   final bool login;
+  final bool live;
 }
 
 Future<
@@ -92,9 +110,14 @@ _setup(
         version: '1.0.0',
         manifestJson: jsonEncode({'id': spec.id, 'name': 'Plugin ${spec.id}'}),
         script: pluginSource(
-          spec.login ? '$_script$_loginScript' : _script,
+          '$_script${spec.login ? _loginScript : ''}'
+          '${spec.live ? _liveScript : ''}',
           id: spec.id,
-          capabilities: ['search', if (spec.login) 'login'],
+          capabilities: [
+            'search',
+            if (spec.live) 'live',
+            if (spec.login) 'login',
+          ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
         ),
         installedAt: DateTime.utc(2026, 10, 14),
@@ -180,6 +203,44 @@ void main() {
       ].join(' | ');
       expect(shown, isNot(contains('FAKE_STORED_SESSION')));
       expect(shown, isNot(contains('Tester')));
+    });
+  });
+
+  group('a live case', () {
+    final live = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_liveCheck}',
+      live: true,
+    );
+
+    test('runs liveStatus and passes on a live room', () async {
+      final s = await _setup([live]);
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(s.requests.where((r) => r.startsWith('/room')), hasLength(1));
+    });
+
+    test('fails, not offline, when the status request fails', () async {
+      final s = await _setup(
+        [live],
+        handler: (options) =>
+            reply(options.uri.path == '/room' ? 500 : 200, body: '{}'),
+      );
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.last.outcome, HealthOutcome.failed);
     });
   });
 

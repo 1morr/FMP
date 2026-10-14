@@ -71,6 +71,51 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<LiveSearchPage> liveSearch(LiveSearchQuery query) async {
+    final json = await _invoke(
+      PluginCapability.live,
+      query.toJson(),
+      LiveExports.search,
+    );
+    return _decode(
+      () => LiveSearchPage.fromJson(json, allowedHosts: _allowedHosts),
+    );
+  }
+
+  @override
+  Future<LiveRoomRef?> liveRoomFromUrl(LiveUrlQuery query) async {
+    final json = await _invoke(
+      PluginCapability.live,
+      query.toJson(),
+      LiveExports.roomFromUrl,
+    );
+    if (json == null) return null;
+    return _decode(() => LiveRoomRef.fromJson(json));
+  }
+
+  @override
+  Future<LiveRoom> liveStatus(LiveRoomQuery query) async {
+    final json = await _invoke(
+      PluginCapability.live,
+      query.toJson(),
+      LiveExports.status,
+    );
+    return _decode(() => LiveRoom.fromJson(json, allowedHosts: _allowedHosts));
+  }
+
+  @override
+  Future<StreamResult> resolveLive(LiveStreamRequest request) async {
+    final json = await _invoke(
+      PluginCapability.live,
+      request.toJson(),
+      LiveExports.resolve,
+    );
+    return _decode(
+      () => StreamResult.fromJson(json, allowedHosts: _allowedHosts),
+    );
+  }
+
+  @override
   Future<LoginQrCode> loginQrStart() async {
     final json = await _login(LoginExports.qrStart, null);
     return _decode(() => LoginQrCode.fromJson(json));
@@ -111,7 +156,12 @@ final class ScriptSourcePlugin implements SourcePlugin {
   @override
   void close() => _runtime.dispose();
 
-  Future<Object?> _invoke(PluginCapability capability, Object? argument) {
+  /// 呼叫 [capability] 的匯出 [function]（預設是能力的同名函式；`live` 有四個）。
+  Future<Object?> _invoke(
+    PluginCapability capability,
+    Object? argument, [
+    String? function,
+  ]) {
     if (!manifest.capabilities.contains(capability)) {
       throw Unsupported(
         pluginId: manifest.id,
@@ -121,7 +171,7 @@ final class ScriptSourcePlugin implements SourcePlugin {
     }
     return _guard.run(
       this,
-      () => _runtime.invoke(capability.wireName, argument),
+      () => _runtime.invoke(function ?? capability.wireName, argument),
     );
   }
 

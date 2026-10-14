@@ -39,7 +39,7 @@ export interface FmpPluginManifest {
   apiVersion: 1;
   /**
    * 不能是空的；每個能力要有同名的匯出函式，反之亦然。'login' 的匯出是 loginVerify
-   * 等幾個（FmpPluginExports）。
+   * 等幾個，'live' 的是 liveSearch 等四個（FmpPluginExports）。
    */
   capabilities: FmpCapability[];
   /**
@@ -219,6 +219,57 @@ export interface LoginAccount {
   avatar?: Artwork[] | null;
 }
 
+export type LiveRoomStatus = 'live' | 'offline';
+
+/** liveSearch 的輸入。 */
+export interface LiveSearchQuery {
+  keyword: string;
+  /** 從 1 開始。 */
+  page: number;
+  /** 只要開播中或未開播的；沒給是全部。 */
+  status?: LiveRoomStatus | null;
+}
+
+/** liveSearch 的回傳值。 */
+export interface LiveSearchPage {
+  items: LiveRoom[];
+  hasMore: boolean;
+}
+
+/** 一個直播間。 */
+export interface LiveRoom {
+  /** 音源內的直播間 id，不能是空的。 */
+  roomId: string;
+  title: string;
+  hostName?: string | null;
+  artwork?: Artwork[] | null;
+  status: LiveRoomStatus;
+  /** 觀看人數（非負整數）。 */
+  online?: number | null;
+}
+
+/** liveStatus 的輸入。 */
+export interface LiveRoomQuery {
+  roomId: string;
+}
+
+/** liveRoomFromUrl 的輸入。 */
+export interface LiveUrlQuery {
+  url: string;
+}
+
+/** liveRoomFromUrl 認得網址時的回傳值。 */
+export interface LiveRoomRef {
+  roomId: string;
+}
+
+/** resolveLive 的輸入。 */
+export interface LiveStreamRequest {
+  roomId: string;
+  /** 同 StreamRequest.formats。 */
+  formats: StreamFormat[];
+}
+
 // ---------------------------------------------------------------- 宿主 API
 
 export interface HttpRequest {
@@ -347,6 +398,14 @@ export interface FmpError {
 export interface FmpPluginExports {
   search?(query: SearchQuery): SearchPage | Promise<SearchPage>;
   resolveStream?(request: StreamRequest): StreamResult | Promise<StreamResult>;
+  /** 'live' 能力的四個匯出，宣告就四個都要匯出（ADR 0028 §決定 3）。請求用 auth: 'userPreference'。 */
+  liveSearch?(query: LiveSearchQuery): LiveSearchPage | Promise<LiveSearchPage>;
+  /** 不是這個插件的網址回 null；可以發請求（短網址）。 */
+  liveRoomFromUrl?(query: LiveUrlQuery): LiveRoomRef | null | Promise<LiveRoomRef | null>;
+  /** 查詢失敗一律拋錯，不能回 status: 'offline'（宿主把拋錯顯示成「查詢失敗」）。 */
+  liveStatus?(query: LiveRoomQuery): LiveRoom | Promise<LiveRoom>;
+  /** 直播流；expiresAt 可以是空的。 */
+  resolveLive?(request: LiveStreamRequest): StreamResult | Promise<StreamResult>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -380,11 +439,18 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這三個。 */
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這四個。 */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
+  live?: FmpLiveCheck | null;
   login?: FmpLoginCheck | null;
+}
+
+/** live 的案例跑 liveStatus；成功時回傳的 LiveRoom 是那一筆，nonEmpty 的名稱同 LiveRoom。 */
+export interface FmpLiveCheck {
+  input: LiveRoomQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
 }
 
 export interface FmpSearchCheck {
