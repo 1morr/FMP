@@ -13,6 +13,7 @@ import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/scheduler_runs_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 
 /// App 唯一的資料庫。`main()` 在 `runApp` 之前開啟（`openAppDatabase`），
@@ -70,6 +71,10 @@ final accountRepositoryProvider = Provider<AccountRepository>(
 
 final sourceSettingsRepositoryProvider = Provider<SourceSettingsRepository>(
   (ref) => SourceSettingsRepository(ref.watch(appDatabaseProvider)),
+);
+
+final schedulerRunsRepositoryProvider = Provider<SchedulerRunsRepository>(
+  (ref) => SchedulerRunsRepository(ref.watch(appDatabaseProvider)),
 );
 
 final developerSettingsRepositoryProvider =

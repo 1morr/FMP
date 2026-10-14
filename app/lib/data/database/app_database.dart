@@ -34,6 +34,7 @@ part 'app_database.g.dart';
     AccountsTable,
     SourceSettingsTable,
     DeveloperSettingsTable,
+    SchedulerRunsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -41,7 +42,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +109,9 @@ class AppDatabase extends _$AppDatabase {
                 schema.installedPlugins,
                 schema.installedPlugins.fromDevFolder,
               );
+            },
+            from10To11: (m, schema) async {
+              await m.create(schema.schedulerRuns);
             },
           ),
         );

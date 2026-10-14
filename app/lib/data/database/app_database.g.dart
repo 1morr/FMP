@@ -5485,6 +5485,229 @@ class DeveloperSettingsTableCompanion
   }
 }
 
+class $SchedulerRunsTableTable extends SchedulerRunsTable
+    with TableInfo<$SchedulerRunsTableTable, SchedulerRunRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SchedulerRunsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _jobIdMeta = const VerificationMeta('jobId');
+  @override
+  late final GeneratedColumn<String> jobId = GeneratedColumn<String>(
+    'job_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> lastSuccessAt =
+      GeneratedColumn<int>(
+        'last_success_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>(
+        $SchedulerRunsTableTable.$converterlastSuccessAt,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [jobId, lastSuccessAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'scheduler_runs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SchedulerRunRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('job_id')) {
+      context.handle(
+        _jobIdMeta,
+        jobId.isAcceptableOrUnknown(data['job_id']!, _jobIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jobIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {jobId};
+  @override
+  SchedulerRunRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SchedulerRunRow(
+      jobId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}job_id'],
+      )!,
+      lastSuccessAt: $SchedulerRunsTableTable.$converterlastSuccessAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}last_success_at'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $SchedulerRunsTableTable createAlias(String alias) {
+    return $SchedulerRunsTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converterlastSuccessAt =
+      const EpochMillisecondsConverter();
+}
+
+class SchedulerRunRow extends DataClass implements Insertable<SchedulerRunRow> {
+  final String jobId;
+  final DateTime lastSuccessAt;
+  const SchedulerRunRow({required this.jobId, required this.lastSuccessAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['job_id'] = Variable<String>(jobId);
+    {
+      map['last_success_at'] = Variable<int>(
+        $SchedulerRunsTableTable.$converterlastSuccessAt.toSql(lastSuccessAt),
+      );
+    }
+    return map;
+  }
+
+  SchedulerRunsTableCompanion toCompanion(bool nullToAbsent) {
+    return SchedulerRunsTableCompanion(
+      jobId: Value(jobId),
+      lastSuccessAt: Value(lastSuccessAt),
+    );
+  }
+
+  factory SchedulerRunRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SchedulerRunRow(
+      jobId: serializer.fromJson<String>(json['jobId']),
+      lastSuccessAt: serializer.fromJson<DateTime>(json['lastSuccessAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'jobId': serializer.toJson<String>(jobId),
+      'lastSuccessAt': serializer.toJson<DateTime>(lastSuccessAt),
+    };
+  }
+
+  SchedulerRunRow copyWith({String? jobId, DateTime? lastSuccessAt}) =>
+      SchedulerRunRow(
+        jobId: jobId ?? this.jobId,
+        lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+      );
+  SchedulerRunRow copyWithCompanion(SchedulerRunsTableCompanion data) {
+    return SchedulerRunRow(
+      jobId: data.jobId.present ? data.jobId.value : this.jobId,
+      lastSuccessAt: data.lastSuccessAt.present
+          ? data.lastSuccessAt.value
+          : this.lastSuccessAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SchedulerRunRow(')
+          ..write('jobId: $jobId, ')
+          ..write('lastSuccessAt: $lastSuccessAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(jobId, lastSuccessAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SchedulerRunRow &&
+          other.jobId == this.jobId &&
+          other.lastSuccessAt == this.lastSuccessAt);
+}
+
+class SchedulerRunsTableCompanion extends UpdateCompanion<SchedulerRunRow> {
+  final Value<String> jobId;
+  final Value<DateTime> lastSuccessAt;
+  final Value<int> rowid;
+  const SchedulerRunsTableCompanion({
+    this.jobId = const Value.absent(),
+    this.lastSuccessAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SchedulerRunsTableCompanion.insert({
+    required String jobId,
+    required DateTime lastSuccessAt,
+    this.rowid = const Value.absent(),
+  }) : jobId = Value(jobId),
+       lastSuccessAt = Value(lastSuccessAt);
+  static Insertable<SchedulerRunRow> custom({
+    Expression<String>? jobId,
+    Expression<int>? lastSuccessAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (jobId != null) 'job_id': jobId,
+      if (lastSuccessAt != null) 'last_success_at': lastSuccessAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SchedulerRunsTableCompanion copyWith({
+    Value<String>? jobId,
+    Value<DateTime>? lastSuccessAt,
+    Value<int>? rowid,
+  }) {
+    return SchedulerRunsTableCompanion(
+      jobId: jobId ?? this.jobId,
+      lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (jobId.present) {
+      map['job_id'] = Variable<String>(jobId.value);
+    }
+    if (lastSuccessAt.present) {
+      map['last_success_at'] = Variable<int>(
+        $SchedulerRunsTableTable.$converterlastSuccessAt.toSql(
+          lastSuccessAt.value,
+        ),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SchedulerRunsTableCompanion(')
+          ..write('jobId: $jobId, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5517,6 +5740,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $SourceSettingsTableTable(this);
   late final $DeveloperSettingsTableTable developerSettingsTable =
       $DeveloperSettingsTableTable(this);
+  late final $SchedulerRunsTableTable schedulerRunsTable =
+      $SchedulerRunsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -5548,6 +5773,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     accountsTable,
     sourceSettingsTable,
     developerSettingsTable,
+    schedulerRunsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -9377,6 +9603,175 @@ typedef $$DeveloperSettingsTableTableProcessedTableManager =
       DeveloperSettingsRow,
       PrefetchHooks Function()
     >;
+typedef $$SchedulerRunsTableTableCreateCompanionBuilder =
+    SchedulerRunsTableCompanion Function({
+      required String jobId,
+      required DateTime lastSuccessAt,
+      Value<int> rowid,
+    });
+typedef $$SchedulerRunsTableTableUpdateCompanionBuilder =
+    SchedulerRunsTableCompanion Function({
+      Value<String> jobId,
+      Value<DateTime> lastSuccessAt,
+      Value<int> rowid,
+    });
+
+class $$SchedulerRunsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SchedulerRunsTableTable> {
+  $$SchedulerRunsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get jobId => $composableBuilder(
+    column: $table.jobId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get lastSuccessAt =>
+      $composableBuilder(
+        column: $table.lastSuccessAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+}
+
+class $$SchedulerRunsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SchedulerRunsTableTable> {
+  $$SchedulerRunsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get jobId => $composableBuilder(
+    column: $table.jobId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastSuccessAt => $composableBuilder(
+    column: $table.lastSuccessAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SchedulerRunsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SchedulerRunsTableTable> {
+  $$SchedulerRunsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get jobId =>
+      $composableBuilder(column: $table.jobId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get lastSuccessAt =>
+      $composableBuilder(
+        column: $table.lastSuccessAt,
+        builder: (column) => column,
+      );
+}
+
+class $$SchedulerRunsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SchedulerRunsTableTable,
+          SchedulerRunRow,
+          $$SchedulerRunsTableTableFilterComposer,
+          $$SchedulerRunsTableTableOrderingComposer,
+          $$SchedulerRunsTableTableAnnotationComposer,
+          $$SchedulerRunsTableTableCreateCompanionBuilder,
+          $$SchedulerRunsTableTableUpdateCompanionBuilder,
+          (
+            SchedulerRunRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SchedulerRunsTableTable,
+              SchedulerRunRow
+            >,
+          ),
+          SchedulerRunRow,
+          PrefetchHooks Function()
+        > {
+  $$SchedulerRunsTableTableTableManager(
+    _$AppDatabase db,
+    $SchedulerRunsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SchedulerRunsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SchedulerRunsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SchedulerRunsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> jobId = const Value.absent(),
+                Value<DateTime> lastSuccessAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SchedulerRunsTableCompanion(
+                jobId: jobId,
+                lastSuccessAt: lastSuccessAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String jobId,
+                required DateTime lastSuccessAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SchedulerRunsTableCompanion.insert(
+                jobId: jobId,
+                lastSuccessAt: lastSuccessAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SchedulerRunsTableTable, SchedulerRunRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $SchedulerRunsTableTable,
+                    SchedulerRunRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SchedulerRunsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SchedulerRunsTableTable,
+      SchedulerRunRow,
+      $$SchedulerRunsTableTableFilterComposer,
+      $$SchedulerRunsTableTableOrderingComposer,
+      $$SchedulerRunsTableTableAnnotationComposer,
+      $$SchedulerRunsTableTableCreateCompanionBuilder,
+      $$SchedulerRunsTableTableUpdateCompanionBuilder,
+      (
+        SchedulerRunRow,
+        BaseReferences<
+          _$AppDatabase,
+          $SchedulerRunsTableTable,
+          SchedulerRunRow
+        >,
+      ),
+      SchedulerRunRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9415,4 +9810,6 @@ class $AppDatabaseManager {
         _db,
         _db.developerSettingsTable,
       );
+  $$SchedulerRunsTableTableTableManager get schedulerRunsTable =>
+      $$SchedulerRunsTableTableTableManager(_db, _db.schedulerRunsTable);
 }
