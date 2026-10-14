@@ -171,7 +171,7 @@ jobs:
           esac
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-apk-${{ matrix.abi }}
           path: build/app/outputs/flutter-apk/fmp-*.apk
@@ -280,7 +280,7 @@ jobs:
           Copy-Item $zipPath "fmp-latest-windows.zip"
 
       - name: Upload Windows ZIP artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-exe
           path: fmp-*.zip
@@ -350,7 +350,7 @@ jobs:
           Copy-Item $installerPath "fmp-latest-windows-installer.exe"
 
       - name: Upload Windows installer artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-installer
           path: fmp-*.exe
@@ -382,7 +382,7 @@ jobs:
 
       # 不設 pattern：這次 run 的每個 artifact 都收進來，多出來的檔案會被檢查擋下。
       - name: Download all artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: release-assets
           merge-multiple: true
@@ -409,7 +409,7 @@ jobs:
             "${{ needs.prepare.outputs.version_code }}"
 
       - name: Upload verified assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-assets
           path: release-assets/
@@ -433,7 +433,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download verified assets
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-assets
           path: release-assets
