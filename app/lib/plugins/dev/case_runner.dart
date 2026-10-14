@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
+import 'package:fmp/core/network/fixture/fixture.dart';
 import 'package:fmp/core/network/fixture/fixture_adapters.dart';
 import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/source_http_client.dart';
@@ -17,10 +18,12 @@ import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/dev/describe_error.dart';
 import 'package:fmp/plugins/dev/plugin_folder.dart';
 import 'package:fmp/plugins/health/checks.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
+import 'package:fmp/plugins/source_dto.dart';
 import 'package:path/path.dart' as p;
 
 // 一個檢查案例的隔離執行環境（ADR 0015 §決定 5–7）：記憶體資料庫、空的憑證存放、
@@ -55,14 +58,6 @@ Future<void> noWait(Duration _) async {}
 Future<void> realWait(Duration delay) => Future<void>.delayed(delay);
 
 bool alwaysWrite() => true;
-
-/// 把 [error] 寫成一行「類別名: 已遮蔽的原因」（原因只有 `log.report` 讀得到，
-/// 所以經 [log]，tag 是 [tag]）。
-String describeError(AppError error, Log log, {required String tag}) {
-  log.report('Contract check', error, tag: tag);
-  final cause = log.history.last.error;
-  return cause == null ? error.typeName : '${error.typeName}: $cause';
-}
 
 /// 空的 [SecureStorage]：隔離環境沒有憑證，也不會寫入。
 final class _EmptySecureStorage implements SecureStorage {
@@ -100,8 +95,12 @@ final class _IsolatedEnvironment {
   final Future<void> Function(Duration delay) wait;
 
   AppDatabase? _database;
+  CredentialStore? _credentials;
 
-  Future<void> close() async => _database?.close();
+  Future<void> close() async {
+    _credentials?.dispose();
+    await _database?.close();
+  }
 
   Future<ScriptSourcePlugin> load(PluginFile file) async {
     final database = _database = openInMemoryDatabase();
@@ -115,7 +114,7 @@ final class _IsolatedEnvironment {
         installedAt: DateTime.utc(2026),
       ),
     );
-    final credentials = CredentialStore(
+    final credentials = _credentials = CredentialStore(
       storage: _EmptySecureStorage(),
       accounts: AccountRepository(database),
       plugins: PluginRepository(database),
@@ -155,6 +154,7 @@ Future<CaseRun> runIsolatedCase({
   required Log log,
   required Redactor redactor,
   required String reportTag,
+  String reportMessage = 'Plugin case',
   LoginCredentials? credentials,
   NetworkRecordIds? recordIds,
   Future<void> Function(Duration delay) wait = noWait,
@@ -173,7 +173,9 @@ Future<CaseRun> runIsolatedCase({
     } on AppError catch (error) {
       return CaseRun(
         loaded: false,
-        problems: ['load: ${describeError(error, log, tag: reportTag)}'],
+        problems: [
+          'load: ${describeError(error, log, tag: reportTag, message: reportMessage)}',
+        ],
       );
     }
     Object? result;
@@ -192,7 +194,7 @@ Future<CaseRun> runIsolatedCase({
     final descriptions = Map<AppError, String>.identity();
     String describe(AppError error) => descriptions.putIfAbsent(
       error,
-      () => describeError(error, log, tag: reportTag),
+      () => describeError(error, log, tag: reportTag, message: reportMessage),
     );
     if (error != null) {
       final description = describe(error);
@@ -288,6 +290,7 @@ Future<RecordResult> recordCase(
   required Log log,
   required Redactor redactor,
   required String reportTag,
+  String reportMessage = 'Plugin case',
   LoginCredentials? credentials,
   NetworkRecordIds? recordIds,
   Future<void> Function(Duration delay) wait = realWait,
@@ -308,6 +311,7 @@ Future<RecordResult> recordCase(
     log: log,
     redactor: redactor,
     reportTag: reportTag,
+    reportMessage: reportMessage,
     credentials: credentials,
     recordIds: recordIds,
     wait: wait,
@@ -332,6 +336,23 @@ Future<RecordResult> recordCase(
       run: run,
     );
   }
+  // login 案例以已存的憑證錄（App 內）：回應裡的帳號資訊沒被遮蔽就不寫，fixture 會進
+  // 公開的插件 repo（父 implement § 真實帳號）。遮法是插件把那些回應欄位加進
+  // manifest.redaction.keyNames。
+  if (run.result case final LoginAccount account) {
+    final leaked = accountLeaks(transport.recorded, account);
+    if (leaked.isNotEmpty) {
+      return RecordResult(
+        problems: [
+          ...problems,
+          '$name: fixtures not written: the recorded traffic contains the '
+              "account's ${leaked.join(', ')}; add those response fields to "
+              'manifest.redaction.keyNames',
+        ],
+        run: run,
+      );
+    }
+  }
   if (!shouldWrite()) return RecordResult(problems: problems, run: run);
   writeFixtures(
     Directory(p.join(folder.directory.path, 'fixtures', name)),
@@ -342,4 +363,30 @@ Future<RecordResult> recordCase(
     written: transport.recorded.length,
     run: run,
   );
+}
+
+/// [fixtures]（已遮蔽）裡仍看得到的 [account] 欄位名稱（`userId`、`displayName`、
+/// `avatar`）。比對每個 JSON 值：字串等於它、或（4 個字元以上時）含有它；數字的字面等於
+/// 它。短的值只比整個值，才不會在無關的數字與字串裡誤中。
+List<String> accountLeaks(List<HttpFixture> fixtures, LoginAccount account) {
+  final wanted = {
+    'userId': [account.userId],
+    'displayName': [account.displayName],
+    'avatar': [for (final artwork in account.avatar) artwork.url.toString()],
+  };
+  bool found(Object? value, String text) => switch (value) {
+    final String string =>
+      string == text || (text.length >= 4 && string.contains(text)),
+    final num number => '$number' == text,
+    final Map<Object?, Object?> map => map.entries.any(
+      (entry) => found(entry.key, text) || found(entry.value, text),
+    ),
+    final Iterable<Object?> items => items.any((item) => found(item, text)),
+    _ => false,
+  };
+  final json = [for (final fixture in fixtures) fixture.toJson()];
+  return [
+    for (final MapEntry(:key, :value) in wanted.entries)
+      if (value.any((text) => text.isNotEmpty && found(json, text))) key,
+  ];
 }

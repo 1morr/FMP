@@ -541,6 +541,97 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   @override
   String hcErrorType({required Object type}) => 'Error type: ${type}';
   @override
+  String get pluginDev => 'Plugin development';
+  @override
+  String get pdHint =>
+      'Each plugin directory in the folder (one .js, checks.json, fixtures/) is loaded as "in development" and replaces the installed plugin with the same id; press Reload after editing. The mode only decides how a case runs, each in its own isolated environment (empty storage and credentials); everywhere else in the app a plugin in development always uses the real network.';
+  @override
+  String get pdFolder => 'Folder';
+  @override
+  String get pdNoFolder => 'No folder selected';
+  @override
+  String get pdPick => 'Choose folder';
+  @override
+  String get pdRescan => 'Rescan';
+  @override
+  String get pdUnload => 'Unload';
+  @override
+  String get pdApplying => 'Loading…';
+  @override
+  String get pdFolderMissing => 'The folder does not exist';
+  @override
+  String get pdFolderEmpty =>
+      'The folder has no plugin directory (a folder with one .js file)';
+  @override
+  String pdDuplicateId({
+    required Object first,
+    required Object second,
+    required Object id,
+  }) =>
+      '${first} and ${second} have the same plugin id "${id}"; only ${first} is loaded';
+  @override
+  String pdTagReplaces({required Object version}) =>
+      'Replaces installed ${version}';
+  @override
+  String get pdTagFailed => 'Failed to load';
+  @override
+  String pdIdChanged({required Object id}) =>
+      'The plugin id changed to "${id}"; rescan the folder';
+  @override
+  String get pdReplay => 'Replay';
+  @override
+  String get pdRecord => 'Record';
+  @override
+  String get pdReal => 'Real';
+  @override
+  String get pdReload => 'Reload';
+  @override
+  String get pdViewLog => 'View log';
+  @override
+  String get pdRunAll => 'Run all';
+  @override
+  String get pdRun => 'Run';
+  @override
+  String get pdRunning => 'Running';
+  @override
+  String get pdRecordWarning =>
+      'Recording uses the real network; the files of that capability in fixtures/ are overwritten only when the result matches checks.json (hand-edited ones are skipped). Undo a bad recording with git checkout in the plugin folder.';
+  @override
+  String get pdNoCases => 'No check cases';
+  @override
+  String pdCaseLine({
+    required Object outcome,
+    required Object ms,
+    required Object mode,
+  }) => '${outcome} · ${ms} ms · ${mode}';
+  @override
+  String get pdPassed => 'Passed';
+  @override
+  String get pdFailed => 'Failed';
+  @override
+  String get pdSkippedLogin => 'Skipped: needs a login, not logged in';
+  @override
+  String get pdSkippedEdited => 'Skipped: the fixtures were edited by hand';
+  @override
+  String get pdNotRun => 'Not run yet';
+  @override
+  String pdErrorType({required Object type}) => 'Error type: ${type}';
+  @override
+  String pdWritten({required Object count}) => 'Wrote ${count} fixture(s)';
+  @override
+  String get pdNotWritten => 'No fixtures written';
+  @override
+  String get pdValue => 'Return value';
+  @override
+  String get pdTruncated => '(too long, truncated)';
+  @override
+  String get pdCopy => 'Copy';
+  @override
+  String pdReloaded({required Object name, required Object version}) =>
+      'Reloaded ${name} ${version}';
+  @override
+  String pdReloadFailed({required Object name}) => 'Reload failed: ${name}';
+  @override
   String get pbEmpty => 'Nothing is playing';
   @override
   String get pbEmptyHint =>
@@ -1070,6 +1161,11 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   String get tagUpdate => 'Update available';
   @override
   String get tagInstalled => 'Installed';
+  @override
+  String get tagDev => 'In development';
+  @override
+  String get devManaged =>
+      'A plugin in development is managed in Debug > Plugin development; unload it to enable, update or remove it.';
   @override
   String enable({required Object name}) => 'Enable ${name}';
   @override

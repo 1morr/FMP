@@ -8,6 +8,7 @@ import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/core/network/fixture/fixture_adapters.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/plugins/dev/case_runner.dart' as runner;
+import 'package:fmp/plugins/dev/describe_error.dart' as describer;
 import 'package:fmp/plugins/dev/case_runner.dart'
     show CaseRun, loadIsolated, recordCase, runIsolatedCase;
 import 'package:fmp/plugins/dev/plugin_folder.dart';
@@ -70,10 +71,11 @@ Redactor redactorFor(PluginManifest manifest) => Redactor()
   ..setMediaCdns(manifest.id, manifest.redaction.mediaCdns);
 
 /// 把 [error] 寫成一行：類別名與遮蔽過的原因（原因只有 `log.report` 讀得到）。
-String describeError(AppError error, [Log? log]) => runner.describeError(
+String describeError(AppError error, [Log? log]) => describer.describeError(
   error,
   log ?? Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
   tag: 'contract',
+  message: 'Contract check',
 );
 
 /// 整個插件目錄：[PluginDirectory.read]、[checkPluginDirectory]、每個案例的
@@ -122,6 +124,7 @@ Future<List<String>> runCheck(
     log: caseLog,
     redactor: redactor,
     reportTag: 'contract',
+    reportMessage: 'Contract check',
   );
   final problems = [for (final problem in run.problems) '$name: $problem'];
   if (!run.loaded) return problems;
@@ -158,10 +161,11 @@ Future<({List<String> problems, List<String> skipped})> recordContract(
     final result = await recordCase(
       plugin,
       check,
-      transport: CaseTransports(network: network).record(redactor, now: now),
+      transport: CaseTransports(network: network, now: now).record(redactor),
       log: log,
       redactor: redactor,
       reportTag: 'contract',
+      reportMessage: 'Contract check',
       wait: wait ?? runner.realWait,
     );
     if (result.skipped case final reason?) skipped.add(reason);

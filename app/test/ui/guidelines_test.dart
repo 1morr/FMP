@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,17 +18,20 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
+import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -43,8 +47,10 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:path/path.dart' as p;
 
 import '../playback/fake_audio_backend.dart';
+import '../plugins/dev/dev_support.dart' show tempFolder;
 import '../plugins/plugin_harness.dart';
 import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
@@ -53,6 +59,7 @@ import 'support/fake_data_reset.dart';
 import 'support/fake_file_sharer.dart';
 import 'support/fake_url_opener.dart';
 import 'support/health_page.dart';
+import 'support/plugin_dev_page.dart';
 import 'support/plugin_page_harness.dart';
 import 'support/shell_harness.dart';
 
@@ -622,6 +629,51 @@ void main() {
           handle.dispose();
         });
 
+        // 插件開發（M3 PR 16b）：三種卡片（開發中、取代已安裝、載入失敗），跑完之後通過與
+        // 失敗的結果列各展開一個，錄製模式的警告。
+        testWidgets('the Debug Plugin Development section at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final folder = buildDevFolder();
+          final installed =
+              File(p.join(folder.path, 'a-http', 'http_test_plugin.js'))
+                  .readAsStringSync()
+                  .replaceFirst('"version": "1.0.0"', '"version": "0.5.0"');
+          final h = await openPluginDev(
+            tester,
+            size: Size(width, 2600),
+            brightness: brightness,
+            folder: folder,
+            installed: [installed],
+          );
+          expect(find.byType(DebugPluginDev), findsOneWidget);
+          expect(find.text('Failed to load'), findsOneWidget);
+          await expectGuidelines(tester);
+
+          await tester.tap(find.text('Record').first);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Replay').first);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Run all').first);
+          await settleCases(tester, h);
+          await tester.tap(find.text('search').first);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('resolveStream').first);
+          await tester.pumpAndSettle();
+          expect(find.text('Return value'), findsOneWidget);
+          await expectGuidelines(tester);
+
+          await tester.tap(find.text('Record').first);
+          await tester.pumpAndSettle();
+          expect(
+            find.textContaining('Recording uses the real network'),
+            findsOneWidget,
+          );
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('the Debug Database section at $width', (tester) async {
           final handle = tester.ensureSemantics();
           final h = await openDebugSection(tester, 'Database');
@@ -761,6 +813,58 @@ void main() {
           await tester.pumpAndSettle();
           await h.settle(tester);
           expect(find.text('Delta'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 開發中的插件（M3 PR 16b）：標記、停用的動作與說明。
+        testWidgets('the installed plugins in development at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final folder = tempFolder();
+          final directory = Directory(p.join(folder.path, 'alpha'))
+            ..createSync();
+          File(p.join(directory.path, 'alpha.js')).writeAsStringSync(
+            pluginScript(
+              'plugin-a',
+              name: 'Alpha Dev',
+              version: '1.2.0',
+              capabilities: ['search', 'resolveStream'],
+            ),
+          );
+          final h = await PluginPageHarness.create(
+            tester,
+            pluginDevTools: true,
+          );
+          await tester.runAsync(() async {
+            await h.install(
+              pluginScript(
+                'plugin-a',
+                name: 'Alpha',
+                capabilities: ['search', 'resolveStream'],
+              ),
+              indexUrl: officialPluginIndexUrl,
+            );
+            await DeveloperSettingsRepository(h.plugins.database)
+                .write(developerMode: true, pluginDevFolder: folder.path);
+          });
+          await h.shell.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.settle(tester);
+          await tester.tap(find.text('Plugins'));
+          await h.settle(tester);
+          for (var i = 0; i < 400; i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 25)),
+            );
+            await tester.pump(const Duration(milliseconds: 25));
+            final state = h.container(tester).read(pluginDevelopmentProvider);
+            if (state != null && !state.busy) break;
+          }
+          await tester.pumpAndSettle();
+          expect(find.text('In development'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

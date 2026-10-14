@@ -666,6 +666,131 @@ class Translations$debug$zh_TW {
   /// zh-TW: '錯誤類別：{type}'
   String hcErrorType({required Object type}) => '錯誤類別：${type}';
 
+  /// zh-TW: '插件開發'
+  String get pluginDev => '插件開發';
+
+  /// zh-TW: '資料夾裡的每個插件目錄（一個 .js、checks.json、fixtures/）載入成「開發中」，取代同 id 的已安裝版；改了檔案按「重新載入」。模式只決定「執行」案例的方式，每個案例在獨立的環境（空的儲存與憑證）裡跑；App 其他地方用到的開發中插件一律真實連線。'
+  String get pdHint =>
+      '資料夾裡的每個插件目錄（一個 .js、checks.json、fixtures/）載入成「開發中」，取代同 id 的已安裝版；改了檔案按「重新載入」。模式只決定「執行」案例的方式，每個案例在獨立的環境（空的儲存與憑證）裡跑；App 其他地方用到的開發中插件一律真實連線。';
+
+  /// zh-TW: '資料夾'
+  String get pdFolder => '資料夾';
+
+  /// zh-TW: '還沒選資料夾'
+  String get pdNoFolder => '還沒選資料夾';
+
+  /// zh-TW: '選擇資料夾'
+  String get pdPick => '選擇資料夾';
+
+  /// zh-TW: '重新掃描'
+  String get pdRescan => '重新掃描';
+
+  /// zh-TW: '卸載'
+  String get pdUnload => '卸載';
+
+  /// zh-TW: '載入中…'
+  String get pdApplying => '載入中…';
+
+  /// zh-TW: '資料夾不存在'
+  String get pdFolderMissing => '資料夾不存在';
+
+  /// zh-TW: '資料夾裡沒有插件目錄（含一個 .js 檔的資料夾）'
+  String get pdFolderEmpty => '資料夾裡沒有插件目錄（含一個 .js 檔的資料夾）';
+
+  /// zh-TW: '{first} 與 {second} 的插件 id 都是「{id}」，只載入 {first}'
+  String pdDuplicateId({
+    required Object first,
+    required Object second,
+    required Object id,
+  }) => '${first} 與 ${second} 的插件 id 都是「${id}」，只載入 ${first}';
+
+  /// zh-TW: '取代已安裝 {version}'
+  String pdTagReplaces({required Object version}) => '取代已安裝 ${version}';
+
+  /// zh-TW: '載入失敗'
+  String get pdTagFailed => '載入失敗';
+
+  /// zh-TW: '插件 id 改成了「{id}」，請重新掃描資料夾'
+  String pdIdChanged({required Object id}) => '插件 id 改成了「${id}」，請重新掃描資料夾';
+
+  /// zh-TW: '重播'
+  String get pdReplay => '重播';
+
+  /// zh-TW: '錄製'
+  String get pdRecord => '錄製';
+
+  /// zh-TW: '真實'
+  String get pdReal => '真實';
+
+  /// zh-TW: '重新載入'
+  String get pdReload => '重新載入';
+
+  /// zh-TW: '查看 log'
+  String get pdViewLog => '查看 log';
+
+  /// zh-TW: '全部執行'
+  String get pdRunAll => '全部執行';
+
+  /// zh-TW: '執行'
+  String get pdRun => '執行';
+
+  /// zh-TW: '執行中'
+  String get pdRunning => '執行中';
+
+  /// zh-TW: '錄製以真實連線執行；結果符合 checks.json 才會覆寫 fixtures/ 裡該能力的檔案（手改過的略過）。誤錄請在插件資料夾用 git checkout 還原。'
+  String get pdRecordWarning =>
+      '錄製以真實連線執行；結果符合 checks.json 才會覆寫 fixtures/ 裡該能力的檔案（手改過的略過）。誤錄請在插件資料夾用 git checkout 還原。';
+
+  /// zh-TW: '沒有檢查案例'
+  String get pdNoCases => '沒有檢查案例';
+
+  /// zh-TW: '{outcome} · {ms} ms · {mode}'
+  String pdCaseLine({
+    required Object outcome,
+    required Object ms,
+    required Object mode,
+  }) => '${outcome} · ${ms} ms · ${mode}';
+
+  /// zh-TW: '通過'
+  String get pdPassed => '通過';
+
+  /// zh-TW: '失敗'
+  String get pdFailed => '失敗';
+
+  /// zh-TW: '略過：需要登入，目前沒有登入'
+  String get pdSkippedLogin => '略過：需要登入，目前沒有登入';
+
+  /// zh-TW: '略過：fixture 是手改過的'
+  String get pdSkippedEdited => '略過：fixture 是手改過的';
+
+  /// zh-TW: '還沒執行'
+  String get pdNotRun => '還沒執行';
+
+  /// zh-TW: '錯誤類別：{type}'
+  String pdErrorType({required Object type}) => '錯誤類別：${type}';
+
+  /// zh-TW: '已寫入 {count} 個 fixture'
+  String pdWritten({required Object count}) => '已寫入 ${count} 個 fixture';
+
+  /// zh-TW: '沒有寫入 fixture'
+  String get pdNotWritten => '沒有寫入 fixture';
+
+  /// zh-TW: '回傳值'
+  String get pdValue => '回傳值';
+
+  /// zh-TW: '（太長，已截斷）'
+  String get pdTruncated => '（太長，已截斷）';
+
+  /// zh-TW: '複製'
+  String get pdCopy => '複製';
+
+  /// zh-TW: '已重新載入 {name} {version}'
+  String pdReloaded({required Object name, required Object version}) =>
+      '已重新載入 ${name} ${version}';
+
+  /// zh-TW: '重新載入失敗：{name}'
+  String pdReloadFailed({required Object name}) => '重新載入失敗：${name}';
+
   /// zh-TW: '沒有在播放'
   String get pbEmpty => '沒有在播放';
 
@@ -1360,6 +1485,12 @@ class Translations$plugins$zh_TW {
 
   /// zh-TW: '已安裝'
   String get tagInstalled => '已安裝';
+
+  /// zh-TW: '開發中'
+  String get tagDev => '開發中';
+
+  /// zh-TW: '開發中的插件由 Debug 頁「插件開發」管理，卸載後才能啟用、更新或移除。'
+  String get devManaged => '開發中的插件由 Debug 頁「插件開發」管理，卸載後才能啟用、更新或移除。';
 
   /// zh-TW: '啟用「{name}」'
   String enable({required Object name}) => '啟用「${name}」';

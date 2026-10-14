@@ -4,9 +4,11 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/health/checks.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_plugin.dart';
@@ -102,7 +104,7 @@ final class HealthCheck extends Notifier<HealthState> {
         final plugin = await repository.byId(id);
         if (!ref.mounted) return;
         if (plugin != null && plugin.enabled) {
-          await _run(plugin.id, plugin.checksJson);
+          await _run(plugin.id, _checksJson(plugin));
         }
       }
     } finally {
@@ -117,11 +119,15 @@ final class HealthCheck extends Notifier<HealthState> {
     try {
       final installed = await ref.read(pluginRepositoryProvider).byId(pluginId);
       if (installed == null || !installed.enabled || !ref.mounted) return;
-      await _run(pluginId, installed.checksJson);
+      await _run(pluginId, _checksJson(installed));
     } finally {
       if (ref.mounted) state = state.copyWith(busy: false);
     }
   }
+
+  /// 案例來源：開發中的插件讀資料夾的 `checks.json`（M3 PR 16b）。
+  String? _checksJson(InstalledPlugin plugin) =>
+      ref.read(pluginDevelopmentProvider.notifier).checksJsonFor(plugin);
 
   Future<void> _run(String pluginId, String? checksJson) async {
     final List<PluginCheck> checks;

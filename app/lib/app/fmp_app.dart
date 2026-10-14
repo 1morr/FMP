@@ -14,6 +14,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/developer_settings.dart';
@@ -71,6 +72,13 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     // 的插件出現在搜尋頁的音源列。
     ref.listenManual(
       devPluginInstallProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    // 插件開發資料夾（Windows、開發者模式）：啟動時就載入，並對齊上次留下的標記列
+    // （M3 PR 16b）。其他平台生效資料夾一律是 null，只做對齊。
+    ref.listenManual(
+      pluginDevelopmentProvider,
       (_, _) {},
       fireImmediately: true,
     );

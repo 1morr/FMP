@@ -7,7 +7,7 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/fixture/fixture.dart';
 import 'package:fmp/core/network/fixture/fixture_adapters.dart';
 import 'package:fmp/core/redaction/redactor.dart';
-import 'package:fmp/plugins/dev/case_runner.dart';
+import 'package:fmp/plugins/dev/describe_error.dart';
 import 'package:fmp/plugins/health/checks.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';

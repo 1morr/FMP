@@ -23,14 +23,17 @@ import 'package:fmp/ui/toast/toaster.dart';
 /// （`mergeLogRecords`）。「只看錯誤」就是錯誤歷史（警告以上）；點一筆在原地展開欄位、error 與
 /// stackTrace；`Log.report` 寫的錯誤紀錄（有 `fields.type`）另有「詳細」，開 `ErrorDetailPage`。
 class DebugLog extends ConsumerStatefulWidget {
-  const DebugLog({super.key});
+  const DebugLog({super.key, this.initialTag});
+
+  /// 一開始就把 tag 篩選設成它（「查看 log」，ADR 0025 §決定 7）；空是所有 tag。
+  final String? initialTag;
 
   @override
   ConsumerState<DebugLog> createState() => _DebugLogState();
 }
 
 class _DebugLogState extends ConsumerState<DebugLog> {
-  var _filter = const LogFilter();
+  late var _filter = LogFilter(tag: widget.initialTag);
   var _earlier = false;
   final _search = TextEditingController();
 

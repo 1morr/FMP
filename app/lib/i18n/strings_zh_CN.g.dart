@@ -541,6 +541,93 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   @override
   String hcErrorType({required Object type}) => '错误类别：${type}';
   @override
+  String get pluginDev => '插件开发';
+  @override
+  String get pdHint =>
+      '文件夹里的每个插件目录（一个 .js、checks.json、fixtures/）载入为“开发中”，取代同 id 的已安装版；改了文件按“重新载入”。模式只决定“执行”用例的方式，每个用例在独立的环境（空的存储与凭证）里跑；App 其他地方用到的开发中插件一律真实联网。';
+  @override
+  String get pdFolder => '文件夹';
+  @override
+  String get pdNoFolder => '还没选文件夹';
+  @override
+  String get pdPick => '选择文件夹';
+  @override
+  String get pdRescan => '重新扫描';
+  @override
+  String get pdUnload => '卸载';
+  @override
+  String get pdApplying => '载入中…';
+  @override
+  String get pdFolderMissing => '文件夹不存在';
+  @override
+  String get pdFolderEmpty => '文件夹里没有插件目录（含一个 .js 文件的文件夹）';
+  @override
+  String pdDuplicateId({
+    required Object first,
+    required Object second,
+    required Object id,
+  }) => '${first} 和 ${second} 的插件 id 都是“${id}”，只载入 ${first}';
+  @override
+  String pdTagReplaces({required Object version}) => '取代已安装 ${version}';
+  @override
+  String get pdTagFailed => '载入失败';
+  @override
+  String pdIdChanged({required Object id}) => '插件 id 改成了“${id}”，请重新扫描文件夹';
+  @override
+  String get pdReplay => '重放';
+  @override
+  String get pdRecord => '录制';
+  @override
+  String get pdReal => '真实';
+  @override
+  String get pdReload => '重新载入';
+  @override
+  String get pdViewLog => '查看 log';
+  @override
+  String get pdRunAll => '全部执行';
+  @override
+  String get pdRun => '执行';
+  @override
+  String get pdRunning => '执行中';
+  @override
+  String get pdRecordWarning =>
+      '录制以真实联网执行；结果符合 checks.json 才会覆盖 fixtures/ 里该能力的文件（手改过的跳过）。误录请在插件文件夹用 git checkout 还原。';
+  @override
+  String get pdNoCases => '没有检查用例';
+  @override
+  String pdCaseLine({
+    required Object outcome,
+    required Object ms,
+    required Object mode,
+  }) => '${outcome} · ${ms} ms · ${mode}';
+  @override
+  String get pdPassed => '通过';
+  @override
+  String get pdFailed => '失败';
+  @override
+  String get pdSkippedLogin => '跳过：需要登录，目前没有登录';
+  @override
+  String get pdSkippedEdited => '跳过：fixture 是手改过的';
+  @override
+  String get pdNotRun => '还没执行';
+  @override
+  String pdErrorType({required Object type}) => '错误类别：${type}';
+  @override
+  String pdWritten({required Object count}) => '已写入 ${count} 个 fixture';
+  @override
+  String get pdNotWritten => '没有写入 fixture';
+  @override
+  String get pdValue => '返回值';
+  @override
+  String get pdTruncated => '（太长，已截断）';
+  @override
+  String get pdCopy => '复制';
+  @override
+  String pdReloaded({required Object name, required Object version}) =>
+      '已重新载入 ${name} ${version}';
+  @override
+  String pdReloadFailed({required Object name}) => '重新载入失败：${name}';
+  @override
   String get pbEmpty => '没有在播放';
   @override
   String get pbEmptyHint => '播放或加入队列后，这里会显示后端、流与队列的状态。';
@@ -1045,6 +1132,10 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   String get tagUpdate => '有更新';
   @override
   String get tagInstalled => '已安装';
+  @override
+  String get tagDev => '开发中';
+  @override
+  String get devManaged => '开发中的插件由 Debug 页“插件开发”管理，卸载后才能启用、更新或移除。';
   @override
   String enable({required Object name}) => '启用“${name}”';
   @override

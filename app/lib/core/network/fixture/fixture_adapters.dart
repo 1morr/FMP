@@ -213,9 +213,15 @@ final class NetworkTransport extends CaseTransport {
 
 /// 建 [CaseTransport]。真實連線的 adapter 來自 [network]，測試換成假上游。
 final class CaseTransports {
-  const CaseTransports({this.network = IOHttpClientAdapter.new});
+  const CaseTransports({
+    this.network = IOHttpClientAdapter.new,
+    this.now = DateTime.now,
+  });
 
   final HttpClientAdapter Function() network;
+
+  /// 錄製時寫進 fixture `meta.recordedAt` 的時鐘；測試換成固定的。
+  final DateTime Function() now;
 
   ReplayTransport replay(
     List<NamedFixture> fixtures,
@@ -225,10 +231,7 @@ final class CaseTransports {
 
   NetworkTransport real() => NetworkTransport._(network, null);
 
-  NetworkTransport record(
-    Redactor redactor, {
-    DateTime Function() now = DateTime.now,
-  }) => NetworkTransport._(
+  NetworkTransport record(Redactor redactor) => NetworkTransport._(
     network,
     RecordingAdapter(network(), redactor, now: now),
   );

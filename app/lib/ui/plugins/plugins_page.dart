@@ -13,6 +13,8 @@ import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/plugins/dev/dev_folder.dart';
+import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/install/plugin_installer.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
@@ -77,6 +79,13 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
       for (final url in urls) url: ref.watch(indexOutcomeProvider(url)),
     };
     final registry = ref.watch(pluginRegistryProvider).value ?? const {};
+    // 開發中的插件（插件開發工具載入的）：不能啟用、更新、移除（design §3.5）。
+    final inDevelopment = {
+      for (final plugin
+          in ref.watch(pluginDevelopmentProvider)?.plugins ??
+              const <DevPlugin>[])
+        plugin.id: plugin,
+    };
     final files = ref.watch(platformCapabilitiesProvider).files;
     final list = installed.value ?? const <InstalledPlugin>[];
     final updates = {
@@ -85,7 +94,9 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
     };
     final updatable = [
       for (final plugin in list)
-        if (updates[plugin.id]?.status == PluginUpdateStatus.available) plugin,
+        if (updates[plugin.id]?.status == PluginUpdateStatus.available &&
+            !inDevelopment.containsKey(plugin.id))
+          plugin,
     ];
     return DefaultTabController(
       length: 2,
@@ -163,8 +174,14 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
           Expanded(
             child: TabBarView(
               children: [
-                _installedTab(t, installed, registry, updates),
-                _availableTab(t, urls, outcomes, list),
+                _installedTab(t, installed, registry, updates, inDevelopment),
+                _availableTab(
+                  t,
+                  urls,
+                  outcomes,
+                  list,
+                  inDevelopment.keys.toSet(),
+                ),
               ],
             ),
           ),
@@ -178,6 +195,7 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
     AsyncValue<List<InstalledPlugin>> installed,
     Map<String, SourcePlugin> registry,
     Map<String, PluginUpdate> updates,
+    Map<String, DevPlugin> inDevelopment,
   ) {
     final p = t.plugins;
     final spacing = AppTokens.of(context).spacing;
@@ -203,6 +221,7 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
             unresponsive:
                 registry[plugin.id]?.health == PluginHealth.unresponsive,
             update: update,
+            development: inDevelopment[plugin.id],
             expanded: _expanded.contains(plugin.id),
             busy: _busy,
             onExpand: () => setState(() {
@@ -230,6 +249,7 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
     List<String> urls,
     Map<String, AsyncValue<IndexOutcome>> outcomes,
     List<InstalledPlugin> installed,
+    Set<String> inDevelopment,
   ) {
     final p = t.plugins;
     final spacing = AppTokens.of(context).spacing;
@@ -263,6 +283,7 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
                   key: ValueKey('$url ${entry.id}'),
                   entry: entry,
                   installed: installedIds.contains(entry.id),
+                  inDevelopment: inDevelopment.contains(entry.id),
                   busy: _busy,
                   onInstall: () => _install(entry, url),
                 ),
@@ -631,6 +652,7 @@ class _InstalledCard extends ConsumerWidget {
     required this.manifest,
     required this.unresponsive,
     required this.update,
+    required this.development,
     required this.expanded,
     required this.busy,
     required this.onExpand,
@@ -643,6 +665,9 @@ class _InstalledCard extends ConsumerWidget {
   final PluginManifest? manifest;
   final bool unresponsive;
   final PluginUpdate? update;
+
+  /// 開發資料夾載入的這個插件；不是開發中是 `null`。
+  final DevPlugin? development;
   final bool expanded;
   final bool busy;
   final VoidCallback onExpand;
@@ -656,11 +681,16 @@ class _InstalledCard extends ConsumerWidget {
     final p = t.plugins;
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
-    final manifest = this.manifest;
+    // 開發中顯示載入的開發版（載入失敗時是列上的）。
+    final development = this.development;
+    final manifest = development?.manifest ?? this.manifest;
+    final version = development?.manifest?.version ?? plugin.version;
+    final locked = development != null;
     final name = manifest?.name ?? plugin.id;
     final description = manifest?.description ?? '';
     final status = update?.status ?? PluginUpdateStatus.none;
     final tags = [
+      if (locked) PluginTag(text: p.tagDev, tone: PluginTagTone.primary),
       if (!plugin.enabled) PluginTag(text: p.tagDisabled),
       if (plugin.enabled && unresponsive)
         PluginTag(text: p.tagUnresponsive, tone: PluginTagTone.error),
@@ -686,7 +716,7 @@ class _InstalledCard extends ConsumerWidget {
                   child: PluginHeading(
                     name: name,
                     byline: p.versionAuthor(
-                      version: plugin.version,
+                      version: version,
                       author: manifest?.author ?? '',
                     ),
                     description: description,
@@ -700,7 +730,7 @@ class _InstalledCard extends ConsumerWidget {
                   label: p.enable(name: name),
                   child: Switch(
                     value: plugin.enabled,
-                    onChanged: busy ? null : onEnabled,
+                    onChanged: busy || locked ? null : onEnabled,
                   ),
                 ),
               ],
@@ -729,6 +759,16 @@ class _InstalledCard extends ConsumerWidget {
                   ],
                 ),
               ),
+            if (locked)
+              Padding(
+                padding: EdgeInsets.only(top: spacing.x2, right: spacing.x2),
+                child: Text(
+                  p.devManaged,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             SizedBox(height: spacing.x2),
             Wrap(
               spacing: spacing.x2,
@@ -737,7 +777,7 @@ class _InstalledCard extends ConsumerWidget {
               children: [
                 if (status == PluginUpdateStatus.available)
                   FilledButton.tonal(
-                    onPressed: busy ? null : onUpdate,
+                    onPressed: busy || locked ? null : onUpdate,
                     child: Text(p.updateTo(version: update!.entry.version)),
                   ),
                 // apiVersion 不相容：有新版本但這個 FMP 裝不了（ADR 0030 §決定 4）。
@@ -755,7 +795,7 @@ class _InstalledCard extends ConsumerWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: theme.colorScheme.error,
                   ),
-                  onPressed: busy ? null : onRemove,
+                  onPressed: busy || locked ? null : onRemove,
                   child: Text(p.remove),
                 ),
               ],
@@ -773,6 +813,7 @@ class _EntryCard extends ConsumerWidget {
     super.key,
     required this.entry,
     required this.installed,
+    required this.inDevelopment,
     required this.busy,
     required this.onInstall,
   });
@@ -781,6 +822,9 @@ class _EntryCard extends ConsumerWidget {
 
   /// 同 id 的插件已經裝了（不論來自哪裡）：不能再裝一個，要換來源先移除。
   final bool installed;
+
+  /// 開發資料夾正載入這個 id：顯示「開發中」，不能安裝（安裝會蓋掉開發版）。
+  final bool inDevelopment;
   final bool busy;
   final VoidCallback onInstall;
 
@@ -803,11 +847,16 @@ class _EntryCard extends ConsumerWidget {
                   author: entry.author,
                 ),
                 description: entry.description,
-                tags: [if (installed) PluginTag(text: p.tagInstalled)],
+                tags: [
+                  if (inDevelopment)
+                    PluginTag(text: p.tagDev, tone: PluginTagTone.primary)
+                  else if (installed)
+                    PluginTag(text: p.tagInstalled),
+                ],
               ),
             ),
             SizedBox(width: spacing.x3),
-            if (!installed)
+            if (!installed && !inDevelopment)
               FilledButton.tonal(
                 onPressed: busy || !entry.isCompatible ? null : onInstall,
                 child: Text(entry.isCompatible ? p.install : p.needsAppUpdate),
