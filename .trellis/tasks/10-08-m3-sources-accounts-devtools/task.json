@@ -35,7 +35,8 @@
     "10-14-m3-error-report",
     "10-14-m3-debug-playback-database",
     "10-14-m3-reset-and-restore",
-    "10-14-m3-diagnostics"
+    "10-14-m3-diagnostics",
+    "10-14-m3-health-check"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
