@@ -28,7 +28,8 @@ lib/ui/
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（概覽、Log 與錯誤歷史、網路、播放狀態、音源健康檢查、資料庫）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
-                       # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails、
+                       # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在
+                       # track_detail_parts，trackDetailProvider 與記憶體 LRU 在 track_detail_provider）、
                        # 可編輯的佇列（QueueView：分頁與底部面板共用）、
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
@@ -40,7 +41,7 @@ lib/ui/
   accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider、登入方式的交集與登入失敗的訊息（accounts_state）、
                        # QR 登入對話框（qr_login_dialog）；qr_flutter 只准在這裡；網頁登入的全螢幕頁
                        # （web_login_page）、貼上 cookie 的對話框（cookie_login_dialog）
-  format/              # 時長、位元組數與人數（CLDR 縮寫，formatCount）的文字
+  format/              # 時長、位元組數、人數（CLDR 縮寫，formatCount）與日期（CLDR yMMMd，formatDate）的文字
 lib/app/app_material.dart  # 三個 App 根元件共用的 MaterialApp 設定
 ```
 

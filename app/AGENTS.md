@@ -927,6 +927,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `checks.json` 的 `multiPart` 案例取一支影片的分 P，檢查的清單是回傳的 `parts`（`nonEmpty` 的名稱是 `cid`、`title`、`durationMs`、`index`）；
   重播照跑、命令列錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the multiPart check`、`contract_runner_test.dart` 的 `a multiPart check…`、
   `health_check_test.dart` 的 `a multiPart case`、`dev_case_runs_test.dart` 的 `a multiPart case…`。
+- `trackDetail`（ADR 0028 §決定 6，M3 PR 21）：匯出就叫 `trackDetail`（和能力同名），輸入 `{sourceId, cid?}`，回傳 `{description?, publishedAt?,
+  uploaderAvatar?, album?, stats?: [{kind, count}]}`，欄位都可以沒有或 `null`。`publishedAt` 是 UTC epoch 毫秒（非負、不超過 `DateTime` 的上限）；
+  `uploaderAvatar` 的網域照 `Artwork`（`https`、在 `allowedHosts`）；`stats.kind` 是封閉的 union（`TrackStatKind`：`view`、`like`、`favorite`、`comment`、
+  `share`、`danmaku`、`coin`），**不認得的 `kind` 整筆拒收成 `ParseError`**（不會悄悄丟掉），`count` 是非負整數；宿主依 `kind` 挑圖示與翻譯，不顯示
+  插件給的文字。沒宣告 `trackDetail` 時呼叫是 `Unsupported`。閘門：`track_detail_capability_test.dart`（匯出與能力一致、輸入的 JSON、
+  回傳值驗證含未知 `kind`／負的 `count`／頭像網域）、`type_definitions_test.dart` 的 `the trackDetail export is named after the capability…`、
+  `the stat kinds match TrackStatKind`、`the trackDetail fields match…`（含變異）。
+- `checks.json` 的 `trackDetail` 案例取一首曲目的詳細，檢查的清單是回傳的那一筆（`nonEmpty` 的名稱同 `TrackDetail`：`description`、`publishedAt`、
+  `uploaderAvatar`、`album`、`stats`）；重播照跑、命令列錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the trackDetail check`、
+  `contract_runner_test.dart` 的 `a trackDetail check…`、`health_check_test.dart` 的 `a trackDetail case`、`dev_case_runs_test.dart` 的 `a trackDetail case…`。
 - `checks.json` 的 `mix` 案例以 `seed` 開始一個 Mix，檢查的清單是回傳的 `tracks`（`nonEmpty` 的名稱同 `TrackSummary`）；重播照跑、命令列
   錄製照錄（匿名）。閘門：`checks_test.dart` 的 `the mix check`、`contract_runner_test.dart` 的 `a mix check…`、`health_check_test.dart`
   的 `a mix case`、`dev_case_runs_test.dart` 的 `a mix case…`。
@@ -2107,6 +2117,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     就自動收起、鈕不再顯示，不報錯。取不到時列下面多一列「無法載入分 P」與重試，同時以 `Toaster.error` 顯示。載入中鈕換成帶語意名稱的轉圈。
     新的搜尋（`SearchNotifier.search`，含換音源、換模式後的重搜）一開始就收起所有影片（`VideoParts.collapseAll`），取過的分 P 留著。
   - 展開後每個分 P 是縮排的一列（「P2 分 P 標題」、時長、「⋯」），一首獨立的曲目：點一下臨時播放，選單照曲目列。點影片本身照舊臨時播放，不帶 cid。
+    分 P 的標題剛好是 `P<序號>`（插件在分 P 沒有標題時給的）只顯示一次（`TrackInfo.partLabel`，M3 PR 21；閘門：`track_info_test.dart` 的 `a part titled with its own number…`，
+    `P30`、別的序號照樣加上序號）。
   - 影片選單的「下一首播放」「加入佇列」：顯示展開鈕的條件成立時（含 `partCount` 空）先取分 P，**多於一個就全部放進去，否則只放影片本身**；取不到時
     以統一提示顯示、什麼都不加。`partCount` 為 1 或插件沒宣告 `multiPart` 時不取。
   - 播放列、播放頁、右側面板、佇列、播放歷史、系統媒體控制與「已跳過」提示都顯示 `TrackInfo.displayTitle`。**佇列與歷史沒有依影片分組的版面**：
@@ -2116,6 +2128,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   失敗與重試、載入中轉圈、影片選單的全部分 P／未知數量取一個／已知單 P 不取／無能力不取／取不到不加、Mix 中影片與分 P 的兩項都停用）、
   `test/ui/tracks/part_display_test.dart`（播放列、播放頁、佇列、歷史、「已跳過」提示）、`now_playing_publisher_test.dart` 的 `a part pushes the video title…`、
   `guidelines_test.dart` 的 `search results with the parts expanded／failed`、`the queue with multi-part tracks`（寬 400／1000、淺色與深色）。
+- 曲目的詳細區（M3 PR 21，design §11.2；`lib/ui/player/track_details.dart`、`track_detail_parts.dart`、`track_detail_provider.dart`）：播放頁「詳細」分頁與
+  右側面板共用 `TrackDetails`。插件宣告 `trackDetail` 時，在音源欄下面多顯示發佈時間（`formatDate`，依介面語言）、專輯、統計（圖示加縮寫人數，語意名稱
+  依 `kind` 翻譯）、簡介（預設收合在 4 行，放不下才有「展開」），上傳者旁加頭像；沒宣告時只有原本的欄位，也不呼叫。每首第一次顯示時呼叫一次，結果進
+  `TrackDetailCache`（記憶體 LRU，32 筆，不持久化；鍵是曲目鍵含 cid），再次顯示讀快取（同步回傳，不閃佔位）；請求進行中切走分頁或收起面板再回來，接上同一個請求（`keepAlive` 到請求結束）。載入中是不動畫的灰條佔位；失敗只在這一區顯示
+  「無法取得詳細資料」與「重試」（不跳提示），離線（`noInterface`、`unreachable`）時改說離線——請求照送（使用者開分頁就是使用者發起的請求，ADR 0016 §決定 7
+  的更正），所以離線的說明只出現在失敗之後。直播的詳細（`LiveDetails`）不呼叫 `trackDetail`。閘門：`test/ui/player/track_details_test.dart`
+  （沒宣告／宣告、空的詳細、cid、載入中、失敗與重試、離線、簡介收合、頭像、第二次顯示不再呼叫、快取命中第一格就有資料、載入中切走再回來不重發、LRU 的 32 筆與 33 筆淘汰）、`guidelines_test.dart` 的
+  `the track details with data／that failed／while loading`（寬 400／1000、淺色與深色）。
 - 直播時的快捷鍵：空白鍵照常（控制器的 `pause` 就是停止串流）；上一首、下一首、Shift+←／→、Ctrl+S、Ctrl+R 在
   `PlaybackShortcuts` 的 `_QueueAction` **接下按鍵、什麼都不做**——不是停用：停用會讓按鍵往上傳，App 根的預設快捷鍵把
   Ctrl+方向鍵當成捲動，去捲頁面的清單（debug 下 `PrimaryScrollController` 有多個位置時是 assertion）。閘門：

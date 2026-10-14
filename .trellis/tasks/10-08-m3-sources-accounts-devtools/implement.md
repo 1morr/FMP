@@ -46,7 +46,7 @@
 - **狀態**（2026-10-13）：**M3a 完成**（FMP #220–#235、fmp-plugins #4–#9；驗收證據 `research/m3a-acceptance.md`，`milestones.md` 已勾）。M3b：PR 11（#237）、12（#238）、13（#239）已合併；PR 14a（#240）、14b（#241）、15（#242）已合併；PR 16 拆成 16a（健康檢查，#244 已合併）、16b（插件開發工具，#245 已合併）、16c（以 App 內登入重錄 `requiresLogin` 的案例，要擁有者登入；先做「PR 16b 留下的」第 6 條）。
 - **擁有者決定**：1–9 在 `prd.md`；design §16 的 14 條全部照建議；R1 後：UA 歸平台層、`flutter_inappwebview` 6.2.0-beta.3；M3a 驗收時：停用時正在播的那首照播完、佇列與歷史標示音源狀態（#234）、**實機驗證改為 Android 每個 PR、Windows 只在改到平台各自實作時與里程碑驗收**（ADR 0027 §決定 3 的修訂，#236；下面「通用規則」的實機驗證以它為準）。
 - **待擁有者回覆**：無。磁碟音訊快取（「M3a 驗收留下的」第 12 條）擁有者想要，放哪個里程碑未定，要新 ADR。
-- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（#251、fmp-plugins#11）已合併。PR 20（分 P，子任務 `archive/2026-10/10-14-m3-multi-part`）實作、審查與 Android 實機完成；20-plugins 待 FMP 合併後更新 `FMP_REF`。
+- **下一步**：依「順序與相依」做 M3b：11 → 12 → 13／14 → 15、16；17 → 18；19、20 → 21。 PR 17（排程器，#246）已合併。PR 18 拆成 18a／18a-plugins／18b／18c（見 §18）：18a（#247）、18a-plugins（fmp-plugins#10）已合併；18b（#248）、18c（#250）已合併。PR 19（#251、fmp-plugins#11）已合併。PR 20（#252、fmp-plugins#12）已合併。PR 21（曲目詳細，子任務 `10-14-m3-track-detail`）實作、審查與 Windows 實機完成（手機直式沒有詳細區）；之後是 M3b 驗收。
 - **實機與真實連線的教訓**：真實連線驗播放時用「臨時播放」（點一首），不要在開了循環的佇列裡混本機測試曲目——連續跳過會被成功的那首重設，PR 1 因此打了 player 160 次。
 - **斷電紀錄**：2026-10-09 機器斷電，未提交的檔案可能變成全 NUL（PR 4 有四個）；恢復後先跑 `<scratchpad>/nulscan.py <repo>` 掃描，不要只看檔案大小。
 - **本機環境備忘**（M2 的備忘仍適用，見 `archive/2026-10/10-01-m2-full-playback/implement.md` § 進度與交接的「本機環境備忘」）：模擬器序號、`ANDROID_SERIAL`、整合測試會換掉 dev 的 apk／exe、送鍵前確認 FMP 在前景、`smtc_probe.ps1 -AppFilter fmp`、搜尋來源每次啟動回到第一個插件（重播前先點 `FMP Test Plugin` chip）。
@@ -442,10 +442,10 @@
 
 ## 21. `trackDetail`（design §4.7、§11.2）
 
-- [ ] 宿主：`trackDetail` 匯出、`TrackDetail` DTO（`stats.kind` 封閉 union）、`checks.json`。
-- [ ] `TrackDetails` widget 的詳細資料區、記憶體 LRU、失敗與重試。
+- [x] 宿主：`trackDetail` 匯出、`TrackDetail` DTO（`stats.kind` 封閉 union）、`checks.json`。
+- [x] `TrackDetails` widget 的詳細資料區、記憶體 LRU、失敗與重試。
 - [ ] fmp-plugins：三個插件的 `trackDetail` 與契約案例（匿名錄的 fixture）。
-- [ ] `fmp-test`：一筆完整的詳細資料與一筆會失敗的。
+- [x] `fmp-test`：一筆完整的詳細資料（`tone-440`）與一筆會失敗的（`tone-880`）。
 - 測試：design §11.2 的閘門；`type_definitions_test.dart`（`stats.kind` 的 union 對 Dart 列舉）。
 - 實測：重播：兩平台播放頁詳細分頁與右側面板（Windows）。真實（匿名）：三個音源各看一次詳細。
 - 依賴：18、19、20（M3b 最後一個，決定 5；三個插件的 fmp-plugins 改動依序合併）。模型：sonnet。
@@ -488,6 +488,15 @@
 ## 留下的後續
 
 （每個 PR 收尾時補；格式照 M2 的「PR n 留下的」各節。）
+
+### PR 21 留下的
+
+1. **手機直式沒有詳細區**：compact、medium 的播放頁沒有「詳細」分頁（M2 的版面決定，舊版的詳細面板也只在桌面側欄），所以詳細資料只在寬版（expanded 以上）的播放頁與右側面板看得到。這次實機改在 Windows 看。要不要在手機加入口，留到有人要時再決定。
+2. **右側面板常駐時每換一首就取一次詳細**（審查提醒）：符合 design「顯示就取」，B 站每首多一個 `wbi/view`（或加 nav）請求。
+3. **網易沒有上傳者頭像**（主對話決定）：要多一個 `artist/head/info/get` 請求，先維持一個請求。
+4. **網易的 `publishTime` 原樣傳出**：通常是北京時間零點，西半球會顯示成前一天（舊版也一樣）；YouTube 已改取當天 UTC 正午。真要處理要在契約加「只精確到日」。
+5. **YouTube 不強制 `lang: 'en'`**：日期格式認不得時不給 `publishedAt`，不會給錯的日期。
+6. **離線說明依顯示當下的網路狀態選文字**（審查記下）：`ParseError` 失敗剛好又離線時會顯示成離線說明，影響很小。
 
 ### PR 20 留下的
 
