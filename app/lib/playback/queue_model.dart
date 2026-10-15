@@ -384,7 +384,8 @@ final class QueueModel {
     _current = tracks.isEmpty
         ? null
         : (currentIndex ?? 0).clamp(0, tracks.length - 1);
-    _loop = loopMode;
+    // Mix 沒有「全部」（ADR 0031 §決定 9）：舊資料存著 all 時改成關。
+    _loop = mix != null && loopMode == LoopMode.all ? LoopMode.off : loopMode;
     _temporary = null;
     _live = null;
     _mix = mix;
@@ -419,7 +420,8 @@ final class QueueModel {
   }
 
   /// 開始 Mix（ADR 0031 §決定 9）：以 [tracks] **取代整個佇列**（原佇列不另存），
-  /// 進入 Mix 模式、從第一首開始；臨時播放與直播就此結束，隨機關掉，循環維持。
+  /// 進入 Mix 模式、從第一首開始；臨時播放與直播就此結束，隨機關掉，循環是「全部」就改成「關」
+  /// （Mix 沒有「全部」），其他維持。
   /// [tracks] 是空的或超過 [maxLength] 就什麼都不做、回傳 `false`。
   bool startMix(MixIdentity mix, List<TrackInfo> tracks) {
     if (tracks.isEmpty || tracks.length > maxLength) return false;
@@ -430,6 +432,7 @@ final class QueueModel {
     _order = null;
     _mix = mix;
     _playNextRun = 0;
+    if (_loop == LoopMode.all) _loop = LoopMode.off;
     _publish();
     return true;
   }
@@ -641,9 +644,10 @@ final class QueueModel {
     _publish();
   }
 
-  /// 循環依 off → all → one 輪轉，回傳新的模式。
+  /// 循環依 off → all → one 輪轉，回傳新的模式；Mix 中沒有 all，依 off → one 輪轉。
   LoopMode cycleLoopMode() {
     _loop = switch (_loop) {
+      LoopMode.off when _mix != null => LoopMode.one,
       LoopMode.off => LoopMode.all,
       LoopMode.all => LoopMode.one,
       LoopMode.one => LoopMode.off,

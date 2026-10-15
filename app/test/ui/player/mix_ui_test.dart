@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -18,6 +19,9 @@ import '../support/shell_harness.dart';
 
 const _shuffleTooltip = 'Shuffle (Ctrl+S)';
 const _shuffleLocked = 'Shuffle is unavailable in a Mix';
+const _loopOffTooltip = 'Repeat: off (Ctrl+R)';
+const _loopOffInMix = 'Repeat: off (Ctrl+R; no "all" in a Mix)';
+const _loopOneInMix = 'Repeat: one (Ctrl+R; no "all" in a Mix)';
 
 MixBatch _batch(Iterable<String> ids, {String title = 'Late night mix'}) =>
     MixBatch(
@@ -212,7 +216,58 @@ void main() {
       expect(h.controller.queue.shuffleEnabled, isFalse);
     });
 
-    testWidgets('the player page disables shuffle too', (tester) async {
+    testWidgets('the loop button has no "all" and says so', (tester) async {
+      final h = await _inMix(tester);
+
+      expect(find.byTooltip(_loopOffInMix), findsOneWidget);
+      expect(find.byTooltip(_loopOffTooltip), findsNothing);
+      await tester.tap(find.byTooltip(_loopOffInMix));
+      await tester.pump();
+      expect(h.controller.queue.loopMode, LoopMode.one);
+      expect(find.byTooltip(_loopOneInMix), findsOneWidget);
+
+      // Ctrl+R 走同一個 cycleLoopMode。
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(h.controller.queue.loopMode, LoopMode.off);
+    });
+
+    testWidgets('the loop item of the "⋯" menu says so too', (tester) async {
+      // 播放列在 rail 旁邊：視窗 800 時是 medium，循環在「⋯」裡。
+      final h = await _inMix(tester, size: const Size(800, 800));
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PlayerBar),
+          matching: find.byTooltip('More'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(_item('Repeat: off (no "all" in a Mix)'), findsOneWidget);
+      await tester.tap(_item('Repeat: off (no "all" in a Mix)'));
+      await tester.pumpAndSettle();
+      expect(h.controller.queue.loopMode, LoopMode.one);
+    });
+
+    testWidgets('outside a mix the loop button goes off, all, one', (
+      tester,
+    ) async {
+      final h = _harness();
+      await h.pumpShell(tester);
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byTooltip(_loopOffTooltip), findsOneWidget);
+      await tester.tap(find.byTooltip(_loopOffTooltip));
+      await tester.pump();
+      expect(h.controller.queue.loopMode, LoopMode.all);
+    });
+
+    testWidgets('the player page disables shuffle and has no loop "all" too', (
+      tester,
+    ) async {
       await _inMix(tester);
       await tester.tap(
         find
@@ -227,6 +282,8 @@ void main() {
       expect(find.byType(PlayerPage), findsOneWidget);
       expect(find.byTooltip(_shuffleLocked), findsWidgets);
       expect(find.byTooltip(_shuffleTooltip), findsNothing);
+      expect(find.byTooltip(_loopOffInMix), findsWidgets);
+      expect(find.byTooltip(_loopOffTooltip), findsNothing);
     });
   });
 

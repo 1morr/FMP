@@ -1155,10 +1155,54 @@ void main() {
       expect(state.mix, mix);
       expect(ids(state), ['0', '1', '2', '3', '4']);
       expect(state.currentIndex, 0);
-      // 臨時播放結束，隨機關掉，循環維持。
+      // 臨時播放結束，隨機關掉，循環「全部」改成「關」（Mix 沒有全部）。
       expect(state.temporary, isNull);
       expect(state.shuffleEnabled, isFalse);
-      expect(state.loopMode, LoopMode.all);
+      expect(state.loopMode, LoopMode.off);
+    });
+
+    test('starting keeps a loop of one song', () {
+      final queue = QueueModel()
+        ..replace(tracks(['x', 'y']))
+        ..cycleLoopMode()
+        ..cycleLoopMode();
+      expect(queue.state.loopMode, LoopMode.one);
+
+      queue.startMix(mix, numbered(3));
+
+      expect(queue.state.loopMode, LoopMode.one);
+    });
+
+    test(
+      'the loop cycles between off and one only, and stays after leaving',
+      () {
+        final queue = started();
+
+        expect(queue.cycleLoopMode(), LoopMode.one);
+        expect(queue.cycleLoopMode(), LoopMode.off);
+        expect(queue.cycleLoopMode(), LoopMode.one);
+        expect(queue.cycleLoopMode(), LoopMode.off);
+
+        // 退出 Mix 後維持當時的值（不自動回到全部），一般佇列照 off → all → one。
+        queue.clear();
+        expect(queue.state.mix, isNull);
+        expect(queue.state.loopMode, LoopMode.off);
+        expect(queue.cycleLoopMode(), LoopMode.all);
+      },
+    );
+
+    test('restoring a mix with a loop of all turns it off', () {
+      final queue = QueueModel()
+        ..restore(
+          tracks: tracks(['a', 'b']),
+          currentIndex: 0,
+          loopMode: LoopMode.all,
+          shuffle: false,
+          mix: mix,
+        );
+
+      expect(queue.state.loopMode, LoopMode.off);
+      expect(queue.cycleLoopMode(), LoopMode.one);
     });
 
     test('an empty mix is not started', () {

@@ -954,6 +954,14 @@ class Translations$player$en extends Translations$player$zh_TW {
   @override
   String get loopOneTooltip => 'Repeat: one (Ctrl+R)';
   @override
+  String get loopOffInMix => 'Repeat: off (no "all" in a Mix)';
+  @override
+  String get loopOneInMix => 'Repeat: one (no "all" in a Mix)';
+  @override
+  String get loopOffInMixTooltip => 'Repeat: off (Ctrl+R; no "all" in a Mix)';
+  @override
+  String get loopOneInMixTooltip => 'Repeat: one (Ctrl+R; no "all" in a Mix)';
+  @override
   String get volume => 'Volume';
   @override
   String get volumeTooltip => 'Volume (Ctrl+↑/↓)';

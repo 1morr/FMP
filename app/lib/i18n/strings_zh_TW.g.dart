@@ -1236,6 +1236,18 @@ class Translations$player$zh_TW {
   /// zh-TW: '循環：單曲（Ctrl+R）'
   String get loopOneTooltip => '循環：單曲（Ctrl+R）';
 
+  /// zh-TW: '循環：關閉（Mix 中沒有「全部」）'
+  String get loopOffInMix => '循環：關閉（Mix 中沒有「全部」）';
+
+  /// zh-TW: '循環：單曲（Mix 中沒有「全部」）'
+  String get loopOneInMix => '循環：單曲（Mix 中沒有「全部」）';
+
+  /// zh-TW: '循環：關閉（Ctrl+R；Mix 中沒有「全部」）'
+  String get loopOffInMixTooltip => '循環：關閉（Ctrl+R；Mix 中沒有「全部」）';
+
+  /// zh-TW: '循環：單曲（Ctrl+R；Mix 中沒有「全部」）'
+  String get loopOneInMixTooltip => '循環：單曲（Ctrl+R；Mix 中沒有「全部」）';
+
   /// zh-TW: '音量'
   String get volume => '音量';
 

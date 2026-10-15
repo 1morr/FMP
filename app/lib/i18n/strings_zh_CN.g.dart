@@ -938,6 +938,14 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   @override
   String get loopOneTooltip => '循环：单曲（Ctrl+R）';
   @override
+  String get loopOffInMix => '循环：关闭（Mix 中没有“全部”）';
+  @override
+  String get loopOneInMix => '循环：单曲（Mix 中没有“全部”）';
+  @override
+  String get loopOffInMixTooltip => '循环：关闭（Ctrl+R；Mix 中没有“全部”）';
+  @override
+  String get loopOneInMixTooltip => '循环：单曲（Ctrl+R；Mix 中没有“全部”）';
+  @override
   String get volume => '音量';
   @override
   String get volumeTooltip => '音量（Ctrl+↑／↓）';
