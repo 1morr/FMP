@@ -975,6 +975,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
   `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
   `record_test.dart` 的 `skips a case that requires a login`。
+- 案例可標 `mutates: true`（`PluginCheck.mutates`，每種案例的欄位表都收這個選填欄位、只准 `true`；M4 PR 12 加，第一個用它的是
+  `libraryWrite`，它的案例改成必填）：會改動遠端的案例，健康檢查（`HealthSkip.mutates`）、命令列錄製（`recordCase` 回
+  `<能力>: mutates the remote`）、App 內開發工具的真實與錄製（`DevSkip.mutates`）一律略過、**不呼叫插件**（連 `playlistFromUrl`
+  這類前置呼叫也不行）；`runIsolatedCase` 對真實連線的 `mutates` 案例直接丟 `StateError`（呼叫端漏略過也不會送出）。重播與契約測試照跑，
+  fixture 手寫。閘門：`checks_test.dart` 的 `mutates`（含每種案例形狀都收它）、`case_runner_test.dart` 的 `a mutates case…`／`skips a mutates case…`、
+  `health_check_test.dart` 的 `a mutates case`、`dev_case_runs_test.dart` 的 `a mutates case`、`record_test.dart` 的 `skips a case that mutates the remote…`／
+  `replays a case that mutates the remote`。
 - manifest 的 `allowedHosts` 管插件交給宿主的每個網址：`fmp.http.request`（網路層擋，見「網路」）、
   串流候選（另外只准 `asset:///`，給測試插件）、封面、圖示。閘門：`script_source_plugin_test.dart`
   的 `returned values`、`plugin_runtime_test.dart` 的 `a host outside the manifest…`。
@@ -1100,20 +1107,25 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     的開發中插件一律真實連線。理由：在帶著 storage 快取的插件上錄的 fixture（B 站 `wbiKeys` 有值就少發請求）在 CI 的空 storage
     重播會對不上。錄製走 `recordCase`，與命令列 `recordContract` 同一個函式（結果符合 `checks.json` 且錄製沒有問題才寫、手改過的
     略過、寫檔前經 `Redactor`）；寫檔前檢查代際（跑的途中換資料夾或卸載就不寫）。`requiresLogin`：重播用 `checks.json` 的假憑證，
-    真實與錄製用已存的憑證當 `loginVerify` 的輸入，沒登入略過、不連網。遮蔽函式不認得帳號名稱，所以結果是 `LoginAccount` 時 `recordCase` 寫檔前先以帳號的
+    真實與錄製用已存的憑證，沒登入略過、不連網：login 案例當 `loginVerify` 的輸入；其他 `requiresLogin` 的案例
+    （M4 PR 12，`libraryRead` 起）由 `runIsolatedCase` 放進隔離環境的記憶體憑證存放（transport 是真實連線、案例標 `requiresLogin` 才放，
+    重播的 `ReplayTransport` 一律不放；請求依 ADR 0012 帶它，網路紀錄記 `credentials: true`）。失效處理（`AccountGuard`）看的是另一份空的存放：
+    憑證被拒時案例照實失敗，不會呼叫 `loginRefresh`——刷新會換掉音源端的 token，新 token 卻只活在這個案例的記憶體。遮蔽函式不認得帳號名稱，所以
+    所有 `requiresLogin` 的案例 `recordCase` 寫檔前先以帳號（login 是結果，其他是 `accounts` 列，`loginAccountOf`；列不在或頭像讀不懂就不錄）的
     `userId`、`displayName` 換掉錄到的流量（`scrubAccount`，頭像網址換成 `<scheme>://<主機>/***`），再用 `accountLeaks` 檢查，
     換完仍看得到就不寫（fixture 進公開的插件 repo）。不靠鍵名：鍵名分不出自己和別人，會弄壞別人的 id、頭像。
     換值只認 id、名稱、頭像，登入後的回應還有 email、手機號、等級之類，所以錄到的檔案不原樣提交：刪減到只剩插件讀的欄位，
     或改用手寫的，並在 `meta.edited` 寫明（ADR 0015 §決定 7 的更正；閘門在插件庫的 `test/login_fixtures_test.dart`）。
-    閘門：`account_scrub_test.dart`。回傳值經 `Redactor.redactValue` 顯示，`LoginAccount` 一律顯示
+    閘門：`account_scrub_test.dart`、`case_runner_test.dart`（三種模式帶不帶憑證、被拒不刷新、換值後才寫、殘留不寫、無關欄位不擋、沒有帳號列不錄）。回傳值經 `Redactor.redactValue` 顯示，`LoginAccount` 一律顯示
     `***`。一次只跑一個案例（整個區塊）。閘門：`dev_case_runs_test.dart`（預設重播、隔離不碰 App 的 storage、錄製的檔案沒有假憑證
     且與命令列逐位元組相同、手改過的略過、結果不符不寫、帳號資訊換值後仍可重播、`requiresLogin` 兩種、一次一個、換資料夾與
     卸載的代際丟棄、每案例一筆 log）。
   - 健康檢查對開發中的插件讀資料夾的 `checks.json`（`PluginDevelopment.checksJsonFor`）。閘門：`health_check_test.dart`。
   - 已知限制（沒有閘門）：registry 重建會丟掉開發版（registry 目前從不重建）；開發版 manifest 比已安裝版多的能力（如 `login`），
     讀列的元件（例如 `CredentialStore`）看到的是已安裝版的 manifest；只有開發資料夾才有的插件卸載時只刪列與 storage，帳號列與憑證
-    保留（要清就先在帳號頁登出）；隔離環境只把已存憑證當 `loginVerify` 的輸入，M4 出現「需要登入、但不是 login 能力」的案例時
-    要讓隔離環境帶上該音源的憑證；debug build 下案例與 App 的資料庫同時開著，drift 會印「多個資料庫」的警告（無害）。
+    保留（要清就先在帳號頁登出）；帶憑證錄的流量只換 id、名稱、頭像（見上），
+    而短於 4 個字元的名稱只換整個值相等的字串：嵌在別的字串裡（例如歌單標題「<名稱>喜歡的音樂」）換不到、`accountLeaks` 也看不到，刪減時要人工看；隔離環境的「以登入身分瀏覽」開關讀的是空的設定表，
+    不是使用者在帳號頁設的值，`userPreference` 的請求依 manifest 的預設決定帶不帶；debug build 下案例與 App 的資料庫同時開著，drift 會印「多個資料庫」的警告（無害）。
   - 插件頁（見「介面」）：開發中的卡片不能啟用、更新、移除，閘門 `plugins_page_test.dart` 的 `plugins in development`。
 - 執行器看不到的：插件接住並吞掉「網域不在清單」的錯誤（網路層照樣不送出）；插件自己拋的
   `ParseError` 與 DTO 驗證失敗的 `ParseError` 分不出來。沒有閘門，已知限制。
@@ -1847,7 +1859,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （`test/plugins/contract/`）與健康檢查共用。手動觸發「全部檢查」或單一插件，**一次只跑一個插件**：`HealthCheck.busy` 為真時
     再按不開第二輪，全部依序跑，每個插件開跑前重讀一次（前面的插件跑的期間被停用或移除的不跑）。停用的插件與沒有 `checks_json` 的插件（從檔案、網址或開發入口安裝）不跑，畫面標「已停用」「沒有檢查案例」；啟用卻不在已載入清單上的標「沒有載入」（`notLoaded`）。
     `requiresLogin` 的案例：該音源已登入就用 `CredentialStore.activeCredentials` 的憑證當 `loginVerify` 的輸入（不是案例檔的假值），
-    未登入標「略過」、不發請求。`loginVerify` 回的帳號（名稱、頭像）只拿來比對期望，不進結果與 log。結果（通過／失敗／略過、耗時、`AppError` 類別、說明）只留在記憶體，說明經遮蔽函式（錯誤只用 `toString()`，不含原始 error）；
+    未登入標「略過」、不發請求；其他 `requiresLogin` 的案例在已登入時就用 App 已載入的插件跑（請求自己帶憑證）；`mutates` 的案例標「略過：會改動遠端」、不呼叫插件。`loginVerify` 回的帳號（名稱、頭像）只拿來比對期望，不進結果與 log。結果（通過／失敗／略過、耗時、`AppError` 類別、說明）只留在記憶體，說明經遮蔽函式（錯誤只用 `toString()`，不含原始 error）；
     每個案例另以 tag `health` 寫一筆 log（`pluginId`、`capability`、`result`、`durationMs`、`errorType`），沒有新表。插件丟出 `AppError`
     以外的東西或期望不符都只標失敗、不中斷整輪。閘門：`health_check_test.dart`（略過與已存憑證、結果與 log 沒有帳號名稱與憑證值、一次一個與不開第二輪、跑的期間被停用、沒有載入、停用與無案例、
     log 欄位、失敗說明、非 `AppError`）、`debug_health_test.dart`（清單、進度、結果）、`guidelines_test.dart` 的 `the Debug Health section`。
