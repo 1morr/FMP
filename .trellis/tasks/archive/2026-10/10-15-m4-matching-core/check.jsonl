@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/app/lints/index.md", "reason": "externalPackageOwners 改動與雙向變異"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 5、6 匹配與評分核心、M4 的繁簡更正、§如何確認"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "§決定 9 比較取最高分、匹配結果"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§2.2 lint、§8.1 評分、§8.2 字表、§15 依賴"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/research/m4-decisions.md", "reason": "#22 opencc 與替代方案的查證"}
+{"file": ".trellis/spec/app/matching/index.md", "reason": "PR 16 新增：改權重、詞表、字表的做法"}
