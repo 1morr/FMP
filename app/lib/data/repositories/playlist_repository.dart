@@ -68,21 +68,26 @@ final class PlaylistEntry {
     required this.id,
     required this.position,
     required this.track,
+    this.unavailable = false,
   });
 
   final int id;
   final int position;
   final TrackInfo track;
 
+  /// 遠端說這一項已失效（刪除、私人、地區限制；只有匯入歌單的項目會是真）。
+  final bool unavailable;
+
   @override
   bool operator ==(Object other) =>
       other is PlaylistEntry &&
       other.id == id &&
       other.position == position &&
-      other.track == track;
+      other.track == track &&
+      other.unavailable == unavailable;
 
   @override
-  int get hashCode => Object.hash(id, position, track);
+  int get hashCode => Object.hash(id, position, track, unavailable);
 
   @override
   String toString() => 'PlaylistEntry(id: $id, position: $position, $track)';
@@ -412,6 +417,31 @@ final class PlaylistRepository {
         ),
       );
 
+  /// 編輯匯入歌單：同 [update]，並寫三個覆寫旗標（`true`＝下一次刷新不再蓋掉這個欄位，
+  /// `false`＝下一次刷新寫回遠端值），兩張表一個 transaction。不是匯入歌單時什麼都不做。
+  Future<void> updateImported(
+    int id, {
+    required String name,
+    String? description,
+    List<TrackArtwork> artwork = const [],
+    required bool nameOverridden,
+    required bool descriptionOverridden,
+    required bool artworkOverridden,
+  }) => _database.transaction(() async {
+    final updated =
+        await (_database.update(
+          _database.playlistRemoteTable,
+        )..where((t) => t.playlistId.equals(id))).write(
+          PlaylistRemoteTableCompanion(
+            nameOverridden: Value(nameOverridden),
+            descriptionOverridden: Value(descriptionOverridden),
+            artworkOverridden: Value(artworkOverridden),
+          ),
+        );
+    if (updated == 0) return;
+    await update(id, name: name, description: description, artwork: artwork);
+  });
+
   /// 刪歌單，項目連帶刪除；曲目的顯示資料留給孤兒清理。
   Future<void> delete(int id) => (_database.delete(
     _database.playlistsTable,
@@ -445,6 +475,7 @@ final class PlaylistRepository {
           id: row.readTable(entries).id,
           position: row.readTable(entries).position,
           track: TracksRepository.toTrackInfo(row.readTable(tracks)),
+          unavailable: row.readTable(entries).unavailable,
         ),
     ];
   }

@@ -282,6 +282,52 @@ void main() {
     });
   });
 
+  group('progress', () {
+    test(
+      'reports the songs read after every page, for a new playlist',
+      () async {
+        env.plugin.onPage = (query) => switch (query.cursor) {
+          null => page(['a', 'b'], cursor: 'c2'),
+          'c2' => page(['c'], cursor: 'c3'),
+          _ => page(['d', 'e']),
+        };
+        final counts = <int>[];
+
+        await env.importer.importUrl(
+          'https://fmp.test/pl',
+          onProgress: counts.add,
+        );
+
+        expect(counts, [2, 3, 5]);
+      },
+    );
+
+    test('also reports when the playlist is imported again', () async {
+      env.plugin.onPage = (_) => page(['a', 'b']);
+      await env.importer.importUrl('https://fmp.test/pl');
+      final counts = <int>[];
+
+      await env.importer.importUrl(
+        'https://fmp.test/pl',
+        onProgress: counts.add,
+      );
+
+      expect(counts, [2]);
+    });
+
+    test('a first page that fails reports nothing', () async {
+      env.plugin.onPage = (_) => throw NetworkError();
+      final counts = <int>[];
+
+      await expectLater(
+        env.importer.importUrl('https://fmp.test/pl', onProgress: counts.add),
+        throwsA(isA<NetworkError>()),
+      );
+
+      expect(counts, isEmpty);
+    });
+  });
+
   group('an imported playlist again', () {
     test('refreshes that row and leaves the local settings alone', () async {
       env.plugin.onPage = (_) => page(['a', 'b'], title: 'Remote title');

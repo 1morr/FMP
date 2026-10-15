@@ -142,6 +142,83 @@ void main() {
     });
   });
 
+  group('updateImported', () {
+    test('writes the playlist fields and the three flags together', () async {
+      final id = await createImported();
+      final cover = [TrackArtwork(url: Uri.parse('https://fmp.test/c.jpg'))];
+
+      await repository.updateImported(
+        id,
+        name: 'Mine',
+        description: 'About',
+        artwork: cover,
+        nameOverridden: true,
+        descriptionOverridden: false,
+        artworkOverridden: true,
+      );
+
+      final playlist = (await repository.find(id))!;
+      expect(playlist.name, 'Mine');
+      expect(playlist.description, 'About');
+      expect(playlist.artwork, cover);
+      final remote = (await repository.remote(id))!;
+      expect(remote.nameOverridden, isTrue);
+      expect(remote.descriptionOverridden, isFalse);
+      expect(remote.artworkOverridden, isTrue);
+
+      await repository.updateImported(
+        id,
+        name: 'Mine',
+        nameOverridden: false,
+        descriptionOverridden: false,
+        artworkOverridden: false,
+      );
+      final cleared = (await repository.remote(id))!;
+      expect(cleared.nameOverridden, isFalse);
+      expect(cleared.artworkOverridden, isFalse);
+    });
+
+    test('a local playlist is left alone', () async {
+      final local = await repository.create(name: 'Local');
+
+      await repository.updateImported(
+        local,
+        name: 'Changed',
+        nameOverridden: true,
+        descriptionOverridden: true,
+        artworkOverridden: true,
+      );
+
+      expect((await repository.find(local))!.name, 'Local');
+    });
+  });
+
+  group('entries', () {
+    test('carry the unavailable flag of the remote item', () async {
+      final id = await createImported();
+      final session = (await repository.beginRefresh(
+        id,
+        isCurrent: () => true,
+      ))!;
+      await session.writePage([
+        entry('a'),
+        RemoteEntry(
+          track: TrackInfo(
+            sourceTypeId: 'fmp-test',
+            sourceId: 'b',
+            title: 'Song b',
+          ),
+          unavailable: true,
+        ),
+      ]);
+
+      expect(
+        [for (final e in await repository.entries(id)) e.unavailable],
+        [false, true],
+      );
+    });
+  });
+
   group('a refresh session', () {
     test('every begin bumps the generation', () async {
       final id = await createImported();
