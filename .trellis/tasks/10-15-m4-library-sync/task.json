@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "10-15-m4-playlist-tables",
-    "10-15-m4-import-playlist-contract"
+    "10-15-m4-import-playlist-contract",
+    "10-15-m4-recording-credentials"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

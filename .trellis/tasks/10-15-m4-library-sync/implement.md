@@ -364,6 +364,12 @@
 
 （各 PR 合併時寫在這裡，最新的在上面。）
 
+- **PR 12 → PR 13**：
+  - 健康檢查「非 `login` 的 `requiresLogin` 案例在已登入時帶憑證跑」還沒有測試（PR 12 時 `checks.json` 寫不出這種案例）；PR 13 加 `libraryRead` 案例時補。
+  - 隔離環境的重播不帶憑證：`libraryPlaylists` 的請求是 `required`，重播時會先得到 `AuthRequired`、到不了 fixture。PR 13 的契約重播要以 fixture 內的憑證狀態或 runner 的假憑證處理，先確認 `contract_test.dart` 怎麼跑 `requiresLogin` 案例。
+  - 隔離環境讀空的設定表：「以登入身分瀏覽與播放」開關在開發工具裡不生效（`app/AGENTS.md` 已知限制）。
+- **PR 6 → PR 8a**：`app/AGENTS.md` § 插件的 `importPlaylist` 條寫著「`PlaylistImporter` 與刷新器還沒有」，PR 8a 落地時改掉。
+
 ## 風險與回滾點
 
 | 風險 | 處理 |

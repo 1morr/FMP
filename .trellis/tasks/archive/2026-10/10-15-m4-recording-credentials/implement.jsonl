@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "插件層寫法、錄製與重播、App 內開發工具"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§決定 7 checks.json、mutates、requiresLogin 案例的隔離環境與換值"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "§決定 4 一份四用與 mutates 例外、§決定 7 錄製"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "CredentialStore、憑證注入"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "遮蔽函式（redactor）"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§4.7、§12"}
+{"file": ".trellis/tasks/archive/2026-10/10-15-account-redaction/design.md", "reason": "scrubAccount、accountLeaks 的設計與 §10 留下的限制"}
