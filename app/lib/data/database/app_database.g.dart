@@ -7981,6 +7981,830 @@ class PlaylistEntriesTableCompanion extends UpdateCompanion<PlaylistEntryRow> {
   }
 }
 
+class $PlaylistRemoteTableTable extends PlaylistRemoteTable
+    with TableInfo<$PlaylistRemoteTableTable, PlaylistRemoteRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaylistRemoteTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _playlistIdMeta = const VerificationMeta(
+    'playlistId',
+  );
+  @override
+  late final GeneratedColumn<int> playlistId = GeneratedColumn<int>(
+    'playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES playlists (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _pluginIdMeta = const VerificationMeta(
+    'pluginId',
+  );
+  @override
+  late final GeneratedColumn<String> pluginId = GeneratedColumn<String>(
+    'plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerNameMeta = const VerificationMeta(
+    'ownerName',
+  );
+  @override
+  late final GeneratedColumn<String> ownerName = GeneratedColumn<String>(
+    'owner_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _writableMeta = const VerificationMeta(
+    'writable',
+  );
+  @override
+  late final GeneratedColumn<bool> writable = GeneratedColumn<bool>(
+    'writable',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("writable" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _nameOverriddenMeta = const VerificationMeta(
+    'nameOverridden',
+  );
+  @override
+  late final GeneratedColumn<bool> nameOverridden = GeneratedColumn<bool>(
+    'name_overridden',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("name_overridden" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _descriptionOverriddenMeta =
+      const VerificationMeta('descriptionOverridden');
+  @override
+  late final GeneratedColumn<bool> descriptionOverridden =
+      GeneratedColumn<bool>(
+        'description_overridden',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("description_overridden" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _artworkOverriddenMeta = const VerificationMeta(
+    'artworkOverridden',
+  );
+  @override
+  late final GeneratedColumn<bool> artworkOverridden = GeneratedColumn<bool>(
+    'artwork_overridden',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("artwork_overridden" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _refreshIntervalHoursMeta =
+      const VerificationMeta('refreshIntervalHours');
+  @override
+  late final GeneratedColumn<int> refreshIntervalHours = GeneratedColumn<int>(
+    'refresh_interval_hours',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime?, int> lastRefreshedAt =
+      GeneratedColumn<int>(
+        'last_refreshed_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      ).withConverter<DateTime?>(
+        $PlaylistRemoteTableTable.$converterlastRefreshedAtn,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<PlaylistRefreshResult?, String>
+  lastResult =
+      GeneratedColumn<String>(
+        'last_result',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<PlaylistRefreshResult?>(
+        $PlaylistRemoteTableTable.$converterlastResultn,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<PlaylistRemoteStatus, String>
+  status =
+      GeneratedColumn<String>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('active'),
+      ).withConverter<PlaylistRemoteStatus>(
+        $PlaylistRemoteTableTable.$converterstatus,
+      );
+  static const VerificationMeta _refreshGenerationMeta = const VerificationMeta(
+    'refreshGeneration',
+  );
+  @override
+  late final GeneratedColumn<int> refreshGeneration = GeneratedColumn<int>(
+    'refresh_generation',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    playlistId,
+    pluginId,
+    remoteId,
+    ownerName,
+    writable,
+    nameOverridden,
+    descriptionOverridden,
+    artworkOverridden,
+    refreshIntervalHours,
+    lastRefreshedAt,
+    lastResult,
+    status,
+    refreshGeneration,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playlist_remote';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaylistRemoteRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('playlist_id')) {
+      context.handle(
+        _playlistIdMeta,
+        playlistId.isAcceptableOrUnknown(data['playlist_id']!, _playlistIdMeta),
+      );
+    }
+    if (data.containsKey('plugin_id')) {
+      context.handle(
+        _pluginIdMeta,
+        pluginId.isAcceptableOrUnknown(data['plugin_id']!, _pluginIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pluginIdMeta);
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_remoteIdMeta);
+    }
+    if (data.containsKey('owner_name')) {
+      context.handle(
+        _ownerNameMeta,
+        ownerName.isAcceptableOrUnknown(data['owner_name']!, _ownerNameMeta),
+      );
+    }
+    if (data.containsKey('writable')) {
+      context.handle(
+        _writableMeta,
+        writable.isAcceptableOrUnknown(data['writable']!, _writableMeta),
+      );
+    }
+    if (data.containsKey('name_overridden')) {
+      context.handle(
+        _nameOverriddenMeta,
+        nameOverridden.isAcceptableOrUnknown(
+          data['name_overridden']!,
+          _nameOverriddenMeta,
+        ),
+      );
+    }
+    if (data.containsKey('description_overridden')) {
+      context.handle(
+        _descriptionOverriddenMeta,
+        descriptionOverridden.isAcceptableOrUnknown(
+          data['description_overridden']!,
+          _descriptionOverriddenMeta,
+        ),
+      );
+    }
+    if (data.containsKey('artwork_overridden')) {
+      context.handle(
+        _artworkOverriddenMeta,
+        artworkOverridden.isAcceptableOrUnknown(
+          data['artwork_overridden']!,
+          _artworkOverriddenMeta,
+        ),
+      );
+    }
+    if (data.containsKey('refresh_interval_hours')) {
+      context.handle(
+        _refreshIntervalHoursMeta,
+        refreshIntervalHours.isAcceptableOrUnknown(
+          data['refresh_interval_hours']!,
+          _refreshIntervalHoursMeta,
+        ),
+      );
+    }
+    if (data.containsKey('refresh_generation')) {
+      context.handle(
+        _refreshGenerationMeta,
+        refreshGeneration.isAcceptableOrUnknown(
+          data['refresh_generation']!,
+          _refreshGenerationMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {playlistId};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {pluginId, remoteId},
+  ];
+  @override
+  PlaylistRemoteRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaylistRemoteRow(
+      playlistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}playlist_id'],
+      )!,
+      pluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plugin_id'],
+      )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      )!,
+      ownerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_name'],
+      ),
+      writable: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}writable'],
+      )!,
+      nameOverridden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}name_overridden'],
+      )!,
+      descriptionOverridden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}description_overridden'],
+      )!,
+      artworkOverridden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}artwork_overridden'],
+      )!,
+      refreshIntervalHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refresh_interval_hours'],
+      ),
+      lastRefreshedAt: $PlaylistRemoteTableTable.$converterlastRefreshedAtn
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.int,
+              data['${effectivePrefix}last_refreshed_at'],
+            ),
+          ),
+      lastResult: $PlaylistRemoteTableTable.$converterlastResultn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}last_result'],
+        ),
+      ),
+      status: $PlaylistRemoteTableTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      refreshGeneration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refresh_generation'],
+      )!,
+    );
+  }
+
+  @override
+  $PlaylistRemoteTableTable createAlias(String alias) {
+    return $PlaylistRemoteTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateTime, int> $converterlastRefreshedAt =
+      const EpochMillisecondsConverter();
+  static TypeConverter<DateTime?, int?> $converterlastRefreshedAtn =
+      NullAwareTypeConverter.wrap($converterlastRefreshedAt);
+  static TypeConverter<PlaylistRefreshResult, String> $converterlastResult =
+      const PlaylistRefreshResultConverter();
+  static TypeConverter<PlaylistRefreshResult?, String?> $converterlastResultn =
+      NullAwareTypeConverter.wrap($converterlastResult);
+  static TypeConverter<PlaylistRemoteStatus, String> $converterstatus =
+      const PlaylistRemoteStatusConverter();
+}
+
+class PlaylistRemoteRow extends DataClass
+    implements Insertable<PlaylistRemoteRow> {
+  final int playlistId;
+  final String pluginId;
+  final String remoteId;
+  final String? ownerName;
+  final bool writable;
+  final bool nameOverridden;
+  final bool descriptionOverridden;
+  final bool artworkOverridden;
+
+  /// 空＝不啟用自動刷新；新匯入 24。
+  final int? refreshIntervalHours;
+  final DateTime? lastRefreshedAt;
+  final PlaylistRefreshResult? lastResult;
+  final PlaylistRemoteStatus status;
+
+  /// 每次刷新開始加一；寫頁與套用前比對，過期的刷新就停（ADR 0033 §決定 2）。
+  final int refreshGeneration;
+  const PlaylistRemoteRow({
+    required this.playlistId,
+    required this.pluginId,
+    required this.remoteId,
+    this.ownerName,
+    required this.writable,
+    required this.nameOverridden,
+    required this.descriptionOverridden,
+    required this.artworkOverridden,
+    this.refreshIntervalHours,
+    this.lastRefreshedAt,
+    this.lastResult,
+    required this.status,
+    required this.refreshGeneration,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['playlist_id'] = Variable<int>(playlistId);
+    map['plugin_id'] = Variable<String>(pluginId);
+    map['remote_id'] = Variable<String>(remoteId);
+    if (!nullToAbsent || ownerName != null) {
+      map['owner_name'] = Variable<String>(ownerName);
+    }
+    map['writable'] = Variable<bool>(writable);
+    map['name_overridden'] = Variable<bool>(nameOverridden);
+    map['description_overridden'] = Variable<bool>(descriptionOverridden);
+    map['artwork_overridden'] = Variable<bool>(artworkOverridden);
+    if (!nullToAbsent || refreshIntervalHours != null) {
+      map['refresh_interval_hours'] = Variable<int>(refreshIntervalHours);
+    }
+    if (!nullToAbsent || lastRefreshedAt != null) {
+      map['last_refreshed_at'] = Variable<int>(
+        $PlaylistRemoteTableTable.$converterlastRefreshedAtn.toSql(
+          lastRefreshedAt,
+        ),
+      );
+    }
+    if (!nullToAbsent || lastResult != null) {
+      map['last_result'] = Variable<String>(
+        $PlaylistRemoteTableTable.$converterlastResultn.toSql(lastResult),
+      );
+    }
+    {
+      map['status'] = Variable<String>(
+        $PlaylistRemoteTableTable.$converterstatus.toSql(status),
+      );
+    }
+    map['refresh_generation'] = Variable<int>(refreshGeneration);
+    return map;
+  }
+
+  PlaylistRemoteTableCompanion toCompanion(bool nullToAbsent) {
+    return PlaylistRemoteTableCompanion(
+      playlistId: Value(playlistId),
+      pluginId: Value(pluginId),
+      remoteId: Value(remoteId),
+      ownerName: ownerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerName),
+      writable: Value(writable),
+      nameOverridden: Value(nameOverridden),
+      descriptionOverridden: Value(descriptionOverridden),
+      artworkOverridden: Value(artworkOverridden),
+      refreshIntervalHours: refreshIntervalHours == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refreshIntervalHours),
+      lastRefreshedAt: lastRefreshedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRefreshedAt),
+      lastResult: lastResult == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastResult),
+      status: Value(status),
+      refreshGeneration: Value(refreshGeneration),
+    );
+  }
+
+  factory PlaylistRemoteRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaylistRemoteRow(
+      playlistId: serializer.fromJson<int>(json['playlistId']),
+      pluginId: serializer.fromJson<String>(json['pluginId']),
+      remoteId: serializer.fromJson<String>(json['remoteId']),
+      ownerName: serializer.fromJson<String?>(json['ownerName']),
+      writable: serializer.fromJson<bool>(json['writable']),
+      nameOverridden: serializer.fromJson<bool>(json['nameOverridden']),
+      descriptionOverridden: serializer.fromJson<bool>(
+        json['descriptionOverridden'],
+      ),
+      artworkOverridden: serializer.fromJson<bool>(json['artworkOverridden']),
+      refreshIntervalHours: serializer.fromJson<int?>(
+        json['refreshIntervalHours'],
+      ),
+      lastRefreshedAt: serializer.fromJson<DateTime?>(json['lastRefreshedAt']),
+      lastResult: serializer.fromJson<PlaylistRefreshResult?>(
+        json['lastResult'],
+      ),
+      status: serializer.fromJson<PlaylistRemoteStatus>(json['status']),
+      refreshGeneration: serializer.fromJson<int>(json['refreshGeneration']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'playlistId': serializer.toJson<int>(playlistId),
+      'pluginId': serializer.toJson<String>(pluginId),
+      'remoteId': serializer.toJson<String>(remoteId),
+      'ownerName': serializer.toJson<String?>(ownerName),
+      'writable': serializer.toJson<bool>(writable),
+      'nameOverridden': serializer.toJson<bool>(nameOverridden),
+      'descriptionOverridden': serializer.toJson<bool>(descriptionOverridden),
+      'artworkOverridden': serializer.toJson<bool>(artworkOverridden),
+      'refreshIntervalHours': serializer.toJson<int?>(refreshIntervalHours),
+      'lastRefreshedAt': serializer.toJson<DateTime?>(lastRefreshedAt),
+      'lastResult': serializer.toJson<PlaylistRefreshResult?>(lastResult),
+      'status': serializer.toJson<PlaylistRemoteStatus>(status),
+      'refreshGeneration': serializer.toJson<int>(refreshGeneration),
+    };
+  }
+
+  PlaylistRemoteRow copyWith({
+    int? playlistId,
+    String? pluginId,
+    String? remoteId,
+    Value<String?> ownerName = const Value.absent(),
+    bool? writable,
+    bool? nameOverridden,
+    bool? descriptionOverridden,
+    bool? artworkOverridden,
+    Value<int?> refreshIntervalHours = const Value.absent(),
+    Value<DateTime?> lastRefreshedAt = const Value.absent(),
+    Value<PlaylistRefreshResult?> lastResult = const Value.absent(),
+    PlaylistRemoteStatus? status,
+    int? refreshGeneration,
+  }) => PlaylistRemoteRow(
+    playlistId: playlistId ?? this.playlistId,
+    pluginId: pluginId ?? this.pluginId,
+    remoteId: remoteId ?? this.remoteId,
+    ownerName: ownerName.present ? ownerName.value : this.ownerName,
+    writable: writable ?? this.writable,
+    nameOverridden: nameOverridden ?? this.nameOverridden,
+    descriptionOverridden: descriptionOverridden ?? this.descriptionOverridden,
+    artworkOverridden: artworkOverridden ?? this.artworkOverridden,
+    refreshIntervalHours: refreshIntervalHours.present
+        ? refreshIntervalHours.value
+        : this.refreshIntervalHours,
+    lastRefreshedAt: lastRefreshedAt.present
+        ? lastRefreshedAt.value
+        : this.lastRefreshedAt,
+    lastResult: lastResult.present ? lastResult.value : this.lastResult,
+    status: status ?? this.status,
+    refreshGeneration: refreshGeneration ?? this.refreshGeneration,
+  );
+  PlaylistRemoteRow copyWithCompanion(PlaylistRemoteTableCompanion data) {
+    return PlaylistRemoteRow(
+      playlistId: data.playlistId.present
+          ? data.playlistId.value
+          : this.playlistId,
+      pluginId: data.pluginId.present ? data.pluginId.value : this.pluginId,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      ownerName: data.ownerName.present ? data.ownerName.value : this.ownerName,
+      writable: data.writable.present ? data.writable.value : this.writable,
+      nameOverridden: data.nameOverridden.present
+          ? data.nameOverridden.value
+          : this.nameOverridden,
+      descriptionOverridden: data.descriptionOverridden.present
+          ? data.descriptionOverridden.value
+          : this.descriptionOverridden,
+      artworkOverridden: data.artworkOverridden.present
+          ? data.artworkOverridden.value
+          : this.artworkOverridden,
+      refreshIntervalHours: data.refreshIntervalHours.present
+          ? data.refreshIntervalHours.value
+          : this.refreshIntervalHours,
+      lastRefreshedAt: data.lastRefreshedAt.present
+          ? data.lastRefreshedAt.value
+          : this.lastRefreshedAt,
+      lastResult: data.lastResult.present
+          ? data.lastResult.value
+          : this.lastResult,
+      status: data.status.present ? data.status.value : this.status,
+      refreshGeneration: data.refreshGeneration.present
+          ? data.refreshGeneration.value
+          : this.refreshGeneration,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaylistRemoteRow(')
+          ..write('playlistId: $playlistId, ')
+          ..write('pluginId: $pluginId, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('ownerName: $ownerName, ')
+          ..write('writable: $writable, ')
+          ..write('nameOverridden: $nameOverridden, ')
+          ..write('descriptionOverridden: $descriptionOverridden, ')
+          ..write('artworkOverridden: $artworkOverridden, ')
+          ..write('refreshIntervalHours: $refreshIntervalHours, ')
+          ..write('lastRefreshedAt: $lastRefreshedAt, ')
+          ..write('lastResult: $lastResult, ')
+          ..write('status: $status, ')
+          ..write('refreshGeneration: $refreshGeneration')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    playlistId,
+    pluginId,
+    remoteId,
+    ownerName,
+    writable,
+    nameOverridden,
+    descriptionOverridden,
+    artworkOverridden,
+    refreshIntervalHours,
+    lastRefreshedAt,
+    lastResult,
+    status,
+    refreshGeneration,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaylistRemoteRow &&
+          other.playlistId == this.playlistId &&
+          other.pluginId == this.pluginId &&
+          other.remoteId == this.remoteId &&
+          other.ownerName == this.ownerName &&
+          other.writable == this.writable &&
+          other.nameOverridden == this.nameOverridden &&
+          other.descriptionOverridden == this.descriptionOverridden &&
+          other.artworkOverridden == this.artworkOverridden &&
+          other.refreshIntervalHours == this.refreshIntervalHours &&
+          other.lastRefreshedAt == this.lastRefreshedAt &&
+          other.lastResult == this.lastResult &&
+          other.status == this.status &&
+          other.refreshGeneration == this.refreshGeneration);
+}
+
+class PlaylistRemoteTableCompanion extends UpdateCompanion<PlaylistRemoteRow> {
+  final Value<int> playlistId;
+  final Value<String> pluginId;
+  final Value<String> remoteId;
+  final Value<String?> ownerName;
+  final Value<bool> writable;
+  final Value<bool> nameOverridden;
+  final Value<bool> descriptionOverridden;
+  final Value<bool> artworkOverridden;
+  final Value<int?> refreshIntervalHours;
+  final Value<DateTime?> lastRefreshedAt;
+  final Value<PlaylistRefreshResult?> lastResult;
+  final Value<PlaylistRemoteStatus> status;
+  final Value<int> refreshGeneration;
+  const PlaylistRemoteTableCompanion({
+    this.playlistId = const Value.absent(),
+    this.pluginId = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.ownerName = const Value.absent(),
+    this.writable = const Value.absent(),
+    this.nameOverridden = const Value.absent(),
+    this.descriptionOverridden = const Value.absent(),
+    this.artworkOverridden = const Value.absent(),
+    this.refreshIntervalHours = const Value.absent(),
+    this.lastRefreshedAt = const Value.absent(),
+    this.lastResult = const Value.absent(),
+    this.status = const Value.absent(),
+    this.refreshGeneration = const Value.absent(),
+  });
+  PlaylistRemoteTableCompanion.insert({
+    this.playlistId = const Value.absent(),
+    required String pluginId,
+    required String remoteId,
+    this.ownerName = const Value.absent(),
+    this.writable = const Value.absent(),
+    this.nameOverridden = const Value.absent(),
+    this.descriptionOverridden = const Value.absent(),
+    this.artworkOverridden = const Value.absent(),
+    this.refreshIntervalHours = const Value.absent(),
+    this.lastRefreshedAt = const Value.absent(),
+    this.lastResult = const Value.absent(),
+    this.status = const Value.absent(),
+    this.refreshGeneration = const Value.absent(),
+  }) : pluginId = Value(pluginId),
+       remoteId = Value(remoteId);
+  static Insertable<PlaylistRemoteRow> custom({
+    Expression<int>? playlistId,
+    Expression<String>? pluginId,
+    Expression<String>? remoteId,
+    Expression<String>? ownerName,
+    Expression<bool>? writable,
+    Expression<bool>? nameOverridden,
+    Expression<bool>? descriptionOverridden,
+    Expression<bool>? artworkOverridden,
+    Expression<int>? refreshIntervalHours,
+    Expression<int>? lastRefreshedAt,
+    Expression<String>? lastResult,
+    Expression<String>? status,
+    Expression<int>? refreshGeneration,
+  }) {
+    return RawValuesInsertable({
+      if (playlistId != null) 'playlist_id': playlistId,
+      if (pluginId != null) 'plugin_id': pluginId,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (ownerName != null) 'owner_name': ownerName,
+      if (writable != null) 'writable': writable,
+      if (nameOverridden != null) 'name_overridden': nameOverridden,
+      if (descriptionOverridden != null)
+        'description_overridden': descriptionOverridden,
+      if (artworkOverridden != null) 'artwork_overridden': artworkOverridden,
+      if (refreshIntervalHours != null)
+        'refresh_interval_hours': refreshIntervalHours,
+      if (lastRefreshedAt != null) 'last_refreshed_at': lastRefreshedAt,
+      if (lastResult != null) 'last_result': lastResult,
+      if (status != null) 'status': status,
+      if (refreshGeneration != null) 'refresh_generation': refreshGeneration,
+    });
+  }
+
+  PlaylistRemoteTableCompanion copyWith({
+    Value<int>? playlistId,
+    Value<String>? pluginId,
+    Value<String>? remoteId,
+    Value<String?>? ownerName,
+    Value<bool>? writable,
+    Value<bool>? nameOverridden,
+    Value<bool>? descriptionOverridden,
+    Value<bool>? artworkOverridden,
+    Value<int?>? refreshIntervalHours,
+    Value<DateTime?>? lastRefreshedAt,
+    Value<PlaylistRefreshResult?>? lastResult,
+    Value<PlaylistRemoteStatus>? status,
+    Value<int>? refreshGeneration,
+  }) {
+    return PlaylistRemoteTableCompanion(
+      playlistId: playlistId ?? this.playlistId,
+      pluginId: pluginId ?? this.pluginId,
+      remoteId: remoteId ?? this.remoteId,
+      ownerName: ownerName ?? this.ownerName,
+      writable: writable ?? this.writable,
+      nameOverridden: nameOverridden ?? this.nameOverridden,
+      descriptionOverridden:
+          descriptionOverridden ?? this.descriptionOverridden,
+      artworkOverridden: artworkOverridden ?? this.artworkOverridden,
+      refreshIntervalHours: refreshIntervalHours ?? this.refreshIntervalHours,
+      lastRefreshedAt: lastRefreshedAt ?? this.lastRefreshedAt,
+      lastResult: lastResult ?? this.lastResult,
+      status: status ?? this.status,
+      refreshGeneration: refreshGeneration ?? this.refreshGeneration,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (playlistId.present) {
+      map['playlist_id'] = Variable<int>(playlistId.value);
+    }
+    if (pluginId.present) {
+      map['plugin_id'] = Variable<String>(pluginId.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (ownerName.present) {
+      map['owner_name'] = Variable<String>(ownerName.value);
+    }
+    if (writable.present) {
+      map['writable'] = Variable<bool>(writable.value);
+    }
+    if (nameOverridden.present) {
+      map['name_overridden'] = Variable<bool>(nameOverridden.value);
+    }
+    if (descriptionOverridden.present) {
+      map['description_overridden'] = Variable<bool>(
+        descriptionOverridden.value,
+      );
+    }
+    if (artworkOverridden.present) {
+      map['artwork_overridden'] = Variable<bool>(artworkOverridden.value);
+    }
+    if (refreshIntervalHours.present) {
+      map['refresh_interval_hours'] = Variable<int>(refreshIntervalHours.value);
+    }
+    if (lastRefreshedAt.present) {
+      map['last_refreshed_at'] = Variable<int>(
+        $PlaylistRemoteTableTable.$converterlastRefreshedAtn.toSql(
+          lastRefreshedAt.value,
+        ),
+      );
+    }
+    if (lastResult.present) {
+      map['last_result'] = Variable<String>(
+        $PlaylistRemoteTableTable.$converterlastResultn.toSql(lastResult.value),
+      );
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(
+        $PlaylistRemoteTableTable.$converterstatus.toSql(status.value),
+      );
+    }
+    if (refreshGeneration.present) {
+      map['refresh_generation'] = Variable<int>(refreshGeneration.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaylistRemoteTableCompanion(')
+          ..write('playlistId: $playlistId, ')
+          ..write('pluginId: $pluginId, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('ownerName: $ownerName, ')
+          ..write('writable: $writable, ')
+          ..write('nameOverridden: $nameOverridden, ')
+          ..write('descriptionOverridden: $descriptionOverridden, ')
+          ..write('artworkOverridden: $artworkOverridden, ')
+          ..write('refreshIntervalHours: $refreshIntervalHours, ')
+          ..write('lastRefreshedAt: $lastRefreshedAt, ')
+          ..write('lastResult: $lastResult, ')
+          ..write('status: $status, ')
+          ..write('refreshGeneration: $refreshGeneration')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8020,6 +8844,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlaylistsTableTable playlistsTable = $PlaylistsTableTable(this);
   late final $PlaylistEntriesTableTable playlistEntriesTable =
       $PlaylistEntriesTableTable(this);
+  late final $PlaylistRemoteTableTable playlistRemoteTable =
+      $PlaylistRemoteTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -8063,6 +8889,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     radioStationsTable,
     playlistsTable,
     playlistEntriesTable,
+    playlistRemoteTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -8084,6 +8911,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('playlist_entries', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'playlists',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('playlist_remote', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -12733,6 +13567,27 @@ final class $$PlaylistsTableTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$PlaylistRemoteTableTable, List<PlaylistRemoteRow>>
+  _playlistRemoteTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.playlistRemoteTable,
+        aliasName: 'playlists__id__playlist_remote__playlist_id',
+      );
+
+  $$PlaylistRemoteTableTableProcessedTableManager get playlistRemoteTableRefs {
+    final manager = $$PlaylistRemoteTableTableTableManager(
+      $_db,
+      $_db.playlistRemoteTable,
+    ).filter((f) => f.playlistId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _playlistRemoteTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$PlaylistsTableTableFilterComposer
@@ -12818,6 +13673,31 @@ class $$PlaylistsTableTableFilterComposer
           }) => $$PlaylistEntriesTableTableFilterComposer(
             $db: $db,
             $table: $db.playlistEntriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> playlistRemoteTableRefs(
+    Expression<bool> Function($$PlaylistRemoteTableTableFilterComposer f) f,
+  ) {
+    final $$PlaylistRemoteTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.playlistRemoteTable,
+      getReferencedColumn: (t) => t.playlistId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistRemoteTableTableFilterComposer(
+            $db: $db,
+            $table: $db.playlistRemoteTable,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -12970,6 +13850,32 @@ class $$PlaylistsTableTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> playlistRemoteTableRefs<T extends Object>(
+    Expression<T> Function($$PlaylistRemoteTableTableAnnotationComposer a) f,
+  ) {
+    final $$PlaylistRemoteTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.playlistRemoteTable,
+          getReferencedColumn: (t) => t.playlistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$PlaylistRemoteTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.playlistRemoteTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$PlaylistsTableTableTableManager
@@ -12985,7 +13891,10 @@ class $$PlaylistsTableTableTableManager
           $$PlaylistsTableTableUpdateCompanionBuilder,
           (PlaylistRow, $$PlaylistsTableTableReferences),
           PlaylistRow,
-          PrefetchHooks Function({bool playlistEntriesTableRefs})
+          PrefetchHooks Function({
+            bool playlistEntriesTableRefs,
+            bool playlistRemoteTableRefs,
+          })
         > {
   $$PlaylistsTableTableTableManager(
     _$AppDatabase db,
@@ -13060,38 +13969,66 @@ class $$PlaylistsTableTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({playlistEntriesTableRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (playlistEntriesTableRefs) db.playlistEntriesTable,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (playlistEntriesTableRefs)
-                    await $_getPrefetchedData<
-                      PlaylistRow,
-                      $PlaylistsTableTable,
-                      PlaylistEntryRow
-                    >(
-                      currentTable: table,
-                      referencedTable: $$PlaylistsTableTableReferences
-                          ._playlistEntriesTableRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$PlaylistsTableTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).playlistEntriesTableRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.playlistId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                playlistEntriesTableRefs = false,
+                playlistRemoteTableRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (playlistEntriesTableRefs) db.playlistEntriesTable,
+                    if (playlistRemoteTableRefs) db.playlistRemoteTable,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (playlistEntriesTableRefs)
+                        await $_getPrefetchedData<
+                          PlaylistRow,
+                          $PlaylistsTableTable,
+                          PlaylistEntryRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlaylistsTableTableReferences
+                              ._playlistEntriesTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlaylistsTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).playlistEntriesTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.playlistId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (playlistRemoteTableRefs)
+                        await $_getPrefetchedData<
+                          PlaylistRow,
+                          $PlaylistsTableTable,
+                          PlaylistRemoteRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlaylistsTableTableReferences
+                              ._playlistRemoteTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlaylistsTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).playlistRemoteTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.playlistId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -13108,7 +14045,10 @@ typedef $$PlaylistsTableTableProcessedTableManager =
       $$PlaylistsTableTableUpdateCompanionBuilder,
       (PlaylistRow, $$PlaylistsTableTableReferences),
       PlaylistRow,
-      PrefetchHooks Function({bool playlistEntriesTableRefs})
+      PrefetchHooks Function({
+        bool playlistEntriesTableRefs,
+        bool playlistRemoteTableRefs,
+      })
     >;
 typedef $$PlaylistEntriesTableTableCreateCompanionBuilder =
     PlaylistEntriesTableCompanion Function({
@@ -13567,6 +14507,514 @@ typedef $$PlaylistEntriesTableTableProcessedTableManager =
       PlaylistEntryRow,
       PrefetchHooks Function({bool playlistId, bool trackKey})
     >;
+typedef $$PlaylistRemoteTableTableCreateCompanionBuilder =
+    PlaylistRemoteTableCompanion Function({
+      Value<int> playlistId,
+      required String pluginId,
+      required String remoteId,
+      Value<String?> ownerName,
+      Value<bool> writable,
+      Value<bool> nameOverridden,
+      Value<bool> descriptionOverridden,
+      Value<bool> artworkOverridden,
+      Value<int?> refreshIntervalHours,
+      Value<DateTime?> lastRefreshedAt,
+      Value<PlaylistRefreshResult?> lastResult,
+      Value<PlaylistRemoteStatus> status,
+      Value<int> refreshGeneration,
+    });
+typedef $$PlaylistRemoteTableTableUpdateCompanionBuilder =
+    PlaylistRemoteTableCompanion Function({
+      Value<int> playlistId,
+      Value<String> pluginId,
+      Value<String> remoteId,
+      Value<String?> ownerName,
+      Value<bool> writable,
+      Value<bool> nameOverridden,
+      Value<bool> descriptionOverridden,
+      Value<bool> artworkOverridden,
+      Value<int?> refreshIntervalHours,
+      Value<DateTime?> lastRefreshedAt,
+      Value<PlaylistRefreshResult?> lastResult,
+      Value<PlaylistRemoteStatus> status,
+      Value<int> refreshGeneration,
+    });
+
+final class $$PlaylistRemoteTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $PlaylistRemoteTableTable,
+          PlaylistRemoteRow
+        > {
+  $$PlaylistRemoteTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $PlaylistsTableTable _playlistIdTable(_$AppDatabase db) => db
+      .playlistsTable
+      .createAlias('playlist_remote__playlist_id__playlists__id');
+
+  $$PlaylistsTableTableProcessedTableManager get playlistId {
+    final $_column = $_itemColumn<int>('playlist_id')!;
+
+    final manager = $$PlaylistsTableTableTableManager(
+      $_db,
+      $_db.playlistsTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_playlistIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PlaylistRemoteTableTableFilterComposer
+    extends Composer<_$AppDatabase, $PlaylistRemoteTableTable> {
+  $$PlaylistRemoteTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerName => $composableBuilder(
+    column: $table.ownerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get writable => $composableBuilder(
+    column: $table.writable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get nameOverridden => $composableBuilder(
+    column: $table.nameOverridden,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get descriptionOverridden => $composableBuilder(
+    column: $table.descriptionOverridden,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get artworkOverridden => $composableBuilder(
+    column: $table.artworkOverridden,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get refreshIntervalHours => $composableBuilder(
+    column: $table.refreshIntervalHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime?, DateTime, int>
+  get lastRefreshedAt => $composableBuilder(
+    column: $table.lastRefreshedAt,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    PlaylistRefreshResult?,
+    PlaylistRefreshResult,
+    String
+  >
+  get lastResult => $composableBuilder(
+    column: $table.lastResult,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    PlaylistRemoteStatus,
+    PlaylistRemoteStatus,
+    String
+  >
+  get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get refreshGeneration => $composableBuilder(
+    column: $table.refreshGeneration,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PlaylistsTableTableFilterComposer get playlistId {
+    final $$PlaylistsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.playlistsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.playlistsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlaylistRemoteTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlaylistRemoteTableTable> {
+  $$PlaylistRemoteTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerName => $composableBuilder(
+    column: $table.ownerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get writable => $composableBuilder(
+    column: $table.writable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get nameOverridden => $composableBuilder(
+    column: $table.nameOverridden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get descriptionOverridden => $composableBuilder(
+    column: $table.descriptionOverridden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get artworkOverridden => $composableBuilder(
+    column: $table.artworkOverridden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get refreshIntervalHours => $composableBuilder(
+    column: $table.refreshIntervalHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastRefreshedAt => $composableBuilder(
+    column: $table.lastRefreshedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastResult => $composableBuilder(
+    column: $table.lastResult,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get refreshGeneration => $composableBuilder(
+    column: $table.refreshGeneration,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PlaylistsTableTableOrderingComposer get playlistId {
+    final $$PlaylistsTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.playlistsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistsTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.playlistsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlaylistRemoteTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlaylistRemoteTableTable> {
+  $$PlaylistRemoteTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get pluginId =>
+      $composableBuilder(column: $table.pluginId, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerName =>
+      $composableBuilder(column: $table.ownerName, builder: (column) => column);
+
+  GeneratedColumn<bool> get writable =>
+      $composableBuilder(column: $table.writable, builder: (column) => column);
+
+  GeneratedColumn<bool> get nameOverridden => $composableBuilder(
+    column: $table.nameOverridden,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get descriptionOverridden => $composableBuilder(
+    column: $table.descriptionOverridden,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get artworkOverridden => $composableBuilder(
+    column: $table.artworkOverridden,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get refreshIntervalHours => $composableBuilder(
+    column: $table.refreshIntervalHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<DateTime?, int> get lastRefreshedAt =>
+      $composableBuilder(
+        column: $table.lastRefreshedAt,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<PlaylistRefreshResult?, String>
+  get lastResult => $composableBuilder(
+    column: $table.lastResult,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<PlaylistRemoteStatus, String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get refreshGeneration => $composableBuilder(
+    column: $table.refreshGeneration,
+    builder: (column) => column,
+  );
+
+  $$PlaylistsTableTableAnnotationComposer get playlistId {
+    final $$PlaylistsTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.playlistsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistsTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.playlistsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlaylistRemoteTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlaylistRemoteTableTable,
+          PlaylistRemoteRow,
+          $$PlaylistRemoteTableTableFilterComposer,
+          $$PlaylistRemoteTableTableOrderingComposer,
+          $$PlaylistRemoteTableTableAnnotationComposer,
+          $$PlaylistRemoteTableTableCreateCompanionBuilder,
+          $$PlaylistRemoteTableTableUpdateCompanionBuilder,
+          (PlaylistRemoteRow, $$PlaylistRemoteTableTableReferences),
+          PlaylistRemoteRow,
+          PrefetchHooks Function({bool playlistId})
+        > {
+  $$PlaylistRemoteTableTableTableManager(
+    _$AppDatabase db,
+    $PlaylistRemoteTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaylistRemoteTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaylistRemoteTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PlaylistRemoteTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> playlistId = const Value.absent(),
+                Value<String> pluginId = const Value.absent(),
+                Value<String> remoteId = const Value.absent(),
+                Value<String?> ownerName = const Value.absent(),
+                Value<bool> writable = const Value.absent(),
+                Value<bool> nameOverridden = const Value.absent(),
+                Value<bool> descriptionOverridden = const Value.absent(),
+                Value<bool> artworkOverridden = const Value.absent(),
+                Value<int?> refreshIntervalHours = const Value.absent(),
+                Value<DateTime?> lastRefreshedAt = const Value.absent(),
+                Value<PlaylistRefreshResult?> lastResult = const Value.absent(),
+                Value<PlaylistRemoteStatus> status = const Value.absent(),
+                Value<int> refreshGeneration = const Value.absent(),
+              }) => PlaylistRemoteTableCompanion(
+                playlistId: playlistId,
+                pluginId: pluginId,
+                remoteId: remoteId,
+                ownerName: ownerName,
+                writable: writable,
+                nameOverridden: nameOverridden,
+                descriptionOverridden: descriptionOverridden,
+                artworkOverridden: artworkOverridden,
+                refreshIntervalHours: refreshIntervalHours,
+                lastRefreshedAt: lastRefreshedAt,
+                lastResult: lastResult,
+                status: status,
+                refreshGeneration: refreshGeneration,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> playlistId = const Value.absent(),
+                required String pluginId,
+                required String remoteId,
+                Value<String?> ownerName = const Value.absent(),
+                Value<bool> writable = const Value.absent(),
+                Value<bool> nameOverridden = const Value.absent(),
+                Value<bool> descriptionOverridden = const Value.absent(),
+                Value<bool> artworkOverridden = const Value.absent(),
+                Value<int?> refreshIntervalHours = const Value.absent(),
+                Value<DateTime?> lastRefreshedAt = const Value.absent(),
+                Value<PlaylistRefreshResult?> lastResult = const Value.absent(),
+                Value<PlaylistRemoteStatus> status = const Value.absent(),
+                Value<int> refreshGeneration = const Value.absent(),
+              }) => PlaylistRemoteTableCompanion.insert(
+                playlistId: playlistId,
+                pluginId: pluginId,
+                remoteId: remoteId,
+                ownerName: ownerName,
+                writable: writable,
+                nameOverridden: nameOverridden,
+                descriptionOverridden: descriptionOverridden,
+                artworkOverridden: artworkOverridden,
+                refreshIntervalHours: refreshIntervalHours,
+                lastRefreshedAt: lastRefreshedAt,
+                lastResult: lastResult,
+                status: status,
+                refreshGeneration: refreshGeneration,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PlaylistRemoteTableTable, PlaylistRemoteRow>(
+                    table,
+                  ),
+                  $$PlaylistRemoteTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({playlistId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (playlistId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.playlistId,
+                        referencedTable: $$PlaylistRemoteTableTableReferences
+                            ._playlistIdTable(db),
+                        referencedColumn: $$PlaylistRemoteTableTableReferences
+                            ._playlistIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PlaylistRemoteTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlaylistRemoteTableTable,
+      PlaylistRemoteRow,
+      $$PlaylistRemoteTableTableFilterComposer,
+      $$PlaylistRemoteTableTableOrderingComposer,
+      $$PlaylistRemoteTableTableAnnotationComposer,
+      $$PlaylistRemoteTableTableCreateCompanionBuilder,
+      $$PlaylistRemoteTableTableUpdateCompanionBuilder,
+      (PlaylistRemoteRow, $$PlaylistRemoteTableTableReferences),
+      PlaylistRemoteRow,
+      PrefetchHooks Function({bool playlistId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13613,4 +15061,6 @@ class $AppDatabaseManager {
       $$PlaylistsTableTableTableManager(_db, _db.playlistsTable);
   $$PlaylistEntriesTableTableTableManager get playlistEntriesTable =>
       $$PlaylistEntriesTableTableTableManager(_db, _db.playlistEntriesTable);
+  $$PlaylistRemoteTableTableTableManager get playlistRemoteTable =>
+      $$PlaylistRemoteTableTableTableManager(_db, _db.playlistRemoteTable);
 }

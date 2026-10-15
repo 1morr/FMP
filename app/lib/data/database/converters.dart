@@ -253,6 +253,54 @@ final class EpochMillisecondsConverter extends TypeConverter<DateTime, int> {
   int toSql(DateTime value) => value.millisecondsSinceEpoch;
 }
 
+/// [PlaylistRemoteStatus] ↔ `active`／`sourceGone`／`authRequired`。
+final class PlaylistRemoteStatusConverter
+    extends TypeConverter<PlaylistRemoteStatus, String> {
+  const PlaylistRemoteStatusConverter();
+
+  @override
+  PlaylistRemoteStatus fromSql(String fromDb) => switch (fromDb) {
+    'active' => PlaylistRemoteStatus.active,
+    'sourceGone' => PlaylistRemoteStatus.sourceGone,
+    'authRequired' => PlaylistRemoteStatus.authRequired,
+    _ => throw FormatException(
+      'Unknown playlist remote status in the database',
+      fromDb,
+    ),
+  };
+
+  @override
+  String toSql(PlaylistRemoteStatus value) => switch (value) {
+    PlaylistRemoteStatus.active => 'active',
+    PlaylistRemoteStatus.sourceGone => 'sourceGone',
+    PlaylistRemoteStatus.authRequired => 'authRequired',
+  };
+}
+
+/// [PlaylistRefreshResult] ↔ `complete`／`partial`／`failed`。
+final class PlaylistRefreshResultConverter
+    extends TypeConverter<PlaylistRefreshResult, String> {
+  const PlaylistRefreshResultConverter();
+
+  @override
+  PlaylistRefreshResult fromSql(String fromDb) => switch (fromDb) {
+    'complete' => PlaylistRefreshResult.complete,
+    'partial' => PlaylistRefreshResult.partial,
+    'failed' => PlaylistRefreshResult.failed,
+    _ => throw FormatException(
+      'Unknown playlist refresh result in the database',
+      fromDb,
+    ),
+  };
+
+  @override
+  String toSql(PlaylistRefreshResult value) => switch (value) {
+    PlaylistRefreshResult.complete => 'complete',
+    PlaylistRefreshResult.partial => 'partial',
+    PlaylistRefreshResult.failed => 'failed',
+  };
+}
+
 /// [PlaylistKind] ↔ `local`／`imported`／`mix`。
 final class PlaylistKindConverter extends TypeConverter<PlaylistKind, String> {
   const PlaylistKindConverter();

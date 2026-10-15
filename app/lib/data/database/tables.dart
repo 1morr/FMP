@@ -464,3 +464,51 @@ class PlaylistEntriesTable extends Table {
   late final unavailable = boolean().withDefault(const Constant(false))();
   late final seenGeneration = integer().withDefault(const Constant(0))();
 }
+
+/// 匯入歌單的遠端資料（ADR 0033 §決定 1、M4 design §3.1），只有 `kind = imported` 的歌單有。
+/// `playlist_id` 是主鍵，連帶刪除；（`plugin_id`, `remote_id`）唯一，重新匯入同一張靠它認出。
+/// 沒有外鍵到 `installed_plugins`：插件停用或移除後歌單保留。`last_result` 空＝還沒刷新完過；
+/// `last_refreshed_at` 只在 `complete` 或 `partial` 時寫（排程用它算到期）。
+@DataClassName('PlaylistRemoteRow')
+class PlaylistRemoteTable extends Table {
+  @override
+  String get tableName => 'playlist_remote';
+
+  late final playlistId = integer().references(
+    PlaylistsTable,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+  late final pluginId = text()();
+  late final remoteId = text()();
+  late final ownerName = text().nullable()();
+  late final writable = boolean().withDefault(const Constant(false))();
+  late final nameOverridden = boolean().withDefault(const Constant(false))();
+  late final descriptionOverridden = boolean().withDefault(
+    const Constant(false),
+  )();
+  late final artworkOverridden = boolean().withDefault(const Constant(false))();
+
+  /// 空＝不啟用自動刷新；新匯入 24。
+  late final refreshIntervalHours = integer().nullable()();
+  late final lastRefreshedAt = integer().nullable().map(
+    const EpochMillisecondsConverter(),
+  )();
+  late final lastResult = text().nullable().map(
+    const PlaylistRefreshResultConverter(),
+  )();
+  late final status = text()
+      .withDefault(const Constant('active'))
+      .map(const PlaylistRemoteStatusConverter())();
+
+  /// 每次刷新開始加一；寫頁與套用前比對，過期的刷新就停（ADR 0033 §決定 2）。
+  late final refreshGeneration = integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {playlistId};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {pluginId, remoteId},
+  ];
+}
