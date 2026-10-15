@@ -650,6 +650,24 @@ class Translations$library$zh_TW {
 
   /// zh-TW: '下一次刷新會寫回遠端的值'
   String get useRemoteHint => '下一次刷新會寫回遠端的值';
+
+  /// zh-TW: '自動刷新'
+  String get refreshInterval => '自動刷新';
+
+  /// zh-TW: '不啟用'
+  String get refreshIntervalOff => '不啟用';
+
+  /// zh-TW: '每小時'
+  String get refreshEveryHour => '每小時';
+
+  /// zh-TW: '每 {count} 小時'
+  String refreshEveryHours({required Object count}) => '每 ${count} 小時';
+
+  /// zh-TW: '每天'
+  String get refreshEveryDay => '每天';
+
+  /// zh-TW: '每 {count} 天'
+  String refreshEveryDays({required Object count}) => '每 ${count} 天';
 }
 
 // Path: playlist

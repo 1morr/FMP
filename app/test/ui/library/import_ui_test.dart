@@ -866,6 +866,95 @@ void main() {
       expect((await _playlist(tester, h, id)).name, 'Mine 2');
     });
 
+    testWidgets('the auto refresh interval starts at 24 hours and can be '
+        'changed, then switched off', (tester) async {
+      final (h, id, _) = await openImported(tester);
+      expect((await _remote(tester, h, id)).refreshIntervalHours, 24);
+
+      await openEdit(tester, 'Remote name');
+      expect(find.text('Auto refresh'), findsOneWidget);
+      expect(find.text('Every day'), findsOneWidget);
+      await tester.tap(find.text('Every day'));
+      await tester.pumpAndSettle();
+      for (final label in [
+        'Off',
+        'Every hour',
+        'Every 6 hours',
+        'Every 12 hours',
+        'Every day',
+        'Every 2 days',
+        'Every 3 days',
+        'Every 7 days',
+      ]) {
+        expect(find.text(label), findsWidgets, reason: label);
+      }
+      await tester.tap(find.text('Every 7 days').last);
+      await tester.pumpAndSettle();
+      await save(tester, h);
+      expect((await _remote(tester, h, id)).refreshIntervalHours, 168);
+
+      await openEdit(tester, 'Remote name');
+      await tester.tap(find.text('Every 7 days'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Off').last);
+      await tester.pumpAndSettle();
+      await save(tester, h);
+      expect((await _remote(tester, h, id)).refreshIntervalHours, isNull);
+
+      // 不啟用的歌單，打開時顯示「Off」。
+      await openEdit(tester, 'Remote name');
+      expect(find.text('Off'), findsOneWidget);
+    });
+
+    testWidgets('saving without touching the interval keeps it', (
+      tester,
+    ) async {
+      final (h, id, _) = await openImported(tester);
+      await tester.runAsync(
+        () => _repository(tester, h).setRefreshInterval(id, 12),
+      );
+      await _settle(tester, h);
+
+      await openEdit(tester, 'Remote name');
+      expect(find.text('Every 12 hours'), findsOneWidget);
+      await save(tester, h);
+
+      expect((await _remote(tester, h, id)).refreshIntervalHours, 12);
+    });
+
+    testWidgets('an interval that is not one of the choices is shown, listed '
+        'in order and kept', (tester) async {
+      final (h, id, _) = await openImported(tester);
+      await tester.runAsync(
+        () => _repository(tester, h).setRefreshInterval(id, 36),
+      );
+      await _settle(tester, h);
+
+      await openEdit(tester, 'Remote name');
+      expect(find.text('Every 36 hours'), findsOneWidget);
+      await tester.tap(find.text('Every 36 hours'));
+      await tester.pumpAndSettle();
+      // 選單裡的那一列（按鈕上也有一個）。
+      double top(String label) => tester.getTopLeft(find.text(label).last).dy;
+      expect(top('Every day'), lessThan(top('Every 36 hours')));
+      expect(top('Every 36 hours'), lessThan(top('Every 2 days')));
+      await tester.tap(find.text('Every 36 hours').last);
+      await tester.pumpAndSettle();
+      await save(tester, h);
+
+      expect((await _remote(tester, h, id)).refreshIntervalHours, 36);
+    });
+
+    testWidgets('a local playlist has no interval field', (tester) async {
+      final h = await _open(tester, _plugin());
+      await tester.runAsync(() => _repository(tester, h).create(name: 'Mine'));
+      await _settle(tester, h);
+
+      await openEdit(tester, 'Mine');
+
+      expect(find.text('Auto refresh'), findsNothing);
+    });
+
     testWidgets('a local playlist has no such button', (tester) async {
       final h = await _open(tester, _plugin());
       await tester.runAsync(() => _repository(tester, h).create(name: 'Mine'));

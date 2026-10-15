@@ -731,6 +731,12 @@ class _PlaylistMenu extends ConsumerWidget {
           artwork: input.artwork,
           useRemote: input.useRemote,
         );
+        if (input.refreshIntervalHours != remote.refreshIntervalHours) {
+          await service.setRefreshInterval(
+            playlist.id,
+            input.refreshIntervalHours,
+          );
+        }
       }
     } on Object catch (error, stackTrace) {
       toaster.error(

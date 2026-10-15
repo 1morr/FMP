@@ -12,6 +12,7 @@ import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/library/playlist_refresh_job.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/plugins/accounts/account_service.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
@@ -93,6 +94,12 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     );
     // 電台狀態工作跟著插件清單、電台清單與間隔設定登記到排程器（ADR 0031 §決定 6）。
     ref.listenManual(radioStatusJobsProvider, (_, _) {}, fireImmediately: true);
+    // 匯入歌單的自動刷新：一個 `playlist-refresh` 工作，每張歌單自己的間隔在資料庫（ADR 0033 §決定 4）。
+    ref.listenManual(
+      playlistRefreshJobProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
     // 回到前景時再查一次網路介面：Android 8 起背景收不到介面變化
     // （connectivity_plus 的 README）。事件觸發，不輪詢。
     ref.listenManual(appLifecycleProvider, (previous, next) {

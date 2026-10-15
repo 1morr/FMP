@@ -529,6 +529,18 @@ class Translations$library$en extends Translations$library$zh_TW {
   String get useRemote => 'Use the remote\'s';
   @override
   String get useRemoteHint => 'Takes the remote\'s value on the next refresh';
+  @override
+  String get refreshInterval => 'Auto refresh';
+  @override
+  String get refreshIntervalOff => 'Off';
+  @override
+  String get refreshEveryHour => 'Every hour';
+  @override
+  String refreshEveryHours({required Object count}) => 'Every ${count} hours';
+  @override
+  String get refreshEveryDay => 'Every day';
+  @override
+  String refreshEveryDays({required Object count}) => 'Every ${count} days';
 }
 
 // Path: playlist

@@ -176,7 +176,13 @@
     "statusAuth": "需要登入才能刷新",
     "retry": "重試",
     "useRemote": "使用遠端的",
-    "useRemoteHint": "下一次刷新會寫回遠端的值"
+    "useRemoteHint": "下一次刷新會寫回遠端的值",
+    "refreshInterval": "自動刷新",
+    "refreshIntervalOff": "不啟用",
+    "refreshEveryHour": "每小時",
+    "refreshEveryHours": "每 {count} 小時",
+    "refreshEveryDay": "每天",
+    "refreshEveryDays": "每 {count} 天"
   },
   "playlist": {
     "more": "更多選項",

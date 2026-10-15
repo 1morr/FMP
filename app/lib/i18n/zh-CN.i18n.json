@@ -176,7 +176,13 @@
     "statusAuth": "需要登录才能刷新",
     "retry": "重试",
     "useRemote": "使用远程的",
-    "useRemoteHint": "下一次刷新会写回远程的值"
+    "useRemoteHint": "下一次刷新会写回远程的值",
+    "refreshInterval": "自动刷新",
+    "refreshIntervalOff": "不启用",
+    "refreshEveryHour": "每小时",
+    "refreshEveryHours": "每 {count} 小时",
+    "refreshEveryDay": "每天",
+    "refreshEveryDays": "每 {count} 天"
   },
   "playlist": {
     "more": "更多选项",

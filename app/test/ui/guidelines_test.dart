@@ -994,6 +994,8 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text("Use the remote's"), findsOneWidget);
+          // 有自動刷新間隔欄位（只有匯入歌單的編輯有）。
+          expect(find.text('Auto refresh'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

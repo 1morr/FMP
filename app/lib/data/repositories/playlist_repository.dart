@@ -342,6 +342,59 @@ final class PlaylistRepository {
     return row == null ? null : _remoteFromRow(row);
   }
 
+  /// 到期要自動刷新的匯入歌單（M4 design §6.1）：`status = active`、有刷新間隔、插件在
+  /// [pluginIds] 裡、`last_refreshed_at` 為空或距 [now] 已滿間隔。依 `last_refreshed_at` 由舊到新
+  /// （空的最先），同時間依歌單 id。
+  Future<List<PlaylistRemote>> dueForRefresh(
+    Set<String> pluginIds,
+    DateTime now,
+  ) async {
+    final rows =
+        await (_database.select(_database.playlistRemoteTable)..where(
+              (t) =>
+                  t.status.equalsValue(PlaylistRemoteStatus.active) &
+                  t.refreshIntervalHours.isNotNull() &
+                  t.pluginId.isIn(pluginIds),
+            ))
+            .get();
+    final due = [
+      for (final row in rows)
+        if (row.lastRefreshedAt == null ||
+            now.difference(row.lastRefreshedAt!) >=
+                Duration(hours: row.refreshIntervalHours!))
+          _remoteFromRow(row),
+    ];
+    due.sort((a, b) {
+      final byTime = switch ((a.lastRefreshedAt, b.lastRefreshedAt)) {
+        (null, null) => 0,
+        (null, _) => -1,
+        (_, null) => 1,
+        (final x?, final y?) => x.compareTo(y),
+      };
+      return byTime != 0 ? byTime : a.playlistId.compareTo(b.playlistId);
+    });
+    return due;
+  }
+
+  /// 每張匯入歌單現在的刷新間隔（小時，空＝不啟用），隨 `playlist_remote` 的變動發新的值。
+  /// 排程工作用它在進行中的那張被改成不啟用時取消。
+  Stream<Map<int, int?>> watchRefreshIntervals() => _database
+      .select(_database.playlistRemoteTable)
+      .watch()
+      .map(
+        (rows) => {
+          for (final row in rows) row.playlistId: row.refreshIntervalHours,
+        },
+      );
+
+  /// 改匯入歌單的自動刷新間隔（小時，[hours] 空＝不啟用）。不是匯入歌單時什麼都不做。
+  Future<void> setRefreshInterval(int playlistId, int? hours) =>
+      (_database.update(
+        _database.playlistRemoteTable,
+      )..where((t) => t.playlistId.equals(playlistId))).write(
+        PlaylistRemoteTableCompanion(refreshIntervalHours: Value(hours)),
+      );
+
   /// 以（插件, 遠端 id）找匯入歌單，重新匯入同一張時用。
   Future<PlaylistRemote?> findRemote(String pluginId, String remoteId) async {
     final row =
