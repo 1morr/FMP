@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "插件層寫法、Quality Check（trackFields 跟著 TrackSummary）"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "importPlaylist 契約、TrackSummary 分 P 兩欄、匯出與能力、checks.json"}
+{"file": "docs/adr/0028-host-api-m3-extensions.md", "reason": "v1 擴充與同步點的前例（live、mix、trackDetail）"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§4.1-§4.3、§4.9 fmp-test 假實作"}
