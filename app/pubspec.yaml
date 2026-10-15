@@ -126,9 +126,15 @@ dependencies:
   # 規則與閘門見 AGENTS.md § 平台層的 Windows SMTC。
   smtc_windows: 1.1.0
   sqlite3: ^3.6.0
+  # 匹配的相似度（Dice，ADR 0019 §決定 6）；只准在 lib/core/matching/ import
+  # （fmp_layer_imports）。
+  string_similarity: ^2.2.0
   # log 門面的歷史與分派（ADR 0011 §決定 1）；只准在 lib/core/logging/
   # import（fmp_log_facade）。
   talker: ^5.1.20
+  # 匹配的 NFKC 正規化（ADR 0019 §決定 6）；只准在 lib/core/matching/ import
+  # （fmp_layer_imports）。
+  unorm_dart: ^0.3.3
   # 「在 GitHub 回報」開瀏覽器（M3 design §13）；只准在 lib/platform/ import
   # （fmp_layer_imports）。
   url_launcher: ^6.3.3

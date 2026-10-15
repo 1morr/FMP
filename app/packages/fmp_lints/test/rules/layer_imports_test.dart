@@ -531,6 +531,36 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // design §2.2：unorm_dart、string_similarity 只在評分核心（lib/core/matching/）；
+  // 同前綴的目錄（matching_extra）不算評分核心，名稱相似但不同系列的套件不算。
+  Future<void> test_matchingPackagesOutsideTheMatchingCore() async {
+    for (final path in [
+      'lib/core/redaction/redactor.dart',
+      'lib/core/matching_extra/fold.dart',
+      'lib/library/external_import.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:unorm_dart/unorm_dart.dart'!];\n"
+        "import [!'package:string_similarity/string_similarity.dart'!];\n"
+        "import [!'package:string_similarity_extras/extras.dart'!];\n",
+      );
+    }
+  }
+
+  Future<void> test_matchingPackagesInTheMatchingCore() async {
+    await assertLints(
+      'lib/core/matching/normalize.dart',
+      "import 'package:unorm_dart/unorm_dart.dart';\n"
+          "import 'package:string_similarity/string_similarity.dart';\n",
+    );
+    await assertLints(
+      'lib/library/external_import.dart',
+      "import 'package:unorms/unorms.dart';\n"
+          "import 'package:string_similarityx/string_similarityx.dart';\n",
+    );
+  }
+
   Future<void> test_restrictedPlaybackFilesFromAllowedImporters() async {
     await assertLints(
       'lib/playback/playback_session.dart',

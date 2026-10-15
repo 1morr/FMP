@@ -33,6 +33,8 @@ import 'package:material_ui/material_ui.dart' as m;
 import 'package:pub_semver/pub_semver.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:string_similarity/string_similarity.dart';
+import 'package:unorm_dart/unorm_dart.dart';
 
 class Dio {
   Dio();
@@ -101,6 +103,9 @@ const _expectedMessages = [
   'package:qr_flutter* is only allowed in lib/ui/accounts/',
   // externalPackageOwners 的 archive（診斷包的 zip）
   'package:archive* is only allowed in lib/app/diagnostics/',
+  // externalPackageOwners 的 unorm_dart、string_similarity（匹配的評分核心）
+  'package:unorm_dart* is only allowed in lib/core/matching/',
+  'package:string_similarity* is only allowed in lib/core/matching/',
   // forbiddenLayerImports 的 scheduler／radio／library／core
   'lib/scheduler/ must not import lib/ui/',
   'lib/radio/ must not import lib/ui/',
