@@ -2,11 +2,12 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v13（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// Schema v15（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
 // queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
 // installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
 // developer_settings（v9）、scheduler_runs（v11）、radio_stations 與
-// network_settings 的電台間隔（v12）、player_state 的 Mix 五欄（v13））。
+// network_settings 的電台間隔（v12）、player_state 的 Mix 五欄（v13）、tracks 的分 P 兩欄（v14）），M4 加
+// playlists 與 playlist_entries（v15）。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -400,4 +401,66 @@ class RadioStationsTable extends Table {
   List<Set<Column<Object>>> get uniqueKeys => [
     {pluginId, roomId},
   ];
+}
+
+/// 歌單（ADR 0033 §決定 1、M4 design §3.1）：`local` 使用者自建、`imported` 從網址匯入、
+/// `mix` 是 Mix 歌單。Mix 三欄只有 `mix` 用，CHECK 讓兩種形狀不會混：`mix` 時
+/// 插件 id 與種子的音源 id 非空，否則三欄都空。`sort_order` 由小到大，拖曳後整批重寫。
+@DataClassName('PlaylistRow')
+class PlaylistsTable extends Table {
+  @override
+  String get tableName => 'playlists';
+
+  late final id = integer().autoIncrement()();
+  late final kind = text().map(const PlaylistKindConverter())();
+  late final name = text()();
+  late final description = text().nullable()();
+
+  /// `[{url, width?}]` 的 JSON，同 `tracks.artwork_json`；沒有封面為空。
+  late final artworkJson = text().nullable()();
+  late final sortOrder = integer()();
+  late final createdAt = integer().map(const EpochMillisecondsConverter())();
+  late final updatedAt = integer().map(const EpochMillisecondsConverter())();
+  late final mixPluginId = text().nullable()();
+  late final mixSeedSourceId = text().nullable()();
+  late final mixSeedCid = integer().nullable()();
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK ((kind = 'mix' AND mix_plugin_id IS NOT NULL "
+        'AND mix_seed_source_id IS NOT NULL) '
+        "OR (kind <> 'mix' AND mix_plugin_id IS NULL "
+        'AND mix_seed_source_id IS NULL AND mix_seed_cid IS NULL))',
+  ];
+}
+
+/// 歌單裡的每一首（M4 design §3.1）。`playlist_id` 連帶刪除；`track_key` 是 `RESTRICT`：
+/// 被歌單參照的曲目刪不掉，孤兒清理只刪沒人參照的，所以 `track_key` 有索引（理由同
+/// `queue_entries`）。`position` 不唯一，順序是（`position`, `id`），搬動時整批重寫。
+/// 後三欄只有匯入歌單用（M4 design §5.2）。
+@TableIndex(
+  name: 'playlist_entries_playlist',
+  columns: {#playlistId, #position},
+)
+@TableIndex(name: 'playlist_entries_track_key', columns: {#trackKey})
+@DataClassName('PlaylistEntryRow')
+class PlaylistEntriesTable extends Table {
+  @override
+  String get tableName => 'playlist_entries';
+
+  late final id = integer().autoIncrement()();
+  late final playlistId = integer().references(
+    PlaylistsTable,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+  late final position = integer()();
+  late final trackKey = text().references(
+    TracksTable,
+    #trackKey,
+    onDelete: KeyAction.restrict,
+  )();
+  late final remoteItemId = text().nullable()();
+  late final unavailable = boolean().withDefault(const Constant(false))();
+  late final seenGeneration = integer().withDefault(const Constant(0))();
 }

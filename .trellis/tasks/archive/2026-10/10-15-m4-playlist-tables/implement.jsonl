@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/app/data/index.md", "reason": "改 schema 的完整流程、快照與 migration 測試寫法"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§3.1 新表欄位、索引、孤兒查詢、position 規則；§3.2 schema 版本"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 1 欄位清單"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "資料模型、外鍵、孤兒清理"}
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "schema 原則"}

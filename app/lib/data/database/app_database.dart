@@ -9,6 +9,7 @@ import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
@@ -38,6 +39,8 @@ part 'app_database.g.dart';
     DeveloperSettingsTable,
     SchedulerRunsTable,
     RadioStationsTable,
+    PlaylistsTable,
+    PlaylistEntriesTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -45,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -145,6 +148,12 @@ class AppDatabase extends _$AppDatabase {
               // 既有的曲目都不是分 P：兩欄是空的。
               await m.addColumn(schema.tracks, schema.tracks.partIndex);
               await m.addColumn(schema.tracks, schema.tracks.parentTitle);
+            },
+            from14To15: (m, schema) async {
+              await m.create(schema.playlists);
+              await m.create(schema.playlistEntries);
+              await m.create(schema.playlistEntriesPlaylist);
+              await m.create(schema.playlistEntriesTrackKey);
             },
           ),
         );

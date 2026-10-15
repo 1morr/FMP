@@ -10,6 +10,7 @@ import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
@@ -92,4 +93,8 @@ final databaseInspectorProvider = Provider<DatabaseInspector>(
 
 final radioRepositoryProvider = Provider<RadioRepository>(
   (ref) => RadioRepository(ref.watch(appDatabaseProvider)),
+);
+
+final playlistRepositoryProvider = Provider<PlaylistRepository>(
+  (ref) => PlaylistRepository(ref.watch(appDatabaseProvider)),
 );

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/loop_mode.dart';
@@ -281,6 +282,32 @@ void main() {
             row.read<String>('track_key'),
         ],
         ['fmp-test:c'],
+      );
+    });
+
+    test('a track in a playlist is not an orphan', () async {
+      await writeAll([track('a'), track('b'), track('c')]);
+      final playlists = PlaylistRepository(database);
+      await playlists.addTracks(await playlists.create(name: 'Mine'), [
+        track('a'),
+      ]);
+      await repository.write(
+        edit: const QueueRangeEdit(from: 0, removed: 3, inserted: []),
+        player: _player,
+      );
+
+      final deleted = await TracksRepository(database).deleteOrphans();
+
+      expect(deleted, 2, reason: 'b and c are in neither queue nor playlist');
+      expect(
+        [
+          for (final row
+              in await database
+                  .customSelect('SELECT track_key FROM tracks')
+                  .get())
+            row.read<String>('track_key'),
+        ],
+        ['fmp-test:a'],
       );
     });
 

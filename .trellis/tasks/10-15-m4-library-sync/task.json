@@ -19,6 +19,7 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
+    "10-15-m4-playlist-tables",
     "10-15-m4-import-playlist-contract"
   ],
   "parent": "09-26-fmp-rewrite",

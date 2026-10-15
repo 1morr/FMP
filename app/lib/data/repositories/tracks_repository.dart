@@ -40,7 +40,7 @@ final class TracksRepository {
   }
 
   /// 刪掉沒有被任何東西參照的曲目，回傳刪了幾列（ADR 0019 §決定 1，啟動維護
-  /// 清單呼叫）。目前的參照者是 `queue_entries` 與 `play_history`；歌單項目（M4）、
+  /// 清單呼叫）。目前的參照者是 `queue_entries`、`play_history` 與 `playlist_entries`；
   /// 下載紀錄（M6）各自在它們加表的 PR 加進這個查詢。
   Future<int> deleteOrphans() => _database.customUpdate(
     'DELETE FROM tracks WHERE $_orphanCondition',
@@ -63,7 +63,8 @@ final class TracksRepository {
   /// 新的參照者只加在這裡。
   static const _orphanCondition =
       'track_key NOT IN (SELECT track_key FROM queue_entries) '
-      'AND track_key NOT IN (SELECT track_key FROM play_history)';
+      'AND track_key NOT IN (SELECT track_key FROM play_history) '
+      'AND track_key NOT IN (SELECT track_key FROM playlist_entries)';
 
   /// `tracks` 的一列轉成上層的 [TrackInfo]；佇列與播放歷史讀曲目都經它。
   static TrackInfo toTrackInfo(TrackRow row) => TrackInfo(

@@ -105,11 +105,12 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   `RESTRICT` 失敗。同一個曲目鍵在同一批裡出現多次時，最後一份的顯示資料留下。
 - 孤兒清理的查詢（`deleteOrphans`）是各參照者的 `NOT IN` 子查詢，條件寫在 `TracksRepository._orphanCondition`，
   Debug 頁的 `countOrphans` 共用它；加一張參照 `tracks` 的表時，同一個
-  PR 把它加進去，並在 `queue_repository_test.dart` 的 `only unreferenced tracks are orphans` 加一個
-  被它參照的案例。`queue_entries.track_key` 有索引（`queue_entries_track_key`）：`RESTRICT` 的檢查在刪每一列曲目時
+  PR 把它加進去，並在 `queue_repository_test.dart` 的 `tracks` 群組加一個被它參照的案例（照
+  `a track in a playlist is not an orphan`：漏加時 `deleteOrphans` 撞上 `RESTRICT` 而拋錯）。
+  `queue_entries.track_key` 有索引（`queue_entries_track_key`）：`RESTRICT` 的檢查在刪每一列曲目時
   要查佇列，沒有索引就是每列掃一次。一萬首佇列加一萬個孤兒（清空一份大佇列之後）：沒有索引約 9.3 秒，
-  有索引約 14 ms。之後參照 `tracks` 的表（歌單項目、下載紀錄）同理，加表時也要替它的
-  `track_key` 建索引；`play_history` 已照辦（`play_history_track_key`）。
+  有索引約 14 ms。之後參照 `tracks` 的表（下載紀錄、匹配結果）同理，加表時也要替它的
+  `track_key` 建索引；`play_history`、`playlist_entries` 已照辦（`play_history_track_key`、`playlist_entries_track_key`）。
 - 播放歷史（`play_history_repository.dart`，schema v5）：`record` 一個 transaction 做 upsert 曲目、插入、
   `_trim`（`DELETE … WHERE id NOT IN (SELECT id … ORDER BY played_at DESC, id DESC LIMIT ?)`）；`page` 是 join
   `tracks` 的 `LIMIT/OFFSET`，順序鍵與索引一致，所以是索引掃描；`changes()` 聽 `tableUpdates`（不是 `watch()`，
@@ -120,6 +121,18 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   （快照、steps、`generated/`）在它中止前已寫好，`migration_test.dart` 的新 import 要自己補。
 - 測試：差量編輯以固定種子的隨機序列比對一個 `List`（`a seeded run of random edits…`）；
   一萬首整份取代的耗時（目前約 150–230 ms）印在測試輸出，超過 500 ms 要在 PR 描述說明。
+
+## 歌單（`playlist_repository.dart`，schema v15）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `playlists`、`playlist_entries`。
+
+- `entries` 是 `playlist_entries` join `tracks`，依（`position`, `id`）；`addTracks` 一個 transaction：`TracksRepository.upsert`、
+  取歌單內 `max(position) + 1`、`batch.insertAll`。`moveEntries` 用 `batch.update` 逐項寫新位置（不像佇列有主鍵衝突，`position` 不唯一）。
+  一萬首的歌單：`addTracks` 約 0.3–0.4 秒、`entries` 約 0.1–0.2 秒、`moveEntries` 約 0.1 秒（PR 1 在開發機的記憶體資料庫量一次，沒有測試重量）。
+- Mix 欄位的 CHECK 跨 `kind` 與三欄，寫成表級 `customConstraints`，不掛在某一欄的 `check()`；它進快照與 steps，升級路徑由
+  `migrateAndValidate` 比對。測試用 raw SQL 插入違規列，因為 repository 不開放 Mix 欄位；斷言比對 SQLite 的訊息
+  （`RESTRICT` 以 trigger 實作，擴充碼不是 `SQLITE_CONSTRAINT_FOREIGNKEY`）。
+- `create` 只建 `local`：匯入與 Mix 歌單要連同 `playlist_remote` 或 Mix 三欄一起寫，由建它們的 PR 另加寫入口。
 
 ## 插件（`plugin_repository.dart`）
 
