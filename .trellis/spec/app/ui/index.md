@@ -23,8 +23,10 @@ lib/ui/
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
                        # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）
   home/                # 首頁（區塊：最近播放；recentPlaysProvider）
-  library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單；playlistOverviewsProvider）、
-                       # 建立與編輯歌單的對話框（playlist_dialogs）
+  library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單）、建立與編輯歌單的對話框（playlist_dialogs，
+                       # 含自訂封面）、歌單封面（playlist_cover）、歌單詳情（playlist_detail_page；openPlaylist 開在巢狀導覽裡）、
+                       # 它們讀的 provider 與分組、重排的純函數（library_state：playlistOverviewsProvider、playlistDetailProvider、
+                       # groupParts、reorderedEntryIds）、曲目選單的「加入歌單…」與它的對話框（add_to_playlist）
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
@@ -37,7 +39,7 @@ lib/ui/
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
-  tracks/              # TrackRowMenu：搜尋結果、歷史、佇列的一列曲目共用的選單（右鍵、長按、「⋯」）
+  tracks/              # TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）
   plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
@@ -202,6 +204,25 @@ try {
 - 測試：`h.pumpApp(tester, const HistoryPage())`（要外殼與離線橫幅就 `pumpShell` 後 `h.openHistory(tester)`：從音樂庫的「歷史」開）；寫歷史用
   `container.read(playHistoryRepositoryProvider).record(...)`，要包 `tester.runAsync`，之後 `h.loadSettings`
   讓變動的串流與重讀跑完。
+
+## 歌單詳情與「加入歌單…」
+
+規則與閘門見 `app/AGENTS.md` § 介面的「音樂庫」「歌單詳情」「加入歌單…」；ADR 0033 §決定 9、11，M4 design §10.4–§10.6。
+
+- 曲目選單加「加入歌單…」：`AddToPlaylistItem(onPressed: () => unawaited(showAddToPlaylist(context, tracks)))`，`context` 用列自己的
+  （`build` 的那一個，不是選單項目的）。要先取東西才知道加哪幾首的（搜尋的多分 P 影片）先 `await` 取好，再看 `context.mounted`。
+- 歌單的封面一律用 `PlaylistCover(artwork: playlist.artwork, firstTrack: …)`，不要直接把 `playlist.artwork` 給 `ArtworkImage`：
+  自訂封面不屬於曲目，要先以 `artworkPluginProvider` 找到網域包含它的插件，才有 cache manager。
+- 畫面寫本機歌單的曲目時呼叫 `PlaylistService` 的 `addTracks`、`removeEntries`、`moveEntries`：它們拒絕不是本機的歌單
+  （`playlist_service_test.dart` 的 `an imported playlist is refused…`），repository 那層只動指定歌單的項目；刷新器
+  （`lib/library/`）寫匯入歌單是另一條路。
+- 詳情清單的列是 `groupParts` 排出來的（群組標題＋分 P），所以 `ReorderableListView` 的位置不是項目的位置：重排一律經
+  `reorderedEntryIds`。之後的多選（PR 5）要的「這一列是哪個項目」同樣看 `PlaylistEntryRow`，標題列不是項目。
+- 測試：`ShellHarness` 開在音樂庫，`runAsync` 裡以 `playlistRepositoryProvider` 建歌單（匯入歌單用 `createImported`）與 `addTracks`，
+  `loadSettings` 幾次讓重讀跑完再點卡片（`playlist_detail_page_test.dart` 的 `_open`）。對話框裡 `enterText` 之後先 `pump` 再按送出：
+  按鈕的啟用狀態要重建一次才跟上（不 `pump` 的話按到的是停用的鈕，什麼都不發生）。測自訂封面向哪個插件要了什麼網址時，以
+  `extraOverrides` 換掉 `artworkCacheManagerProvider`，並在每個測試開頭清 `imageCache`（跨測試留著，讀過的網址不會再問 cache manager；
+  `playlist_cover_test.dart`）。測試插件 `fmp-test` 的允許網域是 `cdn.example`，`registryOfSources: true` 才在插件清單上。
 
 ## 播放頁
 

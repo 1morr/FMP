@@ -1835,7 +1835,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   先關）、`settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果）、首頁（空的、最近播放加播放列）、音樂庫（空的、有歌單的清單與收起面板的格狀、
-  卡片選單、新增歌單的對話框、刪除的確認框）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單、空的、「加入歌單」
+  對話框）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -1992,7 +1993,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   首頁。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的
   `navigation per window class`（每種元件五個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）。
 - 巢狀導覽（ADR 0033 §決定 5）：`IndexedStack` 的每一格是那個目的地自己的 `Navigator`，根頁是一個 `MaterialPage`（pages API：外殼重建時
-  根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史，之後的歌單詳情、探索）以 `Navigator.of(context).push` 開在
+  根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史、歌單詳情，之後的探索）以 `Navigator.of(context).push` 開在
   內容區裡，導覽與播放列留著；全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）推在根 Navigator 上（`rootNavigator: true` 或
   `rootNavigatorKeyProvider`），`showDialog` 預設就在根上。換目的地不丟內頁（Material 每個目的地自己的 back stack）；再點一次
   目前的導覽項退回它的根；Ctrl+F 先把搜尋退回根再聚焦輸入框。地雷：
@@ -2009,12 +2010,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `integration_test/toast_layering_test.dart` 的 `a toast shows above a page in the nested navigation`。
 - 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：M4 PR 2 只有「最近播放」：`play_history` 最新 20 筆（`recentPlaysProvider`，
   不去重，歷史表變動就重讀），一排可橫向捲動的卡片（封面、兩行曲名、作者；音源不可用時是原因），點一下臨時播放；「查看全部」在首頁的
-  巢狀導覽裡開歷史頁。區塊標題列（標題＋尾端「查看全部」）與一排卡片是之後我的歌單、電台、排行區塊的樣子。沒有可搜尋的音源時整頁是
+  巢狀導覽裡開歷史頁。卡片的選單（右鍵、長按、曲名旁的「⋯」，`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…；
+  「⋯」疊在卡片旁、不在卡片的 `InkWell` 裡：卡片是一個按鈕的語意節點（點一下播放），包進去的話兩個點擊動作會併成一個節點。
+  區塊標題列（標題＋尾端「查看全部」）與一排卡片是之後我的歌單、電台、排行區塊的樣子。沒有可搜尋的音源時整頁是
   首次啟動引導（見下面「首次啟動引導」）；沒有內容是說明（「搜尋並播放歌曲，或匯入歌單」），沒有音源時附「前往插件頁」。本機資料，
   離線照常顯示。閘門：`test/ui/home/home_page_test.dart`（最新 20 筆不去重、點一下臨時播放、新的播放跟著出現、「查看全部」與返回、
-  沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁）。
+  沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁）、`test/ui/library/add_to_playlist_test.dart` 的
+  `a recent play on Home` 群組（三種開法同一份選單、加入歌單與加入佇列、卡片與「⋯」是兩個語意節點）。
 - 音樂庫（`lib/ui/library/`、`lib/library/playlist_service.dart`，ADR 0033 §決定 8，M4 design §10.3、§10.5）：
-  - 標題列「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝第一首的封面、名稱、「本機 · n 首」）。卡片資料是
+  - 標題列「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、「本機 · n 首」），點一下在音樂庫的
+    巢狀導覽裡開歌單詳情（`openPlaylist`）。格狀的卡片照 `ListTile`：`InkWell` 包 `Semantics(button: true)`，「⋯」與把手各自一個節點（包
+    `MergeSemantics` 會把點一下與「⋯」的點擊併成一個節點）。卡片資料是
     `PlaylistRepository.overviews()`（一個查詢帶首數與第一首），`playlistOverviewsProvider` 以 `changes()` 重讀，不用 `watch()`：
     join 了 `tracks`，`watch()` 會在每次寫曲目時重查。代價是第一首的曲目資料（封面）更新時，卡片要等歌單或項目下一次變動才跟上。
   - 內容區 compact、medium 是清單（`ReorderableListView`，把手排序，同電台頁），expanded 以上是格狀（每張不超過
@@ -2022,12 +2028,42 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     它的位置，放開才整批寫 `sort_order`。兩種都是資料庫追上之前照拖曳後的順序畫；寫入失敗回到資料庫的順序並提示。
   - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、編輯、刪除（先確認）。
     加入走 `PlaybackController.addToQueue`：超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中兩項停用。
-  - 建立與編輯是同一個對話框（`showPlaylistDialog`）：名稱必填（去掉空白後不能是空的）、描述選填、封面目前只顯示「第一首歌的封面」。
-    design §10.5 的「自訂」（圖片網址）還沒做：封面只經某個插件的媒體 client 讀（每跳檢查那個插件的允許網域），使用者給的網址不屬於
-    任何插件，要先定它的讀取路徑。
+  - 建立與編輯是同一個對話框（`showPlaylistDialog`）：名稱必填（去掉空白後不能是空的）、描述選填、封面預設「第一首歌的封面」，「自訂」填
+    圖片網址、「使用預設」清回（`playlists.artwork_json`，空＝預設）。**自訂的網址要屬於某個已安裝且啟用的插件的允許網域**
+    （`pluginForArtwork`：插件清單裡第一個 `AllowedHosts.allows` 的，只收 `https`、不收帶 user info 的——媒體 client 不發），否則欄位下寫「這個網址不屬於任何已安裝的音源」、
+    不能送出；之後封面經那個插件的 cache manager 與媒體 client 讀（`artworkPluginProvider`，`PlaylistCover`），宿主沒有任意網址的讀取
+    路徑。那個插件之後停用或移除時封面是佔位圖；編輯時沒改過的自訂網址照舊保留、不再檢查（才改得了名稱）。
   - 閘門：`test/ui/library/library_page_test.dart`（歷史入口、空的說明、建立與必填、取消、編輯、刪除先確認、清單與格狀的拖曳寫入、
-    寫入失敗回到資料庫的順序、全部加入與隨機加入、超過上限、空歌單與 Mix 中停用、離線）、`test/library/playlist_service_test.dart`（去空白、編輯保留封面、排序與刪除、
+    寫入失敗回到資料庫的順序、全部加入與隨機加入、超過上限、空歌單與 Mix 中停用、離線）、`playlist_cover_test.dart`（`pluginForArtwork`
+    的網域規則與 user info、屬於插件的網址收下並經那個插件讀、不屬於的與非 https 的拒絕並寫原因、「使用預設」清回、來源已移除時沒改過的照舊保留、
+    新建時就自訂）、`test/library/playlist_service_test.dart`（去空白、自訂封面的寫入與清回、排序與刪除、
     依序加入、打亂、超過上限不加且發 `QueueFull`）、`playlist_repository_test.dart` 的 `overviews …`。
+- 歌單詳情（`lib/ui/library/playlist_detail_page.dart`、`library_state.dart`，ADR 0033 §決定 9，M4 design §10.4）：
+  - 在目前目的地的巢狀導覽裡開（`openPlaylist`），標題列是返回鈕與歌單名稱。標頭是封面、「本機 · n 首」（匯入歌單是「匯入」）、描述，
+    下面一列「全部加入佇列」「隨機加入佇列」：同卡片選單那兩項（`PlaylistService.addToQueue`，超過上限整批拒絕、提示由外殼接
+    `QueueFull`；空歌單與 Mix 中停用）。匯入歌單的擁有者與狀態列在 PR 8b。
+  - 資料是 `playlistDetailProvider(id)`（autoDispose；`changes()` 一發出就重讀歌單、遠端資料與全部項目，不用 `watch()`，理由同歌單卡）；
+    歌單被刪掉時寫「找不到這張歌單」。一萬首也一次讀進來，清單只建看得到的列。
+  - 分 P 分組（`groupParts`，純函數）：同一支影片（`TrackKey.formatGroup`）**連續兩個以上**的分 P 收在影片標題下（標題列是語意標題、不能點，
+    封面與上傳者取第一個分 P），分 P 縮排、只寫 `partLabel`；只有一個的分 P 與不相鄰的分 P 照常一列（`displayTitle`），不為了分組重排。
+  - 點一首是臨時播放；選單（`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…；**只有本機歌單**有拖曳把手與「從歌單移除」
+    （只刪那一筆、不確認不提示，同佇列與歷史的單筆移除；失敗才提示）。匯入歌單用不能重排的清單（ADR 0019 §決定 4）；
+    `PlaylistService.addTracks`／`removeEntries`／`moveEntries` 遇到不是本機歌單的丟 `StateError`、什麼都不寫；檢查的是歌單 id，所以
+    `PlaylistRepository.removeEntries`／`moveEntries` 只動那張歌單的項目，別張歌單的項目 id 不生效。
+  - 重排：清單含群組標題列，`reorderedEntryIds` 把 `onReorderItem` 的列位置換成項目順序（標題列不算位置；放在標題與第一個分 P 之間＝那個
+    分 P 之前），整批 `moveEntries` 寫 `position`；資料庫追上之前照拖曳後的順序畫，寫入失敗回到資料庫的順序並提示。
+  - 閘門：`test/ui/library/playlist_detail_page_test.dart`（從清單與格狀開、返回、標頭、空的、被刪掉、分組、臨時播放、三種開法同一份選單、
+    音源不可用、離線、拖曳寫入、分 P 拖出群組、寫入失敗、移除重複的其中一筆、匯入歌單沒有把手與移除、全部加入與隨機加入、超過上限、Mix 中
+    停用而「加入歌單…」照常）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
+    `playlist_repository_test.dart` 的 `removeEntries does not touch another playlist`、`moveEntries does not touch another playlist`。
+- 「加入歌單…」（`lib/ui/library/add_to_playlist.dart`，ADR 0019 §決定 4、ADR 0033 §決定 11，M4 design §10.6）：在搜尋結果（影片列與分 P 列）、
+  播放歷史、佇列、歌單詳情、首頁「最近播放」卡片的曲目選單。對話框只列本機歌單（勾選多張），頂端「新增歌單」開建立對話框、建好的那張
+  直接勾上；「加入」把曲目依序接在每張勾選的歌單尾端（同一首可重複加入），成功後關閉並提示「已加入「名稱」」／「已加入 n 張歌單」，
+  失敗時提示、對話框留著。加入不確認（Namida 的慣例，ADR 0019）。搜尋的影片列同「加入佇列」：有多個分 P 時是全部分 P（還沒取過就
+  先取，取不到時提示、不開對話框）。不動佇列，所以 Mix 中照常。選單項目（`AddToPlaylistItem`）以**列的** `context` 開對話框：選單項目
+  自己的 `context` 在選單關掉後就不在了。閘門：`test/ui/library/add_to_playlist_test.dart`（只列本機、勾多張、新增後立即勾上、沒有本機
+  歌單、重複加入與取消、多分 P 影片加全部分 P、取不到分 P 時提示且不開對話框、分 P 列、歷史、佇列、首頁卡片且沒有「從歷史移除」）、
+  `mix_ui_test.dart` 的 `a row menu adds the song to a playlist and leaves the mix alone`。
 - 右側「正在播放」面板（`lib/ui/shell/now_playing_panel.dart`，design §9.4，ADR 0024 §決定 3）：
   - 出現：整個視窗 >= 840（expanded 以上，`hasNowPlayingPanel`）而且沒收起。compact、medium 沒有面板也沒有任何開關。
     面板在內容區（頁面）右邊、中間是拖曳把手；播放列在兩者下方橫跨，所以開關面板不改變播放列的分段。頁面的
@@ -2096,13 +2132,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   一行放不下就省略，三段寬度都在曲名欄裡、不另佔位置；狀態是 live region。閘門：
   `player_bar_test.dart` 的 `status labels` 群組（360／600／1000 三個寬度各三種）、guideline 測試的
   `the player bar waiting for the network`。
-- 一列曲目的選單（搜尋結果、播放歷史、佇列）共用 `TrackRowMenu`（`lib/ui/tracks/`）：右鍵、長按與尾端「⋯」是
+- 一列曲目的選單（搜尋結果、播放歷史、佇列、歌單詳情、首頁的卡片）共用 `TrackRowMenu`（`lib/ui/tracks/`）：右鍵、長按與尾端「⋯」是
   同一份選單項目（由呼叫端給），「⋯」的 `FocusNode` 同時是 `MenuAnchor` 的 `childFocusNode`。右鍵的辨識器排除在
   語意樹外（`excludeFromSemantics`）：它會多一個沒有名稱的點擊動作，guideline 測試因此紅；同一份選單由「⋯」提供給
-  輔助技術。閘門：guideline 測試的 `search results and the player bar`、`the queue at …`；三處各自的測試
+  輔助技術。閘門：guideline 測試的 `search results and the player bar`、`the queue at …`、`the playlist details at …`；各處自己的測試
   （右鍵、長按、「⋯」同一份，Esc 關得掉以按鈕打開的：`search_page_test.dart` 的 `playing a result` 群組、
-  `history_page_test.dart` 的 `playing from the history` 群組、`queue_view_test.dart` 的 `the menu` 群組）。共用的機制
-  本身沒有單獨的測試，靠這三處。
+  `history_page_test.dart` 的 `playing from the history` 群組、`queue_view_test.dart` 的 `the menu` 群組、
+  `playlist_detail_page_test.dart` 的 `the menu opens the same items…`、`add_to_playlist_test.dart` 的 `right click, long press and "⋯"…`）。
+  共用的機制本身沒有單獨的測試，靠這幾處。
 - App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
   `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
   Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼、播放頁與佇列的底部面板各包一層：播放頁與面板各是另一個
@@ -2248,7 +2285,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     以統一提示顯示、什麼都不加。`partCount` 為 1 或插件沒宣告 `multiPart` 時不取。
   - 播放列、播放頁、右側面板、佇列、播放歷史、系統媒體控制與「已跳過」提示都顯示 `TrackInfo.displayTitle`。**佇列與歷史沒有依影片分組的版面**：
     佇列是固定列高、每列各自拖曳排序的清單，歷史只有日期標題；分 P 靠標題「影片標題 · P2 分 P 標題」認出是同一支影片，沒有群組標題（`TrackKey.formatGroup`
-    目前只用在這裡的展開狀態鍵）。要分組得新設計版面，另開。
+    用在這裡的展開狀態鍵與歌單詳情的分組，見「歌單詳情」）。
   閘門：`test/ui/search/search_parts_test.dart`（展開鈕的四種條件、展開呼叫 `multiPart` 且不重取、新的搜尋收起且不重取、點分 P 臨時播放、單一分 P 收起、
   失敗與重試、載入中轉圈、影片選單的全部分 P／未知數量取一個／已知單 P 不取／無能力不取／取不到不加、Mix 中影片與分 P 的兩項都停用）、
   `test/ui/tracks/part_display_test.dart`（播放列、播放頁、佇列、歷史、「已跳過」提示）、`now_playing_publisher_test.dart` 的 `a part pushes the video title…`、
@@ -2289,7 +2326,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   媒體 client 下載（每跳檢查允許網域、不帶憑證與 header、10 MiB、逾時；見「快取庫」「媒體
   client」）。沒有 cache manager（快取庫開啟中或開不起來、插件不在清單上）、載入中與失敗都是同
   一個佔位圖；以高解碼（`memCacheHeight`）；不進語意樹（封面是裝飾）。呼叫端給曲目鍵的第一段
-  當 `pluginId`。閘門：`test/ui/artwork/artwork_image_test.dart`（以假 cache manager：問的是哪個
+  當 `pluginId`；不屬於曲目的封面（歌單的自訂封面）給 `artworkPluginProvider(網址)` 找到的插件（見「音樂庫」）。閘門：`test/ui/artwork/artwork_image_test.dart`（以假 cache manager：問的是哪個
   插件、挑哪一張、解碼高度、佔位圖、沒有封面就不要 cache manager、語意樹）。
 - Flutter 記憶體的 `ImageCache` 大小由平台宣告（`PlatformCapabilities.cache`，Android 100 張／
   50 MiB、Windows 200 張／80 MiB，沿用舊版），`main()` 在 `runApp` 前套用，不開放設定。閘門：
