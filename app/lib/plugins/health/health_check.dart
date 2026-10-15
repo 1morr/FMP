@@ -20,6 +20,9 @@ import 'package:fmp/plugins/source_plugin.dart';
 /// 一個案例的結果。
 enum HealthOutcome { passed, failed, skipped }
 
+/// 略過的理由。
+enum HealthSkip { requiresLogin, mutates }
+
 /// 一個案例跑完的結果。
 final class HealthCaseResult {
   const HealthCaseResult({
@@ -28,10 +31,14 @@ final class HealthCaseResult {
     required this.elapsed,
     this.errorType,
     this.problems = const [],
+    this.skip,
   });
 
   final PluginCapability capability;
   final HealthOutcome outcome;
+
+  /// 略過的理由；沒略過是 `null`。
+  final HealthSkip? skip;
   final Duration elapsed;
 
   /// 插件丟出的 [AppError] 類別（[AppError.typeName]）；沒丟就是 `null`。
@@ -186,6 +193,18 @@ final class HealthCheck extends Notifier<HealthState> {
   ) async {
     final stopwatch = Stopwatch()..start();
     final redactor = ref.read(redactorProvider);
+    // 會改動遠端的案例：不呼叫插件。
+    if (check.mutates) {
+      return _record(
+        pluginId,
+        HealthCaseResult(
+          capability: check.capability,
+          outcome: HealthOutcome.skipped,
+          elapsed: stopwatch.elapsed,
+          skip: HealthSkip.mutates,
+        ),
+      );
+    }
     // 要登入的案例：已登入就用已存的憑證，沒登入略過（design §4.8）。
     LoginCredentials? credentials;
     if (check.requiresLogin) {
@@ -199,6 +218,7 @@ final class HealthCheck extends Notifier<HealthState> {
             capability: check.capability,
             outcome: HealthOutcome.skipped,
             elapsed: stopwatch.elapsed,
+            skip: HealthSkip.requiresLogin,
           ),
         );
       }

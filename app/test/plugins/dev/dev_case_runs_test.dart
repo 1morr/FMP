@@ -467,7 +467,10 @@ void main() {
 
   group('requiresLogin', () {
     /// [keyNames]：manifest 的 `redaction.keyNames`。
-    Directory loginPlugin({List<String> keyNames = const []}) {
+    Directory loginPlugin({
+      List<String> keyNames = const [],
+      String checks = _loginChecks,
+    }) {
       final directory = Directory(p.join(root.path, 'login-plugin'))
         ..createSync();
       final source = pluginSource(
@@ -485,8 +488,7 @@ void main() {
                     '"allowedHosts"',
               ),
       );
-      File(p.join(directory.path, 'checks.json'))
-          .writeAsStringSync(_loginChecks);
+      File(p.join(directory.path, 'checks.json')).writeAsStringSync(checks);
       return directory;
     }
 
@@ -609,6 +611,74 @@ void main() {
           );
         },
       );
+    });
+
+    group('a mutates case', () {
+      final mutating = _loginChecks.replaceFirst(
+        '"requiresLogin": true',
+        '"requiresLogin": true, "mutates": true',
+      );
+
+      for (final mode in [CaseMode.real, CaseMode.record]) {
+        test('is skipped in ${mode.name} mode without calling the plugin, '
+            'even logged in', () async {
+          expect(mutating, isNot(_loginChecks));
+          loginPlugin(checks: mutating);
+          await logIn();
+          final container = await start();
+          runs(container).setMode('login-plugin', mode);
+
+          await runs(container).run('login-plugin', PluginCapability.login);
+
+          final shown = result(
+            container,
+            'login-plugin',
+            PluginCapability.login,
+          )!;
+          expect(shown.outcome, DevCaseOutcome.skipped);
+          expect(shown.skip, DevSkip.mutates);
+          expect(upstream.requests, isEmpty);
+          expect(
+            Directory(p.join(root.path, 'login-plugin', 'fixtures'))
+                .existsSync(),
+            isFalse,
+          );
+        });
+
+        // 控制組：同一個插件、同樣已登入，沒有 mutates 就會送出請求。
+        test('the same case without mutates sends its request in '
+            '${mode.name} mode', () async {
+          loginPlugin();
+          await logIn();
+          final container = await start();
+          runs(container).setMode('login-plugin', mode);
+
+          await runs(container).run('login-plugin', PluginCapability.login);
+
+          expect(upstream.requests, isNotEmpty);
+        });
+      }
+
+      test('still runs in replay mode', () async {
+        final directory = plugin('test_plugin');
+        contract.edit(
+          directory,
+          'checks.json',
+          '"requiresLogin": true',
+          '"requiresLogin": true, "mutates": true',
+        );
+        final container = await start();
+
+        await runs(container).run('fmp-test', PluginCapability.login);
+
+        final shown = result(container, 'fmp-test', PluginCapability.login)!;
+        expect(
+          shown.outcome,
+          DevCaseOutcome.passed,
+          reason: '${shown.problems}',
+        );
+        expect(shown.skip, isNull);
+      });
     });
 
     test('replay mode uses the fake credentials of checks.json', () async {

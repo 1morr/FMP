@@ -1,11 +1,41 @@
+import 'dart:convert';
+
 import 'package:fmp/core/network/fixture/fixture.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
 // 錄 login 案例時的帳號換值（#254、design §5.4）：回應裡的帳號識別值，以 `loginVerify`
 // 回傳的帳號本身為準換成 `***`，不靠 manifest 的鍵名（鍵名分不出自己和別人，會弄壞
 // 別人的 id、頭像，也要重錄現有 fixture）。做法同 `ip_scrub`：在 `Redactor` 之後、
 // 寫檔之前。
+
+/// `accounts` 列的帳號資訊（[scrubAccount] 與 [accountLeaks] 的已知值）。頭像欄位
+/// （`AccountService` 寫的 `[{url, width?}]`）讀不懂時回 `null`：認不得頭像就換不掉、
+/// 也查不到它，呼叫端當作沒有帳號、不錄（fail closed）。
+LoginAccount? loginAccountOf(Account row) {
+  final avatar = <Artwork>[];
+  if (row.avatarJson case final json?) {
+    try {
+      for (final item in jsonDecode(json) as List<Object?>) {
+        final fields = item! as Map<String, Object?>;
+        avatar.add(
+          Artwork(
+            url: Uri.parse(fields['url']! as String),
+            width: fields['width'] as int?,
+          ),
+        );
+      }
+    } on Object {
+      return null;
+    }
+  }
+  return LoginAccount(
+    userId: row.userId,
+    displayName: row.displayName,
+    avatar: avatar,
+  );
+}
 
 /// 名稱與 id 的比對：整個值相等，或（4 個字元以上時）包含它。短的值只比整個值，才不會
 /// 在無關的字串裡誤中。全是數字的值只在數字邊界算（`aid=9123456780` 不含 id

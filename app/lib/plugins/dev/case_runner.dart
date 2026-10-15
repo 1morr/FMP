@@ -13,6 +13,7 @@ import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/data/repositories/plugin_storage_repository.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
@@ -22,12 +23,15 @@ import 'package:fmp/plugins/dev/describe_error.dart';
 import 'package:fmp/plugins/dev/plugin_folder.dart';
 import 'package:fmp/plugins/health/checks.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:path/path.dart' as p;
 
 // 一個檢查案例的隔離執行環境（ADR 0015 §決定 5–7）：記憶體資料庫、空的憑證存放、
-// 新的 runtime 與 client，案例之間不共用 storage 與 cookie。命令列契約執行器
+// 新的 runtime 與 client，案例之間不共用 storage 與 cookie。真實與錄製模式下
+// `requiresLogin` 的案例例外：把已存的憑證放進記憶體的憑證存放（只給請求，不刷新、
+// 不寫回）。命令列契約執行器
 // （test/plugins/contract/）與 App 內開發工具共用這份程式碼。
 
 /// 一次案例執行的結果。
@@ -59,6 +63,9 @@ Future<void> realWait(Duration delay) => Future<void>.delayed(delay);
 
 bool alwaysWrite() => true;
 
+/// `mutates` 的案例在真實與錄製模式略過的理由（命令列與開發工具同一句）。
+const mutatesSkipReason = 'mutates the remote';
+
 /// 空的 [SecureStorage]：隔離環境沒有憑證，也不會寫入。
 final class _EmptySecureStorage implements SecureStorage {
   @override
@@ -73,6 +80,23 @@ final class _EmptySecureStorage implements SecureStorage {
 
   @override
   Future<void> deleteAll() async {}
+}
+
+/// 注入的憑證放的記憶體 [SecureStorage]：只活到案例結束，不碰平台的 secure storage。
+final class _MemorySecureStorage implements SecureStorage {
+  final _values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> write(String key, String value) async => _values[key] = value;
+
+  @override
+  Future<void> delete(String key) async => _values.remove(key);
+
+  @override
+  Future<void> deleteAll() async => _values.clear();
 }
 
 /// 一個案例的環境：每個案例一份記憶體資料庫，案例結束就關（drift 在 debug 下會對
@@ -95,14 +119,40 @@ final class _IsolatedEnvironment {
   final Future<void> Function(Duration delay) wait;
 
   AppDatabase? _database;
-  CredentialStore? _credentials;
+  final _stores = <CredentialStore>[];
 
   Future<void> close() async {
-    _credentials?.dispose();
+    // 只 dispose，不 delete：delete 會取消遮蔽函式裡的憑證登記，而那份登記是 App 的
+    // 憑證存放共用的。
+    for (final store in _stores) {
+      store.dispose();
+    }
     await _database?.close();
   }
 
-  Future<ScriptSourcePlugin> load(PluginFile file) async {
+  CredentialStore _store(AppDatabase database, SecureStorage storage) {
+    final store = CredentialStore(
+      storage: storage,
+      accounts: AccountRepository(database),
+      plugins: PluginRepository(database),
+      settings: SourceSettingsRepository(database),
+      redactor: redactor,
+      log: log,
+    );
+    _stores.add(store);
+    return store;
+  }
+
+  /// [injected] 是這個案例的請求要帶的已存憑證（真實與錄製、`requiresLogin` 的非 login
+  /// 案例）；`null` 是空的憑證存放，請求都匿名。
+  ///
+  /// 失效處理（`AccountGuard`）永遠看空的存放：它看不到憑證就不會呼叫 `loginRefresh`。
+  /// 這裡刷新會換掉音源端的 token，而新的 token 只活在這個案例的記憶體，真實的憑證存放
+  /// 留著作廢的舊 token。憑證被拒時案例照實失敗。
+  Future<ScriptSourcePlugin> load(
+    PluginFile file, {
+    LoginCredentials? injected,
+  }) async {
     final database = _database = openInMemoryDatabase();
     // storage 有外鍵：先放一列（內容不重要）。
     await PluginRepository(database).install(
@@ -114,14 +164,23 @@ final class _IsolatedEnvironment {
         installedAt: DateTime.utc(2026),
       ),
     );
-    final credentials = _credentials = CredentialStore(
-      storage: _EmptySecureStorage(),
-      accounts: AccountRepository(database),
-      plugins: PluginRepository(database),
-      settings: SourceSettingsRepository(database),
-      redactor: redactor,
-      log: log,
-    );
+    final guarded = _store(database, _EmptySecureStorage());
+    var credentials = guarded;
+    if (injected != null) {
+      // 空的那份先載完：它載入時會把「有帳號列、沒憑證」的列刪掉。
+      await guarded.ready;
+      credentials = _store(database, _MemorySecureStorage());
+      await credentials.save(
+        Account(
+          pluginId: file.manifest.id,
+          userId: '',
+          displayName: '',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026),
+        ),
+        injected,
+      );
+    }
     final loader = ScriptPluginLoader(
       log: log,
       redactor: redactor,
@@ -135,7 +194,7 @@ final class _IsolatedEnvironment {
       ),
       storage: PluginStorageRepository(database),
       credentials: credentials,
-      guard: AccountGuard(credentials: credentials, log: log),
+      guard: AccountGuard(credentials: guarded, log: log),
     );
     return loader.load(file);
   }
@@ -143,7 +202,12 @@ final class _IsolatedEnvironment {
 
 /// 在隔離環境跑 [check]：記憶體資料庫放一列 installed_plugins、空的憑證存放、
 /// 新的 [ScriptPluginLoader] 與 [SourceHttpClientFactory]；跑完關 runtime 與資料庫。
-/// [credentials] 只給 login 案例（換掉 checks.json 的假憑證）。
+/// [credentials] 是這個插件已存的憑證，兩種用法：login 案例當 `loginVerify` 的輸入（換掉
+/// checks.json 的假憑證）；其他 `requiresLogin` 的案例在 [transport] 是真實連線（錄製
+/// 或真實）時放進隔離環境的憑證存放，請求依 ADR 0012 的規則帶它。重播
+/// （[ReplayTransport]）一律不放：fixture 是遮過的，也不連網。
+///
+/// `mutates` 的案例不能以真實連線跑（[StateError]，不載入、不呼叫插件）：呼叫端要先略過。
 ///
 /// 檢查：錯誤都是 `AppError`、案例的期望（DTO 驗證失敗是 `ParseError`，期望成功時
 /// 就不符；`expiresAtPattern` 也算期望）、沒有試著連清單外的網域。
@@ -159,6 +223,18 @@ Future<CaseRun> runIsolatedCase({
   NetworkRecordIds? recordIds,
   Future<void> Function(Duration delay) wait = noWait,
 }) async {
+  if (check.mutates && transport is NetworkTransport) {
+    throw StateError(
+      '${check.capability.wireName} mutates the remote: it is never run '
+      'against the network',
+    );
+  }
+  final injected =
+      check.requiresLogin &&
+          check.capability != PluginCapability.login &&
+          transport is NetworkTransport
+      ? credentials
+      : null;
   final environment = _IsolatedEnvironment(
     transport: transport,
     log: log,
@@ -169,7 +245,7 @@ Future<CaseRun> runIsolatedCase({
   try {
     final ScriptSourcePlugin source;
     try {
-      source = await environment.load(file);
+      source = await environment.load(file, injected: injected);
     } on AppError catch (error) {
       return CaseRun(
         loaded: false,
@@ -267,7 +343,8 @@ final class RecordResult {
   /// 已帶 '<能力>: ' 前綴。
   final List<String> problems;
 
-  /// '<能力>: requires a login'、'<能力>: has hand-edited fixtures'。
+  /// '<能力>: requires a login'、'<能力>: mutates the remote'、
+  /// '<能力>: has hand-edited fixtures'。
   final String? skipped;
 
   /// 寫了幾個檔；沒寫是 `null`。
@@ -279,10 +356,14 @@ final class RecordResult {
 
 /// 以 [transport]（錄製）跑 [check]，寫進 `<folder>/fixtures/<能力>/`。
 ///
-/// `requiresLogin` 而沒給 [credentials] → 略過；有 `meta.edited` 的 fixture → 略過
-/// （手寫或手改的）；結果符合期望且錄製沒有問題才寫，否則原檔不動並回報原因。網路層
-/// 重試成功的請求照樣寫：失敗的那幾次沒有回應，不會被錄到。[shouldWrite] 在寫檔前
-/// 一刻呼叫，回假就不寫。
+/// `mutates` → 略過（不呼叫插件）；`requiresLogin` 而沒給 [credentials] → 略過；有
+/// `meta.edited` 的 fixture → 略過（手寫或手改的）；結果符合期望且錄製沒有問題才寫，
+/// 否則原檔不動並回報原因。網路層重試成功的請求照樣寫：失敗的那幾次沒有回應，不會被
+/// 錄到。[shouldWrite] 在寫檔前一刻呼叫，回假就不寫。
+///
+/// 帶憑證錄的案例（`requiresLogin`）寫檔前先換掉流量裡的帳號資訊，換完仍看得到就不寫
+/// （見下）。login 案例的帳號來自結果；其他案例的帳號是 [account]（App 的 `accounts`
+/// 列），沒給就不錄：沒有已知的值可換，不能靠鍵名猜。
 Future<RecordResult> recordCase(
   PluginFolder folder,
   PluginCheck check, {
@@ -292,13 +373,24 @@ Future<RecordResult> recordCase(
   required String reportTag,
   String reportMessage = 'Plugin case',
   LoginCredentials? credentials,
+  LoginAccount? account,
   NetworkRecordIds? recordIds,
   Future<void> Function(Duration delay) wait = realWait,
   bool Function() shouldWrite = alwaysWrite,
 }) async {
   final name = check.capability.wireName;
+  if (check.mutates) return RecordResult(skipped: '$name: $mutatesSkipReason');
   if (check.requiresLogin && credentials == null) {
     return RecordResult(skipped: '$name: requires a login');
+  }
+  final isLogin = check.capability == PluginCapability.login;
+  if (check.requiresLogin && !isLogin && account == null) {
+    return RecordResult(
+      problems: [
+        '$name: fixtures not written: no stored account to scrub the '
+            'recorded traffic with',
+      ],
+    );
   }
   final existing = folder.fixtures[name] ?? const [];
   if (existing.any((named) => named.fixture.edited != null)) {
@@ -336,12 +428,19 @@ Future<RecordResult> recordCase(
       run: run,
     );
   }
-  // login 案例以已存的憑證錄（App 內）：fixture 會進公開的插件 repo，回應裡的帳號資訊
-  // 先換成 `***`（scrubAccount），換完仍看得到才不寫（accountLeaks 是最後一道）。
+  // 要登入的案例以已存的憑證錄（App 內）：fixture 會進公開的插件 repo，回應裡的帳號資訊
+  // 先換成 `***`（scrubAccount），換完仍看得到才不寫（accountLeaks 是最後一道）。以
+  // 帳號的值為準（login 是結果、其他是 accounts 列），不靠鍵名。
   var recorded = transport.recorded;
-  if (run.result case final LoginAccount account) {
-    recorded = scrubAccount(recorded, account);
-    final leaked = accountLeaks(recorded, account);
+  final known = switch (run.result) {
+    _ when !check.requiresLogin => null,
+    final LoginAccount verified when isLogin => verified,
+    _ => isLogin ? null : account,
+  };
+  // login 案例期望失敗時沒有結果可取帳號，照舊不換（原行為）。
+  if (known != null) {
+    recorded = scrubAccount(recorded, known);
+    final leaked = accountLeaks(recorded, known);
     if (leaked.isNotEmpty) {
       return RecordResult(
         problems: [

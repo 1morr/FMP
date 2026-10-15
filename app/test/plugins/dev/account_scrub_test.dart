@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/network/fixture/fixture.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/plugins/dev/account_scrub.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
@@ -129,6 +131,62 @@ void main() {
       expect(scrubbed.single.response.body, '*** https://img.example.test/***');
       expect(scrubbed.single.response.headers['x-user'], ['***']);
     });
+  });
+
+  // 非 login 的 requiresLogin 案例以 accounts 列換值（M4 PR 12）。
+  group('loginAccountOf', () {
+    Account row(String? avatarJson) => Account(
+      pluginId: 'p',
+      userId: '12345678',
+      displayName: 'FAKE_Tester',
+      avatarJson: avatarJson,
+      status: AccountStatus.active,
+      loggedInAt: DateTime.utc(2026),
+    );
+
+    test('reads the avatar AccountService writes', () {
+      // 格式同 account_service.dart 的 `avatarJson`：`[{url, width?}]`。
+      final account = loginAccountOf(
+        row(
+          '[{"url": "https://img.example.test/face/tester.jpg", "width": 96}, '
+          '{"url": "https://img.example.test/face/tester_s.jpg"}]',
+        ),
+      )!;
+
+      expect(account.userId, '12345678');
+      expect(account.displayName, 'FAKE_Tester');
+      expect(
+        [for (final image in account.avatar) image.url.path],
+        ['/face/tester.jpg', '/face/tester_s.jpg'],
+      );
+      expect(account.avatar.first.width, 96);
+      // 讀到的頭像就是換值認得的頭像。
+      expect(
+        accountLeaks([
+          _fixture(
+            jsonBody: {'face': 'https://img.example.test/face/tester.jpg'},
+          ),
+        ], account),
+        ['avatar'],
+      );
+      expect(loginAccountOf(row(null))!.avatar, isEmpty);
+    });
+
+    // 讀不懂的頭像不能當成沒有頭像：那樣換值認不得它，錄到的頭像會原樣寫進 fixture。
+    for (final (name, json) in [
+      ('not JSON', '{'),
+      ('not a list', '{"url": "https://img.example.test/a.jpg"}'),
+      ('an item without a url', '[{"width": 96}]'),
+      ('an item that is not an object', '["https://img.example.test/a.jpg"]'),
+      (
+        'a width that is not an integer',
+        '[{"url": "https://a.test/b.jpg", "width": "96"}]',
+      ),
+    ]) {
+      test('is null when the avatar is $name', () {
+        expect(loginAccountOf(row(json)), isNull);
+      });
+    }
   });
 
   group('accountLeaks', () {
