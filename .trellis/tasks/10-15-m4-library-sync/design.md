@@ -346,6 +346,7 @@ M4 不寫轉換程式；建表時確認舊資料放得進去（decisions #40）�
 - **不完整**：只寫 `last_result = partial`、`last_refreshed_at`、`status = active`。
 - **失敗**：`NotFound` → `status = sourceGone`；`AuthRequired` → `authRequired`；其他 → `last_result = failed`（`status` 不動）。都不碰項目。
 - **過期**：每頁寫入前與套用前檢查（a）`refresh_generation` 仍是 g（另一次刷新開始了）、（b）觸發者仍有效（排程工作的 `JobContext.isCurrent`；間隔改成不啟用、插件停用或移除時刷新器把進行中的那張標為取消）。過期就停、不寫。
+  - 更正（PR 10）：間隔改成不啟用或那一列被刪，是排程工作監看間隔、讓那張的 `isCurrent` 變假；刷新器只自己看插件停用或移除。
 - **刷新期間**歌單頁顯示資料庫現況（舊順序加尾端新增），不加暫存表。
 - **插件不在清單**（停用、移除）：刷新器直接回「音源已停用／未安裝」，不寫任何東西。
 - 慣例：Finamp 的 id 集合差集。
@@ -380,7 +381,7 @@ M4 不寫轉換程式；建表時確認舊資料放得進去（decisions #40）�
 - 每次執行：讀到期的歌單（ADR 0033 §決定 4 的條件，`last_refreshed_at` 為空也算到期），依 `last_refreshed_at` 由舊到新逐張 `PlaylistRefresher.refresh(trigger: scheduled)`。
 - 單張失敗只寫那張的狀態、繼續下一張；到期的全部失敗才丟錯讓排程器退避。沒有到期的就是成功。
 - 失敗的那張不寫 `last_refreshed_at`，下一輪（30 分鐘後）再試；`sourceGone`、`authRequired` 不再選它。
-- 間隔改成不啟用、插件停用或移除：下一輪自然不選；進行中的那張由刷新器取消（§5.2）。
+- 間隔改成不啟用、插件停用或移除：下一輪自然不選；進行中的那張被取消（間隔由排程工作監看、插件由刷新器看，§5.2 的更正）。
 - 這個工作沒有 `pluginId`，插件停用不會整批移除它；「同一插件依序」對它不適用（它本身就是依序）。
 
 ### 6.2 `charts:<pluginId>`（PR 20）
