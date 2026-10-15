@@ -397,7 +397,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `tracks`（曲目顯示資料，鍵是 `TrackKey` 的字面輸出）、`queue_entries`、`player_state` 是 schema v4
   （design §3.1、§3.2）。`queue_entries.track_key` 以外鍵參照 `tracks`、`ON DELETE RESTRICT`：被佇列
   參照的曲目刪不掉，孤兒清理（`TracksRepository.deleteOrphans`，啟動維護清單）只刪沒人參照的列，
-  之後加表的 PR（歌單項目、下載紀錄）各自把自己加進那個查詢；`play_history` 已在裡面（見下一條）。寫入曲目用
+  之後加表的 PR（下載紀錄、匹配結果）各自把自己加進那個查詢；`play_history`、`playlist_entries` 已在裡面（見下一條與 `playlists` 一條）。寫入曲目用
   `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE（REPLACE 會先刪再插，撞上 `RESTRICT`；沒有直接的閘門，review 時看）。`queue_entries` 的主鍵是位置，
   位移時先改成負值再改回，所以那張表不能加 `position >= 0` 的檢查。`player_state` 單列，音量與
   靜音隨佇列存在這裡、不是設定；隨機排列存成每個位置的名次（`shuffle_rank`），不存排列本身。`queue_entries.track_key`
@@ -477,6 +477,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`migration_test.dart` 的 v11→v12 資料完整性（使用者設定過的快取上限不變、新欄位是空的）與 `migration from v<N> to v12 adds
   radio_stations…`（v1–v11 各一例：狀態字串、毫秒時間、唯一鍵）、`radio_repository_test.dart`（含 `stored format`）、
   `network_settings_repository_test.dart` 的 `radio status interval`。
+
+- `playlists` 與 `playlist_entries` 是 schema v15（ADR 0033 §決定 1、M4 design §3.1，PR 1）：`playlists.kind` 只有 `local`／`imported`／`mix`
+  （字串在 `PlaylistKindConverter`）；Mix 三欄（`mix_plugin_id`、`mix_seed_source_id`、`mix_seed_cid`）靠表級 CHECK：`mix` 時前兩欄非空，否則三欄都空。
+  `playlist_entries.playlist_id` 連帶刪除、`track_key` 是 `RESTRICT`（有索引 `playlist_entries_track_key`，理由同 `queue_entries`），
+  順序是（`position`, `id`）：`position` 不唯一，`removeEntries` 留下空洞、`moveEntries` 整批重寫；同一首曲目可以在同一份歌單出現多次。
+  遠端三欄（`remote_item_id`、`unavailable`、`seen_generation`）只有匯入歌單用。`PlaylistRepository.addTracks` 以 `TracksRepository.upsert` 寫曲目。
+  閘門：`migration_test.dart` 的 `migration from v14 to v15 keeps existing data`、`migration from v<N> to v15 adds the playlist tables`
+  （v1–v14 各一例；`migrateAndValidate` 比對 CHECK、外鍵動作與索引欄位）與 `a new database has the playlist tables`、
+  `playlist_repository_test.dart`（CHECK、連帶刪除、`RESTRICT`、順序重寫、`stored format`）、`queue_repository_test.dart` 的 `a track in a playlist is not an orphan`。
 
 ### 快取庫
 
