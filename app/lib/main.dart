@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:fmp/app/app_scope.dart';
 import 'package:fmp/app/database_error_app.dart';
 import 'package:fmp/app/fmp_app.dart';
+import 'package:fmp/app/licenses.dart';
 import 'package:fmp/app/unsupported_platform_app.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
@@ -35,6 +36,7 @@ import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 
 Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerLicenses();
   final flavor = AppFlavor.parse(appFlavor);
   var platform = AppPlatform.current(flavor);
   // 沒有資料目錄的平台不啟動資料層，也沒有 log 檔（能力宣告 dataDirectory 為假）。

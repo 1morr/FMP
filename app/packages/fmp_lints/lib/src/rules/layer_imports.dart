@@ -30,6 +30,9 @@ final externalPackageOwners = <String, String>{
   'qr_flutter': 'lib/ui/accounts',
   // design §2.2：診斷包的 zip 只在組裝診斷包的模組壓。
   'archive': 'lib/app/diagnostics',
+  // M4 design §2.2：匹配的 NFKC 與 Dice 只在評分核心，外部匯入與歌詞都經它。
+  'unorm_dart': 'lib/core/matching',
+  'string_similarity': 'lib/core/matching',
   // ADR 0016：圖片的 cache manager 接到統一快取庫，widget 只在封面元件。
   'flutter_cache_manager': 'lib/data/cache',
   'cached_network_image': 'lib/ui/artwork',

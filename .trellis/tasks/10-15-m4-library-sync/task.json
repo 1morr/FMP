@@ -25,7 +25,8 @@
     "10-15-m4-refresh-engine",
     "10-15-m4-library-navigation",
     "10-15-m4-playlist-detail",
-    "10-15-m4-home-sections"
+    "10-15-m4-home-sections",
+    "10-15-m4-matching-core"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
