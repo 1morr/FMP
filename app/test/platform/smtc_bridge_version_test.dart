@@ -120,10 +120,7 @@ packages:
 
     test('a missing entry is null, not another package\'s version', () {
       expect(cargoBridgeVersion('[dependencies]\nanyhow = "1"\n'), isNull);
-      expect(
-        lockedVersion('packages:\n  other:\n    version: "1"\n'),
-        isNull,
-      );
+      expect(lockedVersion('packages:\n  other:\n    version: "1"\n'), isNull);
     });
   });
 }
