@@ -98,6 +98,10 @@ MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.M
 - 模擬器卡死（畫面不動、`ax` 是 0 個節點）時，以 `-no-snapshot-load` 重開。
 - 模擬器的 DNS 不快取，第一次連線多約 1 秒；測錯誤路徑關網路：
   `adb shell svc wifi disable && adb shell svc data disable`（驗完開回來）。
-- `flutter test integration_test/... -d emulator-5554` 跑完會**解除安裝** `com.personal.fmp.dev`（資料與複製進
-  `files/` 的插件一起消失）。之後要重新 `adb install -r` dev APK、重新複製插件。
+- Android 整合測試一律 `flutter test integration_test/<檔>.dart -d emulator-5554 --flavor dev --no-uninstall`。
+  不加 `--no-uninstall` 時 Flutter 跑完會解除安裝 App，而且要解除安裝的套件名是**開跑前**決定的：
+  `build/app/outputs/flutter-apk/app-dev-debug.apk` 還不存在（新 worktree、`flutter clean` 之後）時，
+  它退回讀原始碼的 manifest，拿到的是舊版的 `com.personal.fmp`，成功時不印任何訊息。2026-10 就這樣
+  把模擬器上的舊版連同測試資料刪掉了。加了之後 dev App 留在裝置上，資料是測試寫的，要乾淨狀態就
+  `pm clear com.personal.fmp.dev`。
 - 播放中畫面一直在更新時 `uiautomator dump` 會回 `could not get idle state`：改用 `screencap` 看版面，或先暫停。
