@@ -1,0 +1,15 @@
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試分層、零聯網、變異案例的要求"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "migration 三種測試、stored format、孤兒查詢與索引"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "能力與匯出一致、type_definitions、checks.json 與 fixture 的檢查"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "guideline、離線、提示、外殼與快捷鍵的檢查"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "新規則與表的雙向變異與哨兵"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "設定欄位不改使用者值的測試"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "錯誤對應與部分成功的呈現"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 與 fixture 的遮蔽、不含歌單內容"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/research/m4-decisions.md", "reason": "決定的理由與確認清單的原始建議"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§如何確認：刷新差異、資料庫、契約、評分"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§如何確認：型別、匯出、mutates、帶憑證錄製的換值"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§如何確認：migration、刷新、排程、widget"}
+{"file": "docs/adr/0034-backup-file-and-restore.md", "reason": "§如何確認：匯出內容、還原的拒絕與保留登入、表的歸類閘門"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "檢查案例、fixture 遮蔽與手寫、契約執行器"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "實機驗證的回報要求"}

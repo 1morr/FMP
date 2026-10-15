@@ -50,6 +50,7 @@ ADR 0014 §決定 4 列了 12 個能力，§決定 5 定了宿主 API v1，但�
    - `resolveLive({roomId, formats}) → StreamResult`，`expiresAt` 可空。
    - `LiveRoom = {roomId, title, hostName?, artwork?, status: 'live' | 'offline', online?}`。
 4. **`mix`**：`mix({seed: {sourceId, cid?}} | {mixId, cursor}) → {mixId, title, tracks, cursor | null}`。`cursor` 是插件的不透明字串，`null` 表示這個 Mix 沒有更多。**Mix 身分**＝（插件 id, `mixId`）；佇列持久化（ADR 0018 §決定 10）與 M4 的 `playlists.kind = mix`（ADR 0019）存同一對值。
+   - 更正（2026-10-15，M4 PR 0）：M4 的 Mix 歌單存插件 id 與種子曲目，不存 `mixId`（續取的 `cursor` 必填，`mixId` 開不了新的 Mix）（ADR 0033 §決定 3）；M4 的四個能力見 ADR 0032。
 5. **`multiPart`**：`TrackSummary` 加選填 `partCount`；`multiPart({sourceId}) → {parts: [{cid, title, durationMs?, index}]}`。每個分 P 是一首曲目（ADR 0005）。
 6. **`trackDetail`**：`trackDetail({sourceId, cid?}) → {description?, publishedAt?, uploaderAvatar?, album?, stats?: [{kind, count}]}`；`kind` 是封閉的 union（`view`、`like`、`favorite`、`comment`、`share`、`danmaku`、`coin`），宿主依它挑圖示與翻譯，不顯示插件給的文字。
 7. **`checks.json`**：每個能力一個鍵，案例形狀與 `search` 相同（`input`＋`expect`）；`login` 的案例是 `loginVerify`，`live` 的是 `liveStatus`。案例可標 `requiresLogin: true`（M3 只有 `login` 的案例標它；每個能力只有一條案例，不為登入後的行為另加案例）：契約測試照常重播 fixture；Debug 頁健康檢查與 App 內錄製遇到它時，該插件已登入就用已存的憑證跑，未登入標「略過」；命令列錄製略過它。
