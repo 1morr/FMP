@@ -250,6 +250,16 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   Disallowed`，`logcat -b events` 之後沒有 `am_stop_idle_service`、`am_freeze`；`dumpsys media_session` 在中斷期間
   是 `BUFFERING`（2026-10-08 實測通過：關螢幕 3 分鐘照常播、前景服務一直在）。**已知限制**：Android 的媒體卡片對
   `BUFFERING` 畫轉圈圖示、不是暫停鍵，通話期間不能從卡片暫停，掛斷後照常續播（實測）。
+- Android 媒體鍵修正（#233，`android/app/src/main/java/com/personal/fmp/MediaKeyFix.java`）：`audio_service` 0.18.19 把真正的
+  `KEYCODE_MEDIA_PLAY`／`KEYCODE_MEDIA_PAUSE` 都當 `MediaButton.media`、Dart 端切換，已暫停時收到「暫停」鍵會開始播放。
+  不能繼承服務（套件的 `MediaBrowserCompat` 與 `startForegroundService` 都以 `AudioService.class` 指名），所以
+  `MainActivity` 登記頻道 `fmp/media_keys`，Dart 的 `MediaKeyFix.install()` 在 `audio_service` 初始化後與每次非 idle 的
+  `publish` 呼叫，原生端用反射把服務的 `mediaSessionCallback` 換成把 PLAY／PAUSE 改成套件的 `KEYCODE_BYPASS_PLAY`／
+  `KEYCODE_BYPASS_PAUSE` 的子類別（可重複呼叫，失敗只記 log）。依賴私有欄位 `instance`、`mediaSession`、
+  `mediaSessionCallback`，R8 的 keep 規則在 `android/app/proguard-rules.pro`。閘門：`audio_service_internals_test.dart`
+  釘版 0.18.19（升級時重查欄位與 `onMediaButtonEvent`）、`media_controls_android_test.dart` 的 `the media key fix`
+  （呼叫時機、失敗不影響播放）。**反射與鍵碼改寫沒有自動閘門、要實機驗**：暫停時 `adb shell input keyevent
+  KEYCODE_MEDIA_PAUSE` 仍暫停、播放時 `KEYCODE_MEDIA_PLAY` 仍播放，`KEYCODE_MEDIA_PLAY_PAUSE` 仍切換。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
   下面的覆寫**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
