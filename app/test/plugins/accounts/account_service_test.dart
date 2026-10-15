@@ -120,6 +120,14 @@ final class _LoginPlugin implements SourcePlugin {
       throw UnimplementedError('multiPart');
 
   @override
+  Future<PlaylistRef?> playlistFromUrl(PlaylistUrlQuery query) =>
+      throw UnimplementedError('importPlaylist');
+
+  @override
+  Future<PlaylistPage> importPlaylist(PlaylistPageQuery query) =>
+      throw UnimplementedError('importPlaylist');
+
+  @override
   Future<TrackDetail> trackDetail(TrackDetailQuery query) =>
       throw UnimplementedError('trackDetail');
 

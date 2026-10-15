@@ -128,6 +128,38 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<PlaylistRef?> playlistFromUrl(PlaylistUrlQuery query) async {
+    final json = await _invoke(
+      PluginCapability.importPlaylist,
+      query.toJson(),
+      ImportPlaylistExports.fromUrl,
+    );
+    if (json == null) return null;
+    return _decode(
+      () => PlaylistRef.fromJson(
+        json,
+        allowMixSeed: manifest.capabilities.contains(PluginCapability.mix),
+      ),
+    );
+  }
+
+  @override
+  Future<PlaylistPage> importPlaylist(PlaylistPageQuery query) async {
+    final json = await _invoke(
+      PluginCapability.importPlaylist,
+      query.toJson(),
+      ImportPlaylistExports.importPlaylist,
+    );
+    return _decode(
+      () => PlaylistPage.fromJson(
+        json,
+        sourceTypeId: manifest.id,
+        allowedHosts: _allowedHosts,
+      ),
+    );
+  }
+
+  @override
   Future<MultiPartResult> multiPart(MultiPartQuery query) async {
     final json = await _invoke(PluginCapability.multiPart, query.toJson());
     return _decode(() => MultiPartResult.fromJson(json));

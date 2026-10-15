@@ -12,8 +12,9 @@ const hostApiVersion = 1;
 
 /// 插件能力（ADR 0014 §決定 4）。
 ///
-/// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login]、[live] 例外：
-/// 它們的匯出是 [LoginExports]、[LiveExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
+/// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login]、[live]、
+/// [importPlaylist] 例外：它們的匯出是 [LoginExports]、[LiveExports]、
+/// [ImportPlaylistExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
 /// 都要匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。只有已經有
 /// `SourcePlugin` 方法的能力有人呼叫，其他能力認得、檢查匯出。
 enum PluginCapability {
@@ -89,6 +90,18 @@ abstract final class LiveExports {
   static const resolve = 'resolveLive';
 
   static const all = {search, roomFromUrl, status, resolve};
+}
+
+/// `importPlaylist` 能力的匯出函式（ADR 0032 §決定 2、6）。名稱是插件的介面；宣告
+/// `importPlaylist` 就兩個都要匯出（能力名稱本身不是匯出）。
+abstract final class ImportPlaylistExports {
+  /// `({url}) → {playlistId} | {mixSeed} | null`。
+  static const fromUrl = 'playlistFromUrl';
+
+  /// `({playlistId, cursor?}) → {playlist, items, cursor, total?}`。
+  static const importPlaylist = 'importPlaylist';
+
+  static const all = {fromUrl, importPlaylist};
 }
 
 /// 登入方式（ADR 0029 §決定 1）。宿主顯示「插件宣告的 ∩ 這個 App 在這個平台做得到的」。
@@ -275,15 +288,16 @@ final class PluginManifest {
   /// 登入的宣告；沒有 [PluginCapability.login] 時是 `null`。
   final PluginLogin? login;
 
-  /// 腳本一定要匯出的函式：每個能力一個同名的，`login` 換成 [LoginExports.verify]，
+  /// 腳本一定要匯出的函式：每個能力一個同名的，`live` 換成 [LiveExports.all]、
+  /// `importPlaylist` 換成 [ImportPlaylistExports.all]，`login` 換成 [LoginExports.verify]，
   /// methods 含 `qr` 時加 [LoginExports.qrStart]、[LoginExports.qrPoll]，宣告
   /// `refresh` 時加 [LoginExports.refresh]。
   Set<String> get requiredExports => {
     for (final capability in capabilities)
-      if (capability != PluginCapability.login &&
-          capability != PluginCapability.live)
-        capability.wireName,
+      if (!_multiExport.contains(capability)) capability.wireName,
     if (capabilities.contains(PluginCapability.live)) ...LiveExports.all,
+    if (capabilities.contains(PluginCapability.importPlaylist))
+      ...ImportPlaylistExports.all,
     if (login case final login?) ...[
       LoginExports.verify,
       if (login.methods.contains(LoginMethod.qr)) ...[
@@ -298,10 +312,9 @@ final class PluginManifest {
   /// 匯出雙向一致）。其他名稱的匯出不管。
   static final knownExports = {
     for (final capability in PluginCapability.values)
-      if (capability != PluginCapability.login &&
-          capability != PluginCapability.live)
-        capability.wireName,
+      if (!_multiExport.contains(capability)) capability.wireName,
     ...LiveExports.all,
+    ...ImportPlaylistExports.all,
     ...LoginExports.all,
   };
 
@@ -313,6 +326,13 @@ final class PluginManifest {
 
   static const maxDescriptionLength = 200;
 }
+
+/// 匯出不是「能力的同名函式」的能力。
+const _multiExport = {
+  PluginCapability.login,
+  PluginCapability.live,
+  PluginCapability.importPlaylist,
+};
 
 final _idPattern = RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$');
 

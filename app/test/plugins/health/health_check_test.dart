@@ -90,6 +90,23 @@ export async function trackDetail({ sourceId }) {
 }
 ''';
 
+/// importPlaylist：`playlistFromUrl` 不發請求，第一頁打 `/playlist`：200 回兩項，其他狀態碼一律拋錯。
+const _importPlaylistScript = '''
+export function playlistFromUrl({ url }) { return { playlistId: 'pl' }; }
+export async function importPlaylist({ playlistId }) {
+  const response = await fmp.http.request({ url: 'https://example.test/playlist', auth: 'userPreference' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return {
+    playlist: { title: 'List' },
+    items: [1, 2].map((n) => ({ track: { sourceId: playlistId + n, title: 'T' + n } })),
+    cursor: null,
+  };
+}
+''';
+const _importPlaylistCheck =
+    '"importPlaylist": {"input": {"url": "https://example.test/pl"}, '
+    '"expect": {"minItems": 2, "nonEmpty": ["track"]}}';
+
 const _trackDetailCheck =
     '"trackDetail": {"input": {"sourceId": "s"}, '
     '"expect": {"minItems": 1, "nonEmpty": ["description", "stats"]}}';
@@ -122,6 +139,7 @@ final class _Spec {
     this.mix = false,
     this.multiPart = false,
     this.trackDetail = false,
+    this.importPlaylist = false,
   });
 
   final String id;
@@ -132,6 +150,7 @@ final class _Spec {
   final bool mix;
   final bool multiPart;
   final bool trackDetail;
+  final bool importPlaylist;
 }
 
 Future<
@@ -158,7 +177,8 @@ _setup(
           '$_script${spec.login ? _loginScript : ''}'
           '${spec.live ? _liveScript : ''}${spec.mix ? _mixScript : ''}'
           '${spec.multiPart ? _multiPartScript : ''}'
-          '${spec.trackDetail ? _trackDetailScript : ''}',
+          '${spec.trackDetail ? _trackDetailScript : ''}'
+          '${spec.importPlaylist ? _importPlaylistScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
@@ -166,6 +186,7 @@ _setup(
             if (spec.mix) 'mix',
             if (spec.multiPart) 'multiPart',
             if (spec.trackDetail) 'trackDetail',
+            if (spec.importPlaylist) 'importPlaylist',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -397,6 +418,44 @@ void main() {
         [detail],
         handler: (options) =>
             reply(options.uri.path == '/detail' ? 500 : 200, body: '{}'),
+      );
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.last.outcome, HealthOutcome.failed);
+    });
+  });
+
+  group('an importPlaylist case', () {
+    final import = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_importPlaylistCheck}',
+      importPlaylist: true,
+    );
+
+    test('recognises the url, fetches the first page and passes', () async {
+      final s = await _setup([import]);
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(s.requests.where((r) => r.startsWith('/playlist')), hasLength(1));
+    });
+
+    test('fails when the page request fails', () async {
+      final s = await _setup(
+        [import],
+        handler: (options) =>
+            reply(options.uri.path == '/playlist' ? 500 : 200, body: '{}'),
       );
       await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
       final cases = s.container

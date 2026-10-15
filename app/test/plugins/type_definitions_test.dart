@@ -268,6 +268,90 @@ export function shape() {
     expect(mutated.contains(PluginCapability.trackDetail.wireName), isFalse);
   });
 
+  test(
+    'the importPlaylist exports match ImportPlaylistExports and the d.ts',
+    () {
+      final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+      expect(exports.containsAll(ImportPlaylistExports.all), isTrue);
+      // 變異：d.ts 少一個匯出就對不上。
+      for (final (original, renamed) in [
+        ('  playlistFromUrl?(', '  playlistFromUrlRenamed?('),
+        ('  importPlaylist?(', '  importPlaylistRenamed?('),
+      ]) {
+        final mutated = _interfaces(
+          _dts.replaceFirst(original, renamed),
+        )['FmpPluginExports']!.keys.toSet();
+        expect(mutated.containsAll(ImportPlaylistExports.all), isFalse);
+      }
+      // 無關的格式變動（縮排）不影響。
+      expect(_dts, contains('  playlistFromUrl?('));
+      final reindented = _interfaces(
+        _dts.replaceFirst('  playlistFromUrl?(', '\t\tplaylistFromUrl?('),
+      )['FmpPluginExports']!.keys.toSet();
+      expect(reindented.containsAll(ImportPlaylistExports.all), isTrue);
+    },
+  );
+
+  test('the importPlaylist page fields match between the d.ts and Dart', () {
+    expect(sourceDtoShapes['PlaylistPage']!['cursor'], isFalse);
+    expect(_interfaces(_dts)['PlaylistPage']!['cursor'], isFalse);
+    expect(sourceDtoShapes['PlaylistPage']!['items'], isTrue);
+    expect(_interfaces(_dts)['RemotePlaylistItem']!['track'], isTrue);
+    expect(_interfaces(_dts)['PlaylistIdRef']!['playlistId'], isTrue);
+    expect(_interfaces(_dts)['PlaylistMixSeedRef']!['mixSeed'], isTrue);
+    // 變異：d.ts 把 items 改成選填、少了 total、或 track 改成選填，欄位表比對就紅。
+    for (final (original, mutated) in [
+      ('  items: RemotePlaylistItem[];', '  items?: RemotePlaylistItem[];'),
+      ('  total?: number | null;\n', ''),
+      ('  track: TrackSummary;', '  track?: TrackSummary;'),
+      ('  mixSeed: MixSeed;', '  mixSeed?: MixSeed;'),
+    ]) {
+      expect(_dts, contains(original));
+      expect(
+        _shapeDifferences(_dts.replaceFirst(original, mutated)),
+        isNotEmpty,
+        reason: original,
+      );
+    }
+    // 無關的變動（多一行說明）不影響。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst(
+          '  total?: number | null;',
+          '  /** 說明 */\n  total?: number | null;',
+        ),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('partIndex and parentTitle match between the d.ts and Dart', () {
+    expect(sourceDtoShapes['TrackSummary']!['partIndex'], isFalse);
+    expect(sourceDtoShapes['TrackSummary']!['parentTitle'], isFalse);
+    expect(_interfaces(_dts)['TrackSummary']!['partIndex'], isFalse);
+    expect(_interfaces(_dts)['TrackSummary']!['parentTitle'], isFalse);
+    // 變異：d.ts 把其中一個改成必填、或少了一個，欄位表比對就紅。
+    for (final (original, mutated) in [
+      ('  partIndex?: number', '  partIndex: number'),
+      ('  parentTitle?: string', '  parentTitle: string'),
+      ('  parentTitle?: string | null;\n', ''),
+    ]) {
+      expect(_dts, contains(original));
+      expect(
+        _shapeDifferences(_dts.replaceFirst(original, mutated)),
+        isNotEmpty,
+        reason: original,
+      );
+    }
+    // 無關的變動（改寫說明）不影響。
+    expect(_dts, contains('/** 分 P 曲目所屬影片的標題'));
+    expect(
+      _shapeDifferences(_dts.replaceFirst('/** 分 P 曲目所屬影片的標題', '/** 影片的標題')),
+      isEmpty,
+    );
+  });
+
   test('the stat kinds match TrackStatKind', () {
     final expected = {for (final kind in TrackStatKind.values) kind.wireName};
 

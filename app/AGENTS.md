@@ -915,8 +915,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`Unsupported`）；其他名稱的匯出不管。`login` 例外：它的匯出是 `loginVerify`，methods 含 `qr` 時加 `loginQrStart`、
   `loginQrPoll`，宣告 `refresh` 時加 `loginRefresh`（`PluginManifest.requiredExports`），同樣雙向一致。`live` 也例外：
   匯出是 `liveSearch`、`liveRoomFromUrl`、`liveStatus`、`resolveLive` 四個，宣告就要全有（`LiveExports`），也沒有名叫 `live` 的匯出。
+  `importPlaylist` 也例外：匯出是 `playlistFromUrl`、`importPlaylist` 兩個，宣告就要全有（`ImportPlaylistExports`）。
   `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
-  `live_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+  `live_capability_test.dart`、`import_playlist_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
 - `live`（ADR 0028 §決定 3；電台見 § 電台，收聽見 § 播放的「直播」）：`liveStatus` 查詢失敗一律拋錯，
   不能回 `offline`（D10）：宿主把拋錯顯示成「查詢失敗」，`offline` 只表示查到了而且沒開播；插件吞掉錯誤回 `offline` 是插件的 bug，
   宿主分不出來，本 repo 沒有閘門守（`fmp-test` 的 `live-broken` 只示範正確的行為）。
@@ -944,12 +945,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   所以新的種類要先改宿主。閘門：`track_detail_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證含未知 `kind`／負的
   `count`／頭像網域）、`type_definitions_test.dart` 的 `the trackDetail export is named after the capability…`、`the stat kinds match
   TrackStatKind`、`the trackDetail fields match…`（含變異）。
-- `checks.json` 的 `live`、`mix`、`multiPart`、`trackDetail` 案例各呼叫那個能力一次（`live` 跑 `liveStatus`、`mix` 以 `seed` 開始），
+- `importPlaylist`（ADR 0032 §決定 1、2；宿主端的 `PlaylistImporter` 與刷新器還沒有，現在只有插件契約）：`playlistFromUrl` 回 `null`
+  （不是我的網址）、`{playlistId}` 或 `{mixSeed}`（`PlaylistRef`），`mixSeed` **只收宣告 `mix` 的插件**（否則 `ParseError`）；
+  `importPlaylist` 回一頁 `{playlist, items, cursor, total?}`：`items` 可以是空陣列，`cursor` 沒有或 `null` 是最後一頁（d.ts 寫成選填，
+  同 `mix`；空字串拒收），`total` 非負、只在確定等於會回傳的筆數時才給，`playlist` 每一頁都要給。`TrackSummary` 的選填
+  `partIndex`（正整數）與 `parentTitle`（不空）**要嘛都給、要嘛都不給**（只給一個是 `ParseError`），宿主寫進 `TrackInfo`；分 P 曲目
+  一定要給，否則宿主的 upsert 會清掉這兩欄。錯誤：不存在或沒權限讀 `NotFound`、要登入而沒登入 `AuthRequired`。**請求一律標
+  `userPreference`，被拒時以 `required` 重送一次**由插件做（宿主沒有「這是歌單」的資訊），宿主沒有閘門，由各插件 repo 的 Node 測試守。
+  閘門：`import_playlist_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證、`mixSeed` 與 `mix` 的關係、分 P 兩欄）、
+  `test_plugin_bundle_test.dart` 的 `playlists`（`fmp-test` 的七張歌單）、`type_definitions_test.dart` 的 `the importPlaylist exports…`、
+  `the importPlaylist page fields…`、`partIndex and parentTitle…`（都含變異）。
+- `checks.json` 的 `live`、`mix`、`multiPart`、`trackDetail`、`importPlaylist` 案例各呼叫那個能力一次（`live` 跑 `liveStatus`、`mix` 以 `seed` 開始），
   檢查的清單是回傳的那一份（直播間、`tracks`、`parts`、那一筆詳細），`nonEmpty` 的名稱是該 DTO 的欄位名；重播照跑、命令列錄製照錄
-  （匿名）。閘門：`checks_test.dart` 的 `the live check`／`the mix check`／`the multiPart check`／`the trackDetail check`、
-  `contract_runner_test.dart` 的 `a live check…`／`a mix check…`／`a multiPart check…`／`a trackDetail check…`（四種都有「沒宣告能力」；
-  `live`、`mix`、`trackDetail` 另有期望不符，`live`、`mix` 另有改無關處不紅）、`health_check_test.dart` 的 `a live case`／`a mix case`／
-  `a multiPart case`／`a trackDetail case`、`dev_case_runs_test.dart` 的 `a live case…`／`a mix case…`／`a multiPart case…`／`a trackDetail case…`。
+  （匿名）。`importPlaylist` 案例先跑 `playlistFromUrl`（輸入 `{url}`，用公開歌單）、再跑第一頁，檢查的清單是 `items`，`nonEmpty` 的名稱是
+  `RemotePlaylistItem` 的（`track`、`remoteItemId`、`unavailable`）；網址認不得或回 `mixSeed` 案例失敗（`ParseError`）。閘門：
+  `checks_test.dart` 的 `the live check`／`the mix check`／`the multiPart check`／`the trackDetail check`／`the importPlaylist check`、
+  `contract_runner_test.dart` 的 `a live check…`／`a mix check…`／`a multiPart check…`／`a trackDetail check…`／`an importPlaylist check…`（五種都有「沒宣告能力」；
+  `live`、`mix`、`trackDetail`、`importPlaylist` 另有期望不符，`live`、`mix`、`importPlaylist` 另有改無關處不紅）、`health_check_test.dart` 的 `a live case`／`a mix case`／
+  `a multiPart case`／`a trackDetail case`／`an importPlaylist case`、`dev_case_runs_test.dart` 的 `a live case…`／`a mix case…`／`a multiPart case…`／`a trackDetail case…`／`an importPlaylist case…`。
 - `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
   `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
   `record_test.dart` 的 `skips a case that requires a login`。

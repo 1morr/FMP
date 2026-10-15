@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/domain/account.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:yaml/yaml.dart';
@@ -273,6 +276,188 @@ void main() {
     test('an unknown room is NotFound', () async {
       await expectLater(status('nope'), throwsA(isA<NotFound>()));
       await expectLater(stream('nope'), throwsA(isA<NotFound>()));
+    });
+  });
+
+  group('playlists', () {
+    Future<ScriptSourcePlugin> load() =>
+        PluginHarness().load(testPluginFile.readAsStringSync());
+
+    Future<PlaylistPage> page(
+      ScriptSourcePlugin plugin,
+      String id, [
+      String? cursor,
+    ]) => plugin.importPlaylist(
+      PlaylistPageQuery(playlistId: id, cursor: cursor),
+    );
+
+    List<String> titles(PlaylistPage page) => [
+      for (final item in page.items) item.track.title,
+    ];
+
+    test('only fmp.test playlist and mix urls are recognised', () async {
+      final plugin = await load();
+      Future<PlaylistRef?> from(String url) =>
+          plugin.playlistFromUrl(PlaylistUrlQuery(url: url));
+
+      final playlist = await from('https://fmp.test/playlist/pl-basic');
+      final mix = await from('https://fmp.test/mix/tone-440');
+
+      expect((playlist! as PlaylistIdRef).playlistId, 'pl-basic');
+      expect((mix! as PlaylistMixSeedRef).seed.sourceId, 'tone-440');
+      expect(await from('https://fmp.test/live/live-ok'), isNull);
+      expect(await from('https://fmp.test/playlist/'), isNull);
+      expect(await from('https://other.test/playlist/pl-basic'), isNull);
+    });
+
+    test(
+      'pl-basic has five songs over two pages, the 1st and 4th alike',
+      () async {
+        final plugin = await load();
+
+        final first = await page(plugin, 'pl-basic');
+        final second = await page(plugin, 'pl-basic', first.cursor);
+
+        expect(first.items, hasLength(3));
+        expect(second.items, hasLength(2));
+        expect(first.cursor, isNotNull);
+        expect(second.cursor, isNull);
+        expect(first.total, 5);
+        final all = [...first.items, ...second.items];
+        final ids = [for (final item in all) item.track.sourceId];
+        expect(ids[0], ids[3]);
+        expect(ids.toSet(), hasLength(4));
+        // 同一首的資料也相同：宿主依曲目鍵只存一份，兩個位置顯示同一個標題。
+        expect(all[0].track.title, all[3].track.title);
+        expect(all[0].track.toTrackInfo(), all[3].track.toTrackInfo());
+        expect(all.map((item) => item.remoteItemId), everyElement(isNull));
+      },
+    );
+
+    test(
+      'pl-grow adds, removes, then reverses, one step per refresh',
+      () async {
+        final plugin = await load();
+        List<String?> ids(PlaylistPage page) => [
+          for (final item in page.items) item.remoteItemId,
+        ];
+
+        final first = await page(plugin, 'pl-grow');
+        final second = await page(plugin, 'pl-grow');
+        final third = await page(plugin, 'pl-grow');
+
+        expect(ids(first), ['grow-1', 'grow-2', 'grow-3', 'grow-4', 'grow-5']);
+        expect(ids(second), ['grow-2', 'grow-3', 'grow-4', 'grow-5']);
+        expect(ids(third), ['grow-5', 'grow-4', 'grow-3', 'grow-2']);
+        // 每項是不同的曲目：新增、移除與倒序在歌單裡看得出來。
+        expect(
+          [for (final item in third.items) item.track.sourceId],
+          ['grow-5', 'grow-4', 'grow-3', 'grow-2'],
+        );
+        expect(
+          [first, second, third].map((page) => (page.cursor, page.total)),
+          [(null, 5), (null, 4), (null, 4)],
+        );
+      },
+    );
+
+    test('pl-partial fails on the second page', () async {
+      final plugin = await load();
+
+      final first = await page(plugin, 'pl-partial');
+
+      expect(first.cursor, isNotNull);
+      await expectLater(
+        page(plugin, 'pl-partial', first.cursor),
+        throwsA(isA<NetworkError>()),
+      );
+    });
+
+    test('pl-gone is NotFound, and so is an unknown playlist', () async {
+      final plugin = await load();
+
+      await expectLater(page(plugin, 'pl-gone'), throwsA(isA<NotFound>()));
+      await expectLater(page(plugin, 'pl-nope'), throwsA(isA<NotFound>()));
+    });
+
+    test('pl-auth needs a login, then it is three writable songs', () async {
+      final harness = PluginHarness();
+      final plugin = await harness.load(testPluginFile.readAsStringSync());
+
+      await expectLater(page(plugin, 'pl-auth'), throwsA(isA<AuthRequired>()));
+
+      await harness.credentials.save(
+        Account(
+          pluginId: 'fmp-test',
+          userId: 'fmp-test-user',
+          displayName: 'FMP Test User',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026, 10, 15),
+        ),
+        const LoginCredentials(cookies: {'fmp_test_session': 'fake-session'}),
+      );
+      final result = await page(plugin, 'pl-auth');
+
+      expect(result.items, hasLength(3));
+      expect(result.playlist.writable, isTrue);
+    });
+
+    test('the other playlists do not know whether they are writable', () async {
+      final plugin = await load();
+
+      for (final id in ['pl-basic', 'pl-grow', 'pl-unavailable', 'pl-parts']) {
+        expect((await page(plugin, id)).playlist.writable, isNull, reason: id);
+      }
+    });
+
+    test('pl-unavailable marks only its second song', () async {
+      final plugin = await load();
+
+      final result = await page(plugin, 'pl-unavailable');
+
+      expect(result.items.map((item) => item.unavailable), [
+        false,
+        true,
+        false,
+      ]);
+    });
+
+    test('pl-parts expands one video into three parts', () async {
+      final plugin = await load();
+
+      final result = await page(plugin, 'pl-parts');
+
+      expect(result.total, isNull);
+      expect(result.cursor, isNull);
+      expect(titles(result), ['Part one', 'Part two', 'Part three']);
+      final tracks = [for (final item in result.items) item.track];
+      expect(tracks.map((track) => track.partIndex), [1, 2, 3]);
+      expect(tracks.map((track) => track.cid), [22001, 22002, 22003]);
+      expect(tracks.map((track) => track.parentTitle).toSet(), {
+        'Test multi-part video',
+      });
+      expect({for (final track in tracks) track.sourceId}, {'parts-220'});
+      // 和 multiPart 的 parts-220 同一組 cid。
+      final parts = await plugin.multiPart(
+        MultiPartQuery(sourceId: 'parts-220'),
+      );
+      expect(parts.parts.map((part) => part.cid), tracks.map((t) => t.cid));
+    });
+
+    test('every playlist song plays a bundled asset', () async {
+      final plugin = await load();
+
+      for (final id in ['pl-basic', 'pl-grow', 'pl-unavailable', 'pl-parts']) {
+        for (final item in (await page(plugin, id)).items) {
+          final stream = await plugin.resolveStream(
+            StreamRequest(
+              sourceId: item.track.sourceId,
+              formats: [StreamFormat(container: 'wav', codec: 'pcm_s16le')],
+            ),
+          );
+          expect(stream.candidates.first.url.scheme, 'asset', reason: id);
+        }
+      }
     });
   });
 

@@ -28,6 +28,8 @@ const sourceDtoShapes = <String, JsonShape>{
     'durationMs': false,
     'artwork': false,
     'partCount': false,
+    'partIndex': false,
+    'parentTitle': false,
   },
   'Artwork': {'url': true, 'width': false},
   'StreamRequest': {
@@ -85,6 +87,28 @@ const sourceDtoShapes = <String, JsonShape>{
     'stats': false,
   },
   'TrackStat': {'kind': true, 'count': true},
+  'PlaylistUrlQuery': {'url': true},
+  'PlaylistIdRef': {'playlistId': true},
+  'PlaylistMixSeedRef': {'mixSeed': true},
+  'PlaylistPageQuery': {'playlistId': true, 'cursor': false},
+  'PlaylistPage': {
+    'playlist': true,
+    'items': true,
+    'cursor': false,
+    'total': false,
+  },
+  'RemotePlaylist': {
+    'title': true,
+    'description': false,
+    'artwork': false,
+    'ownerName': false,
+    'writable': false,
+  },
+  'RemotePlaylistItem': {
+    'track': true,
+    'remoteItemId': false,
+    'unavailable': false,
+  },
 };
 
 /// 搜尋的輸入。
@@ -155,7 +179,12 @@ final class TrackSummary {
     this.duration,
     this.artwork = const [],
     this.partCount,
-  });
+    this.partIndex,
+    this.parentTitle,
+  }) : assert(
+         (partIndex == null) == (parentTitle == null),
+         'partIndex and parentTitle come together',
+       );
 
   factory TrackSummary._fromJson(
     Object? json, {
@@ -169,6 +198,17 @@ final class TrackSummary {
       path: path,
     );
     final durationMs = fields.optionalInteger('durationMs');
+    final partIndex = fields.optionalInteger('partIndex', min: 1);
+    final parentTitle = fields.optionalString('parentTitle');
+    if (parentTitle != null && parentTitle.trim().isEmpty) {
+      throw FormatException('$path.parentTitle: must not be empty');
+    }
+    // 兩欄一起給：只給一個，宿主寫進 TrackInfo 會顯示成半個分 P。
+    if ((partIndex == null) != (parentTitle == null)) {
+      throw FormatException(
+        '$path: partIndex and parentTitle must be given together',
+      );
+    }
     return TrackSummary(
       sourceTypeId: sourceTypeId,
       sourceId: _sourceId(fields, path),
@@ -186,6 +226,8 @@ final class TrackSummary {
           ),
       ]),
       partCount: fields.optionalInteger('partCount', min: 1),
+      partIndex: partIndex,
+      parentTitle: parentTitle,
     );
   }
 
@@ -205,6 +247,11 @@ final class TrackSummary {
   /// 1 是確定單 P（不顯示）。只在記憶體，不存。
   final int? partCount;
 
+  /// 分 P 曲目的序號（從 1 起）與影片標題（ADR 0032 §決定 1）：兩個一起給或一起沒有，
+  /// 宿主寫進 [TrackInfo.partIndex]、[TrackInfo.parentTitle]。
+  final int? partIndex;
+  final String? parentTitle;
+
   /// 插件以外（佇列、歷史）用的曲目：欄位逐一照搬。
   TrackInfo toTrackInfo() => TrackInfo(
     sourceTypeId: sourceTypeId,
@@ -217,6 +264,8 @@ final class TrackSummary {
       for (final image in artwork)
         TrackArtwork(url: image.url, width: image.width),
     ]),
+    partIndex: partIndex,
+    parentTitle: parentTitle,
   );
 }
 
@@ -1050,4 +1099,235 @@ final class TrackDetail {
       uploaderAvatar.isEmpty &&
       (album ?? '').trim().isEmpty &&
       stats.isEmpty;
+}
+
+/// `playlistFromUrl` 的輸入（ADR 0032 §決定 2）。
+@immutable
+final class PlaylistUrlQuery {
+  PlaylistUrlQuery({required this.url}) {
+    if (url.trim().isEmpty) {
+      throw ArgumentError.value(url, 'url', 'must not be empty');
+    }
+  }
+
+  final String url;
+
+  Map<String, Object?> toJson() => {'url': url};
+}
+
+/// `playlistFromUrl` 認得網址時的回傳值：一張歌單（[PlaylistIdRef]）或一個 Mix 的種子
+/// （[PlaylistMixSeedRef]）。
+sealed class PlaylistRef {
+  const PlaylistRef();
+
+  /// 解碼插件回傳的值。[allowMixSeed] 是插件宣告了 `mix`：沒宣告卻回 `mixSeed`
+  /// 是 [FormatException]（宿主之後沒有東西能開那個 Mix）。
+  factory PlaylistRef.fromJson(Object? json, {required bool allowMixSeed}) {
+    if (json case {'mixSeed': _}) {
+      const path = 'PlaylistMixSeedRef';
+      final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+      if (!allowMixSeed) {
+        throw const FormatException(
+          '$path: the plugin does not declare the mix capability',
+        );
+      }
+      final seed = JsonFields(
+        fields.raw('mixSeed'),
+        sourceDtoShapes['MixSeed']!,
+        path: '$path.mixSeed',
+      );
+      return PlaylistMixSeedRef(
+        MixSeedQuery(
+          sourceId: seed.nonEmptyString('sourceId'),
+          cid: seed.optionalInteger('cid'),
+        ),
+      );
+    }
+    const path = 'PlaylistIdRef';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    return PlaylistIdRef(fields.nonEmptyString('playlistId'));
+  }
+}
+
+/// 這個網址是插件的歌單，id 是 [playlistId]（音源內的 id，不透明）。
+@immutable
+final class PlaylistIdRef extends PlaylistRef {
+  const PlaylistIdRef(this.playlistId);
+
+  final String playlistId;
+}
+
+/// 這個網址是一個 Mix：[seed] 直接交給 `mix`。
+@immutable
+final class PlaylistMixSeedRef extends PlaylistRef {
+  const PlaylistMixSeedRef(this.seed);
+
+  final MixSeedQuery seed;
+}
+
+/// `importPlaylist` 的輸入：[cursor] 是上一頁回傳的，第一頁不給。
+@immutable
+final class PlaylistPageQuery {
+  PlaylistPageQuery({required this.playlistId, this.cursor}) {
+    if (playlistId.trim().isEmpty) {
+      throw ArgumentError.value(playlistId, 'playlistId', 'must not be empty');
+    }
+    if (cursor != null && cursor!.isEmpty) {
+      throw ArgumentError.value(cursor, 'cursor', 'must not be empty');
+    }
+  }
+
+  final String playlistId;
+  final String? cursor;
+
+  Map<String, Object?> toJson() => {
+    'playlistId': playlistId,
+    if (cursor != null) 'cursor': cursor,
+  };
+}
+
+/// `importPlaylist` 的一頁結果（ADR 0032 §決定 2）。
+@immutable
+final class PlaylistPage {
+  const PlaylistPage({
+    required this.playlist,
+    required this.items,
+    this.cursor,
+    this.total,
+  });
+
+  factory PlaylistPage.fromJson(
+    Object? json, {
+    required String sourceTypeId,
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'PlaylistPage';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final cursor = fields.optionalString('cursor');
+    if (cursor != null && cursor.isEmpty) {
+      throw const FormatException('$path.cursor: must not be empty');
+    }
+    return PlaylistPage(
+      playlist: RemotePlaylist._fromJson(
+        fields.raw('playlist'),
+        allowedHosts: allowedHosts,
+        path: '$path.playlist',
+      ),
+      items: List.unmodifiable([
+        for (final (index, item) in fields.list('items').indexed)
+          RemotePlaylistItem._fromJson(
+            item,
+            sourceTypeId: sourceTypeId,
+            allowedHosts: allowedHosts,
+            path: '$path.items[$index]',
+          ),
+      ]),
+      cursor: cursor,
+      total: fields.optionalInteger('total'),
+    );
+  }
+
+  /// 歌單本身的資料；每一頁都要給（宿主只在完整套用時才用）。
+  final RemotePlaylist playlist;
+
+  /// 這一頁的項目，可以是空的（空歌單、或最後一頁剛好沒東西）。
+  final List<RemotePlaylistItem> items;
+
+  /// 插件的不透明字串；`null` 是最後一頁。
+  final String? cursor;
+
+  /// 整張歌單的筆數（非負）；插件只在確定等於會回傳的筆數時才給。
+  final int? total;
+}
+
+/// 遠端歌單本身的資料。
+@immutable
+final class RemotePlaylist {
+  const RemotePlaylist({
+    required this.title,
+    this.description,
+    this.artwork = const [],
+    this.ownerName,
+    this.writable,
+  });
+
+  factory RemotePlaylist._fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+    required String path,
+  }) {
+    final fields = JsonFields(
+      json,
+      sourceDtoShapes['RemotePlaylist']!,
+      path: path,
+    );
+    return RemotePlaylist(
+      title: fields.nonEmptyString('title'),
+      description: fields.optionalString('description'),
+      artwork: List.unmodifiable([
+        for (final (index, item)
+            in (fields.optionalList('artwork') ?? []).indexed)
+          Artwork._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: '$path.artwork[$index]',
+          ),
+      ]),
+      ownerName: fields.optionalString('ownerName'),
+      writable: fields.optionalBool('writable'),
+    );
+  }
+
+  final String title;
+  final String? description;
+  final List<Artwork> artwork;
+  final String? ownerName;
+
+  /// 這張是登入的帳號自己的、可以寫；`null` 是這次不知道（沒帶憑證），宿主保留上次的值。
+  final bool? writable;
+}
+
+/// 遠端歌單的一個項目。
+@immutable
+final class RemotePlaylistItem {
+  const RemotePlaylistItem({
+    required this.track,
+    this.remoteItemId,
+    this.unavailable = false,
+  });
+
+  factory RemotePlaylistItem._fromJson(
+    Object? json, {
+    required String sourceTypeId,
+    required AllowedHosts allowedHosts,
+    required String path,
+  }) {
+    final fields = JsonFields(
+      json,
+      sourceDtoShapes['RemotePlaylistItem']!,
+      path: path,
+    );
+    final remoteItemId = fields.optionalString('remoteItemId');
+    if (remoteItemId != null && remoteItemId.isEmpty) {
+      throw FormatException('$path.remoteItemId: must not be empty');
+    }
+    return RemotePlaylistItem(
+      track: TrackSummary._fromJson(
+        fields.raw('track'),
+        sourceTypeId: sourceTypeId,
+        allowedHosts: allowedHosts,
+        path: '$path.track',
+      ),
+      remoteItemId: remoteItemId,
+      unavailable: fields.optionalBool('unavailable') ?? false,
+    );
+  }
+
+  final TrackSummary track;
+
+  /// 遠端項目的 id（YouTube 的 `setVideoId`），移除要用；同一首可以在歌單裡出現多次。
+  final String? remoteItemId;
+
+  /// 遠端標的失效（被刪、被隱藏）。
+  final bool unavailable;
 }

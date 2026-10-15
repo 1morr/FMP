@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -108,6 +108,133 @@ const PART_COUNTS = { 220: 3, 440: 2, 880: 1 };
 const DETAIL_FULL_ID = 'tone-440';
 const DETAIL_FAIL_ID = 'tone-880';
 
+// 歌單匯入（ADR 0032 §決定 2），不連網；狀態存在這個 isolate 的記憶體，到 App 重啟為止。
+// `playlistFromUrl` 認 `https://fmp.test/playlist/<id>`（任何 id；不存在的 id 在
+// `importPlaylist` 才 NotFound）與 `https://fmp.test/mix/<sourceId>`（回 mixSeed）。歌單：
+// - pl-basic：5 首、每頁 3 首（cursor `3`），第 1、4 首是同一首（曲目鍵與資料都相同）；
+//   沒有 remoteItemId。
+// - pl-grow：單頁，有 remoteItemId，每項是不同的曲目（`grow-<n>`，看得出順序）。每次取
+//   第一頁（＝每刷新一次）輪流：新增一首、移除最前面一首、整張倒序。
+// - pl-partial：第 1 頁 3 首，第 2 頁（cursor `3`）NetworkError。
+// - pl-gone：NotFound。
+// - pl-auth：沒有憑證 AuthRequired；有就回 3 首、writable: true。
+// - pl-unavailable：3 首，第 2 首 unavailable。
+// - pl-parts：一支 3 P 的影片（parts-220）展開成 3 首，帶 partIndex、parentTitle；不給 total。
+const PLAYLIST_URL = /^https:\/\/fmp\.test\/playlist\/([a-z0-9-]+)$/;
+const MIX_URL = /^https:\/\/fmp\.test\/mix\/([a-z0-9-]+)$/;
+const IMPORT_PAGE_SIZE = 3;
+const BASIC_TRACKS = [440, 220, 880, 440, 330];
+
+// pl-grow 目前的內容（遠端項目 id 的清單，順序就是遠端順序）與已經取過幾次第一頁。
+let growItems = [1, 2, 3, 4];
+let growNext = 5;
+let growFetches = 0;
+
+function playlistTrack(sourceId, title, extra) {
+  return { sourceId, title, uploader: 'FMP', durationMs: 2000, artwork: [], ...extra };
+}
+
+// 同一首曲目在每張歌單、每個位置的資料都一樣（真的音源也是），宿主依曲目鍵存一份。
+function basicItems() {
+  return BASIC_TRACKS.map((hz) => ({
+    track: playlistTrack(`tone-${hz}`, `Playlist tone ${hz} Hz`),
+  }));
+}
+
+function growStep() {
+  growFetches += 1;
+  switch (growFetches % 3) {
+    case 1:
+      growItems = [...growItems, growNext++];
+      break;
+    case 2:
+      growItems = growItems.slice(1);
+      break;
+    default:
+      growItems = [...growItems].reverse();
+  }
+}
+
+function pagedItems(items, cursor) {
+  const start = cursor === undefined || cursor === null ? 0 : Number(cursor);
+  const end = start + IMPORT_PAGE_SIZE;
+  return { items: items.slice(start, end), cursor: end < items.length ? String(end) : null };
+}
+
+export function playlistFromUrl(query) {
+  const playlist = PLAYLIST_URL.exec(query.url);
+  if (playlist !== null) return { playlistId: playlist[1] };
+  const mix = MIX_URL.exec(query.url);
+  if (mix !== null) return { mixSeed: { sourceId: mix[1] } };
+  return null;
+}
+
+export async function importPlaylist(query) {
+  const id = query.playlistId;
+  const meta = { ownerName: 'FMP' };
+  switch (id) {
+    case 'pl-basic': {
+      const page = pagedItems(basicItems(), query.cursor);
+      return { playlist: { ...meta, title: 'Basic playlist' }, ...page, total: BASIC_TRACKS.length };
+    }
+    case 'pl-grow': {
+      if (query.cursor === undefined || query.cursor === null) growStep();
+      return {
+        playlist: { ...meta, title: 'Growing playlist' },
+        items: growItems.map((n) => ({
+          track: playlistTrack(`grow-${n}`, `Grow track ${n}`),
+          remoteItemId: `grow-${n}`,
+        })),
+        cursor: null,
+        total: growItems.length,
+      };
+    }
+    case 'pl-partial': {
+      if (query.cursor !== undefined && query.cursor !== null) {
+        throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
+      }
+      const page = pagedItems(basicItems(), query.cursor);
+      return { playlist: { ...meta, title: 'Partial playlist' }, ...page, total: BASIC_TRACKS.length };
+    }
+    case 'pl-gone':
+      throw { fmpError: 'NotFound', message: 'the playlist is gone' };
+    case 'pl-auth': {
+      if ((await fmp.credentials.get()) === null) {
+        throw { fmpError: 'AuthRequired', message: 'log in to read this playlist' };
+      }
+      return {
+        playlist: { ...meta, title: 'Private playlist', writable: true },
+        items: basicItems().slice(0, 3),
+        cursor: null,
+        total: 3,
+      };
+    }
+    case 'pl-unavailable':
+      return {
+        playlist: { ...meta, title: 'Unavailable playlist' },
+        items: basicItems()
+          .slice(0, 3)
+          .map((item, index) => (index === 1 ? { ...item, unavailable: true } : item)),
+        cursor: null,
+        total: 3,
+      };
+    case 'pl-parts':
+      return {
+        playlist: { ...meta, title: 'Multi-part playlist' },
+        items: PART_TITLES.map((title, index) => ({
+          track: playlistTrack('parts-220', title, {
+            cid: 22001 + index,
+            partIndex: index + 1,
+            parentTitle: 'Test multi-part video',
+          }),
+        })),
+        cursor: null,
+      };
+    default:
+      throw { fmpError: 'NotFound', message: `no such playlist: ${id}` };
+  }
+}
+
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
 let qrCount = 0;
@@ -189,7 +316,7 @@ export async function resolveStream(request) {
     if (calls % 2 === 1) {
       throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
     }
-  } else if (!/^(tone|preview|parts)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
+  } else if (!/^(tone|preview|parts|grow)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
     throw { fmpError: 'NotFound', message: `no such tone: ${request.sourceId}` };
   }
   // 內附的音檔只有 440 Hz 一個；其他音高也回它。
