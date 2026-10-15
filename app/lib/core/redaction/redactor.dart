@@ -32,8 +32,9 @@ final class Redactor {
   final _pluginMediaCdns = <String, List<MediaCdn>>{};
   final _secrets = <String>{};
 
-  /// 依長度由長到短，讓較長的憑證先被換掉。
-  List<String> _secretsLongestFirst = const [];
+  /// 依長度由長到短，讓較長的憑證先被換掉；全是數字的值已編成數字邊界的樣式
+  /// （[registerSecret]），每筆 log 都會走這裡，不在 [redact] 裡逐次建。
+  List<Pattern> _secretsLongestFirst = const [];
 
   late RegExp _headerPattern;
   late RegExp _keyPattern;
@@ -55,6 +56,7 @@ final class Redactor {
   static const _minimumAlphabeticAuthorizationValueLength = 20;
 
   static final _alphabetic = RegExp(r'^[A-Za-z]+$');
+  static final _digits = RegExp(r'^[0-9]+$');
 
   static String _redactAuthorizationValue(Match m) {
     final value = m[2]!;
@@ -108,6 +110,10 @@ final class Redactor {
 
   /// 登記一個已知的憑證值；之後任何輸出裡出現它都換成 [redactedValue]。
   /// 同時登記它的 URL 編碼形式（cookie 值放進 query 或 header 時常被編碼）。
+  ///
+  /// 全是數字的值（帳號 id）只在數字邊界換：較長數字中間的一段不算，
+  /// 否則 `aid=9123456780` 會變成 `aid=9***0`，錄下的 fixture 重播時對不上。
+  /// 其他值照子字串換。
   ///
   /// 短於 [minimumSecretLength] 的值拋 [ArgumentError]，不默默略過。
   void registerSecret(String value) {
@@ -311,8 +317,13 @@ final class Redactor {
   static final _percentEscape = RegExp('%[0-9A-F]{2}');
 
   void _sortSecrets() {
-    _secretsLongestFirst = _secrets.toList()
-      ..sort((a, b) => b.length.compareTo(a.length));
+    _secretsLongestFirst = [
+      for (final secret
+          in _secrets.toList()..sort((a, b) => b.length.compareTo(a.length)))
+        _digits.hasMatch(secret)
+            ? RegExp('(?<![0-9])${RegExp.escape(secret)}(?![0-9])')
+            : secret,
+    ];
   }
 
   void _compile() {

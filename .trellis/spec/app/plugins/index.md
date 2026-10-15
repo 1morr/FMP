@@ -41,6 +41,7 @@ lib/plugins/
   dev/                        # 插件開發工具（M3 PR 16b；隔離執行與插件目錄的讀取，命令列契約執行器共用）
     plugin_folder.dart        # pluginDirectories、PluginFolder.read（插件目錄的格式）、writeFixtures
     case_runner.dart          # runIsolatedCase（隔離環境跑一個案例）、loadIsolated、recordCase
+    account_scrub.dart        # scrubAccount、accountLeaks：錄 login 案例時以帳號的值換掉流量
     describe_error.dart       # describeError（寫一行已遮蔽的原因，tag 與訊息是參數）
     dev_folder.dart           # pluginDevFolderProvider、DevPlugin／DevFolderState、scanDevFolder
     plugin_development.dart   # PluginDevelopment：載入／卸載／重新載入／對齊 installed_plugins 的標記列
@@ -154,8 +155,9 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   已經是 `***`，媒體 CDN 規則上的簽名參數則整個拿掉。
 - App 內錄製（M3 PR 16b）：Windows 的 dev build，Debug → 插件開發 → 選資料夾（例如 `fmp-plugins` 的複本）→ 該插件卡片選「錄製」
   → 跑一個案例。與命令列錄製同一個函式（`recordCase`），但在隔離環境（空 storage）裡跑，所以 fixture 重播時不依賴 App 裡的狀態；
-  需要登入的案例用已存的憑證當 `loginVerify` 的輸入（16c 用它重錄）；錄到的回應若還看得到帳號的 id、名稱或頭像網址就不寫，
-  先把那些回應欄位（例如 B 站 nav 的 `uname`、`mid`、`face`）加進 manifest 的 `redaction.keyNames`。誤錄用 `git checkout` 還原。
+  需要登入的案例用已存的憑證當 `loginVerify` 的輸入（16c 用它重錄）；結果是 `LoginAccount` 時，寫檔前以帳號的 id、名稱、頭像
+  換掉錄到的流量（`lib/plugins/dev/account_scrub.dart`，頭像換成 `<scheme>://<主機>/***`），不用在 manifest 加鍵名；換完仍看得到才不寫。
+  錄完人工看一遍 login fixture 的其他帳號欄位（email、手機號、等級之類）再提交。誤錄用 `git checkout` 還原。
 - 跑：`FMP_PLUGIN_DIR=<絕對路徑> flutter test test/plugins/contract/contract_test.dart`；沒設
   `FMP_PLUGIN_DIR` 就是跑 `app/` 內的測試插件（裸 `flutter test` 已包含）。失敗訊息列出每一條
   違反，例如 `search: request #1 (GET …) does not match fixtures/search/001.json (GET …)`。

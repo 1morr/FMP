@@ -33,9 +33,10 @@ const _renewed = LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA_NEW'});
 Account _account(
   String pluginId, {
   AccountStatus status = AccountStatus.active,
+  String userId = 'u',
 }) => Account(
   pluginId: pluginId,
-  userId: 'u',
+  userId: userId,
   displayName: 'Someone',
   status: status,
   loggedInAt: DateTime.utc(2026, 10, 9),
@@ -580,6 +581,82 @@ void main() {
         expect(history, isNot(contains(value)));
       }
       expect(history, contains('network'));
+    });
+  });
+
+  group('the account id', () {
+    // 網易雲的憑證裡沒有 id：只有帳號列知道。
+    const userId = '12345678';
+
+    test('is registered on load, save, replace and invalidate, and cancelled '
+        'on delete', () async {
+      final setup = _Setup();
+      await setup.install('netease');
+      setup.storage.values['credentials.netease'] = jsonEncode(
+        _credentials.toJson(),
+      );
+      await setup.accounts.upsert(_account('netease', userId: userId));
+      final store = setup.create();
+      await store.ready;
+      expect(setup.redactor.redact('up_mid=$userId'), 'up_mid=***');
+      await store.delete('netease');
+      expect(setup.redactor.redact('up_mid=$userId'), 'up_mid=$userId');
+
+      await store.save(_account('netease', userId: userId), _credentials);
+      expect(setup.redactor.redact('up_mid=$userId'), 'up_mid=***');
+
+      await store.replace('netease', _renewed, replacing: _credentials);
+      expect(setup.redactor.redact('up_mid=$userId'), 'up_mid=***');
+
+      await store.invalidate('netease', of: _renewed);
+      expect(setup.redactor.redact('up_mid=$userId'), 'up_mid=***');
+
+      await store.delete('netease');
+      expect(setup.redactor.redact('up_mid=$userId'), 'up_mid=$userId');
+    });
+
+    test('logging in as another account cancels the old id', () async {
+      final setup = _Setup();
+      final store = setup.create();
+      await store.save(_account('netease', userId: userId), _credentials);
+
+      await store.save(_account('netease', userId: '87654321'), _credentials);
+
+      expect(setup.redactor.redact('a $userId b'), 'a $userId b');
+      expect(setup.redactor.redact('a 87654321 b'), 'a *** b');
+      await store.delete('netease');
+    });
+
+    test('shorter than the minimum is skipped without failing', () async {
+      final setup = _Setup();
+      final store = setup.create();
+
+      await store.save(_account('netease', userId: '123'), _credentials);
+
+      expect(await store.state('netease'), CredentialState.active);
+      expect(setup.redactor.redact('vmid=123 aid=9123'), 'vmid=123 aid=9123');
+      await store.delete('netease');
+    });
+
+    test('is not in the network record of a request that carries it', () async {
+      final setup = _Setup();
+      final store = setup.create();
+      await store.save(_account('netease', userId: userId), _credentials);
+      final client = SourceHttpClientFactory(
+        log: setup.log,
+        credentials: store,
+        createAdapter: () => FakeHttpAdapter((_) => reply(200)),
+      ).create(pluginId: 'netease', allowedHosts: allowedHosts);
+
+      await client.send(
+        SourceRequest(Uri.parse('https://example.test/a?vmid=$userId&aid=1')),
+      );
+
+      final network = setup.log.history.where((r) => r.tag == 'network');
+      expect(network, isNotEmpty);
+      final shown = network.map((r) => '$r ${r.fields}').join('\n');
+      expect(shown, isNot(contains(userId)));
+      expect(shown, contains('vmid=***'));
     });
   });
 
