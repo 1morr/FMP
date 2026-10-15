@@ -656,6 +656,16 @@ final class QueueModel {
     return _loop;
   }
 
+  /// 直接設定循環，回傳設定後的模式。Mix 沒有 all（ADR 0031 §決定 9）：拒絕，
+  /// 模式不變。
+  LoopMode setLoopMode(LoopMode mode) {
+    if (mode == LoopMode.all && _mix != null) return _loop;
+    if (mode == _loop) return _loop;
+    _loop = mode;
+    _publish();
+    return _loop;
+  }
+
   // ---- 內部 -----------------------------------------------------------------
 
   /// 佇列裡目前這首之後的位置（不看臨時播放）。

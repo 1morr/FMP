@@ -20,6 +20,15 @@ final class WindowsSystemMediaControls implements SystemMediaControls {
       final command = mediaCommandOf(button);
       if (command != null && !_commands.isClosed) _commands.add(command);
     });
+    // 這兩個流是系統提出的要求，套件不會自己改狀態：App 不推新值，浮層就維持原樣。
+    _shuffleRequests = _smtc.shuffleChangeStream.listen((enabled) {
+      if (!_commands.isClosed) _commands.add(MediaSetShuffle(enabled));
+    });
+    _repeatRequests = _smtc.repeatModeChangeStream.listen((mode) {
+      if (!_commands.isClosed) {
+        _commands.add(MediaSetRepeat(mediaRepeatOf(mode)));
+      }
+    });
   }
 
   /// 載入 Rust 端並建 SMTC（要在 `runApp` 前呼叫；失敗時丟出，由
@@ -33,12 +42,16 @@ final class WindowsSystemMediaControls implements SystemMediaControls {
   final smtc.SMTCWindows _smtc;
   final _commands = StreamController<MediaCommand>.broadcast();
   late final StreamSubscription<smtc.PressedButton> _buttons;
+  late final StreamSubscription<bool> _shuffleRequests;
+  late final StreamSubscription<smtc.RepeatMode> _repeatRequests;
 
   bool _enabled = false;
   smtc.MusicMetadata? _metadata;
   smtc.SMTCConfig? _config;
   smtc.PlaybackTimeline? _timeline;
   smtc.PlaybackStatus? _status;
+  bool? _shuffle;
+  smtc.RepeatMode? _repeat;
 
   @override
   Stream<MediaCommand> get commands => _commands.stream;
@@ -49,7 +62,8 @@ final class WindowsSystemMediaControls implements SystemMediaControls {
       if (_enabled) {
         _enabled = false;
         // 下次顯示時要重新推全部，不拿停用前的值去比對。
-        _metadata = _config = _timeline = _status = null;
+        _metadata = _config = _timeline = _status = _repeat = null;
+        _shuffle = null;
         await _smtc.clearMetadata();
         await _smtc.disableSmtc();
       }
@@ -82,11 +96,22 @@ final class WindowsSystemMediaControls implements SystemMediaControls {
       _status = status;
       await _smtc.setPlaybackStatus(status);
     }
+    if (nowPlaying.shuffle != _shuffle) {
+      _shuffle = nowPlaying.shuffle;
+      await _smtc.setShuffleEnabled(nowPlaying.shuffle);
+    }
+    final repeat = smtcRepeatOf(nowPlaying.repeat);
+    if (repeat != _repeat) {
+      _repeat = repeat;
+      await _smtc.setRepeatMode(repeat);
+    }
   }
 
   @override
   Future<void> dispose() async {
     await _buttons.cancel();
+    await _shuffleRequests.cancel();
+    await _repeatRequests.cancel();
     await _commands.close();
     await _smtc.dispose();
   }
@@ -180,4 +205,17 @@ MediaCommand? mediaCommandOf(smtc.PressedButton button) => switch (button) {
   smtc.PressedButton.previous => const MediaPrevious(),
   smtc.PressedButton.stop => const MediaStop(),
   _ => null,
+};
+
+/// SMTC 的循環模式對應 App 的：none ↔ 關閉、list ↔ 全部、track ↔ 單曲。
+MediaRepeat mediaRepeatOf(smtc.RepeatMode mode) => switch (mode) {
+  smtc.RepeatMode.none => MediaRepeat.off,
+  smtc.RepeatMode.list => MediaRepeat.all,
+  smtc.RepeatMode.track => MediaRepeat.one,
+};
+
+smtc.RepeatMode smtcRepeatOf(MediaRepeat repeat) => switch (repeat) {
+  MediaRepeat.off => smtc.RepeatMode.none,
+  MediaRepeat.all => smtc.RepeatMode.list,
+  MediaRepeat.one => smtc.RepeatMode.track,
 };

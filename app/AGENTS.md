@@ -214,19 +214,22 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   媒體 client（不帶 App 的 header 或 cookie；網址在 DTO 解碼時已通過 manifest 的 `allowedHosts`）。實測
   結論：`file:///` 封面在未封裝 App 的 SMTC 讀不到（2026-10-07），所以不交快取檔。
   停止鍵：有曲目（非 idle）時 `smtcConfigOf` 啟用 stop，否則系統送的停止指令不會轉給 App；`MediaStop` 由控制器當
-  暫停。套件替 shuffle／repeat 請求註冊了監聽，`IsShuffleEnabled`／`IsRepeatEnabled` 會回報 True，App 不處理
-  （Win11 的浮層卡片不顯示這兩顆鈕）。
+  暫停。浮層的隨機、循環鈕（ADR 0018 §決定 8 的補充，#263）：套件的 `shuffleChangeStream`、`repeatModeChangeStream` 只是系統的
+  「要求」，轉成 `MediaSetShuffle`、`MediaSetRepeat`，`NowPlayingPublisher` 決定照不照做（直播不理；Mix 不理隨機，要求「全部」
+  時照 Mix 的輪轉 off → one → off；值相同不理；不理的記 debug log `System media command ignored`），再把 App 實際的
+  `NowPlaying.shuffle`／`repeat` 推回去（變了才呼叫 `setShuffleEnabled`／`setRepeatMode`）。SMTC 不能單獨停用這兩顆鈕，所以用「不理」代替；
+  Android 的通知不顯示，新欄位收下不用。
   **釘版**：`pubspec.yaml` 直接依賴 `flutter_rust_bridge: 2.11.1`，必須等於 `smtc_windows` 的 `rust/Cargo.toml`
   釘的版本（`=2.11.1`）。套件的 `pubspec.yaml` 只寫 `^2.11.1`，不釘的話 Dart 端解析到較新版本，執行時
   `SMTCWindows.initialize()` 丟 `codegen version … should be the same as runtime version …`；初始化失敗只記
   log、App 照常啟動，所以沒有測試就沒人發現。升級 `smtc_windows` 時一起改。
   閘門：`smtc_bridge_version_test.dart`（經 `.dart_tool/package_config.json` 找套件、比對 `Cargo.toml` 與
   `pubspec.lock`，含解析函式的雙向變異案例）。
-  閘門：`media_controls_windows_test.dart`（轉換、封面只收 https 與合法連接埠、停止鍵啟用、按鍵含停止對應指令；
+  閘門：`media_controls_windows_test.dart`（轉換、封面只收 https 與合法連接埠、停止鍵啟用、按鍵含停止對應指令、隨機與循環的對應和要求轉指令、只推變了的；
   `the adapter` 群組以假的 `SMTCWindows` 守 idle 不啟用、離開 idle 先啟用再推全部、回到 idle 清掉並停用、只推變了的部分、
   缺欄位先清）、`platform_test.dart`
   的 `system media controls on Windows`（宣告與初始化失敗）、`now_playing_publisher_test.dart` 的
-  `position refresh`、`artwork url`；`layer_imports_test.dart` 的 `smtc_windows` 案例守「只在 `lib/platform/`」。
+  `position refresh`、`artwork url`、`shuffle and repeat`（一般、Mix、直播、相同值）、`queue_model_test.dart` 的 `setLoopMode`；`layer_imports_test.dart` 的 `smtc_windows` 案例守「只在 `lib/platform/`」。
 - Android 的前景服務與中斷（`media_controls_android.dart`）：`androidStopForegroundOnPause: true`，暫停時
   `audio_service` 放掉前景服務、通知可以滑掉（舊版也是這樣，省電）。來電等中斷把播放暫停後，掛斷時控制器
   自動續播，`audio_service` 的 `enterPlayingState` 要重新 `startForegroundService`，但 App 這時在背景，

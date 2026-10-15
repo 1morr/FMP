@@ -95,6 +95,11 @@ final class PublisherHarness {
   late final PlaybackController controller;
   late final NowPlayingPublisher publisher;
 
+  List<LogRecord> logged(String message) => [
+    for (final record in log.history)
+      if (record.message == message) record,
+  ];
+
   List<NowPlaying> get published => controls.published;
   NowPlaying get last => published.last;
 
@@ -223,6 +228,165 @@ void main() {
       expect(h.requestedArtwork.map((track) => track.title), contains('Room'));
       expect(h.last.artworkFile, Uri.parse('file:///Room.jpg'));
     }, artwork: (track) async => Uri.parse('file:///${track.title}.jpg'));
+  });
+
+  group('shuffle and repeat', () {
+    // 浮層的隨機、循環是「要求」：App 決定要不要照做，之後推實際的狀態回去。
+    void startMix(PublisherHarness h) {
+      h.plugin.onMix = (_) => MixBatch(
+        mixId: 'm1',
+        title: 'Mix',
+        tracks: [
+          for (final id in ['a1', 'a2', 'a3'])
+            TrackSummary(sourceTypeId: 'fmp-test', sourceId: id, title: id),
+        ],
+      );
+      unawaited(h.controller.startMix(track('seed')));
+      h.elapse(const Duration(milliseconds: 100));
+      expect(h.controller.queue.mix, isNotNull);
+    }
+
+    harness('the queue values are pushed', (h) {
+      h.queue([track('a'), track('b')]);
+      expect(h.last.shuffle, isFalse);
+      expect(h.last.repeat, MediaRepeat.off);
+
+      h.controller
+        ..setShuffle(true)
+        ..cycleLoopMode();
+      h.settle();
+      expect(h.last.shuffle, isTrue);
+      expect(h.last.repeat, MediaRepeat.all);
+
+      h.controller.cycleLoopMode();
+      h.settle();
+      expect(h.last.repeat, MediaRepeat.one);
+    });
+
+    harness('a shuffle request sets the app shuffle and is pushed back', (h) {
+      h.queue([track('a'), track('b')]);
+
+      h.controls.send(const MediaSetShuffle(true));
+      h.settle();
+      expect(h.controller.queue.shuffleEnabled, isTrue);
+      expect(h.last.shuffle, isTrue);
+
+      h.controls.send(const MediaSetShuffle(false));
+      h.settle();
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+      expect(h.last.shuffle, isFalse);
+    });
+
+    harness('a shuffle request equal to the current value is ignored', (h) {
+      h.queue([track('a'), track('b')]);
+
+      h.controls.send(const MediaSetShuffle(false));
+      h.settle();
+
+      expect(h.logged('System media command ignored').single.fields, {
+        'command': 'shuffle',
+        'reason': 'same',
+      });
+    });
+
+    harness('a repeat request sets the app loop mode', (h) {
+      h.queue([track('a'), track('b')]);
+
+      h.controls.send(const MediaSetRepeat(MediaRepeat.one));
+      h.settle();
+      expect(h.controller.queue.loopMode, LoopMode.one);
+      expect(h.last.repeat, MediaRepeat.one);
+
+      h.controls.send(const MediaSetRepeat(MediaRepeat.all));
+      h.settle();
+      expect(h.controller.queue.loopMode, LoopMode.all);
+
+      h.controls.send(const MediaSetRepeat(MediaRepeat.off));
+      h.settle();
+      expect(h.controller.queue.loopMode, LoopMode.off);
+      expect(h.last.repeat, MediaRepeat.off);
+    });
+
+    harness('a repeat request equal to the current value is ignored', (h) {
+      h.queue([track('a')]);
+
+      h.controls.send(const MediaSetRepeat(MediaRepeat.off));
+      h.settle();
+
+      expect(h.logged('System media command ignored').single.fields, {
+        'command': 'repeat',
+        'reason': 'same',
+      });
+    });
+
+    harness('in a mix a shuffle request is ignored', (h) {
+      startMix(h);
+
+      h.controls.send(const MediaSetShuffle(true));
+      h.settle();
+
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+      expect(h.last.shuffle, isFalse);
+      expect(h.logged('System media command ignored').single.fields, {
+        'command': 'shuffle',
+        'reason': 'mix',
+      });
+    });
+
+    harness('in a mix the overlay cycle none, list, track reaches one', (h) {
+      startMix(h);
+
+      // 浮層從 none 送「list」：Mix 沒有全部，照 Mix 的輪轉變成單曲。
+      h.controls.send(const MediaSetRepeat(MediaRepeat.all));
+      h.settle();
+      expect(h.controller.queue.loopMode, LoopMode.one);
+      expect(h.last.repeat, MediaRepeat.one);
+
+      // 浮層此時顯示單曲，下一次送「none」。
+      h.controls.send(const MediaSetRepeat(MediaRepeat.off));
+      h.settle();
+      expect(h.controller.queue.loopMode, LoopMode.off);
+      expect(h.last.repeat, MediaRepeat.off);
+    });
+
+    harness('in a live room both requests are ignored', (h) {
+      h.plugin
+        ..onResolveLive = ((request) => [candidate('${request.roomId}.flv')])
+        ..onLiveStatus = ((query) => LiveRoom(
+          roomId: query.roomId,
+          title: 'Room',
+          status: LiveRoomStatus.live,
+        ));
+      h.queue([track('a'), track('b')]);
+      h.playAt(0);
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(
+            pluginId: 'fmp-test',
+            roomId: 'r1',
+            title: 'Room',
+            hostName: 'Host',
+          ),
+        ),
+      );
+      h.elapse(const Duration(seconds: 2));
+      expect(h.controller.queue.live, isNotNull);
+
+      h.controls
+        ..send(const MediaSetShuffle(true))
+        ..send(const MediaSetRepeat(MediaRepeat.one));
+      h.settle();
+
+      expect(h.controller.queue.shuffleEnabled, isFalse);
+      expect(h.controller.queue.loopMode, LoopMode.off);
+      expect(
+        [
+          for (final record in h.logged('System media command ignored'))
+            record.fields['reason'],
+        ],
+        ['live', 'live'],
+      );
+    });
   });
 
   group('what is pushed', () {

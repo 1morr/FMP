@@ -87,6 +87,8 @@ foreach ($session in $sessions) {
     Write-Output ("  IsPlaybackPositionEnabled={0}" -f $controls.IsPlaybackPositionEnabled)
     Write-Output ("  IsShuffleEnabled={0}" -f $controls.IsShuffleEnabled)
     Write-Output ("  IsRepeatEnabled={0}" -f $controls.IsRepeatEnabled)
+    Write-Output ("  IsShuffleActive={0} AutoRepeatMode={1}" -f `
+        $info.IsShuffleActive, $info.AutoRepeatMode)
     Write-Output ("  IsPlayEnabled={0} IsPauseEnabled={1} IsStopEnabled={2}" -f `
         $controls.IsPlayEnabled, $controls.IsPauseEnabled, $controls.IsStopEnabled)
 }

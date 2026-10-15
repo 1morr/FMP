@@ -136,6 +136,14 @@ void main() {
       );
     });
 
+    test('setLoopMode sets any mode outside a mix', () {
+      final queue = QueueModel();
+      expect(queue.setLoopMode(LoopMode.all), LoopMode.all);
+      expect(queue.setLoopMode(LoopMode.one), LoopMode.one);
+      expect(queue.setLoopMode(LoopMode.off), LoopMode.off);
+      expect(queue.state.loopMode, LoopMode.off);
+    });
+
     test('the same track can appear twice, told apart by position', () {
       final queue = QueueModel()..replace(tracks(['a', 'a']));
       expect(queue.next, (index: 1, track: track('a')));
@@ -1190,6 +1198,17 @@ void main() {
         expect(queue.cycleLoopMode(), LoopMode.all);
       },
     );
+
+    test('setLoopMode refuses all in a mix and keeps the value', () {
+      final queue = started();
+
+      expect(queue.setLoopMode(LoopMode.all), LoopMode.off);
+      expect(queue.state.loopMode, LoopMode.off);
+      expect(queue.setLoopMode(LoopMode.one), LoopMode.one);
+      expect(queue.setLoopMode(LoopMode.all), LoopMode.one);
+      expect(queue.state.loopMode, LoopMode.one);
+      expect(queue.setLoopMode(LoopMode.off), LoopMode.off);
+    });
 
     test('restoring a mix with a loop of all turns it off', () {
       final queue = QueueModel()
