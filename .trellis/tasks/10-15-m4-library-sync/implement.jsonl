@@ -1,0 +1,25 @@
+{"file": ".trellis/spec/app/data/index.md", "reason": "加表、改 schema、repository 的寫法；M4 的 playlists／playlist_remote／playlist_entries／match_results／track_origins／chart_settings 與 v15–v18 的 migration 測試"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "加 DTO 欄位與能力、checks.json 與 fixture、錄製；importPlaylist／libraryRead／libraryWrite／charts 與 mutates"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "外殼、導覽、離線、TrackRowMenu、guideline；導覽重排、首頁、音樂庫、多選、預覽頁"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "設定欄位的形狀；network_settings 的排行間隔、source_settings 的匹配欄位"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_layer_imports 的 forbiddenLayerImports／externalPackageOwners、officialPluginIds 的雙向變異"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試分層、零聯網、讀原始碼測試的變異案例"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "AppError 對應與呈現；匯入、刷新、遠端寫入的錯誤與部分成功"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 門面與遮蔽；library／charts／backup 的 log 不含歌單內容"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "FileDialogs 與重啟；備份的匯出與還原"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "AuthRequirement 與憑證注入；私人歌單以 required 重送"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "資料、插件、排程、UI 跨層的流程（匯入與刷新、外部匯入、備份）"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/research/m4-scope-digest.md", "reason": "M4 的 ADR 範圍、現況、舊版行為與檔案位置"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/research/m4-decisions.md", "reason": "矛盾與未定之處的決定理由、PR 草案、套件查證"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "音樂庫與同步的原則：表、刷新、來源失效、遠端操作、匹配"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "M4 的四個能力、分 P 兩欄、mutates、私人歌單的認證"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "歌單表的欄位、刷新的代際、排程工作、導覽、首頁、探索、音樂庫、多選、匯入"}
+{"file": "docs/adr/0034-backup-file-and-restore.md", "reason": "備份檔的內容、版本、還原的步驟與保留登入"}
+{"file": "docs/adr/0017-background-task-scheduler.md", "reason": "排程規則；playlist-refresh 與 charts:<pluginId>"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "排行快取與離線行為"}
+{"file": "docs/adr/0028-host-api-m3-extensions.md", "reason": "宿主 API v1 的擴充方式與同步點、checks.json 的 requiresLogin"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "Mix 規則、電台；M4 接手的導覽、Mix 歌單、從帳號匯入電台"}
+{"file": "docs/adr/0012-network-layer-and-accounts.md", "reason": "AuthRequirement 三種標記與憑證"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "全部加入佇列（D2）與 10,000 首上限、startMixFrom"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "斷點與導覽元件、設定頁版面、i18n、a11y"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "實機驗證的模式與平台"}
