@@ -157,7 +157,8 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   → 跑一個案例。與命令列錄製同一個函式（`recordCase`），但在隔離環境（空 storage）裡跑，所以 fixture 重播時不依賴 App 裡的狀態；
   需要登入的案例用已存的憑證當 `loginVerify` 的輸入（16c 用它重錄）；結果是 `LoginAccount` 時，寫檔前以帳號的 id、名稱、頭像
   換掉錄到的流量（`lib/plugins/dev/account_scrub.dart`，頭像換成 `<scheme>://<主機>/***`），不用在 manifest 加鍵名；換完仍看得到才不寫。
-  錄完人工看一遍 login fixture 的其他帳號欄位（email、手機號、等級之類）再提交。誤錄用 `git checkout` 還原。
+  錄到的 login fixture 不原樣提交：刪減到只剩插件讀的欄位（或改手寫），在 `meta.edited` 寫明，插件庫的 `test/login_fixtures_test.dart` 會擋沒標的。
+  例子：fmp-plugins 三個插件的 `fixtures/login/001.json`（2026-10-15）。誤錄用 `git checkout` 還原。
 - 跑：`FMP_PLUGIN_DIR=<絕對路徑> flutter test test/plugins/contract/contract_test.dart`；沒設
   `FMP_PLUGIN_DIR` 就是跑 `app/` 內的測試插件（裸 `flutter test` 已包含）。失敗訊息列出每一條
   違反，例如 `search: request #1 (GET …) does not match fixtures/search/001.json (GET …)`。
