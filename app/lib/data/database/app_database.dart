@@ -41,6 +41,7 @@ part 'app_database.g.dart';
     RadioStationsTable,
     PlaylistsTable,
     PlaylistEntriesTable,
+    PlaylistRemoteTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -48,7 +49,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -154,6 +155,9 @@ class AppDatabase extends _$AppDatabase {
               await m.create(schema.playlistEntries);
               await m.create(schema.playlistEntriesPlaylist);
               await m.create(schema.playlistEntriesTrackKey);
+            },
+            from15To16: (m, schema) async {
+              await m.create(schema.playlistRemote);
             },
           ),
         );

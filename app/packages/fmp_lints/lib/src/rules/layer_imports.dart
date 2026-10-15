@@ -72,13 +72,16 @@ const forbiddenLayerImports = <String, List<String>>{
     'lib/plugins',
     'lib/scheduler',
     'lib/radio',
+    'lib/library',
   ],
   // 介面讀播放（控制器、狀態 stream）；播放（含系統媒體控制的組裝）不認得介面。
   'lib/playback': ['lib/ui'],
   // 排程器只認得資料與網路狀態：它不知道誰登記工作（電台、插件），也不碰介面。
-  'lib/scheduler': ['lib/ui', 'lib/radio', 'lib/plugins'],
+  'lib/scheduler': ['lib/ui', 'lib/radio', 'lib/plugins', 'lib/library'],
   // 電台用資料、插件與排程器，背景工作不依賴介面。
   'lib/radio': ['lib/ui'],
+  // 音樂庫（M4 design §2.2）：匯入、刷新要用資料、插件與排程器，同電台不依賴介面。
+  'lib/library': ['lib/ui'],
 };
 
 const _upperLayers = [
@@ -89,6 +92,7 @@ const _upperLayers = [
   'lib/settings',
   'lib/scheduler',
   'lib/radio',
+  'lib/library',
 ];
 
 /// 只有自己目錄內能 import 的目錄（ADR 0010）。

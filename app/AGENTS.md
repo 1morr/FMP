@@ -487,6 +487,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （v1–v14 各一例；`migrateAndValidate` 比對 CHECK、外鍵動作與索引欄位）與 `a new database has the playlist tables`、
   `playlist_repository_test.dart`（CHECK、連帶刪除、`RESTRICT`、順序重寫、`stored format`）、`queue_repository_test.dart` 的 `a track in a playlist is not an orphan`。
 
+- `playlist_remote` 是 schema v16（ADR 0033 §決定 1、M4 design §3.1，PR 8a）：只有 `imported` 歌單有。`playlist_id` 是主鍵並連帶刪除，（`plugin_id`,
+  `remote_id`）唯一（重新匯入同一張靠它認出），沒有外鍵到 `installed_plugins`；`writable` 與三個 `*_overridden` 預設假、`refresh_generation`
+  預設 0、`status` 預設 `active`（`active`／`sourceGone`／`authRequired`，字串在 `PlaylistRemoteStatusConverter`）、`last_result` 空＝還沒刷新完過
+  （`complete`／`partial`／`failed`，`PlaylistRefreshResultConverter`）、`last_refreshed_at` 只在 `complete` 或 `partial` 時寫。寫入口是
+  `PlaylistRepository.createImported`（兩張表一個 transaction）與 `beginRefresh` 回傳的 `PlaylistRefreshSession`（行為見 § 音樂庫）。
+  閘門：`migration_test.dart` 的 `migration from v15 to v16 keeps existing data`、`migration from v<N> to v16 adds playlist_remote`（v1–v15 各一例：
+  預設值與狀態字串、唯一鍵、連帶刪除）與 `a new database has playlist_remote`、`playlist_remote_repository_test.dart`。
+
 ### 快取庫
 
 `lib/data/cache/`（ADR 0016 §決定 1–4、design §4.2–§4.4）。測試在 `test/data/cache/`，下面寫的
@@ -954,7 +962,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   所以新的種類要先改宿主。閘門：`track_detail_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證含未知 `kind`／負的
   `count`／頭像網域）、`type_definitions_test.dart` 的 `the trackDetail export is named after the capability…`、`the stat kinds match
   TrackStatKind`、`the trackDetail fields match…`（含變異）。
-- `importPlaylist`（ADR 0032 §決定 1、2；宿主端的 `PlaylistImporter` 與刷新器還沒有，現在只有插件契約）：`playlistFromUrl` 回 `null`
+- `importPlaylist`（ADR 0032 §決定 1、2；宿主端的匯入與刷新見 § 音樂庫）：`playlistFromUrl` 回 `null`
   （不是我的網址）、`{playlistId}` 或 `{mixSeed}`（`PlaylistRef`），`mixSeed` **只收宣告 `mix` 的插件**（否則 `ParseError`）；
   `importPlaylist` 回一頁 `{playlist, items, cursor, total?}`：`items` 可以是空陣列，`cursor` 沒有或 `null` 是最後一頁（d.ts 寫成選填，
   同 `mix`；空字串拒收），`total` 非負、只在確定等於會回傳的筆數時才給，`playlist` 每一頁都要給。`TrackSummary` 的選填
@@ -1177,6 +1185,33 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 閘門：`test/radio/radio_test.dart`（以網址新增：第一個認得的勝出、都不認得、用長號判斷重複、停用或沒有 `live` 的插件不會被問到、插件失敗不寫入、不是 `AppError` 的失敗包成 `UnexpectedError`；加為電台與重複；
   四種狀態；狀態工作：依序查並存、單一失敗只標那一列且工作不退避、全部失敗退避、過期結果被丟掉、停用／重新啟用／電台增減／間隔改變（含 0 只關排程不關手動）、
   離線不跑；手動刷新三種結果與錯誤）、`radio_repository_test.dart`。
+
+## 音樂庫
+
+`lib/library/`（ADR 0033 §決定 2、M4 design §5；畫面與排程工作在後面的 PR）：匯入歌單的匯入與刷新。`lib/library/` 用資料、插件與排程器，不 import
+`ui/`；`core/`、`domain/`、`data/`、`scheduler/` 不認得它（閘門：lint `fmp_layer_imports`，見 § Lint）。
+
+- **匯入**（`PlaylistImporter.importUrl`）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
+  插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，PR 11 處理）、`ImportMetadataOnly`
+  （插件沒有 `resolveStream`，PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
+  名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
+  其餘頁由刷新器取。
+- **刷新**（`PlaylistRefresher.refresh`）全 App 一個 FIFO 鎖（provider 持有的單一物件），同時只刷一張。每頁一個 transaction 寫進正式表，以
+  `refresh_generation`（開始時加一得到 g）標出這次見過的項目；完整（每頁成功、最後 `cursor` 為空、有 `total` 時筆數相等；一直回同一個 `cursor`
+  的插件在 `cursor` 第一次重複時就停、當作沒讀完）才一個 transaction 刪 `seen_generation < g`、重寫 `position`、未覆寫的名稱／描述／封面跟遠端、寫 `writable`
+  （`null` 保留上次的值）。不完整只寫 `partial`，不移除不重排。**第一頁以外的頁失敗是 `partial`，第一頁就失敗才是 `failed`**；`NotFound`／
+  `AuthRequired` 任何一頁都只改 `status`（`sourceGone`／`authRequired`）；都不碰既有項目。成功（含 `partial`）把 `status` 設回 `active`。
+  寫入資料庫本身丟的例外（不是插件的錯）原樣丟出，不記 `failed`。
+- **比對鍵**：遠端項目有 `remote_item_id` 就用它；沒有就用（曲目鍵, 第 k 次出現）：現有項目依目前（`position`, `id`）排成佇列，遠端第 k 次出現取第 k 個，
+  重複影片不合併。兩種鍵各自一池：有 `remote_item_id` 的現有項目只會被同一個 id 比到，同一首在有 id 與沒 id 的回應之間切換（例如登入前後）時是新項目，
+  完整時舊的被刪、`partial` 時兩個都留著。比對規則在 `PlaylistRefreshSession`（`lib/data/`，要查表），頁迴圈與完整性在 `PlaylistRefresher`。
+- **過期**：每個寫入先在同一個 transaction 內檢查代際仍是 g 與 `RefreshTrigger.isCurrent`，另外插件還是註冊表裡那一個（停用、移除、更新換掉都算過期）；
+  過期就丟掉、不寫，結果是 `RefreshDiscarded`。`RefreshTrigger` 只有 `isCurrent`：手動用 `RefreshTrigger.manual`，排程工作傳
+  `JobContext.isCurrent`（PR 10）。插件已停用或移除：`RefreshSourceUnavailable`，連代際都不動。
+- 閘門：`test/library/playlist_refresher_test.dart`（ADR 0019 §如何確認的刷新差異：新增、移除、順序、元資料、三個覆寫旗標、部分失敗不移除、重複影片保留、
+  來源失效；比對鍵兩種；完整性三條件各缺一個；中途停下與頁內例外後再刷新；代際與觸發者過期不寫；刷新中途刪歌單；`writable`；FIFO 鎖與例外釋放鎖；插件停用）、
+  `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列）、
+  `playlist_remote_repository_test.dart`。
 
 ## 播放
 
@@ -2265,7 +2300,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |

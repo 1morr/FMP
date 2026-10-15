@@ -23,6 +23,7 @@ import 'generated/schema_v12.dart' as v12;
 import 'generated/schema_v13.dart' as v13;
 import 'generated/schema_v14.dart' as v14;
 import 'generated/schema_v15.dart' as v15;
+import 'generated/schema_v16.dart' as v16;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1471,5 +1472,188 @@ void main() {
     addTearDown(db.close);
 
     await expectPlaylistSchema(db);
+  });
+
+  // v16 加 playlist_remote（M4 design §3.1）：既有表的資料與使用者值原樣保留，新表升級後是空的。
+  test('migration from v15 to v16 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 15,
+      newVersion: 16,
+      createOld: v15.DatabaseAtV15.new,
+      createNew: v16.DatabaseAtV16.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v15.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.tracks,
+          const v15.TracksData(
+            trackKey: 'bilibili:BV1:100',
+            sourceTypeId: 'bilibili',
+            sourceId: 'BV1',
+            cid: 100,
+            title: 'Song',
+            updatedAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.playlists,
+          const v15.PlaylistsData(
+            id: 1,
+            kind: 'local',
+            name: 'Mine',
+            sortOrder: 0,
+            createdAt: 1790000000000,
+            updatedAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.playlistEntries,
+          const v15.PlaylistEntriesData(
+            id: 1,
+            playlistId: 1,
+            position: 0,
+            trackKey: 'bilibili:BV1:100',
+            unavailable: 0,
+            seenGeneration: 0,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v16.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ]);
+        expect(await newDb.select(newDb.playlists).get(), [
+          const v16.PlaylistsData(
+            id: 1,
+            kind: 'local',
+            name: 'Mine',
+            sortOrder: 0,
+            createdAt: 1790000000000,
+            updatedAt: 1790000000000,
+          ),
+        ]);
+        expect(await newDb.select(newDb.playlistEntries).get(), [
+          const v16.PlaylistEntriesData(
+            id: 1,
+            playlistId: 1,
+            position: 0,
+            trackKey: 'bilibili:BV1:100',
+            unavailable: 0,
+            seenGeneration: 0,
+          ),
+        ]);
+        expect(await newDb.select(newDb.playlistRemote).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectPlaylistRemoteSchema(AppDatabase db) async {
+    // 唯一鍵（plugin_id, remote_id）是一個唯一索引。
+    final unique = [
+      for (final index
+          in await db
+              .customSelect("PRAGMA index_list('playlist_remote')")
+              .get())
+        if (index.read<int>('unique') == 1) index.read<String>('name'),
+    ];
+    expect(unique, hasLength(1));
+    expect(
+      [
+        for (final column
+            in await db
+                .customSelect("PRAGMA index_info('${unique.single}')")
+                .get())
+          column.read<String>('name'),
+      ],
+      ['plugin_id', 'remote_id'],
+    );
+    for (final id in [1, 2]) {
+      await db.customStatement(
+        'INSERT INTO playlists (kind, name, sort_order, created_at, '
+        "updated_at) VALUES ('imported', 'P$id', $id, 1, 1)",
+      );
+    }
+    await db.customStatement(
+      'INSERT INTO playlist_remote (playlist_id, plugin_id, remote_id) '
+      "VALUES (1, 'fmp-test', 'pl-basic')",
+    );
+    // 持久化格式：旗標預設假、代際 0、狀態是寫死的字串，其餘為空。
+    final row = await db
+        .customSelect('SELECT * FROM playlist_remote')
+        .getSingle();
+    expect(row.data, {
+      'playlist_id': 1,
+      'plugin_id': 'fmp-test',
+      'remote_id': 'pl-basic',
+      'owner_name': null,
+      'writable': 0,
+      'name_overridden': 0,
+      'description_overridden': 0,
+      'artwork_overridden': 0,
+      'refresh_interval_hours': null,
+      'last_refreshed_at': null,
+      'last_result': null,
+      'status': 'active',
+      'refresh_generation': 0,
+    });
+    // 同一個（插件, 遠端 id）寫不進第二列；不同遠端 id 可以。
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO playlist_remote (playlist_id, plugin_id, remote_id) '
+        "VALUES (2, 'fmp-test', 'pl-basic')",
+      ),
+      throwsA(
+        isA<SqliteException>().having(
+          (e) => e.message,
+          'message',
+          contains('UNIQUE constraint failed'),
+        ),
+      ),
+    );
+    await db.customStatement(
+      'INSERT INTO playlist_remote (playlist_id, plugin_id, remote_id) '
+      "VALUES (2, 'fmp-test', 'pl-grow')",
+    );
+    // 歌單刪除時連帶刪除。
+    await db.customStatement('DELETE FROM playlists WHERE id = 1');
+    expect(
+      [
+        for (final r
+            in await db
+                .customSelect('SELECT remote_id FROM playlist_remote')
+                .get())
+          r.read<String>('remote_id'),
+      ],
+      ['pl-grow'],
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]) {
+    test('migration from v$from to v16 adds playlist_remote', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 16);
+
+      await expectPlaylistRemoteSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has playlist_remote', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectPlaylistRemoteSchema(db);
   });
 }

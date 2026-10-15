@@ -134,6 +134,19 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   （`RESTRICT` 以 trigger 實作，擴充碼不是 `SQLITE_CONSTRAINT_FOREIGNKEY`）。
 - `create` 只建 `local`：匯入與 Mix 歌單要連同 `playlist_remote` 或 Mix 三欄一起寫，由建它們的 PR 另加寫入口。
 
+## 匯入歌單的遠端資料（`playlist_repository.dart`，schema v16）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `playlist_remote` 與 § 音樂庫。
+
+- `createImported` 一個 transaction 寫 `playlists`（`kind = imported`）加 `playlist_remote`，（插件, 遠端 id）已存在回 `null`、什麼都不寫；`remote`／`findRemote`
+  讀回 `PlaylistRemote`。
+- 刷新的寫入全在 `PlaylistRefreshSession`（`beginRefresh` 回傳，同一個檔案）：`beginRefresh` 在一個 transaction 裡把 `refresh_generation` 加一並讀出現有項目，
+  建立記憶體裡的比對佇列（鍵是 `remote_item_id` 或曲目鍵）；`writePage`、`apply`、`markPartial`、`markFailed`、`markStatus` 各一個 transaction，進去先檢查代際與
+  `isCurrent`，過期什麼都不寫。新項目用一次 `batch.insertAll` 再依 `position`（接在現有最大值之後）讀回 id，不逐筆插入；`apply` 只更新 `position` 真的變了的項目。
+- 值型別：`RemoteEntry`、`RemotePlaylistInfo` 在 `lib/domain/playlist.dart`（資料層不認得插件的 DTO，由 `lib/plugins/source_dto.dart` 的 `toEntry`／`toInfo` 轉過來）。
+- 一萬首的完整刷新（PR 8a 在開發機的記憶體資料庫量一次，頁 50–100 首）：全新加入約 0.3–0.5 秒、全部比對到且不變約 0.3–0.4 秒、整張倒序約 0.3 秒。
+- 測試：`playlist_remote_repository_test.dart`（建列、重複、代際、過期、`stored format`）；比對與套用的行為由 `test/library/` 的假插件端到端測。
+
 ## 插件（`plugin_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `installed_plugins`（schema v7）。

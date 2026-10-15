@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/app/data/index.md", "reason": "改 schema 流程、歌單 repository 寫法"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "importPlaylist 能力、插件呼叫"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_layer_imports 改動與雙向變異"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 1 playlist_remote 欄位、§決定 2 刷新"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 2、3 刷新與來源失效、§如何確認"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§決定 2 importPlaylist 完整性、writable、錯誤"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§2.2 lint、§3.1 欄位、§5.1 匯入、§5.2 刷新器"}

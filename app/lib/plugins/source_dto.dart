@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/network/allowed_hosts.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
@@ -1285,6 +1286,18 @@ final class RemotePlaylist {
 
   /// 這張是登入的帳號自己的、可以寫；`null` 是這次不知道（沒帶憑證），宿主保留上次的值。
   final bool? writable;
+
+  /// 資料層與音樂庫用的歌單資料：欄位逐一照搬。
+  RemotePlaylistInfo toInfo() => RemotePlaylistInfo(
+    name: title,
+    description: description,
+    artwork: List.unmodifiable([
+      for (final image in artwork)
+        TrackArtwork(url: image.url, width: image.width),
+    ]),
+    ownerName: ownerName,
+    writable: writable,
+  );
 }
 
 /// 遠端歌單的一個項目。
@@ -1330,4 +1343,11 @@ final class RemotePlaylistItem {
 
   /// 遠端標的失效（被刪、被隱藏）。
   final bool unavailable;
+
+  /// 資料層與音樂庫用的項目：欄位逐一照搬。
+  RemoteEntry toEntry() => RemoteEntry(
+    track: track.toTrackInfo(),
+    remoteItemId: remoteItemId,
+    unavailable: unavailable,
+  );
 }
