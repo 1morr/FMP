@@ -27,6 +27,7 @@ import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
+import 'package:fmp/ui/shell/open_accounts.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -94,6 +95,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     _content,
     _playerBar,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // 歌單詳情的「登入」（design §5.3）：帳號區塊每個音源一張卡，整個區塊就看得到。
+    ref.read(openAccountsProvider).handler = (_) => _openAccounts();
+  }
 
   /// 外殼自己的底部被佔住的高度（最後一次量到的）；播放頁開著時提示不用它。
   double _measuredInset = 0;
@@ -340,7 +348,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                       pages: [
                         MaterialPage<void>(
                           key: ValueKey(destination),
-                          child: _rootPage(destination),
+                          // 每一頁自己的 Material（透明）：頁面轉場在頁外包一層有底色的
+                          // `ColoredBox`，`ListTile` 的水波與底色若畫在外殼的 Material 上會被它蓋住
+                          // （除錯版另有斷言）。推上來的內頁（`openPlaylist`、`openHistory`）同樣包。
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: _rootPage(destination),
+                          ),
                         ),
                       ],
                       // 根頁不會被退掉：外殼的 PopScope 與 Esc 只在有內頁時才 pop。

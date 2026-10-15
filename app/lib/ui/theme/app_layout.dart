@@ -83,6 +83,9 @@ abstract final class AppLayout {
   /// 搜尋結果列取分 P 時取代展開鈕的轉圈尺寸（鈕本身是 [kMinInteractiveDimension]）。
   static const double partsSpinner = 20;
 
+  /// 按鈕內的小轉圈（歌單詳情的「刷新」進行中）。
+  static const double buttonSpinner = 18;
+
   /// 帳號頁的頭像（M3 list item 的 leading avatar）。
   static const double accountAvatar = 40;
 

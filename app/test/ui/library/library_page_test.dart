@@ -103,11 +103,18 @@ void main() {
     expect(find.byType(LibraryPage).hitTestable(), findsNothing);
   });
 
-  testWidgets('without playlists it says how to create one', (tester) async {
+  testWidgets('without playlists it says how to create or import one', (
+    tester,
+  ) async {
     await _open(tester);
 
     expect(find.text('No playlists yet'), findsOneWidget);
-    expect(find.text('Choose "New playlist" to create one.'), findsOneWidget);
+    expect(
+      find.text(
+        'Choose "New playlist" to create one, or "Import" to bring one in.',
+      ),
+      findsOneWidget,
+    );
     // 歷史入口一直在。
     expect(find.widgetWithText(ListTile, 'History'), findsOneWidget);
   });

@@ -362,7 +362,8 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String get empty => 'No playlists yet';
   @override
-  String get emptyHint => 'Choose "New playlist" to create one.';
+  String get emptyHint =>
+      'Choose "New playlist" to create one, or "Import" to bring one in.';
   @override
   String trackCount({required Object count}) => '${count} songs';
   @override
@@ -466,6 +467,68 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String addToPlaylistFailed({required Object reason}) =>
       'Couldn\'t add to the playlist: ${reason}';
+  @override
+  String get importTooltip => 'Import a playlist';
+  @override
+  String get importTitle => 'Import a playlist';
+  @override
+  String get importUrlLabel => 'Link';
+  @override
+  String get importAction => 'Import';
+  @override
+  String get importLooking => 'Looking up the link…';
+  @override
+  String importProgress({required Object count}) => 'Songs read: ${count}';
+  @override
+  String get importUnrecognized =>
+      'This link isn\'t recognized by any installed source';
+  @override
+  String get importUnsupported =>
+      'Importing this kind of link isn\'t supported yet';
+  @override
+  String importFailed({required Object reason}) =>
+      'Couldn\'t import: ${reason}';
+  @override
+  String get importDone => 'Playlist imported';
+  @override
+  String get importPartial =>
+      'Imported, but only part of the playlist could be read. Refresh to read the rest.';
+  @override
+  String get refresh => 'Refresh';
+  @override
+  String get refreshing => 'Refreshing…';
+  @override
+  String get refreshed => 'Playlist refreshed';
+  @override
+  String get refreshedPartly =>
+      'Only part of the playlist could be read; no songs were removed';
+  @override
+  String refreshFailed({required Object reason}) =>
+      'Couldn\'t refresh the playlist: ${reason}';
+  @override
+  String get refreshOffline => 'Offline, couldn\'t refresh the playlist';
+  @override
+  String get refreshNoSource => 'This source can\'t refresh playlists';
+  @override
+  String statusRefreshed({required Object time}) => 'Last refreshed: ${time}';
+  @override
+  String statusPartial({required Object time}) =>
+      'Last refreshed: partial · ${time}';
+  @override
+  String get statusNever => 'Not refreshed yet';
+  @override
+  String get statusFailed => 'Refresh failed';
+  @override
+  String get statusGone =>
+      'Source gone: the remote playlist was deleted or is no longer accessible';
+  @override
+  String get statusAuth => 'Sign in to refresh this playlist';
+  @override
+  String get retry => 'Retry';
+  @override
+  String get useRemote => 'Use the remote\'s';
+  @override
+  String get useRemoteHint => 'Takes the remote\'s value on the next refresh';
 }
 
 // Path: playlist
@@ -511,6 +574,8 @@ class Translations$playlist$en extends Translations$playlist$zh_TW {
   String get emptyHint => 'Choose "Add to playlist…" in a song\'s menu';
   @override
   String get notFound => 'This playlist no longer exists';
+  @override
+  String get unavailable => 'Unavailable';
 }
 
 // Path: offline

@@ -6,7 +6,7 @@ import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 
 /// 歌單的封面（M4 design §10.5）：有自訂封面（`playlists.artwork_json`）就用它，經網域包含它的
-/// 插件的媒體 client 讀（`artworkPluginProvider`；那個插件停用或移除後是佔位圖）；沒有就是
+/// 插件的媒體 client 讀（`artworkPluginProvider`，以實際挑中的那一張為準；那個插件停用或移除後是佔位圖）；沒有就是
 /// [firstTrack] 的封面；空歌單是帶歌單圖示的佔位圖。
 class PlaylistCover extends ConsumerWidget {
   const PlaylistCover({
@@ -34,9 +34,15 @@ class PlaylistCover extends ConsumerWidget {
         ),
       ),
     );
-    if (artwork.isNotEmpty) {
+    // 封面有多張時 `ArtworkImage` 依尺寸挑一張（匯入歌單的封面常有不同網域的多張）：找插件
+    // 要用同一個挑法挑中的那張，不是第一張，否則會經不包含它的插件的媒體 client 而被擋。
+    final chosen = pickArtwork(
+      artwork,
+      size * MediaQuery.devicePixelRatioOf(context),
+    );
+    if (chosen != null) {
       return ArtworkImage(
-        pluginId: ref.watch(artworkPluginProvider(artwork.first.url)) ?? '',
+        pluginId: ref.watch(artworkPluginProvider(chosen.url)) ?? '',
         artwork: artwork,
         size: size,
         fallback: fallback,

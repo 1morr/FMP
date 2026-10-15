@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/library/playlist_service.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -10,11 +11,13 @@ import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 歌單對話框填的內容。[artwork] 空＝封面用第一首的。
+/// 歌單對話框填的內容。[artwork] 空＝封面用第一首的。[useRemote] 是匯入歌單按了「使用遠端的」
+/// 的欄位（其餘欄位的覆寫旗標由 `PlaylistService.editImported` 依有沒有改過決定）。
 typedef PlaylistInput = ({
   String name,
   String? description,
   List<TrackArtwork> artwork,
+  Set<ImportedField> useRemote,
 });
 
 /// 建立（[editing] 為空）或編輯歌單的對話框（M4 design §10.5）：名稱（必填）、描述、封面。
@@ -24,12 +27,16 @@ typedef PlaylistInput = ({
 /// 某個已安裝且啟用的插件的允許網域（之後經那個插件的媒體 client 讀，見 [PlaylistCover]），
 /// 否則寫明原因、不能送出；宿主不讀任意網址（ADR 0012 §決定 1）。編輯時沒改過的自訂封面
 /// 照舊保留，不再檢查（那個插件之後被停用也改得了名稱）。
+///
+/// 編輯匯入歌單時給 [remote]：已被本機覆寫的欄位（名稱、描述、封面）下面多一顆「使用遠端的」，
+/// 按了之後下一次刷新把遠端的值寫回來（design §10.5）；改過的欄位送出時自動算成覆寫。
 Future<PlaylistInput?> showPlaylistDialog(
   BuildContext context, {
   PlaylistOverview? editing,
+  PlaylistRemote? remote,
 }) => showDialog<PlaylistInput>(
   context: context,
-  builder: (_) => _PlaylistDialog(editing: editing),
+  builder: (_) => _PlaylistDialog(editing: editing, remote: remote),
 );
 
 /// 自訂封面網址的檢查結果。
@@ -46,9 +53,10 @@ enum _CoverCheck {
 }
 
 class _PlaylistDialog extends ConsumerStatefulWidget {
-  const _PlaylistDialog({this.editing});
+  const _PlaylistDialog({this.editing, this.remote});
 
   final PlaylistOverview? editing;
+  final PlaylistRemote? remote;
 
   @override
   ConsumerState<_PlaylistDialog> createState() => _PlaylistDialogState();
@@ -70,6 +78,9 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
 
   /// 選了「自訂」。
   late var _custom = _initialArtwork.isNotEmpty;
+
+  /// 按了「使用遠端的」的欄位；之後再改那個欄位就取消（改過的值要留）。
+  final _useRemote = <ImportedField>{};
 
   /// 名稱欄改過：之後清空才說它是必填（剛打開的空欄不先報錯）。
   var _nameTouched = false;
@@ -119,15 +130,49 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
       name: _name.text,
       description: _description.text,
       artwork: artwork,
+      useRemote: {..._useRemote},
     ));
   }
 
+  /// [field] 下面的「使用遠端的」：只有匯入歌單、而且這個欄位被本機覆寫過才有；按了之後改成
+  /// 說明下一次刷新會怎樣。
+  Widget _remoteRow(ImportedField field, bool overridden) {
+    if (widget.remote == null || !overridden) return const SizedBox.shrink();
+    final t = ref.read(translationsProvider).library;
+    final theme = Theme.of(context);
+    if (_useRemote.contains(field)) {
+      return Padding(
+        padding: EdgeInsets.only(top: AppTokens.of(context).spacing.x1),
+        child: Text(
+          t.useRemoteHint,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    return Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: TextButton(
+        onPressed: () => setState(() => _useRemote.add(field)),
+        child: Text(t.useRemote),
+      ),
+    );
+  }
+
+  /// 改了 [field]：之前按的「使用遠端的」作廢。
+  void _edited(ImportedField field) {
+    if (_useRemote.contains(field)) setState(() => _useRemote.remove(field));
+  }
+
   void _chooseCustom() {
+    _useRemote.remove(ImportedField.artwork);
     setState(() => _custom = true);
     _coverFocus.requestFocus();
   }
 
   void _useDefault() => setState(() {
+    _useRemote.remove(ImportedField.artwork);
     _custom = false;
     _coverUrl.clear();
   });
@@ -152,7 +197,10 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
                 controller: _name,
                 autofocus: true,
                 textInputAction: TextInputAction.next,
-                onChanged: (_) => _nameTouched = true,
+                onChanged: (_) {
+                  _nameTouched = true;
+                  _edited(ImportedField.name);
+                },
                 decoration: InputDecoration(
                   labelText: t.name,
                   errorText: _nameTouched && _name.text.trim().isEmpty
@@ -161,12 +209,21 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
                 ),
               ),
             ),
+            _remoteRow(
+              ImportedField.name,
+              widget.remote?.nameOverridden == true,
+            ),
             SizedBox(height: spacing.x4),
             TextField(
               controller: _description,
               minLines: 1,
               maxLines: 4,
+              onChanged: (_) => _edited(ImportedField.description),
               decoration: InputDecoration(labelText: t.description),
+            ),
+            _remoteRow(
+              ImportedField.description,
+              widget.remote?.descriptionOverridden == true,
             ),
             SizedBox(height: spacing.x4),
             ListenableBuilder(
@@ -219,6 +276,7 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
                         controller: _coverUrl,
                         focusNode: _coverFocus,
                         keyboardType: TextInputType.url,
+                        onChanged: (_) => _edited(ImportedField.artwork),
                         autocorrect: false,
                         enableSuggestions: false,
                         decoration: InputDecoration(
@@ -231,6 +289,10 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
                         ),
                       ),
                     ],
+                    _remoteRow(
+                      ImportedField.artwork,
+                      widget.remote?.artworkOverridden == true,
+                    ),
                   ],
                 );
               },

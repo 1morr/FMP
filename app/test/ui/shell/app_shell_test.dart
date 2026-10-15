@@ -15,6 +15,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
+import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -196,6 +197,59 @@ void main() {
         expect(page.bottom, lessThanOrEqualTo(player.top));
       });
     }
+
+    // 頁面轉場在頁外包一層有底色的 `ColoredBox`：頁面沒有自己的 Material 時，`ListTile` 的
+    // 水波畫在外殼的 Material 上、被它蓋住（除錯版的斷言見 `import_ui_test.dart` 的匯入案例）。
+    testWidgets('every page of a nested navigator paints on its own Material', (
+      tester,
+    ) async {
+      MaterialType nearestMaterial(Finder page) => tester
+          .widget<Material>(
+            find.ancestor(of: page, matching: find.byType(Material)).first,
+          )
+          .type;
+
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      for (final (destination, page) in [
+        (ShellDestination.home, HomePage),
+        (ShellDestination.search, SearchPage),
+        (ShellDestination.library, LibraryPage),
+        (ShellDestination.radio, RadioPage),
+        (ShellDestination.settings, SettingsPage),
+      ]) {
+        await h.open(tester, destination);
+        expect(
+          nearestMaterial(find.byType(page)),
+          MaterialType.transparency,
+          reason: '$page',
+        );
+      }
+
+      await h.openHistory(tester);
+      expect(
+        nearestMaterial(find.byType(HistoryPage)),
+        MaterialType.transparency,
+      );
+      await back(tester);
+
+      await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(playlistRepositoryProvider)
+            .create(name: 'Mine'),
+      );
+      for (var i = 0; i < 3; i++) {
+        await h.loadSettings(tester);
+      }
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mine'));
+      await tester.pumpAndSettle();
+      expect(
+        nearestMaterial(find.byType(PlaylistDetailPage)),
+        MaterialType.transparency,
+      );
+    });
 
     testWidgets('the back key closes the inner page first, then goes Home', (
       tester,

@@ -121,6 +121,25 @@ VoidCallback? _save(WidgetTester tester) => tester
     .onPressed;
 
 void main() {
+  testWidgets('a cover with several images is read through the plugin of the '
+      'image that is picked, not the first one', (tester) async {
+    // 匯入歌單的封面常有不同網域的多張：第一張（最大）不屬於任何插件，依尺寸挑中的是第二張。
+    final (_, requests) = await _open(
+      tester,
+      artwork: [
+        TrackArtwork(
+          url: Uri.parse('https://other.example/big.jpg'),
+          width: 2000,
+        ),
+        TrackArtwork(url: Uri.parse(_inPlugin), width: 100),
+      ],
+    );
+
+    expect(requests.managers, contains('fmp-test'));
+    expect(requests.urls, contains(_inPlugin));
+    expect(requests.urls, isNot(contains('https://other.example/big.jpg')));
+  });
+
   group('pluginForArtwork', () {
     final plugins = [
       FakeSourcePlugin((_) => [], id: 'one'),
