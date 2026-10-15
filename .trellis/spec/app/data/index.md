@@ -133,6 +133,8 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
   `migrateAndValidate` 比對。測試用 raw SQL 插入違規列，因為 repository 不開放 Mix 欄位；斷言比對 SQLite 的訊息
   （`RESTRICT` 以 trigger 實作，擴充碼不是 `SQLITE_CONSTRAINT_FOREIGNKEY`）。
 - `create` 只建 `local`：匯入與 Mix 歌單要連同 `playlist_remote` 或 Mix 三欄一起寫，由建它們的 PR 另加寫入口。
+- `overviews()`（歌單卡）是一個查詢：`playlists` left join 第一首的 `tracks`，首數與第一首的曲目鍵是相關子查詢（同一張表的兩個
+  alias）。回 `Future`、畫面以 `changes()` 重讀，不給 `watch()` 版：join 了 `tracks`，每寫一次曲目都會觸發重查。
 
 ## 匯入歌單的遠端資料（`playlist_repository.dart`，schema v16）
 
