@@ -347,7 +347,11 @@ class _CaseRow extends ConsumerWidget {
     final summary = switch (shown) {
       null => d.pdNotRun,
       DevCaseResult(outcome: DevCaseOutcome.skipped, :final skip) =>
-        skip == DevSkip.handEdited ? d.pdSkippedEdited : d.pdSkippedLogin,
+        switch (skip) {
+          DevSkip.handEdited => d.pdSkippedEdited,
+          DevSkip.mutates => d.pdSkippedMutates,
+          _ => d.pdSkippedLogin,
+        },
       final result => [
         d.pdCaseLine(
           outcome: result.outcome == DevCaseOutcome.passed

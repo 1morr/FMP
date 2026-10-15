@@ -157,7 +157,7 @@ class _CaseRow extends ConsumerWidget {
       HealthOutcome.skipped => (
         Icons.remove_circle_outline,
         scheme.onSurfaceVariant,
-        t.hcSkipped,
+        item.skip == HealthSkip.mutates ? t.hcSkippedMutates : t.hcSkipped,
       ),
     };
     return ListTile(

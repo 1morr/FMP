@@ -566,6 +566,8 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   @override
   String get hcSkipped => 'Skipped (not logged in)';
   @override
+  String get hcSkippedMutates => 'Skipped (changes the remote)';
+  @override
   String hcProblem({required Object problem}) => 'Cannot check: ${problem}';
   @override
   String get hcNotLoaded =>
@@ -652,6 +654,8 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   String get pdSkippedLogin => 'Skipped: needs a login, not logged in';
   @override
   String get pdSkippedEdited => 'Skipped: the fixtures were edited by hand';
+  @override
+  String get pdSkippedMutates => 'Skipped: changes the remote';
   @override
   String get pdNotRun => 'Not run yet';
   @override

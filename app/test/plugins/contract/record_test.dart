@@ -133,6 +133,65 @@ void main() {
     );
   });
 
+  // mutates（會改動遠端的案例）在命令列錄製一律略過：不載入、不連網、不建 fixture
+  // 資料夾。控制組是第一個測試：同一個 search 案例沒有 mutates 就會送出並寫檔。
+  test(
+    'skips a case that mutates the remote before calling the plugin',
+    () async {
+      final directory = copyPlugin('http_test_plugin');
+      Directory(p.join(directory.path, 'fixtures')).deleteSync(recursive: true);
+      edit(
+        directory,
+        'checks.json',
+        '"page": 1 }',
+        '"page": 1 }, "mutates": true',
+      );
+      final upstream = FakeHttpAdapter(_upstream);
+
+      final recording = await recordContract(
+        directory,
+        network: () => upstream,
+      );
+
+      expect(recording.problems, isEmpty);
+      expect(recording.skipped, ['search: mutates the remote']);
+      expect(
+        upstream.requests.map((r) => r.uri.path),
+        isNot(contains('/search')),
+      );
+      expect(
+        Directory(p.join(directory.path, 'fixtures', 'search')).existsSync(),
+        isFalse,
+      );
+      // 其他案例照錄。
+      expect(
+        Directory(p.join(directory.path, 'fixtures', 'resolveStream'))
+            .existsSync(),
+        isTrue,
+      );
+    },
+  );
+
+  // 契約測試照常重播 mutates 的案例（fixture 手寫）：通過，期望不符時也照實報出
+  // （證明它真的跑了，不是被略過）。
+  test('replays a case that mutates the remote', () async {
+    final directory = copyPlugin('http_test_plugin');
+    edit(
+      directory,
+      'checks.json',
+      '"page": 1 }',
+      '"page": 1 }, "mutates": true',
+    );
+
+    expect(await runContract(directory), isEmpty);
+
+    edit(directory, 'checks.json', '"minItems": 2', '"minItems": 9');
+    expect(
+      await runContract(directory),
+      contains(contains('search: expected at least 9 items')),
+    );
+  });
+
   test('writes nothing for a case whose outcome misses the check', () async {
     // 連線失敗：案例以 NetworkError 結束，不是 checks.json 期望的成功。原本的
     // fixture 一個位元組都不動。

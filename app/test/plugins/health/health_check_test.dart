@@ -277,6 +277,67 @@ void main() {
     });
   });
 
+  group('a mutates case', () {
+    const mutatingLogin =
+        '"login": {"input": {"cookies": {"SESSDATA": "***"}}, '
+        '"expect": {"minItems": 1, "nonEmpty": ["userId"]}, '
+        '"requiresLogin": true, "mutates": true}';
+    final spec = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $mutatingLogin}',
+      login: true,
+    );
+
+    // 控制組是上面「run with the stored credentials」：同一個插件、同樣已登入，
+    // 去掉 mutates 就會送出 /me。
+    for (final loggedIn in [true, false]) {
+      test(
+        'is skipped without calling the plugin (logged in: $loggedIn)',
+        () async {
+          final s = await _setup([spec]);
+          if (loggedIn) await _login(s.harness, 'plugin-a');
+
+          await s.container
+              .read(healthCheckProvider.notifier)
+              .runOne('plugin-a');
+
+          final cases = s.container
+              .read(healthCheckProvider)
+              .results['plugin-a']!
+              .cases;
+          expect(cases.map((c) => c.outcome), [
+            HealthOutcome.passed,
+            HealthOutcome.skipped,
+          ]);
+          expect(cases.last.skip, HealthSkip.mutates);
+          expect(cases.first.skip, isNull);
+          expect(s.requests.where((r) => r.startsWith('/me')), isEmpty);
+        },
+      );
+    }
+
+    test(
+      'a not logged in requiresLogin case is skipped for the login',
+      () async {
+        final s = await _setup([
+          _Spec(
+            'plugin-a',
+            checks: '{$_searchCheck, $_loginCheck}',
+            login: true,
+          ),
+        ]);
+
+        await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+
+        final cases = s.container
+            .read(healthCheckProvider)
+            .results['plugin-a']!
+            .cases;
+        expect(cases.last.skip, HealthSkip.requiresLogin);
+      },
+    );
+  });
+
   group('a live case', () {
     final live = _Spec(
       'plugin-a',

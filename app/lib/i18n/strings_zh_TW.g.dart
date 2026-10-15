@@ -707,6 +707,9 @@ class Translations$debug$zh_TW {
   /// zh-TW: '略過（未登入）'
   String get hcSkipped => '略過（未登入）';
 
+  /// zh-TW: '略過（會改動遠端）'
+  String get hcSkippedMutates => '略過（會改動遠端）';
+
   /// zh-TW: '無法檢查：{problem}'
   String hcProblem({required Object problem}) => '無法檢查：${problem}';
 
@@ -822,6 +825,9 @@ class Translations$debug$zh_TW {
 
   /// zh-TW: '略過：fixture 是手改過的'
   String get pdSkippedEdited => '略過：fixture 是手改過的';
+
+  /// zh-TW: '略過：會改動遠端'
+  String get pdSkippedMutates => '略過：會改動遠端';
 
   /// zh-TW: '還沒執行'
   String get pdNotRun => '還沒執行';

@@ -485,6 +485,99 @@ void main() {
     }
   });
 
+  // mutates（ADR 0032 §決定 7）：每種案例共用的選填欄位，只收 true；不寫就是不改動。
+  // PR 14 的 libraryWrite 案例改成必填。
+  group('mutates', () {
+    test('is true when written, false when absent or null', () {
+      PluginCheck check(String extra) =>
+          parseChecks('{"search": {"input": $_search, "expect": {}$extra}}')
+              .single;
+
+      expect(check(', "mutates": true').mutates, isTrue);
+      expect(check('').mutates, isFalse);
+      expect(check(', "mutates": null').mutates, isFalse);
+    });
+
+    for (final (name, value, message) in [
+      ('false', 'false', 'checks.search.mutates: must be true'),
+      ('a string', '"true"', 'checks.search.mutates: expected a boolean'),
+      ('a number', '1', 'checks.search.mutates: expected a boolean'),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(
+            '{"search": {"input": $_search, "expect": {}, "mutates": $value}}',
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+
+    /// 案例形狀（`Fmp<能力>Check`）裡沒有 `mutates` 的（選填或必填都算有：libraryWrite
+    /// 的案例必填它）。
+    List<String> withoutMutates(Map<String, Map<String, bool>> shapes) => [
+      for (final MapEntry(:key, :value) in shapes.entries)
+        if (RegExp(r'^Fmp\w+Check$').hasMatch(key) &&
+            !value.containsKey('mutates'))
+          key,
+    ];
+
+    test('every case shape takes it', () {
+      expect(
+        withoutMutates(checkShapes),
+        isEmpty,
+        reason: 'a new Fmp<capability>Check needs "mutates"',
+      );
+    });
+
+    // 雙向變異：拿掉一種案例的 mutates 會紅；多一個無關的欄位、改案例的名稱不紅。
+    test('the shape gate catches a case without it, not unrelated edits', () {
+      final missing = {
+        ...checkShapes,
+        'FmpSearchCheck': {'input': true, 'expect': true},
+      };
+      expect(withoutMutates(missing), ['FmpSearchCheck']);
+      final unrelated = {
+        ...checkShapes,
+        'FmpSearchCheck': {...checkShapes['FmpSearchCheck']!, 'limit': false},
+        'FmpRenamedCheck': checkShapes['FmpLiveCheck']!,
+      };
+      expect(withoutMutates(unrelated), isEmpty);
+    });
+
+    test('every capability with a case parses it', () {
+      // 每個能寫案例的能力都走同一條解析：mutates 對它們都成立。
+      const cases = {
+        'search': '{"keyword": "k", "page": 1}',
+        'resolveStream': _stream,
+        'live': '{"roomId": "1"}',
+        'mix': '{"seed": {"sourceId": "s"}}',
+        'multiPart': '{"sourceId": "s"}',
+        'trackDetail': '{"sourceId": "s"}',
+        'importPlaylist': '{"url": "https://example.test/p"}',
+      };
+      for (final MapEntry(key: capability, value: input) in cases.entries) {
+        final check = parseChecks(
+          '{"$capability": {"input": $input, "expect": {}, "mutates": true}}',
+        ).single;
+        expect(check.mutates, isTrue, reason: capability);
+      }
+      expect(
+        parseChecks(
+          '{"login": {"input": {"cookies": {"SESSDATA": "***"}}, '
+          '"expect": {}, "requiresLogin": true, "mutates": true}}',
+        ).single.mutates,
+        isTrue,
+      );
+    });
+  });
+
   group('parseChecks', () {
     test('reads both kinds of expectation', () {
       final checks = parseChecks(

@@ -569,6 +569,8 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   @override
   String get hcSkipped => '跳过（未登录）';
   @override
+  String get hcSkippedMutates => '跳过（会改动远端）';
+  @override
   String hcProblem({required Object problem}) => '无法检查：${problem}';
   @override
   String get hcNotLoaded => '无法检查：插件没有加载（见 log）';
@@ -650,6 +652,8 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   String get pdSkippedLogin => '跳过：需要登录，目前没有登录';
   @override
   String get pdSkippedEdited => '跳过：fixture 是手改过的';
+  @override
+  String get pdSkippedMutates => '跳过：会改动远端';
   @override
   String get pdNotRun => '还没执行';
   @override
