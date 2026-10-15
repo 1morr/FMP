@@ -16,10 +16,13 @@ String? cargoBridgeVersion(String cargoToml) => RegExp(
   multiLine: true,
 ).firstMatch(cargoToml)?.group(1);
 
-/// `pubspec.lock` 裡 `flutter_rust_bridge` 的 `version`；找不到為 `null`。
-String? lockedBridgeVersion(String pubspecLock) {
+/// `pubspec.lock` 裡 [package]（預設 `flutter_rust_bridge`）的 `version`；找不到為 `null`。
+String? lockedBridgeVersion(
+  String pubspecLock, {
+  String package = 'flutter_rust_bridge',
+}) {
   final lines = const LineSplitter().convert(pubspecLock);
-  final start = lines.indexWhere((l) => l.trim() == 'flutter_rust_bridge:');
+  final start = lines.indexWhere((l) => l.trim() == '$package:');
   if (start < 0) return null;
   final indent = lines[start].length - lines[start].trimLeft().length;
   for (var i = start + 1; i < lines.length; i++) {

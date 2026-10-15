@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart' as audio;
 import 'package:audio_service_platform_interface/audio_service_platform_interface.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -13,7 +15,7 @@ import 'package:fmp/platform/media_controls/media_controls.dart';
 /// 播放仍由 `JustAudioBackend` 負責，`audio_service` 只當作「媒體工作階段」：
 /// 通知上的按鈕、進度條與媒體鍵經 [commands] 回到控制器。
 final class AndroidSystemMediaControls implements SystemMediaControls {
-  AndroidSystemMediaControls._(this._handler, Log log) {
+  AndroidSystemMediaControls._(this._handler, Log log, this._mediaKeyFix) {
     // audio_service 在背景做的事失敗時（例如前景服務被拒絕）只進這個 stream，
     // 不聽就沒有人知道。只記 log，不提示使用者。
     _asyncErrors = reportAsyncErrors(audio.AudioService.asyncError, log);
@@ -37,10 +39,23 @@ final class AndroidSystemMediaControls implements SystemMediaControls {
         androidStopForegroundOnPause: true,
       ),
     );
-    return AndroidSystemMediaControls._(handler, log);
+    final controls = AndroidSystemMediaControls._(
+      handler,
+      log,
+      MediaKeyFix(log),
+    );
+    // 服務在 init 時已建好；之後服務被系統重建，publish 會再裝一次。
+    await controls._mediaKeyFix.install();
+    return controls;
   }
 
+  /// 測試用：不初始化 `audio_service`，只建 handler 與媒體鍵修正。
+  @visibleForTesting
+  AndroidSystemMediaControls.forTest(Log log, MediaKeyFix mediaKeyFix)
+    : this._(_Handler(), log, mediaKeyFix);
+
   final _Handler _handler;
+  final MediaKeyFix _mediaKeyFix;
   late final StreamSubscription<Object> _asyncErrors;
 
   @override
@@ -63,6 +78,8 @@ final class AndroidSystemMediaControls implements SystemMediaControls {
       );
     }
     handler.playbackState.add(androidPlaybackStateOf(nowPlaying));
+    // 有曲目才會有（重建的）服務；便宜且可重複，不等結果。
+    if (nowPlaying.phase != MediaPhase.idle) unawaited(_mediaKeyFix.install());
   }
 
   /// 只有重啟流程（`AndroidAppRestarter`）在結束行程前呼叫。先等平台收掉前景服務、通知與
@@ -74,6 +91,40 @@ final class AndroidSystemMediaControls implements SystemMediaControls {
     await AudioServicePlatform.instance.stopService(const StopServiceRequest());
     await _asyncErrors.cancel();
     await _handler.close();
+  }
+}
+
+/// 修正 Android 媒體鍵（#233）：`audio_service` 把真正的「播放」「暫停」鍵都當成切換，
+/// 已暫停時收到「暫停」鍵會開始播放。原生端（`MediaKeyFix.java`）用反射把服務的
+/// media session callback 換成會改寫鍵碼的版本，這裡只負責在服務建好後呼叫。
+/// 失敗（服務還沒建好、反射失敗、頻道不在）都只記 debug log，不影響播放。
+class MediaKeyFix {
+  MediaKeyFix(this._log, {MethodChannel? channel})
+    : _channel = channel ?? const MethodChannel('fmp/media_keys');
+
+  final Log _log;
+  final MethodChannel _channel;
+
+  /// 回傳原生端有沒有裝好；任何失敗都是 `false`，不丟例外。
+  Future<bool> install() async {
+    try {
+      final installed = await _channel.invokeMethod<bool>('install') ?? false;
+      if (!installed) {
+        _log.debug(
+          'The media key fix was not installed',
+          tag: 'media-controls',
+        );
+      }
+      return installed;
+    } on Object catch (error) {
+      // MissingPluginException（沒有 Activity 的引擎）與 PlatformException 都不該動到播放。
+      _log.debug(
+        'The media key fix failed',
+        tag: 'media-controls',
+        error: error,
+      );
+      return false;
+    }
   }
 }
 
