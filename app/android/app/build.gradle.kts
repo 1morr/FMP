@@ -62,6 +62,8 @@ android {
 
     buildTypes {
         release {
+            // 在 Flutter 預設的規則之外加上 audio_service 反射用的 keep 規則。
+            proguardFiles("proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (keyProperties != null) "release" else "debug")
         }
     }
@@ -85,6 +87,14 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    // MediaKeyFix.java 繼承 audio_service 的 MediaSessionCallback，編譯期要看得到
+    // MediaSessionCompat；audio_service 把它宣告為 implementation，不會傳遞給 app。
+    // 版本跟 audio_service 0.18.19 的 build.gradle.kts 一致（釘版測試
+    // audio_service_internals_test.dart 提醒升級時一起檢查）。
+    implementation("androidx.media:media:1.7.0")
 }
 
 flutter {

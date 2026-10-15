@@ -7,8 +7,9 @@ import com.ryanheise.audioservice.AudioServicePlugin
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.plugin.common.MethodChannel
 
-// 這三個覆寫沒有自動閘門，改動後要在 Android 實機驗（app/AGENTS.md § 平台層）。
+// 這些覆寫沒有自動閘門，改動後要在 Android 實機驗（app/AGENTS.md § 平台層）。
 class MainActivity : AudioServiceActivity() {
     // audio_service 的 AudioServicePlugin.getFlutterEngine 以
     // DartEntrypoint.createDefault() 啟動引擎，不帶 intent 的 dart_entrypoint_args，
@@ -26,6 +27,21 @@ class MainActivity : AudioServiceActivity() {
         )
         cache.put(id, engine)
         return engine
+    }
+
+    // 媒體鍵修正（#233，MediaKeyFix.java）：Dart 端在 audio_service 服務建好後呼叫
+    // install。每次 Activity 接上引擎都會重登（處理者不持有 Activity，引擎留著時
+    // 頻道也留著）；服務自己建的引擎在 Activity 接上前沒有這個頻道，Dart 端只記 log。
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "fmp/media_keys")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "install") {
+                    result.success(MediaKeyFix.install())
+                } else {
+                    result.notImplemented()
+                }
+            }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
