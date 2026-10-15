@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 層寫法、外殼、離線、guideline 測試"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "PlaylistRepository 的用法"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 5、6、8 導覽、首頁、音樂庫"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "導覽、斷點、焦點三區、快捷鍵、設計 token"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "§決定 3 導覽與 M4 更正"}
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "§決定 12 首次啟動引導"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "§決定 4 佇列上限、臨時播放"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§10.1-§10.3、§10.5"}
