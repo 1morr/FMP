@@ -60,12 +60,20 @@ Map<String, List<int>> _bytes(Directory directory) => {
 
 const _loginScript = '''
 export async function loginVerify(credentials) {
-  await fmp.http.request({
+  const response = await fmp.http.request({
     url: 'https://example.test/me',
     headers: { Cookie: 'SESSDATA=' + credentials.cookies.SESSDATA },
     auth: 'never',
   });
-  return { userId: '42', displayName: 'Tester' };
+  let data = {};
+  try {
+    data = JSON.parse(response.body).data || {};
+  } catch (e) {}
+  return {
+    userId: '42',
+    displayName: 'Tester',
+    avatar: data.face ? [{ url: data.face }] : [],
+  };
 }
 ''';
 
@@ -522,57 +530,48 @@ void main() {
       Directory fixtures() =>
           Directory(p.join(root.path, 'login-plugin', 'fixtures'));
 
-      test('writes nothing while the account shows in the responses', () async {
-        loginPlugin();
-        await logIn();
-        handler = me;
-        final container = await start();
-        runs(container).setMode('login-plugin', CaseMode.record);
+      test(
+        'scrubs the account and writes fixtures that still replay',
+        () async {
+          loginPlugin();
+          await logIn();
+          handler = me;
+          final container = await start();
+          runs(container).setMode('login-plugin', CaseMode.record);
 
-        await runs(container).run('login-plugin', PluginCapability.login);
+          await runs(container).run('login-plugin', PluginCapability.login);
 
-        final shown = result(
-          container,
-          'login-plugin',
-          PluginCapability.login,
-        )!;
-        expect(shown.outcome, DevCaseOutcome.failed);
-        expect(shown.written, isNull);
-        expect(shown.problems.join(' '), contains('userId, displayName'));
-        expect(shown.problems.join(' '), isNot(contains('Tester')));
-        expect(fixtures().existsSync(), isFalse);
-      });
-
-      test('writes the fixture once the plugin redacts those fields', () async {
-        loginPlugin(keyNames: ['uname', 'mid']);
-        await logIn();
-        handler = me;
-        final container = await start();
-        runs(container).setMode('login-plugin', CaseMode.record);
-
-        await runs(container).run('login-plugin', PluginCapability.login);
-
-        final shown = result(
-          container,
-          'login-plugin',
-          PluginCapability.login,
-        )!;
-        expect(
-          shown.outcome,
-          DevCaseOutcome.passed,
-          reason: '${shown.problems}',
-        );
-        expect(shown.written, 1);
-        final written = fixtures()
-            .listSync(recursive: true)
-            .whereType<File>()
-            .single
-            .readAsStringSync();
-        expect(written, isNot(contains('Tester')));
-        expect(written, isNot(contains('FAKE_STORED_SESSION')));
-        // 頭像網址不是帳號名稱，留著（只比對 LoginAccount 回傳的欄位）。
-        expect(written, contains('face'));
-      });
+          final shown = result(
+            container,
+            'login-plugin',
+            PluginCapability.login,
+          )!;
+          expect(
+            shown.outcome,
+            DevCaseOutcome.passed,
+            reason: '${shown.problems}',
+          );
+          expect(shown.written, 1);
+          final written = fixtures()
+              .listSync(recursive: true)
+              .whereType<File>()
+              .single
+              .readAsStringSync();
+          expect(written, isNot(contains('Tester')));
+          expect(written, isNot(contains('tester.jpg')));
+          expect(written, isNot(contains('FAKE_STORED_SESSION')));
+          final body = (jsonDecode(written) as Map)['response'] as Map;
+          final data = (body['jsonBody'] as Map)['data'] as Map;
+          expect(data['uname'], '***');
+          expect(data['mid'], '***');
+          expect(data['face'], 'https://example.test/***');
+          // 換過的 fixture 重播仍過：頭像的主機還在，nonEmpty 成立。
+          expect(
+            await runContract(Directory(p.join(root.path, 'login-plugin'))),
+            isEmpty,
+          );
+        },
+      );
     });
 
     test('replay mode uses the fake credentials of checks.json', () async {
