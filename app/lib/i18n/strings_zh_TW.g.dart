@@ -56,6 +56,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   );
   late final Translations$library$zh_TW library =
       Translations$library$zh_TW.internal(_root);
+  late final Translations$playlist$zh_TW playlist =
+      Translations$playlist$zh_TW.internal(_root);
   late final Translations$offline$zh_TW offline =
       Translations$offline$zh_TW.internal(_root);
   late final Translations$settings$zh_TW settings =
@@ -365,6 +367,33 @@ class Translations$home$zh_TW {
 
   /// zh-TW: '搜尋並播放歌曲，或匯入歌單'
   String get emptyHint => '搜尋並播放歌曲，或匯入歌單';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '播放'
+  String get play => '播放';
+
+  /// zh-TW: '下一首播放'
+  String get playNext => '下一首播放';
+
+  /// zh-TW: '加入佇列'
+  String get addToQueue => '加入佇列';
+
+  /// zh-TW: '下一首播放（Mix 中無法使用）'
+  String get playNextInMix => '下一首播放（Mix 中無法使用）';
+
+  /// zh-TW: '加入佇列（Mix 中無法使用）'
+  String get addToQueueInMix => '加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '開始 Mix'
+  String get startMix => '開始 Mix';
+
+  /// zh-TW: '已加入下一首播放'
+  String get addedToNext => '已加入下一首播放';
+
+  /// zh-TW: '已加入佇列'
+  String get addedToQueue => '已加入佇列';
 }
 
 // Path: library
@@ -489,6 +518,108 @@ class Translations$library$zh_TW {
 
   /// zh-TW: '無法調整歌單順序：{reason}'
   String reorderFailed({required Object reason}) => '無法調整歌單順序：${reason}';
+
+  /// zh-TW: '自訂圖片'
+  String get coverCustom => '自訂圖片';
+
+  /// zh-TW: '自訂'
+  String get coverChooseCustom => '自訂';
+
+  /// zh-TW: '使用預設'
+  String get coverUseDefault => '使用預設';
+
+  /// zh-TW: '圖片網址'
+  String get coverUrl => '圖片網址';
+
+  /// zh-TW: '請輸入以 https 開頭的網址'
+  String get coverInvalidUrl => '請輸入以 https 開頭的網址';
+
+  /// zh-TW: '這個網址不屬於任何已安裝的音源'
+  String get coverNotFromSource => '這個網址不屬於任何已安裝的音源';
+
+  /// zh-TW: '匯入'
+  String get imported => '匯入';
+
+  /// zh-TW: 'Mix'
+  String get mix => 'Mix';
+
+  /// zh-TW: '加入歌單…'
+  String get addToPlaylist => '加入歌單…';
+
+  /// zh-TW: '加入歌單'
+  String get addToPlaylistTitle => '加入歌單';
+
+  /// zh-TW: '還沒有本機歌單'
+  String get noLocalPlaylists => '還沒有本機歌單';
+
+  /// zh-TW: '加入'
+  String get add => '加入';
+
+  /// zh-TW: '已加入「{name}」'
+  String addedToPlaylist({required Object name}) => '已加入「${name}」';
+
+  /// zh-TW: '已加入 {count} 張歌單'
+  String addedToPlaylists({required Object count}) => '已加入 ${count} 張歌單';
+
+  /// zh-TW: '無法加入歌單：{reason}'
+  String addToPlaylistFailed({required Object reason}) => '無法加入歌單：${reason}';
+}
+
+// Path: playlist
+class Translations$playlist$zh_TW {
+  Translations$playlist$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '播放'
+  String get play => '播放';
+
+  /// zh-TW: '下一首播放'
+  String get playNext => '下一首播放';
+
+  /// zh-TW: '加入佇列'
+  String get addToQueue => '加入佇列';
+
+  /// zh-TW: '下一首播放（Mix 中無法使用）'
+  String get playNextInMix => '下一首播放（Mix 中無法使用）';
+
+  /// zh-TW: '加入佇列（Mix 中無法使用）'
+  String get addToQueueInMix => '加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '開始 Mix'
+  String get startMix => '開始 Mix';
+
+  /// zh-TW: '已加入下一首播放'
+  String get addedToNext => '已加入下一首播放';
+
+  /// zh-TW: '已加入佇列'
+  String get addedToQueue => '已加入佇列';
+
+  /// zh-TW: '從歌單移除'
+  String get remove => '從歌單移除';
+
+  /// zh-TW: '無法從歌單移除：{reason}'
+  String removeFailed({required Object reason}) => '無法從歌單移除：${reason}';
+
+  /// zh-TW: '拖曳以排序'
+  String get reorder => '拖曳以排序';
+
+  /// zh-TW: '無法調整曲目順序：{reason}'
+  String reorderFailed({required Object reason}) => '無法調整曲目順序：${reason}';
+
+  /// zh-TW: '這張歌單還沒有歌'
+  String get empty => '這張歌單還沒有歌';
+
+  /// zh-TW: '在歌曲的選單選「加入歌單…」'
+  String get emptyHint => '在歌曲的選單選「加入歌單…」';
+
+  /// zh-TW: '找不到這張歌單'
+  String get notFound => '找不到這張歌單';
 }
 
 // Path: offline

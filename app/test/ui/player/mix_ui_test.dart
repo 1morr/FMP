@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -344,6 +345,43 @@ void main() {
       await tester.pump();
 
       expect((h.plugin.mixQueries.last as MixSeedQuery).sourceId, 'm2');
+    });
+
+    // 「加入歌單…」不動佇列（M4 PR 3）：Mix 中照常，佇列與 Mix 都不變。
+    testWidgets('a row menu adds the song to a playlist and leaves the mix '
+        'alone', (tester) async {
+      final h = await _inMix(tester);
+      final id = (await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(playlistRepositoryProvider)
+            .create(name: 'Road'),
+      ))!;
+      await openQueue(tester, const Size(1000, 800));
+      final before = [
+        for (final e in h.controller.queue.entries) e.track.sourceId,
+      ];
+
+      await _openMenu(tester, 'Song m2');
+      expect(_enabled(tester, 'Add to playlist…'), isTrue);
+      await tester.tap(_item('Add to playlist…'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Road'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      for (var i = 0; i < 3; i++) {
+        await h.loadSettings(tester);
+      }
+      await tester.pumpAndSettle();
+
+      final stored = (await tester.runAsync(
+        () => h.container(tester).read(playlistRepositoryProvider).entries(id),
+      ))!;
+      expect([for (final e in stored) e.track.sourceId], ['m2']);
+      expect(h.controller.queue.mode, QueueMode.mix);
+      expect([
+        for (final e in h.controller.queue.entries) e.track.sourceId,
+      ], before);
     });
 
     testWidgets('a row menu of a source without mix has no Start Mix', (

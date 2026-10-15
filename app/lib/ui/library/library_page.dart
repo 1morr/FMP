@@ -6,16 +6,16 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
-import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
-import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/library/playlist_service.dart';
-import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/library/library_state.dart';
+import 'package:fmp/ui/library/playlist_cover.dart';
+import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -23,37 +23,12 @@ import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
-/// 音樂庫的歌單卡（依 `sort_order`），本機資料，離線照常顯示。歌單或項目一變動就重讀
-/// （先訂閱再讀，讀的期間的變動排在後面再讀一次）；讀失敗發出錯誤、之後的變動照樣重讀。
-final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
-  ref,
-) async* {
-  final repository = ref.watch(playlistRepositoryProvider);
-  final changed = StreamController<void>();
-  final changes = repository.changes().listen(changed.add);
-  ref.onDispose(() {
-    unawaited(changes.cancel());
-    unawaited(changed.close());
-  });
-  Stream<List<PlaylistOverview>> read() async* {
-    try {
-      yield await repository.overviews();
-    } on Object catch (error, stackTrace) {
-      yield* Stream.error(error, stackTrace);
-    }
-  }
-
-  yield* read();
-  await for (final _ in changed.stream) {
-    yield* read();
-  }
-});
-
 /// 音樂庫（ADR 0033 §決定 8，M4 design §10.3）。
 ///
 /// - 標題列：「新增歌單」（「匯入」在 PR 8b）。
 /// - 頂端「歷史」一列：在音樂庫的巢狀導覽裡開歷史頁（YouTube Music 把歷史放在音樂庫）。
-/// - 歌單卡：封面（第一首的封面）、名稱、「本機 · n 首」。內容區是 compact、medium 時是清單，
+/// - 歌單卡：封面（自訂封面，沒有就是第一首的封面）、名稱、「本機 · n 首」；點一下在音樂庫的
+///   巢狀導覽裡開歌單詳情。內容區是 compact、medium 時是清單，
 ///   expanded 以上是格狀（M3 的 list／grid 依寬度切換）。拖曳把手排序（同電台頁：只有把手能拖，
 ///   長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照拖曳後的順序畫。
 /// - 卡片選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除（先確認）。
@@ -76,7 +51,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final input = await showPlaylistDialog(context);
     if (input == null) return;
     try {
-      await service.create(name: input.name, description: input.description);
+      await service.create(
+        name: input.name,
+        description: input.description,
+        artwork: input.artwork,
+      );
     } on Object catch (error, stackTrace) {
       toaster.error(
         AppError.wrap(error, stackTrace),
@@ -271,8 +250,9 @@ class _PlaylistList extends StatelessWidget {
         key: ValueKey(overview.playlist.id),
         overview: overview,
         builder: (context, more, openMenu) => ListTile(
-          leading: _PlaylistCover(
-            overview: overview,
+          leading: PlaylistCover(
+            artwork: overview.playlist.artwork,
+            firstTrack: overview.firstTrack,
             size: AppLayout.artworkThumbnail,
           ),
           title: Text(
@@ -281,6 +261,7 @@ class _PlaylistList extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: _PlaylistSubtitle(overview: overview),
+          onTap: () => unawaited(openPlaylist(context, overview.playlist.id)),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -470,16 +451,18 @@ class _GridCardState extends State<_GridCard> {
       },
       builder: (context, _, _) => _PlaylistMenu(
         overview: overview,
-        // 同 ListTile：整張卡合成一個語意節點，長按開選單。
+        // 同 ListTile：點一下開詳情、長按開選單；卡片是一個按鈕的語意節點，「⋯」與把手各自一個。
         builder: (context, more, openMenu) => Opacity(
           opacity: widget.dragging ? AppLayout.draggedOpacity : 1,
           child: SizedBox(
             key: _cardKey,
             width: widget.width,
-            child: MergeSemantics(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(tokens.radius.small),
-                onLongPress: openMenu,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(tokens.radius.small),
+              onTap: () => unawaited(openPlaylist(context, id)),
+              onLongPress: openMenu,
+              child: Semantics(
+                button: true,
                 child: _GridCardBody(
                   overview: overview,
                   more: more,
@@ -513,8 +496,11 @@ class _GridCardBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LayoutBuilder(
-          builder: (context, constraints) =>
-              _PlaylistCover(overview: overview, size: constraints.maxWidth),
+          builder: (context, constraints) => PlaylistCover(
+            artwork: overview.playlist.artwork,
+            firstTrack: overview.firstTrack,
+            size: constraints.maxWidth,
+          ),
         ),
         Padding(
           padding: EdgeInsetsDirectional.only(start: spacing.x1),
@@ -567,35 +553,6 @@ class _DragHandle extends ConsumerWidget {
   );
 }
 
-/// 歌單的封面：第一首的封面；空歌單是佔位圖。自訂封面與匯入歌單的遠端封面在之後的 PR。
-class _PlaylistCover extends StatelessWidget {
-  const _PlaylistCover({required this.overview, required this.size});
-
-  final PlaylistOverview overview;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final first = overview.firstTrack;
-    final scheme = Theme.of(context).colorScheme;
-    return ArtworkImage(
-      pluginId: first?.sourceTypeId ?? '',
-      artwork: first?.artwork ?? const [],
-      size: size,
-      fallback: ColoredBox(
-        color: scheme.surfaceContainerHighest,
-        child: Center(
-          child: Icon(
-            Icons.queue_music,
-            size: size / 2,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// 「本機 · n 首」。
 class _PlaylistSubtitle extends ConsumerWidget {
   const _PlaylistSubtitle({required this.overview});
@@ -612,10 +569,6 @@ class _PlaylistSubtitle extends ConsumerWidget {
     );
   }
 }
-
-/// 歌單的首數（英文的 1 首是單數）。
-String trackCountText(Translations$library$zh_TW t, int count) =>
-    count == 1 ? t.trackCountOne : t.trackCount(count: count);
 
 /// 一張歌單的選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除。
 class _PlaylistMenu extends ConsumerWidget {
@@ -700,6 +653,7 @@ class _PlaylistMenu extends ConsumerWidget {
         overview.playlist,
         name: input.name,
         description: input.description,
+        artwork: input.artwork,
       );
     } on Object catch (error, stackTrace) {
       toaster.error(

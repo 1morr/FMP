@@ -13,11 +13,15 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
+import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/start_mix.dart';
+import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 首頁「最近播放」的筆數（ADR 0033 §決定 6）：`play_history` 最新的這麼多筆，不去重。
 const recentPlaysCount = 20;
@@ -209,7 +213,12 @@ class _RecentPlays extends ConsumerWidget {
   }
 }
 
-/// 一首最近播放的歌：封面、曲名（兩行）、作者（音源不可用時是原因）。點一下臨時播放。
+/// 一首最近播放的歌：封面、曲名（兩行）、作者（音源不可用時是原因）。點一下臨時播放；選單
+/// （右鍵、長按、曲名旁的「⋯」，[TrackRowMenu]）有播放、下一首播放、加入佇列、開始 Mix、
+/// 加入歌單…（同歷史頁，沒有「從歷史移除」）。
+///
+/// 「⋯」疊在卡片的曲名旁、不在卡片的點擊區裡：卡片是一個按鈕的語意節點（點一下播放），「⋯」
+/// 是另一個，螢幕閱讀器才分得出兩個動作。
 class _RecentCard extends ConsumerWidget {
   const _RecentCard({super.key, required this.entry});
 
@@ -217,6 +226,7 @@ class _RecentCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).home;
     final theme = Theme.of(context);
     final tokens = AppTokens.of(context);
     final spacing = tokens.spacing;
@@ -224,44 +234,114 @@ class _RecentCard extends ConsumerWidget {
     final uploader =
         ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
         track.uploader;
-    return MergeSemantics(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(tokens.radius.small),
-        onTap: () => unawaited(
-          ref.read(playbackControllerProvider).playTemporary(track),
+    final inMix = ref.watch(inMixProvider);
+    final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
+
+    void play() =>
+        unawaited(ref.read(playbackControllerProvider).playTemporary(track));
+
+    void playNext() {
+      if (ref.read(playbackControllerProvider).playNext([track])) {
+        ref.read(toasterProvider).success(t.addedToNext);
+      }
+    }
+
+    void addToQueue() {
+      if (ref.read(playbackControllerProvider).addToQueue([track])) {
+        ref.read(toasterProvider).success(t.addedToQueue);
+      }
+    }
+
+    return TrackRowMenu(
+      moreTooltip: t.more,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.play_arrow),
+          onPressed: play,
+          child: Text(t.play),
         ),
-        child: Padding(
-          padding: EdgeInsets.all(spacing.x1),
-          child: SizedBox(
-            width: AppLayout.shelfCardWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ArtworkImage(
-                  pluginId: track.sourceTypeId,
-                  artwork: track.artwork,
-                  size: AppLayout.shelfCardWidth,
-                ),
-                SizedBox(height: spacing.x2),
-                Text(
-                  track.displayTitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                if (uploader != null)
-                  Text(
-                    uploader,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.queue_play_next),
+          onPressed: inMix ? null : playNext,
+          child: Text(inMix ? t.playNextInMix : t.playNext),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.add_to_queue),
+          onPressed: inMix ? null : addToQueue,
+          child: Text(inMix ? t.addToQueueInMix : t.addToQueue),
+        ),
+        if (canMix)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.auto_awesome),
+            onPressed: () => unawaited(startMixFrom(ref, track)),
+            child: Text(t.startMix),
+          ),
+        AddToPlaylistItem(
+          onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
+      ],
+      builder: (context, more, openMenu) => Stack(
+        children: [
+          MergeSemantics(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(tokens.radius.small),
+              onTap: play,
+              onLongPress: openMenu,
+              // 同 ListTile：可點的卡片是一個按鈕。
+              child: Semantics(
+                button: true,
+                child: Padding(
+                  padding: EdgeInsets.all(spacing.x1),
+                  child: SizedBox(
+                    width: AppLayout.shelfCardWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ArtworkImage(
+                          pluginId: track.sourceTypeId,
+                          artwork: track.artwork,
+                          size: AppLayout.shelfCardWidth,
+                        ),
+                        SizedBox(height: spacing.x2),
+                        // 曲名與作者讓出「⋯」的寬度。
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(
+                            end: kMinInteractiveDimension,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                track.displayTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              if (uploader != null)
+                                Text(
+                                  uploader,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-              ],
+                ),
+              ),
             ),
           ),
-        ),
+          PositionedDirectional(
+            end: 0,
+            top: spacing.x1 + AppLayout.shelfCardWidth + spacing.x1,
+            child: more,
+          ),
+        ],
       ),
     );
   }

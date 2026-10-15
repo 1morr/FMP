@@ -62,6 +62,10 @@ class TranslationsEn extends Translations
   @override
   late final Translations$library$en library = Translations$library$en._(_root);
   @override
+  late final Translations$playlist$en playlist = Translations$playlist$en._(
+    _root,
+  );
+  @override
   late final Translations$offline$en offline = Translations$offline$en._(_root);
   @override
   late final Translations$settings$en settings = Translations$settings$en._(
@@ -314,6 +318,24 @@ class Translations$home$en extends Translations$home$zh_TW {
   @override
   String get emptyHint =>
       'Search for songs and play them, or import a playlist';
+  @override
+  String get more => 'More options';
+  @override
+  String get play => 'Play';
+  @override
+  String get playNext => 'Play next';
+  @override
+  String get addToQueue => 'Add to queue';
+  @override
+  String get playNextInMix => 'Play next (unavailable in a Mix)';
+  @override
+  String get addToQueueInMix => 'Add to queue (unavailable in a Mix)';
+  @override
+  String get startMix => 'Start Mix';
+  @override
+  String get addedToNext => 'Added to play next';
+  @override
+  String get addedToQueue => 'Added to the queue';
 }
 
 // Path: library
@@ -407,6 +429,84 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String reorderFailed({required Object reason}) =>
       'Couldn\'t reorder the playlists: ${reason}';
+  @override
+  String get coverCustom => 'A custom image';
+  @override
+  String get coverChooseCustom => 'Custom';
+  @override
+  String get coverUseDefault => 'Use default';
+  @override
+  String get coverUrl => 'Image URL';
+  @override
+  String get coverInvalidUrl => 'Enter a URL that starts with https';
+  @override
+  String get coverNotFromSource =>
+      'This URL doesn\'t belong to any installed source';
+  @override
+  String get imported => 'Imported';
+  @override
+  String get mix => 'Mix';
+  @override
+  String get addToPlaylist => 'Add to playlist…';
+  @override
+  String get addToPlaylistTitle => 'Add to playlist';
+  @override
+  String get noLocalPlaylists => 'No local playlists yet';
+  @override
+  String get add => 'Add';
+  @override
+  String addedToPlaylist({required Object name}) => 'Added to "${name}"';
+  @override
+  String addedToPlaylists({required Object count}) =>
+      'Added to ${count} playlists';
+  @override
+  String addToPlaylistFailed({required Object reason}) =>
+      'Couldn\'t add to the playlist: ${reason}';
+}
+
+// Path: playlist
+class Translations$playlist$en extends Translations$playlist$zh_TW {
+  Translations$playlist$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get more => 'More options';
+  @override
+  String get play => 'Play';
+  @override
+  String get playNext => 'Play next';
+  @override
+  String get addToQueue => 'Add to queue';
+  @override
+  String get playNextInMix => 'Play next (unavailable in a Mix)';
+  @override
+  String get addToQueueInMix => 'Add to queue (unavailable in a Mix)';
+  @override
+  String get startMix => 'Start Mix';
+  @override
+  String get addedToNext => 'Added to play next';
+  @override
+  String get addedToQueue => 'Added to the queue';
+  @override
+  String get remove => 'Remove from playlist';
+  @override
+  String removeFailed({required Object reason}) =>
+      'Couldn\'t remove from the playlist: ${reason}';
+  @override
+  String get reorder => 'Drag to reorder';
+  @override
+  String reorderFailed({required Object reason}) =>
+      'Couldn\'t reorder the songs: ${reason}';
+  @override
+  String get empty => 'This playlist has no songs yet';
+  @override
+  String get emptyHint => 'Choose "Add to playlist…" in a song\'s menu';
+  @override
+  String get notFound => 'This playlist no longer exists';
 }
 
 // Path: offline

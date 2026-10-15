@@ -16,6 +16,7 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/count_text.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
@@ -326,12 +327,12 @@ class _ResultList extends ConsumerWidget {
 }
 
 /// 一首搜尋結果：封面、曲名、上傳者、時長、「⋯」。點一下臨時播放；選單在
-/// 右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]）。
+/// 右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]），最後一項是「加入歌單…」。
 ///
 /// 分 P（design §11.1）：插件宣告 `multiPart` 時，列尾多一個展開鈕（[partCount] 是
 /// 提示：空是不知道，照樣顯示；1 是確定單 P，不顯示），展開時列出分 P，每個分 P 是
-/// 一首曲目（[_PartTile]）。選單的「下一首播放」「加入佇列」在有多個分 P 時套用到
-/// 全部（還沒取過就先取）。點影片本身照舊臨時播放：不帶 cid，插件取第一 P。
+/// 一首曲目（[_PartTile]）。選單的「下一首播放」「加入佇列」「加入歌單…」在有多個分 P 時
+/// 套用到全部（還沒取過就先取）。點影片本身照舊臨時播放：不帶 cid，插件取第一 P。
 class _TrackTile extends ConsumerWidget {
   const _TrackTile({required this.track, required this.partCount});
 
@@ -369,31 +370,41 @@ class _TrackTile extends ConsumerWidget {
     void play() =>
         unawaited(ref.read(playbackControllerProvider).playTemporary(track));
 
-    // 加入佇列、下一首播放要放的曲目：有多個分 P 時是全部分 P，否則就是影片本身。
-    // 取分 P 失敗時以統一提示顯示，什麼都不加。
+    // 加入佇列、下一首播放、加入歌單要放的曲目：有多個分 P 時是全部分 P，否則就是影片本身。
+    // 取分 P 失敗時以統一提示顯示，回 `null`（什麼都不加）。
+    Future<List<TrackInfo>?> tracksToAdd() async {
+      final toaster = ref.read(toasterProvider);
+      final parts = ref.read(videoPartsProvider.notifier);
+      if (!expandable) return [track];
+      try {
+        final loaded = await parts.load(plugin!, track.sourceId);
+        return loaded.length > 1
+            ? [for (final part in loaded) part.toTrackInfo(track)]
+            : [track];
+      } on AppError catch (error) {
+        toaster.error(
+          error,
+          operation: 'Failed to load the parts',
+          tag: 'search',
+        );
+        return null;
+      }
+    }
+
     Future<void> addWith({required bool next, required String added}) async {
       final controller = ref.read(playbackControllerProvider);
       final toaster = ref.read(toasterProvider);
-      final parts = ref.read(videoPartsProvider.notifier);
-      var tracks = [track];
-      if (expandable) {
-        try {
-          final loaded = await parts.load(plugin!, track.sourceId);
-          if (loaded.length > 1) {
-            tracks = [for (final part in loaded) part.toTrackInfo(track)];
-          }
-        } on AppError catch (error) {
-          toaster.error(
-            error,
-            operation: 'Failed to load the parts',
-            tag: 'search',
-          );
-          return;
-        }
-      }
+      final tracks = await tracksToAdd();
+      if (tracks == null) return;
       if (next ? controller.playNext(tracks) : controller.addToQueue(tracks)) {
         toaster.success(added);
       }
+    }
+
+    Future<void> addToPlaylist() async {
+      final tracks = await tracksToAdd();
+      if (tracks == null || !context.mounted) return;
+      await showAddToPlaylist(context, tracks);
     }
 
     Future<void> toggleParts() async {
@@ -438,6 +449,7 @@ class _TrackTile extends ConsumerWidget {
             onPressed: () => unawaited(startMixFrom(ref, track)),
             child: Text(t.startMix),
           ),
+        AddToPlaylistItem(onPressed: () => unawaited(addToPlaylist())),
       ],
       builder: (context, more, openMenu) => ListTile(
         leading: ArtworkImage(
@@ -571,6 +583,9 @@ class _PartTile extends ConsumerWidget {
             onPressed: () => unawaited(startMixFrom(ref, track)),
             child: Text(t.startMix),
           ),
+        AddToPlaylistItem(
+          onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
       ],
       builder: (context, more, openMenu) => ListTile(
         contentPadding: EdgeInsetsDirectional.only(

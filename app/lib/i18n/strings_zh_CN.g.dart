@@ -70,6 +70,9 @@ class TranslationsZhCn extends Translations
   late final Translations$library$zh_CN library =
       Translations$library$zh_CN.internal(_root);
   @override
+  late final Translations$playlist$zh_CN playlist =
+      Translations$playlist$zh_CN.internal(_root);
+  @override
   late final Translations$offline$zh_CN offline =
       Translations$offline$zh_CN.internal(_root);
   @override
@@ -328,6 +331,24 @@ class Translations$home$zh_CN extends Translations$home$zh_TW {
   String get empty => '这里还没有内容';
   @override
   String get emptyHint => '搜索并播放歌曲，或导入歌单';
+  @override
+  String get more => '更多选项';
+  @override
+  String get play => '播放';
+  @override
+  String get playNext => '下一首播放';
+  @override
+  String get addToQueue => '加入队列';
+  @override
+  String get playNextInMix => '下一首播放（Mix 中无法使用）';
+  @override
+  String get addToQueueInMix => '加入队列（Mix 中无法使用）';
+  @override
+  String get startMix => '开始 Mix';
+  @override
+  String get addedToNext => '已加入下一首播放';
+  @override
+  String get addedToQueue => '已加入队列';
 }
 
 // Path: library
@@ -416,6 +437,79 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   String get reorder => '拖动以排序';
   @override
   String reorderFailed({required Object reason}) => '无法调整歌单顺序：${reason}';
+  @override
+  String get coverCustom => '自定义图片';
+  @override
+  String get coverChooseCustom => '自定义';
+  @override
+  String get coverUseDefault => '使用默认';
+  @override
+  String get coverUrl => '图片网址';
+  @override
+  String get coverInvalidUrl => '请输入以 https 开头的网址';
+  @override
+  String get coverNotFromSource => '这个网址不属于任何已安装的音源';
+  @override
+  String get imported => '导入';
+  @override
+  String get mix => 'Mix';
+  @override
+  String get addToPlaylist => '添加到歌单…';
+  @override
+  String get addToPlaylistTitle => '添加到歌单';
+  @override
+  String get noLocalPlaylists => '还没有本地歌单';
+  @override
+  String get add => '添加';
+  @override
+  String addedToPlaylist({required Object name}) => '已添加到「${name}」';
+  @override
+  String addedToPlaylists({required Object count}) => '已添加到 ${count} 个歌单';
+  @override
+  String addToPlaylistFailed({required Object reason}) => '无法添加到歌单：${reason}';
+}
+
+// Path: playlist
+class Translations$playlist$zh_CN extends Translations$playlist$zh_TW {
+  Translations$playlist$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get more => '更多选项';
+  @override
+  String get play => '播放';
+  @override
+  String get playNext => '下一首播放';
+  @override
+  String get addToQueue => '加入队列';
+  @override
+  String get playNextInMix => '下一首播放（Mix 中无法使用）';
+  @override
+  String get addToQueueInMix => '加入队列（Mix 中无法使用）';
+  @override
+  String get startMix => '开始 Mix';
+  @override
+  String get addedToNext => '已加入下一首播放';
+  @override
+  String get addedToQueue => '已加入队列';
+  @override
+  String get remove => '从歌单移除';
+  @override
+  String removeFailed({required Object reason}) => '无法从歌单移除：${reason}';
+  @override
+  String get reorder => '拖动以排序';
+  @override
+  String reorderFailed({required Object reason}) => '无法调整曲目顺序：${reason}';
+  @override
+  String get empty => '这个歌单还没有歌';
+  @override
+  String get emptyHint => '在歌曲的菜单中选择「添加到歌单…」';
+  @override
+  String get notFound => '找不到这个歌单';
 }
 
 // Path: offline
