@@ -15,6 +15,7 @@
 | Xcode 專案（`ios/`、`macos/`） | 第一列；本機沒有 Mac 時建置交給 CI 的 iOS、macOS job（prod release 與 dev debug 各一次） |
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
+| 繁簡字表的副本或產生器（`tool/opencc/`） | 先 `dart run tool/opencc/generate_ts_characters.dart`，再跑第一列（產生檔 `lib/core/matching/ts_characters.g.dart` 要提交） |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
 | 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
@@ -1213,6 +1214,34 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列）、
   `playlist_remote_repository_test.dart`。
 
+## 匹配
+
+`lib/core/matching/`（ADR 0019 §決定 5、6，M4 design §8.1、§8.2）：外部匯入與 M7 的歌詞共用的評分核心。純函式，輸入是自己的值型別
+（`MatchQuery`、`MatchCandidate`），從 `TrackSummary` 轉過來是呼叫端的事（`core/` 不 import `plugins/`、`data/`）；`unorm_dart`、
+`string_similarity` 只准在這裡（閘門：lint `fmp_layer_imports`，見 § Lint）。
+
+- **分數只看（原曲, 候選）這一對**：不看同一批的其他候選、搜尋關鍵字、播放量等來源特有的訊號，所以自動匹配與手動重搜同分。`rank` 同分依
+  輸入順序（呼叫端先排好音源順序），時長超出門檻的不列出、不佔名額。`MatchScore.total` 在 0–1，淘汰的是 0。
+- **權重與門檻寫死在 `matching.dart`**，以 `test/core/matching/match_corpus.dart` 的手寫語料校準：標題 0.6、歌手 0.3、時長 0.1，第一名到 0.6
+  才自動選，時長差距超過 max(10 秒, 5%) 淘汰；兩邊的版本標記（Live、伴奏、翻唱、Remix……）不同時標題分乘 0.8——design 的初值 0.9 會讓
+  「別人的鋼琴版、伴奏，時長相同」過門檻。原曲缺歌手、任一邊缺時長各給 0.5。改常數或 `normalize.dart` 的詞表要語料全綠。
+- **和 design §8.1 字面不同的地方**（照字面做，語料裡多數上傳標題比不到）：上傳標題的歌名常在括號裡或與譯名並列，所以候選的主標題、以
+  ` - `／`|`／`/` 切開的每段、每個括號內容、依文字系統（CJK／拉丁）切開的每段都拿來比，取最高；原曲歌手先從候選標題拿掉；裝飾詞
+  （MV、Official Video、中字、无损……）兩邊都去掉；版本標記不論在不在括號都算。原曲標題只取第一個 ` - ` 之前（Spotify 的 ` - Live` 後綴）。
+  原曲標題清完沒有字時（歌名就是 `Karaoke`、與歌手同名），先改成不去詞表的詞、再改成連歌手也不拿掉，候選用同一級（`TitleCleaning`）。
+  候選有原曲沒有的版本標記時，歌手分只看上傳者、不看標題：`【翻唱】周杰伦《晴天》`、`【伴奏】晴天 - 周杰伦` 裡的名字是原唱，算進去會讓
+  翻唱、伴奏（0.88）排在歌手對不上的原版（`Jay Chou - Topic`，0.69）前面。原歌手自己上傳的 Live、伴奏由上傳者對上，照樣選得到。
+- **已知會誤選**（語料的 `corpusKnownFalseMatches`）：同名、時長相近、上傳者不是歌手的另一首歌。它和「Spotify 給英文歌手名、候選是
+  中文名」的正確結果評分一樣，要選後者就得接受前者；對的那首通常也在候選裡，由排序勝出（`Hero` 那組排序）。
+- **繁簡字表** `ts_characters.g.dart` 由 `tool/opencc/generate_ts_characters.dart` 從釘 commit 的 `tool/opencc/TSCharacters.txt` 產生：字級、
+  多個候選取第一個、串接走到底（折一次等於折兩次）、另補 `著→着`（OpenCC 的字表沒有，它在 tw2s 由 `TWVariants.txt` 處理）。只為比對，
+  不是正確的簡體文字。OpenCC 的 Apache-2.0 由 `lib/app/licenses.dart` 在 `main()` 登記。換 OpenCC 版本見
+  `.trellis/spec/app/matching/index.md`。
+- 閘門：`test/core/matching/match_corpus_test.dart`（語料的該選、不該選、排序、已知誤選）、`matching_test.dart`（ADR 0019
+  §如何確認：全半形、繁簡、括號、時長門檻、多歌手、自動與手動重搜同分；上面「和 design 字面不同」的每一條；`rank` 的排序、穩定、
+  淘汰）、`ts_characters_test.dart`（重新產生等於已提交、已知字對、簡體不變、沒有串接、產生器拒絕沒有 commit 的副本與多字、重複、
+  成環的行）、`test/app/licenses_test.dart`。
+
 ## 播放
 
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
@@ -2387,7 +2416,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`，`unorm_dart`、`string_similarity` 在 `core/matching/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |
