@@ -30,7 +30,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     // 媒體鍵修正（#233，MediaKeyFix.java）：Dart 端在 audio_service 服務建好後呼叫
-    // install。頻道登記在引擎上，Activity 重建也不必重登。
+    // install。每次 Activity 接上引擎都會重登（處理者不持有 Activity，引擎留著時
+    // 頻道也留著）；服務自己建的引擎在 Activity 接上前沒有這個頻道，Dart 端只記 log。
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "fmp/media_keys")

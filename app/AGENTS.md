@@ -255,11 +255,14 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   不能繼承服務（套件的 `MediaBrowserCompat` 與 `startForegroundService` 都以 `AudioService.class` 指名），所以
   `MainActivity` 登記頻道 `fmp/media_keys`，Dart 的 `MediaKeyFix.install()` 在 `audio_service` 初始化後與每次非 idle 的
   `publish` 呼叫，原生端用反射把服務的 `mediaSessionCallback` 換成把 PLAY／PAUSE 改成套件的 `KEYCODE_BYPASS_PLAY`／
-  `KEYCODE_BYPASS_PAUSE` 的子類別（可重複呼叫，失敗只記 log）。依賴私有欄位 `instance`、`mediaSession`、
+  `KEYCODE_BYPASS_PAUSE` 的子類別（可重複呼叫，失敗只記 log）。依賴非公開欄位 `instance`、`mediaSession`、
   `mediaSessionCallback`，R8 的 keep 規則在 `android/app/proguard-rules.pro`。閘門：`audio_service_internals_test.dart`
   釘版 0.18.19（升級時重查欄位與 `onMediaButtonEvent`）、`media_controls_android_test.dart` 的 `the media key fix`
   （呼叫時機、失敗不影響播放）。**反射與鍵碼改寫沒有自動閘門、要實機驗**：暫停時 `adb shell input keyevent
   KEYCODE_MEDIA_PAUSE` 仍暫停、播放時 `KEYCODE_MEDIA_PLAY` 仍播放，`KEYCODE_MEDIA_PLAY_PAUSE` 仍切換。
+  **已知限制**：行程不在時由媒體鍵喚起服務、沒開 Activity 的那段期間，引擎是服務自己建的、沒有這個頻道，
+  媒體鍵都是套件原本的切換，開了 Activity 後的下一次非 idle `publish` 才裝上；服務重建後到下一次非 idle
+  `publish` 之前也一樣。
 - Android 的 `MainActivity` 繼承 `AudioServiceActivity`（與 audio_service 的服務共用 `FlutterEngine`），
   下面的覆寫**沒有自動閘門，改動後要在 Android 模擬器實機驗**：
   - `provideFlutterEngine`：audio_service 0.18.19 的 `AudioServicePlugin.getFlutterEngine` 以
