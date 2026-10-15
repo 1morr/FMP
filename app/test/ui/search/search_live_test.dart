@@ -190,6 +190,134 @@ void main() {
     });
   });
 
+  // 重搜用輸入框現在的文字，不是上次送出的關鍵字（#260）。
+  group('re-searching uses the text in the field', () {
+    testWidgets('clearing the field then switching source sends nothing', (
+      tester,
+    ) async {
+      final h = _harness();
+      await h.pumpShell(tester);
+      await _search(tester, 'night');
+      expect(h.plugin.searches.single.keyword, 'night');
+
+      await _tapAndSettle(tester, find.byTooltip('Clear'));
+      await _tapAndSettle(tester, find.text('Other Source'));
+      expect(_other(h).searches, isEmpty);
+      final state = h.container(tester).read(searchProvider);
+      expect(state.phase, SearchPhase.idle);
+      expect(state.isEmpty, isTrue);
+    });
+
+    testWidgets('text typed but not submitted is what the new source gets', (
+      tester,
+    ) async {
+      final h = _harness();
+      await h.pumpShell(tester);
+      await _search(tester, 'night');
+
+      await tester.enterText(find.byType(TextField), 'day');
+      await _tapAndSettle(tester, find.text('Other Source'));
+      expect(_other(h).searches.single.keyword, 'day');
+    });
+
+    testWidgets('switching mode and the room filter use it too', (
+      tester,
+    ) async {
+      final h = _harness();
+      await h.pumpShell(tester);
+      await _search(tester, 'night');
+
+      await tester.enterText(find.byType(TextField), 'day');
+      await _tapAndSettle(tester, find.text('Live rooms'));
+      expect(h.plugin.liveSearches.single.keyword, 'day');
+
+      await tester.enterText(find.byType(TextField), 'dusk');
+      await _tapAndSettle(tester, find.widgetWithText(ChoiceChip, 'Live'));
+      expect(h.plugin.liveSearches.last.keyword, 'dusk');
+
+      await tester.enterText(find.byType(TextField), '  ');
+      await _tapAndSettle(tester, find.widgetWithText(ChoiceChip, 'Offline'));
+      expect(h.plugin.liveSearches, hasLength(2));
+      expect(h.container(tester).read(searchProvider).rooms, isEmpty);
+    });
+
+    // 重試送的是上次送出的關鍵字，但不把它寫回輸入框的文字：清除後重試再換條件，仍不發請求。
+    testWidgets('retrying after clearing the field does not bring the text '
+        'back', (tester) async {
+      final h = _harness(
+        onLiveSearch: (_) => throw NetworkError(pluginId: 'fmp-test'),
+      );
+      await h.pumpShell(tester);
+      await _tapAndSettle(tester, find.text('Live rooms'));
+      await _search(tester, 'night');
+      await tester.pump(const Duration(seconds: 7));
+
+      await _tapAndSettle(tester, find.byTooltip('Clear'));
+      await _tapAndSettle(tester, find.widgetWithText(FilledButton, 'Retry'));
+      expect(h.plugin.liveSearches.map((query) => query.keyword), [
+        'night',
+        'night',
+      ]);
+
+      await _tapAndSettle(tester, find.widgetWithText(ChoiceChip, 'Live'));
+      expect(h.plugin.liveSearches, hasLength(2));
+    });
+
+    testWidgets('typing is stored as the text of the field', (tester) async {
+      final h = _harness();
+      await h.pumpShell(tester);
+      await tester.enterText(find.byType(TextField), 'unsent');
+      await tester.pump();
+      expect(h.container(tester).read(searchInputProvider), 'unsent');
+    });
+
+    test('falling back to songs searches the text in the field', () async {
+      SearchPage noTracks(SearchQuery _) =>
+          const SearchPage(items: [], hasMore: false);
+      final live = FakeSourcePlugin(
+        (_) => const [],
+        live: true,
+        onSearch: noTracks,
+      );
+      final other = FakeSourcePlugin(
+        (_) => const [],
+        id: 'other',
+        onSearch: noTracks,
+      );
+      final sources = NotifierProvider<_Sources, List<SourcePlugin>>(
+        () => _Sources([live, other]),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchSourcesProvider.overrideWith(
+            (ref) => AsyncData(ref.watch(sources)),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(searchProvider, (_, _) {});
+      final search = container.read(searchProvider.notifier);
+      await search.selectMode(SearchMode.rooms);
+
+      // 輸入框是空的：退回曲目但不發請求。
+      container.read(sources.notifier).set([other]);
+      await container.pump();
+      expect(container.read(searchProvider).mode, SearchMode.tracks);
+      expect(other.searches, isEmpty);
+
+      // 輸入框有未送出的字：以它搜尋。
+      container.read(sources.notifier).set([live, other]);
+      await container.pump();
+      await search.selectMode(SearchMode.rooms);
+      container.read(searchInputProvider.notifier).set('  moon ');
+      container.read(sources.notifier).set([other]);
+      await container.pump();
+      await container.pump();
+      expect(container.read(searchProvider).mode, SearchMode.tracks);
+      expect(other.searches.single.keyword, 'moon');
+    });
+  });
+
   group('room results', () {
     testWidgets('show the title, host, status and viewers', (tester) async {
       final h = _harness();
@@ -219,6 +347,39 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('watching'), findsOneWidget);
+    });
+
+    // 未開播的直播間不顯示人數，不管插件給了什麼值（#262）。
+    testWidgets('an offline room shows no viewers even with a count', (
+      tester,
+    ) async {
+      final h = _harness(
+        onLiveSearch: (_) => LiveSearchPage(
+          items: [
+            _room('r1', online: 321),
+            _room('r2', status: LiveRoomStatus.offline, online: 500),
+          ],
+          hasMore: false,
+        ),
+      );
+      await h.pumpShell(tester);
+      await _tapAndSettle(tester, find.text('Live rooms'));
+      await _search(tester, 'night');
+
+      expect(
+        find.descendant(
+          of: _roomRow('r1'),
+          matching: find.text('321 watching'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: _roomRow('r2'),
+          matching: find.textContaining('watching'),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('tapping a room listens to it', (tester) async {

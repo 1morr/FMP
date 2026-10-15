@@ -52,15 +52,16 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
-  late final _text = TextEditingController(
-    text: ref.read(searchProvider).keyword,
-  );
+  late final _text = TextEditingController(text: ref.read(searchInputProvider));
 
   @override
   void dispose() {
     _text.dispose();
     super.dispose();
   }
+
+  void _changed(String input) =>
+      ref.read(searchInputProvider.notifier).set(input);
 
   void _submit(String keyword) =>
       unawaited(ref.read(searchProvider.notifier).search(keyword));
@@ -97,6 +98,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             controller: _text,
             focusNode: widget.fieldFocusNode,
             textInputAction: TextInputAction.search,
+            onChanged: _changed,
             onSubmitted: _submit,
             decoration: InputDecoration(
               hintText: rooms ? t.roomHint : t.hint,
@@ -110,6 +112,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         icon: const Icon(Icons.close),
                         onPressed: () {
                           _text.clear();
+                          _changed('');
                           widget.fieldFocusNode.requestFocus();
                         },
                       ),
@@ -685,7 +688,8 @@ class _RoomTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (online != null)
+            // 未開播的直播間沒有人數，各插件給的值不一致（0、舊值），宿主統一不顯示。
+            if (online != null && room.status == LiveRoomStatus.live)
               Text(
                 translations.player.liveOnline(
                   count: formatCount(ref.watch(uiLocaleProvider), online),
