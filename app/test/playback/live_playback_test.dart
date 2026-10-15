@@ -556,6 +556,92 @@ void main() {
       });
     });
 
+    // 停用插件時排程器移除它的工作（#255）：重新啟用、仍在收聽就再登記。
+    test('is registered again when its plugin comes back while '
+        'listening', () {
+      fakeAsync((async) {
+        final h = _harness(async);
+        unawaited(h.controller.playLive(_target));
+        h.elapse(const Duration(seconds: 1));
+        expect(h.liveInfoJobs, hasLength(1));
+
+        h.removePlugin('fmp-test');
+        expect(h.liveInfoJobs, isEmpty);
+        expect(h.controller.live?.phase, LivePhase.listening);
+
+        h.restorePlugin(h.plugin);
+        expect(h.liveInfoJobs.map((job) => job.pluginId), ['fmp-test']);
+
+        h.plugin.onLiveStatus = (_) => _room(title: 'Back', online: 7);
+        unawaited(h.liveInfoJobs.single.run());
+        h.settle();
+        expect(h.controller.live?.title, 'Back');
+
+        // 換到同插件的另一個直播間也有登記。
+        unawaited(
+          h.controller.playLive(
+            const LiveTarget(pluginId: 'fmp-test', roomId: 'r2', title: 'Two'),
+          ),
+        );
+        h.elapse(const Duration(seconds: 1));
+        expect(h.liveInfoJobs.map((job) => job.pluginId), ['fmp-test']);
+      });
+    });
+
+    test('a removed plugin is not registered again while it is gone, nor '
+        'after the stream ended', () {
+      fakeAsync((async) {
+        final h = _harness(async);
+        unawaited(h.controller.playLive(_target));
+        h.elapse(const Duration(seconds: 1));
+
+        h
+          ..removePlugin('fmp-test')
+          // 別的插件的清單改變不會替不在的插件登記。
+          ..removePlugin('fmp-other');
+        expect(h.liveInfoJobs, isEmpty);
+
+        h.restorePlugin(h.plugin);
+        h.plugin.onLiveStatus = (_) => _room(status: LiveRoomStatus.offline);
+        h.backend.endEarly();
+        h.elapse(const Duration(milliseconds: 10));
+        expect(h.controller.live?.phase, LivePhase.ended);
+        expect(h.liveInfoJobs, isEmpty);
+
+        h.restorePlugin(h.otherPlugin);
+        expect(h.liveInfoJobs, isEmpty, reason: 'the stream ended');
+      });
+    });
+
+    test('a room stopped for good is not registered again when the plugins '
+        'change', () {
+      fakeAsync((async) {
+        final h = _harness(async);
+        h.plugin.onResolveLive = (_) => throw Unavailable(pluginId: 'fmp-test');
+        unawaited(h.controller.playLive(_target));
+        h.elapse(const Duration(seconds: 1));
+        expect(h.controller.state, isA<Failed>());
+        expect(h.controller.live?.phase, LivePhase.listening);
+        expect(h.liveInfoJobs, isEmpty);
+
+        h.removePlugin('fmp-other');
+        expect(h.liveInfoJobs, isEmpty);
+      });
+    });
+
+    test('is not registered again by a plugin change that arrives while '
+        'disposing', () {
+      fakeAsync((async) {
+        final h = _harness(async);
+        unawaited(h.controller.playLive(_target));
+        h.elapse(const Duration(seconds: 1));
+
+        unawaited(h.controller.dispose());
+        h.removePlugin('fmp-other');
+        expect(h.liveInfoJobs, isEmpty);
+      });
+    });
+
     test('a result that arrives after the room changed is dropped', () {
       fakeAsync((async) {
         final h = _harness(async);

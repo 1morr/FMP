@@ -98,9 +98,10 @@ final class PlaybackController {
     _sessionEvents = _session.events.listen(_onSessionEvent);
     _progressEvents = _session.progress.listen(_onProgress);
     _networkChanges = networkStatusChanges.listen(_onNetworkStatus);
-    _pluginChanges = pluginChanges.listen(
-      (_) => unawaited(_session.dropLookAheadOfMissingPlugin()),
-    );
+    _pluginChanges = pluginChanges.listen((_) {
+      unawaited(_session.dropLookAheadOfMissingPlugin());
+      _syncLiveInfoPlugin();
+    });
     _outputDeviceLists = _session.outputDeviceLists?.listen(_onOutputDevices);
   }
 
@@ -1664,6 +1665,24 @@ final class PlaybackController {
     _liveInfo = null;
     _unregisterLiveInfo();
     _emitLive();
+  }
+
+  /// 插件清單改了：停用、移除插件時排程器已一併移除它的 `live-info`（ADR 0017
+  /// §決定 5），這裡跟著放掉登記；重新啟用時若仍在收聽就再登記（#255）。
+  /// [_haltLive] 停下的（`Idle`、`Failed`，`LiveStop` 的階段仍是收聽中）不登記。
+  void _syncLiveInfoPlugin() {
+    final info = _liveInfo;
+    // 釋放時清單的通知可能還在路上：已移除的工作不再登記回去。
+    if (_disposed || info == null) return;
+    final present = _session.hasPlugin(info.target.pluginId);
+    if (_liveInfoRegistered && !present) {
+      _unregisterLiveInfo();
+    } else if (present &&
+        info.phase == LivePhase.listening &&
+        _state is! Idle &&
+        _state is! Failed) {
+      _registerLiveInfo();
+    }
   }
 
   void _registerLiveInfo() {
