@@ -91,14 +91,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/smtc_probe.ps1 -AppFi
 ```
 
 從 WinRT 讀媒體工作階段的 `TITLE`、`ARTIST`、`THUMBNAIL`（`present`／`none`，Windows 自己下載封面的結果）、
-`POSITION`／`END`、`STATUS` 與各按鈕的 `Is…Enabled`，App 不必在前景。`-AppFilter` 是 AppUserModelID 的子字串比對：
+`POSITION`／`END`、`STATUS`、各按鈕的 `Is…Enabled`，以及 `IsShuffleActive`、`AutoRepeatMode`（`None`／`List`／`Track`），App 不必在前景。`-AppFilter` 是 AppUserModelID 的子字串比對：
 只寫 `fmp` 會連舊版與 prod（`com.personal.fmp`）一起列出，但不會列出別的 App。必須是 `powershell.exe`（5.1）；
 `pwsh` 沒有 WinRT 投影。
 
 送指令（只送給 FMP）：
 
 ```bash
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/smtc_command.ps1 -Command toggle   # play|pause|toggle|next|previous|stop
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/smtc_command.ps1 -Command toggle   # play|pause|toggle|next|previous|stop|shuffle-on|shuffle-off|repeat-none|repeat-list|repeat-track
 ```
 
 - **不要用全域鍵盤媒體鍵驗 FMP**（`SendKeys`、`keybd_event` 的 `VK_MEDIA_*`）：Windows 自己決定送給哪個工作階段，
@@ -106,6 +106,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/smtc_command.ps1 -Com
   `TryPlayAsync`／`TrySkipNextAsync`／`TryStopAsync` 等，只對 AppUserModelID **完全等於** `-Aumid`（預設
   `com.personal.fmp.dev`）的工作階段送，別的 App、舊版與 prod 都碰不到；找不到就 exit 1、不送。
   `ACCEPTED=False`（exit 3）是那顆按鈕沒啟用。
+- `shuffle-*`、`repeat-*`（`TryChangeShuffleActiveAsync`、`TryChangeAutoRepeatModeAsync`）是浮層隨機、循環鈕的要求，App 決定要不要照做：Mix 與直播中不理（log `System media command ignored`），Mix 中 `repeat-list` 變成單曲（`Track`）。送完用 probe 看 `IsShuffleActive`、`AutoRepeatMode` 是不是 App 實際的狀態。
 - 送完以 log（tag `media-controls` 與 `Playback state`）或再跑一次 probe 確認反應。
 
 預期（2026-10-07 實機）：

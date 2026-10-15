@@ -10,10 +10,15 @@
 #
 #   powershell.exe -NoProfile -ExecutionPolicy Bypass `
 #     -File .claude/skills/verify-on-device/scripts/smtc_command.ps1 `
-#     -Command play|pause|toggle|next|previous|stop [-Aumid com.personal.fmp.dev]
+#     -Command play|pause|toggle|next|previous|stop|shuffle-on|shuffle-off|
+#              repeat-none|repeat-list|repeat-track [-Aumid com.personal.fmp.dev]
 #
 # -Aumid is an exact match (not a substring), so the dev build never reaches
 # the prod or old app (`com.personal.fmp`), and nothing else is touched.
+#
+# shuffle-* and repeat-* are requests, like the flyout's shuffle and repeat
+# buttons: the app decides whether to follow (it ignores them in a Mix or a
+# live room). Read the result back with smtc_probe.ps1.
 #
 # Exit codes: 0 = the session accepted the command, 1 = no FMP session (SMTC is
 # disabled until something plays), 2 = WinRT failed, 3 = the session refused
@@ -24,7 +29,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('play', 'pause', 'toggle', 'next', 'previous', 'stop')]
+    [ValidateSet('play', 'pause', 'toggle', 'next', 'previous', 'stop',
+        'shuffle-on', 'shuffle-off', 'repeat-none', 'repeat-list', 'repeat-track')]
     [string]$Command,
     [ValidateNotNullOrEmpty()]
     [string]$Aumid = 'com.personal.fmp.dev'
@@ -71,6 +77,11 @@ try {
         'next' { $session.TrySkipNextAsync() }
         'previous' { $session.TrySkipPreviousAsync() }
         'stop' { $session.TryStopAsync() }
+        'shuffle-on' { $session.TryChangeShuffleActiveAsync($true) }
+        'shuffle-off' { $session.TryChangeShuffleActiveAsync($false) }
+        'repeat-none' { $session.TryChangeAutoRepeatModeAsync([Windows.Media.MediaPlaybackAutoRepeatMode, Windows.Media, ContentType=WindowsRuntime]::None) }
+        'repeat-list' { $session.TryChangeAutoRepeatModeAsync([Windows.Media.MediaPlaybackAutoRepeatMode, Windows.Media, ContentType=WindowsRuntime]::List) }
+        'repeat-track' { $session.TryChangeAutoRepeatModeAsync([Windows.Media.MediaPlaybackAutoRepeatMode, Windows.Media, ContentType=WindowsRuntime]::Track) }
     }
     $accepted = Await $operation ([bool])
 }
