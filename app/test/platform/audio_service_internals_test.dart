@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'smtc_bridge_version_test.dart' show lockedBridgeVersion;
+import 'smtc_bridge_version_test.dart' show lockedVersion;
 
 /// `android/app/src/main/java/com/personal/fmp/MediaKeyFix.java` 用反射讀
 /// `audio_service` 的私有欄位（`instance`、`mediaSession`、`mediaSessionCallback`）
@@ -19,7 +19,7 @@ void main() {
     final lock = File('pubspec.lock').readAsStringSync();
 
     expect(
-      lockedBridgeVersion(lock, package: 'audio_service'),
+      lockedVersion(lock, package: 'audio_service'),
       reviewedAudioServiceVersion,
       reason:
           'audio_service changed. Re-check the private fields instance, '

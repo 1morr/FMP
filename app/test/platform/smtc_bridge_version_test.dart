@@ -17,7 +17,7 @@ String? cargoBridgeVersion(String cargoToml) => RegExp(
 ).firstMatch(cargoToml)?.group(1);
 
 /// `pubspec.lock` 裡 [package]（預設 `flutter_rust_bridge`）的 `version`；找不到為 `null`。
-String? lockedBridgeVersion(
+String? lockedVersion(
   String pubspecLock, {
   String package = 'flutter_rust_bridge',
 }) {
@@ -58,7 +58,7 @@ void main() {
 
       final expected = cargoBridgeVersion(cargo);
       expect(expected, isNotNull, reason: 'Cargo.toml no longer pins it');
-      expect(lockedBridgeVersion(lock), expected);
+      expect(lockedVersion(lock), expected);
     },
   );
 
@@ -91,12 +91,12 @@ packages:
     test('a different locked version differs from the pinned one', () {
       final other = lock.replaceFirst('"2.11.1"', '"2.13.0"');
 
-      expect(lockedBridgeVersion(other), '2.13.0');
-      expect(lockedBridgeVersion(other), isNot(cargoBridgeVersion(cargo)));
+      expect(lockedVersion(other), '2.13.0');
+      expect(lockedVersion(other), isNot(cargoBridgeVersion(cargo)));
     });
 
     test('equal versions are equal', () {
-      expect(lockedBridgeVersion(lock), cargoBridgeVersion(cargo));
+      expect(lockedVersion(lock), cargoBridgeVersion(cargo));
     });
 
     test('whitespace, field order and comments do not change the result', () {
@@ -114,14 +114,14 @@ packages:
             '    dependency: "direct main"\n',
             '    version: "2.11.1"\n    dependency: "direct main"\n',
           );
-      expect(lockedBridgeVersion(reordered), '2.11.1');
-      expect(lockedBridgeVersion('$lock\n\n'), '2.11.1');
+      expect(lockedVersion(reordered), '2.11.1');
+      expect(lockedVersion('$lock\n\n'), '2.11.1');
     });
 
     test('a missing entry is null, not another package\'s version', () {
       expect(cargoBridgeVersion('[dependencies]\nanyhow = "1"\n'), isNull);
       expect(
-        lockedBridgeVersion('packages:\n  other:\n    version: "1"\n'),
+        lockedVersion('packages:\n  other:\n    version: "1"\n'),
         isNull,
       );
     });
