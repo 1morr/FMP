@@ -1081,6 +1081,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     真實與錄製用已存的憑證當 `loginVerify` 的輸入，沒登入略過、不連網。遮蔽函式不認得帳號名稱，所以結果是 `LoginAccount` 時 `recordCase` 寫檔前先以帳號的
     `userId`、`displayName` 換掉錄到的流量（`scrubAccount`，頭像網址換成 `<scheme>://<主機>/***`），再用 `accountLeaks` 檢查，
     換完仍看得到就不寫（fixture 進公開的插件 repo）。不靠鍵名：鍵名分不出自己和別人，會弄壞別人的 id、頭像。
+    換值只認 id、名稱、頭像，登入後的回應還有 email、手機號、等級之類，所以錄到的檔案不原樣提交：刪減到只剩插件讀的欄位，
+    或改用手寫的，並在 `meta.edited` 寫明（ADR 0015 §決定 7 的更正；閘門在插件庫的 `test/login_fixtures_test.dart`）。
     閘門：`account_scrub_test.dart`。回傳值經 `Redactor.redactValue` 顯示，`LoginAccount` 一律顯示
     `***`。一次只跑一個案例（整個區塊）。閘門：`dev_case_runs_test.dart`（預設重播、隔離不碰 App 的 storage、錄製的檔案沒有假憑證
     且與命令列逐位元組相同、手改過的略過、結果不符不寫、帳號資訊換值後仍可重播、`requiresLogin` 兩種、一次一個、換資料夾與

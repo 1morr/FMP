@@ -68,6 +68,7 @@ log 只經門面、禁止空 catch、音源 id 不得出現在 UI 與 service、
 7. **App 內插件開發工具**：開發者模式下從資料夾載入插件（先限桌面平台，由平台層宣告）、重新載入、跑案例看 log、
    以 App 內登入錄 fixture、每插件切換真實／錄製／重播。命令列只負責重播。版面見 ADR 0025。
    更正（2026-09-30，M1）：命令列的契約執行器也能錄製，限不需要登入的案例，打 `live` tag 手動執行、寫檔前經遮蔽；需要登入的錄製仍只在 App 內。理由：App 內工具在 M3，M1 的 B 站 fixture 要能先錄、過時能重錄。
+   更正（2026-10-15，#254）：需要登入的案例錄到的回應帶著遮蔽閘門認不得的帳號資訊（email、手機號、等級、地區），不原樣提交：fixture 一律手寫，或錄製後刪減到只剩插件讀的欄位，並在 `meta.edited` 寫明（擁有者決定；閘門在插件庫的 `test/login_fixtures_test.dart`，不另做自動掃描，#269 關閉）。
 8. **開發版**：flavor `dev`／`prod`，`pubspec.yaml` 設 `default-flavor: dev`，發版明確帶 `--flavor prod`。
    dev 的 Android `applicationIdSuffix ".dev"`、Windows AppUserModelID `com.personal.fmp.dev`、名稱「FMP Dev」與標記圖示、
    資料目錄／單一實例鎖／secure storage 命名空間加 `-dev`；prod 維持 ADR 0008 的身分。開發版資料預設空白，
