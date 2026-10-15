@@ -12,7 +12,8 @@ import 'package:fmp/plugins/source_plugin.dart';
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
 // SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，login 跑 loginVerify）；
-// 其他能力的鍵是不認得的欄位，整個檔案拒收。
+// 其他能力的鍵是不認得的欄位，整個檔案拒收。每種案例都收選填的 `mutates`（只准
+// `true`，ADR 0032 §決定 7）。
 //
 // 形狀與 `lib/plugins/types/fmp-plugin.d.ts` 的 `FmpChecks` 等一致
 // （test/plugins/type_definitions_test.dart 比對）。
@@ -29,18 +30,24 @@ const checkShapes = <String, JsonShape>{
     'importPlaylist': false,
     'login': false,
   },
-  'FmpLiveCheck': {'input': true, 'expect': true},
-  'FmpMixCheck': {'input': true, 'expect': true},
-  'FmpMultiPartCheck': {'input': true, 'expect': true},
-  'FmpTrackDetailCheck': {'input': true, 'expect': true},
-  'FmpImportPlaylistCheck': {'input': true, 'expect': true},
-  'FmpSearchCheck': {'input': true, 'expect': true},
+  'FmpLiveCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpMixCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpMultiPartCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpTrackDetailCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpImportPlaylistCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpSearchCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpResolveStreamCheck': {
     'input': true,
     'expect': true,
     'expiresAtPattern': false,
+    'mutates': false,
   },
-  'FmpLoginCheck': {'input': true, 'expect': true, 'requiresLogin': true},
+  'FmpLoginCheck': {
+    'input': true,
+    'expect': true,
+    'requiresLogin': true,
+    'mutates': false,
+  },
   'FmpExpectSuccess': {'minItems': false, 'nonEmpty': false},
   'FmpExpectError': {'error': true, 'reason': false},
 };
@@ -77,6 +84,7 @@ final class PluginCheck {
     this.expectation, {
     this.expiresAtPattern,
     this.requiresLogin = false,
+    this.mutates = false,
   });
 
   final PluginCapability capability;
@@ -90,6 +98,10 @@ final class PluginCheck {
 
   /// 案例要登入才有意義（design §4.8）：重播照跑，命令列錄製略過。
   final bool requiresLogin;
+
+  /// 案例會改動遠端（加歌、刪歌、建歌單）：健康檢查、命令列與開發工具的錄製與真實
+  /// 連線都不跑（不呼叫插件），重播照跑（fixture 手寫）。
+  final bool mutates;
 
   /// resolveStream：網址裡的期限（[expiresAtProblems]）。
   final RegExp? expiresAtPattern;
@@ -199,6 +211,10 @@ PluginCheck _check(
       fields.optionalBool('requiresLogin') != true) {
     throw FormatException('$path.requiresLogin: must be true');
   }
+  final mutates = fields.optionalBool('mutates');
+  if (mutates == false) {
+    throw FormatException('$path.mutates: must be true');
+  }
   final expectation = _expectation(fields.raw('expect'), '$path.expect', item);
   final pattern = fields.optionalString('expiresAtPattern');
   if (pattern != null && expectation is! ExpectSuccess) {
@@ -214,6 +230,7 @@ PluginCheck _check(
         ? null
         : _expiresAtPattern(pattern, '$path.expiresAtPattern'),
     requiresLogin: capability == PluginCapability.login,
+    mutates: mutates ?? false,
   );
 }
 

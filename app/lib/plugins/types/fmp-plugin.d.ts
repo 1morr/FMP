@@ -611,7 +611,13 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這八個。 */
+/**
+ * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這八個。
+ *
+ * 每種案例都可以寫 `mutates: true`（只能是 true，不寫就是不改動）：案例會改動遠端（加歌、
+ * 刪歌、建歌單）時寫。健康檢查、命令列錄製與冒煙、開發工具的真實與錄製模式都略過它、
+ * 不呼叫插件；只有契約測試的重播會跑，fixture 手寫並標 `meta.edited`。
+ */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
@@ -627,24 +633,32 @@ export interface FmpChecks {
 export interface FmpLiveCheck {
   input: LiveRoomQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 /** mix 的案例以 seed 開始一個 Mix；成功時回傳的 tracks 是檢查的清單，nonEmpty 的名稱同 TrackSummary。 */
 export interface FmpMixCheck {
   input: MixSeedQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 /** multiPart 的案例；成功時回傳的 parts 是檢查的清單，nonEmpty 的名稱是 cid、title、durationMs、index。 */
 export interface FmpMultiPartCheck {
   input: MultiPartQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 /** trackDetail 的案例；成功時回傳的 TrackDetail 是那一筆，nonEmpty 的名稱同 TrackDetail。 */
 export interface FmpTrackDetailCheck {
   input: TrackDetailQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 /**
@@ -655,11 +669,15 @@ export interface FmpTrackDetailCheck {
 export interface FmpImportPlaylistCheck {
   input: PlaylistUrlQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 export interface FmpSearchCheck {
   input: SearchQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 export interface FmpResolveStreamCheck {
@@ -672,6 +690,8 @@ export interface FmpResolveStreamCheck {
    * 網址沒有期限參數的音源不寫。
    */
   expiresAtPattern?: string | null;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 /**
@@ -684,6 +704,8 @@ export interface FmpLoginCheck {
   expect: FmpExpectSuccess | FmpExpectError;
   /** 必須是 true：這條案例要登入才有意義。 */
   requiresLogin: true;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
 }
 
 /**
