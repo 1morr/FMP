@@ -318,6 +318,60 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // 音樂庫（M4）：下層與排程器不認得它（背景工作與介面才呼叫它），它不 import 介面。
+  Future<void> test_lowerLayersImportLibrary() async {
+    await assertLints(
+      'lib/core/network/network_status.dart',
+      "import [!'package:test/library/playlist_refresher.dart'!];\n",
+    );
+    await assertLints(
+      'lib/domain/playlist.dart',
+      "import [!'../library/playlist_importer.dart'!];\n",
+    );
+    await assertLints(
+      'lib/data/repositories/playlist_repository.dart',
+      "import [!'package:test/library/playlist_refresher.dart'!];\n",
+    );
+    await assertLints(
+      'lib/scheduler/background_scheduler.dart',
+      "import [!'package:test/library/playlist_refresher.dart'!];\n",
+    );
+  }
+
+  Future<void> test_libraryImportsUi() => assertLints(
+    'lib/library/playlist_refresher.dart',
+    "import [!'package:test/ui/toast/toast.dart'!];\n"
+        "import [!'../ui/shell/app_shell.dart'!];\n",
+  );
+
+  // 反方向與近似名稱不報：介面讀音樂庫、音樂庫讀 core／data／plugins／scheduler／radio，
+  // `ui/library/` 與 `library_x` 開頭的別的目錄不是它。
+  Future<void> test_libraryNearMisses() async {
+    await assertLints(
+      'lib/library/playlist_refresher.dart',
+      "import 'package:test/core/errors/app_error.dart';\n"
+          "import 'package:test/data/repositories/playlist_repository.dart';\n"
+          "import 'package:test/plugins/plugin_registry.dart';\n"
+          "import 'package:test/scheduler/background_scheduler.dart';\n"
+          "import 'package:test/radio/radio_service.dart';\n"
+          "import 'package:test/ui_kit/widgets.dart';\n"
+          "// import 'package:test/ui/toast/toast.dart';\n",
+    );
+    await assertLints(
+      'lib/ui/library/library_page.dart',
+      "import 'package:test/library/playlist_refresher.dart';\n",
+    );
+    await assertLints(
+      'lib/core/network/network_status.dart',
+      "import 'package:test/library_extras/x.dart';\n"
+          "// import 'package:test/library/playlist_refresher.dart';\n",
+    );
+    await assertLints(
+      'lib/library_extras/x.dart',
+      "import 'package:test/ui/toast/toast.dart';\n",
+    );
+  }
+
   // 反方向照常；名稱以 `ui` 開頭的別的目錄、`playback` 開頭的介面檔不報。
   Future<void> test_uiMayImportPlayback() async {
     await assertLints(

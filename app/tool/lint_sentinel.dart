@@ -56,7 +56,7 @@ void violations(m.BuildContext context) {
   const m.EdgeInsets.all(8);
 }
 ''',
-  // forbiddenLayerImports：排程器與電台不 import 介面；core 不 import 排程器。
+  // forbiddenLayerImports：排程器、電台與音樂庫不 import 介面；core 不 import 排程器與音樂庫。
   'lib/scheduler/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'package:fmp/ui/toast/toast.dart';
@@ -65,8 +65,13 @@ import 'package:fmp/ui/toast/toast.dart';
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'package:fmp/ui/toast/toast.dart';
 ''',
+  'lib/library/lint_sentinel_violations.dart': r'''
+// tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/ui/toast/toast.dart';
+''',
   'lib/core/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/scheduler/background_scheduler.dart';
 ''',
   'test/lint_sentinel_violations.dart': r'''
@@ -96,10 +101,12 @@ const _expectedMessages = [
   'package:qr_flutter* is only allowed in lib/ui/accounts/',
   // externalPackageOwners 的 archive（診斷包的 zip）
   'package:archive* is only allowed in lib/app/diagnostics/',
-  // forbiddenLayerImports 的 scheduler／radio／core
+  // forbiddenLayerImports 的 scheduler／radio／library／core
   'lib/scheduler/ must not import lib/ui/',
   'lib/radio/ must not import lib/ui/',
+  'lib/library/ must not import lib/ui/',
   'lib/core/ must not import lib/scheduler/',
+  'lib/core/ must not import lib/library/',
   // platformPackages 的 share_plus（分享診斷包）
   'package:share_plus* is only allowed in lib/platform/',
 ];
