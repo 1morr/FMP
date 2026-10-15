@@ -70,6 +70,18 @@ void main() {
       expect(all.first.updatedAt, _at);
     });
 
+    test('create stores a custom cover; find reads one playlist', () async {
+      final artwork = [TrackArtwork(url: Uri.parse('https://fmp.test/c.jpg'))];
+      final id = await repository.create(name: 'A', artwork: artwork);
+      final plain = await repository.create(name: 'B');
+
+      expect((await repository.find(id))!.artwork, artwork);
+      expect((await repository.find(plain))!.artwork, isEmpty);
+      expect((await repository.find(plain))!.name, 'B');
+      await repository.delete(id);
+      expect(await repository.find(id), isNull);
+    });
+
     test('update overwrites name, description and artwork', () async {
       final id = await withClock(
         Clock.fixed(_at),
@@ -123,7 +135,7 @@ void main() {
       final removed = _at.add(const Duration(hours: 3));
       await withClock(
         Clock.fixed(removed),
-        () => repository.removeEntries([entries[0].id]),
+        () => repository.removeEntries(id, [entries[0].id]),
       );
       expect(await updatedAt(id), removed);
       expect(await updatedAt(other), _at, reason: 'other playlists untouched');
@@ -197,9 +209,33 @@ void main() {
       await repository.addTracks(id, [track('a'), track('b'), track('c')]);
       final entries = await repository.entries(id);
 
-      await repository.removeEntries([entries[0].id, entries[2].id]);
+      await repository.removeEntries(id, [entries[0].id, entries[2].id]);
 
       expect(await ids(id), ['b']);
+    });
+
+    test('removeEntries does not touch another playlist', () async {
+      final id = await repository.create(name: 'A');
+      final other = await withClock(
+        Clock.fixed(_at),
+        () => repository.create(name: 'B'),
+      );
+      await repository.addTracks(id, [track('a')]);
+      await withClock(
+        Clock.fixed(_at),
+        () => repository.addTracks(other, [track('x'), track('y')]),
+      );
+      final foreign = await repository.entries(other);
+
+      await repository.removeEntries(id, [foreign[0].id]);
+
+      expect(await ids(other), ['x', 'y']);
+      expect(await ids(id), ['a']);
+      expect(
+        (await repository.find(other))!.updatedAt,
+        _at,
+        reason: 'nothing removed, nothing touched',
+      );
     });
 
     test('moveEntries rewrites positions in the given order', () async {
@@ -234,7 +270,7 @@ void main() {
         final id = await repository.create(name: 'A');
         await repository.addTracks(id, [track('a'), track('b'), track('c')]);
         final stale = await repository.entries(id);
-        await repository.removeEntries([stale[1].id]);
+        await repository.removeEntries(id, [stale[1].id]);
         await repository.addTracks(id, [track('d')]);
 
         await repository.moveEntries(id, [
