@@ -377,6 +377,33 @@ void main() {
     test('values too short to replace safely are rejected', () {
       expect(() => redactor.registerSecret('abc'), throwsArgumentError);
     });
+
+    group('all-digit values (account ids)', () {
+      setUp(() => redactor.registerSecret('12345678'));
+
+      test('are replaced next to letters, symbols and separators', () {
+        expect(redactor.redact('x?mid=12345678&y'), 'x?mid=***&y');
+        expect(redactor.redact('/space/12345678/'), '/space/***/');
+        expect(redactor.redact('"12345678||"'), '"***||"');
+        expect(redactor.redact('uid12345678'), 'uid***');
+        expect(redactor.redact('12345678abc'), '***abc');
+      });
+
+      test('are kept inside longer numbers', () {
+        expect(redactor.redact('aid=9123456780'), 'aid=9123456780');
+        expect(redactor.redact('aid=123456789'), 'aid=123456789');
+        expect(redactor.redact('1234567812345678'), '1234567812345678');
+      });
+
+      test('other known values still match as substrings', () {
+        redactor.registerSecret('FAKE_SECRET');
+
+        redactor.registerSecret('FAKE_1234');
+
+        expect(redactor.redact('xFAKE_SECRETy'), 'x***y');
+        expect(redactor.redact('FAKE_12345'), '***5');
+      });
+    });
   });
 
   group('home directory', () {
