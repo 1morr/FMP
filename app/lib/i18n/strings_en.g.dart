@@ -312,6 +312,10 @@ class Translations$home$en extends Translations$home$zh_TW {
   @override
   String get recentlyPlayed => 'Recently played';
   @override
+  String get myPlaylists => 'My playlists';
+  @override
+  String get radio => 'Radio';
+  @override
   String get viewAll => 'View all';
   @override
   String get empty => 'Nothing here yet';

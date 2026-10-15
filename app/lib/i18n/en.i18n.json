@@ -81,6 +81,8 @@
   "home": {
     "title": "Home",
     "recentlyPlayed": "Recently played",
+    "myPlaylists": "My playlists",
+    "radio": "Radio",
     "viewAll": "View all",
     "empty": "Nothing here yet",
     "emptyHint": "Search for songs and play them, or import a playlist",

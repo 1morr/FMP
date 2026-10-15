@@ -326,6 +326,10 @@ class Translations$home$zh_CN extends Translations$home$zh_TW {
   @override
   String get recentlyPlayed => '最近播放';
   @override
+  String get myPlaylists => '我的歌单';
+  @override
+  String get radio => '电台';
+  @override
   String get viewAll => '查看全部';
   @override
   String get empty => '这里还没有内容';

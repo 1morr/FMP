@@ -7,21 +7,31 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/library_state.dart';
+import 'package:fmp/ui/library/playlist_cover.dart';
+import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
+import 'package:fmp/ui/radio/radio_page.dart';
+import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
+
+/// 首頁「我的歌單」「電台」兩個區塊的項數上限（ADR 0033 §決定 6）。
+const homeShelfCount = 20;
 
 /// 首頁「最近播放」的筆數（ADR 0033 §決定 6）：`play_history` 最新的這麼多筆，不去重。
 const recentPlaysCount = 20;
@@ -52,18 +62,29 @@ final recentPlaysProvider = StreamProvider<List<PlayHistoryEntry>>((
   }
 });
 
-/// 首頁（ADR 0033 §決定 6，M4 design §10.2）。這個 PR 只有「最近播放」一個區塊：一排
-/// 卡片（點一下臨時播放），「查看全部」在首頁的巢狀導覽裡開歷史頁。我的歌單、電台、排行
-/// 的區塊之後加在它前面。
+/// 首頁（ADR 0033 §決定 6，M4 design §10.2）。區塊依序：我的歌單（依 `sort_order` 前 20
+/// 張，點一下在首頁的巢狀導覽裡開詳情，「查看全部」切到音樂庫）、電台（前 20 個，點一下
+/// 收聽，「查看全部」切到電台）、最近播放（一排卡片，點一下臨時播放，「查看全部」在首頁的
+/// 巢狀導覽裡開歷史頁）。沒有內容的區塊不顯示，三個都沒有時是說明。排行的區塊之後加在
+/// 最前面。
 ///
 /// 沒有任何可搜尋的音源而且還沒按「稍後再說」時，整頁是首次啟動引導（與搜尋頁同一個
 /// 元件，ADR 0030 §決定 12）。沒有內容時是說明；沒有音源時說明附「前往插件頁」。本機
 /// 資料，離線照常顯示。
 class HomePage extends ConsumerWidget {
-  const HomePage({super.key, required this.onOpenPlugins});
+  const HomePage({
+    super.key,
+    required this.onOpenPlugins,
+    required this.onOpenLibrary,
+    required this.onOpenRadio,
+  });
 
   /// 開插件頁（設定頁的「插件」區塊）。
   final VoidCallback onOpenPlugins;
+
+  /// 換到音樂庫、電台目的地（「我的歌單」「電台」的「查看全部」）。
+  final VoidCallback onOpenLibrary;
+  final VoidCallback onOpenRadio;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -80,6 +101,8 @@ class HomePage extends ConsumerWidget {
             );
       }
     });
+    // 歌單與電台讀失敗：那個區塊不顯示，這裡不報。音樂庫與電台頁一直掛在外殼裡、讀同一個
+    // provider，由它們報（顯示錯誤），同一個失敗才只進錯誤歷史一次。
     final translations = ref.watch(translationsProvider);
     final t = translations.home;
     final theme = Theme.of(context);
@@ -88,6 +111,13 @@ class HomePage extends ConsumerWidget {
     final hasSource = sources.value?.isNotEmpty ?? false;
     final onboarding = ref.watch(onboardingProvider);
     final recent = ref.watch(recentPlaysProvider);
+    final playlistsState = ref.watch(playlistOverviewsProvider);
+    final radioState = ref.watch(radioEntriesProvider);
+    final playlists = [...?playlistsState.value?.take(homeShelfCount)];
+    final stations = [...?radioState.value?.take(homeShelfCount)];
+    // 三份資料到齊才判斷「沒有內容」，免得說明一閃而過。
+    final loading =
+        playlistsState is AsyncLoading || radioState is AsyncLoading;
     final title = Padding(
       padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
       child: Semantics(
@@ -107,21 +137,47 @@ class HomePage extends ConsumerWidget {
       );
     }
     final Widget body = switch (recent) {
+      AsyncData() when loading => const SizedBox.shrink(),
       // 圖示不用音樂庫導覽項的那一個：整合測試以圖示找導覽項。
-      AsyncData(:final value) when value.isEmpty => EmptyState(
-        icon: Icons.music_note_outlined,
-        title: t.empty,
-        body: t.emptyHint,
-        action: sources is AsyncData && !hasSource
-            ? FilledButton.tonal(
-                onPressed: onOpenPlugins,
-                child: Text(translations.onboarding.goToPlugins),
-              )
-            : null,
-      ),
+      AsyncData(:final value)
+          when value.isEmpty && playlists.isEmpty && stations.isEmpty =>
+        EmptyState(
+          icon: Icons.music_note_outlined,
+          title: t.empty,
+          body: t.emptyHint,
+          action: sources is AsyncData && !hasSource
+              ? FilledButton.tonal(
+                  onPressed: onOpenPlugins,
+                  child: Text(translations.onboarding.goToPlugins),
+                )
+              : null,
+        ),
       AsyncData(:final value) => ListView(
         padding: EdgeInsets.only(bottom: spacing.x4),
-        children: [_RecentPlays(entries: value)],
+        children: [
+          if (playlists.isNotEmpty)
+            _Shelf(
+              title: t.myPlaylists,
+              onViewAll: onOpenLibrary,
+              children: [
+                for (final overview in playlists)
+                  _PlaylistCard(
+                    key: ValueKey(overview.playlist.id),
+                    overview: overview,
+                  ),
+              ],
+            ),
+          if (stations.isNotEmpty)
+            _Shelf(
+              title: t.radio,
+              onViewAll: onOpenRadio,
+              children: [
+                for (final entry in stations)
+                  _StationCard(key: ValueKey(entry.station.id), entry: entry),
+              ],
+            ),
+          if (value.isNotEmpty) _RecentPlays(entries: value),
+        ],
       ),
       // 讀失敗（已在 provider 報過）：不是「沒有內容」。
       AsyncError(:final error) => EmptyState(
@@ -143,8 +199,7 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-/// 一個首頁區塊的標題列：標題（語意標題）與尾端的「查看全部」。之後的區塊（我的歌單、
-/// 電台、排行）照這個樣子。
+/// 一個首頁區塊的標題列：標題（語意標題）與尾端的「查看全部」。之後的排行區塊照這個樣子。
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, required this.action});
 
@@ -171,24 +226,31 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// 「最近播放」：標題列與一排可橫向捲動的卡片（YouTube Music 首頁的一排卡片）。
-class _RecentPlays extends ConsumerWidget {
-  const _RecentPlays({required this.entries});
+/// 一個區塊：標題列與一排可橫向捲動的卡片（YouTube Music 首頁的一排卡片）。
+class _Shelf extends StatelessWidget {
+  const _Shelf({
+    required this.title,
+    required this.onViewAll,
+    required this.children,
+  });
 
-  final List<PlayHistoryEntry> entries;
+  final String title;
+  final VoidCallback onViewAll;
+  final List<Widget> children;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).home;
+  Widget build(BuildContext context) {
     final spacing = AppTokens.of(context).spacing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SectionHeader(
-          title: t.recentlyPlayed,
-          action: TextButton(
-            onPressed: () => unawaited(openHistory(context)),
-            child: Text(t.viewAll),
+          title: title,
+          action: Consumer(
+            builder: (context, ref, _) => TextButton(
+              onPressed: onViewAll,
+              child: Text(ref.watch(translationsProvider).home.viewAll),
+            ),
           ),
         ),
         // 卡片數有上限（20），整排一起建；Row 取最高那張的高度，字放大時不會被截掉。
@@ -202,13 +264,146 @@ class _RecentPlays extends ConsumerWidget {
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final entry in entries)
-                _RecentCard(key: ValueKey(entry.id), entry: entry),
-            ],
+            children: children,
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 「最近播放」：最新的 [entries] 一排卡片，「查看全部」開歷史頁。
+class _RecentPlays extends ConsumerWidget {
+  const _RecentPlays({required this.entries});
+
+  final List<PlayHistoryEntry> entries;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).home;
+    return _Shelf(
+      title: t.recentlyPlayed,
+      onViewAll: () => unawaited(openHistory(context)),
+      children: [
+        for (final entry in entries)
+          _RecentCard(key: ValueKey(entry.id), entry: entry),
+      ],
+    );
+  }
+}
+
+/// 沒有選單的卡片（我的歌單、電台）：封面、名稱（兩行）、[detail]；整張是一個按鈕，點一下
+/// 執行 [onTap]。
+class _ShelfCard extends StatelessWidget {
+  const _ShelfCard({
+    required this.cover,
+    required this.title,
+    required this.detail,
+    required this.onTap,
+  });
+
+  final Widget cover;
+  final String title;
+  final Widget detail;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppTokens.of(context);
+    final spacing = tokens.spacing;
+    return MergeSemantics(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(tokens.radius.small),
+        onTap: onTap,
+        // 同 ListTile：可點的卡片是一個按鈕。
+        child: Semantics(
+          button: true,
+          child: Padding(
+            padding: EdgeInsets.all(spacing.x1),
+            child: SizedBox(
+              width: AppLayout.shelfCardWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  cover,
+                  SizedBox(height: spacing.x2),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  detail,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 一張歌單：封面、名稱、「本機 · n 首」（同音樂庫的卡）。點一下在首頁的巢狀導覽裡開詳情。
+class _PlaylistCard extends ConsumerWidget {
+  const _PlaylistCard({super.key, required this.overview});
+
+  final PlaylistOverview overview;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).library;
+    final theme = Theme.of(context);
+    return _ShelfCard(
+      cover: PlaylistCover(
+        artwork: overview.playlist.artwork,
+        firstTrack: overview.firstTrack,
+        size: AppLayout.shelfCardWidth,
+      ),
+      title: overview.playlist.name,
+      detail: Text(
+        '${t.local} · ${trackCountText(t, overview.trackCount)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      onTap: () => unawaited(openPlaylist(context, overview.playlist.id)),
+    );
+  }
+}
+
+/// 一個電台：封面、標題、狀態標記（四種）。點一下收聽；音源不能用時不播、提示原因（同電台頁）。
+class _StationCard extends ConsumerWidget {
+  const _StationCard({super.key, required this.entry});
+
+  final RadioEntry entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final station = entry.station;
+    final unavailable = ref.watch(sourceUnavailableProvider(station.pluginId));
+    return _ShelfCard(
+      cover: ArtworkImage(
+        pluginId: station.pluginId,
+        artwork: station.artwork,
+        size: AppLayout.shelfCardWidth,
+      ),
+      title: station.title,
+      detail: TaggedLine(tag: RadioStatusTag(status: entry.status)),
+      onTap: () {
+        if (unavailable != null) {
+          final t = ref.read(translationsProvider).radio;
+          ref.read(toasterProvider).warning(t.cannotPlay(reason: unavailable));
+          return;
+        }
+        unawaited(
+          ref
+              .read(playbackControllerProvider)
+              .playLive(radioLiveTarget(station)),
+        );
+      },
     );
   }
 }

@@ -221,7 +221,9 @@ void main() {
       tester,
       artwork: [TrackArtwork(url: Uri.parse(_inPlugin))],
     );
-    expect(requests.urls, [_inPlugin]);
+    // 音樂庫與首頁（外殼同時建著）的卡片各讀一次。
+    expect(requests.urls, isNotEmpty);
+    expect(requests.urls, everyElement(_inPlugin));
     await _edit(tester);
     expect(find.text('A custom image'), findsOneWidget);
     expect(find.widgetWithText(TextField, _inPlugin), findsOneWidget);
