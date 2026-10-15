@@ -23,7 +23,8 @@
     "10-15-m4-import-playlist-contract",
     "10-15-m4-recording-credentials",
     "10-15-m4-refresh-engine",
-    "10-15-m4-library-navigation"
+    "10-15-m4-library-navigation",
+    "10-15-m4-playlist-detail"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
