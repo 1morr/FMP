@@ -20,12 +20,13 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 ///
 /// 用全螢幕頁而不是對話框：登入頁是一般網頁，要整個視窗的寬高（Android 的版面就是手機
 /// 網頁）。慣例照 Material 的 full-screen dialog：左上角關閉、沒有確認鈕（完成由頁面判斷）。
+/// 推在根 Navigator 上：帳號頁在外殼設定目的地的巢狀導覽裡，頁面要蓋住整個外殼。
 Future<LoginCredentials?> showWebLogin(
   BuildContext context, {
   required LoginWebView webView,
   required PluginLoginWebView spec,
   required String name,
-}) => Navigator.of(context).push(
+}) => Navigator.of(context, rootNavigator: true).push(
   MaterialPageRoute<LoginCredentials>(
     fullscreenDialog: true,
     builder: (_) => WebLoginPage(webView: webView, spec: spec, name: name),

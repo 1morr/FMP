@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
-import 'package:fmp/ui/search/search_page.dart';
+import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/plugin_page_harness.dart';
@@ -118,10 +119,10 @@ void main() {
 
       expect(find.byType(NetworkControls), findsNothing);
       expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
-      // 回到清單之後返回鍵歸外殼：回到第一個分頁（搜尋），設定頁看不到了。
+      // 回到清單之後返回鍵歸外殼：回到第一個目的地（首頁），設定頁看不到了。
       expect(await tester.binding.handlePopRoute(), isTrue);
       await tester.pump();
-      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
     },
   );
 
@@ -132,7 +133,8 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Network'));
     await h.loadSettings(tester);
 
-    await tester.tap(find.text('Search').first);
+    // 回到第一個目的地（首頁）：返回鍵在那裡放行，不被看不到的設定頁攔住。
+    await tester.tap(ShellHarness.navigationItem(ShellDestination.home));
     await tester.pumpAndSettle();
 
     expect(await tester.binding.handlePopRoute(), isFalse);

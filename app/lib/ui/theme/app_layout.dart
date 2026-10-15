@@ -12,6 +12,20 @@ abstract final class AppLayout {
   /// 列表與播放列上的小封面（M3 list item 的 leading 圖片尺寸）。
   static const double artworkThumbnail = 48;
 
+  /// 首頁區塊裡橫向一排的卡片（封面）邊長。
+  static const double shelfCardWidth = 144;
+
+  /// 音樂庫格狀版面（expanded 以上）一張歌單卡的最大寬度。
+  static const double playlistCardMaxWidth = 200;
+
+  /// 格狀清單拖曳排序時：被拖的卡在原位置的不透明度，與拖著走的那張的陰影高度（同
+  /// `ReorderableListView` 預設的 6）。
+  static const double draggedOpacity = 0.3;
+  static const double dragElevation = 6;
+
+  /// 歌單對話框裡封面預覽的邊長。
+  static const double playlistCoverPreview = 64;
+
   /// 空狀態畫面的圖示。
   static const double emptyStateIcon = 48;
 

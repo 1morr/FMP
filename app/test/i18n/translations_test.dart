@@ -119,6 +119,7 @@ void main() {
       'player.loopOneTooltip': ['Ctrl+R'],
       'player.volumeTooltip': ['Ctrl+↑'],
       'playerPage.closeTooltip': ['Esc'],
+      'shell.backTooltip': ['Esc'],
       'playerPage.showLyricsTooltip': ['Ctrl+L'],
       'playerPage.queueTooltip': ['Ctrl+Q'],
     };

@@ -8,13 +8,15 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
-import 'package:fmp/ui/history/history_page.dart';
+import 'package:fmp/ui/home/home_page.dart';
+import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -30,8 +32,9 @@ import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
-/// 外殼的導覽項，依畫面上的順序（ADR 0031 §決定 3：搜尋｜歷史｜電台｜設定）。
-enum ShellDestination { search, history, radio, settings }
+/// 外殼的導覽項，依畫面上的順序（ADR 0033 §決定 5：首頁｜搜尋｜音樂庫｜電台｜設定）。
+/// 三種導覽元件與內容區的 `IndexedStack` 都照這個順序；App 開在第一個。
+enum ShellDestination { home, search, library, radio, settings }
 
 /// App 的外殼（ADR 0024 §決定 3、5、8）：導覽、內容、播放列三區。
 ///
@@ -49,6 +52,11 @@ enum ShellDestination { search, history, radio, settings }
 /// 內容區頂端是全域離線提示（`OfflineBanner`，ADR 0016 §決定 7），換頁時
 /// 留著。
 ///
+/// 每個目的地有自己的巢狀 `Navigator`（ADR 0033 §決定 5）：內頁（歷史，之後的歌單詳情、
+/// 探索）在內容區裡開，導覽與播放列留著。返回鍵與 Esc 先退出目前目的地的內頁；再點一次
+/// 目前的導覽項回到那個目的地的根。全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）與
+/// 對話框照舊開在根 Navigator 上，蓋住整個外殼。
+///
 /// 三區各是一個 `FocusScope`：Tab 只在區內循環，F6 換區（`shell_shortcuts.dart`；播放類快捷鍵在 `playback_shortcuts.dart`）。
 /// 底部被外殼佔住的高度（播放列、底部導覽列、安全區）量出來發佈給
 /// `toastBottomInsetProvider`，提示浮在它們上面（ADR 0023 §決定 2）。
@@ -60,8 +68,21 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  var _destination = ShellDestination.search;
+  var _destination = ShellDestination.values.first;
   final _settingsBack = SettingsBack();
+
+  /// 每個目的地的巢狀 Navigator，與它的觀察者（內頁開關時重建外殼：返回鍵的
+  /// `PopScope.canPop` 要跟上）。
+  final _navigators = {
+    for (final destination in ShellDestination.values)
+      destination: GlobalKey<NavigatorState>(
+        debugLabel: 'Shell ${destination.name}',
+      ),
+  };
+  late final _observers = {
+    for (final destination in ShellDestination.values)
+      destination: _StackObserver(_stackChanged),
+  };
 
   final _navigation = FocusScopeNode(debugLabel: 'Shell navigation');
   final _content = FocusScopeNode(debugLabel: 'Shell content');
@@ -100,8 +121,41 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.dispose();
   }
 
+  /// 換到 [destination]；已經在那裡時退回它的根（Material 導覽列再點一次目前項目的慣例）。
   void _select(ShellDestination destination) {
-    if (destination != _destination) setState(() => _destination = destination);
+    if (destination == _destination) {
+      _navigators[destination]!.currentState?.popUntil(
+        (route) => route.isFirst,
+      );
+    } else {
+      setState(() => _destination = destination);
+    }
+  }
+
+  /// 內頁開或關了：重建，讓 `PopScope.canPop` 跟上。根頁在建構中加入時也會通知，那時
+  /// 不能 setState，排到這一幀之後。
+  void _stackChanged() {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  /// 目前目的地的巢狀 Navigator 有內頁可以退。
+  bool _canPopInner() =>
+      _navigators[_destination]!.currentState?.canPop() ?? false;
+
+  /// 退出目前目的地最上面的內頁；在根時回傳 `false`。
+  bool _popInner() {
+    final navigator = _navigators[_destination]!.currentState;
+    if (navigator == null || !navigator.canPop()) return false;
+    unawaited(navigator.maybePop());
+    return true;
   }
 
   /// 換頁並在下一幀把焦點放進 [focus]（`IndexedStack` 換頁後，新頁的焦點才
@@ -231,6 +285,21 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  /// 目的地的根頁（巢狀 Navigator 的第一頁）。
+  Widget _rootPage(ShellDestination destination) => switch (destination) {
+    ShellDestination.home => HomePage(onOpenPlugins: _openPlugins),
+    ShellDestination.search => SearchPage(
+      fieldFocusNode: _searchField,
+      onOpenPlugins: _openPlugins,
+    ),
+    ShellDestination.library => const LibraryPage(),
+    ShellDestination.radio => const RadioPage(),
+    ShellDestination.settings => SettingsPage(
+      visible: _destination == ShellDestination.settings,
+      back: _settingsBack,
+    ),
+  };
+
   @override
   Widget build(BuildContext context) {
     ref.listen(playbackEventsProvider, _onPlaybackEvent);
@@ -255,16 +324,25 @@ class _AppShellState extends ConsumerState<AppShell> {
               index: _destination.index,
               sizing: StackFit.expand,
               children: [
-                SearchPage(
-                  fieldFocusNode: _searchField,
-                  onOpenPlugins: _openPlugins,
-                ),
-                const HistoryPage(),
-                const RadioPage(),
-                SettingsPage(
-                  visible: _destination == ShellDestination.settings,
-                  back: _settingsBack,
-                ),
+                for (final destination in ShellDestination.values)
+                  // 自己的語意容器：route 的 ModalBarrier 會擋掉同一個容器裡先畫的節點，不包的話
+                  // 擋到的是導覽元件與離線提示，不只是下面那一頁。
+                  Semantics(
+                    container: true,
+                    child: Navigator(
+                      key: _navigators[destination],
+                      observers: [_observers[destination]!],
+                      // pages API：外殼重建時根頁跟著換成新的設定（設定頁的 `visible`）。
+                      pages: [
+                        MaterialPage<void>(
+                          key: ValueKey(destination),
+                          child: _rootPage(destination),
+                        ),
+                      ],
+                      // 根頁不會被退掉：外殼的 PopScope 與 Esc 只在有內頁時才 pop。
+                      onDidRemovePage: (_) {},
+                    ),
+                  ),
               ],
             ),
           ),
@@ -312,6 +390,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
     void onSelected(int index) => _select(ShellDestination.values[index]);
     final index = _destination.index;
+    final destinations = [
+      for (final destination in ShellDestination.values)
+        _destinationLabel(destination, t),
+    ];
 
     final body = switch (windowClass) {
       WindowClass.compact => Scaffold(
@@ -327,28 +409,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                   selectedIndex: index,
                   onDestinationSelected: onSelected,
                   destinations: [
-                    NavigationDestination(
-                      icon: const Icon(Icons.search_outlined),
-                      selectedIcon: const Icon(Icons.search),
-                      label: t.search,
-                      tooltip: t.searchTooltip,
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.history_outlined),
-                      selectedIcon: const Icon(Icons.history),
-                      label: t.history,
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.radio_outlined),
-                      selectedIcon: const Icon(Icons.radio),
-                      label: t.radio,
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.settings_outlined),
-                      selectedIcon: const Icon(Icons.settings),
-                      label: t.settings,
-                      tooltip: t.settingsTooltip,
-                    ),
+                    for (final item in destinations)
+                      NavigationDestination(
+                        icon: Icon(item.icon),
+                        selectedIcon: Icon(item.selectedIcon),
+                        label: item.label,
+                        tooltip: item.tooltip,
+                      ),
                   ],
                 ),
               ),
@@ -368,36 +435,19 @@ class _AppShellState extends ConsumerState<AppShell> {
                   onDestinationSelected: onSelected,
                   labelType: NavigationRailLabelType.all,
                   destinations: [
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.search_outlined),
-                      selectedIcon: const Icon(Icons.search),
-                      label: Text(t.search),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.history_outlined),
-                      selectedIcon: const Icon(Icons.history),
-                      label: Text(t.history),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.radio_outlined),
-                      selectedIcon: const Icon(Icons.radio),
-                      label: Text(t.radio),
-                    ),
-                    NavigationRailDestination(
-                      icon: const Icon(Icons.settings_outlined),
-                      selectedIcon: const Icon(Icons.settings),
-                      label: Text(t.settings),
-                    ),
+                    for (final item in destinations)
+                      NavigationRailDestination(
+                        icon: Icon(item.icon),
+                        selectedIcon: Icon(item.selectedIcon),
+                        label: Text(item.label),
+                      ),
                   ],
                 ),
               ),
               _ => _PermanentDrawer(
                 selectedIndex: index,
                 onSelected: onSelected,
-                search: t.search,
-                history: t.history,
-                radio: t.radio,
-                settings: t.settings,
+                destinations: destinations,
               ),
             }),
             Expanded(
@@ -424,14 +474,15 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     };
 
-    // 返回鍵（design §9.1）：窄版設定頁點進某一組時先回到分組清單；否則不在第
-    // 一個分頁時回到第一個分頁，在第一個分頁時放行
+    // 返回鍵（design §9.1、ADR 0033 §決定 5）：先退出目前目的地的內頁；在根時，窄版設定頁
+    // 點進某一組時先回到分組清單；否則不在第一個目的地時回到第一個，在第一個時放行
     // （根 route 沒得 pop，Android 端把 App 退到背景，見 MainActivity）。播放頁、
-    // 面板與對話框是更上層的 route，Navigator 先關它們。
+    // 面板與對話框是根 Navigator 上更上層的 route，Navigator 先關它們。內頁的 route
+    // 在巢狀 Navigator 裡、不在根 Navigator 上，所以返回鍵一定先到這裡。
     return PopScope(
-      canPop: _destination == ShellDestination.values.first,
+      canPop: _destination == ShellDestination.values.first && !_canPopInner(),
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop || _settingsBack.release()) return;
+        if (didPop || _popInner() || _settingsBack.release()) return;
         _select(ShellDestination.values.first);
       },
       child: PlaybackShortcuts(
@@ -440,10 +491,17 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: Actions(
             actions: {
               FocusSearchIntent: CallbackAction<FocusSearchIntent>(
-                onInvoke: (_) => _selectAndFocus(
-                  ShellDestination.search,
-                  _searchField.requestFocus,
-                ),
+                onInvoke: (_) {
+                  // 搜尋框在搜尋目的地的根頁：有內頁時先退回根。
+                  _navigators[ShellDestination.search]!.currentState?.popUntil(
+                    (route) => route.isFirst,
+                  );
+                  _selectAndFocus(
+                    ShellDestination.search,
+                    _searchField.requestFocus,
+                  );
+                  return null;
+                },
               ),
               OpenSettingsIntent: CallbackAction<OpenSettingsIntent>(
                 onInvoke: (_) => _selectAndFocus(
@@ -454,7 +512,10 @@ class _AppShellState extends ConsumerState<AppShell> {
               NextRegionIntent: CallbackAction<NextRegionIntent>(
                 onInvoke: (_) => _nextRegion(),
               ),
-              LeaveTextInputIntent: _LeaveTextInputAction(),
+              EscapeIntent: _EscapeAction(
+                onBack: _popInner,
+                canBack: _canPopInner,
+              ),
               // 播放頁沒開時 Ctrl+L、Ctrl+Q 先開播放頁（佇列不空才開）；開著時是頁面自己
               // 的 Actions 在處理（切分頁）。
               ShowLyricsIntent: TextInputAwareAction<ShowLyricsIntent>(
@@ -473,14 +534,92 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-/// Esc：焦點在輸入框時離開它；沒有在輸入框就不處理（讓按鍵往上走）。
-final class _LeaveTextInputAction extends Action<LeaveTextInputIntent> {
-  @override
-  bool isEnabled(LeaveTextInputIntent intent) => focusInTextInput();
+/// Esc：焦點在輸入框時離開它；不在輸入框時退出目前目的地的內頁；兩者都不是就不處理
+/// （讓按鍵往上走）。
+final class _EscapeAction extends Action<EscapeIntent> {
+  _EscapeAction({required this.onBack, required this.canBack});
+
+  final bool Function() onBack;
+  final bool Function() canBack;
 
   @override
-  void invoke(LeaveTextInputIntent intent) =>
+  bool isEnabled(EscapeIntent intent) => focusInTextInput() || canBack();
+
+  @override
+  void invoke(EscapeIntent intent) {
+    if (focusInTextInput()) {
       FocusManager.instance.primaryFocus?.unfocus();
+    } else {
+      onBack();
+    }
+  }
+}
+
+/// 一個導覽項在三種導覽元件上的圖示、文字與（底部導覽列的）tooltip。
+typedef _DestinationLabel = ({
+  IconData icon,
+  IconData selectedIcon,
+  String label,
+  String? tooltip,
+});
+
+_DestinationLabel _destinationLabel(
+  ShellDestination destination,
+  Translations$shell$zh_TW t,
+) => switch (destination) {
+  ShellDestination.home => (
+    icon: Icons.home_outlined,
+    selectedIcon: Icons.home,
+    label: t.home,
+    tooltip: null,
+  ),
+  ShellDestination.search => (
+    icon: Icons.search_outlined,
+    selectedIcon: Icons.search,
+    label: t.search,
+    tooltip: t.searchTooltip,
+  ),
+  ShellDestination.library => (
+    icon: Icons.library_music_outlined,
+    selectedIcon: Icons.library_music,
+    label: t.library,
+    tooltip: null,
+  ),
+  ShellDestination.radio => (
+    icon: Icons.radio_outlined,
+    selectedIcon: Icons.radio,
+    label: t.radio,
+    tooltip: null,
+  ),
+  ShellDestination.settings => (
+    icon: Icons.settings_outlined,
+    selectedIcon: Icons.settings,
+    label: t.settings,
+    tooltip: t.settingsTooltip,
+  ),
+};
+
+/// 巢狀 Navigator 的內頁有增減時通知外殼。
+final class _StackObserver extends NavigatorObserver {
+  _StackObserver(this._changed);
+
+  final VoidCallback _changed;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _changed();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _changed();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _changed();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _changed();
 }
 
 /// large 以上的常駐導覽抽屜。M3 的 standard drawer：和內容並排、沒有遮罩，
@@ -489,18 +628,12 @@ class _PermanentDrawer extends StatelessWidget {
   const _PermanentDrawer({
     required this.selectedIndex,
     required this.onSelected,
-    required this.search,
-    required this.history,
-    required this.radio,
-    required this.settings,
+    required this.destinations,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
-  final String search;
-  final String history;
-  final String radio;
-  final String settings;
+  final List<_DestinationLabel> destinations;
 
   @override
   Widget build(BuildContext context) => DrawerTheme(
@@ -511,26 +644,12 @@ class _PermanentDrawer extends StatelessWidget {
       onDestinationSelected: onSelected,
       elevation: 0,
       children: [
-        NavigationDrawerDestination(
-          icon: const Icon(Icons.search_outlined),
-          selectedIcon: const Icon(Icons.search),
-          label: Text(search),
-        ),
-        NavigationDrawerDestination(
-          icon: const Icon(Icons.history_outlined),
-          selectedIcon: const Icon(Icons.history),
-          label: Text(history),
-        ),
-        NavigationDrawerDestination(
-          icon: const Icon(Icons.radio_outlined),
-          selectedIcon: const Icon(Icons.radio),
-          label: Text(radio),
-        ),
-        NavigationDrawerDestination(
-          icon: const Icon(Icons.settings_outlined),
-          selectedIcon: const Icon(Icons.settings),
-          label: Text(settings),
-        ),
+        for (final item in destinations)
+          NavigationDrawerDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.selectedIcon),
+            label: Text(item.label),
+          ),
       ],
     ),
   );

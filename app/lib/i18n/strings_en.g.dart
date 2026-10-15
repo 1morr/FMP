@@ -58,6 +58,10 @@ class TranslationsEn extends Translations
   @override
   late final Translations$history$en history = Translations$history$en._(_root);
   @override
+  late final Translations$home$en home = Translations$home$en._(_root);
+  @override
+  late final Translations$library$en library = Translations$library$en._(_root);
+  @override
   late final Translations$offline$en offline = Translations$offline$en._(_root);
   @override
   late final Translations$settings$en settings = Translations$settings$en._(
@@ -126,6 +130,12 @@ class Translations$shell$en extends Translations$shell$zh_TW {
 
   // Translations
   @override
+  String get home => 'Home';
+  @override
+  String get library => 'Library';
+  @override
+  String get backTooltip => 'Back (Esc)';
+  @override
   String get search => 'Search';
   @override
   String get settings => 'Settings';
@@ -133,8 +143,6 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   String get searchTooltip => 'Search (Ctrl+F)';
   @override
   String get settingsTooltip => 'Settings (Ctrl+,)';
-  @override
-  String get history => 'History';
   @override
   String get radio => 'Radio';
   @override
@@ -284,6 +292,121 @@ class Translations$history$en extends Translations$history$zh_TW {
   String get confirm => 'Clear';
   @override
   String get cleared => 'Play history cleared';
+}
+
+// Path: home
+class Translations$home$en extends Translations$home$zh_TW {
+  Translations$home$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Home';
+  @override
+  String get recentlyPlayed => 'Recently played';
+  @override
+  String get viewAll => 'View all';
+  @override
+  String get empty => 'Nothing here yet';
+  @override
+  String get emptyHint =>
+      'Search for songs and play them, or import a playlist';
+}
+
+// Path: library
+class Translations$library$en extends Translations$library$zh_TW {
+  Translations$library$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Library';
+  @override
+  String get history => 'History';
+  @override
+  String get playlists => 'Playlists';
+  @override
+  String get newPlaylist => 'New playlist';
+  @override
+  String get empty => 'No playlists yet';
+  @override
+  String get emptyHint => 'Choose "New playlist" to create one.';
+  @override
+  String trackCount({required Object count}) => '${count} songs';
+  @override
+  String get trackCountOne => '1 song';
+  @override
+  String get local => 'Local';
+  @override
+  String get more => 'More options';
+  @override
+  String get addToQueue => 'Add all to queue';
+  @override
+  String get shuffleToQueue => 'Shuffle into queue';
+  @override
+  String get addToQueueInMix => 'Add all to queue (unavailable in a Mix)';
+  @override
+  String get shuffleToQueueInMix => 'Shuffle into queue (unavailable in a Mix)';
+  @override
+  String addedToQueue({required Object name}) => 'Added "${name}" to the queue';
+  @override
+  String addFailed({required Object reason}) =>
+      'Couldn\'t add to the queue: ${reason}';
+  @override
+  String get edit => 'Edit';
+  @override
+  String get delete => 'Delete';
+  @override
+  String get deleteTitle => 'Delete the playlist?';
+  @override
+  String deleteBody({required Object name}) =>
+      '"${name}" is deleted and cannot be restored. The songs themselves and the play history are not affected.';
+  @override
+  String get deleted => 'Playlist deleted';
+  @override
+  String deleteFailed({required Object reason}) =>
+      'Couldn\'t delete the playlist: ${reason}';
+  @override
+  String get createTitle => 'New playlist';
+  @override
+  String get editTitle => 'Edit playlist';
+  @override
+  String get name => 'Name';
+  @override
+  String get nameRequired => 'Enter a name';
+  @override
+  String get description => 'Description (optional)';
+  @override
+  String get cover => 'Cover';
+  @override
+  String get coverDefault => 'The cover of the first song';
+  @override
+  String get create => 'Create';
+  @override
+  String get save => 'Save';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get created => 'Playlist created';
+  @override
+  String get saved => 'Playlist saved';
+  @override
+  String createFailed({required Object reason}) =>
+      'Couldn\'t create the playlist: ${reason}';
+  @override
+  String saveFailed({required Object reason}) =>
+      'Couldn\'t save the playlist: ${reason}';
+  @override
+  String get reorder => 'Drag to reorder';
+  @override
+  String reorderFailed({required Object reason}) =>
+      'Couldn\'t reorder the playlists: ${reason}';
 }
 
 // Path: offline

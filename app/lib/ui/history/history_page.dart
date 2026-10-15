@@ -21,6 +21,12 @@ import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
+/// 在 [context] 所在的 Navigator 開歷史頁：外殼裡是那個目的地的巢狀導覽（音樂庫頂端的
+/// 「歷史」、首頁「最近播放」的「查看全部」，ADR 0033 §決定 5），導覽與播放列留著。
+Future<void> openHistory(BuildContext context) =>
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const HistoryPage()));
+
 /// 歷史頁（design §9.7）：播放過的歌依時間倒序、以本地日期分組（今天、昨天、
 /// 日期，跨年才帶年份）。點一首是臨時播放；每筆的選單（右鍵、長按、尾端「⋯」）有
 /// 播放、下一首播放、加入佇列、從歷史移除（只移除這一筆，不提示）。標題列的「清除
@@ -28,6 +34,8 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 ///
 /// 分頁讀取（[historyProvider]）：捲到底才讀下一頁。全部是本機資料，離線照常
 /// 可用；封面讀不到時 [ArtworkImage] 是佔位圖。
+///
+/// 從別的頁推上來時（[openHistory]）標題前有返回鈕。
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
 
@@ -38,6 +46,8 @@ class HistoryPage extends ConsumerWidget {
     final spacing = AppTokens.of(context).spacing;
     final history = ref.watch(historyProvider);
     final isEmpty = history.value?.entries.isEmpty ?? true;
+    // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
+    final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -50,6 +60,12 @@ class HistoryPage extends ConsumerWidget {
           ),
           child: Row(
             children: [
+              if (canGoBack)
+                IconButton(
+                  tooltip: ref.watch(translationsProvider).shell.backTooltip,
+                  icon: const BackButtonIcon(),
+                  onPressed: () => unawaited(Navigator.of(context).maybePop()),
+                ),
               Expanded(
                 child: Semantics(
                   header: true,

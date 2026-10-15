@@ -51,6 +51,11 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$search$zh_TW.internal(_root);
   late final Translations$history$zh_TW history =
       Translations$history$zh_TW.internal(_root);
+  late final Translations$home$zh_TW home = Translations$home$zh_TW.internal(
+    _root,
+  );
+  late final Translations$library$zh_TW library =
+      Translations$library$zh_TW.internal(_root);
   late final Translations$offline$zh_TW offline =
       Translations$offline$zh_TW.internal(_root);
   late final Translations$settings$zh_TW settings =
@@ -111,6 +116,15 @@ class Translations$shell$zh_TW {
 
   // Translations
 
+  /// zh-TW: '首頁'
+  String get home => '首頁';
+
+  /// zh-TW: '音樂庫'
+  String get library => '音樂庫';
+
+  /// zh-TW: '返回（Esc）'
+  String get backTooltip => '返回（Esc）';
+
   /// zh-TW: '搜尋'
   String get search => '搜尋';
 
@@ -122,9 +136,6 @@ class Translations$shell$zh_TW {
 
   /// zh-TW: '設定（Ctrl+,）'
   String get settingsTooltip => '設定（Ctrl+,）';
-
-  /// zh-TW: '歷史'
-  String get history => '歷史';
 
   /// zh-TW: '電台'
   String get radio => '電台';
@@ -330,6 +341,154 @@ class Translations$history$zh_TW {
 
   /// zh-TW: '已清除播放歷史'
   String get cleared => '已清除播放歷史';
+}
+
+// Path: home
+class Translations$home$zh_TW {
+  Translations$home$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '首頁'
+  String get title => '首頁';
+
+  /// zh-TW: '最近播放'
+  String get recentlyPlayed => '最近播放';
+
+  /// zh-TW: '查看全部'
+  String get viewAll => '查看全部';
+
+  /// zh-TW: '這裡還沒有內容'
+  String get empty => '這裡還沒有內容';
+
+  /// zh-TW: '搜尋並播放歌曲，或匯入歌單'
+  String get emptyHint => '搜尋並播放歌曲，或匯入歌單';
+}
+
+// Path: library
+class Translations$library$zh_TW {
+  Translations$library$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '音樂庫'
+  String get title => '音樂庫';
+
+  /// zh-TW: '歷史'
+  String get history => '歷史';
+
+  /// zh-TW: '歌單'
+  String get playlists => '歌單';
+
+  /// zh-TW: '新增歌單'
+  String get newPlaylist => '新增歌單';
+
+  /// zh-TW: '還沒有歌單'
+  String get empty => '還沒有歌單';
+
+  /// zh-TW: '按「新增歌單」建立一張歌單。'
+  String get emptyHint => '按「新增歌單」建立一張歌單。';
+
+  /// zh-TW: '{count} 首'
+  String trackCount({required Object count}) => '${count} 首';
+
+  /// zh-TW: '1 首'
+  String get trackCountOne => '1 首';
+
+  /// zh-TW: '本機'
+  String get local => '本機';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '全部加入佇列'
+  String get addToQueue => '全部加入佇列';
+
+  /// zh-TW: '隨機加入佇列'
+  String get shuffleToQueue => '隨機加入佇列';
+
+  /// zh-TW: '全部加入佇列（Mix 中無法使用）'
+  String get addToQueueInMix => '全部加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '隨機加入佇列（Mix 中無法使用）'
+  String get shuffleToQueueInMix => '隨機加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '已將「{name}」加入佇列'
+  String addedToQueue({required Object name}) => '已將「${name}」加入佇列';
+
+  /// zh-TW: '無法加入佇列：{reason}'
+  String addFailed({required Object reason}) => '無法加入佇列：${reason}';
+
+  /// zh-TW: '編輯'
+  String get edit => '編輯';
+
+  /// zh-TW: '刪除'
+  String get delete => '刪除';
+
+  /// zh-TW: '刪除歌單？'
+  String get deleteTitle => '刪除歌單？';
+
+  /// zh-TW: '「{name}」會被刪除，無法復原。歌曲本身與播放歷史不受影響。'
+  String deleteBody({required Object name}) =>
+      '「${name}」會被刪除，無法復原。歌曲本身與播放歷史不受影響。';
+
+  /// zh-TW: '已刪除歌單'
+  String get deleted => '已刪除歌單';
+
+  /// zh-TW: '無法刪除歌單：{reason}'
+  String deleteFailed({required Object reason}) => '無法刪除歌單：${reason}';
+
+  /// zh-TW: '新增歌單'
+  String get createTitle => '新增歌單';
+
+  /// zh-TW: '編輯歌單'
+  String get editTitle => '編輯歌單';
+
+  /// zh-TW: '名稱'
+  String get name => '名稱';
+
+  /// zh-TW: '請輸入名稱'
+  String get nameRequired => '請輸入名稱';
+
+  /// zh-TW: '描述（選填）'
+  String get description => '描述（選填）';
+
+  /// zh-TW: '封面'
+  String get cover => '封面';
+
+  /// zh-TW: '第一首歌的封面'
+  String get coverDefault => '第一首歌的封面';
+
+  /// zh-TW: '建立'
+  String get create => '建立';
+
+  /// zh-TW: '儲存'
+  String get save => '儲存';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '已建立歌單'
+  String get created => '已建立歌單';
+
+  /// zh-TW: '已儲存歌單'
+  String get saved => '已儲存歌單';
+
+  /// zh-TW: '無法建立歌單：{reason}'
+  String createFailed({required Object reason}) => '無法建立歌單：${reason}';
+
+  /// zh-TW: '無法儲存歌單：{reason}'
+  String saveFailed({required Object reason}) => '無法儲存歌單：${reason}';
+
+  /// zh-TW: '拖曳以排序'
+  String get reorder => '拖曳以排序';
+
+  /// zh-TW: '無法調整歌單順序：{reason}'
+  String reorderFailed({required Object reason}) => '無法調整歌單順序：${reason}';
 }
 
 // Path: offline

@@ -202,8 +202,14 @@ Future<File> _writeTestPlugin(Directory root) async {
   );
 }
 
-/// 在搜尋頁輸入 [keyword] 送出，等第一筆結果出現。
+/// 到搜尋頁（App 開在首頁）輸入 [keyword] 送出，等第一筆結果出現。介面語言跟著機器：
+/// 以圖示找導覽項（已經在搜尋頁時它是實心的那一個，找不到就不點）。
 Future<void> _search(WidgetTester tester, String keyword) async {
+  final searchItem = find.byIcon(Icons.search_outlined);
+  if (searchItem.evaluate().isNotEmpty) {
+    await tester.tap(searchItem.first);
+    await tester.pumpAndSettle();
+  }
   await tester.enterText(find.byType(TextField), keyword);
   await tester.testTextInput.receiveAction(TextInputAction.search);
   await _waitFor(

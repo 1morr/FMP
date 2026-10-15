@@ -390,8 +390,7 @@ void main() {
   testWidgets('it works offline; the cover is a placeholder', (tester) async {
     final h = ShellHarness();
     await h.pumpShell(tester);
-    await tester.tap(find.text('History'));
-    await tester.pump();
+    await h.openHistory(tester);
     await h.setNetwork(tester, NetworkStatus.noInterface);
     await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
     await reload(tester, h);

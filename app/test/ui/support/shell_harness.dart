@@ -373,7 +373,8 @@ final class ShellHarness {
     ...extraOverrides,
   ];
 
-  /// 以 [size] 的視窗開 App 的外殼（和 `FmpApp` 同一份 `MaterialApp` 設定）。
+  /// 以 [size] 的視窗開 App 的外殼（和 `FmpApp` 同一份 `MaterialApp` 設定），再點導覽的
+  /// [at]（預設是搜尋：多數外殼測試從搜尋頁開始；App 本身開在首頁，給 `home` 就不點）。
   ///
   /// 視窗 >= 840 時外殼右側有「正在播放」面板，內容區因此變窄；測的是頁面本身的版面時給
   /// [collapsePanel]，就像使用者收起了面板。
@@ -382,8 +383,10 @@ final class ShellHarness {
     Size size = const Size(1000, 700),
     Brightness brightness = Brightness.light,
     bool collapsePanel = false,
+    ShellDestination at = ShellDestination.search,
   }) async {
     await pumpApp(tester, const AppShell(), size: size, brightness: brightness);
+    if (at != ShellDestination.values.first) await open(tester, at);
     if (!collapsePanel) return;
     await tester.runAsync(
       () =>
@@ -392,6 +395,36 @@ final class ShellHarness {
               .write(panelExpanded: false),
     );
     await loadSettings(tester);
+  }
+
+  /// 點導覽的 [destination]（三種導覽元件都認得）。
+  Future<void> open(WidgetTester tester, ShellDestination destination) async {
+    await tester.tap(navigationItem(destination));
+    await tester.pump();
+  }
+
+  /// 導覽元件裡 [destination] 那一項的文字（英文介面）。
+  static Finder navigationItem(ShellDestination destination) => find.descendant(
+    of: find.byWidgetPredicate(
+      (widget) =>
+          widget is NavigationBar ||
+          widget is NavigationRail ||
+          widget is NavigationDrawer,
+    ),
+    matching: find.text(switch (destination) {
+      ShellDestination.home => 'Home',
+      ShellDestination.search => 'Search',
+      ShellDestination.library => 'Library',
+      ShellDestination.radio => 'Radio',
+      ShellDestination.settings => 'Settings',
+    }),
+  );
+
+  /// 從音樂庫頂端的「歷史」開歷史頁（音樂庫的巢狀導覽裡）。
+  Future<void> openHistory(WidgetTester tester) async {
+    await open(tester, ShellDestination.library);
+    await tester.tap(find.widgetWithText(ListTile, 'History'));
+    await tester.pumpAndSettle();
   }
 
   /// 以 [size] 的視窗、App 的 `MaterialApp` 設定與 `ToastHost` 開 [home]。
