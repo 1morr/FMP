@@ -571,6 +571,75 @@ void main() {
           handle.dispose();
         });
 
+        // 首頁（M4 PR 4）：我的歌單與電台（四種狀態）加最近播放。
+        testWidgets('home with playlists, radio and recent plays at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.home,
+          );
+          await tester.runAsync(() async {
+            final container = h.container(tester);
+            final playlists = container.read(playlistRepositoryProvider);
+            final road = await playlists.create(name: 'Road trip');
+            await playlists.addTracks(road, [
+              summary('a', artwork: TestArtwork.darkest.artwork).toTrackInfo(),
+            ]);
+            await playlists.create(name: 'Empty');
+            await container
+                .read(playHistoryRepositoryProvider)
+                .record(
+                  summary(
+                    'b',
+                    artwork: TestArtwork.lightest.artwork,
+                  ).toTrackInfo(),
+                  playedAt: DateTime(2026, 10, 15, 8),
+                  limit: 100,
+                );
+          });
+          // 假時間裡寫：首頁已經在監看電台表（見 radio_page_test 的說明）。
+          final radio = h.container(tester).read(radioRepositoryProvider);
+          for (final (id, status) in [
+            ('a', RadioLiveStatus.live),
+            ('b', RadioLiveStatus.offline),
+            ('c', null),
+            ('d', RadioLiveStatus.offline),
+          ]) {
+            await radio.add(
+              pluginId: 'fmp-test',
+              roomId: id,
+              title: 'Station $id',
+              hostName: 'Host $id',
+              artwork: _trackArtwork(TestArtwork.darkest),
+              addedAt: DateTime.utc(2026, 10, 14),
+              liveStatus: status,
+            );
+          }
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          h
+              .container(tester)
+              .read(radioQueryFailuresProvider.notifier)
+              .mark(
+                h.container(tester).read(radioStationsProvider).value!.last.id,
+              );
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('My playlists'), findsOneWidget);
+          expect(find.text('Check failed'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         // 音樂庫（M4 PR 2）：空的、有歌單（1000 寬時面板開著，內容區是清單；收起面板是格狀）、
         // 卡片選單、建立對話框與刪除的確認框。
         Future<ShellHarness> openLibrary(

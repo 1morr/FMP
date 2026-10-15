@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 層寫法、首頁區塊、巢狀導覽、guideline"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 6 首頁"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "電台清單、狀態、playLive"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§10.2 首頁"}

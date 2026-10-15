@@ -287,7 +287,11 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// 目的地的根頁（巢狀 Navigator 的第一頁）。
   Widget _rootPage(ShellDestination destination) => switch (destination) {
-    ShellDestination.home => HomePage(onOpenPlugins: _openPlugins),
+    ShellDestination.home => HomePage(
+      onOpenPlugins: _openPlugins,
+      onOpenLibrary: () => _select(ShellDestination.library),
+      onOpenRadio: () => _select(ShellDestination.radio),
+    ),
     ShellDestination.search => SearchPage(
       fieldFocusNode: _searchField,
       onOpenPlugins: _openPlugins,

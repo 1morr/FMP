@@ -81,6 +81,8 @@
   "home": {
     "title": "首頁",
     "recentlyPlayed": "最近播放",
+    "myPlaylists": "我的歌單",
+    "radio": "電台",
     "viewAll": "查看全部",
     "empty": "這裡還沒有內容",
     "emptyHint": "搜尋並播放歌曲，或匯入歌單",

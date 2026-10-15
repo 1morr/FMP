@@ -359,6 +359,12 @@ class Translations$home$zh_TW {
   /// zh-TW: '最近播放'
   String get recentlyPlayed => '最近播放';
 
+  /// zh-TW: '我的歌單'
+  String get myPlaylists => '我的歌單';
+
+  /// zh-TW: '電台'
+  String get radio => '電台';
+
   /// zh-TW: '查看全部'
   String get viewAll => '查看全部';
 

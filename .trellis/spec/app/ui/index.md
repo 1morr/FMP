@@ -22,7 +22,7 @@ lib/ui/
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
                        # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）
-  home/                # 首頁（區塊：最近播放；recentPlaysProvider）
+  home/                # 首頁（區塊：我的歌單、電台、最近播放；recentPlaysProvider）
   library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單）、建立與編輯歌單的對話框（playlist_dialogs，
                        # 含自訂封面）、歌單封面（playlist_cover）、歌單詳情（playlist_detail_page；openPlaylist 開在巢狀導覽裡）、
                        # 它們讀的 provider 與分組、重排的純函數（library_state：playlistOverviewsProvider、playlistDetailProvider、
@@ -152,7 +152,7 @@ try {
   `useRootNavigator: true`）。新的全螢幕 route 進 `integration_test/toast_layering_test.dart`。
 - 頁面讀「表一變動就重讀」的本機資料時（首頁的最近播放、音樂庫的歌單卡），provider 照 `recentPlaysProvider`：先訂閱
   repository 的 `changes()`、再讀一次，之後每次變動再讀（`async*` 依序讀，讀失敗以 `yield* Stream.error` 送出、之後照樣重讀）；
-  讀失敗的 `log.report` 在頁面的 `ref.listen`（同電台頁），不在 build。外殼裡的頁面一直掛著，不要對 join 了 `tracks` 的查詢用
+  讀失敗的 `log.report` 在頁面的 `ref.listen`（同電台頁），不在 build；外殼裡幾頁讀同一個 provider 時只由一頁報（首頁的歌單、電台區塊交給音樂庫與電台頁）。外殼裡的頁面一直掛著，不要對 join 了 `tracks` 的查詢用
   `watch()`：每寫一次曲目（每播一首）都會重查。
 - 加一個 App 內快捷鍵（ADR 0024 §決定 8 的表）：
   1. 播放類：`playback_shortcuts.dart` 加一個 `Intent`、`playbackShortcuts` 的一列與

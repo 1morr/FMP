@@ -315,8 +315,9 @@ class _StationList extends ConsumerWidget {
   }
 }
 
-/// 收聽 [station] 的目標：標題取最近一次查到的直播標題，`live-info` 之後會更新它。
-LiveTarget _targetOf(RadioStation station) => LiveTarget(
+/// 收聽 [station] 的目標（電台頁與首頁的電台區塊）：標題取最近一次查到的直播標題，`live-info`
+/// 之後會更新它。
+LiveTarget radioLiveTarget(RadioStation station) => LiveTarget(
   pluginId: station.pluginId,
   roomId: station.roomId,
   title: station.liveTitle ?? station.title,
@@ -357,7 +358,7 @@ class _StationRow extends ConsumerWidget {
         return;
       }
       unawaited(
-        ref.read(playbackControllerProvider).playLive(_targetOf(station)),
+        ref.read(playbackControllerProvider).playLive(radioLiveTarget(station)),
       );
     }
 
