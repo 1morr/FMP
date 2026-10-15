@@ -53,6 +53,7 @@
    - 一首歌正常播放 10 秒後重試計數歸零。
 8. **系統媒體控制**：`NowPlayingPublisher` 唯一出口，按鈕依播放能力推導；轉接器 Android／iOS／macOS 用 `audio_service`、Linux 用 `audio_service_mpris`、
    Windows 用 `smtc_windows`；只在值改變時推送並序列化。
+   補充（2026-10-15，擁有者決定，#263）：Windows 浮層的隨機、循環鈕切換 App 的設定並同步顯示；Mix 與直播中照 App 的規則不理（SMTC 無法單獨停用這兩顆鈕）。
 9. **直播**：`PlaybackController.playLive` 經插件 `live` 能力取流，走同一個 `PlaybackSession`，開直播必然取消進行中的音樂請求（D8）；
    進入時記佇列快照、停止時回到原佇列。提前結束時先問插件是否仍在直播，是才以 1／3／10 秒重連 3 次。
    直播狀態查詢失敗顯示「查詢失敗」，不當成「未開播」（D10）；直播狀態輪詢與收聽中刷新由 ADR 0017 的排程器負責。
