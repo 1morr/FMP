@@ -22,6 +22,7 @@ import 'generated/schema_v11.dart' as v11;
 import 'generated/schema_v12.dart' as v12;
 import 'generated/schema_v13.dart' as v13;
 import 'generated/schema_v14.dart' as v14;
+import 'generated/schema_v15.dart' as v15;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1353,5 +1354,122 @@ void main() {
     addTearDown(db.close);
 
     await expectTrackPartSchema(db);
+  });
+
+  // v15 加 playlists 與 playlist_entries（M4 design §3.1）：既有表的資料與使用者值原樣保留，
+  // 新表升級後是空的。
+  test('migration from v14 to v15 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 14,
+      newVersion: 15,
+      createOld: v14.DatabaseAtV14.new,
+      createNew: v15.DatabaseAtV15.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v14.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.tracks,
+          const v14.TracksData(
+            trackKey: 'bilibili:BV1:100',
+            sourceTypeId: 'bilibili',
+            sourceId: 'BV1',
+            cid: 100,
+            title: 'Song',
+            updatedAt: 1790000000000,
+          ),
+        );
+        batch.insert(
+          oldDb.queueEntries,
+          const v14.QueueEntriesData(position: 0, trackKey: 'bilibili:BV1:100'),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v15.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ]);
+        expect(await newDb.select(newDb.tracks).get(), [
+          const v15.TracksData(
+            trackKey: 'bilibili:BV1:100',
+            sourceTypeId: 'bilibili',
+            sourceId: 'BV1',
+            cid: 100,
+            title: 'Song',
+            updatedAt: 1790000000000,
+          ),
+        ]);
+        expect(await newDb.select(newDb.queueEntries).get(), [
+          const v15.QueueEntriesData(position: 0, trackKey: 'bilibili:BV1:100'),
+        ]);
+        expect(await newDb.select(newDb.playlists).get(), isEmpty);
+        expect(await newDb.select(newDb.playlistEntries).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<List<String>> indexesOf(AppDatabase db, String table) async => [
+    for (final row
+        in await db.customSelect("PRAGMA index_list('$table')").get())
+      row.read<String>('name'),
+  ];
+
+  Future<void> expectPlaylistSchema(AppDatabase db) async {
+    expect(
+      await indexesOf(db, 'playlist_entries'),
+      containsAll(['playlist_entries_playlist', 'playlist_entries_track_key']),
+    );
+    // 持久化格式：種類是寫死的字串，遠端三欄有預設。
+    await db.customStatement(
+      "INSERT INTO playlists (kind, name, sort_order, created_at, updated_at) "
+      "VALUES ('local', 'Mine', 0, 1, 1)",
+    );
+    await db.customStatement(
+      "INSERT INTO tracks (track_key, source_type_id, source_id, title, "
+      "updated_at) VALUES ('p:1', 'p', '1', 'T', 1)",
+    );
+    await db.customStatement(
+      "INSERT INTO playlist_entries (playlist_id, position, track_key) "
+      "VALUES (1, 0, 'p:1')",
+    );
+    final row = await db
+        .customSelect(
+          'SELECT kind, remote_item_id, unavailable, seen_generation '
+          'FROM playlists, playlist_entries',
+        )
+        .getSingle();
+    expect(row.data, {
+      'kind': 'local',
+      'remote_item_id': null,
+      'unavailable': 0,
+      'seen_generation': 0,
+    });
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]) {
+    test('migration from v$from to v15 adds the playlist tables', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 15);
+
+      await expectPlaylistSchema(db);
+      await db.close();
+    });
+  }
+
+  test('a new database has the playlist tables', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectPlaylistSchema(db);
   });
 }

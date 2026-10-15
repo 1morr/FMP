@@ -6,6 +6,7 @@ import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 
@@ -250,4 +251,24 @@ final class EpochMillisecondsConverter extends TypeConverter<DateTime, int> {
 
   @override
   int toSql(DateTime value) => value.millisecondsSinceEpoch;
+}
+
+/// [PlaylistKind] ↔ `local`／`imported`／`mix`。
+final class PlaylistKindConverter extends TypeConverter<PlaylistKind, String> {
+  const PlaylistKindConverter();
+
+  @override
+  PlaylistKind fromSql(String fromDb) => switch (fromDb) {
+    'local' => PlaylistKind.local,
+    'imported' => PlaylistKind.imported,
+    'mix' => PlaylistKind.mix,
+    _ => throw FormatException('Unknown playlist kind in the database', fromDb),
+  };
+
+  @override
+  String toSql(PlaylistKind value) => switch (value) {
+    PlaylistKind.local => 'local',
+    PlaylistKind.imported => 'imported',
+    PlaylistKind.mix => 'mix',
+  };
 }
