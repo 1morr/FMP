@@ -26,7 +26,8 @@ lib/ui/
   library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單）、建立與編輯歌單的對話框（playlist_dialogs，
                        # 含自訂封面）、歌單封面（playlist_cover）、歌單詳情（playlist_detail_page；openPlaylist 開在巢狀導覽裡）、
                        # 它們讀的 provider 與分組、重排的純函數（library_state：playlistOverviewsProvider、playlistDetailProvider、
-                       # groupParts、reorderedEntryIds）、曲目選單的「加入歌單…」與它的對話框（add_to_playlist）
+                       # groupParts、reorderedEntryIds）、曲目選單的「加入歌單…」與它的對話框（add_to_playlist）、
+                       # 匯入對話框（import_dialog）、手動刷新（manual_refresh：manualRefreshProvider）
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
@@ -216,6 +217,17 @@ try {
 - 畫面寫本機歌單的曲目時呼叫 `PlaylistService` 的 `addTracks`、`removeEntries`、`moveEntries`：它們拒絕不是本機的歌單
   （`playlist_service_test.dart` 的 `an imported playlist is refused…`），repository 那層只動指定歌單的項目；刷新器
   （`lib/library/`）寫匯入歌單是另一條路。
+- 匯入與刷新的畫面端（`import_dialog.dart`、`manual_refresh.dart`，M4 PR 8b）：手動刷新一律經 `ref.read(manualRefreshProvider.notifier)(playlistId)`
+  （卡片選單、詳情的「刷新」與狀態列的「重試」同一條）：它記著正在刷新的歌單 id（按鈕據此顯示進行中、不接受第二次）並負責提示
+  （失敗而網路不是 `online` 寫離線字樣，其餘照 ADR 0013 的類別表，自動刷新不經這裡所以不跳 toast）。匯入對話框用
+  `PlaylistImporter.importUrl(onProgress:)` 顯示「已讀 n 首」，進行中不能關。匯入成功後的詳情由呼叫端（音樂庫頁）開，
+  因為對話框在根 Navigator 上、詳情要開在音樂庫的巢狀導覽裡。詳情的「登入」經 `openAccountsProvider`（外殼接上，換到設定頁的「帳號」區塊）。
+- 測試匯入畫面：`ShellHarness(registryOfSources: true, sources: [FakeImportPlugin(...)])`（`test/library/fake_import_plugin.dart`）。
+  介面上插件名稱由 harness 固定為 `Test Source`。進度條會一直轉，進行中的畫面不要 `pumpAndSettle`。
+- 巢狀導覽的每一頁（外殼的根頁、`openPlaylist`、`openHistory`，之後新加的內頁也一樣）包一層透明的 `Material`：頁面轉場在
+  頁外包有底色的 `ColoredBox`，頁面沒有自己的 Material 時 `ListTile` 的水波與底色畫在外殼的 Material 上、被它蓋住，除錯版另有
+  「ListTile background color or ink splashes may be invisible」的斷言（轉場中重建的 `ListTile` 才會觸發，例如匯入完成時音樂庫
+  長出新卡片）。閘門：`app_shell_test.dart` 的 `every page of a nested navigator paints on its own Material`。
 - 詳情清單的列是 `groupParts` 排出來的（群組標題＋分 P），所以 `ReorderableListView` 的位置不是項目的位置：重排一律經
   `reorderedEntryIds`。之後的多選（PR 5）要的「這一列是哪個項目」同樣看 `PlaylistEntryRow`，標題列不是項目。
 - 測試：`ShellHarness` 開在音樂庫，`runAsync` 裡以 `playlistRepositoryProvider` 建歌單（匯入歌單用 `createImported`）與 `addTracks`，

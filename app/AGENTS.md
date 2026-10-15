@@ -1189,14 +1189,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 音樂庫
 
-`lib/library/`（ADR 0033 §決定 2、M4 design §5；畫面與排程工作在後面的 PR）：匯入歌單的匯入與刷新。`lib/library/` 用資料、插件與排程器，不 import
+`lib/library/`（ADR 0033 §決定 2、M4 design §5；排程工作在後面的 PR）：匯入歌單的匯入與刷新（畫面見 § 介面的「音樂庫」「歌單詳情」）。`lib/library/` 用資料、插件與排程器，不 import
 `ui/`；`core/`、`domain/`、`data/`、`scheduler/` 不認得它（閘門：lint `fmp_layer_imports`，見 § Lint）。
 
 - **匯入**（`PlaylistImporter.importUrl`）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
   插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，PR 11 處理）、`ImportMetadataOnly`
   （插件沒有 `resolveStream`，PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
   名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
-  其餘頁由刷新器取。
+  其餘頁由刷新器取。`importUrl` 與 `refresh` 的 `onProgress` 在每一頁寫進資料庫後收到已讀的項目數（匯入對話框的「已讀 n 首」）。
 - **刷新**（`PlaylistRefresher.refresh`）全 App 一個 FIFO 鎖（provider 持有的單一物件），同時只刷一張。每頁一個 transaction 寫進正式表，以
   `refresh_generation`（開始時加一得到 g）標出這次見過的項目；完整（每頁成功、最後 `cursor` 為空、有 `total` 時筆數相等；一直回同一個 `cursor`
   的插件在 `cursor` 第一次重複時就停、當作沒讀完）才一個 transaction 刪 `seen_generation < g`、重寫 `position`、未覆寫的名稱／描述／封面跟遠端、寫 `writable`
@@ -1864,8 +1864,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   先關）、`settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果）、首頁（空的、最近播放加播放列、歌單與電台加最近播放）、音樂庫（空的、有歌單的清單與收起面板的格狀、
-  卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單、空的、「加入歌單」
-  對話框）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
+  對話框）、匯入對話框（不認得的網址）與匯入歌單的編輯對話框（有「使用遠端的」）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2051,7 +2051,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁）、`test/ui/library/add_to_playlist_test.dart` 的
   `a recent play on Home` 群組（三種開法同一份選單、加入歌單與加入佇列、卡片與「⋯」是兩個語意節點）。
 - 音樂庫（`lib/ui/library/`、`lib/library/playlist_service.dart`，ADR 0033 §決定 8，M4 design §10.3、§10.5）：
-  - 標題列「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、「本機 · n 首」），點一下在音樂庫的
+  - 標題列「匯入」（開匯入對話框）與「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、「本機 · n 首」），點一下在音樂庫的
     巢狀導覽裡開歌單詳情（`openPlaylist`）。格狀的卡片照 `ListTile`：`InkWell` 包 `Semantics(button: true)`，「⋯」與把手各自一個節點（包
     `MergeSemantics` 會把點一下與「⋯」的點擊併成一個節點）。卡片資料是
     `PlaylistRepository.overviews()`（一個查詢帶首數與第一首），`playlistOverviewsProvider` 以 `changes()` 重讀，不用 `watch()`：
@@ -2059,22 +2059,44 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 內容區 compact、medium 是清單（`ReorderableListView`，把手排序，同電台頁），expanded 以上是格狀（每張不超過
     `AppLayout.playlistCardMaxWidth`）：Flutter 沒有可排序的格狀清單，所以是把手上的 `Draggable` 加每張卡的 `DragTarget`，拖過某張卡就換到
     它的位置，放開才整批寫 `sort_order`。兩種都是資料庫追上之前照拖曳後的順序畫；寫入失敗回到資料庫的順序並提示。
-  - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、編輯、刪除（先確認）。
+  - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、刷新（只有匯入歌單）、編輯、刪除（先確認）。
+    匯入歌單的副標題寫「匯入 · n 首」。
     加入走 `PlaybackController.addToQueue`：超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中兩項停用。
   - 建立與編輯是同一個對話框（`showPlaylistDialog`）：名稱必填（去掉空白後不能是空的）、描述選填、封面預設「第一首歌的封面」，「自訂」填
     圖片網址、「使用預設」清回（`playlists.artwork_json`，空＝預設）。**自訂的網址要屬於某個已安裝且啟用的插件的允許網域**
     （`pluginForArtwork`：插件清單裡第一個 `AllowedHosts.allows` 的，只收 `https`、不收帶 user info 的——媒體 client 不發），否則欄位下寫「這個網址不屬於任何已安裝的音源」、
     不能送出；之後封面經那個插件的 cache manager 與媒體 client 讀（`artworkPluginProvider`，`PlaylistCover`），宿主沒有任意網址的讀取
     路徑。那個插件之後停用或移除時封面是佔位圖；編輯時沒改過的自訂網址照舊保留、不再檢查（才改得了名稱）。
+  - **匯入**（`import_dialog.dart`，M4 design §10.8）：一個文字欄（網址）、「匯入」；進行中顯示「已讀 n 首」（第一頁回來前是「正在辨識網址」），
+    這時對話框不能關、不能再送（匯入不能中途取消）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`，音樂庫頁在巢狀導覽裡開詳情並提示
+    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址、第一頁失敗、`mix:` 與僅元資料來源（PR 11、19 才接上，這裡只說「還不支援」）都留在對話框裡、
+    欄位下寫原因、不建歌單、輸入留著；失敗而網路不是 `online` 寫離線字樣（同貼 cookie 登入的對話框），並 `log.report`。
+  - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
+    並停用，同一張不會排第二次（刷新器本身有 FIFO 鎖，但重複按沒有意義）。結果的提示：完整＝已刷新、`partial`＝警告「只讀到一部分，沒有移除任何歌曲」、失敗而網路不是 `online`＝
+    「離線中，無法刷新」、其餘失敗照 ADR 0013 的類別表（`Toaster.error`）、插件停用或移除＝`sourceUnavailableProvider` 的字樣、`RefreshDiscarded` 不提示。
+    自動刷新（PR 10）不經這裡，不跳 toast。
+  - **編輯匯入歌單**：同一個對話框（`showPlaylistDialog(editing:, remote:)`），改過的欄位（跟現在的值不同；遠端值不去空白，所以兩邊去掉前後空白再比，沒改的欄位寫回原值）送出時把對應的 `playlist_remote.*_overridden` 設為真
+    （`PlaylistService.editImported`、`PlaylistRepository.updateImported`，兩張表一個 transaction）；已被覆寫的欄位下面有「使用遠端的」，按了之後欄位旗標清回假、值先留著，
+    下一次刷新才寫回遠端的值；按了又改那個欄位就取消（改過的值要留）。沒改的欄位維持原本的旗標。自動刷新間隔的欄位在 PR 10。
+  - **封面多張**：`PlaylistCover` 以 `pickArtwork`（與 `ArtworkImage` 同一個挑法、同一個像素尺寸）挑中的那張找插件（`artworkPluginProvider`），不是第一張：
+    匯入歌單的封面常有不同網域的多張，用第一張找插件會經不包含實際挑中那張的插件的媒體 client 而被擋。
   - 閘門：`test/ui/library/library_page_test.dart`（歷史入口、空的說明、建立與必填、取消、編輯、刪除先確認、清單與格狀的拖曳寫入、
-    寫入失敗回到資料庫的順序、全部加入與隨機加入、超過上限、空歌單與 Mix 中停用、離線）、`playlist_cover_test.dart`（`pluginForArtwork`
+    寫入失敗回到資料庫的順序、全部加入與隨機加入、超過上限、空歌單與 Mix 中停用、離線）、`playlist_cover_test.dart`（多張封面依挑中的那張找插件、`pluginForArtwork`
     的網域規則與 user info、屬於插件的網址收下並經那個插件讀、不屬於的與非 https 的拒絕並寫原因、「使用預設」清回、來源已移除時沒改過的照舊保留、
     新建時就自訂）、`test/library/playlist_service_test.dart`（去空白、自訂封面的寫入與清回、排序與刪除、
-    依序加入、打亂、超過上限不加且發 `QueueFull`）、`playlist_repository_test.dart` 的 `overviews …`。
+    依序加入、打亂、超過上限不加且發 `QueueFull`）、`playlist_repository_test.dart` 的 `overviews …`；
+    匯入與刷新的畫面：`test/ui/library/import_ui_test.dart`（匯入對話框：認得、進度、不認得、第一頁失敗、離線、Mix 與僅元資料來源、重新匯入同一張；手動刷新：結果、進行中不能重複、
+    卡片選單只有匯入歌單有、失敗、離線、音源不可用；狀態列的各種狀態與「重試」「登入」；已失效標記且照常播放；匯入歌單的編輯設與清 `*_overridden`）、
+    `playlist_service_test.dart` 的 `editing an imported playlist`、`playlist_remote_repository_test.dart` 的 `updateImported` 與 `entries`、`playlist_importer_test.dart` 的 `progress`。
 - 歌單詳情（`lib/ui/library/playlist_detail_page.dart`、`library_state.dart`，ADR 0033 §決定 9，M4 design §10.4）：
   - 在目前目的地的巢狀導覽裡開（`openPlaylist`），標題列是返回鈕與歌單名稱。標頭是封面、「本機 · n 首」（匯入歌單是「匯入」）、描述，
     下面一列「全部加入佇列」「隨機加入佇列」：同卡片選單那兩項（`PlaylistService.addToQueue`，超過上限整批拒絕、提示由外殼接
-    `QueueFull`；空歌單與 Mix 中停用）。匯入歌單的擁有者與狀態列在 PR 8b。
+    `QueueFull`；空歌單與 Mix 中停用）。匯入歌單另有「音源 · 擁有者」一行、「刷新」（見音樂庫的手動刷新）與標頭下的**狀態列**。
+  - **狀態列**（M4 design §5.3）一次一種，依序：音源不可用（`sourceUnavailableProvider` 的字樣，「刷新」停用）、`status = sourceGone`（「來源失效：遠端歌單已刪除或無權限」＋「重試」）、
+    `authRequired`（「需要登入才能刷新」＋「登入」：經 `openAccountsProvider` 換到設定頁的「帳號」區塊，帳號區塊每個音源一張卡、整個區塊看得到，所以不另外定位到那張卡）、
+    `last_result = failed`（「刷新失敗」＋「重試」）、`partial`（「上次刷新：部分完成 · 時間」）、正常（「上次刷新：時間」；沒刷新完過是「還沒刷新過」）。需要使用者處理的三種用警示色，
+    其餘是中性底。「重試」就是手動刷新。自動刷新的結果只更新這一列的資料，不跳 toast（ADR 0013 §決定 5）。
+  - **已失效**：項目 `unavailable`（遠端說刪除、私人、地區限制）的曲目在副標題標「已失效」（錯誤色，群組內的分 P 也一樣），點了照常嘗試播放，播放失敗照 ADR 0018 處理。
   - 資料是 `playlistDetailProvider(id)`（autoDispose；`changes()` 一發出就重讀歌單、遠端資料與全部項目，不用 `watch()`，理由同歌單卡）；
     歌單被刪掉時寫「找不到這張歌單」。一萬首也一次讀進來，清單只建看得到的列。
   - 分 P 分組（`groupParts`，純函數）：同一支影片（`TrackKey.formatGroup`）**連續兩個以上**的分 P 收在影片標題下（標題列是語意標題、不能點，
@@ -2087,7 +2109,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     分 P 之前），整批 `moveEntries` 寫 `position`；資料庫追上之前照拖曳後的順序畫，寫入失敗回到資料庫的順序並提示。
   - 閘門：`test/ui/library/playlist_detail_page_test.dart`（從清單與格狀開、返回、標頭、空的、被刪掉、分組、臨時播放、三種開法同一份選單、
     音源不可用、離線、拖曳寫入、分 P 拖出群組、寫入失敗、移除重複的其中一筆、匯入歌單沒有把手與移除、全部加入與隨機加入、超過上限、Mix 中
-    停用而「加入歌單…」照常）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
+    停用而「加入歌單…」照常；狀態列與已失效在 `import_ui_test.dart`）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
     `playlist_repository_test.dart` 的 `removeEntries does not touch another playlist`、`moveEntries does not touch another playlist`。
 - 「加入歌單…」（`lib/ui/library/add_to_playlist.dart`，ADR 0019 §決定 4、ADR 0033 §決定 11，M4 design §10.6）：在搜尋結果（影片列與分 P 列）、
   播放歷史、佇列、歌單詳情、首頁「最近播放」卡片的曲目選單。對話框只列本機歌單（勾選多張），頂端「新增歌單」開建立對話框、建好的那張

@@ -131,6 +131,143 @@ void main() {
     });
   });
 
+  group('editing an imported playlist', () {
+    final remoteCover = [
+      TrackArtwork(url: Uri.parse('https://fmp.test/remote.jpg')),
+    ];
+
+    Future<(Playlist, PlaylistRemote)> imported() async {
+      final id = (await repository.createImported(
+        pluginId: 'fmp-test',
+        remoteId: 'r',
+        info: RemotePlaylistInfo(
+          name: 'Remote',
+          description: 'Remote text',
+          artwork: remoteCover,
+        ),
+      ))!;
+      return ((await repository.find(id))!, (await repository.remote(id))!);
+    }
+
+    Future<List<bool>> flags(int id) async {
+      final remote = (await repository.remote(id))!;
+      return [
+        remote.nameOverridden,
+        remote.descriptionOverridden,
+        remote.artworkOverridden,
+      ];
+    }
+
+    test('an unchanged save overrides nothing', () async {
+      final (playlist, remote) = await imported();
+
+      await service().editImported(
+        playlist,
+        remote,
+        name: ' Remote ',
+        description: 'Remote text',
+        artwork: remoteCover,
+      );
+
+      expect(await flags(playlist.id), [false, false, false]);
+    });
+
+    test('remote text with surrounding spaces is not an edit', () async {
+      final id = (await repository.createImported(
+        pluginId: 'fmp-test',
+        remoteId: 'r',
+        info: const RemotePlaylistInfo(
+          name: ' Remote ',
+          description: 'Remote text\n',
+        ),
+      ))!;
+      final playlist = (await repository.find(id))!;
+
+      // 對話框的欄位是遠端的原文，送出時去掉空白。
+      await service().editImported(
+        playlist,
+        (await repository.remote(id))!,
+        name: ' Remote ',
+        description: 'Remote text\n',
+        artwork: const [],
+      );
+
+      expect(await flags(id), [false, false, false]);
+      final stored = (await repository.find(id))!;
+      expect(stored.name, ' Remote ');
+      expect(stored.description, 'Remote text\n');
+    });
+
+    test('only the changed fields are overridden', () async {
+      final (playlist, remote) = await imported();
+
+      await service().editImported(
+        playlist,
+        remote,
+        name: 'Mine',
+        description: 'Remote text',
+        artwork: const [],
+      );
+
+      expect(await flags(playlist.id), [true, false, true]);
+      final stored = (await repository.find(playlist.id))!;
+      expect(stored.name, 'Mine');
+      expect(stored.artwork, isEmpty);
+    });
+
+    test(
+      'a flag that was set stays set when the field is left alone',
+      () async {
+        final (playlist, remote) = await imported();
+        await service().editImported(
+          playlist,
+          remote,
+          name: 'Mine',
+          description: 'Remote text',
+          artwork: remoteCover,
+        );
+        final edited = (await repository.find(playlist.id))!;
+        final editedRemote = (await repository.remote(playlist.id))!;
+
+        await service().editImported(
+          edited,
+          editedRemote,
+          name: 'Mine',
+          description: 'New text',
+          artwork: remoteCover,
+        );
+
+        expect(await flags(playlist.id), [true, true, false]);
+      },
+    );
+
+    test('useRemote clears the flag even when the field changed', () async {
+      final (playlist, remote) = await imported();
+      await service().editImported(
+        playlist,
+        remote,
+        name: 'Mine',
+        description: 'Mine',
+        artwork: remoteCover,
+      );
+      final edited = (await repository.find(playlist.id))!;
+      final editedRemote = (await repository.remote(playlist.id))!;
+
+      await service().editImported(
+        edited,
+        editedRemote,
+        name: 'Mine',
+        description: 'Mine',
+        artwork: remoteCover,
+        useRemote: {ImportedField.name},
+      );
+
+      expect(await flags(playlist.id), [false, true, false]);
+      // 值先留著，下一次刷新才寫回遠端的。
+      expect((await repository.find(playlist.id))!.name, 'Mine');
+    });
+  });
+
   group('adding to the queue', () {
     test('adds every song in the playlist order', () async {
       final id = await playlistOf(['a', 'b', 'a', 'c']);

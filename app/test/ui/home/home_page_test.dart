@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/domain/radio.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
@@ -321,6 +322,29 @@ void main() {
       final local = _cardTexts(tester, RegExp('^Local'));
       expect(local.where((text) => text == 'Local · 1 song'), hasLength(1));
       expect(local.where((text) => text == 'Local · 0 songs'), hasLength(19));
+    });
+
+    testWidgets('an imported playlist is labelled imported, not local', (
+      tester,
+    ) async {
+      final h = harness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await tester.runAsync(() async {
+        await h
+            .container(tester)
+            .read(playlistRepositoryProvider)
+            .createImported(
+              pluginId: 'fmp-test',
+              remoteId: 'r1',
+              info: const RemotePlaylistInfo(name: 'Remote list'),
+            );
+      });
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(_cardTexts(tester, RegExp('^(Local|Imported)')), [
+        'Imported · 0 songs',
+      ]);
     });
 
     testWidgets('tapping a playlist opens its detail inside Home', (

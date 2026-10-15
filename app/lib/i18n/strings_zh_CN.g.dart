@@ -375,7 +375,7 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   @override
   String get empty => '还没有歌单';
   @override
-  String get emptyHint => '点「新建歌单」创建一个歌单。';
+  String get emptyHint => '点「新建歌单」创建一个歌单，或点「导入」带进一个。';
   @override
   String trackCount({required Object count}) => '${count} 首';
   @override
@@ -471,6 +471,60 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   String addedToPlaylists({required Object count}) => '已添加到 ${count} 个歌单';
   @override
   String addToPlaylistFailed({required Object reason}) => '无法添加到歌单：${reason}';
+  @override
+  String get importTooltip => '导入歌单';
+  @override
+  String get importTitle => '导入歌单';
+  @override
+  String get importUrlLabel => '网址';
+  @override
+  String get importAction => '导入';
+  @override
+  String get importLooking => '正在识别网址…';
+  @override
+  String importProgress({required Object count}) => '已读 ${count} 首';
+  @override
+  String get importUnrecognized => '已安装的音源都不认识这个网址';
+  @override
+  String get importUnsupported => '暂不支持导入这种网址';
+  @override
+  String importFailed({required Object reason}) => '无法导入：${reason}';
+  @override
+  String get importDone => '已导入歌单';
+  @override
+  String get importPartial => '已导入，但只读到歌单的一部分。刷新可以读完其余的。';
+  @override
+  String get refresh => '刷新';
+  @override
+  String get refreshing => '刷新中…';
+  @override
+  String get refreshed => '已刷新歌单';
+  @override
+  String get refreshedPartly => '只读到歌单的一部分，没有移除任何歌曲';
+  @override
+  String refreshFailed({required Object reason}) => '无法刷新歌单：${reason}';
+  @override
+  String get refreshOffline => '离线中，无法刷新歌单';
+  @override
+  String get refreshNoSource => '这个音源不能刷新歌单';
+  @override
+  String statusRefreshed({required Object time}) => '上次刷新：${time}';
+  @override
+  String statusPartial({required Object time}) => '上次刷新：部分完成 · ${time}';
+  @override
+  String get statusNever => '还没刷新过';
+  @override
+  String get statusFailed => '刷新失败';
+  @override
+  String get statusGone => '来源失效：远程歌单已删除或无权限';
+  @override
+  String get statusAuth => '需要登录才能刷新';
+  @override
+  String get retry => '重试';
+  @override
+  String get useRemote => '使用远程的';
+  @override
+  String get useRemoteHint => '下一次刷新会写回远程的值';
 }
 
 // Path: playlist
@@ -514,6 +568,8 @@ class Translations$playlist$zh_CN extends Translations$playlist$zh_TW {
   String get emptyHint => '在歌曲的菜单中选择「添加到歌单…」';
   @override
   String get notFound => '找不到这个歌单';
+  @override
+  String get unavailable => '已失效';
 }
 
 // Path: offline

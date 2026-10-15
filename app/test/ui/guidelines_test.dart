@@ -21,6 +21,7 @@ import 'package:fmp/domain/radio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/developer_settings_repository.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
@@ -646,8 +647,12 @@ void main() {
           WidgetTester tester, {
           bool playlists = true,
           bool collapsePanel = false,
+          bool registry = false,
         }) async {
-          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          final h = ShellHarness(
+            artworkManager: FakeArtworkManager(),
+            registryOfSources: registry,
+          );
           await h.pumpShell(
             tester,
             size: size,
@@ -854,6 +859,52 @@ void main() {
           handle.dispose();
         });
 
+        // 匯入歌單的狀態列（M4 PR 8b）：需要使用者處理的三種（警示色）。
+        for (final (name, mark, text, action) in [
+          (
+            'failed',
+            (PlaylistRefreshSession session) => session.markFailed(),
+            'Refresh failed',
+            'Retry',
+          ),
+          (
+            'source gone',
+            (PlaylistRefreshSession session) =>
+                session.markStatus(PlaylistRemoteStatus.sourceGone),
+            'Source gone: the remote playlist was deleted or is no longer '
+                'accessible',
+            'Retry',
+          ),
+          (
+            'sign-in needed',
+            (PlaylistRefreshSession session) =>
+                session.markStatus(PlaylistRemoteStatus.authRequired),
+            'Sign in to refresh this playlist',
+            'Sign in',
+          ),
+        ]) {
+          testWidgets('an imported playlist, $name, at $width', (tester) async {
+            final handle = tester.ensureSemantics();
+            final h = await openDetail(tester, imported: true);
+            await tester.runAsync(() async {
+              final session = (await h
+                  .container(tester)
+                  .read(playlistRepositoryProvider)
+                  .beginRefresh(1, isCurrent: () => true))!;
+              await mark(session);
+            });
+            for (var i = 0; i < 3; i++) {
+              await h.loadSettings(tester);
+            }
+            await tester.pumpAndSettle();
+            expect(find.text(text), findsOneWidget);
+            expect(find.widgetWithText(TextButton, action), findsOneWidget);
+
+            await expectGuidelines(tester);
+            handle.dispose();
+          });
+        }
+
         testWidgets('an empty playlist details at $width', (tester) async {
           final handle = tester.ensureSemantics();
           await openDetail(tester, empty: true);
@@ -880,6 +931,69 @@ void main() {
           await tester.tap(find.widgetWithText(CheckboxListTile, 'Road trip'));
           await tester.pumpAndSettle();
           expect(find.text('Add to playlist'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the import dialog with an unknown link at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester, registry: true);
+          await tester.tap(find.byTooltip('Import a playlist'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Link'),
+            'https://elsewhere.example/list',
+          );
+          await tester.pump();
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.text("This link isn't recognized by any installed source"),
+            findsOneWidget,
+          );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('editing an imported playlist at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openLibrary(tester, playlists: false);
+          await tester.runAsync(() async {
+            final repository = h
+                .container(tester)
+                .read(playlistRepositoryProvider);
+            final id = (await repository.createImported(
+              pluginId: 'fmp-test',
+              remoteId: 'r1',
+              info: const RemotePlaylistInfo(name: 'Road trip'),
+            ))!;
+            await repository.updateImported(
+              id,
+              name: 'Mine',
+              nameOverridden: true,
+              descriptionOverridden: false,
+              artworkOverridden: false,
+            );
+          });
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('More options').first);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Edit'));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text("Use the remote's"), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

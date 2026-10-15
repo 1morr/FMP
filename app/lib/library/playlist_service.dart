@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/providers.dart';
@@ -8,6 +9,9 @@ import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
+
+/// 匯入歌單可以在本機覆寫的三個欄位（`playlist_remote` 的三個 `*_overridden`）。
+enum ImportedField { name, description, artwork }
 
 final playlistServiceProvider = Provider<PlaylistService>(
   (ref) => PlaylistService(
@@ -53,6 +57,49 @@ final class PlaylistService {
     description: _optional(description),
     artwork: artwork,
   );
+
+  /// 編輯匯入歌單（M4 design §10.5）：改過的欄位（跟現在的值不同）把對應的 `*_overridden` 設為真，
+  /// 下一次刷新不再蓋掉；沒改的欄位維持原本的旗標。[useRemote] 裡的欄位旗標清回假，值先留著，
+  /// 下一次刷新寫回遠端的值。[artwork] 空＝封面用第一首的。
+  Future<void> editImported(
+    Playlist playlist,
+    PlaylistRemote remote, {
+    required String name,
+    String? description,
+    required List<TrackArtwork> artwork,
+    Set<ImportedField> useRemote = const {},
+  }) {
+    // 遠端的值不去空白（刷新器原樣寫入）：比對前兩邊都照對話框的方式整理，否則前後有空白或
+    // 換行的遠端標題、描述沒改也會算成覆寫；沒改的欄位寫回原本的值。
+    final newName = name.trim();
+    final newDescription = _optional(description);
+    final nameChanged = newName != playlist.name.trim();
+    final descriptionChanged =
+        newDescription != _optional(playlist.description);
+    bool overridden(ImportedField field, bool current, bool changed) =>
+        !useRemote.contains(field) && (current || changed);
+    return _repository.updateImported(
+      playlist.id,
+      name: nameChanged ? newName : playlist.name,
+      description: descriptionChanged ? newDescription : playlist.description,
+      artwork: artwork,
+      nameOverridden: overridden(
+        ImportedField.name,
+        remote.nameOverridden,
+        nameChanged,
+      ),
+      descriptionOverridden: overridden(
+        ImportedField.description,
+        remote.descriptionOverridden,
+        descriptionChanged,
+      ),
+      artworkOverridden: overridden(
+        ImportedField.artwork,
+        remote.artworkOverridden,
+        !listEquals(artwork, playlist.artwork),
+      ),
+    );
+  }
 
   /// 刪歌單與它的項目（呼叫端先確認）。
   Future<void> delete(int id) => _repository.delete(id);

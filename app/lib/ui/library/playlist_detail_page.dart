@@ -14,12 +14,15 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
+import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/library_state.dart';
+import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/shell/open_accounts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -31,7 +34,11 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 Future<void> openPlaylist(BuildContext context, int playlistId) =>
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PlaylistDetailPage(playlistId: playlistId),
+        // 自己的 Material：理由見 `AppShell` 的根頁。
+        builder: (_) => Material(
+          type: MaterialType.transparency,
+          child: PlaylistDetailPage(playlistId: playlistId),
+        ),
       ),
     );
 
@@ -40,11 +47,13 @@ Future<void> openPlaylist(BuildContext context, int playlistId) =>
 /// - 標題列：返回鈕（下面還有頁時）與歌單名稱。
 /// - 標頭：封面（自訂或第一首的）、「本機 · n 首」、描述；下面是「全部加入佇列」（只加入，
 ///   ADR 0018 的 D2）與「隨機加入佇列」，同音樂庫卡片選單的那兩項（`PlaylistService.addToQueue`：
-///   超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中停用）。匯入歌單的擁有者
-///   與狀態列在 PR 8b。
+///   超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中停用）。匯入歌單另有
+///   「音源 · 擁有者」一行、「刷新」（手動刷新，進行中不能再按）與標頭下的狀態列（design §5.3 的
+///   六種：正常、部分完成、刷新失敗＋重試、來源失效＋重試、需要登入＋登入、音源不可用）。
 /// - 曲目依歌單順序；同一支影片連續兩個以上的分 P 收在影片標題下（[groupParts]）。點一首是
 ///   臨時播放；選單（右鍵、長按、「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…，
-///   本機歌單另有「從歌單移除」（只刪那一筆、不確認，同佇列與歷史的單筆移除）。
+///   本機歌單另有「從歌單移除」（只刪那一筆、不確認，同佇列與歷史的單筆移除）。遠端說已失效的
+///   項目（`unavailable`）在副標題標「已失效」，點了照常嘗試播放。
 /// - 只有本機歌單能拖把手重排（放下後整批寫 `position`，資料庫追上之前照拖曳後的順序畫，
 ///   寫入失敗回到資料庫的順序並提示）；匯入歌單沒有把手也沒有移除（ADR 0019 §決定 4）。
 ///
@@ -245,6 +254,7 @@ class _Header extends ConsumerWidget {
     final spacing = AppTokens.of(context).spacing;
     final inMix = ref.watch(inMixProvider);
     final playlist = detail.playlist;
+    final remote = detail.remote;
     final description = playlist.description;
     final kind = switch (playlist.kind) {
       PlaylistKind.local => t.local,
@@ -282,6 +292,17 @@ class _Header extends ConsumerWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    if (remote != null)
+                      Text(
+                        [
+                          ref.watch(pluginNameProvider(remote.pluginId)) ??
+                              remote.pluginId,
+                          ?remote.ownerName,
+                        ].join(' · '),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     if (description != null) ...[
                       SizedBox(height: spacing.x2),
                       Text(
@@ -313,8 +334,13 @@ class _Header extends ConsumerWidget {
                     : null,
                 label: Text(inMix ? t.shuffleToQueueInMix : t.shuffleToQueue),
               ),
+              if (remote != null) _RefreshButton(remote: remote),
             ],
           ),
+          if (remote != null) ...[
+            SizedBox(height: spacing.x4),
+            _StatusBar(remote: remote),
+          ],
         ],
       ),
     );
@@ -337,6 +363,134 @@ class _Header extends ConsumerWidget {
         sentence: (reason) => t.addFailed(reason: reason),
       );
     }
+  }
+}
+
+/// 匯入歌單的「刷新」：手動刷新；進行中顯示進度、不能再按（`manualRefreshProvider`）。
+/// 音源停用或未安裝時停用（原因在狀態列）。
+class _RefreshButton extends ConsumerWidget {
+  const _RefreshButton({required this.remote});
+
+  final PlaylistRemote remote;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).library;
+    final refreshing = ref.watch(
+      manualRefreshProvider.select((ids) => ids.contains(remote.playlistId)),
+    );
+    final unavailable =
+        ref.watch(sourceUnavailableProvider(remote.pluginId)) != null;
+    return OutlinedButton.icon(
+      icon: refreshing
+          ? const SizedBox.square(
+              dimension: AppLayout.buttonSpinner,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh),
+      onPressed: refreshing || unavailable
+          ? null
+          : () => unawaited(
+              ref.read(manualRefreshProvider.notifier)(remote.playlistId),
+            ),
+      label: Text(refreshing ? t.refreshing : t.refresh),
+    );
+  }
+}
+
+/// 標頭下的狀態列（design §5.3）：一次一種，音源不可用優先，其次來源失效、需要登入、
+/// 刷新失敗，最後是上次刷新的時間（部分完成另寫明）。自動刷新只更新狀態，這裡就是它的呈現。
+class _StatusBar extends ConsumerWidget {
+  const _StatusBar({required this.remote});
+
+  final PlaylistRemote remote;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final translations = ref.watch(translationsProvider);
+    final t = translations.library;
+    final locale = ref.watch(uiLocaleProvider);
+    final theme = Theme.of(context);
+    final tokens = AppTokens.of(context);
+    final refreshing = ref.watch(
+      manualRefreshProvider.select((ids) => ids.contains(remote.playlistId)),
+    );
+    final unavailable = ref.watch(sourceUnavailableProvider(remote.pluginId));
+    Widget retry() => TextButton(
+      onPressed: refreshing
+          ? null
+          : () => unawaited(
+              ref.read(manualRefreshProvider.notifier)(remote.playlistId),
+            ),
+      child: Text(t.retry),
+    );
+
+    final at = remote.lastRefreshedAt;
+    final time = at == null ? '' : formatDateTime(locale, at);
+    // (文字, 要使用者處理嗎, 動作)
+    final (String text, bool attention, Widget? action) = switch (remote) {
+      _ when unavailable != null => (unavailable, true, null),
+      PlaylistRemote(status: PlaylistRemoteStatus.sourceGone) => (
+        t.statusGone,
+        true,
+        retry(),
+      ),
+      PlaylistRemote(status: PlaylistRemoteStatus.authRequired) => (
+        t.statusAuth,
+        true,
+        TextButton(
+          onPressed: () => ref.read(openAccountsProvider)(remote.pluginId),
+          child: Text(translations.accounts.signIn),
+        ),
+      ),
+      PlaylistRemote(lastResult: PlaylistRefreshResult.failed) => (
+        t.statusFailed,
+        true,
+        retry(),
+      ),
+      PlaylistRemote(lastResult: PlaylistRefreshResult.partial) => (
+        t.statusPartial(time: time),
+        false,
+        null,
+      ),
+      _ when at != null => (t.statusRefreshed(time: time), false, null),
+      _ => (t.statusNever, false, null),
+    };
+    final colors = attention ? tokens.warning : null;
+    final foreground =
+        colors?.onContainer ?? theme.colorScheme.onSurfaceVariant;
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors?.container ?? theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(tokens.radius.small),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: tokens.spacing.x3,
+            vertical: tokens.spacing.x1,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: tokens.spacing.x2),
+                  child: Text(
+                    text,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                    ),
+                  ),
+                ),
+              ),
+              ?action,
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -444,6 +598,28 @@ class _EntryRow extends ConsumerWidget {
       }
     }
 
+    // 遠端說已失效的項目標「已失效」，不擋播放（失敗照 ADR 0018 處理）。
+    Widget? subtitle(String? uploader) {
+      if (!entry.unavailable) {
+        return uploader == null
+            ? null
+            : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis);
+      }
+      return Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: t.unavailable,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            if (uploader != null) TextSpan(text: ' · $uploader'),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
     return TrackRowMenu(
       moreTooltip: t.more,
       menuChildren: [
@@ -498,9 +674,7 @@ class _EntryRow extends ConsumerWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: uploader == null
-            ? null
-            : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: subtitle(uploader),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

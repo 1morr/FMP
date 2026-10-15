@@ -76,15 +76,23 @@ final class PlaylistImporter {
   ///   之後的頁交給刷新器。第一頁失敗什麼都不建。
   ///
   /// 失敗一律丟 `AppError`，由呼叫端提示：插件的錯誤原樣丟出，其他的包成 `UnexpectedError`。
-  Future<ImportResult> importUrl(String url) async {
+  ///
+  /// [onProgress] 在每一頁寫進資料庫後收到已讀的項目數（同 `PlaylistRefresher.refresh`）。
+  Future<ImportResult> importUrl(
+    String url, {
+    void Function(int count)? onProgress,
+  }) async {
     try {
-      return await _import(url.trim());
+      return await _import(url.trim(), onProgress);
     } on Object catch (error, stackTrace) {
       Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
     }
   }
 
-  Future<ImportResult> _import(String url) async {
+  Future<ImportResult> _import(
+    String url,
+    void Function(int count)? onProgress,
+  ) async {
     if (url.isEmpty) return const ImportUnrecognized();
     final plugins = await _ref.read(pluginRegistryProvider.future);
     for (final plugin in plugins.values) {
@@ -100,7 +108,7 @@ final class PlaylistImporter {
         case PlaylistMixSeedRef(:final seed):
           return ImportMixSeed(pluginId: plugin.manifest.id, seed: seed);
         case PlaylistIdRef(:final playlistId):
-          return _importPlaylist(plugin, playlistId);
+          return _importPlaylist(plugin, playlistId, onProgress);
       }
     }
     return const ImportUnrecognized();
@@ -109,6 +117,7 @@ final class PlaylistImporter {
   Future<ImportResult> _importPlaylist(
     SourcePlugin plugin,
     String playlistId,
+    void Function(int count)? onProgress,
   ) async {
     final pluginId = plugin.manifest.id;
     if (!plugin.manifest.capabilities.contains(
@@ -123,7 +132,10 @@ final class PlaylistImporter {
       return ImportedPlaylist(
         playlistId: existing.playlistId,
         created: false,
-        refresh: await refresher.refresh(existing.playlistId),
+        refresh: await refresher.refresh(
+          existing.playlistId,
+          onProgress: onProgress,
+        ),
       );
     }
     final first = await plugin.importPlaylist(
@@ -140,13 +152,21 @@ final class PlaylistImporter {
       return ImportedPlaylist(
         playlistId: other.playlistId,
         created: false,
-        refresh: await refresher.refresh(other.playlistId, firstPage: first),
+        refresh: await refresher.refresh(
+          other.playlistId,
+          firstPage: first,
+          onProgress: onProgress,
+        ),
       );
     }
     return ImportedPlaylist(
       playlistId: created,
       created: true,
-      refresh: await refresher.refresh(created, firstPage: first),
+      refresh: await refresher.refresh(
+        created,
+        firstPage: first,
+        onProgress: onProgress,
+      ),
     );
   }
 }

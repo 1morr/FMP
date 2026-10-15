@@ -425,8 +425,8 @@ class Translations$library$zh_TW {
   /// zh-TW: '還沒有歌單'
   String get empty => '還沒有歌單';
 
-  /// zh-TW: '按「新增歌單」建立一張歌單。'
-  String get emptyHint => '按「新增歌單」建立一張歌單。';
+  /// zh-TW: '按「新增歌單」建立一張歌單，或按「匯入」帶進一張。'
+  String get emptyHint => '按「新增歌單」建立一張歌單，或按「匯入」帶進一張。';
 
   /// zh-TW: '{count} 首'
   String trackCount({required Object count}) => '${count} 首';
@@ -569,6 +569,87 @@ class Translations$library$zh_TW {
 
   /// zh-TW: '無法加入歌單：{reason}'
   String addToPlaylistFailed({required Object reason}) => '無法加入歌單：${reason}';
+
+  /// zh-TW: '匯入歌單'
+  String get importTooltip => '匯入歌單';
+
+  /// zh-TW: '匯入歌單'
+  String get importTitle => '匯入歌單';
+
+  /// zh-TW: '網址'
+  String get importUrlLabel => '網址';
+
+  /// zh-TW: '匯入'
+  String get importAction => '匯入';
+
+  /// zh-TW: '正在辨識網址…'
+  String get importLooking => '正在辨識網址…';
+
+  /// zh-TW: '已讀 {count} 首'
+  String importProgress({required Object count}) => '已讀 ${count} 首';
+
+  /// zh-TW: '已安裝的音源都不認得這個網址'
+  String get importUnrecognized => '已安裝的音源都不認得這個網址';
+
+  /// zh-TW: '還不支援匯入這種網址'
+  String get importUnsupported => '還不支援匯入這種網址';
+
+  /// zh-TW: '無法匯入：{reason}'
+  String importFailed({required Object reason}) => '無法匯入：${reason}';
+
+  /// zh-TW: '已匯入歌單'
+  String get importDone => '已匯入歌單';
+
+  /// zh-TW: '已匯入，但只讀到歌單的一部分。刷新可以讀完其餘的。'
+  String get importPartial => '已匯入，但只讀到歌單的一部分。刷新可以讀完其餘的。';
+
+  /// zh-TW: '刷新'
+  String get refresh => '刷新';
+
+  /// zh-TW: '刷新中…'
+  String get refreshing => '刷新中…';
+
+  /// zh-TW: '已刷新歌單'
+  String get refreshed => '已刷新歌單';
+
+  /// zh-TW: '只讀到歌單的一部分，沒有移除任何歌曲'
+  String get refreshedPartly => '只讀到歌單的一部分，沒有移除任何歌曲';
+
+  /// zh-TW: '無法刷新歌單：{reason}'
+  String refreshFailed({required Object reason}) => '無法刷新歌單：${reason}';
+
+  /// zh-TW: '離線中，無法刷新歌單'
+  String get refreshOffline => '離線中，無法刷新歌單';
+
+  /// zh-TW: '這個音源不能刷新歌單'
+  String get refreshNoSource => '這個音源不能刷新歌單';
+
+  /// zh-TW: '上次刷新：{time}'
+  String statusRefreshed({required Object time}) => '上次刷新：${time}';
+
+  /// zh-TW: '上次刷新：部分完成 · {time}'
+  String statusPartial({required Object time}) => '上次刷新：部分完成 · ${time}';
+
+  /// zh-TW: '還沒刷新過'
+  String get statusNever => '還沒刷新過';
+
+  /// zh-TW: '刷新失敗'
+  String get statusFailed => '刷新失敗';
+
+  /// zh-TW: '來源失效：遠端歌單已刪除或無權限'
+  String get statusGone => '來源失效：遠端歌單已刪除或無權限';
+
+  /// zh-TW: '需要登入才能刷新'
+  String get statusAuth => '需要登入才能刷新';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '使用遠端的'
+  String get useRemote => '使用遠端的';
+
+  /// zh-TW: '下一次刷新會寫回遠端的值'
+  String get useRemoteHint => '下一次刷新會寫回遠端的值';
 }
 
 // Path: playlist
@@ -626,6 +707,9 @@ class Translations$playlist$zh_TW {
 
   /// zh-TW: '找不到這張歌單'
   String get notFound => '找不到這張歌單';
+
+  /// zh-TW: '已失效'
+  String get unavailable => '已失效';
 }
 
 // Path: offline

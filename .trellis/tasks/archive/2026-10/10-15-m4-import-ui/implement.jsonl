@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 層寫法、巢狀導覽、歌單詳情、guideline、離線"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "ADR 0013 的錯誤呈現表與手動操作的提示"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "playlist_remote 與覆寫旗標"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 1、2、8、9"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 2、3 刷新與來源失效"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "§決定 5 呈現、自動刷新不跳 toast"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§5.1、§5.3、§10.3-§10.5、§10.8"}

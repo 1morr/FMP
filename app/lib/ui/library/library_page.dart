@@ -6,14 +6,19 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/library/playlist_service.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
+import 'package:fmp/ui/library/import_dialog.dart';
 import 'package:fmp/ui/library/library_state.dart';
+import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
@@ -25,7 +30,7 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 音樂庫（ADR 0033 §決定 8，M4 design §10.3）。
 ///
-/// - 標題列：「新增歌單」（「匯入」在 PR 8b）。
+/// - 標題列：「新增歌單」與「匯入」（網址匯入對話框，成功後在巢狀導覽裡開詳情）。
 /// - 頂端「歷史」一列：在音樂庫的巢狀導覽裡開歷史頁（YouTube Music 把歷史放在音樂庫）。
 /// - 歌單卡：封面（自訂封面，沒有就是第一首的封面）、名稱、「本機 · n 首」；點一下在音樂庫的
 ///   巢狀導覽裡開歌單詳情。內容區是 compact、medium 時是清單，
@@ -66,6 +71,26 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       return;
     }
     toaster.success(t.created);
+  }
+
+  Future<void> _import() async {
+    // 對話框期間外殼可能重建這一頁：要用的先讀好。
+    final t = ref.read(translationsProvider).library;
+    final toaster = ref.read(toasterProvider);
+    final manual = ref.read(manualRefreshProvider.notifier);
+    final imported = await showImportDialog(context);
+    if (imported == null || !mounted) return;
+    unawaited(openPlaylist(context, imported.playlistId));
+    switch (imported.refresh) {
+      case RefreshFinished(result: PlaylistRefreshResult.complete)
+          when imported.created:
+        toaster.success(t.importDone);
+      case RefreshFinished() when imported.created:
+        toaster.warning(t.importPartial);
+      // 重新匯入同一張＝刷新那一列：結果照手動刷新提示。
+      case final outcome:
+        await manual.report(outcome, imported.playlistId);
+    }
   }
 
   void _reorder(List<int> ids) {
@@ -166,6 +191,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 ),
               ),
               IconButton(
+                tooltip: t.importTooltip,
+                icon: const Icon(Icons.file_download_outlined),
+                onPressed: () => unawaited(_import()),
+              ),
+              IconButton(
                 tooltip: t.newPlaylist,
                 icon: const Icon(Icons.add),
                 onPressed: () => unawaited(_create()),
@@ -184,9 +214,20 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                     icon: Icons.queue_music,
                     title: t.empty,
                     body: t.emptyHint,
-                    action: FilledButton.tonal(
-                      onPressed: () => unawaited(_create()),
-                      child: Text(t.newPlaylist),
+                    action: Wrap(
+                      spacing: spacing.x2,
+                      runSpacing: spacing.x2,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton.tonal(
+                          onPressed: () => unawaited(_create()),
+                          child: Text(t.newPlaylist),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => unawaited(_import()),
+                          child: Text(t.importAction),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -553,7 +594,7 @@ class _DragHandle extends ConsumerWidget {
   );
 }
 
-/// 「本機 · n 首」。
+/// 「本機 · n 首」（匯入歌單是「匯入 · n 首」）。
 class _PlaylistSubtitle extends ConsumerWidget {
   const _PlaylistSubtitle({required this.overview});
 
@@ -563,7 +604,7 @@ class _PlaylistSubtitle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).library;
     return Text(
-      '${t.local} · ${trackCountText(t, overview.trackCount)}',
+      playlistSubtitleText(t, overview),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -593,6 +634,10 @@ class _PlaylistMenu extends ConsumerWidget {
     final playlist = overview.playlist;
     // 空歌單沒有東西可加；Mix 中佇列不收（同搜尋與歷史的選單）。
     final canAdd = !inMix && overview.trackCount > 0;
+    final imported = playlist.kind == PlaylistKind.imported;
+    final refreshing = ref.watch(
+      manualRefreshProvider.select((ids) => ids.contains(playlist.id)),
+    );
     return TrackRowMenu(
       moreTooltip: t.more,
       menuChildren: [
@@ -608,6 +653,16 @@ class _PlaylistMenu extends ConsumerWidget {
               : null,
           child: Text(inMix ? t.shuffleToQueueInMix : t.shuffleToQueue),
         ),
+        if (imported)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.refresh),
+            onPressed: refreshing
+                ? null
+                : () => unawaited(
+                    ref.read(manualRefreshProvider.notifier)(playlist.id),
+                  ),
+            child: Text(refreshing ? t.refreshing : t.refresh),
+          ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.edit_outlined),
           onPressed: () => unawaited(_edit(context, ref)),
@@ -646,15 +701,37 @@ class _PlaylistMenu extends ConsumerWidget {
     final t = ref.read(translationsProvider).library;
     final service = ref.read(playlistServiceProvider);
     final toaster = ref.read(toasterProvider);
-    final input = await showPlaylistDialog(context, editing: overview);
+    final repository = ref.read(playlistRepositoryProvider);
+    final playlist = overview.playlist;
+    // 匯入歌單的編輯要知道哪些欄位已被覆寫（「使用遠端的」）。
+    final remote = playlist.kind == PlaylistKind.imported
+        ? await repository.remote(playlist.id)
+        : null;
+    if (!context.mounted) return;
+    final input = await showPlaylistDialog(
+      context,
+      editing: overview,
+      remote: remote,
+    );
     if (input == null) return;
     try {
-      await service.edit(
-        overview.playlist,
-        name: input.name,
-        description: input.description,
-        artwork: input.artwork,
-      );
+      if (remote == null) {
+        await service.edit(
+          playlist,
+          name: input.name,
+          description: input.description,
+          artwork: input.artwork,
+        );
+      } else {
+        await service.editImported(
+          playlist,
+          remote,
+          name: input.name,
+          description: input.description,
+          artwork: input.artwork,
+          useRemote: input.useRemote,
+        );
+      }
     } on Object catch (error, stackTrace) {
       toaster.error(
         AppError.wrap(error, stackTrace),

@@ -98,17 +98,19 @@ final class PlaylistRefresher {
   Future<void> _tail = Future.value();
 
   /// 刷新 [playlistId]。[firstPage] 是呼叫端剛取到的第一頁（匯入新歌單時，避免再取一次），
-  /// 沒給就由刷新器取。
+  /// 沒給就由刷新器取。[onProgress] 在每一頁寫進資料庫後收到這次刷新已讀的項目數（匯入對話框的
+  /// 「已讀 n 首」）。
   Future<RefreshOutcome> refresh(
     int playlistId, {
     RefreshTrigger trigger = RefreshTrigger.manual,
     PlaylistPage? firstPage,
+    void Function(int count)? onProgress,
   }) {
     final previous = _tail;
     final done = Completer<void>();
     _tail = done.future;
     return previous
-        .then((_) => _refresh(playlistId, trigger, firstPage))
+        .then((_) => _refresh(playlistId, trigger, firstPage, onProgress))
         .whenComplete(done.complete);
   }
 
@@ -116,6 +118,7 @@ final class PlaylistRefresher {
     int playlistId,
     RefreshTrigger trigger,
     PlaylistPage? firstPage,
+    void Function(int count)? onProgress,
   ) async {
     final repository = _ref.read(playlistRepositoryProvider);
     final remote = await repository.remote(playlistId);
@@ -128,7 +131,7 @@ final class PlaylistRefresher {
       isCurrent: () => trigger.isCurrent() && _isLoaded(plugin),
     );
     if (session == null) return const RefreshDiscarded();
-    final outcome = await _run(remote, plugin, session, firstPage);
+    final outcome = await _run(remote, plugin, session, firstPage, onProgress);
     _log(playlistId, session.generation, outcome);
     return outcome;
   }
@@ -138,6 +141,7 @@ final class PlaylistRefresher {
     SourcePlugin plugin,
     PlaylistRefreshSession session,
     PlaylistPage? firstPage,
+    void Function(int count)? onProgress,
   ) async {
     var page = firstPage;
     String? cursor;
@@ -167,6 +171,7 @@ final class PlaylistRefresher {
       pages++;
       count += page.items.length;
       last = page;
+      onProgress?.call(count);
       final next = page.cursor;
       if (next == null) break;
       // 一直回同一個 cursor 的插件不能讓刷新永遠跑下去：當作沒讀完。

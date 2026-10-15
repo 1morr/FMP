@@ -362,7 +362,7 @@ class _PlaylistCard extends ConsumerWidget {
       ),
       title: overview.playlist.name,
       detail: Text(
-        '${t.local} · ${trackCountText(t, overview.trackCount)}',
+        playlistSubtitleText(t, overview),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(

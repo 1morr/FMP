@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -21,6 +22,19 @@ final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
 /// 歌單的首數（英文的 1 首是單數）。
 String trackCountText(Translations$library$zh_TW t, int count) =>
     count == 1 ? t.trackCountOne : t.trackCount(count: count);
+
+/// 歌單卡的副標題：「本機／匯入／Mix · n 首」（音樂庫與首頁共用）。
+String playlistSubtitleText(
+  Translations$library$zh_TW t,
+  PlaylistOverview overview,
+) {
+  final kind = switch (overview.playlist.kind) {
+    PlaylistKind.local => t.local,
+    PlaylistKind.imported => t.imported,
+    PlaylistKind.mix => t.mix,
+  };
+  return '$kind · ${trackCountText(t, overview.trackCount)}';
+}
 
 /// 歌單詳情頁要的一張歌單：歌單本身、匯入歌單的遠端資料、全部項目。
 @immutable

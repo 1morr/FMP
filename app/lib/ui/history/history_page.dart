@@ -24,9 +24,13 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 
 /// 在 [context] 所在的 Navigator 開歷史頁：外殼裡是那個目的地的巢狀導覽（音樂庫頂端的
 /// 「歷史」、首頁「最近播放」的「查看全部」，ADR 0033 §決定 5），導覽與播放列留著。
-Future<void> openHistory(BuildContext context) =>
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const HistoryPage()));
+Future<void> openHistory(BuildContext context) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    // 自己的 Material：理由見 `AppShell` 的根頁。
+    builder: (_) =>
+        const Material(type: MaterialType.transparency, child: HistoryPage()),
+  ),
+);
 
 /// 歷史頁（design §9.7）：播放過的歌依時間倒序、以本地日期分組（今天、昨天、
 /// 日期，跨年才帶年份）。點一首是臨時播放；每筆的選單（右鍵、長按、尾端「⋯」）有
