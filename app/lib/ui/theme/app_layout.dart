@@ -26,6 +26,9 @@ abstract final class AppLayout {
   /// 歌單對話框裡封面預覽的邊長。
   static const double playlistCoverPreview = 64;
 
+  /// 歌單詳情頁標頭的封面邊長（400 寬的視窗裡旁邊還放得下描述）。
+  static const double playlistHeaderCover = 144;
+
   /// 空狀態畫面的圖示。
   static const double emptyStateIcon = 48;
 

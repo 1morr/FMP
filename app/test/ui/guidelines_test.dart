@@ -16,6 +16,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/radio.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
@@ -700,6 +701,139 @@ void main() {
           await tester.tap(find.text('Delete'));
           await tester.pumpAndSettle();
           expect(find.text('Delete the playlist?'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 歌單詳情（M4 PR 3）：標頭、分 P 群組、本機歌單的把手；匯入歌單；空的；「加入歌單」
+        // 對話框；自訂封面被拒的編輯對話框。
+        Future<ShellHarness> openDetail(
+          WidgetTester tester, {
+          bool imported = false,
+          bool empty = false,
+        }) async {
+          final h = await openLibrary(tester, playlists: false);
+          await tester.runAsync(() async {
+            final repository = h
+                .container(tester)
+                .read(playlistRepositoryProvider);
+            final id = imported
+                ? (await repository.createImported(
+                    pluginId: 'fmp-test',
+                    remoteId: 'r1',
+                    info: const RemotePlaylistInfo(
+                      name: 'Road trip',
+                      description: 'Songs for the drive',
+                    ),
+                  ))!
+                : await repository.create(
+                    name: 'Road trip',
+                    description: 'Songs for the drive',
+                  );
+            if (empty) return;
+            await repository.addTracks(id, [
+              summary('a', artwork: TestArtwork.darkest.artwork).toTrackInfo(),
+              for (final index in [1, 2])
+                TrackInfo(
+                  sourceTypeId: 'fmp-test',
+                  sourceId: 'v',
+                  cid: index,
+                  title: 'Part $index',
+                  uploader: 'Uploader v',
+                  duration: const Duration(minutes: 1),
+                  partIndex: index,
+                  parentTitle: 'A video',
+                  artwork: [
+                    TrackArtwork(url: Uri.parse(TestArtwork.lightest.url)),
+                  ],
+                ),
+              summary('b').toTrackInfo(),
+            ]);
+          });
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Road trip'));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          return h;
+        }
+
+        testWidgets('the playlist details at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openDetail(tester);
+          expect(find.text('A video'), findsOneWidget);
+          expect(find.text('P2 Part 2'), findsOneWidget);
+          expect(find.byIcon(Icons.drag_handle), findsWidgets);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('an imported playlist details at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openDetail(tester, imported: true);
+          expect(find.text('Imported · 4 songs'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('an empty playlist details at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openDetail(tester, empty: true);
+          expect(find.text('This playlist has no songs yet'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the add to playlist dialog at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openDetail(tester);
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.widgetWithText(ListTile, 'Song a'),
+                  matching: find.byTooltip('More options'),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Add to playlist…'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(CheckboxListTile, 'Road trip'));
+          await tester.pumpAndSettle();
+          expect(find.text('Add to playlist'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the playlist dialog with a refused cover at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester);
+          await tester.tap(find.byTooltip('New playlist'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(TextButton, 'Custom'));
+          await tester.pump();
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Image URL'),
+            'https://elsewhere.example/cover.jpg',
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.text("This URL doesn't belong to any installed source"),
+            findsOneWidget,
+          );
 
           await expectGuidelines(tester);
           handle.dispose();

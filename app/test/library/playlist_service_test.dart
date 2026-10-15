@@ -6,6 +6,7 @@ import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/library/playlist_service.dart';
@@ -95,19 +96,29 @@ void main() {
       expect([for (final p in all) p.description], [null, 'notes']);
     });
 
-    test('edit renames and keeps the cover', () async {
-      final id = await repository.create(name: 'A');
-      final cover = [TrackArtwork(url: Uri.parse('https://fmp.test/c.jpg'))];
-      await repository.update(id, name: 'A', artwork: cover);
-      final playlist = (await repository.watchAll().first).single;
+    test(
+      'create and edit write the custom cover; an empty one clears it',
+      () async {
+        final cover = [TrackArtwork(url: Uri.parse('https://fmp.test/c.jpg'))];
+        await service().create(name: 'A', artwork: cover);
+        final playlist = (await repository.watchAll().first).single;
+        expect(playlist.artwork, cover);
 
-      await service().edit(playlist, name: ' B ', description: 'd');
+        await service().edit(
+          playlist,
+          name: ' B ',
+          description: 'd',
+          artwork: playlist.artwork,
+        );
+        final edited = (await repository.watchAll().first).single;
+        expect(edited.name, 'B');
+        expect(edited.description, 'd');
+        expect(edited.artwork, cover);
 
-      final edited = (await repository.watchAll().first).single;
-      expect(edited.name, 'B');
-      expect(edited.description, 'd');
-      expect(edited.artwork, cover);
-    });
+        await service().edit(edited, name: 'B', artwork: const []);
+        expect((await repository.watchAll().first).single.artwork, isEmpty);
+      },
+    );
 
     test('reorder and delete go to the repository', () async {
       final a = await repository.create(name: 'A');
@@ -162,5 +173,98 @@ void main() {
         expect(events.single, isA<QueueFull>());
       },
     );
+  });
+
+  group('the songs of a playlist', () {
+    Future<int> imported() async => (await repository.createImported(
+      pluginId: 'fmp-test',
+      remoteId: 'r1',
+      info: const RemotePlaylistInfo(name: 'Remote'),
+    ))!;
+
+    List<String> ids(List<PlaylistEntry> entries) => [
+      for (final entry in entries) entry.track.sourceId,
+    ];
+
+    test(
+      'addTracks appends to every playlist, the same song again too',
+      () async {
+        final a = await playlistOf(['x']);
+        final b = await playlistOf([]);
+
+        await service().addTracks([a, b], [_track('y'), _track('x')]);
+        await service().addTracks([a], [_track('y')]);
+
+        expect(ids(await repository.entries(a)), ['x', 'y', 'x', 'y']);
+        expect(ids(await repository.entries(b)), ['y', 'x']);
+      },
+    );
+
+    test('removeEntries and moveEntries change a local playlist', () async {
+      final id = await playlistOf(['a', 'b', 'c']);
+      final entries = await repository.entries(id);
+
+      await service().moveEntries(id, [
+        entries[2].id,
+        entries[0].id,
+        entries[1].id,
+      ]);
+      expect(ids(await repository.entries(id)), ['c', 'a', 'b']);
+      await service().removeEntries(id, [entries[0].id]);
+      expect(ids(await repository.entries(id)), ['c', 'b']);
+    });
+
+    // ADR 0019 §決定 4：匯入歌單的曲目不能在本地增刪或重排。
+    test('an imported playlist is refused and left alone', () async {
+      final local = await playlistOf([]);
+      final remote = await imported();
+      await repository.addTracks(remote, [_track('r'), _track('s')]);
+      final entries = await repository.entries(remote);
+
+      await expectLater(
+        service().addTracks([local, remote], [_track('x')]),
+        throwsStateError,
+      );
+      await expectLater(
+        service().removeEntries(remote, [entries.first.id]),
+        throwsStateError,
+      );
+      await expectLater(
+        service().moveEntries(remote, [entries[1].id, entries[0].id]),
+        throwsStateError,
+      );
+
+      expect(ids(await repository.entries(remote)), ['r', 's']);
+      expect(
+        await repository.entries(local),
+        isEmpty,
+        reason: 'nothing is added when one of the playlists is refused',
+      );
+      expect((await repository.find(remote))!.kind, PlaylistKind.imported);
+    });
+
+    // 檢查的是 [playlistId] 的種類：別張（匯入）歌單的項目 id 掛在本機歌單名下也刪不到。
+    test('entries of another playlist are not removed or moved', () async {
+      final local = await playlistOf(['a']);
+      final remote = await imported();
+      await repository.addTracks(remote, [_track('r'), _track('s')]);
+      final foreign = await repository.entries(remote);
+
+      await service().removeEntries(local, [foreign.first.id]);
+      await service().moveEntries(local, [foreign[1].id, foreign[0].id]);
+
+      expect(ids(await repository.entries(remote)), ['r', 's']);
+      expect(ids(await repository.entries(local)), ['a']);
+    });
+
+    test('a deleted playlist is refused', () async {
+      final id = await playlistOf([]);
+      await repository.delete(id);
+
+      await expectLater(
+        service().addTracks([id], [_track('x')]),
+        throwsStateError,
+      );
+    });
   });
 }

@@ -14,6 +14,7 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -29,7 +30,7 @@ Future<void> openHistory(BuildContext context) =>
 
 /// 歷史頁（design §9.7）：播放過的歌依時間倒序、以本地日期分組（今天、昨天、
 /// 日期，跨年才帶年份）。點一首是臨時播放；每筆的選單（右鍵、長按、尾端「⋯」）有
-/// 播放、下一首播放、加入佇列、從歷史移除（只移除這一筆，不提示）。標題列的「清除
+/// 播放、下一首播放、加入佇列、加入歌單…、從歷史移除（只移除這一筆，不提示）。標題列的「清除
 /// 全部歷史」先確認，清完提示一次。
 ///
 /// 分頁讀取（[historyProvider]）：捲到底才讀下一頁。全部是本機資料，離線照常
@@ -299,6 +300,9 @@ class _HistoryTile extends ConsumerWidget {
             onPressed: () => unawaited(startMixFrom(ref, track)),
             child: Text(t.startMix),
           ),
+        AddToPlaylistItem(
+          onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.delete_outline),
           onPressed: () => unawaited(remove()),

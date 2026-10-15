@@ -258,24 +258,37 @@ final class PlaylistRepository {
     ];
   }
 
-  /// 建一張本機（`local`）歌單，加在清單最後，回傳新歌單的 id。匯入與 Mix 歌單要連同
-  /// 自己的欄位一起寫（`playlist_remote`、Mix 三欄的 CHECK），由建它們的 PR 另加寫入口。
-  Future<int> create({required String name, String? description}) =>
-      _database.transaction(() async {
-        final now = clock.now().toUtc();
-        return _database
-            .into(_database.playlistsTable)
-            .insert(
-              PlaylistsTableCompanion.insert(
-                kind: PlaylistKind.local,
-                name: name,
-                description: Value(description),
-                sortOrder: await _nextSortOrder(),
-                createdAt: now,
-                updatedAt: now,
-              ),
-            );
-      });
+  /// 一張歌單；沒有這張（已刪除）為 `null`。
+  Future<Playlist?> find(int id) async {
+    final row = await (_database.select(
+      _database.playlistsTable,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    return row == null ? null : _fromRow(row);
+  }
+
+  /// 建一張本機（`local`）歌單，加在清單最後，回傳新歌單的 id。[artwork] 是自訂封面（空＝
+  /// 用第一首的封面）。匯入與 Mix 歌單要連同自己的欄位一起寫（`playlist_remote`、Mix 三欄的
+  /// CHECK），由建它們的 PR 另加寫入口。
+  Future<int> create({
+    required String name,
+    String? description,
+    List<TrackArtwork> artwork = const [],
+  }) => _database.transaction(() async {
+    final now = clock.now().toUtc();
+    return _database
+        .into(_database.playlistsTable)
+        .insert(
+          PlaylistsTableCompanion.insert(
+            kind: PlaylistKind.local,
+            name: name,
+            description: Value(description),
+            artworkJson: Value(TracksRepository.encodeArtwork(artwork)),
+            sortOrder: await _nextSortOrder(),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+  });
 
   /// 建一張匯入（`imported`）歌單，加在清單最後，回傳新歌單的 id：`playlists` 一列加
   /// `playlist_remote` 一列，同一個 transaction。名稱等取 [info]（名稱不唯一，不自動改名）；
@@ -463,23 +476,19 @@ final class PlaylistRepository {
     });
   }
 
-  /// 刪掉 [entryIds] 的項目；剩下的 `position` 會有空洞，無妨（只比大小）。
-  Future<void> removeEntries(List<int> entryIds) async {
+  /// 刪掉歌單 [playlistId] 裡 [entryIds] 的項目，別張歌單的 id 不生效（呼叫端只檢查了
+  /// [playlistId] 是哪種歌單）；剩下的 `position` 會有空洞，無妨（只比大小）。
+  Future<void> removeEntries(int playlistId, List<int> entryIds) async {
     if (entryIds.isEmpty) return;
     await _database.transaction(() async {
-      final table = _database.playlistEntriesTable;
-      final playlistIds = <int>{};
+      var removed = 0;
       for (var i = 0; i < entryIds.length; i += _chunk) {
         final ids = entryIds.skip(i).take(_chunk).toList();
-        final owners = _database.selectOnly(table, distinct: true)
-          ..addColumns([table.playlistId])
-          ..where(table.id.isIn(ids));
-        playlistIds.addAll([
-          for (final row in await owners.get()) row.read(table.playlistId)!,
-        ]);
-        await (_database.delete(table)..where((t) => t.id.isIn(ids))).go();
+        removed += await (_database.delete(
+          _database.playlistEntriesTable,
+        )..where((t) => t.id.isIn(ids) & t.playlistId.equals(playlistId))).go();
       }
-      await _touch(playlistIds);
+      if (removed > 0) await _touch([playlistId]);
     });
   }
 
