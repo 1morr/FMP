@@ -62,9 +62,9 @@ enum CredentialState {
 /// 讀取失敗（含內容壞掉）不刪除：該插件為 [CredentialState.unreadable]，
 /// [credentialRetryDelay] 後重讀一次。
 ///
-/// 載入與寫入時把每個 cookie 值與 `extra` 值登記到遮蔽函式；短於
-/// [Redactor.minimumSecretLength] 的值略過（它們不是秘密，而 `registerSecret`
-/// 對它們會拋錯）。
+/// 載入與寫入時把每個 cookie 值、`extra` 值與帳號列的 `userId` 登記到遮蔽函式
+/// （登出、換帳號時取消）；短於 [Redactor.minimumSecretLength] 的值略過（它們不是
+/// 秘密，而 `registerSecret` 對它們會拋錯）。
 final class CredentialStore implements CredentialSource {
   CredentialStore({
     required this._storage,
@@ -203,7 +203,7 @@ final class CredentialStore implements CredentialSource {
       await _storage.delete(_key(pluginId));
       return;
     }
-    _set(pluginId, credentials, account.status);
+    _set(pluginId, credentials, account.userId, account.status);
   }
 
   void _scheduleRetry() {
@@ -246,16 +246,24 @@ final class CredentialStore implements CredentialSource {
   void _set(
     String pluginId,
     LoginCredentials credentials,
+    String userId,
     AccountStatus status,
   ) {
     _forget(pluginId);
     credentials.registerWith(_redactor);
-    _entries[pluginId] = _Entry(credentials, status);
+    // 帳號自己的 id 不一定在 cookie 裡（網易雲、YouTube 不在），另外登記。
+    final registeredUserId = userId.length >= Redactor.minimumSecretLength
+        ? userId
+        : null;
+    if (registeredUserId != null) _redactor.registerSecret(registeredUserId);
+    _entries[pluginId] = _Entry(credentials, status, registeredUserId);
   }
 
   /// 清掉 [pluginId] 在記憶體的狀態並取消遮蔽登記。
   void _forget(String pluginId) {
-    _entries.remove(pluginId)?.credentials?.unregisterFrom(_redactor);
+    final entry = _entries.remove(pluginId);
+    entry?.credentials?.unregisterFrom(_redactor);
+    if (entry?.userId case final userId?) _redactor.unregisterSecret(userId);
   }
 
   /// 憑證的狀態可能變了（載入、重讀、[save]、[delete] 之後）時發出；畫面以它重讀
@@ -287,7 +295,7 @@ final class CredentialStore implements CredentialSource {
           jsonEncode(credentials.toJson()),
         );
         await _accounts.upsert(account);
-        _set(account.pluginId, credentials, account.status);
+        _set(account.pluginId, credentials, account.userId, account.status);
         _changed();
       });
 
@@ -319,7 +327,7 @@ final class CredentialStore implements CredentialSource {
       result: RefreshResult.refreshed,
     );
     await _accounts.upsert(updated);
-    _set(pluginId, credentials, updated.status);
+    _set(pluginId, credentials, updated.userId, updated.status);
     _changed();
     return true;
   });
@@ -359,7 +367,7 @@ final class CredentialStore implements CredentialSource {
         result: result,
       ),
     );
-    _set(pluginId, of, AccountStatus.invalidated);
+    _set(pluginId, of, account.userId, AccountStatus.invalidated);
     _changed();
     return true;
   });
@@ -410,15 +418,22 @@ final class CredentialStore implements CredentialSource {
 }
 
 final class _Entry {
-  const _Entry(LoginCredentials this.credentials, AccountStatus status)
-    : state = status == AccountStatus.active
+  const _Entry(
+    LoginCredentials this.credentials,
+    AccountStatus status,
+    this.userId,
+  ) : state = status == AccountStatus.active
           ? CredentialState.active
           : CredentialState.invalidated;
 
   const _Entry.unreadable()
     : credentials = null,
-      state = CredentialState.unreadable;
+      state = CredentialState.unreadable,
+      userId = null;
 
   final LoginCredentials? credentials;
   final CredentialState state;
+
+  /// 登記到遮蔽函式的帳號 id；太短沒登記時是 `null`。
+  final String? userId;
 }
