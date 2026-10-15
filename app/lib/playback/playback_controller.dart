@@ -553,6 +553,12 @@ final class PlaybackController {
     _queueEdited();
   }
 
+  /// 直接設定循環（系統媒體控制用）；Mix 中拒絕「全部」，模式不變。
+  void setLoopMode(LoopMode mode) {
+    _queue.setLoopMode(mode);
+    _queueEdited();
+  }
+
   // ---- 播放 -----------------------------------------------------------------
 
   Future<void> play() async {

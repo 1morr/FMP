@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
@@ -102,7 +103,42 @@ final class NowPlayingPublisher {
       // 停止當作暫停：位置與佇列都保留，之後按播放從原處繼續。
       case MediaStop():
         _run('stop', _controller.pause);
+      case MediaSetShuffle(:final enabled):
+        _setShuffle(enabled);
+      case MediaSetRepeat(:final mode):
+        _setRepeat(mode);
     }
+  }
+
+  /// 浮層的隨機鈕：SMTC 不能單獨停用它，所以直播與 Mix 中（App 的隨機鈕停用）
+  /// 收到的要求不理，浮層維持 App 實際的狀態。
+  void _setShuffle(bool enabled) {
+    final queue = _controller.queue;
+    if (queue.live != null) return _ignored('shuffle', 'live');
+    if (queue.mix != null) return _ignored('shuffle', 'mix');
+    if (enabled == queue.shuffleEnabled) return _ignored('shuffle', 'same');
+    _controller.setShuffle(enabled);
+  }
+
+  /// 浮層的循環鈕（none → list → track 輪轉）。Mix 沒有「全部」：要求 list 時照
+  /// App 的 Mix 輪轉（off → one → off），浮層的輪轉在 Mix 中才到得了單曲。
+  void _setRepeat(MediaRepeat mode) {
+    final queue = _controller.queue;
+    if (queue.live != null) return _ignored('repeat', 'live');
+    if (_repeatOf(queue.loopMode) == mode) return _ignored('repeat', 'same');
+    if (queue.mix != null && mode == MediaRepeat.all) {
+      _controller.cycleLoopMode();
+    } else {
+      _controller.setLoopMode(_loopOf(mode));
+    }
+  }
+
+  void _ignored(String command, String reason) {
+    _log.debug(
+      'System media command ignored',
+      tag: _tag,
+      fields: {'command': command, 'reason': reason},
+    );
   }
 
   void _run(String command, Future<void> Function() action) {
@@ -238,6 +274,8 @@ final class NowPlayingPublisher {
         if (queue.hasNext) MediaControl.next,
       ],
       seekable: !isLive,
+      shuffle: queue.shuffleEnabled,
+      repeat: _repeatOf(queue.loopMode),
     );
   }
 
@@ -248,3 +286,15 @@ final class NowPlayingPublisher {
     }
   }
 }
+
+MediaRepeat _repeatOf(LoopMode mode) => switch (mode) {
+  LoopMode.off => MediaRepeat.off,
+  LoopMode.all => MediaRepeat.all,
+  LoopMode.one => MediaRepeat.one,
+};
+
+LoopMode _loopOf(MediaRepeat mode) => switch (mode) {
+  MediaRepeat.off => LoopMode.off,
+  MediaRepeat.all => LoopMode.all,
+  MediaRepeat.one => LoopMode.one,
+};

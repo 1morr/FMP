@@ -69,6 +69,24 @@ final class MediaStop extends MediaCommand {
   const MediaStop();
 }
 
+/// 系統設定隨機（Windows 浮層的隨機鈕）。系統只是提出要求，結果由 App 決定。
+final class MediaSetShuffle extends MediaCommand {
+  const MediaSetShuffle(this.enabled);
+
+  final bool enabled;
+}
+
+/// 系統設定循環（Windows 浮層的循環鈕，依 none → list → track 輪轉，每次送出
+/// 「下一個」模式）。
+final class MediaSetRepeat extends MediaCommand {
+  const MediaSetRepeat(this.mode);
+
+  final MediaRepeat mode;
+}
+
+/// 系統看到的循環模式（對應 App 的關閉、全部、單曲）。
+enum MediaRepeat { off, all, one }
+
 /// 系統看到的播放階段。[idle] 時系統不顯示通知、不佔前景。
 ///
 /// [interrupted]：因音訊中斷（來電等）暫停，中斷結束會續播。要求系統把工作階段
@@ -93,6 +111,8 @@ final class NowPlaying {
     this.speed = 1.0,
     this.controls = const [],
     this.seekable = true,
+    this.shuffle = false,
+    this.repeat = MediaRepeat.off,
   });
 
   /// 沒有曲目：[MediaPhase.idle]，沒有按鈕。
@@ -131,6 +151,10 @@ final class NowPlaying {
   /// seek 時（[MediaControlsSupport.supportsSeek]）不管這個值。
   final bool seekable;
 
+  /// App 目前的隨機與循環；Windows 浮層據此顯示，Android 不用。
+  final bool shuffle;
+  final MediaRepeat repeat;
+
   bool get hasTrack => id.isNotEmpty;
 
   NowPlaying copyWith({Duration? position, Uri? artworkFile}) => NowPlaying(
@@ -146,6 +170,8 @@ final class NowPlaying {
     speed: speed,
     controls: controls,
     seekable: seekable,
+    shuffle: shuffle,
+    repeat: repeat,
   );
 
   @override
@@ -163,6 +189,8 @@ final class NowPlaying {
           other.position == position &&
           other.speed == speed &&
           other.seekable == seekable &&
+          other.shuffle == shuffle &&
+          other.repeat == repeat &&
           listEquals(other.controls, controls);
 
   @override
@@ -178,6 +206,8 @@ final class NowPlaying {
     position,
     speed,
     seekable,
+    shuffle,
+    repeat,
     Object.hashAll(controls),
   );
 }

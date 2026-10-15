@@ -12,6 +12,8 @@ NowPlaying nowPlaying({
   String? uploader = 'Uploader a',
   MediaPhase phase = MediaPhase.ready,
   bool playing = true,
+  bool shuffle = false,
+  MediaRepeat repeat = MediaRepeat.off,
   Duration position = const Duration(seconds: 12),
   Duration? duration = const Duration(minutes: 3),
   Uri? artworkUrl,
@@ -30,15 +32,33 @@ NowPlaying nowPlaying({
   playing: playing,
   position: position,
   controls: controls,
+  shuffle: shuffle,
+  repeat: repeat,
 );
 
 /// 記下 [WindowsSystemMediaControls] 對 SMTC 的每次呼叫（不載入 Rust 端）。
 final class _FakeSmtc implements smtc.SMTCWindows {
   final calls = <String>[];
   final buttons = StreamController<smtc.PressedButton>.broadcast();
+  final shuffles = StreamController<bool>.broadcast();
+  final repeats = StreamController<smtc.RepeatMode>.broadcast();
 
   @override
   Stream<smtc.PressedButton> get buttonPressStream => buttons.stream;
+
+  @override
+  Stream<bool> get shuffleChangeStream => shuffles.stream;
+
+  @override
+  Stream<smtc.RepeatMode> get repeatModeChangeStream => repeats.stream;
+
+  @override
+  Future<void> setShuffleEnabled(bool enabled) async =>
+      calls.add('shuffle $enabled');
+
+  @override
+  Future<void> setRepeatMode(smtc.RepeatMode repeatMode) async =>
+      calls.add('repeat ${repeatMode.name}');
 
   @override
   Future<void> enableSmtc() async => calls.add('enable');
@@ -124,6 +144,8 @@ void main() {
         'config',
         'timeline 12000',
         'status playing',
+        'shuffle false',
+        'repeat none',
       ]);
     });
 
@@ -146,7 +168,7 @@ void main() {
         await controls.publish(
           nowPlaying(phase: MediaPhase.idle, playing: false),
         );
-        expect(fake.calls.skip(5), ['clear', 'disable']);
+        expect(fake.calls.skip(7), ['clear', 'disable']);
         fake.calls.clear();
 
         await controls.publish(nowPlaying());
@@ -157,6 +179,8 @@ void main() {
           'config',
           'timeline 12000',
           'status playing',
+          'shuffle false',
+          'repeat none',
         ]);
       },
     );
@@ -185,6 +209,54 @@ void main() {
         expect(fake.calls, isNot(contains('clear')));
       },
     );
+
+    test('pushes shuffle and repeat only when they change', () async {
+      await controls.publish(nowPlaying());
+      fake.calls.clear();
+
+      await controls.publish(
+        nowPlaying(shuffle: true, repeat: MediaRepeat.all),
+      );
+      expect(fake.calls, ['shuffle true', 'repeat list']);
+      fake.calls.clear();
+
+      await controls.publish(
+        nowPlaying(repeat: MediaRepeat.one, shuffle: true),
+      );
+      expect(fake.calls, ['repeat track']);
+      fake.calls.clear();
+
+      await controls.publish(
+        nowPlaying(
+          repeat: MediaRepeat.one,
+          shuffle: true,
+          position: const Duration(seconds: 20),
+        ),
+      );
+      expect(fake.calls, ['timeline 20000']);
+    });
+
+    test('the overlay requests become commands until disposed', () async {
+      final commands = <MediaCommand>[];
+      controls.commands.listen(commands.add);
+
+      fake.shuffles.add(true);
+      fake.repeats.add(smtc.RepeatMode.list);
+      fake.repeats.add(smtc.RepeatMode.track);
+      await settle();
+      await controls.dispose();
+      fake.shuffles.add(false);
+      fake.repeats.add(smtc.RepeatMode.none);
+      await settle();
+
+      expect(commands, [
+        isA<MediaSetShuffle>().having((c) => c.enabled, 'enabled', isTrue),
+        isA<MediaSetRepeat>().having((c) => c.mode, 'mode', MediaRepeat.all),
+        isA<MediaSetRepeat>().having((c) => c.mode, 'mode', MediaRepeat.one),
+      ]);
+      expect(fake.shuffles.hasListener, isFalse);
+      expect(fake.repeats.hasListener, isFalse);
+    });
 
     test('key presses become commands until disposed', () async {
       final commands = <MediaCommand>[];
@@ -351,6 +423,20 @@ void main() {
         smtcStatusOf(nowPlaying(playing: false)),
         smtc.PlaybackStatus.paused,
       );
+    });
+  });
+
+  group('repeat', () {
+    test('maps between the system and the app both ways', () {
+      const pairs = {
+        smtc.RepeatMode.none: MediaRepeat.off,
+        smtc.RepeatMode.list: MediaRepeat.all,
+        smtc.RepeatMode.track: MediaRepeat.one,
+      };
+      for (final MapEntry(key: system, value: app) in pairs.entries) {
+        expect(mediaRepeatOf(system), app);
+        expect(smtcRepeatOf(app), system);
+      }
     });
   });
 
