@@ -23,10 +23,11 @@ final class OpenSettingsIntent extends Intent {
   const OpenSettingsIntent();
 }
 
-/// Esc：焦點在輸入框時離開輸入框（焦點回到外殼）。對話框與彈出的選單、滑桿是
-/// 自己的 route 或 overlay，由 Flutter 內建的 Esc 關閉，不經外殼。
-final class LeaveTextInputIntent extends Intent {
-  const LeaveTextInputIntent();
+/// Esc：焦點在輸入框時離開輸入框（焦點回到外殼）；不在輸入框時退出目前目的地巢狀導覽
+/// 裡開著的頁（ADR 0033 §決定 5），已在根就不處理。對話框與彈出的選單、滑桿是自己的
+/// route 或 overlay，由 Flutter 內建的 Esc 關閉，不經外殼。
+final class EscapeIntent extends Intent {
+  const EscapeIntent();
 }
 
 /// 焦點移到下一區（導覽 → 內容 → 播放列 → 導覽）。
@@ -57,5 +58,5 @@ const navigationShortcuts = <ShortcutActivator, Intent>{
   SingleActivator(LogicalKeyboardKey.comma, control: true):
       OpenSettingsIntent(),
   SingleActivator(LogicalKeyboardKey.f6): NextRegionIntent(),
-  SingleActivator(LogicalKeyboardKey.escape): LeaveTextInputIntent(),
+  SingleActivator(LogicalKeyboardKey.escape): EscapeIntent(),
 };

@@ -749,6 +749,8 @@ void main() {
       await h.settle(tester);
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(WebLoginPage), findsOneWidget);
+      // 推在根 Navigator 上，蓋住整個外殼；不是開在設定目的地的巢狀導覽（內容區）裡。
+      expect(find.byType(NavigationRail).hitTestable(), findsNothing);
       expect(find.text('Sign in to $name'), findsOneWidget);
       expect(find.byKey(FakeLoginWebView.key), findsOneWidget);
       expect(webView.built.last.url, _page);

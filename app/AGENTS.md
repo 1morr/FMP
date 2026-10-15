@@ -1797,11 +1797,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `MaterialLocalizations`，同歷史頁）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
     `accounts_section_test.dart` 的 `a QR login with the test plugin…`、`an invalidated account…`、`unreadable credentials…`、
     `offline…`。
-  - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中
+  - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`，推在根 Navigator 上：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中
     頂端有進度條，卡住時 WebView 上方是警告色的「登入沒有完成」加「重試」。完成時頁面自己關閉、交回 cookie，**關頁之後**
     才在帳號頁驗證與寫入（design §6.4；頁面開著時設定頁可能換位置重建，那時照樣驗證，只是沒有進度條）。全螢幕頁、裡面是
     平台的 WebView，所以進 `toast_layering_test.dart`（開 `about:blank`，平台沒有登入 WebView 時跳過）。閘門：
-    `accounts_section_test.dart` 的 `web login` 群組（只看 `cookieHosts`、登出清 WebView、卡住、重試、重開 App 的提示）。
+    `accounts_section_test.dart` 的 `web login` 群組（蓋住外殼的導覽、只看 `cookieHosts`、登出清 WebView、卡住、重試、重開 App 的提示）。
   - 貼上 cookie 是對話框（`cookie_login_dialog.dart`）：多行輸入框（關掉個人化學習）、「如何取得」的通用步驟（不指名
     音源）與警告；讀不到 cookie 或驗證失敗時留在對話框、輸入不清，錯誤寫在輸入框下（不在 online 時寫離線的原因，不換成
     整塊的離線空狀態，輸入才留得住）。閘門：`accounts_section_test.dart` 的 `pasting cookies…`。
@@ -1823,14 +1823,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   系統返回鍵、`400 wide: a group left open does not hold the back key on another page`）、
   `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗）。
-- 返回鍵（擁有者決定 7，design §9.1）：播放頁、面板、對話框是 route，Navigator 先關最上面的；外殼是
-  `PopScope(canPop: 在第一個分頁)`：窄版設定頁點進某一組時先回到分組清單，否則不在第一個分頁時回到第一
-  個分頁（搜尋），在第一個分頁時放行，Android 端由 `MainActivity.popSystemNavigator` 退到背景（見
-  § 平台層）。不要在頁面內另放 `PopScope`：同一次返回所有 `PopScope` 的 callback 都會執行，會和外殼同時
-  動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在歷史、設定按返回回到搜尋；在搜尋放行）、
-  `settings_page_test.dart` 的窄版返回案例。
+- 返回鍵（擁有者決定 7，design §9.1，ADR 0033 §決定 5）：播放頁、面板、對話框是根 Navigator 上的 route，
+  Navigator 先關最上面的；外殼是 `PopScope(canPop: 在第一個目的地而且它沒有內頁)`，依序：退出目前目的地巢狀
+  Navigator 的內頁 → 窄版設定頁點進某一組時回到分組清單 → 不在第一個目的地時回到第一個（首頁）→ 在第一個時放行，
+  Android 端由 `MainActivity.popSystemNavigator` 退到背景（見 § 平台層）。內頁的 route 在巢狀 Navigator 裡、
+  不在根 Navigator 上，所以系統返回鍵（含 predictive back）一定先到外殼的 `PopScope`；`canPop` 跟著內頁的增減重建
+  （每個巢狀 Navigator 一個 `NavigatorObserver`），有內頁時 Android 不預覽「離開 App」。不要在頁面內另放
+  `PopScope`（也不用 `NavigatorPopHandler`，它就是一個 `PopScope`）：同一次返回所有 `PopScope` 的 callback 都會執行，
+  會和外殼同時動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在搜尋、音樂庫、
+  電台、設定按返回回到首頁；在首頁放行）與 `nested navigation`（先退內頁再回首頁、首頁的內頁先退才放行、對話框與播放頁
+  先關）、`settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗、直播間模式的結果）、歷史頁（空的、有紀錄加播放列）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  或連不上時搜尋失敗、直播間模式的結果）、首頁（空的、最近播放加播放列）、音樂庫（空的、有歌單的清單與收起面板的格狀、
+  卡片選單、新增歌單的對話框、刪除的確認框）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -1869,8 +1874,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   離開又回來後 5 秒內的同一則不會再出現。閘門：`about_section_test.dart`（7 次與每則提示、只寫 `developer_mode`、離開區塊與
   離開設定頁都歸零、dev 預設開）。
 - Debug 頁（`lib/ui/debug/`，ADR 0025 §決定 1、2，M3 design §12.1）：
-  - 入口只有設定頁清單最後那一列，`openDebugPage` 推一般的 `MaterialPageRoute`（標題列有返回鈕、不是 fullscreenDialog）；
-    是全螢幕 route，所以進 `toast_layering_test.dart`。不在外殼底下：播放類快捷鍵在這一頁不作用（沒有包 `PlaybackShortcuts`）。
+  - 入口只有設定頁清單最後那一列，`openDebugPage` 在**根** Navigator 上推一般的 `MaterialPageRoute`（標題列有返回鈕、不是
+    fullscreenDialog；設定頁在外殼的巢狀導覽裡，不指定根就會開在內容區裡）；是全螢幕 route，所以進 `toast_layering_test.dart`。
+    不在外殼底下：播放類快捷鍵在這一頁不作用（沒有包 `PlaybackShortcuts`）。
   - 路由閘門：`developerProvider` 讀到關著（或讀取失敗）時頁面不顯示任何工具，並在那一幀之後關掉自己（最上層就 pop，
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
@@ -1950,7 +1956,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 這兩個區塊自己有捲動的清單，不包在區塊的捲動欄裡（`DebugPage` 的 `filling`，同設定頁）；窄與寬版都在 `guidelines_test.dart` 的
     `the Debug Log section`、`the Debug Network section` 過 guideline（含展開的一筆與單筆詳細的對話框）。
 - 首次啟動引導（`lib/ui/plugins/plugin_onboarding.dart`，ADR 0030 §決定 12，M3 design §7.6）：
-  - 觸發：搜尋頁的 `searchSourcesProvider` 是空的（沒有已啟用、能搜尋、可用的插件）而且使用者沒按「稍後再說」；dev flavor
+  - 觸發：`searchSourcesProvider` 是空的（沒有已啟用、能搜尋、可用的插件）而且使用者沒按「稍後再說」，首頁與搜尋頁各顯示
+    同一個 `PluginOnboarding`（ADR 0033 §決定 6；兩頁都在 `IndexedStack` 裡，各自一個 State：取消勾選只記在看到的那一頁）；dev flavor
     的 `fmp-test` 有 `search`，所以不出現，不另判 flavor。引導讀官方 index（`indexOutcomeProvider(officialPluginIndexUrl)`，與
     插件頁同一個 provider），官方插件預設全勾（只記取消勾選的）；已安裝（含已停用）的與需要更新 FMP 的列出但不能勾。
   - 按「安裝」先重讀官方 index（SHA 不符時提示的「請稍後再試」，再按一次才比得到新的那一份；讀不到就換成離線或失敗畫面、不裝），
@@ -1963,7 +1970,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 閘門：`test/ui/plugins/plugin_onboarding_test.dart`（零插件時列出、一次確認與裝好後消失、取消與取消勾選、全部停用時再出現、
     離線與重試、按安裝時重讀 index、部分失敗、全部失敗後再試、全部失敗後「稍後再說」、「稍後再說」與前往插件頁（1000、400 寬））、
     guideline 測試的 `the onboarding…` 400／1000 寬。
-- 歷史頁（`lib/ui/history/`，design §9.7）：播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
+- 歷史頁（`lib/ui/history/`，design §9.7）：不是導覽項（ADR 0033 §決定 5），由音樂庫頂端的「歷史」與首頁「最近播放」的
+  「查看全部」以 `openHistory` 推在那個目的地的巢狀 Navigator 上；下面還有頁時標題前有返回鈕（tooltip「返回（Esc）」，
+  `ModalRoute.impliesAppBarDismissal`，同 AppBar 的判斷）。播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
   曲名、「作者 · 播放時刻」（音源停用或未安裝時，原因取代作者；閘門：`history_page_test.dart` 的 `a song of a source that is not installed shows why in place of the artist`）。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
   那麼多筆），一萬筆不一次載入；本機資料，離線照常可用、封面讀不到是佔位圖。點一列是臨時播放；選單（右鍵、長按、
@@ -1978,10 +1987,47 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
   在它上面）、medium 與 expanded `NavigationRail`、large 以上常駐 `NavigationDrawer`；都是 Material
-  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是搜尋｜歷史｜電台｜設定（M2 PR 15 加歷史、M3 PR 18c 加電台，ADR 0031 §決定 3；
-  `ShellDestination` 的順序就是 `IndexedStack` 的順序）。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時
-  不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的 `navigation per window class`（含每種元件四個項目與順序、
-  `selecting History shows the history page`、`selecting Radio shows the radio page`）。
+  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是首頁｜搜尋｜音樂庫｜電台｜設定（ADR 0033 §決定 5；
+  `ShellDestination` 的順序就是 `IndexedStack` 與導覽項的順序，導覽項的圖示與文字只有 `_destinationLabel` 一份），App 開在
+  首頁。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的
+  `navigation per window class`（每種元件五個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）。
+- 巢狀導覽（ADR 0033 §決定 5）：`IndexedStack` 的每一格是那個目的地自己的 `Navigator`，根頁是一個 `MaterialPage`（pages API：外殼重建時
+  根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史，之後的歌單詳情、探索）以 `Navigator.of(context).push` 開在
+  內容區裡，導覽與播放列留著；全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）推在根 Navigator 上（`rootNavigator: true` 或
+  `rootNavigatorKeyProvider`），`showDialog` 預設就在根上。換目的地不丟內頁（Material 每個目的地自己的 back stack）；再點一次
+  目前的導覽項退回它的根；Ctrl+F 先把搜尋退回根再聚焦輸入框。地雷：
+  - 每個巢狀 Navigator 包一個 `Semantics(container: true)`：route 的 `ModalBarrier` 是 `BlockSemantics`，不包的話擋掉的是同一個
+    語意容器裡先畫的導覽元件與離線提示（螢幕閱讀器讀不到）。閘門：`app_shell_test.dart` 的 `screen readers hear it when it appears`
+    （拿掉容器會紅）。
+  - 巢狀 Navigator 自己的 `Focus` 是寫死的 `autofocus`，根頁的 route 加入時也把焦點拉進內容區：啟動與換目的地之後，焦點停在
+    看不見、Tab 走不到的節點（Navigator 的節點或內容區的 scope 本身），所以 `focusNextRegion` 把停在 scope 本身或 `skipTraversal`
+    節點上的焦點當成不在任何一區（F6 從導覽開始）；`focusInto` 選到內頁的 route scope 時再往裡面找頁面的項目。閘門：`app_shell_test.dart` 的 `focus regions` 群組（含
+    `F6 goes into an inner page and out again`）。
+  閘門：`app_shell_test.dart` 的 `nested navigation` 群組（內頁在內容區、導覽與播放列留著（400、1400 寬）、返回鍵與 Esc、內頁的
+  返回鈕、再點導覽項回根、換目的地保留內頁、Esc 先關內頁上的選單、對話框與播放頁先關）、`Ctrl+F from an inner page of another destination`、
+  `Ctrl+F from an inner page of Search goes back to its root`、
+  `integration_test/toast_layering_test.dart` 的 `a toast shows above a page in the nested navigation`。
+- 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：M4 PR 2 只有「最近播放」：`play_history` 最新 20 筆（`recentPlaysProvider`，
+  不去重，歷史表變動就重讀），一排可橫向捲動的卡片（封面、兩行曲名、作者；音源不可用時是原因），點一下臨時播放；「查看全部」在首頁的
+  巢狀導覽裡開歷史頁。區塊標題列（標題＋尾端「查看全部」）與一排卡片是之後我的歌單、電台、排行區塊的樣子。沒有可搜尋的音源時整頁是
+  首次啟動引導（見下面「首次啟動引導」）；沒有內容是說明（「搜尋並播放歌曲，或匯入歌單」），沒有音源時附「前往插件頁」。本機資料，
+  離線照常顯示。閘門：`test/ui/home/home_page_test.dart`（最新 20 筆不去重、點一下臨時播放、新的播放跟著出現、「查看全部」與返回、
+  沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁）。
+- 音樂庫（`lib/ui/library/`、`lib/library/playlist_service.dart`，ADR 0033 §決定 8，M4 design §10.3、§10.5）：
+  - 標題列「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝第一首的封面、名稱、「本機 · n 首」）。卡片資料是
+    `PlaylistRepository.overviews()`（一個查詢帶首數與第一首），`playlistOverviewsProvider` 以 `changes()` 重讀，不用 `watch()`：
+    join 了 `tracks`，`watch()` 會在每次寫曲目時重查。代價是第一首的曲目資料（封面）更新時，卡片要等歌單或項目下一次變動才跟上。
+  - 內容區 compact、medium 是清單（`ReorderableListView`，把手排序，同電台頁），expanded 以上是格狀（每張不超過
+    `AppLayout.playlistCardMaxWidth`）：Flutter 沒有可排序的格狀清單，所以是把手上的 `Draggable` 加每張卡的 `DragTarget`，拖過某張卡就換到
+    它的位置，放開才整批寫 `sort_order`。兩種都是資料庫追上之前照拖曳後的順序畫；寫入失敗回到資料庫的順序並提示。
+  - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、編輯、刪除（先確認）。
+    加入走 `PlaybackController.addToQueue`：超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中兩項停用。
+  - 建立與編輯是同一個對話框（`showPlaylistDialog`）：名稱必填（去掉空白後不能是空的）、描述選填、封面目前只顯示「第一首歌的封面」。
+    design §10.5 的「自訂」（圖片網址）還沒做：封面只經某個插件的媒體 client 讀（每跳檢查那個插件的允許網域），使用者給的網址不屬於
+    任何插件，要先定它的讀取路徑。
+  - 閘門：`test/ui/library/library_page_test.dart`（歷史入口、空的說明、建立與必填、取消、編輯、刪除先確認、清單與格狀的拖曳寫入、
+    寫入失敗回到資料庫的順序、全部加入與隨機加入、超過上限、空歌單與 Mix 中停用、離線）、`test/library/playlist_service_test.dart`（去空白、編輯保留封面、排序與刪除、
+    依序加入、打亂、超過上限不加且發 `QueueFull`）、`playlist_repository_test.dart` 的 `overviews …`。
 - 右側「正在播放」面板（`lib/ui/shell/now_playing_panel.dart`，design §9.4，ADR 0024 §決定 3）：
   - 出現：整個視窗 >= 840（expanded 以上，`hasNowPlayingPanel`）而且沒收起。compact、medium 沒有面板也沒有任何開關。
     面板在內容區（頁面）右邊、中間是拖曳把手；播放列在兩者下方橫跨，所以開關面板不改變播放列的分段。頁面的
@@ -2065,8 +2111,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `navigationShortcuts`（Ctrl+F、Ctrl+,、F6、Esc）。輸入框裡的規則一句話：導覽類在輸入框內也有效，其餘
   都讓給輸入框。文字編輯的快捷鍵（`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，
   外殼會先接走按鍵；所以播放類的 action 一律用 `TextInputAwareAction`，焦點在輸入框時停用、按鍵交還
-  輸入框。Esc 在外殼只做一件事：焦點在輸入框時離開它（焦點回到外殼）；對話框與彈出的選單、滑桿是自己的
-  route 或 overlay，由 Flutter 內建的 Esc 關閉，外殼不處理。選單的 Esc 只在焦點在選單的 anchor 或選單
+  輸入框。Esc 在外殼（`EscapeIntent`）：焦點在輸入框時離開它（焦點回到外殼），否則退出目前目的地的內頁，已在根就不處理
+  （按鍵往上走）；對話框與彈出的選單、滑桿是自己的 route 或 overlay，由 Flutter 內建的 Esc 關閉，外殼不處理。選單的 Esc 只在焦點在選單的 anchor 或選單
   裡時有效，以滑鼠打開的選單焦點還在外殼，所以每個 `MenuAnchor` 都給 `childFocusNode`，並把同一個
   `FocusNode` 給打開它的按鈕（打開時焦點移過去）；閘門：`app_shell_test.dart` 的 `Esc closes the "…"
   menu`（播放列三個）、`search_page_test.dart`、`history_page_test.dart` 的 `Esc closes the menu opened
@@ -2221,7 +2267,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `live_player_test.dart` 的 `shortcuts while listening`（Ctrl+S、Ctrl+R 不改佇列的設定，拿掉判斷會紅；每個鍵的 `handled` 都是真，
   改成直播時停用會紅）。
 - 焦點三區（導覽、內容、播放列）各是 `FocusScope`＋`FocusTraversalGroup`：Tab 只在區內循環，F6
-  依序換區、跳過不在畫面上的播放列。閘門：`app_shell_test.dart` 的 `focus regions` 群組。
+  依序換區、跳過不在畫面上的播放列；巢狀導覽的內頁在內容區之內（見「巢狀導覽」）。閘門：`app_shell_test.dart` 的 `focus regions` 群組。
 - 只有圖示的按鈕以 tooltip 當名稱（附按鍵，如「隨機播放（Ctrl+S）」，翻譯檔的 `*Tooltip`），不另外給
   `Icon.semanticLabel`：兩個都給時輔助技術念成「X. X」。閘門：`player_bar_test.dart` 的 `semantics`
   （播放列每個按鈕的語意只有 tooltip、標籤是空的）、`search_page_test.dart` 的 `the more button is

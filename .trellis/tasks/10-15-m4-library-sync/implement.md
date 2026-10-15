@@ -364,8 +364,18 @@
 
 （各 PR 合併時寫在這裡，最新的在上面。）
 
+- **PR 2 → PR 3、5**：
+  - 自訂封面（圖片網址）PR 2 沒做：網址的網域屬於某個已安裝插件的允許網域才收（經那個插件的媒體 client 讀），否則提示；PR 3 實作。
+  - 首頁「最近播放」的卡片沒有選單；PR 3 加 `TrackRowMenu`（「加入歌單…」）時一併套用。
+  - expanded 以上的格狀拖曳沒有螢幕閱讀器／鍵盤的替代操作（清單版有 `ReorderableListView` 的上移／下移）；PR 5 或之後決定要不要加自訂 semantics actions。
+- **PR 7、9 → M4a 驗收、PR 13、14**：
+  - B 站多 P 展開沒有真實驗證（實測的官方收藏夾全是單 P）；M4a 驗收在 App 匯入一個含多 P 影片的公開收藏夾。
+  - B 站 `ftype=collect&ctype=21`（訂閱的合集）的網址可能被當成收藏夾 `fid`，沒有實測；遇到再處理。
+  - YouTube、B 站、網易的私人歌單與不存在歌單的真實回應沒有實測；PR 13 擁有者登入時順便驗。
+  - B 站收藏夾增刪（`fav/resource/deal`、`batch-del` 的 `<aid>:2`）出自舊版程式碼，沒有實測；PR 14 驗。
+
 - **PR 8a → PR 7、10**：
-  - 比對鍵分兩池：有 `remote_item_id` 的既有項目只會被同一個 id 比到。PR 7 實測時確認 YouTube 未登入的回應也帶 `setVideoId`；若只有登入才給，改成互相備援（連同 `an entry with a remote item id is only matched by that id` 一起改）。
+  - 比對鍵分兩池：有 `remote_item_id` 的既有項目只會被同一個 id 比到。PR 7 實測：YouTube 匿名回應沒有 `setVideoId`，三個官方插件都不給 `remoteItemId`，所以不會在兩池之間跳；PR 14 的移除改用影片／歌曲 id。
   - PR 10：排程工作傳 `RefreshTrigger(isCurrent: () => context.isCurrent)`；到期選擇不挑 `sourceGone`／`authRequired`；間隔改成不啟用時的取消。
 
 - **PR 12 → PR 13**：

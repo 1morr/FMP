@@ -20,11 +20,14 @@ lib/ui/
   empty_state/         # EmptyState：置中的圖示、標題、說明與動作
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
-  shell/               # AppShell（導覽、內容、播放列三區）、導覽類快捷鍵表、PlaybackShortcuts（播放類快捷鍵表）、
-                       # now_playing_panel（右側面板、把手、面板寬度規則）
+  shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
+                       # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）
+  home/                # 首頁（區塊：最近播放；recentPlaysProvider）
+  library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單；playlistOverviewsProvider）、
+                       # 建立與編輯歌單的對話框（playlist_dialogs）
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
-  history/             # 歷史頁（播放歷史，分頁讀、依日分組）、historyProvider
+  history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
@@ -137,8 +140,18 @@ try {
 
 ## 外殼、快捷鍵與焦點
 
-- 導覽項是 `ShellDestination` 的四個（搜尋｜歷史｜電台｜設定）；頁面放在內容區的 `IndexedStack`（換頁不丟狀態，沒選的
-  頁面焦點被排除），三種導覽元件的項目照它的順序各寫一份。
+- 導覽項是 `ShellDestination` 的五個（首頁｜搜尋｜音樂庫｜電台｜設定）；圖示與文字在 `_destinationLabel` 一份，三種導覽元件
+  照它的順序產生。內容區的 `IndexedStack` 每一格是那個目的地的巢狀 `Navigator`（換頁不丟狀態與內頁，沒選的頁面焦點被排除），
+  根頁在 `_rootPage`。
+- 開一個內頁（在內容區裡、導覽與播放列留著）：`Navigator.of(context).push(MaterialPageRoute(...))`，照 `openHistory` 寫一個
+  `openXxx(context)`；頁面標題前放返回鈕（`ModalRoute.of(context)?.impliesAppBarDismissal`，tooltip `shell.backTooltip`）。返回鍵、
+  Esc、再點導覽項都由外殼處理，頁面不放 `PopScope`。要蓋住整個外殼的全螢幕頁用 `Navigator.of(context, rootNavigator: true)`
+  （或 `rootNavigatorKeyProvider`）；`showDialog` 預設就在根上，`showModalBottomSheet` 預設不是（要蓋住外殼時給
+  `useRootNavigator: true`）。新的全螢幕 route 進 `integration_test/toast_layering_test.dart`。
+- 頁面讀「表一變動就重讀」的本機資料時（首頁的最近播放、音樂庫的歌單卡），provider 照 `recentPlaysProvider`：先訂閱
+  repository 的 `changes()`、再讀一次，之後每次變動再讀（`async*` 依序讀，讀失敗以 `yield* Stream.error` 送出、之後照樣重讀）；
+  讀失敗的 `log.report` 在頁面的 `ref.listen`（同電台頁），不在 build。外殼裡的頁面一直掛著，不要對 join 了 `tracks` 的查詢用
+  `watch()`：每寫一次曲目（每播一首）都會重查。
 - 加一個 App 內快捷鍵（ADR 0024 §決定 8 的表）：
   1. 播放類：`playback_shortcuts.dart` 加一個 `Intent`、`playbackShortcuts` 的一列與
      `PlaybackShortcuts` 的 action（讀控制器放在 `onInvoke` 裡，建構時讀會在沒有後端的環境拋錯）；
@@ -186,7 +199,7 @@ try {
 - 一列的選單用 `TrackRowMenu`（`lib/ui/tracks/`，搜尋結果、歷史、佇列共用）：呼叫端給選單項目與 `builder`
   （把給的「⋯」放在列尾、`openMenu` 接長按），機制（`MenuAnchor`、`childFocusNode`、右鍵 `excludeFromSemantics`、
   「⋯」下方開）改一處。
-- 測試：`h.pumpApp(tester, const HistoryPage())`（要離線橫幅就 `pumpShell` 後點「History」）；寫歷史用
+- 測試：`h.pumpApp(tester, const HistoryPage())`（要外殼與離線橫幅就 `pumpShell` 後 `h.openHistory(tester)`：從音樂庫的「歷史」開）；寫歷史用
   `container.read(playHistoryRepositoryProvider).record(...)`，要包 `tester.runAsync`，之後 `h.loadSettings`
   讓變動的串流與重讀跑完。
 
@@ -379,7 +392,8 @@ try {
   `test/ui/toast/toast_host_test.dart`）。
 - 外殼與頁面用 `test/ui/support/shell_harness.dart` 的 `ShellHarness`：可搜尋、可解析的假插件
   （`searchSourcesProvider` override）、假後端上的真 `PlaybackController`、記憶體資料庫、英文
-  介面。`pumpShell` 開整個外殼，`pumpApp` 開單一個 widget，`play` 直接開始播。
+  介面。`pumpShell` 開整個外殼（再點 `at` 的導覽項，預設搜尋；App 本身開在首頁，要測首頁給 `at: ShellDestination.home`），
+  `open` 點導覽項（`navigationItem` 是它的 finder），`pumpApp` 開單一個 widget，`play` 直接開始播。
 - golden（`alchemist`，只比 CI 版：文字畫成色塊、不畫陰影，`test/flutter_test_config.dart`
   關掉平台版）：一個情境一個 `goldenTest`、不用 `GoldenTestScenario`（它的名稱標籤在 Windows 與
   Linux 差一個像素）。更新：`flutter test --update-goldens <檔案>`，產生的圖在旁邊的

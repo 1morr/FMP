@@ -11,9 +11,13 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/settings/playback_settings.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/ui/history/history_page.dart';
+import 'package:fmp/ui/home/home_page.dart';
+import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
@@ -28,7 +32,8 @@ import '../support/shell_harness.dart';
 const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
 
 void main() {
-  group('navigation per window class (ADR 0024 §決定 3)', () {
+  group('navigation per window class (ADR 0024 §決定 3, ADR 0033 §決定 5)', () {
+    const labels = ['Home', 'Search', 'Library', 'Radio', 'Settings'];
     for (final (width, expected) in [
       (400.0, NavigationBar),
       (700.0, NavigationRail),
@@ -38,7 +43,11 @@ void main() {
     ]) {
       testWidgets('$width wide uses $expected', (tester) async {
         final h = ShellHarness();
-        await h.pumpShell(tester, size: Size(width, 800));
+        await h.pumpShell(
+          tester,
+          size: Size(width, 800),
+          at: ShellDestination.home,
+        );
 
         for (final type in [NavigationBar, NavigationRail, NavigationDrawer]) {
           expect(
@@ -47,7 +56,7 @@ void main() {
             reason: '$type at $width',
           );
         }
-        // 三種導覽元件都是四個項目：搜尋、歷史、電台、設定（ADR 0031 §決定 3）。
+        // 三種導覽元件都是同樣五個項目（ADR 0033 §決定 5）。
         final count = switch (expected) {
           NavigationBar =>
             tester
@@ -66,8 +75,8 @@ void main() {
                 .whereType<NavigationDrawerDestination>()
                 .length,
         };
-        expect(count, 4, reason: 'destinations at $width');
-        for (final label in ['Search', 'History', 'Radio', 'Settings']) {
+        expect(count, 5, reason: 'destinations at $width');
+        for (final label in labels) {
           expect(
             find.descendant(
               of: find.byType(expected),
@@ -77,9 +86,9 @@ void main() {
             reason: '$label at $width',
           );
         }
-        // 順序：搜尋｜歷史｜電台｜設定。
+        // 順序：首頁｜搜尋｜音樂庫｜電台｜設定。
         final xs = [
-          for (final label in ['Search', 'History', 'Radio', 'Settings'])
+          for (final label in labels)
             tester.getCenter(
               find.descendant(
                 of: find.byType(expected),
@@ -94,38 +103,41 @@ void main() {
       });
     }
 
-    testWidgets('selecting History shows the history page', (tester) async {
+    testWidgets('the app opens on Home', (tester) async {
       final h = ShellHarness();
-      await h.pumpShell(tester);
+      await h.pumpShell(tester, at: ShellDestination.home);
 
-      await tester.tap(find.text('History'));
-      await tester.pump();
-
-      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
-      expect(find.byType(SearchPage).hitTestable(), findsNothing);
+      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
+        ShellDestination.home.index,
+      );
     });
 
-    testWidgets('selecting Radio shows the radio page', (tester) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester);
+    for (final (destination, page) in [
+      (ShellDestination.search, SearchPage),
+      (ShellDestination.library, LibraryPage),
+      (ShellDestination.radio, RadioPage),
+      (ShellDestination.settings, SettingsPage),
+    ]) {
+      testWidgets('selecting ${destination.name} shows its page', (
+        tester,
+      ) async {
+        final h = ShellHarness();
+        await h.pumpShell(
+          tester,
+          at: ShellDestination.home,
+          collapsePanel: true,
+        );
 
-      await tester.tap(find.text('Radio'));
-      await tester.pump();
+        await h.open(tester, destination);
 
-      expect(find.byType(RadioPage).hitTestable(), findsOneWidget);
-      expect(find.byType(SearchPage).hitTestable(), findsNothing);
-    });
-
-    testWidgets('selecting a destination switches the page', (tester) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester, collapsePanel: true);
-      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
-
-      await tester.tap(find.text('Settings'));
-      await tester.pump();
-      expect(find.byType(SettingsPage).hitTestable(), findsOneWidget);
-      expect(find.byType(SearchPage).hitTestable(), findsNothing);
-    });
+        expect(find.byType(page).hitTestable(), findsOneWidget);
+        expect(find.byType(HomePage).hitTestable(), findsNothing);
+      });
+    }
 
     testWidgets('pages read the width of the content area', (tester) async {
       final h = ShellHarness();
@@ -135,6 +147,244 @@ void main() {
       await tester.pump();
 
       expect(find.byType(VerticalDivider), findsNothing);
+    });
+  });
+
+  // ADR 0033 §決定 5：每個目的地有自己的巢狀 Navigator，內頁在內容區裡開。
+  group('nested navigation', () {
+    Future<List<MethodCall>> recordSystemPops(WidgetTester tester) async {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'SystemNavigator.pop') calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      return calls;
+    }
+
+    Future<void> back(WidgetTester tester) async {
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    }
+
+    for (final size in const [Size(400, 800), Size(1400, 800)]) {
+      testWidgets('at ${size.width} History opens inside Library; the '
+          'navigation and the player bar stay', (tester) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester, size: size, at: ShellDestination.home);
+        await h.play(tester, [summary('a')]);
+        await h.openHistory(tester);
+
+        expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+        expect(find.byType(LibraryPage).hitTestable(), findsNothing);
+        expect(find.byType(PlayerBar).hitTestable(), findsOneWidget);
+        expect(
+          ShellHarness.navigationItem(ShellDestination.library).hitTestable(),
+          findsOneWidget,
+        );
+        // 內頁在內容區裡：在導覽元件旁邊或上面，不蓋住它。
+        final page = tester.getRect(find.byType(HistoryPage));
+        final player = tester.getRect(find.byType(PlayerBar));
+        expect(page.bottom, lessThanOrEqualTo(player.top));
+      });
+    }
+
+    testWidgets('the back key closes the inner page first, then goes Home', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      final pops = await recordSystemPops(tester);
+      await h.openHistory(tester);
+
+      await back(tester);
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+      expect(find.byType(HistoryPage), findsNothing);
+
+      await back(tester);
+      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(pops, isEmpty);
+    });
+
+    testWidgets('on Home the back key closes "View all" before leaving', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(playHistoryRepositoryProvider)
+            .record(
+              summary('a').toTrackInfo(),
+              playedAt: DateTime(2026, 10, 15, 12),
+              limit: 100,
+            ),
+      );
+      await h.loadSettings(tester);
+      final pops = await recordSystemPops(tester);
+
+      await tester.tap(find.text('View all'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+      expect(find.byType(HomePage).hitTestable(), findsNothing);
+
+      await back(tester);
+      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(pops, isEmpty, reason: 'the inner page held the back key');
+
+      await back(tester);
+      expect(pops, hasLength(1));
+    });
+
+    testWidgets('Esc closes the inner page; at the root it does nothing', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+      expect(find.byType(HistoryPage), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('the back button of the inner page closes it', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await tester.tap(find.byTooltip('Back (Esc)'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+      expect(find.byTooltip('Back (Esc)'), findsNothing);
+    });
+
+    testWidgets('selecting the current destination again goes back to its '
+        'root', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await h.open(tester, ShellDestination.library);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+      expect(find.byType(HistoryPage), findsNothing);
+    });
+
+    testWidgets('another destination keeps its inner page', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await h.open(tester, ShellDestination.search);
+      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+      await h.open(tester, ShellDestination.library);
+
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+    });
+
+    // 選單開在巢狀 Navigator 的 overlay 裡（在外殼的快捷鍵底下）：以滑鼠打開時焦點在「⋯」上，
+    // Esc 要先關選單，不是退出內頁。
+    testWidgets('Esc closes a menu on an inner page before the page', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(playHistoryRepositoryProvider)
+            .record(
+              summary('a').toTrackInfo(),
+              playedAt: DateTime(2026, 10, 15, 12),
+              limit: 100,
+            ),
+      );
+      await h.loadSettings(tester);
+      await h.openHistory(tester);
+
+      await tester.tap(find.byTooltip('More options').first);
+      await tester.pump();
+      expect(find.text('Remove from history'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Remove from history'), findsNothing);
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(HistoryPage), findsNothing);
+    });
+
+    // 對話框與播放頁在根 Navigator 上，蓋住整個外殼：返回鍵與 Esc 先關它們，內頁留著。
+    testWidgets('a dialog over an inner page closes first', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.byType(HistoryPage)),
+          builder: (_) => const AlertDialog(title: Text('A dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('A dialog'), findsNothing);
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.byType(HistoryPage)),
+          builder: (_) => const AlertDialog(title: Text('A dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await back(tester);
+      expect(find.text('A dialog'), findsNothing);
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('the player page over an inner page closes first', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.play(tester, [summary('a')]);
+      await h.openHistory(tester);
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byKey(PlayerBar.titleKey),
+              matching: find.byType(Text),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsOneWidget);
+
+      await back(tester);
+
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
     });
   });
 
@@ -523,6 +773,45 @@ void main() {
       expect(field.focusNode.hasPrimaryFocus, isTrue);
     });
 
+    testWidgets('Ctrl+F from an inner page of another destination', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await chord(tester, LogicalKeyboardKey.keyF);
+      await tester.pump();
+
+      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+      final field = tester.widget<EditableText>(find.byType(EditableText));
+      expect(field.focusNode.hasPrimaryFocus, isTrue);
+    });
+
+    // 搜尋框在搜尋目的地的根頁：搜尋自己有內頁時，Ctrl+F 先退回根。
+    testWidgets('Ctrl+F from an inner page of Search goes back to its root', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      unawaited(
+        Navigator.of(tester.element(find.byType(SearchPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Center(child: Text('Inner page')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Inner page').hitTestable(), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.keyF);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Inner page'), findsNothing);
+      final field = tester.widget<EditableText>(find.byType(EditableText));
+      expect(field.focusNode.hasPrimaryFocus, isTrue);
+    });
+
     // 已經在那一頁時不換頁、不重建：焦點不能等下一幀（閒著時不會有下一幀）。
     testWidgets('Ctrl+F and Ctrl+, on their own page move focus at once', (
       tester,
@@ -591,8 +880,8 @@ void main() {
       if (context.findAncestorWidgetOfExactType<PlayerBar>() != null) {
         return 'player bar';
       }
-      if (context.findAncestorWidgetOfExactType<SearchPage>() != null ||
-          context.findAncestorWidgetOfExactType<SettingsPage>() != null) {
+      // 頁面都在內容區的 IndexedStack 裡（目的地的根頁與巢狀導覽的內頁）。
+      if (context.findAncestorWidgetOfExactType<IndexedStack>() != null) {
         return 'content';
       }
       return null;
@@ -629,6 +918,24 @@ void main() {
       expect(region(tester), 'navigation');
       await f6(tester);
       expect(region(tester), 'content');
+      await f6(tester);
+      expect(region(tester), 'navigation');
+    });
+
+    // 內頁是巢狀 Navigator 裡的 route（自己的 FocusScope）：F6 進內容區要落在頁面的項目上，
+    // 不是停在 route 的 scope 本身。
+    testWidgets('F6 goes into an inner page and out again', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await f6(tester);
+      expect(region(tester), 'navigation');
+      await f6(tester);
+      expect(region(tester), 'content');
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      expect(focused.findAncestorWidgetOfExactType<HistoryPage>(), isNotNull);
+      expect(FocusManager.instance.primaryFocus, isNot(isA<FocusScopeNode>()));
       await f6(tester);
       expect(region(tester), 'navigation');
     });
@@ -995,7 +1302,7 @@ void main() {
     });
   });
   group('the back key (design §9.1)', () {
-    // 在第一個分頁放行：根 route 沒得 pop，Flutter 呼叫 SystemNavigator.pop。
+    // 在第一個目的地放行：根 route 沒得 pop，Flutter 呼叫 SystemNavigator.pop。
     Future<List<MethodCall>> recordSystemPops(WidgetTester tester) async {
       final calls = <MethodCall>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -1014,32 +1321,38 @@ void main() {
       return calls;
     }
 
-    for (final label in ['History', 'Radio', 'Settings']) {
-      testWidgets('on $label it goes back to Search', (tester) async {
+    for (final destination in [
+      ShellDestination.search,
+      ShellDestination.library,
+      ShellDestination.radio,
+      ShellDestination.settings,
+    ]) {
+      testWidgets('on ${destination.name} it goes back to Home', (
+        tester,
+      ) async {
         final h = ShellHarness();
-        await h.pumpShell(tester);
+        await h.pumpShell(tester, at: ShellDestination.home);
         final pops = await recordSystemPops(tester);
 
-        await tester.tap(find.text(label));
-        await tester.pump();
+        await h.open(tester, destination);
         await tester.binding.handlePopRoute();
         await tester.pump();
 
-        expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+        expect(find.byType(HomePage).hitTestable(), findsOneWidget);
         expect(pops, isEmpty);
       });
     }
 
-    testWidgets('on Search it lets the system leave the app', (tester) async {
+    testWidgets('on Home it lets the system leave the app', (tester) async {
       final h = ShellHarness();
-      await h.pumpShell(tester);
+      await h.pumpShell(tester, at: ShellDestination.home);
       final pops = await recordSystemPops(tester);
 
       await tester.binding.handlePopRoute();
       await tester.pump();
 
       expect(pops, hasLength(1));
-      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
     });
   });
 }

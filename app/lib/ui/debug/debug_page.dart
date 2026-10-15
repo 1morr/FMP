@@ -37,11 +37,12 @@ enum DebugSection {
 }
 
 /// 從設定頁開 Debug 頁（ADR 0025 §決定 1、2）。[onShowCacheSettings] 是概覽的「快取用量」：
-/// 頁面先關掉自己再呼叫它（設定頁選「網路」）。
+/// 頁面先關掉自己再呼叫它（設定頁選「網路」）。推在根 Navigator 上：設定頁在外殼的巢狀
+/// 導覽裡，Debug 頁不在外殼底下（播放類快捷鍵在這一頁不作用）。
 Future<void> openDebugPage(
   BuildContext context, {
   required VoidCallback onShowCacheSettings,
-}) => Navigator.of(context).push(
+}) => Navigator.of(context, rootNavigator: true).push(
   MaterialPageRoute<void>(
     builder: (_) => DebugPage(onShowCacheSettings: onShowCacheSettings),
   ),

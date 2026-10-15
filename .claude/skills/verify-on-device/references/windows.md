@@ -69,6 +69,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/window_shot.ps1 -Atta
 - **中文輸入法**：這台機器預設是中文輸入法時，`SendKeys` 打的英數字會先進組字，第一個 Enter 只是送出
   組字、第二個才觸發搜尋；空白鍵會拿去選字（「a」＋空白鍵變「日」）。送出搜尋就連按兩次 Enter；要驗
   「輸入框內空白鍵只輸入空格」看 log 裡沒有 `Playback state` 即可，或在 Android 用 `adb shell input text`。
+  輸入法在中文模式時也可能整串吃掉：框架收不到任何按鍵事件，輸入框只留一個空白的組字（M4 PR 2 實機，
+  一度被誤判成 App 的回歸）。打字前先對 FMP Dev 視窗跑 `scripts/ime_off.ps1`（只關這個視窗的輸入法，
+  印出 `open=0` 才算關掉）。
+- **不要跨行程最小化再還原來搶前景**（`ShowWindow` 的 `SW_MINIMIZE`／`SW_RESTORE`）：App 的 lifecycle
+  會停在 `inactive` 回不到 `resumed`，Flutter 把焦點暫放在根範圍，外殼的快捷鍵（Esc、Ctrl+F、F6）全部
+  沒反應，看起來像快捷鍵壞了。用 `msaa_tree.ps1 -Click` 拉前景（`AttachThreadInput`＋`SetWindowPos`），
+  非得最小化時改送 `WM_SYSCOMMAND` 的 `SC_MINIMIZE`／`SC_RESTORE`。
 - **整合測試會蓋掉 dev 產物**：`flutter test integration_test/... -d windows` 建到同一個
   `build\windows\x64\dev\runner\Debug\fmp.exe`，跑完後那裡是測試版，還可能留下一個沒有視窗、沒有 log
   的 `fmp.exe`（占住單一實例，之後啟動會直接結束）。跑完整合測試先結束它，再

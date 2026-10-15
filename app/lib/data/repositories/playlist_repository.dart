@@ -168,6 +168,36 @@ final class PlaylistRemote {
       'PlaylistRemote($playlistId, $pluginId/$remoteId, $status)';
 }
 
+/// 歌單卡要的一張歌單（音樂庫、之後的首頁「我的歌單」）：歌單本身、首數，與第一首
+/// （沒有自訂封面時用它的封面，design §10.5）。
+@immutable
+final class PlaylistOverview {
+  const PlaylistOverview({
+    required this.playlist,
+    required this.trackCount,
+    this.firstTrack,
+  });
+
+  final Playlist playlist;
+  final int trackCount;
+
+  /// 依（`position`, `id`）的第一首；空歌單是 `null`。
+  final TrackInfo? firstTrack;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PlaylistOverview &&
+      other.playlist == playlist &&
+      other.trackCount == trackCount &&
+      other.firstTrack == firstTrack;
+
+  @override
+  int get hashCode => Object.hash(playlist, trackCount, firstTrack);
+
+  @override
+  String toString() => 'PlaylistOverview($playlist, $trackCount)';
+}
+
 /// `playlists`、`playlist_entries` 與 `playlist_remote` 的存取（M4 design §3.1）。
 final class PlaylistRepository {
   PlaylistRepository(this._database);
@@ -182,6 +212,51 @@ final class PlaylistRepository {
           ]))
           .watch()
           .map((rows) => [for (final row in rows) _fromRow(row)]);
+
+  /// 全部歌單的卡片資料（首數、第一首），順序同 [watchAll]。一個查詢：首數與第一首的
+  /// 曲目鍵是相關子查詢。畫面以 [changes] 重讀，不用 `watch()`：join 了 `tracks`，
+  /// `watch()` 會在每次寫曲目（每播一首歌的歷史）時都重查。
+  Future<List<PlaylistOverview>> overviews() async {
+    final playlists = _database.playlistsTable;
+    final tracks = _database.tracksTable;
+    final counted = _database.alias(_database.playlistEntriesTable, 'counted');
+    final first = _database.alias(_database.playlistEntriesTable, 'first');
+    final trackCount = subqueryExpression<int>(
+      _database.selectOnly(counted)
+        ..addColumns([countAll()])
+        ..where(counted.playlistId.equalsExp(playlists.id)),
+    );
+    final firstKey = subqueryExpression<String>(
+      _database.selectOnly(first)
+        ..addColumns([first.trackKey])
+        ..where(first.playlistId.equalsExp(playlists.id))
+        ..orderBy([
+          OrderingTerm.asc(first.position),
+          OrderingTerm.asc(first.id),
+        ])
+        ..limit(1),
+    );
+    final query =
+        _database.select(playlists).join([
+            leftOuterJoin(tracks, tracks.trackKey.equalsExp(firstKey)),
+          ])
+          ..addColumns([trackCount])
+          ..orderBy([
+            OrderingTerm.asc(playlists.sortOrder),
+            OrderingTerm.asc(playlists.id),
+          ]);
+    return [
+      for (final row in await query.get())
+        PlaylistOverview(
+          playlist: _fromRow(row.readTable(playlists)),
+          trackCount: row.read(trackCount) ?? 0,
+          firstTrack: switch (row.readTableOrNull(tracks)) {
+            final track? => TracksRepository.toTrackInfo(track),
+            null => null,
+          },
+        ),
+    ];
+  }
 
   /// 建一張本機（`local`）歌單，加在清單最後，回傳新歌單的 id。匯入與 Mix 歌單要連同
   /// 自己的欄位一起寫（`playlist_remote`、Mix 三欄的 CHECK），由建它們的 PR 另加寫入口。

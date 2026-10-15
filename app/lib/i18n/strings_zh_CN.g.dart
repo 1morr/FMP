@@ -63,6 +63,13 @@ class TranslationsZhCn extends Translations
   late final Translations$history$zh_CN history =
       Translations$history$zh_CN.internal(_root);
   @override
+  late final Translations$home$zh_CN home = Translations$home$zh_CN.internal(
+    _root,
+  );
+  @override
+  late final Translations$library$zh_CN library =
+      Translations$library$zh_CN.internal(_root);
+  @override
   late final Translations$offline$zh_CN offline =
       Translations$offline$zh_CN.internal(_root);
   @override
@@ -140,6 +147,12 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
 
   // Translations
   @override
+  String get home => '首页';
+  @override
+  String get library => '音乐库';
+  @override
+  String get backTooltip => '返回（Esc）';
+  @override
   String get search => '搜索';
   @override
   String get settings => '设置';
@@ -147,8 +160,6 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   String get searchTooltip => '搜索（Ctrl+F）';
   @override
   String get settingsTooltip => '设置（Ctrl+,）';
-  @override
-  String get history => '历史';
   @override
   String get radio => '电台';
   @override
@@ -296,6 +307,115 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   String get confirm => '清除';
   @override
   String get cleared => '已清除播放历史';
+}
+
+// Path: home
+class Translations$home$zh_CN extends Translations$home$zh_TW {
+  Translations$home$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '首页';
+  @override
+  String get recentlyPlayed => '最近播放';
+  @override
+  String get viewAll => '查看全部';
+  @override
+  String get empty => '这里还没有内容';
+  @override
+  String get emptyHint => '搜索并播放歌曲，或导入歌单';
+}
+
+// Path: library
+class Translations$library$zh_CN extends Translations$library$zh_TW {
+  Translations$library$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '音乐库';
+  @override
+  String get history => '历史';
+  @override
+  String get playlists => '歌单';
+  @override
+  String get newPlaylist => '新建歌单';
+  @override
+  String get empty => '还没有歌单';
+  @override
+  String get emptyHint => '点「新建歌单」创建一个歌单。';
+  @override
+  String trackCount({required Object count}) => '${count} 首';
+  @override
+  String get trackCountOne => '1 首';
+  @override
+  String get local => '本地';
+  @override
+  String get more => '更多选项';
+  @override
+  String get addToQueue => '全部添加到队列';
+  @override
+  String get shuffleToQueue => '随机添加到队列';
+  @override
+  String get addToQueueInMix => '全部添加到队列（Mix 中无法使用）';
+  @override
+  String get shuffleToQueueInMix => '随机添加到队列（Mix 中无法使用）';
+  @override
+  String addedToQueue({required Object name}) => '已将「${name}」添加到队列';
+  @override
+  String addFailed({required Object reason}) => '无法添加到队列：${reason}';
+  @override
+  String get edit => '编辑';
+  @override
+  String get delete => '删除';
+  @override
+  String get deleteTitle => '删除歌单？';
+  @override
+  String deleteBody({required Object name}) =>
+      '「${name}」将被删除，无法恢复。歌曲本身和播放历史不受影响。';
+  @override
+  String get deleted => '已删除歌单';
+  @override
+  String deleteFailed({required Object reason}) => '无法删除歌单：${reason}';
+  @override
+  String get createTitle => '新建歌单';
+  @override
+  String get editTitle => '编辑歌单';
+  @override
+  String get name => '名称';
+  @override
+  String get nameRequired => '请输入名称';
+  @override
+  String get description => '描述（选填）';
+  @override
+  String get cover => '封面';
+  @override
+  String get coverDefault => '第一首歌的封面';
+  @override
+  String get create => '创建';
+  @override
+  String get save => '保存';
+  @override
+  String get cancel => '取消';
+  @override
+  String get created => '已创建歌单';
+  @override
+  String get saved => '已保存歌单';
+  @override
+  String createFailed({required Object reason}) => '无法创建歌单：${reason}';
+  @override
+  String saveFailed({required Object reason}) => '无法保存歌单：${reason}';
+  @override
+  String get reorder => '拖动以排序';
+  @override
+  String reorderFailed({required Object reason}) => '无法调整歌单顺序：${reason}';
 }
 
 // Path: offline

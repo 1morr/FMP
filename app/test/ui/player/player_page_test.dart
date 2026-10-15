@@ -189,16 +189,15 @@ void main() {
     });
 
     testWidgets('the back key closes only the page', (tester) async {
-      await _pumpPlaying(tester);
-      await tester.tap(find.text('History'));
-      await tester.pumpAndSettle();
+      final h = await _pumpPlaying(tester);
+      await h.openHistory(tester);
       await _openByTap(tester);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
 
       expect(find.byType(PlayerPage), findsNothing);
-      // 外殼還停在歷史頁，沒有被返回鍵帶回搜尋。
+      // 外殼還停在音樂庫裡的歷史頁，沒有被返回鍵退出內頁或帶回首頁。
       expect(find.text('No play history yet'), findsOneWidget);
       expect(find.byType(AppShell), findsOneWidget);
     });

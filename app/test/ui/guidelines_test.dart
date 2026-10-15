@@ -41,6 +41,7 @@ import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/track_detail_parts.dart';
 import 'package:fmp/ui/player/track_details.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
@@ -410,7 +411,7 @@ void main() {
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
           await h.pumpShell(tester, size: size, brightness: brightness);
-          await tester.tap(find.text('History'));
+          await h.openHistory(tester);
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.text('No play history yet'), findsOneWidget);
@@ -425,8 +426,7 @@ void main() {
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
           await h.pumpShell(tester, size: size, brightness: brightness);
-          await tester.tap(find.text('History'));
-          await tester.pump();
+          await h.openHistory(tester);
           final repository = h
               .container(tester)
               .read(playHistoryRepositoryProvider);
@@ -507,6 +507,199 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('Tonight on air'), findsOneWidget);
           expect(find.text('Check failed'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 首頁（M4 PR 2）：沒有內容時的說明；最近播放一排卡片加播放列。
+        testWidgets('home, empty, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.home,
+          );
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('Nothing here yet'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('home with recent plays and the player bar at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.home,
+          );
+          await tester.runAsync(() async {
+            final repository = h
+                .container(tester)
+                .read(playHistoryRepositoryProvider);
+            for (final (index, id) in ['a', 'b', 'c', 'd'].indexed) {
+              await repository.record(
+                summary(
+                  id,
+                  artwork: index.isEven
+                      ? TestArtwork.darkest.artwork
+                      : TestArtwork.lightest.artwork,
+                ).toTrackInfo(),
+                playedAt: DateTime(2026, 10, 15, 8, index),
+                limit: 100,
+              );
+            }
+          });
+          await h.loadSettings(tester);
+          await h.play(tester, [summary('a')]);
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle(const Duration(seconds: 1));
+          expect(find.text('Recently played'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 音樂庫（M4 PR 2）：空的、有歌單（1000 寬時面板開著，內容區是清單；收起面板是格狀）、
+        // 卡片選單、建立對話框與刪除的確認框。
+        Future<ShellHarness> openLibrary(
+          WidgetTester tester, {
+          bool playlists = true,
+          bool collapsePanel = false,
+        }) async {
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.library,
+            collapsePanel: collapsePanel,
+          );
+          if (playlists) {
+            await tester.runAsync(() async {
+              final repository = h
+                  .container(tester)
+                  .read(playlistRepositoryProvider);
+              final road = await repository.create(name: 'Road trip');
+              await repository.addTracks(road, [
+                summary(
+                  'a',
+                  artwork: TestArtwork.darkest.artwork,
+                ).toTrackInfo(),
+                summary('b').toTrackInfo(),
+              ]);
+              await repository.create(name: 'Empty');
+              final one = await repository.create(name: 'Late night');
+              await repository.addTracks(one, [
+                summary(
+                  'c',
+                  artwork: TestArtwork.lightest.artwork,
+                ).toTrackInfo(),
+              ]);
+            });
+          }
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          return h;
+        }
+
+        testWidgets('library, empty, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester, playlists: false);
+          expect(find.text('No playlists yet'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('library with playlists at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester);
+          expect(find.text('Local · 2 songs'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('library with playlists, panel collapsed, at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester, collapsePanel: true);
+          expect(find.text('Late night'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the playlist menu at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester);
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.ancestor(
+                    of: find.text('Road trip'),
+                    matching: find.byType(ListTile),
+                  ),
+                  matching: find.byTooltip('More options'),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Add all to queue'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the new playlist dialog at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester);
+          await tester.tap(find.byTooltip('New playlist'));
+          await tester.pumpAndSettle();
+          await tester.enterText(find.byType(TextField).first, 'Road');
+          await tester.enterText(find.byType(TextField).first, '');
+          await tester.pump();
+          expect(find.text('Enter a name'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the delete confirmation at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester);
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.ancestor(
+                    of: find.text('Empty'),
+                    matching: find.byType(ListTile),
+                  ),
+                  matching: find.byTooltip('More options'),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Delete'));
+          await tester.pumpAndSettle();
+          expect(find.text('Delete the playlist?'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

@@ -30,6 +30,7 @@ import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/home/home_page.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../plugins/plugin_harness.dart';
@@ -97,7 +98,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('opens on search; installed plugins are the sources', (
+  testWidgets('opens on Home; installed plugins are the search sources', (
     tester,
   ) async {
     final database = memoryDatabase();
@@ -125,6 +126,13 @@ void main() {
       }
     }
 
+    // App 開在首頁（ADR 0033 §決定 5）；有可搜尋的插件，所以不是首次啟動引導。
+    await until(find.text('Nothing here yet'));
+    expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+    expect(find.text('Install plugins to start searching'), findsNothing);
+
+    await tester.tap(find.text('Search'));
+    await tester.pump();
     final source = find.widgetWithText(ChoiceChip, 'FMP Test Plugin');
     await until(source);
     expect(source, findsOneWidget);
