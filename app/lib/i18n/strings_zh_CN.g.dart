@@ -525,6 +525,18 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   String get useRemote => '使用远程的';
   @override
   String get useRemoteHint => '下一次刷新会写回远程的值';
+  @override
+  String get refreshInterval => '自动刷新';
+  @override
+  String get refreshIntervalOff => '不启用';
+  @override
+  String get refreshEveryHour => '每小时';
+  @override
+  String refreshEveryHours({required Object count}) => '每 ${count} 小时';
+  @override
+  String get refreshEveryDay => '每天';
+  @override
+  String refreshEveryDays({required Object count}) => '每 ${count} 天';
 }
 
 // Path: playlist

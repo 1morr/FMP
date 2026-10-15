@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/library/playlist_service.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
@@ -11,13 +12,18 @@ import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
+/// 匯入歌單自動刷新間隔的選項（小時；另有「不啟用」＝空，M4 design §10.5）。
+const playlistRefreshIntervalChoices = [1, 6, 12, 24, 48, 72, 168];
+
 /// 歌單對話框填的內容。[artwork] 空＝封面用第一首的。[useRemote] 是匯入歌單按了「使用遠端的」
 /// 的欄位（其餘欄位的覆寫旗標由 `PlaylistService.editImported` 依有沒有改過決定）。
+/// [refreshIntervalHours] 只有編輯匯入歌單時有意義（空＝不啟用），其他情況是 `null`。
 typedef PlaylistInput = ({
   String name,
   String? description,
   List<TrackArtwork> artwork,
   Set<ImportedField> useRemote,
+  int? refreshIntervalHours,
 });
 
 /// 建立（[editing] 為空）或編輯歌單的對話框（M4 design §10.5）：名稱（必填）、描述、封面。
@@ -29,7 +35,8 @@ typedef PlaylistInput = ({
 /// 照舊保留，不再檢查（那個插件之後被停用也改得了名稱）。
 ///
 /// 編輯匯入歌單時給 [remote]：已被本機覆寫的欄位（名稱、描述、封面）下面多一顆「使用遠端的」，
-/// 按了之後下一次刷新把遠端的值寫回來（design §10.5）；改過的欄位送出時自動算成覆寫。
+/// 按了之後下一次刷新把遠端的值寫回來（design §10.5）；改過的欄位送出時自動算成覆寫。同時多一個
+/// 「自動刷新」間隔的選單（[playlistRefreshIntervalChoices] 或不啟用）。
 Future<PlaylistInput?> showPlaylistDialog(
   BuildContext context, {
   PlaylistOverview? editing,
@@ -78,6 +85,9 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
 
   /// 選了「自訂」。
   late var _custom = _initialArtwork.isNotEmpty;
+
+  /// 自動刷新間隔（小時，空＝不啟用）；只有匯入歌單用得到。
+  late int? _refreshInterval = widget.remote?.refreshIntervalHours;
 
   /// 按了「使用遠端的」的欄位；之後再改那個欄位就取消（改過的值要留）。
   final _useRemote = <ImportedField>{};
@@ -131,6 +141,7 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
       description: _description.text,
       artwork: artwork,
       useRemote: {..._useRemote},
+      refreshIntervalHours: widget.remote == null ? null : _refreshInterval,
     ));
   }
 
@@ -176,6 +187,33 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
     _custom = false;
     _coverUrl.clear();
   });
+
+  String _intervalLabel(Translations t, int? hours) => switch (hours) {
+    null => t.library.refreshIntervalOff,
+    1 => t.library.refreshEveryHour,
+    24 => t.library.refreshEveryDay,
+    final h when h % 24 == 0 => t.library.refreshEveryDays(count: h ~/ 24),
+    final h => t.library.refreshEveryHours(count: h),
+  };
+
+  Widget _intervalField(Translations t) {
+    // 目前的值不在選項裡（例如以前存的）時也列出來、依大小排在中間，才選得到它。
+    final choices = {
+      ...playlistRefreshIntervalChoices,
+      ?_refreshInterval,
+    }.toList()..sort();
+    return DropdownButtonFormField<int?>(
+      initialValue: _refreshInterval,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: t.library.refreshInterval),
+      items: [
+        DropdownMenuItem(child: Text(_intervalLabel(t, null))),
+        for (final hours in choices)
+          DropdownMenuItem(value: hours, child: Text(_intervalLabel(t, hours))),
+      ],
+      onChanged: (hours) => setState(() => _refreshInterval = hours),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -297,6 +335,10 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
                 );
               },
             ),
+            if (widget.remote != null) ...[
+              SizedBox(height: spacing.x4),
+              _intervalField(ref.watch(translationsProvider)),
+            ],
           ],
         ),
       ),

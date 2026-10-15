@@ -27,7 +27,8 @@
     "10-15-m4-playlist-detail",
     "10-15-m4-home-sections",
     "10-15-m4-matching-core",
-    "10-15-m4-import-ui"
+    "10-15-m4-import-ui",
+    "10-16-m4-refresh-job"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

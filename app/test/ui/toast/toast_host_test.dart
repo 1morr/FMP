@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -32,6 +34,7 @@ void main() {
         container: container,
         child: MaterialApp(
           navigatorKey: navigatorKey,
+          navigatorObservers: [container.read(toastRouteObserverProvider)],
           theme: buildAppTheme(
             Brightness.light,
             fontFamilyFallback: const [],
@@ -176,6 +179,71 @@ void main() {
       await tester.pumpAndSettle();
 
       await expectOnTop(tester, toaster);
+    });
+  });
+
+  // 推上去之前就在的那則會蓋住新對話框的動作鈕（手機上外殼的位移正好落在按鈕列），所以收起；
+  // 開著之後才送的照常在最上層。
+  group('a dialog or sheet puts the current toast away', () {
+    for (final (name, open) in <(String, void Function(BuildContext))>[
+      (
+        'a dialog',
+        (context) => showDialog<void>(
+          context: context,
+          builder: (_) => const AlertDialog(content: Text('對話框')),
+        ),
+      ),
+      (
+        'a bottom sheet',
+        (context) => showModalBottomSheet<void>(
+          context: context,
+          builder: (_) => const SizedBox(height: 300, child: Text('面板')),
+        ),
+      ),
+    ]) {
+      testWidgets(name, (tester) async {
+        final toaster = await pumpHost(tester);
+        toaster.success('已儲存');
+        await tester.pumpAndSettle();
+        expect(find.text('已儲存'), findsOneWidget);
+
+        open(navigatorKey.currentContext!);
+        await tester.pumpAndSettle();
+        expect(find.text('已儲存'), findsNothing);
+
+        toaster.warning('開著之後才送');
+        await tester.pumpAndSettle();
+        expect(find.text('開著之後才送').hitTestable(), findsOneWidget);
+      });
+    }
+
+    testWidgets('a menu or a full-screen route does not', (tester) async {
+      final toaster = await pumpHost(tester);
+      toaster.success('還在');
+      await tester.pumpAndSettle();
+
+      unawaited(
+        showMenu<void>(
+          context: navigatorKey.currentContext!,
+          position: const RelativeRect.fromLTRB(0, 0, 0, 0),
+          items: const [PopupMenuItem(child: Text('選單'))],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('選單'), findsOneWidget);
+      expect(find.text('還在'), findsOneWidget);
+
+      navigatorKey.currentState!.pop();
+      unawaited(
+        navigatorKey.currentState!.push(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
+            builder: (_) => const Scaffold(body: Text('全螢幕')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('還在'), findsOneWidget);
     });
   });
 

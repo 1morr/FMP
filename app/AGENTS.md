@@ -16,9 +16,9 @@
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 繁簡字表的副本或產生器（`tool/opencc/`） | 先 `dart run tool/opencc/generate_ts_characters.dart`，再跑第一列（產生檔 `lib/core/matching/ts_characters.g.dart` 要提交） |
-| 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（見 § 播放） |
+| 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（見 § 播放） |
 | 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
-| 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
+| 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
 
@@ -1142,7 +1142,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 排程器
 
 `lib/scheduler/background_scheduler.dart`（ADR 0017，M3 PR 17）：會發網路請求的週期工作的唯一擁有者。目前的工作：
-`radio-status:<pluginId>`（§ 電台）與收聽直播時的 `live-info`（§ 播放）；排行與匯入歌單的刷新在 M4。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
+`radio-status:<pluginId>`（§ 電台）、收聽直播時的 `live-info`（§ 播放）與匯入歌單的 `playlist-refresh`（§ 音樂庫）；排行在 M4 後面的 PR。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
 
 登記一個工作：`ref.read(backgroundSchedulerProvider.notifier).register(SchedulerJob(id:, pluginId:, interval:, run:))`。
 
@@ -1189,7 +1189,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 音樂庫
 
-`lib/library/`（ADR 0033 §決定 2、M4 design §5；排程工作在後面的 PR）：匯入歌單的匯入與刷新（畫面見 § 介面的「音樂庫」「歌單詳情」）。`lib/library/` 用資料、插件與排程器，不 import
+`lib/library/`（ADR 0033 §決定 2、4，M4 design §5、§6.1）：匯入歌單的匯入、刷新與自動刷新（畫面見 § 介面的「音樂庫」「歌單詳情」）。`lib/library/` 用資料、插件與排程器，不 import
 `ui/`；`core/`、`domain/`、`data/`、`scheduler/` 不認得它（閘門：lint `fmp_layer_imports`，見 § Lint）。
 
 - **匯入**（`PlaylistImporter.importUrl`）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
@@ -1208,8 +1208,19 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   完整時舊的被刪、`partial` 時兩個都留著。比對規則在 `PlaylistRefreshSession`（`lib/data/`，要查表），頁迴圈與完整性在 `PlaylistRefresher`。
 - **過期**：每個寫入先在同一個 transaction 內檢查代際仍是 g 與 `RefreshTrigger.isCurrent`，另外插件還是註冊表裡那一個（停用、移除、更新換掉都算過期）；
   過期就丟掉、不寫，結果是 `RefreshDiscarded`。`RefreshTrigger` 只有 `isCurrent`：手動用 `RefreshTrigger.manual`，排程工作傳
-  `JobContext.isCurrent`（PR 10）。插件已停用或移除：`RefreshSourceUnavailable`，連代際都不動。
-- 閘門：`test/library/playlist_refresher_test.dart`（ADR 0019 §如何確認的刷新差異：新增、移除、順序、元資料、三個覆寫旗標、部分失敗不移除、重複影片保留、
+  `context.isCurrent && !cancelled`（見下面的自動刷新）。插件已停用或移除：`RefreshSourceUnavailable`，連代際都不動。
+- **自動刷新**（`PlaylistRefreshJob`，`FmpApp` 常駐）：登記一次 `playlist-refresh`（`pluginId: null`、間隔 30 分鐘，每張歌單自己的間隔在
+  `playlist_remote.refresh_interval_hours`）。每次執行讀 `PlaylistRepository.dueForRefresh`：`status = active`、有間隔、插件在 `pluginRegistryProvider`
+  清單上且宣告 `importPlaylist`、`last_refreshed_at`（UTC 毫秒）為空或距現在已滿間隔；沒刷新過的最先，其餘由舊到新。逐張交給刷新器（共用那把鎖，
+  手動刷新最多等目前那張）。**單張失敗只寫那張的狀態、繼續下一張；至少一張失敗而沒有任何一張成功才丟錯讓排程器退避**，沒有到期的是成功。失敗的
+  那張不寫 `last_refreshed_at`，下一輪再試；`sourceGone`／`authRequired` 不再被選。`RefreshDiscarded` 與 `RefreshSourceUnavailable`（被取消、
+  過期、歌單刪了、插件中途停用）不計成功也不計失敗。**取消**：工作每張排到時重讀間隔（已改成不啟用就跳過），進行中那張以
+  `watchRefreshIntervals()`（只在執行期間訂閱）看到間隔被改成不啟用（或那一列被刪）就讓 `isCurrent` 變假；插件停用或移除由刷新器自己的
+  `_isLoaded` 檢查處理。編輯匯入歌單的對話框有「自動刷新」間隔（1／6／12／24／48／72／168 小時或不啟用），經 `PlaylistService.setRefreshInterval`
+  寫入（與 `editImported` 分開兩次寫入）。
+- 閘門：`test/library/playlist_refresh_job_test.dart`（到期條件各項與由舊到新、插件不在清單、沒有到期算成功並在間隔滿了之後被選、單張失敗不寫刷新時間且不退避、
+  全部失敗退避、來源失效後不再選、間隔改成不啟用與插件停用時取消、排到前被關掉的跳過且不取消進行中的別張、手動刷新排在目前那張之後與下一張之前、
+  App 看不見時不跑）、`test/library/playlist_refresher_test.dart`（ADR 0019 §如何確認的刷新差異：新增、移除、順序、元資料、三個覆寫旗標、部分失敗不移除、重複影片保留、
   來源失效；比對鍵兩種；完整性三條件各缺一個；中途停下與頁內例外後再刷新；代際與觸發者過期不寫；刷新中途刪歌單；`writable`；FIFO 鎖與例外釋放鎖；插件停用）、
   `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列）、
   `playlist_remote_repository_test.dart`。
@@ -1790,6 +1801,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
   不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
+  根 Navigator 推上對話框或底部面板時收起當下那則（下拉與彈出選單、全螢幕頁不算）：手機上外殼的位移正好落在高一點的對話框的按鈕列，
+  上一個動作留下的提示會蓋住新對話框的「儲存」、吃掉點擊；開著之後才送的照常在它之上。觀察者是 `toastRouteObserverProvider`，
+  包 `ToastHost` 的 `fmpMaterialApp` 要給 `navigatorObservers`（`FmpApp`、`ShellHarness`、`toast_layering_test.dart`），漏給就不會收。
+  閘門：`toast_host_test.dart` 的 `a dialog or sheet puts the current toast away`。
   `Toaster` 同步送出：看狀態變化跳提示時在 `ref.listen` 的 callback 呼叫，不在 `build` 裡（沒有閘門，review 時看）。
 - 提示與錯誤詳細頁（`lib/ui/errors/error_detail_page.dart`，ADR 0023 §決定 4，M3 design §13）：
   - `Toaster.error` 的動作（每則最多一個）：呼叫端給的 `action` 優先；沒給時開發者模式開著附「詳細」，否則 `Unsupported`、
@@ -1865,7 +1880,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果）、首頁（空的、最近播放加播放列、歌單與電台加最近播放）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框）、匯入對話框（不認得的網址）與匯入歌單的編輯對話框（有「使用遠端的」）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框）、匯入對話框（不認得的網址）與匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2074,10 +2089,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
     並停用，同一張不會排第二次（刷新器本身有 FIFO 鎖，但重複按沒有意義）。結果的提示：完整＝已刷新、`partial`＝警告「只讀到一部分，沒有移除任何歌曲」、失敗而網路不是 `online`＝
     「離線中，無法刷新」、其餘失敗照 ADR 0013 的類別表（`Toaster.error`）、插件停用或移除＝`sourceUnavailableProvider` 的字樣、`RefreshDiscarded` 不提示。
-    自動刷新（PR 10）不經這裡，不跳 toast。
+    自動刷新（§ 音樂庫的 `PlaylistRefreshJob`）不經這裡，不跳 toast。
   - **編輯匯入歌單**：同一個對話框（`showPlaylistDialog(editing:, remote:)`），改過的欄位（跟現在的值不同；遠端值不去空白，所以兩邊去掉前後空白再比，沒改的欄位寫回原值）送出時把對應的 `playlist_remote.*_overridden` 設為真
     （`PlaylistService.editImported`、`PlaylistRepository.updateImported`，兩張表一個 transaction）；已被覆寫的欄位下面有「使用遠端的」，按了之後欄位旗標清回假、值先留著，
-    下一次刷新才寫回遠端的值；按了又改那個欄位就取消（改過的值要留）。沒改的欄位維持原本的旗標。自動刷新間隔的欄位在 PR 10。
+    下一次刷新才寫回遠端的值；按了又改那個欄位就取消（改過的值要留）。沒改的欄位維持原本的旗標。另有「自動刷新」間隔選單（`playlistRefreshIntervalChoices` 或不啟用；只有匯入歌單的編輯有，值不在選項裡時也列出來），
+    與目前的值不同才呼叫 `PlaylistService.setRefreshInterval`（`import_ui_test.dart` 的 `the auto refresh interval…`、`an interval that is not one of the choices…`）。
   - **封面多張**：`PlaylistCover` 以 `pickArtwork`（與 `ArtworkImage` 同一個挑法、同一個像素尺寸）挑中的那張找插件（`artworkPluginProvider`），不是第一張：
     匯入歌單的封面常有不同網域的多張，用第一張找插件會經不包含實際挑中那張的插件的媒體 client 而被擋。
   - 閘門：`test/ui/library/library_page_test.dart`（歷史入口、空的說明、建立與必填、取消、編輯、刪除先確認、清單與格狀的拖曳寫入、

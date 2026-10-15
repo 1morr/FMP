@@ -101,6 +101,11 @@ final class PlaylistService {
     );
   }
 
+  /// 改匯入歌單的自動刷新間隔（小時，[hours] 空＝不啟用）。進行中的自動刷新由排程工作
+  /// 看到資料庫的變動後取消（M4 design §5.2）。
+  Future<void> setRefreshInterval(int playlistId, int? hours) =>
+      _repository.setRefreshInterval(playlistId, hours);
+
   /// 刪歌單與它的項目（呼叫端先確認）。
   Future<void> delete(int id) => _repository.delete(id);
 

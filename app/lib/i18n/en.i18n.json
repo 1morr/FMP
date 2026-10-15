@@ -176,7 +176,13 @@
     "statusAuth": "Sign in to refresh this playlist",
     "retry": "Retry",
     "useRemote": "Use the remote's",
-    "useRemoteHint": "Takes the remote's value on the next refresh"
+    "useRemoteHint": "Takes the remote's value on the next refresh",
+    "refreshInterval": "Auto refresh",
+    "refreshIntervalOff": "Off",
+    "refreshEveryHour": "Every hour",
+    "refreshEveryHours": "Every {count} hours",
+    "refreshEveryDay": "Every day",
+    "refreshEveryDays": "Every {count} days"
   },
   "playlist": {
     "more": "More options",
