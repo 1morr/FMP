@@ -287,6 +287,43 @@ void main() {
     expect(shown.problems.join(), contains('"album" is empty'));
   });
 
+  test('an importPlaylist case fetches the first page and shows it', () async {
+    plugin('test_plugin');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.importPlaylist);
+
+    final shown = result(
+      container,
+      'fmp-test',
+      PluginCapability.importPlaylist,
+    )!;
+    expect(shown.outcome, DevCaseOutcome.passed, reason: '${shown.problems}');
+    expect(shown.value, contains('Playlist tone 440 Hz'));
+    expect(shown.value, contains('Playlist tone 880 Hz'));
+  });
+
+  test('an importPlaylist case that expects too many items fails', () async {
+    final directory = plugin('test_plugin');
+    contract.edit(
+      directory,
+      'checks.json',
+      '"minItems": 3, "nonEmpty": ["track"]',
+      '"minItems": 4, "nonEmpty": ["track"]',
+    );
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.importPlaylist);
+
+    final shown = result(
+      container,
+      'fmp-test',
+      PluginCapability.importPlaylist,
+    )!;
+    expect(shown.outcome, DevCaseOutcome.failed);
+    expect(shown.problems.join(), contains('expected at least 4 items'));
+  });
+
   test('a mix case that expects too many tracks fails', () async {
     final directory = plugin('test_plugin');
     contract.edit(directory, 'checks.json', '"minItems": 5', '"minItems": 6');

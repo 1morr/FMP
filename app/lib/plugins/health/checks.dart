@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，login 跑 loginVerify）；
+// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，login 跑 loginVerify）；
 // 其他能力的鍵是不認得的欄位，整個檔案拒收。
 //
 // 形狀與 `lib/plugins/types/fmp-plugin.d.ts` 的 `FmpChecks` 等一致
@@ -26,12 +26,14 @@ const checkShapes = <String, JsonShape>{
     'mix': false,
     'multiPart': false,
     'trackDetail': false,
+    'importPlaylist': false,
     'login': false,
   },
   'FmpLiveCheck': {'input': true, 'expect': true},
   'FmpMixCheck': {'input': true, 'expect': true},
   'FmpMultiPartCheck': {'input': true, 'expect': true},
   'FmpTrackDetailCheck': {'input': true, 'expect': true},
+  'FmpImportPlaylistCheck': {'input': true, 'expect': true},
   'FmpSearchCheck': {'input': true, 'expect': true},
   'FmpResolveStreamCheck': {
     'input': true,
@@ -60,6 +62,10 @@ const _capabilities = {
     check: 'FmpTrackDetailCheck',
     item: 'TrackDetail',
   ),
+  PluginCapability.importPlaylist: (
+    check: 'FmpImportPlaylistCheck',
+    item: 'RemotePlaylistItem',
+  ),
   PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
@@ -77,7 +83,7 @@ final class PluginCheck {
 
   /// [SearchQuery]、[StreamRequest]、[LiveRoomQuery]（live 的 `liveStatus`）、
   /// [MixSeedQuery]（mix 以 seed 開始）、[MultiPartQuery]（multiPart）、
-  /// [TrackDetailQuery]（trackDetail）或
+  /// [TrackDetailQuery]（trackDetail）、[PlaylistUrlQuery]（importPlaylist）或
   /// [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
@@ -109,11 +115,32 @@ final class PluginCheck {
         final MixSeedQuery query => plugin.mix(query),
         final MultiPartQuery query => plugin.multiPart(query),
         final TrackDetailQuery query => plugin.trackDetail(query),
+        final PlaylistUrlQuery query => _importFirstPage(plugin, query),
         final LoginCredentials fixture => plugin.loginVerify(
           credentials ?? fixture,
         ),
         _ => throw StateError('No host method for ${capability.wireName}'),
       };
+}
+
+/// importPlaylist 案例：`playlistFromUrl` 認得網址，再取那張歌單的第一頁。認不得
+/// （`null`）或回 Mix 都不是歌單，案例失敗。
+Future<PlaylistPage> _importFirstPage(
+  SourcePlugin plugin,
+  PlaylistUrlQuery query,
+) async {
+  final ref = await plugin.playlistFromUrl(query);
+  if (ref is! PlaylistIdRef) {
+    throw ParseError(
+      pluginId: plugin.manifest.id,
+      cause: FormatException(
+        'playlistFromUrl: expected a playlistId for ${query.url}, got '
+        '${ref == null ? 'null' : 'a mixSeed'}',
+      ),
+      stackTrace: StackTrace.current,
+    );
+  }
+  return plugin.importPlaylist(PlaylistPageQuery(playlistId: ref.playlistId));
 }
 
 /// 解析 checks.json；格式不對拋 [FormatException]。
@@ -156,6 +183,10 @@ PluginCheck _check(
       PluginCapability.mix => _mixSeedQuery(fields.raw('input'), path),
       PluginCapability.multiPart => _multiPartQuery(fields.raw('input'), path),
       PluginCapability.trackDetail => _trackDetailQuery(
+        fields.raw('input'),
+        path,
+      ),
+      PluginCapability.importPlaylist => _playlistUrlQuery(
         fields.raw('input'),
         path,
       ),
@@ -305,6 +336,15 @@ TrackDetailQuery _trackDetailQuery(Object? json, String path) {
     sourceId: fields.string('sourceId'),
     cid: fields.optionalInteger('cid'),
   );
+}
+
+PlaylistUrlQuery _playlistUrlQuery(Object? json, String path) {
+  final fields = JsonFields(
+    json,
+    sourceDtoShapes['PlaylistUrlQuery']!,
+    path: '$path.input',
+  );
+  return PlaylistUrlQuery(url: fields.string('url'));
 }
 
 StreamRequest _streamRequest(Object? json, String path) {
@@ -473,7 +513,18 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
     for (final part in result.parts) multiPartFields(part),
   ],
   final TrackDetail detail => [trackDetailFields(detail)],
+  final PlaylistPage page => [
+    for (final item in page.items) playlistItemFields(item),
+  ],
   _ => throw ArgumentError.value(result, 'result'),
+};
+
+/// [RemotePlaylistItem] 的欄位，名稱同 `sourceDtoShapes['RemotePlaylistItem']`（`track`
+/// 是 [trackFields]）。
+Map<String, Object?> playlistItemFields(RemotePlaylistItem item) => {
+  'track': trackFields(item.track),
+  'remoteItemId': item.remoteItemId,
+  'unavailable': item.unavailable,
 };
 
 /// [TrackDetail] 的欄位，名稱同 `sourceDtoShapes['TrackDetail']`（`publishedAt` 是 UTC
@@ -515,6 +566,8 @@ Map<String, Object?> trackFields(TrackSummary track) => {
   'durationMs': track.duration?.inMilliseconds,
   'artwork': track.artwork,
   'partCount': track.partCount,
+  'partIndex': track.partIndex,
+  'parentTitle': track.parentTitle,
 };
 
 /// [MultiPart] 的欄位，名稱同 `sourceDtoShapes['MultiPartItem']`。

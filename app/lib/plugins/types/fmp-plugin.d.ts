@@ -39,7 +39,7 @@ export interface FmpPluginManifest {
   apiVersion: 1;
   /**
    * 不能是空的；每個能力要有同名的匯出函式，反之亦然。'login' 的匯出是 loginVerify
-   * 等幾個，'live' 的是 liveSearch 等四個（FmpPluginExports）。
+   * 等幾個，'live' 的是 liveSearch 等四個、'importPlaylist' 的是 playlistFromUrl 與 importPlaylist（FmpPluginExports）。
    */
   capabilities: FmpCapability[];
   /**
@@ -141,6 +141,13 @@ export interface TrackSummary {
   artwork?: Artwork[] | null;
   /** 搜尋結果知道的分 P 數（正整數），只是提示：沒有是不知道（宿主仍顯示展開鈕），1 是確定單 P。沒宣告 multiPart 能力時宿主不看它。 */
   partCount?: number | null;
+  /**
+   * 分 P 曲目的序號（正整數，從 1 起）。與 parentTitle 要嘛都給、要嘛都不給（只給一個是
+   * ParseError）。回傳分 P 曲目時一定要給，宿主的 upsert 才不會清掉這兩欄。
+   */
+  partIndex?: number | null;
+  /** 分 P 曲目所屬影片的標題（不能是空的）；見 partIndex。 */
+  parentTitle?: string | null;
 }
 
 export interface Artwork {
@@ -332,6 +339,65 @@ export interface TrackStat {
   count: number;
 }
 
+/** playlistFromUrl 的輸入。 */
+export interface PlaylistUrlQuery {
+  url: string;
+}
+
+/** playlistFromUrl 認得網址時的回傳值之一：一張歌單。 */
+export interface PlaylistIdRef {
+  /** 音源內的歌單 id（不透明），不能是空的；之後原樣交給 importPlaylist。 */
+  playlistId: string;
+}
+
+/** playlistFromUrl 認得網址時的回傳值之二：一個 Mix。只有同時宣告 'mix' 的插件能回。 */
+export interface PlaylistMixSeedRef {
+  mixSeed: MixSeed;
+}
+
+/** importPlaylist 的輸入：第一頁沒有 cursor，之後是上一頁回傳的。 */
+export interface PlaylistPageQuery {
+  playlistId: string;
+  cursor?: string | null;
+}
+
+/** importPlaylist 的回傳值：歌單的一頁。 */
+export interface PlaylistPage {
+  /** 每一頁都要給。 */
+  playlist: RemotePlaylist;
+  /** 這一頁的項目；可以是空陣列（空歌單）。 */
+  items: RemotePlaylistItem[];
+  /**
+   * 插件的不透明字串（不能是空字串）；沒有或 null 表示最後一頁。完整＝每一頁都成功、
+   * 最後 cursor 為空、有 total 時筆數相等；只有完整，宿主才套用移除與順序。
+   */
+  cursor?: string | null;
+  /**
+   * 整張歌單的筆數（非負整數）。只在確定等於會回傳的筆數時才給（例如來源的標頭筆數
+   * 含被隱藏的項目就不要給）。
+   */
+  total?: number | null;
+}
+
+/** 遠端歌單本身的資料。 */
+export interface RemotePlaylist {
+  title: string;
+  description?: string | null;
+  artwork?: Artwork[] | null;
+  ownerName?: string | null;
+  /** 這張是登入的帳號自己的、可以寫；null 或沒有＝這次不知道（沒帶憑證），宿主保留上次的值。 */
+  writable?: boolean | null;
+}
+
+/** 遠端歌單的一個項目。 */
+export interface RemotePlaylistItem {
+  track: TrackSummary;
+  /** 遠端項目的 id（YouTube 的 setVideoId），移除要用；不能是空的。 */
+  remoteItemId?: string | null;
+  /** 遠端標的失效（被刪、被隱藏）。 */
+  unavailable?: boolean | null;
+}
+
 /** multiPart 的輸入。 */
 export interface MultiPartQuery {
   sourceId: string;
@@ -498,6 +564,20 @@ export interface FmpPluginExports {
   multiPart?(query: MultiPartQuery): MultiPartResult | Promise<MultiPartResult>;
   /** 'trackDetail' 能力：曲目的詳細資料。能力名稱就是匯出名稱。 */
   trackDetail?(query: TrackDetailQuery): TrackDetail | Promise<TrackDetail>;
+  /**
+   * 'importPlaylist' 能力的兩個匯出，宣告就兩個都要匯出（ADR 0032 §決定 2）；能力名稱
+   * 本身不是匯出，但第二個與它同名。不是這個插件的網址回 null；可以發請求（短網址）。
+   * 回 PlaylistMixSeedRef 只限同時宣告 'mix' 的插件。
+   */
+  playlistFromUrl?(
+    query: PlaylistUrlQuery,
+  ): PlaylistIdRef | PlaylistMixSeedRef | null | Promise<PlaylistIdRef | PlaylistMixSeedRef | null>;
+  /**
+   * 歌單的一頁。歌單不存在或沒有權限讀：NotFound；要登入才讀得到而沒有登入：AuthRequired。
+   * 請求用 auth: 'userPreference'；回應是無權限、credentialsAttached 為假、
+   * fmp.credentials.get() 不是 null 時，以 'required' 重送一次。
+   */
+  importPlaylist?(query: PlaylistPageQuery): PlaylistPage | Promise<PlaylistPage>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -531,7 +611,7 @@ export interface FmpPluginExports {
 // fixture 都遮蔽過。錄製模式真的連網跑同一份 checks.json，遮蔽後寫出
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
-/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這七個。 */
+/** checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這八個。 */
 export interface FmpChecks {
   search?: FmpSearchCheck | null;
   resolveStream?: FmpResolveStreamCheck | null;
@@ -539,6 +619,7 @@ export interface FmpChecks {
   mix?: FmpMixCheck | null;
   multiPart?: FmpMultiPartCheck | null;
   trackDetail?: FmpTrackDetailCheck | null;
+  importPlaylist?: FmpImportPlaylistCheck | null;
   login?: FmpLoginCheck | null;
 }
 
@@ -563,6 +644,16 @@ export interface FmpMultiPartCheck {
 /** trackDetail 的案例；成功時回傳的 TrackDetail 是那一筆，nonEmpty 的名稱同 TrackDetail。 */
 export interface FmpTrackDetailCheck {
   input: TrackDetailQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+}
+
+/**
+ * importPlaylist 的案例：先跑 playlistFromUrl，再跑第一頁（不給 cursor）；成功時回傳的
+ * items 是檢查的清單，nonEmpty 的名稱同 RemotePlaylistItem。用公開歌單，不需要登入。
+ * playlistFromUrl 回 null 或 mixSeed 時案例失敗（ParseError）。
+ */
+export interface FmpImportPlaylistCheck {
+  input: PlaylistUrlQuery;
   expect: FmpExpectSuccess | FmpExpectError;
 }
 

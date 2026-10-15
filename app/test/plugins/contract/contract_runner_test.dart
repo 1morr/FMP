@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
-        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
       );
 
       expect(
@@ -399,8 +399,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
-        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
       );
 
       expect(
@@ -414,8 +414,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "importPlaylist", "login"]',
       );
 
       expect(
@@ -429,8 +429,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "importPlaylist", "login"]',
       );
 
       expect(
@@ -467,8 +467,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "importPlaylist", "login"]',
       );
 
       expect(
@@ -492,6 +492,77 @@ void main() {
       () async {
         final directory = copyPlugin('test_plugin');
         edit(directory, 'test_plugin.js', "'Test album'", "'Another album'");
+
+        expect(await runContract(directory), isEmpty);
+      },
+    );
+
+    test(
+      'an importPlaylist check for a plugin without the capability',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(
+          directory,
+          'test_plugin.js',
+          '"trackDetail", "importPlaylist", "login"]',
+          '"trackDetail", "login"]',
+        );
+
+        expect(
+          await runContract(directory),
+          contains('checks.json: importPlaylist is not a declared capability'),
+        );
+      },
+    );
+
+    test(
+      'an importPlaylist check that expects more items than the page has',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(
+          directory,
+          _checks,
+          '"minItems": 3, "nonEmpty": ["track"]',
+          '"minItems": 4, "nonEmpty": ["track"]',
+        );
+
+        expect(
+          await runContract(directory),
+          contains(contains('expected at least 4 items, got 3')),
+        );
+      },
+    );
+
+    test('an importPlaylist check on a playlist that is gone', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(directory, _checks, 'playlist/pl-basic', 'playlist/pl-gone');
+
+      expect(
+        await runContract(directory),
+        contains(contains('expected success, got')),
+      );
+    });
+
+    test('an importPlaylist check on a url the plugin does not know', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        _checks,
+        'https://fmp.test/playlist/pl-basic',
+        'https://other.test/x',
+      );
+
+      expect(
+        await runContract(directory),
+        contains(contains('playlistFromUrl: expected a playlistId')),
+      );
+    });
+
+    test(
+      'an importPlaylist check that renames an unrelated thing stays green',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(directory, 'test_plugin.js', 'Playlist tone', 'Renamed tone');
 
         expect(await runContract(directory), isEmpty);
       },

@@ -37,6 +37,14 @@ void main() {
       sourceDtoShapes['TrackSummary']!.keys.toSet(),
     );
     expect(
+      playlistItemFields(
+        const RemotePlaylistItem(
+          track: TrackSummary(sourceTypeId: 'p', sourceId: 's', title: 't'),
+        ),
+      ).keys.toSet(),
+      sourceDtoShapes['RemotePlaylistItem']!.keys.toSet(),
+    );
+    expect(
       candidateFields(StreamCandidate(url: Uri.parse('https://a.test/'))).keys
           .toSet(),
       sourceDtoShapes['StreamCandidate']!.keys.toSet(),
@@ -313,6 +321,83 @@ void main() {
         'a field TrackSummary does not have',
         _check('mix', input, '{"nonEmpty": ["mixId"]}'),
         'TrackSummary has no field "mixId"',
+      ),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+  });
+
+  group('the importPlaylist check', () {
+    const input = '{"url": "https://fmp.test/playlist/pl-basic"}';
+
+    test('takes a url and reads the items of the first page', () {
+      final check = parseChecks(
+        _check(
+          'importPlaylist',
+          input,
+          '{"minItems": 2, "nonEmpty": ["track", "remoteItemId"]}',
+        ),
+      ).single;
+
+      expect(check.capability, PluginCapability.importPlaylist);
+      expect(check.input, isA<PlaylistUrlQuery>());
+      expect((check.input as PlaylistUrlQuery).url, contains('pl-basic'));
+      expect(check.requiresLogin, isFalse);
+      const page = PlaylistPage(
+        playlist: RemotePlaylist(title: 'P'),
+        items: [
+          RemotePlaylistItem(
+            track: TrackSummary(sourceTypeId: 'p', sourceId: 'a', title: 't'),
+          ),
+        ],
+      );
+      expect(check.expectation.evaluate(result: page, describe: (_) => ''), [
+        'expected at least 2 items, got 1',
+        'item 0: "remoteItemId" is empty',
+      ]);
+    });
+
+    test('an empty playlist has no items to check', () {
+      final check = parseChecks(
+        _check('importPlaylist', input, '{"minItems": 0}'),
+      ).single;
+      const page = PlaylistPage(
+        playlist: RemotePlaylist(title: 'P'),
+        items: [],
+      );
+
+      expect(
+        check.expectation.evaluate(result: page, describe: (_) => ''),
+        isEmpty,
+      );
+    });
+
+    for (final (name, text, message) in [
+      (
+        'an empty url',
+        _check('importPlaylist', '{"url": " "}', '{}'),
+        'checks.importPlaylist.input: must not be empty',
+      ),
+      (
+        'a playlist id instead of a url',
+        _check('importPlaylist', '{"playlistId": "pl-basic"}', '{}'),
+        'unknown field "playlistId"',
+      ),
+      (
+        'a field RemotePlaylistItem does not have',
+        _check('importPlaylist', input, '{"nonEmpty": ["title"]}'),
+        'RemotePlaylistItem has no field "title"',
       ),
     ]) {
       test('rejects $name', () {

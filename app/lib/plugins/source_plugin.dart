@@ -42,6 +42,15 @@ abstract interface class SourcePlugin {
   /// （[MixContinueQuery]，ADR 0028 §決定 4）。
   Future<MixBatch> mix(MixQuery query);
 
+  /// [PluginCapability.importPlaylist]：這個網址是不是這個插件的歌單（或 Mix）；不是
+  /// 回 `null`。插件可以為短網址發請求；`mixSeed` 只有同時宣告 `mix` 的插件能回
+  /// （ADR 0032 §決定 2）。
+  Future<PlaylistRef?> playlistFromUrl(PlaylistUrlQuery query);
+
+  /// 歌單的一頁（第一頁不給 `cursor`）。遠端歌單不存在或沒有權限讀是 `NotFound`，
+  /// 要登入才讀得到而沒有登入是 `AuthRequired`。
+  Future<PlaylistPage> importPlaylist(PlaylistPageQuery query);
+
   /// [PluginCapability.multiPart]：一支影片的分 P（ADR 0028 §決定 5）。
   Future<MultiPartResult> multiPart(MultiPartQuery query);
 
