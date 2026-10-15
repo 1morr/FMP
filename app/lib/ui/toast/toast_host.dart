@@ -26,13 +26,35 @@ final class ToastBottomInset extends Notifier<double> {
   void set(double height) => state = height;
 }
 
+/// 根 Navigator 的觀察者，給 `MaterialApp.navigatorObservers`（`fmpMaterialApp`）：推上對話框或
+/// 底部面板時通知 [ToastHost] 收起當下那則提示。
+///
+/// 提示浮在對話框之上（ADR 0023 §決定 3），而手機上外殼的位移（迷你播放列加導覽列）正好落在
+/// 高一點的對話框的按鈕列：推上去之前就在的那則（例如上一個動作的「已儲存」）會蓋住新對話框的
+/// 動作鈕、吃掉點擊。對話框開著之後才送的照常顯示在它之上。下拉選單、彈出選單不算。
+final toastRouteObserverProvider = Provider<ToastRouteObserver>((ref) {
+  final observer = ToastRouteObserver();
+  ref.onDispose(observer.dispose);
+  return observer;
+});
+
+final class ToastRouteObserver extends NavigatorObserver with ChangeNotifier {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is RawDialogRoute || route is ModalBottomSheetRoute) {
+      notifyListeners();
+    }
+  }
+}
+
 /// 顯示 [Toaster] 送來的提示（ADR 0023 §決定 2、3）。
 ///
 /// 放在 `MaterialApp.builder`，以自己的 `ScaffoldMessenger` 與透明的 `Scaffold`
 /// 包住 Navigator：提示畫在所有路由之上，全螢幕頁、對話框、底部面板開著時都
 /// 看得到。頁面自己的 `Scaffold` 是它的子孫，所以提示只出現在這一層。
 ///
-/// - 一次一則：新的立刻取代目前的（不排隊）。
+/// - 一次一則：新的立刻取代目前的（不排隊）；推上對話框或底部面板時收起目前的
+///   （[ToastRouteObserver]）。
 /// - 時長依 [ToastKind.duration]；系統開了無障礙導覽（TalkBack 等）時停留到
 ///   使用者關閉，並顯示關閉鈕。
 /// - App 在背景（hidden／paused）時不顯示；錯誤已由 [Toaster] 寫進錯誤歷史。
@@ -49,21 +71,30 @@ class ToastHost extends ConsumerStatefulWidget {
 class _ToastHostState extends ConsumerState<ToastHost> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<Toast>? _subscription;
+  ToastRouteObserver? _routes;
 
   @override
   void initState() {
     super.initState();
-    ref.listenManual(toasterProvider, (_, toaster) {
-      unawaited(_subscription?.cancel());
-      _subscription = toaster.toasts.listen(_show);
-    }, fireImmediately: true);
+    ref
+      ..listenManual(toasterProvider, (_, toaster) {
+        unawaited(_subscription?.cancel());
+        _subscription = toaster.toasts.listen(_show);
+      }, fireImmediately: true)
+      ..listenManual(toastRouteObserverProvider, (_, routes) {
+        _routes?.removeListener(_hideCurrent);
+        _routes = routes..addListener(_hideCurrent);
+      }, fireImmediately: true);
   }
 
   @override
   void dispose() {
     unawaited(_subscription?.cancel());
+    _routes?.removeListener(_hideCurrent);
     super.dispose();
   }
+
+  void _hideCurrent() => _messengerKey.currentState?.hideCurrentSnackBar();
 
   bool get _inForeground => switch (SchedulerBinding.instance.lifecycleState) {
     AppLifecycleState.hidden ||

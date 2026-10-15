@@ -48,14 +48,17 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: h.overrides,
-        child: fmpMaterialApp(
-          title: 'FMP Dev',
-          locale: LocaleSetting.en,
-          themeMode: ThemeMode.light,
-          fontFamilyFallback: const [],
-          builder: (context, navigator) =>
-              WindowClassScope(child: ToastHost(child: navigator!)),
-          home: const AppShell(),
+        child: Consumer(
+          builder: (context, ref, _) => fmpMaterialApp(
+            title: 'FMP Dev',
+            locale: LocaleSetting.en,
+            themeMode: ThemeMode.light,
+            fontFamilyFallback: const [],
+            navigatorObservers: [ref.watch(toastRouteObserverProvider)],
+            builder: (context, navigator) =>
+                WindowClassScope(child: ToastHost(child: navigator!)),
+            home: const AppShell(),
+          ),
         ),
       ),
     );

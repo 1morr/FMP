@@ -123,6 +123,7 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     return fmpMaterialApp(
       title: widget.flavor.displayName,
       navigatorKey: ref.watch(rootNavigatorKeyProvider),
+      navigatorObservers: [ref.watch(toastRouteObserverProvider)],
       locale: ref.watch(uiLocaleProvider),
       themeMode: themeModeOf(themeMode ?? ThemeModeSetting.system),
       fontFamilyFallback: ref.watch(fontFamilyFallbackProvider),

@@ -441,18 +441,21 @@ final class ShellHarness {
       // 和 App 一樣關掉 Riverpod 的自動重試（appProviderScope）。
       appProviderScope(
         overrides: overrides,
-        child: fmpMaterialApp(
-          title: 'FMP Dev',
-          locale: LocaleSetting.en,
-          themeMode: themeModeOf(switch (brightness) {
-            Brightness.light => ThemeModeSetting.light,
-            Brightness.dark => ThemeModeSetting.dark,
-          }),
-          fontFamilyFallback: const [],
-          navigatorKey: navigatorKey,
-          builder: (context, navigator) =>
-              WindowClassScope(child: ToastHost(child: navigator!)),
-          home: home,
+        child: Consumer(
+          builder: (context, ref, _) => fmpMaterialApp(
+            title: 'FMP Dev',
+            locale: LocaleSetting.en,
+            themeMode: themeModeOf(switch (brightness) {
+              Brightness.light => ThemeModeSetting.light,
+              Brightness.dark => ThemeModeSetting.dark,
+            }),
+            fontFamilyFallback: const [],
+            navigatorKey: navigatorKey,
+            navigatorObservers: [ref.watch(toastRouteObserverProvider)],
+            builder: (context, navigator) =>
+                WindowClassScope(child: ToastHost(child: navigator!)),
+            home: home,
+          ),
         ),
       ),
     );

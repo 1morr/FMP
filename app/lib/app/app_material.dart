@@ -11,6 +11,9 @@ import 'package:fmp/ui/theme/app_theme.dart';
 /// `localizationsDelegates` 用 `material_ui` 的 `GlobalMaterialLocalizations`，
 /// 不是 `flutter_localizations` 的：後者提供的是凍結的
 /// `package:flutter/material.dart` 的型別（`material_ui` 的 README）。
+///
+/// 包 `ToastHost` 的呼叫端把 `toastRouteObserverProvider` 給 [navigatorObservers]：推上對話框時
+/// 收起當下的提示。
 MaterialApp fmpMaterialApp({
   required String title,
   required LocaleSetting locale,
@@ -19,9 +22,11 @@ MaterialApp fmpMaterialApp({
   required Widget home,
   TransitionBuilder? builder,
   GlobalKey<NavigatorState>? navigatorKey,
+  List<NavigatorObserver> navigatorObservers = const [],
 }) => MaterialApp(
   title: title,
   navigatorKey: navigatorKey,
+  navigatorObservers: navigatorObservers,
   theme: buildAppTheme(
     Brightness.light,
     fontFamilyFallback: fontFamilyFallback,
