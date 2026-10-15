@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`、`live`、`mix`、`multiPart`、`trackDetail`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`live`、`mix`、`multiPart`、`trackDetail`、`importPlaylist`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -82,6 +82,19 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   `tone-440` 有完整的資料（六行的簡介、2024-05-17 的發佈時間、專輯、七種統計；沒有 `uploaderAvatar`，因為
   `allowedHosts` 是空的，頭像的顯示由 widget 測試守）；`tone-880` 以 `NetworkError` 失敗（看詳細區的失敗與重試）；
   其他曲目回空的詳細資料（詳細區不多顯示東西）。
+- 歌單匯入（`importPlaylist`，不連網，給匯入與刷新的實機驗證；狀態存在插件 isolate 的記憶體，到 App 重啟為止）：
+  `playlistFromUrl` 認 `https://fmp.test/playlist/<id>`（任何 id 都認，不存在的在取頁時 `NotFound`）與
+  `https://fmp.test/mix/<sourceId>`（回 `mixSeed`；這個插件宣告了 `mix`）；其他網址回 `null`。每首的串流都是 `tone.wav`：
+
+  | 歌單 | 內容 | 用途 |
+  |---|---|---|
+  | `pl-basic` | 5 首、每頁 3 首（`cursor` `3`），第 1、4 首是同一首（`tone-440`，資料也相同）；沒有 `remoteItemId`；給 `total` 5 | 多頁、同曲重複的比對 |
+  | `pl-grow` | 單頁、有 `remoteItemId`、給 `total`，每項是不同的曲目（`grow-<n>`，標題 `Grow track <n>`）。每取一次第一頁（＝每刷新一次）輪流：新增一首、移除最前面一首、整張倒序（從 4 首起） | 刷新時新增、移除、重排 |
+  | `pl-partial` | 第 1 頁 3 首，第 2 頁 `NetworkError` | 部分完成：不移除任何項目 |
+  | `pl-gone` | `NotFound` | 來源失效 |
+  | `pl-auth` | 沒有憑證 `AuthRequired`；登入後 3 首、`writable: true` | 需要登入、登入後刷新、可寫 |
+  | `pl-unavailable` | 3 首，第 2 首 `unavailable: true` | 失效項目的標示 |
+  | `pl-parts` | 一支 3 P 的影片（`parts-220`）展開成 3 首（cid 22001–22003），帶 `partIndex`、`parentTitle`；不給 `total` | 分 P 兩欄存得進去 |
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -105,7 +118,7 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。
