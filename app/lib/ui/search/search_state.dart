@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -149,6 +151,24 @@ SourcePlugin? selectedSourceOf(String? sourceId, List<SourcePlugin> sources) {
   return sources.firstOrNull;
 }
 
+/// 輸入框現在的文字（沒有去掉空白），頁面在打字、清除時寫入：換音源、模式、篩選時
+/// [SearchNotifier] 以它重新搜尋，還沒送出的字也算；搜尋頁重建時輸入框顯示它。
+///
+/// 不放進 [SearchState]：每打一個字就換一次搜尋狀態，整個搜尋頁連同結果清單都會重建。
+/// 沒有人 watch 它。
+final searchInputProvider = NotifierProvider<SearchInput, String>(
+  SearchInput.new,
+);
+
+/// [searchInputProvider] 的寫入端。
+final class SearchInput extends Notifier<String> {
+  @override
+  String build() => '';
+
+  /// 輸入框的文字變了（打字、清除）。
+  void set(String input) => state = input;
+}
+
 /// 搜尋頁的狀態；換到設定頁再回來時保留。
 final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
   SearchNotifier.new,
@@ -174,12 +194,13 @@ final class SearchNotifier extends Notifier<SearchState> {
       if (state.mode == SearchMode.rooms && !hasLiveRooms(_source())) {
         ++_generation;
         state = state.restart(mode: SearchMode.tracks);
+        unawaited(_researchInput());
       }
     });
     return const SearchState();
   }
 
-  /// 換音源；已經搜尋過就以同一個關鍵字重新搜尋。點的是目前選的（包括還沒
+  /// 換音源；以輸入框現在的文字重新搜尋（空的就只清掉結果）。點的是目前選的（包括還沒
   /// 點過時預設的第一個）就不動。新的音源沒有直播間時退回曲目。
   Future<void> selectSource(String sourceId) async {
     if (sourceId == _source()?.manifest.id) return;
@@ -188,28 +209,29 @@ final class SearchNotifier extends Notifier<SearchState> {
     if (state.mode == SearchMode.rooms && !hasLiveRooms(_source())) {
       state = state.restart(mode: SearchMode.tracks);
     }
-    if (state.keyword.isNotEmpty) await search(state.keyword);
+    await _researchInput();
   }
 
-  /// 換「曲目｜直播間」；已經搜尋過就以同一個關鍵字重新搜尋。目前的音源沒有直播間時
+  /// 換「曲目｜直播間」；以輸入框現在的文字重新搜尋。目前的音源沒有直播間時
   /// 不能切到直播間。
   Future<void> selectMode(SearchMode mode) async {
     if (mode == state.mode) return;
     if (mode == SearchMode.rooms && !hasLiveRooms(_source())) return;
     ++_generation;
     state = state.restart(mode: mode);
-    if (state.keyword.isNotEmpty) await search(state.keyword);
+    await _researchInput();
   }
 
-  /// 換直播間的篩選（`null` 是全部）；在直播間模式而且搜尋過就重新搜尋。
+  /// 換直播間的篩選（`null` 是全部）；在直播間模式就以輸入框現在的文字重新搜尋。
   Future<void> selectRoomFilter(LiveRoomStatus? filter) async {
     if (filter == state.roomFilter) return;
     ++_generation;
     state = state.restart(roomFilter: () => filter);
-    if (state.mode == SearchMode.rooms && state.keyword.isNotEmpty) {
-      await search(state.keyword);
-    }
+    if (state.mode == SearchMode.rooms) await _researchInput();
   }
+
+  /// 條件換了之後：輸入框有字（去掉空白）就搜它的第一頁，沒有就停在清空的初始畫面。
+  Future<void> _researchInput() => search(ref.read(searchInputProvider));
 
   /// 搜尋 [keyword] 的第一頁；只有空白就不做。
   Future<void> search(String keyword) async {

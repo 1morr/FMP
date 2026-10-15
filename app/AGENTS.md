@@ -1529,7 +1529,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - Mix（`startMix`，ADR 0031 §決定 8–11、M3 design §10；入口在曲目選單，見 § 介面）。契約：
   - **模式**：`QueueMode.mix`＝`QueueState.mix`（`MixIdentity`：插件 id、`mixId`、標題、`cursor`）有值，且不在臨時播放或直播（那兩個期間 `mode` 是
     它們，`mix` 仍在，結束回到 Mix 佇列）。開始時 `MixSession.start` 向插件要第一批，`QueueModel.startMix` **取代整個佇列**（原佇列不另存、
-    臨時播放與直播就此結束、隨機關掉、循環維持）；插件的錯誤原樣丟出、佇列不動，由 UI 顯示。
+    臨時播放與直播就此結束、隨機關掉；循環是「全部」就改成「關」，Mix 中 `cycleLoopMode` 只在關與單曲之間輪轉，`restore` 的 Mix 同樣處理，ADR 0031 §決定 9 的補充）；插件的錯誤原樣丟出、佇列不動，由 UI 顯示。
   - **被拒絕的操作**：隨機（`setShuffle(true)`）、加入佇列、下一首播放在 `QueueModel` 被拒（`append`／`playNext` 回 `false`、隨機不開），
     控制器的 `_add` 先擋並**不發 `QueueFull`**（入口本來就停用，不是佇列滿了）。拖曳、移除單首、佇列選單的「下一首播放」（移到下一首，是重排）照常。
     清空佇列或移除最後一首就退出 Mix（`mix` 清掉、一般佇列）；`replace` 也是。
@@ -2078,9 +2078,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 搜尋頁的直播間模式（ADR 0031 §決定 5，M3 design §9.5）：選的音源宣告 `live` 時搜尋框下有「曲目｜直播間」
   （`SegmentedButton`），直播間模式另有「全部｜開播中｜未開播」（`ChoiceChip`，`SearchState.roomFilter` 傳進
   `LiveSearchQuery.status`）。模式在 `SearchNotifier`：換到沒宣告 `live` 的音源（使用者換，或音源清單變了）就退回曲目；換音源、
-  模式、篩選都換代、清掉結果，搜過的關鍵字照樣重搜。結果列是封面、標題、狀態加主播、人數、「⋯」（收聽、加為電台）；點一下
-  `playLive`；錯誤、空結果、離線、載入更多與曲目共用 `_Results`。閘門：`test/ui/search/search_live_test.dart`（音源清單變了而退回曲目是
-  `the live source leaving the list goes back to songs`）。
+  模式、篩選與自動退回曲目都換代、清掉結果，再以**輸入框現在的文字**（`searchInputProvider`，還沒送出的也算；不放進 `SearchState`，
+  打字才不重建整頁）重搜第一頁，去掉空白後是空的就停在初始畫面、不發請求；`keyword` 仍是上次送出的（重試、載入更多、「找不到」用它），
+  `search` 不寫回輸入框的文字（#260）。結果列是封面、標題、狀態加主播、人數（只在開播中，未開播的不顯示、不管插件給了什麼值，#262）、「⋯」
+  （收聽、加為電台）；點一下 `playLive`；錯誤、空結果、離線、載入更多與曲目共用 `_Results`。閘門：`test/ui/search/search_live_test.dart`
+  （音源清單變了而退回曲目是 `the live source leaving the list goes back to songs`；重搜用輸入框的文字是 `re-searching uses the text in
+  the field` 群組；人數是 `an offline room shows no viewers even with a count`）。
 - 直播版（ADR 0031 §決定 7，M3 design §9.4）：直播時 `QueueState.current` 是 `null`，播放列、播放頁、右側面板、佇列面板與外殼
   判斷「有沒有在播」一律用 `hasNowPlaying`（曲目或直播間），直播內容讀 `nowPlayingLiveProvider`（`playbackLiveProvider` 還沒跟上
   佇列時先用佇列裡的目標）。三處都沒有進度條、上一首、下一首、隨機、循環；有停止鈕（`stopLive`）、主播、`LiveFacts`（「直播中」
@@ -2095,10 +2098,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `Toaster.error` 顯示、佇列不動。
   - Mix 中（`inMixProvider`＝`QueueState.mix != null`）停用且附說明：搜尋與歷史選單的「加入佇列」「下一首播放」改寫成「…（Mix 中無法使用）」並
     `onPressed: null`；播放列與播放頁的隨機鈕（`ShuffleButton.locked`）tooltip 改成「Mix 中無法隨機播放」、播放列「⋯」選單的隨機勾選項改寫成
-    「隨機播放（Mix 中無法使用）」並停用。Ctrl+S 照樣呼叫控制器，由佇列拒絕。沒有「打亂佇列」的入口，所以沒有要停用的。
+    「隨機播放（Mix 中無法使用）」並停用。循環鈕的 tooltip 與「⋯」選單的循環項目另註明 Mix 中沒有「全部」（`loopTooltip`、`loopLabel` 的 `inMix`）。Ctrl+S 照樣呼叫控制器，由佇列拒絕。沒有「打亂佇列」的入口，所以沒有要停用的。
     佇列選單的「下一首播放」是重排（`moveToNext`），Mix 中照常。
   - 佇列分頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
-  閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、佇列標題兩種寬度、佇列列選單）、
+  閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、循環鈕、「⋯」的循環項目與 Ctrl+R、佇列標題兩種寬度、佇列列選單）、
   `history_page_test.dart` 的 `the Mix items of the menu`、`guidelines_test.dart` 的 `the queue of a mix`（寬 400／1000、淺色與深色）。
 - 分 P 的介面（M3 PR 20，design §11.1、契約見 § 插件的 `multiPart`；狀態在 `lib/ui/search/video_parts.dart`）：
   - 搜尋結果的影片列尾有展開鈕：**插件宣告 `multiPart`，且 `partCount` 空或大於 1，且還沒取到「只有一個分 P」**

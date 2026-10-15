@@ -730,7 +730,7 @@ class _Transport extends ConsumerWidget {
               const PreviousButton(),
               PlayPauseButton(state: state),
               NextButton(enabled: queue.hasNext),
-              LoopButton(mode: queue.loopMode),
+              LoopButton(mode: queue.loopMode, inMix: queue.mix != null),
               const _MoreMenu(),
             ],
           ),

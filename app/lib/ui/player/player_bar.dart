@@ -148,7 +148,7 @@ class PlayerBar extends ConsumerWidget {
               const PreviousButton(),
               playPause,
               NextButton(enabled: queue.hasNext),
-              LoopButton(mode: queue.loopMode),
+              LoopButton(mode: queue.loopMode, inMix: queue.mix != null),
             ],
           )
         : (
@@ -396,7 +396,9 @@ class _MoreMenu extends ConsumerWidget {
             leadingIcon: Icon(loopIcon(queue.loopMode)),
             onPressed: () =>
                 ref.read(playbackControllerProvider).cycleLoopMode(),
-            child: Text(loopLabel(translations, queue.loopMode)),
+            child: Text(
+              loopLabel(translations, queue.loopMode, inMix: queue.mix != null),
+            ),
           ),
         ],
         if (panelToggle)

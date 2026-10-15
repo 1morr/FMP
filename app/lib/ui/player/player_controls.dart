@@ -87,16 +87,19 @@ class ShuffleButton extends ConsumerWidget {
 }
 
 /// 循環：按一下依關閉 → 全部 → 單曲輪轉（舊版 `cycleLoopMode`）。
+///
+/// [inMix]（ADR 0031 §決定 9 的補充）時沒有「全部」，tooltip 說明。
 class LoopButton extends ConsumerWidget {
-  const LoopButton({super.key, required this.mode});
+  const LoopButton({super.key, required this.mode, this.inMix = false});
 
   final LoopMode mode;
+  final bool inMix;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
-      tooltip: loopTooltip(t, mode),
+      tooltip: loopTooltip(t, mode, inMix: inMix),
       isSelected: mode != LoopMode.off,
       icon: Icon(loopIcon(mode)),
       onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
@@ -111,19 +114,24 @@ IconData loopIcon(LoopMode mode) => switch (mode) {
 };
 
 /// 循環模式的 tooltip：名稱附按鍵 Ctrl+R（同時是按鈕的語意名稱）。
-String loopTooltip(Translations$player$zh_TW t, LoopMode mode) =>
-    switch (mode) {
-      LoopMode.off => t.loopOffTooltip,
-      LoopMode.all => t.loopAllTooltip,
-      LoopMode.one => t.loopOneTooltip,
-    };
-
-/// 循環模式的名稱（選單項目）。
-String loopLabel(Translations t, LoopMode mode) => switch (mode) {
-  LoopMode.off => t.player.loopOff,
-  LoopMode.all => t.player.loopAll,
-  LoopMode.one => t.player.loopOne,
+String loopTooltip(
+  Translations$player$zh_TW t,
+  LoopMode mode, {
+  bool inMix = false,
+}) => switch (mode) {
+  LoopMode.off => inMix ? t.loopOffInMixTooltip : t.loopOffTooltip,
+  // Mix 中不會是 all（佇列模型改成了關）。
+  LoopMode.all => t.loopAllTooltip,
+  LoopMode.one => inMix ? t.loopOneInMixTooltip : t.loopOneTooltip,
 };
+
+/// 循環模式的名稱（選單項目）；[inMix] 時註明沒有「全部」。
+String loopLabel(Translations t, LoopMode mode, {bool inMix = false}) =>
+    switch (mode) {
+      LoopMode.off => inMix ? t.player.loopOffInMix : t.player.loopOff,
+      LoopMode.all => t.player.loopAll,
+      LoopMode.one => inMix ? t.player.loopOneInMix : t.player.loopOne,
+    };
 
 /// 以一個圖示鈕打開的選單。按鈕與 `MenuAnchor` 共用一個 `FocusNode`
 /// （`childFocusNode`，Flutter `MenuAnchor` 文件的寫法）：選單打開時焦點移到
