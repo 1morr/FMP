@@ -257,6 +257,31 @@ void main() {
     });
   });
 
+  test(
+    'overviews count the entries and name the first one, in sort_order',
+    () async {
+      final a = await repository.create(name: 'A');
+      final b = await repository.create(name: 'B');
+      await repository.create(name: 'Empty');
+      await repository.addTracks(a, [track('x'), track('y'), track('x')]);
+      await repository.addTracks(b, [track('z')]);
+      // 第一首依（position, id），不是先加入的那首。
+      final entries = await repository.entries(a);
+      await repository.moveEntries(a, [entries[1].id, entries[0].id]);
+      await repository.reorder([b, a]);
+
+      final overviews = await repository.overviews();
+
+      expect([for (final o in overviews) o.playlist.name], ['B', 'A', 'Empty']);
+      expect([for (final o in overviews) o.trackCount], [1, 3, 0]);
+      expect(
+        [for (final o in overviews) o.firstTrack?.sourceId],
+        ['z', 'y', null],
+      );
+      expect(overviews[1].firstTrack, track('y'));
+    },
+  );
+
   test('changes fires when a playlist or an entry changes', () async {
     final events = <void>[];
     final subscription = repository.changes().listen(events.add);
