@@ -364,6 +364,10 @@
 
 （各 PR 合併時寫在這裡，最新的在上面。）
 
+- **PR 8a → PR 7、10**：
+  - 比對鍵分兩池：有 `remote_item_id` 的既有項目只會被同一個 id 比到。PR 7 實測時確認 YouTube 未登入的回應也帶 `setVideoId`；若只有登入才給，改成互相備援（連同 `an entry with a remote item id is only matched by that id` 一起改）。
+  - PR 10：排程工作傳 `RefreshTrigger(isCurrent: () => context.isCurrent)`；到期選擇不挑 `sourceGone`／`authRequired`；間隔改成不啟用時的取消。
+
 - **PR 12 → PR 13**：
   - 健康檢查「非 `login` 的 `requiresLogin` 案例在已登入時帶憑證跑」還沒有測試（PR 12 時 `checks.json` 寫不出這種案例）；PR 13 加 `libraryRead` 案例時補。
   - 隔離環境的重播不帶憑證：`libraryPlaylists` 的請求是 `required`，重播時會先得到 `AuthRequired`、到不了 fixture。PR 13 的契約重播要以 fixture 內的憑證狀態或 runner 的假憑證處理，先確認 `contract_test.dart` 怎麼跑 `requiresLogin` 案例。
