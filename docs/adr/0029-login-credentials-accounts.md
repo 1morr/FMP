@@ -59,6 +59,7 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - **憑證的 cookie 不經 cookie jar**：`dio_cookie_manager` 的 `loadCookies` 把 jar 的 cookie 接在每個請求上、不看 `auth`，憑證若落進 jar，B 站 QR 登入後 `auth: 'never'` 的請求或關掉「以登入身分瀏覽與播放」時仍會帶出 `SESSDATA`，違反 ADR 0012。所以除了決定 2 的「登入時不存」，cookie jar 送出時還要**跳過憑證裡有的 cookie 名稱**，不論這次請求有沒有帶憑證、憑證有沒有失效。
    - **`CredentialSource` 介面不回傳拼好的 `Cookie` 字串**，回傳 cookie 表（名稱對值）與要附加的標頭，另提供憑證裡的 cookie 名稱（已失效時照樣回傳）；合併在網路層做。
 5. **`CredentialStore`**：`flutter_secure_storage` 11.2.0，經平台層 `SecureStorage`；Android 一律 `resetOnError: false`。讀取失敗時狀態為「暫時無法讀取」（只在記憶體）、不帶憑證、30 秒後重讀，不刪除。載入、寫入時登記遮蔽（短於遮蔽函式下限的值略過，它們不是秘密），登出、移除時取消。
+   更正（2026-10-15，#264）：登記的除了憑證值還有 `accounts.user_id`（網易雲、YouTube 的 id 不在 cookie 裡，原本只有 B 站的 `DedeUserID` 碰巧涵蓋）；登出、換帳號時一起取消。
 6. **帳號表與每音源設定**：
    - `accounts(plugin_id 主鍵, user_id, display_name, avatar_json, status: active | invalidated, logged_in_at, last_refresh_at, last_refresh_result)`。是否登入只看 `CredentialStore`；啟動時帳號列與憑證不一致就刪掉多的那一邊。不存 VIP。
    - `source_settings(plugin_id 主鍵, browse_as_logged_in 可空)`：ADR 0011 §決定 7 的每音源設定表。

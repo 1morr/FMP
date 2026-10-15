@@ -557,7 +557,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 門面 `Log` 是唯一的 log 入口；`print`、`debugPrint`、`dart:developer` 的 `log`、
   `package:talker*` 只准在 `lib/core/logging/`。閘門：lint `fmp_log_facade`。
 - `Redactor` 是唯一的遮蔽函式，名單只在 `redaction_lists.dart`（插件以 `addRules`
-  追加 header 與鍵名、以 `setMediaCdns` 設媒體 CDN；憑證的值由 `CredentialStore` 以 `registerSecret` 逐值登記，見「帳號」，
+  追加 header 與鍵名、以 `setMediaCdns` 設媒體 CDN；憑證的值與帳號的 `userId` 由 `CredentialStore` 以 `registerSecret` 逐值登記，見「帳號」；
+  全是數字的已知值只在數字邊界換（`aid=9123456780` 不被 id `12345678` 切碎）。
   閘門 `redactor_test.dart` 的 `known credential values`）。門面在交給 talker 之前就把 error、stackTrace 轉成遮蔽過的字串，原始物件不進
   歷史。閘門：`test/core/logging/log_test.dart`（假憑證經訊息、error、stackTrace、深層
   欄位寫入後，記憶體歷史與 log 檔都沒有原值）、`test/core/redaction/redactor_test.dart`。
@@ -818,9 +819,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `credential_store_test.dart`（`a read failure`，含 `… during the re-read …` 兩例；`loading at startup`）。
 - 已失效（`accounts.status = invalidated`）的憑證保留、不帶，`fmp.credentials.get()` 也回 `null`，但它的 cookie 名稱
   照樣擋在 jar 之外。閘門：`credential_store_test.dart`、`plugin_runtime_test.dart` 的 `credentials`。
-- 遮蔽：載入與寫入時把每個 cookie 值與 `extra` 值登記到 `Redactor`，登出與移除時取消；短於
-  `Redactor.minimumSecretLength` 的值略過（`registerSecret` 對它們會拋錯，而 B 站會一起回 `home_feed_column=5`）。
-  閘門：`credential_store_test.dart` 的 `redaction`。
+- 遮蔽：載入與寫入時把每個 cookie 值、`extra` 值與帳號列的 `userId` 登記到 `Redactor`，登出、換帳號與移除時取消；
+  短於 `Redactor.minimumSecretLength` 的值略過（`registerSecret` 對它們會拋錯，而 B 站會一起回 `home_feed_column=5`）。
+  `userId` 另外登記，因為網易雲、YouTube 的 id 不在 cookie 裡；只登記自己的 id，瀏覽的 UP 主、主播的 id 照留（除錯用得到）。
+  閘門：`credential_store_test.dart` 的 `redaction` 與 `the account id`。
 - 登出（`AccountService.logout`）：憑證 → 登入 WebView 的 cookie → `accounts` 列 → 該插件的記憶體 cookie jar；
   `source_settings` 保留。每一步可重複，失敗停在那一步。WebView 那一步只在平台有登入 WebView、插件（還在
   `installed_plugins`）的 manifest 宣告 `login.webView` 時做：`clearAll` 清登入 WebView 的全部 cookie，再讀
@@ -1060,11 +1062,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     的開發中插件一律真實連線。理由：在帶著 storage 快取的插件上錄的 fixture（B 站 `wbiKeys` 有值就少發請求）在 CI 的空 storage
     重播會對不上。錄製走 `recordCase`，與命令列 `recordContract` 同一個函式（結果符合 `checks.json` 且錄製沒有問題才寫、手改過的
     略過、寫檔前經 `Redactor`）；寫檔前檢查代際（跑的途中換資料夾或卸載就不寫）。`requiresLogin`：重播用 `checks.json` 的假憑證，
-    真實與錄製用已存的憑證當 `loginVerify` 的輸入，沒登入略過、不連網。遮蔽函式不認得帳號名稱，所以 `recordCase` 在錄到的流量裡還看得到
-    `LoginAccount` 的 `userId`、`displayName` 或頭像網址時不寫（`accountLeaks`），要插件把那些回應欄位加進 `manifest.redaction.keyNames`
-    （fixture 進公開的插件 repo）。回傳值經 `Redactor.redactValue` 顯示，`LoginAccount` 一律顯示
+    真實與錄製用已存的憑證當 `loginVerify` 的輸入，沒登入略過、不連網。遮蔽函式不認得帳號名稱，所以結果是 `LoginAccount` 時 `recordCase` 寫檔前先以帳號的
+    `userId`、`displayName` 換掉錄到的流量（`scrubAccount`，頭像網址換成 `<scheme>://<主機>/***`），再用 `accountLeaks` 檢查，
+    換完仍看得到就不寫（fixture 進公開的插件 repo）。不靠鍵名：鍵名分不出自己和別人，會弄壞別人的 id、頭像。
+    閘門：`account_scrub_test.dart`。回傳值經 `Redactor.redactValue` 顯示，`LoginAccount` 一律顯示
     `***`。一次只跑一個案例（整個區塊）。閘門：`dev_case_runs_test.dart`（預設重播、隔離不碰 App 的 storage、錄製的檔案沒有假憑證
-    且與命令列逐位元組相同、手改過的略過、結果不符不寫、帳號資訊沒遮蔽不寫與遮了才寫、`requiresLogin` 兩種、一次一個、換資料夾與
+    且與命令列逐位元組相同、手改過的略過、結果不符不寫、帳號資訊換值後仍可重播、`requiresLogin` 兩種、一次一個、換資料夾與
     卸載的代際丟棄、每案例一筆 log）。
   - 健康檢查對開發中的插件讀資料夾的 `checks.json`（`PluginDevelopment.checksJsonFor`）。閘門：`health_check_test.dart`。
   - 已知限制（沒有閘門）：registry 重建會丟掉開發版（registry 目前從不重建）；開發版 manifest 比已安裝版多的能力（如 `login`），
