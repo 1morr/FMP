@@ -464,11 +464,17 @@ final class PlaybackController {
     return _follow(step);
   }
 
-  /// 以 [seed] 為種子開始 Mix（ADR 0031 §決定 9）：插件回來的曲目**取代整個佇列**，
-  /// 從第一首開始播；臨時播放與直播就此結束。插件的錯誤（`AppError`）原樣丟出，
-  /// 佇列不動，由呼叫端顯示。
-  Future<void> startMix(TrackInfo seed) async {
-    await _mix.start(seed);
+  /// 以曲目 [seed] 為種子開始 Mix（ADR 0031 §決定 8、9）；同 [startMixFromSeed]。
+  Future<void> startMix(TrackInfo seed) => startMixFromSeed(
+    seed.sourceTypeId,
+    MixSeedQuery(sourceId: seed.sourceId, cid: seed.cid),
+  );
+
+  /// 以 [pluginId] 的種子 [seed] 開始 Mix（ADR 0031 §決定 9；Mix 歌單存的就是這組）：插件回來
+  /// 的曲目**取代整個佇列**，從第一首開始播；臨時播放與直播就此結束。插件的錯誤（`AppError`）
+  /// 原樣丟出，佇列不動，由呼叫端顯示。
+  Future<void> startMixFromSeed(String pluginId, MixSeedQuery seed) async {
+    await _mix.start(pluginId, seed);
     if (_disposed) return;
     _emitQueue();
     _consecutiveSkips = 0;
