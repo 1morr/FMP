@@ -41,10 +41,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–12、16，以及 20 的 FMP 端（FMP #272–#285 與本 PR；fmp-plugins #16、#17）。
+- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–12、16、20（FMP #272–#286；fmp-plugins #16–#19）。M4a 剩 PR 13、14、15 與驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
-- **下一步**：PR 20 的 fmp-plugins 端（三個插件的 `chartList`／`chart`）；PR 13、14、15 要擁有者在場（先約時間）。
+- **下一步**：等擁有者給時間做 PR 13、14、15（要登入三個平台、各建一張私人「FMP 測試」歌單）；之後 M4a 驗收。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
 - **fmp-plugins 的 PR**：
   - 在同層的 `fmp-plugins/` clone 開分支；
@@ -312,7 +312,7 @@
 
 - [ ] schema v18（或 v17）：`network_settings.chart_refresh_interval_minutes`、`chart_settings`；Notifier 與設定頁「網路」區的排行間隔。
 - [x] FMP：`ChartsExports`、DTO、`FmpChecks.charts`；`CacheCategory.chart`；`lib/charts/`（快取、`charts:<pluginId>` 工作、記憶體的單榜單失敗標記、`runNow`）；`fmp_layer_imports` 的 `charts/` 那半條；移除插件刪 `chart_settings` 列；`fmp-test` 的 `charts`。
-- [ ] fmp-plugins：三個插件的 `chartList`、`chart`（舊版的來源與排序）、`checks.json`（命令列錄）、版本、index、`FMP_REF`。
+- [x] fmp-plugins：三個插件的 `chartList`、`chart`（舊版的來源與排序）、`checks.json`（命令列錄）、版本、index、`FMP_REF`。
 - 測試：`charts_capability_test.dart`；排程（全停用不登記、單榜單失敗不退避、全部失敗退避、間隔改變重新登記）；快取（先顯示快取與「更新於」、停用刪快取、移除插件刪）；migration 三種；設定的「網路」區；契約與健康檢查的 `a charts case`；lint 雙向變異。
 - 實測：重播（Android）：沒有 UI 的部分以 Debug 頁的 log 看工作執行；真實（匿名）：三個插件各 `chart` 一次（命令列錄製即是）。首頁的呈現在 PR 21 驗。
 - 依賴：0；契約與工作可在 M4a 期間先做（只有設定頁「網路」區多一列，沒有其他 UI），合併不擋 M4a 驗收。模型：sonnet（照電台工作）。
@@ -363,6 +363,11 @@
 ## 留下的後續
 
 （各 PR 合併時寫在這裡，最新的在上面。）
+
+- **PR 20（fmp-plugins）→ PR 21、M4a 驗收**：
+  - B 站 `ranking/v2` 要 WBI 簽名加 `web_location=333.934`：不簽的匿名請求連三次 -352，簽了第一次就成功（fmp-plugins #19）。舊版 `getRankingVideos` 不簽，曾經可用。
+  - YouTube 的觀看數在 WEB context 寫成 `235K`、`14M`（不帶 views），解析兩種都認；`hl` 是 `en`，在地化格式變了會退回清單原順序。
+  - 錄下的 YouTube fixture 的 `visitorData`／`x-goog-visitor-id` 解碼後帶錄製地的國家碼（既有 fixture 也一樣，遮蔽閘門不管）；要不要遮由擁有者決定。
 
 - **PR 20（FMP 端）→ PR 21**：
   - 設定頁「網路」區的快取用量只列封面；`watchUsage` 已有 `chart` 鍵，PR 21 讓排行上畫面時加一列（ADR 0016 §決定 3）。
