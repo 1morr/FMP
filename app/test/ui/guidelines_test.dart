@@ -360,6 +360,42 @@ void main() {
           );
         }
 
+        // 多選（M4 PR 5）：選取列換掉音源 chip 列，影片列與展開的分 P 列都有勾選框、選了的有底色。
+        testWidgets('search results while selecting at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            multiPart: true,
+            registryOfSources: true,
+            onSearch: (_) => SearchPage(
+              items: [summary('a', partCount: 3), summary('b')],
+              hasMore: false,
+            ),
+          );
+          h.plugin.onMultiPart = (_) => MultiPartResult(
+            parts: [
+              for (var i = 1; i <= 3; i++)
+                MultiPart(cid: i, title: 'Part $i', index: i),
+            ],
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.enterText(find.byType(TextField), 'song');
+          await tester.testTextInput.receiveAction(TextInputAction.search);
+          await tester.pump();
+          await tester.pump();
+          await tester.tap(find.byTooltip('Show parts').first);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.longPress(find.text('Song a'));
+          await tester.pump();
+          await tester.tap(find.text('P2 Part 2'));
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle(const Duration(seconds: 10));
+          expect(find.text('2 selected'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         for (final status in [
           NetworkStatus.noInterface,
           NetworkStatus.unreachable,
@@ -449,6 +485,33 @@ void main() {
           await h.play(tester, [summary('a')]);
           await tester.pumpAndSettle(const Duration(seconds: 1));
           expect(find.text('Song c'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('history while selecting at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.openHistory(tester);
+          final repository = h
+              .container(tester)
+              .read(playHistoryRepositoryProvider);
+          await tester.runAsync(() async {
+            for (final (id, minute) in [('a', 5), ('b', 6)]) {
+              await repository.record(
+                summary(id).toTrackInfo(),
+                playedAt: DateTime(2026, 10, 7, 14, minute),
+                limit: 100,
+              );
+            }
+          });
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.longPress(find.text('Song b'));
+          await tester.pumpAndSettle();
+          expect(find.text('1 selected'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
@@ -904,6 +967,36 @@ void main() {
             handle.dispose();
           });
         }
+
+        testWidgets('the playlist details while selecting at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await openDetail(tester);
+          await tester.longPress(find.text('Song a'));
+          await tester.pump();
+          await tester.tap(find.text('P2 Part 2'));
+          await tester.pumpAndSettle();
+          expect(find.text('2 selected'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('removing the selected songs asks first at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await openDetail(tester);
+          await tester.longPress(find.text('Song a'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Remove from playlist'));
+          await tester.pumpAndSettle();
+          expect(find.text('Remove the selected songs?'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
 
         testWidgets('an empty playlist details at $width', (tester) async {
           final handle = tester.ensureSemantics();

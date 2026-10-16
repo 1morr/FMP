@@ -34,12 +34,17 @@ class AddToPlaylistItem extends ConsumerWidget {
 /// 「加入歌單」對話框（ADR 0019 §決定 4、ADR 0033 §決定 11）：只列本機歌單，可勾多張；頂端
 /// 「新增歌單」開建立對話框，建好的那張直接勾上。按「加入」把 [tracks] 依序接在每張勾選的
 /// 歌單尾端（同一首可重複加入，ADR 0019），成功後關閉並提示；失敗時提示、對話框留著。
-/// 加入不確認（Namida 的「加入不確認、移除才確認」）。
-Future<void> showAddToPlaylist(BuildContext context, List<TrackInfo> tracks) =>
-    showDialog<void>(
+/// 加入不確認（Namida 的「加入不確認、移除才確認」）。回傳有沒有加入（取消是 `false`）：多選
+/// 加入了才離開選取模式。
+Future<bool> showAddToPlaylist(
+  BuildContext context,
+  List<TrackInfo> tracks,
+) async =>
+    await showDialog<bool>(
       context: context,
       builder: (_) => _AddToPlaylistDialog(tracks: tracks),
-    );
+    ) ??
+    false;
 
 class _AddToPlaylistDialog extends ConsumerStatefulWidget {
   const _AddToPlaylistDialog({required this.tracks});
@@ -107,7 +112,7 @@ class _AddToPlaylistDialogState extends ConsumerState<_AddToPlaylistDialog> {
           ? t.addedToPlaylist(name: chosen.single.name)
           : t.addedToPlaylists(count: chosen.length),
     );
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override

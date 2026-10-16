@@ -66,6 +66,10 @@ class TranslationsEn extends Translations
     _root,
   );
   @override
+  late final Translations$selection$en selection = Translations$selection$en._(
+    _root,
+  );
+  @override
   late final Translations$offline$en offline = Translations$offline$en._(_root);
   @override
   late final Translations$settings$en settings = Translations$settings$en._(
@@ -588,6 +592,44 @@ class Translations$playlist$en extends Translations$playlist$zh_TW {
   String get notFound => 'This playlist no longer exists';
   @override
   String get unavailable => 'Unavailable';
+  @override
+  String get removeTitle => 'Remove the selected songs?';
+  @override
+  String removeBody({required Object count, required Object name}) =>
+      'The selected songs (${count}) will be removed from "${name}". This cannot be undone.';
+  @override
+  String get removeConfirm => 'Remove';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get removed => 'Removed from the playlist';
+}
+
+// Path: selection
+class Translations$selection$en extends Translations$selection$zh_TW {
+  Translations$selection$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get select => 'Select';
+  @override
+  String count({required Object count}) => '${count} selected';
+  @override
+  String get cancelTooltip => 'Cancel selection (Esc)';
+  @override
+  String get selectAllTooltip => 'Select all (Ctrl+A)';
+  @override
+  String get addToQueue => 'Add to queue';
+  @override
+  String get addToQueueInMix => 'Add to queue (unavailable in a Mix)';
+  @override
+  String get addToPlaylist => 'Add to playlist…';
+  @override
+  String get addedToQueue => 'Added to the queue';
 }
 
 // Path: offline

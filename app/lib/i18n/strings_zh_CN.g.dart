@@ -73,6 +73,9 @@ class TranslationsZhCn extends Translations
   late final Translations$playlist$zh_CN playlist =
       Translations$playlist$zh_CN.internal(_root);
   @override
+  late final Translations$selection$zh_CN selection =
+      Translations$selection$zh_CN.internal(_root);
+  @override
   late final Translations$offline$zh_CN offline =
       Translations$offline$zh_CN.internal(_root);
   @override
@@ -582,6 +585,44 @@ class Translations$playlist$zh_CN extends Translations$playlist$zh_TW {
   String get notFound => '找不到这个歌单';
   @override
   String get unavailable => '已失效';
+  @override
+  String get removeTitle => '从歌单移除选中的歌？';
+  @override
+  String removeBody({required Object count, required Object name}) =>
+      '选中的 ${count} 首将从「${name}」移除，无法恢复。';
+  @override
+  String get removeConfirm => '移除';
+  @override
+  String get cancel => '取消';
+  @override
+  String get removed => '已从歌单移除';
+}
+
+// Path: selection
+class Translations$selection$zh_CN extends Translations$selection$zh_TW {
+  Translations$selection$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get select => '选择';
+  @override
+  String count({required Object count}) => '已选 ${count} 首';
+  @override
+  String get cancelTooltip => '取消选择（Esc）';
+  @override
+  String get selectAllTooltip => '全选（Ctrl+A）';
+  @override
+  String get addToQueue => '加入队列';
+  @override
+  String get addToQueueInMix => '加入队列（Mix 中无法使用）';
+  @override
+  String get addToPlaylist => '添加到歌单…';
+  @override
+  String get addedToQueue => '已加入队列';
 }
 
 // Path: offline

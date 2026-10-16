@@ -201,7 +201,22 @@
     "empty": "這張歌單還沒有歌",
     "emptyHint": "在歌曲的選單選「加入歌單…」",
     "notFound": "找不到這張歌單",
-    "unavailable": "已失效"
+    "unavailable": "已失效",
+    "removeTitle": "從歌單移除已選的歌？",
+    "removeBody": "已選的 {count} 首會從「{name}」移除，無法復原。",
+    "removeConfirm": "移除",
+    "cancel": "取消",
+    "removed": "已從歌單移除"
+  },
+  "selection": {
+    "select": "選取",
+    "count": "已選 {count} 首",
+    "cancelTooltip": "取消選取（Esc）",
+    "selectAllTooltip": "全選（Ctrl+A）",
+    "addToQueue": "加入佇列",
+    "addToQueueInMix": "加入佇列（Mix 中無法使用）",
+    "addToPlaylist": "加入歌單…",
+    "addedToQueue": "已加入佇列"
   },
   "offline": {
     "noInterface": "沒有網路連線",

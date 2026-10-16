@@ -27,7 +27,7 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
-import 'package:fmp/ui/tracks/track_row_menu.dart';
+import 'package:fmp/ui/tracks/track_selection.dart';
 
 /// 在 [context] 所在的 Navigator 開歌單詳情：外殼裡是那個目的地的巢狀導覽（音樂庫的歌單卡，
 /// ADR 0033 §決定 5），導覽與播放列留著。
@@ -50,10 +50,14 @@ Future<void> openPlaylist(BuildContext context, int playlistId) =>
 ///   超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中停用）。匯入歌單另有
 ///   「音源 · 擁有者」一行、「刷新」（手動刷新，進行中不能再按）與標頭下的狀態列（design §5.3 的
 ///   六種：正常、部分完成、刷新失敗＋重試、來源失效＋重試、需要登入＋登入、音源不可用）。
-/// - 曲目依歌單順序；同一支影片連續兩個以上的分 P 收在影片標題下（[groupParts]）。點一首是
-///   臨時播放；選單（右鍵、長按、「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…，
-///   本機歌單另有「從歌單移除」（只刪那一筆、不確認，同佇列與歷史的單筆移除）。遠端說已失效的
-///   項目（`unavailable`）在副標題標「已失效」，點了照常嘗試播放。
+/// - 曲目依歌單順序；同一支影片連續兩個以上的分 P 收在影片標題下（[groupParts]）；單獨的分 P
+///   標題「影片 · P2 分 P 標題」可以換到第二行（手機寬度下分 P 才不會被截掉）。點一首是
+///   臨時播放；選單（右鍵、「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…，
+///   本機歌單另有「從歌單移除」（只刪那一筆、不確認，同佇列與歷史的單筆移除），最後是「選取」。
+///   遠端說已失效的項目（`unavailable`）在副標題標「已失效」，點了照常嘗試播放。
+/// - 多選（[TrackSelectionScope]，M4 design §10.7）：長按或選單的「選取」進入，標題列換成選取列
+///   （加入佇列、加入歌單…；本機歌單另有「從歌單移除」，先確認、只刪選到的項目）。群組標題不是
+///   項目，不能選。
 /// - 只有本機歌單能拖把手重排（放下後整批寫 `position`，資料庫追上之前照拖曳後的順序畫，
 ///   寫入失敗回到資料庫的順序並提示）；匯入歌單沒有把手也沒有移除（ADR 0019 §決定 4）。
 ///
@@ -70,6 +74,15 @@ class PlaylistDetailPage extends ConsumerStatefulWidget {
 class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
   /// 拖曳後還沒從資料庫回來的順序（項目 id）；回來之前照它畫，清單才不會跳回去。
   List<int>? _pendingOrder;
+
+  /// 選的是項目的 id（同一首出現兩次是兩個項目）。
+  final _selection = TrackSelection<int>();
+
+  @override
+  void dispose() {
+    _selection.dispose();
+    super.dispose();
+  }
 
   /// 畫面上的順序：拖曳後的順序在資料庫追上之前優先；項目在這期間增減了就以資料庫為準。
   List<PlaylistEntry> _shown(List<PlaylistEntry> entries) {
@@ -104,6 +117,61 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
   }
 
+  /// 已選的項目的曲目，依畫面順序。
+  Future<List<TrackInfo>?> _tracks(List<int> ids) async {
+    final entries =
+        ref.read(playlistDetailProvider(widget.playlistId)).value?.entries ??
+        const <PlaylistEntry>[];
+    final byId = {for (final entry in entries) entry.id: entry.track};
+    return [for (final id in ids) ?byId[id]];
+  }
+
+  /// 選取列的「從歌單移除」（只在本機歌單）：先確認（一次刪好幾首，Namida 的「移除才確認」；
+  /// 單筆的選單項目照舊不確認），只刪選到的項目；失敗時提示、選取留著。
+  Future<bool> _removeSelected(List<int> ids) async {
+    final t = ref.read(translationsProvider).playlist;
+    final service = ref.read(playlistServiceProvider);
+    final toaster = ref.read(toasterProvider);
+    final name =
+        ref
+            .read(playlistDetailProvider(widget.playlistId))
+            .value
+            ?.playlist
+            .name ??
+        '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.removeTitle),
+        content: Text(t.removeBody(count: ids.length, name: name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(t.removeConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return false;
+    try {
+      await service.removeEntries(widget.playlistId, ids);
+    } on Object catch (error, stackTrace) {
+      toaster.error(
+        AppError.wrap(error, stackTrace),
+        operation: 'Failed to remove songs from a playlist',
+        tag: 'library',
+        sentence: (reason) => t.removeFailed(reason: reason),
+      );
+      return false;
+    }
+    toaster.success(t.removed);
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = playlistDetailProvider(widget.playlistId);
@@ -127,57 +195,79 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final detail = ref.watch(provider);
     // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
     final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.x4,
-            spacing.x4,
-            spacing.x4,
-            spacing.x2,
-          ),
-          child: Row(
-            children: [
-              if (canGoBack)
-                IconButton(
-                  tooltip: translations.shell.backTooltip,
-                  icon: const BackButtonIcon(),
-                  onPressed: () => unawaited(Navigator.of(context).maybePop()),
-                ),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    detail.value?.playlist.name ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: switch (detail) {
-            AsyncData(value: null) => EmptyState(
-              icon: Icons.playlist_remove,
-              title: t.notFound,
-            ),
-            AsyncData(value: final detail?) => _body(detail),
-            // 讀失敗（已在上面報過）：不是空歌單。
-            AsyncError(:final error) => EmptyState(
-              icon: Icons.error_outline,
-              title: errorMessage(
-                translations,
-                AppError.wrap(error, StackTrace.current),
-              ),
-            ),
-            AsyncLoading() => const SizedBox.shrink(),
-          },
-        ),
+    final local = detail.value?.playlist.kind == PlaylistKind.local;
+    return TrackSelectionScope<int>(
+      selection: _selection,
+      // 畫面順序（拖曳後還沒寫回時照拖曳的順序）；群組標題不是項目。
+      keys: [
+        if (detail.value case final detail?)
+          for (final entry in _shown(detail.entries)) entry.id,
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TrackSelectionBar<int>(
+            tracks: _tracks,
+            actions: [
+              // 匯入歌單的曲目不能在本地刪（ADR 0019 §決定 4）。
+              if (local)
+                TrackSelectionAction(
+                  icon: Icons.remove_circle_outline,
+                  tooltip: t.remove,
+                  onPressed: _removeSelected,
+                ),
+            ],
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.x4,
+                spacing.x4,
+                spacing.x4,
+                spacing.x2,
+              ),
+              child: Row(
+                children: [
+                  if (canGoBack)
+                    IconButton(
+                      tooltip: translations.shell.backTooltip,
+                      icon: const BackButtonIcon(),
+                      onPressed: () =>
+                          unawaited(Navigator.of(context).maybePop()),
+                    ),
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        detail.value?.playlist.name ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: switch (detail) {
+              AsyncData(value: null) => EmptyState(
+                icon: Icons.playlist_remove,
+                title: t.notFound,
+              ),
+              AsyncData(value: final detail?) => _body(detail),
+              // 讀失敗（已在上面報過）：不是空歌單。
+              AsyncError(:final error) => EmptyState(
+                icon: Icons.error_outline,
+                title: errorMessage(
+                  translations,
+                  AppError.wrap(error, StackTrace.current),
+                ),
+              ),
+              AsyncLoading() => const SizedBox.shrink(),
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -530,8 +620,9 @@ class _GroupHeader extends ConsumerWidget {
   }
 }
 
-/// 一首：群組外是封面、`displayTitle`、上傳者（音源不可用時是原因）；群組裡的分 P 縮排、只寫
-/// 分 P 的標籤（同搜尋結果展開的分 P）。尾端是時長、「⋯」，本機歌單另有拖曳把手。
+/// 一首：群組外是封面、`displayTitle`（單獨的分 P 可以兩行）、上傳者（音源不可用時是原因）；
+/// 群組裡的分 P 縮排、只寫分 P 的標籤（同搜尋結果展開的分 P）。尾端是時長、「⋯」，本機歌單另有
+/// 拖曳把手；選取模式是時長與勾選框（[SelectableTrackRow]）。
 class _EntryRow extends ConsumerWidget {
   const _EntryRow({
     super.key,
@@ -565,6 +656,9 @@ class _EntryRow extends ConsumerWidget {
         ? null
         : ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
               track.uploader;
+    // 單獨的分 P（不成群組）的標題是「影片 · P2 分 P 標題」（同播放列、佇列、歷史）：可以換到
+    // 第二行，手機寬度下後面的分 P 才不會被截掉。
+    final lonePart = !inGroup && track.partIndex != null;
     final dragIndex = this.dragIndex;
 
     void play() =>
@@ -620,7 +714,8 @@ class _EntryRow extends ConsumerWidget {
       );
     }
 
-    return TrackRowMenu(
+    return SelectableTrackRow<int>(
+      selectionKey: entry.id,
       moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
@@ -654,7 +749,8 @@ class _EntryRow extends ConsumerWidget {
             child: Text(t.remove),
           ),
       ],
-      builder: (context, more, openMenu) => ListTile(
+      builder: (context, row) => ListTile(
+        selected: row.selected,
         dense: inGroup,
         contentPadding: inGroup
             ? EdgeInsetsDirectional.only(
@@ -671,7 +767,7 @@ class _EntryRow extends ConsumerWidget {
               ),
         title: Text(
           inGroup ? track.partLabel : track.displayTitle,
-          maxLines: 1,
+          maxLines: lonePart ? 2 : 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: subtitle(uploader),
@@ -679,16 +775,17 @@ class _EntryRow extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (duration != null) Text(formatDuration(duration)),
-            more,
-            if (dragIndex != null)
+            row.trailing,
+            // 選取模式不能拖。
+            if (dragIndex != null && !row.selecting)
               ReorderableDragStartListener(
                 index: dragIndex,
                 child: const _DragHandle(),
               ),
           ],
         ),
-        onTap: play,
-        onLongPress: openMenu,
+        onTap: row.onTap ?? play,
+        onLongPress: row.onLongPress,
       ),
     );
   }

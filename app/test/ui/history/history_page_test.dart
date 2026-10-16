@@ -10,6 +10,7 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/history/history_page.dart';
@@ -238,9 +239,8 @@ void main() {
       expect(h.controller.queue.current?.sourceId, 'a');
     });
 
-    testWidgets('right click and long press open the same menu', (
-      tester,
-    ) async {
+    // 長按是多選（見 `selecting`），選單在右鍵與「⋯」。
+    testWidgets('right click and "⋯" open the same menu', (tester) async {
       final h = await openHistory(tester);
       await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
       await record(tester, h, 'b', DateTime(2026, 10, 7, 14, 6));
@@ -249,6 +249,7 @@ void main() {
       await tester.tap(find.text('Song a'), buttons: kSecondaryButton);
       await tester.pump();
       expect(find.text('Remove from history'), findsOneWidget);
+      expect(find.text('Select'), findsOneWidget);
       await tester.tap(find.text('Play next'));
       await tester.pump();
       expect(
@@ -256,7 +257,8 @@ void main() {
         ['a'],
       );
 
-      await tester.longPress(find.text('Song b'));
+      // 最新的 b 在最上面。
+      await tester.tap(find.byTooltip('More options').first);
       await tester.pump();
       await tester.tap(find.text('Add to queue'));
       await tester.pump();
@@ -633,6 +635,222 @@ void main() {
         }
         expect(h.controller.queue.entries, hasLength(2));
       });
+    });
+  });
+
+  // 多選（M4 PR 5，design §10.7）：在外殼裡開（Esc 與返回鍵由外殼處理）。紀錄 a、b、c 依時間，
+  // 畫面上由新到舊是 c、b、a。
+  group('selecting', () {
+    Future<ShellHarness> openThree(
+      WidgetTester tester, {
+      ShellHarness? harness,
+    }) async {
+      final h = harness ?? ShellHarness();
+      await h.pumpShell(tester);
+      await h.openHistory(tester);
+      for (final (id, minute) in [('a', 5), ('b', 6), ('c', 7)]) {
+        await record(tester, h, id, DateTime(2026, 10, 7, 14, minute));
+      }
+      await reload(tester, h);
+      await tester.pumpAndSettle();
+      expect(find.text('Song a'), findsOneWidget);
+      return h;
+    }
+
+    List<String> queued(ShellHarness h) => [
+      for (final entry in h.controller.queue.entries) entry.track.sourceId,
+    ];
+
+    IconButton button(WidgetTester tester, String tooltip) =>
+        tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip(tooltip),
+            matching: find.byType(IconButton),
+          ),
+        );
+
+    testWidgets('a long press enters; the bar replaces the title; Esc and '
+        'the back key leave selection mode before the page', (tester) async {
+      await openThree(tester);
+
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(find.text('Play history'), findsNothing);
+      expect(find.byType(Checkbox), findsNWidgets(3));
+      expect(find.byTooltip('More options'), findsNothing);
+
+      // 選取模式裡點一下是勾選，不是播放。
+      await tester.tap(find.text('Song a'));
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Play history'), findsOneWidget);
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.byType(HistoryPage), findsOneWidget);
+
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Play history'), findsOneWidget);
+      expect(find.byType(HistoryPage), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(HistoryPage), findsNothing);
+    });
+
+    testWidgets('"Select" in the menu enters with that entry', (tester) async {
+      await openThree(tester);
+
+      await tester.tap(find.text('Song a'), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Select'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.descendant(
+                of: find.widgetWithText(ListTile, 'Song a'),
+                matching: find.byType(Checkbox),
+              ),
+            )
+            .value,
+        isTrue,
+      );
+    });
+
+    testWidgets('"Add to queue" adds the selected songs in screen order and '
+        'ends selection mode', (tester) async {
+      final h = await openThree(tester);
+
+      await tester.longPress(find.text('Song a'));
+      await tester.tap(find.text('Song c'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Add to queue'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(queued(h), ['c', 'a']);
+      expect(h.controller.state, isA<Idle>(), reason: 'adding does not play');
+      expect(find.text('Added to the queue'), findsOneWidget);
+      expect(find.text('Play history'), findsOneWidget);
+    });
+
+    testWidgets('"Add to playlist…" adds the selected songs', (tester) async {
+      final h = await openThree(tester);
+      final id = (await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(playlistRepositoryProvider)
+            .create(name: 'Road'),
+      ))!;
+      await reload(tester, h);
+
+      await tester.longPress(find.text('Song c'));
+      await tester.tap(find.text('Song b'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Add to playlist…'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Road'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      for (var i = 0; i < 3; i++) {
+        await reload(tester, h);
+      }
+      await tester.pumpAndSettle();
+
+      final stored = await tester.runAsync(
+        () => h.container(tester).read(playlistRepositoryProvider).entries(id),
+      );
+      expect([for (final entry in stored!) entry.track.sourceId], ['c', 'b']);
+      expect(find.text('Added to "Road"'), findsOneWidget);
+      expect(find.text('Play history'), findsOneWidget);
+    });
+
+    testWidgets('past the queue limit nothing is added and the selection '
+        'stays', (tester) async {
+      final h = await openThree(tester);
+      expect(
+        h.controller.addToQueue([
+          for (var i = 0; i < QueueModel.maxLength - 1; i++) track('q$i'),
+        ]),
+        isTrue,
+      );
+      await tester.pump();
+
+      await tester.longPress(find.text('Song a'));
+      await tester.tap(find.text('Song b'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Add to queue'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(h.controller.queue.entries, hasLength(QueueModel.maxLength - 1));
+      expect(
+        find.text(
+          'The queue is full (10,000 songs at most); nothing was added',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('2 selected'), findsOneWidget);
+    });
+
+    testWidgets('inside a Mix "Add to queue" is disabled; "Add to playlist…" '
+        'is not', (tester) async {
+      final h = ShellHarness(mix: true, registryOfSources: true);
+      h.plugin.onMix = (query) => MixBatch(
+        mixId: 'm1',
+        title: 'Mix',
+        tracks: [
+          for (final id in ['m1', 'm2'])
+            TrackSummary(sourceTypeId: 'fmp-test', sourceId: id, title: id),
+        ],
+      );
+      await openThree(tester, harness: h);
+      unawaited(h.controller.startMix(track('seed')));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(h.controller.queue.mode, QueueMode.mix);
+
+      await tester.longPress(find.text('Song a'));
+      await tester.pumpAndSettle();
+
+      expect(
+        button(tester, 'Add to queue (unavailable in a Mix)').onPressed,
+        isNull,
+      );
+      expect(button(tester, 'Add to playlist…').onPressed, isNotNull);
+      expect(h.controller.queue.entries, hasLength(2));
+    });
+
+    testWidgets('Shift+click selects a range; Ctrl+A selects every entry', (
+      tester,
+    ) async {
+      await openThree(tester);
+      await tester.longPress(find.text('Song c'));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.tap(find.text('Song a'));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(find.text('3 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Song b'));
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(find.text('3 selected'), findsOneWidget);
     });
   });
 }

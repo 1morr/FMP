@@ -354,9 +354,8 @@ void main() {
       expect(queued(h), ['a', 'b', 'c']);
     });
 
-    testWidgets('right click and long press open the same menu', (
-      tester,
-    ) async {
+    // 長按是多選（見 `selecting`），選單在右鍵與「⋯」。
+    testWidgets('right click and "⋯" open the same menu', (tester) async {
       final h = ShellHarness();
       await h.pumpShell(tester);
       await search(tester, 'song');
@@ -364,11 +363,12 @@ void main() {
       await tester.tap(find.text('Song a'), buttons: kSecondaryButton);
       await tester.pump();
       expect(find.text('Play next'), findsOneWidget);
+      expect(find.text('Select'), findsOneWidget);
       await tester.tap(find.text('Play next'));
       await tester.pump();
       expect(queued(h), ['a']);
 
-      await tester.longPress(find.text('Song b'));
+      await tester.tap(moreOf('Song b'));
       await tester.pump();
       await tester.tap(find.text('Add to queue'));
       await tester.pump();
@@ -505,5 +505,112 @@ void main() {
       final selection = tester.widget<EditableText>(field).controller.selection;
       expect((selection.start, selection.end), (0, 'hello world'.length));
     }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+  });
+
+  // 多選（M4 PR 5，design §10.7）：輸入框留著，音源 chip 列換成選取列。多分 P 影片的取法在
+  // `search_parts_test.dart` 的 `selecting`。
+  group('selecting', () {
+    List<String> queued(ShellHarness h) => [
+      for (final entry in h.controller.queue.entries) entry.track.sourceId,
+    ];
+
+    Future<void> ctrlA(WidgetTester tester) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+    }
+
+    testWidgets('a long press enters; the field stays and the bar replaces '
+        'the source chips; a tap checks instead of playing', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
+      await tester.tap(find.text('Song c'));
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+      expect(h.controller.queue.current, isNull, reason: 'nothing played');
+
+      await tester.tap(find.byTooltip('Add to queue'));
+      await tester.pump();
+      await tester.pump();
+      expect(queued(h), ['b', 'c']);
+      expect(find.byType(ChoiceChip), findsOneWidget);
+    });
+
+    testWidgets('Ctrl+A in the search field selects its text; outside it, '
+        'every result', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      final field = tester.widget<EditableText>(find.byType(EditableText));
+      field.controller.selection = const TextSelection.collapsed(offset: 0);
+      await tester.pump();
+      await ctrlA(tester);
+      expect(
+        field.controller.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 4),
+      );
+      expect(find.text('1 selected'), findsOneWidget);
+
+      // Esc 先離開輸入框（外殼的規則），焦點回到頁面上（不用先點一列），Ctrl+A 是全選。
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.text('1 selected'), findsOneWidget);
+      await ctrlA(tester);
+      expect(find.text('3 selected'), findsOneWidget);
+
+      // 再一次 Esc 離開選取模式。
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(find.byType(ChoiceChip), findsOneWidget);
+      expect(find.byType(Checkbox), findsNothing);
+    });
+
+    testWidgets('the back key leaves selection mode first, then Search', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.text('Song b'), findsOneWidget, reason: 'still on Search');
+
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Song b').hitTestable(), findsNothing);
+    });
+
+    testWidgets('a new search leaves selection mode', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.longPress(find.text('Song a'));
+      await tester.pumpAndSettle();
+
+      // 同樣的結果：位置一樣，但已經是另一份結果。
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.byType(ChoiceChip), findsOneWidget);
+    });
   });
 }
