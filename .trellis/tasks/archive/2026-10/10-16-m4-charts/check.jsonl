@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§3.1 chart_settings、§3.3 設定歸屬、§4.6 charts、§4.9 fmp-test、§6.2 charts 工作、§9.1 快取"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§決定 5–7 charts 契約、匯出、checks"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "排行快取、停用就刪、離線顯示"}
+{"file": "docs/adr/0017-background-task-scheduler.md", "reason": "排程器、排行間隔選項、退避"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "能力、匯出、DTO、checks 的寫法"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "schema migration、設定表"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "Notifier 與 setter"}
+{"file": ".trellis/spec/app/network/index.md", "reason": "快取庫"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_layer_imports、lint 雙向變異"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、假時鐘、migration 測試"}
