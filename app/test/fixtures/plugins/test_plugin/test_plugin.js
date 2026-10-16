@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -441,6 +441,34 @@ function mixTracks(mixId, numbers) {
     durationMs: 2000,
     artwork: [],
   }));
+}
+
+// 排行（ADR 0032 §決定 5），不連網。三個榜單：
+// - hot：5 首；
+// - new：3 首；
+// - broken：以 NetworkError 失敗（單一榜單失敗不影響其他榜單）。
+// 曲目沿用 tone-<hz>（可播）。
+const CHARTS = [
+  { chartId: 'hot', title: 'Hot', hz: [440, 220, 880, 330, 550] },
+  { chartId: 'new', title: 'New', hz: [110, 660, 770] },
+  { chartId: 'broken', title: 'Broken', hz: [] },
+];
+
+export function chartList() {
+  return { charts: CHARTS.map(({ chartId, title }) => ({ chartId, title })) };
+}
+
+export function chart(query) {
+  const found = CHARTS.find((entry) => entry.chartId === query.chartId);
+  if (found === undefined) {
+    throw { fmpError: 'NotFound', message: `no such chart: ${query.chartId}` };
+  }
+  if (found.chartId === 'broken') {
+    throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
+  }
+  return {
+    tracks: found.hz.map((hz) => playlistTrack(`tone-${hz}`, `${found.title} tone ${hz} Hz`)),
+  };
 }
 
 export function mix(query) {

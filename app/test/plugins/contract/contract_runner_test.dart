@@ -350,7 +350,7 @@ void main() {
         directory,
         _script,
         '"capabilities": ["search", "resolveStream"]',
-        '"capabilities": ["search", "resolveStream", "charts"]',
+        '"capabilities": ["search", "resolveStream", "lyrics"]',
       );
 
       expect(
@@ -358,7 +358,7 @@ void main() {
         contains(
           allOf(
             startsWith('load: Unsupported'),
-            contains('declared but not exported: charts'),
+            contains('declared but not exported: lyrics'),
           ),
         ),
       );
@@ -370,12 +370,12 @@ void main() {
         directory,
         _script,
         'export async function resolveStream',
-        'export function charts() {}\nexport async function resolveStream',
+        'export function lyrics() {}\nexport async function resolveStream',
       );
 
       expect(
         await runContract(directory),
-        contains(contains('exported but not declared: charts')),
+        contains(contains('exported but not declared: lyrics')),
       );
     });
 
@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
-        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
       );
 
       expect(
@@ -399,8 +399,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
-        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
       );
 
       expect(
@@ -414,8 +414,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
       );
 
       expect(
@@ -429,8 +429,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "importPlaylist", "charts", "login"]',
       );
 
       expect(
@@ -467,8 +467,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "importPlaylist", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "importPlaylist", "charts", "login"]',
       );
 
       expect(
@@ -504,7 +504,7 @@ void main() {
         edit(
           directory,
           'test_plugin.js',
-          '"trackDetail", "importPlaylist", "login"]',
+          '"trackDetail", "importPlaylist", "charts", "login"]',
           '"trackDetail", "login"]',
         );
 
@@ -563,6 +563,55 @@ void main() {
       () async {
         final directory = copyPlugin('test_plugin');
         edit(directory, 'test_plugin.js', 'Playlist tone', 'Renamed tone');
+
+        expect(await runContract(directory), isEmpty);
+      },
+    );
+
+    test('a charts check for a plugin without the capability', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        '"trackDetail", "importPlaylist", "charts", "login"]',
+        '"trackDetail", "importPlaylist", "login"]',
+      );
+
+      expect(
+        await runContract(directory),
+        contains('checks.json: charts is not a declared capability'),
+      );
+    });
+
+    test(
+      'a charts check that expects more tracks than the chart has',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        // `new` 只有三首，`hot` 的案例期望五首。
+        edit(directory, _checks, '"chartId": "hot"', '"chartId": "new"');
+
+        expect(
+          await runContract(directory),
+          contains(contains('expected at least 5 items, got 3')),
+        );
+      },
+    );
+
+    test('a charts check on a chart that fails', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(directory, _checks, '"chartId": "hot"', '"chartId": "broken"');
+
+      expect(
+        await runContract(directory),
+        contains(contains('charts: expected success, got NetworkError')),
+      );
+    });
+
+    test(
+      'a charts check that renames an unrelated thing stays green',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(directory, 'test_plugin.js', "title: 'Hot'", "title: 'Popular'");
 
         expect(await runContract(directory), isEmpty);
       },

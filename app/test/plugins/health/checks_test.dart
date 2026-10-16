@@ -338,6 +338,76 @@ void main() {
     }
   });
 
+  group('the charts check', () {
+    const input = '{"chartId": "hot"}';
+
+    test('takes a chart id and reads the tracks of the chart', () {
+      final check = parseChecks(
+        _check(
+          'charts',
+          input,
+          '{"minItems": 2, "nonEmpty": ["sourceId", "uploader"]}',
+        ),
+      ).single;
+
+      expect(check.capability, PluginCapability.charts);
+      expect(check.input, isA<ChartQuery>());
+      expect((check.input as ChartQuery).chartId, 'hot');
+      expect(check.requiresLogin, isFalse);
+      const page = ChartPage(
+        tracks: [TrackSummary(sourceTypeId: 'p', sourceId: 'a', title: 't')],
+      );
+      expect(check.expectation.evaluate(result: page, describe: (_) => ''), [
+        'expected at least 2 items, got 1',
+        'item 0: "uploader" is empty',
+      ]);
+    });
+
+    test('an empty chart has no tracks to check', () {
+      final check = parseChecks(_check('charts', input, '{"minItems": 0}'))
+          .single;
+
+      expect(
+        check.expectation.evaluate(
+          result: const ChartPage(tracks: []),
+          describe: (_) => '',
+        ),
+        isEmpty,
+      );
+    });
+
+    for (final (name, text, message) in [
+      (
+        'an empty chart id',
+        _check('charts', '{"chartId": " "}', '{}'),
+        'checks.charts.input: must not be empty',
+      ),
+      (
+        'a url instead of a chart id',
+        _check('charts', '{"url": "https://fmp.test/x"}', '{}'),
+        'unknown field "url"',
+      ),
+      (
+        'a field TrackSummary does not have',
+        _check('charts', input, '{"nonEmpty": ["total"]}'),
+        'TrackSummary has no field "total"',
+      ),
+    ]) {
+      test('rejects $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+  });
+
   group('the importPlaylist check', () {
     const input = '{"url": "https://fmp.test/playlist/pl-basic"}';
 
@@ -561,6 +631,7 @@ void main() {
         'multiPart': '{"sourceId": "s"}',
         'trackDetail': '{"sourceId": "s"}',
         'importPlaylist': '{"url": "https://example.test/p"}',
+        'charts': '{"chartId": "hot"}',
       };
       for (final MapEntry(key: capability, value: input) in cases.entries) {
         final check = parseChecks(
@@ -657,8 +728,8 @@ void main() {
       ),
       (
         'a capability the host cannot call yet',
-        _check('charts', '{}', '{}'),
-        'unknown field "charts"',
+        _check('lyrics', '{}', '{}'),
+        'unknown field "lyrics"',
       ),
       (
         'an unknown error name',

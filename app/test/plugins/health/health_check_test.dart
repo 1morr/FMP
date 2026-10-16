@@ -107,6 +107,19 @@ const _importPlaylistCheck =
     '"importPlaylist": {"input": {"url": "https://example.test/pl"}, '
     '"expect": {"minItems": 2, "nonEmpty": ["track"]}}';
 
+/// charts：`chartList` 不發請求，`chart` 打 `/chart`：200 回兩首，其他狀態碼一律拋錯。
+const _chartsScript = '''
+export function chartList() { return { charts: [{ chartId: 'hot', title: 'Hot' }] }; }
+export async function chart({ chartId }) {
+  const response = await fmp.http.request({ url: 'https://example.test/chart', auth: 'userPreference' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return { tracks: [1, 2].map((n) => ({ sourceId: chartId + n, title: 'T' + n })) };
+}
+''';
+const _chartsCheck =
+    '"charts": {"input": {"chartId": "hot"}, '
+    '"expect": {"minItems": 2, "nonEmpty": ["sourceId", "title"]}}';
+
 const _trackDetailCheck =
     '"trackDetail": {"input": {"sourceId": "s"}, '
     '"expect": {"minItems": 1, "nonEmpty": ["description", "stats"]}}';
@@ -140,6 +153,7 @@ final class _Spec {
     this.multiPart = false,
     this.trackDetail = false,
     this.importPlaylist = false,
+    this.charts = false,
   });
 
   final String id;
@@ -151,6 +165,7 @@ final class _Spec {
   final bool multiPart;
   final bool trackDetail;
   final bool importPlaylist;
+  final bool charts;
 }
 
 Future<
@@ -178,7 +193,8 @@ _setup(
           '${spec.live ? _liveScript : ''}${spec.mix ? _mixScript : ''}'
           '${spec.multiPart ? _multiPartScript : ''}'
           '${spec.trackDetail ? _trackDetailScript : ''}'
-          '${spec.importPlaylist ? _importPlaylistScript : ''}',
+          '${spec.importPlaylist ? _importPlaylistScript : ''}'
+          '${spec.charts ? _chartsScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
@@ -187,6 +203,7 @@ _setup(
             if (spec.multiPart) 'multiPart',
             if (spec.trackDetail) 'trackDetail',
             if (spec.importPlaylist) 'importPlaylist',
+            if (spec.charts) 'charts',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -517,6 +534,44 @@ void main() {
         [import],
         handler: (options) =>
             reply(options.uri.path == '/playlist' ? 500 : 200, body: '{}'),
+      );
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.last.outcome, HealthOutcome.failed);
+    });
+  });
+
+  group('a charts case', () {
+    final charts = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_chartsCheck}',
+      charts: true,
+    );
+
+    test('fetches the chart and passes, without a login', () async {
+      final s = await _setup([charts]);
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      final cases = s.container
+          .read(healthCheckProvider)
+          .results['plugin-a']!
+          .cases;
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(s.requests.where((r) => r.startsWith('/chart')), hasLength(1));
+    });
+
+    test('fails when the chart request fails', () async {
+      final s = await _setup(
+        [charts],
+        handler: (options) =>
+            reply(options.uri.path == '/chart' ? 500 : 200, body: '{}'),
       );
       await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
       final cases = s.container

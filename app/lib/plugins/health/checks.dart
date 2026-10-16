@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，login 跑 loginVerify）；
+// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，charts 取一個榜單，login 跑 loginVerify）；
 // 其他能力的鍵是不認得的欄位，整個檔案拒收。每種案例都收選填的 `mutates`（只准
 // `true`，ADR 0032 §決定 7）。
 //
@@ -28,6 +28,7 @@ const checkShapes = <String, JsonShape>{
     'multiPart': false,
     'trackDetail': false,
     'importPlaylist': false,
+    'charts': false,
     'login': false,
   },
   'FmpLiveCheck': {'input': true, 'expect': true, 'mutates': false},
@@ -35,6 +36,7 @@ const checkShapes = <String, JsonShape>{
   'FmpMultiPartCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpTrackDetailCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpImportPlaylistCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpChartsCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpSearchCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpResolveStreamCheck': {
     'input': true,
@@ -73,6 +75,7 @@ const _capabilities = {
     check: 'FmpImportPlaylistCheck',
     item: 'RemotePlaylistItem',
   ),
+  PluginCapability.charts: (check: 'FmpChartsCheck', item: 'TrackSummary'),
   PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
@@ -91,7 +94,8 @@ final class PluginCheck {
 
   /// [SearchQuery]、[StreamRequest]、[LiveRoomQuery]（live 的 `liveStatus`）、
   /// [MixSeedQuery]（mix 以 seed 開始）、[MultiPartQuery]（multiPart）、
-  /// [TrackDetailQuery]（trackDetail）、[PlaylistUrlQuery]（importPlaylist）或
+  /// [TrackDetailQuery]（trackDetail）、[PlaylistUrlQuery]（importPlaylist）、
+  /// [ChartQuery]（charts 的 `chart`）或
   /// [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
@@ -128,6 +132,7 @@ final class PluginCheck {
         final MultiPartQuery query => plugin.multiPart(query),
         final TrackDetailQuery query => plugin.trackDetail(query),
         final PlaylistUrlQuery query => _importFirstPage(plugin, query),
+        final ChartQuery query => plugin.chart(query),
         final LoginCredentials fixture => plugin.loginVerify(
           credentials ?? fixture,
         ),
@@ -202,6 +207,7 @@ PluginCheck _check(
         fields.raw('input'),
         path,
       ),
+      PluginCapability.charts => _chartQuery(fields.raw('input'), path),
       _ => _streamRequest(fields.raw('input'), path),
     };
   } on ArgumentError catch (error) {
@@ -362,6 +368,15 @@ PlaylistUrlQuery _playlistUrlQuery(Object? json, String path) {
     path: '$path.input',
   );
   return PlaylistUrlQuery(url: fields.string('url'));
+}
+
+ChartQuery _chartQuery(Object? json, String path) {
+  final fields = JsonFields(
+    json,
+    sourceDtoShapes['ChartQuery']!,
+    path: '$path.input',
+  );
+  return ChartQuery(chartId: fields.string('chartId'));
 }
 
 StreamRequest _streamRequest(Object? json, String path) {
@@ -533,6 +548,7 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
   final PlaylistPage page => [
     for (final item in page.items) playlistItemFields(item),
   ],
+  final ChartPage page => [for (final track in page.tracks) trackFields(track)],
   _ => throw ArgumentError.value(result, 'result'),
 };
 
