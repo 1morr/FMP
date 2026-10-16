@@ -154,6 +154,13 @@ final class FakeSourcePlugin implements SourcePlugin {
       throw UnimplementedError('importPlaylist');
 
   @override
+  Future<ChartList> chartList() => throw UnimplementedError('charts');
+
+  @override
+  Future<ChartPage> chart(ChartQuery query) =>
+      throw UnimplementedError('charts');
+
+  @override
   Future<TrackDetail> trackDetail(TrackDetailQuery query) async {
     final handler = onTrackDetail;
     if (handler == null) throw UnimplementedError('trackDetail');

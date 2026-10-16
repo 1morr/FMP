@@ -146,6 +146,70 @@ void main() {
     });
   });
 
+  group('chart refresh interval', () {
+    test('is written and read without touching the other fields', () async {
+      final repository = NetworkSettingsRepository(memoryDatabase());
+      await repository.write(
+        cacheLimitMebibytes: 512,
+        radioStatusIntervalMinutes: 3,
+      );
+
+      await repository.write(chartRefreshIntervalMinutes: 120);
+
+      expect(
+        await repository.read(),
+        const NetworkSettings(
+          cacheLimitMebibytes: 512,
+          radioStatusIntervalMinutes: 3,
+          chartRefreshIntervalMinutes: 120,
+        ),
+      );
+    });
+
+    test('0 (off) is a value, not an unset field', () async {
+      final repository = NetworkSettingsRepository(memoryDatabase());
+
+      await repository.write(chartRefreshIntervalMinutes: 0);
+
+      expect((await repository.read()).chartRefreshIntervalMinutes, 0);
+    });
+
+    test('clear stores NULL and leaves the other fields alone', () async {
+      final database = memoryDatabase();
+      final repository = NetworkSettingsRepository(database);
+      await repository.write(
+        radioStatusIntervalMinutes: 10,
+        chartRefreshIntervalMinutes: 240,
+      );
+
+      await repository.clear(chartRefreshIntervalMinutes: true);
+
+      final row = await database
+          .customSelect(
+            'SELECT radio_status_interval_minutes, '
+            'chart_refresh_interval_minutes FROM network_settings',
+          )
+          .getSingle();
+      expect(row.data, {
+        'radio_status_interval_minutes': 10,
+        'chart_refresh_interval_minutes': null,
+      });
+    });
+
+    test('stored format: a plain number of minutes', () async {
+      final database = memoryDatabase();
+      await NetworkSettingsRepository(database)
+          .write(chartRefreshIntervalMinutes: 30);
+
+      final row = await database
+          .customSelect(
+            'SELECT chart_refresh_interval_minutes AS v FROM network_settings',
+          )
+          .getSingle();
+      expect(row.data['v'], 30);
+    });
+  });
+
   test('watch emits the current value and every write', () async {
     final repository = NetworkSettingsRepository(memoryDatabase());
     final events = StreamIterator(repository.watch());

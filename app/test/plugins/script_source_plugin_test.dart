@@ -95,7 +95,7 @@ void main() {
       await expectLater(
         PluginHarness().load(
           pluginSource(
-            'export function search() {}\nexport function charts() {}',
+            'export function search() {}\nexport function lyrics() {}',
           ),
         ),
         throwsA(isA<Unsupported>()),

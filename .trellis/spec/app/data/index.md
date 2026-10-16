@@ -149,6 +149,15 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - 一萬首的完整刷新（PR 8a 在開發機的記憶體資料庫量一次，頁 50–100 首）：全新加入約 0.3–0.5 秒、全部比對到且不變約 0.3–0.4 秒、整張倒序約 0.3 秒。
 - 測試：`playlist_remote_repository_test.dart`（建列、重複、代際、過期、`stored format`）；比對與套用的行為由 `test/library/` 的假插件端到端測。
 
+## 榜單設定（`chart_settings_repository.dart`，schema v17）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `chart_settings` 與 § 排行。
+
+- `ChartSettingsRepository`：`watch`（全部的列，工作與之後的設定頁都從 `chartSettingsProvider` 讀）、`setEnabled`（`insertOnConflictUpdate`，只寫 `enabled`，同一列的 `sort_order` 不動）、
+  `removePlugin`（`PluginInstaller.remove` 的一步，沒有列也不出錯）。設定頁的排序在 PR 21 加，那時再加方法。
+- 列只在使用者動過才有：沒有列＝啟用、依預設順序。讀的人（`ChartJobs`）以插件的 `chartList` 為準，插件拿掉的榜單的列留著無害。
+- 測試：`chart_settings_repository_test.dart`；migration 的 `expectChartSettingsSchema` 查主鍵與空值。
+
 ## 插件（`plugin_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `installed_plugins`（schema v7）。
@@ -239,7 +248,9 @@ lib/data/cache/
 - 只有一版時 `make-migrations` 不產生 `generated/`，用
   `dart run drift_dev schema generate drift_schemas/cache_database/ test/drift/cache_database/generated/`。
 - 新的類別：`CacheCategory` 加一個值、轉換器加一個寫死的字串，用它的 cache manager 或
-  寫入路徑在索引記上類別；用量（`usage`）自動分開算。
+  寫入路徑在索引記上類別；用量（`usage`）自動分開算。類別只是 `cache_entries.category` 的新字串，表沒變，
+  不必動 `CacheDatabase.schemaVersion`；`watchUsage` 的結果多一個鍵，既有測試的期望要補（`CacheCategory.chart: 0`）。
+  不經 cache manager 的內容（排行的 JSON）用 `CacheStore.put`／`get`／`remove`。
 - 測試用 `test/data/cache/cache_harness.dart` 的 `CacheHarness`：暫存目錄當平台快取目錄、
   假 adapter 的媒體 client、`open` 開真的檔案資料庫。`at(minute, …)` 固定時間（最後存取以它
   排序），`read` 從索引讀並等最後存取寫完（`flutter_cache_manager` 不等那次寫入，不等的話測試

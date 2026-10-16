@@ -10,6 +10,7 @@ final class NetworkSettings {
   const NetworkSettings({
     this.cacheLimitMebibytes,
     this.radioStatusIntervalMinutes,
+    this.chartRefreshIntervalMinutes,
   });
 
   /// 全部沒設定過。
@@ -21,20 +22,28 @@ final class NetworkSettings {
   /// 電台狀態刷新間隔（分）；`0` 是關閉。
   final int? radioStatusIntervalMinutes;
 
+  /// 排行刷新間隔（分）；`0` 是關閉。
+  final int? chartRefreshIntervalMinutes;
+
   @override
   bool operator ==(Object other) =>
       other is NetworkSettings &&
       other.cacheLimitMebibytes == cacheLimitMebibytes &&
-      other.radioStatusIntervalMinutes == radioStatusIntervalMinutes;
+      other.radioStatusIntervalMinutes == radioStatusIntervalMinutes &&
+      other.chartRefreshIntervalMinutes == chartRefreshIntervalMinutes;
 
   @override
-  int get hashCode =>
-      Object.hash(cacheLimitMebibytes, radioStatusIntervalMinutes);
+  int get hashCode => Object.hash(
+    cacheLimitMebibytes,
+    radioStatusIntervalMinutes,
+    chartRefreshIntervalMinutes,
+  );
 
   @override
   String toString() =>
       'NetworkSettings(cacheLimitMebibytes: $cacheLimitMebibytes, '
-      'radioStatusIntervalMinutes: $radioStatusIntervalMinutes)';
+      'radioStatusIntervalMinutes: $radioStatusIntervalMinutes, '
+      'chartRefreshIntervalMinutes: $chartRefreshIntervalMinutes)';
 }
 
 /// `network_settings` 單列表的存取。
@@ -62,6 +71,7 @@ final class NetworkSettingsRepository {
   Future<void> write({
     int? cacheLimitMebibytes,
     int? radioStatusIntervalMinutes,
+    int? chartRefreshIntervalMinutes,
   }) => _database
       .into(_database.networkSettingsTable)
       .insertOnConflictUpdate(
@@ -70,6 +80,9 @@ final class NetworkSettingsRepository {
           cacheLimitMb: Value.absentIfNull(cacheLimitMebibytes),
           radioStatusIntervalMinutes: Value.absentIfNull(
             radioStatusIntervalMinutes,
+          ),
+          chartRefreshIntervalMinutes: Value.absentIfNull(
+            chartRefreshIntervalMinutes,
           ),
         ),
       );
@@ -80,8 +93,11 @@ final class NetworkSettingsRepository {
   Future<void> clear({
     bool cacheLimitMebibytes = false,
     bool radioStatusIntervalMinutes = false,
+    bool chartRefreshIntervalMinutes = false,
   }) {
-    if (!cacheLimitMebibytes && !radioStatusIntervalMinutes) {
+    if (!cacheLimitMebibytes &&
+        !radioStatusIntervalMinutes &&
+        !chartRefreshIntervalMinutes) {
       return Future.value();
     }
     return _database
@@ -95,6 +111,9 @@ final class NetworkSettingsRepository {
             radioStatusIntervalMinutes: radioStatusIntervalMinutes
                 ? const Value(null)
                 : const Value.absent(),
+            chartRefreshIntervalMinutes: chartRefreshIntervalMinutes
+                ? const Value(null)
+                : const Value.absent(),
           ),
         );
   }
@@ -104,5 +123,6 @@ final class NetworkSettingsRepository {
       : NetworkSettings(
           cacheLimitMebibytes: row.cacheLimitMb,
           radioStatusIntervalMinutes: row.radioStatusIntervalMinutes,
+          chartRefreshIntervalMinutes: row.chartRefreshIntervalMinutes,
         );
 }

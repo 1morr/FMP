@@ -1,0 +1,921 @@
+import 'dart:async';
+
+import 'package:drift/drift.dart' show Value;
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/charts/chart_cache.dart';
+import 'package:fmp/charts/chart_jobs.dart';
+import 'package:fmp/core/core_providers.dart';
+import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/logging/log_record.dart';
+import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/providers.dart';
+import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
+import 'package:fmp/platform/connectivity/connectivity.dart';
+import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
+import 'package:fmp/settings/network_settings.dart';
+
+import '../support/fake_network_interfaces.dart';
+import '../support/memory_database.dart';
+import 'fake_chart_plugin.dart';
+
+// 排行工作（M4 design §6.2、ADR 0017）：每個有啟用榜單的插件一個 `charts:<pluginId>`、單一榜單失敗
+// 不退避並標記、全部失敗才退避、間隔與啟用榜單改變時重新登記、停用時刪快取、手動刷新。以真的
+// 排程器加假時鐘跑（radio_test.dart 的做法），快取用記憶體裡的（真的快取庫由 chart_cache_test.dart
+// 守）。
+
+final _start = DateTime.utc(2026, 10, 16, 12);
+
+final _testPlugins = NotifierProvider<_TestPlugins, Map<String, SourcePlugin>>(
+  _TestPlugins.new,
+);
+
+final class _TestPlugins extends Notifier<Map<String, SourcePlugin>> {
+  @override
+  Map<String, SourcePlugin> build() => const {};
+
+  void set(Map<String, SourcePlugin> plugins) => state = plugins;
+}
+
+ChartKey _key(String chartId, [String pluginId = 'fmp-test']) =>
+    (pluginId: pluginId, chartId: chartId);
+
+final class _Env {
+  _Env({bool online = true}) {
+    interfaces = FakeNetworkInterfaces(available: online);
+    log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
+    container = ProviderContainer(
+      overrides: [
+        appDatabaseProvider.overrideWithValue(database),
+        logProvider.overrideWithValue(log),
+        networkInterfacesProvider.overrideWithValue(interfaces),
+        platformCapabilitiesProvider.overrideWithValue(
+          const PlatformCapabilities(
+            dataDirectory: true,
+            singleInstance: false,
+            secureStorage: false,
+            fontFallback: FontFallback.none,
+            playback: null,
+            networkInterfaces: false,
+            files: false,
+            loginWebView: false,
+            urlOpener: false,
+            restartsItself: false,
+            shareFiles: false,
+            pluginDevTools: false,
+            cache: CacheSizes(
+              defaultLimitMebibytes: 256,
+              memoryImages: 1,
+              memoryImageMebibytes: 1,
+            ),
+          ),
+        ),
+        chartCacheProvider.overrideWith((ref) => cache),
+        pluginRegistryProvider.overrideWithBuild(
+          (ref, notifier) => ref.watch(_testPlugins),
+        ),
+      ],
+    );
+  }
+
+  final database = memoryDatabase();
+  final cache = FakeChartCache();
+  late final FakeNetworkInterfaces interfaces;
+  late final Log log;
+  late final ProviderContainer container;
+
+  ChartJobs get jobs => container.read(chartJobsProvider.notifier);
+
+  Set<ChartKey> get failures => container.read(chartFailuresProvider);
+
+  /// 排程器、排行工作與它的輸入都建起來。
+  void start(FakeAsync async, List<SourcePlugin> plugins) {
+    container
+      ..listen(networkStatusProvider, (_, _) {})
+      ..listen(networkProvider, (_, _) {})
+      ..listen(chartFailuresProvider, (_, _) {})
+      ..listen(chartJobsProvider, (_, _) {})
+      ..read(backgroundSchedulerProvider);
+    setPlugins(async, plugins);
+    async.flushMicrotasks();
+  }
+
+  /// 插件清單變成 [plugins]。
+  void setPlugins(FakeAsync async, List<SourcePlugin> plugins) {
+    container.read(_testPlugins.notifier).set({
+      for (final plugin in plugins) plugin.manifest.id: plugin,
+    });
+    // 依賴改了的 provider 在測試 binding 裡不會自己重建（沒有影格），讀它才會。
+    container.read(pluginRegistryProvider);
+    _settle(async);
+  }
+
+  void setEnabled(
+    FakeAsync async,
+    String chartId, {
+    required bool enabled,
+    String pluginId = 'fmp-test',
+  }) {
+    unawaited(
+      container
+          .read(chartSettingsRepositoryProvider)
+          .setEnabled(pluginId, chartId, enabled: enabled),
+    );
+    _settle(async);
+  }
+
+  void setInterval(FakeAsync async, int? minutes) {
+    unawaited(
+      container.read(networkProvider.notifier).setChartRefreshInterval(minutes),
+    );
+    _settle(async);
+  }
+
+  /// 手動刷新；回傳結果，失敗時回傳丟出的錯誤。
+  Object? runNow(FakeAsync async, [String pluginId = 'fmp-test']) {
+    Object? outcome;
+    var done = false;
+    jobs
+        .runNow(pluginId)
+        .then<void>((result) => outcome = result)
+        .catchError((Object error) => outcome = error)
+        .whenComplete(() => done = true);
+    async.flushMicrotasks();
+    expect(done, isTrue, reason: 'runNow did not complete');
+    return outcome;
+  }
+
+  int get backoffs =>
+      log.history.where((r) => r.message == 'Background job backed off').length;
+
+  List<LogRecord> logs(String message) => [
+    for (final record in log.history)
+      if (record.message == message) record,
+  ];
+
+  void dispose() => container.dispose();
+}
+
+/// drift 的串流與 provider 的重建要過一個計時器才送達，只跑微任務不夠。
+void _settle(FakeAsync async) => async.elapse(const Duration(milliseconds: 10));
+
+void _fake(void Function(FakeAsync async) body) =>
+    fakeAsync(body, initialTime: _start);
+
+void main() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+
+  tearDown(() {
+    for (final state in [
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      binding.handleAppLifecycleStateChanged(state);
+    }
+  });
+
+  group('which plugins get a job', () {
+    test('a plugin with enabled charts fetches each of them and caches '
+        'the tracks with the time', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin();
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['hot', 'new']);
+        final hot = env.cache.entries[_key('hot')]!;
+        expect(hot.fetchedAt, _start);
+        expect(hot.tracks, [
+          const TrackInfo(
+            sourceTypeId: 'fmp-test',
+            sourceId: 'hot-1',
+            title: 'Track 1 of hot',
+          ),
+          const TrackInfo(
+            sourceTypeId: 'fmp-test',
+            sourceId: 'hot-2',
+            title: 'Track 2 of hot',
+          ),
+        ]);
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+        expect(env.failures, isEmpty);
+        expect(env.backoffs, 0);
+        final finished = env.logs('Chart refresh finished').single;
+        expect(finished.fields, {
+          'pluginId': 'fmp-test',
+          'succeeded': 2,
+          'failed': 0,
+        });
+        env.dispose();
+      });
+    });
+
+    test('a plugin that does not declare charts gets no job', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(declaresCharts: false);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(hours: 2));
+
+        expect(plugin.chartListCalls, 0);
+        expect(plugin.chartQueries, isEmpty);
+        expect(env.runNow(async), RunNowResult.unknown);
+        env.dispose();
+      });
+    });
+
+    test('a plugin with no charts gets no job', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const []);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(hours: 2));
+
+        expect(plugin.chartQueries, isEmpty);
+        expect(env.runNow(async), RunNowResult.unknown);
+        env.dispose();
+      });
+    });
+
+    test('every chart disabled: no job is registered and nothing is '
+        'fetched', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin();
+        env.setEnabled(async, 'hot', enabled: false);
+        env.setEnabled(async, 'new', enabled: false);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(hours: 2));
+
+        expect(plugin.chartQueries, isEmpty);
+        expect(env.runNow(async), RunNowResult.unknown);
+        expect(env.cache.entries, isEmpty);
+        env.dispose();
+      });
+    });
+
+    test('a disabled chart is skipped; one the plugin has and the settings '
+        'never heard of is enabled', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new', 'extra']);
+        // 設定裡還有插件已經拿掉的榜單的列：不影響。
+        env.setEnabled(async, 'hot', enabled: false);
+        env.setEnabled(async, 'gone', enabled: false);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['new', 'extra']);
+        env.dispose();
+      });
+    });
+
+    test('a row with no enabled value counts as enabled, and a row of another '
+        'plugin does not apply', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin();
+        // PR 21 的排序只寫 sort_order：enabled 留空＝啟用。
+        unawaited(
+          env.database
+              .into(env.database.chartSettingsTable)
+              .insert(
+                ChartSettingsTableCompanion.insert(
+                  pluginId: 'fmp-test',
+                  chartId: 'hot',
+                  sortOrder: const Value(1),
+                ),
+              ),
+        );
+        env.setEnabled(async, 'new', enabled: false, pluginId: 'other');
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['hot', 'new']);
+        env.dispose();
+      });
+    });
+
+    test('a plugin that fails to list its charts still gets a job: the run '
+        'fails and backs off, and a retry fetches the charts', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin()
+          ..listError = NetworkError(pluginId: 'fmp-test');
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, isEmpty);
+        expect(env.logs('Failed to list the charts of a plugin'), hasLength(1));
+        expect(env.backoffs, 1, reason: 'the run asked again and failed');
+        expect(env.runNow(async), isA<NetworkError>());
+
+        // 沒有任何設定改變：退避到期的重試就抓到了。
+        plugin.listError = null;
+        async.elapse(const Duration(minutes: 3));
+        expect(plugin.chartQueries, ['hot', 'new']);
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+        env.dispose();
+      });
+    });
+
+    test('a new plugin instance that fails to list its charts keeps the job '
+        'and the cache', () {
+      _fake((async) {
+        final env = _Env();
+        env.start(async, [FakeChartPlugin()]);
+        async.elapse(const Duration(seconds: 1));
+        final updated = FakeChartPlugin()
+          ..listError = NetworkError(pluginId: 'fmp-test');
+
+        env.setPlugins(async, [updated]);
+
+        expect(env.cache.removedPlugins, isEmpty);
+        expect(env.cache.removedCharts, isEmpty);
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+        expect(env.runNow(async), isA<NetworkError>());
+        env.dispose();
+      });
+    });
+
+    test('a chart disabled while the list was unknown loses its cache once a '
+        'run gets the list; from then on changes are compared as usual', () {
+      _fake((async) {
+        final env = _Env();
+        env.start(async, [FakeChartPlugin()]);
+        async.elapse(const Duration(seconds: 1));
+        final updated = FakeChartPlugin()
+          ..listError = NetworkError(pluginId: 'fmp-test');
+        env.setPlugins(async, [updated]);
+        env.setEnabled(async, 'hot', enabled: false);
+        expect(env.cache.removedCharts, isEmpty);
+
+        updated.listError = null;
+        expect(env.runNow(async), RunNowResult.completed);
+
+        expect(updated.chartQueries, ['new']);
+        expect(env.cache.removedCharts, [_key('hot')]);
+        expect(env.cache.entries.keys, [_key('new')]);
+
+        env.setEnabled(async, 'new', enabled: false);
+        expect(env.cache.removedPlugins, ['fmp-test']);
+        expect(env.runNow(async), RunNowResult.unknown);
+        env.dispose();
+      });
+    });
+
+    test('a run that gets the list and finds every chart disabled removes '
+        "the job and the plugin's cache", () {
+      _fake((async) {
+        final env = _Env();
+        env.start(async, [FakeChartPlugin()]);
+        async.elapse(const Duration(seconds: 1));
+        final updated = FakeChartPlugin()
+          ..listError = NetworkError(pluginId: 'fmp-test');
+        env.setPlugins(async, [updated]);
+        env.setEnabled(async, 'hot', enabled: false);
+        env.setEnabled(async, 'new', enabled: false);
+
+        updated.listError = null;
+        env.runNow(async);
+
+        expect(updated.chartQueries, isEmpty);
+        expect(env.cache.removedPlugins, ['fmp-test']);
+        expect(env.cache.entries, isEmpty);
+        expect(env.runNow(async), RunNowResult.unknown);
+        env.dispose();
+      });
+    });
+
+    test('two plugins each get their own job, run one after the other', () {
+      _fake((async) {
+        final env = _Env();
+        final first = FakeChartPlugin(id: 'first', charts: const ['a']);
+        final second = FakeChartPlugin(id: 'second', charts: const ['b']);
+        env.start(async, [first, second]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(first.chartQueries, ['a']);
+        expect(second.chartQueries, ['b']);
+        expect(
+          env.cache.entries.keys,
+          containsAll([_key('a', 'first'), _key('b', 'second')]),
+        );
+        env.dispose();
+      });
+    });
+  });
+
+  group('failures', () {
+    test('one failing chart is marked, the others are cached, and the job '
+        'does not back off', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot', 'broken', 'new'])
+          ..onChart = (chartId) => chartId == 'broken'
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : FakeChartPlugin().onChart(chartId);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['hot', 'broken', 'new']);
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+        expect(env.failures, {_key('broken')});
+        expect(env.backoffs, 0);
+        final finished = env.logs('Chart refresh finished').single;
+        expect(finished.fields, containsPair('succeeded', 2));
+        expect(finished.fields, containsPair('failed', 1));
+        expect(env.logs('Chart update failed'), hasLength(1));
+        env.dispose();
+      });
+    });
+
+    test('a chart that works again loses its mark, and the old content '
+        'stays while it is marked', () {
+      _fake((async) {
+        final env = _Env();
+        var broken = false;
+        final plugin = FakeChartPlugin(charts: const ['hot'])
+          ..onChart = (chartId) => broken
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : FakeChartPlugin().onChart(chartId);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        final firstFetch = env.cache.entries[_key('hot')]!.fetchedAt;
+
+        broken = true;
+        async.elapse(const Duration(hours: 1));
+        expect(env.failures, {_key('hot')});
+        expect(
+          env.cache.entries[_key('hot')]!.fetchedAt,
+          firstFetch,
+          reason: 'a failed update keeps what was cached',
+        );
+
+        broken = false;
+        env.runNow(async);
+        expect(env.failures, isEmpty);
+        expect(
+          env.cache.entries[_key('hot')]!.fetchedAt.isAfter(firstFetch),
+          isTrue,
+        );
+        env.dispose();
+      });
+    });
+
+    test('when every chart fails the job fails and backs off', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin()
+          ..onChart = (_) => throw NetworkError(pluginId: 'fmp-test');
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['hot', 'new']);
+        expect(env.backoffs, 1);
+        expect(env.failures, {_key('hot'), _key('new')});
+        expect(env.cache.entries, isEmpty);
+        final runs = _await(
+          async,
+          () => env.container.read(schedulerRunsRepositoryProvider).all(),
+        );
+        expect(runs, isEmpty, reason: 'no success time was recorded');
+
+        // 退避一分鐘後再試。
+        async.elapse(const Duration(seconds: 58));
+        expect(plugin.chartQueries, hasLength(2));
+        async.elapse(const Duration(seconds: 3));
+        expect(plugin.chartQueries, hasLength(4));
+        env.dispose();
+      });
+    });
+
+    test('a chartList that fails fails the run and backs off', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin();
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        plugin.listError = NetworkError(pluginId: 'fmp-test');
+
+        final outcome = env.runNow(async);
+
+        expect(outcome, isA<NetworkError>());
+        expect(env.failures, isEmpty);
+        env.dispose();
+      });
+    });
+  });
+
+  group('the interval', () {
+    test('defaults to an hour, counted from the last success', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        expect(plugin.chartQueries, hasLength(1));
+
+        async.elapse(const Duration(minutes: 59));
+        expect(plugin.chartQueries, hasLength(1));
+        async.elapse(const Duration(minutes: 2));
+        expect(plugin.chartQueries, hasLength(2));
+        env.dispose();
+      });
+    });
+
+    test('a changed interval registers the job again with the new one', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        expect(plugin.chartQueries, hasLength(1));
+
+        env.setInterval(async, 30);
+        async.elapse(const Duration(minutes: 29));
+        expect(plugin.chartQueries, hasLength(1));
+        async.elapse(const Duration(minutes: 2));
+        expect(plugin.chartQueries, hasLength(2));
+
+        env.setInterval(async, 240);
+        async.elapse(const Duration(hours: 3));
+        expect(plugin.chartQueries, hasLength(2));
+        async.elapse(const Duration(hours: 1));
+        expect(plugin.chartQueries, hasLength(3));
+        env.dispose();
+      });
+    });
+
+    test('off registers the job without a schedule: nothing runs by itself '
+        'but a manual refresh does', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        env.setInterval(async, 0);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(hours: 10));
+
+        expect(plugin.chartQueries, isEmpty);
+        expect(env.cache.entries, isEmpty);
+
+        expect(env.runNow(async), RunNowResult.completed);
+
+        expect(plugin.chartQueries, ['hot']);
+        expect(env.cache.entries.keys, [_key('hot')]);
+        async.elapse(const Duration(hours: 10));
+        expect(plugin.chartQueries, hasLength(1));
+        env.dispose();
+      });
+    });
+
+    test(
+      'turning it off stops the schedule, turning it on again resumes it',
+      () {
+        _fake((async) {
+          final env = _Env();
+          final plugin = FakeChartPlugin(charts: const ['hot']);
+          env.start(async, [plugin]);
+          async.elapse(const Duration(seconds: 1));
+
+          env.setInterval(async, 0);
+          async.elapse(const Duration(hours: 3));
+          expect(plugin.chartQueries, hasLength(1));
+
+          env.setInterval(async, 60);
+          async.elapse(const Duration(seconds: 1));
+          expect(plugin.chartQueries, hasLength(2));
+          env.dispose();
+        });
+      },
+    );
+
+    test(
+      'does not run while the network is offline, and runs when it is back',
+      () {
+        _fake((async) {
+          final env = _Env(online: false);
+          final plugin = FakeChartPlugin(charts: const ['hot']);
+          env.start(async, [plugin]);
+          async.elapse(const Duration(hours: 1));
+          expect(plugin.chartQueries, isEmpty);
+
+          env.interfaces.change(available: true);
+          async.flushMicrotasks();
+          expect(plugin.chartQueries, hasLength(1));
+          env.dispose();
+        });
+      },
+    );
+  });
+
+  group('registering again', () {
+    test('only a changed plugin, interval or set of enabled charts replaces '
+        'the job: an unrelated settings write does not cut a run short', () {
+      _fake((async) {
+        final env = _Env();
+        final release = Completer<void>();
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new'])
+          ..onChart = (chartId) async {
+            if (chartId == 'hot') await release.future;
+            return FakeChartPlugin().onChart(chartId);
+          };
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        expect(plugin.chartQueries, ['hot']);
+
+        // 啟用榜單的集合沒變（把本來就啟用的榜單再寫成啟用）：進行中的這一次不被打斷。
+        env.setEnabled(async, 'new', enabled: true);
+        release.complete();
+        async.elapse(const Duration(seconds: 1));
+
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+        expect(plugin.chartQueries, [
+          'hot',
+          'new',
+        ], reason: 'the run went on; no second run started');
+        env.dispose();
+      });
+    });
+
+    test('a run in progress is dropped when its chart set changes', () {
+      _fake((async) {
+        final env = _Env();
+        final release = Completer<void>();
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new'])
+          ..onChart = (chartId) async {
+            if (chartId == 'hot') await release.future;
+            return FakeChartPlugin().onChart(chartId);
+          };
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        expect(plugin.chartQueries, ['hot']);
+
+        env.setEnabled(async, 'hot', enabled: false);
+        release.complete();
+        async.elapse(const Duration(seconds: 1));
+
+        // 舊的那一次已過期，什麼都不寫；新的登記只抓還啟用的榜單。
+        expect(env.cache.entries.keys, [_key('new')]);
+        expect(plugin.chartQueries, ['hot', 'new']);
+        expect(env.cache.removedCharts, [_key('hot')]);
+        env.dispose();
+      });
+    });
+
+    test('a new plugin instance (an update) replaces the job and keeps '
+        'the cache; a chart it adds is enabled', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        final updated = FakeChartPlugin(charts: const ['hot', 'extra']);
+
+        env.setPlugins(async, [updated]);
+        expect(env.runNow(async), RunNowResult.completed);
+
+        expect(updated.chartQueries, ['hot', 'extra']);
+        expect(plugin.chartQueries, [
+          'hot',
+        ], reason: 'the old one is not asked');
+        expect(env.cache.removedPlugins, isEmpty);
+        expect(env.cache.removedCharts, isEmpty);
+        env.dispose();
+      });
+    });
+
+    test('a chart the new version of the plugin dropped loses its cache', () {
+      _fake((async) {
+        final env = _Env();
+        env.start(async, [
+          FakeChartPlugin(charts: const ['hot', 'new']),
+        ]);
+        async.elapse(const Duration(seconds: 1));
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+
+        env.setPlugins(async, [
+          FakeChartPlugin(charts: const ['hot']),
+        ]);
+
+        expect(env.cache.entries.keys, [_key('hot')]);
+        expect(env.cache.removedCharts, [_key('new')]);
+        env.dispose();
+      });
+    });
+  });
+
+  group('turning charts and plugins off', () {
+    test('a disabled chart loses its cache and its mark, the others are '
+        'left alone', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot', 'broken', 'new'])
+          ..onChart = (chartId) => chartId == 'broken'
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : FakeChartPlugin().onChart(chartId);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        expect(env.cache.entries.keys, [_key('hot'), _key('new')]);
+        expect(env.failures, {_key('broken')});
+
+        env.setEnabled(async, 'hot', enabled: false);
+        env.setEnabled(async, 'broken', enabled: false);
+
+        expect(env.cache.entries.keys, [_key('new')]);
+        expect(
+          env.cache.removedCharts,
+          containsAll([_key('hot'), _key('broken')]),
+        );
+        expect(env.cache.removedPlugins, isEmpty);
+        expect(env.failures, isEmpty);
+        // 之後的刷新只抓還啟用的。
+        plugin.chartQueries.clear();
+        env.runNow(async);
+        expect(plugin.chartQueries, ['new']);
+        env.dispose();
+      });
+    });
+
+    test('enabling a chart again fetches it on the next run', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        env.setEnabled(async, 'hot', enabled: false);
+        expect(env.cache.entries.keys, [_key('new')]);
+
+        env.setEnabled(async, 'hot', enabled: true);
+        plugin.chartQueries.clear();
+        env.runNow(async);
+
+        expect(plugin.chartQueries, ['hot', 'new']);
+        expect(env.cache.entries.keys, containsAll([_key('hot'), _key('new')]));
+        env.dispose();
+      });
+    });
+
+    test('disabling the last enabled chart removes the job and the '
+        "plugin's cache", () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin();
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        env.setEnabled(async, 'hot', enabled: false);
+        env.setEnabled(async, 'new', enabled: false);
+
+        expect(env.cache.entries, isEmpty);
+        expect(env.cache.removedPlugins, ['fmp-test']);
+        expect(env.runNow(async), RunNowResult.unknown);
+        plugin.chartQueries.clear();
+        async.elapse(const Duration(hours: 3));
+        expect(plugin.chartQueries, isEmpty);
+        env.dispose();
+      });
+    });
+
+    test('a plugin that leaves the list (disabled or removed) loses its '
+        'job, cache and marks; coming back registers it again', () {
+      _fake((async) {
+        final env = _Env();
+        final other = FakeChartPlugin(id: 'other', charts: const ['x']);
+        final plugin = FakeChartPlugin()
+          ..onChart = (chartId) => chartId == 'new'
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : FakeChartPlugin().onChart(chartId);
+        env.start(async, [plugin, other]);
+        async.elapse(const Duration(seconds: 1));
+        expect(env.failures, {_key('new')});
+
+        env.setPlugins(async, [other]);
+
+        expect(env.cache.entries.keys, [_key('x', 'other')]);
+        expect(env.cache.removedPlugins, ['fmp-test']);
+        expect(env.failures, isEmpty);
+        expect(env.runNow(async), RunNowResult.unknown);
+
+        final back = FakeChartPlugin();
+        env.setPlugins(async, [back, other]);
+        expect(env.runNow(async), RunNowResult.completed);
+        expect(back.chartQueries, ['hot', 'new']);
+        env.dispose();
+      });
+    });
+  });
+
+  group('refreshing by hand', () {
+    test('runs the job whatever the interval says, and again', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(env.runNow(async), RunNowResult.completed);
+        expect(env.runNow(async), RunNowResult.completed);
+
+        expect(plugin.chartQueries, hasLength(3));
+        env.dispose();
+      });
+    });
+
+    test('offline sends nothing and says so', () {
+      _fake((async) {
+        final env = _Env(online: false);
+        final plugin = FakeChartPlugin();
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(env.runNow(async), RunNowResult.offline);
+
+        expect(plugin.chartQueries, isEmpty);
+        env.dispose();
+      });
+    });
+
+    test('an unknown plugin has no job', () {
+      _fake((async) {
+        final env = _Env();
+        env.start(async, [FakeChartPlugin()]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(env.runNow(async, 'nobody'), RunNowResult.unknown);
+        env.dispose();
+      });
+    });
+
+    test('when every chart fails the error comes back to the caller, with '
+        'no log line of the scheduler', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        plugin.onChart = (_) => throw NetworkError(pluginId: 'fmp-test');
+        final failedBefore = env.logs('Background job failed').length;
+
+        final outcome = env.runNow(async);
+
+        expect(outcome, isA<NetworkError>());
+        expect(env.failures, {_key('hot')});
+        expect(env.logs('Background job failed'), hasLength(failedBefore));
+        env.dispose();
+      });
+    });
+  });
+
+  group('what the screens read', () {
+    test('the cached chart follows each write and each delete', () {
+      _fake((async) {
+        final env = _Env();
+        final plugin = FakeChartPlugin(charts: const ['hot']);
+        final seen = <ChartCacheEntry?>[];
+        env.container.listen(
+          chartContentProvider(_key('hot')),
+          (_, next) => seen.add(next.value),
+          fireImmediately: true,
+        );
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(seen.last, isNotNull);
+        expect(seen.last!.tracks, hasLength(2));
+
+        env.setEnabled(async, 'hot', enabled: false);
+        async.flushMicrotasks();
+
+        expect(seen.last, isNull);
+        env.dispose();
+      });
+    });
+  });
+}
+
+T _await<T>(FakeAsync async, Future<T> Function() body) {
+  late T value;
+  var done = false;
+  unawaited(
+    body().then((v) {
+      value = v;
+      done = true;
+    }),
+  );
+  async.flushMicrotasks();
+  expect(done, isTrue, reason: 'the future did not complete');
+  return value;
+}

@@ -461,6 +461,76 @@ void main() {
     });
   });
 
+  group('charts', () {
+    Future<ScriptSourcePlugin> load() =>
+        PluginHarness().load(testPluginFile.readAsStringSync());
+
+    test('the list is hot, new and broken, in that order', () async {
+      final list = await (await load()).chartList();
+
+      expect(
+        [for (final chart in list.charts) chart.chartId],
+        ['hot', 'new', 'broken'],
+      );
+      expect(
+        [for (final chart in list.charts) chart.title],
+        ['Hot', 'New', 'Broken'],
+      );
+    });
+
+    test('hot has five songs and new has three', () async {
+      final plugin = await load();
+
+      final hot = await plugin.chart(ChartQuery(chartId: 'hot'));
+      final fresh = await plugin.chart(ChartQuery(chartId: 'new'));
+
+      expect(hot.tracks, hasLength(5));
+      expect(fresh.tracks, hasLength(3));
+      expect(
+        {
+          ...hot.tracks.map((t) => t.sourceId),
+          ...fresh.tracks.map((t) => t.sourceId),
+        },
+        hasLength(8),
+        reason: 'no song is in both charts',
+      );
+    });
+
+    test(
+      'broken fails with NetworkError and an unknown chart is NotFound',
+      () async {
+        final plugin = await load();
+
+        await expectLater(
+          plugin.chart(ChartQuery(chartId: 'broken')),
+          throwsA(isA<NetworkError>()),
+        );
+        await expectLater(
+          plugin.chart(ChartQuery(chartId: 'nope')),
+          throwsA(isA<NotFound>()),
+        );
+      },
+    );
+
+    test('every chart song plays the bundled asset', () async {
+      final plugin = await load();
+
+      for (final id in ['hot', 'new']) {
+        for (final track in (await plugin.chart(
+          ChartQuery(chartId: id),
+        )).tracks) {
+          final stream = await plugin.resolveStream(
+            StreamRequest(
+              sourceId: track.sourceId,
+              formats: [StreamFormat(container: 'wav', codec: 'pcm_s16le')],
+            ),
+          );
+          expect(stream.candidates.first.url.scheme, 'asset', reason: id);
+        }
+      }
+    });
+  });
+
   test('the test plugin is bundled only in the dev flavor', () {
     final assets =
         (loadYaml(File('pubspec.yaml').readAsStringSync())

@@ -324,6 +324,35 @@ void main() {
     expect(shown.problems.join(), contains('expected at least 4 items'));
   });
 
+  test('a charts case fetches the chart and shows its tracks', () async {
+    plugin('test_plugin');
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.charts);
+
+    final shown = result(container, 'fmp-test', PluginCapability.charts)!;
+    expect(shown.outcome, DevCaseOutcome.passed, reason: '${shown.problems}');
+    expect(shown.value, contains('Hot tone 440 Hz'));
+    expect(shown.value, contains('Hot tone 550 Hz'));
+  });
+
+  test('a charts case on a chart that fails shows the failure', () async {
+    final directory = plugin('test_plugin');
+    contract.edit(
+      directory,
+      'checks.json',
+      '"chartId": "hot"',
+      '"chartId": "broken"',
+    );
+    final container = await start();
+
+    await runs(container).run('fmp-test', PluginCapability.charts);
+
+    final shown = result(container, 'fmp-test', PluginCapability.charts)!;
+    expect(shown.outcome, DevCaseOutcome.failed);
+    expect(shown.problems.join(), contains('NetworkError'));
+  });
+
   test('a mix case that expects too many tracks fails', () async {
     final directory = plugin('test_plugin');
     contract.edit(directory, 'checks.json', '"minItems": 5', '"minItems": 6');

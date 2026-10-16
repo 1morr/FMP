@@ -95,6 +95,16 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `pl-auth` | 沒有憑證 `AuthRequired`；登入後 3 首、`writable: true` | 需要登入、登入後刷新、可寫 |
   | `pl-unavailable` | 3 首，第 2 首 `unavailable: true` | 失效項目的標示 |
   | `pl-parts` | 一支 3 P 的影片（`parts-220`）展開成 3 首（cid 22001–22003），帶 `partIndex`、`parentTitle`；不給 `total` | 分 P 兩欄存得進去 |
+- 排行（`charts`，不連網，給首頁排行與排行工作的實機驗證）：`chartList` 回三個榜單，曲目沿用 `tone-<hz>`（可播），
+  標題是 `<榜單名> tone <hz> Hz`：
+
+  | `chartId` | `chart` | 用途 |
+  |---|---|---|
+  | `hot` | 5 首（`tone-440`、`220`、`880`、`330`、`550`） | 一般榜單 |
+  | `new` | 3 首（`tone-110`、`660`、`770`） | 第二個榜單 |
+  | `broken` | `NetworkError` | 單一榜單更新失敗：標「更新失敗」，其他榜單照常 |
+
+  其他 `chartId` 以 `NotFound` 失敗。
 - `tone.wav`：2 秒 440 Hz 正弦波，16 kHz 單聲道 16-bit PCM，64 044 bytes。
 
 ## `tone.wav` 的來源與授權
@@ -118,7 +128,7 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）、`charts`（`hot`，五首）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

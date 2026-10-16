@@ -160,6 +160,79 @@ void main() {
     });
   });
 
+  group('the chart refresh interval', () {
+    Network resolve(NetworkSettings stored) =>
+        resolveNetwork(stored, defaultCacheLimitMebibytes: 256);
+
+    test('is 60 minutes when never set', () {
+      expect(
+        resolve(NetworkSettings.empty).chartRefreshInterval,
+        const Duration(minutes: 60),
+      );
+    });
+
+    test('0 minutes means off', () {
+      expect(
+        resolve(const NetworkSettings(chartRefreshIntervalMinutes: 0))
+            .chartRefreshInterval,
+        isNull,
+      );
+    });
+
+    test(
+      'a value the user set survives, and the radio interval is its own',
+      () {
+        final network = resolve(
+          const NetworkSettings(
+            chartRefreshIntervalMinutes: 30,
+            radioStatusIntervalMinutes: 1,
+          ),
+        );
+
+        expect(network.chartRefreshInterval, const Duration(minutes: 30));
+        expect(network.radioStatusInterval, const Duration(minutes: 1));
+      },
+    );
+
+    test('the notifier accepts only off, 30, 60, 120 and 240', () async {
+      final container = containerFor(memoryDatabase());
+      final events = networks(container);
+      await events.moveNext();
+      final notifier = container.read(networkProvider.notifier);
+
+      for (final minutes in [1, 5, 45, 90, -1, 480]) {
+        expect(
+          () => notifier.setChartRefreshInterval(minutes),
+          throwsArgumentError,
+          reason: '$minutes',
+        );
+      }
+      // ADR 0017 §決定 6 的選項寫死：常數少一項或多一項都要紅。
+      expect(chartRefreshIntervalOptionsMinutes, [0, 30, 60, 120, 240]);
+      for (final minutes in [0, 30, 60, 120, 240]) {
+        await notifier.setChartRefreshInterval(minutes);
+        await events.moveNext();
+        expect(events.current.stored.chartRefreshIntervalMinutes, minutes);
+      }
+    });
+
+    test('null clears it back to the default', () async {
+      final container = containerFor(memoryDatabase());
+      final events = networks(container);
+      await events.moveNext();
+      final notifier = container.read(networkProvider.notifier);
+      await notifier.setChartRefreshInterval(0);
+      await events.moveNext();
+      expect(events.current.chartRefreshInterval, isNull);
+
+      await notifier.setChartRefreshInterval(null);
+
+      expect(await events.moveNext(), isTrue);
+      expect(events.current.chartRefreshInterval, const Duration(minutes: 60));
+      expect(events.current.stored, NetworkSettings.empty);
+    });
+  });
+
   group('NetworkNotifier', () {
     test('an unset limit reads as the platform default', () async {
       final events = networks(

@@ -13,8 +13,8 @@ const hostApiVersion = 1;
 /// 插件能力（ADR 0014 §決定 4）。
 ///
 /// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login]、[live]、
-/// [importPlaylist] 例外：它們的匯出是 [LoginExports]、[LiveExports]、
-/// [ImportPlaylistExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
+/// [importPlaylist]、[charts] 例外：它們的匯出是 [LoginExports]、[LiveExports]、
+/// [ImportPlaylistExports]、[ChartsExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
 /// 都要匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。只有已經有
 /// `SourcePlugin` 方法的能力有人呼叫，其他能力認得、檢查匯出。
 enum PluginCapability {
@@ -102,6 +102,18 @@ abstract final class ImportPlaylistExports {
   static const importPlaylist = 'importPlaylist';
 
   static const all = {fromUrl, importPlaylist};
+}
+
+/// `charts` 能力的匯出函式（ADR 0032 §決定 5、6）。名稱是插件的介面；宣告 `charts` 就
+/// 兩個都要匯出（能力名稱本身不是匯出）。
+abstract final class ChartsExports {
+  /// `() → {charts: [{chartId, title}]}`：可以是常數，不發請求。
+  static const list = 'chartList';
+
+  /// `({chartId}) → {tracks}`：不分頁。
+  static const chart = 'chart';
+
+  static const all = {list, chart};
 }
 
 /// 登入方式（ADR 0029 §決定 1）。宿主顯示「插件宣告的 ∩ 這個 App 在這個平台做得到的」。
@@ -289,7 +301,8 @@ final class PluginManifest {
   final PluginLogin? login;
 
   /// 腳本一定要匯出的函式：每個能力一個同名的，`live` 換成 [LiveExports.all]、
-  /// `importPlaylist` 換成 [ImportPlaylistExports.all]，`login` 換成 [LoginExports.verify]，
+  /// `importPlaylist` 換成 [ImportPlaylistExports.all]、`charts` 換成 [ChartsExports.all]，
+  /// `login` 換成 [LoginExports.verify]，
   /// methods 含 `qr` 時加 [LoginExports.qrStart]、[LoginExports.qrPoll]，宣告
   /// `refresh` 時加 [LoginExports.refresh]。
   Set<String> get requiredExports => {
@@ -298,6 +311,7 @@ final class PluginManifest {
     if (capabilities.contains(PluginCapability.live)) ...LiveExports.all,
     if (capabilities.contains(PluginCapability.importPlaylist))
       ...ImportPlaylistExports.all,
+    if (capabilities.contains(PluginCapability.charts)) ...ChartsExports.all,
     if (login case final login?) ...[
       LoginExports.verify,
       if (login.methods.contains(LoginMethod.qr)) ...[
@@ -315,6 +329,7 @@ final class PluginManifest {
       if (!_multiExport.contains(capability)) capability.wireName,
     ...LiveExports.all,
     ...ImportPlaylistExports.all,
+    ...ChartsExports.all,
     ...LoginExports.all,
   };
 
@@ -332,6 +347,7 @@ const _multiExport = {
   PluginCapability.login,
   PluginCapability.live,
   PluginCapability.importPlaylist,
+  PluginCapability.charts,
 };
 
 final _idPattern = RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$');

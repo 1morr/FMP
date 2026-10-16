@@ -1537,6 +1537,14 @@ class Translations$network$zh_CN extends Translations$network$zh_TW {
   @override
   String radioIntervalMinutes({required Object minutes}) => '${minutes} 分钟';
   @override
+  String get chartInterval => '排行刷新间隔';
+  @override
+  String get chartIntervalHint => '多久更新一次首页的排行；App 在后台或离线时不更新。';
+  @override
+  String get chartIntervalOff => '关闭';
+  @override
+  String chartIntervalMinutes({required Object minutes}) => '${minutes} 分钟';
+  @override
   String optionDefault({required Object label}) => '${label}（默认）';
 }
 

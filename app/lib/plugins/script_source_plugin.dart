@@ -160,6 +160,32 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<ChartList> chartList() async {
+    final json = await _invoke(
+      PluginCapability.charts,
+      null,
+      ChartsExports.list,
+    );
+    return _decode(() => ChartList.fromJson(json));
+  }
+
+  @override
+  Future<ChartPage> chart(ChartQuery query) async {
+    final json = await _invoke(
+      PluginCapability.charts,
+      query.toJson(),
+      ChartsExports.chart,
+    );
+    return _decode(
+      () => ChartPage.fromJson(
+        json,
+        sourceTypeId: manifest.id,
+        allowedHosts: _allowedHosts,
+      ),
+    );
+  }
+
+  @override
   Future<MultiPartResult> multiPart(MultiPartQuery query) async {
     final json = await _invoke(PluginCapability.multiPart, query.toJson());
     return _decode(() => MultiPartResult.fromJson(json));

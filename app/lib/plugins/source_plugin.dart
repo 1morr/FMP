@@ -51,6 +51,12 @@ abstract interface class SourcePlugin {
   /// 要登入才讀得到而沒有登入是 `AuthRequired`。
   Future<PlaylistPage> importPlaylist(PlaylistPageQuery query);
 
+  /// [PluginCapability.charts]：插件有哪些榜單（ADR 0032 §決定 5）。插件內的常數，不發請求。
+  Future<ChartList> chartList();
+
+  /// 一個榜單的曲目，不分頁；榜單的來源與排序由插件決定，可以是空的。
+  Future<ChartPage> chart(ChartQuery query);
+
   /// [PluginCapability.multiPart]：一支影片的分 P（ADR 0028 §決定 5）。
   Future<MultiPartResult> multiPart(MultiPartQuery query);
 

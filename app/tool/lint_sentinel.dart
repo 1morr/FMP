@@ -58,7 +58,7 @@ void violations(m.BuildContext context) {
   const m.EdgeInsets.all(8);
 }
 ''',
-  // forbiddenLayerImports：排程器、電台與音樂庫不 import 介面；core 不 import 排程器與音樂庫。
+  // forbiddenLayerImports：排程器、電台、音樂庫與排行不 import 介面；排行另不 import 音樂庫與快取的表；core 不 import 排程器、音樂庫與排行。
   'lib/scheduler/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'package:fmp/ui/toast/toast.dart';
@@ -71,8 +71,15 @@ import 'package:fmp/ui/toast/toast.dart';
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'package:fmp/ui/toast/toast.dart';
 ''',
+  'lib/charts/lint_sentinel_violations.dart': r'''
+// tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/data/cache/cache_tables.dart';
+import 'package:fmp/library/playlist_refresher.dart';
+import 'package:fmp/ui/toast/toast.dart';
+''',
   'lib/core/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/charts/chart_cache.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/scheduler/background_scheduler.dart';
 ''',
@@ -106,12 +113,16 @@ const _expectedMessages = [
   // externalPackageOwners 的 unorm_dart、string_similarity（匹配的評分核心）
   'package:unorm_dart* is only allowed in lib/core/matching/',
   'package:string_similarity* is only allowed in lib/core/matching/',
-  // forbiddenLayerImports 的 scheduler／radio／library／core
+  // forbiddenLayerImports 的 scheduler／radio／library／charts／core
   'lib/scheduler/ must not import lib/ui/',
   'lib/radio/ must not import lib/ui/',
   'lib/library/ must not import lib/ui/',
   'lib/core/ must not import lib/scheduler/',
+  'lib/charts/ must not import lib/ui/',
+  'lib/charts/ must not import lib/library/',
+  'lib/charts/ must not import lib/data/cache/cache_tables.dart',
   'lib/core/ must not import lib/library/',
+  'lib/core/ must not import lib/charts/',
   // platformPackages 的 share_plus（分享診斷包）
   'package:share_plus* is only allowed in lib/platform/',
 ];

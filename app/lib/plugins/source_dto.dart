@@ -110,6 +110,10 @@ const sourceDtoShapes = <String, JsonShape>{
     'remoteItemId': false,
     'unavailable': false,
   },
+  'ChartList': {'charts': true},
+  'ChartRef': {'chartId': true, 'title': true},
+  'ChartQuery': {'chartId': true},
+  'ChartPage': {'tracks': true},
 };
 
 /// 搜尋的輸入。
@@ -1350,4 +1354,92 @@ final class RemotePlaylistItem {
     remoteItemId: remoteItemId,
     unavailable: unavailable,
   );
+}
+
+/// `chartList` 回傳的榜單清單（ADR 0032 §決定 5）。
+@immutable
+final class ChartList {
+  const ChartList({required this.charts});
+
+  factory ChartList.fromJson(Object? json) {
+    const path = 'ChartList';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final charts = List<ChartRef>.unmodifiable([
+      for (final (index, item) in fields.list('charts').indexed)
+        ChartRef._fromJson(item, path: '$path.charts[$index]'),
+    ]);
+    final seen = <String>{};
+    for (final (index, chart) in charts.indexed) {
+      if (!seen.add(chart.chartId)) {
+        throw FormatException(
+          '$path.charts[$index].chartId: "${chart.chartId}" is listed twice',
+        );
+      }
+    }
+    return ChartList(charts: charts);
+  }
+
+  /// 可以是空的（插件暫時沒有榜單）；`chartId` 不重複。
+  final List<ChartRef> charts;
+}
+
+/// 一個榜單的身分與顯示名稱。
+@immutable
+final class ChartRef {
+  const ChartRef({required this.chartId, required this.title});
+
+  factory ChartRef._fromJson(Object? json, {required String path}) {
+    final fields = JsonFields(json, sourceDtoShapes['ChartRef']!, path: path);
+    return ChartRef(
+      chartId: fields.nonEmptyString('chartId'),
+      title: fields.nonEmptyString('title'),
+    );
+  }
+
+  /// 音源內的榜單 id（不透明），之後原樣交給 `chart`。
+  final String chartId;
+  final String title;
+}
+
+/// `chart` 的輸入。
+@immutable
+final class ChartQuery {
+  ChartQuery({required this.chartId}) {
+    if (chartId.trim().isEmpty) {
+      throw ArgumentError.value(chartId, 'chartId', 'must not be empty');
+    }
+  }
+
+  final String chartId;
+
+  Map<String, Object?> toJson() => {'chartId': chartId};
+}
+
+/// `chart` 的回傳值：榜單的曲目，依插件給的順序。
+@immutable
+final class ChartPage {
+  const ChartPage({required this.tracks});
+
+  factory ChartPage.fromJson(
+    Object? json, {
+    required String sourceTypeId,
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'ChartPage';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    return ChartPage(
+      tracks: List.unmodifiable([
+        for (final (index, item) in fields.list('tracks').indexed)
+          TrackSummary._fromJson(
+            item,
+            sourceTypeId: sourceTypeId,
+            allowedHosts: allowedHosts,
+            path: '$path.tracks[$index]',
+          ),
+      ]),
+    );
+  }
+
+  /// 可以是空的（空榜單顯示「沒有內容」）。
+  final List<TrackSummary> tracks;
 }

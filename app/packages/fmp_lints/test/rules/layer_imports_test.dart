@@ -372,6 +372,72 @@ class LayerImportsTest extends FmpRuleTest {
     );
   }
 
+  // 排行（M4）：下層與排程器不認得它，它不 import 介面與音樂庫；快取只經 `cache_store.dart`，
+  // 不碰 `cache.db` 的表與資料庫類別。
+  Future<void> test_lowerLayersImportCharts() async {
+    await assertLints(
+      'lib/core/network/network_status.dart',
+      "import [!'package:test/charts/chart_cache.dart'!];\n",
+    );
+    await assertLints(
+      'lib/domain/playlist.dart',
+      "import [!'../charts/chart_jobs.dart'!];\n",
+    );
+    await assertLints(
+      'lib/data/cache/cache_store.dart',
+      "import [!'package:test/charts/chart_cache.dart'!];\n",
+    );
+    await assertLints(
+      'lib/scheduler/background_scheduler.dart',
+      "import [!'package:test/charts/chart_jobs.dart'!];\n",
+    );
+  }
+
+  Future<void> test_chartsImportUiOrLibrary() => assertLints(
+    'lib/charts/chart_jobs.dart',
+    "import [!'package:test/ui/toast/toast.dart'!];\n"
+        "import [!'../library/playlist_refresher.dart'!];\n",
+  );
+
+  Future<void> test_chartsImportCacheTables() => assertLints(
+    'lib/charts/chart_cache.dart',
+    "import [!'package:test/data/cache/cache_tables.dart'!];\n"
+        "import [!'../data/cache/cache_database.dart'!];\n",
+  );
+
+  // 反方向與近似名稱不報：介面讀排行、排行讀 core／data／plugins／scheduler，經 `CacheStore`
+  // 讀寫快取；`charts_x` 開頭的別的目錄、`cache_store_helpers.dart` 不是被擋的檔案。
+  Future<void> test_chartsNearMisses() async {
+    await assertLints(
+      'lib/charts/chart_jobs.dart',
+      "import 'package:test/core/errors/app_error.dart';\n"
+          "import 'package:test/data/cache/cache_store.dart';\n"
+          "import 'package:test/data/cache/cache_tables_helpers.dart';\n"
+          "import 'package:test/data/repositories/chart_settings_repository.dart';\n"
+          "import 'package:test/plugins/plugin_registry.dart';\n"
+          "import 'package:test/scheduler/background_scheduler.dart';\n"
+          "import 'package:test/radio/radio_service.dart';\n"
+          "import 'package:test/ui_kit/widgets.dart';\n"
+          "// import 'package:test/data/cache/cache_tables.dart';\n"
+          "// import 'package:test/ui/toast/toast.dart';\n",
+    );
+    await assertLints(
+      'lib/ui/home/chart_section.dart',
+      "import 'package:test/charts/chart_cache.dart';\n",
+    );
+    await assertLints(
+      'lib/data/cache/cache_store.dart',
+      "import 'package:test/data/cache/cache_tables.dart';\n"
+          "import 'package:test/charts_extras/x.dart';\n",
+    );
+    await assertLints(
+      'lib/charts_extras/x.dart',
+      "import 'package:test/ui/toast/toast.dart';\n"
+          "import 'package:test/library/playlist_refresher.dart';\n"
+          "import 'package:test/data/cache/cache_tables.dart';\n",
+    );
+  }
+
   // 反方向照常；名稱以 `ui` 開頭的別的目錄、`playback` 開頭的介面檔不報。
   Future<void> test_uiMayImportPlayback() async {
     await assertLints(

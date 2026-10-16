@@ -79,7 +79,10 @@ void main() {
         throwsA(isA<Unsupported>()),
       );
       expect(plugins.adapter.requests, hasLength(1));
-      expect(await cache.watchUsage().first, {CacheCategory.image: 3});
+      expect(await cache.watchUsage().first, {
+        CacheCategory.image: 3,
+        CacheCategory.chart: 0,
+      });
     },
   );
 

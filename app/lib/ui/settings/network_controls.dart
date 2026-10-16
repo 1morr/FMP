@@ -28,7 +28,8 @@ final cacheUsageProvider = StreamProvider.autoDispose<Map<CacheCategory, int>?>(
 );
 
 /// 設定頁的「網路」組：快取上限、各類用量、清除快取（ADR 0016 §決定 3），以及電台狀態刷新
-/// 間隔（ADR 0017 §決定 6：關閉／1／3／5／10 分，沒設定過是 5 分）。
+/// 間隔（ADR 0017 §決定 6：關閉／1／3／5／10 分，沒設定過是 5 分）與排行刷新間隔（關閉／
+/// 30／60／120／240 分，沒設定過是 60 分）。
 class NetworkControls extends ConsumerWidget {
   const NetworkControls({super.key});
 
@@ -125,6 +126,44 @@ class NetworkControls extends ConsumerWidget {
                         : t.radioIntervalMinutes(minutes: minutes);
                     return network.stored.radioStatusIntervalMinutes == null &&
                             minutes == defaultRadioStatusIntervalMinutes
+                        ? t.optionDefault(label: label)
+                        : label;
+                  }()),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(height: spacing.x6),
+        Text(t.chartInterval, style: textTheme.titleSmall),
+        SizedBox(height: spacing.x1),
+        Text(
+          t.chartIntervalHint,
+          style: textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        // 同電台間隔：沒設定過時選中的是預設（60 分）並標明，選任何一項才寫進資料庫。
+        RadioGroup<int>(
+          groupValue: switch (network.chartRefreshInterval) {
+            null => 0,
+            final interval => interval.inMinutes,
+          },
+          onChanged: (minutes) {
+            if (minutes == null) return;
+            unawaited(notifier.setChartRefreshInterval(minutes));
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final minutes in chartRefreshIntervalOptionsMinutes)
+                RadioListTile<int>(
+                  value: minutes,
+                  title: Text(() {
+                    final label = minutes == 0
+                        ? t.chartIntervalOff
+                        : t.chartIntervalMinutes(minutes: minutes);
+                    return network.stored.chartRefreshIntervalMinutes == null &&
+                            minutes == defaultChartRefreshIntervalMinutes
                         ? t.optionDefault(label: label)
                         : label;
                   }()),

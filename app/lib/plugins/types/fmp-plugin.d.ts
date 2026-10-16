@@ -39,7 +39,7 @@ export interface FmpPluginManifest {
   apiVersion: 1;
   /**
    * 不能是空的；每個能力要有同名的匯出函式，反之亦然。'login' 的匯出是 loginVerify
-   * 等幾個，'live' 的是 liveSearch 等四個、'importPlaylist' 的是 playlistFromUrl 與 importPlaylist（FmpPluginExports）。
+   * 等幾個，'live' 的是 liveSearch 等四個、'importPlaylist' 的是 playlistFromUrl 與 importPlaylist、'charts' 的是 chartList 與 chart（FmpPluginExports）。
    */
   capabilities: FmpCapability[];
   /**
@@ -398,6 +398,31 @@ export interface RemotePlaylistItem {
   unavailable?: boolean | null;
 }
 
+/** chartList 的回傳值：插件的榜單，可以是插件內的常數。 */
+export interface ChartList {
+  /** chartId 不能重複；可以是空陣列（暫時沒有榜單）。 */
+  charts: ChartRef[];
+}
+
+/** 一個榜單的身分與顯示名稱。 */
+export interface ChartRef {
+  /** 音源內的榜單 id（不透明），不能是空的；之後原樣交給 chart。 */
+  chartId: string;
+  /** 顯示名稱，不能是空的。 */
+  title: string;
+}
+
+/** chart 的輸入。 */
+export interface ChartQuery {
+  chartId: string;
+}
+
+/** chart 的回傳值：榜單的曲目，順序由插件決定。 */
+export interface ChartPage {
+  /** 不分頁；可以是空陣列（空榜單顯示「沒有內容」）。 */
+  tracks: TrackSummary[];
+}
+
 /** multiPart 的輸入。 */
 export interface MultiPartQuery {
   sourceId: string;
@@ -578,6 +603,17 @@ export interface FmpPluginExports {
    * fmp.credentials.get() 不是 null 時，以 'required' 重送一次。
    */
   importPlaylist?(query: PlaylistPageQuery): PlaylistPage | Promise<PlaylistPage>;
+  /**
+   * 'charts' 能力的兩個匯出，宣告就兩個都要匯出（ADR 0032 §決定 5、6）；能力名稱本身不是
+   * 匯出。回傳插件的榜單（可以是常數，不發請求）；宿主每次刷新先呼叫它，再對啟用的榜單逐一
+   * 呼叫 chart。
+   */
+  chartList?(): ChartList | Promise<ChartList>;
+  /**
+   * 一個榜單的曲目，不分頁，順序與來源由插件決定。請求用 auth: 'userPreference'。失敗只影響
+   * 這一個榜單（宿主標「更新失敗」）。
+   */
+  chart?(query: ChartQuery): ChartPage | Promise<ChartPage>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -612,7 +648,7 @@ export interface FmpPluginExports {
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
 /**
- * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這八個。
+ * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這九個。
  *
  * 每種案例都可以寫 `mutates: true`（只能是 true，不寫就是不改動）：案例會改動遠端（加歌、
  * 刪歌、建歌單）時寫。健康檢查、命令列錄製與冒煙、開發工具的真實與錄製模式都略過它、
@@ -626,6 +662,7 @@ export interface FmpChecks {
   multiPart?: FmpMultiPartCheck | null;
   trackDetail?: FmpTrackDetailCheck | null;
   importPlaylist?: FmpImportPlaylistCheck | null;
+  charts?: FmpChartsCheck | null;
   login?: FmpLoginCheck | null;
 }
 
@@ -668,6 +705,17 @@ export interface FmpTrackDetailCheck {
  */
 export interface FmpImportPlaylistCheck {
   input: PlaylistUrlQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
+}
+
+/**
+ * charts 的案例跑 chart；成功時回傳的 tracks 是檢查的清單，nonEmpty 的名稱同
+ * TrackSummary。不需要登入。
+ */
+export interface FmpChartsCheck {
+  input: ChartQuery;
   expect: FmpExpectSuccess | FmpExpectError;
   /** 見 FmpChecks。 */
   mutates?: true | null;

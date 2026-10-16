@@ -14,12 +14,19 @@ const radioStatusIntervalOptionsMinutes = [0, 1, 3, 5, 10];
 /// 電台狀態刷新間隔的預設（分）。
 const defaultRadioStatusIntervalMinutes = 5;
 
+/// 排行刷新間隔的選項（分，ADR 0017 §決定 6）：`0` 是關閉。
+const chartRefreshIntervalOptionsMinutes = [0, 30, 60, 120, 240];
+
+/// 排行刷新間隔的預設（分）。
+const defaultChartRefreshIntervalMinutes = 60;
+
 /// 「網路」設定套用預設之後的值（ADR 0011 §決定 7）。
 @immutable
 final class Network {
   const Network({
     required this.cacheLimitMebibytes,
     required this.radioStatusInterval,
+    required this.chartRefreshInterval,
     required this.stored,
   });
 
@@ -29,6 +36,9 @@ final class Network {
   /// 電台狀態的刷新間隔；`null` 是關閉（設定為 0 分）。
   final Duration? radioStatusInterval;
 
+  /// 排行的刷新間隔；`null` 是關閉（設定為 0 分）。
+  final Duration? chartRefreshInterval;
+
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。
   final NetworkSettings stored;
 
@@ -37,20 +47,27 @@ final class Network {
       other is Network &&
       other.cacheLimitMebibytes == cacheLimitMebibytes &&
       other.radioStatusInterval == radioStatusInterval &&
+      other.chartRefreshInterval == chartRefreshInterval &&
       other.stored == stored;
 
   @override
-  int get hashCode =>
-      Object.hash(cacheLimitMebibytes, radioStatusInterval, stored);
+  int get hashCode => Object.hash(
+    cacheLimitMebibytes,
+    radioStatusInterval,
+    chartRefreshInterval,
+    stored,
+  );
 
   @override
   String toString() =>
       'Network(cacheLimitMebibytes: $cacheLimitMebibytes, '
-      'radioStatusInterval: $radioStatusInterval, stored: $stored)';
+      'radioStatusInterval: $radioStatusInterval, '
+      'chartRefreshInterval: $chartRefreshInterval, stored: $stored)';
 }
 
 /// 在讀取時套用預設：沒設定過的快取上限用 [defaultCacheLimitMebibytes]（平台層宣告，
-/// `PlatformCapabilities.cache`），電台間隔用 [defaultRadioStatusIntervalMinutes]。預設值不寫進資料庫，改預設不需要 migration。
+/// `PlatformCapabilities.cache`），電台間隔用 [defaultRadioStatusIntervalMinutes]，排行間隔用
+/// [defaultChartRefreshIntervalMinutes]。預設值不寫進資料庫，改預設不需要 migration。
 Network resolveNetwork(
   NetworkSettings stored, {
   required int defaultCacheLimitMebibytes,
@@ -58,6 +75,11 @@ Network resolveNetwork(
   cacheLimitMebibytes: stored.cacheLimitMebibytes ?? defaultCacheLimitMebibytes,
   radioStatusInterval: switch (stored.radioStatusIntervalMinutes ??
       defaultRadioStatusIntervalMinutes) {
+    0 => null,
+    final minutes => Duration(minutes: minutes),
+  },
+  chartRefreshInterval: switch (stored.chartRefreshIntervalMinutes ??
+      defaultChartRefreshIntervalMinutes) {
     0 => null,
     final minutes => Duration(minutes: minutes),
   },
@@ -110,5 +132,22 @@ final class NetworkNotifier extends StreamNotifier<Network> {
       );
     }
     return repository.write(radioStatusIntervalMinutes: minutes);
+  }
+
+  /// 只寫排行刷新間隔；`0` 是關閉，`null` 清回沒設定過（跟隨預設）。不在
+  /// [chartRefreshIntervalOptionsMinutes] 裡的值拋 [ArgumentError]。
+  Future<void> setChartRefreshInterval(int? minutes) {
+    final repository = ref.read(networkSettingsRepositoryProvider);
+    if (minutes == null) {
+      return repository.clear(chartRefreshIntervalMinutes: true);
+    }
+    if (!chartRefreshIntervalOptionsMinutes.contains(minutes)) {
+      throw ArgumentError.value(
+        minutes,
+        'minutes',
+        'must be one of $chartRefreshIntervalOptionsMinutes',
+      );
+    }
+    return repository.write(chartRefreshIntervalMinutes: minutes);
   }
 }

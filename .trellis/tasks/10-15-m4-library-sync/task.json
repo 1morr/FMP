@@ -30,7 +30,8 @@
     "10-15-m4-import-ui",
     "10-16-m4-refresh-job",
     "10-16-m4-track-selection",
-    "10-16-m4-mix-playlist"
+    "10-16-m4-mix-playlist",
+    "10-16-m4-charts"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

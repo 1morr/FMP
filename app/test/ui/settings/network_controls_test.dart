@@ -12,15 +12,26 @@ import '../../data/cache/cache_harness.dart';
 import '../support/shell_harness.dart';
 
 void main() {
-  /// 選中的快取上限（MiB）：第一組選項（第二組是電台狀態刷新間隔）。
+  /// 選中的快取上限（MiB）：第一組選項（第二組是電台狀態刷新間隔，第三組是排行刷新間隔）。
   int? selectedLimit(WidgetTester tester) => tester
       .widget<RadioGroup<int>>(find.byType(RadioGroup<int>).first)
       .groupValue;
 
   /// 選中的電台狀態刷新間隔（分，0 是關閉）。
   int? selectedInterval(WidgetTester tester) => tester
+      .widget<RadioGroup<int>>(find.byType(RadioGroup<int>).at(1))
+      .groupValue;
+
+  /// 選中的排行刷新間隔（分，0 是關閉）。
+  int? selectedChartInterval(WidgetTester tester) => tester
       .widget<RadioGroup<int>>(find.byType(RadioGroup<int>).last)
       .groupValue;
+
+  /// 第 [group] 組選項裡文字是 [text] 的那一項（兩組間隔都有「關閉」）。
+  Finder optionIn(int group, String text) => find.descendant(
+    of: find.byType(RadioGroup<int>).at(group),
+    matching: find.text(text),
+  );
 
   /// 以真的（暫存目錄上的）快取庫開設定頁的「網路」組。
   Future<(ShellHarness, CacheHarness, CacheStore)> openNetwork(
@@ -99,7 +110,7 @@ void main() {
     expect(find.text('Radio status refresh'), findsOneWidget);
     expect(find.text('5 min (default)'), findsOneWidget);
     for (final other in ['Off', '1 min', '3 min', '10 min']) {
-      expect(find.text(other), findsOneWidget);
+      expect(optionIn(1, other), findsOneWidget);
     }
     expect(selectedInterval(tester), 5);
   });
@@ -109,8 +120,8 @@ void main() {
   ) async {
     final (h, _, _) = await openNetwork(tester);
 
-    await tester.ensureVisible(find.text('Off'));
-    await tester.tap(find.text('Off'));
+    await tester.ensureVisible(optionIn(1, 'Off'));
+    await tester.tap(optionIn(1, 'Off'));
     await h.loadSettings(tester);
     Future<NetworkSettings?> stored() => tester.runAsync(
       () => h.container(tester).read(networkSettingsRepositoryProvider).read(),
@@ -132,6 +143,60 @@ void main() {
     expect(selectedInterval(tester), 10);
     // 快取上限沒有被寫入。
     expect(selectedLimit(tester), 128);
+  });
+
+  // 排行刷新間隔（ADR 0017 §決定 6）：關閉／30／60／120／240 分，沒設定過是 60 分，在電台間隔之後。
+  testWidgets('an unset chart interval is 60 minutes and says so', (
+    tester,
+  ) async {
+    await openNetwork(tester);
+
+    expect(find.text('Charts refresh'), findsOneWidget);
+    expect(find.text('60 min (default)'), findsOneWidget);
+    for (final other in ['Off', '30 min', '120 min', '240 min']) {
+      expect(optionIn(2, other), findsOneWidget);
+    }
+    expect(selectedChartInterval(tester), 60);
+    expect(
+      tester.getTopLeft(find.text('Charts refresh')).dy,
+      greaterThan(tester.getTopLeft(find.text('Radio status refresh')).dy),
+      reason: 'after the radio interval',
+    );
+  });
+
+  testWidgets('picking a chart interval writes only that field', (
+    tester,
+  ) async {
+    final (h, _, _) = await openNetwork(tester);
+    Future<NetworkSettings?> stored() => tester.runAsync(
+      () => h.container(tester).read(networkSettingsRepositoryProvider).read(),
+    );
+
+    await tester.ensureVisible(optionIn(2, 'Off'));
+    await tester.tap(optionIn(2, 'Off'));
+    await h.loadSettings(tester);
+    expect(
+      await stored(),
+      const NetworkSettings(chartRefreshIntervalMinutes: 0),
+    );
+    expect(selectedChartInterval(tester), 0);
+    expect(
+      find.text('60 min'),
+      findsOneWidget,
+      reason: 'no longer the default',
+    );
+
+    await tester.ensureVisible(optionIn(2, '240 min'));
+    await tester.tap(optionIn(2, '240 min'));
+    await h.loadSettings(tester);
+    expect(
+      await stored(),
+      const NetworkSettings(chartRefreshIntervalMinutes: 240),
+    );
+    expect(selectedChartInterval(tester), 240);
+    // 另外兩組沒有被寫入。
+    expect(selectedLimit(tester), 128);
+    expect(selectedInterval(tester), 5);
   });
 
   testWidgets('shows the artwork usage', (tester) async {
@@ -173,6 +238,7 @@ void main() {
     expect(find.text('Clear the cache?'), findsNothing);
     expect(await tester.runAsync(() => store.watchUsage().first), {
       CacheCategory.image: 2048,
+      CacheCategory.chart: 0,
     });
     expect(cache.fileNames(), hasLength(1));
   });
@@ -210,6 +276,7 @@ void main() {
 
     expect(await tester.runAsync(() => store.watchUsage().first), {
       CacheCategory.image: 0,
+      CacheCategory.chart: 0,
     });
     expect(cache.fileNames(), isEmpty);
     expect(imageCache.containsKey('decoded'), isFalse);

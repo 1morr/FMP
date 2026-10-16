@@ -4,6 +4,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
+import 'package:fmp/data/repositories/chart_settings_repository.dart';
 import 'package:fmp/data/repositories/database_inspector.dart';
 import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
@@ -77,6 +78,10 @@ final sourceSettingsRepositoryProvider = Provider<SourceSettingsRepository>(
 
 final schedulerRunsRepositoryProvider = Provider<SchedulerRunsRepository>(
   (ref) => SchedulerRunsRepository(ref.watch(appDatabaseProvider)),
+);
+
+final chartSettingsRepositoryProvider = Provider<ChartSettingsRepository>(
+  (ref) => ChartSettingsRepository(ref.watch(appDatabaseProvider)),
 );
 
 final developerSettingsRepositoryProvider =

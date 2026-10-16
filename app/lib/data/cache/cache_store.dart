@@ -63,6 +63,9 @@ final class CacheStore {
   /// 這次開啟以來給出的暫存檔數，用來取不重複的檔名。
   var _staged = 0;
 
+  /// 這次開啟以來 [put] 寫過的檔數，用來取不重複的檔名。
+  var _written = 0;
+
   Directory get _files =>
       Directory(p.join(_root.path, cacheFilesDirectoryName));
 
@@ -128,6 +131,90 @@ final class CacheStore {
       return;
     }
   });
+
+  /// 把 [bytes] 存成 [category]、[pluginId] 底下鍵為 [key] 的項目（有就取代）；寫完超過
+  /// 上限就淘汰。給不經圖片 cache manager 的類別用（[CacheCategory.chart]）。
+  ///
+  /// 先寫新檔、再換索引、最後刪舊檔，中間失敗時舊的內容還在。這些項目沒有「有效到何時」
+  /// 的概念（`valid_until` 記寫入時間，沒人讀）。
+  Future<void> put(
+    CacheCategory category,
+    String pluginId,
+    String key,
+    Uint8List bytes,
+  ) => _serially(() async {
+    final directory = await _files.create(recursive: true);
+    final name =
+        '${category.name}-${_written++}-'
+        '${clock.now().microsecondsSinceEpoch}';
+    await File(p.join(directory.path, name)).writeAsBytes(bytes, flush: true);
+    final now = clock.now();
+    final previous = await _row(category, pluginId, key);
+    final entry = CacheEntriesTableCompanion.insert(
+      key: key,
+      category: category,
+      pluginId: Value(pluginId),
+      relativePath: name,
+      sizeBytes: bytes.length,
+      lastAccess: now,
+      validUntil: now,
+    );
+    await _database
+        .into(_entries)
+        .insert(
+          entry,
+          onConflict: DoUpdate(
+            (_) => entry,
+            target: [_entries.category, _entries.pluginId, _entries.key],
+          ),
+        );
+    if (previous != null) {
+      await _deleteFile(File(p.join(_files.path, previous.relativePath)));
+    }
+    await _evict();
+  });
+
+  /// [put] 存的內容；沒有、被淘汰或檔案已被系統清掉都是 `null`（視為沒有快取）。
+  Future<Uint8List?> get(CacheCategory category, String pluginId, String key) =>
+      _serially(() async {
+        final row = await _row(category, pluginId, key);
+        if (row == null) return null;
+        try {
+          return await File(p.join(_files.path, row.relativePath))
+              .readAsBytes();
+        } on PathNotFoundException {
+          // 索引還在而檔案不見了（系統清掉快取目錄）：下次開啟時的對帳會刪掉那一列。
+          return null;
+        }
+      });
+
+  /// 刪掉 [category]、[pluginId] 底下鍵為 [key] 的項目；不給 [key] 就刪這個插件這個類別
+  /// 的全部（其他類別、其他插件的不動）。沒有時什麼都不做。
+  Future<void> remove(CacheCategory category, String pluginId, {String? key}) =>
+      _serially(() async {
+        final rows =
+            await (_database.select(_entries)..where(
+                  (t) =>
+                      t.category.equalsValue(category) &
+                      t.pluginId.equals(pluginId) &
+                      (key == null ? const Constant(true) : t.key.equals(key)),
+                ))
+                .get();
+        await _remove(rows);
+      });
+
+  Future<CacheEntryRow?> _row(
+    CacheCategory category,
+    String pluginId,
+    String key,
+  ) =>
+      (_database.select(_entries)..where(
+            (t) =>
+                t.category.equalsValue(category) &
+                t.pluginId.equals(pluginId) &
+                t.key.equals(key),
+          ))
+          .getSingleOrNull();
 
   /// 刪掉 [pluginId] 的所有項目（ADR 0016 §決定 2：移除插件時）。
   Future<void> removePlugin(String pluginId) => _serially(() async {
@@ -370,6 +457,12 @@ final cacheStoreProvider = FutureProvider<CacheStore>((ref) async {
       stackTrace: stackTrace,
     );
     rethrow;
+  }
+  // 開啟期間被拆掉（App 結束、排行工作在啟動時就開了快取庫）：之後登記的 onDispose 不會
+  // 再跑，這裡不關就沒人關，檔案一直開著。
+  if (!ref.mounted) {
+    await store.close();
+    return store;
   }
   opened = store;
   if (pending case final bytes?) apply(bytes);

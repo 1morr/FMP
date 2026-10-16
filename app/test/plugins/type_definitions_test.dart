@@ -326,6 +326,64 @@ export function shape() {
     );
   });
 
+  test('the charts exports match ChartsExports and the d.ts', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    expect(exports.containsAll(ChartsExports.all), isTrue);
+    // 變異：d.ts 少一個匯出就對不上。
+    for (final (original, renamed) in [
+      ('  chartList?(', '  chartListRenamed?('),
+      ('  chart?(', '  chartRenamed?('),
+    ]) {
+      expect(_dts, contains(original));
+      final mutated = _interfaces(
+        _dts.replaceFirst(original, renamed),
+      )['FmpPluginExports']!.keys.toSet();
+      expect(mutated.containsAll(ChartsExports.all), isFalse, reason: original);
+    }
+    // 無關的格式變動（縮排）不影響。
+    final reindented = _interfaces(
+      _dts.replaceFirst('  chartList?(', '\t\tchartList?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(reindented.containsAll(ChartsExports.all), isTrue);
+  });
+
+  test('the charts fields match between the d.ts and Dart', () {
+    expect(sourceDtoShapes['ChartList']!['charts'], isTrue);
+    expect(sourceDtoShapes['ChartRef']!['title'], isTrue);
+    expect(sourceDtoShapes['ChartPage']!['tracks'], isTrue);
+    expect(_interfaces(_dts)['ChartQuery']!['chartId'], isTrue);
+    expect(checkShapes['FmpChecks']!['charts'], isFalse);
+    // 變異：d.ts 把 charts 或 tracks 改成選填、chartId 改成選填、少了 FmpChecks 的 charts，
+    // 欄位表比對就紅。
+    for (final (original, mutated) in [
+      ('  charts: ChartRef[];', '  charts?: ChartRef[];'),
+      ('  tracks: TrackSummary[];', '  tracks?: TrackSummary[];'),
+      (
+        '  title: string;\n}\n\n/** chart 的輸入',
+        '  title?: string;\n}\n\n/** chart 的輸入',
+      ),
+      ('  charts?: FmpChartsCheck | null;\n', ''),
+    ]) {
+      expect(_dts, contains(original));
+      expect(
+        _shapeDifferences(_dts.replaceFirst(original, mutated)),
+        isNotEmpty,
+        reason: original,
+      );
+    }
+    // 無關的變動（多一行說明）不影響。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst(
+          '  tracks: TrackSummary[];',
+          '  /** 說明 */\n  tracks: TrackSummary[];',
+        ),
+      ),
+      isEmpty,
+    );
+  });
+
   test('partIndex and parentTitle match between the d.ts and Dart', () {
     expect(sourceDtoShapes['TrackSummary']!['partIndex'], isFalse);
     expect(sourceDtoShapes['TrackSummary']!['parentTitle'], isFalse);
