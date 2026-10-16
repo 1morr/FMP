@@ -8,8 +8,10 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/domain/track_key.dart';
 
-/// 歌單的一列（`playlists`，ADR 0033 §決定 1）。Mix 三欄與遠端資料等用到它的 PR 再加。
+/// 歌單的一列（`playlists`，ADR 0033 §決定 1）。[mixPluginId]、[mixSeedSourceId]、[mixSeedCid]
+/// 只有 `mix` 歌單有（種子曲目的曲目鍵）。
 @immutable
 final class Playlist {
   const Playlist({
@@ -21,6 +23,9 @@ final class Playlist {
     required this.updatedAt,
     this.description,
     this.artwork = const [],
+    this.mixPluginId,
+    this.mixSeedSourceId,
+    this.mixSeedCid,
   });
 
   final int id;
@@ -31,6 +36,9 @@ final class Playlist {
   final int sortOrder;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? mixPluginId;
+  final String? mixSeedSourceId;
+  final int? mixSeedCid;
 
   @override
   bool operator ==(Object other) =>
@@ -42,7 +50,10 @@ final class Playlist {
       listEquals(other.artwork, artwork) &&
       other.sortOrder == sortOrder &&
       other.createdAt == createdAt &&
-      other.updatedAt == updatedAt;
+      other.updatedAt == updatedAt &&
+      other.mixPluginId == mixPluginId &&
+      other.mixSeedSourceId == mixSeedSourceId &&
+      other.mixSeedCid == mixSeedCid;
 
   @override
   int get hashCode => Object.hash(
@@ -54,6 +65,9 @@ final class Playlist {
     sortOrder,
     createdAt,
     updatedAt,
+    mixPluginId,
+    mixSeedSourceId,
+    mixSeedCid,
   );
 
   @override
@@ -273,7 +287,7 @@ final class PlaylistRepository {
 
   /// 建一張本機（`local`）歌單，加在清單最後，回傳新歌單的 id。[artwork] 是自訂封面（空＝
   /// 用第一首的封面）。匯入與 Mix 歌單要連同自己的欄位一起寫（`playlist_remote`、Mix 三欄的
-  /// CHECK），由建它們的 PR 另加寫入口。
+  /// CHECK）：[createImported]、[createMix]。
   Future<int> create({
     required String name,
     String? description,
@@ -333,6 +347,44 @@ final class PlaylistRepository {
         );
     return id;
   });
+
+  /// 建一張 Mix（`mix`）歌單，加在清單最後，回傳新歌單的 id：只有 `playlists` 一列（Mix 三欄
+  /// 是種子曲目的曲目鍵），沒有曲目、沒有 `playlist_remote`。每次都建新的一張。
+  Future<int> createMix({
+    required String name,
+    required String pluginId,
+    required String seedSourceId,
+    int? seedCid,
+  }) => _database.transaction(() async {
+    final now = clock.now().toUtc();
+    return _database
+        .into(_database.playlistsTable)
+        .insert(
+          PlaylistsTableCompanion.insert(
+            kind: PlaylistKind.mix,
+            name: name,
+            mixPluginId: Value(pluginId),
+            mixSeedSourceId: Value(seedSourceId),
+            mixSeedCid: Value(seedCid),
+            sortOrder: await _nextSortOrder(),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+  });
+
+  /// Mix 歌單的種子曲目（以曲目鍵查 `tracks`）；查不到（曲目還沒進過本機，或被清掉）、
+  /// 不是 Mix 歌單為 `null`。
+  Future<TrackInfo?> mixSeedTrack(Playlist playlist) async {
+    final pluginId = playlist.mixPluginId;
+    final sourceId = playlist.mixSeedSourceId;
+    if (pluginId == null || sourceId == null) return null;
+    final key = TrackKey.format(pluginId, sourceId, cid: playlist.mixSeedCid);
+    final row = await (_database.select(
+      _database.tracksTable,
+    )..where((t) => t.trackKey.equals(key))).getSingleOrNull();
+    return row == null ? null : TracksRepository.toTrackInfo(row);
+  }
 
   /// 匯入歌單的遠端資料；不是匯入歌單（或沒有這張歌單）為 `null`。
   Future<PlaylistRemote?> remote(int playlistId) async {
@@ -626,6 +678,9 @@ final class PlaylistRepository {
     sortOrder: row.sortOrder,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    mixPluginId: row.mixPluginId,
+    mixSeedSourceId: row.mixSeedSourceId,
+    mixSeedCid: row.mixSeedCid,
   );
 }
 

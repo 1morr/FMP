@@ -5,7 +5,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 /// 假的 `importPlaylist` 插件：歌單的頁由 [onPage] 決定、網址的判斷由 [onUrl] 決定（預設
-/// 全部不認得）。記下每次呼叫。其他能力一律拋 [UnimplementedError]。
+/// 全部不認得）、Mix 由 [onMix] 決定。記下每次呼叫。其他能力一律拋 [UnimplementedError]。
 final class FakeImportPlugin implements SourcePlugin {
   FakeImportPlugin({
     String id = 'fmp-test',
@@ -13,7 +13,9 @@ final class FakeImportPlugin implements SourcePlugin {
     bool mix = false,
     FutureOr<PlaylistPage> Function(PlaylistPageQuery query)? onPage,
     FutureOr<PlaylistRef?> Function(PlaylistUrlQuery query)? onUrl,
-  }) : onPage = onPage ?? ((_) => throw UnimplementedError('onPage')),
+    FutureOr<MixBatch> Function(MixQuery query)? onMix,
+  }) : onMix = onMix ?? ((_) => throw UnimplementedError('onMix')),
+       onPage = onPage ?? ((_) => throw UnimplementedError('onPage')),
        onUrl = onUrl ?? ((_) => null),
        manifest = PluginManifest(
          id: id,
@@ -31,6 +33,10 @@ final class FakeImportPlugin implements SourcePlugin {
   FutureOr<PlaylistPage> Function(PlaylistPageQuery query) onPage;
   FutureOr<PlaylistRef?> Function(PlaylistUrlQuery query) onUrl;
 
+  /// `mix: true` 時才有能力。
+  FutureOr<MixBatch> Function(MixQuery query) onMix;
+
+  final mixQueries = <MixQuery>[];
   final pageQueries = <PlaylistPageQuery>[];
   final urlQueries = <PlaylistUrlQuery>[];
 
@@ -53,6 +59,12 @@ final class FakeImportPlugin implements SourcePlugin {
   Future<PlaylistPage> importPlaylist(PlaylistPageQuery query) async {
     pageQueries.add(query);
     return onPage(query);
+  }
+
+  @override
+  Future<MixBatch> mix(MixQuery query) async {
+    mixQueries.add(query);
+    return onMix(query);
   }
 
   @override

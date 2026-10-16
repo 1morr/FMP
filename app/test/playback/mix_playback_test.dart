@@ -90,6 +90,30 @@ void main() {
       });
     });
 
+    test('starts from a stored seed: replaces the queue, passes the seed', () {
+      fakeAsync((async) {
+        final h = _harness(async);
+        unawaited(h.playQueue([track('x'), track('y')]));
+        h.elapse(const Duration(milliseconds: 100));
+
+        unawaited(
+          h.controller.startMixFromSeed(
+            'fmp-test',
+            MixSeedQuery(sourceId: 'seed', cid: 7),
+          ),
+        );
+        h.elapse(const Duration(milliseconds: 100));
+
+        final query = h.plugin.mixQueries.first as MixSeedQuery;
+        expect(query.sourceId, 'seed');
+        expect(query.cid, 7);
+        expect(h.controller.queue.mode, QueueMode.mix);
+        expect(_ids(h), isNotEmpty);
+        expect(_ids(h), isNot(contains('x')));
+        expect(h.playedIds.last, 'a1');
+      });
+    });
+
     test('a failure throws, shows nothing and leaves the queue alone', () {
       fakeAsync((async) {
         final h = _harness(async);

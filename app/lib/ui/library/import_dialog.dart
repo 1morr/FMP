@@ -16,10 +16,11 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 /// 從網址匯入歌單的對話框（M4 design §10.8）：一個文字欄、「匯入」。
 ///
 /// 匯入進行中顯示「已讀 n 首」，對話框不能關（匯入不能中途取消）。成功（建好或重新匯入同一張）
-/// 關閉並回傳 [ImportedPlaylist]，由呼叫端開詳情；不認得的網址、第一頁失敗、`mix:` 與僅元資料
-/// 來源（PR 11、19 才接上）都留在對話框裡寫原因、不建歌單，輸入留著。取消回 `null`。
-Future<ImportedPlaylist?> showImportDialog(BuildContext context) =>
-    showDialog<ImportedPlaylist>(
+/// 關閉並回傳 [ImportedPlaylist]（Mix 網址是 [CreatedMix]），由呼叫端開詳情；不認得的網址、
+/// 第一頁（Mix 是 `mix`）失敗與僅元資料來源（PR 19 才接上）都留在對話框裡寫原因、不建歌單，
+/// 輸入留著。取消回 `null`。
+Future<ImportResult?> showImportDialog(BuildContext context) =>
+    showDialog<ImportResult>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const _ImportDialog(),
@@ -65,11 +66,16 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
       );
       if (!mounted) return;
       switch (result) {
-        case ImportedPlaylist():
+        case ImportedPlaylist() || CreatedMix():
           Navigator.of(context).pop(result);
         case ImportUnrecognized():
           _fail(t.library.importUnrecognized);
-        case ImportMixSeed() || ImportMetadataOnly():
+        case ImportMixSeed():
+          // Mix 只有一次請求：進度區照舊顯示「正在辨識」。
+          final created = await importer.createMix(result);
+          if (!mounted) return;
+          Navigator.of(context).pop(created);
+        case ImportMetadataOnly():
           _fail(t.library.importUnsupported);
       }
     } on Object catch (error, stackTrace) {

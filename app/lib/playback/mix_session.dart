@@ -54,13 +54,10 @@ final class MixSession {
   /// 進行中的補歌結束時完成；沒有補歌時馬上完成。
   Future<void> get whenIdle => _inFlight ?? Future<void>.value();
 
-  /// 以 [seed] 開始一個 Mix：成功時 [QueueModel.startMix] 已取代整個佇列。插件的錯誤
-  /// 原樣丟出（`AppError`）；插件沒給任何曲目是 `NotFound`。
-  Future<void> start(TrackInfo seed) async {
-    final batch = await _fetch(
-      seed.sourceTypeId,
-      MixSeedQuery(sourceId: seed.sourceId, cid: seed.cid),
-    );
+  /// 以 [pluginId] 的種子 [seed] 開始一個 Mix：成功時 [QueueModel.startMix] 已取代整個佇列。
+  /// 插件的錯誤原樣丟出（`AppError`）；插件沒給任何曲目是 `NotFound`。
+  Future<void> start(String pluginId, MixSeedQuery seed) async {
+    final batch = await _fetch(pluginId, seed);
     final seen = <String>{};
     final tracks = [
       for (final summary in batch.tracks)
@@ -68,13 +65,13 @@ final class MixSession {
     ];
     if (tracks.isEmpty) {
       throw NotFound(
-        pluginId: seed.sourceTypeId,
+        pluginId: pluginId,
         cause: StateError('The mix has no track'),
       );
     }
     _queue.startMix(
       MixIdentity(
-        pluginId: seed.sourceTypeId,
+        pluginId: pluginId,
         mixId: batch.mixId,
         title: batch.title,
         cursor: batch.cursor,
@@ -85,7 +82,7 @@ final class MixSession {
       'Mix started',
       tag: _tag,
       fields: {
-        'plugin': seed.sourceTypeId,
+        'plugin': pluginId,
         'mixId': batch.mixId,
         'tracks': tracks.length,
         'more': batch.cursor != null,

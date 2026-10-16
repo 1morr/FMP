@@ -20,6 +20,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
+import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
@@ -27,6 +28,7 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
+import 'package:fmp/ui/tracks/track_row_menu.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 
 /// 在 [context] 所在的 Navigator 開歌單詳情：外殼裡是那個目的地的巢狀導覽（音樂庫的歌單卡，
@@ -60,6 +62,8 @@ Future<void> openPlaylist(BuildContext context, int playlistId) =>
 ///   項目，不能選。
 /// - 只有本機歌單能拖把手重排（放下後整批寫 `position`，資料庫追上之前照拖曳後的順序畫，
 ///   寫入失敗回到資料庫的順序並提示）；匯入歌單沒有把手也沒有移除（ADR 0019 §決定 4）。
+///
+/// Mix 歌單不列曲目（[_MixBody]）：標頭、「Mix 播放」與種子曲目，選單是編輯、刪除。
 ///
 /// 全部是本機資料，離線照常顯示；封面讀不到是佔位圖。
 class PlaylistDetailPage extends ConsumerStatefulWidget {
@@ -244,6 +248,9 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                       ),
                     ),
                   ),
+                  if (detail.value?.playlist case final playlist?
+                      when playlist.kind == PlaylistKind.mix)
+                    _MixMenu(playlist: playlist),
                 ],
               ),
             ),
@@ -275,6 +282,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final t = ref.watch(translationsProvider).playlist;
     final spacing = AppTokens.of(context).spacing;
     final playlist = detail.playlist;
+    if (playlist.kind == PlaylistKind.mix) return _MixBody(detail: detail);
     final local = playlist.kind == PlaylistKind.local;
     final header = _Header(detail: detail);
     final entries = _shown(detail.entries);
@@ -326,6 +334,163 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
       // `onReorderItem` 的 `newIndex` 已扣掉被拿起來的那一格（同佇列、音樂庫）。
       onReorderItem: (from, to) => _reorder(reorderedEntryIds(rows, from, to)),
       itemBuilder: (context, index) => row(index),
+    );
+  }
+}
+
+/// Mix 歌單詳情的選單（標題列的「⋯」）：編輯、刪除；刪除成功後離開這一頁。
+class _MixMenu extends ConsumerWidget {
+  const _MixMenu({required this.playlist});
+
+  final Playlist playlist;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).library;
+    return TrackRowMenu(
+      moreTooltip: t.more,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.edit_outlined),
+          onPressed: () => unawaited(
+            editPlaylist(
+              context,
+              ref,
+              PlaylistOverview(
+                playlist: playlist,
+                trackCount: 0,
+                firstTrack: null,
+              ),
+            ),
+          ),
+          child: Text(t.edit),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.delete_outline),
+          onPressed: () => unawaited(_delete(context, ref)),
+          child: Text(t.delete),
+        ),
+      ],
+      builder: (context, more, openMenu) => more,
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final deleted = await deletePlaylist(context, ref, playlist);
+    if (deleted && context.mounted) {
+      unawaited(Navigator.of(context).maybePop());
+    }
+  }
+}
+
+/// Mix 歌單的詳情：不列曲目。標頭是「Mix」與音源名、「Mix 播放」（音源停用、移除或沒宣告
+/// `mix` 時停用並寫原因），下面是種子曲目（查得到 `tracks` 列顯示標題與上傳者，查不到只寫 id）。
+class _MixBody extends ConsumerWidget {
+  const _MixBody({required this.detail});
+
+  final PlaylistDetail detail;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).library;
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    final playlist = detail.playlist;
+    final pluginId = playlist.mixPluginId ?? '';
+    final seed = detail.seedTrack;
+    final reason = ref.watch(mixUnavailableReasonProvider(pluginId));
+    final seedId = [
+      ?playlist.mixSeedSourceId,
+      ?playlist.mixSeedCid,
+    ].join(' · ');
+    final uploader = seed?.uploader;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        spacing.x4,
+        spacing.x2,
+        spacing.x4,
+        spacing.x4,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PlaylistCover(
+                artwork: playlist.artwork,
+                firstTrack: seed,
+                size: AppLayout.playlistHeaderCover,
+              ),
+              SizedBox(width: spacing.x4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.mix,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      ref.watch(pluginNameProvider(pluginId)) ?? pluginId,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: spacing.x4),
+          Wrap(
+            spacing: spacing.x2,
+            runSpacing: spacing.x2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.icon(
+                icon: const Icon(Icons.auto_awesome),
+                onPressed: reason == null
+                    ? () => unawaited(startMixFromPlaylist(ref, playlist))
+                    : null,
+                label: Text(t.mixPlay),
+              ),
+              if (reason != null)
+                Text(
+                  reason,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: spacing.x4),
+          Semantics(
+            header: true,
+            child: Text(t.mixSeed, style: theme.textTheme.titleMedium),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: seed == null
+                ? null
+                : ArtworkImage(
+                    pluginId: seed.sourceTypeId,
+                    artwork: seed.artwork,
+                    size: AppLayout.artworkThumbnail,
+                  ),
+            title: Text(
+              seed?.displayTitle ?? seedId,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: uploader == null
+                ? null
+                : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
     );
   }
 }

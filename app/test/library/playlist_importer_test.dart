@@ -416,4 +416,100 @@ void main() {
       },
     );
   });
+
+  group('a mix playlist', () {
+    ImportMixSeed seed({int? cid}) => ImportMixSeed(
+      pluginId: 'fmp-test',
+      seed: MixSeedQuery(sourceId: 'seed-1', cid: cid),
+    );
+
+    MixBatch batch(String title) => MixBatch(
+      mixId: 'm1',
+      title: title,
+      tracks: const [
+        TrackSummary(sourceTypeId: 'fmp-test', sourceId: 'x', title: 'x'),
+      ],
+    );
+
+    Future<void> startMixPlugin() async {
+      final plugin = FakeImportPlugin(mix: true);
+      await start([plugin]);
+      plugin.onMix = (_) => batch('Radio of seed');
+    }
+
+    test('calls mix once and stores the title and the seed', () async {
+      await startMixPlugin();
+
+      final created = await env.importer.createMix(seed(cid: 7));
+
+      expect(env.plugin.mixQueries, hasLength(1));
+      final query = env.plugin.mixQueries.single as MixSeedQuery;
+      expect(query.sourceId, 'seed-1');
+      final playlist = (await env.repository.find(created.playlistId))!;
+      expect(playlist.kind, PlaylistKind.mix);
+      expect(playlist.name, 'Radio of seed');
+      expect(playlist.mixPluginId, 'fmp-test');
+      expect(playlist.mixSeedSourceId, 'seed-1');
+      expect(playlist.mixSeedCid, 7);
+      expect(await ids(created.playlistId), isEmpty);
+      expect(await env.repository.remote(created.playlistId), isNull);
+    });
+
+    test('a seed without a cid stores no cid', () async {
+      await startMixPlugin();
+
+      final created = await env.importer.createMix(seed());
+
+      expect(
+        (await env.repository.find(created.playlistId))!.mixSeedCid,
+        isNull,
+      );
+    });
+
+    test('the same seed again is a new playlist', () async {
+      await startMixPlugin();
+
+      final first = await env.importer.createMix(seed());
+      final second = await env.importer.createMix(seed());
+
+      expect(second.playlistId, isNot(first.playlistId));
+      expect(await names(), ['Radio of seed', 'Radio of seed']);
+    });
+
+    test('a mix failure is thrown and nothing is created', () async {
+      await startMixPlugin();
+      env.plugin.onMix = (_) => throw NotFound(pluginId: 'fmp-test');
+
+      await expectLater(
+        env.importer.createMix(seed()),
+        throwsA(isA<NotFound>()),
+      );
+
+      expect(await names(), isEmpty);
+    });
+
+    test('a mix with no track is NotFound and creates nothing', () async {
+      await startMixPlugin();
+      env.plugin.onMix = (_) =>
+          const MixBatch(mixId: 'm1', title: 'Empty', tracks: []);
+
+      await expectLater(
+        env.importer.createMix(seed()),
+        throwsA(isA<NotFound>()),
+      );
+
+      expect(await names(), isEmpty);
+    });
+
+    test('a plugin that is gone or has no mix creates nothing', () async {
+      await start([FakeImportPlugin()]);
+
+      await expectLater(
+        env.importer.createMix(seed()),
+        throwsA(isA<Unsupported>()),
+      );
+      expect(env.plugin.mixQueries, isEmpty);
+      expect(await names(), isEmpty);
+    });
+  });
 }

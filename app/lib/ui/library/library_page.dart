@@ -7,9 +7,9 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
-import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/library/playlist_service.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
@@ -20,6 +20,7 @@ import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/library/import_dialog.dart';
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
+import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
@@ -39,6 +40,7 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 ///   長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照拖曳後的順序畫。螢幕閱讀器
 ///   以語意動作移動（清單是 `ReorderableListView` 自帶的，格狀的卡片給同樣的四個）。
 /// - 卡片選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除（先確認）。
+///   Mix 歌單只有 Mix 播放、編輯、刪除。
 class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
 
@@ -80,8 +82,14 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final t = ref.read(translationsProvider).library;
     final toaster = ref.read(toasterProvider);
     final manual = ref.read(manualRefreshProvider.notifier);
-    final imported = await showImportDialog(context);
-    if (imported == null || !mounted) return;
+    final result = await showImportDialog(context);
+    if (result == null || !mounted) return;
+    if (result is CreatedMix) {
+      unawaited(openPlaylist(context, result.playlistId));
+      return;
+    }
+    if (result is! ImportedPlaylist) return;
+    final imported = result;
     unawaited(openPlaylist(context, imported.playlistId));
     switch (imported.refresh) {
       case RefreshFinished(result: PlaylistRefreshResult.complete)
@@ -658,7 +666,8 @@ class _PlaylistSubtitle extends ConsumerWidget {
   }
 }
 
-/// 一張歌單的選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除。
+/// 一張歌單的選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除；匯入歌單另有
+/// 刷新，Mix 歌單只有 Mix 播放、編輯、刪除。
 class _PlaylistMenu extends ConsumerWidget {
   const _PlaylistMenu({
     super.key,
@@ -682,42 +691,62 @@ class _PlaylistMenu extends ConsumerWidget {
     // 空歌單沒有東西可加；Mix 中佇列不收（同搜尋與歷史的選單）。
     final canAdd = !inMix && overview.trackCount > 0;
     final imported = playlist.kind == PlaylistKind.imported;
+    final mix = playlist.kind == PlaylistKind.mix;
+    // Mix 歌單的音源停用、移除或沒宣告 `mix` 時，「Mix 播放」停用並寫原因。
+    final mixReason = mix
+        ? ref.watch(mixUnavailableReasonProvider(playlist.mixPluginId ?? ''))
+        : null;
     final refreshing = ref.watch(
       manualRefreshProvider.select((ids) => ids.contains(playlist.id)),
     );
     return TrackRowMenu(
       moreTooltip: t.more,
       menuChildren: [
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.playlist_add),
-          onPressed: canAdd ? () => unawaited(_addToQueue(ref)) : null,
-          child: Text(inMix ? t.addToQueueInMix : t.addToQueue),
-        ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.shuffle),
-          onPressed: canAdd
-              ? () => unawaited(_addToQueue(ref, shuffle: true))
-              : null,
-          child: Text(inMix ? t.shuffleToQueueInMix : t.shuffleToQueue),
-        ),
-        if (imported)
+        if (mix)
           MenuItemButton(
-            leadingIcon: const Icon(Icons.refresh),
-            onPressed: refreshing
-                ? null
-                : () => unawaited(
-                    ref.read(manualRefreshProvider.notifier)(playlist.id),
-                  ),
-            child: Text(refreshing ? t.refreshing : t.refresh),
+            leadingIcon: const Icon(Icons.auto_awesome),
+            // 用卡片的 `ref`：選單項目在選取後就卸載，播放的提示要在那之後才出現。
+            onPressed: mixReason == null
+                ? () => unawaited(startMixFromPlaylist(ref, playlist))
+                : null,
+            child: Text(
+              mixReason == null
+                  ? t.mixPlay
+                  : t.mixPlayDisabled(reason: mixReason),
+            ),
+          )
+        else ...[
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.playlist_add),
+            onPressed: canAdd ? () => unawaited(_addToQueue(ref)) : null,
+            child: Text(inMix ? t.addToQueueInMix : t.addToQueue),
           ),
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.shuffle),
+            onPressed: canAdd
+                ? () => unawaited(_addToQueue(ref, shuffle: true))
+                : null,
+            child: Text(inMix ? t.shuffleToQueueInMix : t.shuffleToQueue),
+          ),
+          if (imported)
+            MenuItemButton(
+              leadingIcon: const Icon(Icons.refresh),
+              onPressed: refreshing
+                  ? null
+                  : () => unawaited(
+                      ref.read(manualRefreshProvider.notifier)(playlist.id),
+                    ),
+              child: Text(refreshing ? t.refreshing : t.refresh),
+            ),
+        ],
         MenuItemButton(
           leadingIcon: const Icon(Icons.edit_outlined),
-          onPressed: () => unawaited(_edit(context, ref)),
+          onPressed: () => unawaited(editPlaylist(context, ref, overview)),
           child: Text(t.edit),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.delete_outline),
-          onPressed: () => unawaited(_delete(context, ref, playlist)),
+          onPressed: () => unawaited(deletePlaylist(context, ref, playlist)),
           child: Text(t.delete),
         ),
       ],
@@ -742,98 +771,5 @@ class _PlaylistMenu extends ConsumerWidget {
         sentence: (reason) => t.addFailed(reason: reason),
       );
     }
-  }
-
-  Future<void> _edit(BuildContext context, WidgetRef ref) async {
-    final t = ref.read(translationsProvider).library;
-    final service = ref.read(playlistServiceProvider);
-    final toaster = ref.read(toasterProvider);
-    final repository = ref.read(playlistRepositoryProvider);
-    final playlist = overview.playlist;
-    // 匯入歌單的編輯要知道哪些欄位已被覆寫（「使用遠端的」）。
-    final remote = playlist.kind == PlaylistKind.imported
-        ? await repository.remote(playlist.id)
-        : null;
-    if (!context.mounted) return;
-    final input = await showPlaylistDialog(
-      context,
-      editing: overview,
-      remote: remote,
-    );
-    if (input == null) return;
-    try {
-      if (remote == null) {
-        await service.edit(
-          playlist,
-          name: input.name,
-          description: input.description,
-          artwork: input.artwork,
-        );
-      } else {
-        await service.editImported(
-          playlist,
-          remote,
-          name: input.name,
-          description: input.description,
-          artwork: input.artwork,
-          useRemote: input.useRemote,
-        );
-        if (input.refreshIntervalHours != remote.refreshIntervalHours) {
-          await service.setRefreshInterval(
-            playlist.id,
-            input.refreshIntervalHours,
-          );
-        }
-      }
-    } on Object catch (error, stackTrace) {
-      toaster.error(
-        AppError.wrap(error, stackTrace),
-        operation: 'Failed to save a playlist',
-        tag: 'library',
-        sentence: (reason) => t.saveFailed(reason: reason),
-      );
-      return;
-    }
-    toaster.success(t.saved);
-  }
-
-  Future<void> _delete(
-    BuildContext context,
-    WidgetRef ref,
-    Playlist playlist,
-  ) async {
-    final t = ref.read(translationsProvider).library;
-    final service = ref.read(playlistServiceProvider);
-    final toaster = ref.read(toasterProvider);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.deleteTitle),
-        content: Text(t.deleteBody(name: playlist.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.delete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await service.delete(playlist.id);
-    } on Object catch (error, stackTrace) {
-      toaster.error(
-        AppError.wrap(error, stackTrace),
-        operation: 'Failed to delete a playlist',
-        tag: 'library',
-        sentence: (reason) => t.deleteFailed(reason: reason),
-      );
-      return;
-    }
-    toaster.success(t.deleted);
   }
 }

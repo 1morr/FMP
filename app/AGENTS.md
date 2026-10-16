@@ -1193,10 +1193,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `ui/`；`core/`、`domain/`、`data/`、`scheduler/` 不認得它（閘門：lint `fmp_layer_imports`，見 § Lint）。
 
 - **匯入**（`PlaylistImporter.importUrl`）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
-  插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，PR 11 處理）、`ImportMetadataOnly`
+  插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，交給 `createMix`，見下面）、`ImportMetadataOnly`
   （插件沒有 `resolveStream`，PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
   名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
   其餘頁由刷新器取。`importUrl` 與 `refresh` 的 `onProgress` 在每一頁寫進資料庫後收到已讀的項目數（匯入對話框的「已讀 n 首」）。
+- **Mix 歌單**（`PlaylistImporter.createMix(ImportMixSeed)`，ADR 0033 §決定 1、M4 design §5.4）：呼叫該插件的 `mix(seed)` 一次（驗證種子、`MixBatch.title` 當名稱），
+  成功才由 `PlaylistRepository.createMix` 建一列 `kind = mix`（`mix_plugin_id`、`mix_seed_source_id`、`mix_seed_cid`＝種子曲目的曲目鍵）；不存曲目、沒有 `playlist_remote`，
+  同一個種子再貼一次是新的一張。插件不在清單上或沒宣告 `mix` 是 `Unsupported`、一首都沒給是 `NotFound`（同 `MixSession.start`）；失敗一律 `AppError`，什麼都沒建。log：`Mix playlist created`。
+  Mix 播放以歌單存的種子走 `PlaybackController.startMixFromSeed(pluginId, MixSeedQuery)`（`startMix(TrackInfo)` 委派給它，同一條 `MixSession.start`）。
+  Mix 列只能改名、排序、刪除：`PlaylistService` 的曲目增刪只收 `local`，`playlist_remote` 沒有它的列，刷新的讀寫（`dueForRefresh`、`beginRefresh`）碰不到它。
+  閘門：`playlist_importer_test.dart` 的 `a mix playlist`（種子三欄逐一斷言，少寫 `mix_seed_cid` 會紅）、`mix_playback_test.dart` 的 `starts from a stored seed`、
+  `playlist_repository_test.dart` 的 `mix playlists`、`playlist_service_test.dart` 的 `renaming, reordering and deleting a Mix playlist keep its seed` 與 `a Mix playlist takes no songs`。
 - **刷新**（`PlaylistRefresher.refresh`）全 App 一個 FIFO 鎖（provider 持有的單一物件），同時只刷一張。每頁一個 transaction 寫進正式表，以
   `refresh_generation`（開始時加一得到 g）標出這次見過的項目；完整（每頁成功、最後 `cursor` 為空、有 `total` 時筆數相等；一直回同一個 `cursor`
   的插件在 `cursor` 第一次重複時就停、當作沒讀完）才一個 transaction 刪 `seen_generation < g`、重寫 `position`、未覆寫的名稱／描述／封面跟遠端、寫 `writable`
@@ -1884,7 +1891,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址）與匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2083,7 +2090,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     兩種都沒有鍵盤排序（M4 PR 5 決定：清單版本來就沒有，ADR 0024 的快捷鍵表也沒有排序鍵）。閘門：`library_page_test.dart` 的
     `in the grid a screen reader moves a card…`。
   - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、刷新（只有匯入歌單）、編輯、刪除（先確認）。
-    匯入歌單的副標題寫「匯入 · n 首」。
+    匯入歌單的副標題寫「匯入 · n 首」。**Mix 歌單**的選單只有「Mix 播放」、編輯、刪除（沒有加入佇列、隨機、刷新）；首頁的卡片沒有選單。
+    「Mix 播放」（`startMixFromPlaylist`，錯誤提示同曲目選單的「開始 Mix」）在音源不在清單上（停用、移除、還沒載入）或沒宣告 `mix` 時停用並在標籤寫原因
+    （`mixUnavailableReasonProvider`：清單還沒載入是「正在載入音源」，停用、移除是 `sourceUnavailableProvider` 的字樣，在清單上而沒宣告 `mix` 是「這個音源不支援 Mix」；
+    閘門 `test/ui/tracks/start_mix_test.dart`）。選單項目用卡片的 `ref`，不是項目自己的：項目在選取後卸載。
+    編輯與刪除的流程在 `playlist_actions.dart`（`editPlaylist`、`deletePlaylist`），音樂庫的卡片選單與 Mix 歌單詳情共用。
     加入走 `PlaybackController.addToQueue`：超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中兩項停用。
   - 建立與編輯是同一個對話框（`showPlaylistDialog`）：名稱必填（去掉空白後不能是空的）、描述選填、封面預設「第一首歌的封面」，「自訂」填
     圖片網址、「使用預設」清回（`playlists.artwork_json`，空＝預設）。**自訂的網址要屬於某個已安裝且啟用的插件的允許網域**
@@ -2091,8 +2102,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     不能送出；之後封面經那個插件的 cache manager 與媒體 client 讀（`artworkPluginProvider`，`PlaylistCover`），宿主沒有任意網址的讀取
     路徑。那個插件之後停用或移除時封面是佔位圖；編輯時沒改過的自訂網址照舊保留、不再檢查（才改得了名稱）。
   - **匯入**（`import_dialog.dart`，M4 design §10.8）：一個文字欄（網址）、「匯入」；進行中顯示「已讀 n 首」（第一頁回來前是「正在辨識網址」），
-    這時對話框不能關、不能再送（匯入不能中途取消）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`，音樂庫頁在巢狀導覽裡開詳情並提示
-    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址、第一頁失敗、`mix:` 與僅元資料來源（PR 11、19 才接上，這裡只說「還不支援」）都留在對話框裡、
+    這時對話框不能關、不能再送（匯入不能中途取消）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`（Mix 網址建好的是 `CreatedMix`，音樂庫頁直接開詳情、不提示），音樂庫頁在巢狀導覽裡開詳情並提示
+    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址、第一頁失敗（Mix 網址是第一次 `mix` 失敗）與僅元資料來源（PR 19 才接上，這裡只說「還不支援」）都留在對話框裡、
     欄位下寫原因、不建歌單、輸入留著；失敗而網路不是 `online` 寫離線字樣（同貼 cookie 登入的對話框），並 `log.report`。
   - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
     並停用，同一張不會排第二次（刷新器本身有 FIFO 鎖，但重複按沒有意義）。結果的提示：完整＝已刷新、`partial`＝警告「只讀到一部分，沒有移除任何歌曲」、失敗而網路不是 `online`＝
@@ -2109,7 +2120,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     的網域規則與 user info、屬於插件的網址收下並經那個插件讀、不屬於的與非 https 的拒絕並寫原因、「使用預設」清回、來源已移除時沒改過的照舊保留、
     新建時就自訂）、`test/library/playlist_service_test.dart`（去空白、自訂封面的寫入與清回、排序與刪除、
     依序加入、打亂、超過上限不加且發 `QueueFull`）、`playlist_repository_test.dart` 的 `overviews …`；
-    匯入與刷新的畫面：`test/ui/library/import_ui_test.dart`（匯入對話框：認得、進度、不認得、第一頁失敗、離線、Mix 與僅元資料來源、重新匯入同一張；手動刷新：結果、進行中不能重複、
+    匯入與刷新的畫面：`test/ui/library/import_ui_test.dart`（匯入對話框：認得、進度、不認得、第一頁失敗、離線、Mix 網址建歌單與失敗、離線、僅元資料來源、重新匯入同一張；手動刷新：結果、進行中不能重複、
     卡片選單只有匯入歌單有、失敗、離線、音源不可用；狀態列的各種狀態與「重試」「登入」；已失效標記且照常播放；匯入歌單的編輯設與清 `*_overridden`）、
     `playlist_service_test.dart` 的 `editing an imported playlist`、`playlist_remote_repository_test.dart` 的 `updateImported` 與 `entries`、`playlist_importer_test.dart` 的 `progress`。
 - 歌單詳情（`lib/ui/library/playlist_detail_page.dart`、`library_state.dart`，ADR 0033 §決定 9，M4 design §10.4）：
@@ -2137,12 +2148,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     音源不可用、離線、拖曳寫入、分 P 拖出群組、寫入失敗、移除重複的其中一筆、匯入歌單沒有把手與移除、全部加入與隨機加入、超過上限、Mix 中
     停用而「加入歌單…」照常、`selecting` 群組；狀態列與已失效在 `import_ui_test.dart`）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
     `playlist_repository_test.dart` 的 `removeEntries does not touch another playlist`、`moveEntries does not touch another playlist`。
+- **Mix 歌單的詳情與編輯**（`mix_playlist_test.dart`）：詳情不列曲目；標頭是「Mix」與音源名，主要動作「Mix 播放」（停用規則同卡片選單，原因寫在按鈕旁），
+  下面「種子曲目」：以曲目鍵查 `tracks`（`PlaylistRepository.mixSeedTrack`，`PlaylistDetail.seedTrack`）查得到顯示標題與上傳者，查不到只寫音源 id；標題列的「⋯」有編輯、刪除
+  （刪除成功後離開這一頁）。編輯對話框只有名稱（沒有描述、封面、自動刷新）。閘門：`mix_playlist_test.dart`（卡片選單的項目依種類不同（清單與格狀）、Mix 播放以存的種子取代佇列、
+  兩種停用（不在清單上、沒宣告 `mix`；拿掉停用條件會紅）、插件一首都沒給與網路錯誤時提示且佇列不動、詳情的種子兩種顯示、編輯對話框只有名稱）、`guidelines_test.dart` 的 `a Mix playlist details`、
+  `a Mix playlist details without Mix`、`editing a Mix playlist`。
 - 「加入歌單…」（`lib/ui/library/add_to_playlist.dart`，ADR 0019 §決定 4、ADR 0033 §決定 11，M4 design §10.6）：在搜尋結果（影片列與分 P 列）、
   播放歷史、佇列、歌單詳情、首頁「最近播放」卡片的曲目選單。對話框只列本機歌單（勾選多張），頂端「新增歌單」開建立對話框、建好的那張
   直接勾上；「加入」把曲目依序接在每張勾選的歌單尾端（同一首可重複加入），成功後關閉並提示「已加入「名稱」」／「已加入 n 張歌單」，
   失敗時提示、對話框留著。加入不確認（Namida 的慣例，ADR 0019）。搜尋的影片列同「加入佇列」：有多個分 P 時是全部分 P（還沒取過就
   先取，取不到時提示、不開對話框）。不動佇列，所以 Mix 中照常。選單項目（`AddToPlaylistItem`）以**列的** `context` 開對話框：選單項目
-  自己的 `context` 在選單關掉後就不在了。閘門：`test/ui/library/add_to_playlist_test.dart`（只列本機、勾多張、新增後立即勾上、沒有本機
+  自己的 `context` 在選單關掉後就不在了。閘門：`test/ui/library/add_to_playlist_test.dart`（只列本機（匯入與 Mix 歌單不列）、勾多張、新增後立即勾上、沒有本機
   歌單、重複加入與取消、多分 P 影片加全部分 P、取不到分 P 時提示且不開對話框、分 P 列、歷史、佇列、首頁卡片且沒有「從歷史移除」）、
   `mix_ui_test.dart` 的 `a row menu adds the song to a playlist and leaves the mix alone`。
 - 右側「正在播放」面板（`lib/ui/shell/now_playing_panel.dart`，design §9.4，ADR 0024 §決定 3）：

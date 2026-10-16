@@ -120,6 +120,34 @@ void main() {
       },
     );
 
+    // Mix 歌單的編輯只有名稱：種子（三欄）與種類不動，排序與刪除照常。
+    test(
+      'renaming, reordering and deleting a Mix playlist keep its seed',
+      () async {
+        final local = await repository.create(name: 'A');
+        final id = await repository.createMix(
+          name: 'Chill',
+          pluginId: 'fmp-test',
+          seedSourceId: 'seed',
+          seedCid: 7,
+        );
+        final mix = (await repository.find(id))!;
+
+        await service().edit(mix, name: ' Evening ', artwork: const []);
+        await service().reorder([id, local]);
+
+        final edited = (await repository.find(id))!;
+        expect(edited.name, 'Evening');
+        expect(edited.kind, PlaylistKind.mix);
+        expect(edited.mixPluginId, 'fmp-test');
+        expect(edited.mixSeedSourceId, 'seed');
+        expect(edited.mixSeedCid, 7);
+        expect(edited.sortOrder, 0);
+        await service().delete(id);
+        expect(await repository.find(id), isNull);
+      },
+    );
+
     test('reorder and delete go to the repository', () async {
       final a = await repository.create(name: 'A');
       final b = await repository.create(name: 'B');
@@ -378,6 +406,22 @@ void main() {
         reason: 'nothing is added when one of the playlists is refused',
       );
       expect((await repository.find(remote))!.kind, PlaylistKind.imported);
+    });
+
+    // Mix 歌單不存曲目（M4 design §5.4）：「加入歌單…」與多選都經這裡，寫不進去。
+    test('a Mix playlist takes no songs', () async {
+      final mix = await repository.createMix(
+        name: 'Chill',
+        pluginId: 'fmp-test',
+        seedSourceId: 'seed',
+      );
+
+      await expectLater(
+        service().addTracks([mix], [_track('x')]),
+        throwsStateError,
+      );
+
+      expect(await repository.entries(mix), isEmpty);
     });
 
     // 檢查的是 [playlistId] 的種類：別張（匯入）歌單的項目 id 掛在本機歌單名下也刪不到。

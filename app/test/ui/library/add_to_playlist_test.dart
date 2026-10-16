@@ -20,12 +20,13 @@ import '../support/shell_harness.dart';
 const _more = 'More options';
 const _item = 'Add to playlist…';
 
-/// 寫好歌單（名稱 → 曲目 id）；[imported] 的是匯入歌單。回傳名稱 → id。
+/// 寫好歌單（名稱 → 曲目 id）；[imported] 的是匯入歌單，[mix] 的是 Mix 歌單。回傳名稱 → id。
 Future<Map<String, int>> _seed(
   WidgetTester tester,
   ShellHarness h, {
   Map<String, List<String>> local = const {},
   List<String> imported = const [],
+  List<String> mix = const [],
 }) async {
   final ids = (await tester.runAsync(() async {
     final repository = h.container(tester).read(playlistRepositoryProvider);
@@ -43,6 +44,13 @@ Future<Map<String, int>> _seed(
         remoteId: 'r$index',
         info: RemotePlaylistInfo(name: name),
       ))!;
+    }
+    for (final name in mix) {
+      ids[name] = await repository.createMix(
+        name: name,
+        pluginId: 'fmp-test',
+        seedSourceId: 'seed',
+      );
     }
     return ids;
   }))!;
@@ -113,6 +121,7 @@ void main() {
           'Late': [],
         },
         imported: ['Remote'],
+        mix: ['Chill'],
       );
       await _search(tester);
 
@@ -122,6 +131,7 @@ void main() {
       expect(_check('Road'), findsOneWidget);
       expect(_check('Late'), findsOneWidget);
       expect(find.text('Remote'), findsNothing, reason: 'imported');
+      expect(find.text('Chill'), findsNothing, reason: 'mix');
       expect(find.text('1 song'), findsOneWidget);
       expect(_addButton(tester).onPressed, isNull, reason: 'nothing checked');
 
@@ -136,6 +146,7 @@ void main() {
       expect(await _stored(tester, h, ids['Road']!), ['x', 'a']);
       expect(await _stored(tester, h, ids['Late']!), ['a']);
       expect(await _stored(tester, h, ids['Remote']!), isEmpty);
+      expect(await _stored(tester, h, ids['Chill']!), isEmpty);
     });
 
     testWidgets('a playlist made from the dialog is checked right away', (

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/i18n/strings.g.dart';
 
@@ -23,7 +24,7 @@ final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
 String trackCountText(Translations$library$zh_TW t, int count) =>
     count == 1 ? t.trackCountOne : t.trackCount(count: count);
 
-/// 歌單卡的副標題：「本機／匯入／Mix · n 首」（音樂庫與首頁共用）。
+/// 歌單卡的副標題：「本機／匯入 · n 首」；Mix 不存曲目，只寫「Mix」（音樂庫與首頁共用）。
 String playlistSubtitleText(
   Translations$library$zh_TW t,
   PlaylistOverview overview,
@@ -31,8 +32,9 @@ String playlistSubtitleText(
   final kind = switch (overview.playlist.kind) {
     PlaylistKind.local => t.local,
     PlaylistKind.imported => t.imported,
-    PlaylistKind.mix => t.mix,
+    PlaylistKind.mix => null,
   };
+  if (kind == null) return t.mix;
   return '$kind · ${trackCountText(t, overview.trackCount)}';
 }
 
@@ -43,12 +45,16 @@ final class PlaylistDetail {
     required this.playlist,
     required this.entries,
     this.remote,
+    this.seedTrack,
   });
 
   final Playlist playlist;
 
   /// 匯入歌單才有。
   final PlaylistRemote? remote;
+
+  /// Mix 歌單的種子曲目；沒有 `tracks` 列（或不是 Mix 歌單）是 `null`。
+  final TrackInfo? seedTrack;
 
   /// 依（`position`, `id`）。
   final List<PlaylistEntry> entries;
@@ -67,6 +73,7 @@ final playlistDetailProvider = StreamProvider.autoDispose
           playlist: playlist,
           remote: await repository.remote(playlistId),
           entries: await repository.entries(playlistId),
+          seedTrack: await repository.mixSeedTrack(playlist),
         );
       });
     });

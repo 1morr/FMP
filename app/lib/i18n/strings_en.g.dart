@@ -456,6 +456,14 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String get mix => 'Mix';
   @override
+  String get mixPlay => 'Mix play';
+  @override
+  String mixPlayDisabled({required Object reason}) => 'Mix play (${reason})';
+  @override
+  String get mixSeed => 'Starts from';
+  @override
+  String get mixUnsupported => 'This source doesn\'t support Mix';
+  @override
   String get addToPlaylist => 'Add to playlist…';
   @override
   String get addToPlaylistTitle => 'Add to playlist';

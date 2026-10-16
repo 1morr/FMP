@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§5.4 Mix 歌單、§10.3–§10.5 歌單卡與詳情、§10.8 匯入對話框"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 1 歌單種類"}
+{"file": "docs/adr/0031-radio-and-mix-entry-points.md", "reason": "§決定 8、9 Mix 的開始與取代佇列"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "歌單頁、對話框、guideline"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "Mix 工作階段、控制器"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "playlists 的 Mix 三欄與 CHECK"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}

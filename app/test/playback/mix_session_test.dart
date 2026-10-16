@@ -395,7 +395,7 @@ void main() {
       f.plugin.onMix = (_) =>
           batch(['a', 'b', 'a', 'c'], mixId: 'z', title: 'Z', cursor: 'k');
 
-      await f.session.start(info('seed'));
+      await f.session.start('fmp-test', MixSeedQuery(sourceId: 'seed'));
 
       final query = f.plugin.mixQueries.single as MixSeedQuery;
       expect(query.sourceId, 'seed');
@@ -419,7 +419,7 @@ void main() {
         f.plugin.onMix = (_) => throw RateLimited(pluginId: 'fmp-test');
 
         await expectLater(
-          f.session.start(info('seed')),
+          f.session.start('fmp-test', MixSeedQuery(sourceId: 'seed')),
           throwsA(isA<RateLimited>()),
         );
 
@@ -435,7 +435,7 @@ void main() {
         f.plugin.onMix = (_) => batch([]);
 
         await expectLater(
-          f.session.start(info('seed')),
+          f.session.start('fmp-test', MixSeedQuery(sourceId: 'seed')),
           throwsA(isA<NotFound>()),
         );
 
