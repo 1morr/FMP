@@ -28,10 +28,20 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
+import 'package:fmp/ui/tracks/track_selection.dart';
+
+/// 多選的一列：第 [item] 個結果（影片），或它展開後的第 [part] 個分 P。以位置當鍵：
+/// 結果換成新的一份時離開選取模式（`_SearchPageState.build` 的 `ref.listen`）。
+typedef _ResultKey = ({int item, int? part});
 
 /// 搜尋頁：輸入框、音源 chip 列、結果列表。點一首是臨時播放（D1）：不動佇列，
-/// 播完回到佇列。每首的選單（右鍵、長按、尾端「⋯」）有播放、下一首播放、加入
-/// 佇列（design §7.3）。
+/// 播完回到佇列。每首的選單（右鍵、尾端「⋯」）有播放、下一首播放、加入
+/// 佇列（design §7.3）、加入歌單…、選取。
+///
+/// 多選（[TrackSelectionScope]，M4 design §10.7，曲目模式）：長按或選單的「選取」進入，
+/// 輸入框留著、音源 chip 列換成選取列（Gmail 網頁版在搜尋結果裡的選取）；影片列與分 P 列
+/// 都能選，選了有多個分 P 的影片列就是全部分 P（同「加入歌單…」的取法，還沒取過就先取，取不到
+/// 時提示、什麼都不做），同一支影片另外選的分 P 不重複加入。新的搜尋、換音源或模式時離開選取模式。
 ///
 /// 離線（design §5.4）：不在 `online` 時照常送出使用者的搜尋（系統的回報可能
 /// 是錯的），失敗時結果區換成離線空狀態與「重試」；已有的結果照常顯示。
@@ -54,11 +64,76 @@ class SearchPage extends ConsumerStatefulWidget {
 
 class _SearchPageState extends ConsumerState<SearchPage> {
   late final _text = TextEditingController(text: ref.read(searchInputProvider));
+  final _selection = TrackSelection<_ResultKey>();
 
   @override
   void dispose() {
     _text.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  /// 已選的列要加入的曲目，依畫面順序：影片列是它的全部分 P（取不到就整個不做，回 `null`），
+  /// 影片列也選了的分 P 列略過（已經在裡面）。
+  Future<List<TrackInfo>?> _selectedTracks(List<_ResultKey> keys) async {
+    final items = ref.read(searchProvider).items;
+    final videos = {
+      for (final key in keys)
+        if (key.part == null) key.item,
+    };
+    final tracks = <TrackInfo>[];
+    for (final (:item, :part) in keys) {
+      if (item >= items.length || !mounted) return null;
+      final video = items[item].toTrackInfo();
+      if (part == null) {
+        final all = await _videoTracks(
+          ref,
+          video,
+          partCount: items[item].partCount,
+        );
+        if (all == null) return null;
+        tracks.addAll(all);
+      } else if (!videos.contains(item)) {
+        final parts =
+            ref
+                .read(videoPartsProvider)[VideoParts.keyOf(
+                  video.sourceTypeId,
+                  video.sourceId,
+                )]
+                ?.parts ??
+            const <MultiPart>[];
+        if (part < parts.length) tracks.add(parts[part].toTrackInfo(video));
+      }
+    }
+    return tracks;
+  }
+
+  /// 畫面上可選的列，依畫面順序：每個影片列，展開的影片接著它的分 P（同 [_TrackTile]）。
+  ///
+  /// 插件清單只為展開了的影片看（同 [_TrackTile] 的 `select`）：搜尋頁一直掛在外殼裡，沒有結果
+  /// 時也監看整份插件清單的話，測試裡在假時間開始的讀取會擋住真實非同步裡的寫入（drift 的鎖）。
+  List<_ResultKey> _keys(SearchState search, {required bool rooms}) {
+    if (rooms || search.items.isEmpty) return const [];
+    final parts = ref.watch(videoPartsProvider);
+    bool showsParts(TrackSummary item, VideoPartsEntry entry) =>
+        showsExpandButton(
+          plugin: ref.watch(
+            pluginRegistryProvider.select(
+              (plugins) => plugins.value?[item.sourceTypeId],
+            ),
+          ),
+          partCount: item.partCount,
+          entry: entry,
+        );
+    return [
+      for (final (index, item) in search.items.indexed) ...[
+        (item: index, part: null),
+        if (parts[VideoParts.keyOf(item.sourceTypeId, item.sourceId)]
+            case final entry? when entry.expanded && showsParts(item, entry))
+          for (var part = 0; part < entry.parts.length; part++)
+            (item: index, part: part),
+      ],
+    ];
   }
 
   void _changed(String input) =>
@@ -82,85 +157,103 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     // notifier 已退回曲目，這裡再擋一次，畫面不會停在沒有分段鈕的直播間模式。
     final hasLive = hasLiveRooms(selected);
     final rooms = hasLive && search.mode == SearchMode.rooms;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.x4,
-            spacing.x4,
-            spacing.x4,
-            spacing.x2,
-          ),
-          // 用 TextField 而不是 M3 的 SearchBar：SearchBar 整條可點的那一層
-          // 沒有語意名稱，裡面的輸入框只有文字那一行高（24dp），兩個都過不了
-          // 點擊區 guideline。外觀照 SearchBar：填色、全圓角、前面放大鏡。
-          child: TextField(
-            controller: _text,
-            focusNode: widget.fieldFocusNode,
-            textInputAction: TextInputAction.search,
-            onChanged: _changed,
-            onSubmitted: _submit,
-            decoration: InputDecoration(
-              hintText: rooms ? t.roomHint : t.hint,
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: ListenableBuilder(
-                listenable: _text,
-                builder: (context, _) => _text.text.isEmpty
-                    ? const SizedBox.shrink()
-                    : IconButton(
-                        tooltip: t.clear,
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          _text.clear();
-                          _changed('');
-                          widget.fieldFocusNode.requestFocus();
-                        },
-                      ),
-              ),
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(tokens.radius.extraLarge),
-                borderSide: BorderSide.none,
+    // 新的一份結果（新的搜尋、換音源、模式或篩選都把 `page` 歸零）：選的位置不再是同一首。
+    ref.listen(searchProvider, (previous, next) {
+      if (next.page < (previous?.page ?? 0)) _selection.exit();
+    });
+    return TrackSelectionScope<_ResultKey>(
+      selection: _selection,
+      keys: _keys(search, rooms: rooms),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              spacing.x4,
+              spacing.x4,
+              spacing.x4,
+              spacing.x2,
+            ),
+            // 用 TextField 而不是 M3 的 SearchBar：SearchBar 整條可點的那一層
+            // 沒有語意名稱，裡面的輸入框只有文字那一行高（24dp），兩個都過不了
+            // 點擊區 guideline。外觀照 SearchBar：填色、全圓角、前面放大鏡。
+            child: TextField(
+              controller: _text,
+              focusNode: widget.fieldFocusNode,
+              textInputAction: TextInputAction.search,
+              onChanged: _changed,
+              onSubmitted: _submit,
+              decoration: InputDecoration(
+                hintText: rooms ? t.roomHint : t.hint,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: ListenableBuilder(
+                  listenable: _text,
+                  builder: (context, _) => _text.text.isEmpty
+                      ? const SizedBox.shrink()
+                      : IconButton(
+                          tooltip: t.clear,
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            _text.clear();
+                            _changed('');
+                            widget.fieldFocusNode.requestFocus();
+                          },
+                        ),
+                ),
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(tokens.radius.extraLarge),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
-        ),
-        if (list.isNotEmpty) ...[
-          SourceChips(
-            sources: list,
-            selectedId: selected?.manifest.id,
-            onSelected: (id) =>
-                unawaited(ref.read(searchProvider.notifier).selectSource(id)),
+          TrackSelectionBar<_ResultKey>(
+            tracks: _selectedTracks,
+            padding: EdgeInsets.fromLTRB(spacing.x4, 0, spacing.x4, spacing.x2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (list.isNotEmpty) ...[
+                  SourceChips(
+                    sources: list,
+                    selectedId: selected?.manifest.id,
+                    onSelected: (id) => unawaited(
+                      ref.read(searchProvider.notifier).selectSource(id),
+                    ),
+                  ),
+                  SizedBox(height: spacing.x2),
+                  if (hasLive) ...[
+                    _ModeBar(rooms: rooms, filter: search.roomFilter),
+                    SizedBox(height: spacing.x2),
+                  ],
+                ],
+              ],
+            ),
           ),
-          SizedBox(height: spacing.x2),
-          if (hasLive) ...[
-            _ModeBar(rooms: rooms, filter: search.roomFilter),
-            SizedBox(height: spacing.x2),
-          ],
+          Expanded(
+            child: switch (sources) {
+              // 首次啟動引導（ADR 0030 §決定 12）：沒有音源，或正在裝、還有失敗要看。
+              AsyncData()
+                  when showOnboarding(
+                    hasSource: list.isNotEmpty,
+                    state: onboarding,
+                  ) =>
+                PluginOnboarding(hasSource: list.isNotEmpty),
+              AsyncData() when list.isEmpty => _noSources(),
+              AsyncData() => _Results(
+                state: search,
+                rooms: rooms,
+                network: network,
+                onRetry: _retry,
+              ),
+              // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
+              AsyncError() => _noSources(),
+              AsyncLoading() => _Loading(label: t.loadingSources),
+            },
+          ),
         ],
-        Expanded(
-          child: switch (sources) {
-            // 首次啟動引導（ADR 0030 §決定 12）：沒有音源，或正在裝、還有失敗要看。
-            AsyncData()
-                when showOnboarding(
-                  hasSource: list.isNotEmpty,
-                  state: onboarding,
-                ) =>
-              PluginOnboarding(hasSource: list.isNotEmpty),
-            AsyncData() when list.isEmpty => _noSources(),
-            AsyncData() => _Results(
-              state: search,
-              rooms: rooms,
-              network: network,
-              onRetry: _retry,
-            ),
-            // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
-            AsyncError() => _noSources(),
-            AsyncLoading() => _Loading(label: t.loadingSources),
-          },
-        ),
-      ],
+      ),
     );
   }
 
@@ -305,6 +398,7 @@ class _ResultList extends ConsumerWidget {
           return rooms
               ? _RoomTile(hit: state.rooms[index])
               : _TrackTile(
+                  index: index,
                   track: state.items[index].toTrackInfo(),
                   partCount: state.items[index].partCount,
                 );
@@ -326,16 +420,52 @@ class _ResultList extends ConsumerWidget {
   }
 }
 
+/// 影片 [track] 要加入的曲目（加入佇列、下一首播放、加入歌單…、多選的動作）：有多個分 P 時是
+/// 全部分 P（還沒取過就先取），否則就是影片本身。取分 P 失敗時以統一提示顯示，回 `null`
+/// （什麼都不加）。
+Future<List<TrackInfo>?> _videoTracks(
+  WidgetRef ref,
+  TrackInfo track, {
+  required int? partCount,
+}) async {
+  final toaster = ref.read(toasterProvider);
+  final parts = ref.read(videoPartsProvider.notifier);
+  final plugin = ref.read(pluginRegistryProvider).value?[track.sourceTypeId];
+  final entry = ref.read(
+    videoPartsProvider,
+  )[VideoParts.keyOf(track.sourceTypeId, track.sourceId)];
+  if (plugin == null ||
+      !showsExpandButton(plugin: plugin, partCount: partCount, entry: entry)) {
+    return [track];
+  }
+  try {
+    final loaded = await parts.load(plugin, track.sourceId);
+    return loaded.length > 1
+        ? [for (final part in loaded) part.toTrackInfo(track)]
+        : [track];
+  } on AppError catch (error) {
+    toaster.error(error, operation: 'Failed to load the parts', tag: 'search');
+    return null;
+  }
+}
+
 /// 一首搜尋結果：封面、曲名、上傳者、時長、「⋯」。點一下臨時播放；選單在
-/// 右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]），最後一項是「加入歌單…」。
+/// 右鍵與「⋯」（[SelectableTrackRow]），最後兩項是「加入歌單…」「選取」；長按進入多選。
 ///
 /// 分 P（design §11.1）：插件宣告 `multiPart` 時，列尾多一個展開鈕（[partCount] 是
 /// 提示：空是不知道，照樣顯示；1 是確定單 P，不顯示），展開時列出分 P，每個分 P 是
 /// 一首曲目（[_PartTile]）。選單的「下一首播放」「加入佇列」「加入歌單…」在有多個分 P 時
 /// 套用到全部（還沒取過就先取）。點影片本身照舊臨時播放：不帶 cid，插件取第一 P。
+/// 選取模式裡展開鈕留著（展開後才選得到單一分 P）。
 class _TrackTile extends ConsumerWidget {
-  const _TrackTile({required this.track, required this.partCount});
+  const _TrackTile({
+    required this.index,
+    required this.track,
+    required this.partCount,
+  });
 
+  /// 第幾個結果（多選的鍵）。
+  final int index;
   final TrackInfo track;
 
   /// 搜尋結果知道的分 P 數；空是不知道。
@@ -370,26 +500,8 @@ class _TrackTile extends ConsumerWidget {
     void play() =>
         unawaited(ref.read(playbackControllerProvider).playTemporary(track));
 
-    // 加入佇列、下一首播放、加入歌單要放的曲目：有多個分 P 時是全部分 P，否則就是影片本身。
-    // 取分 P 失敗時以統一提示顯示，回 `null`（什麼都不加）。
-    Future<List<TrackInfo>?> tracksToAdd() async {
-      final toaster = ref.read(toasterProvider);
-      final parts = ref.read(videoPartsProvider.notifier);
-      if (!expandable) return [track];
-      try {
-        final loaded = await parts.load(plugin!, track.sourceId);
-        return loaded.length > 1
-            ? [for (final part in loaded) part.toTrackInfo(track)]
-            : [track];
-      } on AppError catch (error) {
-        toaster.error(
-          error,
-          operation: 'Failed to load the parts',
-          tag: 'search',
-        );
-        return null;
-      }
-    }
+    Future<List<TrackInfo>?> tracksToAdd() =>
+        _videoTracks(ref, track, partCount: partCount);
 
     Future<void> addWith({required bool next, required String added}) async {
       final controller = ref.read(playbackControllerProvider);
@@ -421,7 +533,8 @@ class _TrackTile extends ConsumerWidget {
       }
     }
 
-    final tile = TrackRowMenu(
+    final tile = SelectableTrackRow<_ResultKey>(
+      selectionKey: (item: index, part: null),
       moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
@@ -451,7 +564,8 @@ class _TrackTile extends ConsumerWidget {
           ),
         AddToPlaylistItem(onPressed: () => unawaited(addToPlaylist())),
       ],
-      builder: (context, more, openMenu) => ListTile(
+      builder: (context, row) => ListTile(
+        selected: row.selected,
         leading: ArtworkImage(
           pluginId: track.sourceTypeId,
           artwork: track.artwork,
@@ -475,11 +589,11 @@ class _TrackTile extends ConsumerWidget {
                       ),
                       onPressed: () => unawaited(toggleParts()),
                     ),
-            more,
+            row.trailing,
           ],
         ),
-        onTap: play,
-        onLongPress: openMenu,
+        onTap: row.onTap ?? play,
+        onLongPress: row.onLongPress,
       ),
     );
     if (!expanded || entry == null) return tile;
@@ -496,9 +610,10 @@ class _TrackTile extends ConsumerWidget {
               child: Text(t.retry),
             ),
           ),
-        for (final part in entry.parts)
+        for (final (part, info) in entry.parts.indexed)
           _PartTile(
-            track: part.toTrackInfo(track),
+            selectionKey: (item: index, part: part),
+            track: info.toTrackInfo(track),
             canMix: canMix,
             inMix: inMix,
           ),
@@ -529,11 +644,13 @@ class _PartsSpinner extends StatelessWidget {
 /// 點一下臨時播放，選單照曲目列。
 class _PartTile extends ConsumerWidget {
   const _PartTile({
+    required this.selectionKey,
     required this.track,
     required this.canMix,
     required this.inMix,
   });
 
+  final _ResultKey selectionKey;
   final TrackInfo track;
   final bool canMix;
   final bool inMix;
@@ -559,7 +676,8 @@ class _PartTile extends ConsumerWidget {
       }
     }
 
-    return TrackRowMenu(
+    return SelectableTrackRow<_ResultKey>(
+      selectionKey: selectionKey,
       moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
@@ -587,7 +705,8 @@ class _PartTile extends ConsumerWidget {
           onPressed: () => unawaited(showAddToPlaylist(context, [track])),
         ),
       ],
-      builder: (context, more, openMenu) => ListTile(
+      builder: (context, row) => ListTile(
+        selected: row.selected,
         contentPadding: EdgeInsetsDirectional.only(
           start: AppLayout.artworkThumbnail + spacing.x4,
           end: spacing.x4,
@@ -602,11 +721,11 @@ class _PartTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (duration != null) Text(formatDuration(duration)),
-            more,
+            row.trailing,
           ],
         ),
-        onTap: play,
-        onLongPress: openMenu,
+        onTap: row.onTap ?? play,
+        onLongPress: row.onLongPress,
       ),
     );
   }

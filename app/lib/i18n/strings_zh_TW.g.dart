@@ -58,6 +58,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$library$zh_TW.internal(_root);
   late final Translations$playlist$zh_TW playlist =
       Translations$playlist$zh_TW.internal(_root);
+  late final Translations$selection$zh_TW selection =
+      Translations$selection$zh_TW.internal(_root);
   late final Translations$offline$zh_TW offline =
       Translations$offline$zh_TW.internal(_root);
   late final Translations$settings$zh_TW settings =
@@ -728,6 +730,55 @@ class Translations$playlist$zh_TW {
 
   /// zh-TW: '已失效'
   String get unavailable => '已失效';
+
+  /// zh-TW: '從歌單移除已選的歌？'
+  String get removeTitle => '從歌單移除已選的歌？';
+
+  /// zh-TW: '已選的 {count} 首會從「{name}」移除，無法復原。'
+  String removeBody({required Object count, required Object name}) =>
+      '已選的 ${count} 首會從「${name}」移除，無法復原。';
+
+  /// zh-TW: '移除'
+  String get removeConfirm => '移除';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
+
+  /// zh-TW: '已從歌單移除'
+  String get removed => '已從歌單移除';
+}
+
+// Path: selection
+class Translations$selection$zh_TW {
+  Translations$selection$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '選取'
+  String get select => '選取';
+
+  /// zh-TW: '已選 {count} 首'
+  String count({required Object count}) => '已選 ${count} 首';
+
+  /// zh-TW: '取消選取（Esc）'
+  String get cancelTooltip => '取消選取（Esc）';
+
+  /// zh-TW: '全選（Ctrl+A）'
+  String get selectAllTooltip => '全選（Ctrl+A）';
+
+  /// zh-TW: '加入佇列'
+  String get addToQueue => '加入佇列';
+
+  /// zh-TW: '加入佇列（Mix 中無法使用）'
+  String get addToQueueInMix => '加入佇列（Mix 中無法使用）';
+
+  /// zh-TW: '加入歌單…'
+  String get addToPlaylist => '加入歌單…';
+
+  /// zh-TW: '已加入佇列'
+  String get addedToQueue => '已加入佇列';
 }
 
 // Path: offline

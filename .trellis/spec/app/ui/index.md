@@ -40,7 +40,8 @@ lib/ui/
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
-  tracks/              # TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）
+  tracks/              # TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
+                       # track_selection：多選（TrackSelection、TrackSelectionScope、TrackSelectionBar、SelectableTrackRow）
   plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
@@ -229,12 +230,30 @@ try {
   「ListTile background color or ink splashes may be invisible」的斷言（轉場中重建的 `ListTile` 才會觸發，例如匯入完成時音樂庫
   長出新卡片）。閘門：`app_shell_test.dart` 的 `every page of a nested navigator paints on its own Material`。
 - 詳情清單的列是 `groupParts` 排出來的（群組標題＋分 P），所以 `ReorderableListView` 的位置不是項目的位置：重排一律經
-  `reorderedEntryIds`。之後的多選（PR 5）要的「這一列是哪個項目」同樣看 `PlaylistEntryRow`，標題列不是項目。
+  `reorderedEntryIds`。多選的鍵同樣只取 `PlaylistEntryRow` 的項目 id，標題列不是項目。
 - 測試：`ShellHarness` 開在音樂庫，`runAsync` 裡以 `playlistRepositoryProvider` 建歌單（匯入歌單用 `createImported`）與 `addTracks`，
   `loadSettings` 幾次讓重讀跑完再點卡片（`playlist_detail_page_test.dart` 的 `_open`）。對話框裡 `enterText` 之後先 `pump` 再按送出：
   按鈕的啟用狀態要重建一次才跟上（不 `pump` 的話按到的是停用的鈕，什麼都不發生）。測自訂封面向哪個插件要了什麼網址時，以
   `extraOverrides` 換掉 `artworkCacheManagerProvider`，並在每個測試開頭清 `imageCache`（跨測試留著，讀過的網址不會再問 cache manager；
   `playlist_cover_test.dart`）。測試插件 `fmp-test` 的允許網域是 `cdn.example`，`registryOfSources: true` 才在插件清單上。
+
+## 多選
+
+規則與閘門見 `app/AGENTS.md` § 介面的「多選」；ADR 0033 §決定 10，M4 design §10.7。
+
+- 給一頁加多選：頁面的 State 建一個 `TrackSelection<K>`（dispose 時一起），整頁（標題列與清單）包 `TrackSelectionScope(selection:, keys:)`，
+  `keys` 是畫面上可選的列、依畫面順序（全選與 Shift 範圍照它，不在裡面的不再算選了）；標題列包 `TrackSelectionBar(tracks:, actions:, child: 原本的標題列)`；
+  每列用 `SelectableTrackRow(selectionKey:, menuChildren:, builder:)` 取代 `TrackRowMenu`，`builder` 的 `ListTile` 用 `row.selected`、
+  `row.trailing`（「⋯」或勾選框）、`row.onTap ?? 自己的點擊`、`row.onLongPress`，選取模式裡拿掉把手之類的（`row.selecting`）。
+- 鍵要在「結果換成新的一份」時失效：位置當鍵的（搜尋）自己在換結果時 `selection.exit()`（`ref.listen`），id 當鍵的靠 `keys` 自動剔除。
+- `tracks` 回已選的曲目（依畫面順序）；要先取東西的在裡面取，取不到時自己提示並回 `null`。頁面自己的動作是 `TrackSelectionAction`
+  （回 `true` 才離開選取模式）；PR 14 的遠端動作、PR 21 的探索照這個接，不用改共用元件。
+- 返回鍵與 Esc 不要另放 `PopScope`：`TrackSelectionScope` 在 route 上放 `LocalHistoryEntry`，外殼原本的「退出內頁」先移除它。
+- `SelectableTrackRow` 不在 scope 底下時（`ReorderableListView` 拖著走的那一列在 Overlay 裡）畫成沒有「選取」的普通列。
+- 一直掛在外殼裡的頁面（搜尋）算 `keys` 時不要無條件 `watch` 整份插件清單：測試裡在假時間開始的讀取會擋住 `runAsync` 裡的寫入
+  （drift 的鎖），整個 `import_ui_test.dart` 會卡到逾時。只對需要的列 `select`。
+- 測試：長按一列進入（`tester.longPress`），Esc 與返回鍵要在外殼裡（`pumpShell`、`h.openHistory`）；Shift 範圍以
+  `sendKeyDownEvent(shiftLeft)`、點、`sendKeyUpEvent`；機制本身的案例在 `test/ui/tracks/track_selection_test.dart` 的 `_ListPage`。
 
 ## 播放頁
 

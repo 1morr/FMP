@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 層寫法、巢狀導覽、歌單詳情的列、guideline"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "多選、歌單詳情"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "快捷鍵、焦點三區"}
+{"file": "docs/adr/0018-playback-core.md", "reason": "§決定 4 佇列上限、Mix 禁止規則"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§10.6、§10.7"}

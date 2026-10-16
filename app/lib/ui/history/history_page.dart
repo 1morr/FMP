@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
@@ -20,7 +21,7 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
-import 'package:fmp/ui/tracks/track_row_menu.dart';
+import 'package:fmp/ui/tracks/track_selection.dart';
 
 /// 在 [context] 所在的 Navigator 開歷史頁：外殼裡是那個目的地的巢狀導覽（音樂庫頂端的
 /// 「歷史」、首頁「最近播放」的「查看全部」，ADR 0033 §決定 5），導覽與播放列留著。
@@ -33,19 +34,47 @@ Future<void> openHistory(BuildContext context) => Navigator.of(context).push(
 );
 
 /// 歷史頁（design §9.7）：播放過的歌依時間倒序、以本地日期分組（今天、昨天、
-/// 日期，跨年才帶年份）。點一首是臨時播放；每筆的選單（右鍵、長按、尾端「⋯」）有
-/// 播放、下一首播放、加入佇列、加入歌單…、從歷史移除（只移除這一筆，不提示）。標題列的「清除
-/// 全部歷史」先確認，清完提示一次。
+/// 日期，跨年才帶年份）。點一首是臨時播放；每筆的選單（右鍵、尾端「⋯」）有
+/// 播放、下一首播放、加入佇列、加入歌單…、從歷史移除（只移除這一筆，不提示）、選取。標題列的
+/// 「清除全部歷史」先確認，清完提示一次。
+///
+/// 多選（[TrackSelectionScope]，M4 design §10.7）：長按或選單的「選取」進入，標題列換成選取列
+/// （加入佇列、加入歌單…）；全選只選已載入的紀錄。
 ///
 /// 分頁讀取（[historyProvider]）：捲到底才讀下一頁。全部是本機資料，離線照常
 /// 可用；封面讀不到時 [ArtworkImage] 是佔位圖。
 ///
 /// 從別的頁推上來時（[openHistory]）標題前有返回鈕。
-class HistoryPage extends ConsumerWidget {
+class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends ConsumerState<HistoryPage> {
+  /// 選的是紀錄的 id。
+  final _selection = TrackSelection<int>();
+
+  @override
+  void dispose() {
+    _selection.dispose();
+    super.dispose();
+  }
+
+  /// 已選的紀錄的曲目，依畫面順序。
+  Future<List<TrackInfo>?> _tracks(List<int> ids) async {
+    final byId = {
+      for (final entry
+          in ref.read(historyProvider).value?.entries ??
+              const <PlayHistoryEntry>[])
+        entry.id: entry.track,
+    };
+    return [for (final id in ids) ?byId[id]];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider).history;
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
@@ -53,60 +82,78 @@ class HistoryPage extends ConsumerWidget {
     final isEmpty = history.value?.entries.isEmpty ?? true;
     // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
     final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.x4,
-            spacing.x4,
-            spacing.x2,
-            spacing.x2,
-          ),
-          child: Row(
-            children: [
-              if (canGoBack)
-                IconButton(
-                  tooltip: ref.watch(translationsProvider).shell.backTooltip,
-                  icon: const BackButtonIcon(),
-                  onPressed: () => unawaited(Navigator.of(context).maybePop()),
-                ),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(t.title, style: theme.textTheme.headlineSmall),
-                ),
-              ),
-              IconButton(
-                tooltip: t.clearAll,
-                icon: const Icon(Icons.delete_sweep_outlined),
-                onPressed: isEmpty
-                    ? null
-                    : () => unawaited(_clearAll(context, ref)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: switch (history) {
-            AsyncData(:final value) when value.entries.isEmpty => EmptyState(
-              icon: Icons.history,
-              title: t.empty,
-              body: t.emptyHint,
-            ),
-            AsyncData(:final value) => _HistoryList(state: value),
-            // 讀失敗（已在 `HistoryNotifier` 報過）：不是「沒有紀錄」。
-            AsyncError(:final error) => EmptyState(
-              icon: Icons.error_outline,
-              title: errorMessage(
-                ref.watch(translationsProvider),
-                AppError.wrap(error, StackTrace.current),
-              ),
-            ),
-            AsyncLoading() => const SizedBox.shrink(),
-          },
-        ),
+    return TrackSelectionScope<int>(
+      selection: _selection,
+      keys: [
+        for (final entry
+            in history.value?.entries ?? const <PlayHistoryEntry>[])
+          entry.id,
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TrackSelectionBar<int>(
+            tracks: _tracks,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.x4,
+                spacing.x4,
+                spacing.x2,
+                spacing.x2,
+              ),
+              child: Row(
+                children: [
+                  if (canGoBack)
+                    IconButton(
+                      tooltip: ref
+                          .watch(translationsProvider)
+                          .shell
+                          .backTooltip,
+                      icon: const BackButtonIcon(),
+                      onPressed: () =>
+                          unawaited(Navigator.of(context).maybePop()),
+                    ),
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        t.title,
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: t.clearAll,
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                    onPressed: isEmpty
+                        ? null
+                        : () => unawaited(_clearAll(context, ref)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: switch (history) {
+              AsyncData(:final value) when value.entries.isEmpty => EmptyState(
+                icon: Icons.history,
+                title: t.empty,
+                body: t.emptyHint,
+              ),
+              AsyncData(:final value) => _HistoryList(state: value),
+              // 讀失敗（已在 `HistoryNotifier` 報過）：不是「沒有紀錄」。
+              AsyncError(:final error) => EmptyState(
+                icon: Icons.error_outline,
+                title: errorMessage(
+                  ref.watch(translationsProvider),
+                  AppError.wrap(error, StackTrace.current),
+                ),
+              ),
+              AsyncLoading() => const SizedBox.shrink(),
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -227,7 +274,7 @@ class _DayHeader extends ConsumerWidget {
 }
 
 /// 一筆紀錄：封面、曲名、「作者 · 播放時刻」、「⋯」。音源不可用時作者換成原因。點一下
-/// 臨時播放；選單在右鍵、長按與「⋯」，三處同一份（[TrackRowMenu]）。
+/// 臨時播放；選單在右鍵與「⋯」（[SelectableTrackRow]），長按進入多選。
 class _HistoryTile extends ConsumerWidget {
   const _HistoryTile({super.key, required this.entry});
 
@@ -280,7 +327,8 @@ class _HistoryTile extends ConsumerWidget {
       }
     }
 
-    return TrackRowMenu(
+    return SelectableTrackRow<int>(
+      selectionKey: entry.id,
       moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
@@ -313,7 +361,8 @@ class _HistoryTile extends ConsumerWidget {
           child: Text(t.remove),
         ),
       ],
-      builder: (context, more, openMenu) => ListTile(
+      builder: (context, row) => ListTile(
+        selected: row.selected,
         leading: ArtworkImage(
           pluginId: track.sourceTypeId,
           artwork: track.artwork,
@@ -329,9 +378,9 @@ class _HistoryTile extends ConsumerWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: more,
-        onTap: play,
-        onLongPress: openMenu,
+        trailing: row.trailing,
+        onTap: row.onTap ?? play,
+        onLongPress: row.onLongPress,
       ),
     );
   }

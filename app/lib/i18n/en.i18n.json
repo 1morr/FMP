@@ -201,7 +201,22 @@
     "empty": "This playlist has no songs yet",
     "emptyHint": "Choose \"Add to playlist…\" in a song's menu",
     "notFound": "This playlist no longer exists",
-    "unavailable": "Unavailable"
+    "unavailable": "Unavailable",
+    "removeTitle": "Remove the selected songs?",
+    "removeBody": "The selected songs ({count}) will be removed from \"{name}\". This cannot be undone.",
+    "removeConfirm": "Remove",
+    "cancel": "Cancel",
+    "removed": "Removed from the playlist"
+  },
+  "selection": {
+    "select": "Select",
+    "count": "{count} selected",
+    "cancelTooltip": "Cancel selection (Esc)",
+    "selectAllTooltip": "Select all (Ctrl+A)",
+    "addToQueue": "Add to queue",
+    "addToQueueInMix": "Add to queue (unavailable in a Mix)",
+    "addToPlaylist": "Add to playlist…",
+    "addedToQueue": "Added to the queue"
   },
   "offline": {
     "noInterface": "No network connection",

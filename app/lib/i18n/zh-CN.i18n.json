@@ -201,7 +201,22 @@
     "empty": "这个歌单还没有歌",
     "emptyHint": "在歌曲的菜单中选择「添加到歌单…」",
     "notFound": "找不到这个歌单",
-    "unavailable": "已失效"
+    "unavailable": "已失效",
+    "removeTitle": "从歌单移除选中的歌？",
+    "removeBody": "选中的 {count} 首将从「{name}」移除，无法恢复。",
+    "removeConfirm": "移除",
+    "cancel": "取消",
+    "removed": "已从歌单移除"
+  },
+  "selection": {
+    "select": "选择",
+    "count": "已选 {count} 首",
+    "cancelTooltip": "取消选择（Esc）",
+    "selectAllTooltip": "全选（Ctrl+A）",
+    "addToQueue": "加入队列",
+    "addToQueueInMix": "加入队列（Mix 中无法使用）",
+    "addToPlaylist": "添加到歌单…",
+    "addedToQueue": "已加入队列"
   },
   "offline": {
     "noInterface": "没有网络连接",

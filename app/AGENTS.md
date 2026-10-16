@@ -1874,13 +1874,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不在根 Navigator 上，所以系統返回鍵（含 predictive back）一定先到外殼的 `PopScope`；`canPop` 跟著內頁的增減重建
   （每個巢狀 Navigator 一個 `NavigatorObserver`），有內頁時 Android 不預覽「離開 App」。不要在頁面內另放
   `PopScope`（也不用 `NavigatorPopHandler`，它就是一個 `PopScope`）：同一次返回所有 `PopScope` 的 callback 都會執行，
-  會和外殼同時動作（「不另放」沒有閘門，review 時看）。閘門：`app_shell_test.dart` 的 `the back key`（在搜尋、音樂庫、
+  會和外殼同時動作（「不另放」沒有閘門，review 時看）。頁面要讓返回鍵先退掉自己的狀態時（多選，見「多選」）在頁面的 route
+  加一個 `LocalHistoryEntry`（`ModalRoute.addLocalHistoryEntry`，Flutter 給 Scaffold 抽屜用的機制）：巢狀 Navigator 的
+  `canPop`／`maybePop` 先移除它，外殼的「退出內頁」與 Esc 不用改。地雷：觀察者不會因為它重建外殼，所以外殼 `PopScope` 的
+  `canPop` 不知道它；在第一個目的地（首頁）的**根頁**加的話返回鍵會直接放行（目前只有內頁與搜尋頁的根頁用）。
+  閘門：`app_shell_test.dart` 的 `the back key`（在搜尋、音樂庫、
   電台、設定按返回回到首頁；在首頁放行）與 `nested navigation`（先退內頁再回首頁、首頁的內頁先退才放行、對話框與播放頁
   先關）、`settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗、直播間模式的結果）、首頁（空的、最近播放加播放列、歌單與電台加最近播放）、音樂庫（空的、有歌單的清單與收起面板的格狀、
+  或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框）、匯入對話框（不認得的網址）與匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址）與匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2020,11 +2024,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `ModalRoute.impliesAppBarDismissal`，同 AppBar 的判斷）。播放過的歌依時間倒序、以裝置本地日期分組（今天、昨天、日期；跨年才
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
   曲名、「作者 · 播放時刻」（音源停用或未安裝時，原因取代作者；閘門：`history_page_test.dart` 的 `a song of a source that is not installed shows why in place of the artist`）。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
-  那麼多筆），一萬筆不一次載入；本機資料，離線照常可用、封面讀不到是佔位圖。點一列是臨時播放；選單（右鍵、長按、
-  尾端「⋯」）有播放、下一首播放、加入佇列、從歷史移除：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
+  那麼多筆），一萬筆不一次載入；本機資料，離線照常可用、封面讀不到是佔位圖。點一列是臨時播放；選單（右鍵、
+  尾端「⋯」）有播放、下一首播放、加入佇列、從歷史移除、選取，長按是多選（見「多選」；全選只選已載入的紀錄）：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
   提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
   在 notifier 不在 build，重建不重報），頁面以 `EmptyState` 加錯誤圖示顯示 `errorMessage` 的文字（資料庫錯誤是 `errors.unexpected`）。
-  不做舊版的搜尋、統計、排序、多選、日期篩選、折疊。閘門：`test/ui/history/history_page_test.dart`（`grouping by
+  不做舊版的搜尋、統計、排序、日期篩選、折疊。閘門：`test/ui/history/history_page_test.dart`（`grouping by
   day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、空狀態、`a failed
   load shows the error…`、`it works
   offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、guideline 測試。
@@ -2074,6 +2078,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 內容區 compact、medium 是清單（`ReorderableListView`，把手排序，同電台頁），expanded 以上是格狀（每張不超過
     `AppLayout.playlistCardMaxWidth`）：Flutter 沒有可排序的格狀清單，所以是把手上的 `Draggable` 加每張卡的 `DragTarget`，拖過某張卡就換到
     它的位置，放開才整批寫 `sort_order`。兩種都是資料庫追上之前照拖曳後的順序畫；寫入失敗回到資料庫的順序並提示。
+    拖曳只有指標能做：清單有 `ReorderableListView` 自帶的語意動作（上移、下移、移到最前／最後），格狀的卡片給同樣的四個
+    （`WidgetsLocalizations` 的 `reorderItemToStart`／`Left`／`Right`／`ToEnd`，由左而右排所以是左右），螢幕閱讀器才能排序。
+    兩種都沒有鍵盤排序（M4 PR 5 決定：清單版本來就沒有，ADR 0024 的快捷鍵表也沒有排序鍵）。閘門：`library_page_test.dart` 的
+    `in the grid a screen reader moves a card…`。
   - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、刷新（只有匯入歌單）、編輯、刪除（先確認）。
     匯入歌單的副標題寫「匯入 · n 首」。
     加入走 `PlaybackController.addToQueue`：超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中兩項停用。
@@ -2117,7 +2125,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     歌單被刪掉時寫「找不到這張歌單」。一萬首也一次讀進來，清單只建看得到的列。
   - 分 P 分組（`groupParts`，純函數）：同一支影片（`TrackKey.formatGroup`）**連續兩個以上**的分 P 收在影片標題下（標題列是語意標題、不能點，
     封面與上傳者取第一個分 P），分 P 縮排、只寫 `partLabel`；只有一個的分 P 與不相鄰的分 P 照常一列（`displayTitle`），不為了分組重排。
-  - 點一首是臨時播放；選單（`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…；**只有本機歌單**有拖曳把手與「從歌單移除」
+    這種單獨的分 P 標題可以換到第二行（手機寬度下「· P2…」才不會被截掉；同播放列、佇列、歷史的「影片 · P2 分 P 標題」，不另拆寫法），
+    一般曲名照舊一行。閘門：`playlist_detail_page_test.dart` 的 `at 400 wide a lone part shows its whole title on two lines`。
+  - 點一首是臨時播放；選單（右鍵、「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、選取，長按是多選；**只有本機歌單**有拖曳把手與「從歌單移除」
     （只刪那一筆、不確認不提示，同佇列與歷史的單筆移除；失敗才提示）。匯入歌單用不能重排的清單（ADR 0019 §決定 4）；
     `PlaylistService.addTracks`／`removeEntries`／`moveEntries` 遇到不是本機歌單的丟 `StateError`、什麼都不寫；檢查的是歌單 id，所以
     `PlaylistRepository.removeEntries`／`moveEntries` 只動那張歌單的項目，別張歌單的項目 id 不生效。
@@ -2125,7 +2135,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     分 P 之前），整批 `moveEntries` 寫 `position`；資料庫追上之前照拖曳後的順序畫，寫入失敗回到資料庫的順序並提示。
   - 閘門：`test/ui/library/playlist_detail_page_test.dart`（從清單與格狀開、返回、標頭、空的、被刪掉、分組、臨時播放、三種開法同一份選單、
     音源不可用、離線、拖曳寫入、分 P 拖出群組、寫入失敗、移除重複的其中一筆、匯入歌單沒有把手與移除、全部加入與隨機加入、超過上限、Mix 中
-    停用而「加入歌單…」照常；狀態列與已失效在 `import_ui_test.dart`）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
+    停用而「加入歌單…」照常、`selecting` 群組；狀態列與已失效在 `import_ui_test.dart`）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
     `playlist_repository_test.dart` 的 `removeEntries does not touch another playlist`、`moveEntries does not touch another playlist`。
 - 「加入歌單…」（`lib/ui/library/add_to_playlist.dart`，ADR 0019 §決定 4、ADR 0033 §決定 11，M4 design §10.6）：在搜尋結果（影片列與分 P 列）、
   播放歷史、佇列、歌單詳情、首頁「最近播放」卡片的曲目選單。對話框只列本機歌單（勾選多張），頂端「新增歌單」開建立對話框、建好的那張
@@ -2204,13 +2214,32 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `player_bar_test.dart` 的 `status labels` 群組（360／600／1000 三個寬度各三種）、guideline 測試的
   `the player bar waiting for the network`。
 - 一列曲目的選單（搜尋結果、播放歷史、佇列、歌單詳情、首頁的卡片）共用 `TrackRowMenu`（`lib/ui/tracks/`）：右鍵、長按與尾端「⋯」是
-  同一份選單項目（由呼叫端給），「⋯」的 `FocusNode` 同時是 `MenuAnchor` 的 `childFocusNode`。右鍵的辨識器排除在
+  同一份選單項目（由呼叫端給；有多選的三頁經 `SelectableTrackRow`，長按改成進入多選，選單最後多「選取」），「⋯」的 `FocusNode` 同時是 `MenuAnchor` 的 `childFocusNode`。右鍵的辨識器排除在
   語意樹外（`excludeFromSemantics`）：它會多一個沒有名稱的點擊動作，guideline 測試因此紅；同一份選單由「⋯」提供給
   輔助技術。閘門：guideline 測試的 `search results and the player bar`、`the queue at …`、`the playlist details at …`；各處自己的測試
-  （右鍵、長按、「⋯」同一份，Esc 關得掉以按鈕打開的：`search_page_test.dart` 的 `playing a result` 群組、
+  （右鍵、（佇列與首頁卡片的）長按、「⋯」同一份，Esc 關得掉以按鈕打開的：`search_page_test.dart` 的 `playing a result` 群組、
   `history_page_test.dart` 的 `playing from the history` 群組、`queue_view_test.dart` 的 `the menu` 群組、
   `playlist_detail_page_test.dart` 的 `the menu opens the same items…`、`add_to_playlist_test.dart` 的 `right click, long press and "⋯"…`）。
   共用的機制本身沒有單獨的測試，靠這幾處。
+- 多選（`lib/ui/tracks/track_selection.dart`，ADR 0033 §決定 10，M4 design §10.7）：歌單詳情、搜尋（曲目模式）、歷史；佇列不用（它有自己的編輯）。
+  照 Android 的 contextual action mode（Gmail、Google 相簿）：長按或選單的「選取」進入；頂端換成選取列（`TrackSelectionBar`：取消（Esc）、
+  已選 n 首、全選（Ctrl+A）、加入佇列、加入歌單…，再接頁面的動作）；選取模式裡點一列（或它列尾的勾選框，取代「⋯」與把手）是勾選或取消，
+  取消到不剩、做完一個動作、按取消、Esc、返回鍵都離開。搜尋頁的輸入框留著、選取列取代音源 chip 列（Gmail 網頁版），新的搜尋、換音源或模式就離開。
+  - 選了什麼由頁面的鍵決定（歌單項目 id、歷史紀錄 id、搜尋的（第幾個結果, 第幾個分 P））；動作照畫面順序。列消失（刪掉、收起分 P）就不再算選了。
+    群組標題不是項目。搜尋選了有多個分 P 的影片列＝全部分 P（同「加入歌單…」，還沒取過就先取，取不到時提示、什麼都不做、選取留著），
+    同一支影片另外選的分 P 不重複加。
+  - 加入佇列：Mix 中停用並寫明原因；超過上限整批拒絕（提示由外殼接 `QueueFull`），選取留著。加入歌單…：同一個對話框，加入了才離開。
+    從歌單移除（只在本機歌單詳情）：先確認（一次刪好幾首，Namida 的「移除才確認」；單筆的選單項目照舊不確認），經 `removeEntries` 只刪選到的項目。
+  - Ctrl+A 綁在頁面（`TrackSelectionScope` 的 `Shortcuts`），只在選取模式內、焦點不在輸入框時作用（輸入框裡是文字全選）；
+    進入與每次點選後焦點不在頁面裡就移到頁面上一個不在 Tab 順序裡的節點，以滑鼠點的也收得到；焦點退到頁面外層（Esc 離開搜尋框時
+    `unfocus` 退到 route 的焦點區）也放回那個節點，不用先點一列。列消失造成的變動不搬焦點（上面可能開著對話框或播放頁）。
+    動作進行中（取分 P、對話框、寫入）選取列的鈕停用，連按不會做兩次。Shift＋點選是範圍（Gmail：從上一次點的
+    那一列到這一列，都設成這一列點完的狀態），看的是 Shift 鍵的狀態、不判斷平台（手機沒有實體鍵盤就不會發生）。
+  - 選取模式的列是一個語意節點（`checked`、`selected`），勾選框排除在語意樹與 Tab 順序外。
+  - 閘門：`test/ui/tracks/track_selection_test.dart`（取消到不剩就離開、Shift 範圍、列消失、列消失時對話框留著焦點、Ctrl+A 在選取模式外不作用與輸入框裡選文字、
+    全選與取消鈕、返回鍵、動作照畫面順序、語意節點與勾選框沒有節點也要不到焦點）、`history_page_test.dart`、`search_page_test.dart`（含 Esc 離開搜尋框後直接 Ctrl+A）、`search_parts_test.dart`（含取分 P 時連按）、
+    `playlist_detail_page_test.dart` 的 `selecting` 群組（進入與離開：長按、選單、Esc、返回鍵；動作與上限、Mix；分 P 的取法）、guideline 測試的
+    `… while selecting at …` 與 `removing the selected songs asks first at …`。
 - App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
   `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
   Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼、播放頁與佇列的底部面板各包一層：播放頁與面板各是另一個

@@ -448,4 +448,112 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
     });
   });
+
+  // 多選（M4 PR 5）：選了有多個分 P 的影片列就是全部分 P（同「加入歌單…」的取法），同一支影片
+  // 另外選的分 P 不重複；取不到分 P 時提示、什麼都不加、選取留著。
+  group('selecting', () {
+    Future<void> addSelectedToQueue(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Add to queue'));
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('a selected video adds all its parts, once even with one of '
+        'its parts selected too', (tester) async {
+      final h = _harness(partCount: 3);
+      await h.pumpShell(tester);
+      await _search(tester);
+      await tester.tap(_show);
+      await _settle(tester);
+
+      await tester.longPress(find.text('P2 Part 2'));
+      await tester.pump();
+      await tester.tap(find.text('Song a'));
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await addSelectedToQueue(tester);
+
+      expect(_queued(h), ['a:11:1', 'a:12:2', 'a:13:3']);
+      expect(h.plugin.multiPartQueries, hasLength(1));
+    });
+
+    testWidgets('selected parts are added on their own; a video not yet '
+        'expanded fetches its parts first', (tester) async {
+      final h = _harness(partCount: 3);
+      await h.pumpShell(tester);
+      await _search(tester);
+
+      await tester.longPress(find.text('Song a'));
+      await tester.pump();
+      await addSelectedToQueue(tester);
+      expect(_queued(h), ['a:11:1', 'a:12:2', 'a:13:3']);
+      expect(h.plugin.multiPartQueries, hasLength(1));
+
+      await tester.tap(_show);
+      await _settle(tester);
+      await tester.longPress(find.text('P3 Part 3'));
+      await tester.tap(find.text('P1 Part 1'));
+      await tester.pump();
+      await addSelectedToQueue(tester);
+      expect(_queued(h).skip(3), ['a:11:1', 'a:13:3']);
+    });
+
+    testWidgets('folding a video unselects its parts', (tester) async {
+      final h = _harness(partCount: 3);
+      await h.pumpShell(tester);
+      await _search(tester);
+      await tester.tap(_show);
+      await _settle(tester);
+      await tester.longPress(find.text('Song a'));
+      await tester.tap(find.text('P1 Part 1'));
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(_hide);
+      await _settle(tester);
+
+      expect(find.text('1 selected'), findsOneWidget);
+    });
+
+    // 動作在進行中（還在取分 P）時選取列的鈕停用：連按兩次只加入一次。
+    testWidgets('while the parts are being fetched a second "Add to queue" '
+        'does nothing', (tester) async {
+      final h = _harness(partCount: 3);
+      final fetched = Completer<MultiPartResult>();
+      h.plugin.onMultiPart = (_) => fetched.future;
+      await h.pumpShell(tester);
+      await _search(tester);
+      await tester.longPress(find.text('Song a'));
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Add to queue'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Add to queue'));
+      await tester.pump();
+      fetched.complete(_parts(3));
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(_queued(h), ['a:11:1', 'a:12:2', 'a:13:3']);
+      await tester.pump(const Duration(seconds: 10));
+    });
+
+    testWidgets('a failure to fetch the parts adds nothing and keeps the '
+        'selection', (tester) async {
+      final h = _harness(partCount: 3);
+      h.plugin.onMultiPart = (_) => throw RateLimited(pluginId: 'fmp-test');
+      await h.pumpShell(tester);
+      await _search(tester);
+
+      await tester.longPress(find.text('Song a'));
+      await tester.pump();
+      await addSelectedToQueue(tester);
+
+      expect(h.controller.queue.entries, isEmpty);
+      expect(find.textContaining('Too many requests'), findsWidgets);
+      expect(find.text('1 selected'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 10));
+    });
+  });
 }

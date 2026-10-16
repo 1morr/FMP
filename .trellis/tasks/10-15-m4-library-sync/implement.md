@@ -41,10 +41,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-15）：已核准（2026-10-15）；PR 0 進行中。
+- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0、1、2、3、4、5、6、7、8a、8b、9、10、12、16（FMP #272–#283 與本 PR；fmp-plugins #16、#17）。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
-- **下一步**：PR 0 合併後開 PR 1、6、12（可平行）。
+- **下一步**：PR 11（Mix 歌單）；PR 20 的契約與工作可先做；PR 13、14、15 要擁有者在場（先約時間）。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
 - **fmp-plugins 的 PR**：
   - 在同層的 `fmp-plugins/` clone 開分支；
@@ -108,87 +108,87 @@
 
 ## 1. 歌單表與孤兒清理（design §3.1、§3.2）
 
-- [ ] schema v15：`playlists`（含 Mix 三欄與 CHECK）、`playlist_entries`（含遠端三欄、兩個索引）；`PlaylistKind` 等列舉的寫死字串進 `converters.dart`。
-- [ ] `PlaylistRepository`：`watchAll`（依 `sort_order`）、`create`、`update`（名稱、描述、封面）、`delete`、`reorder`（整批重寫 `sort_order`）、`entries(playlistId)`（依 `position`, `id`，join `tracks`）、`addTracks`（upsert 曲目、接在尾端）、`removeEntries`、`moveEntries`（整批重寫 `position`）、`changes()`（`tableUpdates`）。只加這些有人呼叫的方法。
-- [ ] 孤兒查詢加 `playlist_entries`。
+- [x] schema v15：`playlists`（含 Mix 三欄與 CHECK）、`playlist_entries`（含遠端三欄、兩個索引）；`PlaylistKind` 等列舉的寫死字串進 `converters.dart`。
+- [x] `PlaylistRepository`：`watchAll`（依 `sort_order`）、`create`、`update`（名稱、描述、封面）、`delete`、`reorder`（整批重寫 `sort_order`）、`entries(playlistId)`（依 `position`, `id`，join `tracks`）、`addTracks`（upsert 曲目、接在尾端）、`removeEntries`、`moveEntries`（整批重寫 `position`）、`changes()`（`tableUpdates`）。只加這些有人呼叫的方法。
+- [x] 孤兒查詢加 `playlist_entries`。
 - 測試：migration 三種與兩個索引（升級與全新）；CHECK；連帶刪除；`RESTRICT`；`only unreferenced tracks are orphans` 加歌單項目的案例；`stored format`；重寫 `position` 後順序正確；一萬首歌單的 `entries` 與 `moveEntries` 耗時寫進 PR 描述。
 - 實測：沒有使用者看得到的改動。不做。
 - 依賴：0。模型：sonnet（欄位已定）。
 
 ## 2. 導覽重排、首頁（最近播放）、音樂庫、本機歌單（design §10.1–§10.3、§10.5）
 
-- [ ] `ShellDestination { home, search, library, radio, settings }`；三種導覽元件；每個目的地一個巢狀 `Navigator`；返回鍵、Esc、再點目前導覽項回根；App 開在首頁。
-- [ ] 首頁：最近播放區塊（20 筆、查看全部開歷史頁）、首次啟動引導（§17 第 16 條；沒通過就照確認結果改）、全空時的說明。
-- [ ] 音樂庫：頂端「歷史」、歌單卡清單／格狀、拖曳排序、工具列「新增」；建立與編輯對話框（名稱、描述、封面）；刪除確認；歌單卡選單的全部加入佇列、隨機加入、編輯、刪除。
-- [ ] `lib/library/playlist_service.dart`（只有本機歌單的部分：建立、編輯、刪除、排序、加入佇列）。
+- [x] `ShellDestination { home, search, library, radio, settings }`；三種導覽元件；每個目的地一個巢狀 `Navigator`；返回鍵、Esc、再點目前導覽項回根；App 開在首頁。
+- [x] 首頁：最近播放區塊（20 筆、查看全部開歷史頁）、首次啟動引導（§17 第 16 條；沒通過就照確認結果改）、全空時的說明。
+- [x] 音樂庫：頂端「歷史」、歌單卡清單／格狀、拖曳排序、工具列「新增」；建立與編輯對話框（名稱、描述、封面）；刪除確認；歌單卡選單的全部加入佇列、隨機加入、編輯、刪除。
+- [x] `lib/library/playlist_service.dart`（只有本機歌單的部分：建立、編輯、刪除、排序、加入佇列）。
 - 測試：五個導覽項 × 三種寬度（取代 ADR 0031 的四項測試）；App 開在首頁；巢狀導覽的返回與 Esc；快捷鍵群組（Ctrl+F 切到搜尋並聚焦、F6 三區）；首頁的引導出現與消失；音樂庫的建立、排序、刪除；10,000 首上限對「全部加入佇列」（`QueueFull`）；guideline；`toast_layering_test.dart` 加巢狀導覽裡的頁。
 - 實測（重播）：Android：建兩張歌單、改名、排序、刪一張；從首頁「查看全部」進歷史再返回；清掉 dev 資料後首頁出現引導。Windows：large 寬度的導覽抽屜與巢狀導覽、Esc 返回。
 - 依賴：1。模型：opus（導覽與首頁、音樂庫的版面與互動沒有定稿）。
 
 ## 3. 歌單詳情與「加入歌單…」（design §10.4、§10.6）
 
-- [ ] 詳情頁：標頭、全部、隨機加入、點一首臨時播放、分 P 分組、本機歌單的拖曳重排與「從歌單移除」、`sourceUnavailableProvider` 的標示。
-- [ ] `TrackRowMenu` 加「加入歌單…」：對話框（勾選多張、新增歌單）；套用在搜尋、歷史、佇列、詳情。
+- [x] 詳情頁：標頭、全部、隨機加入、點一首臨時播放、分 P 分組、本機歌單的拖曳重排與「從歌單移除」、`sourceUnavailableProvider` 的標示。
+- [x] `TrackRowMenu` 加「加入歌單…」：對話框（勾選多張、新增歌單）；套用在搜尋、歷史、佇列、詳情。
 - 測試：詳情的 widget 測試（分組、重排寫入、移除、只有本機歌單有這兩項、10,000 上限）；加入歌單對話框（新增後立即可勾、加入後提示）；guideline。
 - 實測（重播）：Android：從搜尋加三首（含一首 `fmp-test` 的分 P）到本機歌單 → 詳情看分組 → 重排 → 移除一首 → 全部加入佇列、隨機加入。
 - 依賴：2。模型：opus（詳情頁的版面與分組呈現沒有定稿）。
 
 ## 4. 首頁的我的歌單與電台區塊（design §10.2）
 
-- [ ] 我的歌單（20 張、查看全部切到音樂庫）、電台（20 個、四種狀態、點一下 `playLive`、查看全部切到電台）。
+- [x] 我的歌單（20 張、查看全部切到音樂庫）、電台（20 個、四種狀態、點一下 `playLive`、查看全部切到電台）。
 - 測試：區塊的有無（沒有內容不顯示）、查看全部切到對的目的地、電台狀態標記；guideline。
 - 實測（重播）：Android：`fmp-test` 的直播間加兩個電台 → 首頁電台區塊點一個播放 → 查看全部。
 - 依賴：2。模型：sonnet（照 PR 2 定下的首頁區塊樣式；要新的版面決定時停下回報）。
 
 ## 5. 多選（design §10.7）
 
-- [ ] `lib/ui/tracks/track_selection.dart`：進入、選取列、全選、Shift 範圍（桌面）、Esc 離開；動作：加入佇列、加入歌單、從本機歌單移除。
-- [ ] 用在歌單詳情、搜尋、歷史。
+- [x] `lib/ui/tracks/track_selection.dart`：進入、選取列、全選、Shift 範圍（桌面）、Esc 離開；動作：加入佇列、加入歌單、從本機歌單移除。
+- [x] 用在歌單詳情、搜尋、歷史。
 - 測試：三頁進入與離開、動作的結果、快捷鍵（Ctrl+A 只在選取模式內、輸入框裡不作用）、guideline。
 - 實測（重播）：Android：搜尋結果多選三首加入歌單；歷史多選加入佇列；詳情多選移除。Windows：Shift 範圍選取、Ctrl+A。
 - 依賴：3。模型：opus（多選的互動模式是新的，跨四頁共用）。
 
 ## 6. `importPlaylist` 契約與 `fmp-test`（design §4.2、§4.3、§4.9）
 
-- [ ] `TrackSummary.partIndex`、`parentTitle`（d.ts、`sourceDtoShapes`、`checks.dart` 的 `trackFields`、寫進 `TrackInfo`）。
-- [ ] `ImportPlaylistExports`、`SourcePlugin.playlistFromUrl`／`importPlaylist`、DTO 與驗證、`FmpChecks.importPlaylist`（輸入 `{url}`）。
-- [ ] `fmp-test`：design §4.9 的 `importPlaylist` 歌單與 Mix 網址。
+- [x] `TrackSummary.partIndex`、`parentTitle`（d.ts、`sourceDtoShapes`、`checks.dart` 的 `trackFields`、寫進 `TrackInfo`）。
+- [x] `ImportPlaylistExports`、`SourcePlugin.playlistFromUrl`／`importPlaylist`、DTO 與驗證、`FmpChecks.importPlaylist`（輸入 `{url}`）。
+- [x] `fmp-test`：design §4.9 的 `importPlaylist` 歌單與 Mix 網址。
 - 測試：`import_playlist_capability_test.dart`（匯出與能力一致、回傳值驗證、`mixSeed` 只給宣告 `mix` 的插件、`cursor` 空字串拒收、分 P 兩欄只給一個拒收）；`type_definitions_test.dart`（含變異）；`checks_test.dart`、`contract_runner_test.dart` 的 `an importPlaylist check…`（含沒宣告能力、期望不符、改無關處不紅）；`health_check_test.dart`、`dev_case_runs_test.dart` 的 `an importPlaylist case`；`test_plugin_bundle_test.dart` 的新歌單。
 - 實測：沒有使用者看得到的改動（匯入在 PR 8b）。不做。
 - 依賴：0。模型：sonnet（形狀已定）。
 
 ## 7. ★ YouTube `importPlaylist`（design §4.3）
 
-- [ ] fmp-plugins：`youtube` 的 `playlistFromUrl`（一般清單、`list=RD…`、`mix:<videoId>`）、`importPlaylist`（`browse` 續取、`setVideoId`、`unavailable`、不給 `total`）、私人歌單的 `required` 重送與 Node 測試、`checks.json` 的 `importPlaylist`（公開清單，命令列錄）、manifest 升版、index 重產、`FMP_REF`。
+- [x] fmp-plugins：`youtube` 的 `playlistFromUrl`（一般清單、`list=RD…`、`mix:<videoId>`）、`importPlaylist`（`browse` 續取、`setVideoId`、`unavailable`、不給 `total`）、私人歌單的 `required` 重送與 Node 測試、`checks.json` 的 `importPlaylist`（公開清單，命令列錄）、manifest 升版、index 重產、`FMP_REF`。
 - 實測（真實，匿名，開頭先做）：一張公開清單（超過一頁）的 `playlistFromUrl` 與全部頁各一次，記筆數與「被隱藏的影片」的差；一個 `mix:` 簡寫的 `playlistFromUrl` 一次（不發請求）。量一次插件載入時間（YouTube 插件已約 800 KB），寫進 PR 描述。
 - 依賴：6。模型：sonnet（舊 `youtube_source.dart`、`youtube_mix_shorthand.dart` 是規格；回應形狀與舊版不同時停下回報）。
 
 ## 8a. 匯入與刷新引擎（design §5.1、§5.2、§3.1）
 
-- [ ] schema v16：`playlist_remote`；repository 加刷新用的方法（開始刷新取代際、寫一頁、完整套用、標部分完成、標失敗與狀態）。
-- [ ] `lib/library/playlist_importer.dart`（依序問、重新匯入＝刷新、第一頁成功才建列）、`playlist_refresher.dart`（FIFO 鎖、比對、代際、過期、取消）。
-- [ ] `fmp_layer_imports`：`library/` 那半條（design §2.2）。
+- [x] schema v16：`playlist_remote`；repository 加刷新用的方法（開始刷新取代際、寫一頁、完整套用、標部分完成、標失敗與狀態）。
+- [x] `lib/library/playlist_importer.dart`（依序問、重新匯入＝刷新、第一頁成功才建列）、`playlist_refresher.dart`（FIFO 鎖、比對、代際、過期、取消）。
+- [x] `fmp_layer_imports`：`library/` 那半條（design §2.2）。
 - 測試（**先寫測試**）：ADR 0019 §如何確認的刷新差異全部（新增、移除、順序、元資料、覆寫旗標、部分失敗不移除、重複影片保留、來源失效停止、重新匯入不覆寫設定）；比對鍵兩種；完整性三條件各缺一個是部分完成；中途被殺（某頁之後丟例外）後再刷一次結果正確；代際過期不寫；`writable` 為 `null` 保留；FIFO 鎖（手動與排程同時只有一張）；第一頁失敗不建列；migration 三種；一萬首歌單的刷新耗時寫進 PR 描述；lint 的雙向變異。
 - 實測：沒有使用者看得到的改動。不做。
 - 依賴：1、6。模型：sonnet（演算法與案例已在 design 寫定；測試寫不出 design 的行為時停下回報）。
 
 ## 8b. 匯入對話框、手動刷新、狀態列（design §5.3、§10.4、§10.8）
 
-- [ ] 音樂庫工具列「匯入」與對話框（進度、錯誤）；歌單卡與詳情的「刷新」；詳情的狀態列（design §5.3 的六種）；「已失效」標記；匯入歌單沒有重排與移除。
+- [x] 音樂庫工具列「匯入」與對話框（進度、錯誤）；歌單卡與詳情的「刷新」；詳情的狀態列（design §5.3 的六種）；「已失效」標記；匯入歌單沒有重排與移除。
 - 測試：對話框（認得、不認得、第一頁失敗）；狀態列六種；手動刷新失敗的提示與離線字樣；guideline。
 - 實測：重播（Android）：`fmp-test` 的 `pl-basic`、`pl-grow`（刷新三次看新增、移除、倒序）、`pl-partial`、`pl-gone`（重試）、`pl-auth`（登入後重試）、`pl-unavailable`、`pl-parts`。真實（匿名，Android）：匯入 PR 7 的那張 YouTube 公開清單、手動刷新一次。
 - 依賴：3、8a（真實部分用 7）。模型：sonnet（對話框與狀態列用既有元件；要新的版面決定時停下回報）。
 
 ## 9. ★ B 站、網易 `importPlaylist`（design §4.3）
 
-- [ ] fmp-plugins：`bilibili`（公開收藏夾、多 P 展開帶 `cid`／`partIndex`／`parentTitle`、展開後不給 `total`、私人收藏夾的重送）、`netease`（歌單詳情、其餘以 id 分批補、`163cn.tv` 短網址、私人歌單的重送）；各自的 Node 測試、`checks.json`、版本、index、`FMP_REF`。
+- [x] fmp-plugins：`bilibili`（公開收藏夾、多 P 展開帶 `cid`／`partIndex`／`parentTitle`、展開後不給 `total`、私人收藏夾的重送）、`netease`（歌單詳情、其餘以 id 分批補、`163cn.tv` 短網址、私人歌單的重送）；各自的 Node 測試、`checks.json`、版本、index、`FMP_REF`。
 - 實測（真實，匿名，開頭先做）：B 站一個公開收藏夾（含一支多 P 影片）、網易一張公開歌單，各全部頁一次；記 B 站有沒有要 WBI 簽名或觸發風控、網易補齊的批次數。之後在 App 各匯入一次、手動刷新一次（Android）。
 - 依賴：6。模型：sonnet（舊 `import_service.dart`、`netease_source.dart` 是規格）。
 
 ## 10. `playlist-refresh` 工作與每張歌單的間隔（design §6.1、§10.5）
 
-- [ ] `lib/library/playlist_refresh_job.dart`（`FmpApp` 常駐、登記一次、到期選擇、全部失敗才丟錯）；編輯對話框的自動刷新間隔（匯入歌單）；間隔改成不啟用、插件停用或移除時取消進行中的那張。
-- [ ] `app/AGENTS.md` § 排程器的工作清單加它。
+- [x] `lib/library/playlist_refresh_job.dart`（`FmpApp` 常駐、登記一次、到期選擇、全部失敗才丟錯）；編輯對話框的自動刷新間隔（匯入歌單）；間隔改成不啟用、插件停用或移除時取消進行中的那張。
+- [x] `app/AGENTS.md` § 排程器的工作清單加它。
 - 測試：排程器的假時鐘模式：到期條件（`active`、間隔不為空、插件在清單上、`last_refreshed_at` 空或已過）、依 `last_refreshed_at` 由舊到新、單張失敗繼續、全部失敗退避、沒有到期算成功、失敗的那張不寫 `last_refreshed_at`、取消；編輯對話框寫入間隔。
 - 實測（重播，Android 與 Windows 各一次：生命週期是平台各自的）：匯入 `fmp-test` 的 `pl-grow` → 以 `sqlite3`（Windows）／`adb exec-out run-as … cat` 拉回改寫再推（Android）把 `last_refreshed_at` 改成 25 小時前 → 重啟 → log 有 `Playlist refresh finished`；切到背景（Android）或最小化（Windows）時沒有工作執行。
 - 依賴：8b。模型：sonnet（照 `RadioStatusJobs`）。
@@ -202,9 +202,9 @@
 
 ## 12. 帶憑證錄製與 `mutates`（design §4.7、§12）
 
-- [ ] `PluginCheck.mutates`；健康檢查、`record_test.dart`、`DevCaseRuns` 的真實與錄製模式略過並顯示「略過：會改動遠端」，重播照跑。
-- [ ] `runIsolatedCase` 在真實與錄製模式、`requiresLogin` 的案例帶該插件的已存憑證；`recordCase` 對所有 `requiresLogin` 案例以 `accounts` 列換值。
-- [ ] `app/AGENTS.md` § 插件「已知限制」的那一句改寫；`.trellis/spec/app/plugins/index.md` 的錄製段。
+- [x] `PluginCheck.mutates`；健康檢查、`record_test.dart`、`DevCaseRuns` 的真實與錄製模式略過並顯示「略過：會改動遠端」，重播照跑。
+- [x] `runIsolatedCase` 在真實與錄製模式、`requiresLogin` 的案例帶該插件的已存憑證；`recordCase` 對所有 `requiresLogin` 案例以 `accounts` 列換值。
+- [x] `app/AGENTS.md` § 插件「已知限制」的那一句改寫；`.trellis/spec/app/plugins/index.md` 的錄製段。
 - 測試（測試檔內雙向變異）：design §12 的閘門；`mutates` 在四個地方不呼叫插件（以會記錄呼叫次數的假插件）、在重播照跑；隔離環境在重播模式不帶憑證。
 - 實測：沒有使用者看得到的改動；Debug 頁健康檢查的「略過」字樣在 PR 14 有 `mutates` 案例時一起看。
 - 依賴：0。模型：sonnet（規則已定；安全面由 opus 審查攻）。
@@ -278,9 +278,9 @@
 
 ## 16. 匹配核心與繁簡字表（design §8.1、§8.2）
 
-- [ ] `unorm_dart`、`string_similarity`（版本核對）；`externalPackageOwners`。
-- [ ] `lib/core/matching/`：正規化、評分、`rank`；`app/tool/opencc/`（釘 commit 的 `TSCharacters.txt`、`LICENSE`、產生器）、`ts_characters.g.dart`；`lib/app/licenses.dart` 登記授權。
-- [ ] 測試語料（約 50 對，手寫，不連網）與校準後寫死的權重、門檻。
+- [x] `unorm_dart`、`string_similarity`（版本核對）；`externalPackageOwners`。
+- [x] `lib/core/matching/`：正規化、評分、`rank`；`app/tool/opencc/`（釘 commit 的 `TSCharacters.txt`、`LICENSE`、產生器）、`ts_characters.g.dart`；`lib/app/licenses.dart` 登記授權。
+- [x] 測試語料（約 50 對，手寫，不連網）與校準後寫死的權重、門檻。
 - 測試：ADR 0019 §如何確認的評分案例（全半形、繁簡、括號、時長門檻、多歌手；自動與手動重搜同分）；語料全綠；重新產生的字表等於已提交的；已知字對；授權登記；lint 雙向變異。
 - 實測：沒有使用者看得到的改動。不做。
 - 依賴：0（可與 M4a 平行）。模型：opus（權重與門檻要以語料校準，結果影響之後每一次匹配與 M7 的歌詞）。
@@ -363,6 +363,13 @@
 ## 留下的後續
 
 （各 PR 合併時寫在這裡，最新的在上面。）
+
+- **PR 5 → 之後**：
+  - 歷史頁的單獨分 P 仍是一行，會截掉「· P2」（詳情頁已改兩行；佇列列高固定不改）。要不要跟進，看實際使用。
+  - 搜尋頁選取中按 Ctrl+F 或再點「搜尋」導覽項不會離開選取：外殼的 `popUntil(isFirst)` 碰不到根頁上的 `LocalHistoryEntry`。要統一得改外殼。
+  - 歷史頁全選後有新紀錄進來，重讀「已載入的筆數」會讓最舊的已選項目掉出範圍（選取數少 1）。屬於分頁規則，沒改。
+  - 多選「加入佇列」在取分 P 途中按取消，取回後仍會加入佇列。輕微，沒改。
+  - PR 3 的「單獨分 P 兩行」（詳情頁）與 PR 2 的「格狀拖曳替代操作」（螢幕閱讀器的移動動作；鍵盤排序不做，清單版也沒有）已在 PR 5 處理。
 
 - **PR 3 → PR 8b、fmp-plugins**：
   - 音樂庫卡片的「編輯」對匯入歌單也開放，但還不會設 `*_overridden`；PR 8b 有匯入入口時一起做（design §10.5），並處理匯入歌單封面有多張、在不同網域時 `PlaylistCover` 只拿第一張找插件的問題。

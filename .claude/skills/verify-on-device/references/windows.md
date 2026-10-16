@@ -72,6 +72,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/window_shot.ps1 -Atta
   輸入法在中文模式時也可能整串吃掉：框架收不到任何按鍵事件，輸入框只留一個空白的組字（M4 PR 2 實機，
   一度被誤判成 App 的回歸）。打字前先對 FMP Dev 視窗跑 `scripts/ime_off.ps1`（只關這個視窗的輸入法，
   印出 `open=0` 才算關掉）。
+- **組合鍵（Ctrl+A、Ctrl+F 之類）不要用 `SendKeys` 或掃描碼填 0 的 `keybd_event`**：兩者送出的按鍵
+  掃描碼都是 0，Flutter 的 Windows 嵌入層把每個鍵都當成同一個實體鍵（`physicalKey` 是
+  `0x1600000000`），按下 A 前先替 Ctrl 補一個放開，框架收到的是 Ctrl↓ Ctrl↑ A↓ A↑，任何 Ctrl 快捷鍵都
+  對不上，看起來像 App 的快捷鍵壞了（M4 PR 5 實機，Ctrl+A 全選一度被誤判成焦點問題）。單鍵（Esc、Enter、
+  打字）不受影響。組合鍵改用帶真實掃描碼的 `keybd_event`，例如 Ctrl+A：
+  `keybd_event(0xA2, 0x1D, 0, 0)`、`keybd_event(0x41, 0x1E, 0, 0)`、`keybd_event(0x41, 0x1E, 2, 0)`、
+  `keybd_event(0xA2, 0x1D, 2, 0)`（`VK_LCONTROL`／`'A'`；其他鍵的掃描碼用 `MapVirtualKey(vk, 0)` 取）。
 - **不要跨行程最小化再還原來搶前景**（`ShowWindow` 的 `SW_MINIMIZE`／`SW_RESTORE`）：App 的 lifecycle
   會停在 `inactive` 回不到 `resumed`，Flutter 把焦點暫放在根範圍，外殼的快捷鍵（Esc、Ctrl+F、F6）全部
   沒反應，看起來像快捷鍵壞了。用 `msaa_tree.ps1 -Click` 拉前景（`AttachThreadInput`＋`SetWindowPos`），

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -35,7 +36,8 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 /// - 歌單卡：封面（自訂封面，沒有就是第一首的封面）、名稱、「本機 · n 首」；點一下在音樂庫的
 ///   巢狀導覽裡開歌單詳情。內容區是 compact、medium 時是清單，
 ///   expanded 以上是格狀（M3 的 list／grid 依寬度切換）。拖曳把手排序（同電台頁：只有把手能拖，
-///   長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照拖曳後的順序畫。
+///   長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照拖曳後的順序畫。螢幕閱讀器
+///   以語意動作移動（清單是 `ReorderableListView` 自帶的，格狀的卡片給同樣的四個）。
 /// - 卡片選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除（先確認）。
 class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
@@ -375,6 +377,13 @@ class _PlaylistGridState extends State<_PlaylistGrid> {
     if (order != null && !listEquals(order, _ids)) widget.onReorder(order);
   }
 
+  /// 螢幕閱讀器的「移到最前面／向左移／向右移／移到最後面」（清單版的 `ReorderableListView`
+  /// 自帶同樣的語意動作）：把 [id] 移到第 [to] 張，整批寫入。
+  void _move(int id, int to) {
+    final ids = _ids..remove(id);
+    widget.onReorder(ids..insert(to, id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final spacing = AppTokens.of(context).spacing;
@@ -406,7 +415,7 @@ class _PlaylistGridState extends State<_PlaylistGrid> {
                   spacing: spacing.x4,
                   runSpacing: spacing.x4,
                   children: [
-                    for (final overview in shown)
+                    for (final (index, overview) in shown.indexed)
                       _GridCard(
                         key: ValueKey(overview.playlist.id),
                         overview: overview,
@@ -415,6 +424,12 @@ class _PlaylistGridState extends State<_PlaylistGrid> {
                         onDragStart: () => _start(overview.playlist.id),
                         onDragOver: () => _over(overview.playlist.id),
                         onDragEnd: _end,
+                        // 拖曳中不給（順序還沒定）。
+                        onMove: _order != null
+                            ? null
+                            : (to) => _move(overview.playlist.id, to),
+                        index: index,
+                        count: shown.length,
                       ),
                   ],
                 ),
@@ -436,10 +451,20 @@ class _GridCard extends StatefulWidget {
     required this.onDragStart,
     required this.onDragOver,
     required this.onDragEnd,
+    required this.onMove,
+    required this.index,
+    required this.count,
   });
 
   final PlaylistOverview overview;
   final double width;
+
+  /// 移到第幾張（螢幕閱讀器的語意動作）；`null` 時不給動作。
+  final ValueChanged<int>? onMove;
+
+  /// 這張在第幾、一共幾張：決定給哪幾個「移到…」。
+  final int index;
+  final int count;
 
   /// 這張正被拖著：原位置淡出（拖著走的是 `Draggable` 的 feedback）。
   final bool dragging;
@@ -462,6 +487,27 @@ class _GridCardState extends State<_GridCard> {
     final tokens = AppTokens.of(context);
     final overview = widget.overview;
     final id = overview.playlist.id;
+    // 拖曳只有指標能做：螢幕閱讀器改用語意動作移動（同清單版 `ReorderableListView` 的那四個，
+    // 字串是 Flutter 內建的翻譯；格狀由左而右排，所以是左右而不是上下）。
+    final move = widget.onMove;
+    final index = widget.index;
+    final words = WidgetsLocalizations.of(context);
+    final moves = move == null
+        ? null
+        : <CustomSemanticsAction, VoidCallback>{
+            if (index > 0) ...{
+              CustomSemanticsAction(label: words.reorderItemToStart): () =>
+                  move(0),
+              CustomSemanticsAction(label: words.reorderItemLeft): () =>
+                  move(index - 1),
+            },
+            if (index < widget.count - 1) ...{
+              CustomSemanticsAction(label: words.reorderItemRight): () =>
+                  move(index + 1),
+              CustomSemanticsAction(label: words.reorderItemToEnd): () =>
+                  move(widget.count - 1),
+            },
+          };
     final handle = Draggable<int>(
       data: id,
       dragAnchorStrategy: (draggable, context, position) {
@@ -504,6 +550,7 @@ class _GridCardState extends State<_GridCard> {
               onLongPress: openMenu,
               child: Semantics(
                 button: true,
+                customSemanticsActions: moves,
                 child: _GridCardBody(
                   overview: overview,
                   more: more,

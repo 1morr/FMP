@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/providers.dart';
@@ -15,7 +16,7 @@ import 'package:material_ui/material_ui.dart';
 import '../support/shell_harness.dart';
 
 // 音樂庫（M4 PR 2，ADR 0033 §決定 8，design §10.3、§10.5）：歷史入口、建立、編輯、刪除、
-// 拖曳排序（清單與格狀）、全部加入佇列、隨機加入、佇列上限、離線。
+// 拖曳排序（清單與格狀，格狀另有螢幕閱讀器的移動動作）、全部加入佇列、隨機加入、佇列上限、離線。
 
 const _more = 'More options';
 
@@ -325,6 +326,68 @@ void main() {
         [for (final p in await _stored(tester, h)) p.name],
         ['B', 'C', 'A'],
       );
+    });
+
+    // PR 2 留下的：格狀的拖曳只有指標能做，螢幕閱讀器以卡片的語意動作移動（清單版的
+    // `ReorderableListView` 自帶同樣的動作）。
+    testWidgets('in the grid a screen reader moves a card with the move '
+        'actions of the list', (tester) async {
+      final handle = tester.ensureSemantics();
+      final h = await _open(
+        tester,
+        size: const Size(1400, 900),
+        collapsePanel: true,
+        seed: {'A': [], 'B': [], 'C': []},
+      );
+      SemanticsNode card(String name) => tester.getSemantics(find.text(name));
+      List<String> actions(String name) => [
+        for (final id
+            in card(name).getSemanticsData().customSemanticsActionIds ??
+                const <int>[])
+          CustomSemanticsAction.getAction(id)!.label!,
+      ];
+      Future<void> perform(String name, String action) async {
+        final node = card(name);
+        node.owner!.performAction(
+          node.id,
+          SemanticsAction.customAction,
+          CustomSemanticsAction.getIdentifier(
+            CustomSemanticsAction(label: action),
+          ),
+        );
+        await _settle(tester, h);
+      }
+
+      expect(actions('A'), unorderedEquals(['Move right', 'Move to the end']));
+      expect(
+        actions('B'),
+        unorderedEquals([
+          'Move to the start',
+          'Move left',
+          'Move right',
+          'Move to the end',
+        ]),
+      );
+      expect(actions('C'), unorderedEquals(['Move to the start', 'Move left']));
+
+      await perform('A', 'Move to the end');
+      expect(
+        [for (final p in await _stored(tester, h)) p.name],
+        ['B', 'C', 'A'],
+      );
+
+      await perform('A', 'Move left');
+      expect(
+        [for (final p in await _stored(tester, h)) p.name],
+        ['B', 'A', 'C'],
+      );
+
+      await perform('C', 'Move to the start');
+      expect(
+        [for (final p in await _stored(tester, h)) p.name],
+        ['C', 'B', 'A'],
+      );
+      handle.dispose();
     });
   });
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/network/network_status.dart';
@@ -292,8 +293,9 @@ void main() {
       expect(h.controller.queue.entries, isEmpty);
     });
 
-    testWidgets('the menu opens the same items by right click, long press '
-        'and "⋯"; Play next and Add to queue add the song', (tester) async {
+    // 長按是多選（見 `selecting`）。
+    testWidgets('the menu opens the same items by right click and "⋯"; Play '
+        'next and Add to queue add the song', (tester) async {
       final (h, _) = await _open(tester, tracks: [_song('a'), _song('b')]);
       const items = [
         'Play',
@@ -301,6 +303,7 @@ void main() {
         'Add to queue',
         'Add to playlist…',
         'Remove from playlist',
+        'Select',
       ];
 
       final gesture = await tester.startGesture(
@@ -316,8 +319,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.text('Song a'));
-      await tester.pumpAndSettle();
+      await _openMenu(tester, 'Song a');
       for (final item in items) {
         expect(find.widgetWithText(MenuItemButton, item), findsOneWidget);
       }
@@ -581,5 +583,176 @@ void main() {
       expect(_item(tester, 'Add to playlist…').onPressed, isNotNull);
       expect(h.controller.queue.entries, hasLength(2));
     });
+  });
+
+  // 多選（M4 PR 5，design §10.7）：群組標題不是項目；本機歌單多「從歌單移除」（先確認、只刪選到的
+  // 項目）；選取模式沒有把手；Esc 與返回鍵先離開選取模式。
+  group('selecting', () {
+    Finder checkboxOf(String title) =>
+        find.descendant(of: _row(title), matching: find.byType(Checkbox));
+
+    testWidgets('a long press enters; group titles are not songs, so Select '
+        'all takes the songs only; no handles while selecting', (tester) async {
+      await _open(
+        tester,
+        tracks: [_song('a'), _part('v', 1), _part('v', 2), _song('b')],
+      );
+
+      await tester.longPress(find.text('Song a'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(find.byTooltip('Back (Esc)'), findsNothing);
+      expect(find.byIcon(Icons.drag_handle), findsNothing);
+      expect(find.byType(Checkbox), findsNWidgets(4));
+      expect(
+        find.descendant(
+          of: find.ancestor(
+            of: find.text('Video v'),
+            matching: find.byType(ListTile),
+          ),
+          matching: find.byType(Checkbox),
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(find.byTooltip('Select all (Ctrl+A)'));
+      await tester.pump();
+      expect(find.text('4 selected'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.byIcon(Icons.drag_handle), findsWidgets);
+      expect(find.byType(PlaylistDetailPage), findsOneWidget);
+    });
+
+    testWidgets('the back key leaves selection mode, then the page', (
+      tester,
+    ) async {
+      await _open(tester, tracks: [_song('a'), _song('b')]);
+      await _openMenu(tester, 'Song b');
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Select'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(checkboxOf('Song b')).value, isTrue);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.byType(PlaylistDetailPage), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('"Remove from playlist" asks first and removes only the '
+        'selected entries', (tester) async {
+      final (h, id) = await _open(
+        tester,
+        tracks: [_song('a'), _song('b'), _song('a'), _song('c')],
+      );
+
+      // 同一首出現兩次：只選第二個。
+      await tester.longPress(find.text('Song a').last);
+      await tester.tap(find.text('Song c'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Remove from playlist'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove the selected songs?'), findsOneWidget);
+      expect(
+        find.text(
+          'The selected songs (2) will be removed from "Road". This '
+          'cannot be undone.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(await _stored(tester, h, id), ['a', 'b', 'a', 'c']);
+      expect(
+        find.text('2 selected'),
+        findsOneWidget,
+        reason: 'still selecting',
+      );
+
+      await tester.tap(find.byTooltip('Remove from playlist'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await _settle(tester, h);
+
+      expect(await _stored(tester, h, id), ['a', 'b']);
+      expect(find.text('Removed from the playlist'), findsOneWidget);
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.text('Local · 2 songs'), findsOneWidget);
+    });
+
+    testWidgets('an imported playlist has no "Remove from playlist"', (
+      tester,
+    ) async {
+      await _open(tester, imported: true, tracks: [_song('a'), _song('b')]);
+
+      await tester.longPress(find.text('Song a'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Add to queue'), findsOneWidget);
+      expect(find.byTooltip('Add to playlist…'), findsOneWidget);
+      expect(find.byTooltip('Remove from playlist'), findsNothing);
+    });
+
+    testWidgets('"Add to queue" adds the selected songs in screen order', (
+      tester,
+    ) async {
+      final (h, _) = await _open(
+        tester,
+        tracks: [_song('a'), _part('v', 1), _part('v', 2), _song('b')],
+      );
+
+      await tester.longPress(find.text('Song b'));
+      await tester.tap(find.text('P1 Part 1'));
+      await tester.tap(find.text('Song a'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Add to queue'));
+      await _settle(tester, h);
+
+      expect(
+        [
+          for (final e in h.controller.queue.entries)
+            '${e.track.sourceId}${e.track.cid ?? ''}',
+        ],
+        ['a', 'v101', 'b'],
+      );
+      expect(find.byType(Checkbox), findsNothing);
+    });
+  });
+
+  // PR 3 留下的：單獨的分 P 標題「影片 · P2 分 P 標題」在手機寬度可以換到第二行，後面的分 P
+  // 不會被截掉；一般的曲名照舊一行。
+  testWidgets('at 400 wide a lone part shows its whole title on two lines', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      tracks: [
+        TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'w',
+          cid: 103,
+          title: 'Part',
+          uploader: 'Uploader w',
+          partIndex: 3,
+          parentTitle: 'Video w',
+        ),
+        _song('a'),
+      ],
+    );
+
+    final part = tester.renderObject<RenderParagraph>(
+      find.text('Video w · P3 Part'),
+    );
+    final song = tester.renderObject<RenderParagraph>(find.text('Song a'));
+    expect(part.maxLines, 2);
+    expect(part.didExceedMaxLines, isFalse);
+    expect(part.size.height, greaterThan(song.size.height), reason: 'wraps');
+    expect(song.maxLines, 1);
   });
 }
