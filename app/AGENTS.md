@@ -495,6 +495,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `PlaylistRepository.createImported`（兩張表一個 transaction）與 `beginRefresh` 回傳的 `PlaylistRefreshSession`（行為見 § 音樂庫）。
   閘門：`migration_test.dart` 的 `migration from v15 to v16 keeps existing data`、`migration from v<N> to v16 adds playlist_remote`（v1–v15 各一例：
   預設值與狀態字串、唯一鍵、連帶刪除）與 `a new database has playlist_remote`、`playlist_remote_repository_test.dart`。
+- `chart_settings` 與 `network_settings.chart_refresh_interval_minutes` 是 schema v17（M4 design §3.1、§3.3，PR 20）：`chart_settings` 主鍵（`plugin_id`,
+  `chart_id`），`enabled` 空＝啟用、`sort_order` 空＝依插件清單與 `chartList` 的順序（設定頁在 PR 21，現在只有 `enabled` 有寫入口）；沒有外鍵到
+  `installed_plugins`，移除插件時 `PluginInstaller.remove` 的 `removeChartSettings` 步驟刪（在帳號之後、快取之前），插件拿掉的榜單的列留著。
+  `chart_refresh_interval_minutes` 空＝沒設定過（預設 60 在 Notifier，§ 設定）。寫入口是 `ChartSettingsRepository`（`watch`、`setEnabled` 保留該列的排序、
+  `removePlugin`）。閘門：`migration_test.dart` 的 `migration from v16 to v17 keeps existing data`（使用者設定過的網路與每音源設定不變）、
+  `migration from v<N> to v17 adds chart_settings and the chart interval column`（v1–v16 各一例：主鍵、空值、新欄位是 NULL）與 `a new database has chart_settings`、
+  `chart_settings_repository_test.dart`、`plugin_installer_test.dart` 的 `removing`。
 
 ### 快取庫
 
@@ -537,6 +544,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   only that plugin's entries`。
 - 持久化格式：類別存 `cache_tables.dart` 的轉換器寫死的字串，時間是 UTC epoch 毫秒。閘門：
   `stored format`。
+- `CacheCategory.chart`（M4 PR 20，首頁排行的榜單內容，見 § 排行）不經圖片 cache manager：`CacheStore.put(category, pluginId, key, bytes)`
+  先寫新檔、再換索引、最後刪舊檔，`get` 沒有、被淘汰或檔案被系統清掉都是 `null`，`remove(category, pluginId, {key})` 刪一個項目或這個插件這個類別的全部
+  （其他類別與其他插件不動）；一樣算進總上限與淘汰、`removePlugin` 一併刪、`watchUsage` 多一個 `chart` 鍵（設定頁只顯示封面）。新類別只是 `cache_entries.category`
+  的新字串，表沒變，所以 `CacheDatabase.schemaVersion` 不動。閘門：`cache_store_test.dart` 的 `entries of the chart category`（含 `stored format`）。
 - `flutter_cache_manager` 只准在 `lib/data/cache/`、`cached_network_image` 只准在
   `lib/ui/artwork/` import；上層拿到的 cache manager 型別是 `cache_store.dart` 轉出的
   `BaseCacheManager`。閘門：lint `fmp_layer_imports`（`test_imageCachePackagesOutsideTheirOwners`、
@@ -933,9 +944,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`Unsupported`）；其他名稱的匯出不管。`login` 例外：它的匯出是 `loginVerify`，methods 含 `qr` 時加 `loginQrStart`、
   `loginQrPoll`，宣告 `refresh` 時加 `loginRefresh`（`PluginManifest.requiredExports`），同樣雙向一致。`live` 也例外：
   匯出是 `liveSearch`、`liveRoomFromUrl`、`liveStatus`、`resolveLive` 四個，宣告就要全有（`LiveExports`），也沒有名叫 `live` 的匯出。
-  `importPlaylist` 也例外：匯出是 `playlistFromUrl`、`importPlaylist` 兩個，宣告就要全有（`ImportPlaylistExports`）。
+  `importPlaylist` 也例外：匯出是 `playlistFromUrl`、`importPlaylist` 兩個，宣告就要全有（`ImportPlaylistExports`）。`charts` 同樣：匯出是 `chartList`、`chart`
+  兩個（`ChartsExports`），沒有名叫 `charts` 的匯出。
   `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
-  `live_capability_test.dart`、`import_playlist_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+  `live_capability_test.dart`、`import_playlist_capability_test.dart`、`charts_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+- `charts`（ADR 0032 §決定 5；宿主端的工作與快取見 § 排行）：`chartList()` 回 `{charts: [{chartId, title}]}`（`chartId` 不重複、`title` 不空、可以是空清單；
+  插件內的常數，不發請求），`chart({chartId})` 回 `{tracks}`（不分頁、可以是空的；曲目的驗證同搜尋結果，宿主填音源 id）。請求的 `auth` 由插件標
+  `userPreference`。閘門：`charts_capability_test.dart`（回傳值驗證各拒收一例、空榜單接受）、`type_definitions_test.dart` 的 `the charts exports…`、`the charts fields…`
+  （都含變異），fmp-test 的榜單由 `test_plugin_bundle_test.dart` 的 `charts` 守。
 - `live`（ADR 0028 §決定 3；電台見 § 電台，收聽見 § 播放的「直播」）：`liveStatus` 查詢失敗一律拋錯，
   不能回 `offline`（D10）：宿主把拋錯顯示成「查詢失敗」，`offline` 只表示查到了而且沒開播；插件吞掉錯誤回 `offline` 是插件的 bug，
   宿主分不出來，本 repo 沒有閘門守（`fmp-test` 的 `live-broken` 只示範正確的行為）。
@@ -973,14 +989,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`import_playlist_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證、`mixSeed` 與 `mix` 的關係、分 P 兩欄）、
   `test_plugin_bundle_test.dart` 的 `playlists`（`fmp-test` 的七張歌單）、`type_definitions_test.dart` 的 `the importPlaylist exports…`、
   `the importPlaylist page fields…`、`partIndex and parentTitle…`（都含變異）。
-- `checks.json` 的 `live`、`mix`、`multiPart`、`trackDetail`、`importPlaylist` 案例各呼叫那個能力一次（`live` 跑 `liveStatus`、`mix` 以 `seed` 開始），
+- `checks.json` 的 `live`、`mix`、`multiPart`、`trackDetail`、`importPlaylist`、`charts` 案例各呼叫那個能力一次（`live` 跑 `liveStatus`、`mix` 以 `seed` 開始），
   檢查的清單是回傳的那一份（直播間、`tracks`、`parts`、那一筆詳細），`nonEmpty` 的名稱是該 DTO 的欄位名；重播照跑、命令列錄製照錄
   （匿名）。`importPlaylist` 案例先跑 `playlistFromUrl`（輸入 `{url}`，用公開歌單）、再跑第一頁，檢查的清單是 `items`，`nonEmpty` 的名稱是
-  `RemotePlaylistItem` 的（`track`、`remoteItemId`、`unavailable`）；網址認不得或回 `mixSeed` 案例失敗（`ParseError`）。閘門：
-  `checks_test.dart` 的 `the live check`／`the mix check`／`the multiPart check`／`the trackDetail check`／`the importPlaylist check`、
-  `contract_runner_test.dart` 的 `a live check…`／`a mix check…`／`a multiPart check…`／`a trackDetail check…`／`an importPlaylist check…`（五種都有「沒宣告能力」；
-  `live`、`mix`、`trackDetail`、`importPlaylist` 另有期望不符，`live`、`mix`、`importPlaylist` 另有改無關處不紅）、`health_check_test.dart` 的 `a live case`／`a mix case`／
-  `a multiPart case`／`a trackDetail case`／`an importPlaylist case`、`dev_case_runs_test.dart` 的 `a live case…`／`a mix case…`／`a multiPart case…`／`a trackDetail case…`／`an importPlaylist case…`。
+  `RemotePlaylistItem` 的（`track`、`remoteItemId`、`unavailable`）；網址認不得或回 `mixSeed` 案例失敗（`ParseError`）。`charts` 案例（輸入 `{chartId}`，不標
+  `requiresLogin`）跑 `chart`，檢查的清單是 `tracks`，`nonEmpty` 的名稱是 `TrackSummary` 的。閘門：
+  `checks_test.dart` 的 `the live check`／`the mix check`／`the multiPart check`／`the trackDetail check`／`the importPlaylist check`／`the charts check`、
+  `contract_runner_test.dart` 的 `a live check…`／`a mix check…`／`a multiPart check…`／`a trackDetail check…`／`an importPlaylist check…`／`a charts check…`（六種都有「沒宣告能力」；
+  `live`、`mix`、`trackDetail`、`importPlaylist`、`charts` 另有期望不符，`live`、`mix`、`importPlaylist`、`charts` 另有改無關處不紅）、`health_check_test.dart` 的 `a live case`／`a mix case`／
+  `a multiPart case`／`a trackDetail case`／`an importPlaylist case`／`a charts case`、`dev_case_runs_test.dart` 的 `a live case…`／`a mix case…`／`a multiPart case…`／`a trackDetail case…`／`an importPlaylist case…`／`a charts case…`。
 - `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
   `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
   `record_test.dart` 的 `skips a case that requires a login`。
@@ -1142,7 +1159,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 排程器
 
 `lib/scheduler/background_scheduler.dart`（ADR 0017，M3 PR 17）：會發網路請求的週期工作的唯一擁有者。目前的工作：
-`radio-status:<pluginId>`（§ 電台）、收聽直播時的 `live-info`（§ 播放）與匯入歌單的 `playlist-refresh`（§ 音樂庫）；排行在 M4 後面的 PR。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
+`radio-status:<pluginId>`（§ 電台）、收聽直播時的 `live-info`（§ 播放）、匯入歌單的 `playlist-refresh`（§ 音樂庫）與排行的 `charts:<pluginId>`（§ 排行）。`backgroundSchedulerProvider` 由 `FmpApp` 常駐（Riverpod 3 沒人聽的 provider 會被暫停）。
 
 登記一個工作：`ref.read(backgroundSchedulerProvider.notifier).register(SchedulerJob(id:, pluginId:, interval:, run:))`。
 
@@ -1231,6 +1248,28 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   來源失效；比對鍵兩種；完整性三條件各缺一個；中途停下與頁內例外後再刷新；代際與觸發者過期不寫；刷新中途刪歌單；`writable`；FIFO 鎖與例外釋放鎖；插件停用）、
   `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列）、
   `playlist_remote_repository_test.dart`。
+
+## 排行
+
+`lib/charts/`（ADR 0032 §決定 5–7、ADR 0016 §決定 4、ADR 0017，M4 design §6.2、§9.1，PR 20）：首頁排行的榜單內容快取與 `charts:<pluginId>` 工作。同電台，要用資料、插件與排程器，所以是獨立的頂層目錄
+（lint 見 § Lint）；首頁與探索頁的呈現、設定頁的榜單排序與開關在 PR 21，目前只有測試讀 `chartContentProvider`、`chartFailuresProvider`、`ChartJobs.runNow`。
+
+- `ChartJobs`（`chart_jobs.dart`，`chartJobsProvider`，`FmpApp` 常駐）跟著插件清單、`chart_settings` 與排行刷新間隔，把 `charts:<pluginId>`（`chartJobId`，帶 `pluginId`）登記到排程器或移除：
+  已啟用、宣告 `charts`、至少一個啟用榜單的插件各一個；間隔是 `network.chartRefreshInterval`，關閉（`null`）時 `interval: null`，只有 `runNow` 會跑。啟用榜單 = `chartList` 的榜單扣掉
+  `chart_settings.enabled == false` 的（插件新增的榜單預設啟用，插件拿掉的榜單的列不管）。登記用的 `chartList` 結果每個插件實例只問一次（執行時取到的會更新它）；問不到（插件壞了）記 warning、照樣登記，
+  還不知道啟用哪些榜單：工作執行時再問，失敗就退避重試（ADR 0017 §決定 4）、`runNow` 拿得到錯誤，取到時補上啟用的集合、刪登記時不知道的停用榜單的快取，一個都沒啟用就移除工作；
+  這段期間不刪任何快取（新版插件的 `chartList` 壞了不會清掉舊的內容）。只有插件實例、間隔或啟用榜單的集合改變才取代登記，進行中的舊那一次因此過期、不寫；榜單被停用時刪那個榜單的快取與失敗標記，插件離開清單（停用）或榜單全部停用時刪
+  該插件的排行快取與標記。移除插件的快取由 `PluginInstaller.remove` 的 `CacheStore.removePlugin` 刪。
+- 每次執行：`chartList` → 啟用榜單逐一 `chart` → 寫快取，完成記一行 info `Chart refresh finished`（`pluginId`、`succeeded`、`failed`）。單一榜單失敗只標 `chartFailuresProvider`
+  （只在記憶體，`radioQueryFailuresProvider` 的做法）並記 warning `Chart update failed`，快取留著上次的內容，其他繼續；全部失敗才把錯誤丟給排程器退避（`chartList` 失敗也算工作失敗）。
+  `ChartJobs.runNow(pluginId)` 直接是排程器的 `runNow`（離線 `offline`、沒有這個工作 `unknown`，全部失敗的錯誤重新丟出）。
+- `ChartCache`（`chart_cache.dart`）只經 `CacheStore` 讀寫（lint 擋 import `cache_tables.dart`、`cache_database.dart`）：鍵 `chart:<pluginId>:<chartId>`，內容 `{fetchedAt（UTC 毫秒）, tracks}` 的 JSON
+  （曲目是 `TrackInfo` 的欄位，不是插件的 DTO），所屬插件記在索引。被淘汰、檔案不見或內容讀不懂都是「沒有快取」（`null`）。`chartContentProvider((pluginId:, chartId:))` 讀一個榜單，
+  跟著 `chartCacheRevisionProvider`（工作每寫入或刪除一次加一）重讀。
+- 閘門：`test/charts/chart_jobs_test.dart`（以假時鐘、記憶體快取跑真的排程器：誰有工作、全部榜單停用不登記、停用的榜單不抓、單榜單失敗不退避且標記並在恢復後清掉、全部失敗退避、
+  `chartList` 失敗（登記時失敗照樣登記並退避、新實例失敗不刪快取、取到後補上集合與刪停用榜單的快取）、`enabled` 空的列算啟用、間隔預設／改變／關閉（`interval: null` 且 `runNow` 照跑）、離線、只在該重新登記時取代工作（無關的設定寫入不打斷進行中的一次）、榜單／插件停用刪快取與標記、手動刷新）、
+  `chart_cache_test.dart`（真的快取庫：內容與時間、取代、刪一個／刪整個插件／移除插件、淘汰、壞檔、`stored format`）、`plugin_installer_test.dart` 的 `removing`。真機上的行為
+  （`fmp-test` 的 `charts:fmp-test` 工作與快取寫入）沒有自動閘門，看 log。
 
 ## 匹配
 
@@ -1734,7 +1773,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `an unset language follows the system as it changes`、`fmp_app_test.dart` 的 `an unset language follows the system`。
 - 「網路」組（`network_settings`）有快取上限（MiB，空＝平台宣告的預設，選項 128／256／
   512／1024）與電台狀態刷新間隔（`radioStatusInterval`：空＝5 分，`0`＝關閉，對外是 `Duration?`，`null`＝關閉；選項
-  `radioStatusIntervalOptionsMinutes` 0／1／3／5／10，`setRadioStatusInterval` 收別的值丟 `ArgumentError`；設定頁「網路」組在清除快取之後，沒設定過的 5 分標「（預設）」，閘門 `network_controls_test.dart` 的 `an unset radio interval…`、`picking a radio interval writes only that field`）；
+  `radioStatusIntervalOptionsMinutes` 0／1／3／5／10，`setRadioStatusInterval` 收別的值丟 `ArgumentError`；設定頁「網路」組在清除快取之後，沒設定過的 5 分標「（預設）」，閘門 `network_controls_test.dart` 的 `an unset radio interval…`、`picking a radio interval writes only that field`）與排行刷新間隔
+  （`chartRefreshInterval`，M4 PR 20：空＝60 分，`0`＝關閉，對外是 `Duration?`，`null`＝關閉；選項 `chartRefreshIntervalOptionsMinutes` 0／30／60／120／240，`setChartRefreshInterval`
+  收別的值丟 `ArgumentError`；設定頁「網路」組在電台間隔之後，沒設定過的 60 分標「（預設）」，閘門 `network_settings_test.dart` 的 `the chart refresh interval`、`network_controls_test.dart` 的
+  `an unset chart interval…`、`picking a chart interval writes only that field`、`network_settings_repository_test.dart` 的 `chart refresh interval`）；
   舊版的快取設定不匯入（ADR 0016 §決定 3）。閘門：`network_settings_test.dart` 的 `the radio status interval`、
   `test/settings/network_settings_test.dart`（改預設後使用者值不變、未設定的跟著預設、清回
   未設定）、`network_settings_repository_test.dart`（`clear` 群組直接查表是 `NULL`、
@@ -2499,7 +2541,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`，`unorm_dart`、`string_similarity` 在 `core/matching/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`，`unorm_dart`、`string_similarity` 在 `core/matching/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `charts/`、`charts/` 不 import `ui/`、`library/`、`data/cache/cache_tables.dart`、`data/cache/cache_database.dart`（快取只經 `CacheStore`；`test_lowerLayersImportCharts`、`test_chartsImportUiOrLibrary`、`test_chartsImportCacheTables`、`test_chartsNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |
