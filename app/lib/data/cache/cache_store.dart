@@ -458,6 +458,12 @@ final cacheStoreProvider = FutureProvider<CacheStore>((ref) async {
     );
     rethrow;
   }
+  // 開啟期間被拆掉（App 結束、排行工作在啟動時就開了快取庫）：之後登記的 onDispose 不會
+  // 再跑，這裡不關就沒人關，檔案一直開著。
+  if (!ref.mounted) {
+    await store.close();
+    return store;
+  }
   opened = store;
   if (pending case final bytes?) apply(bytes);
   ref.onDispose(() => unawaited(store.close()));

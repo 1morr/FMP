@@ -282,7 +282,7 @@ final class _AppRun {
               ),
             ),
           ),
-          // 快取目錄在資料目錄旁（測試插件沒有封面，快取庫不會被開）。
+          // 快取目錄在資料目錄旁（測試插件的排行會寫進快取庫）。
           cacheDirectoryProvider.overrideWithValue(
             CacheDirectory(
               applicationCachePath: () async => '${data.parent.path}/cache',
