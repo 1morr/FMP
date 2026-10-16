@@ -21,7 +21,8 @@ final playlistServiceProvider = Provider<PlaylistService>(
 );
 
 /// 本機歌單的操作（ADR 0033 §決定 8、9，M4 design §10.3–§10.6）：建立、編輯、刪除、排序、
-/// 把整張歌單加入佇列，與本機歌單的曲目增刪、重排。匯入、刷新與 Mix 歌單在之後的 PR。
+/// 把整張歌單加入佇列，與本機歌單的曲目增刪、重排。匯入與 Mix 歌單的建立在
+/// `PlaylistImporter`，刷新在 `PlaylistRefresher`。
 final class PlaylistService {
   PlaylistService({
     required this._repository,

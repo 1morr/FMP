@@ -304,9 +304,21 @@ void main() {
       );
     });
 
-    testWidgets('a Mix link is not supported yet', (tester) async {
-      final plugin = _plugin()
-        ..onUrl = (_) => PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed'));
+    // Mix 網址（PR 11）：問插件的 `mix` 一次，建一張 Mix 歌單並開詳情；不存曲目。
+    testWidgets('a Mix link creates a Mix playlist and opens its details', (
+      tester,
+    ) async {
+      final plugin = FakeImportPlugin(
+        mix: true,
+        onUrl: (_) => PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed')),
+        onMix: (_) => const MixBatch(
+          mixId: 'm1',
+          title: 'Chill',
+          tracks: [
+            TrackSummary(sourceTypeId: 'fmp-test', sourceId: 'x', title: 'X'),
+          ],
+        ),
+      );
       final h = await _open(tester, plugin);
 
       await _openImportDialog(tester);
@@ -314,8 +326,56 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Import'));
       await _advance(tester, h);
 
+      expect(plugin.mixQueries, hasLength(1));
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(PlaylistDetailPage), findsOneWidget);
+      expect(find.text('Chill'), findsOneWidget);
+      final stored = (await _playlist(tester, h, 1));
+      expect(stored.kind, PlaylistKind.mix);
+      expect(stored.name, 'Chill');
+      expect(stored.mixPluginId, 'fmp-test');
+      expect(stored.mixSeedSourceId, 'seed');
+    });
+
+    testWidgets('a failing mix shows the error and creates nothing', (
+      tester,
+    ) async {
+      final plugin = FakeImportPlugin(
+        mix: true,
+        onUrl: (_) => PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed')),
+        onMix: (_) => throw NotFound(pluginId: 'fmp-test'),
+      );
+      final h = await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/m');
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h);
+
+      expect(find.textContaining("Couldn't import: "), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
       expect(
-        find.text("Importing this kind of link isn't supported yet"),
+        await tester.runAsync(() => _repository(tester, h).watchAll().first),
+        isEmpty,
+      );
+    });
+
+    testWidgets('a failing mix offline says offline', (tester) async {
+      final plugin = FakeImportPlugin(
+        mix: true,
+        onUrl: (_) => PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed')),
+        onMix: (_) => throw NetworkError(),
+      );
+      final h = await _open(tester, plugin);
+      await h.setNetwork(tester, NetworkStatus.noInterface);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/m');
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h);
+
+      expect(
+        find.text("Couldn't import: No network connection"),
         findsOneWidget,
       );
       expect(

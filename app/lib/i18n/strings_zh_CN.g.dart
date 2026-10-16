@@ -461,6 +461,14 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   @override
   String get mix => 'Mix';
   @override
+  String get mixPlay => 'Mix 播放';
+  @override
+  String mixPlayDisabled({required Object reason}) => 'Mix 播放（${reason}）';
+  @override
+  String get mixSeed => '种子曲目';
+  @override
+  String get mixUnsupported => '这个音源不支持 Mix';
+  @override
   String get addToPlaylist => '添加到歌单…';
   @override
   String get addToPlaylistTitle => '添加到歌单';

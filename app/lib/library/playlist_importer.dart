@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/library/playlist_refresher.dart';
@@ -20,7 +21,8 @@ final class ImportUnrecognized extends ImportResult {
   const ImportUnrecognized();
 }
 
-/// 這個網址是一個 Mix：交給 Mix 歌單的流程（PR 11），這裡什麼都沒寫。
+/// 這個網址是一個 Mix：[PlaylistImporter.importUrl] 什麼都沒寫，由呼叫端交給
+/// [PlaylistImporter.createMix] 建 Mix 歌單。
 @immutable
 final class ImportMixSeed extends ImportResult {
   const ImportMixSeed({required this.pluginId, required this.seed});
@@ -56,6 +58,14 @@ final class ImportedPlaylist extends ImportResult {
   final RefreshOutcome refresh;
 }
 
+/// [PlaylistImporter.createMix] 建好的 Mix 歌單。
+@immutable
+final class CreatedMix extends ImportResult {
+  const CreatedMix({required this.playlistId});
+
+  final int playlistId;
+}
+
 final playlistImporterProvider = Provider<PlaylistImporter>(
   PlaylistImporter.new,
 );
@@ -84,6 +94,49 @@ final class PlaylistImporter {
   }) async {
     try {
       return await _import(url.trim(), onProgress);
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
+    }
+  }
+
+  /// 為 [seed] 建一張 Mix 歌單（ADR 0033 §決定 1）：向插件的 `mix` 取一次（驗證種子、拿
+  /// `MixBatch.title` 當名稱），成功才建列；不存曲目。同一個種子再來一次是新的一張。
+  /// 失敗一律丟 `AppError`（插件的原樣丟出；一首都沒給是 `NotFound`），什麼都沒建。
+  Future<CreatedMix> createMix(ImportMixSeed seed) async {
+    try {
+      final plugins = await _ref.read(pluginRegistryProvider.future);
+      final plugin = plugins[seed.pluginId];
+      if (plugin == null ||
+          !plugin.manifest.capabilities.contains(PluginCapability.mix)) {
+        throw Unsupported(
+          pluginId: seed.pluginId,
+          cause: StateError('The source cannot start a mix'),
+        );
+      }
+      final batch = await plugin.mix(seed.seed);
+      // 同 `MixSession.start`：一首都沒給的種子開不了 Mix，不建一張按了就失敗的歌單。
+      if (batch.tracks.isEmpty) {
+        throw NotFound(
+          pluginId: seed.pluginId,
+          cause: StateError('The mix has no track'),
+        );
+      }
+      final id = await _ref
+          .read(playlistRepositoryProvider)
+          .createMix(
+            name: batch.title,
+            pluginId: seed.pluginId,
+            seedSourceId: seed.seed.sourceId,
+            seedCid: seed.seed.cid,
+          );
+      _ref
+          .read(logProvider)
+          .info(
+            'Mix playlist created',
+            tag: libraryLogTag,
+            fields: {'pluginId': seed.pluginId, 'playlistId': id},
+          );
+      return CreatedMix(playlistId: id);
     } on Object catch (error, stackTrace) {
       Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
     }

@@ -711,10 +711,12 @@ void main() {
           bool playlists = true,
           bool collapsePanel = false,
           bool registry = false,
+          bool mix = false,
         }) async {
           final h = ShellHarness(
             artworkManager: FakeArtworkManager(),
             registryOfSources: registry,
+            mix: mix,
           );
           await h.pumpShell(
             tester,
@@ -1002,6 +1004,82 @@ void main() {
           final handle = tester.ensureSemantics();
           await openDetail(tester, empty: true);
           expect(find.text('This playlist has no songs yet'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // Mix 歌單（M4 PR 11）：詳情（「Mix 播放」能按與停用寫原因兩種）與編輯對話框（只有名稱）。
+        Future<ShellHarness> openMix(
+          WidgetTester tester, {
+          bool mix = true,
+        }) async {
+          final h = await openLibrary(
+            tester,
+            playlists: false,
+            registry: true,
+            mix: mix,
+          );
+          await tester.runAsync(() async {
+            final container = h.container(tester);
+            await container
+                .read(playlistRepositoryProvider)
+                .createMix(
+                  name: 'Chill',
+                  pluginId: 'fmp-test',
+                  seedSourceId: 'a',
+                );
+            await container.read(tracksRepositoryProvider).upsert([
+              summary('a', artwork: TestArtwork.darkest.artwork).toTrackInfo(),
+            ]);
+          });
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          return h;
+        }
+
+        testWidgets('a Mix playlist details at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openMix(tester);
+          await tester.tap(find.text('Chill'));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          expect(find.widgetWithText(FilledButton, 'Mix play'), findsOneWidget);
+          expect(find.text('Song a'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('a Mix playlist details without Mix at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          await openMix(tester, mix: false);
+          await tester.tap(find.text('Chill'));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text("This source doesn't support Mix"), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('editing a Mix playlist at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openMix(tester);
+          await tester.tap(find.byTooltip('More options').first);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Edit'));
+          await tester.pumpAndSettle();
+          expect(find.text('Name'), findsOneWidget);
+          expect(find.text('Cover'), findsNothing);
 
           await expectGuidelines(tester);
           handle.dispose();

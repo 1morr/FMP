@@ -551,6 +551,18 @@ class Translations$library$zh_TW {
   /// zh-TW: 'Mix'
   String get mix => 'Mix';
 
+  /// zh-TW: 'Mix 播放'
+  String get mixPlay => 'Mix 播放';
+
+  /// zh-TW: 'Mix 播放（{reason}）'
+  String mixPlayDisabled({required Object reason}) => 'Mix 播放（${reason}）';
+
+  /// zh-TW: '種子曲目'
+  String get mixSeed => '種子曲目';
+
+  /// zh-TW: '這個音源不支援 Mix'
+  String get mixUnsupported => '這個音源不支援 Mix';
+
   /// zh-TW: '加入歌單…'
   String get addToPlaylist => '加入歌單…';
 

@@ -333,10 +333,83 @@ void main() {
     expect(events.length, greaterThan(afterCreate));
   });
 
+  // Mix 歌單（M4 design §5.4）：只有 `playlists` 一列，刷新的讀寫一律碰不到它。
+  group('mix playlists', () {
+    Future<int> mix({int? cid}) => repository.createMix(
+      name: 'Chill',
+      pluginId: 'fmp-test',
+      seedSourceId: 'seed',
+      seedCid: cid,
+    );
+
+    test(
+      'createMix appends a mix row with the seed and nothing else',
+      () async {
+        await repository.create(name: 'A');
+        final id = await withClock(Clock.fixed(_at), () => mix(cid: 3));
+
+        final playlist = (await repository.find(id))!;
+        expect(playlist.kind, PlaylistKind.mix);
+        expect(playlist.name, 'Chill');
+        expect(playlist.mixPluginId, 'fmp-test');
+        expect(playlist.mixSeedSourceId, 'seed');
+        expect(playlist.mixSeedCid, 3);
+        expect(playlist.sortOrder, 1);
+        expect(playlist.createdAt, _at);
+        expect(await ids(id), isEmpty);
+        expect(await repository.remote(id), isNull);
+      },
+    );
+
+    test('is never due for refresh and cannot begin one', () async {
+      final id = await mix();
+      final imported = (await repository.createImported(
+        pluginId: 'fmp-test',
+        remoteId: 'r1',
+        info: const RemotePlaylistInfo(name: 'Remote'),
+      ))!;
+
+      final due = await repository.dueForRefresh({'fmp-test'}, _at);
+
+      expect([for (final r in due) r.playlistId], [imported]);
+      expect(await repository.beginRefresh(id, isCurrent: () => true), isNull);
+      expect((await repository.watchRefreshIntervals().first).keys, [imported]);
+    });
+
+    test('mixSeedTrack finds the seed by its full track key', () async {
+      final plain = await mix();
+      final part = await mix(cid: 3);
+      final tracks = TracksRepository(database);
+      await tracks.upsert([
+        track('seed', title: 'Whole'),
+        const TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'seed',
+          cid: 3,
+          title: 'Part 3',
+        ),
+      ]);
+      final local = await repository.create(name: 'A');
+
+      Future<String?> seedTitle(int id) async =>
+          (await repository.mixSeedTrack((await repository.find(id))!))?.title;
+
+      expect(await seedTitle(plain), 'Whole');
+      expect(await seedTitle(part), 'Part 3');
+      expect(await seedTitle(local), isNull);
+      final gone = await repository.createMix(
+        name: 'Gone',
+        pluginId: 'fmp-test',
+        seedSourceId: 'never-stored',
+      );
+      expect(await seedTitle(gone), isNull);
+    });
+  });
+
   group('stored format and constraints', () {
     test('stored format: fixed kind strings and epoch milliseconds', () async {
       await withClock(Clock.fixed(_at), () => repository.create(name: 'L'));
-      // 匯入與 Mix 歌單的寫入口在之後的 PR；這裡直接經 drift 寫，釘住轉換的寫入方向。
+      // 直接經 drift 寫（不經 createImported、createMix），釘住轉換的寫入方向。
       for (final (kind, plugin, seed) in [
         (PlaylistKind.imported, null, null),
         (PlaylistKind.mix, 'youtube', 'abc'),

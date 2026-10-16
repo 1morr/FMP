@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/library/playlist_service.dart';
@@ -74,6 +75,9 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
   late final _description = TextEditingController(
     text: widget.editing?.playlist.description,
   );
+
+  /// 編輯 Mix 歌單：只有名稱（沒有描述、封面、自動刷新）。
+  late final bool _mix = widget.editing?.playlist.kind == PlaylistKind.mix;
 
   /// 打開時的封面（編輯時是歌單現在的）。
   late final List<TrackArtwork> _initialArtwork =
@@ -251,90 +255,97 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
               ImportedField.name,
               widget.remote?.nameOverridden == true,
             ),
-            SizedBox(height: spacing.x4),
-            TextField(
-              controller: _description,
-              minLines: 1,
-              maxLines: 4,
-              onChanged: (_) => _edited(ImportedField.description),
-              decoration: InputDecoration(labelText: t.description),
-            ),
-            _remoteRow(
-              ImportedField.description,
-              widget.remote?.descriptionOverridden == true,
-            ),
-            SizedBox(height: spacing.x4),
-            ListenableBuilder(
-              listenable: _coverUrl,
-              builder: (context, _) {
-                final check = _custom ? _checkCover() : _CoverCheck.ok;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        PlaylistCover(
-                          artwork: _custom ? (_artwork ?? const []) : const [],
-                          // 自訂而網址還不行時是佔位圖，不是第一首的封面。
-                          firstTrack: _custom
-                              ? null
-                              : widget.editing?.firstTrack,
-                          size: AppLayout.playlistCoverPreview,
-                        ),
-                        SizedBox(width: spacing.x4),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(t.cover, style: theme.textTheme.titleSmall),
-                              Text(
-                                _custom ? t.coverCustom : t.coverDefault,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+            if (!_mix) ...[
+              SizedBox(height: spacing.x4),
+              TextField(
+                controller: _description,
+                minLines: 1,
+                maxLines: 4,
+                onChanged: (_) => _edited(ImportedField.description),
+                decoration: InputDecoration(labelText: t.description),
+              ),
+              _remoteRow(
+                ImportedField.description,
+                widget.remote?.descriptionOverridden == true,
+              ),
+              SizedBox(height: spacing.x4),
+              ListenableBuilder(
+                listenable: _coverUrl,
+                builder: (context, _) {
+                  final check = _custom ? _checkCover() : _CoverCheck.ok;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          PlaylistCover(
+                            artwork: _custom
+                                ? (_artwork ?? const [])
+                                : const [],
+                            // 自訂而網址還不行時是佔位圖，不是第一首的封面。
+                            firstTrack: _custom
+                                ? null
+                                : widget.editing?.firstTrack,
+                            size: AppLayout.playlistCoverPreview,
+                          ),
+                          SizedBox(width: spacing.x4),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.cover,
+                                  style: theme.textTheme.titleSmall,
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  _custom ? t.coverCustom : t.coverDefault,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_custom)
+                            TextButton(
+                              onPressed: _useDefault,
+                              child: Text(t.coverUseDefault),
+                            )
+                          else
+                            TextButton(
+                              onPressed: _chooseCustom,
+                              child: Text(t.coverChooseCustom),
+                            ),
+                        ],
+                      ),
+                      if (_custom) ...[
+                        SizedBox(height: spacing.x2),
+                        TextField(
+                          controller: _coverUrl,
+                          focusNode: _coverFocus,
+                          keyboardType: TextInputType.url,
+                          onChanged: (_) => _edited(ImportedField.artwork),
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: InputDecoration(
+                            labelText: t.coverUrl,
+                            errorText: switch (check) {
+                              _CoverCheck.empty || _CoverCheck.ok => null,
+                              _CoverCheck.invalid => t.coverInvalidUrl,
+                              _CoverCheck.notFromSource => t.coverNotFromSource,
+                            },
                           ),
                         ),
-                        if (_custom)
-                          TextButton(
-                            onPressed: _useDefault,
-                            child: Text(t.coverUseDefault),
-                          )
-                        else
-                          TextButton(
-                            onPressed: _chooseCustom,
-                            child: Text(t.coverChooseCustom),
-                          ),
                       ],
-                    ),
-                    if (_custom) ...[
-                      SizedBox(height: spacing.x2),
-                      TextField(
-                        controller: _coverUrl,
-                        focusNode: _coverFocus,
-                        keyboardType: TextInputType.url,
-                        onChanged: (_) => _edited(ImportedField.artwork),
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: InputDecoration(
-                          labelText: t.coverUrl,
-                          errorText: switch (check) {
-                            _CoverCheck.empty || _CoverCheck.ok => null,
-                            _CoverCheck.invalid => t.coverInvalidUrl,
-                            _CoverCheck.notFromSource => t.coverNotFromSource,
-                          },
-                        ),
+                      _remoteRow(
+                        ImportedField.artwork,
+                        widget.remote?.artworkOverridden == true,
                       ),
                     ],
-                    _remoteRow(
-                      ImportedField.artwork,
-                      widget.remote?.artworkOverridden == true,
-                    ),
-                  ],
-                );
-              },
-            ),
+                  );
+                },
+              ),
+            ],
             if (widget.remote != null) ...[
               SizedBox(height: spacing.x4),
               _intervalField(ref.watch(translationsProvider)),
