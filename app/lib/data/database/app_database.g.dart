@@ -308,11 +308,23 @@ class $NetworkSettingsTableTable extends NetworkSettingsTable
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _chartRefreshIntervalMinutesMeta =
+      const VerificationMeta('chartRefreshIntervalMinutes');
+  @override
+  late final GeneratedColumn<int> chartRefreshIntervalMinutes =
+      GeneratedColumn<int>(
+        'chart_refresh_interval_minutes',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     cacheLimitMb,
     radioStatusIntervalMinutes,
+    chartRefreshIntervalMinutes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -347,6 +359,15 @@ class $NetworkSettingsTableTable extends NetworkSettingsTable
         ),
       );
     }
+    if (data.containsKey('chart_refresh_interval_minutes')) {
+      context.handle(
+        _chartRefreshIntervalMinutesMeta,
+        chartRefreshIntervalMinutes.isAcceptableOrUnknown(
+          data['chart_refresh_interval_minutes']!,
+          _chartRefreshIntervalMinutesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -368,6 +389,10 @@ class $NetworkSettingsTableTable extends NetworkSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}radio_status_interval_minutes'],
       ),
+      chartRefreshIntervalMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chart_refresh_interval_minutes'],
+      ),
     );
   }
 
@@ -387,10 +412,14 @@ class NetworkSettingsRow extends DataClass
 
   /// 電台狀態刷新間隔（分）；`0`＝關閉，空＝預設（ADR 0017 §決定 6、M3 design §3.3）。
   final int? radioStatusIntervalMinutes;
+
+  /// 排行刷新間隔（分）；`0`＝關閉，空＝預設 60（ADR 0017 §決定 6、M4 design §3.3）。
+  final int? chartRefreshIntervalMinutes;
   const NetworkSettingsRow({
     required this.id,
     this.cacheLimitMb,
     this.radioStatusIntervalMinutes,
+    this.chartRefreshIntervalMinutes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -402,6 +431,11 @@ class NetworkSettingsRow extends DataClass
     if (!nullToAbsent || radioStatusIntervalMinutes != null) {
       map['radio_status_interval_minutes'] = Variable<int>(
         radioStatusIntervalMinutes,
+      );
+    }
+    if (!nullToAbsent || chartRefreshIntervalMinutes != null) {
+      map['chart_refresh_interval_minutes'] = Variable<int>(
+        chartRefreshIntervalMinutes,
       );
     }
     return map;
@@ -417,6 +451,10 @@ class NetworkSettingsRow extends DataClass
           radioStatusIntervalMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(radioStatusIntervalMinutes),
+      chartRefreshIntervalMinutes:
+          chartRefreshIntervalMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(chartRefreshIntervalMinutes),
     );
   }
 
@@ -431,6 +469,9 @@ class NetworkSettingsRow extends DataClass
       radioStatusIntervalMinutes: serializer.fromJson<int?>(
         json['radioStatusIntervalMinutes'],
       ),
+      chartRefreshIntervalMinutes: serializer.fromJson<int?>(
+        json['chartRefreshIntervalMinutes'],
+      ),
     );
   }
   @override
@@ -442,6 +483,9 @@ class NetworkSettingsRow extends DataClass
       'radioStatusIntervalMinutes': serializer.toJson<int?>(
         radioStatusIntervalMinutes,
       ),
+      'chartRefreshIntervalMinutes': serializer.toJson<int?>(
+        chartRefreshIntervalMinutes,
+      ),
     };
   }
 
@@ -449,12 +493,16 @@ class NetworkSettingsRow extends DataClass
     int? id,
     Value<int?> cacheLimitMb = const Value.absent(),
     Value<int?> radioStatusIntervalMinutes = const Value.absent(),
+    Value<int?> chartRefreshIntervalMinutes = const Value.absent(),
   }) => NetworkSettingsRow(
     id: id ?? this.id,
     cacheLimitMb: cacheLimitMb.present ? cacheLimitMb.value : this.cacheLimitMb,
     radioStatusIntervalMinutes: radioStatusIntervalMinutes.present
         ? radioStatusIntervalMinutes.value
         : this.radioStatusIntervalMinutes,
+    chartRefreshIntervalMinutes: chartRefreshIntervalMinutes.present
+        ? chartRefreshIntervalMinutes.value
+        : this.chartRefreshIntervalMinutes,
   );
   NetworkSettingsRow copyWithCompanion(NetworkSettingsTableCompanion data) {
     return NetworkSettingsRow(
@@ -465,6 +513,9 @@ class NetworkSettingsRow extends DataClass
       radioStatusIntervalMinutes: data.radioStatusIntervalMinutes.present
           ? data.radioStatusIntervalMinutes.value
           : this.radioStatusIntervalMinutes,
+      chartRefreshIntervalMinutes: data.chartRefreshIntervalMinutes.present
+          ? data.chartRefreshIntervalMinutes.value
+          : this.chartRefreshIntervalMinutes,
     );
   }
 
@@ -473,20 +524,28 @@ class NetworkSettingsRow extends DataClass
     return (StringBuffer('NetworkSettingsRow(')
           ..write('id: $id, ')
           ..write('cacheLimitMb: $cacheLimitMb, ')
-          ..write('radioStatusIntervalMinutes: $radioStatusIntervalMinutes')
+          ..write('radioStatusIntervalMinutes: $radioStatusIntervalMinutes, ')
+          ..write('chartRefreshIntervalMinutes: $chartRefreshIntervalMinutes')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, cacheLimitMb, radioStatusIntervalMinutes);
+  int get hashCode => Object.hash(
+    id,
+    cacheLimitMb,
+    radioStatusIntervalMinutes,
+    chartRefreshIntervalMinutes,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is NetworkSettingsRow &&
           other.id == this.id &&
           other.cacheLimitMb == this.cacheLimitMb &&
-          other.radioStatusIntervalMinutes == this.radioStatusIntervalMinutes);
+          other.radioStatusIntervalMinutes == this.radioStatusIntervalMinutes &&
+          other.chartRefreshIntervalMinutes ==
+              this.chartRefreshIntervalMinutes);
 }
 
 class NetworkSettingsTableCompanion
@@ -494,26 +553,32 @@ class NetworkSettingsTableCompanion
   final Value<int> id;
   final Value<int?> cacheLimitMb;
   final Value<int?> radioStatusIntervalMinutes;
+  final Value<int?> chartRefreshIntervalMinutes;
   const NetworkSettingsTableCompanion({
     this.id = const Value.absent(),
     this.cacheLimitMb = const Value.absent(),
     this.radioStatusIntervalMinutes = const Value.absent(),
+    this.chartRefreshIntervalMinutes = const Value.absent(),
   });
   NetworkSettingsTableCompanion.insert({
     this.id = const Value.absent(),
     this.cacheLimitMb = const Value.absent(),
     this.radioStatusIntervalMinutes = const Value.absent(),
+    this.chartRefreshIntervalMinutes = const Value.absent(),
   });
   static Insertable<NetworkSettingsRow> custom({
     Expression<int>? id,
     Expression<int>? cacheLimitMb,
     Expression<int>? radioStatusIntervalMinutes,
+    Expression<int>? chartRefreshIntervalMinutes,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (cacheLimitMb != null) 'cache_limit_mb': cacheLimitMb,
       if (radioStatusIntervalMinutes != null)
         'radio_status_interval_minutes': radioStatusIntervalMinutes,
+      if (chartRefreshIntervalMinutes != null)
+        'chart_refresh_interval_minutes': chartRefreshIntervalMinutes,
     });
   }
 
@@ -521,12 +586,15 @@ class NetworkSettingsTableCompanion
     Value<int>? id,
     Value<int?>? cacheLimitMb,
     Value<int?>? radioStatusIntervalMinutes,
+    Value<int?>? chartRefreshIntervalMinutes,
   }) {
     return NetworkSettingsTableCompanion(
       id: id ?? this.id,
       cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
       radioStatusIntervalMinutes:
           radioStatusIntervalMinutes ?? this.radioStatusIntervalMinutes,
+      chartRefreshIntervalMinutes:
+          chartRefreshIntervalMinutes ?? this.chartRefreshIntervalMinutes,
     );
   }
 
@@ -544,6 +612,11 @@ class NetworkSettingsTableCompanion
         radioStatusIntervalMinutes.value,
       );
     }
+    if (chartRefreshIntervalMinutes.present) {
+      map['chart_refresh_interval_minutes'] = Variable<int>(
+        chartRefreshIntervalMinutes.value,
+      );
+    }
     return map;
   }
 
@@ -552,7 +625,8 @@ class NetworkSettingsTableCompanion
     return (StringBuffer('NetworkSettingsTableCompanion(')
           ..write('id: $id, ')
           ..write('cacheLimitMb: $cacheLimitMb, ')
-          ..write('radioStatusIntervalMinutes: $radioStatusIntervalMinutes')
+          ..write('radioStatusIntervalMinutes: $radioStatusIntervalMinutes, ')
+          ..write('chartRefreshIntervalMinutes: $chartRefreshIntervalMinutes')
           ..write(')'))
         .toString();
   }
@@ -8805,6 +8879,327 @@ class PlaylistRemoteTableCompanion extends UpdateCompanion<PlaylistRemoteRow> {
   }
 }
 
+class $ChartSettingsTableTable extends ChartSettingsTable
+    with TableInfo<$ChartSettingsTableTable, ChartSettingsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChartSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _pluginIdMeta = const VerificationMeta(
+    'pluginId',
+  );
+  @override
+  late final GeneratedColumn<String> pluginId = GeneratedColumn<String>(
+    'plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chartIdMeta = const VerificationMeta(
+    'chartId',
+  );
+  @override
+  late final GeneratedColumn<String> chartId = GeneratedColumn<String>(
+    'chart_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [pluginId, chartId, enabled, sortOrder];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chart_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChartSettingsRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('plugin_id')) {
+      context.handle(
+        _pluginIdMeta,
+        pluginId.isAcceptableOrUnknown(data['plugin_id']!, _pluginIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pluginIdMeta);
+    }
+    if (data.containsKey('chart_id')) {
+      context.handle(
+        _chartIdMeta,
+        chartId.isAcceptableOrUnknown(data['chart_id']!, _chartIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chartIdMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {pluginId, chartId};
+  @override
+  ChartSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChartSettingsRow(
+      pluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plugin_id'],
+      )!,
+      chartId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chart_id'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      ),
+    );
+  }
+
+  @override
+  $ChartSettingsTableTable createAlias(String alias) {
+    return $ChartSettingsTableTable(attachedDatabase, alias);
+  }
+}
+
+class ChartSettingsRow extends DataClass
+    implements Insertable<ChartSettingsRow> {
+  final String pluginId;
+  final String chartId;
+  final bool? enabled;
+  final int? sortOrder;
+  const ChartSettingsRow({
+    required this.pluginId,
+    required this.chartId,
+    this.enabled,
+    this.sortOrder,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['plugin_id'] = Variable<String>(pluginId);
+    map['chart_id'] = Variable<String>(chartId);
+    if (!nullToAbsent || enabled != null) {
+      map['enabled'] = Variable<bool>(enabled);
+    }
+    if (!nullToAbsent || sortOrder != null) {
+      map['sort_order'] = Variable<int>(sortOrder);
+    }
+    return map;
+  }
+
+  ChartSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return ChartSettingsTableCompanion(
+      pluginId: Value(pluginId),
+      chartId: Value(chartId),
+      enabled: enabled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(enabled),
+      sortOrder: sortOrder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sortOrder),
+    );
+  }
+
+  factory ChartSettingsRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChartSettingsRow(
+      pluginId: serializer.fromJson<String>(json['pluginId']),
+      chartId: serializer.fromJson<String>(json['chartId']),
+      enabled: serializer.fromJson<bool?>(json['enabled']),
+      sortOrder: serializer.fromJson<int?>(json['sortOrder']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'pluginId': serializer.toJson<String>(pluginId),
+      'chartId': serializer.toJson<String>(chartId),
+      'enabled': serializer.toJson<bool?>(enabled),
+      'sortOrder': serializer.toJson<int?>(sortOrder),
+    };
+  }
+
+  ChartSettingsRow copyWith({
+    String? pluginId,
+    String? chartId,
+    Value<bool?> enabled = const Value.absent(),
+    Value<int?> sortOrder = const Value.absent(),
+  }) => ChartSettingsRow(
+    pluginId: pluginId ?? this.pluginId,
+    chartId: chartId ?? this.chartId,
+    enabled: enabled.present ? enabled.value : this.enabled,
+    sortOrder: sortOrder.present ? sortOrder.value : this.sortOrder,
+  );
+  ChartSettingsRow copyWithCompanion(ChartSettingsTableCompanion data) {
+    return ChartSettingsRow(
+      pluginId: data.pluginId.present ? data.pluginId.value : this.pluginId,
+      chartId: data.chartId.present ? data.chartId.value : this.chartId,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChartSettingsRow(')
+          ..write('pluginId: $pluginId, ')
+          ..write('chartId: $chartId, ')
+          ..write('enabled: $enabled, ')
+          ..write('sortOrder: $sortOrder')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(pluginId, chartId, enabled, sortOrder);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChartSettingsRow &&
+          other.pluginId == this.pluginId &&
+          other.chartId == this.chartId &&
+          other.enabled == this.enabled &&
+          other.sortOrder == this.sortOrder);
+}
+
+class ChartSettingsTableCompanion extends UpdateCompanion<ChartSettingsRow> {
+  final Value<String> pluginId;
+  final Value<String> chartId;
+  final Value<bool?> enabled;
+  final Value<int?> sortOrder;
+  final Value<int> rowid;
+  const ChartSettingsTableCompanion({
+    this.pluginId = const Value.absent(),
+    this.chartId = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChartSettingsTableCompanion.insert({
+    required String pluginId,
+    required String chartId,
+    this.enabled = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : pluginId = Value(pluginId),
+       chartId = Value(chartId);
+  static Insertable<ChartSettingsRow> custom({
+    Expression<String>? pluginId,
+    Expression<String>? chartId,
+    Expression<bool>? enabled,
+    Expression<int>? sortOrder,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (pluginId != null) 'plugin_id': pluginId,
+      if (chartId != null) 'chart_id': chartId,
+      if (enabled != null) 'enabled': enabled,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChartSettingsTableCompanion copyWith({
+    Value<String>? pluginId,
+    Value<String>? chartId,
+    Value<bool?>? enabled,
+    Value<int?>? sortOrder,
+    Value<int>? rowid,
+  }) {
+    return ChartSettingsTableCompanion(
+      pluginId: pluginId ?? this.pluginId,
+      chartId: chartId ?? this.chartId,
+      enabled: enabled ?? this.enabled,
+      sortOrder: sortOrder ?? this.sortOrder,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (pluginId.present) {
+      map['plugin_id'] = Variable<String>(pluginId.value);
+    }
+    if (chartId.present) {
+      map['chart_id'] = Variable<String>(chartId.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChartSettingsTableCompanion(')
+          ..write('pluginId: $pluginId, ')
+          ..write('chartId: $chartId, ')
+          ..write('enabled: $enabled, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8846,6 +9241,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PlaylistEntriesTableTable(this);
   late final $PlaylistRemoteTableTable playlistRemoteTable =
       $PlaylistRemoteTableTable(this);
+  late final $ChartSettingsTableTable chartSettingsTable =
+      $ChartSettingsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -8890,6 +9287,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlistsTable,
     playlistEntriesTable,
     playlistRemoteTable,
+    chartSettingsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -9116,12 +9514,14 @@ typedef $$NetworkSettingsTableTableCreateCompanionBuilder =
       Value<int> id,
       Value<int?> cacheLimitMb,
       Value<int?> radioStatusIntervalMinutes,
+      Value<int?> chartRefreshIntervalMinutes,
     });
 typedef $$NetworkSettingsTableTableUpdateCompanionBuilder =
     NetworkSettingsTableCompanion Function({
       Value<int> id,
       Value<int?> cacheLimitMb,
       Value<int?> radioStatusIntervalMinutes,
+      Value<int?> chartRefreshIntervalMinutes,
     });
 
 class $$NetworkSettingsTableTableFilterComposer
@@ -9145,6 +9545,11 @@ class $$NetworkSettingsTableTableFilterComposer
 
   ColumnFilters<int> get radioStatusIntervalMinutes => $composableBuilder(
     column: $table.radioStatusIntervalMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chartRefreshIntervalMinutes => $composableBuilder(
+    column: $table.chartRefreshIntervalMinutes,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9172,6 +9577,11 @@ class $$NetworkSettingsTableTableOrderingComposer
     column: $table.radioStatusIntervalMinutes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get chartRefreshIntervalMinutes => $composableBuilder(
+    column: $table.chartRefreshIntervalMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NetworkSettingsTableTableAnnotationComposer
@@ -9193,6 +9603,11 @@ class $$NetworkSettingsTableTableAnnotationComposer
 
   GeneratedColumn<int> get radioStatusIntervalMinutes => $composableBuilder(
     column: $table.radioStatusIntervalMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get chartRefreshIntervalMinutes => $composableBuilder(
+    column: $table.chartRefreshIntervalMinutes,
     builder: (column) => column,
   );
 }
@@ -9243,20 +9658,24 @@ class $$NetworkSettingsTableTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int?> cacheLimitMb = const Value.absent(),
                 Value<int?> radioStatusIntervalMinutes = const Value.absent(),
+                Value<int?> chartRefreshIntervalMinutes = const Value.absent(),
               }) => NetworkSettingsTableCompanion(
                 id: id,
                 cacheLimitMb: cacheLimitMb,
                 radioStatusIntervalMinutes: radioStatusIntervalMinutes,
+                chartRefreshIntervalMinutes: chartRefreshIntervalMinutes,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 Value<int?> cacheLimitMb = const Value.absent(),
                 Value<int?> radioStatusIntervalMinutes = const Value.absent(),
+                Value<int?> chartRefreshIntervalMinutes = const Value.absent(),
               }) => NetworkSettingsTableCompanion.insert(
                 id: id,
                 cacheLimitMb: cacheLimitMb,
                 radioStatusIntervalMinutes: radioStatusIntervalMinutes,
+                chartRefreshIntervalMinutes: chartRefreshIntervalMinutes,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -15015,6 +15434,211 @@ typedef $$PlaylistRemoteTableTableProcessedTableManager =
       PlaylistRemoteRow,
       PrefetchHooks Function({bool playlistId})
     >;
+typedef $$ChartSettingsTableTableCreateCompanionBuilder =
+    ChartSettingsTableCompanion Function({
+      required String pluginId,
+      required String chartId,
+      Value<bool?> enabled,
+      Value<int?> sortOrder,
+      Value<int> rowid,
+    });
+typedef $$ChartSettingsTableTableUpdateCompanionBuilder =
+    ChartSettingsTableCompanion Function({
+      Value<String> pluginId,
+      Value<String> chartId,
+      Value<bool?> enabled,
+      Value<int?> sortOrder,
+      Value<int> rowid,
+    });
+
+class $$ChartSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ChartSettingsTableTable> {
+  $$ChartSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get chartId => $composableBuilder(
+    column: $table.chartId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChartSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChartSettingsTableTable> {
+  $$ChartSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get pluginId => $composableBuilder(
+    column: $table.pluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get chartId => $composableBuilder(
+    column: $table.chartId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChartSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChartSettingsTableTable> {
+  $$ChartSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get pluginId =>
+      $composableBuilder(column: $table.pluginId, builder: (column) => column);
+
+  GeneratedColumn<String> get chartId =>
+      $composableBuilder(column: $table.chartId, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+}
+
+class $$ChartSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChartSettingsTableTable,
+          ChartSettingsRow,
+          $$ChartSettingsTableTableFilterComposer,
+          $$ChartSettingsTableTableOrderingComposer,
+          $$ChartSettingsTableTableAnnotationComposer,
+          $$ChartSettingsTableTableCreateCompanionBuilder,
+          $$ChartSettingsTableTableUpdateCompanionBuilder,
+          (
+            ChartSettingsRow,
+            BaseReferences<
+              _$AppDatabase,
+              $ChartSettingsTableTable,
+              ChartSettingsRow
+            >,
+          ),
+          ChartSettingsRow,
+          PrefetchHooks Function()
+        > {
+  $$ChartSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $ChartSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChartSettingsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChartSettingsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChartSettingsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> pluginId = const Value.absent(),
+                Value<String> chartId = const Value.absent(),
+                Value<bool?> enabled = const Value.absent(),
+                Value<int?> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChartSettingsTableCompanion(
+                pluginId: pluginId,
+                chartId: chartId,
+                enabled: enabled,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String pluginId,
+                required String chartId,
+                Value<bool?> enabled = const Value.absent(),
+                Value<int?> sortOrder = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChartSettingsTableCompanion.insert(
+                pluginId: pluginId,
+                chartId: chartId,
+                enabled: enabled,
+                sortOrder: sortOrder,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ChartSettingsTableTable, ChartSettingsRow>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ChartSettingsTableTable,
+                    ChartSettingsRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChartSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChartSettingsTableTable,
+      ChartSettingsRow,
+      $$ChartSettingsTableTableFilterComposer,
+      $$ChartSettingsTableTableOrderingComposer,
+      $$ChartSettingsTableTableAnnotationComposer,
+      $$ChartSettingsTableTableCreateCompanionBuilder,
+      $$ChartSettingsTableTableUpdateCompanionBuilder,
+      (
+        ChartSettingsRow,
+        BaseReferences<
+          _$AppDatabase,
+          $ChartSettingsTableTable,
+          ChartSettingsRow
+        >,
+      ),
+      ChartSettingsRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -15063,4 +15687,6 @@ class $AppDatabaseManager {
       $$PlaylistEntriesTableTableTableManager(_db, _db.playlistEntriesTable);
   $$PlaylistRemoteTableTableTableManager get playlistRemoteTable =>
       $$PlaylistRemoteTableTableTableManager(_db, _db.playlistRemoteTable);
+  $$ChartSettingsTableTableTableManager get chartSettingsTable =>
+      $$ChartSettingsTableTableTableManager(_db, _db.chartSettingsTable);
 }

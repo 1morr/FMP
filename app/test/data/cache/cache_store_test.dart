@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,7 +31,10 @@ void main() {
 
         expect(harness.databaseFile.existsSync(), isTrue);
         expect(harness.files.existsSync(), isTrue);
-        expect(await store.watchUsage().first, {CacheCategory.image: 0});
+        expect(await store.watchUsage().first, {
+          CacheCategory.image: 0,
+          CacheCategory.chart: 0,
+        });
       },
     );
 
@@ -54,7 +58,10 @@ void main() {
       expect(lyrics.listSync(), hasLength(1));
       expect(harness.fileNames(), isEmpty);
       await put(harness.manager(store), 'https://example.test/a.jpg', 10);
-      expect(await store.watchUsage().first, {CacheCategory.image: 10});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 10,
+        CacheCategory.chart: 0,
+      });
       expect(
         harness.records(cacheLogTag).map((record) => record.message),
         contains('Failed to open the cache, starting it over'),
@@ -83,14 +90,20 @@ void main() {
 
         final store = await harness.open();
 
-        expect(await store.watchUsage().first, {CacheCategory.image: 0});
+        expect(await store.watchUsage().first, {
+          CacheCategory.image: 0,
+          CacheCategory.chart: 0,
+        });
         expect(
           harness.fileNames(),
           isEmpty,
           reason: 'its files are strays now',
         );
         await put(harness.manager(store), 'https://example.test/a.jpg', 10);
-        expect(await store.watchUsage().first, {CacheCategory.image: 10});
+        expect(await store.watchUsage().first, {
+          CacheCategory.image: 10,
+          CacheCategory.chart: 0,
+        });
         final reopened = sqlite3.open(
           harness.databaseFile.path,
           mode: OpenMode.readOnly,
@@ -124,7 +137,10 @@ void main() {
 
       final store = await harness.open();
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 10});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 10,
+        CacheCategory.chart: 0,
+      });
       expect(harness.fileNames(), hasLength(1));
       expect(harness.stagingEntries(), isEmpty);
       expect(
@@ -148,11 +164,17 @@ void main() {
       await at(1, () => put(a, 'https://example.test/1.jpg', 100));
       await at(2, () => put(b, 'https://example.test/2.jpg', 100));
       await at(3, () => put(a, 'https://example.test/3.jpg', 100));
-      expect(await store.watchUsage().first, {CacheCategory.image: 300});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 300,
+        CacheCategory.chart: 0,
+      });
 
       await at(4, () => put(b, 'https://example.test/4.jpg', 100));
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 300});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 300,
+        CacheCategory.chart: 0,
+      });
       expect(await a.getFileFromCache('https://example.test/1.jpg'), isNull);
       expect(harness.fileNames(), hasLength(3));
 
@@ -162,7 +184,10 @@ void main() {
 
       expect(await a.getFileFromCache('https://example.test/3.jpg'), isNull);
       expect(await b.getFileFromCache('https://example.test/2.jpg'), isNotNull);
-      expect(await store.watchUsage().first, {CacheCategory.image: 300});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 300,
+        CacheCategory.chart: 0,
+      });
       expect(
         harness.records(cacheLogTag).where((r) => r.message == 'Cache evicted'),
         hasLength(2),
@@ -178,7 +203,10 @@ void main() {
 
       await store.setLimit(150);
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 100});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 100,
+        CacheCategory.chart: 0,
+      });
       expect(
         await manager.getFileFromCache('https://example.test/2.jpg'),
         isNotNull,
@@ -197,7 +225,10 @@ void main() {
       await put(manager, 'https://example.test/1.jpg', 100);
       await put(manager, 'https://example.test/2.jpg', 100);
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 200});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 200,
+        CacheCategory.chart: 0,
+      });
       expect(harness.records(cacheLogTag), isEmpty);
     });
   });
@@ -217,7 +248,10 @@ void main() {
 
       await store.clear();
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 0});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 0,
+        CacheCategory.chart: 0,
+      });
       expect(harness.fileNames(), isEmpty);
       expect(
         await harness
@@ -263,7 +297,10 @@ void main() {
 
       await store.clear();
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 0});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 0,
+        CacheCategory.chart: 0,
+      });
     });
 
     test("removing a plugin deletes only that plugin's entries", () async {
@@ -279,7 +316,10 @@ void main() {
 
       await store.removePlugin('a');
 
-      expect(await store.watchUsage().first, {CacheCategory.image: 60});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 60,
+        CacheCategory.chart: 0,
+      });
       expect(await a.config.repo.getAllObjects(), isEmpty);
       expect(
         (await b.config.repo.getAllObjects()).map((object) => object.key),
@@ -289,6 +329,153 @@ void main() {
         ]),
       );
       expect(harness.fileNames(), hasLength(2));
+    });
+  });
+
+  // 不經圖片 cache manager 的類別（排行，M4 design §9.1）：`put`／`get`／`remove`。
+  group('entries of the chart category', () {
+    Uint8List bytes(int size, [int value = 1]) =>
+        Uint8List.fromList(List.filled(size, value));
+
+    test('what was put is read back, and the usage counts it', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+
+      await store.put(CacheCategory.chart, 'a', 'chart:a:hot', bytes(5, 7));
+
+      expect(
+        await store.get(CacheCategory.chart, 'a', 'chart:a:hot'),
+        bytes(5, 7),
+      );
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 0,
+        CacheCategory.chart: 5,
+      });
+      expect(harness.fileNames(), hasLength(1));
+    });
+
+    test('nothing, another plugin or another category is a miss', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+      await store.put(CacheCategory.chart, 'a', 'k', bytes(5));
+
+      expect(await store.get(CacheCategory.chart, 'a', 'other'), isNull);
+      expect(await store.get(CacheCategory.chart, 'b', 'k'), isNull);
+      expect(await store.get(CacheCategory.image, 'a', 'k'), isNull);
+    });
+
+    test(
+      'putting the same key replaces the content and the old file',
+      () async {
+        final harness = CacheHarness();
+        final store = await harness.open();
+        await store.put(CacheCategory.chart, 'a', 'k', bytes(5, 1));
+
+        await store.put(CacheCategory.chart, 'a', 'k', bytes(8, 2));
+
+        expect(await store.get(CacheCategory.chart, 'a', 'k'), bytes(8, 2));
+        expect(harness.fileNames(), hasLength(1));
+        expect((await store.watchUsage().first)[CacheCategory.chart], 8);
+      },
+    );
+
+    test('the same key under two plugins is two entries', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+
+      await store.put(CacheCategory.chart, 'a', 'k', bytes(3, 1));
+      await store.put(CacheCategory.chart, 'b', 'k', bytes(3, 2));
+
+      expect(await store.get(CacheCategory.chart, 'a', 'k'), bytes(3, 1));
+      expect(await store.get(CacheCategory.chart, 'b', 'k'), bytes(3, 2));
+    });
+
+    test('remove with a key deletes that entry and its file only', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+      await store.put(CacheCategory.chart, 'a', 'one', bytes(3));
+      await store.put(CacheCategory.chart, 'a', 'two', bytes(4));
+
+      await store.remove(CacheCategory.chart, 'a', key: 'one');
+
+      expect(await store.get(CacheCategory.chart, 'a', 'one'), isNull);
+      expect(await store.get(CacheCategory.chart, 'a', 'two'), isNotNull);
+      expect(harness.fileNames(), hasLength(1));
+    });
+
+    test('remove without a key deletes the plugin\'s entries of the category '
+        'and leaves images and other plugins alone', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+      await put(harness.manager(store), 'https://example.test/a.jpg', 10);
+      await store.put(CacheCategory.chart, 'a', 'one', bytes(3));
+      await store.put(CacheCategory.chart, 'a', 'two', bytes(4));
+      await store.put(CacheCategory.chart, 'b', 'one', bytes(5));
+
+      await store.remove(CacheCategory.chart, 'a');
+
+      expect(await store.get(CacheCategory.chart, 'a', 'one'), isNull);
+      expect(await store.get(CacheCategory.chart, 'a', 'two'), isNull);
+      expect(await store.get(CacheCategory.chart, 'b', 'one'), isNotNull);
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 10,
+        CacheCategory.chart: 5,
+      });
+      expect(harness.fileNames(), hasLength(2));
+    });
+
+    test('removing a plugin deletes its chart entries too', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+      await store.put(CacheCategory.chart, 'a', 'k', bytes(3));
+      await store.put(CacheCategory.chart, 'b', 'k', bytes(3));
+
+      await store.removePlugin('a');
+
+      expect(await store.get(CacheCategory.chart, 'a', 'k'), isNull);
+      expect(await store.get(CacheCategory.chart, 'b', 'k'), isNotNull);
+      expect(harness.fileNames(), hasLength(1));
+    });
+
+    test('an evicted entry is a miss, the oldest going first', () async {
+      final harness = CacheHarness();
+      final store = await harness.open(limitBytes: 10);
+      await at(1, () => store.put(CacheCategory.chart, 'a', 'old', bytes(6)));
+
+      await at(2, () => store.put(CacheCategory.chart, 'a', 'new', bytes(6)));
+
+      expect(await store.get(CacheCategory.chart, 'a', 'old'), isNull);
+      expect(await store.get(CacheCategory.chart, 'a', 'new'), isNotNull);
+    });
+
+    test('a file the system removed is a miss, not an error', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+      await store.put(CacheCategory.chart, 'a', 'k', bytes(3));
+      harness.files.deleteSync(recursive: true);
+
+      expect(await store.get(CacheCategory.chart, 'a', 'k'), isNull);
+    });
+
+    test('stored format: the category string is chart', () async {
+      final harness = CacheHarness();
+      final store = await harness.open();
+      await store.put(CacheCategory.chart, 'a', 'chart:a:hot', bytes(3));
+
+      final database = sqlite3.open(
+        harness.databaseFile.path,
+        mode: OpenMode.readOnly,
+      );
+      addTearDown(database.close);
+      final row = database
+          .select(
+            'SELECT key, category, plugin_id, size_bytes FROM cache_entries',
+          )
+          .single;
+      expect(row['key'], 'chart:a:hot');
+      expect(row['category'], 'chart');
+      expect(row['plugin_id'], 'a');
+      expect(row['size_bytes'], 3);
     });
   });
 
@@ -377,7 +564,10 @@ void main() {
       await at(2, () => put(manager, 'https://example.test/2.jpg', 600 * 1024));
 
       // 上限 1 MiB：第二張寫入後淘汰第一張。
-      expect(await store.watchUsage().first, {CacheCategory.image: 600 * 1024});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 600 * 1024,
+        CacheCategory.chart: 0,
+      });
     });
 
     test('a limit the user set replaces the platform default', () async {
@@ -398,6 +588,7 @@ void main() {
       // 上限 2 MiB（預設是 1）：兩張都留著。
       expect(await store.watchUsage().first, {
         CacheCategory.image: 1800 * 1024,
+        CacheCategory.chart: 0,
       });
     });
 

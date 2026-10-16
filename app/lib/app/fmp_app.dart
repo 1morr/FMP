@@ -8,6 +8,7 @@ import 'package:fmp/app/app_lifecycle.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/app/root_navigator.dart';
 import 'package:fmp/app/startup_maintenance.dart';
+import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/network/network_status.dart';
@@ -94,6 +95,8 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     );
     // 電台狀態工作跟著插件清單、電台清單與間隔設定登記到排程器（ADR 0031 §決定 6）。
     ref.listenManual(radioStatusJobsProvider, (_, _) {}, fireImmediately: true);
+    // 排行工作跟著插件清單、榜單設定與排行刷新間隔登記到排程器（M4 design §6.2）。
+    ref.listenManual(chartJobsProvider, (_, _) {}, fireImmediately: true);
     // 匯入歌單的自動刷新：一個 `playlist-refresh` 工作，每張歌單自己的間隔在資料庫（ADR 0033 §決定 4）。
     ref.listenManual(
       playlistRefreshJobProvider,

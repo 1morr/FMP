@@ -76,15 +76,30 @@ const forbiddenLayerImports = <String, List<String>>{
     'lib/scheduler',
     'lib/radio',
     'lib/library',
+    'lib/charts',
   ],
   // 介面讀播放（控制器、狀態 stream）；播放（含系統媒體控制的組裝）不認得介面。
   'lib/playback': ['lib/ui'],
   // 排程器只認得資料與網路狀態：它不知道誰登記工作（電台、插件），也不碰介面。
-  'lib/scheduler': ['lib/ui', 'lib/radio', 'lib/plugins', 'lib/library'],
+  'lib/scheduler': [
+    'lib/ui',
+    'lib/radio',
+    'lib/plugins',
+    'lib/library',
+    'lib/charts',
+  ],
   // 電台用資料、插件與排程器，背景工作不依賴介面。
   'lib/radio': ['lib/ui'],
   // 音樂庫（M4 design §2.2）：匯入、刷新要用資料、插件與排程器，同電台不依賴介面。
   'lib/library': ['lib/ui'],
+  // 排行（M4 design §2.2、§9.1）：同音樂庫不依賴介面，也不認得音樂庫；快取只經 `CacheStore`
+  // （`cache_store.dart`），不碰 `cache.db` 的表與資料庫類別。
+  'lib/charts': [
+    'lib/ui',
+    'lib/library',
+    'lib/data/cache/cache_tables.dart',
+    'lib/data/cache/cache_database.dart',
+  ],
 };
 
 const _upperLayers = [
@@ -96,6 +111,7 @@ const _upperLayers = [
   'lib/scheduler',
   'lib/radio',
   'lib/library',
+  'lib/charts',
 ];
 
 /// 只有自己目錄內能 import 的目錄（ADR 0010）。

@@ -24,6 +24,7 @@ import 'generated/schema_v13.dart' as v13;
 import 'generated/schema_v14.dart' as v14;
 import 'generated/schema_v15.dart' as v15;
 import 'generated/schema_v16.dart' as v16;
+import 'generated/schema_v17.dart' as v17;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1655,5 +1656,126 @@ void main() {
     addTearDown(db.close);
 
     await expectPlaylistRemoteSchema(db);
+  });
+
+  // v17 在 network_settings 加排行刷新間隔、建 chart_settings（M4 design §3.1、§3.3）：
+  // 既有的列原樣保留（使用者設定過的值不變），新欄位是空的＝沒設定過。
+  test('migration from v16 to v17 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 16,
+      newVersion: 17,
+      createOld: v16.DatabaseAtV16.new,
+      createNew: v17.DatabaseAtV17.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.networkSettings,
+          const v16.NetworkSettingsData(
+            id: 1,
+            cacheLimitMb: 512,
+            radioStatusIntervalMinutes: 3,
+          ),
+        );
+        batch.insert(
+          oldDb.sourceSettings,
+          const v16.SourceSettingsData(
+            pluginId: 'fmp-test',
+            browseAsLoggedIn: 1,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.networkSettings).get(), [
+          const v17.NetworkSettingsData(
+            id: 1,
+            cacheLimitMb: 512,
+            radioStatusIntervalMinutes: 3,
+          ),
+        ]);
+        expect(await newDb.select(newDb.sourceSettings).get(), [
+          const v17.SourceSettingsData(
+            pluginId: 'fmp-test',
+            browseAsLoggedIn: 1,
+          ),
+        ]);
+        expect(await newDb.select(newDb.chartSettings).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectChartSettingsSchema(AppDatabase db) async {
+    // 主鍵是（插件, 榜單）；兩個設定欄位都可空，空＝沒設定過；不建外鍵到 installed_plugins。
+    await db.customStatement(
+      'INSERT INTO chart_settings (plugin_id, chart_id, enabled, sort_order) '
+      "VALUES ('fmp-test', 'hot', 0, 2)",
+    );
+    await db.customStatement(
+      'INSERT INTO chart_settings (plugin_id, chart_id) '
+      "VALUES ('fmp-test', 'new')",
+    );
+    final rows = await db
+        .customSelect(
+          'SELECT plugin_id, chart_id, enabled, sort_order '
+          'FROM chart_settings ORDER BY chart_id',
+        )
+        .get();
+    expect(
+      [for (final row in rows) row.data],
+      [
+        {
+          'plugin_id': 'fmp-test',
+          'chart_id': 'hot',
+          'enabled': 0,
+          'sort_order': 2,
+        },
+        {
+          'plugin_id': 'fmp-test',
+          'chart_id': 'new',
+          'enabled': null,
+          'sort_order': null,
+        },
+      ],
+    );
+    await expectLater(
+      db.customStatement(
+        "INSERT INTO chart_settings (plugin_id, chart_id) VALUES ('fmp-test', 'hot')",
+      ),
+      throwsA(anything),
+    );
+    // 另一個插件的同名榜單是另一列。
+    await db.customStatement(
+      "INSERT INTO chart_settings (plugin_id, chart_id) VALUES ('other', 'hot')",
+    );
+  }
+
+  for (final from in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) {
+    test('migration from v$from to v17 adds chart_settings and the chart '
+        'interval column', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 17);
+
+      await expectChartSettingsSchema(db);
+      // 沒有設定過：新欄位是 NULL。
+      if (from >= 2) {
+        await db.customStatement(
+          'INSERT OR IGNORE INTO network_settings (id) VALUES (1)',
+        );
+        final interval = await db
+            .customSelect(
+              'SELECT chart_refresh_interval_minutes AS v FROM network_settings',
+            )
+            .getSingle();
+        expect(interval.data['v'], equals(null));
+      }
+      await db.close();
+    });
+  }
+
+  test('a new database has chart_settings', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectChartSettingsSchema(db);
   });
 }

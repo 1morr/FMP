@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/charts/chart_cache.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -13,6 +14,7 @@ import 'package:fmp/core/network/media_http_client.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/chart_settings_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
@@ -791,6 +793,15 @@ void main() {
           );
           await SourceSettingsRepository(harness.database)
               .setBrowseAsLoggedIn(id, value: false);
+          await ChartSettingsRepository(harness.database)
+              .setEnabled(id, 'hot', enabled: false);
+          await ChartCache(store).write(
+            (pluginId: id, chartId: 'hot'),
+            ChartCacheEntry(
+              fetchedAt: DateTime.utc(2026, 10, 16),
+              tracks: const [],
+            ),
+          );
         }
         const url = 'https://example.test/a.jpg';
         final manager = cacheHarness.manager(store, pluginId: 'plugin-a');
@@ -832,6 +843,25 @@ void main() {
         final settings = SourceSettingsRepository(harness.database);
         expect(await settings.browseAsLoggedIn('plugin-a'), isNull);
         expect(await settings.browseAsLoggedIn('plugin-b'), isFalse);
+        // 榜單設定與榜單快取：移除的插件沒有了，另一個插件的還在。
+        expect(
+          [
+            for (final setting in await ChartSettingsRepository(
+              harness.database,
+            ).watch().first)
+              setting.pluginId,
+          ],
+          ['plugin-b'],
+        );
+        final charts = ChartCache(store);
+        expect(
+          await charts.read((pluginId: 'plugin-a', chartId: 'hot')),
+          isNull,
+        );
+        expect(
+          await charts.read((pluginId: 'plugin-b', chartId: 'hot')),
+          isNotNull,
+        );
         expect(await manager.getFileFromCache(url), isNull);
         expect(await other.getFileFromCache(url), isNotNull);
         expect(registry.mediaClient('plugin-a'), isNull);
@@ -938,6 +968,7 @@ void main() {
           register: registry.register,
           unregister: registry.unregister,
           removeAccount: (_) async {},
+          removeChartSettings: (_) async {},
           removeCache: (_) async {
             if (failures-- > 0) throw StateError('disk is gone');
           },
@@ -974,6 +1005,7 @@ void main() {
             await registry.unregister(id);
           },
           removeAccount: (_) async => steps.add('account'),
+          removeChartSettings: (_) async => steps.add('chartSettings'),
           removeCache: (_) async => steps.add('cache'),
           removeJobs: (_) => steps.add('jobs'),
         );
@@ -981,7 +1013,13 @@ void main() {
         await installer.remove('plugin-a');
 
         // ADR 0017 §決定 5「立即移除」：後面幾步的期間，到期的工作不會拿到已關閉的插件。
-        expect(steps, ['jobs', 'unregister', 'account', 'cache']);
+        expect(steps, [
+          'jobs',
+          'unregister',
+          'account',
+          'chartSettings',
+          'cache',
+        ]);
       });
     });
   });

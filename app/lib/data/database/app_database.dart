@@ -42,6 +42,7 @@ part 'app_database.g.dart';
     PlaylistsTable,
     PlaylistEntriesTable,
     PlaylistRemoteTable,
+    ChartSettingsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -49,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -158,6 +159,14 @@ class AppDatabase extends _$AppDatabase {
             },
             from15To16: (m, schema) async {
               await m.create(schema.playlistRemote);
+            },
+            from16To17: (m, schema) async {
+              // 既有的列這一欄是空的＝沒設定過，預設只在 Notifier 套用。
+              await m.addColumn(
+                schema.networkSettings,
+                schema.networkSettings.chartRefreshIntervalMinutes,
+              );
+              await m.create(schema.chartSettings);
             },
           ),
         );

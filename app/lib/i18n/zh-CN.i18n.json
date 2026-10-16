@@ -623,6 +623,10 @@
     "radioIntervalHint": "多久查一次电台是否开播；App 在后台或离线时不查。",
     "radioIntervalOff": "关闭",
     "radioIntervalMinutes": "{minutes} 分钟",
+    "chartInterval": "排行刷新间隔",
+    "chartIntervalHint": "多久更新一次首页的排行；App 在后台或离线时不更新。",
+    "chartIntervalOff": "关闭",
+    "chartIntervalMinutes": "{minutes} 分钟",
     "optionDefault": "{label}（默认）"
   },
   "radio": {

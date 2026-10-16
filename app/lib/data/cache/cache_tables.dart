@@ -11,6 +11,9 @@ import 'package:fmp/data/database/converters.dart';
 enum CacheCategory {
   /// 封面與其他圖片。
   image,
+
+  /// 首頁排行的榜單內容（M4 design §9.1）：一個榜單一份 JSON。
+  chart,
 }
 
 /// [CacheCategory] ↔ `image`。字串寫死，理由同主資料庫的 `converters.dart`。
@@ -21,6 +24,7 @@ final class CacheCategoryConverter
   @override
   CacheCategory fromSql(String fromDb) => switch (fromDb) {
     'image' => CacheCategory.image,
+    'chart' => CacheCategory.chart,
     _ => throw FormatException(
       'Unknown cache category in the database',
       fromDb,
@@ -30,6 +34,7 @@ final class CacheCategoryConverter
   @override
   String toSql(CacheCategory value) => switch (value) {
     CacheCategory.image => 'image',
+    CacheCategory.chart => 'chart',
   };
 }
 

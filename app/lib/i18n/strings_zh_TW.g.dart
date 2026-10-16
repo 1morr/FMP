@@ -2063,6 +2063,18 @@ class Translations$network$zh_TW {
   /// zh-TW: '{minutes} 分鐘'
   String radioIntervalMinutes({required Object minutes}) => '${minutes} 分鐘';
 
+  /// zh-TW: '排行刷新間隔'
+  String get chartInterval => '排行刷新間隔';
+
+  /// zh-TW: '多久更新一次首頁的排行；App 在背景或離線時不更新。'
+  String get chartIntervalHint => '多久更新一次首頁的排行；App 在背景或離線時不更新。';
+
+  /// zh-TW: '關閉'
+  String get chartIntervalOff => '關閉';
+
+  /// zh-TW: '{minutes} 分鐘'
+  String chartIntervalMinutes({required Object minutes}) => '${minutes} 分鐘';
+
   /// zh-TW: '{label}（預設）'
   String optionDefault({required Object label}) => '${label}（預設）';
 }

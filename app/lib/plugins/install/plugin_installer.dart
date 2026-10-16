@@ -24,6 +24,7 @@ final pluginInstallerProvider = Provider<PluginInstaller>(
     unregister: (id) =>
         ref.read(pluginRegistryProvider.notifier).unregister(id),
     removeAccount: ref.read(accountServiceProvider).removePlugin,
+    removeChartSettings: ref.read(chartSettingsRepositoryProvider).removePlugin,
     removeJobs: ref.read(backgroundSchedulerProvider.notifier).unregisterPlugin,
     removeCache: (id) async {
       final CacheStore store;
@@ -64,6 +65,7 @@ final class PluginInstaller {
     required this._register,
     required this._unregister,
     required this._removeAccount,
+    required this._removeChartSettings,
     required this._removeCache,
     required this._removeJobs,
     this._now = DateTime.now,
@@ -74,6 +76,7 @@ final class PluginInstaller {
   final Future<void> Function(SourcePlugin plugin) _register;
   final Future<void> Function(String pluginId) _unregister;
   final Future<void> Function(String pluginId) _removeAccount;
+  final Future<void> Function(String pluginId) _removeChartSettings;
   final Future<void> Function(String pluginId) _removeCache;
   final void Function(String pluginId) _removeJobs;
   final DateTime Function() _now;
@@ -113,7 +116,7 @@ final class PluginInstaller {
   /// 「立即」：放在第一步，後面幾步的期間到期的工作不會拿到已關閉的插件）→ 關閉
   /// runtime → 憑證與遮蔽登記、登入 WebView 的 cookie、帳號、每音源設定
   /// （`AccountService.removePlugin`，WebView 那一步要讀 `installed_plugins` 的
-  /// manifest，所以在刪列之前）→ 刪快取項目 → 刪 `installed_plugins` 列
+  /// manifest，所以在刪列之前）→ 榜單設定（`chart_settings`）→ 刪快取項目 → 刪 `installed_plugins` 列
   /// （`plugin_storage` 由外鍵 cascade）。曲目與電台保留。
   ///
   /// 每一步都可重複：中途失敗就停在那一步並丟出錯誤，再呼叫一次從頭跑完。
@@ -122,6 +125,7 @@ final class PluginInstaller {
       _removeJobs(pluginId);
       await _unregister(pluginId);
       await _removeAccount(pluginId);
+      await _removeChartSettings(pluginId);
       await _removeCache(pluginId);
       await _repository.remove(pluginId);
     } on Object catch (error, stackTrace) {

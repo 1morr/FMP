@@ -623,6 +623,10 @@
     "radioIntervalHint": "How often stations are checked for going live; not while FMP is in the background or offline.",
     "radioIntervalOff": "Off",
     "radioIntervalMinutes": "{minutes} min",
+    "chartInterval": "Charts refresh",
+    "chartIntervalHint": "How often the charts on Home are updated; not while FMP is in the background or offline.",
+    "chartIntervalOff": "Off",
+    "chartIntervalMinutes": "{minutes} min",
     "optionDefault": "{label} (default)"
   },
   "radio": {

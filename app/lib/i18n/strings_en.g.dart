@@ -1584,6 +1584,15 @@ class Translations$network$en extends Translations$network$zh_TW {
   @override
   String radioIntervalMinutes({required Object minutes}) => '${minutes} min';
   @override
+  String get chartInterval => 'Charts refresh';
+  @override
+  String get chartIntervalHint =>
+      'How often the charts on Home are updated; not while FMP is in the background or offline.';
+  @override
+  String get chartIntervalOff => 'Off';
+  @override
+  String chartIntervalMinutes({required Object minutes}) => '${minutes} min';
+  @override
   String optionDefault({required Object label}) => '${label} (default)';
 }
 

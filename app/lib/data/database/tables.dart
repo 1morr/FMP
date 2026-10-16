@@ -44,6 +44,9 @@ class NetworkSettingsTable extends Table {
   /// 電台狀態刷新間隔（分）；`0`＝關閉，空＝預設（ADR 0017 §決定 6、M3 design §3.3）。
   late final radioStatusIntervalMinutes = integer().nullable()();
 
+  /// 排行刷新間隔（分）；`0`＝關閉，空＝預設 60（ADR 0017 §決定 6、M4 design §3.3）。
+  late final chartRefreshIntervalMinutes = integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -511,4 +514,22 @@ class PlaylistRemoteTable extends Table {
   List<Set<Column<Object>>> get uniqueKeys => [
     {pluginId, remoteId},
   ];
+}
+
+/// 首頁排行的榜單設定（M4 design §3.1、§3.3）：每個（插件, 榜單）一列，只有使用者動過才有。
+/// 沒有外鍵到 `installed_plugins`（移除插件時由 `PluginInstaller.remove` 刪，同 `source_settings`）；
+/// 插件拿掉的榜單的列留著無害，讀時以 `chartList` 為準。`enabled` 空＝啟用，`sort_order` 空＝
+/// 依插件清單與 `chartList` 的順序。
+@DataClassName('ChartSettingsRow')
+class ChartSettingsTable extends Table {
+  @override
+  String get tableName => 'chart_settings';
+
+  late final pluginId = text()();
+  late final chartId = text()();
+  late final enabled = boolean().nullable()();
+  late final sortOrder = integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {pluginId, chartId};
 }

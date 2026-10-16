@@ -43,7 +43,10 @@ void main() {
         expect(object.validTill, DateTime.utc(2026, 10, 2, 12, 2));
         expect(object.relativePath, endsWith('.png'));
         expect(harness.fileNames(), {object.relativePath});
-        expect(await store.watchUsage().first, {CacheCategory.image: 6});
+        expect(await store.watchUsage().first, {
+          CacheCategory.image: 6,
+          CacheCategory.chart: 0,
+        });
         // 下載好的檔案交出去之後，staging/ 不留東西。
         expect(harness.stagingEntries(), isEmpty);
       },
@@ -140,7 +143,10 @@ void main() {
         ),
         isNot(contains('if-none-match')),
       );
-      expect(await store.watchUsage().first, {CacheCategory.image: 1});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 1,
+        CacheCategory.chart: 0,
+      });
       expect(harness.fileNames(), hasLength(1));
     });
   });
@@ -152,7 +158,10 @@ void main() {
     ) async {
       expect(harness.fileNames(), isEmpty);
       expect(harness.stagingEntries(), isEmpty);
-      expect(await store.watchUsage().first, {CacheCategory.image: 0});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 0,
+        CacheCategory.chart: 0,
+      });
     }
 
     test(
@@ -279,7 +288,10 @@ void main() {
       expect((await a.config.repo.get(_url))!.length, fileA.lengthSync());
       expect((await b.config.repo.get(_url))!.length, fileB.lengthSync());
       expect(harness.fileNames(), hasLength(2));
-      expect(await store.watchUsage().first, {CacheCategory.image: 8});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 8,
+        CacheCategory.chart: 0,
+      });
       expect(harness.stagingEntries(), isEmpty);
     });
   });
@@ -317,7 +329,10 @@ void main() {
           2,
           () => manager.getSingleFile('https://cdn.example/other.png'),
         );
-        expect(await store.watchUsage().first, {CacheCategory.image: 100});
+        expect(await store.watchUsage().first, {
+          CacheCategory.image: 100,
+          CacheCategory.chart: 0,
+        });
 
         await at(3, () => manager.getSingleFile(_url));
         expect(harness.adapter.requests.map((request) => request.uri.path), [
@@ -325,7 +340,10 @@ void main() {
           '/other.png',
           '/cover.png',
         ]);
-        expect(await store.watchUsage().first, {CacheCategory.image: 100});
+        expect(await store.watchUsage().first, {
+          CacheCategory.image: 100,
+          CacheCategory.chart: 0,
+        });
         expect(harness.fileNames(), hasLength(1));
       },
     );
@@ -385,6 +403,7 @@ void main() {
         expect(again!.relativePath, stale.relativePath);
         expect(await store.watchUsage().first, {
           CacheCategory.image: stale.length,
+          CacheCategory.chart: 0,
         });
       },
     );
@@ -405,7 +424,10 @@ void main() {
       await repo.updateOrInsert(seen);
 
       expect(await repo.get(_url), isNull);
-      expect(await store.watchUsage().first, {CacheCategory.image: 0});
+      expect(await store.watchUsage().first, {
+        CacheCategory.image: 0,
+        CacheCategory.chart: 0,
+      });
     });
   });
 
@@ -417,7 +439,10 @@ void main() {
 
     await put(harness.manager(store), _url, 50);
 
-    expect(await store.watchUsage().first, {CacheCategory.image: 50});
+    expect(await store.watchUsage().first, {
+      CacheCategory.image: 50,
+      CacheCategory.chart: 0,
+    });
     expect(harness.fileNames(), hasLength(1));
   });
 
