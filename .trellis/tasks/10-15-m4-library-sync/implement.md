@@ -41,7 +41,7 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–16、20（FMP #272–#289 與 PR 15；fmp-plugins #16–#21 與 PR 15）。M4a 剩驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
+- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–16、20（FMP #272–#289 與 PR 15；fmp-plugins #16–#22）。M4a 剩驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
 - **下一步**：M4a 驗收（擁有者在場；先問時間）。驗收前先把不需要擁有者的部分做完：ADR 測試對照（`research/m4-adr-tests.md` 的 M4a 段）、`milestones.md`、`app/AGENTS.md` 的 opus 審查。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
@@ -195,7 +195,7 @@
 
 ## 11. Mix 歌單（design §5.4）
 
-- [ ] 匯入對話框的 `mixSeed` → `mix({seed})` 一次 → 建 `kind = mix` 的列；歌單卡與詳情的「Mix 播放」（`startMixFrom`）、編輯名稱、刪除；插件不可用時停用。
+- [x] 匯入對話框的 `mixSeed` → `mix({seed})` 一次 → 建 `kind = mix` 的列；歌單卡與詳情的「Mix 播放」（`startMixFrom`）、編輯名稱、刪除；插件不可用時停用。
 - 測試：建立（插件沒宣告 `mix` 時不可能拿到 `mixSeed`，PR 6 已守）、Mix 播放取代佇列並進 `mix` 模式、詳情不列曲目、停用的狀態。
 - 實測：重播（Android）：`https://fmp.test/mix/<id>` 建一張 → Mix 播放 → 補歌一次。真實（YouTube 匿名，Android）：`mix:<videoId>` 建一張 → Mix 播放一首。
 - 依賴：7、8b。模型：sonnet（M3 的 `startMixFrom` 已有）。
@@ -270,9 +270,9 @@
 | 0012 | 私人歌單重送 `required`（各插件 Node 測試）；`libraryRead`／`libraryWrite` 未登入不出現入口 | 7、9、13、14 |
 | 0018 | 歌單「全部」與「隨機加入」的 10,000 首上限整批拒絕 | 2、3 |
 
-- [ ] 上表逐項在 PR 描述或測試檔找到對應，寫進 `research/m4-adr-tests.md` 的 M4a 段。
+- [x] 上表逐項在 PR 描述或測試檔找到對應，寫進 `research/m4-adr-tests.md` 的 M4a 段（48 項：47 有、1 部分；缺口在該檔末段）。
 - [ ] `milestones.md` 的 M4a 狀態與勾選。
-- [ ] `app/AGENTS.md` 的資料層、插件、排程器、介面、音樂庫段落與實際一致（逐條有閘門或標明「沒有閘門，review 時看」），opus 審查一次。
+- [x] `app/AGENTS.md` 的資料層、插件、排程器、介面、音樂庫段落與實際一致（逐條有閘門或標明「沒有閘門，review 時看」），opus 審查一次。
 
 ## M4b 外部匯入、排行與備份
 
