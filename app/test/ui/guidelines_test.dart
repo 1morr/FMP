@@ -40,6 +40,7 @@ import 'package:fmp/ui/debug/debug_playback.dart';
 import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
+import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/track_detail_parts.dart';
 import 'package:fmp/ui/player/track_details.dart';
@@ -1818,6 +1819,242 @@ void main() {
           await h.settle(tester);
           await tester.pumpAndSettle();
           expect(find.text('Install Gamma?'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // M4 PR 13–15 的畫面：帳號歌單頁、帳號卡的「⋯」選單、加入／移除遠端歌單的對話框。
+      for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        final width = size.width;
+
+        // 帳號卡：真的腳本插件（QuickJS）、已登入；[rooms] 給了就匯出 `libraryLiveRooms`，
+        // [imported] 時先匯入一張歌單（帳號歌單頁的「已匯入」列）。
+        Future<PluginPageHarness> openAccountCard(
+          WidgetTester tester, {
+          bool rooms = false,
+          bool imported = false,
+        }) async {
+          const id = 'plugin-l';
+          final h = await PluginPageHarness.create(tester);
+          await tester.runAsync(
+            () => h.install(
+              pluginSource(
+                '''
+export function search() { return { items: [], hasMore: false }; }
+export function loginVerify() { return { userId: 'u', displayName: 'Someone' }; }
+export function liveSearch() { return { items: [], hasMore: false }; }
+export function liveRoomFromUrl() { return null; }
+export function liveStatus() { throw { fmpError: 'NotFound' }; }
+export function resolveLive() { return { candidates: [] }; }
+export function playlistFromUrl() { return null; }
+export function importPlaylist(query) {
+  return { playlist: { title: 'Remote' }, items: [], cursor: null, total: 0 };
+}
+export function libraryPlaylists(query) {
+  return { playlists: [
+    { playlistId: 'a', title: 'Road trip', trackCount: 3, writable: true },
+    { playlistId: 'old', title: 'Already here', trackCount: 5, writable: false },
+  ], cursor: null };
+}
+${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
+''',
+                id: id,
+                capabilities: [
+                  'search',
+                  'live',
+                  'libraryRead',
+                  'login',
+                  'importPlaylist',
+                ],
+                login: '{"methods": ["cookie"]}',
+              ),
+            ),
+          );
+          if (imported) {
+            await tester.runAsync(
+              () => PlaylistRepository(h.plugins.database).createImported(
+                pluginId: id,
+                remoteId: 'old',
+                info: const RemotePlaylistInfo(name: 'Imported earlier'),
+              ),
+            );
+          }
+          // 憑證的存取在假時間 zone 裡跑（見 PluginPageHarness.create）。
+          unawaited(
+            h.plugins.credentials.save(
+              Account(
+                pluginId: id,
+                userId: 'u',
+                displayName: 'Someone',
+                status: AccountStatus.active,
+                loggedInAt: DateTime.utc(2026, 10, 20),
+              ),
+              const LoginCredentials(cookies: {'SESSDATA': 'FAKE_SESSDATA'}),
+            ),
+          );
+          await tester.pump();
+          await h.shell.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.settle(tester);
+          // 窄版先是分組清單。
+          if (find.text('Plugin plugin-l').evaluate().isEmpty) {
+            await tester.tap(find.text('Accounts'));
+            await h.settle(tester);
+          }
+          await tester.pumpAndSettle();
+          expect(find.text('Plugin plugin-l'), findsOneWidget);
+          return h;
+        }
+
+        testWidgets('the account playlists page at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openAccountCard(tester, imported: true);
+          await tester.tap(
+            find.ancestor(
+              of: find.text('Playlists'),
+              matching: find.bySubtype<ButtonStyleButton>(),
+            ),
+          );
+          await h.settle(tester);
+          await h.settle(tester);
+          await tester.pump(const Duration(seconds: 1));
+          expect(find.text('Road trip'), findsOneWidget);
+          expect(find.text('Already here'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the account card menu at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openAccountCard(tester, rooms: true);
+          await tester.tap(
+            find.descendant(
+              of: find.ancestor(
+                of: find.text('Plugin plugin-l'),
+                matching: find.byType(Card),
+              ),
+              matching: find.byTooltip('More options'),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text('Import live rooms from account'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 加入／移除遠端歌單：插件現在能寫遠端（以 override 決定）。
+        ShellHarness remoteHarness() => ShellHarness(
+          libraryRead: true,
+          libraryWrite: true,
+          registryOfSources: true,
+          extraOverrides: [
+            remoteWritablePluginsProvider.overrideWithValue(const {'fmp-test'}),
+          ],
+        );
+
+        Future<void> openSongMenuItem(WidgetTester tester, String item) async {
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.widgetWithText(ListTile, 'Song a'),
+                  matching: find.byTooltip('More options'),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(MenuItemButton, item));
+          await tester.pump();
+          await tester.pump();
+          await tester.pumpAndSettle();
+        }
+
+        testWidgets('the add to remote playlist dialog at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = remoteHarness();
+          h.plugin.onLibraryPlaylists = (query) => const LibraryPlaylistPage(
+            playlists: [
+              LibraryPlaylist(
+                playlistId: 'p1',
+                title: 'Road trip',
+                writable: true,
+                trackCount: 3,
+              ),
+              LibraryPlaylist(
+                playlistId: 'p2',
+                title: 'Study',
+                writable: true,
+                trackCount: 1,
+              ),
+              LibraryPlaylist(
+                playlistId: 'p3',
+                title: 'Late night',
+                writable: true,
+              ),
+            ],
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.enterText(find.byType(TextField), 'song');
+          await tester.testTextInput.receiveAction(TextInputAction.search);
+          await tester.pump();
+          await tester.pump();
+          await openSongMenuItem(tester, 'Add to remote playlist…');
+          await tester.tap(find.widgetWithText(CheckboxListTile, 'Road trip'));
+          // 輸入框沒有焦點：游標閃爍會讓對比度的取樣時好時壞。
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+          expect(find.text('Add to remote playlist'), findsOneWidget);
+          expect(find.text('Study'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the remove from remote playlist confirmation at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = remoteHarness();
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.library,
+          );
+          await tester.runAsync(() async {
+            final container = h.container(tester);
+            final repository = container.read(playlistRepositoryProvider);
+            final id = (await repository.createImported(
+              pluginId: 'fmp-test',
+              remoteId: 'r1',
+              info: const RemotePlaylistInfo(name: 'Road'),
+            ))!;
+            final track = summary('a').toTrackInfo();
+            await repository.addTracks(id, [track]);
+            await repository.setWritable(id, writable: true);
+            await container.read(appDatabaseProvider).customStatement(
+              'UPDATE playlist_entries SET remote_item_id = ? '
+              'WHERE track_key = ?',
+              ['ra', '${track.key}'],
+            );
+          });
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Road'));
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          await openSongMenuItem(tester, 'Remove from the remote playlist');
+          expect(find.text('Remove from the remote playlist?'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
