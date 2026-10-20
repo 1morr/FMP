@@ -496,7 +496,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`migration_test.dart` 的 `migration from v15 to v16 keeps existing data`、`migration from v<N> to v16 adds playlist_remote`（v1–v15 各一例：
   預設值與狀態字串、唯一鍵、連帶刪除）與 `a new database has playlist_remote`、`playlist_remote_repository_test.dart`。
 - `chart_settings` 與 `network_settings.chart_refresh_interval_minutes` 是 schema v17（M4 design §3.1、§3.3，PR 20）：`chart_settings` 主鍵（`plugin_id`,
-  `chart_id`），`enabled` 空＝啟用、`sort_order` 空＝依插件清單與 `chartList` 的順序（設定頁在 PR 21，現在只有 `enabled` 有寫入口）；沒有外鍵到
+  `chart_id`），`enabled` 空＝啟用、`sort_order` 空＝依插件清單與 `chartList` 的順序（設定頁在 M4 PR 21，現在只有 `enabled` 有寫入口）；沒有外鍵到
   `installed_plugins`，移除插件時 `PluginInstaller.remove` 的 `removeChartSettings` 步驟刪（在帳號之後、快取之前），插件拿掉的榜單的列留著。
   `chart_refresh_interval_minutes` 空＝沒設定過（預設 60 在 Notifier，§ 設定）。寫入口是 `ChartSettingsRepository`（`watch`、`setEnabled` 保留該列的排序、
   `removePlugin`）。閘門：`migration_test.dart` 的 `migration from v16 to v17 keeps existing data`（使用者設定過的網路與每音源設定不變）、
@@ -958,7 +958,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `libraryRead`（ADR 0032 §決定 3；宿主端的帳號頁見 § 介面的帳號頁）：`libraryPlaylists({cursor?})` 回 `{playlists: [{playlistId, title, artwork?, trackCount?, writable}], cursor}`：
   `playlistId`、`title` 不空，同一頁 `playlistId` 不重複，`trackCount` 非負，`writable` 必填，`artwork` 同 `TrackSummary`（`Artwork[]`，網域在 `allowedHosts`），
   `cursor` 沒有或 `null` 是最後一頁（空字串拒收）。請求 `auth: 'required'`，沒登入是 `AuthRequired`。宿主讀完所有頁才顯示（最多
-  `maxAccountPlaylistPages` ＝ 20 頁，超過停下並記 `library` warning）。閘門：`library_read_capability_test.dart`（四種拒載、回傳值驗證各拒收一例、
+  `maxAccountPlaylistPages` ＝ 20 頁，超過停下並記 `library` warning；閘門見 § 介面的帳號頁「歌單」）。閘門：`library_read_capability_test.dart`（四種拒載、回傳值驗證各拒收一例、
   `requiresLogin` 案例的形狀）、`type_definitions_test.dart` 的 `the libraryRead exports…`、`the libraryRead fields…`（都含變異），fmp-test 的歌單由
   `test_plugin_bundle_test.dart` 的 `libraryRead` 守。
 - `libraryWrite`（ADR 0032 §決定 4；宿主端見 § 遠端寫入）：`createPlaylist({title})` 回 `{playlistId}`（`title` 宿主已去頭尾空白、不空，`playlistId` 不空）；
@@ -1124,7 +1124,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   實機驗證，登入後的 `libraryLiveRooms` 回五個直播間（同 `liveSearch`；給「從帳號匯入電台」），登入後的關鍵字 `expired`（刷新後成功）、`expired-hard`（刷新也被拒、轉成已失效）與啟動刷新（`unchanged`）給失效與
   刷新的實機驗證。它不發請求，
   帶不帶憑證要看 `account_service_test.dart`（細節在 `test_plugin/README.md`）。閘門：
-  `test/plugins/test_plugin_bundle_test.dart`（搜尋與播放的關鍵字、只在 dev 打包）；登入只有 `checks.json` 的 `login` 案例經
+  `test/plugins/test_plugin_bundle_test.dart`（搜尋與播放的關鍵字、只在 dev 打包；登入後的五個直播間是 `libraryLiveRooms` 群組）；登入只有 `checks.json` 的 `login` 案例經
   `contract_test.dart` 跑 `loginVerify`，QR、`expired`、`expired-hard` 沒有閘門，實機驗。第二個測試插件
   `http_test_plugin/`（`fmp-test-http`）會發請求（`*.fmp.test`），只給契約執行器，不打包。
 - 插件目錄（契約檢查與 App 內開發工具的單位；讀取在 `lib/plugins/dev/plugin_folder.dart`）：剛好一個 `.js` 安裝檔、`checks.json`（鍵是能力名稱，所以每能力最多
@@ -1213,7 +1213,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   沒有上次成功時間的工作視為已到期（App 啟動視同變可見），但啟動時先等網路狀態的第一次介面檢查（`whenFirstChecked`；狀態預設是
   `online`），離線啟動才不會先發出去。全域同時最多 2 個。
 - 週期計時器只准在 `lib/scheduler/` 與 `lib/playback/`（lint `fmp_periodic_timer_owner`）；排程器不 import `ui/`、`radio/`、
-  `plugins/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`fmp_layer_imports` 的 `forbiddenLayerImports`）。
+  `plugins/`、`library/`、`charts/`（它不認得登記工作的人），`core/`、`domain/`、`data/` 不 import `scheduler/`（`fmp_layer_imports` 的
+  `forbiddenLayerImports`，案例見 § Lint）。
 - 閘門：`test/scheduler/background_scheduler_test.dart`（ADR 0017 §如何確認的七項、同插件依序、全域最多 2 個、手動刷新排隊與
   排隊中結束、取代與移除時的過期、手動失敗不提早自動跑、錯誤經 `report`、等第一次介面檢查），`plugin_registry_test.dart` 的 `disabling a plugin removes its scheduler jobs…`，
   `plugin_installer_test.dart` 的 `removing`（工作最先移除、中途失敗重跑可完成）。排程器在真機上的行為（最小化、切到背景、
@@ -1234,6 +1235,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   的那次（工作每次跑都重讀清單）。不在 `onDispose` 移除工作：生命週期裡不能碰別的 provider，它跟排程器一樣常駐到 App 結束。
 - **手動刷新**（`RadioService.refresh`）對每個登記中的工作 `runNow`；離線回 `offline`（沒有發請求），某個插件的工作全部失敗時錯誤在全部
   結束後重新丟出，由呼叫端提示。
+- **從帳號匯入**（`AccountLiveImporter`，`account_live_import.dart`）：規則與閘門寫在 § 介面的帳號頁「從帳號匯入電台」。
 - 閘門：`test/radio/radio_test.dart`（以網址新增：第一個認得的勝出、都不認得、用長號判斷重複、停用或沒有 `live` 的插件不會被問到、插件失敗不寫入、不是 `AppError` 的失敗包成 `UnexpectedError`；加為電台與重複；
   四種狀態；狀態工作：依序查並存、單一失敗只標那一列且工作不退避、全部失敗退避、過期結果被丟掉、停用／重新啟用／電台增減／間隔改變（含 0 只關排程不關手動）、
   離線不跑；手動刷新三種結果與錯誤）、`radio_repository_test.dart`。
@@ -1245,7 +1247,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 - **匯入**（`PlaylistImporter.importUrl`；帳號頁用 `importPlaylistId(pluginId, playlistId, {writable})`，不經網址；`writable` 是 `libraryPlaylists` 給的權威值，匯入成功後（新建或既有那列）寫進 `playlist_remote.writable`（網易、YouTube 的 `importPlaylist` 不給，否則建列存成假；之後刷新 page 的 `writable` 為 `null` 時保留），閘門 `playlist_importer_test.dart` 的 `the writable hint`；插件不在清單或沒宣告 `importPlaylist` 是 `Unsupported`，其餘同下）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
   插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，交給 `createMix`，見下面）、`ImportMetadataOnly`
-  （插件沒有 `resolveStream`，PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
+  （插件沒有 `resolveStream`，M4 PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
   名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
   其餘頁由刷新器取。`importUrl` 與 `refresh` 的 `onProgress` 在每一頁寫進資料庫後收到已讀的項目數（匯入對話框的「已讀 n 首」）。
 - **Mix 歌單**（`PlaylistImporter.createMix(ImportMixSeed)`，ADR 0033 §決定 1、M4 design §5.4）：呼叫該插件的 `mix(seed)` 一次（驗證種子、`MixBatch.title` 當名稱），
@@ -1292,7 +1294,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `addToRemote(pluginId, tracks, playlistIds)`：每張目標一次 `addToPlaylist`（`sourceId`、`cid`；同一個曲目鍵只送一次，歷史的多選常有同一首，有的平台同一次呼叫會加兩次），依序做；一張整個失敗（拋錯）不影響其他張，記成那一張的結果
   （`RemoteAddOutcome`：`added`、`alreadyPresent`、`failed`、`error`；整個失敗時 `failed` ＝送出的曲目數）。有一首不屬於 `pluginId` 就整批不送（`ArgumentError`）：
   入口條件之外的最後一道，別的音源的 id 不會寫進這個帳號的歌單。
-- `removeFromRemote(playlistId /* 本地 */, entries)`：`removeFromPlaylist`（`sourceId`、`cid`、`remoteItemId`；`PlaylistEntry.remoteItemId` 是 PR 14 加的）。**整個呼叫失敗原樣丟
+- `removeFromRemote(playlistId /* 本地 */, entries)`：`removeFromPlaylist`（`sourceId`、`cid`、`remoteItemId`＝`PlaylistEntry.remoteItemId`）。**整個呼叫失敗原樣丟
   `AppError`，本地什麼都不動**；否則 `removed` 與 `notPresent` 的項目從本地刪（`PlaylistRepository.removeEntries`，匯入歌單的曲目只有這條路徑能本地刪），`failed` 的留著，
   列在 `RemoteRemoveOutcome.failures`。不是匯入歌單丟 `StateError`；送出前重讀 `playlist_remote`，已經不可寫（確認框開著時刷新寫了 `writable = false`）是 `Unsupported`、
   有一項的曲目不屬於這張歌單的插件是 `ArgumentError`，都不呼叫插件。
@@ -1330,7 +1332,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 排行
 
 `lib/charts/`（ADR 0032 §決定 5–7、ADR 0016 §決定 4、ADR 0017，M4 design §6.2、§9.1，PR 20）：首頁排行的榜單內容快取與 `charts:<pluginId>` 工作。同電台，要用資料、插件與排程器，所以是獨立的頂層目錄
-（lint 見 § Lint）；首頁與探索頁的呈現、設定頁的榜單排序與開關在 PR 21，目前只有測試讀 `chartContentProvider`、`chartFailuresProvider`、`ChartJobs.runNow`。
+（lint 見 § Lint）；首頁與探索頁的呈現、設定頁的榜單排序與開關在 M4 PR 21，目前只有測試讀 `chartContentProvider`、`chartFailuresProvider`、`ChartJobs.runNow`。
 
 - `ChartJobs`（`chart_jobs.dart`，`chartJobsProvider`，`FmpApp` 常駐）跟著插件清單、`chart_settings` 與排行刷新間隔，把 `charts:<pluginId>`（`chartJobId`，帶 `pluginId`）登記到排程器或移除：
   已啟用、宣告 `charts`、至少一個啟用榜單的插件各一個；間隔是 `network.chartRefreshInterval`，關閉（`null`）時 `interval: null`，只有 `runNow` 會跑。啟用榜單 = `chartList` 的榜單扣掉
@@ -1923,7 +1925,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 提示只經 `Toaster`（`toasterProvider`）：`SnackBar`、`ScaffoldMessenger.of` 等只准在
   `lib/ui/toast/`。閘門：lint `fmp_toast_entry`。`error` 只收 `AppError`，並自己
   `log.report`（被去重掉的也寫）。閘門：`test/ui/toast/toaster_test.dart`。背景工作不呼叫
-  `Toaster`：沒有閘門，review 時看。
+  `Toaster`：目前登記排程工作的 `radio/`、`library/`、`charts/`、`playback/` 都不准 import `ui/`（lint `fmp_layer_imports`），
+  拿不到它；從 `ui/` 或 `app/` 跑的背景工作沒有閘門，review 時看。
 - `ToastHost` 在 `MaterialApp.builder`，以自己的 `Overlay`、`ScaffoldMessenger`、透明
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
@@ -2168,7 +2171,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   帶年份，日期與時刻以 `MaterialLocalizations` 依介面語言格式化，時刻固定 24 小時制 `HH:mm`），每列是封面、
   曲名、「作者 · 播放時刻」（音源停用或未安裝時，原因取代作者；閘門：`history_page_test.dart` 的 `a song of a source that is not installed shows why in place of the artist`）。資料經 `historyProvider` 分頁讀（一次 50 筆，捲到底讀下一頁，歷史表有變動就重讀已載入的
   那麼多筆），一萬筆不一次載入；本機資料，離線照常可用、封面讀不到是佔位圖。點一列是臨時播放；選單（右鍵、
-  尾端「⋯」）有播放、下一首播放、加入佇列、從歷史移除、選取，長按是多選（見「多選」；全選只選已載入的紀錄）：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
+  尾端「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…、從歷史移除、選取，長按是多選（見「多選」；全選只選已載入的紀錄）：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
   提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
   在 notifier 不在 build，重建不重報），頁面以 `EmptyState` 加錯誤圖示顯示 `errorMessage` 的文字（資料庫錯誤是 `errors.unexpected`）。
   不做舊版的搜尋、統計、排序、日期篩選、折疊。閘門：`test/ui/history/history_page_test.dart`（`grouping by
@@ -2199,12 +2202,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   返回鈕、再點導覽項回根、換目的地保留內頁、Esc 先關內頁上的選單、對話框與播放頁先關）、`Ctrl+F from an inner page of another destination`、
   `Ctrl+F from an inner page of Search goes back to its root`、
   `integration_test/toast_layering_test.dart` 的 `a toast shows above a page in the nested navigation`。
-- 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：區塊依序「我的歌單」「電台」「最近播放」（排行在 PR 21），沒有內容的區塊不顯示。
+- 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：區塊依序「我的歌單」「電台」「最近播放」（排行在 M4 PR 21），沒有內容的區塊不顯示。
   「我的歌單」「電台」各是依 `sort_order` 前 20 個，點歌單在首頁的巢狀導覽裡開詳情，點電台收聽（音源不能用時同電台頁：不播、提示原因）；
   兩個「查看全部」切到音樂庫、電台目的地（各自的內頁留著）。這兩種卡片沒有選單，電台卡不顯示主播與不可用的原因。歌單或電台讀失敗：
   該區塊不顯示，不在首頁報：音樂庫與電台頁一直掛在外殼裡，由它們報，同一個失敗只進錯誤歷史一次。「最近播放」：`play_history` 最新 20 筆（`recentPlaysProvider`，
   不去重，歷史表變動就重讀），一排可橫向捲動的卡片（封面、兩行曲名、作者；音源不可用時是原因），點一下臨時播放；「查看全部」在首頁的
-  巢狀導覽裡開歷史頁。卡片的選單（右鍵、長按、曲名旁的「⋯」，`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…；
+  巢狀導覽裡開歷史頁。卡片的選單（右鍵、長按、曲名旁的「⋯」，`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…；
   「⋯」疊在卡片旁、不在卡片的 `InkWell` 裡：卡片是一個按鈕的語意節點（點一下播放），包進去的話兩個點擊動作會併成一個節點。
   區塊標題列（標題＋尾端「查看全部」）與一排卡片（`_Shelf`）是排行區塊之後的樣子。沒有可搜尋的音源時整頁是
   首次啟動引導（見下面「首次啟動引導」）；三個區塊都沒有內容是說明（「搜尋並播放歌曲，或匯入歌單」；三份資料都讀到才判斷，不會一閃而過），沒有音源時附「前往插件頁」。本機資料，
@@ -2239,7 +2242,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     路徑。那個插件之後停用或移除時封面是佔位圖；編輯時沒改過的自訂網址照舊保留、不再檢查（才改得了名稱）。
   - **匯入**（`import_dialog.dart`，M4 design §10.8）：一個文字欄（網址）、「匯入」；進行中顯示「已讀 n 首」（第一頁回來前是「正在辨識網址」），
     這時對話框不能關、不能再送（匯入不能中途取消）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`（Mix 網址建好的是 `CreatedMix`，音樂庫頁直接開詳情、不提示），音樂庫頁在巢狀導覽裡開詳情並提示
-    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址、第一頁失敗（Mix 網址是第一次 `mix` 失敗）與僅元資料來源（PR 19 才接上，這裡只說「還不支援」）都留在對話框裡、
+    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址、第一頁失敗（Mix 網址是第一次 `mix` 失敗）與僅元資料來源（M4 PR 19 才接上，這裡只說「還不支援」）都留在對話框裡、
     欄位下寫原因、不建歌單、輸入留著；失敗而網路不是 `online` 寫離線字樣（同貼 cookie 登入的對話框），並 `log.report`。
   - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
     並停用，同一張不會排第二次（刷新器本身有 FIFO 鎖，但重複按沒有意義）。結果的提示：完整＝已刷新、`partial`＝警告「只讀到一部分，沒有移除任何歌曲」、失敗而網路不是 `online`＝
@@ -2274,7 +2277,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     封面與上傳者取第一個分 P），分 P 縮排、只寫 `partLabel`；只有一個的分 P 與不相鄰的分 P 照常一列（`displayTitle`），不為了分組重排。
     這種單獨的分 P 標題可以換到第二行（手機寬度下「· P2…」才不會被截掉；同播放列、佇列、歷史的「影片 · P2 分 P 標題」，不另拆寫法），
     一般曲名照舊一行。閘門：`playlist_detail_page_test.dart` 的 `at 400 wide a lone part shows its whole title on two lines`。
-  - 點一首是臨時播放；選單（右鍵、「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、選取，長按是多選；**只有本機歌單**有拖曳把手與「從歌單移除」
+  - 點一首是臨時播放；選單（右鍵、「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…（匯入歌單另有「從遠端歌單移除」，見 § 遠端寫入）、選取，長按是多選；**只有本機歌單**有拖曳把手與「從歌單移除」
     （只刪那一筆、不確認不提示，同佇列與歷史的單筆移除；失敗才提示）。匯入歌單用不能重排的清單（ADR 0019 §決定 4）；
     `PlaylistService.addTracks`／`removeEntries`／`moveEntries` 遇到不是本機歌單的丟 `StateError`、什麼都不寫；檢查的是歌單 id，所以
     `PlaylistRepository.removeEntries`／`moveEntries` 只動那張歌單的項目，別張歌單的項目 id 不生效。
@@ -2375,7 +2378,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   共用的機制本身沒有單獨的測試，靠這幾處。
 - 多選（`lib/ui/tracks/track_selection.dart`，ADR 0033 §決定 10，M4 design §10.7）：歌單詳情、搜尋（曲目模式）、歷史；佇列不用（它有自己的編輯）。
   照 Android 的 contextual action mode（Gmail、Google 相簿）：長按或選單的「選取」進入；頂端換成選取列（`TrackSelectionBar`：取消（Esc）、
-  已選 n 首、全選（Ctrl+A）、加入佇列、加入歌單…，再接頁面的動作）；選取模式裡點一列（或它列尾的勾選框，取代「⋯」與把手）是勾選或取消，
+  已選 n 首、全選（Ctrl+A）、加入佇列、加入歌單…、頁面給了 `pluginIds` 時的加入遠端歌單…（§ 遠端寫入），再接頁面的動作）；選取模式裡點一列（或它列尾的勾選框，取代「⋯」與把手）是勾選或取消，
   取消到不剩、做完一個動作、按取消、Esc、返回鍵都離開。搜尋頁的輸入框留著、選取列取代音源 chip 列（Gmail 網頁版），新的搜尋、換音源或模式就離開。
   - 選了什麼由頁面的鍵決定（歌單項目 id、歷史紀錄 id、搜尋的（第幾個結果, 第幾個分 P））；動作照畫面順序。列消失（刪掉、收起分 P）就不再算選了。
     群組標題不是項目。搜尋選了有多個分 P 的影片列＝全部分 P（同「加入歌單…」，還沒取過就先取，取不到時提示、什麼都不做、選取留著），
