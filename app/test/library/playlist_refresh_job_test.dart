@@ -52,7 +52,7 @@ final class _Env {
       overrides: [
         appDatabaseProvider.overrideWithValue(database),
         logProvider.overrideWithValue(log),
-        networkInterfacesProvider.overrideWithValue(FakeNetworkInterfaces()),
+        networkInterfacesProvider.overrideWithValue(interfaces),
         platformCapabilitiesProvider.overrideWithValue(
           const PlatformCapabilities(
             dataDirectory: true,
@@ -82,6 +82,7 @@ final class _Env {
   }
 
   final database = memoryDatabase();
+  final interfaces = FakeNetworkInterfaces();
   final plugin = FakeImportPlugin();
   late final Log log;
   late final ProviderContainer container;
@@ -507,6 +508,60 @@ void main() {
       }
       async.elapse(const Duration(seconds: 1));
       expect(env.queried, ['a']);
+      env.dispose();
+    });
+  });
+
+  test('nothing runs while offline, and what is due runs once when back '
+      'online', () {
+    _fake((async) {
+      final env = _Env();
+      env.interfaces.available = false;
+      env.plugin.onPage = _echo;
+      env
+        ..add(async, 'a')
+        ..add(async, 'b', refreshedAgo: const Duration(days: 3));
+      env.start(async);
+      async.elapse(const Duration(hours: 2));
+      expect(env.queried, isEmpty, reason: 'offline');
+
+      env.interfaces.change(available: true);
+      async.elapse(const Duration(seconds: 1));
+      expect(env.queried, ['a', 'b']);
+
+      // 刷新過的不再到期：之後的輪次不重複刷新。
+      async.elapse(const Duration(hours: 2));
+      expect(env.queried, ['a', 'b']);
+      env.dispose();
+    });
+  });
+
+  test('is registered as playlist-refresh, every 30 minutes, without a '
+      'plugin', () {
+    _fake((async) {
+      final env = _Env();
+      env.plugin.onPage = _echo;
+      env.add(async, 'a');
+      env.start(async);
+      async.elapse(const Duration(seconds: 1));
+      expect(env.queried, ['a']);
+      expect(playlistRefreshJobId, 'playlist-refresh');
+      expect(playlistRefreshJobInterval, const Duration(minutes: 30));
+
+      // 沒有 pluginId：移除插件的工作不影響它；之後新到期的歌單由下一輪（30 分鐘後）刷新。
+      final scheduler = env.container.read(backgroundSchedulerProvider.notifier)
+        ..unregisterPlugin('fmp-test');
+      env.add(async, 'b');
+      async.elapse(const Duration(minutes: 29));
+      expect(env.queried, ['a'], reason: 'before the interval');
+      async.elapse(const Duration(minutes: 1, seconds: 1));
+      expect(env.queried, ['a', 'b']);
+
+      // 以這個 id 登記在排程器上：立即執行找得到它。
+      expect(
+        _await(async, () => scheduler.runNow(playlistRefreshJobId)),
+        RunNowResult.completed,
+      );
       env.dispose();
     });
   });
