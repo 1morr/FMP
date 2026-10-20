@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -14,6 +15,7 @@ import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/radio/account_live_import.dart';
 import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/accounts_state.dart';
 import 'package:fmp/ui/accounts/cookie_login_dialog.dart';
@@ -37,6 +39,8 @@ const _tag = 'accounts';
 /// - 已登入：頭像、名稱、狀態（正常／已失效／暫時無法讀取）、「以登入身分瀏覽與播放」
 ///   開關（`automationRisk` 時附說明）、登出（先確認）。已失效時多「重新登入」；狀態正常且插件
 ///   宣告 `libraryRead` 時多「歌單」，開帳號的歌單頁（[openAccountPlaylists]）。
+/// - 卡片右上的「⋯」選單：登入正常、插件宣告 `live` 且實際匯出 `libraryLiveRooms` 時有「從帳號
+///   匯入電台」（ADR 0033：條件不成立的項目不出現）；選單沒有項目就不畫「⋯」。
 ///
 /// 都是本機資料，離線照常可用；登入照樣送出，失敗才在登入畫面顯示離線狀態
 /// （ADR 0016 §決定 7 的更正）。動作在等資料庫時頂端有進度條、其他動作停用（同插件頁）。
@@ -105,6 +109,7 @@ class _AccountsSectionState extends ConsumerState<AccountsSection> {
                   onLogin: (method) => unawaited(_login(plugin, method)),
                   onLogout: () => unawaited(_logout(plugin)),
                   onBrowse: (value) => unawaited(_setBrowse(plugin, value)),
+                  onImportLive: () => unawaited(_importLive(plugin)),
                 );
               },
             ),
@@ -221,6 +226,42 @@ class _AccountsSectionState extends ConsumerState<AccountsSection> {
     }
   }
 
+  Future<void> _importLive(LoginPlugin plugin) async {
+    final t = _t;
+    final importer = ref.read(accountLiveImporterProvider);
+    final toaster = ref.read(toasterProvider);
+    try {
+      final result = await _work(() => importer.importFromAccount(plugin.id));
+      final a = t.accounts;
+      toaster.success(switch (result) {
+        AccountLiveImport(:final added, :final existing)
+            when added > 0 && existing > 0 =>
+          a.liveImportBoth(added: added, existing: existing),
+        AccountLiveImport(:final added) when added > 0 => a.liveImportAdded(
+          added: added,
+        ),
+        AccountLiveImport(:final existing) when existing > 0 =>
+          a.liveImportAllExisting(existing: existing),
+        _ => a.liveImportEmpty,
+      });
+    } on Object catch (error, stackTrace) {
+      // 離開這一頁後不再碰 ref；已經寫入的房間留著，再匯入一次算「已在清單」。
+      if (mounted) {
+        // 離線時原因是離線的說法（ADR 0013，同帳號的歌單頁）。
+        final offline = switch (ref.read(networkStatusProvider)) {
+          NetworkStatus.noInterface => t.offline.noInterface,
+          NetworkStatus.unreachable => t.offline.unreachable,
+          NetworkStatus.online => null,
+        };
+        _failed(
+          AppError.wrap(error, stackTrace, pluginId: plugin.id),
+          'Failed to import live rooms from the account',
+          (reason) => t.accounts.liveImportFailed(reason: offline ?? reason),
+        );
+      }
+    }
+  }
+
   Future<void> _setBrowse(LoginPlugin plugin, bool value) async {
     final t = _t;
     final accounts = ref.read(accountServiceProvider);
@@ -263,6 +304,9 @@ Future<bool> _confirmLogout(
     ) ??
     false;
 
+/// 卡片「⋯」選單的項目。
+enum _CardAction { importLive }
+
 /// 一個宣告 `login` 的插件。
 class _AccountCard extends ConsumerWidget {
   const _AccountCard({
@@ -273,6 +317,7 @@ class _AccountCard extends ConsumerWidget {
     required this.onLogin,
     required this.onLogout,
     required this.onBrowse,
+    required this.onImportLive,
   });
 
   final LoginPlugin plugin;
@@ -283,6 +328,7 @@ class _AccountCard extends ConsumerWidget {
   final ValueChanged<LoginMethod> onLogin;
   final VoidCallback onLogout;
   final ValueChanged<bool> onBrowse;
+  final VoidCallback onImportLive;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -325,6 +371,18 @@ class _AccountCard extends ConsumerWidget {
         LoginMethod.cookie => a.loginCookie,
       }),
     );
+    // 從帳號匯入電台（design §7.4）：登入正常、manifest 允許匯出 `libraryLiveRooms`（同時宣告
+    // `libraryRead` 與 `live`，見 `optionalExports`）、插件實際匯出了它。先看前兩個條件，才讀登記簿。
+    final canImportLive =
+        state == CredentialState.active &&
+        plugin.manifest.optionalExports.contains(
+          LibraryReadExports.liveRooms,
+        ) &&
+        (ref
+                .watch(pluginRegistryProvider)
+                .value?[plugin.id]
+                ?.exportsLibraryLiveRooms ??
+            false);
     final actions = <Widget>[
       if (state == CredentialState.none) ...methods.map(methodButton),
       // 已失效：只有一種方式時是「重新登入」，幾種時照列每一種。
@@ -380,6 +438,20 @@ class _AccountCard extends ConsumerWidget {
                     tags: [?tag],
                   ),
                 ),
+                if (canImportLive)
+                  PopupMenuButton<_CardAction>(
+                    tooltip: a.more,
+                    enabled: !busy,
+                    onSelected: (action) => switch (action) {
+                      _CardAction.importLive => onImportLive(),
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: _CardAction.importLive,
+                        child: Text(a.liveImport),
+                      ),
+                    ],
+                  ),
               ],
             ),
             if (loggedIn &&

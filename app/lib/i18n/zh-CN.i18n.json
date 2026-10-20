@@ -880,7 +880,14 @@
     "playlistImportFailed": "导入失败：{reason}",
     "playlistUnsupported": "这个来源还不能导入歌单",
     "importedCount": "已导入 {count} 张",
-    "importedWithFailures": "已导入 {count} 张，{failed} 张失败"
+    "importedWithFailures": "已导入 {count} 张，{failed} 张失败",
+    "more": "更多选项",
+    "liveImport": "从账号导入电台",
+    "liveImportBoth": "新增 {added} 个，{existing} 个已在电台列表",
+    "liveImportAdded": "新增 {added} 个",
+    "liveImportAllExisting": "{existing} 个已在电台列表",
+    "liveImportEmpty": "这个账号没有关注的直播间",
+    "liveImportFailed": "无法导入电台：{reason}"
   },
   "errors": {
     "network": "网络连接失败，请检查网络后重试",

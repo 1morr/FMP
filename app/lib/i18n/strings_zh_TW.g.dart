@@ -2831,6 +2831,29 @@ class Translations$accounts$zh_TW {
     required Object count,
     required Object failed,
   }) => '已匯入 ${count} 張，${failed} 張失敗';
+
+  /// zh-TW: '更多選項'
+  String get more => '更多選項';
+
+  /// zh-TW: '從帳號匯入電台'
+  String get liveImport => '從帳號匯入電台';
+
+  /// zh-TW: '新增 {added} 個，{existing} 個已在電台清單'
+  String liveImportBoth({required Object added, required Object existing}) =>
+      '新增 ${added} 個，${existing} 個已在電台清單';
+
+  /// zh-TW: '新增 {added} 個'
+  String liveImportAdded({required Object added}) => '新增 ${added} 個';
+
+  /// zh-TW: '{existing} 個已在電台清單'
+  String liveImportAllExisting({required Object existing}) =>
+      '${existing} 個已在電台清單';
+
+  /// zh-TW: '這個帳號沒有關注的直播間'
+  String get liveImportEmpty => '這個帳號沒有關注的直播間';
+
+  /// zh-TW: '無法匯入電台：{reason}'
+  String liveImportFailed({required Object reason}) => '無法匯入電台：${reason}';
 }
 
 // Path: errors

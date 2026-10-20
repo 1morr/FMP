@@ -2176,6 +2176,23 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
     required Object count,
     required Object failed,
   }) => 'Playlists imported: ${count}, failed: ${failed}';
+  @override
+  String get more => 'More options';
+  @override
+  String get liveImport => 'Import live rooms from account';
+  @override
+  String liveImportBoth({required Object added, required Object existing}) =>
+      'Added to Radio: ${added}, already in your stations: ${existing}';
+  @override
+  String liveImportAdded({required Object added}) => 'Added to Radio: ${added}';
+  @override
+  String liveImportAllExisting({required Object existing}) =>
+      'Already in your stations: ${existing}';
+  @override
+  String get liveImportEmpty => 'This account doesn\'t follow any live rooms';
+  @override
+  String liveImportFailed({required Object reason}) =>
+      'Couldn\'t import live rooms: ${reason}';
 }
 
 // Path: errors
