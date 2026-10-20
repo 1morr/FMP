@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§4.5 libraryWrite、§4.7 mutates、§4.9 fmp-test、§5.2 刷新器互斥、§7.1 加入遠端、§7.2 從遠端移除、§10.6 曲目選單、§10.7 多選"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§決定 4、6、7：libraryWrite 形狀、匯出、checks 與 mutates"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 4 遠端寫入的確認與結果呈現"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "部分成功列出失敗項"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "能力、匯出、DTO、checks 的寫法"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 慣例、對話框"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
