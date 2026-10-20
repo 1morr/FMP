@@ -406,6 +406,45 @@ void main() {
     });
   });
 
+  group('watchImportedRemoteIds', () {
+    Future<int?> import(String pluginId, String remoteId) =>
+        repository.createImported(
+          pluginId: pluginId,
+          remoteId: remoteId,
+          info: const RemotePlaylistInfo(name: 'Remote'),
+        );
+
+    test(
+      'lists the remote ids of one plugin and follows new imports',
+      () async {
+        await import('fmp-test', 'a');
+        await import('other', 'a');
+        await import('other', 'b');
+        final seen = <Set<String>>[];
+        final subscription = repository
+            .watchImportedRemoteIds('fmp-test')
+            .listen(seen.add);
+        addTearDown(subscription.cancel);
+        await pumpUntil(() => seen.isNotEmpty);
+
+        await import('fmp-test', 'c');
+        await pumpUntil(() => seen.last.length == 2);
+
+        expect(seen.first, {'a'});
+        expect(seen.last, {'a', 'c'});
+      },
+    );
+
+    test('local and mix playlists are not listed', () async {
+      await repository.create(name: 'Local');
+
+      expect(
+        await repository.watchImportedRemoteIds('fmp-test').first,
+        isEmpty,
+      );
+    });
+  });
+
   group('stored format and constraints', () {
     test('stored format: fixed kind strings and epoch milliseconds', () async {
       await withClock(Clock.fixed(_at), () => repository.create(name: 'L'));

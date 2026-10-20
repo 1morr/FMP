@@ -186,6 +186,20 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<LibraryPlaylistPage> libraryPlaylists(
+    LibraryPlaylistsQuery query,
+  ) async {
+    final json = await _invoke(
+      PluginCapability.libraryRead,
+      query.toJson(),
+      LibraryReadExports.playlists,
+    );
+    return _decode(
+      () => LibraryPlaylistPage.fromJson(json, allowedHosts: _allowedHosts),
+    );
+  }
+
+  @override
   Future<MultiPartResult> multiPart(MultiPartQuery query) async {
     final json = await _invoke(PluginCapability.multiPart, query.toJson());
     return _decode(() => MultiPartResult.fromJson(json));
@@ -390,7 +404,8 @@ final class ScriptPluginLoader {
     final undeclared = [
       for (final name in exports)
         if (PluginManifest.knownExports.contains(name) &&
-            !required.contains(name))
+            !required.contains(name) &&
+            !manifest.optionalExports.contains(name))
           name,
     ];
     if (missing.isEmpty && undeclared.isEmpty) return null;

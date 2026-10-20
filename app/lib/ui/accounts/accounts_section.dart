@@ -14,6 +14,7 @@ import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/accounts_state.dart';
 import 'package:fmp/ui/accounts/cookie_login_dialog.dart';
 import 'package:fmp/ui/accounts/qr_login_dialog.dart';
@@ -34,7 +35,8 @@ const _tag = 'accounts';
 /// - 未登入：插件宣告的登入方式裡、這個 App 在這個平台做得到的（[availableLoginMethods]）
 ///   各一顆按鈕；一個都沒有時寫明「這個平台還不能登入」。
 /// - 已登入：頭像、名稱、狀態（正常／已失效／暫時無法讀取）、「以登入身分瀏覽與播放」
-///   開關（`automationRisk` 時附說明）、登出（先確認）。已失效時多「重新登入」。
+///   開關（`automationRisk` 時附說明）、登出（先確認）。已失效時多「重新登入」；狀態正常且插件
+///   宣告 `libraryRead` 時多「歌單」，開帳號的歌單頁（[openAccountPlaylists]）。
 ///
 /// 都是本機資料，離線照常可用；登入照樣送出，失敗才在登入畫面顯示離線狀態
 /// （ADR 0016 §決定 7 的更正）。動作在等資料庫時頂端有進度條、其他動作停用（同插件頁）。
@@ -334,6 +336,16 @@ class _AccountCard extends ConsumerWidget {
           )
         else
           ...methods.map(methodButton),
+      // 帳號的歌單（design §7.3）：登入正常（不是已失效、暫時讀不到）而且插件宣告 `libraryRead`。
+      if (state == CredentialState.active &&
+          plugin.manifest.capabilities.contains(PluginCapability.libraryRead))
+        FilledButton.tonalIcon(
+          onPressed: busy
+              ? null
+              : () => unawaited(openAccountPlaylists(context, plugin.id)),
+          icon: const Icon(Icons.queue_music),
+          label: Text(a.playlists),
+        ),
       if (loggedIn)
         TextButton(
           style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),

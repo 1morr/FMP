@@ -13,8 +13,8 @@ const hostApiVersion = 1;
 /// 插件能力（ADR 0014 §決定 4）。
 ///
 /// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login]、[live]、
-/// [importPlaylist]、[charts] 例外：它們的匯出是 [LoginExports]、[LiveExports]、
-/// [ImportPlaylistExports]、[ChartsExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
+/// [importPlaylist]、[charts]、[libraryRead] 例外：它們的匯出是 [LoginExports]、
+/// [LiveExports]、[ImportPlaylistExports]、[ChartsExports]、[LibraryReadExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
 /// 都要匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。只有已經有
 /// `SourcePlugin` 方法的能力有人呼叫，其他能力認得、檢查匯出。
 enum PluginCapability {
@@ -114,6 +114,17 @@ abstract final class ChartsExports {
   static const chart = 'chart';
 
   static const all = {list, chart};
+}
+
+/// `libraryRead` 能力的匯出函式（ADR 0032 §決定 3、6）。名稱是插件的介面。
+abstract final class LibraryReadExports {
+  /// `({cursor?}) → {playlists, cursor}`：必要，請求 `required`。
+  static const playlists = 'libraryPlaylists';
+
+  /// `() → {rooms}`：選填，只有同時宣告 `libraryRead` 與 `live` 的插件能匯出（呼叫在 PR 15）。
+  static const liveRooms = 'libraryLiveRooms';
+
+  static const all = {playlists, liveRooms};
 }
 
 /// 登入方式（ADR 0029 §決定 1）。宿主顯示「插件宣告的 ∩ 這個 App 在這個平台做得到的」。
@@ -301,7 +312,8 @@ final class PluginManifest {
   final PluginLogin? login;
 
   /// 腳本一定要匯出的函式：每個能力一個同名的，`live` 換成 [LiveExports.all]、
-  /// `importPlaylist` 換成 [ImportPlaylistExports.all]、`charts` 換成 [ChartsExports.all]，
+  /// `importPlaylist` 換成 [ImportPlaylistExports.all]、`charts` 換成 [ChartsExports.all]、
+  /// `libraryRead` 換成 [LibraryReadExports.playlists]，
   /// `login` 換成 [LoginExports.verify]，
   /// methods 含 `qr` 時加 [LoginExports.qrStart]、[LoginExports.qrPoll]，宣告
   /// `refresh` 時加 [LoginExports.refresh]。
@@ -312,6 +324,8 @@ final class PluginManifest {
     if (capabilities.contains(PluginCapability.importPlaylist))
       ...ImportPlaylistExports.all,
     if (capabilities.contains(PluginCapability.charts)) ...ChartsExports.all,
+    if (capabilities.contains(PluginCapability.libraryRead))
+      LibraryReadExports.playlists,
     if (login case final login?) ...[
       LoginExports.verify,
       if (login.methods.contains(LoginMethod.qr)) ...[
@@ -322,6 +336,14 @@ final class PluginManifest {
     ],
   };
 
+  /// 可以匯出也可以不匯出的函式：`libraryLiveRooms` 只在同時宣告 `libraryRead` 與
+  /// `live` 時。其他情況匯出它就是「匯出了沒宣告」，拒絕載入。
+  Set<String> get optionalExports => {
+    if (capabilities.contains(PluginCapability.libraryRead) &&
+        capabilities.contains(PluginCapability.live))
+      LibraryReadExports.liveRooms,
+  };
+
   /// 宿主認得的匯出名稱：匯出了它們卻不在 [requiredExports] 裡就拒絕載入（宣告與
   /// 匯出雙向一致）。其他名稱的匯出不管。
   static final knownExports = {
@@ -330,6 +352,7 @@ final class PluginManifest {
     ...LiveExports.all,
     ...ImportPlaylistExports.all,
     ...ChartsExports.all,
+    ...LibraryReadExports.all,
     ...LoginExports.all,
   };
 
@@ -348,6 +371,7 @@ const _multiExport = {
   PluginCapability.live,
   PluginCapability.importPlaylist,
   PluginCapability.charts,
+  PluginCapability.libraryRead,
 };
 
 final _idPattern = RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$');

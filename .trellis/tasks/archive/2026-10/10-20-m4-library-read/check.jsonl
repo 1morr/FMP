@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§4.1 原則、§4.4 libraryRead、§4.7 checks 與 mutates、§4.9 fmp-test、§7.3 帳號頁歌單、§12 帶憑證錄製"}
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§決定 3、6、7：libraryRead 形狀、匯出、checks"}
+{"file": "docs/adr/0013-unified-error-model.md", "reason": "部分成功列出失敗項、離線呈現"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "能力、匯出、DTO、checks 的寫法"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 慣例、設定頁巢狀導覽"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}

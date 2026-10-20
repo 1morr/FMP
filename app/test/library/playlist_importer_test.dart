@@ -112,6 +112,157 @@ void main() {
     });
   });
 
+  group('importPlaylistId', () {
+    test('imports by plugin and playlist id, without asking the url', () async {
+      env.plugin.onPage = (query) => page(['a', 'b'], title: 'Mine');
+
+      final result = await env.importer.importPlaylistId('fmp-test', 'pl-1');
+
+      result as ImportedPlaylist;
+      expect(result.created, isTrue);
+      expect(env.plugin.urlQueries, isEmpty);
+      expect(env.plugin.pageQueries.single.playlistId, 'pl-1');
+      final remote = (await env.repository.remote(result.playlistId))!;
+      expect(remote.pluginId, 'fmp-test');
+      expect(remote.remoteId, 'pl-1');
+      expect(await names(), ['Mine']);
+      expect(await ids(result.playlistId), ['a', 'b']);
+    });
+
+    test('an imported playlist is refreshed, not created twice', () async {
+      env.plugin.onPage = (_) => page(['a'], title: 'Mine');
+      await env.importer.importPlaylistId('fmp-test', 'pl-1');
+      env.plugin.onPage = (_) => page(['a', 'b'], title: 'Renamed remotely');
+
+      final again = await env.importer.importPlaylistId('fmp-test', 'pl-1');
+
+      again as ImportedPlaylist;
+      expect(again.created, isFalse);
+      expect(await names(), hasLength(1));
+      expect(await ids(again.playlistId), ['a', 'b']);
+    });
+
+    group('the writable hint', () {
+      Future<bool> writableOf(Object result) async =>
+          (await env.repository.remote(
+            (result as ImportedPlaylist).playlistId,
+          ))!.writable;
+
+      test('is stored when the page does not say', () async {
+        env.plugin.onPage = (_) => page(['a']);
+
+        final result = await env.importer.importPlaylistId(
+          'fmp-test',
+          'pl-1',
+          writable: true,
+        );
+
+        expect(await writableOf(result), isTrue);
+      });
+
+      test('without a hint the page decides', () async {
+        env.plugin.onPage = (_) => page(['a'], writable: true);
+        final withPage = await env.importer.importPlaylistId('fmp-test', 'p1');
+        env.plugin.onPage = (_) => page(['a']);
+        final without = await env.importer.importPlaylistId('fmp-test', 'p2');
+
+        expect(await writableOf(withPage), isTrue);
+        expect(await writableOf(without), isFalse);
+      });
+
+      test('also sets an existing row, and a later refresh keeps it', () async {
+        env.plugin.onPage = (_) => page(['a']);
+        final first = await env.importer.importPlaylistId('fmp-test', 'pl-1');
+        expect(await writableOf(first), isFalse);
+
+        final again = await env.importer.importPlaylistId(
+          'fmp-test',
+          'pl-1',
+          writable: true,
+        );
+        expect(again, isA<ImportedPlaylist>());
+        expect((again as ImportedPlaylist).created, isFalse);
+        expect(await writableOf(again), isTrue);
+
+        await env.refresher.refresh(again.playlistId);
+        expect(await writableOf(again), isTrue);
+      });
+    });
+
+    test('progress is reported per page', () async {
+      env.plugin.onPage = (query) => query.cursor == null
+          ? page(['a', 'b'], cursor: 'p2', total: 3)
+          : page(['c'], total: 3);
+      final counts = <int>[];
+
+      await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        onProgress: counts.add,
+      );
+
+      expect(counts, isNotEmpty);
+      expect(counts.last, 3);
+    });
+
+    test('a metadata-only source is handed back', () async {
+      final plugin = FakeImportPlugin(id: 'meta', resolveStream: false);
+      await start([plugin]);
+
+      final result = await env.importer.importPlaylistId('meta', 'album-1');
+
+      expect(result, isA<ImportMetadataOnly>());
+      expect(plugin.pageQueries, isEmpty);
+    });
+
+    test('an unknown plugin is Unsupported', () async {
+      await expectLater(
+        env.importer.importPlaylistId('nobody', 'pl-1'),
+        throwsA(isA<Unsupported>()),
+      );
+      expect(await names(), isEmpty);
+    });
+
+    test('a disabled plugin is Unsupported', () async {
+      await env.setPlugins(const []);
+
+      await expectLater(
+        env.importer.importPlaylistId('fmp-test', 'pl-1'),
+        throwsA(isA<Unsupported>()),
+      );
+      expect(env.plugin.pageQueries, isEmpty);
+    });
+
+    test('a plugin without importPlaylist is Unsupported', () async {
+      final plain = FakeSourcePlugin((_) => const [], id: 'plain');
+      env = await LibraryEnv.open(plugins: [plain]);
+
+      await expectLater(
+        env.importer.importPlaylistId('plain', 'pl-1'),
+        throwsA(isA<Unsupported>()),
+      );
+    });
+
+    test('a failing first page creates nothing and keeps the error', () async {
+      env.plugin.onPage = (_) => throw AuthRequired();
+
+      await expectLater(
+        env.importer.importPlaylistId('fmp-test', 'pl-auth'),
+        throwsA(isA<AuthRequired>()),
+      );
+      expect(await names(), isEmpty);
+    });
+
+    test('an error that is not an AppError is wrapped', () async {
+      env.plugin.onPage = (_) => throw StateError('boom');
+
+      await expectLater(
+        env.importer.importPlaylistId('fmp-test', 'pl-1'),
+        throwsA(isA<UnexpectedError>()),
+      );
+    });
+  });
+
   group('what the url is', () {
     test('a mix seed is handed back and nothing is written', () async {
       final plugin = FakeImportPlugin(mix: true);

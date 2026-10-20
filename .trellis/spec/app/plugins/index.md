@@ -156,7 +156,7 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - App 內錄製（M3 PR 16b）：Windows 的 dev build，Debug → 插件開發 → 選資料夾（例如 `fmp-plugins` 的複本）→ 該插件卡片選「錄製」
   → 跑一個案例。與命令列錄製同一個函式（`recordCase`），但在隔離環境（空 storage）裡跑，所以 fixture 重播時不依賴 App 裡的狀態；
   需要登入的 login 案例用已存的憑證當 `loginVerify` 的輸入（16c 用它重錄）；其他 `requiresLogin` 的案例（M4 的 `libraryRead`）在真實與錄製模式
-  把已存的憑證放進隔離環境的記憶體憑證存放，請求依 `auth` 標記帶它（重播不放）。所有 `requiresLogin` 的案例寫檔前以帳號的 id、名稱、頭像
+  把已存的憑證放進隔離環境的記憶體憑證存放，請求依 `auth` 標記帶它（重播不放**真實的**憑證；重播改放 checks.json 的 `login` 案例的假憑證 `fixtureCredentialsOf`，沒有 `login` 案例就不放，否則 `required` 的請求先得到 `AuthRequired`，閘門 `case_runner_test.dart` 的 `replay credentials`）。所有 `requiresLogin` 的案例寫檔前以帳號的 id、名稱、頭像
   （login 是結果，其他是 `accounts` 列）換掉錄到的流量（`lib/plugins/dev/account_scrub.dart`，頭像換成 `<scheme>://<主機>/***`），不用在 manifest 加鍵名；換完仍看得到才不寫。
   `mutates` 的案例（會改動遠端）在命令列與 App 內的真實、錄製都略過，不呼叫插件；它的 fixture 手寫並標 `meta.edited`。
   錄到的 login fixture 不原樣提交：刪減到只剩插件讀的欄位（或改手寫），在 `meta.edited` 寫明，插件庫的 `test/login_fixtures_test.dart` 會擋沒標的。
@@ -246,7 +246,7 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 
 - DTO：`source_dto.dart` 的類別、`fromJson`／`toJson` 與 `sourceDtoShapes` 一起改，`fmp-plugin.d.ts`
   同步。欄位名稱是插件的介面，列舉值寫死字串（`wireName`），不用 `.name`。
-- 有多個匯出的能力（`login`、`live`、`importPlaylist`、`charts`）：匯出名稱在 `LoginExports`、`LiveExports`、`ImportPlaylistExports`、`ChartsExports`，加進 `PluginManifest.requiredExports`／`knownExports`，
+- 有多個匯出的能力（`login`、`live`、`importPlaylist`、`charts`、`libraryRead`）：匯出名稱在 `LoginExports`、`LiveExports`、`ImportPlaylistExports`、`ChartsExports`、`LibraryReadExports`，加進 `PluginManifest.requiredExports`／`knownExports`；選填的匯出（`libraryLiveRooms`，只在同時宣告 `live` 時）列在 `optionalExports`，不在 `requiredExports` 也不算「匯出了沒宣告」，
   `ScriptSourcePlugin._invoke` 的第三個參數指定要呼叫哪一個；沒宣告 `live` 時呼叫它的四個方法是 `Unsupported`（`_invoke` 先查能力，不會呼叫到沒宣告的匯出）。
 - 能力：`PluginCapability` 已有 ADR 0014 的 12 個；新能力的方法加在 `SourcePlugin`（引入它的里程碑
   才加，不寫空殼），`ScriptSourcePlugin` 以 `_invoke` 呼叫同名匯出，再加 `fmp-plugin.d.ts` 的

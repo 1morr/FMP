@@ -2690,6 +2690,49 @@ class Translations$accounts$zh_TW {
 
   /// zh-TW: '「{name}」沒有接受這次登入，請再試一次。'
   String loginRejected({required Object name}) => '「${name}」沒有接受這次登入，請再試一次。';
+
+  /// zh-TW: '歌單'
+  String get playlists => '歌單';
+
+  /// zh-TW: '{name} 的歌單'
+  String playlistsTitle({required Object name}) => '${name} 的歌單';
+
+  /// zh-TW: '這個帳號還沒有歌單'
+  String get playlistsEmpty => '這個帳號還沒有歌單';
+
+  /// zh-TW: '無法讀取歌單'
+  String get playlistsFailed => '無法讀取歌單';
+
+  /// zh-TW: '可寫'
+  String get playlistWritable => '可寫';
+
+  /// zh-TW: '已匯入'
+  String get playlistImported => '已匯入';
+
+  /// zh-TW: '選取「{name}」'
+  String playlistSelect({required Object name}) => '選取「${name}」';
+
+  /// zh-TW: '匯入所選 ({count})'
+  String importSelected({required Object count}) => '匯入所選 (${count})';
+
+  /// zh-TW: '匯入中 {done}／{total}'
+  String importingProgress({required Object done, required Object total}) =>
+      '匯入中 ${done}／${total}';
+
+  /// zh-TW: '匯入失敗：{reason}'
+  String playlistImportFailed({required Object reason}) => '匯入失敗：${reason}';
+
+  /// zh-TW: '這個來源還不能匯入歌單'
+  String get playlistUnsupported => '這個來源還不能匯入歌單';
+
+  /// zh-TW: '已匯入 {count} 張'
+  String importedCount({required Object count}) => '已匯入 ${count} 張';
+
+  /// zh-TW: '已匯入 {count} 張，{failed} 張失敗'
+  String importedWithFailures({
+    required Object count,
+    required Object failed,
+  }) => '已匯入 ${count} 張，${failed} 張失敗';
 }
 
 // Path: errors

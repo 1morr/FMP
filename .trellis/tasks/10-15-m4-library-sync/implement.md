@@ -41,10 +41,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–12、16、20（FMP #272–#286；fmp-plugins #16–#19）。M4a 剩 PR 13、14、15 與驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
+- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–13、16、20（FMP #272–#286 與 PR 13；fmp-plugins #16–#19 與 PR 13）。M4a 剩 PR 14、15 與驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
-- **下一步**：等擁有者給時間做 PR 13、14、15（要登入三個平台、各建一張私人「FMP 測試」歌單）；之後 M4a 驗收。
+- **下一步**：PR 14、15（擁有者在場）；之後 M4a 驗收。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
 - **fmp-plugins 的 PR**：
   - 在同層的 `fmp-plugins/` clone 開分支；
@@ -211,8 +211,8 @@
 
 ## 13. ★ `libraryRead` 與帳號頁「歌單」（design §4.4、§7.3）
 
-- [ ] FMP：`LibraryReadExports`（`libraryPlaylists`，`libraryLiveRooms` 的匯出檢查先加、呼叫在 PR 15）、DTO、`FmpChecks.libraryRead`（`requiresLogin`）；帳號頁的「歌單」按鈕與頁（已匯入標示、匯入所選、進度、部分失敗）；`fmp-test` 的 `libraryPlaylists`。
-- [ ] fmp-plugins：三個插件的 `libraryPlaylists`（B 站收藏夾清單、YouTube 帳號清單、網易使用者歌單；`writable`）、Node 測試、`checks.json`（App 內錄製後刪減並標 `meta.edited`，或手寫）、版本、index、`FMP_REF`。
+- [x] FMP：`LibraryReadExports`（`libraryPlaylists`，`libraryLiveRooms` 的匯出檢查先加、呼叫在 PR 15）、DTO、`FmpChecks.libraryRead`（`requiresLogin`）；帳號頁的「歌單」按鈕與頁（已匯入標示、匯入所選、進度、部分失敗）；`fmp-test` 的 `libraryPlaylists`。
+- [x] fmp-plugins：三個插件的 `libraryPlaylists`（B 站收藏夾清單、YouTube 帳號清單、網易使用者歌單；`writable`）、Node 測試、`checks.json`（App 內錄製後刪減並標 `meta.edited`，或手寫）、版本、index、`FMP_REF`。
 - 測試：`library_read_capability_test.dart`（匯出、`requiresLogin` 的案例形狀、回傳值驗證、`libraryLiveRooms` 沒宣告 `live` 拒載）；帳號頁的 widget 測試（只在已登入且宣告時出現、已匯入停用勾選、部分失敗列出）；契約與健康檢查的 `a libraryRead case`。
 - 實測：
   - 重播（Android）：`fmp-test` 登入 → 歌單 → 匯入 `pl-auth`。
@@ -363,6 +363,13 @@
 ## 留下的後續
 
 （各 PR 合併時寫在這裡，最新的在上面。）
+
+- **PR 13 → PR 14、之後**：
+  - YouTube、網易的 `importPlaylist` 不給 `writable`（null＝這次不知道）：從帳號頁匯入的以 `libraryPlaylists` 的值帶進來（`importPlaylistId(writable:)`），**以網址匯入的自己的歌單 `writable` 一直是 0**，「從遠端歌單移除」不會出現。YouTube 帶憑證的 `browse VL<id>` 回應有沒有可用的旗標沒有實測；網易可以在帶憑證時比對 `creator.userId` 與 `account/get`（多一個請求）。PR 14 碰到時決定。
+  - FMP 的遮蔽認不出 YouTube 回應 `serviceTrackingParams` 裡 `{"key":"visitor_data","value":…}` 這種形狀（國家碼）：fmp-plugins 這次手動換成 `***`，之後重錄還要手動，或在 FMP 的 redactor 加規則。
+  - 遮蔽器對很深的 JSON 值一律換成 `<nested too deep>`：YouTube 自己的清單的 `deletePlaylistEndpoint` 在約 20 層，fixture 裡留空物件（插件只看鍵）。
+  - YouTube `libraryPlaylists` 的續取（超過一頁）沒有實測（測試帳號只有三張）。
+  - Windows 的 `toast_layering_test.dart` 本機沒跑（會清掉擁有者的登入），交給 CI；Android 跑過。
 
 - **PR 20（fmp-plugins）→ PR 21、M4a 驗收**：
   - B 站 `ranking/v2` 要 WBI 簽名加 `web_location=333.934`：不簽的匿名請求連三次 -352，簽了第一次就成功（fmp-plugins #19）。舊版 `getRankingVideos` 不簽，曾經可用。

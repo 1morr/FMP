@@ -57,6 +57,10 @@ abstract interface class SourcePlugin {
   /// 一個榜單的曲目，不分頁；榜單的來源與排序由插件決定，可以是空的。
   Future<ChartPage> chart(ChartQuery query);
 
+  /// [PluginCapability.libraryRead]：登入帳號自己的歌單，一頁（ADR 0032 §決定 3）。請求
+  /// `required`，沒登入是 `AuthRequired`；宿主讀完所有頁才顯示。
+  Future<LibraryPlaylistPage> libraryPlaylists(LibraryPlaylistsQuery query);
+
   /// [PluginCapability.multiPart]：一支影片的分 P（ADR 0028 §決定 5）。
   Future<MultiPartResult> multiPart(MultiPartQuery query);
 

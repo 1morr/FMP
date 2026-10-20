@@ -17,6 +17,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     bool mix = false,
     bool multiPart = false,
     bool trackDetail = false,
+    bool libraryRead = false,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -29,6 +30,7 @@ final class FakeSourcePlugin implements SourcePlugin {
            if (mix) PluginCapability.mix,
            if (multiPart) PluginCapability.multiPart,
            if (trackDetail) PluginCapability.trackDetail,
+           if (libraryRead) PluginCapability.libraryRead,
          },
          allowedHosts: const ['cdn.example'],
        );
@@ -66,6 +68,11 @@ final class FakeSourcePlugin implements SourcePlugin {
   // 曲目詳細（`trackDetail: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
   FutureOr<TrackDetail> Function(TrackDetailQuery query)? onTrackDetail;
   final trackDetailQueries = <TrackDetailQuery>[];
+
+  // 帳號歌單（`libraryRead: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
+  FutureOr<LibraryPlaylistPage> Function(LibraryPlaylistsQuery query)?
+  onLibraryPlaylists;
+  final libraryPlaylistQueries = <LibraryPlaylistsQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -152,6 +159,16 @@ final class FakeSourcePlugin implements SourcePlugin {
   @override
   Future<PlaylistPage> importPlaylist(PlaylistPageQuery query) =>
       throw UnimplementedError('importPlaylist');
+
+  @override
+  Future<LibraryPlaylistPage> libraryPlaylists(
+    LibraryPlaylistsQuery query,
+  ) async {
+    final handler = onLibraryPlaylists;
+    if (handler == null) throw UnimplementedError('libraryRead');
+    libraryPlaylistQueries.add(query);
+    return handler(query);
+  }
 
   @override
   Future<ChartList> chartList() => throw UnimplementedError('charts');

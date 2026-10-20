@@ -114,6 +114,15 @@ const sourceDtoShapes = <String, JsonShape>{
   'ChartRef': {'chartId': true, 'title': true},
   'ChartQuery': {'chartId': true},
   'ChartPage': {'tracks': true},
+  'LibraryPlaylistsQuery': {'cursor': false},
+  'LibraryPlaylistPage': {'playlists': true, 'cursor': false},
+  'LibraryPlaylist': {
+    'playlistId': true,
+    'title': true,
+    'artwork': false,
+    'trackCount': false,
+    'writable': true,
+  },
 };
 
 /// 搜尋的輸入。
@@ -1442,4 +1451,113 @@ final class ChartPage {
 
   /// 可以是空的（空榜單顯示「沒有內容」）。
   final List<TrackSummary> tracks;
+}
+
+/// `libraryPlaylists` 的輸入：[cursor] 是上一頁回傳的，第一頁不給。
+@immutable
+final class LibraryPlaylistsQuery {
+  LibraryPlaylistsQuery({this.cursor}) {
+    if (cursor != null && cursor!.isEmpty) {
+      throw ArgumentError.value(cursor, 'cursor', 'must not be empty');
+    }
+  }
+
+  final String? cursor;
+
+  Map<String, Object?> toJson() => {if (cursor != null) 'cursor': cursor};
+}
+
+/// `libraryPlaylists` 的一頁結果（ADR 0032 §決定 3）：登入帳號自己的歌單。
+@immutable
+final class LibraryPlaylistPage {
+  const LibraryPlaylistPage({required this.playlists, this.cursor});
+
+  factory LibraryPlaylistPage.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'LibraryPlaylistPage';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final cursor = fields.optionalString('cursor');
+    if (cursor != null && cursor.isEmpty) {
+      throw const FormatException('$path.cursor: must not be empty');
+    }
+    final playlists = List<LibraryPlaylist>.unmodifiable([
+      for (final (index, item) in fields.list('playlists').indexed)
+        LibraryPlaylist._fromJson(
+          item,
+          allowedHosts: allowedHosts,
+          path: '$path.playlists[$index]',
+        ),
+    ]);
+    final seen = <String>{};
+    for (final (index, playlist) in playlists.indexed) {
+      if (!seen.add(playlist.playlistId)) {
+        throw FormatException(
+          '$path.playlists[$index].playlistId: '
+          '"${playlist.playlistId}" is listed twice',
+        );
+      }
+    }
+    return LibraryPlaylistPage(playlists: playlists, cursor: cursor);
+  }
+
+  /// 這一頁的歌單，可以是空的；同一頁內 `playlistId` 不重複。
+  final List<LibraryPlaylist> playlists;
+
+  /// 插件的不透明字串；`null` 是最後一頁。
+  final String? cursor;
+}
+
+/// 登入帳號在平台上的一張歌單。
+@immutable
+final class LibraryPlaylist {
+  const LibraryPlaylist({
+    required this.playlistId,
+    required this.title,
+    this.artwork = const [],
+    this.trackCount,
+    required this.writable,
+  });
+
+  factory LibraryPlaylist._fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+    required String path,
+  }) {
+    final fields = JsonFields(
+      json,
+      sourceDtoShapes['LibraryPlaylist']!,
+      path: path,
+    );
+    return LibraryPlaylist(
+      playlistId: fields.nonEmptyString('playlistId'),
+      title: fields.nonEmptyString('title'),
+      artwork: List.unmodifiable([
+        for (final (index, item)
+            in (fields.optionalList('artwork') ?? []).indexed)
+          Artwork._fromJson(
+            item,
+            allowedHosts: allowedHosts,
+            path: '$path.artwork[$index]',
+          ),
+      ]),
+      trackCount: fields.optionalInteger('trackCount'),
+      // 欄位表已擋掉沒給的情況。
+      writable: fields.optionalBool('writable')!,
+    );
+  }
+
+  /// 音源內的歌單 id（不透明），之後原樣交給 `importPlaylist`。
+  final String playlistId;
+  final String title;
+
+  /// 多尺寸封面，規則同 [TrackSummary.artwork]。
+  final List<Artwork> artwork;
+
+  /// 非負；不知道就是 `null`。
+  final int? trackCount;
+
+  /// 這張是帳號自己的、可以寫（`libraryWrite`）。
+  final bool writable;
 }

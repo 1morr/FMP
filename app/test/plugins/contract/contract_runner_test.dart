@@ -384,8 +384,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
-        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
+        '"capabilities": ["search", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
       );
 
       expect(
@@ -399,8 +399,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
-        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
+        '"capabilities": ["search", "resolveStream", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
       );
 
       expect(
@@ -414,8 +414,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
       );
 
       expect(
@@ -429,8 +429,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
       );
 
       expect(
@@ -467,8 +467,8 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"]',
-        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "importPlaylist", "charts", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
+        '"capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "importPlaylist", "charts", "libraryRead", "login"]',
       );
 
       expect(
@@ -504,7 +504,7 @@ void main() {
         edit(
           directory,
           'test_plugin.js',
-          '"trackDetail", "importPlaylist", "charts", "login"]',
+          '"trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
           '"trackDetail", "login"]',
         );
 
@@ -573,7 +573,7 @@ void main() {
       edit(
         directory,
         'test_plugin.js',
-        '"trackDetail", "importPlaylist", "charts", "login"]',
+        '"trackDetail", "importPlaylist", "charts", "libraryRead", "login"]',
         '"trackDetail", "importPlaylist", "login"]',
       );
 
@@ -616,6 +616,82 @@ void main() {
         expect(await runContract(directory), isEmpty);
       },
     );
+
+    test('a libraryRead check for a plugin without the capability', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(
+        directory,
+        'test_plugin.js',
+        '"charts", "libraryRead", "login"]',
+        '"charts", "login"]',
+      );
+
+      expect(
+        await runContract(directory),
+        contains('checks.json: libraryRead is not a declared capability'),
+      );
+    });
+
+    test(
+      'a libraryRead check that expects more playlists than the page has',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(
+          directory,
+          _checks,
+          '"minItems": 2, "nonEmpty": ["playlistId"',
+          '"minItems": 3, "nonEmpty": ["playlistId"',
+        );
+
+        expect(
+          await runContract(directory),
+          contains(contains('expected at least 3 items, got 2')),
+        );
+      },
+    );
+
+    test(
+      'a libraryRead check that renames an unrelated thing stays green',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        edit(
+          directory,
+          'test_plugin.js',
+          "title: 'Private playlist', trackCount",
+          "title: 'Renamed playlist', trackCount",
+        );
+
+        expect(await runContract(directory), isEmpty);
+      },
+    );
+
+    // 重播帶 login 案例的假憑證（閘門：case_runner_test.dart 的 'replay
+    // credentials'）。拿掉注入的來源（沒有 login 案例）就拿到 AuthRequired；
+    // 換一個假 cookie 值無關。
+    test(
+      'a libraryRead check without a login case has no credentials',
+      () async {
+        final directory = copyPlugin('test_plugin');
+        final checks = jsonDecode(
+          File(p.join(directory.path, _checks)).readAsStringSync(),
+        ) as Map<String, Object?>;
+        checks.remove('login');
+        File(p.join(directory.path, _checks))
+            .writeAsStringSync(jsonEncode(checks));
+
+        expect(
+          await runContract(directory),
+          contains(contains('libraryRead: expected success, got AuthRequired')),
+        );
+      },
+    );
+
+    test('a libraryRead check with another fake cookie stays green', () async {
+      final directory = copyPlugin('test_plugin');
+      edit(directory, _checks, 'fake-session-0000', 'fake-session-9999');
+
+      expect(await runContract(directory), isEmpty);
+    });
 
     test('a mix check that expects more tracks than the batch has', () async {
       final directory = copyPlugin('test_plugin');

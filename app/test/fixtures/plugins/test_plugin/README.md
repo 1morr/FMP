@@ -5,7 +5,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 `flutter.assets`），prod 不含。
 
 - `test_plugin.js`：安裝檔（標頭 manifest ＋ ES module），能力 `search`、
-  `resolveStream`、`live`、`mix`、`multiPart`、`trackDetail`、`importPlaylist`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
+  `resolveStream`、`live`、`mix`、`multiPart`、`trackDetail`、`importPlaylist`、`charts`、`libraryRead`、`login`。搜尋任何關鍵字都回三首（每頁兩首）；關鍵字剛好是 `fail` 時以
   `RateLimited` 失敗，實機不連網也能看到錯誤提示。關鍵字剛好是 `missing` 時，第一頁
   第二首（`missing-440`）的串流指向不存在的 `missing.wav`：兩首依序加進佇列再按
   播放，第二首的前瞻開不起來，第一首照常播完、第二首重新解析後走恢復。
@@ -95,6 +95,16 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `pl-auth` | 沒有憑證 `AuthRequired`；登入後 3 首、`writable: true` | 需要登入、登入後刷新、可寫 |
   | `pl-unavailable` | 3 首，第 2 首 `unavailable: true` | 失效項目的標示 |
   | `pl-parts` | 一支 3 P 的影片（`parts-220`）展開成 3 首（cid 22001–22003），帶 `partIndex`、`parentTitle`；不給 `total` | 分 P 兩欄存得進去 |
+- 帳號的歌單（`libraryRead`，不連網，給帳號頁「歌單」的實機驗證）：`libraryPlaylists` 沒有憑證時
+  `AuthRequired`；登入後一頁兩張（不分頁），標題與首數同 `importPlaylist` 回的：
+
+  | `playlistId` | 標題 | 首數 | `writable` |
+  |---|---|---|---|
+  | `pl-auth` | Private playlist | 3 | 是 |
+  | `pl-basic` | Basic playlist | 5 | 否 |
+
+  帳號頁勾選匯入後，這兩張的內容由上面的 `importPlaylist` 提供。沒有宣告 `live` 與 `libraryLiveRooms`
+  （直播間的匯入在 PR 15）。
 - 排行（`charts`，不連網，給首頁排行與排行工作的實機驗證）：`chartList` 回三個榜單，曲目沿用 `tone-<hz>`（可播），
   標題是 `<榜單名> tone <hz> Hz`：
 
@@ -128,7 +138,7 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）、`charts`（`hot`，五首）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）、`charts`（`hot`，五首）、`libraryRead`（`libraryPlaylists` 第一頁，兩張；標 `requiresLogin: true`，重播時宿主把 `login` 案例的假憑證放進隔離環境）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。
