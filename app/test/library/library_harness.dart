@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -29,14 +30,18 @@ final class _TestPlugins extends Notifier<Map<String, SourcePlugin>> {
 
 /// 記憶體資料庫、假插件清單與真的匯入器、刷新器。
 final class LibraryEnv {
-  LibraryEnv._(List<SourcePlugin>? plugins) {
+  LibraryEnv._(
+    List<SourcePlugin>? plugins,
+    LogLevel minimumLevel,
+    List<Override> overrides,
+  ) {
     this.plugins = plugins ?? [FakeImportPlugin()];
+    log = Log(redactor: Redactor(), minimumLevel: minimumLevel);
     container = ProviderContainer(
       overrides: [
         appDatabaseProvider.overrideWithValue(database),
-        logProvider.overrideWithValue(
-          Log(redactor: Redactor(), minimumLevel: LogLevel.warning),
-        ),
+        logProvider.overrideWithValue(log),
+        ...overrides,
         pluginRegistryProvider.overrideWithBuild(
           (ref, notifier) => ref.watch(_testPlugins),
         ),
@@ -46,8 +51,12 @@ final class LibraryEnv {
   }
 
   /// 建好並載入插件清單。
-  static Future<LibraryEnv> open({List<SourcePlugin>? plugins}) async {
-    final env = LibraryEnv._(plugins);
+  static Future<LibraryEnv> open({
+    List<SourcePlugin>? plugins,
+    LogLevel minimumLevel = LogLevel.warning,
+    List<Override> overrides = const [],
+  }) async {
+    final env = LibraryEnv._(plugins, minimumLevel, overrides);
     await env.setPlugins();
     return env;
   }
@@ -55,6 +64,7 @@ final class LibraryEnv {
   final AppDatabase database = memoryDatabase();
   late final List<SourcePlugin> plugins;
   late final ProviderContainer container;
+  late final Log log;
 
   FakeImportPlugin get plugin => plugins.whereType<FakeImportPlugin>().first;
   PlaylistRepository get repository =>
