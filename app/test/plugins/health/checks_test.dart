@@ -485,6 +485,83 @@ void main() {
     }
   });
 
+  group('the libraryRead check', () {
+    const input = '{"cursor": "c1"}';
+    const required = '"requiresLogin": true';
+
+    test('takes a query and reads the playlists of the page', () {
+      final check = parseChecks(
+        '{"libraryRead": {"input": $input, "expect": {"minItems": 2, '
+        '"nonEmpty": ["title", "trackCount"]}, $required}}',
+      ).single;
+
+      expect(check.capability, PluginCapability.libraryRead);
+      expect((check.input as LibraryPlaylistsQuery).cursor, 'c1');
+      expect(check.requiresLogin, isTrue);
+      const page = LibraryPlaylistPage(
+        playlists: [
+          LibraryPlaylist(playlistId: 'a', title: 'A', writable: false),
+        ],
+      );
+      expect(check.expectation.evaluate(result: page, describe: (_) => ''), [
+        'expected at least 2 items, got 1',
+        'item 0: "trackCount" is empty',
+      ]);
+    });
+
+    test('an empty page has no playlists to check', () {
+      final check = parseChecks(
+        '{"libraryRead": {"input": {}, "expect": {"minItems": 0}, $required}}',
+      ).single;
+
+      expect(
+        check.expectation.evaluate(
+          result: const LibraryPlaylistPage(playlists: []),
+          describe: (_) => '',
+        ),
+        isEmpty,
+      );
+    });
+
+    for (final (name, text, message) in [
+      (
+        'requiresLogin is missing',
+        '{"libraryRead": {"input": {}, "expect": {}}}',
+        'missing required field "requiresLogin"',
+      ),
+      (
+        'requiresLogin is false',
+        '{"libraryRead": {"input": {}, "expect": {}, '
+            '"requiresLogin": false}}',
+        'checks.libraryRead.requiresLogin: must be true',
+      ),
+      (
+        'the input has an unknown field',
+        '{"libraryRead": {"input": {"page": 1}, "expect": {}, $required}}',
+        'checks.libraryRead.input',
+      ),
+      (
+        'nonEmpty names an unknown field',
+        '{"libraryRead": {"input": {}, "expect": {"nonEmpty": ["vip"]}, '
+            '$required}}',
+        'LibraryPlaylist has no field "vip"',
+      ),
+    ]) {
+      test('is rejected when $name', () {
+        expect(
+          () => parseChecks(text),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
+          ),
+        );
+      });
+    }
+  });
+
   group('the login check', () {
     const credentials = '{"cookies": {"SESSDATA": "***"}}';
 
@@ -643,6 +720,13 @@ void main() {
         parseChecks(
           '{"login": {"input": {"cookies": {"SESSDATA": "***"}}, '
           '"expect": {}, "requiresLogin": true, "mutates": true}}',
+        ).single.mutates,
+        isTrue,
+      );
+      expect(
+        parseChecks(
+          '{"libraryRead": {"input": {}, "expect": {}, '
+          '"requiresLogin": true, "mutates": true}}',
         ).single.mutates,
         isTrue,
       );

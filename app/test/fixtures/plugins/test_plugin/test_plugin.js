@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -233,6 +233,21 @@ export async function importPlaylist(query) {
     default:
       throw { fmpError: 'NotFound', message: `no such playlist: ${id}` };
   }
+}
+
+// 帳號的歌單（ADR 0032 §決定 3），不連網：沒有憑證 AuthRequired；登入後一頁兩張，
+// pl-auth（可寫）與 pl-basic（不可寫），標題與首數同 `importPlaylist` 回的。
+export async function libraryPlaylists() {
+  if ((await fmp.credentials.get()) === null) {
+    throw { fmpError: 'AuthRequired', message: 'log in to read your playlists' };
+  }
+  return {
+    playlists: [
+      { playlistId: 'pl-auth', title: 'Private playlist', trackCount: 3, writable: true },
+      { playlistId: 'pl-basic', title: 'Basic playlist', trackCount: BASIC_TRACKS.length, writable: false },
+    ],
+    cursor: null,
+  };
 }
 
 // 每個 QR 碼（token）已經輪詢過幾次。

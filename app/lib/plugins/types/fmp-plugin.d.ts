@@ -39,7 +39,7 @@ export interface FmpPluginManifest {
   apiVersion: 1;
   /**
    * 不能是空的；每個能力要有同名的匯出函式，反之亦然。'login' 的匯出是 loginVerify
-   * 等幾個，'live' 的是 liveSearch 等四個、'importPlaylist' 的是 playlistFromUrl 與 importPlaylist、'charts' 的是 chartList 與 chart（FmpPluginExports）。
+   * 等幾個，'live' 的是 liveSearch 等四個、'importPlaylist' 的是 playlistFromUrl 與 importPlaylist、'charts' 的是 chartList 與 chart、'libraryRead' 的是 libraryPlaylists（FmpPluginExports）。
    */
   capabilities: FmpCapability[];
   /**
@@ -423,6 +423,33 @@ export interface ChartPage {
   tracks: TrackSummary[];
 }
 
+/** libraryPlaylists 的輸入：第一頁沒有 cursor，之後是上一頁回傳的。 */
+export interface LibraryPlaylistsQuery {
+  cursor?: string | null;
+}
+
+/** libraryPlaylists 的回傳值：登入帳號自己的歌單的一頁。宿主讀完所有頁才顯示。 */
+export interface LibraryPlaylistPage {
+  /** 這一頁的歌單；可以是空陣列。同一頁內 playlistId 不能重複。 */
+  playlists: LibraryPlaylist[];
+  /** 插件的不透明字串（不能是空字串）；沒有或 null 表示最後一頁。 */
+  cursor?: string | null;
+}
+
+/** 登入帳號在平台上的一張歌單。 */
+export interface LibraryPlaylist {
+  /** 音源內的歌單 id（不透明），不能是空的；之後原樣交給 importPlaylist。 */
+  playlistId: string;
+  /** 顯示名稱，不能是空的。 */
+  title: string;
+  /** 多尺寸封面，規則同 TrackSummary.artwork。 */
+  artwork?: Artwork[] | null;
+  /** 非負整數；不知道就不給。 */
+  trackCount?: number | null;
+  /** 這張是帳號自己的、可以寫（libraryWrite）。 */
+  writable: boolean;
+}
+
 /** multiPart 的輸入。 */
 export interface MultiPartQuery {
   sourceId: string;
@@ -614,6 +641,19 @@ export interface FmpPluginExports {
    * 這一個榜單（宿主標「更新失敗」）。
    */
   chart?(query: ChartQuery): ChartPage | Promise<ChartPage>;
+  /**
+   * 'libraryRead' 能力的匯出，宣告就要匯出 libraryPlaylists（ADR 0032 §決定 3、6）；能力名稱
+   * 本身不是匯出。登入帳號自己的歌單，分頁同 importPlaylist。請求用 auth: 'required'，
+   * 沒登入宿主丟 AuthRequired。
+   */
+  libraryPlaylists?(
+    query: LibraryPlaylistsQuery,
+  ): LibraryPlaylistPage | Promise<LibraryPlaylistPage>;
+  /**
+   * 選填，只有同時宣告 'libraryRead' 與 'live' 的插件能匯出，否則整個拒載。登入帳號關注的
+   * 直播間；請求用 auth: 'required'。
+   */
+  libraryLiveRooms?(): { rooms: LiveRoom[] } | Promise<{ rooms: LiveRoom[] }>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -648,7 +688,7 @@ export interface FmpPluginExports {
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
 /**
- * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這九個。
+ * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這十個。
  *
  * 每種案例都可以寫 `mutates: true`（只能是 true，不寫就是不改動）：案例會改動遠端（加歌、
  * 刪歌、建歌單）時寫。健康檢查、命令列錄製與冒煙、開發工具的真實與錄製模式都略過它、
@@ -663,6 +703,7 @@ export interface FmpChecks {
   trackDetail?: FmpTrackDetailCheck | null;
   importPlaylist?: FmpImportPlaylistCheck | null;
   charts?: FmpChartsCheck | null;
+  libraryRead?: FmpLibraryReadCheck | null;
   login?: FmpLoginCheck | null;
 }
 
@@ -717,6 +758,20 @@ export interface FmpImportPlaylistCheck {
 export interface FmpChartsCheck {
   input: ChartQuery;
   expect: FmpExpectSuccess | FmpExpectError;
+  /** 見 FmpChecks。 */
+  mutates?: true | null;
+}
+
+/**
+ * libraryRead 的案例跑 libraryPlaylists 第一頁（不給 cursor 時 input 是 {}）；成功時回傳的
+ * playlists 是檢查的清單，nonEmpty 的名稱同 LibraryPlaylist。要登入才有意義：重播時宿主把同一份
+ * checks.json 的 login 案例的假憑證放進隔離環境（沒有 login 案例就不放），真實的憑證不進重播。
+ */
+export interface FmpLibraryReadCheck {
+  input: LibraryPlaylistsQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+  /** 必須是 true：這條案例要登入才有意義。 */
+  requiresLogin: true;
   /** 見 FmpChecks。 */
   mutates?: true | null;
 }

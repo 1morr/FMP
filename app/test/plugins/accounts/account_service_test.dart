@@ -128,6 +128,10 @@ final class _LoginPlugin implements SourcePlugin {
       throw UnimplementedError('importPlaylist');
 
   @override
+  Future<LibraryPlaylistPage> libraryPlaylists(LibraryPlaylistsQuery query) =>
+      throw UnimplementedError('libraryRead');
+
+  @override
   Future<ChartList> chartList() => throw UnimplementedError('charts');
 
   @override

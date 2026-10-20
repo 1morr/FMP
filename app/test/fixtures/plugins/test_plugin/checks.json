@@ -38,6 +38,11 @@
     "input": { "chartId": "hot" },
     "expect": { "minItems": 5, "nonEmpty": ["sourceId", "title", "uploader", "durationMs"] }
   },
+  "libraryRead": {
+    "input": {},
+    "expect": { "minItems": 2, "nonEmpty": ["playlistId", "title", "trackCount"] },
+    "requiresLogin": true
+  },
   "login": {
     "input": { "cookies": { "fmp_test_session": "fake-session-0000" } },
     "expect": { "minItems": 1, "nonEmpty": ["userId", "displayName"] },

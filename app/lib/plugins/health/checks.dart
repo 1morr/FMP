@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，charts 取一個榜單，login 跑 loginVerify）；
+// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，charts 取一個榜單，libraryRead 跑 libraryPlaylists 第一頁，login 跑 loginVerify）；
 // 其他能力的鍵是不認得的欄位，整個檔案拒收。每種案例都收選填的 `mutates`（只准
 // `true`，ADR 0032 §決定 7）。
 //
@@ -29,6 +29,7 @@ const checkShapes = <String, JsonShape>{
     'trackDetail': false,
     'importPlaylist': false,
     'charts': false,
+    'libraryRead': false,
     'login': false,
   },
   'FmpLiveCheck': {'input': true, 'expect': true, 'mutates': false},
@@ -37,6 +38,12 @@ const checkShapes = <String, JsonShape>{
   'FmpTrackDetailCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpImportPlaylistCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpChartsCheck': {'input': true, 'expect': true, 'mutates': false},
+  'FmpLibraryReadCheck': {
+    'input': true,
+    'expect': true,
+    'requiresLogin': true,
+    'mutates': false,
+  },
   'FmpSearchCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpResolveStreamCheck': {
     'input': true,
@@ -76,6 +83,10 @@ const _capabilities = {
     item: 'RemotePlaylistItem',
   ),
   PluginCapability.charts: (check: 'FmpChartsCheck', item: 'TrackSummary'),
+  PluginCapability.libraryRead: (
+    check: 'FmpLibraryReadCheck',
+    item: 'LibraryPlaylist',
+  ),
   PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
@@ -95,12 +106,14 @@ final class PluginCheck {
   /// [SearchQuery]、[StreamRequest]、[LiveRoomQuery]（live 的 `liveStatus`）、
   /// [MixSeedQuery]（mix 以 seed 開始）、[MultiPartQuery]（multiPart）、
   /// [TrackDetailQuery]（trackDetail）、[PlaylistUrlQuery]（importPlaylist）、
-  /// [ChartQuery]（charts 的 `chart`）或
+  /// [ChartQuery]（charts 的 `chart`）、[LibraryPlaylistsQuery]（libraryRead 的
+  /// `libraryPlaylists` 第一頁）或
   /// [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
 
-  /// 案例要登入才有意義（design §4.8）：重播照跑，命令列錄製略過。
+  /// 案例要登入才有意義（design §4.8）：`login` 與 `libraryRead` 才有；重播照跑（後者帶
+  /// `login` 案例的假憑證，見 `runIsolatedCase`），命令列錄製略過，健康檢查已登入才跑。
   final bool requiresLogin;
 
   /// 案例會改動遠端（加歌、刪歌、建歌單）：健康檢查、命令列與開發工具的錄製與真實
@@ -133,6 +146,7 @@ final class PluginCheck {
         final TrackDetailQuery query => plugin.trackDetail(query),
         final PlaylistUrlQuery query => _importFirstPage(plugin, query),
         final ChartQuery query => plugin.chart(query),
+        final LibraryPlaylistsQuery query => plugin.libraryPlaylists(query),
         final LoginCredentials fixture => plugin.loginVerify(
           credentials ?? fixture,
         ),
@@ -208,12 +222,17 @@ PluginCheck _check(
         path,
       ),
       PluginCapability.charts => _chartQuery(fields.raw('input'), path),
+      PluginCapability.libraryRead => _libraryPlaylistsQuery(
+        fields.raw('input'),
+        path,
+      ),
       _ => _streamRequest(fields.raw('input'), path),
     };
   } on ArgumentError catch (error) {
     throw FormatException('$path.input: ${error.message}');
   }
-  if (capability == PluginCapability.login &&
+  if ((capability == PluginCapability.login ||
+          capability == PluginCapability.libraryRead) &&
       fields.optionalBool('requiresLogin') != true) {
     throw FormatException('$path.requiresLogin: must be true');
   }
@@ -235,7 +254,9 @@ PluginCheck _check(
     expiresAtPattern: pattern == null
         ? null
         : _expiresAtPattern(pattern, '$path.expiresAtPattern'),
-    requiresLogin: capability == PluginCapability.login,
+    requiresLogin:
+        capability == PluginCapability.login ||
+        capability == PluginCapability.libraryRead,
     mutates: mutates ?? false,
   );
 }
@@ -377,6 +398,15 @@ ChartQuery _chartQuery(Object? json, String path) {
     path: '$path.input',
   );
   return ChartQuery(chartId: fields.string('chartId'));
+}
+
+LibraryPlaylistsQuery _libraryPlaylistsQuery(Object? json, String path) {
+  final fields = JsonFields(
+    json,
+    sourceDtoShapes['LibraryPlaylistsQuery']!,
+    path: '$path.input',
+  );
+  return LibraryPlaylistsQuery(cursor: fields.optionalString('cursor'));
 }
 
 StreamRequest _streamRequest(Object? json, String path) {
@@ -549,7 +579,19 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
     for (final item in page.items) playlistItemFields(item),
   ],
   final ChartPage page => [for (final track in page.tracks) trackFields(track)],
+  final LibraryPlaylistPage page => [
+    for (final playlist in page.playlists) libraryPlaylistFields(playlist),
+  ],
   _ => throw ArgumentError.value(result, 'result'),
+};
+
+/// [LibraryPlaylist] 的欄位，名稱同 `sourceDtoShapes['LibraryPlaylist']`。
+Map<String, Object?> libraryPlaylistFields(LibraryPlaylist playlist) => {
+  'playlistId': playlist.playlistId,
+  'title': playlist.title,
+  'artwork': playlist.artwork,
+  'trackCount': playlist.trackCount,
+  'writable': playlist.writable,
 };
 
 /// [RemotePlaylistItem] 的欄位，名稱同 `sourceDtoShapes['RemotePlaylistItem']`（`track`

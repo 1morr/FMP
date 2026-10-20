@@ -531,6 +531,55 @@ void main() {
     });
   });
 
+  group('libraryRead', () {
+    Future<void> logIn(PluginHarness harness) => harness.credentials.save(
+      Account(
+        pluginId: 'fmp-test',
+        userId: 'fmp-test-user',
+        displayName: 'FMP Test User',
+        status: AccountStatus.active,
+        loggedInAt: DateTime.utc(2026, 10, 20),
+      ),
+      const LoginCredentials(cookies: {'fmp_test_session': 'fake-session'}),
+    );
+
+    test('needs a login', () async {
+      final plugin = await PluginHarness().load(
+        testPluginFile.readAsStringSync(),
+      );
+
+      await expectLater(
+        plugin.libraryPlaylists(LibraryPlaylistsQuery()),
+        throwsA(isA<AuthRequired>()),
+      );
+    });
+
+    test('lists pl-auth (writable) and pl-basic (read-only) after a login, '
+        'with the titles and counts importPlaylist returns', () async {
+      final harness = PluginHarness();
+      final plugin = await harness.load(testPluginFile.readAsStringSync());
+      await logIn(harness);
+
+      final page = await plugin.libraryPlaylists(LibraryPlaylistsQuery());
+
+      expect(page.cursor, isNull);
+      expect(
+        [
+          for (final p in page.playlists)
+            (p.playlistId, p.writable, p.trackCount),
+        ],
+        [('pl-auth', true, 3), ('pl-basic', false, 5)],
+      );
+      for (final entry in page.playlists) {
+        final imported = await plugin.importPlaylist(
+          PlaylistPageQuery(playlistId: entry.playlistId),
+        );
+        expect(imported.playlist.title, entry.title);
+        expect(imported.total ?? imported.items.length, entry.trackCount);
+      }
+    });
+  });
+
   test('the test plugin is bundled only in the dev flavor', () {
     final assets =
         (loadYaml(File('pubspec.yaml').readAsStringSync())

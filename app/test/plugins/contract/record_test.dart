@@ -118,7 +118,7 @@ void main() {
     expect(_read(directory, 'search'), before);
   });
 
-  // 命令列沒有憑證（design §4.8）：login 的案例略過，其他照錄。
+  // 命令列沒有憑證（design §4.8）：login 與 libraryRead 的案例略過，其他照錄。
   test('skips a case that requires a login', () async {
     final directory = copyPlugin('test_plugin');
     final upstream = FakeHttpAdapter(_upstream);
@@ -126,11 +126,17 @@ void main() {
     final recording = await recordContract(directory, network: () => upstream);
 
     expect(recording.problems, isEmpty);
-    expect(recording.skipped, ['login: requires a login']);
-    expect(
-      Directory(p.join(directory.path, 'fixtures', 'login')).existsSync(),
-      isFalse,
-    );
+    expect(recording.skipped, [
+      'libraryRead: requires a login',
+      'login: requires a login',
+    ]);
+    for (final name in ['login', 'libraryRead']) {
+      expect(
+        Directory(p.join(directory.path, 'fixtures', name)).existsSync(),
+        isFalse,
+        reason: name,
+      );
+    }
   });
 
   // mutates（會改動遠端的案例）在命令列錄製一律略過：不載入、不連網、不建 fixture

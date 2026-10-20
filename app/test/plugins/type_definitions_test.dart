@@ -384,6 +384,73 @@ export function shape() {
     );
   });
 
+  test('the libraryRead exports match LibraryReadExports and the d.ts', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    // libraryLiveRooms 是選填匯出，d.ts 也要宣告（型別與匯出表一致）。
+    expect(exports.containsAll(LibraryReadExports.all), isTrue);
+    // 變異：d.ts 少一個匯出就對不上。
+    for (final (original, renamed) in [
+      ('  libraryPlaylists?(', '  libraryPlaylistsRenamed?('),
+      ('  libraryLiveRooms?(', '  libraryLiveRoomsRenamed?('),
+    ]) {
+      expect(_dts, contains(original));
+      final mutated = _interfaces(
+        _dts.replaceFirst(original, renamed),
+      )['FmpPluginExports']!.keys.toSet();
+      expect(
+        mutated.containsAll(LibraryReadExports.all),
+        isFalse,
+        reason: original,
+      );
+    }
+    // 無關的格式變動（縮排）不影響。
+    final reindented = _interfaces(
+      _dts.replaceFirst('  libraryPlaylists?(', '		libraryPlaylists?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(reindented.containsAll(LibraryReadExports.all), isTrue);
+  });
+
+  test('the libraryRead fields match between the d.ts and Dart', () {
+    expect(sourceDtoShapes['LibraryPlaylistPage']!['playlists'], isTrue);
+    expect(sourceDtoShapes['LibraryPlaylist']!['writable'], isTrue);
+    expect(sourceDtoShapes['LibraryPlaylist']!['trackCount'], isFalse);
+    expect(sourceDtoShapes['LibraryPlaylistsQuery']!['cursor'], isFalse);
+    expect(checkShapes['FmpChecks']!['libraryRead'], isFalse);
+    expect(checkShapes['FmpLibraryReadCheck']!['requiresLogin'], isTrue);
+    // 變異：writable 或 requiresLogin 改成選填、cursor 改成必填、少了 FmpChecks 的
+    // libraryRead，欄位表比對就紅。
+    for (final (original, mutated) in [
+      ('  writable: boolean;\n}', '  writable?: boolean;\n}'),
+      (
+        '  requiresLogin: true;\n  /** 見 FmpChecks。 */\n  mutates?: true | null;\n}\n\nexport interface FmpSearchCheck',
+        '  requiresLogin?: true;\n  /** 見 FmpChecks。 */\n  mutates?: true | null;\n}\n\nexport interface FmpSearchCheck',
+      ),
+      (
+        '  cursor?: string | null;\n}\n\n/** libraryPlaylists 的回傳值',
+        '  cursor: string | null;\n}\n\n/** libraryPlaylists 的回傳值',
+      ),
+      ('  libraryRead?: FmpLibraryReadCheck | null;\n', ''),
+    ]) {
+      expect(_dts, contains(original));
+      expect(
+        _shapeDifferences(_dts.replaceFirst(original, mutated)),
+        isNotEmpty,
+        reason: original,
+      );
+    }
+    // 無關的變動（多一行說明）不影響。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst(
+          '  playlists: LibraryPlaylist[];',
+          '  /** 說明 */\n  playlists: LibraryPlaylist[];',
+        ),
+      ),
+      isEmpty,
+    );
+  });
+
   test('partIndex and parentTitle match between the d.ts and Dart', () {
     expect(sourceDtoShapes['TrackSummary']!['partIndex'], isFalse);
     expect(sourceDtoShapes['TrackSummary']!['parentTitle'], isFalse);
