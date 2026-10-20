@@ -33,7 +33,8 @@
     "10-16-m4-mix-playlist",
     "10-16-m4-charts",
     "10-20-m4-library-read",
-    "10-20-m4-library-write"
+    "10-20-m4-library-write",
+    "10-20-m4-account-live-rooms"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

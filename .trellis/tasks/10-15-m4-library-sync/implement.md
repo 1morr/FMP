@@ -41,10 +41,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–14、16、20（FMP #272–#288 與 PR 14；fmp-plugins #16–#20 與 PR 14）。M4a 剩 PR 15 與驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
+- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–16、20（FMP #272–#289 與 PR 15；fmp-plugins #16–#21 與 PR 15）。M4a 剩驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
-- **下一步**：PR 15（只讀 B 站粉絲勳章牆，沿用已登入的帳號，不需要擁有者在場）；之後 M4a 驗收（擁有者在場）。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
+- **下一步**：M4a 驗收（擁有者在場；先問時間）。驗收前先把不需要擁有者的部分做完：ADR 測試對照（`research/m4-adr-tests.md` 的 M4a 段）、`milestones.md`、`app/AGENTS.md` 的 opus 審查。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
 - **fmp-plugins 的 PR**：
   - 在同層的 `fmp-plugins/` clone 開分支；
@@ -233,8 +233,8 @@
 
 ## 15. ★ `libraryLiveRooms` 與從帳號匯入電台（design §4.4、§7.4）
 
-- [ ] FMP：`libraryLiveRooms` 的呼叫、帳號頁「⋯」的「從帳號匯入電台」、摘要提示；`fmp-test` 的 `libraryLiveRooms`。
-- [ ] fmp-plugins：`bilibili` 的 `libraryLiveRooms`（粉絲勳章牆，舊 `fetchMedalWall`）、Node 測試、版本、index、`FMP_REF`（`checks.json` 不加：每能力一條，`libraryRead` 的那條已是 `libraryPlaylists`）。
+- [x] FMP：`libraryLiveRooms` 的呼叫、帳號頁「⋯」的「從帳號匯入電台」、摘要提示；`fmp-test` 的 `libraryLiveRooms`。
+- [x] fmp-plugins：`bilibili` 的 `libraryLiveRooms`（粉絲勳章牆，舊 `fetchMedalWall`）、Node 測試、版本、index、`FMP_REF`（`checks.json` 不加：每能力一條，`libraryRead` 的那條已是 `libraryPlaylists`）。
 - 測試：只在匯出且宣告 `live`、已登入時出現；重複的計數；寫入 `radio_stations`。
 - 實測：重播（Android）：`fmp-test` 匯入五個直播間（再匯入一次全部「已在清單」）。真實（擁有者登入，Android）：B 站匯入一次。
 - 依賴：13。模型：sonnet。
@@ -363,6 +363,11 @@
 ## 留下的後續
 
 （各 PR 合併時寫在這裡，最新的在上面。）
+
+- **PR 15 → 之後**：
+  - B 站勳章牆改用批次端點 `get_status_info_by_uids`（舊版每個主播各問一次 `getRoomInfoOld`）：宿主匯入後不再呼叫 `liveStatus`，房間的顯示資料要一次拿齊。實測（Windows，擁有者帳號）一次匯入 90 個：勳章牆 1 次、批次 2 次。
+  - 匯入寫到一半失敗時只提示「無法匯入電台：原因」，沒說已加了幾個（已寫入的留著，再匯入一次會算成「已在清單」）；要不要改看實際使用。
+  - 第一個「選填匯出」：manifest 只說「可以匯出」，`SourcePlugin.exportsLibraryLiveRooms` 讀執行期的匯出表；之後再有選填匯出照這個做。
 
 - **PR 14 → 之後**：
   - **寫後刷新延後 60 秒**（design §7.1、§7.2 原寫立刻刷新）：YouTube 寫後讀有延遲，實測約 40 秒；立刻刷新時，加入的看不到、移除的會被舊清單加回來。本地刪除仍立即做。B 站、網易立刻讀就一致。
