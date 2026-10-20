@@ -811,6 +811,51 @@ void main() {
       });
     });
 
+    // fmp-test 的 libraryWrite 案例（requiresLogin 與 mutates 必填）：真實與錄製模式略過、不呼叫
+    // 插件；重播照跑，並帶 login 案例的假憑證（沒有它會是 AuthRequired）。
+    group('the libraryWrite case of fmp-test', () {
+      for (final mode in [CaseMode.real, CaseMode.record]) {
+        test(
+          'is skipped in ${mode.name} mode as mutating the remote',
+          () async {
+            plugin('test_plugin');
+            final container = await start();
+            runs(container).setMode('fmp-test', mode);
+
+            await runs(container)
+                .run('fmp-test', PluginCapability.libraryWrite);
+
+            final shown = result(
+              container,
+              'fmp-test',
+              PluginCapability.libraryWrite,
+            )!;
+            expect(shown.outcome, DevCaseOutcome.skipped);
+            expect(shown.skip, DevSkip.mutates);
+          },
+        );
+      }
+
+      test('runs in replay mode with the fake credentials', () async {
+        plugin('test_plugin');
+        final container = await start();
+
+        await runs(container).run('fmp-test', PluginCapability.libraryWrite);
+
+        final shown = result(
+          container,
+          'fmp-test',
+          PluginCapability.libraryWrite,
+        )!;
+        expect(
+          shown.outcome,
+          DevCaseOutcome.passed,
+          reason: '${shown.problems}',
+        );
+        expect(shown.skip, isNull);
+      });
+    });
+
     test('replay mode uses the fake credentials of checks.json', () async {
       plugin('test_plugin');
       final container = await start();

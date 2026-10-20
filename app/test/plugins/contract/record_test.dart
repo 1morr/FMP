@@ -118,7 +118,8 @@ void main() {
     expect(_read(directory, 'search'), before);
   });
 
-  // 命令列沒有憑證（design §4.8）：login 與 libraryRead 的案例略過，其他照錄。
+  // 命令列沒有憑證（design §4.8）：login 與 libraryRead 的案例略過，其他照錄；libraryWrite 的案例
+  // 同時 mutates，略過的理由是後者（不呼叫插件）。
   test('skips a case that requires a login', () async {
     final directory = copyPlugin('test_plugin');
     final upstream = FakeHttpAdapter(_upstream);
@@ -128,9 +129,10 @@ void main() {
     expect(recording.problems, isEmpty);
     expect(recording.skipped, [
       'libraryRead: requires a login',
+      'libraryWrite: mutates the remote',
       'login: requires a login',
     ]);
-    for (final name in ['login', 'libraryRead']) {
+    for (final name in ['login', 'libraryRead', 'libraryWrite']) {
       expect(
         Directory(p.join(directory.path, 'fixtures', name)).existsSync(),
         isFalse,

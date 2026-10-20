@@ -11,6 +11,7 @@ final class FakeImportPlugin implements SourcePlugin {
     String id = 'fmp-test',
     bool resolveStream = true,
     bool mix = false,
+    bool libraryWrite = false,
     FutureOr<PlaylistPage> Function(PlaylistPageQuery query)? onPage,
     FutureOr<PlaylistRef?> Function(PlaylistUrlQuery query)? onUrl,
     FutureOr<MixBatch> Function(MixQuery query)? onMix,
@@ -26,6 +27,10 @@ final class FakeImportPlugin implements SourcePlugin {
            PluginCapability.importPlaylist,
            if (resolveStream) PluginCapability.resolveStream,
            if (mix) PluginCapability.mix,
+           if (libraryWrite) ...{
+             PluginCapability.libraryRead,
+             PluginCapability.libraryWrite,
+           },
          },
          allowedHosts: const ['fmp.test'],
        );
@@ -35,6 +40,17 @@ final class FakeImportPlugin implements SourcePlugin {
 
   /// `mix: true` 時才有能力。
   FutureOr<MixBatch> Function(MixQuery query) onMix;
+
+  // 遠端寫入（`libraryWrite: true` 時才有能力）：沒設定的處理函式呼叫就拋 UnimplementedError。
+  FutureOr<CreatePlaylistResult> Function(CreatePlaylistQuery query)?
+  onCreatePlaylist;
+  FutureOr<AddToPlaylistResponse> Function(AddToPlaylistQuery query)?
+  onAddToPlaylist;
+  FutureOr<RemoveFromPlaylistResponse> Function(RemoveFromPlaylistQuery query)?
+  onRemoveFromPlaylist;
+  final createQueries = <CreatePlaylistQuery>[];
+  final addQueries = <AddToPlaylistQuery>[];
+  final removeQueries = <RemoveFromPlaylistQuery>[];
 
   final mixQueries = <MixQuery>[];
   final pageQueries = <PlaylistPageQuery>[];
@@ -59,6 +75,30 @@ final class FakeImportPlugin implements SourcePlugin {
   Future<PlaylistPage> importPlaylist(PlaylistPageQuery query) async {
     pageQueries.add(query);
     return onPage(query);
+  }
+
+  @override
+  Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query) async {
+    createQueries.add(query);
+    return (onCreatePlaylist ?? (_) => throw UnimplementedError('create'))(
+      query,
+    );
+  }
+
+  @override
+  Future<AddToPlaylistResponse> addToPlaylist(AddToPlaylistQuery query) async {
+    addQueries.add(query);
+    return (onAddToPlaylist ?? (_) => throw UnimplementedError('add'))(query);
+  }
+
+  @override
+  Future<RemoveFromPlaylistResponse> removeFromPlaylist(
+    RemoveFromPlaylistQuery query,
+  ) async {
+    removeQueries.add(query);
+    return (onRemoveFromPlaylist ?? (_) => throw UnimplementedError('remove'))(
+      query,
+    );
   }
 
   @override

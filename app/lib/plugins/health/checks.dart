@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 
 // checks.json：每插件每能力最多一條檢查案例（ADR 0015 §決定 4）。檔案是一個
 // 物件，鍵是能力名稱，所以「最多一條」由格式本身保證。能寫案例的能力只有
-// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，charts 取一個榜單，libraryRead 跑 libraryPlaylists 第一頁，login 跑 loginVerify）；
+// SourcePlugin 已有方法的那些（search、resolveStream，live 跑 liveStatus，mix 以 seed 開始一個 Mix，multiPart 取分 P，trackDetail 取詳細，importPlaylist 跑 playlistFromUrl 再取第一頁，charts 取一個榜單，libraryRead 跑 libraryPlaylists 第一頁，libraryWrite 跑 addToPlaylist（必填 `requiresLogin` 與 `mutates`），login 跑 loginVerify）；
 // 其他能力的鍵是不認得的欄位，整個檔案拒收。每種案例都收選填的 `mutates`（只准
 // `true`，ADR 0032 §決定 7）。
 //
@@ -30,6 +30,7 @@ const checkShapes = <String, JsonShape>{
     'importPlaylist': false,
     'charts': false,
     'libraryRead': false,
+    'libraryWrite': false,
     'login': false,
   },
   'FmpLiveCheck': {'input': true, 'expect': true, 'mutates': false},
@@ -43,6 +44,12 @@ const checkShapes = <String, JsonShape>{
     'expect': true,
     'requiresLogin': true,
     'mutates': false,
+  },
+  'FmpLibraryWriteCheck': {
+    'input': true,
+    'expect': true,
+    'requiresLogin': true,
+    'mutates': true,
   },
   'FmpSearchCheck': {'input': true, 'expect': true, 'mutates': false},
   'FmpResolveStreamCheck': {
@@ -87,6 +94,10 @@ const _capabilities = {
     check: 'FmpLibraryReadCheck',
     item: 'LibraryPlaylist',
   ),
+  PluginCapability.libraryWrite: (
+    check: 'FmpLibraryWriteCheck',
+    item: 'AddToPlaylistResult',
+  ),
   PluginCapability.login: (check: 'FmpLoginCheck', item: 'LoginAccount'),
 };
 
@@ -107,12 +118,12 @@ final class PluginCheck {
   /// [MixSeedQuery]（mix 以 seed 開始）、[MultiPartQuery]（multiPart）、
   /// [TrackDetailQuery]（trackDetail）、[PlaylistUrlQuery]（importPlaylist）、
   /// [ChartQuery]（charts 的 `chart`）、[LibraryPlaylistsQuery]（libraryRead 的
-  /// `libraryPlaylists` 第一頁）或
+  /// `libraryPlaylists` 第一頁）、[AddToPlaylistQuery]（libraryWrite 的 `addToPlaylist`）或
   /// [LoginCredentials]（login 的 `loginVerify`）。
   final Object input;
   final CheckExpectation expectation;
 
-  /// 案例要登入才有意義（design §4.8）：`login` 與 `libraryRead` 才有；重播照跑（後者帶
+  /// 案例要登入才有意義（design §4.8）：`login`、`libraryRead` 與 `libraryWrite` 才有；重播照跑（後者帶
   /// `login` 案例的假憑證，見 `runIsolatedCase`），命令列錄製略過，健康檢查已登入才跑。
   final bool requiresLogin;
 
@@ -147,6 +158,7 @@ final class PluginCheck {
         final PlaylistUrlQuery query => _importFirstPage(plugin, query),
         final ChartQuery query => plugin.chart(query),
         final LibraryPlaylistsQuery query => plugin.libraryPlaylists(query),
+        final AddToPlaylistQuery query => plugin.addToPlaylist(query),
         final LoginCredentials fixture => plugin.loginVerify(
           credentials ?? fixture,
         ),
@@ -226,17 +238,21 @@ PluginCheck _check(
         fields.raw('input'),
         path,
       ),
+      PluginCapability.libraryWrite => _addToPlaylistQuery(
+        fields.raw('input'),
+        path,
+      ),
       _ => _streamRequest(fields.raw('input'), path),
     };
   } on ArgumentError catch (error) {
     throw FormatException('$path.input: ${error.message}');
   }
-  if ((capability == PluginCapability.login ||
-          capability == PluginCapability.libraryRead) &&
-      fields.optionalBool('requiresLogin') != true) {
+  final loginRequired = _requiresLogin.contains(capability);
+  if (loginRequired && fields.optionalBool('requiresLogin') != true) {
     throw FormatException('$path.requiresLogin: must be true');
   }
   final mutates = fields.optionalBool('mutates');
+  // 只准 true；libraryWrite 的案例必填（欄位表 `FmpLibraryWriteCheck.mutates` 擋掉沒寫的）。
   if (mutates == false) {
     throw FormatException('$path.mutates: must be true');
   }
@@ -254,12 +270,17 @@ PluginCheck _check(
     expiresAtPattern: pattern == null
         ? null
         : _expiresAtPattern(pattern, '$path.expiresAtPattern'),
-    requiresLogin:
-        capability == PluginCapability.login ||
-        capability == PluginCapability.libraryRead,
+    requiresLogin: loginRequired,
     mutates: mutates ?? false,
   );
 }
+
+/// 案例要登入才有意義、`requiresLogin: true` 必填的能力。
+const _requiresLogin = {
+  PluginCapability.login,
+  PluginCapability.libraryRead,
+  PluginCapability.libraryWrite,
+};
 
 LoginCredentials _credentials(Object? json, String path) {
   try {
@@ -407,6 +428,29 @@ LibraryPlaylistsQuery _libraryPlaylistsQuery(Object? json, String path) {
     path: '$path.input',
   );
   return LibraryPlaylistsQuery(cursor: fields.optionalString('cursor'));
+}
+
+AddToPlaylistQuery _addToPlaylistQuery(Object? json, String path) {
+  final fields = JsonFields(
+    json,
+    sourceDtoShapes['AddToPlaylistQuery']!,
+    path: '$path.input',
+  );
+  return AddToPlaylistQuery(
+    playlistId: fields.string('playlistId'),
+    tracks: [
+      for (final (index, track) in fields.list('tracks').indexed)
+        _addTrackRef(track, '$path.input.tracks[$index]'),
+    ],
+  );
+}
+
+AddTrackRef _addTrackRef(Object? json, String path) {
+  final fields = JsonFields(json, sourceDtoShapes['AddTrackRef']!, path: path);
+  return AddTrackRef(
+    sourceId: fields.string('sourceId'),
+    cid: fields.optionalInteger('cid'),
+  );
 }
 
 StreamRequest _streamRequest(Object? json, String path) {
@@ -582,7 +626,17 @@ List<Map<String, Object?>> checkItems(Object result) => switch (result) {
   final LibraryPlaylistPage page => [
     for (final playlist in page.playlists) libraryPlaylistFields(playlist),
   ],
+  final AddToPlaylistResponse response => [
+    for (final result in response.results) writeResultFields(result),
+  ],
   _ => throw ArgumentError.value(result, 'result'),
+};
+
+/// [LibraryWriteResult] 的欄位，名稱同 `sourceDtoShapes['AddToPlaylistResult']`（`status` 是插件
+/// 介面上的字串，`error` 是 `AppError` 的類別名）。
+Map<String, Object?> writeResultFields(LibraryWriteResult result) => {
+  'status': result.status.wireName,
+  'error': result.error?.typeName,
 };
 
 /// [LibraryPlaylist] 的欄位，名稱同 `sourceDtoShapes['LibraryPlaylist']`。

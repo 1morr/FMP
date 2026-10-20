@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "FMP",
   "apiVersion": 1,
-  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "login"],
+  "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "libraryWrite", "login"],
   "allowedHosts": [],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
@@ -37,6 +37,9 @@ const MISSING_NEXT_KEYWORD = 'missing';
 // - 關鍵字剛好是 `unavailable` 時，第一頁第一首以 Unavailable（版權）失敗：和
 //   第二首一起加進佇列播放，第一首跳過並提示原因。
 const PREVIEW_KEYWORD = 'preview';
+// 遠端寫入的實機驗證：關鍵字剛好是 `write-fail` 時，第一頁第一首的 sourceId 是 `fail`，
+// `addToPlaylist` 對它回 `failed`（見「遠端寫入」）。
+const WRITE_FAIL_KEYWORD = 'write-fail';
 const FLAKY_KEYWORD = 'flaky';
 const UNAVAILABLE_KEYWORD = 'unavailable';
 
@@ -117,7 +120,8 @@ const DETAIL_FAIL_ID = 'tone-880';
 //   第一頁（＝每刷新一次）輪流：新增一首、移除最前面一首、整張倒序。
 // - pl-partial：第 1 頁 3 首，第 2 頁（cursor `3`）NetworkError。
 // - pl-gone：NotFound。
-// - pl-auth：沒有憑證 AuthRequired；有就回 3 首、writable: true。
+// - pl-auth：沒有憑證 AuthRequired；有就回 3 首、writable: true（內容在記憶體，`libraryWrite`
+//   會改它，見下面「遠端寫入」）。
 // - pl-unavailable：3 首，第 2 首 unavailable。
 // - pl-parts：一支 3 P 的影片（parts-220）展開成 3 首，帶 partIndex、parentTitle；不給 total。
 const PLAYLIST_URL = /^https:\/\/fmp\.test\/playlist\/([a-z0-9-]+)$/;
@@ -132,6 +136,102 @@ let growFetches = 0;
 
 function playlistTrack(sourceId, title, extra) {
   return { sourceId, title, uploader: 'FMP', durationMs: 2000, artwork: [], ...extra };
+}
+
+// 遠端寫入（ADR 0032 §決定 4），不連網；同樣存在這個 isolate 的記憶體。帳號自己的、可寫的歌單：
+// `pl-auth`（從 3 首起，每項有 remoteItemId `auth-<n>`）與 `createPlaylist` 建的 `pl-new-<n>`（空）。
+// - addToPlaylist：歌單裡沒有就加到尾端（`added`），已經有（同 sourceId 與 cid）是 `alreadyPresent`；
+//   sourceId 剛好是 `fail` 的那一首 `failed`（帶結構化錯誤）。搜尋 `write-fail` 的第一首就是它。
+// - removeFromPlaylist：有 remoteItemId 就以它找，否則以 sourceId 與 cid 找；找到移除（`removed`），
+//   找不到 `notPresent`；sourceId 是 `fail` 的 `failed`（遠端不會有這一首，只有契約測試走到它）。
+// - 寫入前沒有憑證 AuthRequired；歌單不是帳號自己的可寫歌單（例如 pl-basic）NotFound。
+const WRITE_FAIL_SOURCE_ID = 'fail';
+const accountPlaylists = new Map([
+  [
+    'pl-auth',
+    {
+      title: 'Private playlist',
+      items: basicItems()
+        .slice(0, 3)
+        .map((item, index) => ({ ...item, remoteItemId: `auth-${index + 1}` })),
+    },
+  ],
+]);
+let accountItemCount = 3;
+let createdCount = 0;
+
+function accountTrack(ref) {
+  const tone = /^tone-(\d+)$/.exec(ref.sourceId);
+  const title = tone === null ? `Added ${ref.sourceId}` : `Playlist tone ${tone[1]} Hz`;
+  return playlistTrack(ref.sourceId, title, ref.cid === undefined || ref.cid === null ? {} : { cid: ref.cid });
+}
+
+function sameItem(item, ref) {
+  if (ref.remoteItemId !== undefined && ref.remoteItemId !== null) {
+    return item.remoteItemId === ref.remoteItemId;
+  }
+  return item.track.sourceId === ref.sourceId && (item.track.cid ?? null) === (ref.cid ?? null);
+}
+
+async function writablePlaylist(playlistId) {
+  if ((await fmp.credentials.get()) === null) {
+    throw { fmpError: 'AuthRequired', message: 'log in to change your playlists' };
+  }
+  const playlist = accountPlaylists.get(playlistId);
+  if (playlist === undefined) {
+    throw { fmpError: 'NotFound', message: `not a writable playlist: ${playlistId}` };
+  }
+  return playlist;
+}
+
+const WRITE_FAILED = {
+  status: 'failed',
+  error: { fmpError: 'RateLimited', retryAfterSeconds: 30, message: 'forced failure for on-device checks' },
+};
+
+export async function createPlaylist(query) {
+  if ((await fmp.credentials.get()) === null) {
+    throw { fmpError: 'AuthRequired', message: 'log in to change your playlists' };
+  }
+  createdCount += 1;
+  const playlistId = `pl-new-${createdCount}`;
+  accountPlaylists.set(playlistId, { title: query.title, items: [] });
+  return { playlistId };
+}
+
+export async function addToPlaylist(query) {
+  const playlist = await writablePlaylist(query.playlistId);
+  const results = query.tracks.map((ref) => {
+    if (ref.sourceId === WRITE_FAIL_SOURCE_ID) return WRITE_FAILED;
+    if (playlist.items.some((item) => sameItem(item, ref))) return { status: 'alreadyPresent' };
+    accountItemCount += 1;
+    playlist.items.push({ track: accountTrack(ref), remoteItemId: `auth-${accountItemCount}` });
+    return { status: 'added' };
+  });
+  return { results };
+}
+
+export async function removeFromPlaylist(query) {
+  const playlist = await writablePlaylist(query.playlistId);
+  const results = query.items.map((ref) => {
+    if (ref.sourceId === WRITE_FAIL_SOURCE_ID) return WRITE_FAILED;
+    const index = playlist.items.findIndex((item) => sameItem(item, ref));
+    if (index < 0) return { status: 'notPresent' };
+    playlist.items.splice(index, 1);
+    return { status: 'removed' };
+  });
+  return { results };
+}
+
+// 帳號自己的歌單的一頁：`pl-auth` 與 `pl-new-<n>`，內容就是記憶體裡現在的。
+async function accountPage(playlistId, meta) {
+  const playlist = await writablePlaylist(playlistId);
+  return {
+    playlist: { ...meta, title: playlist.title, writable: true },
+    items: playlist.items,
+    cursor: null,
+    total: playlist.items.length,
+  };
 }
 
 // 同一首曲目在每張歌單、每個位置的資料都一樣（真的音源也是），宿主依曲目鍵存一份。
@@ -198,17 +298,8 @@ export async function importPlaylist(query) {
     }
     case 'pl-gone':
       throw { fmpError: 'NotFound', message: 'the playlist is gone' };
-    case 'pl-auth': {
-      if ((await fmp.credentials.get()) === null) {
-        throw { fmpError: 'AuthRequired', message: 'log in to read this playlist' };
-      }
-      return {
-        playlist: { ...meta, title: 'Private playlist', writable: true },
-        items: basicItems().slice(0, 3),
-        cursor: null,
-        total: 3,
-      };
-    }
+    case 'pl-auth':
+      return accountPage(id, meta);
     case 'pl-unavailable':
       return {
         playlist: { ...meta, title: 'Unavailable playlist' },
@@ -231,20 +322,29 @@ export async function importPlaylist(query) {
         cursor: null,
       };
     default:
+      if (accountPlaylists.has(id)) return accountPage(id, meta);
       throw { fmpError: 'NotFound', message: `no such playlist: ${id}` };
   }
 }
 
-// 帳號的歌單（ADR 0032 §決定 3），不連網：沒有憑證 AuthRequired；登入後一頁兩張，
-// pl-auth（可寫）與 pl-basic（不可寫），標題與首數同 `importPlaylist` 回的。
+// 帳號的歌單（ADR 0032 §決定 3），不連網：沒有憑證 AuthRequired；登入後一頁（不分頁），
+// pl-auth（可寫）、pl-basic（不可寫），再接 `createPlaylist` 建的（可寫）；標題與首數同
+// `importPlaylist` 回的。
 export async function libraryPlaylists() {
   if ((await fmp.credentials.get()) === null) {
     throw { fmpError: 'AuthRequired', message: 'log in to read your playlists' };
   }
+  const writable = [...accountPlaylists].map(([playlistId, playlist]) => ({
+    playlistId,
+    title: playlist.title,
+    trackCount: playlist.items.length,
+    writable: true,
+  }));
   return {
     playlists: [
-      { playlistId: 'pl-auth', title: 'Private playlist', trackCount: 3, writable: true },
+      writable[0],
       { playlistId: 'pl-basic', title: 'Basic playlist', trackCount: BASIC_TRACKS.length, writable: false },
+      ...writable.slice(1),
     ],
     cursor: null,
   };
@@ -262,6 +362,8 @@ function sourceIdFor(keyword, index, hz) {
       return index === 0 ? `unavailable-${hz}` : `tone-${hz}`;
     case PREVIEW_KEYWORD:
       return `preview-${hz}`;
+    case WRITE_FAIL_KEYWORD:
+      return index === 0 ? WRITE_FAIL_SOURCE_ID : `tone-${hz}`;
     case FLAKY_KEYWORD:
       return `flaky-${hz}`;
     case PARTS_KEYWORD:

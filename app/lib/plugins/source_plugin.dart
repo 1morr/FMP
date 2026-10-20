@@ -61,6 +61,19 @@ abstract interface class SourcePlugin {
   /// `required`，沒登入是 `AuthRequired`；宿主讀完所有頁才顯示。
   Future<LibraryPlaylistPage> libraryPlaylists(LibraryPlaylistsQuery query);
 
+  /// [PluginCapability.libraryWrite]：在登入帳號的平台上新增一張空歌單（ADR 0032 §決定 4）。
+  /// 請求 `required`，沒登入是 `AuthRequired`。
+  Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query);
+
+  /// 把 [AddToPlaylistQuery.tracks] 加進遠端歌單；回傳的 `results` 與輸入同長同順序（長度不符是
+  /// `ParseError`），單項失敗放在那一項的 `error`，不讓整個呼叫失敗。
+  Future<AddToPlaylistResponse> addToPlaylist(AddToPlaylistQuery query);
+
+  /// 從遠端歌單移除 [RemoveFromPlaylistQuery.items]；`results` 的規則同 [addToPlaylist]。
+  Future<RemoveFromPlaylistResponse> removeFromPlaylist(
+    RemoveFromPlaylistQuery query,
+  );
+
   /// [PluginCapability.multiPart]：一支影片的分 P（ADR 0028 §決定 5）。
   Future<MultiPartResult> multiPart(MultiPartQuery query);
 

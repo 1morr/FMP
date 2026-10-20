@@ -132,6 +132,19 @@ final class _LoginPlugin implements SourcePlugin {
       throw UnimplementedError('libraryRead');
 
   @override
+  Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query) =>
+      throw UnimplementedError('libraryWrite');
+
+  @override
+  Future<AddToPlaylistResponse> addToPlaylist(AddToPlaylistQuery query) =>
+      throw UnimplementedError('libraryWrite');
+
+  @override
+  Future<RemoveFromPlaylistResponse> removeFromPlaylist(
+    RemoveFromPlaylistQuery query,
+  ) => throw UnimplementedError('libraryWrite');
+
+  @override
   Future<ChartList> chartList() => throw UnimplementedError('charts');
 
   @override

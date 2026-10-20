@@ -633,7 +633,7 @@ void main() {
   });
 
   // mutates（ADR 0032 §決定 7）：每種案例共用的選填欄位，只收 true；不寫就是不改動。
-  // PR 14 的 libraryWrite 案例改成必填。
+  // libraryWrite 的案例改成必填（見下面 'the libraryWrite check'）。
   group('mutates', () {
     test('is true when written, false when absent or null', () {
       PluginCheck check(String extra) =>
@@ -730,6 +730,73 @@ void main() {
         ).single.mutates,
         isTrue,
       );
+    });
+
+    // libraryWrite：mutates 與 requiresLogin 都必填。控制組是兩個都寫的案例能解析；
+    // 各拿掉一個、或寫 false 就拒收。
+    group('the libraryWrite check', () {
+      const input =
+          '"input": {"playlistId": "p", "tracks": [{"sourceId": "a"}]}';
+      String text(String extra) =>
+          '{"libraryWrite": {$input, "expect": {}$extra}}';
+
+      test('takes both flags and runs addToPlaylist', () {
+        final check = parseChecks(
+          text(', "requiresLogin": true, "mutates": true'),
+        ).single;
+
+        expect(check.capability, PluginCapability.libraryWrite);
+        expect(check.requiresLogin, isTrue);
+        expect(check.mutates, isTrue);
+        expect(check.input, isA<AddToPlaylistQuery>());
+      });
+
+      for (final (name, extra, message) in [
+        (
+          'mutates is missing',
+          ', "requiresLogin": true',
+          'missing required field "mutates"',
+        ),
+        (
+          'mutates is false',
+          ', "requiresLogin": true, "mutates": false',
+          'mutates: must be',
+        ),
+        ('requiresLogin is missing', ', "mutates": true', 'requiresLogin'),
+        (
+          'requiresLogin is false',
+          ', "requiresLogin": false, "mutates": true',
+          'requiresLogin: must be true',
+        ),
+      ]) {
+        test('is rejected when $name', () {
+          expect(
+            () => parseChecks(text(extra)),
+            throwsA(
+              isA<FormatException>().having(
+                (e) => e.message,
+                'message',
+                contains(message),
+              ),
+            ),
+          );
+        });
+      }
+
+      test('the result items are the add results', () {
+        final check = parseChecks(
+          '{"libraryWrite": {$input, "expect": {"minItems": 2, '
+          '"nonEmpty": ["error"]}, "requiresLogin": true, "mutates": true}}',
+        ).single;
+        const response = AddToPlaylistResponse(
+          results: [LibraryWriteResult(status: LibraryWriteStatus.added)],
+        );
+
+        expect(
+          check.expectation.evaluate(result: response, describe: (_) => ''),
+          ['expected at least 2 items, got 1', 'item 0: "error" is empty'],
+        );
+      });
     });
   });
 

@@ -5,6 +5,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:yaml/yaml.dart';
@@ -576,6 +577,269 @@ void main() {
         );
         expect(imported.playlist.title, entry.title);
         expect(imported.total ?? imported.items.length, entry.trackCount);
+      }
+    });
+  });
+
+  // 遠端寫入的假實作（design §4.9）：狀態在插件 isolate 的記憶體，每個測試載入自己的一份。
+  group('libraryWrite', () {
+    Future<(ScriptSourcePlugin, PluginHarness)> loggedIn() async {
+      final harness = PluginHarness();
+      final plugin = await harness.load(testPluginFile.readAsStringSync());
+      await harness.credentials.save(
+        Account(
+          pluginId: 'fmp-test',
+          userId: 'fmp-test-user',
+          displayName: 'FMP Test User',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026, 10, 20),
+        ),
+        const LoginCredentials(cookies: {'fmp_test_session': 'fake-session'}),
+      );
+      return (plugin, harness);
+    }
+
+    AddToPlaylistQuery add(String playlistId, List<String> ids, {int? cid}) =>
+        AddToPlaylistQuery(
+          playlistId: playlistId,
+          tracks: [for (final id in ids) AddTrackRef(sourceId: id, cid: cid)],
+        );
+
+    Future<List<RemotePlaylistItem>> items(
+      ScriptSourcePlugin plugin,
+      String id,
+    ) async =>
+        (await plugin.importPlaylist(PlaylistPageQuery(playlistId: id))).items;
+
+    test(
+      'declares the capability, so the exports are checked on load',
+      () async {
+        final plugin = await PluginHarness().load(
+          testPluginFile.readAsStringSync(),
+        );
+
+        expect(
+          plugin.manifest.capabilities,
+          contains(PluginCapability.libraryWrite),
+        );
+        expect(
+          plugin.manifest.requiredExports,
+          containsAll(LibraryWriteExports.all),
+        );
+      },
+    );
+
+    test('every write needs a login', () async {
+      final plugin = await PluginHarness().load(
+        testPluginFile.readAsStringSync(),
+      );
+
+      await expectLater(
+        plugin.addToPlaylist(add('pl-auth', ['tone-330'])),
+        throwsA(isA<AuthRequired>()),
+      );
+      await expectLater(
+        plugin.removeFromPlaylist(
+          RemoveFromPlaylistQuery(
+            playlistId: 'pl-auth',
+            items: [RemoveItemRef(sourceId: 'tone-440')],
+          ),
+        ),
+        throwsA(isA<AuthRequired>()),
+      );
+      await expectLater(
+        plugin.createPlaylist(CreatePlaylistQuery(title: 'x')),
+        throwsA(isA<AuthRequired>()),
+      );
+    });
+
+    test('adding a song is added once, then alreadyPresent', () async {
+      final (plugin, _) = await loggedIn();
+
+      final first = await plugin.addToPlaylist(add('pl-auth', ['tone-330']));
+      final second = await plugin.addToPlaylist(add('pl-auth', ['tone-330']));
+
+      expect(first.results.single.status, LibraryWriteStatus.added);
+      expect(second.results.single.status, LibraryWriteStatus.alreadyPresent);
+      // 初始內容裡就有的也是 alreadyPresent。
+      final initial = await plugin.addToPlaylist(add('pl-auth', ['tone-440']));
+      expect(initial.results.single.status, LibraryWriteStatus.alreadyPresent);
+    });
+
+    test('a cid makes it another song', () async {
+      final (plugin, _) = await loggedIn();
+
+      await plugin.addToPlaylist(add('pl-auth', ['parts-220'], cid: 22001));
+      final other = await plugin.addToPlaylist(
+        add('pl-auth', ['parts-220'], cid: 22002),
+      );
+
+      expect(other.results.single.status, LibraryWriteStatus.added);
+    });
+
+    test('the song with sourceId "fail" fails with a structured error, the '
+        'others in the same call are unaffected', () async {
+      final (plugin, _) = await loggedIn();
+
+      final response = await plugin.addToPlaylist(
+        add('pl-auth', ['tone-330', 'fail', 'tone-550']),
+      );
+
+      expect(
+        [for (final r in response.results) r.status],
+        [
+          LibraryWriteStatus.added,
+          LibraryWriteStatus.failed,
+          LibraryWriteStatus.added,
+        ],
+      );
+      expect(response.results[1].error, isA<RateLimited>());
+      expect(response.results[0].error, isNull);
+    });
+
+    test('importPlaylist of pl-auth and libraryPlaylists reflect the '
+        'writes, so a refresh after a write can be observed', () async {
+      final (plugin, _) = await loggedIn();
+      expect(await items(plugin, 'pl-auth'), hasLength(3));
+
+      await plugin.addToPlaylist(add('pl-auth', ['tone-330', 'tone-550']));
+
+      final after = await items(plugin, 'pl-auth');
+      expect(
+        [for (final i in after) i.track.sourceId],
+        ['tone-440', 'tone-220', 'tone-880', 'tone-330', 'tone-550'],
+      );
+      // 每項都有 remoteItemId，移除可以用它。
+      expect(after.every((item) => item.remoteItemId != null), isTrue);
+      expect({for (final i in after) i.remoteItemId}, hasLength(5));
+      final listed = await plugin.libraryPlaylists(LibraryPlaylistsQuery());
+      expect(listed.playlists.first.trackCount, 5);
+    });
+
+    test('removing finds a song by remoteItemId, or by sourceId and cid; '
+        'a missing one is notPresent', () async {
+      final (plugin, _) = await loggedIn();
+      final current = await items(plugin, 'pl-auth');
+
+      final response = await plugin.removeFromPlaylist(
+        RemoveFromPlaylistQuery(
+          playlistId: 'pl-auth',
+          items: [
+            RemoveItemRef(
+              sourceId: 'tone-440',
+              remoteItemId: current[0].remoteItemId,
+            ),
+            RemoveItemRef(sourceId: 'tone-220'),
+            RemoveItemRef(sourceId: 'tone-220'),
+            RemoveItemRef(sourceId: 'tone-880', cid: 5),
+          ],
+        ),
+      );
+
+      expect(
+        [for (final r in response.results) r.status],
+        [
+          LibraryWriteStatus.removed,
+          LibraryWriteStatus.removed,
+          LibraryWriteStatus.notPresent,
+          LibraryWriteStatus.notPresent,
+        ],
+      );
+      expect(
+        [for (final i in await items(plugin, 'pl-auth')) i.track.sourceId],
+        ['tone-880'],
+      );
+    });
+
+    test('removing "fail" fails', () async {
+      final (plugin, _) = await loggedIn();
+
+      final response = await plugin.removeFromPlaylist(
+        RemoveFromPlaylistQuery(
+          playlistId: 'pl-auth',
+          items: [RemoveItemRef(sourceId: 'fail')],
+        ),
+      );
+
+      expect(response.results.single.status, LibraryWriteStatus.failed);
+      expect(response.results.single.error, isNotNull);
+    });
+
+    test(
+      'a playlist that is not the account\'s writable one is NotFound',
+      () async {
+        final (plugin, _) = await loggedIn();
+
+        await expectLater(
+          plugin.addToPlaylist(add('pl-basic', ['tone-330'])),
+          throwsA(isA<NotFound>()),
+        );
+      },
+    );
+
+    test('createPlaylist makes pl-new-<n>: empty, listed as writable, '
+        'importable and writable afterwards', () async {
+      final (plugin, _) = await loggedIn();
+
+      final first = await plugin.createPlaylist(
+        CreatePlaylistQuery(title: 'Mine'),
+      );
+      final second = await plugin.createPlaylist(
+        CreatePlaylistQuery(title: 'Other'),
+      );
+
+      expect([first.playlistId, second.playlistId], ['pl-new-1', 'pl-new-2']);
+      final listed = await plugin.libraryPlaylists(LibraryPlaylistsQuery());
+      expect(
+        [for (final p in listed.playlists) (p.playlistId, p.writable)],
+        [
+          ('pl-auth', true),
+          ('pl-basic', false),
+          ('pl-new-1', true),
+          ('pl-new-2', true),
+        ],
+      );
+      final page = await plugin.importPlaylist(
+        PlaylistPageQuery(playlistId: 'pl-new-1'),
+      );
+      expect(page.items, isEmpty);
+      expect(page.playlist.title, 'Mine');
+      expect(page.playlist.writable, isTrue);
+      await plugin.addToPlaylist(add('pl-new-1', ['tone-330']));
+      expect(await items(plugin, 'pl-new-1'), hasLength(1));
+    });
+
+    test('searching "write-fail" puts the failing song first, only for '
+        'that keyword', () async {
+      final plugin = await PluginHarness().load(
+        testPluginFile.readAsStringSync(),
+      );
+
+      final failing = await plugin.search(SearchQuery(keyword: 'write-fail'));
+      final other = await plugin.search(SearchQuery(keyword: 'write-fail2'));
+
+      expect(failing.items.first.sourceId, 'fail');
+      expect([
+        for (final i in failing.items.skip(1)) i.sourceId,
+      ], everyElement(startsWith('tone-')));
+      expect(
+        other.items.map((i) => i.sourceId),
+        everyElement(startsWith('tone-')),
+      );
+    });
+
+    test('the README documents the keywords and ids', () {
+      final readme = File('test/fixtures/plugins/test_plugin/README.md')
+          .readAsStringSync();
+
+      for (final keyword in [
+        'libraryWrite',
+        'write-fail',
+        'pl-new-',
+        'alreadyPresent',
+        'createPlaylist',
+      ]) {
+        expect(readme, contains(keyword), reason: keyword);
       }
     });
   });

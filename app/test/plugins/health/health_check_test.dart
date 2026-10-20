@@ -14,7 +14,9 @@ import 'package:fmp/plugins/accounts/credential_store.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/health/health_check.dart';
+import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/plugins/source_dto.dart';
 
 import '../../playback/fake_source_plugin.dart';
 import '../../support/fake_http_adapter.dart';
@@ -134,6 +136,23 @@ const _libraryReadCheck =
     '"expect": {"minItems": 1, "nonEmpty": ["playlistId", "title"]}, '
     '"requiresLogin": true}';
 
+/// libraryWrite：`addToPlaylist` 打 `/write`（`required`）。健康檢查不該呼叫它（`mutates`）。
+const _libraryWriteScript = '''
+export function createPlaylist() { return { playlistId: 'n' }; }
+export async function addToPlaylist(query) {
+  await fmp.http.request({ url: 'https://example.test/write', method: 'POST', auth: 'required' });
+  return { results: query.tracks.map(() => ({ status: 'added' })) };
+}
+export function removeFromPlaylist(query) {
+  return { results: query.items.map(() => ({ status: 'removed' })) };
+}
+''';
+const _libraryWriteCheck =
+    '"libraryWrite": {"input": {"playlistId": "p1", '
+    '"tracks": [{"sourceId": "a"}]}, '
+    '"expect": {"minItems": 1, "nonEmpty": ["status"]}, '
+    '"requiresLogin": true, "mutates": true}';
+
 const _trackDetailCheck =
     '"trackDetail": {"input": {"sourceId": "s"}, '
     '"expect": {"minItems": 1, "nonEmpty": ["description", "stats"]}}';
@@ -169,6 +188,7 @@ final class _Spec {
     this.importPlaylist = false,
     this.charts = false,
     this.libraryRead = false,
+    this.libraryWrite = false,
   });
 
   final String id;
@@ -182,6 +202,7 @@ final class _Spec {
   final bool importPlaylist;
   final bool charts;
   final bool libraryRead;
+  final bool libraryWrite;
 }
 
 typedef _Setup = ({
@@ -214,7 +235,8 @@ Future<_Setup> _setup(
           '${spec.trackDetail ? _trackDetailScript : ''}'
           '${spec.importPlaylist ? _importPlaylistScript : ''}'
           '${spec.charts ? _chartsScript : ''}'
-          '${spec.libraryRead ? _libraryReadScript : ''}',
+          '${spec.libraryRead ? _libraryReadScript : ''}'
+          '${spec.libraryWrite ? _libraryWriteScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
@@ -225,6 +247,7 @@ Future<_Setup> _setup(
             if (spec.importPlaylist) 'importPlaylist',
             if (spec.charts) 'charts',
             if (spec.libraryRead) 'libraryRead',
+            if (spec.libraryWrite) 'libraryWrite',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -428,6 +451,59 @@ void main() {
       final cases = await run(s);
 
       expect(cases.last.outcome, HealthOutcome.failed);
+    });
+  });
+
+  // libraryWrite 的案例一定 `mutates`：已登入也不呼叫插件，結果寫「略過：會改動遠端」。
+  group('a libraryWrite case', () {
+    final writing = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_libraryReadCheck, $_libraryWriteCheck}',
+      libraryRead: true,
+      libraryWrite: true,
+    );
+
+    for (final loggedIn in [true, false]) {
+      test(
+        'is skipped as mutating the remote (logged in: $loggedIn)',
+        () async {
+          final s = await _setup([writing]);
+          if (loggedIn) await _login(s.harness, 'plugin-a');
+
+          await s.container
+              .read(healthCheckProvider.notifier)
+              .runOne('plugin-a');
+
+          final cases = s.container
+              .read(healthCheckProvider)
+              .results['plugin-a']!
+              .cases;
+          final write = cases.last;
+          expect(write.capability, PluginCapability.libraryWrite);
+          expect(write.outcome, HealthOutcome.skipped);
+          expect(write.skip, HealthSkip.mutates);
+          expect(s.requests.where((r) => r.startsWith('/write')), isEmpty);
+        },
+      );
+    }
+
+    // 控制組：同一個插件、同樣已登入，直接呼叫 addToPlaylist 就會送出 /write；
+    // 所以上面沒有請求是因為略過，不是因為腳本不發請求。
+    test('the script itself does send its request when called', () async {
+      final s = await _setup([writing]);
+      await _login(s.harness, 'plugin-a');
+      final plugin = (await s.container.read(
+        pluginRegistryProvider.future,
+      ))['plugin-a']!;
+
+      await plugin.addToPlaylist(
+        AddToPlaylistQuery(
+          playlistId: 'p1',
+          tracks: [AddTrackRef(sourceId: 'a')],
+        ),
+      );
+
+      expect(s.requests.where((r) => r.startsWith('/write')), hasLength(1));
     });
   });
 

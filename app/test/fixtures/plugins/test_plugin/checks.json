@@ -43,6 +43,15 @@
     "expect": { "minItems": 2, "nonEmpty": ["playlistId", "title", "trackCount"] },
     "requiresLogin": true
   },
+  "libraryWrite": {
+    "input": {
+      "playlistId": "pl-auth",
+      "tracks": [{ "sourceId": "tone-330" }, { "sourceId": "tone-550" }]
+    },
+    "expect": { "minItems": 2, "nonEmpty": ["status"] },
+    "requiresLogin": true,
+    "mutates": true
+  },
   "login": {
     "input": { "cookies": { "fmp_test_session": "fake-session-0000" } },
     "expect": { "minItems": 1, "nonEmpty": ["userId", "displayName"] },
