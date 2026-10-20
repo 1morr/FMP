@@ -10,6 +10,8 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
+import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
@@ -18,6 +20,7 @@ import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:integration_test/integration_test.dart';
@@ -42,9 +45,20 @@ void main() {
   Future<(ShellHarness, BuildContext)> pumpShell(
     WidgetTester tester, {
     bool live = false,
+    bool libraryRead = false,
   }) async {
-    // 錯誤詳細頁讀 `redactorProvider`；ShellHarness 不給就不 override。
-    final h = ShellHarness(redactor: Redactor(), live: live);
+    // 錯誤詳細頁讀 `redactorProvider`；ShellHarness 不給就不 override。帳號歌單頁要插件清單。
+    final h = ShellHarness(
+      redactor: Redactor(),
+      live: live,
+      libraryRead: libraryRead,
+      registryOfSources: libraryRead,
+    );
+    h.plugin.onLibraryPlaylists = (_) => const LibraryPlaylistPage(
+      playlists: [
+        LibraryPlaylist(playlistId: 'a', title: 'A playlist', writable: false),
+      ],
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: h.overrides,
@@ -184,6 +198,41 @@ void main() {
     unawaited(
       showDialog<void>(
         context: tester.element(find.byType(HistoryPage)),
+        builder: (_) => const AlertDialog(content: Text('A dialog')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await expectToastOnTop(tester, h);
+    expect(find.text('A dialog'), findsOneWidget);
+  });
+
+  // 帳號的歌單頁（M4 PR 13，design §7.3）：帳號頁在設定分頁自己的巢狀導覽裡開的頁，導覽與播放列
+  // 留著；提示照樣在最上層，對話框開在它上面時也是。
+  testWidgets('a toast shows above the account playlists page', (tester) async {
+    final (h, _) = await pumpShell(tester, libraryRead: true);
+    await h.play(tester, [summary('a')]);
+    await tester.pump(const Duration(milliseconds: 200));
+    // 介面語言跟著機器的系統語言：以圖示找導覽項，不用介面字串。
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
+    unawaited(
+      openAccountPlaylists(
+        tester.element(find.byType(SettingsPage)),
+        h.plugin.manifest.id,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountPlaylistsPage), findsOneWidget);
+    expect(find.text('A playlist'), findsOneWidget);
+    expect(find.byType(PlayerBar), findsOneWidget);
+
+    await expectToastOnTop(tester, h);
+    expect(find.byType(AccountPlaylistsPage), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 7));
+    unawaited(
+      showDialog<void>(
+        context: tester.element(find.byType(AccountPlaylistsPage)),
         builder: (_) => const AlertDialog(content: Text('A dialog')),
       ),
     );

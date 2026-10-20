@@ -2068,6 +2068,39 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String loginRejected({required Object name}) =>
       '${name} didn\'t accept the sign-in. Try again.';
+  @override
+  String get playlists => 'Playlists';
+  @override
+  String playlistsTitle({required Object name}) => '${name} playlists';
+  @override
+  String get playlistsEmpty => 'This account has no playlists yet';
+  @override
+  String get playlistsFailed => 'Couldn\'t read the playlists';
+  @override
+  String get playlistWritable => 'Writable';
+  @override
+  String get playlistImported => 'Imported';
+  @override
+  String playlistSelect({required Object name}) => 'Select "${name}"';
+  @override
+  String importSelected({required Object count}) =>
+      'Import selected (${count})';
+  @override
+  String importingProgress({required Object done, required Object total}) =>
+      'Importing ${done}/${total}';
+  @override
+  String playlistImportFailed({required Object reason}) =>
+      'Import failed: ${reason}';
+  @override
+  String get playlistUnsupported => 'This source can\'t import playlists yet';
+  @override
+  String importedCount({required Object count}) =>
+      'Playlists imported: ${count}';
+  @override
+  String importedWithFailures({
+    required Object count,
+    required Object failed,
+  }) => 'Playlists imported: ${count}, failed: ${failed}';
 }
 
 // Path: errors

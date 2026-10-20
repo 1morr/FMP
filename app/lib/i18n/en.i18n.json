@@ -836,7 +836,20 @@
     "cookieEmpty": "No cookies found. Paste name=value pairs or the contents of a cookies.txt file.",
     "cookieRejected": "{name} didn't accept these cookies. Copy them again from a page where you're signed in.",
     "loginRejected": "{name} didn't accept the sign-in. Try again.",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "playlists": "Playlists",
+    "playlistsTitle": "{name} playlists",
+    "playlistsEmpty": "This account has no playlists yet",
+    "playlistsFailed": "Couldn't read the playlists",
+    "playlistWritable": "Writable",
+    "playlistImported": "Imported",
+    "playlistSelect": "Select \"{name}\"",
+    "importSelected": "Import selected ({count})",
+    "importingProgress": "Importing {done}/{total}",
+    "playlistImportFailed": "Import failed: {reason}",
+    "playlistUnsupported": "This source can't import playlists yet",
+    "importedCount": "Playlists imported: {count}",
+    "importedWithFailures": "Playlists imported: {count}, failed: {failed}"
   },
   "errors": {
     "network": "Network connection failed. Check your connection and try again.",

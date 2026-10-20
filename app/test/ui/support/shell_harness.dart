@@ -100,6 +100,7 @@ final class ShellHarness {
     bool mix = false,
     bool multiPart = false,
     bool trackDetail = false,
+    bool libraryRead = false,
     this.secureStorage = false,
     this.restartsItself = false,
     this.dataReset,
@@ -120,6 +121,7 @@ final class ShellHarness {
          mix: mix,
          multiPart: multiPart,
          trackDetail: trackDetail,
+         libraryRead: libraryRead,
          onSearch:
              onSearch ??
              (query) => SearchPage(

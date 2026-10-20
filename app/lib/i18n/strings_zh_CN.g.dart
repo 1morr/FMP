@@ -1985,6 +1985,36 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
       '“${name}”不接受这些 Cookie。请从已登录的页面重新复制。';
   @override
   String loginRejected({required Object name}) => '“${name}”没有接受这次登录，请再试一次。';
+  @override
+  String get playlists => '歌单';
+  @override
+  String playlistsTitle({required Object name}) => '${name} 的歌单';
+  @override
+  String get playlistsEmpty => '这个账号还没有歌单';
+  @override
+  String get playlistsFailed => '无法读取歌单';
+  @override
+  String get playlistWritable => '可写';
+  @override
+  String get playlistImported => '已导入';
+  @override
+  String playlistSelect({required Object name}) => '选取“${name}”';
+  @override
+  String importSelected({required Object count}) => '导入所选 (${count})';
+  @override
+  String importingProgress({required Object done, required Object total}) =>
+      '导入中 ${done}／${total}';
+  @override
+  String playlistImportFailed({required Object reason}) => '导入失败：${reason}';
+  @override
+  String get playlistUnsupported => '这个来源还不能导入歌单';
+  @override
+  String importedCount({required Object count}) => '已导入 ${count} 张';
+  @override
+  String importedWithFailures({
+    required Object count,
+    required Object failed,
+  }) => '已导入 ${count} 张，${failed} 张失败';
 }
 
 // Path: errors

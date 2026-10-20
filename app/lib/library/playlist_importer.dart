@@ -99,6 +99,45 @@ final class PlaylistImporter {
     }
   }
 
+  /// 以插件與音源內的歌單 id 匯入，不經網址（帳號頁的「歌單」，`playlistId` 來自
+  /// `libraryPlaylists`）。之後的規則同 [importUrl]：已匯入的是刷新那一列，否則第一頁成功才建列。
+  ///
+  /// 插件不在已啟用的清單裡（沒安裝、已停用），或沒宣告 `importPlaylist` → [Unsupported]。
+  /// 失敗一律丟 `AppError`。
+  ///
+  /// [writable] 是呼叫端已知的「帳號自己的、可寫」（`libraryPlaylists` 的權威值）：匯入成功後
+  /// （新建或既有那列）給了就寫進 `playlist_remote.writable`，因為有的插件的 `importPlaylist` 不給
+  /// `writable`，建列時會存成假；之後的刷新在 page 的 `writable` 是 `null` 時保留這個值。
+  Future<ImportResult> importPlaylistId(
+    String pluginId,
+    String playlistId, {
+    bool? writable,
+    void Function(int count)? onProgress,
+  }) async {
+    try {
+      final plugins = await _ref.read(pluginRegistryProvider.future);
+      final plugin = plugins[pluginId];
+      if (plugin == null ||
+          !plugin.manifest.capabilities.contains(
+            PluginCapability.importPlaylist,
+          )) {
+        throw Unsupported(
+          pluginId: pluginId,
+          cause: StateError('The source cannot import a playlist'),
+        );
+      }
+      final result = await _importPlaylist(plugin, playlistId, onProgress);
+      if (writable != null && result is ImportedPlaylist) {
+        await _ref
+            .read(playlistRepositoryProvider)
+            .setWritable(result.playlistId, writable: writable);
+      }
+      return result;
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
+    }
+  }
+
   /// 為 [seed] 建一張 Mix 歌單（ADR 0033 §決定 1）：向插件的 `mix` 取一次（驗證種子、拿
   /// `MixBatch.title` 當名稱），成功才建列；不存曲目。同一個種子再來一次是新的一張。
   /// 失敗一律丟 `AppError`（插件的原樣丟出；一首都沒給是 `NotFound`），什麼都沒建。

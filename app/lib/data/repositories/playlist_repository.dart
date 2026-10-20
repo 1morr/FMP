@@ -439,6 +439,20 @@ final class PlaylistRepository {
         },
       );
 
+  /// [pluginId] 已匯入的遠端歌單 id（`playlist_remote.remote_id`），隨 `playlist_remote` 的
+  /// 變動發新的值。帳號頁的歌單清單以它標「已匯入」。
+  Stream<Set<String>> watchImportedRemoteIds(String pluginId) =>
+      (_database.select(_database.playlistRemoteTable)
+            ..where((t) => t.pluginId.equals(pluginId)))
+          .watch()
+          .map((rows) => {for (final row in rows) row.remoteId});
+
+  /// 寫匯入歌單的 `writable`（帳號頁的 `libraryPlaylists` 是權威）。不是匯入歌單時什麼都不做。
+  Future<void> setWritable(int playlistId, {required bool writable}) =>
+      (_database.update(_database.playlistRemoteTable)
+            ..where((t) => t.playlistId.equals(playlistId)))
+          .write(PlaylistRemoteTableCompanion(writable: Value(writable)));
+
   /// 改匯入歌單的自動刷新間隔（小時，[hours] 空＝不啟用）。不是匯入歌單時什麼都不做。
   Future<void> setRefreshInterval(int playlistId, int? hours) =>
       (_database.update(
