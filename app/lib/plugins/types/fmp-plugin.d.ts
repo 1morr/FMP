@@ -450,6 +450,77 @@ export interface LibraryPlaylist {
   writable: boolean;
 }
 
+/** createPlaylist 的輸入。 */
+export interface CreatePlaylistQuery {
+  /** 顯示名稱；宿主已去掉頭尾空白，不會是空的。 */
+  title: string;
+}
+
+/** createPlaylist 的回傳值：新增的空歌單。 */
+export interface CreatePlaylistResult {
+  /** 音源內的歌單 id（不透明），不能是空的；之後原樣交給 addToPlaylist、importPlaylist。 */
+  playlistId: string;
+}
+
+/** addToPlaylist 要加的一首。 */
+export interface AddTrackRef {
+  sourceId: string;
+  /** 分 P 的 cid；整支影片不給。 */
+  cid?: number | null;
+}
+
+/** addToPlaylist 的輸入。 */
+export interface AddToPlaylistQuery {
+  /** libraryPlaylists 給的歌單 id。 */
+  playlistId: string;
+  /** 至少一首，順序就是 results 的順序。 */
+  tracks: AddTrackRef[];
+}
+
+/** addToPlaylist 的回傳值。 */
+export interface AddToPlaylistResponse {
+  /** 與輸入的 tracks 同長同順序，長度不符整個呼叫是 ParseError。 */
+  results: AddToPlaylistResult[];
+}
+
+/**
+ * 一首的結果。歌單裡本來就有是 alreadyPresent（去重與 id 換算，例如 B 站 bvid 換 aid，在插件內
+ * 做）；這一首失敗是 failed 並可以附 error（結構化錯誤，宿主以插件拋出的同一個轉換處理），
+ * 其他首照常。error 只能出現在 failed。
+ */
+export interface AddToPlaylistResult {
+  status: 'added' | 'alreadyPresent' | 'failed';
+  error?: FmpError | null;
+}
+
+/** removeFromPlaylist 要移除的一項，欄位來自匯入歌單的項目。 */
+export interface RemoveItemRef {
+  sourceId: string;
+  /** 分 P 的 cid；整支影片不給。 */
+  cid?: number | null;
+  /** importPlaylist 給的 remoteItemId（YouTube 的 setVideoId）；沒有的項目不給，以 sourceId 找。 */
+  remoteItemId?: string | null;
+}
+
+/** removeFromPlaylist 的輸入。 */
+export interface RemoveFromPlaylistQuery {
+  playlistId: string;
+  /** 至少一項，順序就是 results 的順序。 */
+  items: RemoveItemRef[];
+}
+
+/** removeFromPlaylist 的回傳值。 */
+export interface RemoveFromPlaylistResponse {
+  /** 與輸入的 items 同長同順序，長度不符整個呼叫是 ParseError。 */
+  results: RemoveFromPlaylistResult[];
+}
+
+/** 一項的結果。遠端本來就沒有是 notPresent；error 規則同 AddToPlaylistResult。 */
+export interface RemoveFromPlaylistResult {
+  status: 'removed' | 'notPresent' | 'failed';
+  error?: FmpError | null;
+}
+
 /** multiPart 的輸入。 */
 export interface MultiPartQuery {
   sourceId: string;
@@ -654,6 +725,18 @@ export interface FmpPluginExports {
    * 直播間；請求用 auth: 'required'。
    */
   libraryLiveRooms?(): { rooms: LiveRoom[] } | Promise<{ rooms: LiveRoom[] }>;
+  /**
+   * 'libraryWrite' 能力的三個匯出，宣告就要三個都匯出（ADR 0032 §決定 4、6），而且必須同時宣告
+   * 'libraryRead'（否則整個拒載）；能力名稱本身不是匯出。請求一律用 auth: 'required'，沒登入宿主
+   * 丟 AuthRequired。在登入帳號的平台上新增一張空歌單。
+   */
+  createPlaylist?(query: CreatePlaylistQuery): CreatePlaylistResult | Promise<CreatePlaylistResult>;
+  /** 把曲目加進歌單；results 與 tracks 同長同順序，單首失敗放在那一首，不要讓整個呼叫失敗。 */
+  addToPlaylist?(query: AddToPlaylistQuery): AddToPlaylistResponse | Promise<AddToPlaylistResponse>;
+  /** 從歌單移除項目；results 與 items 同長同順序，規則同 addToPlaylist。 */
+  removeFromPlaylist?(
+    query: RemoveFromPlaylistQuery,
+  ): RemoveFromPlaylistResponse | Promise<RemoveFromPlaylistResponse>;
   /** 使用者按「QR 登入」時。 */
   loginQrStart?(): LoginQrCode | Promise<LoginQrCode>;
   /** QR 畫面開著時每 2 秒一次。 */
@@ -688,7 +771,7 @@ export interface FmpPluginExports {
 // fixture（只限不需要登入的案例）。指令見 app/AGENTS.md § 驗證。
 
 /**
- * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這十個。
+ * checks.json：每個能力最多一條案例，鍵就是能力名稱。目前能寫案例的只有這十一個。
  *
  * 每種案例都可以寫 `mutates: true`（只能是 true，不寫就是不改動）：案例會改動遠端（加歌、
  * 刪歌、建歌單）時寫。健康檢查、命令列錄製與冒煙、開發工具的真實與錄製模式都略過它、
@@ -704,6 +787,7 @@ export interface FmpChecks {
   importPlaylist?: FmpImportPlaylistCheck | null;
   charts?: FmpChartsCheck | null;
   libraryRead?: FmpLibraryReadCheck | null;
+  libraryWrite?: FmpLibraryWriteCheck | null;
   login?: FmpLoginCheck | null;
 }
 
@@ -774,6 +858,21 @@ export interface FmpLibraryReadCheck {
   requiresLogin: true;
   /** 見 FmpChecks。 */
   mutates?: true | null;
+}
+
+/**
+ * libraryWrite 的案例跑 addToPlaylist；成功時回傳的 results 是檢查的清單，nonEmpty 的名稱同
+ * AddToPlaylistResult。會改動遠端，所以 requiresLogin 與 mutates 都必須是 true：健康檢查、命令列
+ * 錄製與冒煙、開發工具的真實與錄製模式都略過它，只有契約測試的重播會跑（fixture 手寫並標
+ * meta.edited；重播時憑證的處理同 libraryRead）。
+ */
+export interface FmpLibraryWriteCheck {
+  input: AddToPlaylistQuery;
+  expect: FmpExpectSuccess | FmpExpectError;
+  /** 必須是 true：這條案例要登入才有意義。 */
+  requiresLogin: true;
+  /** 必須是 true：這條案例會改動遠端。 */
+  mutates: true;
 }
 
 export interface FmpSearchCheck {

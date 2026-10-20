@@ -13,8 +13,9 @@ const hostApiVersion = 1;
 /// 插件能力（ADR 0014 §決定 4）。
 ///
 /// 每個能力對應腳本裡一個同名的匯出函式（[wireName]），[login]、[live]、
-/// [importPlaylist]、[charts]、[libraryRead] 例外：它們的匯出是 [LoginExports]、
-/// [LiveExports]、[ImportPlaylistExports]、[ChartsExports]、[LibraryReadExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
+/// [importPlaylist]、[charts]、[libraryRead]、[libraryWrite] 例外：它們的匯出是 [LoginExports]、
+/// [LiveExports]、[ImportPlaylistExports]、[ChartsExports]、[LibraryReadExports]、
+/// [LibraryWriteExports] 那幾個（[PluginManifest.requiredExports]）。manifest 宣告的能力
 /// 都要匯出，匯出了能力名稱的函式也都要宣告，否則拒絕載入。只有已經有
 /// `SourcePlugin` 方法的能力有人呼叫，其他能力認得、檢查匯出。
 enum PluginCapability {
@@ -125,6 +126,21 @@ abstract final class LibraryReadExports {
   static const liveRooms = 'libraryLiveRooms';
 
   static const all = {playlists, liveRooms};
+}
+
+/// `libraryWrite` 能力的匯出函式（ADR 0032 §決定 4、6）。名稱是插件的介面；宣告 `libraryWrite`
+/// 就三個都要匯出（能力名稱本身不是匯出），而且必須同時宣告 `libraryRead`。
+abstract final class LibraryWriteExports {
+  /// `({title}) → {playlistId}`。
+  static const createPlaylist = 'createPlaylist';
+
+  /// `({playlistId, tracks}) → {results}`：`results` 與 `tracks` 同長同順序。
+  static const addToPlaylist = 'addToPlaylist';
+
+  /// `({playlistId, items}) → {results}`：`results` 與 `items` 同長同順序。
+  static const removeFromPlaylist = 'removeFromPlaylist';
+
+  static const all = {createPlaylist, addToPlaylist, removeFromPlaylist};
 }
 
 /// 登入方式（ADR 0029 §決定 1）。宿主顯示「插件宣告的 ∩ 這個 App 在這個平台做得到的」。
@@ -313,7 +329,7 @@ final class PluginManifest {
 
   /// 腳本一定要匯出的函式：每個能力一個同名的，`live` 換成 [LiveExports.all]、
   /// `importPlaylist` 換成 [ImportPlaylistExports.all]、`charts` 換成 [ChartsExports.all]、
-  /// `libraryRead` 換成 [LibraryReadExports.playlists]，
+  /// `libraryRead` 換成 [LibraryReadExports.playlists]，`libraryWrite` 換成 [LibraryWriteExports.all]，
   /// `login` 換成 [LoginExports.verify]，
   /// methods 含 `qr` 時加 [LoginExports.qrStart]、[LoginExports.qrPoll]，宣告
   /// `refresh` 時加 [LoginExports.refresh]。
@@ -326,6 +342,8 @@ final class PluginManifest {
     if (capabilities.contains(PluginCapability.charts)) ...ChartsExports.all,
     if (capabilities.contains(PluginCapability.libraryRead))
       LibraryReadExports.playlists,
+    if (capabilities.contains(PluginCapability.libraryWrite))
+      ...LibraryWriteExports.all,
     if (login case final login?) ...[
       LoginExports.verify,
       if (login.methods.contains(LoginMethod.qr)) ...[
@@ -353,6 +371,7 @@ final class PluginManifest {
     ...ImportPlaylistExports.all,
     ...ChartsExports.all,
     ...LibraryReadExports.all,
+    ...LibraryWriteExports.all,
     ...LoginExports.all,
   };
 
@@ -372,6 +391,7 @@ const _multiExport = {
   PluginCapability.importPlaylist,
   PluginCapability.charts,
   PluginCapability.libraryRead,
+  PluginCapability.libraryWrite,
 };
 
 final _idPattern = RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$');
@@ -479,6 +499,13 @@ PluginManifest _fromJson(Object? json) {
       _host(host, 'manifest.allowedHosts[$index]'),
   ];
   final capabilities = _capabilities(fields.stringList('capabilities'));
+  // 寫入的目標歌單來自 `libraryPlaylists`（ADR 0032 §決定 4）。
+  if (capabilities.contains(PluginCapability.libraryWrite) &&
+      !capabilities.contains(PluginCapability.libraryRead)) {
+    throw const _UnsupportedManifest(
+      'manifest.capabilities: libraryWrite requires libraryRead',
+    );
+  }
   final login = _login(fields.optionalObject('login'), allowedHosts);
   if ((login != null) != capabilities.contains(PluginCapability.login)) {
     throw const FormatException(

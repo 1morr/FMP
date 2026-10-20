@@ -423,8 +423,8 @@ export function shape() {
     for (final (original, mutated) in [
       ('  writable: boolean;\n}', '  writable?: boolean;\n}'),
       (
-        '  requiresLogin: true;\n  /** 見 FmpChecks。 */\n  mutates?: true | null;\n}\n\nexport interface FmpSearchCheck',
-        '  requiresLogin?: true;\n  /** 見 FmpChecks。 */\n  mutates?: true | null;\n}\n\nexport interface FmpSearchCheck',
+        '  requiresLogin: true;\n  /** 見 FmpChecks。 */\n  mutates?: true | null;\n}\n\n/**\n * libraryWrite 的案例',
+        '  requiresLogin?: true;\n  /** 見 FmpChecks。 */\n  mutates?: true | null;\n}\n\n/**\n * libraryWrite 的案例',
       ),
       (
         '  cursor?: string | null;\n}\n\n/** libraryPlaylists 的回傳值',
@@ -445,6 +445,80 @@ export function shape() {
         _dts.replaceFirst(
           '  playlists: LibraryPlaylist[];',
           '  /** 說明 */\n  playlists: LibraryPlaylist[];',
+        ),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('the libraryWrite exports match LibraryWriteExports and the d.ts', () {
+    final exports = _interfaces(_dts)['FmpPluginExports']!.keys.toSet();
+
+    expect(exports.containsAll(LibraryWriteExports.all), isTrue);
+    // 變異：d.ts 少一個匯出就對不上。
+    for (final name in LibraryWriteExports.all) {
+      final original = '  $name?(';
+      expect(_dts, contains(original));
+      final mutated = _interfaces(
+        _dts.replaceFirst(original, '  ${name}Renamed?('),
+      )['FmpPluginExports']!.keys.toSet();
+      expect(
+        mutated.containsAll(LibraryWriteExports.all),
+        isFalse,
+        reason: name,
+      );
+    }
+    // 無關的格式變動（縮排）不影響。
+    final reindented = _interfaces(
+      _dts.replaceFirst('  addToPlaylist?(', '		addToPlaylist?('),
+    )['FmpPluginExports']!.keys.toSet();
+    expect(reindented.containsAll(LibraryWriteExports.all), isTrue);
+  });
+
+  test('the libraryWrite fields match between the d.ts and Dart', () {
+    expect(sourceDtoShapes['AddToPlaylistQuery']!['tracks'], isTrue);
+    expect(sourceDtoShapes['AddToPlaylistResult']!['status'], isTrue);
+    expect(sourceDtoShapes['AddToPlaylistResult']!['error'], isFalse);
+    expect(sourceDtoShapes['RemoveItemRef']!['remoteItemId'], isFalse);
+    expect(sourceDtoShapes['FmpError']!['fmpError'], isTrue);
+    expect(checkShapes['FmpChecks']!['libraryWrite'], isFalse);
+    expect(checkShapes['FmpLibraryWriteCheck']!['requiresLogin'], isTrue);
+    expect(checkShapes['FmpLibraryWriteCheck']!['mutates'], isTrue);
+    // 變異：必填改選填、選填改必填、少了 FmpChecks 的 libraryWrite、少了 FmpError 的欄位，
+    // 欄位表比對就紅。
+    for (final (original, mutated) in [
+      (
+        '  mutates: true;\n}\n\nexport interface FmpSearchCheck',
+        '  mutates?: true;\n}\n\nexport interface FmpSearchCheck',
+      ),
+      (
+        '  requiresLogin: true;\n  /** 必須是 true：這條案例會改動遠端。 */',
+        '  requiresLogin?: true;\n  /** 必須是 true：這條案例會改動遠端。 */',
+      ),
+      (
+        "  status: 'added' | 'alreadyPresent' | 'failed';",
+        "  status?: 'added' | 'alreadyPresent' | 'failed';",
+      ),
+      (
+        '  error?: FmpError | null;\n}\n\n/** removeFromPlaylist 要移除',
+        '}\n\n/** removeFromPlaylist 要移除',
+      ),
+      ('  libraryWrite?: FmpLibraryWriteCheck | null;\n', ''),
+      ('  fmpError: FmpErrorName;', '  fmpError?: FmpErrorName;'),
+    ]) {
+      expect(_dts, contains(original));
+      expect(
+        _shapeDifferences(_dts.replaceFirst(original, mutated)),
+        isNotEmpty,
+        reason: original,
+      );
+    }
+    // 無關的變動（多一行說明）不影響。
+    expect(
+      _shapeDifferences(
+        _dts.replaceFirst(
+          '  tracks: AddTrackRef[];',
+          '  /** 說明 */\n  tracks: AddTrackRef[];',
         ),
       ),
       isEmpty,

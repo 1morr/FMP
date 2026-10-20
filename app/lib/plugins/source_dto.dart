@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/core/json_shape.dart';
+import 'package:fmp/plugins/runtime/script_errors.dart';
 
 // 宿主與插件交換的 DTO，apiVersion 1（ADR 0014 §決定 5）。
 //
@@ -122,6 +124,23 @@ const sourceDtoShapes = <String, JsonShape>{
     'artwork': false,
     'trackCount': false,
     'writable': true,
+  },
+  'CreatePlaylistQuery': {'title': true},
+  'CreatePlaylistResult': {'playlistId': true},
+  'AddTrackRef': {'sourceId': true, 'cid': false},
+  'AddToPlaylistQuery': {'playlistId': true, 'tracks': true},
+  'AddToPlaylistResponse': {'results': true},
+  'AddToPlaylistResult': {'status': true, 'error': false},
+  'RemoveItemRef': {'sourceId': true, 'cid': false, 'remoteItemId': false},
+  'RemoveFromPlaylistQuery': {'playlistId': true, 'items': true},
+  'RemoveFromPlaylistResponse': {'results': true},
+  'RemoveFromPlaylistResult': {'status': true, 'error': false},
+  // 結構化錯誤（`throw {fmpError: …}`）的形狀，`results[].error` 也用它。
+  'FmpError': {
+    'fmpError': true,
+    'retryAfterSeconds': false,
+    'reason': false,
+    'message': false,
   },
 };
 
@@ -1560,4 +1579,288 @@ final class LibraryPlaylist {
 
   /// 這張是帳號自己的、可以寫（`libraryWrite`）。
   final bool writable;
+}
+
+/// `createPlaylist` 的輸入：[title] 去掉頭尾空白後不得為空（呼叫端先整理）。
+@immutable
+final class CreatePlaylistQuery {
+  CreatePlaylistQuery({required String title}) : title = title.trim() {
+    if (this.title.isEmpty) {
+      throw ArgumentError.value(title, 'title', 'must not be empty');
+    }
+  }
+
+  final String title;
+
+  Map<String, Object?> toJson() => {'title': title};
+}
+
+/// `createPlaylist` 的回傳值：新歌單在音源內的 id（不透明，之後原樣交給 `addToPlaylist`、
+/// `importPlaylist`）。
+@immutable
+final class CreatePlaylistResult {
+  const CreatePlaylistResult({required this.playlistId});
+
+  factory CreatePlaylistResult.fromJson(Object? json) {
+    const path = 'CreatePlaylistResult';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    return CreatePlaylistResult(
+      playlistId: fields.nonEmptyString('playlistId'),
+    );
+  }
+
+  final String playlistId;
+}
+
+/// `addToPlaylist` 要加的一首。
+@immutable
+final class AddTrackRef {
+  AddTrackRef({required this.sourceId, this.cid}) {
+    if (sourceId.isEmpty) {
+      throw ArgumentError.value(sourceId, 'sourceId', 'must not be empty');
+    }
+    if (cid != null && cid! < 0) {
+      throw ArgumentError.value(cid, 'cid', 'must not be negative');
+    }
+  }
+
+  final String sourceId;
+  final int? cid;
+
+  Map<String, Object?> toJson() => {
+    'sourceId': sourceId,
+    if (cid != null) 'cid': cid,
+  };
+}
+
+/// `addToPlaylist` 的輸入：[tracks] 至少一首。
+@immutable
+final class AddToPlaylistQuery {
+  AddToPlaylistQuery({required this.playlistId, required this.tracks}) {
+    if (playlistId.isEmpty) {
+      throw ArgumentError.value(playlistId, 'playlistId', 'must not be empty');
+    }
+    if (tracks.isEmpty) {
+      throw ArgumentError.value(tracks, 'tracks', 'must not be empty');
+    }
+  }
+
+  final String playlistId;
+  final List<AddTrackRef> tracks;
+
+  Map<String, Object?> toJson() => {
+    'playlistId': playlistId,
+    'tracks': [for (final track in tracks) track.toJson()],
+  };
+}
+
+/// `removeFromPlaylist` 要移除的一項：[remoteItemId] 是遠端項目的 id（匯入時 `importPlaylist`
+/// 給的），沒有的音源以 [sourceId]（與 [cid]）找。
+@immutable
+final class RemoveItemRef {
+  RemoveItemRef({required this.sourceId, this.cid, this.remoteItemId}) {
+    if (sourceId.isEmpty) {
+      throw ArgumentError.value(sourceId, 'sourceId', 'must not be empty');
+    }
+    if (cid != null && cid! < 0) {
+      throw ArgumentError.value(cid, 'cid', 'must not be negative');
+    }
+    if (remoteItemId != null && remoteItemId!.isEmpty) {
+      throw ArgumentError.value(
+        remoteItemId,
+        'remoteItemId',
+        'must not be empty',
+      );
+    }
+  }
+
+  final String sourceId;
+  final int? cid;
+  final String? remoteItemId;
+
+  Map<String, Object?> toJson() => {
+    'sourceId': sourceId,
+    if (cid != null) 'cid': cid,
+    if (remoteItemId != null) 'remoteItemId': remoteItemId,
+  };
+}
+
+/// `removeFromPlaylist` 的輸入：[items] 至少一項。
+@immutable
+final class RemoveFromPlaylistQuery {
+  RemoveFromPlaylistQuery({required this.playlistId, required this.items}) {
+    if (playlistId.isEmpty) {
+      throw ArgumentError.value(playlistId, 'playlistId', 'must not be empty');
+    }
+    if (items.isEmpty) {
+      throw ArgumentError.value(items, 'items', 'must not be empty');
+    }
+  }
+
+  final String playlistId;
+  final List<RemoveItemRef> items;
+
+  Map<String, Object?> toJson() => {
+    'playlistId': playlistId,
+    'items': [for (final item in items) item.toJson()],
+  };
+}
+
+/// 寫入結果裡一項的狀態（ADR 0032 §決定 4）；[wireName] 是插件介面上的字串。
+enum LibraryWriteStatus {
+  /// `addToPlaylist`：加進去了。
+  added('added'),
+
+  /// `addToPlaylist`：歌單裡本來就有（去重在插件內做）。
+  alreadyPresent('alreadyPresent'),
+
+  /// `removeFromPlaylist`：移除了。
+  removed('removed'),
+
+  /// `removeFromPlaylist`：歌單裡本來就沒有。
+  notPresent('notPresent'),
+
+  /// 這一項失敗，原因在 [LibraryWriteResult.error]。
+  failed('failed');
+
+  const LibraryWriteStatus(this.wireName);
+
+  final String wireName;
+
+  static const forAdd = {added, alreadyPresent, failed};
+  static const forRemove = {removed, notPresent, failed};
+}
+
+/// 寫入結果裡的一項，對應輸入的同一個位置。
+@immutable
+final class LibraryWriteResult {
+  const LibraryWriteResult({required this.status, this.error});
+
+  /// [shape] 是 `AddToPlaylistResult` 或 `RemoveFromPlaylistResult`（欄位相同，d.ts 的狀態
+  /// union 不同）。
+  factory LibraryWriteResult._fromJson(
+    Object? json, {
+    required Set<LibraryWriteStatus> allowed,
+    required String shape,
+    required String pluginId,
+    required String path,
+  }) {
+    final fields = JsonFields(json, sourceDtoShapes[shape]!, path: path);
+    final name = fields.string('status');
+    final status = allowed.where((value) => value.wireName == name).firstOrNull;
+    if (status == null) {
+      throw FormatException('$path.status: unknown "$name"');
+    }
+    final error = fields.optionalObject('error');
+    if (error != null && status != LibraryWriteStatus.failed) {
+      throw FormatException('$path.error: only a failed result has an error');
+    }
+    return LibraryWriteResult(
+      status: status,
+      error: error == null
+          ? null
+          : _structuredError(error, pluginId, '$path.error'),
+    );
+  }
+
+  final LibraryWriteStatus status;
+
+  /// 只有 [LibraryWriteStatus.failed] 可能有；插件沒說原因就是 `null`。
+  final AppError? error;
+}
+
+/// 結構化錯誤轉成 [AppError]，和插件拋出的結構化錯誤走同一個函式（`structuredScriptError`）。
+AppError _structuredError(
+  Map<String, Object?> json,
+  String pluginId,
+  String path,
+) {
+  final fields = JsonFields(json, sourceDtoShapes['FmpError']!, path: path);
+  final retryAfter = fields.raw('retryAfterSeconds');
+  if (retryAfter != null && retryAfter is! num) {
+    throw FormatException('$path.retryAfterSeconds: expected a number');
+  }
+  return structuredScriptError(
+    pluginId: pluginId,
+    fmpError: fields.string('fmpError'),
+    retryAfterSeconds: retryAfter as num?,
+    reason: fields.optionalString('reason'),
+    message: fields.optionalString('message'),
+  );
+}
+
+List<LibraryWriteResult> _writeResults(
+  Object? json, {
+  required String path,
+  required String itemShape,
+  required Set<LibraryWriteStatus> allowed,
+  required String pluginId,
+  required int expected,
+}) {
+  final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+  final items = fields.list('results');
+  if (items.length != expected) {
+    throw FormatException(
+      '$path.results: expected $expected results, got ${items.length}',
+    );
+  }
+  return List.unmodifiable([
+    for (final (index, item) in items.indexed)
+      LibraryWriteResult._fromJson(
+        item,
+        allowed: allowed,
+        shape: itemShape,
+        pluginId: pluginId,
+        path: '$path.results[$index]',
+      ),
+  ]);
+}
+
+/// `addToPlaylist` 的回傳值：[results] 與輸入的 `tracks` 同長同順序。
+@immutable
+final class AddToPlaylistResponse {
+  const AddToPlaylistResponse({required this.results});
+
+  /// [expected] 是輸入的筆數；長度不符、`status` 不在 `added`／`alreadyPresent`／`failed`、
+  /// `error` 出現在非 `failed` 的項目都是 [FormatException]。
+  factory AddToPlaylistResponse.fromJson(
+    Object? json, {
+    required String pluginId,
+    required int expected,
+  }) => AddToPlaylistResponse(
+    results: _writeResults(
+      json,
+      path: 'AddToPlaylistResponse',
+      itemShape: 'AddToPlaylistResult',
+      allowed: LibraryWriteStatus.forAdd,
+      pluginId: pluginId,
+      expected: expected,
+    ),
+  );
+
+  final List<LibraryWriteResult> results;
+}
+
+/// `removeFromPlaylist` 的回傳值：[results] 與輸入的 `items` 同長同順序。
+@immutable
+final class RemoveFromPlaylistResponse {
+  const RemoveFromPlaylistResponse({required this.results});
+
+  /// 規則同 [AddToPlaylistResponse.fromJson]，狀態是 `removed`／`notPresent`／`failed`。
+  factory RemoveFromPlaylistResponse.fromJson(
+    Object? json, {
+    required String pluginId,
+    required int expected,
+  }) => RemoveFromPlaylistResponse(
+    results: _writeResults(
+      json,
+      path: 'RemoveFromPlaylistResponse',
+      itemShape: 'RemoveFromPlaylistResult',
+      allowed: LibraryWriteStatus.forRemove,
+      pluginId: pluginId,
+      expected: expected,
+    ),
+  );
+
+  final List<LibraryWriteResult> results;
 }

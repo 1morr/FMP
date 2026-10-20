@@ -200,6 +200,50 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query) async {
+    final json = await _invoke(
+      PluginCapability.libraryWrite,
+      query.toJson(),
+      LibraryWriteExports.createPlaylist,
+    );
+    return _decode(() => CreatePlaylistResult.fromJson(json));
+  }
+
+  @override
+  Future<AddToPlaylistResponse> addToPlaylist(AddToPlaylistQuery query) async {
+    final json = await _invoke(
+      PluginCapability.libraryWrite,
+      query.toJson(),
+      LibraryWriteExports.addToPlaylist,
+    );
+    return _decode(
+      () => AddToPlaylistResponse.fromJson(
+        json,
+        pluginId: manifest.id,
+        expected: query.tracks.length,
+      ),
+    );
+  }
+
+  @override
+  Future<RemoveFromPlaylistResponse> removeFromPlaylist(
+    RemoveFromPlaylistQuery query,
+  ) async {
+    final json = await _invoke(
+      PluginCapability.libraryWrite,
+      query.toJson(),
+      LibraryWriteExports.removeFromPlaylist,
+    );
+    return _decode(
+      () => RemoveFromPlaylistResponse.fromJson(
+        json,
+        pluginId: manifest.id,
+        expected: query.items.length,
+      ),
+    );
+  }
+
+  @override
   Future<MultiPartResult> multiPart(MultiPartQuery query) async {
     final json = await _invoke(PluginCapability.multiPart, query.toJson());
     return _decode(() => MultiPartResult.fromJson(json));

@@ -83,6 +83,7 @@ final class PlaylistEntry {
     required this.position,
     required this.track,
     this.unavailable = false,
+    this.remoteItemId,
   });
 
   final int id;
@@ -92,16 +93,22 @@ final class PlaylistEntry {
   /// 遠端說這一項已失效（刪除、私人、地區限制；只有匯入歌單的項目會是真）。
   final bool unavailable;
 
+  /// 遠端項目的 id（`playlist_entries.remote_item_id`，只有匯入歌單的項目有，而且插件有給才有）；
+  /// 從遠端歌單移除時交給插件。
+  final String? remoteItemId;
+
   @override
   bool operator ==(Object other) =>
       other is PlaylistEntry &&
       other.id == id &&
       other.position == position &&
       other.track == track &&
-      other.unavailable == unavailable;
+      other.unavailable == unavailable &&
+      other.remoteItemId == remoteItemId;
 
   @override
-  int get hashCode => Object.hash(id, position, track, unavailable);
+  int get hashCode =>
+      Object.hash(id, position, track, unavailable, remoteItemId);
 
   @override
   String toString() => 'PlaylistEntry(id: $id, position: $position, $track)';
@@ -595,6 +602,7 @@ final class PlaylistRepository {
           position: row.readTable(entries).position,
           track: TracksRepository.toTrackInfo(row.readTable(tracks)),
           unavailable: row.readTable(entries).unavailable,
+          remoteItemId: row.readTable(entries).remoteItemId,
         ),
     ];
   }

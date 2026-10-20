@@ -18,10 +18,13 @@ import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
+import 'package:fmp/ui/library/remote_write_state.dart';
+import 'package:fmp/ui/library/remove_from_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -121,14 +124,23 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     );
   }
 
-  /// 已選的項目的曲目，依畫面順序。
-  Future<List<TrackInfo>?> _tracks(List<int> ids) async {
+  /// 已選的項目，依畫面順序。
+  List<PlaylistEntry> _entries(List<int> ids) {
     final entries =
         ref.read(playlistDetailProvider(widget.playlistId)).value?.entries ??
         const <PlaylistEntry>[];
-    final byId = {for (final entry in entries) entry.id: entry.track};
+    final byId = {for (final entry in entries) entry.id: entry};
     return [for (final id in ids) ?byId[id]];
   }
+
+  /// 已選的項目的曲目，依畫面順序。
+  Future<List<TrackInfo>?> _tracks(List<int> ids) async => [
+    for (final entry in _entries(ids)) entry.track,
+  ];
+
+  /// 選取列的「從遠端歌單移除」（只在可寫的匯入歌單）：確認、移除、本地跟著刪（M4 design §7.2）。
+  Future<bool> _removeRemoteSelected(List<int> ids) =>
+      removeFromRemotePlaylist(context, ref, widget.playlistId, _entries(ids));
 
   /// 選取列的「從歌單移除」（只在本機歌單）：先確認（一次刪好幾首，Namida 的「移除才確認」；
   /// 單筆的選單項目照舊不確認），只刪選到的項目；失敗時提示、選取留著。
@@ -212,7 +224,16 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         children: [
           TrackSelectionBar<int>(
             tracks: _tracks,
+            pluginIds: (ids) => {
+              for (final entry in _entries(ids)) entry.track.sourceTypeId,
+            },
             actions: [
+              if (ref.watch(remoteRemoveEntryProvider(widget.playlistId)))
+                TrackSelectionAction(
+                  icon: Icons.cloud_off_outlined,
+                  tooltip: translations.library.removeFromRemote,
+                  onPressed: _removeRemoteSelected,
+                ),
               // 匯入歌單的曲目不能在本地刪（ADR 0019 §決定 4）。
               if (local)
                 TrackSelectionAction(
@@ -906,6 +927,16 @@ class _EntryRow extends ConsumerWidget {
           ),
         AddToPlaylistItem(
           onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
+        AddToRemoteItem(
+          pluginIds: {track.sourceTypeId},
+          onPressed: () => unawaited(showAddToRemote(context, [track])),
+        ),
+        RemoveFromRemoteItem(
+          playlistId: playlistId,
+          onPressed: () => unawaited(
+            removeFromRemotePlaylist(context, ref, playlistId, [entry]),
+          ),
         ),
         if (removable)
           MenuItemButton(

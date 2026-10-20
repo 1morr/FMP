@@ -104,7 +104,23 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `pl-basic` | Basic playlist | 5 | 否 |
 
   帳號頁勾選匯入後，這兩張的內容由上面的 `importPlaylist` 提供。沒有宣告 `live` 與 `libraryLiveRooms`
-  （直播間的匯入在 PR 15）。
+  （直播間的匯入在 PR 15）。`createPlaylist` 建的歌單接在後面（見下一項）。
+- 遠端寫入（`libraryWrite`，不連網，給「加入遠端歌單」與「從遠端歌單移除」的實機驗證；內容存在插件
+  isolate 的記憶體，到 App 重啟為止）。可寫的歌單是 `pl-auth`（從 3 首起，每項有 `remoteItemId`
+  `auth-<n>`）與 `createPlaylist` 建的 `pl-new-<n>`（空的）；寫入前沒有憑證 `AuthRequired`，歌單不是這兩種
+  （例如 `pl-basic`）`NotFound`。`importPlaylist('pl-auth')` 與 `libraryPlaylists` 的首數都反映現在的內容，所以
+  寫入之後的刷新看得到變化：
+
+  | 呼叫 | 行為 |
+  |---|---|
+  | `addToPlaylist` | 歌單裡沒有就接在尾端（`added`），已經有（同 `sourceId` 與 `cid`，初始的三首也算）是 `alreadyPresent`；`sourceId` 是 `fail` 的那一首 `failed`，帶結構化錯誤（`RateLimited`，30 秒），同一次呼叫的其他首不受影響 |
+  | `removeFromPlaylist` | 有 `remoteItemId` 就以它找，否則以 `sourceId` 與 `cid` 找；找到移除（`removed`），找不到 `notPresent`；`sourceId` 是 `fail` 的 `failed`（遠端不會有這一首，只有契約測試走得到，實機看不到） |
+  | `createPlaylist` | 回 `pl-new-1`、`pl-new-2`…（標題是輸入的，空歌單）；之後 `libraryPlaylists` 列為可寫、可以匯入、可以再加歌 |
+
+  要在實機加一首 `failed`：搜尋關鍵字剛好是 `write-fail`，第一頁第一首的 `sourceId` 就是 `fail`（其餘同 `tone`）。
+  實機重播的順序（Android）：登入 → 搜尋 `tone`，把一首「加入遠端歌單」到 `pl-auth`（`added`）→ 再加一次
+  （`alreadyPresent`）→ 搜尋 `write-fail` 加第一首（`failed`）→ 在對話框「在遠端新增歌單」→ 帳號頁匯入 `pl-auth`，
+  在詳情的曲目選單「從遠端歌單移除」。
 - 排行（`charts`，不連網，給首頁排行與排行工作的實機驗證）：`chartList` 回三個榜單，曲目沿用 `tone-<hz>`（可播），
   標題是 `<榜單名> tone <hz> Hz`：
 
@@ -138,7 +154,8 @@ ffmpeg -f lavfi -i "sine=frequency=440:duration=2:sample_rate=16000" \
 ## 契約檢查
 
 `checks.json` 是契約執行器（`test/plugins/contract/`）跑的案例：`search`、
-`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）、`charts`（`hot`，五首）、`libraryRead`（`libraryPlaylists` 第一頁，兩張；標 `requiresLogin: true`，重播時宿主把 `login` 案例的假憑證放進隔離環境）與 `login`（`loginVerify`，輸入是上面的假憑證，標
+`resolveStream`、`live`（`liveStatus` 的 `live-ok`）、`mix`（以 `tone-440` 為 seed，五首）、`multiPart`（`parts-220`，三個分 P）、`trackDetail`（`tone-440`）、`importPlaylist`（`pl-basic` 的第一頁，三首）、`charts`（`hot`，五首）、`libraryRead`（`libraryPlaylists` 第一頁，兩張；標 `requiresLogin: true`，重播時宿主把 `login` 案例的假憑證放進隔離環境）`libraryWrite`（`addToPlaylist` 對 `pl-auth` 加兩首；標 `requiresLogin: true` 與
+`mutates: true`：健康檢查、命令列錄製與開發工具的真實模式都略過它，只有契約測試的重播會跑）與 `login`（`loginVerify`，輸入是上面的假憑證，標
 `requiresLogin: true`）都期望成功（每個能力只有一條，`missing` 的那一首由
 `test/plugins/test_plugin_bundle_test.dart` 守）。這個插件不發請求，所以沒有 `fixtures/`。`checks.json`
 也會隨目錄打包進 dev flavor 的 asset（`flutter.assets` 是整個目錄），App 不讀它。

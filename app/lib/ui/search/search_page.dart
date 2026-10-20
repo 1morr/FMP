@@ -17,6 +17,7 @@ import 'package:fmp/ui/format/count_text.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
@@ -210,6 +211,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
           TrackSelectionBar<_ResultKey>(
             tracks: _selectedTracks,
+            // 結果列自己的音源，不是選的音源：選的音源停用時會退回別的，結果還是舊的。
+            pluginIds: (keys) => {
+              for (final (:item, part: _) in keys)
+                if (item < search.items.length) search.items[item].sourceTypeId,
+            },
             padding: EdgeInsets.fromLTRB(spacing.x4, 0, spacing.x4, spacing.x2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -519,6 +525,13 @@ class _TrackTile extends ConsumerWidget {
       await showAddToPlaylist(context, tracks);
     }
 
+    // 同「加入歌單…」：影片列是它的全部分 P。
+    Future<void> addToRemote() async {
+      final tracks = await tracksToAdd();
+      if (tracks == null || !context.mounted) return;
+      await showAddToRemote(context, tracks);
+    }
+
     Future<void> toggleParts() async {
       final toaster = ref.read(toasterProvider);
       final error = await ref
@@ -563,6 +576,10 @@ class _TrackTile extends ConsumerWidget {
             child: Text(t.startMix),
           ),
         AddToPlaylistItem(onPressed: () => unawaited(addToPlaylist())),
+        AddToRemoteItem(
+          pluginIds: {track.sourceTypeId},
+          onPressed: () => unawaited(addToRemote()),
+        ),
       ],
       builder: (context, row) => ListTile(
         selected: row.selected,
@@ -703,6 +720,10 @@ class _PartTile extends ConsumerWidget {
           ),
         AddToPlaylistItem(
           onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
+        AddToRemoteItem(
+          pluginIds: {track.sourceTypeId},
+          onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
       ],
       builder: (context, row) => ListTile(

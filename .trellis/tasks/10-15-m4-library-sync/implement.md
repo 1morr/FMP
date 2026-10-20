@@ -41,10 +41,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–13、16、20（FMP #272–#286 與 PR 13；fmp-plugins #16–#19 與 PR 13）。M4a 剩 PR 14、15 與驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
+- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–14、16、20（FMP #272–#288 與 PR 14；fmp-plugins #16–#20 與 PR 14）。M4a 剩 PR 15 與驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
-- **下一步**：PR 14、15（擁有者在場）；之後 M4a 驗收。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
+- **下一步**：PR 15（只讀 B 站粉絲勳章牆，沿用已登入的帳號，不需要擁有者在場）；之後 M4a 驗收（擁有者在場）。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
 - **fmp-plugins 的 PR**：
   - 在同層的 `fmp-plugins/` clone 開分支；
@@ -222,8 +222,8 @@
 
 ## 14. ★ `libraryWrite` 與遠端操作（design §4.5、§7.1、§7.2）
 
-- [ ] FMP：`LibraryWriteExports`、manifest 檢查（沒宣告 `libraryRead` 拒收）、`results` 驗證、`FmpChecks.libraryWrite`（`requiresLogin`＋`mutates`）；曲目選單與多選的「加入遠端歌單…」（對話框、在遠端新增、逐項結果）、詳情的「從遠端歌單移除」（確認框）、寫後刷新；`fmp-test` 的 `libraryWrite`。
-- [ ] fmp-plugins：三個插件的 `createPlaylist`、`addToPlaylist`、`removeFromPlaylist`（去重、B 站 bvid→aid、YouTube `setVideoId`）、Node 測試、`checks.json` 的 `libraryWrite`（`mutates`，fixture 手寫）、網易 `X-Real-IP` 的處理寫進 README、版本、index、`FMP_REF`。
+- [x] FMP：`LibraryWriteExports`、manifest 檢查（沒宣告 `libraryRead` 拒收）、`results` 驗證、`FmpChecks.libraryWrite`（`requiresLogin`＋`mutates`）；曲目選單與多選的「加入遠端歌單…」（對話框、在遠端新增、逐項結果）、詳情的「從遠端歌單移除」（確認框）、寫後刷新；`fmp-test` 的 `libraryWrite`。
+- [x] fmp-plugins：三個插件的 `createPlaylist`、`addToPlaylist`、`removeFromPlaylist`（去重、B 站 bvid→aid、YouTube `setVideoId`）、Node 測試、`checks.json` 的 `libraryWrite`（`mutates`，fixture 手寫）、網易 `X-Real-IP` 的處理寫進 README、版本、index、`FMP_REF`。
 - 測試：`library_write_capability_test.dart`；入口條件（插件、登入、多選時同一插件、`writable`）；結果提示三種；移除確認框、`removed`／`notPresent` 刪本地、`failed` 列出；寫後刷新排進同一個鎖；`mutates` 的案例在健康檢查顯示略過。
 - 實測：
   - 重播（Android）：`fmp-test` 登入 → 加入 `pl-auth`（`added`）→ 再加一次（`alreadyPresent`）→ 加 `fail`（`failed`）→ 在遠端新增歌單 → 匯入的 `pl-auth` 詳情「從遠端歌單移除」。
@@ -363,6 +363,15 @@
 ## 留下的後續
 
 （各 PR 合併時寫在這裡，最新的在上面。）
+
+- **PR 14 → 之後**：
+  - **寫後刷新延後 60 秒**（design §7.1、§7.2 原寫立刻刷新）：YouTube 寫後讀有延遲，實測約 40 秒；立刻刷新時，加入的看不到、移除的會被舊清單加回來。本地刪除仍立即做。B 站、網易立刻讀就一致。
+  - 新建遠端歌單一律預設私人（契約沒有隱私欄位；舊版 YouTube 是 unlisted、B 站與網易對話框預設公開）。擁有者之後要改再說。
+  - 網易寫入不帶 `X-Real-IP`、不設 `os=linux` 可以（實測）。
+  - 沒實測到的：B 站重複加入的 11201（`alreadyPresent`）、網易重複加入的碼、YouTube 空清單或剛建清單的 `VL<id>` 形狀（插件現在回 `NotFound`）、對別人的歌單寫入被拒時的碼。
+  - 健康檢查「略過：會改動遠端」沒在實機看到：開發入口裝的插件沒有 `checks.json`；Windows 對真實插件跑健康檢查會發一整輪真實請求。由 `health_check_test.dart` 守。
+  - 開發資料夾載入的插件在啟動時取代已安裝的版本，啟動刷新跑到一半被 dispose（log：`Failed to refresh the credentials`、`The plugin runtime was disposed during loginRefresh`）。只在開發資料夾生效時發生，之後的請求正常。
+  - B 站分 P 曲目的「從遠端歌單移除」會移掉整支影片（收藏夾以影片為單位），插件 README 已寫。
 
 - **PR 13 → PR 14、之後**：
   - YouTube、網易的 `importPlaylist` 不給 `writable`（null＝這次不知道）：從帳號頁匯入的以 `libraryPlaylists` 的值帶進來（`importPlaylistId(writable:)`），**以網址匯入的自己的歌單 `writable` 一直是 0**，「從遠端歌單移除」不會出現。YouTube 帶憑證的 `browse VL<id>` 回應有沒有可用的旗標沒有實測；網易可以在帶憑證時比對 `creator.userId` 與 `account/get`（多一個請求）。PR 14 碰到時決定。

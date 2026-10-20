@@ -18,6 +18,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     bool multiPart = false,
     bool trackDetail = false,
     bool libraryRead = false,
+    bool libraryWrite = false,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -31,6 +32,7 @@ final class FakeSourcePlugin implements SourcePlugin {
            if (multiPart) PluginCapability.multiPart,
            if (trackDetail) PluginCapability.trackDetail,
            if (libraryRead) PluginCapability.libraryRead,
+           if (libraryWrite) PluginCapability.libraryWrite,
          },
          allowedHosts: const ['cdn.example'],
        );
@@ -73,6 +75,17 @@ final class FakeSourcePlugin implements SourcePlugin {
   FutureOr<LibraryPlaylistPage> Function(LibraryPlaylistsQuery query)?
   onLibraryPlaylists;
   final libraryPlaylistQueries = <LibraryPlaylistsQuery>[];
+
+  // 遠端寫入（`libraryWrite: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
+  FutureOr<CreatePlaylistResult> Function(CreatePlaylistQuery query)?
+  onCreatePlaylist;
+  FutureOr<AddToPlaylistResponse> Function(AddToPlaylistQuery query)?
+  onAddToPlaylist;
+  FutureOr<RemoveFromPlaylistResponse> Function(RemoveFromPlaylistQuery query)?
+  onRemoveFromPlaylist;
+  final createPlaylistQueries = <CreatePlaylistQuery>[];
+  final addToPlaylistQueries = <AddToPlaylistQuery>[];
+  final removeFromPlaylistQueries = <RemoveFromPlaylistQuery>[];
 
   /// 對 [sourceId] 解析了幾次。
   int resolvedCount(String sourceId) =>
@@ -167,6 +180,32 @@ final class FakeSourcePlugin implements SourcePlugin {
     final handler = onLibraryPlaylists;
     if (handler == null) throw UnimplementedError('libraryRead');
     libraryPlaylistQueries.add(query);
+    return handler(query);
+  }
+
+  @override
+  Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query) async {
+    final handler = onCreatePlaylist;
+    if (handler == null) throw UnimplementedError('libraryWrite');
+    createPlaylistQueries.add(query);
+    return handler(query);
+  }
+
+  @override
+  Future<AddToPlaylistResponse> addToPlaylist(AddToPlaylistQuery query) async {
+    final handler = onAddToPlaylist;
+    if (handler == null) throw UnimplementedError('libraryWrite');
+    addToPlaylistQueries.add(query);
+    return handler(query);
+  }
+
+  @override
+  Future<RemoveFromPlaylistResponse> removeFromPlaylist(
+    RemoveFromPlaylistQuery query,
+  ) async {
+    final handler = onRemoveFromPlaylist;
+    if (handler == null) throw UnimplementedError('libraryWrite');
+    removeFromPlaylistQueries.add(query);
     return handler(query);
   }
 

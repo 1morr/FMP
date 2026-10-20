@@ -12,6 +12,7 @@ import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
@@ -320,6 +321,10 @@ class _QueueRow extends ConsumerWidget {
         // 不動佇列：Mix 中照常（M3 的禁止規則只擋加入佇列與下一首播放）。
         AddToPlaylistItem(
           onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
+        AddToRemoteItem(
+          pluginIds: {track.sourceTypeId},
+          onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.remove_circle_outline),
