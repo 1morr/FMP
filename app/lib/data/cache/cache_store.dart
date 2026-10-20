@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:clock/clock.dart';
 import 'package:drift/drift.dart';
+import 'package:drift/isolate.dart' show DriftRemoteException;
 import 'package:drift/native.dart';
 import 'package:file/file.dart' as fs;
 import 'package:file/local.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -224,8 +226,28 @@ final class CacheStore {
     await _remove(rows);
   });
 
-  /// 關閉索引。之後不能再用。
-  Future<void> close() => _database.close();
+  Future<void> _closing = Future<void>.value();
+  var _closeStarted = false;
+
+  /// 關閉索引。之後不能再用；重複呼叫回同一個 future。
+  ///
+  /// 關到一半時，同一個目錄的 [openCacheStore] 會等它完成才開（[_pendingCloses]）：
+  /// 呼叫端不必 await（Riverpod 的 onDispose 等不了），重開也不會撞上還沒放掉的檔案。
+  Future<void> close() {
+    if (_closeStarted) return _closing;
+    _closeStarted = true;
+    final key = _closeKey(_root);
+    final closing = _database.close();
+    _closing = closing;
+    _pendingCloses[key] = closing;
+    // 關閉失敗由呼叫端從 close() 的 future 收到；這裡只負責登記完成。
+    unawaited(
+      closing.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
+        if (identical(_pendingCloses[key], closing)) _pendingCloses.remove(key);
+      }),
+    );
+    return closing;
+  }
 
   /// 一個寫進 `staging/` 的新檔案路徑（還不存在），這次開啟內不重複。
   Future<File> _stagingFile() async {
@@ -332,21 +354,49 @@ final class CacheStore {
   }
 }
 
+/// 還沒關完的快取庫，以正規化後的目錄路徑為鍵（[CacheStore.close]）。
+final _pendingCloses = <String, Future<void>>{};
+
+/// 測試用：登記一個「還沒關完」的快取庫，驗證重開會等它（真的關閉太快，賽跑重現不了）。
+@visibleForTesting
+Map<String, Future<void>> get pendingCacheCloses => _pendingCloses;
+
+/// [pendingCacheCloses] 的鍵。
+@visibleForTesting
+String cacheCloseKey(Directory root) => _closeKey(root);
+
+String _closeKey(Directory root) => p.canonicalize(root.path);
+
+/// 資料庫正被別的連線佔著（SQLITE_BUSY / SQLITE_LOCKED）：不是損壞，不能清快取。
+bool _isBusy(Object error) {
+  // 背景 isolate 的錯誤包在 DriftRemoteException 裡。
+  final cause = error is DriftRemoteException ? error.remoteCause : error;
+  return cause is SqliteException &&
+      (cause.resultCode == 5 || cause.resultCode == 6);
+}
+
 /// 開啟 [directory] 的快取庫，上限 [limitBytes]。
 ///
 /// 開不起來（`cache.db` 損壞）就把整個快取目錄清空、重新開一次，不顯示錯誤頁
 /// （ADR 0016 §決定 1：快取可以隨時丟；主資料庫則停在錯誤頁，ADR 0010 §決定 3）。
-/// 第二次也失敗就拋出。開好之後先對帳（[CacheStore._reconcile]）才交出去，
-/// 對帳時沒有別的寫入。
+/// 第二次也失敗就拋出。資料庫被佔住（busy / locked）不算損壞：直接拋出，不清目錄。
+/// 同一個目錄上一個快取庫還在關時，先等它關完。開好之後先對帳（[CacheStore._reconcile]）
+/// 才交出去，對帳時沒有別的寫入。
 Future<CacheStore> openCacheStore(
   CacheDirectory directory, {
   required int limitBytes,
   required Log log,
 }) async {
   final root = await directory.resolve();
+  final closing = _pendingCloses[_closeKey(root)];
+  if (closing != null) {
+    // 關閉本身的錯誤由關閉它的人處理。
+    await closing.then<void>((_) {}, onError: (Object _) {});
+  }
   try {
     return await _open(root, limitBytes, log);
   } on Object catch (error, stackTrace) {
+    if (_isBusy(error)) rethrow;
     log.warning(
       'Failed to open the cache, starting it over',
       tag: cacheLogTag,
