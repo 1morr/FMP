@@ -242,6 +242,128 @@ export function libraryPlaylists() { throw { fmpError: 'AuthRequired' }; }
     });
   });
 
+  group('libraryLiveRooms', () {
+    Future<ScriptSourcePlugin> load(String rooms) => _load(
+      '$_playlists\n$_liveExports\n'
+      'export function libraryLiveRooms() { return $rooms; }',
+      capabilities: ['libraryRead', 'live'],
+    );
+
+    Future<Object> rooms(String result) async {
+      final plugin = await load(result);
+      return plugin.libraryLiveRooms().then<Object>(
+        (rooms) => rooms,
+        onError: (Object error) => error,
+      );
+    }
+
+    test('exportsLibraryLiveRooms follows the actual export', () async {
+      final exported = await load('{ rooms: [] }');
+      final omitted = await _load(
+        '$_playlists\n$_liveExports',
+        capabilities: ['libraryRead', 'live'],
+      );
+
+      expect(exported.exportsLibraryLiveRooms, isTrue);
+      expect(omitted.exportsLibraryLiveRooms, isFalse);
+    });
+
+    test('calling it without exporting it is Unsupported', () async {
+      final omitted = await _load(
+        '$_playlists\n$_liveExports',
+        capabilities: ['libraryRead', 'live'],
+      );
+      final noLive = await _load(_playlists);
+
+      await expectLater(
+        omitted.libraryLiveRooms(),
+        throwsA(isA<Unsupported>()),
+      );
+      await expectLater(noLive.libraryLiveRooms(), throwsA(isA<Unsupported>()));
+    });
+
+    test('an empty list is accepted', () async {
+      final result = await rooms('{ rooms: [] }');
+
+      expect(result, isA<LibraryLiveRooms>());
+      expect((result as LibraryLiveRooms).rooms, isEmpty);
+    });
+
+    test('every LiveRoom field is read, in the order of the plugin', () async {
+      final result = await rooms(
+        '{ rooms: ['
+        "{ roomId: 'b', title: 'B', status: 'offline' },"
+        "{ roomId: 'a', title: 'A', hostName: 'H', status: 'live', online: 5,"
+        " artwork: [{ url: 'https://example.test/a.jpg', width: 300 }] }"
+        '] }',
+      ) as LibraryLiveRooms;
+
+      expect([for (final r in result.rooms) r.roomId], ['b', 'a']);
+      expect(result.rooms.first.hostName, isNull);
+      expect(result.rooms.first.status, LiveRoomStatus.offline);
+      expect(result.rooms.last.hostName, 'H');
+      expect(result.rooms.last.online, 5);
+      expect(result.rooms.last.artwork.single.width, 300);
+    });
+
+    for (final (description, result) in [
+      (
+        'a duplicate roomId',
+        "{ rooms: [{ roomId: 'a', title: 'A', status: 'live' }, "
+            "{ roomId: 'a', title: 'B', status: 'live' }] }",
+      ),
+      (
+        'an empty roomId',
+        "{ rooms: [{ roomId: '', title: 'A', status: 'live' }] }",
+      ),
+      (
+        'an empty title',
+        "{ rooms: [{ roomId: 'a', title: '', status: 'live' }] }",
+      ),
+      (
+        'an unknown status',
+        "{ rooms: [{ roomId: 'a', title: 'A', status: 'paused' }] }",
+      ),
+      (
+        'artwork on another host',
+        "{ rooms: [{ roomId: 'a', title: 'A', status: 'live', "
+            "artwork: [{ url: 'https://evil.test/a.jpg' }] }] }",
+      ),
+      ('a missing rooms field', '{}'),
+      ('a bare array', '[]'),
+      ('undefined', 'undefined'),
+    ]) {
+      test('rejects $description as ParseError', () async {
+        expect(await rooms(result), isA<ParseError>());
+      });
+    }
+
+    test('the same title on different rooms is fine', () async {
+      final result = await rooms(
+        "{ rooms: [{ roomId: 'a', title: 'A', status: 'live' }, "
+        "{ roomId: 'b', title: 'A', status: 'live' }] }",
+      );
+
+      expect(result, isA<LibraryLiveRooms>());
+    });
+
+    test('AuthRequired thrown by the plugin keeps its type', () async {
+      final plugin = await _load(
+        '''
+$_playlists
+$_liveExports
+export function libraryLiveRooms() { throw { fmpError: 'AuthRequired' }; }
+''',
+        capabilities: ['libraryRead', 'live'],
+      );
+
+      await expectLater(
+        plugin.libraryLiveRooms(),
+        throwsA(isA<AuthRequired>()),
+      );
+    });
+  });
+
   group('the libraryRead check', () {
     PluginCheck check(String body) =>
         parseChecks('{"libraryRead": $body}').single;

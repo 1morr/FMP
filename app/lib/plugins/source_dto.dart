@@ -118,6 +118,7 @@ const sourceDtoShapes = <String, JsonShape>{
   'ChartPage': {'tracks': true},
   'LibraryPlaylistsQuery': {'cursor': false},
   'LibraryPlaylistPage': {'playlists': true, 'cursor': false},
+  'LibraryLiveRooms': {'rooms': true},
   'LibraryPlaylist': {
     'playlistId': true,
     'title': true,
@@ -1526,6 +1527,41 @@ final class LibraryPlaylistPage {
 
   /// 插件的不透明字串；`null` 是最後一頁。
   final String? cursor;
+}
+
+/// `libraryLiveRooms` 的回傳值（ADR 0032 §決定 3）：登入帳號關注的直播間。
+@immutable
+final class LibraryLiveRooms {
+  const LibraryLiveRooms({required this.rooms});
+
+  factory LibraryLiveRooms.fromJson(
+    Object? json, {
+    required AllowedHosts allowedHosts,
+  }) {
+    const path = 'LibraryLiveRooms';
+    final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
+    final rooms = List<LiveRoom>.unmodifiable([
+      for (final (index, item) in fields.list('rooms').indexed)
+        LiveRoom._fromJson(
+          item,
+          allowedHosts: allowedHosts,
+          path: '$path.rooms[$index]',
+        ),
+    ]);
+    // 同 LibraryPlaylistPage：重複的鍵拒收，不默默丟掉。
+    final seen = <String>{};
+    for (final (index, room) in rooms.indexed) {
+      if (!seen.add(room.roomId)) {
+        throw FormatException(
+          '$path.rooms[$index].roomId: "${room.roomId}" is listed twice',
+        );
+      }
+    }
+    return LibraryLiveRooms(rooms: rooms);
+  }
+
+  /// 可以是空的；`roomId` 不重複。
+  final List<LiveRoom> rooms;
 }
 
 /// 登入帳號在平台上的一張歌單。

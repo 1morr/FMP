@@ -103,8 +103,12 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `pl-auth` | Private playlist | 3 | 是 |
   | `pl-basic` | Basic playlist | 5 | 否 |
 
-  帳號頁勾選匯入後，這兩張的內容由上面的 `importPlaylist` 提供。沒有宣告 `live` 與 `libraryLiveRooms`
-  （直播間的匯入在 PR 15）。`createPlaylist` 建的歌單接在後面（見下一項）。
+  帳號頁勾選匯入後，這兩張的內容由上面的 `importPlaylist` 提供。`createPlaylist` 建的歌單接在後面
+  （見下一項）。
+- 帳號關注的直播間（選填的 `libraryLiveRooms`，不連網，給帳號頁「從帳號匯入電台」的實機驗證）：沒有憑證
+  `AuthRequired`；登入後回上面「直播」那五個直播間（`live-ok`、`live-offline`、`live-drop`、`live-ended`、
+  `live-broken`，資料同 `liveSearch`，不隨操作改變）。帳號頁卡片的「⋯」選單出現「從帳號匯入電台」；匯入一次
+  五個全加進電台，再匯入一次全部「已在電台清單」。沒有 `checks.json` 案例（每能力一條）。
 - 遠端寫入（`libraryWrite`，不連網，給「加入遠端歌單」與「從遠端歌單移除」的實機驗證；內容存在插件
   isolate 的記憶體，到 App 重啟為止）。可寫的歌單是 `pl-auth`（從 3 首起，每項有 `remoteItemId`
   `auth-<n>`）與 `createPlaylist` 建的 `pl-new-<n>`（空的）；寫入前沒有憑證 `AuthRequired`，歌單不是這兩種

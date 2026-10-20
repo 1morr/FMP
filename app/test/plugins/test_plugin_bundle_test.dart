@@ -581,6 +581,54 @@ void main() {
     });
   });
 
+  group('libraryLiveRooms', () {
+    test('needs a login', () async {
+      final plugin = await PluginHarness().load(
+        testPluginFile.readAsStringSync(),
+      );
+
+      expect(plugin.exportsLibraryLiveRooms, isTrue);
+      await expectLater(
+        plugin.libraryLiveRooms(),
+        throwsA(isA<AuthRequired>()),
+      );
+    });
+
+    test('lists the five live rooms of liveSearch after a login', () async {
+      final harness = PluginHarness();
+      final plugin = await harness.load(testPluginFile.readAsStringSync());
+      await harness.credentials.save(
+        Account(
+          pluginId: 'fmp-test',
+          userId: 'fmp-test-user',
+          displayName: 'FMP Test User',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026, 10, 20),
+        ),
+        const LoginCredentials(cookies: {'fmp_test_session': 'fake-session'}),
+      );
+
+      final rooms = (await plugin.libraryLiveRooms()).rooms;
+      final searched = (await plugin.liveSearch(LiveSearchQuery(keyword: 'x')))
+          .items;
+
+      expect(rooms, hasLength(5));
+      expect({for (final r in rooms) r.roomId}, hasLength(5));
+      expect(
+        [for (final r in rooms) (r.roomId, r.title, r.status)],
+        [for (final r in searched) (r.roomId, r.title, r.status)],
+      );
+    });
+
+    test('the README documents libraryLiveRooms', () {
+      final readme = File('test/fixtures/plugins/test_plugin/README.md')
+          .readAsStringSync();
+
+      expect(readme, contains('libraryLiveRooms'));
+      expect(readme, contains('從帳號匯入電台'));
+    });
+  });
+
   // 遠端寫入的假實作（design §4.9）：狀態在插件 isolate 的記憶體，每個測試載入自己的一份。
   group('libraryWrite', () {
     Future<(ScriptSourcePlugin, PluginHarness)> loggedIn() async {

@@ -416,6 +416,7 @@ export function shape() {
     expect(sourceDtoShapes['LibraryPlaylist']!['writable'], isTrue);
     expect(sourceDtoShapes['LibraryPlaylist']!['trackCount'], isFalse);
     expect(sourceDtoShapes['LibraryPlaylistsQuery']!['cursor'], isFalse);
+    expect(sourceDtoShapes['LibraryLiveRooms']!['rooms'], isTrue);
     expect(checkShapes['FmpChecks']!['libraryRead'], isFalse);
     expect(checkShapes['FmpLibraryReadCheck']!['requiresLogin'], isTrue);
     // 變異：writable 或 requiresLogin 改成選填、cursor 改成必填、少了 FmpChecks 的

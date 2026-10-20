@@ -76,6 +76,11 @@ final class FakeSourcePlugin implements SourcePlugin {
   onLibraryPlaylists;
   final libraryPlaylistQueries = <LibraryPlaylistsQuery>[];
 
+  // 帳號直播間：設定了處理函式就算匯出 `libraryLiveRooms`，不看 `libraryRead`、`live`（真插件
+  // 匯出了卻沒宣告會拒載；假插件留著這個組合，給卡片自己依 manifest 擋的測試）。
+  FutureOr<LibraryLiveRooms> Function()? onLibraryLiveRooms;
+  int libraryLiveRoomsCalls = 0;
+
   // 遠端寫入（`libraryWrite: true` 時才有能力）：沒設定處理函式就拋 UnimplementedError。
   FutureOr<CreatePlaylistResult> Function(CreatePlaylistQuery query)?
   onCreatePlaylist;
@@ -181,6 +186,17 @@ final class FakeSourcePlugin implements SourcePlugin {
     if (handler == null) throw UnimplementedError('libraryRead');
     libraryPlaylistQueries.add(query);
     return handler(query);
+  }
+
+  @override
+  bool get exportsLibraryLiveRooms => onLibraryLiveRooms != null;
+
+  @override
+  Future<LibraryLiveRooms> libraryLiveRooms() async {
+    final handler = onLibraryLiveRooms;
+    if (handler == null) throw UnimplementedError('libraryLiveRooms');
+    libraryLiveRoomsCalls++;
+    return handler();
   }
 
   @override

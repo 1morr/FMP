@@ -350,6 +350,15 @@ export async function libraryPlaylists() {
   };
 }
 
+// 帳號關注的直播間（ADR 0032 §決定 3），不連網：沒有憑證 AuthRequired；登入後就是上面五個
+// 直播間（同 liveSearch 的資料，不分登入狀態、不隨操作改變）。
+export async function libraryLiveRooms() {
+  if ((await fmp.credentials.get()) === null) {
+    throw { fmpError: 'AuthRequired', message: 'log in to read your live rooms' };
+  }
+  return { rooms: LIVE_ROOMS.map((room) => ({ ...room, artwork: [] })) };
+}
+
 // 每個 QR 碼（token）已經輪詢過幾次。
 const qrPolls = new Map();
 let qrCount = 0;
