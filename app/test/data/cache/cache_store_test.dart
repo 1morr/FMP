@@ -73,6 +73,93 @@ void main() {
     });
 
     test(
+      'reopening right after an unawaited close keeps the entries',
+      () async {
+        final harness = CacheHarness();
+        final first = await harness.open();
+        await first.put(CacheCategory.chart, 'a', 'k', Uint8List.fromList([1]));
+
+        // 不 await：Riverpod 的 onDispose 就是這樣關的。
+        unawaited(first.close());
+        final second = await harness.open();
+
+        expect(
+          harness.records(cacheLogTag).map((record) => record.message),
+          isNot(contains('Failed to open the cache, starting it over')),
+        );
+        expect(await second.get(CacheCategory.chart, 'a', 'k'), [1]);
+      },
+    );
+
+    test('opening waits for a close of the same directory that is still '
+        'running', () async {
+      final harness = CacheHarness();
+      final first = await harness.open();
+      await first.close();
+      // 對帳一開始就清空 staging/：這個檔案還在，就表示第二次開啟還沒開工。
+      harness.staging.createSync(recursive: true);
+      final marker = File(p.join(harness.staging.path, 'marker'))
+        ..writeAsBytesSync([1]);
+      final closing = Completer<void>();
+      final key = cacheCloseKey(harness.root);
+      pendingCacheCloses[key] = closing.future;
+      addTearDown(() => pendingCacheCloses.remove(key));
+
+      var opened = false;
+      final opening = harness.open().whenComplete(() => opened = true);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(opened, isFalse);
+      expect(marker.existsSync(), isTrue);
+      closing.complete();
+      final store = await opening;
+      expect(marker.existsSync(), isFalse);
+      expect(
+        harness.records(cacheLogTag).map((record) => record.message),
+        isNot(contains('Failed to open the cache, starting it over')),
+      );
+      expect(await store.watchUsage().first, isNotEmpty);
+    });
+
+    test('a database that is locked by another connection is not corruption: '
+        'it throws and leaves the files alone', () async {
+      final harness = CacheHarness();
+      final first = await harness.open();
+      await first.put(CacheCategory.chart, 'a', 'k', Uint8List.fromList([1]));
+      await first.close();
+      final blocker = sqlite3.open(harness.databaseFile.path)
+        ..execute('BEGIN EXCLUSIVE');
+      var released = false;
+      void release() {
+        if (released) return;
+        released = true;
+        blocker.execute('ROLLBACK');
+        blocker.close();
+      }
+
+      addTearDown(release);
+
+      await expectLater(
+        openCacheStore(
+          harness.directory,
+          limitBytes: 1 << 20,
+          log: harness.log,
+        ),
+        throwsA(isA<Object>()),
+      );
+
+      expect(
+        harness.records(cacheLogTag).map((record) => record.message),
+        isNot(contains('Failed to open the cache, starting it over')),
+      );
+      expect(harness.databaseFile.existsSync(), isTrue);
+      expect(harness.fileNames(), hasLength(1));
+      release();
+      final reopened = await harness.open();
+      expect(await reopened.get(CacheCategory.chart, 'a', 'k'), [1]);
+    });
+
+    test(
       'a cache.db of another schema version starts empty and writable',
       () async {
         // 升級或 revert 後的降級：drift 兩種都走 onUpgrade，快取不寫逐步
