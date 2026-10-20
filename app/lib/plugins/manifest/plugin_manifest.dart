@@ -122,7 +122,7 @@ abstract final class LibraryReadExports {
   /// `({cursor?}) → {playlists, cursor}`：必要，請求 `required`。
   static const playlists = 'libraryPlaylists';
 
-  /// `() → {rooms}`：選填，只有同時宣告 `libraryRead` 與 `live` 的插件能匯出（呼叫在 PR 15）。
+  /// `() → {rooms}`：選填，只有同時宣告 `libraryRead` 與 `live` 的插件能匯出（宿主在帳號頁的「從帳號匯入電台」呼叫）。
   static const liveRooms = 'libraryLiveRooms';
 
   static const all = {playlists, liveRooms};

@@ -880,7 +880,14 @@
     "playlistImportFailed": "Import failed: {reason}",
     "playlistUnsupported": "This source can't import playlists yet",
     "importedCount": "Playlists imported: {count}",
-    "importedWithFailures": "Playlists imported: {count}, failed: {failed}"
+    "importedWithFailures": "Playlists imported: {count}, failed: {failed}",
+    "more": "More options",
+    "liveImport": "Import live rooms from account",
+    "liveImportBoth": "Added to Radio: {added}, already in your stations: {existing}",
+    "liveImportAdded": "Added to Radio: {added}",
+    "liveImportAllExisting": "Already in your stations: {existing}",
+    "liveImportEmpty": "This account doesn't follow any live rooms",
+    "liveImportFailed": "Couldn't import live rooms: {reason}"
   },
   "errors": {
     "network": "Network connection failed. Check your connection and try again.",

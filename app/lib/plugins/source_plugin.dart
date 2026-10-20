@@ -61,6 +61,14 @@ abstract interface class SourcePlugin {
   /// `required`，沒登入是 `AuthRequired`；宿主讀完所有頁才顯示。
   Future<LibraryPlaylistPage> libraryPlaylists(LibraryPlaylistsQuery query);
 
+  /// 插件有沒有匯出選填的 `libraryLiveRooms`（同時宣告 `libraryRead` 與 `live` 才可能）。manifest
+  /// 只說「可以匯出」，要看實際的匯出才知道；帳號頁「從帳號匯入電台」依它出現。
+  bool get exportsLibraryLiveRooms;
+
+  /// 登入帳號關注的直播間（ADR 0032 §決定 3）。請求 `required`，沒登入是 `AuthRequired`；沒匯出
+  /// （[exportsLibraryLiveRooms] 為 `false`）是 `Unsupported`。
+  Future<LibraryLiveRooms> libraryLiveRooms();
+
   /// [PluginCapability.libraryWrite]：在登入帳號的平台上新增一張空歌單（ADR 0032 §決定 4）。
   /// 請求 `required`，沒登入是 `AuthRequired`。
   Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query);

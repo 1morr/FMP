@@ -132,6 +132,13 @@ final class _LoginPlugin implements SourcePlugin {
       throw UnimplementedError('libraryRead');
 
   @override
+  bool get exportsLibraryLiveRooms => false;
+
+  @override
+  Future<LibraryLiveRooms> libraryLiveRooms() =>
+      throw UnimplementedError('libraryLiveRooms');
+
+  @override
   Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query) =>
       throw UnimplementedError('libraryWrite');
 

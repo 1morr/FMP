@@ -880,7 +880,14 @@
     "playlistImportFailed": "匯入失敗：{reason}",
     "playlistUnsupported": "這個來源還不能匯入歌單",
     "importedCount": "已匯入 {count} 張",
-    "importedWithFailures": "已匯入 {count} 張，{failed} 張失敗"
+    "importedWithFailures": "已匯入 {count} 張，{failed} 張失敗",
+    "more": "更多選項",
+    "liveImport": "從帳號匯入電台",
+    "liveImportBoth": "新增 {added} 個，{existing} 個已在電台清單",
+    "liveImportAdded": "新增 {added} 個",
+    "liveImportAllExisting": "{existing} 個已在電台清單",
+    "liveImportEmpty": "這個帳號沒有關注的直播間",
+    "liveImportFailed": "無法匯入電台：{reason}"
   },
   "errors": {
     "network": "網路連線失敗，請檢查網路後再試",

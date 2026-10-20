@@ -423,6 +423,12 @@ export interface ChartPage {
   tracks: TrackSummary[];
 }
 
+/** libraryLiveRooms 的回傳值：登入帳號關注的直播間。 */
+export interface LibraryLiveRooms {
+  /** 可以是空陣列；同一次回傳內 roomId 不能重複。 */
+  rooms: LiveRoom[];
+}
+
 /** libraryPlaylists 的輸入：第一頁沒有 cursor，之後是上一頁回傳的。 */
 export interface LibraryPlaylistsQuery {
   cursor?: string | null;
@@ -724,7 +730,7 @@ export interface FmpPluginExports {
    * 選填，只有同時宣告 'libraryRead' 與 'live' 的插件能匯出，否則整個拒載。登入帳號關注的
    * 直播間；請求用 auth: 'required'。
    */
-  libraryLiveRooms?(): { rooms: LiveRoom[] } | Promise<{ rooms: LiveRoom[] }>;
+  libraryLiveRooms?(): LibraryLiveRooms | Promise<LibraryLiveRooms>;
   /**
    * 'libraryWrite' 能力的三個匯出，宣告就要三個都匯出（ADR 0032 §決定 4、6），而且必須同時宣告
    * 'libraryRead'（否則整個拒載）；能力名稱本身不是匯出。請求一律用 auth: 'required'，沒登入宿主

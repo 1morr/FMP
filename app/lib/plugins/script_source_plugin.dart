@@ -200,6 +200,30 @@ final class ScriptSourcePlugin implements SourcePlugin {
   }
 
   @override
+  bool get exportsLibraryLiveRooms =>
+      _runtime.exports.contains(LibraryReadExports.liveRooms);
+
+  @override
+  Future<LibraryLiveRooms> libraryLiveRooms() async {
+    // 選填的匯出：沒匯出時 runtime 的呼叫是 ArgumentError，先在這裡擋成 Unsupported。
+    if (!exportsLibraryLiveRooms) {
+      throw Unsupported(
+        pluginId: manifest.id,
+        cause: StateError('${LibraryReadExports.liveRooms} is not exported'),
+        stackTrace: StackTrace.current,
+      );
+    }
+    final json = await _invoke(
+      PluginCapability.libraryRead,
+      null,
+      LibraryReadExports.liveRooms,
+    );
+    return _decode(
+      () => LibraryLiveRooms.fromJson(json, allowedHosts: _allowedHosts),
+    );
+  }
+
+  @override
   Future<CreatePlaylistResult> createPlaylist(CreatePlaylistQuery query) async {
     final json = await _invoke(
       PluginCapability.libraryWrite,

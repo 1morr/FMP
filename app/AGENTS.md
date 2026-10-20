@@ -947,7 +947,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `importPlaylist` 也例外：匯出是 `playlistFromUrl`、`importPlaylist` 兩個，宣告就要全有（`ImportPlaylistExports`）。`charts` 同樣：匯出是 `chartList`、`chart`
   兩個（`ChartsExports`），沒有名叫 `charts` 的匯出。`libraryRead` 同樣：必要的匯出是 `libraryPlaylists`，選填 `libraryLiveRooms`
   （`LibraryReadExports`）；`libraryLiveRooms` 只有同時宣告 `libraryRead` 與 `live` 才准匯出（`PluginManifest.optionalExports`），否則是
-  「匯出了沒宣告」拒載（呼叫它的是 PR 15，`SourcePlugin` 還沒有這個方法）。`libraryWrite` 同樣：`createPlaylist`、`addToPlaylist`、`removeFromPlaylist`
+  「匯出了沒宣告」拒載；呼叫它的是 `SourcePlugin.libraryLiveRooms()`（回 `LibraryLiveRooms`，`rooms` 的 `roomId` 不能重複，重複整個拒收為 `ParseError`，同 `LibraryPlaylistPage`），沒匯出時 `Unsupported`；manifest 只說「可以匯出」，插件有沒有匯出看 `SourcePlugin.exportsLibraryLiveRooms`（`ScriptSourcePlugin` 讀 runtime 的匯出表）。`libraryWrite` 同樣：`createPlaylist`、`addToPlaylist`、`removeFromPlaylist`
   三個，宣告就要全有（`LibraryWriteExports`），而且**必須同時宣告 `libraryRead`**，否則 manifest 驗證是 `Unsupported`（`PluginManifest.parse`）。
   `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
   `live_capability_test.dart`、`import_playlist_capability_test.dart`、`charts_capability_test.dart`、`library_read_capability_test.dart` 的 `exports and capabilities`、`library_write_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
@@ -1121,7 +1121,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `--fmp-dev-plugin` 裝它的 `.js`，搜尋任何關鍵字都有結果、都播得出來；關鍵字剛好是 `fail`
   時以 `RateLimited` 失敗（離線看錯誤提示）；`missing`、`preview`、`flaky`、`unavailable` 給播放
   恢復的實機驗證；假的 QR 登入（第二次輪詢就完成，憑證 `fake-session-0000`）與貼上 cookie（任何值不空的 `fmp_test_session`）給帳號頁的
-  實機驗證，登入後的關鍵字 `expired`（刷新後成功）、`expired-hard`（刷新也被拒、轉成已失效）與啟動刷新（`unchanged`）給失效與
+  實機驗證，登入後的 `libraryLiveRooms` 回五個直播間（同 `liveSearch`；給「從帳號匯入電台」），登入後的關鍵字 `expired`（刷新後成功）、`expired-hard`（刷新也被拒、轉成已失效）與啟動刷新（`unchanged`）給失效與
   刷新的實機驗證。它不發請求，
   帶不帶憑證要看 `account_service_test.dart`（細節在 `test_plugin/README.md`）。閘門：
   `test/plugins/test_plugin_bundle_test.dart`（搜尋與播放的關鍵字、只在 dev 打包）；登入只有 `checks.json` 的 `login` 案例經
@@ -1976,6 +1976,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     匯入中離開這一頁照做剩下的、照樣提示：`await` 之後先查 `mounted` 才碰 `ref`（失敗原因的字樣要讀 provider，頁面釋放後讀會丟 `StateError`、中斷整批）。
     閘門：`account_playlists_test.dart`（按鈕只在已登入且宣告時出現、已匯入停用勾選、部分失敗列出、匯入中離開頁面、跨頁重複只列一次、20 頁上限與 warning、重試、離線）、`playlist_importer_test.dart` 的
     `importPlaylistId`、`playlist_repository_test.dart` 的 `watchImportedRemoteIds`。
+  - 「從帳號匯入電台」（M4 PR 15，design §7.4）：卡片標題列右側的「⋯」（`PopupMenuButton`）。選單項目只在 `CredentialState.active`、manifest 的
+    `optionalExports` 含 `libraryLiveRooms`（同時宣告 `libraryRead` 與 `live`）**而且**插件實際匯出（`SourcePlugin.exportsLibraryLiveRooms`，從 `pluginRegistryProvider` 讀）時出現（ADR 0033）；
+    沒有項目就不畫「⋯」。點了經 `AccountLiveImporter.importFromAccount`（`lib/radio/account_live_import.dart`）：`libraryLiveRooms` → 逐一 `RadioService.addRoom`
+    （用 `LiveRoom` 自己的資料與狀態，**不呼叫 `liveStatus`**；已在清單的只計數），log tag `radio`、欄位只有插件 id 與計數（不放房間名稱）；寫到一半失敗，已寫入的留著。
+    進行中走卡片的 `_work`（頂端進度條，所有動作停用）。提示：「新增 n 個，m 個已在電台清單」（n 或 m 為 0 時只寫另一個；都是 0 是「這個帳號沒有關注的直播間」，不用複數）；
+    失敗「無法匯入電台：原因」，離線時原因是離線的說法。`await` 之後先查 `mounted` 才碰 `ref`；離開頁面後匯入照做完、成功提示照發（`toaster` 在 `await` 前讀好）、失敗不提示。
+    閘門：`test/ui/accounts/account_live_import_test.dart`（四個條件各缺一個都沒有選單、提示字樣、離線、忙碌停用、離開頁面）、`test/radio/account_live_import_test.dart`（計數、不查 `liveStatus`、log 不含房間名、錯誤型別、寫到一半失敗）、
+    `library_read_capability_test.dart` 的 `libraryLiveRooms`（匯出判斷、`Unsupported`、回傳值驗證）。
   - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`，推在根 Navigator 上：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中
     頂端有進度條，卡住時 WebView 上方是警告色的「登入沒有完成」加「重試」。完成時頁面自己關閉、交回 cookie，**關頁之後**
     才在帳號頁驗證與寫入（design §6.4；頁面開著時設定頁可能換位置重建，那時照樣驗證，只是沒有進度條）。全螢幕頁、裡面是

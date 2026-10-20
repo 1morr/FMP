@@ -2082,6 +2082,22 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
     required Object count,
     required Object failed,
   }) => '已导入 ${count} 张，${failed} 张失败';
+  @override
+  String get more => '更多选项';
+  @override
+  String get liveImport => '从账号导入电台';
+  @override
+  String liveImportBoth({required Object added, required Object existing}) =>
+      '新增 ${added} 个，${existing} 个已在电台列表';
+  @override
+  String liveImportAdded({required Object added}) => '新增 ${added} 个';
+  @override
+  String liveImportAllExisting({required Object existing}) =>
+      '${existing} 个已在电台列表';
+  @override
+  String get liveImportEmpty => '这个账号没有关注的直播间';
+  @override
+  String liveImportFailed({required Object reason}) => '无法导入电台：${reason}';
 }
 
 // Path: errors

@@ -247,7 +247,7 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - DTO：`source_dto.dart` 的類別、`fromJson`／`toJson` 與 `sourceDtoShapes` 一起改，`fmp-plugin.d.ts`
   同步。欄位名稱是插件的介面，列舉值寫死字串（`wireName`），不用 `.name`。
 - 有多個匯出的能力（`login`、`live`、`importPlaylist`、`charts`、`libraryRead`、`libraryWrite`）：匯出名稱在 `LoginExports`、`LiveExports`、`ImportPlaylistExports`、`ChartsExports`、`LibraryReadExports`、`LibraryWriteExports`，加進 `PluginManifest.requiredExports`／`knownExports`；選填的匯出（`libraryLiveRooms`，只在同時宣告 `live` 時）列在 `optionalExports`，不在 `requiredExports` 也不算「匯出了沒宣告」，
-  `ScriptSourcePlugin._invoke` 的第三個參數指定要呼叫哪一個；沒宣告 `live` 時呼叫它的四個方法是 `Unsupported`（`_invoke` 先查能力，不會呼叫到沒宣告的匯出）。
+  `ScriptSourcePlugin._invoke` 的第三個參數指定要呼叫哪一個；沒宣告 `live` 時呼叫它的四個方法是 `Unsupported`（`_invoke` 先查能力，不會呼叫到沒宣告的匯出）。選填匯出沒匯出時 `_invoke` 擋不到（能力已宣告），要在方法裡自己查 runtime 的匯出表再丟 `Unsupported`（`libraryLiveRooms`）；UI 要不要出現入口看 `SourcePlugin.exportsLibraryLiveRooms`，不看 manifest。
 - 能力：`PluginCapability` 已有 ADR 0014 的 12 個；新能力的方法加在 `SourcePlugin`（引入它的里程碑
   才加，不寫空殼），`ScriptSourcePlugin` 以 `_invoke` 呼叫同名匯出，再加 `fmp-plugin.d.ts` 的
   `FmpPluginExports`。
