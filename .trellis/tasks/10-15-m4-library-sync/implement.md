@@ -41,10 +41,10 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-16）：已核准（2026-10-15）。已合併 PR 0–16、20（FMP #272–#289 與 PR 15；fmp-plugins #16–#22）。M4a 剩驗收；M4b 其餘的 PR 等 M4a 驗收（決定 1）。
+- **狀態**（2026-10-21）：已核准（2026-10-15）。已合併 PR 0–16、20（FMP #272–#293；fmp-plugins #16–#22）。M4a 已驗收（2026-10-21，`research/m4a-acceptance.md`）；M4b 剩 PR 17、18、19、21、22。
 - **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
-- **下一步**：M4a 驗收（擁有者在場；先問時間）。驗收前先把不需要擁有者的部分做完：ADR 測試對照（`research/m4-adr-tests.md` 的 M4a 段）、`milestones.md`、`app/AGENTS.md` 的 opus 審查。PR 13 起真實實測與錄製都在 Windows：三個平台已登入在 `m4-pr13` worktree 建置產物旁的 `userdata-dev`（憑證在 `%APPDATA%\com.personal\fmp-dev` 的 secure storage，各 dev build 共用），開新 worktree 時把 `userdata-dev` 整個複製過去就不必重新登入；三張「FMP 測試」已匯入、`writable` 都是 1。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
+- **下一步**：M4b。PR 17（Spotify）、18（QQ）、21（首頁排行與探索頁）的依賴都已滿足，可以平行；19 等 16 與 17 或 18，22 等 19、20、21。真實實測：兩個平台的 dev 資料都已在 M4a 驗收時重新登入三個平台（Windows 的 `userdata-dev` 在主 checkout 的建置產物旁），三張「FMP 測試」各 2 首、`writable` 1。驗收時從 B 站帳號匯入了約 90 個電台，電台狀態工作每 5 分鐘一輪、一輪約 270 個請求（見「留下的後續」），長時間開著 dev App 前先把電台狀態間隔關掉或刪掉電台。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
 - **fmp-plugins 的 PR**：
   - 在同層的 `fmp-plugins/` clone 開分支；
@@ -271,7 +271,7 @@
 | 0018 | 歌單「全部」與「隨機加入」的 10,000 首上限整批拒絕 | 2、3 |
 
 - [x] 上表逐項在 PR 描述或測試檔找到對應，寫進 `research/m4-adr-tests.md` 的 M4a 段（48 項：47 有、1 部分；缺口在該檔末段）。
-- [ ] `milestones.md` 的 M4a 狀態與勾選。
+- [x] `milestones.md` 的 M4a 狀態與勾選。
 - [x] `app/AGENTS.md` 的資料層、插件、排程器、介面、音樂庫段落與實際一致（逐條有閘門或標明「沒有閘門，review 時看」），opus 審查一次。
 
 ## M4b 外部匯入、排行與備份
@@ -363,6 +363,13 @@
 ## 留下的後續
 
 （各 PR 合併時寫在這裡，最新的在上面。）
+
+- **M4a 驗收 → 之後**（`research/m4a-acceptance.md`）：
+  - **電台狀態的請求量**：每個電台每輪 3 個請求（`room_init`、`get_info`、主播名），預設每 5 分鐘一輪；從帳號匯入幾十個電台後一輪兩三百個請求、跑一分多鐘。長號加入時已存，`room_init` 可省；B 站有批次的 `get_status_info_by_uids`。M3 的既有行為，要改得動 `liveStatus` 契約或宿主的工作。
+  - Mix 詳情頁的「種子曲目」顯示原始影片 id，不是曲名；`mix:<videoId>` 給沒有 Mix 的影片時，訊息是通用的「找不到，可能已被移除」。
+  - 多 P 影片「從遠端歌單移除」的確認框寫「1 首」，實際移掉整支影片（上面 PR 14 的那條）。
+  - 排程只擋「開始」：App 變得看不見時，正在跑的一輪會跑完（Windows 實測約 35 秒）。照設計，記下來給之後看耗電或流量時參考。
+  - Windows 的離線與 `pl-gone` 的「來源失效」狀態列沒有實機驗證，只有測試守著。
 
 - **PR 15 → 之後**：
   - B 站勳章牆改用批次端點 `get_status_info_by_uids`（舊版每個主播各問一次 `getRoomInfoOld`）：宿主匯入後不再呼叫 `liveStatus`，房間的顯示資料要一次拿齊。實測（Windows，擁有者帳號）一次匯入 90 個：勳章牆 1 次、批次 2 次。
