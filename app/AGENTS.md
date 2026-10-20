@@ -947,9 +947,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `importPlaylist` 也例外：匯出是 `playlistFromUrl`、`importPlaylist` 兩個，宣告就要全有（`ImportPlaylistExports`）。`charts` 同樣：匯出是 `chartList`、`chart`
   兩個（`ChartsExports`），沒有名叫 `charts` 的匯出。`libraryRead` 同樣：必要的匯出是 `libraryPlaylists`，選填 `libraryLiveRooms`
   （`LibraryReadExports`）；`libraryLiveRooms` 只有同時宣告 `libraryRead` 與 `live` 才准匯出（`PluginManifest.optionalExports`），否則是
-  「匯出了沒宣告」拒載（呼叫它的是 PR 15，`SourcePlugin` 還沒有這個方法）。
+  「匯出了沒宣告」拒載（呼叫它的是 PR 15，`SourcePlugin` 還沒有這個方法）。`libraryWrite` 同樣：`createPlaylist`、`addToPlaylist`、`removeFromPlaylist`
+  三個，宣告就要全有（`LibraryWriteExports`），而且**必須同時宣告 `libraryRead`**，否則 manifest 驗證是 `Unsupported`（`PluginManifest.parse`）。
   `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
-  `live_capability_test.dart`、`import_playlist_capability_test.dart`、`charts_capability_test.dart`、`library_read_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+  `live_capability_test.dart`、`import_playlist_capability_test.dart`、`charts_capability_test.dart`、`library_read_capability_test.dart` 的 `exports and capabilities`、`library_write_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
 - `charts`（ADR 0032 §決定 5；宿主端的工作與快取見 § 排行）：`chartList()` 回 `{charts: [{chartId, title}]}`（`chartId` 不重複、`title` 不空、可以是空清單；
   插件內的常數，不發請求），`chart({chartId})` 回 `{tracks}`（不分頁、可以是空的；曲目的驗證同搜尋結果，宿主填音源 id）。請求的 `auth` 由插件標
   `userPreference`。閘門：`charts_capability_test.dart`（回傳值驗證各拒收一例、空榜單接受）、`type_definitions_test.dart` 的 `the charts exports…`、`the charts fields…`
@@ -960,6 +961,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `maxAccountPlaylistPages` ＝ 20 頁，超過停下並記 `library` warning）。閘門：`library_read_capability_test.dart`（四種拒載、回傳值驗證各拒收一例、
   `requiresLogin` 案例的形狀）、`type_definitions_test.dart` 的 `the libraryRead exports…`、`the libraryRead fields…`（都含變異），fmp-test 的歌單由
   `test_plugin_bundle_test.dart` 的 `libraryRead` 守。
+- `libraryWrite`（ADR 0032 §決定 4；宿主端見 § 遠端寫入）：`createPlaylist({title})` 回 `{playlistId}`（`title` 宿主已去頭尾空白、不空，`playlistId` 不空）；
+  `addToPlaylist({playlistId, tracks: [{sourceId, cid?}]})` 回 `{results: [{status: 'added' | 'alreadyPresent' | 'failed', error?}]}`；
+  `removeFromPlaylist({playlistId, items: [{sourceId, cid?, remoteItemId?}]})` 回 `{results: [{status: 'removed' | 'notPresent' | 'failed', error?}]}`。
+  請求一律 `auth: 'required'`，沒登入是 `AuthRequired`。`results` 與輸入**同長同順序**，長度不符、`status` 不在該呼叫的 union 內（`removed` 回在 `addToPlaylist`）、
+  `error` 出現在非 `failed` 的項目、`error` 不是結構化錯誤的形狀（`sourceDtoShapes['FmpError']`：`fmpError` 必填，`retryAfterSeconds`、`reason`、`message` 選填）都是 `ParseError`。
+  `error` 轉成 `AppError` 走 `structuredScriptError`（`lib/plugins/runtime/script_errors.dart`），和 `plugin_runtime` 轉插件拋出的結構化錯誤是**同一個函式**：同一個
+  `{fmpError: 'RateLimited', retryAfterSeconds: 5}` 放在結果裡或用 `throw` 得到同一個類別與 `retryAfter`，不認得的名稱都是 `UnexpectedError`。去重（已在歌單裡）與音源自己的 id 換算
+  （B 站 bvid→aid）在插件內做。閘門：`library_write_capability_test.dart`（三個匯出各缺一個拒載、沒宣告 `libraryRead` 的 `Unsupported`、輸入的 JSON 形狀、`createPlaylist`/`addToPlaylist`/
+  `removeFromPlaylist` 回傳值各拒收一例與對照、`error` 與拋出的結構化錯誤逐例同一個轉換、`FmpLibraryWriteCheck` 的 `requiresLogin` 與 `mutates` 都必填）、
+  `type_definitions_test.dart` 的 `the libraryWrite exports…`、`the libraryWrite fields…`（都含變異），fmp-test 的假實作由 `test_plugin_bundle_test.dart` 的 `libraryWrite` 守。
 - `live`（ADR 0028 §決定 3；電台見 § 電台，收聽見 § 播放的「直播」）：`liveStatus` 查詢失敗一律拋錯，
   不能回 `offline`（D10）：宿主把拋錯顯示成「查詢失敗」，`offline` 只表示查到了而且沒開播；插件吞掉錯誤回 `offline` 是插件的 bug，
   宿主分不出來，本 repo 沒有閘門守（`fmp-test` 的 `live-broken` 只示範正確的行為）。
@@ -1019,8 +1030,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   既有的 `never carries them in replay mode` 仍在）、`contract_runner_test.dart` 的 `a libraryRead check without a login case has no credentials`（拿掉 `login` 案例就紅）
   與 `…with another fake cookie stays green`、`dev_case_runs_test.dart` 的 `a libraryRead case`、`checks_test.dart` 的 `the libraryRead check`、
   `health_check_test.dart` 的 `a libraryRead case`（已登入跑、未登入略過）。
-- 案例可標 `mutates: true`（`PluginCheck.mutates`，每種案例的欄位表都收這個選填欄位、只准 `true`；M4 PR 12 加，第一個用它的是
-  `libraryWrite`，它的案例改成必填）：會改動遠端的案例，健康檢查（`HealthSkip.mutates`）、命令列錄製（`recordCase` 回
+- `checks.json` 的 `libraryWrite` 案例（輸入 `{playlistId, tracks: [{sourceId, cid?}]}`）跑 `addToPlaylist`，檢查的清單是 `results`，`nonEmpty` 的名稱是 `AddToPlaylistResult`
+  的（`status`、`error`）；**`requiresLogin: true` 與 `mutates: true` 都必填**（`FmpLibraryWriteCheck`，缺了或 `false` 整個檔案拒收）。因為 `mutates`，健康檢查結果是
+  「略過：會改動遠端」、命令列錄製與開發工具的真實與錄製都略過（見下一條）；契約測試與開發工具的重播照跑，fixture 手寫，重播帶 `login` 案例的假憑證（同 `libraryRead`）。
+  閘門：`checks_test.dart` 的 `the libraryWrite check`（兩個旗標各缺一個就拒收）、`library_write_capability_test.dart` 的 `the libraryWrite check`、`health_check_test.dart` 的
+  `a libraryWrite case`（已登入與未登入都略過、不送請求，對照是直接呼叫腳本會送）、`contract_runner_test.dart` 的 `a libraryWrite check …`、`record_test.dart` 的
+  `skips a case that requires a login`、`dev_case_runs_test.dart` 的 `the libraryWrite case of fmp-test`。
+- 案例可標 `mutates: true`（`PluginCheck.mutates`，每種案例的欄位表都收這個欄位、只准 `true`；M4 PR 12 加，`libraryWrite` 的案例必填）：會改動遠端的案例，健康檢查（`HealthSkip.mutates`）、命令列錄製（`recordCase` 回
   `<能力>: mutates the remote`）、App 內開發工具的真實與錄製（`DevSkip.mutates`）一律略過、**不呼叫插件**（連 `playlistFromUrl`
   這類前置呼叫也不行）；`runIsolatedCase` 對真實連線的 `mutates` 案例直接丟 `StateError`（呼叫端漏略過也不會送出）。重播與契約測試照跑，
   fixture 手寫。閘門：`checks_test.dart` 的 `mutates`（含每種案例形狀都收它）、`case_runner_test.dart` 的 `a mutates case…`／`skips a mutates case…`、
@@ -1266,6 +1282,50 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   來源失效；比對鍵兩種；完整性三條件各缺一個；中途停下與頁內例外後再刷新；代際與觸發者過期不寫；刷新中途刪歌單；`writable`；FIFO 鎖與例外釋放鎖；插件停用）、
   `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列）、
   `playlist_remote_repository_test.dart`。
+
+## 遠端寫入
+
+`lib/library/remote_playlist_writer.dart`（`RemotePlaylistWriter`，`remotePlaylistWriterProvider`；ADR 0019 §決定 4、ADR 0032 §決定 4，M4 design §7.1、§7.2，PR 14）：`libraryWrite` 的宿主端。
+呼叫端（`ui/`）負責入口條件與結果提示；這裡只在插件不在清單或沒宣告 `libraryWrite` 時丟 `Unsupported`。
+
+- `createRemote(pluginId, title)`：`createPlaylist`，標題去頭尾空白、空的不送（`ArgumentError`），回傳音源內的歌單 id。
+- `addToRemote(pluginId, tracks, playlistIds)`：每張目標一次 `addToPlaylist`（`sourceId`、`cid`；同一個曲目鍵只送一次，歷史的多選常有同一首，有的平台同一次呼叫會加兩次），依序做；一張整個失敗（拋錯）不影響其他張，記成那一張的結果
+  （`RemoteAddOutcome`：`added`、`alreadyPresent`、`failed`、`error`；整個失敗時 `failed` ＝送出的曲目數）。有一首不屬於 `pluginId` 就整批不送（`ArgumentError`）：
+  入口條件之外的最後一道，別的音源的 id 不會寫進這個帳號的歌單。
+- `removeFromRemote(playlistId /* 本地 */, entries)`：`removeFromPlaylist`（`sourceId`、`cid`、`remoteItemId`；`PlaylistEntry.remoteItemId` 是 PR 14 加的）。**整個呼叫失敗原樣丟
+  `AppError`，本地什麼都不動**；否則 `removed` 與 `notPresent` 的項目從本地刪（`PlaylistRepository.removeEntries`，匯入歌單的曲目只有這條路徑能本地刪），`failed` 的留著，
+  列在 `RemoteRemoveOutcome.failures`。不是匯入歌單丟 `StateError`；送出前重讀 `playlist_remote`，已經不可寫（確認框開著時刷新寫了 `writable = false`）是 `Unsupported`、
+  有一項的曲目不屬於這張歌單的插件是 `ArgumentError`，都不呼叫插件。
+- **寫後刷新**：`addToRemote` 對每個「有成功」（至少一首 `added` 或 `alreadyPresent`）而且已匯入（`playlist_remote` 同插件同 `remote_id`）的目標、`removeFromRemote` 在有刪本地項目時，各排**一次**
+  `PlaylistRefresher.refresh`（`RefreshTrigger.manual`），**走刷新器同一把 FIFO 鎖**（與手動、排程共用，不另外發明鎖），不等它、不提示；結果只更新資料庫的狀態，丟出的資料庫例外
+  經 `log.report` 進錯誤歷史。全部失敗的目標不刷新。**刷新延後 60 秒**（`remoteRefreshDelay`；本地刪除仍立即做）：YouTube 寫後讀有延遲（2026-10 實測約 40 秒），立刻刷新看不到剛加的歌，
+  移除後則讀到舊清單、把剛刪掉的又加回來；B 站、網易沒有這個問題但一樣延後（單純）。計時器經 `remoteRefreshTimerProvider` 注入（測試用假的、不真的等）；同一張歌單在延遲內再次寫入就
+  重新計時、只刷一次；writer 被拆（`ref.onDispose`）時取消，沒做的刷新由之後的排程刷新補上。
+- log（tag `library`）：`Remote playlist created`、`Remote add finished`、`Remote add failed`、`Remote remove finished`、`Remote remove failed`；欄位只有 `pluginId`、本地 `playlistId`、筆數，
+  **不放歌單名稱、曲名**（ADR 0011 §決定 6）。
+- 閘門：`test/library/remote_playlist_writer_test.dart`（每張一次呼叫與送出的欄位、三種計數、一張失敗不影響其他、成功的已匯入目標刷新一次而未匯入的不刷新、全部失敗不刷新、
+  同 id 不同插件不碰、**排在進行中的手動刷新後面（同一把鎖）**、刷新丟例外不傳給呼叫端、移除只刪 `removed`／`notPresent`、整個失敗不動本地、log 不含名稱與曲名、
+  同一首選兩次只送一次、別的插件的曲目或項目與不再可寫的歌單都不呼叫插件；`the delay`：59 秒內不讀、60 秒後剛好一次、移除也延後而本地刪除立即、延遲內再寫入重新計時只刷一次、
+  兩張各一個計時器、拆掉 provider 取消計時；拿掉延遲、拿掉重新計時、拿掉取消各會紅）。
+
+入口與畫面（`lib/ui/library/`）：
+
+- **入口條件**（`remote_write_state.dart`）：`remoteWritablePluginsProvider` ＝ 在插件清單上、宣告 `libraryWrite`、`CredentialState.active`（`accountViewProvider`）的插件 id；
+  「加入遠端歌單…」由 `remoteAddEntryFor(writable, 曲目所屬的插件)` 決定：全部屬於同一個能寫的插件才是 `available`，屬於好幾個插件而且至少一個能寫是 `mixedSources`（**停用並寫明「請只選同一個音源的曲目」**），
+  一個都不能寫是 `hidden`（單首的選單項目與多選列的按鈕都不出現）；「從遠端歌單移除」由 `remoteRemoveEntryProvider(本地歌單 id)`：匯入歌單、`playlist_remote.writable`、插件能寫。
+  閘門：`remote_write_state_test.dart`（每一條各有只差那一條件的對照）。
+- **曲目選單**（`TrackRowMenu` 的呼叫端，`AddToRemoteItem`）：搜尋（影片列是它的全部分 P，同「加入歌單…」；分 P 列）、歷史、佇列、歌單詳情、首頁「最近播放」卡片；匯入歌單詳情另有
+  `RemoveFromRemoteItem`。不動佇列，所以 Mix 中照常（M3 的禁止規則只擋加入佇列與下一首播放）。**多選列**（`TrackSelectionBar.pluginIds`，頁面給已選的鍵所屬的插件；搜尋頁取結果列自己的 `sourceTypeId`，不是選的音源：選的音源停用時會退回第一個，畫面上的結果還是舊音源的）多一顆「加入遠端歌單…」，
+  歌單詳情在 `remoteRemoveEntryProvider` 為真時多一個 `TrackSelectionAction`「從遠端歌單移除」。
+- **加入對話框**（`add_to_remote.dart` 的 `showAddToRemote`，版面同本機的「加入歌單…」）：開啟時 `accountPlaylistsProvider`（帳號頁同一份，讀完所有頁、最多 20 頁）；只列 `writable`、勾選框、封面與首數；
+  讀取中有進度圈，失敗有原因與「重試」（離線用離線的說法），沒有可加入的歌單有說明。頂端「在遠端新增歌單」→ 名稱輸入 → `createRemote` → 新歌單出現在清單並已勾選（沒有首數；不重新讀清單，因為平台未必
+  立即列出）。「加入」直接送出（不另確認），關閉並提示：`已加入 n 個歌單`（n ＝有成功的歌單數）＋`，m 首已存在`＋`，k 項失敗`（success；有失敗是 warning 並附「詳細」，列出歌單與原因；一張都沒成功是「沒有加入任何歌單」）。
+- **移除**（`remove_from_remote.dart` 的 `removeFromRemotePlaylist`）：確認框說明首數、歌單與音源 → 移除 → 提示「已從遠端歌單移除 n 首」（`removed` ＋ `notPresent`）＋`，k 項失敗`＋「詳細」（列出曲目與原因）；
+  整個呼叫失敗是錯誤提示、本地不動。「詳細」走根 Navigator（`rootNavigatorKeyProvider`）開對話框：提示按下時原本的頁面可能已經關了。單首的入口傳的是那一列的 `ref`，確認框開著時
+  那一列可能被背景刷新拿掉而釋放：確認之後不再讀 `ref`，改讀確認前取好的 `ProviderScope.containerOf`。
+- 閘門：`add_to_remote_test.dart`（入口只在能寫時、只列可寫、讀完所有頁、進度圈、失敗重試與離線、空狀態、新增並已勾選且沒有首數、新增失敗、一張一次呼叫且沒有確認框、三種提示形狀（英文 1 張是單數）與「詳細」、整張失敗、多選列、搜尋的多選列看結果的插件）、
+  `remove_from_remote_test.dart`（入口各項對照、確認框、欄位與本地刪除、`notPresent` 也刪、失敗留著並列出、確認框開著時那一列不見了仍送出並提示、整個失敗不動本地、多選一次確認並離開選取模式、取消留著、多來源選取停用並說明）。
+  對話框與「詳細」是對話框，不是新的路由，`toast_layering_test.dart` 的 `a toast shows above a dialog` 已涵蓋，沒有另加。
 
 ## 排行
 
