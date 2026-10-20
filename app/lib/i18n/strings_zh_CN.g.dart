@@ -548,6 +548,67 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   String get refreshEveryDay => '每天';
   @override
   String refreshEveryDays({required Object count}) => '每 ${count} 天';
+  @override
+  String get addToRemote => '加入远端歌单…';
+  @override
+  String get addToRemoteMixed => '加入远端歌单（请只选同一个音源的曲目）';
+  @override
+  String get removeFromRemote => '从远端歌单移除';
+  @override
+  String get remoteTitle => '加入远端歌单';
+  @override
+  String get remoteLoading => '正在读取你的歌单';
+  @override
+  String get remoteLoadFailed => '读不到你的歌单';
+  @override
+  String get remoteEmpty => '还没有可以加入的歌单';
+  @override
+  String get remoteNew => '在远端新增歌单';
+  @override
+  String get remoteNewTitle => '新增远端歌单';
+  @override
+  String get remoteNewName => '名称';
+  @override
+  String get remoteNewAction => '新增';
+  @override
+  String remoteNewFailed({required Object reason}) => '无法新增歌单：${reason}';
+  @override
+  String remoteAdded({required Object count}) => '已加入 ${count} 个歌单';
+  @override
+  String get remoteAddedOne => '已加入 1 个歌单';
+  @override
+  String remoteAlreadyThere({required Object count}) => '，${count} 首已存在';
+  @override
+  String remoteFailedCount({required Object count}) => '，${count} 项失败';
+  @override
+  String get remoteAddNone => '没有加入任何歌单';
+  @override
+  String remoteAddError({required Object reason}) => '无法加入远端歌单：${reason}';
+  @override
+  String get remoteDetailsTitle => '失败的项目';
+  @override
+  String remoteDetailCount({required Object name, required Object count}) =>
+      '${name}：${count} 项失败';
+  @override
+  String get remoteNoReason => '没有说明原因';
+  @override
+  String get remoteClose => '关闭';
+  @override
+  String get removeRemoteTitle => '从远端歌单移除？';
+  @override
+  String removeRemoteBody({
+    required Object name,
+    required Object count,
+    required Object source,
+  }) => '将从「${name}」移除 ${count} 首，${source} 上的歌单也会一并更新。无法恢复。';
+  @override
+  String get removeRemoteConfirm => '移除';
+  @override
+  String removedFromRemote({required Object count}) => '已从远端歌单移除 ${count} 首';
+  @override
+  String get removeRemoteNone => '没有移除任何曲目';
+  @override
+  String removeRemoteFailed({required Object reason}) => '无法从远端歌单移除：${reason}';
 }
 
 // Path: playlist
@@ -631,6 +692,12 @@ class Translations$selection$zh_CN extends Translations$selection$zh_TW {
   String get addToPlaylist => '添加到歌单…';
   @override
   String get addedToQueue => '已加入队列';
+  @override
+  String get addToRemote => '加入远端歌单…';
+  @override
+  String get addToRemoteMixed => '加入远端歌单（请只选同一个音源的曲目）';
+  @override
+  String get removeFromRemote => '从远端歌单移除';
 }
 
 // Path: offline

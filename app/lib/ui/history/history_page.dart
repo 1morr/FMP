@@ -16,6 +16,7 @@ import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -63,7 +64,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   /// 已選的紀錄的曲目，依畫面順序。
-  Future<List<TrackInfo>?> _tracks(List<int> ids) async {
+  Future<List<TrackInfo>?> _tracks(List<int> ids) async => _tracksSync(ids);
+
+  List<TrackInfo> _tracksSync(List<int> ids) {
     final byId = {
       for (final entry
           in ref.read(historyProvider).value?.entries ??
@@ -94,6 +97,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         children: [
           TrackSelectionBar<int>(
             tracks: _tracks,
+            pluginIds: (ids) => {
+              for (final track in _tracksSync(ids)) track.sourceTypeId,
+            },
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 spacing.x4,
@@ -354,6 +360,10 @@ class _HistoryTile extends ConsumerWidget {
           ),
         AddToPlaylistItem(
           onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
+        AddToRemoteItem(
+          pluginIds: {track.sourceTypeId},
+          onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
         MenuItemButton(
           leadingIcon: const Icon(Icons.delete_outline),

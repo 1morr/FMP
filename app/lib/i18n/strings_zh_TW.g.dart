@@ -682,6 +682,95 @@ class Translations$library$zh_TW {
 
   /// zh-TW: '每 {count} 天'
   String refreshEveryDays({required Object count}) => '每 ${count} 天';
+
+  /// zh-TW: '加入遠端歌單…'
+  String get addToRemote => '加入遠端歌單…';
+
+  /// zh-TW: '加入遠端歌單（請只選同一個音源的曲目）'
+  String get addToRemoteMixed => '加入遠端歌單（請只選同一個音源的曲目）';
+
+  /// zh-TW: '從遠端歌單移除'
+  String get removeFromRemote => '從遠端歌單移除';
+
+  /// zh-TW: '加入遠端歌單'
+  String get remoteTitle => '加入遠端歌單';
+
+  /// zh-TW: '正在讀取你的歌單'
+  String get remoteLoading => '正在讀取你的歌單';
+
+  /// zh-TW: '讀不到你的歌單'
+  String get remoteLoadFailed => '讀不到你的歌單';
+
+  /// zh-TW: '還沒有可以加入的歌單'
+  String get remoteEmpty => '還沒有可以加入的歌單';
+
+  /// zh-TW: '在遠端新增歌單'
+  String get remoteNew => '在遠端新增歌單';
+
+  /// zh-TW: '新增遠端歌單'
+  String get remoteNewTitle => '新增遠端歌單';
+
+  /// zh-TW: '名稱'
+  String get remoteNewName => '名稱';
+
+  /// zh-TW: '新增'
+  String get remoteNewAction => '新增';
+
+  /// zh-TW: '無法新增歌單：{reason}'
+  String remoteNewFailed({required Object reason}) => '無法新增歌單：${reason}';
+
+  /// zh-TW: '已加入 {count} 個歌單'
+  String remoteAdded({required Object count}) => '已加入 ${count} 個歌單';
+
+  /// zh-TW: '已加入 1 個歌單'
+  String get remoteAddedOne => '已加入 1 個歌單';
+
+  /// zh-TW: '，{count} 首已存在'
+  String remoteAlreadyThere({required Object count}) => '，${count} 首已存在';
+
+  /// zh-TW: '，{count} 項失敗'
+  String remoteFailedCount({required Object count}) => '，${count} 項失敗';
+
+  /// zh-TW: '沒有加入任何歌單'
+  String get remoteAddNone => '沒有加入任何歌單';
+
+  /// zh-TW: '無法加入遠端歌單：{reason}'
+  String remoteAddError({required Object reason}) => '無法加入遠端歌單：${reason}';
+
+  /// zh-TW: '失敗的項目'
+  String get remoteDetailsTitle => '失敗的項目';
+
+  /// zh-TW: '{name}：{count} 項失敗'
+  String remoteDetailCount({required Object name, required Object count}) =>
+      '${name}：${count} 項失敗';
+
+  /// zh-TW: '沒有說明原因'
+  String get remoteNoReason => '沒有說明原因';
+
+  /// zh-TW: '關閉'
+  String get remoteClose => '關閉';
+
+  /// zh-TW: '從遠端歌單移除？'
+  String get removeRemoteTitle => '從遠端歌單移除？';
+
+  /// zh-TW: '將從「{name}」移除 {count} 首，{source}上的歌單也會一併更新。無法復原。'
+  String removeRemoteBody({
+    required Object name,
+    required Object count,
+    required Object source,
+  }) => '將從「${name}」移除 ${count} 首，${source}上的歌單也會一併更新。無法復原。';
+
+  /// zh-TW: '移除'
+  String get removeRemoteConfirm => '移除';
+
+  /// zh-TW: '已從遠端歌單移除 {count} 首'
+  String removedFromRemote({required Object count}) => '已從遠端歌單移除 ${count} 首';
+
+  /// zh-TW: '沒有移除任何曲目'
+  String get removeRemoteNone => '沒有移除任何曲目';
+
+  /// zh-TW: '無法從遠端歌單移除：{reason}'
+  String removeRemoteFailed({required Object reason}) => '無法從遠端歌單移除：${reason}';
 }
 
 // Path: playlist
@@ -791,6 +880,15 @@ class Translations$selection$zh_TW {
 
   /// zh-TW: '已加入佇列'
   String get addedToQueue => '已加入佇列';
+
+  /// zh-TW: '加入遠端歌單…'
+  String get addToRemote => '加入遠端歌單…';
+
+  /// zh-TW: '加入遠端歌單（請只選同一個音源的曲目）'
+  String get addToRemoteMixed => '加入遠端歌單（請只選同一個音源的曲目）';
+
+  /// zh-TW: '從遠端歌單移除'
+  String get removeFromRemote => '從遠端歌單移除';
 }
 
 // Path: offline

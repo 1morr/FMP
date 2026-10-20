@@ -10,6 +10,8 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/add_to_remote.dart';
+import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -324,17 +326,22 @@ final class TrackSelectionAction<K> {
 }
 
 /// 頁面的標題列，選取模式時換成選取列（M3 的 contextual top app bar）：取消（Esc）、已選 n 首、
-/// 全選（Ctrl+A）、加入佇列、加入歌單…，再接頁面自己的 [actions]。動作在進行中時其他鈕停用。
+/// 全選（Ctrl+A）、加入佇列、加入歌單…、加入遠端歌單…，再接頁面自己的 [actions]。動作在進行中時
+/// 其他鈕停用。
 ///
 /// - 加入佇列：Mix 中停用並寫明原因（ADR 0031 §決定 9）；超過佇列上限時控制器整批拒絕、提示由
 ///   外殼接 `QueueFull`（ADR 0018 §決定 4），選取留著。
 /// - 加入歌單…：開「加入歌單」對話框（PR 3），加入了才離開選取模式。
+/// - 加入遠端歌單…（M4 design §7.1、§10.7）：給了 [pluginIds] 才有。已選曲目都屬於同一個能寫遠端
+///   （宣告 `libraryWrite`、已登入）的插件才能按；屬於好幾個插件時停用並說明；一個都不能寫就不出現。
+///   送出了才離開選取模式。
 class TrackSelectionBar<K> extends ConsumerStatefulWidget {
   const TrackSelectionBar({
     super.key,
     required this.tracks,
     required this.child,
     this.actions = const [],
+    this.pluginIds,
     this.padding,
   });
 
@@ -346,6 +353,9 @@ class TrackSelectionBar<K> extends ConsumerStatefulWidget {
   final Widget child;
 
   final List<TrackSelectionAction<K>> actions;
+
+  /// 已選的鍵（依畫面順序）所屬的插件 id，不取東西、不等待；`null` 的頁面沒有「加入遠端歌單…」。
+  final Set<String> Function(List<K> keys)? pluginIds;
 
   /// 選取列外面的間距；預設和頁面標題列一樣（上 16、下 8、左右 16）。
   final EdgeInsetsGeometry? padding;
@@ -388,6 +398,12 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
     return showAddToPlaylist(context, tracks);
   }
 
+  Future<bool> _addToRemote(List<K> keys) async {
+    final tracks = await widget.tracks(keys);
+    if (tracks == null || tracks.isEmpty || !mounted) return false;
+    return showAddToRemote(context, tracks);
+  }
+
   @override
   Widget build(BuildContext context) {
     final selection = TrackSelectionScope.of<K>(context);
@@ -399,6 +415,13 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
     final colors = theme.colorScheme;
     final inMix = ref.watch(inMixProvider);
     final running = _running;
+    final pluginIds = widget.pluginIds;
+    final remote = pluginIds == null
+        ? RemoteAddEntry.hidden
+        : remoteAddEntryFor(
+            ref.watch(remoteWritablePluginsProvider),
+            pluginIds(selection.selected),
+          );
 
     VoidCallback? run(Future<bool> Function(List<K> keys) action) =>
         running ? null : () => unawaited(_run(selection, action));
@@ -456,6 +479,16 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
                 icon: const Icon(Icons.playlist_add),
                 onPressed: run(_addToPlaylist),
               ),
+              if (remote != RemoteAddEntry.hidden)
+                IconButton(
+                  tooltip: remote == RemoteAddEntry.available
+                      ? t.addToRemote
+                      : t.addToRemoteMixed,
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  onPressed: remote == RemoteAddEntry.available
+                      ? run(_addToRemote)
+                      : null,
+                ),
               for (final action in widget.actions)
                 IconButton(
                   tooltip: action.tooltip,

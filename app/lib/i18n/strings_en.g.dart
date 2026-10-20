@@ -553,6 +553,74 @@ class Translations$library$en extends Translations$library$zh_TW {
   String get refreshEveryDay => 'Every day';
   @override
   String refreshEveryDays({required Object count}) => 'Every ${count} days';
+  @override
+  String get addToRemote => 'Add to remote playlist…';
+  @override
+  String get addToRemoteMixed =>
+      'Add to remote playlist (select songs from one source)';
+  @override
+  String get removeFromRemote => 'Remove from the remote playlist';
+  @override
+  String get remoteTitle => 'Add to remote playlist';
+  @override
+  String get remoteLoading => 'Loading your playlists';
+  @override
+  String get remoteLoadFailed => 'Couldn\'t load your playlists';
+  @override
+  String get remoteEmpty => 'No playlists you can add to yet';
+  @override
+  String get remoteNew => 'New playlist on the remote';
+  @override
+  String get remoteNewTitle => 'New remote playlist';
+  @override
+  String get remoteNewName => 'Name';
+  @override
+  String get remoteNewAction => 'Create';
+  @override
+  String remoteNewFailed({required Object reason}) =>
+      'Couldn\'t create the playlist: ${reason}';
+  @override
+  String remoteAdded({required Object count}) => 'Added to ${count} playlists';
+  @override
+  String get remoteAddedOne => 'Added to 1 playlist';
+  @override
+  String remoteAlreadyThere({required Object count}) =>
+      ', ${count} already there';
+  @override
+  String remoteFailedCount({required Object count}) => ', ${count} failed';
+  @override
+  String get remoteAddNone => 'Nothing was added';
+  @override
+  String remoteAddError({required Object reason}) =>
+      'Couldn\'t add to the remote playlist: ${reason}';
+  @override
+  String get remoteDetailsTitle => 'What went wrong';
+  @override
+  String remoteDetailCount({required Object name, required Object count}) =>
+      '${name}: ${count} failed';
+  @override
+  String get remoteNoReason => 'No reason was given';
+  @override
+  String get remoteClose => 'Close';
+  @override
+  String get removeRemoteTitle => 'Remove from the remote playlist?';
+  @override
+  String removeRemoteBody({
+    required Object count,
+    required Object name,
+    required Object source,
+  }) =>
+      'Remove the selected songs (${count}) from "${name}"? The playlist on ${source} changes too. This cannot be undone.';
+  @override
+  String get removeRemoteConfirm => 'Remove';
+  @override
+  String removedFromRemote({required Object count}) =>
+      'Removed ${count} from the remote playlist';
+  @override
+  String get removeRemoteNone => 'Nothing was removed';
+  @override
+  String removeRemoteFailed({required Object reason}) =>
+      'Couldn\'t remove from the remote playlist: ${reason}';
 }
 
 // Path: playlist
@@ -638,6 +706,13 @@ class Translations$selection$en extends Translations$selection$zh_TW {
   String get addToPlaylist => 'Add to playlist…';
   @override
   String get addedToQueue => 'Added to the queue';
+  @override
+  String get addToRemote => 'Add to remote playlist…';
+  @override
+  String get addToRemoteMixed =>
+      'Add to remote playlist (select songs from one source)';
+  @override
+  String get removeFromRemote => 'Remove from the remote playlist';
 }
 
 // Path: offline

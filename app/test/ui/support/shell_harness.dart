@@ -50,6 +50,7 @@ import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/app/root_navigator.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
@@ -101,6 +102,7 @@ final class ShellHarness {
     bool multiPart = false,
     bool trackDetail = false,
     bool libraryRead = false,
+    bool libraryWrite = false,
     this.secureStorage = false,
     this.restartsItself = false,
     this.dataReset,
@@ -122,6 +124,7 @@ final class ShellHarness {
          multiPart: multiPart,
          trackDetail: trackDetail,
          libraryRead: libraryRead,
+         libraryWrite: libraryWrite,
          onSearch:
              onSearch ??
              (query) => SearchPage(
@@ -288,6 +291,8 @@ final class ShellHarness {
     appDatabaseProvider.overrideWithValue(database ?? memoryDatabase()),
     logProvider.overrideWithValue(log),
     toasterProvider.overrideWithValue(toaster),
+    // 同 `FmpApp`：提示的「詳細」經根 Navigator 開頁面或對話框。
+    rootNavigatorKeyProvider.overrideWithValue(navigatorKey),
     appFlavorProvider.overrideWithValue(flavor),
     buildLogLevelProvider.overrideWithValue(buildLogLevel),
     appInfoProvider.overrideWithValue(appInfo),

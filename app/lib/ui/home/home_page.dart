@@ -16,6 +16,7 @@ import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
+import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
@@ -473,6 +474,10 @@ class _RecentCard extends ConsumerWidget {
           ),
         AddToPlaylistItem(
           onPressed: () => unawaited(showAddToPlaylist(context, [track])),
+        ),
+        AddToRemoteItem(
+          pluginIds: {track.sourceTypeId},
+          onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
       ],
       builder: (context, more, openMenu) => Stack(
