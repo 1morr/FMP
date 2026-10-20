@@ -254,8 +254,9 @@ final class DevCaseRuns extends Notifier<DevCaseRunsState> {
     if (check.mutates && mode != CaseMode.replay) {
       return skipped(DevSkip.mutates);
     }
-    // 要登入的案例：重播用 checks.json 的假憑證（不放進隔離環境），真實與錄製用已存的
-    // 憑證（沒登入就略過、不連網）。非 login 的案例由 runIsolatedCase 放進憑證存放。
+    // 要登入的案例：重播用 checks.json 的假憑證（login 案例是它的輸入；其他案例由
+    // runIsolatedCase 以 fixtureCredentials 放進隔離環境），真實與錄製用已存的憑證
+    // （沒登入就略過、不連網）。真實的憑證永遠不進重播。
     LoginCredentials? credentials;
     LoginAccount? account;
     if (check.requiresLogin && mode != CaseMode.replay) {
@@ -293,6 +294,7 @@ final class DevCaseRuns extends Notifier<DevCaseRunsState> {
           log: log,
           redactor: redactor,
           reportTag: 'plugins',
+          fixtureCredentials: fixtureCredentialsOf(folder.checks),
           recordIds: recordIds,
         );
         stopwatch.stop();

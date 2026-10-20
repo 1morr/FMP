@@ -125,6 +125,7 @@ Future<List<String>> runCheck(
     redactor: redactor,
     reportTag: 'contract',
     reportMessage: 'Contract check',
+    fixtureCredentials: runner.fixtureCredentialsOf(plugin.checks),
   );
   final problems = [for (final problem in run.problems) '$name: $problem'];
   if (!run.loaded) return problems;

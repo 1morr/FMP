@@ -353,6 +353,107 @@ void main() {
     expect(shown.problems.join(), contains('NetworkError'));
   });
 
+  group('a libraryRead case', () {
+    Future<void> storeFmpTestLogin() async {
+      await harness.credentials.ready;
+      await harness.credentials.save(
+        Account(
+          pluginId: 'fmp-test',
+          userId: 'fmp-test-user',
+          displayName: 'FMP Test User',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026, 10, 20),
+        ),
+        const LoginCredentials(
+          cookies: {'fmp_test_session': 'FAKE_STORED_0001'},
+        ),
+      );
+    }
+
+    DevCaseResult shown(ProviderContainer container) =>
+        result(container, 'fmp-test', PluginCapability.libraryRead)!;
+
+    test('replays with the fake credentials of the login case', () async {
+      plugin('test_plugin');
+      final container = await start();
+
+      await runs(container).run('fmp-test', PluginCapability.libraryRead);
+
+      expect(
+        shown(container).outcome,
+        DevCaseOutcome.passed,
+        reason: '${shown(container).problems}',
+      );
+      expect(shown(container).mode, CaseMode.replay);
+      expect(shown(container).value, contains('Private playlist'));
+    });
+
+    // 變異：沒有 login 案例就沒有假憑證；已存的真憑證不補上。
+    test('without a login case it fails with AuthRequired, even when the '
+        'real credentials are stored', () async {
+      final directory = plugin('test_plugin');
+      final file = File(p.join(directory.path, 'checks.json'));
+      final checks =
+          jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
+      file.writeAsStringSync(jsonEncode(checks..remove('login')));
+      await storeFmpTestLogin();
+      final container = await start();
+
+      await runs(container).run('fmp-test', PluginCapability.libraryRead);
+
+      expect(shown(container).outcome, DevCaseOutcome.failed);
+      expect(shown(container).problems.join(), contains('AuthRequired'));
+    });
+
+    test('another fake cookie in the login case changes nothing', () async {
+      final directory = plugin('test_plugin');
+      contract.edit(
+        directory,
+        'checks.json',
+        'fake-session-0000',
+        'fake-session-9999',
+      );
+      final container = await start();
+
+      await runs(container).run('fmp-test', PluginCapability.libraryRead);
+
+      expect(
+        shown(container).outcome,
+        DevCaseOutcome.passed,
+        reason: '${shown(container).problems}',
+      );
+    });
+
+    for (final mode in [CaseMode.real, CaseMode.record]) {
+      test('is skipped in ${mode.name} mode when not logged in', () async {
+        plugin('test_plugin');
+        final container = await start();
+        runs(container).setMode('fmp-test', mode);
+
+        await runs(container).run('fmp-test', PluginCapability.libraryRead);
+
+        expect(shown(container).outcome, DevCaseOutcome.skipped);
+        expect(shown(container).skip, DevSkip.requiresLogin);
+      });
+    }
+
+    test('real mode runs with the stored credentials when logged in', () async {
+      plugin('test_plugin');
+      await storeFmpTestLogin();
+      final container = await start();
+      runs(container).setMode('fmp-test', CaseMode.real);
+
+      await runs(container).run('fmp-test', PluginCapability.libraryRead);
+
+      expect(
+        shown(container).outcome,
+        DevCaseOutcome.passed,
+        reason: '${shown(container).problems}',
+      );
+      expect(shown(container).mode, CaseMode.real);
+    });
+  });
+
   test('a mix case that expects too many tracks fails', () async {
     final directory = plugin('test_plugin');
     contract.edit(directory, 'checks.json', '"minItems": 5', '"minItems": 6');

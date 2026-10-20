@@ -31,7 +31,8 @@ import 'package:path/path.dart' as p;
 // 一個檢查案例的隔離執行環境（ADR 0015 §決定 5–7）：記憶體資料庫、空的憑證存放、
 // 新的 runtime 與 client，案例之間不共用 storage 與 cookie。真實與錄製模式下
 // `requiresLogin` 的案例例外：把已存的憑證放進記憶體的憑證存放（只給請求，不刷新、
-// 不寫回）。命令列契約執行器
+// 不寫回）；重播則放 checks.json 的 `login` 案例的假憑證（`fixtureCredentialsOf`），
+// 真實的憑證永遠不進重播。命令列契約執行器
 // （test/plugins/contract/）與 App 內開發工具共用這份程式碼。
 
 /// 一次案例執行的結果。
@@ -200,12 +201,30 @@ final class _IsolatedEnvironment {
   }
 }
 
+/// 重播時 `requiresLogin` 的非 `login` 案例放進隔離環境的假憑證：同一份 checks.json 的
+/// `login` 案例的 `input`（依契約是手寫的假值），沒有 `login` 案例就是 `null`。真實的已存
+/// 憑證不走這裡（見 [runIsolatedCase] 的 `credentials`）。
+LoginCredentials? fixtureCredentialsOf(Iterable<PluginCheck> checks) {
+  for (final check in checks) {
+    if (check.capability == PluginCapability.login &&
+        check.input is LoginCredentials) {
+      return check.input as LoginCredentials;
+    }
+  }
+  return null;
+}
+
 /// 在隔離環境跑 [check]：記憶體資料庫放一列 installed_plugins、空的憑證存放、
 /// 新的 [ScriptPluginLoader] 與 [SourceHttpClientFactory]；跑完關 runtime 與資料庫。
 /// [credentials] 是這個插件已存的憑證，兩種用法：login 案例當 `loginVerify` 的輸入（換掉
 /// checks.json 的假憑證）；其他 `requiresLogin` 的案例在 [transport] 是真實連線（錄製
 /// 或真實）時放進隔離環境的憑證存放，請求依 ADR 0012 的規則帶它。重播
-/// （[ReplayTransport]）一律不放：fixture 是遮過的，也不連網。
+/// （[ReplayTransport]）永遠不放它：fixture 是遮過的，也不連網。
+///
+/// [fixtureCredentials] 是重播專用的假憑證（[fixtureCredentialsOf]）：`requiresLogin` 的非
+/// login 案例在 [ReplayTransport] 下放進憑證存放，否則請求 `required` 的能力
+/// （`libraryPlaylists`）在重播先得到 `AuthRequired`、到不了 fixture。非重播的 [transport]
+/// 忽略它；真實的 [credentials] 也不會因為 [fixtureCredentials] 是 `null` 而進重播。
 ///
 /// `mutates` 的案例不能以真實連線跑（[StateError]，不載入、不呼叫插件）：呼叫端要先略過。
 ///
@@ -220,6 +239,7 @@ Future<CaseRun> runIsolatedCase({
   required String reportTag,
   String reportMessage = 'Plugin case',
   LoginCredentials? credentials,
+  LoginCredentials? fixtureCredentials,
   NetworkRecordIds? recordIds,
   Future<void> Function(Duration delay) wait = noWait,
 }) async {
@@ -230,10 +250,11 @@ Future<CaseRun> runIsolatedCase({
     );
   }
   final injected =
-      check.requiresLogin &&
-          check.capability != PluginCapability.login &&
-          transport is NetworkTransport
-      ? credentials
+      check.requiresLogin && check.capability != PluginCapability.login
+      ? switch (transport) {
+          NetworkTransport() => credentials,
+          ReplayTransport() => fixtureCredentials,
+        }
       : null;
   final environment = _IsolatedEnvironment(
     transport: transport,

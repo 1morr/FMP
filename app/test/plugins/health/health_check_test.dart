@@ -120,6 +120,20 @@ const _chartsCheck =
     '"charts": {"input": {"chartId": "hot"}, '
     '"expect": {"minItems": 2, "nonEmpty": ["sourceId", "title"]}}';
 
+/// libraryRead：`libraryPlaylists` 打 `/library`（`required`，要有已存的憑證）：200 回一張歌單，
+/// 其他狀態碼一律拋錯。
+const _libraryReadScript = '''
+export async function libraryPlaylists(query) {
+  const response = await fmp.http.request({ url: 'https://example.test/library', auth: 'required' });
+  if (response.status !== 200) throw { fmpError: 'NetworkError', message: 'HTTP ' + response.status };
+  return { playlists: [{ playlistId: 'p1', title: 'List', writable: true }], cursor: null };
+}
+''';
+const _libraryReadCheck =
+    '"libraryRead": {"input": {}, '
+    '"expect": {"minItems": 1, "nonEmpty": ["playlistId", "title"]}, '
+    '"requiresLogin": true}';
+
 const _trackDetailCheck =
     '"trackDetail": {"input": {"sourceId": "s"}, '
     '"expect": {"minItems": 1, "nonEmpty": ["description", "stats"]}}';
@@ -154,6 +168,7 @@ final class _Spec {
     this.trackDetail = false,
     this.importPlaylist = false,
     this.charts = false,
+    this.libraryRead = false,
   });
 
   final String id;
@@ -166,12 +181,16 @@ final class _Spec {
   final bool trackDetail;
   final bool importPlaylist;
   final bool charts;
+  final bool libraryRead;
 }
 
-Future<
-  ({PluginHarness harness, ProviderContainer container, List<String> requests})
->
-_setup(
+typedef _Setup = ({
+  PluginHarness harness,
+  ProviderContainer container,
+  List<String> requests,
+});
+
+Future<_Setup> _setup(
   List<_Spec> specs, {
   FutureOr<ResponseBody> Function(RequestOptions options)? handler,
 }) async {
@@ -194,7 +213,8 @@ _setup(
           '${spec.multiPart ? _multiPartScript : ''}'
           '${spec.trackDetail ? _trackDetailScript : ''}'
           '${spec.importPlaylist ? _importPlaylistScript : ''}'
-          '${spec.charts ? _chartsScript : ''}',
+          '${spec.charts ? _chartsScript : ''}'
+          '${spec.libraryRead ? _libraryReadScript : ''}',
           id: spec.id,
           capabilities: [
             'search',
@@ -204,6 +224,7 @@ _setup(
             if (spec.trackDetail) 'trackDetail',
             if (spec.importPlaylist) 'importPlaylist',
             if (spec.charts) 'charts',
+            if (spec.libraryRead) 'libraryRead',
             if (spec.login) 'login',
           ],
           login: spec.login ? '{"methods": ["cookie"]}' : null,
@@ -353,6 +374,61 @@ void main() {
         expect(cases.last.skip, HealthSkip.requiresLogin);
       },
     );
+  });
+
+  // PR 12 留下的條：非 login 的 requiresLogin 案例，已登入帶已存的憑證跑、未登入略過。
+  group('a libraryRead case', () {
+    final library = _Spec(
+      'plugin-a',
+      checks: '{$_searchCheck, $_libraryReadCheck}',
+      libraryRead: true,
+    );
+
+    Future<List<HealthCaseResult>> run(_Setup s) async {
+      await s.container.read(healthCheckProvider.notifier).runOne('plugin-a');
+      return s.container.read(healthCheckProvider).results['plugin-a']!.cases;
+    }
+
+    test('runs with the stored credentials when logged in', () async {
+      final s = await _setup([library]);
+      await _login(s.harness, 'plugin-a');
+
+      final cases = await run(s);
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.passed,
+      ]);
+      expect(cases.last.skip, isNull);
+      expect(s.requests, contains('/library SESSDATA=FAKE_STORED_SESSION'));
+    });
+
+    // 變異：同一個插件、未登入，案例略過且不送請求。
+    test('is skipped for the login when not logged in', () async {
+      final s = await _setup([library]);
+
+      final cases = await run(s);
+
+      expect(cases.map((c) => c.outcome), [
+        HealthOutcome.passed,
+        HealthOutcome.skipped,
+      ]);
+      expect(cases.last.skip, HealthSkip.requiresLogin);
+      expect(s.requests.where((r) => r.startsWith('/library')), isEmpty);
+    });
+
+    test('a failing response fails the case when logged in', () async {
+      final s = await _setup(
+        [library],
+        handler: (options) =>
+            options.uri.path == '/library' ? reply(500) : reply(200),
+      );
+      await _login(s.harness, 'plugin-a');
+
+      final cases = await run(s);
+
+      expect(cases.last.outcome, HealthOutcome.failed);
+    });
   });
 
   group('a live case', () {

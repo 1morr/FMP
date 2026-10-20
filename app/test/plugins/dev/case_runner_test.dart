@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/allowed_hosts.dart';
+import 'package:fmp/core/network/fixture/fixture.dart';
 import 'package:fmp/core/network/fixture/fixture_adapters.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
@@ -20,9 +21,9 @@ import '../../support/fake_http_adapter.dart';
 import '../plugin_harness.dart' show pluginSource;
 import 'dev_support.dart';
 
-// 隔離環境與錄製（M4 PR 12，design §12）：帶憑證錄製與 `mutates`。非 login 的
-// `requiresLogin` 案例要到 libraryRead（PR 13）才寫得進 checks.json，這裡以程式建立
-// 案例。憑證與帳號都是假值。
+// 隔離環境與錄製（M4 PR 12，design §12）：帶憑證錄製與 `mutates`。這個插件沒有
+// libraryRead，所以這裡以程式把 search 案例標成 `requiresLogin`。重播的假憑證
+// （PR 13）也在這裡。憑證與帳號都是假值。
 
 const _cookie = 'FAKE_LIBRARY_SESSION_0001';
 const _credentials = LoginCredentials(cookies: {'LIB_SESSION': _cookie});
@@ -262,6 +263,137 @@ void main() {
       // 插件載入了、也被呼叫（請求比對不到 fixture，所以案例沒過）。
       expect(result.loaded, isTrue);
       expect(result.problems, isNotEmpty);
+    });
+  });
+
+  // 重播的假憑證（design 的 PR 12 → PR 13 後續）：`requiresLogin` 的非 login 案例在重播時，
+  // 隔離環境放 checks.json 的 login 案例的假憑證（fixtureCredentials）；真實的 credentials
+  // 永遠不進重播。閘門：下面各條，加上 contract_runner_test.dart 的 libraryRead 案例。
+  group('replay credentials', () {
+    const fixtureCookie = 'FAKE_FIXTURE_SESSION_0001';
+    const fixtureCredentials = LoginCredentials(
+      cookies: {'LIB_SESSION': fixtureCookie},
+    );
+
+    List<NamedFixture> fixtures() => [
+      (
+        name: '001.json',
+        fixture: HttpFixture(
+          request: const FixtureRequest(
+            method: 'GET',
+            url: 'https://example.test/library?q=road',
+          ),
+          response: const FixtureResponse(
+            status: 200,
+            jsonBody: {
+              'owner': 'FAKE_Reader',
+              'list': [
+                {'id': 'p1', 'title': 'Road trip'},
+              ],
+            },
+            headers: {
+              'content-type': ['application/json'],
+            },
+          ),
+        ),
+      ),
+    ];
+
+    CaseTransport replay() => transports().replay(
+      fixtures(),
+      redactor,
+      AllowedHosts(folder.manifest.allowedHosts),
+    );
+
+    Future<CaseRun> replayRun(
+      PluginCheck check, {
+      LoginCredentials? credentials,
+      LoginCredentials? fixtureCredentials,
+    }) => runIsolatedCase(
+      file: folder.file!,
+      check: check,
+      transport: replay(),
+      log: log,
+      redactor: redactor,
+      reportTag: 'test',
+      credentials: credentials,
+      fixtureCredentials: fixtureCredentials,
+    );
+
+    test('a requiresLogin case replays with the fake credentials', () async {
+      final result = await replayRun(
+        check(),
+        fixtureCredentials: fixtureCredentials,
+      );
+
+      expect(result.matched, isTrue, reason: '${result.problems}');
+      expect(credentialsLogged(), [true]);
+      // 重播不連網；假憑證也不進 log。
+      expect(upstream.requests, isEmpty);
+      expect(
+        [for (final record in log.history) record.toJsonLine()].join(),
+        isNot(contains(fixtureCookie)),
+      );
+    });
+
+    // 變異：沒有假憑證（checks.json 沒有 login 案例）就什麼也不放。
+    test('without fake credentials the request is anonymous', () async {
+      final result = await replayRun(check());
+
+      expect(result.matched, isTrue, reason: '${result.problems}');
+      expect(credentialsLogged(), [false]);
+    });
+
+    test('the real stored credentials never reach a replay', () async {
+      final result = await replayRun(check(), credentials: _credentials);
+
+      expect(credentialsLogged(), [false]);
+      expect(result.matched, isTrue, reason: '${result.problems}');
+      expect(
+        [for (final record in log.history) record.toJsonLine()].join(),
+        isNot(contains(_cookie)),
+      );
+    });
+
+    // 閘門是 requiresLogin：不標的案例，同樣的假憑證不放進去。
+    test('a case that does not require a login gets none', () async {
+      await replayRun(
+        check(requiresLogin: false),
+        fixtureCredentials: fixtureCredentials,
+      );
+
+      expect(credentialsLogged(), [false]);
+    });
+
+    test('the fake credentials are ignored on a network transport', () async {
+      await runIsolatedCase(
+        file: folder.file!,
+        check: check(),
+        transport: transports().real(),
+        log: log,
+        redactor: redactor,
+        reportTag: 'test',
+        fixtureCredentials: fixtureCredentials,
+      );
+
+      expect(cookieOf(upstream.requests.single), isNull);
+      expect(credentialsLogged(), [false]);
+    });
+
+    test('fixtureCredentialsOf takes the input of the login case', () {
+      final search = folder.checks.single;
+      final login = PluginCheck(
+        PluginCapability.login,
+        fixtureCredentials,
+        search.expectation,
+        requiresLogin: true,
+      );
+
+      expect(fixtureCredentialsOf([search, login]), same(fixtureCredentials));
+      expect(fixtureCredentialsOf([login, search]), same(fixtureCredentials));
+      // 沒有 login 案例就沒有（其他案例的輸入不是憑證）。
+      expect(fixtureCredentialsOf([search]), isNull);
+      expect(fixtureCredentialsOf(const []), isNull);
     });
   });
 
