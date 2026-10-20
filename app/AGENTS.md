@@ -945,13 +945,21 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `loginQrPoll`，宣告 `refresh` 時加 `loginRefresh`（`PluginManifest.requiredExports`），同樣雙向一致。`live` 也例外：
   匯出是 `liveSearch`、`liveRoomFromUrl`、`liveStatus`、`resolveLive` 四個，宣告就要全有（`LiveExports`），也沒有名叫 `live` 的匯出。
   `importPlaylist` 也例外：匯出是 `playlistFromUrl`、`importPlaylist` 兩個，宣告就要全有（`ImportPlaylistExports`）。`charts` 同樣：匯出是 `chartList`、`chart`
-  兩個（`ChartsExports`），沒有名叫 `charts` 的匯出。
+  兩個（`ChartsExports`），沒有名叫 `charts` 的匯出。`libraryRead` 同樣：必要的匯出是 `libraryPlaylists`，選填 `libraryLiveRooms`
+  （`LibraryReadExports`）；`libraryLiveRooms` 只有同時宣告 `libraryRead` 與 `live` 才准匯出（`PluginManifest.optionalExports`），否則是
+  「匯出了沒宣告」拒載（呼叫它的是 PR 15，`SourcePlugin` 還沒有這個方法）。
   `apiVersion` 必須等於 `hostApiVersion`。閘門：`script_source_plugin_test.dart` 的 `exports and capabilities`、`login exports`、
-  `live_capability_test.dart`、`import_playlist_capability_test.dart`、`charts_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
+  `live_capability_test.dart`、`import_playlist_capability_test.dart`、`charts_capability_test.dart`、`library_read_capability_test.dart` 的 `exports and capabilities`、`plugin_manifest_test.dart`。
 - `charts`（ADR 0032 §決定 5；宿主端的工作與快取見 § 排行）：`chartList()` 回 `{charts: [{chartId, title}]}`（`chartId` 不重複、`title` 不空、可以是空清單；
   插件內的常數，不發請求），`chart({chartId})` 回 `{tracks}`（不分頁、可以是空的；曲目的驗證同搜尋結果，宿主填音源 id）。請求的 `auth` 由插件標
   `userPreference`。閘門：`charts_capability_test.dart`（回傳值驗證各拒收一例、空榜單接受）、`type_definitions_test.dart` 的 `the charts exports…`、`the charts fields…`
   （都含變異），fmp-test 的榜單由 `test_plugin_bundle_test.dart` 的 `charts` 守。
+- `libraryRead`（ADR 0032 §決定 3；宿主端的帳號頁見 § 介面的帳號頁）：`libraryPlaylists({cursor?})` 回 `{playlists: [{playlistId, title, artwork?, trackCount?, writable}], cursor}`：
+  `playlistId`、`title` 不空，同一頁 `playlistId` 不重複，`trackCount` 非負，`writable` 必填，`artwork` 同 `TrackSummary`（`Artwork[]`，網域在 `allowedHosts`），
+  `cursor` 沒有或 `null` 是最後一頁（空字串拒收）。請求 `auth: 'required'`，沒登入是 `AuthRequired`。宿主讀完所有頁才顯示（最多
+  `maxAccountPlaylistPages` ＝ 20 頁，超過停下並記 `library` warning）。閘門：`library_read_capability_test.dart`（四種拒載、回傳值驗證各拒收一例、
+  `requiresLogin` 案例的形狀）、`type_definitions_test.dart` 的 `the libraryRead exports…`、`the libraryRead fields…`（都含變異），fmp-test 的歌單由
+  `test_plugin_bundle_test.dart` 的 `libraryRead` 守。
 - `live`（ADR 0028 §決定 3；電台見 § 電台，收聽見 § 播放的「直播」）：`liveStatus` 查詢失敗一律拋錯，
   不能回 `offline`（D10）：宿主把拋錯顯示成「查詢失敗」，`offline` 只表示查到了而且沒開播；插件吞掉錯誤回 `offline` 是插件的 bug，
   宿主分不出來，本 repo 沒有閘門守（`fmp-test` 的 `live-broken` 只示範正確的行為）。
@@ -1001,6 +1009,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `checks.json` 的 `login` 案例跑 `loginVerify`（輸入是假憑證，fixture 在 `fixtures/login/`），必須標
   `requiresLogin: true`；重播照跑，命令列錄製略過（design §4.8）。閘門：`checks_test.dart` 的 `the login check`、
   `record_test.dart` 的 `skips a case that requires a login`。
+- `checks.json` 的 `libraryRead` 案例（輸入 `{cursor?}`，通常 `{}`）跑 `libraryPlaylists` 第一頁，檢查的清單是 `playlists`，`nonEmpty` 的名稱是
+  `LibraryPlaylist` 的；必須標 `requiresLogin: true`（同 `login`，缺了或 `false` 整個檔案拒收）。命令列錄製略過；健康檢查已登入就用 App 已載入的插件跑、
+  未登入略過（`HealthSkip.requiresLogin`）。**重播帶假憑證**：`libraryPlaylists` 的請求是 `required`，隔離環境沒有憑證就先得到 `AuthRequired`、到不了
+  fixture，所以重播 `requiresLogin` 的非 `login` 案例時，`runIsolatedCase` 的 `fixtureCredentials`（呼叫端以 `fixtureCredentialsOf(checks)` 取同一份 checks.json
+  的 `login` 案例的 `input`，依契約是手寫的假值）放進隔離環境的憑證存放；沒有 `login` 案例就不放。**真實的已存憑證（`credentials`）永遠不進重播**，
+  `fixtureCredentials` 在真實連線下也忽略。契約測試（`contract_runner.dart` 的 `runCheck`）與開發工具的重播模式（`DevCaseRuns`）都這樣呼叫。
+  閘門：`case_runner_test.dart` 的 `replay credentials`（有假憑證才帶、沒有就匿名、真憑證不進重播、不標 `requiresLogin` 不帶、真實連線忽略、`fixtureCredentialsOf`；
+  既有的 `never carries them in replay mode` 仍在）、`contract_runner_test.dart` 的 `a libraryRead check without a login case has no credentials`（拿掉 `login` 案例就紅）
+  與 `…with another fake cookie stays green`、`dev_case_runs_test.dart` 的 `a libraryRead case`、`checks_test.dart` 的 `the libraryRead check`、
+  `health_check_test.dart` 的 `a libraryRead case`（已登入跑、未登入略過）。
 - 案例可標 `mutates: true`（`PluginCheck.mutates`，每種案例的欄位表都收這個選填欄位、只准 `true`；M4 PR 12 加，第一個用它的是
   `libraryWrite`，它的案例改成必填）：會改動遠端的案例，健康檢查（`HealthSkip.mutates`）、命令列錄製（`recordCase` 回
   `<能力>: mutates the remote`）、App 內開發工具的真實與錄製（`DevSkip.mutates`）一律略過、**不呼叫插件**（連 `playlistFromUrl`
@@ -1135,7 +1153,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     略過、寫檔前經 `Redactor`）；寫檔前檢查代際（跑的途中換資料夾或卸載就不寫）。`requiresLogin`：重播用 `checks.json` 的假憑證，
     真實與錄製用已存的憑證，沒登入略過、不連網：login 案例當 `loginVerify` 的輸入；其他 `requiresLogin` 的案例
     （M4 PR 12，`libraryRead` 起）由 `runIsolatedCase` 放進隔離環境的記憶體憑證存放（transport 是真實連線、案例標 `requiresLogin` 才放，
-    重播的 `ReplayTransport` 一律不放；請求依 ADR 0012 帶它，網路紀錄記 `credentials: true`）。失效處理（`AccountGuard`）看的是另一份空的存放：
+    重播的 `ReplayTransport` 不放真實憑證，只放 checks.json 的 `login` 案例的假憑證，見「插件」的 `libraryRead` 案例；請求依 ADR 0012 帶它，網路紀錄記 `credentials: true`）。失效處理（`AccountGuard`）看的是另一份空的存放：
     憑證被拒時案例照實失敗，不會呼叫 `loginRefresh`——刷新會換掉音源端的 token，新 token 卻只活在這個案例的記憶體。遮蔽函式不認得帳號名稱，所以
     所有 `requiresLogin` 的案例 `recordCase` 寫檔前先以帳號（login 是結果，其他是 `accounts` 列，`loginAccountOf`；列不在或頭像讀不懂就不錄）的
     `userId`、`displayName` 換掉錄到的流量（`scrubAccount`，頭像網址換成 `<scheme>://<主機>/***`），再用 `accountLeaks` 檢查，
@@ -1209,7 +1227,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `lib/library/`（ADR 0033 §決定 2、4，M4 design §5、§6.1）：匯入歌單的匯入、刷新與自動刷新（畫面見 § 介面的「音樂庫」「歌單詳情」）。`lib/library/` 用資料、插件與排程器，不 import
 `ui/`；`core/`、`domain/`、`data/`、`scheduler/` 不認得它（閘門：lint `fmp_layer_imports`，見 § Lint）。
 
-- **匯入**（`PlaylistImporter.importUrl`）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
+- **匯入**（`PlaylistImporter.importUrl`；帳號頁用 `importPlaylistId(pluginId, playlistId, {writable})`，不經網址；`writable` 是 `libraryPlaylists` 給的權威值，匯入成功後（新建或既有那列）寫進 `playlist_remote.writable`（網易、YouTube 的 `importPlaylist` 不給，否則建列存成假；之後刷新 page 的 `writable` 為 `null` 時保留），閘門 `playlist_importer_test.dart` 的 `the writable hint`；插件不在清單或沒宣告 `importPlaylist` 是 `Unsupported`，其餘同下）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
   插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，交給 `createMix`，見下面）、`ImportMetadataOnly`
   （插件沒有 `resolveStream`，PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
   名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
@@ -1890,6 +1908,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `MaterialLocalizations`，同歷史頁）。離線照常可用，登入照送，失敗才在登入對話框顯示離線狀態。閘門：
     `accounts_section_test.dart` 的 `a QR login with the test plugin…`、`an invalidated account…`、`unreadable credentials…`、
     `offline…`。
+  - 「歌單」（M4 PR 13，design §7.3）：卡在 `CredentialState.active`（已失效、暫時讀不到、未登入都沒有）而且插件宣告 `libraryRead` 時多一顆，
+    開 `AccountPlaylistsPage`（`account_playlists_page.dart`，推在設定分頁自己的巢狀 Navigator 上，導覽與播放列留著，所以進 `toast_layering_test.dart`）。
+    頁面讀完 `libraryPlaylists` 所有頁（`accountPlaylistsProvider`，最多 20 頁，離開頁面後不再抓剩下的頁，閘門 `account_playlists_state_test.dart`；任何一頁失敗整份失敗，可重試，離線用共用的離線空狀態）；每列勾選框、封面、名稱、
+    首數、「可寫」，同插件同 id 在 `playlist_remote`（`importedRemoteIdsProvider`，隨匯入更新）的標「已匯入」並停用勾選。「匯入所選 (n)」逐張經
+    `PlaylistImporter.importPlaylistId`，進度「n／總數」，失敗的那列在名稱下寫原因（離線寫離線的說法）、其他照做，完成提示「已匯入 n 張」，有失敗改成警告並附「k 張失敗」。
+    匯入中離開這一頁照做剩下的、照樣提示：`await` 之後先查 `mounted` 才碰 `ref`（失敗原因的字樣要讀 provider，頁面釋放後讀會丟 `StateError`、中斷整批）。
+    閘門：`account_playlists_test.dart`（按鈕只在已登入且宣告時出現、已匯入停用勾選、部分失敗列出、匯入中離開頁面、跨頁重複只列一次、20 頁上限與 warning、重試、離線）、`playlist_importer_test.dart` 的
+    `importPlaylistId`、`playlist_repository_test.dart` 的 `watchImportedRemoteIds`。
   - 網頁登入是全螢幕頁（`web_login_page.dart`，`fullscreenDialog`，推在根 Navigator 上：左上角關閉、沒有確認鈕）：整塊是 WebView，載入中
     頂端有進度條，卡住時 WebView 上方是警告色的「登入沒有完成」加「重試」。完成時頁面自己關閉、交回 cookie，**關頁之後**
     才在帳號頁驗證與寫入（design §6.4；頁面開著時設定頁可能換位置重建，那時照樣驗證，只是沒有進度條）。全螢幕頁、裡面是
