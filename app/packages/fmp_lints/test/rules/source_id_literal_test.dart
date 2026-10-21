@@ -31,6 +31,14 @@ bool isYoutube(String id) => id == [!'youtube'!];
 bool isNetease(String id) => id == [!'netease'!];
 ''');
 
+  Future<void> test_spotifyId() => assertLints('lib/ui/page.dart', '''
+bool isSpotify(String id) => id == [!'spotify'!];
+''');
+
+  Future<void> test_qqmusicId() => assertLints('lib/ui/page.dart', '''
+bool isQqMusic(String id) => id == [!'qqmusic'!];
+''');
+
   // 不報
 
   Future<void> test_allowedDirectories() async {
