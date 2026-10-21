@@ -82,6 +82,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$debug$en debug = Translations$debug$en._(_root);
   @override
+  late final Translations$backup$en backup = Translations$backup$en._(_root);
+  @override
   late final Translations$player$en player = Translations$player$en._(_root);
   @override
   late final Translations$playerPage$en playerPage =
@@ -838,6 +840,8 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   @override
   String get plugins => 'Plugins';
   @override
+  String get backup => 'Backup and restore';
+  @override
   String get about => 'About';
   @override
   String get debug => 'Debug';
@@ -1372,13 +1376,6 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   String dbRestoreListFailed({required Object message}) =>
       'Could not read the backup list: ${message}';
   @override
-  String get dbRestoreConfirmTitle => 'Restore from this backup?';
-  @override
-  String dbRestoreConfirmBody({required Object time}) =>
-      'Backup time: ${time}. The current database is renamed and kept in the data directory (fmp.db.before-restore-…) and replaced by this backup. Backups do not contain login credentials, so you sign in again afterwards.';
-  @override
-  String get dbRestoreConfirm => 'Restore and restart';
-  @override
   String get dbRestoreWorking => 'Restoring…';
   @override
   String dbRestoreFailed({required Object message}) =>
@@ -1386,6 +1383,80 @@ class Translations$debug$en extends Translations$debug$zh_TW {
   @override
   String get dbCheckProblemsActions =>
       'You can restore from a backup or reset the data.';
+}
+
+// Path: backup
+class Translations$backup$en extends Translations$backup$zh_TW {
+  Translations$backup$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get intro =>
+      'A backup holds your playlists, settings, installed plugins and more. It does not include sign-ins, cookies, the cache or downloaded files. Restoring replaces the current data and keeps the sign-ins on this device.';
+  @override
+  String get export => 'Export backup';
+  @override
+  String get restore => 'Restore from backup file';
+  @override
+  String get exportWorking => 'Exporting…';
+  @override
+  String get stageWorking => 'Checking the backup…';
+  @override
+  String get restoreWorking => 'Restoring…';
+  @override
+  String exported({required Object location}) => 'Backup saved to ${location}';
+  @override
+  String exportFailed({required Object message}) =>
+      'The backup was not exported: ${message}';
+  @override
+  String restoreFailed({required Object message}) =>
+      'The restore did not finish: ${message}';
+  @override
+  String get rejectedNewer =>
+      'This backup comes from a newer version of FMP. Update FMP first.';
+  @override
+  String get rejectedNotFmp => 'This is not an FMP backup.';
+  @override
+  String get rejectedCorrupt => 'The backup file is damaged.';
+  @override
+  String get restoreTitle => 'Restore from this backup?';
+  @override
+  String get restoreBody =>
+      'The current data is replaced; a backup of it is made first. The sign-ins on this device are kept.';
+  @override
+  String get restartsItself => 'The app restarts by itself afterwards.';
+  @override
+  String get restartsManually =>
+      'The app closes afterwards; open it again yourself.';
+  @override
+  String get pluginsHeading => 'Plugins in this backup';
+  @override
+  String get noPlugins => 'This backup has no plugins.';
+  @override
+  String pluginLine({required Object name, required Object version}) =>
+      '${name} ${version}';
+  @override
+  String get hosts => 'Sites it connects to';
+  @override
+  String get listSeparator => ', ';
+  @override
+  String olderThanInstalled({required Object version}) =>
+      'Older than this device\'s (${version})';
+  @override
+  String addedHosts({required Object hosts}) => 'New on this device: ${hosts}';
+  @override
+  String get indexesHeading => 'Custom plugin indexes this backup adds';
+  @override
+  String get unusableHeading =>
+      'These plugins cannot be used in this version and will not be restored';
+  @override
+  String get confirm => 'Restore and restart';
+  @override
+  String get cancel => 'Cancel';
 }
 
 // Path: player

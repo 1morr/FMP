@@ -72,6 +72,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   late final Translations$debug$zh_TW debug = Translations$debug$zh_TW.internal(
     _root,
   );
+  late final Translations$backup$zh_TW backup =
+      Translations$backup$zh_TW.internal(_root);
   late final Translations$player$zh_TW player =
       Translations$player$zh_TW.internal(_root);
   late final Translations$playerPage$zh_TW playerPage =
@@ -1037,6 +1039,9 @@ class Translations$settings$zh_TW {
   /// zh-TW: '插件'
   String get plugins => '插件';
 
+  /// zh-TW: '備份與還原'
+  String get backup => '備份與還原';
+
   /// zh-TW: '關於'
   String get about => '關於';
 
@@ -1773,16 +1778,6 @@ class Translations$debug$zh_TW {
   String dbRestoreListFailed({required Object message}) =>
       '無法讀取備份清單：${message}';
 
-  /// zh-TW: '從這份備份還原？'
-  String get dbRestoreConfirmTitle => '從這份備份還原？';
-
-  /// zh-TW: '備份時間：{time}。目前的資料庫會改名留在資料目錄（fmp.db.before-restore-…），換成這份備份。備份不含登入憑證，還原後要重新登入。'
-  String dbRestoreConfirmBody({required Object time}) =>
-      '備份時間：${time}。目前的資料庫會改名留在資料目錄（fmp.db.before-restore-…），換成這份備份。備份不含登入憑證，還原後要重新登入。';
-
-  /// zh-TW: '還原並重啟'
-  String get dbRestoreConfirm => '還原並重啟';
-
   /// zh-TW: '正在還原…'
   String get dbRestoreWorking => '正在還原…';
 
@@ -1791,6 +1786,99 @@ class Translations$debug$zh_TW {
 
   /// zh-TW: '可以從備份還原，或重設資料。'
   String get dbCheckProblemsActions => '可以從備份還原，或重設資料。';
+}
+
+// Path: backup
+class Translations$backup$zh_TW {
+  Translations$backup$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '備份包含歌單、設定、已安裝的插件等資料，不含登入、Cookie、快取與下載的檔案。還原會取代目前的資料，並保留這台裝置目前的登入。'
+  String get intro =>
+      '備份包含歌單、設定、已安裝的插件等資料，不含登入、Cookie、快取與下載的檔案。還原會取代目前的資料，並保留這台裝置目前的登入。';
+
+  /// zh-TW: '匯出備份'
+  String get export => '匯出備份';
+
+  /// zh-TW: '從備份檔還原'
+  String get restore => '從備份檔還原';
+
+  /// zh-TW: '正在匯出…'
+  String get exportWorking => '正在匯出…';
+
+  /// zh-TW: '正在檢查備份…'
+  String get stageWorking => '正在檢查備份…';
+
+  /// zh-TW: '正在還原…'
+  String get restoreWorking => '正在還原…';
+
+  /// zh-TW: '備份已存到 {location}'
+  String exported({required Object location}) => '備份已存到 ${location}';
+
+  /// zh-TW: '備份沒有匯出：{message}'
+  String exportFailed({required Object message}) => '備份沒有匯出：${message}';
+
+  /// zh-TW: '還原沒有完成：{message}'
+  String restoreFailed({required Object message}) => '還原沒有完成：${message}';
+
+  /// zh-TW: '這份備份來自較新版的 FMP，請先更新 FMP。'
+  String get rejectedNewer => '這份備份來自較新版的 FMP，請先更新 FMP。';
+
+  /// zh-TW: '這不是 FMP 的備份。'
+  String get rejectedNotFmp => '這不是 FMP 的備份。';
+
+  /// zh-TW: '備份檔已損壞。'
+  String get rejectedCorrupt => '備份檔已損壞。';
+
+  /// zh-TW: '從這份備份還原？'
+  String get restoreTitle => '從這份備份還原？';
+
+  /// zh-TW: '目前的資料會被取代；取代前會自動備份。這台裝置的登入會保留。'
+  String get restoreBody => '目前的資料會被取代；取代前會自動備份。這台裝置的登入會保留。';
+
+  /// zh-TW: '完成後 App 會自動重新啟動。'
+  String get restartsItself => '完成後 App 會自動重新啟動。';
+
+  /// zh-TW: '完成後 App 會關閉，請自己再開啟。'
+  String get restartsManually => '完成後 App 會關閉，請自己再開啟。';
+
+  /// zh-TW: '備份裡的插件'
+  String get pluginsHeading => '備份裡的插件';
+
+  /// zh-TW: '這份備份沒有插件。'
+  String get noPlugins => '這份備份沒有插件。';
+
+  /// zh-TW: '{name} {version}'
+  String pluginLine({required Object name, required Object version}) =>
+      '${name} ${version}';
+
+  /// zh-TW: '會連的網站'
+  String get hosts => '會連的網站';
+
+  /// zh-TW: '、'
+  String get listSeparator => '、';
+
+  /// zh-TW: '比這台的舊（這台是 {version}）'
+  String olderThanInstalled({required Object version}) =>
+      '比這台的舊（這台是 ${version}）';
+
+  /// zh-TW: '這台目前沒有的網站：{hosts}'
+  String addedHosts({required Object hosts}) => '這台目前沒有的網站：${hosts}';
+
+  /// zh-TW: '備份會帶入的自訂插件庫'
+  String get indexesHeading => '備份會帶入的自訂插件庫';
+
+  /// zh-TW: '這些插件在這個版本無法使用，不會還原'
+  String get unusableHeading => '這些插件在這個版本無法使用，不會還原';
+
+  /// zh-TW: '還原並重新啟動'
+  String get confirm => '還原並重新啟動';
+
+  /// zh-TW: '取消'
+  String get cancel => '取消';
 }
 
 // Path: player
