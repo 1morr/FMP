@@ -4,12 +4,15 @@ import 'dart:io';
 import 'package:clock/clock.dart';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/app/backup.dart';
 import 'package:fmp/app/data_reset.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_file.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:drift/native.dart';
 import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/database/backup_format.dart';
 import 'package:fmp/data/database/database_backups.dart';
 import 'package:fmp/data/database/open_app_database.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
@@ -19,9 +22,11 @@ import 'package:fmp/platform/app_restart/app_restart.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/plugins/accounts/credential_store.dart';
+import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:path/path.dart' as p;
 
 import '../support/credentials.dart';
+import '../ui/support/plugin_page_harness.dart' show pluginScript;
 
 // 重設資料與從備份還原（M3 PR 14b，ADR 0025 §決定 9、ADR 0012 §如何確認）。
 
@@ -97,7 +102,12 @@ void main() {
     AppDatabase database, {
     Future<void> Function()? clearCache,
   }) => AppDataReset(
-    databaseBackups: DatabaseBackups(database, dataDirectory, log),
+    databaseBackups: DatabaseBackups(
+      database,
+      dataDirectory,
+      log,
+      readPlugin: readBackupPlugin,
+    ),
     secureStorage: storage,
     loginWebView: webView,
     clearCache: clearCache ?? () async => events.add('cache'),
@@ -126,23 +136,19 @@ void main() {
   });
 
   Future<void> seed() async {
+    final script = pluginScript(
+      'fmp-test',
+      name: 'fmp-test',
+      login: {
+        'methods': ['qr'],
+      },
+    );
     await PluginRepository(database).install(
       InstalledPlugin(
         id: 'fmp-test',
         version: '1.0.0',
-        manifestJson: jsonEncode({
-          'id': 'fmp-test',
-          'name': 'fmp-test',
-          'version': '1.0.0',
-          'author': 'FMP tests',
-          'apiVersion': 1,
-          'capabilities': ['search', 'login'],
-          'allowedHosts': ['example.test'],
-          'login': {
-            'methods': ['qr'],
-          },
-        }),
-        script: '',
+        manifestJson: PluginFile.parse(script).manifestJson,
+        script: script,
         installedAt: DateTime.utc(2026),
       ),
     );
@@ -230,7 +236,13 @@ void main() {
       final fresh = await openAppDatabase(dataDirectory);
       addTearDown(fresh.close);
       expect(await pluginCount(fresh), 0);
-      await DatabaseBackups(fresh, dataDirectory, log).restore(backup);
+      final backups = DatabaseBackups(
+        fresh,
+        dataDirectory,
+        log,
+        readPlugin: readBackupPlugin,
+      );
+      await backups.restoreStaged(await backups.stageFile(File(backup.path)));
       final restored = await openAppDatabase(dataDirectory);
       addTearDown(restored.close);
       expect(await pluginCount(restored), 1);
@@ -253,7 +265,12 @@ void main() {
       final backup = await reset.backUp();
 
       await AppDataReset(
-        databaseBackups: DatabaseBackups(database, dataDirectory, log),
+        databaseBackups: DatabaseBackups(
+          database,
+          dataDirectory,
+          log,
+          readPlugin: readBackupPlugin,
+        ),
         secureStorage: storage,
         loginWebView: null,
         clearCache: () async => events.add('cache'),
@@ -288,7 +305,10 @@ void main() {
   });
 
   group('restoring', () {
-    test('replaces the data, clears the credentials, then restarts', () async {
+    Future<StagedBackup> stage(DatabaseBackup backup) =>
+        reset.stageBackup(backup);
+
+    test('replaces the data, keeps the login, then restarts', () async {
       await seed();
       final backup = await reset.backUp();
       await PluginRepository(database).install(
@@ -300,30 +320,139 @@ void main() {
           installedAt: DateTime.utc(2026),
         ),
       );
+      // 這台之後換了帳號；備份裡是舊的。
+      await AccountRepository(database).upsert(
+        Account(
+          pluginId: 'fmp-test',
+          userId: 'this-device',
+          displayName: 'This device',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026, 10, 12),
+        ),
+      );
+      final staged = await stage(backup);
 
-      await reset.restoreAndRestart(backup);
+      await reset.restoreAndRestart(staged);
 
       final restored = await openAppDatabase(dataDirectory);
       addTearDown(restored.close);
       expect((await PluginRepository(restored).list()).map((e) => e.id), [
         'fmp-test',
       ]);
-      // 憑證不在備份裡：先清掉，免得配上備份裡的帳號列；快取不動。
-      expect(events, ['secure storage', 'web view', 'restart']);
-      expect(storage.values, isEmpty);
-      expect(restarter.logAtRestart, contains('Database restored; restarting'));
+      // 帳號列是這台目前的，不是備份裡的。
+      expect((await AccountRepository(restored).list()).map((e) => e.userId), [
+        'this-device',
+      ]);
+      // 憑證與登入 WebView 都沒動（ADR 0034 §決定 4）；快取也不動。
+      expect(events, ['restart']);
+      expect(storage.values.keys, ['credentials.fmp-test']);
+      final credentials = credentialStoreFor(
+        restored,
+        redactor: Redactor(),
+        log: log,
+        storage: storage,
+      );
+      addTearDown(credentials.dispose);
+      expect(await credentials.state('fmp-test'), CredentialState.active);
+      expect(restarter.logAtRestart, contains('Backup restored; restarting'));
     });
 
-    test('a missing backup throws without restarting', () async {
+    test('backs up the current database before replacing it', () async {
+      await seed();
       final backup = await reset.backUp();
-      File(backup.path).deleteSync();
+      await PluginRepository(database).install(
+        InstalledPlugin(
+          id: 'later',
+          version: '1.0.0',
+          manifestJson: '{}',
+          script: '',
+          installedAt: DateTime.utc(2026),
+        ),
+      );
+      final staged = await stage(backup);
 
-      await expectLater(
-        reset.restoreAndRestart(backup),
-        throwsA(isA<StateError>()),
+      await withClock(
+        Clock.fixed(DateTime.utc(2026, 10, 14, 1)),
+        () => reset.restoreAndRestart(staged),
       );
 
-      // 備份不見就什麼都不動：不清憑證、不關資料庫、不重啟。
+      // 自動備份是還原前的資料庫（兩個插件）。
+      final auto = File(
+        p.join(
+          dataDirectory.path,
+          backupDirectoryName,
+          'fmp-20261014T010000000Z.db',
+        ),
+      );
+      expect(auto.existsSync(), isTrue);
+      final copy = AppDatabase(NativeDatabase(auto));
+      addTearDown(copy.close);
+      expect(await PluginRepository(copy).list(), hasLength(2));
+    });
+
+    test('empties plugin_storage and scheduler_runs, whatever the file '
+        'holds', () async {
+      await seed();
+      await database.customStatement(
+        "INSERT INTO plugin_storage (plugin_id, key, value) "
+        "VALUES ('fmp-test', 'anonymous', 'fake-cookie-from-the-file')",
+      );
+      await database.customStatement(
+        "INSERT INTO scheduler_runs (job_id, last_success_at) "
+        "VALUES ('job', 1)",
+      );
+      // 整份副本（Debug 頁的備份）連這兩張表都帶著。
+      final backup = await reset.backUp();
+      final staged = await stage(backup);
+
+      await reset.restoreAndRestart(staged);
+
+      final restored = await openAppDatabase(dataDirectory);
+      addTearDown(restored.close);
+      for (final table in ['plugin_storage', 'scheduler_runs']) {
+        final row = await restored
+            .customSelect('SELECT COUNT(*) AS n FROM "$table"')
+            .getSingle();
+        expect(row.read<int>('n'), 0, reason: table);
+      }
+    });
+
+    test('a failed automatic backup replaces nothing', () async {
+      await seed();
+      final backup = await reset.backUp();
+      final staged = await stage(backup);
+      final fixed = Clock.fixed(DateTime.utc(2026, 10, 14, 1));
+      // 同一毫秒已經有同名的備份：自動備份會失敗。
+      await withClock(fixed, reset.backUp);
+
+      await expectLater(
+        withClock(fixed, () => reset.restoreAndRestart(staged)),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(events, isEmpty);
+      expect(await pluginCount(database), 1);
+      // 暫存檔還在，由呼叫端決定要不要刪。
+      expect(File(staged.path).existsSync(), isTrue);
+      await reset.discardStaged(staged);
+      expect(File(staged.path).existsSync(), isFalse);
+    });
+
+    test('a rejected backup stages nothing', () async {
+      final backup = await reset.backUp();
+      File(backup.path).writeAsStringSync('not a database');
+
+      await expectLater(
+        reset.stageBackup(backup),
+        throwsA(
+          isA<BackupRejected>().having(
+            (e) => e.reason,
+            'reason',
+            BackupRejection.notFmpBackup,
+          ),
+        ),
+      );
+
       expect(events, isEmpty);
       expect(await pluginCount(database), 0);
     });
@@ -333,29 +462,28 @@ void main() {
       () async {
         await seed();
         final backup = await reset.backUp();
-        // 殘留 journal 的改名目標被資料夾佔住：資料庫關閉、主檔移開之後才失敗，原檔改回來。
+        final staged = await stage(backup);
+        // 原檔改名的目標被資料夾佔住：資料庫關閉之後才失敗，原檔還在原處。
         const stamp = '20261014T010000000Z';
         final databasePath = p.join(dataDirectory.path, databaseFileName);
-        File('$databasePath-journal').writeAsStringSync('stale');
-        final blocker = Directory('$databasePath-journal.before-restore-$stamp')
+        final blocker = Directory('$databasePath.before-restore-$stamp')
           ..createSync();
         File(p.join(blocker.path, 'keep')).writeAsStringSync('x');
 
         await expectLater(
           withClock(
             Clock.fixed(DateTime.utc(2026, 10, 14, 1)),
-            () => reset.restoreAndRestart(backup),
+            () => reset.restoreAndRestart(staged),
           ),
           throwsA(isA<FileSystemException>()),
         );
 
         // 關閉之後的資料庫不能再用：記下錯誤、照樣重啟，回到原本的資料庫。
-        expect(events, ['secure storage', 'web view', 'restart']);
+        expect(events, ['restart']);
         expect(
           restarter.logAtRestart,
           contains('The restore failed after the database was closed'),
         );
-        File('$databasePath-journal').deleteSync();
         final reopened = await openAppDatabase(dataDirectory);
         addTearDown(reopened.close);
         expect(await pluginCount(reopened), 1);

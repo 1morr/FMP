@@ -1,17 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/app/backup.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/data/cache/cache_store.dart';
+import 'package:fmp/data/database/backup_format.dart';
 import 'package:fmp/data/database/database_backups.dart';
-import 'package:fmp/data/providers.dart';
-import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_restart/app_restart.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 
-/// Debug 頁的備份、從備份還原與重設資料（ADR 0025 §決定 8、9，M3 design §12.2）。
+/// Debug 頁的備份、從備份還原與重設資料（ADR 0025 §決定 8、9，M3 design §12.2），以及
+/// 兩處還原共用的後半（ADR 0034 §決定 4）。
 ///
 /// [resetAndRestart] 與 [restoreAndRestart] 都以結束這個行程收尾：資料庫在中途關閉，
 /// 呼叫之後這個 App 不能再用，回傳只發生在重啟實作不結束行程時（測試）。
@@ -30,13 +33,20 @@ abstract interface class DataReset {
   /// 失敗發生在資料庫關閉之後（刪檔失敗）時照樣重啟：這個行程已經不能用資料庫了。
   Future<void> resetAndRestart(DatabaseBackup backup);
 
-  /// 以 [backup] 取代資料庫並重啟；原來的資料庫檔改名留在資料目錄。[backup] 不見了就拋出、
-  /// 什麼都不動。
+  /// 驗證 [backup]（`backups/` 裡的檔）並 migration 成暫存檔，給 [restoreAndRestart] 用
+  /// （ADR 0034 §決定 4）。不能用就拋 [BackupRejected]。
+  Future<StagedBackup> stageBackup(DatabaseBackup backup);
+
+  /// 不還原了（使用者取消、還原失敗）：刪掉 [staged] 的暫存檔。
+  Future<void> discardStaged(StagedBackup staged);
+
+  /// 以 [staged] 取代資料庫並重啟；原來的資料庫檔改名留在資料目錄。設定頁的「從備份檔還原」
+  /// 與 Debug 頁的「從備份還原」同一條路徑（ADR 0034 §決定 4）。
   ///
-  /// 憑證不在備份裡（ADR 0012），所以先清 secure storage 的憑證與登入 WebView 的資料：
-  /// 留著的話，現在的憑證會配上備份裡的 `accounts` 列（可能是另一個帳號），還原後一律重新
-  /// 登入（M3 design §12.2）。換檔失敗（原檔已改回來）時，只要資料庫已經關閉，照樣重啟。
-  Future<void> restoreAndRestart(DatabaseBackup backup);
+  /// 順序固定：自動備份目前的資料庫（失敗就拋出，什麼都不動）→ 把這台的 `accounts` 列等寫進
+  /// [staged] → 資料庫（關閉、換檔）→ 寫完 log → 重啟。憑證與登入 WebView 都不動：目前的
+  /// 登入在還原後照舊有效。換檔失敗（原檔已改回來）時，只要資料庫已經關閉，照樣重啟。
+  Future<void> restoreAndRestart(StagedBackup staged);
 }
 
 final class AppDataReset implements DataReset {
@@ -97,17 +107,26 @@ final class AppDataReset implements DataReset {
   }
 
   @override
-  Future<void> restoreAndRestart(DatabaseBackup backup) async {
-    if (!await databaseBackups.exists(backup)) {
-      throw StateError('The backup is missing; nothing was restored');
-    }
+  Future<StagedBackup> stageBackup(DatabaseBackup backup) =>
+      databaseBackups.stageFile(File(backup.path));
+
+  @override
+  Future<void> discardStaged(StagedBackup staged) =>
+      databaseBackups.discard(staged);
+
+  @override
+  Future<void> restoreAndRestart(StagedBackup staged) async {
     log.warning('Restoring the database from a backup', tag: _tag);
-    await secureStorage.deleteAll();
-    await loginWebView?.clearAll();
+    // 沒有這份自動備份就不取代。
+    await backUp();
+    await databaseBackups.carryOver(
+      staged,
+      await databaseBackups.readCarriedState(),
+    );
     await _closeDatabaseAndRestart(
-      done: 'Database restored',
+      done: 'Backup restored',
       failed: 'The restore failed after the database was closed',
-      work: () => databaseBackups.restore(backup),
+      work: () => databaseBackups.restoreStaged(staged),
     );
   }
 
@@ -139,13 +158,8 @@ final class AppDataReset implements DataReset {
 }
 
 final dataResetProvider = Provider<DataReset>((ref) {
-  final database = ref.watch(appDatabaseProvider);
   return AppDataReset(
-    databaseBackups: DatabaseBackups(
-      database,
-      ref.watch(dataDirectoryProvider),
-      ref.watch(logProvider),
-    ),
+    databaseBackups: ref.watch(databaseBackupsProvider),
     secureStorage: ref.watch(secureStorageProvider),
     loginWebView: ref.watch(loginWebViewProvider),
     clearCache: () async {
