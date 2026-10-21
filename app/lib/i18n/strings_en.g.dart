@@ -99,6 +99,9 @@ class TranslationsEn extends Translations
   late final Translations$librarySettings$en librarySettings =
       Translations$librarySettings$en._(_root);
   @override
+  late final Translations$importPreview$en importPreview =
+      Translations$importPreview$en._(_root);
+  @override
   late final Translations$radio$en radio = Translations$radio$en._(_root);
   @override
   late final Translations$sources$en sources = Translations$sources$en._(_root);
@@ -563,9 +566,6 @@ class Translations$library$en extends Translations$library$zh_TW {
   String get importUnrecognized =>
       'This link isn\'t recognized by any installed source';
   @override
-  String get importUnsupported =>
-      'Importing this kind of link isn\'t supported yet';
-  @override
   String importFailed({required Object reason}) =>
       'Couldn\'t import: ${reason}';
   @override
@@ -689,6 +689,16 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String removeRemoteFailed({required Object reason}) =>
       'Couldn\'t remove from the remote playlist: ${reason}';
+  @override
+  String get importAsPlatform => 'Import as a platform playlist';
+  @override
+  String importAsPlatformHint({required Object source}) =>
+      'Refreshes from the playlist on ${source}';
+  @override
+  String get importAsMatch => 'Match to other sources';
+  @override
+  String get importAsMatchHint =>
+      'Finds the same songs on other sources and makes a local playlist that does not refresh';
 }
 
 // Path: playlist
@@ -1771,6 +1781,124 @@ class Translations$librarySettings$en
   @override
   String toggleFailed({required Object reason}) =>
       'Couldn\'t change the charts on Home: ${reason}';
+  @override
+  String get matchTargets => 'Match targets';
+  @override
+  String get matchTargetsHint =>
+      'When importing from a source that cannot play, or matching to other sources, the same songs are searched on the checked sources; equal scores follow this order. Drag to reorder.';
+  @override
+  String get noMatchTargets => 'No source to match against';
+  @override
+  String get noMatchTargetsHint =>
+      'Install and turn on a plugin that can search and play, and it shows up here.';
+  @override
+  String matchReorderFailed({required Object reason}) =>
+      'Couldn\'t reorder the match targets: ${reason}';
+  @override
+  String matchToggleFailed({required Object reason}) =>
+      'Couldn\'t change the match targets: ${reason}';
+}
+
+// Path: importPreview
+class Translations$importPreview$en extends Translations$importPreview$zh_TW {
+  Translations$importPreview$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Import preview';
+  @override
+  String get cancel => 'Cancel the import';
+  @override
+  String from({required Object source}) => 'From ${source}';
+  @override
+  String reading({required Object count}) => 'Reading… ${count} songs';
+  @override
+  String readFailed({required Object reason}) =>
+      'Couldn\'t read the playlist: ${reason}';
+  @override
+  String get retry => 'Retry';
+  @override
+  String songs({required Object count}) => '${count} songs';
+  @override
+  String get songsOne => '1 song';
+  @override
+  String searchesEach({required Object count}) =>
+      'each searched on ${count} sources';
+  @override
+  String get searchesEachOne => 'each searched on 1 source';
+  @override
+  String reused({required Object count}) => '${count} use earlier matches';
+  @override
+  String get targets => 'Match against';
+  @override
+  String get noTargets =>
+      'No source to match against: install and turn on a plugin that can search and play.';
+  @override
+  String get pickTarget => 'Check at least one source';
+  @override
+  String get lastTarget => 'At least one source is needed';
+  @override
+  String get start => 'Start matching';
+  @override
+  String progress({required Object done, required Object total}) =>
+      'Matched ${done} of ${total}';
+  @override
+  String get truncated => 'The source only provided part of the playlist';
+  @override
+  String get pending => 'Waiting';
+  @override
+  String get searching => 'Searching…';
+  @override
+  String get unmatched => 'No match';
+  @override
+  String get searchFailed => 'Search failed';
+  @override
+  String get excluded => 'Excluded';
+  @override
+  String get reusedTag => 'Earlier match';
+  @override
+  String get reusedHint =>
+      'This uses an earlier match without searching. Search again to see other candidates.';
+  @override
+  String score({required Object percent}) => '${percent}%';
+  @override
+  String get noCandidates => 'No candidates';
+  @override
+  String get showCandidates => 'Show candidates';
+  @override
+  String get hideCandidates => 'Hide candidates';
+  @override
+  String get keyword => 'Search for';
+  @override
+  String get research => 'Search again';
+  @override
+  String get exclude => 'Exclude';
+  @override
+  String get include => 'Include';
+  @override
+  String get create => 'Create playlist';
+  @override
+  String skipped({required Object count}) => '${count} songs left out';
+  @override
+  String get skippedOne => '1 song left out';
+  @override
+  String get created => 'Playlist created';
+  @override
+  String createFailed({required Object reason}) =>
+      'Couldn\'t create the playlist: ${reason}';
+  @override
+  String get leaveTitle => 'Stop importing?';
+  @override
+  String get leaveBody =>
+      'The matches so far are thrown away and nothing is saved.';
+  @override
+  String get leaveConfirm => 'Stop';
+  @override
+  String get leaveKeep => 'Keep going';
 }
 
 // Path: radio

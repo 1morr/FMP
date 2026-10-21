@@ -84,6 +84,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$network$zh_TW.internal(_root);
   late final Translations$librarySettings$zh_TW librarySettings =
       Translations$librarySettings$zh_TW.internal(_root);
+  late final Translations$importPreview$zh_TW importPreview =
+      Translations$importPreview$zh_TW.internal(_root);
   late final Translations$radio$zh_TW radio = Translations$radio$zh_TW.internal(
     _root,
   );
@@ -686,9 +688,6 @@ class Translations$library$zh_TW {
   /// zh-TW: '已安裝的音源都不認得這個網址'
   String get importUnrecognized => '已安裝的音源都不認得這個網址';
 
-  /// zh-TW: '還不支援匯入這種網址'
-  String get importUnsupported => '還不支援匯入這種網址';
-
   /// zh-TW: '無法匯入：{reason}'
   String importFailed({required Object reason}) => '無法匯入：${reason}';
 
@@ -852,6 +851,19 @@ class Translations$library$zh_TW {
 
   /// zh-TW: '無法從遠端歌單移除：{reason}'
   String removeRemoteFailed({required Object reason}) => '無法從遠端歌單移除：${reason}';
+
+  /// zh-TW: '匯入為平台歌單'
+  String get importAsPlatform => '匯入為平台歌單';
+
+  /// zh-TW: '跟著 {source} 上的歌單刷新'
+  String importAsPlatformHint({required Object source}) =>
+      '跟著 ${source} 上的歌單刷新';
+
+  /// zh-TW: '配對到其他音源'
+  String get importAsMatch => '配對到其他音源';
+
+  /// zh-TW: '在其他音源找同一首歌，建成不會刷新的本機歌單'
+  String get importAsMatchHint => '在其他音源找同一首歌，建成不會刷新的本機歌單';
 }
 
 // Path: playlist
@@ -2292,6 +2304,162 @@ class Translations$librarySettings$zh_TW {
 
   /// zh-TW: '無法變更首頁排行：{reason}'
   String toggleFailed({required Object reason}) => '無法變更首頁排行：${reason}';
+
+  /// zh-TW: '匹配目標音源'
+  String get matchTargets => '匹配目標音源';
+
+  /// zh-TW: '從不能播的音源匯入、或配對到其他音源時，在勾選的音源搜尋同一首歌；分數相同時依這個順序。拖曳調整順序。'
+  String get matchTargetsHint =>
+      '從不能播的音源匯入、或配對到其他音源時，在勾選的音源搜尋同一首歌；分數相同時依這個順序。拖曳調整順序。';
+
+  /// zh-TW: '沒有可以當匹配目標的音源'
+  String get noMatchTargets => '沒有可以當匹配目標的音源';
+
+  /// zh-TW: '安裝並啟用能搜尋與播放的插件，它就會出現在這裡。'
+  String get noMatchTargetsHint => '安裝並啟用能搜尋與播放的插件，它就會出現在這裡。';
+
+  /// zh-TW: '無法調整匹配目標的順序：{reason}'
+  String matchReorderFailed({required Object reason}) =>
+      '無法調整匹配目標的順序：${reason}';
+
+  /// zh-TW: '無法變更匹配目標：{reason}'
+  String matchToggleFailed({required Object reason}) => '無法變更匹配目標：${reason}';
+}
+
+// Path: importPreview
+class Translations$importPreview$zh_TW {
+  Translations$importPreview$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '匯入預覽'
+  String get title => '匯入預覽';
+
+  /// zh-TW: '取消匯入'
+  String get cancel => '取消匯入';
+
+  /// zh-TW: '來自 {source}'
+  String from({required Object source}) => '來自 ${source}';
+
+  /// zh-TW: '讀取中 {count} 首'
+  String reading({required Object count}) => '讀取中 ${count} 首';
+
+  /// zh-TW: '讀不到歌單：{reason}'
+  String readFailed({required Object reason}) => '讀不到歌單：${reason}';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '{count} 首'
+  String songs({required Object count}) => '${count} 首';
+
+  /// zh-TW: '1 首'
+  String get songsOne => '1 首';
+
+  /// zh-TW: '每首會在 {count} 個音源搜尋'
+  String searchesEach({required Object count}) => '每首會在 ${count} 個音源搜尋';
+
+  /// zh-TW: '每首會在 1 個音源搜尋'
+  String get searchesEachOne => '每首會在 1 個音源搜尋';
+
+  /// zh-TW: '{count} 首沿用先前的匹配'
+  String reused({required Object count}) => '${count} 首沿用先前的匹配';
+
+  /// zh-TW: '匹配目標'
+  String get targets => '匹配目標';
+
+  /// zh-TW: '沒有可以匹配的音源：安裝並啟用能搜尋與播放的插件。'
+  String get noTargets => '沒有可以匹配的音源：安裝並啟用能搜尋與播放的插件。';
+
+  /// zh-TW: '至少勾選一個音源'
+  String get pickTarget => '至少勾選一個音源';
+
+  /// zh-TW: '至少要有一個匹配目標'
+  String get lastTarget => '至少要有一個匹配目標';
+
+  /// zh-TW: '開始匹配'
+  String get start => '開始匹配';
+
+  /// zh-TW: '已匹配 {done}／{total}'
+  String progress({required Object done, required Object total}) =>
+      '已匹配 ${done}／${total}';
+
+  /// zh-TW: '來源只提供了部分曲目'
+  String get truncated => '來源只提供了部分曲目';
+
+  /// zh-TW: '等待中'
+  String get pending => '等待中';
+
+  /// zh-TW: '搜尋中…'
+  String get searching => '搜尋中…';
+
+  /// zh-TW: '匹配失敗'
+  String get unmatched => '匹配失敗';
+
+  /// zh-TW: '搜尋失敗'
+  String get searchFailed => '搜尋失敗';
+
+  /// zh-TW: '已排除'
+  String get excluded => '已排除';
+
+  /// zh-TW: '沿用先前的匹配'
+  String get reusedTag => '沿用先前的匹配';
+
+  /// zh-TW: '沿用先前的匹配，沒有重新搜尋。重搜可以看其他候選。'
+  String get reusedHint => '沿用先前的匹配，沒有重新搜尋。重搜可以看其他候選。';
+
+  /// zh-TW: '{percent}%'
+  String score({required Object percent}) => '${percent}%';
+
+  /// zh-TW: '沒有候選'
+  String get noCandidates => '沒有候選';
+
+  /// zh-TW: '顯示候選'
+  String get showCandidates => '顯示候選';
+
+  /// zh-TW: '收起候選'
+  String get hideCandidates => '收起候選';
+
+  /// zh-TW: '搜尋關鍵字'
+  String get keyword => '搜尋關鍵字';
+
+  /// zh-TW: '重搜'
+  String get research => '重搜';
+
+  /// zh-TW: '排除'
+  String get exclude => '排除';
+
+  /// zh-TW: '取消排除'
+  String get include => '取消排除';
+
+  /// zh-TW: '建立歌單'
+  String get create => '建立歌單';
+
+  /// zh-TW: '{count} 首不會加入'
+  String skipped({required Object count}) => '${count} 首不會加入';
+
+  /// zh-TW: '1 首不會加入'
+  String get skippedOne => '1 首不會加入';
+
+  /// zh-TW: '已建立歌單'
+  String get created => '已建立歌單';
+
+  /// zh-TW: '無法建立歌單：{reason}'
+  String createFailed({required Object reason}) => '無法建立歌單：${reason}';
+
+  /// zh-TW: '放棄這次匯入？'
+  String get leaveTitle => '放棄這次匯入？';
+
+  /// zh-TW: '目前的匹配結果會丟掉，什麼都不會存。'
+  String get leaveBody => '目前的匹配結果會丟掉，什麼都不會存。';
+
+  /// zh-TW: '放棄'
+  String get leaveConfirm => '放棄';
+
+  /// zh-TW: '繼續'
+  String get leaveKeep => '繼續';
 }
 
 // Path: radio
