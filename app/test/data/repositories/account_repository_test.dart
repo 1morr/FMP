@@ -102,5 +102,57 @@ void main() {
       expect(await repository.browseAsLoggedIn('a'), isNull);
       expect(await repository.browseAsLoggedIn('b'), isFalse);
     });
+
+    // 匹配目標（M4 design §8.3）：兩欄各自寫，彼此與 browse_as_logged_in 都不互相清掉。
+    test('match target and rank are written on their own', () async {
+      final repository = SourceSettingsRepository(memoryDatabase());
+      await repository.setBrowseAsLoggedIn('a', value: true);
+      expect(await repository.watchMatchTargets().first, const [
+        MatchTargetSetting(pluginId: 'a'),
+      ]);
+
+      await repository.setMatchTarget('a', target: false);
+      await repository.setMatchRanks(['b', 'a']);
+
+      expect(await repository.watchMatchTargets().first, const [
+        MatchTargetSetting(pluginId: 'a', target: false, rank: 1),
+        MatchTargetSetting(pluginId: 'b', rank: 0),
+      ]);
+      expect(await repository.browseAsLoggedIn('a'), isTrue);
+
+      await repository.setMatchTarget('a', target: true);
+      await repository.setBrowseAsLoggedIn('a', value: null);
+      expect(await repository.watchMatchTargets().first, const [
+        MatchTargetSetting(pluginId: 'a', target: true, rank: 1),
+        MatchTargetSetting(pluginId: 'b', rank: 0),
+      ]);
+    });
+
+    test('the match columns are stored as 0/1 and the rank', () async {
+      final database = memoryDatabase();
+      final repository = SourceSettingsRepository(database);
+      await repository.setMatchTarget('a', target: false);
+      await repository.setMatchRanks(['a']);
+
+      final row = await database
+          .customSelect(
+            'SELECT match_target, match_rank FROM source_settings '
+            "WHERE plugin_id = 'a'",
+          )
+          .getSingle();
+      expect(row.data, {'match_target': 0, 'match_rank': 0});
+    });
+
+    test('remove deletes the match columns with the row', () async {
+      final repository = SourceSettingsRepository(memoryDatabase());
+      await repository.setMatchTarget('a', target: false);
+      await repository.setMatchRanks(['a', 'b']);
+
+      await repository.remove('a');
+
+      expect(await repository.watchMatchTargets().first, const [
+        MatchTargetSetting(pluginId: 'b', rank: 1),
+      ]);
+    });
   });
 }

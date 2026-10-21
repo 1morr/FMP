@@ -134,6 +134,31 @@ final class AccountRepository {
   )..where((t) => t.pluginId.equals(pluginId))).go();
 }
 
+/// 一個插件的匹配目標設定（`source_settings` 的兩欄，M4 design §8.3）。`null` 是沒設定過：
+/// [target] 空＝依預設（是目標），[rank] 空＝排在後面、依插件清單。
+@immutable
+final class MatchTargetSetting {
+  const MatchTargetSetting({required this.pluginId, this.target, this.rank});
+
+  final String pluginId;
+  final bool? target;
+  final int? rank;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MatchTargetSetting &&
+      other.pluginId == pluginId &&
+      other.target == target &&
+      other.rank == rank;
+
+  @override
+  int get hashCode => Object.hash(pluginId, target, rank);
+
+  @override
+  String toString() =>
+      'MatchTargetSetting($pluginId, target: $target, rank: $rank)';
+}
+
 /// `source_settings` 的存取（每音源設定，ADR 0011 §決定 7）。
 final class SourceSettingsRepository {
   SourceSettingsRepository(this._database);
@@ -158,6 +183,45 @@ final class SourceSettingsRepository {
               browseAsLoggedIn: Value(value),
             ),
           );
+
+  /// 每個有列的插件的匹配目標設定（兩欄都空的也在裡面），之後每次寫入再發一次。
+  Stream<List<MatchTargetSetting>> watchMatchTargets() => _database
+      .select(_database.sourceSettingsTable)
+      .watch()
+      .map(
+        (rows) => [
+          for (final row in rows)
+            MatchTargetSetting(
+              pluginId: row.pluginId,
+              target: row.matchTarget,
+              rank: row.matchRank,
+            ),
+        ],
+      );
+
+  /// 勾選或取消「匹配目標音源」（設定頁）；這一列的其他欄位不動，沒有就建一列。
+  Future<void> setMatchTarget(String pluginId, {required bool target}) =>
+      _database
+          .into(_database.sourceSettingsTable)
+          .insertOnConflictUpdate(
+            SourceSettingsTableCompanion.insert(
+              pluginId: pluginId,
+              matchTarget: Value(target),
+            ),
+          );
+
+  /// 依 [pluginIds] 的順序整批寫 `match_rank`（0、1、2…），一個 batch（設定頁拖曳後）。
+  /// 每一列的其他欄位不動，沒有那一列就建一列。
+  Future<void> setMatchRanks(List<String> pluginIds) =>
+      _database.batch((batch) {
+        batch.insertAllOnConflictUpdate(_database.sourceSettingsTable, [
+          for (final (index, pluginId) in pluginIds.indexed)
+            SourceSettingsTableCompanion.insert(
+              pluginId: pluginId,
+              matchRank: Value(index),
+            ),
+        ]);
+      });
 
   /// 沒有這個設定時什麼都不做。
   Future<void> remove(String pluginId) => (_database.delete(

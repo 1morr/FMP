@@ -25,6 +25,7 @@ import 'generated/schema_v14.dart' as v14;
 import 'generated/schema_v15.dart' as v15;
 import 'generated/schema_v16.dart' as v16;
 import 'generated/schema_v17.dart' as v17;
+import 'generated/schema_v18.dart' as v18;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1777,5 +1778,220 @@ void main() {
     addTearDown(db.close);
 
     await expectChartSettingsSchema(db);
+  });
+
+  // v18 加 match_results、track_origins 與 source_settings 的匹配兩欄（M4 design §3.1、§8.3）：
+  // 既有表的資料與使用者值原樣保留，新欄位是空的（沒設定過＝依預設），新表升級後是空的。
+  test('migration from v17 to v18 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 17,
+      newVersion: 18,
+      createOld: v17.DatabaseAtV17.new,
+      createNew: v18.DatabaseAtV18.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.sourceSettings,
+          const v17.SourceSettingsData(
+            pluginId: 'fmp-test',
+            browseAsLoggedIn: 0,
+          ),
+        );
+        batch.insert(
+          oldDb.tracks,
+          const v17.TracksData(
+            trackKey: 'fmp-test:a',
+            sourceTypeId: 'fmp-test',
+            sourceId: 'a',
+            title: 'Song a',
+            updatedAt: 1,
+          ),
+        );
+        batch.insert(
+          oldDb.chartSettings,
+          const v17.ChartSettingsData(
+            pluginId: 'fmp-test',
+            chartId: 'hot',
+            enabled: 0,
+            sortOrder: 1,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        // 使用者設定過的 browse_as_logged_in 不變；匹配兩欄是空的。
+        expect(await newDb.select(newDb.sourceSettings).get(), [
+          const v18.SourceSettingsData(
+            pluginId: 'fmp-test',
+            browseAsLoggedIn: 0,
+          ),
+        ]);
+        expect(await newDb.select(newDb.tracks).get(), [
+          const v18.TracksData(
+            trackKey: 'fmp-test:a',
+            sourceTypeId: 'fmp-test',
+            sourceId: 'a',
+            title: 'Song a',
+            updatedAt: 1,
+          ),
+        ]);
+        expect(await newDb.select(newDb.chartSettings).get(), [
+          const v18.ChartSettingsData(
+            pluginId: 'fmp-test',
+            chartId: 'hot',
+            enabled: 0,
+            sortOrder: 1,
+          ),
+        ]);
+        expect(await newDb.select(newDb.matchResults).get(), isEmpty);
+        expect(await newDb.select(newDb.trackOrigins).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectMatchSchema(AppDatabase db) async {
+    await db.customStatement('PRAGMA foreign_keys = ON');
+    await db.customStatement(
+      "INSERT INTO tracks (track_key, source_type_id, source_id, title, "
+      "updated_at) VALUES ('p:1', 'p', '1', 'T', 0)",
+    );
+    // 主鍵是（來源插件, 外部 id）；選定的曲目可空（匹配失敗或排除），user_selected 預設假；
+    // 不建外鍵到 installed_plugins。
+    await db.customStatement(
+      'INSERT INTO match_results (origin_plugin_id, origin_id, title, '
+      "selected_track_key, score) VALUES ('spotify', 's1', 'Song', 'p:1', 0.8)",
+    );
+    await db.customStatement(
+      'INSERT INTO match_results (origin_plugin_id, origin_id, title) '
+      "VALUES ('spotify', 's2', 'Other')",
+    );
+    final rows = await db
+        .customSelect(
+          'SELECT origin_id, artists, duration_ms, selected_track_key, score, '
+          'user_selected FROM match_results ORDER BY origin_id',
+        )
+        .get();
+    expect(
+      [for (final row in rows) row.data],
+      [
+        {
+          'origin_id': 's1',
+          'artists': null,
+          'duration_ms': null,
+          'selected_track_key': 'p:1',
+          'score': 0.8,
+          'user_selected': 0,
+        },
+        {
+          'origin_id': 's2',
+          'artists': null,
+          'duration_ms': null,
+          'selected_track_key': null,
+          'score': null,
+          'user_selected': 0,
+        },
+      ],
+    );
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO match_results (origin_plugin_id, origin_id, title) '
+        "VALUES ('spotify', 's1', 'Again')",
+      ),
+      throwsA(anything),
+    );
+    // 選定的曲目要在 tracks 裡，而且被參照時刪不掉（RESTRICT）。
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO match_results (origin_plugin_id, origin_id, title, '
+        "selected_track_key) VALUES ('qqmusic', 'q1', 'Song', 'p:missing')",
+      ),
+      throwsA(anything),
+    );
+    await db.customStatement(
+      'INSERT INTO track_origins (track_key, origin_plugin_id, origin_id) '
+      "VALUES ('p:1', 'spotify', 's1')",
+    );
+    // 同一首可以同時是另一個插件的匹配結果；同一個插件只有一列。
+    await db.customStatement(
+      'INSERT INTO track_origins (track_key, origin_plugin_id, origin_id) '
+      "VALUES ('p:1', 'qqmusic', 'q1')",
+    );
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO track_origins (track_key, origin_plugin_id, origin_id) '
+        "VALUES ('p:1', 'spotify', 's9')",
+      ),
+      throwsA(anything),
+    );
+    await expectLater(
+      db.customStatement("DELETE FROM tracks WHERE track_key = 'p:1'"),
+      throwsA(anything),
+      reason: 'match_results restricts the deletion',
+    );
+    // 不再被 match_results 參照時可以刪，track_origins 連帶刪除。
+    await db.customStatement(
+      "UPDATE match_results SET selected_track_key = NULL WHERE origin_id = 's1'",
+    );
+    await db.customStatement("DELETE FROM tracks WHERE track_key = 'p:1'");
+    final origins = await db
+        .customSelect('SELECT COUNT(*) AS n FROM track_origins')
+        .getSingle();
+    expect(origins.data['n'], 0);
+  }
+
+  for (var from = 1; from <= 17; from++) {
+    test('migration from v$from to v18 adds the match tables and the match '
+        'target columns', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 18);
+
+      await expectMatchSchema(db);
+      // 沒有設定過：新欄位是 NULL。
+      await db.customStatement(
+        "INSERT INTO source_settings (plugin_id) VALUES ('x')",
+      );
+      final row = await db
+          .customSelect(
+            'SELECT match_target, match_rank FROM source_settings '
+            "WHERE plugin_id = 'x'",
+          )
+          .getSingle();
+      expect(row.data, {'match_target': null, 'match_rank': null});
+      await db.close();
+    });
+  }
+
+  test('a new database has the match tables', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectMatchSchema(db);
+  });
+
+  // 孤兒清理刪曲目時 RESTRICT 的檢查要靠 match_results.selected_track_key 的索引（理由同
+  // queue_entries_track_key）。升級來的與全新建的都要有。
+  Future<List<String>> matchResultIndexes(AppDatabase db) async => [
+    for (final row
+        in await db.customSelect("PRAGMA index_list('match_results')").get())
+      row.read<String>('name'),
+  ];
+
+  test(
+    'migration from v17 to v18 indexes match_results.selected_track_key',
+    () async {
+      final schema = await verifier.schemaAt(17);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 18);
+
+      expect(await matchResultIndexes(db), contains('match_results_selected'));
+      await db.close();
+    },
+  );
+
+  test('a new database indexes match_results.selected_track_key', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    expect(await matchResultIndexes(db), contains('match_results_selected'));
   });
 }

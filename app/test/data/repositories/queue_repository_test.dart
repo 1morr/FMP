@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/repositories/match_results_repository.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
@@ -308,6 +309,65 @@ void main() {
             row.read<String>('track_key'),
         ],
         ['fmp-test:a'],
+      );
+    });
+
+    // match_results 選定的曲目算參照者（ADR 0033 §決定 1）；匹配失敗與排除的空值不能讓整個
+    // NOT IN 失效（漏掉 IS NOT NULL 時一首都不會被清）。track_origins 不算，連帶刪除。
+    test('a track a match result selected is not an orphan', () async {
+      await writeAll([track('a'), track('b'), track('c')]);
+      await PlaylistRepository(database).createFromMatches(
+        name: 'Matched',
+        tracks: const [],
+        matches: [
+          MatchResult(
+            originPluginId: 'spotify',
+            originId: 's1',
+            title: 'Song',
+            selected: track('a'),
+            score: 0.9,
+          ),
+          const MatchResult(
+            originPluginId: 'spotify',
+            originId: 's2',
+            title: 'Missing',
+          ),
+          MatchResult(
+            originPluginId: 'qqmusic',
+            originId: 'q1',
+            title: 'Other',
+            selected: track('c'),
+          ),
+        ],
+      );
+      await database.customStatement(
+        "UPDATE match_results SET selected_track_key = NULL WHERE origin_id = 'q1'",
+      );
+      await repository.write(
+        edit: const QueueRangeEdit(from: 0, removed: 3, inserted: []),
+        player: _player,
+      );
+
+      final deleted = await TracksRepository(database).deleteOrphans();
+
+      expect(deleted, 2, reason: 'b and c are referenced by nothing');
+      expect(
+        [
+          for (final row
+              in await database
+                  .customSelect('SELECT track_key FROM tracks')
+                  .get())
+            row.read<String>('track_key'),
+        ],
+        ['fmp-test:a'],
+      );
+      final origins = await database
+          .customSelect('SELECT track_key FROM track_origins')
+          .get();
+      expect(
+        [for (final row in origins) row.read<String>('track_key')],
+        ['fmp-test:a'],
+        reason: 'the origin of c went with it',
       );
     });
 
