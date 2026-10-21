@@ -154,8 +154,8 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 規則與閘門見 `app/AGENTS.md` § 資料層的 `chart_settings` 與 § 排行。
 
 - `ChartSettingsRepository`：`watch`（全部的列，工作與之後的設定頁都從 `chartSettingsProvider` 讀）、`setEnabled`（`insertOnConflictUpdate`，只寫 `enabled`，同一列的 `sort_order` 不動）、
-  `removePlugin`（`PluginInstaller.remove` 的一步，沒有列也不出錯）。設定頁的排序在 PR 21 加，那時再加方法。
-- 列只在使用者動過才有：沒有列＝啟用、依預設順序。讀的人（`ChartJobs`）以插件的 `chartList` 為準，插件拿掉的榜單的列留著無害。
+  `removePlugin`（`PluginInstaller.remove` 的一步，沒有列也不出錯）、`setOrder`（設定頁拖曳後，`batch.insertAllOnConflictUpdate` 只帶 `sort_order`，所以 `enabled` 不動；一個 batch 一次寫入通知）。
+- 列只在使用者動過才有：沒有列＝啟用、依預設順序。讀的人（`ChartJobs`、`chartEntriesProvider`）以插件的 `chartList` 為準，插件拿掉的榜單的列留著無害。
 - 測試：`chart_settings_repository_test.dart`；migration 的 `expectChartSettingsSchema` 查主鍵與空值。
 
 ## 插件（`plugin_repository.dart`）

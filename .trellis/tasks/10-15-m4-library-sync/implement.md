@@ -366,6 +366,21 @@
 
 （各 PR 合併時寫在這裡，最新的在上面。）
 
+- **PR 21 → 之後**：
+  - `ChartSettingsRepository.setOrder` 只重編設定頁看得到的榜單（已啟用插件的）；停用插件的榜單留著舊的 `sort_order`，插件重新啟用後可能和現有的撞號、插到前面。
+  - 排行刷新間隔設成關閉、又沒有快取時，首頁那個榜單一直轉圈，直到在探索頁手動刷新（照 PRD：在線沒有快取就是載入中）。
+  - 設定頁「首頁排行」的清單在設定組的捲動欄裡（`shrinkWrap`），拖曳到邊緣時外層不會自動捲動；榜單多到超出視窗時待實機確認。
+- **PR 17、18（fmp-plugins #23、#24；FMP #299）→ PR 19、M5**：
+  - **Spotify**：
+    - embed 頁最多給 100 首，以 `truncated: true` 表示（匿名 token 打 `api.spotify.com` 回 429 `QUOTA_EXCEEDED`，見 design §4.8）。上限若再變小，只有健康檢查會發現。
+    - 封面在 `*.spotifycdn.com` 的不在 `allowedHosts`，會被丟掉；本地檔與 podcast 單集略過。
+    - `sourceId` 改用 `uri`（`spotify:track:<id>`），舊版存的是 hex `uid`：M5 遷移的 `track_origins` 不能直接沿用舊版的 `originalSongId`。
+    - 歌單描述欄位與 `spotify.link` 短網址只有單元測試，沒有實測。
+  - **QQ**：
+    - 超過 1000 首的多頁、私人歌單沒有實測；伺服器若忽略 `song_begin` 而重複回第一頁，會被當成完整（沒有 repro，不修）。
+    - `checks.json` 用的活動歌單可能下架，健康檢查失敗時先換歌單。
+    - 封面不在 y.qq.com 的會被丟掉。
+
 - **M4a 驗收 → 之後**（`research/m4a-acceptance.md`）：
   - **電台狀態的請求量**：每個電台每輪 3 個請求（`room_init`、`get_info`、主播名），預設每 5 分鐘一輪；從帳號匯入幾十個電台後一輪兩三百個請求、跑一分多鐘。長號加入時已存，`room_init` 可省；B 站有批次的 `get_status_info_by_uids`。M3 的既有行為，要改得動 `liveStatus` 契約或宿主的工作。
   - Mix 詳情頁的「種子曲目」顯示原始影片 id，不是曲名；`mix:<videoId>` 給沒有 Mix 的影片時，訊息是通用的「找不到，可能已被移除」。
@@ -400,8 +415,8 @@
   - 錄下的 YouTube fixture 的 `visitorData`／`x-goog-visitor-id` 解碼後帶錄製地的國家碼（既有 fixture 也一樣，遮蔽閘門不管）；要不要遮由擁有者決定。
 
 - **PR 20（FMP 端）→ PR 21**：
-  - 設定頁「網路」區的快取用量只列封面；`watchUsage` 已有 `chart` 鍵，PR 21 讓排行上畫面時加一列（ADR 0016 §決定 3）。
-  - 「清除快取」不會更新 `chartCacheRevisionProvider`，讀 `chartContentProvider` 的畫面會顯示清掉前的內容到下次工作寫入；PR 21 接上 UI 時處理。
+  - 設定頁「網路」區的快取用量只列封面；`watchUsage` 已有 `chart` 鍵，PR 21 讓排行上畫面時加一列（ADR 0016 §決定 3）。PR 21 已做：封面下面多一列「排行」。
+  - 「清除快取」不會更新 `chartCacheRevisionProvider`，讀 `chartContentProvider` 的畫面會顯示清掉前的內容到下次工作寫入；PR 21 接上 UI 時處理。PR 21 已做：清除成功後加一 `chartCacheRevisionProvider`（首頁、探索頁重讀成沒有快取），並對每個有榜單的插件 `runNow` 重抓排行（不等、不提示），不必等下一輪工作；清除失敗時都不做。
   - `CacheStore.get` 不更新最後存取時間，排行實際上依寫入時間淘汰；每小時重寫，影響小。
   - `chartList` 失敗時照樣登記、交給排程器退避（審查改的；登記當下不知道啟用集合時不刪快取）。
 
