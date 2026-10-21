@@ -42,7 +42,7 @@
 ## 進度與交接（compact 後從這裡接）
 
 - **狀態**（2026-10-21）：已核准（2026-10-15）。已合併 PR 0–16、20（FMP #272–#293；fmp-plugins #16–#22）。M4a 已驗收（2026-10-21，`research/m4a-acceptance.md`）；M4b 剩 PR 17、18、19、21、22。
-- **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 18 條已於 2026-10-15 全部照建議確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
+- **擁有者決定**：決定 1–4 在 `prd.md`；design §17 的 1–18 條已於 2026-10-15 全部照建議確認，第 19 條（能播的插件也可配對到其他音源）於 2026-10-21 確認；另決定「在遠端新增歌單」不做真實實測，只用測試插件重播驗。
 - **待擁有者回覆**：無。
 - **下一步**：M4b。PR 17（Spotify）、18（QQ）、21（首頁排行與探索頁）的依賴都已滿足，可以平行；19 等 16 與 17 或 18，22 等 19、20、21。真實實測：兩個平台的 dev 資料都已在 M4a 驗收時重新登入三個平台（Windows 的 `userdata-dev` 在主 checkout 的建置產物旁），三張「FMP 測試」各 2 首、`writable` 1。驗收時從 B 站帳號匯入了約 90 個電台，電台狀態工作每 5 分鐘一輪、一輪約 270 個請求（見「留下的後續」），長時間開著 dev App 前先把電台狀態間隔關掉或刪掉電台。整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
 - **每個 PR 的固定流程**（照 M3 的「每個 PR 的固定流程」，`archive/2026-10/10-08-m3-sources-accounts-devtools/implement.md`）：分支 → `task.py create`（`--parent .trellis/tasks/10-15-m4-library-sync`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0032–0034、相關的 `.trellis/spec/app/<layer>/index.md`）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check`（要它試著攻破：憑證與遮蔽、`mutates` 的略過、刷新的代際、備份檔不含帳號與 cookie、還原的確認框）→ 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔（逐檔 `git diff --ignore-all-space --ignore-cr-at-eol` 為空才還原）→ 分開 commit → `finish`、`archive` → push、`gh pr create`（照已核可計畫做的 PR 直接 push，計畫外的先問）→ `gh pr checks --watch` → `gh pr merge --merge`。
@@ -300,17 +300,18 @@
 
 ## 19. 匯入預覽、匹配結果、匹配目標設定（design §3.1、§8.3、§8.4、§10.9、§10.10）
 
-- [ ] schema v17（或 v18）：`match_results`、`track_origins`、`source_settings` 兩欄；孤兒查詢加 `match_results`。
-- [ ] `lib/library/external_import.dart`；匯入對話框接到預覽頁；預覽頁（進度、取消、改選、重搜、排除、建立歌單）。
+- [ ] schema v18：`match_results`、`track_origins`、`source_settings` 兩欄；孤兒查詢加 `match_results`。
+- [ ] 先補 ADR 0019 §決定 5、ADR 0033 §決定 12 與 design §5.1、§8.3、§8.4、§10.9（§17 第 19 條）。
+- [ ] `lib/library/external_import.dart`；匯入對話框接到預覽頁；匯入對話框對能播的插件多「配對到其他音源」選項（§17 第 19 條，目標預設不勾來源插件）；預覽頁（進度、取消、改選、重搜、排除、建立歌單）。
 - [ ] 設定頁「音樂庫」區（這一區第一次出現）：匹配目標音源的拖曳與勾選。
 - [ ] `fmp-test-meta`（dev asset）。
-- 測試：`ExternalImport`（沿用 `match_results` 不搜尋、合併前 5、門檻、搜尋失敗不中斷、取消後不寫、確認的 transaction 寫入三張表、未匹配不進歌單）；migration 三種；孤兒；設定的拖曳寫 `match_rank`、取消勾選寫 `match_target`；預覽頁的 widget 測試；guideline；一千首歌單的匹配以假插件量一次（寫進 PR 描述）。
+- 測試：`ExternalImport`（沿用 `match_results` 不搜尋、合併前 5、門檻、搜尋失敗不中斷、取消後不寫、確認的 transaction 寫入三張表、未匹配不進歌單、能播插件的配對模式不寫 `playlist_remote` 且目標不含來源插件）；migration 三種；孤兒；設定的拖曳寫 `match_rank`、取消勾選寫 `match_target`；預覽頁的 widget 測試；guideline；一千首歌單的匹配以假插件量一次（寫進 PR 描述）。
 - 實測：重播（Android）：`fmp-test-meta` 的 `meta-basic` → 預覽 → 改選一首、重搜一首、排除一首 → 建立 → 再匯入一次（全部沿用、沒有搜尋）。真實（匿名，Android）：Spotify 與 QQ 各一張公開歌單（PR 17、18 的那張）走完一次，記首數、匹配成功數、耗時。
 - 依賴：8b、16、17（或 18）。模型：opus（預覽頁的版面與互動沒有定稿）。
 
 ## 20. ★ `charts` 契約、排行快取與工作（design §4.6、§6.2、§9.1、§3.3）
 
-- [ ] schema v18（或 v17）：`network_settings.chart_refresh_interval_minutes`、`chart_settings`；Notifier 與設定頁「網路」區的排行間隔。
+- [x] schema v17：`network_settings.chart_refresh_interval_minutes`、`chart_settings`；Notifier 與設定頁「網路」區的排行間隔。
 - [x] FMP：`ChartsExports`、DTO、`FmpChecks.charts`；`CacheCategory.chart`；`lib/charts/`（快取、`charts:<pluginId>` 工作、記憶體的單榜單失敗標記、`runNow`）；`fmp_layer_imports` 的 `charts/` 那半條；移除插件刪 `chart_settings` 列；`fmp-test` 的 `charts`。
 - [x] fmp-plugins：三個插件的 `chartList`、`chart`（舊版的來源與排序）、`checks.json`（命令列錄）、版本、index、`FMP_REF`。
 - 測試：`charts_capability_test.dart`；排程（全停用不登記、單榜單失敗不退避、全部失敗退避、間隔改變重新登記）；快取（先顯示快取與「更新於」、停用刪快取、移除插件刪）；migration 三種；設定的「網路」區；契約與健康檢查的 `a charts case`；lint 雙向變異。
