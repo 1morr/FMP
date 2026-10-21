@@ -121,36 +121,47 @@ void main() {
       expect(await store.watchUsage().first, isNotEmpty);
     });
 
-    // 上一個快取庫還沒開完就被拆掉、新的接著開時，新的會撞上它還拿著的寫入鎖：等它放開，
-    // 不是一開就丟 busy（整合測試在 Windows 上兩次啟動之間撞到過）。
-    test(
-      'a lock held for a moment by another connection is waited out',
-      () async {
-        final harness = CacheHarness();
-        final first = await harness.open();
-        await first.put(CacheCategory.chart, 'a', 'k', Uint8List.fromList([1]));
-        await first.close();
-        final blocker = sqlite3.open(harness.databaseFile.path)
-          ..execute('BEGIN EXCLUSIVE');
-        final released = Timer(const Duration(milliseconds: 300), () {
-          blocker
-            ..execute('ROLLBACK')
-            ..close();
-        });
-        addTearDown(released.cancel);
+    // 上一個快取庫還沒開完（建表、對帳時拿著鎖）就被拆掉、新的接著開時，新的要等它開完，不然一開就
+    // 撞上鎖丟 busy（整合測試的兩次啟動在 Windows 與 Linux 上都撞到過）。
+    test('opening waits for an open of the same directory that is still '
+        'running', () async {
+      final harness = CacheHarness();
+      final first = await harness.open();
+      await first.close();
+      // 對帳一開始就清空 staging/：這個檔案還在，就表示這次開啟還沒開工。
+      harness.staging.createSync(recursive: true);
+      final marker = File(p.join(harness.staging.path, 'marker'))
+        ..writeAsBytesSync([1]);
+      final earlier = Completer<void>();
+      final key = cacheCloseKey(harness.root);
+      pendingCacheOpens[key] = earlier.future;
+      addTearDown(() => pendingCacheOpens.remove(key));
 
-        final store = await openCacheStore(
-          harness.directory,
-          limitBytes: 1 << 20,
-          log: harness.log,
-        );
-        addTearDown(store.close);
+      var opened = false;
+      final opening = harness.open().whenComplete(() => opened = true);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
 
-        expect(released.isActive, isFalse, reason: 'it waited for the lock');
-        expect(await store.get(CacheCategory.chart, 'a', 'k'), [1]);
-        expect(harness.records(cacheLogTag), isEmpty);
-      },
-    );
+      expect(opened, isFalse);
+      expect(marker.existsSync(), isTrue);
+      earlier.complete();
+      await opening;
+      expect(marker.existsSync(), isFalse);
+      expect(pendingCacheOpens, isNot(contains(key)), reason: 'cleaned up');
+    });
+
+    test('two opens of the same directory at once both succeed, the second '
+        'after the first', () async {
+      final harness = CacheHarness();
+      final order = <String>[];
+      final a = harness.open().whenComplete(() => order.add('a'));
+      final b = harness.open().whenComplete(() => order.add('b'));
+      final (first, second) = await (a, b).wait;
+      await first.put(CacheCategory.chart, 'p', 'k', Uint8List.fromList([7]));
+
+      expect(order, ['a', 'b']);
+      expect(await second.get(CacheCategory.chart, 'p', 'k'), [7]);
+      expect(harness.records(cacheLogTag), isEmpty);
+    });
 
     test('a database that is locked by another connection is not corruption: '
         'it throws and leaves the files alone', () async {
@@ -741,6 +752,34 @@ void main() {
       expect(
         await read(manager, 'https://example.test/2.jpg', minute: 4),
         isNotNull,
+      );
+    });
+
+    // App 拆掉重來（整合測試的兩次啟動）：第一個快取庫還在開就被釋放、開好才關，第二個照樣開得起來。
+    test('a store given up while still opening does not stop the next '
+        'container from opening the same directory', () async {
+      final harness = CacheHarness();
+      final first = container(harness, harness.directory);
+      unawaited(
+        first
+            .read(cacheStoreProvider.future)
+            .then<void>((_) {}, onError: (Object _) {}),
+      );
+      first.dispose();
+
+      final store = await container(
+        harness,
+        harness.directory,
+      ).read(cacheStoreProvider.future);
+      addTearDown(store.close);
+      // 被丟下的那個開好之後自己關掉；暫存目錄刪掉之前要關好（Windows 上開著的檔刪不掉）。
+      await Future.wait([...pendingCacheCloses.values]);
+
+      await store.put(CacheCategory.chart, 'p', 'k', Uint8List.fromList([1]));
+      expect(await store.get(CacheCategory.chart, 'p', 'k'), [1]);
+      expect(
+        harness.log.history.where((record) => record.level == LogLevel.error),
+        isEmpty,
       );
     });
 
