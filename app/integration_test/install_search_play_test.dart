@@ -65,6 +65,16 @@ void main() {
       await _waitFor(tester, () => app.plugins.contains(_pluginId), 'install');
       final stored = await app.container.read(pluginRepositoryProvider).list();
       expect(stored.map((plugin) => plugin.id), [_pluginId]);
+      // 等第一次排行刷新跑完再關：成功記進 `scheduler_runs`，重啟時工作還沒到期，走「有榜單沒有
+      // 快取（`broken` 每次都失敗）→ 登記成立即到期」那條路；不等的話第一次常常還沒跑就被拆掉，
+      // 重啟後工作本來就到期，這條路測不到（PR 21 的 CI 在 Linux 上卡在首頁一直轉圈）。
+      await _waitFor(
+        tester,
+        () => app.log.history.any(
+          (record) => record.message == 'Chart refresh finished',
+        ),
+        'the first chart refresh',
+      );
       await app.close(tester);
 
       // 重新啟動、不帶開發入口：插件只能從資料庫載入。
