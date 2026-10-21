@@ -211,7 +211,7 @@ void main() {
 
       final result = await env.importer.importPlaylistId('meta', 'album-1');
 
-      expect(result, isA<ImportMetadataOnly>());
+      expect(result, isA<ImportForMatching>());
       expect(plugin.pageQueries, isEmpty);
     });
 
@@ -289,12 +289,65 @@ void main() {
 
       final result = await env.importer.importUrl('https://fmp.test/album-1');
 
-      expect(result, isA<ImportMetadataOnly>());
-      result as ImportMetadataOnly;
+      expect(result, isA<ImportForMatching>());
+      result as ImportForMatching;
       expect(result.pluginId, 'meta');
       expect(result.playlistId, 'album-1');
       expect(await names(), isEmpty);
       expect(plugin.pageQueries, isEmpty);
+    });
+  });
+
+  // 對話框先辨識（「配對到其他音源」只給能播的插件的歌單，§17 第 19 條），再以同一個結果匯入。
+  group('recognising first', () {
+    test('says which plugin, what it found and whether it plays, without '
+        'fetching or writing', () async {
+      final meta = FakeImportPlugin(id: 'meta', resolveStream: false);
+      final video = FakeImportPlugin();
+      await start([meta, video]);
+      meta.onUrl = (query) => query.url.contains('album') ? _id('a1') : null;
+      video.onUrl = (query) => query.url.contains('mix')
+          ? PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed'))
+          : _id('p1');
+
+      final playable = (await env.importer.recognize(' https://x/list '))!;
+      final metadata = (await env.importer.recognize('https://x/album'))!;
+      final mix = (await env.importer.recognize('https://x/mix'))!;
+
+      expect(playable.pluginId, 'fmp-test');
+      expect((playable.ref as PlaylistIdRef).playlistId, 'p1');
+      expect(playable.canPair, isTrue);
+      expect(metadata.pluginId, 'meta');
+      expect(metadata.canPair, isFalse, reason: 'it cannot play');
+      expect(mix.canPair, isFalse, reason: 'a mix seed is not a playlist');
+      expect(await env.importer.recognize('  '), isNull);
+      expect(video.urlQueries.first.url, 'https://x/list');
+      expect(video.pageQueries, isEmpty);
+      expect(meta.pageQueries, isEmpty);
+      expect(await names(), isEmpty);
+    });
+
+    test('importing what was recognised does not ask the plugins '
+        'again', () async {
+      env.plugin.onPage = (_) => page(['a'], total: 1);
+      final recognized = (await env.importer.recognize('https://fmp.test/p'))!;
+      env.plugin.urlQueries.clear();
+
+      final result = await env.importer.importRecognized(recognized);
+
+      expect(result, isA<ImportedPlaylist>());
+      expect(env.plugin.urlQueries, isEmpty);
+      expect(await names(), ['Remote title']);
+    });
+
+    test('a plugin that left the list since is Unsupported', () async {
+      final recognized = (await env.importer.recognize('https://fmp.test/p'))!;
+      await env.setPlugins(const []);
+
+      await expectLater(
+        env.importer.importRecognized(recognized),
+        throwsA(isA<Unsupported>()),
+      );
     });
   });
 

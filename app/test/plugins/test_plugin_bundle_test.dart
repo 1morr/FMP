@@ -1,15 +1,20 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/domain/account.dart';
+import 'package:fmp/library/external_import.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/plugins/source_plugin.dart';
 import 'package:yaml/yaml.dart';
 
+import '../library/library_harness.dart';
+import '../support/pump_until.dart';
 import 'plugin_harness.dart';
 
 // 內附測試插件（`fmp-test`）是 dev 實機驗證的離線音源：以 `--fmp-dev-plugin`
@@ -906,5 +911,135 @@ void main() {
         ),
       ),
     );
+  });
+
+  // 僅元資料來源的測試插件（M4 design §4.9）：外部匯入的實機重播。標題、歌手、時長照 fmp-test 的
+  // 搜尋結果寫，以真的 ExternalImport 對真的 fmp-test 匹配，守「重播時匹配得到」。
+  group('the metadata test plugin (fmp-test-meta)', () {
+    Future<SourcePlugin> load(PluginHarness harness) =>
+        harness.load(testMetaPluginFile.readAsStringSync());
+
+    test('declares only importPlaylist and knows its links', () async {
+      final plugin = await load(PluginHarness());
+
+      expect(plugin.manifest.id, 'fmp-test-meta');
+      expect(plugin.manifest.capabilities, {PluginCapability.importPlaylist});
+      final found = await plugin.playlistFromUrl(
+        PlaylistUrlQuery(url: 'https://fmp.test/meta/meta-basic'),
+      );
+      expect((found! as PlaylistIdRef).playlistId, 'meta-basic');
+      expect(
+        await plugin.playlistFromUrl(
+          PlaylistUrlQuery(url: 'https://fmp.test/playlist/pl-basic'),
+        ),
+        isNull,
+        reason: 'the links of fmp-test are not its own',
+      );
+    });
+
+    Future<List<RemotePlaylistItem>> readAll(
+      SourcePlugin plugin,
+      String id,
+    ) async {
+      final items = <RemotePlaylistItem>[];
+      String? cursor;
+      do {
+        final page = await plugin.importPlaylist(
+          PlaylistPageQuery(playlistId: id, cursor: cursor),
+        );
+        items.addAll(page.items);
+        cursor = page.cursor;
+      } while (cursor != null);
+      return items;
+    }
+
+    test('meta-truncated says so on its last page; meta-broken fails on its '
+        'second page', () async {
+      final plugin = await load(PluginHarness());
+
+      final first = await plugin.importPlaylist(
+        PlaylistPageQuery(playlistId: 'meta-truncated'),
+      );
+      expect(first.truncated, isFalse);
+      final last = await plugin.importPlaylist(
+        PlaylistPageQuery(playlistId: 'meta-truncated', cursor: first.cursor),
+      );
+      expect(last.cursor, isNull);
+      expect(last.truncated, isTrue);
+
+      final broken = await plugin.importPlaylist(
+        PlaylistPageQuery(playlistId: 'meta-broken'),
+      );
+      expect(broken.items, hasLength(2));
+      await expectLater(
+        plugin.importPlaylist(
+          PlaylistPageQuery(playlistId: 'meta-broken', cursor: broken.cursor),
+        ),
+        throwsA(isA<NetworkError>()),
+      );
+      await expectLater(
+        plugin.importPlaylist(PlaylistPageQuery(playlistId: 'nope')),
+        throwsA(isA<NotFound>()),
+      );
+    });
+
+    test('meta-basic matches fmp-test where it should and nowhere '
+        'else', () async {
+      // 插件的 harness 與音樂庫各開一個記憶體資料庫。
+      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+      addTearDown(
+        () => driftRuntimeOptions.dontWarnAboutMultipleDatabases = false,
+      );
+      final harness = PluginHarness();
+      final meta = await load(harness);
+      final tones = await harness.load(testPluginFile.readAsStringSync());
+      expect(await readAll(meta, 'meta-basic'), hasLength(6));
+      final env = await LibraryEnv.open(plugins: [meta, tones]);
+      final job = await env.container
+          .read(externalImportsProvider)
+          .open('fmp-test-meta', 'meta-basic');
+      addTearDown(job.dispose);
+
+      await job.read();
+      expect(job.targets, ['fmp-test']);
+      expect(job.pairing, isFalse);
+      job.start();
+      await pumpUntil(
+        () => job.phase == ExternalImportPhase.done,
+        maxRounds: 200,
+      );
+
+      expect(
+        [for (final row in job.rows) row.chosen?.sourceTypeId],
+        ['fmp-test', null, 'fmp-test', 'fmp-test', null, 'fmp-test'],
+      );
+      expect(job.rows.first, same(job.rows.last), reason: 'the same song');
+      expect(job.songs, hasLength(5));
+    });
+
+    test('the README documents the playlists', () {
+      final readme = File('test/fixtures/plugins/test_meta_plugin/README.md')
+          .readAsStringSync();
+
+      for (final id in ['meta-basic', 'meta-truncated', 'meta-broken']) {
+        expect(readme, contains(id), reason: id);
+      }
+    });
+
+    test('it is bundled only in the dev flavor', () {
+      final assets =
+          (loadYaml(File('pubspec.yaml').readAsStringSync())
+                  as YamlMap)['flutter']['assets']
+              as YamlList;
+      expect(
+        assets,
+        contains(
+          allOf(
+            containsPair('path', 'test/fixtures/plugins/test_meta_plugin/'),
+            containsPair('flavors', ['dev']),
+          ),
+        ),
+      );
+    });
   });
 }

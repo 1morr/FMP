@@ -398,7 +398,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `tracks`（曲目顯示資料，鍵是 `TrackKey` 的字面輸出）、`queue_entries`、`player_state` 是 schema v4
   （design §3.1、§3.2）。`queue_entries.track_key` 以外鍵參照 `tracks`、`ON DELETE RESTRICT`：被佇列
   參照的曲目刪不掉，孤兒清理（`TracksRepository.deleteOrphans`，啟動維護清單）只刪沒人參照的列，
-  之後加表的 PR（下載紀錄、匹配結果）各自把自己加進那個查詢；`play_history`、`playlist_entries` 已在裡面（見下一條與 `playlists` 一條）。寫入曲目用
+  之後加表的 PR（下載紀錄）各自把自己加進那個查詢；`play_history`、`playlist_entries`、`match_results.selected_track_key` 已在裡面（見下一條、`playlists` 與 `match_results` 兩條）。寫入曲目用
   `ON CONFLICT DO UPDATE`（`TracksRepository.upsert`），不用 REPLACE（REPLACE 會先刪再插，撞上 `RESTRICT`；沒有直接的閘門，review 時看）。`queue_entries` 的主鍵是位置，
   位移時先改成負值再改回，所以那張表不能加 `position >= 0` 的檢查。`player_state` 單列，音量與
   靜音隨佇列存在這裡、不是設定；隨機排列存成每個位置的名次（`shuffle_rank`），不存排列本身。`queue_entries.track_key`
@@ -502,6 +502,20 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `removePlugin`）。閘門：`migration_test.dart` 的 `migration from v16 to v17 keeps existing data`（使用者設定過的網路與每音源設定不變）、
   `migration from v<N> to v17 adds chart_settings and the chart interval column`（v1–v16 各一例：主鍵、空值、新欄位是 NULL）與 `a new database has chart_settings`、
   `chart_settings_repository_test.dart`（含 `setOrder` 與 `setOrder is a single write`）、`plugin_installer_test.dart` 的 `removing`。
+- `match_results`、`track_origins` 與 `source_settings.match_target`、`match_rank` 是 schema v18（ADR 0033 §決定 1、M4 design §3.1，PR 19）：
+  - `match_results` 主鍵（`origin_plugin_id`, `origin_id`），外部歌曲本身的 `title`、`artists`（插件給的原字串）、`duration_ms`，選定的 `selected_track_key`
+    （外鍵 `tracks`、`RESTRICT`、索引 `match_results_selected`）、`score`（`real`）、`user_selected`（預設假）。`selected_track_key` 空＝匹配失敗（`user_selected` 假）或排除（真）。
+    **孤兒查詢的子查詢要 `WHERE selected_track_key IS NOT NULL`**：`NOT IN` 遇到 NULL 整個條件不成立，一首都不會被清。
+  - `track_origins` 主鍵（`track_key`, `origin_plugin_id`）＋`origin_id`，`track_key` 連帶刪除、不算孤兒的參照者（曲目被清時來源紀錄一起走，`match_results` 的列還在）。
+  - 兩張表都沒有外鍵到 `installed_plugins`。`origin_id` 是來源的音源內 id，分 P 的歌（配對模式下的 B 站）接 cid（`<sourceId>:<cid>`，同曲目鍵的後兩段）。
+  - 寫入口只有 `PlaylistRepository.createFromMatches`（建 `local` 歌單、`addTracks`、`match_results` 與 `track_origins` 一個 transaction，同一首已有的整列覆蓋）；讀是
+    `MatchResultsRepository.find`（join `tracks` 讀回選定的曲目，每 500 個 id 一次查）。`source_settings` 的兩欄：`setMatchTarget`、`setMatchRanks`（一個 batch，整批寫 0、1、2…，
+    同一列其他欄位不動）、`watchMatchTargets`；移除插件時整列刪（既有的 `remove`）。
+  - 閘門：`migration_test.dart` 的 `migration from v17 to v18 keeps existing data`（使用者設定過的 `browse_as_logged_in`、曲目、榜單設定不變，兩欄是空的）、
+    `migration from v<N> to v18 adds the match tables and the match target columns`（v1–v17 各一例：主鍵、預設值、外鍵 `RESTRICT` 與連帶刪除、新欄位是 NULL）與
+    `a new database has the match tables`、`indexes match_results.selected_track_key`（升級與全新兩例）、`match_results_repository_test.dart`（三張表一起寫、`stored format`、
+    覆蓋、失敗時什麼都沒寫、分批讀）、`queue_repository_test.dart` 的 `a track a match result selected is not an orphan`（拿掉 `IS NOT NULL` 會紅）、
+    `account_repository_test.dart` 的 `match target and rank are written on their own`、`remove deletes the match columns with the row`。
 
 ### 快取庫
 
@@ -1256,8 +1270,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `ui/`；`core/`、`domain/`、`data/`、`scheduler/` 不認得它（閘門：lint `fmp_layer_imports`，見 § Lint）。
 
 - **匯入**（`PlaylistImporter.importUrl`；帳號頁用 `importPlaylistId(pluginId, playlistId, {writable})`，不經網址；`writable` 是 `libraryPlaylists` 給的權威值，匯入成功後（新建或既有那列）寫進 `playlist_remote.writable`（網易、YouTube 的 `importPlaylist` 不給，否則建列存成假；之後刷新 page 的 `writable` 為 `null` 時保留），閘門 `playlist_importer_test.dart` 的 `the writable hint`；插件不在清單或沒宣告 `importPlaylist` 是 `Unsupported`，其餘同下）依 `pluginRegistryProvider` 的順序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出，
-  插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，交給 `createMix`，見下面）、`ImportMetadataOnly`
-  （插件沒有 `resolveStream`，M4 PR 19 處理，不取任何一頁）、`ImportedPlaylist`。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
+  插件拋錯就停、不問下一個；失敗一律是 `AppError`。結果型別：`ImportUnrecognized`、`ImportMixSeed`（Mix，交給 `createMix`，見下面）、`ImportForMatching`
+  （插件沒有 `resolveStream`，交給外部匯入，見下面；不取任何一頁）、`ImportedPlaylist`。對話框先以 `recognize(url)` 辨識（同樣依序問、不取頁，回 `RecognizedUrl`：插件、
+  `PlaylistRef`、`playable`；`canPair` 是「能播的插件的歌單」，Mix 種子不算），再以 `importRecognized` 接著做，不再問一次 `playlistFromUrl`（辨識後插件離開清單是 `Unsupported`）。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
   名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
   其餘頁由刷新器取。`importUrl` 與 `refresh` 的 `onProgress` 在每一頁寫進資料庫後收到已讀的項目數（匯入對話框的「已讀 n 首」）。
 - **Mix 歌單**（`PlaylistImporter.createMix(ImportMixSeed)`，ADR 0033 §決定 1、M4 design §5.4）：呼叫該插件的 `mix(seed)` 一次（驗證種子、`MixBatch.title` 當名稱），
@@ -1292,8 +1307,43 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   全部失敗退避、來源失效後不再選、間隔改成不啟用與插件停用時取消、排到前被關掉的跳過且不取消進行中的別張、手動刷新排在目前那張之後與下一張之前、
   App 看不見時不跑）、`test/library/playlist_refresher_test.dart`（ADR 0019 §如何確認的刷新差異：新增、移除、順序、元資料、三個覆寫旗標、部分失敗不移除、重複影片保留、
   來源失效；比對鍵兩種；完整性三條件各缺一個；中途停下與頁內例外後再刷新；代際與觸發者過期不寫；刷新中途刪歌單；`writable`；FIFO 鎖與例外釋放鎖；插件停用）、
-  `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列）、
+  `playlist_importer_test.dart`（問哪個插件、`mixSeed`、僅元資料來源、第一頁失敗不建列、同一網址同時匯入只建一列、重新匯入不覆寫設定、重新匯入時來源失效記在那一列、
+  `recognising first` 群組：不取頁不寫、`canPair` 三種、以辨識結果匯入不再問、辨識後插件離開清單）、
   `playlist_remote_repository_test.dart`。
+
+### 外部匯入
+
+`lib/library/external_import.dart`（ADR 0019 §決定 5、ADR 0033 §決定 12，M4 design §8.3、§8.4，PR 19）：只有 `importPlaylist` 的插件（Spotify、QQ）的歌單，或使用者在
+匯入對話框選了「配對到其他音源」的能播插件的歌單（§17 第 19 條），逐首匹配到目標音源後建本機歌單。畫面見 § 介面的「匯入預覽」。
+
+- `ExternalImports.open(pluginId, playlistId)`（`externalImportsProvider`）建一次 `ExternalImport`（`ChangeNotifier`，**一次匯入一個實例，生命週期跟著預覽頁**：頁面 `dispose` 它，
+  之後回來的搜尋結果丟掉，什麼都不寫）。來源不在清單上或沒宣告 `importPlaylist` 是 `Unsupported`。
+- **目標音源**（`lib/library/match_targets.dart`）：`matchTargetOptions(插件清單, source_settings)` 是已啟用、同時有 `search` 與 `resolveStream` 的插件，依 `match_rank`
+  由小到大、沒有的排後面依插件清單；`match_target = false` 的在清單上但不勾。這次的預設是勾著的那些；**來源插件自己能播（配對模式，`pairing`）時預設另外不勾它**。
+  `setTargets` 臨時改這次的目標，**不寫設定**；開始匹配之後不能一個都不選（`ArgumentError`），改了就重搜所有不是 `manual` 的歌（使用者選過、排除過、以自訂關鍵字重搜過的，
+  或沿用的是使用者的選擇，都不重搜；沿用的自動結果會重搜）。
+- **讀取**（`read`，失敗後的「重試」也是它）：讀完所有頁；任何一頁失敗（含 `cursor` 重複）就停在 `readFailed`、不進匹配（§17 第 18 條）。最後一頁 `truncated` 照常往下、
+  `truncated` 為真。同一個外部 id 在歌單裡出現多次時共用一個 `ImportSong`（改一處兩處都變，`match_results` 一列，歌單裡照樣兩項）。讀完以 `MatchResultsRepository.find` 找出
+  **沿用的結果（`MatchReused`），不搜尋**：選定的曲目、使用者排除（選定為空而 `user_selected` 真）、先前的匹配失敗都照舊。排除沿用成 `excluded`，不算「選過」
+  （`picked`＝`user_selected` 而且有選定），所以取消排除後存回一般的匹配失敗。**每一首都沿用時沒有要搜的，讀完直接是 `done`**（不用按「開始匹配」；`start` 會丟 `StateError`）。
+- **匹配**（`start` 之後，`ready` 才能 `start`）：一次一首、依序；每首對每個目標音源同時搜第一頁（關鍵字＝原標題＋空白＋`firstArtist`（`lib/core/matching/`，第一位歌手的原文）），
+  合併所有音源的結果以 `rank` 取前 5（`matchCandidateLimit`；同分依目標的順序），第一名 `autoSelectable` 才選。每個目標都失敗才是 `MatchSearchFailed`（「搜尋失敗」，可重搜），
+  部分失敗用其他的結果；都記 warning、不中斷整批。插件以外的錯誤（預設關鍵字是空的、評分丟例外）也標那一首「搜尋失敗」並 `log.report`，不卡在搜尋中。
+  節流交給網路層的每插件限流，不經排程器。`research(song, keyword:)` 同一套評分；自訂關鍵字**一開始就**算 `manual`（進行中的自訂重搜不會被這期間的 `setTargets` 換掉）。
+- **`touched`**：使用者做過會丟掉的事——按了「開始匹配」，或改選、排除、重搜過，或開始之後改過目標。只讀完（含全部沿用而直接完成）是假；預覽頁據此決定離開要不要確認。
+- **確認**（`confirm`，每一首都有結果、至少一首會加入才可以）：`PlaylistRepository.createFromMatches` 一個 transaction——`local` 歌單（名稱＝遠端標題）、依原順序寫會加入的曲目
+  （`TracksRepository.upsert` 與 `playlist_entries`）、每首的 `match_results`（`score` 是選定那個的總分、`user_selected`＝選過或排除）、選定的 `track_origins`。
+  **搜尋失敗的不寫 `match_results`**（暫時的錯誤，下次匯入再搜）；匹配失敗與排除的寫、選定為空。配對模式一樣，**不寫 `playlist_remote`、建出的歌單不刷新**。
+  成功之後 `created` 為真、`canCreate` 一律假，再呼叫丟 `StateError`；失敗（`AppError`，什麼都沒寫）可以再試。
+- log（tag `matching`）：`External playlist read`、`External import matched`、`External import created`、`Match search failed`、`Match target search failed`，欄位只有插件 id、
+  筆數、型別，不放歌名與歌單名稱（ADR 0011 §決定 6）；讀取失敗經 `log.report`。
+- 一千首、三個目標（每次 20 個結果）以假插件量一次（2026-10-21，開發機）：讀 4 ms、匹配約 3.2 秒（宿主評分，約 60 個候選一首）、確認約 40 ms。真的音源受網路與每插件限流控制，
+  數字由實機驗收記。
+- 閘門：`test/library/external_import_test.dart`（讀完所有頁與進度、關鍵字、沿用 `match_results` 不搜尋含改選與排除、合併前 5 與門檻、同分依目標順序、搜尋失敗不中斷且可重搜、
+  一個目標失敗用其他的、任一頁失敗不進匹配與重試、`cursor` 重複、`truncated` 照常匹配、關掉後丟掉進行中的結果且什麼都沒寫、確認寫三張表且未匹配與排除不進歌單、搜尋失敗不寫、
+  選過的在改目標時保留、自訂關鍵字同分且不重搜、改目標不寫設定、預設目標的順序與不勾的、配對模式不含來源且不寫 `playlist_remote`、不是 `importPlaylist` 的來源、分 P 以 cid 分開、
+  一千首的耗時；`after review` 群組：沿用的排除取消後不再存成排除、進行中的自訂重搜不被改目標換掉、建好後不能再建而失敗可重試、插件以外的錯誤標搜尋失敗、全部沿用直接完成且沒有
+  `touched`、哪些動作算 `touched`）、`test/plugins/test_plugin_bundle_test.dart` 的 `the metadata test plugin (fmp-test-meta)`（以真的 `ExternalImport` 對真的 `fmp-test` 匹配）。
 
 ## 遠端寫入
 
@@ -1377,6 +1427,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 （`MatchQuery`、`MatchCandidate`），從 `TrackSummary` 轉過來是呼叫端的事（`core/` 不 import `plugins/`、`data/`）；`unorm_dart`、
 `string_similarity` 只准在這裡（閘門：lint `fmp_layer_imports`，見 § Lint）。
 
+- 外部匯入（§ 音樂庫的「外部匯入」）是第一個呼叫端；搜尋關鍵字的第一位歌手由 `firstArtist`（原文，分隔符同 `splitArtists`、不分大小寫，閘門 `matching_test.dart` 的 `first artist`）。
 - **分數只看（原曲, 候選）這一對**：不看同一批的其他候選、搜尋關鍵字、播放量等來源特有的訊號，所以自動匹配與手動重搜同分。`rank` 同分依
   輸入順序（呼叫端先排好音源順序），時長超出門檻的不列出、不佔名額。`MatchScore.total` 在 0–1，淘汰的是 0。
 - **權重與門檻寫死在 `matching.dart`**，以 `test/core/matching/match_corpus.dart` 的手寫語料校準：標題 0.6、歌手 0.3、時長 0.1，第一名到 0.6
@@ -1908,6 +1959,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `developer_settings_repository_test.dart` 的 `turning developer mode off` 群組（`is a single write`）；兩種建置的預設與生效值：
   `developer_settings_test.dart` 的 `an unset log level is the build default…`、`the stored log level counts only while developer
   mode is on…`、`in a debug build the notifier defaults to debug`。
+- 匹配目標音源（`source_settings.match_target`、`match_rank`，M4 design §3.3）不是設定組、沒有 Notifier：每音源一列，讀的是 `lib/library/match_targets.dart`
+  （外部匯入開始時讀一次、設定頁跟著 `watchMatchTargets`），寫的是設定頁（§ 介面的設定頁「音樂庫」）。空＝依預設（是目標、排在後面）。
 - 「跟隨系統」是把欄位清回 `null`（repository 的 `clear`、Notifier setter 傳 `null`），不是
   存 `system` 之類的值；`write` 的 `null` 是「沒給、不動」。閘門：
   `appearance_settings_repository_test.dart` 的 `clear` 群組（直接查表是 `NULL`）、
@@ -1978,11 +2031,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   自己有捲動的清單（或置中的空狀態），所以不包在設定組那個捲動的欄裡，填滿右側（窄版是點進去的那一頁）。寬版預設選的是
   帳號。閘門：`settings_page_test.dart` 的 `… accounts come first, library between playback and network, plugins after network and open the plugin page`
   （1000、400 寬）、`expanded and wider: groups on the left…`。
-- 設定頁的「音樂庫」（`library_controls.dart`，M4 PR 21，design §10.10；PR 19 的「匹配目標音源」接在下面）：「首頁排行」是 `chartEntriesProvider` 的全部榜單（含停用的），
+- 設定頁的「音樂庫」（`library_controls.dart`，M4 PR 21、19，design §10.10）：「首頁排行」，下面是「匹配目標音源」。「首頁排行」是 `chartEntriesProvider` 的全部榜單（含停用的），
   每列勾選框、榜單名稱、音源名稱與拖曳把手（`CheckboxListTile`，把手是 `secondary`）。勾選與取消寫 `ChartSettingsRepository.setEnabled`（全部取消也可以，首頁就沒有排行區塊；
   刪快取與重新登記工作由 `ChartJobs` 做）；拖曳放開後 `setOrder` 整批寫清單上全部的榜單，資料庫追上前照拖曳後的順序畫、寫入失敗回到資料庫的順序並提示（同電台頁）。
   清單在設定組的捲動欄裡，`shrinkWrap`、自己不捲動。連續拖曳時，寫入失敗只在畫面上仍是那一次的順序時才退回。沒有任何榜單時是說明。圖示不用導覽列音樂庫的那一個（整合測試以圖示找導覽項）。
   閘門：`test/ui/settings/library_controls_test.dart`（列出與勾選狀態、取消與再勾寫 `enabled`、全部取消、拖曳寫三個 `sort_order` 且 `enabled` 不動、拖曳與勾選寫入失敗時回到資料庫並提示、首頁跟著變、沒有榜單時的說明）。
+  - 「匹配目標音源」（`MatchTargetSettings`）：`matchTargetOptionsProvider` 的全部（已啟用、能搜能播，含取消勾選的），每列勾選框、插件名稱與拖曳把手，樣式、樂觀排序與失敗退回同「首頁排行」；
+    勾選與取消寫 `setMatchTarget`（`true`／`false`），拖曳後 `setMatchRanks` 整批寫清單上全部。沒有可用的插件時是說明。**它讀插件清單**：這一區只在使用者點進「音樂庫」時才建，
+    一直掛在外殼裡的頁面不要 watch `matchTargetOptionsProvider`（理由同 § 排行的「給畫面的榜單清單」）。
+    閘門：`library_controls_test.dart` 的 `match targets` 群組（只列能搜能播的、取消與再勾、拖曳寫三個 `match_rank` 且 `match_target` 不動、拖曳與勾選寫入失敗退回並提示、沒有插件時的說明）。
 - 帳號頁（`lib/ui/accounts/`，ADR 0029 §決定 8，M3 design §6.7）：
   - 每個宣告 `login` 的**已啟用**插件一張卡（讀資料庫的已安裝清單，不讀插件清單：沒有這種插件時不建 `CredentialStore`；
     登入時才向插件清單要那個插件）。沒有就是空狀態加「前往插件頁」。區塊一直在，不隨插件有無出現或消失（設定頁的順序與寬版
@@ -2047,7 +2104,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不在根 Navigator 上，所以系統返回鍵（含 predictive back）一定先到外殼的 `PopScope`；`canPop` 跟著內頁的增減重建
   （每個巢狀 Navigator 一個 `NavigatorObserver`），有內頁時 Android 不預覽「離開 App」。不要在頁面內另放
   `PopScope`（也不用 `NavigatorPopHandler`，它就是一個 `PopScope`）：同一次返回所有 `PopScope` 的 callback 都會執行，
-  會和外殼同時動作（「不另放」沒有閘門，review 時看）。頁面要讓返回鍵先退掉自己的狀態時（多選，見「多選」）在頁面的 route
+  會和外殼同時動作（「不另放」沒有閘門，review 時看）。**例外是匯入預覽頁**：離開前要確認，所以它有 `PopScope`，`canPop` 為假的時候是建立中或 `ExternalImport.touched`
+  （讀取中、讀不到、讀完還沒開始都直接離開）；`onPopInvokedWithResult` 在建立中直接攔下、不開確認框，其餘開確認框。外殼的返回鍵、Esc 都經 `maybePop` 到它；
+  「再點一次目前的導覽項」的 `popUntil` 停在 `popDisposition` 是 `doNotPop` 而且不是根頁的 route 時才對它 `maybePop`（不然會直接把它關掉、不問）；停在根頁時不動，
+  所以根頁上的 `LocalHistoryEntry`（搜尋頁的多選）照舊留著。閘門：`import_preview_test.dart` 的 `leaving asks first…`（含再點「音樂庫」）、`the system back key asks once`、
+  `Esc asks once`、`while the playlist is being created, back is held without asking`、`read and not started yet: leaving asks nothing`、
+  `excluding a song before starting counts as a change: leaving asks`；`search_page_test.dart` 的 `tapping Search again keeps the selection`（停在根頁也 `maybePop` 會紅）。頁面要讓返回鍵先退掉自己的狀態時（多選，見「多選」）在頁面的 route
   加一個 `LocalHistoryEntry`（`ModalRoute.addLocalHistoryEntry`，Flutter 給 Scaffold 抽屜用的機制）：巢狀 Navigator 的
   `canPop`／`maybePop` 先移除它，外殼的「退出內頁」與 Esc 不用改。地雷：觀察者不會因為它重建外殼，所以外殼 `PopScope` 的
   `canPop` 不知道它；在第一個目的地（首頁）的**根頁**加的話返回鍵會直接放行（目前只有內頁與搜尋頁的根頁用）。
@@ -2057,7 +2119,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放、排行（含更新失敗）、排行沒有快取而離線）、探索頁（分頁、多選中）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址、能播的插件的兩個選擇）、匯入預覽（匹配中、完成而有匹配失敗與搜尋失敗並展開一首、`truncated`、離開確認框）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單、匹配目標有一個取消勾選）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2217,7 +2279,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史、歌單詳情、探索）以 `Navigator.of(context).push` 開在
   內容區裡，導覽與播放列留著；全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）推在根 Navigator 上（`rootNavigator: true` 或
   `rootNavigatorKeyProvider`），`showDialog` 預設就在根上。換目的地不丟內頁（Material 每個目的地自己的 back stack）；再點一次
-  目前的導覽項退回它的根；Ctrl+F 先把搜尋退回根再聚焦輸入框。地雷：
+  目前的導覽項退回它的根（停在不放行的頁並交給它確認，見「返回鍵」的匯入預覽）；Ctrl+F 先把搜尋退回根再聚焦輸入框。地雷：
   - 每個巢狀 Navigator 包一個 `Semantics(container: true)`：route 的 `ModalBarrier` 是 `BlockSemantics`，不包的話擋掉的是同一個
     語意容器裡先畫的導覽元件與離線提示（螢幕閱讀器讀不到）。閘門：`app_shell_test.dart` 的 `screen readers hear it when it appears`
     （拿掉容器會紅）。
@@ -2282,8 +2344,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     路徑。那個插件之後停用或移除時封面是佔位圖；編輯時沒改過的自訂網址照舊保留、不再檢查（才改得了名稱）。
   - **匯入**（`import_dialog.dart`，M4 design §10.8）：一個文字欄（網址）、「匯入」；進行中顯示「已讀 n 首」（第一頁回來前是「正在辨識網址」），
     這時對話框不能關、不能再送（匯入不能中途取消）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`（Mix 網址建好的是 `CreatedMix`，音樂庫頁直接開詳情、不提示），音樂庫頁在巢狀導覽裡開詳情並提示
-    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址、第一頁失敗（Mix 網址是第一次 `mix` 失敗）與僅元資料來源（M4 PR 19 才接上，這裡只說「還不支援」）都留在對話框裡、
+    （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址與第一頁失敗（Mix 網址是第一次 `mix` 失敗）都留在對話框裡、
     欄位下寫原因、不建歌單、輸入留著；失敗而網路不是 `online` 寫離線字樣（同貼 cookie 登入的對話框），並 `log.report`。
+    **交給匯入預覽的**（僅元資料來源，或選了「配對到其他音源」）關閉並回傳 `ImportForMatching`，音樂庫頁在巢狀導覽裡開預覽頁。輸入停下 300 ms 後先 `recognize`（不取頁；
+    辨識失敗不顯示，按「匯入」時照原流程報錯）：認出能播的插件的歌單（`canPair`）時欄位下多兩個選項（`RadioGroup`），「匯入為平台歌單」（預設，原本的行為）或「配對到其他音源」；
+    不針對插件 id，Mix 種子與不認得的網址沒有；改了輸入就收起、回到預設。按「匯入」時用辨識好的結果（`importRecognized`），不再問一次。辨識還在進行時按「匯入」，
+    那次辨識的結果會被丟掉；匯入失敗時清掉「正在辨識的輸入」，同一段輸入之後（例如點一下欄位）照樣再辨識。
+  - **匯入預覽**（`import_preview_page.dart`，`openImportPreview`，M4 design §10.9）：在音樂庫的巢狀導覽裡開，一頁一個 `ExternalImport`（§ 音樂庫的「外部匯入」），State 聽它、整頁重畫。
+    版面：標頭是返回鈕（「取消匯入」）、遠端標題與「來自 <音源>」；下面一塊依階段——讀取中「讀取中 n 首」＋進度條；讀不到是
+    `EmptyState`（原因，離線用離線字樣）＋「重試」；讀完是「n 首 · 每首會在 m 個音源搜尋 · k 首沿用先前的匹配」、目標音源的 `FilterChip`（開始後最後一個不能取消，tooltip 說明）、
+    還沒開始時有「開始匹配」（沒有勾任何音源時停用並說明；全部沿用時直接完成、沒有這個按鈕）。`truncated` 多一行「來源只提供了部分曲目」（警示色圖示）。
+    **讀完之後標頭跟著清單一起捲**（`CustomScrollView`：標頭、摘要是普通 sliver，清單是 `SliverList.builder`，一千首也只建看得到的；各寬度同一個版面）：compact 的實機
+    高度放不下固定的標頭、底部列與播放列（只剩三列）。底部列固定：開始後「已匹配 n／總數」（匹配中上面另有確定的進度條）、完成後「n 首不會加入」、「建立歌單」。
+    每首一列（`ListTile`）：原標題、「歌手 · 時長」｜選定的候選（標題、「上傳者 · 音源 · 時長 · 分數%」，沿用的另標「沿用先前的匹配」）或「等待中」「搜尋中…」「匹配失敗」「搜尋失敗」「已排除」；
+    expanded 以上兩欄並排，compact、medium 上下。點一列展開（依列的位置）：前 5 名是 `RadioListTile`（換選）、沿用的寫明要重搜才有候選、搜尋失敗寫原因；關鍵字欄（預設關鍵字）＋「重搜」
+    （跟預設一樣就當預設的重搜）、「排除」／「取消排除」。展開區有自己的 `Material`（底色）：`RadioListTile` 的水波畫在最近的 Material 上，用 `Container(color:)` 會撞上 ListTile 的除錯斷言。
+    「建立歌單」看 `canCreate`；建立後提示「已建立歌單」並以 `openPlaylist(replace: true)` 換成新歌單的詳情（返回回到音樂庫）。
+    閘門：`test/ui/library/import_preview_test.dart`（開始前的摘要與不搜尋、匹配後的候選與進度與可建立、改選、自訂關鍵字重搜、排除與取消排除、建立寫本機歌單並取代預覽、
+    離開的確認（見「返回鍵」的例外）、`truncated`、讀取失敗與重試、讀不到時離開不問、搜尋失敗後重搜、開始前取消勾選、寬版兩欄、一千首捲動、全部沿用時不用開始且離開不問、
+    compact 時標頭捲走而進度與「建立歌單」留著）、
+    `import_ui_test.dart` 的對話框案例（僅元資料來源開預覽、能播的預設是平台歌單、選配對開預覽且不建平台歌單、Mix 與不認得的網址沒有選擇、改輸入收起選擇、
+    被失敗的匯入丟掉的辨識之後照樣再辨識）、`integration_test/toast_layering_test.dart` 的 `a toast shows above the import preview`（含離開確認框）。
   - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
     並停用，同一張不會排第二次（刷新器本身有 FIFO 鎖，但重複按沒有意義）。結果的提示：完整＝已刷新、`partial`＝警告「只讀到一部分，沒有移除任何歌曲」、失敗而網路不是 `online`＝
     「離線中，無法刷新」、其餘失敗照 ADR 0013 的類別表（`Toaster.error`）、插件停用或移除＝`sourceUnavailableProvider` 的字樣、`RefreshDiscarded` 不提示。
@@ -2299,7 +2380,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     的網域規則與 user info、屬於插件的網址收下並經那個插件讀、不屬於的與非 https 的拒絕並寫原因、「使用預設」清回、來源已移除時沒改過的照舊保留、
     新建時就自訂）、`test/library/playlist_service_test.dart`（去空白、自訂封面的寫入與清回、排序與刪除、
     依序加入、打亂、超過上限不加且發 `QueueFull`）、`playlist_repository_test.dart` 的 `overviews …`；
-    匯入與刷新的畫面：`test/ui/library/import_ui_test.dart`（匯入對話框：認得、進度、不認得、第一頁失敗、離線、Mix 網址建歌單與失敗、離線、僅元資料來源、重新匯入同一張；手動刷新：結果、進行中不能重複、
+    匯入與刷新的畫面：`test/ui/library/import_ui_test.dart`（匯入對話框：認得、進度、不認得、第一頁失敗、離線、Mix 網址建歌單與失敗、離線、僅元資料來源與配對的選擇（見上面的匯入預覽）、重新匯入同一張；手動刷新：結果、進行中不能重複、
     卡片選單只有匯入歌單有、失敗、離線、音源不可用；狀態列的各種狀態與「重試」「登入」；已失效標記且照常播放；匯入歌單的編輯設與清 `*_overridden`）、
     `playlist_service_test.dart` 的 `editing an imported playlist`、`playlist_remote_repository_test.dart` 的 `updateImported` 與 `entries`、`playlist_importer_test.dart` 的 `progress`。
 - 歌單詳情（`lib/ui/library/playlist_detail_page.dart`、`library_state.dart`，ADR 0033 §決定 9，M4 design §10.4）：

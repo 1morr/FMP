@@ -27,6 +27,11 @@ import '../support/memory_database.dart';
 /// 測試插件的安裝檔（`test/fixtures/plugins/test_plugin/`）。
 final testPluginFile = File('test/fixtures/plugins/test_plugin/test_plugin.js');
 
+/// 僅元資料來源的測試插件（`fmp-test-meta`，`test/fixtures/plugins/test_meta_plugin/`）的安裝檔。
+final testMetaPluginFile = File(
+  'test/fixtures/plugins/test_meta_plugin/test_meta_plugin.js',
+);
+
 /// 組一個安裝檔：標頭加上 [body]（ES module）。[login] 是 manifest 的 `login`
 /// （JSON 文字）。
 String pluginSource(

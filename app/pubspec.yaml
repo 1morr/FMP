@@ -173,3 +173,7 @@ flutter:
     - path: test/fixtures/plugins/test_plugin/
       flavors:
         - dev
+    # 僅元資料來源的測試插件（外部匯入的實機重播，M4 design §4.9）。
+    - path: test/fixtures/plugins/test_meta_plugin/
+      flavors:
+        - dev

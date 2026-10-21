@@ -11,6 +11,7 @@ import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/library/import_preview_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
@@ -384,7 +385,10 @@ void main() {
       );
     });
 
-    testWidgets('a metadata-only source is not supported yet', (tester) async {
+    // 僅元資料來源（M4 PR 19，design §10.8）：關閉對話框、在音樂庫的巢狀導覽裡開匯入預覽，
+    // 不建任何歌單。
+    testWidgets('a metadata-only source opens the import preview inside '
+        'Library', (tester) async {
       final h = await _open(tester, _plugin(resolveStream: false));
 
       await _openImportDialog(tester);
@@ -392,13 +396,163 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Import'));
       await _advance(tester, h);
 
-      expect(
-        find.text("Importing this kind of link isn't supported yet"),
-        findsOneWidget,
-      );
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ImportPreviewPage), findsOneWidget);
+      expect(find.byType(LibraryPage).hitTestable(), findsNothing);
+      expect(find.text('Remote title'), findsOneWidget);
       expect(
         await tester.runAsync(() => _repository(tester, h).watchAll().first),
         isEmpty,
+      );
+    });
+
+    // 能播的插件的歌單（§17 第 19 條）：認出網址後多一個選擇，預設是匯入為平台歌單。
+    testWidgets('a playable source offers matching, with the platform '
+        'playlist as the default', (tester) async {
+      final plugin = _plugin();
+      final h = await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      expect(find.byType(RadioListTile<bool>), findsNothing);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(find.text('Import as a platform playlist'), findsOneWidget);
+      expect(
+        find.text('Refreshes from the playlist on Test Source'),
+        findsOneWidget,
+      );
+      expect(find.text('Match to other sources'), findsOneWidget);
+      expect(
+        tester
+            .widget<RadioGroup<bool>>(find.byType(RadioGroup<bool>))
+            .groupValue,
+        isFalse,
+      );
+      expect(plugin.pageQueries, isEmpty, reason: 'only recognised');
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h);
+
+      expect(find.byType(PlaylistDetailPage), findsOneWidget);
+      expect(find.byType(ImportPreviewPage), findsNothing);
+      expect((await _remote(tester, h, 1)).remoteId, 'p1');
+      expect(plugin.urlQueries, hasLength(1), reason: 'recognised once');
+    });
+
+    testWidgets('choosing to match opens the preview and imports no platform '
+        'playlist', (tester) async {
+      final plugin = _plugin();
+      final h = await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      await tester.tap(find.text('Match to other sources'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ImportPreviewPage), findsOneWidget);
+      expect(find.byType(PlaylistDetailPage), findsNothing);
+      expect(
+        await tester.runAsync(() => _repository(tester, h).watchAll().first),
+        isEmpty,
+      );
+      expect(
+        await tester.runAsync(
+          () => _repository(tester, h).findRemote('fmp-test', 'p1'),
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('a Mix link and a link nobody knows offer no choice', (
+      tester,
+    ) async {
+      final plugin = FakeImportPlugin(
+        mix: true,
+        onUrl: (query) => query.url.endsWith('/m')
+            ? PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed'))
+            : null,
+      );
+      await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/m');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(find.byType(RadioListTile<bool>), findsNothing);
+      await _enterUrl(tester, 'https://example.com/x');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(find.byType(RadioListTile<bool>), findsNothing);
+      expect(plugin.urlQueries.map((q) => q.url), [
+        'https://fmp.test/m',
+        'https://example.com/x',
+      ]);
+    });
+
+    // 辨識還在進行時按「匯入」：那次辨識的結果被丟掉；匯入失敗之後，同一段輸入照樣會再辨識（審查）。
+    testWidgets('a recognition dropped by a failed import runs again for the '
+        'same link', (tester) async {
+      final recognising = Completer<PlaylistRef?>();
+      final importing = Completer<PlaylistRef?>();
+      var calls = 0;
+      final plugin = FakeImportPlugin(
+        onUrl: (_) => switch (++calls) {
+          1 => recognising.future,
+          2 => importing.future,
+          _ => PlaylistIdRef('p1'),
+        },
+      );
+      final h = await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pump();
+      recognising.complete(PlaylistIdRef('p1'));
+      await tester.pump();
+      importing.completeError(NetworkError(pluginId: 'fmp-test'));
+      await _advance(tester, h);
+      expect(find.textContaining("Couldn't import"), findsOneWidget);
+      expect(find.byType(RadioListTile<bool>), findsNothing);
+
+      // 點一下欄位（只改了游標）：同一段輸入再辨識一次。
+      await tester.tap(find.widgetWithText(TextField, 'Link'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(calls, 3);
+      expect(find.text('Match to other sources'), findsOneWidget);
+    });
+
+    testWidgets('editing the link drops the choice until it is recognised '
+        'again', (tester) async {
+      final plugin = _plugin();
+      await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      await tester.tap(find.text('Match to other sources'));
+      await tester.pump();
+
+      await _enterUrl(tester, 'https://fmp.test/p2');
+      expect(find.byType(RadioListTile<bool>), findsNothing);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(
+        tester
+            .widget<RadioGroup<bool>>(find.byType(RadioGroup<bool>))
+            .groupValue,
+        isFalse,
+        reason: 'back to the default for a new link',
       );
     });
 

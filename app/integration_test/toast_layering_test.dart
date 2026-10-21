@@ -11,6 +11,7 @@ import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/charts/explore_page.dart';
@@ -18,6 +19,8 @@ import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/home/home_page.dart';
+import 'package:fmp/ui/library/import_preview_page.dart';
+import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -28,6 +31,7 @@ import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../test/library/fake_import_plugin.dart';
 import '../test/playback/fake_source_plugin.dart';
 import '../test/ui/support/shell_harness.dart';
 
@@ -37,7 +41,7 @@ import '../test/ui/support/shell_harness.dart';
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
 // 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9；
 // Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13；播放頁的直播版，M3 PR 18c；巢狀導覽裡的頁，M4 PR 2；
-// 探索頁，M4 PR 21）：
+// 探索頁，M4 PR 21；匯入預覽頁與它的離開確認，M4 PR 19）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -49,13 +53,15 @@ void main() {
     WidgetTester tester, {
     bool live = false,
     bool libraryRead = false,
+    List<SourcePlugin>? sources,
   }) async {
-    // 錯誤詳細頁讀 `redactorProvider`；ShellHarness 不給就不 override。帳號歌單頁要插件清單。
+    // 錯誤詳細頁讀 `redactorProvider`；ShellHarness 不給就不 override。帳號歌單頁、匯入預覽要插件清單。
     final h = ShellHarness(
       redactor: Redactor(),
       live: live,
       libraryRead: libraryRead,
-      registryOfSources: libraryRead,
+      sources: sources,
+      registryOfSources: libraryRead || sources != null,
     );
     h.plugin.onLibraryPlaylists = (_) => const LibraryPlaylistPage(
       playlists: [
@@ -227,6 +233,58 @@ void main() {
 
     await expectToastOnTop(tester, h);
     expect(find.byType(ExplorePage), findsOneWidget);
+  });
+
+  // 匯入預覽頁（M4 PR 19，design §10.9）：音樂庫的巢狀導覽裡開的頁，導覽與播放列留著；離開前的確認框
+  // 開著時提示也在最上層。來源是不連網的假插件，讀完一頁就停在「開始匹配」之前；排除一首之後離開才要確認。
+  testWidgets('a toast shows above the import preview', (tester) async {
+    final source = FakeImportPlugin(
+      id: 'meta',
+      resolveStream: false,
+      onPage: (_) => const PlaylistPage(
+        playlist: RemotePlaylist(title: 'Remote'),
+        items: [
+          RemotePlaylistItem(
+            track: TrackSummary(
+              sourceTypeId: 'meta',
+              sourceId: 's1',
+              title: 'Song',
+            ),
+          ),
+        ],
+      ),
+    );
+    final (h, _) = await pumpShell(tester, sources: [source]);
+    await h.play(tester, [summary('a')]);
+    await tester.pump(const Duration(milliseconds: 200));
+    // 介面語言跟著機器的系統語言：以圖示找導覽項，不用介面字串。
+    await tester.tap(find.byIcon(Icons.library_music_outlined).first);
+    await tester.pumpAndSettle();
+    unawaited(
+      openImportPreview(
+        tester.element(find.byType(LibraryPage)),
+        pluginId: 'meta',
+        playlistId: 'p1',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ImportPreviewPage), findsOneWidget);
+    expect(find.text('Remote'), findsOneWidget);
+    expect(find.byType(PlayerBar), findsOneWidget);
+
+    await expectToastOnTop(tester, h);
+
+    await tester.pump(const Duration(seconds: 7));
+    // 沒有目標音源可以開始匹配；排除一首也算改過，離開才要確認（以圖示找，介面語言跟著系統）。
+    await tester.tap(find.text('Song'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.block));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(BackButtonIcon));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await expectToastOnTop(tester, h);
+    expect(find.byType(ImportPreviewPage), findsOneWidget);
   });
 
   // 帳號的歌單頁（M4 PR 13，design §7.3）：帳號頁在設定分頁自己的巢狀導覽裡開的頁，導覽與播放列

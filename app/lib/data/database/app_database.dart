@@ -43,6 +43,8 @@ part 'app_database.g.dart';
     PlaylistEntriesTable,
     PlaylistRemoteTable,
     ChartSettingsTable,
+    MatchResultsTable,
+    TrackOriginsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -50,7 +52,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -167,6 +169,20 @@ class AppDatabase extends _$AppDatabase {
                 schema.networkSettings.chartRefreshIntervalMinutes,
               );
               await m.create(schema.chartSettings);
+            },
+            from17To18: (m, schema) async {
+              // 既有的列這兩欄是空的＝沒設定過（依預設是目標、依插件清單排）。
+              await m.addColumn(
+                schema.sourceSettings,
+                schema.sourceSettings.matchTarget,
+              );
+              await m.addColumn(
+                schema.sourceSettings,
+                schema.sourceSettings.matchRank,
+              );
+              await m.create(schema.matchResults);
+              await m.create(schema.matchResultsSelected);
+              await m.create(schema.trackOrigins);
             },
           ),
         );

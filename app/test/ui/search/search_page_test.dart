@@ -11,6 +11,7 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_source_plugin.dart';
@@ -596,6 +597,23 @@ void main() {
       expect(await tester.binding.handlePopRoute(), isTrue);
       await tester.pumpAndSettle();
       expect(find.text('Song b').hitTestable(), findsNothing);
+    });
+
+    // 再點一次目前的導覽項退回根頁；已經在根頁時什麼都不動，根頁上的選取模式（`LocalHistoryEntry`）照舊留著
+    // （M4 PR 19 的審查：外殼只對不放行的內頁 `maybePop`）。
+    testWidgets('tapping Search again keeps the selection', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+
+      await h.open(tester, ShellDestination.search);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(find.byType(Checkbox), findsWidgets);
     });
 
     testWidgets('a new search leaves selection mode', (tester) async {

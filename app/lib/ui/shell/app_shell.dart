@@ -130,11 +130,22 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   /// 換到 [destination]；已經在那裡時退回它的根（Material 導覽列再點一次目前項目的慣例）。
+  /// 退到不放行的內頁（`PopScope(canPop: false)`：匯入預覽）就停下並交給它（`maybePop`，
+  /// 它會先確認），不直接把它關掉。
   void _select(ShellDestination destination) {
     if (destination == _destination) {
-      _navigators[destination]!.currentState?.popUntil(
-        (route) => route.isFirst,
-      );
+      final navigator = _navigators[destination]!.currentState;
+      if (navigator == null) return;
+      Route<dynamic>? guarded;
+      navigator.popUntil((route) {
+        if (route.isFirst) return true;
+        if (route.popDisposition != RoutePopDisposition.doNotPop) return false;
+        guarded = route;
+        return true;
+      });
+      // 只在停在不放行的內頁時才 `maybePop`：停在根頁時不動，根頁上的 `LocalHistoryEntry`（搜尋頁的多選）
+      // 照舊留著。
+      if (guarded != null) unawaited(navigator.maybePop());
     } else {
       setState(() => _destination = destination);
     }

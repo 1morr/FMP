@@ -71,6 +71,18 @@ final _artistSeparator = RegExp(
   r'\s*(?:/|、|,|&|;|×|\bfeat\.?(?=\s)|\bft\.?(?=\s)|\bfeaturing\b|\s+x\s+)\s*',
 );
 
+/// 同 [splitArtists]，但輸入是插件給的原字串（沒有 [foldText]）：分隔符不分大小寫，
+/// 全形的 `，；` 也認。各段保留原文（給搜尋的關鍵字用）。
+List<String> splitRawArtists(String raw) => [
+  for (final part in raw.split(_rawArtistSeparator))
+    if (compact(foldText(part)).isNotEmpty) part.trim(),
+];
+
+final _rawArtistSeparator = RegExp(
+  r'\s*(?:/|、|,|，|&|;|；|×|\bfeat\.?(?=\s)|\bft\.?(?=\s)|\bfeaturing\b|\s+x\s+)\s*',
+  caseSensitive: false,
+);
+
 /// 上傳者名稱裡不是歌手的部分：YouTube 自動產生的 `- Topic` 頻道、VEVO 頻道。
 final _uploaderDecoration = RegExp(r'\s*-\s*topic\s*$|vevo\s*$');
 

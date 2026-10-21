@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/repositories/match_results_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -352,6 +353,47 @@ final class PlaylistRepository {
             refreshIntervalHours: Value(refreshIntervalHours),
           ),
         );
+    return id;
+  });
+
+  /// 外部匯入的確認（M4 design §8.4）：一個 transaction 建一張本機（`local`）歌單、依序寫
+  /// [tracks]（`TracksRepository.upsert` 與 `playlist_entries`）、寫每一首的 [matches]
+  /// （`match_results`，同一首已有的整列以新值覆蓋），並替有選定曲目的寫 `track_origins`。
+  /// 回傳新歌單的 id。[tracks] 要包含 [matches] 的每一首選定曲目（`RESTRICT`）。
+  Future<int> createFromMatches({
+    required String name,
+    required List<TrackInfo> tracks,
+    required List<MatchResult> matches,
+  }) => _database.transaction(() async {
+    final id = await create(name: name);
+    await addTracks(id, tracks);
+    await _database.batch((batch) {
+      batch.insertAllOnConflictUpdate(_database.matchResultsTable, [
+        for (final match in matches)
+          MatchResultsTableCompanion.insert(
+            originPluginId: match.originPluginId,
+            originId: match.originId,
+            title: match.title,
+            artists: Value(match.artists),
+            durationMs: Value(match.duration?.inMilliseconds),
+            selectedTrackKey: Value(switch (match.selected) {
+              final track? => '${track.key}',
+              null => null,
+            }),
+            score: Value(match.score),
+            userSelected: Value(match.userSelected),
+          ),
+      ]);
+      batch.insertAllOnConflictUpdate(_database.trackOriginsTable, [
+        for (final match in matches)
+          if (match.selected case final track?)
+            TrackOriginsTableCompanion.insert(
+              trackKey: '${track.key}',
+              originPluginId: match.originPluginId,
+              originId: match.originId,
+            ),
+      ]);
+    });
     return id;
   });
 

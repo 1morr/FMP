@@ -7,7 +7,8 @@ import 'package:fmp/data/database/converters.dart';
 // installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
 // developer_settings（v9）、scheduler_runs（v11）、radio_stations 與
 // network_settings 的電台間隔（v12）、player_state 的 Mix 五欄（v13）、tracks 的分 P 兩欄（v14）），M4 加
-// playlists 與 playlist_entries（v15）。
+// playlists 與 playlist_entries（v15）、playlist_remote（v16）、network_settings 的排行間隔與
+// chart_settings（v17）、match_results、track_origins 與 source_settings 的匹配兩欄（v18）。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -324,6 +325,13 @@ class SourceSettingsTable extends Table {
   /// 「以登入身分瀏覽與播放」（ADR 0012 §決定 6）。
   late final browseAsLoggedIn = boolean().nullable()();
 
+  /// 外部匯入的匹配目標（M4 design §8.3）：空＝依預設（已啟用、同時有 `search` 與
+  /// `resolveStream` 的都是目標），`false`＝使用者取消勾選。
+  late final matchTarget = boolean().nullable()();
+
+  /// 匹配目標的順序，由小到大；空的排在後面、依插件清單（ADR 0014 §決定 9）。
+  late final matchRank = integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {pluginId};
 }
@@ -532,4 +540,52 @@ class ChartSettingsTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {pluginId, chartId};
+}
+
+/// 外部歌曲的匹配結果（ADR 0033 §決定 1、M4 design §3.1、§8.4）：外部匯入確認時每首寫一列，
+/// 同一首再被匯入時直接沿用（含使用者的改選與排除），不再搜尋。`artists` 是插件給的原字串
+/// （`TrackSummary.uploader`）。`selected_track_key` 空＝匹配失敗或排除（`user_selected` 分得出
+/// 兩者）；它是 `RESTRICT` 且算孤兒的參照者，所以有索引（理由同 `queue_entries`）。前 5 名候選
+/// 不存。沒有外鍵到 `installed_plugins`。
+@TableIndex(name: 'match_results_selected', columns: {#selectedTrackKey})
+@DataClassName('MatchResultRow')
+class MatchResultsTable extends Table {
+  @override
+  String get tableName => 'match_results';
+
+  late final originPluginId = text()();
+  late final originId = text()();
+  late final title = text()();
+  late final artists = text().nullable()();
+  late final durationMs = integer().nullable()();
+  late final selectedTrackKey = text().nullable().references(
+    TracksTable,
+    #trackKey,
+    onDelete: KeyAction.restrict,
+  )();
+  late final score = real().nullable()();
+  late final userSelected = boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {originPluginId, originId};
+}
+
+/// 曲目的原始平台與 id（ADR 0033 §決定 1、M4 design §3.1）：外部匯入選定的曲目各寫一列。
+/// 一首曲目可以同時是 Spotify 某首與 QQ 某首的匹配結果，所以主鍵含插件。曲目刪除時連帶
+/// 刪除，不算孤兒的參照者（`match_results` 的列還在，下次匯入同一首照樣沿用）。
+@DataClassName('TrackOriginRow')
+class TrackOriginsTable extends Table {
+  @override
+  String get tableName => 'track_origins';
+
+  late final trackKey = text().references(
+    TracksTable,
+    #trackKey,
+    onDelete: KeyAction.cascade,
+  )();
+  late final originPluginId = text()();
+  late final originId = text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {trackKey, originPluginId};
 }

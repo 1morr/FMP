@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§3.1 新表、§3.2 schema、§5.1 匯入、§8 匹配、§10.8 匯入對話框、§10.9 預覽頁、§10.10 設定音樂庫、§17 第 7、8、12、18、19 條"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 5、6 外部匯入與匹配（要先補 §17 第 19 條）"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "§決定 1 欄位、§決定 12（要先補）"}
+{"file": "docs/adr/0014-script-source-plugins.md", "reason": "§決定 9 匹配結果持久化與目標排序"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "預覽頁與設定清單的版面"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "改 schema、migration 測試、repository"}
+{"file": ".trellis/spec/app/matching/index.md", "reason": "匹配核心的用法"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "importPlaylist、測試插件"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、guideline 測試、巢狀 Navigator"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}

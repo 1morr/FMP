@@ -111,6 +111,9 @@ class TranslationsZhCn extends Translations
   late final Translations$librarySettings$zh_CN librarySettings =
       Translations$librarySettings$zh_CN.internal(_root);
   @override
+  late final Translations$importPreview$zh_CN importPreview =
+      Translations$importPreview$zh_CN.internal(_root);
+  @override
   late final Translations$radio$zh_CN radio = Translations$radio$zh_CN.internal(
     _root,
   );
@@ -560,8 +563,6 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   @override
   String get importUnrecognized => '已安装的音源都不认识这个网址';
   @override
-  String get importUnsupported => '暂不支持导入这种网址';
-  @override
   String importFailed({required Object reason}) => '无法导入：${reason}';
   @override
   String get importDone => '已导入歌单';
@@ -672,6 +673,15 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   String get removeRemoteNone => '没有移除任何曲目';
   @override
   String removeRemoteFailed({required Object reason}) => '无法从远端歌单移除：${reason}';
+  @override
+  String get importAsPlatform => '导入为平台歌单';
+  @override
+  String importAsPlatformHint({required Object source}) =>
+      '跟着 ${source} 上的歌单刷新';
+  @override
+  String get importAsMatch => '匹配到其他音源';
+  @override
+  String get importAsMatchHint => '在其他音源找同一首歌，建成不会刷新的本地歌单';
 }
 
 // Path: playlist
@@ -1706,6 +1716,117 @@ class Translations$librarySettings$zh_CN
   String reorderFailed({required Object reason}) => '无法调整顺序：${reason}';
   @override
   String toggleFailed({required Object reason}) => '无法更改首页排行：${reason}';
+  @override
+  String get matchTargets => '匹配目标音源';
+  @override
+  String get matchTargetsHint =>
+      '从不能播放的音源导入、或匹配到其他音源时，在勾选的音源搜索同一首歌；分数相同时按这个顺序。拖动调整顺序。';
+  @override
+  String get noMatchTargets => '没有可以作为匹配目标的音源';
+  @override
+  String get noMatchTargetsHint => '安装并启用能搜索与播放的插件，它就会出现在这里。';
+  @override
+  String matchReorderFailed({required Object reason}) =>
+      '无法调整匹配目标的顺序：${reason}';
+  @override
+  String matchToggleFailed({required Object reason}) => '无法更改匹配目标：${reason}';
+}
+
+// Path: importPreview
+class Translations$importPreview$zh_CN
+    extends Translations$importPreview$zh_TW {
+  Translations$importPreview$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '导入预览';
+  @override
+  String get cancel => '取消导入';
+  @override
+  String from({required Object source}) => '来自 ${source}';
+  @override
+  String reading({required Object count}) => '读取中 ${count} 首';
+  @override
+  String readFailed({required Object reason}) => '读不到歌单：${reason}';
+  @override
+  String get retry => '重试';
+  @override
+  String songs({required Object count}) => '${count} 首';
+  @override
+  String get songsOne => '1 首';
+  @override
+  String searchesEach({required Object count}) => '每首会在 ${count} 个音源搜索';
+  @override
+  String get searchesEachOne => '每首会在 1 个音源搜索';
+  @override
+  String reused({required Object count}) => '${count} 首沿用之前的匹配';
+  @override
+  String get targets => '匹配目标';
+  @override
+  String get noTargets => '没有可以匹配的音源：安装并启用能搜索与播放的插件。';
+  @override
+  String get pickTarget => '至少勾选一个音源';
+  @override
+  String get lastTarget => '至少要有一个匹配目标';
+  @override
+  String get start => '开始匹配';
+  @override
+  String progress({required Object done, required Object total}) =>
+      '已匹配 ${done}/${total}';
+  @override
+  String get truncated => '来源只提供了部分曲目';
+  @override
+  String get pending => '等待中';
+  @override
+  String get searching => '搜索中…';
+  @override
+  String get unmatched => '匹配失败';
+  @override
+  String get searchFailed => '搜索失败';
+  @override
+  String get excluded => '已排除';
+  @override
+  String get reusedTag => '沿用之前的匹配';
+  @override
+  String get reusedHint => '沿用之前的匹配，没有重新搜索。重搜可以看其他候选。';
+  @override
+  String score({required Object percent}) => '${percent}%';
+  @override
+  String get noCandidates => '没有候选';
+  @override
+  String get showCandidates => '显示候选';
+  @override
+  String get hideCandidates => '收起候选';
+  @override
+  String get keyword => '搜索关键词';
+  @override
+  String get research => '重搜';
+  @override
+  String get exclude => '排除';
+  @override
+  String get include => '取消排除';
+  @override
+  String get create => '创建歌单';
+  @override
+  String skipped({required Object count}) => '${count} 首不会加入';
+  @override
+  String get skippedOne => '1 首不会加入';
+  @override
+  String get created => '已创建歌单';
+  @override
+  String createFailed({required Object reason}) => '无法创建歌单：${reason}';
+  @override
+  String get leaveTitle => '放弃这次导入？';
+  @override
+  String get leaveBody => '目前的匹配结果会丢掉，什么都不会保存。';
+  @override
+  String get leaveConfirm => '放弃';
+  @override
+  String get leaveKeep => '继续';
 }
 
 // Path: radio

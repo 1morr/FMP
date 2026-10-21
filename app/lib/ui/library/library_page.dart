@@ -18,6 +18,7 @@ import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/library/import_dialog.dart';
+import 'package:fmp/ui/library/import_preview_page.dart';
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_actions.dart';
@@ -86,6 +87,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     if (result == null || !mounted) return;
     if (result is CreatedMix) {
       unawaited(openPlaylist(context, result.playlistId));
+      return;
+    }
+    // 僅元資料來源，或選了「配對到其他音源」：開匯入預覽（M4 design §10.9）。
+    if (result is ImportForMatching) {
+      unawaited(
+        openImportPreview(
+          context,
+          pluginId: result.pluginId,
+          playlistId: result.playlistId,
+        ),
+      );
       return;
     }
     if (result is! ImportedPlaylist) return;

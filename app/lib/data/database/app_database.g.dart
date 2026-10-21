@@ -5377,8 +5377,38 @@ class $SourceSettingsTableTable extends SourceSettingsTable
       'CHECK ("browse_as_logged_in" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _matchTargetMeta = const VerificationMeta(
+    'matchTarget',
+  );
   @override
-  List<GeneratedColumn> get $columns => [pluginId, browseAsLoggedIn];
+  late final GeneratedColumn<bool> matchTarget = GeneratedColumn<bool>(
+    'match_target',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("match_target" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _matchRankMeta = const VerificationMeta(
+    'matchRank',
+  );
+  @override
+  late final GeneratedColumn<int> matchRank = GeneratedColumn<int>(
+    'match_rank',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    pluginId,
+    browseAsLoggedIn,
+    matchTarget,
+    matchRank,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5408,6 +5438,21 @@ class $SourceSettingsTableTable extends SourceSettingsTable
         ),
       );
     }
+    if (data.containsKey('match_target')) {
+      context.handle(
+        _matchTargetMeta,
+        matchTarget.isAcceptableOrUnknown(
+          data['match_target']!,
+          _matchTargetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('match_rank')) {
+      context.handle(
+        _matchRankMeta,
+        matchRank.isAcceptableOrUnknown(data['match_rank']!, _matchRankMeta),
+      );
+    }
     return context;
   }
 
@@ -5425,6 +5470,14 @@ class $SourceSettingsTableTable extends SourceSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}browse_as_logged_in'],
       ),
+      matchTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}match_target'],
+      ),
+      matchRank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}match_rank'],
+      ),
     );
   }
 
@@ -5440,13 +5493,31 @@ class SourceSettingsRow extends DataClass
 
   /// 「以登入身分瀏覽與播放」（ADR 0012 §決定 6）。
   final bool? browseAsLoggedIn;
-  const SourceSettingsRow({required this.pluginId, this.browseAsLoggedIn});
+
+  /// 外部匯入的匹配目標（M4 design §8.3）：空＝依預設（已啟用、同時有 `search` 與
+  /// `resolveStream` 的都是目標），`false`＝使用者取消勾選。
+  final bool? matchTarget;
+
+  /// 匹配目標的順序，由小到大；空的排在後面、依插件清單（ADR 0014 §決定 9）。
+  final int? matchRank;
+  const SourceSettingsRow({
+    required this.pluginId,
+    this.browseAsLoggedIn,
+    this.matchTarget,
+    this.matchRank,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['plugin_id'] = Variable<String>(pluginId);
     if (!nullToAbsent || browseAsLoggedIn != null) {
       map['browse_as_logged_in'] = Variable<bool>(browseAsLoggedIn);
+    }
+    if (!nullToAbsent || matchTarget != null) {
+      map['match_target'] = Variable<bool>(matchTarget);
+    }
+    if (!nullToAbsent || matchRank != null) {
+      map['match_rank'] = Variable<int>(matchRank);
     }
     return map;
   }
@@ -5457,6 +5528,12 @@ class SourceSettingsRow extends DataClass
       browseAsLoggedIn: browseAsLoggedIn == null && nullToAbsent
           ? const Value.absent()
           : Value(browseAsLoggedIn),
+      matchTarget: matchTarget == null && nullToAbsent
+          ? const Value.absent()
+          : Value(matchTarget),
+      matchRank: matchRank == null && nullToAbsent
+          ? const Value.absent()
+          : Value(matchRank),
     );
   }
 
@@ -5468,6 +5545,8 @@ class SourceSettingsRow extends DataClass
     return SourceSettingsRow(
       pluginId: serializer.fromJson<String>(json['pluginId']),
       browseAsLoggedIn: serializer.fromJson<bool?>(json['browseAsLoggedIn']),
+      matchTarget: serializer.fromJson<bool?>(json['matchTarget']),
+      matchRank: serializer.fromJson<int?>(json['matchRank']),
     );
   }
   @override
@@ -5476,17 +5555,23 @@ class SourceSettingsRow extends DataClass
     return <String, dynamic>{
       'pluginId': serializer.toJson<String>(pluginId),
       'browseAsLoggedIn': serializer.toJson<bool?>(browseAsLoggedIn),
+      'matchTarget': serializer.toJson<bool?>(matchTarget),
+      'matchRank': serializer.toJson<int?>(matchRank),
     };
   }
 
   SourceSettingsRow copyWith({
     String? pluginId,
     Value<bool?> browseAsLoggedIn = const Value.absent(),
+    Value<bool?> matchTarget = const Value.absent(),
+    Value<int?> matchRank = const Value.absent(),
   }) => SourceSettingsRow(
     pluginId: pluginId ?? this.pluginId,
     browseAsLoggedIn: browseAsLoggedIn.present
         ? browseAsLoggedIn.value
         : this.browseAsLoggedIn,
+    matchTarget: matchTarget.present ? matchTarget.value : this.matchTarget,
+    matchRank: matchRank.present ? matchRank.value : this.matchRank,
   );
   SourceSettingsRow copyWithCompanion(SourceSettingsTableCompanion data) {
     return SourceSettingsRow(
@@ -5494,6 +5579,10 @@ class SourceSettingsRow extends DataClass
       browseAsLoggedIn: data.browseAsLoggedIn.present
           ? data.browseAsLoggedIn.value
           : this.browseAsLoggedIn,
+      matchTarget: data.matchTarget.present
+          ? data.matchTarget.value
+          : this.matchTarget,
+      matchRank: data.matchRank.present ? data.matchRank.value : this.matchRank,
     );
   }
 
@@ -5501,43 +5590,58 @@ class SourceSettingsRow extends DataClass
   String toString() {
     return (StringBuffer('SourceSettingsRow(')
           ..write('pluginId: $pluginId, ')
-          ..write('browseAsLoggedIn: $browseAsLoggedIn')
+          ..write('browseAsLoggedIn: $browseAsLoggedIn, ')
+          ..write('matchTarget: $matchTarget, ')
+          ..write('matchRank: $matchRank')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(pluginId, browseAsLoggedIn);
+  int get hashCode =>
+      Object.hash(pluginId, browseAsLoggedIn, matchTarget, matchRank);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is SourceSettingsRow &&
           other.pluginId == this.pluginId &&
-          other.browseAsLoggedIn == this.browseAsLoggedIn);
+          other.browseAsLoggedIn == this.browseAsLoggedIn &&
+          other.matchTarget == this.matchTarget &&
+          other.matchRank == this.matchRank);
 }
 
 class SourceSettingsTableCompanion extends UpdateCompanion<SourceSettingsRow> {
   final Value<String> pluginId;
   final Value<bool?> browseAsLoggedIn;
+  final Value<bool?> matchTarget;
+  final Value<int?> matchRank;
   final Value<int> rowid;
   const SourceSettingsTableCompanion({
     this.pluginId = const Value.absent(),
     this.browseAsLoggedIn = const Value.absent(),
+    this.matchTarget = const Value.absent(),
+    this.matchRank = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SourceSettingsTableCompanion.insert({
     required String pluginId,
     this.browseAsLoggedIn = const Value.absent(),
+    this.matchTarget = const Value.absent(),
+    this.matchRank = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : pluginId = Value(pluginId);
   static Insertable<SourceSettingsRow> custom({
     Expression<String>? pluginId,
     Expression<bool>? browseAsLoggedIn,
+    Expression<bool>? matchTarget,
+    Expression<int>? matchRank,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (pluginId != null) 'plugin_id': pluginId,
       if (browseAsLoggedIn != null) 'browse_as_logged_in': browseAsLoggedIn,
+      if (matchTarget != null) 'match_target': matchTarget,
+      if (matchRank != null) 'match_rank': matchRank,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5545,11 +5649,15 @@ class SourceSettingsTableCompanion extends UpdateCompanion<SourceSettingsRow> {
   SourceSettingsTableCompanion copyWith({
     Value<String>? pluginId,
     Value<bool?>? browseAsLoggedIn,
+    Value<bool?>? matchTarget,
+    Value<int?>? matchRank,
     Value<int>? rowid,
   }) {
     return SourceSettingsTableCompanion(
       pluginId: pluginId ?? this.pluginId,
       browseAsLoggedIn: browseAsLoggedIn ?? this.browseAsLoggedIn,
+      matchTarget: matchTarget ?? this.matchTarget,
+      matchRank: matchRank ?? this.matchRank,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5563,6 +5671,12 @@ class SourceSettingsTableCompanion extends UpdateCompanion<SourceSettingsRow> {
     if (browseAsLoggedIn.present) {
       map['browse_as_logged_in'] = Variable<bool>(browseAsLoggedIn.value);
     }
+    if (matchTarget.present) {
+      map['match_target'] = Variable<bool>(matchTarget.value);
+    }
+    if (matchRank.present) {
+      map['match_rank'] = Variable<int>(matchRank.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5574,6 +5688,8 @@ class SourceSettingsTableCompanion extends UpdateCompanion<SourceSettingsRow> {
     return (StringBuffer('SourceSettingsTableCompanion(')
           ..write('pluginId: $pluginId, ')
           ..write('browseAsLoggedIn: $browseAsLoggedIn, ')
+          ..write('matchTarget: $matchTarget, ')
+          ..write('matchRank: $matchRank, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9200,6 +9316,823 @@ class ChartSettingsTableCompanion extends UpdateCompanion<ChartSettingsRow> {
   }
 }
 
+class $MatchResultsTableTable extends MatchResultsTable
+    with TableInfo<$MatchResultsTableTable, MatchResultRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MatchResultsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _originPluginIdMeta = const VerificationMeta(
+    'originPluginId',
+  );
+  @override
+  late final GeneratedColumn<String> originPluginId = GeneratedColumn<String>(
+    'origin_plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originIdMeta = const VerificationMeta(
+    'originId',
+  );
+  @override
+  late final GeneratedColumn<String> originId = GeneratedColumn<String>(
+    'origin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _artistsMeta = const VerificationMeta(
+    'artists',
+  );
+  @override
+  late final GeneratedColumn<String> artists = GeneratedColumn<String>(
+    'artists',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _durationMsMeta = const VerificationMeta(
+    'durationMs',
+  );
+  @override
+  late final GeneratedColumn<int> durationMs = GeneratedColumn<int>(
+    'duration_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _selectedTrackKeyMeta = const VerificationMeta(
+    'selectedTrackKey',
+  );
+  @override
+  late final GeneratedColumn<String> selectedTrackKey = GeneratedColumn<String>(
+    'selected_track_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tracks (track_key) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _scoreMeta = const VerificationMeta('score');
+  @override
+  late final GeneratedColumn<double> score = GeneratedColumn<double>(
+    'score',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userSelectedMeta = const VerificationMeta(
+    'userSelected',
+  );
+  @override
+  late final GeneratedColumn<bool> userSelected = GeneratedColumn<bool>(
+    'user_selected',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("user_selected" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    originPluginId,
+    originId,
+    title,
+    artists,
+    durationMs,
+    selectedTrackKey,
+    score,
+    userSelected,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'match_results';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MatchResultRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('origin_plugin_id')) {
+      context.handle(
+        _originPluginIdMeta,
+        originPluginId.isAcceptableOrUnknown(
+          data['origin_plugin_id']!,
+          _originPluginIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originPluginIdMeta);
+    }
+    if (data.containsKey('origin_id')) {
+      context.handle(
+        _originIdMeta,
+        originId.isAcceptableOrUnknown(data['origin_id']!, _originIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_originIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('artists')) {
+      context.handle(
+        _artistsMeta,
+        artists.isAcceptableOrUnknown(data['artists']!, _artistsMeta),
+      );
+    }
+    if (data.containsKey('duration_ms')) {
+      context.handle(
+        _durationMsMeta,
+        durationMs.isAcceptableOrUnknown(data['duration_ms']!, _durationMsMeta),
+      );
+    }
+    if (data.containsKey('selected_track_key')) {
+      context.handle(
+        _selectedTrackKeyMeta,
+        selectedTrackKey.isAcceptableOrUnknown(
+          data['selected_track_key']!,
+          _selectedTrackKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('score')) {
+      context.handle(
+        _scoreMeta,
+        score.isAcceptableOrUnknown(data['score']!, _scoreMeta),
+      );
+    }
+    if (data.containsKey('user_selected')) {
+      context.handle(
+        _userSelectedMeta,
+        userSelected.isAcceptableOrUnknown(
+          data['user_selected']!,
+          _userSelectedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {originPluginId, originId};
+  @override
+  MatchResultRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MatchResultRow(
+      originPluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_plugin_id'],
+      )!,
+      originId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      artists: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artists'],
+      ),
+      durationMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_ms'],
+      ),
+      selectedTrackKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}selected_track_key'],
+      ),
+      score: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}score'],
+      ),
+      userSelected: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}user_selected'],
+      )!,
+    );
+  }
+
+  @override
+  $MatchResultsTableTable createAlias(String alias) {
+    return $MatchResultsTableTable(attachedDatabase, alias);
+  }
+}
+
+class MatchResultRow extends DataClass implements Insertable<MatchResultRow> {
+  final String originPluginId;
+  final String originId;
+  final String title;
+  final String? artists;
+  final int? durationMs;
+  final String? selectedTrackKey;
+  final double? score;
+  final bool userSelected;
+  const MatchResultRow({
+    required this.originPluginId,
+    required this.originId,
+    required this.title,
+    this.artists,
+    this.durationMs,
+    this.selectedTrackKey,
+    this.score,
+    required this.userSelected,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['origin_plugin_id'] = Variable<String>(originPluginId);
+    map['origin_id'] = Variable<String>(originId);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || artists != null) {
+      map['artists'] = Variable<String>(artists);
+    }
+    if (!nullToAbsent || durationMs != null) {
+      map['duration_ms'] = Variable<int>(durationMs);
+    }
+    if (!nullToAbsent || selectedTrackKey != null) {
+      map['selected_track_key'] = Variable<String>(selectedTrackKey);
+    }
+    if (!nullToAbsent || score != null) {
+      map['score'] = Variable<double>(score);
+    }
+    map['user_selected'] = Variable<bool>(userSelected);
+    return map;
+  }
+
+  MatchResultsTableCompanion toCompanion(bool nullToAbsent) {
+    return MatchResultsTableCompanion(
+      originPluginId: Value(originPluginId),
+      originId: Value(originId),
+      title: Value(title),
+      artists: artists == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artists),
+      durationMs: durationMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(durationMs),
+      selectedTrackKey: selectedTrackKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selectedTrackKey),
+      score: score == null && nullToAbsent
+          ? const Value.absent()
+          : Value(score),
+      userSelected: Value(userSelected),
+    );
+  }
+
+  factory MatchResultRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MatchResultRow(
+      originPluginId: serializer.fromJson<String>(json['originPluginId']),
+      originId: serializer.fromJson<String>(json['originId']),
+      title: serializer.fromJson<String>(json['title']),
+      artists: serializer.fromJson<String?>(json['artists']),
+      durationMs: serializer.fromJson<int?>(json['durationMs']),
+      selectedTrackKey: serializer.fromJson<String?>(json['selectedTrackKey']),
+      score: serializer.fromJson<double?>(json['score']),
+      userSelected: serializer.fromJson<bool>(json['userSelected']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'originPluginId': serializer.toJson<String>(originPluginId),
+      'originId': serializer.toJson<String>(originId),
+      'title': serializer.toJson<String>(title),
+      'artists': serializer.toJson<String?>(artists),
+      'durationMs': serializer.toJson<int?>(durationMs),
+      'selectedTrackKey': serializer.toJson<String?>(selectedTrackKey),
+      'score': serializer.toJson<double?>(score),
+      'userSelected': serializer.toJson<bool>(userSelected),
+    };
+  }
+
+  MatchResultRow copyWith({
+    String? originPluginId,
+    String? originId,
+    String? title,
+    Value<String?> artists = const Value.absent(),
+    Value<int?> durationMs = const Value.absent(),
+    Value<String?> selectedTrackKey = const Value.absent(),
+    Value<double?> score = const Value.absent(),
+    bool? userSelected,
+  }) => MatchResultRow(
+    originPluginId: originPluginId ?? this.originPluginId,
+    originId: originId ?? this.originId,
+    title: title ?? this.title,
+    artists: artists.present ? artists.value : this.artists,
+    durationMs: durationMs.present ? durationMs.value : this.durationMs,
+    selectedTrackKey: selectedTrackKey.present
+        ? selectedTrackKey.value
+        : this.selectedTrackKey,
+    score: score.present ? score.value : this.score,
+    userSelected: userSelected ?? this.userSelected,
+  );
+  MatchResultRow copyWithCompanion(MatchResultsTableCompanion data) {
+    return MatchResultRow(
+      originPluginId: data.originPluginId.present
+          ? data.originPluginId.value
+          : this.originPluginId,
+      originId: data.originId.present ? data.originId.value : this.originId,
+      title: data.title.present ? data.title.value : this.title,
+      artists: data.artists.present ? data.artists.value : this.artists,
+      durationMs: data.durationMs.present
+          ? data.durationMs.value
+          : this.durationMs,
+      selectedTrackKey: data.selectedTrackKey.present
+          ? data.selectedTrackKey.value
+          : this.selectedTrackKey,
+      score: data.score.present ? data.score.value : this.score,
+      userSelected: data.userSelected.present
+          ? data.userSelected.value
+          : this.userSelected,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchResultRow(')
+          ..write('originPluginId: $originPluginId, ')
+          ..write('originId: $originId, ')
+          ..write('title: $title, ')
+          ..write('artists: $artists, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('selectedTrackKey: $selectedTrackKey, ')
+          ..write('score: $score, ')
+          ..write('userSelected: $userSelected')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    originPluginId,
+    originId,
+    title,
+    artists,
+    durationMs,
+    selectedTrackKey,
+    score,
+    userSelected,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MatchResultRow &&
+          other.originPluginId == this.originPluginId &&
+          other.originId == this.originId &&
+          other.title == this.title &&
+          other.artists == this.artists &&
+          other.durationMs == this.durationMs &&
+          other.selectedTrackKey == this.selectedTrackKey &&
+          other.score == this.score &&
+          other.userSelected == this.userSelected);
+}
+
+class MatchResultsTableCompanion extends UpdateCompanion<MatchResultRow> {
+  final Value<String> originPluginId;
+  final Value<String> originId;
+  final Value<String> title;
+  final Value<String?> artists;
+  final Value<int?> durationMs;
+  final Value<String?> selectedTrackKey;
+  final Value<double?> score;
+  final Value<bool> userSelected;
+  final Value<int> rowid;
+  const MatchResultsTableCompanion({
+    this.originPluginId = const Value.absent(),
+    this.originId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.artists = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.selectedTrackKey = const Value.absent(),
+    this.score = const Value.absent(),
+    this.userSelected = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MatchResultsTableCompanion.insert({
+    required String originPluginId,
+    required String originId,
+    required String title,
+    this.artists = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.selectedTrackKey = const Value.absent(),
+    this.score = const Value.absent(),
+    this.userSelected = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : originPluginId = Value(originPluginId),
+       originId = Value(originId),
+       title = Value(title);
+  static Insertable<MatchResultRow> custom({
+    Expression<String>? originPluginId,
+    Expression<String>? originId,
+    Expression<String>? title,
+    Expression<String>? artists,
+    Expression<int>? durationMs,
+    Expression<String>? selectedTrackKey,
+    Expression<double>? score,
+    Expression<bool>? userSelected,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (originPluginId != null) 'origin_plugin_id': originPluginId,
+      if (originId != null) 'origin_id': originId,
+      if (title != null) 'title': title,
+      if (artists != null) 'artists': artists,
+      if (durationMs != null) 'duration_ms': durationMs,
+      if (selectedTrackKey != null) 'selected_track_key': selectedTrackKey,
+      if (score != null) 'score': score,
+      if (userSelected != null) 'user_selected': userSelected,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MatchResultsTableCompanion copyWith({
+    Value<String>? originPluginId,
+    Value<String>? originId,
+    Value<String>? title,
+    Value<String?>? artists,
+    Value<int?>? durationMs,
+    Value<String?>? selectedTrackKey,
+    Value<double?>? score,
+    Value<bool>? userSelected,
+    Value<int>? rowid,
+  }) {
+    return MatchResultsTableCompanion(
+      originPluginId: originPluginId ?? this.originPluginId,
+      originId: originId ?? this.originId,
+      title: title ?? this.title,
+      artists: artists ?? this.artists,
+      durationMs: durationMs ?? this.durationMs,
+      selectedTrackKey: selectedTrackKey ?? this.selectedTrackKey,
+      score: score ?? this.score,
+      userSelected: userSelected ?? this.userSelected,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (originPluginId.present) {
+      map['origin_plugin_id'] = Variable<String>(originPluginId.value);
+    }
+    if (originId.present) {
+      map['origin_id'] = Variable<String>(originId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (artists.present) {
+      map['artists'] = Variable<String>(artists.value);
+    }
+    if (durationMs.present) {
+      map['duration_ms'] = Variable<int>(durationMs.value);
+    }
+    if (selectedTrackKey.present) {
+      map['selected_track_key'] = Variable<String>(selectedTrackKey.value);
+    }
+    if (score.present) {
+      map['score'] = Variable<double>(score.value);
+    }
+    if (userSelected.present) {
+      map['user_selected'] = Variable<bool>(userSelected.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchResultsTableCompanion(')
+          ..write('originPluginId: $originPluginId, ')
+          ..write('originId: $originId, ')
+          ..write('title: $title, ')
+          ..write('artists: $artists, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('selectedTrackKey: $selectedTrackKey, ')
+          ..write('score: $score, ')
+          ..write('userSelected: $userSelected, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TrackOriginsTableTable extends TrackOriginsTable
+    with TableInfo<$TrackOriginsTableTable, TrackOriginRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackOriginsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _trackKeyMeta = const VerificationMeta(
+    'trackKey',
+  );
+  @override
+  late final GeneratedColumn<String> trackKey = GeneratedColumn<String>(
+    'track_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tracks (track_key) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _originPluginIdMeta = const VerificationMeta(
+    'originPluginId',
+  );
+  @override
+  late final GeneratedColumn<String> originPluginId = GeneratedColumn<String>(
+    'origin_plugin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originIdMeta = const VerificationMeta(
+    'originId',
+  );
+  @override
+  late final GeneratedColumn<String> originId = GeneratedColumn<String>(
+    'origin_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [trackKey, originPluginId, originId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'track_origins';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackOriginRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('track_key')) {
+      context.handle(
+        _trackKeyMeta,
+        trackKey.isAcceptableOrUnknown(data['track_key']!, _trackKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_trackKeyMeta);
+    }
+    if (data.containsKey('origin_plugin_id')) {
+      context.handle(
+        _originPluginIdMeta,
+        originPluginId.isAcceptableOrUnknown(
+          data['origin_plugin_id']!,
+          _originPluginIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originPluginIdMeta);
+    }
+    if (data.containsKey('origin_id')) {
+      context.handle(
+        _originIdMeta,
+        originId.isAcceptableOrUnknown(data['origin_id']!, _originIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_originIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {trackKey, originPluginId};
+  @override
+  TrackOriginRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackOriginRow(
+      trackKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_key'],
+      )!,
+      originPluginId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_plugin_id'],
+      )!,
+      originId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin_id'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackOriginsTableTable createAlias(String alias) {
+    return $TrackOriginsTableTable(attachedDatabase, alias);
+  }
+}
+
+class TrackOriginRow extends DataClass implements Insertable<TrackOriginRow> {
+  final String trackKey;
+  final String originPluginId;
+  final String originId;
+  const TrackOriginRow({
+    required this.trackKey,
+    required this.originPluginId,
+    required this.originId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['track_key'] = Variable<String>(trackKey);
+    map['origin_plugin_id'] = Variable<String>(originPluginId);
+    map['origin_id'] = Variable<String>(originId);
+    return map;
+  }
+
+  TrackOriginsTableCompanion toCompanion(bool nullToAbsent) {
+    return TrackOriginsTableCompanion(
+      trackKey: Value(trackKey),
+      originPluginId: Value(originPluginId),
+      originId: Value(originId),
+    );
+  }
+
+  factory TrackOriginRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackOriginRow(
+      trackKey: serializer.fromJson<String>(json['trackKey']),
+      originPluginId: serializer.fromJson<String>(json['originPluginId']),
+      originId: serializer.fromJson<String>(json['originId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'trackKey': serializer.toJson<String>(trackKey),
+      'originPluginId': serializer.toJson<String>(originPluginId),
+      'originId': serializer.toJson<String>(originId),
+    };
+  }
+
+  TrackOriginRow copyWith({
+    String? trackKey,
+    String? originPluginId,
+    String? originId,
+  }) => TrackOriginRow(
+    trackKey: trackKey ?? this.trackKey,
+    originPluginId: originPluginId ?? this.originPluginId,
+    originId: originId ?? this.originId,
+  );
+  TrackOriginRow copyWithCompanion(TrackOriginsTableCompanion data) {
+    return TrackOriginRow(
+      trackKey: data.trackKey.present ? data.trackKey.value : this.trackKey,
+      originPluginId: data.originPluginId.present
+          ? data.originPluginId.value
+          : this.originPluginId,
+      originId: data.originId.present ? data.originId.value : this.originId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackOriginRow(')
+          ..write('trackKey: $trackKey, ')
+          ..write('originPluginId: $originPluginId, ')
+          ..write('originId: $originId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(trackKey, originPluginId, originId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackOriginRow &&
+          other.trackKey == this.trackKey &&
+          other.originPluginId == this.originPluginId &&
+          other.originId == this.originId);
+}
+
+class TrackOriginsTableCompanion extends UpdateCompanion<TrackOriginRow> {
+  final Value<String> trackKey;
+  final Value<String> originPluginId;
+  final Value<String> originId;
+  final Value<int> rowid;
+  const TrackOriginsTableCompanion({
+    this.trackKey = const Value.absent(),
+    this.originPluginId = const Value.absent(),
+    this.originId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TrackOriginsTableCompanion.insert({
+    required String trackKey,
+    required String originPluginId,
+    required String originId,
+    this.rowid = const Value.absent(),
+  }) : trackKey = Value(trackKey),
+       originPluginId = Value(originPluginId),
+       originId = Value(originId);
+  static Insertable<TrackOriginRow> custom({
+    Expression<String>? trackKey,
+    Expression<String>? originPluginId,
+    Expression<String>? originId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (trackKey != null) 'track_key': trackKey,
+      if (originPluginId != null) 'origin_plugin_id': originPluginId,
+      if (originId != null) 'origin_id': originId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TrackOriginsTableCompanion copyWith({
+    Value<String>? trackKey,
+    Value<String>? originPluginId,
+    Value<String>? originId,
+    Value<int>? rowid,
+  }) {
+    return TrackOriginsTableCompanion(
+      trackKey: trackKey ?? this.trackKey,
+      originPluginId: originPluginId ?? this.originPluginId,
+      originId: originId ?? this.originId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (trackKey.present) {
+      map['track_key'] = Variable<String>(trackKey.value);
+    }
+    if (originPluginId.present) {
+      map['origin_plugin_id'] = Variable<String>(originPluginId.value);
+    }
+    if (originId.present) {
+      map['origin_id'] = Variable<String>(originId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackOriginsTableCompanion(')
+          ..write('trackKey: $trackKey, ')
+          ..write('originPluginId: $originPluginId, ')
+          ..write('originId: $originId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9243,6 +10176,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PlaylistRemoteTableTable(this);
   late final $ChartSettingsTableTable chartSettingsTable =
       $ChartSettingsTableTable(this);
+  late final $MatchResultsTableTable matchResultsTable =
+      $MatchResultsTableTable(this);
+  late final $TrackOriginsTableTable trackOriginsTable =
+      $TrackOriginsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -9262,6 +10199,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final Index playlistEntriesTrackKey = Index(
     'playlist_entries_track_key',
     'CREATE INDEX playlist_entries_track_key ON playlist_entries (track_key)',
+  );
+  late final Index matchResultsSelected = Index(
+    'match_results_selected',
+    'CREATE INDEX match_results_selected ON match_results (selected_track_key)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -9288,11 +10229,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlistEntriesTable,
     playlistRemoteTable,
     chartSettingsTable,
+    matchResultsTable,
+    trackOriginsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
     playlistEntriesPlaylist,
     playlistEntriesTrackKey,
+    matchResultsSelected,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -9316,6 +10260,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('playlist_remote', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'tracks',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('track_origins', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -11067,6 +12018,57 @@ final class $$TracksTableTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$MatchResultsTableTable, List<MatchResultRow>>
+  _matchResultsTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.matchResultsTable,
+        aliasName: 'tracks__track_key__match_results__selected_track_key',
+      );
+
+  $$MatchResultsTableTableProcessedTableManager get matchResultsTableRefs {
+    final manager =
+        $$MatchResultsTableTableTableManager(
+          $_db,
+          $_db.matchResultsTable,
+        ).filter(
+          (f) => f.selectedTrackKey.trackKey.sqlEquals(
+            $_itemColumn<String>('track_key')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _matchResultsTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$TrackOriginsTableTable, List<TrackOriginRow>>
+  _trackOriginsTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.trackOriginsTable,
+        aliasName: 'tracks__track_key__track_origins__track_key',
+      );
+
+  $$TrackOriginsTableTableProcessedTableManager get trackOriginsTableRefs {
+    final manager =
+        $$TrackOriginsTableTableTableManager(
+          $_db,
+          $_db.trackOriginsTable,
+        ).filter(
+          (f) =>
+              f.trackKey.trackKey.sqlEquals($_itemColumn<String>('track_key')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _trackOriginsTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TracksTableTableFilterComposer
@@ -11200,6 +12202,56 @@ class $$TracksTableTableFilterComposer
           }) => $$PlaylistEntriesTableTableFilterComposer(
             $db: $db,
             $table: $db.playlistEntriesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> matchResultsTableRefs(
+    Expression<bool> Function($$MatchResultsTableTableFilterComposer f) f,
+  ) {
+    final $$MatchResultsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.matchResultsTable,
+      getReferencedColumn: (t) => t.selectedTrackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchResultsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.matchResultsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> trackOriginsTableRefs(
+    Expression<bool> Function($$TrackOriginsTableTableFilterComposer f) f,
+  ) {
+    final $$TrackOriginsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.trackOriginsTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackOriginsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.trackOriginsTable,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -11401,6 +12453,58 @@ class $$TracksTableTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> matchResultsTableRefs<T extends Object>(
+    Expression<T> Function($$MatchResultsTableTableAnnotationComposer a) f,
+  ) {
+    final $$MatchResultsTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.trackKey,
+          referencedTable: $db.matchResultsTable,
+          getReferencedColumn: (t) => t.selectedTrackKey,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$MatchResultsTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.matchResultsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> trackOriginsTableRefs<T extends Object>(
+    Expression<T> Function($$TrackOriginsTableTableAnnotationComposer a) f,
+  ) {
+    final $$TrackOriginsTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.trackKey,
+          referencedTable: $db.trackOriginsTable,
+          getReferencedColumn: (t) => t.trackKey,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$TrackOriginsTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.trackOriginsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$TracksTableTableTableManager
@@ -11420,6 +12524,8 @@ class $$TracksTableTableTableManager
             bool queueEntriesTableRefs,
             bool playHistoryTableRefs,
             bool playlistEntriesTableRefs,
+            bool matchResultsTableRefs,
+            bool trackOriginsTableRefs,
           })
         > {
   $$TracksTableTableTableManager(_$AppDatabase db, $TracksTableTable table)
@@ -11502,6 +12608,8 @@ class $$TracksTableTableTableManager
                 queueEntriesTableRefs = false,
                 playHistoryTableRefs = false,
                 playlistEntriesTableRefs = false,
+                matchResultsTableRefs = false,
+                trackOriginsTableRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -11509,6 +12617,8 @@ class $$TracksTableTableTableManager
                     if (queueEntriesTableRefs) db.queueEntriesTable,
                     if (playHistoryTableRefs) db.playHistoryTable,
                     if (playlistEntriesTableRefs) db.playlistEntriesTable,
+                    if (matchResultsTableRefs) db.matchResultsTable,
+                    if (trackOriginsTableRefs) db.trackOriginsTable,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -11576,6 +12686,48 @@ class $$TracksTableTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (matchResultsTableRefs)
+                        await $_getPrefetchedData<
+                          TrackRow,
+                          $TracksTableTable,
+                          MatchResultRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TracksTableTableReferences
+                              ._matchResultsTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TracksTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchResultsTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.selectedTrackKey == item.trackKey,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (trackOriginsTableRefs)
+                        await $_getPrefetchedData<
+                          TrackRow,
+                          $TracksTableTable,
+                          TrackOriginRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TracksTableTableReferences
+                              ._trackOriginsTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TracksTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).trackOriginsTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackKey == item.trackKey,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -11600,6 +12752,8 @@ typedef $$TracksTableTableProcessedTableManager =
         bool queueEntriesTableRefs,
         bool playHistoryTableRefs,
         bool playlistEntriesTableRefs,
+        bool matchResultsTableRefs,
+        bool trackOriginsTableRefs,
       })
     >;
 typedef $$QueueEntriesTableTableCreateCompanionBuilder =
@@ -13018,12 +14172,16 @@ typedef $$SourceSettingsTableTableCreateCompanionBuilder =
     SourceSettingsTableCompanion Function({
       required String pluginId,
       Value<bool?> browseAsLoggedIn,
+      Value<bool?> matchTarget,
+      Value<int?> matchRank,
       Value<int> rowid,
     });
 typedef $$SourceSettingsTableTableUpdateCompanionBuilder =
     SourceSettingsTableCompanion Function({
       Value<String> pluginId,
       Value<bool?> browseAsLoggedIn,
+      Value<bool?> matchTarget,
+      Value<int?> matchRank,
       Value<int> rowid,
     });
 
@@ -13043,6 +14201,16 @@ class $$SourceSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get browseAsLoggedIn => $composableBuilder(
     column: $table.browseAsLoggedIn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get matchTarget => $composableBuilder(
+    column: $table.matchTarget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get matchRank => $composableBuilder(
+    column: $table.matchRank,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -13065,6 +14233,16 @@ class $$SourceSettingsTableTableOrderingComposer
     column: $table.browseAsLoggedIn,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get matchTarget => $composableBuilder(
+    column: $table.matchTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get matchRank => $composableBuilder(
+    column: $table.matchRank,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SourceSettingsTableTableAnnotationComposer
@@ -13083,6 +14261,14 @@ class $$SourceSettingsTableTableAnnotationComposer
     column: $table.browseAsLoggedIn,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get matchTarget => $composableBuilder(
+    column: $table.matchTarget,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get matchRank =>
+      $composableBuilder(column: $table.matchRank, builder: (column) => column);
 }
 
 class $$SourceSettingsTableTableTableManager
@@ -13130,20 +14316,28 @@ class $$SourceSettingsTableTableTableManager
               ({
                 Value<String> pluginId = const Value.absent(),
                 Value<bool?> browseAsLoggedIn = const Value.absent(),
+                Value<bool?> matchTarget = const Value.absent(),
+                Value<int?> matchRank = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SourceSettingsTableCompanion(
                 pluginId: pluginId,
                 browseAsLoggedIn: browseAsLoggedIn,
+                matchTarget: matchTarget,
+                matchRank: matchRank,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String pluginId,
                 Value<bool?> browseAsLoggedIn = const Value.absent(),
+                Value<bool?> matchTarget = const Value.absent(),
+                Value<int?> matchRank = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SourceSettingsTableCompanion.insert(
                 pluginId: pluginId,
                 browseAsLoggedIn: browseAsLoggedIn,
+                matchTarget: matchTarget,
+                matchRank: matchRank,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -15639,6 +16833,684 @@ typedef $$ChartSettingsTableTableProcessedTableManager =
       ChartSettingsRow,
       PrefetchHooks Function()
     >;
+typedef $$MatchResultsTableTableCreateCompanionBuilder =
+    MatchResultsTableCompanion Function({
+      required String originPluginId,
+      required String originId,
+      required String title,
+      Value<String?> artists,
+      Value<int?> durationMs,
+      Value<String?> selectedTrackKey,
+      Value<double?> score,
+      Value<bool> userSelected,
+      Value<int> rowid,
+    });
+typedef $$MatchResultsTableTableUpdateCompanionBuilder =
+    MatchResultsTableCompanion Function({
+      Value<String> originPluginId,
+      Value<String> originId,
+      Value<String> title,
+      Value<String?> artists,
+      Value<int?> durationMs,
+      Value<String?> selectedTrackKey,
+      Value<double?> score,
+      Value<bool> userSelected,
+      Value<int> rowid,
+    });
+
+final class $$MatchResultsTableTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $MatchResultsTableTable, MatchResultRow> {
+  $$MatchResultsTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TracksTableTable _selectedTrackKeyTable(_$AppDatabase db) => db
+      .tracksTable
+      .createAlias('match_results__selected_track_key__tracks__track_key');
+
+  $$TracksTableTableProcessedTableManager? get selectedTrackKey {
+    final $_column = $_itemColumn<String>('selected_track_key');
+    if ($_column == null) return null;
+    final manager = $$TracksTableTableTableManager(
+      $_db,
+      $_db.tracksTable,
+    ).filter((f) => f.trackKey.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_selectedTrackKeyTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MatchResultsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $MatchResultsTableTable> {
+  $$MatchResultsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get originPluginId => $composableBuilder(
+    column: $table.originPluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originId => $composableBuilder(
+    column: $table.originId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artists => $composableBuilder(
+    column: $table.artists,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationMs => $composableBuilder(
+    column: $table.durationMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get userSelected => $composableBuilder(
+    column: $table.userSelected,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TracksTableTableFilterComposer get selectedTrackKey {
+    final $$TracksTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.selectedTrackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableFilterComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchResultsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $MatchResultsTableTable> {
+  $$MatchResultsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get originPluginId => $composableBuilder(
+    column: $table.originPluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originId => $composableBuilder(
+    column: $table.originId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artists => $composableBuilder(
+    column: $table.artists,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationMs => $composableBuilder(
+    column: $table.durationMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get userSelected => $composableBuilder(
+    column: $table.userSelected,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TracksTableTableOrderingComposer get selectedTrackKey {
+    final $$TracksTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.selectedTrackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchResultsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MatchResultsTableTable> {
+  $$MatchResultsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get originPluginId => $composableBuilder(
+    column: $table.originPluginId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originId =>
+      $composableBuilder(column: $table.originId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get artists =>
+      $composableBuilder(column: $table.artists, builder: (column) => column);
+
+  GeneratedColumn<int> get durationMs => $composableBuilder(
+    column: $table.durationMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get score =>
+      $composableBuilder(column: $table.score, builder: (column) => column);
+
+  GeneratedColumn<bool> get userSelected => $composableBuilder(
+    column: $table.userSelected,
+    builder: (column) => column,
+  );
+
+  $$TracksTableTableAnnotationComposer get selectedTrackKey {
+    final $$TracksTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.selectedTrackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchResultsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MatchResultsTableTable,
+          MatchResultRow,
+          $$MatchResultsTableTableFilterComposer,
+          $$MatchResultsTableTableOrderingComposer,
+          $$MatchResultsTableTableAnnotationComposer,
+          $$MatchResultsTableTableCreateCompanionBuilder,
+          $$MatchResultsTableTableUpdateCompanionBuilder,
+          (MatchResultRow, $$MatchResultsTableTableReferences),
+          MatchResultRow,
+          PrefetchHooks Function({bool selectedTrackKey})
+        > {
+  $$MatchResultsTableTableTableManager(
+    _$AppDatabase db,
+    $MatchResultsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MatchResultsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MatchResultsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MatchResultsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> originPluginId = const Value.absent(),
+                Value<String> originId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> artists = const Value.absent(),
+                Value<int?> durationMs = const Value.absent(),
+                Value<String?> selectedTrackKey = const Value.absent(),
+                Value<double?> score = const Value.absent(),
+                Value<bool> userSelected = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchResultsTableCompanion(
+                originPluginId: originPluginId,
+                originId: originId,
+                title: title,
+                artists: artists,
+                durationMs: durationMs,
+                selectedTrackKey: selectedTrackKey,
+                score: score,
+                userSelected: userSelected,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String originPluginId,
+                required String originId,
+                required String title,
+                Value<String?> artists = const Value.absent(),
+                Value<int?> durationMs = const Value.absent(),
+                Value<String?> selectedTrackKey = const Value.absent(),
+                Value<double?> score = const Value.absent(),
+                Value<bool> userSelected = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchResultsTableCompanion.insert(
+                originPluginId: originPluginId,
+                originId: originId,
+                title: title,
+                artists: artists,
+                durationMs: durationMs,
+                selectedTrackKey: selectedTrackKey,
+                score: score,
+                userSelected: userSelected,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$MatchResultsTableTable, MatchResultRow>(table),
+                  $$MatchResultsTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({selectedTrackKey = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (selectedTrackKey) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.selectedTrackKey,
+                        referencedTable: $$MatchResultsTableTableReferences
+                            ._selectedTrackKeyTable(db),
+                        referencedColumn: $$MatchResultsTableTableReferences
+                            ._selectedTrackKeyTable(db)
+                            .trackKey,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$MatchResultsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MatchResultsTableTable,
+      MatchResultRow,
+      $$MatchResultsTableTableFilterComposer,
+      $$MatchResultsTableTableOrderingComposer,
+      $$MatchResultsTableTableAnnotationComposer,
+      $$MatchResultsTableTableCreateCompanionBuilder,
+      $$MatchResultsTableTableUpdateCompanionBuilder,
+      (MatchResultRow, $$MatchResultsTableTableReferences),
+      MatchResultRow,
+      PrefetchHooks Function({bool selectedTrackKey})
+    >;
+typedef $$TrackOriginsTableTableCreateCompanionBuilder =
+    TrackOriginsTableCompanion Function({
+      required String trackKey,
+      required String originPluginId,
+      required String originId,
+      Value<int> rowid,
+    });
+typedef $$TrackOriginsTableTableUpdateCompanionBuilder =
+    TrackOriginsTableCompanion Function({
+      Value<String> trackKey,
+      Value<String> originPluginId,
+      Value<String> originId,
+      Value<int> rowid,
+    });
+
+final class $$TrackOriginsTableTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $TrackOriginsTableTable, TrackOriginRow> {
+  $$TrackOriginsTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TracksTableTable _trackKeyTable(_$AppDatabase db) =>
+      db.tracksTable.createAlias('track_origins__track_key__tracks__track_key');
+
+  $$TracksTableTableProcessedTableManager get trackKey {
+    final $_column = $_itemColumn<String>('track_key')!;
+
+    final manager = $$TracksTableTableTableManager(
+      $_db,
+      $_db.tracksTable,
+    ).filter((f) => f.trackKey.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_trackKeyTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TrackOriginsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackOriginsTableTable> {
+  $$TrackOriginsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get originPluginId => $composableBuilder(
+    column: $table.originPluginId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originId => $composableBuilder(
+    column: $table.originId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TracksTableTableFilterComposer get trackKey {
+    final $$TracksTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableFilterComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackOriginsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackOriginsTableTable> {
+  $$TrackOriginsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get originPluginId => $composableBuilder(
+    column: $table.originPluginId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originId => $composableBuilder(
+    column: $table.originId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TracksTableTableOrderingComposer get trackKey {
+    final $$TracksTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackOriginsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackOriginsTableTable> {
+  $$TrackOriginsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get originPluginId => $composableBuilder(
+    column: $table.originPluginId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originId =>
+      $composableBuilder(column: $table.originId, builder: (column) => column);
+
+  $$TracksTableTableAnnotationComposer get trackKey {
+    final $$TracksTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackKey,
+      referencedTable: $db.tracksTable,
+      getReferencedColumn: (t) => t.trackKey,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tracksTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackOriginsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackOriginsTableTable,
+          TrackOriginRow,
+          $$TrackOriginsTableTableFilterComposer,
+          $$TrackOriginsTableTableOrderingComposer,
+          $$TrackOriginsTableTableAnnotationComposer,
+          $$TrackOriginsTableTableCreateCompanionBuilder,
+          $$TrackOriginsTableTableUpdateCompanionBuilder,
+          (TrackOriginRow, $$TrackOriginsTableTableReferences),
+          TrackOriginRow,
+          PrefetchHooks Function({bool trackKey})
+        > {
+  $$TrackOriginsTableTableTableManager(
+    _$AppDatabase db,
+    $TrackOriginsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackOriginsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackOriginsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackOriginsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> trackKey = const Value.absent(),
+                Value<String> originPluginId = const Value.absent(),
+                Value<String> originId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TrackOriginsTableCompanion(
+                trackKey: trackKey,
+                originPluginId: originPluginId,
+                originId: originId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String trackKey,
+                required String originPluginId,
+                required String originId,
+                Value<int> rowid = const Value.absent(),
+              }) => TrackOriginsTableCompanion.insert(
+                trackKey: trackKey,
+                originPluginId: originPluginId,
+                originId: originId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackOriginsTableTable, TrackOriginRow>(table),
+                  $$TrackOriginsTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({trackKey = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (trackKey) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.trackKey,
+                        referencedTable: $$TrackOriginsTableTableReferences
+                            ._trackKeyTable(db),
+                        referencedColumn: $$TrackOriginsTableTableReferences
+                            ._trackKeyTable(db)
+                            .trackKey,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TrackOriginsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackOriginsTableTable,
+      TrackOriginRow,
+      $$TrackOriginsTableTableFilterComposer,
+      $$TrackOriginsTableTableOrderingComposer,
+      $$TrackOriginsTableTableAnnotationComposer,
+      $$TrackOriginsTableTableCreateCompanionBuilder,
+      $$TrackOriginsTableTableUpdateCompanionBuilder,
+      (TrackOriginRow, $$TrackOriginsTableTableReferences),
+      TrackOriginRow,
+      PrefetchHooks Function({bool trackKey})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -15689,4 +17561,8 @@ class $AppDatabaseManager {
       $$PlaylistRemoteTableTableTableManager(_db, _db.playlistRemoteTable);
   $$ChartSettingsTableTableTableManager get chartSettingsTable =>
       $$ChartSettingsTableTableTableManager(_db, _db.chartSettingsTable);
+  $$MatchResultsTableTableTableManager get matchResultsTable =>
+      $$MatchResultsTableTableTableManager(_db, _db.matchResultsTable);
+  $$TrackOriginsTableTableTableManager get trackOriginsTable =>
+      $$TrackOriginsTableTableTableManager(_db, _db.trackOriginsTable);
 }
