@@ -1,13 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/charts/chart_cache.dart';
+import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
+import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/scheduler/background_scheduler.dart';
+import 'package:fmp/ui/format/byte_size.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../charts/fake_chart_plugin.dart';
 import '../../data/cache/cache_harness.dart';
 import '../support/shell_harness.dart';
 
@@ -199,6 +206,39 @@ void main() {
     expect(selectedInterval(tester), 5);
   });
 
+  /// 用量那一列 [title] 右邊的文字。
+  String usageOf(WidgetTester tester, String title) =>
+      (tester.widget<ListTile>(find.widgetWithText(ListTile, title)).trailing!
+              as Text)
+          .data!;
+
+  testWidgets('shows the charts usage', (tester) async {
+    final (_, _, store) = await openNetwork(tester, artworkBytes: 2048);
+    await tester.runAsync(
+      () => ChartCache(store).write(
+        (pluginId: 'fmp-test', chartId: 'hot'),
+        ChartCacheEntry(
+          fetchedAt: DateTime.utc(2026, 10, 21),
+          tracks: [
+            for (var n = 0; n < 50; n++)
+              TrackInfo(
+                sourceTypeId: 'fmp-test',
+                sourceId: 'track-$n',
+                title: 'A chart track with a long enough title $n',
+              ),
+          ],
+        ),
+      ),
+    );
+    final usage = (await tester.runAsync(() => store.watchUsage().first))!;
+    final bytes = usage[CacheCategory.chart]!;
+    expect(bytes, greaterThan(1024));
+    await waitForText(tester, formatByteSize(bytes));
+
+    expect(usageOf(tester, 'Charts'), formatByteSize(bytes));
+    expect(usageOf(tester, 'Artwork'), '2 KB');
+  });
+
   testWidgets('shows the artwork usage', (tester) async {
     await openNetwork(tester, artworkBytes: 3 * 1024 * 1024);
 
@@ -281,8 +321,125 @@ void main() {
     expect(cache.fileNames(), isEmpty);
     expect(imageCache.containsKey('decoded'), isFalse);
     expect(imageCache.liveImageCount, 0);
-    expect(find.text('0 B'), findsOneWidget);
+    expect(find.text('0 B'), findsNWidgets(2), reason: 'artwork and charts');
     expect(find.text('Cache cleared'), findsOneWidget);
+  });
+
+  // 清掉的排行（M4 PR 21）：首頁、探索頁重讀快取，並立刻重抓每個有榜單的插件。以真的快取庫與
+  // 排行工作跑：兩個有榜單的插件、一個沒有宣告 `charts` 的。
+  group('the charts after clearing', () {
+    late List<FakeChartPlugin> plugins;
+
+    ChartKey keyOf(String pluginId) => (pluginId: pluginId, chartId: 'hot');
+
+    /// 開「網路」組，排行工作照 App 常駐，等第一輪排行寫進快取。之後每個榜單都抓不回來
+    /// （重抓只看得到「有沒有被問」，快取一直是清掉後的樣子）。
+    Future<(ShellHarness, CacheStore)> open(WidgetTester tester) async {
+      plugins = [
+        FakeChartPlugin(id: 'alpha', charts: const ['hot']),
+        FakeChartPlugin(id: 'beta', charts: const ['hot']),
+        FakeChartPlugin(id: 'gamma', declaresCharts: false),
+      ];
+      final cache = CacheHarness();
+      final store = (await tester.runAsync(
+        () => cache.open(limitBytes: 1 << 30),
+      ))!;
+      final h = ShellHarness(
+        cacheStore: store,
+        registryOfSources: true,
+        sources: plugins,
+      );
+      await h.pumpApp(
+        tester,
+        const SingleChildScrollView(child: NetworkControls()),
+      );
+      final container = h.container(tester)
+        ..listen(backgroundSchedulerProvider, (_, _) {})
+        ..listen(chartJobsProvider, (_, _) {});
+      for (final pluginId in ['alpha', 'beta']) {
+        container.listen(chartContentProvider(keyOf(pluginId)), (_, _) {});
+      }
+      bool cached() => [
+        for (final pluginId in ['alpha', 'beta'])
+          container.read(chartContentProvider(keyOf(pluginId))).value,
+      ].every((content) => content != null);
+      for (var i = 0; i < 100 && !cached(); i++) {
+        await h.loadSettings(tester);
+      }
+      expect(cached(), isTrue, reason: 'the first round of charts is cached');
+      for (final plugin in plugins) {
+        plugin.onChart = (_) => Completer<ChartPage>().future;
+      }
+      return (h, store);
+    }
+
+    Map<String, int> queries() => {
+      for (final plugin in plugins)
+        plugin.manifest.id: plugin.chartQueries.length,
+    };
+
+    Future<void> clear(WidgetTester tester) async {
+      await tester.tap(find.text('Clear cache'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Clear cache'));
+      await tester.pump();
+    }
+
+    testWidgets('the cached charts read again as gone and every plugin with '
+        'charts is refreshed once', (tester) async {
+      final (h, _) = await open(tester);
+      final container = h.container(tester);
+      final before = queries();
+      final revision = container.read(chartCacheRevisionProvider);
+
+      await clear(tester);
+      await waitForText(tester, 'Cache cleared');
+      for (var i = 0; i < 5; i++) {
+        await h.loadSettings(tester);
+      }
+
+      expect(container.read(chartCacheRevisionProvider), greaterThan(revision));
+      for (final pluginId in ['alpha', 'beta']) {
+        expect(
+          container.read(chartContentProvider(keyOf(pluginId))).value,
+          isNull,
+          reason: pluginId,
+        );
+      }
+      expect(queries(), {
+        'alpha': before['alpha']! + 1,
+        'beta': before['beta']! + 1,
+        'gamma': 0,
+      });
+    });
+
+    testWidgets('a clear that fails neither reloads nor refreshes the charts', (
+      tester,
+    ) async {
+      final (h, store) = await open(tester);
+      final container = h.container(tester);
+      final before = queries();
+      final revision = container.read(chartCacheRevisionProvider);
+      // 索引已經關掉：清除拋錯。
+      await tester.runAsync(store.close);
+
+      await clear(tester);
+      for (var i = 0; i < 100 && h.log.history.isEmpty; i++) {
+        await h.loadSettings(tester);
+      }
+      for (var i = 0; i < 5; i++) {
+        await h.loadSettings(tester);
+      }
+
+      expect(
+        h.log.history
+            .where((r) => r.level == LogLevel.error)
+            .map((r) => r.message),
+        contains('Failed to clear the cache'),
+      );
+      expect(container.read(chartCacheRevisionProvider), revision);
+      expect(queries(), before);
+    });
   });
 
   testWidgets('a clear that fails is logged and not reported as done', (

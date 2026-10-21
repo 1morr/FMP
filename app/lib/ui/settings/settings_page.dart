@@ -11,19 +11,23 @@ import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/about_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
+import 'package:fmp/ui/settings/library_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 設定頁的區塊，依清單上的順序（M3 design §6.7）。外觀、播放、網路是 ADR 0011 的
-/// 設定組；帳號、插件、關於不是設定表，是帳號頁（ADR 0029 §決定 8）、插件頁（ADR 0030
+/// 設定頁的區塊，依清單上的順序（M3 design §6.7、M4 design §10.10）。外觀、播放、網路是
+/// ADR 0011 的設定組；音樂庫是每個榜單的設定（`chart_settings`，之後加每音源的匹配目標），
+/// 不是單列的設定組；帳號、插件、關於不是設定表，是帳號頁（ADR 0029 §決定 8）、插件頁（ADR 0030
 /// §決定 11）與版本列（ADR 0024 §決定 9），同樣以 list-detail 呈現。開發者模式下清單最後
 /// 多一列 Debug：它開另一個 route（Debug 頁），不是區塊。
 enum SettingsSection {
   accounts(Icons.account_circle_outlined),
   appearance(Icons.palette_outlined),
   playback(Icons.play_circle_outline),
+  // 不用導覽列音樂庫的圖示：整合測試以圖示找導覽項。
+  library(Icons.queue_music),
   network(Icons.public),
   plugins(Icons.extension_outlined),
   about(Icons.info_outline);
@@ -109,6 +113,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SettingsSection.accounts => t.accounts,
       SettingsSection.appearance => t.appearance,
       SettingsSection.playback => t.playback,
+      SettingsSection.library => t.library,
       SettingsSection.network => t.network,
       SettingsSection.plugins => t.plugins,
       SettingsSection.about => t.about,
@@ -127,7 +132,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
     final title = header(null, t.title, theme.textTheme.headlineSmall);
-    // 清單會捲動：開發者模式下有七列，矮的視窗（橫向的手機）放不下。
+    // 清單會捲動：開發者模式下有八列，矮的視窗（橫向的手機）放不下。
     Widget list(SettingsSection? selected) => ListView(
       children: [
         title,
@@ -213,6 +218,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           SettingsSection.playback => scrolling(
             group,
             const PlaybackControls(),
+            heading: heading,
+          ),
+          SettingsSection.library => scrolling(
+            group,
+            const LibraryControls(),
             heading: heading,
           ),
           SettingsSection.network => scrolling(

@@ -165,8 +165,10 @@ void main() {
   });
 
   for (final width in [1000.0, 400.0]) {
-    testWidgets('$width wide: accounts come first, plugins after network and '
-        'open the plugin page', (tester) async {
+    testWidgets('$width wide: accounts come first, library between playback '
+        'and network, plugins after network and open the plugin page', (
+      tester,
+    ) async {
       final h = await PluginPageHarness.create(tester);
       await h.shell.pumpShell(
         tester,
@@ -181,6 +183,7 @@ void main() {
           'Accounts',
           'Appearance',
           'Playback',
+          'Library',
           'Network',
           'Plugins',
         ])

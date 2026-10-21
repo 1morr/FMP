@@ -60,6 +60,8 @@ class TranslationsEn extends Translations
   @override
   late final Translations$home$en home = Translations$home$en._(_root);
   @override
+  late final Translations$charts$en charts = Translations$charts$en._(_root);
+  @override
   late final Translations$library$en library = Translations$library$en._(_root);
   @override
   late final Translations$playlist$en playlist = Translations$playlist$en._(
@@ -93,6 +95,9 @@ class TranslationsEn extends Translations
   );
   @override
   late final Translations$network$en network = Translations$network$en._(_root);
+  @override
+  late final Translations$librarySettings$en librarySettings =
+      Translations$librarySettings$en._(_root);
   @override
   late final Translations$radio$en radio = Translations$radio$en._(_root);
   @override
@@ -344,6 +349,69 @@ class Translations$home$en extends Translations$home$zh_TW {
   String get addedToNext => 'Added to play next';
   @override
   String get addedToQueue => 'Added to the queue';
+}
+
+// Path: charts
+class Translations$charts$en extends Translations$charts$zh_TW {
+  Translations$charts$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Charts';
+  @override
+  String get explore => 'Explore';
+  @override
+  String updatedAt({required Object time}) => 'Updated ${time}';
+  @override
+  String get updateFailed => 'Update failed';
+  @override
+  String get loading => 'Loading the chart';
+  @override
+  String get empty => 'This chart is empty';
+  @override
+  String get failed => 'Couldn\'t update the chart';
+  @override
+  String get failedHint =>
+      'It\'s tried again later; you can also refresh it in Explore.';
+  @override
+  String get exploreFailedHint => 'Use Refresh at the top to try again.';
+  @override
+  String get off => 'Automatic updates are off';
+  @override
+  String get offHint =>
+      'Refresh it in Explore, or set Charts refresh under Settings › Network.';
+  @override
+  String get exploreOffHint => 'Use Refresh at the top to load it.';
+  @override
+  String get refresh => 'Refresh';
+  @override
+  String get refreshed => 'Charts updated';
+  @override
+  String get refreshOffline =>
+      'Offline, not refreshed: showing the last charts';
+  @override
+  String refreshFailed({required Object reason}) =>
+      'Couldn\'t refresh the charts: ${reason}';
+  @override
+  String tab({required Object title, required Object source}) =>
+      '${title} · ${source}';
+  @override
+  String source({required Object source, required Object status}) =>
+      '${source} · ${status}';
+  @override
+  String get noCharts => 'No charts turned on';
+  @override
+  String get noChartsHint =>
+      'Choose the charts for Home under Settings, Library.';
+  @override
+  String get noSource => 'No plugin offers charts';
+  @override
+  String get noSourceHint =>
+      'Install and turn on a plugin that offers charts, and its charts show up here.';
 }
 
 // Path: library
@@ -755,6 +823,8 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   String get back => 'Back';
   @override
   String get playback => 'Playback';
+  @override
+  String get library => 'Library';
   @override
   String get plugins => 'Plugins';
   @override
@@ -1639,6 +1709,8 @@ class Translations$network$en extends Translations$network$zh_TW {
   @override
   String get artwork => 'Artwork';
   @override
+  String get charts => 'Charts';
+  @override
   String get clear => 'Clear cache';
   @override
   String get clearTitle => 'Clear the cache?';
@@ -1669,6 +1741,36 @@ class Translations$network$en extends Translations$network$zh_TW {
   String chartIntervalMinutes({required Object minutes}) => '${minutes} min';
   @override
   String optionDefault({required Object label}) => '${label} (default)';
+}
+
+// Path: librarySettings
+class Translations$librarySettings$en
+    extends Translations$librarySettings$zh_TW {
+  Translations$librarySettings$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get homeCharts => 'Charts on Home';
+  @override
+  String get homeChartsHint =>
+      'Check the charts to show on Home and drag to reorder them.';
+  @override
+  String get noCharts => 'No source offers charts';
+  @override
+  String get noChartsHint =>
+      'Install and turn on a plugin that offers charts, and its charts show up here.';
+  @override
+  String get reorder => 'Drag to reorder';
+  @override
+  String reorderFailed({required Object reason}) =>
+      'Couldn\'t reorder the charts: ${reason}';
+  @override
+  String toggleFailed({required Object reason}) =>
+      'Couldn\'t change the charts on Home: ${reason}';
 }
 
 // Path: radio

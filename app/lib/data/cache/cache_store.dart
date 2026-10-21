@@ -361,7 +361,15 @@ final _pendingCloses = <String, Future<void>>{};
 @visibleForTesting
 Map<String, Future<void>> get pendingCacheCloses => _pendingCloses;
 
-/// [pendingCacheCloses] 的鍵。
+/// 還沒開完（含開好之後的對帳）的快取庫，以正規化後的目錄路徑為鍵：同一個目錄的開啟一個接一個
+/// （[openCacheStore]）。值是最後一個開啟的完成訊號，永遠正常完成。
+final _pendingOpens = <String, Future<void>>{};
+
+/// 測試用：登記一個「還沒開完」的快取庫，驗證另一次開啟會等它（真的開啟太快，賽跑重現不了）。
+@visibleForTesting
+Map<String, Future<void>> get pendingCacheOpens => _pendingOpens;
+
+/// [pendingCacheCloses]、[pendingCacheOpens] 的鍵。
 @visibleForTesting
 String cacheCloseKey(Directory root) => _closeKey(root);
 
@@ -380,15 +388,38 @@ bool _isBusy(Object error) {
 /// 開不起來（`cache.db` 損壞）就把整個快取目錄清空、重新開一次，不顯示錯誤頁
 /// （ADR 0016 §決定 1：快取可以隨時丟；主資料庫則停在錯誤頁，ADR 0010 §決定 3）。
 /// 第二次也失敗就拋出。資料庫被佔住（busy / locked）不算損壞：直接拋出，不清目錄。
-/// 同一個目錄上一個快取庫還在關時，先等它關完。開好之後先對帳（[CacheStore._reconcile]）
-/// 才交出去，對帳時沒有別的寫入。
+/// 同一個目錄上一個快取庫還在開（[_pendingOpens]）或還在關（[_pendingCloses]）時，先等它。
+/// 為什麼要等「還在開」的：`cacheStoreProvider` 在開啟期間被釋放（App 拆掉重來，整合測試的兩次
+/// 啟動）時開好才關，新的那個若同時開，會撞上它建表或對帳時拿著的鎖而丟 busy，快取庫整個開不起來。
+/// 不靠 SQLite 的 `busy_timeout`：它以預定的睡眠次數計時，Linux（含 Android）上 Dart VM 的取樣
+/// profiler（debug、profile 與 `flutter test`）用 SIGPROF 打斷 `usleep`，5 秒的等待幾十毫秒就用完。
+/// 開好之後先對帳（[CacheStore._reconcile]）才交出去，對帳時沒有別的寫入。
 Future<CacheStore> openCacheStore(
   CacheDirectory directory, {
   required int limitBytes,
   required Log log,
 }) async {
   final root = await directory.resolve();
-  final closing = _pendingCloses[_closeKey(root)];
+  final key = _closeKey(root);
+  final previous = _pendingOpens[key];
+  final opened = Completer<void>();
+  _pendingOpens[key] = opened.future;
+  try {
+    if (previous != null) await previous;
+    return await _openAfterOthers(root, key, limitBytes, log);
+  } finally {
+    opened.complete();
+    if (identical(_pendingOpens[key], opened.future)) _pendingOpens.remove(key);
+  }
+}
+
+Future<CacheStore> _openAfterOthers(
+  Directory root,
+  String key,
+  int limitBytes,
+  Log log,
+) async {
+  final closing = _pendingCloses[key];
   if (closing != null) {
     // 關閉本身的錯誤由關閉它的人處理。
     await closing.then<void>((_) {}, onError: (Object _) {});

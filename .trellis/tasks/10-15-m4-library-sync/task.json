@@ -35,7 +35,8 @@
     "10-20-m4-library-read",
     "10-20-m4-library-write",
     "10-20-m4-account-live-rooms",
-    "10-21-m4-playlist-truncated"
+    "10-21-m4-playlist-truncated",
+    "10-21-m4-home-charts"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

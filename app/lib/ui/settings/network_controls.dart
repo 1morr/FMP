@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/charts/chart_cache.dart';
+import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/data/cache/cache_store.dart';
 import 'package:fmp/settings/network_settings.dart';
@@ -84,6 +86,14 @@ class NetworkControls extends ConsumerWidget {
           title: Text(t.artwork),
           trailing: Text(
             formatByteSize(usage?[CacheCategory.image] ?? 0),
+            style: textTheme.bodyMedium,
+          ),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(t.charts),
+          trailing: Text(
+            formatByteSize(usage?[CacheCategory.chart] ?? 0),
             style: textTheme.bodyMedium,
           ),
         ),
@@ -186,6 +196,8 @@ class NetworkControls extends ConsumerWidget {
         .then<CacheStore?>((store) => store, onError: (Object _) => null);
     final toaster = ref.read(toasterProvider);
     final log = ref.read(logProvider);
+    // 清完之後要讀寫排行（快取的重讀、手動刷新），也在對話框之前取好。
+    final container = ProviderScope.containerOf(context, listen: false);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -222,6 +234,26 @@ class NetworkControls extends ConsumerWidget {
     PaintingBinding.instance.imageCache
       ..clear()
       ..clearLiveImages();
-    if (cleared) toaster.success(t.cleared);
+    if (!cleared) return;
+    _refetchCharts(container);
+    toaster.success(t.cleared);
+  }
+
+  /// 清掉的排行（M4 PR 21）：首頁、探索頁重讀快取（現在是空的，顯示載入中），並立刻重抓每個有榜單的
+  /// 插件，不必等下一輪工作（最久是排行刷新間隔）。不等結果、不提示：離線時 `runNow` 自己不發請求，
+  /// 失敗由工作自己標「更新失敗」並記 log。
+  static void _refetchCharts(ProviderContainer container) {
+    container.read(chartCacheRevisionProvider.notifier).bump();
+    final catalog = container.read(chartCatalogProvider) ?? const {};
+    final pluginIds = [
+      for (final MapEntry(key: pluginId, value: entry) in catalog.entries)
+        if (entry.charts?.isNotEmpty ?? false) pluginId,
+    ];
+    if (pluginIds.isEmpty) return;
+    final jobs = container.read(chartJobsProvider.notifier);
+    for (final pluginId in pluginIds) {
+      // 全部榜單都失敗時 runNow 重新丟出錯誤：這裡沒有人要提示，吞掉。
+      unawaited(jobs.runNow(pluginId).then<void>((_) {}, onError: (_) {}));
+    }
   }
 }

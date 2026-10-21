@@ -496,12 +496,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`migration_test.dart` 的 `migration from v15 to v16 keeps existing data`、`migration from v<N> to v16 adds playlist_remote`（v1–v15 各一例：
   預設值與狀態字串、唯一鍵、連帶刪除）與 `a new database has playlist_remote`、`playlist_remote_repository_test.dart`。
 - `chart_settings` 與 `network_settings.chart_refresh_interval_minutes` 是 schema v17（M4 design §3.1、§3.3，PR 20）：`chart_settings` 主鍵（`plugin_id`,
-  `chart_id`），`enabled` 空＝啟用、`sort_order` 空＝依插件清單與 `chartList` 的順序（設定頁在 M4 PR 21，現在只有 `enabled` 有寫入口）；沒有外鍵到
+  `chart_id`），`enabled` 空＝啟用、`sort_order` 空＝依插件清單與 `chartList` 的順序；沒有外鍵到
   `installed_plugins`，移除插件時 `PluginInstaller.remove` 的 `removeChartSettings` 步驟刪（在帳號之後、快取之前），插件拿掉的榜單的列留著。
-  `chart_refresh_interval_minutes` 空＝沒設定過（預設 60 在 Notifier，§ 設定）。寫入口是 `ChartSettingsRepository`（`watch`、`setEnabled` 保留該列的排序、
+  `chart_refresh_interval_minutes` 空＝沒設定過（預設 60 在 Notifier，§ 設定）。寫入口是 `ChartSettingsRepository`（`watch`、`setEnabled` 保留該列的排序、`setOrder` 依清單整批寫 0、1、2…且不動 `enabled`（一個 batch、一次寫入通知）、
   `removePlugin`）。閘門：`migration_test.dart` 的 `migration from v16 to v17 keeps existing data`（使用者設定過的網路與每音源設定不變）、
   `migration from v<N> to v17 adds chart_settings and the chart interval column`（v1–v16 各一例：主鍵、空值、新欄位是 NULL）與 `a new database has chart_settings`、
-  `chart_settings_repository_test.dart`、`plugin_installer_test.dart` 的 `removing`。
+  `chart_settings_repository_test.dart`（含 `setOrder` 與 `setOrder is a single write`）、`plugin_installer_test.dart` 的 `removing`。
 
 ### 快取庫
 
@@ -522,6 +522,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （不是資料庫的檔、別的版本的檔、旁邊的檔案留著）、`cacheStoreProvider` 群組（開不起來是
   `AsyncError` 並記 error）、`test/drift/cache_database/schema_test.dart`（改了表沒加版本會
   紅）。清空之後第二次 `_open` 也失敗的那一支沒有測試（造不出清空後仍開不起來的目錄）。
+- 同一個目錄的 `openCacheStore` 一個接一個（M4 PR 21）：先等還在開（含對帳）的那一個，再等還在關的那一個（`_pendingOpens`、`_pendingCloses`，以正規化路徑為鍵）。
+  為什麼：`cacheStoreProvider` 在開啟期間被釋放（App 拆掉重來；整合測試的兩次啟動）時開好才關，新的若同時開，會撞上它建表或對帳時拿著的鎖丟 `SQLITE_BUSY`，整個快取庫開不起來
+  （PR 21 的整合測試在 Windows 撞到過），兩個對帳也會互刪對方的檔。前一個開好之後連線是閒的，新的不必等它關完。
+  不用 `PRAGMA busy_timeout`：SQLite 的預設 busy handler 以預定的睡眠次數計時，Linux（含 Android）上 Dart VM 的取樣 profiler（debug、profile 與 `flutter test`）以 SIGPROF 打斷
+  `usleep`，5 秒的等待幾十毫秒就用完（Docker 裡 `dart --profiler` 對照 `dart` 實測；Windows 的 `Sleep` 不受影響）。被別的連線一直佔著照舊丟 busy、不清目錄。
+  主資料庫不需要：它只在 `main()` 開一次，整合測試 `await` 關完才重開。閘門：`opening` 群組的 `opening waits for an open of the same directory that is still running`
+  （登記一個沒完成的開啟，拿掉等待會紅）、`two opens of the same directory at once both succeed, the second after the first`（拿掉等待時 Windows、Linux 都紅），
+  `cacheStoreProvider` 群組的 `a store given up while still opening does not stop the next container from opening the same directory`（對應 App 的情境；賽跑，拿掉等待不一定紅）。
 - 開好之後先對帳才交出去：清空 `staging/`，刪掉檔案不見的列與 `files/` 裡不在索引的檔（寫到
   一半被關掉的 App、刪不掉的舊檔）。閘門：`opening` 群組的 `reconciles the index…`。
 - 一個總上限（設定頁「網路」組的快取上限，沒設定就是平台宣告的預設），寫進索引之後超過就
@@ -546,7 +554,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `stored format`。
 - `CacheCategory.chart`（M4 PR 20，首頁排行的榜單內容，見 § 排行）不經圖片 cache manager：`CacheStore.put(category, pluginId, key, bytes)`
   先寫新檔、再換索引、最後刪舊檔，`get` 沒有、被淘汰或檔案被系統清掉都是 `null`，`remove(category, pluginId, {key})` 刪一個項目或這個插件這個類別的全部
-  （其他類別與其他插件不動）；一樣算進總上限與淘汰、`removePlugin` 一併刪、`watchUsage` 多一個 `chart` 鍵（設定頁只顯示封面）。新類別只是 `cache_entries.category`
+  （其他類別與其他插件不動）；一樣算進總上限與淘汰、`removePlugin` 一併刪、`watchUsage` 多一個 `chart` 鍵（設定頁「網路」組的「排行」那一列）。新類別只是 `cache_entries.category`
   的新字串，表沒變，所以 `CacheDatabase.schemaVersion` 不動。閘門：`cache_store_test.dart` 的 `entries of the chart category`（含 `stored format`）。
 - `flutter_cache_manager` 只准在 `lib/data/cache/`、`cached_network_image` 只准在
   `lib/ui/artwork/` import；上層拿到的 cache manager 型別是 `cache_store.dart` 轉出的
@@ -1200,6 +1208,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `id` 也是 `scheduler_runs` 的鍵；同 id 再登記是取代，舊的進行中那次視為過期。`pluginId` 非空時，同一個插件的工作依序執行，
   插件停用（`PluginRegistry.setEnabled`）或移除（`PluginInstaller.remove`，在刪 `installed_plugins` 列之前）時整批移除。
   `interval` 為 `null` 是關閉：不自動跑，只有 `runNow` 會跑它。
+- `register(job, dueNow: true)`（ADR 0017 §決定 4 的補充，M4 PR 21）：這次登記在下一次成功前視為沒成功過，忽略上次成功時間——給產出不見了、不該等一整個間隔的工作（排行：有啟用的榜單沒有快取）。
+  仍等可見與在線；不繞過退避：被取代的工作還在退避中，新的帶著它的失敗次數與重試時間接著等，失敗後照常退避（成功前退避一到就重試，不等間隔）；間隔關閉的工作照樣不自動跑。成功一次就清掉。
 - `run` 長時間的工作要看 `JobContext.isCurrent`：工作被移除、被取代或排程器釋放後為假，這時丟掉結果、不寫任何東西；排程器也不替
   那一次記上次成功時間。
 - 工作丟錯：排程器經 `log.report`（tag `scheduler`，`AppError.wrap` 帶工作的 `pluginId`）寫進錯誤歷史，再記一行 info
@@ -1216,7 +1226,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `plugins/`、`library/`、`charts/`（它不認得登記工作的人），`core/`、`domain/`、`data/` 不 import `scheduler/`（`fmp_layer_imports` 的
   `forbiddenLayerImports`，案例見 § Lint）。
 - 閘門：`test/scheduler/background_scheduler_test.dart`（ADR 0017 §如何確認的七項、同插件依序、全域最多 2 個、手動刷新排隊與
-  排隊中結束、取代與移除時的過期、手動失敗不提早自動跑、錯誤經 `report`、等第一次介面檢查），`plugin_registry_test.dart` 的 `disabling a plugin removes its scheduler jobs…`，
+  排隊中結束、取代與移除時的過期、手動失敗不提早自動跑、錯誤經 `report`、等第一次介面檢查、`dueNow` 的六條：忽略上次成功直到下次成功、沒帶時照等間隔、仍等可見與在線、不繞過退避、失敗後退避一到就重試而不等間隔、間隔關閉不跑），`plugin_registry_test.dart` 的 `disabling a plugin removes its scheduler jobs…`，
   `plugin_installer_test.dart` 的 `removing`（工作最先移除、中途失敗重跑可完成）。排程器在真機上的行為（最小化、切到背景、
   飛航模式）沒有自動閘門，在電台頁實機看。
 
@@ -1332,7 +1342,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 ## 排行
 
 `lib/charts/`（ADR 0032 §決定 5–7、ADR 0016 §決定 4、ADR 0017，M4 design §6.2、§9.1，PR 20）：首頁排行的榜單內容快取與 `charts:<pluginId>` 工作。同電台，要用資料、插件與排程器，所以是獨立的頂層目錄
-（lint 見 § Lint）；首頁與探索頁的呈現、設定頁的榜單排序與開關在 M4 PR 21，目前只有測試讀 `chartContentProvider`、`chartFailuresProvider`、`ChartJobs.runNow`。
+（lint 見 § Lint）；首頁、探索頁與設定頁的呈現見 § 介面的「首頁」「探索頁」與設定頁的「音樂庫」。
 
 - `ChartJobs`（`chart_jobs.dart`，`chartJobsProvider`，`FmpApp` 常駐）跟著插件清單、`chart_settings` 與排行刷新間隔，把 `charts:<pluginId>`（`chartJobId`，帶 `pluginId`）登記到排程器或移除：
   已啟用、宣告 `charts`、至少一個啟用榜單的插件各一個；間隔是 `network.chartRefreshInterval`，關閉（`null`）時 `interval: null`，只有 `runNow` 會跑。啟用榜單 = `chartList` 的榜單扣掉
@@ -1340,14 +1350,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   還不知道啟用哪些榜單：工作執行時再問，失敗就退避重試（ADR 0017 §決定 4）、`runNow` 拿得到錯誤，取到時補上啟用的集合、刪登記時不知道的停用榜單的快取，一個都沒啟用就移除工作；
   這段期間不刪任何快取（新版插件的 `chartList` 壞了不會清掉舊的內容）。只有插件實例、間隔或啟用榜單的集合改變才取代登記，進行中的舊那一次因此過期、不寫；榜單被停用時刪那個榜單的快取與失敗標記，插件離開清單（停用）或榜單全部停用時刪
   該插件的排行快取與標記。移除插件的快取由 `PluginInstaller.remove` 的 `CacheStore.removePlugin` 刪。
+- （重新）登記時讀快取：啟用的榜單有一個沒有快取（讀不出來也算）就登記成 `dueNow`（M4 PR 21）。為什麼：「上次失敗」只在記憶體，重啟後上次失敗的榜單、停用再啟用的榜單（停用時刪了快取）、
+  啟動時已被淘汰的榜單都沒有快取，工作卻要等上次成功加間隔，首頁一直轉圈（PR 21 的整合測試在 CI 上就卡在這裡）。離線啟動時排程器上線後才跑。間隔關閉時不算（尊重「關閉」，
+  畫面改說明怎麼手動載入）；登記時 `chartList` 丟錯（還不知道啟用哪些榜單）也不算；已標「更新失敗」（`chartFailuresProvider`）的榜單也不算：畫面已經說它失敗了，
+  一直抓不到的榜單不該讓整個插件每次設定變更都立刻重抓。代價：標記只在記憶體，冷啟動時這種榜單仍讓工作立即到期一次（多抓一輪該插件的全部榜單）。執行中途被淘汰的快取不重新登記，等下一輪。
 - 每次執行：`chartList` → 啟用榜單逐一 `chart` → 寫快取，完成記一行 info `Chart refresh finished`（`pluginId`、`succeeded`、`failed`）。單一榜單失敗只標 `chartFailuresProvider`
   （只在記憶體，`radioQueryFailuresProvider` 的做法）並記 warning `Chart update failed`，快取留著上次的內容，其他繼續；全部失敗才把錯誤丟給排程器退避（`chartList` 失敗也算工作失敗）。
   `ChartJobs.runNow(pluginId)` 直接是排程器的 `runNow`（離線 `offline`、沒有這個工作 `unknown`，全部失敗的錯誤重新丟出）。
 - `ChartCache`（`chart_cache.dart`）只經 `CacheStore` 讀寫（lint 擋 import `cache_tables.dart`、`cache_database.dart`）：鍵 `chart:<pluginId>:<chartId>`，內容 `{fetchedAt（UTC 毫秒）, tracks}` 的 JSON
   （曲目是 `TrackInfo` 的欄位，不是插件的 DTO），所屬插件記在索引。被淘汰、檔案不見或內容讀不懂都是「沒有快取」（`null`）。`chartContentProvider((pluginId:, chartId:))` 讀一個榜單，
   跟著 `chartCacheRevisionProvider`（工作每寫入或刪除一次加一）重讀。
+- **給畫面的榜單清單**（M4 PR 21）：畫面讀被動的 `chartCatalogProvider`（只有 `ChartJobs` 寫）經 `chartEntriesProvider`，不讀插件清單、不 watch `chartJobsProvider`。
+  - 為什麼被動：正式環境裡插件清單本來就常駐（首頁 watch 的 `searchSourcesProvider` 就是它），`chartJobsProvider` 也由 `FmpApp` 常駐；被動是為了測試。多數外殼測試 override 了
+    `searchSourcesProvider`，插件清單沒人聽；首頁一直掛在外殼裡，它一旦把插件清單拉起來，假時間裡開始的讀取拿著 drift 的鎖、擋住 `runAsync` 裡的寫入（同搜尋頁的前例，
+    `import_ui_test.dart` 卡到逾時），watch `chartJobsProvider` 則會在每個裝了 `fmp-test`（宣告 `charts`）的外殼測試裡跑排程器與排行工作。
+  - 代價：App 啟動、排行工作取到 `chartList` 之前首頁不知道有榜單；其他區塊都沒有內容時，說明會先出現一下再換成排行。
 - 閘門：`test/charts/chart_jobs_test.dart`（以假時鐘、記憶體快取跑真的排程器：誰有工作、全部榜單停用不登記、停用的榜單不抓、單榜單失敗不退避且標記並在恢復後清掉、全部失敗退避、
-  `chartList` 失敗（登記時失敗照樣登記並退避、新實例失敗不刪快取、取到後補上集合與刪停用榜單的快取）、`enabled` 空的列算啟用、間隔預設／改變／關閉（`interval: null` 且 `runNow` 照跑）、離線、只在該重新登記時取代工作（無關的設定寫入不打斷進行中的一次）、榜單／插件停用刪快取與標記、手動刷新）、
+  `chartList` 失敗（登記時失敗照樣登記並退避、新實例失敗不刪快取、取到後補上集合與刪停用榜單的快取）、`enabled` 空的列算啟用、間隔預設／改變／關閉（`interval: null` 且 `runNow` 照跑）、離線、`a chart missing from the cache` 群組（重啟後缺快取的榜單立刻抓、一直失敗的榜單重啟時只抓一次且設定變更不再立即到期、全部有快取不提前抓、快取讀不出來算缺、離線啟動上線後抓、間隔關閉不抓）、重新啟用的榜單立刻抓、只在該重新登記時取代工作（無關的設定寫入不打斷進行中的一次）、榜單／插件停用刪快取與標記、手動刷新）、
+  `the chart list` 群組（預設順序與名稱、`sort_order` 優先其餘接後、停用的留著並標記、插件新增預設啟用而拿掉的不出現、停用插件與沒有 `charts` 的插件沒有、取到 `chartList` 才出現而失敗的沒有榜單、卡住的插件不擋已知的榜單、`ChartJobs` 沒在跑時是空的且什麼都不讀、重讀不再問插件）、
   `chart_cache_test.dart`（真的快取庫：內容與時間、取代、刪一個／刪整個插件／移除插件、淘汰、壞檔、`stored format`）、`plugin_installer_test.dart` 的 `removing`。真機上的行為
   （`fmp-test` 的 `charts:fmp-test` 工作與快取寫入）沒有自動閘門，看 log。
 
@@ -1952,12 +1972,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     含提醒對話框）。
   - `.github/ISSUE_TEMPLATE/bug_report.yml`（繁中）：必填「問題描述」「錯誤報告」（`render: markdown`）、標籤 `bug`。閘門：
     `test/github/bug_report_template_test.dart`（解析 YAML，含改壞會紅、改文字與順序不會紅的變異案例）。
-- 設定頁的區塊（`SettingsSection`）：第一個是「帳號」，之後外觀、播放、網路是 ADR 0011 的設定組（design §9.8 的順序），
+- 設定頁的區塊（`SettingsSection`）：第一個是「帳號」，之後外觀、播放、音樂庫、網路（外觀、播放、網路是 ADR 0011 的設定組，design §9.8 的順序；音樂庫是每榜單的設定，M4 design §10.10），
   之後是「插件」、最後是「關於」（帳號、插件、關於不是設定表，M3 design §6.7）；開發者模式下清單最後多一列 Debug，它開 Debug 頁
-  （另一個 route），不是區塊。清單本身會捲動（七列在矮的視窗放不下）。帳號頁與插件頁
+  （另一個 route），不是區塊。清單本身會捲動（八列在矮的視窗放不下）。帳號頁與插件頁
   自己有捲動的清單（或置中的空狀態），所以不包在設定組那個捲動的欄裡，填滿右側（窄版是點進去的那一頁）。寬版預設選的是
-  帳號。閘門：`settings_page_test.dart` 的 `… accounts come first, plugins after network and open the plugin page`
+  帳號。閘門：`settings_page_test.dart` 的 `… accounts come first, library between playback and network, plugins after network and open the plugin page`
   （1000、400 寬）、`expanded and wider: groups on the left…`。
+- 設定頁的「音樂庫」（`library_controls.dart`，M4 PR 21，design §10.10；PR 19 的「匹配目標音源」接在下面）：「首頁排行」是 `chartEntriesProvider` 的全部榜單（含停用的），
+  每列勾選框、榜單名稱、音源名稱與拖曳把手（`CheckboxListTile`，把手是 `secondary`）。勾選與取消寫 `ChartSettingsRepository.setEnabled`（全部取消也可以，首頁就沒有排行區塊；
+  刪快取與重新登記工作由 `ChartJobs` 做）；拖曳放開後 `setOrder` 整批寫清單上全部的榜單，資料庫追上前照拖曳後的順序畫、寫入失敗回到資料庫的順序並提示（同電台頁）。
+  清單在設定組的捲動欄裡，`shrinkWrap`、自己不捲動。連續拖曳時，寫入失敗只在畫面上仍是那一次的順序時才退回。沒有任何榜單時是說明。圖示不用導覽列音樂庫的那一個（整合測試以圖示找導覽項）。
+  閘門：`test/ui/settings/library_controls_test.dart`（列出與勾選狀態、取消與再勾寫 `enabled`、全部取消、拖曳寫三個 `sort_order` 且 `enabled` 不動、拖曳與勾選寫入失敗時回到資料庫並提示、首頁跟著變、沒有榜單時的說明）。
 - 帳號頁（`lib/ui/accounts/`，ADR 0029 §決定 8，M3 design §6.7）：
   - 每個宣告 `login` 的**已啟用**插件一張卡（讀資料庫的已安裝清單，不讀插件清單：沒有這種插件時不建 `CredentialStore`；
     登入時才向插件清單要那個插件）。沒有就是空狀態加「前往插件頁」。區塊一直在，不隨插件有無出現或消失（設定頁的順序與寬版
@@ -2007,12 +2032,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
   外殼的 `PopScope` 一個（見下一條）：它先問設定頁（`SettingsBack.release`）有沒有一組要退回清單，
   外殼以 `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）接住。「網路」組
-  顯示快取上限、封面用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
+  顯示快取上限、封面與排行的用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
   `ImageCache`（`clear` 加 `clearLiveImages`；畫面上正在用的圖只有後者清得掉）；清除失敗記
-  error、不報成功。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
+  error、不報成功。清除成功後重抓排行：`chartCacheRevisionProvider` 加一（首頁、探索頁重讀成沒有快取），
+  並對 `chartCatalogProvider` 裡每個有榜單的插件 `ChartJobs.runNow` 一次（不等、不提示；離線時它自己不發），
+  不必等下一輪工作；清除失敗時兩件都不做。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
   系統返回鍵、`400 wide: a group left open does not hold the back key on another page`）、
-  `network_controls_test.dart`（預設標明、選擇寫入、用量跟著變、取消不清、清除後索引與檔案與
-  `ImageCache` 都空、清除失敗）。
+  `network_controls_test.dart`（預設標明、選擇寫入、排行用量、用量跟著變、取消不清、清除後索引與檔案與
+  `ImageCache` 都空、清除失敗、`the charts after clearing` 群組：清除後重讀成沒有快取且每個有榜單的插件各重抓一次、清除失敗時都不做）。
 - 返回鍵（擁有者決定 7，design §9.1，ADR 0033 §決定 5）：播放頁、面板、對話框是根 Navigator 上的 route，
   Navigator 先關最上面的；外殼是 `PopScope(canPop: 在第一個目的地而且它沒有內頁)`，依序：退出目前目的地巢狀
   Navigator 的內頁 → 窄版設定頁點進某一組時回到分組清單 → 不在第一個目的地時回到第一個（首頁）→ 在第一個時放行，
@@ -2028,9 +2055,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   電台、設定按返回回到首頁；在首頁放行）與 `nested navigation`（先退內頁再回首頁、首頁的內頁先退才放行、對話框與播放頁
   先關）、`settings_page_test.dart` 的窄版返回案例。
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
-  或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放）、音樂庫（空的、有歌單的清單與收起面板的格狀、
+  或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放、排行（含更新失敗）、排行沒有快取而離線）、探索頁（分頁、多選中）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、網路三組與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2187,7 +2214,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   首頁。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的
   `navigation per window class`（每種元件五個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）。
 - 巢狀導覽（ADR 0033 §決定 5）：`IndexedStack` 的每一格是那個目的地自己的 `Navigator`，根頁是一個 `MaterialPage`（pages API：外殼重建時
-  根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史、歌單詳情，之後的探索）以 `Navigator.of(context).push` 開在
+  根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史、歌單詳情、探索）以 `Navigator.of(context).push` 開在
   內容區裡，導覽與播放列留著；全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）推在根 Navigator 上（`rootNavigator: true` 或
   `rootNavigatorKeyProvider`），`showDialog` 預設就在根上。換目的地不丟內頁（Material 每個目的地自己的 back stack）；再點一次
   目前的導覽項退回它的根；Ctrl+F 先把搜尋退回根再聚焦輸入框。地雷：
@@ -2202,19 +2229,32 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   返回鈕、再點導覽項回根、換目的地保留內頁、Esc 先關內頁上的選單、對話框與播放頁先關）、`Ctrl+F from an inner page of another destination`、
   `Ctrl+F from an inner page of Search goes back to its root`、
   `integration_test/toast_layering_test.dart` 的 `a toast shows above a page in the nested navigation`。
-- 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：區塊依序「我的歌單」「電台」「最近播放」（排行在 M4 PR 21），沒有內容的區塊不顯示。
+- 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：區塊依序「排行」「我的歌單」「電台」「最近播放」，沒有內容的區塊不顯示（排行見下一條）。
   「我的歌單」「電台」各是依 `sort_order` 前 20 個，點歌單在首頁的巢狀導覽裡開詳情，點電台收聽（音源不能用時同電台頁：不播、提示原因）；
   兩個「查看全部」切到音樂庫、電台目的地（各自的內頁留著）。這兩種卡片沒有選單，電台卡不顯示主播與不可用的原因。歌單或電台讀失敗：
   該區塊不顯示，不在首頁報：音樂庫與電台頁一直掛在外殼裡，由它們報，同一個失敗只進錯誤歷史一次。「最近播放」：`play_history` 最新 20 筆（`recentPlaysProvider`，
   不去重，歷史表變動就重讀），一排可橫向捲動的卡片（封面、兩行曲名、作者；音源不可用時是原因），點一下臨時播放；「查看全部」在首頁的
   巢狀導覽裡開歷史頁。卡片的選單（右鍵、長按、曲名旁的「⋯」，`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…；
   「⋯」疊在卡片旁、不在卡片的 `InkWell` 裡：卡片是一個按鈕的語意節點（點一下播放），包進去的話兩個點擊動作會併成一個節點。
-  區塊標題列（標題＋尾端「查看全部」）與一排卡片（`_Shelf`）是排行區塊之後的樣子。沒有可搜尋的音源時整頁是
-  首次啟動引導（見下面「首次啟動引導」）；三個區塊都沒有內容是說明（「搜尋並播放歌曲，或匯入歌單」；三份資料都讀到才判斷，不會一閃而過），沒有音源時附「前往插件頁」。本機資料，
+  沒有可搜尋的音源時整頁是
+  首次啟動引導（見下面「首次啟動引導」）；四個區塊都沒有內容是說明（「搜尋並播放歌曲，或匯入歌單」；啟用的榜單算內容，沒有快取或離線也一樣；資料都讀到才判斷；榜單要等排行工作取到 `chartList`，見 § 排行），沒有音源時附「前往插件頁」。本機資料，
   離線照常顯示。閘門：`test/ui/home/home_page_test.dart`（區塊的有無與順序、歌單與電台各 20 個依 `sort_order`、點歌單開詳情、點電台收聽、電台四種狀態標記、
   音源不能用的電台、讀失敗只報一次、載入中不閃說明、兩個「查看全部」切到音樂庫與電台、最新 20 筆不去重、點一下臨時播放、新的播放跟著出現、「查看全部」與返回、
   沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁）、`test/ui/library/add_to_playlist_test.dart` 的
   `a recent play on Home` 群組（三種開法同一份選單、加入歌單與加入佇列、卡片與「⋯」是兩個語意節點）。
+- 首頁的排行（`lib/ui/charts/home_charts.dart`、共用的 `chart_parts.dart`，M4 PR 21，design §9.2）：`enabledChartsProvider` 的每個榜單一個子區塊（標題、「音源 · 更新於 時間」，
+  `chartFailuresProvider` 標了的接「更新失敗」，「查看全部」開探索頁的那個分頁），前 5 首是清單列（名次、封面、曲名、作者；點一下臨時播放，選單同「最近播放」，沒有多選）。
+  內容區放得下幾欄（`AppLayout.chartColumnMinWidth`）就並排幾欄。快取有內容就顯示（空的榜單寫「這個榜單沒有內容」）；沒有快取時不在 `online` 是 `OfflineMessage`，
+  在線而標了失敗或快取讀不出來（快取庫開不起來，工作也寫不進去）是失敗說明，排行刷新間隔關閉（`networkProvider`）是「自動更新已關閉」與怎麼手動載入（首頁指向探索頁的刷新，探索頁指向右上角的刷新），
+  其餘是載入中（工作登記時發現沒有快取就立即到期，見 § 排行；寫入後跟著重讀）。全部停用或沒有提供排行的插件就沒有這個區塊。
+  閘門：`test/ui/charts/home_charts_test.dart`（第一個區塊、順序照設定、前 5 首與「更新於」、更新失敗、沒有快取的載入中與離線與恢復、沒有快取的失敗、快取讀不出來是失敗不轉圈、間隔關閉時說明而不轉圈且刷新後有內容、空榜單、全部停用沒有區塊且說明回來、
+  沒有插件、點一下臨時播放與選單、取到榜單清單後才出現）。
+- 探索頁（`lib/ui/charts/explore_page.dart`，`openExplore(context, ChartKey)`，M4 PR 21，design §9.3、§10.7）：首頁的巢狀導覽裡的內頁（標題有返回鈕）。每個啟用的榜單一個可捲動的分頁
+  （`TabBar` 文字「榜單 · 音源」，順序同首頁），分頁裡是狀態行與完整清單；狀態同首頁。榜單增減時分頁跟著變，留在原本的榜單，不在了回到第一個；一個啟用的都沒有時，有榜單而全部停用說明到設定頁打開，連一個提供排行的插件都沒有則說明要裝插件。多選照 `track_selection.dart`，
+  鍵是（榜單, 位置），換分頁或內容被刷新（`fetchedAt` 變了）就離開選取模式。工具列「刷新」是目前分頁那個插件的 `ChartJobs.runNow`：完成提示「已更新排行」、`offline` 與失敗時不在 `online`
+  提示離線（不發請求）、全部榜單失敗是錯誤提示、`alreadyRunning`／`unknown` 不提示。新的巢狀內頁，所以進 `toast_layering_test.dart`（`a toast shows above the explore page`）。
+  閘門：`test/ui/charts/explore_page_test.dart`（從「查看全部」開在那個分頁、返回、分頁順序與只有啟用的、開著時停用、完整清單與名次、切分頁、多選加入佇列、全選加入歌單、Esc 先離開選取、刷新後內容換了與換分頁都離開選取、能寫遠端時多選列有「加入遠端歌單…」、兩種空狀態、
+  刷新呼叫工作、間隔關閉又沒有快取時指向刷新且刷新後有內容、離線不發並提示、全部失敗的提示與「更新失敗」）。
 - 音樂庫（`lib/ui/library/`、`lib/library/playlist_service.dart`，ADR 0033 §決定 8，M4 design §10.3、§10.5）：
   - 標題列「匯入」（開匯入對話框）與「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、「本機 · n 首」），點一下在音樂庫的
     巢狀導覽裡開歌單詳情（`openPlaylist`）。格狀的卡片照 `ListTile`：`InkWell` 包 `Semantics(button: true)`，「⋯」與把手各自一個節點（包

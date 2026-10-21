@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/charts/chart_cache.dart';
+import 'package:fmp/charts/chart_entries.dart';
 import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -519,6 +521,129 @@ void main() {
     });
   });
 
+  // 重啟後工作通常還沒到期（上次成功加間隔）；有啟用的榜單沒有快取（上次失敗、被淘汰、快取讀不
+  // 出來）時登記成立即到期，畫面才不會一直轉圈到下一輪。
+  group('a chart missing from the cache', () {
+    /// 上一次執行剛成功（重啟前），快取裡只有 [cached]。
+    _Env restarted(FakeAsync async, List<String> cached, {bool online = true}) {
+      final env = _Env(online: online);
+      _await(
+        async,
+        () => env.container
+            .read(schedulerRunsRepositoryProvider)
+            .record(chartJobId('fmp-test'), clock.now()),
+      );
+      for (final chartId in cached) {
+        env.cache.entries[_key(chartId)] = ChartCacheEntry(
+          fetchedAt: clock.now().toUtc(),
+          tracks: const [],
+        );
+      }
+      return env;
+    }
+
+    test('after a restart is fetched at once, with the rest of the job', () {
+      _fake((async) {
+        final env = restarted(async, ['hot']);
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['hot', 'new']);
+        expect(env.cache.entries.keys, containsAll([_key('hot'), _key('new')]));
+
+        // 成功之後回到一小時一次。
+        async.elapse(const Duration(minutes: 58));
+        expect(plugin.chartQueries, hasLength(2));
+        async.elapse(const Duration(minutes: 2));
+        expect(plugin.chartQueries, hasLength(4));
+        env.dispose();
+      });
+    });
+
+    // 一直抓不到的榜單：冷啟動（標記只在記憶體）時讓工作立即到期一次；之後它已標失敗，設定變更
+    // 重新登記時不再讓整個插件立刻重抓。
+    test('a chart that always fails: one run at a restart, then nothing '
+        'before the interval, even when the settings change', () {
+      _fake((async) {
+        final env = restarted(async, ['hot']);
+        final plugin = FakeChartPlugin(charts: const ['hot', 'broken'])
+          ..onChart = (chartId) => chartId == 'broken'
+              ? throw NetworkError(pluginId: 'fmp-test')
+              : FakeChartPlugin().onChart(chartId);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+        expect(plugin.chartQueries, ['hot', 'broken']);
+        expect(env.failures, {_key('broken')});
+
+        async.elapse(const Duration(minutes: 30));
+        expect(plugin.chartQueries, hasLength(2));
+
+        // 改間隔會重新登記：broken 已標失敗，不算缺快取，照上次成功加新間隔。
+        env.setInterval(async, 120);
+        async.elapse(const Duration(minutes: 88));
+        expect(plugin.chartQueries, hasLength(2));
+        async.elapse(const Duration(minutes: 3));
+        expect(plugin.chartQueries, hasLength(4));
+        env.dispose();
+      });
+    });
+
+    test('every chart cached: nothing is fetched before the interval', () {
+      _fake((async) {
+        final env = restarted(async, ['hot', 'new']);
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(minutes: 59));
+        expect(plugin.chartQueries, isEmpty);
+
+        async.elapse(const Duration(minutes: 2));
+        expect(plugin.chartQueries, ['hot', 'new']);
+        env.dispose();
+      });
+    });
+
+    test('a cache that cannot be read counts as missing', () {
+      _fake((async) {
+        final env = restarted(async, ['hot', 'new']);
+        env.cache.readError = StateError('cache unavailable');
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(seconds: 1));
+
+        expect(plugin.chartQueries, ['hot', 'new']);
+        env.dispose();
+      });
+    });
+
+    test('started offline: fetched once the network is back', () {
+      _fake((async) {
+        final env = restarted(async, ['hot'], online: false);
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(minutes: 5));
+        expect(plugin.chartQueries, isEmpty);
+
+        env.interfaces.change(available: true);
+        async.elapse(const Duration(seconds: 1));
+        expect(plugin.chartQueries, ['hot', 'new']);
+        env.dispose();
+      });
+    });
+
+    test('with the interval off nothing is fetched by itself', () {
+      _fake((async) {
+        final env = restarted(async, ['hot']);
+        env.setInterval(async, 0);
+        final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
+        env.start(async, [plugin]);
+        async.elapse(const Duration(hours: 5));
+        expect(plugin.chartQueries, isEmpty);
+        env.dispose();
+      });
+    });
+  });
+
   group('the interval', () {
     test('defaults to an hour, counted from the last success', () {
       _fake((async) {
@@ -676,7 +801,7 @@ void main() {
     });
 
     test('a new plugin instance (an update) replaces the job and keeps '
-        'the cache; a chart it adds is enabled', () {
+        'the cache; a chart it adds is enabled and fetched at once', () {
       _fake((async) {
         final env = _Env();
         final plugin = FakeChartPlugin(charts: const ['hot']);
@@ -684,8 +809,9 @@ void main() {
         async.elapse(const Duration(seconds: 1));
         final updated = FakeChartPlugin(charts: const ['hot', 'extra']);
 
+        // 新增的 extra 沒有快取：重新登記成立即到期，不等一整個間隔。
         env.setPlugins(async, [updated]);
-        expect(env.runNow(async), RunNowResult.completed);
+        async.elapse(const Duration(seconds: 1));
 
         expect(updated.chartQueries, ['hot', 'extra']);
         expect(plugin.chartQueries, [
@@ -749,7 +875,8 @@ void main() {
       });
     });
 
-    test('enabling a chart again fetches it on the next run', () {
+    test('enabling a chart again fetches it right away, not on the next '
+        'interval', () {
       _fake((async) {
         final env = _Env();
         final plugin = FakeChartPlugin(charts: const ['hot', 'new']);
@@ -757,10 +884,11 @@ void main() {
         async.elapse(const Duration(seconds: 1));
         env.setEnabled(async, 'hot', enabled: false);
         expect(env.cache.entries.keys, [_key('new')]);
-
-        env.setEnabled(async, 'hot', enabled: true);
         plugin.chartQueries.clear();
-        env.runNow(async);
+
+        // 停用時刪了 hot 的快取：重新登記成立即到期。
+        env.setEnabled(async, 'hot', enabled: true);
+        async.elapse(const Duration(seconds: 1));
 
         expect(plugin.chartQueries, ['hot', 'new']);
         expect(env.cache.entries.keys, containsAll([_key('hot'), _key('new')]));
@@ -809,9 +937,10 @@ void main() {
         expect(env.failures, isEmpty);
         expect(env.runNow(async), RunNowResult.unknown);
 
+        // 回來時快取已經刪了：立即到期，不等上次成功加間隔。
         final back = FakeChartPlugin();
         env.setPlugins(async, [back, other]);
-        expect(env.runNow(async), RunNowResult.completed);
+        async.elapse(const Duration(seconds: 1));
         expect(back.chartQueries, ['hot', 'new']);
         env.dispose();
       });
@@ -901,6 +1030,229 @@ void main() {
 
         expect(seen.last, isNull);
         env.dispose();
+      });
+    });
+
+    // 首頁、探索頁與設定頁的榜單清單（chartEntriesProvider，M4 PR 21）：ChartJobs 已取得的
+    // chartList 加 chart_settings 的啟用與順序。
+    group('the chart list', () {
+      /// 目前的清單，`(插件/榜單, 啟用)` 依順序；`null`＝還在讀。
+      List<(String, bool)>? entries(_Env env) =>
+          switch (env.container.read(chartEntriesProvider)) {
+            null => null,
+            final entries => [
+              for (final entry in entries)
+                ('${entry.pluginId}/${entry.chartId}', entry.enabled),
+            ],
+          };
+
+      void listen(_Env env) =>
+          env.container.listen(chartEntriesProvider, (_, _) {});
+
+      void setOrder(FakeAsync async, _Env env, List<ChartKey> order) {
+        unawaited(
+          env.container.read(chartSettingsRepositoryProvider).setOrder(order),
+        );
+        _settle(async);
+      }
+
+      test('without settings: plugin list order, then chartList order, '
+          'with names from the plugin', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          env.start(async, [
+            FakeChartPlugin(id: 'alpha'),
+            FakeChartPlugin(id: 'beta', charts: const ['top']),
+          ]);
+
+          expect(entries(env), [
+            ('alpha/hot', true),
+            ('alpha/new', true),
+            ('beta/top', true),
+          ]);
+          final first = env.container.read(chartEntriesProvider)!.first;
+          expect(first.title, 'HOT');
+          expect(first.sourceName, 'Fake alpha');
+          expect(first.key, _key('hot', 'alpha'));
+          env.dispose();
+        });
+      });
+
+      test('sort_order first, the rest after it in the default order', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          env.start(async, [
+            FakeChartPlugin(id: 'alpha', charts: const ['hot', 'new', 'old']),
+            FakeChartPlugin(id: 'beta', charts: const ['top']),
+          ]);
+          // 只排了兩個：其餘依插件清單與 chartList 的順序接在後面。
+          setOrder(async, env, [_key('top', 'beta'), _key('old', 'alpha')]);
+
+          expect(entries(env), [
+            ('beta/top', true),
+            ('alpha/old', true),
+            ('alpha/hot', true),
+            ('alpha/new', true),
+          ]);
+
+          setOrder(async, env, [
+            _key('new', 'alpha'),
+            _key('top', 'beta'),
+            _key('hot', 'alpha'),
+            _key('old', 'alpha'),
+          ]);
+          expect(entries(env), [
+            ('alpha/new', true),
+            ('beta/top', true),
+            ('alpha/hot', true),
+            ('alpha/old', true),
+          ]);
+          env.dispose();
+        });
+      });
+
+      test('a disabled chart stays on the list, marked disabled', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          env.start(async, [FakeChartPlugin()]);
+          env.setEnabled(async, 'hot', enabled: false);
+
+          expect(entries(env), [
+            ('fmp-test/hot', false),
+            ('fmp-test/new', true),
+          ]);
+          expect(
+            [
+              for (final entry in env.container.read(enabledChartsProvider)!)
+                entry.chartId,
+            ],
+            ['new'],
+          );
+          env.dispose();
+        });
+      });
+
+      test('a chart the plugin adds is enabled; one it drops is gone even '
+          'with a row left in chart_settings', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          env.start(async, [FakeChartPlugin()]);
+          env.setEnabled(async, 'new', enabled: false);
+          setOrder(async, env, [_key('new'), _key('hot')]);
+
+          // 新版插件：拿掉 new、加了 extra。
+          env.setPlugins(async, [
+            FakeChartPlugin(charts: const ['hot', 'extra']),
+          ]);
+
+          expect(entries(env), [
+            ('fmp-test/hot', true),
+            ('fmp-test/extra', true),
+          ]);
+          env.dispose();
+        });
+      });
+
+      test('a disabled plugin and a plugin without charts have none', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          env.start(async, [
+            FakeChartPlugin(id: 'alpha', charts: const ['hot']),
+            FakeChartPlugin(id: 'beta', charts: const ['top']),
+            FakeChartPlugin(id: 'gamma', declaresCharts: false),
+          ]);
+          expect(entries(env), [('alpha/hot', true), ('beta/top', true)]);
+
+          // 停用 beta：它不在插件清單上了。
+          env.setPlugins(async, [
+            FakeChartPlugin(id: 'alpha', charts: const ['hot']),
+          ]);
+          expect(entries(env), [('alpha/hot', true)]);
+          env.dispose();
+        });
+      });
+
+      test('a plugin shows up once its chartList is known; one whose '
+          'chartList fails has no charts', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          final gate = Completer<void>();
+          final slow = FakeChartPlugin(id: 'slow', charts: const ['hot'])
+            ..listGate = gate.future;
+          final broken = FakeChartPlugin(id: 'broken')
+            ..listError = NetworkError(pluginId: 'broken');
+          env.start(async, [broken, slow]);
+
+          // 排行工作還沒對齊完：還沒有清單。
+          expect(entries(env), isEmpty);
+
+          gate.complete();
+          _settle(async);
+          expect(entries(env), [('slow/hot', true)]);
+          env.dispose();
+        });
+      });
+
+      test('a plugin whose chartList is still outstanding does not hold back '
+          'the charts already known', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          final gate = Completer<void>();
+          final fast = FakeChartPlugin(id: 'fast', charts: const ['top']);
+          final slow = FakeChartPlugin(id: 'slow', charts: const ['hot'])
+            ..listGate = gate.future;
+          env.start(async, [fast, slow]);
+
+          // slow 還卡著：fast 的榜單已經在了。
+          expect(entries(env), [('fast/top', true)]);
+
+          gate.complete();
+          _settle(async);
+          expect(entries(env), [('fast/top', true), ('slow/hot', true)]);
+          env.dispose();
+        });
+      });
+
+      test('without ChartJobs running there are no charts, and nothing '
+          'is read', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          async.flushMicrotasks();
+
+          expect(entries(env), isEmpty);
+          expect(env.container.exists(chartJobsProvider), isFalse);
+          expect(env.container.exists(chartSettingsProvider), isFalse);
+          env.dispose();
+        });
+      });
+
+      test('reading the list again does not ask the plugin again', () {
+        _fake((async) {
+          final env = _Env();
+          listen(env);
+          final plugin = FakeChartPlugin();
+          env.start(async, [plugin]);
+          async.elapse(const Duration(seconds: 1));
+          final calls = plugin.chartListCalls;
+
+          for (var i = 0; i < 3; i++) {
+            env.container.invalidate(chartEntriesProvider);
+            expect(entries(env), hasLength(2));
+          }
+          env.setEnabled(async, 'hot', enabled: false);
+          expect(entries(env), hasLength(2));
+
+          expect(plugin.chartListCalls, calls);
+          env.dispose();
+        });
       });
     });
   });

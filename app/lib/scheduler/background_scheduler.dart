@@ -83,6 +83,9 @@ enum RunNowResult {
 ///   間隔；錯誤帶 `retryAfter` 時以它為準。退避不會讓工作比「上次成功加間隔」更早跑。
 ///   成功後歸零。
 /// - **上次成功時間**：寫 `scheduler_runs`，重啟後照算。
+/// - **登記時立即到期**（`register(job, dueNow: true)`）：這次登記的工作在下一次成功前視為沒成功過
+///   ——忽略上次成功時間，可見又在線時就跑。仍受可見、在線、退避管（取代的那個工作還在退避中，
+///   退避照舊留著）；間隔關閉（`interval: null`）的工作不受影響，照樣不自動跑。
 /// - **取消**：移除或取代的工作立即不再被排，進行中的那次由工作自己看
 ///   [JobContext.isCurrent]，排程器也不替它記成功。
 final backgroundSchedulerProvider = NotifierProvider<BackgroundScheduler, void>(
@@ -153,8 +156,19 @@ final class BackgroundScheduler extends Notifier<void> {
   }
 
   /// 登記 [job]；已有同 id 的就取代（舊的進行中那次視為過期）。
-  void register(SchedulerJob job) {
-    _entries[job.id] = _Entry(job);
+  ///
+  /// [dueNow] 讓這次登記不看上次成功時間、立刻到期，直到下一次成功（例如工作的產出不見了，不必等
+  /// 一整個間隔）。不繞過退避：被取代的工作還在退避中時，新的接著等到同一個時間。
+  void register(SchedulerJob job, {bool dueNow = false}) {
+    final previous = _entries[job.id];
+    final entry = _Entry(job)..dueNow = dueNow;
+    if (previous case _Entry(:final retryAt?)
+        when dueNow && retryAt.isAfter(clock.now())) {
+      entry
+        ..failures = previous.failures
+        ..retryAt = retryAt;
+    }
+    _entries[job.id] = entry;
     _pump();
   }
 
@@ -225,8 +239,8 @@ final class BackgroundScheduler extends Notifier<void> {
   DateTime? _dueAt(_Entry entry) {
     final interval = entry.job.interval;
     if (interval == null) return null;
-    final last = _lastSuccess[entry.job.id];
-    // 沒成功過：已到期（App 啟動視同變可見，先跑一次）。
+    final last = entry.dueNow ? null : _lastSuccess[entry.job.id];
+    // 沒成功過（或登記成立即到期）：已到期（App 啟動視同變可見，先跑一次）。
     final regular = last == null
         ? DateTime.fromMillisecondsSinceEpoch(0)
         : last.add(interval);
@@ -330,7 +344,8 @@ final class BackgroundScheduler extends Notifier<void> {
     );
     entry
       ..failures = 0
-      ..retryAt = null;
+      ..retryAt = null
+      ..dueNow = false;
     _lastSuccess[entry.job.id] = at;
     try {
       await ref.read(schedulerRunsRepositoryProvider).record(entry.job.id, at);
@@ -395,6 +410,9 @@ final class _Entry {
   bool waiting = false;
   int failures = 0;
   DateTime? retryAt;
+
+  /// 登記時要求立即到期（[BackgroundScheduler.register] 的 `dueNow`），成功一次後清掉。
+  bool dueNow = false;
 }
 
 final class _Waiter {

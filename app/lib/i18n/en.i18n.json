@@ -96,6 +96,30 @@
     "addedToNext": "Added to play next",
     "addedToQueue": "Added to the queue"
   },
+  "charts": {
+    "title": "Charts",
+    "explore": "Explore",
+    "updatedAt": "Updated {time}",
+    "updateFailed": "Update failed",
+    "loading": "Loading the chart",
+    "empty": "This chart is empty",
+    "failed": "Couldn't update the chart",
+    "failedHint": "It's tried again later; you can also refresh it in Explore.",
+    "exploreFailedHint": "Use Refresh at the top to try again.",
+    "off": "Automatic updates are off",
+    "offHint": "Refresh it in Explore, or set Charts refresh under Settings › Network.",
+    "exploreOffHint": "Use Refresh at the top to load it.",
+    "refresh": "Refresh",
+    "refreshed": "Charts updated",
+    "refreshOffline": "Offline, not refreshed: showing the last charts",
+    "refreshFailed": "Couldn't refresh the charts: {reason}",
+    "tab": "{title} · {source}",
+    "source": "{source} · {status}",
+    "noCharts": "No charts turned on",
+    "noChartsHint": "Choose the charts for Home under Settings, Library.",
+    "noSource": "No plugin offers charts",
+    "noSourceHint": "Install and turn on a plugin that offers charts, and its charts show up here."
+  },
   "library": {
     "title": "Library",
     "history": "History",
@@ -266,6 +290,7 @@
     "network": "Network",
     "back": "Back",
     "playback": "Playback",
+    "library": "Library",
     "plugins": "Plugins",
     "about": "About",
     "debug": "Debug"
@@ -645,6 +670,7 @@
     "cacheLimitDefault": "{size} (default)",
     "usage": "Cache usage",
     "artwork": "Artwork",
+    "charts": "Charts",
     "clear": "Clear cache",
     "clearTitle": "Clear the cache?",
     "clearBody": "Cached artwork is deleted and downloaded again when needed. Your settings and data aren't affected.",
@@ -659,6 +685,15 @@
     "chartIntervalOff": "Off",
     "chartIntervalMinutes": "{minutes} min",
     "optionDefault": "{label} (default)"
+  },
+  "librarySettings": {
+    "homeCharts": "Charts on Home",
+    "homeChartsHint": "Check the charts to show on Home and drag to reorder them.",
+    "noCharts": "No source offers charts",
+    "noChartsHint": "Install and turn on a plugin that offers charts, and its charts show up here.",
+    "reorder": "Drag to reorder",
+    "reorderFailed": "Couldn't reorder the charts: {reason}",
+    "toggleFailed": "Couldn't change the charts on Home: {reason}"
   },
   "radio": {
     "title": "Radio",

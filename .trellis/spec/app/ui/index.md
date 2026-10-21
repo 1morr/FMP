@@ -22,7 +22,9 @@ lib/ui/
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
                        # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）
-  home/                # 首頁（區塊：我的歌單、電台、最近播放；recentPlaysProvider）
+  home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider）
+  charts/              # 首頁的排行區塊（home_charts）、探索頁（explore_page；openExplore 開在巢狀導覽裡）、
+                       # 兩者共用的狀態行、內容狀態與排行曲目列（chart_parts）
   library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單）、建立與編輯歌單的對話框（playlist_dialogs，
                        # 含自訂封面）、歌單封面（playlist_cover）、歌單詳情（playlist_detail_page；openPlaylist 開在巢狀導覽裡）、
                        # 它們讀的 provider 與分組、重排的純函數（library_state：playlistOverviewsProvider、playlistDetailProvider、
@@ -31,7 +33,7 @@ lib/ui/
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
-  settings/            # 設定頁（分組、list-detail）與外觀、網路的控制項、「關於」（版本列，連點開啟開發者模式）
+  settings/            # 設定頁（分組、list-detail）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在
@@ -247,13 +249,30 @@ try {
   `row.trailing`（「⋯」或勾選框）、`row.onTap ?? 自己的點擊`、`row.onLongPress`，選取模式裡拿掉把手之類的（`row.selecting`）。
 - 鍵要在「結果換成新的一份」時失效：位置當鍵的（搜尋）自己在換結果時 `selection.exit()`（`ref.listen`），id 當鍵的靠 `keys` 自動剔除。
 - `tracks` 回已選的曲目（依畫面順序）；要先取東西的在裡面取，取不到時自己提示並回 `null`。頁面自己的動作是 `TrackSelectionAction`
-  （回 `true` 才離開選取模式）；PR 14 的遠端動作、PR 21 的探索照這個接，不用改共用元件。
+  （回 `true` 才離開選取模式）；PR 14 的遠端動作、PR 21 的探索都照這個接，沒有改共用元件。
 - 返回鍵與 Esc 不要另放 `PopScope`：`TrackSelectionScope` 在 route 上放 `LocalHistoryEntry`，外殼原本的「退出內頁」先移除它。
 - `SelectableTrackRow` 不在 scope 底下時（`ReorderableListView` 拖著走的那一列在 Overlay 裡）畫成沒有「選取」的普通列。
 - 一直掛在外殼裡的頁面（搜尋）算 `keys` 時不要無條件 `watch` 整份插件清單：測試裡在假時間開始的讀取會擋住 `runAsync` 裡的寫入
   （drift 的鎖），整個 `import_ui_test.dart` 會卡到逾時。只對需要的列 `select`。
 - 測試：長按一列進入（`tester.longPress`），Esc 與返回鍵要在外殼裡（`pumpShell`、`h.openHistory`）；Shift 範圍以
   `sendKeyDownEvent(shiftLeft)`、點、`sendKeyUpEvent`；機制本身的案例在 `test/ui/tracks/track_selection_test.dart` 的 `_ListPage`。
+
+## 首頁排行與探索頁
+
+規則與閘門見 `app/AGENTS.md` § 排行與 § 介面的「首頁的排行」「探索頁」。
+
+- 畫面只讀 `enabledChartsProvider`／`chartEntriesProvider`（榜單）與 `chartContentProvider`、`chartFailuresProvider`（內容與失敗）、`networkProvider`（刷新間隔關閉時不轉圈、說明怎麼手動載入），不呼叫插件；刷新只經 `ChartJobs.runNow`。
+  「沒有快取、在線、沒失敗、間隔沒關」才轉圈：通常有一次執行要來（`ChartJobs` 登記時發現沒有快取就 `dueNow`）。例外（見 `.trellis/tasks/10-15-m4-library-sync/implement.md` 的「PR 21 → 之後」）：
+  執行中途才被淘汰的快取（不重新登記）、插件更新後 `chartList` 丟錯而沿用舊清單（登記時不知道啟用哪些榜單，不帶 `dueNow`）、停用後立刻啟用的競態；這些情況會轉到下一輪。
+  新的「沒有內容」狀態要先確定有人會讓它結束，不然 `pumpAndSettle` 與使用者都會等到下一輪。
+  畫面不要 watch `pluginRegistryProvider` 或 `chartJobsProvider` 來找榜單。正式環境裡兩者本來就常駐（`searchSourcesProvider` 就是插件清單、`FmpApp` 聽著排行工作），
+  問題在測試：多數外殼測試 override 了 `searchSourcesProvider`，一直掛著的首頁一旦把插件清單拉起來，假時間裡開始的讀取拿著 drift 的鎖、擋住 `runAsync` 的寫入（同上面「多選」記的
+  搜尋頁前例），watch 排行工作則把它與排程器在每個外殼測試裡拉起來。細節見 `app/AGENTS.md` § 排行。
+- 測試用 `test/ui/charts/chart_harness.dart` 的 `ChartHarness`：插件清單上一個 `FakeChartPlugin`、記憶體的排行快取，排程器與排行工作照 App 常駐（harness 自己 listen；畫面不會把它們拉起來；沒有快取時工作一開始就跑）。
+  首頁在監看 `chart_settings`：種資料一律在假時間裡直接 `await`（不包 `runAsync`，同電台）；`setOrder` 這種 batch 寫入要真的事件迴圈與假時間輪流推進才寫完，用 `settleUntil`。
+  載入中的進度圈一直在轉，不用 `pumpAndSettle`（`settle`）。要在開外殼前就有的資料（刷新間隔關閉：`chartsOffDatabase`，`ChartHarness(database:)`）在開外殼前以 `runAsync` 寫進資料庫：
+  那時還沒有人監看，不會撞鎖；開了之後才寫，排行工作已經跑過一次。讓快取一直是空的用 `hangCharts`；「沒有提供排行的插件」用 `ChartHarness(declaresCharts: false)`
+  （排行工作真的跑過、清單是空的），不要用沒有排行工作的 `ShellHarness`：那時清單一直是 `null`，什麼都沒驗到。
 
 ## 播放頁
 

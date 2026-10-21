@@ -96,6 +96,30 @@
     "addedToNext": "已加入下一首播放",
     "addedToQueue": "已加入佇列"
   },
+  "charts": {
+    "title": "排行",
+    "explore": "探索",
+    "updatedAt": "更新於 {time}",
+    "updateFailed": "更新失敗",
+    "loading": "正在載入排行",
+    "empty": "這個榜單沒有內容",
+    "failed": "排行更新失敗",
+    "failedHint": "之後會自動再試，也可以在探索頁刷新。",
+    "exploreFailedHint": "按右上角的「刷新」再試一次。",
+    "off": "自動更新已關閉",
+    "offHint": "在探索頁按「刷新」載入，或在「設定」的「網路」設定排行刷新間隔。",
+    "exploreOffHint": "按右上角的「刷新」載入。",
+    "refresh": "刷新",
+    "refreshed": "已更新排行",
+    "refreshOffline": "離線中，沒有刷新：顯示的是上次的排行",
+    "refreshFailed": "無法刷新排行：{reason}",
+    "tab": "{title} · {source}",
+    "source": "{source} · {status}",
+    "noCharts": "沒有啟用的排行",
+    "noChartsHint": "在「設定」的「音樂庫」選擇首頁要顯示的排行。",
+    "noSource": "沒有插件提供排行",
+    "noSourceHint": "安裝並啟用提供排行的插件後，它的榜單會出現在這裡。"
+  },
   "library": {
     "title": "音樂庫",
     "history": "歷史",
@@ -266,6 +290,7 @@
     "network": "網路",
     "back": "返回",
     "playback": "播放",
+    "library": "音樂庫",
     "plugins": "插件",
     "about": "關於",
     "debug": "Debug"
@@ -645,6 +670,7 @@
     "cacheLimitDefault": "{size}（預設）",
     "usage": "快取用量",
     "artwork": "封面",
+    "charts": "排行",
     "clear": "清除快取",
     "clearTitle": "清除快取？",
     "clearBody": "已快取的封面會被刪除，需要時再重新下載。設定與資料不受影響。",
@@ -659,6 +685,15 @@
     "chartIntervalOff": "關閉",
     "chartIntervalMinutes": "{minutes} 分鐘",
     "optionDefault": "{label}（預設）"
+  },
+  "librarySettings": {
+    "homeCharts": "首頁排行",
+    "homeChartsHint": "勾選要在首頁顯示的排行，拖曳調整順序。",
+    "noCharts": "沒有提供排行的音源",
+    "noChartsHint": "安裝並啟用提供排行的插件後，它的榜單會出現在這裡。",
+    "reorder": "拖曳以排序",
+    "reorderFailed": "無法調整順序：{reason}",
+    "toggleFailed": "無法變更首頁排行：{reason}"
   },
   "radio": {
     "title": "電台",

@@ -56,6 +56,75 @@ final class ChartFailures extends Notifier<Set<ChartKey>> {
   }
 }
 
+/// 一個插件在 [chartCatalogProvider] 裡的樣子：顯示名稱與 `chartList` 的結果（`null`＝問過但
+/// 取不到，插件壞了）。
+@immutable
+final class ChartCatalogEntry {
+  const ChartCatalogEntry({required this.name, required this.charts});
+
+  /// 插件的顯示名稱（manifest 的 `name`）。
+  final String name;
+
+  /// 依插件給的順序；`null`＝取不到。
+  final List<ChartRef>? charts;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! ChartCatalogEntry || other.name != name) return false;
+    final mine = charts;
+    final theirs = other.charts;
+    if (mine == null || theirs == null) return mine == theirs;
+    if (mine.length != theirs.length) return false;
+    for (final (index, chart) in mine.indexed) {
+      if (chart.chartId != theirs[index].chartId ||
+          chart.title != theirs[index].title) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    name,
+    charts == null
+        ? null
+        : Object.hashAll([
+            for (final chart in charts!) (chart.chartId, chart.title),
+          ]),
+  );
+}
+
+/// [ChartJobs] 已經取得的榜單清單，給首頁、探索頁與設定頁（`chartEntriesProvider`）：鍵是插件清單上
+/// 宣告 `charts` 的插件 id，依插件清單的順序；還沒問到或取不到的插件是 `null`（沿用上一份）。
+/// `null`＝排行工作還沒對齊過（App 剛啟動，或沒有人讓 [chartJobsProvider] 常駐）。
+///
+/// 只是一份被動的狀態，自己不依賴任何東西，寫的只有 [ChartJobs]。正式環境裡插件清單與排行工作本來就
+/// 常駐（`FmpApp`），被動是為了測試：多數外殼測試 override 了 `searchSourcesProvider`、插件清單沒人
+/// 聽，畫面若自己去讀插件清單或 [chartJobsProvider] 就會把它們拉起來——在假時間裡開始的讀取拿著
+/// drift 的鎖、擋住 `runAsync` 裡的寫入（同搜尋頁的前例），排行工作也跟著在每個外殼測試裡跑。
+final chartCatalogProvider =
+    NotifierProvider<ChartCatalog, Map<String, ChartCatalogEntry>?>(
+      ChartCatalog.new,
+    );
+
+final class ChartCatalog extends Notifier<Map<String, ChartCatalogEntry>?> {
+  @override
+  Map<String, ChartCatalogEntry>? build() => null;
+
+  /// 換成 [catalog]；內容沒變就不發新的值。
+  void publish(Map<String, ChartCatalogEntry> catalog) {
+    final current = state;
+    // mapEquals 不看順序：插件清單的順序變了也要發。
+    if (current != null &&
+        listEquals(current.keys.toList(), catalog.keys.toList()) &&
+        mapEquals(current, catalog)) {
+      return;
+    }
+    state = Map.unmodifiable(catalog);
+  }
+}
+
 /// 排行工作的登記（M4 design §6.2、ADR 0017）：跟著插件清單、榜單設定與「排行刷新間隔」，把
 /// `charts:<pluginId>` 登記到排程器或移除。
 ///
@@ -68,8 +137,12 @@ final class ChartFailures extends Notifier<Set<ChartKey>> {
 /// - 間隔設定為 0（關閉）時登記為 `interval: null`：不自動跑，但 [runNow] 仍可用。
 /// - 只有插件實例、間隔或啟用榜單的集合改變時才重新登記；某插件的榜單全部停用（或插件停用、
 ///   移除）就移除工作。
+/// - （重新）登記時有啟用的榜單沒有快取（[_missesCache]）就登記成立即到期（`dueNow`）：重啟後上次
+///   失敗的榜單、重新啟用的榜單不必等一整個間隔，畫面不會一直轉圈。仍受可見、在線、退避管。
 /// - 榜單停用時刪那個榜單的快取（ADR 0016 §決定 4），插件停用或榜單全部停用時刪該插件的排行
 ///   快取。移除插件的快取由 `PluginInstaller.remove` 的 `CacheStore.removePlugin` 刪。
+///
+/// 每次對齊完、每次執行取到 `chartList` 時，把各插件的榜單清單發到 [chartCatalogProvider]。
 ///
 /// 常駐：由 `FmpApp` 聽著，Riverpod 3 沒人聽的 provider 會被暫停。
 final chartJobsProvider = NotifierProvider<ChartJobs, void>(ChartJobs.new);
@@ -135,6 +208,8 @@ final class ChartJobs extends Notifier<void> {
       final list = await _chartList(plugin);
       // 等的期間插件、設定或間隔又變了：新的對齊會接手。
       if (generation != _generation || !ref.mounted) return;
+      // 每問完一個就發：一個卡住的插件不擋其他插件的榜單出現在畫面上。
+      _publish(plugins);
       final Set<String>? enabled;
       if (list == null) {
         // 取不到清單：照樣登記，讓工作自己呼叫 chartList、失敗時退避重試；不刪任何快取。
@@ -156,6 +231,15 @@ final class ChartJobs extends Notifier<void> {
         enabled,
       );
     }
+
+    // 要（重新）登記的工作裡，有啟用的榜單沒有快取的：登記成立即到期，不等上次成功加間隔。
+    final dueNow = <String>{
+      for (final MapEntry(key: pluginId, value: setup) in desired.entries)
+        if (_registered[pluginId] != setup &&
+            await _missesCache(pluginId, setup))
+          pluginId,
+    };
+    if (generation != _generation || !ref.mounted) return;
 
     final scheduler = ref.read(backgroundSchedulerProvider.notifier);
     final failures = ref.read(chartFailuresProvider.notifier);
@@ -179,6 +263,7 @@ final class ChartJobs extends Notifier<void> {
           interval: setup.interval,
           run: (context) => _run(pluginId, context),
         ),
+        dueNow: dueNow.contains(pluginId),
       );
       // 停用（或插件拿掉）的榜單：之前啟用、現在不在集合裡。現在的集合不知道（chartList 丟錯）
       // 就不刪；之前的不知道就當成清單上全部都可能有快取。
@@ -199,6 +284,49 @@ final class ChartJobs extends Notifier<void> {
 
     // 工作都登記好了才刪快取：進行中的舊工作已經過期，不會再寫。
     await _dropCaches(goneChartCaches, disabledCharts);
+    // 在 await 之後才發：沒有宣告 `charts` 的插件時，上面整段在 build 裡同步跑完，那時不能改
+    // 別的 provider。
+    if (generation != _generation || !ref.mounted) return;
+    _publish(plugins);
+  }
+
+  /// 把 [plugins] 裡宣告 `charts` 的插件的榜單清單發到 [chartCatalogProvider]。這個實例還沒取到
+  /// （取不到）時沿用上一份（同一個插件換了實例而新的取不到時留著舊的清單），沒有就是 `null`。
+  void _publish(Map<String, SourcePlugin> plugins) {
+    final catalog = ref.read(chartCatalogProvider.notifier);
+    final previous = ref.read(chartCatalogProvider);
+    catalog.publish({
+      for (final plugin in plugins.values)
+        if (plugin.manifest.capabilities.contains(PluginCapability.charts))
+          plugin.manifest.id: ChartCatalogEntry(
+            name: plugin.manifest.name,
+            charts:
+                _lists[plugin]?.charts ?? previous?[plugin.manifest.id]?.charts,
+          ),
+    });
+  }
+
+  /// [setup] 啟用的榜單裡有沒有快取的（快取讀不出來也算）：重啟時上次失敗的榜單、重新啟用的榜單、
+  /// 被淘汰的榜單都不必等下一輪。間隔關閉時不算（尊重「關閉」，畫面說明怎麼手動載入）；登記時還
+  /// 不知道啟用哪些榜單（`chartList` 丟錯）也不算。已標「更新失敗」的榜單不算：畫面已經說它失敗了，
+  /// 一個一直抓不到的榜單不該讓整個插件每次設定變更都立刻重抓。標記只在記憶體，所以冷啟動時它仍會
+  /// 讓工作立即到期一次。
+  Future<bool> _missesCache(String pluginId, _Setup setup) async {
+    final chartIds = setup.chartIds;
+    if (setup.interval == null || chartIds == null) return false;
+    final failures = ref.read(chartFailuresProvider);
+    try {
+      final cache = await ref.read(chartCacheProvider.future);
+      for (final chartId in chartIds) {
+        final key = (pluginId: pluginId, chartId: chartId);
+        if (failures.contains(key)) continue;
+        if (await cache.read(key) == null) return true;
+      }
+      return false;
+    } on Object {
+      // 快取庫開不起來（已記過 error）或讀失敗：當成沒有快取。
+      return true;
+    }
   }
 
   /// 刪 [plugins] 的全部排行快取與 [charts] 那幾個榜單的快取。
@@ -257,6 +385,10 @@ final class ChartJobs extends Notifier<void> {
     final list = await plugin.chartList();
     if (!context.isCurrent || !ref.mounted) return;
     _lists[plugin] = list;
+    if (ref.read(pluginRegistryProvider).value case final plugins?
+        when identical(plugins[pluginId], plugin)) {
+      _publish(plugins);
+    }
     final settings = await ref.read(chartSettingsProvider.future);
     if (!context.isCurrent || !ref.mounted) return;
     final charts = _enabledCharts(list, settings, pluginId);

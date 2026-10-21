@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/charts/chart_entries.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
@@ -11,6 +12,7 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
+import 'package:fmp/ui/charts/home_charts.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
@@ -63,11 +65,12 @@ final recentPlaysProvider = StreamProvider<List<PlayHistoryEntry>>((
   }
 });
 
-/// 首頁（ADR 0033 §決定 6，M4 design §10.2）。區塊依序：我的歌單（依 `sort_order` 前 20
+/// 首頁（ADR 0033 §決定 6，M4 design §10.2）。區塊依序：排行（每個啟用的榜單前 5 首，
+/// [HomeCharts]；全部停用或沒有提供排行的音源就沒有這個區塊）、我的歌單（依 `sort_order` 前 20
 /// 張，點一下在首頁的巢狀導覽裡開詳情，「查看全部」切到音樂庫）、電台（前 20 個，點一下
 /// 收聽，「查看全部」切到電台）、最近播放（一排卡片，點一下臨時播放，「查看全部」在首頁的
-/// 巢狀導覽裡開歷史頁）。沒有內容的區塊不顯示，三個都沒有時是說明。排行的區塊之後加在
-/// 最前面。
+/// 巢狀導覽裡開歷史頁）。沒有內容的區塊不顯示，四個都沒有時是說明（啟用的榜單算內容，
+/// 還沒有快取、離線也一樣）。
 ///
 /// 沒有任何可搜尋的音源而且還沒按「稍後再說」時，整頁是首次啟動引導（與搜尋頁同一個
 /// 元件，ADR 0030 §決定 12）。沒有內容時是說明；沒有音源時說明附「前往插件頁」。本機
@@ -116,6 +119,8 @@ class HomePage extends ConsumerWidget {
     final radioState = ref.watch(radioEntriesProvider);
     final playlists = [...?playlistsState.value?.take(homeShelfCount)];
     final stations = [...?radioState.value?.take(homeShelfCount)];
+    // `null`＝插件清單、榜單設定或榜單清單還在讀。
+    final charts = ref.watch(enabledChartsProvider);
     // 三份資料到齊才判斷「沒有內容」，免得說明一閃而過。
     final loading =
         playlistsState is AsyncLoading || radioState is AsyncLoading;
@@ -140,8 +145,18 @@ class HomePage extends ConsumerWidget {
     final Widget body = switch (recent) {
       AsyncData() when loading => const SizedBox.shrink(),
       // 圖示不用音樂庫導覽項的那一個：整合測試以圖示找導覽項。
+      // 其他都沒有內容而榜單還在讀：等它，免得說明一閃而過。
       AsyncData(:final value)
-          when value.isEmpty && playlists.isEmpty && stations.isEmpty =>
+          when value.isEmpty &&
+              playlists.isEmpty &&
+              stations.isEmpty &&
+              charts == null =>
+        const SizedBox.shrink(),
+      AsyncData(:final value)
+          when value.isEmpty &&
+              playlists.isEmpty &&
+              stations.isEmpty &&
+              charts!.isEmpty =>
         EmptyState(
           icon: Icons.music_note_outlined,
           title: t.empty,
@@ -156,6 +171,7 @@ class HomePage extends ConsumerWidget {
       AsyncData(:final value) => ListView(
         padding: EdgeInsets.only(bottom: spacing.x4),
         children: [
+          if (charts != null && charts.isNotEmpty) HomeCharts(charts: charts),
           if (playlists.isNotEmpty)
             _Shelf(
               title: t.myPlaylists,
@@ -200,7 +216,7 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-/// 一個首頁區塊的標題列：標題（語意標題）與尾端的「查看全部」。之後的排行區塊照這個樣子。
+/// 一個首頁區塊的標題列：標題（語意標題）與尾端的「查看全部」。
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, required this.action});
 

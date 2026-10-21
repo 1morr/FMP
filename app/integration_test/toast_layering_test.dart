@@ -13,9 +13,11 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
+import 'package:fmp/ui/charts/explore_page.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/history/history_page.dart';
+import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -34,7 +36,8 @@ import '../test/ui/support/shell_harness.dart';
 // 大小；插件與播放後端用測試的假實作（不連網、不出聲）。同一組斷言在
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
 // 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9；
-// Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13；播放頁的直播版，M3 PR 18c；巢狀導覽裡的頁，M4 PR 2）：
+// Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13；播放頁的直播版，M3 PR 18c；巢狀導覽裡的頁，M4 PR 2；
+// 探索頁，M4 PR 21）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -204,6 +207,26 @@ void main() {
     await tester.pumpAndSettle();
     await expectToastOnTop(tester, h);
     expect(find.text('A dialog'), findsOneWidget);
+  });
+
+  // 探索頁（M4 PR 21，design §9.3）：首頁排行的「查看全部」在首頁的巢狀導覽裡開的頁，導覽與播放列
+  // 留著（這裡沒有提供排行的插件，頁面是空狀態）；提示照樣在最上層。
+  testWidgets('a toast shows above the explore page', (tester) async {
+    final (h, _) = await pumpShell(tester);
+    await h.play(tester, [summary('a')]);
+    await tester.pump(const Duration(milliseconds: 200));
+    unawaited(
+      openExplore(tester.element(find.byType(HomePage)), (
+        pluginId: h.plugin.manifest.id,
+        chartId: 'hot',
+      )),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ExplorePage), findsOneWidget);
+    expect(find.byType(PlayerBar), findsOneWidget);
+
+    await expectToastOnTop(tester, h);
+    expect(find.byType(ExplorePage), findsOneWidget);
   });
 
   // 帳號的歌單頁（M4 PR 13，design §7.3）：帳號頁在設定分頁自己的巢狀導覽裡開的頁，導覽與播放列

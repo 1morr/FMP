@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§9.2 首頁排行、§9.3 探索頁、§10.2 首頁、§10.7 多選、§10.10 設定頁區塊、§8.3 排序規則"}
+{"file": "docs/adr/0033-library-home-and-navigation.md", "reason": "首頁、導覽、設定頁音樂庫區"}
+{"file": "docs/adr/0016-cache-and-offline.md", "reason": "§決定 4 停用刪快取、§決定 7 離線顯示"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "版面、元件、設定頁區塊順序"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、guideline 測試"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "repository 寫法"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "設定頁區塊"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "widget 測試寫法"}
