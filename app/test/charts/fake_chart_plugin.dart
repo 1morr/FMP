@@ -94,13 +94,19 @@ final class FakeChartCache implements ChartCache {
   final removedCharts = <ChartKey>[];
   final removedPlugins = <String>[];
 
+  /// 給了就讓 [read] 丟它（快取庫讀不出來）。
+  Object? readError;
+
   @override
   Future<void> write(ChartKey key, ChartCacheEntry entry) async {
     entries[key] = entry;
   }
 
   @override
-  Future<ChartCacheEntry?> read(ChartKey key) async => entries[key];
+  Future<ChartCacheEntry?> read(ChartKey key) async {
+    if (readError case final error?) throw error;
+    return entries[key];
+  }
 
   @override
   Future<void> remove(ChartKey key) async {

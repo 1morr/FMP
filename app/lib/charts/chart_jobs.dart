@@ -137,6 +137,8 @@ final class ChartCatalog extends Notifier<Map<String, ChartCatalogEntry>?> {
 /// - 間隔設定為 0（關閉）時登記為 `interval: null`：不自動跑，但 [runNow] 仍可用。
 /// - 只有插件實例、間隔或啟用榜單的集合改變時才重新登記；某插件的榜單全部停用（或插件停用、
 ///   移除）就移除工作。
+/// - （重新）登記時有啟用的榜單沒有快取（[_missesCache]）就登記成立即到期（`dueNow`）：重啟後上次
+///   失敗的榜單、重新啟用的榜單不必等一整個間隔，畫面不會一直轉圈。仍受可見、在線、退避管。
 /// - 榜單停用時刪那個榜單的快取（ADR 0016 §決定 4），插件停用或榜單全部停用時刪該插件的排行
 ///   快取。移除插件的快取由 `PluginInstaller.remove` 的 `CacheStore.removePlugin` 刪。
 ///
@@ -230,6 +232,15 @@ final class ChartJobs extends Notifier<void> {
       );
     }
 
+    // 要（重新）登記的工作裡，有啟用的榜單沒有快取的：登記成立即到期，不等上次成功加間隔。
+    final dueNow = <String>{
+      for (final MapEntry(key: pluginId, value: setup) in desired.entries)
+        if (_registered[pluginId] != setup &&
+            await _missesCache(pluginId, setup))
+          pluginId,
+    };
+    if (generation != _generation || !ref.mounted) return;
+
     final scheduler = ref.read(backgroundSchedulerProvider.notifier);
     final failures = ref.read(chartFailuresProvider.notifier);
     final goneChartCaches = <String>[];
@@ -252,6 +263,7 @@ final class ChartJobs extends Notifier<void> {
           interval: setup.interval,
           run: (context) => _run(pluginId, context),
         ),
+        dueNow: dueNow.contains(pluginId),
       );
       // 停用（或插件拿掉）的榜單：之前啟用、現在不在集合裡。現在的集合不知道（chartList 丟錯）
       // 就不刪；之前的不知道就當成清單上全部都可能有快取。
@@ -292,6 +304,29 @@ final class ChartJobs extends Notifier<void> {
                 _lists[plugin]?.charts ?? previous?[plugin.manifest.id]?.charts,
           ),
     });
+  }
+
+  /// [setup] 啟用的榜單裡有沒有快取的（快取讀不出來也算）：重啟時上次失敗的榜單、重新啟用的榜單、
+  /// 被淘汰的榜單都不必等下一輪。間隔關閉時不算（尊重「關閉」，畫面說明怎麼手動載入）；登記時還
+  /// 不知道啟用哪些榜單（`chartList` 丟錯）也不算。已標「更新失敗」的榜單不算：畫面已經說它失敗了，
+  /// 一個一直抓不到的榜單不該讓整個插件每次設定變更都立刻重抓。標記只在記憶體，所以冷啟動時它仍會
+  /// 讓工作立即到期一次。
+  Future<bool> _missesCache(String pluginId, _Setup setup) async {
+    final chartIds = setup.chartIds;
+    if (setup.interval == null || chartIds == null) return false;
+    final failures = ref.read(chartFailuresProvider);
+    try {
+      final cache = await ref.read(chartCacheProvider.future);
+      for (final chartId in chartIds) {
+        final key = (pluginId: pluginId, chartId: chartId);
+        if (failures.contains(key)) continue;
+        if (await cache.read(key) == null) return true;
+      }
+      return false;
+    } on Object {
+      // 快取庫開不起來（已記過 error）或讀失敗：當成沒有快取。
+      return true;
+    }
   }
 
   /// 刪 [plugins] 的全部排行快取與 [charts] 那幾個榜單的快取。
