@@ -665,6 +665,138 @@ void main() {
       });
     });
 
+    // 工作的產出不見了（例如排行的快取）時，登記成立即到期，不等上次成功加間隔。
+    test('dueNow ignores the last success until the next success', () {
+      _fake((async) {
+        final database = memoryDatabase();
+        await_(
+          SchedulerRunsRepository(database).record('a', clock.now()),
+          async,
+        );
+        final env = _Env(database: database);
+        final probe = _Probe('a', interval: const Duration(minutes: 60));
+        env.start(async);
+        env.scheduler.register(probe.job, dueNow: true);
+        async.flushMicrotasks();
+        expect(probe.starts, hasLength(1), reason: 'due at once');
+
+        // 成功之後回到「上次成功加間隔」。
+        async.elapse(const Duration(minutes: 59));
+        expect(probe.starts, hasLength(1));
+        async.elapse(const Duration(minutes: 2));
+        expect(probe.starts, hasLength(2));
+        env.dispose();
+      });
+    });
+
+    test('without dueNow a job that succeeded recently waits for its '
+        'interval', () {
+      _fake((async) {
+        final database = memoryDatabase();
+        await_(
+          SchedulerRunsRepository(database).record('a', clock.now()),
+          async,
+        );
+        final env = _Env(database: database);
+        final probe = _Probe('a', interval: const Duration(minutes: 60));
+        env.start(async);
+        env.scheduler.register(probe.job);
+        async.elapse(const Duration(minutes: 59));
+        expect(probe.starts, isEmpty);
+        env.dispose();
+      });
+    });
+
+    test('dueNow still waits until visible and online, then runs', () {
+      _fake((async) {
+        final database = memoryDatabase();
+        await_(
+          SchedulerRunsRepository(database).record('a', clock.now()),
+          async,
+        );
+        final env = _Env(database: database, online: false);
+        final probe = _Probe('a', interval: const Duration(minutes: 60));
+        env.start(async);
+        env.scheduler.register(probe.job, dueNow: true);
+        async.elapse(const Duration(minutes: 5));
+        expect(probe.starts, isEmpty, reason: 'offline');
+
+        env.hide(async);
+        env.network(async, available: true);
+        async.elapse(const Duration(minutes: 5));
+        expect(probe.starts, isEmpty, reason: 'hidden');
+
+        env.show(async);
+        expect(probe.starts, hasLength(1));
+        env.dispose();
+      });
+    });
+
+    // 立即到期不繞過退避：被取代的工作還在退避中，新的等到同一個時間；失敗了照樣退避，
+    // 下一次成功前一直算到期（退避一到就重試，不等間隔）。
+    test('dueNow does not cut a backoff short', () {
+      _fake((async) {
+        final env = _Env();
+        final probe = _Probe('a', interval: const Duration(minutes: 60))
+          ..failWith = StateError('down');
+        env.start(async);
+        env.scheduler.register(probe.job);
+        async.flushMicrotasks();
+        expect(probe.starts, hasLength(1));
+
+        // 退避一分鐘中重新登記成立即到期：照樣等到一分鐘。
+        async.elapse(const Duration(seconds: 20));
+        env.scheduler.register(probe.job, dueNow: true);
+        async.elapse(const Duration(seconds: 30));
+        expect(probe.starts, hasLength(1));
+        async.elapse(const Duration(seconds: 11));
+        expect(probe.starts, hasLength(2));
+
+        // 又失敗：退避 2 分鐘後再試（還沒成功過，不等間隔）。
+        async.elapse(const Duration(minutes: 1, seconds: 58));
+        expect(probe.starts, hasLength(2));
+        async.elapse(const Duration(seconds: 3));
+        expect(probe.starts, hasLength(3));
+        env.dispose();
+      });
+    });
+
+    test('a dueNow job that fails retries after the backoff, not after the '
+        'interval since its last success', () {
+      _fake((async) {
+        final database = memoryDatabase();
+        await_(
+          SchedulerRunsRepository(database).record('a', clock.now()),
+          async,
+        );
+        final env = _Env(database: database);
+        final probe = _Probe('a', interval: const Duration(minutes: 60))
+          ..failWith = StateError('down');
+        env.start(async);
+        env.scheduler.register(probe.job, dueNow: true);
+        async.flushMicrotasks();
+        expect(probe.starts, hasLength(1));
+
+        async.elapse(const Duration(seconds: 59));
+        expect(probe.starts, hasLength(1));
+        async.elapse(const Duration(seconds: 2));
+        expect(probe.starts, hasLength(2), reason: 'the first backoff');
+        env.dispose();
+      });
+    });
+
+    test('dueNow does not make a job whose interval is off run by itself', () {
+      _fake((async) {
+        final env = _Env();
+        final probe = _Probe('a', interval: null);
+        env.start(async);
+        env.scheduler.register(probe.job, dueNow: true);
+        async.elapse(const Duration(hours: 5));
+        expect(probe.starts, isEmpty);
+        env.dispose();
+      });
+    });
+
     test('a failed run records nothing', () {
       _fake((async) {
         final database = memoryDatabase();
