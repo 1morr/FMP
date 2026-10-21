@@ -268,7 +268,8 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   不關的話失敗的 provider 會一直重試到測試逾時。
 - 契約執行器本身（`test/plugins/contract/`）：改它的檢查時，在 `contract_runner_test.dart` 以
   `copyPlugin`／`edit`（`plugin_copy.dart`）在測試插件的副本上造一個會紅的變異，並留一個改無關處
-  不紅的案例。`edit` 找不到要換的字串會讓測試失敗（Windows checkout 可能是 CRLF，只換單行）。
+  不紅的案例。`edit` 找不到要換的字串會讓測試失敗。`app/test/fixtures/**` 在 `.gitattributes` 固定 `eol=lf`：
+  Windows 的 `core.autocrlf` 會把它們 checkout 成 CRLF，逐位元讀它們的測試就會壞。
 
 ## Quality Check
 

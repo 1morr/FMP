@@ -3,6 +3,10 @@
 # CRLF out of committed files -- a per-machine setting, not a repo policy.
 * text=auto
 
+# Plugin fixtures are read byte for byte (scripts, checks, recorded
+# responses); a CRLF checkout breaks the contract and dev-case tests.
+app/test/fixtures/** text eol=lf
+
 # PowerShell is the one script type here and Windows hosts want CRLF.
 *.ps1 text eol=crlf
 
