@@ -196,10 +196,14 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 規則與閘門見 `app/AGENTS.md` § 介面的 Debug 頁「備份、從備份還原與重設資料」。
 
 - 不是 repository：`DatabaseBackups(database, 資料目錄, log)` 管檔案（`backups/fmp-<UTC>.db`、還原、刪檔），因為
-  `VACUUM INTO` 與「關閉後換檔」都得在 `lib/data/`。`restore`、`erase` 結束後資料庫已關閉，呼叫端必須接著結束行程。
+  `VACUUM INTO` 與「關閉後換檔」都得在 `lib/data/`。`restoreStaged`、`erase` 結束後資料庫已關閉，呼叫端必須接著結束行程。
 - 測試用真的檔案資料庫（`openAppDatabase` 開在 `Directory.systemTemp`），不是 `memoryDatabase()`：要驗檔案本身。
   另開備份檔數筆數會觸發 drift 的「同一個類別開多次」警告，測試開頭設 `driftRuntimeOptions.dontWarnAboutMultipleDatabases`。
 
+- **加表時要歸類**：新表必須加進 `backup_format.dart` 的 `backupCarriedTables`（跟著備份走）或 `backupExcludedTables`（裝置專屬、帶秘密或只對這台有意義：版面、帳號、插件的 key／value、排程的時間），
+  否則 `test/data/database/backup_format_test.dart` 的 `table classification gate` 紅。表裡只有某幾欄屬於這台的（輸出裝置、開發資料夾）加進 `backupDeviceColumns`。規則與流程見 `app/AGENTS.md` § 介面的「備份與還原」。
+- 不帶走的表（`backupExcludedTables`）還原時逐表處理：`backupKeptOnDeviceTables` 的帶這台的列（`accounts`、`layout_state`），其餘清空。新增不帶走的表時要決定屬於哪一種，並補 `database_backups_test.dart` 的 `every excluded table is either kept from this device or emptied` 裡的插入語句（沒補就紅）。裝置欄位加進 `backupDeviceColumns`，匯出、`readCarriedState`、`carryOver` 都照常數走，`the carried state and carryOver cover every constant` 守著。
+- 匯出、`stage`、`carryOver` 用原始 `sqlite3`（不經 drift）在背景 isolate 動備份檔，全部先 `PRAGMA trusted_schema = OFF`；備份檔是外來檔案，`stage` 先擋 trigger 與 view，最後由 App 自己重建 schema（只複製全新表有的欄位），所以還原後的 schema 一定是 App 自己定義的。
 ## 插件開發工具補的列（`plugin_repository.dart`，schema v10）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `installed_plugins.from_dev_folder`。

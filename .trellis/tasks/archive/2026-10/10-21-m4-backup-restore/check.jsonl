@@ -1,0 +1,9 @@
+{"file": "docs/adr/0034-backup-file-and-restore.md", "reason": "備份檔格式、不帶走的清單、還原步驟、如何確認"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§11 備份與還原的介面；§17 第 15 條 Debug 頁還原保留登入"}
+{"file": "docs/adr/0025-debug-page-and-developer-mode.md", "reason": "§決定 9 自動備份、還原、重設與兩則更正"}
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "§決定 8 安裝確認的內容與警告（還原確認框代替它）"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "設定區與確認框的版面"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "資料層、表、測試以真的檔案資料庫"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、guideline 測試、設定分組"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "FileDialogs、重啟"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、雙向變異"}

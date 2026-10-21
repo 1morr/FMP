@@ -381,6 +381,7 @@ try {
 
 - 設定頁加一個不是設定組的區塊：`SettingsSection` 加一個值與它的名稱，`detail` 的 `switch` 決定它要不要包在捲動的欄裡
   （自己有捲動清單的像插件頁就不包，填滿剩下的高度）。
+- 設定頁「備份與還原」（`SettingsSection.backup`）：UI 只呼叫 `AppBackup`（匯出、選檔並驗證）與 `DataReset`（還原後半），確認與執行共用 `lib/ui/backup/restore_flow.dart` 的 `confirmAndRestore`（Debug 頁的還原也走它）；進行中蓋全螢幕的進度用 `runBlocking`。規則與閘門見 `app/AGENTS.md` § 介面的「備份與還原」。
 - 插件頁的動作照 `_install` 的寫法：provider 在第一個 `await` 之前讀好；等網路或資料庫的那段包 `_work`（進度條、其他
   動作停用），對話框不包；`await` 之後先看 `mounted` 再碰 `ref` 或開下一個對話框。失敗用 `_failed`（`Toaster.error` 加一句
   「無法…：原因」），預期內的拒絕用 `_rejected`。
