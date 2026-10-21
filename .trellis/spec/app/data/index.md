@@ -251,8 +251,9 @@ lib/data/cache/
   寫入路徑在索引記上類別；用量（`usage`）自動分開算。類別只是 `cache_entries.category` 的新字串，表沒變，
   不必動 `CacheDatabase.schemaVersion`；`watchUsage` 的結果多一個鍵，既有測試的期望要補（`CacheCategory.chart: 0`）。
   不經 cache manager 的內容（排行的 JSON）用 `CacheStore.put`／`get`／`remove`。
-- 開快取庫的連線一律帶 `setup` 設 `PRAGMA busy_timeout`（`cacheBusyTimeoutMilliseconds`）：同一個行程裡上一個快取庫可能還沒開完（見 `app/AGENTS.md` 的「快取庫」）。
-  `setup` 在背景 isolate 跑，只用常數。要測「被佔住」時，用 `sqlite3.open` 另開一條連線 `BEGIN EXCLUSIVE`：一直佔著是 busy（要等滿 timeout），計時放開是等得到。
+- 一律經 `openCacheStore` 開快取庫：同一個目錄的開啟一個接一個（等還在開、還在關的那一個，見 `app/AGENTS.md` 的「快取庫」）。不要改靠 `PRAGMA busy_timeout`：
+  Linux 上 Dart VM 的取樣 profiler 會打斷 SQLite 的睡眠，`flutter test` 裡等不到設定的時間（CI 的 Linux 撞過）。測「等」用 `pendingCacheOpens`／`pendingCacheCloses`
+  登記一個沒完成的 future，不要用計時放開的 `BEGIN EXCLUSIVE`——那測的是 SQLite 在各平台的睡眠，不是我們的保證。
 - 測試用 `test/data/cache/cache_harness.dart` 的 `CacheHarness`：暫存目錄當平台快取目錄、
   假 adapter 的媒體 client、`open` 開真的檔案資料庫。`at(minute, …)` 固定時間（最後存取以它
   排序），`read` 從索引讀並等最後存取寫完（`flutter_cache_manager` 不等那次寫入，不等的話測試

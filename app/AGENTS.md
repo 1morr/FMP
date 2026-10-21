@@ -522,10 +522,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （不是資料庫的檔、別的版本的檔、旁邊的檔案留著）、`cacheStoreProvider` 群組（開不起來是
   `AsyncError` 並記 error）、`test/drift/cache_database/schema_test.dart`（改了表沒加版本會
   紅）。清空之後第二次 `_open` 也失敗的那一支沒有測試（造不出清空後仍開不起來的目錄）。
-- 連線設 `PRAGMA busy_timeout`（`cacheBusyTimeoutMilliseconds`，5 秒，M4 PR 21）：同一個行程裡上一個快取庫還沒開完就被拆掉（`cacheStoreProvider` 開啟期間被釋放，
-  開好才關；`openCacheStore` 只等「正在關」的那一個），新的一開就撞上它的寫入鎖，SQLite 預設不等、直接 `SQLITE_BUSY`，整個快取庫開不起來（整合測試在 Windows 上兩次啟動之間撞到過）。
-  一直被佔著才照舊丟 busy、不清目錄。主資料庫不設：它只在 `main()` 開一次、整合測試 `await` 關完才重開，沒有重疊。閘門：`opening` 群組的 `a lock held for a moment by another connection is waited out`
-  （拿掉 timeout 會紅）、`a database that is locked by another connection is not corruption…`（等滿 timeout 後才丟，這個測試因此要 5 秒）。
+- 同一個目錄的 `openCacheStore` 一個接一個（M4 PR 21）：先等還在開（含對帳）的那一個，再等還在關的那一個（`_pendingOpens`、`_pendingCloses`，以正規化路徑為鍵）。
+  為什麼：`cacheStoreProvider` 在開啟期間被釋放（App 拆掉重來；整合測試的兩次啟動）時開好才關，新的若同時開，會撞上它建表或對帳時拿著的鎖丟 `SQLITE_BUSY`，整個快取庫開不起來
+  （PR 21 的整合測試在 Windows 撞到過），兩個對帳也會互刪對方的檔。前一個開好之後連線是閒的，新的不必等它關完。
+  不用 `PRAGMA busy_timeout`：SQLite 的預設 busy handler 以預定的睡眠次數計時，Linux（含 Android）上 Dart VM 的取樣 profiler（debug、profile 與 `flutter test`）以 SIGPROF 打斷
+  `usleep`，5 秒的等待幾十毫秒就用完（Docker 裡 `dart --profiler` 對照 `dart` 實測；Windows 的 `Sleep` 不受影響）。被別的連線一直佔著照舊丟 busy、不清目錄。
+  主資料庫不需要：它只在 `main()` 開一次，整合測試 `await` 關完才重開。閘門：`opening` 群組的 `opening waits for an open of the same directory that is still running`
+  （登記一個沒完成的開啟，拿掉等待會紅）、`two opens of the same directory at once both succeed, the second after the first`（拿掉等待時 Windows、Linux 都紅），
+  `cacheStoreProvider` 群組的 `a store given up while still opening does not stop the next container from opening the same directory`（對應 App 的情境；賽跑，拿掉等待不一定紅）。
 - 開好之後先對帳才交出去：清空 `staging/`，刪掉檔案不見的列與 `files/` 裡不在索引的檔（寫到
   一半被關掉的 App、刪不掉的舊檔）。閘門：`opening` 群組的 `reconciles the index…`。
 - 一個總上限（設定頁「網路」組的快取上限，沒設定就是平台宣告的預設），寫進索引之後超過就
