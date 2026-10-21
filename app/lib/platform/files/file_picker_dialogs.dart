@@ -9,7 +9,10 @@ final class FilePickerDialogs implements FileDialogs {
   const FilePickerDialogs();
 
   @override
-  Future<PickedFile?> pickFile({required String extension}) async {
+  Future<PickedFile?> pickFile({
+    required String extension,
+    int? maxBytes,
+  }) async {
     // 副檔名篩選在 Android 是轉成 MIME（`MimeTypeMap`），在 Windows 是對話框的
     // 檔案類型；兩邊都只是篩選，選到的內容由呼叫端照格式驗證。
     final file = await FilePicker.pickFile(
@@ -17,6 +20,11 @@ final class FilePickerDialogs implements FileDialogs {
       allowedExtensions: [extension],
     );
     if (file == null) return null;
+    // 大小在選檔結果裡時（不必讀檔就知道）先擋，免得把很大的檔讀進記憶體。
+    final size = file.lengthSync();
+    if (maxBytes != null && size != null && size > maxBytes) {
+      throw PickedFileTooLarge(name: file.name, size: size, maxBytes: maxBytes);
+    }
     return PickedFile(name: file.name, bytes: await file.readAsBytes());
   }
 

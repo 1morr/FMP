@@ -93,6 +93,9 @@ class TranslationsZhCn extends Translations
     _root,
   );
   @override
+  late final Translations$backup$zh_CN backup =
+      Translations$backup$zh_CN.internal(_root);
+  @override
   late final Translations$player$zh_CN player =
       Translations$player$zh_CN.internal(_root);
   @override
@@ -818,6 +821,8 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   @override
   String get plugins => '插件';
   @override
+  String get backup => '备份与还原';
+  @override
   String get about => '关于';
   @override
   String get debug => 'Debug';
@@ -1330,18 +1335,79 @@ class Translations$debug$zh_CN extends Translations$debug$zh_TW {
   String dbRestoreListFailed({required Object message}) =>
       '无法读取备份列表：${message}';
   @override
-  String get dbRestoreConfirmTitle => '从这份备份还原？';
-  @override
-  String dbRestoreConfirmBody({required Object time}) =>
-      '备份时间：${time}。当前的数据库会改名留在数据目录（fmp.db.before-restore-…），换成这份备份。备份不含登录凭证，还原后要重新登录。';
-  @override
-  String get dbRestoreConfirm => '还原并重启';
-  @override
   String get dbRestoreWorking => '正在还原…';
   @override
   String dbRestoreFailed({required Object message}) => '还原没有完成：${message}';
   @override
   String get dbCheckProblemsActions => '可以从备份还原，或重置数据。';
+}
+
+// Path: backup
+class Translations$backup$zh_CN extends Translations$backup$zh_TW {
+  Translations$backup$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get intro =>
+      '备份包含歌单、设置、已安装的插件等数据，不含登录、Cookie、缓存与下载的文件。还原会替换当前的数据，并保留这台设备当前的登录。';
+  @override
+  String get export => '导出备份';
+  @override
+  String get restore => '从备份文件还原';
+  @override
+  String get exportWorking => '正在导出…';
+  @override
+  String get stageWorking => '正在检查备份…';
+  @override
+  String get restoreWorking => '正在还原…';
+  @override
+  String exported({required Object location}) => '备份已保存到 ${location}';
+  @override
+  String exportFailed({required Object message}) => '备份没有导出：${message}';
+  @override
+  String restoreFailed({required Object message}) => '还原没有完成：${message}';
+  @override
+  String get rejectedNewer => '这份备份来自较新版的 FMP，请先更新 FMP。';
+  @override
+  String get rejectedNotFmp => '这不是 FMP 的备份。';
+  @override
+  String get rejectedCorrupt => '备份文件已损坏。';
+  @override
+  String get restoreTitle => '从这份备份还原？';
+  @override
+  String get restoreBody => '当前的数据会被替换；替换前会自动备份。这台设备的登录会保留。';
+  @override
+  String get restartsItself => '完成后 App 会自动重新启动。';
+  @override
+  String get restartsManually => '完成后 App 会关闭，请自己再打开。';
+  @override
+  String get pluginsHeading => '备份里的插件';
+  @override
+  String get noPlugins => '这份备份没有插件。';
+  @override
+  String pluginLine({required Object name, required Object version}) =>
+      '${name} ${version}';
+  @override
+  String get hosts => '会连接的网站';
+  @override
+  String get listSeparator => '、';
+  @override
+  String olderThanInstalled({required Object version}) =>
+      '比这台的旧（这台是 ${version}）';
+  @override
+  String addedHosts({required Object hosts}) => '这台目前没有的网站：${hosts}';
+  @override
+  String get indexesHeading => '备份会带入的自定义插件库';
+  @override
+  String get unusableHeading => '这些插件在这个版本无法使用，不会还原';
+  @override
+  String get confirm => '还原并重新启动';
+  @override
+  String get cancel => '取消';
 }
 
 // Path: player

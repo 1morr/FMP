@@ -328,7 +328,7 @@
 
 ## 22. 備份與還原（design §11，ADR 0034）
 
-- [ ] `DatabaseBackups` 的 `export`、`stage`、`carryOver`、`restoreStaged` 與表的歸類清單；`lib/app/backup.dart`；設定頁「備份與還原」區；Debug 頁的還原改走同一條（§17 第 15 條）、`DataReset.restoreAndRestart` 不再清憑證。
+- [x] `DatabaseBackups` 的 `export`、`stage`、`carryOver`、`restoreStaged` 與表的歸類清單；`lib/app/backup.dart`；設定頁「備份與還原」區；Debug 頁的還原改走同一條（§17 第 15 條）、`DataReset.restoreAndRestart` 不再清憑證。
 - 測試：ADR 0034 §如何確認的全部（以真的檔案資料庫）；`data_reset_test.dart` 跟著改（還原保留憑證）；確認框的 widget 測試；表的歸類閘門的雙向變異。
 - 實測（Android 與 Windows：檔案對話框與重啟是平台各自的）：兩平台各：登入 `fmp-test`、建歌單 → 匯出 → 另一平台還原（`adb push` 或共用資料夾）→ 確認框列出插件與網域 → 重啟後歌單在、`fmp-test` 仍登入、輸出裝置是這台的、`backups/` 有還原前的自動備份。另各試一份較新版的檔（把 `user_version` 改大）被拒、資料不變。Android 的 `.db` 篩選（design §11）。
 - 依賴：19、20、21（所有加表的 PR）。模型：sonnet（流程已定；安全面由 opus 審查攻）。
@@ -386,6 +386,14 @@
     - 超過 1000 首的多頁、私人歌單沒有實測；伺服器若忽略 `song_begin` 而重複回第一頁，會被當成完整（沒有 repro，不修）。
     - `checks.json` 用的活動歌單可能下架，健康檢查失敗時先換歌單。
     - 封面不在 y.qq.com 的會被丟掉。
+
+- **PR 22 → 之後**：
+  - **插件來源標記可以被偽造**：備份可以把 `installed_plugins.source_index_url` 設成官方 index，插件頁就把任意腳本標成「官方」；版本設得很高時官方更新蓋不掉它。還原確認框已列出網域與警告，但沒有驗證來源。
+  - **`source_settings.browse_as_logged_in` 照 ADR 跟著備份走**：另一台換了帳號時，會靜默改變這台的「以登入身分瀏覽」。`playlist_remote.writable` 要等下一次刷新才更正。
+  - 確認框只列備份裡的插件，沒列「這台有、備份沒有、還原後會消失」的插件（「取代」既有的語意）。
+  - `isOlderVersion` 遇到不是 semver 的版本號不算舊。
+  - Android SAF 不依 `.db` 篩選（所有檔都看得到，內容由 `stage` 驗）；`pickFile` 的 `maxBytes` 只有在平台先給大小時才擋得住，Android 實際有沒有給沒有量。
+  - `dart format` 偶爾在 `app_database.steps.dart` 崩潰，重跑就過（格式化工具的 bug）。
 
 - **PR 19 → 之後**：
   - **評分把「候選標題包含原標題」算成滿分**（PR 16 的核心）：`fmp-test` 回的 `Test tone 220 Hz (Test tone 440 Hz FMP)` 對原標題 `Test tone 440 Hz` 是 100%，和真正的 440 Hz 同分，同分時照目標順序取第一個。真實歌單（Spotify 50 首、QQ 15 首）沒有看到選錯，沒有 repro，不修；之後若有「選到翻唱或合輯」的回報先查這裡。

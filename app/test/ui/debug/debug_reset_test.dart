@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/data/database/backup_format.dart';
 import 'package:fmp/data/database/database_backups.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
@@ -182,14 +183,15 @@ void main() {
 
       await tester.tap(find.text('1 KB'));
       await tester.pumpAndSettle();
-      // 選了還沒還原，要再確認一次。
+      // 選了還沒還原，要再確認一次；確認框列出備份裡的插件。
       expect(find.text('Restore from this backup?'), findsOneWidget);
-      expect(reset.calls, ['backups']);
+      expect(find.text('Test Source 1.2.3'), findsOneWidget);
+      expect(reset.calls, ['backups', 'stage ${older.path}']);
 
       await tester.tap(confirmButton('Restore and restart'));
       await tester.pumpAndSettle();
 
-      expect(reset.calls, ['backups', 'restore ${older.path}']);
+      expect(reset.calls, ['backups', 'stage ${older.path}', 'restore']);
     });
 
     testWidgets('declining the confirmation restores nothing', (tester) async {
@@ -203,7 +205,31 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      expect(reset.calls, ['backups']);
+      // 取消：不還原，暫存檔刪掉。
+      expect(reset.calls, [
+        'backups',
+        'stage ${FakeDataReset.made.path}',
+        'discard',
+      ]);
+    });
+
+    testWidgets('a rejected backup says why and restores nothing', (
+      tester,
+    ) async {
+      final reset = FakeDataReset(
+        listed: [FakeDataReset.made],
+        stageError: const BackupRejected(BackupRejection.corrupt),
+      );
+      await openSection(tester, 'Database', reset);
+
+      await tester.tap(find.text('Restore from backup'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2 KB'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('The backup file is damaged.'), findsOneWidget);
+      expect(find.text('Restore from this backup?'), findsNothing);
+      expect(reset.calls, ['backups', 'stage ${FakeDataReset.made.path}']);
     });
 
     testWidgets('says so when there are no backups', (tester) async {

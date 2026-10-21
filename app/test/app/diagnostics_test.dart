@@ -502,7 +502,10 @@ final class _FakeDialogs implements FileDialogs {
   final saved = <({String name, Uint8List bytes, String mimeType})>[];
 
   @override
-  Future<PickedFile?> pickFile({required String extension}) async => null;
+  Future<PickedFile?> pickFile({
+    required String extension,
+    int? maxBytes,
+  }) async => null;
 
   @override
   Future<String?> pickDirectory() async => null;

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/app/backup.dart';
 import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -14,6 +15,7 @@ import 'package:fmp/core/network/network_log.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/plugin_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
@@ -30,6 +32,7 @@ import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
 import 'package:fmp/plugins/accounts/web_login.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
+import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
 import 'package:fmp/ui/charts/explore_page.dart';
@@ -53,6 +56,7 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/settings/about_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
+import 'package:fmp/ui/settings/backup_controls.dart';
 import 'package:fmp/ui/settings/library_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
@@ -72,6 +76,7 @@ import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
 import 'charts/chart_harness.dart';
 import 'library/import_preview_harness.dart';
+import 'support/fake_app_backup.dart';
 import 'support/fake_artwork.dart';
 import 'support/fake_data_reset.dart';
 import 'support/fake_file_sharer.dart';
@@ -1591,6 +1596,101 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(AboutSection), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 備份與還原（M4 PR 22）：設定組，與還原確認框（列出插件與網域、警告）。
+        testWidgets('the backup settings at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            fileDialogs: FakeFileDialogs(),
+            extraOverrides: [
+              appBackupProvider.overrideWithValue(FakeAppBackup()),
+            ],
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.widgetWithText(ListTile, 'Backup and restore'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(BackupControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the restore confirmation at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            fileDialogs: FakeFileDialogs(),
+            dataReset: FakeDataReset(),
+            extraOverrides: [
+              appBackupProvider.overrideWithValue(
+                FakeAppBackup(staged: FakeDataReset.staged),
+              ),
+            ],
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.widgetWithText(ListTile, 'Backup and restore'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Restore from backup file'));
+          await tester.pumpAndSettle();
+          expect(find.text('Restore from this backup?'), findsOneWidget);
+          expect(find.text('Test Source 1.2.3'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the restore confirmation with a comparison at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            fileDialogs: FakeFileDialogs(),
+            dataReset: FakeDataReset(),
+            extraOverrides: [
+              appBackupProvider.overrideWithValue(
+                FakeAppBackup(staged: FakeDataReset.staged),
+              ),
+            ],
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          // 這台有較新的 fmp-test，只允許 example.test：備份的版本較舊、多一個網域。
+          final script = pluginScript(
+            'fmp-test',
+            version: '2.0.0',
+            hosts: ['example.test'],
+          );
+          await tester.runAsync(() async {
+            await h
+                .container(tester)
+                .read(pluginRepositoryProvider)
+                .install(
+                  InstalledPlugin(
+                    id: 'fmp-test',
+                    version: '2.0.0',
+                    manifestJson: PluginFile.parse(script).manifestJson,
+                    script: script,
+                    installedAt: DateTime.utc(2026),
+                  ),
+                );
+          });
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.widgetWithText(ListTile, 'Backup and restore'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Restore from backup file'));
+          await tester.pumpAndSettle();
+          expect(find.textContaining('Older than this device'), findsOneWidget);
+          expect(find.textContaining('New on this device'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

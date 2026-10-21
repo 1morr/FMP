@@ -7,6 +7,7 @@ import 'package:fmp/data/repositories/developer_settings_repository.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
+import 'package:fmp/ui/format/home_path.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/settings/network_controls.dart';

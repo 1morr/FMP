@@ -166,9 +166,8 @@ void main() {
 
   for (final width in [1000.0, 400.0]) {
     testWidgets('$width wide: accounts come first, library between playback '
-        'and network, plugins after network and open the plugin page', (
-      tester,
-    ) async {
+        'and network, plugins after network, backup between plugins and about, '
+        'and open the plugin page', (tester) async {
       final h = await PluginPageHarness.create(tester);
       await h.shell.pumpShell(
         tester,
@@ -186,6 +185,8 @@ void main() {
           'Library',
           'Network',
           'Plugins',
+          'Backup and restore',
+          'About',
         ])
           tester.getCenter(find.widgetWithText(ListTile, title)).dy,
       ];

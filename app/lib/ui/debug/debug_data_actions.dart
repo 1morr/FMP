@@ -5,11 +5,14 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/app/data_reset.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/database/backup_format.dart';
 import 'package:fmp/data/database/database_backups.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
-import 'package:fmp/ui/debug/debug_overview.dart';
+import 'package:fmp/ui/backup/blocking_progress.dart';
+import 'package:fmp/ui/backup/restore_flow.dart';
 import 'package:fmp/ui/format/byte_size.dart';
+import 'package:fmp/ui/format/home_path.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -66,7 +69,7 @@ Future<void> startReset(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (confirmed != true || !context.mounted) return;
-  await _runBlocking(
+  await runBlocking(
     context,
     message: t.resetWorking,
     work: () => reset.resetAndRestart(backup),
@@ -81,10 +84,10 @@ Future<void> startReset(BuildContext context, WidgetRef ref) async {
 
 /// 從備份還原：列出備份、選一個、確認，然後取代資料庫並重啟。
 Future<void> startRestore(BuildContext context, WidgetRef ref) async {
-  final t = ref.read(translationsProvider).debug;
+  final translations = ref.read(translationsProvider);
+  final t = translations.debug;
   final reset = ref.read(dataResetProvider);
   final toaster = ref.read(toasterProvider);
-  final restartsItself = ref.read(platformCapabilitiesProvider).restartsItself;
   final List<DatabaseBackup> backups;
   try {
     backups = await reset.backups();
@@ -103,60 +106,31 @@ Future<void> startRestore(BuildContext context, WidgetRef ref) async {
     builder: (_) => _BackupListDialog(backups: backups),
   );
   if (chosen == null || !context.mounted) return;
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (_) =>
-        _RestoreConfirmDialog(backup: chosen, restartsItself: restartsItself),
-  );
-  if (confirmed != true || !context.mounted) return;
-  await _runBlocking(
+  StagedBackup? staged;
+  await runBlocking(
     context,
-    message: t.dbRestoreWorking,
-    work: () => reset.restoreAndRestart(chosen),
-    onError: (error, stackTrace) => toaster.error(
-      AppError.wrap(error, stackTrace),
-      operation: 'Failed to restore the database',
-      tag: 'data',
-      sentence: (message) => t.dbRestoreFailed(message: message),
-    ),
+    message: translations.backup.stageWorking,
+    work: () async => staged = await reset.stageBackup(chosen),
+    onError: (error, stackTrace) {
+      if (error case BackupRejected(:final reason)) {
+        toaster.warning(backupRejectionMessage(translations, reason));
+        return;
+      }
+      toaster.error(
+        AppError.wrap(error, stackTrace),
+        operation: 'Failed to read a backup',
+        tag: 'backup',
+        sentence: (message) => t.dbRestoreFailed(message: message),
+      );
+    },
   );
-}
-
-/// 蓋住畫面的進度對話框，直到 [work] 結束（成功時行程通常已經結束了）。失敗呼叫 [onError]。
-Future<void> _runBlocking(
-  BuildContext context, {
-  required String message,
-  required Future<void> Function() work,
-  required void Function(Object error, StackTrace stackTrace) onError,
-}) async {
-  final navigator = Navigator.of(context, rootNavigator: true);
-  final gap = SizedBox(width: AppTokens.of(context).spacing.x4);
-  unawaited(
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(),
-              gap,
-              Flexible(child: Text(message)),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  try {
-    await work();
-  } on Object catch (error, stackTrace) {
-    onError(error, stackTrace);
-  } finally {
-    navigator.pop();
+  final ready = staged;
+  if (ready == null) return;
+  if (!context.mounted) {
+    await reset.discardStaged(ready);
+    return;
   }
+  await confirmAndRestore(context, ref, ready);
 }
 
 String _time(DateTime utc) {
@@ -253,48 +227,6 @@ class _BackupListDialog extends ConsumerWidget {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(t.cancel),
-        ),
-      ],
-    );
-  }
-}
-
-class _RestoreConfirmDialog extends ConsumerWidget {
-  const _RestoreConfirmDialog({
-    required this.backup,
-    required this.restartsItself,
-  });
-
-  final DatabaseBackup backup;
-  final bool restartsItself;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).debug;
-    final spacing = AppTokens.of(context).spacing;
-    return AlertDialog(
-      title: Text(t.dbRestoreConfirmTitle),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(t.dbRestoreConfirmBody(time: _time(backup.createdAt))),
-            SizedBox(height: spacing.x2),
-            Text(
-              restartsItself ? t.resetRestartsItself : t.resetRestartsManually,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(t.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(t.dbRestoreConfirm),
         ),
       ],
     );

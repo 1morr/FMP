@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/platform/files/file_picker_dialogs.dart';
+import 'package:fmp/platform/files/files.dart';
 
 /// 換掉 `file_picker` 的平台實作：記下收到的篩選、回傳 [file]（`null` 是取消）。
 final class _FakePicker extends FilePickerPlatform {
@@ -86,6 +87,12 @@ final class _File extends PlatformFile {
   final String name;
   final String text;
 
+  /// 平台報得出大小時的值；`null` 是不知道。
+  int? size;
+
+  @override
+  int? lengthSync() => size;
+
   @override
   Future<Uint8List> readAsBytes() async =>
       Uint8List.fromList(utf8.encode(text));
@@ -109,6 +116,37 @@ void main() {
     expect(fake.extensions, ['js']);
     expect(picked?.name, 'plugin.js');
     expect(utf8.decode(picked!.bytes), 'export {};');
+  });
+
+  test('a file over maxBytes is refused before it is read', () async {
+    final file = _File('big.db', 'x')..size = 2000;
+    FilePickerPlatform.instance = _FakePicker(file);
+
+    await expectLater(
+      const FilePickerDialogs().pickFile(extension: 'db', maxBytes: 1000),
+      throwsA(isA<PickedFileTooLarge>()),
+    );
+  });
+
+  test('a file within maxBytes, or of unknown size, is read', () async {
+    final known = _File('a.db', 'x')..size = 1;
+    FilePickerPlatform.instance = _FakePicker(known);
+    expect(
+      (await const FilePickerDialogs().pickFile(
+        extension: 'db',
+        maxBytes: 10,
+      ))?.bytes,
+      hasLength(1),
+    );
+
+    FilePickerPlatform.instance = _FakePicker(_File('b.db', 'xyz'));
+    expect(
+      (await const FilePickerDialogs().pickFile(
+        extension: 'db',
+        maxBytes: 1,
+      ))?.bytes,
+      hasLength(3),
+    );
   });
 
   test('picks a directory and a cancelled dialog is null', () async {

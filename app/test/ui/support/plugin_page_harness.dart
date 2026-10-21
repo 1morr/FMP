@@ -62,7 +62,10 @@ final class FakeFileDialogs implements FileDialogs {
   final extensions = <String>[];
 
   @override
-  Future<PickedFile?> pickFile({required String extension}) async {
+  Future<PickedFile?> pickFile({
+    required String extension,
+    int? maxBytes,
+  }) async {
     extensions.add(extension);
     return file;
   }

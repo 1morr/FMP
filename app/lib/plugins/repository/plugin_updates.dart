@@ -39,6 +39,13 @@ PluginUpdateStatus updateStatus(
       : PluginUpdateStatus.needsAppUpdate;
 }
 
+/// [version] 比 [other] 舊（semver）。任一個不是合法 semver 時不算舊（無從比較）。
+bool isOlderVersion(String version, String other) {
+  final a = _parse(version);
+  final b = _parse(other);
+  return a != null && b != null && a < b;
+}
+
 Version? _parse(String text) {
   try {
     return Version.parse(text);
