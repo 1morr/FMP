@@ -1,0 +1,6 @@
+{
+  "importPlaylist": {
+    "input": { "url": "https://fmp.test/meta/meta-basic" },
+    "expect": { "minItems": 2, "nonEmpty": ["track"] }
+  }
+}
