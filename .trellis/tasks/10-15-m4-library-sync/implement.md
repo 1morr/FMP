@@ -359,7 +359,7 @@
 | 0033 | 首頁排行區塊、探索頁、設定頁「音樂庫」區；`match_results` 算孤兒參照者 | 19、21 |
 | 0034 | 匯出不含排除的表與裝置值、不含假 cookie 的位元組；還原的拒絕三種、保留登入、自動備份、確認框；表的歸類閘門 | 22 |
 
-- [ ] 上表逐項寫進 `research/m4-adr-tests.md` 的 M4b 段。
+- [x] 上表逐項寫進 `research/m4-adr-tests.md` 的 M4b 段。
 - [ ] `milestones.md` 的 M4b 狀態與勾選；本任務 `finish`、`archive`。
 
 ## 留下的後續
