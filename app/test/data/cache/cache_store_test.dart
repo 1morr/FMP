@@ -121,6 +121,37 @@ void main() {
       expect(await store.watchUsage().first, isNotEmpty);
     });
 
+    // 上一個快取庫還沒開完就被拆掉、新的接著開時，新的會撞上它還拿著的寫入鎖：等它放開，
+    // 不是一開就丟 busy（整合測試在 Windows 上兩次啟動之間撞到過）。
+    test(
+      'a lock held for a moment by another connection is waited out',
+      () async {
+        final harness = CacheHarness();
+        final first = await harness.open();
+        await first.put(CacheCategory.chart, 'a', 'k', Uint8List.fromList([1]));
+        await first.close();
+        final blocker = sqlite3.open(harness.databaseFile.path)
+          ..execute('BEGIN EXCLUSIVE');
+        final released = Timer(const Duration(milliseconds: 300), () {
+          blocker
+            ..execute('ROLLBACK')
+            ..close();
+        });
+        addTearDown(released.cancel);
+
+        final store = await openCacheStore(
+          harness.directory,
+          limitBytes: 1 << 20,
+          log: harness.log,
+        );
+        addTearDown(store.close);
+
+        expect(released.isActive, isFalse, reason: 'it waited for the lock');
+        expect(await store.get(CacheCategory.chart, 'a', 'k'), [1]);
+        expect(harness.records(cacheLogTag), isEmpty);
+      },
+    );
+
     test('a database that is locked by another connection is not corruption: '
         'it throws and leaves the files alone', () async {
       final harness = CacheHarness();

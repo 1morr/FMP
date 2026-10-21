@@ -410,10 +410,20 @@ Future<CacheStore> openCacheStore(
   return _open(root, limitBytes, log);
 }
 
+/// 別的連線佔著 `cache.db` 時等多久才丟 busy（毫秒）。同一個行程裡上一個快取庫可能還沒開完
+/// 就被拆掉（`cacheStoreProvider` 在開啟期間被釋放，開好才關），新的那個一開就撞上它的寫入鎖；
+/// SQLite 預設不等，直接丟 `SQLITE_BUSY`，快取庫就整個開不起來。等到真的被別人一直佔著才放棄
+/// （仍然是 busy，不清目錄）。
+const cacheBusyTimeoutMilliseconds = 5000;
+
 Future<CacheStore> _open(Directory root, int limitBytes, Log log) async {
   final database = CacheDatabase(
     NativeDatabase.createInBackground(
       File(p.join(root.path, cacheDatabaseFileName)),
+      // 在背景 isolate 執行：只用常數，不抓外面的狀態。
+      setup: (database) => database.execute(
+        'PRAGMA busy_timeout = $cacheBusyTimeoutMilliseconds',
+      ),
     ),
   );
   final store = CacheStore._(database, root, limitBytes, log);
