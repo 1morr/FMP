@@ -261,13 +261,17 @@ try {
 
 規則與閘門見 `app/AGENTS.md` § 排行與 § 介面的「首頁的排行」「探索頁」。
 
-- 畫面只讀 `enabledChartsProvider`／`chartEntriesProvider`（榜單）與 `chartContentProvider`、`chartFailuresProvider`（內容與失敗），不呼叫插件；刷新只經 `ChartJobs.runNow`。
+- 畫面只讀 `enabledChartsProvider`／`chartEntriesProvider`（榜單）與 `chartContentProvider`、`chartFailuresProvider`（內容與失敗）、`networkProvider`（刷新間隔關閉時不轉圈、說明怎麼手動載入），不呼叫插件；刷新只經 `ChartJobs.runNow`。
+  「沒有快取、在線、沒失敗、間隔沒關」才轉圈：通常有一次執行要來（`ChartJobs` 登記時發現沒有快取就 `dueNow`）。例外（見 `.trellis/tasks/10-15-m4-library-sync/implement.md` 的「PR 21 → 之後」）：
+  執行中途才被淘汰的快取（不重新登記）、插件更新後 `chartList` 丟錯而沿用舊清單（登記時不知道啟用哪些榜單，不帶 `dueNow`）、停用後立刻啟用的競態；這些情況會轉到下一輪。
+  新的「沒有內容」狀態要先確定有人會讓它結束，不然 `pumpAndSettle` 與使用者都會等到下一輪。
   畫面不要 watch `pluginRegistryProvider` 或 `chartJobsProvider` 來找榜單。正式環境裡兩者本來就常駐（`searchSourcesProvider` 就是插件清單、`FmpApp` 聽著排行工作），
   問題在測試：多數外殼測試 override 了 `searchSourcesProvider`，一直掛著的首頁一旦把插件清單拉起來，假時間裡開始的讀取拿著 drift 的鎖、擋住 `runAsync` 的寫入（同上面「多選」記的
   搜尋頁前例），watch 排行工作則把它與排程器在每個外殼測試裡拉起來。細節見 `app/AGENTS.md` § 排行。
 - 測試用 `test/ui/charts/chart_harness.dart` 的 `ChartHarness`：插件清單上一個 `FakeChartPlugin`、記憶體的排行快取，排程器與排行工作照 App 常駐（harness 自己 listen；畫面不會把它們拉起來；沒有快取時工作一開始就跑）。
   首頁在監看 `chart_settings`：種資料一律在假時間裡直接 `await`（不包 `runAsync`，同電台）；`setOrder` 這種 batch 寫入要真的事件迴圈與假時間輪流推進才寫完，用 `settleUntil`。
-  載入中的進度圈一直在轉，不用 `pumpAndSettle`（`settle`）。讓快取一直是空的用 `hangCharts`；「沒有提供排行的插件」用 `ChartHarness(declaresCharts: false)`
+  載入中的進度圈一直在轉，不用 `pumpAndSettle`（`settle`）。要在開外殼前就有的資料（刷新間隔關閉：`chartsOffDatabase`，`ChartHarness(database:)`）在開外殼前以 `runAsync` 寫進資料庫：
+  那時還沒有人監看，不會撞鎖；開了之後才寫，排行工作已經跑過一次。讓快取一直是空的用 `hangCharts`；「沒有提供排行的插件」用 `ChartHarness(declaresCharts: false)`
   （排行工作真的跑過、清單是空的），不要用沒有排行工作的 `ShellHarness`：那時清單一直是 `null`，什麼都沒驗到。
 
 ## 播放頁
