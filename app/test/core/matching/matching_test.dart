@@ -497,4 +497,21 @@ void main() {
       expect([for (final entry in ranked) entry.item], ['audio']);
     });
   });
+
+  // 外部匯入的搜尋關鍵字取第一位歌手的原文（M4 design §8.4）。
+  group('first artist', () {
+    test('takes the first of several, as written', () {
+      expect(firstArtist('Jay Chou / Lara Liang'), 'Jay Chou');
+      expect(firstArtist('周杰倫、費玉清'), '周杰倫');
+      expect(firstArtist('A FEAT. B'), 'A');
+      expect(firstArtist('A，B'), 'A');
+      expect(firstArtist('Solo'), 'Solo');
+    });
+
+    test('nothing to take is null', () {
+      expect(firstArtist(null), isNull);
+      expect(firstArtist(''), isNull);
+      expect(firstArtist(' / '), isNull);
+    });
+  });
 }

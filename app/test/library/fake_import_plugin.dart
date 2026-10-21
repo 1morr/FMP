@@ -5,7 +5,8 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 /// 假的 `importPlaylist` 插件：歌單的頁由 [onPage] 決定、網址的判斷由 [onUrl] 決定（預設
-/// 全部不認得）、Mix 由 [onMix] 決定。記下每次呼叫。其他能力一律拋 [UnimplementedError]。
+/// 全部不認得）、Mix 由 [onMix] 決定；給了 [onSearch] 才有 `search`（外部匯入的配對模式：來源自己也是
+/// 匹配目標）。記下每次呼叫。其他能力一律拋 [UnimplementedError]。
 final class FakeImportPlugin implements SourcePlugin {
   FakeImportPlugin({
     String id = 'fmp-test',
@@ -15,6 +16,7 @@ final class FakeImportPlugin implements SourcePlugin {
     FutureOr<PlaylistPage> Function(PlaylistPageQuery query)? onPage,
     FutureOr<PlaylistRef?> Function(PlaylistUrlQuery query)? onUrl,
     FutureOr<MixBatch> Function(MixQuery query)? onMix,
+    this.onSearch,
   }) : onMix = onMix ?? ((_) => throw UnimplementedError('onMix')),
        onPage = onPage ?? ((_) => throw UnimplementedError('onPage')),
        onUrl = onUrl ?? ((_) => null),
@@ -27,6 +29,7 @@ final class FakeImportPlugin implements SourcePlugin {
            PluginCapability.importPlaylist,
            if (resolveStream) PluginCapability.resolveStream,
            if (mix) PluginCapability.mix,
+           if (onSearch != null) PluginCapability.search,
            if (libraryWrite) ...{
              PluginCapability.libraryRead,
              PluginCapability.libraryWrite,
@@ -51,6 +54,10 @@ final class FakeImportPlugin implements SourcePlugin {
   final createQueries = <CreatePlaylistQuery>[];
   final addQueries = <AddToPlaylistQuery>[];
   final removeQueries = <RemoveFromPlaylistQuery>[];
+
+  /// 搜尋的回傳；`null` 表示沒有 `search` 能力。
+  final FutureOr<SearchPage> Function(SearchQuery query)? onSearch;
+  final searches = <SearchQuery>[];
 
   final mixQueries = <MixQuery>[];
   final pageQueries = <PlaylistPageQuery>[];
@@ -99,6 +106,12 @@ final class FakeImportPlugin implements SourcePlugin {
     return (onRemoveFromPlaylist ?? (_) => throw UnimplementedError('remove'))(
       query,
     );
+  }
+
+  @override
+  Future<SearchPage> search(SearchQuery query) async {
+    searches.add(query);
+    return (onSearch ?? (_) => throw UnimplementedError('search'))(query);
   }
 
   @override

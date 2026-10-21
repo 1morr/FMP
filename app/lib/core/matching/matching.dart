@@ -105,6 +105,13 @@ final class Ranked<T> {
   final MatchScore score;
 }
 
+/// [artists]（插件給的歌手原字串，多位以 ` / ` 等連接）的第一位，原文；沒有字是 `null`。
+/// 外部匯入的搜尋關鍵字是「原標題 空白 第一位歌手」（M4 design §8.4）。
+String? firstArtist(String? artists) => switch (artists) {
+  final raw? => splitRawArtists(raw).firstOrNull,
+  null => null,
+};
+
 /// 一個候選對 [query] 的分數。只看這兩個參數：同一對在自動匹配與手動重搜
 /// 得到同一個分數。
 MatchScore score(MatchQuery query, MatchCandidate candidate) =>

@@ -31,11 +31,12 @@ final class ImportMixSeed extends ImportResult {
   final MixSeedQuery seed;
 }
 
-/// 認得網址的插件沒有 `resolveStream`（僅元資料來源，Spotify、QQ）：交給匯入預覽（PR 19），
-/// 這裡什麼都沒寫、也沒有取任何一頁。
+/// 交給匯入預覽（`ExternalImport`，M4 design §8.4）：認得網址的插件沒有 `resolveStream`（僅元資料
+/// 來源，Spotify、QQ），或使用者在對話框選了「配對到其他音源」（§17 第 19 條）。這裡什麼都沒寫、
+/// 也沒有取任何一頁。
 @immutable
-final class ImportMetadataOnly extends ImportResult {
-  const ImportMetadataOnly({required this.pluginId, required this.playlistId});
+final class ImportForMatching extends ImportResult {
+  const ImportForMatching({required this.pluginId, required this.playlistId});
 
   final String pluginId;
 
@@ -56,6 +57,25 @@ final class ImportedPlaylist extends ImportResult {
   final int playlistId;
   final bool created;
   final RefreshOutcome refresh;
+}
+
+/// [PlaylistImporter.recognize] 認出的網址：哪個插件、歌單 id 或 Mix 種子。
+@immutable
+final class RecognizedUrl {
+  const RecognizedUrl({
+    required this.pluginId,
+    required this.ref,
+    required this.playable,
+  });
+
+  final String pluginId;
+  final PlaylistRef ref;
+
+  /// 插件有 `resolveStream`：歌單可以匯入為平台歌單，也可以配對到其他音源（§17 第 19 條）。
+  final bool playable;
+
+  /// 對話框要不要多「配對到其他音源」這個選擇：能播的插件的歌單（Mix 種子沒有）。
+  bool get canPair => playable && ref is PlaylistIdRef;
 }
 
 /// [PlaylistImporter.createMix] 建好的 Mix 歌單。
@@ -79,7 +99,7 @@ final class PlaylistImporter {
   /// 依序問已啟用、宣告 `importPlaylist` 的插件 `playlistFromUrl`，第一個認得的勝出；插件拋錯
   /// 就停在那裡，不再問下一個。
   ///
-  /// - `mixSeed` → [ImportMixSeed]；插件沒有 `resolveStream` → [ImportMetadataOnly]。
+  /// - `mixSeed` → [ImportMixSeed]；插件沒有 `resolveStream` → [ImportForMatching]。
   /// - （插件, 歌單 id）已在 `playlist_remote` → 重新匯入＝刷新那一列，不覆寫名稱、間隔等
   ///   本地設定。
   /// - 否則取第一頁，**第一頁成功才建列**（名稱取遠端標題，不唯一、不自動改名；間隔 24 小時），
@@ -93,7 +113,32 @@ final class PlaylistImporter {
     void Function(int count)? onProgress,
   }) async {
     try {
-      return await _import(url.trim(), onProgress);
+      final recognized = await _recognize(url.trim());
+      if (recognized == null) return const ImportUnrecognized();
+      return await _importRecognized(recognized, onProgress);
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
+    }
+  }
+
+  /// [importUrl] 的第一步，單獨給對話框用：依序問插件 `playlistFromUrl`（規則同 [importUrl]），
+  /// 不取任何一頁、什麼都不寫。沒有插件認得是 `null`；插件拋錯原樣丟 `AppError`。
+  Future<RecognizedUrl?> recognize(String url) async {
+    try {
+      return await _recognize(url.trim());
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
+    }
+  }
+
+  /// 以 [recognize] 的結果繼續 [importUrl]（不再問一次 `playlistFromUrl`）。辨識之後插件離開了
+  /// 清單（停用、移除）是 [Unsupported]。
+  Future<ImportResult> importRecognized(
+    RecognizedUrl recognized, {
+    void Function(int count)? onProgress,
+  }) async {
+    try {
+      return await _importRecognized(recognized, onProgress);
     } on Object catch (error, stackTrace) {
       Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
     }
@@ -181,29 +226,41 @@ final class PlaylistImporter {
     }
   }
 
-  Future<ImportResult> _import(
-    String url,
-    void Function(int count)? onProgress,
-  ) async {
-    if (url.isEmpty) return const ImportUnrecognized();
+  Future<RecognizedUrl?> _recognize(String url) async {
+    if (url.isEmpty) return null;
     final plugins = await _ref.read(pluginRegistryProvider.future);
     for (final plugin in plugins.values) {
-      if (!plugin.manifest.capabilities.contains(
-        PluginCapability.importPlaylist,
-      )) {
-        continue;
-      }
+      final capabilities = plugin.manifest.capabilities;
+      if (!capabilities.contains(PluginCapability.importPlaylist)) continue;
       final found = await plugin.playlistFromUrl(PlaylistUrlQuery(url: url));
-      switch (found) {
-        case null:
-          continue;
-        case PlaylistMixSeedRef(:final seed):
-          return ImportMixSeed(pluginId: plugin.manifest.id, seed: seed);
-        case PlaylistIdRef(:final playlistId):
-          return _importPlaylist(plugin, playlistId, onProgress);
-      }
+      if (found == null) continue;
+      return RecognizedUrl(
+        pluginId: plugin.manifest.id,
+        ref: found,
+        playable: capabilities.contains(PluginCapability.resolveStream),
+      );
     }
-    return const ImportUnrecognized();
+    return null;
+  }
+
+  Future<ImportResult> _importRecognized(
+    RecognizedUrl recognized,
+    void Function(int count)? onProgress,
+  ) async {
+    switch (recognized.ref) {
+      case PlaylistMixSeedRef(:final seed):
+        return ImportMixSeed(pluginId: recognized.pluginId, seed: seed);
+      case PlaylistIdRef(:final playlistId):
+        final plugins = await _ref.read(pluginRegistryProvider.future);
+        final plugin = plugins[recognized.pluginId];
+        if (plugin == null) {
+          throw Unsupported(
+            pluginId: recognized.pluginId,
+            cause: StateError('The source is no longer available'),
+          );
+        }
+        return _importPlaylist(plugin, playlistId, onProgress);
+    }
   }
 
   Future<ImportResult> _importPlaylist(
@@ -215,7 +272,7 @@ final class PlaylistImporter {
     if (!plugin.manifest.capabilities.contains(
       PluginCapability.resolveStream,
     )) {
-      return ImportMetadataOnly(pluginId: pluginId, playlistId: playlistId);
+      return ImportForMatching(pluginId: pluginId, playlistId: playlistId);
     }
     final repository = _ref.read(playlistRepositoryProvider);
     final refresher = _ref.read(playlistRefresherProvider);
