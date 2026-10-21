@@ -53,6 +53,7 @@ ADR 0014 §決定 4 列了 `importPlaylist`、`libraryRead`、`libraryWrite`、`
    - **完整**＝每一頁都成功、最後 `cursor` 為空、有 `total` 時拿到的筆數等於 `total`。只有完整才套用移除與順序（ADR 0019 §決定 2）。
    - **錯誤**：遠端歌單不存在或沒有權限讀：`NotFound`；要登入才讀得到而沒有登入：`AuthRequired`。宿主依此標「來源失效」或「需要登入」。
    - **認證**：請求一律 `userPreference`；回應是無權限、`credentialsAttached` 為假、`fmp.credentials.get()` 不是 `null` 時，以 `required` 重送一次（ADR 0012 §決定 2 的補充）。
+   - **補充（2026-10-21，M4 PR 17）：`truncated`**。`importPlaylist` 的回傳加選填 `truncated?: boolean`（缺省 `false`）：`true`＝插件已讀完它讀得到的，但遠端歌單可能還有更多。只能出現在最後一頁（`cursor` 為空），帶 `cursor` 時宿主以 `ParseError` 拒收。刷新視為不完整（等同 `total` 不符）：只新增與更新、不移除不重排，標「上次刷新：部分完成」（ADR 0019 §決定 2）。外部匯入（匯入預覽，PR 19）不算讀取失敗：照常進匹配，並在預覽頁提示「來源只提供了部分曲目」。起因是 Spotify embed 頁每張歌單最多只給前 100 首、沒有總數欄位（PR 17 開頭實測；擁有者 2026-10-21 決定匯入前 100 首並提示）。
 3. **`libraryRead`**：
    - `libraryPlaylists({cursor?}) → {playlists: [{playlistId, title, artwork?, trackCount?, writable}], cursor: string | null}`，請求 `required`。「已匯入」由宿主以（插件 id, `playlistId`）比對，插件不管。
    - 選填 `libraryLiveRooms() → {rooms: LiveRoom[]}`，請求 `required`；只有同時宣告 `live` 的插件能匯出（帳號區的「從帳號匯入電台」依它出現）。
