@@ -59,9 +59,13 @@ final class FakeChartPlugin implements SourcePlugin {
   @override
   Future<void> get whenUnresponsive => Completer<void>().future;
 
+  /// 給了就讓 `chartList` 等它完成才回來（還沒問完的插件）。
+  Future<void>? listGate;
+
   @override
   Future<ChartList> chartList() async {
     chartListCalls++;
+    if (listGate case final gate?) await gate;
     if (listError case final error?) throw error;
     return ChartList(charts: List.of(charts));
   }

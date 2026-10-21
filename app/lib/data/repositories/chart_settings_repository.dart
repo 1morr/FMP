@@ -64,6 +64,20 @@ final class ChartSettingsRepository {
         ),
       );
 
+  /// 依 [charts] 的順序整批寫 `sort_order`（0、1、2…），一個 transaction（設定頁拖曳後）。
+  /// 每一列的 `enabled` 不動，沒有那一列就建一列。
+  Future<void> setOrder(List<({String pluginId, String chartId})> charts) =>
+      _database.batch((batch) {
+        batch.insertAllOnConflictUpdate(_database.chartSettingsTable, [
+          for (final (index, chart) in charts.indexed)
+            ChartSettingsTableCompanion(
+              pluginId: Value(chart.pluginId),
+              chartId: Value(chart.chartId),
+              sortOrder: Value(index),
+            ),
+        ]);
+      });
+
   /// 刪 [pluginId] 的全部榜單設定。沒有時什麼都不做。
   Future<void> removePlugin(String pluginId) => (_database.delete(
     _database.chartSettingsTable,
