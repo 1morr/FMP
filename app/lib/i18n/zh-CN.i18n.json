@@ -96,6 +96,27 @@
     "addedToNext": "已加入下一首播放",
     "addedToQueue": "已加入队列"
   },
+  "charts": {
+    "title": "排行",
+    "explore": "探索",
+    "updatedAt": "更新于 {time}",
+    "updateFailed": "更新失败",
+    "loading": "正在加载排行",
+    "empty": "这个榜单没有内容",
+    "failed": "排行更新失败",
+    "failedHint": "之后会自动重试，也可以在探索页刷新。",
+    "exploreFailedHint": "点右上角的“刷新”再试一次。",
+    "refresh": "刷新",
+    "refreshed": "已更新排行",
+    "refreshOffline": "离线中，没有刷新：显示的是上次的排行",
+    "refreshFailed": "无法刷新排行：{reason}",
+    "tab": "{title} · {source}",
+    "source": "{source} · {status}",
+    "noCharts": "没有启用的排行",
+    "noChartsHint": "在“设置”的“音乐库”选择首页要显示的排行。",
+    "noSource": "没有插件提供排行",
+    "noSourceHint": "安装并启用提供排行的插件后，它的榜单会出现在这里。"
+  },
   "library": {
     "title": "音乐库",
     "history": "历史",
@@ -266,6 +287,7 @@
     "network": "网络",
     "back": "返回",
     "playback": "播放",
+    "library": "音乐库",
     "plugins": "插件",
     "about": "关于",
     "debug": "Debug"
@@ -645,6 +667,7 @@
     "cacheLimitDefault": "{size}（默认）",
     "usage": "缓存用量",
     "artwork": "封面",
+    "charts": "排行",
     "clear": "清除缓存",
     "clearTitle": "清除缓存？",
     "clearBody": "已缓存的封面会被删除，需要时重新下载。设置和数据不受影响。",
@@ -659,6 +682,15 @@
     "chartIntervalOff": "关闭",
     "chartIntervalMinutes": "{minutes} 分钟",
     "optionDefault": "{label}（默认）"
+  },
+  "librarySettings": {
+    "homeCharts": "首页排行",
+    "homeChartsHint": "勾选要在首页显示的排行，拖动调整顺序。",
+    "noCharts": "没有提供排行的音源",
+    "noChartsHint": "安装并启用提供排行的插件后，它的榜单会出现在这里。",
+    "reorder": "拖动以排序",
+    "reorderFailed": "无法调整顺序：{reason}",
+    "toggleFailed": "无法更改首页排行：{reason}"
   },
   "radio": {
     "title": "电台",

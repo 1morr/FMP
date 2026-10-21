@@ -15,6 +15,12 @@ abstract final class AppLayout {
   /// 首頁區塊裡橫向一排的卡片（封面）邊長。
   static const double shelfCardWidth = 144;
 
+  /// 首頁排行區塊一欄（一個榜單的前幾首）的最小寬度：內容區放得下幾欄就並排幾欄。
+  static const double chartColumnMinWidth = 360;
+
+  /// 排行曲目列的名次欄寬（放得下三位數）。
+  static const double chartRankWidth = 32;
+
   /// 音樂庫格狀版面（expanded 以上）一張歌單卡的最大寬度。
   static const double playlistCardMaxWidth = 200;
 

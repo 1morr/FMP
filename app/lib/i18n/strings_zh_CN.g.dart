@@ -67,6 +67,9 @@ class TranslationsZhCn extends Translations
     _root,
   );
   @override
+  late final Translations$charts$zh_CN charts =
+      Translations$charts$zh_CN.internal(_root);
+  @override
   late final Translations$library$zh_CN library =
       Translations$library$zh_CN.internal(_root);
   @override
@@ -104,6 +107,9 @@ class TranslationsZhCn extends Translations
   @override
   late final Translations$network$zh_CN network =
       Translations$network$zh_CN.internal(_root);
+  @override
+  late final Translations$librarySettings$zh_CN librarySettings =
+      Translations$librarySettings$zh_CN.internal(_root);
   @override
   late final Translations$radio$zh_CN radio = Translations$radio$zh_CN.internal(
     _root,
@@ -356,6 +362,57 @@ class Translations$home$zh_CN extends Translations$home$zh_TW {
   String get addedToNext => '已加入下一首播放';
   @override
   String get addedToQueue => '已加入队列';
+}
+
+// Path: charts
+class Translations$charts$zh_CN extends Translations$charts$zh_TW {
+  Translations$charts$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '排行';
+  @override
+  String get explore => '探索';
+  @override
+  String updatedAt({required Object time}) => '更新于 ${time}';
+  @override
+  String get updateFailed => '更新失败';
+  @override
+  String get loading => '正在加载排行';
+  @override
+  String get empty => '这个榜单没有内容';
+  @override
+  String get failed => '排行更新失败';
+  @override
+  String get failedHint => '之后会自动重试，也可以在探索页刷新。';
+  @override
+  String get exploreFailedHint => '点右上角的“刷新”再试一次。';
+  @override
+  String get refresh => '刷新';
+  @override
+  String get refreshed => '已更新排行';
+  @override
+  String get refreshOffline => '离线中，没有刷新：显示的是上次的排行';
+  @override
+  String refreshFailed({required Object reason}) => '无法刷新排行：${reason}';
+  @override
+  String tab({required Object title, required Object source}) =>
+      '${title} · ${source}';
+  @override
+  String source({required Object source, required Object status}) =>
+      '${source} · ${status}';
+  @override
+  String get noCharts => '没有启用的排行';
+  @override
+  String get noChartsHint => '在“设置”的“音乐库”选择首页要显示的排行。';
+  @override
+  String get noSource => '没有插件提供排行';
+  @override
+  String get noSourceHint => '安装并启用提供排行的插件后，它的榜单会出现在这里。';
 }
 
 // Path: library
@@ -740,6 +797,8 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   String get back => '返回';
   @override
   String get playback => '播放';
+  @override
+  String get library => '音乐库';
   @override
   String get plugins => '插件';
   @override
@@ -1586,6 +1645,8 @@ class Translations$network$zh_CN extends Translations$network$zh_TW {
   @override
   String get artwork => '封面';
   @override
+  String get charts => '排行';
+  @override
   String get clear => '清除缓存';
   @override
   String get clearTitle => '清除缓存？';
@@ -1613,6 +1674,32 @@ class Translations$network$zh_CN extends Translations$network$zh_TW {
   String chartIntervalMinutes({required Object minutes}) => '${minutes} 分钟';
   @override
   String optionDefault({required Object label}) => '${label}（默认）';
+}
+
+// Path: librarySettings
+class Translations$librarySettings$zh_CN
+    extends Translations$librarySettings$zh_TW {
+  Translations$librarySettings$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get homeCharts => '首页排行';
+  @override
+  String get homeChartsHint => '勾选要在首页显示的排行，拖动调整顺序。';
+  @override
+  String get noCharts => '没有提供排行的音源';
+  @override
+  String get noChartsHint => '安装并启用提供排行的插件后，它的榜单会出现在这里。';
+  @override
+  String get reorder => '拖动以排序';
+  @override
+  String reorderFailed({required Object reason}) => '无法调整顺序：${reason}';
+  @override
+  String toggleFailed({required Object reason}) => '无法更改首页排行：${reason}';
 }
 
 // Path: radio

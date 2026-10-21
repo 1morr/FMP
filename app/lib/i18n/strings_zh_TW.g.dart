@@ -54,6 +54,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   late final Translations$home$zh_TW home = Translations$home$zh_TW.internal(
     _root,
   );
+  late final Translations$charts$zh_TW charts =
+      Translations$charts$zh_TW.internal(_root);
   late final Translations$library$zh_TW library =
       Translations$library$zh_TW.internal(_root);
   late final Translations$playlist$zh_TW playlist =
@@ -80,6 +82,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
       Translations$playback$zh_TW.internal(_root);
   late final Translations$network$zh_TW network =
       Translations$network$zh_TW.internal(_root);
+  late final Translations$librarySettings$zh_TW librarySettings =
+      Translations$librarySettings$zh_TW.internal(_root);
   late final Translations$radio$zh_TW radio = Translations$radio$zh_TW.internal(
     _root,
   );
@@ -402,6 +406,74 @@ class Translations$home$zh_TW {
 
   /// zh-TW: '已加入佇列'
   String get addedToQueue => '已加入佇列';
+}
+
+// Path: charts
+class Translations$charts$zh_TW {
+  Translations$charts$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '排行'
+  String get title => '排行';
+
+  /// zh-TW: '探索'
+  String get explore => '探索';
+
+  /// zh-TW: '更新於 {time}'
+  String updatedAt({required Object time}) => '更新於 ${time}';
+
+  /// zh-TW: '更新失敗'
+  String get updateFailed => '更新失敗';
+
+  /// zh-TW: '正在載入排行'
+  String get loading => '正在載入排行';
+
+  /// zh-TW: '這個榜單沒有內容'
+  String get empty => '這個榜單沒有內容';
+
+  /// zh-TW: '排行更新失敗'
+  String get failed => '排行更新失敗';
+
+  /// zh-TW: '之後會自動再試，也可以在探索頁刷新。'
+  String get failedHint => '之後會自動再試，也可以在探索頁刷新。';
+
+  /// zh-TW: '按右上角的「刷新」再試一次。'
+  String get exploreFailedHint => '按右上角的「刷新」再試一次。';
+
+  /// zh-TW: '刷新'
+  String get refresh => '刷新';
+
+  /// zh-TW: '已更新排行'
+  String get refreshed => '已更新排行';
+
+  /// zh-TW: '離線中，沒有刷新：顯示的是上次的排行'
+  String get refreshOffline => '離線中，沒有刷新：顯示的是上次的排行';
+
+  /// zh-TW: '無法刷新排行：{reason}'
+  String refreshFailed({required Object reason}) => '無法刷新排行：${reason}';
+
+  /// zh-TW: '{title} · {source}'
+  String tab({required Object title, required Object source}) =>
+      '${title} · ${source}';
+
+  /// zh-TW: '{source} · {status}'
+  String source({required Object source, required Object status}) =>
+      '${source} · ${status}';
+
+  /// zh-TW: '沒有啟用的排行'
+  String get noCharts => '沒有啟用的排行';
+
+  /// zh-TW: '在「設定」的「音樂庫」選擇首頁要顯示的排行。'
+  String get noChartsHint => '在「設定」的「音樂庫」選擇首頁要顯示的排行。';
+
+  /// zh-TW: '沒有插件提供排行'
+  String get noSource => '沒有插件提供排行';
+
+  /// zh-TW: '安裝並啟用提供排行的插件後，它的榜單會出現在這裡。'
+  String get noSourceHint => '安裝並啟用提供排行的插件後，它的榜單會出現在這裡。';
 }
 
 // Path: library
@@ -937,6 +1009,9 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: '播放'
   String get playback => '播放';
+
+  /// zh-TW: '音樂庫'
+  String get library => '音樂庫';
 
   /// zh-TW: '插件'
   String get plugins => '插件';
@@ -2134,6 +2209,9 @@ class Translations$network$zh_TW {
   /// zh-TW: '封面'
   String get artwork => '封面';
 
+  /// zh-TW: '排行'
+  String get charts => '排行';
+
   /// zh-TW: '清除快取'
   String get clear => '清除快取';
 
@@ -2175,6 +2253,36 @@ class Translations$network$zh_TW {
 
   /// zh-TW: '{label}（預設）'
   String optionDefault({required Object label}) => '${label}（預設）';
+}
+
+// Path: librarySettings
+class Translations$librarySettings$zh_TW {
+  Translations$librarySettings$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '首頁排行'
+  String get homeCharts => '首頁排行';
+
+  /// zh-TW: '勾選要在首頁顯示的排行，拖曳調整順序。'
+  String get homeChartsHint => '勾選要在首頁顯示的排行，拖曳調整順序。';
+
+  /// zh-TW: '沒有提供排行的音源'
+  String get noCharts => '沒有提供排行的音源';
+
+  /// zh-TW: '安裝並啟用提供排行的插件後，它的榜單會出現在這裡。'
+  String get noChartsHint => '安裝並啟用提供排行的插件後，它的榜單會出現在這裡。';
+
+  /// zh-TW: '拖曳以排序'
+  String get reorder => '拖曳以排序';
+
+  /// zh-TW: '無法調整順序：{reason}'
+  String reorderFailed({required Object reason}) => '無法調整順序：${reason}';
+
+  /// zh-TW: '無法變更首頁排行：{reason}'
+  String toggleFailed({required Object reason}) => '無法變更首頁排行：${reason}';
 }
 
 // Path: radio
