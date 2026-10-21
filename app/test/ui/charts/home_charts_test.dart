@@ -207,6 +207,63 @@ void main() {
     );
   });
 
+  // 快取讀不出來時沒有工作能讓它變成有內容：說失敗，不一直轉圈。
+  testWidgets('a chart whose cache cannot be read says it failed instead of '
+      'loading', (tester) async {
+    final c = ChartHarness();
+    c.cache.readError = StateError('cache unavailable');
+    await c.pumpShell(tester);
+
+    expect(
+      find.descendant(
+        of: find.byType(HomeCharts),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+    expect(find.text("Couldn't update the chart"), findsNWidgets(2));
+  });
+
+  // 間隔關閉時工作不會自己跑：說明怎麼手動載入，不轉圈；探索頁刷新之後就有內容。
+  testWidgets('with automatic updates off and no cache: says so instead of '
+      'loading, until a refresh fills it', (tester) async {
+    final c = ChartHarness(database: await chartsOffDatabase(tester));
+    await c.pumpShell(tester);
+
+    expect(c.plugin.chartQueries, isEmpty);
+    expect(
+      find.descendant(
+        of: find.byType(HomeCharts),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Automatic updates are off'), findsNWidgets(2));
+    expect(
+      find.text(
+        'Refresh it in Explore, or set Charts refresh under '
+        'Settings › Network.',
+      ),
+      findsNWidgets(2),
+    );
+
+    await c.shell.setNetwork(tester, NetworkStatus.noInterface);
+    expect(find.byType(OfflineMessage), findsNWidgets(2));
+    await c.shell.setNetwork(tester, NetworkStatus.online);
+
+    unawaited(
+      c.shell
+          .container(tester)
+          .read(chartJobsProvider.notifier)
+          .runNow('fmp-test'),
+    );
+    await c.settleUntil(
+      tester,
+      () => find.text('Track 1 of hot').evaluate().isNotEmpty,
+    );
+    expect(find.text('Automatic updates are off'), findsNothing);
+  });
+
   testWidgets('an empty chart says it is empty', (tester) async {
     final c = ChartHarness(tracks: 0);
     await c.pumpShell(tester);

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/charts/chart_cache.dart';
 import 'package:fmp/charts/chart_jobs.dart';
+import 'package:fmp/data/database/app_database.dart';
+import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/scheduler/background_scheduler.dart';
@@ -11,6 +13,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../charts/fake_chart_plugin.dart';
+import '../../support/memory_database.dart';
 import '../support/shell_harness.dart';
 
 /// 首頁排行、探索頁與設定頁「音樂庫」的測試環境：外殼的 [ShellHarness]，插件清單上只有一個
@@ -22,6 +25,7 @@ final class ChartHarness {
     List<String> charts = const ['hot', 'new'],
     this.tracks = 7,
     bool declaresCharts = true,
+    AppDatabase? database,
     List<Override> extraOverrides = const [],
   }) : plugin = FakeChartPlugin(
          charts: charts,
@@ -41,6 +45,7 @@ final class ChartHarness {
     shell = ShellHarness(
       registryOfSources: true,
       sources: [plugin],
+      database: database,
       extraOverrides: [
         chartCacheProvider.overrideWith((ref) => cache),
         ...extraOverrides,
@@ -119,6 +124,17 @@ final class ChartHarness {
 
   ChartKey key(String chartId) =>
       (pluginId: plugin.manifest.id, chartId: chartId);
+}
+
+/// 排行刷新間隔關閉的資料庫（開外殼之前寫好：之後在假時間裡寫，工作已經跑過了）。
+Future<AppDatabase> chartsOffDatabase(WidgetTester tester) async {
+  final database = memoryDatabase();
+  await tester.runAsync(
+    () =>
+        NetworkSettingsRepository(database)
+            .write(chartRefreshIntervalMinutes: 0),
+  );
+  return database;
 }
 
 /// 讓 [plugin] 的榜單一直抓不回來（工作卡在那裡，快取一直是空的）。

@@ -60,7 +60,9 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   TabController? _tabs;
   List<ChartKey> _tabKeys = const [];
   late ChartKey _current = widget.initial;
-  var _refreshing = false;
+
+  /// 正在手動刷新的插件（工具列「刷新」）；`null`＝沒有。
+  String? _refreshing;
 
   @override
   void dispose() {
@@ -107,7 +109,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   ];
 
   Future<void> _refresh(String pluginId) async {
-    setState(() => _refreshing = true);
+    setState(() => _refreshing = pluginId);
     // 刷新期間頁面可能被關掉：之後要讀的先拿好。
     final container = ProviderScope.containerOf(context, listen: false);
     final toaster = ref.read(toasterProvider);
@@ -135,7 +137,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         );
       }
     } finally {
-      if (mounted) setState(() => _refreshing = false);
+      if (mounted) setState(() => _refreshing = null);
     }
   }
 
@@ -209,7 +211,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                   IconButton(
                     tooltip: t.refresh,
                     icon: const Icon(Icons.refresh),
-                    onPressed: current == null || _refreshing
+                    onPressed: current == null || _refreshing != null
                         ? null
                         : () => unawaited(_refresh(current.pluginId)),
                   ),
@@ -249,7 +251,11 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                 controller: tabs,
                 children: [
                   for (final chart in charts)
-                    _ChartTab(key: ValueKey(chart.key), chart: chart),
+                    _ChartTab(
+                      key: ValueKey(chart.key),
+                      chart: chart,
+                      refreshing: _refreshing == chart.pluginId,
+                    ),
                 ],
               ),
             ),
@@ -262,9 +268,12 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
 
 /// 一個分頁：狀態行（音源、更新於、更新失敗）與完整的清單。
 class _ChartTab extends ConsumerWidget {
-  const _ChartTab({super.key, required this.chart});
+  const _ChartTab({super.key, required this.chart, required this.refreshing});
 
   final ChartEntry chart;
+
+  /// 這個榜單的插件正在手動刷新。
+  final bool refreshing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -286,6 +295,8 @@ class _ChartTab extends ConsumerWidget {
           child: ChartContent(
             chart: chart.key,
             failedHint: translations.charts.exploreFailedHint,
+            offHint: translations.charts.exploreOffHint,
+            refreshing: refreshing,
             builder: (context, content) {
               if (content.tracks.isEmpty) return const ChartEmpty();
               return ListView.builder(

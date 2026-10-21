@@ -443,6 +443,15 @@ class Translations$charts$zh_TW {
   /// zh-TW: '按右上角的「刷新」再試一次。'
   String get exploreFailedHint => '按右上角的「刷新」再試一次。';
 
+  /// zh-TW: '自動更新已關閉'
+  String get off => '自動更新已關閉';
+
+  /// zh-TW: '在探索頁按「刷新」載入，或在「設定」的「網路」設定排行刷新間隔。'
+  String get offHint => '在探索頁按「刷新」載入，或在「設定」的「網路」設定排行刷新間隔。';
+
+  /// zh-TW: '按右上角的「刷新」載入。'
+  String get exploreOffHint => '按右上角的「刷新」載入。';
+
   /// zh-TW: '刷新'
   String get refresh => '刷新';
 

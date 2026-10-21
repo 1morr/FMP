@@ -392,6 +392,12 @@ class Translations$charts$zh_CN extends Translations$charts$zh_TW {
   @override
   String get exploreFailedHint => '点右上角的“刷新”再试一次。';
   @override
+  String get off => '自动更新已关闭';
+  @override
+  String get offHint => '在探索页点“刷新”加载，或在“设置”的“网络”设置排行刷新间隔。';
+  @override
+  String get exploreOffHint => '点右上角的“刷新”加载。';
+  @override
   String get refresh => '刷新';
   @override
   String get refreshed => '已更新排行';

@@ -21,7 +21,7 @@ const homeChartTrackCount = 5;
 /// （點一下臨時播放，選單同「最近播放」）、「查看全部」（在首頁的巢狀導覽裡開探索頁的那個分頁）。
 ///
 /// 版面照舊版首頁的排行：內容區放得下幾欄（[AppLayout.chartColumnMinWidth]）就並排幾欄，
-/// 放不下就一個榜單一列往下排。沒有快取時是載入中或離線空狀態（[ChartContent]）。
+/// 放不下就一個榜單一列往下排。沒有快取時的載入中、離線、失敗與「自動更新已關閉」見 [ChartContent]。
 class HomeCharts extends ConsumerWidget {
   const HomeCharts({super.key, required this.charts});
 
@@ -124,6 +124,7 @@ class _ChartPreview extends ConsumerWidget {
         ChartContent(
           chart: chart.key,
           failedHint: t.failedHint,
+          offHint: t.offHint,
           builder: (context, content) {
             if (content.tracks.isEmpty) return const ChartEmpty();
             return Column(

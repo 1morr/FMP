@@ -380,6 +380,13 @@ class Translations$charts$en extends Translations$charts$zh_TW {
   @override
   String get exploreFailedHint => 'Use Refresh at the top to try again.';
   @override
+  String get off => 'Automatic updates are off';
+  @override
+  String get offHint =>
+      'Refresh it in Explore, or set Charts refresh under Settings › Network.';
+  @override
+  String get exploreOffHint => 'Use Refresh at the top to load it.';
+  @override
   String get refresh => 'Refresh';
   @override
   String get refreshed => 'Charts updated';

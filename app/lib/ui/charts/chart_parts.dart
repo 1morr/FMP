@@ -9,6 +9,7 @@ import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/settings/network_settings.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/date_text.dart';
@@ -74,36 +75,61 @@ class ChartStatusLine extends ConsumerWidget {
 }
 
 /// 一個榜單的內容區（ADR 0016 §決定 7）：快取有內容就交給 [builder]（含空的榜單）；沒有快取
-/// 時，不在線是離線空狀態，在線而最近一次更新失敗是失敗說明（[failedHint]），其餘是載入中
-/// （工作寫入快取後 `chartContentProvider` 跟著重讀）。快取讀不出來（快取庫開不起來）當成沒有
-/// 快取。
+/// 時，不在線是離線空狀態，在線而最近一次更新失敗是失敗說明（[failedHint]），排行刷新間隔關閉
+/// 是「自動更新已關閉」與怎麼手動載入（[offHint]），其餘是載入中：排行工作登記時發現沒有快取就
+/// 立即到期（`ChartJobs`），寫入快取後 `chartContentProvider` 跟著重讀。快取讀不出來（快取庫開
+/// 不起來）在線時也是失敗說明：工作寫不進去，不會有內容，轉圈只會一直轉下去。
 class ChartContent extends ConsumerWidget {
   const ChartContent({
     super.key,
     required this.chart,
     required this.failedHint,
+    required this.offHint,
     required this.builder,
+    this.refreshing = false,
   });
 
   final ChartKey chart;
   final String failedHint;
+
+  /// 刷新間隔關閉時怎麼手動載入。
+  final String offHint;
+
+  /// 這個榜單的插件正在手動刷新（探索頁的「刷新」）：間隔關閉時也轉圈，不顯示「自動更新已關閉」。
+  final bool refreshing;
   final Widget Function(BuildContext context, ChartCacheEntry content) builder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final content = ref.watch(chartContentProvider(chart)).value;
-    if (content != null) return builder(context, content);
+    final cached = ref.watch(chartContentProvider(chart));
+    if (cached.value case final content?) return builder(context, content);
     final t = ref.watch(translationsProvider).charts;
     final status = ref.watch(networkStatusProvider);
     if (status != NetworkStatus.online) return OfflineMessage(status: status);
-    final failed = ref.watch(
-      chartFailuresProvider.select((failures) => failures.contains(chart)),
-    );
+    final failed =
+        cached.hasError ||
+        ref.watch(
+          chartFailuresProvider.select((failures) => failures.contains(chart)),
+        );
     if (failed) {
       return EmptyState(
         icon: Icons.error_outline,
         title: t.failed,
         body: failedHint,
+      );
+    }
+    // 間隔關閉時工作不會自己跑（尊重「關閉」）：說明，不轉圈。設定還沒讀出來時照載入中。
+    final off = ref.watch(
+      networkProvider.select(
+        (network) =>
+            network.hasValue && network.value!.chartRefreshInterval == null,
+      ),
+    );
+    if (off && !refreshing) {
+      return EmptyState(
+        icon: Icons.update_disabled,
+        title: t.off,
+        body: offHint,
       );
     }
     return Padding(

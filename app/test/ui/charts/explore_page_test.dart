@@ -307,6 +307,52 @@ void main() {
       expect(find.text('Charts updated'), findsOneWidget);
     });
 
+    testWidgets('with automatic updates off and no cache the tab points at '
+        'Refresh, which loads it', (tester) async {
+      final c = ChartHarness(database: await chartsOffDatabase(tester));
+      await c.pumpShell(tester);
+      await _open(tester, c, 'HOT');
+
+      final explore = find.byType(ExplorePage);
+      expect(
+        find.descendant(
+          of: explore,
+          matching: find.text('Use Refresh at the top to load it.'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: explore,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+
+      // 刷新進行中：轉圈，不再說自動更新已關閉。
+      final gate = Completer<void>();
+      final tracks = c.plugin.onChart;
+      c.plugin.onChart = (chartId) async {
+        await gate.future;
+        return tracks(chartId);
+      };
+      await tester.tap(find.byTooltip('Refresh'));
+      await c.settle(tester);
+      expect(
+        find.descendant(
+          of: explore,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Use Refresh at the top to load it.'), findsNothing);
+
+      gate.complete();
+      await c.settle(tester);
+      expect(c.plugin.chartQueries, ['hot', 'new']);
+      expect(_row('Track 1 of hot'), findsOneWidget);
+    });
+
     testWidgets('offline: nothing is sent and a toast says so', (tester) async {
       final c = ChartHarness();
       await c.pumpShell(tester);
