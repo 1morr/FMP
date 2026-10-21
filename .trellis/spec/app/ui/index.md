@@ -29,7 +29,8 @@ lib/ui/
                        # 含自訂封面）、歌單封面（playlist_cover）、歌單詳情（playlist_detail_page；openPlaylist 開在巢狀導覽裡）、
                        # 它們讀的 provider 與分組、重排的純函數（library_state：playlistOverviewsProvider、playlistDetailProvider、
                        # groupParts、reorderedEntryIds）、曲目選單的「加入歌單…」與它的對話框（add_to_playlist）、
-                       # 匯入對話框（import_dialog）、手動刷新（manual_refresh：manualRefreshProvider）
+                       # 匯入對話框（import_dialog）、匯入預覽（import_preview_page；openImportPreview 開在巢狀導覽裡）、
+                       # 手動刷新（manual_refresh：manualRefreshProvider）
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
@@ -153,7 +154,8 @@ try {
   `openXxx(context)`；頁面標題前放返回鈕（`ModalRoute.of(context)?.impliesAppBarDismissal`，tooltip `shell.backTooltip`）。返回鍵、
   Esc、再點導覽項都由外殼處理，頁面不放 `PopScope`。要蓋住整個外殼的全螢幕頁用 `Navigator.of(context, rootNavigator: true)`
   （或 `rootNavigatorKeyProvider`）；`showDialog` 預設就在根上，`showModalBottomSheet` 預設不是（要蓋住外殼時給
-  `useRootNavigator: true`）。新的全螢幕 route 進 `integration_test/toast_layering_test.dart`。
+  `useRootNavigator: true`）。新的全螢幕 route 進 `integration_test/toast_layering_test.dart`。例外：離開要確認的內頁（匯入預覽）自己放
+  `PopScope`，見下面「匯入預覽」。
 - 頁面讀「表一變動就重讀」的本機資料時（首頁的最近播放、音樂庫的歌單卡），provider 照 `recentPlaysProvider`：先訂閱
   repository 的 `changes()`、再讀一次，之後每次變動再讀（`async*` 依序讀，讀失敗以 `yield* Stream.error` 送出、之後照樣重讀）；
   讀失敗的 `log.report` 在頁面的 `ref.listen`（同電台頁），不在 build；外殼裡幾頁讀同一個 provider 時只由一頁報（首頁的歌單、電台區塊交給音樂庫與電台頁）。外殼裡的頁面一直掛著，不要對 join 了 `tracks` 的查詢用
@@ -238,6 +240,32 @@ try {
   按鈕的啟用狀態要重建一次才跟上（不 `pump` 的話按到的是停用的鈕，什麼都不發生）。測自訂封面向哪個插件要了什麼網址時，以
   `extraOverrides` 換掉 `artworkCacheManagerProvider`，並在每個測試開頭清 `imageCache`（跨測試留著，讀過的網址不會再問 cache manager；
   `playlist_cover_test.dart`）。測試插件 `fmp-test` 的允許網域是 `cdn.example`，`registryOfSources: true` 才在插件清單上。
+
+## 匯入預覽
+
+規則與閘門見 `app/AGENTS.md` § 音樂庫的「外部匯入」與 § 介面的「匯入預覽」；M4 design §8.4、§10.9。
+
+- 頁面不呼叫插件：一頁一個 `ExternalImport`（`externalImportsProvider.open`），State `addListener` 它、整頁重畫，`dispose` 時一起 `dispose`
+  （之後回來的搜尋結果丟掉）。`await` 之後先看 `mounted`；頁面已經拆了才開好的那一個當場 `dispose`。
+- **這一頁有自己的 `PopScope`**（外殼「頁面不放 `PopScope`」的例外：離開要確認）。外殼的返回鍵與 Esc 走 `maybePop`、再點導覽項停在
+  `doNotPop` 而且不是根頁的 route 才 `maybePop`（停在根頁不動，根頁的多選才留得住），所以三條路都到它。`canPop` 只在建立中或
+  `ExternalImport.touched` 時為假：沒有要丟的東西就直接離開；建立中攔下但不開確認框。確認後先設 `_leaving`（`canPop` 變真）再 `pop`。建好歌單以
+  `openPlaylist(replace: true)` 換頁，`pushReplacement` 不經 `PopScope`。新的「離開要確認」的內頁照這個寫，不要另外攔導覽列。
+- 讀完之後整頁是一個 `CustomScrollView`（標頭與摘要是 `SliverToBoxAdapter`，清單是 `SliverList.builder`），只有底部列固定：要一直看得到的（進度、
+  建立鈕）放底部列，不要放標頭。測試捲動找 `CustomScrollView`。
+- 測「建立中」：在 `runAsync` 外開一個佔著資料庫的 `transaction`（`await` 一個 `Completer`），建立的寫入就排在它後面（`import_preview_test.dart` 的
+  `while the playlist is being created…`）。
+- 展開區放 `RadioListTile` 就要包 `Material(color:)`，不能用 `Container(color:)`（ListTile 的水波畫在最近的 Material 上，除錯版會斷言）。
+- 測試用 `test/ui/library/import_preview_harness.dart` 的 `PreviewHarness`：來源是僅元資料的 `FakeImportPlugin`（`Test Source`），目標是能搜能播的
+  `video`；`open` 開在音樂庫並讀完、`start` 開始匹配。匹配與建立都在假時間裡跑，`settle` 以 `runAsync` 與 `pump` 輪流推進；有一首一直在搜時
+  進度圈在轉，給 `animations: false`。
+
+## 設定頁「音樂庫」
+
+- 「首頁排行」讀被動的 `chartCatalogProvider`；「匹配目標音源」讀 `matchTargetOptionsProvider`，**會把插件清單拉起來**：只在使用者點進這一區時才建，
+  所以沒事。別的、一直掛在外殼裡的頁面不要 watch 它（理由見「多選」的搜尋頁前例與「首頁排行與探索頁」）。
+- 兩個清單的寫法一樣（`ReorderableListView` 的 `shrinkWrap`、樂觀排序、`identical(_pendingOrder, order)` 才退回）：再加一個同類的清單就照抄，
+  不要抽共用元件（兩份的值型別與 repository 不同）。測試找某一個清單的勾選框時以 `find.descendant(of: find.byType(MatchTargetSettings))` 限定範圍。
 
 ## 多選
 

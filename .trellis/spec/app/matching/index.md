@@ -7,7 +7,7 @@
 
 ```
 lib/core/matching/
-  matching.dart          # 公開介面：MatchQuery、MatchCandidate、MatchScore、Ranked、score、rank；權重與門檻
+  matching.dart          # 公開介面：MatchQuery、MatchCandidate、MatchScore、Ranked、score、rank、firstArtist；權重與門檻
   normalize.dart         # 折疊（NFKC → 小寫 → 繁簡）、拆括號、裝飾與版本詞表、拆歌手
   ts_characters.g.dart   # 產生檔：繁→簡字表與 OpenCC 授權全文
 tool/opencc/             # 釘 commit 的 TSCharacters.txt、LICENSE、產生器
@@ -16,7 +16,12 @@ test/core/matching/
   match_corpus_test.dart # 語料全綠
 ```
 
-呼叫端只 import `matching.dart`；`normalize.dart` 的函式是給它與測試用的。
+呼叫端只 import `matching.dart`；`normalize.dart` 的函式是給它與測試用的。第一個呼叫端是外部匯入
+（`lib/library/external_import.dart`）：`TrackSummary` 的標題、`uploader`（歌手原字串）、時長轉成 `MatchQuery`，
+搜尋結果轉成 `MatchCandidate`，同分的先後由它把各目標音源的結果依目標順序串起來決定。
+
+- `firstArtist` 給搜尋關鍵字用：回原文（不折疊），分隔符跟 `splitArtists` 同一組但不分大小寫、另認全形 `，；`。改
+  `_artistSeparator` 時 `_rawArtistSeparator` 一起改。
 
 ## 改權重、門檻或詞表
 

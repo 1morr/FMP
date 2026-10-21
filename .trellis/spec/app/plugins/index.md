@@ -108,7 +108,11 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 - 要跨重啟的值（匿名 cookie 等）存 `fmp.storage`；`fmp.credentials.get()` 回 `{cookies, extra?}`（`FmpLoginCredentials`），沒登入、暫時讀不到或已失效時是 `null`；憑證的值是秘密，不要寫進 log 或 storage。
 - 沒有 `setTimeout`、`fetch`、`require`，也不能 `import` 其他 module：一個檔案就是全部。
 - 用 `fmp-test` 當範本：`app/test/fixtures/plugins/test_plugin/test_plugin.js`；會發請求的範本是
-  `app/test/fixtures/plugins/http_test_plugin/`。
+  `app/test/fixtures/plugins/http_test_plugin/`；只有 `importPlaylist` 的（Spotify、QQ 這種僅元資料來源）範本是
+  `app/test/fixtures/plugins/test_meta_plugin/`（`fmp-test-meta`）。
+- 測試插件也是 dev flavor 的 asset（`pubspec.yaml` 的 `flutter.assets`，`flavors: [dev]`）：加一個時目錄要有 `checks.json`
+  （契約執行器跑 `test/fixtures/plugins/` 底下每個目錄）、`README.md`（用法），`test_plugin_bundle_test.dart` 加它的群組，
+  `.claude/skills/verify-on-device/references/runtime-state.md` 的測試插件表加一列。
 
 ## 寫檢查案例與 fixture
 

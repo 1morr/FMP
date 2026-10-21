@@ -158,6 +158,19 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - 列只在使用者動過才有：沒有列＝啟用、依預設順序。讀的人（`ChartJobs`、`chartEntriesProvider`）以插件的 `chartList` 為準，插件拿掉的榜單的列留著無害。
 - 測試：`chart_settings_repository_test.dart`；migration 的 `expectChartSettingsSchema` 查主鍵與空值。
 
+## 匹配結果（`match_results_repository.dart`，schema v18）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `match_results` 與 § 音樂庫的「外部匯入」。
+
+- 讀：`MatchResultsRepository.find(originPluginId, originIds)` join `tracks`（`leftOuterJoin`，選定為空的也讀回），每 500 個 id 一次查，回以外部 id 為鍵的 `MatchResult`。
+- 寫：只有 `PlaylistRepository.createFromMatches`，在外層的 `transaction` 裡呼叫 `create` 與 `addTracks`（drift 的巢狀 `transaction` 用外層那一個），再以一個 batch
+  `insertAllOnConflictUpdate` `match_results` 與 `track_origins`。選定的曲目一定要在 `tracks` 裡（外鍵）：它們就是歌單的曲目，`addTracks` 已經 upsert 過；沿用的選定曲目
+  本來就在（`RESTRICT`）。
+- `MatchResult`（值型別，與 `MatchTargetSetting` 都在 repository 的檔案裡）的 `selected` 是 `TrackInfo`，寫的時候轉成曲目鍵。
+- 孤兒查詢的子查詢對可空的欄位要 `WHERE <欄位> IS NOT NULL`（`NOT IN` 遇到 NULL 不成立）；以後再有可空的參照者照做。
+- `source_settings` 的兩欄見上面「帳號與每音源設定」：`setMatchTarget` 用 `insertOnConflictUpdate` 只帶那一欄、`setMatchRanks` 一個 batch。
+- 測試：`match_results_repository_test.dart`（三張表一起寫、`stored format`、覆蓋、外鍵失敗時整個沒寫、分批讀）；行為由 `test/library/external_import_test.dart` 的假插件端到端測。
+
 ## 插件（`plugin_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層的 `installed_plugins`（schema v7）。
@@ -173,7 +186,8 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - 同一個檔案放 `AccountRepository`（`accounts`）與 `SourceSettingsRepository`（`source_settings`）：兩者都以插件 id
   為鍵，沒有外鍵到 `installed_plugins`，移除插件時由 `PluginInstaller.remove` 明確刪。
 - `AccountRepository.upsert` 是 `insertOnConflictUpdate`（重新登入覆蓋）；`SourceSettingsRepository` 的欄位空＝沒設定過，
-  `setBrowseAsLoggedIn(value: null)` 清回空。
+  `setBrowseAsLoggedIn(value: null)` 清回空。每個 setter 的 companion 只帶自己那一欄（`ON CONFLICT DO UPDATE` 只改給的欄位），所以三欄互不清掉
+  （`account_repository_test.dart` 的 `match target and rank are written on their own`）。
 - `status`、`last_refresh_result` 的字串寫在 `converters.dart`；測試 `account_repository_test.dart` 的 `stored format`
   直接查表斷言。
 
