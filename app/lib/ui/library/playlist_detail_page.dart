@@ -36,16 +36,23 @@ import 'package:fmp/ui/tracks/track_selection.dart';
 
 /// 在 [context] 所在的 Navigator 開歌單詳情：外殼裡是那個目的地的巢狀導覽（音樂庫的歌單卡，
 /// ADR 0033 §決定 5），導覽與播放列留著。
-Future<void> openPlaylist(BuildContext context, int playlistId) =>
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        // 自己的 Material：理由見 `AppShell` 的根頁。
-        builder: (_) => Material(
-          type: MaterialType.transparency,
-          child: PlaylistDetailPage(playlistId: playlistId),
-        ),
-      ),
-    );
+///
+/// [replace] 時取代目前這一頁（匯入預覽建好歌單之後：返回不再回到預覽）。
+Future<void> openPlaylist(
+  BuildContext context,
+  int playlistId, {
+  bool replace = false,
+}) {
+  final route = MaterialPageRoute<void>(
+    // 自己的 Material：理由見 `AppShell` 的根頁。
+    builder: (_) => Material(
+      type: MaterialType.transparency,
+      child: PlaylistDetailPage(playlistId: playlistId),
+    ),
+  );
+  final navigator = Navigator.of(context);
+  return replace ? navigator.pushReplacement(route) : navigator.push(route);
+}
 
 /// 歌單詳情（ADR 0033 §決定 9，M4 design §10.4）。
 ///

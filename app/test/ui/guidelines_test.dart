@@ -64,12 +64,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 
 import '../playback/fake_audio_backend.dart';
+import '../library/fake_import_plugin.dart';
 import '../playback/fake_source_plugin.dart';
 import '../plugins/dev/dev_support.dart' show tempFolder;
 import '../plugins/plugin_harness.dart';
 import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
 import 'charts/chart_harness.dart';
+import 'library/import_preview_harness.dart';
 import 'support/fake_artwork.dart';
 import 'support/fake_data_reset.dart';
 import 'support/fake_file_sharer.dart';
@@ -1203,6 +1205,111 @@ void main() {
           handle.dispose();
         });
 
+        // 能播的插件的歌單（M4 PR 19，§17 第 19 條）：認出網址後的兩個選擇。
+        testWidgets('the import dialog with the matching choice at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final source = FakeImportPlugin(onUrl: (_) => PlaylistIdRef('p1'));
+          final h = ShellHarness(registryOfSources: true, sources: [source]);
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.library,
+          );
+          await h.loadSettings(tester);
+          await tester.tap(find.byTooltip('Import a playlist'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Link'),
+            'https://fmp.test/p1',
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expect(find.text('Match to other sources'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 匯入預覽頁（M4 PR 19，design §10.9）：匹配中、完成（有匹配失敗與搜尋失敗、展開一首）、
+        // `truncated` 的提示。
+        testWidgets('the import preview while matching at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final hold = Completer<List<TrackSummary>>();
+          final preview = PreviewHarness(
+            results: (keyword) => keyword.startsWith('Green')
+                ? hold.future
+                : previewResults(keyword),
+          );
+          await preview.open(tester, size: size, brightness: brightness);
+          await preview.start(tester, animations: false);
+          expect(find.text('Searching…'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          hold.complete(const []);
+          await preview.settle(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the import preview when matched at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final preview = PreviewHarness(
+            results: (keyword) => keyword.startsWith('Green')
+                ? throw RateLimited(pluginId: 'video')
+                : previewResults(keyword),
+          );
+          await preview.open(tester, size: size, brightness: brightness);
+          await preview.start(tester);
+          expect(find.text('No match'), findsOneWidget);
+          expect(find.text('Search failed'), findsOneWidget);
+          await expectGuidelines(tester);
+          // 展開一首：候選、關鍵字與排除。
+          await expandPreviewRow(tester, 'Blue Sky');
+          expect(find.text('2 songs left out'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the import preview of a truncated playlist at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final preview = PreviewHarness(
+            onPage: (_) => previewPage(previewSongs, truncated: true),
+          );
+          await preview.open(tester, size: size, brightness: brightness);
+          expect(
+            find.text('The source only provided part of the playlist'),
+            findsOneWidget,
+          );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('the import preview leave confirmation at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final preview = PreviewHarness();
+          await preview.open(tester, size: size, brightness: brightness);
+          // 開始匹配之後才要確認。
+          await preview.start(tester);
+          await tester.tap(find.byTooltip('Cancel the import'));
+          await tester.pumpAndSettle();
+          expect(find.text('Stop importing?'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('editing an imported playlist at $width', (tester) async {
           final handle = tester.ensureSemantics();
           final h = await openLibrary(tester, playlists: false);
@@ -1409,6 +1516,50 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(LibraryControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 設定頁「音樂庫」的「匹配目標音源」（M4 PR 19）：一個取消勾選。
+        testWidgets('library settings with match targets at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          FakeSourcePlugin target(String id, String name) => FakeSourcePlugin(
+            (_) => const [],
+            id: id,
+            name: name,
+            onSearch: (_) => const SearchPage(items: [], hasMore: false),
+          );
+          final h = ShellHarness(
+            registryOfSources: true,
+            sources: [target('alpha', 'Alpha'), target('beta', 'Beta')],
+          );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.widgetWithText(ListTile, 'Library'));
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          final beta = find.widgetWithText(CheckboxListTile, 'Beta');
+          await tester.ensureVisible(beta);
+          await tester.pumpAndSettle();
+          await tester.tap(beta);
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<CheckboxListTile>(
+                  find.widgetWithText(CheckboxListTile, 'Beta'),
+                )
+                .value,
+            isFalse,
+          );
 
           await expectGuidelines(tester);
           handle.dispose();
