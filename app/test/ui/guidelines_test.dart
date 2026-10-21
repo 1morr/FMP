@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/charts/chart_jobs.dart';
 import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -31,6 +32,7 @@ import 'package:fmp/plugins/accounts/web_login.dart';
 import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
+import 'package:fmp/ui/charts/explore_page.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
@@ -41,6 +43,7 @@ import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
+import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/track_detail_parts.dart';
 import 'package:fmp/ui/player/track_details.dart';
@@ -50,6 +53,7 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/settings/about_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
+import 'package:fmp/ui/settings/library_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
@@ -65,6 +69,7 @@ import '../plugins/dev/dev_support.dart' show tempFolder;
 import '../plugins/plugin_harness.dart';
 import '../support/fake_login_webview.dart';
 import '../support/memory_database.dart';
+import 'charts/chart_harness.dart';
 import 'support/fake_artwork.dart';
 import 'support/fake_data_reset.dart';
 import 'support/fake_file_sharer.dart';
@@ -705,6 +710,70 @@ void main() {
           handle.dispose();
         });
 
+        // 首頁的排行與探索頁（M4 PR 21）：有快取（含「更新失敗」）、沒有快取而離線、探索頁與多選中。
+        testWidgets('home with charts at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final c = ChartHarness();
+          await c.pumpShell(tester, size: size, brightness: brightness);
+          c.shell
+              .container(tester)
+              .read(chartFailuresProvider.notifier)
+              .mark(c.key('new'));
+          await tester.pump();
+          expect(find.text('Update failed'), findsOneWidget);
+          expect(find.text('Track 1 of hot'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('home charts offline without a cache at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final c = ChartHarness();
+          hangCharts(c.plugin);
+          await c.pumpShell(tester, size: size, brightness: brightness);
+          await c.shell.setNetwork(tester, NetworkStatus.noInterface);
+          expect(find.byType(OfflineMessage), findsNWidgets(2));
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        Future<ChartHarness> openExplore(WidgetTester tester) async {
+          final c = ChartHarness();
+          await c.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('View all').first);
+          await tester.pumpAndSettle();
+          expect(find.byType(ExplorePage), findsOneWidget);
+          return c;
+        }
+
+        testWidgets('explore at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openExplore(tester);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('explore while selecting at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openExplore(tester);
+          await tester.longPress(
+            find.descendant(
+              of: find.byType(ExplorePage),
+              matching: find.text('Track 2 of hot'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('1 selected'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         // 音樂庫（M4 PR 2）：空的、有歌單（1000 寬時面板開著，內容區是清單；收起面板是格狀）、
         // 卡片選單、建立對話框與刪除的確認框。
         Future<ShellHarness> openLibrary(
@@ -1304,6 +1373,42 @@ void main() {
           await h.loadSettings(tester);
           await tester.pumpAndSettle();
           expect(find.byType(PlaybackControls), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 設定頁的「音樂庫」（M4 PR 21）：首頁排行的清單（一個停用）與沒有榜單時的說明。
+        testWidgets('library settings at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final c = ChartHarness();
+          await c.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.settings,
+          );
+          await tester.tap(find.widgetWithText(ListTile, 'Library'));
+          await c.settle(tester);
+          await c.setEnabled(tester, 'new', enabled: false);
+          expect(find.byType(CheckboxListTile), findsNWidgets(2));
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('library settings without charts at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.tap(find.text('Settings').first);
+          await h.loadSettings(tester);
+          await tester.tap(find.widgetWithText(ListTile, 'Library'));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(LibraryControls), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
