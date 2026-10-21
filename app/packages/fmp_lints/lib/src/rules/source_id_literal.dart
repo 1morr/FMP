@@ -15,6 +15,10 @@ const officialPluginIds = {
   'youtube',
   // ignore: fmp_lints/fmp_source_id_literal — 規則本身的清單
   'netease',
+  // ignore: fmp_lints/fmp_source_id_literal — 規則本身的清單
+  'spotify',
+  // ignore: fmp_lints/fmp_source_id_literal — 規則本身的清單
+  'qqmusic',
 };
 
 /// 可以寫官方插件 id 的地方：舊資料匯入要對應舊資料的音源，測試要造資料。

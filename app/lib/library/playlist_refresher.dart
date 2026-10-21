@@ -183,6 +183,8 @@ final class PlaylistRefresher {
       page = null;
     }
     if (last.total != null && last.total != count) complete = false;
+    // 插件說遠端還有它讀不到的：只增不刪。
+    if (last.truncated) complete = false;
     if (!complete) return _finishPartial(session);
     final removed = await session.apply(last.playlist.toInfo());
     if (removed == null) return const RefreshDiscarded();

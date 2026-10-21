@@ -254,6 +254,20 @@ void main() {
       expect(result.total, 0);
     });
 
+    test('truncated is read and defaults to false', () async {
+      final on = await page(
+        '{ $playlist, items: [], truncated: true }',
+      ) as PlaylistPage;
+      final off = await page('{ $playlist, items: [] }') as PlaylistPage;
+      final explicit = await page(
+        '{ $playlist, items: [], truncated: false }',
+      ) as PlaylistPage;
+
+      expect(on.truncated, isTrue);
+      expect(off.truncated, isFalse);
+      expect(explicit.truncated, isFalse);
+    });
+
     test('writable false is not the same as not knowing', () async {
       final result = await page(
         "{ playlist: { title: 'T', writable: false }, items: [], "
@@ -281,6 +295,14 @@ void main() {
       ('missing items', '{ $playlist }'),
       ('an empty cursor', "{ $playlist, items: [], cursor: '' }"),
       ('a cursor that is not a string', '{ $playlist, items: [], cursor: 3 }'),
+      (
+        'truncated with a cursor',
+        "{ $playlist, items: [], cursor: 'c', truncated: true }",
+      ),
+      (
+        'a truncated that is not a boolean',
+        "{ $playlist, items: [], truncated: 'yes' }",
+      ),
       ('a negative total', '{ $playlist, items: [], total: -1 }'),
       ('a total that is not a number', "{ $playlist, items: [], total: '5' }"),
       ('an unknown field', '{ $playlist, items: [], hasMore: false }'),

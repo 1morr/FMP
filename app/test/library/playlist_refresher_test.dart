@@ -472,6 +472,25 @@ void main() {
       expect(await ids(id), ['a', 'b', 'c']);
     });
 
+    test('a truncated last page is partial: nothing is removed or '
+        'reordered', () async {
+      final id = await newPlaylist();
+      serve({
+        null: page(['a', 'b', 'c']),
+      });
+      await refresh(id);
+
+      serve({
+        null: page(['c', 'a'], truncated: true, title: 'Renamed'),
+      });
+      final outcome = await refresh(id);
+
+      expect(outcome, finished(PlaylistRefreshResult.partial, removed: 0));
+      expect(await ids(id), ['a', 'b', 'c']);
+      expect((await playlistRow(id))['name'], isNot('Renamed'));
+      expect((await remoteRow(id))['last_result'], 'partial');
+    });
+
     test('more items than the total is partial too', () async {
       final id = await newPlaylist();
       serve({

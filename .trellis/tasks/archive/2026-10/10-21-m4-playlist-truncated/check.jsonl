@@ -1,0 +1,6 @@
+{"file": "docs/adr/0032-host-api-m4-library.md", "reason": "§決定 2 importPlaylist 契約與完整性、§決定 8、§決定 9 同步點"}
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 2 刷新：不完整時只增不刪"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§4.8 Spotify、QQ；§5.2 刷新；§17 第 18 條"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "DTO、shapes、同步點的寫法"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_source_id_literal、lint 雙向變異"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}

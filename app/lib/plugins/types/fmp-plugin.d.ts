@@ -377,6 +377,12 @@ export interface PlaylistPage {
    * 含被隱藏的項目就不要給）。
    */
   total?: number | null;
+  /**
+   * 只能出現在最後一頁（cursor 為空）：true 表示插件已讀完它讀得到的，但遠端歌單可能還有更多
+   * （例如 Spotify embed 頁只給前 100 首）。宿主刷新視為不完整（只新增與更新、不移除不重排）；
+   * 外部匯入照常匹配並提示「來源只提供了部分曲目」。缺省為 false；帶 cursor 時會被拒收。
+   */
+  truncated?: boolean | null;
 }
 
 /** 遠端歌單本身的資料。 */

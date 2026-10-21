@@ -99,6 +99,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'items': true,
     'cursor': false,
     'total': false,
+    'truncated': false,
   },
   'RemotePlaylist': {
     'title': true,
@@ -1228,6 +1229,7 @@ final class PlaylistPage {
     required this.items,
     this.cursor,
     this.total,
+    this.truncated = false,
   });
 
   factory PlaylistPage.fromJson(
@@ -1240,6 +1242,12 @@ final class PlaylistPage {
     final cursor = fields.optionalString('cursor');
     if (cursor != null && cursor.isEmpty) {
       throw const FormatException('$path.cursor: must not be empty');
+    }
+    final truncated = fields.optionalBool('truncated') ?? false;
+    if (truncated && cursor != null) {
+      throw const FormatException(
+        '$path.truncated: only allowed on the last page (no cursor)',
+      );
     }
     return PlaylistPage(
       playlist: RemotePlaylist._fromJson(
@@ -1258,6 +1266,7 @@ final class PlaylistPage {
       ]),
       cursor: cursor,
       total: fields.optionalInteger('total'),
+      truncated: truncated,
     );
   }
 
@@ -1272,6 +1281,10 @@ final class PlaylistPage {
 
   /// 整張歌單的筆數（非負）；插件只在確定等於會回傳的筆數時才給。
   final int? total;
+
+  /// 只會出現在最後一頁：插件已讀完它讀得到的，但遠端歌單可能還有更多（例如 Spotify embed
+  /// 頁只給前 100 首）。刷新視為不完整；外部匯入照常匹配並提示。
+  final bool truncated;
 }
 
 /// 遠端歌單本身的資料。

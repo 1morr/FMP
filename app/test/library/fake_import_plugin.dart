@@ -125,6 +125,7 @@ PlaylistPage page(
   bool? writable,
   String? cursor,
   int? total,
+  bool truncated = false,
   List<String>? remoteIds,
   Set<int> unavailable = const {},
   String Function(String id)? trackTitle,
@@ -149,4 +150,5 @@ PlaylistPage page(
   ],
   cursor: cursor,
   total: total,
+  truncated: truncated,
 );

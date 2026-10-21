@@ -288,13 +288,14 @@
 ## 17. ★ Spotify 插件（design §4.8）
 
 - [ ] fmp-plugins：`spotify/`（manifest 1.0.0、`importPlaylist`、`never`、`checks.json`、命令列錄的 fixture、README）、index。
-- [ ] FMP：`officialPluginIds` 加 `spotify`。
+- [x] FMP：`officialPluginIds` 加 `spotify`；契約加 `PlaylistPage.truncated`（ADR 0032 §決定 2 補充）、刷新視為不完整（本 PR，`feat/app-playlist-truncated`）；`officialPluginIds` 也一併加了 `qqmusic`。
 - 實測（真實，匿名，開頭先做）：一張公開歌單（超過 100 首）的 embed 頁一次，記 `__NEXT_DATA__` 是否還在、是否完整。抓不到就停下回報（可能牽動決定 1 的範圍）。之後在 App 匯入一次（PR 19 合併後的驗收再做完整流程）。
 - 依賴：6、M4a 驗收。模型：sonnet（舊 `spotify_playlist_source.dart` 是規格）。
 
 ## 18. ★ QQ 插件（design §4.8）
 
-- [ ] fmp-plugins：`qqmusic/`（`musics.fcg`＋自簽 `sign`，`pageSize = 1000`）；FMP：`officialPluginIds` 加 `qqmusic`。
+- [ ] fmp-plugins：`qqmusic/`（`musics.fcg`＋自簽 `sign`，`pageSize = 1000`）
+- [x] FMP：`officialPluginIds` 加 `qqmusic`（隨 §17 的 FMP 那項一起做）。
 - 實測（真實，匿名，開頭先做）：一張公開歌單一次，記 `sign` 是否仍被接受。
 - 依賴：6、M4a 驗收。模型：sonnet（舊 `qq_music_playlist_source.dart`、`qq_music_sign.dart` 是規格）。
 
@@ -305,7 +306,7 @@
 - [ ] `lib/library/external_import.dart`；匯入對話框接到預覽頁；匯入對話框對能播的插件多「配對到其他音源」選項（§17 第 19 條，目標預設不勾來源插件）；預覽頁（進度、取消、改選、重搜、排除、建立歌單）。
 - [ ] 設定頁「音樂庫」區（這一區第一次出現）：匹配目標音源的拖曳與勾選。
 - [ ] `fmp-test-meta`（dev asset）。
-- 測試：`ExternalImport`（沿用 `match_results` 不搜尋、合併前 5、門檻、搜尋失敗不中斷、取消後不寫、確認的 transaction 寫入三張表、未匹配不進歌單、能播插件的配對模式不寫 `playlist_remote` 且目標不含來源插件）；migration 三種；孤兒；設定的拖曳寫 `match_rank`、取消勾選寫 `match_target`；預覽頁的 widget 測試；guideline；一千首歌單的匹配以假插件量一次（寫進 PR 描述）。
+- 測試：`ExternalImport`（沿用 `match_results` 不搜尋、合併前 5、門檻、搜尋失敗不中斷、取消後不寫、確認的 transaction 寫入三張表、未匹配不進歌單、能播插件的配對模式不寫 `playlist_remote` 且目標不含來源插件、最後一頁 `truncated` 時照常匹配並顯示提示）；migration 三種；孤兒；設定的拖曳寫 `match_rank`、取消勾選寫 `match_target`；預覽頁的 widget 測試；guideline；一千首歌單的匹配以假插件量一次（寫進 PR 描述）。
 - 實測：重播（Android）：`fmp-test-meta` 的 `meta-basic` → 預覽 → 改選一首、重搜一首、排除一首 → 建立 → 再匯入一次（全部沿用、沒有搜尋）。真實（匿名，Android）：Spotify 與 QQ 各一張公開歌單（PR 17、18 的那張）走完一次，記首數、匹配成功數、耗時。
 - 依賴：8b、16、17（或 18）。模型：opus（預覽頁的版面與互動沒有定稿）。
 

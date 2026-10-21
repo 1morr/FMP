@@ -296,6 +296,8 @@ export function shape() {
   test('the importPlaylist page fields match between the d.ts and Dart', () {
     expect(sourceDtoShapes['PlaylistPage']!['cursor'], isFalse);
     expect(_interfaces(_dts)['PlaylistPage']!['cursor'], isFalse);
+    expect(sourceDtoShapes['PlaylistPage']!['truncated'], isFalse);
+    expect(_interfaces(_dts)['PlaylistPage']!['truncated'], isFalse);
     expect(sourceDtoShapes['PlaylistPage']!['items'], isTrue);
     expect(_interfaces(_dts)['RemotePlaylistItem']!['track'], isTrue);
     expect(_interfaces(_dts)['PlaylistIdRef']!['playlistId'], isTrue);
