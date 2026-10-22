@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "10-23-m5-import-staging"
+  ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
   "notes": "",
