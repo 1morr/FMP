@@ -358,6 +358,34 @@ void main() {
       );
     }
 
+    test(
+      'sets the keyed device columns to NULL and keeps the other columns',
+      () async {
+        final database = await open();
+        addTearDown(database.close);
+        await database.customStatement(
+          "INSERT INTO source_settings (plugin_id, browse_as_logged_in, "
+          "match_target, match_rank) VALUES ('p1', 1, 0, 3), "
+          "('p2', 0, NULL, 1)",
+        );
+        final target = File(p.join(dataDirectory.path, 'keyed.db'));
+
+        await backupsOf(database).export(target);
+
+        final file = AppDatabase(NativeDatabase(target));
+        addTearDown(file.close);
+        final rows = await file
+            .customSelect(
+              'SELECT plugin_id, browse_as_logged_in AS b, match_target AS t, '
+              'match_rank AS r FROM source_settings ORDER BY plugin_id',
+            )
+            .get();
+        expect(rows.map((row) => row.readNullable<int>('b')), [null, null]);
+        expect(rows.map((row) => row.readNullable<int>('t')), [0, null]);
+        expect(rows.map((row) => row.readNullable<int>('r')), [3, 1]);
+      },
+    );
+
     test('removes the device data and keeps the rest', () async {
       final database = await open();
       addTearDown(database.close);
@@ -1031,6 +1059,72 @@ void main() {
       );
     });
 
+    test('keyed device columns come from this device by plugin id and NULL '
+        'when it has no such row', () async {
+      await install(other, 'both');
+      await install(other, 'only-backup');
+      await mine.customStatement(
+        "INSERT INTO source_settings (plugin_id, browse_as_logged_in, "
+        "match_target, match_rank) VALUES ('both', 1, 1, 9), "
+        "('only-mine', 1, NULL, NULL)",
+      );
+      await other.customStatement(
+        "INSERT INTO source_settings (plugin_id, browse_as_logged_in, "
+        "match_target, match_rank) VALUES ('both', 0, 0, 2), "
+        "('only-backup', 1, NULL, 5)",
+      );
+      final backups = backupsOf(mine);
+      final staged = await stageOther();
+
+      await backups.carryOver(staged, await backups.readCarriedState());
+
+      final result = AppDatabase(NativeDatabase(File(staged.path)));
+      addTearDown(result.close);
+      final rows = await result
+          .customSelect(
+            'SELECT plugin_id, browse_as_logged_in AS b, match_target AS t, '
+            'match_rank AS r FROM source_settings ORDER BY plugin_id',
+          )
+          .get();
+      expect(rows.map((row) => row.read<String>('plugin_id')), [
+        'both',
+        'only-backup',
+      ]);
+      // 登入身分瀏覽：這台的值；這台沒有那一列是空值。其餘欄位照備份。
+      expect(rows.map((row) => row.readNullable<int>('b')), [1, null]);
+      expect(rows.map((row) => row.readNullable<int>('t')), [0, null]);
+      expect(rows.map((row) => row.readNullable<int>('r')), [2, 5]);
+    });
+
+    test(
+      'a backup file that still carries the value does not keep it',
+      () async {
+        await other.customStatement(
+          "INSERT INTO source_settings (plugin_id, browse_as_logged_in) "
+          "VALUES ('p', 1)",
+        );
+        final backups = backupsOf(mine);
+        // 舊的備份檔沒把這欄清掉：直接塞進暫存檔的來源。
+        final staged = await backups.stageBytes(
+          await exportBytesOf(other, otherDirectory),
+        );
+        final raw = AppDatabase(NativeDatabase(File(staged.path)));
+        addTearDown(raw.close);
+        await raw.customStatement(
+          'UPDATE source_settings SET browse_as_logged_in = 1',
+        );
+
+        await backups.carryOver(staged, await backups.readCarriedState());
+
+        final row = await raw
+            .customSelect(
+              'SELECT browse_as_logged_in AS b FROM source_settings',
+            )
+            .getSingle();
+        expect(row.readNullable<int>('b'), isNull);
+      },
+    );
+
     test('clears the values when this device has none', () async {
       await seed(other, 'other');
       final backups = backupsOf(mine);
@@ -1157,6 +1251,10 @@ void main() {
       for (final values in state.deviceColumns.values) {
         expect(values.values, everyElement(isNotNull));
       }
+      expect(
+        state.keyedDeviceColumns.keys,
+        unorderedEquals(backupDeviceKeyedColumns.keys),
+      );
       expect(
         backupKeptOnDeviceTables,
         everyElement(isIn(backupExcludedTables)),

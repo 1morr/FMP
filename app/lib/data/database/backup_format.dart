@@ -48,6 +48,13 @@ const backupDeviceColumns = <String, List<String>>{
   'developer_settings': ['plugin_dev_folder'],
 };
 
+/// 多列表裡只屬於這台的欄位：表名 → 以哪一欄當鍵、哪些欄位。匯出時設成空值，還原時
+/// 備份裡每一列換成這台同鍵那一列的值（這台沒有那一列是空值，不新增列）。
+/// `source_settings` 每個插件一列，「以登入身分瀏覽」跟著這台的登入。
+const backupDeviceKeyedColumns = <String, ({String key, List<String> columns})>{
+  'source_settings': (key: 'plugin_id', columns: ['browse_as_logged_in']),
+};
+
 /// `installed_plugins` 裡插件開發工具補的標記列（M3 PR 16b）：匯出時刪掉，還原時留這台的。
 const backupDevMarkerTable = 'installed_plugins';
 const backupDevMarkerColumn = 'from_dev_folder';
@@ -153,13 +160,15 @@ final class StagedBackup {
 
 /// 還原時要從這台目前的資料庫帶到新資料庫的值（ADR 0034 §決定 4 第 4 條）。
 ///
-/// 內容照 [backupKeptOnDeviceTables]、[backupDeviceColumns]、[backupDevMarkerTable]
+/// 內容照 [backupKeptOnDeviceTables]、[backupDeviceColumns]、[backupDeviceKeyedColumns]、
+/// [backupDevMarkerTable]
 /// 的常數取，列是「欄位名 → 值」的原始 map，不依賴 schema 版本。
 @immutable
 final class CarriedState {
   const CarriedState({
     this.tables = const {},
     this.deviceColumns = const {},
+    this.keyedDeviceColumns = const {},
     this.devMarkerPlugins = const [],
   });
 
@@ -168,6 +177,9 @@ final class CarriedState {
 
   /// [backupDeviceColumns] 每一欄在這台的值（沒設定過是 `null`）：表名 → 欄位名 → 值。
   final Map<String, Map<String, Object?>> deviceColumns;
+
+  /// [backupDeviceKeyedColumns] 每一列在這台的值：表名 → 鍵的值 → 欄位名 → 值。
+  final Map<String, Map<Object?, Map<String, Object?>>> keyedDeviceColumns;
 
   /// `installed_plugins` 裡 `from_dev_folder` 為真的列。
   final List<Map<String, Object?>> devMarkerPlugins;

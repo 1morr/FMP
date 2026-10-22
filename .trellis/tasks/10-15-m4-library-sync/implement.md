@@ -395,8 +395,10 @@
     - 封面不在 y.qq.com 的會被丟掉。
 
 - **PR 22 → 之後**：
-  - **插件來源標記可以被偽造**：備份可以把 `installed_plugins.source_index_url` 設成官方 index，插件頁就把任意腳本標成「官方」；版本設得很高時官方更新蓋不掉它。還原確認框已列出網域與警告，但沒有驗證來源。
-  - **`source_settings.browse_as_logged_in` 照 ADR 跟著備份走**：另一台換了帳號時，會靜默改變這台的「以登入身分瀏覽」。`playlist_remote.writable` 要等下一次刷新才更正。
+  - **插件來源標記可以被偽造** → M4 備份後續已處理一部分：讀到來源 index 時，已安裝的版本比 index 高、或同版本 SHA-256 不同，標「與插件庫不一致」並可「從插件庫重新安裝」（ADR 0030 §決定 4、9 補充）。
+    仍信任自述的：偽造的 id 不在 index 裡、讀不到 index（離線、失敗、`IndexTooNew`）；版本比 index 低的在使用者更新前照樣以官方名義執行。
+  - **`source_settings.browse_as_logged_in` 跟著備份走** → M4 備份後續已處理：匯出設成 NULL，還原時對備份裡裝了的插件寫入這台的值（ADR 0034 補充）。
+    `playlist_remote.writable` 仍要等下一次刷新才更正。
   - 確認框只列備份裡的插件，沒列「這台有、備份沒有、還原後會消失」的插件（「取代」既有的語意）。
   - `isOlderVersion` 遇到不是 semver 的版本號不算舊。
   - Android SAF 不依 `.db` 篩選（所有檔都看得到，內容由 `stage` 驗）；`pickFile` 的 `maxBytes` 只有在平台先給大小時才擋得住，Android 實際有沒有給沒有量。

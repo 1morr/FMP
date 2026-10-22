@@ -1,0 +1,8 @@
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "§決定 1、4、6、9 index、版本、來源、更新"}
+{"file": "docs/adr/0034-backup-file-and-restore.md", "reason": "備份檔格式、不帶走與裝置欄位、還原步驟"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§11 備份與還原"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "插件安裝與更新的慣例"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "資料層、測試以真的檔案資料庫"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、guideline 測試"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、雙向變異"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "標記與按鈕的版面"}

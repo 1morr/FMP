@@ -552,26 +552,35 @@ void main() {
       expect(asked, isEmpty);
     });
 
-    test('update status only goes up, only from the source index and only '
-        'for a supported apiVersion', () {
-      InstalledPlugin installed(String version, {String? from}) =>
-          InstalledPlugin(
-            id: 'plugin-a',
-            version: version,
-            manifestJson: '{}',
-            script: '',
-            installedAt: DateTime.utc(2026),
-            sourceIndexUrl: from ?? indexUrl.toString(),
-          );
+    test('update status goes up from the source index, and an installed '
+        'plugin the index disagrees with is a mismatch', () {
       final text = source();
+      InstalledPlugin installed(
+        String version, {
+        String? from,
+        String? script,
+      }) => InstalledPlugin(
+        id: 'plugin-a',
+        version: version,
+        manifestJson: '{}',
+        script: script ?? text,
+        installedAt: DateTime.utc(2026),
+        sourceIndexUrl: from ?? indexUrl.toString(),
+      );
       PluginUpdateStatus status(
         InstalledPlugin plugin,
         String version, {
         int apiVersion = 1,
+        String? sha256Override,
       }) => updateStatus(
         plugin,
         indexUrl.toString(),
-        entry(text, version: version, apiVersion: apiVersion),
+        entry(
+          text,
+          version: version,
+          apiVersion: apiVersion,
+          sha256Override: sha256Override,
+        ),
       );
 
       expect(status(installed('1.0.0'), '1.0.1'), PluginUpdateStatus.available);
@@ -580,35 +589,94 @@ void main() {
         PluginUpdateStatus.available,
       );
       expect(status(installed('1.0.0'), '1.0.0'), PluginUpdateStatus.none);
-      expect(status(installed('2.0.0'), '1.9.9'), PluginUpdateStatus.none);
+      // 不是合法 semver 的版本當最低：index 的較高。
+      expect(status(installed('dev'), '1.0.0'), PluginUpdateStatus.available);
+      // 版本比 index 高、或同版本但腳本不同：與插件庫不一致。
+      expect(status(installed('2.0.0'), '1.9.9'), PluginUpdateStatus.mismatch);
+      expect(
+        status(installed('1.0.0', script: '$text// edited'), '1.0.0'),
+        PluginUpdateStatus.mismatch,
+      );
+      // 較低版本的不一致還是更新（更新會換成驗過的腳本）。
+      expect(
+        status(installed('1.0.0', script: '$text// edited'), '1.0.1'),
+        PluginUpdateStatus.available,
+      );
       expect(
         status(installed('1.0.0'), '2.0.0', apiVersion: 2),
         PluginUpdateStatus.needsAppUpdate,
       );
-      // 同版本的不相容 index 不是更新。
+      // 同版本、同腳本的不相容 index 不是更新。
       expect(
         status(installed('1.0.0'), '1.0.0', apiVersion: 2),
         PluginUpdateStatus.none,
       );
+      // 來源不同、id 不同：不比。
       expect(
-        status(installed('1.0.0', from: 'https://other.test/i.json'), '2.0.0'),
+        status(installed('9.0.0', from: 'https://other.test/i.json'), '1.0.0'),
         PluginUpdateStatus.none,
       );
-      // 從檔案或網址安裝的（沒有來源 index）不從任何 index 更新。
+      expect(
+        updateStatus(
+          InstalledPlugin(
+            id: 'other-plugin',
+            version: '9.0.0',
+            manifestJson: '{}',
+            script: text,
+            installedAt: DateTime.utc(2026),
+            sourceIndexUrl: indexUrl.toString(),
+          ),
+          indexUrl.toString(),
+          entry(text, version: '1.0.0'),
+        ),
+        PluginUpdateStatus.none,
+      );
+      // 從檔案或網址安裝的（沒有來源 index）不從任何 index 比對。
       expect(
         updateStatus(
           InstalledPlugin(
             id: 'plugin-a',
-            version: '1.0.0',
+            version: '9.0.0',
             manifestJson: '{}',
-            script: '',
+            script: text,
             installedAt: DateTime.utc(2026),
           ),
           indexUrl.toString(),
-          entry(text, version: '2.0.0'),
+          entry(text, version: '1.0.0'),
         ),
         PluginUpdateStatus.none,
       );
+      // PluginFile 存進去前去掉 BOM，index 的雜湊針對含 BOM 的原檔：兩種都算一致。
+      expect(
+        status(
+          installed('1.0.0'),
+          '1.0.0',
+          sha256Override: hash(utf8.encode('﻿$text')),
+        ),
+        PluginUpdateStatus.none,
+      );
+    });
+
+    test('a plugin installed from an index is never a mismatch, with or '
+        'without a BOM', () async {
+      for (final bom in ['', '﻿']) {
+        final harness = PluginHarness();
+        final container = _container(harness);
+        final text = source();
+        final file = '$bom$text';
+        final theEntry = entry(text, sha256Override: hash(utf8.encode(file)));
+        final prepared = await preparedOf(harness, file, theEntry);
+        await container
+            .read(pluginInstallerProvider)
+            .installPrepared(prepared, confirmed: true);
+
+        final stored = (await harness.plugins.byId('plugin-a'))!;
+        expect(
+          updateStatus(stored, indexUrl.toString(), theEntry),
+          PluginUpdateStatus.none,
+          reason: 'bom: ${bom.isNotEmpty}',
+        );
+      }
     });
 
     test('installing from an index stores the source and the verified '

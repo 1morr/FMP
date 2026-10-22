@@ -566,7 +566,7 @@ M4 不寫轉換程式；建表時確認舊資料放得進去（decisions #40）�
 - **`lib/data/database/database_backups.dart`**（既有）加：
   - `export(File target)`：`VACUUM INTO` 暫存檔 → 以 `sqlite3` 開暫存檔執行清除（ADR 0034 §決定 2 的清單，寫成 `backupExcludedTables` 與 `backupDeviceColumns` 兩份常數）→ `VACUUM` → 關閉。
   - `stage(Uint8List bytes) → StagedBackup`：寫到 `backups/staged-<UTC>.db` → SQLite 標頭（`SQLite format 3\0`）→ `user_version`（0 或大於 `schemaVersion` 拒絕）→ `PRAGMA integrity_check` → 以 `AppDatabase` 開啟（跑 migration）→ 讀 `installed_plugins` 的 id、名稱、版本、網域給確認框 → 關閉。任何一步失敗刪暫存、拋出可分辨的拒絕理由（`BackupRejected { newerVersion, notFmpBackup, corrupt }`）。
-  - `carryOver(StagedBackup, CarriedState)`：把目前的 `accounts` 列、`layout_state` 列、輸出裝置兩欄、`plugin_dev_folder` 寫進暫存檔（先刪暫存檔裡的同類資料）。
+  - `carryOver(StagedBackup, CarriedState)`：把目前的 `accounts` 列、`layout_state` 列、輸出裝置兩欄、`plugin_dev_folder`、每音源設定的 `browse_as_logged_in`（以 `plugin_id` 對應，`backupDeviceKeyedColumns`；2026-10-22）寫進暫存檔（先刪暫存檔裡的同類資料）。
   - `restoreStaged(StagedBackup)`：同 M3 的 `restore`（關閉、原檔改名、換檔）。
   - **表的歸類閘門**：`backupExcludedTables` 加上「帶走」清單要等於 `allTables`；新表沒歸類就紅（ADR 0034 §如何確認）。
 - **`lib/app/backup.dart`**：
