@@ -132,7 +132,11 @@
 
 ## 留下的後續
 
-（實作時填）
+- PR 2（審查時發現）：
+  - **PR 7 要另一個寫入入口**：`StagingImport.write` 會先刪目標檔、建全新的庫、設定整列插入。設定頁的取代要在 `VACUUM INTO` 的副本上寫：不刪檔、先清掉要取代的表、設定只覆寫有值的欄位、合併帳號（design §6.3）。`verify` 的「匯入包沒寫的表必須是空的」改成收「保留下來的列數」。
+  - **換上後才失敗的憑證**：需要重新登入的平台在寫暫存庫時就定了；`writeCredentials` 在換上之後才失敗的平台要補記進 `summary_json`。PR 4／PR 6 給 `LegacyImportsRepository` 加補記的方法。
+  - **快取上限不匯入**（ADR 0016 §決定 3）：`ImportBundle` 的 `NetworkSettings` 型別帶 `cacheLimitMebibytes`，由轉換器留空；PR 3 的轉換器測試斷言它是空的。
+  - `Account.avatarJson` 是原始 JSON 字串：PR 4 的轉換器以 `TracksRepository.encodeArtwork` 編碼。
 
 ## 風險與回滾點
 

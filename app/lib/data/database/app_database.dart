@@ -6,6 +6,7 @@ import 'package:fmp/data/database/tables.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
+import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
@@ -45,6 +46,8 @@ part 'app_database.g.dart';
     ChartSettingsTable,
     MatchResultsTable,
     TrackOriginsTable,
+    LegacyImportsTable,
+    LegacyPlaylistIdsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -52,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -183,6 +186,11 @@ class AppDatabase extends _$AppDatabase {
               await m.create(schema.matchResults);
               await m.create(schema.matchResultsSelected);
               await m.create(schema.trackOrigins);
+            },
+            from18To19: (m, schema) async {
+              // 新表升級後是空的：沒有匯入過舊版資料。
+              await m.create(schema.legacyImports);
+              await m.create(schema.legacyPlaylistIds);
             },
           ),
         );

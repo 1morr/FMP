@@ -516,6 +516,23 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `a new database has the match tables`、`indexes match_results.selected_track_key`（升級與全新兩例）、`match_results_repository_test.dart`（三張表一起寫、`stored format`、
     覆蓋、失敗時什麼都沒寫、分批讀）、`queue_repository_test.dart` 的 `a track a match result selected is not an orphan`（拿掉 `IS NOT NULL` 會紅）、
     `account_repository_test.dart` 的 `match target and rank are written on their own`、`remove deletes the match columns with the row`。
+- `legacy_imports`、`legacy_playlist_ids` 是 schema v19（M5 design §6.4，PR 2）：舊版資料匯入的紀錄。
+  - `legacy_imports`：`id` 自增、`source`（`database`／`backup`，字串在 `LegacyImportSourceConverter`）、`imported_at`、`legacy_schema_version`、`backup_version`（可空）、
+    `summary_json`（`ImportSummary`：每個 collection 的 read／written／skipped{理由: 筆數}、不匯入的設定、需要重新登入的平台；只有筆數與識別字，沒有曲名、歌單名）、
+    `acknowledged`（結果對話框看過了，預設假）。`legacy_playlist_ids` 主鍵（`legacy_import_id`, `legacy_playlist_id`），兩個外鍵（匯入紀錄、`playlists`）都連帶刪除；
+    只有資料庫來源寫，讀者是 M6（把舊下載紀錄接回歌單），M5 只寫。
+  - **兩張都在 `backupExcludedTables`、不在 `backupKeptOnDeviceTables`**：匯入紀錄與歌單對照是這台的事件，還原另一台的備份後不再成立，所以備份不帶、還原後清空。
+  - 寫入只有 `StagingImport.write`（`lib/data/import/`），和匯入的資料在同一個 transaction；`LegacyImportsRepository` 只讀與標「看過」（`latestUnacknowledged`、`acknowledge`、`hasAny`）。
+  - **暫存庫放 `<資料目錄>/legacy-import/staging-<UTC>.db`，不放 `backups/`**：`DatabaseBackups.stage` 一開始會刪掉 `backups/` 裡所有 `staged-` 開頭的檔，匯入中的暫存庫不能在它的清理範圍裡。
+    `StagingImport.write` 以 `AppDatabase` 建全新的庫、一個 transaction 寫完整個 `ImportBundle`（直接用 drift 的表寫：repository 沒有保留 `created_at`、`played_at`、`added_at`、
+    `last_refreshed_at` 原值與批次寫歷史的入口）；`verify` 重新開檔，以 repository 讀回：每張表的列數等於 bundle 的筆數（bundle 不寫的表必須是空的）、曲目／歌單（含項目順序）／歷史／電台各抽 50 筆
+    比對每個欄位（隨機數可注入）、佇列與播放狀態整份比對、`integrity_check`、`foreign_key_check`、孤兒曲目為 0。任何一步失敗關庫、刪暫存檔（含 `-wal`、`-shm`、`-journal`），拋
+    `LegacyImportFailed(step, reason)`（`reason` 一句英文，不含使用者資料；`cause` 只給 log）。成功時暫存檔留給呼叫端換上。
+  - `ImportBundle` 是轉換器的輸出、`StagingImport` 的輸入，以新版的語彙寫（`TrackInfo`、`PlaylistKind`、設定的值型別），沒有憑證，也沒有新版 id（清單順序就是 `sort_order`／`position`）。
+  - 閘門：`migration_test.dart` 的 `migration from v18 to v19 keeps existing data`、`migration from v<N> to v19 adds the legacy import tables`（v1–v18 各一例：主鍵、外鍵與連帶刪除、預設值）、
+    `a new database has the legacy import tables`；`backup_format_test.dart` 的歸類閘門與 `database_backups_test.dart` 的 `every excluded table is either kept from this device or emptied`；
+    `test/data/import/staging_import_test.dart`（真的檔案資料庫：原始時間、`legacy_imports` 與 `legacy_playlist_ids`、`stored format`、寫入中途失敗、驗證的每一項失敗路徑與失敗後檔案都不在、抽樣）、
+    `legacy_imports_repository_test.dart`、`import_summary_test.dart`（`summary_json` 往返、map 順序不影響相等與 hash）。
 
 ### 快取庫
 

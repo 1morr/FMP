@@ -1293,9 +1293,20 @@ void main() {
               "INSERT INTO plugin_storage (plugin_id, key, value) "
               "VALUES ('p', 'k', 'v')",
           'scheduler_runs': "INSERT INTO scheduler_runs (job_id, last_success_at) VALUES ('j', 1)",
+          'legacy_imports':
+              "INSERT INTO legacy_imports (source, imported_at, summary_json) "
+              "VALUES ('database', 1, '{}')",
+          'legacy_playlist_ids':
+              "INSERT INTO legacy_playlist_ids (legacy_import_id, "
+              "legacy_playlist_id, playlist_id) VALUES (1, 7, 1)",
         };
         expect(insertOther.keys, unorderedEquals(backupExcludedTables));
         await install(other, 'p');
+        // legacy_playlist_ids 參照歌單與匯入紀錄：map 的插入依序執行，匯入紀錄在它前面。
+        await other.customStatement(
+          "INSERT INTO playlists (kind, name, sort_order, created_at, "
+          "updated_at) VALUES ('local', 'Mine', 0, 1, 1)",
+        );
         for (final sql in insertOther.values) {
           await other.customStatement(sql);
         }

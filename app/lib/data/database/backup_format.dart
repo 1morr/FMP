@@ -7,12 +7,14 @@ import 'package:flutter/foundation.dart';
 // `test/data/database/backup_format_test.dart` 的歸類閘門對著 `AppDatabase.allTables`。
 
 /// 不帶走的整張表（SQL 表名）：版面是這台裝置的、帳號顯示資訊跟著這台的登入、插件的
-/// key／value 含匿名 cookie 等裝置身分、排程的上次成功時間只對這台有意義。
+/// key／value 含匿名 cookie 等裝置身分、排程的上次成功時間只對這台有意義、匯入舊版的紀錄與歌單對照是這台的事件（還原另一台的備份後不再成立）。
 const backupExcludedTables = [
   'layout_state',
   'accounts',
   'plugin_storage',
   'scheduler_runs',
+  'legacy_playlist_ids',
+  'legacy_imports',
 ];
 
 /// [backupExcludedTables] 裡還原時**帶這台的列**的表：帳號顯示資訊跟著這台的登入，版面是這台的。
