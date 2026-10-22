@@ -40,7 +40,7 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
 
 ### secure storage 套件
 
-- **`flutter_secure_storage` 11.2.0**（ADR 0012 已指定 11.x）：Android 以 RSA-OAEP 包 AES-GCM；Windows 以 AES-GCM 加密檔案、金鑰在 Credential Manager，所以沒有 Credential Manager 單筆約 2.5 KB 的限制。注意它的 Android 預設 `resetOnError: true`（讀取失敗就清空），與 ADR 0012「讀取失敗不刪除」衝突。
+- **`flutter_secure_storage` 11.2.0**（ADR 0012 已指定 11.x）：Android 以 RSA-OAEP 包 AES-GCM；Windows 以 AES-GCM 加密檔案、金鑰在 Credential Manager，所以沒有 Credential Manager 單筆約 2.5 KB 的限制（更正（2026-10-23）：Windows 的描述有誤，見決定 5 的更正）。注意它的 Android 預設 `resetOnError: true`（讀取失敗就清空），與 ADR 0012「讀取失敗不刪除」衝突。
 
 ## 決定
 
@@ -54,11 +54,15 @@ M1 已有 `AuthRequirement`、`decideAuth`、`CredentialSource` 介面與唯一�
    - `loginRefresh(credentials) → credentials | null`：`null`＝不需要或沒有新的；刷新失敗拋 `CredentialInvalid`。
    - `loginVerify`、`loginRefresh` 呼叫時憑證還沒寫入，由插件以傳進來的憑證自己組 `Cookie`、請求標 `auth: 'never'`；宿主在呼叫前就把這組值登記到遮蔽函式。
    - **`login*` 匯出（`loginQrStart`、`loginQrPoll`、`loginVerify`、`loginRefresh`）執行期間，該插件的 client 不把回應的 `Set-Cookie` 存進 cookie jar**。插件仍讀得到回應 header（QR 的 `done` 就是從那裡取憑證）；登入回應設的 cookie 是憑證，只經 `CredentialStore` 與注入送出（見決定 4）。
-3. **憑證的形狀**：`FmpLoginCredentials = {cookies: Record<string, string>, extra?: Record<string, string>}`，`fmp.credentials.get()` 回傳它或 `null`。`CredentialStore` 以 `credentials.<插件 id>` 存它的 JSON；dev 與 prod 以鍵前綴與命名空間分開（ADR 0015 §決定 8）。鍵只用檔名安全的字元：Windows 實作以鍵直接當檔名（`<鍵>.secure`），`:` 不合法。
+3. **憑證的形狀**：`FmpLoginCredentials = {cookies: Record<string, string>, extra?: Record<string, string>}`，`fmp.credentials.get()` 回傳它或 `null`。`CredentialStore` 以 `credentials.<插件 id>` 存它的 JSON；dev 與 prod 以鍵前綴與命名空間分開（ADR 0015 §決定 8）。鍵只用檔名安全的字元：Windows 實作以鍵直接當檔名（`<鍵>.secure`），`:` 不合法。（更正（2026-10-23）：Windows 不以鍵當檔名，見決定 5 的更正；鍵的字元限制照舊。）
 4. **注入**：認證攔截器只在 `decideAuth` 為 `attach` 時，把憑證的 `cookies` 合併進 `Cookie`，再加上請求的 `authHeaders`（插件從 cookie 算出的 header，例如 `SAPISIDHASH`；名稱一律進遮蔽的 header 名單）。**同名 cookie 以憑證為準**，其次是插件自己送的 header，最後是 cookie jar（舊版也是合併）。`omit`、`refuse` 時 `authHeaders` 整個丟掉。帶不帶憑證仍只由 `auth` 一處決定。
    - **憑證的 cookie 不經 cookie jar**：`dio_cookie_manager` 的 `loadCookies` 把 jar 的 cookie 接在每個請求上、不看 `auth`，憑證若落進 jar，B 站 QR 登入後 `auth: 'never'` 的請求或關掉「以登入身分瀏覽與播放」時仍會帶出 `SESSDATA`，違反 ADR 0012。所以除了決定 2 的「登入時不存」，cookie jar 送出時還要**跳過憑證裡有的 cookie 名稱**，不論這次請求有沒有帶憑證、憑證有沒有失效。
    - **`CredentialSource` 介面不回傳拼好的 `Cookie` 字串**，回傳 cookie 表（名稱對值）與要附加的標頭，另提供憑證裡的 cookie 名稱（已失效時照樣回傳）；合併在網路層做。
 5. **`CredentialStore`**：`flutter_secure_storage` 11.2.0，經平台層 `SecureStorage`；Android 一律 `resetOnError: false`。讀取失敗時狀態為「暫時無法讀取」（只在記憶體）、不帶憑證、30 秒後重讀，不刪除。載入、寫入時登記遮蔽（短於遮蔽函式下限的值略過，它們不是秘密），登出、移除時取消。
+   更正（2026-10-23，M5 PR 0；依據 `flutter_secure_storage_windows` 4.1.0、4.2.2 的原始碼與擁有者電腦上的檔案）：Windows 不是 AES-GCM 加 Credential Manager 金鑰，也沒有 `<鍵>.secure` 檔；那是套件的 C++ 舊路徑，只在 `useBackwardCompatibility` 為真時走（預設為假）。實際是**整份鍵值以 DPAPI（`CryptProtectData`，無 entropy）加密成單一 JSON 檔** `flutter_secure_storage.dat`，放在 application support 目錄：
+   - prod 的新舊 App 共用 `%APPDATA%\com.personal\fmp\flutter_secure_storage.dat`。新鍵帶 `fmp.` 前綴；寫入是整檔載入、改一鍵、整檔寫回，舊鍵保留。dev 是 `fmp-dev` 目錄的另一個檔。
+   - 已知風險：套件 `load` 時 DPAPI 解不開或 JSON 壞掉會**刪整個檔**（新舊憑證一起沒了），沒有開關。目前沒有 repro，不修；M5 的舊憑證匯入不經套件（ADR 0010 §決定 4 的 M5 補充）。
+   - 套件的 `deleteAll()` 也是刪整個檔：`app/` 只逐鍵刪除。
    更正（2026-10-15，#264）：登記的除了憑證值還有 `accounts.user_id`（網易雲、YouTube 的 id 不在 cookie 裡，原本只有 B 站的 `DedeUserID` 碰巧涵蓋）；登出、換帳號時一起取消。
 6. **帳號表與每音源設定**：
    - `accounts(plugin_id 主鍵, user_id, display_name, avatar_json, status: active | invalidated, logged_in_at, last_refresh_at, last_refresh_result)`。是否登入只看 `CredentialStore`；啟動時帳號列與憑證不一致就刪掉多的那一邊。不存 VIP。

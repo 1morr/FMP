@@ -50,7 +50,7 @@
 3. **Schema 演進**：每版以 `drift_dev schema dump` 存快照；每個 migration 有升級測試；migration 不得改寫使用者設定過的值，
    只能影響沒設定過的列；migration 失敗整個回滾，App 顯示錯誤頁而不在半升級的資料庫上啟動。
 4. **舊資料匯入（legacy import）**：
-   - 位於 `app/lib/legacy_import/`，是唯一依賴 `isar_community` 與 `flutter_secure_storage` 10.x 的地方。
+   - 位於 `app/lib/legacy_import/`，是唯一依賴 `isar_community` 與 `flutter_secure_storage` 10.x 的地方（2026-10-23 改為不用 10.x，見本條最後的 M5 補充）。
    - 首次啟動偵測到舊資料時：唯讀開啟舊 Isar、用與舊版相同的 secure storage 版本讀憑證、登記舊下載檔（不搬檔），
      轉換後寫入**暫存**資料庫；驗證筆數、抽樣比對、外鍵完整後，才換成正式資料庫並寫入匯入紀錄。
    - 失敗時不留半套資料，顯示錯誤頁：重試、匯出診斷、或先以空白資料啟動（之後可再匯入）。
@@ -60,6 +60,14 @@
    - 永遠不自動刪舊檔；匯入成功後，設定頁提供「刪除舊版資料」。
    - 模組與其舊依賴保留到另立 ADR 移除；移除前需公告最低升級路徑。
    - 補充（2026-10-15，M4 PR 0）：`app/` 的備份檔與還原見 ADR 0034；本 ADR 只管舊版備份檔（JSON）的匯入（M5）。
+   - 補充（2026-10-23，M5 PR 0；設計見 `.trellis/tasks/10-22-m5-legacy-import/design.md`）：
+     - **舊憑證不用 10.x 讀**：`app/` 已是 11.2.0，同一個 App 不能有兩個版本。Android 另開一個 11.2.0 實例（不帶 `storageNamespace`、`resetOnError: false`、`migrateOnAlgorithmChange: false`），逐鍵 `read`；Windows 不經套件，在 `lib/platform/` 以 `CryptUnprotectData` 唯讀解開 `flutter_secure_storage.dat`（套件解不開時會刪整個檔，見 ADR 0029 決定 5 的更正）。讀不出的照上面標「需要重新登入」。
+     - **「唯讀開啟舊 Isar」改為先複製再開副本**：Isar 沒有唯讀模式，開啟會建鎖檔並可能改寫檔案；舊檔一個位元組都不碰，開副本時傳完整的 11 個 collection schema。
+     - **自動匯入的條件**：資料目錄沒有 `fmp.db` 且找得到舊資料庫。暫存庫在 `<資料目錄>/legacy-import/`，驗證通過才改名成 `fmp.db`，再寫入憑證。
+     - **分層**：`lib/legacy_import/` 只被 `lib/main.dart` import（lint 的 `restrictedImports`）；設定頁只認 `lib/app/` 的介面。它不直接用 `drift`、`flutter_secure_storage`：寫庫走 `lib/data/`，讀憑證與找檔走 `lib/platform/`。
+     - **匯入紀錄**：schema v19 的 `legacy_imports` 與 `legacy_playlist_ids`（舊歌單 id 對新歌單 id，給 M6–M8 補匯用），兩張都不進備份。
+     - **設定頁「從舊版匯入…」**（舊版資料庫或 JSON 備份）：取代音樂庫與舊版有的設定，保留已安裝的插件、插件設定、排行設定與這台的登入；先自動備份，換檔共用 ADR 0034 的機制，不走還原的 `carryOver`。
+     - **分里程碑補匯**：下載紀錄（M6）、歌詞配對與 AI 設定（M7）、桌面設定（M8）由各自的里程碑以同一個讀取器從保留的舊資料匯入。所以「刪除舊版資料」移到 M9。
 
 採用的慣例：drift 官方的 schema 快照與 migration 測試工具；Spotube 的 drift＋sqlite3 組合；
 一次性遷移「先寫暫存、驗證後才換上」的保守做法。
@@ -67,7 +75,7 @@
 ## 後果
 
 - 好的：關係完整性由資料庫保證；schema 演進可測；資料檔可用通用 SQLite 工具檢視；舊版使用者升級不需手動操作。
-- 壞的：新 App 帶著 `isar_community` 與舊版 secure storage 兩個舊依賴，直到另立 ADR 移除；要重新設計 schema 與轉換規則。
+- 壞的：新 App 帶著 `isar_community` 舊依賴與讀舊憑證的程式（見決定 4 的 M5 補充），直到另立 ADR 移除；要重新設計 schema 與轉換規則。
 - 之後要注意：
   - `isar_community` 與 `sqlite3` 兩套原生庫共存沒有直接先例，第一個里程碑在 Android、Windows 實測；若衝突，legacy import 改成由新 App 啟動的獨立一次性小程式。
   - `sqlite3` 原生庫的 Android 16KB page size 對齊，第一個里程碑用官方對齊檢查確認。
@@ -79,5 +87,5 @@
 
 - Schema 快照與每個 migration 的升級測試在 CI 執行。
 - 「migration 不改使用者設定過的值」有專門測試：先寫入使用者值，跑 migration，斷言值不變。
-- 資料庫只由資料層存取、`legacy_import/` 不被其他模組 import：lint `fmp_layer_imports`（ADR 0015）。
+- 資料庫只由資料層存取、`legacy_import/` 只被 `lib/main.dart` import：lint `fmp_layer_imports`（ADR 0015）。
 - 切換前，在擁有者真實資料的副本上完整跑一次匯入，並把筆數比對結果附在切換 PR 的 review 指南。
