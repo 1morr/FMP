@@ -40,6 +40,33 @@ List<String> scriptRuns(String compacted) => [
   for (final run in _scriptRun.allMatches(compacted)) run[0]!,
 ];
 
+final _scriptClasses = [
+  ('L', RegExp(r'\p{Script=Latin}', unicode: true)),
+  ('H', RegExp(r'\p{Script=Han}', unicode: true)),
+  ('K', RegExp(r'[\p{Script=Hiragana}\p{Script=Katakana}ー]', unicode: true)),
+  ('G', RegExp(r'\p{Script=Hangul}', unicode: true)),
+];
+
+final _letter = RegExp(r'\p{L}', unicode: true);
+
+/// 名稱（[foldText] 過）用到的文字系統：Latin、漢字、假名（平假名＋片假名）、
+/// 諺文、其他，各一個代碼，排序後相接；數字、標點、空白不算。沒有字母是空字串。
+/// 兩個名稱的文字集合相同卻對不上，才是「不同的人」的證據（譯名、羅馬字是不同
+/// 文字，無從判斷）。
+String scriptSet(String folded) {
+  final found = <String>{};
+  for (final rune in folded.runes) {
+    final char = String.fromCharCode(rune);
+    if (_scriptClasses.where((c) => c.$2.hasMatch(char)).firstOrNull
+        case final known?) {
+      found.add(known.$1);
+    } else if (_letter.hasMatch(char)) {
+      found.add('O');
+    }
+  }
+  return (found.toList()..sort()).join();
+}
+
 final _latinOrDigit = RegExp(r'[\p{Script=Latin}\p{N}]', unicode: true);
 
 /// 拉丁字的邊界：前後不是拉丁字母或數字。CJK 緊貼著也算邊界（`晴天mv`）。

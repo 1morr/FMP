@@ -1893,6 +1893,16 @@ class Translations$importPreview$zh_CN
   String get leaveConfirm => '放弃';
   @override
   String get leaveKeep => '继续';
+  @override
+  String largeTitle({required Object count}) => '要搜索约 ${count} 次';
+  @override
+  String get largeBody => '这会花一些时间。可以先减少匹配目标，搜索的次数就会少一些。';
+  @override
+  String get largeBodyOneTarget => '这会花一些时间。';
+  @override
+  String get largeCancel => '取消';
+  @override
+  String get largeStart => '开始';
 }
 
 // Path: radio

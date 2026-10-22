@@ -1970,6 +1970,17 @@ class Translations$importPreview$en extends Translations$importPreview$zh_TW {
   String get leaveConfirm => 'Stop';
   @override
   String get leaveKeep => 'Keep going';
+  @override
+  String largeTitle({required Object count}) => 'About ${count} searches';
+  @override
+  String get largeBody =>
+      'This will take a while. You can reduce the match targets first to search less.';
+  @override
+  String get largeBodyOneTarget => 'This will take a while.';
+  @override
+  String get largeCancel => 'Cancel';
+  @override
+  String get largeStart => 'Start';
 }
 
 // Path: radio

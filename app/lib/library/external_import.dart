@@ -24,6 +24,10 @@ const matchingLogTag = 'matching';
 /// 每首保留的候選數：所有目標音源合併評分後的前 5 名（§17 第 7 條）。
 const matchCandidateLimit = 5;
 
+/// 這次要搜的次數（[ExternalImport.plannedSearches]）超過它，預覽頁在「開始匹配」前先確認。
+/// 放在這裡而不是預覽頁：次數的算法（不含沿用的）也在 [ExternalImport]。
+const largeSearchThreshold = 200;
+
 /// 一首的候選：目標音源的一首曲目與它的分數。
 @immutable
 final class ImportCandidate {
@@ -292,6 +296,9 @@ final class ExternalImport extends ChangeNotifier {
   /// 要搜尋的首數（不重複、沒有沿用先前結果的）。
   int get searchCount =>
       _songs.where((song) => song.match is! MatchReused).length;
+
+  /// 按「開始匹配」會做的搜尋次數：要搜的首數（不含沿用的）× 目標數。
+  int get plannedSearches => searchCount * _targets.length;
 
   /// 沿用先前結果的首數（不重複）。
   int get reusedCount => _songs.length - searchCount;

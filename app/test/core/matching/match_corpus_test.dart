@@ -40,4 +40,15 @@ void main() {
       });
     }
   });
+
+  group('known misses', () {
+    for (final pair in corpusKnownMisses) {
+      test('not auto-selected: ${pair.note}', () {
+        // 接受的取捨（見 corpusKnownMisses）：由綠轉紅可以重新檢視。
+        final result = score(pair.query, pair.candidate);
+        expect(result.artistConflict, isTrue);
+        expect(result.autoSelectable, isFalse);
+      });
+    }
+  });
 }

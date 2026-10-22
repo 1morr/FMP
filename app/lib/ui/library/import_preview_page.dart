@@ -136,6 +136,39 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
     Navigator.of(context).pop();
   }
 
+  /// 「開始匹配」：要搜的次數超過 [largeSearchThreshold] 時先確認。
+  Future<void> _start(ExternalImport job) async {
+    final searches = job.plannedSearches;
+    if (searches > largeSearchThreshold) {
+      final t = ref.read(translationsProvider).importPreview;
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(t.largeTitle(count: searches)),
+          // 只剩一個目標時沒有「減少目標」可建議。
+          content: Text(
+            job.targets.length > 1 ? t.largeBody : t.largeBodyOneTarget,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(t.largeCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(t.largeStart),
+            ),
+          ],
+        ),
+      );
+      // 確認框開著時頁面可能被關掉或階段已變。
+      if (go != true || !mounted || job.phase != ExternalImportPhase.ready) {
+        return;
+      }
+    }
+    job.start();
+  }
+
   void _toggle(int row, ImportSong song) {
     setState(() {
       if (_expanded.remove(row)) {
@@ -325,7 +358,11 @@ class _ImportPreviewPageState extends ConsumerState<ImportPreviewPage> {
                 slivers: [
                   SliverToBoxAdapter(child: header),
                   SliverToBoxAdapter(
-                    child: _Summary(job: job, onTarget: _setTargets),
+                    child: _Summary(
+                      job: job,
+                      onTarget: _setTargets,
+                      onStart: () => unawaited(_start(job)),
+                    ),
                   ),
                   const SliverToBoxAdapter(child: Divider(height: 0)),
                   SliverList.builder(
@@ -402,9 +439,14 @@ class _ReadFailed extends ConsumerWidget {
 
 /// 列表上方的一塊：首數與搜尋數或進度、`truncated` 提示、目標音源的 chip、「開始匹配」。
 class _Summary extends ConsumerWidget {
-  const _Summary({required this.job, required this.onTarget});
+  const _Summary({
+    required this.job,
+    required this.onTarget,
+    required this.onStart,
+  });
 
   final ExternalImport job;
+  final VoidCallback onStart;
   final void Function(ExternalImport job, String pluginId, bool selected)
   onTarget;
 
@@ -480,7 +522,7 @@ class _Summary extends ConsumerWidget {
             Row(
               children: [
                 FilledButton(
-                  onPressed: targets.isEmpty ? null : job.start,
+                  onPressed: targets.isEmpty ? null : onStart,
                   child: Text(t.start),
                 ),
                 if (targets.isEmpty && job.available.isNotEmpty) ...[

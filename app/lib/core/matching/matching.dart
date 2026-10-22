@@ -32,6 +32,9 @@ const durationToleranceRatio = 0.05;
 /// 只有 Live 版時仍可能選它，有原版時原版排前面。
 const versionMismatchFactor = 0.8;
 
+/// 歌手分低於它，而且兩邊的歌手名寫成同一種文字，才算歌手衝突（[MatchScore.artistConflict]）。
+const artistConflictBelow = 0.5;
+
 /// 任一邊缺時長時的時長分（不設門檻）。
 const unknownDurationScore = 0.5;
 
@@ -70,6 +73,7 @@ final class MatchScore {
     required this.artist,
     required this.duration,
     required this.withinDuration,
+    this.artistConflict = false,
   });
 
   final double title;
@@ -85,8 +89,14 @@ final class MatchScore {
       ? titleWeight * title + artistWeight * artist + durationWeight * duration
       : 0;
 
+  /// 歌手衝突：原曲有歌手、候選有上傳者、歌手分低於 [artistConflictBelow]，而且
+  /// 某位原歌手與上傳者的某一段名字用同一種文字寫（Latin、漢字、假名、諺文、其他）
+  /// 卻對不上，是「另一個人唱的」的證據。不同文字（譯名、羅馬字）無從判斷，不算。
+  /// 不影響 [total] 與排序，只讓 [autoSelectable] 為假。
+  final bool artistConflict;
+
   /// 第一名是它時自動選。
-  bool get autoSelectable => total >= autoSelectThreshold;
+  bool get autoSelectable => total >= autoSelectThreshold && !artistConflict;
 
   @override
   String toString() =>
@@ -94,7 +104,8 @@ final class MatchScore {
       'title: ${title.toStringAsFixed(3)}, '
       'artist: ${artist.toStringAsFixed(3)}, '
       'duration: ${duration.toStringAsFixed(3)}, '
-      'withinDuration: $withinDuration)';
+      'withinDuration: $withinDuration, '
+      'artistConflict: $artistConflict)';
 }
 
 /// [rank] 的一項。
@@ -171,14 +182,31 @@ final class _PreparedQuery {
       artistPatterns,
       title.cleaning,
     );
+    final uploader = stripUploaderDecoration(
+      foldText(candidate.uploader ?? ''),
+    );
+    final artist = _artistScore(
+      candidate,
+      uploader,
+      otherVersion: !title.versions.containsAll(parsed.versions),
+    );
     return MatchScore(
       title: _titleScore(parsed),
-      artist: _artistScore(
-        candidate,
-        otherVersion: !title.versions.containsAll(parsed.versions),
-      ),
+      artist: artist,
       duration: value,
       withinDuration: within,
+      artistConflict: _artistConflict(artist, uploader),
+    );
+  }
+
+  bool _artistConflict(double artistScore, String uploader) {
+    if (artists.isEmpty || artistScore >= artistConflictBelow) return false;
+    final uploaderScripts = {
+      for (final name in splitArtists(uploader)) scriptSet(name),
+    }..remove('');
+    return artists.any(
+      (artist) =>
+          uploaderScripts.contains(scriptSet(artist)) && artist.isNotEmpty,
     );
   }
 
@@ -202,12 +230,13 @@ final class _PreparedQuery {
   /// [otherVersion]（候選有原曲沒有的版本標記）時標題不算：`【翻唱】周杰伦《晴天》`、
   /// `【伴奏】晴天 - 周杰伦` 裡的歌手名是原唱，不是這個上傳者。原歌手自己上傳的
   /// Live、伴奏由上傳者對上。
-  double _artistScore(MatchCandidate candidate, {required bool otherVersion}) {
+  double _artistScore(
+    MatchCandidate candidate,
+    String uploader, {
+    required bool otherVersion,
+  }) {
     if (artists.isEmpty) return unknownArtistScore;
     final title = otherVersion ? '' : foldText(candidate.title);
-    final uploader = stripUploaderDecoration(
-      foldText(candidate.uploader ?? ''),
-    );
     for (final pattern in artistPatterns) {
       if (pattern.hasMatch(title) || pattern.hasMatch(uploader)) return 1;
     }
