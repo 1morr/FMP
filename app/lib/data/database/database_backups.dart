@@ -403,12 +403,27 @@ final class DatabaseBackups {
         for (final column in columns) column: row?[column],
       };
     }
+    final keyed = <String, Map<Object?, Map<String, Object?>>>{};
+    for (final MapEntry(key: table, value: spec)
+        in backupDeviceKeyedColumns.entries) {
+      final selected = [
+        spec.key,
+        ...spec.columns,
+      ].map((column) => '"$column"').join(', ');
+      keyed[table] = {
+        for (final row in await rows('SELECT $selected FROM "$table"'))
+          row[spec.key]: {
+            for (final column in spec.columns) column: row[column],
+          },
+      };
+    }
     return CarriedState(
       tables: {
         for (final table in backupKeptOnDeviceTables)
           table: await rows('SELECT * FROM "$table"'),
       },
       deviceColumns: deviceColumns,
+      keyedDeviceColumns: keyed,
       devMarkerPlugins: await rows(
         'SELECT * FROM $backupDevMarkerTable WHERE $backupDevMarkerColumn = 1',
       ),
@@ -572,6 +587,10 @@ void _scrubExport(String path) {
           .join(', ');
       db.execute('UPDATE "$table" SET $assignments');
     }
+    for (final MapEntry(key: table, value: spec)
+        in backupDeviceKeyedColumns.entries) {
+      db.execute('UPDATE "$table" SET ${_nullAssignments(spec.columns)}');
+    }
     db.execute(
       'DELETE FROM "$backupDevMarkerTable" WHERE "$backupDevMarkerColumn" = 1',
     );
@@ -658,6 +677,15 @@ void _carryOver(String path, CarriedState state) {
             column: state.deviceColumns[table]?[column],
         });
       }
+      for (final MapEntry(key: table, value: spec)
+          in backupDeviceKeyedColumns.entries) {
+        _setKeyedDeviceColumns(
+          db,
+          table,
+          spec,
+          state.keyedDeviceColumns[table] ?? const {},
+        );
+      }
       db.execute(
         'DELETE FROM "$backupDevMarkerTable" '
         'WHERE "$backupDevMarkerColumn" = 1',
@@ -700,6 +728,38 @@ void _insertRows(
     db.execute(
       'INSERT $conflict INTO "$table" ($columns) VALUES ($marks)',
       row.values.toList(),
+    );
+  }
+}
+
+String _nullAssignments(List<String> columns) =>
+    columns.map((column) => '"$column" = NULL').join(', ');
+
+/// 多列表的裝置欄位：備份裡每一列先清成空值（舊備份檔可能帶著值），再把這台的值寫進同鍵
+/// 的列；備份裡沒有那一列時，只在該插件有安裝（`installed_plugins`）才新增，其餘欄位為空值。
+/// 暫存檔沒有安裝的插件，這台的值丟掉。
+void _setKeyedDeviceColumns(
+  sqlite.Database db,
+  String table,
+  ({String key, List<String> columns}) spec,
+  Map<Object?, Map<String, Object?>> device,
+) {
+  db.execute('UPDATE "$table" SET ${_nullAssignments(spec.columns)}');
+  final installed = {
+    for (final row in db.select('SELECT id FROM installed_plugins')) row['id'],
+  };
+  final columns = spec.columns.map((c) => '"$c"').join(', ');
+  final marks = List.filled(spec.columns.length, '?').join(', ');
+  final updates = spec.columns.map((c) => '"$c" = excluded."$c"').join(', ');
+  for (final MapEntry(key: key, value: values) in device.entries) {
+    if (!installed.contains(key) ||
+        spec.columns.every((column) => values[column] == null)) {
+      continue;
+    }
+    db.execute(
+      'INSERT INTO "$table" ("${spec.key}", $columns) VALUES (?, $marks) '
+      'ON CONFLICT("${spec.key}") DO UPDATE SET $updates',
+      [key, for (final column in spec.columns) values[column]],
     );
   }
 }

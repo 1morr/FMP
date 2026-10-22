@@ -106,6 +106,17 @@ void main() {
   });
 
   group('device columns', () {
+    // 閘門自己的雙向驗證：單欄主鍵算唯一、一般欄位與複合主鍵的欄位不算。
+    test('unique column detection tells keys from other columns', () async {
+      final database = memoryDatabase();
+      final settings = await _uniqueColumns(database, 'source_settings');
+      expect(settings, contains('plugin_id'));
+      expect(settings, isNot(contains('browse_as_logged_in')));
+      final origins = await _uniqueColumns(database, 'track_origins');
+      expect(origins, isNot(contains('track_key')));
+      expect(origins, isNot(contains('origin_plugin_id')));
+    });
+
     test('name real columns of carried tables', () async {
       final database = memoryDatabase();
       for (final MapEntry(key: table, value: columns)
@@ -117,6 +128,18 @@ void main() {
         final names = info.map((row) => row.read<String>('name')).toSet();
         expect(names, containsAll(columns));
       }
+      for (final MapEntry(key: table, value: spec)
+          in backupDeviceKeyedColumns.entries) {
+        expect(backupCarriedTables, contains(table));
+        final info = await database
+            .customSelect('PRAGMA table_info("$table")')
+            .get();
+        final names = info.map((row) => row.read<String>('name')).toSet();
+        expect(names, containsAll([spec.key, ...spec.columns]));
+        // 鍵要能唯一對應一列：是主鍵，或有單欄的 unique index。
+        final unique = await _uniqueColumns(database, table);
+        expect(unique, contains(spec.key), reason: '$table.${spec.key}');
+      }
       final info = await database
           .customSelect('PRAGMA table_info("$backupDevMarkerTable")')
           .get();
@@ -126,4 +149,22 @@ void main() {
       );
     });
   });
+}
+
+/// [table] 裡能唯一對應一列的欄位：單欄主鍵，或單欄 unique index 的欄位。
+Future<Set<String>> _uniqueColumns(AppDatabase database, String table) async {
+  final info = await database.customSelect('PRAGMA table_info("$table")').get();
+  final keyColumns = info.where((row) => row.read<int>('pk') > 0).toList();
+  final unique = <String>{
+    if (keyColumns.length == 1) keyColumns.single.read<String>('name'),
+  };
+  for (final index
+      in await database.customSelect('PRAGMA index_list("$table")').get()) {
+    if (index.read<int>('unique') != 1) continue;
+    final cols = await database
+        .customSelect('PRAGMA index_info("${index.read<String>('name')}")')
+        .get();
+    if (cols.length == 1) unique.add(cols.single.read<String>('name'));
+  }
+  return unique;
 }
