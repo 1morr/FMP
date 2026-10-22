@@ -1,0 +1,7 @@
+{"file": "docs/adr/0019-library-and-sync.md", "reason": "§決定 5、6 匹配與評分核心、自動選"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/design.md", "reason": "§8 評分核心與外部匯入預覽頁"}
+{"file": ".trellis/tasks/10-15-m4-library-sync/research/m4b-acceptance.md", "reason": "觀察與後續第 1、3 條的實例"}
+{"file": ".trellis/spec/app/matching/index.md", "reason": "評分核心的慣例與語料"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、確認框、guideline 測試"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法"}
+{"file": "docs/adr/0024-ui-ux-design-system.md", "reason": "確認框的版面"}
