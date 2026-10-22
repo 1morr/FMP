@@ -290,7 +290,7 @@ try {
 規則與閘門見 `app/AGENTS.md` § 排行與 § 介面的「首頁的排行」「探索頁」。
 
 - 畫面只讀 `enabledChartsProvider`／`chartEntriesProvider`（榜單）與 `chartContentProvider`、`chartFailuresProvider`（內容與失敗）、`networkProvider`（刷新間隔關閉時不轉圈、說明怎麼手動載入），不呼叫插件；刷新只經 `ChartJobs.runNow`。
-  「沒有快取、在線、沒失敗、間隔沒關」才轉圈：通常有一次執行要來（`ChartJobs` 登記時發現沒有快取就 `dueNow`）。例外（見 `.trellis/tasks/10-15-m4-library-sync/implement.md` 的「PR 21 → 之後」）：
+  「沒有快取、在線、沒失敗、間隔沒關」才轉圈：通常有一次執行要來（`ChartJobs` 登記時發現沒有快取就 `dueNow`）。例外（見 `.trellis/tasks/archive/2026-10/10-15-m4-library-sync/implement.md` 的「PR 21 → 之後」）：
   執行中途才被淘汰的快取（不重新登記）、插件更新後 `chartList` 丟錯而沿用舊清單（登記時不知道啟用哪些榜單，不帶 `dueNow`）、停用後立刻啟用的競態；這些情況會轉到下一輪。
   新的「沒有內容」狀態要先確定有人會讓它結束，不然 `pumpAndSettle` 與使用者都會等到下一輪。
   畫面不要 watch `pluginRegistryProvider` 或 `chartJobsProvider` 來找榜單。正式環境裡兩者本來就常駐（`searchSourcesProvider` 就是插件清單、`FmpApp` 聽著排行工作），

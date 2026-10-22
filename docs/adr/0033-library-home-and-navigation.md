@@ -8,7 +8,7 @@
 
 ADR 0019 定了音樂庫的原則：六張表的名稱與大意、遠端權威的單向刷新、來源失效、明確的遠端操作、僅元資料來源的匹配。ADR 0017 定了排行與匯入歌單刷新的排程規則，ADR 0016 定了排行快取，ADR 0031 把導覽重排、首頁的電台區塊、Mix 的歌單形態、粉絲勳章匯入留給 M4。
 
-沒有定的（`.trellis/tasks/10-15-m4-library-sync/research/m4-scope-digest.md` §9）：表的欄位、刷新怎麼在每頁一個 transaction 下保持一致、「已失效」記在哪、Mix 歌單存什麼、排程工作怎麼切、排行與匹配的設定放哪、導覽與首頁的內容、各頁面的入口。另外兩個事實讓既有文字不成立：
+沒有定的（`.trellis/tasks/archive/2026-10/10-15-m4-library-sync/research/m4-scope-digest.md` §9）：表的欄位、刷新怎麼在每頁一個 transaction 下保持一致、「已失效」記在哪、Mix 歌單存什麼、排程工作怎麼切、排行與匹配的設定放哪、導覽與首頁的內容、各頁面的入口。另外兩個事實讓既有文字不成立：
 
 - ADR 0028 §決定 4、ADR 0031 §決定 11 說 `playlists.kind = mix` 存（插件 id, `mixId`）；但 `mix` 的續取要 `{mixId, cursor}` 而 `cursor` 必填，`mixId` 開不了新的 Mix，要 `{seed}`。
 - 加入首頁與音樂庫後導覽有 6 項，超過 Material 3 導覽列「三到五個目的地」的建議（m3.material.io 的 navigation bar guidelines）。
