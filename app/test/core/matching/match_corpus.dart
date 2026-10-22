@@ -488,8 +488,40 @@ final corpusPairs = <CorpusPair>[
     ),
     matches: true,
   ),
+  CorpusPair(
+    '日文假名歌手、網易給中文譯名（漢字）：文字不同，無從判斷，維持靠歌名與時長',
+    MatchQuery(title: 'マリーゴールド', artist: 'あいみょん', duration: _d(5, 12)),
+    MatchCandidate(title: 'マリーゴールド', uploader: '爱缪', duration: _d(5, 12)),
+    matches: true,
+  ),
 
   // ── 不該選 ──
+  CorpusPair(
+    '同名不同曲（周華健／譚詠麟《朋友》）；時長刻意設成相近，單獨測歌手衝突',
+    MatchQuery(title: '朋友', artist: '周華健', duration: _d(4, 38)),
+    MatchCandidate(title: '朋友', uploader: '谭咏麟', duration: _d(4, 36)),
+    matches: false,
+  ),
+  CorpusPair(
+    '同名不同曲：英文歌手對不上同為英文的上傳者（歌手衝突），時長在門檻內，只有它一個候選',
+    MatchQuery(title: 'Hero', artist: 'Mariah Carey', duration: _d(4, 19)),
+    MatchCandidate(
+      title: 'Enrique Iglesias - Hero (Official Music Video)',
+      uploader: 'EnriqueIglesiasVEVO',
+      duration: _d(4, 24),
+    ),
+    matches: false,
+  ),
+  CorpusPair(
+    '同名不同曲（Adele／Lionel Richie《Hello》）；時長刻意設成相同（真實的兩首不同），單獨測歌手衝突：上傳者是另一個英文名字、標題沒有歌手',
+    MatchQuery(title: 'Hello', artist: 'Adele', duration: _d(4, 55)),
+    MatchCandidate(
+      title: 'Hello',
+      uploader: 'Lionel Richie',
+      duration: _d(4, 55),
+    ),
+    matches: false,
+  ),
   CorpusPair(
     'Live 版比原曲長很多',
     _sunny,
@@ -726,19 +758,33 @@ final corpusRankings = <CorpusRanking>[
   ),
 ];
 
-/// 已知分不出來的：同名、時長相近、上傳者不是歌手的另一首歌。它和「Spotify
-/// 給英文歌手名」（上面的 `稻香`、`不能說的秘密`）在評分上一模一樣，要選後者
-/// 就得接受前者。搜尋關鍵字帶第一位歌手（design §8.4），對的那首通常也在
-/// 候選裡，由排序選到它（`corpusRankings` 的 `Hero`）。
+/// 已知分不出來的：同名、時長相近、上傳者不是歌手的另一首歌，而且兩邊的歌手名
+/// 寫成不同的文字（Spotify 給英文歌手名、網易給中文）。它和上面的 `稻香`、
+/// `不能說的秘密` 在評分上一模一樣，要選後者就得接受前者。同一種文字對不上的已經
+/// 由歌手衝突擋下（見 `corpusPairs` 的「同名不同曲」）。搜尋關鍵字帶第一位歌手
+/// （design §8.4），對的那首通常也在候選裡，由排序選到它（`corpusRankings` 的 `Hero`）。
 final corpusKnownFalseMatches = <CorpusPair>[
   CorpusPair(
-    '同名不同曲、時長在門檻內，只有它一個候選',
-    MatchQuery(title: 'Hero', artist: 'Mariah Carey', duration: _d(4, 19)),
-    MatchCandidate(
-      title: 'Enrique Iglesias - Hero (Official Music Video)',
-      uploader: 'EnriqueIglesiasVEVO',
-      duration: _d(4, 24),
-    ),
+    '同名不同曲（周華健／譚詠麟《朋友》）；Spotify 給英文歌手名、網易上是另一位歌手，只有它一個候選，時長刻意設成相近',
+    MatchQuery(title: '朋友', artist: 'Wakin Chau', duration: _d(4, 38)),
+    MatchCandidate(title: '朋友', uploader: '谭咏麟', duration: _d(4, 36)),
     matches: false,
+  ),
+];
+
+/// 已知會漏選的：本來該選，但上傳者是頻道名（與原歌手同為漢字寫成，對不上），
+/// 被歌手衝突擋下。這是接受的取捨：漏選時預覽頁列出前 5 名讓使用者手動挑；
+/// 誤選卻會悄悄把別人唱的歌加進歌單。這一對由綠轉紅（例如日後有辦法分辨頻道名）
+/// 是可以重新檢視的。
+final corpusKnownMisses = <CorpusPair>[
+  CorpusPair(
+    'B 站搬運：標題沒有歌手，上傳者是漢字寫的頻道名，時長相近',
+    _sunny,
+    MatchCandidate(
+      title: '【4K修复】晴天 MV',
+      uploader: '音乐搬运工小王',
+      duration: _d(4, 33),
+    ),
+    matches: true,
   ),
 ];

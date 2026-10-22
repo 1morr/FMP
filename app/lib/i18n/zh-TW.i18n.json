@@ -773,7 +773,12 @@
     "leaveTitle": "放棄這次匯入？",
     "leaveBody": "目前的匹配結果會丟掉，什麼都不會存。",
     "leaveConfirm": "放棄",
-    "leaveKeep": "繼續"
+    "leaveKeep": "繼續",
+    "largeTitle": "要搜尋約 {count} 次",
+    "largeBody": "這會花一些時間。可以先減少匹配目標，搜尋的次數就會少一些。",
+    "largeBodyOneTarget": "這會花一些時間。",
+    "largeCancel": "取消",
+    "largeStart": "開始"
   },
   "radio": {
     "title": "電台",

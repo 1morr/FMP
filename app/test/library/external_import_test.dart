@@ -587,6 +587,58 @@ void main() {
     expect(() => job.setTargets(const []), throwsArgumentError);
   });
 
+  group('plannedSearches', () {
+    test('is the songs to search times the targets; reused songs and a '
+        'changed target set move it', () async {
+      final a = _target('a', (k) => []);
+      final b = _target('b', (k) => []);
+      await start(
+        [a, b],
+        onPage: (_) => _page([
+          for (var i = 0; i < 101; i++) ('t$i', 'Song $i', 'Artist', 200),
+        ]),
+      );
+      final job = await open();
+      await job.read();
+
+      expect(job.targets, ['a', 'b']);
+      expect(job.plannedSearches, 202);
+      expect(job.plannedSearches, greaterThan(largeSearchThreshold));
+      job.setTargets(['a']);
+      expect(job.plannedSearches, 101);
+    });
+
+    test('does not count songs that reuse an earlier match', () async {
+      final a = _target('a', (k) => []);
+      final b = _target('b', (k) => []);
+      await start([a, b]);
+      final picked = TrackInfo(
+        sourceTypeId: 'a',
+        sourceId: 'picked',
+        title: 'Picked by hand',
+      );
+      await env.repository.createFromMatches(
+        name: 'Earlier',
+        tracks: [picked],
+        matches: [
+          MatchResult(
+            originPluginId: 'spotify',
+            originId: 's1',
+            title: 'Blue Sky',
+            selected: picked,
+            userSelected: true,
+          ),
+        ],
+      );
+
+      final job = await open();
+      await job.read();
+
+      expect(job.reusedCount, 1);
+      expect(job.plannedSearches, 2 * 2);
+    });
+  });
+
   group('the default targets', () {
     test('every enabled plugin that searches and plays, by match_rank, then '
         'the plugin list; unchecked ones are left out', () async {

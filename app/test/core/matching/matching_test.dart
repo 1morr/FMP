@@ -514,4 +514,100 @@ void main() {
       expect(firstArtist(' / '), isNull);
     });
   });
+
+  group('artist conflict', () {
+    const query = MatchQuery(
+      title: 'Hello',
+      artist: 'Adele',
+      duration: Duration(minutes: 4, seconds: 55),
+    );
+    const sameLength = Duration(minutes: 4, seconds: 55);
+
+    test('the same script that does not match blocks auto-select only', () {
+      final result = score(
+        query,
+        const MatchCandidate(
+          title: 'Hello',
+          uploader: 'Lionel Richie',
+          duration: sameLength,
+        ),
+      );
+      expect(result.artistConflict, isTrue);
+      expect(result.total, greaterThanOrEqualTo(autoSelectThreshold));
+      expect(result.autoSelectable, isFalse);
+      expect(result.toString(), contains('artistConflict: true'));
+    });
+
+    test('Han against Han conflicts, Kana against Han does not', () {
+      const han = MatchQuery(title: '晴天', artist: '周杰倫');
+      expect(
+        score(
+          han,
+          const MatchCandidate(title: '晴天', uploader: '谭咏麟'),
+        ).artistConflict,
+        isTrue,
+      );
+      const kana = MatchQuery(title: 'マリーゴールド', artist: 'あいみょん');
+      expect(
+        score(
+          kana,
+          const MatchCandidate(title: 'マリーゴールド', uploader: '爱缪'),
+        ).artistConflict,
+        isFalse,
+      );
+    });
+
+    test('a different script is no conflict', () {
+      final result = score(
+        const MatchQuery(title: '稻香', artist: 'Jay Chou'),
+        const MatchCandidate(title: '稻香', uploader: '周杰伦'),
+      );
+      expect(result.artistConflict, isFalse);
+    });
+
+    test('no uploader is no conflict', () {
+      final result = score(query, const MatchCandidate(title: 'Hello'));
+      expect(result.artistConflict, isFalse);
+    });
+
+    test('a Topic uploader that is empty after stripping is no conflict', () {
+      final result = score(
+        query,
+        const MatchCandidate(title: 'Hello', uploader: ' - Topic'),
+      );
+      expect(result.artistConflict, isFalse);
+    });
+
+    test('no original artist is no conflict', () {
+      final result = score(
+        const MatchQuery(title: 'Hello'),
+        const MatchCandidate(title: 'Hello', uploader: 'Lionel Richie'),
+      );
+      expect(result.artistConflict, isFalse);
+    });
+
+    test('an artist score of 0.5 or more is no conflict', () {
+      final result = score(
+        const MatchQuery(title: 'Hello', artist: 'Adele'),
+        const MatchCandidate(title: 'Hello', uploader: 'Adele Official'),
+      );
+      expect(result.artist, greaterThanOrEqualTo(artistConflictBelow));
+      expect(result.artistConflict, isFalse);
+    });
+
+    test('rank keeps the conflicting candidate and its order', () {
+      final ranked = rank(query, [
+        (
+          'other',
+          const MatchCandidate(
+            title: 'Hello',
+            uploader: 'Lionel Richie',
+            duration: sameLength,
+          ),
+        ),
+      ], limit: 5);
+      expect(ranked.single.item, 'other');
+      expect(ranked.single.score.autoSelectable, isFalse);
+    });
+  });
 }

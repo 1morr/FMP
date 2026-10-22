@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/library/external_import.dart';
 import 'package:fmp/ui/library/import_preview_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
@@ -440,5 +441,67 @@ void main() {
       find.widgetWithText(FilledButton, 'Create playlist').hitTestable(),
       findsOneWidget,
     );
+  });
+
+  // 大量搜尋前確認（M4b 驗收後）：要搜的次數 > largeSearchThreshold 才問。
+  group('a large number of searches', () {
+    PreviewHarness harness(int count) => PreviewHarness(
+      onPage: (_) => previewPage([
+        for (var i = 0; i < count; i++)
+          previewOrigin('t$i', 'Song $i', 'Artist', 200),
+      ]),
+    );
+
+    Future<void> press(WidgetTester tester) async {
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Start matching'),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Start matching'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('over the threshold asks first; cancel starts nothing', (
+      tester,
+    ) async {
+      final env = harness(largeSearchThreshold + 1);
+      await env.open(tester);
+      await press(tester);
+
+      expect(find.text('About ${largeSearchThreshold + 1} searches'), findsOne);
+      // 一個目標：不建議減少目標。
+      expect(find.textContaining('reduce'), findsNothing);
+      expect(find.text('This will take a while.'), findsOne);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('About ${largeSearchThreshold + 1} searches'),
+        findsNothing,
+      );
+      expect(find.widgetWithText(FilledButton, 'Start matching'), findsOne);
+      expect(env.target.searches, isEmpty);
+    });
+
+    testWidgets('confirming starts matching', (tester) async {
+      final env = harness(largeSearchThreshold + 1);
+      await env.open(tester);
+      await press(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Start'));
+      await env.settle(tester, animations: false);
+
+      expect(find.widgetWithText(FilledButton, 'Start matching'), findsNothing);
+      expect(env.target.searches, isNotEmpty);
+    });
+
+    testWidgets('at the threshold it starts without asking', (tester) async {
+      final env = harness(largeSearchThreshold);
+      await env.open(tester);
+      await press(tester);
+      await env.settle(tester, animations: false);
+
+      expect(find.textContaining('searches'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Start matching'), findsNothing);
+      expect(env.target.searches, isNotEmpty);
+    });
   });
 }

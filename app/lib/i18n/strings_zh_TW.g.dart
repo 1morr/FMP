@@ -2548,6 +2548,21 @@ class Translations$importPreview$zh_TW {
 
   /// zh-TW: '繼續'
   String get leaveKeep => '繼續';
+
+  /// zh-TW: '要搜尋約 {count} 次'
+  String largeTitle({required Object count}) => '要搜尋約 ${count} 次';
+
+  /// zh-TW: '這會花一些時間。可以先減少匹配目標，搜尋的次數就會少一些。'
+  String get largeBody => '這會花一些時間。可以先減少匹配目標，搜尋的次數就會少一些。';
+
+  /// zh-TW: '這會花一些時間。'
+  String get largeBodyOneTarget => '這會花一些時間。';
+
+  /// zh-TW: '取消'
+  String get largeCancel => '取消';
+
+  /// zh-TW: '開始'
+  String get largeStart => '開始';
 }
 
 // Path: radio

@@ -773,7 +773,12 @@
     "leaveTitle": "Stop importing?",
     "leaveBody": "The matches so far are thrown away and nothing is saved.",
     "leaveConfirm": "Stop",
-    "leaveKeep": "Keep going"
+    "leaveKeep": "Keep going",
+    "largeTitle": "About {count} searches",
+    "largeBody": "This will take a while. You can reduce the match targets first to search less.",
+    "largeBodyOneTarget": "This will take a while.",
+    "largeCancel": "Cancel",
+    "largeStart": "Start"
   },
   "radio": {
     "title": "Radio",
