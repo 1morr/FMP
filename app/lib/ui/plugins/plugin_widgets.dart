@@ -46,7 +46,7 @@ class PluginHeading extends StatelessWidget {
   }
 }
 
-enum PluginTagTone { neutral, primary, error }
+enum PluginTagTone { neutral, primary, warning, error }
 
 /// 小標記（已停用、沒有回應、有更新、已安裝）：只是文字，不能點。
 class PluginTag extends StatelessWidget {
@@ -71,6 +71,10 @@ class PluginTag extends StatelessWidget {
       PluginTagTone.primary => (
         scheme.primaryContainer,
         scheme.onPrimaryContainer,
+      ),
+      PluginTagTone.warning => (
+        tokens.warning.container,
+        tokens.warning.onContainer,
       ),
       PluginTagTone.error => (scheme.errorContainer, scheme.onErrorContainer),
     };

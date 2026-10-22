@@ -614,18 +614,100 @@ void main() {
       expect(_enabled(tester, _button('Update all')), isFalse);
     });
 
-    testWidgets('an older version in the repository is never offered', (
+    testWidgets('a plugin newer than its repository is a mismatch: tagged, '
+        'reinstalled from the repository, never part of update all', (
       tester,
     ) async {
+      final h = (await PluginPageHarness.create(tester))..publish([_a, b11]);
+      await tester.runAsync(() async {
+        await h.install(a11, indexUrl: officialPluginIndexUrl);
+        await h.install(_b, indexUrl: officialPluginIndexUrl);
+      });
+      await h.open(tester);
+
+      expect(find.text('Differs from repository'), findsOneWidget);
+      expect(
+        _inCard('Alpha', _button('Reinstall from repository')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Update to'), findsOneWidget);
+      // 「全部更新」只有 Beta 可更新；Alpha 的不一致不算。
+      expect(_enabled(tester, _button('Update all')), isTrue);
+      await tester.tap(_button('Update all'));
+      await h.settle(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: _button('Update'),
+        ),
+      );
+      await h.settle(tester);
+      final stored = await h.stored(tester);
+      expect(stored.firstWhere((p) => p.id == 'plugin-a').version, '1.1.0');
+      expect(stored.firstWhere((p) => p.id == 'plugin-b').version, '1.1.0');
+
+      await tester.tap(_inCard('Alpha', _button('Reinstall from repository')));
+      await h.settle(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        (await h.stored(tester)).firstWhere((p) => p.id == 'plugin-a').version,
+        '1.0.0',
+      );
+      expect(find.text('Differs from repository'), findsNothing);
+      expect(
+        find.text('Reinstalled Alpha from the repository'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a mismatch against an entry for a newer FMP cannot be '
+        'reinstalled', (tester) async {
+      final h = (await PluginPageHarness.create(tester))
+        ..publish([_a], apiVersions: {'plugin-a': 2});
+      await tester.runAsync(
+        () => h.install(a11, indexUrl: officialPluginIndexUrl),
+      );
+      await h.open(tester);
+
+      expect(find.text('Differs from repository'), findsOneWidget);
+      expect(
+        _inCard('Alpha', _button('Reinstall from repository')),
+        findsNothing,
+      );
+      final button = _inCard('Alpha', _button('Requires a newer FMP'));
+      expect(button, findsOneWidget);
+      expect(_enabled(tester, button), isFalse);
+    });
+
+    testWidgets('same version with another script is a mismatch', (
+      tester,
+    ) async {
+      final h = (await PluginPageHarness.create(tester))..publish([_a]);
+      await tester.runAsync(
+        () => h.install('$_a// edited', indexUrl: officialPluginIndexUrl),
+      );
+      await h.open(tester);
+
+      expect(find.text('Differs from repository'), findsOneWidget);
+      expect(_enabled(tester, _button('Update all')), isFalse);
+    });
+
+    testWidgets('check for updates tells about a mismatch', (tester) async {
       final h = (await PluginPageHarness.create(tester))..publish([_a]);
       await tester.runAsync(
         () => h.install(a11, indexUrl: officialPluginIndexUrl),
       );
       await h.open(tester);
 
-      expect(find.text('Update available'), findsNothing);
-      expect(find.textContaining('Update to'), findsNothing);
-      expect(_enabled(tester, _button('Update all')), isFalse);
+      await tester.tap(_button('Check for updates'));
+      await h.settle(tester);
+
+      expect(
+        find.textContaining('differ from their repository'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a plugin is not updated from another repository', (

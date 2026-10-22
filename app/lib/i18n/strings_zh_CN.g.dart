@@ -2036,6 +2036,8 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   @override
   String get tagUpdate => '有更新';
   @override
+  String get tagMismatch => '与插件库不一致';
+  @override
   String get tagInstalled => '已安装';
   @override
   String get tagDev => '开发中';
@@ -2065,6 +2067,10 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   String get customIndex => '自定义插件库';
   @override
   String updateTo({required Object version}) => '更新到 ${version}';
+  @override
+  String get reinstall => '从插件库重新安装';
+  @override
+  String reinstalled({required Object name}) => '已从插件库重新安装“${name}”';
   @override
   String get needsAppUpdate => '需要更新 FMP';
   @override
@@ -2117,6 +2123,9 @@ class Translations$plugins$zh_CN extends Translations$plugins$zh_TW {
   String get upToDate => '插件都是最新版本';
   @override
   String updatesFound({required Object count}) => '有 ${count} 个插件可以更新';
+  @override
+  String mismatchFound({required Object count}) =>
+      '有 ${count} 个插件与插件库不一致，可以从插件库重新安装';
   @override
   String get checkFailed => '有插件库读取失败，可能还有更新没找到';
   @override

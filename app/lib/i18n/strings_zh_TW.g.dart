@@ -2739,6 +2739,9 @@ class Translations$plugins$zh_TW {
   /// zh-TW: '有更新'
   String get tagUpdate => '有更新';
 
+  /// zh-TW: '與插件庫不一致'
+  String get tagMismatch => '與插件庫不一致';
+
   /// zh-TW: '已安裝'
   String get tagInstalled => '已安裝';
 
@@ -2783,6 +2786,12 @@ class Translations$plugins$zh_TW {
 
   /// zh-TW: '更新到 {version}'
   String updateTo({required Object version}) => '更新到 ${version}';
+
+  /// zh-TW: '從插件庫重新安裝'
+  String get reinstall => '從插件庫重新安裝';
+
+  /// zh-TW: '已從插件庫重新安裝「{name}」'
+  String reinstalled({required Object name}) => '已從插件庫重新安裝「${name}」';
 
   /// zh-TW: '需要更新 FMP'
   String get needsAppUpdate => '需要更新 FMP';
@@ -2860,6 +2869,10 @@ class Translations$plugins$zh_TW {
 
   /// zh-TW: '有 {count} 個插件可以更新'
   String updatesFound({required Object count}) => '有 ${count} 個插件可以更新';
+
+  /// zh-TW: '有 {count} 個插件與插件庫不一致，可以從插件庫重新安裝'
+  String mismatchFound({required Object count}) =>
+      '有 ${count} 個插件與插件庫不一致，可以從插件庫重新安裝';
 
   /// zh-TW: '有插件庫讀不到，可能還有更新沒找到'
   String get checkFailed => '有插件庫讀不到，可能還有更新沒找到';

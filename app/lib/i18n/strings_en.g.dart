@@ -2122,6 +2122,8 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   @override
   String get tagUpdate => 'Update available';
   @override
+  String get tagMismatch => 'Differs from repository';
+  @override
   String get tagInstalled => 'Installed';
   @override
   String get tagDev => 'In development';
@@ -2152,6 +2154,11 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   String get customIndex => 'Custom repository';
   @override
   String updateTo({required Object version}) => 'Update to ${version}';
+  @override
+  String get reinstall => 'Reinstall from repository';
+  @override
+  String reinstalled({required Object name}) =>
+      'Reinstalled ${name} from the repository';
   @override
   String get needsAppUpdate => 'Requires a newer FMP';
   @override
@@ -2209,6 +2216,9 @@ class Translations$plugins$en extends Translations$plugins$zh_TW {
   String get upToDate => 'All plugins are up to date';
   @override
   String updatesFound({required Object count}) => 'Updates available: ${count}';
+  @override
+  String mismatchFound({required Object count}) =>
+      '${count} plugins differ from their repository; you can reinstall them from it';
   @override
   String get checkFailed =>
       'Some repositories couldn\'t be read; there may be more updates';

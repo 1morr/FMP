@@ -456,7 +456,12 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
     }
     if (!quiet) {
       toaster.success(
-        t.plugins.updated(name: name, version: prepared.file.manifest.version),
+        update.status == PluginUpdateStatus.mismatch
+            ? t.plugins.reinstalled(name: name)
+            : t.plugins.updated(
+                name: name,
+                version: prepared.file.manifest.version,
+              ),
       );
     }
     return true;
@@ -490,15 +495,32 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
     final installed =
         ref.read(installedPluginsProvider).value ?? const <InstalledPlugin>[];
     final byUrl = {for (final (i, url) in urls.indexed) url: outcomes[i]};
-    final count = installed
+    int countOf(PluginUpdateStatus status) => installed
         .where(
           (plugin) =>
+              updateOf(plugin, urls, (url) => byUrl[url])?.status == status,
+        )
+        .length;
+    final count = countOf(PluginUpdateStatus.available);
+    // 開發中的插件不能重新安裝，不算。
+    final developing = {
+      for (final plugin
+          in ref.read(pluginDevelopmentProvider)?.plugins ??
+              const <DevPlugin>[])
+        plugin.id,
+    };
+    final mismatches = installed
+        .where(
+          (plugin) =>
+              !developing.contains(plugin.id) &&
               updateOf(plugin, urls, (url) => byUrl[url])?.status ==
-              PluginUpdateStatus.available,
+                  PluginUpdateStatus.mismatch,
         )
         .length;
     if (outcomes.any((outcome) => outcome is IndexFailed)) {
       toaster.warning(t.plugins.checkFailed);
+    } else if (mismatches > 0) {
+      toaster.warning(t.plugins.mismatchFound(count: mismatches));
     } else if (count > 0) {
       toaster.info(t.plugins.updatesFound(count: count));
     } else {
@@ -694,7 +716,9 @@ class _InstalledCard extends ConsumerWidget {
       if (!plugin.enabled) PluginTag(text: p.tagDisabled),
       if (plugin.enabled && unresponsive)
         PluginTag(text: p.tagUnresponsive, tone: PluginTagTone.error),
-      if (status != PluginUpdateStatus.none)
+      if (status == PluginUpdateStatus.mismatch)
+        PluginTag(text: p.tagMismatch, tone: PluginTagTone.warning)
+      else if (status != PluginUpdateStatus.none)
         PluginTag(text: p.tagUpdate, tone: PluginTagTone.primary),
     ];
     return Card.outlined(
@@ -779,6 +803,19 @@ class _InstalledCard extends ConsumerWidget {
                   FilledButton.tonal(
                     onPressed: busy || locked ? null : onUpdate,
                     child: Text(p.updateTo(version: update!.entry.version)),
+                  ),
+                // 與來源 index 不一致:以 index 為準重新安裝，允許降版。
+                if (status == PluginUpdateStatus.mismatch)
+                  FilledButton.tonal(
+                    // index 那一筆 apiVersion 不相容時重裝一定失敗：同「需要更新 FMP」。
+                    onPressed: busy || locked || !update!.entry.isCompatible
+                        ? null
+                        : onUpdate,
+                    child: Text(
+                      update!.entry.isCompatible
+                          ? p.reinstall
+                          : p.needsAppUpdate,
+                    ),
                   ),
                 // apiVersion 不相容：有新版本但這個 FMP 裝不了（ADR 0030 §決定 4）。
                 if (status == PluginUpdateStatus.needsAppUpdate)
