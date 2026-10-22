@@ -39,6 +39,29 @@ final class TracksRepository {
     );
   }
 
+  /// 讀回 [trackKeys] 的曲目，鍵 → 曲目；資料庫沒有的鍵不在結果裡。舊版資料匯入的驗證
+  /// 用（`StagingImport.verify`）。
+  Future<Map<String, TrackInfo>> find(Iterable<String> trackKeys) async {
+    final keys = trackKeys.toList();
+    final found = <String, TrackInfo>{};
+    for (var start = 0; start < keys.length; start += _findChunk) {
+      final chunk = keys.sublist(
+        start,
+        start + _findChunk > keys.length ? keys.length : start + _findChunk,
+      );
+      final rows = await (_database.select(
+        _database.tracksTable,
+      )..where((t) => t.trackKey.isIn(chunk))).get();
+      for (final row in rows) {
+        found[row.trackKey] = toTrackInfo(row);
+      }
+    }
+    return found;
+  }
+
+  /// 一次查的鍵數上限，在 SQLite 的變數上限（舊版 999）以下。
+  static const _findChunk = 500;
+
   /// 刪掉沒有被任何東西參照的曲目，回傳刪了幾列（ADR 0019 §決定 1，啟動維護
   /// 清單呼叫）。目前的參照者是 `queue_entries`、`play_history`、`playlist_entries` 與
   /// `match_results.selected_track_key`（`track_origins` 連帶刪除，不算）；
