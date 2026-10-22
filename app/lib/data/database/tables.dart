@@ -2,13 +2,14 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v15（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// Schema v19（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
 // queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
 // installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
 // developer_settings（v9）、scheduler_runs（v11）、radio_stations 與
 // network_settings 的電台間隔（v12）、player_state 的 Mix 五欄（v13）、tracks 的分 P 兩欄（v14）），M4 加
 // playlists 與 playlist_entries（v15）、playlist_remote（v16）、network_settings 的排行間隔與
-// chart_settings（v17）、match_results、track_origins 與 source_settings 的匹配兩欄（v18）。
+// chart_settings（v17）、match_results、track_origins 與 source_settings 的匹配兩欄（v18），M5 加 legacy_imports 與
+// legacy_playlist_ids（v19）。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -588,4 +589,49 @@ class TrackOriginsTable extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {trackKey, originPluginId};
+}
+
+/// 舊版資料匯入的紀錄（M5 design §6.4）：每次匯入一列，由 `StagingImport` 與匯入的資料寫在同一個
+/// transaction。`source` 是 `database`（舊 Isar 資料庫）或 `backup`（舊 JSON 備份）；`summary_json` 是
+/// 每個 collection 的 read／written／skipped、不匯入的設定與需要重新登入的平台，給結果對話框與
+/// 設定頁。`acknowledged` 是結果對話框看過了。這台的事件，不跟著備份走。
+@DataClassName('LegacyImportRow')
+class LegacyImportsTable extends Table {
+  @override
+  String get tableName => 'legacy_imports';
+
+  late final id = integer().autoIncrement()();
+  late final source = text().map(const LegacyImportSourceConverter())();
+  late final importedAt = integer().map(const EpochMillisecondsConverter())();
+
+  /// 舊 `Settings.schemaVersion`（資料庫來源）；備份來源為空。
+  late final legacySchemaVersion = integer().nullable()();
+
+  /// 備份檔的 `version`（備份來源）；資料庫來源為空。
+  late final backupVersion = integer().nullable()();
+  late final summaryJson = text()();
+  late final acknowledged = boolean().withDefault(const Constant(false))();
+}
+
+/// 舊歌單 id 對新歌單 id（M5 design §6.4），給 M6 把舊下載紀錄接回歌單。只有資料庫來源寫
+/// （備份檔的歌單沒有舊 id）。兩邊都是連帶刪除：匯入紀錄或歌單刪了，對照就不成立。
+@DataClassName('LegacyPlaylistIdRow')
+class LegacyPlaylistIdsTable extends Table {
+  @override
+  String get tableName => 'legacy_playlist_ids';
+
+  late final legacyImportId = integer().references(
+    LegacyImportsTable,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+  late final legacyPlaylistId = integer()();
+  late final playlistId = integer().references(
+    PlaylistsTable,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+
+  @override
+  Set<Column<Object>> get primaryKey => {legacyImportId, legacyPlaylistId};
 }

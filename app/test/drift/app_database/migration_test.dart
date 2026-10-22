@@ -26,6 +26,7 @@ import 'generated/schema_v15.dart' as v15;
 import 'generated/schema_v16.dart' as v16;
 import 'generated/schema_v17.dart' as v17;
 import 'generated/schema_v18.dart' as v18;
+import 'generated/schema_v19.dart' as v19;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1993,5 +1994,153 @@ void main() {
     addTearDown(db.close);
 
     expect(await matchResultIndexes(db), contains('match_results_selected'));
+  });
+
+  // v19 加 legacy_imports 與 legacy_playlist_ids（M5 design §6.4）：既有的資料與使用者設定過的值
+  // 一個都不能變，新表升級後是空的。
+  test('migration from v18 to v19 keeps existing data', () async {
+    await verifier.testWithDataIntegrity(
+      oldVersion: 18,
+      newVersion: 19,
+      createOld: v18.DatabaseAtV18.new,
+      createNew: v19.DatabaseAtV19.new,
+      openTestedDatabase: AppDatabase.new,
+      createItems: (batch, oldDb) {
+        batch.insert(
+          oldDb.appearanceSettings,
+          const v18.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        );
+        batch.insert(
+          oldDb.playlists,
+          const v18.PlaylistsData(
+            id: 1,
+            kind: 'local',
+            name: 'Mine',
+            sortOrder: 0,
+            createdAt: 1790000000000,
+            updatedAt: 1790000000001,
+          ),
+        );
+      },
+      validateItems: (newDb) async {
+        expect(await newDb.select(newDb.appearanceSettings).get(), [
+          const v19.AppearanceSettingsData(
+            id: 1,
+            themeMode: 'dark',
+            locale: 'zh-CN',
+          ),
+        ]);
+        expect(await newDb.select(newDb.playlists).get(), [
+          const v19.PlaylistsData(
+            id: 1,
+            kind: 'local',
+            name: 'Mine',
+            sortOrder: 0,
+            createdAt: 1790000000000,
+            updatedAt: 1790000000001,
+          ),
+        ]);
+        expect(await newDb.select(newDb.legacyImports).get(), isEmpty);
+        expect(await newDb.select(newDb.legacyPlaylistIds).get(), isEmpty);
+      },
+    );
+  });
+
+  Future<void> expectLegacyImportSchema(AppDatabase db) async {
+    await db.customStatement('PRAGMA foreign_keys = ON');
+    await db.customStatement(
+      "INSERT INTO playlists (kind, name, sort_order, created_at, updated_at) "
+      "VALUES ('local', 'Mine', 0, 1, 1)",
+    );
+    await db.customStatement(
+      'INSERT INTO legacy_imports (source, imported_at, summary_json) '
+      "VALUES ('database', 1790000000000, '{}')",
+    );
+    final imports = await db
+        .customSelect(
+          'SELECT id, legacy_schema_version, backup_version, acknowledged '
+          'FROM legacy_imports',
+        )
+        .getSingle();
+    // 兩個版本欄可空，acknowledged 預設假。
+    expect(imports.data, {
+      'id': 1,
+      'legacy_schema_version': null,
+      'backup_version': null,
+      'acknowledged': 0,
+    });
+    await db.customStatement(
+      'INSERT INTO legacy_playlist_ids (legacy_import_id, legacy_playlist_id, '
+      'playlist_id) VALUES (1, 7, 1)',
+    );
+    // 主鍵是（匯入紀錄, 舊歌單 id）。
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO legacy_playlist_ids (legacy_import_id, '
+        'legacy_playlist_id, playlist_id) VALUES (1, 7, 1)',
+      ),
+      throwsA(anything),
+    );
+    // 兩個外鍵都要成立。
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO legacy_playlist_ids (legacy_import_id, '
+        'legacy_playlist_id, playlist_id) VALUES (99, 8, 1)',
+      ),
+      throwsA(anything),
+      reason: 'the import record must exist',
+    );
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO legacy_playlist_ids (legacy_import_id, '
+        'legacy_playlist_id, playlist_id) VALUES (1, 8, 99)',
+      ),
+      throwsA(anything),
+      reason: 'the playlist must exist',
+    );
+    // 歌單刪了對照就沒了；匯入紀錄刪了也是。
+    await db.customStatement('DELETE FROM playlists WHERE id = 1');
+    var mappings = await db
+        .customSelect('SELECT COUNT(*) AS n FROM legacy_playlist_ids')
+        .getSingle();
+    expect(mappings.data['n'], 0);
+    await db.customStatement(
+      "INSERT INTO playlists (kind, name, sort_order, created_at, updated_at) "
+      "VALUES ('local', 'Again', 0, 1, 1)",
+    );
+    await db.customStatement(
+      'INSERT INTO legacy_playlist_ids (legacy_import_id, legacy_playlist_id, '
+      'playlist_id) VALUES (1, 7, 2)',
+    );
+    await db.customStatement('DELETE FROM legacy_imports WHERE id = 1');
+    mappings = await db
+        .customSelect('SELECT COUNT(*) AS n FROM legacy_playlist_ids')
+        .getSingle();
+    expect(mappings.data['n'], 0);
+  }
+
+  for (var from = 1; from <= 18; from++) {
+    test(
+      'migration from v$from to v19 adds the legacy import tables',
+      () async {
+        final schema = await verifier.schemaAt(from);
+        final db = AppDatabase(schema.newConnection());
+        await verifier.migrateAndValidate(db, 19);
+
+        await expectLegacyImportSchema(db);
+        await db.close();
+      },
+    );
+  }
+
+  test('a new database has the legacy import tables', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await expectLegacyImportSchema(db);
   });
 }

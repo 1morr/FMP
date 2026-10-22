@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/developer.dart';
+import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
@@ -318,5 +319,27 @@ final class PlaylistKindConverter extends TypeConverter<PlaylistKind, String> {
     PlaylistKind.local => 'local',
     PlaylistKind.imported => 'imported',
     PlaylistKind.mix => 'mix',
+  };
+}
+
+/// [LegacyImportSource] ↔ `database`／`backup`。
+final class LegacyImportSourceConverter
+    extends TypeConverter<LegacyImportSource, String> {
+  const LegacyImportSourceConverter();
+
+  @override
+  LegacyImportSource fromSql(String fromDb) => switch (fromDb) {
+    'database' => LegacyImportSource.database,
+    'backup' => LegacyImportSource.backup,
+    _ => throw FormatException(
+      'Unknown legacy import source in the database',
+      fromDb,
+    ),
+  };
+
+  @override
+  String toSql(LegacyImportSource value) => switch (value) {
+    LegacyImportSource.database => 'database',
+    LegacyImportSource.backup => 'backup',
   };
 }

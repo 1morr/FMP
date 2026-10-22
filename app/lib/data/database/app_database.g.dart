@@ -10133,6 +10133,792 @@ class TrackOriginsTableCompanion extends UpdateCompanion<TrackOriginRow> {
   }
 }
 
+class $LegacyImportsTableTable extends LegacyImportsTable
+    with TableInfo<$LegacyImportsTableTable, LegacyImportRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LegacyImportsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<LegacyImportSource, String>
+  source =
+      GeneratedColumn<String>(
+        'source',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<LegacyImportSource>(
+        $LegacyImportsTableTable.$convertersource,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateTime, int> importedAt =
+      GeneratedColumn<int>(
+        'imported_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateTime>($LegacyImportsTableTable.$converterimportedAt);
+  static const VerificationMeta _legacySchemaVersionMeta =
+      const VerificationMeta('legacySchemaVersion');
+  @override
+  late final GeneratedColumn<int> legacySchemaVersion = GeneratedColumn<int>(
+    'legacy_schema_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _backupVersionMeta = const VerificationMeta(
+    'backupVersion',
+  );
+  @override
+  late final GeneratedColumn<int> backupVersion = GeneratedColumn<int>(
+    'backup_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _summaryJsonMeta = const VerificationMeta(
+    'summaryJson',
+  );
+  @override
+  late final GeneratedColumn<String> summaryJson = GeneratedColumn<String>(
+    'summary_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _acknowledgedMeta = const VerificationMeta(
+    'acknowledged',
+  );
+  @override
+  late final GeneratedColumn<bool> acknowledged = GeneratedColumn<bool>(
+    'acknowledged',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("acknowledged" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    source,
+    importedAt,
+    legacySchemaVersion,
+    backupVersion,
+    summaryJson,
+    acknowledged,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'legacy_imports';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LegacyImportRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('legacy_schema_version')) {
+      context.handle(
+        _legacySchemaVersionMeta,
+        legacySchemaVersion.isAcceptableOrUnknown(
+          data['legacy_schema_version']!,
+          _legacySchemaVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('backup_version')) {
+      context.handle(
+        _backupVersionMeta,
+        backupVersion.isAcceptableOrUnknown(
+          data['backup_version']!,
+          _backupVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('summary_json')) {
+      context.handle(
+        _summaryJsonMeta,
+        summaryJson.isAcceptableOrUnknown(
+          data['summary_json']!,
+          _summaryJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_summaryJsonMeta);
+    }
+    if (data.containsKey('acknowledged')) {
+      context.handle(
+        _acknowledgedMeta,
+        acknowledged.isAcceptableOrUnknown(
+          data['acknowledged']!,
+          _acknowledgedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LegacyImportRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LegacyImportRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      source: $LegacyImportsTableTable.$convertersource.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}source'],
+        )!,
+      ),
+      importedAt: $LegacyImportsTableTable.$converterimportedAt.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}imported_at'],
+        )!,
+      ),
+      legacySchemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}legacy_schema_version'],
+      ),
+      backupVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}backup_version'],
+      ),
+      summaryJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}summary_json'],
+      )!,
+      acknowledged: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}acknowledged'],
+      )!,
+    );
+  }
+
+  @override
+  $LegacyImportsTableTable createAlias(String alias) {
+    return $LegacyImportsTableTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<LegacyImportSource, String> $convertersource =
+      const LegacyImportSourceConverter();
+  static TypeConverter<DateTime, int> $converterimportedAt =
+      const EpochMillisecondsConverter();
+}
+
+class LegacyImportRow extends DataClass implements Insertable<LegacyImportRow> {
+  final int id;
+  final LegacyImportSource source;
+  final DateTime importedAt;
+
+  /// 舊 `Settings.schemaVersion`（資料庫來源）；備份來源為空。
+  final int? legacySchemaVersion;
+
+  /// 備份檔的 `version`（備份來源）；資料庫來源為空。
+  final int? backupVersion;
+  final String summaryJson;
+  final bool acknowledged;
+  const LegacyImportRow({
+    required this.id,
+    required this.source,
+    required this.importedAt,
+    this.legacySchemaVersion,
+    this.backupVersion,
+    required this.summaryJson,
+    required this.acknowledged,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    {
+      map['source'] = Variable<String>(
+        $LegacyImportsTableTable.$convertersource.toSql(source),
+      );
+    }
+    {
+      map['imported_at'] = Variable<int>(
+        $LegacyImportsTableTable.$converterimportedAt.toSql(importedAt),
+      );
+    }
+    if (!nullToAbsent || legacySchemaVersion != null) {
+      map['legacy_schema_version'] = Variable<int>(legacySchemaVersion);
+    }
+    if (!nullToAbsent || backupVersion != null) {
+      map['backup_version'] = Variable<int>(backupVersion);
+    }
+    map['summary_json'] = Variable<String>(summaryJson);
+    map['acknowledged'] = Variable<bool>(acknowledged);
+    return map;
+  }
+
+  LegacyImportsTableCompanion toCompanion(bool nullToAbsent) {
+    return LegacyImportsTableCompanion(
+      id: Value(id),
+      source: Value(source),
+      importedAt: Value(importedAt),
+      legacySchemaVersion: legacySchemaVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(legacySchemaVersion),
+      backupVersion: backupVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backupVersion),
+      summaryJson: Value(summaryJson),
+      acknowledged: Value(acknowledged),
+    );
+  }
+
+  factory LegacyImportRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LegacyImportRow(
+      id: serializer.fromJson<int>(json['id']),
+      source: serializer.fromJson<LegacyImportSource>(json['source']),
+      importedAt: serializer.fromJson<DateTime>(json['importedAt']),
+      legacySchemaVersion: serializer.fromJson<int?>(
+        json['legacySchemaVersion'],
+      ),
+      backupVersion: serializer.fromJson<int?>(json['backupVersion']),
+      summaryJson: serializer.fromJson<String>(json['summaryJson']),
+      acknowledged: serializer.fromJson<bool>(json['acknowledged']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'source': serializer.toJson<LegacyImportSource>(source),
+      'importedAt': serializer.toJson<DateTime>(importedAt),
+      'legacySchemaVersion': serializer.toJson<int?>(legacySchemaVersion),
+      'backupVersion': serializer.toJson<int?>(backupVersion),
+      'summaryJson': serializer.toJson<String>(summaryJson),
+      'acknowledged': serializer.toJson<bool>(acknowledged),
+    };
+  }
+
+  LegacyImportRow copyWith({
+    int? id,
+    LegacyImportSource? source,
+    DateTime? importedAt,
+    Value<int?> legacySchemaVersion = const Value.absent(),
+    Value<int?> backupVersion = const Value.absent(),
+    String? summaryJson,
+    bool? acknowledged,
+  }) => LegacyImportRow(
+    id: id ?? this.id,
+    source: source ?? this.source,
+    importedAt: importedAt ?? this.importedAt,
+    legacySchemaVersion: legacySchemaVersion.present
+        ? legacySchemaVersion.value
+        : this.legacySchemaVersion,
+    backupVersion: backupVersion.present
+        ? backupVersion.value
+        : this.backupVersion,
+    summaryJson: summaryJson ?? this.summaryJson,
+    acknowledged: acknowledged ?? this.acknowledged,
+  );
+  LegacyImportRow copyWithCompanion(LegacyImportsTableCompanion data) {
+    return LegacyImportRow(
+      id: data.id.present ? data.id.value : this.id,
+      source: data.source.present ? data.source.value : this.source,
+      importedAt: data.importedAt.present
+          ? data.importedAt.value
+          : this.importedAt,
+      legacySchemaVersion: data.legacySchemaVersion.present
+          ? data.legacySchemaVersion.value
+          : this.legacySchemaVersion,
+      backupVersion: data.backupVersion.present
+          ? data.backupVersion.value
+          : this.backupVersion,
+      summaryJson: data.summaryJson.present
+          ? data.summaryJson.value
+          : this.summaryJson,
+      acknowledged: data.acknowledged.present
+          ? data.acknowledged.value
+          : this.acknowledged,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LegacyImportRow(')
+          ..write('id: $id, ')
+          ..write('source: $source, ')
+          ..write('importedAt: $importedAt, ')
+          ..write('legacySchemaVersion: $legacySchemaVersion, ')
+          ..write('backupVersion: $backupVersion, ')
+          ..write('summaryJson: $summaryJson, ')
+          ..write('acknowledged: $acknowledged')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    source,
+    importedAt,
+    legacySchemaVersion,
+    backupVersion,
+    summaryJson,
+    acknowledged,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LegacyImportRow &&
+          other.id == this.id &&
+          other.source == this.source &&
+          other.importedAt == this.importedAt &&
+          other.legacySchemaVersion == this.legacySchemaVersion &&
+          other.backupVersion == this.backupVersion &&
+          other.summaryJson == this.summaryJson &&
+          other.acknowledged == this.acknowledged);
+}
+
+class LegacyImportsTableCompanion extends UpdateCompanion<LegacyImportRow> {
+  final Value<int> id;
+  final Value<LegacyImportSource> source;
+  final Value<DateTime> importedAt;
+  final Value<int?> legacySchemaVersion;
+  final Value<int?> backupVersion;
+  final Value<String> summaryJson;
+  final Value<bool> acknowledged;
+  const LegacyImportsTableCompanion({
+    this.id = const Value.absent(),
+    this.source = const Value.absent(),
+    this.importedAt = const Value.absent(),
+    this.legacySchemaVersion = const Value.absent(),
+    this.backupVersion = const Value.absent(),
+    this.summaryJson = const Value.absent(),
+    this.acknowledged = const Value.absent(),
+  });
+  LegacyImportsTableCompanion.insert({
+    this.id = const Value.absent(),
+    required LegacyImportSource source,
+    required DateTime importedAt,
+    this.legacySchemaVersion = const Value.absent(),
+    this.backupVersion = const Value.absent(),
+    required String summaryJson,
+    this.acknowledged = const Value.absent(),
+  }) : source = Value(source),
+       importedAt = Value(importedAt),
+       summaryJson = Value(summaryJson);
+  static Insertable<LegacyImportRow> custom({
+    Expression<int>? id,
+    Expression<String>? source,
+    Expression<int>? importedAt,
+    Expression<int>? legacySchemaVersion,
+    Expression<int>? backupVersion,
+    Expression<String>? summaryJson,
+    Expression<bool>? acknowledged,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (source != null) 'source': source,
+      if (importedAt != null) 'imported_at': importedAt,
+      if (legacySchemaVersion != null)
+        'legacy_schema_version': legacySchemaVersion,
+      if (backupVersion != null) 'backup_version': backupVersion,
+      if (summaryJson != null) 'summary_json': summaryJson,
+      if (acknowledged != null) 'acknowledged': acknowledged,
+    });
+  }
+
+  LegacyImportsTableCompanion copyWith({
+    Value<int>? id,
+    Value<LegacyImportSource>? source,
+    Value<DateTime>? importedAt,
+    Value<int?>? legacySchemaVersion,
+    Value<int?>? backupVersion,
+    Value<String>? summaryJson,
+    Value<bool>? acknowledged,
+  }) {
+    return LegacyImportsTableCompanion(
+      id: id ?? this.id,
+      source: source ?? this.source,
+      importedAt: importedAt ?? this.importedAt,
+      legacySchemaVersion: legacySchemaVersion ?? this.legacySchemaVersion,
+      backupVersion: backupVersion ?? this.backupVersion,
+      summaryJson: summaryJson ?? this.summaryJson,
+      acknowledged: acknowledged ?? this.acknowledged,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(
+        $LegacyImportsTableTable.$convertersource.toSql(source.value),
+      );
+    }
+    if (importedAt.present) {
+      map['imported_at'] = Variable<int>(
+        $LegacyImportsTableTable.$converterimportedAt.toSql(importedAt.value),
+      );
+    }
+    if (legacySchemaVersion.present) {
+      map['legacy_schema_version'] = Variable<int>(legacySchemaVersion.value);
+    }
+    if (backupVersion.present) {
+      map['backup_version'] = Variable<int>(backupVersion.value);
+    }
+    if (summaryJson.present) {
+      map['summary_json'] = Variable<String>(summaryJson.value);
+    }
+    if (acknowledged.present) {
+      map['acknowledged'] = Variable<bool>(acknowledged.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LegacyImportsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('source: $source, ')
+          ..write('importedAt: $importedAt, ')
+          ..write('legacySchemaVersion: $legacySchemaVersion, ')
+          ..write('backupVersion: $backupVersion, ')
+          ..write('summaryJson: $summaryJson, ')
+          ..write('acknowledged: $acknowledged')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LegacyPlaylistIdsTableTable extends LegacyPlaylistIdsTable
+    with TableInfo<$LegacyPlaylistIdsTableTable, LegacyPlaylistIdRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LegacyPlaylistIdsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _legacyImportIdMeta = const VerificationMeta(
+    'legacyImportId',
+  );
+  @override
+  late final GeneratedColumn<int> legacyImportId = GeneratedColumn<int>(
+    'legacy_import_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES legacy_imports (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _legacyPlaylistIdMeta = const VerificationMeta(
+    'legacyPlaylistId',
+  );
+  @override
+  late final GeneratedColumn<int> legacyPlaylistId = GeneratedColumn<int>(
+    'legacy_playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playlistIdMeta = const VerificationMeta(
+    'playlistId',
+  );
+  @override
+  late final GeneratedColumn<int> playlistId = GeneratedColumn<int>(
+    'playlist_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES playlists (id) ON DELETE CASCADE',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    legacyImportId,
+    legacyPlaylistId,
+    playlistId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'legacy_playlist_ids';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LegacyPlaylistIdRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('legacy_import_id')) {
+      context.handle(
+        _legacyImportIdMeta,
+        legacyImportId.isAcceptableOrUnknown(
+          data['legacy_import_id']!,
+          _legacyImportIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_legacyImportIdMeta);
+    }
+    if (data.containsKey('legacy_playlist_id')) {
+      context.handle(
+        _legacyPlaylistIdMeta,
+        legacyPlaylistId.isAcceptableOrUnknown(
+          data['legacy_playlist_id']!,
+          _legacyPlaylistIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_legacyPlaylistIdMeta);
+    }
+    if (data.containsKey('playlist_id')) {
+      context.handle(
+        _playlistIdMeta,
+        playlistId.isAcceptableOrUnknown(data['playlist_id']!, _playlistIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playlistIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {legacyImportId, legacyPlaylistId};
+  @override
+  LegacyPlaylistIdRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LegacyPlaylistIdRow(
+      legacyImportId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}legacy_import_id'],
+      )!,
+      legacyPlaylistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}legacy_playlist_id'],
+      )!,
+      playlistId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}playlist_id'],
+      )!,
+    );
+  }
+
+  @override
+  $LegacyPlaylistIdsTableTable createAlias(String alias) {
+    return $LegacyPlaylistIdsTableTable(attachedDatabase, alias);
+  }
+}
+
+class LegacyPlaylistIdRow extends DataClass
+    implements Insertable<LegacyPlaylistIdRow> {
+  final int legacyImportId;
+  final int legacyPlaylistId;
+  final int playlistId;
+  const LegacyPlaylistIdRow({
+    required this.legacyImportId,
+    required this.legacyPlaylistId,
+    required this.playlistId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['legacy_import_id'] = Variable<int>(legacyImportId);
+    map['legacy_playlist_id'] = Variable<int>(legacyPlaylistId);
+    map['playlist_id'] = Variable<int>(playlistId);
+    return map;
+  }
+
+  LegacyPlaylistIdsTableCompanion toCompanion(bool nullToAbsent) {
+    return LegacyPlaylistIdsTableCompanion(
+      legacyImportId: Value(legacyImportId),
+      legacyPlaylistId: Value(legacyPlaylistId),
+      playlistId: Value(playlistId),
+    );
+  }
+
+  factory LegacyPlaylistIdRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LegacyPlaylistIdRow(
+      legacyImportId: serializer.fromJson<int>(json['legacyImportId']),
+      legacyPlaylistId: serializer.fromJson<int>(json['legacyPlaylistId']),
+      playlistId: serializer.fromJson<int>(json['playlistId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'legacyImportId': serializer.toJson<int>(legacyImportId),
+      'legacyPlaylistId': serializer.toJson<int>(legacyPlaylistId),
+      'playlistId': serializer.toJson<int>(playlistId),
+    };
+  }
+
+  LegacyPlaylistIdRow copyWith({
+    int? legacyImportId,
+    int? legacyPlaylistId,
+    int? playlistId,
+  }) => LegacyPlaylistIdRow(
+    legacyImportId: legacyImportId ?? this.legacyImportId,
+    legacyPlaylistId: legacyPlaylistId ?? this.legacyPlaylistId,
+    playlistId: playlistId ?? this.playlistId,
+  );
+  LegacyPlaylistIdRow copyWithCompanion(LegacyPlaylistIdsTableCompanion data) {
+    return LegacyPlaylistIdRow(
+      legacyImportId: data.legacyImportId.present
+          ? data.legacyImportId.value
+          : this.legacyImportId,
+      legacyPlaylistId: data.legacyPlaylistId.present
+          ? data.legacyPlaylistId.value
+          : this.legacyPlaylistId,
+      playlistId: data.playlistId.present
+          ? data.playlistId.value
+          : this.playlistId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LegacyPlaylistIdRow(')
+          ..write('legacyImportId: $legacyImportId, ')
+          ..write('legacyPlaylistId: $legacyPlaylistId, ')
+          ..write('playlistId: $playlistId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(legacyImportId, legacyPlaylistId, playlistId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LegacyPlaylistIdRow &&
+          other.legacyImportId == this.legacyImportId &&
+          other.legacyPlaylistId == this.legacyPlaylistId &&
+          other.playlistId == this.playlistId);
+}
+
+class LegacyPlaylistIdsTableCompanion
+    extends UpdateCompanion<LegacyPlaylistIdRow> {
+  final Value<int> legacyImportId;
+  final Value<int> legacyPlaylistId;
+  final Value<int> playlistId;
+  final Value<int> rowid;
+  const LegacyPlaylistIdsTableCompanion({
+    this.legacyImportId = const Value.absent(),
+    this.legacyPlaylistId = const Value.absent(),
+    this.playlistId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LegacyPlaylistIdsTableCompanion.insert({
+    required int legacyImportId,
+    required int legacyPlaylistId,
+    required int playlistId,
+    this.rowid = const Value.absent(),
+  }) : legacyImportId = Value(legacyImportId),
+       legacyPlaylistId = Value(legacyPlaylistId),
+       playlistId = Value(playlistId);
+  static Insertable<LegacyPlaylistIdRow> custom({
+    Expression<int>? legacyImportId,
+    Expression<int>? legacyPlaylistId,
+    Expression<int>? playlistId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (legacyImportId != null) 'legacy_import_id': legacyImportId,
+      if (legacyPlaylistId != null) 'legacy_playlist_id': legacyPlaylistId,
+      if (playlistId != null) 'playlist_id': playlistId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LegacyPlaylistIdsTableCompanion copyWith({
+    Value<int>? legacyImportId,
+    Value<int>? legacyPlaylistId,
+    Value<int>? playlistId,
+    Value<int>? rowid,
+  }) {
+    return LegacyPlaylistIdsTableCompanion(
+      legacyImportId: legacyImportId ?? this.legacyImportId,
+      legacyPlaylistId: legacyPlaylistId ?? this.legacyPlaylistId,
+      playlistId: playlistId ?? this.playlistId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (legacyImportId.present) {
+      map['legacy_import_id'] = Variable<int>(legacyImportId.value);
+    }
+    if (legacyPlaylistId.present) {
+      map['legacy_playlist_id'] = Variable<int>(legacyPlaylistId.value);
+    }
+    if (playlistId.present) {
+      map['playlist_id'] = Variable<int>(playlistId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LegacyPlaylistIdsTableCompanion(')
+          ..write('legacyImportId: $legacyImportId, ')
+          ..write('legacyPlaylistId: $legacyPlaylistId, ')
+          ..write('playlistId: $playlistId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -10180,6 +10966,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $MatchResultsTableTable(this);
   late final $TrackOriginsTableTable trackOriginsTable =
       $TrackOriginsTableTable(this);
+  late final $LegacyImportsTableTable legacyImportsTable =
+      $LegacyImportsTableTable(this);
+  late final $LegacyPlaylistIdsTableTable legacyPlaylistIdsTable =
+      $LegacyPlaylistIdsTableTable(this);
   late final Index queueEntriesTrackKey = Index(
     'queue_entries_track_key',
     'CREATE INDEX queue_entries_track_key ON queue_entries (track_key)',
@@ -10231,6 +11021,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     chartSettingsTable,
     matchResultsTable,
     trackOriginsTable,
+    legacyImportsTable,
+    legacyPlaylistIdsTable,
     queueEntriesTrackKey,
     playHistoryPlayedAt,
     playHistoryTrackKey,
@@ -10267,6 +11059,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('track_origins', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'legacy_imports',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('legacy_playlist_ids', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'playlists',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('legacy_playlist_ids', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -15201,6 +16007,31 @@ final class $$PlaylistsTableTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $LegacyPlaylistIdsTableTable,
+    List<LegacyPlaylistIdRow>
+  >
+  _legacyPlaylistIdsTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.legacyPlaylistIdsTable,
+        aliasName: 'playlists__id__legacy_playlist_ids__playlist_id',
+      );
+
+  $$LegacyPlaylistIdsTableTableProcessedTableManager
+  get legacyPlaylistIdsTableRefs {
+    final manager = $$LegacyPlaylistIdsTableTableTableManager(
+      $_db,
+      $_db.legacyPlaylistIdsTable,
+    ).filter((f) => f.playlistId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _legacyPlaylistIdsTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$PlaylistsTableTableFilterComposer
@@ -15317,6 +16148,32 @@ class $$PlaylistsTableTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> legacyPlaylistIdsTableRefs(
+    Expression<bool> Function($$LegacyPlaylistIdsTableTableFilterComposer f) f,
+  ) {
+    final $$LegacyPlaylistIdsTableTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.legacyPlaylistIdsTable,
+          getReferencedColumn: (t) => t.playlistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LegacyPlaylistIdsTableTableFilterComposer(
+                $db: $db,
+                $table: $db.legacyPlaylistIdsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
@@ -15489,6 +16346,32 @@ class $$PlaylistsTableTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> legacyPlaylistIdsTableRefs<T extends Object>(
+    Expression<T> Function($$LegacyPlaylistIdsTableTableAnnotationComposer a) f,
+  ) {
+    final $$LegacyPlaylistIdsTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.legacyPlaylistIdsTable,
+          getReferencedColumn: (t) => t.playlistId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LegacyPlaylistIdsTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.legacyPlaylistIdsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$PlaylistsTableTableTableManager
@@ -15507,6 +16390,7 @@ class $$PlaylistsTableTableTableManager
           PrefetchHooks Function({
             bool playlistEntriesTableRefs,
             bool playlistRemoteTableRefs,
+            bool legacyPlaylistIdsTableRefs,
           })
         > {
   $$PlaylistsTableTableTableManager(
@@ -15586,12 +16470,14 @@ class $$PlaylistsTableTableTableManager
               ({
                 playlistEntriesTableRefs = false,
                 playlistRemoteTableRefs = false,
+                legacyPlaylistIdsTableRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (playlistEntriesTableRefs) db.playlistEntriesTable,
                     if (playlistRemoteTableRefs) db.playlistRemoteTable,
+                    if (legacyPlaylistIdsTableRefs) db.legacyPlaylistIdsTable,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -15638,6 +16524,27 @@ class $$PlaylistsTableTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (legacyPlaylistIdsTableRefs)
+                        await $_getPrefetchedData<
+                          PlaylistRow,
+                          $PlaylistsTableTable,
+                          LegacyPlaylistIdRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PlaylistsTableTableReferences
+                              ._legacyPlaylistIdsTableRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PlaylistsTableTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).legacyPlaylistIdsTableRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.playlistId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -15661,6 +16568,7 @@ typedef $$PlaylistsTableTableProcessedTableManager =
       PrefetchHooks Function({
         bool playlistEntriesTableRefs,
         bool playlistRemoteTableRefs,
+        bool legacyPlaylistIdsTableRefs,
       })
     >;
 typedef $$PlaylistEntriesTableTableCreateCompanionBuilder =
@@ -17511,6 +18419,773 @@ typedef $$TrackOriginsTableTableProcessedTableManager =
       TrackOriginRow,
       PrefetchHooks Function({bool trackKey})
     >;
+typedef $$LegacyImportsTableTableCreateCompanionBuilder =
+    LegacyImportsTableCompanion Function({
+      Value<int> id,
+      required LegacyImportSource source,
+      required DateTime importedAt,
+      Value<int?> legacySchemaVersion,
+      Value<int?> backupVersion,
+      required String summaryJson,
+      Value<bool> acknowledged,
+    });
+typedef $$LegacyImportsTableTableUpdateCompanionBuilder =
+    LegacyImportsTableCompanion Function({
+      Value<int> id,
+      Value<LegacyImportSource> source,
+      Value<DateTime> importedAt,
+      Value<int?> legacySchemaVersion,
+      Value<int?> backupVersion,
+      Value<String> summaryJson,
+      Value<bool> acknowledged,
+    });
+
+final class $$LegacyImportsTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $LegacyImportsTableTable,
+          LegacyImportRow
+        > {
+  $$LegacyImportsTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $LegacyPlaylistIdsTableTable,
+    List<LegacyPlaylistIdRow>
+  >
+  _legacyPlaylistIdsTableRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.legacyPlaylistIdsTable,
+        aliasName: 'legacy_imports__id__legacy_playlist_ids__legacy_import_id',
+      );
+
+  $$LegacyPlaylistIdsTableTableProcessedTableManager
+  get legacyPlaylistIdsTableRefs {
+    final manager = $$LegacyPlaylistIdsTableTableTableManager(
+      $_db,
+      $_db.legacyPlaylistIdsTable,
+    ).filter((f) => f.legacyImportId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _legacyPlaylistIdsTableRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$LegacyImportsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $LegacyImportsTableTable> {
+  $$LegacyImportsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<LegacyImportSource, LegacyImportSource, String>
+  get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateTime, DateTime, int> get importedAt =>
+      $composableBuilder(
+        column: $table.importedAt,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<int> get legacySchemaVersion => $composableBuilder(
+    column: $table.legacySchemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get backupVersion => $composableBuilder(
+    column: $table.backupVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get acknowledged => $composableBuilder(
+    column: $table.acknowledged,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> legacyPlaylistIdsTableRefs(
+    Expression<bool> Function($$LegacyPlaylistIdsTableTableFilterComposer f) f,
+  ) {
+    final $$LegacyPlaylistIdsTableTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.legacyPlaylistIdsTable,
+          getReferencedColumn: (t) => t.legacyImportId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LegacyPlaylistIdsTableTableFilterComposer(
+                $db: $db,
+                $table: $db.legacyPlaylistIdsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$LegacyImportsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $LegacyImportsTableTable> {
+  $$LegacyImportsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get legacySchemaVersion => $composableBuilder(
+    column: $table.legacySchemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get backupVersion => $composableBuilder(
+    column: $table.backupVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get acknowledged => $composableBuilder(
+    column: $table.acknowledged,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LegacyImportsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LegacyImportsTableTable> {
+  $$LegacyImportsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<LegacyImportSource, String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateTime, int> get importedAt =>
+      $composableBuilder(
+        column: $table.importedAt,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get legacySchemaVersion => $composableBuilder(
+    column: $table.legacySchemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get backupVersion => $composableBuilder(
+    column: $table.backupVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get acknowledged => $composableBuilder(
+    column: $table.acknowledged,
+    builder: (column) => column,
+  );
+
+  Expression<T> legacyPlaylistIdsTableRefs<T extends Object>(
+    Expression<T> Function($$LegacyPlaylistIdsTableTableAnnotationComposer a) f,
+  ) {
+    final $$LegacyPlaylistIdsTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.legacyPlaylistIdsTable,
+          getReferencedColumn: (t) => t.legacyImportId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LegacyPlaylistIdsTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.legacyPlaylistIdsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$LegacyImportsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LegacyImportsTableTable,
+          LegacyImportRow,
+          $$LegacyImportsTableTableFilterComposer,
+          $$LegacyImportsTableTableOrderingComposer,
+          $$LegacyImportsTableTableAnnotationComposer,
+          $$LegacyImportsTableTableCreateCompanionBuilder,
+          $$LegacyImportsTableTableUpdateCompanionBuilder,
+          (LegacyImportRow, $$LegacyImportsTableTableReferences),
+          LegacyImportRow,
+          PrefetchHooks Function({bool legacyPlaylistIdsTableRefs})
+        > {
+  $$LegacyImportsTableTableTableManager(
+    _$AppDatabase db,
+    $LegacyImportsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LegacyImportsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LegacyImportsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LegacyImportsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<LegacyImportSource> source = const Value.absent(),
+                Value<DateTime> importedAt = const Value.absent(),
+                Value<int?> legacySchemaVersion = const Value.absent(),
+                Value<int?> backupVersion = const Value.absent(),
+                Value<String> summaryJson = const Value.absent(),
+                Value<bool> acknowledged = const Value.absent(),
+              }) => LegacyImportsTableCompanion(
+                id: id,
+                source: source,
+                importedAt: importedAt,
+                legacySchemaVersion: legacySchemaVersion,
+                backupVersion: backupVersion,
+                summaryJson: summaryJson,
+                acknowledged: acknowledged,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required LegacyImportSource source,
+                required DateTime importedAt,
+                Value<int?> legacySchemaVersion = const Value.absent(),
+                Value<int?> backupVersion = const Value.absent(),
+                required String summaryJson,
+                Value<bool> acknowledged = const Value.absent(),
+              }) => LegacyImportsTableCompanion.insert(
+                id: id,
+                source: source,
+                importedAt: importedAt,
+                legacySchemaVersion: legacySchemaVersion,
+                backupVersion: backupVersion,
+                summaryJson: summaryJson,
+                acknowledged: acknowledged,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LegacyImportsTableTable, LegacyImportRow>(table),
+                  $$LegacyImportsTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({legacyPlaylistIdsTableRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (legacyPlaylistIdsTableRefs) db.legacyPlaylistIdsTable,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (legacyPlaylistIdsTableRefs)
+                    await $_getPrefetchedData<
+                      LegacyImportRow,
+                      $LegacyImportsTableTable,
+                      LegacyPlaylistIdRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$LegacyImportsTableTableReferences
+                          ._legacyPlaylistIdsTableRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$LegacyImportsTableTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).legacyPlaylistIdsTableRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.legacyImportId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LegacyImportsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LegacyImportsTableTable,
+      LegacyImportRow,
+      $$LegacyImportsTableTableFilterComposer,
+      $$LegacyImportsTableTableOrderingComposer,
+      $$LegacyImportsTableTableAnnotationComposer,
+      $$LegacyImportsTableTableCreateCompanionBuilder,
+      $$LegacyImportsTableTableUpdateCompanionBuilder,
+      (LegacyImportRow, $$LegacyImportsTableTableReferences),
+      LegacyImportRow,
+      PrefetchHooks Function({bool legacyPlaylistIdsTableRefs})
+    >;
+typedef $$LegacyPlaylistIdsTableTableCreateCompanionBuilder =
+    LegacyPlaylistIdsTableCompanion Function({
+      required int legacyImportId,
+      required int legacyPlaylistId,
+      required int playlistId,
+      Value<int> rowid,
+    });
+typedef $$LegacyPlaylistIdsTableTableUpdateCompanionBuilder =
+    LegacyPlaylistIdsTableCompanion Function({
+      Value<int> legacyImportId,
+      Value<int> legacyPlaylistId,
+      Value<int> playlistId,
+      Value<int> rowid,
+    });
+
+final class $$LegacyPlaylistIdsTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $LegacyPlaylistIdsTableTable,
+          LegacyPlaylistIdRow
+        > {
+  $$LegacyPlaylistIdsTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LegacyImportsTableTable _legacyImportIdTable(_$AppDatabase db) => db
+      .legacyImportsTable
+      .createAlias('legacy_playlist_ids__legacy_import_id__legacy_imports__id');
+
+  $$LegacyImportsTableTableProcessedTableManager get legacyImportId {
+    final $_column = $_itemColumn<int>('legacy_import_id')!;
+
+    final manager = $$LegacyImportsTableTableTableManager(
+      $_db,
+      $_db.legacyImportsTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_legacyImportIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PlaylistsTableTable _playlistIdTable(_$AppDatabase db) => db
+      .playlistsTable
+      .createAlias('legacy_playlist_ids__playlist_id__playlists__id');
+
+  $$PlaylistsTableTableProcessedTableManager get playlistId {
+    final $_column = $_itemColumn<int>('playlist_id')!;
+
+    final manager = $$PlaylistsTableTableTableManager(
+      $_db,
+      $_db.playlistsTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_playlistIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$LegacyPlaylistIdsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $LegacyPlaylistIdsTableTable> {
+  $$LegacyPlaylistIdsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get legacyPlaylistId => $composableBuilder(
+    column: $table.legacyPlaylistId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LegacyImportsTableTableFilterComposer get legacyImportId {
+    final $$LegacyImportsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.legacyImportId,
+      referencedTable: $db.legacyImportsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LegacyImportsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.legacyImportsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlaylistsTableTableFilterComposer get playlistId {
+    final $$PlaylistsTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.playlistsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistsTableTableFilterComposer(
+            $db: $db,
+            $table: $db.playlistsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LegacyPlaylistIdsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $LegacyPlaylistIdsTableTable> {
+  $$LegacyPlaylistIdsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get legacyPlaylistId => $composableBuilder(
+    column: $table.legacyPlaylistId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LegacyImportsTableTableOrderingComposer get legacyImportId {
+    final $$LegacyImportsTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.legacyImportId,
+      referencedTable: $db.legacyImportsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LegacyImportsTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.legacyImportsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PlaylistsTableTableOrderingComposer get playlistId {
+    final $$PlaylistsTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.playlistsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistsTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.playlistsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LegacyPlaylistIdsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LegacyPlaylistIdsTableTable> {
+  $$LegacyPlaylistIdsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get legacyPlaylistId => $composableBuilder(
+    column: $table.legacyPlaylistId,
+    builder: (column) => column,
+  );
+
+  $$LegacyImportsTableTableAnnotationComposer get legacyImportId {
+    final $$LegacyImportsTableTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.legacyImportId,
+          referencedTable: $db.legacyImportsTable,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$LegacyImportsTableTableAnnotationComposer(
+                $db: $db,
+                $table: $db.legacyImportsTable,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+
+  $$PlaylistsTableTableAnnotationComposer get playlistId {
+    final $$PlaylistsTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.playlistId,
+      referencedTable: $db.playlistsTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaylistsTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.playlistsTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LegacyPlaylistIdsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LegacyPlaylistIdsTableTable,
+          LegacyPlaylistIdRow,
+          $$LegacyPlaylistIdsTableTableFilterComposer,
+          $$LegacyPlaylistIdsTableTableOrderingComposer,
+          $$LegacyPlaylistIdsTableTableAnnotationComposer,
+          $$LegacyPlaylistIdsTableTableCreateCompanionBuilder,
+          $$LegacyPlaylistIdsTableTableUpdateCompanionBuilder,
+          (LegacyPlaylistIdRow, $$LegacyPlaylistIdsTableTableReferences),
+          LegacyPlaylistIdRow,
+          PrefetchHooks Function({bool legacyImportId, bool playlistId})
+        > {
+  $$LegacyPlaylistIdsTableTableTableManager(
+    _$AppDatabase db,
+    $LegacyPlaylistIdsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LegacyPlaylistIdsTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$LegacyPlaylistIdsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LegacyPlaylistIdsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> legacyImportId = const Value.absent(),
+                Value<int> legacyPlaylistId = const Value.absent(),
+                Value<int> playlistId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LegacyPlaylistIdsTableCompanion(
+                legacyImportId: legacyImportId,
+                legacyPlaylistId: legacyPlaylistId,
+                playlistId: playlistId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int legacyImportId,
+                required int legacyPlaylistId,
+                required int playlistId,
+                Value<int> rowid = const Value.absent(),
+              }) => LegacyPlaylistIdsTableCompanion.insert(
+                legacyImportId: legacyImportId,
+                legacyPlaylistId: legacyPlaylistId,
+                playlistId: playlistId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $LegacyPlaylistIdsTableTable,
+                    LegacyPlaylistIdRow
+                  >(table),
+                  $$LegacyPlaylistIdsTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({legacyImportId = false, playlistId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (legacyImportId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.legacyImportId,
+                            referencedTable:
+                                $$LegacyPlaylistIdsTableTableReferences
+                                    ._legacyImportIdTable(db),
+                            referencedColumn:
+                                $$LegacyPlaylistIdsTableTableReferences
+                                    ._legacyImportIdTable(db)
+                                    .id,
+                          ) as T;
+                        }
+                        if (playlistId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.playlistId,
+                            referencedTable:
+                                $$LegacyPlaylistIdsTableTableReferences
+                                    ._playlistIdTable(db),
+                            referencedColumn:
+                                $$LegacyPlaylistIdsTableTableReferences
+                                    ._playlistIdTable(db)
+                                    .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$LegacyPlaylistIdsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LegacyPlaylistIdsTableTable,
+      LegacyPlaylistIdRow,
+      $$LegacyPlaylistIdsTableTableFilterComposer,
+      $$LegacyPlaylistIdsTableTableOrderingComposer,
+      $$LegacyPlaylistIdsTableTableAnnotationComposer,
+      $$LegacyPlaylistIdsTableTableCreateCompanionBuilder,
+      $$LegacyPlaylistIdsTableTableUpdateCompanionBuilder,
+      (LegacyPlaylistIdRow, $$LegacyPlaylistIdsTableTableReferences),
+      LegacyPlaylistIdRow,
+      PrefetchHooks Function({bool legacyImportId, bool playlistId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -17565,4 +19240,11 @@ class $AppDatabaseManager {
       $$MatchResultsTableTableTableManager(_db, _db.matchResultsTable);
   $$TrackOriginsTableTableTableManager get trackOriginsTable =>
       $$TrackOriginsTableTableTableManager(_db, _db.trackOriginsTable);
+  $$LegacyImportsTableTableTableManager get legacyImportsTable =>
+      $$LegacyImportsTableTableTableManager(_db, _db.legacyImportsTable);
+  $$LegacyPlaylistIdsTableTableTableManager get legacyPlaylistIdsTable =>
+      $$LegacyPlaylistIdsTableTableTableManager(
+        _db,
+        _db.legacyPlaylistIdsTable,
+      );
 }
