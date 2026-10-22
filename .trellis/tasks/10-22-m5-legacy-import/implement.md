@@ -25,9 +25,9 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-22）：規劃完成，待擁有者核准 design §11 的 12 條與 §10 的 ADR 改動。
-- **待擁有者回覆**：design §11。
-- **下一步**：核准後 PR 0。
+- **狀態**（2026-10-23）：擁有者核准 design §11 的 12 條與 §10 的 ADR 改動（「照建議」）；PR 0 進行中。
+- **待擁有者回覆**：無。
+- **下一步**：PR 0 合併後，PR 1 與 PR 2 平行。
 - **每個 PR 的固定流程**：分支 → `task.py create`（`--parent .trellis/tasks/10-22-m5-legacy-import`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0010、相關的 `.trellis/spec/app/<layer>/index.md`、本任務的 research）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check` → 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔 → 分開 commit → `finish`、`archive` → push、`gh pr create` → 等 CI → `gh pr merge --merge`。
 - **地雷**（之前里程碑帶來的，仍適用）：
   - 整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
@@ -68,7 +68,7 @@
 - `test/legacy_import/fixtures/legacy_schema.json`（由舊專案的 `*.g.dart` 產生一次）與凍結閘門；合成舊庫的產生工具（測試內以舊模型寫；也給實機驗證用：`tool/legacy_fixture.dart` 寫一份合成的 `fmp_database.isar` 到指定資料夾）。
 - `tool/legacy_counts.dart`：讀一份舊庫副本、只印每個 collection 的筆數（驗收用）。
 - 規劃時的探針已以擁有者舊庫的副本開成功（`research/isar-copy-spike.md`，探針程式在 session 暫存目錄、不提交）；PR 1 以合成舊庫為主，`legacy_counts` 完成後以同樣的做法（複製、讀、刪副本）對一次筆數。
-- Android 建置：`flutter build apk --flavor dev --debug`，以官方檢查確認 `libisar.so` 的 16KB 對齊（§11 第 11 條）。
+- Android 建置：`flutter build apk --flavor dev --debug`，以官方檢查確認 `libisar.so` 的 16KB 對齊（ADR 0010「之後要注意」）。
 - 模型：sonnet（照計畫）。
 
 ## 2. 匯入包、暫存庫寫入與驗證（design §6）
