@@ -277,6 +277,21 @@ lib/data/cache/
   排序），`read` 從索引讀並等最後存取寫完（`flutter_cache_manager` 不等那次寫入，不等的話測試
   結束時關庫會撞上它）。
 
+## 舊版資料匯入的暫存庫（`lib/data/import/`，schema v19）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `legacy_imports`、`legacy_playlist_ids`。
+
+- `import_bundle.dart`（`ImportBundle` 與它的子型別）、`import_summary.dart`（`summary_json` 的型別）、`staging_import.dart`（寫入與驗證）、
+  `legacy_import_failed.dart`（`LegacyImportStep`、`LegacyImportFailed`）、`legacy_imports_repository.dart`（讀與標「看過」）。`LegacyImportSource` 在 `lib/domain/legacy_import.dart`。
+- `ImportBundle` 的設定欄位直接用既有的值型別（`AppearanceSettings`、`NetworkSettings`、`PlaybackSettings`、`LayoutState`），空欄位＝不寫；帳號用 `Account`，播放狀態用 `PlayerState`。
+  新增一個要匯入的表時：bundle 加欄位、`StagingImport._writeAll` 寫、`_verifyCounts` 的 `expected` 加筆數（沒列在裡面的表必須是空的，所以漏加會紅）。
+- 歌單、電台的 `sort_order` 與歌單項目的 `position` 由清單順序決定（0..n-1）；歷史依清單順序寫入，`played_at` 相同時後寫的算新。時間比對與寫入都到毫秒。
+- 寫入的是新庫，所以用 `AppDatabase(NativeDatabase.createInBackground(file))` 的 `transaction`，不用 repository；驗證才用 repository（`PlaylistRepository.overviews`／`entries`／`remote`、
+  `PlayHistoryRepository.page`、`RadioRepository.list`、`QueueRepository.readQueue`、`TracksRepository.find`）。驗證裡的 `LegacyImportFailed.reason` 不能帶曲名、歌單名：用固定字串，表名可以。
+- 失敗清理：關庫、刪 `file`、`-wal`、`-shm`、`-journal`；刪不掉只寫 log（`legacy-import` tag），啟動時清 `legacy-import/` 由 PR 6 做。
+- 測試：`test/data/import/`，資料在 `import_fixtures.dart`（時間都用 2020 年的固定值，寫入偷換成現在就紅）。壞資料用 `package:sqlite3` 直接改暫存檔（外鍵檢查預設關閉，才寫得進違規列）。
+  一萬筆歷史＋一萬首佇列＋一萬首曲目的寫入與驗證時間印在測試輸出（開發機：寫入約 0.5–0.6 秒、驗證約 0.2–0.3 秒），不斷言。
+
 ## 測試
 
 - 資料庫一律用 `test/support/memory_database.dart` 的 `memoryDatabase()`：和 App 同一個
