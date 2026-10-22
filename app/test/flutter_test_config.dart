@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/libisar.dart';
 import 'support/quickjs.dart';
 
 /// 測試預設零聯網的第二道防線（ADR 0015 §決定 3；第一道是 `dart_test.yaml`
@@ -20,6 +21,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   HttpOverrides.global = NoNetworkHttpOverrides();
   // 插件執行環境的測試要真的跑 QuickJS（見 support/quickjs.dart）。
   loadQuickJsForTests();
+  // 舊資料匯入的測試要開真的 Isar 舊庫（見 support/libisar.dart）。
+  await loadLibisarForTests();
   // golden（alchemist）只比 CI 版：文字畫成色塊、不畫陰影，Windows 產生的檔
   // 在 CI 的 Linux 上也對得上。平台版（真的字）各平台的字形不同，不提交也不跑。
   await AlchemistConfig.runWithConfig(
