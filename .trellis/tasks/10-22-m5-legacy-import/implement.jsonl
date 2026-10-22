@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/app/data/index.md", "reason": "加表、改 schema、repository 的寫法；legacy_imports（v19）與暫存庫寫入"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_layer_imports 的 sealedDirectories 例外（lib/main.dart）、isar_community 與 win32 的擁有者、雙向變異"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "平台層：找舊資料、唯讀讀舊憑證、刪除舊版資料、檔案對話框"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "設定欄位的形狀；空＝沒設定過；舊設定的對照"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試分層、零聯網、原生庫在 flutter test 的載入"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "匯入失敗的錯誤與失敗頁"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 與遮蔽：不寫歌單名稱、憑證只寫有／沒有"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/legacy-sources.md", "reason": "舊資料的欄位、鍵格式、檔案位置、JSON 備份格式"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/target-schema.md", "reason": "新版的表、寫入 API、啟動流程與還原機制"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/secure-storage-compat.md", "reason": "舊憑證的讀法與會刪資料的路徑"}
