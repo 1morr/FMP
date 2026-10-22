@@ -39,7 +39,8 @@
     "10-21-m4-home-charts",
     "10-21-m4-external-import",
     "10-21-m4-backup-restore",
-    "10-22-m4-import-followups"
+    "10-22-m4-import-followups",
+    "10-22-m4-backup-followups"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
