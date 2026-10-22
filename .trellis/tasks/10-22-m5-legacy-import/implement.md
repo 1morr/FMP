@@ -132,6 +132,12 @@
 
 ## 留下的後續
 
+- PR 1：
+  - **真實資料的筆數**（2026-10-23）：以 `tool/legacy_counts.dart` 讀擁有者舊庫的副本，11 個 collection 的筆數與 `research/isar-copy-spike.md` 相同，`schemaVersion` 4；原檔的雜湊與修改時間讀前讀後相同，副本已刪。
+  - **沒有設定列就讀取失敗**：libmdbx 會把小於 4 KB 的壞檔當成新的空庫打開；舊 App 每次啟動都寫 `Settings` id 0，所以讀取器在沒有設定列時拋 `LegacyReadException(step: read)`。PR 6 的「找到舊資料庫」仍只看檔案存在，壞檔走失敗頁。
+  - **讀取器的 log 是回呼**（`LegacyReadLog`）：`Log` 會帶進 Flutter，`dart run tool/legacy_counts.dart` 就跑不了。PR 6 接到 `Log`。
+  - **`LegacySettings` 可變、舊 migration 就地補做**：只在讀資料庫時、`schemaVersion < 4` 才補。PR 7 的 JSON 備份讀取器**不能**沿用「看 `schemaVersion` 決定補不補」（備份有自己的版本語意，design §4.2）；轉換器不改這個物件。
+  - 低、沒有 repro，不修：`Isar.open` 在原生端建好實例後若初始化拋錯，實例不會被關，同一個行程裡重試會撞名（實例名固定 `fmp_database`）。PR 6 的「重試」若遇到，再以 `Isar.getInstance` 比對目錄後補關。
 - PR 2（審查時發現）：
   - **PR 7 要另一個寫入入口**：`StagingImport.write` 會先刪目標檔、建全新的庫、設定整列插入。設定頁的取代要在 `VACUUM INTO` 的副本上寫：不刪檔、先清掉要取代的表、設定只覆寫有值的欄位、合併帳號（design §6.3）。`verify` 的「匯入包沒寫的表必須是空的」改成收「保留下來的列數」。
   - **換上後才失敗的憑證**：需要重新登入的平台在寫暫存庫時就定了；`writeCredentials` 在換上之後才失敗的平台要補記進 `summary_json`。PR 4／PR 6 給 `LegacyImportsRepository` 加補記的方法。
