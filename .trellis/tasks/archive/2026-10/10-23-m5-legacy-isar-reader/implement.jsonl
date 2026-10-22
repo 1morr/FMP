@@ -1,0 +1,10 @@
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "舊資料匯入的決定與 M5 補充"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/design.md", "reason": "M5 的技術設計（本 PR 的節見 prd）"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/implement.md", "reason": "PR 順序、通用規則、地雷"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、雙向變異"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 不寫使用者資料"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/legacy-sources.md", "reason": "舊 Isar 的 collection、欄位、型別預設、舊 migration"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/isar-copy-spike.md", "reason": "以舊模型開副本的實測、鎖檔後綴、libisar 載入"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_layer_imports 與 lint 的雙向變異"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "原生建置、plugin registrant"}
+{"file": ".trellis/tasks/archive/2026-10/09-28-m1-skeleton-tracer/research/isar-sqlite3-coexistence.md", "reason": "M1 的 Isar 與 sqlite3 共存、16KB 檢查、workspace 外產生 g.dart"}

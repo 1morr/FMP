@@ -1,0 +1,1437 @@
+{
+  "collections": [
+    {
+      "name": "Account",
+      "id": -6646797162501847804,
+      "properties": [
+        {
+          "id": 0,
+          "name": "avatarUrl",
+          "type": "String"
+        },
+        {
+          "id": 1,
+          "name": "isLoggedIn",
+          "type": "Bool"
+        },
+        {
+          "id": 2,
+          "name": "isVip",
+          "type": "Bool"
+        },
+        {
+          "id": 3,
+          "name": "lastRefreshed",
+          "type": "DateTime"
+        },
+        {
+          "id": 4,
+          "name": "loginAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 5,
+          "name": "platform",
+          "type": "String"
+        },
+        {
+          "id": 6,
+          "name": "sessionExpired",
+          "type": "Bool"
+        },
+        {
+          "id": 7,
+          "name": "userId",
+          "type": "String"
+        },
+        {
+          "id": 8,
+          "name": "userName",
+          "type": "String"
+        }
+      ],
+      "idName": "id",
+      "indexes": [],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "DownloadTask",
+      "id": -8326932930248620171,
+      "properties": [
+        {
+          "id": 0,
+          "name": "completedAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 1,
+          "name": "createdAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 2,
+          "name": "downloadedBytes",
+          "type": "Long"
+        },
+        {
+          "id": 3,
+          "name": "errorMessage",
+          "type": "String"
+        },
+        {
+          "id": 4,
+          "name": "playlistId",
+          "type": "Long"
+        },
+        {
+          "id": 5,
+          "name": "playlistName",
+          "type": "String"
+        },
+        {
+          "id": 6,
+          "name": "priority",
+          "type": "Long"
+        },
+        {
+          "id": 7,
+          "name": "progress",
+          "type": "Double"
+        },
+        {
+          "id": 8,
+          "name": "savePath",
+          "type": "String"
+        },
+        {
+          "id": 9,
+          "name": "status",
+          "type": "String",
+          "enumMap": {
+            "pending": "pending",
+            "downloading": "downloading",
+            "paused": "paused",
+            "completed": "completed",
+            "failed": "failed"
+          }
+        },
+        {
+          "id": 10,
+          "name": "tempFilePath",
+          "type": "String"
+        },
+        {
+          "id": 11,
+          "name": "totalBytes",
+          "type": "Long"
+        },
+        {
+          "id": 12,
+          "name": "trackId",
+          "type": "Long"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": -6477851841645083544,
+          "name": "priority",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "priority",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        {
+          "id": -1769552667777144663,
+          "name": "savePath",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "savePath",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": -107785170620420283,
+          "name": "status",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "status",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": -8614467705999066844,
+          "name": "trackId",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "trackId",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "LyricsMatch",
+      "id": -8859306538472564077,
+      "properties": [
+        {
+          "id": 0,
+          "name": "externalId",
+          "type": "String"
+        },
+        {
+          "id": 1,
+          "name": "lyricsSource",
+          "type": "String"
+        },
+        {
+          "id": 2,
+          "name": "matchedAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 3,
+          "name": "offsetMs",
+          "type": "Long"
+        },
+        {
+          "id": 4,
+          "name": "trackUniqueKey",
+          "type": "String"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": -1430557820884415850,
+          "name": "trackUniqueKey",
+          "unique": true,
+          "replace": true,
+          "properties": [
+            {
+              "name": "trackUniqueKey",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "LyricsTitleParseCache",
+      "id": 2186950417259062788,
+      "properties": [
+        {
+          "id": 0,
+          "name": "confidence",
+          "type": "Double"
+        },
+        {
+          "id": 1,
+          "name": "createdAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 2,
+          "name": "model",
+          "type": "String"
+        },
+        {
+          "id": 3,
+          "name": "parsedArtistName",
+          "type": "String"
+        },
+        {
+          "id": 4,
+          "name": "parsedTrackName",
+          "type": "String"
+        },
+        {
+          "id": 5,
+          "name": "provider",
+          "type": "String"
+        },
+        {
+          "id": 6,
+          "name": "sourceType",
+          "type": "String"
+        },
+        {
+          "id": 7,
+          "name": "trackUniqueKey",
+          "type": "String"
+        },
+        {
+          "id": 8,
+          "name": "updatedAt",
+          "type": "DateTime"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": -1430557820884415850,
+          "name": "trackUniqueKey",
+          "unique": true,
+          "replace": true,
+          "properties": [
+            {
+              "name": "trackUniqueKey",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "PlayHistory",
+      "id": 6118132194974220027,
+      "properties": [
+        {
+          "id": 0,
+          "name": "artist",
+          "type": "String"
+        },
+        {
+          "id": 1,
+          "name": "cid",
+          "type": "Long"
+        },
+        {
+          "id": 2,
+          "name": "durationMs",
+          "type": "Long"
+        },
+        {
+          "id": 3,
+          "name": "playedAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 4,
+          "name": "sourceId",
+          "type": "String"
+        },
+        {
+          "id": 5,
+          "name": "sourceType",
+          "type": "String"
+        },
+        {
+          "id": 6,
+          "name": "thumbnailUrl",
+          "type": "String"
+        },
+        {
+          "id": 7,
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "id": 8,
+          "name": "trackKey",
+          "type": "String"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": -3711549563919110219,
+          "name": "playedAt",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "playedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        {
+          "id": 2155220942429093580,
+          "name": "sourceId",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": 5365578901051110922,
+          "name": "sourceType",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": 994899472545006434,
+          "name": "trackKey",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "trackKey",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "PlayQueue",
+      "id": -2727102832055268615,
+      "properties": [
+        {
+          "id": 0,
+          "name": "currentIndex",
+          "type": "Long"
+        },
+        {
+          "id": 1,
+          "name": "currentTrackId",
+          "type": "Long"
+        },
+        {
+          "id": 2,
+          "name": "hasNext",
+          "type": "Bool"
+        },
+        {
+          "id": 3,
+          "name": "hasPrevious",
+          "type": "Bool"
+        },
+        {
+          "id": 4,
+          "name": "isEmpty",
+          "type": "Bool"
+        },
+        {
+          "id": 5,
+          "name": "isMixMode",
+          "type": "Bool"
+        },
+        {
+          "id": 6,
+          "name": "isNotEmpty",
+          "type": "Bool"
+        },
+        {
+          "id": 7,
+          "name": "isShuffleEnabled",
+          "type": "Bool"
+        },
+        {
+          "id": 8,
+          "name": "lastPositionMs",
+          "type": "Long"
+        },
+        {
+          "id": 9,
+          "name": "lastUpdated",
+          "type": "DateTime"
+        },
+        {
+          "id": 10,
+          "name": "lastVolume",
+          "type": "Double"
+        },
+        {
+          "id": 11,
+          "name": "length",
+          "type": "Long"
+        },
+        {
+          "id": 12,
+          "name": "loopMode",
+          "type": "String",
+          "enumMap": {
+            "none": "none",
+            "all": "all",
+            "one": "one"
+          }
+        },
+        {
+          "id": 13,
+          "name": "mixPlaylistId",
+          "type": "String"
+        },
+        {
+          "id": 14,
+          "name": "mixSeedVideoId",
+          "type": "String"
+        },
+        {
+          "id": 15,
+          "name": "mixTitle",
+          "type": "String"
+        },
+        {
+          "id": 16,
+          "name": "originalOrder",
+          "type": "LongList"
+        },
+        {
+          "id": 17,
+          "name": "trackIds",
+          "type": "LongList"
+        }
+      ],
+      "idName": "id",
+      "indexes": [],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "Playlist",
+      "id": 4190497698144499986,
+      "properties": [
+        {
+          "id": 0,
+          "name": "coverUrl",
+          "type": "String"
+        },
+        {
+          "id": 1,
+          "name": "createdAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 2,
+          "name": "description",
+          "type": "String"
+        },
+        {
+          "id": 3,
+          "name": "hasCustomCover",
+          "type": "Bool"
+        },
+        {
+          "id": 4,
+          "name": "importSourceType",
+          "type": "String"
+        },
+        {
+          "id": 5,
+          "name": "isImported",
+          "type": "Bool"
+        },
+        {
+          "id": 6,
+          "name": "isMix",
+          "type": "Bool"
+        },
+        {
+          "id": 7,
+          "name": "lastRefreshed",
+          "type": "DateTime"
+        },
+        {
+          "id": 8,
+          "name": "mixPlaylistId",
+          "type": "String"
+        },
+        {
+          "id": 9,
+          "name": "mixSeedVideoId",
+          "type": "String"
+        },
+        {
+          "id": 10,
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "id": 11,
+          "name": "needsRefresh",
+          "type": "Bool"
+        },
+        {
+          "id": 12,
+          "name": "notifyOnUpdate",
+          "type": "Bool"
+        },
+        {
+          "id": 13,
+          "name": "ownerName",
+          "type": "String"
+        },
+        {
+          "id": 14,
+          "name": "ownerUserId",
+          "type": "String"
+        },
+        {
+          "id": 15,
+          "name": "refreshIntervalHours",
+          "type": "Long"
+        },
+        {
+          "id": 16,
+          "name": "sortOrder",
+          "type": "Long"
+        },
+        {
+          "id": 17,
+          "name": "sourceUrl",
+          "type": "String"
+        },
+        {
+          "id": 18,
+          "name": "trackCount",
+          "type": "Long"
+        },
+        {
+          "id": 19,
+          "name": "trackIds",
+          "type": "LongList"
+        },
+        {
+          "id": 20,
+          "name": "updatedAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 21,
+          "name": "useAuthForRefresh",
+          "type": "Bool"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": 879695947855722453,
+          "name": "name",
+          "unique": true,
+          "replace": false,
+          "properties": [
+            {
+              "name": "name",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": -1119549396205841918,
+          "name": "sortOrder",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sortOrder",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "RadioStation",
+      "id": -8785357385024028296,
+      "properties": [
+        {
+          "id": 0,
+          "name": "createdAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 1,
+          "name": "hostAvatarUrl",
+          "type": "String"
+        },
+        {
+          "id": 2,
+          "name": "hostName",
+          "type": "String"
+        },
+        {
+          "id": 3,
+          "name": "hostUid",
+          "type": "Long"
+        },
+        {
+          "id": 4,
+          "name": "isFavorite",
+          "type": "Bool"
+        },
+        {
+          "id": 5,
+          "name": "lastPlayedAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 6,
+          "name": "sortOrder",
+          "type": "Long"
+        },
+        {
+          "id": 7,
+          "name": "sourceId",
+          "type": "String"
+        },
+        {
+          "id": 8,
+          "name": "sourceType",
+          "type": "String"
+        },
+        {
+          "id": 9,
+          "name": "thumbnailUrl",
+          "type": "String"
+        },
+        {
+          "id": 10,
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "id": 11,
+          "name": "uniqueKey",
+          "type": "String"
+        },
+        {
+          "id": 12,
+          "name": "url",
+          "type": "String"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": 5742774614603939776,
+          "name": "isFavorite",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isFavorite",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        {
+          "id": -1119549396205841918,
+          "name": "sortOrder",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sortOrder",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        {
+          "id": 2155220942429093580,
+          "name": "sourceId",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": 5365578901051110922,
+          "name": "sourceType",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": -5756857009679432345,
+          "name": "url",
+          "unique": true,
+          "replace": false,
+          "properties": [
+            {
+              "name": "url",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "SearchHistory",
+      "id": -4204570823138025228,
+      "properties": [
+        {
+          "id": 0,
+          "name": "query",
+          "type": "String"
+        },
+        {
+          "id": 1,
+          "name": "timestamp",
+          "type": "DateTime"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": -3238105102146786367,
+          "name": "query",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "query",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": 1852253767416892198,
+          "name": "timestamp",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "timestamp",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": []
+    },
+    {
+      "name": "Settings",
+      "id": -8656046621518759136,
+      "properties": [
+        {
+          "id": 0,
+          "name": "allowPlainLyricsAutoMatch",
+          "type": "Bool"
+        },
+        {
+          "id": 1,
+          "name": "audioFormatPriority",
+          "type": "String"
+        },
+        {
+          "id": 2,
+          "name": "audioQualityLevelIndex",
+          "type": "Long"
+        },
+        {
+          "id": 3,
+          "name": "autoMatchLyrics",
+          "type": "Bool"
+        },
+        {
+          "id": 4,
+          "name": "autoScrollToCurrentTrack",
+          "type": "Bool"
+        },
+        {
+          "id": 5,
+          "name": "bilibiliStreamPriority",
+          "type": "String"
+        },
+        {
+          "id": 6,
+          "name": "customDownloadDir",
+          "type": "String"
+        },
+        {
+          "id": 7,
+          "name": "detailPanelExpanded",
+          "type": "Bool"
+        },
+        {
+          "id": 8,
+          "name": "detailPanelWidth",
+          "type": "Double"
+        },
+        {
+          "id": 9,
+          "name": "disabledHomeRankingSources",
+          "type": "String"
+        },
+        {
+          "id": 10,
+          "name": "disabledLyricsSources",
+          "type": "String"
+        },
+        {
+          "id": 11,
+          "name": "downloadImageOptionIndex",
+          "type": "Long"
+        },
+        {
+          "id": 12,
+          "name": "enableGlobalHotkeys",
+          "type": "Bool"
+        },
+        {
+          "id": 13,
+          "name": "fontFamily",
+          "type": "String"
+        },
+        {
+          "id": 14,
+          "name": "homeRankingSourcePriority",
+          "type": "String"
+        },
+        {
+          "id": 15,
+          "name": "hotkeyConfig",
+          "type": "String"
+        },
+        {
+          "id": 16,
+          "name": "launchAtStartup",
+          "type": "Bool"
+        },
+        {
+          "id": 17,
+          "name": "launchMinimized",
+          "type": "Bool"
+        },
+        {
+          "id": 18,
+          "name": "locale",
+          "type": "String"
+        },
+        {
+          "id": 19,
+          "name": "lyricsAiEndpoint",
+          "type": "String"
+        },
+        {
+          "id": 20,
+          "name": "lyricsAiModel",
+          "type": "String"
+        },
+        {
+          "id": 21,
+          "name": "lyricsAiTimeoutSeconds",
+          "type": "Long"
+        },
+        {
+          "id": 22,
+          "name": "lyricsAiTitleParsingModeIndex",
+          "type": "Long"
+        },
+        {
+          "id": 23,
+          "name": "lyricsDisplayModeIndex",
+          "type": "Long"
+        },
+        {
+          "id": 24,
+          "name": "lyricsSourcePriority",
+          "type": "String"
+        },
+        {
+          "id": 25,
+          "name": "lyricsWindowInactiveTextOpacity",
+          "type": "Double"
+        },
+        {
+          "id": 26,
+          "name": "lyricsWindowOutlineColor",
+          "type": "Long"
+        },
+        {
+          "id": 27,
+          "name": "lyricsWindowOutlineEnabled",
+          "type": "Bool"
+        },
+        {
+          "id": 28,
+          "name": "lyricsWindowOutlineWidth",
+          "type": "Double"
+        },
+        {
+          "id": 29,
+          "name": "lyricsWindowSecondaryTextColor",
+          "type": "Long"
+        },
+        {
+          "id": 30,
+          "name": "lyricsWindowShadowBlurRadius",
+          "type": "Double"
+        },
+        {
+          "id": 31,
+          "name": "lyricsWindowShadowColor",
+          "type": "Long"
+        },
+        {
+          "id": 32,
+          "name": "lyricsWindowShadowEnabled",
+          "type": "Bool"
+        },
+        {
+          "id": 33,
+          "name": "lyricsWindowShadowOffsetX",
+          "type": "Double"
+        },
+        {
+          "id": 34,
+          "name": "lyricsWindowShadowOffsetY",
+          "type": "Double"
+        },
+        {
+          "id": 35,
+          "name": "lyricsWindowTextColor",
+          "type": "Long"
+        },
+        {
+          "id": 36,
+          "name": "maxCacheSizeMB",
+          "type": "Long"
+        },
+        {
+          "id": 37,
+          "name": "maxConcurrentDownloads",
+          "type": "Long"
+        },
+        {
+          "id": 38,
+          "name": "maxLyricsCacheFiles",
+          "type": "Long"
+        },
+        {
+          "id": 39,
+          "name": "minimizeToTrayOnClose",
+          "type": "Bool"
+        },
+        {
+          "id": 40,
+          "name": "neteaseStreamPriority",
+          "type": "String"
+        },
+        {
+          "id": 41,
+          "name": "playHistoryLimit",
+          "type": "Long"
+        },
+        {
+          "id": 42,
+          "name": "preferredAudioDeviceId",
+          "type": "String"
+        },
+        {
+          "id": 43,
+          "name": "preferredAudioDeviceName",
+          "type": "String"
+        },
+        {
+          "id": 44,
+          "name": "primaryColor",
+          "type": "Long"
+        },
+        {
+          "id": 45,
+          "name": "radioRefreshIntervalMinutes",
+          "type": "Long"
+        },
+        {
+          "id": 46,
+          "name": "railExpanded",
+          "type": "Bool"
+        },
+        {
+          "id": 47,
+          "name": "rankingRefreshIntervalMinutes",
+          "type": "Long"
+        },
+        {
+          "id": 48,
+          "name": "rememberPlaybackPosition",
+          "type": "Bool"
+        },
+        {
+          "id": 49,
+          "name": "restartRewindSeconds",
+          "type": "Long"
+        },
+        {
+          "id": 50,
+          "name": "schemaVersion",
+          "type": "Long"
+        },
+        {
+          "id": 51,
+          "name": "sourceSettings",
+          "type": "ObjectList",
+          "target": "SourceSettingsEntry"
+        },
+        {
+          "id": 52,
+          "name": "tempPlayRewindSeconds",
+          "type": "Long"
+        },
+        {
+          "id": 53,
+          "name": "themeModeIndex",
+          "type": "Long"
+        },
+        {
+          "id": 54,
+          "name": "useBilibiliAuthForPlay",
+          "type": "Bool"
+        },
+        {
+          "id": 55,
+          "name": "useNeteaseAuthForPlay",
+          "type": "Bool"
+        },
+        {
+          "id": 56,
+          "name": "useYoutubeAuthForPlay",
+          "type": "Bool"
+        },
+        {
+          "id": 57,
+          "name": "youtubeStreamPriority",
+          "type": "String"
+        }
+      ],
+      "idName": "id",
+      "indexes": [],
+      "links": [],
+      "embedded": [
+        {
+          "name": "SourceSettingsEntry",
+          "id": -6033692620943448784,
+          "properties": [
+            {
+              "id": 0,
+              "name": "sourceId",
+              "type": "String"
+            },
+            {
+              "id": 1,
+              "name": "streamPriority",
+              "type": "String"
+            },
+            {
+              "id": 2,
+              "name": "useAuthForPlay",
+              "type": "Bool"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Track",
+      "id": 6244076704169336260,
+      "properties": [
+        {
+          "id": 0,
+          "name": "artist",
+          "type": "String"
+        },
+        {
+          "id": 1,
+          "name": "audioUrl",
+          "type": "String"
+        },
+        {
+          "id": 2,
+          "name": "audioUrlExpiry",
+          "type": "DateTime"
+        },
+        {
+          "id": 3,
+          "name": "bilibiliAid",
+          "type": "Long"
+        },
+        {
+          "id": 4,
+          "name": "channelId",
+          "type": "String"
+        },
+        {
+          "id": 5,
+          "name": "cid",
+          "type": "Long"
+        },
+        {
+          "id": 6,
+          "name": "createdAt",
+          "type": "DateTime"
+        },
+        {
+          "id": 7,
+          "name": "durationMs",
+          "type": "Long"
+        },
+        {
+          "id": 8,
+          "name": "formattedDuration",
+          "type": "String"
+        },
+        {
+          "id": 9,
+          "name": "groupKey",
+          "type": "String"
+        },
+        {
+          "id": 10,
+          "name": "hasValidAudioUrl",
+          "type": "Bool"
+        },
+        {
+          "id": 11,
+          "name": "isAvailable",
+          "type": "Bool"
+        },
+        {
+          "id": 12,
+          "name": "isPartOfMultiPage",
+          "type": "Bool"
+        },
+        {
+          "id": 13,
+          "name": "isVip",
+          "type": "Bool"
+        },
+        {
+          "id": 14,
+          "name": "originalSongId",
+          "type": "String"
+        },
+        {
+          "id": 15,
+          "name": "originalSource",
+          "type": "String"
+        },
+        {
+          "id": 16,
+          "name": "ownerId",
+          "type": "Long"
+        },
+        {
+          "id": 17,
+          "name": "pageCount",
+          "type": "Long"
+        },
+        {
+          "id": 18,
+          "name": "pageNum",
+          "type": "Long"
+        },
+        {
+          "id": 19,
+          "name": "parentTitle",
+          "type": "String"
+        },
+        {
+          "id": 20,
+          "name": "playlistInfo",
+          "type": "ObjectList",
+          "target": "PlaylistDownloadInfo"
+        },
+        {
+          "id": 21,
+          "name": "sourceId",
+          "type": "String"
+        },
+        {
+          "id": 22,
+          "name": "sourcePageKey",
+          "type": "String"
+        },
+        {
+          "id": 23,
+          "name": "sourceType",
+          "type": "String"
+        },
+        {
+          "id": 24,
+          "name": "thumbnailUrl",
+          "type": "String"
+        },
+        {
+          "id": 25,
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "id": 26,
+          "name": "unavailableReason",
+          "type": "String"
+        },
+        {
+          "id": 27,
+          "name": "uniqueKey",
+          "type": "String"
+        },
+        {
+          "id": 28,
+          "name": "updatedAt",
+          "type": "DateTime"
+        }
+      ],
+      "idName": "id",
+      "indexes": [
+        {
+          "id": 2203098626925536187,
+          "name": "cid",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "cid",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        {
+          "id": 2155220942429093580,
+          "name": "sourceId",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": -8595702893458351278,
+          "name": "sourcePageKey_cid",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourcePageKey",
+              "type": "hash",
+              "caseSensitive": true
+            },
+            {
+              "name": "cid",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        {
+          "id": 5365578901051110922,
+          "name": "sourceType",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        {
+          "id": -6238191080293565125,
+          "name": "updatedAt",
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      ],
+      "links": [],
+      "embedded": [
+        {
+          "name": "PlaylistDownloadInfo",
+          "id": 8137279379628381441,
+          "properties": [
+            {
+              "id": 0,
+              "name": "downloadPath",
+              "type": "String"
+            },
+            {
+              "id": 1,
+              "name": "isDownloaded",
+              "type": "Bool"
+            },
+            {
+              "id": 2,
+              "name": "playlistId",
+              "type": "Long"
+            },
+            {
+              "id": 3,
+              "name": "playlistName",
+              "type": "String"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

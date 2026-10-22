@@ -14,3 +14,9 @@ targets:
           databases:
             app_database: lib/data/database/app_database.dart
             cache_database: lib/data/cache/cache_database.dart
+      # 舊 Isar 模型的 `*.g.dart` 在 workspace 外產生後提交（lib/legacy_import/isar/README.md）；
+      # workspace 沒有 isar 的產生器，不排除的話 combining builder 會把它們當成自己的輸出刪掉。
+      source_gen:combining_builder:
+        generate_for:
+          exclude:
+            - lib/legacy_import/isar/**

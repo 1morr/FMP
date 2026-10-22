@@ -12,6 +12,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - build/**
+    # 舊版 Isar 模型的產生檔，凍結不再產生（lib/legacy_import/isar/README.md）。
+    - lib/legacy_import/isar/*.g.dart
     - android/**
     - ios/**
     - windows/**
