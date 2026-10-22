@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/app/data/index.md", "reason": "schema 改動的完整流程是否走完；暫存庫與換檔"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "lint 表改動的雙向變異與 sentinel"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試不連網、閘門與變異案例"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log、診斷檔、PR 描述不含個人資料與憑證值"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/secure-storage-compat.md", "reason": "審查時檢查舊憑證不會被刪或改寫"}

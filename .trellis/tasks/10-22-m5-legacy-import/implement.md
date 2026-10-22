@@ -1,0 +1,144 @@
+# M5 執行計畫
+
+「design §n」指本任務的 `design.md`；「§11 第 n 條」指 design 的確認清單；「決定 n」指 `prd.md` 的擁有者決定。
+
+## 通用規則（每個 PR 子任務）
+
+- **開工**：從最新的 `main` 開分支與 worktree；以 `task.py create "<標題>" --slug <slug> --parent .trellis/tasks/10-22-m5-legacy-import --package app --no-start` 建子任務；prd 只寫做什麼與驗收，在已核准的範圍內直接做，遇到未定的事才問。
+- **合併條件**：`app/` 可編譯、`flutter test` 全綠；CI 彙總 job `CI Result` 通過；PR 描述附 review 指南。
+- **實機驗證**（ADR 0027 與 2026-10-13 的修訂）：使用者看得到的 PR（6、7）照 `verify-on-device` 在 Android 模擬器驗；改到平台各自實作的（PR 4 的 Windows DPAPI、PR 6 的找舊資料與檔案對話框、PR 7 的刪除）另驗 Windows。預設用**合成的舊資料**（PR 1 的產生工具），不連網；回報寫明平台與模式。
+- **擁有者的真實資料**（§11 第 10 條）：
+  - 只在 PR 1 的實開檢查與驗收時用；
+  - 一律先複製到 `<暫存目錄>`，用完就刪；
+  - 只看筆數與略過理由，不輸出歌單名稱、曲目、帳號名稱；憑證只寫「有／沒有／讀不出」；
+  - 不碰 `Documents\FMP`、`%APPDATA%\com.personal\fmp` 的原檔（只讀來複製），不碰模擬器上的 `com.personal.fmp`。
+- **改 schema**：PR 2 的 v19 照 `.trellis/spec/app/data/index.md` § 改 schema 的完整流程。
+- **lint**：PR 1（`isar_community` 的使用者）、PR 4（`win32`）、PR 6（`lib/main.dart` 的例外）照 `.trellis/spec/app/lints/index.md` 寫雙向變異案例，並在 `tool/lint_sentinel.dart` 加違規行。
+- **收尾**：子任務 `finish` 與 `archive --no-commit --skip-branch-validation`；手動 commit；以 merge commit 合併。
+- **文件**：每個 PR 更新 `app/AGENTS.md` 中自己那一層（新節「舊資料匯入」在 PR 1 建）：只寫查不到的契約與有閘門的規則，每條寫出它的閘門。
+- **套件版本**：加依賴時到 pub.dev API 核對一次；`isar_community`、`isar_community_flutter_libs` 固定 3.3.2（舊庫格式），`win32` 跟 lock 檔現有的版本相容的 stable。
+- **子代理模型**（全域規則）：
+  - 照計畫寫程式與測試一律 sonnet；
+  - `trellis-check` 審查一律 opus（每個 PR 都要它試著攻破：舊檔有沒有被寫、中途失敗是否留下半套、憑證有沒有進 log）；
+  - 研究代理 sonnet；
+  - 交給 sonnet 的 prompt 附完整計畫並寫明：遇到計畫沒涵蓋的設計決定就停下回報。
+
+## 進度與交接（compact 後從這裡接）
+
+- **狀態**（2026-10-23）：擁有者核准 design §11 的 12 條與 §10 的 ADR 改動（「照建議」）；PR 0 進行中。
+- **待擁有者回覆**：無。
+- **下一步**：PR 0 合併後，PR 1 與 PR 2 平行。
+- **每個 PR 的固定流程**：分支 → `task.py create`（`--parent .trellis/tasks/10-22-m5-legacy-import`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0010、相關的 `.trellis/spec/app/<layer>/index.md`、本任務的 research）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check` → 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔 → 分開 commit → `finish`、`archive` → push、`gh pr create` → 等 CI → `gh pr merge --merge`。
+- **地雷**（之前里程碑帶來的，仍適用）：
+  - 整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
+  - 建置後 `linux/`、`macos/`、`windows/` 的 plugin registrant 只有換行差異時還原。
+  - 文件引用子任務的研究檔時寫 archive 後的路徑。
+- **M5 新的地雷**（預期）：
+  - `isar_community_flutter_libs` 會加進 Android、Windows 的原生建置（plugin registrant 改變是預期的，要提交）；Linux、macOS、iOS 的建置 job 要確認它不擋（它有 linux、macos、ios 目錄）。
+  - dev 的資料目錄在 Windows `flutter run` 時是建置產物旁的 `userdata-dev`；首次啟動匯入要先讓 `fmp.db` 不存在。
+
+## 順序與相依
+
+| PR | 內容 | 依賴 |
+|---|---|---|
+| 0 | 規劃檔、ADR 補充與更正、milestones | — |
+| 1 | 舊 Isar 模型與讀取器、合成舊庫的產生工具 | 0 |
+| 2 | 匯入包、暫存庫寫入與驗證、`legacy_imports`（v19） | 0 |
+| 3 | 轉換器：曲目、歌單（含網址辨識）、佇列、歷史、電台、外部來源 | 1、2 |
+| 4 | 舊憑證：Android 實測、平台讀取器、帳號與憑證的轉換 | 2、3 |
+| 5 | 設定的轉換 | 3 |
+| 6 | 啟動流程：找舊資料、dev 入口、進度與失敗頁、換上、結果對話框 | 3、4、5 |
+| 7 | 設定頁：從舊版匯入（資料庫、JSON 備份）、`replaceWithImport` | 6 |
+| 驗收 | 真實資料副本、兩平台端到端 | 7 |
+
+1 與 2 可以平行；4 與 5 可以平行。
+
+## 0. 規劃檔、ADR 與文件更正
+
+- 本任務的 prd、design、implement、research 提交。
+- design §10 標「PR 0」的：ADR 0010 補充與後果、ADR 0012 補充、ADR 0029 更正、ADR 0034「之後要注意」。
+- `milestones.md`：M5 列「進行中」、範圍照 prd。
+- 模型：主對話（文件，照 design 寫）。
+
+## 1. 舊 Isar 模型與讀取器（design §2、§4.1、§9）
+
+- 在 workspace 外的暫存 package（analyzer < 11）以 `isar_community_generator` 3.3.2 產生舊模型的 `*.g.dart`，複製進 `app/lib/legacy_import/isar/`；`README.md` 記產生步驟。
+- `isar_community`、`isar_community_flutter_libs` 3.3.2 進 `app/pubspec.yaml`；`test/flutter_test_config.dart` 載入 `libisar`。
+- `LegacySnapshot`（純值，全部 11 個 collection，含 M6–M8 會用的欄位）、`LegacyDatabaseReader`（複製 → 開副本 → 讀 → 關 → 刪工作目錄）。
+- `test/legacy_import/fixtures/legacy_schema.json`（由舊專案的 `*.g.dart` 產生一次）與凍結閘門；合成舊庫的產生工具（測試內以舊模型寫；也給實機驗證用：`tool/legacy_fixture.dart` 寫一份合成的 `fmp_database.isar` 到指定資料夾）。
+- `tool/legacy_counts.dart`：讀一份舊庫副本、只印每個 collection 的筆數（驗收用）。
+- 規劃時的探針已以擁有者舊庫的副本開成功（`research/isar-copy-spike.md`，探針程式在 session 暫存目錄、不提交）；PR 1 以合成舊庫為主，`legacy_counts` 完成後以同樣的做法（複製、讀、刪副本）對一次筆數。
+- Android 建置：`flutter build apk --flavor dev --debug`，以官方檢查確認 `libisar.so` 的 16KB 對齊（ADR 0010「之後要注意」）。
+- 模型：sonnet（照計畫）。
+
+## 2. 匯入包、暫存庫寫入與驗證（design §6）
+
+- `lib/data/import/`：`ImportBundle` 的值型別、`StagingImport.write`／`verify`（首次啟動那一種：全新的庫）、`LegacyImportsRepository`。
+- schema v19：`legacy_imports`、`legacy_playlist_ids`；兩張都加進 `backupExcludedTables`。
+- 測試：design §9 的「暫存庫」「中途失敗」（寫入與驗證兩步）；一萬筆歷史與一萬首佇列的寫入時間記進 PR 描述。
+- 模型：sonnet。
+
+## 3. 轉換器：音樂庫（design §5.1–§5.7）
+
+- `LegacyConverter` 的曲目、歌單（`remote_playlist_url.dart` 的網址辨識）、佇列、歷史、電台、`track_origins`；`SkipReason` 與摘要。
+- 先讀 `fmp-plugins` 的 bilibili 1.10.0、youtube 1.6.0、netease 1.7.0 的 `playlistFromUrl` 與單元測試，寫表格測試（註明版本）；讀 qqmusic、netease 的 `sourceId` 格式，決定 §5.7 的比對規則。
+- `fmp-plugins` 的 README 加「宿主的依賴」一節（`playlistFromUrl` 的輸出被 FMP 的舊資料匯入複製）：該 repo 的 PR，照已核可計畫直接做。
+- 測試：design §9 的「轉換器」（音樂庫部分）。
+- 模型：sonnet。
+
+## 4. 舊憑證與帳號（design §0.1、§4.3、§5.8）
+
+- Android 的相容性已在規劃時實測（`research/android-credentials-compat.md`）。
+- `lib/platform/legacy_data/legacy_credential_reader.dart`：Windows（`win32` 的 `CryptUnprotectData`，解密以函式注入，可指定路徑，唯讀）、Android（先看舊 prefs 檔在不在，再以 11.2.0 舊設定實例讀）；`win32`、`ffi` 加進 lint 的 `platformPackages`。
+- `integration_test/legacy_credentials_test.dart`（以 `CryptProtectData` 加密合成 JSON → 讀回），加進 CI 的 Windows 整合測試 job（新的一步）。
+- `CredentialStore.writeImported`（design §5.8）；轉換器的帳號與憑證；`writeCredentials` 的實作。
+- adapter 的 Windows docstring 更正。
+- 測試：design §9 的「舊憑證（Windows）」「憑證的往返」、轉換器的帳號部分。
+- 模型：sonnet。
+
+## 5. 設定的轉換（design §5.9）
+
+- 每一列對照、「只寫改過的值」、選項換算、`browse_as_logged_in` 例外、不匯入清單進摘要。
+- 測試：每一列一例；值域外的原始值（`minLong`、NaN）當沒設定。
+- 模型：sonnet。
+
+## 6. 啟動流程（design §3.1、§7.1–§7.3、§8.1）
+
+- `LegacyDataLocator`（Windows、Android 的兩個位置；dev 只看參數）；`--fmp-legacy-dir` 與 `FMP_LEGACY_DIR`（dev only，拒絕真實舊位置）。
+- `LegacyImport` 介面（`lib/app/`）與實作（`lib/legacy_import/`）；`lib/main.dart` 的分支與 lint 例外。
+- `LegacyImportApp`（進度、失敗頁三個按鈕）、`DatabaseErrorApp` 的重試與匯出診斷、結果對話框、殘留的暫存檔與工作目錄在啟動時清掉。
+- verify-on-device 的 `references/runtime-state.md` 加 `--fmp-legacy-dir` 的帶法。
+- 實機（重播：合成舊庫）：Android 與 Windows 各一次首次啟動匯入；一次失敗（給一份壞的 `fmp_database.isar`）→ 三個按鈕各試一次。
+- 模型：sonnet（版面沿用既有元件，design §7 已定）。
+
+## 7. 設定頁的從舊版匯入（design §3.2、§4.2、§6.3、§7.4）
+
+- `LegacyBackupReader`（JSON v1–v5）。
+- `DatabaseBackups.replaceWithImport`：副本、取代、帳號合併、驗證；把 `restoreStaged` 的換檔抽成共用的私有方法（還原的既有測試要照舊通過）。
+- 設定頁的「從舊版匯入…」、確認框、進度對話框、沒有紀錄時的提示。
+- 測試：design §9 的「JSON 備份」「設定頁的取代」「設定頁」。
+- 實機（合成舊庫與合成 JSON）：Android 兩種匯入各一次（先裝好 `fmp-test`，確認取代後插件還在）；Windows 一次（重啟是平台各自實作）。
+- 模型：sonnet。
+
+## M5 驗收（7 之後）
+
+照 design §8.2；證據寫進 `research/m5-acceptance.md`（只有筆數、略過理由、請求數）。
+
+- [ ] Windows：真實資料庫＋憑證檔副本，首次啟動匯入，筆數比對，三個平台各一次帳號資訊請求
+- [ ] Android 模擬器：真實資料庫副本，首次啟動匯入，筆數比對
+- [ ] 兩平台：失敗頁、設定頁兩種匯入（合成資料）
+- [ ] ADR 0010 §如何確認 與 design §9 的測試逐項對到
+- [ ] 副本刪除；`milestones.md` 更新；第二個驗收項留給擁有者
+
+## 留下的後續
+
+（實作時填）
+
+## 風險與回滾點
+
+見 design §12。回滾點：
+
+- PR 1、3、4、5 不接進啟動流程，單獨 revert 不影響使用者；PR 4 的 `CredentialStore.writeImported` 只是新增方法。
+- PR 2 加了 schema v19，合併後 revert 要另寫 v20 的 migration 刪表（design §12）。
+- PR 6 之後首次啟動會匯入，壞了可以 revert PR 6（資料目錄裡已匯入的 `fmp.db` 照常可用，舊檔沒被動過）。
+- PR 7 動到還原正在用的換檔程式碼，revert 時連同它一起回到原狀。

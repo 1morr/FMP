@@ -45,7 +45,8 @@
     "10-01-linux-platform",
     "10-01-m2-full-playback",
     "10-08-m3-sources-accounts-devtools",
-    "10-15-m4-library-sync"
+    "10-15-m4-library-sync",
+    "10-22-m5-legacy-import"
   ],
   "parent": null,
   "relatedFiles": [],
