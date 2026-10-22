@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-23-m5-import-staging"
+    "10-23-m5-import-staging",
+    "10-23-m5-legacy-isar-reader"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
