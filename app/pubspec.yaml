@@ -98,6 +98,11 @@ dependencies:
   # material_ui 的傳遞依賴；數字縮寫（ADR 0024 §決定 6）也用它。版本跟
   # material_ui 的限制走。
   intl: ^0.20.2
+  # 讀舊版（Isar）資料庫，M5 舊資料匯入用（ADR 0010）；只准在 lib/legacy_import/
+  # import（fmp_layer_imports）。釘死 3.3.2，不加 ^：要和舊 App 寫檔的核心同一個
+  # 格式（libmdbx），升版前先在合成舊庫上驗過（app/AGENTS.md § 舊資料匯入）。
+  isar_community: 3.3.2
+  isar_community_flutter_libs: 3.3.2
   just_audio: ^0.10.6
   # Flutter 3.47 起 Material 以獨立套件發佈，app/ 直接用它，不 import
   # package:flutter/material.dart（app/AGENTS.md § Material）。
