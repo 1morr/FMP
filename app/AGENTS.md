@@ -20,6 +20,7 @@
 | 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
+| 舊資料匯入（`lib/legacy_import/`、`isar_community*` 依賴） | 第一列，加 `flutter build apk --flavor dev --debug`（查 `libisar.so` 的 16KB 對齊，見 § 舊資料匯入）與 `flutter build windows --flavor dev` |
 | 插件安裝與清單、搜尋頁、播放控制器（`lib/plugins/install/`、`lib/plugins/plugin_registry.dart`、`lib/ui/search/`、`lib/playback/playback_controller.dart`、`lib/playback/playback_session.dart`） | 第一列，加 Windows 跑一次 `flutter test integration_test/install_search_play_test.dart -d windows`（CI 另在 Linux 跑） |
 
 - Windows 建置要有 `rustup`：`smtc_windows` 每次建置都從原始碼編 Rust（套件的 cargokit 沒有預編譯二進位）。
@@ -616,6 +617,47 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `flutter_cache_manager` 帶進 `sqflite`；App 不用它的預設索引，但不給 `cacheManager` 的
   `CachedNetworkImage` 會用 `DefaultCacheManager`（另一套索引與目錄、直接以 `http` 連線），
   所以 `CachedNetworkImage` 只在 `ArtworkImage` 用、而且一定給 cache manager（見「介面」）。
+
+## 舊資料匯入
+
+`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1）。目前只有讀舊 Isar 資料庫的部分（PR 1）；怎麼用它的流程、
+轉換器與寫入由之後的 PR 加進來，到時再補這一節。
+
+- **先複製再開副本，舊檔一個位元組都不動。** Isar 沒有唯讀模式：每次開啟都會建 lock 檔，也可能依 schema 差異
+  改寫檔案。`LegacyDatabaseReader.read(檔, 工作目錄根)` 複製到 `<根>/work-<UTC>/fmp_database.isar`（lock 檔不複製），
+  以實例名 `fmp_database`、完整 11 個 schema、`maxSizeMiB: 2048`、`inspector: false` 開副本，讀完關閉並刪整個工作目錄
+  （成功與失敗都刪）。失敗拋 `LegacyReadException`，帶步驟（`copy`／`open`／`read`），訊息只有步驟與原因的型別，
+  不含路徑。閘門：`test/legacy_import/legacy_database_reader_test.dart` 的 SHA-256／修改時間／目錄內容不變、壞檔與
+  缺檔不留工作目錄。
+- 讀取器只收路徑（找舊庫是 PR 6 的事）；log 經注入的 `LegacyReadLog` 只寫步驟與每個 collection 的筆數，不 import
+  `lib/core/logging/`，所以 `dart run tool/…` 跑得起來。閘門：同一個測試檔的 `logs only the steps…`。
+- **沒有設定列的副本當成讀取失敗**（`read` 步驟）：太小的檔（實測 100、4096 位元組）libmdbx 不報錯、當新庫開，讀出來全空；
+  舊 App 每次啟動都寫設定列（id 0），所以沒有設定列就不是可用的舊庫，不能當成「舊資料是空的」匯入。閘門：讀取器測試的
+  `a copy without a settings row fails at the read step`（含「工作目錄以外沒有多出檔案」）。
+- **舊 schema 已凍結。** `lib/legacy_import/isar/` 的模型自舊 `lib/data/models/` 複製，`*.g.dart` 提交且不再產生
+  （`isar_community_generator` 不進 workspace，analyzer 衝突；產生檔排除在 analyzer 之外，`dart format` 照常）。
+  `isar_community`、`isar_community_flutter_libs` 釘 `3.3.2`（不加 `^`，要和舊 App 寫檔的核心同一個格式）。
+  閘門：`test/legacy_import/legacy_schema_test.dart` 比對提交的 schema（collection 名、schema id、property 的 id／名稱／型別、
+  index、embedded）與 `fixtures/legacy_schema.json`（由舊專案的 `*.g.dart` 產生一次，做法在 `lib/legacy_import/isar/README.md`），
+  含改名、改型別、改 id、改 index 的變異案例與「鍵順序或 JSON 格式不同不會紅」。開庫傳的 `legacyIsarSchemas` 少一個
+  collection 也會紅（只傳一部分，Isar 可能刪掉沒傳的 collection 的資料）。
+- `LegacySnapshot` 是純值，不帶 Isar 型別；值照 Isar 讀到的原樣（缺欄的非空 `int` 是 `-9223372036854775808`、`double` 是 NaN、
+  `bool` 是 false），不在這裡清理。推導值（舊版沒標 `@ignore` 而被存下來的 getter）、過期的串流網址與
+  `LyricsTitleParseCache`（只數筆數）不讀。
+- **`schemaVersion < 4` 的設定在讀取器裡補做舊版的 migration 0→4 與 `repairSettingsInvariants`**
+  （`legacy_settings_migration.dart`，照舊 `database_migration.dart` 移植，就地改 snapshot 的設定）；`= 4` 的庫是舊 App
+  已經修好的值，不補。閘門：`legacy_settings_migration_test.dart`（v0、v1、v3 各一例，期望值由舊版程式逐步推演）與讀取器測試的
+  `a settings row below v4…`。
+- **測試怎麼載入 `libisar`**：`test/flutter_test_config.dart` 呼叫 `test/support/libisar.dart`，從
+  `.dart_tool/package_config.json` 找 `isar_community_flutter_libs`，以絕對路徑載入 `windows/libisar.dll`／
+  `linux/libisar.so`（`Isar.initializeIsarCore(libraries: {Abi…: 路徑})`，不下載），找不到就拋錯（同 QuickJS）。
+  App 本身不用手動載入：套件的 plugin 隨建置打包。
+- 合成舊庫：`test/support/legacy_database.dart`（全是編造資料）；`dart run tool/legacy_fixture.dart <資料夾>` 寫一份到
+  `fmp_database.isar`（給實機驗證）；`dart run tool/legacy_counts.dart <副本路徑>` 只印每個 collection 的筆數與
+  `schemaVersion`，不印內容（給真實舊庫的**副本**用，不要指向舊 App 正在用的檔案）。
+- Android 的 `libisar.so` 要 16KB 對齊（ADR 0010 後果）：`flutter build apk --flavor dev --debug` 後，
+  `zipalign -c -P 16 -v 4 <apk>` 與每個 64 位元 ABI 的 `libisar.so` LOAD 段 `p_align` ≥ 0x4000。**沒有自動閘門**，
+  升 `isar_community_flutter_libs` 時手動驗。
 
 ## Riverpod
 
