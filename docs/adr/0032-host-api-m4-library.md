@@ -8,7 +8,7 @@
 
 ADR 0014 §決定 4 列了 `importPlaylist`、`libraryRead`、`libraryWrite`、`charts` 四個能力，ADR 0028 定了「凍結前在 v1 內照同樣的方式加」，但四個能力都沒有 DTO、匯出與檢查案例（`fmp-plugin.d.ts` 與 `PluginCapability` 只有名稱）。M4 的歌單匯入與刷新（ADR 0019 §決定 2–5）、帳號頁的歌單與電台匯入（ADR 0031）、首頁排行（ADR 0016、0017）都要用它們。
 
-另外三件事也落在插件契約上（`.trellis/tasks/10-15-m4-library-sync/research/m4-decisions.md`）：
+另外三件事也落在插件契約上（`.trellis/tasks/archive/2026-10/10-15-m4-library-sync/research/m4-decisions.md`）：
 
 - **分 P 兩欄**：`TrackSummary` 沒有 `partIndex`、`parentTitle`，B 站收藏夾匯入時展開多 P 會以「最後寫入為準」清掉曲目的分 P 兩欄（M3 審查發現）。
 - **私人歌單的認證**：ADR 0012 §決定 2 把「讀收藏夾與私人歌單」列為 `required`、「歌單刷新」列為 `userPreference`，刷新一個收藏夾兩邊都算；照字面標 `required` 會讓未登入的人不能匯入公開收藏夾（舊版可以）。

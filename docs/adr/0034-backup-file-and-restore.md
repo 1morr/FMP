@@ -6,7 +6,7 @@
 
 ## 背景
 
-「備份」在文件裡有四種說法（`.trellis/tasks/10-15-m4-library-sync/research/m4-scope-digest.md` 矛盾 1）：
+「備份」在文件裡有四種說法（`.trellis/tasks/archive/2026-10/10-15-m4-library-sync/research/m4-scope-digest.md` 矛盾 1）：
 
 - ADR 0025 §決定 9 的更正（M3）：重設資料前以 `VACUUM INTO` 把資料庫複製到 `backups/fmp-<時間>.db`，「從備份還原」換回該檔並重啟，「M4 的 E16 匯出格式另定」。M3 的還原先清掉憑證與登入 WebView，還原後一律重新登入。
 - `milestones.md` 的「新格式的備份與還原」（E16，擁有者勾保留）；ADR 0010 的影響範圍列了「備份格式」，決定裡沒有定義。
