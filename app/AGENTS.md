@@ -656,7 +656,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `fmp_database.isar`（給實機驗證）；`dart run tool/legacy_counts.dart <副本路徑>` 只印每個 collection 的筆數與
   `schemaVersion`，不印內容（給真實舊庫的**副本**用，不要指向舊 App 正在用的檔案）。
 - **轉換器**（`legacy_converter.dart`，`LegacyConverter.convert(snapshot, source:, backupVersion:, now:)` → `ImportBundle`）純 Dart、沒有 I/O、不改 snapshot；
-  依序跑曲目鍵對照、歌單、佇列、歷史、電台、曲目、外部來源，帳號與設定之後各加一段（`accounts`、設定組目前都是空的）。
+  依序跑曲目鍵對照、歌單、佇列、歷史、電台、曲目、外部來源，設定段在 `legacy_settings_converter.dart`（見下），帳號之後另加一段。
   - **B 站單 P 去 cid。** `pageCount` ≤ 1，或 `pageCount` 空且 `pageNum` 空或 1 且 `parentTitle` 空，鍵就去掉舊版補上的 cid，兩段與三段的同一支影片併成一列；
     歌單、佇列、歷史經「舊鍵 → 新鍵」「舊 `Track.id` → 新鍵」的對照。規則照 bilibili 1.10.0 的 `itemsOfMedia`（`pages <= 1` 不帶 `cid`、`partIndex`、`parentTitle`）。
     `part_index`、`parent_title` 只給去 cid 之後還帶 cid 的曲目。歷史的三段鍵：`Track` 判定同一支影片是單 P 時併進兩段鍵；`Track` 裡完全沒有這支影片才照原樣（記 `unverifiedPart`）。播放狀態在佇列是空的時也寫（音量、循環模式照舊版恢復），只有沒有佇列列或整列是型別預設時不寫。
@@ -668,6 +668,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `summary_json` 不含曲名、歌單名、網址。
   - 播放歷史的上限換算（`play_history_limit.dart`）：不小於舊值的最小選項，上限 50000；不合法或等於舊預設（10000）時用新版預設。設定的轉換（PR 5）沿用同一個函式。
     快取上限不匯入（`network.cacheLimitMebibytes` 留空，ADR 0016 §決定 3）。
+  - **設定組只寫改過的值**（`legacy_settings_converter.dart`，M5 design §5.9）：舊值不等於舊專案 `Settings` 的欄位初始值、而且在合法值域內才寫，等於舊預設或是型別預設（`minLong`、NaN）、不認得的字串都留空，
+    新版的預設生效（之後改新版預設，沒動過的人跟著變）。不在新版選項裡的數值取最接近的選項，等距取大的。例外：`source_settings.browse_as_logged_in` 三個音源都照舊值寫
+    （舊預設 B 站、網易開、YouTube 關，新版全開）；輸出裝置只在 `convert(importOutputDevice: true)`（呼叫端依平台給，轉換器不判斷平台）時寫；`layout_state` 是上次的狀態、不是設定組：只在資料庫來源寫，照舊值寫（包括等於舊預設的值，否則使用者主動收起的面板會變回新版的展開），寬度夾在 ≤ 1600，不合法的值留空。
+    新版沒有落腳處、而且使用者改過的（主色、字型、串流優先、快取上限（歷代預設 2048／128／32 與行動裝置初值 16 都算沒改過）、首頁排行、側欄展開、搜尋歷史）進 `summary.unimportedSettings`，識別字見 `UnimportedSetting`。
+    閘門：`legacy_settings_converter_test.dart`（每個欄位的改過／等於預設／型別預設／取最接近各一例、三個音源、平台、版面來源、清單只列改過的；舊預設的來源行號寫在群組名）與
+    `legacy_converter_import_test.dart` 的合成舊庫設定往返。
   - 整合閘門：`legacy_converter_import_test.dart`（合成舊庫 → 讀取器 → 轉換器 → `StagingImport.write` 與 `verify` 通過）。
 - Android 的 `libisar.so` 要 16KB 對齊（ADR 0010 後果）：`flutter build apk --flavor dev --debug` 後，
   `zipalign -c -P 16 -v 4 <apk>` 與每個 64 位元 ABI 的 `libisar.so` LOAD 段 `p_align` ≥ 0x4000。**沒有自動閘門**，
