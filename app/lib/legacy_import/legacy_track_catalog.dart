@@ -160,6 +160,9 @@ Duration? durationOf(int? milliseconds) =>
     : Duration(milliseconds: milliseconds);
 
 /// 單一封面網址 → `[TrackArtwork(url)]`；空字串或不是 `http(s)` 的給空清單（M5 design §5.1）。
+///
+/// `http` 升級成 `https`：舊版存的 B 站封面多是 `http://i0.hdslb.com/...`，而媒體
+/// client 只發 `https`（ADR 0012 §決定 1），不升級的話這些封面永遠是佔位圖。
 List<TrackArtwork> artworkOf(String? url) {
   if (url == null) return const [];
   final uri = Uri.tryParse(url.trim());
@@ -168,5 +171,9 @@ List<TrackArtwork> artworkOf(String? url) {
       uri.host.isEmpty) {
     return const [];
   }
-  return [TrackArtwork(url: uri)];
+  return [
+    TrackArtwork(
+      url: uri.scheme == 'http' ? uri.replace(scheme: 'https') : uri,
+    ),
+  ];
 }

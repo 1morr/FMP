@@ -25,7 +25,12 @@ void requireAllowedHost(
   if (allowedHosts.allows(url)) return;
   throw Unsupported(
     pluginId: pluginId,
-    cause: StateError('Host not allowed: ${url.host}'),
+    // 分開寫：`http` 的網址記成 `Host not allowed` 會讓人去查網域清單。
+    cause: StateError(
+      url.scheme == 'https'
+          ? 'Host not allowed: ${url.host}'
+          : 'Scheme not allowed: ${url.scheme} (${url.host})',
+    ),
     stackTrace: StackTrace.current,
   );
 }
