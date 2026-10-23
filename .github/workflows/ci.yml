@@ -551,6 +551,9 @@ jobs:
       - name: Secure storage
         run: flutter test integration_test/secure_storage_test.dart -d windows
 
+      - name: Legacy credentials (DPAPI)
+        run: flutter test integration_test/legacy_credentials_test.dart -d windows
+
   ci-result:
     name: CI Result
     if: always()

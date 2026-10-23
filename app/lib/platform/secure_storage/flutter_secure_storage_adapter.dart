@@ -10,8 +10,10 @@ final _validKey = RegExp(r'^[a-z0-9][a-z0-9.-]*$');
 ///
 /// - Android：RSA-OAEP 包 AES-GCM 的金鑰（套件預設）。`resetOnError` 關掉：
 ///   套件預設讀取失敗就清空，違反 ADR 0012「讀取失敗時不刪除」。
-/// - Windows：值以 AES-GCM 加密存在 application support 目錄的 `.secure`
-///   檔，金鑰在 Credential Manager。
+/// - Windows：整份鍵值是一個 JSON，以 DPAPI（`CryptProtectData`，無 entropy）加密成
+///   application support 目錄的單一檔案 `flutter_secure_storage.dat`（ADR 0029
+///   決定 5 的更正）。寫入是整檔載入、改一鍵、整檔寫回；prod 與舊版 App 共用同一個檔，
+///   舊鍵（無前綴）保留。套件的 `load` 解不開或 JSON 壞掉時會刪整個檔，沒有開關。
 ///
 /// dev 與 prod 分開（ADR 0015 §決定 8）：兩個平台本來就分開（applicationId、
 /// ProductName），這裡再以鍵前綴（`fmp-dev.`／`fmp.`）與 Android 的
