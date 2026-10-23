@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/native.dart';
@@ -53,14 +54,22 @@ final class _FailingImport implements LegacyImport {
   Future<LegacyStaged> stage(
     LegacySource source, {
     void Function(LegacyImportStep step)? progress,
+    AppDatabase? replacing,
   }) {
     final failAt = this.failAt;
     if (failAt != null) {
       progress?.call(failAt);
       throw LegacyImportFailed(failAt, 'injected');
     }
-    return _inner.stage(source, progress: progress);
+    return _inner.stage(source, progress: progress, replacing: replacing);
   }
+
+  @override
+  Future<LegacyStaged> stageBackup(
+    Uint8List bytes, {
+    void Function(LegacyImportStep step)? progress,
+    AppDatabase? replacing,
+  }) => _inner.stageBackup(bytes, progress: progress, replacing: replacing);
 
   @override
   Future<Set<String>> writeCredentials(

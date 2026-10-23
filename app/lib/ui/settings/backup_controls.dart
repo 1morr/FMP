@@ -9,6 +9,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/database/backup_format.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/ui/backup/legacy_import_flow.dart';
 import 'package:fmp/ui/backup/restore_flow.dart';
 import 'package:fmp/ui/format/home_path.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -17,13 +18,16 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
 /// 進行中的是哪一件事。
-enum _Busy { none, exporting, checking }
+enum _Busy { none, exporting, checking, importing }
 
-/// 設定頁的「備份與還原」組（ADR 0034 §決定 5）：一段說明、「匯出備份」與「從備份檔還原」。
-/// 平台沒有檔案對話框（`PlatformCapabilities.files`）時只有說明。
+/// 設定頁的「備份與還原」組（ADR 0034 §決定 5）：一段說明、「匯出備份」、「從備份檔還原」與
+/// 「從舊版匯入…」（M5 design §7.4）。平台沒有檔案對話框（`PlatformCapabilities.files`）時只有
+/// 說明。
 ///
-/// 進行中兩個按鈕都停用，進行中的那個顯示進度。還原選好檔、驗證通過後交給
-/// [confirmAndRestore]（確認框、自動備份、換檔、重啟）。
+/// 進行中按鈕都停用，進行中的那個顯示進度。還原選好檔、驗證通過後交給
+/// [confirmAndRestore]（確認框、自動備份、換檔、重啟）；舊版匯入走 [importFromLegacy]。
+/// 找得到舊資料庫、而 `legacy_imports` 沒有紀錄時（例如首次匯入失敗後以空白資料啟動），
+/// 按鈕旁多一句提示。
 class BackupControls extends ConsumerStatefulWidget {
   const BackupControls({super.key});
 
@@ -96,6 +100,15 @@ class _BackupControlsState extends ConsumerState<BackupControls> {
     await confirmAndRestore(context, ref, staged);
   }
 
+  Future<void> _importLegacy() async {
+    _setBusy(_Busy.importing);
+    try {
+      await importFromLegacy(context, ref);
+    } finally {
+      _setBusy(_Busy.none);
+    }
+  }
+
   /// 存好的位置：檔案路徑把家目錄換成 `~`；Android 的 SAF 給的是 `content://`，照原樣。
   static String _location(Uri uri, String? home) => uri.scheme == 'file'
       ? homeRelativePath(uri.toFilePath(), home)
@@ -111,6 +124,7 @@ class _BackupControlsState extends ConsumerState<BackupControls> {
       child: CircularProgressIndicator(strokeWidth: 2),
     );
     final idle = _busy == _Busy.none;
+    final offer = ref.watch(legacyImportOfferProvider).value;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,8 +154,18 @@ class _BackupControlsState extends ConsumerState<BackupControls> {
                   _busy == _Busy.checking ? t.stageWorking : t.restore,
                 ),
               ),
+              OutlinedButton.icon(
+                onPressed: idle ? () => unawaited(_importLegacy()) : null,
+                // 進行中的畫面是對話框（進度、確認），按鈕只停用，不轉圈。
+                icon: const Icon(Icons.history),
+                label: Text(t.legacyImport),
+              ),
             ],
           ),
+          if (offer != null && offer.source != null && !offer.imported) ...[
+            SizedBox(height: spacing.x3),
+            Text(t.legacyHint),
+          ],
         ],
       ],
     );

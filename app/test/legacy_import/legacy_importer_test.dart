@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -9,6 +12,10 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/import/legacy_import_failed.dart';
 import 'package:fmp/data/import/legacy_imports_repository.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/domain/account.dart';
+import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/legacy_import/legacy_database_reader.dart';
 import 'package:fmp/legacy_import/legacy_importer.dart';
 import 'package:fmp/platform/legacy_data/legacy_credential_reader.dart';
@@ -17,6 +24,7 @@ import 'package:path/path.dart' as p;
 
 import '../support/credentials.dart';
 import '../support/legacy_database.dart';
+import '../support/memory_database.dart';
 import 'legacy_credential_fixtures.dart';
 
 // `LegacyImporter`（M5 design §3.1）：以合成的舊庫走一遍 stage，核對步驟順序、暫存檔、
@@ -33,6 +41,8 @@ final class _FakeReader implements LegacyCredentialReader {
 }
 
 void main() {
+  driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+
   late Directory temp;
   late Directory legacyDirectory;
   late Directory dataDirectory;
@@ -169,6 +179,182 @@ void main() {
       expect(record.toString(), isNot(contains('FAKE_')));
       expect(record.message, isNot(contains('FAKE_')));
     }
+  });
+
+  group('settings page (replacing the current database)', () {
+    Uint8List backupBytes() => Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'version': 5,
+          'exportedAt': '2026-09-20T00:00:00.000',
+          'playlists': [
+            {
+              'name': 'From backup',
+              'trackKeys': ['youtube:ytA', 'youtube:gone'],
+              'createdAt': '2026-01-01T00:00:00.000',
+            },
+          ],
+          'tracks': [
+            {
+              'sourceId': 'ytA',
+              'sourceType': 'youtube',
+              'title': 'Video A',
+              'createdAt': '2026-01-01T00:00:00.000',
+            },
+          ],
+          'settings': {'themeModeIndex': 2},
+        }),
+      ),
+    );
+
+    test('stageBackup stages a fresh database from a JSON backup', () async {
+      final steps = <LegacyImportStep>[];
+      final staged = await importer().stageBackup(
+        backupBytes(),
+        progress: steps.add,
+      );
+
+      expect(steps, [
+        LegacyImportStep.read,
+        LegacyImportStep.convert,
+        LegacyImportStep.write,
+        LegacyImportStep.verify,
+      ]);
+      expect(staged.credentials, isEmpty);
+      expect(staged.keptAccountPluginIds, isEmpty);
+      final entries = staged.summary.collections['playlistEntries']!;
+      expect((entries.read, entries.written), (2, 1));
+      expect(entries.skipped, {'danglingTrackId': 1});
+
+      final staging = AppDatabase(NativeDatabase(staged.file));
+      addTearDown(staging.close);
+      final record = (await LegacyImportsRepository(staging)
+          .latestUnacknowledged())!;
+      expect(record.source, LegacyImportSource.backup);
+      expect(record.backupVersion, 5);
+      // 備份沒有佇列。
+      final queue = await staging
+          .customSelect('SELECT COUNT(*) AS n FROM queue_entries')
+          .getSingle();
+      expect(queue.read<int>('n'), 0);
+    });
+
+    test('a backup that cannot be imported is rejected as it is', () async {
+      await expectLater(
+        importer().stageBackup(Uint8List.fromList(utf8.encode('{}'))),
+        throwsA(isA<LegacyBackupRejected>()),
+      );
+      await expectLater(
+        importer().stageBackup(
+          Uint8List.fromList(
+            utf8.encode('{"version": 9, "exportedAt": "2030-01-01T00:00:00"}'),
+          ),
+        ),
+        throwsA(
+          isA<LegacyBackupRejected>().having(
+            (e) => e.reason,
+            'reason',
+            LegacyBackupRejection.newerVersion,
+          ),
+        ),
+      );
+      // 被拒絕的備份沒有留下暫存檔。
+      expect(
+        Directory(p.join(dataDirectory.path, legacyImportDirectoryName))
+            .existsSync(),
+        isFalse,
+      );
+    });
+
+    test('stage with replacing replaces an invalidated account and writes '
+        'its credentials', () async {
+      await writeSyntheticLegacyDatabase(legacyDirectory);
+      final current = memoryDatabase();
+      await AccountRepository(current).upsert(
+        Account(
+          pluginId: 'bilibili',
+          userId: 'mine',
+          displayName: 'This device',
+          status: AccountStatus.invalidated,
+          loggedInAt: DateTime.utc(2026),
+        ),
+      );
+      final instance = importer();
+
+      final staged = await instance.stage(
+        (await instance.locate())!,
+        replacing: current,
+      );
+
+      expect(staged.keptAccountPluginIds, isEmpty);
+      final staging = AppDatabase(NativeDatabase(staged.file));
+      addTearDown(staging.close);
+      final accounts = {
+        for (final a in await AccountRepository(staging).list()) a.pluginId: a,
+      };
+      expect(accounts['bilibili']!.userId, isNot('mine'));
+      expect(accounts['bilibili']!.status, AccountStatus.active);
+
+      await instance.writeCredentials(
+        staged,
+        loggedInPluginIds: staged.keptAccountPluginIds,
+      );
+      expect(storage.values.keys, {
+        'credentials.bilibili',
+        'credentials.netease',
+      });
+    });
+
+    test('stage with replacing keeps this device\'s account and its '
+        'credential is not written', () async {
+      await writeSyntheticLegacyDatabase(legacyDirectory);
+      final current = memoryDatabase();
+      await AccountRepository(current).upsert(
+        Account(
+          pluginId: 'bilibili',
+          userId: 'mine',
+          displayName: 'This device',
+          status: AccountStatus.active,
+          loggedInAt: DateTime.utc(2026),
+        ),
+      );
+      await PlaylistRepository(current).create(name: 'Old list');
+      final instance = importer();
+
+      final staged = await instance.stage(
+        (await instance.locate())!,
+        replacing: current,
+      );
+
+      expect(staged.keptAccountPluginIds, {'bilibili'});
+      expect(staged.summary.reloginPlatforms, isNot(contains('bilibili')));
+      final staging = AppDatabase(NativeDatabase(staged.file));
+      addTearDown(staging.close);
+      final accounts = await AccountRepository(staging).list();
+      expect(
+        {for (final a in accounts) a.pluginId: a.userId}['bilibili'],
+        'mine',
+      );
+      final names = [
+        for (final o in await PlaylistRepository(staging).overviews())
+          o.playlist.name,
+      ];
+      expect(names, isNot(contains('Old list')));
+
+      await instance.writeCredentials(
+        staged,
+        loggedInPluginIds: staged.keptAccountPluginIds,
+      );
+      expect(storage.values.keys, {'credentials.netease'});
+      // 目前的資料庫沒被動過。
+      expect(
+        [
+          for (final o in await PlaylistRepository(current).overviews())
+            o.playlist.name,
+        ],
+        ['Old list'],
+      );
+    });
   });
 
   test('cleanLegacyImportLeftovers removes work directories and staging '

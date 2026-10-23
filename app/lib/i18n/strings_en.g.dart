@@ -1508,6 +1508,52 @@ class Translations$backup$en extends Translations$backup$zh_TW {
   String get unusableHeading =>
       'These plugins cannot be used in this version and will not be restored';
   @override
+  String get legacyImport => 'Import from the old version…';
+  @override
+  String get legacyImportWorking => 'Reading the old data…';
+  @override
+  String get legacyChooseTitle =>
+      'Where do you want to import the old data from?';
+  @override
+  String get legacyFromDatabase => 'Old database';
+  @override
+  String get legacyFromDatabaseMissing =>
+      'Old database (not found on this device)';
+  @override
+  String get legacyFromBackup => 'Old backup file (.json)';
+  @override
+  String get legacyHint =>
+      'Data from the old FMP is on this device and has not been imported yet.';
+  @override
+  String get legacyConfirmTitle => 'Import from the old version?';
+  @override
+  String get legacyConfirmBody =>
+      'This replaces the current playlists, tracks, play history, queue and radio stations, and the settings the old version has. The installed plugins, their settings and the sign-ins on this device are kept. A backup is made first.';
+  @override
+  String get legacyWillImport => 'To import';
+  @override
+  String legacyQueue({required Object count}) => 'Queue: ${count}';
+  @override
+  String get legacyBackupNoQueue =>
+      'An old backup file has no queue, so the queue will be empty afterwards.';
+  @override
+  String get legacyConfirm => 'Replace and restart';
+  @override
+  String get legacyWorking => 'Replacing…';
+  @override
+  String legacyFailed({required Object message}) =>
+      'The import did not finish: ${message}';
+  @override
+  String get legacyRejectedNotBackup =>
+      'This is not a backup file of the old FMP.';
+  @override
+  String get legacyRejectedNewer =>
+      'This backup comes from a newer version of FMP and cannot be imported.';
+  @override
+  String get legacyRejectedCorrupt => 'The backup file is damaged.';
+  @override
+  String get legacyRejectedEmpty => 'This backup has nothing to import.';
+  @override
   String get confirm => 'Restore and restart';
   @override
   String get cancel => 'Cancel';
