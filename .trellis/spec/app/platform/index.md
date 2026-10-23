@@ -35,7 +35,7 @@ lib/platform/
 使用者資料放哪，組裝點把 `dataDirectory.resolve()` 包成函式交給它，第一次用到才解析）、`app_restart/`（介面＋每平台一個實作；`exit` 與啟動行程都從建構子注入，單元測試核對呼叫順序；
 實作依 `mediaControls`（Android 要收掉媒體工作階段，它在 `withMediaControls` 之後才有），所以 `AppPlatform.restarter` 是 getter、用工廠建；`restartsItself` 宣告 App 會不會自己再起來）、`legacy_data/`（M5 的舊憑證唯讀讀取器：介面 `LegacyCredentialReader` 加每平台一個實作，不是能力宣告、沒有掛在 `AppPlatform`；
 Windows 的 DPAPI 解密（`win32`）是建構子注入的函式，單元測試用假解密，真的往返放整合測試；Android 建套件實例的函式也從建構子注入，測試核對選項與「沒有舊 prefs 檔就不建立」。
-找舊資料的位置、挑哪個實作是 PR 6 的組裝，規則與閘門見 `app/AGENTS.md` § 舊資料匯入）。
+找舊資料的位置是同目錄的 `LegacyDataLocator`（`legacy_data_locations.dart` 依平台與 flavor 給候選資料夾與讀取器，路徑從建構子注入；`AppPlatform.legacyDataLocator`，dev 入口 `legacy_dev_entry.dart`），規則與閘門見 `app/AGENTS.md` § 舊資料匯入）。
 
 ## 加一個能力
 

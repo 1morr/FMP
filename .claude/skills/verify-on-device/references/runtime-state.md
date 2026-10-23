@@ -71,3 +71,23 @@ Dart VM Service（`flutter run` 印的 URI）可讀活的物件；URI 是本機�
 - Windows 的環境變數只對該行程有效：PowerShell 用
   `$env:FMP_DEV_PLUGIN='<路徑>'; Start-Process ...; Remove-Item Env:FMP_DEV_PLUGIN`。
 - 裝好的插件留在 `installed_plugins`，之後不帶參數啟動也會載入。
+
+## 舊資料匯入的入口（M5，只在 dev flavor；prod 一律忽略）
+
+原始碼：`lib/platform/legacy_data/legacy_dev_entry.dart`。首次啟動（`<資料目錄>` 沒有 `fmp.db`）時，dev 只讀這個入口指的資料夾，不讀真實的舊資料位置。
+
+| 入口 | 作用 |
+|---|---|
+| `--fmp-legacy-dir=<資料夾>` 或環境變數 `FMP_LEGACY_DIR` | 資料夾裡的 `fmp_database.isar`（必要）當作舊資料庫；Windows 另讀可選的 `flutter_secure_storage.dat`（DPAPI，同一個 Windows 使用者才解得開）。兩者都有時參數優先 |
+
+- 合成舊庫（編造的資料，不含真實內容）：在 `app/` 執行 `dart run tool/legacy_fixture.dart <暫存目錄>/legacy-copy`。
+  **只用合成資料或擁有者自己備好的副本**；資料夾不可等於或位於 `Documents\FMP`、`%APPDATA%\com.personal\fmp`、`com.personal.fmp` 的沙盒，否則啟動記 log 後照空資料啟動。
+- Windows：先備份 `userdata-dev\`（`Copy-Item -Recurse`），再清空它（讓 `fmp.db` 不存在），然後帶參數啟動：
+  `.\fmp.exe --fmp-legacy-dir=<暫存目錄>\legacy-copy`（或 `flutter run -d windows --flavor dev --dart-entrypoint-args=--fmp-legacy-dir=...`）。驗完把備份還原回 `userdata-dev\`。
+- Android：資料夾要在 dev App 的私有目錄裡。`adb push <暫存目錄>/legacy-copy/fmp_database.isar /data/local/tmp/`，再
+  `adb shell run-as com.personal.fmp.dev mkdir -p files/legacy-copy` 與
+  `adb shell "run-as com.personal.fmp.dev cp /data/local/tmp/fmp_database.isar files/legacy-copy/"`，
+  先 `pm clear com.personal.fmp.dev`（`clear` 會清掉 `files/`，所以 `pm clear` 在複製之前），參數給 `files/legacy-copy` 的絕對路徑
+  （`/data/user/0/com.personal.fmp.dev/files/legacy-copy`），帶法同 `--fmp-dev-plugin`（見 `android.md`）。dev 的 Android 不讀憑證。
+- 看結果：log 的 tag `legacy-import`（`Legacy data found; importing`、`Legacy data staged`、`Legacy data imported`、`Importing the legacy data failed`），資料庫的 `legacy_imports.summary_json`。
+  結果對話框只出現一次：按「知道了」之後重開不再出現。

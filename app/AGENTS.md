@@ -620,8 +620,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 舊資料匯入
 
-`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。目前有讀舊 Isar 資料庫（PR 1）、轉換器（PR 3）與舊憑證（PR 4）；設定的轉換、
-怎麼用它們的流程由之後的 PR 加進來，到時再補這一節。
+`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。讀舊 Isar 資料庫、轉換器、舊憑證，與把它們接起來的首次啟動流程（見最後三條）；
+設定頁的「從舊版匯入…」由之後的 PR 加進來，到時再補這一節。
 
 - **先複製再開副本，舊檔一個位元組都不動。** Isar 沒有唯讀模式：每次開啟都會建 lock 檔，也可能依 schema 差異
   改寫檔案。`LegacyDatabaseReader.read(檔, 工作目錄根)` 複製到 `<根>/work-<UTC>/fmp_database.isar`（lock 檔不複製），
@@ -697,6 +697,26 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - Android 的 `libisar.so` 要 16KB 對齊（ADR 0010 後果）：`flutter build apk --flavor dev --debug` 後，
   `zipalign -c -P 16 -v 4 <apk>` 與每個 64 位元 ABI 的 `libisar.so` LOAD 段 `p_align` ≥ 0x4000。**沒有自動閘門**，
   升 `isar_community_flutter_libs` 時手動驗。
+- **首次啟動的流程**（`lib/main.dart`、`lib/app/first_launch_import.dart`，M5 design §3.1）：解析資料目錄、Log 之後，`cleanLegacyImportLeftovers` 清掉 `legacy-import/` 的殘留；
+  `needsFirstLaunchImport`（資料目錄沒有 `fmp.db`）且 `LegacyImport.locate()` 找到舊資料庫，才 `runApp(LegacyImportApp)`：`importOnFirstLaunch` = `stage()`（讀、轉換、寫暫存庫、驗證）→ 暫存庫 rename 成
+  `fmp.db`（同一個目錄）→ `writeCredentials()`（首次啟動沒有已登入的平台）→ 開庫 → `runApp(FmpApp)`。有 `fmp.db` 就不再自動匯入，包括失敗頁的「以空白資料啟動」之後（建空庫就有了）。
+  - **每一步失敗時的狀態**：rename 之前（`read`、`convert`、`write`、`verify`、`swap`）一律是沒有 `fmp.db`、沒有暫存檔、舊檔不變、secure storage 沒有東西，失敗頁說是哪一步（`LegacyImportFailed.step`）；
+    寫憑證失敗（`credentials`，不擋啟動）：`fmp.db` 在，該平台載入 `CredentialStore` 時沒有憑證的帳號列被刪掉，結果是未登入、沒有孤兒的 cookie，開庫後
+    `LegacyImportsRepository.addReloginPlatforms` 補記進 `summary_json` 的 `reloginPlatforms`，結果對話框說要重新登入。
+    閘門：`test/app/first_launch_import_test.dart`（每一步注入失敗、壞檔、目錄佔住目標、`fmp.db` 已存在不覆蓋、寫憑證失敗後的載入）、`test/legacy_import/legacy_importer_test.dart`。
+  - **憑證在 rename 之後才寫**：先寫憑證、換檔再失敗，會留下沒有帳號列的 cookie，而首次啟動沒有已安裝的插件，`CredentialStore` 不會去清它。
+  - 失敗頁（`lib/app/legacy_import_app.dart`）：「重試」（再跑 `stage()`）、「匯出診斷」（`StartupDiagnostics`：一個 zip，`diagnostics.txt`＝步驟、錯誤、各 collection 的筆數＋以現在的遮蔽函式重遮的 log 檔；
+    不含歌單名稱、曲名與憑證）、「以空白資料啟動」。`DatabaseErrorApp` 同樣有「重試」（重新開庫）與「匯出診斷」。平台沒有檔案對話框時不顯示匯出。
+    閘門：`legacy_import_app_test.dart`、`database_error_app_test.dart`、`startup_diagnostics_test.dart`（遮蔽家目錄與憑證）。
+  - 結果對話框（`lib/ui/legacy_import/legacy_import_result.dart`，由 `AppShell` 第一幀之後呼叫）：`legacy_imports` 有未看過的一列時顯示一次；「知道了」與「安裝音源」都設 `acknowledged`；
+    資料庫參照到未安裝的插件（`LegacyImportsRepository.referencedPluginIds`）才有「安裝音源」，它重開首頁的首次引導。對話框認得的識別字（collection 名、略過理由、`unimportedSettings`）寫死在檔案裡，
+    `legacy_import_result_test.dart` 對照轉換器的常數。
+- **`lib/legacy_import/` 只被 `lib/main.dart` 引用**（`fmp_layer_imports` 的 `restrictedImports`：目錄自己與 `lib/main.dart`）；`lib/app` 與介面只認 `lib/app/legacy_import.dart` 的 `LegacyImport` 介面，
+  `main()` 以 `legacyImportProvider` override。閘門：`layer_imports_test.dart` 的 `test_legacyImportFrom*`（`lib/main.dart` 可以、`lib/app/x.dart`、`lib/ui/…` 不行、近似名稱與註解不報）與 `tool/lint_sentinel.dart`。
+- **找舊資料與 dev 入口**（`lib/platform/legacy_data/`）：`LegacyDataLocator` 的條件只是「舊資料庫檔存在」（壞檔走失敗頁）。prod Windows 依序找 `<文件>\FMP`、`<文件>`，憑證檔在 application support；
+  prod Android 依序找 `<app_flutter>/FMP`、`<app_flutter>`，舊 prefs 檔在 App 沙盒。dev 只看 `--fmp-legacy-dir=<資料夾>`（其次 `FMP_LEGACY_DIR`），資料夾裡的 `fmp_database.isar`，Windows 另有可選的
+  `flutter_secure_storage.dat`，dev 的 Android 不讀憑證。**prod 不讀參數與環境變數**；dev 的資料夾等於或位於真實的舊資料位置（`<文件>\FMP`、`%APPDATA%\com.personal\fmp`、`com.personal.fmp` 的沙盒）時
+  `LegacyDataLocationException`，`main()` 記 log 後照空資料啟動。閘門：`test/platform/legacy_data_locator_test.dart`（`legacyDirectoryPath` 的 prod／dev、候選順序、四個被拒位置、只共用前綴的相鄰路徑不被拒）。
 
 ## Riverpod
 
@@ -2867,7 +2887,7 @@ Flutter 3.47 起 Material 以獨立套件 `material_ui` 發佈，框架內的
 
 | 規則 | 守什麼（只看 `lib/`，除非另外寫） | 允許清單在 |
 |---|---|---|
-| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`，`unorm_dart`、`string_similarity` 在 `core/matching/`；`share_plus` 在 `platformPackages`）；`lib/legacy_import/` 只被自己 import；列出的檔案或目錄只准列出的位置 import（目前是 `playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `charts/`、`charts/` 不 import `ui/`、`library/`、`data/cache/cache_tables.dart`、`data/cache/cache_database.dart`（快取只經 `CacheStore`；`test_lowerLayersImportCharts`、`test_chartsImportUiOrLibrary`、`test_chartsImportCacheTables`、`test_chartsNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`sealedDirectories`、`restrictedImports` |
+| `fmp_layer_imports` | 相對路徑跳出 `app/` 或非 `package:`／`dart:` 的 URI（全 package）；外部套件只准在擁有它的目錄（`pub_semver` 在 `plugins/repository/`，`qr_flutter` 在 `ui/accounts/`，`archive` 在 `app/diagnostics/`，`unorm_dart`、`string_similarity` 在 `core/matching/`；`share_plus` 在 `platformPackages`）；列出的檔案或目錄只准列出的位置 import（目前是 `legacy_import/` 只給自己與 `lib/main.dart`，見「舊資料匯入」；`playback/backends/` 的 `audio_backend.dart`、`backend_rules.dart`，見「播放」；`platform/cache_directory/`，見「快取庫」；`core/network/fixture/` 只給 `plugins/dev/`，見「插件」）；`core/`、`domain/` 不 import `ui/`、`playback/`、`plugins/`、`data/`、`settings/`，`data/` 不 import `ui/`、`settings/`、`playback/`、`plugins/`，`playback/` 不 import `ui/`（`test_playbackImportsUi`、`test_uiMayImportPlayback`），`scheduler/` 不 import `ui/`、`radio/`、`plugins/`，`radio/` 不 import `ui/`，`core/`、`domain/`、`data/` 不 import `scheduler/`、`radio/`（`test_lowerLayersImportSchedulerOrRadio`、`test_schedulerImportsUiRadioOrPlugins`、`test_schedulerNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `library/`、`library/` 不 import `ui/`（`test_lowerLayersImportLibrary`、`test_libraryImportsUi`、`test_libraryNearMisses`），`core/`、`domain/`、`data/`、`scheduler/` 不 import `charts/`、`charts/` 不 import `ui/`、`library/`、`data/cache/cache_tables.dart`、`data/cache/cache_database.dart`（快取只經 `CacheStore`；`test_lowerLayersImportCharts`、`test_chartsImportUiOrLibrary`、`test_chartsImportCacheTables`、`test_chartsNearMisses`） | `rules/layer_imports.dart` 的 `externalPackageOwners`、`platformPackages`、`forbiddenLayerImports`、`restrictedImports` |
 | `fmp_no_empty_catch` | catch 本體沒有陳述式（只有註解也算；全 package） | 無 |
 | `fmp_log_facade` | `print`、`debugPrint`、沒以 `show` 排除 `log` 的 `dart:developer` import、`package:talker*` | `logFacadeDirectory`（`lib/core/logging/`） |
 | `fmp_source_id_literal` | 字串整個等於官方插件 id（全 package） | `officialPluginIds`、`sourceIdAllowedDirectories`（`lib/legacy_import/`、`test/`） |
