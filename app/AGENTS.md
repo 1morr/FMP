@@ -620,8 +620,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 舊資料匯入
 
-`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。讀舊 Isar 資料庫、轉換器、舊憑證，與把它們接起來的首次啟動流程（見最後三條）；
-設定頁的「從舊版匯入…」由之後的 PR 加進來，到時再補這一節。
+`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。讀舊 Isar 資料庫、舊 JSON 備份、轉換器、舊憑證，與把它們接起來的首次啟動流程、設定頁的「從舊版匯入…」
+（見最後幾條）。
 
 - **先複製再開副本，舊檔一個位元組都不動。** Isar 沒有唯讀模式：每次開啟都會建 lock 檔，也可能依 schema 差異
   改寫檔案。`LegacyDatabaseReader.read(檔, 工作目錄根)` 複製到 `<根>/work-<UTC>/fmp_database.isar`（lock 檔不複製），
@@ -717,6 +717,28 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   prod Android 依序找 `<app_flutter>/FMP`、`<app_flutter>`，舊 prefs 檔在 App 沙盒。dev 只看 `--fmp-legacy-dir=<資料夾>`（其次 `FMP_LEGACY_DIR`），資料夾裡的 `fmp_database.isar`，Windows 另有可選的
   `flutter_secure_storage.dat`，dev 的 Android 不讀憑證。**prod 不讀參數與環境變數**；dev 的資料夾等於或位於真實的舊資料位置（`<文件>\FMP`、`%APPDATA%\com.personal\fmp`、`com.personal.fmp` 的沙盒）時
   `LegacyDataLocationException`，`main()` 記 log 後照空資料啟動。閘門：`test/platform/legacy_data_locator_test.dart`（`legacyDirectoryPath` 的 prod／dev、候選順序、四個被拒位置、只共用前綴的相鄰路徑不被拒）。
+- **舊 JSON 備份**（`legacy_backup_reader.dart`，`LegacyBackupReader.read(bytes)` → `LegacySnapshot` 與備份的 `version`，M5 design §4.2）：版本 1–5，缺鍵走舊版 `fromJson` 的預設，比 5 新的拒絕
+  （`LegacyBackupRejected`：`notBackup`、`newerVersion`、`corrupt`、`empty`，在 `lib/domain/legacy_import.dart`，不含檔案內容）。**不沿用資料庫的「看 `schemaVersion` 補舊 migration」**：備份有自己的版本語意，
+  同一個版本號的欄位集合可能不同，所以設定列的 `schemaVersion` 直接是 4，逐鍵容錯；必要欄位（名稱、時間、曲目鍵的組成）缺少或型別不對拒絕整份（舊版也是整份失敗），選用欄位型別不對當成沒有。
+  時間是沒有時區的本機時間字串，以匯入裝置的本機時區解讀（`DateTime.parse`）；v3 以前六個每源鍵折疊成三筆；曲目、歌單等沒有舊 `id`，以檔案裡的位置編號；歌單的 `trackKeys` 找不到曲目的帶一個不存在的 id，
+  由轉換器計成 `danglingTrackId`。佇列、帳號、憑證、下載是空的（所以取代後佇列是空的）。閘門：`legacy_backup_reader_test.dart`（v1、v2、v4、v5 各一份手寫合成檔，含沒升版就加的鍵、缺鍵、折疊、時區、拒絕）、
+  `legacy_importer_test.dart` 的 `stageBackup`。
+- **設定頁的「從舊版匯入…」是取代**（`lib/ui/backup/legacy_import_flow.dart`，M5 design §3.2、§6.3）：選「舊版資料庫」（`LegacyImport.locate()` 找到才能選）或「舊版備份檔（.json）」→ 進度 → 確認框（列筆數；JSON 備份寫明佇列會是空的）→
+  `DataReset.replaceWithImportAndRestart` → 重啟。找得到舊資料庫、而 `legacy_imports` 沒有任何紀錄時，按鈕旁多一句提示。**不走還原的 `carryOver`**（那是整份換成另一台的資料，會清掉插件設定、排行設定與 `browse_as_logged_in`）。
+  - **暫存庫是這台資料庫的副本**：`LegacyImport.stage`／`stageBackup` 給了 `replacing`（目前的 `AppDatabase`）時，`StagingImport.writeReplacing` 先 `VACUUM INTO` 到 `<資料目錄>/legacy-import/staging-<UTC>.db`，在同一個 transaction 裡
+    清空音樂庫（`StagingImport.replacedTables`：`playlist_entries`、`playlist_remote`、`legacy_playlist_ids`、`match_results`、`track_origins`、`play_history`、`queue_entries`、`player_state`、`radio_stations`、`playlists`、`tracks`）、寫匯入包、
+    合併設定：外觀／網路／播放三組只覆寫匯入包有值的欄位（`insertOnConflictUpdate` 只帶有值的欄位），`source_settings.browse_as_logged_in` 以匯入值為準（同一列的匹配設定保留），`layout_state` 不動；
+    帳號：「這台有登入」＝有帳號列而且 `status` 是 `active`（design §11 第 9 條）：這樣的插件保留這台的列（`LegacyStaged.keptAccountPluginIds`，換上後 `writeCredentials` 以它當 `loggedInPluginIds`，所以憑證也只補這台沒登入的平台）；
+    `invalidated` 的列不算：匯入有該平台可用的帳號就取代那一列、`writeCredentials` 以 `CredentialStore.writeImported` 覆寫憑證，匯入沒有可用憑證就保留原列；摘要的帳號筆數扣掉沒寫的、計成 `keptOnThisDevice`（只有 `active` 的），
+    也不列「需要重新登入」）；`installed_plugins`、`plugin_storage`、`plugin_indexes`、`chart_settings`、`developer_settings`、`scheduler_runs`、`source_settings` 其餘欄位、`legacy_imports` 的舊列都不動（新增一列）。
+  - **驗證收「保留下來的列數」**：`writeReplacing` 回 `ReplacedStaging`（每張表應有的列數＝匯入包的筆數＋原有的列數＋新增的列、保留帳號的插件 id、調整過的摘要），`verify(replaced:)` 以它取代首次啟動的「匯入包沒寫的表必須是空的」。
+    閘門：`test/data/import/staging_import_replace_test.dart`（`table classification gate`：每張表不是在 `replacedTables` 就是在測試的 `kept`，加表時要歸類；音樂庫換掉、插件／插件設定／排行設定／開發者設定／排程保留、設定只覆寫有值的欄位、`browse_as_logged_in`、`layout_state`、帳號三種情況、紀錄新增一列、
+    目前的資料庫沒被動、保留的列少一筆則驗證失敗且暫存檔已刪、寫入失敗時暫存檔已刪且目前的資料庫不變、空匯入包）。
+  - **換檔與還原共用**（`DatabaseBackups._swapIn`）：`restoreStaged`（原檔改名成 `fmp.db.before-restore-<UTC>`）與 `replaceWithImport`（先 `create()` 自動備份，失敗就拋出、什麼都不動；原檔改名成 `fmp.db.before-import-<UTC>`）都呼叫它，
+    暫存檔移進 `fmp.db.restoring`、關庫、原檔（含 `-wal`、`-shm`、`-journal`）改名、`.restoring` 改名成 `fmp.db`，換不上去就改回來。閘門：`database_backups_test.dart` 的 `restoreStaged`（既有）與 `replaceWithImport` 群組。
+  - 換檔之後寫憑證（`afterSwap`）失敗只記 log、照樣重啟：帳號列沒有憑證，`CredentialStore` 載入時會刪掉，結果是未登入。**這種情況不會補記進結果對話框的「需要重新登入」**（資料庫已關，重啟前沒有可補記的地方）。
+  - 閘門：`test/ui/settings/legacy_import_controls_test.dart`（選單：找不到舊資料庫時「舊版資料庫」不能選；兩種匯入的確認框，JSON 那個寫明佇列會清空；提示的三種情況；取消、失敗、拒絕的各種原因都不取代且刪暫存檔）、
+    `legacy_importer_test.dart` 的 `settings page` 群組（`replacing` 模式保留這台的帳號、憑證只補沒登入的平台）。
 
 ## Riverpod
 
