@@ -1373,6 +1373,133 @@ void main() {
     });
   });
 
+  group('replaceWithImport', () {
+    /// 目前資料庫的副本（`VACUUM INTO`）再改幾筆，當作設定頁匯入寫好的暫存庫。
+    Future<File> stagingCopy(AppDatabase database, String pluginId) async {
+      final file = File(
+        p.join(dataDirectory.path, 'legacy-import', 'staging.db'),
+      );
+      file.parent.createSync(recursive: true);
+      await database.customStatement('VACUUM INTO ?', [file.path]);
+      final copy = AppDatabase(NativeDatabase(file));
+      await install(copy, pluginId);
+      await copy.close();
+      return file;
+    }
+
+    test('backs up first, then swaps the staging file in and keeps the old '
+        'database aside', () async {
+      final database = await open();
+      await install(database, 'original');
+      final backups = backupsOf(database);
+      final staging = await stagingCopy(database, 'imported');
+
+      await withClock(
+        Clock.fixed(DateTime.utc(2026, 10, 24, 1)),
+        () => backups.replaceWithImport(staging),
+      );
+
+      expect(backups.isClosed, isTrue);
+      final replaced = await open();
+      addTearDown(replaced.close);
+      expect(
+        (await PluginRepository(replaced).list()).map((plugin) => plugin.id),
+        unorderedEquals(['original', 'imported']),
+      );
+      expect(staging.existsSync(), isFalse);
+      expect(File('${databaseFile().path}.restoring').existsSync(), isFalse);
+      // 原來的資料庫留在旁邊（只有 `original`），自動備份也在。
+      final aside = File(
+        '${databaseFile().path}.before-import-20261024T010000000Z',
+      );
+      expect((await countsOfFile(aside.path))['installed_plugins'], 1);
+      final listed = await backupsOf(replaced).list();
+      expect(listed, hasLength(1));
+      expect((await countsOfFile(listed.single.path))['installed_plugins'], 1);
+    });
+
+    test('does nothing when the automatic backup fails', () async {
+      final database = await open();
+      addTearDown(database.close);
+      await install(database, 'original');
+      final backups = backupsOf(database);
+      final staging = await stagingCopy(database, 'imported');
+      // 同一毫秒的備份檔名被佔住：自動備份失敗。
+      Directory(p.join(dataDirectory.path, backupDirectoryName)).createSync();
+      File(
+        p.join(
+          dataDirectory.path,
+          backupDirectoryName,
+          'fmp-20261024T010000000Z.db',
+        ),
+      ).writeAsStringSync('taken');
+
+      await expectLater(
+        withClock(
+          Clock.fixed(DateTime.utc(2026, 10, 24, 1)),
+          () => backups.replaceWithImport(staging),
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      // 資料庫沒關、沒換，暫存檔還在（呼叫端決定刪不刪）。
+      expect(backups.isClosed, isFalse);
+      expect(staging.existsSync(), isTrue);
+      expect(
+        (await PluginRepository(database).list()).map((plugin) => plugin.id),
+        ['original'],
+      );
+      expect(
+        Directory(dataDirectory.path)
+            .listSync()
+            .map((entity) => p.basename(entity.path))
+            .where((name) => name.contains('before-import')),
+        isEmpty,
+      );
+    });
+
+    test('puts the database back when the swap fails', () async {
+      final database = await open();
+      await install(database, 'original');
+      final backups = backupsOf(database);
+      final staging = await stagingCopy(database, 'imported');
+      // 原檔改名的目標被一個資料夾佔住：資料庫已經關閉之後才失敗。
+      final blocker = Directory(
+        '${databaseFile().path}.before-import-20261024T020000000Z',
+      )..createSync();
+      File(p.join(blocker.path, 'keep')).writeAsStringSync('x');
+
+      await expectLater(
+        withClock(
+          Clock.fixed(DateTime.utc(2026, 10, 24, 2)),
+          () => backups.replaceWithImport(staging),
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(backups.isClosed, isTrue);
+      expect(File('${databaseFile().path}.restoring').existsSync(), isFalse);
+      final reopened = await open();
+      addTearDown(reopened.close);
+      expect(
+        (await PluginRepository(reopened).list()).map((plugin) => plugin.id),
+        ['original'],
+      );
+    });
+
+    test('discardImport removes the staging file and its sidecars', () async {
+      final database = await open();
+      addTearDown(database.close);
+      final staging = await stagingCopy(database, 'imported');
+      File('${staging.path}-journal').writeAsStringSync('x');
+
+      await backupsOf(database).discardImport(staging);
+
+      expect(staging.existsSync(), isFalse);
+      expect(File('${staging.path}-journal').existsSync(), isFalse);
+    });
+  });
+
   group('erase', () {
     test('deletes the database files and keeps the backups', () async {
       final database = await open();

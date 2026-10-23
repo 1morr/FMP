@@ -143,6 +143,11 @@
   - **佇列空了也寫播放狀態**：舊版的音量與循環模式照樣帶過來；整列都是型別預設或沒有 `PlayQueue` 列時才不寫。
   - **PR 4**：`playlist_remote.writable` 現在只要舊庫有該平台的帳號列就比對 `ownerUserId`，不管憑證有沒有匯入；PR 4 改成「真的匯入了那個平台的帳號才標可寫」。
   - 轉換器為了歷史上限的選項 import 了 `lib/settings`（純靜態函式），所以轉換器帶 Flutter 依賴，`dart run` 的工具不能引用它（目前沒有這種用法）。
+- PR 7：
+  - **「這台有登入」＝帳號列存在且 `active`**（2026-10-23，PR 7 審查後主對話決定；design §11 第 9 條的字面）：`invalidated` 的平台若舊版有可用的憑證就換成匯入的帳號與憑證，沒有就保留這台的列。
+  - **取代的表要歸類**：`StagingImport.replacedTables` 與測試裡的保留清單合起來必須等於整個 schema（`staging_import_replace_test.dart` 的 `table classification gate`），新表沒歸類就紅。
+  - **實機**（實作代理，dev、合成資料、重播）：Windows 兩種來源都驗了（本機歌單被換掉、`fmp-test` 保留、自動備份與 `fmp.db.before-import-*` 在、重啟後結果對話框、JSON 那次佇列清空）；Android 驗了 JSON 備份（經 SAF）。沒驗：Windows 上保留這台帳號（要真憑證，單元測試覆蓋）、Android 的「舊版資料庫」路徑。
+  - 低、不修：換檔後寫憑證失敗只記 log，結果對話框不會列出要重新登入的平台；確認框停留期間對保留表的寫入（插件 storage、排程時間）會丟失；JSON 解析在 UI isolate；按鈕只在有檔案對話框的平台出現（Android、Windows 都有）。
 - PR 6：
   - **實機**（2026-10-23，dev、合成資料、重播）：Windows 由實作代理驗（首次匯入含假 cookie 的 DPAPI 檔、結果對話框、「知道了」後不再出現、失敗頁三個按鈕、診斷包不含假 cookie 與使用者名稱）；Android 模擬器由主對話驗（首次匯入、舊庫副本雜湊不變、`legacy-import/` 清空、結果對話框、重開不再匯入、佇列與播放位置帶過來、失敗頁、以空白資料啟動）。
   - **Android 讀舊憑證後 `shared_prefs` 不變**：dev 讀不到 prod 的沙盒，實機驗不到；證據是規劃時的實測（`research/android-credentials-compat.md`），M9 的實際升級再看一次。

@@ -1,0 +1,13 @@
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "舊資料匯入的決定與 M5 補充（設定頁的取代語意）"}
+{"file": "docs/adr/0034-backup-file-and-restore.md", "reason": "備份與還原、換檔重啟、M5 的決定"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/design.md", "reason": "§3.2、§4.2、§6.1、§6.3、§7.4、§9"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/implement.md", "reason": "通用規則、地雷、留下的後續（PR 1、PR 2、PR 6 要本 PR 接的事）"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/legacy-sources.md", "reason": "舊 JSON 備份 v1–v5 的格式與讀法"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/target-schema.md", "reason": "新版的表、ADR 0034 的換檔機制"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "資料層、備份與還原、測試以真的檔案資料庫"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、設定分組、對話框"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "檔案對話框、重啟"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、雙向變異"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 不含使用者資料"}
+{"file": ".claude/skills/verify-on-device/SKILL.md", "reason": "實機驗證的流程"}
+{"file": ".claude/skills/verify-on-device/references/runtime-state.md", "reason": "資料目錄、--fmp-legacy-dir 的帶法"}

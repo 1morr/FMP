@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fmp/app/data_reset.dart';
 import 'package:fmp/data/database/backup_format.dart';
 import 'package:fmp/data/database/database_backups.dart';
@@ -9,6 +11,7 @@ final class FakeDataReset implements DataReset {
     this.listed = const [],
     this.stageError,
     this.restoreError,
+    this.importError,
   });
 
   final Object? backUpError;
@@ -19,6 +22,9 @@ final class FakeDataReset implements DataReset {
 
   /// 非空時 [restoreAndRestart] 拋這個（模擬自動備份失敗）。
   final Object? restoreError;
+
+  /// 非空時 [replaceWithImportAndRestart] 拋這個（模擬自動備份失敗）。
+  final Object? importError;
   final calls = <String>[];
 
   static final made = DatabaseBackup(
@@ -80,4 +86,21 @@ final class FakeDataReset implements DataReset {
     calls.add('restore');
     if (restoreError case final error?) throw error;
   }
+
+  /// [replaceWithImportAndRestart] 收到的暫存檔與 `afterSwap`，測試用來核對。
+  File? importedStaging;
+
+  @override
+  Future<void> replaceWithImportAndRestart(
+    File staging, {
+    Future<void> Function()? afterSwap,
+  }) async {
+    calls.add('replaceWithImport');
+    importedStaging = staging;
+    if (importError case final error?) throw error;
+    await afterSwap?.call();
+  }
+
+  @override
+  Future<void> discardImport(File staging) async => calls.add('discardImport');
 }

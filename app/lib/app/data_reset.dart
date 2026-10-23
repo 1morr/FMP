@@ -47,6 +47,21 @@ abstract interface class DataReset {
   /// [staged] → 資料庫（關閉、換檔）→ 寫完 log → 重啟。憑證與登入 WebView 都不動：目前的
   /// 登入在還原後照舊有效。換檔失敗（原檔已改回來）時，只要資料庫已經關閉，照樣重啟。
   Future<void> restoreAndRestart(StagedBackup staged);
+
+  /// 以 [staging]（`LegacyImport.stage` 在 `replacing` 模式寫好並驗證過的副本）取代資料庫並
+  /// 重啟；設定頁的「從舊版匯入…」（M5 design §6.3）。原來的資料庫檔改名留在資料目錄。
+  ///
+  /// 順序固定：自動備份目前的資料庫（失敗就拋出，什麼都不動）→ 資料庫（關閉、換檔）→
+  /// [afterSwap]（寫憑證；它拋出的錯誤只記 log，不擋重啟：換檔已完成，沒寫成的平台在
+  /// `CredentialStore` 載入時因帳號列沒有憑證而被對齊刪掉，使用者重新登入）→ 寫完 log →
+  /// 重啟。和還原一樣，關閉之後才失敗照樣重啟。
+  Future<void> replaceWithImportAndRestart(
+    File staging, {
+    Future<void> Function()? afterSwap,
+  });
+
+  /// 不匯入了：刪掉 [staging]。
+  Future<void> discardImport(File staging);
 }
 
 final class AppDataReset implements DataReset {
@@ -129,6 +144,36 @@ final class AppDataReset implements DataReset {
       work: () => databaseBackups.restoreStaged(staged),
     );
   }
+
+  @override
+  Future<void> replaceWithImportAndRestart(
+    File staging, {
+    Future<void> Function()? afterSwap,
+  }) async {
+    log.warning('Replacing the database with imported legacy data', tag: _tag);
+    await _closeDatabaseAndRestart(
+      done: 'Legacy data imported',
+      failed: 'The legacy import failed after the database was closed',
+      work: () async {
+        await databaseBackups.replaceWithImport(staging);
+        if (afterSwap == null) return;
+        try {
+          await afterSwap();
+        } on Object catch (error, stackTrace) {
+          log.error(
+            'Failed after swapping in the imported database',
+            tag: _tag,
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      },
+    );
+  }
+
+  @override
+  Future<void> discardImport(File staging) =>
+      databaseBackups.discardImport(staging);
 
   /// 跑會關閉資料庫的 [work]，然後重啟。[work] 在關閉資料庫之前失敗（備份不見、複製失敗）
   /// 就只拋出，App 還能用；關閉之後才失敗時資料庫已經不能用（之後的查詢都丟錯），留在這個

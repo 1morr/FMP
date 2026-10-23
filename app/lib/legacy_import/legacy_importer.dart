@@ -1,14 +1,17 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:fmp/app/legacy_import.dart';
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/import/legacy_import_failed.dart';
 import 'package:fmp/data/import/staging_import.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/legacy_import/legacy_account_converter.dart';
+import 'package:fmp/legacy_import/legacy_backup_reader.dart';
 import 'package:fmp/legacy_import/legacy_converter.dart';
 import 'package:fmp/legacy_import/legacy_database_reader.dart';
 import 'package:fmp/legacy_import/legacy_snapshot.dart';
@@ -35,6 +38,7 @@ final class LegacyImporter implements LegacyImport {
     required this._secureStorage,
     required this._importOutputDevice,
     LegacyDatabaseReader? reader,
+    this._backupReader = const LegacyBackupReader(),
     StagingImport? staging,
   }) : _log = log,
        _reader =
@@ -53,6 +57,7 @@ final class LegacyImporter implements LegacyImport {
   /// 平台支援選輸出裝置時才把舊的輸出裝置設定帶過來（`PlaybackSupport.outputDeviceSelection`）。
   final bool _importOutputDevice;
   final LegacyDatabaseReader _reader;
+  final LegacyBackupReader _backupReader;
   final StagingImport _staging;
 
   Directory get _workRoot =>
@@ -65,6 +70,7 @@ final class LegacyImporter implements LegacyImport {
   Future<LegacyStaged> stage(
     LegacySource source, {
     void Function(LegacyImportStep step)? progress,
+    AppDatabase? replacing,
   }) async {
     progress?.call(LegacyImportStep.read);
     final LegacySnapshot snapshot;
@@ -83,6 +89,53 @@ final class LegacyImporter implements LegacyImport {
       );
     }
 
+    return _convertAndWrite(
+      snapshot,
+      source: LegacyImportSource.database,
+      credentialReads: credentialReads,
+      progress: progress,
+      replacing: replacing,
+    );
+  }
+
+  @override
+  Future<LegacyStaged> stageBackup(
+    Uint8List bytes, {
+    void Function(LegacyImportStep step)? progress,
+    AppDatabase? replacing,
+  }) async {
+    progress?.call(LegacyImportStep.read);
+    final ({LegacySnapshot snapshot, int version}) parsed;
+    try {
+      parsed = _backupReader.read(bytes);
+    } on LegacyBackupRejected {
+      rethrow;
+    } on Object catch (error) {
+      throw LegacyImportFailed(
+        LegacyImportStep.read,
+        'Reading the legacy backup failed',
+        cause: error,
+      );
+    }
+    return _convertAndWrite(
+      parsed.snapshot,
+      source: LegacyImportSource.backup,
+      backupVersion: parsed.version,
+      progress: progress,
+      replacing: replacing,
+    );
+  }
+
+  /// 讀完之後的共同部分：轉換 → 寫暫存庫 → 驗證。[replacing] 給了就在它的副本上取代
+  /// （設定頁），否則寫全新的庫（首次啟動）。
+  Future<LegacyStaged> _convertAndWrite(
+    LegacySnapshot snapshot, {
+    required LegacyImportSource source,
+    required void Function(LegacyImportStep step)? progress,
+    required AppDatabase? replacing,
+    int? backupVersion,
+    Map<String, LegacyCredentialRead>? credentialReads,
+  }) async {
     progress?.call(LegacyImportStep.convert);
     final LegacyConversion conversion;
     // 毫秒精度：資料庫存毫秒，驗證比對才一致。
@@ -93,7 +146,8 @@ final class LegacyImporter implements LegacyImport {
     try {
       conversion = const LegacyConverter().convert(
         snapshot,
-        source: LegacyImportSource.database,
+        source: source,
+        backupVersion: backupVersion,
         now: now,
         importOutputDevice: _importOutputDevice,
         credentials: credentialReads,
@@ -109,21 +163,39 @@ final class LegacyImporter implements LegacyImport {
     final stamp = now.toIso8601String().replaceAll(RegExp('[:.]'), '');
     final file = File(p.join(_workRoot.path, 'staging-$stamp.db'));
     progress?.call(LegacyImportStep.write);
-    await _staging.write(conversion.bundle, file, importedAt: now);
+    ReplacedStaging? replaced;
+    if (replacing == null) {
+      await _staging.write(conversion.bundle, file, importedAt: now);
+    } else {
+      replaced = await _staging.writeReplacing(
+        conversion.bundle,
+        file,
+        importedAt: now,
+        current: replacing,
+      );
+    }
     progress?.call(LegacyImportStep.verify);
-    await _staging.verify(conversion.bundle, file);
+    await _staging.verify(conversion.bundle, file, replaced: replaced);
+    final kept = replaced?.keptAccountPluginIds ?? const <String>{};
     _log.info(
       'Legacy data staged',
       tag: _tag,
       fields: {
-        'credentialPlatforms': conversion.credentials.keys.toList(),
+        'source': source.name,
+        'replacing': replacing != null,
+        'credentialPlatforms': [
+          for (final id in conversion.credentials.keys)
+            if (!kept.contains(id)) id,
+        ],
+        'keptAccountPlatforms': kept.toList(),
         'reloginPlatforms': conversion.bundle.record.summary.reloginPlatforms,
       },
     );
     return LegacyStaged(
       file: file,
       credentials: conversion.credentials,
-      summary: conversion.bundle.record.summary,
+      summary: replaced?.summary ?? conversion.bundle.record.summary,
+      keptAccountPluginIds: kept,
     );
   }
 

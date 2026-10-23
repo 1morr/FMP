@@ -1940,6 +1940,64 @@ class Translations$backup$zh_TW {
   /// zh-TW: '這些插件在這個版本無法使用，不會還原'
   String get unusableHeading => '這些插件在這個版本無法使用，不會還原';
 
+  /// zh-TW: '從舊版匯入…'
+  String get legacyImport => '從舊版匯入…';
+
+  /// zh-TW: '正在讀取舊版資料…'
+  String get legacyImportWorking => '正在讀取舊版資料…';
+
+  /// zh-TW: '從哪裡匯入舊版資料？'
+  String get legacyChooseTitle => '從哪裡匯入舊版資料？';
+
+  /// zh-TW: '舊版資料庫'
+  String get legacyFromDatabase => '舊版資料庫';
+
+  /// zh-TW: '舊版資料庫（這台裝置上找不到）'
+  String get legacyFromDatabaseMissing => '舊版資料庫（這台裝置上找不到）';
+
+  /// zh-TW: '舊版備份檔（.json）'
+  String get legacyFromBackup => '舊版備份檔（.json）';
+
+  /// zh-TW: '這台裝置上有舊版 FMP 的資料，還沒有匯入過。'
+  String get legacyHint => '這台裝置上有舊版 FMP 的資料，還沒有匯入過。';
+
+  /// zh-TW: '從舊版匯入？'
+  String get legacyConfirmTitle => '從舊版匯入？';
+
+  /// zh-TW: '會取代目前的歌單、曲目、播放歷史、佇列與電台，以及舊版有的設定；保留已安裝的插件、插件設定與這台目前的登入。取代前會自動備份。'
+  String get legacyConfirmBody =>
+      '會取代目前的歌單、曲目、播放歷史、佇列與電台，以及舊版有的設定；保留已安裝的插件、插件設定與這台目前的登入。取代前會自動備份。';
+
+  /// zh-TW: '要匯入'
+  String get legacyWillImport => '要匯入';
+
+  /// zh-TW: '佇列：{count}'
+  String legacyQueue({required Object count}) => '佇列：${count}';
+
+  /// zh-TW: '舊版備份檔不含佇列，取代後佇列是空的。'
+  String get legacyBackupNoQueue => '舊版備份檔不含佇列，取代後佇列是空的。';
+
+  /// zh-TW: '取代並重新啟動'
+  String get legacyConfirm => '取代並重新啟動';
+
+  /// zh-TW: '正在取代…'
+  String get legacyWorking => '正在取代…';
+
+  /// zh-TW: '匯入沒有完成：{message}'
+  String legacyFailed({required Object message}) => '匯入沒有完成：${message}';
+
+  /// zh-TW: '這不是舊版 FMP 的備份檔。'
+  String get legacyRejectedNotBackup => '這不是舊版 FMP 的備份檔。';
+
+  /// zh-TW: '這份備份來自較新版的 FMP，無法匯入。'
+  String get legacyRejectedNewer => '這份備份來自較新版的 FMP，無法匯入。';
+
+  /// zh-TW: '備份檔已損壞。'
+  String get legacyRejectedCorrupt => '備份檔已損壞。';
+
+  /// zh-TW: '這份備份沒有可匯入的資料。'
+  String get legacyRejectedEmpty => '這份備份沒有可匯入的資料。';
+
   /// zh-TW: '還原並重新啟動'
   String get confirm => '還原並重新啟動';
 

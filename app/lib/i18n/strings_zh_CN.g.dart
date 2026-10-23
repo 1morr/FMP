@@ -1458,6 +1458,45 @@ class Translations$backup$zh_CN extends Translations$backup$zh_TW {
   @override
   String get unusableHeading => '这些插件在这个版本无法使用，不会还原';
   @override
+  String get legacyImport => '从旧版导入…';
+  @override
+  String get legacyImportWorking => '正在读取旧版数据…';
+  @override
+  String get legacyChooseTitle => '从哪里导入旧版数据？';
+  @override
+  String get legacyFromDatabase => '旧版数据库';
+  @override
+  String get legacyFromDatabaseMissing => '旧版数据库（这台设备上找不到）';
+  @override
+  String get legacyFromBackup => '旧版备份文件（.json）';
+  @override
+  String get legacyHint => '这台设备上有旧版 FMP 的数据，还没有导入过。';
+  @override
+  String get legacyConfirmTitle => '从旧版导入？';
+  @override
+  String get legacyConfirmBody =>
+      '会替换当前的歌单、曲目、播放历史、队列与电台，以及旧版有的设置；保留已安装的插件、插件设置与这台设备当前的登录。替换前会自动备份。';
+  @override
+  String get legacyWillImport => '将导入';
+  @override
+  String legacyQueue({required Object count}) => '队列：${count}';
+  @override
+  String get legacyBackupNoQueue => '旧版备份文件不含队列，替换后队列是空的。';
+  @override
+  String get legacyConfirm => '替换并重新启动';
+  @override
+  String get legacyWorking => '正在替换…';
+  @override
+  String legacyFailed({required Object message}) => '导入没有完成：${message}';
+  @override
+  String get legacyRejectedNotBackup => '这不是旧版 FMP 的备份文件。';
+  @override
+  String get legacyRejectedNewer => '这份备份来自较新版的 FMP，无法导入。';
+  @override
+  String get legacyRejectedCorrupt => '备份文件已损坏。';
+  @override
+  String get legacyRejectedEmpty => '这份备份没有可导入的数据。';
+  @override
   String get confirm => '还原并重新启动';
   @override
   String get cancel => '取消';

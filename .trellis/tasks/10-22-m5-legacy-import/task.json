@@ -24,7 +24,8 @@
     "10-23-m5-legacy-converter",
     "10-23-m5-legacy-settings",
     "10-23-m5-legacy-credentials",
-    "10-23-m5-legacy-import-startup"
+    "10-23-m5-legacy-import-startup",
+    "10-23-m5-settings-legacy-import"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],
