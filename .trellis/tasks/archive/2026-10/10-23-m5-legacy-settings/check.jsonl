@@ -1,0 +1,9 @@
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "舊資料匯入的決定與 M5 補充"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/design.md", "reason": "M5 的技術設計（本 PR 的節見 prd）"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/implement.md", "reason": "PR 順序、留下的後續（PR 1–3 的注意事項）"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/legacy-sources.md", "reason": "舊欄位、舊預設、舊憑證的鍵與形狀"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、雙向變異"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 不寫使用者資料與秘密"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/research/target-schema.md", "reason": "新版的設定組與欄位"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "新版設定：空＝沒設定過、選項與預設"}
+{"file": "docs/adr/0011-settings-and-logging.md", "reason": "設定的存放與預設"}

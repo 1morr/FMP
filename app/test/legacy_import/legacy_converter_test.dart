@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/import/import_bundle.dart';
 import 'package:fmp/data/import/import_summary.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
+import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/mix_identity.dart';
@@ -1448,30 +1449,33 @@ void main() {
     });
   });
 
-  group('settings and accounts are left to later steps', () {
-    test('accounts and settings groups are empty; the cache limit is never imported', () {
-      final settings = LegacySettings(
-        maxCacheSizeMB: 512,
-        themeModeIndex: 2,
-        locale: 'zh_TW',
-        playHistoryLimit: 5000,
-      );
-      final bundle = convert(
-        legacySnapshot(
-          settings: settings,
-          accounts: [legacyAccount(platform: 'bilibili', userId: '1')],
-        ),
-      );
-      expect(bundle.accounts, isEmpty);
-      expect(bundle.network.cacheLimitMebibytes, isNull);
-      expect(bundle.network, NetworkSettings.empty);
-      expect(bundle.appearance.themeMode, isNull);
-      expect(bundle.appearance.locale, isNull);
-      expect(bundle.playback.playHistoryLimit, isNull);
-      expect(bundle.browseAsLoggedIn, isEmpty);
-      expect(bundle.record.summary.unimportedSettings, isEmpty);
-      expect(bundle.record.summary.reloginPlatforms, isEmpty);
-    });
+  group('accounts are left to a later step', () {
+    test(
+      'accounts are empty; settings convert but the cache limit never does',
+      () {
+        final settings = LegacySettings(
+          maxCacheSizeMB: 512,
+          themeModeIndex: 2,
+          locale: 'zh_TW',
+          playHistoryLimit: 5000,
+        );
+        final bundle = convert(
+          legacySnapshot(
+            settings: settings,
+            accounts: [legacyAccount(platform: 'bilibili', userId: '1')],
+          ),
+        );
+        expect(bundle.accounts, isEmpty);
+        expect(bundle.network.cacheLimitMebibytes, isNull);
+        expect(bundle.network, NetworkSettings.empty);
+        expect(bundle.appearance.themeMode, ThemeModeSetting.dark);
+        expect(bundle.appearance.locale, LocaleSetting.zhTw);
+        expect(bundle.playback.playHistoryLimit, 5000);
+        expect(bundle.browseAsLoggedIn, hasLength(3));
+        expect(bundle.record.summary.unimportedSettings, ['cacheLimit']);
+        expect(bundle.record.summary.reloginPlatforms, isEmpty);
+      },
+    );
   });
 
   test('the snapshot is not modified', () {

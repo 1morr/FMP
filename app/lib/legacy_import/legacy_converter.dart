@@ -9,6 +9,7 @@ import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/legacy_import/legacy_settings_converter.dart';
 import 'package:fmp/legacy_import/legacy_snapshot.dart';
 import 'package:fmp/legacy_import/legacy_source_ids.dart';
 import 'package:fmp/legacy_import/legacy_track_catalog.dart';
@@ -28,13 +29,21 @@ final class LegacyConverter {
   const LegacyConverter();
 
   /// [source] 與 [backupVersion] 只寫進 `ImportRecord`；[now] 給之後需要「匯入時間」的段落
-  /// （帳號的 `logged_in_at` 預設，PR 4）。
+  /// （帳號的 `logged_in_at` 預設，PR 4）。[importOutputDevice] 由呼叫端依平台給（Windows 才為真），
+  /// 轉換器自己不判斷平台（設定段，M5 design §5.9）。
   ImportBundle convert(
     LegacySnapshot snapshot, {
     required LegacyImportSource source,
     int? backupVersion,
     required DateTime now,
-  }) => _Conversion(snapshot, source, backupVersion, now).run();
+    bool importOutputDevice = false,
+  }) => _Conversion(
+    snapshot,
+    source,
+    backupVersion,
+    now,
+    importOutputDevice,
+  ).run();
 }
 
 /// `ImportSummary.collections` 的鍵。
@@ -49,12 +58,19 @@ abstract final class SummaryCollection {
 }
 
 final class _Conversion {
-  _Conversion(this.snapshot, this.source, this.backupVersion, this.now);
+  _Conversion(
+    this.snapshot,
+    this.source,
+    this.backupVersion,
+    this.now,
+    this.importOutputDevice,
+  );
 
   final LegacySnapshot snapshot;
   final LegacyImportSource source;
   final int? backupVersion;
   final DateTime now;
+  final bool importOutputDevice;
 
   final _tallies = <String, Tally>{};
   Tally _tally(String name) => _tallies.putIfAbsent(name, Tally.new);
@@ -78,6 +94,11 @@ final class _Conversion {
     final radioStations = _radioStations();
     final tracks = _tracks();
     final origins = _trackOrigins();
+    final settings = convertLegacySettings(
+      snapshot,
+      source: source,
+      importOutputDevice: importOutputDevice,
+    );
     return ImportBundle(
       record: ImportRecord(
         source: source,
@@ -90,6 +111,7 @@ final class _Conversion {
             for (final entry in _tallies.entries)
               entry.key: entry.value.toSummary(),
           },
+          unimportedSettings: settings.unimported,
         ),
       ),
       tracks: tracks,
@@ -99,6 +121,11 @@ final class _Conversion {
       history: history,
       radioStations: radioStations,
       trackOrigins: origins,
+      appearance: settings.appearance,
+      network: settings.network,
+      playback: settings.playback,
+      browseAsLoggedIn: settings.browseAsLoggedIn,
+      layout: settings.layout,
     );
   }
 
