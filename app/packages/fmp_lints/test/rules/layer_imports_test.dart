@@ -244,6 +244,40 @@ class LayerImportsTest extends FmpRuleTest {
     "import [!'package:test/legacy_import/reader.dart'!];\n",
   );
 
+  // M5 design §0.2：只有 `lib/main.dart` 和目錄自己能 import；`lib/app` 只認介面。
+  Future<void> test_legacyImportFromAllowedImporters() async {
+    await assertLints(
+      'lib/main.dart',
+      "import 'legacy_import/legacy_importer.dart';\n"
+          "import 'package:test/legacy_import/legacy_importer.dart';\n",
+    );
+    await assertLints(
+      'lib/legacy_import/legacy_importer.dart',
+      "import 'package:test/legacy_import/legacy_converter.dart';\n",
+    );
+  }
+
+  Future<void> test_legacyImportFromOtherApp() async {
+    await assertLints(
+      'lib/app/legacy_import.dart',
+      "import [!'package:test/legacy_import/legacy_importer.dart'!];\n",
+    );
+    await assertLints(
+      'lib/ui/settings/page.dart',
+      "import [!'../../legacy_import/legacy_importer.dart'!];\n",
+    );
+  }
+
+  // 名稱相近的別的檔案、註解與字串裡提到的不報。
+  Future<void> test_legacyImportNearMisses() => assertLints(
+    'lib/app/fmp_app.dart',
+    "import 'package:test/app/legacy_import.dart';\n"
+        "import 'package:test/legacy_importer_notes.dart';\n"
+        "import 'package:test/legacy_import_helpers/x.dart';\n"
+        "// import 'package:test/legacy_import/legacy_importer.dart';\n"
+        "const text = \"import 'legacy_import/legacy_importer.dart';\";\n",
+  );
+
   Future<void> test_coreImportsAnUpperLayer() => assertLints(
     'lib/core/errors/app_error.dart',
     "import [!'package:test/ui/toast/toast.dart'!];\n"

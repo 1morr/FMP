@@ -117,9 +117,6 @@ const _upperLayers = [
   'lib/charts',
 ];
 
-/// 只有自己目錄內能 import 的目錄（ADR 0010）。
-const sealedDirectories = ['lib/legacy_import'];
-
 /// 只准列出的位置 import 的檔案或目錄：被匯入端 → 允許的匯入端（檔案或目錄）。
 /// 被匯入端是目錄時，目錄內的檔案彼此 import 也要列出來。
 const restrictedImports = <String, List<String>>{
@@ -140,6 +137,8 @@ const restrictedImports = <String, List<String>>{
     'lib/data/cache',
     'lib/main.dart',
   ],
+  // ADR 0010：舊資料匯入只給自己和組裝點（M5 design §0.2）；`lib/app` 只認 `LegacyImport` 介面。
+  'lib/legacy_import': ['lib/legacy_import', 'lib/main.dart'],
   // M3 design §12.5：fixture 的錄製、重播與格式只給插件開發工具（契約執行器在 test/，不受限）。
   'lib/core/network/fixture': ['lib/plugins/dev', 'lib/core/network/fixture'],
 };
@@ -246,11 +245,6 @@ String? _externalViolation(PackagePath from, String packageName) {
 
 String? _internalViolation(PackagePath from, PackagePath target) {
   if (!from.isInLib || !target.isInLib) return null;
-  for (final sealed in sealedDirectories) {
-    if (target.isIn(sealed) && !from.isIn(sealed)) {
-      return '$sealed/ is only imported from inside itself';
-    }
-  }
   for (final MapEntry(key: restricted, value: allowed)
       in restrictedImports.entries) {
     if (target.isIn(restricted) && !from.isInAny(allowed)) {
