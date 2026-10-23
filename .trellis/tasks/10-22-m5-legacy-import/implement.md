@@ -138,6 +138,11 @@
   - **讀取器的 log 是回呼**（`LegacyReadLog`）：`Log` 會帶進 Flutter，`dart run tool/legacy_counts.dart` 就跑不了。PR 6 接到 `Log`。
   - **`LegacySettings` 可變、舊 migration 就地補做**：只在讀資料庫時、`schemaVersion < 4` 才補。PR 7 的 JSON 備份讀取器**不能**沿用「看 `schemaVersion` 決定補不補」（備份有自己的版本語意，design §4.2）；轉換器不改這個物件。
   - 低、沒有 repro，不修：`Isar.open` 在原生端建好實例後若初始化拋錯，實例不會被關，同一個行程裡重試會撞名（實例名固定 `fmp_database`）。PR 6 的「重試」若遇到，再以 `Isar.getInstance` 比對目錄後補關。
+- PR 3：
+  - **摘要分「略過」與「註記」**：`CollectionSummary` 加 `notes`（`remoteNotRecognized`、`duplicateRemote`、`importSourceMismatch`、`unverifiedPart`：資料照寫，只是提醒）；`skipped` 只放真的略過，每個 collection 都是「讀到 = 寫入 + 略過」。PR 6 的結果對話框在 `lib/app`，不必 import `lib/legacy_import` 就分得出來。
+  - **佇列空了也寫播放狀態**：舊版的音量與循環模式照樣帶過來；整列都是型別預設或沒有 `PlayQueue` 列時才不寫。
+  - **PR 4**：`playlist_remote.writable` 現在只要舊庫有該平台的帳號列就比對 `ownerUserId`，不管憑證有沒有匯入；PR 4 改成「真的匯入了那個平台的帳號才標可寫」。
+  - 轉換器為了歷史上限的選項 import 了 `lib/settings`（純靜態函式），所以轉換器帶 Flutter 依賴，`dart run` 的工具不能引用它（目前沒有這種用法）。
 - PR 2（審查時發現）：
   - **PR 7 要另一個寫入入口**：`StagingImport.write` 會先刪目標檔、建全新的庫、設定整列插入。設定頁的取代要在 `VACUUM INTO` 的副本上寫：不刪檔、先清掉要取代的表、設定只覆寫有值的欄位、合併帳號（design §6.3）。`verify` 的「匯入包沒寫的表必須是空的」改成收「保留下來的列數」。
   - **換上後才失敗的憑證**：需要重新登入的平台在寫暫存庫時就定了；`writeCredentials` 在換上之後才失敗的平台要補記進 `summary_json`。PR 4／PR 6 給 `LegacyImportsRepository` 加補記的方法。

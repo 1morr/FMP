@@ -519,7 +519,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `account_repository_test.dart` 的 `match target and rank are written on their own`、`remove deletes the match columns with the row`。
 - `legacy_imports`、`legacy_playlist_ids` 是 schema v19（M5 design §6.4，PR 2）：舊版資料匯入的紀錄。
   - `legacy_imports`：`id` 自增、`source`（`database`／`backup`，字串在 `LegacyImportSourceConverter`）、`imported_at`、`legacy_schema_version`、`backup_version`（可空）、
-    `summary_json`（`ImportSummary`：每個 collection 的 read／written／skipped{理由: 筆數}、不匯入的設定、需要重新登入的平台；只有筆數與識別字，沒有曲名、歌單名）、
+    `summary_json`（`ImportSummary`：每個 collection 的 read／written／skipped{理由: 筆數}、notes{註記: 筆數}、不匯入的設定、需要重新登入的平台；只有筆數與識別字，沒有曲名、歌單名）、
     `acknowledged`（結果對話框看過了，預設假）。`legacy_playlist_ids` 主鍵（`legacy_import_id`, `legacy_playlist_id`），兩個外鍵（匯入紀錄、`playlists`）都連帶刪除；
     只有資料庫來源寫，讀者是 M6（把舊下載紀錄接回歌單），M5 只寫。
   - **兩張都在 `backupExcludedTables`、不在 `backupKeptOnDeviceTables`**：匯入紀錄與歌單對照是這台的事件，還原另一台的備份後不再成立，所以備份不帶、還原後清空。
@@ -620,8 +620,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 舊資料匯入
 
-`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1）。目前只有讀舊 Isar 資料庫的部分（PR 1）；怎麼用它的流程、
-轉換器與寫入由之後的 PR 加進來，到時再補這一節。
+`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。目前有讀舊 Isar 資料庫（PR 1）與轉換器（PR 3）；帳號與憑證、設定的轉換、
+怎麼用它們的流程由之後的 PR 加進來，到時再補這一節。
 
 - **先複製再開副本，舊檔一個位元組都不動。** Isar 沒有唯讀模式：每次開啟都會建 lock 檔，也可能依 schema 差異
   改寫檔案。`LegacyDatabaseReader.read(檔, 工作目錄根)` 複製到 `<根>/work-<UTC>/fmp_database.isar`（lock 檔不複製），
@@ -655,6 +655,20 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 合成舊庫：`test/support/legacy_database.dart`（全是編造資料）；`dart run tool/legacy_fixture.dart <資料夾>` 寫一份到
   `fmp_database.isar`（給實機驗證）；`dart run tool/legacy_counts.dart <副本路徑>` 只印每個 collection 的筆數與
   `schemaVersion`，不印內容（給真實舊庫的**副本**用，不要指向舊 App 正在用的檔案）。
+- **轉換器**（`legacy_converter.dart`，`LegacyConverter.convert(snapshot, source:, backupVersion:, now:)` → `ImportBundle`）純 Dart、沒有 I/O、不改 snapshot；
+  依序跑曲目鍵對照、歌單、佇列、歷史、電台、曲目、外部來源，帳號與設定之後各加一段（`accounts`、設定組目前都是空的）。
+  - **B 站單 P 去 cid。** `pageCount` ≤ 1，或 `pageCount` 空且 `pageNum` 空或 1 且 `parentTitle` 空，鍵就去掉舊版補上的 cid，兩段與三段的同一支影片併成一列；
+    歌單、佇列、歷史經「舊鍵 → 新鍵」「舊 `Track.id` → 新鍵」的對照。規則照 bilibili 1.10.0 的 `itemsOfMedia`（`pages <= 1` 不帶 `cid`、`partIndex`、`parentTitle`）。
+    `part_index`、`parent_title` 只給去 cid 之後還帶 cid 的曲目。歷史的三段鍵：`Track` 判定同一支影片是單 P 時併進兩段鍵；`Track` 裡完全沒有這支影片才照原樣（記 `unverifiedPart`）。播放狀態在佇列是空的時也寫（音量、循環模式照舊版恢復），只有沒有佇列列或整列是型別預設時不寫。
+    閘門：`legacy_converter_test.dart` 的 `B 站單 P 去 cid` 群組（規則的各分支、合併、對照接上、分 P 欄位）。
+  - **網址辨識依賴官方插件。** `remote_playlist_url.dart` 是 bilibili 1.10.0、youtube 1.6.0、netease 1.7.0 的 `playlistFromUrl` 的 Dart 版（只認不連網的形式；`163cn.tv` 認不出，歌單轉本機）。
+    兩個 repo 沒有自動的一致性檢查，插件改了輸出形狀要回頭改這裡；閘門：`remote_playlist_url_test.dart`，期望值逐條取自各插件的單元測試（檔頭寫版本與來源檔）。
+  - **略過理由**（`skip_reason.dart` 的 `SkipReason`，序列化成 `name`）：`isSkip` 為真的進 `CollectionSummary.skipped`（`read = written + skipped 總和`），
+    `remoteNotRecognized`、`duplicateRemote`、`importSourceMismatch`、`unverifiedPart` 是註記（資料有寫出），進 `notes`；兩者的分類閘門是 `legacy_converter_test.dart` 的 `expectBalanced`。
+    `summary_json` 不含曲名、歌單名、網址。
+  - 播放歷史的上限換算（`play_history_limit.dart`）：不小於舊值的最小選項，上限 50000；不合法或等於舊預設（10000）時用新版預設。設定的轉換（PR 5）沿用同一個函式。
+    快取上限不匯入（`network.cacheLimitMebibytes` 留空，ADR 0016 §決定 3）。
+  - 整合閘門：`legacy_converter_import_test.dart`（合成舊庫 → 讀取器 → 轉換器 → `StagingImport.write` 與 `verify` 通過）。
 - Android 的 `libisar.so` 要 16KB 對齊（ADR 0010 後果）：`flutter build apk --flavor dev --debug` 後，
   `zipalign -c -P 16 -v 4 <apk>` 與每個 64 位元 ABI 的 `libisar.so` LOAD 段 `p_align` ≥ 0x4000。**沒有自動閘門**，
   升 `isar_community_flutter_libs` 時手動驗。

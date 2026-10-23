@@ -89,8 +89,8 @@ void main() {
       expect(
         summary.encode(),
         '{"collections":{"playlists":{"read":4,"written":3,'
-        '"skipped":{"mixWithoutSeed":1}},'
-        '"history":{"read":10,"written":10,"skipped":{}}},'
+        '"skipped":{"mixWithoutSeed":1},"notes":{}},'
+        '"history":{"read":10,"written":10,"skipped":{},"notes":{}}},'
         '"unimportedSettings":["themeColor","fontFamily"],'
         '"reloginPlatforms":["bilibili"]}',
       );

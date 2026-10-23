@@ -251,7 +251,7 @@ void main() {
         'backup_version': null,
         'summary_json':
             '{"collections":{"tracks":{"read":10,"written":8,'
-            '"skipped":{"duplicateTrack":1,"unreferenced":1}}},'
+            '"skipped":{"duplicateTrack":1,"unreferenced":1},"notes":{}}},'
             '"unimportedSettings":["themeColor"],"reloginPlatforms":["netease"]}',
         'acknowledged': 0,
       });
