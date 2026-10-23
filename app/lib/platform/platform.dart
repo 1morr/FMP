@@ -23,6 +23,8 @@ import 'package:fmp/platform/connectivity/connectivity.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/files/file_picker_dialogs.dart';
 import 'package:fmp/platform/files/files.dart';
+import 'package:fmp/platform/legacy_data/legacy_data_locations.dart';
+import 'package:fmp/platform/legacy_data/legacy_data_locator.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
@@ -54,12 +56,14 @@ final class AppPlatform {
     this.urlOpener,
     this.fileSharer,
     this.mediaControls,
+    this.legacyDataLocator,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
     AppRestarter Function(SystemMediaControls? mediaControls)? restarterFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
        _restarterFactory = restarterFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
        assert(capabilities.dataDirectory == (restarterFactory != null)),
+       assert(capabilities.dataDirectory == (legacyDataLocator != null)),
        assert(capabilities.files == (fileDialogs != null)),
        assert(capabilities.loginWebView == (loginWebView != null)),
        assert(capabilities.urlOpener == (urlOpener != null)),
@@ -73,8 +77,15 @@ final class AppPlatform {
        );
 
   /// 目前執行的平台。
-  factory AppPlatform.current(AppFlavor flavor) =>
-      AppPlatform.assemble(defaultTargetPlatform, flavor);
+  ///
+  /// [legacyDirectory] 是 dev 入口 `--fmp-legacy-dir` 的值（`legacyDirectoryPath`）；prod 一律
+  /// 不看它。
+  factory AppPlatform.current(AppFlavor flavor, {String? legacyDirectory}) =>
+      AppPlatform.assemble(
+        defaultTargetPlatform,
+        flavor,
+        legacyDirectory: legacyDirectory,
+      );
 
   /// 依 [platform] 組裝。
   ///
@@ -89,6 +100,7 @@ final class AppPlatform {
     AppFlavor flavor, {
     Future<SystemMediaControls> Function(Log log)? androidMediaControls,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+    String? legacyDirectory,
   }) => switch (platform) {
     TargetPlatform.android => AppPlatform._(
       capabilities: const PlatformCapabilities(
@@ -130,8 +142,20 @@ final class AppPlatform {
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
       restarterFactory: AndroidAppRestarter.forMediaControls,
+      legacyDataLocator: androidLegacyDataLocator(
+        flavor: flavor,
+        devDirectory: legacyDirectory,
+        documentsPath: () async =>
+            (await getApplicationDocumentsDirectory()).path,
+        applicationSupportPath: () async =>
+            (await getApplicationSupportDirectory()).path,
+      ),
     ),
-    TargetPlatform.windows => _windows(flavor, windowsMediaControls),
+    TargetPlatform.windows => _windows(
+      flavor,
+      windowsMediaControls,
+      legacyDirectory,
+    ),
     TargetPlatform.linux ||
     TargetPlatform.macOS ||
     TargetPlatform.iOS ||
@@ -143,6 +167,7 @@ final class AppPlatform {
   static AppPlatform _windows(
     AppFlavor flavor,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+    String? legacyDirectory,
   ) {
     final dataDirectory = WindowsAppDataDirectory(
       flavor: flavor,
@@ -198,6 +223,15 @@ final class AppPlatform {
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
       restarterFactory: (_) => WindowsAppRestarter.system(),
+      legacyDataLocator: windowsLegacyDataLocator(
+        flavor: flavor,
+        devDirectory: legacyDirectory,
+        documentsPath: () async =>
+            (await getApplicationDocumentsDirectory()).path,
+        applicationSupportPath: () async =>
+            (await getApplicationSupportDirectory()).path,
+        roamingAppDataPath: Platform.environment['APPDATA'],
+      ),
     );
   }
 
@@ -231,6 +265,10 @@ final class AppPlatform {
 
   /// 檔案分享；[PlatformCapabilities.shareFiles] 為假時為 `null`。
   final FileSharer? fileSharer;
+
+  /// 找舊版資料（M5 舊資料匯入）；[PlatformCapabilities.dataDirectory] 為假時為 `null`。不是
+  /// 能力宣告：沒有畫面依它決定入口，只有 `main()` 在首次啟動時問它。
+  final LegacyDataLocator? legacyDataLocator;
 
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
@@ -275,6 +313,7 @@ final class AppPlatform {
       urlOpener: urlOpener,
       fileSharer: fileSharer,
       mediaControls: controls,
+      legacyDataLocator: legacyDataLocator,
       restarterFactory: _restarterFactory,
     );
   }

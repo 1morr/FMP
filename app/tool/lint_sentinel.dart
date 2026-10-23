@@ -79,6 +79,10 @@ import 'package:fmp/data/cache/cache_tables.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/ui/toast/toast.dart';
 ''',
+  'lib/app/lint_sentinel_violations.dart': r'''
+// tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
+import 'package:fmp/legacy_import/legacy_importer.dart';
+''',
   'lib/core/lint_sentinel_violations.dart': r'''
 // tool/lint_sentinel.dart 暫放的違規檔，結束時刪除。
 import 'package:fmp/charts/chart_cache.dart';
@@ -99,6 +103,8 @@ const _expectedMessages = [
   'lib/playback/backends/audio_backend.dart is only imported from',
   // restrictedImports（`package:fmp/platform/cache_directory/…`）
   'lib/platform/cache_directory is only imported from',
+  // restrictedImports（`package:fmp/legacy_import/…`）
+  'lib/legacy_import is only imported from',
   // restrictedImports（`package:fmp/core/network/fixture/…`）
   'lib/core/network/fixture is only imported from',
   // externalPackageOwners 的兩個圖片快取套件

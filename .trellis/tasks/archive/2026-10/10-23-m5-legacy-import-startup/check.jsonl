@@ -1,0 +1,16 @@
+{"file": "docs/adr/0010-drift-data-layer-and-legacy-import.md", "reason": "舊資料匯入的決定與 M5 補充（自動匯入的條件、失敗頁）"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/design.md", "reason": "§2.2、§3.1、§4.1、§7.1–§7.3、§8.1、§9"}
+{"file": ".trellis/tasks/10-22-m5-legacy-import/implement.md", "reason": "通用規則、地雷、留下的後續（PR 1–5 要本 PR 接的事）"}
+{"file": "docs/adr/0030-plugin-repository-and-lifecycle.md", "reason": "§12 首次引導（結果對話框的安裝音源）"}
+{"file": "docs/adr/0029-login-credentials-accounts.md", "reason": "CredentialStore 載入與帳號對齊"}
+{"file": "docs/adr/0027-on-device-verification.md", "reason": "實機驗證的規則"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "restrictedImports 與 lint 的雙向變異"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 寫法、對話框、guideline 測試"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "平台層、資料目錄、檔案對話框"}
+{"file": ".trellis/spec/app/errors/index.md", "reason": "錯誤呈現"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "資料層、legacy_imports"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試寫法、雙向變異"}
+{"file": ".trellis/spec/app/logging/index.md", "reason": "log 與診斷不含使用者資料"}
+{"file": ".claude/skills/verify-on-device/SKILL.md", "reason": "實機驗證的流程"}
+{"file": ".claude/skills/verify-on-device/references/runtime-state.md", "reason": "資料目錄、dev 入口的帶法"}
+{"file": "docs/adr/0015-testing-gates-and-dev-environment.md", "reason": "§決定 8 dev 與 prod 分開、dev 入口"}

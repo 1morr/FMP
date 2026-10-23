@@ -16,12 +16,14 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/home/home_page.dart';
+import 'package:fmp/ui/legacy_import/legacy_import_result.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -101,6 +103,21 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     // 歌單詳情的「登入」（design §5.3）：帳號區塊每個音源一張卡，整個區塊就看得到。
     ref.read(openAccountsProvider).handler = (_) => _openAccounts();
+    // 首次啟動匯入舊版資料之後，第一幀之後顯示一次結果（M5 design §7.3）。
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        showLegacyImportResult(
+          context,
+          ref,
+          onInstallSources: () {
+            // 首頁沒有音源時就是首次引導。
+            ref.read(onboardingProvider.notifier).reopen();
+            _select(ShellDestination.home);
+          },
+        ),
+      );
+    });
   }
 
   /// 外殼自己的底部被佔住的高度（最後一次量到的）；播放頁開著時提示不用它。

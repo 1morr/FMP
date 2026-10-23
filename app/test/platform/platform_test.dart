@@ -126,6 +126,7 @@ void main() {
         const Duration(seconds: 5),
       );
       expect(platform.mediaControls, isNull);
+      expect(platform.legacyDataLocator, isNotNull);
     });
 
     for (final unverified in [
@@ -148,6 +149,7 @@ void main() {
         expect(platform.cacheDirectory, isNull);
         expect(platform.capabilities.secureStorage, isFalse);
         expect(platform.secureStorage, isNull);
+        expect(platform.legacyDataLocator, isNull);
         expect(platform.capabilities.files, isFalse);
         expect(platform.fileDialogs, isNull);
         expect(platform.capabilities.urlOpener, isFalse);
@@ -220,6 +222,7 @@ void main() {
       expect(platform.fileSharer, isA<SharePlusFileSharer>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
+      expect(platform.legacyDataLocator, isNotNull);
     });
 
     test('a platform without the capability initializes nothing', () async {

@@ -64,6 +64,9 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   /// 「稍後再說」：連同失敗的清單一起收起，否則全部失敗時引導收不掉。
   void dismiss() => state = state.copyWith(dismissed: true, failures: const []);
 
+  /// 再打開被「稍後再說」收起的引導（舊資料匯入後的「安裝音源」）。
+  void reopen() => state = state.copyWith(dismissed: false);
+
   void begin() => state = state.copyWith(working: true, failures: const []);
 
   void finish(List<String> failures) =>

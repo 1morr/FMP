@@ -52,6 +52,9 @@ class TranslationsEn extends Translations
   @override
   late final Translations$startup$en startup = Translations$startup$en._(_root);
   @override
+  late final Translations$legacyResult$en legacyResult =
+      Translations$legacyResult$en._(_root);
+  @override
   late final Translations$shell$en shell = Translations$shell$en._(_root);
   @override
   late final Translations$search$en search = Translations$search$en._(_root);
@@ -136,6 +139,57 @@ class Translations$startup$en extends Translations$startup$zh_TW {
   String get databaseError => 'Can\'t open the database';
   @override
   String get unsupportedPlatform => 'This platform isn\'t supported yet';
+  @override
+  String get retry => 'Retry';
+  @override
+  String get exportDiagnostics => 'Export diagnostics';
+  @override
+  String get exportDone => 'Diagnostics exported';
+  @override
+  String get exportFailed => 'Couldn\'t export the diagnostics';
+  @override
+  late final Translations$startup$legacyImport$en legacyImport =
+      Translations$startup$legacyImport$en._(_root);
+}
+
+// Path: legacyResult
+class Translations$legacyResult$en extends Translations$legacyResult$zh_TW {
+  Translations$legacyResult$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Data imported from the old version';
+  @override
+  String playlists({required Object count}) => 'Playlists: ${count}';
+  @override
+  String tracks({required Object count}) => 'Tracks: ${count}';
+  @override
+  String history({required Object count}) => 'Play history: ${count}';
+  @override
+  String radio({required Object count}) => 'Radio stations: ${count}';
+  @override
+  String accounts({required Object count}) => 'Accounts: ${count}';
+  @override
+  String relogin({required Object platforms}) => 'Sign in again: ${platforms}';
+  @override
+  String get unimportedTitle => 'Settings that weren\'t imported';
+  @override
+  late final Translations$legacyResult$unimported$en unimported =
+      Translations$legacyResult$unimported$en._(_root);
+  @override
+  String localPlaylists({required Object count}) =>
+      '${count} platform playlists had an unrecognized or duplicate address and became local playlists.';
+  @override
+  String get needsSources =>
+      'The imported data uses sources that aren\'t installed yet. Install them to play and update.';
+  @override
+  String get installSources => 'Install sources';
+  @override
+  String get acknowledge => 'Got it';
 }
 
 // Path: shell
@@ -2631,6 +2685,67 @@ class Translations$errorReport$en extends Translations$errorReport$zh_TW {
   String get cause => 'Cause';
   @override
   String get stackTrace => 'Stack trace';
+}
+
+// Path: startup.legacyImport
+class Translations$startup$legacyImport$en
+    extends Translations$startup$legacyImport$zh_TW {
+  Translations$startup$legacyImport$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => 'Importing data from the old version';
+  @override
+  String get stepRead => 'Reading the old data';
+  @override
+  String get stepConvert => 'Converting';
+  @override
+  String get stepWrite => 'Writing';
+  @override
+  String get stepVerify => 'Verifying';
+  @override
+  String get stepDone => 'Finishing';
+  @override
+  String get failedTitle => 'Couldn\'t import the old data';
+  @override
+  String failedStep({required Object step}) => 'Failed step: ${step}';
+  @override
+  String get detailsHint => 'Export the diagnostics to keep the details.';
+  @override
+  String get safeNote =>
+      'The old data wasn\'t changed. You can import it again later from Settings.';
+  @override
+  String get startBlank => 'Start with empty data';
+}
+
+// Path: legacyResult.unimported
+class Translations$legacyResult$unimported$en
+    extends Translations$legacyResult$unimported$zh_TW {
+  Translations$legacyResult$unimported$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get primaryColor => 'Accent color';
+  @override
+  String get fontFamily => 'Font';
+  @override
+  String get streamPriority => 'Stream priority per source';
+  @override
+  String get cacheLimit => 'Cache limit';
+  @override
+  String get homeRanking => 'Home chart order and disabled charts';
+  @override
+  String get railExpanded => 'Whether the side bar was expanded';
+  @override
+  String get searchHistory => 'Search history';
 }
 
 // Path: plugins.capabilityNames

@@ -143,6 +143,14 @@
   - **佇列空了也寫播放狀態**：舊版的音量與循環模式照樣帶過來；整列都是型別預設或沒有 `PlayQueue` 列時才不寫。
   - **PR 4**：`playlist_remote.writable` 現在只要舊庫有該平台的帳號列就比對 `ownerUserId`，不管憑證有沒有匯入；PR 4 改成「真的匯入了那個平台的帳號才標可寫」。
   - 轉換器為了歷史上限的選項 import 了 `lib/settings`（純靜態函式），所以轉換器帶 Flutter 依賴，`dart run` 的工具不能引用它（目前沒有這種用法）。
+- PR 6：
+  - **實機**（2026-10-23，dev、合成資料、重播）：Windows 由實作代理驗（首次匯入含假 cookie 的 DPAPI 檔、結果對話框、「知道了」後不再出現、失敗頁三個按鈕、診斷包不含假 cookie 與使用者名稱）；Android 模擬器由主對話驗（首次匯入、舊庫副本雜湊不變、`legacy-import/` 清空、結果對話框、重開不再匯入、佇列與播放位置帶過來、失敗頁、以空白資料啟動）。
+  - **Android 讀舊憑證後 `shared_prefs` 不變**：dev 讀不到 prod 的沙盒，實機驗不到；證據是規劃時的實測（`research/android-credentials-compat.md`），M9 的實際升級再看一次。
+  - **失敗頁只顯示翻譯過的步驟**：`LegacyImportFailed.reason` 是英文，只進 log 與診斷包。`LegacyImportApp` 跟隨系統語言（獨立的小 App，還沒有設定）。
+  - **匯入後首頁的首次引導會讀一次官方 index**（既有行為；沒有插件時就會讀）。
+  - 低、沒有 repro，不修：rename 之後、寫憑證之前 App 被結束，帳號列在 `CredentialStore` 載入時被刪掉，但 `reloginPlatforms` 沒補記，結果對話框的帳號數會多算。
+  - 結果對話框列「需要重新登入」時，插件還沒裝就只能顯示插件 id。
+  - `legacyImportProvider` 的第一個讀者是 PR 7 的設定頁；`safeNote`「之後可以在設定頁再匯入」也在 PR 7 才成立。
 - PR 4：
   - **單一入口**：`LegacyConverter.convert(..., credentials:, importOutputDevice:)` 回 `LegacyConversion{bundle, credentials}`；`credentials` 為空（舊 JSON 備份）就不跑帳號段。憑證只在 `LegacyConversion.credentials`（記憶體），PR 6 換上後以 `CredentialStore.writeImported` 寫。
   - **讀取器**：`LegacyCredentialReader`（`lib/platform/legacy_data/`），Windows 與 Android 兩個實作與 `NoLegacyCredentialReader`；PR 6 依平台與 flavor 選（dev 的 Android 不讀，Windows 讀 `--fmp-legacy-dir`）。PR 6 的 Android 實機要確認讀過之後 `shared_prefs` 內容不變。
