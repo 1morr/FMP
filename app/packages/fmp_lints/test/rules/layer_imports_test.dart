@@ -48,6 +48,36 @@ class LayerImportsTest extends FmpRuleTest {
         "import [!'package:audio_service_platform_interface/audio_service_platform_interface.dart'!];\n",
   );
 
+  // M5：win32（DPAPI）與 ffi 只在平台層；legacy_import 也不行（解密在平台層的讀取器）。
+  Future<void> test_win32AndFfiOutsidePlatform() async {
+    for (final path in [
+      'lib/legacy_import/legacy_converter.dart',
+      'lib/plugins/accounts/credential_store.dart',
+      'lib/platform_helpers.dart',
+    ]) {
+      await assertLints(
+        path,
+        "import [!'package:win32/win32.dart'!];\n"
+        "import [!'package:ffi/ffi.dart'!];\n",
+      );
+    }
+  }
+
+  // 平台層可用；名稱相近的別的套件（ffigen）、註解與字串裡提到的不報。
+  Future<void> test_win32AndFfiInPlatformOrNearMisses() async {
+    await assertLints(
+      'lib/platform/legacy_data/reader_windows.dart',
+      "import 'package:win32/win32.dart';\n"
+          "import 'package:ffi/ffi.dart';\n",
+    );
+    await assertLints(
+      'lib/legacy_import/near_miss.dart',
+      "import 'package:ffigen/ffigen.dart';\n"
+          "// import 'package:win32/win32.dart';\n"
+          "const text = \"import 'package:ffi/ffi.dart';\";\n",
+    );
+  }
+
   Future<void> test_ownerPackagesOutsideTheirDirectory() => assertLints(
     'lib/playback/controller.dart',
     "import [!'package:just_audio/just_audio.dart'!];\n"

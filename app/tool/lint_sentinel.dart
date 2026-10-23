@@ -24,6 +24,7 @@ import 'package:archive/archive.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:drift/drift.dart';
+import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:fmp/core/network/fixture/fixture.dart';
@@ -35,6 +36,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:string_similarity/string_similarity.dart';
 import 'package:unorm_dart/unorm_dart.dart';
+import 'package:win32/win32.dart';
 
 class Dio {
   Dio();
@@ -123,6 +125,9 @@ const _expectedMessages = [
   'lib/charts/ must not import lib/data/cache/cache_tables.dart',
   'lib/core/ must not import lib/library/',
   'lib/core/ must not import lib/charts/',
+  // platformPackages 的 win32、ffi（舊憑證的 DPAPI 解密）
+  'package:win32* is only allowed in lib/platform/',
+  'package:ffi* is only allowed in lib/platform/',
   // platformPackages 的 share_plus（分享診斷包）
   'package:share_plus* is only allowed in lib/platform/',
 ];
