@@ -25,9 +25,9 @@ import 'package:fmp/plugins/accounts/login_credentials.dart';
 /// 純 Dart、沒有 I/O，不改 [LegacySnapshot]。每一筆略過都帶理由並計數，進
 /// `ImportRecord.summary`。
 ///
-/// 結構：[convert] 依序跑各段（曲目鍵的對照、歌單、佇列、歷史、電台、曲目、外部來源），每段
-/// 是 [_Conversion] 的一個方法，結果放進匯入包的對應欄位。之後的帳號（PR 4）與設定（PR 5）
-/// 各加一段，不改既有的段落。
+/// 結構：[convert] 依序跑各段（曲目鍵的對照、帳號、歌單、佇列、歷史、電台、曲目、外部來源、
+/// 設定），每段是 [_Conversion] 的一個方法或一個獨立檔的純函式，結果放進匯入包的對應欄位。
+/// M6–M8 的補匯同樣各加一段，不改既有的段落。
 final class LegacyConverter {
   const LegacyConverter();
 
