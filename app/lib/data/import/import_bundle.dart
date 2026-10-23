@@ -52,7 +52,8 @@ final class ImportBundle {
   /// 佇列的每個位置，依位置。
   final List<ImportQueueEntry> queue;
 
-  /// `player_state` 那一列；空＝不寫（佇列也是空的時）。
+  /// `player_state` 那一列；空＝不寫。佇列是空的時也可以有（音量、循環模式照樣恢復，
+  /// `currentPosition` 為空）。
   final PlayerState? playerState;
   final List<ImportHistoryEntry> history;
   final List<ImportRadioStation> radioStations;

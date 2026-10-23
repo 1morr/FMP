@@ -9,6 +9,7 @@ final class CollectionSummary {
     required this.read,
     required this.written,
     this.skipped = const {},
+    this.notes = const {},
   });
 
   factory CollectionSummary.fromJson(Map<String, Object?> json) =>
@@ -20,19 +21,30 @@ final class CollectionSummary {
               in (json['skipped']! as Map<String, Object?>).entries)
             entry.key: entry.value! as int,
         },
+        // 早期的 summary 沒有 `notes`。
+        notes: {
+          for (final entry
+              in (json['notes'] as Map<String, Object?>? ?? const {}).entries)
+            entry.key: entry.value! as int,
+        },
       );
 
   final int read;
   final int written;
 
-  /// 略過的理由 → 筆數。理由是轉換器寫死的英文識別字（例如 `danglingTrackId`），
-  /// 結果對話框依它查翻譯。
+  /// 真正略過的理由 → 筆數（`read = written + skipped 的總和`）。理由是轉換器寫死的英文識別字
+  /// （例如 `danglingTrackId`），結果對話框依它查翻譯。
   final Map<String, int> skipped;
+
+  /// 資料有寫出、但值得提一下的註記 → 筆數（例如歌單的網址認不出而轉成本機歌單）；不計入
+  /// [skipped]，也不影響 `read = written + skipped`。
+  final Map<String, int> notes;
 
   Map<String, Object?> toJson() => {
     'read': read,
     'written': written,
     'skipped': skipped,
+    'notes': notes,
   };
 
   @override
@@ -40,7 +52,8 @@ final class CollectionSummary {
       other is CollectionSummary &&
       other.read == read &&
       other.written == written &&
-      mapEquals(other.skipped, skipped);
+      mapEquals(other.skipped, skipped) &&
+      mapEquals(other.notes, notes);
 
   @override
   int get hashCode => Object.hash(
@@ -48,11 +61,12 @@ final class CollectionSummary {
     written,
     // == 不看 map 的順序，hash 也不能看。
     Object.hashAllUnordered(skipped.entries.map((e) => (e.key, e.value))),
+    Object.hashAllUnordered(notes.entries.map((e) => (e.key, e.value))),
   );
 
   @override
   String toString() =>
-      'CollectionSummary(read: $read, written: $written, skipped: $skipped)';
+      'CollectionSummary(read: $read, written: $written, skipped: $skipped, notes: $notes)';
 }
 
 /// 一次匯入的結果摘要，存成 `legacy_imports.summary_json`（M5 design §6.4）。
