@@ -3,13 +3,16 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/import/import_bundle.dart';
+import 'package:fmp/data/import/import_summary.dart';
 import 'package:fmp/data/import/legacy_import_failed.dart';
 import 'package:fmp/data/import/legacy_imports_repository.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/data/repositories/database_inspector.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
@@ -20,6 +23,7 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
+import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/player_mode.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -73,14 +77,67 @@ final class StagingImport {
     }
   }
 
+  /// 設定頁的取代（M5 design §6.1 第 2 點、§6.3）：把 [current]（這台目前的資料庫）
+  /// `VACUUM INTO` 成 [file]，在副本上換掉音樂庫、合併設定與帳號，同一個 transaction 寫完
+  /// [bundle]。[file] 已存在會先刪掉；寫完關庫。
+  ///
+  /// - 清空 [replacedTables]（音樂庫），再寫 bundle 的曲目、歌單、佇列、歷史、電台；
+  /// - 設定組（外觀、網路、播放）只覆寫 bundle 有值的欄位，其餘欄位保留這台的值；
+  ///   `source_settings.browse_as_logged_in` 以 bundle 為準，同一列的其他欄位保留；
+  ///   `layout_state` 不動（版面只在首次啟動匯入）；
+  /// - 帳號：這台有「可用的登入」（有列且 `status` 是 `active`）的插件保留這台的列；其餘寫 bundle 的列
+  ///   （`invalidated` 的列被 bundle 的帳號取代，bundle 沒有該插件的帳號就保留原列）；
+  /// - 其他的表（插件、插件設定、排行設定、開發者設定、排程）不動，`legacy_imports` 新增一列。
+  ///
+  /// 回傳的 [ReplacedStaging] 帶 [verify] 要比對的列數，與保留了這台帳號的插件 id。
+  Future<ReplacedStaging> writeReplacing(
+    ImportBundle bundle,
+    File file, {
+    required DateTime importedAt,
+    required AppDatabase current,
+  }) async {
+    AppDatabase? database;
+    try {
+      await _deleteDatabaseFiles(file);
+      await file.parent.create(recursive: true);
+      await current.customStatement('VACUUM INTO ?', [file.path]);
+      database = AppDatabase(NativeDatabase.createInBackground(file));
+      final opened = database;
+      final result = await opened.transaction(
+        () => _replaceAll(opened, bundle, importedAt),
+      );
+      await opened.close();
+      return result;
+    } on Object catch (error) {
+      await _discard(file, database);
+      throw LegacyImportFailed(
+        LegacyImportStep.write,
+        'Writing the staging database failed',
+        cause: error,
+      );
+    }
+  }
+
   /// 重新開啟 [file]，確認它就是 [bundle] 的內容（design §6.2）：筆數、抽樣、完整性、
   /// 孤兒曲目。通過關庫並保留 [file]；不通過刪掉它。
-  Future<void> verify(ImportBundle bundle, File file) async {
+  ///
+  /// 首次啟動的庫是全新的，各表的列數就是 bundle 的筆數；設定頁的取代給 [replaced]
+  /// （[writeReplacing] 的結果：列數是 bundle 的筆數加上保留下來的列數）。
+  Future<void> verify(
+    ImportBundle bundle,
+    File file, {
+    ReplacedStaging? replaced,
+  }) async {
     AppDatabase? database;
     try {
       database = AppDatabase(NativeDatabase.createInBackground(file));
       final opened = database;
-      await _verify(opened, bundle);
+      await _verify(
+        opened,
+        bundle,
+        replaced?.expectedCounts ?? _freshCounts(bundle),
+        replaced?.summary ?? bundle.record.summary,
+      );
       await opened.close();
     } on _Mismatch catch (mismatch) {
       await _discard(file, database);
@@ -102,6 +159,18 @@ final class StagingImport {
     ImportBundle bundle,
     DateTime importedAt,
   ) async {
+    await _writeLibrary(db, bundle, importedAt);
+    await _writeSettingsFresh(db, bundle);
+  }
+
+  /// 音樂庫與這次匯入的紀錄：曲目、歌單、佇列、歷史、電台、`track_origins`、播放狀態、
+  /// `legacy_imports`、`legacy_playlist_ids`。首次啟動與設定頁的取代共用。
+  Future<void> _writeLibrary(
+    AppDatabase db,
+    ImportBundle bundle,
+    DateTime importedAt, {
+    ImportSummary? summary,
+  }) async {
     final record = bundle.record;
     final importId = await db
         .into(db.legacyImportsTable)
@@ -111,7 +180,7 @@ final class StagingImport {
             importedAt: importedAt,
             legacySchemaVersion: Value(record.legacySchemaVersion),
             backupVersion: Value(record.backupVersion),
-            summaryJson: record.summary.encode(),
+            summaryJson: (summary ?? record.summary).encode(),
           ),
         );
 
@@ -232,26 +301,6 @@ final class StagingImport {
             originId: origin.originId,
           ),
       ]);
-      batch.insertAll(db.accountsTable, [
-        for (final account in bundle.accounts)
-          AccountsTableCompanion.insert(
-            pluginId: account.pluginId,
-            userId: account.userId,
-            displayName: account.displayName,
-            avatarJson: Value(account.avatarJson),
-            status: account.status,
-            loggedInAt: account.loggedInAt,
-            lastRefreshAt: Value(account.lastRefreshAt),
-            lastRefreshResult: Value(account.lastRefreshResult),
-          ),
-      ]);
-      batch.insertAll(db.sourceSettingsTable, [
-        for (final MapEntry(:key, :value) in bundle.browseAsLoggedIn.entries)
-          SourceSettingsTableCompanion.insert(
-            pluginId: key,
-            browseAsLoggedIn: Value(value),
-          ),
-      ]);
     });
 
     if (bundle.playerState case final player?) {
@@ -277,6 +326,20 @@ final class StagingImport {
             ),
           );
     }
+  }
+
+  /// 帳號、設定組與版面（全新的庫）。
+  Future<void> _writeSettingsFresh(AppDatabase db, ImportBundle bundle) async {
+    await _insertAccounts(db, bundle.accounts);
+    await db.batch(
+      (batch) => batch.insertAll(db.sourceSettingsTable, [
+        for (final MapEntry(:key, :value) in bundle.browseAsLoggedIn.entries)
+          SourceSettingsTableCompanion.insert(
+            pluginId: key,
+            browseAsLoggedIn: Value(value),
+          ),
+      ]),
+    );
 
     // 設定組：整組都是空的就不建那一列（沒設定過）。
     final appearance = bundle.appearance;
@@ -343,11 +406,229 @@ final class StagingImport {
     }
   }
 
+  Future<void> _insertAccounts(AppDatabase db, List<Account> accounts) =>
+      db.batch(
+        (batch) => batch.insertAll(db.accountsTable, [
+          for (final account in accounts)
+            AccountsTableCompanion.insert(
+              pluginId: account.pluginId,
+              userId: account.userId,
+              displayName: account.displayName,
+              avatarJson: Value(account.avatarJson),
+              status: account.status,
+              loggedInAt: account.loggedInAt,
+              lastRefreshAt: Value(account.lastRefreshAt),
+              lastRefreshResult: Value(account.lastRefreshResult),
+            ),
+        ]),
+      );
+
+  // ---- 設定頁的取代 ----
+
+  /// 設定頁的取代要清空的表（音樂庫），依外鍵的順序：參照別張表的先清。
+  static const replacedTables = [
+    'playlist_entries',
+    'playlist_remote',
+    'legacy_playlist_ids',
+    'match_results',
+    'track_origins',
+    'play_history',
+    'queue_entries',
+    'player_state',
+    'radio_stations',
+    'playlists',
+    'tracks',
+  ];
+
+  Future<ReplacedStaging> _replaceAll(
+    AppDatabase db,
+    ImportBundle bundle,
+    DateTime importedAt,
+  ) async {
+    final before = {
+      for (final (:name, :count) in await DatabaseInspector(
+        db,
+        Redactor(),
+      ).tables())
+        name: count,
+    };
+    for (final table in replacedTables) {
+      await db.customStatement('DELETE FROM "$table"');
+    }
+
+    // 帳號：這台有可用登入（列在、`status` 是 `active`）的插件保留這台的列（憑證也是這台的）；
+    // 其餘寫匯入的列，`invalidated` 的列先刪掉被取代，匯入沒有該插件的帳號就留著原列。
+    final existingAccounts = {
+      for (final row in await db.select(db.accountsTable).get())
+        row.pluginId: row.status,
+    };
+    final keptAccounts = {
+      for (final MapEntry(:key, :value) in existingAccounts.entries)
+        if (value == AccountStatus.active) key,
+    };
+    final newAccounts = [
+      for (final account in bundle.accounts)
+        if (!keptAccounts.contains(account.pluginId)) account,
+    ];
+    final replacedAccounts = newAccounts
+        .where((account) => existingAccounts.containsKey(account.pluginId))
+        .map((account) => account.pluginId)
+        .toList();
+    await (db.delete(
+      db.accountsTable,
+    )..where((t) => t.pluginId.isIn(replacedAccounts))).go();
+    final summary = _withoutKeptAccounts(
+      bundle.record.summary,
+      keptAccounts,
+      bundle.accounts.length - newAccounts.length,
+    );
+    await _writeLibrary(db, bundle, importedAt, summary: summary);
+    await _insertAccounts(db, newAccounts);
+
+    // `browse_as_logged_in` 以匯入值為準；同一列的匹配設定等欄位保留。
+    final knownSources = {
+      for (final row in await db.select(db.sourceSettingsTable).get())
+        row.pluginId,
+    };
+    for (final MapEntry(:key, :value) in bundle.browseAsLoggedIn.entries) {
+      await db
+          .into(db.sourceSettingsTable)
+          .insertOnConflictUpdate(
+            SourceSettingsTableCompanion(
+              pluginId: Value(key),
+              browseAsLoggedIn: Value(value),
+            ),
+          );
+    }
+
+    // 設定組：只覆寫匯入有值的欄位。
+    final appearance = bundle.appearance;
+    if (appearance != AppearanceSettings.empty) {
+      await db
+          .into(db.appearanceSettingsTable)
+          .insertOnConflictUpdate(
+            AppearanceSettingsTableCompanion(
+              id: const Value(1),
+              themeMode: Value.absentIfNull(appearance.themeMode),
+              locale: Value.absentIfNull(appearance.locale),
+            ),
+          );
+    }
+    final network = bundle.network;
+    if (network != NetworkSettings.empty) {
+      await db
+          .into(db.networkSettingsTable)
+          .insertOnConflictUpdate(
+            NetworkSettingsTableCompanion(
+              id: const Value(1),
+              cacheLimitMb: Value.absentIfNull(network.cacheLimitMebibytes),
+              radioStatusIntervalMinutes: Value.absentIfNull(
+                network.radioStatusIntervalMinutes,
+              ),
+              chartRefreshIntervalMinutes: Value.absentIfNull(
+                network.chartRefreshIntervalMinutes,
+              ),
+            ),
+          );
+    }
+    final playback = bundle.playback;
+    if (playback != PlaybackSettings.empty) {
+      await db
+          .into(db.playbackSettingsTable)
+          .insertOnConflictUpdate(
+            PlaybackSettingsTableCompanion(
+              id: const Value(1),
+              audioQuality: Value.absentIfNull(playback.audioQuality),
+              audioFormatPriority: Value.absentIfNull(
+                playback.audioFormatPriority,
+              ),
+              rememberPosition: Value.absentIfNull(playback.rememberPosition),
+              tempPlayRewindSeconds: Value.absentIfNull(
+                playback.tempPlayRewindSeconds,
+              ),
+              skipPreviewClips: Value.absentIfNull(playback.skipPreviewClips),
+              outputDeviceId: Value.absentIfNull(playback.outputDeviceId),
+              outputDeviceName: Value.absentIfNull(playback.outputDeviceName),
+              restartRewindSeconds: Value.absentIfNull(
+                playback.restartRewindSeconds,
+              ),
+              playHistoryLimit: Value.absentIfNull(playback.playHistoryLimit),
+              autoScrollToCurrent: Value.absentIfNull(
+                playback.autoScrollToCurrent,
+              ),
+            ),
+          );
+    }
+
+    // 驗證要比對的列數：被取代的表是 bundle 的筆數，其餘是原有的列數加上這次新增的。
+    final expected = _libraryCounts(bundle);
+    for (final MapEntry(:key, :value) in before.entries) {
+      if (replacedTables.contains(key)) continue;
+      expected[key] = (expected[key] ?? 0) + value;
+    }
+    expected['accounts'] =
+        before['accounts']! + newAccounts.length - replacedAccounts.length;
+    expected['source_settings'] =
+        before['source_settings']! +
+        bundle.browseAsLoggedIn.keys
+            .where((id) => !knownSources.contains(id))
+            .length;
+    for (final (table, isEmpty) in [
+      ('appearance_settings', appearance == AppearanceSettings.empty),
+      ('network_settings', network == NetworkSettings.empty),
+      ('playback_settings', playback == PlaybackSettings.empty),
+    ]) {
+      // 單列表：原本沒有列、而匯入有值時新增一列。
+      if (!isEmpty && before[table] == 0) expected[table] = 1;
+    }
+    return ReplacedStaging(
+      expectedCounts: expected,
+      keptAccountPluginIds: keptAccounts,
+      summary: summary,
+    );
+  }
+
+  /// `ImportSummary.collections` 裡帳號的鍵（轉換器的 `SummaryCollection.accounts`；資料層不能
+  /// import 封住的 `lib/legacy_import/`，字面值由 `staging_import_test.dart` 的取代案例對照）。
+  static const _accountsCollection = 'accounts';
+
+  /// 這台有可用登入（`active`）的平台沒有寫匯入的列：摘要的帳號筆數扣掉 [skipped] 筆（計成略過，理由
+  /// `keptOnThisDevice`），也不說要重新登入（這台的登入還在）。
+  static ImportSummary _withoutKeptAccounts(
+    ImportSummary summary,
+    Set<String> kept,
+    int skipped,
+  ) {
+    final accounts = summary.collections[_accountsCollection];
+    return ImportSummary(
+      collections: {
+        ...summary.collections,
+        if (accounts != null && skipped > 0)
+          _accountsCollection: CollectionSummary(
+            read: accounts.read,
+            written: accounts.written - skipped,
+            skipped: {...accounts.skipped, 'keptOnThisDevice': skipped},
+            notes: accounts.notes,
+          ),
+      },
+      unimportedSettings: summary.unimportedSettings,
+      reloginPlatforms: [
+        for (final id in summary.reloginPlatforms)
+          if (!kept.contains(id)) id,
+      ],
+    );
+  }
+
   // ---- 驗證 ----
 
-  Future<void> _verify(AppDatabase db, ImportBundle bundle) async {
+  Future<void> _verify(
+    AppDatabase db,
+    ImportBundle bundle,
+    Map<String, int> expectedCounts,
+    ImportSummary expectedSummary,
+  ) async {
     final inspector = DatabaseInspector(db, Redactor());
-    await _verifyCounts(inspector, bundle);
+    await _verifyCounts(inspector, expectedCounts);
 
     final trackByKey = {
       for (final track in bundle.tracks) '${track.key}': track,
@@ -357,7 +638,7 @@ final class StagingImport {
     await _verifyHistory(db, bundle, trackByKey);
     await _verifyRadio(db, bundle);
     await _verifyQueue(db, bundle, trackByKey);
-    await _verifyRecord(db, bundle);
+    await _verifyRecord(db, bundle, expectedSummary);
 
     final report = await inspector.check();
     if (report.integrityMessages.isNotEmpty) {
@@ -371,37 +652,44 @@ final class StagingImport {
     }
   }
 
-  /// 每張表的列數等於 bundle 的筆數；bundle 不會寫的表必須是空的。
+  /// 全新的庫：各表的列數就是 bundle 的筆數；bundle 不會寫的表必須是空的。
+  static Map<String, int> _freshCounts(ImportBundle bundle) => {
+    ..._libraryCounts(bundle),
+    'accounts': bundle.accounts.length,
+    'source_settings': bundle.browseAsLoggedIn.length,
+    'appearance_settings': bundle.appearance == AppearanceSettings.empty
+        ? 0
+        : 1,
+    'network_settings': bundle.network == NetworkSettings.empty ? 0 : 1,
+    'playback_settings': bundle.playback == PlaybackSettings.empty ? 0 : 1,
+    'layout_state': bundle.layout == LayoutState.empty ? 0 : 1,
+  };
+
+  /// [_writeLibrary] 寫的表的列數。
+  static Map<String, int> _libraryCounts(ImportBundle bundle) => {
+    'tracks': bundle.tracks.length,
+    'playlists': bundle.playlists.length,
+    'playlist_remote': bundle.playlists.where((p) => p.remote != null).length,
+    'playlist_entries': bundle.playlists.fold(
+      0,
+      (sum, playlist) => sum + playlist.entries.length,
+    ),
+    'legacy_playlist_ids': bundle.playlists
+        .where((p) => p.legacyPlaylistId != null)
+        .length,
+    'queue_entries': bundle.queue.length,
+    'player_state': bundle.playerState == null ? 0 : 1,
+    'play_history': bundle.history.length,
+    'radio_stations': bundle.radioStations.length,
+    'track_origins': bundle.trackOrigins.length,
+    'legacy_imports': 1,
+  };
+
+  /// 每張表的列數等於 [expected]；沒列在裡面的表必須是空的。
   Future<void> _verifyCounts(
     DatabaseInspector inspector,
-    ImportBundle bundle,
+    Map<String, int> expected,
   ) async {
-    final expected = <String, int>{
-      'tracks': bundle.tracks.length,
-      'playlists': bundle.playlists.length,
-      'playlist_remote': bundle.playlists.where((p) => p.remote != null).length,
-      'playlist_entries': bundle.playlists.fold(
-        0,
-        (sum, playlist) => sum + playlist.entries.length,
-      ),
-      'legacy_playlist_ids': bundle.playlists
-          .where((p) => p.legacyPlaylistId != null)
-          .length,
-      'queue_entries': bundle.queue.length,
-      'player_state': bundle.playerState == null ? 0 : 1,
-      'play_history': bundle.history.length,
-      'radio_stations': bundle.radioStations.length,
-      'track_origins': bundle.trackOrigins.length,
-      'accounts': bundle.accounts.length,
-      'source_settings': bundle.browseAsLoggedIn.length,
-      'legacy_imports': 1,
-      'appearance_settings': bundle.appearance == AppearanceSettings.empty
-          ? 0
-          : 1,
-      'network_settings': bundle.network == NetworkSettings.empty ? 0 : 1,
-      'playback_settings': bundle.playback == PlaybackSettings.empty ? 0 : 1,
-      'layout_state': bundle.layout == LayoutState.empty ? 0 : 1,
-    };
     for (final (:name, :count) in await inspector.tables()) {
       if (count != (expected[name] ?? 0)) {
         throw _Mismatch('Row count mismatch in table $name');
@@ -569,14 +857,18 @@ final class StagingImport {
     }
   }
 
-  Future<void> _verifyRecord(AppDatabase db, ImportBundle bundle) async {
+  Future<void> _verifyRecord(
+    AppDatabase db,
+    ImportBundle bundle,
+    ImportSummary expectedSummary,
+  ) async {
     final stored = await LegacyImportsRepository(db).latestUnacknowledged();
     final expected = bundle.record;
     if (stored == null ||
         stored.source != expected.source ||
         stored.legacySchemaVersion != expected.legacySchemaVersion ||
         stored.backupVersion != expected.backupVersion ||
-        stored.summary != expected.summary) {
+        stored.summary != expectedSummary) {
       throw const _Mismatch('The import record does not match the bundle');
     }
   }
@@ -635,6 +927,27 @@ final class StagingImport {
       }
     }
   }
+}
+
+/// [StagingImport.writeReplacing] 的結果。
+@immutable
+final class ReplacedStaging {
+  const ReplacedStaging({
+    required this.expectedCounts,
+    required this.keptAccountPluginIds,
+    required this.summary,
+  });
+
+  /// 每張表應有的列數，給 [StagingImport.verify]：被取代的表是匯入包的筆數，其餘是這台
+  /// 原有的列數加上這次新增的。
+  final Map<String, int> expectedCounts;
+
+  /// 這台有可用登入（帳號列的 `status` 是 `active`）、所以保留這台的列的插件 id：匯入的這些平台的
+  /// 帳號與憑證都不寫。`invalidated` 的列不算：匯入有該平台的帳號就取代它（憑證也由匯入的覆寫）。
+  final Set<String> keptAccountPluginIds;
+
+  /// 寫進 `legacy_imports` 的摘要：匯入包的摘要扣掉沒寫的帳號。
+  final ImportSummary summary;
 }
 
 /// 驗證沒過；[reason] 是給 [LegacyImportFailed] 的一句話，不含使用者的資料。

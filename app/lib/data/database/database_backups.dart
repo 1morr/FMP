@@ -444,14 +444,34 @@ final class DatabaseBackups {
   /// 以 [staged] 取代資料庫：移進資料目錄的 `.restoring`，關閉資料庫，原檔（連同 `-wal`、
   /// `-shm`、`-journal`）改名成 `fmp.db.before-restore-<時間>` 留著，`.restoring` 改名成
   /// `fmp.db`。換上去失敗就把原檔改回來。
-  Future<void> restoreStaged(StagedBackup staged) async {
-    final source = File(staged.path);
+  Future<void> restoreStaged(StagedBackup staged) =>
+      _swapIn(File(staged.path), asideLabel: 'restore');
+
+  /// 設定頁的「從舊版匯入…」換上 [staging]（`StagingImport.writeReplacing` 寫好並驗證過的
+  /// 副本，M5 design §6.3）：先自動備份目前的資料庫（失敗就拋出，什麼都不動），再關閉資料庫、
+  /// 換檔。原檔改名成 `fmp.db.before-import-<時間>` 留著，換不上去就改回來。
+  ///
+  /// 和還原共用換檔（[_swapIn]），不共用 [carryOver]：暫存庫已經是這台資料庫的副本，保留
+  /// 插件、插件設定與登入的合併在寫暫存庫時做完。呼叫之後這個行程裡的資料庫不能再用。
+  Future<void> replaceWithImport(File staging) async {
+    await create();
+    await _swapIn(staging, asideLabel: 'import');
+  }
+
+  /// 不匯入了（使用者取消、自動備份失敗）：刪掉 [staging] 與它的 `-journal`、`-wal`、`-shm`。
+  Future<void> discardImport(File staging) => _deleteWithSidecars(staging);
+
+  /// [restoreStaged] 與 [replaceWithImport] 的換檔：把 [source] 移進資料目錄的 `.restoring`，
+  /// 關閉資料庫，原檔（連同 `-wal`、`-shm`、`-journal`）改名成
+  /// `fmp.db.before-<asideLabel>-<時間>` 留著，`.restoring` 改名成 `fmp.db`。換上去失敗就把
+  /// 原檔改回來。
+  Future<void> _swapIn(File source, {required String asideLabel}) async {
     if (!await source.exists()) {
-      throw FileSystemException('The staged backup is missing', source.path);
+      throw FileSystemException('The staged database is missing', source.path);
     }
     final swapIn = File('${_databaseFile.path}.restoring');
     await source.rename(swapIn.path);
-    final suffix = '.before-restore-${_stamp(clock.now().toUtc())}';
+    final suffix = '.before-$asideLabel-${_stamp(clock.now().toUtc())}';
     try {
       _closed = true;
       await _database.close();
@@ -471,7 +491,7 @@ final class DatabaseBackups {
           } on FileSystemException catch (error, stackTrace) {
             // 改不回來時原檔仍以 $suffix 留在資料目錄，由使用者處理。
             _log.error(
-              'Failed to put the database back after a failed restore',
+              'Failed to put the database back after a failed swap',
               tag: _tag,
               error: error,
               stackTrace: stackTrace,
