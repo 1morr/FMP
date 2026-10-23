@@ -482,6 +482,13 @@ void main() {
       await pumpUntil(
         () => container.read(networkStatusProvider) == NetworkStatus.online,
       );
+      // `refreshes` 在送出請求時就算數，刷新結果晚幾輪才寫進帳號列：等它寫完再
+      // 往下，否則忙碌的 CI 上會讀到還沒寫的 null。
+      RefreshResult? result;
+      await pumpUntil(() {
+        unawaited(f.account().then((a) => result = a.lastRefreshResult));
+        return result != null;
+      }, maxRounds: 500);
 
       // 之後斷線再回來也不再刷新。
       interfaces.change(available: false);
