@@ -43,12 +43,14 @@ ImportBundle convertWith(
     accounts: base.accounts,
     storedSchemaVersion: 4,
   );
-  return const LegacyConverter().convert(
-    snapshot,
-    source: source,
-    now: DateTime.utc(2026, 10, 23),
-    importOutputDevice: importOutputDevice,
-  );
+  return const LegacyConverter()
+      .convert(
+        snapshot,
+        source: source,
+        now: DateTime.utc(2026, 10, 23),
+        importOutputDevice: importOutputDevice,
+      )
+      .bundle;
 }
 
 void main() {

@@ -162,19 +162,26 @@ LegacyRadioStation legacyRadio({
   isFavorite: false,
 );
 
-LegacyAccount legacyAccount({required String platform, String? userId}) =>
-    LegacyAccount(
-      id: 1,
-      platform: platform,
-      userId: userId,
-      userName: null,
-      avatarUrl: null,
-      isLoggedIn: true,
-      lastRefreshed: null,
-      loginAt: null,
-      isVip: false,
-      sessionExpired: false,
-    );
+LegacyAccount legacyAccount({
+  required String platform,
+  String? userId,
+  String? userName,
+  String? avatarUrl,
+  DateTime? lastRefreshed,
+  DateTime? loginAt,
+  bool isLoggedIn = true,
+}) => LegacyAccount(
+  id: 1,
+  platform: platform,
+  userId: userId,
+  userName: userName,
+  avatarUrl: avatarUrl,
+  isLoggedIn: isLoggedIn,
+  lastRefreshed: lastRefreshed,
+  loginAt: loginAt,
+  isVip: false,
+  sessionExpired: false,
+);
 
 LegacySnapshot legacySnapshot({
   List<LegacyTrack> tracks = const [],

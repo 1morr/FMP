@@ -9,6 +9,7 @@ import 'package:fmp/domain/mix_identity.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/domain/track_key.dart';
+import 'package:fmp/legacy_import/legacy_account_converter.dart';
 import 'package:fmp/legacy_import/legacy_settings_converter.dart';
 import 'package:fmp/legacy_import/legacy_snapshot.dart';
 import 'package:fmp/legacy_import/legacy_source_ids.dart';
@@ -16,34 +17,54 @@ import 'package:fmp/legacy_import/legacy_track_catalog.dart';
 import 'package:fmp/legacy_import/play_history_limit.dart';
 import 'package:fmp/legacy_import/remote_playlist_url.dart';
 import 'package:fmp/legacy_import/skip_reason.dart';
+import 'package:fmp/platform/legacy_data/legacy_credential_reader.dart';
+import 'package:fmp/plugins/accounts/login_credentials.dart';
 
 /// 舊版（Isar）的內容 → 新版的匯入包（M5 design §5）。
 ///
 /// 純 Dart、沒有 I/O，不改 [LegacySnapshot]。每一筆略過都帶理由並計數，進
 /// `ImportRecord.summary`。
 ///
-/// 結構：[convert] 依序跑各段（曲目鍵的對照、歌單、佇列、歷史、電台、曲目、外部來源），每段
-/// 是 [_Conversion] 的一個方法，結果放進匯入包的對應欄位。之後的帳號（PR 4）與設定（PR 5）
-/// 各加一段，不改既有的段落。
+/// 結構：[convert] 依序跑各段（曲目鍵的對照、帳號、歌單、佇列、歷史、電台、曲目、外部來源、
+/// 設定），每段是 [_Conversion] 的一個方法或一個獨立檔的純函式，結果放進匯入包的對應欄位。
+/// M6–M8 的補匯同樣各加一段，不改既有的段落。
 final class LegacyConverter {
   const LegacyConverter();
 
-  /// [source] 與 [backupVersion] 只寫進 `ImportRecord`；[now] 給之後需要「匯入時間」的段落
-  /// （帳號的 `logged_in_at` 預設，PR 4）。[importOutputDevice] 由呼叫端依平台給（Windows 才為真），
-  /// 轉換器自己不判斷平台（設定段，M5 design §5.9）。
-  ImportBundle convert(
+  /// [source] 與 [backupVersion] 只寫進 `ImportRecord`；[now] 給需要「匯入時間」的段落
+  /// （帳號的 `logged_in_at` 預設）。
+  ///
+  /// [credentials] 是 `LegacyCredentialReader` 讀 [legacyCredentialKeys] 的結果；空（null）＝
+  /// 沒有讀舊憑證（舊 JSON 備份），不跑帳號段，`playlist_remote.writable` 一律為假。
+  /// [importOutputDevice] 由呼叫端依平台給（Windows 才為真），轉換器自己不判斷平台
+  /// （設定段，M5 design §5.9）。
+  LegacyConversion convert(
     LegacySnapshot snapshot, {
     required LegacyImportSource source,
     int? backupVersion,
     required DateTime now,
     bool importOutputDevice = false,
+    Map<String, LegacyCredentialRead>? credentials,
   }) => _Conversion(
     snapshot,
     source,
     backupVersion,
     now,
     importOutputDevice,
+    credentials,
   ).run();
+}
+
+/// [LegacyConverter.convert] 的結果。
+final class LegacyConversion {
+  const LegacyConversion({required this.bundle, required this.credentials});
+
+  /// 匯入包；`accounts` 是匯入的帳號列。
+  final ImportBundle bundle;
+
+  /// 插件 id → 憑證，只含 `bundle.accounts` 裡有的插件。只在記憶體，不落地：呼叫端換上
+  /// 資料庫之後以 `CredentialStore.writeImported` 寫進 secure storage。
+  final Map<String, LoginCredentials> credentials;
 }
 
 /// `ImportSummary.collections` 的鍵。
@@ -55,6 +76,7 @@ abstract final class SummaryCollection {
   static const history = 'history';
   static const radioStations = 'radioStations';
   static const trackOrigins = 'trackOrigins';
+  static const accounts = 'accounts';
 }
 
 final class _Conversion {
@@ -64,6 +86,7 @@ final class _Conversion {
     this.backupVersion,
     this.now,
     this.importOutputDevice,
+    this.credentialReads,
   );
 
   final LegacySnapshot snapshot;
@@ -71,6 +94,12 @@ final class _Conversion {
   final int? backupVersion;
   final DateTime now;
   final bool importOutputDevice;
+
+  /// 舊憑證的讀取結果；空（null）＝沒有讀，不跑帳號段。
+  final Map<String, LegacyCredentialRead>? credentialReads;
+
+  /// 匯入的帳號（插件 id → 使用者 id）。`playlist_remote.writable` 只看這裡。
+  final _importedUserIds = <String, String>{};
 
   final _tallies = <String, Tally>{};
   Tally _tally(String name) => _tallies.putIfAbsent(name, Tally.new);
@@ -83,11 +112,12 @@ final class _Conversion {
 
   late final LegacyTrackCatalog _catalog;
 
-  ImportBundle run() {
+  LegacyConversion run() {
     _catalog = LegacyTrackCatalog.build(
       snapshot.tracks,
       _tally(SummaryCollection.tracks),
     );
+    final converted = _accounts();
     final playlists = _playlists();
     final queue = _queue();
     final history = _history();
@@ -99,7 +129,7 @@ final class _Conversion {
       source: source,
       importOutputDevice: importOutputDevice,
     );
-    return ImportBundle(
+    final bundle = ImportBundle(
       record: ImportRecord(
         source: source,
         legacySchemaVersion: source == LegacyImportSource.database
@@ -112,6 +142,7 @@ final class _Conversion {
               entry.key: entry.value.toSummary(),
           },
           unimportedSettings: settings.unimported,
+          reloginPlatforms: converted?.reloginPlatforms ?? const [],
         ),
       ),
       tracks: tracks,
@@ -121,12 +152,34 @@ final class _Conversion {
       history: history,
       radioStations: radioStations,
       trackOrigins: origins,
+      accounts: converted?.accounts ?? const [],
       appearance: settings.appearance,
       network: settings.network,
       playback: settings.playback,
       browseAsLoggedIn: settings.browseAsLoggedIn,
       layout: settings.layout,
     );
+    return LegacyConversion(
+      bundle: bundle,
+      credentials: converted?.credentials ?? const {},
+    );
+  }
+
+  // ------------------------------------------------------------ 帳號（§5.8）
+
+  ConvertedAccounts? _accounts() {
+    final reads = credentialReads;
+    if (reads == null) return null;
+    final converted = convertAccounts(
+      rows: snapshot.accounts,
+      reads: reads,
+      now: now,
+      tally: _tally(SummaryCollection.accounts),
+    );
+    for (final account in converted.accounts) {
+      _importedUserIds[account.pluginId] = account.userId;
+    }
+    return converted;
   }
 
   // ------------------------------------------------------------ 歌單（§5.3）
@@ -139,11 +192,6 @@ final class _Conversion {
         final byOrder = a.sortOrder.compareTo(b.sortOrder);
         return byOrder != 0 ? byOrder : a.id.compareTo(b.id);
       });
-    final accountUserIds = {
-      for (final account in snapshot.accounts)
-        if (blankToNull(account.userId) != null)
-          account.platform: account.userId!,
-    };
     final usedRemotes = <RecognizedRemote>{};
     final result = <ImportPlaylist>[];
     for (final playlist in sorted) {
@@ -238,7 +286,7 @@ final class _Conversion {
                   ownerName: blankToNull(playlist.ownerName),
                   writable:
                       ownerUserId != null &&
-                      accountUserIds[recognized.pluginId] == ownerUserId,
+                      _importedUserIds[recognized.pluginId] == ownerUserId,
                   artworkOverridden: playlist.hasCustomCover,
                   refreshIntervalHours: playlist.refreshIntervalHours,
                   lastRefreshedAt: playlist.lastRefreshed?.toUtc(),

@@ -22,7 +22,8 @@
     "10-23-m5-import-staging",
     "10-23-m5-legacy-isar-reader",
     "10-23-m5-legacy-converter",
-    "10-23-m5-legacy-settings"
+    "10-23-m5-legacy-settings",
+    "10-23-m5-legacy-credentials"
   ],
   "parent": "09-26-fmp-rewrite",
   "relatedFiles": [],

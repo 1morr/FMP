@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 憑證存放（ADR 0012 §決定 3、ADR 0029 §決定 5）：平台的 secure storage。
 ///
-/// 鍵只准小寫英數、`.`、`-`，其他拋 [ArgumentError]：Windows 的實作直接把鍵當
-/// `<鍵>.secure` 的檔名，不做跳脫。讀寫失敗丟平台套件的原始例外，呼叫端
+/// 鍵只准小寫英數、`.`、`-`，其他拋 [ArgumentError]（鍵會加上 dev／prod 的前綴，
+/// 不讓呼叫端寫出別的字元）。讀寫失敗丟平台套件的原始例外，呼叫端
 /// （`CredentialStore`）自己決定怎麼處理，這一層不吞也不刪資料。
 abstract interface class SecureStorage {
   /// [key] 的值；沒有時回 `null`。

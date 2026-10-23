@@ -61,6 +61,9 @@ const platformPackages = [
   'flutter_secure_storage',
   'url_launcher',
   'share_plus',
+  // M5：舊憑證的唯讀 DPAPI 解密（lib/platform/legacy_data）。
+  'win32',
+  'ffi',
 ];
 
 /// 左邊目錄內的檔案不得 import 右邊的目錄。

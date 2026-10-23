@@ -26,6 +26,7 @@ import 'package:fmp/legacy_import/legacy_snapshot.dart';
 import 'package:path/path.dart' as p;
 
 import '../support/legacy_database.dart';
+import 'legacy_credential_fixtures.dart';
 import 'legacy_snapshot_builders.dart';
 
 /// 每個 collection：讀到的 = 寫出的 + 略過的筆數（註記在 `notes`，不算）。
@@ -68,11 +69,13 @@ void main() {
     final snapshot = await LegacyDatabaseReader(log: (message, fields) {})
         .read(file, Directory(p.join(temp.path, 'work')));
 
-    final bundle = const LegacyConverter().convert(
-      snapshot,
-      source: LegacyImportSource.database,
-      now: DateTime.utc(2026, 10, 23),
-    );
+    final bundle = const LegacyConverter()
+        .convert(
+          snapshot,
+          source: LegacyImportSource.database,
+          now: DateTime.utc(2026, 10, 23),
+        )
+        .bundle;
 
     // 合成庫的內容對照：
     // - 曲目：3 號（單 P、兩段）與 4 號（單 P、舊版補了 cid）去 cid；多 P 兩首留 cid；
@@ -131,11 +134,13 @@ void main() {
       );
       final snapshot = await LegacyDatabaseReader(log: (message, fields) {})
           .read(file, Directory(p.join(temp.path, 'work')));
-      final bundle = const LegacyConverter().convert(
-        snapshot,
-        source: LegacyImportSource.database,
-        now: DateTime.utc(2026, 10, 23),
-      );
+      final bundle = const LegacyConverter()
+          .convert(
+            snapshot,
+            source: LegacyImportSource.database,
+            now: DateTime.utc(2026, 10, 23),
+          )
+          .bundle;
 
       // 合成庫的設定：深色、zh_TW、重啟倒帶 5 秒，歷史上限與面板寬度是型別預設（不寫），面板收起照舊值寫，
       // 主色改過（不匯入），三個音源的 useAuthForPlay 是舊預設。
@@ -301,11 +306,17 @@ void main() {
       accounts: [legacyAccount(platform: 'bilibili', userId: '1')],
     );
 
-    final bundle = const LegacyConverter().convert(
-      snapshot,
-      source: LegacyImportSource.database,
-      now: DateTime.utc(2026, 10, 23),
-    );
+    // 帳號段要有舊憑證：B 站的帳號才匯入，歌單才標可寫。
+    final bundle = const LegacyConverter()
+        .convert(
+          snapshot,
+          source: LegacyImportSource.database,
+          now: DateTime.utc(2026, 10, 23),
+          credentials: legacyReads(
+            bilibili: legacyBilibiliJson(dedeUserId: '1'),
+          ),
+        )
+        .bundle;
 
     expect(bundle.tracks.map((t) => t.key.toString()).toSet(), {
       'bilibili:BVsingle',
@@ -336,19 +347,21 @@ void main() {
   });
 
   test('a player state with an empty queue writes and verifies', () async {
-    final bundle = const LegacyConverter().convert(
-      legacySnapshot(
-        queue: legacyQueue(
-          loopMode: LegacyLoopMode.all,
-          lastVolume: 0.4,
-          isMixMode: true,
-          mixPlaylistId: 'RDseed',
-          mixTitle: 'Mix',
-        ),
-      ),
-      source: LegacyImportSource.database,
-      now: DateTime.utc(2026, 10, 23),
-    );
+    final bundle = const LegacyConverter()
+        .convert(
+          legacySnapshot(
+            queue: legacyQueue(
+              loopMode: LegacyLoopMode.all,
+              lastVolume: 0.4,
+              isMixMode: true,
+              mixPlaylistId: 'RDseed',
+              mixTitle: 'Mix',
+            ),
+          ),
+          source: LegacyImportSource.database,
+          now: DateTime.utc(2026, 10, 23),
+        )
+        .bundle;
     expect(bundle.queue, isEmpty);
     expect(bundle.playerState, isNotNull);
     await _writeAndVerify(bundle, temp);

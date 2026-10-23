@@ -85,6 +85,10 @@ dependencies:
   # 憑證存放（ADR 0012 §決定 3、ADR 0029 §決定 5）；只准在 lib/platform/ import
   # （fmp_layer_imports）。
   flutter_secure_storage: ^11.2.0
+  # 舊憑證的唯讀 DPAPI 解密（M5，lib/platform/legacy_data）；只准在 lib/platform/ import
+  # （fmp_layer_imports）。版本與 flutter_secure_storage_windows 的限制相容。
+  win32: ^6.4.0
+  ffi: ^2.2.0
   # 必須等於 smtc_windows 的 rust/Cargo.toml 釘的版本（目前 =2.11.1）：套件的
   # pubspec 寫 ^2.11.1，Dart 端會解析到較新的版本，執行時 SMTC 初始化就失敗。
   # 升級 smtc_windows 時一起改（閘門 test/platform/smtc_bridge_version_test.dart）。

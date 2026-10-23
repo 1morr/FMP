@@ -102,6 +102,15 @@ final class CredentialStore implements CredentialSource {
 
   static String _key(String pluginId) => 'credentials.$pluginId';
 
+  /// 匯入舊版憑證（M5）：只寫 secure storage，鍵與編碼同 [save]。帳號列由匯入包寫進資料庫，
+  /// 兩者成對才不會在下次 [_load] 被對齊刪掉。匯入發生在 [CredentialStore] 建立之前，
+  /// 所以是靜態方法、不更新記憶體狀態。丟出寫入的錯誤。
+  static Future<void> writeImported(
+    SecureStorage storage,
+    String pluginId,
+    LoginCredentials credentials,
+  ) => storage.write(_key(pluginId), jsonEncode(credentials.toJson()));
+
   /// 排在 [_tail] 之後執行 [action]；它的錯誤只交給呼叫端，不擋後面的。
   Future<T> _serial<T>(Future<T> Function() action) {
     final result = _tail.then((_) => action());

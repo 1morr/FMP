@@ -620,7 +620,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 ## 舊資料匯入
 
-`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。目前有讀舊 Isar 資料庫（PR 1）與轉換器（PR 3）；帳號與憑證、設定的轉換、
+`lib/legacy_import/`（ADR 0010、M5 design §0.3、§4.1、§5）。目前有讀舊 Isar 資料庫（PR 1）、轉換器（PR 3）與舊憑證（PR 4）；設定的轉換、
 怎麼用它們的流程由之後的 PR 加進來，到時再補這一節。
 
 - **先複製再開副本，舊檔一個位元組都不動。** Isar 沒有唯讀模式：每次開啟都會建 lock 檔，也可能依 schema 差異
@@ -656,7 +656,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `fmp_database.isar`（給實機驗證）；`dart run tool/legacy_counts.dart <副本路徑>` 只印每個 collection 的筆數與
   `schemaVersion`，不印內容（給真實舊庫的**副本**用，不要指向舊 App 正在用的檔案）。
 - **轉換器**（`legacy_converter.dart`，`LegacyConverter.convert(snapshot, source:, backupVersion:, now:)` → `ImportBundle`）純 Dart、沒有 I/O、不改 snapshot；
-  依序跑曲目鍵對照、歌單、佇列、歷史、電台、曲目、外部來源，設定段在 `legacy_settings_converter.dart`（見下），帳號之後另加一段。
+  依序跑曲目鍵對照、帳號（給了舊憑證時，`legacy_account_converter.dart`）、歌單、佇列、歷史、電台、曲目、外部來源，設定段在 `legacy_settings_converter.dart`（見下）。
   - **B 站單 P 去 cid。** `pageCount` ≤ 1，或 `pageCount` 空且 `pageNum` 空或 1 且 `parentTitle` 空，鍵就去掉舊版補上的 cid，兩段與三段的同一支影片併成一列；
     歌單、佇列、歷史經「舊鍵 → 新鍵」「舊 `Track.id` → 新鍵」的對照。規則照 bilibili 1.10.0 的 `itemsOfMedia`（`pages <= 1` 不帶 `cid`、`partIndex`、`parentTitle`）。
     `part_index`、`parent_title` 只給去 cid 之後還帶 cid 的曲目。歷史的三段鍵：`Track` 判定同一支影片是單 P 時併進兩段鍵；`Track` 裡完全沒有這支影片才照原樣（記 `unverifiedPart`）。播放狀態在佇列是空的時也寫（音量、循環模式照舊版恢復），只有沒有佇列列或整列是型別預設時不寫。
@@ -675,6 +675,25 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     閘門：`legacy_settings_converter_test.dart`（每個欄位的改過／等於預設／型別預設／取最接近各一例、三個音源、平台、版面來源、清單只列改過的；舊預設的來源行號寫在群組名）與
     `legacy_converter_import_test.dart` 的合成舊庫設定往返。
   - 整合閘門：`legacy_converter_import_test.dart`（合成舊庫 → 讀取器 → 轉換器 → `StagingImport.write` 與 `verify` 通過）。
+- **舊憑證只讀、不經套件的預設路徑**（`lib/platform/legacy_data/`，M5 design §0.1、§4.3）。`LegacyCredentialReader.read(鍵名清單)` 對每個鍵回
+  `LegacyCredentialFound`／`Missing`／`Unreadable`，永不拋例外；舊鍵名（`account_<平台>_credentials`）的字面值只寫在 `lib/legacy_import/legacy_account_converter.dart`。
+  - **Windows**（`legacy_credential_reader_windows.dart`）：讀 `<目錄>/flutter_secure_storage.dat` 的位元組 → `CryptUnprotectData`（無 entropy，`win32`）→ UTF-8 → JSON map。
+    不經 `flutter_secure_storage_windows`：它的 `load` 解不開或 JSON 壞掉會**刪整個檔**。檔案不在＝全部沒有；解不開、不是 JSON 物件＝全部讀不出。只讀、不寫、不刪。解密是注入的函式。
+  - **Android**（`legacy_credential_reader_android.dart`，只有 prod）：先看 `<沙盒>/shared_prefs/FlutterSecureStorage.xml` 在不在，不在就全部沒有、**不建立套件實例**
+    （11.x 在沒有舊資料時會建 Keystore 金鑰與標記）；在的話以 `AndroidOptions(resetOnError: false, migrateOnAlgorithmChange: false)`、**不帶 `storageNamespace`** 的實例逐鍵 `read`
+    （新版自己的實例帶 `fmp`，不會互相干擾）。不用 `readAll`：一個壞條目就整批失敗；拋例外的鍵是讀不出。`resetOnError` 預設為真，會在讀取失敗時**靜默刪鍵**，與「從沒登入」分不出來。
+  - log 只寫鍵名與結果類別（`found`／`missing`／`unreadable`），不寫值；例外訊息不記。
+  - 閘門：`test/platform/legacy_credential_reader_test.dart`（假解密：缺檔、缺鍵、壞 JSON、解密失敗、位元組與修改時間不變；Android：選項、沒有 prefs 檔不建實例、逐鍵、log 無值）、
+    `integration_test/legacy_credentials_test.dart`（CI 的 Windows 整合 job：`CryptProtectData` 加密合成 JSON → 讀回、壞位元組不被動）。
+  - `win32`、`ffi` 是直接依賴，只准 `lib/platform`（`platformPackages`）。
+- **帳號與憑證的轉換**（`legacy_account_converter.dart`，`LegacyConverter.convert` 回 `LegacyConversion{bundle, credentials}`；沒給 `credentials`（舊 JSON 備份）就不跑帳號段）：
+  - 舊憑證 JSON 的欄位 → 新 cookie 名稱（對照 bilibili `CREDENTIAL_COOKIES`、netease `login.js`、youtube `login.js` 的 `REQUIRED_COOKIES`）：必要的 cookie 缺或空字串＝讀不出；空字串不寫成 cookie。
+  - 憑證只在記憶體（`LegacyConversion.credentials`，不進 `ImportBundle`、不落地），帳號列與憑證成對；讀不出、缺必要 cookie、找不到使用者 id（`accountWithoutId`）的平台不寫帳號，進 `summary.reloginPlatforms`。
+    舊版沒有憑證（沒登入、已登出、工作階段過期後憑證已刪）的平台什麼都不記；但舊帳號列仍是 `isLoggedIn`、憑證鍵卻不在的，也進 `reloginPlatforms`（否則使用者不知不覺變成未登入）。
+  - 換上資料庫之後，呼叫端用 `CredentialStore.writeImported(storage, 插件 id, 憑證)` 寫 secure storage（鍵與編碼同 `save`，匯入端不另抄）。
+  - `playlist_remote.writable` 只在該平台的帳號真的匯入、且歌單的 `ownerUserId` 等於帳號的 `user_id` 時為真。
+  - 閘門：`legacy_account_converter_test.dart`（三個平台的欄位、空字串、缺必要 cookie、讀不出、沒有 id、帳號列登入中但憑證不見、`writable`、憑證值不進 summary）、`legacy_credentials_roundtrip_test.dart`
+    （`writeImported` → 真的 `CredentialStore` 載入，帳號與憑證成對且 `active`）。
 - Android 的 `libisar.so` 要 16KB 對齊（ADR 0010 後果）：`flutter build apk --flavor dev --debug` 後，
   `zipalign -c -P 16 -v 4 <apk>` 與每個 64 位元 ABI 的 `libisar.so` LOAD 段 `p_align` ≥ 0x4000。**沒有自動閘門**，
   升 `isar_community_flutter_libs` 時手動驗。
