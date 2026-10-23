@@ -143,6 +143,12 @@
   - **佇列空了也寫播放狀態**：舊版的音量與循環模式照樣帶過來；整列都是型別預設或沒有 `PlayQueue` 列時才不寫。
   - **PR 4**：`playlist_remote.writable` 現在只要舊庫有該平台的帳號列就比對 `ownerUserId`，不管憑證有沒有匯入；PR 4 改成「真的匯入了那個平台的帳號才標可寫」。
   - 轉換器為了歷史上限的選項 import 了 `lib/settings`（純靜態函式），所以轉換器帶 Flutter 依賴，`dart run` 的工具不能引用它（目前沒有這種用法）。
+- PR 4：
+  - **單一入口**：`LegacyConverter.convert(..., credentials:, importOutputDevice:)` 回 `LegacyConversion{bundle, credentials}`；`credentials` 為空（舊 JSON 備份）就不跑帳號段。憑證只在 `LegacyConversion.credentials`（記憶體），PR 6 換上後以 `CredentialStore.writeImported` 寫。
+  - **讀取器**：`LegacyCredentialReader`（`lib/platform/legacy_data/`），Windows 與 Android 兩個實作與 `NoLegacyCredentialReader`；PR 6 依平台與 flavor 選（dev 的 Android 不讀，Windows 讀 `--fmp-legacy-dir`）。PR 6 的 Android 實機要確認讀過之後 `shared_prefs` 內容不變。
+  - **需要重新登入**：讀不出、缺必要 cookie、沒有 user id，以及舊帳號列 `isLoggedIn` 但憑證不在的平台；舊版已登出的平台不列。
+  - **新的略過理由 `accountWithoutId`**：PR 6 的結果對話框要有它的翻譯。
+  - 低、驗收時看：舊版 YouTube 帳號的 `userId` 是 channelId（`UC…`），新插件 `loginVerify` 回的是 datasync id 或 handle；備用值 `datasyncId` 可能含 `||` 沒拆。只影響顯示、遮蔽登記與 YouTube 歌單的 `writable`；擁有者的舊庫沒有 YouTube 帳號。
 - PR 5：
   - `layout_state` 照實際值寫（design §5.9 那一列的 2026-10-23 補充）。
   - 舊預設改過幾次：`maxCacheSizeMB` 的歷代預設（2048、128、32，Android 新安裝 16）都當成沒改過；`audioFormatPriority` 在 v1.0.7–v1.9.x 的預設是 `aac,opus`、v1.10.0 起才是 `opus,aac` 且沒有 migration，存 `aac,opus` 的人分不出是改過還是舊預設，照寫（保留在舊版實際的行為）。
