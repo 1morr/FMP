@@ -1,7 +1,47 @@
 {
   "startup": {
     "databaseError": "無法開啟資料庫",
-    "unsupportedPlatform": "此平台尚未支援"
+    "unsupportedPlatform": "此平台尚未支援",
+    "retry": "重試",
+    "exportDiagnostics": "匯出診斷",
+    "exportDone": "已匯出診斷檔",
+    "exportFailed": "無法匯出診斷檔",
+    "legacyImport": {
+      "title": "正在從舊版匯入資料",
+      "stepRead": "讀取舊資料",
+      "stepConvert": "轉換",
+      "stepWrite": "寫入",
+      "stepVerify": "驗證",
+      "stepDone": "完成",
+      "failedTitle": "無法匯入舊版資料",
+      "failedStep": "失敗的步驟：{step}",
+      "detailsHint": "詳細原因可以用「匯出診斷」存下來。",
+      "safeNote": "舊資料沒有被改動，之後可以在設定頁再匯入。",
+      "startBlank": "以空白資料啟動"
+    }
+  },
+  "legacyResult": {
+    "title": "已從舊版匯入資料",
+    "playlists": "歌單：{count}",
+    "tracks": "曲目：{count}",
+    "history": "播放歷史：{count}",
+    "radio": "電台：{count}",
+    "accounts": "帳號：{count}",
+    "relogin": "需要重新登入：{platforms}",
+    "unimportedTitle": "沒有匯入的設定",
+    "unimported": {
+      "primaryColor": "主色",
+      "fontFamily": "字型",
+      "streamPriority": "各音源的串流優先順序",
+      "cacheLimit": "快取上限",
+      "homeRanking": "首頁排行的順序與停用",
+      "railExpanded": "側邊欄的展開狀態",
+      "searchHistory": "搜尋歷史"
+    },
+    "localPlaylists": "{count} 張平台歌單的網址無法辨識或重複，已轉成本機歌單。",
+    "needsSources": "匯入的資料用到尚未安裝的音源，安裝後才能播放與更新。",
+    "installSources": "安裝音源",
+    "acknowledge": "知道了"
   },
   "shell": {
     "home": "首頁",

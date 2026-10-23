@@ -1,7 +1,47 @@
 {
   "startup": {
     "databaseError": "Can't open the database",
-    "unsupportedPlatform": "This platform isn't supported yet"
+    "unsupportedPlatform": "This platform isn't supported yet",
+    "retry": "Retry",
+    "exportDiagnostics": "Export diagnostics",
+    "exportDone": "Diagnostics exported",
+    "exportFailed": "Couldn't export the diagnostics",
+    "legacyImport": {
+      "title": "Importing data from the old version",
+      "stepRead": "Reading the old data",
+      "stepConvert": "Converting",
+      "stepWrite": "Writing",
+      "stepVerify": "Verifying",
+      "stepDone": "Finishing",
+      "failedTitle": "Couldn't import the old data",
+      "failedStep": "Failed step: {step}",
+      "detailsHint": "Export the diagnostics to keep the details.",
+      "safeNote": "The old data wasn't changed. You can import it again later from Settings.",
+      "startBlank": "Start with empty data"
+    }
+  },
+  "legacyResult": {
+    "title": "Data imported from the old version",
+    "playlists": "Playlists: {count}",
+    "tracks": "Tracks: {count}",
+    "history": "Play history: {count}",
+    "radio": "Radio stations: {count}",
+    "accounts": "Accounts: {count}",
+    "relogin": "Sign in again: {platforms}",
+    "unimportedTitle": "Settings that weren't imported",
+    "unimported": {
+      "primaryColor": "Accent color",
+      "fontFamily": "Font",
+      "streamPriority": "Stream priority per source",
+      "cacheLimit": "Cache limit",
+      "homeRanking": "Home chart order and disabled charts",
+      "railExpanded": "Whether the side bar was expanded",
+      "searchHistory": "Search history"
+    },
+    "localPlaylists": "{count} platform playlists had an unrecognized or duplicate address and became local playlists.",
+    "needsSources": "The imported data uses sources that aren't installed yet. Install them to play and update.",
+    "installSources": "Install sources",
+    "acknowledge": "Got it"
   },
   "shell": {
     "home": "Home",

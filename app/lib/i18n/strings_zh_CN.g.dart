@@ -53,6 +53,9 @@ class TranslationsZhCn extends Translations
   late final Translations$startup$zh_CN startup =
       Translations$startup$zh_CN.internal(_root);
   @override
+  late final Translations$legacyResult$zh_CN legacyResult =
+      Translations$legacyResult$zh_CN.internal(_root);
+  @override
   late final Translations$shell$zh_CN shell = Translations$shell$zh_CN.internal(
     _root,
   );
@@ -153,6 +156,56 @@ class Translations$startup$zh_CN extends Translations$startup$zh_TW {
   String get databaseError => '无法打开数据库';
   @override
   String get unsupportedPlatform => '暂不支持此平台';
+  @override
+  String get retry => '重试';
+  @override
+  String get exportDiagnostics => '导出诊断';
+  @override
+  String get exportDone => '已导出诊断文件';
+  @override
+  String get exportFailed => '无法导出诊断文件';
+  @override
+  late final Translations$startup$legacyImport$zh_CN legacyImport =
+      Translations$startup$legacyImport$zh_CN.internal(_root);
+}
+
+// Path: legacyResult
+class Translations$legacyResult$zh_CN extends Translations$legacyResult$zh_TW {
+  Translations$legacyResult$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '已从旧版导入数据';
+  @override
+  String playlists({required Object count}) => '歌单：${count}';
+  @override
+  String tracks({required Object count}) => '曲目：${count}';
+  @override
+  String history({required Object count}) => '播放历史：${count}';
+  @override
+  String radio({required Object count}) => '电台：${count}';
+  @override
+  String accounts({required Object count}) => '账号：${count}';
+  @override
+  String relogin({required Object platforms}) => '需要重新登录：${platforms}';
+  @override
+  String get unimportedTitle => '没有导入的设置';
+  @override
+  late final Translations$legacyResult$unimported$zh_CN unimported =
+      Translations$legacyResult$unimported$zh_CN.internal(_root);
+  @override
+  String localPlaylists({required Object count}) =>
+      '${count} 张平台歌单的网址无法识别或重复，已转成本机歌单。';
+  @override
+  String get needsSources => '导入的数据用到尚未安装的音源，安装后才能播放与更新。';
+  @override
+  String get installSources => '安装音源';
+  @override
+  String get acknowledge => '知道了';
 }
 
 // Path: shell
@@ -2505,6 +2558,66 @@ class Translations$errorReport$zh_CN extends Translations$errorReport$zh_TW {
   String get cause => '原因';
   @override
   String get stackTrace => 'Stack trace';
+}
+
+// Path: startup.legacyImport
+class Translations$startup$legacyImport$zh_CN
+    extends Translations$startup$legacyImport$zh_TW {
+  Translations$startup$legacyImport$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get title => '正在从旧版导入数据';
+  @override
+  String get stepRead => '读取旧数据';
+  @override
+  String get stepConvert => '转换';
+  @override
+  String get stepWrite => '写入';
+  @override
+  String get stepVerify => '验证';
+  @override
+  String get stepDone => '完成';
+  @override
+  String get failedTitle => '无法导入旧版数据';
+  @override
+  String failedStep({required Object step}) => '失败的步骤：${step}';
+  @override
+  String get detailsHint => '详细原因可以用「导出诊断」保存下来。';
+  @override
+  String get safeNote => '旧数据没有被改动，之后可以在设置页再导入。';
+  @override
+  String get startBlank => '以空白数据启动';
+}
+
+// Path: legacyResult.unimported
+class Translations$legacyResult$unimported$zh_CN
+    extends Translations$legacyResult$unimported$zh_TW {
+  Translations$legacyResult$unimported$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get primaryColor => '主色';
+  @override
+  String get fontFamily => '字体';
+  @override
+  String get streamPriority => '各音源的串流优先顺序';
+  @override
+  String get cacheLimit => '缓存上限';
+  @override
+  String get homeRanking => '首页排行的顺序与停用';
+  @override
+  String get railExpanded => '侧边栏的展开状态';
+  @override
+  String get searchHistory => '搜索历史';
 }
 
 // Path: plugins.capabilityNames

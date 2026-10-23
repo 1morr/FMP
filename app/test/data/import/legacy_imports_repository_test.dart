@@ -63,6 +63,54 @@ void main() {
     await repository.acknowledge(99);
   });
 
+  test(
+    'addReloginPlatforms adds to the newest record without repeating',
+    () async {
+      final database = memoryDatabase();
+      final repository = LegacyImportsRepository(database);
+      Future<void> insert(String relogin) => database.customStatement(
+        'INSERT INTO legacy_imports (source, imported_at, summary_json) '
+        "VALUES ('database', 1790000000000, "
+        "'{\"collections\":{},\"unimportedSettings\":[\"a\"],"
+        "\"reloginPlatforms\":[$relogin]}')",
+      );
+      await insert('"netease"');
+      await insert('');
+
+      await repository.addReloginPlatforms({'bilibili', 'netease'});
+      await repository.addReloginPlatforms(const {});
+
+      final latest = (await repository.latestUnacknowledged())!;
+      expect(
+        latest.summary.reloginPlatforms,
+        unorderedEquals(['bilibili', 'netease']),
+      );
+      expect(latest.summary.unimportedSettings, ['a']);
+      await repository.acknowledge(latest.id);
+      // 舊的一筆沒動。
+      expect(
+        (await repository.latestUnacknowledged())!.summary.reloginPlatforms,
+        ['netease'],
+      );
+      // 沒有紀錄時什麼都不做。
+      await LegacyImportsRepository(memoryDatabase())
+          .addReloginPlatforms({'x'});
+    },
+  );
+
+  test('referencedPluginIds gathers every table that names a plugin', () async {
+    final database = memoryDatabase();
+    final repository = LegacyImportsRepository(database);
+    expect(await repository.referencedPluginIds(), isEmpty);
+
+    await database.customStatement(
+      'INSERT INTO tracks (track_key, source_type_id, source_id, title, '
+      "updated_at) VALUES ('bilibili:x', 'bilibili', 'x', 't', 0)",
+    );
+    final ids = await repository.referencedPluginIds();
+    expect(ids, {'bilibili'});
+  });
+
   group('ImportSummary', () {
     const summary = ImportSummary(
       collections: {

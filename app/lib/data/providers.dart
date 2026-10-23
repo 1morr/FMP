@@ -7,6 +7,7 @@ import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/data/repositories/chart_settings_repository.dart';
 import 'package:fmp/data/repositories/database_inspector.dart';
 import 'package:fmp/data/repositories/developer_settings_repository.dart';
+import 'package:fmp/data/import/legacy_imports_repository.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/match_results_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
@@ -107,4 +108,8 @@ final playlistRepositoryProvider = Provider<PlaylistRepository>(
 
 final matchResultsRepositoryProvider = Provider<MatchResultsRepository>(
   (ref) => MatchResultsRepository(ref.watch(appDatabaseProvider)),
+);
+
+final legacyImportsRepositoryProvider = Provider<LegacyImportsRepository>(
+  (ref) => LegacyImportsRepository(ref.watch(appDatabaseProvider)),
 );

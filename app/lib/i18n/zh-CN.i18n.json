@@ -1,7 +1,47 @@
 {
   "startup": {
     "databaseError": "无法打开数据库",
-    "unsupportedPlatform": "暂不支持此平台"
+    "unsupportedPlatform": "暂不支持此平台",
+    "retry": "重试",
+    "exportDiagnostics": "导出诊断",
+    "exportDone": "已导出诊断文件",
+    "exportFailed": "无法导出诊断文件",
+    "legacyImport": {
+      "title": "正在从旧版导入数据",
+      "stepRead": "读取旧数据",
+      "stepConvert": "转换",
+      "stepWrite": "写入",
+      "stepVerify": "验证",
+      "stepDone": "完成",
+      "failedTitle": "无法导入旧版数据",
+      "failedStep": "失败的步骤：{step}",
+      "detailsHint": "详细原因可以用「导出诊断」保存下来。",
+      "safeNote": "旧数据没有被改动，之后可以在设置页再导入。",
+      "startBlank": "以空白数据启动"
+    }
+  },
+  "legacyResult": {
+    "title": "已从旧版导入数据",
+    "playlists": "歌单：{count}",
+    "tracks": "曲目：{count}",
+    "history": "播放历史：{count}",
+    "radio": "电台：{count}",
+    "accounts": "账号：{count}",
+    "relogin": "需要重新登录：{platforms}",
+    "unimportedTitle": "没有导入的设置",
+    "unimported": {
+      "primaryColor": "主色",
+      "fontFamily": "字体",
+      "streamPriority": "各音源的串流优先顺序",
+      "cacheLimit": "缓存上限",
+      "homeRanking": "首页排行的顺序与停用",
+      "railExpanded": "侧边栏的展开状态",
+      "searchHistory": "搜索历史"
+    },
+    "localPlaylists": "{count} 张平台歌单的网址无法识别或重复，已转成本机歌单。",
+    "needsSources": "导入的数据用到尚未安装的音源，安装后才能播放与更新。",
+    "installSources": "安装音源",
+    "acknowledge": "知道了"
   },
   "shell": {
     "home": "首页",

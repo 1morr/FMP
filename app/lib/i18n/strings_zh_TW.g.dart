@@ -44,6 +44,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
   // Translations
   late final Translations$startup$zh_TW startup =
       Translations$startup$zh_TW.internal(_root);
+  late final Translations$legacyResult$zh_TW legacyResult =
+      Translations$legacyResult$zh_TW.internal(_root);
   late final Translations$shell$zh_TW shell = Translations$shell$zh_TW.internal(
     _root,
   );
@@ -118,6 +120,70 @@ class Translations$startup$zh_TW {
 
   /// zh-TW: '此平台尚未支援'
   String get unsupportedPlatform => '此平台尚未支援';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '匯出診斷'
+  String get exportDiagnostics => '匯出診斷';
+
+  /// zh-TW: '已匯出診斷檔'
+  String get exportDone => '已匯出診斷檔';
+
+  /// zh-TW: '無法匯出診斷檔'
+  String get exportFailed => '無法匯出診斷檔';
+
+  late final Translations$startup$legacyImport$zh_TW legacyImport =
+      Translations$startup$legacyImport$zh_TW.internal(_root);
+}
+
+// Path: legacyResult
+class Translations$legacyResult$zh_TW {
+  Translations$legacyResult$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '已從舊版匯入資料'
+  String get title => '已從舊版匯入資料';
+
+  /// zh-TW: '歌單：{count}'
+  String playlists({required Object count}) => '歌單：${count}';
+
+  /// zh-TW: '曲目：{count}'
+  String tracks({required Object count}) => '曲目：${count}';
+
+  /// zh-TW: '播放歷史：{count}'
+  String history({required Object count}) => '播放歷史：${count}';
+
+  /// zh-TW: '電台：{count}'
+  String radio({required Object count}) => '電台：${count}';
+
+  /// zh-TW: '帳號：{count}'
+  String accounts({required Object count}) => '帳號：${count}';
+
+  /// zh-TW: '需要重新登入：{platforms}'
+  String relogin({required Object platforms}) => '需要重新登入：${platforms}';
+
+  /// zh-TW: '沒有匯入的設定'
+  String get unimportedTitle => '沒有匯入的設定';
+
+  late final Translations$legacyResult$unimported$zh_TW unimported =
+      Translations$legacyResult$unimported$zh_TW.internal(_root);
+
+  /// zh-TW: '{count} 張平台歌單的網址無法辨識或重複，已轉成本機歌單。'
+  String localPlaylists({required Object count}) =>
+      '${count} 張平台歌單的網址無法辨識或重複，已轉成本機歌單。';
+
+  /// zh-TW: '匯入的資料用到尚未安裝的音源，安裝後才能播放與更新。'
+  String get needsSources => '匯入的資料用到尚未安裝的音源，安裝後才能播放與更新。';
+
+  /// zh-TW: '安裝音源'
+  String get installSources => '安裝音源';
+
+  /// zh-TW: '知道了'
+  String get acknowledge => '知道了';
 }
 
 // Path: shell
@@ -3399,6 +3465,78 @@ class Translations$errorReport$zh_TW {
 
   /// zh-TW: 'Stack trace'
   String get stackTrace => 'Stack trace';
+}
+
+// Path: startup.legacyImport
+class Translations$startup$legacyImport$zh_TW {
+  Translations$startup$legacyImport$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '正在從舊版匯入資料'
+  String get title => '正在從舊版匯入資料';
+
+  /// zh-TW: '讀取舊資料'
+  String get stepRead => '讀取舊資料';
+
+  /// zh-TW: '轉換'
+  String get stepConvert => '轉換';
+
+  /// zh-TW: '寫入'
+  String get stepWrite => '寫入';
+
+  /// zh-TW: '驗證'
+  String get stepVerify => '驗證';
+
+  /// zh-TW: '完成'
+  String get stepDone => '完成';
+
+  /// zh-TW: '無法匯入舊版資料'
+  String get failedTitle => '無法匯入舊版資料';
+
+  /// zh-TW: '失敗的步驟：{step}'
+  String failedStep({required Object step}) => '失敗的步驟：${step}';
+
+  /// zh-TW: '詳細原因可以用「匯出診斷」存下來。'
+  String get detailsHint => '詳細原因可以用「匯出診斷」存下來。';
+
+  /// zh-TW: '舊資料沒有被改動，之後可以在設定頁再匯入。'
+  String get safeNote => '舊資料沒有被改動，之後可以在設定頁再匯入。';
+
+  /// zh-TW: '以空白資料啟動'
+  String get startBlank => '以空白資料啟動';
+}
+
+// Path: legacyResult.unimported
+class Translations$legacyResult$unimported$zh_TW {
+  Translations$legacyResult$unimported$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '主色'
+  String get primaryColor => '主色';
+
+  /// zh-TW: '字型'
+  String get fontFamily => '字型';
+
+  /// zh-TW: '各音源的串流優先順序'
+  String get streamPriority => '各音源的串流優先順序';
+
+  /// zh-TW: '快取上限'
+  String get cacheLimit => '快取上限';
+
+  /// zh-TW: '首頁排行的順序與停用'
+  String get homeRanking => '首頁排行的順序與停用';
+
+  /// zh-TW: '側邊欄的展開狀態'
+  String get railExpanded => '側邊欄的展開狀態';
+
+  /// zh-TW: '搜尋歷史'
+  String get searchHistory => '搜尋歷史';
 }
 
 // Path: plugins.capabilityNames
