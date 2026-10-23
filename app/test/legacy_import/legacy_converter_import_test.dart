@@ -2,17 +2,26 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:drift/drift.dart' hide isNotNull, isNull;
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/import/import_bundle.dart';
+import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/import/staging_import.dart';
+import 'package:fmp/data/repositories/account_repository.dart';
+import 'package:fmp/data/repositories/appearance_settings_repository.dart';
+import 'package:fmp/data/repositories/layout_state_repository.dart';
+import 'package:fmp/data/repositories/network_settings_repository.dart';
+import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/legacy_import/legacy_converter.dart';
 import 'package:fmp/legacy_import/legacy_database_reader.dart';
+import 'package:fmp/legacy_import/legacy_settings_converter.dart';
 import 'package:fmp/legacy_import/legacy_snapshot.dart';
 import 'package:path/path.dart' as p;
 
@@ -113,6 +122,67 @@ void main() {
     // 暫存庫：寫入、驗證都通過（驗證會擋孤兒曲目與缺少的鍵）。
     await _writeAndVerify(bundle, temp);
   });
+
+  test(
+    'the settings of a synthetic database convert, write and read back',
+    () async {
+      final file = await writeSyntheticLegacyDatabase(
+        Directory(p.join(temp.path, 'source')),
+      );
+      final snapshot = await LegacyDatabaseReader(log: (message, fields) {})
+          .read(file, Directory(p.join(temp.path, 'work')));
+      final bundle = const LegacyConverter().convert(
+        snapshot,
+        source: LegacyImportSource.database,
+        now: DateTime.utc(2026, 10, 23),
+      );
+
+      // 合成庫的設定：深色、zh_TW、重啟倒帶 5 秒，歷史上限與面板寬度是型別預設（不寫），面板收起照舊值寫，
+      // 主色改過（不匯入），三個音源的 useAuthForPlay 是舊預設。
+      final expectedAppearance = AppearanceSettings(
+        themeMode: ThemeModeSetting.dark,
+        locale: LocaleSetting.zhTw,
+      );
+      final expectedPlayback = PlaybackSettings(restartRewindSeconds: 5);
+      final expectedBrowse = {
+        'bilibili': true,
+        'youtube': false,
+        'netease': true,
+      };
+      expect(bundle.appearance, expectedAppearance);
+      expect(bundle.playback, expectedPlayback);
+      expect(bundle.network, NetworkSettings.empty);
+      expect(bundle.layout, const LayoutState(panelExpanded: false));
+      expect(bundle.browseAsLoggedIn, expectedBrowse);
+      expect(bundle.record.summary.unimportedSettings, [
+        UnimportedSetting.primaryColor,
+        UnimportedSetting.searchHistory,
+      ]);
+
+      await _writeAndVerify(bundle, temp);
+
+      final database = AppDatabase(
+        NativeDatabase(File(p.join(temp.path, 'legacy-import', 'staging.db'))),
+      );
+      addTearDown(database.close);
+      expect(
+        await AppearanceSettingsRepository(database).read(),
+        expectedAppearance,
+      );
+      expect(
+        await PlaybackSettingsRepository(database).read(),
+        expectedPlayback,
+      );
+      expect(
+        await NetworkSettingsRepository(database).read(),
+        NetworkSettings.empty,
+      );
+      final sources = SourceSettingsRepository(database);
+      for (final entry in expectedBrowse.entries) {
+        expect(await sources.browseAsLoggedIn(entry.key), entry.value);
+      }
+    },
+  );
 
   test('the tricky cases of a hand-built snapshot write and verify', () async {
     // 合成庫沒有的：認得的匯入歌單（含重複的遠端）、單 P 兩段與三段併成一列後被歌單、佇列、
