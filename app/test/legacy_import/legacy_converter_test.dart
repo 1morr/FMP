@@ -372,6 +372,42 @@ void main() {
       ]);
     });
 
+    test('artwork: http is upgraded to https, https is kept', () {
+      for (final (index, (url, expected)) in [
+        (
+          'http://i0.hdslb.com/bfs/archive/a.jpg',
+          'https://i0.hdslb.com/bfs/archive/a.jpg',
+        ),
+        (
+          'HTTP://i0.hdslb.com/bfs/archive/b.jpg?x=1',
+          'https://i0.hdslb.com/bfs/archive/b.jpg?x=1',
+        ),
+        (
+          'https://i0.hdslb.com/bfs/archive/c.jpg',
+          'https://i0.hdslb.com/bfs/archive/c.jpg',
+        ),
+      ].indexed) {
+        final bundle = convert(
+          legacySnapshot(
+            tracks: [
+              legacyTrack(id: 1, sourceId: 'BV$index', thumbnailUrl: url),
+            ],
+            playlists: [
+              legacyPlaylist(id: 1, coverUrl: url, trackIds: [1]),
+            ],
+          ),
+        );
+        expect(bundle.tracks.single.artwork, [
+          TrackArtwork(url: Uri.parse(expected)),
+        ], reason: url);
+        expect(
+          bundle.playlists.single.artwork.single.url,
+          Uri.parse(expected),
+          reason: url,
+        );
+      }
+    });
+
     test('artwork: empty and non-http urls are dropped', () {
       for (final (index, url) in [
         '',

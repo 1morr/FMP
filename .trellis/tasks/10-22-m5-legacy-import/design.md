@@ -203,7 +203,7 @@ abstract interface class LegacyImport {
   - 舊版播放時替每首 B 站曲目補 cid（`backfillCid`，研究 L §2.2；ADR 0005），單 P 影片的鍵因此是三段；新 B 站插件對單 P 影片只回兩段（`fmp-plugins/bilibili/src/plugin.js` 的 `itemsOfMedia`：`pages <= 1` 時不帶 cid）。照原樣匯入，同一首歌會有兩個鍵：搜尋與刷新得到的那首和匯入的那首對不上，B 站收藏夾第一次完整刷新會把匯入的項目全部刪掉再重加。
   - 規則：B 站曲目 `pageCount` ≤ 1，或 `pageCount` 空且 `pageNum` 空或 1 且 `parentTitle` 空時，視為單 P、**去掉 cid**；同一支影片的兩段與三段單 P 鍵因此合併成一列（§5.2 的重複處理）。歷史與佇列裡的鍵經同一張「舊鍵 → 新鍵」對照；歷史裡出現、`Track` 裡沒有的 B 站鍵沒有 `pageCount` 可看，照原樣（記 `unverifiedPart`）。
   - PR 3 以 B 站插件 1.10.0 的搜尋、收藏夾、分 P 程式碼再對一次規則；§11 第 12 條。
-- **封面**：單一網址 → `[{url}]`；空字串或不是 `http(s)` 的略過。
+- **封面**：單一網址 → `[{url}]`；空字串或不是 `http(s)` 的略過；`http` 升級成 `https`（媒體 client 只發 `https`，舊版的 B 站封面多是 `http`）。
 
 ### 5.2 曲目
 

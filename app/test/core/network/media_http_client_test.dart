@@ -168,6 +168,14 @@ void main() {
         expect(harness.adapter.requests, isEmpty);
         expect(harness.records, isEmpty);
         expect(harness.outcomes, isEmpty);
+        final log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug)
+          ..report('Download', error, tag: 'test');
+        expect(
+          '${log.history.single.error}',
+          url.startsWith('http:')
+              ? contains('Scheme not allowed: http')
+              : isNot(contains('Scheme not allowed')),
+        );
       });
     }
 
