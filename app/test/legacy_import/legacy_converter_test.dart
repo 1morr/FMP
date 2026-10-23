@@ -25,12 +25,14 @@ ImportBundle convert(
   LegacySnapshot snapshot, {
   LegacyImportSource source = LegacyImportSource.database,
   int? backupVersion,
-}) => const LegacyConverter().convert(
-  snapshot,
-  source: source,
-  backupVersion: backupVersion,
-  now: DateTime.utc(2026, 10, 23),
-);
+}) => const LegacyConverter()
+    .convert(
+      snapshot,
+      source: source,
+      backupVersion: backupVersion,
+      now: DateTime.utc(2026, 10, 23),
+    )
+    .bundle;
 
 CollectionSummary summaryOf(ImportBundle bundle, String collection) =>
     bundle.record.summary.collections[collection]!;
@@ -723,33 +725,7 @@ void main() {
         expect(remote.lastRefreshedAt, isNull);
       });
 
-      test('writable follows the old account of that platform', () {
-        final same = convert(
-          imported(
-            accounts: [legacyAccount(platform: 'bilibili', userId: '555')],
-          ),
-        );
-        expect(same.playlists.single.remote!.writable, isTrue);
-        final other = convert(
-          imported(
-            accounts: [legacyAccount(platform: 'bilibili', userId: '999')],
-          ),
-        );
-        expect(other.playlists.single.remote!.writable, isFalse);
-        final wrongPlatform = convert(
-          imported(
-            accounts: [legacyAccount(platform: 'netease', userId: '555')],
-          ),
-        );
-        expect(wrongPlatform.playlists.single.remote!.writable, isFalse);
-        final noOwner = convert(
-          imported(
-            ownerUserId: null,
-            accounts: [legacyAccount(platform: 'bilibili', userId: '555')],
-          ),
-        );
-        expect(noOwner.playlists.single.remote!.writable, isFalse);
-      });
+      // writable 要有匯入的帳號才成立：legacy_account_converter_test.dart。
 
       test(
         'the plugin comes from the url; a different importSourceType is noted',
@@ -1423,6 +1399,7 @@ void main() {
         'overHistoryLimit',
         'duplicateStation',
         'originIdFormat',
+        'accountWithoutId',
         'remoteNotRecognized',
         'duplicateRemote',
         'importSourceMismatch',

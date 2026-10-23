@@ -30,6 +30,9 @@ enum SkipReason {
   /// `originalSource` 是 `spotify`，或 `originalSongId` 的格式與新插件的 `sourceId` 不同。
   originIdFormat,
 
+  /// 舊帳號列與憑證裡都找不到使用者 id（`accounts.user_id` 不可空），不匯入該平台。
+  accountWithoutId,
+
   // 以下是註記：該筆資料有寫進匯入包，只是值得提一下，不計入「略過」。
 
   /// 歌單有網址卻認不出來，轉成本機歌單。
