@@ -310,7 +310,7 @@ M3 design §3.4：`plugin_id = sourceType`、`room_id = sourceId`、`title`、`h
 | `radioRefreshIntervalMinutes` | `network_settings.radio_status_interval_minutes`（選項 0／1／3／5／10） |
 | `rankingRefreshIntervalMinutes` | `chart_refresh_interval_minutes`（選項 0／30／60／120／240） |
 | `sourceSettings[].useAuthForPlay` | `source_settings.browse_as_logged_in`（ADR 0012 §決定 6：照舊值；舊版 v3→v4 強制打開的 B 站值照現值，ADR 0010 §決定 4） |
-| `detailPanelExpanded`、`detailPanelWidth` | `layout_state.panel_expanded`、`panel_width`（夾在 ≤ 1600；只在舊資料庫匯入時寫，備份檔不帶版面） |
+| `detailPanelExpanded`、`detailPanelWidth` | `layout_state.panel_expanded`、`panel_width`（夾在 ≤ 1600；只在舊資料庫匯入時寫，備份檔不帶版面）。**照實際值寫，不套「只寫改過的值」**（2026-10-23，PR 5 審查）：版面是上次的狀態，不是設定組；主動收起的面板存的 `false` 等於舊預設，留空會變成新版預設的展開，把使用者的選擇翻掉（ADR 0010 §決定 3） |
 
 `browse_as_logged_in` 的「舊預設」以音源為準（B 站、網易開，YouTube 關），與新版預設（三個都開）不同：舊值等於舊預設時仍要寫（否則 YouTube 的「關」會變成新版的「開」）。所以這一欄例外，**三個音源都照舊值寫**。
 

@@ -143,6 +143,11 @@
   - **佇列空了也寫播放狀態**：舊版的音量與循環模式照樣帶過來；整列都是型別預設或沒有 `PlayQueue` 列時才不寫。
   - **PR 4**：`playlist_remote.writable` 現在只要舊庫有該平台的帳號列就比對 `ownerUserId`，不管憑證有沒有匯入；PR 4 改成「真的匯入了那個平台的帳號才標可寫」。
   - 轉換器為了歷史上限的選項 import 了 `lib/settings`（純靜態函式），所以轉換器帶 Flutter 依賴，`dart run` 的工具不能引用它（目前沒有這種用法）。
+- PR 5：
+  - `layout_state` 照實際值寫（design §5.9 那一列的 2026-10-23 補充）。
+  - 舊預設改過幾次：`maxCacheSizeMB` 的歷代預設（2048、128、32，Android 新安裝 16）都當成沒改過；`audioFormatPriority` 在 v1.0.7–v1.9.x 的預設是 `aac,opus`、v1.10.0 起才是 `opus,aac` 且沒有 migration，存 `aac,opus` 的人分不出是改過還是舊預設，照寫（保留在舊版實際的行為）。
+  - `convert` 多一個選用參數 `importOutputDevice`（只有 Windows 由呼叫端給真，PR 6）。
+  - 排行刷新：舊值 1–14 會換成新版的 0（關閉）；舊版介面與修復都走不到這些值，只有壞掉的備份檔會出現，不處理。
 - PR 2（審查時發現）：
   - **PR 7 要另一個寫入入口**：`StagingImport.write` 會先刪目標檔、建全新的庫、設定整列插入。設定頁的取代要在 `VACUUM INTO` 的副本上寫：不刪檔、先清掉要取代的表、設定只覆寫有值的欄位、合併帳號（design §6.3）。`verify` 的「匯入包沒寫的表必須是空的」改成收「保留下來的列數」。
   - **換上後才失敗的憑證**：需要重新登入的平台在寫暫存庫時就定了；`writeCredentials` 在換上之後才失敗的平台要補記進 `summary_json`。PR 4／PR 6 給 `LegacyImportsRepository` 加補記的方法。
