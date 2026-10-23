@@ -25,9 +25,9 @@
 
 ## 進度與交接（compact 後從這裡接）
 
-- **狀態**（2026-10-23）：PR 0–7 全部合併（FMP #308、#310–#317，fmp-plugins #25）；驗收完成（`research/m5-acceptance.md`），只剩擁有者自己勾的「開始日常試用」。
+- **狀態**（2026-10-23）：PR 0–7 全部合併（FMP #308、#310–#317，fmp-plugins #25）；驗收完成（`research/m5-acceptance.md`）；擁有者 2026-10-24 開始日常試用，試用找到的封面問題以 #320 修正。M5 完成。
 - **待擁有者回覆**：無。
-- **下一步**：擁有者開始日常試用並勾選後，`finish`、`archive` 本任務，milestones 的 M5 標完成。
+- **下一步**：無（已封存）。
 - **每個 PR 的固定流程**：分支 → `task.py create`（`--parent .trellis/tasks/10-22-m5-legacy-import`）→ prd 與 `implement.jsonl`／`check.jsonl`（design 的相關節、ADR 0010、相關的 `.trellis/spec/app/<layer>/index.md`、本任務的 research）→ `task.py start` → 派 `trellis-implement`（驗證清單：`dart format --output=none --set-exit-if-changed .`、`build_runner` 後沒有實質變動、`dart run slang`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test`、動到 lint 時 `dart run tool/lint_sentinel.dart`、需要時建置）→ 實機驗證 → 派 opus `trellis-check` → 後續待辦寫進本檔「留下的後續」→ 還原只有換行差異的產生檔 → 分開 commit → `finish`、`archive` → push、`gh pr create` → 等 CI → `gh pr merge --merge`。
 - **地雷**（之前里程碑帶來的，仍適用）：
   - 整合測試會清 dev 資料：Windows 上跑之前先備份 `userdata-dev`。
