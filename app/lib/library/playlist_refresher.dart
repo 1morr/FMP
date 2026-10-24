@@ -139,6 +139,10 @@ final class PlaylistRefresher {
     final remote = await repository.remote(playlistId);
     // 排隊的期間觸發者可能已經失效。
     if (remote == null || !trigger.isCurrent()) return const RefreshDiscarded();
+    // 排隊的期間被取消：不開 session、不取頁。
+    if (cancel != null && cancel.isCancelled) {
+      return const RefreshCancelled(count: 0);
+    }
     final plugin = await _usablePlugin(remote.pluginId);
     if (plugin == null) return const RefreshSourceUnavailable();
     final session = await repository.beginRefresh(

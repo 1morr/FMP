@@ -2532,8 +2532,6 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
   @override
   String importCancelledCount({required Object count}) => '已取消，已导入 ${count} 张';
   @override
-  String openPlaylist({required Object name}) => '打开“${name}”';
-  @override
   String playlistImportFailed({required Object reason}) => '导入失败：${reason}';
   @override
   String get playlistUnsupported => '这个来源还不能导入歌单';

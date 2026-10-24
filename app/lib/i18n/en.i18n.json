@@ -1108,7 +1108,6 @@
     "importCancel": "Cancel",
     "importFinish": "Done",
     "importCancelledCount": "Cancelled; imported {count}",
-    "openPlaylist": "Open \"{name}\"",
     "playlistImportFailed": "Import failed: {reason}",
     "playlistUnsupported": "This source can't import playlists yet",
     "importedCount": "Playlists imported: {count}",

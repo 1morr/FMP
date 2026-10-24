@@ -436,7 +436,14 @@ void main() {
     test('the other playlists do not know whether they are writable', () async {
       final plugin = await load();
 
-      for (final id in ['pl-basic', 'pl-grow', 'pl-unavailable', 'pl-parts']) {
+      for (final id in [
+        'pl-basic',
+        'pl-grow',
+        'pl-unavailable',
+        'pl-parts',
+        'pl-long',
+        'pl-long-nototal',
+      ]) {
         expect((await page(plugin, id)).playlist.writable, isNull, reason: id);
       }
     });
@@ -478,7 +485,14 @@ void main() {
     test('every playlist song plays a bundled asset', () async {
       final plugin = await load();
 
-      for (final id in ['pl-basic', 'pl-grow', 'pl-unavailable', 'pl-parts']) {
+      for (final id in [
+        'pl-basic',
+        'pl-grow',
+        'pl-unavailable',
+        'pl-parts',
+        'pl-long',
+        'pl-long-nototal',
+      ]) {
         for (final item in (await page(plugin, id)).items) {
           final stream = await plugin.resolveStream(
             StreamRequest(

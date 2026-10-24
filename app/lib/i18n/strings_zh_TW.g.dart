@@ -3441,9 +3441,6 @@ class Translations$accounts$zh_TW {
   /// zh-TW: '已取消，已匯入 {count} 張'
   String importCancelledCount({required Object count}) => '已取消，已匯入 ${count} 張';
 
-  /// zh-TW: '開啟「{name}」'
-  String openPlaylist({required Object name}) => '開啟「${name}」';
-
   /// zh-TW: '匯入失敗：{reason}'
   String playlistImportFailed({required Object reason}) => '匯入失敗：${reason}';
 

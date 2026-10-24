@@ -2658,8 +2658,6 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   String importCancelledCount({required Object count}) =>
       'Cancelled; imported ${count}';
   @override
-  String openPlaylist({required Object name}) => 'Open "${name}"';
-  @override
   String playlistImportFailed({required Object reason}) =>
       'Import failed: ${reason}';
   @override

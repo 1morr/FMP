@@ -466,7 +466,7 @@ export async function resolveStream(request) {
     if (calls % 2 === 1) {
       throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
     }
-  } else if (!/^(tone|preview|parts|grow)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
+  } else if (!/^(tone|preview|parts|grow|long)-\d+$/.test(request.sourceId) && !/^mix-.+-\d+$/.test(request.sourceId)) {
     throw { fmpError: 'NotFound', message: `no such tone: ${request.sourceId}` };
   }
   // 內附的音檔只有 440 Hz 一個；其他音高也回它。

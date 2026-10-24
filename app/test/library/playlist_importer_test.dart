@@ -10,6 +10,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 import '../playback/fake_source_plugin.dart';
+import '../support/pump_until.dart';
 import 'fake_import_plugin.dart';
 import 'library_harness.dart';
 
@@ -642,6 +643,73 @@ void main() {
         (await env.repository.remote(first.playlistId))!.lastResult,
         before!.lastResult,
       );
+    });
+
+    test('cancelled while queued behind another refresh, the new row is '
+        'deleted and nothing else is fetched', () async {
+      // Another playlist's refresh holds the refresher's lock on its page.
+      env.plugin.onPage = (_) => page(['x']);
+      final other = await env.importer.importPlaylistId(
+        'fmp-test',
+        'other',
+      ) as ImportedPlaylist;
+      final release = Completer<void>();
+      env.plugin.onPage = (query) async {
+        if (query.playlistId == 'other') await release.future;
+        return page(['a'], cursor: 'p2');
+      };
+      final blocking = env.refresher.refresh(other.playlistId);
+      await pumpUntil(
+        () =>
+            env.plugin.pageQueries
+                .where((q) => q.playlistId == 'other')
+                .length ==
+            2,
+      );
+      final cancel = ImportCancel();
+      final importing = env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        cancel: cancel,
+      );
+      // The first page is fetched and the row created, then it waits.
+      await pumpUntil(
+        () => env.plugin.pageQueries.any((q) => q.playlistId == 'pl-1'),
+      );
+      await settle();
+      expect(await env.repository.findRemote('fmp-test', 'pl-1'), isNotNull);
+      final fetched = env.plugin.pageQueries.length;
+
+      cancel.cancel();
+      release.complete();
+      final result = await importing;
+      await blocking;
+
+      expect(result, isA<ImportCancelled>());
+      expect((result as ImportCancelled).playlistId, isNull);
+      expect(await env.repository.findRemote('fmp-test', 'pl-1'), isNull);
+      expect(await names(), ['Remote title']);
+      expect([
+        for (final q in env.plugin.pageQueries.skip(fetched))
+          if (q.playlistId == 'pl-1') q,
+      ], isEmpty);
+    });
+
+    test('a kept playlist still gets the writable hint', () async {
+      final cancel = ImportCancel();
+      env.plugin.onPage = (query) =>
+          query.cursor == null ? page(['a'], cursor: 'p2') : page(['b']);
+
+      final result = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        writable: true,
+        cancel: cancel,
+        onProgress: (_) => cancel.cancel(),
+      );
+
+      final kept = (result as ImportCancelled).playlistId!;
+      expect((await env.repository.remote(kept))!.writable, isTrue);
     });
 
     test('importing again and cancelling before the first page keeps the '

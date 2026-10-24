@@ -160,6 +160,10 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
             );
       if (!mounted) return;
       switch (result) {
+        // 還沒寫任何東西就回來的（Mix 還沒建、要交給預覽的）：取消了就不再往下做。
+        case ImportMixSeed() || ImportForMatching() when cancel.isCancelled:
+          toaster.info(t.library.importCancelledNone);
+          Navigator.of(context).pop();
         case ImportedPlaylist() || CreatedMix() || ImportForMatching():
           Navigator.of(context).pop(result);
         case ImportCancelled(:final count):

@@ -93,8 +93,11 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
       log: ref.read(logProvider),
       toaster: ref.read(toasterProvider),
       translations: t,
-      // 頁面在匯入期間不會離開（匯入頁擋住返回），所以這裡讀 ref 是安全的。
-      failureReason: (error) => _reason(ref.read(translationsProvider), error),
+      // 匯入頁擋住返回，這一頁通常還在；整個巢狀導覽被拆掉時 `ref` 不能再讀，退回不帶音源名的訊息，
+      // 不讓剩下的匯入中斷。
+      failureReason: (error) => mounted
+          ? _reason(ref.read(translationsProvider), error)
+          : errorMessage(t, error),
     );
     setState(() {
       _importing = true;

@@ -101,10 +101,14 @@
 ## 8. 音樂庫與匯入（R7）
 
 - 進度回報：`onProgress(int count)` 改成 `onProgress(ImportProgress p)`，欄位 `count`、`total?`（插件頁面的 `total`）。帳號匯入另有 `expectedTotal`（帳號清單的 `trackCount`）。顯示時 M 優先用 `total`，其次 `expectedTotal`。
-- 取消：`ImportCancel`（`bool get isCancelled`）接到 `RefreshTrigger.isCurrent`。
-  - 第一頁寫入前取消：刪掉剛建的歌單列，什麼都不留。
-  - 寫入一頁以上後取消：保留已寫入的項目，`last_result = partial`，下次刷新照 ADR 0033 §決定 2 補齊。
-  - 提示「已取消，保留 n 首」。
+- 取消：`ImportCancel`（`bool get isCancelled`），由匯入器傳給 `PlaylistRefresher.refresh(cancel:)`。**不接** `RefreshTrigger.isCurrent`（實作時改的）：
+  `isCurrent` 一變成假，session 的 `writePage`／`markPartial` 什麼都不寫，取消後就標不了 `partial`。刷新器在三處檢查：排隊等鎖之後、開 session 之前（不取頁）；
+  每一頁寫入之前（已取到的這一頁丟掉）。寫入本身不中斷：最後一頁寫完才按的取消不再生效，照常套用成 `complete`（已經讀完，標 `partial` 只會更差）。
+  - 第一頁寫入前取消：匯入器在建列之前檢查（取第一頁期間按的），建了列而刷新器回 `RefreshCancelled(count: 0)`（排隊期間按的）就刪掉剛建的歌單（`playlist_remote` 連帶刪除），什麼都不留。
+  - 寫入一頁以上後取消：保留已寫入的項目，`last_result = partial`（間隔不動），不移除不重排，下次刷新照 ADR 0033 §決定 2 補齊。
+  - 重新匯入已有的歌單時取消：一頁都沒寫就什麼都不動；寫過頁同上（`partial`，不移除）。
+  - 排程的刷新（`PlaylistRefreshJob`）不帶 `ImportCancel`，不會被取消。
+  - 提示「已取消，保留 n 首」（網址匯入；一首都沒留是「已取消匯入」）；帳號匯入是「已取消，已匯入 n 張」。
 - 網址匯入對話框：確定式進度條＋「已匯入 n／M 首」＋目前曲名＋「取消」；第一頁之前照舊顯示「辨識中」與配對選項。
 - 帳號匯入全頁：頂部總進度（歌單 n／m），每張歌單一列（名稱、n／M 首、狀態），底部「取消」；完成後列出結果，可開詳情。
 - 歌單刷新：卡片上的轉圈、詳情頁的「已更新 n 首」。

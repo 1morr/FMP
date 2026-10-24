@@ -1108,7 +1108,6 @@
     "importCancel": "取消",
     "importFinish": "完成",
     "importCancelledCount": "已取消，已匯入 {count} 張",
-    "openPlaylist": "開啟「{name}」",
     "playlistImportFailed": "匯入失敗：{reason}",
     "playlistUnsupported": "這個來源還不能匯入歌單",
     "importedCount": "已匯入 {count} 張",

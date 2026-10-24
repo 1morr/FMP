@@ -193,10 +193,16 @@ final class PlaylistImporter {
         cancel,
         expectedTotal,
       );
-      if (writable != null && result is ImportedPlaylist) {
+      // 取消而留下的歌單（寫過頁）也寫：之後的刷新在 page 的 `writable` 是 `null` 時保留它。
+      final kept = switch (result) {
+        ImportedPlaylist(:final playlistId) => playlistId,
+        ImportCancelled(:final playlistId) => playlistId,
+        _ => null,
+      };
+      if (writable != null && kept != null) {
         await _ref
             .read(playlistRepositoryProvider)
-            .setWritable(result.playlistId, writable: writable);
+            .setWritable(kept, writable: writable);
       }
       return result;
     } on Object catch (error, stackTrace) {

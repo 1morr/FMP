@@ -446,6 +446,48 @@ void main() {
       expect(stored.mixSeedSourceId, 'seed');
     });
 
+    testWidgets('a Mix link cancelled while it is recognised creates '
+        'nothing', (tester) async {
+      final gate = Completer<void>();
+      final plugin = FakeImportPlugin(
+        mix: true,
+        onUrl: (_) async {
+          await gate.future;
+          return PlaylistMixSeedRef(MixSeedQuery(sourceId: 'seed'));
+        },
+        onMix: (_) => const MixBatch(
+          mixId: 'm1',
+          title: 'Chill',
+          tracks: [
+            TrackSummary(sourceTypeId: 'fmp-test', sourceId: 'x', title: 'X'),
+          ],
+        ),
+      );
+      final h = await _open(tester, plugin);
+      final toasts = <String>[];
+      final subscription = h.toaster.toasts.listen(
+        (t) => toasts.add(t.message),
+      );
+      addTearDown(subscription.cancel);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/m');
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h, settle: false);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+      gate.complete();
+      await _advance(tester, h);
+
+      expect(plugin.mixQueries, isEmpty);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(toasts, ['Import cancelled']);
+      final all = await tester.runAsync(
+        () => _repository(tester, h).watchAll().first,
+      );
+      expect(all, isEmpty);
+    });
+
     testWidgets('a failing mix shows the error and creates nothing', (
       tester,
     ) async {
