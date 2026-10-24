@@ -3438,8 +3438,15 @@ class Translations$accounts$zh_TW {
   /// zh-TW: '完成'
   String get importFinish => '完成';
 
-  /// zh-TW: '已取消，已匯入 {count} 張'
-  String importCancelledCount({required Object count}) => '已取消，已匯入 ${count} 張';
+  /// zh-TW: '已取消：已匯入 {count} 張'
+  String importCancelled({required Object count}) => '已取消：已匯入 ${count} 張';
+
+  /// zh-TW: '已取消：已匯入 {count} 張，「{name}」保留了 {kept} 首（未完成）'
+  String importCancelledKept({
+    required Object count,
+    required Object name,
+    required Object kept,
+  }) => '已取消：已匯入 ${count} 張，「${name}」保留了 ${kept} 首（未完成）';
 
   /// zh-TW: '匯入失敗：{reason}'
   String playlistImportFailed({required Object reason}) => '匯入失敗：${reason}';

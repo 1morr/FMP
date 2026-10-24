@@ -86,6 +86,10 @@ final class AccountImportRun extends ChangeNotifier {
   List<AccountImportRow> _rows;
   final _cancel = ImportCancel();
   var _started = false;
+
+  /// 取消時正在匯入、已經寫了幾首的那張歌單（名稱只給畫面，不進 log）。
+  String? _keptName;
+  var _keptCount = 0;
   var _finished = false;
 
   List<AccountImportRow> get rows => _rows;
@@ -149,8 +153,16 @@ final class AccountImportRun extends ChangeNotifier {
     }
     _finished = true;
     if (_cancel.isCancelled) {
+      // 取消時正在匯入的那張若已經寫了幾首，照實說（它標成未完成，下次刷新補齊）。
+      final kept = _keptName;
       toaster.info(
-        translations.accounts.importCancelledCount(count: importedCount),
+        kept == null
+            ? translations.accounts.importCancelled(count: importedCount)
+            : translations.accounts.importCancelledKept(
+                count: importedCount,
+                name: kept,
+                kept: _keptCount,
+              ),
       );
     } else if (failedCount == 0) {
       toaster.success(
@@ -189,7 +201,11 @@ final class AccountImportRun extends ChangeNotifier {
               libraryId: playlistId,
             ),
           );
-        case ImportCancelled(:final playlistId):
+        case ImportCancelled(:final playlistId, :final count):
+          if (playlistId != null && count > 0) {
+            _keptName = playlist.title;
+            _keptCount = count;
+          }
           _update(
             index,
             _rows[index].copyWith(

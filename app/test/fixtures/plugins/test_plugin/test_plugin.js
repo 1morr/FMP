@@ -368,6 +368,7 @@ export async function libraryPlaylists() {
     playlists: [
       writable[0],
       { playlistId: 'pl-basic', title: 'Basic playlist', trackCount: BASIC_TRACKS.length, writable: false },
+      { playlistId: 'pl-long', title: 'Long playlist', trackCount: LONG_TRACKS, writable: false },
       ...writable.slice(1),
     ],
     cursor: null,

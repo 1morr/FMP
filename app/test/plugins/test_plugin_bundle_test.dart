@@ -599,7 +599,7 @@ void main() {
       );
     });
 
-    test('lists pl-auth (writable) and pl-basic (read-only) after a login, '
+    test('lists pl-auth (writable), pl-basic and pl-long (read-only) after a login, '
         'with the titles and counts importPlaylist returns', () async {
       final harness = PluginHarness();
       final plugin = await harness.load(testPluginFile.readAsStringSync());
@@ -613,7 +613,11 @@ void main() {
           for (final p in page.playlists)
             (p.playlistId, p.writable, p.trackCount),
         ],
-        [('pl-auth', true, 3), ('pl-basic', false, 5)],
+        [
+          ('pl-auth', true, 3),
+          ('pl-basic', false, 5),
+          ('pl-long', false, 1200),
+        ],
       );
       for (final entry in page.playlists) {
         final imported = await plugin.importPlaylist(
@@ -887,6 +891,7 @@ void main() {
         [
           ('pl-auth', true),
           ('pl-basic', false),
+          ('pl-long', false),
           ('pl-new-1', true),
           ('pl-new-2', true),
         ],

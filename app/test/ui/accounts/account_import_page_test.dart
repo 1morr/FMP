@@ -179,10 +179,35 @@ void main() {
     // The playlist after it never started.
     expect(find.text('Cancelled'), findsOneWidget);
     expect(plugin.pageQueries.where((q) => q.playlistId == 'p2'), isEmpty);
-    expect(toasts, ['Cancelled; imported 0']);
+    expect(toasts, [
+      'Cancelled: 0 imported; "Road trip" kept 2 songs (incomplete)',
+    ]);
     expect(find.text('Done'), findsOneWidget);
     // The kept playlist opens its detail.
     expect(run.rows.first.libraryId, isNotNull);
+  });
+
+  testWidgets('cancelling before anything was written says nothing was kept', (
+    tester,
+  ) async {
+    final first = Completer<PlaylistPage>();
+    final plugin = FakeImportPlugin(onPage: (_) => first.future);
+    final toasts = <String>[];
+    final (_, run) = await _open(tester, plugin, [
+      _road,
+      _study,
+    ], toasts: toasts);
+    await _advance(tester);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    first.complete(page(['a', 'b'], total: 5));
+    await _advance(tester);
+    await _advance(tester);
+
+    expect(run.finished, isTrue);
+    expect(toasts, ['Cancelled: 0 imported']);
+    expect(run.rows.first.libraryId, isNull);
   });
 
   testWidgets('a failed playlist shows its reason and the rest still import', (

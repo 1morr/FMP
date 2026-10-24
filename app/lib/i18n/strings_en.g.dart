@@ -2655,8 +2655,15 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String get importFinish => 'Done';
   @override
-  String importCancelledCount({required Object count}) =>
-      'Cancelled; imported ${count}';
+  String importCancelled({required Object count}) =>
+      'Cancelled: ${count} imported';
+  @override
+  String importCancelledKept({
+    required Object count,
+    required Object name,
+    required Object kept,
+  }) =>
+      'Cancelled: ${count} imported; "${name}" kept ${kept} songs (incomplete)';
   @override
   String playlistImportFailed({required Object reason}) =>
       'Import failed: ${reason}';
