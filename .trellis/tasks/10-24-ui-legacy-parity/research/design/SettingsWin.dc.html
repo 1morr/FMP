@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>設定 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="display:flex;height:692px">
+    <dc-import name="NavRail" active="settings" hint-size="72px,692px"></dc-import>
+    <main style="width:868px;height:692px;overflow:hidden;display:flex;flex-direction:column">
+      <header style="height:64px;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative">
+        <h1 style="margin:0;font-size:22px;font-weight:400">設定</h1>
+        <span style="display:{{tagDisplay}};position:absolute;left:24px;top:22px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">L-25 B list-detail・L-33 分組摘要</span>
+      </header>
+      <div style="flex:1;display:flex;min-height:0">
+        <nav aria-label="設定分組" style="width:268px;border-right:1px solid #36343B;padding:4px 8px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{groups}}" as="g" hint-placeholder-count="9">
+            <a href="#" style="display:flex;align-items:center;gap:14px;min-height:56px;padding:6px 12px;border-radius:28px;background:{{g.bg}};color:{{g.fg}};text-decoration:none;box-sizing:border-box">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.d}}"/></svg>
+              <span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:15px;font-weight:{{g.weight}}">{{g.name}}</span><span style="font-size:12px;color:{{g.sub}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{g.summary}}</span></span>
+            </a>
+          </sc-for>
+        </nav>
+        <section aria-label="外觀" style="flex:1;padding:8px 28px;display:flex;flex-direction:column;gap:18px;overflow:hidden;position:relative">
+          <div style="display:flex;align-items:center;gap:10px"><h2 style="margin:0;font-size:20px;font-weight:500">外觀</h2><span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">L-27 照舊版（已定案）：主題、主題色、字型、語言</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:14px;color:#D0BCFF;font-weight:500">主題</span>
+            <div role="group" aria-label="主題" style="display:flex;width:360px;height:40px;border:1px solid #938F99;border-radius:20px;overflow:hidden;font-size:14px">
+              <span style="flex:1;display:flex;align-items:center;justify-content:center">淺色</span>
+              <span style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#4A4458;color:#E8DEF8;border-left:1px solid #938F99;border-right:1px solid #938F99">✓ 深色</span>
+              <span style="flex:1;display:flex;align-items:center;justify-content:center">跟隨系統</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:14px;color:#D0BCFF;font-weight:500">主題色</span>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <sc-for list="{{swatches}}" as="s" hint-placeholder-count="10">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:46px">
+                  <span style="width:36px;height:36px;border-radius:18px;background:{{s.c}};box-shadow:{{s.ring}};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px">{{s.mark}}</span>
+                  <span style="font-size:11px;color:#CAC4D0">{{s.n}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;color:#D0BCFF;font-weight:500">字型</span><span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-4 各平台系統字型</span></div>
+            <sc-for list="{{fonts}}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;height:40px">
+                <span style="width:20px;height:20px;border-radius:10px;border:2px solid {{f.ring}};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:5px;background:{{f.dot}}"></span></span>
+                <span style="font-size:15px;font-family:{{f.family}}">{{f.name}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:14px;color:#D0BCFF;font-weight:500">語言</span>
+            <span style="height:36px;padding:0 14px;border-radius:8px;border:1px solid #938F99;display:inline-flex;align-items:center;gap:8px;font-size:14px">跟隨系統（繁體中文）<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+          </div>
+        </section>
+      </div>
+    </main>
+    <dc-import name="NowPlayingPanel" show-tags="{{false}}" hint-size="340px,692px"></dc-import>
+  </div>
+  <dc-import name="MiniPlayer" hint-size="1280px,72px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const sysFont = mac ? '蘋方-繁' : '微軟正黑體';
+    const groups = [
+      ['帳號', '已登入 2 個', 'M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4 21c1-4 4-6 8-6s7 2 8 6'],
+      ['外觀', '深色・預設紫・' + sysFont, 'M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-1-.8-1.4-.8-2.3 0-.8.7-1.2 1.6-1.2H17a4 4 0 0 0 4-4c0-5-4-9-9-9zM7.5 11h.01M10 7h.01M15 7h.01', true],
+      ['播放', '高音質・記住播放位置', 'M7 4.5v15l12.5-7.5z'],
+      ['音樂庫', '首頁排行 3 個榜單', 'M8 3h12v12H8zM4 7v13h13'],
+      ['網路', '快取 412 MB', 'M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0M12 20h.01'],
+      ['插件', '3 個已啟用', 'M9 3v4M15 3v4M6 7h12v5a6 6 0 0 1-12 0zM12 18v3'],
+      ['快捷鍵', mac ? '⌘F 搜尋・⌘, 設定…' : 'Ctrl+F 搜尋・Ctrl+, 設定…', 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10'],
+      ['備份與還原', '上次備份：10 月 20 日', 'M12 3v12M7 10l5 5 5-5M4 21h16'],
+      ['關於', '版本 0.9.0', 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 11v6M12 7.5v.5']
+    ].map(([name, summary, d, on]) => ({ name, summary, d, bg: on ? '#4A4458' : 'transparent', fg: on ? '#E8DEF8' : '#E6E0E9', sub: on ? '#E8DEF8' : '#CAC4D0', weight: on ? 600 : 400 }));
+    const swatches = [
+      ['預設紫', '#6750A4'], ['靛藍', '#3F51B5'], ['藍', '#0061A4'], ['青', '#006A6A'], ['綠', '#006E1C'],
+      ['黃', '#F9A825'], ['橘', '#7C5800'], ['紅', '#BA1A1A'], ['粉', '#984061'], ['自訂', 'conic-gradient(#BA1A1A,#F9A825,#006E1C,#0061A4,#984061,#BA1A1A)']
+    ].map(([n, c], i) => ({ n, c, ring: i === 0 ? '0 0 0 2px #141218, 0 0 0 4px #D0BCFF' : 'none', mark: i === 0 ? '✓' : i === 9 ? '+' : '' }));
+    const fontList = mac
+      ? [['系統預設（蘋方-繁）', "'PingFang TC'"], ['黑體-繁', "'Heiti TC'"], ['圓體-繁', "'Yuanti TC'"], ['標楷體', "'BiauKai'"]]
+      : [['系統預設（微軟正黑體）', "'Microsoft JhengHei UI','Microsoft JhengHei'"], ['新細明體', "'PMingLiU'"], ['標楷體', "'DFKai-SB'"], ['Yu Gothic UI', "'Yu Gothic UI'"]];
+    const fonts = fontList.map(([name, family], i) => ({ name, family: family + ",'Noto Sans TC',sans-serif", ring: i === 0 ? '#D0BCFF' : '#938F99', dot: i === 0 ? '#D0BCFF' : 'transparent' }));
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      groups, swatches, fonts, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

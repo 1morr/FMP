@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>L-03 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:640px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:18px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">L-03 歌單刷新時的進度</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版：音樂庫底部常駐進度面板＋卡片遮罩</span></div>
+      <div style="height:460px;border-radius:12px;background:#141218;color:#E6E0E9;position:relative;overflow:hidden;padding:16px;box-sizing:border-box">
+        <div style="text-align:center;font-size:18px;margin-bottom:14px">音樂庫</div>
+        <div style="display:flex;gap:14px">
+          <div style="width:140px;border-radius:12px;background:#36343B;overflow:hidden"><div style="height:120px;background:#4E9A7E;position:relative"><div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center"><span style="width:28px;height:28px;border-radius:14px;border:3px solid #fff;border-right-color:transparent;box-sizing:border-box"></span></div></div><div style="padding:8px;font-size:13px">雨天的 Lo-fi 收藏</div></div>
+          <div style="width:140px;border-radius:12px;background:#36343B;overflow:hidden"><div style="height:120px;background:#C46B6B"></div><div style="padding:8px;font-size:13px">夜行列車</div></div>
+          <div style="width:140px;border-radius:12px;background:#36343B;overflow:hidden"><div style="height:120px;background:#C9A24A"></div><div style="padding:8px;font-size:13px">城市散步</div></div>
+        </div>
+        <div style="position:absolute;left:16px;right:16px;bottom:16px;border-radius:12px;background:#36343B;box-shadow:0 8px 20px rgba(0,0,0,.5);padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:14px;height:14px;border-radius:7px;border:2px solid #D0BCFF;border-right-color:transparent;box-sizing:border-box"></span>正在刷新「雨天的 Lo-fi 收藏」<span style="margin-left:auto;color:#CAC4D0">312/1195</span></div>
+          <div style="height:4px;border-radius:2px;background:#49454F"><div style="width:26%;height:4px;border-radius:2px;background:#D0BCFF"></div></div>
+          <div style="font-size:11px;color:#CAC4D0">晚安，月台（雨夜吉他版）</div>
+        </div>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">簡化：卡片轉圈＋詳情頁「刷新中 312／1195 首」</span></div>
+      <div style="height:460px;display:flex;gap:16px">
+        <div style="width:200px;border-radius:12px;background:#141218;padding:16px;box-sizing:border-box;color:#E6E0E9">
+          <div style="font-size:13px;color:#CAC4D0;margin-bottom:10px">音樂庫</div>
+          <div style="border-radius:12px;background:#36343B;overflow:hidden"><div style="height:140px;background:#4E9A7E;position:relative"><div style="position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center"><span style="width:28px;height:28px;border-radius:14px;border:3px solid #fff;border-right-color:transparent;box-sizing:border-box"></span></div></div><div style="padding:8px;font-size:13px">雨天的 Lo-fi 收藏</div></div>
+        </div>
+        <div style="flex:1;border-radius:12px;background:#141218;overflow:hidden;color:#E6E0E9">
+          <div style="height:180px;position:relative;overflow:hidden"><div style="position:absolute;inset:-40px;filter:blur(30px);background:#4E9A7E"></div><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div><div style="position:absolute;left:16px;bottom:16px;font-size:18px;font-weight:700;color:#fff">雨天的 Lo-fi 收藏</div></div>
+          <div style="display:flex;gap:10px;padding:14px 16px;align-items:center">
+            <span style="flex:1;height:36px;border-radius:18px;background:#D0BCFF;color:#381E72;display:flex;align-items:center;justify-content:center;font-size:13px">加入所有</span>
+            <span style="flex:1;height:36px;border-radius:18px;border:1px solid #938F99;color:#D0BCFF;display:flex;align-items:center;justify-content:center;font-size:13px">隨機加入</span>
+            <span style="height:36px;padding:0 12px;border-radius:18px;border:1px solid #49454F;color:#CAC4D0;display:flex;align-items:center;gap:6px;font-size:13px"><span style="width:12px;height:12px;border-radius:6px;border:2px solid #D0BCFF;border-right-color:transparent;box-sizing:border-box"></span>刷新中 312／1195 首</span>
+          </div>
+          <div style="margin:0 16px;height:4px;border-radius:2px;background:#36343B"><div style="width:26%;height:4px;border-radius:2px;background:#D0BCFF"></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

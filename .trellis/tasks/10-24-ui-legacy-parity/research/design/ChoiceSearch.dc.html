@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>B-02 B-06 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:700px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:16px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">B-02 一次搜幾個音源</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">「全部音源」預設混搜，每列標音源</span></div>
+      <div style="background:#141218;border-radius:12px;padding:14px 16px;color:#E6E0E9;display:flex;flex-direction:column;gap:8px;height:250px;box-sizing:border-box">
+        <div style="display:flex;gap:8px;font-size:13px"><span style="padding:6px 12px;border-radius:8px;background:#4A4458">✓ 全部音源</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">嗶哩嗶哩</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">YouTube</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">網易雲音樂</span></div>
+        <div style="font-size:12px;color:#CAC4D0">線上結果（128）</div>
+        <sc-for list="{{mixed}}" as="r" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;height:44px"><div style="width:36px;height:36px;border-radius:4px;background:{{r.bg}}"></div><div style="flex:1;font-size:14px">{{r.t}}<div style="font-size:11px;color:#CAC4D0;display:flex;gap:6px;align-items:center">{{r.a}}<span style="width:13px;height:13px;border-radius:3px;background:#D0BCFF;color:#381E72;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{r.s}}</span></div></div></div>
+        </sc-for>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">一次一個音源，換音源就重搜</span></div>
+      <div style="background:#141218;border-radius:12px;padding:14px 16px;color:#E6E0E9;display:flex;flex-direction:column;gap:8px;height:250px;box-sizing:border-box">
+        <div style="display:flex;gap:8px;font-size:13px"><span style="padding:6px 12px;border-radius:8px;background:#4A4458">✓ 嗶哩嗶哩</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">YouTube</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">網易雲音樂</span></div>
+        <div style="font-size:12px;color:#CAC4D0">嗶哩嗶哩的結果</div>
+        <sc-for list="{{single}}" as="r" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;height:44px"><div style="width:36px;height:36px;border-radius:4px;background:{{r.bg}}"></div><div style="flex:1;font-size:14px">{{r.t}}<div style="font-size:11px;color:#CAC4D0">{{r.a}}</div></div></div>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+  <h2 style="margin:8px 0 0;font-size:22px;font-weight:700">B-06 搜尋排序</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">篩選列右邊固定一顆排序下拉</span></div>
+      <div style="background:#141218;border-radius:12px;padding:14px 16px;color:#E6E0E9;height:150px;box-sizing:border-box;position:relative">
+        <div style="display:flex;gap:8px;font-size:13px;align-items:center"><span style="padding:6px 12px;border-radius:8px;background:#4A4458">✓ 全部音源</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">嗶哩嗶哩</span><span style="margin-left:auto;padding:6px 12px;border-radius:16px;border:1px solid #938F99">≡ 綜合 ▾</span></div>
+        <div style="position:absolute;right:16px;top:52px;width:140px;background:#2B2930;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.5);font-size:13px;padding:4px 0"><div style="padding:8px 14px;color:#D0BCFF">✓ 綜合</div><div style="padding:8px 14px">播放數</div><div style="padding:8px 14px">最新</div></div>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">不做排序（照音源預設順序）</span></div>
+      <div style="background:#141218;border-radius:12px;padding:14px 16px;color:#E6E0E9;height:150px;box-sizing:border-box">
+        <div style="display:flex;gap:8px;font-size:13px;align-items:center"><span style="padding:6px 12px;border-radius:8px;background:#4A4458">✓ 全部音源</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">嗶哩嗶哩</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">YouTube</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">網易雲音樂</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mixed = [
+      { t: '潮汐之間（Live at 河岸音樂節）', a: '微光樂團', s: 'B', bg: '#3F7CAC' },
+      { t: '夏夜現場｜Northbound Lights', a: 'Lumen Drift', s: 'Y', bg: '#4E9A7E' },
+      { t: '夏夜晚風（現場版）', a: '小島電台', s: 'N', bg: '#B5838D' }
+    ];
+    const single = [
+      { t: '潮汐之間（Live at 河岸音樂節）', a: '微光樂團', bg: '#3F7CAC' },
+      { t: '【合集】夏日露營之夜 Live 全場', a: '林間合唱團', bg: '#C9A24A' },
+      { t: '夏夜裡的河岸（Live）', a: '白晝計畫', bg: '#2F6E6E' }
+    ];
+    return { mixed, single };
+  }
+}
+</script>
+</body>
+</html>

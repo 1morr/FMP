@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>首頁 iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#FEF7FF;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative;overflow:hidden;border-radius:44px">
+  <div style="height:54px;position:relative;border-bottom:1px dashed {{safeLine}};box-sizing:border-box">
+    <div style="position:absolute;left:132px;top:11px;width:126px;height:37px;border-radius:19px;background:#000"></div>
+    <span style="display:{{tagDisplay}};position:absolute;right:14px;top:18px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-5 安全區域 54pt</span>
+  </div>
+  <main style="height:612px;overflow:hidden;padding:0 16px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;height:52px"><h2 style="margin:0;font-size:20px;font-weight:500;flex:1">近期熱門</h2><a href="#" style="color:#6750A4;font-size:15px;text-decoration:none">查看全部</a></div>
+    <div style="font-size:13px;color:#49454F;padding-left:8px;height:22px">嗶哩嗶哩 · 更新於 10:24</div>
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+      <div style="display:flex;align-items:center;height:60px;gap:10px">
+        <span style="width:20px;text-align:center;font-size:14px;color:#49454F">{{r.rank}}</span>
+        <span style="width:48px;height:48px;border-radius:4px;background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:block">
+          <span style="position:absolute;left:30%;top:30%;width:55%;height:55%;border-radius:{{r.rad}};background:{{r.fg}};display:block"></span>
+          <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+            <span style="position:absolute;inset:0;background:rgba(103,80,164,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box">
+              <span style="width:3px;height:10px;background:#fff;display:block"></span><span style="width:3px;height:16px;background:#fff;display:block"></span><span style="width:3px;height:7px;background:#fff;display:block"></span>
+            </span>
+          </sc-if>
+        </span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+          <span style="font-size:12px;color:#49454F;white-space:nowrap">{{r.artist}}　▶ {{r.plays}}</span>
+        </span>
+        <button aria-label="更多" style="width:40px;height:40px;border:0;background:none;color:#49454F;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+      </div>
+    </sc-for>
+    <div style="display:flex;align-items:center;height:48px;margin-top:4px;gap:8px"><h2 style="margin:0;font-size:18px;font-weight:500">我的歌單</h2><span style="display:{{tagDisplay}};align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-08 A</span><span style="flex:1"></span><a href="#" style="color:#6750A4;font-size:15px;text-decoration:none">查看全部</a></div>
+    <div style="display:flex;gap:10px;width:600px">
+      <sc-for list="{{playlists}}" as="p" hint-placeholder-count="5">
+        <div style="width:100px;height:128px;border-radius:12px;background:#E6E0E9;overflow:hidden;flex-shrink:0">
+          <div style="height:80px;background:{{p.bg}};position:relative;overflow:hidden"><div style="position:absolute;left:26%;top:20%;width:56%;height:62%;border-radius:{{p.rad}};background:{{p.fg}}"></div></div>
+          <div style="padding:6px 8px;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.name}}</span>
+            <span style="font-size:11px;color:#49454F;display:flex;align-items:center;gap:4px"><span style="display:{{p.badgeDisplay}};width:12px;height:12px;border-radius:3px;background:#6750A4;color:#fff;font-size:8px;font-weight:700;align-items:center;justify-content:center">{{p.src}}</span>{{p.count}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;height:48px;margin-top:6px"><h2 style="margin:0;font-size:18px;font-weight:500;flex:1">電台</h2><a href="#" style="color:#6750A4;font-size:15px;text-decoration:none">查看全部</a></div>
+    <div style="display:flex;gap:14px">
+      <div style="width:84px;height:84px;border-radius:42px;background:#5B5F97;position:relative"><span style="position:absolute;right:4px;top:4px;width:12px;height:12px;border-radius:6px;background:#E5484D;border:2px solid #FEF7FF"></span></div>
+      <div style="width:84px;height:84px;border-radius:42px;background:#B5838D"></div>
+      <div style="width:84px;height:84px;border-radius:42px;background:#2F6E6E"></div>
+      <div style="width:84px;height:84px;border-radius:42px;background:#7E6BC4"></div>
+    </div>
+  </main>
+  <dc-import name="PhoneMini" show-tags="{{showTags}}" hint-size="390px,64px"></dc-import>
+  <dc-import name="PhoneNav" active="home" show-tags="{{showTags}}" hint-size="390px,114px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tags = this.props.showTags ?? true;
+    const pal = [['#7E6BC4','#A99BE0'],['#3F7CAC','#6FA3CC'],['#C46B6B','#E09A8F'],['#4E9A7E','#7FC2A6'],['#C9A24A','#E8C97A'],['#5B5F97','#8C90C4'],['#B5838D','#D8AEB6'],['#2F6E6E','#5C9A9A']];
+    const rows = [
+      ['【翻唱】晚安，月台｜雨夜吉他版', '白晝計畫', '207 萬'],
+      ['潮汐之間（Live at 河岸音樂節）', '微光樂團', '75.4 萬', true],
+      ['迴聲小巷 Echo Alley（官方 MV）', 'Echo Avenue', '41.1 萬'],
+      ['紙飛機 EP《起飛之前》全曲', '林間合唱團', '45.9 萬']
+    ].map(([title, artist, plays, playing], i) => ({
+      rank: i + 1, title, artist, plays, playing: !!playing, bg: pal[i][0], fg: pal[i][1], rad: i % 2 ? '18%' : '50%',
+      titleColor: playing ? '#6750A4' : '#1D1B20', weight: playing ? 600 : 400
+    }));
+    const playlists = [['夜行列車', '', '86 首'], ['雨天的 Lo-fi 收藏', 'B', '128 首'], ['城市散步', 'Y', '64 首'], ['老派日語流行', 'N', '212 首'], ['專注工作用', '', '45 首']]
+      .map(([name, src, count], i) => ({ name, src, count, bg: pal[(i + 2) % 8][0], fg: pal[(i + 2) % 8][1], rad: i % 2 ? '50%' : '14%', badgeDisplay: src ? 'inline-flex' : 'none' }));
+    return { rows, playlists, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none', safeLine: tags ? 'rgba(194,37,92,.55)' : 'transparent' };
+  }
+}
+</script>
+</body>
+</html>

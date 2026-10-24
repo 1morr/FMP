@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>側欄</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="主導覽" style="width:72px;height:{{h}}px;box-sizing:border-box;background:#1D1B20;border-right:1px solid #36343B;font-family:'PingFang TC','Microsoft JhengHei UI','Noto Sans TC',sans-serif;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:4px">
+  <button aria-label="展開側欄" style="width:48px;height:48px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center;border-radius:24px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  <div style="width:40px;height:1px;background:#49454F;margin:8px 0 10px"></div>
+  <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+    <a href="#" aria-label="{{it.label}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;width:72px;height:68px;text-decoration:none">
+      <span style="width:56px;height:32px;border-radius:16px;background:{{it.pill}};display:flex;align-items:center;justify-content:center;color:{{it.icon}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.d}}"/></svg></span>
+      <span style="font-size:12px;color:{{it.text}};font-weight:{{it.weight}}">{{it.label}}</span>
+    </a>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["home","search","queue","library","radio","settings"],"default":"home"},"showQueue":{"editor":"boolean","default":true},"h":{"editor":"int","default":692},"$preview":{"width":72,"height":692}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'home';
+    const showQueue = this.props.showQueue ?? true;
+    const all = [
+      { id: 'home', label: '首頁', d: 'M3 11l9-7 9 7v9h-6v-6H9v6H3z' },
+      { id: 'search', label: '搜尋', d: 'M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4' },
+      { id: 'queue', label: '佇列', d: 'M3 6h12M3 11h12M3 16h7M19 5v11M14 16.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0' },
+      { id: 'library', label: '音樂庫', d: 'M8 3h12v12H8zM4 7v13h13M12 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M15.2 12V6.5h2' },
+      { id: 'radio', label: '電台', d: 'M3 9h18v11H3zM6 9l12-5M6 14.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M14 13h4M14 17h4' },
+      { id: 'settings', label: '設定', d: 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1' }
+    ];
+    const items = all.filter((i) => showQueue || i.id !== 'queue').map((i) => {
+      const on = i.id === active;
+      return { ...i, pill: on ? '#4A4458' : 'transparent', icon: on ? '#E8DEF8' : '#CAC4D0', text: on ? '#E6E0E9' : '#CAC4D0', weight: on ? 600 : 400 };
+    });
+    return { items, h: this.props.h ?? 692 };
+  }
+}
+</script>
+</body>
+</html>

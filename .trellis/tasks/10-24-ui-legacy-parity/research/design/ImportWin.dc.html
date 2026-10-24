@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>從帳號匯入 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="display:flex;height:692px">
+    <dc-import name="NavRail" active="settings" hint-size="72px,692px"></dc-import>
+    <main style="width:868px;height:692px;overflow:hidden;display:flex;flex-direction:column;position:relative">
+      <header style="height:64px;display:flex;align-items:center;padding:0 12px;flex-shrink:0">
+        <button aria-label="返回" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+        <h1 style="flex:1;margin:0;text-align:center;font-size:22px;font-weight:400">嗶哩嗶哩 的歌單</h1>
+        <button disabled style="height:40px;padding:0 16px;border-radius:20px;border:0;background:rgba(230,224,233,.12);color:rgba(230,224,233,.38);font:inherit;font-size:14px">匯入所選（3）</button>
+      </header>
+      <section aria-label="匯入進度" style="margin:4px 24px 8px;padding:14px 16px;border-radius:12px;background:#211F26;display:flex;flex-direction:column;gap:10px;position:relative">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:18px;height:18px;border-radius:9px;border:2px solid #D0BCFF;border-right-color:transparent;box-sizing:border-box"></span>
+          <span style="font-size:15px;font-weight:500">匯入中　歌單 1／3</span>
+          <span style="font-size:13px;color:#CAC4D0">目前：雨天的 Lo-fi 收藏</span>
+          <span style="flex:1"></span>
+          <button style="height:36px;padding:0 16px;border-radius:18px;border:1px solid #938F99;background:none;color:#D0BCFF;font:inherit;font-size:14px">取消匯入</button>
+        </div>
+        <div style="height:4px;border-radius:2px;background:#36343B"><div style="width:21%;height:4px;border-radius:2px;background:#D0BCFF"></div></div>
+        <div style="font-size:12px;color:#CAC4D0">全部 312／1471 首（3 張歌單合計）</div>
+        <span style="display:{{tagDisplay}};position:absolute;right:140px;top:-9px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">L-01 B 總進度＋目前歌單＋可取消</span>
+      </section>
+      <div style="padding:0 16px">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:12px;min-height:76px;padding:6px 8px;box-sizing:border-box;border-radius:8px;background:{{r.rowBg}}">
+            <span aria-hidden="true" style="width:18px;height:18px;border-radius:3px;border:2px solid {{r.boxLine}};background:{{r.boxBg}};box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{r.checkColor}}" stroke-width="4" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></span>
+            <span style="width:48px;height:48px;border-radius:4px;background:{{r.bg}};flex-shrink:0;display:block"></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:15px">{{r.name}}</span>
+              <span style="font-size:12px;color:#CAC4D0;display:flex;gap:6px;align-items:center">{{r.count}}<span style="display:{{r.writeDisplay}};height:16px;padding:0 5px;border-radius:4px;border:1px solid #938F99;font-size:10px;align-items:center">可寫</span></span>
+              <sc-if value="{{r.importing}}" hint-placeholder-val="{{false}}">
+                <span style="display:flex;align-items:center;gap:10px"><span style="flex:1;max-width:360px;height:4px;border-radius:2px;background:#36343B;display:block"><span style="width:26%;height:4px;border-radius:2px;background:#D0BCFF;display:block"></span></span><span style="font-size:12px;color:#D0BCFF;font-weight:600">已匯入 312／1195 首</span></span>
+              </sc-if>
+              <span style="display:{{r.errDisplay}};font-size:12px;color:#F2B8B5">{{r.err}}</span>
+            </span>
+            <span style="font-size:12px;color:{{r.stateColor}};padding:0 8px">{{r.state}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:{{tagDisplay}};position:absolute;left:420px;top:184px;gap:6px">
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">每張歌單確定式進度（總數取帳號清單的首數）</span>
+      </div>
+    </main>
+    <dc-import name="NowPlayingPanel" show-tags="{{showTags}}" hint-size="340px,692px"></dc-import>
+  </div>
+  <dc-import name="MiniPlayer" hint-size="1280px,72px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const mk = (o) => {
+      const checked = o.kind !== 'idle';
+      const done = o.kind === 'done';
+      return {
+        name: o.name, count: o.count, bg: o.bg, importing: o.kind === 'importing',
+        writeDisplay: o.write ? 'inline-flex' : 'none',
+        err: o.err ?? '', errDisplay: o.err ? 'block' : 'none',
+        state: { importing: '匯入中', queued: '等待中', done: '已匯入', idle: '', failed: '失敗' }[o.kind],
+        stateColor: o.kind === 'failed' ? '#F2B8B5' : o.kind === 'importing' ? '#D0BCFF' : '#CAC4D0',
+        rowBg: o.kind === 'importing' ? 'rgba(208,188,255,.06)' : 'transparent',
+        boxLine: checked ? (done ? '#49454F' : '#D0BCFF') : '#938F99',
+        boxBg: checked ? (done ? '#49454F' : '#D0BCFF') : 'transparent',
+        checkColor: checked ? (done ? '#938F99' : '#381E72') : 'transparent'
+      };
+    };
+    const rows = [
+      mk({ name: '雨天的 Lo-fi 收藏', count: '1195 首', bg: '#4E9A7E', kind: 'importing', write: true }),
+      mk({ name: '城市散步', count: '64 首', bg: '#C9A24A', kind: 'queued', write: true }),
+      mk({ name: '老派日語流行', count: '212 首', bg: '#5B5F97', kind: 'queued' }),
+      mk({ name: '夜跑歌單', count: '48 首', bg: '#C46B6B', kind: 'done', write: true }),
+      mk({ name: '舊收藏', count: '— 首', bg: '#49454F', kind: 'failed', err: '上一次失敗：這張歌單已設為私人' }),
+      mk({ name: '週末早晨', count: '37 首', bg: '#B5838D', kind: 'idle' })
+    ];
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      rows, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

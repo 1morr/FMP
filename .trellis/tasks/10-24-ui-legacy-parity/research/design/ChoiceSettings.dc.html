@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>L-25 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:760px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:18px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">L-25 設定頁結構</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版：單一長清單，點列彈出對話框選值</span></div>
+      <div style="height:580px;border-radius:12px;background:#141218;color:#E6E0E9;padding:12px 0;box-sizing:border-box;position:relative;overflow:hidden">
+        <div style="text-align:center;font-size:19px;margin-bottom:8px">設定</div>
+        <sc-for list="{{legacy}}" as="s" hint-placeholder-count="3">
+          <div style="padding:10px 20px 4px;font-size:13px;color:#D0BCFF">{{s.h}}</div>
+          <sc-for list="{{s.items}}" as="i" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:14px;padding:8px 20px"><span style="width:20px;height:20px;border-radius:5px;background:#49454F"></span><div style="flex:1"><div style="font-size:15px">{{i.t}}</div><div style="font-size:12px;color:#CAC4D0">{{i.v}}</div></div><span style="color:#CAC4D0">›</span></div>
+          </sc-for>
+          <div style="height:1px;background:#36343B;margin:4px 0"></div>
+        </sc-for>
+        <div style="position:absolute;left:110px;top:150px;width:300px;background:#2B2930;border-radius:28px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:18px;margin-bottom:6px">主題</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;height:36px"><span style="width:18px;height:18px;border-radius:9px;border:2px solid #938F99;box-sizing:border-box"></span>淺色</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;height:36px"><span style="width:18px;height:18px;border-radius:9px;border:2px solid #938F99;box-sizing:border-box"></span>深色</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;height:36px"><span style="width:18px;height:18px;border-radius:9px;border:5px solid #D0BCFF;box-sizing:border-box"></span>跟隨系統</div>
+          <div style="text-align:right;color:#D0BCFF;font-size:14px">取消</div>
+        </div>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">新版：桌面左分組右內容；手機先分組，分組列帶摘要</span></div>
+      <div style="height:300px;border-radius:12px;background:#141218;color:#E6E0E9;display:flex;overflow:hidden">
+        <div style="width:220px;border-right:1px solid #36343B;padding:10px 8px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+            <div style="padding:7px 12px;border-radius:20px;background:{{g.bg}}"><div style="font-size:14px">{{g.n}}</div><div style="font-size:11px;color:#CAC4D0">{{g.s}}</div></div>
+          </sc-for>
+        </div>
+        <div style="flex:1;padding:14px 20px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:17px">外觀</div>
+          <div style="font-size:12px;color:#D0BCFF">主題</div>
+          <div style="display:flex;height:32px;border:1px solid #938F99;border-radius:16px;overflow:hidden;font-size:12px;width:260px"><span style="flex:1;display:flex;align-items:center;justify-content:center">淺色</span><span style="flex:1;display:flex;align-items:center;justify-content:center;background:#4A4458">✓ 深色</span><span style="flex:1;display:flex;align-items:center;justify-content:center">跟隨系統</span></div>
+          <div style="font-size:12px;color:#D0BCFF">主題色</div>
+          <div style="display:flex;gap:8px"><span style="width:26px;height:26px;border-radius:13px;background:#6750A4;box-shadow:0 0 0 2px #141218,0 0 0 4px #D0BCFF"></span><span style="width:26px;height:26px;border-radius:13px;background:#3F51B5"></span><span style="width:26px;height:26px;border-radius:13px;background:#0061A4"></span><span style="width:26px;height:26px;border-radius:13px;background:#006A6A"></span><span style="width:26px;height:26px;border-radius:13px;background:#006E1C"></span></div>
+        </div>
+      </div>
+      <div style="height:270px;width:320px;border-radius:12px;background:#FEF7FF;box-shadow:0 0 0 1px #E6E0E9;padding:10px 0;box-sizing:border-box;overflow:hidden">
+        <div style="text-align:center;font-size:17px;margin-bottom:6px">設定</div>
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;padding:6px 18px;gap:12px"><span style="width:18px;height:18px;border-radius:5px;background:#CAC4D0"></span><div style="flex:1"><div style="font-size:14px">{{g.n}}</div><div style="font-size:11px;color:#49454F">{{g.s}}</div></div><span style="color:#49454F">›</span></div>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const legacy = [
+      { h: '帳號', items: [{ t: '帳號管理', v: '管理 嗶哩嗶哩、YouTube、網易雲音樂 帳號' }] },
+      { h: '外觀', items: [{ t: '主題', v: '跟隨系統' }, { t: '主題色', v: '預設紫' }, { t: '字型', v: '系統預設' }, { t: '語言', v: '跟隨系統' }] },
+      { h: '播放', items: [{ t: '音訊品質', v: '碼率、格式、串流優先級' }, { t: '播放歷史', v: '檢視和管理播放紀錄' }] }
+    ];
+    const groups = [['帳號', '已登入 2 個'], ['外觀', '深色・預設紫'], ['播放', '高音質・記住播放位置'], ['音樂庫', '首頁排行 3 個榜單'], ['網路', '快取 412 MB']]
+      .map(([n, s], i) => ({ n, s, bg: i === 1 ? '#4A4458' : 'transparent' }));
+    return { legacy, groups };
+  }
+}
+</script>
+</body>
+</html>

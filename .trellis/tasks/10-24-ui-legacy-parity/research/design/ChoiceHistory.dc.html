@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>P-07 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:760px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:18px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">P-07 播放歷史頁頂部</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版全套：統計卡、音源篩選、日期、搜尋、排序</span></div>
+      <div style="background:#141218;border-radius:12px;height:580px;color:#E6E0E9;padding:12px 16px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;height:48px;gap:10px"><span style="flex:1;text-align:center;font-size:20px;padding-left:96px">播放歷史</span><span style="font-size:12px;color:#CAC4D0">日期　搜尋　⋮</span></div>
+        <div style="height:68px;border-radius:16px;background:rgba(54,52,59,.5);display:flex;align-items:center">
+          <div style="flex:1;text-align:center;font-size:14px">今天 <b>6</b> 首<div style="font-size:11px;color:#CAC4D0">24 分鐘</div></div>
+          <div style="flex:1;text-align:center;font-size:14px;border-left:1px solid #49454F">本週 <b>41</b> 首<div style="font-size:11px;color:#CAC4D0">2 小時 48 分</div></div>
+          <div style="flex:1;text-align:center;font-size:14px;border-left:1px solid #49454F">全部 <b>1,284</b> 首<div style="font-size:11px;color:#CAC4D0">82 小時</div></div>
+        </div>
+        <div style="display:flex;gap:8px;font-size:13px"><span style="padding:6px 12px;border-radius:8px;background:#4A4458">✓ 全部</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">嗶哩嗶哩</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">YouTube</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">10/20 ×</span><span style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #938F99">播放次數</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:12px;height:12px;border-radius:6px;background:#D0BCFF;margin-left:22px"></span><b>10月20日</b><span style="color:#CAC4D0">9 首</span></div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="width:2px;height:180px;background:#49454F;margin-left:27px"></div><div style="flex:1;display:flex;flex-direction:column;gap:12px"><div style="height:48px;border-radius:6px;background:#211F26"></div><div style="height:48px;border-radius:6px;background:#211F26"></div><div style="height:48px;border-radius:6px;background:#211F26"></div></div></div>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">精簡：搜尋、音源篩選、日期跳轉；沒有統計卡與次數排序</span></div>
+      <div style="background:#141218;border-radius:12px;height:580px;color:#E6E0E9;padding:12px 16px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;height:48px;gap:10px"><span style="flex:1;text-align:center;font-size:20px;padding-left:96px">播放歷史</span><span style="font-size:12px;color:#CAC4D0">日期　搜尋　⋮</span></div>
+        <div style="display:flex;gap:8px;font-size:13px"><span style="padding:6px 12px;border-radius:8px;background:#4A4458">✓ 全部</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">嗶哩嗶哩</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">YouTube</span><span style="padding:6px 12px;border-radius:8px;border:1px solid #938F99">10/20 ×</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:12px;height:12px;border-radius:6px;background:#D0BCFF;margin-left:22px"></span><b>10月20日</b><span style="color:#CAC4D0">9 首</span></div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="width:2px;height:244px;background:#49454F;margin-left:27px"></div><div style="flex:1;display:flex;flex-direction:column;gap:12px"><div style="height:48px;border-radius:6px;background:#211F26"></div><div style="height:48px;border-radius:6px;background:#211F26"></div><div style="height:48px;border-radius:6px;background:#211F26"></div><div style="height:48px;border-radius:6px;background:#211F26"></div></div></div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

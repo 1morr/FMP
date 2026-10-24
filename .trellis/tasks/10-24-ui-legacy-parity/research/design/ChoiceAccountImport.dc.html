@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>L-01 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:700px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:18px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">L-01 從帳號匯入歌單的進度</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版式：底部面板，兩行小字＋「取消」</span></div>
+      <div style="height:540px;border-radius:12px;background:#0E0D12;position:relative;overflow:hidden">
+        <div style="position:absolute;left:40px;right:40px;bottom:0;height:460px;background:#211F26;border-radius:28px 28px 0 0;color:#E6E0E9;display:flex;flex-direction:column">
+          <div style="width:32px;height:4px;border-radius:2px;background:#938F99;margin:12px auto 4px"></div>
+          <div style="display:flex;align-items:center;padding:4px 20px 8px"><span style="font-size:18px;flex:1">選擇歌單</span><span style="color:#CAC4D0">✕</span></div>
+          <sc-for list="{{legacy}}" as="r" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;background:{{r.bg}}"><div style="width:40px;height:40px;border-radius:4px;background:{{r.c}}"></div><div style="flex:1;font-size:14px">{{r.n}}<div style="font-size:11px;color:#CAC4D0">{{r.k}}</div></div><span style="width:20px;height:20px;border-radius:10px;background:{{r.dot}};border:2px solid {{r.ring}};box-sizing:border-box"></span></div>
+          </sc-for>
+          <div style="margin-top:auto;padding:10px 20px 18px;border-top:1px solid #36343B;display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:11px;color:#CAC4D0;display:flex"><span style="flex:1">雨天的 Lo-fi 收藏</span>1/3</div>
+            <div style="font-size:11px;color:#CAC4D0;display:flex"><span style="flex:1">解析中…</span></div>
+            <div style="height:40px;border-radius:20px;background:#D0BCFF;color:#381E72;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:6px">取消</div>
+          </div>
+        </div>
+      </div>
+      <span style="font-size:12px;color:#49454F">讀碼推測：舊版對 YouTube 等來源是整張抓完才一次跳數字，等待期間多半只看到「解析中」。</span>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">全頁：總進度＋每張「已匯入 312／1195 首」＋可取消</span></div>
+      <div style="height:540px;border-radius:12px;background:#141218;color:#E6E0E9;padding:16px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+        <div style="text-align:center;font-size:18px">嗶哩嗶哩 的歌單</div>
+        <div style="padding:12px 14px;border-radius:12px;background:#211F26;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:14px"><b style="font-weight:500">匯入中　歌單 1／3</b><span style="color:#CAC4D0;font-size:12px">目前：雨天的 Lo-fi 收藏</span><span style="margin-left:auto;padding:4px 12px;border-radius:14px;border:1px solid #938F99;color:#D0BCFF;font-size:12px">取消匯入</span></div>
+          <div style="height:4px;border-radius:2px;background:#36343B"><div style="width:21%;height:4px;border-radius:2px;background:#D0BCFF"></div></div>
+        </div>
+        <div style="padding:10px;border-radius:8px;background:rgba(208,188,255,.06);display:flex;gap:12px;align-items:center"><div style="width:44px;height:44px;border-radius:4px;background:#4E9A7E"></div><div style="flex:1;font-size:14px">雨天的 Lo-fi 收藏<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><div style="flex:1;height:4px;border-radius:2px;background:#36343B"><div style="width:26%;height:4px;border-radius:2px;background:#D0BCFF"></div></div><span style="font-size:12px;color:#D0BCFF;font-weight:600">已匯入 312／1195 首</span></div></div></div>
+        <div style="padding:10px;display:flex;gap:12px;align-items:center"><div style="width:44px;height:44px;border-radius:4px;background:#C9A24A"></div><div style="flex:1;font-size:14px">城市散步<div style="font-size:12px;color:#CAC4D0">64 首</div></div><span style="font-size:12px;color:#CAC4D0">等待中</span></div>
+        <div style="padding:10px;display:flex;gap:12px;align-items:center"><div style="width:44px;height:44px;border-radius:4px;background:#5B5F97"></div><div style="flex:1;font-size:14px">老派日語流行<div style="font-size:12px;color:#CAC4D0">212 首</div></div><span style="font-size:12px;color:#CAC4D0">等待中</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const legacy = [
+      { n: '雨天的 Lo-fi 收藏', k: '1195 首', c: '#4E9A7E', on: true },
+      { n: '城市散步', k: '64 首', c: '#C9A24A', on: true },
+      { n: '老派日語流行', k: '212 首', c: '#5B5F97', on: true },
+      { n: '夜跑歌單', k: '48 首', c: '#C46B6B', done: true }
+    ].map((r) => ({ ...r, bg: r.on ? 'rgba(208,188,255,.08)' : 'transparent', dot: r.on ? '#D0BCFF' : r.done ? '#49454F' : 'transparent', ring: r.on ? '#D0BCFF' : r.done ? '#49454F' : '#938F99' }));
+    return { legacy };
+  }
+}
+</script>
+</body>
+</html>

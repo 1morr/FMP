@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>歌單詳情 iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#FEF7FF;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative;overflow:hidden;border-radius:44px">
+  <header style="height:334px;position:relative;overflow:hidden">
+    <div style="position:absolute;inset:-60px;filter:blur(36px);background:#4E9A7E">
+      <div style="position:absolute;left:60px;top:120px;width:260px;height:260px;border-radius:130px;background:#7FC2A6"></div>
+      <div style="position:absolute;left:260px;top:40px;width:200px;height:160px;border-radius:40px;background:#2F6E6E"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.54)"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(254,247,255,0) 45%,rgba(254,247,255,.8) 100%)"></div>
+    <div style="position:absolute;left:132px;top:11px;width:126px;height:37px;border-radius:19px;background:#000"></div>
+    <div style="position:absolute;left:0;right:0;top:54px;border-top:1px dashed {{safeLine}}"></div>
+    <span style="display:{{tagDisplay}};position:absolute;right:14px;top:18px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-5 頂圖延伸進安全區域</span>
+    <div style="position:absolute;left:0;right:0;top:54px;height:52px;display:flex;align-items:center;padding:0 4px">
+      <button aria-label="返回" style="width:44px;height:44px;border:0;background:none;color:#fff;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <span style="flex:1"></span>
+      <button aria-label="更多" style="width:44px;height:44px;border:0;background:none;color:#fff;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+    </div>
+    <div style="position:absolute;left:16px;right:16px;bottom:22px;display:flex;gap:14px;align-items:flex-end">
+      <div style="width:110px;height:110px;border-radius:12px;background:#4E9A7E;box-shadow:0 8px 20px rgba(0,0,0,.4);position:relative;overflow:hidden;flex-shrink:0"><div style="position:absolute;left:26px;top:22px;width:64px;height:64px;border-radius:32px;background:#7FC2A6"></div></div>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+        <h1 style="margin:0;font-size:20px;font-weight:700;color:#fff">雨天的 Lo-fi 收藏</h1>
+        <p style="margin:0;font-size:12px;color:rgba(255,255,255,.78);line-height:1.5">窗外下雨的時候放這張。慢節奏、低音量。</p>
+        <span style="font-size:12px;color:rgba(255,255,255,.7)">擁有者：雨聲收集者</span>
+        <span style="font-size:12px;color:#fff">128 首歌曲 · 6 小時 12 分</span>
+        <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:11px;background:rgba(255,255,255,.2);color:#fff;font-size:11px"><span style="width:12px;height:12px;border-radius:3px;background:#EADDFF;color:#21005D;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">B</span>已匯入 · 嗶哩嗶哩</span>
+      </div>
+    </div>
+    <span style="display:{{tagDisplay}};position:absolute;right:14px;top:112px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">L-13 A</span>
+  </header>
+  <div style="display:flex;gap:10px;padding:12px 16px 8px">
+    <button style="flex:1;height:40px;border-radius:20px;border:0;background:#6750A4;color:#fff;font:inherit;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>加入所有</button>
+    <button style="flex:1;height:40px;border-radius:20px;border:1px solid #79747E;background:none;color:#6750A4;font:inherit;font-size:14px;font-weight:500">隨機加入</button>
+    <button aria-label="刷新" style="width:40px;height:40px;border-radius:20px;border:1px solid #79747E;background:none;color:#6750A4;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg></button>
+  </div>
+  <div style="margin:0 16px;height:32px;border-radius:8px;background:#F3EDF7;display:flex;align-items:center;gap:6px;padding:0 10px;font-size:12px;color:#49454F">上次刷新：今天 09:12・已同步 128 首<span style="display:{{tagDisplay}};margin-left:auto;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#0B7285;color:#fff;font-size:10px;font-weight:600">新版新增</span></div>
+  <div style="padding:4px 8px 0">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+      <div style="display:flex;align-items:center;height:60px;gap:12px;padding:0 4px 0 8px">
+        <span style="width:48px;height:48px;border-radius:4px;background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:block">
+          <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+            <span style="position:absolute;inset:0;background:rgba(103,80,164,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box"><span style="width:3px;height:10px;background:#fff;display:block"></span><span style="width:3px;height:16px;background:#fff;display:block"></span><span style="width:3px;height:7px;background:#fff;display:block"></span></span>
+          </sc-if>
+        </span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+          <span style="font-size:12px;color:#49454F">{{r.artist}}</span>
+        </span>
+        <span style="width:44px;text-align:center;font-size:12px;color:#49454F">{{r.dur}}</span>
+        <button aria-label="更多" style="width:36px;height:40px;border:0;background:none;color:#49454F;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+      </div>
+    </sc-for>
+  </div>
+  <div style="position:absolute;left:0;top:200px;width:22px;height:300px;background:linear-gradient(90deg,rgba(194,37,92,.28),rgba(194,37,92,0));display:{{edgeDisplay}};align-items:center;justify-content:center;color:#C2255C;font-size:22px">›</div>
+  <span style="display:{{tagDisplay}};position:absolute;left:24px;top:470px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-5 從左緣右滑返回</span>
+  <div style="position:absolute;left:0;bottom:0">
+    <dc-import name="PhoneMini" show-tags="{{false}}" hint-size="390px,64px"></dc-import>
+    <dc-import name="PhoneNav" active="library" show-tags="{{showTags}}" hint-size="390px,114px"></dc-import>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tags = this.props.showTags ?? true;
+    const rows = [
+      ['晚安，月台（雨夜吉他版）', '白晝計畫', '3:48', '#C46B6B'],
+      ['潮汐之間（Live at 河岸音樂節）', '微光樂團', '4:09', '#3F7CAC', true],
+      ['Paper Moons (Live Session)', 'The Quiet Rooms', '3:57', '#5B5F97'],
+      ['雨停之前', 'Mira Sol', '4:20', '#B5838D']
+    ].map(([title, artist, dur, bg, playing]) => ({ title, artist, dur, bg, playing: !!playing, titleColor: playing ? '#6750A4' : '#1D1B20', weight: playing ? 600 : 400 }));
+    return { rows, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none', edgeDisplay: tags ? 'flex' : 'none', safeLine: tags ? 'rgba(255,255,255,.6)' : 'transparent' };
+  }
+}
+</script>
+</body>
+</html>

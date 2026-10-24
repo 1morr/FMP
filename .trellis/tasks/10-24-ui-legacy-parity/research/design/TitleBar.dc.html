@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>標題列</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:{{w}}px;height:36px;background:{{bg}};color:#CAC4D0;font-family:'PingFang TC','Microsoft JhengHei UI','Noto Sans TC',sans-serif;position:relative;display:flex;align-items:center;box-sizing:border-box;border-bottom:1px solid {{line}}">
+  <sc-if value="{{isMac}}" hint-placeholder-val="{{false}}">
+    <div style="position:absolute;left:14px;top:12px;display:flex;gap:8px">
+      <span aria-label="關閉" role="img" style="width:12px;height:12px;border-radius:6px;background:#FF5F57;display:block"></span>
+      <span aria-label="縮小" role="img" style="width:12px;height:12px;border-radius:6px;background:#FEBC2E;display:block"></span>
+      <span aria-label="全螢幕" role="img" style="width:12px;height:12px;border-radius:6px;background:#28C840;display:block"></span>
+    </div>
+    <div style="flex:1;text-align:center;font-size:13px;font-weight:600;color:{{titleColor}}">FMP</div>
+  </sc-if>
+  <sc-if value="{{isWin}}" hint-placeholder-val="{{true}}">
+    <div style="padding-left:16px;font-size:12px;color:{{titleColor}};flex:1">FMP</div>
+    <button aria-label="最小化" style="width:46px;height:36px;border:0;background:none;color:{{titleColor}};padding:0;display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg></button>
+    <button aria-label="最大化" style="width:46px;height:36px;border:0;background:none;color:{{titleColor}};padding:0;display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
+    <button aria-label="關閉" style="width:46px;height:36px;border:0;background:none;color:{{titleColor}};padding:0;display:flex;align-items:center;justify-content:center"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg></button>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"tone":{"editor":"enum","options":["dark","light","overlay"],"default":"dark"},"w":{"editor":"int","default":1280},"$preview":{"width":1280,"height":36}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tone = this.props.tone ?? 'dark';
+    const bg = tone === 'light' ? '#FEF7FF' : tone === 'overlay' ? 'rgba(20,18,24,0.55)' : '#141218';
+    const titleColor = tone === 'light' ? '#49454F' : '#CAC4D0';
+    const line = tone === 'light' ? '#E6E0E9' : 'transparent';
+    return { isMac: mac, isWin: !mac, bg, titleColor, line, w: this.props.w ?? 1280 };
+  }
+}
+</script>
+</body>
+</html>

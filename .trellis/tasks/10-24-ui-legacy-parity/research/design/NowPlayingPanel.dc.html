@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>正在播放面板</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<aside aria-label="正在播放" style="width:340px;height:{{h}}px;box-sizing:border-box;background:#1D1B20;border-left:1px solid #36343B;color:#E6E0E9;font-family:'PingFang TC','Microsoft JhengHei UI','Noto Sans TC',sans-serif;display:flex;flex-direction:column;overflow:hidden;position:relative">
+  <div style="height:56px;display:flex;align-items:center;gap:4px;padding:0 8px;flex-shrink:0;border-bottom:1px solid #2B2930">
+    <button aria-label="收合面板" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l6 6-6 6M17 5v14"/></svg></button>
+    <div style="font-size:16px;font-weight:700;flex:1">正在播放</div>
+    <button aria-label="加入歌單" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h12M3 11h12M3 16h7M18 13v8M14 17h8"/></svg></button>
+    <button aria-label="切換歌詞與資訊" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 11v6M12 7.5v.5"/></svg></button>
+  </div>
+  <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+    <div style="width:308px;height:173px;border-radius:16px;background:#3F7CAC;position:relative;overflow:hidden">
+      <div style="position:absolute;left:-30px;top:60px;width:200px;height:200px;border-radius:100px;background:#5A97C4"></div>
+      <div style="position:absolute;right:40px;top:30px;width:70px;height:70px;border-radius:12px;background:rgba(255,255,255,.28);transform:rotate(14deg)"></div>
+      <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.65);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px">4:09</span>
+    </div>
+    <div style="font-size:16px;font-weight:700;line-height:1.4">潮汐之間（Live at 河岸音樂節）</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+      <span style="width:28px;height:28px;border-radius:14px;background:#5F5B66;border:1px solid #938F99;box-sizing:border-box;position:relative;overflow:hidden;display:block"><span style="position:absolute;left:7px;top:7px;width:12px;height:12px;background:#938F99;border-radius:2px;transform:rotate(45deg);display:block"></span></span>
+      <span>微光樂團</span><span style="color:#CAC4D0">· 2026-09-12</span>
+    </div>
+    <div style="display:flex;gap:14px;font-size:12px;color:#CAC4D0"><span>▶ 32.4 萬</span><span>讚 1.2 萬</span><span>收藏 8,421</span></div>
+    <div style="height:1px;background:#36343B;margin:4px 0"></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#D0BCFF;font-weight:600">下一首</span><span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-14 補回</span></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div style="width:56px;height:56px;border-radius:8px;background:#4E9A7E;position:relative;overflow:hidden;flex-shrink:0"><div style="position:absolute;left:14px;top:14px;width:28px;height:28px;border-radius:14px;background:rgba(255,255,255,.35)"></div></div>
+      <div style="min-width:0"><div style="font-size:14px">Northbound Lights</div><div style="font-size:12px;color:#CAC4D0">Lumen Drift</div></div>
+    </div>
+    <div style="font-size:12px;color:#D0BCFF;font-weight:600;margin-top:4px">簡介</div>
+    <div style="font-size:13px;color:#CAC4D0;line-height:1.6">河岸音樂節現場收錄。樂團第一次用弦樂編制演出這首歌，結尾多了一段即興。<span style="color:#D0BCFF">　展開</span></div>
+  </div>
+</aside>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"h":{"editor":"int","default":692},"$preview":{"width":340,"height":692}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { h: this.props.h ?? 692, tagDisplay: (this.props.showTags ?? true) ? 'inline-flex' : 'none' };
+  }
+}
+</script>
+</body>
+</html>

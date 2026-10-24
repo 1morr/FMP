@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>歌單詳情 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="display:flex;height:692px">
+    <dc-import name="NavRail" active="library" hint-size="72px,692px"></dc-import>
+    <main style="width:868px;height:692px;overflow:hidden;position:relative">
+      <header style="height:280px;position:relative;overflow:hidden">
+        <div style="position:absolute;inset:-60px;filter:blur(40px);background:#4E9A7E">
+          <div style="position:absolute;left:220px;top:80px;width:360px;height:360px;border-radius:180px;background:#7FC2A6"></div>
+          <div style="position:absolute;left:560px;top:20px;width:300px;height:220px;border-radius:40px;background:#2F6E6E"></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.54)"></div>
+        <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,24,0) 40%,rgba(20,18,24,.8) 100%)"></div>
+        <div style="position:absolute;left:0;right:0;top:0;height:56px;display:flex;align-items:center;padding:0 8px">
+          <button aria-label="返回" style="width:44px;height:44px;border:0;background:none;color:#fff;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+          <span style="flex:1"></span>
+          <button aria-label="更多" style="width:44px;height:44px;border:0;background:none;color:#fff;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+        </div>
+        <div style="position:absolute;left:24px;right:24px;bottom:24px;display:flex;gap:20px;align-items:flex-end">
+          <div style="width:120px;height:120px;border-radius:12px;background:#4E9A7E;box-shadow:0 8px 20px rgba(0,0,0,.45);position:relative;overflow:hidden;flex-shrink:0"><div style="position:absolute;left:30px;top:24px;width:70px;height:70px;border-radius:35px;background:#7FC2A6"></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+            <h1 style="margin:0;font-size:22px;font-weight:700;color:#fff">雨天的 Lo-fi 收藏</h1>
+            <p style="margin:0;font-size:13px;color:rgba(255,255,255,.75);line-height:1.5">窗外下雨的時候放這張。慢節奏、低音量，適合讀書和寫東西。</p>
+            <span style="font-size:13px;color:rgba(255,255,255,.65)">擁有者：雨聲收集者</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:13px;color:#fff">128 首歌曲 · 6 小時 12 分</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:12px;background:rgba(255,255,255,.18);color:#fff;font-size:12px"><span style="width:14px;height:14px;border-radius:3px;background:#D0BCFF;color:#381E72;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">B</span>已匯入 · 嗶哩嗶哩</span>
+            </div>
+          </div>
+        </div>
+        <span style="display:{{tagDisplay}};position:absolute;right:16px;top:64px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">L-13 A 280dp 模糊頂圖・補總時長</span>
+      </header>
+      <div style="display:flex;gap:12px;padding:16px 24px 8px;align-items:center">
+        <button style="flex:1;height:40px;border-radius:20px;border:0;background:#D0BCFF;color:#381E72;font:inherit;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>加入所有</button>
+        <button style="flex:1;height:40px;border-radius:20px;border:1px solid #938F99;background:none;color:#D0BCFF;font:inherit;font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>隨機加入</button>
+        <button style="height:40px;padding:0 16px;border-radius:20px;border:1px solid #938F99;background:none;color:#D0BCFF;font:inherit;font-size:14px;display:flex;align-items:center;gap:6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>刷新</button>
+        <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#0B7285;color:#fff;font-size:10px;font-weight:600">新版新增 L-14</span>
+      </div>
+      <div style="margin:0 24px;height:36px;border-radius:8px;background:#2B2930;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#CAC4D0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>上次刷新：今天 09:12・已同步 128 首<span style="display:{{tagDisplay}};margin-left:auto;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#0B7285;color:#fff;font-size:10px;font-weight:600">新版新增 狀態列</span></div>
+      <div style="padding:8px 16px 0">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;height:60px;gap:12px;padding:0 8px 0 {{r.indent}}px;border-radius:8px">
+            <span style="width:{{r.cover}}px;height:{{r.cover}}px;border-radius:4px;background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:{{r.coverDisplay}};align-items:center;justify-content:center">
+              <span style="font-size:11px;color:#fff;font-weight:600">{{r.pTag}}</span>
+              <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+                <span style="position:absolute;inset:0;background:rgba(208,188,255,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box"><span style="width:3px;height:10px;background:#381E72;display:block"></span><span style="width:3px;height:16px;background:#381E72;display:block"></span><span style="width:3px;height:7px;background:#381E72;display:block"></span></span>
+              </sc-if>
+            </span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+              <span style="font-size:12px;color:#CAC4D0;display:flex;align-items:center;gap:6px">{{r.artist}}<span style="display:{{r.badgeDisplay}};height:16px;padding:0 5px;border-radius:4px;background:#4F378B;color:#EADDFF;font-size:10px;align-items:center">{{r.badge}}</span></span>
+            </span>
+            <span style="width:48px;text-align:center;font-size:12px;color:#CAC4D0">{{r.dur}}</span>
+            <button aria-label="{{r.trailLabel}}" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="{{r.trail}}"/></svg></button>
+          </div>
+        </sc-for>
+      </div>
+    </main>
+    <dc-import name="NowPlayingPanel" show-tags="{{showTags}}" hint-size="340px,692px"></dc-import>
+  </div>
+  <dc-import name="MiniPlayer" hint-size="1280px,72px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const more = 'M12 5v.01M12 12v.01M12 19v.01';
+    const chev = 'M6 15l6-6 6 6';
+    const rows = [
+      { title: '晚安，月台（雨夜吉他版）', artist: '白晝計畫', dur: '3:48', bg: '#C46B6B' },
+      { title: '潮汐之間（Live at 河岸音樂節）', artist: '微光樂團', dur: '4:09', bg: '#3F7CAC', playing: true },
+      { title: '【合集】夏日露營之夜 Live 全場', artist: '林間合唱團', dur: '', bg: '#C9A24A', badge: '3P', trail: chev, trailLabel: '收合分 P' },
+      { title: 'P1 開場：營火邊', artist: '林間合唱團', dur: '5:12', indent: 68, pTag: 'P1', bg: '#4A4458' },
+      { title: 'P2 紙飛機', artist: '林間合唱團', dur: '4:31', indent: 68, pTag: 'P2', bg: '#4A4458' },
+      { title: 'Paper Moons (Live Session)', artist: 'The Quiet Rooms', dur: '3:57', bg: '#5B5F97' }
+    ].map((r) => ({
+      ...r, indent: r.indent ?? 8, cover: r.pTag ? 32 : 48, pTag: r.pTag ?? '', coverDisplay: 'flex', playing: !!r.playing,
+      titleColor: r.playing ? '#D0BCFF' : '#E6E0E9', weight: r.playing ? 600 : 400,
+      badge: r.badge ?? '', badgeDisplay: r.badge ? 'inline-flex' : 'none', trail: r.trail ?? more, trailLabel: r.trailLabel ?? '更多'
+    }));
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      rows, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

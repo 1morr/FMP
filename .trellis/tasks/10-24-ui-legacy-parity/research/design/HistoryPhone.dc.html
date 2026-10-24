@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>播放歷史 iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#FEF7FF;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative;overflow:hidden;border-radius:44px">
+  <div style="height:54px;position:relative;border-bottom:1px dashed {{safeLine}};box-sizing:border-box">
+    <div style="position:absolute;left:132px;top:11px;width:126px;height:37px;border-radius:19px;background:#000"></div>
+  </div>
+  <main style="height:612px;overflow:hidden">
+    <header style="height:56px;display:flex;align-items:center;padding:0 4px">
+      <button aria-label="返回" style="width:44px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 style="flex:1;margin:0;text-align:center;font-size:20px;font-weight:400">播放歷史</h1>
+      <button aria-label="選日期" style="width:40px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg></button>
+      <button aria-label="搜尋歷史" style="width:40px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4"/></svg></button>
+      <button aria-label="更多" style="width:40px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+    </header>
+    <div style="margin:4px 16px 0;height:68px;border-radius:16px;background:rgba(230,224,233,.6);display:flex;align-items:center;position:relative">
+      <div style="flex:1;text-align:center"><div style="font-size:14px">今天 <b>6</b> 首</div><div style="font-size:11px;color:#49454F">24 分鐘</div></div>
+      <div style="flex:1;text-align:center;border-left:1px solid #CAC4D0"><div style="font-size:14px">本週 <b>41</b> 首</div><div style="font-size:11px;color:#49454F">2 小時 48 分</div></div>
+      <div style="flex:1;text-align:center;border-left:1px solid #CAC4D0"><div style="font-size:14px">全部 <b>1,284</b> 首</div><div style="font-size:11px;color:#49454F">82 小時</div></div>
+      <span style="display:{{tagDisplay}};position:absolute;right:8px;top:-9px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-07 A</span>
+    </div>
+    <div style="display:flex;gap:8px;padding:12px 16px;align-items:center;width:520px">
+      <span style="height:32px;padding:0 12px;border-radius:8px;background:#E8DEF8;color:#1D192B;font-size:14px;display:inline-flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>全部</span>
+      <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #79747E;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">嗶哩嗶哩</span>
+      <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #79747E;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">YouTube</span>
+      <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #79747E;font-size:14px;display:inline-flex;align-items:center;gap:6px;box-sizing:border-box"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6750A4" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>最新優先</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 16px 0 22px">
+      <span style="width:12px;height:12px;border-radius:6px;background:#6750A4"></span>
+      <span style="font-size:15px;font-weight:700">今天</span><span style="font-size:13px;color:#49454F">6 首</span><span style="flex:1"></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#49454F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+    </div>
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+      <div style="display:flex;align-items:center;height:64px">
+        <div style="width:40px;height:64px;position:relative;flex-shrink:0"><div style="position:absolute;left:27px;top:0;bottom:0;width:2px;background:#CAC4D0"></div></div>
+        <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 4px 0 8px;min-width:0">
+          <span style="width:48px;height:48px;border-radius:4px;background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:block">
+            <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+              <span style="position:absolute;inset:0;background:rgba(103,80,164,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box"><span style="width:3px;height:10px;background:#fff;display:block"></span><span style="width:3px;height:16px;background:#fff;display:block"></span><span style="width:3px;height:7px;background:#fff;display:block"></span></span>
+            </sc-if>
+          </span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+            <span style="font-size:12px;color:#49454F;display:flex;align-items:center;gap:5px">{{r.artist}} · {{r.time}}<span style="width:13px;height:13px;border-radius:3px;background:#6750A4;color:#fff;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{r.src}}</span></span>
+          </span>
+          <span style="width:38px;text-align:center;font-size:12px;color:#49454F">{{r.dur}}</span>
+          <button aria-label="更多" style="width:36px;height:40px;border:0;background:none;color:#49454F;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+        </div>
+      </div>
+    </sc-for>
+  </main>
+  <span style="display:{{tagDisplay}};position:absolute;left:120px;top:296px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-08・P-09</span>
+  <dc-import name="PhoneMini" show-tags="{{false}}" hint-size="390px,64px"></dc-import>
+  <dc-import name="PhoneNav" active="library" show-tags="{{showTags}}" hint-size="390px,114px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tags = this.props.showTags ?? true;
+    const rows = [
+      ['潮汐之間（Live at 河岸音樂節）', '微光樂團', '14:32', 'B', '4:09', '#3F7CAC', true],
+      ['Northbound Lights', 'Lumen Drift', '14:28', 'Y', '3:31', '#4E9A7E'],
+      ['晚安，月台（雨夜吉他版）', '白晝計畫', '13:05', 'B', '3:48', '#C46B6B'],
+      ['雨停之前', 'Mira Sol', '09:41', 'N', '4:20', '#B5838D'],
+      ['迴聲小巷 Echo Alley', 'Echo Avenue', '08:57', 'Y', '4:02', '#C9A24A']
+    ].map(([title, artist, time, src, dur, bg, playing]) => ({ title, artist, time, src, dur, bg, playing: !!playing, titleColor: playing ? '#6750A4' : '#1D1B20', weight: playing ? 600 : 400 }));
+    return { rows, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none', safeLine: tags ? 'rgba(194,37,92,.55)' : 'transparent' };
+  }
+}
+</script>
+</body>
+</html>

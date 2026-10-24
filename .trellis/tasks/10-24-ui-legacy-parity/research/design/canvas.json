@@ -1,0 +1,135 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-24T12:49:56Z"},
+  "title": "FMP U 設計稿",
+  "launch": {"view": "canvas", "page": "overview"},
+  "pages": [
+    {"id": "overview", "name": "總覽與平台"},
+    {"id": "home", "name": "首頁"},
+    {"id": "detail", "name": "歌單詳情"},
+    {"id": "player", "name": "播放頁"},
+    {"id": "queue", "name": "佇列"},
+    {"id": "history", "name": "歷史"},
+    {"id": "search", "name": "搜尋"},
+    {"id": "import", "name": "匯入進度"},
+    {"id": "settings", "name": "設定"},
+    {"id": "parts", "name": "共用元件"}
+  ],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 900, "title": "B-33 主題與元件（照舊版）", "page": "overview"},
+    "AppleConventions.dc.html": {"x": 1520, "y": 0, "w": 1440, "h": 900, "title": "APL-2～5 Apple 平台慣例（請確認）", "page": "overview"},
+    "ChoiceGlass.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 760, "title": "APL-1 液態玻璃｜A Material vs B 液態玻璃", "page": "overview"},
+
+    "TitleBar.dc.html": {"x": 0, "y": 0, "w": 1280, "h": 36, "title": "元件｜標題列（B-19 Windows／Mac）", "page": "parts"},
+    "NavRail.dc.html": {"x": 0, "y": 156, "w": 72, "h": 692, "title": "元件｜側欄", "page": "parts"},
+    "NowPlayingPanel.dc.html": {"x": 152, "y": 156, "w": 340, "h": 692, "title": "元件｜右側正在播放面板", "page": "parts"},
+    "PhoneNav.dc.html": {"x": 572, "y": 156, "w": 390, "h": 114, "title": "元件｜手機導覽列", "page": "parts"},
+    "PhoneMini.dc.html": {"x": 572, "y": 390, "w": 390, "h": 64, "title": "元件｜手機播放列", "page": "parts"},
+    "MiniPlayer.dc.html": {"x": 0, "y": 968, "w": 1280, "h": 72, "title": "元件｜桌面播放列", "page": "parts"},
+
+    "HomePhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "首頁｜iPhone", "page": "home"},
+    "HomeWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "首頁｜Windows", "page": "home"},
+    "HomeMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "首頁｜Mac", "page": "home"},
+    "ChoiceHome.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 820, "title": "B-08 首頁卡片・B-15 正在播放卡", "page": "home"},
+    "ChoiceShell.dc.html": {"x": 1880, "y": 1320, "w": 1400, "h": 760, "title": "B-18 側欄・B-20 頁頂標題", "page": "home"},
+
+    "DetailPhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "歌單詳情｜iPhone", "page": "detail"},
+    "DetailWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "歌單詳情｜Windows", "page": "detail"},
+    "DetailMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "歌單詳情｜Mac", "page": "detail"},
+    "ChoiceHero.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 760, "title": "L-13 歌單頂部｜A 模糊頂圖 vs B 平面標頭", "page": "detail"},
+
+    "PlayerPhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "播放頁（窄版）｜iPhone", "page": "player"},
+    "PlayerWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "播放頁（寬版）｜Windows", "page": "player"},
+    "PlayerMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "播放頁（寬版）｜Mac", "page": "player"},
+    "ChoicePlayerLayout.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 760, "title": "P-16 寬版播放頁｜A 左封面右歌詞 vs B 方案 B", "page": "player"},
+    "ChoicePlayerControls.dc.html": {"x": 1880, "y": 1320, "w": 1400, "h": 640, "title": "P-02 播放控制區", "page": "player"},
+    "ChoiceBar.dc.html": {"x": 3760, "y": 1320, "w": 1400, "h": 640, "title": "P-12 播放列進度條・P-13 播放列範圍", "page": "player"},
+
+    "QueuePhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "佇列｜iPhone", "page": "queue"},
+    "QueueWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "佇列｜Windows", "page": "queue"},
+    "QueueMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "佇列｜Mac", "page": "queue"},
+    "ChoiceQueueEntry.dc.html": {"x": 0, "y": 1320, "w": 1440, "h": 760, "title": "B-17／P-03／P-21 佇列入口", "page": "queue"},
+    "ChoiceQueueRow.dc.html": {"x": 1920, "y": 1320, "w": 1400, "h": 520, "title": "P-04 佇列每列", "page": "queue"},
+
+    "HistoryPhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "播放歷史｜iPhone", "page": "history"},
+    "HistoryWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "播放歷史｜Windows", "page": "history"},
+    "HistoryMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "播放歷史｜Mac", "page": "history"},
+    "ChoiceHistory.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 760, "title": "P-07 歷史頁頂部", "page": "history"},
+
+    "SearchPhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "搜尋（搜尋記錄）｜iPhone", "page": "search"},
+    "SearchWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "搜尋（結果）｜Windows", "page": "search"},
+    "SearchMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "搜尋（結果）｜Mac", "page": "search"},
+    "ChoiceSearch.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 700, "title": "B-02 全部音源・B-06 排序", "page": "search"},
+
+    "ImportPhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "網址匯入進度｜iPhone", "page": "import"},
+    "ImportWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "從帳號匯入進度｜Windows", "page": "import"},
+    "ImportMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "從帳號匯入進度｜Mac", "page": "import"},
+    "ChoiceAccountImport.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 700, "title": "L-01 從帳號匯入的進度", "page": "import"},
+    "ChoiceUrlImport.dc.html": {"x": 1880, "y": 1320, "w": 1400, "h": 700, "title": "L-02 網址匯入的進度", "page": "import"},
+    "ChoiceRefresh.dc.html": {"x": 3760, "y": 1320, "w": 1400, "h": 640, "title": "L-03 歌單刷新的進度", "page": "import"},
+
+    "SettingsPhone.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "設定 › 外觀｜iPhone", "page": "settings"},
+    "SettingsWin.dc.html": {"x": 470, "y": 0, "w": 1280, "h": 800, "title": "設定｜Windows", "page": "settings"},
+    "SettingsMac.dc.html": {"x": 1830, "y": 0, "w": 1280, "h": 800, "title": "設定｜Mac", "page": "settings"},
+    "ChoiceSettings.dc.html": {"x": 0, "y": 1320, "w": 1400, "h": 760, "title": "L-25 設定頁結構", "page": "settings"}
+  },
+  "order": [
+    "Main.dc.html", "AppleConventions.dc.html", "ChoiceGlass.dc.html",
+    "TitleBar.dc.html", "NavRail.dc.html", "NowPlayingPanel.dc.html", "PhoneNav.dc.html", "PhoneMini.dc.html", "MiniPlayer.dc.html",
+    "HomePhone.dc.html", "HomeWin.dc.html", "HomeMac.dc.html", "ChoiceHome.dc.html", "ChoiceShell.dc.html",
+    "DetailPhone.dc.html", "DetailWin.dc.html", "DetailMac.dc.html", "ChoiceHero.dc.html",
+    "PlayerPhone.dc.html", "PlayerWin.dc.html", "PlayerMac.dc.html", "ChoicePlayerLayout.dc.html", "ChoicePlayerControls.dc.html", "ChoiceBar.dc.html",
+    "QueuePhone.dc.html", "QueueWin.dc.html", "QueueMac.dc.html", "ChoiceQueueEntry.dc.html", "ChoiceQueueRow.dc.html",
+    "HistoryPhone.dc.html", "HistoryWin.dc.html", "HistoryMac.dc.html", "ChoiceHistory.dc.html",
+    "SearchPhone.dc.html", "SearchWin.dc.html", "SearchMac.dc.html", "ChoiceSearch.dc.html",
+    "ImportPhone.dc.html", "ImportWin.dc.html", "ImportMac.dc.html", "ChoiceAccountImport.dc.html", "ChoiceUrlImport.dc.html", "ChoiceRefresh.dc.html",
+    "SettingsPhone.dc.html", "SettingsWin.dc.html", "SettingsMac.dc.html", "ChoiceSettings.dc.html"
+  ],
+  "notes": {
+    "ov_t1": {"x": 0, "y": -300, "text": "總覽：主題、元件與平台慣例", "kind": "title1", "maxW": 2960, "page": "overview"},
+    "ov_how": {"x": 3040, "y": 0, "w": 420, "fill": "yellow", "size": "m", "page": "overview", "text": "怎麼看這份稿\n\n・以舊版 UI 為底重畫，所有歌單名、歌手、帳號、頭像都是假資料。\n・每個畫面都有 iPhone、Windows、Mac 三種；手機淺色、桌面深色（兩種主題都看得到）。\n・紅色小標＝對照文件的項目編號（例 P-06）；青色小標＝新版新增、舊版沒有。每張畫板右上的 Tweaks 可關掉標註。\n・每頁下半是「選擇點」：同一張畫板並排 A／B，右邊黃色便條寫推薦與理由。請在該畫板留評論回覆，例如「P-03：A」。\n・主畫面已照「推薦」畫；你選了另一邊，主畫面再改。\n・已定案照舊版的 4 項：B-19（每張桌面圖的標題列）、B-33（本頁左側）、L-27（設定 › 外觀）、P-06（佇列頂部）。"},
+    "ov_t2": {"x": 0, "y": 1020, "text": "選擇點：APL-1 整體外觀", "kind": "title1", "maxW": 1800, "page": "overview"},
+    "ov_glass": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "overview", "text": "APL-1 請以評論回覆：A 或 B\n\nA＝全平台同一套舊版風格 Material，加上 Apple 慣例（本稿全部照 A 畫）。\nB＝iOS／macOS 改用液態玻璃：播放列、導覽列、面板做成半透明玻璃。\n\n推薦 A：Flutter 官方液態玻璃元件還沒釋出（flutter#170310），Cupertino 正拆成獨立套件，現在做只能自己仿；兩套外觀要維護兩倍；ADR 0024 已否決整套液態玻璃。"},
+
+    "parts_t1": {"x": 0, "y": -300, "text": "共用元件（各畫面引用）", "kind": "title1", "maxW": 1280, "page": "parts"},
+
+    "home_t1": {"x": 0, "y": -300, "text": "首頁｜iPhone・Windows・Mac", "kind": "title1", "maxW": 3110, "page": "home"},
+    "home_t2": {"x": 0, "y": 1020, "text": "選擇點：B-08・B-15・B-18・B-20", "kind": "title1", "maxW": 3680, "page": "home"},
+    "home_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "home", "text": "B-08 請回覆 A 或 B\nA＝舊版有底色卡片（圓角 12、長寬比 0.8），桌面滑過兩側出現箭頭與漸層。\nB＝新版無底色、144dp 方形封面、無箭頭。\n推薦 A：B-33 已選舊版元件主題，卡片底色是其中一部分；箭頭解決滑鼠不能橫捲。\n\nB-15 請回覆 A 或 B\nA＝首頁保留「正在播放」卡與「接下來播放」。\nB＝不放。\n推薦 B：和播放列、右側面板重複。"},
+    "home_c2": {"x": 3320, "y": 1320, "w": 360, "fill": "yellow", "page": "home", "text": "B-18 請回覆 A 或 B\nA＝舊版側欄：頂端漢堡鈕在 72 ↔ 256dp 間展開，展開時顯示 FMP。\nB＝新版 M3 NavigationRail，large 以上常駐抽屜（約 360dp）。\n推薦 A：以舊版為底，展開時也比 M3 抽屜窄。\n\nB-20 請回覆 A 或 B\nA＝舊版置中 AppBar（首頁沒有標題）。\nB＝新版靠左的頁內大標題。\n推薦 A：舊版的樣子；Mac 視窗標題本來就置中。"},
+
+    "detail_t1": {"x": 0, "y": -300, "text": "歌單詳情｜iPhone・Windows・Mac", "kind": "title1", "maxW": 3110, "page": "detail"},
+    "detail_t2": {"x": 0, "y": 1020, "text": "選擇點：L-13", "kind": "title1", "maxW": 1800, "page": "detail"},
+    "detail_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "detail", "text": "L-13 請回覆 A 或 B\nA＝舊版 280dp 模糊封面頂圖，捲動後收成一般 AppBar（主畫面照 A）。\nB＝新版 144dp 封面靠左的平面標頭，跟清單一起捲走。\n兩者都補「總時長」與音源徽章（L-10）。\n\n推薦 A：舊版最有辨識度的畫面；桌面只占內容區上方，右側面板不受影響。"},
+
+    "player_t1": {"x": 0, "y": -300, "text": "播放頁｜iPhone（窄）・Windows・Mac（寬）", "kind": "title1", "maxW": 3110, "page": "player"},
+    "player_t2": {"x": 0, "y": 1020, "text": "選擇點：P-16・P-02・P-12・P-13", "kind": "title1", "maxW": 5560, "page": "player"},
+    "player_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "player", "text": "P-16 請回覆 A 或 B\nA＝舊版：左封面＋控制，右歌詞（5:7）；沒歌詞時單欄置中（主畫面照 A）。\nB＝新版方案 B：左右各半，右欄「歌詞｜佇列｜詳細」分頁。\n\n推薦 A：佇列回到導覽（P-03 A）後，播放頁專心看歌詞；M7 前沒歌詞時單欄置中，不留空白。\n若 P-03 選 B，P-16 建議跟著選 B。"},
+    "player_c2": {"x": 3320, "y": 1320, "w": 360, "fill": "yellow", "page": "player", "text": "P-02 請回覆 A 或 B\nA＝舊版：曲名置中加粗、時間在進度條下方兩端、80dp 圓形播放鍵、五鍵均分，沒有底板。\nB＝新版：曲名靠左、時間與進度同一列、標準尺寸按鈕，放在毛玻璃卡裡。\n\n推薦 A：大播放鍵是這頁最主要的動作；不用毛玻璃也和 APL-1 A 一致。"},
+    "player_c3": {"x": 5200, "y": 1320, "w": 360, "fill": "yellow", "page": "player", "text": "P-12 請回覆 A 或 B\nA＝舊版：播放列頂端 2dp 細線，滑過變粗可拖；本稿加上滑過時兩端顯示時間。\nB＝新版：完整進度滑桿＋時間，手機多一行高度。\n推薦 A：省高度，又補了舊版缺的時間。\n\nP-13 請回覆 A 或 B\nA＝舊版：播放列橫跨整個視窗（含側欄下方）。\nB＝新版：只在內容區與面板下方，側欄延伸到底。\n推薦 A：舊版外觀。點擊區照新版（只有封面＋曲名開播放頁）。"},
+
+    "queue_t1": {"x": 0, "y": -300, "text": "佇列｜iPhone・Windows・Mac", "kind": "title1", "maxW": 3110, "page": "queue"},
+    "queue_t2": {"x": 0, "y": 1020, "text": "選擇點：B-17／P-03／P-21・P-04", "kind": "title1", "maxW": 3720, "page": "queue"},
+    "queue_c1": {"x": 1480, "y": 1320, "w": 380, "fill": "yellow", "page": "queue", "text": "B-17／P-03／P-21 請回覆 A 或 B\nA＝佇列回到一級導覽：手機底部 6 項、桌面側欄；手機是整頁（主畫面照 A）。\nB＝不當導覽項：播放列加「佇列」鈕，桌面開在右側面板的「佇列」分頁，手機開底部面板。\n\n推薦 A：中文兩字標籤放 6 項不擠，舊版用了很久；佇列是長歌單連播時最常看的畫面。\n選 A 要改 ADR 0033 §決定 5 與 ADR 0024 §決定 4。"},
+    "queue_c2": {"x": 3360, "y": 1320, "w": 360, "fill": "yellow", "page": "queue", "text": "P-04 請回覆 A 或 B\nA＝舊版：時長＋「×」直接移除，長按整列拖曳，沒有選單。\nB＝合併：時長＋「×」＋拖曳把手；右鍵／長按開選單（下一首播放、開始 Mix、加入歌單…）（主畫面照 B）。\n\n推薦 B：保留新版選單，又把最常用的「移除」放回一鍵。"},
+
+    "history_t1": {"x": 0, "y": -300, "text": "播放歷史｜iPhone・Windows・Mac", "kind": "title1", "maxW": 3110, "page": "history"},
+    "history_t2": {"x": 0, "y": 1020, "text": "選擇點：P-07", "kind": "title1", "maxW": 1800, "page": "history"},
+    "history_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "history", "text": "P-07 請回覆 A 或 B\nA＝舊版全套：統計卡（今天／本週／全部）、音源篩選、日期、搜尋、排序（主畫面照 A）。\nB＝精簡：搜尋、音源篩選、日期跳轉；不做統計卡與「按播放次數排序」。\n\n推薦 A：統計卡和篩選列是舊版歷史頁的樣子；成本 M，與分頁查詢一起做。"},
+
+    "search_t1": {"x": 0, "y": -300, "text": "搜尋｜iPhone（搜尋記錄）・Windows・Mac（結果）", "kind": "title1", "maxW": 3110, "page": "search"},
+    "search_t2": {"x": 0, "y": 1020, "text": "選擇點：B-02・B-06", "kind": "title1", "maxW": 1800, "page": "search"},
+    "search_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "search", "text": "B-02 請回覆 A 或 B\nA＝「全部音源」預設混搜，每列標音源（主畫面照 A）。\nB＝一次搜一個音源。\n推薦 A：舊版的預設，同一首歌在不同平台都找得到；成本 L，可排在 U 後段。\n\nB-06 請回覆 A 或 B\nA＝排序下拉（綜合／播放數／最新）。\nB＝不做。\n推薦 B：要改插件介面，YouTube 與網易雲不一定支援。"},
+
+    "import_t1": {"x": 0, "y": -300, "text": "匯入進度｜iPhone（網址）・Windows・Mac（帳號）", "kind": "title1", "maxW": 3110, "page": "import"},
+    "import_t2": {"x": 0, "y": 1020, "text": "選擇點：L-01・L-02・L-03", "kind": "title1", "maxW": 5560, "page": "import"},
+    "import_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "import", "text": "L-01 請回覆 A 或 B\nA＝舊版式：底部面板兩行小字「歌單名 1/3」「曲名 n/總數」，按鈕變「取消」，沒有進度條。\nB＝全頁：頂端「歌單 1／3」總進度，每張歌單一條確定式進度「已匯入 312／1195 首」，可取消（主畫面照 B）。\n\n推薦 B：1195 首時看得到在動。總數用帳號清單已有的首數，不用改插件；「取消」要資料層加取消（成本 M）。"},
+    "import_c2": {"x": 3320, "y": 1320, "w": 360, "fill": "yellow", "page": "import", "text": "L-02 請回覆 A 或 B\nA＝提案：確定式進度「已匯入 312／1195 首」＋目前曲名＋可取消（主畫面照 A）。\nB＝新版現況：「已讀 312 首」＋不定進度條，不能取消也關不掉。\n\n推薦 A：插件沒給總數時退回「已讀 n 首」＋不定進度條。"},
+    "import_c3": {"x": 5200, "y": 1320, "w": 360, "fill": "yellow", "page": "import", "text": "L-03 請回覆 A 或 B\nA＝舊版：音樂庫底部常駐進度面板，加卡片封面遮罩轉圈。\nB＝簡化：卡片封面轉圈＋詳情頁「刷新中 312／1195 首」，沒有底部面板。\n\n推薦 B：盯著看的需求被卡片與詳情滿足，底部面板會蓋住播放列上方的內容。"},
+
+    "settings_t1": {"x": 0, "y": -300, "text": "設定｜iPhone・Windows・Mac", "kind": "title1", "maxW": 3110, "page": "settings"},
+    "settings_t2": {"x": 0, "y": 1020, "text": "選擇點：L-25", "kind": "title1", "maxW": 1800, "page": "settings"},
+    "settings_c1": {"x": 1440, "y": 1320, "w": 360, "fill": "yellow", "page": "settings", "text": "L-25 請回覆 A 或 B\nA＝舊版單一長清單，點列彈出對話框選值。\nB＝新版：桌面左分組右內容，手機先分組再進入；分組列加目前值摘要（L-33）（主畫面照 B）。\n\n推薦 B：寬螢幕下值一眼可見，解決舊版「>」離文字太遠的問題；加摘要後手機少一次來回。"}
+  },
+  "designSystems": []
+}

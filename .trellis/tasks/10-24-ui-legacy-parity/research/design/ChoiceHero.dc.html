@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>L-13 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:760px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:18px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">L-13 歌單詳情頂部</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版：280dp 模糊封面頂圖，捲動後收成 AppBar</span></div>
+      <div style="background:#141218;border-radius:12px;height:560px;overflow:hidden;color:#E6E0E9">
+        <div style="height:280px;position:relative;overflow:hidden">
+          <div style="position:absolute;inset:-60px;filter:blur(40px);background:#4E9A7E"><div style="position:absolute;left:160px;top:80px;width:300px;height:300px;border-radius:150px;background:#7FC2A6"></div></div>
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,.54)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,24,0) 40%,rgba(20,18,24,.8))"></div>
+          <div style="position:absolute;left:20px;right:20px;bottom:20px;display:flex;gap:16px;align-items:flex-end">
+            <div style="width:120px;height:120px;border-radius:12px;background:#4E9A7E;box-shadow:0 8px 20px rgba(0,0,0,.45)"></div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="font-size:21px;font-weight:700;color:#fff">雨天的 Lo-fi 收藏</div>
+              <div style="font-size:12px;color:rgba(255,255,255,.75)">窗外下雨的時候放這張。慢節奏、低音量。</div>
+              <div style="font-size:12px;color:rgba(255,255,255,.65)">擁有者：雨聲收集者</div>
+              <div style="font-size:12px;color:#fff">128 首歌曲 · 6 小時 12 分　<span style="padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.18)">已匯入 · 嗶哩嗶哩</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;padding:16px 20px">
+          <div style="flex:1;height:40px;border-radius:20px;background:#D0BCFF;color:#381E72;display:flex;align-items:center;justify-content:center;font-size:14px">加入所有</div>
+          <div style="flex:1;height:40px;border-radius:20px;border:1px solid #938F99;color:#D0BCFF;display:flex;align-items:center;justify-content:center;font-size:14px">隨機加入</div>
+          <div style="height:40px;padding:0 16px;border-radius:20px;border:1px solid #938F99;color:#D0BCFF;display:flex;align-items:center;font-size:14px">刷新</div>
+        </div>
+        <div style="padding:0 20px;display:flex;flex-direction:column;gap:14px">
+          <div style="height:44px;border-radius:8px;background:#211F26"></div><div style="height:44px;border-radius:8px;background:#211F26"></div><div style="height:44px;border-radius:8px;background:#211F26"></div>
+        </div>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">新版：144dp 封面靠左的平面標頭（補總時長與徽章）</span></div>
+      <div style="background:#141218;border-radius:12px;height:560px;overflow:hidden;color:#E6E0E9;padding:16px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg><span style="font-size:24px">雨天的 Lo-fi 收藏</span></div>
+        <div style="display:flex;gap:16px">
+          <div style="width:144px;height:144px;border-radius:8px;background:#4E9A7E;flex-shrink:0"></div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+            <span style="color:#CAC4D0;font-size:14px">匯入 · 128 首 · 6 小時 12 分</span>
+            <span style="color:#CAC4D0">嗶哩嗶哩 · 雨聲收集者</span>
+            <span style="line-height:1.5">窗外下雨的時候放這張。慢節奏、低音量，適合讀書和寫東西。</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="height:40px;padding:0 20px;border-radius:20px;background:#D0BCFF;color:#381E72;display:flex;align-items:center;font-size:14px">全部加入佇列</div>
+          <div style="height:40px;padding:0 20px;border-radius:20px;background:#4A4458;color:#E8DEF8;display:flex;align-items:center;font-size:14px">隨機加入佇列</div>
+          <div style="height:40px;padding:0 16px;border-radius:20px;border:1px solid #938F99;color:#D0BCFF;display:flex;align-items:center;font-size:14px">刷新</div>
+        </div>
+        <div style="height:36px;border-radius:8px;background:#2B2930;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#CAC4D0">上次刷新：今天 09:12・已同步 128 首</div>
+        <div style="height:44px;border-radius:8px;background:#211F26"></div><div style="height:44px;border-radius:8px;background:#211F26"></div><div style="height:44px;border-radius:8px;background:#211F26"></div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

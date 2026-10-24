@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>P-12 P-13 選擇</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1400px;height:640px;box-sizing:border-box;padding:32px 40px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:16px">
+  <h2 style="margin:0;font-size:22px;font-weight:700">P-12 播放列進度條</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版細線（平時）→ 滑過變粗、兩端出現時間</span></div>
+      <div style="border-radius:10px;overflow:hidden;width:640px"><dc-import name="MiniPlayer" w="{{640}}" hint-size="640px,72px"></dc-import></div>
+      <div style="border-radius:10px;overflow:hidden;width:640px;padding-top:4px;background:#2B2930"><dc-import name="MiniPlayer" w="{{640}}" hover="{{true}}" hint-size="640px,72px"></dc-import></div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">新版：完整滑桿＋時間（手機多一行）</span></div>
+      <div style="width:640px;height:96px;border-radius:10px;background:#211F26;color:#E6E0E9;display:flex;align-items:center;padding:0 16px;box-sizing:border-box;gap:14px">
+        <div style="width:48px;height:48px;border-radius:8px;background:#3F7CAC"></div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">潮汐之間（Live at 河岸音樂節）</div><div style="font-size:12px;color:#CAC4D0">微光樂團</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+          <div style="display:flex;gap:12px;align-items:center"><span style="width:16px;height:16px;border-radius:8px;background:#49454F"></span><span style="width:16px;height:16px;border-radius:8px;background:#49454F"></span><span style="width:36px;height:36px;border-radius:18px;background:#D0BCFF"></span><span style="width:16px;height:16px;border-radius:8px;background:#49454F"></span><span style="width:16px;height:16px;border-radius:8px;background:#49454F"></span></div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#CAC4D0">1:27<div style="width:180px;height:4px;border-radius:2px;background:#49454F"><div style="width:35%;height:4px;border-radius:2px;background:#D0BCFF"></div></div>4:09</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <h2 style="margin:10px 0 0;font-size:22px;font-weight:700">P-13 播放列的範圍</h2>
+  <div style="display:flex;gap:40px">
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">A</span><span style="font-size:16px;font-weight:600">舊版：橫跨整個視窗，包含側欄下方</span></div>
+      <div style="width:400px;height:200px;border-radius:8px;overflow:hidden;background:#141218;display:flex;flex-direction:column">
+        <div style="height:14px;background:#211F26"></div>
+        <div style="flex:1;display:flex"><div style="width:36px;background:#1D1B20"></div><div style="flex:1"></div><div style="width:110px;background:#1D1B20"></div></div>
+        <div style="height:34px;background:#4F378B;color:#EADDFF;font-size:12px;display:flex;align-items:center;padding-left:12px">播放列</div>
+      </div>
+    </section>
+    <section style="flex:1;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;border-radius:16px;background:#1D1B20;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="font-size:16px;font-weight:600">新版：只在內容區與右側面板下方</span></div>
+      <div style="width:400px;height:200px;border-radius:8px;overflow:hidden;background:#141218;display:flex;flex-direction:column">
+        <div style="height:14px;background:#211F26"></div>
+        <div style="flex:1;display:flex"><div style="width:36px;background:#1D1B20"></div><div style="flex:1;display:flex;flex-direction:column"><div style="flex:1;display:flex"><div style="flex:1"></div><div style="width:110px;background:#1D1B20"></div></div><div style="height:34px;background:#4F378B;color:#EADDFF;font-size:12px;display:flex;align-items:center;padding-left:12px">播放列</div></div></div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

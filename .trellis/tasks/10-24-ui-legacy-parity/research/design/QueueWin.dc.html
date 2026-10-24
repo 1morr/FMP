@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>佇列 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="display:flex;height:692px">
+    <dc-import name="NavRail" active="queue" hint-size="72px,692px"></dc-import>
+    <main style="width:868px;height:692px;overflow:hidden;display:flex;flex-direction:column">
+      <header style="height:64px;display:flex;align-items:center;padding:0 12px;flex-shrink:0;position:relative">
+        <button aria-label="跳到底部" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20h14M12 4v12M7 11l5 5 5-5"/></svg></button>
+        <h1 style="flex:1;margin:0;text-align:center;font-size:22px;font-weight:400">播放佇列</h1>
+        <button aria-label="打亂" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+        <button aria-label="清空佇列" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+        <span style="display:{{tagDisplay}};position:absolute;left:60px;top:8px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-06 照舊版（已定案）：跳頂／底、打亂、清空</span>
+      </header>
+      <a href="#" style="height:44px;display:flex;align-items:center;padding:0 20px;background:rgba(208,188,255,.12);color:#E6E0E9;text-decoration:none;font-size:14px;flex-shrink:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:10px"><path d="M7 4.5v15l12.5-7.5z" fill="#D0BCFF"/></svg>
+        <span style="flex:1">正在播放第 12 首</span><span style="color:#CAC4D0">共 48 首</span>
+      </a>
+      <div style="height:36px;display:flex;align-items:center;gap:8px;padding:0 20px;font-size:12px;color:#CAC4D0;background:#1D1B20;flex-shrink:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D0BCFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+        隨機已開啟：順序跟著位置；拖曳只換歌，不改順序
+        <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#0B7285;color:#fff;font-size:10px;font-weight:600">新版新增 隨機語意說明</span>
+      </div>
+      <div style="padding:4px 12px 0;position:relative">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+          <div style="display:flex;align-items:center;height:72px;gap:14px;padding:0 4px 0 12px;border-radius:8px">
+            <span style="width:48px;height:48px;border-radius:8px;background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:block">
+              <span style="position:absolute;left:30%;top:30%;width:55%;height:55%;border-radius:{{r.rad}};background:{{r.fg}};display:block"></span>
+              <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+                <span style="position:absolute;inset:0;background:rgba(208,188,255,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box"><span style="width:3px;height:10px;background:#381E72;display:block"></span><span style="width:3px;height:16px;background:#381E72;display:block"></span><span style="width:3px;height:7px;background:#381E72;display:block"></span></span>
+              </sc-if>
+            </span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+              <span style="font-size:13px;color:#CAC4D0">{{r.artist}}</span>
+            </span>
+            <span style="width:48px;text-align:center;font-size:12px;color:#CAC4D0">{{r.dur}}</span>
+            <button aria-label="從佇列移除" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <button aria-label="拖曳排序" style="width:40px;height:40px;border:0;background:none;color:#938F99;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 9h14M5 15h14"/></svg></button>
+          </div>
+        </sc-for>
+        <span style="display:{{tagDisplay}};position:absolute;right:20px;top:2px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-04 B：× 一鍵移除＋把手；右鍵開選單</span>
+        <span style="display:{{tagDisplay}};position:absolute;left:70px;top:150px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-05 播放中遮罩＋主色粗體</span>
+      </div>
+    </main>
+    <dc-import name="NowPlayingPanel" show-tags="{{showTags}}" hint-size="340px,692px"></dc-import>
+  </div>
+  <dc-import name="MiniPlayer" hint-size="1280px,72px"></dc-import>
+  <span style="display:{{tagDisplay}};position:absolute;left:8px;top:300px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-03 A 導覽項</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const pal = [['#7E6BC4','#A99BE0'],['#3F7CAC','#6FA3CC'],['#C46B6B','#E09A8F'],['#4E9A7E','#7FC2A6'],['#C9A24A','#E8C97A'],['#5B5F97','#8C90C4'],['#B5838D','#D8AEB6'],['#2F6E6E','#5C9A9A']];
+    const rows = [
+      ['晚安，月台（雨夜吉他版）', '白晝計畫', '3:48'],
+      ['潮汐之間（Live at 河岸音樂節）', '微光樂團', '4:09', true],
+      ['Northbound Lights', 'Lumen Drift', '3:31'],
+      ['迴聲小巷 Echo Alley', 'Echo Avenue', '4:02'],
+      ['Paper Moons (Live Session)', 'The Quiet Rooms', '3:57'],
+      ['紙飛機', '林間合唱團', '4:31'],
+      ['Glass Harbor', 'Mira Sol', '3:44'],
+      ['風吹過的地方', '白晝計畫', '5:06']
+    ].map(([title, artist, dur, playing], i) => ({
+      title, artist, dur, playing: !!playing, bg: pal[(i + 2) % 8][0], fg: pal[(i + 2) % 8][1], rad: i % 2 ? '18%' : '50%',
+      titleColor: playing ? '#D0BCFF' : '#E6E0E9', weight: playing ? 600 : 400
+    }));
+    rows[1].bg = '#3F7CAC'; rows[1].fg = '#6FA3CC';
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      rows, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>
