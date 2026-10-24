@@ -1733,6 +1733,10 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   String get queueJumpBottom => '跳到底部';
   @override
   String queuePlayingAt({required Object index}) => '正在播放第 ${index} 首';
+  @override
+  String queueRemoveTrack({required Object title}) => '从队列移除「${title}」';
+  @override
+  String get queueMixLoading => '正在加载更多歌曲';
 }
 
 // Path: appearance

@@ -442,7 +442,8 @@ void main() {
           final current = state.currentIndex!;
           final order = state.shuffleOrder!;
           final length = state.entries.length;
-          switch (random.nextInt(7)) {
+          // 打亂不常按（每一輪都被它重開的話，輪就播不完）：固定的幾步按一次。
+          switch (step % 500 == 250 ? 7 : random.nextInt(7)) {
             case 0 || 1 || 2:
               final endOfRound = order.indexOf(current) == length - 1;
               final peeked = queue.next!.index;
@@ -504,6 +505,20 @@ void main() {
               final slot = slots.removeAt(index);
               slots.insert(at, slot);
               round.remove(slot);
+            case 7:
+              final before = state.entries;
+              expect(queue.shuffleEntries(), isTrue);
+              final after = queue.state.entries;
+              expect(identical(after.first, before[current]), isTrue);
+              final slotOf = [
+                for (final entry in after)
+                  slots[before.indexWhere((e) => identical(e, entry))],
+              ];
+              slots
+                ..clear()
+                ..addAll(slotOf);
+              // 重新產生一輪，目前這首開頭。
+              round = [slots[0]];
             default:
               break;
           }

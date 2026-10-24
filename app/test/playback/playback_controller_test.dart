@@ -2174,6 +2174,16 @@ void main() {
       });
     });
 
+    test('shuffling the queue', () {
+      fakeAsync((async) {
+        final h = playing(async, ['a', 'b', 'c', 'd', 'e', 'f']);
+        expect(h.controller.shuffleQueue(), isTrue);
+        final queue = h.controller.queue;
+        expect(queue.currentIndex, 0);
+        expectHandoverTo(h, queue.entries[1].track.sourceId);
+      });
+    });
+
     test('the engine taking over the replaced look-ahead plays the new next '
         'song', () {
       fakeAsync((async) {

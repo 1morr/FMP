@@ -262,8 +262,9 @@ class _QueueViewState extends ConsumerState<QueueView> {
                               child: SizedBox.square(
                                 key: QueueView.footerSpinnerKey,
                                 dimension: AppLayout.queueFooterSpinner,
-                                child: const CircularProgressIndicator(
+                                child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  semanticsLabel: t.queueMixLoading,
                                 ),
                               ),
                             )
@@ -375,29 +376,39 @@ class _NowPlayingBanner extends ConsumerWidget {
     final style = theme.textTheme.bodySmall?.copyWith(color: scheme.primary);
     return Material(
       color: scheme.primaryContainer.withValues(alpha: AppLayout.queueBanner),
-      child: InkWell(
-        key: QueueView.bannerKey,
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: AppLayout.queueBannerHeight,
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.x4),
-            child: Row(
-              children: [
-                Icon(Icons.play_circle_filled, size: 16, color: scheme.primary),
-                SizedBox(width: spacing.x2),
-                Expanded(
-                  child: Text(t.queuePlayingAt(index: index + 1), style: style),
-                ),
-                Text(
-                  t.queueCount(count: total),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          key: QueueView.bannerKey,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppLayout.queueBannerHeight,
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.x4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_filled,
+                    size: 16,
+                    color: scheme.primary,
                   ),
-                ),
-              ],
+                  SizedBox(width: spacing.x2),
+                  Expanded(
+                    child: Text(
+                      t.queuePlayingAt(index: index + 1),
+                      style: style,
+                    ),
+                  ),
+                  Text(
+                    t.queueCount(count: total),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -492,8 +503,9 @@ class _QueueRow extends ConsumerWidget {
           children: [
             if (duration != null) Text(formatDuration(duration)),
             // 一下就移除，不確認（同選單裡的「從佇列移除」）。
+            // 名稱帶曲名：每列都有一顆，讀屏逐顆讀時才分得出是哪一首。
             IconButton(
-              tooltip: t.queueRemove,
+              tooltip: t.queueRemoveTrack(title: track.displayTitle),
               icon: const Icon(Icons.close),
               onPressed: () => unawaited(
                 ref.read(playbackControllerProvider).removeAt(index),

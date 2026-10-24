@@ -1797,6 +1797,11 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   String get queueJumpBottom => 'Jump to bottom';
   @override
   String queuePlayingAt({required Object index}) => 'Playing track ${index}';
+  @override
+  String queueRemoveTrack({required Object title}) =>
+      'Remove "${title}" from the queue';
+  @override
+  String get queueMixLoading => 'Loading more songs';
 }
 
 // Path: appearance

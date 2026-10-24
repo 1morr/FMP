@@ -499,6 +499,27 @@ void main() {
     });
   });
 
+  group('the jump button on a short list', () {
+    testWidgets('follows where the list really opened, not where it wanted '
+        'to', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      // 想從第 6 列（360dp）開始，但清單短，實際被夾在頂端附近（夾回去時位置有通知，
+      // 方向跟著更新）。
+      await h.play(tester, [
+        for (var i = 0; i < 8; i++) summary('t$i'),
+      ], index: 7);
+      await tester.pump(const Duration(milliseconds: 200));
+      await h.openQueue(tester);
+      final scroll = tester
+          .widget<ReorderableListView>(find.byType(ReorderableListView))
+          .scrollController!;
+
+      expect(scroll.offset, lessThan(200));
+      expect(find.byTooltip('Jump to bottom'), findsOneWidget);
+    });
+  });
+
   group('shuffling', () {
     testWidgets('Shuffle reorders the queue, current first, and says so', (
       tester,
@@ -574,6 +595,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byKey(QueueView.footerSpinnerKey), findsOneWidget);
+      expect(find.bySemanticsLabel('Loading more songs'), findsOneWidget);
 
       more.complete(
         MixBatch(
@@ -597,12 +619,8 @@ void main() {
     ) async {
       final h = await _openQueue(tester);
 
-      await tester.tap(
-        find.descendant(
-          of: _row('b'),
-          matching: find.byTooltip('Remove from queue'),
-        ),
-      );
+      // 名稱帶曲名，讀屏才分得出是哪一列的「×」。
+      await tester.tap(find.byTooltip('Remove "Song b" from the queue'));
       await tester.pumpAndSettle();
 
       expect(_ids(h), ['a', 'c', 'd']);

@@ -58,6 +58,17 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
   });
 
+  testWidgets('stops when paused and moves again when playing', (tester) async {
+    await _pump(tester, state: const Playing());
+    expect(tester.hasRunningAnimations, isTrue);
+
+    await _pump(tester, state: const Paused());
+    expect(tester.hasRunningAnimations, isFalse);
+
+    await _pump(tester, state: const Playing());
+    expect(tester.hasRunningAnimations, isTrue);
+  });
+
   testWidgets('is still when the system asks for less motion', (tester) async {
     await _pump(tester, state: const Playing(), disableAnimations: true);
 

@@ -724,7 +724,9 @@
     "queueShuffled": "已打乱",
     "queueJumpTop": "跳到顶部",
     "queueJumpBottom": "跳到底部",
-    "queuePlayingAt": "正在播放第 {index} 首"
+    "queuePlayingAt": "正在播放第 {index} 首",
+    "queueRemoveTrack": "从队列移除「{title}」",
+    "queueMixLoading": "正在加载更多歌曲"
   },
   "appearance": {
     "theme": "主题",

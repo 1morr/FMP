@@ -2336,6 +2336,12 @@ class Translations$playerPage$zh_TW {
 
   /// zh-TW: '正在播放第 {index} 首'
   String queuePlayingAt({required Object index}) => '正在播放第 ${index} 首';
+
+  /// zh-TW: '從佇列移除「{title}」'
+  String queueRemoveTrack({required Object title}) => '從佇列移除「${title}」';
+
+  /// zh-TW: '正在載入更多歌曲'
+  String get queueMixLoading => '正在載入更多歌曲';
 }
 
 // Path: appearance

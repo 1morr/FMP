@@ -724,7 +724,9 @@
     "queueShuffled": "Queue shuffled",
     "queueJumpTop": "Jump to top",
     "queueJumpBottom": "Jump to bottom",
-    "queuePlayingAt": "Playing track {index}"
+    "queuePlayingAt": "Playing track {index}",
+    "queueRemoveTrack": "Remove \"{title}\" from the queue",
+    "queueMixLoading": "Loading more songs"
   },
   "appearance": {
     "theme": "Theme",
