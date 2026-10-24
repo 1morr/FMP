@@ -55,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -191,6 +191,17 @@ class AppDatabase extends _$AppDatabase {
               // 新表升級後是空的：沒有匯入過舊版資料。
               await m.create(schema.legacyImports);
               await m.create(schema.legacyPlaylistIds);
+            },
+            from19To20: (m, schema) async {
+              // 既有的列這兩欄是空的＝沒設定過，預設只在 resolveAppearance 套用。
+              await m.addColumn(
+                schema.appearanceSettings,
+                schema.appearanceSettings.seedColor,
+              );
+              await m.addColumn(
+                schema.appearanceSettings,
+                schema.appearanceSettings.fontFamily,
+              );
             },
           ),
         );

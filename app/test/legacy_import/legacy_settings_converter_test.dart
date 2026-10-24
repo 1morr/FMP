@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/import/import_bundle.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
@@ -24,6 +26,7 @@ ImportBundle convertWith(
   LegacyImportSource source = LegacyImportSource.database,
   bool importOutputDevice = false,
   int searchHistoryCount = 0,
+  List<String> fontChoices = const [],
 }) {
   final base = legacySnapshot(settings: settings);
   final snapshot = LegacySnapshot(
@@ -49,6 +52,7 @@ ImportBundle convertWith(
         source: source,
         now: DateTime.utc(2026, 10, 23),
         importOutputDevice: importOutputDevice,
+        fontChoices: fontChoices,
       )
       .bundle;
 }
@@ -59,6 +63,8 @@ void main() {
       final bundle = convertWith(LegacySettings());
       expect(bundle.appearance.themeMode, isNull);
       expect(bundle.appearance.locale, isNull);
+      expect(bundle.appearance.seedColor, isNull);
+      expect(bundle.appearance.fontFamily, isNull);
       expect(bundle.network, NetworkSettings.empty);
       expect(bundle.playback.audioQuality, isNull);
       expect(bundle.playback.tempPlayRewindSeconds, isNull);
@@ -101,6 +107,76 @@ void main() {
       expect(bundle.network, NetworkSettings.empty);
       expect(bundle.layout.panelWidth, isNull);
       expect(bundle.record.summary.unimportedSettings, isEmpty);
+    });
+  });
+
+  group('theme color and font (primaryColor, fontFamily)', () {
+    test('a changed color becomes an opaque seed', () {
+      expect(
+        convertWith(LegacySettings(primaryColor: 0xFF336699))
+            .appearance
+            .seedColor,
+        const Color(0xFF336699),
+      );
+      // 舊值的 alpha 不帶進來。
+      expect(
+        convertWith(LegacySettings(primaryColor: 0x00336699))
+            .appearance
+            .seedColor,
+        const Color(0xFF336699),
+      );
+    });
+
+    test(
+      'the default purple, a missing color and a bad value write nothing',
+      () {
+        expect(
+          convertWith(LegacySettings(primaryColor: 0xFF6750A4))
+              .appearance
+              .seedColor,
+          isNull,
+        );
+        expect(convertWith(LegacySettings()).appearance.seedColor, isNull);
+        expect(
+          convertWith(LegacySettings(primaryColor: _minLong))
+              .appearance
+              .seedColor,
+          isNull,
+        );
+      },
+    );
+
+    test('a font in the platform list is imported', () {
+      final bundle = convertWith(
+        LegacySettings(fontFamily: 'Meiryo'),
+        fontChoices: const ['Microsoft JhengHei UI', 'Meiryo'],
+      );
+      expect(bundle.appearance.fontFamily, 'Meiryo');
+    });
+
+    test('a font that is not in the list falls back to the system default', () {
+      for (final choices in [
+        const ['Microsoft JhengHei UI'],
+        const <String>[],
+      ]) {
+        final bundle = convertWith(
+          LegacySettings(fontFamily: 'SimSun'),
+          fontChoices: choices,
+        );
+        expect(bundle.appearance.fontFamily, isNull);
+        // 不在清單也不再列為「沒有匯入的設定」。
+        expect(bundle.record.summary.unimportedSettings, isEmpty);
+      }
+    });
+
+    test('a blank font writes nothing', () {
+      expect(
+        convertWith(
+          LegacySettings(fontFamily: ''),
+          fontChoices: const [''],
+        ).appearance.fontFamily,
+        isNull,
+      );
     });
   });
 
@@ -565,10 +641,6 @@ void main() {
     });
 
     test('each changed setting is listed with its stable id', () {
-      expect(listed(LegacySettings(primaryColor: 0xFF336699)), [
-        'primaryColor',
-      ]);
-      expect(listed(LegacySettings(fontFamily: 'Fake Font')), ['fontFamily']);
       expect(listed(priority('hls,audioOnly')), ['streamPriority']);
       expect(listed(LegacySettings(maxLyricsCacheFiles: 10)), ['cacheLimit']);
       expect(
@@ -597,7 +669,7 @@ void main() {
           ),
           searchHistory: 1,
         ),
-        ['primaryColor', 'cacheLimit', 'railExpanded', 'searchHistory'],
+        ['cacheLimit', 'railExpanded', 'searchHistory'],
       );
     });
   });

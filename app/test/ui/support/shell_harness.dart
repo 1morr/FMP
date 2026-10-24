@@ -15,6 +15,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/data/database/app_database.dart';
@@ -105,6 +106,7 @@ final class ShellHarness {
     bool libraryWrite = false,
     this.secureStorage = false,
     this.restartsItself = false,
+    this.fontChoices = const [],
     this.dataReset,
     this.sourceUnavailable = _noUnavailableSource,
     this.flavor = AppFlavor.dev,
@@ -225,6 +227,9 @@ final class ShellHarness {
   /// 平台宣告重設資料、還原之後 App 會自己重啟（Windows）；預設是 Android 的行為（要手動重開）。
   final bool restartsItself;
 
+  /// 平台宣告的外觀設定字型清單（不含系統預設）；預設沒有。
+  final List<String> fontChoices;
+
   /// Debug 頁的備份、還原與重設（`dataResetProvider`）；不給就不 override，用到會讀到真的
   /// 實作所需的 provider 而拋錯。
   final DataReset? dataReset;
@@ -319,6 +324,7 @@ final class ShellHarness {
         singleInstance: false,
         secureStorage: secureStorage,
         fontFallback: FontFallback.none,
+        fontChoices: fontChoices,
         playback: outputDeviceSelection
             ? const PlaybackSupport(
                 backend: AudioBackendKind.mediaKit,
@@ -457,6 +463,13 @@ final class ShellHarness {
               Brightness.dark => ThemeModeSetting.dark,
             }),
             fontFamilyFallback: const [],
+            // 和 FmpApp 一樣讓主題跟著外觀設定的主題色與字型。
+            seedColor: ref.watch(
+              appearanceProvider.select((a) => a.value?.stored.seedColor),
+            ),
+            fontFamily: ref.watch(
+              appearanceProvider.select((a) => a.value?.fontFamily),
+            ),
             navigatorKey: navigatorKey,
             navigatorObservers: [ref.watch(toastRouteObserverProvider)],
             builder: (context, navigator) =>

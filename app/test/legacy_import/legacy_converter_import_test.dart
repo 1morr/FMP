@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' show Color;
 
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
@@ -143,10 +144,11 @@ void main() {
           .bundle;
 
       // 合成庫的設定：深色、zh_TW、重啟倒帶 5 秒，歷史上限與面板寬度是型別預設（不寫），面板收起照舊值寫，
-      // 主色改過（不匯入），三個音源的 useAuthForPlay 是舊預設。
+      // 主色改過（匯入成主題色），三個音源的 useAuthForPlay 是舊預設。
       final expectedAppearance = AppearanceSettings(
         themeMode: ThemeModeSetting.dark,
         locale: LocaleSetting.zhTw,
+        seedColor: const Color(0xFF336699),
       );
       final expectedPlayback = PlaybackSettings(restartRewindSeconds: 5);
       final expectedBrowse = {
@@ -160,7 +162,6 @@ void main() {
       expect(bundle.layout, const LayoutState(panelExpanded: false));
       expect(bundle.browseAsLoggedIn, expectedBrowse);
       expect(bundle.record.summary.unimportedSettings, [
-        UnimportedSetting.primaryColor,
         UnimportedSetting.searchHistory,
       ]);
 

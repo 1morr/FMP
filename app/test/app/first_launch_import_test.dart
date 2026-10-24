@@ -118,6 +118,7 @@ void main() {
     ),
     secureStorage: storage,
     importOutputDevice: false,
+    fontChoices: const [],
   );
 
   Future<LegacySource> source() async =>

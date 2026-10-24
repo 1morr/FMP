@@ -35,6 +35,7 @@ final class PlatformCapabilities {
     required this.restartsItself,
     required this.shareFiles,
     required this.pluginDevTools,
+    this.fontChoices = const [],
     this.mediaControls,
   });
 
@@ -67,6 +68,10 @@ final class PlatformCapabilities {
 
   /// 各介面語言的 CJK 字型 fallback（ADR 0024 §決定 2）。
   final FontFallback fontFallback;
+
+  /// 外觀設定可選的字型（`ThemeData.fontFamily`），不含「系統預設」（那一項永遠有，值是 `null`）。
+  /// 每個平台一份固定清單（ADR 0035 §決定 5）；沒有可指名字型的平台為空。
+  final List<String> fontChoices;
 
   /// 播放用的後端與可播格式（ADR 0018 §決定 3）；沒有播放的實作時為 `null`。
   final PlaybackSupport? playback;
@@ -116,6 +121,7 @@ final class PlatformCapabilities {
     dataDirectory: dataDirectory,
     singleInstance: singleInstance,
     fontFallback: fontFallback,
+    fontChoices: fontChoices,
     playback: playback,
     networkInterfaces: networkInterfaces,
     cache: cache,

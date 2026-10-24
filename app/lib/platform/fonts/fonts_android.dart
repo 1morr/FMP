@@ -9,3 +9,7 @@ import 'package:fmp/platform/fonts/fonts.dart';
 /// 文字帶 `zh-Hant` 的 locale 時，模擬器實測拿到繁中字形（2026-09-29）；
 /// 來源與實測見 `.trellis/tasks/archive/2026-09/09-29-platform-layer/research/notes.md`。
 const androidFontFallback = FontFallback.none;
+
+/// Android 外觀設定可選的字型：系統內建的三個通用名稱（舊版清單去掉無效的變體，
+/// ADR 0035 §決定 5）。
+const androidFontChoices = ['sans-serif', 'serif', 'monospace'];

@@ -64,6 +64,7 @@ import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 
@@ -141,12 +142,21 @@ void main() {
           sourceName: (_) => null,
         );
         addTearDown(toaster.dispose);
+        // 外觀頁有主題色與字型之後比預設的 800x600 長：整頁都要畫出來，語言選項與新的
+        // 控制項才都受檢查。
+        tester.view.physicalSize = const Size(800, 1600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
         final database = memoryDatabase();
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
               appDatabaseProvider.overrideWithValue(database),
               toasterProvider.overrideWithValue(toaster),
+              // 外觀設定讀平台的字型清單。
+              platformCapabilitiesProvider.overrideWithValue(
+                PlatformCapabilities.none,
+              ),
             ],
             child: MaterialApp(
               theme: buildAppTheme(
@@ -1462,7 +1472,8 @@ void main() {
         // 設定頁寬版的第一組是帳號（M3 PR 8）：外觀另外點開。
         testWidgets('appearance settings at $width', (tester) async {
           final handle = tester.ensureSemantics();
-          final h = ShellHarness();
+          // 字型清單與主題色塊都在這一頁：給平台的字型，清單才有項目。
+          final h = ShellHarness(fontChoices: const ['serif', 'monospace']);
           await h.pumpShell(tester, size: size, brightness: brightness);
           await tester.tap(find.text('Settings').first);
           await h.loadSettings(tester);

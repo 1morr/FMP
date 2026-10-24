@@ -30,8 +30,6 @@
     "relogin": "需要重新登入：{platforms}",
     "unimportedTitle": "沒有匯入的設定",
     "unimported": {
-      "primaryColor": "主色",
-      "fontFamily": "字型",
       "streamPriority": "各音源的串流優先順序",
       "cacheLimit": "快取上限",
       "homeRanking": "首頁排行的順序與停用",
@@ -725,7 +723,39 @@
     "themeLight": "淺色",
     "themeDark": "深色",
     "language": "語言",
-    "languageSystem": "跟隨系統"
+    "languageSystem": "跟隨系統",
+    "themeColor": "主題色",
+    "themeColorCustom": "自訂顏色",
+    "customColorTitle": "自訂主題色",
+    "customColorHex": "色碼（HEX）",
+    "customColorHexInvalid": "請輸入 6 位數的色碼，例如 6750A4",
+    "customColorHue": "色相",
+    "customColorSaturation": "飽和度",
+    "customColorBrightness": "明度",
+    "customColorApply": "套用",
+    "customColorCancel": "取消",
+    "presets": {
+      "defaultPurple": "預設紫",
+      "indigo": "靛藍",
+      "blue": "海洋藍",
+      "teal": "青綠",
+      "green": "森林綠",
+      "yellow": "陽光黃",
+      "orange": "琥珀橙",
+      "red": "寶石紅",
+      "pink": "玫瑰粉"
+    },
+    "font": "字型",
+    "fontSystem": "預設字型",
+    "fonts": {
+      "jhengHei": "微軟正黑體",
+      "yaHei": "微軟雅黑",
+      "pmingliu": "新細明體",
+      "dfkai": "標楷體",
+      "sansSerif": "無襯線",
+      "serif": "襯線",
+      "monospace": "等寬"
+    }
   },
   "playback": {
     "audioQuality": "音質",

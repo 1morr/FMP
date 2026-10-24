@@ -111,6 +111,7 @@ Future<void> main(List<String> arguments) async {
     secureStorage: platform.secureStorage!,
     importOutputDevice:
         platform.capabilities.playback?.outputDeviceSelection ?? false,
+    fontChoices: platform.capabilities.fontChoices,
   );
   await cleanLegacyImportLeftovers(directory, log);
   var failedCredentials = const <String>{};

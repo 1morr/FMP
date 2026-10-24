@@ -351,6 +351,12 @@ final class StagingImport {
               id: const Value(1),
               themeMode: Value(appearance.themeMode),
               locale: Value(appearance.locale),
+              seedColor: Value(
+                appearance.seedColor == null
+                    ? null
+                    : storedSeedColor(appearance.seedColor!),
+              ),
+              fontFamily: Value(appearance.fontFamily),
             ),
           );
     }
@@ -511,6 +517,12 @@ final class StagingImport {
               id: const Value(1),
               themeMode: Value.absentIfNull(appearance.themeMode),
               locale: Value.absentIfNull(appearance.locale),
+              seedColor: Value.absentIfNull(
+                appearance.seedColor == null
+                    ? null
+                    : storedSeedColor(appearance.seedColor!),
+              ),
+              fontFamily: Value.absentIfNull(appearance.fontFamily),
             ),
           );
     }

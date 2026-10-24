@@ -35,7 +35,7 @@ ImportSummary _summary({
     ),
     SummaryCollection.accounts: const CollectionSummary(read: 1, written: 1),
   },
-  unimportedSettings: const [UnimportedSetting.primaryColor, 'future'],
+  unimportedSettings: const [UnimportedSetting.cacheLimit, 'future'],
   reloginPlatforms: relogin,
 );
 
@@ -49,8 +49,6 @@ void main() {
     expect(SummaryCollection.accounts, 'accounts');
     expect(SkipReason.remoteNotRecognized.name, 'remoteNotRecognized');
     expect(SkipReason.duplicateRemote.name, 'duplicateRemote');
-    expect(UnimportedSetting.primaryColor, 'primaryColor');
-    expect(UnimportedSetting.fontFamily, 'fontFamily');
     expect(UnimportedSetting.streamPriority, 'streamPriority');
     expect(UnimportedSetting.cacheLimit, 'cacheLimit');
     expect(UnimportedSetting.homeRanking, 'homeRanking');
@@ -107,7 +105,7 @@ void main() {
     expect(find.text('Sign in again: netease'), findsOneWidget);
     expect(find.textContaining('3 platform playlists'), findsOneWidget);
     expect(find.text("Settings that weren't imported"), findsOneWidget);
-    expect(find.text('· Accent color'), findsOneWidget);
+    expect(find.text('· Cache limit'), findsOneWidget);
     // 不認得的識別字原樣顯示，不吞掉。
     expect(find.text('· future'), findsOneWidget);
     // bilibili 還沒裝：提示並給「安裝音源」。

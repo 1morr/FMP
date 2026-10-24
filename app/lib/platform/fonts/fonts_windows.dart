@@ -11,3 +11,13 @@ const windowsFontFallback = FontFallback(
   traditionalChinese: ['Microsoft JhengHei UI', 'Microsoft JhengHei'],
   simplifiedChinese: ['Microsoft YaHei UI', 'Microsoft YaHei'],
 );
+
+/// Windows 外觀設定可選的字型：繁中為主（ADR 0035 §決定 5），再加日文兩個。
+const windowsFontChoices = [
+  'Microsoft JhengHei UI',
+  'Microsoft YaHei UI',
+  'PMingLiU',
+  'DFKai-SB',
+  'Yu Gothic UI',
+  'Meiryo',
+];

@@ -42,8 +42,36 @@ class $AppearanceSettingsTableTable extends AppearanceSettingsTable
       ).withConverter<LocaleSetting?>(
         $AppearanceSettingsTableTable.$converterlocalen,
       );
+  static const VerificationMeta _seedColorMeta = const VerificationMeta(
+    'seedColor',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, themeMode, locale];
+  late final GeneratedColumn<int> seedColor = GeneratedColumn<int>(
+    'seed_color',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fontFamilyMeta = const VerificationMeta(
+    'fontFamily',
+  );
+  @override
+  late final GeneratedColumn<String> fontFamily = GeneratedColumn<String>(
+    'font_family',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    themeMode,
+    locale,
+    seedColor,
+    fontFamily,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -58,6 +86,18 @@ class $AppearanceSettingsTableTable extends AppearanceSettingsTable
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('seed_color')) {
+      context.handle(
+        _seedColorMeta,
+        seedColor.isAcceptableOrUnknown(data['seed_color']!, _seedColorMeta),
+      );
+    }
+    if (data.containsKey('font_family')) {
+      context.handle(
+        _fontFamilyMeta,
+        fontFamily.isAcceptableOrUnknown(data['font_family']!, _fontFamilyMeta),
+      );
     }
     return context;
   }
@@ -84,6 +124,14 @@ class $AppearanceSettingsTableTable extends AppearanceSettingsTable
           data['${effectivePrefix}locale'],
         ),
       ),
+      seedColor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seed_color'],
+      ),
+      fontFamily: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}font_family'],
+      ),
     );
   }
 
@@ -108,7 +156,19 @@ class AppearanceSettingsRow extends DataClass
   final int id;
   final ThemeModeSetting? themeMode;
   final LocaleSetting? locale;
-  const AppearanceSettingsRow({required this.id, this.themeMode, this.locale});
+
+  /// 主題色（seed）：ARGB 整數；空＝預設的紫（ADR 0035 §決定 5）。
+  final int? seedColor;
+
+  /// 字型的 family 名稱；空＝系統預設。
+  final String? fontFamily;
+  const AppearanceSettingsRow({
+    required this.id,
+    this.themeMode,
+    this.locale,
+    this.seedColor,
+    this.fontFamily,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -123,6 +183,12 @@ class AppearanceSettingsRow extends DataClass
         $AppearanceSettingsTableTable.$converterlocalen.toSql(locale),
       );
     }
+    if (!nullToAbsent || seedColor != null) {
+      map['seed_color'] = Variable<int>(seedColor);
+    }
+    if (!nullToAbsent || fontFamily != null) {
+      map['font_family'] = Variable<String>(fontFamily);
+    }
     return map;
   }
 
@@ -135,6 +201,12 @@ class AppearanceSettingsRow extends DataClass
       locale: locale == null && nullToAbsent
           ? const Value.absent()
           : Value(locale),
+      seedColor: seedColor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seedColor),
+      fontFamily: fontFamily == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fontFamily),
     );
   }
 
@@ -147,6 +219,8 @@ class AppearanceSettingsRow extends DataClass
       id: serializer.fromJson<int>(json['id']),
       themeMode: serializer.fromJson<ThemeModeSetting?>(json['themeMode']),
       locale: serializer.fromJson<LocaleSetting?>(json['locale']),
+      seedColor: serializer.fromJson<int?>(json['seedColor']),
+      fontFamily: serializer.fromJson<String?>(json['fontFamily']),
     );
   }
   @override
@@ -156,6 +230,8 @@ class AppearanceSettingsRow extends DataClass
       'id': serializer.toJson<int>(id),
       'themeMode': serializer.toJson<ThemeModeSetting?>(themeMode),
       'locale': serializer.toJson<LocaleSetting?>(locale),
+      'seedColor': serializer.toJson<int?>(seedColor),
+      'fontFamily': serializer.toJson<String?>(fontFamily),
     };
   }
 
@@ -163,10 +239,14 @@ class AppearanceSettingsRow extends DataClass
     int? id,
     Value<ThemeModeSetting?> themeMode = const Value.absent(),
     Value<LocaleSetting?> locale = const Value.absent(),
+    Value<int?> seedColor = const Value.absent(),
+    Value<String?> fontFamily = const Value.absent(),
   }) => AppearanceSettingsRow(
     id: id ?? this.id,
     themeMode: themeMode.present ? themeMode.value : this.themeMode,
     locale: locale.present ? locale.value : this.locale,
+    seedColor: seedColor.present ? seedColor.value : this.seedColor,
+    fontFamily: fontFamily.present ? fontFamily.value : this.fontFamily,
   );
   AppearanceSettingsRow copyWithCompanion(
     AppearanceSettingsTableCompanion data,
@@ -175,6 +255,10 @@ class AppearanceSettingsRow extends DataClass
       id: data.id.present ? data.id.value : this.id,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
       locale: data.locale.present ? data.locale.value : this.locale,
+      seedColor: data.seedColor.present ? data.seedColor.value : this.seedColor,
+      fontFamily: data.fontFamily.present
+          ? data.fontFamily.value
+          : this.fontFamily,
     );
   }
 
@@ -183,20 +267,24 @@ class AppearanceSettingsRow extends DataClass
     return (StringBuffer('AppearanceSettingsRow(')
           ..write('id: $id, ')
           ..write('themeMode: $themeMode, ')
-          ..write('locale: $locale')
+          ..write('locale: $locale, ')
+          ..write('seedColor: $seedColor, ')
+          ..write('fontFamily: $fontFamily')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, themeMode, locale);
+  int get hashCode => Object.hash(id, themeMode, locale, seedColor, fontFamily);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppearanceSettingsRow &&
           other.id == this.id &&
           other.themeMode == this.themeMode &&
-          other.locale == this.locale);
+          other.locale == this.locale &&
+          other.seedColor == this.seedColor &&
+          other.fontFamily == this.fontFamily);
 }
 
 class AppearanceSettingsTableCompanion
@@ -204,25 +292,35 @@ class AppearanceSettingsTableCompanion
   final Value<int> id;
   final Value<ThemeModeSetting?> themeMode;
   final Value<LocaleSetting?> locale;
+  final Value<int?> seedColor;
+  final Value<String?> fontFamily;
   const AppearanceSettingsTableCompanion({
     this.id = const Value.absent(),
     this.themeMode = const Value.absent(),
     this.locale = const Value.absent(),
+    this.seedColor = const Value.absent(),
+    this.fontFamily = const Value.absent(),
   });
   AppearanceSettingsTableCompanion.insert({
     this.id = const Value.absent(),
     this.themeMode = const Value.absent(),
     this.locale = const Value.absent(),
+    this.seedColor = const Value.absent(),
+    this.fontFamily = const Value.absent(),
   });
   static Insertable<AppearanceSettingsRow> custom({
     Expression<int>? id,
     Expression<String>? themeMode,
     Expression<String>? locale,
+    Expression<int>? seedColor,
+    Expression<String>? fontFamily,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (themeMode != null) 'theme_mode': themeMode,
       if (locale != null) 'locale': locale,
+      if (seedColor != null) 'seed_color': seedColor,
+      if (fontFamily != null) 'font_family': fontFamily,
     });
   }
 
@@ -230,11 +328,15 @@ class AppearanceSettingsTableCompanion
     Value<int>? id,
     Value<ThemeModeSetting?>? themeMode,
     Value<LocaleSetting?>? locale,
+    Value<int?>? seedColor,
+    Value<String?>? fontFamily,
   }) {
     return AppearanceSettingsTableCompanion(
       id: id ?? this.id,
       themeMode: themeMode ?? this.themeMode,
       locale: locale ?? this.locale,
+      seedColor: seedColor ?? this.seedColor,
+      fontFamily: fontFamily ?? this.fontFamily,
     );
   }
 
@@ -256,6 +358,12 @@ class AppearanceSettingsTableCompanion
         $AppearanceSettingsTableTable.$converterlocalen.toSql(locale.value),
       );
     }
+    if (seedColor.present) {
+      map['seed_color'] = Variable<int>(seedColor.value);
+    }
+    if (fontFamily.present) {
+      map['font_family'] = Variable<String>(fontFamily.value);
+    }
     return map;
   }
 
@@ -264,7 +372,9 @@ class AppearanceSettingsTableCompanion
     return (StringBuffer('AppearanceSettingsTableCompanion(')
           ..write('id: $id, ')
           ..write('themeMode: $themeMode, ')
-          ..write('locale: $locale')
+          ..write('locale: $locale, ')
+          ..write('seedColor: $seedColor, ')
+          ..write('fontFamily: $fontFamily')
           ..write(')'))
         .toString();
   }
@@ -11082,12 +11192,16 @@ typedef $$AppearanceSettingsTableTableCreateCompanionBuilder =
       Value<int> id,
       Value<ThemeModeSetting?> themeMode,
       Value<LocaleSetting?> locale,
+      Value<int?> seedColor,
+      Value<String?> fontFamily,
     });
 typedef $$AppearanceSettingsTableTableUpdateCompanionBuilder =
     AppearanceSettingsTableCompanion Function({
       Value<int> id,
       Value<ThemeModeSetting?> themeMode,
       Value<LocaleSetting?> locale,
+      Value<int?> seedColor,
+      Value<String?> fontFamily,
     });
 
 class $$AppearanceSettingsTableTableFilterComposer
@@ -11115,6 +11229,16 @@ class $$AppearanceSettingsTableTableFilterComposer
     column: $table.locale,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
+
+  ColumnFilters<int> get seedColor => $composableBuilder(
+    column: $table.seedColor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$AppearanceSettingsTableTableOrderingComposer
@@ -11140,6 +11264,16 @@ class $$AppearanceSettingsTableTableOrderingComposer
     column: $table.locale,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get seedColor => $composableBuilder(
+    column: $table.seedColor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppearanceSettingsTableTableAnnotationComposer
@@ -11159,6 +11293,14 @@ class $$AppearanceSettingsTableTableAnnotationComposer
 
   GeneratedColumnWithTypeConverter<LocaleSetting?, String> get locale =>
       $composableBuilder(column: $table.locale, builder: (column) => column);
+
+  GeneratedColumn<int> get seedColor =>
+      $composableBuilder(column: $table.seedColor, builder: (column) => column);
+
+  GeneratedColumn<String> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => column,
+  );
 }
 
 class $$AppearanceSettingsTableTableTableManager
@@ -11210,20 +11352,28 @@ class $$AppearanceSettingsTableTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<ThemeModeSetting?> themeMode = const Value.absent(),
                 Value<LocaleSetting?> locale = const Value.absent(),
+                Value<int?> seedColor = const Value.absent(),
+                Value<String?> fontFamily = const Value.absent(),
               }) => AppearanceSettingsTableCompanion(
                 id: id,
                 themeMode: themeMode,
                 locale: locale,
+                seedColor: seedColor,
+                fontFamily: fontFamily,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 Value<ThemeModeSetting?> themeMode = const Value.absent(),
                 Value<LocaleSetting?> locale = const Value.absent(),
+                Value<int?> seedColor = const Value.absent(),
+                Value<String?> fontFamily = const Value.absent(),
               }) => AppearanceSettingsTableCompanion.insert(
                 id: id,
                 themeMode: themeMode,
                 locale: locale,
+                seedColor: seedColor,
+                fontFamily: fontFamily,
               ),
           withReferenceMapper: (p0) => p0
               .map(

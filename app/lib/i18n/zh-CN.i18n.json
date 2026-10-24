@@ -30,8 +30,6 @@
     "relogin": "需要重新登录：{platforms}",
     "unimportedTitle": "没有导入的设置",
     "unimported": {
-      "primaryColor": "主色",
-      "fontFamily": "字体",
       "streamPriority": "各音源的串流优先顺序",
       "cacheLimit": "缓存上限",
       "homeRanking": "首页排行的顺序与停用",
@@ -725,7 +723,39 @@
     "themeLight": "浅色",
     "themeDark": "深色",
     "language": "语言",
-    "languageSystem": "跟随系统"
+    "languageSystem": "跟随系统",
+    "themeColor": "主题色",
+    "themeColorCustom": "自定义颜色",
+    "customColorTitle": "自定义主题色",
+    "customColorHex": "色值（HEX）",
+    "customColorHexInvalid": "请输入 6 位色值，例如 6750A4",
+    "customColorHue": "色相",
+    "customColorSaturation": "饱和度",
+    "customColorBrightness": "明度",
+    "customColorApply": "应用",
+    "customColorCancel": "取消",
+    "presets": {
+      "defaultPurple": "默认紫",
+      "indigo": "靛蓝",
+      "blue": "海洋蓝",
+      "teal": "青绿",
+      "green": "森林绿",
+      "yellow": "阳光黄",
+      "orange": "琥珀橙",
+      "red": "宝石红",
+      "pink": "玫瑰粉"
+    },
+    "font": "字体",
+    "fontSystem": "默认字体",
+    "fonts": {
+      "jhengHei": "微软正黑体",
+      "yaHei": "微软雅黑",
+      "pmingliu": "新细明体",
+      "dfkai": "标楷体",
+      "sansSerif": "无衬线",
+      "serif": "衬线",
+      "monospace": "等宽"
+    }
   },
   "playback": {
     "audioQuality": "音质",

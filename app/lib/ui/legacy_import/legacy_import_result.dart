@@ -78,8 +78,6 @@ class _ResultDialog extends StatelessWidget {
 
   /// 設定的識別字 → 翻譯；不認得的識別字（以後新增而忘了補翻譯）原樣顯示。
   String _unimported(String id) => switch (id) {
-    'primaryColor' => t.legacyResult.unimported.primaryColor,
-    'fontFamily' => t.legacyResult.unimported.fontFamily,
     'streamPriority' => t.legacyResult.unimported.streamPriority,
     'cacheLimit' => t.legacyResult.unimported.cacheLimit,
     'homeRanking' => t.legacyResult.unimported.homeRanking,

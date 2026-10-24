@@ -37,6 +37,7 @@ final class LegacyImporter implements LegacyImport {
     required this._locator,
     required this._secureStorage,
     required this._importOutputDevice,
+    required this._fontChoices,
     LegacyDatabaseReader? reader,
     this._backupReader = const LegacyBackupReader(),
     StagingImport? staging,
@@ -56,6 +57,9 @@ final class LegacyImporter implements LegacyImport {
 
   /// 平台支援選輸出裝置時才把舊的輸出裝置設定帶過來（`PlaybackSupport.outputDeviceSelection`）。
   final bool _importOutputDevice;
+
+  /// 目前平台外觀設定可選的字型（`PlatformCapabilities.fontChoices`）。
+  final List<String> _fontChoices;
   final LegacyDatabaseReader _reader;
   final LegacyBackupReader _backupReader;
   final StagingImport _staging;
@@ -150,6 +154,7 @@ final class LegacyImporter implements LegacyImport {
         backupVersion: backupVersion,
         now: now,
         importOutputDevice: _importOutputDevice,
+        fontChoices: _fontChoices,
         credentials: credentialReads,
       );
     } on Object catch (error) {

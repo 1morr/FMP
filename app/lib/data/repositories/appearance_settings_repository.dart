@@ -1,4 +1,7 @@
 import 'package:drift/drift.dart';
+
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/data/database/app_database.dart';
@@ -8,7 +11,12 @@ import 'package:fmp/domain/appearance.dart';
 /// 套用預設值。
 @immutable
 final class AppearanceSettings {
-  const AppearanceSettings({this.themeMode, this.locale});
+  const AppearanceSettings({
+    this.themeMode,
+    this.locale,
+    this.seedColor,
+    this.fontFamily,
+  });
 
   /// 全部沒設定過。
   static const empty = AppearanceSettings();
@@ -16,19 +24,32 @@ final class AppearanceSettings {
   final ThemeModeSetting? themeMode;
   final LocaleSetting? locale;
 
+  /// 主題色（seed，不透明）；`null`＝沒設定過，用預設的紫。
+  final Color? seedColor;
+
+  /// 字型的 family 名稱；`null`＝沒設定過，用系統預設。
+  final String? fontFamily;
+
   @override
   bool operator ==(Object other) =>
       other is AppearanceSettings &&
       other.themeMode == themeMode &&
-      other.locale == locale;
+      other.locale == locale &&
+      other.seedColor == seedColor &&
+      other.fontFamily == fontFamily;
 
   @override
-  int get hashCode => Object.hash(themeMode, locale);
+  int get hashCode => Object.hash(themeMode, locale, seedColor, fontFamily);
 
   @override
   String toString() =>
-      'AppearanceSettings(themeMode: $themeMode, locale: $locale)';
+      'AppearanceSettings(themeMode: $themeMode, locale: $locale, '
+      'seedColor: $seedColor, fontFamily: $fontFamily)';
 }
+
+/// `appearance_settings.seed_color` 存的值：ARGB 整數，alpha 一律當不透明（seed 不用透明度）。
+/// [AppearanceSettingsRepository.write] 與匯入（`StagingImport`）共用，存法只有一份。
+int storedSeedColor(Color color) => color.toARGB32() | 0xFF000000;
 
 /// `appearance_settings` 單列表的存取。
 final class AppearanceSettingsRepository {
@@ -52,22 +73,39 @@ final class AppearanceSettingsRepository {
   Stream<AppearanceSettings> watch() => _row.watchSingleOrNull().map(_fromRow);
 
   /// 只寫入有給的欄位；沒給的（`null`）維持原值。
-  Future<void> write({ThemeModeSetting? themeMode, LocaleSetting? locale}) =>
-      _database
-          .into(_database.appearanceSettingsTable)
-          .insertOnConflictUpdate(
-            AppearanceSettingsTableCompanion(
-              id: const Value(_rowId),
-              themeMode: Value.absentIfNull(themeMode),
-              locale: Value.absentIfNull(locale),
-            ),
-          );
+  ///
+  /// [seedColor] 的 alpha 一律當不透明存（seed 不用透明度）。
+  Future<void> write({
+    ThemeModeSetting? themeMode,
+    LocaleSetting? locale,
+    Color? seedColor,
+    String? fontFamily,
+  }) => _database
+      .into(_database.appearanceSettingsTable)
+      .insertOnConflictUpdate(
+        AppearanceSettingsTableCompanion(
+          id: const Value(_rowId),
+          themeMode: Value.absentIfNull(themeMode),
+          locale: Value.absentIfNull(locale),
+          seedColor: Value.absentIfNull(
+            seedColor == null ? null : storedSeedColor(seedColor),
+          ),
+          fontFamily: Value.absentIfNull(fontFamily),
+        ),
+      );
 
   /// 把傳 `true` 的欄位清回 `null`（沒設定過，由上層套用預設）；其他欄位不動。
   ///
   /// 和 [write] 分開：[write] 的 `null` 表示「沒給、不動」，所以清空另走這裡。
-  Future<void> clear({bool themeMode = false, bool locale = false}) {
-    if (!themeMode && !locale) return Future.value();
+  Future<void> clear({
+    bool themeMode = false,
+    bool locale = false,
+    bool seedColor = false,
+    bool fontFamily = false,
+  }) {
+    if (!themeMode && !locale && !seedColor && !fontFamily) {
+      return Future.value();
+    }
     return _database
         .into(_database.appearanceSettingsTable)
         .insertOnConflictUpdate(
@@ -75,11 +113,18 @@ final class AppearanceSettingsRepository {
             id: const Value(_rowId),
             themeMode: themeMode ? const Value(null) : const Value.absent(),
             locale: locale ? const Value(null) : const Value.absent(),
+            seedColor: seedColor ? const Value(null) : const Value.absent(),
+            fontFamily: fontFamily ? const Value(null) : const Value.absent(),
           ),
         );
   }
 
   static AppearanceSettings _fromRow(AppearanceSettingsRow? row) => row == null
       ? AppearanceSettings.empty
-      : AppearanceSettings(themeMode: row.themeMode, locale: row.locale);
+      : AppearanceSettings(
+          themeMode: row.themeMode,
+          locale: row.locale,
+          seedColor: row.seedColor == null ? null : Color(row.seedColor!),
+          fontFamily: row.fontFamily,
+        );
 }

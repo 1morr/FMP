@@ -291,6 +291,11 @@ void main() {
 
     /// 開到設定頁的外觀組。測試視窗是窄版，設定頁先給分組清單，要點進外觀。
     Future<void> openSettings(WidgetTester tester) async {
+      // 外觀組有主題色與字型之後，語言的選項在預設的 800x600 之外：加高視窗。
+      tester.view.physicalSize = const Size(1000, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await settle(tester);
       await tester.tap(find.byIcon(Icons.settings_outlined));
       await settle(tester);
       if (find.byType(AppearanceControls).evaluate().isEmpty) {

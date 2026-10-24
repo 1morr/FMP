@@ -30,14 +30,20 @@
 
 ## 2. 主題與外觀（R1.5、R1.6、R2.3）
 
-- `ColorScheme.fromSeed(seedColor: settings.seedColor ?? appSeedColor)`；`AppTokens.forScheme` 照舊從 scheme 算語意色，種子變了跟著變。
-- 舊版元件主題：卡片底色 `surfaceContainerLow`、圓角 12；輸入框填色加圓角；清單列的密度與選取色；AppBar 置中、捲動時 `surfaceTint`；導覽指示的形狀。數值從設計稿 `Main.dc.html` 的主題畫板與舊版 `lib/ui/theme/app_theme.dart` 取，寫成 `AppLayout`／`AppTokens` 的值（`fmp_design_tokens` 不允許在 `lib/ui/` 寫字面數字）。
+- 色彩（擁有者選了「照舊版」，B-33、L-27；照凍結的 `lib/ui/theme/app_theme.dart` 的 `_colorScheme`）：沒選過主題色（`seed_color` 為空）是純 `ColorScheme.fromSeed(預設紫)`；
+  選過任何顏色（預設以外的 preset 或自訂色）先 `fromSeed(選的色)`，再 `copyWith`：`primary` ＝選的色（alpha 1）、`onPrimary` 依對比取黑或白（`_foregroundColorFor`）、
+  `primaryContainer` ＝ `primary` 以 0.18（淺色）／0.32（深色）疊在 `surface` 上、`onPrimaryContainer` 依對比取黑白、`surfaceTint` ＝ `primary`。所以設定頁的色塊就是實際的主色。
+  `AppTokens.forScheme` 吃最後的 scheme。
+- 舊版元件主題照舊版數值（舊版圓角 md＝8、lg＝12）：卡片 elevation 0、圓角 12、底色 `surfaceContainerHighest`；清單列圓角 8；導覽列、側欄、抽屜 elevation 0、底色 `surface`、
+  indicator `secondaryContainer`，導覽列標籤 `alwaysShow`；輸入框填 `surfaceContainerHighest`、圓角 12、無邊框、聚焦邊框 `primary` 寬 2；滑桿 active `primary`、
+  inactive `surfaceContainerHighest`、thumb `primary`、overlay `primary` 12%；AppBar 標題置中。數值寫在 `lib/ui/theme/`（該目錄豁免 `fmp_design_tokens`）。
 - 字型清單（平台層）：
   - Windows：系統預設、微軟正黑體 UI、微軟雅黑 UI、新細明體、標楷體、Yu Gothic UI、Meiryo；
   - Android：系統預設、sans-serif、serif、monospace（舊版清單去掉無效的變體）；
   - macOS／iOS（平台任務接上）：系統預設、蘋方-繁、蘋方-簡、Hiragino Sans。
   - 選了字型時它放在 `fontFamily`，ADR 0024 §決定 2 的 CJK fallback 照舊排在後面。
-- 自訂色：色相環＋HEX 輸入的對話框（設計稿 `SettingsWin.dc.html`）；用 `flex_color_picker` 之前先查有沒有成熟維護的套件，沒有再自己寫。
+  - 存的 `font_family` 不在目前平台的 `fontChoices`（例如還原別的平台的備份）時當作沒設定過：`AppearanceNotifier` 把清單帶進 `resolveAppearance`，主題用預設、設定頁選中「預設字型」；資料庫的值不動。
+- 自訂色：色相環＋HEX 輸入的對話框（設計稿 `SettingsWin.dc.html`）；自己寫（色相、飽和度、明度滑桿加 HEX）：`flex_color_picker` 建在凍結的 `package:flutter/material.dart` 上，讀不到 `material_ui` 的主題。
 
 ## 3. 外殼（R1.1–R1.4、R1.8）
 
