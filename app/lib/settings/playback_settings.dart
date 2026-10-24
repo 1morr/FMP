@@ -59,7 +59,7 @@ final class PlaybackPreferences {
   /// 播放歷史保留筆數：每寫一筆就裁掉超過的最舊列，改小時當下裁一次。
   final int playHistoryLimit;
 
-  /// 切歌時把佇列清單捲到目前這首（只在清單開著時：播放頁的佇列分頁或底部面板）。
+  /// 切歌時把佇列清單捲到目前這首（只在清單開著時：佇列頁）。
   final bool autoScrollToCurrent;
 
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設。

@@ -16,7 +16,7 @@ import 'package:material_ui/material_ui.dart';
 import '../support/shell_harness.dart';
 
 // Mix 的介面（M3 PR 19，ADR 0031 §決定 8–9）：曲目選單的「開始 Mix」只在插件宣告 `mix` 時
-// 出現、Mix 中停用的項目附說明、隨機鈕停用、佇列分頁顯示 Mix 的標題。從外殼開始，和
+// 出現、Mix 中停用的項目附說明、隨機鈕停用、佇列頁顯示 Mix 的標題。從外殼開始，和
 // 使用者一樣。
 
 const _shuffleTooltip = 'Shuffle (Ctrl+S)';

@@ -208,9 +208,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
   }
 
-  /// 切到佇列目的地，焦點進內容區（Ctrl+Q；播放頁的 Ctrl+Q 也經這裡）。
-  void _openQueue() =>
-      _selectAndFocus(ShellDestination.queue, () => focusInto(_content));
+  /// 切到佇列目的地，焦點進內容區（Ctrl+Q；播放頁的 Ctrl+Q 也經這裡）。播放頁的那一條等
+  /// 關閉轉場結束才呼叫，那時外殼可能已經拆了（[openQueueProvider] 還留著這個 handler）。
+  void _openQueue() {
+    if (!mounted) return;
+    _selectAndFocus(ShellDestination.queue, () => focusInto(_content));
+  }
 
   /// 搜尋頁的「前往插件頁」：換到設定頁並選「插件」區塊。
   void _openPlugins() {
@@ -487,18 +490,31 @@ class _AppShellState extends ConsumerState<AppShell> {
             navigation(switch (windowClass) {
               WindowClass.medium || WindowClass.expanded => SafeArea(
                 right: false,
-                child: NavigationRail(
-                  selectedIndex: index,
-                  onDestinationSelected: onSelected,
-                  labelType: NavigationRailLabelType.all,
-                  destinations: [
-                    for (final item in destinations)
-                      NavigationRailDestination(
-                        icon: Icon(item.icon),
-                        selectedIcon: Icon(item.selectedIcon),
-                        label: Text(item.label),
+                // 六項在橫向手機（高約 411dp）放不下：高度不夠時可以捲，夠時外觀不變。
+                // U PR 5 換成舊版側欄時一併取代。
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                  ],
+                      child: IntrinsicHeight(
+                        child: NavigationRail(
+                          selectedIndex: index,
+                          onDestinationSelected: onSelected,
+                          labelType: NavigationRailLabelType.all,
+                          destinations: [
+                            for (final item in destinations)
+                              NavigationRailDestination(
+                                icon: Icon(item.icon),
+                                selectedIcon: Icon(item.selectedIcon),
+                                label: Text(item.label),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               _ => _PermanentDrawer(

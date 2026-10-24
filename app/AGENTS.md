@@ -2002,12 +2002,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     也移除：組裝點用登記時拿到的排程器、在 onDispose 回呼結束後才移除（回呼裡不能碰別的 provider），不然舊控制器的工作會每分鐘失敗一次。
     工作 id 固定，上次成功時間照樣寫進 `scheduler_runs`：上次成功不到 1 分鐘就重新登記（停了又開、換到別的插件的直播間）時不會馬上跑，等到期（沒有閘門）。
   - **Debug 頁與診斷包**：直播時 `PlaybackDiagnostics.trackKey`／`pluginId` 是直播間（`插件:房間`），`queue.live` 為真、`currentIndex` 是回到的那一首；
-    佇列分頁不標任何一列是在播的（同臨時播放，`QueueState.isOutsideQueue`）。
+    佇列頁不標任何一列是在播的（同臨時播放，`QueueState.isOutsideQueue`）。
   閘門：`live_playback_test.dart`（進入記快照停止回佇列、回佇列照倒退秒數、暫停原本停著的佇列仍停著、換台快照不變、點佇列離開、上一首下一首 seek 不動、臨時播放接手同一份快照、
   暫停＝停止再播放重新取流、`liveStatus` 先問、重連間隔 1／3／9 秒共 3 次與用完、`offline` 不重連、拋錯顯示查詢失敗不重連、離線等網路、10 秒後次數歸零、
   取不到流不重連、解析中開直播音樂結果被丟掉且 `resolveStream` 次數不變、`live-info` 登記／更新／失敗不中斷／結果過期被丟、`decideLiveRecovery` 的表）、
   `live_info_wiring_test.dart`（真的排程器：登記後馬上一次、之後每分鐘、停止後不再跑；收聽中重建控制器後工作不在）、
-  `live_playback_test.dart` 的 `the playback diagnostics report the room…`、`player_page_test.dart` 的 `in a live room no queue row is marked current`、`queue_model_test.dart` 的 `live play`、
+  `live_playback_test.dart` 的 `the playback diagnostics report the room…`、`queue_view_test.dart` 的 `in a live room no queue row is marked current`、`queue_model_test.dart` 的 `live play`、
   `playback_event_router_test.dart` 的 `a live room`、`queue_store_test.dart` 的 `a live room is never stored…`／`a restart during a live room…`。
 - Mix（`startMix`，ADR 0031 §決定 8–11、M3 design §10；入口在曲目選單，見 § 介面）。契約：
   - **模式**：`QueueMode.mix`＝`QueueState.mix`（`MixIdentity`：插件 id、`mixId`、標題、`cursor`）有值，且不在臨時播放或直播（那兩個期間 `mode` 是
@@ -2436,10 +2436,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
   在它上面）、medium 與 expanded `NavigationRail`、large 以上常駐 `NavigationDrawer`；都是 Material
-  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是首頁｜搜尋｜音樂庫｜電台｜設定（ADR 0033 §決定 5；
+  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是首頁｜搜尋｜音樂庫｜佇列｜電台｜設定（ADR 0035 §決定 2；
   `ShellDestination` 的順序就是 `IndexedStack` 與導覽項的順序，導覽項的圖示與文字只有 `_destinationLabel` 一份），App 開在
   首頁。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的
-  `navigation per window class`（每種元件五個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）。
+  `navigation per window class`（每種元件六個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）。
 - 巢狀導覽（ADR 0033 §決定 5）：`IndexedStack` 的每一格是那個目的地自己的 `Navigator`，根頁是一個 `MaterialPage`（pages API：外殼重建時
   根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史、歌單詳情、探索）以 `Navigator.of(context).push` 開在
   內容區裡，導覽與播放列留著；全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）推在根 Navigator 上（`rootNavigator: true` 或
@@ -2683,9 +2683,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `… while selecting at …` 與 `removing the selected songs asks first at …`。
 - App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
   `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
-  Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼、播放頁與佇列的底部面板各包一層：播放頁與面板各是另一個
+  Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼與播放頁各包一層：播放頁是另一個
   route，不在外殼的 `Shortcuts` 之下）；Ctrl+L、Ctrl+Q 也在這張表（`ShowLyricsIntent`、`ShowQueueIntent`），但它們的
-  action 不在 `PlaybackShortcuts`：外殼接（播放頁沒開、佇列不空時開播放頁）、播放頁接（切分頁）；導覽類在 `shell_shortcuts.dart` 的
+  action 不在 `PlaybackShortcuts`：Ctrl+L 外殼接（播放頁沒開、佇列不空時開播放頁）、播放頁接（切分頁）；Ctrl+Q 外殼接（切到佇列目的地、
+  焦點進內容區，佇列是空的也切，ADR 0035 §決定 7）、播放頁接（見「播放頁」）；導覽類在 `shell_shortcuts.dart` 的
   `navigationShortcuts`（Ctrl+F、Ctrl+,、F6、Esc）。輸入框裡的規則一句話：導覽類在輸入框內也有效，其餘
   都讓給輸入框。文字編輯的快捷鍵（`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，
   外殼會先接走按鍵；所以播放類的 action 一律用 `TextInputAwareAction`，焦點在輸入框時停用、按鍵交還
@@ -2701,23 +2702,23 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `with a dialog open playback shortcuts do nothing and Esc closes the dialog`）。
 - 播放頁（`lib/ui/player/player_page.dart`，design §9.3、§9.5、§9.6，ADR 0024 §決定 4）：
   - 開關：點播放列曲名與封面那一塊（`InkWell`，點擊區與右邊的按鈕分開，語意是按鈕、「開啟播放頁」放在 hint）開；
-    佇列不空時 Ctrl+L、Ctrl+Q 在播放頁沒開時也會開。`openPlayerPage` 把 `_PlayerPageRoute`（`MaterialPageRoute` 的子類別，
+    佇列不空時 Ctrl+L 在播放頁沒開時也會開。`openPlayerPage` 把 `_PlayerPageRoute`（`MaterialPageRoute` 的子類別，
     `fullscreenDialog`）推在根 Navigator 上，所以提示仍在它上面；已開著不再推第二個。`playerPageOpenProvider` 由這個 route
     設定：`didPush` 設成開，`didComplete`（pop 與 `removeRoute` 都經過，當下就呼叫）設成關，`dispose` 只補沒 complete 就被丟掉的。
     不等到轉場結束的 `dispose` 才報關：關閉轉場中的頁面不收點擊，點擊落到播放列又開了一個，舊的 route 晚報會把新的那個標成沒開。
     左上角收合鈕（tooltip「關閉播放頁（Esc）」，只有圖示、不另給 `semanticLabel`）、Esc（頁面自己的 `Shortcuts`，
     `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層）、Android 返回鍵（route 先 pop，
     只關這一頁；頁面內不放 `PopScope`）都關。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
-    也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區，Ctrl+L／Q 開的是開頁當下的焦點）；
+    也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區，Ctrl+L 開的是開頁當下的焦點）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
-    收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、Ctrl+Q 開的焦點還原、`reopening it while it is
+    收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、Ctrl+L 開的焦點還原、`reopening it while it is
     still closing keeps it open`、佇列清空自動關閉、`it closes itself when the queue is empty by its first frame`）、
     `player_bar_test.dart` 的 `the title area is a button that opens the player`。
   - 版面依整個視窗的 `WindowClass`（根 `WindowClassScope` 在 Navigator 之上，所以播放頁讀到的是整個視窗）：compact、
-    medium 是封面與歌詞切換（點封面或 Ctrl+L，不寫入記憶），控制在下方，佇列是右上角「佇列」鈕（`PlayerPage.queueKey`，tooltip「佇列（Ctrl+Q）」，只有這兩段有，與左上角的收合鈕
-    對稱）與 Ctrl+Q 開的底部面板（見下面「佇列」）；
+    medium 是封面與歌詞切換（點封面或 Ctrl+L，不寫入記憶），控制在下方；
     expanded、large 兩半，左是封面（上限 `AppLayout.playerArtworkMax` 420dp，短視窗縮小）、曲名、上傳者與狀態、進度、
-    五個控制加「⋯」，右是分頁「歌詞｜佇列｜詳細」；extraLarge 三欄約 1：1.15：0.9（封面與控制｜歌詞｜分頁「佇列｜詳細」）。
+    五個控制加「⋯」，右是分頁「歌詞｜詳細」；extraLarge 三欄約 1：1.15：0.9（封面與控制｜歌詞｜分頁「詳細」）。佇列不在播放頁：它是
+    導覽目的地（ADR 0035 §決定 2，見下面「佇列」）。
     五個控制（隨機、上一首、播放、下一首、循環）每個版面都有；狀態標示與進度條與播放列同一份
     （`player_controls.dart` 的 `playbackStatusLabel`、`ProgressRow`，啟動恢復後顯示恢復的位置也一樣）。閘門：
     `player_page_test.dart` 的 `layouts`（五個等級各自的控制項與分頁、封面上限、三欄比例、視窗縮放）、`status and
@@ -2727,33 +2728,27 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     不會偏），以及 expanded 以上的「正在播放面板」勾選項（compact、medium 沒有面板，所以沒有；見上面的面板條目）。閘門：`player_page_test.dart` 的 `speed`、
     `playback_controller_test.dart` 的 `the speed is observable…`、`now_playing_publisher_test.dart` 的 `a new speed is
     pushed…`。
-  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。佇列見下一條。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查（見 § 插件的
-    「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（含開啟時的捲動位置、
-    臨時播放不標目前這首、查不到名稱時顯示插件 id、五千首只建看得到的列）、`test/ui/plugins/plugin_name_test.dart`。
-  - 佇列（`lib/ui/player/queue_view.dart` 的 `QueueView`，design §7.3）：佇列分頁（expanded 以上）與底部面板
-    （compact、medium，`showQueueSheet`）共用同一個 widget。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
-    `clear`、提示「已清空佇列」，取消不動；清空後播放頁與面板一起關，提示等它們關掉的那一幀之後才發：提示的位移在顯示當下
-    決定，頁面還開著時是底部安全區，compact 的導覽列會被蓋住），隨機開著時下面多一行「隨機順序跟著位置；拖曳只換歌，
+  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查（見 § 插件的
+    「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（查不到名稱時顯示插件 id）、`test/ui/plugins/plugin_name_test.dart`。
+  - 佇列（`lib/ui/queue/`，design §7.3；ADR 0035 §決定 2 起是導覽的第四項）：`QueuePage` 是佇列目的地的根頁，各寬度都是整頁，
+    沒有底部面板也沒有播放頁的分頁。沒選到這個目的地時（`visible` 為假）不建清單，所以每次切過來都從目前這首附近開始；佇列空時
+    （含收聽直播而佇列是空的）是空狀態（`shell.queueEmptyTitle`、`queueEmptyBody`；U PR 8 換成舊版的引導），否則是 `QueueView`。
+    返回鍵與其他目的地一樣回到首頁。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
+    `clear`、提示「已清空佇列」，取消不動；清空後頁面換成空狀態），隨機開著時下面多一行「隨機順序跟著位置；拖曳只換歌，
     不改順序」。每列是封面、曲名、上傳者、時長、「⋯」選單與拖曳把手（音源停用或未安裝時，原因取代上傳者，且列監看 `sourceUnavailableProvider`；閘門：`queue_view_test.dart` 的 `a song of a source that cannot be used shows why instead of the uploader`、`the reason follows the source becoming unavailable`）；目前這首以主色標示（臨時播放中不標，因為
     `currentIndex` 是回到佇列時的位置）；點一下 `jumpTo`；選單有「下一首播放」（`moveToNext`，目前這首沒有這項）與「從佇列
     移除」（`removeAt`，不提示，同歷史頁）。固定列高的 `ReorderableListView.builder`、`buildDefaultDragHandles: false`：
     只有把手（`ReorderableDragStartListener`）能拖，長按留給選單；放下呼叫 `move`（用 `onReorderItem`，它的 `newIndex`
     已扣掉被拿起的那一格，舊的 `onReorder` 往下拖要自己減 1）；列的鍵是佇列項目的實例（`ObjectKey`），同一首出現兩次也
-    各有各的；一萬首也只建看得到的列；開啟時從目前這首前兩列開始。閘門：`queue_view_test.dart`（`the list`：點選、一萬首
+    各有各的；一萬首也只建看得到的列；開啟時從目前這首前兩列開始。焦點在某一列時空白鍵是播放暫停、Enter 才跳到那首（同播放列按鈕的規則）。
+    Ctrl+Q（ADR 0035 §決定 7）：外殼切到佇列目的地、焦點進內容區（佇列是空的也切）；播放頁開著時頁面先關掉自己，等 route 完成
+    （`openPlayerPage` 還完焦點之後）再經 `openQueueProvider` 請外殼切過去。閘門：`queue_view_test.dart`（`the list`：點選、一萬首
     只建看得到的、`the same song twice is two rows…`；`dragging`：往下與往上各一例、只有把手能拖、隨機時拖曳後下一首與畫面一致；`the menu`；`clearing`；
-    `the shuffle note`）、`player_page_test.dart` 的 `tabs`。
-  - 底部面板（compact、medium）：`showModalBottomSheet`（`isScrollControlled`）加 `DraggableScrollableSheet`（高度占
-    螢幕的 60%，最小 30%），清單的捲動接給面板的控制器，開啟後才捲到目前這首附近。是自己的 route：返回鍵與 Esc
-    （面板自己的 `Shortcuts`）只關面板、不關播放頁；佇列變空（沒有目前這首）時面板以 `removeRoute` 自己關掉，不是 pop 最上面
-    的（清空確認的對話框可能還開著），所以不會留下蓋在外殼上的面板。面板也包一層共用的 `PlaybackShortcuts`（它不在播放頁的
-    那一層之下）：播放類快捷鍵（空白鍵、Ctrl+←／→、Shift+←／→、Ctrl+↑／↓、Ctrl+S、Ctrl+R）和寬版的佇列分頁一樣有效，焦點在
-    某一列時空白鍵也是播放暫停、Enter 才跳到那首（同播放列按鈕的規則）；Ctrl+L、Ctrl+Q 在面板裡沒有 action，按了不做事（面板
-    不關、不開第二個）。Ctrl+Q：播放頁開著時 compact、medium 開面板（已開著
-    不開第二個）、寬版切到佇列分頁；播放頁沒開時外殼開頁，再依版面開面板或切分頁（`PlayerPageEntry.queue`）。閘門：
-    `queue_view_test.dart` 的 `the bottom sheet`（compact、medium 各：按鈕開、返回與 Esc 只關面板、Ctrl+Q 開、連按兩次
-    只開一個、`the playback keys work in the sheet`（含 Ctrl+L 不做事）、`Space on a focused row plays or pauses, Enter jumps`、頁面沒開時 Ctrl+Q 開頁加面板、清空時兩者都關（含從面板上的確認框清空：提示在外殼的導覽列之上、外殼收得到點擊）、
-    面板上可以編輯；寬版沒有按鈕）、`player_page_test.dart` 的 `layouts`
-    （Ctrl+Q 開面板）、guideline 測試的 `the queue at …`（400 寬是面板、1000 寬是分頁，淺色與深色，隨機說明在）。
+    `the shuffle note`；`the queue page`：三種寬度的整頁與返回鍵、Ctrl+Q 連按與焦點、播放鍵、`Space on a focused row plays or pauses, Enter jumps`、
+    清空後的空狀態與提示位置、編輯、`the list opens near the current song every time`、臨時播放與直播不標目前這首）、
+    `app_shell_test.dart` 的 `Ctrl+Q selects the queue destination…`、`Ctrl+Q with nothing queued…`、`F6 goes into the queue page`、
+    `player_page_test.dart` 的 `Ctrl+Q on the page closes it, selects the queue destination…`、guideline 測試的 `the queue at …`、
+    `the empty queue page at …`（400、1000 寬，淺色與深色）。
   - 切歌時捲到目前歌曲（「播放」組的 `auto_scroll_to_current`，預設關，設定頁在播放歷史保留筆數之後）：開著時，清單開著而
     目前這首換了，就捲到目前這首前兩列（動畫 `AppLayout.queueScrollDuration`）。「換了」是 `currentIndex` 指的佇列項目
     （實例）換了，拖曳或 `move` 讓它換位置不算；使用者正在拖曳（`onReorderStart` 到 `onReorderEnd`；拖曳被取消時 `onReorderEnd` 不會來，以清單上最後一個指標放開為結束）時不捲；開啟時的捲動
@@ -2761,15 +2756,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `move` 不算、拖曳中不捲、取消的拖曳之後照常捲）、`playback_controls_test.dart` 的 `the scroll switch…`、`playback_settings_test.dart`
     的預設與 `scrolling to the current song is written alone…`。
   - 分頁記憶：使用者選的分頁寫進 `layout_state.player_tab`（`layoutStateProvider`；沒記過是歌詞，這次開著期間選的先於
-    資料庫的值生效），依裝置記住，不進設定組。extraLarge 沒有歌詞分頁：記住的是歌詞時顯示佇列，但不覆寫記憶，回到兩欄時
-    仍是歌詞。閘門：`player_page_test.dart` 的 `tabs`（選了會寫入、重開還在、`a tab chosen on the page wins over a stored value that arrives later`、extraLarge 記住歌詞時顯示佇列且不覆寫）。
+    資料庫的值生效），依裝置記住，不進設定組。記住的是已拿掉的佇列分頁（`PlayerTab.queue`，ADR 0035 之前的值）時當作沒記過，
+    資料庫的值不動（U PR 5 連欄位一起刪）。extraLarge 沒有歌詞分頁：記住的是歌詞時顯示詳細，但不覆寫記憶，回到兩欄時
+    仍是歌詞。閘門：`player_page_test.dart` 的 `tabs`（選了會寫入、重開還在、`a tab chosen on the page wins over a stored value that arrives later`、
+    記住佇列分頁時退回歌詞且不寫入、extraLarge 記住歌詞時顯示詳細且不覆寫）。
   - 背景是模糊的封面加遮罩（遮罩用主題的 `surface`、不是黑色：淺色主題下深色封面不會把毛玻璃底下墊黑），控制區與右欄是
     `GlassPanel`（約 66% `surface` 加 `BackdropFilter` 一般模糊）；沒有封面是實色的佔位背景。數值在 `AppLayout`。
     系統開高對比時 `GlassPanel` 改不透明、不模糊（Flutter 3.47.5 的 `AccessibilityFeatures` 沒有「減少透明度」，ADR 0024
     §決定 1 的更正）。閘門：`player_page_test.dart` 的 `glass`、guideline 測試的 `the player page over …`（淺色、深色 ×
     最淺、最深、沒有封面 × 400／1000／1800 寬）。
   - 快捷鍵與焦點：頁面包共用的 `PlaybackShortcuts`，另有自己的 Esc、F6；Ctrl+L 右欄切到歌詞（extraLarge 焦點移到歌詞欄、
-    compact／medium 切到歌詞那一面），Ctrl+Q 切到佇列（compact／medium 開底部面板）；輸入框規則照上面（`TextInputAwareAction`）。
+    compact／medium 切到歌詞那一面），Ctrl+Q 關掉播放頁並切到佇列目的地（見上面「佇列」）；輸入框規則照上面（`TextInputAwareAction`）。
     頁內焦點區是控制區｜（extraLarge 的）歌詞欄｜右欄分頁（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
@@ -2795,14 +2792,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （收聽、加為電台）；點一下 `playLive`；錯誤、空結果、離線、載入更多與曲目共用 `_Results`。閘門：`test/ui/search/search_live_test.dart`
   （音源清單變了而退回曲目是 `the live source leaving the list goes back to songs`；重搜用輸入框的文字是 `re-searching uses the text in
   the field` 群組；人數是 `an offline room shows no viewers even with a count`）。
-- 直播版（ADR 0031 §決定 7，M3 design §9.4）：直播時 `QueueState.current` 是 `null`，播放列、播放頁、右側面板、佇列面板與外殼
+- 直播版（ADR 0031 §決定 7，M3 design §9.4）：直播時 `QueueState.current` 是 `null`，播放列、播放頁、右側面板與外殼
   判斷「有沒有在播」一律用 `hasNowPlaying`（曲目或直播間），直播內容讀 `nowPlayingLiveProvider`（`playbackLiveProvider` 還沒跟上
   佇列時先用佇列裡的目標）。三處都沒有進度條、上一首、下一首、隨機、循環；有停止鈕（`stopLive`）、主播、`LiveFacts`（「直播中」
   標記、出聲時的已收聽時間、人數）。階段：重新連線中、等待網路連線、已停止（暫停就是停止串流）、無法播放寫在主播前面
   （`liveStatusLabel`）；直播已結束、查詢失敗換掉「直播中」標記（`LiveBadge`，查詢失敗是警告色）。播放頁的「詳細」分頁與右側
-  面板是 `LiveDetails`（面板多一個「停止收聽」鈕）；播放頁直播時的「⋯」只有面板勾選項（沒有播放速度）。佇列分頁照常是原佇列、
-  沒有一列標成在播。閘門：`test/ui/player/live_player_test.dart`（三種寬度的播放列、三種階段、播放頁兩種寬度、佇列與詳細分頁、
-  佇列是空的時停止就關、面板）、`player_page_test.dart` 的 `in a live room no queue row is marked current`。
+  面板是 `LiveDetails`（面板多一個「停止收聽」鈕）；播放頁直播時的「⋯」只有面板勾選項（沒有播放速度）。佇列頁照常是原佇列、
+  沒有一列標成在播。閘門：`test/ui/player/live_player_test.dart`（三種寬度的播放列、三種階段、播放頁兩種寬度、佇列頁與詳細分頁、
+  佇列是空的時停止就關、面板）、`queue_view_test.dart` 的 `in a live room no queue row is marked current`。
 - Mix 的介面（ADR 0031 §決定 8–9，M3 PR 19；佇列與補歌的契約見 § 播放的 Mix）：
   - 「開始 Mix」在搜尋結果、播放歷史與佇列的曲目選單（`TrackRowMenu`）；**只在曲目所屬的插件宣告 `mix` 時出現**
     （`canStartMixProvider`，讀 `pluginRegistryProvider`，停用或移除的插件為假），宿主沒有音源分支。點下去 `startMixFrom`：失敗用
@@ -2811,7 +2808,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `onPressed: null`；播放列與播放頁的隨機鈕（`ShuffleButton.locked`）tooltip 改成「Mix 中無法隨機播放」、播放列「⋯」選單的隨機勾選項改寫成
     「隨機播放（Mix 中無法使用）」並停用。循環鈕的 tooltip 與「⋯」選單的循環項目另註明 Mix 中沒有「全部」（`loopTooltip`、`loopLabel` 的 `inMix`）。Ctrl+S 照樣呼叫控制器，由佇列拒絕。沒有「打亂佇列」的入口，所以沒有要停用的。
     佇列選單的「下一首播放」是重排（`moveToNext`），Mix 中照常。
-  - 佇列分頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
+  - 佇列頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
   閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、循環鈕、「⋯」的循環項目與 Ctrl+R、佇列標題兩種寬度、佇列列選單）、
   `history_page_test.dart` 的 `the Mix items of the menu`、`guidelines_test.dart` 的 `the queue of a mix`（寬 400／1000、淺色與深色）。
 - 分 P 的介面（M3 PR 20，design §11.1、契約見 § 插件的 `multiPart`；狀態在 `lib/ui/search/video_parts.dart`）：

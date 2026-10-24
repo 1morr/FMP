@@ -37,6 +37,33 @@ const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
 void main() {
   group('navigation per window class (ADR 0024 §決定 3, ADR 0033 §決定 5)', () {
     const labels = ['Home', 'Search', 'Library', 'Queue', 'Radio', 'Settings'];
+    testWidgets('a short landscape phone scrolls the rail instead of '
+        'overflowing', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(
+        tester,
+        // 橫向手機扣掉狀態列與手勢列後約 370dp。
+        size: const Size(914, 360),
+        at: ShellDestination.home,
+      );
+      expect(tester.takeException(), isNull);
+
+      final settings = find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.text('Settings'),
+      );
+      await tester.ensureVisible(settings);
+      await tester.pumpAndSettle();
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
+        ShellDestination.settings.index,
+      );
+    });
+
     for (final (width, expected) in [
       (400.0, NavigationBar),
       (700.0, NavigationRail),

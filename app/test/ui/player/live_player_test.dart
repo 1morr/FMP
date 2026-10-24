@@ -202,8 +202,7 @@ void main() {
       });
     }
 
-    // 開著播放頁（或 compact 的佇列面板）時開始收聽：`current` 變成 `null`，頁面與面板不能當成
-    // 「沒有在播」自己關掉。
+    // 開著播放頁時開始收聽：`current` 變成 `null`，頁面不能當成「沒有在播」自己關掉。
     for (final size in const [Size(400, 800), Size(1000, 800)]) {
       testWidgets('at ${size.width}: going live with the page open keeps it '
           'open', (tester) async {

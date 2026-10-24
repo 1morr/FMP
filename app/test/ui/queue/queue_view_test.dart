@@ -12,7 +12,12 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/queue/queue_view.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_source_plugin.dart';
@@ -564,6 +569,22 @@ void main() {
       expect(find.byType(QueueView), findsNothing);
     });
 
+    testWidgets('a queue that is still loading shows nothing, not the empty '
+        'state', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            translationsProvider.overrideWithValue(AppLocale.en.buildSync()),
+            playbackQueueProvider.overrideWithValue(const AsyncLoading()),
+          ],
+          child: const MaterialApp(home: QueuePage(visible: true)),
+        ),
+      );
+
+      expect(find.text('The queue is empty'), findsNothing);
+      expect(find.byType(QueueView), findsNothing);
+    });
+
     testWidgets('the list opens near the current song every time', (
       tester,
     ) async {
@@ -584,6 +605,19 @@ void main() {
         tester.widget<ListTile>(find.widgetWithText(ListTile, 'Song t100')),
         isA<ListTile>().having((tile) => tile.selected, 'selected', isTrue),
       );
+
+      // Away from the queue the song changes; coming back opens near the new
+      // one, not where the list was left.
+      await h.open(tester, ShellDestination.home);
+      await tester.pumpAndSettle();
+      unawaited(h.controller.jumpTo(150));
+      await tester.pump(const Duration(milliseconds: 200));
+      await h.openQueue(tester);
+
+      final again = tester.widget<ReorderableListView>(
+        find.byType(ReorderableListView),
+      );
+      expect(again.scrollController!.offset, 148 * again.itemExtent!);
     });
 
     testWidgets('during a temporary play no queue row is marked current', (

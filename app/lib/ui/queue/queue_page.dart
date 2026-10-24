@@ -19,11 +19,11 @@ class QueuePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (!visible) return const SizedBox.shrink();
+    // 還在讀佇列時（`null`）什麼都不畫，免得啟動時先閃一下空狀態。
     final empty = ref.watch(
-      playbackQueueProvider.select(
-        (queue) => queue.value?.entries.isEmpty ?? true,
-      ),
+      playbackQueueProvider.select((queue) => queue.value?.entries.isEmpty),
     );
+    if (empty == null) return const SizedBox.shrink();
     if (empty) {
       final t = ref.watch(translationsProvider).shell;
       return EmptyState(
