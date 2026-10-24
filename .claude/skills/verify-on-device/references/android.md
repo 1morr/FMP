@@ -15,9 +15,19 @@
 Start-Process -FilePath "$env:ANDROID_HOME\emulator\emulator.exe" -ArgumentList "-avd","<AVD>" -PassThru
 ```
 
+macOS 主機（執行檔沒有 `.exe`）：
+
+```bash
+nohup "$ANDROID_HOME/emulator/emulator" -avd <AVD> >/dev/null 2>&1 & disown
+```
+
 ```bash
 adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done; echo BOOTED'
 ```
+
+macOS 主機上，Claude Code 的 Bash 沙箱擋住 `adb` 連本機的 5037 埠，而且每次呼叫結束時會連帶收掉 adb 伺服器：症狀是
+`daemon not running; starting now`、`device offline` 反覆出現。adb 的指令改在沙箱外跑，並先以常駐方式起伺服器：
+`nohup adb nodaemon server >/dev/null 2>&1 </dev/null & disown`。
 
 `-no-audio` 啟動的模擬器不輸出聲音，回報要寫明；看播放改用 log 與 `dumpsys`。模擬器的音訊跑得
 比實際時間快（約 1.7 倍），不要拿它的數字當播放時長或交接間隙的實測。

@@ -163,6 +163,28 @@ void main() {
       expect(harness.records(cacheLogTag), isEmpty);
     });
 
+    // 解析目錄是照呼叫順序一個接一個做的：解析失敗的那一次要把錯誤交給呼叫者，而且不能卡住或弄壞
+    // 之後的開啟。
+    test('an open whose directory fails to resolve throws and does not hold '
+        'up the opens after it', () async {
+      final harness = CacheHarness();
+      final broken = CacheDirectory(
+        applicationCachePath: () async => throw const FileSystemException('x'),
+      );
+
+      final failing = openCacheStore(
+        broken,
+        limitBytes: 1 << 20,
+        log: harness.log,
+      );
+      final next = harness.open();
+
+      await expectLater(failing, throwsA(isA<FileSystemException>()));
+      final store = await next;
+      expect(await store.watchUsage().first, isNotEmpty);
+      expect(pendingCacheOpens, isEmpty, reason: 'nothing left registered');
+    });
+
     test('a database that is locked by another connection is not corruption: '
         'it throws and leaves the files alone', () async {
       final harness = CacheHarness();

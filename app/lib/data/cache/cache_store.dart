@@ -365,6 +365,11 @@ Map<String, Future<void>> get pendingCacheCloses => _pendingCloses;
 /// （[openCacheStore]）。值是最後一個開啟的完成訊號，永遠正常完成。
 final _pendingOpens = <String, Future<void>>{};
 
+/// 解析目錄並登記進 [_pendingOpens] 的步驟，一個接一個、照呼叫順序：解析是非同步的，各自解析
+/// 完才登記的話，後呼叫的可能先解析完、先開（macOS 上常見），「同一個目錄一個接一個」就不再照呼叫
+/// 順序。永遠正常完成。
+Future<void> _registrations = Future<void>.value();
+
 /// 測試用：登記一個「還沒開完」的快取庫，驗證另一次開啟會等它（真的開啟太快，賽跑重現不了）。
 @visibleForTesting
 Map<String, Future<void>> get pendingCacheOpens => _pendingOpens;
@@ -399,11 +404,17 @@ Future<CacheStore> openCacheStore(
   required int limitBytes,
   required Log log,
 }) async {
-  final root = await directory.resolve();
-  final key = _closeKey(root);
-  final previous = _pendingOpens[key];
   final opened = Completer<void>();
-  _pendingOpens[key] = opened.future;
+  final registered = _registrations.then((_) async {
+    final root = await directory.resolve();
+    final key = _closeKey(root);
+    final previous = _pendingOpens[key];
+    _pendingOpens[key] = opened.future;
+    return (root: root, key: key, previous: previous);
+  });
+  _registrations = registered.then<void>((_) {}, onError: (Object _) {});
+  // 解析失敗時還沒登記，錯誤照常拋給呼叫者。
+  final (:root, :key, :previous) = await registered;
   try {
     if (previous != null) await previous;
     return await _openAfterOthers(root, key, limitBytes, log);

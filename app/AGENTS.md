@@ -27,6 +27,14 @@
   CI 的 Windows runner 映像內建 Rust，不必另裝。建過之後 `build/windows/x64/<flavor>/plugins/smtc_windows/cargokit_build/`
   底下有 cargokit 自己產生的 `.dart`，`dart format … .` 會報它「Changed」而回非零：只有 `build/` 底下的那一個時不是
   格式問題（CI 的格式檢查沒有 `build/`），其他檔案照常要修。
+- 在 Mac 上，完整的 `flutter test` 用 `tool/linux_test.sh`：它在 OrbStack 的 x86_64 Ubuntu 上跑（和 CI 同架構），
+  第一次先跑 `tool/linux_test.sh setup` 建機器、裝 CI 的 `APP_FLUTTER_VERSION`。參數照傳給 `flutter test`。
+  - 為什麼不在 macOS 本機跑完整套件：
+    - 插件執行環境的 QuickJS 與舊資料匯入的 `libisar` 在 macOS 主機載不到；
+    - 插件測試失敗會連帶拖垮同一個檔案裡後面的測試，`debug_plugin_dev_test.dart` 還會卡死，`--timeout` 擋不住。
+  - macOS 本機只跑不碰插件與舊資料匯入的測試檔，例如 UI、設定、資料庫、快取。
+  - 工作區以 rsync 複製到機器裡再跑。副本的 `ios/`、`macos/` 還原成 HEAD，因為 Mac 建置時 CocoaPods 會改那些檔、
+    讓 `apple_identity_test` 變紅；所以改 Xcode 專案的改動要先 commit 再跑。
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
