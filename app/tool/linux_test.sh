@@ -7,8 +7,10 @@
 #   tool/linux_test.sh [參數...]      同步工作區後跑 flutter test [參數...]
 #
 # 工作區（含未提交的改動）以 rsync 複製到機器自己的檔案系統再跑，不共用 .dart_tool 與 build。
-# 副本裡的 app/ios、app/macos 還原成 HEAD：Mac 上建置時 CocoaPods 改的檔案不提交，會讓
+# 副本裡的 app/ios、app/macos 換成 HEAD 的內容：Mac 上建置時 CocoaPods 改的檔案不提交，會讓
 # apple_identity_test 變紅。所以改 Xcode 專案的 PR 要先 commit 再用這支跑。
+# 機器掛著整個 /Users（可寫），所以副本不帶 .git、對真的 repo 只做 git archive（唯讀）：
+# 在 worktree 裡跑時 .git 是指回主 repo 的檔案，在副本裡跑 git checkout 會寫到真的 index。
 set -euo pipefail
 
 machine="${FMP_LINUX_MACHINE:-fmp-ci}"
@@ -21,7 +23,8 @@ fi
 command -v orb >/dev/null || { echo "OrbStack (orb) is not installed" >&2; exit 1; }
 
 if [ "${1:-}" = "setup" ]; then
-  if ! orb list -q | grep -qx "$machine"; then
+  # 不用 grep -q：它一配到就結束，pipefail 下 orb 收到 SIGPIPE 會被當成沒找到。
+  if ! orb list -q | grep -x "$machine" >/dev/null; then
     orb create --arch amd64 ubuntu:noble "$machine"
   fi
   orb -m "$machine" bash -s -- "$version" <<'EOF'
@@ -39,7 +42,7 @@ if [ ! -d ~/flutter ]; then
   git branch -q --set-upstream-to=origin/stable stable
 fi
 ~/flutter/bin/flutter --disable-analytics >/dev/null 2>&1 || true
-~/flutter/bin/flutter --version | head -1
+~/flutter/bin/flutter --version | sed -n 1p
 EOF
   exit 0
 fi
@@ -55,10 +58,11 @@ if [ "$have" != "$version" ]; then
 fi
 mkdir -p ~/fmp
 rsync -a --delete \
+  --exclude /.git --exclude /.claude/worktrees/ \
   --exclude build/ --exclude .dart_tool/ --exclude Pods/ \
   "$repo/" ~/fmp/
-git -C ~/fmp checkout -q -- app/ios app/macos
-git -C ~/fmp clean -fdq -- app/ios app/macos
+rm -rf ~/fmp/app/ios ~/fmp/app/macos
+git -C "$repo" archive HEAD -- app/ios app/macos | tar -x -C ~/fmp
 cd ~/fmp/app
 flutter pub get >/dev/null
 flutter test "$@"
