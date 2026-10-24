@@ -218,6 +218,15 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   @override
   String get radio => 'Radio';
   @override
+  String get queue => 'Queue';
+  @override
+  String get queueTooltip => 'Queue (Ctrl+Q)';
+  @override
+  String get queueEmptyTitle => 'The queue is empty';
+  @override
+  String get queueEmptyBody =>
+      'Songs you play from Search or the Library line up here.';
+  @override
   String get panelTitle => 'Now playing';
   @override
   String get panelEmpty => 'Nothing is playing';
@@ -1701,8 +1710,6 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   @override
   String get tabLyrics => 'Lyrics';
   @override
-  String get tabQueue => 'Queue';
-  @override
   String get tabDetails => 'Details';
   @override
   String get noLyrics => 'No lyrics';
@@ -1746,8 +1753,6 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   String get statDanmaku => 'Danmaku';
   @override
   String get statCoin => 'Coins';
-  @override
-  String get queueTooltip => 'Queue (Ctrl+Q)';
   @override
   String queueCount({required Object count}) => '${count} in queue';
   @override

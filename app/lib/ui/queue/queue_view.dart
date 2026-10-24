@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -13,17 +12,15 @@ import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
-import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
-import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
-/// 可編輯的佇列清單（M2 PR 18b，design §7.3）。播放頁的佇列分頁（expanded 以上）與
-/// 底部面板（compact、medium，[showQueueSheet]）共用。
+/// 可編輯的佇列清單（M2 PR 18b，design §7.3）。佇列目的地（[QueuePage]）的內容，各寬度都是整頁
+/// （ADR 0035 §決定 2；播放頁的佇列分頁與底部面板已拿掉）。
 ///
 /// - 標題列：首數與「清空佇列」（確認後清空、提示一次）；隨機開著時多一行說明
 ///   （ADR 0018 §後果：拖曳只換歌，不改隨機順序）。
@@ -34,11 +31,7 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 ///   前兩列開始；「切歌時捲到目前歌曲」開著時，目前這首換了（`currentIndex` 指的項目
 ///   換了，拖曳讓它換位置不算）就再捲一次，使用者正在拖曳時不捲。
 class QueueView extends ConsumerStatefulWidget {
-  const QueueView({super.key, this.scrollController});
-
-  /// 清單的捲動控制器；底部面板要把清單的捲動接給 `DraggableScrollableSheet`。不給就
-  /// 自己建。
-  final ScrollController? scrollController;
+  const QueueView({super.key});
 
   /// 「清空佇列」鈕；測試以它找。
   static const clearKey = ValueKey('queue-clear');
@@ -54,9 +47,9 @@ class _QueueViewState extends ConsumerState<QueueView> {
   /// 目前這首之前先露出的幾列，讓前一首看得到。
   static const _rowsAbove = 2;
 
-  late final ScrollController _scroll =
-      widget.scrollController ??
-      ScrollController(initialScrollOffset: _currentOffset());
+  late final ScrollController _scroll = ScrollController(
+    initialScrollOffset: _currentOffset(),
+  );
 
   /// 上一次看到的「目前這首」（佇列項目本身，編輯時沿用實例）。
   QueueEntry? _current;
@@ -76,17 +69,11 @@ class _QueueViewState extends ConsumerState<QueueView> {
     super.initState();
     final queue = ref.read(playbackQueueProvider).value;
     _current = _currentEntry(queue);
-    if (widget.scrollController != null) {
-      // 面板的控制器要等清單接上之後才能捲。
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scrollToCurrent(animate: false);
-      });
-    }
   }
 
   @override
   void dispose() {
-    if (widget.scrollController == null) _scroll.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -154,13 +141,9 @@ class _QueueViewState extends ConsumerState<QueueView> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    // 清空之後播放頁與面板會關掉，這個 widget 也跟著 dispose：先把要用的拿好。
-    final controller = ref.read(playbackControllerProvider);
+    // 清空之後佇列頁換成空狀態，這個 widget 也跟著 dispose：先把要用的拿好。
     final toaster = ref.read(toasterProvider);
-    unawaited(controller.clear());
-    // 提示的位移在顯示的當下決定：播放頁還開著時是底部安全區，頁面接著關掉，提示就蓋在
-    // compact 的導覽列上。等這一幀（頁面與面板關掉、外殼發佈自己的高度）之後再提示。
-    await WidgetsBinding.instance.endOfFrame;
+    unawaited(ref.read(playbackControllerProvider).clear());
     toaster.success(t.queueCleared);
   }
 
@@ -373,65 +356,6 @@ class _QueueRow extends ConsumerWidget {
         onTap: () =>
             unawaited(ref.read(playbackControllerProvider).jumpTo(index)),
         onLongPress: openMenu,
-      ),
-    );
-  }
-}
-
-/// 底部面板（compact、medium）：`showModalBottomSheet` 加可拖動高度的
-/// `DraggableScrollableSheet`，內容是 [QueueView]。是自己的 route：返回鍵與 Esc 只關
-/// 面板；播放快捷鍵和播放頁一樣有效（[PlaybackShortcuts]）；佇列變空時（播放頁也會關）
-/// 自己關掉，不留一個蓋在外殼上的面板。
-Future<void> showQueueSheet(BuildContext context) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  showDragHandle: true,
-  builder: (context) => const _QueueSheet(),
-);
-
-class _QueueSheet extends ConsumerWidget {
-  const _QueueSheet();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(
-      playbackQueueProvider.select((queue) => hasNowPlaying(queue.value)),
-      (_, playing) {
-        if (playing) return;
-        // 面板上可能還有對話框（清空的確認）：移除自己的 route，不是 pop 最上面的。
-        final route = ModalRoute.of(context);
-        if (route != null && route.isActive) {
-          route.navigator?.removeRoute(route);
-        }
-      },
-    );
-    // 面板是自己的 route，不在播放頁的 `PlaybackShortcuts` 之下：再包一層，播放鍵才和寬版的
-    // 佇列分頁一樣有效（焦點在某一列時空白鍵也是播放暫停，Enter 才跳到那首）。Ctrl+L、Ctrl+Q
-    // 在這裡沒有 action，按了不做事。
-    return PlaybackShortcuts(
-      child: Shortcuts(
-        shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
-        },
-        child: Actions(
-          actions: {
-            DismissIntent: CallbackAction<DismissIntent>(
-              onInvoke: (_) => unawaited(Navigator.of(context).maybePop()),
-            ),
-          },
-          child: Focus(
-            autofocus: true,
-            skipTraversal: true,
-            child: DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: AppLayout.queueSheetInitialSize,
-              minChildSize: AppLayout.queueSheetMinSize,
-              builder: (context, controller) =>
-                  QueueView(scrollController: controller),
-            ),
-          ),
-        ),
       ),
     );
   }

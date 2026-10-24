@@ -24,11 +24,11 @@ import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/glass_panel.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_controls.dart';
-import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
+import 'package:fmp/ui/shell/open_queue.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -38,10 +38,11 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 /// 所以提示（`ToastHost` 包住 Navigator）仍在它上面。
 ///
 /// 版面依整個視窗的 `WindowClass`：
-/// - compact、medium：封面與歌詞切換（點封面或按 Ctrl+L），控制在下方；佇列在右上角
-///   「佇列」鈕（或 Ctrl+Q）開的底部面板（[showQueueSheet]）；
-/// - expanded、large：左右各半。左是封面、曲名、進度與控制，右是分頁「歌詞｜佇列｜詳細」；
-/// - extraLarge：三欄約 1：1.15：0.9，封面與控制｜歌詞｜分頁「佇列｜詳細」。
+/// - compact、medium：封面與歌詞切換（點封面或按 Ctrl+L），控制在下方；
+/// - expanded、large：左右各半。左是封面、曲名、進度與控制，右是分頁「歌詞｜詳細」；
+/// - extraLarge：三欄約 1：1.15：0.9，封面與控制｜歌詞｜分頁「詳細」。
+///
+/// 佇列不在這一頁：它是外殼的導覽目的地（ADR 0035 §決定 2）；Ctrl+Q 關掉這一頁並切過去。
 ///
 /// 背景是模糊的封面加遮罩，控制區與右欄是毛玻璃（[GlassPanel]）。
 ///
@@ -53,21 +54,18 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key, this.entry = PlayerPageEntry.none});
 
-  /// 開啟時要先做的事（Ctrl+L、Ctrl+Q 開頁）。
+  /// 開啟時要先做的事（Ctrl+L 開頁）。
   final PlayerPageEntry entry;
 
   /// 收合（關閉）鈕；測試與外殼以它找。
   static const closeKey = ValueKey('player-page-close');
-
-  /// compact、medium 右上角的「佇列」鈕。
-  static const queueKey = ValueKey('player-page-queue');
 
   @override
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
 }
 
 /// 開啟播放頁時順便要做的事。
-enum PlayerPageEntry { none, lyrics, queue }
+enum PlayerPageEntry { none, lyrics }
 
 /// Esc：關閉播放頁。
 final class ClosePlayerPageIntent extends Intent {
@@ -75,7 +73,7 @@ final class ClosePlayerPageIntent extends Intent {
 }
 
 /// 播放頁在最上層（外殼之上）。外殼以它決定提示的底部位移：播放頁蓋住了播放列與導覽，
-/// 提示只需要避開底部安全區（ADR 0023 §決定 2）；同時是 Ctrl+L、Ctrl+Q 判斷「已經開了」
+/// 提示只需要避開底部安全區（ADR 0023 §決定 2）；同時是 Ctrl+L 判斷「已經開了」
 /// 的依據。由 [openPlayerPage] 開的 route 在 push、pop、移除時設定。
 final playerPageOpenProvider = NotifierProvider<PlayerPageOpen, bool>(
   PlayerPageOpen.new,
@@ -171,9 +169,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   /// compact、medium：顯示歌詞而不是封面。
   var _lyricsFace = false;
 
-  /// compact、medium 的佇列底部面板開著（Ctrl+Q 不再開第二個）。
-  var _queueSheetOpen = false;
-
   @override
   void initState() {
     super.initState();
@@ -184,8 +179,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         switch (widget.entry) {
           case PlayerPageEntry.lyrics:
             _showLyrics();
-          case PlayerPageEntry.queue:
-            _showQueue();
           case PlayerPageEntry.none:
             break;
         }
@@ -203,15 +196,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   // ---- 分頁 -----------------------------------------------------------------
 
-  /// 目前顯示的分頁：使用者選的，沒選過是記住的，再沒有是歌詞。extraLarge 沒有歌詞分頁，
-  /// 記住的（或選的）是歌詞時顯示佇列，但不覆寫記憶。
+  /// 目前顯示的分頁：使用者選的，沒選過是記住的，再沒有是歌詞。記住的是已拿掉的佇列分頁
+  /// （`PlayerTab.queue`，資料庫的值不動）時當作沒記過。extraLarge 沒有歌詞分頁，是歌詞時
+  /// 顯示詳細，但不覆寫記憶。
   PlayerTab _tabOf(WindowClass windowClass) {
+    final stored = ref.watch(
+      layoutStateProvider.select((s) => s.value?.playerTab),
+    );
     final tab =
         _selected ??
-        ref.watch(layoutStateProvider.select((s) => s.value?.playerTab)) ??
+        (stored == PlayerTab.queue ? null : stored) ??
         PlayerTab.lyrics;
     return windowClass == WindowClass.extraLarge && tab == PlayerTab.lyrics
-        ? PlayerTab.queue
+        ? PlayerTab.details
         : tab;
   }
 
@@ -251,23 +248,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
   }
 
-  /// Ctrl+Q：右欄切到佇列；compact、medium 的佇列是底部面板。
-  void _showQueue() {
-    if (_hasTabs) {
-      _select(PlayerTab.queue);
-    } else {
-      unawaited(_openQueueSheet());
-    }
-  }
-
-  Future<void> _openQueueSheet() async {
-    if (_queueSheetOpen) return;
-    _queueSheetOpen = true;
-    try {
-      await showQueueSheet(context);
-    } finally {
-      _queueSheetOpen = false;
-    }
+  /// Ctrl+Q：關掉播放頁，轉場結束後請外殼切到佇列目的地（和在外殼按 Ctrl+Q 同一個結果）。
+  /// 等 route 完成，才排在 [openPlayerPage] 把焦點還給開它的元件之後，焦點才落在佇列頁。
+  Future<void> _showQueue() async {
+    final route = ModalRoute.of(context);
+    final openQueue = ref.read(openQueueProvider);
+    _close();
+    await route?.completed;
+    openQueue();
   }
 
   void _close() => unawaited(Navigator.of(context).maybePop());
@@ -330,7 +318,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         onClose: _close,
         // compact、medium 的歌詞那一面在這一欄裡；更寬的版面歌詞在別欄。
         lyricsFace: !_hasTabs && _lyricsFace,
-        onOpenQueue: _hasTabs ? null : () => unawaited(_openQueueSheet()),
         onToggleFace: _hasTabs
             ? null
             : () => setState(() => _lyricsFace = !_lyricsFace),
@@ -347,8 +334,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               _tabs,
               panel(
                 _PlayerTabs(
-                  key: const ValueKey('tabs-3'),
-                  tabs: PlayerTab.values,
+                  key: const ValueKey('tabs-2'),
+                  tabs: const [PlayerTab.lyrics, PlayerTab.details],
                   selected: tab,
                   onSelected: _select,
                   details: details,
@@ -376,8 +363,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               _tabs,
               panel(
                 _PlayerTabs(
-                  key: const ValueKey('tabs-2'),
-                  tabs: const [PlayerTab.queue, PlayerTab.details],
+                  key: const ValueKey('tabs-1'),
+                  tabs: const [PlayerTab.details],
                   selected: tab,
                   onSelected: _select,
                   details: details,
@@ -412,7 +399,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               onInvoke: (_) => _showLyrics(),
             ),
             ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
-              onInvoke: (_) => _showQueue(),
+              onInvoke: (_) => unawaited(_showQueue()),
             ),
           },
           // 一開始就有焦點在頁面裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
@@ -485,7 +472,6 @@ class _MainColumn extends ConsumerWidget {
     required this.transport,
     required this.onClose,
     required this.lyricsFace,
-    required this.onOpenQueue,
     required this.onToggleFace,
   });
 
@@ -497,9 +483,6 @@ class _MainColumn extends ConsumerWidget {
   final Widget transport;
   final VoidCallback onClose;
   final bool lyricsFace;
-
-  /// 右上角「佇列」鈕開底部面板；有分頁的版面沒有這顆鈕。
-  final VoidCallback? onOpenQueue;
 
   /// 點封面（歌詞）切換；有分頁的版面沒有這個動作。
   final VoidCallback? onToggleFace;
@@ -523,13 +506,6 @@ class _MainColumn extends ConsumerWidget {
                 icon: const Icon(Icons.keyboard_arrow_down),
                 onPressed: onClose,
               ),
-              if (onOpenQueue != null)
-                IconButton(
-                  key: PlayerPage.queueKey,
-                  tooltip: t.playerPage.queueTooltip,
-                  icon: const Icon(Icons.queue_music),
-                  onPressed: onOpenQueue,
-                ),
             ],
           ),
         ),
@@ -852,7 +828,8 @@ class _PlayerTabsState extends ConsumerState<_PlayerTabs>
     final t = ref.watch(translationsProvider).playerPage;
     String label(PlayerTab tab) => switch (tab) {
       PlayerTab.lyrics => t.tabLyrics,
-      PlayerTab.queue => t.tabQueue,
+      // 佇列分頁已拿掉；`_tabOf` 不會給出它，這裡只為了 switch 完整。
+      PlayerTab.queue => t.tabDetails,
       PlayerTab.details => t.tabDetails,
     };
     final selected = widget.tabs[_indexOf(widget.selected)];
@@ -867,7 +844,7 @@ class _PlayerTabsState extends ConsumerState<_PlayerTabs>
         Expanded(
           child: switch (selected) {
             PlayerTab.lyrics => const _NoLyrics(),
-            PlayerTab.queue => const QueueView(),
+            PlayerTab.queue => widget.details,
             PlayerTab.details => widget.details,
           },
         ),

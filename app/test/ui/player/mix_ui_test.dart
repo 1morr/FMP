@@ -9,7 +9,8 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
-import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
@@ -290,20 +291,7 @@ void main() {
 
   group('the queue', () {
     Future<void> openQueue(WidgetTester tester, Size size) async {
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byKey(PlayerBar.titleKey),
-              matching: find.byType(Text),
-            )
-            .first,
-      );
-      await tester.pumpAndSettle();
-      if (size.width < 840) {
-        await tester.tap(find.byKey(PlayerPage.queueKey));
-      } else {
-        await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      }
+      await tester.tap(ShellHarness.navigationItem(ShellDestination.queue));
       await tester.pumpAndSettle();
       expect(find.byType(QueueView), findsOneWidget);
     }

@@ -7,24 +7,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
-import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/player/player_page.dart';
-import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
 
-// M2 PR 18b：可編輯的佇列清單（分頁與底部面板，design §7.3）。每個動作都經控制器，
-// 從外殼開始，點播放列的曲名開播放頁，和使用者一樣。
+// M2 PR 18b：可編輯的佇列清單（design §7.3）；ADR 0035 起是佇列目的地的整頁。每個動作都經
+// 控制器，從外殼開始，切到「佇列」導覽項，和使用者一樣。
 
 const _clearTooltip = 'Clear the queue';
 const _more = 'More options';
-
-final _barTitle = find
-    .descendant(of: find.byKey(PlayerBar.titleKey), matching: find.byType(Text))
-    .first;
 
 Future<void> _chord(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -33,7 +31,7 @@ Future<void> _chord(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.pump();
 }
 
-/// 佇列 [ids]（播第一首）、播放頁開著；寬版切到佇列分頁，compact、medium 開底部面板。
+/// 佇列 [ids]（播第一首），切到佇列目的地。
 Future<ShellHarness> _openQueue(
   WidgetTester tester, {
   Size size = const Size(1000, 800),
@@ -44,14 +42,7 @@ Future<ShellHarness> _openQueue(
   await h.pumpShell(tester, size: size);
   await h.play(tester, [for (final id in ids) summary(id)]);
   await tester.pump(const Duration(milliseconds: 200));
-  await tester.tap(_barTitle);
-  await tester.pumpAndSettle();
-  if (size.width < 840) {
-    await tester.tap(find.byKey(PlayerPage.queueKey));
-  } else {
-    await tester.tap(find.widgetWithText(Tab, 'Queue'));
-  }
-  await tester.pumpAndSettle();
+  await h.openQueue(tester);
   expect(find.byType(QueueView), findsOneWidget);
   return h;
 }
@@ -222,10 +213,7 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-      await tester.tap(_barTitle);
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
+      await h.openQueue(tester);
 
       expect(find.text('10000 in queue'), findsOneWidget);
       expect(find.byType(ListTile).evaluate().length, lessThan(40));
@@ -396,12 +384,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_ids(h), ['a', 'b', 'c', 'd']);
-      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(find.byType(QueueView), findsOneWidget);
     });
 
-    testWidgets('confirming clears, closes the page and says so', (
-      tester,
-    ) async {
+    testWidgets('confirming clears the queue and says so', (tester) async {
       final h = await _openQueue(tester);
 
       await tester.tap(find.byTooltip(_clearTooltip));
@@ -410,7 +396,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.controller.queue.entries, isEmpty);
-      expect(find.byType(PlayerPage), findsNothing);
       expect(find.text('Queue cleared'), findsOneWidget);
     });
   });
@@ -435,46 +420,51 @@ void main() {
     });
   });
 
-  group('the bottom sheet', () {
+  group('the queue page', () {
     for (final (name, size) in [
       ('compact', const Size(400, 800)),
       ('medium', const Size(700, 800)),
+      ('expanded', const Size(1000, 800)),
     ]) {
-      testWidgets('$name: the button opens it, back and Esc close only it', (
+      testWidgets('$name: a full page in the shell, back goes to Home', (
         tester,
       ) async {
         await _openQueue(tester, size: size);
-        expect(find.byType(PlayerPage), findsOneWidget);
+        expect(find.byType(PlayerPage), findsNothing);
+        expect(find.byType(BottomSheet), findsNothing);
 
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
         expect(find.byType(QueueView), findsNothing);
-        expect(find.byType(PlayerPage), findsOneWidget);
-
-        await tester.tap(find.byKey(PlayerPage.queueKey));
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsOneWidget);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsNothing);
-        expect(find.byType(PlayerPage), findsOneWidget);
+        expect(find.byType(HomePage), findsOneWidget);
       });
 
-      testWidgets('$name: Ctrl+Q opens it from the page, once', (tester) async {
+      testWidgets('$name: Ctrl+Q opens it, once, and focuses the page', (
+        tester,
+      ) async {
         final h = ShellHarness();
         await h.pumpShell(tester, size: size);
         await h.play(tester, [summary('a'), summary('b')]);
-        await tester.tap(_barTitle);
-        await tester.pumpAndSettle();
         expect(find.byType(QueueView), findsNothing);
 
+        // Pressed twice: still one page, nothing else opens.
+        await _chord(tester, LogicalKeyboardKey.keyQ);
         await _chord(tester, LogicalKeyboardKey.keyQ);
         await tester.pumpAndSettle();
+
         expect(find.byType(QueueView), findsOneWidget);
+        expect(find.byType(PlayerPage), findsNothing);
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<QueueView>(),
+          isNotNull,
+        );
       });
 
-      testWidgets('$name: the playback keys work in the sheet', (tester) async {
+      testWidgets('$name: the playback keys work on the page', (tester) async {
         final h = await _openQueue(tester, size: size);
+        await _chord(tester, LogicalKeyboardKey.keyQ);
+        await tester.pumpAndSettle();
         expect(h.controller.state, isA<Playing>());
 
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
@@ -487,11 +477,6 @@ void main() {
         expect(h.controller.queue.loopMode, LoopMode.all);
         await _chord(tester, LogicalKeyboardKey.arrowDown);
         expect(h.controller.volume, closeTo(0.95, 0.001));
-        // Ctrl+L does nothing here: the sheet stays, the page is unchanged.
-        await _chord(tester, LogicalKeyboardKey.keyL);
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsOneWidget);
-        expect(find.text('No lyrics'), findsNothing);
       });
 
       testWidgets(
@@ -513,43 +498,7 @@ void main() {
         },
       );
 
-      testWidgets('$name: Ctrl+Q pressed twice opens one sheet', (
-        tester,
-      ) async {
-        final h = ShellHarness();
-        await h.pumpShell(tester, size: size);
-        await h.play(tester, [summary('a'), summary('b')]);
-        await tester.tap(_barTitle);
-        await tester.pumpAndSettle();
-
-        // Both presses reach the page before the sheet takes the focus.
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyQ);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyQ);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsOneWidget);
-
-        await tester.binding.handlePopRoute();
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsNothing);
-        expect(find.byType(PlayerPage), findsOneWidget);
-      });
-
-      testWidgets('$name: Ctrl+Q with the page closed opens the page and the '
-          'sheet', (tester) async {
-        final h = ShellHarness();
-        await h.pumpShell(tester, size: size);
-        await h.play(tester, [summary('a'), summary('b')]);
-
-        await _chord(tester, LogicalKeyboardKey.keyQ);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(PlayerPage), findsOneWidget);
-        expect(find.byType(QueueView), findsOneWidget);
-      });
-
-      testWidgets('$name: clearing the queue closes the sheet and the page', (
+      testWidgets('$name: clearing the queue shows the empty state', (
         tester,
       ) async {
         final h = await _openQueue(tester, size: size);
@@ -558,14 +507,14 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(QueueView), findsNothing);
-        expect(find.byType(PlayerPage), findsNothing);
+        expect(find.text('The queue is empty'), findsOneWidget);
         // Nothing is left on top of the shell: it takes input again.
         await tester.tap(find.text('Settings').first);
         await tester.pumpAndSettle();
         expect(find.text('Appearance'), findsWidgets);
       });
 
-      testWidgets('$name: the sheet edits the queue too', (tester) async {
+      testWidgets('$name: the page edits the queue', (tester) async {
         final h = await _openQueue(tester, size: size);
 
         await _drag(tester, 'a', 2);
@@ -580,8 +529,9 @@ void main() {
         expect(h.controller.queue.current?.sourceId, 'a');
       });
 
-      testWidgets('$name: clearing from the sheet closes the sheet and the '
-          'page', (tester) async {
+      testWidgets('$name: clearing from the page empties it and says so', (
+        tester,
+      ) async {
         final h = await _openQueue(tester, size: size);
 
         await tester.tap(find.byTooltip(_clearTooltip));
@@ -591,10 +541,9 @@ void main() {
 
         expect(h.controller.queue.entries, isEmpty);
         expect(find.byType(QueueView), findsNothing);
-        expect(find.byType(PlayerPage), findsNothing);
+        expect(find.text('The queue is empty'), findsOneWidget);
         expect(find.text('Queue cleared'), findsOneWidget);
-        // The toast is placed for the shell, not for the page that just closed:
-        // it stays above the bottom navigation bar.
+        // The toast sits above the bottom navigation bar.
         final navigation = find.byType(NavigationBar);
         if (navigation.evaluate().isNotEmpty) {
           expect(
@@ -602,29 +551,86 @@ void main() {
             lessThanOrEqualTo(tester.getRect(navigation).top),
           );
         }
-        // Nothing is left on top of the shell: it takes input again.
-        await tester.tap(find.text('Settings').first);
-        await tester.pumpAndSettle();
-        expect(find.text('Appearance'), findsWidgets);
       });
     }
 
-    testWidgets('a wide window has no button, the tab is the queue', (
-      tester,
-    ) async {
-      await _openQueue(tester);
-
-      expect(find.byKey(PlayerPage.queueKey), findsNothing);
-    });
-
-    testWidgets('the button has a tooltip with the shortcut', (tester) async {
+    testWidgets('an empty queue shows the empty state', (tester) async {
       final h = ShellHarness();
       await h.pumpShell(tester, size: const Size(400, 800));
-      await h.play(tester, [summary('a')]);
-      await tester.tap(_barTitle);
-      await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Queue (Ctrl+Q)'), findsOneWidget);
+      await h.openQueue(tester);
+
+      expect(find.text('The queue is empty'), findsOneWidget);
+      expect(find.byType(QueueView), findsNothing);
+    });
+
+    testWidgets('the list opens near the current song every time', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 900));
+      await h.play(tester, [
+        for (var i = 0; i < 200; i++) summary('t$i'),
+      ], index: 100);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      await h.openQueue(tester);
+
+      final list = tester.widget<ReorderableListView>(
+        find.byType(ReorderableListView),
+      );
+      expect(list.scrollController!.offset, 98 * list.itemExtent!);
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'Song t100')),
+        isA<ListTile>().having((tile) => tile.selected, 'selected', isTrue),
+      );
+    });
+
+    testWidgets('during a temporary play no queue row is marked current', (
+      tester,
+    ) async {
+      final h = await _openQueue(tester);
+
+      unawaited(h.controller.playTemporary(summary('x').toTrackInfo()));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final rows = tester.widgetList<ListTile>(find.byType(ListTile));
+      expect(rows, hasLength(4));
+      expect(rows.where((row) => row.selected), isEmpty);
+    });
+
+    // 直播時 `currentIndex` 也是回到佇列時的位置；佇列頁照常顯示原佇列（M3 design §9.4）。
+    testWidgets('in a live room no queue row is marked current', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      h.plugin.onResolveLive = (request) => [
+        candidate('${request.roomId}.flv'),
+      ];
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 200));
+      await h.openQueue(tester);
+      expect(
+        tester
+            .widgetList<ListTile>(find.byType(ListTile))
+            .where((row) => row.selected),
+        hasLength(1),
+      );
+
+      unawaited(
+        h.controller.playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r', title: 'Room'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final rows = tester.widgetList<ListTile>(find.byType(ListTile));
+      expect(rows, hasLength(2));
+      expect(rows.where((row) => row.selected), isEmpty);
     });
   });
 
@@ -638,10 +644,7 @@ void main() {
       if (autoScroll) await _setAutoScroll(tester, h);
       await h.play(tester, [for (var i = 0; i < 200; i++) summary('t$i')]);
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(_barTitle);
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
+      await h.openQueue(tester);
       final list = tester.widget<ReorderableListView>(
         find.byType(ReorderableListView),
       );
