@@ -1492,4 +1492,102 @@ void main() {
       expect(queue.state.currentIndex, 2);
     });
   });
+
+  group('shuffleEntries', () {
+    test('moves the current entry first and keeps every entry', () {
+      final queue = QueueModel(random: Random(3))
+        ..replace(tracks(['a', 'b', 'c', 'a', 'd', 'e']), startIndex: 4);
+      final before = [...queue.state.entries];
+      final current = queue.state.entries[4];
+
+      expect(queue.shuffleEntries(), isTrue);
+
+      final after = queue.state.entries;
+      expect(queue.state.currentIndex, 0);
+      expect(identical(after.first, current), isTrue);
+      expect(currentId(queue.state), 'd');
+      expect(
+        after.map((e) => e.track.sourceId).toList()..sort(),
+        before.map((e) => e.track.sourceId).toList()..sort(),
+      );
+      for (final entry in before) {
+        expect(after.where((e) => identical(e, entry)), hasLength(1));
+      }
+    });
+
+    test('is deterministic for a seed', () {
+      List<String> run() {
+        final queue = QueueModel(random: Random(7))..replace(numbered(10));
+        queue.shuffleEntries();
+        return ids(queue.state);
+      }
+
+      expect(run(), run());
+      expect(run(), isNot(ids((QueueModel()..replace(numbered(10))).state)));
+    });
+
+    test('does nothing with fewer than two entries', () {
+      final queue = QueueModel()..replace(tracks(['a']));
+      expect(queue.shuffleEntries(), isFalse);
+      expect(ids(queue.state), ['a']);
+      expect(QueueModel().shuffleEntries(), isFalse);
+    });
+
+    test('is blocked in a mix and while live', () {
+      final mixQueue = QueueModel()
+        ..startMix(
+          const MixIdentity(
+            pluginId: 'fmp-test',
+            mixId: 'm1',
+            title: 'Mix',
+            cursor: 'c',
+          ),
+          numbered(5),
+        );
+      expect(mixQueue.shuffleEntries(), isFalse);
+      expect(ids(mixQueue.state), ['0', '1', '2', '3', '4']);
+
+      final live = QueueModel()
+        ..replace(numbered(5))
+        ..playLive(
+          const LiveTarget(pluginId: 'fmp-test', roomId: 'r', title: 'R'),
+          position: Duration.zero,
+          playing: true,
+        );
+      expect(live.shuffleEntries(), isFalse);
+      expect(ids(live.state), ['0', '1', '2', '3', '4']);
+    });
+
+    test('with shuffle on, starts a new round at the current position', () {
+      final queue = shuffled(8, start: 3);
+      queue.moveNext();
+      queue.moveNext();
+      expect(played(queue.state), isNotEmpty);
+
+      expect(queue.shuffleEntries(), isTrue);
+
+      final state = queue.state;
+      expect(state.currentIndex, 0);
+      expect(state.shuffleOrder!.first, 0);
+      expect(state.shuffleOrder!.toList()..sort(), [0, 1, 2, 3, 4, 5, 6, 7]);
+      expect(played(state), isEmpty);
+      expect(upcoming(state), hasLength(7));
+    });
+
+    test('keeps a temporary play and returns to the same track', () {
+      final queue = QueueModel(random: Random(2))
+        ..replace(numbered(5), startIndex: 2)
+        ..playTemporary(
+          track('t'),
+          position: const Duration(seconds: 5),
+          playing: true,
+        );
+
+      expect(queue.shuffleEntries(), isTrue);
+
+      expect(queue.state.mode, QueueMode.temporary);
+      expect(queue.state.currentIndex, 0);
+      expect(queue.state.entries.first.track.sourceId, '2');
+    });
+  });
 }

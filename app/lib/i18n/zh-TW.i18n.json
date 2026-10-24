@@ -54,6 +54,7 @@
     "queueTooltip": "佇列（Ctrl+Q）",
     "queueEmptyTitle": "佇列是空的",
     "queueEmptyBody": "在搜尋或音樂庫裡播放歌曲，會排進這裡。",
+    "queueEmptyAction": "去搜尋",
     "panelTitle": "正在播放",
     "panelEmpty": "沒有正在播放的歌",
     "panelCollapseTooltip": "收起正在播放面板",
@@ -717,7 +718,13 @@
     "queueMore": "更多選項",
     "queuePlayNext": "下一首播放",
     "queueRemove": "從佇列移除",
-    "queueReorder": "拖曳以重新排列"
+    "queueReorder": "拖曳以重新排列",
+    "queueTitle": "佇列",
+    "queueShuffle": "打亂",
+    "queueShuffled": "已打亂",
+    "queueJumpTop": "跳到頂部",
+    "queueJumpBottom": "跳到底部",
+    "queuePlayingAt": "正在播放第 {index} 首"
   },
   "appearance": {
     "theme": "主題",

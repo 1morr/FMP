@@ -10,6 +10,9 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/search/search_page.dart' as ui_search;
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/i18n/strings.g.dart';
@@ -68,7 +71,7 @@ Finder _handleOf(String id) =>
 Future<void> _drag(WidgetTester tester, String id, int rows) async {
   final gesture = await tester.startGesture(tester.getCenter(_handleOf(id)));
   for (var step = 0; step < 8; step++) {
-    await gesture.moveBy(Offset(0, rows * 64.0 / 8));
+    await gesture.moveBy(Offset(0, rows * 72.0 / 8));
     await tester.pump(const Duration(milliseconds: 30));
   }
   await gesture.up();
@@ -84,6 +87,8 @@ Future<void> _setAutoScroll(WidgetTester tester, ShellHarness h) async {
   );
   await h.loadSettings(tester);
 }
+
+void _noop() {}
 
 class _ReasonNotifier extends Notifier<String?> {
   @override
@@ -425,6 +430,237 @@ void main() {
     });
   });
 
+  group('the header', () {
+    testWidgets('shows the title, the banner and the count', (tester) async {
+      await _openQueue(tester, ids: ['a', 'b', 'c']);
+
+      expect(find.byKey(QueueView.titleKey), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(QueueView.titleKey)).data, 'Queue');
+      expect(
+        find.descendant(
+          of: find.byKey(QueueView.bannerKey),
+          matching: find.text('Playing track 1'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(QueueView.bannerKey),
+          matching: find.text('3 in queue'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the banner scrolls back to the current song', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 900));
+      await h.play(tester, [
+        for (var i = 0; i < 200; i++) summary('t$i'),
+      ], index: 100);
+      await tester.pump(const Duration(milliseconds: 200));
+      await h.openQueue(tester);
+      final scroll = tester
+          .widget<ReorderableListView>(find.byType(ReorderableListView))
+          .scrollController!;
+      scroll.jumpTo(0);
+      await tester.pump();
+
+      await tester.tap(find.byKey(QueueView.bannerKey));
+      await tester.pumpAndSettle();
+
+      expect(scroll.offset, 98 * 72.0);
+    });
+
+    testWidgets('the jump button goes to the bottom, then back to the top', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.play(tester, [for (var i = 0; i < 100; i++) summary('t$i')]);
+      await tester.pump(const Duration(milliseconds: 200));
+      await h.openQueue(tester);
+      final scroll = tester
+          .widget<ReorderableListView>(find.byType(ReorderableListView))
+          .scrollController!;
+      expect(find.byTooltip('Jump to bottom'), findsOneWidget);
+
+      await tester.tap(find.byKey(QueueView.jumpKey));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, scroll.position.maxScrollExtent);
+      expect(find.byTooltip('Jump to top'), findsOneWidget);
+
+      await tester.tap(find.byKey(QueueView.jumpKey));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+      expect(find.byTooltip('Jump to bottom'), findsOneWidget);
+    });
+  });
+
+  group('shuffling', () {
+    testWidgets('Shuffle reorders the queue, current first, and says so', (
+      tester,
+    ) async {
+      final h = await _openQueue(
+        tester,
+        ids: [for (var i = 0; i < 30; i++) 'q$i'],
+      );
+      await tester.tap(_row('q5'));
+      await tester.pump();
+      await tester.pump();
+      expect(h.controller.queue.currentIndex, 5);
+
+      await tester.tap(find.byKey(QueueView.shuffleKey));
+      await tester.pump();
+      await tester.pump();
+
+      expect(h.controller.queue.currentIndex, 0);
+      expect(h.controller.queue.entries.first.track.sourceId, 'q5');
+      expect(_ids(h).toSet(), {for (var i = 0; i < 30; i++) 'q$i'});
+      expect(find.text('Queue shuffled'), findsOneWidget);
+    });
+
+    testWidgets('is disabled in a mix and does nothing', (tester) async {
+      final h = ShellHarness(mix: true);
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      h.plugin.onMix = (_) => MixBatch(
+        mixId: 'm1',
+        title: 'Chill',
+        tracks: [for (final id in 'abcde'.split('')) summary(id)],
+      );
+      await tester.runAsync(
+        () => h.controller.startMix(summary('a').toTrackInfo()),
+      );
+      await tester.pump();
+      await h.openQueue(tester);
+
+      expect(
+        tester.widget<Text>(find.byKey(QueueView.mixNoteKey)).data,
+        'Mix: Chill',
+      );
+      expect(
+        tester.widget<IconButton>(find.byKey(QueueView.shuffleKey)).onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('a mix that is loading more shows the spinner at the end', (
+      tester,
+    ) async {
+      final h = ShellHarness(mix: true);
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      final more = Completer<MixBatch>();
+      var calls = 0;
+      h.plugin.onMix = (_) {
+        if (calls++ == 0) {
+          return MixBatch(
+            mixId: 'm1',
+            title: 'Chill',
+            cursor: 'c1',
+            tracks: [for (final id in 'ab'.split('')) summary(id)],
+          );
+        }
+        return more.future;
+      };
+      await tester.runAsync(
+        () => h.controller.startMix(summary('a').toTrackInfo()),
+      );
+      await tester.pump();
+      await tester.pump();
+      // 轉圈一直在轉，不能 pumpAndSettle。
+      await h.open(tester, ShellDestination.queue);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byKey(QueueView.footerSpinnerKey), findsOneWidget);
+
+      more.complete(
+        MixBatch(
+          mixId: 'm1',
+          title: 'Chill',
+          tracks: [for (final id in 'cd'.split('')) summary(id)],
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(QueueView.footerSpinnerKey), findsNothing);
+      expect(h.controller.queue.entries, hasLength(4));
+    });
+  });
+
+  group('the rows', () {
+    testWidgets('the cross removes the song at once, no confirmation', (
+      tester,
+    ) async {
+      final h = await _openQueue(tester);
+
+      await tester.tap(
+        find.descendant(
+          of: _row('b'),
+          matching: find.byTooltip('Remove from queue'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_ids(h), ['a', 'c', 'd']);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('only the current row has the now playing overlay, with a '
+        'bold title', (tester) async {
+      final h = await _openQueue(tester);
+
+      Finder overlayOf(String id) => find.descendant(
+        of: _row(id),
+        matching: find.byType(NowPlayingOverlay),
+      );
+      expect(overlayOf('a'), findsOneWidget);
+      expect(overlayOf('b'), findsNothing);
+      expect(overlayOf('c'), findsNothing);
+
+      Text title(String id) => tester.widget<Text>(
+        find.descendant(of: _row(id), matching: find.text('Song $id')),
+      );
+      expect(title('a').style?.fontWeight, FontWeight.w600);
+      expect(title('b').style?.fontWeight, isNull);
+
+      await tester.tap(_row('c'));
+      await tester.pump();
+      await tester.pump();
+      expect(overlayOf('a'), findsNothing);
+      expect(overlayOf('c'), findsOneWidget);
+      expect(h.controller.queue.currentIndex, 2);
+    });
+
+    testWidgets('the rows are 72 dp tall', (tester) async {
+      await _openQueue(tester);
+
+      expect(tester.getSize(_row('a')).height, 72);
+    });
+  });
+
+  group('the empty queue guide', () {
+    testWidgets('Go to Search switches to the Search destination', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.openQueue(tester);
+      expect(find.text('The queue is empty'), findsOneWidget);
+
+      await tester.tap(find.text('Go to Search'));
+      await tester.pumpAndSettle();
+
+      // 沒選到的目的地不在畫面上，搜尋頁現身就是切過去了。
+      expect(find.byType(ui_search.SearchPage), findsOneWidget);
+      expect(find.text('The queue is empty'), findsNothing);
+    });
+  });
+
   group('the queue page', () {
     for (final (name, size) in [
       ('compact', const Size(400, 800)),
@@ -577,7 +813,9 @@ void main() {
             translationsProvider.overrideWithValue(AppLocale.en.buildSync()),
             playbackQueueProvider.overrideWithValue(const AsyncLoading()),
           ],
-          child: const MaterialApp(home: QueuePage(visible: true)),
+          child: const MaterialApp(
+            home: QueuePage(visible: true, onOpenSearch: _noop),
+          ),
         ),
       );
 
@@ -694,7 +932,7 @@ void main() {
       unawaited(h.controller.jumpTo(100));
       await tester.pumpAndSettle();
 
-      expect(scroll.offset, 98 * 64.0);
+      expect(scroll.offset, 98 * 72.0);
     });
 
     testWidgets('on: playing through to the next song scrolls too', (
@@ -707,7 +945,7 @@ void main() {
       unawaited(h.controller.jumpTo(150));
       await tester.pumpAndSettle();
 
-      expect(scroll.offset, 148 * 64.0);
+      expect(scroll.offset, 148 * 72.0);
     });
 
     testWidgets('off: the list stays where it is', (tester) async {
@@ -725,14 +963,14 @@ void main() {
       final (h, scroll) = await openLong(tester, autoScroll: true);
       unawaited(h.controller.jumpTo(100));
       await tester.pumpAndSettle();
-      scroll.jumpTo(10 * 64.0);
+      scroll.jumpTo(10 * 72.0);
       await tester.pump();
 
       h.controller.move(100, 150);
       await tester.pumpAndSettle();
 
       expect(h.controller.queue.currentIndex, 150);
-      expect(scroll.offset, 10 * 64.0);
+      expect(scroll.offset, 10 * 72.0);
     });
 
     testWidgets('on: nothing scrolls while a drag is in progress', (
@@ -748,7 +986,7 @@ void main() {
       unawaited(h.controller.jumpTo(100));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(scroll.offset, lessThan(98 * 64.0));
+      expect(scroll.offset, lessThan(98 * 72.0));
 
       await gesture.up();
       await tester.pumpAndSettle();
@@ -770,7 +1008,7 @@ void main() {
       unawaited(h.controller.jumpTo(100));
       await tester.pumpAndSettle();
 
-      expect(scroll.offset, 98 * 64.0);
+      expect(scroll.offset, 98 * 72.0);
     });
   });
 }

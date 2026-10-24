@@ -128,13 +128,16 @@ final class PlaybackController {
   StreamSubscription<List<OutputDevice>>? _outputDeviceLists;
 
   final _queue = QueueModel();
-  late final _mix = MixSession(
+  late final MixSession _mix = MixSession(
     queue: _queue,
     fetch: _session.mix,
     hasPlugin: _session.hasPlugin,
     log: _log,
     onChanged: () {
       if (!_disposed) _queueEdited();
+    },
+    onRefillingChanged: () {
+      if (!_disposed && !_mixRefills.isClosed) _mixRefills.add(_mix.refilling);
     },
   );
   bool _disposed = false;
@@ -147,6 +150,7 @@ final class PlaybackController {
       StreamController<({double volume, bool muted})>.broadcast();
   final _outputDeviceStates = StreamController<OutputDeviceState>.broadcast();
   final _speedChanges = StreamController<double>.broadcast();
+  final _mixRefills = StreamController<bool>.broadcast();
   final _seeks = StreamController<Duration>.broadcast();
   final _plays = StreamController<CountedPlay>.broadcast();
   final _liveChanges = StreamController<LiveInfo?>.broadcast();
@@ -313,6 +317,12 @@ final class PlaybackController {
 
   /// [speed] 改變（[setSpeed]）。
   Stream<double> get speedChanges => _speedChanges.stream;
+
+  /// Mix 正在補歌（佇列頁列尾的轉圈）。
+  bool get mixRefilling => _mix.refilling;
+
+  /// [mixRefilling] 每次改變。
+  Stream<bool> get mixRefillChanges => _mixRefills.stream;
 
   /// 音量或靜音改變（[setVolume]、[toggleMute]；[restore] 不算），給持久化用。
   Stream<({double volume, bool muted})> get volumeChanges =>
@@ -540,6 +550,13 @@ final class PlaybackController {
     _queueEdited();
   }
 
+  /// 打亂整個佇列（`QueueModel.shuffleEntries`）；Mix、直播或少於兩首時回傳 `false`。
+  bool shuffleQueue() {
+    if (!_queue.shuffleEntries()) return false;
+    _queueEdited();
+    return true;
+  }
+
   /// 清空佇列並停在 `Idle`（臨時播放也一起結束）。
   Future<void> clear() {
     _queue.clear();
@@ -761,6 +778,7 @@ final class PlaybackController {
     await _interruptionChanges.close();
     await _volumeChanges.close();
     await _speedChanges.close();
+    await _mixRefills.close();
     await _outputDeviceStates.close();
     await _seeks.close();
     await _plays.close();

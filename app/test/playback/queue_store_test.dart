@@ -214,6 +214,22 @@ void main() {
       expect(ranks[1], 1, reason: 'the moved song plays right after a');
     });
 
+    storeTest('shuffling the queue is written', (h) {
+      h.controller.addToQueue([for (final i in 'abcdefgh'.split('')) track(i)]);
+      unawaited(h.controller.jumpTo(3));
+      h.controller.setShuffle(true);
+      h.settle();
+
+      expect(h.controller.shuffleQueue(), isTrue);
+      h.settle();
+
+      expect(h.storedQueue.entries.first.sourceId, 'd');
+      expect(h.storedQueue.entries, hasLength(8));
+      expect(h.storedPlayer?.currentPosition, 0);
+      expect(h.storedQueue.shuffleRanks[0], 0);
+      expect(h.storedQueue.shuffleRanks, everyElement(isNotNull));
+    });
+
     storeTest('the position is written every 10 seconds only while playing', (
       h,
     ) {

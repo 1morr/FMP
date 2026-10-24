@@ -242,6 +242,8 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get queueEmptyBody => '在搜索或音乐库里播放歌曲，会排进这里。';
   @override
+  String get queueEmptyAction => '去搜索';
+  @override
   String get panelTitle => '正在播放';
   @override
   String get panelEmpty => '没有正在播放的歌曲';
@@ -1719,6 +1721,18 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   String get queueRemove => '从队列移除';
   @override
   String get queueReorder => '拖动以重新排列';
+  @override
+  String get queueTitle => '队列';
+  @override
+  String get queueShuffle => '打乱';
+  @override
+  String get queueShuffled => '已打乱';
+  @override
+  String get queueJumpTop => '跳到顶部';
+  @override
+  String get queueJumpBottom => '跳到底部';
+  @override
+  String queuePlayingAt({required Object index}) => '正在播放第 ${index} 首';
 }
 
 // Path: appearance
