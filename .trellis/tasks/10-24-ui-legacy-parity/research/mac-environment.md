@@ -64,3 +64,8 @@ Apple Music（support.apple.com「Keyboard shortcuts in Music on Mac」）：
 - ⌘Q 是結束 App。
 
 ADR 0035 §決定 7 照這個定。
+
+## 後續（U PR 1）
+
+- 完整的 `flutter test` 改用 `app/tool/linux_test.sh`：在 OrbStack 的 x86_64 Ubuntu 24.04 上跑，和 CI 同架構，約 9 分鐘。用法見 `app/AGENTS.md` § 驗證。
+- 第一次在那台機器上跑時，`test/data/cache/cache_store_test.dart` 的「同時開兩次」失敗了一次。這是真的 bug：`openCacheStore` 先解析目錄才登記，後呼叫的可能先開。單獨跑時 macOS 10 次錯 8 次。已修成照呼叫順序登記，修好後 macOS 20 次全過。

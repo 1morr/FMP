@@ -35,7 +35,7 @@ description: >-
 
 ## 前置
 
-- `adb` 在 `PATH`；`emulator.exe` 不在，用 `$ANDROID_HOME/emulator/emulator.exe`。
+- `adb` 在 `PATH`；`emulator.exe` 不在，用 `$ANDROID_HOME/emulator/emulator.exe`（macOS 主機是 `$ANDROID_HOME/emulator/emulator`，adb 要在沙箱外跑，見 `references/android.md`）。
 - 只用 dev flavor（`com.personal.fmp.dev`、視窗標題 `FMP Dev`）。**不要動模擬器上的舊版
   `com.personal.fmp`，也不要把 prod APK 裝上去**：它放著舊版的測試資料。
 - drift 與 slang 的 `*.g.dart` 已提交：建置前不必跑 codegen（改了 table 才跑
