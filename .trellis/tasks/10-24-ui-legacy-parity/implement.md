@@ -14,6 +14,12 @@
 - Mac 上完整的 `flutter test` 要等 PR 1 才可靠；在那之前本機跑改到的測試檔，完整套件看 CI。
 - 實機：每個 PR 在 Android 模擬器驗（手機直向，寬版用橫向 914dp），模式是重播（測試插件）。標「Windows」的 PR 另在 Windows 電腦上驗：虛擬機跑不了，見 `research/mac-environment.md`。
 - 截圖與回報不含個人資訊；設計稿裡的假資料不要寫進 fixture 以外的地方。
+- Windows 實機驗證批次做（擁有者 2026-10-25）：標「Windows」的 PR 在 Android 驗過、CI 綠了就合併，把要驗的項目記在下面的待驗清單；
+  累積幾個後（PR 6 之後、里程碑驗收時）在 Windows 電腦上一次驗完，有問題開修正 PR。
+
+## Windows 待驗清單
+
+- [ ] PR 2：外觀頁的 6 個 Windows 字型實際換字（正黑體、雅黑、新細明體、標楷體、Yu Gothic UI、Meiryo），中文字形正常；主題色與自訂色。
 
 ## PR 清單
 
