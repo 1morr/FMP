@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/playlist.dart';
@@ -39,6 +40,25 @@ void main() {
           .onPressed,
       isNull,
     );
+  });
+
+  testWidgets('while a song is being searched the progress names it', (
+    tester,
+  ) async {
+    final hold = Completer<List<TrackSummary>>();
+    final env = PreviewHarness(
+      results: (keyword) =>
+          keyword.startsWith('Green') ? hold.future : previewResults(keyword),
+    );
+    await env.open(tester);
+    await env.start(tester, animations: false);
+
+    expect(find.text('Matching: Green Field'), findsOneWidget);
+
+    hold.complete(const []);
+    await env.settle(tester);
+
+    expect(find.textContaining('Matching:'), findsNothing);
   });
 
   testWidgets('matching shows the chosen candidates, a failed match and the '

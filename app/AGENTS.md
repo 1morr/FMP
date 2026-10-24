@@ -1429,7 +1429,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （插件沒有 `resolveStream`，交給外部匯入，見下面；不取任何一頁）、`ImportedPlaylist`。對話框先以 `recognize(url)` 辨識（同樣依序問、不取頁，回 `RecognizedUrl`：插件、
   `PlaylistRef`、`playable`；`canPair` 是「能播的插件的歌單」，Mix 種子不算），再以 `importRecognized` 接著做，不再問一次 `playlistFromUrl`（辨識後插件離開清單是 `Unsupported`）。（插件, 歌單 id）已在 `playlist_remote`＝重新匯入，直接刷新那一列，
   名稱、間隔等本地設定不動；否則**第一頁成功才建列**（名稱取遠端標題、不唯一、不自動改名，間隔 24 小時），第一頁交給刷新器當 `firstPage`（不再取一次），
-  其餘頁由刷新器取。`importUrl` 與 `refresh` 的 `onProgress` 在每一頁寫進資料庫後收到已讀的項目數（匯入對話框的「已讀 n 首」）。
+  其餘頁由刷新器取。`importUrl`、`importPlaylistId` 與 `refresh` 的 `onProgress` 在每一頁寫進資料庫後收到 `ImportProgress`（`import_progress.dart`：已讀數、插件頁的 `total`、帳號清單的 `expectedTotal`、最後一首的標題；M＝`total ?? expectedTotal`，都沒有就只顯示「已讀 n 首」，標題只給畫面、不進 log）。傳 `ImportCancel` 可取消（ADR 0035 §決定 11）：刷新器在寫每一頁之前檢查，不經 `RefreshTrigger.isCurrent`（過期的觸發者不能寫 `partial`）；一頁都沒寫就取消回 `RefreshCancelled(count: 0)`、新建的歌單由匯入器刪掉（`ImportCancelled(playlistId: null)`），寫過頁的標 `partial`、不移除不重排（`ImportCancelled(playlistId, count)`），下一次刷新補齊。
 - **Mix 歌單**（`PlaylistImporter.createMix(ImportMixSeed)`，ADR 0033 §決定 1、M4 design §5.4）：呼叫該插件的 `mix(seed)` 一次（驗證種子、`MixBatch.title` 當名稱），
   成功才由 `PlaylistRepository.createMix` 建一列 `kind = mix`（`mix_plugin_id`、`mix_seed_source_id`、`mix_seed_cid`＝種子曲目的曲目鍵）；不存曲目、沒有 `playlist_remote`，
   同一個種子再貼一次是新的一張。插件不在清單上或沒宣告 `mix` 是 `Unsupported`、一首都沒給是 `NotFound`（同 `MixSession.start`）；失敗一律 `AppError`，什麼都沒建。log：`Mix playlist created`。
@@ -2216,9 +2216,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     開 `AccountPlaylistsPage`（`account_playlists_page.dart`，推在設定分頁自己的巢狀 Navigator 上，導覽與播放列留著，所以進 `toast_layering_test.dart`）。
     頁面讀完 `libraryPlaylists` 所有頁（`accountPlaylistsProvider`，最多 20 頁，離開頁面後不再抓剩下的頁，閘門 `account_playlists_state_test.dart`；任何一頁失敗整份失敗，可重試，離線用共用的離線空狀態）；每列勾選框、封面、名稱、
     首數、「可寫」，同插件同 id 在 `playlist_remote`（`importedRemoteIdsProvider`，隨匯入更新）的標「已匯入」並停用勾選。「匯入所選 (n)」逐張經
-    `PlaylistImporter.importPlaylistId`，進度「n／總數」，失敗的那列在名稱下寫原因（離線寫離線的說法）、其他照做，完成提示「已匯入 n 張」，有失敗改成警告並附「k 張失敗」。
-    匯入中離開這一頁照做剩下的、照樣提示：`await` 之後先查 `mounted` 才碰 `ref`（失敗原因的字樣要讀 provider，頁面釋放後讀會丟 `StateError`、中斷整批）。
-    閘門：`account_playlists_test.dart`（按鈕只在已登入且宣告時出現、已匯入停用勾選、部分失敗列出、匯入中離開頁面、跨頁重複只列一次、20 頁上限與 warning、重試、離線）、`playlist_importer_test.dart` 的
+    `PlaylistImporter.importPlaylistId` 的工作由 `AccountImportRun`（`account_import_page.dart`，不碰 `ref`）做、畫在全頁的 `AccountImportPage`（推在同一個巢狀 Navigator 上）：頂端「歌單 n／m」，每張一列（名稱、「已匯入 n／M 首」，M 取插件的 `total`、其次帳號清單的 `trackCount`，與狀態：等待、匯入中、完成、失敗與原因（離線寫離線的說法）、已取消），底部「取消」（目前這張停在已寫的頁、其餘不開始）；匯入進行中不能離開（`PopScope`），跑完換成「完成」，列可點開詳情。完成提示「已匯入 n 張」，有失敗改成警告並附「k 張失敗」，取消提示「已取消，已匯入 n 張」。回到歌單頁後失敗的列寫原因、已匯入的翻成「已匯入」。
+    閘門：`account_playlists_test.dart`（按鈕只在已登入且宣告時出現、已匯入停用勾選、部分失敗列出、匯入中不能離開頁面、跨頁重複只列一次、20 頁上限與 warning、重試、離線）、`playlist_importer_test.dart` 的
     `importPlaylistId`、`playlist_repository_test.dart` 的 `watchImportedRemoteIds`。
   - 「從帳號匯入電台」（M4 PR 15，design §7.4）：卡片標題列右側的「⋯」（`PopupMenuButton`）。選單項目只在 `CredentialState.active`、manifest 的
     `optionalExports` 含 `libraryLiveRooms`（同時宣告 `libraryRead` 與 `live`）**而且**插件實際匯出（`SourcePlugin.exportsLibraryLiveRooms`，從 `pluginRegistryProvider` 讀）時出現（ADR 0033）；
@@ -2507,8 +2506,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     （`pluginForArtwork`：插件清單裡第一個 `AllowedHosts.allows` 的，只收 `https`、不收帶 user info 的——媒體 client 不發），否則欄位下寫「這個網址不屬於任何已安裝的音源」、
     不能送出；之後封面經那個插件的 cache manager 與媒體 client 讀（`artworkPluginProvider`，`PlaylistCover`），宿主沒有任意網址的讀取
     路徑。那個插件之後停用或移除時封面是佔位圖；編輯時沒改過的自訂網址照舊保留、不再檢查（才改得了名稱）。
-  - **匯入**（`import_dialog.dart`，M4 design §10.8）：一個文字欄（網址）、「匯入」；進行中顯示「已讀 n 首」（第一頁回來前是「正在辨識網址」），
-    這時對話框不能關、不能再送（匯入不能中途取消）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`（Mix 網址建好的是 `CreatedMix`，音樂庫頁直接開詳情、不提示），音樂庫頁在巢狀導覽裡開詳情並提示
+  - **匯入**（`import_dialog.dart`，M4 design §10.8）：一個文字欄（網址）、「匯入」；進行中顯示「已匯入 n／M 首」加確定式進度條與目前曲名（M 不明時「已讀 n 首」、不定長；第一頁回來前是「正在辨識網址」），
+    這時對話框不能關、不能再送，只能按「取消」（保留已寫的頁，一頁都沒寫就什麼都不留，提示「已取消，保留 n 首」或「已取消匯入」，關閉並回 `null`）。成功（建好，或同一張重新匯入＝刷新那一列）關閉並回傳 `ImportedPlaylist`（Mix 網址建好的是 `CreatedMix`，音樂庫頁直接開詳情、不提示），音樂庫頁在巢狀導覽裡開詳情並提示
     （建好：已匯入／只讀到一部分；重新匯入：照手動刷新的提示）。不認得的網址與第一頁失敗（Mix 網址是第一次 `mix` 失敗）都留在對話框裡、
     欄位下寫原因、不建歌單、輸入留著；失敗而網路不是 `online` 寫離線字樣（同貼 cookie 登入的對話框），並 `log.report`。
     **交給匯入預覽的**（僅元資料來源，或選了「配對到其他音源」）關閉並回傳 `ImportForMatching`，音樂庫頁在巢狀導覽裡開預覽頁。輸入停下 300 ms 後先 `recognize`（不取頁；
@@ -2530,7 +2529,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     compact 時標頭捲走而進度與「建立歌單」留著）、
     `import_ui_test.dart` 的對話框案例（僅元資料來源開預覽、能播的預設是平台歌單、選配對開預覽且不建平台歌單、Mix 與不認得的網址沒有選擇、改輸入收起選擇、
     被失敗的匯入丟掉的辨識之後照樣再辨識）、`integration_test/toast_layering_test.dart` 的 `a toast shows above the import preview`（含離開確認框）。
-  - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
+  - **手動刷新**（`manual_refresh.dart`：`manualRefreshProvider`，狀態是正在刷新的歌單 id 對 `ImportProgress` 的對照；歌單卡的副標題與詳情的按鈕顯示轉圈與「已更新 n 首」）：卡片選單、詳情的「刷新」與狀態列的「重試」同一條。按鈕在進行中顯示「刷新中…」
     並停用，同一張不會排第二次（刷新器本身有 FIFO 鎖，但重複按沒有意義）。結果的提示：完整＝已刷新、`partial`＝警告「只讀到一部分，沒有移除任何歌曲」、失敗而網路不是 `online`＝
     「離線中，無法刷新」、其餘失敗照 ADR 0013 的類別表（`Toaster.error`）、插件停用或移除＝`sourceUnavailableProvider` 的字樣、`RefreshDiscarded` 不提示。
     自動刷新（§ 音樂庫的 `PlaylistRefreshJob`）不經這裡，不跳 toast。

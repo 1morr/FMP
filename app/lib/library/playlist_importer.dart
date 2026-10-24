@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/library/import_progress.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
@@ -59,6 +60,16 @@ final class ImportedPlaylist extends ImportResult {
   final RefreshOutcome refresh;
 }
 
+/// 使用者取消了匯入（[ImportCancel]）。[playlistId] 是留下來的歌單（已寫入 [count] 項，標成
+/// `partial`，下一次刷新補齊）；第一頁寫入前取消沒有留下任何東西，[playlistId] 是 `null`。
+@immutable
+final class ImportCancelled extends ImportResult {
+  const ImportCancelled({this.playlistId, required this.count});
+
+  final int? playlistId;
+  final int count;
+}
+
 /// [PlaylistImporter.recognize] 認出的網址：哪個插件、歌單 id 或 Mix 種子。
 @immutable
 final class RecognizedUrl {
@@ -110,12 +121,13 @@ final class PlaylistImporter {
   /// [onProgress] 在每一頁寫進資料庫後收到已讀的項目數（同 `PlaylistRefresher.refresh`）。
   Future<ImportResult> importUrl(
     String url, {
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   }) async {
     try {
       final recognized = await _recognize(url.trim());
       if (recognized == null) return const ImportUnrecognized();
-      return await _importRecognized(recognized, onProgress);
+      return await _importRecognized(recognized, onProgress, cancel);
     } on Object catch (error, stackTrace) {
       Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
     }
@@ -135,10 +147,11 @@ final class PlaylistImporter {
   /// 清單（停用、移除）是 [Unsupported]。
   Future<ImportResult> importRecognized(
     RecognizedUrl recognized, {
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   }) async {
     try {
-      return await _importRecognized(recognized, onProgress);
+      return await _importRecognized(recognized, onProgress, cancel);
     } on Object catch (error, stackTrace) {
       Error.throwWithStackTrace(AppError.wrap(error, stackTrace), stackTrace);
     }
@@ -157,7 +170,9 @@ final class PlaylistImporter {
     String pluginId,
     String playlistId, {
     bool? writable,
-    void Function(int count)? onProgress,
+    int? expectedTotal,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   }) async {
     try {
       final plugins = await _ref.read(pluginRegistryProvider.future);
@@ -171,7 +186,13 @@ final class PlaylistImporter {
           cause: StateError('The source cannot import a playlist'),
         );
       }
-      final result = await _importPlaylist(plugin, playlistId, onProgress);
+      final result = await _importPlaylist(
+        plugin,
+        playlistId,
+        onProgress,
+        cancel,
+        expectedTotal,
+      );
       if (writable != null && result is ImportedPlaylist) {
         await _ref
             .read(playlistRepositoryProvider)
@@ -245,7 +266,8 @@ final class PlaylistImporter {
 
   Future<ImportResult> _importRecognized(
     RecognizedUrl recognized,
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   ) async {
     switch (recognized.ref) {
       case PlaylistMixSeedRef(:final seed):
@@ -259,14 +281,16 @@ final class PlaylistImporter {
             cause: StateError('The source is no longer available'),
           );
         }
-        return _importPlaylist(plugin, playlistId, onProgress);
+        return _importPlaylist(plugin, playlistId, onProgress, cancel, null);
     }
   }
 
   Future<ImportResult> _importPlaylist(
     SourcePlugin plugin,
     String playlistId,
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
+    int? expectedTotal,
   ) async {
     final pluginId = plugin.manifest.id;
     if (!plugin.manifest.capabilities.contains(
@@ -276,20 +300,29 @@ final class PlaylistImporter {
     }
     final repository = _ref.read(playlistRepositoryProvider);
     final refresher = _ref.read(playlistRefresherProvider);
+    void Function(ImportProgress)? progress;
+    if (onProgress != null) {
+      progress = (value) => onProgress(value.withExpectedTotal(expectedTotal));
+    }
     final existing = await repository.findRemote(pluginId, playlistId);
     if (existing != null) {
-      return ImportedPlaylist(
-        playlistId: existing.playlistId,
+      return _result(
+        existing.playlistId,
         created: false,
-        refresh: await refresher.refresh(
+        outcome: await refresher.refresh(
           existing.playlistId,
-          onProgress: onProgress,
+          onProgress: progress,
+          cancel: cancel,
         ),
       );
     }
     final first = await plugin.importPlaylist(
       PlaylistPageQuery(playlistId: playlistId),
     );
+    // 取第一頁的期間被取消：還沒建列，什麼都不留。
+    if (cancel != null && cancel.isCancelled) {
+      return const ImportCancelled(count: 0);
+    }
     final created = await repository.createImported(
       pluginId: pluginId,
       remoteId: playlistId,
@@ -298,24 +331,45 @@ final class PlaylistImporter {
     if (created == null) {
       // 取第一頁的期間，同一張被另一次匯入建好了：改成刷新那一列（剛取到的第一頁照用）。
       final other = (await repository.findRemote(pluginId, playlistId))!;
-      return ImportedPlaylist(
-        playlistId: other.playlistId,
+      return _result(
+        other.playlistId,
         created: false,
-        refresh: await refresher.refresh(
+        outcome: await refresher.refresh(
           other.playlistId,
           firstPage: first,
-          onProgress: onProgress,
+          onProgress: progress,
+          cancel: cancel,
         ),
       );
     }
-    return ImportedPlaylist(
-      playlistId: created,
-      created: true,
-      refresh: await refresher.refresh(
-        created,
-        firstPage: first,
-        onProgress: onProgress,
-      ),
+    final outcome = await refresher.refresh(
+      created,
+      firstPage: first,
+      onProgress: progress,
+      cancel: cancel,
     );
+    if (outcome is RefreshCancelled && outcome.count == 0) {
+      // 一頁都沒寫就取消：剛建的歌單（連同 `playlist_remote`）不留。
+      await repository.delete(created);
+      return const ImportCancelled(count: 0);
+    }
+    return _result(created, created: true, outcome: outcome);
   }
+
+  /// 刷新器的結果轉成匯入的結果：取消（已寫過頁）是 [ImportCancelled]，其餘是 [ImportedPlaylist]。
+  ImportResult _result(
+    int playlistId, {
+    required bool created,
+    required RefreshOutcome outcome,
+  }) => switch (outcome) {
+    RefreshCancelled(:final count) => ImportCancelled(
+      playlistId: playlistId,
+      count: count,
+    ),
+    _ => ImportedPlaylist(
+      playlistId: playlistId,
+      created: created,
+      refresh: outcome,
+    ),
+  };
 }

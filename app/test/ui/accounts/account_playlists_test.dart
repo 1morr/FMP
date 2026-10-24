@@ -8,6 +8,7 @@ import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
 import 'package:fmp/plugins/accounts/login_credentials.dart';
+import 'package:fmp/ui/accounts/account_import_page.dart';
 import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/account_playlists_state.dart'
     show maxAccountPlaylistPages;
@@ -300,6 +301,11 @@ void main() {
       await h.settle(tester);
       await h.settle(tester);
 
+      // 全頁進度跑完停在原地，按「完成」回到歌單頁。
+      await tester.tap(_button('Done'));
+      await h.settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+
       expect(toasts, ['Playlists imported: 2']);
       expect(_inRow('Road trip', 'Imported'), findsOneWidget);
       expect(_inRow('Study', 'Imported'), findsOneWidget);
@@ -335,6 +341,11 @@ void main() {
       await h.settle(tester);
       await h.settle(tester);
 
+      // 全頁進度跑完停在原地，按「完成」回到歌單頁。
+      await tester.tap(_button('Done'));
+      await h.settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+
       expect(toasts, ['Playlists imported: 1, failed: 1']);
       expect(_inRow('Study', 'Imported'), findsOneWidget);
       expect(_inRow('Vanished', 'Imported'), findsNothing);
@@ -355,35 +366,39 @@ void main() {
       expect(await _playlistNames(tester, h), ['Remote b']);
     });
 
-    // 匯入進行中離開這一頁：剩下的照做、照樣提示，之後失敗的那張不會因為頁面已釋放而中斷整批。
-    testWidgets('leaving the page mid-import finishes the batch and toasts', (
-      tester,
-    ) async {
+    // 匯入進行中不能離開（返回鍵不作用），只能取消；跑完按「完成」才回到歌單頁。
+    testWidgets('the import page cannot be left mid-import and finishes the '
+        'batch', (tester) async {
       final h = await _openPlaylists(tester, _fourPlaylists);
       final toasts = <String>[];
       final subscription = h.shell.toaster.toasts.listen(
         (toast) => toasts.add(toast.message),
       );
       addTearDown(subscription.cancel);
-      // 清單順序：a 先匯入，gone 後失敗（頁面已經不在）。
+      // 清單順序：a 先匯入，gone 後失敗。
       await tester.tap(find.text('Road trip'));
       await tester.tap(find.text('Vanished'));
       await tester.pump();
 
       await tester.tap(_button('Import selected (2)'));
       await tester.pump();
-      expect(find.text('Importing 0/2'), findsOneWidget);
-      Navigator.of(tester.element(find.byType(AccountPlaylistsPage))).pop();
-      await tester.pump();
       await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Playlist 0 of 2'), findsOneWidget);
+      await Navigator.of(tester.element(find.byType(AccountImportPage)))
+          .maybePop();
       await tester.pump();
-      expect(find.byType(AccountPlaylistsPage), findsNothing);
+      expect(find.byType(AccountImportPage), findsOneWidget);
       await h.settle(tester);
       await h.settle(tester);
       await h.settle(tester);
 
       expect(tester.takeException(), isNull);
       expect(toasts, ['Playlists imported: 1, failed: 1']);
+      expect(find.text('Playlist 2 of 2'), findsOneWidget);
+      await tester.tap(_button('Done'));
+      await h.settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(AccountImportPage), findsNothing);
       expect(await _playlistNames(tester, h), ['Remote a']);
     });
 

@@ -207,7 +207,8 @@ void main() {
       expect(find.text('Remove from playlist'), findsNothing);
     });
 
-    testWidgets('the progress shows how many songs were read', (tester) async {
+    testWidgets('the progress is determinate with a total, shows the '
+        'current title and can be cancelled', (tester) async {
       final second = Completer<PlaylistPage>();
       final plugin = _plugin(
         onPage: (query) => query.cursor == null
@@ -221,14 +222,22 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Import'));
       await _advance(tester, h, settle: false);
 
-      expect(find.text('Songs read: 2'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      // 進行中不能關、不能再送。
+      expect(find.text('Imported 2 of 3'), findsOneWidget);
+      expect(find.text('Song b'), findsOneWidget);
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        closeTo(2 / 3, 0.001),
+      );
+      // 進行中不能關、不能再送，只能取消。
       expect(
         tester
             .widget<TextButton>(find.widgetWithText(TextButton, 'Cancel'))
             .onPressed,
-        isNull,
+        isNotNull,
       );
       expect(_importButton(tester), isNull);
 
@@ -237,6 +246,105 @@ void main() {
 
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('Imported · 3 songs'), findsOneWidget);
+    });
+
+    testWidgets('without a total the bar is indeterminate and says how many '
+        'songs were read', (tester) async {
+      final second = Completer<PlaylistPage>();
+      final plugin = _plugin(
+        onPage: (query) => query.cursor == null
+            ? page(['a', 'b'], cursor: 'c2')
+            : second.future,
+      );
+      final h = await _open(tester, plugin);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h, settle: false);
+
+      expect(find.text('Songs read: 2'), findsOneWidget);
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        isNull,
+      );
+
+      second.complete(page(['c']));
+      await _advance(tester, h);
+    });
+
+    testWidgets('cancelling after a page keeps what was written and says so', (
+      tester,
+    ) async {
+      final second = Completer<PlaylistPage>();
+      final plugin = _plugin(
+        onPage: (query) => query.cursor == null
+            ? page(['a', 'b'], cursor: 'c2', total: 5)
+            : second.future,
+      );
+      final h = await _open(tester, plugin);
+      final toasts = <String>[];
+      final subscription = h.toaster.toasts.listen(
+        (t) => toasts.add(t.message),
+      );
+      addTearDown(subscription.cancel);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h, settle: false);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Cancel'))
+            .onPressed,
+        isNull,
+      );
+      second.complete(page(['c', 'd', 'e'], total: 5));
+      await _advance(tester, h);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(toasts, ['Cancelled; kept 2']);
+      expect(await _songs(tester, h, 1), ['a', 'b']);
+      expect(
+        (await _remote(tester, h, 1)).lastResult,
+        PlaylistRefreshResult.partial,
+      );
+    });
+
+    testWidgets('cancelling before the first page leaves no playlist', (
+      tester,
+    ) async {
+      final first = Completer<PlaylistPage>();
+      final plugin = _plugin(onPage: (_) => first.future);
+      final h = await _open(tester, plugin);
+      final toasts = <String>[];
+      final subscription = h.toaster.toasts.listen(
+        (t) => toasts.add(t.message),
+      );
+      addTearDown(subscription.cancel);
+
+      await _openImportDialog(tester);
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await _advance(tester, h, settle: false);
+      expect(find.text('Looking up the link…'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pump();
+      first.complete(page(['a', 'b'], total: 2));
+      await _advance(tester, h);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(toasts, ['Import cancelled']);
+      final all = await tester.runAsync(
+        () => _repository(tester, h).watchAll().first,
+      );
+      expect(all, isEmpty);
     });
 
     testWidgets('a link no source knows says so and creates nothing', (
@@ -621,6 +729,36 @@ void main() {
       expect(find.text('Refresh'), findsOneWidget);
       expect(_button(tester, 'Refresh').onPressed, isNotNull);
       expect(plugin.pageQueries.length, before + 1);
+    });
+
+    testWidgets('the card shows how many songs were '
+        'updated', (tester) async {
+      final gate = Completer<PlaylistPage>();
+      var slow = false;
+      final plugin = _plugin(
+        onPage: (query) => !slow
+            ? page(['a'])
+            : query.cursor == null
+            ? page(['a', 'b'], cursor: 'c2', total: 4)
+            : gate.future,
+      );
+      final h = await _open(tester, plugin);
+      final id = await _import(tester, h, 'p1');
+      final manual = h.container(tester).read(manualRefreshProvider.notifier);
+
+      slow = true;
+      unawaited(manual(id));
+      await _advance(tester, h, settle: false);
+
+      // The card on the library page.
+      expect(find.text('2 of 4 updated'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      gate.complete(page(['c', 'd'], total: 4));
+      await _advance(tester, h);
+      await _advance(tester, h);
+
+      expect(find.textContaining('updated'), findsNothing);
     });
 
     testWidgets('a second request for the same playlist while one runs is '

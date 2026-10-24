@@ -903,6 +903,10 @@ class _CreateBar extends ConsumerWidget {
     final started = phase != ExternalImportPhase.ready;
     final total = job.rows.length;
     final skipped = total - job.chosenCount;
+    // 匹配中：目前正在搜的那一首（ADR 0035 §決定 11 的同一條進度資訊）。
+    final currentSong = phase == ExternalImportPhase.matching
+        ? job.rows.where((row) => row.match is MatchSearching).firstOrNull
+        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -929,6 +933,15 @@ class _CreateBar extends ConsumerWidget {
                         child: Text(
                           t.progress(done: job.settledCount, total: total),
                           style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    if (currentSong != null)
+                      Text(
+                        t.currentSong(title: currentSong.title),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     if (phase == ExternalImportPhase.done && skipped > 0)

@@ -659,9 +659,10 @@ class _RefreshButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).library;
-    final refreshing = ref.watch(
-      manualRefreshProvider.select((ids) => ids.contains(remote.playlistId)),
+    final progress = ref.watch(
+      manualRefreshProvider.select((all) => all[remote.playlistId]),
     );
+    final refreshing = progress != null;
     final unavailable =
         ref.watch(sourceUnavailableProvider(remote.pluginId)) != null;
     return OutlinedButton.icon(
@@ -676,7 +677,9 @@ class _RefreshButton extends ConsumerWidget {
           : () => unawaited(
               ref.read(manualRefreshProvider.notifier)(remote.playlistId),
             ),
-      label: Text(refreshing ? t.refreshing : t.refresh),
+      label: Text(
+        progress == null ? t.refresh : refreshProgressText(t, progress),
+      ),
     );
   }
 }
@@ -696,7 +699,7 @@ class _StatusBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final tokens = AppTokens.of(context);
     final refreshing = ref.watch(
-      manualRefreshProvider.select((ids) => ids.contains(remote.playlistId)),
+      manualRefreshProvider.select((ids) => ids.containsKey(remote.playlistId)),
     );
     final unavailable = ref.watch(sourceUnavailableProvider(remote.pluginId));
     Widget retry() => TextButton(

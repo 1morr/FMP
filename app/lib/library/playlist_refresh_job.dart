@@ -93,7 +93,10 @@ final class PlaylistRefreshJob extends Notifier<void> {
               succeeded++;
             case RefreshFailed(:final error):
               lastError = error;
-            case RefreshDiscarded() || RefreshSourceUnavailable():
+            // 排程的刷新沒有 `ImportCancel`，不會被取消。
+            case RefreshDiscarded() ||
+                RefreshSourceUnavailable() ||
+                RefreshCancelled():
               break;
           }
         } on Object catch (error, stackTrace) {

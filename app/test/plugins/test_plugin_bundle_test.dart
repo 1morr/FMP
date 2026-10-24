@@ -340,6 +340,31 @@ void main() {
       },
     );
 
+    test('pl-long and pl-long-nototal page through 1200 songs, 50 at a time, '
+        'with and without a total', () async {
+      final plugin = await load();
+
+      for (final (id, total) in [
+        ('pl-long', 1200),
+        ('pl-long-nototal', null),
+      ]) {
+        var count = 0;
+        var pages = 0;
+        String? cursor;
+        PlaylistPage? last;
+        do {
+          last = await page(plugin, id, cursor);
+          cursor = last.cursor;
+          count += last.items.length;
+          pages++;
+          expect(last.total, total, reason: id);
+        } while (cursor != null);
+        expect(count, 1200, reason: id);
+        expect(pages, 24, reason: id);
+        expect(last.items.last.track.sourceId, 'long-1200', reason: id);
+      }
+    });
+
     test(
       'pl-grow adds, removes, then reverses, one step per refresh',
       () async {

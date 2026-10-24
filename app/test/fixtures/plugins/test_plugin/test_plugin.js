@@ -123,10 +123,15 @@ const DETAIL_FAIL_ID = 'tone-880';
 // - pl-auth：沒有憑證 AuthRequired；有就回 3 首、writable: true（內容在記憶體，`libraryWrite`
 //   會改它，見下面「遠端寫入」）。
 // - pl-unavailable：3 首，第 2 首 unavailable。
+// - pl-long：1200 首、每頁 50 首（cursor 是位移），每頁都給 total 1200；曲目 `long-<n>`，標題
+//   `Long track <n>`（給匯入進度與取消的實機驗證）。
+// - pl-long-nototal：同 pl-long，但不給 total（進度只顯示「已讀 n 首」）。
 // - pl-parts：一支 3 P 的影片（parts-220）展開成 3 首，帶 partIndex、parentTitle；不給 total。
 const PLAYLIST_URL = /^https:\/\/fmp\.test\/playlist\/([a-z0-9-]+)$/;
 const MIX_URL = /^https:\/\/fmp\.test\/mix\/([a-z0-9-]+)$/;
 const IMPORT_PAGE_SIZE = 3;
+const LONG_TRACKS = 1200;
+const LONG_PAGE_SIZE = 50;
 const BASIC_TRACKS = [440, 220, 880, 440, 330];
 
 // pl-grow 目前的內容（遠端項目 id 的清單，順序就是遠端順序）與已經取過幾次第一頁。
@@ -261,6 +266,21 @@ function pagedItems(items, cursor) {
   return { items: items.slice(start, end), cursor: end < items.length ? String(end) : null };
 }
 
+function longPage(cursor, title, withTotal) {
+  const start = cursor === undefined || cursor === null ? 0 : Number(cursor);
+  const end = Math.min(start + LONG_PAGE_SIZE, LONG_TRACKS);
+  const items = [];
+  for (let n = start + 1; n <= end; n += 1) {
+    items.push({ track: playlistTrack(`long-${n}`, `Long track ${n}`) });
+  }
+  return {
+    playlist: { ownerName: 'FMP', title },
+    items,
+    cursor: end < LONG_TRACKS ? String(end) : null,
+    ...(withTotal ? { total: LONG_TRACKS } : {}),
+  };
+}
+
 export function playlistFromUrl(query) {
   const playlist = PLAYLIST_URL.exec(query.url);
   if (playlist !== null) return { playlistId: playlist[1] };
@@ -296,6 +316,10 @@ export async function importPlaylist(query) {
       const page = pagedItems(basicItems(), query.cursor);
       return { playlist: { ...meta, title: 'Partial playlist' }, ...page, total: BASIC_TRACKS.length };
     }
+    case 'pl-long':
+      return longPage(query.cursor, 'Long playlist', true);
+    case 'pl-long-nototal':
+      return longPage(query.cursor, 'Long playlist (no total)', false);
     case 'pl-gone':
       throw { fmpError: 'NotFound', message: 'the playlist is gone' };
     case 'pl-auth':

@@ -8,6 +8,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/library/import_progress.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -77,6 +78,15 @@ final class RefreshDiscarded extends RefreshOutcome {
   const RefreshDiscarded();
 }
 
+/// 使用者取消（[ImportCancel]）：停在 [count] 項（這次已寫入的）。一頁都沒寫時什麼都沒動；寫過
+/// 的頁留著，歌單標成 `partial`，下一次刷新補齊（ADR 0033 §決定 2），沒有套用移除與重排。
+@immutable
+final class RefreshCancelled extends RefreshOutcome {
+  const RefreshCancelled({required this.count});
+
+  final int count;
+}
+
 final playlistRefresherProvider = Provider<PlaylistRefresher>(
   PlaylistRefresher.new,
 );
@@ -98,19 +108,23 @@ final class PlaylistRefresher {
   Future<void> _tail = Future.value();
 
   /// 刷新 [playlistId]。[firstPage] 是呼叫端剛取到的第一頁（匯入新歌單時，避免再取一次），
-  /// 沒給就由刷新器取。[onProgress] 在每一頁寫進資料庫後收到這次刷新已讀的項目數（匯入對話框的
-  /// 「已讀 n 首」）。
+  /// 沒給就由刷新器取。[onProgress] 在每一頁寫進資料庫後收到這次刷新的進度（已讀數、插件給的總數、
+  /// 最後一首的標題）。[cancel] 在每一頁寫入之前檢查，被取消就停下（[RefreshCancelled]）；它不經
+  /// [RefreshTrigger.isCurrent]，因為取消後仍要把 `partial` 寫進去。
   Future<RefreshOutcome> refresh(
     int playlistId, {
     RefreshTrigger trigger = RefreshTrigger.manual,
     PlaylistPage? firstPage,
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   }) {
     final previous = _tail;
     final done = Completer<void>();
     _tail = done.future;
     return previous
-        .then((_) => _refresh(playlistId, trigger, firstPage, onProgress))
+        .then(
+          (_) => _refresh(playlistId, trigger, firstPage, onProgress, cancel),
+        )
         .whenComplete(done.complete);
   }
 
@@ -118,7 +132,8 @@ final class PlaylistRefresher {
     int playlistId,
     RefreshTrigger trigger,
     PlaylistPage? firstPage,
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   ) async {
     final repository = _ref.read(playlistRepositoryProvider);
     final remote = await repository.remote(playlistId);
@@ -131,7 +146,14 @@ final class PlaylistRefresher {
       isCurrent: () => trigger.isCurrent() && _isLoaded(plugin),
     );
     if (session == null) return const RefreshDiscarded();
-    final outcome = await _run(remote, plugin, session, firstPage, onProgress);
+    final outcome = await _run(
+      remote,
+      plugin,
+      session,
+      firstPage,
+      onProgress,
+      cancel,
+    );
     _log(playlistId, session.generation, outcome);
     return outcome;
   }
@@ -141,12 +163,14 @@ final class PlaylistRefresher {
     SourcePlugin plugin,
     PlaylistRefreshSession session,
     PlaylistPage? firstPage,
-    void Function(int count)? onProgress,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
   ) async {
     var page = firstPage;
     String? cursor;
     var pages = 0;
     var count = 0;
+    int? total;
     var complete = true;
     final seenCursors = <String>{};
     late PlaylistPage last;
@@ -164,6 +188,10 @@ final class PlaylistRefresher {
           );
         }
       }
+      // 取消在寫下一頁之前生效：已取到的這一頁丟掉。
+      if (cancel != null && cancel.isCancelled) {
+        return _cancelled(session, pages: pages, count: count);
+      }
       final written = await session.writePage([
         for (final item in page.items) item.toEntry(),
       ]);
@@ -171,7 +199,14 @@ final class PlaylistRefresher {
       pages++;
       count += page.items.length;
       last = page;
-      onProgress?.call(count);
+      total = page.total ?? total;
+      onProgress?.call(
+        ImportProgress(
+          count: count,
+          total: total,
+          currentTitle: page.items.isEmpty ? null : page.items.last.track.title,
+        ),
+      );
       final next = page.cursor;
       if (next == null) break;
       // 一直回同一個 cursor 的插件不能讓刷新永遠跑下去：當作沒讀完。
@@ -193,6 +228,17 @@ final class PlaylistRefresher {
       added: session.added,
       removed: removed,
     );
+  }
+
+  Future<RefreshOutcome> _cancelled(
+    PlaylistRefreshSession session, {
+    required int pages,
+    required int count,
+  }) async {
+    if (pages == 0) return const RefreshCancelled(count: 0);
+    return await session.markPartial()
+        ? RefreshCancelled(count: count)
+        : const RefreshDiscarded();
   }
 
   /// 取頁失敗。`NotFound`、`AuthRequired` 只改狀態（任何一頁都一樣）；已經寫了頁的其他錯誤
@@ -272,6 +318,16 @@ final class PlaylistRefresher {
           tag: libraryLogTag,
           error: outcome.error,
           fields: {'playlistId': playlistId, 'generation': generation},
+        );
+      case RefreshCancelled():
+        log.info(
+          'Playlist refresh cancelled',
+          tag: libraryLogTag,
+          fields: {
+            'playlistId': playlistId,
+            'count': outcome.count,
+            'generation': generation,
+          },
         );
       case RefreshDiscarded():
         log.info(
