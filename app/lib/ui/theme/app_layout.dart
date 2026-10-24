@@ -109,4 +109,11 @@ abstract final class AppLayout {
 
   /// Debug 頁資料庫表格一格的最大寬度。
   static const double debugCellWidth = 240;
+
+  /// 外觀設定的主題色色塊（圓形）直徑與一格的寬度（含底下的名稱，點擊區夠 48dp）。
+  static const double themeSwatch = 40;
+  static const double themeSwatchCell = 72;
+
+  /// 自訂主題色對話框的色彩預覽圓直徑。
+  static const double colorPreview = 48;
 }

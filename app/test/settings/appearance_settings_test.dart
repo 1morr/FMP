@@ -7,6 +7,8 @@ import 'package:fmp/data/database/app_database.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/platform/fonts/fonts.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 
 import '../support/memory_database.dart';
@@ -24,7 +26,27 @@ void main() {
 
   ProviderContainer containerFor(AppDatabase database) =>
       ProviderContainer.test(
-        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        overrides: [
+          appDatabaseProvider.overrideWithValue(database),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              dataDirectory: true,
+              singleInstance: false,
+              fontFallback: FontFallback.none,
+              fontChoices: ['serif', 'monospace'],
+              playback: null,
+              networkInterfaces: false,
+              cache: null,
+              secureStorage: false,
+              files: false,
+              loginWebView: false,
+              urlOpener: false,
+              restartsItself: false,
+              shareFiles: false,
+              pluginDevTools: false,
+            ),
+          ),
+        ],
       );
 
   /// 訂閱 [appearanceProvider]，依序取得它發出的值。
@@ -109,6 +131,7 @@ void main() {
           stored,
           defaultThemeMode: defaultThemeMode,
           defaultLocale: defaultLocale,
+          fontChoices: const [],
         );
         // 使用者設過的主題不變；沒設過的語言跟著新預設。
         expect(appearance.themeMode, ThemeModeSetting.dark);
@@ -144,6 +167,8 @@ void main() {
         const Appearance(
           themeMode: ThemeModeSetting.system,
           locale: LocaleSetting.zhCn,
+          seedColor: appSeedColor,
+          fontFamily: null,
           stored: AppearanceSettings.empty,
         ),
       );
@@ -247,6 +272,56 @@ void main() {
           locale: LocaleSetting.zhTw,
         ),
       );
+    });
+
+    test('the seed color and font default, are set and clear back', () async {
+      setSystemLocale(const Locale('en', 'US'));
+      final container = containerFor(memoryDatabase());
+      final values = appearances(container);
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.seedColor, appSeedColor);
+      expect(values.current.fontFamily, isNull);
+      final notifier = container.read(appearanceProvider.notifier);
+
+      await notifier.setSeedColor(const Color(0xFF3F51B5));
+      expect(await values.moveNext(), isTrue);
+      await notifier.setFontFamily('serif');
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.seedColor, const Color(0xFF3F51B5));
+      expect(values.current.fontFamily, 'serif');
+      expect(values.current.stored.themeMode, isNull);
+
+      await notifier.setSeedColor(null);
+      expect(await values.moveNext(), isTrue);
+      await notifier.setFontFamily(null);
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.seedColor, appSeedColor);
+      expect(values.current.fontFamily, isNull);
+      expect(values.current.stored, AppearanceSettings.empty);
+    });
+
+    test('a stored font outside the platform list reads as unset', () async {
+      setSystemLocale(const Locale('en', 'US'));
+      final database = memoryDatabase();
+      await AppearanceSettingsRepository(database)
+          .write(fontFamily: 'SimSun', seedColor: const Color(0xFF336699));
+      final values = appearances(containerFor(database));
+
+      expect(await values.moveNext(), isTrue);
+      // 生效值是系統預設；存的值原樣留著（換回有這個字型的平台還在）。
+      expect(values.current.fontFamily, isNull);
+      expect(values.current.stored.fontFamily, 'SimSun');
+      expect(values.current.seedColor, const Color(0xFF336699));
+    });
+
+    test('a stored font inside the platform list is kept', () async {
+      setSystemLocale(const Locale('en', 'US'));
+      final database = memoryDatabase();
+      await AppearanceSettingsRepository(database).write(fontFamily: 'serif');
+      final values = appearances(containerFor(database));
+
+      expect(await values.moveNext(), isTrue);
+      expect(values.current.fontFamily, 'serif');
     });
   });
 }

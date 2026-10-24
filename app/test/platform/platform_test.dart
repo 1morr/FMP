@@ -48,6 +48,8 @@ void main() {
       expect(appInfo.homeDirectory, isNull);
       expect(platform.capabilities.singleInstance, isFalse);
       expect(platform.capabilities.fontFallback, same(androidFontFallback));
+      expect(platform.capabilities.fontChoices, androidFontChoices);
+      expect(androidFontChoices, ['sans-serif', 'serif', 'monospace']);
       expect(platform.capabilities.playback, same(androidPlaybackSupport));
       expect(
         platform.capabilities.playback?.backend,
@@ -95,6 +97,15 @@ void main() {
       expect(appInfo.homeDirectory, Platform.environment['USERPROFILE']);
       expect(platform.capabilities.singleInstance, isTrue);
       expect(platform.capabilities.fontFallback, same(windowsFontFallback));
+      expect(platform.capabilities.fontChoices, windowsFontChoices);
+      expect(windowsFontChoices, [
+        'Microsoft JhengHei UI',
+        'Microsoft YaHei UI',
+        'PMingLiU',
+        'DFKai-SB',
+        'Yu Gothic UI',
+        'Meiryo',
+      ]);
       expect(platform.capabilities.playback, same(windowsPlaybackSupport));
       expect(
         platform.capabilities.playback?.backend,
@@ -164,6 +175,7 @@ void main() {
         expect(platform.loginWebView, isNull);
         expect(platform.capabilities.mediaControls, isNull);
         expect(platform.mediaControls, isNull);
+        expect(platform.capabilities.fontChoices, isEmpty);
         for (final language in FontLanguage.values) {
           expect(
             platform.capabilities.fontFallback.familiesFor(language),

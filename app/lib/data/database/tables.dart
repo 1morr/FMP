@@ -2,14 +2,14 @@ import 'package:drift/drift.dart';
 
 import 'package:fmp/data/database/converters.dart';
 
-// Schema v19（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
+// Schema v20（M1 的 v1，M2 加 network_settings（v2）、playback_settings（v3）、tracks、
 // queue_entries、player_state（v4）、play_history（v5）與 layout_state（v6），M3 加
 // installed_plugins 的三欄與 plugin_indexes（v7）、accounts 與 source_settings（v8）、
 // developer_settings（v9）、scheduler_runs（v11）、radio_stations 與
 // network_settings 的電台間隔（v12）、player_state 的 Mix 五欄（v13）、tracks 的分 P 兩欄（v14）），M4 加
 // playlists 與 playlist_entries（v15）、playlist_remote（v16）、network_settings 的排行間隔與
 // chart_settings（v17）、match_results、track_origins 與 source_settings 的匹配兩欄（v18），M5 加 legacy_imports 與
-// legacy_playlist_ids（v19）。
+// legacy_playlist_ids（v19），U 加 appearance_settings 的主題色與字型兩欄（v20）。
 // 改這個檔案就是改 schema：bump `AppDatabase.schemaVersion`、
 // 存新快照、寫 migration 與升級測試（.trellis/spec/app/data/index.md）。
 // SQL 表名以 `tableName` 寫死，Dart 類別改名不會改到資料庫。
@@ -26,6 +26,12 @@ class AppearanceSettingsTable extends Table {
     const ThemeModeSettingConverter(),
   )();
   late final locale = text().nullable().map(const LocaleSettingConverter())();
+
+  /// 主題色（seed）：ARGB 整數；空＝預設的紫（ADR 0035 §決定 5）。
+  late final seedColor = integer().nullable()();
+
+  /// 字型的 family 名稱；空＝系統預設。
+  late final fontFamily = text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

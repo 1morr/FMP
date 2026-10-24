@@ -1801,6 +1801,36 @@ class Translations$appearance$en extends Translations$appearance$zh_TW {
   String get language => 'Language';
   @override
   String get languageSystem => 'System default';
+  @override
+  String get themeColor => 'Theme color';
+  @override
+  String get themeColorCustom => 'Custom';
+  @override
+  String get customColorTitle => 'Custom theme color';
+  @override
+  String get customColorHex => 'Hex color';
+  @override
+  String get customColorHexInvalid => 'Enter 6 hex digits, for example 6750A4';
+  @override
+  String get customColorHue => 'Hue';
+  @override
+  String get customColorSaturation => 'Saturation';
+  @override
+  String get customColorBrightness => 'Brightness';
+  @override
+  String get customColorApply => 'Apply';
+  @override
+  String get customColorCancel => 'Cancel';
+  @override
+  late final Translations$appearance$presets$en presets =
+      Translations$appearance$presets$en._(_root);
+  @override
+  String get font => 'Font';
+  @override
+  String get fontSystem => 'Default font';
+  @override
+  late final Translations$appearance$fonts$en fonts =
+      Translations$appearance$fonts$en._(_root);
 }
 
 // Path: playback
@@ -2779,10 +2809,6 @@ class Translations$legacyResult$unimported$en
 
   // Translations
   @override
-  String get primaryColor => 'Accent color';
-  @override
-  String get fontFamily => 'Font';
-  @override
   String get streamPriority => 'Stream priority per source';
   @override
   String get cacheLimit => 'Cache limit';
@@ -2792,6 +2818,62 @@ class Translations$legacyResult$unimported$en
   String get railExpanded => 'Whether the side bar was expanded';
   @override
   String get searchHistory => 'Search history';
+}
+
+// Path: appearance.presets
+class Translations$appearance$presets$en
+    extends Translations$appearance$presets$zh_TW {
+  Translations$appearance$presets$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get defaultPurple => 'Default purple';
+  @override
+  String get indigo => 'Indigo';
+  @override
+  String get blue => 'Ocean blue';
+  @override
+  String get teal => 'Teal';
+  @override
+  String get green => 'Forest green';
+  @override
+  String get yellow => 'Sun yellow';
+  @override
+  String get orange => 'Amber orange';
+  @override
+  String get red => 'Ruby red';
+  @override
+  String get pink => 'Rose pink';
+}
+
+// Path: appearance.fonts
+class Translations$appearance$fonts$en
+    extends Translations$appearance$fonts$zh_TW {
+  Translations$appearance$fonts$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get jhengHei => 'Microsoft JhengHei';
+  @override
+  String get yaHei => 'Microsoft YaHei';
+  @override
+  String get pmingliu => 'PMingLiU';
+  @override
+  String get dfkai => 'DFKai-SB';
+  @override
+  String get sansSerif => 'Sans-serif';
+  @override
+  String get serif => 'Serif';
+  @override
+  String get monospace => 'Monospace';
 }
 
 // Path: plugins.capabilityNames

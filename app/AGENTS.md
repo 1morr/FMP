@@ -542,6 +542,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `a new database has the legacy import tables`；`backup_format_test.dart` 的歸類閘門與 `database_backups_test.dart` 的 `every excluded table is either kept from this device or emptied`；
     `test/data/import/staging_import_test.dart`（真的檔案資料庫：原始時間、`legacy_imports` 與 `legacy_playlist_ids`、`stored format`、寫入中途失敗、驗證的每一項失敗路徑與失敗後檔案都不在、抽樣）、
     `legacy_imports_repository_test.dart`、`import_summary_test.dart`（`summary_json` 往返、map 順序不影響相等與 hash）。
+- `appearance_settings.seed_color`（ARGB 整數）、`font_family`（文字）是 schema v20（ADR 0035 §決定 5）：主題色與字型，兩欄可空，空＝沒設定過（預設的紫、系統預設字型只在
+  `resolveAppearance` 套用）。字型清單是平台層的 `PlatformCapabilities.fontChoices`（`lib/platform/fonts/`，不含「系統預設」）；設定頁只列這份清單，主題的 `ThemeData.fontFamily`
+  放使用者選的字型、CJK `fontFamilyFallback` 照舊接在後面。閘門：`migration_test.dart` 的 `migration from v19 to v20 keeps existing data and user values`、
+  `migration from v<N> to v20 adds the appearance columns`（v1–v19 各一例）、`appearance_settings_repository_test.dart` 的 seed／字型寫入與清除、`platform_test.dart` 的 `fontChoices`、
+  `app_theme_test.dart` 的 `seed color and font`、`appearance_controls_test.dart`、`legacy_settings_converter_test.dart` 的 `theme color and font`。
 
 ### 快取庫
 
@@ -679,7 +684,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - **設定組只寫改過的值**（`legacy_settings_converter.dart`，M5 design §5.9）：舊值不等於舊專案 `Settings` 的欄位初始值、而且在合法值域內才寫，等於舊預設或是型別預設（`minLong`、NaN）、不認得的字串都留空，
     新版的預設生效（之後改新版預設，沒動過的人跟著變）。不在新版選項裡的數值取最接近的選項，等距取大的。例外：`source_settings.browse_as_logged_in` 三個音源都照舊值寫
     （舊預設 B 站、網易開、YouTube 關，新版全開）；輸出裝置只在 `convert(importOutputDevice: true)`（呼叫端依平台給，轉換器不判斷平台）時寫；`layout_state` 是上次的狀態、不是設定組：只在資料庫來源寫，照舊值寫（包括等於舊預設的值，否則使用者主動收起的面板會變回新版的展開），寬度夾在 ≤ 1600，不合法的值留空。
-    新版沒有落腳處、而且使用者改過的（主色、字型、串流優先、快取上限（歷代預設 2048／128／32 與行動裝置初值 16 都算沒改過）、首頁排行、側欄展開、搜尋歷史）進 `summary.unimportedSettings`，識別字見 `UnimportedSetting`。
+    新版沒有落腳處、而且使用者改過的（串流優先、快取上限（歷代預設 2048／128／32 與行動裝置初值 16 都算沒改過）、首頁排行、側欄展開、搜尋歷史；U 之後主色與字型會匯入，字型不在目前平台的 `fontChoices` 時留空）進 `summary.unimportedSettings`，識別字見 `UnimportedSetting`。
     閘門：`legacy_settings_converter_test.dart`（每個欄位的改過／等於預設／型別預設／取最接近各一例、三個音源、平台、版面來源、清單只列改過的；舊預設的來源行號寫在群組名）與
     `legacy_converter_import_test.dart` 的合成舊庫設定往返。
   - 整合閘門：`legacy_converter_import_test.dart`（合成舊庫 → 讀取器 → 轉換器 → `StagingImport.write` 與 `verify` 通過）。

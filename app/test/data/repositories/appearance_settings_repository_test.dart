@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
@@ -115,6 +116,44 @@ void main() {
       const AppearanceSettings(themeMode: ThemeModeSetting.system),
     );
   });
+
+  test(
+    'the seed color and font are written and cleared on their own',
+    () async {
+      final database = memoryDatabase();
+      final repository = AppearanceSettingsRepository(database);
+      await repository.write(themeMode: ThemeModeSetting.dark);
+
+      // alpha 一律存成不透明。
+      await repository.write(
+        seedColor: const Color(0x80336699),
+        fontFamily: 'serif',
+      );
+      expect(
+        await repository.read(),
+        const AppearanceSettings(
+          themeMode: ThemeModeSetting.dark,
+          seedColor: Color(0xFF336699),
+          fontFamily: 'serif',
+        ),
+      );
+      final row = await database
+          .customSelect(
+            'SELECT seed_color, font_family FROM appearance_settings',
+          )
+          .getSingle();
+      expect(row.data, {'seed_color': 0xFF336699, 'font_family': 'serif'});
+
+      await repository.clear(seedColor: true);
+      expect((await repository.read()).seedColor, isNull);
+      expect((await repository.read()).fontFamily, 'serif');
+      await repository.clear(fontFamily: true);
+      expect(
+        await repository.read(),
+        const AppearanceSettings(themeMode: ThemeModeSetting.dark),
+      );
+    },
+  );
 
   group('stored format', () {
     // 資料庫裡的字串是持久化格式（ADR 0010 §決定 2），不是 enum 的名字。

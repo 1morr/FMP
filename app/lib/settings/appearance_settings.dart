@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 
 /// 外觀設定套用預設之後的值（ADR 0011 §決定 7）。
 @immutable
@@ -11,11 +12,19 @@ final class Appearance {
   const Appearance({
     required this.themeMode,
     required this.locale,
+    required this.seedColor,
+    required this.fontFamily,
     required this.stored,
   });
 
   final ThemeModeSetting themeMode;
   final LocaleSetting locale;
+
+  /// 生效的主題色：沒設定過是預設的紫。
+  final Color seedColor;
+
+  /// 生效的字型；`null`＝系統預設。
+  final String? fontFamily;
 
   /// 使用者設定過的值；欄位為 `null` 表示沒設定過、目前用的是預設（設定頁
   /// 顯示為「跟隨系統」）。
@@ -26,17 +35,23 @@ final class Appearance {
       other is Appearance &&
       other.themeMode == themeMode &&
       other.locale == locale &&
+      other.seedColor == seedColor &&
+      other.fontFamily == fontFamily &&
       other.stored == stored;
 
   @override
-  int get hashCode => Object.hash(themeMode, locale, stored);
+  int get hashCode =>
+      Object.hash(themeMode, locale, seedColor, fontFamily, stored);
 
   @override
   String toString() =>
-      'Appearance(themeMode: $themeMode, locale: $locale, stored: $stored)';
+      'Appearance(themeMode: $themeMode, locale: $locale, '
+      'seedColor: $seedColor, fontFamily: $fontFamily, stored: $stored)';
 }
 
-/// 在讀取時套用預設：沒設定過的欄位用 [defaultThemeMode]／[defaultLocale]。
+/// 在讀取時套用預設：沒設定過的欄位用 [defaultThemeMode]／[defaultLocale]；主題色是
+/// [appSeedColor]，字型是系統預設（`null`）；存的字型不在 [fontChoices]（目前平台的清單）
+/// 裡也當作系統預設。
 ///
 /// 預設值只在這裡出現、不寫進資料庫，所以改預設不需要 migration，也不會動到
 /// 使用者設定過的值。
@@ -44,9 +59,15 @@ Appearance resolveAppearance(
   AppearanceSettings stored, {
   required ThemeModeSetting defaultThemeMode,
   required LocaleSetting defaultLocale,
+  required List<String> fontChoices,
 }) => Appearance(
   themeMode: stored.themeMode ?? defaultThemeMode,
   locale: stored.locale ?? defaultLocale,
+  seedColor: stored.seedColor ?? appSeedColor,
+  // 存的字型不在目前平台的清單（例如還原別的平台的備份）就當沒設定過。
+  fontFamily: fontChoices.contains(stored.fontFamily)
+      ? stored.fontFamily
+      : null,
   stored: stored,
 );
 
@@ -110,6 +131,7 @@ final class AppearanceNotifier extends StreamNotifier<Appearance> {
   @override
   Stream<Appearance> build() {
     final defaultLocale = localeForSystem(ref.watch(systemLocalesProvider));
+    final fontChoices = ref.watch(platformCapabilitiesProvider).fontChoices;
     return ref
         .watch(appearanceSettingsRepositoryProvider)
         .watch()
@@ -118,6 +140,7 @@ final class AppearanceNotifier extends StreamNotifier<Appearance> {
             stored,
             defaultThemeMode: ThemeModeSetting.system,
             defaultLocale: defaultLocale,
+            fontChoices: fontChoices,
           ),
         );
   }
@@ -136,5 +159,21 @@ final class AppearanceNotifier extends StreamNotifier<Appearance> {
     return locale == null
         ? repository.clear(locale: true)
         : repository.write(locale: locale);
+  }
+
+  /// 只寫主題色這個欄位；`null` 清回沒設定過（預設的紫）。
+  Future<void> setSeedColor(Color? color) {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    return color == null
+        ? repository.clear(seedColor: true)
+        : repository.write(seedColor: color);
+  }
+
+  /// 只寫字型這個欄位；`null` 清回沒設定過（系統預設）。
+  Future<void> setFontFamily(String? family) {
+    final repository = ref.read(appearanceSettingsRepositoryProvider);
+    return family == null
+        ? repository.clear(fontFamily: true)
+        : repository.write(fontFamily: family);
   }
 }

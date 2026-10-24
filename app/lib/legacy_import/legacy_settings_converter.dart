@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
@@ -21,8 +23,6 @@ import 'package:fmp/settings/playback_settings.dart';
 
 /// `ImportSummary.unimportedSettings` 的識別字（結果對話框依它查翻譯）；只有使用者改過的才列。
 abstract final class UnimportedSetting {
-  static const primaryColor = 'primaryColor';
-  static const fontFamily = 'fontFamily';
   static const streamPriority = 'streamPriority';
   static const cacheLimit = 'cacheLimit';
   static const homeRanking = 'homeRanking';
@@ -80,12 +80,14 @@ const _defaultUseAuth = {legacyBilibili: true, legacyNetease: true};
 /// 面板寬度的資料庫上限（`layout_state.panel_width` 的 CHECK）。
 const _maxPanelWidth = 1600.0;
 
-/// 把 [snapshot] 的設定列轉成新版的設定。[importOutputDevice] 由呼叫端依平台給（只有 Windows 的新版
+/// 把 [snapshot] 的設定列轉成新版的設定。[fontChoices] 是目前平台外觀設定可選的字型：舊字型不在裡面
+/// 就留空（系統預設），轉換器不判斷平台。[importOutputDevice] 由呼叫端依平台給（只有 Windows 的新版
 /// 有輸出裝置選擇）；[source] 不是資料庫時不寫版面（備份檔不帶版面，design §5.9）。
 ConvertedSettings convertLegacySettings(
   LegacySnapshot snapshot, {
   required LegacyImportSource source,
   required bool importOutputDevice,
+  required List<String> fontChoices,
 }) {
   if (snapshot.settings.isEmpty) return ConvertedSettings.empty;
   final s = snapshot.settings.first;
@@ -103,6 +105,16 @@ ConvertedSettings convertLegacySettings(
     'en' => LocaleSetting.en,
     _ => null,
   };
+
+  // 主題色預設是紫（`defaultThemePrimaryColor`）；null 與預設都不寫。舊版存的是 ARGB 整數，
+  // 取低 24 位當不透明的 seed。
+  final primary = s.primaryColor;
+  final seedColor = primary == null || primary < 0 || primary > 0xFFFFFFFF
+      ? null
+      : Color(0xFF000000 | (primary & 0xFFFFFF));
+  // 字型預設 null（系統預設）；不在新平台清單的退回預設。
+  final font = blankToNull(s.fontFamily);
+  final fontFamily = font != null && fontChoices.contains(font) ? font : null;
 
   final quality = s.audioQualityLevelIndex == _defaultAudioQualityIndex
       ? null
@@ -182,7 +194,12 @@ ConvertedSettings convertLegacySettings(
   }
 
   return ConvertedSettings(
-    appearance: AppearanceSettings(themeMode: themeMode, locale: locale),
+    appearance: AppearanceSettings(
+      themeMode: themeMode,
+      locale: locale,
+      seedColor: seedColor == appSeedColor ? null : seedColor,
+      fontFamily: fontFamily,
+    ),
     network: network,
     playback: playback,
     browseAsLoggedIn: browse,
@@ -212,8 +229,6 @@ int? _nearestChanged(int legacy, int legacyDefault, List<int> options) {
 
 /// 舊版有、新版沒有落腳處，而且使用者改過的設定。
 List<String> _unimported(LegacySnapshot snapshot, LegacySettings s) => [
-  if (s.primaryColor != null) UnimportedSetting.primaryColor,
-  if (blankToNull(s.fontFamily) != null) UnimportedSetting.fontFamily,
   if (s.sourceSettings.any(_streamPriorityChanged))
     UnimportedSetting.streamPriority,
   if ((s.maxCacheSizeMB > 0 &&

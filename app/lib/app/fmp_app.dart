@@ -130,12 +130,20 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     final themeMode = ref.watch(
       appearanceProvider.select((value) => value.value?.themeMode),
     );
+    final seedColor = ref.watch(
+      appearanceProvider.select((value) => value.value?.stored.seedColor),
+    );
+    final fontFamily = ref.watch(
+      appearanceProvider.select((value) => value.value?.fontFamily),
+    );
     return fmpMaterialApp(
       title: widget.flavor.displayName,
       navigatorKey: ref.watch(rootNavigatorKeyProvider),
       navigatorObservers: [ref.watch(toastRouteObserverProvider)],
       locale: ref.watch(uiLocaleProvider),
       themeMode: themeModeOf(themeMode ?? ThemeModeSetting.system),
+      seedColor: seedColor,
+      fontFamily: fontFamily,
       fontFamilyFallback: ref.watch(fontFamilyFallbackProvider),
       builder: (context, navigator) =>
           WindowClassScope(child: ToastHost(child: navigator!)),

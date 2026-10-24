@@ -37,13 +37,15 @@ final class LegacyConverter {
   /// [credentials] 是 `LegacyCredentialReader` 讀 [legacyCredentialKeys] 的結果；空（null）＝
   /// 沒有讀舊憑證（舊 JSON 備份），不跑帳號段，`playlist_remote.writable` 一律為假。
   /// [importOutputDevice] 由呼叫端依平台給（Windows 才為真），轉換器自己不判斷平台
-  /// （設定段，M5 design §5.9）。
+  /// （設定段，M5 design §5.9）。[fontChoices] 是目前平台外觀設定可選的字型
+  /// （`PlatformCapabilities.fontChoices`），舊字型不在裡面就不匯入（ADR 0035 §決定 12）。
   LegacyConversion convert(
     LegacySnapshot snapshot, {
     required LegacyImportSource source,
     int? backupVersion,
     required DateTime now,
     bool importOutputDevice = false,
+    List<String> fontChoices = const [],
     Map<String, LegacyCredentialRead>? credentials,
   }) => _Conversion(
     snapshot,
@@ -51,6 +53,7 @@ final class LegacyConverter {
     backupVersion,
     now,
     importOutputDevice,
+    fontChoices,
     credentials,
   ).run();
 }
@@ -86,6 +89,7 @@ final class _Conversion {
     this.backupVersion,
     this.now,
     this.importOutputDevice,
+    this.fontChoices,
     this.credentialReads,
   );
 
@@ -94,6 +98,7 @@ final class _Conversion {
   final int? backupVersion;
   final DateTime now;
   final bool importOutputDevice;
+  final List<String> fontChoices;
 
   /// 舊憑證的讀取結果；空（null）＝沒有讀，不跑帳號段。
   final Map<String, LegacyCredentialRead>? credentialReads;
@@ -128,6 +133,7 @@ final class _Conversion {
       snapshot,
       source: source,
       importOutputDevice: importOutputDevice,
+      fontChoices: fontChoices,
     );
     final bundle = ImportBundle(
       record: ImportRecord(

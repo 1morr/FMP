@@ -2336,6 +2336,48 @@ class Translations$appearance$zh_TW {
 
   /// zh-TW: '跟隨系統'
   String get languageSystem => '跟隨系統';
+
+  /// zh-TW: '主題色'
+  String get themeColor => '主題色';
+
+  /// zh-TW: '自訂顏色'
+  String get themeColorCustom => '自訂顏色';
+
+  /// zh-TW: '自訂主題色'
+  String get customColorTitle => '自訂主題色';
+
+  /// zh-TW: '色碼（HEX）'
+  String get customColorHex => '色碼（HEX）';
+
+  /// zh-TW: '請輸入 6 位數的色碼，例如 6750A4'
+  String get customColorHexInvalid => '請輸入 6 位數的色碼，例如 6750A4';
+
+  /// zh-TW: '色相'
+  String get customColorHue => '色相';
+
+  /// zh-TW: '飽和度'
+  String get customColorSaturation => '飽和度';
+
+  /// zh-TW: '明度'
+  String get customColorBrightness => '明度';
+
+  /// zh-TW: '套用'
+  String get customColorApply => '套用';
+
+  /// zh-TW: '取消'
+  String get customColorCancel => '取消';
+
+  late final Translations$appearance$presets$zh_TW presets =
+      Translations$appearance$presets$zh_TW.internal(_root);
+
+  /// zh-TW: '字型'
+  String get font => '字型';
+
+  /// zh-TW: '預設字型'
+  String get fontSystem => '預設字型';
+
+  late final Translations$appearance$fonts$zh_TW fonts =
+      Translations$appearance$fonts$zh_TW.internal(_root);
 }
 
 // Path: playback
@@ -3575,12 +3617,6 @@ class Translations$legacyResult$unimported$zh_TW {
 
   // Translations
 
-  /// zh-TW: '主色'
-  String get primaryColor => '主色';
-
-  /// zh-TW: '字型'
-  String get fontFamily => '字型';
-
   /// zh-TW: '各音源的串流優先順序'
   String get streamPriority => '各音源的串流優先順序';
 
@@ -3595,6 +3631,72 @@ class Translations$legacyResult$unimported$zh_TW {
 
   /// zh-TW: '搜尋歷史'
   String get searchHistory => '搜尋歷史';
+}
+
+// Path: appearance.presets
+class Translations$appearance$presets$zh_TW {
+  Translations$appearance$presets$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '預設紫'
+  String get defaultPurple => '預設紫';
+
+  /// zh-TW: '靛藍'
+  String get indigo => '靛藍';
+
+  /// zh-TW: '海洋藍'
+  String get blue => '海洋藍';
+
+  /// zh-TW: '青綠'
+  String get teal => '青綠';
+
+  /// zh-TW: '森林綠'
+  String get green => '森林綠';
+
+  /// zh-TW: '陽光黃'
+  String get yellow => '陽光黃';
+
+  /// zh-TW: '琥珀橙'
+  String get orange => '琥珀橙';
+
+  /// zh-TW: '寶石紅'
+  String get red => '寶石紅';
+
+  /// zh-TW: '玫瑰粉'
+  String get pink => '玫瑰粉';
+}
+
+// Path: appearance.fonts
+class Translations$appearance$fonts$zh_TW {
+  Translations$appearance$fonts$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '微軟正黑體'
+  String get jhengHei => '微軟正黑體';
+
+  /// zh-TW: '微軟雅黑'
+  String get yaHei => '微軟雅黑';
+
+  /// zh-TW: '新細明體'
+  String get pmingliu => '新細明體';
+
+  /// zh-TW: '標楷體'
+  String get dfkai => '標楷體';
+
+  /// zh-TW: '無襯線'
+  String get sansSerif => '無襯線';
+
+  /// zh-TW: '襯線'
+  String get serif => '襯線';
+
+  /// zh-TW: '等寬'
+  String get monospace => '等寬';
 }
 
 // Path: plugins.capabilityNames

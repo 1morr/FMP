@@ -1462,7 +1462,8 @@ void main() {
         // 設定頁寬版的第一組是帳號（M3 PR 8）：外觀另外點開。
         testWidgets('appearance settings at $width', (tester) async {
           final handle = tester.ensureSemantics();
-          final h = ShellHarness();
+          // 字型清單與主題色塊都在這一頁：給平台的字型，清單才有項目。
+          final h = ShellHarness(fontChoices: const ['serif', 'monospace']);
           await h.pumpShell(tester, size: size, brightness: brightness);
           await tester.tap(find.text('Settings').first);
           await h.loadSettings(tester);

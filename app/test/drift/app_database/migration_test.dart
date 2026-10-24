@@ -27,6 +27,7 @@ import 'generated/schema_v16.dart' as v16;
 import 'generated/schema_v17.dart' as v17;
 import 'generated/schema_v18.dart' as v18;
 import 'generated/schema_v19.dart' as v19;
+import 'generated/schema_v20.dart' as v20;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -2143,4 +2144,83 @@ void main() {
 
     await expectLegacyImportSchema(db);
   });
+
+  test(
+    'migration from v19 to v20 keeps existing data and user values',
+    () async {
+      await verifier.testWithDataIntegrity(
+        oldVersion: 19,
+        newVersion: 20,
+        createOld: v19.DatabaseAtV19.new,
+        createNew: v20.DatabaseAtV20.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          // 使用者設定過的值，升級後不能變。
+          batch.insert(
+            oldDb.appearanceSettings,
+            const v19.AppearanceSettingsData(
+              id: 1,
+              themeMode: 'dark',
+              locale: 'zh-CN',
+            ),
+          );
+          batch.insert(
+            oldDb.playlists,
+            const v19.PlaylistsData(
+              id: 1,
+              kind: 'local',
+              name: 'Mine',
+              sortOrder: 0,
+              createdAt: 1790000000000,
+              updatedAt: 1790000000001,
+            ),
+          );
+        },
+        validateItems: (newDb) async {
+          // 新的兩欄是空的＝沒設定過，預設只在 resolveAppearance 套用。
+          expect(await newDb.select(newDb.appearanceSettings).get(), [
+            const v20.AppearanceSettingsData(
+              id: 1,
+              themeMode: 'dark',
+              locale: 'zh-CN',
+              seedColor: null,
+              fontFamily: null,
+            ),
+          ]);
+          expect(await newDb.select(newDb.playlists).get(), [
+            const v20.PlaylistsData(
+              id: 1,
+              kind: 'local',
+              name: 'Mine',
+              sortOrder: 0,
+              createdAt: 1790000000000,
+              updatedAt: 1790000000001,
+            ),
+          ]);
+        },
+      );
+    },
+  );
+
+  for (var from = 1; from <= 19; from++) {
+    test('migration from v$from to v20 adds the appearance columns', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 20);
+
+      await db.customStatement(
+        'INSERT INTO appearance_settings (id, seed_color, font_family) '
+        "VALUES (1, 4284955319, 'serif') "
+        'ON CONFLICT (id) DO UPDATE SET seed_color = 4284955319, '
+        "font_family = 'serif'",
+      );
+      final row = await db
+          .customSelect(
+            'SELECT seed_color, font_family FROM appearance_settings',
+          )
+          .getSingle();
+      expect(row.data, {'seed_color': 4284955319, 'font_family': 'serif'});
+      await db.close();
+    });
+  }
 }

@@ -30,8 +30,6 @@
     "relogin": "Sign in again: {platforms}",
     "unimportedTitle": "Settings that weren't imported",
     "unimported": {
-      "primaryColor": "Accent color",
-      "fontFamily": "Font",
       "streamPriority": "Stream priority per source",
       "cacheLimit": "Cache limit",
       "homeRanking": "Home chart order and disabled charts",
@@ -725,7 +723,39 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "language": "Language",
-    "languageSystem": "System default"
+    "languageSystem": "System default",
+    "themeColor": "Theme color",
+    "themeColorCustom": "Custom",
+    "customColorTitle": "Custom theme color",
+    "customColorHex": "Hex color",
+    "customColorHexInvalid": "Enter 6 hex digits, for example 6750A4",
+    "customColorHue": "Hue",
+    "customColorSaturation": "Saturation",
+    "customColorBrightness": "Brightness",
+    "customColorApply": "Apply",
+    "customColorCancel": "Cancel",
+    "presets": {
+      "defaultPurple": "Default purple",
+      "indigo": "Indigo",
+      "blue": "Ocean blue",
+      "teal": "Teal",
+      "green": "Forest green",
+      "yellow": "Sun yellow",
+      "orange": "Amber orange",
+      "red": "Ruby red",
+      "pink": "Rose pink"
+    },
+    "font": "Font",
+    "fontSystem": "Default font",
+    "fonts": {
+      "jhengHei": "Microsoft JhengHei",
+      "yaHei": "Microsoft YaHei",
+      "pmingliu": "PMingLiU",
+      "dfkai": "DFKai-SB",
+      "sansSerif": "Sans-serif",
+      "serif": "Serif",
+      "monospace": "Monospace"
+    }
   },
   "playback": {
     "audioQuality": "Audio quality",

@@ -1738,6 +1738,36 @@ class Translations$appearance$zh_CN extends Translations$appearance$zh_TW {
   String get language => '语言';
   @override
   String get languageSystem => '跟随系统';
+  @override
+  String get themeColor => '主题色';
+  @override
+  String get themeColorCustom => '自定义颜色';
+  @override
+  String get customColorTitle => '自定义主题色';
+  @override
+  String get customColorHex => '色值（HEX）';
+  @override
+  String get customColorHexInvalid => '请输入 6 位色值，例如 6750A4';
+  @override
+  String get customColorHue => '色相';
+  @override
+  String get customColorSaturation => '饱和度';
+  @override
+  String get customColorBrightness => '明度';
+  @override
+  String get customColorApply => '应用';
+  @override
+  String get customColorCancel => '取消';
+  @override
+  late final Translations$appearance$presets$zh_CN presets =
+      Translations$appearance$presets$zh_CN.internal(_root);
+  @override
+  String get font => '字体';
+  @override
+  String get fontSystem => '默认字体';
+  @override
+  late final Translations$appearance$fonts$zh_CN fonts =
+      Translations$appearance$fonts$zh_CN.internal(_root);
 }
 
 // Path: playback
@@ -2644,10 +2674,6 @@ class Translations$legacyResult$unimported$zh_CN
 
   // Translations
   @override
-  String get primaryColor => '主色';
-  @override
-  String get fontFamily => '字体';
-  @override
   String get streamPriority => '各音源的串流优先顺序';
   @override
   String get cacheLimit => '缓存上限';
@@ -2657,6 +2683,62 @@ class Translations$legacyResult$unimported$zh_CN
   String get railExpanded => '侧边栏的展开状态';
   @override
   String get searchHistory => '搜索历史';
+}
+
+// Path: appearance.presets
+class Translations$appearance$presets$zh_CN
+    extends Translations$appearance$presets$zh_TW {
+  Translations$appearance$presets$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get defaultPurple => '默认紫';
+  @override
+  String get indigo => '靛蓝';
+  @override
+  String get blue => '海洋蓝';
+  @override
+  String get teal => '青绿';
+  @override
+  String get green => '森林绿';
+  @override
+  String get yellow => '阳光黄';
+  @override
+  String get orange => '琥珀橙';
+  @override
+  String get red => '宝石红';
+  @override
+  String get pink => '玫瑰粉';
+}
+
+// Path: appearance.fonts
+class Translations$appearance$fonts$zh_CN
+    extends Translations$appearance$fonts$zh_TW {
+  Translations$appearance$fonts$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String get jhengHei => '微软正黑体';
+  @override
+  String get yaHei => '微软雅黑';
+  @override
+  String get pmingliu => '新细明体';
+  @override
+  String get dfkai => '标楷体';
+  @override
+  String get sansSerif => '无衬线';
+  @override
+  String get serif => '衬线';
+  @override
+  String get monospace => '等宽';
 }
 
 // Path: plugins.capabilityNames
