@@ -7,7 +7,7 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
-import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_source_plugin.dart';
@@ -57,19 +57,16 @@ void main() {
   for (final size in const [Size(400, 800), Size(1000, 800)]) {
     testWidgets('the player page and the queue show the composed title at '
         '${size.width}', (tester) async {
-      await playParts(tester, size);
+      final h = await playParts(tester, size);
 
       await tester.tap(_barTitle);
       await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsOneWidget);
       expect(find.text(_composed), findsWidgets);
 
-      if (size.width < 840) {
-        await tester.tap(find.byKey(PlayerPage.queueKey));
-      } else {
-        await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      }
+      await tester.tap(find.byKey(PlayerPage.closeKey));
       await tester.pumpAndSettle();
+      await h.openQueue(tester);
 
       expect(find.byType(QueueView), findsOneWidget);
       for (final index in [1, 2, 3]) {

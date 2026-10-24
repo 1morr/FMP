@@ -145,6 +145,7 @@
 - 先用 context7 查 `window_manager` 現況再選版本。
 - 平台層 `window_chrome` 與 `shortcutModifier`；`WindowTitleBar`；播放頁頂端的拖曳區。
 - 快捷鍵改讀修飾鍵；Apple 平台用 ⌘，開佇列用 ⌥⌘U。測試以假的平台能力跑兩組。
+- Ctrl+Q 現在是導覽類（切到佇列目的地），決定要不要像 Ctrl+F、Ctrl+, 一樣搬進 `navigationShortcuts`，在輸入框內也有效（PR 3 審查提出）。
 - iOS 的 `CupertinoPageTransitionsBuilder` 與安全區域。用 `TargetPlatform.iOS` 的 widget 測試驗，實機留給 iOS 平台任務。
 - Windows 實機：自繪標題列的拖曳、雙擊最大化、三顆鈕；dev 與 prod 同時開時各自單一實例。
 

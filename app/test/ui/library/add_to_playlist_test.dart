@@ -6,8 +6,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/source_dto.dart';
-import 'package:fmp/ui/player/player_bar.dart';
-import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -352,17 +351,7 @@ void main() {
       final ids = await _seed(tester, h, local: {'Road': []});
       await h.play(tester, [summary('a'), summary('b')]);
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byKey(PlayerBar.titleKey),
-              matching: find.byType(Text),
-            )
-            .first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
+      await h.openQueue(tester);
       expect(find.byType(QueueView), findsOneWidget);
 
       await tester.tap(

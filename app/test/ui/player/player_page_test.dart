@@ -8,18 +8,16 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/track_info.dart';
-import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
-import 'package:fmp/ui/player/queue_view.dart';
 import 'package:fmp/ui/player/track_details.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../playback/fake_source_plugin.dart';
 import '../support/fake_artwork.dart';
 import '../support/shell_harness.dart';
 
@@ -248,7 +246,7 @@ void main() {
       expect(find.byType(PlayerPage), findsNothing);
     });
 
-    testWidgets('a page opened by Ctrl+Q gives the focus back to where it '
+    testWidgets('a page opened by Ctrl+L gives the focus back to where it '
         'was', (tester) async {
       await _pumpPlaying(tester);
       // F6 puts the focus on the first item of the navigation region.
@@ -257,7 +255,7 @@ void main() {
       final before = FocusManager.instance.primaryFocus;
       expect(before, isNotNull);
 
-      await _chord(tester, LogicalKeyboardKey.keyQ);
+      await _chord(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsOneWidget);
       expect(FocusManager.instance.primaryFocus, isNot(before));
@@ -298,19 +296,8 @@ void main() {
   });
 
   group('shortcuts', () {
-    testWidgets('Ctrl+L and Ctrl+Q open the page when it is closed', (
-      tester,
-    ) async {
+    testWidgets('Ctrl+L opens the page when it is closed', (tester) async {
       final h = await _pumpPlaying(tester);
-      await _chord(tester, LogicalKeyboardKey.keyQ);
-      await tester.pumpAndSettle();
-      expect(find.byType(PlayerPage), findsOneWidget);
-      expect(await _storedTab(tester, h), PlayerTab.queue);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(PlayerPage), findsNothing);
-
       await _chord(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsOneWidget);
@@ -318,25 +305,41 @@ void main() {
       expect(find.text('No lyrics'), findsOneWidget);
     });
 
-    testWidgets('they do nothing while the queue is empty', (tester) async {
+    testWidgets('Ctrl+L does nothing while the queue is empty', (tester) async {
       await ShellHarness().pumpShell(tester);
 
       await _chord(tester, LogicalKeyboardKey.keyL);
-      await _chord(tester, LogicalKeyboardKey.keyQ);
       await tester.pumpAndSettle();
 
       expect(find.byType(PlayerPage), findsNothing);
     });
 
-    testWidgets('Ctrl+L and Ctrl+Q switch the tabs on the page', (
-      tester,
-    ) async {
+    testWidgets('Ctrl+Q on the page closes it, selects the queue destination '
+        'and focuses the queue page', (tester) async {
       final h = await _pumpPlaying(tester);
       await _openByTap(tester);
 
       await _chord(tester, LogicalKeyboardKey.keyQ);
-      expect(find.text('Song b'), findsWidgets);
-      expect(await _storedTab(tester, h), PlayerTab.queue);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(h.container(tester).read(playerPageOpenProvider), isFalse);
+      expect(find.byType(QueueView).hitTestable(), findsOneWidget);
+      expect(
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
+        ShellDestination.queue.index,
+      );
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      expect(focused.findAncestorWidgetOfExactType<QueueView>(), isNotNull);
+    });
+
+    testWidgets('Ctrl+L switches to the lyrics tab on the page', (
+      tester,
+    ) async {
+      final h = await _pumpPlaying(tester);
+      await _openByTap(tester);
 
       await _chord(tester, LogicalKeyboardKey.keyL);
       expect(await _storedTab(tester, h), PlayerTab.lyrics);
@@ -439,19 +442,14 @@ void main() {
         expect(find.text('No lyrics'), findsNothing);
       });
 
-      testWidgets('$name: Ctrl+L shows the lyrics, Ctrl+Q opens the queue '
-          'sheet', (tester) async {
+      testWidgets('$name: Ctrl+L shows the lyrics, there is no queue button', (
+        tester,
+      ) async {
         await _pumpPlaying(tester, size: size);
         await _openByTap(tester);
 
-        await _chord(tester, LogicalKeyboardKey.keyQ);
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsOneWidget);
-        expect(find.text('No lyrics'), findsNothing);
+        expect(find.byIcon(Icons.queue_music), findsNothing);
         expect(find.byType(TabBar), findsNothing);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(find.byType(QueueView), findsNothing);
 
         await _chord(tester, LogicalKeyboardKey.keyL);
         expect(find.text('No lyrics'), findsOneWidget);
@@ -462,16 +460,17 @@ void main() {
       ('expanded', const Size(1000, 700)),
       ('large', const Size(1400, 800)),
     ]) {
-      testWidgets('$name: two halves with the tabs Lyrics, Queue and Details', (
+      testWidgets('$name: two halves with the tabs Lyrics and Details', (
         tester,
       ) async {
         await _pumpPlaying(tester, size: size);
         await _openByTap(tester);
 
         expect(shown(controls), controls);
-        for (final tab in ['Lyrics', 'Queue', 'Details']) {
+        for (final tab in ['Lyrics', 'Details']) {
           expect(find.widgetWithText(Tab, tab), findsOneWidget);
         }
+        expect(find.widgetWithText(Tab, 'Queue'), findsNothing);
         final half = size.width / 2;
         final tabs = tester.getRect(find.byType(TabBar));
         expect(tabs.left, greaterThanOrEqualTo(half));
@@ -504,7 +503,7 @@ void main() {
       expect(shrunk.where((size) => size > 256 && size < 420), isNotEmpty);
     });
 
-    testWidgets('extraLarge: three columns, the tabs are Queue and Details', (
+    testWidgets('extraLarge: three columns, the only tab is Details', (
       tester,
     ) async {
       await _pumpPlaying(tester, size: const Size(1800, 900));
@@ -512,7 +511,7 @@ void main() {
 
       expect(shown(controls), controls);
       expect(find.widgetWithText(Tab, 'Lyrics'), findsNothing);
-      expect(find.widgetWithText(Tab, 'Queue'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Queue'), findsNothing);
       expect(find.widgetWithText(Tab, 'Details'), findsOneWidget);
       // The lyrics are their own column.
       expect(find.text('No lyrics'), findsOneWidget);
@@ -554,117 +553,6 @@ void main() {
   });
 
   group('tabs', () {
-    testWidgets('the queue tab lists the queue, marks the current song and '
-        'jumps on tap', (tester) async {
-      final h = await _pumpPlaying(tester);
-      await _openByTap(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
-
-      final rows = find.byType(ListTile);
-      expect(rows, findsNWidgets(2));
-      expect(tester.widget<ListTile>(rows.at(0)).selected, isTrue);
-      expect(tester.widget<ListTile>(rows.at(1)).selected, isFalse);
-
-      await tester.tap(
-        find.descendant(of: rows.at(1), matching: find.text('Song b')),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      expect(h.controller.queue.currentIndex, 1);
-      expect(tester.widget<ListTile>(rows.at(1)).selected, isTrue);
-    });
-
-    testWidgets('a long queue builds only the rows in view', (tester) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1000, 900));
-      expect(
-        h.controller.addToQueue([
-          for (var i = 0; i < 5000; i++) summary('t$i').toTrackInfo(),
-        ]),
-        isTrue,
-      );
-      await tester.pump();
-      await tester.pump();
-      await _openByTap(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ListTile).evaluate().length, lessThan(40));
-    });
-
-    testWidgets('the queue tab opens two rows above the current song', (
-      tester,
-    ) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1000, 900));
-      await h.play(tester, [
-        for (var i = 0; i < 200; i++) summary('t$i'),
-      ], index: 100);
-      await tester.pump(const Duration(milliseconds: 200));
-      await _openByTap(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
-
-      final list = tester.widget<ReorderableListView>(
-        find.byType(ReorderableListView),
-      );
-      expect(list.scrollController!.offset, 98 * list.itemExtent!);
-      expect(
-        tester.widget<ListTile>(find.widgetWithText(ListTile, 'Song t100')),
-        isA<ListTile>().having((tile) => tile.selected, 'selected', isTrue),
-      );
-    });
-
-    testWidgets('during a temporary play no queue row is marked current', (
-      tester,
-    ) async {
-      final h = await _pumpPlaying(tester);
-      unawaited(h.controller.playTemporary(summary('x').toTrackInfo()));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      await _openByTap(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pumpAndSettle();
-
-      final rows = tester.widgetList<ListTile>(find.byType(ListTile));
-      expect(rows, hasLength(2));
-      expect(rows.where((row) => row.selected), isEmpty);
-    });
-
-    // 直播時 `currentIndex` 也是回到佇列時的位置；佇列分頁照常顯示原佇列（M3 design §9.4）。
-    testWidgets('in a live room no queue row is marked current', (
-      tester,
-    ) async {
-      final h = ShellHarness();
-      h.plugin.onResolveLive = (request) => [
-        candidate('${request.roomId}.flv'),
-      ];
-      await h.pumpApp(tester, const Scaffold(body: QueueView()));
-      await h.play(tester, [summary('a'), summary('b')]);
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(
-        tester
-            .widgetList<ListTile>(find.byType(ListTile))
-            .where((row) => row.selected),
-        hasLength(1),
-      );
-
-      unawaited(
-        h.controller.playLive(
-          const LiveTarget(pluginId: 'fmp-test', roomId: 'r', title: 'Room'),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-
-      final rows = tester.widgetList<ListTile>(find.byType(ListTile));
-      expect(rows, hasLength(2));
-      expect(rows.where((row) => row.selected), isEmpty);
-    });
-
     testWidgets('the details tab shows the song and its source', (
       tester,
     ) async {
@@ -720,7 +608,8 @@ void main() {
       expect(controller, isNull);
       expect(
         tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        PlayerTab.details.index,
+        1,
+        reason: 'Details is the second of Lyrics and Details',
       );
     });
 
@@ -731,18 +620,36 @@ void main() {
       await tester.tap(find.widgetWithText(Tab, 'Details'));
       await tester.pumpAndSettle();
 
-      await _rememberTab(tester, h, PlayerTab.queue);
+      await _rememberTab(tester, h, PlayerTab.lyrics);
       await tester.pumpAndSettle();
 
       expect(
         tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        PlayerTab.details.index,
+        1,
+        reason: 'Details is the second of Lyrics and Details',
       );
     });
 
     testWidgets('the remembered tab is used from the first frame', (
       tester,
     ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await _rememberTab(tester, h, PlayerTab.details);
+      await h.play(tester, [summary('a'), summary('b')]);
+
+      await _openByTap(tester);
+
+      expect(
+        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
+        1,
+        reason: 'Details is the second of Lyrics and Details',
+      );
+    });
+
+    // The queue tab is gone (ADR 0035); an older install may still remember it.
+    testWidgets('a remembered queue tab falls back to the lyrics tab and is '
+        'left alone', (tester) async {
       final h = ShellHarness();
       await h.pumpShell(tester);
       await _rememberTab(tester, h, PlayerTab.queue);
@@ -752,11 +659,26 @@ void main() {
 
       expect(
         tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        PlayerTab.queue.index,
+        PlayerTab.lyrics.index,
       );
+      expect(find.text('No lyrics'), findsOneWidget);
+      expect(await _storedTab(tester, h), PlayerTab.queue);
     });
 
-    testWidgets('at extraLarge a remembered lyrics tab shows the queue and '
+    testWidgets('at extraLarge a remembered queue tab shows the details', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1800, 900));
+      await _rememberTab(tester, h, PlayerTab.queue);
+      await h.play(tester, [summary('a'), summary('b')]);
+
+      await _openByTap(tester);
+
+      expect(find.text('Test Source'), findsOneWidget);
+    });
+
+    testWidgets('at extraLarge a remembered lyrics tab shows the details and '
         'keeps the memory', (tester) async {
       final h = ShellHarness();
       await h.pumpShell(tester, size: const Size(1800, 900));
@@ -766,9 +688,8 @@ void main() {
       await _openByTap(tester);
 
       final tabs = tester.widget<TabBar>(find.byType(TabBar));
-      expect(tabs.controller!.length, 2);
-      expect(tabs.controller!.index, 0, reason: 'Queue is the first tab');
-      expect(find.byType(ListTile), findsNWidgets(2));
+      expect(tabs.controller!.length, 1);
+      expect(find.text('Test Source'), findsOneWidget);
       expect(await _storedTab(tester, h), PlayerTab.lyrics);
 
       // Choosing Details there is a real choice and overwrites it.

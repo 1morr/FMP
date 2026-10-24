@@ -9,13 +9,14 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
-import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
 
 // Mix 的介面（M3 PR 19，ADR 0031 §決定 8–9）：曲目選單的「開始 Mix」只在插件宣告 `mix` 時
-// 出現、Mix 中停用的項目附說明、隨機鈕停用、佇列分頁顯示 Mix 的標題。從外殼開始，和
+// 出現、Mix 中停用的項目附說明、隨機鈕停用、佇列頁顯示 Mix 的標題。從外殼開始，和
 // 使用者一樣。
 
 const _shuffleTooltip = 'Shuffle (Ctrl+S)';
@@ -290,20 +291,7 @@ void main() {
 
   group('the queue', () {
     Future<void> openQueue(WidgetTester tester, Size size) async {
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byKey(PlayerBar.titleKey),
-              matching: find.byType(Text),
-            )
-            .first,
-      );
-      await tester.pumpAndSettle();
-      if (size.width < 840) {
-        await tester.tap(find.byKey(PlayerPage.queueKey));
-      } else {
-        await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      }
+      await tester.tap(ShellHarness.navigationItem(ShellDestination.queue));
       await tester.pumpAndSettle();
       expect(find.byType(QueueView), findsOneWidget);
     }

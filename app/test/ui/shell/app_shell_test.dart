@@ -19,6 +19,8 @@ import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/queue/queue_page.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
@@ -34,7 +36,34 @@ const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
 
 void main() {
   group('navigation per window class (ADR 0024 §決定 3, ADR 0033 §決定 5)', () {
-    const labels = ['Home', 'Search', 'Library', 'Radio', 'Settings'];
+    const labels = ['Home', 'Search', 'Library', 'Queue', 'Radio', 'Settings'];
+    testWidgets('a short landscape phone scrolls the rail instead of '
+        'overflowing', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(
+        tester,
+        // 橫向手機扣掉狀態列與手勢列後約 370dp。
+        size: const Size(914, 360),
+        at: ShellDestination.home,
+      );
+      expect(tester.takeException(), isNull);
+
+      final settings = find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.text('Settings'),
+      );
+      await tester.ensureVisible(settings);
+      await tester.pumpAndSettle();
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
+        ShellDestination.settings.index,
+      );
+    });
+
     for (final (width, expected) in [
       (400.0, NavigationBar),
       (700.0, NavigationRail),
@@ -57,7 +86,7 @@ void main() {
             reason: '$type at $width',
           );
         }
-        // 三種導覽元件都是同樣五個項目（ADR 0033 §決定 5）。
+        // 三種導覽元件都是同樣六個項目（ADR 0035 §決定 2）。
         final count = switch (expected) {
           NavigationBar =>
             tester
@@ -76,7 +105,7 @@ void main() {
                 .whereType<NavigationDrawerDestination>()
                 .length,
         };
-        expect(count, 5, reason: 'destinations at $width');
+        expect(count, 6, reason: 'destinations at $width');
         for (final label in labels) {
           expect(
             find.descendant(
@@ -87,7 +116,7 @@ void main() {
             reason: '$label at $width',
           );
         }
-        // 順序：首頁｜搜尋｜音樂庫｜電台｜設定。
+        // 順序：首頁｜搜尋｜音樂庫｜佇列｜電台｜設定。
         final xs = [
           for (final label in labels)
             tester.getCenter(
@@ -120,6 +149,7 @@ void main() {
     for (final (destination, page) in [
       (ShellDestination.search, SearchPage),
       (ShellDestination.library, LibraryPage),
+      (ShellDestination.queue, QueuePage),
       (ShellDestination.radio, RadioPage),
       (ShellDestination.settings, SettingsPage),
     ]) {
@@ -215,6 +245,7 @@ void main() {
         (ShellDestination.home, HomePage),
         (ShellDestination.search, SearchPage),
         (ShellDestination.library, LibraryPage),
+        (ShellDestination.queue, QueuePage),
         (ShellDestination.radio, RadioPage),
         (ShellDestination.settings, SettingsPage),
       ]) {
@@ -866,6 +897,54 @@ void main() {
       expect(field.focusNode.hasPrimaryFocus, isTrue);
     });
 
+    // ADR 0035 §決定 7：Ctrl+Q 切到佇列目的地（不再開播放頁），焦點進內容區。
+    testWidgets('Ctrl+Q selects the queue destination and focuses its page', (
+      tester,
+    ) async {
+      final h = await playing(tester);
+
+      await chord(tester, LogicalKeyboardKey.keyQ);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(find.byType(QueueView).hitTestable(), findsOneWidget);
+      expect(
+        tester
+            .widget<NavigationRail>(find.byType(NavigationRail))
+            .selectedIndex,
+        ShellDestination.queue.index,
+      );
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      expect(focused.findAncestorWidgetOfExactType<QueueView>(), isNotNull);
+      expect(h.controller.state, isA<Playing>());
+    });
+
+    testWidgets('Ctrl+Q with nothing queued shows the empty queue page', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+
+      await chord(tester, LogicalKeyboardKey.keyQ);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QueuePage).hitTestable(), findsOneWidget);
+      expect(find.text('The queue is empty'), findsOneWidget);
+    });
+
+    testWidgets('Ctrl+Q from an inner page of another destination', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.openHistory(tester);
+
+      await chord(tester, LogicalKeyboardKey.keyQ);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QueuePage).hitTestable(), findsOneWidget);
+    });
+
     // 已經在那一頁時不換頁、不重建：焦點不能等下一幀（閒著時不會有下一幀）。
     testWidgets('Ctrl+F and Ctrl+, on their own page move focus at once', (
       tester,
@@ -992,6 +1071,21 @@ void main() {
       expect(FocusManager.instance.primaryFocus, isNot(isA<FocusScopeNode>()));
       await f6(tester);
       expect(region(tester), 'navigation');
+    });
+
+    testWidgets('F6 goes into the queue page', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.pump(const Duration(milliseconds: 200));
+      await h.openQueue(tester);
+
+      await f6(tester);
+      expect(region(tester), 'navigation');
+      await f6(tester);
+      expect(region(tester), 'content');
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      expect(focused.findAncestorWidgetOfExactType<QueueView>(), isNotNull);
     });
 
     testWidgets('Tab stays inside a region', (tester) async {
@@ -1378,6 +1472,7 @@ void main() {
     for (final destination in [
       ShellDestination.search,
       ShellDestination.library,
+      ShellDestination.queue,
       ShellDestination.radio,
       ShellDestination.settings,
     ]) {

@@ -76,6 +76,7 @@ MSYS_NO_PATHCONV=1 adb shell am start -n com.personal.fmp.dev/com.personal.fmp.M
 - 媒體鍵：`adb shell input keyevent MEDIA_PLAY_PAUSE`、`MEDIA_NEXT`、`MEDIA_STOP`（停止等於暫停，之後按播放從
   原處繼續）。
 - 返回鍵：`adb shell input keyevent KEYCODE_BACK`；在音樂庫裡開的歷史頁先回到音樂庫，再按回到首頁，在首頁退到背景、音樂繼續（App 開在首頁）。
+  佇列是導覽的第四項（整頁，沒有底部面板），返回鍵和其他目的地一樣回到首頁；播放頁開著時返回鍵只關播放頁。
 - 重開 App、恢復後還沒按播放時沒有媒體通知（`processingState` 是 idle）。
 
 ## 觀察

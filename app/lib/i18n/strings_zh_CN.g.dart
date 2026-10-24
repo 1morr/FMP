@@ -234,6 +234,14 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get radio => '电台';
   @override
+  String get queue => '队列';
+  @override
+  String get queueTooltip => '队列（Ctrl+Q）';
+  @override
+  String get queueEmptyTitle => '队列是空的';
+  @override
+  String get queueEmptyBody => '在搜索或音乐库里播放歌曲，会排进这里。';
+  @override
   String get panelTitle => '正在播放';
   @override
   String get panelEmpty => '没有正在播放的歌曲';
@@ -1640,8 +1648,6 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   @override
   String get tabLyrics => '歌词';
   @override
-  String get tabQueue => '队列';
-  @override
   String get tabDetails => '详情';
   @override
   String get noLyrics => '没有歌词';
@@ -1685,8 +1691,6 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   String get statDanmaku => '弹幕';
   @override
   String get statCoin => '投币';
-  @override
-  String get queueTooltip => '队列（Ctrl+Q）';
   @override
   String queueCount({required Object count}) => '共 ${count} 首';
   @override

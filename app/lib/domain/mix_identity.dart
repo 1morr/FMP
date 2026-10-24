@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// 一個 Mix（ADR 0028 §決定 4、ADR 0031 §決定 11）：身分是（[pluginId], [mixId]），
-/// [title] 顯示在佇列分頁，[cursor] 是插件的不透明字串，`null` 表示這個 Mix 沒有更多
+/// [title] 顯示在佇列頁，[cursor] 是插件的不透明字串，`null` 表示這個 Mix 沒有更多
 /// （下一次補歌改以佇列最後一首當種子開新的一批）。
 ///
 /// 放在 `domain/`：佇列持久化時資料層要存它（`player_state` 的 `mix_*`）。

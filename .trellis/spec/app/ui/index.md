@@ -33,13 +33,13 @@ lib/ui/
                        # 手動刷新（manual_refresh：manualRefreshProvider）
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
+  queue/               # 佇列目的地（QueuePage：佇列空時是空狀態，否則整頁的 QueueView）與可編輯的佇列（QueueView）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在
                        # track_detail_parts，trackDetailProvider 與記憶體 LRU 在 track_detail_provider）、
-                       # 可編輯的佇列（QueueView：分頁與底部面板共用）、
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
@@ -147,7 +147,7 @@ try {
 
 ## 外殼、快捷鍵與焦點
 
-- 導覽項是 `ShellDestination` 的五個（首頁｜搜尋｜音樂庫｜電台｜設定）；圖示與文字在 `_destinationLabel` 一份，三種導覽元件
+- 導覽項是 `ShellDestination` 的六個（首頁｜搜尋｜音樂庫｜佇列｜電台｜設定，ADR 0035 §決定 2）；圖示與文字在 `_destinationLabel` 一份，三種導覽元件
   照它的順序產生。內容區的 `IndexedStack` 每一格是那個目的地的巢狀 `Navigator`（換頁不丟狀態與內頁，沒選的頁面焦點被排除），
   根頁在 `_rootPage`。
 - 開一個內頁（在內容區裡、導覽與播放列留著）：`Navigator.of(context).push(MaterialPageRoute(...))`，照 `openHistory` 寫一個
@@ -171,8 +171,11 @@ try {
      （`Icon.semanticLabel`）不帶按鍵；
   4. `test/ui/shell/app_shell_test.dart` 的 `shortcuts` 群組加案例（`chord` 輔助函式按組合鍵），播放類
      另外在輸入框裡按一次確認沒作用、對話框開著時也沒作用。
-  5. 播放頁（M2 PR 18a）與佇列的底部面板（PR 18b）各是另一個 route，不在外殼的 `Shortcuts` 之下：各自包一層
+  5. 播放頁（M2 PR 18a）是另一個 route，不在外殼的 `Shortcuts` 之下：自己包一層
      `PlaybackShortcuts`。新的全螢幕 route 或面板要讓播放鍵有效時照做（對話框不包：開著時播放鍵不作用）。
+  6. 根 Navigator 上的頁要外殼做事（播放頁的 Ctrl+Q 切到佇列目的地）：照 `openQueueProvider`／`openAccountsProvider`，
+     外殼在 `initState` 接上 handler、handler 先看 `mounted`；頁面先 `ref.read` 好、關掉自己、`await route.completed`
+     再呼叫（排在 `openPlayerPage` 把焦點還給開它的元件之後，焦點才落在新的地方）。
 - 焦點三區（導覽、內容、播放列）各是一個 `FocusScope` 加 `FocusTraversalGroup`：Tab 只在區內
   循環；F6 回到那一區上次的焦點，沒有就是它的第一個可聚焦項目。新的可聚焦元件放在對的那一區裡。
 
@@ -306,27 +309,26 @@ try {
 
 規則與閘門見 `app/AGENTS.md` § 介面的「播放頁」；design §9.3、§9.5、§9.6。
 
-- 檔案：`player_page.dart`（route、開關、版面、分頁、佇列清單、速度選單）、`player_controls.dart`（播放列與播放頁
+- 檔案：`player_page.dart`（route、開關、版面、分頁、速度選單）、`player_controls.dart`（播放列與播放頁
   共用：`ShuffleButton`、`LoopButton`、`PreviousButton`、`NextButton`、`PlayPauseButton`、`ProgressRow`、`IconMenu`、
   `playbackStatusLabel`）、`glass_panel.dart`、`track_details.dart`。播放列新加共用的控制時放 `player_controls.dart`，
   兩邊都會有。
 - 開頁一律 `openPlayerPage(context, opener: …)`（不自己 `Navigator.push`）：它設 `playerPageOpenProvider`（外殼靠它改
   提示的位移）、已開著就不推、關閉後把焦點還給 `opener`。給開它的元件一個 `FocusNode`（見播放列的 `_OpenPlayerArea`）。
 - 加一個頁內快捷鍵：在 `PlayerPage` 的 `Actions` 加（導覽類）或 `playbackShortcuts` 加一列、`PlaybackShortcuts` 接
-  action（播放類）；輸入框規則同外殼。要開頁的鍵（Ctrl+L、Ctrl+Q）外殼接開頁、頁面接切分頁，兩邊各一個 action。
+  action（播放類）；輸入框規則同外殼。Ctrl+L 外殼接開頁、頁面接切分頁，兩邊各一個 action；Ctrl+Q 外殼接切到佇列目的地、
+  頁面接「關掉自己再請外殼切過去」（`openQueueProvider`）。
 - 加一個頁內焦點區：`FocusScopeNode` 放進 `_PlayerPageState`、包 `FocusScope`＋`FocusTraversalGroup`、列進 `regions`；
   區裡要至少有一個可聚焦的東西（歌詞欄用 `Focus(focusNode:)` 當目標），否則 F6 跳過它。
 - 毛玻璃只用 `GlassPanel`；數值（不透明度、模糊半徑、遮罩）在 `AppLayout`。新的文字放在毛玻璃上時，淺色、深色 ×
   最淺、最深的封面都要過 guideline（`guidelines_test.dart` 的 `the player page over …`）：次要文字用
   `onSurfaceVariant` 在深色封面上會不夠對比，遮罩用主題的 `surface` 就是為了這個。
-- 佇列（M2 PR 18b）：分頁與底部面板都是 `QueueView`（`queue_view.dart`），面板由 `showQueueSheet` 開，把
-  `DraggableScrollableSheet` 給的捲動控制器傳進去（不給就自己建，開啟時直接從目前這首附近開始）。改清單時：列的鍵是佇列
+- 佇列（M2 PR 18b；ADR 0035 起是導覽目的地，`lib/ui/queue/`）：`QueuePage` 是佇列目的地的根頁，沒選到時（`visible` 為假）
+  不建清單，所以每次切過來都從目前這首附近開始；佇列空時是空狀態，否則是整頁的 `QueueView`。改清單時：列的鍵是佇列
   項目的實例（`ObjectKey`），所以編輯不能換掉既有項目的實例（`QueueModel` 的編輯本來就沿用）；拖曳只經把手，放下用
   `onReorderItem`（`newIndex` 已調整），呼叫 `PlaybackController.move`；選單項目加在 `_QueueRow`。要在 widget
-  被拆掉之後還用的東西（清空後播放頁與面板都關）要在 `await` 之前先 `ref.read` 好，像 `_clear`。會讓播放頁關掉的動作
-  要跳提示時，先 `await WidgetsBinding.instance.endOfFrame` 再發：`ToastHost` 在顯示當下讀位移，頁面還開著就貼在底部
-  安全區、蓋住外殼的導覽列（`queue_view_test.dart` 的 `clearing from the sheet…` 守著）。切歌時自動捲動讀
-  `playbackPreferencesProvider` 的 `autoScrollToCurrent`，比的是目前項目的實例，不是位置。
+  被拆掉之後還用的東西（清空後佇列頁換成空狀態）要在 `await` 之前先 `ref.read` 好，像 `_clear`。切歌時自動捲動讀
+  `playbackPreferencesProvider` 的 `autoScrollToCurrent`，比的是目前項目的實例，不是位置。測試切到佇列用 `h.openQueue(tester)`。
 - 測試：`h.play(…)` 後點播放列的曲名開頁（`player_page_test.dart` 的 `_openByTap`）；要封面用
   `ShellHarness(artworkManager: FakeArtworkManager())` 與 `TestArtwork.lightest／darkest`
   （`test/ui/support/fake_artwork.dart`）；記住的分頁讀寫經 `layoutStateRepositoryProvider`，資料庫要真的事件迴圈
@@ -439,7 +441,7 @@ try {
 規則與閘門見 `app/AGENTS.md` § 介面的「電台頁」「搜尋頁的直播間模式」「直播版」；ADR 0031 §決定 3–5、7。
 
 - 判斷「有沒有在播」一律用 `hasNowPlaying(queue)`，不要再寫 `queue.current != null`：直播時 `current` 是 `null`，那樣寫的元件
-  （播放列、播放頁、佇列面板的自動關閉、外殼的 Ctrl+L／Q）會在直播時消失或自己關掉。直播的內容讀 `nowPlayingLiveProvider`。
+  （播放列、播放頁的自動關閉、外殼的 Ctrl+L）會在直播時消失或自己關掉。直播的內容讀 `nowPlayingLiveProvider`。
 - 新的直播狀態：階段（`LivePhase`）加在 `LiveBadge` 的 `switch`，播放狀態（重連、停止、失敗）加在 `liveStatusLabel`；兩個都是
   exhaustive，編譯器會指出。只對佇列有意義的新播放鍵用 `_QueueAction` 包（直播時接下、不做事）。
 - 一列「標記＋主播」用 `TaggedLine`（`Wrap`：放不下時主播換行、兩者都省略不撐破列）。不要改成 `Text.rich` 的

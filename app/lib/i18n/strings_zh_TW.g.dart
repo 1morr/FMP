@@ -218,6 +218,18 @@ class Translations$shell$zh_TW {
   /// zh-TW: '電台'
   String get radio => '電台';
 
+  /// zh-TW: '佇列'
+  String get queue => '佇列';
+
+  /// zh-TW: '佇列（Ctrl+Q）'
+  String get queueTooltip => '佇列（Ctrl+Q）';
+
+  /// zh-TW: '佇列是空的'
+  String get queueEmptyTitle => '佇列是空的';
+
+  /// zh-TW: '在搜尋或音樂庫裡播放歌曲，會排進這裡。'
+  String get queueEmptyBody => '在搜尋或音樂庫裡播放歌曲，會排進這裡。';
+
   /// zh-TW: '正在播放'
   String get panelTitle => '正在播放';
 
@@ -2196,9 +2208,6 @@ class Translations$playerPage$zh_TW {
   /// zh-TW: '歌詞'
   String get tabLyrics => '歌詞';
 
-  /// zh-TW: '佇列'
-  String get tabQueue => '佇列';
-
   /// zh-TW: '詳細'
   String get tabDetails => '詳細';
 
@@ -2264,9 +2273,6 @@ class Translations$playerPage$zh_TW {
 
   /// zh-TW: '投幣'
   String get statCoin => '投幣';
-
-  /// zh-TW: '佇列（Ctrl+Q）'
-  String get queueTooltip => '佇列（Ctrl+Q）';
 
   /// zh-TW: '共 {count} 首'
   String queueCount({required Object count}) => '共 ${count} 首';

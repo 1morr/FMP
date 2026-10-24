@@ -22,8 +22,7 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 // 直播時 `QueueState.current` 是 `null`：三處都讀 [nowPlayingLiveProvider] 畫直播版，
 // 沒有進度條，也沒有上一首、下一首。
 
-/// 有東西在播（佇列或臨時播放的曲目，或直播間）：播放列、播放頁與佇列面板依它出現或
-/// 關閉。
+/// 有東西在播（佇列或臨時播放的曲目，或直播間）：播放列與播放頁依它出現或關閉。
 bool hasNowPlaying(QueueState? queue) =>
     queue != null && (queue.current != null || queue.live != null);
 

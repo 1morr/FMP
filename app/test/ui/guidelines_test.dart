@@ -53,7 +53,7 @@ import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/player/player_page.dart';
-import 'package:fmp/ui/player/queue_view.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/settings/about_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/settings/backup_controls.dart';
@@ -2720,9 +2720,19 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
         }
       }
 
-      // 佇列（M2 PR 18b）：寬版是播放頁的佇列分頁，手機是底部面板；隨機開著、標題列的
-      // 說明在。
+      // 佇列頁（M2 PR 18b；ADR 0035 起是導覽目的地，各寬度整頁）：隨機開著、標題列的說明在。
       for (final size in const [Size(400, 800), Size(1000, 700)]) {
+        testWidgets('the empty queue page at ${size.width}', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.openQueue(tester);
+          expect(find.text('The queue is empty'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('the queue at ${size.width}, shuffle on', (tester) async {
           final handle = tester.ensureSemantics();
           final h = ShellHarness(artworkManager: FakeArtworkManager());
@@ -2732,21 +2742,7 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
           ]);
           h.controller.setShuffle(true);
           await tester.pump(const Duration(milliseconds: 200));
-          await tester.tap(
-            find
-                .descendant(
-                  of: find.byKey(PlayerBar.titleKey),
-                  matching: find.byType(Text),
-                )
-                .first,
-          );
-          await tester.pumpAndSettle();
-          if (size.width < 840) {
-            await tester.tap(find.byKey(PlayerPage.queueKey));
-          } else {
-            await tester.tap(find.widgetWithText(Tab, 'Queue'));
-          }
-          await tester.pumpAndSettle();
+          await h.openQueue(tester);
           expect(find.byType(QueueView), findsOneWidget);
           expect(find.textContaining('shuffle order'), findsOneWidget);
 
@@ -2778,21 +2774,7 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
           );
           unawaited(h.controller.jumpTo(0));
           await tester.pump(const Duration(milliseconds: 200));
-          await tester.tap(
-            find
-                .descendant(
-                  of: find.byKey(PlayerBar.titleKey),
-                  matching: find.byType(Text),
-                )
-                .first,
-          );
-          await tester.pumpAndSettle();
-          if (size.width < 840) {
-            await tester.tap(find.byKey(PlayerPage.queueKey));
-          } else {
-            await tester.tap(find.widgetWithText(Tab, 'Queue'));
-          }
-          await tester.pumpAndSettle();
+          await h.openQueue(tester);
           expect(find.byType(QueueView), findsOneWidget);
           expect(find.text('The video · P2 Part 2'), findsOneWidget);
 
@@ -2818,28 +2800,17 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
           unawaited(h.controller.startMix(summary('seed').toTrackInfo()));
           await tester.pump(const Duration(milliseconds: 200));
           await tester.pump(const Duration(milliseconds: 200));
-          await tester.tap(
-            find
-                .descendant(
-                  of: find.byKey(PlayerBar.titleKey),
-                  matching: find.byType(Text),
-                )
-                .first,
-          );
-          await tester.pumpAndSettle();
-          if (size.width < 840) {
-            await tester.tap(find.byKey(PlayerPage.queueKey));
-          } else {
-            await tester.tap(find.widgetWithText(Tab, 'Queue'));
-          }
-          await tester.pumpAndSettle();
+          await h.openQueue(tester);
           expect(find.byType(QueueView), findsOneWidget);
           expect(find.byKey(QueueView.mixNoteKey), findsOneWidget);
           expect(find.text('Mix: Late night mix'), findsOneWidget);
-          expect(
-            find.byTooltip('Shuffle is unavailable in a Mix'),
-            findsWidgets,
-          );
+          // 窄版的播放列沒有隨機鈕（在「⋯」裡）。
+          if (size.width >= 840) {
+            expect(
+              find.byTooltip('Shuffle is unavailable in a Mix'),
+              findsWidgets,
+            );
+          }
 
           await expectGuidelines(tester);
           handle.dispose();

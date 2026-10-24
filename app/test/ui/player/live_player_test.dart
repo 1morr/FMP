@@ -11,6 +11,7 @@ import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -18,7 +19,7 @@ import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
 
 // 播放列、播放頁與右側面板的直播版（ADR 0031 §決定 7、M3 design §9.4）：沒有進度條，
-// 有停止鈕、主播、人數；三種階段（重新連線中、直播已結束、查詢失敗）看得出來；佇列分頁
+// 有停止鈕、主播、人數；三種階段（重新連線中、直播已結束、查詢失敗）看得出來；佇列頁
 // 照常顯示原佇列、沒有一列在播；快捷鍵在直播時不動上一首、下一首、seek。
 
 const _target = LiveTarget(
@@ -201,8 +202,7 @@ void main() {
       });
     }
 
-    // 開著播放頁（或 compact 的佇列面板）時開始收聽：`current` 變成 `null`，頁面與面板不能當成
-    // 「沒有在播」自己關掉。
+    // 開著播放頁時開始收聽：`current` 變成 `null`，頁面不能當成「沒有在播」自己關掉。
     for (final size in const [Size(400, 800), Size(1000, 800)]) {
       testWidgets('at ${size.width}: going live with the page open keeps it '
           'open', (tester) async {
@@ -214,12 +214,6 @@ void main() {
         await h.play(tester, [summary('a'), summary('b')]);
         await tester.pump(const Duration(milliseconds: 200));
         await _openPage(tester);
-        if (size.width < 840) {
-          await tester.tap(find.byKey(PlayerPage.queueKey));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 500));
-          expect(find.byType(BottomSheet), findsOneWidget);
-        }
 
         unawaited(h.controller.playLive(_target));
         await tester.pump();
@@ -233,24 +227,18 @@ void main() {
           ),
           findsOneWidget,
         );
-        if (size.width < 840) {
-          expect(find.byType(BottomSheet), findsOneWidget);
-        }
       });
     }
 
-    testWidgets('the queue tab shows the queue with no row playing', (
+    testWidgets('the queue page shows the queue with no row playing', (
       tester,
     ) async {
-      await _listening(tester);
-      await _openPage(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Queue'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      final h = await _listening(tester);
+      await h.openQueue(tester);
 
       final rows = tester.widgetList<ListTile>(
         find.descendant(
-          of: find.byType(PlayerPage),
+          of: find.byType(QueueView),
           matching: find.byType(ListTile),
         ),
       );

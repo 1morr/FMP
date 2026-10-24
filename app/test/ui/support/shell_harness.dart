@@ -416,6 +416,12 @@ final class ShellHarness {
     await tester.pump();
   }
 
+  /// 切到佇列目的地（Ctrl+Q 與導覽項是同一條路）。
+  Future<void> openQueue(WidgetTester tester) async {
+    await open(tester, ShellDestination.queue);
+    await tester.pumpAndSettle();
+  }
+
   /// 導覽元件裡 [destination] 那一項的文字（英文介面）。
   static Finder navigationItem(ShellDestination destination) => find.descendant(
     of: find.byWidgetPredicate(
@@ -428,6 +434,7 @@ final class ShellHarness {
       ShellDestination.home => 'Home',
       ShellDestination.search => 'Search',
       ShellDestination.library => 'Library',
+      ShellDestination.queue => 'Queue',
       ShellDestination.radio => 'Radio',
       ShellDestination.settings => 'Settings',
     }),

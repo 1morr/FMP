@@ -94,7 +94,7 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
 - 控制器：`_load` 依模式分派（重試、等網路後的重新開流都走它），`_recover` 依模式分派，`_emitQueue` 的 `_syncLive` 這類「離開時清掉附屬狀態」要在
   這一個出口做（所有離開方式都經它）。
 - 系統媒體控制看 `NowPlayingPublisher._refresh` 的 `track`／`live` 分支。
-- 佇列分頁的「在播」列（`queue_view.dart`）也問 `isOutsideQueue`；`PlaybackController.diagnostics` 與 `QueueDiagnostics` 要報出新的那一種
+- 佇列頁的「在播」列（`lib/ui/queue/queue_view.dart`）也問 `isOutsideQueue`；`PlaybackController.diagnostics` 與 `QueueDiagnostics` 要報出新的那一種
   （直播報直播間，`queue.live`）。
 - 控制器的附屬工作（`live-info`）在 `dispose` 裡移除，那時在 provider 的 onDispose 裡：組裝點的 callback 照 `playbackControllerProvider` 的
   `liveInfoScheduler`／`disposing` 寫（理由見 `app/AGENTS.md` § 播放「直播」的 `live-info`）。

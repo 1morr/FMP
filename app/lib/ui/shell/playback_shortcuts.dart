@@ -62,7 +62,7 @@ final class ShowLyricsIntent extends Intent {
   const ShowLyricsIntent();
 }
 
-/// Ctrl+Q：同 [ShowLyricsIntent]，切到佇列。
+/// Ctrl+Q：外殼切到佇列目的地（ADR 0035 §決定 7）。播放頁開著時先關播放頁（`PlayerPage` 的 action）。
 final class ShowQueueIntent extends Intent {
   const ShowQueueIntent();
 }

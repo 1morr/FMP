@@ -24,20 +24,22 @@ import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
+import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
+import 'package:fmp/ui/shell/open_queue.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
-/// 外殼的導覽項，依畫面上的順序（ADR 0033 §決定 5：首頁｜搜尋｜音樂庫｜電台｜設定）。
-/// 三種導覽元件與內容區的 `IndexedStack` 都照這個順序；App 開在第一個。
-enum ShellDestination { home, search, library, radio, settings }
+/// 外殼的導覽項，依畫面上的順序（ADR 0035 §決定 2：首頁｜搜尋｜音樂庫｜佇列｜電台｜設定；
+/// 各寬度同一組）。三種導覽元件與內容區的 `IndexedStack` 都照這個順序；App 開在第一個。
+enum ShellDestination { home, search, library, queue, radio, settings }
 
 /// App 的外殼（ADR 0024 §決定 3、5、8）：導覽、內容、播放列三區。
 ///
@@ -103,6 +105,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     // 歌單詳情的「登入」（design §5.3）：帳號區塊每個音源一張卡，整個區塊就看得到。
     ref.read(openAccountsProvider).handler = (_) => _openAccounts();
+    // 播放頁開著時的 Ctrl+Q：播放頁關掉之後請外殼切到佇列。
+    ref.read(openQueueProvider).handler = _openQueue;
     // 首次啟動匯入舊版資料之後，第一幀之後顯示一次結果（M5 design §7.3）。
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -202,6 +206,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) focus();
     });
+  }
+
+  /// 切到佇列目的地，焦點進內容區（Ctrl+Q；播放頁的 Ctrl+Q 也經這裡）。播放頁的那一條等
+  /// 關閉轉場結束才呼叫，那時外殼可能已經拆了（[openQueueProvider] 還留著這個 handler）。
+  void _openQueue() {
+    if (!mounted) return;
+    _selectAndFocus(ShellDestination.queue, () => focusInto(_content));
   }
 
   /// 搜尋頁的「前往插件頁」：換到設定頁並選「插件」區塊。
@@ -333,6 +344,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       onOpenPlugins: _openPlugins,
     ),
     ShellDestination.library => const LibraryPage(),
+    ShellDestination.queue => QueuePage(
+      visible: _destination == ShellDestination.queue,
+    ),
     ShellDestination.radio => const RadioPage(),
     ShellDestination.settings => SettingsPage(
       visible: _destination == ShellDestination.settings,
@@ -476,18 +490,31 @@ class _AppShellState extends ConsumerState<AppShell> {
             navigation(switch (windowClass) {
               WindowClass.medium || WindowClass.expanded => SafeArea(
                 right: false,
-                child: NavigationRail(
-                  selectedIndex: index,
-                  onDestinationSelected: onSelected,
-                  labelType: NavigationRailLabelType.all,
-                  destinations: [
-                    for (final item in destinations)
-                      NavigationRailDestination(
-                        icon: Icon(item.icon),
-                        selectedIcon: Icon(item.selectedIcon),
-                        label: Text(item.label),
+                // 六項在橫向手機（高約 411dp）放不下：高度不夠時可以捲，夠時外觀不變。
+                // U PR 5 換成舊版側欄時一併取代。
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                  ],
+                      child: IntrinsicHeight(
+                        child: NavigationRail(
+                          selectedIndex: index,
+                          onDestinationSelected: onSelected,
+                          labelType: NavigationRailLabelType.all,
+                          destinations: [
+                            for (final item in destinations)
+                              NavigationRailDestination(
+                                icon: Icon(item.icon),
+                                selectedIcon: Icon(item.selectedIcon),
+                                label: Text(item.label),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               _ => _PermanentDrawer(
@@ -562,13 +589,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onBack: _popInner,
                 canBack: _canPopInner,
               ),
-              // 播放頁沒開時 Ctrl+L、Ctrl+Q 先開播放頁（佇列不空才開）；開著時是頁面自己
-              // 的 Actions 在處理（切分頁）。
+              // 播放頁沒開時 Ctrl+L 先開播放頁（佇列不空才開）；開著時是頁面自己的 Actions
+              // 在處理（切分頁）。
               ShowLyricsIntent: TextInputAwareAction<ShowLyricsIntent>(
                 onInvoke: (_) => _openPlayer(PlayerPageEntry.lyrics),
               ),
+              // Ctrl+Q：切到佇列目的地（ADR 0035 §決定 7），焦點進內容區。
               ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
-                onInvoke: (_) => _openPlayer(PlayerPageEntry.queue),
+                onInvoke: (_) => _openQueue(),
               ),
             },
             // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
@@ -630,6 +658,12 @@ _DestinationLabel _destinationLabel(
     selectedIcon: Icons.library_music,
     label: t.library,
     tooltip: null,
+  ),
+  ShellDestination.queue => (
+    icon: Icons.queue_music_outlined,
+    selectedIcon: Icons.queue_music,
+    label: t.queue,
+    tooltip: t.queueTooltip,
   ),
   ShellDestination.radio => (
     icon: Icons.radio_outlined,
