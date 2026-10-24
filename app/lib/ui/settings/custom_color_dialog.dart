@@ -169,7 +169,10 @@ class _ChannelSlider extends StatelessWidget {
         Slider(
           value: value.clamp(0, max),
           max: max,
-          semanticFormatterCallback: (value) => '$label ${value.round()}',
+          // 色相讀度數；飽和度與明度是 0–1，讀成百分比（round 會只剩 0 或 1）。
+          semanticFormatterCallback: (value) => max == 1
+              ? '$label ${(value * 100).round()}%'
+              : '$label ${value.round()}',
           onChanged: onChanged,
         ),
       ],

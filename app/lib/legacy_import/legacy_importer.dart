@@ -37,7 +37,7 @@ final class LegacyImporter implements LegacyImport {
     required this._locator,
     required this._secureStorage,
     required this._importOutputDevice,
-    this._fontChoices = const [],
+    required this._fontChoices,
     LegacyDatabaseReader? reader,
     this._backupReader = const LegacyBackupReader(),
     StagingImport? staging,

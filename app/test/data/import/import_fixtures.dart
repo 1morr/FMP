@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:fmp/data/import/import_bundle.dart';
 import 'package:fmp/data/import/import_summary.dart';
 import 'package:fmp/data/repositories/account_repository.dart';
@@ -176,6 +178,8 @@ ImportBundle fullBundle() {
     appearance: const AppearanceSettings(
       themeMode: ThemeModeSetting.dark,
       locale: LocaleSetting.zhTw,
+      seedColor: Color(0xFF336699),
+      fontFamily: 'serif',
     ),
     network: const NetworkSettings(radioStatusIntervalMinutes: 10),
     playback: const PlaybackSettings(

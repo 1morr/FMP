@@ -12,16 +12,12 @@ final class Appearance {
   const Appearance({
     required this.themeMode,
     required this.locale,
-    required this.seedColor,
     required this.fontFamily,
     required this.stored,
   });
 
   final ThemeModeSetting themeMode;
   final LocaleSetting locale;
-
-  /// 生效的主題色：沒設定過是預設的紫。
-  final Color seedColor;
 
   /// 生效的字型；`null`＝系統預設。
   final String? fontFamily;
@@ -35,23 +31,22 @@ final class Appearance {
       other is Appearance &&
       other.themeMode == themeMode &&
       other.locale == locale &&
-      other.seedColor == seedColor &&
       other.fontFamily == fontFamily &&
       other.stored == stored;
 
   @override
-  int get hashCode =>
-      Object.hash(themeMode, locale, seedColor, fontFamily, stored);
+  int get hashCode => Object.hash(themeMode, locale, fontFamily, stored);
 
   @override
   String toString() =>
       'Appearance(themeMode: $themeMode, locale: $locale, '
-      'seedColor: $seedColor, fontFamily: $fontFamily, stored: $stored)';
+      'fontFamily: $fontFamily, stored: $stored)';
 }
 
-/// 在讀取時套用預設：沒設定過的欄位用 [defaultThemeMode]／[defaultLocale]；主題色是
-/// [appSeedColor]，字型是系統預設（`null`）；存的字型不在 [fontChoices]（目前平台的清單）
-/// 裡也當作系統預設。
+/// 在讀取時套用預設：沒設定過的欄位用 [defaultThemeMode]／[defaultLocale]，字型是系統預設
+/// （`null`）；存的字型不在 [fontChoices]（目前平台的清單）裡也當作系統預設。主題色不在這裡
+/// 套預設：主題要分「沒選過」（純 `fromSeed`）與「選過」（照舊版覆寫主色），直接讀
+/// `stored.seedColor`。
 ///
 /// 預設值只在這裡出現、不寫進資料庫，所以改預設不需要 migration，也不會動到
 /// 使用者設定過的值。
@@ -63,7 +58,6 @@ Appearance resolveAppearance(
 }) => Appearance(
   themeMode: stored.themeMode ?? defaultThemeMode,
   locale: stored.locale ?? defaultLocale,
-  seedColor: stored.seedColor ?? appSeedColor,
   // 存的字型不在目前平台的清單（例如還原別的平台的備份）就當沒設定過。
   fontFamily: fontChoices.contains(stored.fontFamily)
       ? stored.fontFamily

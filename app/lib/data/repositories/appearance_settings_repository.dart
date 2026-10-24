@@ -47,6 +47,10 @@ final class AppearanceSettings {
       'seedColor: $seedColor, fontFamily: $fontFamily)';
 }
 
+/// `appearance_settings.seed_color` 存的值：ARGB 整數，alpha 一律當不透明（seed 不用透明度）。
+/// [AppearanceSettingsRepository.write] 與匯入（`StagingImport`）共用，存法只有一份。
+int storedSeedColor(Color color) => color.toARGB32() | 0xFF000000;
+
 /// `appearance_settings` 單列表的存取。
 final class AppearanceSettingsRepository {
   AppearanceSettingsRepository(this._database);
@@ -84,13 +88,11 @@ final class AppearanceSettingsRepository {
           themeMode: Value.absentIfNull(themeMode),
           locale: Value.absentIfNull(locale),
           seedColor: Value.absentIfNull(
-            seedColor == null ? null : seedColor.toARGB32() | _opaque,
+            seedColor == null ? null : storedSeedColor(seedColor),
           ),
           fontFamily: Value.absentIfNull(fontFamily),
         ),
       );
-
-  static const _opaque = 0xFF000000;
 
   /// 把傳 `true` 的欄位清回 `null`（沒設定過，由上層套用預設）；其他欄位不動。
   ///

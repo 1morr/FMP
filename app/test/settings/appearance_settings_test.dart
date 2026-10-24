@@ -167,7 +167,6 @@ void main() {
         const Appearance(
           themeMode: ThemeModeSetting.system,
           locale: LocaleSetting.zhCn,
-          seedColor: appSeedColor,
           fontFamily: null,
           stored: AppearanceSettings.empty,
         ),
@@ -279,7 +278,7 @@ void main() {
       final container = containerFor(memoryDatabase());
       final values = appearances(container);
       expect(await values.moveNext(), isTrue);
-      expect(values.current.seedColor, appSeedColor);
+      expect(values.current.stored.seedColor, isNull);
       expect(values.current.fontFamily, isNull);
       final notifier = container.read(appearanceProvider.notifier);
 
@@ -287,7 +286,7 @@ void main() {
       expect(await values.moveNext(), isTrue);
       await notifier.setFontFamily('serif');
       expect(await values.moveNext(), isTrue);
-      expect(values.current.seedColor, const Color(0xFF3F51B5));
+      expect(values.current.stored.seedColor, const Color(0xFF3F51B5));
       expect(values.current.fontFamily, 'serif');
       expect(values.current.stored.themeMode, isNull);
 
@@ -295,7 +294,7 @@ void main() {
       expect(await values.moveNext(), isTrue);
       await notifier.setFontFamily(null);
       expect(await values.moveNext(), isTrue);
-      expect(values.current.seedColor, appSeedColor);
+      expect(values.current.stored.seedColor, isNull);
       expect(values.current.fontFamily, isNull);
       expect(values.current.stored, AppearanceSettings.empty);
     });
@@ -311,7 +310,7 @@ void main() {
       // 生效值是系統預設；存的值原樣留著（換回有這個字型的平台還在）。
       expect(values.current.fontFamily, isNull);
       expect(values.current.stored.fontFamily, 'SimSun');
-      expect(values.current.seedColor, const Color(0xFF336699));
+      expect(values.current.stored.seedColor, const Color(0xFF336699));
     });
 
     test('a stored font inside the platform list is kept', () async {

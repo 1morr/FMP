@@ -544,9 +544,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `legacy_imports_repository_test.dart`、`import_summary_test.dart`（`summary_json` 往返、map 順序不影響相等與 hash）。
 - `appearance_settings.seed_color`（ARGB 整數）、`font_family`（文字）是 schema v20（ADR 0035 §決定 5）：主題色與字型，兩欄可空，空＝沒設定過（預設的紫、系統預設字型只在
   `resolveAppearance` 套用）。字型清單是平台層的 `PlatformCapabilities.fontChoices`（`lib/platform/fonts/`，不含「系統預設」）；設定頁只列這份清單，主題的 `ThemeData.fontFamily`
-  放使用者選的字型、CJK `fontFamilyFallback` 照舊接在後面。閘門：`migration_test.dart` 的 `migration from v19 to v20 keeps existing data and user values`、
+  放使用者選的字型、CJK `fontFamilyFallback` 照舊接在後面；存的字型不在目前平台的清單（還原別的平台的備份）時當作沒設定過，資料庫的值不動。
+  `seed_color` 的存法（alpha 一律不透明）只有 `storedSeedColor` 一份，repository 與匯入（`StagingImport`）共用。閘門：`migration_test.dart` 的 `migration from v19 to v20 keeps existing data and user values`、
   `migration from v<N> to v20 adds the appearance columns`（v1–v19 各一例）、`appearance_settings_repository_test.dart` 的 seed／字型寫入與清除、`platform_test.dart` 的 `fontChoices`、
-  `app_theme_test.dart` 的 `seed color and font`、`appearance_controls_test.dart`、`legacy_settings_converter_test.dart` 的 `theme color and font`。
+  `app_theme_test.dart` 的 `seed color and font`、`appearance_controls_test.dart`、`legacy_settings_converter_test.dart` 的 `theme color and font`、
+  `staging_import_test.dart` 與 `staging_import_replace_test.dart` 的設定讀回（`import_fixtures.dart` 的外觀帶主題色與字型）。
 
 ### 快取庫
 

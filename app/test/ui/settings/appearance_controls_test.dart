@@ -147,6 +147,21 @@ void main() {
     );
   });
 
+  testWidgets('screen readers hear the hue in degrees, the rest as percent', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await openAppearance(tester);
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+
+    // 6750A4：色相 256°、飽和度 51%、明度 64%。
+    for (final value in ['Hue 256', 'Saturation 51%', 'Brightness 64%']) {
+      expect(find.semantics.byValue(value), findsOne, reason: value);
+    }
+    handle.dispose();
+  });
+
   testWidgets('the font list is the platform choices, default first', (
     tester,
   ) async {

@@ -76,6 +76,7 @@ void main() {
         ),
         secureStorage: storage,
         importOutputDevice: false,
+        fontChoices: const [],
       );
 
   List<String> leftovers() => dataDirectory.existsSync()
