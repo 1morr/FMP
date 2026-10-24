@@ -902,6 +902,12 @@ void main() {
       tester,
     ) async {
       final h = await playing(tester);
+      // 在播那一列的指示器會一直動，`pumpAndSettle` 會一路等到歌播完：先減少動態。
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
 
       await chord(tester, LogicalKeyboardKey.keyQ);
       await tester.pumpAndSettle();

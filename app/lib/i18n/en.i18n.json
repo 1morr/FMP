@@ -54,6 +54,7 @@
     "queueTooltip": "Queue (Ctrl+Q)",
     "queueEmptyTitle": "The queue is empty",
     "queueEmptyBody": "Songs you play from Search or the Library line up here.",
+    "queueEmptyAction": "Go to Search",
     "panelTitle": "Now playing",
     "panelEmpty": "Nothing is playing",
     "panelCollapseTooltip": "Collapse the now playing panel",
@@ -717,7 +718,15 @@
     "queueMore": "More options",
     "queuePlayNext": "Play next",
     "queueRemove": "Remove from queue",
-    "queueReorder": "Drag to reorder"
+    "queueReorder": "Drag to reorder",
+    "queueTitle": "Queue",
+    "queueShuffle": "Shuffle",
+    "queueShuffled": "Queue shuffled",
+    "queueJumpTop": "Jump to top",
+    "queueJumpBottom": "Jump to bottom",
+    "queuePlayingAt": "Playing track {index}",
+    "queueRemoveTrack": "Remove \"{title}\" from the queue",
+    "queueMixLoading": "Loading more songs"
   },
   "appearance": {
     "theme": "Theme",

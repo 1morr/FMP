@@ -1614,7 +1614,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
 `.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、收聽直播（`playLive`、`stopLive`，見下方「直播」）、開始 Mix（`startMix`，見下方「Mix」）、加入
 （`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
-（`move`）、移到下一首（`moveToNext`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
+（`move`）、移到下一首（`moveToNext`）、清空（`clear`）、打亂（`shuffleQueue`：`QueueModel.shuffleEntries`，目前這首移到第一位、項目沿用實例、Mix／直播／不到兩首回 `false`；隨機開著時重新產生一輪，ADR 0035 §決定 8）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
 上一首與下一首、seek、音量（`setVolume`）、靜音（`toggleMute`）、速度（`setSpeed`）、輸出裝置
 （`selectOutputDevice`）。佇列、循環、隨機與音量持久化（見「持久化與啟動恢復」）。
 
@@ -2732,10 +2732,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（查不到名稱時顯示插件 id）、`test/ui/plugins/plugin_name_test.dart`。
   - 佇列（`lib/ui/queue/`，design §7.3；ADR 0035 §決定 2 起是導覽的第四項）：`QueuePage` 是佇列目的地的根頁，各寬度都是整頁，
     沒有底部面板也沒有播放頁的分頁。沒選到這個目的地時（`visible` 為假）不建清單，所以每次切過來都從目前這首附近開始；佇列空時
-    （含收聽直播而佇列是空的）是空狀態（`shell.queueEmptyTitle`、`queueEmptyBody`；U PR 8 換成舊版的引導），否則是 `QueueView`。
-    返回鍵與其他目的地一樣回到首頁。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
-    `clear`、提示「已清空佇列」，取消不動；清空後頁面換成空狀態），隨機開著時下面多一行「隨機順序跟著位置；拖曳只換歌，
-    不改順序」。每列是封面、曲名、上傳者、時長、「⋯」選單與拖曳把手（音源停用或未安裝時，原因取代上傳者，且列監看 `sourceUnavailableProvider`；閘門：`queue_view_test.dart` 的 `a song of a source that cannot be used shows why instead of the uploader`、`the reason follows the source becoming unavailable`）；目前這首以主色標示（臨時播放中不標，因為
+    （含收聽直播而佇列是空的）是空狀態（舊版的引導：圖示、`shell.queueEmptyTitle`、`queueEmptyBody` 與「去搜尋」鈕，`QueuePage.onOpenSearch` 由外殼接成切到搜尋目的地），否則是 `QueueView`。
+    返回鍵與其他目的地一樣回到首頁。頂部一列（U PR 8，舊版 AppBar；PR 5 起換成共用的 `PageAppBar`）：左邊跳到底／頂（離頂端 `AppLayout.queueNearTop` 內往底，否則往頂）、中間標題（`QueueView.titleKey`；Mix 時是 `Mix：<標題>`、`mixNoteKey`）、右邊「打亂」（`PlaybackController.shuffleQueue`，成功提示「已打亂」並回到清單頂端；Mix、直播或不到兩首時停用）與「清空」（確認後 `clear`、提示「已清空佇列」，取消不動；清空後頁面換成空狀態）。下面是「正在播放第 n 首／共 m 首」橫幅（`bannerKey`，點了捲到目前這首；臨時播放與直播中不顯示），隨機開著時再下面多一行「隨機順序跟著位置；拖曳只換歌，
+    不改順序」。每列（`AppLayout.queueItemHeight` 72）是封面（目前這首疊 `NowPlayingOverlay`）、曲名（目前這首主色粗體）、上傳者、時長、「×」（一下移除，不確認；tooltip 帶曲名 `queueRemoveTrack`，每列一顆才分得出）、「⋯」選單與拖曳把手（音源停用或未安裝時，原因取代上傳者，且列監看 `sourceUnavailableProvider`；閘門：`queue_view_test.dart` 的 `a song of a source that cannot be used shows why instead of the uploader`、`the reason follows the source becoming unavailable`）；Mix 補歌時列尾有 48dp 轉圈（`playbackMixRefillingProvider`，`footerSpinnerKey`，讀屏名稱 `queueMixLoading`）。目前這首以主色標示（臨時播放中不標，因為
     `currentIndex` 是回到佇列時的位置）；點一下 `jumpTo`；選單有「下一首播放」（`moveToNext`，目前這首沒有這項）與「從佇列
     移除」（`removeAt`，不提示，同歷史頁）。固定列高的 `ReorderableListView.builder`、`buildDefaultDragHandles: false`：
     只有把手（`ReorderableDragStartListener`）能拖，長按留給選單；放下呼叫 `move`（用 `onReorderItem`，它的 `newIndex`
@@ -2806,9 +2805,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `Toaster.error` 顯示、佇列不動。
   - Mix 中（`inMixProvider`＝`QueueState.mix != null`）停用且附說明：搜尋與歷史選單的「加入佇列」「下一首播放」改寫成「…（Mix 中無法使用）」並
     `onPressed: null`；播放列與播放頁的隨機鈕（`ShuffleButton.locked`）tooltip 改成「Mix 中無法隨機播放」、播放列「⋯」選單的隨機勾選項改寫成
-    「隨機播放（Mix 中無法使用）」並停用。循環鈕的 tooltip 與「⋯」選單的循環項目另註明 Mix 中沒有「全部」（`loopTooltip`、`loopLabel` 的 `inMix`）。Ctrl+S 照樣呼叫控制器，由佇列拒絕。沒有「打亂佇列」的入口，所以沒有要停用的。
+    「隨機播放（Mix 中無法使用）」並停用。循環鈕的 tooltip 與「⋯」選單的循環項目另註明 Mix 中沒有「全部」（`loopTooltip`、`loopLabel` 的 `inMix`）。Ctrl+S 照樣呼叫控制器，由佇列拒絕。佇列頁的「打亂」在 Mix 中停用（`QueueModel.shuffleEntries` 也回 `false`）。
     佇列選單的「下一首播放」是重排（`moveToNext`），Mix 中照常。
-  - 佇列頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
+  - 佇列頁頂部的標題在 Mix 時是 `Mix：<標題>`（`QueueView.mixNoteKey`）。
   閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、循環鈕、「⋯」的循環項目與 Ctrl+R、佇列標題兩種寬度、佇列列選單）、
   `history_page_test.dart` 的 `the Mix items of the menu`、`guidelines_test.dart` 的 `the queue of a mix`（寬 400／1000、淺色與深色）。
 - 分 P 的介面（M3 PR 20，design §11.1、契約見 § 插件的 `multiPart`；狀態在 `lib/ui/search/video_parts.dart`）：

@@ -230,6 +230,9 @@ class Translations$shell$zh_TW {
   /// zh-TW: '在搜尋或音樂庫裡播放歌曲，會排進這裡。'
   String get queueEmptyBody => '在搜尋或音樂庫裡播放歌曲，會排進這裡。';
 
+  /// zh-TW: '去搜尋'
+  String get queueEmptyAction => '去搜尋';
+
   /// zh-TW: '正在播放'
   String get panelTitle => '正在播放';
 
@@ -2315,6 +2318,30 @@ class Translations$playerPage$zh_TW {
 
   /// zh-TW: '拖曳以重新排列'
   String get queueReorder => '拖曳以重新排列';
+
+  /// zh-TW: '佇列'
+  String get queueTitle => '佇列';
+
+  /// zh-TW: '打亂'
+  String get queueShuffle => '打亂';
+
+  /// zh-TW: '已打亂'
+  String get queueShuffled => '已打亂';
+
+  /// zh-TW: '跳到頂部'
+  String get queueJumpTop => '跳到頂部';
+
+  /// zh-TW: '跳到底部'
+  String get queueJumpBottom => '跳到底部';
+
+  /// zh-TW: '正在播放第 {index} 首'
+  String queuePlayingAt({required Object index}) => '正在播放第 ${index} 首';
+
+  /// zh-TW: '從佇列移除「{title}」'
+  String queueRemoveTrack({required Object title}) => '從佇列移除「${title}」';
+
+  /// zh-TW: '正在載入更多歌曲'
+  String get queueMixLoading => '正在載入更多歌曲';
 }
 
 // Path: appearance

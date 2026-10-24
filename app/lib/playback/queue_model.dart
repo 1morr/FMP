@@ -572,6 +572,25 @@ final class QueueModel {
     _publish();
   }
 
+  /// 真正的打亂（ADR 0035 §決定 8，舊版 `QueueManager.shuffle`）：整個佇列重排一次、
+  /// 不可復原，目前這首（臨時播放中是快照那首）移到第一位。項目沿用實例。隨機開著時
+  /// 重新產生一輪位置式隨機（目前這首開頭、本輪已播清空）。Mix、直播、少於兩首時
+  /// 回傳 `false`、不改佇列。
+  bool shuffleEntries() {
+    if (_mix != null || _live != null || _entries.length < 2) return false;
+    final current = _current!;
+    final rest = [
+      for (var i = 0; i < _entries.length; i++)
+        if (i != current) _entries[i],
+    ]..shuffle(_random);
+    _entries = [_entries[current], ...rest];
+    _current = 0;
+    _playNextRun = 0;
+    if (_order != null) _order = _orderStartingAt(0);
+    _publish();
+    return true;
+  }
+
   /// 移除位置 [index]。移除的是目前這首時往下一首（沒有下一首就往前一首）；
   /// 臨時播放中，回到佇列的那一首因此換了時，從頭開始。
   void remove(int index) {

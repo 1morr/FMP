@@ -27,7 +27,10 @@ final class MixSession {
     required this._hasPlugin,
     required this._log,
     required this._onChanged,
-  });
+    void Function()? onRefillingChanged,
+  }) : _onRefillingChanged = onRefillingChanged ?? _noop;
+
+  static void _noop() {}
 
   /// 目前這首之後剩這麼多首（含）以下就補歌。
   static const refillThreshold = 1;
@@ -41,6 +44,9 @@ final class MixSession {
 
   /// 佇列因補歌改變之後呼叫（控制器發出新的佇列、前瞻改指新的下一首）。
   final void Function() _onChanged;
+
+  /// [refilling] 變了之後呼叫（佇列頁的續取轉圈）。
+  final void Function() _onRefillingChanged;
 
   /// 進行中的補歌；永遠不會以錯誤結束。
   Future<void>? _inFlight;
@@ -104,7 +110,9 @@ final class MixSession {
     _attemptedFor = entry;
     _inFlight = _refill(mix, state.entries.last.track).whenComplete(() {
       _inFlight = null;
+      _onRefillingChanged();
     });
+    _onRefillingChanged();
   }
 
   Future<void> _refill(MixIdentity mix, TrackInfo last) async {

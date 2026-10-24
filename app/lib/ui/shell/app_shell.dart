@@ -346,6 +346,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     ShellDestination.library => const LibraryPage(),
     ShellDestination.queue => QueuePage(
       visible: _destination == ShellDestination.queue,
+      onOpenSearch: () => _select(ShellDestination.search),
     ),
     ShellDestination.radio => const RadioPage(),
     ShellDestination.settings => SettingsPage(

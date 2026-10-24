@@ -247,6 +247,13 @@ final playbackSpeedProvider = StreamProvider<double>((ref) async* {
   yield* controller.speedChanges;
 });
 
+/// Mix 是否正在補歌：先給目前的值，之後每次改變。
+final playbackMixRefillingProvider = StreamProvider<bool>((ref) async* {
+  final controller = ref.watch(playbackControllerProvider);
+  yield controller.mixRefilling;
+  yield* controller.mixRefillChanges;
+});
+
 /// 輸出裝置的清單與目前選的：先給目前的值，之後每次改變。
 final playbackOutputDevicesProvider = StreamProvider<OutputDeviceState>((
   ref,

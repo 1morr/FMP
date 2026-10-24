@@ -227,6 +227,8 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   String get queueEmptyBody =>
       'Songs you play from Search or the Library line up here.';
   @override
+  String get queueEmptyAction => 'Go to Search';
+  @override
   String get panelTitle => 'Now playing';
   @override
   String get panelEmpty => 'Nothing is playing';
@@ -1783,6 +1785,23 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   String get queueRemove => 'Remove from queue';
   @override
   String get queueReorder => 'Drag to reorder';
+  @override
+  String get queueTitle => 'Queue';
+  @override
+  String get queueShuffle => 'Shuffle';
+  @override
+  String get queueShuffled => 'Queue shuffled';
+  @override
+  String get queueJumpTop => 'Jump to top';
+  @override
+  String get queueJumpBottom => 'Jump to bottom';
+  @override
+  String queuePlayingAt({required Object index}) => 'Playing track ${index}';
+  @override
+  String queueRemoveTrack({required Object title}) =>
+      'Remove "${title}" from the queue';
+  @override
+  String get queueMixLoading => 'Loading more songs';
 }
 
 // Path: appearance

@@ -62,7 +62,25 @@ abstract final class AppLayout {
   static const double playerBackdropSource = 256;
 
   /// 佇列頁每一列的高度（固定高度讓一萬首的清單不必逐項量測）。
-  static const double queueItemHeight = 64;
+  static const double queueItemHeight = 72;
+
+  /// Mix 佇列列尾（續取轉圈）的高度，與轉圈的邊長。
+  static const double queueFooterHeight = 48;
+  static const double queueFooterSpinner = 20;
+
+  /// 佇列頁離頂端不到這麼遠算在頂端（跳頂／跳底鈕的方向）。
+  static const double queueNearTop = 200;
+
+  /// 「正在播放第 n 首」橫幅底色（primaryContainer）的不透明度。
+  static const double queueBanner = 0.3;
+
+  /// 橫幅可以點，高度至少一個點擊區。
+  static const double queueBannerHeight = 48;
+
+  /// 正在播放的封面遮罩：主色的不透明度、指示器對封面邊長的比例與一個循環的時間。
+  static const double nowPlayingScrim = 0.8;
+  static const double nowPlayingIndicatorRatio = 0.32;
+  static const Duration nowPlayingLoop = Duration(milliseconds: 1200);
 
   /// 佇列切歌時捲到目前這首的動畫時間。
   static const Duration queueScrollDuration = Duration(milliseconds: 250);

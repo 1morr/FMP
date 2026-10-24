@@ -55,6 +55,7 @@ final class Fixture {
       hasPlugin: (_) => pluginInstalled,
       log: log,
       onChanged: () => changes++,
+      onRefillingChanged: () => refillingSeen.add(session.refilling),
     );
   }
 
@@ -63,6 +64,9 @@ final class Fixture {
   late final FakeSourcePlugin plugin;
   late final MixSession session;
   int changes = 0;
+
+  /// 每次 `onRefillingChanged` 時的 `refilling`。
+  final refillingSeen = <bool>[];
 
   List<String> get ids => [
     for (final entry in queue.state.entries) entry.track.sourceId,
@@ -345,6 +349,27 @@ void main() {
 
       expect(idle, isTrue);
       expect(f.ids, ['0', '9']);
+    });
+
+    test('says when a refill starts and ends, a failed one too', () async {
+      final f = Fixture(count: 1);
+      final pending = Completer<MixBatch>();
+      f.plugin.onMix = (_) => pending.future;
+
+      f.session.trackStarted();
+      expect(f.refillingSeen, [true]);
+      await settle();
+      expect(f.refillingSeen, [true]);
+
+      pending.completeError(StateError('boom'));
+      await settle();
+      expect(f.refillingSeen, [true, false]);
+      expect(f.session.refilling, isFalse);
+
+      // 同一首不重試：沒有新的補歌，也就沒有通知。
+      f.session.trackStarted();
+      await settle();
+      expect(f.refillingSeen, [true, false]);
     });
 
     test('whenIdle is already done when nothing runs', () async {
