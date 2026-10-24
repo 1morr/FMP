@@ -1,0 +1,6 @@
+{"file": "docs/adr/0035-legacy-ui-baseline.md", "reason": "逐條核對 PR 是否符合 ADR 0035 的決定與「如何確認」"}
+{"file": ".trellis/tasks/10-24-ui-legacy-parity/prd.md", "reason": "R1–R7 的需求編號與驗收條件"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 層規範與 guideline／golden 測試"}
+{"file": ".trellis/spec/app/lints/index.md", "reason": "fmp_design_tokens、fmp_platform_checks、雙向變異測試"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試分層與零聯網"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "匯入進度與取消跨 UI、library、刷新器三層"}

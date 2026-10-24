@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>手機導覽列</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:390px;height:114px;box-sizing:border-box;background:#FEF7FF;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative">
+  <nav aria-label="主導覽" style="height:80px;display:flex;align-items:center;justify-content:space-around;padding:0 4px">
+    <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+      <a href="#" aria-label="{{it.label}}" style="display:flex;flex-direction:column;align-items:center;gap:4px;width:60px;text-decoration:none">
+        <span style="width:56px;height:32px;border-radius:16px;background:{{it.pill}};display:flex;align-items:center;justify-content:center;color:{{it.icon}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.d}}"/></svg></span>
+        <span style="font-size:12px;color:{{it.text}};font-weight:{{it.weight}}">{{it.label}}</span>
+      </a>
+    </sc-for>
+  </nav>
+  <div style="position:absolute;left:0;right:0;top:80px;height:34px;border-top:1px dashed {{safeLine}}"></div>
+  <span style="display:{{tagDisplay}};position:absolute;right:6px;top:84px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">安全區域 34pt</span>
+  <div style="position:absolute;left:128px;bottom:8px;width:134px;height:5px;border-radius:3px;background:#1D1B20"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["home","search","queue","library","radio","settings"],"default":"home"},"showQueue":{"editor":"boolean","default":true},"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":114}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'home';
+    const showQueue = this.props.showQueue ?? true;
+    const tags = this.props.showTags ?? true;
+    const all = [
+      { id: 'home', label: '首頁', d: 'M3 11l9-7 9 7v9h-6v-6H9v6H3z' },
+      { id: 'search', label: '搜尋', d: 'M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4' },
+      { id: 'queue', label: '佇列', d: 'M3 6h12M3 11h12M3 16h7M19 5v11M14 16.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0' },
+      { id: 'library', label: '音樂庫', d: 'M8 3h12v12H8zM4 7v13h13M12 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0M15.2 12V6.5h2' },
+      { id: 'radio', label: '電台', d: 'M3 9h18v11H3zM6 9l12-5M6 14.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M14 13h4M14 17h4' },
+      { id: 'settings', label: '設定', d: 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1' }
+    ];
+    const items = all.filter((i) => showQueue || i.id !== 'queue').map((i) => {
+      const on = i.id === active;
+      return { ...i, pill: on ? '#E8DEF8' : 'transparent', icon: on ? '#1D192B' : '#49454F', text: on ? '#1D1B20' : '#49454F', weight: on ? 600 : 400 };
+    });
+    return { items, tagDisplay: tags ? 'inline-flex' : 'none', safeLine: tags ? 'rgba(194,37,92,.55)' : 'transparent' };
+  }
+}
+</script>
+</body>
+</html>

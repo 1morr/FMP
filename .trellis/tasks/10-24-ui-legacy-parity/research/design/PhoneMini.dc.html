@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>手機播放列</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div role="region" aria-label="播放列" style="width:390px;height:64px;box-sizing:border-box;background:#ECE6F0;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative;display:flex;align-items:center;padding:0 8px 0 12px;gap:8px">
+  <div style="position:absolute;left:0;right:0;top:0;height:2px;background:#CAC4D0"><div style="width:35%;height:2px;background:#6750A4"></div></div>
+  <a href="#" aria-label="開啟播放頁" style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;text-decoration:none;color:inherit">
+    <span style="width:44px;height:44px;border-radius:8px;background:#3F7CAC;position:relative;overflow:hidden;flex-shrink:0;display:block"><span style="position:absolute;left:-8px;top:16px;width:40px;height:40px;border-radius:20px;background:#5A97C4;display:block"></span></span>
+    <span style="display:flex;flex-direction:column;min-width:0">
+      <span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">潮汐之間（Live at 河岸音樂節）</span>
+      <span style="font-size:12px;color:#49454F">微光樂團</span>
+    </span>
+  </a>
+  <span style="display:{{tagDisplay}};position:absolute;left:12px;top:-10px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-11 補上一首・P-12 細線</span>
+  <sc-if value="{{queueButton}}" hint-placeholder-val="{{false}}">
+    <button aria-label="佇列" style="width:40px;height:40px;border:0;border-radius:20px;background:#E8DEF8;color:#1D192B;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h12M3 11h12M3 16h7M19 5v11M14 16.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"/></svg></button>
+  </sc-if>
+  <button aria-label="上一首" style="width:44px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14" stroke="currentColor" stroke-width="2"/><path d="M19 5L9 12l10 7z" fill="currentColor"/></svg></button>
+  <button aria-label="播放" style="width:44px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg></button>
+  <button aria-label="下一首" style="width:44px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2"/><path d="M5 5l10 7-10 7z" fill="currentColor"/></svg></button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"queueButton":{"editor":"boolean","default":false},"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":64}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { queueButton: this.props.queueButton ?? false, tagDisplay: (this.props.showTags ?? true) ? 'inline-flex' : 'none' };
+  }
+}
+</script>
+</body>
+</html>

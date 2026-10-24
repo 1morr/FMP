@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>播放頁 寬版</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="position:relative;height:764px;overflow:hidden">
+    <div style="position:absolute;inset:-120px;filter:blur(70px);background:#1E2A5C">
+      <div style="position:absolute;left:380px;top:120px;width:560px;height:560px;border-radius:280px;background:#3F7CAC"></div>
+      <div style="position:absolute;left:820px;top:300px;width:520px;height:420px;border-radius:200px;background:#5A97C4"></div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(20,18,24,.6)"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:56px;background:rgba(20,18,24,.5);display:flex;align-items:center;padding:0 12px;gap:4px">
+      <button aria-label="收合播放頁" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-01 頂列放回加入歌單、裝置、音量、資訊</span>
+      <span style="flex:1"></span>
+      <button aria-label="加入歌單" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h12M3 11h12M3 16h7M18 13v8M14 17h8"/></svg></button>
+      <button aria-label="輸出裝置" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2h12v20H6zM9 14a3 3 0 1 0 6 0a3 3 0 1 0-6 0M11.5 6.5h1"/></svg></button>
+      <button aria-label="靜音" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      <div style="width:110px;height:4px;border-radius:2px;background:rgba(230,224,233,.3);position:relative;margin-right:10px"><div style="width:70px;height:4px;border-radius:2px;background:#D0BCFF"></div><div style="position:absolute;left:64px;top:-4px;width:12px;height:12px;border-radius:6px;background:#D0BCFF"></div></div>
+      <button aria-label="歌曲資訊" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 11v6M12 7.5v.5"/></svg></button>
+      <button aria-label="更多" style="width:44px;height:44px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+    </div>
+    <div style="position:absolute;right:20px;top:58px;background:#E6E0E9;color:#322F35;font-size:12px;padding:4px 8px;border-radius:4px;display:flex;gap:6px;align-items:center">{{volTip}}<span style="display:{{tagDisplay}};align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-3</span></div>
+
+    <div style="position:absolute;left:0;top:56px;width:533px;bottom:0;display:flex;flex-direction:column;align-items:center;padding-top:24px;box-sizing:border-box">
+      <div style="width:300px;height:300px;border-radius:24px;background:#3F7CAC;box-shadow:0 10px 20px rgba(0,0,0,.2);position:relative;overflow:hidden">
+        <div style="position:absolute;left:-40px;top:120px;width:260px;height:260px;border-radius:130px;background:#5A97C4"></div>
+        <div style="position:absolute;right:40px;top:40px;width:90px;height:90px;border-radius:16px;background:rgba(255,255,255,.3);transform:rotate(14deg)"></div>
+      </div>
+      <div style="margin-top:20px;font-size:22px;font-weight:700;text-align:center;max-width:420px;line-height:1.35">潮汐之間（Live at 河岸音樂節）</div>
+      <div style="margin-top:6px;font-size:16px;color:#CAC4D0">微光樂團</div>
+      <div style="margin-top:22px;width:420px">
+        <div style="height:4px;border-radius:2px;background:rgba(230,224,233,.25);position:relative"><div style="width:35%;height:4px;border-radius:2px;background:#D0BCFF"></div><div style="position:absolute;left:calc(35% - 7px);top:-5px;width:14px;height:14px;border-radius:7px;background:#D0BCFF"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#CAC4D0;margin-top:8px"><span>1:27</span><span>4:09</span></div>
+      </div>
+      <div style="margin-top:10px;width:420px;display:flex;justify-content:space-evenly;align-items:center">
+        <button aria-label="隨機" style="width:48px;height:48px;border:0;background:none;color:#D0BCFF;padding:0;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+        <button aria-label="上一首" style="width:56px;height:56px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14" stroke="currentColor" stroke-width="2"/><path d="M19 5L9 12l10 7z" fill="currentColor"/></svg></button>
+        <button aria-label="播放" style="width:80px;height:80px;border:0;border-radius:40px;background:#D0BCFF;color:#381E72;padding:0;display:flex;align-items:center;justify-content:center"><svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4.5v15l12-7.5z" fill="currentColor"/></svg></button>
+        <button aria-label="下一首" style="width:56px;height:56px;border:0;background:none;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center"><svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2"/><path d="M5 5l10 7-10 7z" fill="currentColor"/></svg></button>
+        <button aria-label="循環" style="width:48px;height:48px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg></button>
+      </div>
+      <div style="display:{{tagDisplay}};gap:6px;margin-top:10px">
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-02 A 80dp 播放鍵、無底板</span>
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-17 大圓角＋陰影</span>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:533px;right:0;top:56px;bottom:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:22px;padding:0 60px">
+      <sc-for list="{{lyrics}}" as="l" hint-placeholder-count="7">
+        <p style="margin:0;text-align:center;font-size:{{l.size}}px;font-weight:{{l.weight}};color:{{l.color}}">{{l.text}}</p>
+      </sc-for>
+      <span style="display:{{tagDisplay}};position:absolute;right:24px;bottom:24px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-16 A 右欄歌詞（M7）；沒歌詞時整頁單欄置中</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const lines = ['潮水退到很遠的地方', '把腳印留給下一個人', '我們在河岸數著燈', '一盞一盞，慢慢變暗', '風把名字吹進水裡', '沒有人回頭', '潮汐之間　我們都在'];
+    const lyrics = lines.map((text, i) => {
+      const cur = i === 3;
+      return { text, size: cur ? 28 : 20, weight: cur ? 700 : 400, color: cur ? '#FFFFFF' : 'rgba(230,224,233,.5)' };
+    });
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      volTip: mac ? '音量（⌘↑／⌘↓）' : '音量（Ctrl+↑／Ctrl+↓）',
+      lyrics, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

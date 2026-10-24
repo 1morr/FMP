@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>主題與元件</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1440px;height:900px;box-sizing:border-box;padding:40px 48px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;align-items:baseline;gap:16px">
+    <h1 style="margin:0;font-size:30px;font-weight:700">主題與元件主題</h1>
+    <span style="display:{{tagDisplay}};align-items:center;height:22px;padding:0 10px;border-radius:11px;background:#C2255C;color:#fff;font-size:12px;font-weight:600">B-33 照舊版（已定案）</span>
+    <span style="font-size:14px;color:#49454F">取色自舊版主題程式碼：ColorScheme.fromSeed(#6750A4)＋自訂元件主題</span>
+  </div>
+
+  <div style="display:flex;gap:24px">
+    <section style="flex:1;background:#FFFFFF;border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">主題色預設（9 組＋自訂）</h2>
+        <span style="display:{{tagDisplay}};align-items:center;height:20px;padding:0 8px;border-radius:10px;background:#C2255C;color:#fff;font-size:11px;font-weight:600">L-27 照舊版</span>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <sc-for list="{{presets}}" as="p" hint-placeholder-count="10">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:64px">
+            <div style="width:44px;height:44px;border-radius:22px;background:{{p.c}};box-shadow:{{p.ring}}"></div>
+            <span style="font-size:12px;color:#49454F">{{p.n}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+    <section style="width:520px;background:#FFFFFF;border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0;font-size:16px;font-weight:700">字型（APL-4）</h2>
+      <div style="display:flex;justify-content:space-between;font-size:14px;border-bottom:1px solid #E6E0E9;padding-bottom:8px"><span>iPhone／Mac</span><span style="font-family:'PingFang TC','Noto Sans TC',sans-serif;font-weight:500">蘋方-繁（PingFang TC）</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;border-bottom:1px solid #E6E0E9;padding-bottom:8px"><span>Windows</span><span style="font-family:'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif;font-weight:500">微軟正黑體（Microsoft JhengHei UI）</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px"><span>Android</span><span style="font-weight:500">Noto Sans TC（系統預設）</span></div>
+      <p style="margin:0;font-size:12px;color:#49454F">稿上 Windows 畫面在沒有微軟正黑體的電腦上以 Noto Sans TC 代替顯示。</p>
+    </section>
+  </div>
+
+  <div style="display:flex;gap:24px;flex:1;min-height:0">
+    <section style="flex:1;background:#FEF7FF;border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:14px;border:1px solid #E6E0E9">
+      <h2 style="margin:0;font-size:16px;font-weight:700;color:#1D1B20">淺色（手機畫面用）</h2>
+      <div style="display:flex;gap:8px">
+        <sc-for list="{{lightTokens}}" as="t" hint-placeholder-count="7">
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <div style="height:40px;border-radius:8px;background:{{t.c}};border:1px solid #CAC4D0"></div>
+            <span style="font-size:10px;color:#49454F">{{t.n}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="width:150px;border-radius:12px;background:#E6E0E9;overflow:hidden">
+          <div style="height:110px;background:#5B5F97;position:relative"><div style="position:absolute;left:40px;top:28px;width:56px;height:56px;border-radius:28px;background:rgba(255,255,255,.35)"></div></div>
+          <div style="padding:8px"><div style="font-size:14px;font-weight:500">夜行列車</div><div style="font-size:12px;color:#49454F">86 首歌</div></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+          <div style="height:48px;border-radius:12px;background:#E6E0E9;display:flex;align-items:center;gap:10px;padding:0 14px;color:#49454F;font-size:15px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4"/></svg>搜尋歌曲、歌手…</div>
+          <div style="height:48px;border-radius:12px;background:#E6E0E9;display:flex;align-items:center;padding:0 14px;font-size:15px;box-shadow:inset 0 0 0 2px #6750A4">聚焦時 2dp 主色框</div>
+          <div style="height:44px;border-radius:8px;background:rgba(103,80,164,.08);display:flex;align-items:center;padding:0 14px;font-size:14px">ListTile 圓角 8（滑過）</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="width:64px;height:32px;border-radius:16px;background:#E8DEF8;display:flex;align-items:center;justify-content:center;color:#1D192B"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z"/></svg></div>
+            <span style="font-size:12px;color:#49454F">導覽選中＝secondaryContainer</span>
+            <button style="margin-left:auto;height:40px;padding:0 20px;border-radius:20px;border:0;background:#B3261E;color:#fff;font:inherit;font-size:14px;font-weight:500">刪除</button>
+          </div>
+          <span style="display:{{tagDisplay}};align-self:flex-end;align-items:center;height:20px;padding:0 8px;border-radius:10px;background:#C2255C;color:#fff;font-size:11px;font-weight:600">L-19 刪除確認鈕紅色（照建議）</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="flex:1;background:#141218;border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:14px;color:#E6E0E9">
+      <h2 style="margin:0;font-size:16px;font-weight:700">深色（桌面畫面用）</h2>
+      <div style="display:flex;gap:8px">
+        <sc-for list="{{darkTokens}}" as="t" hint-placeholder-count="7">
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <div style="height:40px;border-radius:8px;background:{{t.c}};border:1px solid #49454F"></div>
+            <span style="font-size:10px;color:#CAC4D0">{{t.n}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="width:150px;border-radius:12px;background:#36343B;overflow:hidden">
+          <div style="height:110px;background:#C46B6B;position:relative"><div style="position:absolute;left:24px;top:24px;width:100px;height:60px;border-radius:8px;background:rgba(255,255,255,.3)"></div></div>
+          <div style="padding:8px"><div style="font-size:14px;font-weight:500">雨天的 Lo-fi 收藏</div><div style="font-size:12px;color:#CAC4D0">128 首歌</div></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+          <div style="height:48px;border-radius:12px;background:#36343B;display:flex;align-items:center;gap:10px;padding:0 14px;color:#CAC4D0;font-size:15px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4"/></svg>搜尋歌曲、歌手…</div>
+          <div style="height:48px;border-radius:12px;background:#36343B;display:flex;align-items:center;padding:0 14px;font-size:15px;box-shadow:inset 0 0 0 2px #D0BCFF">聚焦時 2dp 主色框</div>
+          <div style="height:44px;border-radius:8px;background:rgba(208,188,255,.08);display:flex;align-items:center;padding:0 14px;font-size:14px">ListTile 圓角 8（滑過）</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="width:64px;height:32px;border-radius:16px;background:#4A4458;display:flex;align-items:center;justify-content:center;color:#E8DEF8"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z"/></svg></div>
+            <span style="font-size:12px;color:#CAC4D0">AppBar 置中、捲動陰影 1</span>
+            <button style="margin-left:auto;height:40px;padding:0 20px;border-radius:20px;border:0;background:#D0BCFF;color:#381E72;font:inherit;font-size:14px;font-weight:500">加入所有</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const presets = [
+      ['預設紫', '#6750A4'], ['靛藍', '#3F51B5'], ['藍', '#0061A4'], ['青', '#006A6A'], ['綠', '#006E1C'],
+      ['黃', '#F9A825'], ['橘', '#7C5800'], ['紅', '#BA1A1A'], ['粉', '#984061'], ['自訂', 'conic-gradient(#BA1A1A,#F9A825,#006E1C,#0061A4,#984061,#BA1A1A)']
+    ].map(([n, c], i) => ({ n, c, ring: i === 0 ? '0 0 0 3px #FFFFFF, 0 0 0 5px #6750A4' : 'none' }));
+    const lightTokens = [
+      ['primary', '#6750A4'], ['primaryContainer', '#EADDFF'], ['secondaryContainer', '#E8DEF8'],
+      ['surface', '#FEF7FF'], ['containerHigh', '#ECE6F0'], ['containerHighest', '#E6E0E9'], ['onSurfaceVariant', '#49454F']
+    ].map(([n, c]) => ({ n, c }));
+    const darkTokens = [
+      ['primary', '#D0BCFF'], ['primaryContainer', '#4F378B'], ['secondaryContainer', '#4A4458'],
+      ['surface', '#141218'], ['containerHigh', '#2B2930'], ['containerHighest', '#36343B'], ['onSurfaceVariant', '#CAC4D0']
+    ].map(([n, c]) => ({ n, c }));
+    return { presets, lightTokens, darkTokens, tagDisplay: (this.props.showTags ?? true) ? 'inline-flex' : 'none' };
+  }
+}
+</script>
+</body>
+</html>

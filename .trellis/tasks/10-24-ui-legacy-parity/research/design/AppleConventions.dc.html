@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>Apple 平台慣例</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1440px;height:900px;box-sizing:border-box;padding:36px 48px;background:#F4F1F8;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:14px">
+    <h1 style="margin:0;font-size:30px;font-weight:700">Apple 平台慣例</h1>
+    <span style="font-size:14px;color:#49454F">全平台同一套舊版 Material；只在下面幾處照 Apple 的習慣。每項請以評論回覆「同意」或你的選擇。</span>
+  </div>
+  <div style="display:flex;gap:24px;flex:1;min-height:0">
+    <div style="width:660px;display:flex;flex-direction:column;gap:20px">
+      <section style="background:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h2 style="margin:0;font-size:17px;font-weight:700">APL-2 Mac 標題列（與 B-19 Windows 自訂標題列一起）</h2>
+        <div style="font-size:13px;color:#49454F">B-19 已定案：Windows 用 36dp 自繪標題列，跟主題色。</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:13px;font-weight:600">Windows（B-19 照舊版）</span>
+          <div style="border-radius:8px;overflow:hidden;width:620px"><dc-import name="TitleBar" platform="win" w="{{620}}" hint-size="620px,36px"></dc-import></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:13px;font-weight:600"><span style="display:inline-flex;width:22px;height:22px;border-radius:11px;background:#1D1B20;color:#fff;align-items:center;justify-content:center;font-size:12px;margin-right:6px">A</span>Mac 自繪：同高同色，紅綠燈在左、FMP 置中（本稿照 A）</span>
+          <div style="border-radius:8px;overflow:hidden;width:620px"><dc-import name="TitleBar" platform="mac" w="{{620}}" hint-size="620px,36px"></dc-import></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:13px;font-weight:600"><span style="display:inline-flex;width:22px;height:22px;border-radius:11px;background:#1D1B20;color:#fff;align-items:center;justify-content:center;font-size:12px;margin-right:6px">B</span>Mac 系統標準標題列（不跟 App 主題，深色模式下是系統深灰）</span>
+          <div style="width:620px;height:28px;border-radius:8px;background:#3A383E;position:relative;display:flex;align-items:center;justify-content:center;font-size:13px;color:#DCDADF;font-weight:600">
+            <span style="position:absolute;left:10px;top:8px;display:flex;gap:8px"><span style="width:12px;height:12px;border-radius:6px;background:#FF5F57;display:block"></span><span style="width:12px;height:12px;border-radius:6px;background:#FEBC2E;display:block"></span><span style="width:12px;height:12px;border-radius:6px;background:#28C840;display:block"></span></span>FMP
+          </div>
+          <div style="width:620px;height:20px;background:#141218;border-radius:0 0 8px 8px;margin-top:-6px"></div>
+        </div>
+        <div style="font-size:13px;color:#49454F">請回覆：APL-2 A 或 B（推薦 A）</div>
+      </section>
+      <section style="background:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:17px;font-weight:700">APL-4 繁中字型</h2>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1;border-radius:10px;background:#F7F2FA;padding:14px"><div style="font-size:12px;color:#49454F">iPhone／Mac：蘋方-繁</div><div style="font-size:22px;font-family:'PingFang TC','Noto Sans TC',sans-serif;margin-top:6px">潮汐之間 微光樂團</div></div>
+          <div style="flex:1;border-radius:10px;background:#F7F2FA;padding:14px"><div style="font-size:12px;color:#49454F">Windows：微軟正黑體</div><div style="font-size:22px;font-family:'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif;margin-top:6px">潮汐之間 微光樂團</div></div>
+        </div>
+        <div style="font-size:13px;color:#49454F">簡體與日文字仍照語言回退（例如歌名含簡體時用系統的簡體字型）。請回覆「同意」或指定字型。</div>
+      </section>
+    </div>
+
+    <section style="width:400px;background:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:8px">
+      <h2 style="margin:0;font-size:17px;font-weight:700">APL-3 快捷鍵（設定 › 快捷鍵）</h2>
+      <div style="font-size:13px;color:#49454F">Mac 的提示文字與清單一律用 ⌘ ⌥ ⇧ 符號。</div>
+      <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;font-size:13px;border-top:1px solid #E6E0E9">
+        <span style="padding:7px 0;color:#49454F;font-weight:600">動作</span><span style="padding:7px 0;color:#49454F;font-weight:600">Windows</span><span style="padding:7px 0;color:#49454F;font-weight:600">Mac</span>
+        <sc-for list="{{keys}}" as="k" hint-placeholder-count="13">
+          <span style="padding:7px 0;border-top:1px solid #F3EDF7;background:{{k.bg}}">{{k.a}}</span><span style="padding:7px 0;border-top:1px solid #F3EDF7;font-family:ui-monospace,Menlo,Consolas,monospace;background:{{k.bg}}">{{k.w}}</span><span style="padding:7px 0;border-top:1px solid #F3EDF7;font-family:ui-monospace,Menlo,Consolas,monospace;background:{{k.bg}};color:{{k.mc}};font-weight:{{k.mw}}">{{k.m}}</span>
+        </sc-for>
+      </div>
+      <div style="font-size:12px;color:#8C1D18;background:#F9DEDC;border-radius:8px;padding:8px 10px;line-height:1.5">衝突：新版「開佇列」是 Ctrl+Q，在 Mac 上 ⌘Q 是結束 App。Mac 改用 ⌥⌘U（待確認）。</div>
+    </section>
+
+    <section style="flex:1;background:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px">
+      <h2 style="margin:0;font-size:17px;font-weight:700">APL-5 iPhone</h2>
+      <div style="width:200px;height:433px;border-radius:30px;background:#FEF7FF;box-shadow:0 0 0 6px #1D1B20;position:relative;overflow:hidden;align-self:center">
+        <div style="position:absolute;left:0;right:0;top:0;height:28px;background:rgba(194,37,92,.14);border-bottom:1px dashed #C2255C"></div>
+        <div style="position:absolute;left:68px;top:6px;width:64px;height:19px;border-radius:10px;background:#000"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:18px;background:rgba(194,37,92,.14);border-top:1px dashed #C2255C"></div>
+        <div style="position:absolute;left:66px;bottom:5px;width:68px;height:3px;border-radius:2px;background:#1D1B20"></div>
+        <div style="position:absolute;left:0;top:120px;width:16px;height:180px;background:linear-gradient(90deg,rgba(194,37,92,.35),rgba(194,37,92,0))"></div>
+        <svg style="position:absolute;left:14px;top:196px" width="70" height="28" viewBox="0 0 70 28" aria-hidden="true"><path d="M2 14h60M52 6l10 8-10 8" fill="none" stroke="#C2255C" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <div style="position:absolute;left:12px;right:12px;top:40px;display:flex;flex-direction:column;gap:8px"><div style="height:20px;border-radius:4px;background:#E6E0E9"></div><div style="height:40px;border-radius:6px;background:#ECE6F0"></div><div style="height:40px;border-radius:6px;background:#ECE6F0"></div></div>
+      </div>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:#1D1B20">
+        <li>內容避開動態島（上 54pt）與 home indicator（下 34pt）。</li>
+        <li>歌單模糊頂圖、播放頁背景延伸進安全區域；按鈕與文字不進。</li>
+        <li>子頁（歌單詳情、歷史、設定分組）可從左緣右滑返回。</li>
+        <li>橫向時左右也有安全區域（P-24 橫向播放頁一起處理）。</li>
+      </ul>
+      <div style="font-size:13px;color:#49454F">請回覆「同意」或說明。</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const keys = [
+      ['播放／暫停', '空白鍵', '空白鍵'],
+      ['上一首／下一首', 'Ctrl+←／→', '⌘←／⌘→'],
+      ['倒退／快轉', 'Shift+←／→', '⇧←／⇧→'],
+      ['音量', 'Ctrl+↑／↓', '⌘↑／⌘↓'],
+      ['隨機', 'Ctrl+S', '⌘S'],
+      ['循環', 'Ctrl+R', '⌘R'],
+      ['搜尋', 'Ctrl+F', '⌘F'],
+      ['設定', 'Ctrl+,', '⌘,'],
+      ['歌詞', 'Ctrl+L', '⌘L'],
+      ['開佇列', 'Ctrl+Q', '⌥⌘U', true],
+      ['全選', 'Ctrl+A', '⌘A'],
+      ['切換區域', 'F6', 'F6'],
+      ['返回／關閉', 'Esc', 'Esc']
+    ].map(([a, w, m, warn]) => ({ a, w, m, bg: warn ? '#FCEEEE' : 'transparent', mc: warn ? '#8C1D18' : '#1D1B20', mw: warn ? 700 : 400 }));
+    return { keys };
+  }
+}
+</script>
+</body>
+</html>

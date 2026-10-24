@@ -1,0 +1,9 @@
+{"file": "docs/adr/0035-legacy-ui-baseline.md", "reason": "U 的決定本身：導覽六項、舊版播放頁與播放列、主題與外觀、標題列、快捷鍵、打亂、搜尋、匯入進度、舊資料四項設定"}
+{"file": ".trellis/tasks/10-24-ui-legacy-parity/design.md", "reason": "模組邊界、資料與契約、會壞的測試；視覺規格在 research/design/*.dc.html"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "UI 層的寫法：token、AppLayout、guideline 測試、golden、多選、巢狀導覽"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "字型清單、修飾鍵、標題列都走平台層的能力宣告；lib/platform 以外不判斷平台"}
+{"file": ".trellis/spec/app/data/index.md", "reason": "appearance_settings、layout_state 的欄位與 search_history 表：migration、schema 快照、備份歸類"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "QueueModel 的打亂（shuffleEntries）與位置式隨機的關係"}
+{"file": ".trellis/spec/app/settings/index.md", "reason": "外觀設定欄位的形狀；空＝沒設定過；舊設定的對照"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "宿主 API 選填欄位 viewCount、webUrl 的 DTO 解析與契約 fixture"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試分層、零聯網、golden 與 guideline 測試、原生庫在 flutter test 的載入"}

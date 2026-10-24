@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>設定外觀 iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#FEF7FF;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative;overflow:hidden;border-radius:44px">
+  <div style="height:54px;position:relative;border-bottom:1px dashed {{safeLine}};box-sizing:border-box">
+    <div style="position:absolute;left:132px;top:11px;width:126px;height:37px;border-radius:19px;background:#000"></div>
+  </div>
+  <main style="height:612px;overflow:hidden">
+    <header style="height:56px;display:flex;align-items:center;padding:0 4px">
+      <button aria-label="返回設定" style="width:44px;height:44px;border:0;background:none;color:#1D1B20;padding:0;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 style="flex:1;margin:0;text-align:center;font-size:20px;font-weight:400;padding-right:44px">外觀</h1>
+    </header>
+    <div style="padding:4px 20px;display:flex;flex-direction:column;gap:18px">
+      <span style="display:{{tagDisplay}};align-self:flex-start;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">L-27 照舊版（已定案）</span>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:14px;color:#6750A4;font-weight:500">主題</span>
+        <div role="group" aria-label="主題" style="display:flex;height:40px;border:1px solid #79747E;border-radius:20px;overflow:hidden;font-size:14px">
+          <span style="flex:1;display:flex;align-items:center;justify-content:center">淺色</span>
+          <span style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #79747E;border-right:1px solid #79747E">深色</span>
+          <span style="flex:1;display:flex;align-items:center;justify-content:center;background:#E8DEF8;color:#1D192B">✓ 跟隨系統</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:14px;color:#6750A4;font-weight:500">主題色</span>
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));row-gap:12px">
+          <sc-for list="{{swatches}}" as="s" hint-placeholder-count="10">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="width:40px;height:40px;border-radius:20px;background:{{s.c}};box-shadow:{{s.ring}};display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px">{{s.mark}}</span>
+              <span style="font-size:11px;color:#49454F">{{s.n}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;color:#6750A4;font-weight:500">字型</span><span style="display:{{tagDisplay}};align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-4</span></div>
+        <sc-for list="{{fonts}}" as="f" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:12px;height:40px">
+            <span style="width:20px;height:20px;border-radius:10px;border:2px solid {{f.ring}};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="width:10px;height:10px;border-radius:5px;background:{{f.dot}}"></span></span>
+            <span style="font-size:15px;font-family:{{f.family}}">{{f.name}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;height:44px;border-top:1px solid #E6E0E9">
+        <span style="font-size:14px;color:#6750A4;font-weight:500;flex:1">語言</span>
+        <span style="font-size:14px;color:#49454F">跟隨系統（繁體中文） ›</span>
+      </div>
+    </div>
+  </main>
+  <div style="position:absolute;left:0;top:220px;width:22px;height:260px;background:linear-gradient(90deg,rgba(194,37,92,.28),rgba(194,37,92,0));display:{{edgeDisplay}};align-items:center;justify-content:center;color:#C2255C;font-size:22px">›</div>
+  <span style="display:{{tagDisplay}};position:absolute;left:24px;top:110px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-5 右滑返回分組清單</span>
+  <dc-import name="PhoneMini" show-tags="{{false}}" hint-size="390px,64px"></dc-import>
+  <dc-import name="PhoneNav" active="settings" show-tags="{{showTags}}" hint-size="390px,114px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tags = this.props.showTags ?? true;
+    const swatches = [
+      ['預設紫', '#6750A4'], ['靛藍', '#3F51B5'], ['藍', '#0061A4'], ['青', '#006A6A'], ['綠', '#006E1C'],
+      ['黃', '#F9A825'], ['橘', '#7C5800'], ['紅', '#BA1A1A'], ['粉', '#984061'], ['自訂', 'conic-gradient(#BA1A1A,#F9A825,#006E1C,#0061A4,#984061,#BA1A1A)']
+    ].map(([n, c], i) => ({ n, c, ring: i === 0 ? '0 0 0 2px #FEF7FF, 0 0 0 4px #6750A4' : 'none', mark: i === 0 ? '✓' : i === 9 ? '+' : '' }));
+    const fonts = [['系統預設（蘋方-繁）', "'PingFang TC'"], ['黑體-繁', "'Heiti TC'"], ['圓體-繁', "'Yuanti TC'"], ['標楷體', "'BiauKai'"]]
+      .map(([name, family], i) => ({ name, family: family + ",'Noto Sans TC',sans-serif", ring: i === 0 ? '#6750A4' : '#79747E', dot: i === 0 ? '#6750A4' : 'transparent' }));
+    return { swatches, fonts, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none', edgeDisplay: tags ? 'flex' : 'none', safeLine: tags ? 'rgba(194,37,92,.55)' : 'transparent' };
+  }
+}
+</script>
+</body>
+</html>

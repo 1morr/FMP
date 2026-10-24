@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>搜尋 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="display:flex;height:692px">
+    <dc-import name="NavRail" active="search" hint-size="72px,692px"></dc-import>
+    <main style="width:868px;height:692px;overflow:hidden;display:flex;flex-direction:column;position:relative">
+      <div style="height:72px;display:flex;align-items:center;padding:0 16px;flex-shrink:0">
+        <label style="flex:1;height:48px;border-radius:12px;background:#36343B;display:flex;align-items:center;gap:10px;padding:0 8px 0 14px;color:#CAC4D0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4"/></svg>
+          <input aria-label="搜尋" value="夏夜 現場" style="flex:1;border:0;background:none;color:#E6E0E9;font:inherit;font-size:16px;outline:none">
+          <button aria-label="清除" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </label>
+      </div>
+      <div style="height:44px;display:flex;align-items:center;gap:8px;padding:0 16px;position:relative;flex-shrink:0">
+        <span style="height:32px;padding:0 12px;border-radius:8px;background:#4A4458;color:#E8DEF8;font-size:14px;display:inline-flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>全部音源</span>
+        <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #938F99;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">嗶哩嗶哩</span>
+        <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #938F99;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">YouTube</span>
+        <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #938F99;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">網易雲音樂</span>
+        <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-02 A「全部音源」・B-06 B 無排序</span>
+      </div>
+      <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 16px;flex-shrink:0">
+        <div role="group" aria-label="搜尋類型" style="display:flex;height:32px;border:1px solid #938F99;border-radius:16px;overflow:hidden;font-size:13px">
+          <span style="padding:0 14px;display:flex;align-items:center;gap:4px;background:#4A4458;color:#E8DEF8">✓ 曲目</span>
+          <span style="padding:0 14px;display:flex;align-items:center;border-left:1px solid #938F99">直播間</span>
+        </div>
+        <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#0B7285;color:#fff;font-size:10px;font-weight:600">新版新增 B-29 分段鈕</span>
+      </div>
+      <div style="padding:6px 24px 4px;font-size:14px;color:#CAC4D0">線上結果（128）</div>
+      <div style="padding:0 12px">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+          <div style="display:flex;align-items:center;height:{{r.h}}px;gap:12px;padding:0 4px 0 {{r.indent}}px">
+            <span style="width:{{r.cw}}px;height:{{r.ch}}px;border-radius:{{r.cr}};background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:{{r.pColor}}">
+              {{r.pTag}}
+              <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+                <span style="position:absolute;inset:0;background:rgba(208,188,255,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box"><span style="width:3px;height:10px;background:#381E72;display:block"></span><span style="width:3px;height:16px;background:#381E72;display:block"></span><span style="width:3px;height:7px;background:#381E72;display:block"></span></span>
+              </sc-if>
+            </span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:{{r.fs}}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+              <span style="display:{{r.subDisplay}};font-size:12px;color:#CAC4D0;align-items:center;gap:6px">{{r.artist}}<span>▶ {{r.plays}}</span><span style="width:14px;height:14px;border-radius:3px;background:#D0BCFF;color:#381E72;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">{{r.src}}</span><span style="display:{{r.partDisplay}};height:16px;padding:0 5px;border-radius:4px;background:#4F378B;color:#EADDFF;font-size:10px;align-items:center">3P</span></span>
+            </span>
+            <span style="width:48px;text-align:center;font-size:12px;color:#CAC4D0">{{r.dur}}</span>
+            <span style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;color:#CAC4D0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="display:{{r.expandDisplay}}"><path d="M6 15l6-6 6 6"/></svg></span>
+            <button aria-label="更多" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+          </div>
+        </sc-for>
+        <div style="height:40px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:#CAC4D0"><span style="width:16px;height:16px;border-radius:8px;border:2px solid #D0BCFF;border-right-color:transparent;box-sizing:border-box"></span>載入下一頁…</div>
+      </div>
+      <div style="display:{{tagDisplay}};position:absolute;left:150px;top:163px;gap:6px">
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-01 播放中標示</span>
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-05 播放數</span>
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-26 時長固定欄寬</span>
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-34 分 P 編號</span>
+        <span style="display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-04 捲到底自動載入</span>
+      </div>
+    </main>
+    <dc-import name="NowPlayingPanel" show-tags="{{showTags}}" hint-size="340px,692px"></dc-import>
+  </div>
+  <dc-import name="MiniPlayer" hint-size="1280px,72px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const base = (o) => ({
+      indent: 8, h: 60, cw: 48, ch: 48, cr: '4px', pTag: '', pColor: '#fff', fs: 15, subDisplay: 'flex', partDisplay: 'none', expandDisplay: 'none', playing: false, ...o,
+      titleColor: o.playing ? '#D0BCFF' : '#E6E0E9', weight: o.playing ? 600 : 400
+    });
+    const rows = [
+      base({ title: '潮汐之間（Live at 河岸音樂節）', artist: '微光樂團', plays: '75.4 萬', src: 'B', dur: '4:09', bg: '#3F7CAC', playing: true }),
+      base({ title: '夏夜現場｜Northbound Lights', artist: 'Lumen Drift', plays: '1100 萬', src: 'Y', dur: '3:31', bg: '#4E9A7E' }),
+      base({ title: '【合集】夏日露營之夜 Live 全場', artist: '林間合唱團', plays: '45.9 萬', src: 'B', dur: '', bg: '#C9A24A', partDisplay: 'inline-flex', expandDisplay: 'block' }),
+      base({ title: '開場：營火邊', dur: '5:12', indent: 64, h: 44, cw: 32, ch: 24, cr: '12px', bg: '#4A4458', pTag: 'P1', pColor: '#E8DEF8', fs: 14, subDisplay: 'none' }),
+      base({ title: '紙飛機', dur: '4:31', indent: 64, h: 44, cw: 32, ch: 24, cr: '12px', bg: '#4A4458', pTag: 'P2', pColor: '#E8DEF8', fs: 14, subDisplay: 'none' }),
+      base({ title: '夏夜晚風（現場版）', artist: '小島電台', plays: '12.8 萬', src: 'N', dur: '4:47', bg: '#B5838D' }),
+      base({ title: 'Summer Night Live - Paper Moons', artist: 'The Quiet Rooms', plays: '910 萬', src: 'Y', dur: '3:57', bg: '#5B5F97' }),
+      base({ title: '夏夜裡的河岸（Live）', artist: '白晝計畫', plays: '8.1 萬', src: 'B', dur: '4:15', bg: '#2F6E6E' })
+    ];
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      rows, showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>首頁 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:#141218;color:#E6E0E9;font-family:{{font}};position:relative;overflow:hidden">
+  <dc-import name="TitleBar" platform="{{platform}}" hint-size="1280px,36px"></dc-import>
+  <div style="display:flex;height:692px">
+    <dc-import name="NavRail" active="home" hint-size="72px,692px"></dc-import>
+    <main style="width:868px;height:692px;overflow:hidden;box-sizing:border-box;padding:12px 24px 0;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;height:48px">
+        <h2 style="margin:0;font-size:22px;font-weight:500;flex:1">近期熱門</h2>
+        <a href="#" style="color:#D0BCFF;font-size:15px;text-decoration:none">查看全部</a>
+      </div>
+      <div style="display:flex;gap:24px">
+        <sc-for list="{{charts}}" as="col" hint-placeholder-count="2">
+          <section style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;height:28px;padding-left:12px">
+              <span style="font-size:14px;color:#E6E0E9;font-weight:500">{{col.name}}</span>
+              <span style="font-size:12px;color:#CAC4D0">· 更新於 10:24</span>
+              <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#0B7285;color:#fff;font-size:10px;font-weight:600">新版新增 B-14 狀態行</span>
+            </div>
+            <sc-for list="{{col.rows}}" as="r" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;height:60px;gap:12px;padding:0 4px 0 8px;border-radius:8px">
+                <span style="width:24px;text-align:center;font-size:14px;color:#CAC4D0">{{r.rank}}</span>
+                <span style="width:48px;height:48px;border-radius:4px;background:{{r.bg}};position:relative;overflow:hidden;flex-shrink:0;display:block">
+                  <span style="position:absolute;left:30%;top:30%;width:55%;height:55%;border-radius:{{r.rad}};background:{{r.fg}};display:block"></span>
+                  <sc-if value="{{r.playing}}" hint-placeholder-val="{{false}}">
+                    <span style="position:absolute;inset:0;background:rgba(208,188,255,.8);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:15px;box-sizing:border-box">
+                      <span style="width:3px;height:10px;background:#381E72;display:block"></span><span style="width:3px;height:16px;background:#381E72;display:block"></span><span style="width:3px;height:7px;background:#381E72;display:block"></span>
+                    </span>
+                  </sc-if>
+                </span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <span style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{r.titleColor}};font-weight:{{r.weight}}">{{r.title}}</span>
+                  <span style="font-size:12px;color:#CAC4D0;white-space:nowrap">{{r.artist}}　▶ {{r.plays}}</span>
+                </span>
+                <button aria-label="更多" style="width:40px;height:40px;border:0;background:none;color:#CAC4D0;padding:0;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg></button>
+              </div>
+            </sc-for>
+          </section>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;height:44px;margin-top:6px;gap:10px">
+        <h2 style="margin:0;font-size:20px;font-weight:500">我的歌單</h2>
+        <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-08 A・L-10 音源徽章</span>
+        <span style="flex:1"></span>
+        <a href="#" style="color:#D0BCFF;font-size:15px;text-decoration:none">查看全部</a>
+      </div>
+      <div style="position:relative;height:186px">
+        <div style="display:flex;gap:12px;position:absolute;left:0;top:0">
+          <sc-for list="{{playlists}}" as="p" hint-placeholder-count="6">
+            <div style="width:140px;height:178px;border-radius:12px;background:#36343B;overflow:hidden;flex-shrink:0">
+              <div style="height:118px;background:{{p.bg}};position:relative;overflow:hidden"><div style="position:absolute;left:28%;top:22%;width:58%;height:58%;border-radius:{{p.rad}};background:{{p.fg}}"></div></div>
+              <div style="padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.name}}</span>
+                <span style="font-size:12px;color:#CAC4D0;display:flex;align-items:center;gap:5px"><span style="display:{{p.badgeDisplay}};width:14px;height:14px;border-radius:3px;background:#D0BCFF;color:#381E72;font-size:9px;font-weight:700;align-items:center;justify-content:center">{{p.src}}</span>{{p.count}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;right:0;top:0;width:96px;height:178px;background:linear-gradient(90deg,rgba(20,18,24,0),#141218)"></div>
+        <button aria-label="向右捲動" style="position:absolute;right:8px;top:69px;width:40px;height:40px;border-radius:20px;border:0;background:#36343B;color:#E6E0E9;padding:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div style="display:flex;align-items:center;height:44px"><h2 style="margin:0;font-size:20px;font-weight:500;flex:1">電台</h2><a href="#" style="color:#D0BCFF;font-size:15px;text-decoration:none">查看全部</a></div>
+      <div style="display:flex;gap:16px">
+        <sc-for list="{{radios}}" as="s" hint-placeholder-count="5">
+          <div style="width:120px;display:flex;flex-direction:column;align-items:center;gap:6px">
+            <div style="width:100px;height:100px;border-radius:50px;background:{{s.bg}};position:relative"><span style="display:{{s.live}};position:absolute;right:6px;top:6px;width:12px;height:12px;border-radius:6px;background:#E5484D;border:2px solid #141218"></span></div>
+            <span style="font-size:13px">{{s.name}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </main>
+    <dc-import name="NowPlayingPanel" show-tags="{{showTags}}" hint-size="340px,692px"></dc-import>
+  </div>
+  <dc-import name="MiniPlayer" hint-size="1280px,72px"></dc-import>
+
+  <div style="position:absolute;left:76px;top:184px;display:flex;align-items:center;gap:6px">
+    <span style="background:#E6E0E9;color:#322F35;font-size:12px;padding:4px 8px;border-radius:4px">{{searchTip}}</span>
+    <span style="display:{{tagDisplay}};align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">APL-3</span>
+  </div>
+  <span style="display:{{tagDisplay}};position:absolute;left:{{tbTagX}}px;top:9px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">{{tbTag}}</span>
+  <span style="display:{{tagDisplay}};position:absolute;left:8px;top:60px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-18 A</span>
+  <span style="display:{{tagDisplay}};position:absolute;left:8px;top:300px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-03 A</span>
+  <span style="display:{{tagDisplay}};position:absolute;left:640px;top:736px;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">P-12 A・P-13 A</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"platform":{"editor":"enum","options":["win","mac"],"default":"win"},"showTags":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mac = (this.props.platform ?? 'win') === 'mac';
+    const tags = this.props.showTags ?? true;
+    const pal = [['#7E6BC4','#A99BE0'],['#3F7CAC','#6FA3CC'],['#C46B6B','#E09A8F'],['#4E9A7E','#7FC2A6'],['#C9A24A','#E8C97A'],['#5B5F97','#8C90C4'],['#B5838D','#D8AEB6'],['#2F6E6E','#5C9A9A']];
+    const mk = (rows, off) => rows.map(([title, artist, plays, playing], i) => ({
+      rank: i + 1, title, artist, plays, playing: !!playing,
+      bg: pal[(i + off) % 8][0], fg: pal[(i + off) % 8][1], rad: i % 2 ? '18%' : '50%',
+      titleColor: playing ? '#D0BCFF' : '#E6E0E9', weight: playing ? 600 : 400
+    }));
+    const charts = [
+      { name: '嗶哩嗶哩', rows: mk([
+        ['【翻唱】晚安，月台｜雨夜吉他版', '白晝計畫', '207 萬'],
+        ['潮汐之間（Live at 河岸音樂節）', '微光樂團', '75.4 萬', true],
+        ['迴聲小巷 Echo Alley（官方 MV）', 'Echo Avenue', '41.1 萬'],
+        ['紙飛機 EP《起飛之前》全曲', '林間合唱團', '45.9 萬'],
+        ['把夏天寫成一首歌，然後忘了它', '小島電台', '134.7 萬']
+      ], 0) },
+      { name: 'YouTube', rows: mk([
+        ['Glass Harbor (Official Music Video)', 'Mira Sol', '4600 萬'],
+        ['Northbound Lights', 'Lumen Drift', '1100 萬'],
+        ['Paper Moons (Live Session)', 'The Quiet Rooms', '910 萬'],
+        ['Silver Static - Visualizer', 'Neon Orchard', '710 萬'],
+        ['風吹過的地方', '白晝計畫', '380 萬']
+      ], 3) }
+    ];
+    const playlists = [
+      ['夜行列車', '', '86 首歌'], ['雨天的 Lo-fi 收藏', 'B', '128 首歌'], ['城市散步', 'Y', '64 首歌'],
+      ['老派日語流行', 'N', '212 首歌'], ['專注工作用', '', '45 首歌'], ['週末早晨', 'Y', '37 首歌']
+    ].map(([name, src, count], i) => ({ name, src, count, bg: pal[(i + 2) % 8][0], fg: pal[(i + 2) % 8][1], rad: i % 2 ? '50%' : '14%', badgeDisplay: src ? 'inline-flex' : 'none' }));
+    const radios = [['深夜鋼琴台', true], ['Lo-fi 讀書間', true], ['吉他小酒館', false], ['晨跑節拍', false], ['雨聲白噪音', true]]
+      .map(([name, live], i) => ({ name, live: live ? 'block' : 'none', bg: pal[(i + 5) % 8][0] }));
+    return {
+      platform: mac ? 'mac' : 'win',
+      font: mac ? "'PingFang TC','Noto Sans TC',sans-serif" : "'Microsoft JhengHei UI','Microsoft JhengHei','Noto Sans TC',sans-serif",
+      searchTip: mac ? '搜尋（⌘F）' : '搜尋（Ctrl+F）',
+      tbTag: mac ? 'APL-2 Mac 標題列' : 'B-19 照舊版',
+      tbTagX: mac ? 80 : 52,
+      charts, playlists, radios,
+      showTags: tags, tagDisplay: tags ? 'inline-flex' : 'none'
+    };
+  }
+}
+</script>
+</body>
+</html>

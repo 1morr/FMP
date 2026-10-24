@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<title>搜尋 iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:#FEF7FF;color:#1D1B20;font-family:'PingFang TC','Noto Sans TC',sans-serif;position:relative;overflow:hidden;border-radius:44px">
+  <div style="height:54px;position:relative;border-bottom:1px dashed {{safeLine}};box-sizing:border-box">
+    <div style="position:absolute;left:132px;top:11px;width:126px;height:37px;border-radius:19px;background:#000"></div>
+  </div>
+  <main style="height:612px;overflow:hidden">
+    <div style="height:72px;display:flex;align-items:center;padding:0 16px">
+      <label style="flex:1;height:48px;border-radius:12px;background:#E6E0E9;display:flex;align-items:center;gap:10px;padding:0 14px;color:#49454F">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 11a7 7 0 1 0 14 0a7 7 0 1 0-14 0M20 20l-4-4"/></svg>
+        <input aria-label="搜尋" placeholder="搜尋歌曲、歌手…" style="flex:1;border:0;background:none;font:inherit;font-size:16px;outline:none;color:#1D1B20">
+      </label>
+    </div>
+    <div style="height:44px;display:flex;align-items:center;gap:8px;padding:0 16px;position:relative;width:560px">
+      <span style="height:32px;padding:0 12px;border-radius:8px;background:#E8DEF8;color:#1D192B;font-size:14px;display:inline-flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>全部音源</span>
+      <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #79747E;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">嗶哩嗶哩</span>
+      <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #79747E;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">YouTube</span>
+      <span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid #79747E;font-size:14px;display:inline-flex;align-items:center;box-sizing:border-box">網易雲音樂</span>
+    </div>
+    <div style="position:absolute;left:330px;top:126px;width:60px;height:44px;background:linear-gradient(90deg,rgba(254,247,255,0),#FEF7FF)"></div>
+    <div style="display:flex;align-items:center;height:52px;padding:0 16px;margin-top:8px">
+      <h2 style="margin:0;font-size:16px;font-weight:600;flex:1">搜尋記錄</h2>
+      <span style="display:{{tagDisplay}};align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600;margin-right:10px">B-03 補回搜尋記錄</span>
+      <a href="#" style="color:#6750A4;font-size:15px;text-decoration:none">清除</a>
+    </div>
+    <sc-for list="{{history}}" as="q" hint-placeholder-count="6">
+      <div style="display:flex;align-items:center;height:52px;gap:14px;padding:0 4px 0 16px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#49454F" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg>
+        <span style="flex:1;font-size:16px">{{q.text}}</span>
+        <button aria-label="刪除這筆" style="width:44px;height:44px;border:0;background:none;color:#49454F;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+    </sc-for>
+  </main>
+  <span style="display:{{tagDisplay}};position:absolute;left:150px;top:116px;align-items:center;height:16px;padding:0 6px;border-radius:8px;background:#C2255C;color:#fff;font-size:10px;font-weight:600">B-02 A・B-29 兩端漸層</span>
+  <dc-import name="PhoneMini" show-tags="{{false}}" hint-size="390px,64px"></dc-import>
+  <dc-import name="PhoneNav" active="search" show-tags="{{showTags}}" hint-size="390px,114px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showTags":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tags = this.props.showTags ?? true;
+    const history = ['夏夜 現場', '潮汐之間 live', 'lofi 讀書', 'Lumen Drift', '雨天 鋼琴', '露營 合唱'].map((text) => ({ text }));
+    return { history, tagDisplay: tags ? 'inline-flex' : 'none', showTags: tags, safeLine: tags ? 'rgba(194,37,92,.55)' : 'transparent' };
+  }
+}
+</script>
+</body>
+</html>
