@@ -14,7 +14,6 @@ import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/count_text.dart';
-import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
@@ -27,6 +26,7 @@ import 'package:fmp/ui/search/video_parts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/track_markers.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
@@ -395,7 +395,9 @@ class _ResultList extends ConsumerWidget {
     final t = ref.watch(translationsProvider).search;
     final spacing = AppTokens.of(context).spacing;
     final count = rooms ? state.rooms.length : state.items.length;
-    final footer = state.hasMore || state.phase == SearchPhase.loadingMore;
+    // 有下一頁，或已經到底（有結果才顯示「已載入全部」）。
+    final footer =
+        state.hasMore || state.phase == SearchPhase.loadingMore || count > 0;
     return ListView.builder(
       padding: EdgeInsets.only(bottom: spacing.x4),
       itemCount: count + (footer ? 1 : 0),
@@ -409,16 +411,32 @@ class _ResultList extends ConsumerWidget {
                   partCount: state.items[index].partCount,
                 );
         }
+        final notifier = ref.read(searchProvider.notifier);
         return Padding(
           padding: EdgeInsets.all(spacing.x2),
           child: Center(
-            child: state.phase == SearchPhase.loadingMore
-                ? _Spinner(label: t.loading)
-                : OutlinedButton(
-                    onPressed: () =>
-                        unawaited(ref.read(searchProvider.notifier).loadMore()),
-                    child: Text(t.loadMore),
-                  ),
+            child: switch (state) {
+              SearchState(phase: SearchPhase.loadingMore) => _Spinner(
+                label: t.loading,
+              ),
+              // 自動載入失敗後留著按鈕當重試。
+              SearchState(hasMore: true, loadMoreFailed: true) =>
+                OutlinedButton(
+                  onPressed: () => unawaited(notifier.loadMore()),
+                  child: Text(t.loadMore),
+                ),
+              // 最後一列出現（建出來）就載入下一頁；每一頁只會建一次這個元件。
+              SearchState(hasMore: true) => _AutoLoad(
+                onVisible: () => unawaited(notifier.loadMore()),
+                child: _Spinner(label: t.loading),
+              ),
+              _ => Text(
+                t.loadedAll,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            },
           ),
         );
       },
@@ -483,6 +501,8 @@ class _TrackTile extends ConsumerWidget {
     final uploader = track.uploader;
     final duration = track.duration;
 
+    // 影片列：它的任何一個分 P 在播都標示（分 P 展開時分 P 列另外標示）。
+    final playing = watchIsPlaying(ref, track, group: true);
     final inMix = ref.watch(inMixProvider);
     final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
     final plugin = ref.watch(
@@ -583,19 +603,20 @@ class _TrackTile extends ConsumerWidget {
       ],
       builder: (context, row) => ListTile(
         selected: row.selected,
-        leading: ArtworkImage(
-          pluginId: track.sourceTypeId,
-          artwork: track.artwork,
-          size: AppLayout.artworkThumbnail,
+        leading: TrackCover(track: track, playing: playing),
+        title: Text(
+          track.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: playingTitleStyle(context, playing: playing),
         ),
-        title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: uploader == null
             ? null
             : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (duration != null) Text(formatDuration(duration)),
+            TrackDuration(duration: duration),
             if (expandable)
               entry?.phase == PartsPhase.loading
                   ? _PartsSpinner(label: t.loadingParts)
@@ -677,6 +698,7 @@ class _PartTile extends ConsumerWidget {
     final t = ref.watch(translationsProvider).search;
     final spacing = AppTokens.of(context).spacing;
     final duration = track.duration;
+    final playing = watchIsPlaying(ref, track);
 
     void play() =>
         unawaited(ref.read(playbackControllerProvider).playTemporary(track));
@@ -737,11 +759,12 @@ class _PartTile extends ConsumerWidget {
           track.partLabel,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          style: playingTitleStyle(context, playing: playing),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (duration != null) Text(formatDuration(duration)),
+            TrackDuration(duration: duration),
             row.trailing,
           ],
         ),
@@ -878,4 +901,30 @@ class _Spinner extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       CircularProgressIndicator(semanticsLabel: label);
+}
+
+/// 列表最後一列出現時呼叫 [onVisible] 一次（建出來才算出現：`ListView.builder` 只建看得到
+/// 與接近看得到的列）。
+class _AutoLoad extends StatefulWidget {
+  const _AutoLoad({required this.onVisible, required this.child});
+
+  final VoidCallback onVisible;
+  final Widget child;
+
+  @override
+  State<_AutoLoad> createState() => _AutoLoadState();
+}
+
+class _AutoLoadState extends State<_AutoLoad> {
+  @override
+  void initState() {
+    super.initState();
+    // 不在 build 裡改 provider 的狀態：排到這一幀之後。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onVisible();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

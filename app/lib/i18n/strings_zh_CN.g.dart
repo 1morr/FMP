@@ -293,6 +293,8 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   @override
   String get loadMore => '加载更多';
   @override
+  String get loadedAll => '已加载全部';
+  @override
   String get more => '更多选项';
   @override
   String get play => '播放';
@@ -403,7 +405,11 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   @override
   String get statsAll => '全部';
   @override
-  String statsCount({required Object count}) => '${count} 首';
+  String statsCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首',
+      );
   @override
   String durationHm({required Object hours, required Object minutes}) =>
       '${hours} 小时 ${minutes} 分';
@@ -422,13 +428,21 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   @override
   String get clearDate => '清除日期筛选';
   @override
-  String dayCount({required Object count}) => '${count} 首';
+  String dayCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首',
+      );
   @override
   String dayCollapse({required Object day}) => '收起 ${day}';
   @override
   String dayExpand({required Object day}) => '展开 ${day}';
   @override
-  String playCount({required Object count}) => '${count} 次';
+  String playCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 次',
+      );
   @override
   String sourceIcon({required Object name}) => '音源：${name}';
   @override
@@ -441,18 +455,29 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   @override
   String get deleteSelected => '删除';
   @override
-  String deleteSelectedTitle({required Object count}) => '删除 ${count} 条记录？';
+  String deleteSelectedTitle({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '删除 ${count} 条记录？',
+      );
   @override
   String get deleteSelectedBody => '选中的播放记录会被删除，无法恢复。';
   @override
-  String deleteSelectedTracksTitle({required Object count}) =>
-      '删除 ${count} 首歌的所有记录？';
+  String deleteSelectedTracksTitle({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '删除 ${count} 首歌的所有记录？',
+      );
   @override
   String get deleteSelectedTracksBody => '这几首歌的所有播放记录都会被删除，无法恢复。';
   @override
   String get delete => '删除';
   @override
-  String deletedCount({required Object count}) => '已删除 ${count} 条';
+  String deletedCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '已删除 ${count} 条',
+      );
   @override
   String get retry => '重试';
   @override
@@ -587,9 +612,11 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   @override
   String get emptyHint => '点「新建歌单」创建一个歌单，或点「导入」带进一个。';
   @override
-  String trackCount({required Object count}) => '${count} 首';
-  @override
-  String get trackCountOne => '1 首';
+  String trackCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首',
+      );
   @override
   String get local => '本地';
   @override
@@ -686,7 +713,11 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   @override
   String addedToPlaylist({required Object name}) => '已添加到「${name}」';
   @override
-  String addedToPlaylists({required Object count}) => '已添加到 ${count} 个歌单';
+  String addedToPlaylists({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '已添加到 ${count} 个歌单',
+      );
   @override
   String addToPlaylistFailed({required Object reason}) => '无法添加到歌单：${reason}';
   @override
@@ -908,6 +939,14 @@ class Translations$selection$zh_CN extends Translations$selection$zh_TW {
   String get cancelTooltip => '取消选择（Esc）';
   @override
   String get selectAllTooltip => '全选（Ctrl+A）';
+  @override
+  String get playNext => '下一首播放';
+  @override
+  String get playNextInMix => '下一首播放（Mix 中无法使用）';
+  @override
+  String get addedToNext => '已加入下一首播放';
+  @override
+  String get deselectAllTooltip => '取消全选';
   @override
   String get addToQueue => '加入队列';
   @override
@@ -1779,7 +1818,11 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   @override
   String get statCoin => '投币';
   @override
-  String queueCount({required Object count}) => '共 ${count} 首';
+  String queueCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '共 ${count} 首',
+      );
   @override
   String get queueShuffleNote => '随机顺序跟着位置；拖动只换歌，不改顺序';
   @override

@@ -279,6 +279,8 @@ class Translations$search$en extends Translations$search$zh_TW {
   @override
   String get loadMore => 'Load more';
   @override
+  String get loadedAll => 'All loaded';
+  @override
   String get more => 'More options';
   @override
   String get play => 'Play';
@@ -390,7 +392,12 @@ class Translations$history$en extends Translations$history$zh_TW {
   @override
   String get statsAll => 'All time';
   @override
-  String statsCount({required Object count}) => '${count} plays';
+  String statsCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: '${count} play',
+        other: '${count} plays',
+      );
   @override
   String durationHm({required Object hours, required Object minutes}) =>
       '${hours}h ${minutes}m';
@@ -409,13 +416,23 @@ class Translations$history$en extends Translations$history$zh_TW {
   @override
   String get clearDate => 'Clear the date filter';
   @override
-  String dayCount({required Object count}) => '${count} songs';
+  String dayCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: '${count} song',
+        other: '${count} songs',
+      );
   @override
   String dayCollapse({required Object day}) => 'Collapse ${day}';
   @override
   String dayExpand({required Object day}) => 'Expand ${day}';
   @override
-  String playCount({required Object count}) => '${count} plays';
+  String playCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: '${count} play',
+        other: '${count} plays',
+      );
   @override
   String sourceIcon({required Object name}) => 'Source: ${name}';
   @override
@@ -428,21 +445,34 @@ class Translations$history$en extends Translations$history$zh_TW {
   @override
   String get deleteSelected => 'Delete';
   @override
-  String deleteSelectedTitle({required Object count}) =>
-      'Delete ${count} records?';
+  String deleteSelectedTitle({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: 'Delete ${count} record?',
+        other: 'Delete ${count} records?',
+      );
   @override
   String get deleteSelectedBody =>
       'The selected play records are deleted and cannot be restored.';
   @override
-  String deleteSelectedTracksTitle({required Object count}) =>
-      'Delete every play of ${count} songs?';
+  String deleteSelectedTracksTitle({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: 'Delete every play of ${count} song?',
+        other: 'Delete every play of ${count} songs?',
+      );
   @override
   String get deleteSelectedTracksBody =>
       'Every play record of the selected songs is deleted and cannot be restored.';
   @override
   String get delete => 'Delete';
   @override
-  String deletedCount({required Object count}) => 'Deleted ${count} records';
+  String deletedCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: 'Deleted ${count} record',
+        other: 'Deleted ${count} records',
+      );
   @override
   String get retry => 'Retry';
   @override
@@ -585,9 +615,12 @@ class Translations$library$en extends Translations$library$zh_TW {
   String get emptyHint =>
       'Choose "New playlist" to create one, or "Import" to bring one in.';
   @override
-  String trackCount({required Object count}) => '${count} songs';
-  @override
-  String get trackCountOne => '1 song';
+  String trackCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: '${count} song',
+        other: '${count} songs',
+      );
   @override
   String get local => 'Local';
   @override
@@ -690,8 +723,12 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String addedToPlaylist({required Object name}) => 'Added to "${name}"';
   @override
-  String addedToPlaylists({required Object count}) =>
-      'Added to ${count} playlists';
+  String addedToPlaylists({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: 'Added to ${count} playlist',
+        other: 'Added to ${count} playlists',
+      );
   @override
   String addToPlaylistFailed({required Object reason}) =>
       'Couldn\'t add to the playlist: ${reason}';
@@ -931,6 +968,14 @@ class Translations$selection$en extends Translations$selection$zh_TW {
   String get cancelTooltip => 'Cancel selection (Esc)';
   @override
   String get selectAllTooltip => 'Select all (Ctrl+A)';
+  @override
+  String get playNext => 'Play next';
+  @override
+  String get playNextInMix => 'Play next (not available in Mix)';
+  @override
+  String get addedToNext => 'Added to play next';
+  @override
+  String get deselectAllTooltip => 'Deselect all';
   @override
   String get addToQueue => 'Add to queue';
   @override
@@ -1844,7 +1889,12 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   @override
   String get statCoin => 'Coins';
   @override
-  String queueCount({required Object count}) => '${count} in queue';
+  String queueCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: '${count} song in queue',
+        other: '${count} songs in queue',
+      );
   @override
   String get queueShuffleNote =>
       'The shuffle order follows positions; dragging only swaps songs, not the order';

@@ -71,6 +71,7 @@ final class SearchState {
     this.hasMore = false,
     this.page = 0,
     this.phase = SearchPhase.idle,
+    this.loadMoreFailed = false,
   });
 
   /// 使用者選的音源（插件 id）；`null` 或不在清單上時是清單的第一個。
@@ -97,6 +98,9 @@ final class SearchState {
   final int page;
   final SearchPhase phase;
 
+  /// 下一頁載入失敗（已有的結果留著）：頁面不再自動載入，改顯示「載入更多」讓使用者重試。
+  final bool loadMoreFailed;
+
   /// 目前模式的結果是不是空的。
   bool get isEmpty => switch (mode) {
     SearchMode.tracks => items.isEmpty,
@@ -110,6 +114,7 @@ final class SearchState {
     bool? hasMore,
     int? page,
     SearchPhase? phase,
+    bool? loadMoreFailed,
   }) => SearchState(
     sourceId: sourceId,
     keyword: keyword,
@@ -120,6 +125,7 @@ final class SearchState {
     hasMore: hasMore ?? this.hasMore,
     page: page ?? this.page,
     phase: phase ?? this.phase,
+    loadMoreFailed: loadMoreFailed ?? this.loadMoreFailed,
   );
 
   /// 換條件（音源、模式、篩選、關鍵字）：結果清空，[phase] 預設回到還沒搜尋。
@@ -251,7 +257,10 @@ final class SearchNotifier extends Notifier<SearchState> {
       return;
     }
     final generation = ++_generation;
-    state = state.copyWith(phase: SearchPhase.loadingMore);
+    state = state.copyWith(
+      phase: SearchPhase.loadingMore,
+      loadMoreFailed: false,
+    );
     await _load(
       source,
       state.keyword,
@@ -298,6 +307,7 @@ final class SearchNotifier extends Notifier<SearchState> {
       // 下一頁失敗時留著已有的結果，可以再按一次「載入更多」。
       state = state.copyWith(
         phase: page == 1 ? SearchPhase.failed : SearchPhase.loaded,
+        loadMoreFailed: page > 1,
       );
       return;
     }
@@ -317,6 +327,7 @@ final class SearchNotifier extends Notifier<SearchState> {
       hasMore: result.hasMore,
       page: page,
       phase: SearchPhase.loaded,
+      loadMoreFailed: false,
     );
   }
 
@@ -333,6 +344,7 @@ final class SearchNotifier extends Notifier<SearchState> {
       hasMore: result.hasMore,
       page: page,
       phase: SearchPhase.loaded,
+      loadMoreFailed: false,
     );
   }
 }

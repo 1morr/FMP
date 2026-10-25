@@ -94,6 +94,14 @@ final class TrackSelection<K> extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 取消全選：全部不選，但留在選取模式（選取列的「取消全選」；點到最後一列才離開的是 [toggle]）。
+  void deselectAll() {
+    if (!_active || _selected.isEmpty) return;
+    _selected.clear();
+    _anchor = null;
+    notifyListeners();
+  }
+
   /// 離開選取模式（取消、Esc、返回鍵、做完一個動作）。
   void exit() {
     if (!_active) return;
@@ -392,6 +400,18 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
     return true;
   }
 
+  /// 下一首播放：依畫面順序排在目前這首之後。
+  Future<bool> _playNext(List<K> keys) async {
+    final controller = ref.read(playbackControllerProvider);
+    final toaster = ref.read(toasterProvider);
+    final t = ref.read(translationsProvider).selection;
+    final tracks = await widget.tracks(keys);
+    if (tracks == null) return false;
+    if (!controller.playNext(tracks)) return false;
+    toaster.success(t.addedToNext);
+    return true;
+  }
+
   Future<bool> _addToPlaylist(List<K> keys) async {
     final tracks = await widget.tracks(keys);
     if (tracks == null || !mounted) return false;
@@ -424,7 +444,9 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
           );
 
     VoidCallback? run(Future<bool> Function(List<K> keys) action) =>
-        running ? null : () => unawaited(_run(selection, action));
+        running || selection.count == 0
+        ? null
+        : () => unawaited(_run(selection, action));
 
     return Padding(
       padding:
@@ -462,12 +484,23 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
                   ),
                 ),
               ),
+              // 全選了就換成「取消全選」。
+              if (selection.allSelected)
+                IconButton(
+                  tooltip: t.deselectAllTooltip,
+                  icon: const Icon(Icons.deselect),
+                  onPressed: running ? null : selection.deselectAll,
+                )
+              else
+                IconButton(
+                  tooltip: t.selectAllTooltip,
+                  icon: const Icon(Icons.select_all),
+                  onPressed: running ? null : selection.selectAll,
+                ),
               IconButton(
-                tooltip: t.selectAllTooltip,
-                icon: const Icon(Icons.select_all),
-                onPressed: running || selection.allSelected
-                    ? null
-                    : selection.selectAll,
+                tooltip: inMix ? t.playNextInMix : t.playNext,
+                icon: const Icon(Icons.queue_play_next),
+                onPressed: inMix ? null : run(_playNext),
               ),
               IconButton(
                 tooltip: inMix ? t.addToQueueInMix : t.addToQueue,

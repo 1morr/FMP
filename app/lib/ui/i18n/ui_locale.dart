@@ -78,8 +78,24 @@ final uiLocaleProvider = Provider<LocaleSetting>(
 /// 目前介面語言的翻譯。沒有 slang 的全域 `t`：widget 以
 /// `ref.watch(translationsProvider)` 取，`Toaster` 以 `ref.read` 取。
 final translationsProvider = Provider<Translations>(
-  (ref) => appLocaleOf(ref.watch(uiLocaleProvider)).buildSync(),
+  (ref) => buildTranslations(appLocaleOf(ref.watch(uiLocaleProvider))),
 );
+
+/// [locale] 的翻譯。slang 內建的複數規則表沒有中文，沒指定解析器時每次取複數字串都記一筆
+/// 錯誤；中文沒有單複數，只有 `other`，所以給一個直接取它的解析器。
+Translations buildTranslations(AppLocale locale) => locale.buildSync(
+  cardinalResolver: locale == AppLocale.en ? null : _singlePluralForm,
+);
+
+String _singlePluralForm(
+  num n, {
+  String? zero,
+  String? one,
+  String? two,
+  String? few,
+  String? many,
+  String? other,
+}) => other!;
 
 /// [locale] 的 CJK 字型 fallback（ADR 0024 §決定 2）。
 List<String> fontFamilyFallbackOf(FontFallback fonts, LocaleSetting locale) =>

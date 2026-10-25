@@ -323,6 +323,12 @@ void main() {
         testWidgets('search results and the player bar at $width', (
           tester,
         ) async {
+          // 在播那一列的指示器一直在動，pumpAndSettle 等不到停（同 ShellHarness.openQueue）。
+          tester.platformDispatcher.accessibilityFeaturesTestValue =
+              const FakeAccessibilityFeatures(disableAnimations: true);
+          addTearDown(
+            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+          );
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
           await h.pumpShell(tester, size: size, brightness: brightness);

@@ -88,8 +88,8 @@ abstract final class AppLayout {
   static const double timelineDot = 12;
   static const double timelineHeaderHeight = 48;
 
-  /// 歷史列尾端的時長欄（固定寬度，右對齊）與音源徽章。
-  static const double historyDurationColumn = 56;
+  /// 曲目列尾端的時長欄（固定寬度，右對齊）與音源徽章。
+  static const double trackDurationColumn = 56;
   static const double sourceBadge = 20;
 
   /// 佇列切歌時捲到目前這首的動畫時間。

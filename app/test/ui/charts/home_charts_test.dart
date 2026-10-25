@@ -11,8 +11,10 @@ import 'package:fmp/ui/charts/home_charts.dart';
 import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../tracks/marker_support.dart';
 import 'chart_harness.dart';
 
 // 首頁的排行區塊（M4 PR 21，design §9.2、§10.2，ADR 0016 §決定 7）：第一個區塊、每個啟用的榜單一個
@@ -76,6 +78,39 @@ void main() {
       lessThan(tester.getTopLeft(find.text('Recently played')).dy),
     );
     expect(find.text('Nothing here yet'), findsNothing);
+  });
+
+  testWidgets('the playing song is marked in its chart on Home', (
+    tester,
+  ) async {
+    reduceMotion(tester);
+    final c = ChartHarness();
+    await c.pumpShell(tester);
+    await c.settle(tester);
+    Finder row(String title) => find.ancestor(
+      of: find.descendant(
+        of: find.byType(HomeCharts),
+        matching: find.text(title),
+      ),
+      matching: find.byType(ListTile),
+    );
+    expect(find.byKey(NowPlayingOverlay.overlayKey), findsNothing);
+
+    await tester.tap(row('Track 2 of hot'));
+    await c.settle(tester);
+
+    expect(overlayIn(row('Track 2 of hot')), findsOneWidget);
+    expect(overlayIn(row('Track 1 of hot')), findsNothing);
+    expect(
+      isPlayingTitle(
+        tester,
+        find.descendant(
+          of: row('Track 2 of hot'),
+          matching: find.text('Track 2 of hot'),
+        ),
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('the sub-sections follow the order in the settings', (

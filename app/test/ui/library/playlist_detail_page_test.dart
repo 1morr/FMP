@@ -14,9 +14,12 @@ import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/theme/app_layout.dart';
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
+import '../tracks/marker_support.dart';
 
 // 歌單詳情（M4 PR 3，ADR 0033 §決定 9，design §10.4）：從音樂庫開、標頭、分 P 分組、臨時播放、
 // 本機歌單的拖曳重排與移除、匯入歌單沒有這兩項、全部加入與隨機加入（上限、空歌單、Mix）、
@@ -218,6 +221,109 @@ void main() {
 
       expect(find.text('This playlist no longer exists'), findsOneWidget);
     });
+  });
+
+  group('now playing marker', () {
+    testWidgets('a part marks its own row and the video header; a song marks '
+        'its cover; nothing else', (tester) async {
+      reduceMotion(tester);
+      final (h, _) = await _open(
+        tester,
+        size: const Size(400, 1400),
+        tracks: [
+          _song('a'),
+          _part('v', 1),
+          _part('v', 2),
+          _song('b'),
+          _part('w', 3),
+        ],
+      );
+      expect(find.byKey(NowPlayingOverlay.overlayKey), findsNothing);
+      bool bold(String title) => isPlayingTitle(
+        tester,
+        find.descendant(of: _row(title), matching: find.text(title)),
+      );
+
+      await tester.tap(find.text('P2 Part 2'));
+      await tester.pumpAndSettle();
+
+      // 群組標題：群組裡任何一個分 P 在播就標示（有封面，所以有遮罩）。
+      expect(overlayIn(_row('Video v')), findsOneWidget);
+      expect(bold('Video v'), isTrue);
+      // 分 P 沒有封面：只有粗體的主色標題。
+      expect(bold('P2 Part 2'), isTrue);
+      expect(bold('P1 Part 1'), isFalse);
+      expect(find.byKey(NowPlayingOverlay.overlayKey), findsOneWidget);
+      expect(bold('Song a'), isFalse);
+
+      await tester.tap(find.text('Song b'));
+      await tester.pumpAndSettle();
+      expect(overlayIn(_row('Song b')), findsOneWidget);
+      expect(bold('Song b'), isTrue);
+      expect(bold('Video v'), isFalse);
+      expect(bold('P2 Part 2'), isFalse);
+      expect(find.byKey(NowPlayingOverlay.overlayKey), findsOneWidget);
+
+      // 單獨的分 P 不成群組，有自己的封面。
+      await tester.tap(find.text('Video w · P3 Part 3'));
+      await tester.pumpAndSettle();
+      expect(overlayIn(_row('Video w · P3 Part 3')), findsOneWidget);
+      expect(find.byKey(NowPlayingOverlay.overlayKey), findsOneWidget);
+      expect(h.controller.queue.mode, QueueMode.temporary);
+    });
+  });
+
+  testWidgets('the duration column has one width, so "⋯" does not move with '
+      'the duration', (tester) async {
+    await _open(
+      tester,
+      tracks: [
+        _song('a'),
+        TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'b',
+          title: 'Song b',
+          duration: const Duration(hours: 1, minutes: 2, seconds: 3),
+        ),
+        TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'c',
+          title: 'Song c',
+          duration: const Duration(seconds: 9),
+        ),
+        const TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'd',
+          title: 'Song d',
+        ),
+      ],
+    );
+
+    double more(String title) => tester
+        .getTopLeft(
+          find.descendant(of: _row(title), matching: find.byTooltip(_more)),
+        )
+        .dx;
+    double column(String title) => tester
+        .getSize(
+          find.descendant(
+            of: _row(title),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is SizedBox &&
+                  widget.width == AppLayout.trackDurationColumn,
+            ),
+          ),
+        )
+        .width;
+
+    expect(find.text('3:05'), findsOneWidget);
+    expect(find.text('1:02:03'), findsOneWidget);
+    expect(find.text('0:09'), findsOneWidget);
+    for (final title in ['Song b', 'Song c', 'Song d']) {
+      expect(more(title), more('Song a'), reason: title);
+      expect(column(title), AppLayout.trackDurationColumn, reason: title);
+    }
   });
 
   group('the songs', () {
@@ -740,14 +846,15 @@ void main() {
           title: 'Part',
           uploader: 'Uploader w',
           partIndex: 3,
-          parentTitle: 'Video w',
+          parentTitle: 'Vid w',
         ),
         _song('a'),
       ],
     );
 
+    // 時長欄固定留 56dp（測試字型每個字一個 em 寬），標題要短才排得進兩行。
     final part = tester.renderObject<RenderParagraph>(
-      find.text('Video w · P3 Part'),
+      find.text('Vid w · P3 Part'),
     );
     final song = tester.renderObject<RenderParagraph>(find.text('Song a'));
     expect(part.maxLines, 2);

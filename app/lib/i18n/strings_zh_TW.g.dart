@@ -299,6 +299,9 @@ class Translations$search$zh_TW {
   /// zh-TW: '載入更多'
   String get loadMore => '載入更多';
 
+  /// zh-TW: '已載入全部'
+  String get loadedAll => '已載入全部';
+
   /// zh-TW: '更多選項'
   String get more => '更多選項';
 
@@ -456,8 +459,12 @@ class Translations$history$zh_TW {
   /// zh-TW: '全部'
   String get statsAll => '全部';
 
-  /// zh-TW: '{count} 首'
-  String statsCount({required Object count}) => '${count} 首';
+  /// zh-TW: '(other) {{count} 首}'
+  String statsCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首',
+      );
 
   /// zh-TW: '{hours} 小時 {minutes} 分'
   String durationHm({required Object hours, required Object minutes}) =>
@@ -484,8 +491,12 @@ class Translations$history$zh_TW {
   /// zh-TW: '清除日期篩選'
   String get clearDate => '清除日期篩選';
 
-  /// zh-TW: '{count} 首'
-  String dayCount({required Object count}) => '${count} 首';
+  /// zh-TW: '(other) {{count} 首}'
+  String dayCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首',
+      );
 
   /// zh-TW: '收合 {day}'
   String dayCollapse({required Object day}) => '收合 ${day}';
@@ -493,8 +504,12 @@ class Translations$history$zh_TW {
   /// zh-TW: '展開 {day}'
   String dayExpand({required Object day}) => '展開 ${day}';
 
-  /// zh-TW: '{count} 次'
-  String playCount({required Object count}) => '${count} 次';
+  /// zh-TW: '(other) {{count} 次}'
+  String playCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 次',
+      );
 
   /// zh-TW: '音源：{name}'
   String sourceIcon({required Object name}) => '音源：${name}';
@@ -512,15 +527,22 @@ class Translations$history$zh_TW {
   /// zh-TW: '刪除'
   String get deleteSelected => '刪除';
 
-  /// zh-TW: '刪除 {count} 筆紀錄？'
-  String deleteSelectedTitle({required Object count}) => '刪除 ${count} 筆紀錄？';
+  /// zh-TW: '(other) {刪除 {count} 筆紀錄？}'
+  String deleteSelectedTitle({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '刪除 ${count} 筆紀錄？',
+      );
 
   /// zh-TW: '選取的播放紀錄會被刪除，無法復原。'
   String get deleteSelectedBody => '選取的播放紀錄會被刪除，無法復原。';
 
-  /// zh-TW: '刪除 {count} 首歌的所有紀錄？'
-  String deleteSelectedTracksTitle({required Object count}) =>
-      '刪除 ${count} 首歌的所有紀錄？';
+  /// zh-TW: '(other) {刪除 {count} 首歌的所有紀錄？}'
+  String deleteSelectedTracksTitle({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '刪除 ${count} 首歌的所有紀錄？',
+      );
 
   /// zh-TW: '這幾首歌的所有播放紀錄都會被刪除，無法復原。'
   String get deleteSelectedTracksBody => '這幾首歌的所有播放紀錄都會被刪除，無法復原。';
@@ -528,8 +550,12 @@ class Translations$history$zh_TW {
   /// zh-TW: '刪除'
   String get delete => '刪除';
 
-  /// zh-TW: '已刪除 {count} 筆'
-  String deletedCount({required Object count}) => '已刪除 ${count} 筆';
+  /// zh-TW: '(other) {已刪除 {count} 筆}'
+  String deletedCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '已刪除 ${count} 筆',
+      );
 
   /// zh-TW: '重試'
   String get retry => '重試';
@@ -707,11 +733,12 @@ class Translations$library$zh_TW {
   /// zh-TW: '按「新增歌單」建立一張歌單，或按「匯入」帶進一張。'
   String get emptyHint => '按「新增歌單」建立一張歌單，或按「匯入」帶進一張。';
 
-  /// zh-TW: '{count} 首'
-  String trackCount({required Object count}) => '${count} 首';
-
-  /// zh-TW: '1 首'
-  String get trackCountOne => '1 首';
+  /// zh-TW: '(other) {{count} 首}'
+  String trackCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首',
+      );
 
   /// zh-TW: '本機'
   String get local => '本機';
@@ -855,8 +882,12 @@ class Translations$library$zh_TW {
   /// zh-TW: '已加入「{name}」'
   String addedToPlaylist({required Object name}) => '已加入「${name}」';
 
-  /// zh-TW: '已加入 {count} 張歌單'
-  String addedToPlaylists({required Object count}) => '已加入 ${count} 張歌單';
+  /// zh-TW: '(other) {已加入 {count} 張歌單}'
+  String addedToPlaylists({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '已加入 ${count} 張歌單',
+      );
 
   /// zh-TW: '無法加入歌單：{reason}'
   String addToPlaylistFailed({required Object reason}) => '無法加入歌單：${reason}';
@@ -1169,6 +1200,18 @@ class Translations$selection$zh_TW {
 
   /// zh-TW: '全選（Ctrl+A）'
   String get selectAllTooltip => '全選（Ctrl+A）';
+
+  /// zh-TW: '下一首播放'
+  String get playNext => '下一首播放';
+
+  /// zh-TW: '下一首播放（Mix 中無法使用）'
+  String get playNextInMix => '下一首播放（Mix 中無法使用）';
+
+  /// zh-TW: '已加入下一首播放'
+  String get addedToNext => '已加入下一首播放';
+
+  /// zh-TW: '取消全選'
+  String get deselectAllTooltip => '取消全選';
 
   /// zh-TW: '加入佇列'
   String get addToQueue => '加入佇列';
@@ -2402,8 +2445,12 @@ class Translations$playerPage$zh_TW {
   /// zh-TW: '投幣'
   String get statCoin => '投幣';
 
-  /// zh-TW: '共 {count} 首'
-  String queueCount({required Object count}) => '共 ${count} 首';
+  /// zh-TW: '(other) {共 {count} 首}'
+  String queueCount({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '共 ${count} 首',
+      );
 
   /// zh-TW: '隨機順序跟著位置；拖曳只換歌，不改順序'
   String get queueShuffleNote => '隨機順序跟著位置；拖曳只換歌，不改順序';

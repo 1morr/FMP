@@ -8,7 +8,6 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
-import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
@@ -16,6 +15,7 @@ import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/track_markers.dart';
 import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
@@ -501,7 +501,7 @@ class _QueueRow extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (duration != null) Text(formatDuration(duration)),
+            TrackDuration(duration: duration),
             // 一下就移除，不確認（同選單裡的「從佇列移除」）。
             // 名稱帶曲名：每列都有一顆，讀屏逐顆讀時才分得出是哪一首。
             IconButton(

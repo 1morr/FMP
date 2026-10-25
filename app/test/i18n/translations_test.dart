@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:path/path.dart' as p;
 
 // ADR 0024 §如何確認：三語言的 key 集合相同，缺一條就紅。slang 設了
@@ -25,11 +26,21 @@ Catalog readCatalog() => {
       ),
 };
 
-/// 巢狀的 JSON 攤平成 `a.b.c` → 字串。
+const _pluralForms = {'zero', 'one', 'two', 'few', 'many', 'other'};
+
+/// slang 的複數節點（`"name(plural, param=count)": {"one": …, "other": …}`）：子鍵全是複數形式。
+bool _isPlural(Map<String, Object?> node) =>
+    node.isNotEmpty && node.keys.every(_pluralForms.contains);
+
+/// 巢狀的 JSON 攤平成 `a.b.c` → 字串。複數節點算一條（key 去掉 `(…)`，字串是各形式接起來，
+/// 所以參數是各形式的聯集）。
 Map<String, String> flatten(Map<String, Object?> json, [String prefix = '']) =>
     {
       for (final MapEntry(:key, :value) in json.entries)
         ...switch (value) {
+          final Map<String, Object?> plural when _isPlural(plural) => {
+            '$prefix${key.split('(').first}': plural.values.join(' '),
+          },
           final Map<String, Object?> nested => flatten(nested, '$prefix$key.'),
           final String text => {'$prefix$key': text},
           _ => throw FormatException('Unexpected value at $prefix$key: $value'),
@@ -87,6 +98,41 @@ void main() {
         expect(value.trim(), isNotEmpty, reason: '$locale $key');
       }
     }
+  });
+
+  // ADR 0024 §決定 6：數量用 slang 的複數語法，英文的 1 是單數；中文只有 other。
+  group('English plurals', () {
+    final en = buildTranslations(AppLocale.en);
+
+    test('one is singular and other is plural', () {
+      expect(en.history.playCount(count: 1), '1 play');
+      expect(en.history.playCount(count: 2), '2 plays');
+      expect(en.history.statsCount(count: 1), '1 play');
+      expect(en.history.dayCount(count: 1), '1 song');
+      expect(en.history.dayCount(count: 0), '0 songs');
+      expect(en.history.deleteSelectedTitle(count: 1), 'Delete 1 record?');
+      expect(
+        en.history.deleteSelectedTracksTitle(count: 1),
+        'Delete every play of 1 song?',
+      );
+      expect(en.history.deletedCount(count: 3), 'Deleted 3 records');
+      expect(en.library.trackCount(count: 1), '1 song');
+      expect(en.library.trackCount(count: 1195), '1195 songs');
+      expect(en.library.addedToPlaylists(count: 1), 'Added to 1 playlist');
+      expect(en.playerPage.queueCount(count: 1), '1 song in queue');
+      expect(en.playerPage.queueCount(count: 7), '7 songs in queue');
+    });
+
+    test('the Chinese languages have one form', () {
+      expect(
+        buildTranslations(AppLocale.zhTw).history.playCount(count: 1),
+        '1 次',
+      );
+      expect(
+        buildTranslations(AppLocale.zhCn).history.playCount(count: 2),
+        '2 次',
+      );
+    });
   });
 
   group('error messages', () {

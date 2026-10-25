@@ -168,7 +168,7 @@ void main() {
     ) async {
       await _openQueue(tester);
 
-      expect(find.text('4 in queue'), findsOneWidget);
+      expect(find.text('4 songs in queue'), findsOneWidget);
       expect(find.byType(ListTile), findsNWidgets(4));
       expect(tester.widget<ListTile>(_row('a')).selected, isTrue);
       expect(tester.widget<ListTile>(_row('b')).selected, isFalse);
@@ -223,7 +223,7 @@ void main() {
       await tester.pump();
       await h.openQueue(tester);
 
-      expect(find.text('10000 in queue'), findsOneWidget);
+      expect(find.text('10000 songs in queue'), findsOneWidget);
       expect(find.byType(ListTile).evaluate().length, lessThan(40));
     });
   });
@@ -444,7 +444,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(QueueView.bannerKey),
-          matching: find.text('3 in queue'),
+          matching: find.text('3 songs in queue'),
         ),
         findsOneWidget,
       );

@@ -438,7 +438,9 @@ void main() {
       expect(h.controller.queue.live, isNull);
     });
 
-    testWidgets('load more appends the next page of rooms', (tester) async {
+    testWidgets('the next page of rooms loads by itself at the last row', (
+      tester,
+    ) async {
       final h = _harness(
         onLiveSearch: (query) => LiveSearchPage(
           items: [_room('p${query.page}')],
@@ -448,14 +450,13 @@ void main() {
       await h.pumpShell(tester);
       await _tapAndSettle(tester, find.text('Live rooms'));
       await _search(tester, 'night');
-      expect(_roomRow('p1'), findsOneWidget);
+      await tester.pumpAndSettle();
 
-      await _tapAndSettle(tester, find.text('Load more'));
-
-      expect(h.plugin.liveSearches.last.page, 2);
+      expect(h.plugin.liveSearches.map((query) => query.page), [1, 2]);
       expect(_roomRow('p1'), findsOneWidget);
       expect(_roomRow('p2'), findsOneWidget);
       expect(find.text('Load more'), findsNothing);
+      expect(find.text('All loaded'), findsOneWidget);
     });
 
     testWidgets('a search that fails offline shows the offline state', (

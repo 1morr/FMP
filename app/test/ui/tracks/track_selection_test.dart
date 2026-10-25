@@ -257,12 +257,11 @@ void main() {
     await tester.pump();
     expect(page.selection.count, 5);
     expect(
-      tester
-          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.select_all))
-          .onPressed,
-      isNull,
-      reason: 'everything is selected',
+      find.byTooltip('Select all (Ctrl+A)'),
+      findsNothing,
+      reason: 'everything is selected: the button turns into "Deselect all"',
     );
+    expect(find.byTooltip('Deselect all'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Cancel selection (Esc)'));
     await tester.pump();
@@ -299,6 +298,71 @@ void main() {
     );
     expect(page.selection.active, isFalse);
     expect(find.text('Added to the queue'), findsOneWidget);
+  });
+
+  testWidgets('"Play next" puts the selection after the current song in screen '
+      'order', (tester) async {
+    final h = ShellHarness();
+    await h.pumpApp(tester, _ListPage(key: _page));
+    final page = _page.currentState!;
+    expect(
+      h.controller.addToQueue([
+        for (final id in ['x', 'y'])
+          TrackInfo(sourceTypeId: 'fmp-test', sourceId: id, title: id),
+      ]),
+      isTrue,
+    );
+    await tester.longPress(find.text('Song d'));
+    await tester.tap(find.text('Song a'));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Play next'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      [for (final entry in h.controller.queue.entries) entry.track.sourceId],
+      ['x', 'a', 'd', 'y'],
+    );
+    expect(page.selection.active, isFalse);
+    expect(find.text('Added to play next'), findsOneWidget);
+  });
+
+  testWidgets('"Select all" turns into "Deselect all", which empties the '
+      'selection but stays in the mode', (tester) async {
+    final page = await _pump(tester);
+    await tester.longPress(find.text('Song b'));
+    await tester.pump();
+    expect(find.byTooltip('Select all (Ctrl+A)'), findsOneWidget);
+    expect(find.byTooltip('Deselect all'), findsNothing);
+
+    await tester.tap(find.byTooltip('Select all (Ctrl+A)'));
+    await tester.pump();
+    expect(page.selection.count, 5);
+    expect(find.byTooltip('Deselect all'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Deselect all'));
+    await tester.pump();
+    expect(page.selection.active, isTrue);
+    expect(page.selection.count, 0);
+    expect(find.text('0 selected'), findsOneWidget);
+    expect(find.byTooltip('Select all (Ctrl+A)'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.ancestor(
+              of: find.byIcon(Icons.queue_play_next),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+      reason: 'nothing to act on',
+    );
+
+    await tester.tap(find.text('Song c'));
+    await tester.pump();
+    expect(page.selection.selected, ['c']);
   });
 
   testWidgets('a row in selection mode is one checked semantics node; the '

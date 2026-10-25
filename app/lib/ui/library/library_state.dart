@@ -20,9 +20,9 @@ final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
   yield* _rereadOnChange(ref, repository, repository.overviews);
 });
 
-/// 歌單的首數（英文的 1 首是單數）。
+/// 歌單的首數（英文的單複數由 slang 的複數語法處理）。
 String trackCountText(Translations$library$zh_TW t, int count) =>
-    count == 1 ? t.trackCountOne : t.trackCount(count: count);
+    t.trackCount(count: count);
 
 /// 歌單卡的副標題：「本機／匯入 · n 首」；Mix 不存曲目，只寫「Mix」（音樂庫與首頁共用）。
 String playlistSubtitleText(
