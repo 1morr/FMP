@@ -85,6 +85,14 @@ Finder _inRow(String row, String text) => find.descendant(
   matching: find.text(text),
 );
 
+/// 按「匯入所選 (n)」開匯入全頁，等它推上來的轉場走完。`settle` 只 `pump()`、假時鐘不前進，
+/// 不等的話頁面停在轉場的第一格（在視窗右邊外面），點「完成」點不到。
+Future<void> _startImport(WidgetTester tester, int count) async {
+  await tester.tap(_button('Import selected ($count)'));
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 1));
+}
+
 /// 匯入全頁跑完（插件在背景 isolate，要真的事件迴圈；最多等 20 輪，不用 `pumpAndSettle`：進行中的
 /// 進度條一直在動），再按「完成」回到歌單頁。
 Future<void> _finishImport(
@@ -180,6 +188,10 @@ Future<List<String>> _playlistNames(
 ];
 
 void main() {
+  // 點不到的 `tap` 直接失敗，不只印警告後在後面的斷言才紅。
+  setUpAll(() => WidgetController.hitTestWarningShouldBeFatal = true);
+  tearDownAll(() => WidgetController.hitTestWarningShouldBeFatal = false);
+
   group('the button on the account card', () {
     testWidgets('shows for an active account of a libraryRead plugin and '
         'opens the page in the settings navigation', (tester) async {
@@ -309,7 +321,7 @@ void main() {
       await tester.tap(find.text('Study'));
       await tester.pump();
 
-      await tester.tap(_button('Import selected (2)'));
+      await _startImport(tester, 2);
       await h.settle(tester);
       await h.settle(tester);
       await h.settle(tester);
@@ -341,7 +353,7 @@ void main() {
       await tester.tap(find.text('Study'));
       await tester.pump();
 
-      await tester.tap(_button('Import selected (2)'));
+      await _startImport(tester, 2);
       await h.settle(tester);
       await h.settle(tester);
       await h.settle(tester);
@@ -377,9 +389,7 @@ void main() {
       await tester.tap(find.text('Vanished'));
       await tester.pump();
 
-      await tester.tap(_button('Import selected (2)'));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+      await _startImport(tester, 2);
       expect(find.text('Playlist 0 of 2'), findsOneWidget);
       await Navigator.of(tester.element(find.byType(AccountImportPage)))
           .maybePop();

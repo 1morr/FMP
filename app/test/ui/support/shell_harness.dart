@@ -457,6 +457,10 @@ final class ShellHarness {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    // 測試失敗時 flutter_test 不拆樹（`_runTestBody` 只在沒有錯誤時換成空樹）：樹上的 provider
+    // 還掛著資料庫的查詢，關資料庫（`memoryDatabase` 的 tearDown）就永遠等不到，測試卡到逾時。
+    // tearDown 照登記的反序跑，這個在資料庫的之前：先拆樹。成功的測試樹已經拆了，這裡只是再換一次。
+    addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
     await tester.pumpWidget(
       // 和 App 一樣關掉 Riverpod 的自動重試（appProviderScope）。
       appProviderScope(
