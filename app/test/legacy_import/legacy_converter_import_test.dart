@@ -159,7 +159,10 @@ void main() {
       expect(bundle.appearance, expectedAppearance);
       expect(bundle.playback, expectedPlayback);
       expect(bundle.network, NetworkSettings.empty);
-      expect(bundle.layout, const LayoutState(panelExpanded: false));
+      expect(
+        bundle.layout,
+        const LayoutState(panelExpanded: false, railExpanded: false),
+      );
       expect(bundle.browseAsLoggedIn, expectedBrowse);
       expect(bundle.record.summary.unimportedSettings, [
         UnimportedSetting.searchHistory,

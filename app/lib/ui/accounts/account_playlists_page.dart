@@ -20,6 +20,7 @@ import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_widgets.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -116,7 +117,6 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final a = t.accounts;
-    final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
     final name = ref.watch(pluginNameProvider(_pluginId)) ?? _pluginId;
     final playlists = ref.watch(accountPlaylistsProvider(_pluginId));
@@ -132,43 +132,22 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
       for (final playlist in selectable)
         if (_selected.contains(playlist.playlistId)) playlist,
     ];
-    // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
-    final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.x4,
-            spacing.x4,
-            spacing.x4,
-            spacing.x2,
-          ),
-          child: Row(
-            children: [
-              if (canGoBack)
-                IconButton(
-                  tooltip: t.shell.backTooltip,
-                  icon: const BackButtonIcon(),
-                  onPressed: () => unawaited(Navigator.of(context).maybePop()),
-                ),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    a.playlistsTitle(name: name),
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                ),
-              ),
-              FilledButton(
+        PageAppBar(
+          title: a.playlistsTitle(name: name),
+          actions: [
+            Padding(
+              padding: EdgeInsetsDirectional.only(end: spacing.x2),
+              child: FilledButton(
                 onPressed: chosen.isEmpty || _importing
                     ? null
                     : () => unawaited(_import(chosen)),
                 child: Text(a.importSelected(count: chosen.length)),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         Expanded(
           child: switch (playlists) {

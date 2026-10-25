@@ -142,4 +142,18 @@ void main() {
     expect(await events.moveNext(), isTrue);
     expect(events.current, const LayoutState(panelWidth: 360));
   });
+
+  test('reads back railExpanded and leaves the other fields alone', () async {
+    final repository = LayoutStateRepository(memoryDatabase());
+    await repository.write(panelExpanded: false);
+
+    await repository.write(railExpanded: true);
+    expect(
+      await repository.read(),
+      const LayoutState(panelExpanded: false, railExpanded: true),
+    );
+
+    await repository.write(railExpanded: false);
+    expect((await repository.read()).railExpanded, isFalse);
+  });
 }

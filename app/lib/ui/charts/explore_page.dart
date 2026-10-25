@@ -15,6 +15,7 @@ import 'package:fmp/scheduler/background_scheduler.dart';
 import 'package:fmp/ui/charts/chart_parts.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
@@ -145,8 +146,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   Widget build(BuildContext context) {
     final translations = ref.watch(translationsProvider);
     final t = translations.charts;
-    final theme = Theme.of(context);
-    final spacing = AppTokens.of(context).spacing;
     final charts = ref.watch(enabledChartsProvider);
     if (charts != null) _syncTabs([for (final chart in charts) chart.key]);
     final tabs = _tabs;
@@ -166,8 +165,6 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
         ? const <TrackInfo>[]
         : ref.watch(chartContentProvider(current.key)).value?.tracks ??
               const <TrackInfo>[];
-    // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
-    final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
     return TrackSelectionScope<ExploreRowKey>(
       selection: _selection,
       keys: [
@@ -183,40 +180,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
             pluginIds: (keys) => {
               for (final track in _tracksOf(keys)) track.sourceTypeId,
             },
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                spacing.x4,
-                spacing.x4,
-                spacing.x2,
-                spacing.x2,
-              ),
-              child: Row(
-                children: [
-                  if (canGoBack)
-                    IconButton(
-                      tooltip: translations.shell.backTooltip,
-                      icon: const BackButtonIcon(),
-                      onPressed: () =>
-                          unawaited(Navigator.of(context).maybePop()),
-                    ),
-                  Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        t.explore,
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: t.refresh,
-                    icon: const Icon(Icons.refresh),
-                    onPressed: current == null || _refreshing != null
-                        ? null
-                        : () => unawaited(_refresh(current.pluginId)),
-                  ),
-                ],
-              ),
+            child: PageAppBar(
+              title: t.explore,
+              actions: [
+                IconButton(
+                  tooltip: t.refresh,
+                  icon: const Icon(Icons.refresh),
+                  onPressed: current == null || _refreshing != null
+                      ? null
+                      : () => unawaited(_refresh(current.pluginId)),
+                ),
+              ],
             ),
           ),
           if (charts != null && charts.isEmpty)

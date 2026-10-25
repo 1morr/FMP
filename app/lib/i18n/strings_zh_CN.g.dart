@@ -236,6 +236,10 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get queue => '队列';
   @override
+  String get railCollapseTooltip => '收起侧边栏';
+  @override
+  String get railExpandTooltip => '展开侧边栏';
+  @override
   String get queueTooltip => '队列（Ctrl+Q）';
   @override
   String get queueEmptyTitle => '队列是空的';
@@ -2809,8 +2813,6 @@ class Translations$legacyResult$unimported$zh_CN
   String get cacheLimit => '缓存上限';
   @override
   String get homeRanking => '首页排行的顺序与停用';
-  @override
-  String get railExpanded => '侧边栏的展开状态';
   @override
   String get searchHistory => '搜索历史';
 }

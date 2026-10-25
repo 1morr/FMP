@@ -2,7 +2,6 @@ import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/import/import_bundle.dart';
-import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/legacy_import.dart';
@@ -579,9 +578,25 @@ void main() {
         expect(bundle.layout.panelWidth, 500);
       });
 
-      test('not written for a backup source', () {
+      test('the panel is not written for a backup source', () {
         final bundle = convertWith(changed, source: LegacyImportSource.backup);
-        expect(bundle.layout, LayoutState.empty);
+        expect(bundle.layout.panelExpanded, isNull);
+        expect(bundle.layout.panelWidth, isNull);
+      });
+
+      test('railExpanded is written for both sources (true and false)', () {
+        for (final source in LegacyImportSource.values) {
+          for (final expanded in [true, false]) {
+            expect(
+              convertWith(
+                LegacySettings(railExpanded: expanded),
+                source: source,
+              ).layout.railExpanded,
+              expanded,
+              reason: '$source $expanded',
+            );
+          }
+        }
       });
 
       test('the width is clamped to the database limit', () {
@@ -650,7 +665,7 @@ void main() {
       expect(listed(LegacySettings(disabledHomeRankingSources: 'youtube')), [
         'homeRanking',
       ]);
-      expect(listed(LegacySettings(railExpanded: true)), ['railExpanded']);
+      expect(listed(LegacySettings(railExpanded: true)), isEmpty);
       expect(listed(LegacySettings(), searchHistory: 2), ['searchHistory']);
     });
 
@@ -669,7 +684,7 @@ void main() {
           ),
           searchHistory: 1,
         ),
-        ['cacheLimit', 'railExpanded', 'searchHistory'],
+        ['cacheLimit', 'searchHistory'],
       );
     });
   });

@@ -33,7 +33,6 @@
       "streamPriority": "各音源的串流优先顺序",
       "cacheLimit": "缓存上限",
       "homeRanking": "首页排行的顺序与停用",
-      "railExpanded": "侧边栏的展开状态",
       "searchHistory": "搜索历史"
     },
     "localPlaylists": "{count} 张平台歌单的网址无法识别或重复，已转成本机歌单。",
@@ -51,6 +50,8 @@
     "settingsTooltip": "设置（Ctrl+,）",
     "radio": "电台",
     "queue": "队列",
+    "railCollapseTooltip": "收起侧边栏",
+    "railExpandTooltip": "展开侧边栏",
     "queueTooltip": "队列（Ctrl+Q）",
     "queueEmptyTitle": "队列是空的",
     "queueEmptyBody": "在搜索或音乐库里播放歌曲，会排进这里。",

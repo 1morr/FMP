@@ -111,6 +111,12 @@ abstract final class AppLayout {
   static const double panelHandleWidth = 8;
   static const double panelKeyboardStep = 16;
 
+  /// 左側導覽側欄（ADR 0035 §決定 2，舊版 `AppLayout.railCollapsed／railExpanded`）：收合與展開的寬度，
+  /// 展開、收合的動畫時間。
+  static const double railCollapsed = 72;
+  static const double railExpanded = 256;
+  static const Duration railDuration = Duration(milliseconds: 250);
+
   /// 搜尋結果列取分 P 時取代展開鈕的轉圈尺寸（鈕本身是 [kMinInteractiveDimension]）。
   static const double partsSpinner = 20;
 

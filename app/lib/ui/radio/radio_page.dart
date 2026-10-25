@@ -19,6 +19,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -173,43 +174,28 @@ class _RadioPageState extends ConsumerState<RadioPage> {
     });
     final translations = ref.watch(translationsProvider);
     final t = translations.radio;
-    final theme = Theme.of(context);
-    final spacing = AppTokens.of(context).spacing;
     final entries = ref.watch(radioEntriesProvider);
     final hasStations = entries.value?.isNotEmpty ?? false;
     final network = ref.watch(networkStatusProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.x4,
-            spacing.x4,
-            spacing.x2,
-            spacing.x2,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(t.title, style: theme.textTheme.headlineSmall),
-                ),
-              ),
-              IconButton(
-                tooltip: t.addFromUrl,
-                icon: const Icon(Icons.add_link),
-                onPressed: _busy ? null : () => unawaited(_addFromUrl()),
-              ),
-              IconButton(
-                tooltip: t.refresh,
-                icon: const Icon(Icons.refresh),
-                onPressed: _busy || !hasStations
-                    ? null
-                    : () => unawaited(_refresh()),
-              ),
-            ],
-          ),
+        PageAppBar(
+          title: t.title,
+          actions: [
+            IconButton(
+              tooltip: t.addFromUrl,
+              icon: const Icon(Icons.add_link),
+              onPressed: _busy ? null : () => unawaited(_addFromUrl()),
+            ),
+            IconButton(
+              tooltip: t.refresh,
+              icon: const Icon(Icons.refresh),
+              onPressed: _busy || !hasStations
+                  ? null
+                  : () => unawaited(_refresh()),
+            ),
+          ],
         ),
         // 不忙時是透明的空條（value 0，不動）：出現與消失不改變下方的位置（同插件頁）。
         Opacity(

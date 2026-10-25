@@ -28,6 +28,7 @@ import 'generated/schema_v17.dart' as v17;
 import 'generated/schema_v18.dart' as v18;
 import 'generated/schema_v19.dart' as v19;
 import 'generated/schema_v20.dart' as v20;
+import 'generated/schema_v21.dart' as v21;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -2222,5 +2223,63 @@ void main() {
       expect(row.data, {'seed_color': 4284955319, 'font_family': 'serif'});
       await db.close();
     });
+  }
+
+  // v21 加 layout_state.rail_expanded（ADR 0035 §決定 5）：既有的列這一欄是空的，其餘值不變。
+  test(
+    'migration from v20 to v21 keeps existing data and user values',
+    () async {
+      await verifier.testWithDataIntegrity(
+        oldVersion: 20,
+        newVersion: 21,
+        createOld: v20.DatabaseAtV20.new,
+        createNew: v21.DatabaseAtV21.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          // 使用者記過的值，升級後不能變。
+          batch.insert(
+            oldDb.layoutState,
+            const v20.LayoutStateData(
+              id: 1,
+              playerTab: 'queue',
+              panelExpanded: 0,
+              panelWidth: 480,
+            ),
+          );
+        },
+        validateItems: (newDb) async {
+          expect(await newDb.select(newDb.layoutState).get(), [
+            const v21.LayoutStateData(
+              id: 1,
+              playerTab: 'queue',
+              panelExpanded: 0,
+              panelWidth: 480,
+              railExpanded: null,
+            ),
+          ]);
+        },
+      );
+    },
+  );
+
+  for (var from = 1; from <= 20; from++) {
+    test(
+      'migration from v$from to v21 adds layout_state.rail_expanded',
+      () async {
+        final schema = await verifier.schemaAt(from);
+        final db = AppDatabase(schema.newConnection());
+        await verifier.migrateAndValidate(db, 21);
+
+        await db.customStatement(
+          'INSERT INTO layout_state (id, rail_expanded) VALUES (1, 1) '
+          'ON CONFLICT (id) DO UPDATE SET rail_expanded = 1',
+        );
+        final row = await db
+            .customSelect('SELECT rail_expanded FROM layout_state')
+            .getSingle();
+        expect(row.data, {'rail_expanded': 1});
+        await db.close();
+      },
+    );
   }
 }

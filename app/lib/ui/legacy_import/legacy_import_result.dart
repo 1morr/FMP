@@ -81,7 +81,6 @@ class _ResultDialog extends StatelessWidget {
     'streamPriority' => t.legacyResult.unimported.streamPriority,
     'cacheLimit' => t.legacyResult.unimported.cacheLimit,
     'homeRanking' => t.legacyResult.unimported.homeRanking,
-    'railExpanded' => t.legacyResult.unimported.railExpanded,
     'searchHistory' => t.legacyResult.unimported.searchHistory,
     _ => id,
   };

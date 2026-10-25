@@ -25,6 +25,7 @@ import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -197,33 +198,20 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            spacing.x4,
-            spacing.x4,
-            spacing.x2,
-            spacing.x2,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(t.title, style: theme.textTheme.headlineSmall),
-                ),
-              ),
-              IconButton(
-                tooltip: t.importTooltip,
-                icon: const Icon(Icons.file_download_outlined),
-                onPressed: () => unawaited(_import()),
-              ),
-              IconButton(
-                tooltip: t.newPlaylist,
-                icon: const Icon(Icons.add),
-                onPressed: () => unawaited(_create()),
-              ),
-            ],
-          ),
+        PageAppBar(
+          title: t.title,
+          actions: [
+            IconButton(
+              tooltip: t.importTooltip,
+              icon: const Icon(Icons.file_download_outlined),
+              onPressed: () => unawaited(_import()),
+            ),
+            IconButton(
+              tooltip: t.newPlaylist,
+              icon: const Icon(Icons.add),
+              onPressed: () => unawaited(_create()),
+            ),
+          ],
         ),
         Expanded(
           child: switch (overviews) {

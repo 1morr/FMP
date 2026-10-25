@@ -221,6 +221,12 @@ class Translations$shell$zh_TW {
   /// zh-TW: '佇列'
   String get queue => '佇列';
 
+  /// zh-TW: '收合側邊欄'
+  String get railCollapseTooltip => '收合側邊欄';
+
+  /// zh-TW: '展開側邊欄'
+  String get railExpandTooltip => '展開側邊欄';
+
   /// zh-TW: '佇列（Ctrl+Q）'
   String get queueTooltip => '佇列（Ctrl+Q）';
 
@@ -3817,9 +3823,6 @@ class Translations$legacyResult$unimported$zh_TW {
 
   /// zh-TW: '首頁排行的順序與停用'
   String get homeRanking => '首頁排行的順序與停用';
-
-  /// zh-TW: '側邊欄的展開狀態'
-  String get railExpanded => '側邊欄的展開狀態';
 
   /// zh-TW: '搜尋歷史'
   String get searchHistory => '搜尋歷史';

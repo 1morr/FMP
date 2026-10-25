@@ -33,7 +33,6 @@
       "streamPriority": "Stream priority per source",
       "cacheLimit": "Cache limit",
       "homeRanking": "Home chart order and disabled charts",
-      "railExpanded": "Whether the side bar was expanded",
       "searchHistory": "Search history"
     },
     "localPlaylists": "{count} platform playlists had an unrecognized or duplicate address and became local playlists.",
@@ -51,6 +50,8 @@
     "settingsTooltip": "Settings (Ctrl+,)",
     "radio": "Radio",
     "queue": "Queue",
+    "railCollapseTooltip": "Collapse side bar",
+    "railExpandTooltip": "Expand side bar",
     "queueTooltip": "Queue (Ctrl+Q)",
     "queueEmptyTitle": "The queue is empty",
     "queueEmptyBody": "Songs you play from Search or the Library line up here.",

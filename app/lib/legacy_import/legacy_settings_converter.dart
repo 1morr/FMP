@@ -26,7 +26,6 @@ abstract final class UnimportedSetting {
   static const streamPriority = 'streamPriority';
   static const cacheLimit = 'cacheLimit';
   static const homeRanking = 'homeRanking';
-  static const railExpanded = 'railExpanded';
   static const searchHistory = 'searchHistory';
 }
 
@@ -182,16 +181,16 @@ ConvertedSettings convertLegacySettings(
   // `layout_state` 是上次的狀態、不是設定組：照舊值寫，不論是否等於舊預設。使用者主動收起面板存的是
   // false（剛好等於舊預設），只寫改過的值會把它的選擇換成新版的預設（展開），違反 ADR 0010 §決定 3。
   // 只有不合法的值（型別預設、NaN、≤0）留空。
-  var layout = LayoutState.empty;
-  if (source == LegacyImportSource.database) {
-    final width = s.detailPanelWidth;
-    layout = LayoutState(
-      panelExpanded: s.detailPanelExpanded,
-      panelWidth: width.isFinite && width > 0
-          ? width.clamp(0, _maxPanelWidth).toDouble()
-          : null,
-    );
-  }
+  // 側欄的展開狀態兩種來源都有（ADR 0035 §決定 12）；面板的欄位只有資料庫來源。
+  final width = s.detailPanelWidth;
+  final fromDatabase = source == LegacyImportSource.database;
+  final layout = LayoutState(
+    panelExpanded: fromDatabase ? s.detailPanelExpanded : null,
+    panelWidth: fromDatabase && width.isFinite && width > 0
+        ? width.clamp(0, _maxPanelWidth).toDouble()
+        : null,
+    railExpanded: s.railExpanded,
+  );
 
   return ConvertedSettings(
     appearance: AppearanceSettings(
@@ -240,7 +239,6 @@ List<String> _unimported(LegacySnapshot snapshot, LegacySettings s) => [
           s.homeRankingSourcePriority != _defaultHomeRankingPriority) ||
       s.disabledHomeRankingSources.trim().isNotEmpty)
     UnimportedSetting.homeRanking,
-  if (s.railExpanded) UnimportedSetting.railExpanded,
   if (snapshot.searchHistory.isNotEmpty) UnimportedSetting.searchHistory,
 ];
 
