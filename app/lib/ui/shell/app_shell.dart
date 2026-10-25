@@ -33,6 +33,7 @@ import 'package:fmp/ui/shell/legacy_side_rail.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
 import 'package:fmp/ui/shell/open_queue.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
@@ -399,13 +400,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                       pages: [
                         MaterialPage<void>(
                           key: ValueKey(destination),
-                          // 每一頁自己的 Material（透明）：頁面轉場在頁外包一層有底色的
-                          // `ColoredBox`，`ListTile` 的水波與底色若畫在外殼的 Material 上會被它蓋住
-                          // （除錯版另有斷言）。推上來的內頁（`openPlaylist`、`openHistory`）同樣包。
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: _rootPage(destination),
-                          ),
+                          // 每一頁自己的 Material 與捲動觀察者（理由見 [PageSurface]）。推上來的內頁
+                          // （`openPlaylist`、`openHistory`）同樣包。
+                          child: PageSurface(child: _rootPage(destination)),
                         ),
                       ],
                       // 根頁不會被退掉：外殼的 PopScope 與 Esc 只在有內頁時才 pop。
@@ -545,10 +542,14 @@ class _AppShellState extends ConsumerState<AppShell> {
             actions: {
               FocusSearchIntent: CallbackAction<FocusSearchIntent>(
                 onInvoke: (_) {
-                  // 搜尋框在搜尋目的地的根頁：有內頁時先退回根。
-                  _navigators[ShellDestination.search]!.currentState?.popUntil(
-                    (route) => route.isFirst,
-                  );
+                  // 搜尋框在搜尋目的地的根頁：有內頁時先退回根。多選時選取列蓋住了搜尋框
+                  // （ADR 0035 §決定 2），根頁還能退（選取模式的 LocalHistoryEntry）就先退出它。
+                  final navigator =
+                      _navigators[ShellDestination.search]!.currentState;
+                  navigator?.popUntil((route) => route.isFirst);
+                  if (navigator?.canPop() ?? false) {
+                    unawaited(navigator!.maybePop());
+                  }
                   _selectAndFocus(
                     ShellDestination.search,
                     _searchField.requestFocus,

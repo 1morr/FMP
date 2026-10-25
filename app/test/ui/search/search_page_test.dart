@@ -548,6 +548,33 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
     });
 
+    // 選取列蓋住了搜尋框：Ctrl+F 先離開選取模式，搜尋框才回來、拿到焦點。
+    testWidgets('Ctrl+F leaves selection mode and focuses the field', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.longPress(find.text('Song b'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 selected'), findsNothing);
+      expect(find.byType(ChoiceChip), findsOneWidget);
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+    });
+
     testWidgets('Ctrl+A selects every result, Esc leaves selection mode', (
       tester,
     ) async {

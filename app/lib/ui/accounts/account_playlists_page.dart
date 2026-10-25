@@ -29,11 +29,9 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 Future<void> openAccountPlaylists(BuildContext context, String pluginId) =>
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        // 自己的 Material：理由見 `AppShell` 的根頁。
-        builder: (_) => Material(
-          type: MaterialType.transparency,
-          child: AccountPlaylistsPage(pluginId: pluginId),
-        ),
+        // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+        builder: (_) =>
+            PageSurface(child: AccountPlaylistsPage(pluginId: pluginId)),
       ),
     );
 

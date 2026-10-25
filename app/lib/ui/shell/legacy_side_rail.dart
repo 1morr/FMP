@@ -21,7 +21,10 @@ typedef ShellDestinationLabel = ({
 /// 展開與否依裝置記住（`layout_state.rail_expanded`），沒記過是收合。高度不夠（橫向手機）時項目
 /// 可以捲動，頂端的展開／收合鈕不動，「設定」才一直按得到。展開、收合有寬度動畫；系統要求減少
 /// 動態時直接切換。
-class LegacySideRail extends ConsumerWidget {
+///
+/// 展開鈕與收合鈕共用一個 `FocusNode`：兩者在不同的子樹，按下後舊的那顆就拆掉，不共用的話
+/// 鍵盤使用者按了之後焦點掉回導覽區本身，要重新找位置。
+class LegacySideRail extends ConsumerStatefulWidget {
   const LegacySideRail({
     super.key,
     required this.selectedIndex,
@@ -34,10 +37,32 @@ class LegacySideRail extends ConsumerWidget {
   final List<ShellDestinationLabel> destinations;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LegacySideRail> createState() => _LegacySideRailState();
+}
+
+class _LegacySideRailState extends ConsumerState<LegacySideRail> {
+  final _toggleFocus = FocusNode(debugLabel: 'Side rail toggle');
+
+  /// 上一次 build 時記住的版面狀態已經讀到了。
+  var _loaded = false;
+
+  @override
+  void dispose() {
+    _toggleFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedIndex = widget.selectedIndex;
+    final onSelected = widget.onSelected;
+    final destinations = widget.destinations;
     final expanded = ref.watch(railExpandedProvider);
     final scheme = Theme.of(context).colorScheme;
-    final animate = !MediaQuery.disableAnimationsOf(context);
+    // 啟動時第一次讀到記住的狀態直接到位：那不是使用者按的，不要每次開 App 都看它展開一次。
+    final loaded = ref.watch(layoutStateProvider.select((s) => s.hasValue));
+    final animate = _loaded && !MediaQuery.disableAnimationsOf(context);
+    _loaded = loaded;
     // 舊版的做法：內容永遠以完整寬度排版，外層用 widthFactor 裁切，所以動畫中不會因為變窄而溢出。
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -61,6 +86,7 @@ class LegacySideRail extends ConsumerWidget {
                       selectedIndex: selectedIndex,
                       onSelected: onSelected,
                       destinations: destinations,
+                      toggleFocus: _toggleFocus,
                     )
                   : Align(
                       alignment: Alignment.centerLeft,
@@ -70,6 +96,7 @@ class LegacySideRail extends ConsumerWidget {
                           selectedIndex: selectedIndex,
                           onSelected: onSelected,
                           destinations: destinations,
+                          toggleFocus: _toggleFocus,
                         ),
                       ),
                     ),
@@ -87,11 +114,13 @@ class _Collapsed extends ConsumerWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.destinations,
+    required this.toggleFocus,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<ShellDestinationLabel> destinations;
+  final FocusNode toggleFocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -107,6 +136,7 @@ class _Collapsed extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
+            focusNode: toggleFocus,
             icon: const Icon(Icons.menu),
             tooltip: t.railExpandTooltip,
             onPressed: () => rememberRail(ref, expanded: true),
@@ -133,11 +163,13 @@ class _Expanded extends ConsumerWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.destinations,
+    required this.toggleFocus,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<ShellDestinationLabel> destinations;
+  final FocusNode toggleFocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -153,7 +185,7 @@ class _Expanded extends ConsumerWidget {
           padding: EdgeInsetsDirectional.only(
             start: spacing.x4,
             end: spacing.x2,
-            top: spacing.x2,
+            top: spacing.x3,
             bottom: spacing.x2,
           ),
           child: Row(
@@ -167,6 +199,7 @@ class _Expanded extends ConsumerWidget {
               ),
               const Spacer(),
               IconButton(
+                focusNode: toggleFocus,
                 icon: const Icon(Icons.menu_open),
                 tooltip: t.railCollapseTooltip,
                 onPressed: () => rememberRail(ref, expanded: false),
@@ -218,7 +251,7 @@ class _ExpandedItem extends StatelessWidget {
         ? scheme.onSecondaryContainer
         : scheme.onSurfaceVariant;
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: spacing.x1 / 2),
+      padding: const EdgeInsets.symmetric(vertical: AppLayout.railItemGap / 2),
       child: Semantics(
         selected: selected,
         child: Material(

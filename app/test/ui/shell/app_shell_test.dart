@@ -27,6 +27,7 @@ import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/legacy_side_rail.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -34,6 +35,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
 import '../../playback/fake_source_plugin.dart';
+import '../../support/memory_database.dart';
 import '../support/shell_harness.dart';
 
 const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
@@ -242,6 +244,45 @@ void main() {
         expect(railWidth(tester), AppLayout.railCollapsed);
       });
 
+      // 記住的狀態在啟動時才讀到：讀到的那一刻直接是展開的，不是每次開 App 都看它展開一次。
+      testWidgets('a remembered expanded rail opens expanded, without '
+          'animating', (tester) async {
+        final database = memoryDatabase();
+        await tester.runAsync(
+          () => LayoutStateRepository(database).write(railExpanded: true),
+        );
+        final h = ShellHarness(database: database);
+        await h.pumpApp(tester, const AppShell());
+        await h.loadSettings(tester);
+        expect(railWidth(tester), AppLayout.railExpanded);
+      });
+
+      // 兩顆鈕在不同的子樹，按下後舊的那顆就拆掉：焦點要留在新的那顆上，不掉回導覽區本身。
+      testWidgets('the toggle keeps the keyboard focus', (tester) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester, at: ShellDestination.home);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+        bool toggleFocused(String tooltip) =>
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<Tooltip>()
+                ?.message ==
+            tooltip;
+        expect(toggleFocused('Expand side bar'), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railExpanded);
+        expect(toggleFocused('Collapse side bar'), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railCollapsed);
+        expect(toggleFocused('Expand side bar'), isTrue);
+      });
+
       testWidgets('selecting an item works in the expanded rail', (
         tester,
       ) async {
@@ -402,11 +443,24 @@ void main() {
     testWidgets('every page of a nested navigator paints on its own Material', (
       tester,
     ) async {
-      MaterialType nearestMaterial(Finder page) => tester
-          .widget<Material>(
-            find.ancestor(of: page, matching: find.byType(Material)).first,
-          )
-          .type;
+      // 最近的 Material 是 `PageSurface` 的那一個（它同時給頁頂自己的捲動觀察者），而且透明。
+      MaterialType nearestMaterial(Finder page) {
+        final surface = find.ancestor(
+          of: page,
+          matching: find.byType(PageSurface),
+        );
+        expect(surface, findsOneWidget);
+        final material = tester.widget<Material>(
+          find.ancestor(of: page, matching: find.byType(Material)).first,
+        );
+        expect(
+          tester.widget<Material>(
+            find.descendant(of: surface, matching: find.byType(Material)).first,
+          ),
+          same(material),
+        );
+        return material.type;
+      }
 
       final h = ShellHarness();
       await h.pumpShell(tester, at: ShellDestination.home);

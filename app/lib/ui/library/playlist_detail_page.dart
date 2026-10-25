@@ -45,11 +45,9 @@ Future<void> openPlaylist(
   bool replace = false,
 }) {
   final route = MaterialPageRoute<void>(
-    // 自己的 Material：理由見 `AppShell` 的根頁。
-    builder: (_) => Material(
-      type: MaterialType.transparency,
-      child: PlaylistDetailPage(playlistId: playlistId),
-    ),
+    // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+    builder: (_) =>
+        PageSurface(child: PlaylistDetailPage(playlistId: playlistId)),
   );
   final navigator = Navigator.of(context);
   return replace ? navigator.pushReplacement(route) : navigator.push(route);

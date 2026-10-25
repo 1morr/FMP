@@ -34,9 +34,8 @@ import 'package:fmp/ui/tracks/track_selection.dart';
 /// 「歷史」、首頁「最近播放」的「查看全部」，ADR 0033 §決定 5），導覽與播放列留著。
 Future<void> openHistory(BuildContext context) => Navigator.of(context).push(
   MaterialPageRoute<void>(
-    // 自己的 Material：理由見 `AppShell` 的根頁。
-    builder: (_) =>
-        const Material(type: MaterialType.transparency, child: HistoryPage()),
+    // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+    builder: (_) => const PageSurface(child: HistoryPage()),
   ),
 );
 

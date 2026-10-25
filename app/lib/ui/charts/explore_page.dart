@@ -25,11 +25,8 @@ import 'package:fmp/ui/tracks/track_selection.dart';
 Future<void> openExplore(BuildContext context, ChartKey chart) =>
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        // 自己的 Material：理由見 `AppShell` 的根頁。
-        builder: (_) => Material(
-          type: MaterialType.transparency,
-          child: ExplorePage(initial: chart),
-        ),
+        // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+        builder: (_) => PageSurface(child: ExplorePage(initial: chart)),
       ),
     );
 

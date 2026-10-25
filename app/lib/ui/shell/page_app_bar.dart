@@ -5,6 +5,24 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/ui/i18n/ui_locale.dart';
 
+/// 巢狀導覽裡每一頁（外殼的根頁與推上來的內頁）的底：
+///
+/// - 透明的 `Material`：頁面轉場在頁外包一層有底色的 `ColoredBox`，`ListTile` 的水波與底色若畫在
+///   外殼的 Material 上會被它蓋住（除錯版另有斷言）；
+/// - 自己的 `ScrollNotificationObserver`：頁面不在自己的 `Scaffold` 裡，[PageAppBar] 找到的會是
+///   外殼 `Scaffold` 的那一個，側欄、右側面板或別的目的地的清單一捲，這一頁的頁頂就跟著變色。
+class PageSurface extends StatelessWidget {
+  const PageSurface({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    type: MaterialType.transparency,
+    child: ScrollNotificationObserver(child: child),
+  );
+}
+
 /// 每一頁的頁頂（ADR 0035 §決定 2）：舊版的置中標題 AppBar，主題的 `appBarTheme` 已經是置中、
 /// 無陰影。巢狀導覽裡的內頁（下面還有頁）在標題前自動放返回鈕。
 ///
