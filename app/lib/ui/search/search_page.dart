@@ -23,6 +23,7 @@ import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/search/source_chips.dart';
 import 'package:fmp/ui/search/video_parts.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -168,47 +169,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              spacing.x4,
-              spacing.x4,
-              spacing.x4,
-              spacing.x2,
-            ),
-            // 用 TextField 而不是 M3 的 SearchBar：SearchBar 整條可點的那一層
-            // 沒有語意名稱，裡面的輸入框只有文字那一行高（24dp），兩個都過不了
-            // 點擊區 guideline。外觀照 SearchBar：填色、全圓角、前面放大鏡。
-            child: TextField(
-              controller: _text,
-              focusNode: widget.fieldFocusNode,
-              textInputAction: TextInputAction.search,
-              onChanged: _changed,
-              onSubmitted: _submit,
-              decoration: InputDecoration(
-                hintText: rooms ? t.roomHint : t.hint,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: ListenableBuilder(
-                  listenable: _text,
-                  builder: (context, _) => _text.text.isEmpty
-                      ? const SizedBox.shrink()
-                      : IconButton(
-                          tooltip: t.clear,
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            _text.clear();
-                            _changed('');
-                            widget.fieldFocusNode.requestFocus();
-                          },
-                        ),
-                ),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(tokens.radius.extraLarge),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
+          // 舊版：搜尋框就是頁頂（AppBar 的標題，靠左）；多選時整個換成選取列。
           TrackSelectionBar<_ResultKey>(
             tracks: _selectedTracks,
             // 結果列自己的音源，不是選的音源：選的音源停用時會退回別的，結果還是舊的。
@@ -216,10 +177,48 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               for (final (:item, part: _) in keys)
                 if (item < search.items.length) search.items[item].sourceTypeId,
             },
-            padding: EdgeInsets.fromLTRB(spacing.x4, 0, spacing.x4, spacing.x2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                PageAppBar(
+                  centerTitle: false,
+                  toolbarHeight: kToolbarHeight + spacing.x4,
+                  // 用 TextField 而不是 M3 的 SearchBar：SearchBar 整條可點的那一層
+                  // 沒有語意名稱，裡面的輸入框只有文字那一行高（24dp），兩個都過不了
+                  // 點擊區 guideline。外觀照 SearchBar：填色、全圓角、前面放大鏡。
+                  titleWidget: TextField(
+                    controller: _text,
+                    focusNode: widget.fieldFocusNode,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _changed,
+                    onSubmitted: _submit,
+                    decoration: InputDecoration(
+                      hintText: rooms ? t.roomHint : t.hint,
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: ListenableBuilder(
+                        listenable: _text,
+                        builder: (context, _) => _text.text.isEmpty
+                            ? const SizedBox.shrink()
+                            : IconButton(
+                                tooltip: t.clear,
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  _text.clear();
+                                  _changed('');
+                                  widget.fieldFocusNode.requestFocus();
+                                },
+                              ),
+                      ),
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          tokens.radius.extraLarge,
+                        ),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
                 if (list.isNotEmpty) ...[
                   SourceChips(
                     sources: list,

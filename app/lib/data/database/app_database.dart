@@ -55,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -201,6 +201,13 @@ class AppDatabase extends _$AppDatabase {
               await m.addColumn(
                 schema.appearanceSettings,
                 schema.appearanceSettings.fontFamily,
+              );
+            },
+            from20To21: (m, schema) async {
+              // 既有的列這一欄是空的＝沒記過，側欄依預設收合。
+              await m.addColumn(
+                schema.layoutState,
+                schema.layoutState.railExpanded,
               );
             },
           ),

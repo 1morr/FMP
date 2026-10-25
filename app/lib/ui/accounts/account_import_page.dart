@@ -14,6 +14,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -214,11 +215,8 @@ final class AccountImportRun extends ChangeNotifier {
 Future<void> openAccountImport(BuildContext context, AccountImportRun run) =>
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        // 自己的 Material：理由見 `AppShell` 的根頁。
-        builder: (_) => Material(
-          type: MaterialType.transparency,
-          child: AccountImportPage(run: run),
-        ),
+        // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+        builder: (_) => PageSurface(child: AccountImportPage(run: run)),
       ),
     );
 
@@ -258,20 +256,10 @@ class _AccountImportPageState extends ConsumerState<AccountImportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  spacing.x4,
-                  spacing.x4,
-                  spacing.x4,
-                  spacing.x2,
-                ),
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    a.importPageTitle,
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                ),
+              // 匯入進行中不能退出（`PopScope`）：不放會沒有反應的返回鈕。
+              PageAppBar(
+                title: a.importPageTitle,
+                leading: run.finished ? null : const SizedBox.shrink(),
               ),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: spacing.x4),

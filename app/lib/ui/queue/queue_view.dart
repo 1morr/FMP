@@ -12,6 +12,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -293,7 +294,7 @@ class _QueueViewState extends ConsumerState<QueueView> {
   }
 }
 
-/// 頂部一列（舊版的 AppBar）。PR 5 起每頁的頂部換成共用的置中 `PageAppBar`，標題這一段到時直接搬過去。
+/// 頂部一列（舊版的 AppBar）：左邊跳到頂／底、中間標題、右邊打亂與清空。
 class _QueueHeader extends ConsumerWidget {
   const _QueueHeader({
     required this.nearTop,
@@ -314,43 +315,36 @@ class _QueueHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).playerPage;
-    final spacing = AppTokens.of(context).spacing;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: spacing.x2),
-      child: Row(
-        children: [
-          IconButton(
-            key: QueueView.jumpKey,
-            tooltip: nearTop ? t.queueJumpBottom : t.queueJumpTop,
-            icon: Icon(
-              nearTop ? Icons.vertical_align_bottom : Icons.vertical_align_top,
-            ),
-            onPressed: onJump,
-          ),
-          Expanded(
-            child: Text(
-              title,
-              key: titleKey,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          IconButton(
-            key: QueueView.shuffleKey,
-            tooltip: t.queueShuffle,
-            icon: const Icon(Icons.shuffle),
-            onPressed: onShuffle,
-          ),
-          IconButton(
-            key: QueueView.clearKey,
-            tooltip: t.queueClear,
-            icon: const Icon(Icons.delete_outline),
-            onPressed: onClear,
-          ),
-        ],
+    return PageAppBar(
+      leading: IconButton(
+        key: QueueView.jumpKey,
+        tooltip: nearTop ? t.queueJumpBottom : t.queueJumpTop,
+        icon: Icon(
+          nearTop ? Icons.vertical_align_bottom : Icons.vertical_align_top,
+        ),
+        onPressed: onJump,
       ),
+      titleWidget: Text(
+        title,
+        key: titleKey,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        IconButton(
+          key: QueueView.shuffleKey,
+          tooltip: t.queueShuffle,
+          icon: const Icon(Icons.shuffle),
+          onPressed: onShuffle,
+        ),
+        IconButton(
+          key: QueueView.clearKey,
+          tooltip: t.queueClear,
+          icon: const Icon(Icons.delete_outline),
+          onPressed: onClear,
+        ),
+      ],
     );
   }
 }

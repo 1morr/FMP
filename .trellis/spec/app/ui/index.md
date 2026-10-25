@@ -21,7 +21,8 @@ lib/ui/
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
-                       # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）
+                       # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）、
+                       # legacy_side_rail（medium 以上的可展開側欄）、page_app_bar（每頁的置中頁頂 PageAppBar 與頁面的底 PageSurface）
   home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider）
   charts/              # 首頁的排行區塊（home_charts）、探索頁（explore_page；openExplore 開在巢狀導覽裡）、
                        # 兩者共用的狀態行、內容狀態與排行曲目列（chart_parts）
@@ -151,11 +152,11 @@ try {
 
 ## 外殼、快捷鍵與焦點
 
-- 導覽項是 `ShellDestination` 的六個（首頁｜搜尋｜音樂庫｜佇列｜電台｜設定，ADR 0035 §決定 2）；圖示與文字在 `_destinationLabel` 一份，三種導覽元件
+- 導覽項是 `ShellDestination` 的六個（首頁｜搜尋｜音樂庫｜佇列｜電台｜設定，ADR 0035 §決定 2）；圖示與文字在 `_destinationLabel` 一份，底部導覽列與側欄
   照它的順序產生。內容區的 `IndexedStack` 每一格是那個目的地的巢狀 `Navigator`（換頁不丟狀態與內頁，沒選的頁面焦點被排除），
   根頁在 `_rootPage`。
 - 開一個內頁（在內容區裡、導覽與播放列留著）：`Navigator.of(context).push(MaterialPageRoute(...))`，照 `openHistory` 寫一個
-  `openXxx(context)`；頁面標題前放返回鈕（`ModalRoute.of(context)?.impliesAppBarDismissal`，tooltip `shell.backTooltip`）。返回鍵、
+  `openXxx(context)`，route 的內容包 `PageSurface`；頁頂用 `PageAppBar`（`lib/ui/shell/page_app_bar.dart`），下面還有頁時它自己放返回鈕（tooltip `shell.backTooltip`）。返回鍵、
   Esc、再點導覽項都由外殼處理，頁面不放 `PopScope`。要蓋住整個外殼的全螢幕頁用 `Navigator.of(context, rootNavigator: true)`
   （或 `rootNavigatorKeyProvider`）；`showDialog` 預設就在根上，`showModalBottomSheet` 預設不是（要蓋住外殼時給
   `useRootNavigator: true`）。新的全螢幕 route 進 `integration_test/toast_layering_test.dart`。例外：離開要確認的內頁（匯入預覽）自己放
@@ -239,10 +240,12 @@ try {
   因為對話框在根 Navigator 上、詳情要開在音樂庫的巢狀導覽裡。詳情的「登入」經 `openAccountsProvider`（外殼接上，換到設定頁的「帳號」區塊）。
 - 測試匯入畫面：`ShellHarness(registryOfSources: true, sources: [FakeImportPlugin(...)])`（`test/library/fake_import_plugin.dart`）。
   介面上插件名稱由 harness 固定為 `Test Source`。進度條會一直轉，進行中的畫面不要 `pumpAndSettle`。
-- 巢狀導覽的每一頁（外殼的根頁、`openPlaylist`、`openHistory`，之後新加的內頁也一樣）包一層透明的 `Material`：頁面轉場在
-  頁外包有底色的 `ColoredBox`，頁面沒有自己的 Material 時 `ListTile` 的水波與底色畫在外殼的 Material 上、被它蓋住，除錯版另有
-  「ListTile background color or ink splashes may be invisible」的斷言（轉場中重建的 `ListTile` 才會觸發，例如匯入完成時音樂庫
-  長出新卡片）。閘門：`app_shell_test.dart` 的 `every page of a nested navigator paints on its own Material`。
+- 巢狀導覽的每一頁（外殼的根頁、`openPlaylist`、`openHistory`，之後新加的內頁也一樣）包 `PageSurface`（透明的 `Material` 加自己的
+  `ScrollNotificationObserver`）：頁面轉場在頁外包有底色的 `ColoredBox`，頁面沒有自己的 Material 時 `ListTile` 的水波與底色畫在外殼的
+  Material 上、被它蓋住，除錯版另有「ListTile background color or ink splashes may be invisible」的斷言（轉場中重建的 `ListTile` 才會觸發，
+  例如匯入完成時音樂庫長出新卡片）；頁面不在自己的 `Scaffold` 裡，沒有自己的觀察者時 `PageAppBar` 聽的是外殼 `Scaffold` 的，側欄或別的頁一捲
+  就變色。閘門：`app_shell_test.dart` 的 `every page of a nested navigator paints on its own Material`、`page_app_bar_test.dart` 的
+  `only the page's own list scrolling under the bar tints it`。
 - 詳情清單的列是 `groupParts` 排出來的（群組標題＋分 P），所以 `ReorderableListView` 的位置不是項目的位置：重排一律經
   `reorderedEntryIds`。多選的鍵同樣只取 `PlaylistEntryRow` 的項目 id，標題列不是項目。
 - 測試：`ShellHarness` 開在音樂庫，`runAsync` 裡以 `playlistRepositoryProvider` 建歌單（匯入歌單用 `createImported`）與 `addTracks`，

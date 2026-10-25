@@ -47,6 +47,7 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/shell/legacy_side_rail.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
@@ -396,16 +397,30 @@ final class ShellHarness {
     Size size = const Size(1000, 700),
     Brightness brightness = Brightness.light,
     bool collapsePanel = false,
+    bool expandRail = false,
     ShellDestination at = ShellDestination.search,
   }) async {
     await pumpApp(tester, const AppShell(), size: size, brightness: brightness);
+    if (expandRail) {
+      await rememberLayout(tester, railExpanded: true);
+      // 展開有寬度動畫。
+      await tester.pumpAndSettle();
+    }
     if (at != ShellDestination.values.first) await open(tester, at);
-    if (!collapsePanel) return;
+    if (collapsePanel) await rememberLayout(tester, panelExpanded: false);
+  }
+
+  /// 把版面狀態寫進資料庫（就像使用者之前操作過），並讓外殼讀到。
+  Future<void> rememberLayout(
+    WidgetTester tester, {
+    bool? panelExpanded,
+    bool? railExpanded,
+  }) async {
     await tester.runAsync(
       () =>
           container(tester)
               .read(layoutStateRepositoryProvider)
-              .write(panelExpanded: false),
+              .write(panelExpanded: panelExpanded, railExpanded: railExpanded),
     );
     await loadSettings(tester);
   }
@@ -431,10 +446,7 @@ final class ShellHarness {
   /// 導覽元件裡 [destination] 那一項的文字（英文介面）。
   static Finder navigationItem(ShellDestination destination) => find.descendant(
     of: find.byWidgetPredicate(
-      (widget) =>
-          widget is NavigationBar ||
-          widget is NavigationRail ||
-          widget is NavigationDrawer,
+      (widget) => widget is NavigationBar || widget is LegacySideRail,
     ),
     matching: find.text(switch (destination) {
       ShellDestination.home => 'Home',

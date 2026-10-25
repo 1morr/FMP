@@ -4626,12 +4626,27 @@ class $LayoutStateTableTable extends LayoutStateTable
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _railExpandedMeta = const VerificationMeta(
+    'railExpanded',
+  );
+  @override
+  late final GeneratedColumn<bool> railExpanded = GeneratedColumn<bool>(
+    'rail_expanded',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("rail_expanded" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     playerTab,
     panelExpanded,
     panelWidth,
+    railExpanded,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4663,6 +4678,15 @@ class $LayoutStateTableTable extends LayoutStateTable
         panelWidth.isAcceptableOrUnknown(data['panel_width']!, _panelWidthMeta),
       );
     }
+    if (data.containsKey('rail_expanded')) {
+      context.handle(
+        _railExpandedMeta,
+        railExpanded.isAcceptableOrUnknown(
+          data['rail_expanded']!,
+          _railExpandedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4690,6 +4714,10 @@ class $LayoutStateTableTable extends LayoutStateTable
         DriftSqlType.double,
         data['${effectivePrefix}panel_width'],
       ),
+      railExpanded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}rail_expanded'],
+      ),
     );
   }
 
@@ -4716,11 +4744,15 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
 
   /// 右側面板的寬度（dp）。資料庫只擋明顯的壞值，實際範圍在讀取時依視窗夾取。
   final double? panelWidth;
+
+  /// 左側導覽側欄展開與否（ADR 0035 §決定 5）；空＝沒記過，呼叫端當作收合。
+  final bool? railExpanded;
   const LayoutStateRow({
     required this.id,
     this.playerTab,
     this.panelExpanded,
     this.panelWidth,
+    this.railExpanded,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4737,6 +4769,9 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
     if (!nullToAbsent || panelWidth != null) {
       map['panel_width'] = Variable<double>(panelWidth);
     }
+    if (!nullToAbsent || railExpanded != null) {
+      map['rail_expanded'] = Variable<bool>(railExpanded);
+    }
     return map;
   }
 
@@ -4752,6 +4787,9 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
       panelWidth: panelWidth == null && nullToAbsent
           ? const Value.absent()
           : Value(panelWidth),
+      railExpanded: railExpanded == null && nullToAbsent
+          ? const Value.absent()
+          : Value(railExpanded),
     );
   }
 
@@ -4765,6 +4803,7 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
       playerTab: serializer.fromJson<PlayerTab?>(json['playerTab']),
       panelExpanded: serializer.fromJson<bool?>(json['panelExpanded']),
       panelWidth: serializer.fromJson<double?>(json['panelWidth']),
+      railExpanded: serializer.fromJson<bool?>(json['railExpanded']),
     );
   }
   @override
@@ -4775,6 +4814,7 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
       'playerTab': serializer.toJson<PlayerTab?>(playerTab),
       'panelExpanded': serializer.toJson<bool?>(panelExpanded),
       'panelWidth': serializer.toJson<double?>(panelWidth),
+      'railExpanded': serializer.toJson<bool?>(railExpanded),
     };
   }
 
@@ -4783,6 +4823,7 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
     Value<PlayerTab?> playerTab = const Value.absent(),
     Value<bool?> panelExpanded = const Value.absent(),
     Value<double?> panelWidth = const Value.absent(),
+    Value<bool?> railExpanded = const Value.absent(),
   }) => LayoutStateRow(
     id: id ?? this.id,
     playerTab: playerTab.present ? playerTab.value : this.playerTab,
@@ -4790,6 +4831,7 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
         ? panelExpanded.value
         : this.panelExpanded,
     panelWidth: panelWidth.present ? panelWidth.value : this.panelWidth,
+    railExpanded: railExpanded.present ? railExpanded.value : this.railExpanded,
   );
   LayoutStateRow copyWithCompanion(LayoutStateTableCompanion data) {
     return LayoutStateRow(
@@ -4801,6 +4843,9 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
       panelWidth: data.panelWidth.present
           ? data.panelWidth.value
           : this.panelWidth,
+      railExpanded: data.railExpanded.present
+          ? data.railExpanded.value
+          : this.railExpanded,
     );
   }
 
@@ -4810,13 +4855,15 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
           ..write('id: $id, ')
           ..write('playerTab: $playerTab, ')
           ..write('panelExpanded: $panelExpanded, ')
-          ..write('panelWidth: $panelWidth')
+          ..write('panelWidth: $panelWidth, ')
+          ..write('railExpanded: $railExpanded')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, playerTab, panelExpanded, panelWidth);
+  int get hashCode =>
+      Object.hash(id, playerTab, panelExpanded, panelWidth, railExpanded);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4824,7 +4871,8 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
           other.id == this.id &&
           other.playerTab == this.playerTab &&
           other.panelExpanded == this.panelExpanded &&
-          other.panelWidth == this.panelWidth);
+          other.panelWidth == this.panelWidth &&
+          other.railExpanded == this.railExpanded);
 }
 
 class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
@@ -4832,29 +4880,34 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
   final Value<PlayerTab?> playerTab;
   final Value<bool?> panelExpanded;
   final Value<double?> panelWidth;
+  final Value<bool?> railExpanded;
   const LayoutStateTableCompanion({
     this.id = const Value.absent(),
     this.playerTab = const Value.absent(),
     this.panelExpanded = const Value.absent(),
     this.panelWidth = const Value.absent(),
+    this.railExpanded = const Value.absent(),
   });
   LayoutStateTableCompanion.insert({
     this.id = const Value.absent(),
     this.playerTab = const Value.absent(),
     this.panelExpanded = const Value.absent(),
     this.panelWidth = const Value.absent(),
+    this.railExpanded = const Value.absent(),
   });
   static Insertable<LayoutStateRow> custom({
     Expression<int>? id,
     Expression<String>? playerTab,
     Expression<bool>? panelExpanded,
     Expression<double>? panelWidth,
+    Expression<bool>? railExpanded,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (playerTab != null) 'player_tab': playerTab,
       if (panelExpanded != null) 'panel_expanded': panelExpanded,
       if (panelWidth != null) 'panel_width': panelWidth,
+      if (railExpanded != null) 'rail_expanded': railExpanded,
     });
   }
 
@@ -4863,12 +4916,14 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
     Value<PlayerTab?>? playerTab,
     Value<bool?>? panelExpanded,
     Value<double?>? panelWidth,
+    Value<bool?>? railExpanded,
   }) {
     return LayoutStateTableCompanion(
       id: id ?? this.id,
       playerTab: playerTab ?? this.playerTab,
       panelExpanded: panelExpanded ?? this.panelExpanded,
       panelWidth: panelWidth ?? this.panelWidth,
+      railExpanded: railExpanded ?? this.railExpanded,
     );
   }
 
@@ -4889,6 +4944,9 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
     if (panelWidth.present) {
       map['panel_width'] = Variable<double>(panelWidth.value);
     }
+    if (railExpanded.present) {
+      map['rail_expanded'] = Variable<bool>(railExpanded.value);
+    }
     return map;
   }
 
@@ -4898,7 +4956,8 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
           ..write('id: $id, ')
           ..write('playerTab: $playerTab, ')
           ..write('panelExpanded: $panelExpanded, ')
-          ..write('panelWidth: $panelWidth')
+          ..write('panelWidth: $panelWidth, ')
+          ..write('railExpanded: $railExpanded')
           ..write(')'))
         .toString();
   }
@@ -14652,6 +14711,7 @@ typedef $$LayoutStateTableTableCreateCompanionBuilder =
       Value<PlayerTab?> playerTab,
       Value<bool?> panelExpanded,
       Value<double?> panelWidth,
+      Value<bool?> railExpanded,
     });
 typedef $$LayoutStateTableTableUpdateCompanionBuilder =
     LayoutStateTableCompanion Function({
@@ -14659,6 +14719,7 @@ typedef $$LayoutStateTableTableUpdateCompanionBuilder =
       Value<PlayerTab?> playerTab,
       Value<bool?> panelExpanded,
       Value<double?> panelWidth,
+      Value<bool?> railExpanded,
     });
 
 class $$LayoutStateTableTableFilterComposer
@@ -14688,6 +14749,11 @@ class $$LayoutStateTableTableFilterComposer
 
   ColumnFilters<double> get panelWidth => $composableBuilder(
     column: $table.panelWidth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get railExpanded => $composableBuilder(
+    column: $table.railExpanded,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -14720,6 +14786,11 @@ class $$LayoutStateTableTableOrderingComposer
     column: $table.panelWidth,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get railExpanded => $composableBuilder(
+    column: $table.railExpanded,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LayoutStateTableTableAnnotationComposer
@@ -14744,6 +14815,11 @@ class $$LayoutStateTableTableAnnotationComposer
 
   GeneratedColumn<double> get panelWidth => $composableBuilder(
     column: $table.panelWidth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get railExpanded => $composableBuilder(
+    column: $table.railExpanded,
     builder: (column) => column,
   );
 }
@@ -14789,11 +14865,13 @@ class $$LayoutStateTableTableTableManager
                 Value<PlayerTab?> playerTab = const Value.absent(),
                 Value<bool?> panelExpanded = const Value.absent(),
                 Value<double?> panelWidth = const Value.absent(),
+                Value<bool?> railExpanded = const Value.absent(),
               }) => LayoutStateTableCompanion(
                 id: id,
                 playerTab: playerTab,
                 panelExpanded: panelExpanded,
                 panelWidth: panelWidth,
+                railExpanded: railExpanded,
               ),
           createCompanionCallback:
               ({
@@ -14801,11 +14879,13 @@ class $$LayoutStateTableTableTableManager
                 Value<PlayerTab?> playerTab = const Value.absent(),
                 Value<bool?> panelExpanded = const Value.absent(),
                 Value<double?> panelWidth = const Value.absent(),
+                Value<bool?> railExpanded = const Value.absent(),
               }) => LayoutStateTableCompanion.insert(
                 id: id,
                 playerTab: playerTab,
                 panelExpanded: panelExpanded,
                 panelWidth: panelWidth,
+                railExpanded: railExpanded,
               ),
           withReferenceMapper: (p0) => p0
               .map(

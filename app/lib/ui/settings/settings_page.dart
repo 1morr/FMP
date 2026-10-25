@@ -15,6 +15,7 @@ import 'package:fmp/ui/settings/backup_controls.dart';
 import 'package:fmp/ui/settings/library_controls.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/playback_controls.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -123,23 +124,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     };
     final developerMode =
         ref.watch(developerProvider).value?.developerMode ?? false;
-    Widget header(Widget? leading, String text, TextStyle? style) => Padding(
-      padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
-      child: Row(
-        children: [
-          ?leading,
-          Expanded(
-            child: Semantics(header: true, child: Text(text, style: style)),
-          ),
-        ],
-      ),
-    );
-    final title = header(null, t.title, theme.textTheme.headlineSmall);
     // 清單會捲動：開發者模式下有九列，矮的視窗（橫向的手機）放不下。
     Widget list(SettingsSection? selected) => ListView(
       children: [
-        title,
-        SizedBox(height: spacing.x2),
         for (final group in SettingsSection.values)
           ListTile(
             leading: Icon(group.icon),
@@ -246,18 +233,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         };
     return switch (WindowClass.of(context)) {
       WindowClass.compact || WindowClass.medium => switch (_selected) {
-        null => list(null),
+        null => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PageAppBar(title: t.title),
+            Expanded(child: list(null)),
+          ],
+        ),
         final group => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            header(
-              IconButton(
+            PageAppBar(
+              leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: t.back,
                 onPressed: () => setState(() => _selected = null),
               ),
-              name(group),
-              theme.textTheme.headlineSmall,
+              title: name(group),
             ),
             // 標題已經在上面那一列。
             Expanded(child: detail(group, heading: false)),
@@ -266,18 +258,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       },
       WindowClass.expanded ||
       WindowClass.large ||
-      WindowClass.extraLarge => Row(
+      WindowClass.extraLarge => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: AppLayout.settingsListWidth,
-            child: list(_selected ?? SettingsSection.values.first),
-          ),
-          const VerticalDivider(),
+          PageAppBar(title: t.title),
           Expanded(
-            child: detail(
-              _selected ?? SettingsSection.values.first,
-              heading: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: AppLayout.settingsListWidth,
+                  child: list(_selected ?? SettingsSection.values.first),
+                ),
+                const VerticalDivider(),
+                Expanded(
+                  child: detail(
+                    _selected ?? SettingsSection.values.first,
+                    heading: true,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

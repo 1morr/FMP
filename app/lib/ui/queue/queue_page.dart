@@ -6,6 +6,7 @@ import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/open_search.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 
 /// 佇列目的地的根頁（ADR 0035 §決定 2）：各寬度都是整頁的 [QueueView]；佇列空時是空狀態
 /// （舊版的引導：圖示、說明與「去搜尋」，經 `openSearchProvider`）。
@@ -27,16 +28,26 @@ class QueuePage extends ConsumerWidget {
     if (empty == null) return const SizedBox.shrink();
     if (empty) {
       final t = ref.watch(translationsProvider).shell;
-      return EmptyState(
-        icon: Icons.queue_music,
-        title: t.queueEmptyTitle,
-        body: t.queueEmptyBody,
-        action: FilledButton.icon(
-          // 「去搜尋」：外殼切到搜尋目的地（`openSearchProvider`，歷史頁的空狀態也用它）。
-          onPressed: () => ref.read(openSearchProvider)(),
-          icon: const Icon(Icons.search),
-          label: Text(t.queueEmptyAction),
-        ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PageAppBar(
+            title: ref.watch(translationsProvider).playerPage.queueTitle,
+          ),
+          Expanded(
+            child: EmptyState(
+              icon: Icons.queue_music,
+              title: t.queueEmptyTitle,
+              body: t.queueEmptyBody,
+              action: FilledButton.icon(
+                // 「去搜尋」：外殼切到搜尋目的地（`openSearchProvider`，歷史頁的空狀態也用它）。
+                onPressed: () => ref.read(openSearchProvider)(),
+                icon: const Icon(Icons.search),
+                label: Text(t.queueEmptyAction),
+              ),
+            ),
+          ),
+        ],
       );
     }
     return const QueueView();
