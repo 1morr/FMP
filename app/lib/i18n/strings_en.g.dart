@@ -708,6 +708,16 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String importProgress({required Object count}) => 'Songs read: ${count}';
   @override
+  String importProgressOf({required Object count, required Object total}) =>
+      'Imported ${count} of ${total}';
+  @override
+  String get importCancelledNone => 'Import cancelled';
+  @override
+  String refreshProgress({required Object count}) => '${count} updated';
+  @override
+  String refreshProgressOf({required Object count, required Object total}) =>
+      '${count} of ${total} updated';
+  @override
   String get importUnrecognized =>
       'This link isn\'t recognized by any installed source';
   @override
@@ -2150,6 +2160,8 @@ class Translations$importPreview$en extends Translations$importPreview$zh_TW {
   String progress({required Object done, required Object total}) =>
       'Matched ${done} of ${total}';
   @override
+  String currentSong({required Object title}) => 'Matching: ${title}';
+  @override
   String get truncated => 'The source only provided part of the playlist';
   @override
   String get pending => 'Waiting';
@@ -2715,8 +2727,30 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   String importSelected({required Object count}) =>
       'Import selected (${count})';
   @override
-  String importingProgress({required Object done, required Object total}) =>
-      'Importing ${done}/${total}';
+  String get importPageTitle => 'Import playlists';
+  @override
+  String importOverall({required Object done, required Object total}) =>
+      'Playlist ${done} of ${total}';
+  @override
+  String itemProgress({required Object count}) => 'Read ${count}';
+  @override
+  String itemProgressOf({required Object count, required Object total}) =>
+      'Imported ${count} of ${total}';
+  @override
+  String get itemWaiting => 'Waiting';
+  @override
+  String get itemImporting => 'Importing';
+  @override
+  String get itemDone => 'Done';
+  @override
+  String get itemCancelled => 'Cancelled';
+  @override
+  String get importCancel => 'Cancel';
+  @override
+  String get importFinish => 'Done';
+  @override
+  String importCancelled({required Object count}) =>
+      'Cancelled: ${count} imported';
   @override
   String playlistImportFailed({required Object reason}) =>
       'Import failed: ${reason}';

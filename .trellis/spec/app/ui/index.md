@@ -231,7 +231,7 @@ try {
 - 匯入與刷新的畫面端（`import_dialog.dart`、`manual_refresh.dart`，M4 PR 8b）：手動刷新一律經 `ref.read(manualRefreshProvider.notifier)(playlistId)`
   （卡片選單、詳情的「刷新」與狀態列的「重試」同一條）：它記著正在刷新的歌單 id（按鈕據此顯示進行中、不接受第二次）並負責提示
   （失敗而網路不是 `online` 寫離線字樣，其餘照 ADR 0013 的類別表，自動刷新不經這裡所以不跳 toast）。匯入對話框用
-  `PlaylistImporter.importUrl(onProgress:)` 顯示「已讀 n 首」，進行中不能關。匯入成功後的詳情由呼叫端（音樂庫頁）開，
+  `PlaylistImporter.importUrl(onProgress:, cancel:)` 顯示「已匯入 n／M 首」（`ImportProgress`），進行中不能關、只能取消。帳號匯入的全頁是 `account_import_page.dart`（`AccountImportRun` 跑、`AccountImportPage` 畫；測試 `account_import_page_test.dart`）。匯入成功後的詳情由呼叫端（音樂庫頁）開，
   因為對話框在根 Navigator 上、詳情要開在音樂庫的巢狀導覽裡。詳情的「登入」經 `openAccountsProvider`（外殼接上，換到設定頁的「帳號」區塊）。
 - 測試匯入畫面：`ShellHarness(registryOfSources: true, sources: [FakeImportPlugin(...)])`（`test/library/fake_import_plugin.dart`）。
   介面上插件名稱由 harness 固定為 `Test Source`。進度條會一直轉，進行中的畫面不要 `pumpAndSettle`。

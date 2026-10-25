@@ -9,8 +9,8 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/library/playlist_importer.dart';
-import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/accounts/account_import_page.dart';
 import 'package:fmp/ui/accounts/account_playlists_state.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
@@ -22,7 +22,6 @@ import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_widgets.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
-import 'package:fmp/ui/toast/toaster.dart';
 
 /// 在 [context] 所在的 Navigator 開 [pluginId] 的帳號歌單頁：帳號頁在設定分頁自己的巢狀導覽裡，
 /// 導覽與播放列留著（同 `openHistory`）。
@@ -63,8 +62,6 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
   /// 這次匯入失敗的列（`playlistId` → 顯示的原因）；下一次匯入開始時清掉要重來的那些。
   final _failures = <String, String>{};
   var _importing = false;
-  var _done = 0;
-  var _total = 0;
 
   String get _pluginId => widget.pluginId;
 
@@ -87,73 +84,33 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
 
   Future<void> _import(List<LibraryPlaylist> chosen) async {
     if (_importing || chosen.isEmpty) return;
-    // 要用的東西在第一個 await 之前讀好：匯入期間使用者可能離開這一頁。
     final t = ref.read(translationsProvider);
-    final importer = ref.read(playlistImporterProvider);
-    final log = ref.read(logProvider);
-    final toaster = ref.read(toasterProvider);
+    final run = AccountImportRun(
+      pluginId: _pluginId,
+      playlists: chosen,
+      importer: ref.read(playlistImporterProvider),
+      log: ref.read(logProvider),
+      translations: t,
+      // 匯入頁擋住返回，這一頁通常還在；整個巢狀導覽被拆掉時 `ref` 不能再讀，退回不帶音源名的訊息，
+      // 不讓剩下的匯入中斷。
+      failureReason: (error) => mounted
+          ? _reason(ref.read(translationsProvider), error)
+          : errorMessage(t, error),
+    );
     setState(() {
       _importing = true;
-      _done = 0;
-      _total = chosen.length;
       for (final playlist in chosen) {
         _failures.remove(playlist.playlistId);
       }
     });
-    var imported = 0;
-    var failed = 0;
-    for (final playlist in chosen) {
-      AppError? error;
-      var unsupported = false;
-      try {
-        final result = await importer.importPlaylistId(
-          _pluginId,
-          playlist.playlistId,
-          writable: playlist.writable,
-        );
-        if (result is ImportedPlaylist) {
-          imported++;
-        } else {
-          // 僅元資料來源（沒有 resolveStream）：交給匯入預覽，這裡什麼都沒寫。
-          unsupported = true;
-        }
-      } on Object catch (thrown, stackTrace) {
-        error = AppError.wrap(thrown, stackTrace, pluginId: _pluginId);
-        log.report(
-          'Failed to import an account playlist',
-          error,
-          tag: libraryLogTag,
-        );
-      }
-      if (error != null || unsupported) failed++;
-      // 頁面已離開：照做剩下的、照樣提示，但不再碰 ref（原因的字樣要讀 provider）。
-      if (!mounted) continue;
-      final failure = unsupported
-          ? t.accounts.playlistUnsupported
-          : error == null
-          ? null
-          : _failureText(t, error);
-      setState(() {
-        _done++;
-        if (failure != null) {
-          _failures[playlist.playlistId] = failure;
-        } else {
-          _selected.remove(playlist.playlistId);
-        }
-      });
-    }
-    if (failed == 0) {
-      toaster.success(t.accounts.importedCount(count: imported));
-    } else {
-      toaster.warning(
-        t.accounts.importedWithFailures(count: imported, failed: failed),
-      );
-    }
-    if (mounted) setState(() => _importing = false);
+    await openAccountImport(context, run);
+    if (!mounted) return;
+    setState(() {
+      _importing = false;
+      _failures.addAll(run.failures);
+      _selected.removeAll(run.importedIds);
+    });
   }
-
-  String _failureText(Translations t, AppError error) =>
-      t.accounts.playlistImportFailed(reason: _reason(t, error));
 
   @override
   Widget build(BuildContext context) {
@@ -213,27 +170,6 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
             ],
           ),
         ),
-        if (_importing)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.x4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 進度念給螢幕閱讀器。
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    a.importingProgress(done: _done, total: _total),
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                SizedBox(height: spacing.x1),
-                LinearProgressIndicator(
-                  value: _total == 0 ? null : _done / _total,
-                ),
-              ],
-            ),
-          ),
         Expanded(
           child: switch (playlists) {
             AsyncData(:final value) when value.isEmpty => EmptyState(

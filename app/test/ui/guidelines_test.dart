@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/backup.dart';
 import 'package:fmp/charts/chart_jobs.dart';
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/endpoints.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -45,7 +46,10 @@ import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/debug/debug_playback.dart';
 import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
+import 'package:fmp/library/playlist_importer.dart';
+import 'package:fmp/ui/accounts/account_import_page.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
+import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/player/player_bar.dart';
@@ -1317,6 +1321,148 @@ void main() {
           await expectGuidelines(tester);
           handle.dispose();
         });
+
+        // 匯入進度（U PR 4，ADR 0035 §決定 11）：網址匯入對話框的確定式進度與取消、帳號匯入全頁
+        // 的進行中與跑完（有一張失敗）。
+        testWidgets('the import dialog while importing at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final gate = Completer<PlaylistPage>();
+          final source = FakeImportPlugin(
+            onUrl: (_) => PlaylistIdRef('p1'),
+            onPage: (query) => query.cursor == null
+                ? page(['a', 'b'], cursor: 'c2', total: 3)
+                : gate.future,
+          );
+          final h = ShellHarness(registryOfSources: true, sources: [source]);
+          await h.pumpShell(
+            tester,
+            size: size,
+            brightness: brightness,
+            at: ShellDestination.library,
+          );
+          await h.loadSettings(tester);
+          await tester.tap(find.byTooltip('Import a playlist'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Link'),
+            'https://fmp.test/p1',
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pump();
+          expect(find.text('Imported 2 of 3'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          gate.complete(page(['c'], total: 3));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          handle.dispose();
+        });
+
+        for (final finished in [false, true]) {
+          testWidgets(
+            'the account import page ${finished ? 'when done' : 'while importing'} at $width',
+            (tester) async {
+              final handle = tester.ensureSemantics();
+              final gate = Completer<PlaylistPage>();
+              final source = FakeImportPlugin(
+                onPage: (query) => switch (query.playlistId) {
+                  'bad' => throw NetworkError(pluginId: 'fmp-test'),
+                  'slow' when !finished =>
+                    query.cursor == null
+                        ? page(['a', 'b'], cursor: 'c2', total: 5)
+                        : gate.future,
+                  _ => page(['x', 'y'], total: 2),
+                },
+              );
+              final h = ShellHarness(
+                registryOfSources: true,
+                sources: [source],
+              );
+              late AccountImportRun run;
+              await h.pumpApp(
+                tester,
+                Builder(
+                  builder: (context) => Material(
+                    child: TextButton(
+                      // 外殼的內容區有底色；這裡自己給（頁面本身是透明的）。
+                      onPressed: () => unawaited(
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                Scaffold(body: AccountImportPage(run: run)),
+                          ),
+                        ),
+                      ),
+                      child: const Text('open'),
+                    ),
+                  ),
+                ),
+                size: size,
+                brightness: brightness,
+              );
+              final container = h.container(tester);
+              run = AccountImportRun(
+                pluginId: 'fmp-test',
+                playlists: const [
+                  LibraryPlaylist(
+                    playlistId: 'slow',
+                    title: 'Road trip',
+                    trackCount: 5,
+                    writable: false,
+                  ),
+                  LibraryPlaylist(
+                    playlistId: 'bad',
+                    title: 'Vanished',
+                    trackCount: 1,
+                    writable: false,
+                  ),
+                  LibraryPlaylist(
+                    playlistId: 'ok',
+                    title: 'Study',
+                    trackCount: 2,
+                    writable: false,
+                  ),
+                ],
+                importer: container.read(playlistImporterProvider),
+                log: container.read(logProvider),
+                translations: container.read(translationsProvider),
+                failureReason: (error) => 'No connection',
+              );
+              await tester.tap(find.text('open'));
+              await tester.pump();
+              await tester.pump(const Duration(seconds: 1));
+              for (var i = 0; i < 3; i++) {
+                await tester.runAsync(
+                  () => Future<void>.delayed(const Duration(milliseconds: 80)),
+                );
+                await tester.pump();
+              }
+              expect(run.finished, finished);
+
+              await expectGuidelines(tester);
+              if (!finished) {
+                gate.complete(page(['c', 'd', 'e'], total: 5));
+                for (var i = 0; i < 3; i++) {
+                  await tester.runAsync(
+                    () =>
+                        Future<void>.delayed(const Duration(milliseconds: 80)),
+                  );
+                  await tester.pump();
+                }
+              }
+              handle.dispose();
+            },
+          );
+        }
 
         // 匯入預覽頁（M4 PR 19，design §10.9）：匹配中、完成（有匹配失敗與搜尋失敗、展開一首）、
         // `truncated` 的提示。

@@ -670,10 +670,31 @@ class _PlaylistSubtitle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).library;
-    return Text(
+    final progress = ref.watch(
+      manualRefreshProvider.select((all) => all[overview.playlist.id]),
+    );
+    final text = Text(
       playlistSubtitleText(t, overview),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+    );
+    if (progress == null) return text;
+    // 刷新中：副標題前面一個轉圈，後面是「已更新 n 首」（卡片上的進度，ADR 0035 §決定 11）。
+    return Row(
+      children: [
+        const SizedBox.square(
+          dimension: AppLayout.buttonSpinner,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        SizedBox(width: AppTokens.of(context).spacing.x2),
+        Expanded(
+          child: Text(
+            refreshProgressText(t, progress),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -709,7 +730,7 @@ class _PlaylistMenu extends ConsumerWidget {
         ? ref.watch(mixUnavailableReasonProvider(playlist.mixPluginId ?? ''))
         : null;
     final refreshing = ref.watch(
-      manualRefreshProvider.select((ids) => ids.contains(playlist.id)),
+      manualRefreshProvider.select((ids) => ids.containsKey(playlist.id)),
     );
     return TrackRowMenu(
       moreTooltip: t.more,

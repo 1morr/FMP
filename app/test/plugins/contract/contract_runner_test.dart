@@ -640,12 +640,13 @@ void main() {
           directory,
           _checks,
           '"minItems": 2, "nonEmpty": ["playlistId"',
-          '"minItems": 3, "nonEmpty": ["playlistId"',
+          // 帳號清單有 3 張（pl-auth、pl-basic、pl-long），要求 4 張才會紅。
+          '"minItems": 4, "nonEmpty": ["playlistId"',
         );
 
         expect(
           await runContract(directory),
-          contains(contains('expected at least 3 items, got 2')),
+          contains(contains('expected at least 4 items, got 3')),
         );
       },
     );

@@ -4,14 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/core/app_flavor.dart';
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
+import 'package:fmp/ui/accounts/account_import_page.dart';
 import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/web_login_page.dart';
 import 'package:fmp/ui/charts/explore_page.dart';
@@ -19,6 +22,7 @@ import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/home/home_page.dart';
+import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/import_preview_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/layout/window_class.dart';
@@ -41,7 +45,7 @@ import '../test/ui/support/shell_harness.dart';
 // `test/ui/toast/toast_host_test.dart` 的 `above every route` 以 flutter test
 // 跑；這裡在真的引擎與平台上再跑一次（含播放頁，M2 PR 18a；網頁登入的 WebView，M3 PR 9；
 // Debug 頁，M3 PR 11；錯誤詳細頁，M3 PR 13；播放頁的直播版，M3 PR 18c；巢狀導覽裡的頁，M4 PR 2；
-// 探索頁，M4 PR 21；匯入預覽頁與它的離開確認，M4 PR 19）：
+// 探索頁，M4 PR 21；匯入預覽頁與它的離開確認，M4 PR 19；帳號匯入頁，U PR 4）：
 //
 //   flutter test integration_test/toast_layering_test.dart -d windows
 //   flutter test integration_test/toast_layering_test.dart -d emulator-5554
@@ -320,6 +324,38 @@ void main() {
     await tester.pumpAndSettle();
     await expectToastOnTop(tester, h);
     expect(find.text('A dialog'), findsOneWidget);
+
+    // 帳號匯入的全頁（U PR 4，ADR 0035 §決定 11）推在同一個巢狀導覽上：之後的提示在它之上
+    // （這一頁自己不跳提示，結果顯示在頂端狀態列）。這個假插件沒有 importPlaylist，那一張失敗，頁面停在「完成」。
+    Navigator.of(tester.element(find.text('A dialog'))).pop();
+    await tester.pumpAndSettle();
+    final container = h.container(tester);
+    unawaited(
+      openAccountImport(
+        tester.element(find.byType(AccountPlaylistsPage)),
+        AccountImportRun(
+          pluginId: h.plugin.manifest.id,
+          playlists: const [
+            LibraryPlaylist(
+              playlistId: 'a',
+              title: 'A playlist',
+              writable: false,
+            ),
+          ],
+          importer: container.read(playlistImporterProvider),
+          log: container.read(logProvider),
+          translations: container.read(translationsProvider),
+          failureReason: (_) => 'reason',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountImportPage), findsOneWidget);
+    expect(find.byType(PlayerBar), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    await expectToastOnTop(tester, h);
+    expect(find.byType(AccountImportPage), findsOneWidget);
   });
 
   // 網頁登入（M3 PR 9）：全螢幕頁裡是平台真的 WebView（Android 的系統 WebView、Windows 的

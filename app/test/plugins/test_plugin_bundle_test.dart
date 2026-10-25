@@ -340,6 +340,31 @@ void main() {
       },
     );
 
+    test('pl-long and pl-long-nototal page through 1200 songs, 50 at a time, '
+        'with and without a total', () async {
+      final plugin = await load();
+
+      for (final (id, total) in [
+        ('pl-long', 1200),
+        ('pl-long-nototal', null),
+      ]) {
+        var count = 0;
+        var pages = 0;
+        String? cursor;
+        PlaylistPage? last;
+        do {
+          last = await page(plugin, id, cursor);
+          cursor = last.cursor;
+          count += last.items.length;
+          pages++;
+          expect(last.total, total, reason: id);
+        } while (cursor != null);
+        expect(count, 1200, reason: id);
+        expect(pages, 24, reason: id);
+        expect(last.items.last.track.sourceId, 'long-1200', reason: id);
+      }
+    });
+
     test(
       'pl-grow adds, removes, then reverses, one step per refresh',
       () async {
@@ -411,7 +436,14 @@ void main() {
     test('the other playlists do not know whether they are writable', () async {
       final plugin = await load();
 
-      for (final id in ['pl-basic', 'pl-grow', 'pl-unavailable', 'pl-parts']) {
+      for (final id in [
+        'pl-basic',
+        'pl-grow',
+        'pl-unavailable',
+        'pl-parts',
+        'pl-long',
+        'pl-long-nototal',
+      ]) {
         expect((await page(plugin, id)).playlist.writable, isNull, reason: id);
       }
     });
@@ -453,7 +485,14 @@ void main() {
     test('every playlist song plays a bundled asset', () async {
       final plugin = await load();
 
-      for (final id in ['pl-basic', 'pl-grow', 'pl-unavailable', 'pl-parts']) {
+      for (final id in [
+        'pl-basic',
+        'pl-grow',
+        'pl-unavailable',
+        'pl-parts',
+        'pl-long',
+        'pl-long-nototal',
+      ]) {
         for (final item in (await page(plugin, id)).items) {
           final stream = await plugin.resolveStream(
             StreamRequest(
@@ -560,7 +599,7 @@ void main() {
       );
     });
 
-    test('lists pl-auth (writable) and pl-basic (read-only) after a login, '
+    test('lists pl-auth (writable), pl-basic and pl-long (read-only) after a login, '
         'with the titles and counts importPlaylist returns', () async {
       final harness = PluginHarness();
       final plugin = await harness.load(testPluginFile.readAsStringSync());
@@ -574,7 +613,11 @@ void main() {
           for (final p in page.playlists)
             (p.playlistId, p.writable, p.trackCount),
         ],
-        [('pl-auth', true, 3), ('pl-basic', false, 5)],
+        [
+          ('pl-auth', true, 3),
+          ('pl-basic', false, 5),
+          ('pl-long', false, 1200),
+        ],
       );
       for (final entry in page.playlists) {
         final imported = await plugin.importPlaylist(
@@ -848,6 +891,7 @@ void main() {
         [
           ('pl-auth', true),
           ('pl-basic', false),
+          ('pl-long', false),
           ('pl-new-1', true),
           ('pl-new-2', true),
         ],

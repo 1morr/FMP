@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/library/import_progress.dart';
 import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/plugins/source_dto.dart';
@@ -13,10 +14,12 @@ import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
+import 'package:fmp/ui/toast/toaster.dart';
 
 /// 從網址匯入歌單的對話框（M4 design §10.8）：一個文字欄、「匯入」。
 ///
-/// 匯入進行中顯示「已讀 n 首」，對話框不能關（匯入不能中途取消）。成功（建好或重新匯入同一張）
+/// 匯入進行中顯示「已匯入 n／M 首」（M 不明時「已讀 n 首」）與目前的曲名，對話框不能關，只能按「取消」
+/// （ADR 0035 §決定 11）：已寫入的頁留著，一頁都沒寫就什麼都不留，兩者都關閉並回傳 `null`、跳提示。成功（建好或重新匯入同一張）
 /// 關閉並回傳 [ImportedPlaylist]（Mix 網址是 [CreatedMix]），由呼叫端開詳情；不認得的網址與
 /// 第一頁（Mix 是 `mix`）失敗都留在對話框裡寫原因、不建歌單，輸入留著。取消回 `null`。
 ///
@@ -57,8 +60,9 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
   /// 選了「配對到其他音源」（只在 [RecognizedUrl.canPair] 時有這個選擇）。
   var _pair = false;
 
-  /// 這次匯入已讀的項目數；第一頁還沒回來之前是 `null`。
-  int? _count;
+  /// 這次匯入的進度；第一頁還沒寫入之前是 `null`。
+  ImportProgress? _progress;
+  ImportCancel? _cancel;
   String? _error;
 
   @override
@@ -118,6 +122,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
     final t = ref.read(translationsProvider);
     final importer = ref.read(playlistImporterProvider);
     final log = ref.read(logProvider);
+    final toaster = ref.read(toasterProvider);
     final recognized = _current;
     if (recognized != null && recognized.canPair && _pair) {
       final found = recognized.ref as PlaylistIdRef;
@@ -130,23 +135,40 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
       return;
     }
     _recognizeTimer?.cancel();
+    final cancel = ImportCancel();
     setState(() {
       _running = true;
-      _count = null;
+      _progress = null;
+      _cancel = cancel;
       _error = null;
     });
-    void onProgress(int count) {
-      if (mounted) setState(() => _count = count);
+    void onProgress(ImportProgress progress) {
+      if (mounted) setState(() => _progress = progress);
     }
 
     try {
       final result = recognized == null
-          ? await importer.importUrl(_url.text, onProgress: onProgress)
-          : await importer.importRecognized(recognized, onProgress: onProgress);
+          ? await importer.importUrl(
+              _url.text,
+              onProgress: onProgress,
+              cancel: cancel,
+            )
+          : await importer.importRecognized(
+              recognized,
+              onProgress: onProgress,
+              cancel: cancel,
+            );
       if (!mounted) return;
       switch (result) {
+        // 還沒寫任何東西就回來的（Mix 還沒建、要交給預覽的）：取消了就不再往下做。
+        case ImportMixSeed() || ImportForMatching() when cancel.isCancelled:
+          toaster.info(t.library.importCancelledNone);
+          Navigator.of(context).pop();
         case ImportedPlaylist() || CreatedMix() || ImportForMatching():
           Navigator.of(context).pop(result);
+        case ImportCancelled():
+          toaster.info(t.library.importCancelledNone);
+          Navigator.of(context).pop();
         case ImportUnrecognized():
           _fail(t.library.importUnrecognized);
         case ImportMixSeed():
@@ -175,6 +197,13 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
     }
   }
 
+  void _requestCancel() {
+    final cancel = _cancel;
+    if (cancel == null || cancel.isCancelled) return;
+    // 取消在下一頁寫入之前生效：按鈕先停用，結果回來時對話框才關。
+    setState(cancel.cancel);
+  }
+
   void _fail(String message) => setState(() {
     _running = false;
     _error = message;
@@ -185,9 +214,9 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider).library;
-    final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
-    final count = _count;
+    final progress = _progress;
+    final cancelling = _cancel?.isCancelled ?? false;
     final error = _error;
     final pairable = _current?.canPair ?? false;
     return PopScope(
@@ -224,25 +253,18 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
               ],
               if (_running) ...[
                 SizedBox(height: spacing.x4),
-                // 進度念給螢幕閱讀器：第一頁回來前是「正在辨識網址」，之後是已讀幾首。
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    count == null
-                        ? t.importLooking
-                        : t.importProgress(count: count),
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                SizedBox(height: spacing.x2),
-                const LinearProgressIndicator(),
+                _ImportProgressView(progress: progress),
               ],
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: _running ? null : () => Navigator.of(context).pop(),
+            onPressed: !_running
+                ? () => Navigator.of(context).pop()
+                : cancelling
+                ? null
+                : _requestCancel,
             child: Text(t.cancel),
           ),
           ListenableBuilder(
@@ -256,6 +278,56 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 匯入進行中的進度區（匯入對話框）：第一頁寫入前是「正在辨識網址」加不定長的進度條；之後
+/// 「已匯入 n／M 首」加確定長度的進度條（M 不明時「已讀 n 首」、不定長）與目前的曲名。
+class _ImportProgressView extends ConsumerWidget {
+  const _ImportProgressView({required this.progress});
+
+  final ImportProgress? progress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).library;
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    final value = progress;
+    final total = value?.displayTotal;
+    final title = value?.currentTitle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 進度念給螢幕閱讀器：第一頁回來前是「正在辨識網址」，之後是已匯入幾首。
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            value == null
+                ? t.importLooking
+                : total == null
+                ? t.importProgress(count: value.count)
+                : t.importProgressOf(count: value.count, total: total),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+        SizedBox(height: spacing.x2),
+        LinearProgressIndicator(
+          value: value == null || total == null ? null : value.count / total,
+        ),
+        if (title != null) ...[
+          SizedBox(height: spacing.x2),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

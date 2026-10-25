@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/library/import_progress.dart';
 import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 
 import '../playback/fake_source_plugin.dart';
+import '../support/pump_until.dart';
 import 'fake_import_plugin.dart';
 import 'library_harness.dart';
 
@@ -198,7 +200,7 @@ void main() {
       await env.importer.importPlaylistId(
         'fmp-test',
         'pl-1',
-        onProgress: counts.add,
+        onProgress: (p) => counts.add(p.count),
       );
 
       expect(counts, isNotEmpty);
@@ -486,6 +488,299 @@ void main() {
     });
   });
 
+  group('progress details', () {
+    test('the total comes from the page, then the expected total, and the '
+        'title is the last item written', () async {
+      env.plugin.onPage = (query) => query.cursor == null
+          ? page(['a', 'b'], cursor: 'p2', total: 3)
+          : page(['c'], total: 3);
+      final seen = <ImportProgress>[];
+
+      await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        expectedTotal: 99,
+        onProgress: seen.add,
+      );
+
+      expect([for (final p in seen) p.count], [2, 3]);
+      expect([for (final p in seen) p.total], [3, 3]);
+      expect([for (final p in seen) p.expectedTotal], [99, 99]);
+      expect([for (final p in seen) p.displayTotal], [3, 3]);
+      expect(seen.last.currentTitle, 'Song c');
+    });
+
+    test('without a page total the expected total is shown, and without '
+        'either there is none', () async {
+      env.plugin.onPage = (_) => page(['a', 'b']);
+      final withExpected = <ImportProgress>[];
+      await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        expectedTotal: 5,
+        onProgress: withExpected.add,
+      );
+      final without = <ImportProgress>[];
+      await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-2',
+        onProgress: without.add,
+      );
+
+      expect(withExpected.single.total, isNull);
+      expect(withExpected.single.displayTotal, 5);
+      expect(without.single.displayTotal, isNull);
+    });
+
+    test('a total smaller than what was read is not shown', () {
+      const progress = ImportProgress(count: 10, total: 4);
+      expect(progress.displayTotal, isNull);
+    });
+  });
+
+  group('cancel', () {
+    test('before the first page is written leaves nothing', () async {
+      final cancel = ImportCancel();
+      env.plugin.onPage = (_) {
+        cancel.cancel();
+        return page(['a', 'b'], total: 2);
+      };
+
+      final result = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        cancel: cancel,
+      );
+
+      expect(result, isA<ImportCancelled>());
+      expect((result as ImportCancelled).playlistId, isNull);
+      expect(result.count, 0);
+      expect(await env.repository.watchAll().first, isEmpty);
+      expect(await env.repository.findRemote('fmp-test', 'pl-1'), isNull);
+    });
+
+    test('a new import cancelled after a page is discarded entirely', () async {
+      final cancel = ImportCancel();
+      var fetched = 0;
+      env.plugin.onPage = (query) {
+        fetched++;
+        return query.cursor == null
+            ? page(['a', 'b'], cursor: 'p2', total: 5)
+            : page(['c', 'd', 'e'], total: 5);
+      };
+
+      final result = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        cancel: cancel,
+        onProgress: (_) => cancel.cancel(),
+      );
+
+      expect(result, isA<ImportCancelled>());
+      expect((result as ImportCancelled).playlistId, isNull);
+      // The second page was fetched but never written; nothing is left.
+      expect(fetched, 2);
+      expect(await env.repository.watchAll().first, isEmpty);
+      expect(await env.repository.findRemote('fmp-test', 'pl-1'), isNull);
+      for (final table in ['playlist_remote', 'playlist_entries', 'tracks']) {
+        final rows = await env.database
+            .customSelect('SELECT COUNT(*) AS n FROM $table')
+            .getSingle();
+        expect(rows.read<int>('n'), 0, reason: table);
+      }
+    });
+
+    test('a URL import cancelled after a page is discarded too', () async {
+      final cancel = ImportCancel();
+      env.plugin.onPage = (query) =>
+          query.cursor == null ? page(['a', 'b'], cursor: 'p2') : page(['c']);
+
+      final result = await env.importer.importUrl(
+        'https://fmp.test/pl',
+        cancel: cancel,
+        onProgress: (_) => cancel.cancel(),
+      );
+
+      expect(result, isA<ImportCancelled>());
+      expect(await env.repository.watchAll().first, isEmpty);
+    });
+
+    test('re-importing an existing playlist and cancelling after a page keeps '
+        'it as partial, and the next refresh completes it', () async {
+      env.plugin.onPage = (_) => page(['a']);
+      final first = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+      ) as ImportedPlaylist;
+      env.plugin.onPage = (query) => query.cursor == null
+          ? page(['a', 'b'], cursor: 'p2', total: 4)
+          : page(['c', 'd'], total: 4);
+      final cancel = ImportCancel();
+
+      final result = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        cancel: cancel,
+        onProgress: (_) => cancel.cancel(),
+      );
+
+      expect((result as ImportCancelled).playlistId, first.playlistId);
+      expect(result.count, 2);
+      expect(await ids(first.playlistId), ['a', 'b']);
+      final remote = await env.repository.remote(first.playlistId);
+      expect(remote!.lastResult, PlaylistRefreshResult.partial);
+      expect(remote.refreshIntervalHours, 24);
+
+      final again = await env.refresher.refresh(first.playlistId);
+      expect(again, isA<RefreshFinished>());
+      expect(await ids(first.playlistId), ['a', 'b', 'c', 'd']);
+      expect(
+        (await env.repository.remote(first.playlistId))!.lastResult,
+        PlaylistRefreshResult.complete,
+      );
+    });
+
+    test('mid-run does not apply removals or reordering', () async {
+      env.plugin.onPage = (_) => page(['a', 'b', 'x']);
+      final first = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+      ) as ImportedPlaylist;
+      // Remote now has only `a` (and more pages): a cancelled refresh must
+      // not drop `b` and `x`.
+      env.plugin.onPage = (query) =>
+          query.cursor == null ? page(['a'], cursor: 'p2') : page(['b']);
+      final cancel = ImportCancel();
+
+      final outcome = await env.refresher.refresh(
+        first.playlistId,
+        cancel: cancel,
+        onProgress: (_) => cancel.cancel(),
+      );
+
+      expect(outcome, isA<RefreshCancelled>());
+      expect(await ids(first.playlistId), ['a', 'b', 'x']);
+      expect(
+        (await env.repository.remote(first.playlistId))!.lastResult,
+        PlaylistRefreshResult.partial,
+      );
+    });
+
+    test('a refresh cancelled before its first page changes nothing', () async {
+      env.plugin.onPage = (_) => page(['a', 'b']);
+      final first = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+      ) as ImportedPlaylist;
+      final before = await env.repository.remote(first.playlistId);
+      final cancel = ImportCancel()..cancel();
+
+      final outcome = await env.refresher.refresh(
+        first.playlistId,
+        cancel: cancel,
+      );
+
+      expect(outcome, isA<RefreshCancelled>());
+      expect((outcome as RefreshCancelled).count, 0);
+      expect(await ids(first.playlistId), ['a', 'b']);
+      expect(
+        (await env.repository.remote(first.playlistId))!.lastResult,
+        before!.lastResult,
+      );
+    });
+
+    test('cancelled while queued behind another refresh, the new row is '
+        'deleted and nothing else is fetched', () async {
+      // Another playlist's refresh holds the refresher's lock on its page.
+      env.plugin.onPage = (_) => page(['x']);
+      final other = await env.importer.importPlaylistId(
+        'fmp-test',
+        'other',
+      ) as ImportedPlaylist;
+      final release = Completer<void>();
+      env.plugin.onPage = (query) async {
+        if (query.playlistId == 'other') await release.future;
+        return page(['a'], cursor: 'p2');
+      };
+      final blocking = env.refresher.refresh(other.playlistId);
+      await pumpUntil(
+        () =>
+            env.plugin.pageQueries
+                .where((q) => q.playlistId == 'other')
+                .length ==
+            2,
+      );
+      final cancel = ImportCancel();
+      final importing = env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        cancel: cancel,
+      );
+      // The first page is fetched and the row created, then it waits.
+      await pumpUntil(
+        () => env.plugin.pageQueries.any((q) => q.playlistId == 'pl-1'),
+      );
+      await settle();
+      expect(await env.repository.findRemote('fmp-test', 'pl-1'), isNotNull);
+      final fetched = env.plugin.pageQueries.length;
+
+      cancel.cancel();
+      release.complete();
+      final result = await importing;
+      await blocking;
+
+      expect(result, isA<ImportCancelled>());
+      expect((result as ImportCancelled).playlistId, isNull);
+      expect(await env.repository.findRemote('fmp-test', 'pl-1'), isNull);
+      expect(await names(), ['Remote title']);
+      expect([
+        for (final q in env.plugin.pageQueries.skip(fetched))
+          if (q.playlistId == 'pl-1') q,
+      ], isEmpty);
+    });
+
+    test('a kept (existing) playlist still gets the writable hint', () async {
+      env.plugin.onPage = (_) => page(['a']);
+      final first = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+      ) as ImportedPlaylist;
+      final cancel = ImportCancel();
+      env.plugin.onPage = (query) =>
+          query.cursor == null ? page(['a'], cursor: 'p2') : page(['b']);
+
+      await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        writable: true,
+        cancel: cancel,
+        onProgress: (_) => cancel.cancel(),
+      );
+
+      expect((await env.repository.remote(first.playlistId))!.writable, isTrue);
+    });
+
+    test('importing again and cancelling before the first page keeps the '
+        'existing playlist', () async {
+      env.plugin.onPage = (_) => page(['a']);
+      final first = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+      ) as ImportedPlaylist;
+      final cancel = ImportCancel()..cancel();
+
+      final result = await env.importer.importPlaylistId(
+        'fmp-test',
+        'pl-1',
+        cancel: cancel,
+      );
+
+      expect(result, isA<ImportCancelled>());
+      expect((result as ImportCancelled).playlistId, first.playlistId);
+      expect(await ids(first.playlistId), ['a']);
+    });
+  });
+
   group('progress', () {
     test(
       'reports the songs read after every page, for a new playlist',
@@ -499,7 +794,7 @@ void main() {
 
         await env.importer.importUrl(
           'https://fmp.test/pl',
-          onProgress: counts.add,
+          onProgress: (p) => counts.add(p.count),
         );
 
         expect(counts, [2, 3, 5]);
@@ -513,7 +808,7 @@ void main() {
 
       await env.importer.importUrl(
         'https://fmp.test/pl',
-        onProgress: counts.add,
+        onProgress: (p) => counts.add(p.count),
       );
 
       expect(counts, [2]);
@@ -524,7 +819,10 @@ void main() {
       final counts = <int>[];
 
       await expectLater(
-        env.importer.importUrl('https://fmp.test/pl', onProgress: counts.add),
+        env.importer.importUrl(
+          'https://fmp.test/pl',
+          onProgress: (p) => counts.add(p.count),
+        ),
         throwsA(isA<NetworkError>()),
       );
 

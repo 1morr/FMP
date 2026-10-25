@@ -702,6 +702,16 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   @override
   String importProgress({required Object count}) => '已读 ${count} 首';
   @override
+  String importProgressOf({required Object count, required Object total}) =>
+      '已导入 ${count}／${total} 首';
+  @override
+  String get importCancelledNone => '已取消导入';
+  @override
+  String refreshProgress({required Object count}) => '已更新 ${count} 首';
+  @override
+  String refreshProgressOf({required Object count, required Object total}) =>
+      '已更新 ${count}／${total} 首';
+  @override
   String get importUnrecognized => '已安装的音源都不认识这个网址';
   @override
   String importFailed({required Object reason}) => '无法导入：${reason}';
@@ -2063,6 +2073,8 @@ class Translations$importPreview$zh_CN
   String progress({required Object done, required Object total}) =>
       '已匹配 ${done}/${total}';
   @override
+  String currentSong({required Object title}) => '正在匹配：${title}';
+  @override
   String get truncated => '来源只提供了部分曲目';
   @override
   String get pending => '等待中';
@@ -2587,8 +2599,29 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
   @override
   String importSelected({required Object count}) => '导入所选 (${count})';
   @override
-  String importingProgress({required Object done, required Object total}) =>
-      '导入中 ${done}／${total}';
+  String get importPageTitle => '导入歌单';
+  @override
+  String importOverall({required Object done, required Object total}) =>
+      '歌单 ${done}／${total}';
+  @override
+  String itemProgress({required Object count}) => '已读 ${count} 首';
+  @override
+  String itemProgressOf({required Object count, required Object total}) =>
+      '已导入 ${count}／${total} 首';
+  @override
+  String get itemWaiting => '等待中';
+  @override
+  String get itemImporting => '导入中';
+  @override
+  String get itemDone => '完成';
+  @override
+  String get itemCancelled => '已取消';
+  @override
+  String get importCancel => '取消';
+  @override
+  String get importFinish => '完成';
+  @override
+  String importCancelled({required Object count}) => '已取消：已导入 ${count} 张';
   @override
   String playlistImportFailed({required Object reason}) => '导入失败：${reason}';
   @override

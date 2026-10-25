@@ -879,6 +879,20 @@ class Translations$library$zh_TW {
   /// zh-TW: '已讀 {count} 首'
   String importProgress({required Object count}) => '已讀 ${count} 首';
 
+  /// zh-TW: '已匯入 {count}／{total} 首'
+  String importProgressOf({required Object count, required Object total}) =>
+      '已匯入 ${count}／${total} 首';
+
+  /// zh-TW: '已取消匯入'
+  String get importCancelledNone => '已取消匯入';
+
+  /// zh-TW: '已更新 {count} 首'
+  String refreshProgress({required Object count}) => '已更新 ${count} 首';
+
+  /// zh-TW: '已更新 {count}／{total} 首'
+  String refreshProgressOf({required Object count, required Object total}) =>
+      '已更新 ${count}／${total} 首';
+
   /// zh-TW: '已安裝的音源都不認得這個網址'
   String get importUnrecognized => '已安裝的音源都不認得這個網址';
 
@@ -2784,6 +2798,9 @@ class Translations$importPreview$zh_TW {
   String progress({required Object done, required Object total}) =>
       '已匹配 ${done}／${total}';
 
+  /// zh-TW: '正在匹配：{title}'
+  String currentSong({required Object title}) => '正在匹配：${title}';
+
   /// zh-TW: '來源只提供了部分曲目'
   String get truncated => '來源只提供了部分曲目';
 
@@ -3524,9 +3541,40 @@ class Translations$accounts$zh_TW {
   /// zh-TW: '匯入所選 ({count})'
   String importSelected({required Object count}) => '匯入所選 (${count})';
 
-  /// zh-TW: '匯入中 {done}／{total}'
-  String importingProgress({required Object done, required Object total}) =>
-      '匯入中 ${done}／${total}';
+  /// zh-TW: '匯入歌單'
+  String get importPageTitle => '匯入歌單';
+
+  /// zh-TW: '歌單 {done}／{total}'
+  String importOverall({required Object done, required Object total}) =>
+      '歌單 ${done}／${total}';
+
+  /// zh-TW: '已讀 {count} 首'
+  String itemProgress({required Object count}) => '已讀 ${count} 首';
+
+  /// zh-TW: '已匯入 {count}／{total} 首'
+  String itemProgressOf({required Object count, required Object total}) =>
+      '已匯入 ${count}／${total} 首';
+
+  /// zh-TW: '等待中'
+  String get itemWaiting => '等待中';
+
+  /// zh-TW: '匯入中'
+  String get itemImporting => '匯入中';
+
+  /// zh-TW: '完成'
+  String get itemDone => '完成';
+
+  /// zh-TW: '已取消'
+  String get itemCancelled => '已取消';
+
+  /// zh-TW: '取消'
+  String get importCancel => '取消';
+
+  /// zh-TW: '完成'
+  String get importFinish => '完成';
+
+  /// zh-TW: '已取消：已匯入 {count} 張'
+  String importCancelled({required Object count}) => '已取消：已匯入 ${count} 張';
 
   /// zh-TW: '匯入失敗：{reason}'
   String playlistImportFailed({required Object reason}) => '匯入失敗：${reason}';
