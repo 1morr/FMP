@@ -10,6 +10,9 @@ import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
+
+import '../tracks/selection_bar_support.dart';
+
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
@@ -762,8 +765,7 @@ void main() {
       await tester.longPress(find.text('Song a').last);
       await tester.tap(find.text('Song c'));
       await tester.pump();
-      await tester.tap(find.byTooltip('Remove from playlist'));
-      await tester.pumpAndSettle();
+      await tapSelectionAction(tester, 'Remove from playlist');
       expect(find.text('Remove the selected songs?'), findsOneWidget);
       expect(
         find.text(
@@ -781,8 +783,7 @@ void main() {
         reason: 'still selecting',
       );
 
-      await tester.tap(find.byTooltip('Remove from playlist'));
-      await tester.pumpAndSettle();
+      await tapSelectionAction(tester, 'Remove from playlist');
       await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
       await _settle(tester, h);
 
@@ -802,7 +803,10 @@ void main() {
 
       expect(find.byTooltip('Add to queue'), findsOneWidget);
       expect(find.byTooltip('Add to playlist…'), findsOneWidget);
-      expect(find.byTooltip('Remove from playlist'), findsNothing);
+      expect(
+        await selectionActionState(tester, 'Remove from playlist'),
+        SelectionActionState.absent,
+      );
     });
 
     testWidgets('"Add to queue" adds the selected songs in screen order', (

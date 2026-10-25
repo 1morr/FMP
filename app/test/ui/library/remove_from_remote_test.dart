@@ -4,6 +4,9 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/source_dto.dart';
+
+import '../tracks/selection_bar_support.dart';
+
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
@@ -340,8 +343,7 @@ void main() {
           _results([for (final _ in query.items) _removed]);
       await selectBoth(tester);
 
-      await tester.tap(find.byTooltip(_item));
-      await tester.pumpAndSettle();
+      await tapSelectionAction(tester, _item);
       expect(
         find.textContaining('Remove the selected songs (2) from "Road"'),
         findsOneWidget,
@@ -363,8 +365,7 @@ void main() {
       final (h, id) = await _open(tester, tracks: [_song('a'), _song('b')]);
       await selectBoth(tester);
 
-      await tester.tap(find.byTooltip(_item));
-      await tester.pumpAndSettle();
+      await tapSelectionAction(tester, _item);
       await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
       await tester.pumpAndSettle();
 
@@ -377,8 +378,14 @@ void main() {
       await _open(tester, tracks: [_song('a'), _song('b')], imported: false);
       await selectBoth(tester);
 
-      expect(find.byTooltip(_item), findsNothing);
-      expect(find.byTooltip(_addItem), findsOneWidget);
+      expect(
+        await selectionActionState(tester, _item),
+        SelectionActionState.absent,
+      );
+      expect(
+        await selectionActionState(tester, _addItem),
+        SelectionActionState.enabled,
+      );
     });
 
     testWidgets('has no remove button when the playlist is not writable', (
@@ -387,7 +394,10 @@ void main() {
       await _open(tester, tracks: [_song('a'), _song('b')], writable: false);
       await selectBoth(tester);
 
-      expect(find.byTooltip(_item), findsNothing);
+      expect(
+        await selectionActionState(tester, _item),
+        SelectionActionState.absent,
+      );
     });
   });
 
@@ -410,15 +420,14 @@ void main() {
       await tester.tap(_row('Song b'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip(_addItem), findsNothing);
-      final button = tester.widget<IconButton>(
-        find.ancestor(
-          of: find.byIcon(Icons.cloud_upload_outlined),
-          matching: find.byType(IconButton),
-        ),
+      expect(
+        await selectionActionState(tester, _addItem),
+        SelectionActionState.absent,
       );
-      expect(button.tooltip, mixed);
-      expect(button.onPressed, isNull);
+      expect(
+        await selectionActionState(tester, mixed),
+        SelectionActionState.disabled,
+      );
     });
 
     // 對照：只選同一個插件的兩首，同樣的歌單就能按。
@@ -440,14 +449,10 @@ void main() {
       await tester.tap(_row('Song b'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip(_addItem), findsOneWidget);
-      final button = tester.widget<IconButton>(
-        find.ancestor(
-          of: find.byIcon(Icons.cloud_upload_outlined),
-          matching: find.byType(IconButton),
-        ),
+      expect(
+        await selectionActionState(tester, _addItem),
+        SelectionActionState.enabled,
       );
-      expect(button.onPressed, isNotNull);
     });
   });
 }
