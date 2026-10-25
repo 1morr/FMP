@@ -72,6 +72,7 @@ final class SearchState {
     this.page = 0,
     this.phase = SearchPhase.idle,
     this.loadMoreFailed = false,
+    this.autoLoadPaused = false,
   });
 
   /// 使用者選的音源（插件 id）；`null` 或不在清單上時是清單的第一個。
@@ -101,6 +102,11 @@ final class SearchState {
   /// 下一頁載入失敗（已有的結果留著）：頁面不再自動載入，改顯示「載入更多」讓使用者重試。
   final bool loadMoreFailed;
 
+  /// 上一頁沒有帶來新的結果（空頁，或全是重複）但插件說還有下一頁：頁面停止自動載入，
+  /// 改顯示「載入更多」，免得最後一列一直重建、一直載入。和 [loadMoreFailed] 分開（失敗的重試語意
+  /// 不變）；手動載入的那一頁有新結果就恢復自動載入。
+  final bool autoLoadPaused;
+
   /// 目前模式的結果是不是空的。
   bool get isEmpty => switch (mode) {
     SearchMode.tracks => items.isEmpty,
@@ -115,6 +121,7 @@ final class SearchState {
     int? page,
     SearchPhase? phase,
     bool? loadMoreFailed,
+    bool? autoLoadPaused,
   }) => SearchState(
     sourceId: sourceId,
     keyword: keyword,
@@ -126,6 +133,7 @@ final class SearchState {
     page: page ?? this.page,
     phase: phase ?? this.phase,
     loadMoreFailed: loadMoreFailed ?? this.loadMoreFailed,
+    autoLoadPaused: autoLoadPaused ?? this.autoLoadPaused,
   );
 
   /// 換條件（音源、模式、篩選、關鍵字）：結果清空，[phase] 預設回到還沒搜尋。
@@ -319,32 +327,35 @@ final class SearchNotifier extends Notifier<SearchState> {
   /// 同一首不會在列表裡出現兩次。在請求回來之後才讀 [state]：代沒變，就是開始時的那份。
   SearchState _withTracks(SearchPage result, int page) {
     final listed = {if (page > 1) ...state.items.map(_keyOf)};
+    // toList：where 的副作用（listed.add）只能跑一次。
+    final added = result.items
+        .where((track) => listed.add(_keyOf(track)))
+        .toList();
     return state.copyWith(
-      items: List.unmodifiable([
-        if (page > 1) ...state.items,
-        ...result.items.where((track) => listed.add(_keyOf(track))),
-      ]),
+      items: List.unmodifiable([if (page > 1) ...state.items, ...added]),
       hasMore: result.hasMore,
       page: page,
       phase: SearchPhase.loaded,
       loadMoreFailed: false,
+      autoLoadPaused: added.isEmpty,
     );
   }
 
   /// 同 [_withTracks]，以直播間 id 去重。
   SearchState _withRooms(String pluginId, LiveSearchPage result, int page) {
     final listed = {if (page > 1) ...state.rooms.map((hit) => hit.room.roomId)};
+    final added = [
+      for (final room in result.items)
+        if (listed.add(room.roomId))
+          LiveRoomHit(pluginId: pluginId, room: room),
+    ];
     return state.copyWith(
-      rooms: List.unmodifiable([
-        if (page > 1) ...state.rooms,
-        for (final room in result.items)
-          if (listed.add(room.roomId))
-            LiveRoomHit(pluginId: pluginId, room: room),
-      ]),
+      rooms: List.unmodifiable([if (page > 1) ...state.rooms, ...added]),
       hasMore: result.hasMore,
       page: page,
       phase: SearchPhase.loaded,
       loadMoreFailed: false,
+      autoLoadPaused: added.isEmpty,
     );
   }
 }

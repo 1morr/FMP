@@ -419,12 +419,15 @@ class _ResultList extends ConsumerWidget {
               SearchState(phase: SearchPhase.loadingMore) => _Spinner(
                 label: t.loading,
               ),
-              // 自動載入失敗後留著按鈕當重試。
-              SearchState(hasMore: true, loadMoreFailed: true) =>
-                OutlinedButton(
-                  onPressed: () => unawaited(notifier.loadMore()),
-                  child: Text(t.loadMore),
-                ),
+              // 自動載入失敗後留著按鈕當重試；一頁沒帶來新結果時也停止自動載入，手動載一頁。
+              SearchState(hasMore: true, loadMoreFailed: true) ||
+              SearchState(
+                hasMore: true,
+                autoLoadPaused: true,
+              ) => OutlinedButton(
+                onPressed: () => unawaited(notifier.loadMore()),
+                child: Text(t.loadMore),
+              ),
               // 最後一列出現（建出來）就載入下一頁；每一頁只會建一次這個元件。
               SearchState(hasMore: true) => _AutoLoad(
                 onVisible: () => unawaited(notifier.loadMore()),

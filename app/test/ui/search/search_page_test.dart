@@ -316,6 +316,37 @@ void main() {
       expect(find.text('All loaded'), findsOneWidget);
     });
 
+    testWidgets('a page with no new rows stops auto-loading; a manual page '
+        'with rows resumes it', (tester) async {
+      // 第 2 頁是空的但說還有下一頁；第 3 頁（手動）有結果、第 4 頁（自動）是最後一頁。
+      final h = ShellHarness(
+        onSearch: (query) => switch (query.page) {
+          1 => SearchPage(items: [summary('p1')], hasMore: true),
+          2 => const SearchPage(items: [], hasMore: true),
+          3 => SearchPage(items: [summary('p3')], hasMore: true),
+          _ => SearchPage(items: [summary('p4')], hasMore: false),
+        },
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+
+      expect(
+        [for (final query in h.plugin.searches) query.page],
+        [1, 2],
+        reason: 'the empty page is loaded once, not in a loop',
+      );
+      expect(find.text('Load more'), findsOneWidget);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect([for (final query in h.plugin.searches) query.page], [1, 2, 3, 4]);
+      expect(find.text('Song p4'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.text('All loaded'), findsOneWidget);
+    });
+
     testWidgets('a results list with no more pages ends with the line', (
       tester,
     ) async {
