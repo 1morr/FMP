@@ -991,6 +991,8 @@ class Translations$selection$en extends Translations$selection$zh_TW {
       'Add to remote playlist (select songs from one source)';
   @override
   String get removeFromRemote => 'Remove from the remote playlist';
+  @override
+  String get more => 'More actions';
 }
 
 // Path: offline

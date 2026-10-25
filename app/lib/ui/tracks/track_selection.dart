@@ -448,6 +448,41 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
         ? null
         : () => unawaited(_run(selection, action));
 
+    // 可收進「⋯」的動作，依序：下一首播放、加入佇列、加入歌單、加入遠端、頁面自己的。
+    final collapsible = <_BarAction>[
+      _BarAction(
+        icon: Icons.queue_play_next,
+        tooltip: inMix ? t.playNextInMix : t.playNext,
+        onPressed: inMix ? null : run(_playNext),
+      ),
+      _BarAction(
+        icon: Icons.add_to_queue,
+        tooltip: inMix ? t.addToQueueInMix : t.addToQueue,
+        onPressed: inMix ? null : run(_addToQueue),
+      ),
+      _BarAction(
+        icon: Icons.playlist_add,
+        tooltip: t.addToPlaylist,
+        onPressed: run(_addToPlaylist),
+      ),
+      if (remote != RemoteAddEntry.hidden)
+        _BarAction(
+          icon: Icons.cloud_upload_outlined,
+          tooltip: remote == RemoteAddEntry.available
+              ? t.addToRemote
+              : t.addToRemoteMixed,
+          onPressed: remote == RemoteAddEntry.available
+              ? run(_addToRemote)
+              : null,
+        ),
+      for (final action in widget.actions)
+        _BarAction(
+          icon: action.icon,
+          tooltip: action.tooltip,
+          onPressed: run(action.onPressed),
+        ),
+    ];
+
     return Padding(
       padding:
           widget.padding ??
@@ -463,78 +498,108 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
               foregroundColor: colors.onSecondaryContainer,
             ),
           ),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: t.cancelTooltip,
-                icon: const Icon(Icons.close),
-                onPressed: selection.exit,
-              ),
-              SizedBox(width: spacing.x1),
-              Expanded(
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    t.count(count: selection.count),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: colors.onSecondaryContainer,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // 取消、數字、全選一直在；其餘依寬度放得下幾顆就幾顆，剩下的進「⋯」。
+              final room =
+                  constraints.maxWidth -
+                  _barButtonWidth * 2 -
+                  spacing.x1 -
+                  _barCountMinWidth;
+              var visible = collapsible.length;
+              if (visible * _barButtonWidth > room) {
+                visible = ((room - _barButtonWidth) / _barButtonWidth)
+                    .floor()
+                    .clamp(0, collapsible.length);
+              }
+              final overflow = collapsible.sublist(visible);
+              return Row(
+                children: [
+                  IconButton(
+                    tooltip: t.cancelTooltip,
+                    icon: const Icon(Icons.close),
+                    onPressed: selection.exit,
+                  ),
+                  SizedBox(width: spacing.x1),
+                  Expanded(
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        t.count(count: selection.count),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colors.onSecondaryContainer,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              // 全選了就換成「取消全選」。
-              if (selection.allSelected)
-                IconButton(
-                  tooltip: t.deselectAllTooltip,
-                  icon: const Icon(Icons.deselect),
-                  onPressed: running ? null : selection.deselectAll,
-                )
-              else
-                IconButton(
-                  tooltip: t.selectAllTooltip,
-                  icon: const Icon(Icons.select_all),
-                  onPressed: running ? null : selection.selectAll,
-                ),
-              IconButton(
-                tooltip: inMix ? t.playNextInMix : t.playNext,
-                icon: const Icon(Icons.queue_play_next),
-                onPressed: inMix ? null : run(_playNext),
-              ),
-              IconButton(
-                tooltip: inMix ? t.addToQueueInMix : t.addToQueue,
-                icon: const Icon(Icons.add_to_queue),
-                onPressed: inMix ? null : run(_addToQueue),
-              ),
-              IconButton(
-                tooltip: t.addToPlaylist,
-                icon: const Icon(Icons.playlist_add),
-                onPressed: run(_addToPlaylist),
-              ),
-              if (remote != RemoteAddEntry.hidden)
-                IconButton(
-                  tooltip: remote == RemoteAddEntry.available
-                      ? t.addToRemote
-                      : t.addToRemoteMixed,
-                  icon: const Icon(Icons.cloud_upload_outlined),
-                  onPressed: remote == RemoteAddEntry.available
-                      ? run(_addToRemote)
-                      : null,
-                ),
-              for (final action in widget.actions)
-                IconButton(
-                  tooltip: action.tooltip,
-                  icon: Icon(action.icon),
-                  onPressed: run(action.onPressed),
-                ),
-            ],
+                  // 全選了就換成「取消全選」。
+                  if (selection.allSelected)
+                    IconButton(
+                      tooltip: t.deselectAllTooltip,
+                      icon: const Icon(Icons.deselect),
+                      onPressed: running ? null : selection.deselectAll,
+                    )
+                  else
+                    IconButton(
+                      tooltip: t.selectAllTooltip,
+                      icon: const Icon(Icons.select_all),
+                      onPressed: running ? null : selection.selectAll,
+                    ),
+                  for (final action in collapsible.take(visible))
+                    IconButton(
+                      tooltip: action.tooltip,
+                      icon: Icon(action.icon),
+                      onPressed: action.onPressed,
+                    ),
+                  if (overflow.isNotEmpty)
+                    PopupMenuButton<void>(
+                      tooltip: t.more,
+                      icon: const Icon(Icons.more_vert),
+                      itemBuilder: (context) => [
+                        for (final action in overflow)
+                          PopupMenuItem<void>(
+                            enabled: action.onPressed != null,
+                            onTap: action.onPressed,
+                            child: Row(
+                              children: [
+                                Icon(action.icon),
+                                SizedBox(width: spacing.x3),
+                                Flexible(child: Text(action.tooltip)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 }
+
+/// 選取列上可以收進「⋯」的一個動作。
+class _BarAction {
+  const _BarAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+}
+
+/// 選取列一顆 `IconButton` 的寬度（Material 的最小點擊區）。
+const _barButtonWidth = 48.0;
+
+/// 選取列留給「已選 n 首」的最小寬度（三位數仍完整可讀）。
+const _barCountMinWidth = 96.0;
 
 /// 一列曲目在選取模式裡外的樣子，交給 [SelectableTrackRow.builder] 放進 `ListTile`。
 @immutable

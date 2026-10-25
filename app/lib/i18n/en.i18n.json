@@ -389,7 +389,8 @@
     "addedToQueue": "Added to the queue",
     "addToRemote": "Add to remote playlist…",
     "addToRemoteMixed": "Add to remote playlist (select songs from one source)",
-    "removeFromRemote": "Remove from the remote playlist"
+    "removeFromRemote": "Remove from the remote playlist",
+    "more": "More actions"
   },
   "offline": {
     "noInterface": "No network connection",

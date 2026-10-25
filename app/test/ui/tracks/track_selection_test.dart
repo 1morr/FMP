@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -76,6 +77,60 @@ class _ListPageState extends State<_ListPage> {
     ),
   );
 }
+
+/// 選取列加三個頁面動作、又有可寫遠端的插件：七顆動作（手機寬度放不下）。
+class _BarPage extends StatefulWidget {
+  const _BarPage({super.key});
+
+  @override
+  State<_BarPage> createState() => _BarPageState();
+}
+
+class _BarPageState extends State<_BarPage> {
+  final selection = TrackSelection<String>()..start('a');
+
+  /// 頁面動作被叫到的名字。
+  final called = <String>[];
+
+  @override
+  void dispose() {
+    selection.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TrackSelectionScope<String>(
+    selection: selection,
+    keys: const ['a', 'b'],
+    child: TrackSelectionBar<String>(
+      tracks: (keys) async => [
+        for (final key in keys)
+          TrackInfo(sourceTypeId: 'fmp-test', sourceId: key, title: key),
+      ],
+      pluginIds: (keys) => {'fmp-test'},
+      actions: [
+        for (final name in ['Alpha', 'Beta', 'Gamma'])
+          TrackSelectionAction<String>(
+            icon: Icons.delete,
+            tooltip: name,
+            onPressed: (_) async {
+              called.add(name);
+              return false;
+            },
+          ),
+      ],
+      child: const Text('Title'),
+    ),
+  );
+}
+
+final _barPage = GlobalKey<_BarPageState>();
+
+ShellHarness _barHarness() => ShellHarness(
+  extraOverrides: [
+    remoteWritablePluginsProvider.overrideWith((ref) => {'fmp-test'}),
+  ],
+);
 
 final _page = GlobalKey<_ListPageState>();
 
@@ -418,5 +473,61 @@ void main() {
     );
     expect(checkboxFocus.canRequestFocus, isFalse);
     handle.dispose();
+  });
+
+  testWidgets('on a phone the actions that do not fit go into the ⋯ menu', (
+    tester,
+  ) async {
+    await _barHarness().pumpApp(
+      tester,
+      _BarPage(key: _barPage),
+      size: const Size(360, 800),
+    );
+    expect(tester.takeException(), isNull);
+    // 一直在的三顆。
+    expect(find.byTooltip('Cancel selection (Esc)'), findsOneWidget);
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(find.byTooltip('Select all (Ctrl+A)'), findsOneWidget);
+    // 數字至少有 72dp，且完整顯示。
+    expect(
+      tester.getSize(find.text('1 selected')).width,
+      greaterThanOrEqualTo(72),
+    );
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    // 最後一顆（頁面自己的）收進選單。
+    expect(find.byTooltip('Gamma'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Gamma'), findsOneWidget);
+    await tester.tap(find.text('Gamma'));
+    await tester.pumpAndSettle();
+    expect(_barPage.currentState!.called, ['Gamma']);
+  });
+
+  testWidgets('on a wide window nothing is collapsed', (tester) async {
+    await _barHarness().pumpApp(tester, _BarPage(key: _barPage));
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+    expect(find.byTooltip('Gamma'), findsOneWidget);
+    expect(find.byTooltip('Add to remote playlist…'), findsOneWidget);
+  });
+
+  testWidgets('the menu items are disabled with nothing selected', (
+    tester,
+  ) async {
+    await _barHarness().pumpApp(
+      tester,
+      _BarPage(key: _barPage),
+      size: const Size(360, 800),
+    );
+    _barPage.currentState!.selection.deselectAll();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    final items = tester.widgetList<PopupMenuItem<void>>(
+      find.byType(PopupMenuItem<void>),
+    );
+    expect(items, isNotEmpty);
+    expect(items.every((item) => !item.enabled), isTrue);
   });
 }

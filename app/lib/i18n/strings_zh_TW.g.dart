@@ -1233,6 +1233,9 @@ class Translations$selection$zh_TW {
 
   /// zh-TW: '從遠端歌單移除'
   String get removeFromRemote => '從遠端歌單移除';
+
+  /// zh-TW: '更多動作'
+  String get more => '更多動作';
 }
 
 // Path: offline

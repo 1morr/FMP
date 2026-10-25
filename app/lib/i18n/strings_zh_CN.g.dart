@@ -961,6 +961,8 @@ class Translations$selection$zh_CN extends Translations$selection$zh_TW {
   String get addToRemoteMixed => '加入远端歌单（请只选同一个音源的曲目）';
   @override
   String get removeFromRemote => '从远端歌单移除';
+  @override
+  String get more => '更多操作';
 }
 
 // Path: offline

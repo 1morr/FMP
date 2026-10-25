@@ -381,7 +381,8 @@
     "addedToQueue": "已加入佇列",
     "addToRemote": "加入遠端歌單…",
     "addToRemoteMixed": "加入遠端歌單（請只選同一個音源的曲目）",
-    "removeFromRemote": "從遠端歌單移除"
+    "removeFromRemote": "從遠端歌單移除",
+    "more": "更多動作"
   },
   "offline": {
     "noInterface": "沒有網路連線",
