@@ -43,7 +43,8 @@ lib/ui/
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
-  tracks/              # NowPlayingOverlay（封面上的在播遮罩，佇列、歷史等共用；暫停或減少動態時不動，所以 pumpAndSettle 的測試要先 disableAnimations，見 ShellHarness.openQueue）；TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
+  tracks/              # NowPlayingOverlay（封面上的在播遮罩，佇列、歷史等共用；暫停或減少動態時不動，所以 pumpAndSettle 的測試要先 disableAnimations，見 ShellHarness.openQueue 與 test/ui/tracks/marker_support.dart 的 reduceMotion）；
+                       # track_markers：曲目列的在播標示（currentTrackKeyProvider、watchIsPlaying、TrackCover、playingTitleStyle）與固定寬的時長欄（TrackDuration），新的曲目清單照用；TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
                        # track_selection：多選（TrackSelection、TrackSelectionScope、TrackSelectionBar、SelectableTrackRow）
   plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
@@ -99,6 +100,9 @@ switch (WindowClass.of(context)) {
 
 - 缺某個語言也編譯得過（`fallback_strategy: base_locale`，退回繁中），擋住漏翻的是
   `test/i18n/translations_test.dart`。
+- 帶數量的字串用複數語法：`"trackCount(plural, param=count)": {"one": "{count} song", "other": "{count} songs"}`，
+  中文只寫 `other`；呼叫照舊 `t.library.trackCount(count: n)`，不要自己判斷 `n == 1`。不在 widget 樹裡要翻譯時用
+  `buildTranslations(locale)`，不直接 `buildSync`（中文的複數解析器在它裡面）。
 - 簡中寫大陸用語（登录、网络、粘贴），不是繁中逐字轉換。英文句子裡的參數放在句中，
   音源名稱沒有時代入的是小寫的 `the source`。
 - 不翻的字（語言選單上各語言的名稱）不放 JSON，寫在程式碼並註明理由（`localeEndonym`）。
@@ -281,6 +285,7 @@ try {
   `keys` 是畫面上可選的列、依畫面順序（全選與 Shift 範圍照它，不在裡面的不再算選了）；標題列包 `TrackSelectionBar(tracks:, actions:, child: 原本的標題列)`；
   每列用 `SelectableTrackRow(selectionKey:, menuChildren:, builder:)` 取代 `TrackRowMenu`，`builder` 的 `ListTile` 用 `row.selected`、
   `row.trailing`（「⋯」或勾選框）、`row.onTap ?? 自己的點擊`、`row.onLongPress`，選取模式裡拿掉把手之類的（`row.selecting`）。
+- 選取列放不下時（手機）只留取消、數字、全選，其餘動作依序收進尾端「⋯」；新增動作加進 `_TrackSelectionBarState.build` 的 `collapsible` 清單即可，不要另外塞進 `Row`。
 - 鍵要在「結果換成新的一份」時失效：位置當鍵的（搜尋）自己在換結果時 `selection.exit()`（`ref.listen`），id 當鍵的靠 `keys` 自動剔除。
 - `tracks` 回已選的曲目（依畫面順序）；要先取東西的在裡面取，取不到時自己提示並回 `null`。頁面自己的動作是 `TrackSelectionAction`
   （回 `true` 才離開選取模式）；PR 14 的遠端動作、PR 21 的探索都照這個接，沒有改共用元件。
