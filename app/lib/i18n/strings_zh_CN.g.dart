@@ -445,6 +445,11 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   @override
   String get deleteSelectedBody => '选中的播放记录会被删除，无法恢复。';
   @override
+  String deleteSelectedTracksTitle({required Object count}) =>
+      '删除 ${count} 首歌的所有记录？';
+  @override
+  String get deleteSelectedTracksBody => '这几首歌的所有播放记录都会被删除，无法恢复。';
+  @override
   String get delete => '删除';
   @override
   String deletedCount({required Object count}) => '已删除 ${count} 条';

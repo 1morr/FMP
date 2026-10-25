@@ -55,8 +55,9 @@ void main() {
   Future<ShellHarness> openHistory(
     WidgetTester tester, {
     Size size = const Size(1000, 1200),
+    bool registered = false,
   }) async {
-    final h = ShellHarness();
+    final h = ShellHarness(registryOfSources: registered);
     await h.pumpApp(tester, const HistoryPage(), size: size);
     return h;
   }
@@ -521,6 +522,67 @@ void main() {
       expect(entries.first.track.sourceId, 'new', reason: 'the new play shows');
     });
 
+    test(
+      'a filter change while a page is in flight never mixes pages',
+      () async {
+        final database = await seeded(120);
+        await database.customStatement(
+          'INSERT INTO tracks (track_key, source_type_id, source_id, title, '
+          "updated_at) VALUES ('other:b', 'other', 'b', 'B', 0)",
+        );
+        await database.customStatement(
+          'WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n '
+          'WHERE i < 120) INSERT INTO play_history (track_key, played_at) '
+          "SELECT 'other:b', 1000 + i FROM n",
+        );
+        final container = containerWith(database);
+        container.listen(historyProvider, (_, _) {});
+        await container.read(historyProvider.future);
+        final notifier = container.read(historyProvider.notifier);
+
+        // 下一頁在路上時換篩選。
+        final pending = notifier.loadMore();
+        container.read(historyFilterProvider.notifier).setSource('fmp-test');
+        await pending;
+        await container.read(historyProvider.future);
+
+        final state = container.read(historyProvider).value!;
+        expect(state.entries, hasLength(historyPageSize));
+        expect(
+          state.entries.every((e) => e.track.sourceTypeId == 'fmp-test'),
+          isTrue,
+        );
+        final ids = [for (final e in state.entries) e.id];
+        expect(ids.toSet(), hasLength(ids.length));
+      },
+    );
+
+    test(
+      'loadMore is ignored while the first page of a new filter loads',
+      () async {
+        final database = await seeded(120);
+        final container = containerWith(database);
+        container.listen(historyProvider, (_, _) {});
+        await container.read(historyProvider.future);
+        final notifier = container.read(historyProvider.notifier);
+
+        container
+            .read(historyFilterProvider.notifier)
+            .setSort(HistorySort.oldest);
+        // 讀一下讓重建開始、還沒讀完：`state.value` 是舊排序的清單。
+        expect(container.read(historyProvider).isLoading, isTrue);
+        await notifier.loadMore();
+        final state = await container.read(historyProvider.future);
+
+        expect(state.entries, hasLength(historyPageSize));
+        expect(
+          state.entries.first.playedAt.millisecondsSinceEpoch,
+          1,
+          reason: 'oldest first, nothing from the newest-first list',
+        );
+      },
+    );
+
     testWidgets('scrolling to the end loads the next page', (tester) async {
       final h = await openHistory(tester, size: const Size(400, 700));
       final database = h.container(tester).read(appDatabaseProvider);
@@ -927,7 +989,7 @@ void main() {
       tester,
     ) async {
       await withClock(Clock.fixed(now), () async {
-        final h = await openHistory(tester);
+        final h = await openHistory(tester, registered: true);
         await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
         await recordTrack(
           tester,
@@ -1210,6 +1272,174 @@ void main() {
       expect(find.text('Song a'), findsNothing);
       expect(find.text('Song c'), findsNothing);
       expect(find.text('Play history'), findsOneWidget);
+    });
+
+    testWidgets('the source chips come from the history: a source with no '
+        'plugin shows its id and filters', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester, registered: true);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(
+          tester,
+          h,
+          timed('x', source: 'gone-plugin'),
+          DateTime(2026, 10, 7, 10),
+        );
+        await reload(tester, h);
+
+        expect(find.widgetWithText(ChoiceChip, 'Test Source'), findsOneWidget);
+        expect(find.widgetWithText(ChoiceChip, 'gone-plugin'), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(ChoiceChip, 'gone-plugin'));
+        await reload(tester, h);
+        expect(find.text('Song x'), findsOneWidget);
+        expect(find.text('Song a'), findsNothing);
+      });
+    });
+
+    testWidgets('a source nobody has played is not a chip', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester, registered: true);
+        await recordTrack(
+          tester,
+          h,
+          timed('x', source: 'gone-plugin'),
+          DateTime(2026, 10, 7, 10),
+        );
+        await reload(tester, h);
+
+        expect(find.widgetWithText(ChoiceChip, 'Test Source'), findsNothing);
+        expect(find.widgetWithText(ChoiceChip, 'gone-plugin'), findsOneWidget);
+      });
+    });
+
+    testWidgets('the filter goes back to All when its source leaves the '
+        'history', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester, registered: true);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(
+          tester,
+          h,
+          timed('x', source: 'gone-plugin'),
+          DateTime(2026, 10, 7, 10),
+        );
+        await reload(tester, h);
+        await tester.tap(find.widgetWithText(ChoiceChip, 'gone-plugin'));
+        await reload(tester, h);
+        expect(
+          h.container(tester).read(historyFilterProvider).source,
+          isNotNull,
+        );
+
+        await tester.runAsync(
+          () => h
+              .container(tester)
+              .read(playHistoryRepositoryProvider)
+              .deleteAllForTrack('gone-plugin:x'),
+        );
+        await reload(tester, h);
+        await reload(tester, h);
+
+        expect(h.container(tester).read(historyFilterProvider).source, isNull);
+        expect(find.widgetWithText(ChoiceChip, 'gone-plugin'), findsNothing);
+        expect(
+          tester
+              .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'All'))
+              .selected,
+          isTrue,
+        );
+        expect(find.text('Song a'), findsOneWidget);
+      });
+    });
+
+    group('deleting under the most-played sort', () {
+      Future<ShellHarness> mostPlayed(WidgetTester tester) async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 10));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 11));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 12));
+        await recordTrack(tester, h, timed('c'), DateTime(2026, 10, 7, 13));
+        await reload(tester, h);
+        await tester.tap(find.widgetWithText(ActionChip, 'Newest first'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(RadioMenuButton<HistorySort>, 'Most played'),
+        );
+        await tester.pumpAndSettle();
+        await reload(tester, h);
+        return h;
+      }
+
+      testWidgets('the row menu only has the delete-every-play item', (
+        tester,
+      ) async {
+        await withClock(Clock.fixed(now), () async {
+          final h = await mostPlayed(tester);
+          // b 次數最多（2），其次 a（2、較舊），最後 c。
+          await tester.tap(find.byTooltip('More options').first);
+          await tester.pumpAndSettle();
+          expect(find.text('Remove from history'), findsNothing);
+          await tester.tap(find.text('Delete all plays of this song'));
+          await tester.pumpAndSettle();
+          expect(find.text('Delete every play of this song?'), findsOneWidget);
+          await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+          await tester.pump();
+          await reload(tester, h);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Deleted 2 records'), findsOneWidget);
+          expect(find.text('Song b'), findsNothing);
+          expect(find.text('Song a'), findsOneWidget);
+          expect(find.text('Song c'), findsOneWidget);
+        });
+      });
+
+      testWidgets('multi-select Delete removes every play of the tracks', (
+        tester,
+      ) async {
+        await withClock(Clock.fixed(now), () async {
+          final h = await mostPlayed(tester);
+          await tester.longPress(find.text('Song b'));
+          await tester.tap(find.text('Song c'));
+          await tester.pump();
+          await tester.tap(find.byTooltip('Delete'));
+          await tester.pumpAndSettle();
+          expect(find.text('Delete every play of 2 songs?'), findsOneWidget);
+          await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+          await tester.pump();
+          await reload(tester, h);
+          await tester.pumpAndSettle();
+
+          // b 兩次加 c 一次。
+          expect(find.text('Deleted 3 records'), findsOneWidget);
+          expect(find.text('Song a'), findsOneWidget);
+          expect(find.text('Song b'), findsNothing);
+          expect(find.text('Song c'), findsNothing);
+        });
+      });
+    });
+
+    testWidgets('under the time sorts the menu removes one record and '
+        'multi-select deletes the selected records', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 10));
+        await reload(tester, h);
+
+        await tester.tap(find.byTooltip('More options').first);
+        await tester.pumpAndSettle();
+        expect(find.text('Remove from history'), findsOneWidget);
+        await tester.tap(find.text('Remove from history'));
+        await tester.pump();
+        await reload(tester, h);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ListTile), findsNWidgets(1));
+        expect(find.text('Artist · 09:00'), findsOneWidget);
+      });
     });
 
     testWidgets('loading shows a spinner', (tester) async {

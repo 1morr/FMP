@@ -2429,17 +2429,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
   在 notifier 不在 build，重建不重報），頁面以 `EmptyState` 加錯誤圖示顯示 `errorMessage` 的文字（資料庫錯誤是 `errors.unexpected`）。
   ADR 0035 起是舊版的完整頁首：統計卡（今天、本週（週一起算）、全部的首數與總時長，`PlayHistoryRepository.stats`，一個查詢，不受篩選影響）、
-  篩選列（「全部」與每個可搜尋音源的 chip、可移除的日期 chip、右側排序 chip：新到舊、舊到新、播放次數）、標題列的日期、搜尋（250 ms debounce，曲名、作者或分 P 的影片標題含，使用者打的 `%`、`_` 照字面，
+  篩選列（「全部」與歷史裡出現過的每個音源的 chip（`PlayHistoryRepository.sources()`、`historySourcesProvider`，歷史表一變就重讀；名稱取插件清單的 manifest `name`，插件停用或移除時用 id；選的音源從歷史消失時，頁面把篩選退回「全部」）、可移除的日期 chip、右側排序 chip：新到舊、舊到新、播放次數）、標題列的日期、搜尋（250 ms debounce，曲名、作者或分 P 的影片標題含，使用者打的 `%`、`_` 照字面，
   SQLite `LIKE` 只有 ASCII 不分大小寫）與「⋯」（清除全部）。篩選與排序在 `historyFilterProvider`（頁面關掉就丟）；`page({source, day, query, sort})` 疊加條件，
   查詢計畫由 `the filtered queries use the played_at index` 守著，所以沒有為它加索引、也沒有 migration（播放次數排序整份掃一遍，上限 5 萬筆）。
   播放次數排序一首一列（最後一次播放加次數，副標的時刻換成次數）、不分組；其他排序依日分組成時間軸（左欄 40dp 的線、12dp 主色圓點、日期、「N 首」（已載入的）、折疊箭頭；
   折疊只在頁面裡）。每列加固定寬的時長與音源徽章（插件名稱的第一個字；插件圖示等 PR 13 統一），在播的那首封面疊 `NowPlayingOverlay`、曲名主色粗體。
-  選單加「刪除此曲所有紀錄」（紅色確認鈕、提示「已刪除 N 筆」），多選加「刪除」（同），清除全部也是紅色確認鈕（`showDestructiveConfirm`）；「從歷史移除」維持單筆、不確認、不提示。載入中轉圈；失敗有「重試」；
+  選單加「刪除此曲所有紀錄」（紅色確認鈕、提示「已刪除 N 筆」），多選加「刪除」（同），清除全部也是紅色確認鈕（`showDestructiveConfirm`）；時間排序下「從歷史移除」維持單筆、不確認、不提示，多選「刪除」刪選中的那幾筆；播放次數排序時一列是一首曲目的所有播放，所以選單只剩「刪除此曲所有紀錄」、多選「刪除」刪選中曲目的所有紀錄（`deleteAllForTracks`，確認框說幾首歌）。`loadMore` 在新篩選的第一頁還在讀（`isLoading`）時不動，讀回來時篩選或世代不符就丟掉，不同篩選的頁不會混在一起。載入中轉圈；失敗有「重試」；
   沒有紀錄的空狀態有「去搜尋」（`openSearchProvider`，外殼切到搜尋）；有篩選而沒有符合是另一個空狀態。閘門：`test/ui/history/history_page_test.dart`（`grouping by
   day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、`the legacy header`、空狀態、`a failed
   load shows the error…`、`it works
   offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、
-  `play_history_repository_test.dart` 的 `filters, sorts and stats`、guideline 測試。
+  `play_history_repository_test.dart` 的 `filters, sorts and stats`（含 `sources`、`deleteAllForTracks`）、`history_page_test.dart` 的 `the source chips come from the history…`、`the filter goes back to All…`、`deleting under the most-played sort`、`a filter change while a page is in flight…`、guideline 測試。
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列

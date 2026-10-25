@@ -103,6 +103,9 @@ final class HistoryNotifier extends AsyncNotifier<HistoryState> {
   var _generation = 0;
   var _loadingMore = false;
 
+  /// 目前這一代讀的篩選；下一頁回來時要還是它才接。
+  HistoryFilter? _filter;
+
   /// 目前篩選下已載入的筆數（重讀時讀回那麼多）。
   var _loaded = historyPageSize;
 
@@ -113,6 +116,7 @@ final class HistoryNotifier extends AsyncNotifier<HistoryState> {
     // 篩選換了：舊篩選的重讀與載入下一頁都作廢。
     _generation++;
     _loaded = historyPageSize;
+    _filter = filter;
     final changes = repository.changes().listen((_) => unawaited(_reload()));
     ref.onDispose(changes.cancel);
     return _read(repository, filter, count: historyPageSize);
@@ -167,13 +171,21 @@ final class HistoryNotifier extends AsyncNotifier<HistoryState> {
   /// 讀下一頁接在後面；沒有更多或正在讀時什麼都不做。
   Future<void> loadMore() async {
     final current = state.value;
-    if (current == null || !current.hasMore || _loadingMore) return;
+    // 篩選換了、第一頁還在讀時，`state.value` 還是舊篩選的清單：不接在它後面。
+    if (current == null ||
+        !current.hasMore ||
+        _loadingMore ||
+        state.isLoading) {
+      return;
+    }
+    final filter = ref.read(historyFilterProvider);
+    if (filter != _filter) return;
     _loadingMore = true;
     final generation = _generation;
     try {
       final page = await _read(
         ref.read(playHistoryRepositoryProvider),
-        ref.read(historyFilterProvider),
+        filter,
         count: historyPageSize,
         offset: current.entries.length,
       );
@@ -182,6 +194,8 @@ final class HistoryNotifier extends AsyncNotifier<HistoryState> {
       // 上的話，頁面會再讀一次。
       if (generation != _generation ||
           !ref.mounted ||
+          filter != _filter ||
+          filter != ref.read(historyFilterProvider) ||
           !identical(state.value, current)) {
         return;
       }
@@ -195,6 +209,49 @@ final class HistoryNotifier extends AsyncNotifier<HistoryState> {
     } finally {
       _loadingMore = false;
     }
+  }
+}
+
+/// 歷史裡出現過的音源（篩選列的 chip）。歷史表一變就重讀；讀失敗報一次、不出 chip（清單自己會
+/// 顯示失敗）。
+final historySourcesProvider =
+    AsyncNotifierProvider.autoDispose<HistorySourcesNotifier, List<String>>(
+      HistorySourcesNotifier.new,
+    );
+
+final class HistorySourcesNotifier extends AsyncNotifier<List<String>> {
+  var _generation = 0;
+
+  @override
+  Future<List<String>> build() {
+    final repository = ref.watch(playHistoryRepositoryProvider);
+    final changes = repository.changes().listen((_) => unawaited(_reload()));
+    ref.onDispose(changes.cancel);
+    return _read(repository);
+  }
+
+  Future<List<String>> _read(PlayHistoryRepository repository) async {
+    try {
+      return await repository.sources();
+    } on Object catch (error, stackTrace) {
+      final wrapped = AppError.wrap(error, stackTrace);
+      ref
+          .read(logProvider)
+          .report(
+            'Failed to load play history sources',
+            wrapped,
+            tag: 'history',
+          );
+      throw wrapped;
+    }
+  }
+
+  Future<void> _reload() async {
+    final generation = ++_generation;
+    final next = await AsyncValue.guard(
+      () => _read(ref.read(playHistoryRepositoryProvider)),
+    );
+    if (generation == _generation && ref.mounted) state = next;
   }
 }
 

@@ -147,6 +147,8 @@
     "deleteSelected": "删除",
     "deleteSelectedTitle": "删除 {count} 条记录？",
     "deleteSelectedBody": "选中的播放记录会被删除，无法恢复。",
+    "deleteSelectedTracksTitle": "删除 {count} 首歌的所有记录？",
+    "deleteSelectedTracksBody": "这几首歌的所有播放记录都会被删除，无法恢复。",
     "delete": "删除",
     "deletedCount": "已删除 {count} 条",
     "retry": "重试",

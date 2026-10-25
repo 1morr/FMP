@@ -10,6 +10,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
@@ -20,7 +21,6 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
-import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -210,21 +210,30 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   /// 多選的「刪除」：確認（紅色鈕）、刪、提示筆數。回 `true` 離開選取模式。
+  ///
+  /// 播放次數排序時一列是一首曲目的所有播放，所以刪的是選中曲目的全部紀錄；其他排序刪選中
+  /// 的那幾筆。
   Future<bool> _deleteSelected(List<int> ids) async {
     final t = ref.read(translationsProvider).history;
+    final byTrack =
+        ref.read(historyFilterProvider).sort == HistorySort.mostPlayed;
+    final trackKeys = {for (final track in _tracksSync(ids)) '${track.key}'};
     final confirmed = await showDestructiveConfirm(
       context,
-      title: t.deleteSelectedTitle(count: ids.length),
-      body: t.deleteSelectedBody,
+      title: byTrack
+          ? t.deleteSelectedTracksTitle(count: trackKeys.length)
+          : t.deleteSelectedTitle(count: ids.length),
+      body: byTrack ? t.deleteSelectedTracksBody : t.deleteSelectedBody,
       confirmLabel: t.delete,
       cancelLabel: t.cancel,
     );
     if (!confirmed || !mounted) return false;
     final toaster = ref.read(toasterProvider);
     try {
-      final deleted = await ref
-          .read(playHistoryRepositoryProvider)
-          .deleteMany(ids);
+      final repository = ref.read(playHistoryRepositoryProvider);
+      final deleted = byTrack
+          ? await repository.deleteAllForTracks(trackKeys)
+          : await repository.deleteMany(ids);
       toaster.success(t.deletedCount(count: deleted));
     } on Object catch (error, stackTrace) {
       toaster.error(
@@ -449,7 +458,19 @@ class _FilterRow extends ConsumerWidget {
     final t = ref.watch(translationsProvider).history;
     final filter = ref.watch(historyFilterProvider);
     final notifier = ref.read(historyFilterProvider.notifier);
-    final sources = ref.watch(searchSourcesProvider).value ?? const [];
+    // 歷史裡出現過的音源（不論插件現在裝了沒有）；名稱查不到時用 id。
+    final sources = ref.watch(historySourcesProvider).value ?? const [];
+    final plugins = ref.watch(pluginRegistryProvider).value;
+    // 選的音源在歷史裡沒有了（刪光了）：退回「全部」，免得沒有 chip 被選中。
+    ref.listen(historySourcesProvider, (_, next) {
+      final selected = ref.read(historyFilterProvider).source;
+      final available = next.value;
+      if (selected != null &&
+          available != null &&
+          !available.contains(selected)) {
+        notifier.setSource(null);
+      }
+    });
     final spacing = AppTokens.of(context).spacing;
     final dates = MaterialLocalizations.of(context);
     final day = filter.day;
@@ -475,9 +496,9 @@ class _FilterRow extends ConsumerWidget {
                   for (final source in sources) ...[
                     SizedBox(width: spacing.x2),
                     ChoiceChip(
-                      label: Text(source.manifest.name),
-                      selected: filter.source == source.manifest.id,
-                      onSelected: (_) => notifier.setSource(source.manifest.id),
+                      label: Text(plugins?[source]?.manifest.name ?? source),
+                      selected: filter.source == source,
+                      onSelected: (_) => notifier.setSource(source),
                     ),
                   ],
                   if (day != null) ...[
@@ -864,11 +885,13 @@ class _HistoryTile extends ConsumerWidget {
           pluginIds: {track.sourceTypeId},
           onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
-          onPressed: () => unawaited(remove()),
-          child: Text(t.remove),
-        ),
+        // 播放次數排序時一列是這首的所有播放：只剩「刪除此曲所有紀錄」。
+        if (timeline)
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.delete_outline),
+            onPressed: () => unawaited(remove()),
+            child: Text(t.remove),
+          ),
         MenuItemButton(
           style: MenuItemButton.styleFrom(foregroundColor: scheme.error),
           leadingIcon: Icon(Icons.delete_forever_outlined, color: scheme.error),

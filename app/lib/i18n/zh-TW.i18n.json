@@ -147,6 +147,8 @@
     "deleteSelected": "刪除",
     "deleteSelectedTitle": "刪除 {count} 筆紀錄？",
     "deleteSelectedBody": "選取的播放紀錄會被刪除，無法復原。",
+    "deleteSelectedTracksTitle": "刪除 {count} 首歌的所有紀錄？",
+    "deleteSelectedTracksBody": "這幾首歌的所有播放紀錄都會被刪除，無法復原。",
     "delete": "刪除",
     "deletedCount": "已刪除 {count} 筆",
     "retry": "重試",

@@ -434,6 +434,12 @@ class Translations$history$en extends Translations$history$zh_TW {
   String get deleteSelectedBody =>
       'The selected play records are deleted and cannot be restored.';
   @override
+  String deleteSelectedTracksTitle({required Object count}) =>
+      'Delete every play of ${count} songs?';
+  @override
+  String get deleteSelectedTracksBody =>
+      'Every play record of the selected songs is deleted and cannot be restored.';
+  @override
   String get delete => 'Delete';
   @override
   String deletedCount({required Object count}) => 'Deleted ${count} records';

@@ -518,6 +518,13 @@ class Translations$history$zh_TW {
   /// zh-TW: '選取的播放紀錄會被刪除，無法復原。'
   String get deleteSelectedBody => '選取的播放紀錄會被刪除，無法復原。';
 
+  /// zh-TW: '刪除 {count} 首歌的所有紀錄？'
+  String deleteSelectedTracksTitle({required Object count}) =>
+      '刪除 ${count} 首歌的所有紀錄？';
+
+  /// zh-TW: '這幾首歌的所有播放紀錄都會被刪除，無法復原。'
+  String get deleteSelectedTracksBody => '這幾首歌的所有播放紀錄都會被刪除，無法復原。';
+
   /// zh-TW: '刪除'
   String get delete => '刪除';
 

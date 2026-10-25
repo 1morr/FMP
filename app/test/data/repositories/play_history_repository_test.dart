@@ -315,6 +315,37 @@ void main() {
       for (final e in await entries) e.track.sourceId,
     ];
 
+    test('sources lists each source with history, installed or not', () async {
+      expect(await repository.sources(), isEmpty);
+      await play(other('a', source: 'zeta'), DateTime(2026, 10, 7, 9));
+      await play(other('b', source: 'alpha'), DateTime(2026, 10, 7, 10));
+      await play(other('c', source: 'zeta'), DateTime(2026, 10, 7, 11));
+
+      expect(await repository.sources(), ['alpha', 'zeta']);
+
+      await repository.deleteAllForTrack('alpha:b');
+      expect(await repository.sources(), ['zeta']);
+    });
+
+    test(
+      'deleteAllForTracks deletes every play of those tracks only',
+      () async {
+        await play(other('a'), DateTime(2026, 10, 7, 9));
+        await play(other('a'), DateTime(2026, 10, 7, 10));
+        await play(other('b'), DateTime(2026, 10, 7, 11));
+        await play(other('c'), DateTime(2026, 10, 7, 12));
+
+        final deleted = await repository.deleteAllForTracks([
+          'fmp-test:a',
+          'fmp-test:b',
+          'fmp-test:a',
+        ]);
+
+        expect(deleted, 3);
+        expect(await ids(repository.page(limit: 10)), ['c']);
+      },
+    );
+
     test('stats split today, this week (Monday start) and all', () async {
       // 2026-10-07 是週三，本週從 10-05（週一）起。
       final now = DateTime(2026, 10, 7, 15, 30);

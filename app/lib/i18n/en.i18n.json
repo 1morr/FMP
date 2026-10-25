@@ -147,6 +147,8 @@
     "deleteSelected": "Delete",
     "deleteSelectedTitle": "Delete {count} records?",
     "deleteSelectedBody": "The selected play records are deleted and cannot be restored.",
+    "deleteSelectedTracksTitle": "Delete every play of {count} songs?",
+    "deleteSelectedTracksBody": "Every play record of the selected songs is deleted and cannot be restored.",
     "delete": "Delete",
     "deletedCount": "Deleted {count} records",
     "retry": "Retry",

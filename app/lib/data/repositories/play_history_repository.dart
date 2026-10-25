@@ -233,6 +233,19 @@ final class PlayHistoryRepository {
     );
   }
 
+  /// 歷史裡出現過的音源（插件 id，`tracks.source_type_id`），依 id 排序。不看插件現在裝了
+  /// 沒有：停用或移除的插件留下的紀錄也算，歷史頁的音源 chip 由它來。
+  Future<List<String>> sources() async {
+    final rows = await _database
+        .customSelect(
+          'SELECT DISTINCT t.source_type_id AS source_type_id '
+          'FROM play_history h JOIN tracks t ON t.track_key = h.track_key '
+          'ORDER BY t.source_type_id',
+        )
+        .get();
+    return [for (final row in rows) row.read<String>('source_type_id')];
+  }
+
   /// `page` 的 WHERE 子句與它的變數（`h` 是歷史、`t` 是曲目）。
   (String, List<Variable<Object>>) _where({
     String? source,
@@ -288,6 +301,21 @@ final class PlayHistoryRepository {
   Future<int> deleteAllForTrack(String trackKey) => (_database.delete(
     _database.playHistoryTable,
   )..where((t) => t.trackKey.equals(trackKey))).go();
+
+  /// 刪掉這幾首曲目（[trackKeys] 是 `TrackKey.format` 的輸出）的所有紀錄，回傳刪了幾筆。
+  Future<int> deleteAllForTracks(Iterable<String> trackKeys) =>
+      _database.transaction(() async {
+        final all = trackKeys.toSet().toList();
+        var deleted = 0;
+        // 分批：SQLite 的變數個數有上限。
+        for (var i = 0; i < all.length; i += 500) {
+          final chunk = all.sublist(i, (i + 500).clamp(0, all.length));
+          deleted += await (_database.delete(
+            _database.playHistoryTable,
+          )..where((t) => t.trackKey.isIn(chunk))).go();
+        }
+        return deleted;
+      });
 
   /// 刪掉 [ids] 這幾筆，回傳刪了幾筆。
   Future<int> deleteMany(Iterable<int> ids) => _database.transaction(() async {
