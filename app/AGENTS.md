@@ -1614,7 +1614,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 `lib/playback/`（ADR 0018）。怎麼改後端、寫播放測試、跑實機驗證：
 `.trellis/spec/app/playback/index.md`。控制器的入口：臨時播放（`playTemporary`）、收聽直播（`playLive`、`stopLive`，見下方「直播」）、開始 Mix（`startMix`，見下方「Mix」）、加入
 （`addToQueue`）、下一首播放（`playNext`）、跳到（`jumpTo`）、移除（`removeAt`）、拖曳
-（`move`）、移到下一首（`moveToNext`）、清空（`clear`）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
+（`move`）、移到下一首（`moveToNext`）、清空（`clear`）、打亂（`shuffleQueue`：`QueueModel.shuffleEntries`，目前這首移到第一位、項目沿用實例、Mix／直播／不到兩首回 `false`；隨機開著時重新產生一輪，ADR 0035 §決定 8）、隨機（`setShuffle`）、循環輪轉（`cycleLoopMode`）、播放與暫停、
 上一首與下一首、seek、音量（`setVolume`）、靜音（`toggleMute`）、速度（`setSpeed`）、輸出裝置
 （`selectOutputDevice`）。佇列、循環、隨機與音量持久化（見「持久化與啟動恢復」）。
 
@@ -2277,7 +2277,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放、排行（含更新失敗）、排行沒有快取而離線）、探索頁（分頁、多選中）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址、能播的插件的兩個選擇）、匯入預覽（匹配中、完成而有匹配失敗與搜尋失敗並展開一首、`truncated`、離開確認框）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單、匹配目標有一個取消勾選）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址、能播的插件的兩個選擇）、匯入預覽（匹配中、完成而有匹配失敗與搜尋失敗並展開一首、`truncated`、離開確認框）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、篩選與搜尋中、讀取失敗、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單、匹配目標有一個取消勾選）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2427,10 +2427,18 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   尾端「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…、從歷史移除、選取，長按是多選（見「多選」；全選只選已載入的紀錄）：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
   提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
   在 notifier 不在 build，重建不重報），頁面以 `EmptyState` 加錯誤圖示顯示 `errorMessage` 的文字（資料庫錯誤是 `errors.unexpected`）。
-  不做舊版的搜尋、統計、排序、日期篩選、折疊。閘門：`test/ui/history/history_page_test.dart`（`grouping by
-  day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、空狀態、`a failed
+  ADR 0035 起是舊版的完整頁首：統計卡（今天、本週（週一起算）、全部的首數與總時長，`PlayHistoryRepository.stats`，一個查詢，不受篩選影響）、
+  篩選列（「全部」與歷史裡出現過的每個音源的 chip（`PlayHistoryRepository.sources()`、`historySourcesProvider`，歷史表一變就重讀；名稱取插件清單的 manifest `name`，插件停用或移除時用 id；選的音源從歷史消失時，頁面把篩選退回「全部」）、可移除的日期 chip、右側排序 chip：新到舊、舊到新、播放次數）、標題列的日期、搜尋（250 ms debounce，曲名、作者或分 P 的影片標題含，使用者打的 `%`、`_` 照字面，
+  SQLite `LIKE` 只有 ASCII 不分大小寫）與「⋯」（清除全部）。篩選與排序在 `historyFilterProvider`（頁面關掉就丟）；`page({source, day, query, sort})` 疊加條件，
+  查詢計畫由 `the filtered queries use the played_at index` 守著，所以沒有為它加索引、也沒有 migration（播放次數排序整份掃一遍，上限 5 萬筆）。
+  播放次數排序一首一列（最後一次播放加次數，副標的時刻換成次數）、不分組；其他排序依日分組成時間軸（左欄 40dp 的線、12dp 主色圓點、日期、「N 首」（已載入的）、折疊箭頭；
+  折疊只在頁面裡）。每列加固定寬的時長與音源徽章（插件名稱的第一個字；插件圖示等 PR 13 統一），在播的那首封面疊 `NowPlayingOverlay`、曲名主色粗體。
+  選單加「刪除此曲所有紀錄」（紅色確認鈕、提示「已刪除 N 筆」），多選加「刪除」（同），清除全部也是紅色確認鈕（`showDestructiveConfirm`）；時間排序下「從歷史移除」維持單筆、不確認、不提示，多選「刪除」刪選中的那幾筆；播放次數排序時一列是一首曲目的所有播放，所以選單只剩「刪除此曲所有紀錄」、多選「刪除」刪選中曲目的所有紀錄（`deleteAllForTracks`，確認框說幾首歌）。`loadMore` 在新篩選的第一頁還在讀（`isLoading`）時不動，讀回來時篩選或世代不符就丟掉，不同篩選的頁不會混在一起。載入中轉圈；失敗有「重試」；
+  沒有紀錄的空狀態有「去搜尋」（`openSearchProvider`，外殼切到搜尋）；有篩選而沒有符合是另一個空狀態。閘門：`test/ui/history/history_page_test.dart`（`grouping by
+  day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、`the legacy header`、空狀態、`a failed
   load shows the error…`、`it works
-  offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、guideline 測試。
+  offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、
+  `play_history_repository_test.dart` 的 `filters, sorts and stats`（含 `sources`、`deleteAllForTracks`）、`history_page_test.dart` 的 `the source chips come from the history…`、`the filter goes back to All…`、`deleting under the most-played sort`、`a filter change while a page is in flight…`、guideline 測試。
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
@@ -2731,10 +2739,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（查不到名稱時顯示插件 id）、`test/ui/plugins/plugin_name_test.dart`。
   - 佇列（`lib/ui/queue/`，design §7.3；ADR 0035 §決定 2 起是導覽的第四項）：`QueuePage` 是佇列目的地的根頁，各寬度都是整頁，
     沒有底部面板也沒有播放頁的分頁。沒選到這個目的地時（`visible` 為假）不建清單，所以每次切過來都從目前這首附近開始；佇列空時
-    （含收聽直播而佇列是空的）是空狀態（`shell.queueEmptyTitle`、`queueEmptyBody`；U PR 8 換成舊版的引導），否則是 `QueueView`。
-    返回鍵與其他目的地一樣回到首頁。標題列是首數與「清空佇列」（只有圖示、tooltip 當名稱；確認後
-    `clear`、提示「已清空佇列」，取消不動；清空後頁面換成空狀態），隨機開著時下面多一行「隨機順序跟著位置；拖曳只換歌，
-    不改順序」。每列是封面、曲名、上傳者、時長、「⋯」選單與拖曳把手（音源停用或未安裝時，原因取代上傳者，且列監看 `sourceUnavailableProvider`；閘門：`queue_view_test.dart` 的 `a song of a source that cannot be used shows why instead of the uploader`、`the reason follows the source becoming unavailable`）；目前這首以主色標示（臨時播放中不標，因為
+    （含收聽直播而佇列是空的）是空狀態（舊版的引導：圖示、`shell.queueEmptyTitle`、`queueEmptyBody` 與「去搜尋」鈕，經 `openSearchProvider`（`lib/ui/shell/open_search.dart`，歷史頁的空狀態也用它）請外殼切到搜尋目的地），否則是 `QueueView`。
+    返回鍵與其他目的地一樣回到首頁。頂部一列（U PR 8，舊版 AppBar；PR 5 起換成共用的 `PageAppBar`）：左邊跳到底／頂（離頂端 `AppLayout.queueNearTop` 內往底，否則往頂）、中間標題（`QueueView.titleKey`；Mix 時是 `Mix：<標題>`、`mixNoteKey`）、右邊「打亂」（`PlaybackController.shuffleQueue`，成功提示「已打亂」並回到清單頂端；Mix、直播或不到兩首時停用）與「清空」（確認後 `clear`、提示「已清空佇列」，取消不動；清空後頁面換成空狀態）。下面是「正在播放第 n 首／共 m 首」橫幅（`bannerKey`，點了捲到目前這首；臨時播放與直播中不顯示），隨機開著時再下面多一行「隨機順序跟著位置；拖曳只換歌，
+    不改順序」。每列（`AppLayout.queueItemHeight` 72）是封面（目前這首疊 `NowPlayingOverlay`）、曲名（目前這首主色粗體）、上傳者、時長、「×」（一下移除，不確認；tooltip 帶曲名 `queueRemoveTrack`，每列一顆才分得出）、「⋯」選單與拖曳把手（音源停用或未安裝時，原因取代上傳者，且列監看 `sourceUnavailableProvider`；閘門：`queue_view_test.dart` 的 `a song of a source that cannot be used shows why instead of the uploader`、`the reason follows the source becoming unavailable`）；Mix 補歌時列尾有 48dp 轉圈（`playbackMixRefillingProvider`，`footerSpinnerKey`，讀屏名稱 `queueMixLoading`）。目前這首以主色標示（臨時播放中不標，因為
     `currentIndex` 是回到佇列時的位置）；點一下 `jumpTo`；選單有「下一首播放」（`moveToNext`，目前這首沒有這項）與「從佇列
     移除」（`removeAt`，不提示，同歷史頁）。固定列高的 `ReorderableListView.builder`、`buildDefaultDragHandles: false`：
     只有把手（`ReorderableDragStartListener`）能拖，長按留給選單；放下呼叫 `move`（用 `onReorderItem`，它的 `newIndex`
@@ -2805,9 +2812,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `Toaster.error` 顯示、佇列不動。
   - Mix 中（`inMixProvider`＝`QueueState.mix != null`）停用且附說明：搜尋與歷史選單的「加入佇列」「下一首播放」改寫成「…（Mix 中無法使用）」並
     `onPressed: null`；播放列與播放頁的隨機鈕（`ShuffleButton.locked`）tooltip 改成「Mix 中無法隨機播放」、播放列「⋯」選單的隨機勾選項改寫成
-    「隨機播放（Mix 中無法使用）」並停用。循環鈕的 tooltip 與「⋯」選單的循環項目另註明 Mix 中沒有「全部」（`loopTooltip`、`loopLabel` 的 `inMix`）。Ctrl+S 照樣呼叫控制器，由佇列拒絕。沒有「打亂佇列」的入口，所以沒有要停用的。
+    「隨機播放（Mix 中無法使用）」並停用。循環鈕的 tooltip 與「⋯」選單的循環項目另註明 Mix 中沒有「全部」（`loopTooltip`、`loopLabel` 的 `inMix`）。Ctrl+S 照樣呼叫控制器，由佇列拒絕。佇列頁的「打亂」在 Mix 中停用（`QueueModel.shuffleEntries` 也回 `false`）。
     佇列選單的「下一首播放」是重排（`moveToNext`），Mix 中照常。
-  - 佇列頁的標題列下多一行 `Mix：<標題>`（`QueueView.mixNoteKey`，星形圖示加單行省略），位置就是隨機說明那一行（Mix 沒有隨機，兩者不同時出現）。
+  - 佇列頁頂部的標題在 Mix 時是 `Mix：<標題>`（`QueueView.mixNoteKey`）。
   閘門：`test/ui/player/mix_ui_test.dart`（選單項目依插件能力出現、開始與失敗、Mix 中的停用與說明、隨機鈕與 Ctrl+S、循環鈕、「⋯」的循環項目與 Ctrl+R、佇列標題兩種寬度、佇列列選單）、
   `history_page_test.dart` 的 `the Mix items of the menu`、`guidelines_test.dart` 的 `the queue of a mix`（寬 400／1000、淺色與深色）。
 - 分 P 的介面（M3 PR 20，design §11.1、契約見 § 插件的 `multiPart`；狀態在 `lib/ui/search/video_parts.dart`）：

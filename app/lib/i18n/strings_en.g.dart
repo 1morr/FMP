@@ -227,6 +227,8 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   String get queueEmptyBody =>
       'Songs you play from Search or the Library line up here.';
   @override
+  String get queueEmptyAction => 'Go to Search';
+  @override
   String get panelTitle => 'Now playing';
   @override
   String get panelEmpty => 'Nothing is playing';
@@ -373,6 +375,84 @@ class Translations$history$en extends Translations$history$zh_TW {
   String get confirm => 'Clear';
   @override
   String get cleared => 'Play history cleared';
+  @override
+  String get selectDate => 'Pick a date';
+  @override
+  String get search => 'Search history';
+  @override
+  String get searchHint => 'Search by title or artist';
+  @override
+  String get closeSearch => 'Close search';
+  @override
+  String get statsToday => 'Today';
+  @override
+  String get statsWeek => 'This week';
+  @override
+  String get statsAll => 'All time';
+  @override
+  String statsCount({required Object count}) => '${count} plays';
+  @override
+  String durationHm({required Object hours, required Object minutes}) =>
+      '${hours}h ${minutes}m';
+  @override
+  String durationM({required Object minutes}) => '${minutes}m';
+  @override
+  String get filterAll => 'All';
+  @override
+  String get sortTooltip => 'Sort';
+  @override
+  String get sortNewest => 'Newest first';
+  @override
+  String get sortOldest => 'Oldest first';
+  @override
+  String get sortMostPlayed => 'Most played';
+  @override
+  String get clearDate => 'Clear the date filter';
+  @override
+  String dayCount({required Object count}) => '${count} songs';
+  @override
+  String dayCollapse({required Object day}) => 'Collapse ${day}';
+  @override
+  String dayExpand({required Object day}) => 'Expand ${day}';
+  @override
+  String playCount({required Object count}) => '${count} plays';
+  @override
+  String sourceIcon({required Object name}) => 'Source: ${name}';
+  @override
+  String get removeAllOfTrack => 'Delete all plays of this song';
+  @override
+  String get removeAllTitle => 'Delete every play of this song?';
+  @override
+  String removeAllBody({required Object title}) =>
+      'Every play record of "${title}" is deleted and cannot be restored.';
+  @override
+  String get deleteSelected => 'Delete';
+  @override
+  String deleteSelectedTitle({required Object count}) =>
+      'Delete ${count} records?';
+  @override
+  String get deleteSelectedBody =>
+      'The selected play records are deleted and cannot be restored.';
+  @override
+  String deleteSelectedTracksTitle({required Object count}) =>
+      'Delete every play of ${count} songs?';
+  @override
+  String get deleteSelectedTracksBody =>
+      'Every play record of the selected songs is deleted and cannot be restored.';
+  @override
+  String get delete => 'Delete';
+  @override
+  String deletedCount({required Object count}) => 'Deleted ${count} records';
+  @override
+  String get retry => 'Retry';
+  @override
+  String get goSearch => 'Go to Search';
+  @override
+  String get noMatch => 'No matching records';
+  @override
+  String get noMatchHint => 'Try another filter or keyword';
+  @override
+  String get pageMore => 'More actions';
 }
 
 // Path: home
@@ -1793,6 +1873,23 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   String get queueRemove => 'Remove from queue';
   @override
   String get queueReorder => 'Drag to reorder';
+  @override
+  String get queueTitle => 'Queue';
+  @override
+  String get queueShuffle => 'Shuffle';
+  @override
+  String get queueShuffled => 'Queue shuffled';
+  @override
+  String get queueJumpTop => 'Jump to top';
+  @override
+  String get queueJumpBottom => 'Jump to bottom';
+  @override
+  String queuePlayingAt({required Object index}) => 'Playing track ${index}';
+  @override
+  String queueRemoveTrack({required Object title}) =>
+      'Remove "${title}" from the queue';
+  @override
+  String get queueMixLoading => 'Loading more songs';
 }
 
 // Path: appearance

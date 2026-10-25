@@ -107,7 +107,7 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
 - 佇列編輯的禁止在 `QueueModel`（`append`／`playNext` 回 `false`、`setShuffle(true)` 不動），UI 的停用只是提示；控制器 `_add` 另外先擋，才不會發 `QueueFull`。
   新增一個「加入類」入口時，同時想它在 Mix 中該不該停用。
 - 修剪在 `_publish`（所有改 `_current` 或附加的編輯都經它），所以新的換曲目操作不必另外處理；佇列項目沿用實例，`QueueStore` 的差量因此是「前面少一段」。
-- `MixSession` 不碰控制器：吃 `QueueModel`、一個取批次的函式（`PlaybackSession.mix`）、`hasPlugin` 與「佇列變了」的回呼。控制器在每首開始（`_beginTrack` 與前瞻接上）呼叫
+- `MixSession` 不碰控制器：吃 `QueueModel`、一個取批次的函式（`PlaybackSession.mix`）、`hasPlugin`、「佇列變了」的回呼與選填的「`refilling` 變了」回呼（控制器轉成 `mixRefillChanges`，佇列頁列尾的轉圈讀 `playbackMixRefillingProvider`）。控制器在每首開始（`_beginTrack` 與前瞻接上）呼叫
   `trackStarted()`，在 `FinishQueue` 時看 `refilling` 決定要不要等（`_finishAfterRefill`）。測試 `MixSession` 用真的 `QueueModel` 加 `FakeSourcePlugin(mix: true)` 的
   `onMix`；經控制器的測試用 `playback_controller_test.dart` 的 `Harness`（`h.plugin.onMix`），第一個 `mixQueries` 是開始本身。
 - 新增持久化的 Mix 欄位：`PlayerState.mix`（`QueueRepository`）→ `QueueStore` 的 `_writeOnce` 與 `attach` → `PlaybackController.restore(mix:)` → `QueueModel.restore`。

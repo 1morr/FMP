@@ -417,7 +417,13 @@ final class ShellHarness {
   }
 
   /// 切到佇列目的地（Ctrl+Q 與導覽項是同一條路）。
+  ///
+  /// 在播的那一列的指示器會一直動，`pumpAndSettle` 等不到停：先要求系統減少動態
+  /// （指示器因此不動；測試結束還原）。
   Future<void> openQueue(WidgetTester tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await open(tester, ShellDestination.queue);
     await tester.pumpAndSettle();
   }

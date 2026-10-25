@@ -43,7 +43,7 @@ lib/ui/
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
-  tracks/              # TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
+  tracks/              # NowPlayingOverlay（封面上的在播遮罩，佇列、歷史等共用；暫停或減少動態時不動，所以 pumpAndSettle 的測試要先 disableAnimations，見 ShellHarness.openQueue）；TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
                        # track_selection：多選（TrackSelection、TrackSelectionScope、TrackSelectionBar、SelectableTrackRow）
   plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
@@ -197,6 +197,9 @@ try {
 
 規則與閘門見 `app/AGENTS.md` § 介面。
 
+- 篩選（ADR 0035，R5）：`historyFilterProvider`（音源、日期、搜尋文字、排序；autoDispose，頁面關掉就丟）一變，`historyProvider` 重建、從第一頁重讀；
+  統計卡讀 `historyStatsProvider`（歷史表一變就重讀）。播放次數排序不分組（`PlayHistoryEntry.playCount`）。折疊的日子只存在頁面的 State。
+  確認框用 `showDestructiveConfirm`（`lib/ui/dialogs/`，紅色確認鈕）。測試：「去搜尋」靠外殼接的 `openSearchProvider`，要 `pumpShell` 才有效。
 - 資料：`historyProvider`（`history_state.dart`）是 `AsyncNotifier`，載入的是「最新的前 N 筆」（N 從 50 起，
   `loadMore` 每次加 50）；`PlayHistoryRepository.changes()` 一發出就重讀已載入的那麼多筆，每次重讀換一代、過時的重讀丟掉。
   `loadMore` 的位移是照開始時的清單算的：讀的期間換了一代，或清單已經被別的結果換掉（開始時已有一次重讀在路上），

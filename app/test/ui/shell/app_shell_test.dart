@@ -214,7 +214,16 @@ void main() {
         await h.play(tester, [summary('a')]);
         await h.openHistory(tester);
 
-        expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+        // 看頁首的標題：頁面正中央可能是頁首與空狀態之間的空白，那裡不接點擊。
+        expect(
+          find
+              .descendant(
+                of: find.byType(HistoryPage),
+                matching: find.text('Play history'),
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
         expect(find.byType(LibraryPage).hitTestable(), findsNothing);
         expect(find.byType(PlayerBar).hitTestable(), findsOneWidget);
         expect(
@@ -902,6 +911,12 @@ void main() {
       tester,
     ) async {
       final h = await playing(tester);
+      // 在播那一列的指示器會一直動，`pumpAndSettle` 會一路等到歌播完：先減少動態。
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
 
       await chord(tester, LogicalKeyboardKey.keyQ);
       await tester.pumpAndSettle();

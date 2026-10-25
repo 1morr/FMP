@@ -16,17 +16,20 @@ import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 
-/// 可編輯的佇列清單（M2 PR 18b，design §7.3）。佇列目的地（[QueuePage]）的內容，各寬度都是整頁
-/// （ADR 0035 §決定 2；播放頁的佇列分頁與底部面板已拿掉）。
+/// 可編輯的佇列清單（M2 PR 18b，design §7.3；ADR 0035 §決定 2、8 與 design §5 照舊版佇列頁）。
+/// 佇列目的地（[QueuePage]）的內容，各寬度都是整頁。
 ///
-/// - 標題列：首數與「清空佇列」（確認後清空、提示一次）；隨機開著時多一行說明
-///   （ADR 0018 §後果：拖曳只換歌，不改隨機順序）。
-/// - 每列：封面、曲名、上傳者、時長、「⋯」選單與拖曳把手；目前這首以主色標示（臨時播放中
-///   不標：`currentIndex` 是回到佇列時的位置）。點一下 `jumpTo`；只有把手能拖
-///   （長按留給選單），放下呼叫 `move`。
+/// - 頂部：左邊跳到頂／底（依捲動位置切換方向）、中間標題（Mix 時「Mix：標題」）、右邊
+///   「打亂」（Mix 與直播時停用）與「清空」（確認後清空）；下面是「正在播放第 n 首」橫幅
+///   （點了捲到目前這首）；隨機開著時多一行說明（ADR 0018 §後果：拖曳只換歌，不改隨機順序）。
+/// - 每列：封面（目前這首疊 [NowPlayingOverlay]）、曲名、上傳者、時長、「×」移除、「⋯」選單與
+///   拖曳把手；目前這首的曲名是主色粗體（臨時播放中不標：`currentIndex` 是回到佇列時的位置）。
+///   點一下 `jumpTo`；只有把手能拖（長按留給選單），放下呼叫 `move`。
+/// - Mix 補歌時列尾有轉圈。
 /// - 固定列高的 `ReorderableListView.builder`，一萬首也只建看得到的；開啟時從目前這首的
 ///   前兩列開始；「切歌時捲到目前歌曲」開著時，目前這首換了（`currentIndex` 指的項目
 ///   換了，拖曳讓它換位置不算）就再捲一次，使用者正在拖曳時不捲。
@@ -36,8 +39,17 @@ class QueueView extends ConsumerStatefulWidget {
   /// 「清空佇列」鈕；測試以它找。
   static const clearKey = ValueKey('queue-clear');
 
-  /// Mix 佇列的標題列；測試以它找。
+  /// 頂部的標題；Mix 時是「Mix：標題」並用 [mixNoteKey]。測試以它們找。
+  static const titleKey = ValueKey('queue-title');
   static const mixNoteKey = ValueKey('queue-mix-note');
+
+  /// 「打亂」鈕、跳到頂／底鈕與「正在播放」橫幅；測試以它們找。
+  static const shuffleKey = ValueKey('queue-shuffle');
+  static const jumpKey = ValueKey('queue-jump');
+  static const bannerKey = ValueKey('queue-banner');
+
+  /// Mix 補歌時的列尾轉圈。
+  static const footerSpinnerKey = ValueKey('queue-footer-spinner');
 
   @override
   ConsumerState<QueueView> createState() => _QueueViewState();
@@ -55,6 +67,9 @@ class _QueueViewState extends ConsumerState<QueueView> {
   QueueEntry? _current;
   var _dragging = false;
 
+  /// 捲動位置離頂端不遠：跳轉鈕往底，否則往頂。
+  var _nearTop = true;
+
   /// 清單上按著的指標數。拖曳被取消（指標 cancel）時 `onReorderEnd` 不會來，最後一個
   /// 指標放開就算拖曳結束，否則之後的自動捲動一直停著。
   var _pointers = 0;
@@ -69,6 +84,36 @@ class _QueueViewState extends ConsumerState<QueueView> {
     super.initState();
     final queue = ref.read(playbackQueueProvider).value;
     _current = _currentEntry(queue);
+    _nearTop = _currentOffset() < AppLayout.queueNearTop;
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final nearTop = _scroll.offset < AppLayout.queueNearTop;
+    if (nearTop != _nearTop) setState(() => _nearTop = nearTop);
+  }
+
+  void _jumpToEnd() {
+    if (!_scroll.hasClients) return;
+    final target = _nearTop ? _scroll.position.maxScrollExtent : 0.0;
+    unawaited(
+      _scroll.animateTo(
+        target,
+        duration: AppLayout.queueScrollDuration,
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  void _shuffle() {
+    final toaster = ref.read(toasterProvider);
+    final t = ref.read(translationsProvider).playerPage;
+    if (!ref.read(playbackControllerProvider).shuffleQueue()) return;
+    toaster.success(t.queueShuffled);
+    // 目前這首移到第一位了：回到清單頂端。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCurrent(animate: false);
+    });
   }
 
   @override
@@ -155,67 +200,40 @@ class _QueueViewState extends ConsumerState<QueueView> {
     final t = ref.watch(translationsProvider).playerPage;
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
+    final refilling = ref.watch(playbackMixRefillingProvider).value ?? false;
     final entries = queue.entries;
+    final current = queue.isOutsideQueue ? null : queue.currentIndex;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsetsDirectional.only(
-            start: spacing.x4,
-            end: spacing.x2,
-            top: spacing.x2,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  t.queueCount(count: entries.length),
-                  style: theme.textTheme.titleSmall,
-                ),
-              ),
-              IconButton(
-                key: QueueView.clearKey,
-                tooltip: t.queueClear,
-                icon: const Icon(Icons.delete_sweep_outlined),
-                onPressed: entries.isEmpty ? null : () => unawaited(_clear()),
-              ),
-            ],
-          ),
+        _QueueHeader(
+          nearTop: _nearTop,
+          onJump: _jumpToEnd,
+          title: switch (queue.mix) {
+            final mix? => t.queueMixNote(title: mix.title),
+            null => t.queueTitle,
+          },
+          titleKey: queue.mix == null
+              ? QueueView.titleKey
+              : QueueView.mixNoteKey,
+          onShuffle:
+              queue.mix != null || queue.live != null || entries.length < 2
+              ? null
+              : _shuffle,
+          onClear: entries.isEmpty ? null : () => unawaited(_clear()),
         ),
-        if (queue.mix case final mix?)
-          Padding(
-            padding: EdgeInsetsDirectional.only(
-              start: spacing.x4,
-              end: spacing.x4,
-              bottom: spacing.x2,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome,
-                  size: theme.textTheme.bodySmall?.fontSize,
-                  color: theme.colorScheme.primary,
-                ),
-                SizedBox(width: spacing.x1),
-                Expanded(
-                  child: Text(
-                    t.queueMixNote(title: mix.title),
-                    key: QueueView.mixNoteKey,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        if (current != null)
+          _NowPlayingBanner(
+            index: current,
+            total: entries.length,
+            onTap: () => _scrollToCurrent(animate: true),
           ),
         if (queue.shuffleEnabled)
           Padding(
             padding: EdgeInsetsDirectional.only(
               start: spacing.x4,
               end: spacing.x4,
+              top: spacing.x2,
               bottom: spacing.x2,
             ),
             child: Text(
@@ -235,6 +253,23 @@ class _QueueViewState extends ConsumerState<QueueView> {
               buildDefaultDragHandles: false,
               itemExtent: AppLayout.queueItemHeight,
               itemCount: entries.length,
+              footer: queue.mix == null
+                  ? null
+                  : SizedBox(
+                      height: AppLayout.queueFooterHeight,
+                      child: refilling
+                          ? Center(
+                              child: SizedBox.square(
+                                key: QueueView.footerSpinnerKey,
+                                dimension: AppLayout.queueFooterSpinner,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  semanticsLabel: t.queueMixLoading,
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
               onReorderStart: (_) => _dragging = true,
               onReorderEnd: (_) => _dragging = false,
               // `onReorderItem` 的 `newIndex` 已扣掉被拿起來的那一格（舊的 `onReorder` 往下拖
@@ -254,6 +289,130 @@ class _QueueViewState extends ConsumerState<QueueView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 頂部一列（舊版的 AppBar）。PR 5 起每頁的頂部換成共用的置中 `PageAppBar`，標題這一段到時直接搬過去。
+class _QueueHeader extends ConsumerWidget {
+  const _QueueHeader({
+    required this.nearTop,
+    required this.onJump,
+    required this.title,
+    required this.titleKey,
+    required this.onShuffle,
+    required this.onClear,
+  });
+
+  final bool nearTop;
+  final VoidCallback onJump;
+  final String title;
+  final Key titleKey;
+  final VoidCallback? onShuffle;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).playerPage;
+    final spacing = AppTokens.of(context).spacing;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: spacing.x2),
+      child: Row(
+        children: [
+          IconButton(
+            key: QueueView.jumpKey,
+            tooltip: nearTop ? t.queueJumpBottom : t.queueJumpTop,
+            icon: Icon(
+              nearTop ? Icons.vertical_align_bottom : Icons.vertical_align_top,
+            ),
+            onPressed: onJump,
+          ),
+          Expanded(
+            child: Text(
+              title,
+              key: titleKey,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          IconButton(
+            key: QueueView.shuffleKey,
+            tooltip: t.queueShuffle,
+            icon: const Icon(Icons.shuffle),
+            onPressed: onShuffle,
+          ),
+          IconButton(
+            key: QueueView.clearKey,
+            tooltip: t.queueClear,
+            icon: const Icon(Icons.delete_outline),
+            onPressed: onClear,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「正在播放第 n 首」與「共 m 首」；點了捲到目前這首。
+class _NowPlayingBanner extends ConsumerWidget {
+  const _NowPlayingBanner({
+    required this.index,
+    required this.total,
+    required this.onTap,
+  });
+
+  final int index;
+  final int total;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).playerPage;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final spacing = AppTokens.of(context).spacing;
+    final style = theme.textTheme.bodySmall?.copyWith(color: scheme.primary);
+    return Material(
+      color: scheme.primaryContainer.withValues(alpha: AppLayout.queueBanner),
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          key: QueueView.bannerKey,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppLayout.queueBannerHeight,
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: spacing.x4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.play_circle_filled,
+                    size: 16,
+                    color: scheme.primary,
+                  ),
+                  SizedBox(width: spacing.x2),
+                  Expanded(
+                    child: Text(
+                      t.queuePlayingAt(index: index + 1),
+                      style: style,
+                    ),
+                  ),
+                  Text(
+                    t.queueCount(count: total),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -319,15 +478,22 @@ class _QueueRow extends ConsumerWidget {
       builder: (context, more, openMenu) => ListTile(
         dense: true,
         selected: selected,
-        leading: ArtworkImage(
-          pluginId: track.sourceTypeId,
-          artwork: track.artwork,
-          size: AppLayout.artworkThumbnail,
+        leading: Stack(
+          children: [
+            ArtworkImage(
+              pluginId: track.sourceTypeId,
+              artwork: track.artwork,
+              size: AppLayout.artworkThumbnail,
+            ),
+            if (selected)
+              const NowPlayingOverlay(size: AppLayout.artworkThumbnail),
+          ],
         ),
         title: Text(
           track.displayTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          style: selected ? const TextStyle(fontWeight: FontWeight.w600) : null,
         ),
         subtitle: uploader == null
             ? null
@@ -336,6 +502,15 @@ class _QueueRow extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (duration != null) Text(formatDuration(duration)),
+            // 一下就移除，不確認（同選單裡的「從佇列移除」）。
+            // 名稱帶曲名：每列都有一顆，讀屏逐顆讀時才分得出是哪一首。
+            IconButton(
+              tooltip: t.queueRemoveTrack(title: track.displayTitle),
+              icon: const Icon(Icons.close),
+              onPressed: () => unawaited(
+                ref.read(playbackControllerProvider).removeAt(index),
+              ),
+            ),
             more,
             ReorderableDragStartListener(
               index: index,

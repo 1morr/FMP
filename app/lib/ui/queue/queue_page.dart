@@ -5,9 +5,10 @@ import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/queue/queue_view.dart';
+import 'package:fmp/ui/shell/open_search.dart';
 
 /// 佇列目的地的根頁（ADR 0035 §決定 2）：各寬度都是整頁的 [QueueView]；佇列空時是空狀態
-/// （PR 8 換成舊版的引導）。
+/// （舊版的引導：圖示、說明與「去搜尋」，經 `openSearchProvider`）。
 ///
 /// 外殼的 `IndexedStack` 讓每個目的地一直掛著，所以沒選到時（[visible] 為假）不建清單：
 /// 每次切過來都從目前這首附近開始，隱藏時也不替每一列讀 provider。
@@ -30,6 +31,12 @@ class QueuePage extends ConsumerWidget {
         icon: Icons.queue_music,
         title: t.queueEmptyTitle,
         body: t.queueEmptyBody,
+        action: FilledButton.icon(
+          // 「去搜尋」：外殼切到搜尋目的地（`openSearchProvider`，歷史頁的空狀態也用它）。
+          onPressed: () => ref.read(openSearchProvider)(),
+          icon: const Icon(Icons.search),
+          label: Text(t.queueEmptyAction),
+        ),
       );
     }
     return const QueueView();
