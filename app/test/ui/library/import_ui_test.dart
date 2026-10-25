@@ -277,7 +277,7 @@ void main() {
       await _advance(tester, h);
     });
 
-    testWidgets('cancelling after a page keeps what was written and says so', (
+    testWidgets('cancelling after a page discards the whole import', (
       tester,
     ) async {
       final second = Completer<PlaylistPage>();
@@ -309,12 +309,11 @@ void main() {
       await _advance(tester, h);
 
       expect(find.byType(AlertDialog), findsNothing);
-      expect(toasts, ['Cancelled; kept 2']);
-      expect(await _songs(tester, h, 1), ['a', 'b']);
-      expect(
-        (await _remote(tester, h, 1)).lastResult,
-        PlaylistRefreshResult.partial,
+      expect(toasts, ['Import cancelled']);
+      final all = await tester.runAsync(
+        () => _repository(tester, h).watchAll().first,
       );
+      expect(all, isEmpty);
     });
 
     testWidgets('cancelling before the first page leaves no playlist', (

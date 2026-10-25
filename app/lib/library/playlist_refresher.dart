@@ -78,8 +78,9 @@ final class RefreshDiscarded extends RefreshOutcome {
   const RefreshDiscarded();
 }
 
-/// 使用者取消（[ImportCancel]）：停在 [count] 項（這次已寫入的）。一頁都沒寫時什麼都沒動；寫過
-/// 的頁留著，歌單標成 `partial`，下一次刷新補齊（ADR 0033 §決定 2），沒有套用移除與重排。
+/// 使用者取消（[ImportCancel]）：停在 [count] 項（這次已寫入的）。一頁都沒寫時什麼都沒動；寫過的頁留著，
+/// 歌單標成 `partial`，下一次刷新補齊（ADR 0033 §決定 2），沒有套用移除與重排。`discardOnCancel`
+/// （新匯入）時改為整張歌單連同項目與孤兒曲目都刪掉。
 @immutable
 final class RefreshCancelled extends RefreshOutcome {
   const RefreshCancelled({required this.count});
@@ -110,25 +111,65 @@ final class PlaylistRefresher {
   /// 刷新 [playlistId]。[firstPage] 是呼叫端剛取到的第一頁（匯入新歌單時，避免再取一次），
   /// 沒給就由刷新器取。[onProgress] 在每一頁寫進資料庫後收到這次刷新的進度（已讀數、插件給的總數、
   /// 最後一首的標題）。[cancel] 在每一頁寫入之前檢查，被取消就停下（[RefreshCancelled]）；它不經
-  /// [RefreshTrigger.isCurrent]，因為取消後仍要把 `partial` 寫進去。
+  /// [RefreshTrigger.isCurrent]，因為取消後仍要把 `partial` 寫進去。[discardOnCancel] 給新匯入用：
+  /// 被取消就在這把鎖裡把歌單整張刪掉。
   Future<RefreshOutcome> refresh(
     int playlistId, {
     RefreshTrigger trigger = RefreshTrigger.manual,
     PlaylistPage? firstPage,
     void Function(ImportProgress progress)? onProgress,
     ImportCancel? cancel,
+    bool discardOnCancel = false,
   }) {
     final previous = _tail;
     final done = Completer<void>();
     _tail = done.future;
     return previous
         .then(
-          (_) => _refresh(playlistId, trigger, firstPage, onProgress, cancel),
+          (_) => _refresh(
+            playlistId,
+            trigger,
+            firstPage,
+            onProgress,
+            cancel,
+            discardOnCancel,
+          ),
         )
         .whenComplete(done.complete);
   }
 
   Future<RefreshOutcome> _refresh(
+    int playlistId,
+    RefreshTrigger trigger,
+    PlaylistPage? firstPage,
+    void Function(ImportProgress progress)? onProgress,
+    ImportCancel? cancel,
+    bool discardOnCancel,
+  ) async {
+    final outcome = await _refreshInner(
+      playlistId,
+      trigger,
+      firstPage,
+      onProgress,
+      cancel,
+    );
+    if (outcome is RefreshCancelled && discardOnCancel) {
+      // 新匯入被取消就是放棄：在同一把鎖裡刪掉歌單（`playlist_remote`、項目連帶刪除）與孤兒曲目，
+      // 排在後面的刷新（排程、手動）進來時已經找不到這一列。
+      await _ref.read(playlistRepositoryProvider).delete(playlistId);
+      await _ref.read(tracksRepositoryProvider).deleteOrphans();
+      _ref
+          .read(logProvider)
+          .info(
+            'Cancelled import discarded',
+            tag: libraryLogTag,
+            fields: {'playlistId': playlistId, 'count': outcome.count},
+          );
+    }
+    return outcome;
+  }
+
+  Future<RefreshOutcome> _refreshInner(
     int playlistId,
     RefreshTrigger trigger,
     PlaylistPage? firstPage,

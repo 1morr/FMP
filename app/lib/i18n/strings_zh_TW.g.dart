@@ -769,9 +769,6 @@ class Translations$library$zh_TW {
   String importProgressOf({required Object count, required Object total}) =>
       '已匯入 ${count}／${total} 首';
 
-  /// zh-TW: '已取消，保留 {count} 首'
-  String importCancelledKept({required Object count}) => '已取消，保留 ${count} 首';
-
   /// zh-TW: '已取消匯入'
   String get importCancelledNone => '已取消匯入';
 
@@ -3440,13 +3437,6 @@ class Translations$accounts$zh_TW {
 
   /// zh-TW: '已取消：已匯入 {count} 張'
   String importCancelled({required Object count}) => '已取消：已匯入 ${count} 張';
-
-  /// zh-TW: '已取消：已匯入 {count} 張，「{name}」保留了 {kept} 首（未完成）'
-  String importCancelledKept({
-    required Object count,
-    required Object name,
-    required Object kept,
-  }) => '已取消：已匯入 ${count} 張，「${name}」保留了 ${kept} 首（未完成）';
 
   /// zh-TW: '匯入失敗：{reason}'
   String playlistImportFailed({required Object reason}) => '匯入失敗：${reason}';

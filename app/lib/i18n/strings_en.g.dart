@@ -631,9 +631,6 @@ class Translations$library$en extends Translations$library$zh_TW {
   String importProgressOf({required Object count, required Object total}) =>
       'Imported ${count} of ${total}';
   @override
-  String importCancelledKept({required Object count}) =>
-      'Cancelled; kept ${count}';
-  @override
   String get importCancelledNone => 'Import cancelled';
   @override
   String refreshProgress({required Object count}) => '${count} updated';
@@ -2657,13 +2654,6 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String importCancelled({required Object count}) =>
       'Cancelled: ${count} imported';
-  @override
-  String importCancelledKept({
-    required Object count,
-    required Object name,
-    required Object kept,
-  }) =>
-      'Cancelled: ${count} imported; "${name}" kept ${kept} songs (incomplete)';
   @override
   String playlistImportFailed({required Object reason}) =>
       'Import failed: ${reason}';

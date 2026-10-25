@@ -48,8 +48,8 @@ final class ImportProgress {
   int get hashCode => Object.hash(count, total, expectedTotal, currentTitle);
 }
 
-/// 使用者要求取消一次匯入。匯入在寫下一頁之前檢查 [isCancelled]：已寫的頁留著（`partial`），
-/// 第一頁寫入前取消則什麼都不留。
+/// 使用者要求取消一次匯入。匯入在寫下一頁之前檢查 [isCancelled]。新匯入的歌單整張放棄（含已寫的頁）；
+/// 既有歌單的重新匯入或刷新只是停下，已寫的頁留著（`partial`）。
 final class ImportCancel {
   bool _cancelled = false;
 

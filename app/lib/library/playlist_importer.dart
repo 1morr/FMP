@@ -60,8 +60,9 @@ final class ImportedPlaylist extends ImportResult {
   final RefreshOutcome refresh;
 }
 
-/// 使用者取消了匯入（[ImportCancel]）。[playlistId] 是留下來的歌單（已寫入 [count] 項，標成
-/// `partial`，下一次刷新補齊）；第一頁寫入前取消沒有留下任何東西，[playlistId] 是 `null`。
+/// 使用者取消了匯入（[ImportCancel]）。新匯入的歌單就此放棄、什麼都不留（[playlistId] 是 `null`）；
+/// 重新匯入既有的那張只是停下：這次寫過的頁留著（[count] 項），標成 `partial`，下一次刷新補齊，
+/// [playlistId] 是那一張。
 @immutable
 final class ImportCancelled extends ImportResult {
   const ImportCancelled({this.playlistId, required this.count});
@@ -193,7 +194,7 @@ final class PlaylistImporter {
         cancel,
         expectedTotal,
       );
-      // 取消而留下的歌單（寫過頁）也寫：之後的刷新在 page 的 `writable` 是 `null` 時保留它。
+      // 取消後仍留著的歌單（重新匯入既有的那張）也寫。
       final kept = switch (result) {
         ImportedPlaylist(:final playlistId) => playlistId,
         ImportCancelled(:final playlistId) => playlistId,
@@ -348,16 +349,16 @@ final class PlaylistImporter {
         ),
       );
     }
+    // 新匯入被取消就是放棄（ADR 0035 §決定 11）：刷新器在同一把鎖裡把剛建的歌單刪掉。
     final outcome = await refresher.refresh(
       created,
       firstPage: first,
       onProgress: progress,
       cancel: cancel,
+      discardOnCancel: true,
     );
-    if (outcome is RefreshCancelled && outcome.count == 0) {
-      // 一頁都沒寫就取消：剛建的歌單（連同 `playlist_remote`）不留。
-      await repository.delete(created);
-      return const ImportCancelled(count: 0);
+    if (outcome is RefreshCancelled) {
+      return ImportCancelled(count: outcome.count);
     }
     return _result(created, created: true, outcome: outcome);
   }

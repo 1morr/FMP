@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/accounts/account_import_page.dart';
@@ -148,21 +149,33 @@ void main() {
     await _advance(tester);
   });
 
-  testWidgets('cancel keeps the pages already written and skips the rest', (
-    tester,
-  ) async {
+  testWidgets('cancel mid-batch keeps the finished playlists and discards the '
+      'one being imported', (tester) async {
     final second = Completer<PlaylistPage>();
     final plugin = FakeImportPlugin(
-      onPage: (query) => query.cursor == null
-          ? page(['a', 'b'], cursor: 'c2', total: 5)
-          : second.future,
+      onPage: (query) => switch (query.playlistId) {
+        'p1' => page(['x', 'y'], total: 2),
+        'p2' =>
+          query.cursor == null
+              ? page(['a', 'b'], cursor: 'c2', total: 5)
+              : second.future,
+        _ => page(['z'], total: 1),
+      },
+    );
+    const third = LibraryPlaylist(
+      playlistId: 'p3',
+      title: 'Never started',
+      writable: false,
     );
     final toasts = <String>[];
-    final (_, run) = await _open(tester, plugin, [
+    final (h, run) = await _open(tester, plugin, [
       _road,
       _study,
+      third,
     ], toasts: toasts);
     await _advance(tester);
+    await _advance(tester);
+    expect(find.text('Imported 2 of 2'), findsOneWidget);
 
     await tester.tap(find.text('Cancel'));
     await tester.pump();
@@ -175,16 +188,34 @@ void main() {
     await _advance(tester);
 
     expect(run.finished, isTrue);
-    expect(find.text('Cancelled · Imported 2 of 5'), findsOneWidget);
-    // The playlist after it never started.
-    expect(find.text('Cancelled'), findsOneWidget);
-    expect(plugin.pageQueries.where((q) => q.playlistId == 'p2'), isEmpty);
-    expect(toasts, [
-      'Cancelled: 0 imported; "Road trip" kept 2 songs (incomplete)',
-    ]);
+    expect(run.importedIds, {'p1'});
+    expect(plugin.pageQueries.where((q) => q.playlistId == 'p3'), isEmpty);
+    expect(toasts, ['Cancelled: 1 imported']);
     expect(find.text('Done'), findsOneWidget);
-    // The kept playlist opens its detail.
-    expect(run.rows.first.libraryId, isNotNull);
+    // The one being imported is gone, not kept.
+    expect(run.rows[1].libraryId, isNull);
+    expect(run.rows[1].status, ImportRowStatus.cancelled);
+    expect(run.rows[2].status, ImportRowStatus.cancelled);
+    final names = await tester.runAsync(
+      () async => [
+        for (final p
+            in await h
+                .container(tester)
+                .read(playlistRepositoryProvider)
+                .watchAll()
+                .first)
+          p.name,
+      ],
+    );
+    expect(names, ['Remote title']);
+    final tracks = await tester.runAsync(
+      () => h
+          .container(tester)
+          .read(appDatabaseProvider)
+          .customSelect('SELECT COUNT(*) AS n FROM tracks')
+          .getSingle(),
+    );
+    expect(tracks!.read<int>('n'), 2);
   });
 
   testWidgets('cancelling before anything was written says nothing was kept', (

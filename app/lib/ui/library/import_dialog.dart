@@ -166,12 +166,8 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
           Navigator.of(context).pop();
         case ImportedPlaylist() || CreatedMix() || ImportForMatching():
           Navigator.of(context).pop(result);
-        case ImportCancelled(:final count):
-          toaster.info(
-            count == 0
-                ? t.library.importCancelledNone
-                : t.library.importCancelledKept(count: count),
-          );
+        case ImportCancelled():
+          toaster.info(t.library.importCancelledNone);
           Navigator.of(context).pop();
         case ImportUnrecognized():
           _fail(t.library.importUnrecognized);

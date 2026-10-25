@@ -85,6 +85,20 @@ Finder _inRow(String row, String text) => find.descendant(
   matching: find.text(text),
 );
 
+/// 匯入全頁跑完（插件在背景 isolate，要真的事件迴圈；最多等 20 輪，不用 `pumpAndSettle`：進行中的
+/// 進度條一直在動），再按「完成」回到歌單頁。直接呼叫按鈕的 `onPressed`：剛跳出的提示蓋在按鈕上時
+/// `tester.tap` 會點到提示。
+Future<void> _finishImport(WidgetTester tester, PluginPageHarness h) async {
+  for (var i = 0; i < 20 && _button('Done').evaluate().isEmpty; i++) {
+    await h.settle(tester);
+  }
+  final done = tester.widget<ButtonStyleButton>(_button('Done'));
+  done.onPressed!();
+  await h.settle(tester);
+  await tester.pump(const Duration(seconds: 1));
+  await h.settle(tester);
+}
+
 Future<void> _signIn(
   WidgetTester tester,
   PluginPageHarness h, {
@@ -302,9 +316,7 @@ void main() {
       await h.settle(tester);
 
       // 全頁進度跑完停在原地，按「完成」回到歌單頁。
-      await tester.tap(_button('Done'));
-      await h.settle(tester);
-      await tester.pump(const Duration(seconds: 1));
+      await _finishImport(tester, h);
 
       expect(toasts, ['Playlists imported: 2']);
       expect(_inRow('Road trip', 'Imported'), findsOneWidget);
@@ -342,9 +354,7 @@ void main() {
       await h.settle(tester);
 
       // 全頁進度跑完停在原地，按「完成」回到歌單頁。
-      await tester.tap(_button('Done'));
-      await h.settle(tester);
-      await tester.pump(const Duration(seconds: 1));
+      await _finishImport(tester, h);
 
       expect(toasts, ['Playlists imported: 1, failed: 1']);
       expect(_inRow('Study', 'Imported'), findsOneWidget);
@@ -395,9 +405,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(toasts, ['Playlists imported: 1, failed: 1']);
       expect(find.text('Playlist 2 of 2'), findsOneWidget);
-      await tester.tap(_button('Done'));
-      await h.settle(tester);
-      await tester.pump(const Duration(seconds: 1));
+      await _finishImport(tester, h);
       expect(find.byType(AccountImportPage), findsNothing);
       expect(await _playlistNames(tester, h), ['Remote a']);
     });

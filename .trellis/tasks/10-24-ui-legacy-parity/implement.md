@@ -86,7 +86,7 @@
 ### PR 4 匯入進度與取消
 
 - `ImportProgress {count, total?, expectedTotal?, currentTitle?}`；`ImportCancel` 接 `RefreshTrigger.isCurrent`。
-- 第一頁前取消就刪掉歌單列；之後取消照 `partial` 處理（`design.md` §8）。
+- 新匯入取消就整張刪掉（不論寫了幾頁）；既有歌單的重新匯入取消照 `partial` 處理（`design.md` §8，2026-10-25 擁有者決定）。
 - 網址匯入對話框、帳號匯入全頁（新 `account_import_page.dart`）、刷新的卡片轉圈與詳情頁計數、外部匯入的目前曲名。
 - 測試：importer 的單元測試，包含 n／M 的來源優先序、兩種取消、`partial`；對話框與全頁的 widget 與 guideline。實機以測試插件的長歌單驗。測試插件沒有長歌單 fixture 時，在 `test/fixtures/plugins/test_plugin/` 加一個（例如 `long-1200`），不連網。
 
