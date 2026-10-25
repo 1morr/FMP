@@ -2278,7 +2278,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - 淺色與深色主題下，示範畫面、四種提示，以及外殼裡的搜尋頁（搜尋前、有結果加播放列、沒有介面
   或連不上時搜尋失敗、直播間模式的結果、多選中含展開的分 P）、首頁（空的、最近播放加播放列、歌單與電台加最近播放、排行（含更新失敗）、排行沒有快取而離線）、探索頁（分頁、多選中）、音樂庫（空的、有歌單的清單與收起面板的格狀、
   卡片選單、新增歌單的對話框、刪除的確認框、自訂封面被拒的對話框）、歌單詳情（本機歌單含分 P 群組與把手、匯入歌單與它的狀態列三種警示、空的、「加入歌單」
-  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址、能播的插件的兩個選擇）、匯入預覽（匹配中、完成而有匹配失敗與搜尋失敗並展開一首、`truncated`、離開確認框）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單、匹配目標有一個取消勾選）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
+  對話框、多選中、移除已選的確認框）、匯入對話框（不認得的網址、能播的插件的兩個選擇）、匯入預覽（匹配中、完成而有匹配失敗與搜尋失敗並展開一首、`truncated`、離開確認框）、Mix 歌單的詳情（含停用）與編輯對話框、匯入歌單的編輯對話框（有「使用遠端的」與自動刷新間隔）、歷史頁（空的、有紀錄加播放列、篩選與搜尋中、讀取失敗、多選中；從音樂庫開，標題有返回鈕）、電台頁（空的、四種狀態）、播放列與播放頁的直播版、設定頁（外觀、播放、音樂庫（有榜單、沒有榜單、匹配目標有一個取消勾選）、網路與「關於」）、Debug 頁（概覽；窄版另驗區塊清單）、插件頁（已安裝、可安裝、安裝的
   確認框）與帳號頁（三種狀態的卡、QR 登入與貼上 cookie 的對話框、網頁登入卡住時的頁面）在窄（400）與寬（1000）視窗通過點擊區與對比度 guideline。閘門：`test/ui/guidelines_test.dart`。
   新頁面要加進去（沒有閘門，review 時看）。搜尋框因此用 `TextField` 而不是 M3 的 `SearchBar`（後者整條可點的那層沒有
   語意名稱、輸入框只有 24dp 高）。
@@ -2428,10 +2428,18 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   尾端「⋯」）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…、從歷史移除、選取，長按是多選（見「多選」；全選只選已載入的紀錄）：移除只刪那一筆、不提示（擁有者決定），清除全部要確認，確認後
   提示「已清除播放歷史」（只有清除全部有提示；刪除或清除失敗才用 `Toaster.error`）。沒有紀錄是空狀態、清除鈕停用；讀取失敗不是空狀態：`HistoryNotifier` 把錯誤包成 `AppError`、`log.report` 一次（tag `history`，
   在 notifier 不在 build，重建不重報），頁面以 `EmptyState` 加錯誤圖示顯示 `errorMessage` 的文字（資料庫錯誤是 `errors.unexpected`）。
-  不做舊版的搜尋、統計、排序、日期篩選、折疊。閘門：`test/ui/history/history_page_test.dart`（`grouping by
-  day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、空狀態、`a failed
+  ADR 0035 起是舊版的完整頁首：統計卡（今天、本週（週一起算）、全部的首數與總時長，`PlayHistoryRepository.stats`，一個查詢，不受篩選影響）、
+  篩選列（「全部」與每個可搜尋音源的 chip、可移除的日期 chip、右側排序 chip：新到舊、舊到新、播放次數）、標題列的日期、搜尋（250 ms debounce，曲名或作者含，
+  SQLite `LIKE` 只有 ASCII 不分大小寫）與「⋯」（清除全部）。篩選與排序在 `historyFilterProvider`（頁面關掉就丟）；`page({source, day, query, sort})` 疊加條件，
+  查詢計畫由 `the filtered queries use the played_at index` 守著，所以沒有為它加索引、也沒有 migration（播放次數排序整份掃一遍，上限 5 萬筆）。
+  播放次數排序一首一列（最後一次播放加次數，副標的時刻換成次數）、不分組；其他排序依日分組成時間軸（左欄 40dp 的線、12dp 主色圓點、日期、「N 首」（已載入的）、折疊箭頭；
+  折疊只在頁面裡）。每列加固定寬的時長與音源徽章（插件名稱的第一個字；插件圖示等 PR 13 統一），在播的那首封面疊 `NowPlayingOverlay`、曲名主色粗體。
+  選單加「刪除此曲所有紀錄」（紅色確認鈕、提示「已刪除 N 筆」），多選加「刪除」（同）；「從歷史移除」維持單筆、不確認、不提示。載入中轉圈；失敗有「重試」；
+  沒有紀錄的空狀態有「去搜尋」（`openSearchProvider`，外殼切到搜尋）；有篩選而沒有符合是另一個空狀態。閘門：`test/ui/history/history_page_test.dart`（`grouping by
+  day` 以 `withClock` 固定現在、`playing from the history`、`removing`、`clearing everything`、`the legacy header`、空狀態、`a failed
   load shows the error…`、`it works
-  offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、guideline 測試。
+  offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、
+  `play_history_repository_test.dart` 的 `filters, sorts and stats`、guideline 測試。
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列

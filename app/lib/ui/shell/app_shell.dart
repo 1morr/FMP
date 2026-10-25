@@ -32,6 +32,7 @@ import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
 import 'package:fmp/ui/shell/open_queue.dart';
+import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -107,6 +108,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.read(openAccountsProvider).handler = (_) => _openAccounts();
     // 播放頁開著時的 Ctrl+Q：播放頁關掉之後請外殼切到佇列。
     ref.read(openQueueProvider).handler = _openQueue;
+    // 巢狀導覽裡的空狀態（歷史頁）的「去搜尋」。
+    ref.read(openSearchProvider).handler = () =>
+        _select(ShellDestination.search);
     // 首次啟動匯入舊版資料之後，第一幀之後顯示一次結果（M5 design §7.3）。
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

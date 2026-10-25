@@ -15,6 +15,8 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/history/history_state.dart';
+import 'package:fmp/ui/search/search_page.dart' as search_ui;
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../support/memory_database.dart';
@@ -30,6 +32,10 @@ TrackInfo track(String id, {String? uploader = 'Artist'}) => TrackInfo(
 /// 測試裡的「現在」：本地時間 2026-10-07 15:30。日界依裝置的本地時間，所以測試也用
 /// 本地時間造資料，不依賴執行的機器在哪個時區。
 final now = DateTime(2026, 10, 7, 15, 30);
+
+/// 一天的標頭（可點的那一列）；統計卡也有「Today」，所以限定在 [InkWell] 裡找。
+Finder dayHeader(String label) =>
+    find.descendant(of: find.byType(InkWell), matching: find.text(label));
 
 void main() {
   /// 寫一筆播放歷史（本地時間 [at]）；資料庫在 drift 的 isolate，要在真的事件迴圈裡跑。
@@ -48,7 +54,7 @@ void main() {
 
   Future<ShellHarness> openHistory(
     WidgetTester tester, {
-    Size size = const Size(1000, 700),
+    Size size = const Size(1000, 1200),
   }) async {
     final h = ShellHarness();
     await h.pumpApp(tester, const HistoryPage(), size: size);
@@ -56,8 +62,12 @@ void main() {
   }
 
   /// 讓資料庫的變動送到頁面（變動的串流與重讀都是真的非同步）。
-  Future<void> reload(WidgetTester tester, ShellHarness h) =>
-      h.loadSettings(tester);
+  Future<void> reload(WidgetTester tester, ShellHarness h) async {
+    // 篩選一變：先一幀讓頁面重建、provider 才開始查，再等查詢回來。
+    for (var i = 0; i < 3; i++) {
+      await h.loadSettings(tester);
+    }
+  }
 
   group('grouping by day', () {
     testWidgets('today, yesterday, earlier this year and another year', (
@@ -74,7 +84,7 @@ void main() {
 
         double top(Finder finder) => tester.getTopLeft(finder).dy;
         final order = [
-          find.text('Today'),
+          dayHeader('Today'),
           find.text('Song a'),
           find.text('Song b'),
           find.text('Yesterday'),
@@ -295,6 +305,14 @@ void main() {
   });
 
   group('clearing everything', () {
+    /// 標題列的「⋯」→「清除全部歷史」。
+    Future<void> chooseClearAll(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear all history'));
+      await tester.pumpAndSettle();
+    }
+
     Future<ShellHarness> withTwoEntries(WidgetTester tester) async {
       final h = await openHistory(tester);
       await record(tester, h, 'a', DateTime(2026, 10, 7, 14, 5));
@@ -303,24 +321,10 @@ void main() {
       return h;
     }
 
-    // tooltip 是「清除全部」唯一的名稱：Icon 再給 semanticLabel 會念成「X. X」。
-    testWidgets('the clear button is named once, by its tooltip', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-      await openHistory(tester);
-
-      final node = tester.getSemantics(find.byTooltip('Clear all history'));
-      expect(node.tooltip, 'Clear all history');
-      expect(node.label, isEmpty);
-      handle.dispose();
-    });
-
     testWidgets('asks first; cancelling keeps everything', (tester) async {
       final h = await withTwoEntries(tester);
 
-      await tester.tap(find.byTooltip('Clear all history'));
-      await tester.pumpAndSettle();
+      await chooseClearAll(tester);
       expect(find.text('Clear all play history?'), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
@@ -335,8 +339,7 @@ void main() {
     ) async {
       final h = await withTwoEntries(tester);
 
-      await tester.tap(find.byTooltip('Clear all history'));
-      await tester.pumpAndSettle();
+      await chooseClearAll(tester);
       await tester.tap(find.text('Clear'));
       await tester.pump();
       await reload(tester, h);
@@ -350,10 +353,12 @@ void main() {
     testWidgets('is disabled when there is nothing to clear', (tester) async {
       await openHistory(tester);
 
-      final button = tester.widget<IconButton>(
-        find.widgetWithIcon(IconButton, Icons.delete_sweep_outlined),
+      await tester.tap(find.byTooltip('More actions'));
+      await tester.pumpAndSettle();
+      final item = tester.widget<PopupMenuItem<void>>(
+        find.widgetWithText(PopupMenuItem<void>, 'Clear all history'),
       );
-      expect(button.onPressed, isNull);
+      expect(item.enabled, isFalse);
     });
   });
 
@@ -851,6 +856,419 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
       expect(find.text('3 selected'), findsOneWidget);
+    });
+  });
+
+  // 舊版的完整頁首（ADR 0035，R5.1–R5.5）。
+  group('the legacy header', () {
+    Future<void> recordTrack(
+      WidgetTester tester,
+      ShellHarness h,
+      TrackInfo info,
+      DateTime at,
+    ) => tester.runAsync(
+      () => h
+          .container(tester)
+          .read(playHistoryRepositoryProvider)
+          .record(info, playedAt: at, limit: 100000),
+    );
+
+    TrackInfo timed(
+      String id, {
+      String source = 'fmp-test',
+      Duration duration = const Duration(minutes: 3, seconds: 5),
+    }) => TrackInfo(
+      sourceTypeId: source,
+      sourceId: id,
+      title: 'Song $id',
+      uploader: 'Artist',
+      duration: duration,
+    );
+
+    testWidgets('the app bar has the date, search and more actions', (
+      tester,
+    ) async {
+      await openHistory(tester);
+
+      expect(find.byTooltip('Pick a date'), findsOneWidget);
+      expect(find.byTooltip('Search history'), findsOneWidget);
+      expect(find.byTooltip('More actions'), findsOneWidget);
+    });
+
+    testWidgets('the stats card counts today, this week and all time', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        // now 是 2026-10-07（週三），本週從 10-05 起。
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 10));
+        await recordTrack(tester, h, timed('c'), DateTime(2026, 10, 5, 8));
+        await recordTrack(
+          tester,
+          h,
+          timed('d', duration: const Duration(hours: 1, minutes: 30)),
+          DateTime(2026, 9, 1, 8),
+        );
+        await reload(tester, h);
+
+        // 今天 2 首 6 分、本週 3 首 9 分、全部 4 首 1 小時 39 分。
+        expect(find.text('2 plays'), findsOneWidget);
+        expect(find.text('6m'), findsOneWidget);
+        expect(find.text('3 plays'), findsOneWidget);
+        expect(find.text('9m'), findsOneWidget);
+        expect(find.text('4 plays'), findsOneWidget);
+        expect(find.text('1h 39m'), findsOneWidget);
+        expect(find.text('This week'), findsOneWidget);
+      });
+    });
+
+    testWidgets('a source chip filters, and All brings everything back', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(
+          tester,
+          h,
+          timed('x', source: 'other'),
+          DateTime(2026, 10, 7, 10),
+        );
+        await reload(tester, h);
+        expect(find.text('Song x'), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(ChoiceChip, 'Test Source'));
+        await reload(tester, h);
+        expect(find.text('Song a'), findsOneWidget);
+        expect(find.text('Song x'), findsNothing);
+
+        await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
+        await reload(tester, h);
+        expect(find.text('Song x'), findsOneWidget);
+      });
+    });
+
+    testWidgets('a picked date filters; its chip removes the filter', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 6, 9));
+        await reload(tester, h);
+
+        await tester.tap(find.byTooltip('Pick a date'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('6'));
+        await tester.tap(find.text('OK'));
+        await tester.pumpAndSettle();
+        await reload(tester, h);
+
+        expect(find.byType(InputChip), findsOneWidget);
+        expect(find.text('Song b'), findsOneWidget);
+        expect(find.text('Song a'), findsNothing);
+
+        await tester.tap(find.byTooltip('Clear the date filter'));
+        await reload(tester, h);
+        expect(find.byType(InputChip), findsNothing);
+        expect(find.text('Song a'), findsOneWidget);
+      });
+    });
+
+    testWidgets('search narrows by title or artist and closing restores', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 10));
+        await reload(tester, h);
+
+        await tester.tap(find.byTooltip('Search history'));
+        await tester.pump();
+        await tester.enterText(find.byType(TextField), 'song a');
+        await tester.pump(const Duration(milliseconds: 300));
+        await reload(tester, h);
+        expect(find.text('Song a'), findsOneWidget);
+        expect(find.text('Song b'), findsNothing);
+
+        await tester.enterText(find.byType(TextField), 'zzz');
+        await tester.pump(const Duration(milliseconds: 300));
+        await reload(tester, h);
+        expect(find.text('No matching records'), findsOneWidget);
+        // 有篩選時的空結果不是「還沒有紀錄」，也沒有「去搜尋」。
+        expect(find.text('No play history yet'), findsNothing);
+        expect(find.text('Go to Search'), findsNothing);
+
+        await tester.tap(find.byTooltip('Close search'));
+        await tester.pump();
+        await reload(tester, h);
+        expect(find.byType(TextField), findsNothing);
+        expect(find.text('Song a'), findsOneWidget);
+        expect(find.text('Song b'), findsOneWidget);
+      });
+    });
+
+    testWidgets('sorting: oldest first reverses the rows; most played is a '
+        'flat list with the count', (tester) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 10));
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 11));
+        await reload(tester, h);
+        expect(find.byType(ListTile), findsNWidgets(3));
+
+        Future<void> choose(String current, String label) async {
+          await tester.tap(find.widgetWithText(ActionChip, current));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.widgetWithText(RadioMenuButton<HistorySort>, label),
+          );
+          await tester.pumpAndSettle();
+          await reload(tester, h);
+        }
+
+        await choose('Newest first', 'Oldest first');
+        expect(
+          tester.getTopLeft(find.text('Artist · 09:00')).dy,
+          lessThan(tester.getTopLeft(find.text('Artist · 11:00')).dy),
+        );
+
+        await choose('Oldest first', 'Most played');
+        expect(find.byType(ListTile), findsNWidgets(2));
+        expect(dayHeader('Today'), findsNothing);
+        expect(find.text('Artist · 2 plays'), findsOneWidget);
+        expect(find.text('Artist · 1 plays'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('Song a')).dy,
+          lessThan(tester.getTopLeft(find.text('Song b')).dy),
+        );
+      });
+    });
+
+    testWidgets('a day header shows the count and collapses its rows only', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 10));
+        await recordTrack(tester, h, timed('c'), DateTime(2026, 10, 6, 10));
+        await reload(tester, h);
+        expect(find.byIcon(Icons.expand_less), findsNWidgets(2));
+
+        await tester.tap(dayHeader('Today'));
+        await tester.pump();
+        expect(find.text('Song a'), findsNothing);
+        expect(find.text('Song b'), findsNothing);
+        expect(find.text('Song c'), findsOneWidget);
+        expect(find.byIcon(Icons.expand_more), findsOneWidget);
+
+        await tester.tap(dayHeader('Today'));
+        await tester.pump();
+        expect(find.text('Song a'), findsOneWidget);
+      });
+    });
+
+    testWidgets('a row shows its duration and the source badge', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await reload(tester, h);
+
+        expect(find.text('3:05'), findsOneWidget);
+        // 還沒有插件圖示時是插件名稱的第一個字。
+        expect(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'Song a'),
+            matching: find.text('T'),
+          ),
+          findsOneWidget,
+        );
+      });
+    });
+
+    testWidgets('the playing track has the overlay and a bold title', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 10));
+        await reload(tester, h);
+        expect(find.byKey(NowPlayingOverlay.overlayKey), findsNothing);
+
+        await h.controller.playTemporary(timed('a'));
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'Song a'),
+            matching: find.byKey(NowPlayingOverlay.overlayKey),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(NowPlayingOverlay.overlayKey), findsOneWidget);
+        expect(
+          tester.widget<Text>(find.text('Song a')).style?.fontWeight,
+          FontWeight.bold,
+        );
+        expect(tester.widget<Text>(find.text('Song b')).style, isNull);
+      });
+    });
+
+    testWidgets('delete all plays of a track asks, deletes and says how many', (
+      tester,
+    ) async {
+      await withClock(Clock.fixed(now), () async {
+        final h = await openHistory(tester);
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 9));
+        await recordTrack(tester, h, timed('a'), DateTime(2026, 10, 7, 10));
+        await recordTrack(tester, h, timed('b'), DateTime(2026, 10, 7, 11));
+        await reload(tester, h);
+
+        // 最上面是 b；第二列是 a 的第二次。
+        await tester.tap(find.byTooltip('More options').at(1));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete all plays of this song'));
+        await tester.pumpAndSettle();
+        expect(find.text('Delete every play of this song?'), findsOneWidget);
+
+        // 取消：什麼都不刪。
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ListTile), findsNWidgets(3));
+
+        await tester.tap(find.byTooltip('More options').at(1));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete all plays of this song'));
+        await tester.pumpAndSettle();
+        final confirm = tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Delete'),
+        );
+        final scheme = Theme.of(tester.element(find.byType(AlertDialog)))
+            .colorScheme;
+        expect(
+          confirm.style?.backgroundColor?.resolve({}),
+          scheme.error,
+          reason: 'the confirm button is red',
+        );
+        await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+        await tester.pump();
+        await reload(tester, h);
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text('Deleted 2 records'), findsOneWidget);
+        expect(find.byType(ListTile), findsNWidgets(1));
+        expect(find.text('Song a'), findsNothing);
+      });
+    });
+
+    testWidgets('selecting then Delete asks, deletes and says how many', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await h.openHistory(tester);
+      for (final (id, minute) in [('a', 5), ('b', 6), ('c', 7)]) {
+        await record(tester, h, id, DateTime(2026, 10, 7, 14, minute));
+      }
+      await reload(tester, h);
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Song c'));
+      await tester.tap(find.text('Song a'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete 2 records?'), findsOneWidget);
+
+      // 取消：選取留著。
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pump();
+      await reload(tester, h);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Deleted 2 records'), findsOneWidget);
+      expect(find.text('Song b'), findsOneWidget);
+      expect(find.text('Song a'), findsNothing);
+      expect(find.text('Song c'), findsNothing);
+      expect(find.text('Play history'), findsOneWidget);
+    });
+
+    testWidgets('loading shows a spinner', (tester) async {
+      // 資料庫被一個 transaction 佔著，讀取排在它後面（同 import_preview_test）。
+      final database = memoryDatabase();
+      final gate = Completer<void>();
+      await tester.runAsync(() async {
+        unawaited(database.transaction(() => gate.future));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      final h = ShellHarness(database: database);
+      await h.pumpApp(tester, const HistoryPage());
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      gate.complete();
+      await reload(tester, h);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('No play history yet'), findsOneWidget);
+    });
+
+    testWidgets('the empty state has Go to Search which opens the search '
+        'destination', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await h.openHistory(tester);
+      await reload(tester, h);
+      await tester.pumpAndSettle();
+      expect(find.text('No play history yet'), findsOneWidget);
+      await tester.tap(find.text('Go to Search'));
+      await tester.pumpAndSettle();
+      expect(find.byType(search_ui.SearchPage), findsOneWidget);
+    });
+
+    testWidgets('a failed load has a Retry that reads again', (tester) async {
+      final h = await openHistory(tester);
+      await reload(tester, h);
+      final database = h.container(tester).read(appDatabaseProvider);
+      await tester.runAsync(() async {
+        await database.customStatement(
+          'ALTER TABLE play_history RENAME TO play_history_gone',
+        );
+        database.markTablesUpdated({database.playHistoryTable});
+      });
+      await reload(tester, h);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Retry'), findsOneWidget);
+
+      await tester.runAsync(
+        () => database.customStatement(
+          'ALTER TABLE play_history_gone RENAME TO play_history',
+        ),
+      );
+      await tester.tap(find.text('Retry'));
+      await reload(tester, h);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('Retry'), findsNothing);
+      expect(find.text('No play history yet'), findsOneWidget);
     });
   });
 }

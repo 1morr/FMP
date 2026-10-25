@@ -82,6 +82,16 @@ abstract final class AppLayout {
   static const double nowPlayingIndicatorRatio = 0.32;
   static const Duration nowPlayingLoop = Duration(milliseconds: 1200);
 
+  /// 歷史頁的時間軸（舊版）：左欄寬度、貫穿的線寬與日期標頭的圓點，以及日期標頭的高度。
+  static const double timelineColumn = 40;
+  static const double timelineLine = 2;
+  static const double timelineDot = 12;
+  static const double timelineHeaderHeight = 48;
+
+  /// 歷史列尾端的時長欄（固定寬度，右對齊）與音源徽章。
+  static const double historyDurationColumn = 56;
+  static const double sourceBadge = 20;
+
   /// 佇列切歌時捲到目前這首的動畫時間。
   static const Duration queueScrollDuration = Duration(milliseconds: 250);
 
