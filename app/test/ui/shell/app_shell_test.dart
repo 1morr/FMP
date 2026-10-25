@@ -214,7 +214,16 @@ void main() {
         await h.play(tester, [summary('a')]);
         await h.openHistory(tester);
 
-        expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
+        // 看頁首的標題：頁面正中央可能是頁首與空狀態之間的空白，那裡不接點擊。
+        expect(
+          find
+              .descendant(
+                of: find.byType(HistoryPage),
+                matching: find.text('Play history'),
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
         expect(find.byType(LibraryPage).hitTestable(), findsNothing);
         expect(find.byType(PlayerBar).hitTestable(), findsOneWidget);
         expect(

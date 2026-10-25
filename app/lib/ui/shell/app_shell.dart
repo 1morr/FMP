@@ -108,9 +108,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.read(openAccountsProvider).handler = (_) => _openAccounts();
     // 播放頁開著時的 Ctrl+Q：播放頁關掉之後請外殼切到佇列。
     ref.read(openQueueProvider).handler = _openQueue;
-    // 巢狀導覽裡的空狀態（歷史頁）的「去搜尋」。
-    ref.read(openSearchProvider).handler = () =>
-        _select(ShellDestination.search);
+    // 空狀態的「去搜尋」（佇列頁、巢狀導覽裡的歷史頁）。
+    ref.read(openSearchProvider).handler = _openSearch;
     // 首次啟動匯入舊版資料之後，第一幀之後顯示一次結果（M5 design §7.3）。
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -217,6 +216,13 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _openQueue() {
     if (!mounted) return;
     _selectAndFocus(ShellDestination.queue, () => focusInto(_content));
+  }
+
+  /// 空狀態的「去搜尋」：切到搜尋目的地。handler 留在 [openSearchProvider] 上，外殼拆了之後
+  /// 才按到時什麼都不做。
+  void _openSearch() {
+    if (!mounted) return;
+    _select(ShellDestination.search);
   }
 
   /// 搜尋頁的「前往插件頁」：換到設定頁並選「插件」區塊。
@@ -350,7 +356,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     ShellDestination.library => const LibraryPage(),
     ShellDestination.queue => QueuePage(
       visible: _destination == ShellDestination.queue,
-      onOpenSearch: () => _select(ShellDestination.search),
     ),
     ShellDestination.radio => const RadioPage(),
     ShellDestination.settings => SettingsPage(

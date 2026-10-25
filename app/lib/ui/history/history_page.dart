@@ -239,24 +239,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   Future<void> _clearAll(BuildContext context, WidgetRef ref) async {
     final t = ref.read(translationsProvider).history;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.clearTitle),
-        content: Text(t.clearBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.confirm),
-          ),
-        ],
-      ),
+    final confirmed = await showDestructiveConfirm(
+      context,
+      title: t.clearTitle,
+      body: t.clearBody,
+      confirmLabel: t.confirm,
+      cancelLabel: t.cancel,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final toaster = ref.read(toasterProvider);
     try {
       await ref.read(playHistoryRepositoryProvider).clear();
@@ -397,9 +387,9 @@ class _StatsCard extends ConsumerWidget {
           : t.durationM(minutes: minutes);
     }
 
+    // 一格讀成一句（「今天，2 首，3 分鐘」），不是三個分開的項目。
     Widget item(String label, HistoryPeriodStats period) => Expanded(
-      child: Semantics(
-        container: true,
+      child: MergeSemantics(
         child: Column(
           children: [
             Text(
@@ -654,6 +644,7 @@ class _DayHeader extends ConsumerWidget {
     return Semantics(
       header: true,
       button: true,
+      expanded: !collapsed,
       excludeSemantics: true,
       label: '$label, ${t.dayCount(count: count)}',
       hint: collapsed ? t.dayExpand(day: label) : t.dayCollapse(day: label),

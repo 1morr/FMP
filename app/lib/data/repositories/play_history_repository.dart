@@ -146,14 +146,16 @@ final class PlayHistoryRepository {
     final (where, variables) = _where(source: source, day: day, query: query);
     const from =
         'FROM play_history h JOIN tracks t ON t.track_key = h.track_key';
+    // 曲目的欄位在同一個查詢裡帶回（`t.*`），不另查一次：兩次之間曲目可能被刪掉（啟動時的
+    // 孤兒清理），那時就對不上了。
     final sql = switch (sort) {
       HistorySort.newest =>
-        'SELECT h.id AS id, h.played_at AS played_at, '
-            'h.track_key AS track_key, 1 AS cnt $from $where '
+        'SELECT h.id AS history_id, h.played_at AS history_played_at, '
+            '1 AS play_count, t.* $from $where '
             'ORDER BY h.played_at DESC, h.id DESC LIMIT ? OFFSET ?',
       HistorySort.oldest =>
-        'SELECT h.id AS id, h.played_at AS played_at, '
-            'h.track_key AS track_key, 1 AS cnt $from $where '
+        'SELECT h.id AS history_id, h.played_at AS history_played_at, '
+            '1 AS play_count, t.* $from $where '
             'ORDER BY h.played_at ASC, h.id ASC LIMIT ? OFFSET ?',
       HistorySort.mostPlayed =>
         'WITH ranked AS (SELECT h.id AS id, h.played_at AS played_at, '
@@ -162,8 +164,11 @@ final class PlayHistoryRepository {
             'ORDER BY h.played_at DESC, h.id DESC) AS rn, '
             'COUNT(*) OVER (PARTITION BY h.track_key) AS cnt '
             '$from $where) '
-            'SELECT id, played_at, track_key, cnt FROM ranked WHERE rn = 1 '
-            'ORDER BY cnt DESC, played_at DESC, id DESC LIMIT ? OFFSET ?',
+            'SELECT r.id AS history_id, r.played_at AS history_played_at, '
+            'r.cnt AS play_count, t.* FROM ranked r '
+            'JOIN tracks t ON t.track_key = r.track_key WHERE r.rn = 1 '
+            'ORDER BY r.cnt DESC, r.played_at DESC, r.id DESC '
+            'LIMIT ? OFFSET ?',
     };
     final rows = await _database
         .customSelect(
@@ -175,23 +180,17 @@ final class PlayHistoryRepository {
           ],
         )
         .get();
-    if (rows.isEmpty) return const [];
-    final keys = {for (final row in rows) row.read<String>('track_key')};
-    final byKey = {
-      for (final row in await (_database.select(
-        _database.tracksTable,
-      )..where((t) => t.trackKey.isIn(keys))).get())
-        row.trackKey: TracksRepository.toTrackInfo(row),
-    };
     return [
       for (final row in rows)
         PlayHistoryEntry(
-          id: row.read<int>('id'),
+          id: row.read<int>('history_id'),
           playedAt: const EpochMillisecondsConverter().fromSql(
-            row.read<int>('played_at'),
+            row.read<int>('history_played_at'),
           ),
-          track: byKey[row.read<String>('track_key')]!,
-          playCount: row.read<int>('cnt'),
+          track: TracksRepository.toTrackInfo(
+            _database.tracksTable.map(row.data),
+          ),
+          playCount: row.read<int>('play_count'),
         ),
     ];
   }
