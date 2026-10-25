@@ -241,6 +241,7 @@ void main() {
 
   testWidgets('shows the artwork usage', (tester) async {
     await openNetwork(tester, artworkBytes: 3 * 1024 * 1024);
+    await waitForText(tester, '3.0 MB');
 
     expect(find.text('Artwork'), findsOneWidget);
     expect(find.text('3.0 MB'), findsOneWidget);
