@@ -77,6 +77,26 @@ List<String> parityProblems(Catalog catalog) {
 bool _sameSet(Set<String> a, Set<String> b) =>
     a.length == b.length && a.containsAll(b);
 
+/// 唯一准呼叫 slang `buildSync` 的檔案：`buildTranslations` 在這裡給中文的複數解析器。
+const _translationsBuilder = 'lib/ui/i18n/ui_locale.dart';
+
+/// [sources]（路徑 → 原始碼）裡繞過 `buildTranslations`、直接呼叫或取用 `buildSync` 的檔案。
+/// 註解裡提到的不算；slang 的產生檔（`.g.dart`）與 [_translationsBuilder] 除外。
+List<String> directTranslationBuilds(Map<String, String> sources) => [
+  for (final MapEntry(key: path, value: source) in sources.entries)
+    if (!path.endsWith('.g.dart') &&
+        path != _translationsBuilder &&
+        RegExp(r'\.\s*buildSync\b')
+            .hasMatch(source.replaceAll(RegExp(r'//.*'), '')))
+      path,
+];
+
+Map<String, String> _libSources() => {
+  for (final file in Directory('lib').listSync(recursive: true))
+    if (file is File && file.path.endsWith('.dart'))
+      p.posix.joinAll(p.split(file.path)): file.readAsStringSync(),
+};
+
 void main() {
   final catalog = readCatalog();
 
@@ -121,6 +141,11 @@ void main() {
       expect(en.library.addedToPlaylists(count: 1), 'Added to 1 playlist');
       expect(en.playerPage.queueCount(count: 1), '1 song in queue');
       expect(en.playerPage.queueCount(count: 7), '7 songs in queue');
+    });
+
+    // slang 沒有中文的複數規則表：直接 `buildSync` 的地方取複數字串時會記一筆錯誤。
+    test('every translation in lib/ is built with buildTranslations', () {
+      expect(directTranslationBuilds(_libSources()), isEmpty);
     });
 
     test('the Chinese languages have one form', () {
@@ -221,6 +246,71 @@ void main() {
       expect(parityProblems(mutated), [
         'en has other parameters in errors.rateLimited',
       ]);
+    });
+
+    test('catches a renamed parameter in one plural form', () {
+      final mutated = {
+        ...catalog,
+        'en': {
+          ...catalog['en']!,
+          ...flatten({
+            'history': {
+              'playCount(plural, param=count)': {
+                'one': '{n} play',
+                'other': '{count} plays',
+              },
+            },
+          }),
+        },
+      };
+
+      expect(parityProblems(mutated), [
+        'en has other parameters in history.playCount',
+      ]);
+    });
+
+    test('a plural with other forms or another modifier is the same key', () {
+      final reformed = {
+        ...catalog,
+        'en': {
+          ...catalog['en']!,
+          ...flatten({
+            'history': {
+              'playCount(plural, param=count, rich)': {
+                'zero': 'No plays',
+                'one': 'One play',
+                'other': '{count} plays',
+              },
+            },
+          }),
+        },
+      };
+
+      expect(parityProblems(reformed), isEmpty);
+    });
+
+    test('catches a direct buildSync, however it is written', () {
+      expect(
+        directTranslationBuilds({
+          'lib/app/a.dart': 'final t = AppLocale.en.buildSync();',
+          'lib/app/b.dart': 'final t = appLocaleOf(locale)\n    .buildSync();',
+          'lib/app/c.dart': 'final make = AppLocale.zhTw.buildSync;',
+        }),
+        ['lib/app/a.dart', 'lib/app/b.dart', 'lib/app/c.dart'],
+      );
+    });
+
+    test('ignores the builder, generated files, comments and other names', () {
+      expect(
+        directTranslationBuilds({
+          _translationsBuilder: 'locale.buildSync(cardinalResolver: r);',
+          'lib/i18n/strings.g.dart': 'return buildSync();',
+          'lib/app/a.dart': 'final t = buildTranslations(appLocaleOf(l));',
+          'lib/app/b.dart': '// not AppLocale.en.buildSync(): see ui_locale',
+          'lib/app/c.dart': 'final n = counter.buildSyncCount;',
+        }),
+        isEmpty,
+      );
     });
 
     test('ignores reworded text, reordered keys and JSON formatting', () {

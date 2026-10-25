@@ -118,7 +118,7 @@ class _LegacyImportAppState extends ConsumerState<LegacyImportApp> {
   @override
   Widget build(BuildContext context) {
     final locale = localeForSystem(ref.watch(systemLocalesProvider));
-    final t = appLocaleOf(locale).buildSync();
+    final t = buildTranslations(appLocaleOf(locale));
     return fmpMaterialApp(
       title: widget.flavor.displayName,
       locale: locale,

@@ -25,7 +25,7 @@ class UnsupportedPlatformApp extends ConsumerWidget {
       home: Scaffold(
         body: Center(
           child: Text(
-            appLocaleOf(locale).buildSync().startup.unsupportedPlatform,
+            buildTranslations(appLocaleOf(locale)).startup.unsupportedPlatform,
           ),
         ),
       ),
