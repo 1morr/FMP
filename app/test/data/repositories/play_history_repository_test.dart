@@ -292,4 +292,285 @@ void main() {
     expect(deep.last.playedAt.millisecondsSinceEpoch, 1);
     expect(firstMs, lessThan(500));
   });
+
+  group('filters, sorts and stats', () {
+    TrackInfo other(
+      String id, {
+      String source = 'fmp-test',
+      String title = 'Song',
+      String? uploader = 'Artist',
+      Duration? duration = const Duration(minutes: 3),
+    }) => TrackInfo(
+      sourceTypeId: source,
+      sourceId: id,
+      title: title,
+      uploader: uploader,
+      duration: duration,
+    );
+
+    Future<void> play(TrackInfo t, DateTime local) =>
+        repository.record(t, playedAt: local, limit: 10000);
+
+    Future<List<String>> ids(Future<List<PlayHistoryEntry>> entries) async => [
+      for (final e in await entries) e.track.sourceId,
+    ];
+
+    test('sources lists each source with history, installed or not', () async {
+      expect(await repository.sources(), isEmpty);
+      await play(other('a', source: 'zeta'), DateTime(2026, 10, 7, 9));
+      await play(other('b', source: 'alpha'), DateTime(2026, 10, 7, 10));
+      await play(other('c', source: 'zeta'), DateTime(2026, 10, 7, 11));
+
+      expect(await repository.sources(), ['alpha', 'zeta']);
+
+      await repository.deleteAllForTrack('alpha:b');
+      expect(await repository.sources(), ['zeta']);
+    });
+
+    test(
+      'deleteAllForTracks deletes every play of those tracks only',
+      () async {
+        await play(other('a'), DateTime(2026, 10, 7, 9));
+        await play(other('a'), DateTime(2026, 10, 7, 10));
+        await play(other('b'), DateTime(2026, 10, 7, 11));
+        await play(other('c'), DateTime(2026, 10, 7, 12));
+
+        final deleted = await repository.deleteAllForTracks([
+          'fmp-test:a',
+          'fmp-test:b',
+          'fmp-test:a',
+        ]);
+
+        expect(deleted, 3);
+        expect(await ids(repository.page(limit: 10)), ['c']);
+      },
+    );
+
+    test('stats split today, this week (Monday start) and all', () async {
+      // 2026-10-07 是週三，本週從 10-05（週一）起。
+      final now = DateTime(2026, 10, 7, 15, 30);
+      await play(other('a'), DateTime(2026, 10, 7, 0, 0)); // 今天，正好午夜
+      await play(other('b'), DateTime(2026, 10, 6, 23, 59, 59)); // 本週
+      await play(other('c'), DateTime(2026, 10, 5, 0, 0)); // 本週，正好週一午夜
+      await play(other('d'), DateTime(2026, 10, 4, 23, 59)); // 上週日
+      await play(
+        other('e', duration: null),
+        DateTime(2026, 10, 7, 9, 0),
+      ); // 今天、沒有時長
+
+      final stats = await repository.stats(now);
+
+      expect(stats.today.count, 2);
+      expect(stats.today.duration, const Duration(minutes: 3));
+      expect(stats.week.count, 4);
+      expect(stats.week.duration, const Duration(minutes: 9));
+      expect(stats.all.count, 5);
+      expect(stats.all.duration, const Duration(minutes: 12));
+    });
+
+    test('stats of an empty history are zero', () async {
+      final stats = await repository.stats(DateTime(2026, 10, 7));
+      expect(
+        stats.all,
+        const HistoryPeriodStats(count: 0, duration: Duration.zero),
+      );
+      expect(stats.today.count, 0);
+    });
+
+    test('stats on a Sunday still count back to that week Monday', () async {
+      await play(other('a'), DateTime(2026, 10, 5, 8)); // 週一
+      await play(other('b'), DateTime(2026, 10, 4, 8)); // 上週日
+      final stats = await repository.stats(DateTime(2026, 10, 11, 20));
+      expect(stats.week.count, 1);
+    });
+
+    test(
+      'filters by source, by day and by search, and combines them',
+      () async {
+        await play(other('a', title: 'Alpha'), DateTime(2026, 10, 7, 10));
+        await play(
+          other('b', source: 'other', title: 'Beta', uploader: 'Zed'),
+          DateTime(2026, 10, 7, 11),
+        );
+        await play(other('c', title: 'Gamma'), DateTime(2026, 10, 6, 23, 59));
+        await play(other('d', title: 'Delta'), DateTime(2026, 10, 8, 0, 0));
+
+        expect(await ids(repository.page(limit: 10, source: 'other')), ['b']);
+        expect(
+          await ids(repository.page(limit: 10, day: DateTime(2026, 10, 7, 13))),
+          ['b', 'a'],
+        );
+        expect(
+          await ids(repository.page(limit: 10, day: DateTime(2026, 10, 6))),
+          ['c'],
+        );
+        // 曲名與作者都算，英文不分大小寫。
+        expect(await ids(repository.page(limit: 10, query: 'ALPH')), ['a']);
+        expect(await ids(repository.page(limit: 10, query: 'zed')), ['b']);
+        expect(
+          await ids(
+            repository.page(
+              limit: 10,
+              day: DateTime(2026, 10, 7),
+              query: 'artist',
+            ),
+          ),
+          ['a'],
+        );
+        expect(
+          await ids(repository.page(limit: 10, query: '  ')),
+          hasLength(4),
+        );
+        expect(await ids(repository.page(limit: 10, query: 'nope')), isEmpty);
+      },
+    );
+
+    test('a search treats % and _ as plain characters', () async {
+      await play(other('a', title: '100% sure'), DateTime(2026, 10, 7, 10));
+      await play(other('b', title: 'a_b'), DateTime(2026, 10, 7, 11));
+      await play(other('c', title: 'axb'), DateTime(2026, 10, 7, 12));
+
+      expect(await ids(repository.page(limit: 10, query: '%')), ['a']);
+      expect(await ids(repository.page(limit: 10, query: 'a_b')), ['b']);
+    });
+
+    test('a search also matches the title of the video of a part', () async {
+      await play(
+        const TrackInfo(
+          sourceTypeId: 'fmp-test',
+          sourceId: 'v',
+          cid: 2,
+          title: 'P2',
+          partIndex: 2,
+          parentTitle: 'Concert',
+        ),
+        DateTime(2026, 10, 7, 10),
+      );
+      expect(await ids(repository.page(limit: 10, query: 'concert')), ['v']);
+    });
+
+    test('oldest first reverses newest first', () async {
+      await play(other('a'), DateTime(2026, 10, 7, 10));
+      await play(other('b'), DateTime(2026, 10, 7, 12));
+      await play(other('c'), DateTime(2026, 10, 7, 11));
+
+      expect(await ids(repository.page(limit: 10, sort: HistorySort.oldest)), [
+        'a',
+        'c',
+        'b',
+      ]);
+      expect(await ids(repository.page(limit: 10)), ['b', 'c', 'a']);
+    });
+
+    test(
+      'most played groups by track, last play and count, ties by recency',
+      () async {
+        await play(other('a'), DateTime(2026, 10, 7, 10));
+        await play(other('a'), DateTime(2026, 10, 7, 12));
+        await play(other('a'), DateTime(2026, 10, 7, 11));
+        await play(other('b'), DateTime(2026, 10, 7, 13));
+        await play(other('c'), DateTime(2026, 10, 7, 9));
+        await play(other('c'), DateTime(2026, 10, 7, 14));
+
+        final entries = await repository.page(
+          limit: 10,
+          sort: HistorySort.mostPlayed,
+        );
+
+        expect([for (final e in entries) e.track.sourceId], ['a', 'c', 'b']);
+        expect([for (final e in entries) e.playCount], [3, 2, 1]);
+        expect(entries.first.playedAt, DateTime(2026, 10, 7, 12).toUtc());
+        // 每首的 id 是它最後一次播放那一列。
+        expect(entries.first.id, 2);
+      },
+    );
+
+    test('most played counts only the plays that pass the filter', () async {
+      await play(other('a'), DateTime(2026, 10, 6, 10));
+      await play(other('a'), DateTime(2026, 10, 7, 10));
+      await play(other('a'), DateTime(2026, 10, 7, 11));
+
+      final entries = await repository.page(
+        limit: 10,
+        sort: HistorySort.mostPlayed,
+        day: DateTime(2026, 10, 7),
+      );
+
+      expect(entries.single.playCount, 2);
+    });
+
+    test(
+      'paging across a filter and a sort neither repeats nor skips',
+      () async {
+        for (var i = 0; i < 7; i++) {
+          await play(
+            other('s$i', source: 'other'),
+            DateTime(2026, 10, 7, 10, i),
+          );
+          await play(other('t$i'), DateTime(2026, 10, 7, 11, i));
+        }
+
+        for (final sort in HistorySort.values) {
+          final seen = <String>[];
+          for (var offset = 0; ; offset += 3) {
+            final page = await repository.page(
+              limit: 3,
+              offset: offset,
+              source: 'other',
+              sort: sort,
+            );
+            seen.addAll([for (final e in page) e.track.sourceId]);
+            if (page.length < 3) break;
+          }
+          expect(seen.toSet(), hasLength(7), reason: '$sort');
+          expect(seen, hasLength(7), reason: '$sort');
+          expect(seen.every((id) => id.startsWith('s')), isTrue);
+        }
+      },
+    );
+
+    test('deleteAllForTrack removes every play of one track only', () async {
+      await play(other('a'), DateTime(2026, 10, 7, 10));
+      await play(other('a'), DateTime(2026, 10, 7, 11));
+      await play(other('b'), DateTime(2026, 10, 7, 12));
+
+      expect(await repository.deleteAllForTrack('fmp-test:a'), 2);
+      expect(await repository.deleteAllForTrack('fmp-test:a'), 0);
+      expect(await ids(repository.page(limit: 10)), ['b']);
+    });
+
+    test('deleteMany removes the given entries, in batches', () async {
+      await play(other('a'), DateTime(2026, 10, 7, 10));
+      await play(other('b'), DateTime(2026, 10, 7, 11));
+      await play(other('c'), DateTime(2026, 10, 7, 12));
+      final all = await repository.page(limit: 10);
+
+      expect(await repository.deleteMany([all[0].id, all[2].id, 9999]), 2);
+      expect(await ids(repository.page(limit: 10)), ['b']);
+      expect(await repository.deleteMany(const []), 0);
+
+      // 超過一批（500）的 id。
+      expect(
+        await repository.deleteMany(List.generate(1200, (i) => i + 100)),
+        0,
+      );
+    });
+
+    test('the filtered queries use the played_at index', () async {
+      Future<String> plan(String sql) async => [
+        for (final row
+            in await database.customSelect('EXPLAIN QUERY PLAN $sql').get())
+          row.read<String>('detail'),
+      ].join('\n');
+
+      final newest = await plan(
+        'SELECT h.id FROM play_history h JOIN tracks t '
+        'ON t.track_key = h.track_key '
+        "WHERE t.source_type_id = 'x' ORDER BY h.played_at DESC, h.id DESC "
+        'LIMIT 50',
+      );
+      expect(newest, contains('play_history_played_at'));
+      expect(newest, isNot(contains('USE TEMP B-TREE FOR ORDER BY')));
+    });
+  });
 }

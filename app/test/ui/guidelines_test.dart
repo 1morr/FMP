@@ -37,6 +37,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
 import 'package:fmp/ui/charts/explore_page.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
+import 'package:fmp/ui/history/history_state.dart';
 import 'package:fmp/ui/debug/debug_health.dart';
 import 'package:fmp/ui/debug/debug_log.dart';
 import 'package:fmp/ui/debug/debug_network.dart';
@@ -484,6 +485,12 @@ void main() {
         testWidgets('history with entries and the player bar at $width', (
           tester,
         ) async {
+          // 在播那一列的指示器一直在動，pumpAndSettle 等不到停（同 ShellHarness.openQueue）。
+          tester.platformDispatcher.accessibilityFeaturesTestValue =
+              const FakeAccessibilityFeatures(disableAnimations: true);
+          addTearDown(
+            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+          );
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
           await h.pumpShell(tester, size: size, brightness: brightness);
@@ -508,6 +515,69 @@ void main() {
           await h.play(tester, [summary('a')]);
           await tester.pumpAndSettle(const Duration(seconds: 1));
           expect(find.text('Song c'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('history filtered, with the date chip and search at '
+            '$width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.openHistory(tester);
+          final repository = h
+              .container(tester)
+              .read(playHistoryRepositoryProvider);
+          await tester.runAsync(() async {
+            for (final (id, at) in [
+              ('a', DateTime(2026, 10, 7, 14, 5)),
+              ('b', DateTime(2026, 10, 7, 9, 30)),
+              ('c', DateTime(2026, 10, 6, 9, 30)),
+            ]) {
+              await repository.record(
+                summary(id).toTrackInfo(),
+                playedAt: at,
+                limit: 100,
+              );
+            }
+          });
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          h
+              .container(tester)
+              .read(historyFilterProvider.notifier)
+              .setDay(DateTime(2026, 10, 7));
+          await tester.tap(find.byTooltip('Search history'));
+          await tester.pumpAndSettle();
+          await tester.enterText(find.byType(TextField), 'song');
+          await tester.pump(const Duration(milliseconds: 300));
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.byType(InputChip), findsOneWidget);
+          expect(find.text('Song a'), findsOneWidget);
+          expect(find.text('Song c'), findsNothing);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('history, load failed, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.openHistory(tester);
+          await h.loadSettings(tester);
+          final database = h.container(tester).read(appDatabaseProvider);
+          await tester.runAsync(() async {
+            await database.customStatement(
+              'ALTER TABLE play_history RENAME TO play_history_gone',
+            );
+            database.markTablesUpdated({database.playHistoryTable});
+          });
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          expect(find.text('Retry'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

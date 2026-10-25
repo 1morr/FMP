@@ -88,8 +88,6 @@ Future<void> _setAutoScroll(WidgetTester tester, ShellHarness h) async {
   await h.loadSettings(tester);
 }
 
-void _noop() {}
-
 class _ReasonNotifier extends Notifier<String?> {
   @override
   String? build() => null;
@@ -823,6 +821,20 @@ void main() {
       expect(find.byType(QueueView), findsNothing);
     });
 
+    testWidgets('Go to Search on the empty queue opens the search '
+        'destination', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(400, 800));
+      await h.openQueue(tester);
+      expect(find.byType(ui_search.SearchPage), findsNothing);
+
+      await tester.tap(find.text('Go to Search'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ui_search.SearchPage), findsOneWidget);
+      expect(find.text('The queue is empty'), findsNothing);
+    });
+
     testWidgets('a queue that is still loading shows nothing, not the empty '
         'state', (tester) async {
       await tester.pumpWidget(
@@ -831,9 +843,7 @@ void main() {
             translationsProvider.overrideWithValue(AppLocale.en.buildSync()),
             playbackQueueProvider.overrideWithValue(const AsyncLoading()),
           ],
-          child: const MaterialApp(
-            home: QueuePage(visible: true, onOpenSearch: _noop),
-          ),
+          child: const MaterialApp(home: QueuePage(visible: true)),
         ),
       );
 

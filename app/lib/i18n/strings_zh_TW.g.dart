@@ -434,6 +434,117 @@ class Translations$history$zh_TW {
 
   /// zh-TW: '已清除播放歷史'
   String get cleared => '已清除播放歷史';
+
+  /// zh-TW: '選擇日期'
+  String get selectDate => '選擇日期';
+
+  /// zh-TW: '搜尋歷史'
+  String get search => '搜尋歷史';
+
+  /// zh-TW: '搜尋曲名或作者'
+  String get searchHint => '搜尋曲名或作者';
+
+  /// zh-TW: '關閉搜尋'
+  String get closeSearch => '關閉搜尋';
+
+  /// zh-TW: '今天'
+  String get statsToday => '今天';
+
+  /// zh-TW: '本週'
+  String get statsWeek => '本週';
+
+  /// zh-TW: '全部'
+  String get statsAll => '全部';
+
+  /// zh-TW: '{count} 首'
+  String statsCount({required Object count}) => '${count} 首';
+
+  /// zh-TW: '{hours} 小時 {minutes} 分'
+  String durationHm({required Object hours, required Object minutes}) =>
+      '${hours} 小時 ${minutes} 分';
+
+  /// zh-TW: '{minutes} 分'
+  String durationM({required Object minutes}) => '${minutes} 分';
+
+  /// zh-TW: '全部'
+  String get filterAll => '全部';
+
+  /// zh-TW: '排序'
+  String get sortTooltip => '排序';
+
+  /// zh-TW: '新到舊'
+  String get sortNewest => '新到舊';
+
+  /// zh-TW: '舊到新'
+  String get sortOldest => '舊到新';
+
+  /// zh-TW: '播放次數'
+  String get sortMostPlayed => '播放次數';
+
+  /// zh-TW: '清除日期篩選'
+  String get clearDate => '清除日期篩選';
+
+  /// zh-TW: '{count} 首'
+  String dayCount({required Object count}) => '${count} 首';
+
+  /// zh-TW: '收合 {day}'
+  String dayCollapse({required Object day}) => '收合 ${day}';
+
+  /// zh-TW: '展開 {day}'
+  String dayExpand({required Object day}) => '展開 ${day}';
+
+  /// zh-TW: '{count} 次'
+  String playCount({required Object count}) => '${count} 次';
+
+  /// zh-TW: '音源：{name}'
+  String sourceIcon({required Object name}) => '音源：${name}';
+
+  /// zh-TW: '刪除此曲所有紀錄'
+  String get removeAllOfTrack => '刪除此曲所有紀錄';
+
+  /// zh-TW: '刪除這首歌的所有紀錄？'
+  String get removeAllTitle => '刪除這首歌的所有紀錄？';
+
+  /// zh-TW: '「{title}」的所有播放紀錄都會被刪除，無法復原。'
+  String removeAllBody({required Object title}) =>
+      '「${title}」的所有播放紀錄都會被刪除，無法復原。';
+
+  /// zh-TW: '刪除'
+  String get deleteSelected => '刪除';
+
+  /// zh-TW: '刪除 {count} 筆紀錄？'
+  String deleteSelectedTitle({required Object count}) => '刪除 ${count} 筆紀錄？';
+
+  /// zh-TW: '選取的播放紀錄會被刪除，無法復原。'
+  String get deleteSelectedBody => '選取的播放紀錄會被刪除，無法復原。';
+
+  /// zh-TW: '刪除 {count} 首歌的所有紀錄？'
+  String deleteSelectedTracksTitle({required Object count}) =>
+      '刪除 ${count} 首歌的所有紀錄？';
+
+  /// zh-TW: '這幾首歌的所有播放紀錄都會被刪除，無法復原。'
+  String get deleteSelectedTracksBody => '這幾首歌的所有播放紀錄都會被刪除，無法復原。';
+
+  /// zh-TW: '刪除'
+  String get delete => '刪除';
+
+  /// zh-TW: '已刪除 {count} 筆'
+  String deletedCount({required Object count}) => '已刪除 ${count} 筆';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
+
+  /// zh-TW: '去搜尋'
+  String get goSearch => '去搜尋';
+
+  /// zh-TW: '沒有符合的紀錄'
+  String get noMatch => '沒有符合的紀錄';
+
+  /// zh-TW: '換個篩選條件或關鍵字試試'
+  String get noMatchHint => '換個篩選條件或關鍵字試試';
+
+  /// zh-TW: '更多動作'
+  String get pageMore => '更多動作';
 }
 
 // Path: home

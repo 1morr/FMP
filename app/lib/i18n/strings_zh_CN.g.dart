@@ -388,6 +388,81 @@ class Translations$history$zh_CN extends Translations$history$zh_TW {
   String get confirm => '清除';
   @override
   String get cleared => '已清除播放历史';
+  @override
+  String get selectDate => '选择日期';
+  @override
+  String get search => '搜索历史';
+  @override
+  String get searchHint => '搜索曲名或作者';
+  @override
+  String get closeSearch => '关闭搜索';
+  @override
+  String get statsToday => '今天';
+  @override
+  String get statsWeek => '本周';
+  @override
+  String get statsAll => '全部';
+  @override
+  String statsCount({required Object count}) => '${count} 首';
+  @override
+  String durationHm({required Object hours, required Object minutes}) =>
+      '${hours} 小时 ${minutes} 分';
+  @override
+  String durationM({required Object minutes}) => '${minutes} 分';
+  @override
+  String get filterAll => '全部';
+  @override
+  String get sortTooltip => '排序';
+  @override
+  String get sortNewest => '新到旧';
+  @override
+  String get sortOldest => '旧到新';
+  @override
+  String get sortMostPlayed => '播放次数';
+  @override
+  String get clearDate => '清除日期筛选';
+  @override
+  String dayCount({required Object count}) => '${count} 首';
+  @override
+  String dayCollapse({required Object day}) => '收起 ${day}';
+  @override
+  String dayExpand({required Object day}) => '展开 ${day}';
+  @override
+  String playCount({required Object count}) => '${count} 次';
+  @override
+  String sourceIcon({required Object name}) => '音源：${name}';
+  @override
+  String get removeAllOfTrack => '删除此曲所有记录';
+  @override
+  String get removeAllTitle => '删除这首歌的所有记录？';
+  @override
+  String removeAllBody({required Object title}) =>
+      '“${title}”的所有播放记录都会被删除，无法恢复。';
+  @override
+  String get deleteSelected => '删除';
+  @override
+  String deleteSelectedTitle({required Object count}) => '删除 ${count} 条记录？';
+  @override
+  String get deleteSelectedBody => '选中的播放记录会被删除，无法恢复。';
+  @override
+  String deleteSelectedTracksTitle({required Object count}) =>
+      '删除 ${count} 首歌的所有记录？';
+  @override
+  String get deleteSelectedTracksBody => '这几首歌的所有播放记录都会被删除，无法恢复。';
+  @override
+  String get delete => '删除';
+  @override
+  String deletedCount({required Object count}) => '已删除 ${count} 条';
+  @override
+  String get retry => '重试';
+  @override
+  String get goSearch => '去搜索';
+  @override
+  String get noMatch => '没有符合的记录';
+  @override
+  String get noMatchHint => '换个筛选条件或关键字试试';
+  @override
+  String get pageMore => '更多操作';
 }
 
 // Path: home

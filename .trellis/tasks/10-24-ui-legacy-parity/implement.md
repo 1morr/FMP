@@ -121,6 +121,7 @@
 
 - `currentTrackKeyProvider` 與標示：搜尋、排行、探索、歌單詳情、分 P。
 - 時長固定欄寬；多選加「下一首播放」與「取消全選」；搜尋捲到底自動載入。
+- U 新增的數量字串（佇列、歷史、匯入進度等）改用 slang 的複數語法（ADR 0024 §決定 6）：PR 3–9 為了避開複數寫成「1 songs」「1 plays」「1 in queue」這類英文；以 `translations_test` 或新測試守住 en 的單數。
 
 ### PR 11 搜尋歷史
 
