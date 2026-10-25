@@ -48,6 +48,8 @@ import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/ui/accounts/account_import_page.dart';
+import 'package:fmp/ui/shell/legacy_side_rail.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
@@ -196,6 +198,46 @@ void main() {
         await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
         await expectLater(tester, meetsGuideline(textContrastGuideline));
       }
+
+      // 舊版側欄（ADR 0035 §決定 2）：收合與展開，視窗 1000 與 1400。
+      for (final width in const [1000.0, 1400.0]) {
+        for (final expanded in const [false, true]) {
+          testWidgets(
+            'the side rail, ${expanded ? 'expanded' : 'collapsed'}, at $width',
+            (tester) async {
+              final handle = tester.ensureSemantics();
+              final h = ShellHarness();
+              await h.pumpShell(
+                tester,
+                size: Size(width, 800),
+                brightness: brightness,
+                at: ShellDestination.home,
+                expandRail: expanded,
+              );
+              expect(find.byType(LegacySideRail), findsOneWidget);
+
+              await expectGuidelines(tester);
+              handle.dispose();
+            },
+          );
+        }
+      }
+
+      // 頁頂換成置中的 PageAppBar（ADR 0035 §決定 2）：佇列的空狀態與歷史內頁各驗一次。
+      testWidgets('the queue page bar with an empty queue', (tester) async {
+        final handle = tester.ensureSemantics();
+        final h = ShellHarness();
+        await h.pumpShell(
+          tester,
+          brightness: brightness,
+          at: ShellDestination.queue,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(PageAppBar).hitTestable(), findsOneWidget);
+
+        await expectGuidelines(tester);
+        handle.dispose();
+      });
 
       testWidgets('the demo screen meets the guidelines', (tester) async {
         final handle = tester.ensureSemantics();

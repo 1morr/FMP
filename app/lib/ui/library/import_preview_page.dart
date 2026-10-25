@@ -17,6 +17,7 @@ import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 
 /// 在目前目的地的巢狀導覽裡開匯入預覽頁（音樂庫的「匯入」）。
 Future<void> openImportPreview(
@@ -25,9 +26,8 @@ Future<void> openImportPreview(
   required String playlistId,
 }) => Navigator.of(context).push(
   MaterialPageRoute<void>(
-    // 自己的 Material：理由見 `AppShell` 的根頁。
-    builder: (_) => Material(
-      type: MaterialType.transparency,
+    // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+    builder: (_) => PageSurface(
       child: ImportPreviewPage(pluginId: pluginId, playlistId: playlistId),
     ),
   ),

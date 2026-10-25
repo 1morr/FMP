@@ -22,6 +22,7 @@ import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/open_search.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -33,9 +34,8 @@ import 'package:fmp/ui/tracks/track_selection.dart';
 /// 「歷史」、首頁「最近播放」的「查看全部」，ADR 0033 §決定 5），導覽與播放列留著。
 Future<void> openHistory(BuildContext context) => Navigator.of(context).push(
   MaterialPageRoute<void>(
-    // 自己的 Material：理由見 `AppShell` 的根頁。
-    builder: (_) =>
-        const Material(type: MaterialType.transparency, child: HistoryPage()),
+    // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+    builder: (_) => const PageSurface(child: HistoryPage()),
   ),
 );
 
@@ -271,10 +271,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 }
 
-/// 標題列：返回鈕、標題（搜尋時換成輸入框）與右側的日期、搜尋、「⋯」。
-///
-/// 標題列各頁之後會統一換成置中的 `PageAppBar`（ADR 0035 §決定 2），所以這裡只是一個
-/// 獨立的小元件：搬走時整個換掉。
+/// 頁頂：標題（搜尋時換成輸入框）與右側的日期、搜尋、「⋯」；內頁的返回鈕由 `PageAppBar` 放。
 class _TopBar extends ConsumerWidget {
   const _TopBar({
     required this.searching,
@@ -299,79 +296,58 @@ class _TopBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).history;
-    final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
-    // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
-    final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        spacing.x4,
-        spacing.x4,
-        spacing.x2,
-        spacing.x2,
-      ),
-      child: Row(
-        children: [
-          if (canGoBack)
-            IconButton(
-              tooltip: ref.watch(translationsProvider).shell.backTooltip,
-              icon: const BackButtonIcon(),
-              onPressed: () => unawaited(Navigator.of(context).maybePop()),
-            ),
-          Expanded(
-            child: searching
-                ? TextField(
-                    controller: searchController,
-                    autofocus: true,
-                    onChanged: onQueryChanged,
-                    decoration: InputDecoration(
-                      hintText: t.searchHint,
-                      border: InputBorder.none,
-                    ),
-                  )
-                : Semantics(
-                    header: true,
-                    child: Text(t.title, style: theme.textTheme.headlineSmall),
-                  ),
-          ),
-          IconButton(
-            tooltip: t.selectDate,
-            icon: const Icon(Icons.calendar_today),
-            onPressed: onPickDate,
-          ),
-          if (searching)
-            IconButton(
-              tooltip: t.closeSearch,
-              icon: const Icon(Icons.close),
-              onPressed: onCloseSearch,
-            )
-          else
-            IconButton(
-              tooltip: t.search,
-              icon: const Icon(Icons.search),
-              onPressed: onSearch,
-            ),
-          PopupMenuButton<void>(
-            tooltip: t.pageMore,
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (context) => [
-              PopupMenuItem<void>(
-                enabled: clearEnabled,
-                onTap: onClearAll,
-                child: Row(
-                  children: [
-                    const Icon(Icons.delete_sweep_outlined),
-                    SizedBox(width: spacing.x3),
-                    Flexible(
-                      child: Text(t.clearAll, overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
-                ),
+    return PageAppBar(
+      title: searching ? null : t.title,
+      titleWidget: searching
+          ? TextField(
+              controller: searchController,
+              autofocus: true,
+              onChanged: onQueryChanged,
+              decoration: InputDecoration(
+                hintText: t.searchHint,
+                border: InputBorder.none,
               ),
-            ],
+            )
+          : null,
+      actions: [
+        IconButton(
+          tooltip: t.selectDate,
+          icon: const Icon(Icons.calendar_today),
+          onPressed: onPickDate,
+        ),
+        if (searching)
+          IconButton(
+            tooltip: t.closeSearch,
+            icon: const Icon(Icons.close),
+            onPressed: onCloseSearch,
+          )
+        else
+          IconButton(
+            tooltip: t.search,
+            icon: const Icon(Icons.search),
+            onPressed: onSearch,
           ),
-        ],
-      ),
+        PopupMenuButton<void>(
+          tooltip: t.pageMore,
+          icon: const Icon(Icons.more_vert),
+          itemBuilder: (context) => [
+            PopupMenuItem<void>(
+              enabled: clearEnabled,
+              onTap: onClearAll,
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_sweep_outlined),
+                  SizedBox(width: spacing.x3),
+                  Flexible(
+                    child: Text(t.clearAll, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

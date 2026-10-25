@@ -289,6 +289,9 @@ class LayoutStateTable extends Table {
     panelWidth.isSmallerOrEqualValue(1600),
   )();
 
+  /// 左側導覽側欄展開與否（ADR 0035 §決定 5）；空＝沒記過，呼叫端當作收合。
+  late final railExpanded = boolean().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

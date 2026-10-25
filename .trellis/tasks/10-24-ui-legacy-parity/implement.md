@@ -92,7 +92,7 @@
 
 ### PR 5 舊版側欄與置中 AppBar
 
-- `LegacySideRail`（72／256）、`PageAppBar`；`layout_state` 加 `rail_expanded`、刪 `player_tab`（要做 migration）；舊資料 `railExpanded` 改成會匯入。
+- `LegacySideRail`（72／256）、`PageAppBar`；`layout_state` 加 `rail_expanded`（要做 migration）；舊資料 `railExpanded` 改成會匯入。`player_tab` 留到 PR 7 拿掉分頁時再刪（播放頁到那時都還在用它）。
 - 每頁的頁頂換成 `PageAppBar`，多選時的選取列行為不變。
 
 ### PR 6 播放列與面板
@@ -104,7 +104,7 @@
 ### PR 7 播放頁
 
 - 寬（M7 前單欄）、窄、矮三種版面；控制區照舊版；頂列（加入歌單、音量、輸出裝置、資訊、⋯）；曲目詳細面板；上滑轉場；封面圓角與陰影。
-- 刪 `_PlayerTabs`、`glass_panel.dart`、extraLarge 三欄。
+- 刪 `_PlayerTabs`、`glass_panel.dart`、extraLarge 三欄，以及 `layout_state.player_tab`（migration）。
 - golden 換成寬、窄、矮三張；`player_page_test` 的 tabs、glass 刪除。
 
 ### PR 8 佇列

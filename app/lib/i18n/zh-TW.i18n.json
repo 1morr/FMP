@@ -33,7 +33,6 @@
       "streamPriority": "各音源的串流優先順序",
       "cacheLimit": "快取上限",
       "homeRanking": "首頁排行的順序與停用",
-      "railExpanded": "側邊欄的展開狀態",
       "searchHistory": "搜尋歷史"
     },
     "localPlaylists": "{count} 張平台歌單的網址無法辨識或重複，已轉成本機歌單。",
@@ -51,6 +50,8 @@
     "settingsTooltip": "設定（Ctrl+,）",
     "radio": "電台",
     "queue": "佇列",
+    "railCollapseTooltip": "收合側邊欄",
+    "railExpandTooltip": "展開側邊欄",
     "queueTooltip": "佇列（Ctrl+Q）",
     "queueEmptyTitle": "佇列是空的",
     "queueEmptyBody": "在搜尋或音樂庫裡播放歌曲，會排進這裡。",

@@ -24,6 +24,7 @@ import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_state.dart';
@@ -109,7 +110,6 @@ class HomePage extends ConsumerWidget {
     // provider，由它們報（顯示錯誤），同一個失敗才只進錯誤歷史一次。
     final translations = ref.watch(translationsProvider);
     final t = translations.home;
-    final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
     final sources = ref.watch(searchSourcesProvider);
     final hasSource = sources.value?.isNotEmpty ?? false;
@@ -124,13 +124,7 @@ class HomePage extends ConsumerWidget {
     // 三份資料到齊才判斷「沒有內容」，免得說明一閃而過。
     final loading =
         playlistsState is AsyncLoading || radioState is AsyncLoading;
-    final title = Padding(
-      padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
-      child: Semantics(
-        header: true,
-        child: Text(t.title, style: theme.textTheme.headlineSmall),
-      ),
-    );
+    final title = PageAppBar(title: t.title);
     // 插件清單還沒載入完時不判斷引導，免得一閃而過。
     if (sources is AsyncData &&
         showOnboarding(hasSource: hasSource, state: onboarding)) {

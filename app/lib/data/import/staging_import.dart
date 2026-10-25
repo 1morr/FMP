@@ -407,6 +407,7 @@ final class StagingImport {
               playerTab: Value(layout.playerTab),
               panelExpanded: Value(layout.panelExpanded),
               panelWidth: Value(layout.panelWidth),
+              railExpanded: Value(layout.railExpanded),
             ),
           );
     }

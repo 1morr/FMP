@@ -27,6 +27,7 @@ import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/library/remove_from_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -44,11 +45,9 @@ Future<void> openPlaylist(
   bool replace = false,
 }) {
   final route = MaterialPageRoute<void>(
-    // 自己的 Material：理由見 `AppShell` 的根頁。
-    builder: (_) => Material(
-      type: MaterialType.transparency,
-      child: PlaylistDetailPage(playlistId: playlistId),
-    ),
+    // 自己的 Material 與捲動觀察者：理由見 [PageSurface]。
+    builder: (_) =>
+        PageSurface(child: PlaylistDetailPage(playlistId: playlistId)),
   );
   final navigator = Navigator.of(context);
   return replace ? navigator.pushReplacement(route) : navigator.push(route);
@@ -213,11 +212,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     });
     final translations = ref.watch(translationsProvider);
     final t = translations.playlist;
-    final theme = Theme.of(context);
-    final spacing = AppTokens.of(context).spacing;
     final detail = ref.watch(provider);
-    // 下面還有頁（巢狀導覽裡的內頁）時才有返回鈕，同 AppBar 的判斷。
-    final canGoBack = ModalRoute.of(context)?.impliesAppBarDismissal ?? false;
     final local = detail.value?.playlist.kind == PlaylistKind.local;
     return TrackSelectionScope<int>(
       selection: _selection,
@@ -249,38 +244,13 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
                   onPressed: _removeSelected,
                 ),
             ],
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                spacing.x4,
-                spacing.x4,
-                spacing.x4,
-                spacing.x2,
-              ),
-              child: Row(
-                children: [
-                  if (canGoBack)
-                    IconButton(
-                      tooltip: translations.shell.backTooltip,
-                      icon: const BackButtonIcon(),
-                      onPressed: () =>
-                          unawaited(Navigator.of(context).maybePop()),
-                    ),
-                  Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        detail.value?.playlist.name ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                    ),
-                  ),
-                  if (detail.value?.playlist case final playlist?
-                      when playlist.kind == PlaylistKind.mix)
-                    _MixMenu(playlist: playlist),
-                ],
-              ),
+            child: PageAppBar(
+              title: detail.value?.playlist.name ?? '',
+              actions: [
+                if (detail.value?.playlist case final playlist?
+                    when playlist.kind == PlaylistKind.mix)
+                  _MixMenu(playlist: playlist),
+              ],
             ),
           ),
           Expanded(

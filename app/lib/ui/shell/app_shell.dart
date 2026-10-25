@@ -29,9 +29,11 @@ import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
+import 'package:fmp/ui/shell/legacy_side_rail.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/open_accounts.dart';
 import 'package:fmp/ui/shell/open_queue.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
@@ -44,14 +46,12 @@ enum ShellDestination { home, search, library, queue, radio, settings }
 
 /// App 的外殼（ADR 0024 §決定 3、5、8）：導覽、內容、播放列三區。
 ///
-/// 導覽依整個視窗的 `WindowClass` 換元件（M3 的 window size class 與導覽元件
-/// 對照；用 Material 內建的三個元件，ADR 否決了 `flutter_adaptive_scaffold`）：
+/// 導覽依整個視窗的 `WindowClass` 換元件（ADR 0035 §決定 2；ADR 否決了 `flutter_adaptive_scaffold`）：
 ///
 /// - compact：底部 `NavigationBar`，播放列在它上面；
-/// - medium、expanded：左側 `NavigationRail`；
-/// - large 以上：左側常駐的 `NavigationDrawer`。
+/// - medium 以上：左側舊版的可展開側欄（[LegacySideRail]，收合 72dp、展開 256dp，各寬度同一個）。
 ///
-/// 後兩種的播放列在內容區（與右側面板）下方、橫跨兩者（ADR 的「依內容區寬度」）。
+/// 後者的播放列在內容區（與右側面板）下方、橫跨兩者（ADR 的「依內容區寬度」）。
 /// 整個視窗 >= 840 時內容區右邊是「正在播放」面板與拖曳把手（[NowPlayingPanelSide]），
 /// 頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉面板後的寬度等級。
 ///
@@ -400,13 +400,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                       pages: [
                         MaterialPage<void>(
                           key: ValueKey(destination),
-                          // 每一頁自己的 Material（透明）：頁面轉場在頁外包一層有底色的
-                          // `ColoredBox`，`ListTile` 的水波與底色若畫在外殼的 Material 上會被它蓋住
-                          // （除錯版另有斷言）。推上來的內頁（`openPlaylist`、`openHistory`）同樣包。
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: _rootPage(destination),
-                          ),
+                          // 每一頁自己的 Material 與捲動觀察者（理由見 [PageSurface]）。推上來的內頁
+                          // （`openPlaylist`、`openHistory`）同樣包。
+                          child: PageSurface(child: _rootPage(destination)),
                         ),
                       ],
                       // 根頁不會被退掉：外殼的 PopScope 與 Esc 只在有內頁時才 pop。
@@ -497,42 +493,13 @@ class _AppShellState extends ConsumerState<AppShell> {
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            navigation(switch (windowClass) {
-              WindowClass.medium || WindowClass.expanded => SafeArea(
-                right: false,
-                // 六項在橫向手機（高約 411dp）放不下：高度不夠時可以捲，夠時外觀不變。
-                // U PR 5 換成舊版側欄時一併取代。
-                child: LayoutBuilder(
-                  builder: (context, constraints) => SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: NavigationRail(
-                          selectedIndex: index,
-                          onDestinationSelected: onSelected,
-                          labelType: NavigationRailLabelType.all,
-                          destinations: [
-                            for (final item in destinations)
-                              NavigationRailDestination(
-                                icon: Icon(item.icon),
-                                selectedIcon: Icon(item.selectedIcon),
-                                label: Text(item.label),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              _ => _PermanentDrawer(
+            navigation(
+              LegacySideRail(
                 selectedIndex: index,
                 onSelected: onSelected,
                 destinations: destinations,
               ),
-            }),
+            ),
             Expanded(
               child: Column(
                 children: [
@@ -575,10 +542,14 @@ class _AppShellState extends ConsumerState<AppShell> {
             actions: {
               FocusSearchIntent: CallbackAction<FocusSearchIntent>(
                 onInvoke: (_) {
-                  // 搜尋框在搜尋目的地的根頁：有內頁時先退回根。
-                  _navigators[ShellDestination.search]!.currentState?.popUntil(
-                    (route) => route.isFirst,
-                  );
+                  // 搜尋框在搜尋目的地的根頁：有內頁時先退回根。多選時選取列蓋住了搜尋框
+                  // （ADR 0035 §決定 2），根頁還能退（選取模式的 LocalHistoryEntry）就先退出它。
+                  final navigator =
+                      _navigators[ShellDestination.search]!.currentState;
+                  navigator?.popUntil((route) => route.isFirst);
+                  if (navigator?.canPop() ?? false) {
+                    unawaited(navigator!.maybePop());
+                  }
                   _selectAndFocus(
                     ShellDestination.search,
                     _searchField.requestFocus,
@@ -639,15 +610,7 @@ final class _EscapeAction extends Action<EscapeIntent> {
   }
 }
 
-/// 一個導覽項在三種導覽元件上的圖示、文字與（底部導覽列的）tooltip。
-typedef _DestinationLabel = ({
-  IconData icon,
-  IconData selectedIcon,
-  String label,
-  String? tooltip,
-});
-
-_DestinationLabel _destinationLabel(
+ShellDestinationLabel _destinationLabel(
   ShellDestination destination,
   Translations$shell$zh_TW t,
 ) => switch (destination) {
@@ -710,39 +673,6 @@ final class _StackObserver extends NavigatorObserver {
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
       _changed();
-}
-
-/// large 以上的常駐導覽抽屜。M3 的 standard drawer：和內容並排、沒有遮罩，
-/// 所以不要 modal drawer 的圓角與陰影。
-class _PermanentDrawer extends StatelessWidget {
-  const _PermanentDrawer({
-    required this.selectedIndex,
-    required this.onSelected,
-    required this.destinations,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-  final List<_DestinationLabel> destinations;
-
-  @override
-  Widget build(BuildContext context) => DrawerTheme(
-    data: DrawerTheme.of(context)
-        .copyWith(shape: const RoundedRectangleBorder()),
-    child: NavigationDrawer(
-      selectedIndex: selectedIndex,
-      onDestinationSelected: onSelected,
-      elevation: 0,
-      children: [
-        for (final item in destinations)
-          NavigationDrawerDestination(
-            icon: Icon(item.icon),
-            selectedIcon: Icon(item.selectedIcon),
-            label: Text(item.label),
-          ),
-      ],
-    ),
-  );
 }
 
 /// 量 [child] 的高度交給 [onHeight]（外殼發佈成 `toastBottomInsetProvider`）：[child]

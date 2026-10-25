@@ -7,7 +7,12 @@ import 'package:fmp/domain/player_tab.dart';
 /// 依裝置記住的版面狀態（design §3.4）。欄位為 `null` 表示沒記過。
 @immutable
 final class LayoutState {
-  const LayoutState({this.playerTab, this.panelExpanded, this.panelWidth});
+  const LayoutState({
+    this.playerTab,
+    this.panelExpanded,
+    this.panelWidth,
+    this.railExpanded,
+  });
 
   static const empty = LayoutState();
 
@@ -20,23 +25,28 @@ final class LayoutState {
   /// 右側面板的寬度（dp）；沒記過是 `null`。這是記住的值，畫面上的寬度依視窗夾取。
   final double? panelWidth;
 
+  /// 左側導覽側欄是否展開；沒記過是 `null`（呼叫端當作收合）。
+  final bool? railExpanded;
+
   @override
   bool operator ==(Object other) =>
       other is LayoutState &&
       other.playerTab == playerTab &&
       other.panelExpanded == panelExpanded &&
-      other.panelWidth == panelWidth;
+      other.panelWidth == panelWidth &&
+      other.railExpanded == railExpanded;
 
   @override
-  int get hashCode => Object.hash(playerTab, panelExpanded, panelWidth);
+  int get hashCode =>
+      Object.hash(playerTab, panelExpanded, panelWidth, railExpanded);
 
   @override
   String toString() =>
       'LayoutState(playerTab: $playerTab, panelExpanded: $panelExpanded, '
-      'panelWidth: $panelWidth)';
+      'panelWidth: $panelWidth, railExpanded: $railExpanded)';
 }
 
-/// `layout_state` 單列表的存取：播放頁的分頁與右側面板的展開、寬度。
+/// `layout_state` 單列表的存取：播放頁的分頁、右側面板的展開與寬度、左側側欄的展開。
 final class LayoutStateRepository {
   LayoutStateRepository(this._database);
 
@@ -60,6 +70,7 @@ final class LayoutStateRepository {
     PlayerTab? playerTab,
     bool? panelExpanded,
     double? panelWidth,
+    bool? railExpanded,
   }) => _database
       .into(_database.layoutStateTable)
       .insertOnConflictUpdate(
@@ -68,6 +79,7 @@ final class LayoutStateRepository {
           playerTab: Value.absentIfNull(playerTab),
           panelExpanded: Value.absentIfNull(panelExpanded),
           panelWidth: Value.absentIfNull(panelWidth),
+          railExpanded: Value.absentIfNull(railExpanded),
         ),
       );
 
@@ -77,5 +89,6 @@ final class LayoutStateRepository {
           playerTab: row.playerTab,
           panelExpanded: row.panelExpanded,
           panelWidth: row.panelWidth,
+          railExpanded: row.railExpanded,
         );
 }

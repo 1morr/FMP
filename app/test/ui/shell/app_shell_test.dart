@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
@@ -24,12 +26,16 @@ import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/shell/legacy_side_rail.dart';
+import 'package:fmp/ui/shell/page_app_bar.dart';
+import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
 import '../../playback/fake_source_plugin.dart';
+import '../../support/memory_database.dart';
 import '../support/shell_harness.dart';
 
 const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
@@ -66,72 +72,267 @@ void main() {
 
     for (final (width, expected) in [
       (400.0, NavigationBar),
-      (700.0, NavigationRail),
-      (1000.0, NavigationRail),
-      (1400.0, NavigationDrawer),
-      (1700.0, NavigationDrawer),
+      (700.0, LegacySideRail),
+      (1000.0, LegacySideRail),
+      (1400.0, LegacySideRail),
+      (1700.0, LegacySideRail),
     ]) {
-      testWidgets('$width wide uses $expected', (tester) async {
+      for (final expanded in [false, true]) {
+        // 側欄的展開與否只有 medium 以上才有意義；底部導覽列只測一次。
+        if (expected == NavigationBar && expanded) continue;
+        testWidgets(
+          '$width wide uses $expected${expanded ? ' (expanded)' : ''}',
+          (tester) async {
+            final h = ShellHarness();
+            await h.pumpShell(
+              tester,
+              size: Size(width, 800),
+              at: ShellDestination.home,
+              expandRail: expanded,
+            );
+
+            expect(
+              find.byType(NavigationBar),
+              expected == NavigationBar ? findsOneWidget : findsNothing,
+            );
+            expect(
+              find.byType(LegacySideRail),
+              expected == LegacySideRail ? findsOneWidget : findsNothing,
+            );
+            // 同樣六個項目（ADR 0035 §決定 2）。
+            if (expected == NavigationBar) {
+              expect(
+                tester
+                    .widget<NavigationBar>(find.byType(NavigationBar))
+                    .destinations
+                    .length,
+                6,
+              );
+            } else if (!expanded) {
+              expect(
+                tester
+                    .widget<NavigationRail>(find.byType(NavigationRail))
+                    .destinations
+                    .length,
+                6,
+              );
+            }
+            for (final label in labels) {
+              expect(
+                find.descendant(
+                  of: find.byType(expected),
+                  matching: find.text(label),
+                ),
+                findsOneWidget,
+                reason: '$label at $width',
+              );
+            }
+            // 順序：首頁｜搜尋｜音樂庫｜佇列｜電台｜設定。
+            final xs = [
+              for (final label in labels)
+                tester.getCenter(
+                  find.descendant(
+                    of: find.byType(expected),
+                    matching: find.text(label),
+                  ),
+                ),
+            ];
+            final along = expected == NavigationBar
+                ? [for (final offset in xs) offset.dx]
+                : [for (final offset in xs) offset.dy];
+            expect(along, orderedEquals([...along]..sort()), reason: 'order');
+            if (expected == LegacySideRail) {
+              expect(
+                tester.getSize(find.byType(LegacySideRail)).width,
+                expanded ? AppLayout.railExpanded : AppLayout.railCollapsed,
+              );
+              expect(
+                find.text('FMP'),
+                expanded ? findsOneWidget : findsNothing,
+              );
+            }
+          },
+        );
+      }
+    }
+
+    group('the legacy side rail (ADR 0035 §決定 2)', () {
+      double railWidth(WidgetTester tester) =>
+          tester.getSize(find.byType(LegacySideRail)).width;
+
+      Future<LayoutState?> stored(WidgetTester tester, ShellHarness h) =>
+          tester.runAsync(
+            () =>
+                h.container(tester).read(layoutStateRepositoryProvider).read(),
+          );
+
+      testWidgets('is collapsed when never set, at every width', (
+        tester,
+      ) async {
+        for (final width in [700.0, 1000.0, 1400.0, 1700.0]) {
+          final h = ShellHarness();
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            at: ShellDestination.home,
+          );
+          expect(railWidth(tester), AppLayout.railCollapsed, reason: '$width');
+          expect(find.text('FMP'), findsNothing);
+        }
+      });
+
+      testWidgets('the toggle expands and collapses it, and remembers', (
+        tester,
+      ) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester, at: ShellDestination.home);
+        expect((await stored(tester, h))?.railExpanded, isNull);
+
+        await tester.tap(find.byTooltip('Expand side bar'));
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railExpanded);
+        expect(find.text('FMP'), findsOneWidget);
+        expect((await stored(tester, h))?.railExpanded, isTrue);
+
+        await tester.tap(find.byTooltip('Collapse side bar'));
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railCollapsed);
+        expect((await stored(tester, h))?.railExpanded, isFalse);
+      });
+
+      testWidgets('the remembered state wins over the width', (tester) async {
         final h = ShellHarness();
         await h.pumpShell(
           tester,
-          size: Size(width, 800),
+          size: const Size(700, 800),
           at: ShellDestination.home,
+          expandRail: true,
+        );
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railExpanded);
+      });
+
+      testWidgets('expanding animates, and does not with reduced motion', (
+        tester,
+      ) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester, at: ShellDestination.home);
+
+        await tester.tap(find.byTooltip('Expand side bar'));
+        await h.loadSettings(tester);
+        await tester.pump(AppLayout.railDuration ~/ 2);
+        expect(
+          railWidth(tester),
+          allOf(
+            greaterThan(AppLayout.railCollapsed),
+            lessThan(AppLayout.railExpanded),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railExpanded);
+
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        await tester.tap(find.byTooltip('Collapse side bar'));
+        await h.loadSettings(tester);
+        await tester.pump();
+        expect(railWidth(tester), AppLayout.railCollapsed);
+      });
+
+      // 記住的狀態在啟動時才讀到：讀到的那一刻直接是展開的，不是每次開 App 都看它展開一次。
+      testWidgets('a remembered expanded rail opens expanded, without '
+          'animating', (tester) async {
+        final database = memoryDatabase();
+        await tester.runAsync(
+          () => LayoutStateRepository(database).write(railExpanded: true),
+        );
+        final h = ShellHarness(database: database);
+        await h.pumpApp(tester, const AppShell());
+        await h.loadSettings(tester);
+        expect(railWidth(tester), AppLayout.railExpanded);
+      });
+
+      // 兩顆鈕在不同的子樹，按下後舊的那顆就拆掉：焦點要留在新的那顆上，不掉回導覽區本身。
+      testWidgets('the toggle keeps the keyboard focus', (tester) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester, at: ShellDestination.home);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+        bool toggleFocused(String tooltip) =>
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<Tooltip>()
+                ?.message ==
+            tooltip;
+        expect(toggleFocused('Expand side bar'), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railExpanded);
+        expect(toggleFocused('Collapse side bar'), isTrue);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+        expect(railWidth(tester), AppLayout.railCollapsed);
+        expect(toggleFocused('Expand side bar'), isTrue);
+      });
+
+      testWidgets('selecting an item works in the expanded rail', (
+        tester,
+      ) async {
+        final h = ShellHarness();
+        await h.pumpShell(
+          tester,
+          at: ShellDestination.home,
+          expandRail: true,
+          collapsePanel: true,
         );
 
-        for (final type in [NavigationBar, NavigationRail, NavigationDrawer]) {
-          expect(
-            find.byType(type),
-            type == expected ? findsOneWidget : findsNothing,
-            reason: '$type at $width',
-          );
-        }
-        // 三種導覽元件都是同樣六個項目（ADR 0035 §決定 2）。
-        final count = switch (expected) {
-          NavigationBar =>
-            tester
-                .widget<NavigationBar>(find.byType(NavigationBar))
-                .destinations
-                .length,
-          NavigationRail =>
-            tester
-                .widget<NavigationRail>(find.byType(NavigationRail))
-                .destinations
-                .length,
-          _ =>
-            tester
-                .widget<NavigationDrawer>(find.byType(NavigationDrawer))
-                .children
-                .whereType<NavigationDrawerDestination>()
-                .length,
-        };
-        expect(count, 6, reason: 'destinations at $width');
-        for (final label in labels) {
-          expect(
-            find.descendant(
-              of: find.byType(expected),
-              matching: find.text(label),
-            ),
-            findsOneWidget,
-            reason: '$label at $width',
-          );
-        }
-        // 順序：首頁｜搜尋｜音樂庫｜佇列｜電台｜設定。
-        final xs = [
-          for (final label in labels)
-            tester.getCenter(
-              find.descendant(
-                of: find.byType(expected),
-                matching: find.text(label),
-              ),
-            ),
-        ];
-        final along = expected == NavigationBar
-            ? [for (final offset in xs) offset.dx]
-            : [for (final offset in xs) offset.dy];
-        expect(along, orderedEquals([...along]..sort()), reason: 'order');
+        await h.open(tester, ShellDestination.library);
+        await tester.pumpAndSettle();
+        expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
+        // 選中的項目讀成已選取。
+        final selected = tester.getSemantics(
+          find.descendant(
+            of: find.byType(LegacySideRail),
+            matching: find.text('Library'),
+          ),
+        );
+        expect(
+          selected.getSemanticsData().flagsCollection.isSelected,
+          ui.Tristate.isTrue,
+        );
       });
-    }
+
+      testWidgets('a short landscape phone scrolls the expanded rail too', (
+        tester,
+      ) async {
+        final h = ShellHarness();
+        await h.pumpShell(
+          tester,
+          size: const Size(914, 360),
+          at: ShellDestination.home,
+          expandRail: true,
+        );
+        expect(tester.takeException(), isNull);
+
+        final settings = find.descendant(
+          of: find.byType(LegacySideRail),
+          matching: find.text('Settings'),
+        );
+        await tester.ensureVisible(settings);
+        await tester.pumpAndSettle();
+        await tester.tap(settings);
+        await tester.pumpAndSettle();
+        expect(find.byType(SettingsPage).hitTestable(), findsOneWidget);
+      });
+    });
 
     testWidgets('the app opens on Home', (tester) async {
       final h = ShellHarness();
@@ -242,11 +443,24 @@ void main() {
     testWidgets('every page of a nested navigator paints on its own Material', (
       tester,
     ) async {
-      MaterialType nearestMaterial(Finder page) => tester
-          .widget<Material>(
-            find.ancestor(of: page, matching: find.byType(Material)).first,
-          )
-          .type;
+      // 最近的 Material 是 `PageSurface` 的那一個（它同時給頁頂自己的捲動觀察者），而且透明。
+      MaterialType nearestMaterial(Finder page) {
+        final surface = find.ancestor(
+          of: page,
+          matching: find.byType(PageSurface),
+        );
+        expect(surface, findsOneWidget);
+        final material = tester.widget<Material>(
+          find.ancestor(of: page, matching: find.byType(Material)).first,
+        );
+        expect(
+          tester.widget<Material>(
+            find.descendant(of: surface, matching: find.byType(Material)).first,
+          ),
+          same(material),
+        );
+        return material.type;
+      }
 
       final h = ShellHarness();
       await h.pumpShell(tester, at: ShellDestination.home);
@@ -1022,7 +1236,7 @@ void main() {
     String? region(WidgetTester tester) {
       final context = FocusManager.instance.primaryFocus?.context;
       if (context == null) return null;
-      if (context.findAncestorWidgetOfExactType<NavigationRail>() != null) {
+      if (context.findAncestorWidgetOfExactType<LegacySideRail>() != null) {
         return 'navigation';
       }
       if (context.findAncestorWidgetOfExactType<PlayerBar>() != null) {

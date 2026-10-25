@@ -220,6 +220,10 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   @override
   String get queue => 'Queue';
   @override
+  String get railCollapseTooltip => 'Collapse side bar';
+  @override
+  String get railExpandTooltip => 'Expand side bar';
+  @override
   String get queueTooltip => 'Queue (Ctrl+Q)';
   @override
   String get queueEmptyTitle => 'The queue is empty';
@@ -2950,8 +2954,6 @@ class Translations$legacyResult$unimported$en
   String get cacheLimit => 'Cache limit';
   @override
   String get homeRanking => 'Home chart order and disabled charts';
-  @override
-  String get railExpanded => 'Whether the side bar was expanded';
   @override
   String get searchHistory => 'Search history';
 }

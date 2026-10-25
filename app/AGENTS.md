@@ -442,12 +442,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 - `layout_state` 是 schema v6（design §3.4）：依裝置記住的版面狀態，單列（`player_tab`：播放頁右欄上次選的分頁，
   `lyrics`／`queue`／`details` 寫死在 `PlayerTabConverter`；`panel_expanded`、`panel_width`：右側「正在播放」面板的展開與寬度，
-  M2 PR 19 接上，欄位在 v6 就建好、沒有再升 schema）。欄位為空＝沒記過；`panel_width` 在資料庫只擋明顯的壞值（> 1600），實際範圍讀取時
+  M2 PR 19 接上，欄位在 v6 就建好、沒有再升 schema；`rail_expanded`：左側導覽側欄是否展開，schema v21 加，空＝收合，ADR 0035 §決定 5）。欄位為空＝沒記過；`panel_width` 在資料庫只擋明顯的壞值（> 1600），實際範圍讀取時
   依視窗夾取。不屬於任何設定組，M4 的備份不收它：設定包含在備份裡，還原到另一台裝置時不該帶來這台的面板
-  寬度。`LayoutStateRepository` 讀寫這三欄，`write` 沒給（`null`）的欄位不動。閘門：`layout_state_repository_test.dart`
+  寬度。`LayoutStateRepository` 讀寫這四欄，`write` 沒給（`null`）的欄位不動。閘門：`layout_state_repository_test.dart`
   （`stored format`（含面板的布林與 dp）、不認得的字串拋錯、`write` 沒給的欄位不動（含 `a write only changes the fields it is given`）、`watch`、`reads back the panel fields`）、`migration_test.dart` 的 v5→v6
   （既有表的使用者值不變）與 `migration from v<N> to v6 creates layout_state…`（v1–v5 各一例：單列 CHECK、
-  寬度 > 1600 寫不進去）、`a new database has layout_state with its checks`。
+  寬度 > 1600 寫不進去）、`a new database has layout_state with its checks`、`migration_test.dart` 的 v20→v21（`rail_expanded`：既有的使用者值不變、新欄位為空）與
+  `migration from v<N> to v21 adds layout_state.rail_expanded`（v1–v20 各一例）、`reads back railExpanded…`。
 
 - `installed_plugins` 的 `enabled`、`source_index_url`、`checks_json` 與 `plugin_indexes` 是 schema v7（ADR 0030
   §決定 6、7）。`enabled` 預設真，升級前裝好的插件仍啟用；更新（`PluginRepository.install` 的 upsert）不動
@@ -685,8 +686,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     快取上限不匯入（`network.cacheLimitMebibytes` 留空，ADR 0016 §決定 3）。
   - **設定組只寫改過的值**（`legacy_settings_converter.dart`，M5 design §5.9）：舊值不等於舊專案 `Settings` 的欄位初始值、而且在合法值域內才寫，等於舊預設或是型別預設（`minLong`、NaN）、不認得的字串都留空，
     新版的預設生效（之後改新版預設，沒動過的人跟著變）。不在新版選項裡的數值取最接近的選項，等距取大的。例外：`source_settings.browse_as_logged_in` 三個音源都照舊值寫
-    （舊預設 B 站、網易開、YouTube 關，新版全開）；輸出裝置只在 `convert(importOutputDevice: true)`（呼叫端依平台給，轉換器不判斷平台）時寫；`layout_state` 是上次的狀態、不是設定組：只在資料庫來源寫，照舊值寫（包括等於舊預設的值，否則使用者主動收起的面板會變回新版的展開），寬度夾在 ≤ 1600，不合法的值留空。
-    新版沒有落腳處、而且使用者改過的（串流優先、快取上限（歷代預設 2048／128／32 與行動裝置初值 16 都算沒改過）、首頁排行、側欄展開、搜尋歷史；U 之後主色與字型會匯入，字型不在目前平台的 `fontChoices` 時留空）進 `summary.unimportedSettings`，識別字見 `UnimportedSetting`。
+    （舊預設 B 站、網易開、YouTube 關，新版全開）；輸出裝置只在 `convert(importOutputDevice: true)`（呼叫端依平台給，轉換器不判斷平台）時寫；`layout_state` 是上次的狀態、不是設定組：照舊值寫（包括等於舊預設的值，否則使用者主動收起的面板會變回新版的展開）；面板的展開與寬度只在資料庫來源寫，寬度夾在 ≤ 1600，不合法的值留空；側欄展開（`rail_expanded`）兩種來源都寫（ADR 0035 §決定 12）。
+    新版沒有落腳處、而且使用者改過的（串流優先、快取上限（歷代預設 2048／128／32 與行動裝置初值 16 都算沒改過）、首頁排行、搜尋歷史；U 之後主色、字型與側欄展開會匯入，字型不在目前平台的 `fontChoices` 時留空）進 `summary.unimportedSettings`，識別字見 `UnimportedSetting`。
     閘門：`legacy_settings_converter_test.dart`（每個欄位的改過／等於預設／型別預設／取最接近各一例、三個音源、平台、版面來源、清單只列改過的；舊預設的來源行號寫在群組名）與
     `legacy_converter_import_test.dart` 的合成舊庫設定往返。
   - 整合閘門：`legacy_converter_import_test.dart`（合成舊庫 → 讀取器 → 轉換器 → `StagingImport.write` 與 `verify` 通過）。
@@ -2442,11 +2443,15 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
-  在它上面）、medium 與 expanded `NavigationRail`、large 以上常駐 `NavigationDrawer`；都是 Material
-  內建元件（ADR 否決 `flutter_adaptive_scaffold`）。三種元件的導覽項都是首頁｜搜尋｜音樂庫｜佇列｜電台｜設定（ADR 0035 §決定 2；
+  在它上面）、medium 以上是舊版的可展開側欄 `LegacySideRail`（`legacy_side_rail.dart`，收合 72dp、展開 256dp，各寬度同一個，沒記過是收合；
+  狀態在 `layout_state.rail_expanded`，經 `railExpandedProvider`／`rememberRail`；收合時內部是 `NavigationRail`，展開時是自繪的列）；
+  ADR 否決 `flutter_adaptive_scaffold`。各頁的頁頂是 `PageAppBar`（`page_app_bar.dart`：置中標題、內頁自動放返回鈕；
+  搜尋頁的搜尋框是它的標題、靠左，多選時 `TrackSelectionBar` 把整條換成選取列，Ctrl+F 先退出選取模式再聚焦搜尋框；每頁包 `PageSurface`，頁頂只跟自己那一頁的捲動變色）。導覽項都是首頁｜搜尋｜音樂庫｜佇列｜電台｜設定（ADR 0035 §決定 2；
   `ShellDestination` 的順序就是 `IndexedStack` 與導覽項的順序，導覽項的圖示與文字只有 `_destinationLabel` 一份），App 開在
   首頁。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的
-  `navigation per window class`（每種元件六個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）。
+  `navigation per window class`（每種元件六個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）、
+  `the legacy side rail`（預設收合、展開與記住、減少動態、展開鈕按了焦點留著、矮視窗可捲）、`page_app_bar_test.dart`（每個目的地的標題置中、內頁的返回鈕、
+  只有自己那一頁的捲動讓頁頂變色）、`search_page_test.dart` 的 `Ctrl+F leaves selection mode and focuses the field`。
 - 巢狀導覽（ADR 0033 §決定 5）：`IndexedStack` 的每一格是那個目的地自己的 `Navigator`，根頁是一個 `MaterialPage`（pages API：外殼重建時
   根頁跟著換成新的設定，設定頁的 `visible` 才跟得上）。內頁（歷史、歌單詳情、探索）以 `Navigator.of(context).push` 開在
   內容區裡，導覽與播放列留著；全螢幕的頁（播放頁、Debug 頁、網頁登入、錯誤詳細）推在根 Navigator 上（`rootNavigator: true` 或
