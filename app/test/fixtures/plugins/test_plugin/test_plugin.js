@@ -126,6 +126,7 @@ const DETAIL_FAIL_ID = 'tone-880';
 // - pl-long：1200 首、每頁 50 首（cursor 是位移），每頁都給 total 1200；曲目 `long-<n>`，標題
 //   `Long track <n>`（給匯入進度與取消的實機驗證）。
 // - pl-long-nototal：同 pl-long，但不給 total（進度只顯示「已讀 n 首」）。
+// - pl-long-slow：同 pl-long，但每頁先忙等 300ms（約 7 秒讀完），實機看得到進度、來得及按取消。
 // - pl-parts：一支 3 P 的影片（parts-220）展開成 3 首，帶 partIndex、parentTitle；不給 total。
 const PLAYLIST_URL = /^https:\/\/fmp\.test\/playlist\/([a-z0-9-]+)$/;
 const MIX_URL = /^https:\/\/fmp\.test\/mix\/([a-z0-9-]+)$/;
@@ -320,6 +321,14 @@ export async function importPlaylist(query) {
       return longPage(query.cursor, 'Long playlist', true);
     case 'pl-long-nototal':
       return longPage(query.cursor, 'Long playlist (no total)', false);
+    case 'pl-long-slow': {
+      // 宿主沒有計時器；每次呼叫有 30 秒的看門狗，300ms 遠在其下。
+      const until = Date.now() + 300;
+      while (Date.now() < until) {
+        // 忙等
+      }
+      return longPage(query.cursor, 'Long playlist (slow)', true);
+    }
     case 'pl-gone':
       throw { fmpError: 'NotFound', message: 'the playlist is gone' };
     case 'pl-auth':

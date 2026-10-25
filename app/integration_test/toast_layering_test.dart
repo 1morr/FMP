@@ -325,8 +325,8 @@ void main() {
     await expectToastOnTop(tester, h);
     expect(find.text('A dialog'), findsOneWidget);
 
-    // 帳號匯入的全頁（U PR 4，ADR 0035 §決定 11）推在同一個巢狀導覽上：跑完的提示與之後的提示
-    // 都在它之上。這個假插件沒有 importPlaylist，那一張失敗，頁面停在「完成」。
+    // 帳號匯入的全頁（U PR 4，ADR 0035 §決定 11）推在同一個巢狀導覽上：之後的提示在它之上
+    // （這一頁自己不跳提示，結果顯示在頂端狀態列）。這個假插件沒有 importPlaylist，那一張失敗，頁面停在「完成」。
     Navigator.of(tester.element(find.text('A dialog'))).pop();
     await tester.pumpAndSettle();
     final container = h.container(tester);
@@ -344,7 +344,6 @@ void main() {
           ],
           importer: container.read(playlistImporterProvider),
           log: container.read(logProvider),
-          toaster: h.toaster,
           translations: container.read(translationsProvider),
           failureReason: (_) => 'reason',
         ),
@@ -354,7 +353,7 @@ void main() {
     expect(find.byType(AccountImportPage), findsOneWidget);
     expect(find.byType(PlayerBar), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 7));
+    await tester.pump(const Duration(seconds: 1));
     await expectToastOnTop(tester, h);
     expect(find.byType(AccountImportPage), findsOneWidget);
   });

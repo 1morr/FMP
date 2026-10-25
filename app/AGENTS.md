@@ -2216,7 +2216,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     開 `AccountPlaylistsPage`（`account_playlists_page.dart`，推在設定分頁自己的巢狀 Navigator 上，導覽與播放列留著，所以進 `toast_layering_test.dart`）。
     頁面讀完 `libraryPlaylists` 所有頁（`accountPlaylistsProvider`，最多 20 頁，離開頁面後不再抓剩下的頁，閘門 `account_playlists_state_test.dart`；任何一頁失敗整份失敗，可重試，離線用共用的離線空狀態）；每列勾選框、封面、名稱、
     首數、「可寫」，同插件同 id 在 `playlist_remote`（`importedRemoteIdsProvider`，隨匯入更新）的標「已匯入」並停用勾選。「匯入所選 (n)」逐張經
-    `PlaylistImporter.importPlaylistId` 的工作由 `AccountImportRun`（`account_import_page.dart`，不碰 `ref`）做、畫在全頁的 `AccountImportPage`（推在同一個巢狀 Navigator 上）：頂端「歌單 n／m」，每張一列（名稱、「已匯入 n／M 首」，M 取插件的 `total`、其次帳號清單的 `trackCount`，與狀態：等待、匯入中、完成、失敗與原因（離線寫離線的說法）、已取消），底部「取消」（做完的留著，目前這張整張放棄、其餘不開始）；匯入進行中不能離開（`PopScope`），跑完換成「完成」，列可點開詳情。完成提示「已匯入 n 張」，有失敗改成警告並附「k 張失敗」，取消提示「已取消：已匯入 n 張」。回到歌單頁後失敗的列寫原因、已匯入的翻成「已匯入」。
+    `PlaylistImporter.importPlaylistId` 的工作由 `AccountImportRun`（`account_import_page.dart`，不碰 `ref`）做、畫在全頁的 `AccountImportPage`（推在同一個巢狀 Navigator 上）：頂端「歌單 n／m」，每張一列（名稱、「已匯入 n／M 首」，M 取插件的 `total`、其次帳號清單的 `trackCount`，與狀態：等待、匯入中、完成、失敗與原因（離線寫離線的說法）、已取消），底部「取消」（做完的留著，目前這張整張放棄、其餘不開始）；匯入進行中不能離開（`PopScope`），跑完換成「完成」，列可點開詳情。結果不跳提示（提示會蓋住底部的「完成」），改寫在頂端狀態列取代「歌單 n／m」：「已匯入 n 張」、有失敗「已匯入 n 張，k 張失敗」、取消「已取消：已匯入 n 張」。回到歌單頁後失敗的列寫原因、已匯入的翻成「已匯入」。
     閘門：`account_playlists_test.dart`（按鈕只在已登入且宣告時出現、已匯入停用勾選、部分失敗列出、匯入中不能離開頁面、跨頁重複只列一次、20 頁上限與 warning、重試、離線）、`playlist_importer_test.dart` 的
     `importPlaylistId`、`playlist_repository_test.dart` 的 `watchImportedRemoteIds`。
   - 「從帳號匯入電台」（M4 PR 15，design §7.4）：卡片標題列右側的「⋯」（`PopupMenuButton`）。選單項目只在 `CredentialState.active`、manifest 的

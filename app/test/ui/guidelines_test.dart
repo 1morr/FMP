@@ -1364,7 +1364,6 @@ void main() {
                 ],
                 importer: container.read(playlistImporterProvider),
                 log: container.read(logProvider),
-                toaster: h.toaster,
                 translations: container.read(translationsProvider),
                 failureReason: (error) => 'No connection',
               );

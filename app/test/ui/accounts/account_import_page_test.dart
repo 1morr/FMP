@@ -37,7 +37,6 @@ Future<(ShellHarness, AccountImportRun)> _open(
   FakeImportPlugin plugin,
   List<LibraryPlaylist> playlists, {
   Size size = const Size(400, 800),
-  List<String>? toasts,
 }) async {
   final h = ShellHarness(registryOfSources: true, sources: [plugin]);
   late AccountImportRun run;
@@ -59,14 +58,9 @@ Future<(ShellHarness, AccountImportRun)> _open(
     playlists: playlists,
     importer: container.read(playlistImporterProvider),
     log: container.read(logProvider),
-    toaster: h.toaster,
     translations: container.read(translationsProvider),
     failureReason: (error) => 'reason',
   );
-  if (toasts != null) {
-    final subscription = h.toaster.toasts.listen((t) => toasts.add(t.message));
-    addTearDown(subscription.cancel);
-  }
   await tester.tap(find.text('open'));
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
@@ -95,11 +89,7 @@ void main() {
         _ => page(['x', 'y'], total: 2),
       },
     );
-    final toasts = <String>[];
-    final (_, run) = await _open(tester, plugin, [
-      _road,
-      _study,
-    ], toasts: toasts);
+    final (_, run) = await _open(tester, plugin, [_road, _study]);
     await _advance(tester);
 
     expect(find.text('Playlist 0 of 2'), findsOneWidget);
@@ -113,12 +103,11 @@ void main() {
     await _advance(tester);
 
     expect(run.finished, isTrue);
-    expect(find.text('Playlist 2 of 2'), findsOneWidget);
     expect(find.text('Imported 5 of 5'), findsOneWidget);
     expect(find.text('Imported 2 of 2'), findsOneWidget);
     expect(find.text('Cancel'), findsNothing);
     expect(find.text('Done'), findsOneWidget);
-    expect(toasts, ['Playlists imported: 2']);
+    expect(find.text('Playlists imported: 2'), findsOneWidget);
     expect(run.importedIds, {'p1', 'p2'});
 
     await tester.tap(find.text('Done'));
@@ -167,12 +156,7 @@ void main() {
       title: 'Never started',
       writable: false,
     );
-    final toasts = <String>[];
-    final (h, run) = await _open(tester, plugin, [
-      _road,
-      _study,
-      third,
-    ], toasts: toasts);
+    final (h, run) = await _open(tester, plugin, [_road, _study, third]);
     await _advance(tester);
     await _advance(tester);
     expect(find.text('Imported 2 of 2'), findsOneWidget);
@@ -190,7 +174,7 @@ void main() {
     expect(run.finished, isTrue);
     expect(run.importedIds, {'p1'});
     expect(plugin.pageQueries.where((q) => q.playlistId == 'p3'), isEmpty);
-    expect(toasts, ['Cancelled: 1 imported']);
+    expect(find.text('Cancelled: 1 imported'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     // The one being imported is gone, not kept.
     expect(run.rows[1].libraryId, isNull);
@@ -223,11 +207,7 @@ void main() {
   ) async {
     final first = Completer<PlaylistPage>();
     final plugin = FakeImportPlugin(onPage: (_) => first.future);
-    final toasts = <String>[];
-    final (_, run) = await _open(tester, plugin, [
-      _road,
-      _study,
-    ], toasts: toasts);
+    final (_, run) = await _open(tester, plugin, [_road, _study]);
     await _advance(tester);
 
     await tester.tap(find.text('Cancel'));
@@ -237,7 +217,7 @@ void main() {
     await _advance(tester);
 
     expect(run.finished, isTrue);
-    expect(toasts, ['Cancelled: 0 imported']);
+    expect(find.text('Cancelled: 0 imported'), findsOneWidget);
     expect(run.rows.first.libraryId, isNull);
   });
 
@@ -249,11 +229,7 @@ void main() {
           ? throw NetworkError(pluginId: _pluginId)
           : page(['x', 'y'], total: 2),
     );
-    final toasts = <String>[];
-    final (_, run) = await _open(tester, plugin, [
-      _road,
-      _study,
-    ], toasts: toasts);
+    final (_, run) = await _open(tester, plugin, [_road, _study]);
     await _advance(tester);
     await _advance(tester);
     await _advance(tester);
@@ -261,7 +237,7 @@ void main() {
     expect(run.finished, isTrue);
     expect(find.text('Import failed: reason'), findsOneWidget);
     expect(find.text('Imported 2 of 2'), findsOneWidget);
-    expect(toasts, ['Playlists imported: 1, failed: 1']);
+    expect(find.text('Playlists imported: 1, failed: 1'), findsOneWidget);
     expect(run.failures, {'p1': 'Import failed: reason'});
     expect(run.importedIds, {'p2'});
   });

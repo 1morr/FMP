@@ -16,7 +16,6 @@ import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
-import 'package:fmp/ui/toast/toaster.dart';
 
 /// 帳號歌單匯入裡每一張的狀態。
 enum ImportRowStatus { waiting, importing, done, failed, cancelled }
@@ -67,7 +66,6 @@ final class AccountImportRun extends ChangeNotifier {
     required List<LibraryPlaylist> playlists,
     required this.importer,
     required this.log,
-    required this.toaster,
     required this.translations,
     required this.failureReason,
   }) : _rows = [
@@ -77,7 +75,6 @@ final class AccountImportRun extends ChangeNotifier {
   final String pluginId;
   final PlaylistImporter importer;
   final Log log;
-  final Toaster toaster;
   final Translations translations;
 
   /// 把失敗轉成給使用者看的原因（離線時是離線的說法）。
@@ -149,21 +146,7 @@ final class AccountImportRun extends ChangeNotifier {
       await _importOne(index);
     }
     _finished = true;
-    if (_cancel.isCancelled) {
-      // 做完的留著，取消時正在匯入的那張已經放棄（不在音樂庫裡）。
-      toaster.info(translations.accounts.importCancelled(count: importedCount));
-    } else if (failedCount == 0) {
-      toaster.success(
-        translations.accounts.importedCount(count: importedCount),
-      );
-    } else {
-      toaster.warning(
-        translations.accounts.importedWithFailures(
-          count: importedCount,
-          failed: failedCount,
-        ),
-      );
-    }
+    // 結果顯示在頁面頂端的狀態列（[AccountImportPage]），不跳提示：提示會蓋住底部的「完成」。
     notifyListeners();
   }
 
@@ -299,7 +282,7 @@ class _AccountImportPageState extends ConsumerState<AccountImportPage> {
                     Semantics(
                       liveRegion: true,
                       child: Text(
-                        a.importOverall(done: run.settledCount, total: total),
+                        _statusText(a, run, total),
                         style: theme.textTheme.bodyMedium,
                       ),
                     ),
@@ -345,6 +328,23 @@ class _AccountImportPageState extends ConsumerState<AccountImportPage> {
       },
     );
   }
+}
+
+/// 頂端狀態列：進行中「歌單 n／m」，跑完換成結果（取消、全部成功、有失敗）。
+String _statusText(
+  Translations$accounts$zh_TW a,
+  AccountImportRun run,
+  int total,
+) {
+  if (!run.finished) {
+    return a.importOverall(done: run.settledCount, total: total);
+  }
+  if (run.cancelRequested) return a.importCancelled(count: run.importedCount);
+  if (run.failedCount == 0) return a.importedCount(count: run.importedCount);
+  return a.importedWithFailures(
+    count: run.importedCount,
+    failed: run.failedCount,
+  );
 }
 
 class _ImportRow extends ConsumerWidget {

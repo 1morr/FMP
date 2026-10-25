@@ -96,6 +96,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `pl-unavailable` | 3 首，第 2 首 `unavailable: true` | 失效項目的標示 |
   | `pl-long` | 1200 首、每頁 50 首（`cursor` 是位移）、每頁都給 `total` 1200；曲目 `long-<n>`，標題 `Long track <n>` | 匯入進度「已匯入 n／M 首」與取消的實機驗證 |
   | `pl-long-nototal` | 同 `pl-long`，但不給 `total` | 進度只顯示「已讀 n 首」（不定長的進度條） |
+  | `pl-long-slow` | 同 `pl-long`，但每頁先忙等 300ms（約 7 秒讀完） | 實機看進度、在中途按取消（只能用網址匯入） |
   | `pl-parts` | 一支 3 P 的影片（`parts-220`）展開成 3 首（cid 22001–22003），帶 `partIndex`、`parentTitle`；不給 `total` | 分 P 兩欄存得進去 |
 - 帳號的歌單（`libraryRead`，不連網，給帳號頁「歌單」的實機驗證）：`libraryPlaylists` 沒有憑證時
   `AuthRequired`；登入後一頁三張（不分頁），標題與首數同 `importPlaylist` 回的：

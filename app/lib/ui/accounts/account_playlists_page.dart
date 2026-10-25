@@ -22,7 +22,6 @@ import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_widgets.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
-import 'package:fmp/ui/toast/toaster.dart';
 
 /// 在 [context] 所在的 Navigator 開 [pluginId] 的帳號歌單頁：帳號頁在設定分頁自己的巢狀導覽裡，
 /// 導覽與播放列留著（同 `openHistory`）。
@@ -91,7 +90,6 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
       playlists: chosen,
       importer: ref.read(playlistImporterProvider),
       log: ref.read(logProvider),
-      toaster: ref.read(toasterProvider),
       translations: t,
       // 匯入頁擋住返回，這一頁通常還在；整個巢狀導覽被拆掉時 `ref` 不能再讀，退回不帶音源名的訊息，
       // 不讓剩下的匯入中斷。

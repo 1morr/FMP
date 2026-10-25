@@ -86,14 +86,18 @@ Finder _inRow(String row, String text) => find.descendant(
 );
 
 /// 匯入全頁跑完（插件在背景 isolate，要真的事件迴圈；最多等 20 輪，不用 `pumpAndSettle`：進行中的
-/// 進度條一直在動），再按「完成」回到歌單頁。直接呼叫按鈕的 `onPressed`：剛跳出的提示蓋在按鈕上時
-/// `tester.tap` 會點到提示。
-Future<void> _finishImport(WidgetTester tester, PluginPageHarness h) async {
+/// 進度條一直在動），再按「完成」回到歌單頁。
+Future<void> _finishImport(
+  WidgetTester tester,
+  PluginPageHarness h,
+  String outcome,
+) async {
   for (var i = 0; i < 20 && _button('Done').evaluate().isEmpty; i++) {
     await h.settle(tester);
   }
-  final done = tester.widget<ButtonStyleButton>(_button('Done'));
-  done.onPressed!();
+  // 結果寫在頁面頂端，不跳提示（提示會蓋住「完成」）。
+  expect(find.text(outcome), findsOneWidget);
+  await tester.tap(_button('Done'));
   await h.settle(tester);
   await tester.pump(const Duration(seconds: 1));
   await h.settle(tester);
@@ -295,17 +299,12 @@ void main() {
     });
 
     testWidgets('imports the ticked rows one by one, flips them to '
-        'imported and toasts the count', (tester) async {
+        'imported and shows the count', (tester) async {
       final h = await _openPlaylists(
         tester,
         _fourPlaylists,
         alreadyImported: ['old'],
       );
-      final toasts = <String>[];
-      final subscription = h.shell.toaster.toasts.listen(
-        (toast) => toasts.add(toast.message),
-      );
-      addTearDown(subscription.cancel);
       await tester.tap(find.text('Road trip'));
       await tester.tap(find.text('Study'));
       await tester.pump();
@@ -316,9 +315,8 @@ void main() {
       await h.settle(tester);
 
       // 全頁進度跑完停在原地，按「完成」回到歌單頁。
-      await _finishImport(tester, h);
+      await _finishImport(tester, h, 'Playlists imported: 2');
 
-      expect(toasts, ['Playlists imported: 2']);
       expect(_inRow('Road trip', 'Imported'), findsOneWidget);
       expect(_inRow('Study', 'Imported'), findsOneWidget);
       expect(tester.widget<Checkbox>(_checkbox('Road trip')).onChanged, isNull);
@@ -339,11 +337,6 @@ void main() {
       tester,
     ) async {
       final h = await _openPlaylists(tester, _fourPlaylists);
-      final toasts = <String>[];
-      final subscription = h.shell.toaster.toasts.listen(
-        (toast) => toasts.add(toast.message),
-      );
-      addTearDown(subscription.cancel);
       await tester.tap(find.text('Vanished'));
       await tester.tap(find.text('Study'));
       await tester.pump();
@@ -354,9 +347,8 @@ void main() {
       await h.settle(tester);
 
       // 全頁進度跑完停在原地，按「完成」回到歌單頁。
-      await _finishImport(tester, h);
+      await _finishImport(tester, h, 'Playlists imported: 1, failed: 1');
 
-      expect(toasts, ['Playlists imported: 1, failed: 1']);
       expect(_inRow('Study', 'Imported'), findsOneWidget);
       expect(_inRow('Vanished', 'Imported'), findsNothing);
       // 失敗的那列在名稱下寫原因，勾選留著可以再試。
@@ -380,11 +372,6 @@ void main() {
     testWidgets('the import page cannot be left mid-import and finishes the '
         'batch', (tester) async {
       final h = await _openPlaylists(tester, _fourPlaylists);
-      final toasts = <String>[];
-      final subscription = h.shell.toaster.toasts.listen(
-        (toast) => toasts.add(toast.message),
-      );
-      addTearDown(subscription.cancel);
       // 清單順序：a 先匯入，gone 後失敗。
       await tester.tap(find.text('Road trip'));
       await tester.tap(find.text('Vanished'));
@@ -403,9 +390,7 @@ void main() {
       await h.settle(tester);
 
       expect(tester.takeException(), isNull);
-      expect(toasts, ['Playlists imported: 1, failed: 1']);
-      expect(find.text('Playlist 2 of 2'), findsOneWidget);
-      await _finishImport(tester, h);
+      await _finishImport(tester, h, 'Playlists imported: 1, failed: 1');
       expect(find.byType(AccountImportPage), findsNothing);
       expect(await _playlistNames(tester, h), ['Remote a']);
     });
