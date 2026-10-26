@@ -1102,7 +1102,7 @@ void main() {
         expect(find.byType(ListTile), findsNWidgets(2));
         expect(dayHeader('Today'), findsNothing);
         expect(find.text('Artist · 2 plays'), findsOneWidget);
-        expect(find.text('Artist · 1 plays'), findsOneWidget);
+        expect(find.text('Artist · 1 play'), findsOneWidget);
         expect(
           tester.getTopLeft(find.text('Song a')).dy,
           lessThan(tester.getTopLeft(find.text('Song b')).dy),

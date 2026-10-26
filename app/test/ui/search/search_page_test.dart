@@ -13,9 +13,11 @@ import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_source_plugin.dart';
+import '../tracks/marker_support.dart';
 import '../support/shell_harness.dart';
 
 void main() {
@@ -200,25 +202,163 @@ void main() {
     });
   });
 
-  testWidgets('load more appends the next page', (tester) async {
-    final h = ShellHarness(
-      onSearch: (query) => SearchPage(
-        items: [summary('p${query.page}')],
-        hasMore: query.page < 2,
-      ),
-    );
-    await h.pumpShell(tester);
-    await search(tester, 'song');
-    expect(find.text('Song p1'), findsOneWidget);
+  group('now playing marker', () {
+    testWidgets('only the playing result has the overlay and the bold title', (
+      tester,
+    ) async {
+      reduceMotion(tester);
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      expect(find.byKey(NowPlayingOverlay.overlayKey), findsNothing);
 
-    await tester.tap(find.text('Load more'));
-    await tester.pump();
-    await tester.pump();
+      await tester.tap(find.text('Song b'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Song p1'), findsOneWidget);
-    expect(find.text('Song p2'), findsOneWidget);
-    expect(find.text('Load more'), findsNothing);
-    expect([for (final query in h.plugin.searches) query.page], [1, 2]);
+      final b = find.widgetWithText(ListTile, 'Song b');
+      expect(overlayIn(b), findsOneWidget);
+      expect(find.byKey(NowPlayingOverlay.overlayKey), findsOneWidget);
+      expect(
+        isPlayingTitle(
+          tester,
+          find.descendant(of: b, matching: find.text('Song b')),
+        ),
+        isTrue,
+      );
+      final a = find.widgetWithText(ListTile, 'Song a');
+      expect(
+        isPlayingTitle(
+          tester,
+          find.descendant(of: a, matching: find.text('Song a')),
+        ),
+        isFalse,
+      );
+
+      // 播另一首：標示跟著走。
+      await tester.tap(find.text('Song a'));
+      await tester.pumpAndSettle();
+      expect(overlayIn(a), findsOneWidget);
+      expect(overlayIn(b), findsNothing);
+    });
+  });
+
+  group('auto load', () {
+    testWidgets('the last row loads the next page once per page and ends '
+        'with a line', (tester) async {
+      final h = ShellHarness(
+        onSearch: (query) => SearchPage(
+          items: [summary('p${query.page}')],
+          hasMore: query.page < 3,
+        ),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+
+      for (final id in ['p1', 'p2', 'p3']) {
+        expect(find.text('Song $id'), findsOneWidget);
+      }
+      expect([for (final query in h.plugin.searches) query.page], [1, 2, 3]);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.text('All loaded'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      expect(h.plugin.searches, hasLength(3), reason: 'nothing more to load');
+    });
+
+    testWidgets('the next page waits until the last row is built', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        onSearch: (query) => SearchPage(
+          items: [for (var i = 0; i < 30; i++) summary('p${query.page}-$i')],
+          hasMore: query.page < 2,
+        ),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+      expect(h.plugin.searches, hasLength(1), reason: 'the last row is far');
+      expect(find.text('All loaded'), findsNothing);
+
+      await tester.drag(find.byType(ListView).last, const Offset(0, -20000));
+      await tester.pumpAndSettle();
+
+      expect(h.plugin.searches, hasLength(2));
+    });
+
+    testWidgets('a failed page keeps the button as the retry and does not '
+        'load again by itself', (tester) async {
+      var fail = true;
+      final h = ShellHarness(
+        onSearch: (query) => query.page == 2 && fail
+            ? throw RateLimited(pluginId: 'fmp-test')
+            : SearchPage(
+                items: [summary('p${query.page}')],
+                hasMore: query.page < 2,
+              ),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+
+      expect(h.plugin.searches, hasLength(2));
+      expect(find.text('Song p1'), findsOneWidget);
+      expect(find.text('Load more'), findsOneWidget);
+      expect(find.text('All loaded'), findsNothing);
+
+      fail = false;
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect([for (final query in h.plugin.searches) query.page], [1, 2, 2]);
+      expect(find.text('Song p2'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.text('All loaded'), findsOneWidget);
+    });
+
+    testWidgets('a page with no new rows stops auto-loading; a manual page '
+        'with rows resumes it', (tester) async {
+      // 第 2 頁是空的但說還有下一頁；第 3 頁（手動）有結果、第 4 頁（自動）是最後一頁。
+      final h = ShellHarness(
+        onSearch: (query) => switch (query.page) {
+          1 => SearchPage(items: [summary('p1')], hasMore: true),
+          2 => const SearchPage(items: [], hasMore: true),
+          3 => SearchPage(items: [summary('p3')], hasMore: true),
+          _ => SearchPage(items: [summary('p4')], hasMore: false),
+        },
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+      await tester.pumpAndSettle();
+
+      expect(
+        [for (final query in h.plugin.searches) query.page],
+        [1, 2],
+        reason: 'the empty page is loaded once, not in a loop',
+      );
+      expect(find.text('Load more'), findsOneWidget);
+
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+
+      expect([for (final query in h.plugin.searches) query.page], [1, 2, 3, 4]);
+      expect(find.text('Song p4'), findsOneWidget);
+      expect(find.text('Load more'), findsNothing);
+      expect(find.text('All loaded'), findsOneWidget);
+    });
+
+    testWidgets('a results list with no more pages ends with the line', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        onSearch: (_) => SearchPage(items: [summary('a')], hasMore: false),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      expect(find.text('All loaded'), findsOneWidget);
+    });
   });
 
   // 排序在兩次請求之間變了時，下一頁會重複上一頁已有的曲目（B 站搜尋會）。
@@ -234,10 +374,7 @@ void main() {
     );
     await h.pumpShell(tester);
     await search(tester, 'song');
-
-    await tester.tap(find.text('Load more'));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     for (final id in ['a', 'b', 'c']) {
       expect(find.text('Song $id'), findsOneWidget);

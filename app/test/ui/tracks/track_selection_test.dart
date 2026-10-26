@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -76,6 +77,60 @@ class _ListPageState extends State<_ListPage> {
     ),
   );
 }
+
+/// 選取列加三個頁面動作、又有可寫遠端的插件：七顆動作（手機寬度放不下）。
+class _BarPage extends StatefulWidget {
+  const _BarPage({super.key});
+
+  @override
+  State<_BarPage> createState() => _BarPageState();
+}
+
+class _BarPageState extends State<_BarPage> {
+  final selection = TrackSelection<String>()..start('a');
+
+  /// 頁面動作被叫到的名字。
+  final called = <String>[];
+
+  @override
+  void dispose() {
+    selection.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TrackSelectionScope<String>(
+    selection: selection,
+    keys: const ['a', 'b'],
+    child: TrackSelectionBar<String>(
+      tracks: (keys) async => [
+        for (final key in keys)
+          TrackInfo(sourceTypeId: 'fmp-test', sourceId: key, title: key),
+      ],
+      pluginIds: (keys) => {'fmp-test'},
+      actions: [
+        for (final name in ['Alpha', 'Beta', 'Gamma'])
+          TrackSelectionAction<String>(
+            icon: Icons.delete,
+            tooltip: name,
+            onPressed: (_) async {
+              called.add(name);
+              return false;
+            },
+          ),
+      ],
+      child: const Text('Title'),
+    ),
+  );
+}
+
+final _barPage = GlobalKey<_BarPageState>();
+
+ShellHarness _barHarness() => ShellHarness(
+  extraOverrides: [
+    remoteWritablePluginsProvider.overrideWith((ref) => {'fmp-test'}),
+  ],
+);
 
 final _page = GlobalKey<_ListPageState>();
 
@@ -257,12 +312,11 @@ void main() {
     await tester.pump();
     expect(page.selection.count, 5);
     expect(
-      tester
-          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.select_all))
-          .onPressed,
-      isNull,
-      reason: 'everything is selected',
+      find.byTooltip('Select all (Ctrl+A)'),
+      findsNothing,
+      reason: 'everything is selected: the button turns into "Deselect all"',
     );
+    expect(find.byTooltip('Deselect all'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Cancel selection (Esc)'));
     await tester.pump();
@@ -299,6 +353,71 @@ void main() {
     );
     expect(page.selection.active, isFalse);
     expect(find.text('Added to the queue'), findsOneWidget);
+  });
+
+  testWidgets('"Play next" puts the selection after the current song in screen '
+      'order', (tester) async {
+    final h = ShellHarness();
+    await h.pumpApp(tester, _ListPage(key: _page));
+    final page = _page.currentState!;
+    expect(
+      h.controller.addToQueue([
+        for (final id in ['x', 'y'])
+          TrackInfo(sourceTypeId: 'fmp-test', sourceId: id, title: id),
+      ]),
+      isTrue,
+    );
+    await tester.longPress(find.text('Song d'));
+    await tester.tap(find.text('Song a'));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Play next'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      [for (final entry in h.controller.queue.entries) entry.track.sourceId],
+      ['x', 'a', 'd', 'y'],
+    );
+    expect(page.selection.active, isFalse);
+    expect(find.text('Added to play next'), findsOneWidget);
+  });
+
+  testWidgets('"Select all" turns into "Deselect all", which empties the '
+      'selection but stays in the mode', (tester) async {
+    final page = await _pump(tester);
+    await tester.longPress(find.text('Song b'));
+    await tester.pump();
+    expect(find.byTooltip('Select all (Ctrl+A)'), findsOneWidget);
+    expect(find.byTooltip('Deselect all'), findsNothing);
+
+    await tester.tap(find.byTooltip('Select all (Ctrl+A)'));
+    await tester.pump();
+    expect(page.selection.count, 5);
+    expect(find.byTooltip('Deselect all'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Deselect all'));
+    await tester.pump();
+    expect(page.selection.active, isTrue);
+    expect(page.selection.count, 0);
+    expect(find.text('0 selected'), findsOneWidget);
+    expect(find.byTooltip('Select all (Ctrl+A)'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.ancestor(
+              of: find.byIcon(Icons.queue_play_next),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+      reason: 'nothing to act on',
+    );
+
+    await tester.tap(find.text('Song c'));
+    await tester.pump();
+    expect(page.selection.selected, ['c']);
   });
 
   testWidgets('a row in selection mode is one checked semantics node; the '
@@ -354,5 +473,61 @@ void main() {
     );
     expect(checkboxFocus.canRequestFocus, isFalse);
     handle.dispose();
+  });
+
+  testWidgets('on a phone the actions that do not fit go into the ⋯ menu', (
+    tester,
+  ) async {
+    await _barHarness().pumpApp(
+      tester,
+      _BarPage(key: _barPage),
+      size: const Size(360, 800),
+    );
+    expect(tester.takeException(), isNull);
+    // 一直在的三顆。
+    expect(find.byTooltip('Cancel selection (Esc)'), findsOneWidget);
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(find.byTooltip('Select all (Ctrl+A)'), findsOneWidget);
+    // 數字至少有 72dp，且完整顯示。
+    expect(
+      tester.getSize(find.text('1 selected')).width,
+      greaterThanOrEqualTo(72),
+    );
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    // 最後一顆（頁面自己的）收進選單。
+    expect(find.byTooltip('Gamma'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Gamma'), findsOneWidget);
+    await tester.tap(find.text('Gamma'));
+    await tester.pumpAndSettle();
+    expect(_barPage.currentState!.called, ['Gamma']);
+  });
+
+  testWidgets('on a wide window nothing is collapsed', (tester) async {
+    await _barHarness().pumpApp(tester, _BarPage(key: _barPage));
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+    expect(find.byTooltip('Gamma'), findsOneWidget);
+    expect(find.byTooltip('Add to remote playlist…'), findsOneWidget);
+  });
+
+  testWidgets('the menu items are disabled with nothing selected', (
+    tester,
+  ) async {
+    await _barHarness().pumpApp(
+      tester,
+      _BarPage(key: _barPage),
+      size: const Size(360, 800),
+    );
+    _barPage.currentState!.selection.deselectAll();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    final items = tester.widgetList<PopupMenuItem<void>>(
+      find.byType(PopupMenuItem<void>),
+    );
+    expect(items, isNotEmpty);
+    expect(items.every((item) => !item.enabled), isTrue);
   });
 }

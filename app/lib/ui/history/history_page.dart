@@ -15,7 +15,6 @@ import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
-import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/history/history_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
@@ -26,7 +25,7 @@ import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
-import 'package:fmp/ui/tracks/now_playing_overlay.dart';
+import 'package:fmp/ui/tracks/track_markers.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 
@@ -765,11 +764,7 @@ class _HistoryTile extends ConsumerWidget {
     );
     // 依播放次數排序時一首一列，副標的時刻換成次數。
     final detail = timeline ? time : t.playCount(count: entry.playCount);
-    final playing = ref.watch(
-      playbackQueueProvider.select(
-        (queue) => queue.value?.current?.key == track.key,
-      ),
-    );
+    final playing = watchIsPlaying(ref, track);
     final duration = track.duration;
 
     final inMix = ref.watch(inMixProvider);
@@ -877,24 +872,12 @@ class _HistoryTile extends ConsumerWidget {
       ],
       builder: (context, slots) => ListTile(
         selected: slots.selected,
-        leading: Stack(
-          children: [
-            ArtworkImage(
-              pluginId: track.sourceTypeId,
-              artwork: track.artwork,
-              size: AppLayout.artworkThumbnail,
-            ),
-            if (playing)
-              const NowPlayingOverlay(size: AppLayout.artworkThumbnail),
-          ],
-        ),
+        leading: TrackCover(track: track, playing: playing),
         title: Text(
           track.displayTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: playing
-              ? TextStyle(fontWeight: FontWeight.bold, color: scheme.primary)
-              : null,
+          style: playingTitleStyle(context, playing: playing),
         ),
         subtitle: Text(
           uploader == null
@@ -906,13 +889,7 @@ class _HistoryTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: AppLayout.historyDurationColumn,
-              child: Text(
-                duration == null ? '' : formatDuration(duration),
-                textAlign: TextAlign.end,
-              ),
-            ),
+            TrackDuration(duration: duration),
             SizedBox(width: AppTokens.of(context).spacing.x2),
             _SourceBadge(pluginId: track.sourceTypeId),
             slots.trailing,

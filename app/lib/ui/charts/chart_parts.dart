@@ -10,7 +10,6 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/settings/network_settings.dart';
-import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -21,6 +20,7 @@ import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/track_markers.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 
@@ -233,6 +233,7 @@ class ChartTrackTile extends ConsumerWidget {
     final uploader =
         ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
         track.uploader;
+    final playing = watchIsPlaying(ref, track);
     return ListTile(
       selected: row.selected,
       leading: Row(
@@ -249,17 +250,14 @@ class ChartTrackTile extends ConsumerWidget {
             ),
           ),
           SizedBox(width: spacing.x2),
-          ArtworkImage(
-            pluginId: track.sourceTypeId,
-            artwork: track.artwork,
-            size: AppLayout.artworkThumbnail,
-          ),
+          TrackCover(track: track, playing: playing),
         ],
       ),
       title: Text(
         track.displayTitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
+        style: playingTitleStyle(context, playing: playing),
       ),
       subtitle: uploader == null
           ? null

@@ -8,6 +8,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
+import '../tracks/marker_support.dart';
 
 // B 站分 P 的搜尋結果列（M3 PR 20，design §11.1、ADR 0028 §決定 5）：展開鈕只在插件宣告
 // `multiPart` 且分 P 數不是確定的 1 時出現（`partCount` 空是不知道，也顯示）、展開時
@@ -110,6 +111,55 @@ void main() {
         expect(h.plugin.multiPartQueries, isEmpty);
       });
     }
+  });
+
+  group('now playing marker', () {
+    testWidgets('the video row is marked when one of its parts plays, and so '
+        'is the part', (tester) async {
+      reduceMotion(tester);
+      final h = _harness(partCount: 3);
+      await h.pumpShell(tester);
+      await _search(tester);
+      await tester.tap(_show);
+      await _settle(tester);
+      final video = find.widgetWithText(ListTile, 'Song a');
+      expect(overlayIn(video), findsNothing);
+
+      await tester.tap(find.text('P2 Part 2'));
+      await tester.pumpAndSettle();
+
+      expect(overlayIn(video), findsOneWidget);
+      expect(
+        isPlayingTitle(
+          tester,
+          find.descendant(of: video, matching: find.text('Song a')),
+        ),
+        isTrue,
+      );
+      final part2 = find.widgetWithText(ListTile, 'P2 Part 2');
+      final part1 = find.widgetWithText(ListTile, 'P1 Part 1');
+      expect(
+        isPlayingTitle(
+          tester,
+          find.descendant(of: part2, matching: find.text('P2 Part 2')),
+        ),
+        isTrue,
+      );
+      expect(
+        isPlayingTitle(
+          tester,
+          find.descendant(of: part1, matching: find.text('P1 Part 1')),
+        ),
+        isFalse,
+      );
+      // 分 P 列沒有封面，不疊遮罩。
+      expect(overlayIn(part2), findsNothing);
+
+      // 收起來，影片列仍標示。
+      await tester.tap(_hide);
+      await tester.pumpAndSettle();
+      expect(overlayIn(video), findsOneWidget);
+    });
   });
 
   group('expanding', () {

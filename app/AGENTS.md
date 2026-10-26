@@ -2140,6 +2140,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   字串沒有閘門，review 時看；時長（`3:05`、未知的 `-:--`）與語言名稱刻意不翻。
 - 翻譯只經 `translationsProvider`（`lib/ui/i18n/ui_locale.dart`）注入：`slang.yaml` 設
   `locale_handling: false`，slang 不產生全域 `t`／`LocaleSettings`，語言狀態只有外觀設定一份。沒有閘門，review 時看。
+- 數量字串用 slang 的複數語法（`"key(plural, param=count)": {"one": …, "other": …}`，ADR 0024 §決定 6）：英文寫 `one` 與 `other`，
+  中文只寫 `other`。slang 的規則表沒有中文，所以翻譯一律經 `buildTranslations`（同檔，中文給只取 `other` 的解析器），不直接
+  `buildSync`（App 根的錯誤頁、匯入頁也是）。閘門：`translations_test.dart` 的 `English plurals` 群組（英文的單數、中文一種形式、
+  `lib/` 裡沒有直接的 `buildSync`，含變異案例）。
 - `MaterialApp.locale` 一律給帶書寫系統的 locale（`zh-Hant-TW`、`zh-Hans-CN`、`en`），由
   `flutterLocaleOf` 從 `LocaleSetting` 對出；它決定 Android 的繁簡字形與 Material 內建字串。
   `localizationsDelegates` 用 `material_ui` 的 `GlobalMaterialLocalizations.delegates`，不是
@@ -2676,7 +2680,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   共用的機制本身沒有單獨的測試，靠這幾處。
 - 多選（`lib/ui/tracks/track_selection.dart`，ADR 0033 §決定 10，M4 design §10.7）：歌單詳情、搜尋（曲目模式）、歷史；佇列不用（它有自己的編輯）。
   照 Android 的 contextual action mode（Gmail、Google 相簿）：長按或選單的「選取」進入；頂端換成選取列（`TrackSelectionBar`：取消（Esc）、
-  已選 n 首、全選（Ctrl+A）、加入佇列、加入歌單…、頁面給了 `pluginIds` 時的加入遠端歌單…（§ 遠端寫入），再接頁面的動作）；選取模式裡點一列（或它列尾的勾選框，取代「⋯」與把手）是勾選或取消，
+  已選 n 首、全選（Ctrl+A；全選了換成「取消全選」：全部不選但留在選取模式，同舊版）、下一首播放（照畫面順序排在目前這首之後；Mix 中停用）、加入佇列、
+  加入歌單…、頁面給了 `pluginIds` 時的加入遠端歌單…（§ 遠端寫入），再接頁面的動作；一首都沒選時動作鈕停用；手機寬度放不下時，取消、已選 n 首（至少留 96dp）、全選一直在，
+  其餘依序放得下幾顆就幾顆、剩下的收進尾端的「⋯」選單（`LayoutBuilder` 量，選單項目的停用與進行中同鈕，`track_selection_test.dart` 守著；Material 的 contextual action bar 慣例）；選取模式裡點一列（或它列尾的勾選框，取代「⋯」與把手）是勾選或取消，
   取消到不剩、做完一個動作、按取消、Esc、返回鍵都離開。搜尋頁的輸入框留著、選取列取代音源 chip 列（Gmail 網頁版），新的搜尋、換音源或模式就離開。
   - 選了什麼由頁面的鍵決定（歌單項目 id、歷史紀錄 id、搜尋的（第幾個結果, 第幾個分 P））；動作照畫面順序。列消失（刪掉、收起分 P）就不再算選了。
     群組標題不是項目。搜尋選了有多個分 P 的影片列＝全部分 P（同「加入歌單…」，還沒取過就先取，取不到時提示、什麼都不做、選取留著），
@@ -2690,9 +2696,20 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     那一列到這一列，都設成這一列點完的狀態），看的是 Shift 鍵的狀態、不判斷平台（手機沒有實體鍵盤就不會發生）。
   - 選取模式的列是一個語意節點（`checked`、`selected`），勾選框排除在語意樹與 Tab 順序外。
   - 閘門：`test/ui/tracks/track_selection_test.dart`（取消到不剩就離開、Shift 範圍、列消失、列消失時對話框留著焦點、Ctrl+A 在選取模式外不作用與輸入框裡選文字、
-    全選與取消鈕、返回鍵、動作照畫面順序、語意節點與勾選框沒有節點也要不到焦點）、`history_page_test.dart`、`search_page_test.dart`（含 Esc 離開搜尋框後直接 Ctrl+A）、`search_parts_test.dart`（含取分 P 時連按）、
+    全選與取消鈕、取消全選留在模式裡、下一首播放照畫面順序、返回鍵、動作照畫面順序、語意節點與勾選框沒有節點也要不到焦點）、`history_page_test.dart`、`search_page_test.dart`（含 Esc 離開搜尋框後直接 Ctrl+A）、`search_parts_test.dart`（含取分 P 時連按）、
     `playlist_detail_page_test.dart` 的 `selecting` 群組（進入與離開：長按、選單、Esc、返回鍵；動作與上限、Mix；分 P 的取法）、guideline 測試的
     `… while selecting at …` 與 `removing the selected songs asks first at …`。
+- 曲目清單的在播標示與時長欄（`lib/ui/tracks/track_markers.dart`，ADR 0035，U PR 10）：搜尋、排行與探索、歌單詳情、歷史的列以
+  `watchIsPlaying` 比對 `currentTrackKeyProvider`（`QueueState.current`：臨時播放中是臨時的那首，收聽直播時沒有），在播的封面疊
+  `NowPlayingOverlay`、曲名主色粗體（`TrackCover`、`playingTitleStyle`）。比對用完整的曲目鍵；代表整支影片的列（搜尋結果的影片列、
+  歌單詳情的分 P 群組標題）用分組鍵，任何一個分 P 在播都標。佇列照自己的規則（上面「佇列」）。時長一律 `TrackDuration`
+  （固定 `AppLayout.trackDurationColumn` 56dp、右對齊，「⋯」不隨位數移動）。閘門：`track_markers_test.dart`、`search_page_test.dart`
+  與 `search_parts_test.dart`、`home_charts_test.dart`、`explore_page_test.dart`、`playlist_detail_page_test.dart` 的 `now playing marker`。
+- 搜尋結果捲到底自動載入下一頁（曲目與直播間）：最後一列（`_AutoLoad`）建出來時排一個 post-frame 去 `loadMore`，每一頁只建一次；
+  `loadMore` 只在 `loaded` 且 `hasMore` 時動，不會同時讀兩頁。下一頁失敗時 `SearchState.loadMoreFailed`，最後一列換成「載入更多」當重試、
+  不再自動載入；一頁沒有帶來新結果（空頁或全是重複）但 `hasMore` 時 `SearchState.autoLoadPaused`（和 `loadMoreFailed` 分開），同樣換成「載入更多」、
+  不再自動載入，手動載的那一頁有新結果就恢復，免得最後一列一直重建一直載入；沒有下一頁時是「已載入全部」。閘門：`search_page_test.dart` 的 `auto load` 群組、`search_live_test.dart` 的
+  `the next page of rooms loads by itself at the last row`。
 - App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
   `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
   Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼與播放頁各包一層：播放頁是另一個

@@ -143,7 +143,12 @@ void main() {
     final result = find.text('Test tone 220 Hz (tone)');
     await until(result);
     expect(result, findsOneWidget);
-    expect(find.text('Load more'), findsOneWidget);
+    // 第一頁（兩首）排不滿畫面：最後一列一建出來就自動載入第二頁（最後一首），之後到底。
+    final lastPage = find.text('Test tone 880 Hz (tone)');
+    await until(lastPage);
+    expect(lastPage, findsOneWidget);
+    expect(find.text('All loaded'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
   });
 
   testWidgets('returning to the foreground checks the network interfaces '

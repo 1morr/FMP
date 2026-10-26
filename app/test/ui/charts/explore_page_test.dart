@@ -9,9 +9,11 @@ import 'package:fmp/ui/charts/explore_page.dart';
 import 'package:fmp/ui/charts/home_charts.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
+import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../tracks/marker_support.dart';
 import 'chart_harness.dart';
 
 // 探索頁（M4 PR 21，design §9.3、§10.7）：首頁「查看全部」在首頁的巢狀導覽裡開、分頁照設定的順序、
@@ -139,6 +141,42 @@ void main() {
         findsOneWidget,
       );
     }
+  });
+
+  testWidgets('the playing song is marked in the chart, and only that one', (
+    tester,
+  ) async {
+    reduceMotion(tester);
+    final c = ChartHarness();
+    await c.pumpShell(tester);
+    await _open(tester, c, 'HOT');
+    expect(find.byKey(NowPlayingOverlay.overlayKey), findsNothing);
+
+    await tester.tap(_row('Track 2 of hot'));
+    await tester.pumpAndSettle();
+
+    expect(overlayIn(_row('Track 2 of hot')), findsOneWidget);
+    expect(overlayIn(_row('Track 1 of hot')), findsNothing);
+    expect(
+      isPlayingTitle(
+        tester,
+        find.descendant(
+          of: _row('Track 2 of hot'),
+          matching: find.text('Track 2 of hot'),
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      isPlayingTitle(
+        tester,
+        find.descendant(
+          of: _row('Track 1 of hot'),
+          matching: find.text('Track 1 of hot'),
+        ),
+      ),
+      isFalse,
+    );
   });
 
   testWidgets('switching tabs shows the other chart', (tester) async {

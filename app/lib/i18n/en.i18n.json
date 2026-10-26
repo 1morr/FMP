@@ -77,6 +77,7 @@
     "failed": "Search failed",
     "retry": "Retry",
     "loadMore": "Load more",
+    "loadedAll": "All loaded",
     "more": "More options",
     "play": "Play",
     "playNext": "Play next",
@@ -128,7 +129,10 @@
     "statsToday": "Today",
     "statsWeek": "This week",
     "statsAll": "All time",
-    "statsCount": "{count} plays",
+    "statsCount(plural, param=count)": {
+      "one": "{count} play",
+      "other": "{count} plays"
+    },
     "durationHm": "{hours}h {minutes}m",
     "durationM": "{minutes}m",
     "filterAll": "All",
@@ -137,21 +141,36 @@
     "sortOldest": "Oldest first",
     "sortMostPlayed": "Most played",
     "clearDate": "Clear the date filter",
-    "dayCount": "{count} songs",
+    "dayCount(plural, param=count)": {
+      "one": "{count} song",
+      "other": "{count} songs"
+    },
     "dayCollapse": "Collapse {day}",
     "dayExpand": "Expand {day}",
-    "playCount": "{count} plays",
+    "playCount(plural, param=count)": {
+      "one": "{count} play",
+      "other": "{count} plays"
+    },
     "sourceIcon": "Source: {name}",
     "removeAllOfTrack": "Delete all plays of this song",
     "removeAllTitle": "Delete every play of this song?",
     "removeAllBody": "Every play record of \"{title}\" is deleted and cannot be restored.",
     "deleteSelected": "Delete",
-    "deleteSelectedTitle": "Delete {count} records?",
+    "deleteSelectedTitle(plural, param=count)": {
+      "one": "Delete {count} record?",
+      "other": "Delete {count} records?"
+    },
     "deleteSelectedBody": "The selected play records are deleted and cannot be restored.",
-    "deleteSelectedTracksTitle": "Delete every play of {count} songs?",
+    "deleteSelectedTracksTitle(plural, param=count)": {
+      "one": "Delete every play of {count} song?",
+      "other": "Delete every play of {count} songs?"
+    },
     "deleteSelectedTracksBody": "Every play record of the selected songs is deleted and cannot be restored.",
     "delete": "Delete",
-    "deletedCount": "Deleted {count} records",
+    "deletedCount(plural, param=count)": {
+      "one": "Deleted {count} record",
+      "other": "Deleted {count} records"
+    },
     "retry": "Retry",
     "goSearch": "Go to Search",
     "noMatch": "No matching records",
@@ -207,8 +226,10 @@
     "newPlaylist": "New playlist",
     "empty": "No playlists yet",
     "emptyHint": "Choose \"New playlist\" to create one, or \"Import\" to bring one in.",
-    "trackCount": "{count} songs",
-    "trackCountOne": "1 song",
+    "trackCount(plural, param=count)": {
+      "one": "{count} song",
+      "other": "{count} songs"
+    },
     "local": "Local",
     "more": "More options",
     "addToQueue": "Add all to queue",
@@ -256,7 +277,10 @@
     "noLocalPlaylists": "No local playlists yet",
     "add": "Add",
     "addedToPlaylist": "Added to \"{name}\"",
-    "addedToPlaylists": "Added to {count} playlists",
+    "addedToPlaylists(plural, param=count)": {
+      "one": "Added to {count} playlist",
+      "other": "Added to {count} playlists"
+    },
     "addToPlaylistFailed": "Couldn't add to the playlist: {reason}",
     "importTooltip": "Import a playlist",
     "importTitle": "Import a playlist",
@@ -356,13 +380,18 @@
     "count": "{count} selected",
     "cancelTooltip": "Cancel selection (Esc)",
     "selectAllTooltip": "Select all (Ctrl+A)",
+    "playNext": "Play next",
+    "playNextInMix": "Play next (not available in Mix)",
+    "addedToNext": "Added to play next",
+    "deselectAllTooltip": "Deselect all",
     "addToQueue": "Add to queue",
     "addToQueueInMix": "Add to queue (unavailable in a Mix)",
     "addToPlaylist": "Add to playlist…",
     "addedToQueue": "Added to the queue",
     "addToRemote": "Add to remote playlist…",
     "addToRemoteMixed": "Add to remote playlist (select songs from one source)",
-    "removeFromRemote": "Remove from the remote playlist"
+    "removeFromRemote": "Remove from the remote playlist",
+    "more": "More actions"
   },
   "offline": {
     "noInterface": "No network connection",
@@ -746,7 +775,10 @@
     "statShare": "Shares",
     "statDanmaku": "Danmaku",
     "statCoin": "Coins",
-    "queueCount": "{count} in queue",
+    "queueCount(plural, param=count)": {
+      "one": "{count} song in queue",
+      "other": "{count} songs in queue"
+    },
     "queueShuffleNote": "The shuffle order follows positions; dragging only swaps songs, not the order",
     "queueMixNote": "Mix: {title}",
     "queueStartMix": "Start Mix",

@@ -36,6 +36,9 @@ import 'package:fmp/plugins/dev/plugin_development.dart';
 import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
+
+import 'tracks/selection_bar_support.dart';
+
 import 'package:fmp/ui/charts/explore_page.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/history/history_state.dart';
@@ -365,6 +368,12 @@ void main() {
         testWidgets('search results and the player bar at $width', (
           tester,
         ) async {
+          // 在播那一列的指示器一直在動，pumpAndSettle 等不到停（同 ShellHarness.openQueue）。
+          tester.platformDispatcher.accessibilityFeaturesTestValue =
+              const FakeAccessibilityFeatures(disableAnimations: true);
+          addTearDown(
+            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+          );
           final handle = tester.ensureSemantics();
           final h = ShellHarness();
           await h.pumpShell(tester, size: size, brightness: brightness);
@@ -1195,8 +1204,7 @@ void main() {
           await openDetail(tester);
           await tester.longPress(find.text('Song a'));
           await tester.pumpAndSettle();
-          await tester.tap(find.byTooltip('Remove from playlist'));
-          await tester.pumpAndSettle();
+          await tapSelectionAction(tester, 'Remove from playlist');
           expect(find.text('Remove the selected songs?'), findsOneWidget);
 
           await expectGuidelines(tester);

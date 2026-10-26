@@ -15,7 +15,6 @@ import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/format/date_text.dart';
-import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
@@ -31,6 +30,7 @@ import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
+import 'package:fmp/ui/tracks/track_markers.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
@@ -763,19 +763,18 @@ class _GroupHeader extends ConsumerWidget {
     final uploader =
         ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
         track.uploader;
+    // 群組裡任何一個分 P 在播，標題列就標示。
+    final playing = watchIsPlaying(ref, track, group: true);
     return MergeSemantics(
       child: Semantics(
         header: true,
         child: ListTile(
-          leading: ArtworkImage(
-            pluginId: track.sourceTypeId,
-            artwork: track.artwork,
-            size: AppLayout.artworkThumbnail,
-          ),
+          leading: TrackCover(track: track, playing: playing),
           title: Text(
             track.parentTitle ?? track.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: playingTitleStyle(context, playing: playing),
           ),
           subtitle: uploader == null
               ? null
@@ -815,6 +814,7 @@ class _EntryRow extends ConsumerWidget {
     final spacing = AppTokens.of(context).spacing;
     final track = entry.track;
     final duration = track.duration;
+    final playing = watchIsPlaying(ref, track);
     final inMix = ref.watch(inMixProvider);
     final canMix = ref.watch(canStartMixProvider(track.sourceTypeId));
     // 音源停用或移除時，上傳者的位置改說原因（ADR 0030 §決定 7、10）；群組裡的分 P 由標題說。
@@ -934,23 +934,18 @@ class _EntryRow extends ConsumerWidget {
                 end: spacing.x4,
               )
             : null,
-        leading: inGroup
-            ? null
-            : ArtworkImage(
-                pluginId: track.sourceTypeId,
-                artwork: track.artwork,
-                size: AppLayout.artworkThumbnail,
-              ),
+        leading: inGroup ? null : TrackCover(track: track, playing: playing),
         title: Text(
           inGroup ? track.partLabel : track.displayTitle,
           maxLines: lonePart ? 2 : 1,
           overflow: TextOverflow.ellipsis,
+          style: playingTitleStyle(context, playing: playing),
         ),
         subtitle: subtitle(uploader),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (duration != null) Text(formatDuration(duration)),
+            TrackDuration(duration: duration),
             row.trailing,
             // 選取模式不能拖。
             if (dragIndex != null && !row.selecting)

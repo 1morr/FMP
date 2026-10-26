@@ -77,6 +77,7 @@
     "failed": "搜索失败",
     "retry": "重试",
     "loadMore": "加载更多",
+    "loadedAll": "已加载全部",
     "more": "更多选项",
     "play": "播放",
     "playNext": "下一首播放",
@@ -128,7 +129,9 @@
     "statsToday": "今天",
     "statsWeek": "本周",
     "statsAll": "全部",
-    "statsCount": "{count} 首",
+    "statsCount(plural, param=count)": {
+      "other": "{count} 首"
+    },
     "durationHm": "{hours} 小时 {minutes} 分",
     "durationM": "{minutes} 分",
     "filterAll": "全部",
@@ -137,21 +140,31 @@
     "sortOldest": "旧到新",
     "sortMostPlayed": "播放次数",
     "clearDate": "清除日期筛选",
-    "dayCount": "{count} 首",
+    "dayCount(plural, param=count)": {
+      "other": "{count} 首"
+    },
     "dayCollapse": "收起 {day}",
     "dayExpand": "展开 {day}",
-    "playCount": "{count} 次",
+    "playCount(plural, param=count)": {
+      "other": "{count} 次"
+    },
     "sourceIcon": "音源：{name}",
     "removeAllOfTrack": "删除此曲所有记录",
     "removeAllTitle": "删除这首歌的所有记录？",
     "removeAllBody": "“{title}”的所有播放记录都会被删除，无法恢复。",
     "deleteSelected": "删除",
-    "deleteSelectedTitle": "删除 {count} 条记录？",
+    "deleteSelectedTitle(plural, param=count)": {
+      "other": "删除 {count} 条记录？"
+    },
     "deleteSelectedBody": "选中的播放记录会被删除，无法恢复。",
-    "deleteSelectedTracksTitle": "删除 {count} 首歌的所有记录？",
+    "deleteSelectedTracksTitle(plural, param=count)": {
+      "other": "删除 {count} 首歌的所有记录？"
+    },
     "deleteSelectedTracksBody": "这几首歌的所有播放记录都会被删除，无法恢复。",
     "delete": "删除",
-    "deletedCount": "已删除 {count} 条",
+    "deletedCount(plural, param=count)": {
+      "other": "已删除 {count} 条"
+    },
     "retry": "重试",
     "goSearch": "去搜索",
     "noMatch": "没有符合的记录",
@@ -207,8 +220,9 @@
     "newPlaylist": "新建歌单",
     "empty": "还没有歌单",
     "emptyHint": "点「新建歌单」创建一个歌单，或点「导入」带进一个。",
-    "trackCount": "{count} 首",
-    "trackCountOne": "1 首",
+    "trackCount(plural, param=count)": {
+      "other": "{count} 首"
+    },
     "local": "本地",
     "more": "更多选项",
     "addToQueue": "全部添加到队列",
@@ -256,7 +270,9 @@
     "noLocalPlaylists": "还没有本地歌单",
     "add": "添加",
     "addedToPlaylist": "已添加到「{name}」",
-    "addedToPlaylists": "已添加到 {count} 个歌单",
+    "addedToPlaylists(plural, param=count)": {
+      "other": "已添加到 {count} 个歌单"
+    },
     "addToPlaylistFailed": "无法添加到歌单：{reason}",
     "importTooltip": "导入歌单",
     "importTitle": "导入歌单",
@@ -356,13 +372,18 @@
     "count": "已选 {count} 首",
     "cancelTooltip": "取消选择（Esc）",
     "selectAllTooltip": "全选（Ctrl+A）",
+    "playNext": "下一首播放",
+    "playNextInMix": "下一首播放（Mix 中无法使用）",
+    "addedToNext": "已加入下一首播放",
+    "deselectAllTooltip": "取消全选",
     "addToQueue": "加入队列",
     "addToQueueInMix": "加入队列（Mix 中无法使用）",
     "addToPlaylist": "添加到歌单…",
     "addedToQueue": "已加入队列",
     "addToRemote": "加入远端歌单…",
     "addToRemoteMixed": "加入远端歌单（请只选同一个音源的曲目）",
-    "removeFromRemote": "从远端歌单移除"
+    "removeFromRemote": "从远端歌单移除",
+    "more": "更多操作"
   },
   "offline": {
     "noInterface": "没有网络连接",
@@ -746,7 +767,9 @@
     "statShare": "分享",
     "statDanmaku": "弹幕",
     "statCoin": "投币",
-    "queueCount": "共 {count} 首",
+    "queueCount(plural, param=count)": {
+      "other": "共 {count} 首"
+    },
     "queueShuffleNote": "随机顺序跟着位置；拖动只换歌，不改顺序",
     "queueMixNote": "Mix：{title}",
     "queueStartMix": "开始 Mix",
