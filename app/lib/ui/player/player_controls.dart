@@ -212,6 +212,50 @@ class PlayPauseButton extends ConsumerWidget {
   }
 }
 
+/// 播放進度的畫面值：播放列的細線與播放頁的 [ProgressRow] 共用同一套判斷。
+typedef ProgressView = ({
+  /// 曲目的時長；不知道時為 `null`。
+  Duration? duration,
+
+  /// 時長的毫秒數（不知道時 0）。
+  double max,
+
+  /// 能不能拖或點來 seek。
+  bool seekable,
+
+  /// 沒在拖時的位置（毫秒）。
+  double startsAt,
+});
+
+/// 讀目前的播放進度（會訂閱相關的 provider）。
+///
+/// `Idle` 時沒有來源，進度 stream 留著上一個來源最後的回報（臨時播放、清空之
+/// 前的歌），不是這首。按播放從哪裡開始就顯示哪裡：啟動恢復後還沒播（含先臨時
+/// 播放、結束後停著）是恢復的位置，拖動就是改起點（沒有來源時控制器的 seek 改
+/// 的是它）；其他從頭開始，不能拖。時長是曲目的。
+/// 有來源時進度 stream 一開始只有起點、沒有時長（暫停中載入的來源，Android
+/// 到按播放前都不回報），時長同樣先用曲目的。
+ProgressView watchProgressView(WidgetRef ref) {
+  final progress = ref.watch(playbackProgressProvider).value;
+  final current = ref.watch(playbackQueueProvider).value?.current;
+  final idle = (ref.watch(playbackStateProvider).value ?? const Idle()) is Idle;
+  if (idle) ref.watch(playbackSeeksProvider);
+  final restored = idle
+      ? ref.read(playbackControllerProvider).restoredPosition
+      : null;
+  final duration = (idle ? null : progress?.duration) ?? current?.duration;
+  final startsAt = idle
+      ? restored ?? Duration.zero
+      : progress?.position ?? Duration.zero;
+  final max = duration?.inMilliseconds.toDouble() ?? 0;
+  return (
+    duration: duration,
+    max: max,
+    seekable: max > 0 && (!idle || restored != null),
+    startsAt: startsAt.inMilliseconds.toDouble(),
+  );
+}
+
 /// 位置、進度條、時長。拖動時只改畫面上的位置，放開才 seek。
 class ProgressRow extends ConsumerStatefulWidget {
   const ProgressRow({super.key});
@@ -228,28 +272,12 @@ class _ProgressRowState extends ConsumerState<ProgressRow> {
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider).player;
     final theme = Theme.of(context);
-    final progress = ref.watch(playbackProgressProvider).value;
-    final current = ref.watch(playbackQueueProvider).value?.current;
-    final idle =
-        (ref.watch(playbackStateProvider).value ?? const Idle()) is Idle;
-    // `Idle` 時沒有來源，進度 stream 留著上一個來源最後的回報（臨時播放、清空之
-    // 前的歌），不是這首。按播放從哪裡開始就顯示哪裡：啟動恢復後還沒播（含先臨時
-    // 播放、結束後停著）是恢復的位置，拖動就是改起點（沒有來源時控制器的 seek 改
-    // 的是它）；其他從頭開始，不能拖。時長是曲目的。
-    // 有來源時進度 stream 一開始只有起點、沒有時長（暫停中載入的來源，Android
-    // 到按播放前都不回報），時長同樣先用曲目的。
-    if (idle) ref.watch(playbackSeeksProvider);
-    final restored = idle
-        ? ref.read(playbackControllerProvider).restoredPosition
-        : null;
-    final duration = (idle ? null : progress?.duration) ?? current?.duration;
-    final startsAt = idle
-        ? restored ?? Duration.zero
-        : progress?.position ?? Duration.zero;
-    final max = duration?.inMilliseconds.toDouble() ?? 0;
-    final seekable = max > 0 && (!idle || restored != null);
+    final view = watchProgressView(ref);
+    final duration = view.duration;
+    final max = view.max;
+    final seekable = view.seekable;
     final position = seekable
-        ? (_dragging ?? startsAt.inMilliseconds.toDouble()).clamp(0.0, max)
+        ? (_dragging ?? view.startsAt).clamp(0.0, max)
         : 0.0;
     final timeStyle = theme.textTheme.labelSmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,

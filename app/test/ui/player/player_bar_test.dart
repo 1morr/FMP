@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -13,13 +14,14 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/thin_progress_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
 import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
 
-/// 播放列單獨放在視窗底部，寬度就是視窗寬度。
+/// 播放列單獨放在視窗底部，寬度就是視窗寬度；放在 `Column` 裡讓它拿到不限高的約束，同外殼。
 Future<ShellHarness> pumpBar(
   WidgetTester tester, {
   double width = 1000,
@@ -31,12 +33,37 @@ Future<ShellHarness> pumpBar(
     const Scaffold(
       body: Align(
         alignment: Alignment.bottomCenter,
-        child: WindowClassScope(child: PlayerBar()),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [WindowClassScope(child: PlayerBar())],
+        ),
       ),
     ),
     size: Size(width, 600),
   );
   return h;
+}
+
+/// 滑鼠移到播放列上（進度細線變粗、出現「位置 / 時長」）。
+Future<TestGesture> hoverBar(WidgetTester tester) async {
+  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await mouse.addPointer(location: const Offset(1, 1));
+  addTearDown(mouse.removePointer);
+  await mouse.moveTo(tester.getCenter(find.byType(PlayerBar)));
+  // 一幀開始動畫，一幀走完。
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+  return mouse;
+}
+
+/// 進度細線的語意值（位置的文字）；要先 `tester.ensureSemantics()`。
+String progressValue(WidgetTester tester) =>
+    tester.getSemantics(find.bySemanticsLabel('Playback position')).value;
+
+/// 進度細線上 [fraction]（0–1）處的畫面座標；細線貼在播放列最上緣。
+Offset onThinBar(WidgetTester tester, double fraction) {
+  final rect = tester.getRect(find.byType(ThinProgressBar));
+  return Offset(rect.left + rect.width * fraction, rect.top + 1);
 }
 
 const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
@@ -55,6 +82,7 @@ void main() {
   const unmute = 'Unmute';
   const volumeIcon = 'Volume (Ctrl+↑/↓)';
   const outputDevice = 'Output device';
+  const panelHide = 'Hide the now playing panel';
 
   testWidgets('takes no space while nothing is queued', (tester) async {
     await pumpBar(tester);
@@ -75,12 +103,12 @@ void main() {
     };
 
     for (final (width, controls, sliders) in [
-      (360.0, {pause, next}, 1),
-      (599.0, {pause, next}, 1),
-      (600.0, {previous, pause, next, volumeIcon, more}, 1),
-      (839.0, {previous, pause, next, volumeIcon, more}, 1),
-      (840.0, {shuffle, previous, pause, next, loopOff, mute}, 2),
-      (1600.0, {shuffle, previous, pause, next, loopOff, mute}, 2),
+      (360.0, {pause, next}, 0),
+      (599.0, {pause, next}, 0),
+      (600.0, {previous, pause, next, volumeIcon, more}, 0),
+      (839.0, {previous, pause, next, volumeIcon, more}, 0),
+      (840.0, {shuffle, previous, pause, next, loopOff, panelHide, mute}, 1),
+      (1600.0, {shuffle, previous, pause, next, loopOff, panelHide, mute}, 1),
     ]) {
       testWidgets('$width wide: $controls; the title keeps 160dp', (
         tester,
@@ -90,7 +118,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(tooltipsOf(tester), controls);
-        // 進度條，加上 expanded 以上的音量滑桿（medium 的在彈出的選單裡）。
+        // 只有 expanded 以上的音量滑桿（medium 的在彈出的選單裡）；進度是頂端的細線，不是 Slider。
         expect(find.byType(Slider), findsNWidgets(sliders));
         expect(
           tester.getSize(find.byKey(PlayerBar.titleKey)).width,
@@ -106,7 +134,19 @@ void main() {
       (599.0, {pause, next}),
       (600.0, {previous, pause, next, volumeIcon, more}),
       (839.0, {previous, pause, next, volumeIcon, more}),
-      (840.0, {shuffle, previous, pause, next, loopOff, outputDevice, mute}),
+      (
+        840.0,
+        {
+          shuffle,
+          previous,
+          pause,
+          next,
+          loopOff,
+          panelHide,
+          outputDevice,
+          mute,
+        },
+      ),
     ]) {
       testWidgets('$width wide with output device selection: $controls', (
         tester,
@@ -257,22 +297,21 @@ void main() {
       expect(h.controller.queue.currentIndex, 0);
     });
 
-    testWidgets('dragging the progress bar seeks on release', (tester) async {
+    testWidgets('dragging the progress line seeks on release', (tester) async {
       final h = await pumpBar(tester);
       await h.play(tester, [summary('a')]);
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('3:00'), findsOneWidget, reason: 'the duration');
 
-      final slider = find.byType(Slider).first;
-      final gesture = await tester.startGesture(tester.getCenter(slider));
+      final gesture = await tester.startGesture(onThinBar(tester, 0.5));
       await tester.pump();
       await gesture.moveBy(const Offset(40, 0));
       await tester.pump();
-      // 拖動中只改畫面，還沒 seek。
+      // 拖動中只改畫面，還沒 seek；把手上方浮著時間。
       expect(
         h.container(tester).read(playbackProgressProvider).value!.position,
         lessThan(const Duration(seconds: 5)),
       );
+      expect(find.textContaining(' / 3:00'), findsOneWidget);
       await gesture.up();
       await tester.pump();
 
@@ -285,6 +324,210 @@ void main() {
           .position
           .inSeconds;
       expect(position, greaterThan(60));
+      // 放開之後把手與時間收起。
+      expect(find.textContaining(' / '), findsNothing);
+    });
+
+    testWidgets('tapping the line seeks to that point', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tapAt(onThinBar(tester, 0.75));
+      await tester.pump(const Duration(milliseconds: 60));
+
+      final position = h
+          .container(tester)
+          .read(playbackProgressProvider)
+          .value!
+          .position
+          .inSeconds;
+      expect(position, inInclusiveRange(130, 140), reason: '75% of 3:00');
+    });
+
+    testWidgets('the line is 2dp and grows to 6dp with a thumb and the time '
+        'while the mouse is over the bar', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      double lineHeight() => tester
+          .getSize(
+            find.descendant(
+              of: find.byType(ThinProgressBar),
+              matching: find.byType(AnimatedContainer),
+            ),
+          )
+          .height;
+      expect(lineHeight(), 2);
+      expect(find.textContaining(' / '), findsNothing);
+
+      final mouse = await hoverBar(tester);
+      expect(lineHeight(), 6);
+      expect(find.text('0:00 / 3:00'), findsOneWidget);
+
+      await mouse.moveTo(const Offset(1, 1));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(lineHeight(), 2);
+      expect(find.textContaining(' / '), findsNothing);
+    });
+
+    FocusNode lineFocus(WidgetTester tester) => tester
+        .widget<Focus>(
+          find
+              .descendant(
+                of: find.byType(ThinProgressBar),
+                matching: find.byType(Focus),
+              )
+              .first,
+        )
+        .focusNode!;
+
+    double lineHeightOf(WidgetTester tester) => tester
+        .getSize(
+          find.descendant(
+            of: find.byType(ThinProgressBar),
+            matching: find.byType(AnimatedContainer),
+          ),
+        )
+        .height;
+
+    testWidgets('Tab reaches the line, which shows the 6dp state and a focus '
+        'ring while focused', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+      final node = lineFocus(tester);
+
+      var tabs = 0;
+      while (!node.hasFocus && tabs < 20) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        tabs++;
+      }
+      expect(node.hasFocus, isTrue, reason: 'in the tab order');
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(lineHeightOf(tester), 6);
+      expect(find.textContaining(' / '), findsOneWidget);
+      final ring = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byType(ThinProgressBar),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final border = (ring.foregroundDecoration! as BoxDecoration).border!;
+      expect(
+        (border as Border).top.color,
+        Theme.of(tester.element(find.byType(ThinProgressBar)))
+            .colorScheme
+            .primary,
+      );
+
+      node.unfocus();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(lineHeightOf(tester), 2);
+    });
+
+    testWidgets('the arrow keys seek by the Shift+arrow step', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(seconds: 20));
+      lineFocus(tester).requestFocus();
+      await tester.pump();
+
+      final before = h
+          .container(tester)
+          .read(playbackProgressProvider)
+          .value!
+          .position;
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 60));
+      final after = h
+          .container(tester)
+          .read(playbackProgressProvider)
+          .value!
+          .position;
+      expect(after - before, greaterThanOrEqualTo(const Duration(seconds: 4)));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump(const Duration(milliseconds: 60));
+      final back = h
+          .container(tester)
+          .read(playbackProgressProvider)
+          .value!
+          .position;
+      expect(back, lessThan(after - const Duration(seconds: 4)));
+    });
+
+    testWidgets('reduced motion grows the line at once', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(milliseconds: 100));
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(1, 1));
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byType(PlayerBar)));
+      await tester.pump();
+
+      expect(
+        tester
+            .getSize(
+              find.descendant(
+                of: find.byType(ThinProgressBar),
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .height,
+        6,
+      );
+    });
+
+    testWidgets('the line is a slider for screen readers: position as the '
+        'value, increase and decrease by 10%', (tester) async {
+      final handle = tester.ensureSemantics();
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(seconds: 2));
+
+      final node = tester.getSemantics(
+        find.bySemanticsLabel('Playback position'),
+      );
+      expect(
+        node,
+        matchesSemantics(
+          label: 'Playback position',
+          value: '0:02',
+          increasedValue: '0:20',
+          decreasedValue: '0:00',
+          isSlider: true,
+          isFocusable: true,
+          hasFocusAction: true,
+          hasIncreaseAction: true,
+          hasDecreaseAction: true,
+        ),
+      );
+
+      tester.semantics.increase(find.semantics.byLabel('Playback position'));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        h.container(tester).read(playbackProgressProvider).value!.position,
+        greaterThan(const Duration(seconds: 15)),
+      );
+      handle.dispose();
     });
 
     // M2 驗收（Android，2026-10-08）：臨時播放結束、佇列那首只載入不播時，
@@ -292,6 +535,7 @@ void main() {
     // 時用曲目的（3:05），所以照樣能拖。
     testWidgets('a song loaded paused after a temporary play shows its own '
         'start and length, not the temporary track', (tester) async {
+      final handle = tester.ensureSemantics();
       final h = await pumpBar(tester);
       await h.play(tester, [summary('a')]);
       await tester.pump(const Duration(seconds: 15));
@@ -300,7 +544,7 @@ void main() {
       unawaited(h.controller.playTemporary(summary('b').toTrackInfo()));
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
-      expect(find.text('0:02'), findsOneWidget, reason: 'live progress');
+      expect(progressValue(tester), '0:02', reason: 'live progress');
 
       unawaited(h.controller.next());
       await tester.pump();
@@ -309,14 +553,10 @@ void main() {
       expect(h.controller.state, isA<Paused>());
       expect(h.controller.queue.current?.sourceId, 'a');
       // 預設倒退 10 秒：從 0:05 開始。
-      expect(find.text('0:05'), findsOneWidget);
-      expect(find.text('3:05'), findsOneWidget);
-      expect(find.text('0:02'), findsNothing);
-      expect(find.text('3:00'), findsNothing);
-      expect(
-        tester.widget<Slider>(find.byType(Slider).first).onChanged,
-        isNotNull,
-      );
+      expect(progressValue(tester), '0:05');
+      await hoverBar(tester);
+      expect(find.text('0:05 / 3:05'), findsOneWidget);
+      handle.dispose();
     });
   });
 
@@ -383,7 +623,7 @@ void main() {
   });
 
   group('volume', () {
-    Finder volumeSlider() => find.byType(Slider).last;
+    Finder volumeSlider() => find.byType(Slider);
 
     Future<void> dragVolume(WidgetTester tester, double dx) async {
       final gesture = await tester.startGesture(
@@ -467,11 +707,11 @@ void main() {
         'Esc closes it', (tester) async {
       final h = await pumpBar(tester, width: 720);
       await h.play(tester, [summary('a')]);
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
 
       await tester.tap(find.byTooltip(volumeIcon));
       await tester.pump();
-      expect(find.byType(Slider), findsNWidgets(2));
+      expect(find.byType(Slider), findsOneWidget);
       await dragVolume(tester, -30);
       expect(h.controller.volume, lessThan(0.5));
 
@@ -481,7 +721,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
     });
 
     testWidgets('a volume changed elsewhere moves the slider', (tester) async {
@@ -582,6 +822,7 @@ void main() {
   group('after a restore', () {
     testWidgets('the progress shows the restored position and the duration, '
         'and dragging moves the start', (tester) async {
+      final handle = tester.ensureSemantics();
       final h = await pumpBar(tester);
       expect(
         h.controller.restore(
@@ -599,13 +840,14 @@ void main() {
       await tester.pump();
 
       expect(h.controller.state, isA<Idle>());
-      expect(find.text('1:23'), findsOneWidget);
-      expect(find.text('3:05'), findsOneWidget);
-      expect(find.text('0:00'), findsNothing);
+      expect(progressValue(tester), '1:23');
+      final mouse = await hoverBar(tester);
+      expect(find.text('1:23 / 3:05'), findsOneWidget);
+      await mouse.moveTo(const Offset(1, 1));
+      await tester.pump(const Duration(milliseconds: 200));
 
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(Slider).first),
-      );
+      // 細線 83/185 = 45% 的位置往左拖。
+      final gesture = await tester.startGesture(onThinBar(tester, 0.45));
       await tester.pump();
       await gesture.moveBy(const Offset(-200, 0));
       await tester.pump();
@@ -613,20 +855,21 @@ void main() {
       await tester.pump();
 
       expect(h.controller.position, lessThan(const Duration(seconds: 83)));
-      expect(find.text('1:23'), findsNothing);
-      expect(find.text(formatDuration(h.controller.position)), findsOneWidget);
+      expect(progressValue(tester), formatDuration(h.controller.position));
 
       // 按播放從拖到的位置開始。
       final start = h.controller.position;
       await tester.tap(find.byTooltip(play));
       await tester.pump(const Duration(milliseconds: 100));
       expect(h.backend.openedAt.single, start);
+      handle.dispose();
     });
 
     // design §7.7：恢復後先臨時播放，結束時佇列停著、按播放仍從恢復的位置開始；
     // 進度條也回到恢復的位置，不是臨時曲目最後的進度。
     testWidgets('after a temporary play ends the progress is the restored '
         'position again', (tester) async {
+      final handle = tester.ensureSemantics();
       final h = await pumpBar(tester);
       h.controller.restore(
         tracks: [summary('a').toTrackInfo()],
@@ -643,19 +886,21 @@ void main() {
       unawaited(h.controller.playTemporary(summary('b').toTrackInfo()));
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
-      expect(find.text('3:00'), findsOneWidget, reason: 'live progress');
+      expect(progressValue(tester), '0:02', reason: 'live progress');
 
       unawaited(h.controller.next());
       await tester.pump();
       await tester.pump();
       expect(h.controller.state, isA<Idle>());
       expect(h.controller.queue.current?.sourceId, 'a');
-      expect(find.text('1:23'), findsOneWidget);
-      expect(find.text('3:05'), findsOneWidget);
+      expect(progressValue(tester), '1:23');
+      await hoverBar(tester);
+      expect(find.text('1:23 / 3:05'), findsOneWidget);
 
       await tester.tap(find.byTooltip(play));
       await tester.pump(const Duration(milliseconds: 100));
       expect(h.backend.openedAt.last, const Duration(seconds: 83));
+      handle.dispose();
     });
 
     // 沒有恢復的 Idle：按播放從頭開始，不顯示上一首最後的進度，也不能拖（拖了
@@ -663,11 +908,12 @@ void main() {
     testWidgets('idle without a restore shows the start, not the last song', (
       tester,
     ) async {
+      final handle = tester.ensureSemantics();
       final h = await pumpBar(tester);
       await h.play(tester, [summary('a')]);
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
-      expect(find.text('0:02'), findsOneWidget);
+      expect(progressValue(tester), '0:02');
 
       unawaited(h.controller.clear());
       await tester.pump();
@@ -678,12 +924,18 @@ void main() {
       await tester.pump();
       expect(h.controller.state, isA<Idle>());
 
-      expect(find.text('0:00'), findsOneWidget);
-      expect(find.text('4:00'), findsOneWidget);
-      expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, null);
+      expect(progressValue(tester), '0:00');
+      // 不能拖：沒有把手與時間，點了也不 seek。
+      await hoverBar(tester);
+      expect(find.textContaining(' / '), findsNothing);
+      await tester.tapAt(onThinBar(tester, 0.5));
+      await tester.pump();
+      expect(h.controller.position, Duration.zero);
+      handle.dispose();
     });
 
     testWidgets('an unknown duration keeps the bar as it was', (tester) async {
+      final handle = tester.ensureSemantics();
       final h = await pumpBar(tester);
       h.controller.restore(
         tracks: [
@@ -703,9 +955,10 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('-:--'), findsOneWidget);
-      expect(find.text('0:00'), findsOneWidget);
-      expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, null);
+      expect(progressValue(tester), '0:00');
+      await hoverBar(tester);
+      expect(find.textContaining(' / '), findsNothing);
+      handle.dispose();
     });
   });
 
@@ -729,7 +982,7 @@ void main() {
           matching: find.byType(IconButton),
         ),
       );
-      expect(buttons, hasLength(7));
+      expect(buttons, hasLength(8));
       for (final button in buttons) {
         final tooltip = button.tooltip!;
         // 名稱只有 tooltip 一份：Icon 再給 semanticLabel 的話標籤也有字，輔助技術

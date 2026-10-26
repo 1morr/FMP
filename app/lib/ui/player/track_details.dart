@@ -17,9 +17,12 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 /// 「詳細」分頁與（M2 PR 19 的）右側「正在播放」面板共用。插件宣告 `trackDetail` 時在下面
 /// 補發佈時間、專輯、統計與簡介，上傳者旁加頭像（design §11.2）；取不到只在這一區顯示失敗與重試。
 class TrackDetails extends ConsumerWidget {
-  const TrackDetails({super.key, required this.track});
+  const TrackDetails({super.key, required this.track, this.footer});
 
   final TrackInfo track;
+
+  /// 詳細最後多放的東西（右側面板的「下一首」）；播放頁的詳細分頁沒有。
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -106,6 +109,7 @@ class TrackDetails extends ConsumerWidget {
                   )
                 else if (detail != null)
                   TrackDetailFields(detail: detail),
+              ?footer,
             ],
           ),
         );

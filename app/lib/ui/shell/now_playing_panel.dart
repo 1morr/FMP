@@ -7,9 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/playback/playback_providers.dart';
-import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
+import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/track_details.dart';
@@ -127,8 +128,9 @@ class _NowPlayingPanelSideState extends ConsumerState<NowPlayingPanelSide> {
   }
 }
 
-/// 面板本身：標題列（收起鈕）加目前這首的 [TrackDetails]（收聽直播時是直播間的 [LiveDetails]，
-/// 附停止鈕）；沒有在播的是空狀態。
+/// 面板本身：標題列（加入歌單、收起鈕）加目前這首的 [TrackDetails]，詳細的最後是「下一首」
+/// （[_NextUp]）；收聽直播時是直播間的 [LiveDetails]，附停止鈕，沒有加入歌單與下一首。
+/// 沒有在播的東西時外殼不放面板（ADR 0035 §決定 2），單獨用時什麼都不畫。
 /// 底色是主題的 surface，不用毛玻璃（毛玻璃只在播放頁，ADR 0024 §決定 1）。
 class NowPlayingPanel extends ConsumerWidget {
   const NowPlayingPanel({super.key});
@@ -143,6 +145,7 @@ class NowPlayingPanel extends ConsumerWidget {
     );
     // 收聽直播時沒有曲目：直播間的詳細，附停止鈕（ADR 0031 §決定 7）。
     final live = ref.watch(nowPlayingLiveProvider);
+    if (current == null && live == null) return const SizedBox.shrink();
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
       child: Column(
@@ -168,6 +171,13 @@ class NowPlayingPanel extends ConsumerWidget {
                     ),
                   ),
                 ),
+                if (current != null && live == null)
+                  IconButton(
+                    tooltip: t.panelAddToPlaylistTooltip,
+                    icon: const Icon(Icons.playlist_add),
+                    onPressed: () =>
+                        unawaited(showAddToPlaylist(context, [current])),
+                  ),
                 IconButton(
                   tooltip: t.panelCollapseTooltip,
                   icon: const Icon(Icons.chevron_right),
@@ -179,15 +189,91 @@ class NowPlayingPanel extends ConsumerWidget {
           Expanded(
             child: switch ((current, live)) {
               (_, final live?) => LiveDetails(info: live, showStop: true),
-              (final current?, null) => TrackDetails(track: current),
-              (null, null) => EmptyState(
-                icon: Icons.music_note_outlined,
-                title: t.panelEmpty,
+              (final current?, null) => TrackDetails(
+                track: current,
+                footer: const _NextUp(),
               ),
+              (null, null) => const SizedBox.shrink(),
             },
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 面板詳細最後的「下一首」（舊版面板的做法，P-14）：縮圖、曲名、上傳者。沒有下一首（佇列最後、
+/// 隨機這一輪的最後）時什麼都不畫。
+class _NextUp extends ConsumerWidget {
+  const _NextUp();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final next = ref.watch(
+      playbackQueueProvider.select((queue) => queue.value?.upNext),
+    );
+    if (next == null) return const SizedBox.shrink();
+    final t = ref.watch(translationsProvider).shell;
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    final uploader = next.uploader;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(height: spacing.x6),
+        Row(
+          children: [
+            Icon(
+              Icons.skip_next_rounded,
+              size: AppLayout.nextUpIcon,
+              color: theme.colorScheme.primary,
+            ),
+            SizedBox(width: spacing.x2),
+            Semantics(
+              header: true,
+              child: Text(
+                t.panelNextUp,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: spacing.x3),
+        Row(
+          children: [
+            ArtworkImage(
+              pluginId: next.sourceTypeId,
+              artwork: next.artwork,
+              size: AppLayout.nextUpArtwork,
+            ),
+            SizedBox(width: spacing.x3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    next.displayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  if (uploader != null)
+                    Text(
+                      uploader,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

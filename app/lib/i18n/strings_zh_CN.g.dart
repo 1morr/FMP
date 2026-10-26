@@ -250,7 +250,9 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get panelTitle => '正在播放';
   @override
-  String get panelEmpty => '没有正在播放的歌曲';
+  String get panelNextUp => '下一首';
+  @override
+  String get panelAddToPlaylistTooltip => '加入歌单';
   @override
   String get panelCollapseTooltip => '收起正在播放面板';
   @override

@@ -27,6 +27,7 @@ import 'package:fmp/ui/radio/radio_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/legacy_side_rail.dart';
+import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -379,6 +380,100 @@ void main() {
       await tester.pump();
 
       expect(find.byType(VerticalDivider), findsNothing);
+    });
+  });
+
+  // ADR 0035 §決定 4：播放列橫跨整個視窗，側欄下方也是；面板在內容區右邊、播放列上面。
+  group('the player bar spans the window (ADR 0035 §決定 4)', () {
+    for (final width in [700.0, 1000.0, 1400.0]) {
+      for (final expandRail in [false, true]) {
+        testWidgets('$width wide${expandRail ? ', rail expanded' : ''}: the '
+            'bar starts at x=0, ends at the window edge and sits under the '
+            'rail', (tester) async {
+          final h = ShellHarness();
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            expandRail: expandRail,
+          );
+          await h.play(tester, [summary('a'), summary('b')]);
+          await h.loadSettings(tester);
+
+          final bar = tester.getRect(find.byType(PlayerBar));
+          final rail = tester.getRect(find.byType(LegacySideRail));
+          expect(bar.left, 0);
+          expect(bar.right, width);
+          expect(bar.bottom, 800);
+          expect(rail.left, 0);
+          expect(
+            rail.bottom,
+            bar.top,
+            reason: 'the rail ends where the bar begins',
+          );
+          expect(
+            tester.getRect(find.byType(SearchPage)).bottom,
+            lessThanOrEqualTo(bar.top),
+          );
+          // 橫跨整個視窗，所以它的分段是視窗的：>= 840 就有隨機與循環。
+          expect(
+            find.byTooltip('Shuffle (Ctrl+S)'),
+            width >= 840 ? findsOneWidget : findsNothing,
+          );
+        });
+      }
+    }
+
+    testWidgets('the panel sits right of the pages and above the bar', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1400, 800));
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+
+      final panel = tester.getRect(find.byType(NowPlayingPanel));
+      final bar = tester.getRect(find.byType(PlayerBar));
+      expect(panel.right, 1400);
+      expect(panel.bottom, bar.top);
+      expect(
+        tester.getRect(find.byType(SearchPage)).right,
+        lessThanOrEqualTo(panel.left),
+      );
+    });
+
+    testWidgets('compact: the bar is full width above the navigation bar', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(400, 800));
+      await h.play(tester, [summary('a')]);
+
+      final bar = tester.getRect(find.byType(PlayerBar));
+      expect(bar.left, 0);
+      expect(bar.right, 400);
+      expect(bar.bottom, tester.getRect(find.byType(NavigationBar)).top);
+    });
+
+    testWidgets('without a song neither the bar nor the panel takes space', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1400, 800));
+
+      expect(find.byType(PlayerBar), findsNothing);
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(tester.getRect(find.byType(LegacySideRail)).bottom, 800);
+    });
+
+    // 橫向手機：矮視窗放得下播放列，沒有溢位。
+    testWidgets('a landscape phone (914x360) fits the bar', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(914, 360));
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.byType(PlayerBar)).bottom, 360);
     });
   });
 
@@ -859,6 +954,7 @@ void main() {
     // 播放再回到佇列時，以恢復的位置為準，不是臨時曲目最後的進度。
     testWidgets('Shift+arrows move the restored start, also after a temporary '
         'play', (tester) async {
+      final handle = tester.ensureSemantics();
       final h = ShellHarness();
       await h.pumpShell(tester);
       h.controller.restore(
@@ -893,7 +989,12 @@ void main() {
         modifier: LogicalKeyboardKey.shiftLeft,
       );
       expect(h.controller.restoredPosition, const Duration(seconds: 83));
-      expect(find.text('1:23'), findsOneWidget);
+      // 播放列頂端的細線只在語意裡有位置的文字。
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Playback position')).value,
+        '1:23',
+      );
+      handle.dispose();
     });
 
     testWidgets('Ctrl+Up and Ctrl+Down change the volume by 5%, clamped', (

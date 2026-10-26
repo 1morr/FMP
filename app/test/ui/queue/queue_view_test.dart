@@ -125,7 +125,10 @@ void main() {
         find.descendant(of: _row('x'), matching: find.text('Source disabled')),
         findsOneWidget,
       );
-      expect(find.text('Someone'), findsNothing);
+      expect(
+        find.descendant(of: _row('x'), matching: find.text('Someone')),
+        findsNothing,
+      );
       expect(
         find.descendant(of: _row('a'), matching: find.text('Uploader a')),
         findsOneWidget,
@@ -347,14 +350,19 @@ void main() {
     ) async {
       final h = await _openQueue(tester);
 
-      await tester.tap(find.text('Song c'), buttons: kSecondaryButton);
+      await tester.tap(
+        find.descendant(of: _row('c'), matching: find.text('Song c')),
+        buttons: kSecondaryButton,
+      );
       await tester.pump();
       expect(find.text('Remove from queue'), findsOneWidget);
       await tester.tap(find.text('Play next'));
       await tester.pumpAndSettle();
       expect(_ids(h), ['a', 'c', 'b', 'd']);
 
-      await tester.longPress(find.text('Song c'));
+      await tester.longPress(
+        find.descendant(of: _row('c'), matching: find.text('Song c')),
+      );
       await tester.pump();
       await tester.tap(find.text('Remove from queue'));
       await tester.pumpAndSettle();

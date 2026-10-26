@@ -242,8 +242,11 @@ class Translations$shell$zh_TW {
   /// zh-TW: '正在播放'
   String get panelTitle => '正在播放';
 
-  /// zh-TW: '沒有正在播放的歌'
-  String get panelEmpty => '沒有正在播放的歌';
+  /// zh-TW: '下一首'
+  String get panelNextUp => '下一首';
+
+  /// zh-TW: '加入歌單'
+  String get panelAddToPlaylistTooltip => '加入歌單';
 
   /// zh-TW: '收起正在播放面板'
   String get panelCollapseTooltip => '收起正在播放面板';

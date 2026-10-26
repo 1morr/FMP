@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/backup.dart';
@@ -1005,10 +1006,15 @@ void main() {
           await tester.tap(
             find
                 .descendant(
-                  of: find.ancestor(
-                    of: find.text('Road trip'),
-                    matching: find.byType(ListTile),
-                  ),
+                  // 沒有曲目時沒有面板，音樂庫是格狀（卡片是 InkWell），有面板時是清單。
+                  of: find
+                      .ancestor(
+                        of: find.text('Road trip'),
+                        matching: find.byWidgetPredicate(
+                          (widget) => widget is ListTile || widget is InkWell,
+                        ),
+                      )
+                      .first,
                   matching: find.byTooltip('More options'),
                 )
                 .first,
@@ -1040,10 +1046,15 @@ void main() {
           await tester.tap(
             find
                 .descendant(
-                  of: find.ancestor(
-                    of: find.text('Empty'),
-                    matching: find.byType(ListTile),
-                  ),
+                  // 沒有曲目時沒有面板，音樂庫是格狀（卡片是 InkWell），有面板時是清單。
+                  of: find
+                      .ancestor(
+                        of: find.text('Empty'),
+                        matching: find.byWidgetPredicate(
+                          (widget) => widget is ListTile || widget is InkWell,
+                        ),
+                      )
+                      .first,
                   matching: find.byTooltip('More options'),
                 )
                 .first,
@@ -2893,9 +2904,9 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
         });
       }
 
-      // 右側「正在播放」面板（M2 PR 19）：有歌、1000 與 1800 寬；面板裡的詳細資料、
-      // 收起鈕與拖曳把手。
-      for (final width in const [1000.0, 1800.0]) {
+      // 右側「正在播放」面板（M2 PR 19、ADR 0035 U PR 6）：有歌、1000、1400 與 1800 寬；面板裡的
+      // 詳細資料、下一首、加入歌單與收起鈕、拖曳把手。
+      for (final width in const [1000.0, 1400.0, 1800.0]) {
         testWidgets('the now playing panel at $width', (tester) async {
           final handle = tester.ensureSemantics();
           final h = ShellHarness(artworkManager: FakeArtworkManager());
@@ -2904,13 +2915,49 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
             size: Size(width, 800),
             brightness: brightness,
           );
-          await h.play(tester, [summary('a')]);
+          await h.play(tester, [summary('a'), summary('b')]);
           await tester.pump(const Duration(milliseconds: 200));
           expect(find.byType(NowPlayingPanel), findsOneWidget);
+          expect(find.text('Next up'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
         });
+      }
+
+      // 播放列頂端的進度細線（ADR 0035 §決定 4）：平時，以及滑鼠移入後變粗、把手與時間。
+      for (final width in const [400.0, 1000.0, 1400.0]) {
+        for (final hovering in [false, true]) {
+          testWidgets(
+            'the player bar progress line, ${hovering ? 'hovered' : 'resting'} '
+            'at $width',
+            (tester) async {
+              final handle = tester.ensureSemantics();
+              final h = ShellHarness();
+              await h.pumpShell(
+                tester,
+                size: Size(width, 800),
+                brightness: brightness,
+              );
+              await h.play(tester, [summary('a'), summary('b')]);
+              await tester.pump(const Duration(milliseconds: 200));
+              if (hovering) {
+                final mouse = await tester.createGesture(
+                  kind: PointerDeviceKind.mouse,
+                );
+                await mouse.addPointer(location: Offset.zero);
+                addTearDown(mouse.removePointer);
+                await mouse.moveTo(tester.getCenter(find.byType(PlayerBar)));
+                await tester.pump();
+                await tester.pump(const Duration(milliseconds: 200));
+                expect(find.textContaining(' / '), findsOneWidget);
+              }
+
+              await expectGuidelines(tester);
+              handle.dispose();
+            },
+          );
+        }
       }
 
       // 播放列的音量與輸出裝置（design §9.2）：expanded 的靜音鈕與滑桿、輸出裝置鈕，
@@ -3042,7 +3089,14 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
           await tester.pump(const Duration(milliseconds: 200));
           await h.openQueue(tester);
           expect(find.byType(QueueView), findsOneWidget);
-          expect(find.text('The video · P2 Part 2'), findsOneWidget);
+          // 右側面板的「下一首」也是這一首，只數佇列裡的。
+          expect(
+            find.descendant(
+              of: find.byType(QueueView),
+              matching: find.text('The video · P2 Part 2'),
+            ),
+            findsOneWidget,
+          );
 
           await expectGuidelines(tester);
           handle.dispose();

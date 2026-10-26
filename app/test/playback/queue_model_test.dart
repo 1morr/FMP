@@ -1605,4 +1605,75 @@ void main() {
       expect(queue.state.entries.first.track.sourceId, '2');
     });
   });
+
+  // 右側面板的「下一首」：按「下一首」會播的曲目，與 `QueueModel.next` 一致。
+  group('upNext', () {
+    test('is the next song in order, and none after the last', () {
+      final queue = QueueModel()..replace(tracks(['a', 'b', 'c']));
+      expect(queue.state.upNext, track('b'));
+      queue.moveNext();
+      queue.moveNext();
+      expect(queue.state.upNext, isNull);
+      expect(queue.next, isNull);
+    });
+
+    test('an empty queue has none', () {
+      expect(QueueModel().state.upNext, isNull);
+    });
+
+    test('loop all wraps to the first song when not shuffled', () {
+      final queue = QueueModel()
+        ..replace(tracks(['a', 'b']), startIndex: 1)
+        ..setLoopMode(LoopMode.all);
+      expect(queue.state.upNext, track('a'));
+      expect(queue.next?.track, track('a'));
+    });
+
+    test('follows the shuffled order, not the list order', () {
+      final queue = QueueModel(random: Random(7))
+        ..replace(numbered(12))
+        ..setShuffle(true);
+      var checked = 0;
+      while (queue.state.hasNext) {
+        final state = queue.state;
+        expect(state.upNext, isNotNull);
+        expect(state.upNext, queue.next?.track);
+        expect(
+          state.upNext!.sourceId,
+          upcoming(state).first,
+          reason: 'the first song still to play this round',
+        );
+        checked++;
+        queue.moveNext();
+      }
+      expect(checked, 11);
+      // 一輪的最後一首：下一輪還沒排，不猜。
+      expect(queue.state.upNext, isNull);
+    });
+
+    test('a play-next song comes up first, also when shuffled', () {
+      final queue = QueueModel(random: Random(3))
+        ..replace(numbered(6))
+        ..setShuffle(true)
+        ..playNext([track('x')]);
+      expect(queue.state.upNext, track('x'));
+    });
+
+    test('a temporary play comes back to the queue song', () {
+      final queue = QueueModel()
+        ..replace(tracks(['a', 'b']), startIndex: 1)
+        ..playTemporary(track('t'), position: Duration.zero, playing: true);
+      expect(queue.state.upNext, track('b'));
+    });
+
+    test('a live stream has none', () {
+      final queue = QueueModel()..replace(tracks(['a', 'b']));
+      queue.playLive(
+        const LiveTarget(pluginId: 'fmp-test', roomId: 'r', title: 'Room'),
+        position: Duration.zero,
+        playing: true,
+      );
+      expect(queue.state.upNext, isNull);
+    });
+  });
 }
