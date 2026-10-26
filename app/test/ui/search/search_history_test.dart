@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
+import 'package:fmp/plugins/source_dto.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_source_plugin.dart';
 import '../support/shell_harness.dart';
 
 void main() {
@@ -15,8 +17,19 @@ void main() {
   Future<ShellHarness> open(
     WidgetTester tester, {
     List<String> seeded = const [],
+    bool otherSource = false,
   }) async {
     final h = ShellHarness();
+    if (otherSource) {
+      h.sources.add(
+        FakeSourcePlugin(
+          (_) => const [],
+          id: 'other',
+          name: 'Other Source',
+          onSearch: (_) => const SearchPage(items: [], hasMore: false),
+        ),
+      );
+    }
     await h.pumpShell(tester);
     await tester.runAsync(() async {
       final repository = h
@@ -132,5 +145,26 @@ void main() {
     expect(await stored(tester, h), isEmpty);
     expect(find.text('Search history'), findsNothing);
     expect(find.text('Type a keyword to search'), findsOneWidget);
+  });
+
+  testWidgets('switching the source searches again without recording', (
+    tester,
+  ) async {
+    final h = await open(tester, otherSource: true);
+    await submit(tester, 'lofi');
+    await h.loadSettings(tester);
+    expect(await stored(tester, h), ['lofi']);
+    await tester.runAsync(
+      () => h.container(tester).read(searchHistoryRepositoryProvider).clear(),
+    );
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Other Source'));
+    await tester.pump();
+    await tester.pump();
+    await h.loadSettings(tester);
+
+    final other = h.sources.whereType<FakeSourcePlugin>().last;
+    expect(other.searches.single.keyword, 'lofi');
+    expect(await stored(tester, h), isEmpty);
   });
 }

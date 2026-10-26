@@ -253,11 +253,11 @@ void main() {
       await _search(tester, 'night');
       await tester.pump(const Duration(seconds: 7));
 
-      // 空白的輸入框會列出搜尋歷史、蓋住失敗畫面：先清掉歷史，重試鈕才看得到。
-      await tester.runAsync(
-        () => h.container(tester).read(searchHistoryRepositoryProvider).clear(),
-      );
+      // 空白的輸入框列出搜尋歷史（剛送出的 night）、蓋住失敗畫面：清掉歷史，重試鈕才看得到。
       await _tapAndSettle(tester, find.byTooltip('Clear'));
+      await h.loadSettings(tester);
+      await _tapAndSettle(tester, find.widgetWithText(TextButton, 'Clear'));
+      await h.loadSettings(tester);
       await _tapAndSettle(tester, find.widgetWithText(FilledButton, 'Retry'));
       expect(h.plugin.liveSearches.map((query) => query.keyword), [
         'night',
@@ -266,6 +266,11 @@ void main() {
 
       await _tapAndSettle(tester, find.widgetWithText(ChoiceChip, 'Live'));
       expect(h.plugin.liveSearches, hasLength(2));
+      // 重試與換篩選不記進搜尋歷史，只有送出才記。
+      final stored = await tester.runAsync(
+        () => h.container(tester).read(searchHistoryRepositoryProvider).list(),
+      );
+      expect(stored, isEmpty);
     });
 
     testWidgets('typing is stored as the text of the field', (tester) async {

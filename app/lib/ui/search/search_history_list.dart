@@ -3,13 +3,15 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
+import 'package:fmp/ui/toast/toaster.dart';
 
-/// 搜尋歷史，最新的在前（ADR 0035 §決定 9）；表一變動就重讀。讀失敗時當作沒有歷史：
-/// 這是搜尋框的輔助，不值得一個錯誤畫面。
+/// 搜尋歷史，最新的在前（ADR 0035 §決定 9）；表一變動就重讀。讀失敗時畫面當作沒有歷史
+/// （這是搜尋框的輔助，不值得一個錯誤畫面），報告在搜尋頁的 `ref.listen`。
 final searchHistoryProvider = StreamProvider<List<SearchHistoryEntry>>(
   (ref) => ref.watch(searchHistoryRepositoryProvider).watch(),
 );
@@ -33,6 +35,21 @@ class SearchHistoryList extends ConsumerWidget {
     final t = ref.watch(translationsProvider).search;
     final spacing = AppTokens.of(context).spacing;
     final repository = ref.read(searchHistoryRepositoryProvider);
+
+    // 使用者的動作：失敗才提示。
+    void run(Future<void> Function() write, String operation) {
+      final toaster = ref.read(toasterProvider);
+      unawaited(
+        write().catchError(
+          (Object error, StackTrace stackTrace) => toaster.error(
+            AppError.wrap(error, stackTrace),
+            operation: operation,
+            tag: 'search',
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -47,7 +64,8 @@ class SearchHistoryList extends ConsumerWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => unawaited(repository.clear()),
+                onPressed: () =>
+                    run(repository.clear, 'Failed to clear the search history'),
                 child: Text(t.historyClear),
               ),
             ],
@@ -60,11 +78,18 @@ class SearchHistoryList extends ConsumerWidget {
               final entry = entries[index];
               return ListTile(
                 leading: const Icon(Icons.history),
-                title: Text(entry.query, maxLines: 1),
+                title: Text(
+                  entry.query,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: IconButton(
                   icon: const Icon(Icons.close),
                   tooltip: t.historyDelete,
-                  onPressed: () => unawaited(repository.delete(entry.query)),
+                  onPressed: () => run(
+                    () => repository.delete(entry.query),
+                    'Failed to remove a search history entry',
+                  ),
                 ),
                 onTap: () => onSearch(entry.query),
               );

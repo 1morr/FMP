@@ -455,7 +455,7 @@ void main() {
     });
 
     test('rejects a change to the parts compared in full', () async {
-      // 佇列、播放狀態、匯入紀錄、遠端欄位與項目旗標：筆數不變，只有內容比對看得到。
+      // 佇列、播放狀態、匯入紀錄、遠端欄位、項目旗標與搜尋歷史：筆數不變，只有內容比對看得到。
       final cases = <String, String>{
         'queue rank':
             'UPDATE queue_entries SET shuffle_rank = 5 '
@@ -479,6 +479,10 @@ void main() {
         'mix seed':
             "UPDATE playlists SET mix_seed_source_id = 'other' "
             "WHERE kind = 'mix'",
+        'search history time':
+            "UPDATE search_history SET searched_at = 1 WHERE query = 'lofi'",
+        'search history query':
+            "UPDATE search_history SET query = 'rock' WHERE query = 'lofi'",
       };
       for (final MapEntry(:key, :value) in cases.entries) {
         await writeFull();
