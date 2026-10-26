@@ -52,7 +52,6 @@ void main() {
     expect(UnimportedSetting.streamPriority, 'streamPriority');
     expect(UnimportedSetting.cacheLimit, 'cacheLimit');
     expect(UnimportedSetting.homeRanking, 'homeRanking');
-    expect(UnimportedSetting.searchHistory, 'searchHistory');
   });
 
   Future<PluginPageHarness> open(

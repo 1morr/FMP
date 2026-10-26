@@ -365,6 +365,26 @@ void main() {
           handle.dispose();
         });
 
+        testWidgets('search, with the search history, at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.runAsync(() async {
+            final repository = h
+                .container(tester)
+                .read(searchHistoryRepositoryProvider);
+            await repository.record('lofi');
+            await repository.record('jazz');
+          });
+          await h.loadSettings(tester);
+          expect(find.text('lofi'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('search results and the player bar at $width', (
           tester,
         ) async {

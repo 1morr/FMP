@@ -24,7 +24,7 @@ ImportBundle convertWith(
   LegacySettings settings, {
   LegacyImportSource source = LegacyImportSource.database,
   bool importOutputDevice = false,
-  int searchHistoryCount = 0,
+  List<LegacySearchHistory> searchHistory = const [],
   List<String> fontChoices = const [],
 }) {
   final base = legacySnapshot(settings: settings);
@@ -34,10 +34,7 @@ ImportBundle convertWith(
     playQueues: base.playQueues,
     playHistory: base.playHistory,
     settings: base.settings,
-    searchHistory: [
-      for (var i = 0; i < searchHistoryCount; i++)
-        LegacySearchHistory(id: i, query: 'q$i', timestamp: DateTime.utc(2020)),
-    ],
+    searchHistory: searchHistory,
     downloadTasks: base.downloadTasks,
     radioStations: base.radioStations,
     lyricsMatches: base.lyricsMatches,
@@ -629,11 +626,8 @@ void main() {
   );
 
   group('settings without a home are listed only when changed', () {
-    List<String> listed(LegacySettings s, {int searchHistory = 0}) =>
-        convertWith(
-          s,
-          searchHistoryCount: searchHistory,
-        ).record.summary.unimportedSettings;
+    List<String> listed(LegacySettings s) =>
+        convertWith(s).record.summary.unimportedSettings;
 
     LegacySettings priority(String youtube) => LegacySettings(
       sourceSettings: [
@@ -666,7 +660,6 @@ void main() {
         'homeRanking',
       ]);
       expect(listed(LegacySettings(railExpanded: true)), isEmpty);
-      expect(listed(LegacySettings(), searchHistory: 2), ['searchHistory']);
     });
 
     test('blank values do not count as changed', () {
@@ -681,11 +674,57 @@ void main() {
             railExpanded: true,
             primaryColor: 1,
             maxCacheSizeMB: 64,
+            homeRankingSourcePriority: 'netease,youtube',
           ),
-          searchHistory: 1,
         ),
-        ['cacheLimit', 'searchHistory'],
+        ['cacheLimit', 'homeRanking'],
       );
+    });
+  });
+
+  group('search history', () {
+    LegacySearchHistory row(int id, String query, int minute) =>
+        LegacySearchHistory(
+          id: id,
+          query: query,
+          timestamp: DateTime.utc(2020, 1, 1, 0, minute),
+        );
+
+    List<(String, DateTime)> converted(List<LegacySearchHistory> rows) => [
+      for (final e in convertWith(
+        LegacySettings(),
+        searchHistory: rows,
+      ).searchHistory)
+        (e.query, e.searchedAt),
+    ];
+
+    test('queries are trimmed, blanks dropped, duplicates keep the newest', () {
+      expect(
+        converted([
+          row(1, ' lofi ', 1),
+          row(2, '   ', 5),
+          row(3, 'lofi', 3),
+          row(4, 'jazz', 2),
+          row(5, '', 4),
+        ]),
+        [
+          ('lofi', DateTime.utc(2020, 1, 1, 0, 3)),
+          ('jazz', DateTime.utc(2020, 1, 1, 0, 2)),
+        ],
+      );
+    });
+
+    test('only the newest 50 are kept', () {
+      final entries = converted([
+        for (var i = 0; i < 60; i++) row(i, 'q$i', i),
+      ]);
+      expect(entries.length, 50);
+      expect(entries.first.$1, 'q59');
+      expect(entries.last.$1, 'q10');
+    });
+
+    test('nothing is written when there is no history', () {
+      expect(converted(const []), isEmpty);
     });
   });
 }

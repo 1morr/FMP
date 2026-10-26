@@ -26,7 +26,6 @@ abstract final class UnimportedSetting {
   static const streamPriority = 'streamPriority';
   static const cacheLimit = 'cacheLimit';
   static const homeRanking = 'homeRanking';
-  static const searchHistory = 'searchHistory';
 }
 
 /// 設定段的結果，由轉換器併進匯入包與摘要。
@@ -203,7 +202,7 @@ ConvertedSettings convertLegacySettings(
     playback: playback,
     browseAsLoggedIn: browse,
     layout: layout,
-    unimported: _unimported(snapshot, s),
+    unimported: _unimported(s),
   );
 }
 
@@ -227,7 +226,7 @@ int? _nearestChanged(int legacy, int legacyDefault, List<int> options) {
 }
 
 /// 舊版有、新版沒有落腳處，而且使用者改過的設定。
-List<String> _unimported(LegacySnapshot snapshot, LegacySettings s) => [
+List<String> _unimported(LegacySettings s) => [
   if (s.sourceSettings.any(_streamPriorityChanged))
     UnimportedSetting.streamPriority,
   if ((s.maxCacheSizeMB > 0 &&
@@ -239,7 +238,6 @@ List<String> _unimported(LegacySnapshot snapshot, LegacySettings s) => [
           s.homeRankingSourcePriority != _defaultHomeRankingPriority) ||
       s.disabledHomeRankingSources.trim().isNotEmpty)
     UnimportedSetting.homeRanking,
-  if (snapshot.searchHistory.isNotEmpty) UnimportedSetting.searchHistory,
 ];
 
 bool _streamPriorityChanged(LegacySourceSettings entry) {

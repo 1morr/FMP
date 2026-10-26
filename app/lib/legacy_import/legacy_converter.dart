@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:fmp/data/import/import_bundle.dart';
 import 'package:fmp/data/import/import_summary.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/mix_identity.dart';
@@ -126,6 +127,7 @@ final class _Conversion {
     final playlists = _playlists();
     final queue = _queue();
     final history = _history();
+    final searchHistory = _searchHistory();
     final radioStations = _radioStations();
     final tracks = _tracks();
     final origins = _trackOrigins();
@@ -156,6 +158,7 @@ final class _Conversion {
       queue: queue.entries,
       playerState: queue.state,
       history: history,
+      searchHistory: searchHistory,
       radioStations: radioStations,
       trackOrigins: origins,
       accounts: converted?.accounts ?? const [],
@@ -394,6 +397,27 @@ final class _Conversion {
     final title = blankToNull(queue.mixTitle);
     if (!queue.isMixMode || mixId == null || title == null) return null;
     return MixIdentity(pluginId: legacyYoutube, mixId: mixId, title: title);
+  }
+
+  // ------------------------------------------------------------ 搜尋歷史（ADR 0035 §決定 12）
+
+  /// 關鍵字去掉前後空白、空的丟掉，同一個關鍵字取最新的時間，只留最新 50 筆
+  /// （新版的上限，`SearchHistoryRepository.limit`）。不進摘要：結果對話框沒有這一項。
+  List<ImportSearchHistoryEntry> _searchHistory() {
+    final newest = <String, DateTime>{};
+    for (final row in snapshot.searchHistory) {
+      final query = row.query.trim();
+      if (query.isEmpty) continue;
+      final seen = newest[query];
+      if (seen == null || row.timestamp.isAfter(seen)) {
+        newest[query] = row.timestamp;
+      }
+    }
+    final entries = [
+      for (final MapEntry(:key, :value) in newest.entries)
+        ImportSearchHistoryEntry(query: key, searchedAt: value),
+    ]..sort((a, b) => b.searchedAt.compareTo(a.searchedAt));
+    return entries.take(SearchHistoryRepository.limit).toList();
   }
 
   // ------------------------------------------------------------ 播放歷史（§5.5）

@@ -16,13 +16,13 @@ import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/legacy_import/legacy_converter.dart';
 import 'package:fmp/legacy_import/legacy_database_reader.dart';
-import 'package:fmp/legacy_import/legacy_settings_converter.dart';
 import 'package:fmp/legacy_import/legacy_snapshot.dart';
 import 'package:path/path.dart' as p;
 
@@ -164,9 +164,12 @@ void main() {
         const LayoutState(panelExpanded: false, railExpanded: false),
       );
       expect(bundle.browseAsLoggedIn, expectedBrowse);
-      expect(bundle.record.summary.unimportedSettings, [
-        UnimportedSetting.searchHistory,
-      ]);
+      expect(bundle.record.summary.unimportedSettings, isEmpty);
+      // 合成庫的兩筆搜尋歷史都匯入，最新的在前。
+      expect(
+        [for (final e in bundle.searchHistory) e.query],
+        ['synthetic query two', 'synthetic query one'],
+      );
 
       await _writeAndVerify(bundle, temp);
 
@@ -185,6 +188,13 @@ void main() {
       expect(
         await NetworkSettingsRepository(database).read(),
         NetworkSettings.empty,
+      );
+      expect(
+        [
+          for (final e in await SearchHistoryRepository(database).list())
+            e.query,
+        ],
+        ['synthetic query two', 'synthetic query one'],
       );
       final sources = SourceSettingsRepository(database);
       for (final entry in expectedBrowse.entries) {

@@ -33,6 +33,7 @@ const backupCarriedTables = [
   'queue_entries',
   'player_state',
   'play_history',
+  'search_history',
   'source_settings',
   'developer_settings',
   'radio_stations',

@@ -29,6 +29,7 @@ import 'generated/schema_v18.dart' as v18;
 import 'generated/schema_v19.dart' as v19;
 import 'generated/schema_v20.dart' as v20;
 import 'generated/schema_v21.dart' as v21;
+import 'generated/schema_v22.dart' as v22;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -2281,5 +2282,68 @@ void main() {
         await db.close();
       },
     );
+  }
+
+  // v22 加 search_history（ADR 0035 §決定 9）：新表升級後是空的，其餘資料不變。
+  test(
+    'migration from v21 to v22 keeps existing data and adds an empty table',
+    () async {
+      await verifier.testWithDataIntegrity(
+        oldVersion: 21,
+        newVersion: 22,
+        createOld: v21.DatabaseAtV21.new,
+        createNew: v22.DatabaseAtV22.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          // 使用者記過的值，升級後不能變。
+          batch.insert(
+            oldDb.layoutState,
+            const v21.LayoutStateData(
+              id: 1,
+              playerTab: 'queue',
+              panelExpanded: 0,
+              panelWidth: 480,
+              railExpanded: 1,
+            ),
+          );
+        },
+        validateItems: (newDb) async {
+          expect(await newDb.select(newDb.layoutState).get(), [
+            const v22.LayoutStateData(
+              id: 1,
+              playerTab: 'queue',
+              panelExpanded: 0,
+              panelWidth: 480,
+              railExpanded: 1,
+            ),
+          ]);
+          expect(await newDb.select(newDb.searchHistory).get(), isEmpty);
+        },
+      );
+    },
+  );
+
+  for (var from = 1; from <= 21; from++) {
+    test('migration from v$from to v22 adds search_history', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 22);
+
+      await db.customStatement(
+        "INSERT INTO search_history (query, searched_at) VALUES ('a', 5)",
+      );
+      final row = await db
+          .customSelect('SELECT query, searched_at FROM search_history')
+          .getSingle();
+      expect(row.data, {'query': 'a', 'searched_at': 5});
+      // 主鍵是 query：同一個關鍵字插不進第二列。
+      await expectLater(
+        db.customStatement(
+          "INSERT INTO search_history (query, searched_at) VALUES ('a', 6)",
+        ),
+        throwsA(anything),
+      );
+      await db.close();
+    });
   }
 }

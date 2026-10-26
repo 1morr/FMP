@@ -141,6 +141,10 @@ ImportBundle fullBundle() {
       ImportHistoryEntry(track: b.key, playedAt: at(12)),
       ImportHistoryEntry(track: a.key, playedAt: at(11)),
     ],
+    searchHistory: [
+      ImportSearchHistoryEntry(query: 'lofi', searchedAt: at(20)),
+      ImportSearchHistoryEntry(query: 'jazz', searchedAt: at(21)),
+    ],
     radioStations: [
       ImportRadioStation(
         pluginId: 'bilibili',

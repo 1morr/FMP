@@ -22,6 +22,7 @@ import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/player_mode.dart';
@@ -281,6 +282,13 @@ final class StagingImport {
             playedAt: entry.playedAt,
           ),
       ]);
+      batch.insertAll(db.searchHistoryTable, [
+        for (final entry in bundle.searchHistory)
+          SearchHistoryTableCompanion.insert(
+            query: entry.query,
+            searchedAt: entry.searchedAt,
+          ),
+      ]);
       batch.insertAll(db.radioStationsTable, [
         for (final (index, station) in bundle.radioStations.indexed)
           RadioStationsTableCompanion.insert(
@@ -440,6 +448,7 @@ final class StagingImport {
     'match_results',
     'track_origins',
     'play_history',
+    'search_history',
     'queue_entries',
     'player_state',
     'radio_stations',
@@ -649,6 +658,7 @@ final class StagingImport {
     await _verifyTracks(db, bundle);
     await _verifyPlaylists(db, bundle, trackByKey);
     await _verifyHistory(db, bundle, trackByKey);
+    await _verifySearchHistory(db, bundle);
     await _verifyRadio(db, bundle);
     await _verifyQueue(db, bundle, trackByKey);
     await _verifyRecord(db, bundle, expectedSummary);
@@ -693,6 +703,7 @@ final class StagingImport {
     'queue_entries': bundle.queue.length,
     'player_state': bundle.playerState == null ? 0 : 1,
     'play_history': bundle.history.length,
+    'search_history': bundle.searchHistory.length,
     'radio_stations': bundle.radioStations.length,
     'track_origins': bundle.trackOrigins.length,
     'legacy_imports': 1,
@@ -844,6 +855,27 @@ final class StagingImport {
         throw const _Mismatch(
           'A sampled radio station does not match the bundle',
         );
+      }
+    }
+  }
+
+  /// 搜尋歷史最多 50 筆，整份比對（讀回是最新的在前）。
+  Future<void> _verifySearchHistory(AppDatabase db, ImportBundle bundle) async {
+    final stored = await SearchHistoryRepository(db).list();
+    final expected = [...bundle.searchHistory]
+      ..sort((a, b) {
+        final byTime = b.searchedAt.millisecondsSinceEpoch.compareTo(
+          a.searchedAt.millisecondsSinceEpoch,
+        );
+        return byTime != 0 ? byTime : a.query.compareTo(b.query);
+      });
+    if (stored.length != expected.length) {
+      throw const _Mismatch('Search history length mismatch');
+    }
+    for (final (index, entry) in expected.indexed) {
+      if (stored[index].query != entry.query ||
+          _ms(stored[index].searchedAt) != _ms(entry.searchedAt)) {
+        throw const _Mismatch('The search history does not match the bundle');
       }
     }
   }
