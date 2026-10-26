@@ -18,6 +18,7 @@ import 'package:fmp/data/repositories/appearance_settings_repository.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/data/repositories/network_settings_repository.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/playback_settings_repository.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
@@ -87,6 +88,7 @@ void main() {
     );
     await PlayHistoryRepository(current)
         .record(old, playedAt: at(1), limit: 100);
+    await SearchHistoryRepository(current).record('old query');
     await RadioRepository(current).add(
       pluginId: 'bilibili',
       roomId: 'old-room',
@@ -172,6 +174,7 @@ void main() {
       queue: base.queue,
       playerState: base.playerState,
       history: base.history,
+      searchHistory: base.searchHistory,
       radioStations: base.radioStations,
       trackOrigins: base.trackOrigins,
       accounts: [imported('bilibili', 'imported-b'), imported('youtube', 'y')],
@@ -254,6 +257,10 @@ void main() {
       bundle.playerState,
     );
     expect(await count(database, 'play_history'), bundle.history.length);
+    expect(
+      [for (final e in await SearchHistoryRepository(database).list()) e.query],
+      ['jazz', 'lofi'],
+    );
     expect(
       [for (final s in await RadioRepository(database).list()) s.roomId],
       ['99', 'live1'],

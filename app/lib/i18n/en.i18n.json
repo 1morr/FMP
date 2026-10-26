@@ -32,8 +32,7 @@
     "unimported": {
       "streamPriority": "Stream priority per source",
       "cacheLimit": "Cache limit",
-      "homeRanking": "Home chart order and disabled charts",
-      "searchHistory": "Search history"
+      "homeRanking": "Home chart order and disabled charts"
     },
     "localPlaylists": "{count} platform playlists had an unrecognized or duplicate address and became local playlists.",
     "needsSources": "The imported data uses sources that aren't installed yet. Install them to play and update.",
@@ -98,7 +97,10 @@
     "showParts": "Show parts",
     "hideParts": "Hide parts",
     "loadingParts": "Loading parts",
-    "partsFailed": "Couldn’t load the parts"
+    "partsFailed": "Couldn’t load the parts",
+    "historyTitle": "Search history",
+    "historyClear": "Clear",
+    "historyDelete": "Remove from search history"
   },
   "history": {
     "title": "Play history",

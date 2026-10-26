@@ -32,8 +32,7 @@
     "unimported": {
       "streamPriority": "各音源的串流優先順序",
       "cacheLimit": "快取上限",
-      "homeRanking": "首頁排行的順序與停用",
-      "searchHistory": "搜尋歷史"
+      "homeRanking": "首頁排行的順序與停用"
     },
     "localPlaylists": "{count} 張平台歌單的網址無法辨識或重複，已轉成本機歌單。",
     "needsSources": "匯入的資料用到尚未安裝的音源，安裝後才能播放與更新。",
@@ -98,7 +97,10 @@
     "showParts": "展開分 P",
     "hideParts": "收合分 P",
     "loadingParts": "正在載入分 P",
-    "partsFailed": "無法載入分 P"
+    "partsFailed": "無法載入分 P",
+    "historyTitle": "搜尋歷史",
+    "historyClear": "清除",
+    "historyDelete": "刪除這筆搜尋歷史"
   },
   "history": {
     "title": "播放歷史",

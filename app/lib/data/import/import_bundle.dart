@@ -33,6 +33,7 @@ final class ImportBundle {
     this.queue = const [],
     this.playerState,
     this.history = const [],
+    this.searchHistory = const [],
     this.radioStations = const [],
     this.trackOrigins = const [],
     this.accounts = const [],
@@ -56,6 +57,9 @@ final class ImportBundle {
   /// `currentPosition` 為空）。
   final PlayerState? playerState;
   final List<ImportHistoryEntry> history;
+
+  /// 搜尋歷史（ADR 0035 §決定 12）：已經去重（trim 後的關鍵字不重複）、最多 50 筆，順序不拘。
+  final List<ImportSearchHistoryEntry> searchHistory;
   final List<ImportRadioStation> radioStations;
   final List<ImportTrackOrigin> trackOrigins;
 
@@ -186,6 +190,18 @@ final class ImportHistoryEntry {
 
   final TrackKeyParts track;
   final DateTime playedAt;
+}
+
+/// 搜尋歷史的一筆。
+@immutable
+final class ImportSearchHistoryEntry {
+  const ImportSearchHistoryEntry({
+    required this.query,
+    required this.searchedAt,
+  });
+
+  final String query;
+  final DateTime searchedAt;
 }
 
 /// 電台的一筆；`sort_order` 是它在清單裡的位置，直播狀態不匯入（之後由排程查）。

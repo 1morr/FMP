@@ -32,8 +32,7 @@
     "unimported": {
       "streamPriority": "各音源的串流优先顺序",
       "cacheLimit": "缓存上限",
-      "homeRanking": "首页排行的顺序与停用",
-      "searchHistory": "搜索历史"
+      "homeRanking": "首页排行的顺序与停用"
     },
     "localPlaylists": "{count} 张平台歌单的网址无法识别或重复，已转成本机歌单。",
     "needsSources": "导入的数据用到尚未安装的音源，安装后才能播放与更新。",
@@ -98,7 +97,10 @@
     "showParts": "展开分P",
     "hideParts": "收起分P",
     "loadingParts": "正在载入分P",
-    "partsFailed": "无法载入分P"
+    "partsFailed": "无法载入分P",
+    "historyTitle": "搜索历史",
+    "historyClear": "清除",
+    "historyDelete": "删除这条搜索历史"
   },
   "history": {
     "title": "播放历史",
