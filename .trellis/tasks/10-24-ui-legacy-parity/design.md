@@ -60,6 +60,7 @@
 - `LegacySideRail`：收合 72、展開 256（`AppLayout`），展開時顯示 FMP 名稱與文字標籤；底部一顆展開／收合鈕；狀態寫回 `layout_state.rail_expanded`（依裝置）。保留 `FocusTraversalGroup` 的導覽區（F6）。
 - `ShellDestination.queue` 的根頁是 `QueuePage`；Ctrl+Q／⌥⌘U 改成切到它；`PlayerPage` 不再開佇列。
 - 播放列進度細線：自繪 `ThinProgressBar`（2dp；`MouseRegion` 進入或拖曳時 6dp 加把手，時間浮在把手上方）；觸控上點細線跳轉。讀屏用 `Semantics(slider)` 保留現在的語意。
+- 窄版（<600）不補「上一首」（2026-10-27，U PR 6）：設計稿 PhoneMini 標了「P-11 補上一首」，但 360dp 上三顆 48dp 鈕會讓曲名只剩約 124dp，守不住 ADR 0024 §決定 5 的 160dp；照 R1.4「保留新版的三段控制」，窄版維持播放＋下一首。
 - 面板：`hasNowPlayingPanel(windowClass) && 有曲目` 才放；內容加「下一首」（讀 `QueueState` 的下一個位置，隨機開著時是隨機順序的下一首）、加入歌單鈕；封面與標題可點開 `TrackDetail.webUrl`（新的選填欄位，插件有提供且過允許主機檢查時；否則不可點）。
 
 ## 4. 播放頁（R3）
