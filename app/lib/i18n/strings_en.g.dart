@@ -324,6 +324,12 @@ class Translations$search$en extends Translations$search$zh_TW {
   String get loadingParts => 'Loading parts';
   @override
   String get partsFailed => 'Couldn’t load the parts';
+  @override
+  String get historyTitle => 'Search history';
+  @override
+  String get historyClear => 'Clear';
+  @override
+  String get historyDelete => 'Remove from search history';
 }
 
 // Path: history
@@ -3006,8 +3012,6 @@ class Translations$legacyResult$unimported$en
   String get cacheLimit => 'Cache limit';
   @override
   String get homeRanking => 'Home chart order and disabled charts';
-  @override
-  String get searchHistory => 'Search history';
 }
 
 // Path: appearance.presets

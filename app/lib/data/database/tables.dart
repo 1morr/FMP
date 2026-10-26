@@ -267,6 +267,21 @@ class PlayHistoryTable extends Table {
   late final playedAt = integer().map(const EpochMillisecondsConverter())();
 }
 
+/// 搜尋歷史（ADR 0035 §決定 9）：一個關鍵字一列（trim 後原樣），再搜一次只更新時間。只留最新 50 筆，
+/// 由 `SearchHistoryRepository.record` 在同一個 transaction 裡修剪。`searched_at` 的索引給倒序列出與修剪。
+@TableIndex(name: 'search_history_searched_at', columns: {#searchedAt})
+@DataClassName('SearchHistoryRow')
+class SearchHistoryTable extends Table {
+  @override
+  String get tableName => 'search_history';
+
+  late final query = text()();
+  late final searchedAt = integer().map(const EpochMillisecondsConverter())();
+
+  @override
+  Set<Column<Object>> get primaryKey => {query};
+}
+
 /// 依裝置記住的版面狀態，單列（design §3.4）。不屬於任何設定組：設定包含在備份裡，
 /// 還原到另一台裝置時不該帶來這台的面板寬度，所以 M4 的備份不收它。欄位為空＝沒記過。
 /// 面板的兩欄在播放頁這一版就建好（右側面板在 M2 PR 19 接上），免得再升 schema。

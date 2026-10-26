@@ -367,6 +367,15 @@ class Translations$search$zh_TW {
 
   /// zh-TW: '無法載入分 P'
   String get partsFailed => '無法載入分 P';
+
+  /// zh-TW: '搜尋歷史'
+  String get historyTitle => '搜尋歷史';
+
+  /// zh-TW: '清除'
+  String get historyClear => '清除';
+
+  /// zh-TW: '刪除這筆搜尋歷史'
+  String get historyDelete => '刪除這筆搜尋歷史';
 }
 
 // Path: history
@@ -3873,9 +3882,6 @@ class Translations$legacyResult$unimported$zh_TW {
 
   /// zh-TW: '首頁排行的順序與停用'
   String get homeRanking => '首頁排行的順序與停用';
-
-  /// zh-TW: '搜尋歷史'
-  String get searchHistory => '搜尋歷史';
 }
 
 // Path: appearance.presets

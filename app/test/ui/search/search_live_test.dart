@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
@@ -252,6 +253,10 @@ void main() {
       await _search(tester, 'night');
       await tester.pump(const Duration(seconds: 7));
 
+      // 空白的輸入框會列出搜尋歷史、蓋住失敗畫面：先清掉歷史，重試鈕才看得到。
+      await tester.runAsync(
+        () => h.container(tester).read(searchHistoryRepositoryProvider).clear(),
+      );
       await _tapAndSettle(tester, find.byTooltip('Clear'));
       await _tapAndSettle(tester, find.widgetWithText(FilledButton, 'Retry'));
       expect(h.plugin.liveSearches.map((query) => query.keyword), [

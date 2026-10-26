@@ -238,6 +238,15 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - `log_level` 的字串在 `LogLevelSettingConverter`；Dart 端是 `lib/domain/developer.dart` 的 `LogLevelSetting`（只有 debug、info），
   對到門面的 `LogLevel` 在設定層（`Developer.minimumLogLevel`），資料層不碰 log。
 
+## 搜尋歷史（`search_history_repository.dart`，schema v22）
+
+規則與閘門見 `app/AGENTS.md` § 資料層的 `search_history`；ADR 0035 §決定 9。
+
+- 一個關鍵字一列（`query` 主鍵），`record` 一個 transaction：`insertOnConflictUpdate` 再以 `customStatement` 修剪到最新 50 筆；`customStatement` 不通知串流，所以結尾 `markTablesUpdated`。
+- 畫面用 `watch()`（`changes()` 先訂閱再讀，重疊的重讀只發最後一次），不用 drift 的 `watch()` 查詢（最後一個 listener 離開時排計時器）。
+- 舊資料匯入經 `ImportBundle.searchHistory`（轉換器已去重、取最新 50 筆），`StagingImport` 一併寫入並整份比對；設定頁的取代把它列在 `replacedTables`。
+- 測試：`search_history_repository_test.dart`；時間用 `withClock(Clock.fixed(...))`。
+
 ## 版面狀態（`layout_state_repository.dart`）
 
 規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。

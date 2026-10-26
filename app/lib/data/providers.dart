@@ -19,6 +19,7 @@ import 'package:fmp/data/repositories/plugin_storage_repository.dart';
 import 'package:fmp/data/repositories/queue_repository.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/data/repositories/scheduler_runs_repository.dart';
+import 'package:fmp/data/repositories/search_history_repository.dart';
 import 'package:fmp/data/repositories/tracks_repository.dart';
 
 /// App 唯一的資料庫。`main()` 在 `runApp` 之前開啟（`openAppDatabase`），
@@ -64,6 +65,10 @@ final tracksRepositoryProvider = Provider<TracksRepository>(
 
 final playHistoryRepositoryProvider = Provider<PlayHistoryRepository>(
   (ref) => PlayHistoryRepository(ref.watch(appDatabaseProvider)),
+);
+
+final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>(
+  (ref) => SearchHistoryRepository(ref.watch(appDatabaseProvider)),
 );
 
 final layoutStateRepositoryProvider = Provider<LayoutStateRepository>(

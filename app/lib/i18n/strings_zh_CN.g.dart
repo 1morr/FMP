@@ -338,6 +338,12 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   String get loadingParts => '正在载入分P';
   @override
   String get partsFailed => '无法载入分P';
+  @override
+  String get historyTitle => '搜索历史';
+  @override
+  String get historyClear => '清除';
+  @override
+  String get historyDelete => '删除这条搜索历史';
 }
 
 // Path: history
@@ -2858,8 +2864,6 @@ class Translations$legacyResult$unimported$zh_CN
   String get cacheLimit => '缓存上限';
   @override
   String get homeRanking => '首页排行的顺序与停用';
-  @override
-  String get searchHistory => '搜索历史';
 }
 
 // Path: appearance.presets

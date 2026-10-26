@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
@@ -20,6 +21,7 @@ import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
+import 'package:fmp/ui/search/search_history_list.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/search/source_chips.dart';
 import 'package:fmp/ui/search/video_parts.dart';
@@ -141,8 +143,19 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void _changed(String input) =>
       ref.read(searchInputProvider.notifier).set(input);
 
-  void _submit(String keyword) =>
-      unawaited(ref.read(searchProvider.notifier).search(keyword));
+  /// 使用者送出的搜尋（輸入框的 Enter、點歷史）：記進搜尋歷史再搜。自動載入下一頁、換音源與
+  /// 重試走 [SearchNotifier] 自己，不記。
+  void _submit(String keyword) {
+    unawaited(ref.read(searchHistoryRepositoryProvider).record(keyword));
+    unawaited(ref.read(searchProvider.notifier).search(keyword));
+  }
+
+  /// 點歷史的一筆：填進輸入框再搜。
+  void _searchFromHistory(String keyword) {
+    _text.text = keyword;
+    _changed(keyword);
+    _submit(keyword);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -246,11 +259,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   ) =>
                 PluginOnboarding(hasSource: list.isNotEmpty),
               AsyncData() when list.isEmpty => _noSources(),
-              AsyncData() => _Results(
-                state: search,
-                rooms: rooms,
-                network: network,
-                onRetry: _retry,
+              // 輸入框空白而且有歷史：列出歷史（舊版），沒有歷史照常顯示提示或結果。
+              AsyncData() => ListenableBuilder(
+                listenable: _text,
+                builder: (context, _) {
+                  final history = ref.watch(searchHistoryProvider).value;
+                  if (_text.text.trim().isEmpty &&
+                      history != null &&
+                      history.isNotEmpty) {
+                    return SearchHistoryList(
+                      entries: history,
+                      onSearch: _searchFromHistory,
+                    );
+                  }
+                  return _Results(
+                    state: search,
+                    rooms: rooms,
+                    network: network,
+                    onRetry: _retry,
+                  );
+                },
               ),
               // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
               AsyncError() => _noSources(),
@@ -276,7 +304,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  void _retry() => _submit(ref.read(searchProvider).keyword);
+  void _retry() => unawaited(
+    ref.read(searchProvider.notifier).search(ref.read(searchProvider).keyword),
+  );
 }
 
 /// 結果區：依 [SearchPhase] 顯示提示、載入中、失敗、沒有結果或列表。

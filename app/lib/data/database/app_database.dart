@@ -34,6 +34,7 @@ part 'app_database.g.dart';
     QueueEntriesTable,
     PlayerStateTable,
     PlayHistoryTable,
+    SearchHistoryTable,
     LayoutStateTable,
     AccountsTable,
     SourceSettingsTable,
@@ -55,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -209,6 +210,11 @@ class AppDatabase extends _$AppDatabase {
                 schema.layoutState,
                 schema.layoutState.railExpanded,
               );
+            },
+            from21To22: (m, schema) async {
+              // 新表升級後是空的：舊版 App 沒有存過搜尋歷史。
+              await m.create(schema.searchHistory);
+              await m.create(schema.searchHistorySearchedAt);
             },
           ),
         );
