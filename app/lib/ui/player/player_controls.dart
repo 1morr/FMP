@@ -30,12 +30,16 @@ String? playbackStatusLabel(
 
 /// 上一首。第一首時回到這首開頭，所以一直可以按。
 class PreviousButton extends ConsumerWidget {
-  const PreviousButton({super.key});
+  const PreviousButton({super.key, this.iconSize});
+
+  /// 圖示大小；沒給用主題預設（播放列），播放頁放大。
+  final double? iconSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
+      iconSize: iconSize,
       tooltip: t.previousTooltip,
       icon: const Icon(Icons.skip_previous),
       onPressed: () =>
@@ -46,14 +50,18 @@ class PreviousButton extends ConsumerWidget {
 
 /// 下一首；沒有下一首（也不循環）時停用。
 class NextButton extends ConsumerWidget {
-  const NextButton({super.key, required this.enabled});
+  const NextButton({super.key, required this.enabled, this.iconSize});
 
   final bool enabled;
+
+  /// 圖示大小；沒給用主題預設（播放列），播放頁放大。
+  final double? iconSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
+      iconSize: iconSize,
       tooltip: t.nextTooltip,
       icon: const Icon(Icons.skip_next),
       onPressed: enabled
@@ -181,9 +189,18 @@ class _IconMenuState extends State<IconMenu> {
 /// 播放／暫停。載入、緩衝與等重試時在按鈕裡轉圈，按下是暫停（使用者要的是
 /// 「別播了」）。
 class PlayPauseButton extends ConsumerWidget {
-  const PlayPauseButton({super.key, required this.state});
+  const PlayPauseButton({
+    super.key,
+    required this.state,
+    this.diameter,
+    this.iconSize,
+  });
 
   final PlaybackState state;
+
+  /// 按鈕外框與圖示的大小；沒給用主題預設（播放列），播放頁放大成實心大播放鍵。
+  final double? diameter;
+  final double? iconSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -194,6 +211,10 @@ class PlayPauseButton extends ConsumerWidget {
     };
     final wantsSound = busy || state is Playing;
     return IconButton.filled(
+      iconSize: iconSize,
+      style: diameter == null
+          ? null
+          : IconButton.styleFrom(fixedSize: Size.square(diameter!)),
       tooltip: wantsSound ? t.pauseTooltip : t.playTooltip,
       onPressed: () {
         final controller = ref.read(playbackControllerProvider);

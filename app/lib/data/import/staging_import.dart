@@ -412,7 +412,6 @@ final class StagingImport {
           .insert(
             LayoutStateTableCompanion.insert(
               id: const Value(1),
-              playerTab: Value(layout.playerTab),
               panelExpanded: Value(layout.panelExpanded),
               panelWidth: Value(layout.panelWidth),
               railExpanded: Value(layout.railExpanded),

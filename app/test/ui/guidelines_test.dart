@@ -3010,12 +3010,12 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
         });
       }
 
-      // 播放頁（design §9.3）：毛玻璃疊在模糊的封面上，最淺與最深的封面各驗一次對比度。
-      // 三種版面各一個寬度：手機、兩欄、三欄；沒有封面時是實色背景。
+      // 播放頁（design §9.3、§4）：控制疊在模糊的封面上，最淺與最深的封面各驗一次對比度。
+      // 三種版面各一個大小：窄版（手機）、寬版、矮版（橫向手機）；沒有封面時是實色背景。
       for (final size in const [
         Size(400, 800),
         Size(1000, 700),
-        Size(1800, 900),
+        Size(914, 411),
       ]) {
         for (final artwork in [null, ...TestArtwork.values]) {
           testWidgets(
@@ -3051,6 +3051,38 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
             },
           );
         }
+      }
+
+      // 播放頁的曲目詳細（U PR 7）：窄版與矮版是底部面板，寬版是右側滑入的面板。
+      for (final size in const [
+        Size(400, 800),
+        Size(1000, 700),
+        Size(914, 411),
+      ]) {
+        testWidgets('the player page track details at ${size.width}', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness();
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await h.play(tester, [summary('a'), summary('b')]);
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(PlayerBar.titleKey),
+                  matching: find.byType(Text),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(PlayerPage.infoKey));
+          await tester.pumpAndSettle();
+          expect(find.text('Test Source'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
       }
 
       // 佇列頁（M2 PR 18b；ADR 0035 起是導覽目的地，各寬度整頁）：隨機開著、標題列的說明在。

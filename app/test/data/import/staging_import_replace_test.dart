@@ -26,7 +26,6 @@ import 'package:fmp/data/repositories/radio_repository.dart';
 import 'package:fmp/domain/account.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/loop_mode.dart';
-import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/legacy_import/legacy_converter.dart';
 import 'package:path/path.dart' as p;
@@ -120,9 +119,8 @@ void main() {
     ]) {
       await current.customStatement(sql);
     }
-    await LayoutStateRepository(
-      current,
-    ).write(playerTab: PlayerTab.queue, panelExpanded: true, panelWidth: 300);
+    await LayoutStateRepository(current)
+        .write(panelExpanded: true, panelWidth: 300);
     await AppearanceSettingsRepository(current)
         .write(themeMode: ThemeModeSetting.light, locale: LocaleSetting.en);
     await NetworkSettingsRepository(current)
@@ -306,11 +304,7 @@ void main() {
     // 版面只在首次啟動匯入。
     expect(
       await LayoutStateRepository(database).read(),
-      const LayoutState(
-        playerTab: PlayerTab.queue,
-        panelExpanded: true,
-        panelWidth: 300,
-      ),
+      const LayoutState(panelExpanded: true, panelWidth: 300),
     );
     // 每音源設定：browse_as_logged_in 以匯入為準，同一列其他欄位保留；匯入沒有的音源不動。
     final rows = await database

@@ -191,7 +191,6 @@ void main() {
       'player.volumeTooltip': ['Ctrl+↑'],
       'playerPage.closeTooltip': ['Esc'],
       'shell.backTooltip': ['Esc'],
-      'playerPage.showLyricsTooltip': ['Ctrl+L'],
       'shell.queueTooltip': ['Ctrl+Q'],
     };
     for (final MapEntry(key: locale, value: strings) in catalog.entries) {

@@ -247,11 +247,11 @@ void main() {
       expect(rows.where((row) => row.selected), isEmpty);
     });
 
-    testWidgets('the details tab is the room', (tester) async {
+    testWidgets('the info button shows the room', (tester) async {
       final h = await _listening(tester);
       await _liveInfo(tester, h);
       await _openPage(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Details'));
+      await tester.tap(find.byKey(PlayerPage.infoKey));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
