@@ -19,7 +19,7 @@ void main() {
   late ProviderContainer container;
 
   /// `MaterialApp` 以 `ToastHost` 包住 Navigator，和 App 一樣；回傳 [Toaster]。
-  Future<Toaster> pumpHost(WidgetTester tester) async {
+  Future<Toaster> pumpHost(WidgetTester tester, {Widget? home}) async {
     final toaster = Toaster(
       log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
       translations: AppLocale.zhTw.buildSync,
@@ -41,7 +41,7 @@ void main() {
             textLocale: _hant,
           ),
           builder: (context, navigator) => ToastHost(child: navigator!),
-          home: const Scaffold(body: Center(child: Text('home'))),
+          home: Scaffold(body: home ?? const Center(child: Text('home'))),
         ),
       ),
     );
@@ -260,6 +260,44 @@ void main() {
       toaster.info('外殼之上');
       await tester.pumpAndSettle();
       expect(tester.getRect(snackMaterial()).bottom, 600 - 80 - spacing.x4);
+    });
+
+    // 提示顯示之後外殼才長出播放列：提示要跟著上移，不能蓋住它（ADR 0023 §決定 2）。
+    testWidgets('a toast already showing moves with the published height', (
+      tester,
+    ) async {
+      var pageTaps = 0;
+      final toaster = await pumpHost(
+        tester,
+        home: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => pageTaps++,
+          child: const SizedBox.expand(),
+        ),
+      );
+      const spacing = AppSpacing();
+
+      toaster.info('底部');
+      await tester.pumpAndSettle();
+      final oldCenter = tester.getCenter(snackMaterial());
+      expect(tester.getRect(snackMaterial()).bottom, 600 - spacing.x4);
+
+      container.read(toastBottomInsetProvider.notifier).set(80);
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(
+        tester.getRect(snackMaterial()).bottom,
+        lessThanOrEqualTo(600 - 80 - spacing.x4),
+      );
+      // 原來的位置現在是頁面，不是提示；底部的間隔也不吃點擊。
+      await tester.tapAt(oldCenter);
+      expect(pageTaps, 1);
+      await tester.tapAt(const Offset(10, 595));
+      expect(pageTaps, 2);
+
+      container.read(toastBottomInsetProvider.notifier).set(0);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(snackMaterial()).bottom, 600 - spacing.x4);
     });
 
     testWidgets('the published height already includes the safe area', (

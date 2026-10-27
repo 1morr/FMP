@@ -156,6 +156,25 @@ final class QueueState {
               null => null,
             };
 
+  /// 按「下一首」會播的曲目（右側面板的「下一首」）；沒有或不確定時為 `null`。臨時播放中是回到
+  /// 佇列的那一首；隨機開著時是本輪排列的下一個，一輪的最後一首時下一輪還沒排（循環全部也一樣），
+  /// 所以是 `null`；沒有隨機時循環全部的最後一首接回第一首。收聽直播時沒有。
+  TrackInfo? get upNext {
+    if (live != null) return null;
+    final index = currentIndex;
+    if (index == null) return null;
+    if (temporary != null) return entries[index].track;
+    final order = shuffleOrder;
+    if (order != null) {
+      final cursor = order.indexOf(index);
+      return cursor + 1 < order.length
+          ? entries[order[cursor + 1]].track
+          : null;
+    }
+    if (index + 1 < entries.length) return entries[index + 1].track;
+    return loopMode == LoopMode.all ? entries.first.track : null;
+  }
+
   /// [QueueModel.moveNext] 會不會換曲目。臨時播放中一律是（回到佇列）；收聽直播
   /// 時上一首、下一首都停用。
   bool get hasNext {

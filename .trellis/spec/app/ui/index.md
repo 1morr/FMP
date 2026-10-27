@@ -38,7 +38,7 @@ lib/ui/
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
   settings/            # 設定頁（分組、list-detail）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
-  player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」）、播放頁、
+  player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」；頂端的進度細線在 thin_progress_bar）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在
                        # track_detail_parts，trackDetailProvider 與記憶體 LRU 在 track_detail_provider）、
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
@@ -87,7 +87,7 @@ switch (WindowClass.of(context)) {
 
 - `WindowClass.of` 讀最近的 `WindowClassScope`；App 根放了一個（量整個視窗，外殼用它選導覽
   元件），外殼在內容區與播放列各放一個，頁面與播放列讀到的是自己那一塊的等級（視窗 900 寬時
-  內容區扣掉 rail 是 medium）。
+  內容區扣掉 rail 是 medium；播放列橫跨整個視窗，讀到的就是視窗的等級）。
 - 只在等級改變時重建。要精確寬度的版面仍用 `LayoutBuilder`。
 
 ## 字串
@@ -356,7 +356,10 @@ try {
   讀視窗寬度（`MediaQuery`）與整個視窗的 `WindowClass`，所以要放在頁面的 `WindowClassScope` 之外。
 - 面板加進外殼內容區時結構不能隨有無面板而變（`if (hasPanel)` 放在 `Row` 的子項，不要換包法），否則視窗跨過 840
   時頁面的 State 會丟。內容區的焦點順序靠 `FocusTraversalOrder`（頁面 0、面板 1）。
-- 播放列自己量不出整個視窗，要不要開關鈕由外殼的 `PlayerBar(panelToggle:)` 給。
+- 面板只在有東西在播時放（`hasPanel = hasNowPlayingPanel(windowClass) && hasTrack`），所以測面板的測試要先 `h.play(...)`
+  （`now_playing_panel_test.dart` 的 `_pumpPlaying`）；開關鈕在播放列第三段，播放列橫跨整個視窗，沒有別的參數要給。
+- 面板的詳細最後的區塊（「下一首」）經 `TrackDetails(footer:)` 放，播放頁的詳細分頁不給；要讀下一首用 `QueueState.upNext`，
+  不自己從 `entries` 與 `shuffleOrder` 推。
 - 測試：`h.pumpShell(tester, collapsePanel: true)` 把面板收起（測頁面本身在內容區寬度下的版面時用）；找把手用
   `Tooltip` 的 `message`（名稱在 `Semantics`，`find.byTooltip` 找不到）；拖曳用 `TestGesture`（把手用
   `DragStartBehavior.down`，位移就是寬度變化）；寫入次數用 `tableUpdates` 的通知數（`now_playing_panel_test.dart` 的
@@ -479,6 +482,11 @@ try {
 - 播放列曲名下那一行的狀態標示（重試中、等待網路連線、試聽）由 `PlayerBar` 從
   `playbackStateProvider`、`playbackPreviewProvider` 推出；新的標示加在同一個 `switch`，並在
   `player_bar_test.dart` 的 `status labels` 三個寬度各加一例。
+- 播放列的進度是頂端的細線（`ThinProgressBar`，ADR 0035 §決定 4）：位置與時長的判斷與播放頁共用 `watchProgressView`，改了 `Idle` 時的規則就兩邊一起變。
+  細線上沒有文字，時間只在滑鼠移入或拖曳時浮在把手上方（「位置 / 時長」），平時只在語意裡：測試讀 `player_bar_test.dart` 的 `progressValue`
+  （要 `tester.ensureSemantics()`）與 `hoverBar`（滑鼠移到播放列上，再各 `pump` 一幀開始動畫、一幀走完）、點與拖用 `onThinBar(fraction)`。
+  單獨測播放列時放在 `Column(mainAxisSize: min)` 裡（`pumpBar`）：直接放在 `Align` 裡，`Row` 裡的 `Align` 會把播放列撐成整個視窗高，
+  頂端的細線與「滑鼠在播放列外」都不是真實情況。
 - 播放列點曲名與封面那一塊開播放頁（`_OpenPlayerArea`，測試點曲名文字）；播放列的控制項照 ADR 0024 §決定 5 的三段；加功能時同時改 `player_bar_test.dart` 的
   `controls per width`（有宣告與沒宣告輸出裝置兩組）與 golden。golden 沒有真的控制器：播放列新讀的
   provider（音量、輸出裝置、`outputDeviceSelectionProvider`）要在 golden 的 `ProviderScope` override。

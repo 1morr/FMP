@@ -31,6 +31,17 @@ final _barTitle = find.descendant(
   matching: find.text('Song a'),
 );
 
+/// 開外殼並播一首歌：面板只在有曲目時出現（ADR 0035 §決定 2）。
+Future<void> _pumpPlaying(
+  WidgetTester tester,
+  ShellHarness h,
+  Size size,
+) async {
+  await h.pumpShell(tester, size: size);
+  await h.play(tester, [summary('a'), summary('b')]);
+  await h.loadSettings(tester);
+}
+
 /// 把手裡拿焦點的那個 `Focus`。
 Focus _handleFocus(WidgetTester tester) => tester.widget<Focus>(
   find.descendant(of: _handle, matching: find.byType(Focus)).first,
@@ -92,10 +103,10 @@ void main() {
 
         expect(_panel, shown ? findsOneWidget : findsNothing);
         expect(_handle, shown ? findsOneWidget : findsNothing);
-        // 播放列的圖示鈕只在播放列第三段（>= 840 寬；導覽那一側佔 116，所以視窗 >= 956）；較窄的一段是「⋯」的勾選項。
+        // 播放列橫跨整個視窗，所以視窗 >= 840 就是它的第三段，有開關面板的圖示鈕；較窄的沒有。
         expect(
           find.byTooltip(_hide),
-          width >= 956 ? findsOneWidget : findsNothing,
+          width >= 840 ? findsOneWidget : findsNothing,
           reason: 'the icon button is the bar\'s top tier only',
         );
       });
@@ -105,7 +116,7 @@ void main() {
       tester,
     ) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1000, 800));
+      await _pumpPlaying(tester, h, const Size(1000, 800));
       final before = tester.getSize(find.byType(SearchPage)).width;
       await _store(tester, h, expanded: false);
 
@@ -117,15 +128,27 @@ void main() {
       );
     });
 
-    testWidgets('an empty queue shows the empty state', (tester) async {
+    testWidgets('no song: no panel, no handle, the pages take the width', (
+      tester,
+    ) async {
       final h = ShellHarness();
       await h.pumpShell(tester, size: const Size(1000, 800));
+      final before = tester.getSize(find.byType(SearchPage)).width;
 
-      expect(
-        find.descendant(of: _panel, matching: find.text('Nothing is playing')),
-        findsOneWidget,
-      );
-      expect(find.text('Now playing'), findsOneWidget);
+      expect(_panel, findsNothing);
+      expect(_handle, findsNothing);
+
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+      expect(_panel, findsOneWidget);
+      expect(tester.getSize(find.byType(SearchPage)).width, lessThan(before));
+
+      unawaited(h.controller.clear());
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(_panel, findsNothing);
+      expect(tester.getSize(find.byType(SearchPage)).width, before);
     });
 
     testWidgets('a current song shows its details', (tester) async {
@@ -137,17 +160,13 @@ void main() {
         find.descendant(of: _panel, matching: find.text('Song b')),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: _panel, matching: find.text('Nothing is playing')),
-        findsNothing,
-      );
     });
 
     testWidgets('pages measure the width left of the panel', (tester) async {
       final h = ShellHarness();
       // 1000 寬：rail 之後是 expanded（884），再扣掉面板（400）與把手之後的內容區是 476、
       // compact，設定頁因此是分組清單（沒有分隔線）；收起面板時是 expanded 的 list-detail。
-      await h.pumpShell(tester, size: const Size(1000, 800));
+      await _pumpPlaying(tester, h, const Size(1000, 800));
       await tester.tap(find.text('Settings').first);
       await h.loadSettings(tester);
 
@@ -170,7 +189,7 @@ void main() {
     ]) {
       testWidgets(name, (tester) async {
         final h = ShellHarness();
-        await h.pumpShell(tester, size: window);
+        await _pumpPlaying(tester, h, window);
         if (stored != null) await _store(tester, h, width: stored);
 
         expect(_panelWidth(tester), expected);
@@ -181,7 +200,7 @@ void main() {
       tester,
     ) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(840, 800));
+      await _pumpPlaying(tester, h, const Size(840, 800));
       await _store(tester, h, width: 900);
 
       expect(_panelWidth(tester), 336);
@@ -189,7 +208,7 @@ void main() {
 
     testWidgets('the default is clamped to the maximum at 840', (tester) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(840, 800));
+      await _pumpPlaying(tester, h, const Size(840, 800));
 
       expect(_panelWidth(tester), 336);
     });
@@ -198,7 +217,7 @@ void main() {
       'resizing the window clamps what is shown, not what is stored',
       (tester) async {
         final h = ShellHarness();
-        await h.pumpShell(tester, size: const Size(1800, 900));
+        await _pumpPlaying(tester, h, const Size(1800, 900));
         await _store(tester, h, width: 600);
         expect(_panelWidth(tester), 600);
 
@@ -241,7 +260,7 @@ void main() {
       tester,
     ) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1800, 900));
+      await _pumpPlaying(tester, h, const Size(1800, 900));
       await h.loadSettings(tester);
       final writes = _countWrites(tester, h);
       expect(_panelWidth(tester), 480);
@@ -277,7 +296,7 @@ void main() {
       tester,
     ) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1800, 900));
+      await _pumpPlaying(tester, h, const Size(1800, 900));
 
       final wide = await tester.startGesture(tester.getCenter(_handle));
       await wide.moveBy(const Offset(-2000, 0));
@@ -300,7 +319,7 @@ void main() {
       // 視窗 4400 的 40% 是 1760，但 layout_state 的 CHECK 擋 > 1600：沒有這個上限時
       // 放開會寫入失敗（錯誤歷史多一筆），畫面再跳回記住的寬度。
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(4400, 1200));
+      await _pumpPlaying(tester, h, const Size(4400, 1200));
       await h.loadSettings(tester);
 
       final gesture = await tester.startGesture(tester.getCenter(_handle));
@@ -317,7 +336,7 @@ void main() {
 
     testWidgets('the cursor is a left-right resize', (tester) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1000, 800));
+      await _pumpPlaying(tester, h, const Size(1000, 800));
 
       final region = tester.widget<MouseRegion>(
         find.descendant(
@@ -337,7 +356,7 @@ void main() {
       (tester) async {
         // 線放在 Center 裡、沒給高度時是 0 高：畫面上看不到分隔線，聚焦也看不出來。
         final h = ShellHarness();
-        await h.pumpShell(tester, size: const Size(1000, 800));
+        await _pumpPlaying(tester, h, const Size(1000, 800));
         final line = find.descendant(
           of: _handle,
           matching: find.byType(ColoredBox),
@@ -359,7 +378,7 @@ void main() {
       tester,
     ) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1800, 900));
+      await _pumpPlaying(tester, h, const Size(1800, 900));
       await h.loadSettings(tester);
       final writes = _countWrites(tester, h);
       _handleFocus(tester).focusNode!.requestFocus();
@@ -383,7 +402,7 @@ void main() {
 
     testWidgets('the keys stop at the range', (tester) async {
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1000, 800));
+      await _pumpPlaying(tester, h, const Size(1000, 800));
       await _store(tester, h, width: 400);
       _handleFocus(tester).focusNode!.requestFocus();
       await tester.pump();
@@ -431,7 +450,7 @@ void main() {
     testWidgets('the semantics name the handle and its value', (tester) async {
       final handle = tester.ensureSemantics();
       final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1800, 900));
+      await _pumpPlaying(tester, h, const Size(1800, 900));
 
       final node = find.semantics.byValue('480');
       expect(node, findsOneWidget);
@@ -476,7 +495,7 @@ void main() {
       final h = ShellHarness();
       await h.pumpShell(tester, size: const Size(1000, 800));
       await h.play(tester, [summary('a')]);
-      // 1000 寬的播放列（884）是第三段：有隨機與循環，沒有「更多」。
+      // 1000 寬的播放列是第三段：有隨機與循環，沒有「更多」。
       expect(find.byTooltip('Shuffle (Ctrl+S)'), findsOneWidget);
       expect(find.byTooltip('More'), findsNothing);
 
@@ -487,45 +506,21 @@ void main() {
       expect(find.byTooltip('More'), findsNothing);
     });
 
-    testWidgets('the middle tier has a checkable item in its menu', (
-      tester,
-    ) async {
+    testWidgets('at 840 the bar is already the top tier: an icon button, '
+        'no checkable item', (tester) async {
       final h = ShellHarness();
-      // 視窗 840：rail 之後播放列 724，是第二段。
+      // 播放列橫跨整個視窗：視窗 840 就是 expanded 那一段。
       await h.pumpShell(tester, size: const Size(840, 800));
       await h.play(tester, [summary('a')]);
-      expect(
-        find.byTooltip(_hide),
-        findsNothing,
-        reason: 'no icon button here',
-      );
 
-      await tester.tap(find.byTooltip('More'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<CheckboxMenuButton>(
-              find.widgetWithText(CheckboxMenuButton, 'Now playing panel'),
-            )
-            .value,
-        isTrue,
-      );
-      await tester.tap(find.text('Now playing panel'));
+      await tester.tap(find.byTooltip(_hide));
       await h.loadSettings(tester);
       await h.loadSettings(tester);
 
       expect(_panel, findsNothing);
       expect((await _stored(tester, h)).panelExpanded, isFalse);
-      await tester.tap(find.byTooltip('More'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<CheckboxMenuButton>(
-              find.widgetWithText(CheckboxMenuButton, 'Now playing panel'),
-            )
-            .value,
-        isFalse,
-      );
+      expect(find.byTooltip('More'), findsNothing);
+      expect(find.byTooltip(_show), findsOneWidget);
     });
 
     testWidgets(
@@ -588,5 +583,75 @@ void main() {
         expect(find.text('Now playing panel'), findsNothing);
       });
     }
+  });
+
+  // ADR 0035 §決定 2、P-14：面板補「下一首」與加入歌單。
+  group('next up and add to playlist', () {
+    Finder inPanel(Finder finder) =>
+        find.descendant(of: _panel, matching: finder);
+
+    testWidgets('shows the next song after the details', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.play(tester, [summary('a'), summary('b'), summary('c')]);
+      await h.loadSettings(tester);
+
+      expect(inPanel(find.text('Next up')), findsOneWidget);
+      expect(inPanel(find.text('Song b')), findsOneWidget);
+      expect(inPanel(find.text('Uploader b')), findsOneWidget);
+      expect(inPanel(find.text('Song a')), findsOneWidget);
+
+      unawaited(h.controller.next());
+      await tester.pump();
+      await tester.pump();
+      expect(inPanel(find.text('Song c')), findsOneWidget);
+    });
+
+    testWidgets('has nothing on the last song', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.play(tester, [summary('a'), summary('b')], index: 1);
+      await h.loadSettings(tester);
+
+      expect(inPanel(find.text('Song b')), findsOneWidget);
+      expect(inPanel(find.text('Next up')), findsNothing);
+    });
+
+    testWidgets('follows the shuffled order when shuffle is on', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.play(tester, [
+        for (final id in ['a', 'b', 'c', 'd', 'e', 'f']) summary(id),
+      ]);
+      h.controller.setShuffle(true);
+      await tester.pump();
+      await tester.pump();
+
+      final next = h.controller.queue.upNext!;
+      expect(next.sourceId, isNot('a'));
+      expect(inPanel(find.text('Next up')), findsOneWidget);
+      expect(inPanel(find.text(next.displayTitle)), findsOneWidget);
+    });
+
+    testWidgets('the button opens the add to playlist dialog', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1000, 800));
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+
+      await tester.tap(inPanel(find.byTooltip('Add to playlist')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(Dialog),
+          matching: find.text('Add to playlist'),
+        ),
+        findsWidgets,
+      );
+    });
   });
 }

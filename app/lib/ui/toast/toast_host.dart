@@ -173,41 +173,42 @@ class _ToastHostState extends ConsumerState<ToastHost> {
     );
   }
 
-  /// 桌面置中、最寬 [AppLayout.toastMaxWidth]；底部避開外殼發佈的高度與鍵盤。
-  ///
-  /// `Scaffold` 已經把 floating 的 SnackBar 放在底部安全區之上，所以只補超出
-  /// 安全區的部分。
+  /// 桌面置中、最寬 [AppLayout.toastMaxWidth]。底部的避讓不在這裡：由 [build] 的 Scaffold 底部間隔
+  /// 負責（顯示後外殼的高度才變時，提示也跟著動）。
   EdgeInsets _margin(MediaQueryData media, AppSpacing spacing) {
-    final occupied = math.max(
-      ref.read(toastBottomInsetProvider),
-      media.viewInsets.bottom,
-    );
     final side = math.max(
       spacing.x4,
       (media.size.width - AppLayout.toastMaxWidth) / 2,
     );
-    return EdgeInsets.fromLTRB(
-      side,
-      0,
-      side,
-      spacing.x4 + math.max(0.0, occupied - media.viewPadding.bottom),
-    );
+    return EdgeInsets.fromLTRB(side, 0, side, spacing.x4);
   }
 
-  // 最外層的 Overlay 給提示自己的 tooltip（無障礙導覽時的關閉鈕）用：宿主在
-  // Navigator 之上，Navigator 的 Overlay 在它下面，找不到。
+  // 底部避讓（外殼發佈的高度與鍵盤）是 Scaffold 的 bottomNavigationBar 間隔：Scaffold 把 floating 的
+  // SnackBar 放在它之上，所以已經顯示的提示在高度改變時由版面自己重排，不必重送。間隔沒有子元件，
+  // 不吃點擊；extendBody 讓 body 仍是整個視窗，body 外再包原本的 MediaQuery，頁面的版面不變。
   @override
-  Widget build(BuildContext context) => Overlay.wrap(
-    child: ScaffoldMessenger(
-      key: _messengerKey,
-      child: Scaffold(
-        // 宿主本身不畫東西，頁面由 Navigator 裡的路由自己畫。
-        // ignore: fmp_lints/fmp_design_tokens — 透明是「不畫」，不是設計值。
-        backgroundColor: Colors.transparent,
-        // 鍵盤由頁面自己的 Scaffold 處理；宿主縮了會把整個 Navigator 一起縮。
-        resizeToAvoidBottomInset: false,
-        body: widget.child,
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final occupied = math.max(
+      ref.watch(toastBottomInsetProvider),
+      media.viewInsets.bottom,
+    );
+    // 最外層的 Overlay 給提示自己的 tooltip（無障礙導覽時的關閉鈕）用：宿主在
+    // Navigator 之上，Navigator 的 Overlay 在它下面，找不到。
+    return Overlay.wrap(
+      child: ScaffoldMessenger(
+        key: _messengerKey,
+        child: Scaffold(
+          // 宿主本身不畫東西，頁面由 Navigator 裡的路由自己畫。
+          // ignore: fmp_lints/fmp_design_tokens — 透明是「不畫」，不是設計值。
+          backgroundColor: Colors.transparent,
+          // 鍵盤由頁面自己的 Scaffold 處理；宿主縮了會把整個 Navigator 一起縮。
+          resizeToAvoidBottomInset: false,
+          extendBody: true,
+          bottomNavigationBar: SizedBox(height: occupied),
+          body: MediaQuery(data: media, child: widget.child),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

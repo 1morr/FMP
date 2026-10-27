@@ -2169,7 +2169,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `ToastHost` 在 `MaterialApp.builder`，以自己的 `Overlay`、`ScaffoldMessenger`、透明
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
-  不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
+  不顯示，位置避開 `toastBottomInsetProvider`（宿主 `watch` 它，以 Scaffold 的 `bottomNavigationBar` 空間隔加 `extendBody` 讓 SnackBar 浮在上面，所以提示顯示之後外殼才長出播放列時，提示會跟著上移，不是顯示當下算一次的 margin）。
+  閘門：`test/ui/toast/toast_host_test.dart`（`a toast already showing moves with the published height`）、`test/ui/player/player_bar_test.dart`（`a toast showing when the bar appears does not cover it`）。
   根 Navigator 推上對話框或底部面板時收起當下那則（下拉與彈出選單、全螢幕頁不算）：手機上外殼的位移正好落在高一點的對話框的按鈕列，
   上一個動作留下的提示會蓋住新對話框的「儲存」、吃掉點擊；開著之後才送的照常在它之上。觀察者是 `toastRouteObserverProvider`，
   包 `ToastHost` 的 `fmpMaterialApp` 要給 `navigatorObservers`（`FmpApp`、`ShellHarness`、`toast_layering_test.dart`），漏給就不會收。
@@ -2454,7 +2455,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   ADR 否決 `flutter_adaptive_scaffold`。各頁的頁頂是 `PageAppBar`（`page_app_bar.dart`：置中標題、內頁自動放返回鈕；
   搜尋頁的搜尋框是它的標題、靠左，多選時 `TrackSelectionBar` 把整條換成選取列，Ctrl+F 先退出選取模式再聚焦搜尋框；每頁包 `PageSurface`，頁頂只跟自己那一頁的捲動變色）。導覽項都是首頁｜搜尋｜音樂庫｜佇列｜電台｜設定（ADR 0035 §決定 2；
   `ShellDestination` 的順序就是 `IndexedStack` 與導覽項的順序，導覽項的圖示與文字只有 `_destinationLabel` 一份），App 開在
-  首頁。播放列在內容區（與右側面板）下方、橫跨兩者，佇列是空的時不佔位置。閘門：`test/ui/shell/app_shell_test.dart` 的
+  首頁。medium 以上的外殼是一個 `Column`：標題列的位置（Windows 自繪標題列，U PR 15 才有）、側欄加內容區加右側面板、最底下的播放列；
+  播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以它的寬度等級就是視窗的；compact 是播放列在底部導覽列上面。佇列是空的時
+  播放列不佔位置（沒有曲目也沒有直播時不建）。閘門：`test/ui/shell/app_shell_test.dart` 的 `the player bar spans the window`（700、1000、
+  1400 寬、側欄收合與展開：播放列從 x=0 到視窗右緣、側欄在它上面結束；面板在頁面右邊、播放列上面；compact；沒有曲目時都不佔位置；914x360 不溢位；`the bottom safe area is left once, under the bar`：有播放列時側欄不再留底部安全區）、
   `navigation per window class`（每種元件六個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）、
   `the legacy side rail`（預設收合、展開與記住、減少動態、展開鈕按了焦點留著、矮視窗可捲）、`page_app_bar_test.dart`（每個目的地的標題置中、內頁的返回鈕、
   只有自己那一頁的捲動讓頁頂變色）、`search_page_test.dart` 的 `Ctrl+F leaves selection mode and focuses the field`。
@@ -2605,14 +2609,20 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   歌單、重複加入與取消、多分 P 影片加全部分 P、取不到分 P 時提示且不開對話框、分 P 列、歷史、佇列、首頁卡片且沒有「從歷史移除」）、
   `mix_ui_test.dart` 的 `a row menu adds the song to a playlist and leaves the mix alone`。
 - 右側「正在播放」面板（`lib/ui/shell/now_playing_panel.dart`，design §9.4，ADR 0024 §決定 3）：
-  - 出現：整個視窗 >= 840（expanded 以上，`hasNowPlayingPanel`）而且沒收起。compact、medium 沒有面板也沒有任何開關。
-    面板在內容區（頁面）右邊、中間是拖曳把手；播放列在兩者下方橫跨，所以開關面板不改變播放列的分段。頁面的
+  - 出現：整個視窗 >= 840（expanded 以上，`hasNowPlayingPanel`）、沒收起、而且有東西在播（曲目或直播，`hasNowPlaying`；沒有曲目時外殼不放面板，
+    頁面拿到整個寬度，舊版 P-15 的做法）。compact、medium 沒有面板也沒有任何開關。
+    面板在內容區（頁面）右邊、中間是拖曳把手；播放列在它們與側欄下方橫跨整個視窗，所以開關面板不改變播放列的分段。頁面的
     `WindowClassScope` 只量扣掉面板與把手後的寬度（視窗 1000 時頁面只剩 476、是 compact，設定頁是分組清單，視窗更寬才回到 medium）。外殼內容區的結構不隨面板
-    有無而變，視窗跨過 840 時頁面不重建（設定頁選的組留著）。內容是標題列（「正在播放」加收起鈕）與目前這首的
-    `TrackDetails`（與播放頁「詳細」同一個 widget），佇列空的時是空狀態；底色是主題的 surface，不是毛玻璃（毛玻璃只在播放頁）。
-    記住收起的狀態時，佇列是空的就沒有地方展開它（播放列沒出現、播放頁也開不了），加歌之後才有入口。
-    閘門：`now_playing_panel_test.dart` 的 `when it shows`（400／700／839／840／1000／1800、收起、空狀態、有歌、
-    `pages measure the width left of the panel`）。
+    有無而變，視窗跨過 840 時頁面不重建（設定頁選的組留著）。內容是標題列（「正在播放」、加入歌單鈕、收起鈕）與目前這首的
+    `TrackDetails`（與播放頁「詳細」同一個 widget，面板多給 `footer`），詳細最後是「下一首」（縮圖、曲名、上傳者，舊版面板 P-14 的做法；
+    讀 `QueueState.upNext`：下一首是按「下一首」會播的那首，隨機開著時是本輪排列的下一個，一輪最後一首時下一輪還沒排所以沒有，
+    沒有隨機時循環全部的最後一首接回第一首，臨時播放中是回到佇列的那首，直播沒有；沒有下一首時整段不畫）；加入歌單鈕開
+    `showAddToPlaylist`（直播時沒有）。收聽直播時內容是 `LiveDetails`。底色是主題的 surface，不是毛玻璃（毛玻璃只在播放頁）。
+    記住收起的狀態時，沒有曲目就沒有地方展開它（播放列沒出現、播放頁也開不了），加歌之後才有入口。
+    曲目的封面與標題目前不可點；開原網頁（`TrackDetail.webUrl`）在 U PR 16。
+    閘門：`now_playing_panel_test.dart` 的 `when it shows`（400／700／839／840／1000／1800、收起、`no song: no panel…`、有歌、
+    `pages measure the width left of the panel`）、`next up and add to playlist`（下一首、最後一首沒有、隨機的順序、加入歌單鈕）、
+    `queue_model_test.dart` 的 `upNext`。
   - 寬度（`panelWidthFor`，數值在 `AppLayout`）：下限 320dp、上限視窗寬 x 0.4（上限低於下限時取下限，視窗 840 時是 336；
     也不超過 `AppLayout.panelMaxWidth` 1600，等於資料庫的 CHECK，視窗超過 4000 時沒有它寫入會失敗），預設 412、
     extraLarge 480。每次排版依目前視窗夾取畫面上的寬度，不改寫記住的值（資料庫只擋 > 1600）。閘門：`width` 群組
@@ -2624,32 +2634,39 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     與增減值的可調整元件（名稱在 `Semantics`，Tooltip 設 `excludeFromSemantics`，所以測試不能用 `find.byTooltip` 找把手）。
     寫入追上之前畫面維持剛設的寬度（連按不會跳回）；寫失敗時改回以儲存的為準，這一支沒有閘門。閘門：`keyboard`
     群組（`left widens by 16…`、`the keys stop at the range`、`the semantics name the handle and its value`）。
-  - 開關（`panel_expanded`，沒記過是展開）有三個入口，切換同一個值並寫入：面板標題列的收起鈕；播放列的圖示鈕
-    （整個視窗 >= 840 且播放列在第三段；播放列在 600–839 時是那一段「⋯」的勾選項，因為播放列自己量不出整個視窗，
-    由外殼以 `PlayerBar.panelToggle` 給）；播放頁「⋯」的勾選項（expanded 以上才有）。閘門：`the toggles` 群組
-    （收起與展開、播放列分段不變、medium 的勾選項、播放頁的項目與 compact／medium 沒有項目）。重開 App 仍記得由
+  - 開關（`panel_expanded`，沒記過是展開）有三個入口，切換同一個值並寫入：面板標題列的收起鈕；播放列第三段的圖示鈕
+    （播放列橫跨整個視窗，所以第三段就是視窗 >= 840，`PlayerBar` 沒有額外參數，medium 的「⋯」沒有勾選項）；
+    播放頁「⋯」的勾選項（expanded 以上才有）。閘門：`the toggles` 群組
+    （收起與展開、播放列分段不變、840 寬已是第三段而沒有「⋯」、播放頁的項目與 compact／medium 沒有項目）。重開 App 仍記得由
     `layout_state` 的測試與 `layoutStateProvider` 保證，沒有整個 App 重開的測試。
   - 焦點：把手與面板在「內容」焦點區之內（F6 的三區不變）；F6 進內容區是頁面的第一個項目，Tab 走完頁面才到把手與面板。
     `focusInto` 向該區的走訪策略問第一個項目（`traversalDescendants` 是掛上的先後，不是走訪順序；改回它時 F6 不會落在頁面上）。
     閘門：`now_playing_panel_test.dart` 的 `the handle is in the tab order, after the pages`、`app_shell_test.dart` 的
     `focus regions` 群組。內容區另用 `OrderedTraversalPolicy`（頁面 0、面板 1）明訂順序：目前的版面裡預設的閱讀順序也是
     頁面先（把手從頂端到底，整區落在同一帶、由左而右），所以換掉它沒有測試會紅，review 時看。
-  - 視覺：guideline 測試的 `the now playing panel at …`（淺色、深色 x 1000、1800）、golden
-    `now_playing_panel_golden_test.dart`（1000、1800，只守版面結構）。
+  - 視覺：guideline 測試的 `the now playing panel at …`（淺色、深色 x 1000、1400、1800，有下一首）、golden
+    `now_playing_panel_golden_test.dart`（1000、1800，側欄、頁面區、面板與橫跨的播放列，只守版面結構）。
 - 外殼量底部被佔住的高度（播放列＋底部導覽列＋安全區）發佈給 `toastBottomInsetProvider`；頁面
   不發佈。播放頁在最上層時（`playerPageOpenProvider`，由播放頁的 route 在 push、pop、被移除時設定）蓋住了
   播放列與導覽，外殼改發佈底部安全區（`viewPadding.bottom`），關掉後回到最後量到的高度。閘門：`app_shell_test.dart` 的
   `the bottom inset for toasts`、`toast_host_test.dart` 的 `position` 群組（含鍵盤：位移是鍵盤高度減
   `viewPadding`）、`player_page_test.dart` 的 `toasts`、`integration_test/toast_layering_test.dart` 的
   `a toast shows above the player page, on the safe area`。
-- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5）：< 600 播放、下一首；600–839 上一首、
+- 播放列的控制項依它自己的寬度分三段（ADR 0024 §決定 5；ADR 0035 起播放列橫跨整個視窗，所以就是視窗的寬度）：< 600 播放、下一首；600–839 上一首、
   播放、下一首、音量圖示（點開彈出式滑桿，裡面也能靜音）、「⋯」選單（隨機、循環、輸出裝置）；840 以上
-  隨機、上一首、播放、下一首、循環，右側是（整個視窗 >= 840 時的）開關右側面板鈕、輸出裝置鈕、靜音鈕與音量滑桿（右側擠時滑桿先縮短）；曲名至少 160dp；medium 那一段的「⋯」在整個視窗 >= 840 時多一個「正在播放面板」勾選項（見上面「右側『正在播放』面板」）。輸出裝置只在
+  隨機、上一首、播放、下一首、循環，右側是開關右側面板鈕、輸出裝置鈕、靜音鈕與音量滑桿（右側擠時滑桿先縮短）；曲名至少 160dp。輸出裝置只在
   平台宣告能選時（`outputDeviceSelectionProvider`，Android 沒有）出現，不是看後端有沒有清單。循環按一下
   依關閉 → 全部 → 單曲輪轉。點曲名與封面那一塊開播放頁（見下面「播放頁」）。閘門：`test/ui/player/player_bar_test.dart`
   的 `controls per width`（599／600／839／840 等邊界，各自有宣告與沒宣告輸出裝置的一組，Android 沒有輸出
   裝置鈕、「⋯」裡也沒有）、`shuffle and loop` 群組、golden `player_bar_golden_test.dart`（三個寬度，只守
   版面結構）。
+- 播放列的進度是頂端的細線（`ThinProgressBar`，`lib/ui/player/thin_progress_bar.dart`，ADR 0035 §決定 4，P-12），不再有帶時間的 Slider 那一行：
+  平時 2dp，滑鼠移入播放列（`PlayerBar` 裡的 `MouseRegion`，整條都算）或拖曳中變 6dp、出現把手，把手上方浮著「位置 / 時長」；點細線跳轉、水平拖曳 seek（放開才送出，
+  拖曳中只改畫面）；可點可拖的範圍是頂端 8dp，等於播放列上方的留白（觸控點得到；再高就蓋到控制項的點擊區，點按鈕上緣會變成 seek）。能不能 seek、位置與時長同播放頁的 `ProgressRow`，共用 `watchProgressView`（`Idle` 時的規則見下一條）；
+  不能 seek 時不長粗、不出時間，也不在 Tab 順序裡（同停用的 `Slider`）。語意是滑桿（名稱「播放進度」、值是位置文字、增減各 10%，同原本的 `Slider`），手勢本身不報語意；減少動態時粗細立即變。直播沒有細線（直播的事實
+  放在曲名欄，同以前）。細線在 Tab 順序裡（播放列焦點區），聚焦時同 hover 的 6dp 與把手、外圍是主題的焦點框（`AppTokens.focusRingColor`）；←／→ 一次 `seekStepSeconds` 秒（同 Shift+←／→，有修飾鍵的交給全域快捷鍵）。閘門：`player_bar_test.dart` 的 `dragging the progress line…`、`tapping the line…`、`the played part of the line is filled`、`… the top edge of a control presses it, not the line`（400、1000）、
+  `the line is 2dp and grows to 6dp…`、`reduced motion…`、`Tab reaches the line…`、`the arrow keys seek…`、`the line is a slider for screen readers…`、`after a restore`、`live_player_test.dart`（直播沒有細線）、guideline 測試的
+  `the player bar progress line…`（平時與滑鼠移入，400、1000、1400）、golden `player_bar_golden_test.dart`。
 - 播放列的音量（ADR 0018 §決定 10 的音量與靜音分開記）：滑桿 0–100%，拖曳當下就 `setVolume`（同時取消
   靜音）；音量拖到 0 不算靜音；靜音鈕切換 `toggleMute`，滑桿仍顯示記住的音量，圖示反映靜音與音量大小。
   Ctrl+↑／↓ 一次 ±5%（整數百分點，夾在 0–100%，靜音中就是取消靜音再調整）。UI 讀

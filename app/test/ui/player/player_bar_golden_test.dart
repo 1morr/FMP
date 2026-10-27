@@ -20,7 +20,7 @@ import '../support/shell_harness.dart';
 // `flutter test --update-goldens test/ui/player/player_bar_golden_test.dart`。
 
 /// 播放中、在 1:05 的一首，只有寬度不同。
-Widget _bar(double width, {bool panelToggle = false}) {
+Widget _bar(double width) {
   return SizedBox(
     width: width,
     height: 120,
@@ -47,7 +47,7 @@ Widget _bar(double width, {bool panelToggle = false}) {
           const AsyncData((devices: <OutputDevice>[], selected: null)),
         ),
         outputDeviceSelectionProvider.overrideWithValue(true),
-        // 右側面板展開（整個視窗 >= 840 時播放列有開關面板的鈕）。
+        // 右側面板展開（播放列 expanded 那一段有開關面板的鈕）。
         panelExpandedProvider.overrideWithValue(true),
         playbackProgressProvider.overrideWithValue(
           const AsyncData(
@@ -68,9 +68,13 @@ Widget _bar(double width, {bool panelToggle = false}) {
         locale: flutterLocaleOf(LocaleSetting.zhTw),
         supportedLocales: supportedFlutterLocales,
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        // Column 給不限高的約束，同外殼：播放列只有自己的高度，頂端是 2dp 的進度細線。
         home: Align(
           alignment: Alignment.bottomCenter,
-          child: WindowClassScope(child: PlayerBar(panelToggle: panelToggle)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [WindowClassScope(child: PlayerBar())],
+          ),
         ),
       ),
     ),
@@ -89,7 +93,7 @@ void main() {
     goldenTest(
       'the player bar, $name ($width wide)',
       fileName: 'player_bar_$name',
-      builder: () => _bar(width, panelToggle: name == 'expanded'),
+      builder: () => _bar(width),
     );
   }
 }

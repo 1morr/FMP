@@ -51,9 +51,10 @@ enum ShellDestination { home, search, library, queue, radio, settings }
 /// - compact：底部 `NavigationBar`，播放列在它上面；
 /// - medium 以上：左側舊版的可展開側欄（[LegacySideRail]，收合 72dp、展開 256dp，各寬度同一個）。
 ///
-/// 後者的播放列在內容區（與右側面板）下方、橫跨兩者（ADR 的「依內容區寬度」）。
-/// 整個視窗 >= 840 時內容區右邊是「正在播放」面板與拖曳把手（[NowPlayingPanelSide]），
-/// 頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉面板後的寬度等級。
+/// 後者的版面是一個 `Column`：標題列的位置（Windows 自繪標題列，PR 15 才有）、側欄加內容區加右側面板、
+/// 最底下的播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以播放列讀到的是整個視窗的
+/// 寬度等級。整個視窗 >= 840 且有曲目（或在收聽直播）時內容區右邊是「正在播放」面板與拖曳把手
+/// （[NowPlayingPanelSide]），頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉側欄與面板後的寬度等級。
 ///
 /// 內容區頂端是全域離線提示（`OfflineBanner`，ADR 0016 §決定 7），換頁時
 /// 留著。
@@ -378,7 +379,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
 
     final windowClass = WindowClass.of(context);
-    final hasPanel = hasNowPlayingPanel(windowClass);
+    // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走）。
+    final hasPanel = hasNowPlayingPanel(windowClass) && hasTrack;
     final pages = WindowClassScope(
       child: Column(
         children: [
@@ -446,7 +448,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         ? FocusScope(
             node: _playerBar,
             child: FocusTraversalGroup(
-              child: WindowClassScope(child: PlayerBar(panelToggle: hasPanel)),
+              child: const WindowClassScope(child: PlayerBar()),
             ),
           )
         : null;
@@ -490,19 +492,25 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       ),
       _ => Scaffold(
-        body: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        body: Column(
           children: [
-            navigation(
-              LegacySideRail(
-                selectedIndex: index,
-                onSelected: onSelected,
-                destinations: destinations,
-              ),
-            ),
+            // 標題列的位置：Windows 自繪標題列在 PR 15 放這裡，其他平台不佔位。
             Expanded(
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 播放列在側欄下方、自己留底部安全區，側欄不要再留一次。
+                  MediaQuery.removePadding(
+                    context: context,
+                    removeBottom: playerBar != null,
+                    child: navigation(
+                      LegacySideRail(
+                        selectedIndex: index,
+                        onSelected: onSelected,
+                        destinations: destinations,
+                      ),
+                    ),
+                  ),
                   Expanded(
                     child: SafeArea(
                       left: false,
@@ -510,14 +518,15 @@ class _AppShellState extends ConsumerState<AppShell> {
                       child: content,
                     ),
                   ),
-                  _BottomInsetReporter(
-                    onHeight: _publishInset,
-                    child: playerBar == null
-                        ? const SizedBox.shrink()
-                        : SafeArea(top: false, left: false, child: playerBar),
-                  ),
                 ],
               ),
+            ),
+            // 橫跨整個視窗，側欄下方也是。
+            _BottomInsetReporter(
+              onHeight: _publishInset,
+              child: playerBar == null
+                  ? const SizedBox.shrink()
+                  : SafeArea(top: false, child: playerBar),
             ),
           ],
         ),

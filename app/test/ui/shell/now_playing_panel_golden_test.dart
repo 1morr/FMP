@@ -12,15 +12,16 @@ import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
+import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
 
-// 右側「正在播放」面板在外殼右側的位置（M2 PR 19）：頁面區、把手、面板並排，播放列在
-// 三者下方橫跨。只守版面結構，文字畫成色塊（test/flutter_test_config.dart）。更新：
+// 右側「正在播放」面板在外殼右側的位置（M2 PR 19）：側欄、頁面區、把手、面板並排，播放列在
+// 四者下方橫跨整個視窗（ADR 0035 §決定 4）；面板裡有詳細與「下一首」。只守版面結構，文字畫成色塊（test/flutter_test_config.dart）。更新：
 // `flutter test --update-goldens test/ui/shell/now_playing_panel_golden_test.dart`。
-// 導覽欄與頁面不在這裡（要整個外殼的資料）：頁面區用一塊實色代替。
+// 側欄與頁面不在這裡（要整個外殼的資料）：側欄與頁面區各用一塊實色代替。
 
 Widget _shell(double width, double height) {
   return SizedBox(
@@ -84,6 +85,12 @@ Widget _shell(double width, double height) {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Builder(
+                        builder: (context) => ColoredBox(
+                          color: Theme.of(context).colorScheme.surfaceContainer,
+                          child: const SizedBox(width: AppLayout.railCollapsed),
+                        ),
+                      ),
                       Expanded(
                         child: Builder(
                           builder: (context) => ColoredBox(
@@ -95,7 +102,7 @@ Widget _shell(double width, double height) {
                     ],
                   ),
                 ),
-                const WindowClassScope(child: PlayerBar(panelToggle: true)),
+                const WindowClassScope(child: PlayerBar()),
               ],
             ),
           ),

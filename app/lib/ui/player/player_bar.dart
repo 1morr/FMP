@@ -13,6 +13,7 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/player/thin_progress_bar.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
@@ -41,14 +42,12 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 /// 曲名下面那一行在「重試中」「等待網路連線」「試聽」時先寫狀態再接上傳者，
 /// 三種寬度都在曲名欄裡，不另外佔位置。
 ///
-/// [panelToggle] 是整個視窗 >= 840（右側「正在播放」面板可能出現）：expanded 以上那一段在
-/// 輸出裝置鈕前多一顆開關面板的鈕，medium 那一段把它放進「⋯」的勾選項。播放列自己的
-/// 寬度量不出整個視窗，所以由外殼給。
+/// 播放列橫跨整個視窗（ADR 0035 §決定 4），所以它的寬度等級就是視窗的：expanded 以上（右側
+/// 「正在播放」面板可能出現）那一段在輸出裝置鈕前多一顆開關面板的鈕。
+///
+/// 頂端是 2dp 的進度細線（[ThinProgressBar]），滑鼠移入播放列時變粗；直播沒有細線。
 class PlayerBar extends ConsumerWidget {
-  const PlayerBar({super.key, this.panelToggle = false});
-
-  /// 是否提供開關右側面板的控制（見類別說明）。
-  final bool panelToggle;
+  const PlayerBar({super.key});
 
   /// 曲名與上傳者那一欄；測試以它量曲名的寬度。
   static const titleKey = ValueKey('player-bar-title');
@@ -115,8 +114,9 @@ class PlayerBar extends ConsumerWidget {
     final track = _OpenPlayerArea(child: trackRow);
     final playPause = PlayPauseButton(state: state);
     final selectsDevice = ref.watch(outputDeviceSelectionProvider);
-    final Widget progress = live == null
-        ? const ProgressRow()
+    // 曲目的進度是頂端的細線（[ThinProgressBar]）；直播沒有進度，下面放直播的事實。
+    final Widget? liveFacts = live == null
+        ? null
         : Padding(
             padding: EdgeInsets.symmetric(vertical: spacing.x1),
             child: Align(
@@ -128,7 +128,6 @@ class PlayerBar extends ConsumerWidget {
       queue: queue,
       live: live != null,
       selectsDevice: selectsDevice,
-      panelToggle: panelToggle,
     );
     final (compactControls, mediumControls, wideControls) = live == null
         ? (
@@ -157,101 +156,136 @@ class PlayerBar extends ConsumerWidget {
               playPause,
               const StopLiveButton(),
               const _VolumeMenu(),
-              // 直播時「⋯」只剩開關面板與輸出裝置，兩個都沒有就不放。
-              if (panelToggle || selectsDevice) more,
+              // 直播時「⋯」只剩輸出裝置，沒有就不放。
+              if (selectsDevice) more,
             ],
             <Widget>[playPause, const StopLiveButton()],
           );
 
+    final layout = switch (WindowClass.of(context)) {
+      WindowClass.compact => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ?liveFacts,
+          Row(
+            children: [
+              Expanded(child: track),
+              ...compactControls,
+            ],
+          ),
+        ],
+      ),
+      WindowClass.medium => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ?liveFacts,
+          Row(
+            children: [
+              Expanded(child: track),
+              ...mediumControls,
+            ],
+          ),
+        ],
+      ),
+      // 3：4：3 讓 840 寬時曲名仍有約 180dp。
+      WindowClass.expanded ||
+      WindowClass.large ||
+      WindowClass.extraLarge => Row(
+        children: [
+          Expanded(flex: 3, child: track),
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: wideControls,
+                ),
+                if (live != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: spacing.x1),
+                    child: LiveFacts(
+                      info: live,
+                      alignment: WrapAlignment.center,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _PanelToggleButton(),
+                  if (selectsDevice) const _OutputDeviceButton(),
+                  const _MuteButton(),
+                  // 開關面板的鈕讓右側變擠時，滑桿先縮短。
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: AppLayout.volumeSliderWidth,
+                      ),
+                      child: const _VolumeSlider(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    };
+
     return Material(
       color: theme.colorScheme.surfaceContainer,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: spacing.x4,
-          vertical: spacing.x2,
+      child: _HoverRegion(
+        builder: (context, hovering) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: spacing.x4,
+                vertical: spacing.x2,
+              ),
+              child: layout,
+            ),
+            if (live == null)
+              PositionedDirectional(
+                start: 0,
+                end: 0,
+                top: 0,
+                child: ThinProgressBar(hovering: hovering),
+              ),
+          ],
         ),
-        child: switch (WindowClass.of(context)) {
-          WindowClass.compact => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              progress,
-              Row(
-                children: [
-                  Expanded(child: track),
-                  ...compactControls,
-                ],
-              ),
-            ],
-          ),
-          WindowClass.medium => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              progress,
-              Row(
-                children: [
-                  Expanded(child: track),
-                  ...mediumControls,
-                ],
-              ),
-            ],
-          ),
-          // 3：4：3 讓 840 寬時曲名仍有約 180dp。
-          WindowClass.expanded ||
-          WindowClass.large ||
-          WindowClass.extraLarge => Row(
-            children: [
-              Expanded(flex: 3, child: track),
-              Expanded(
-                flex: 4,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: wideControls,
-                    ),
-                    if (live == null)
-                      progress
-                    else
-                      Padding(
-                        padding: EdgeInsets.only(bottom: spacing.x1),
-                        child: LiveFacts(
-                          info: live,
-                          alignment: WrapAlignment.center,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (panelToggle) const _PanelToggleButton(),
-                      if (selectsDevice) const _OutputDeviceButton(),
-                      const _MuteButton(),
-                      // 開關面板的鈕讓右側變擠時，滑桿先縮短。
-                      Flexible(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: AppLayout.volumeSliderWidth,
-                          ),
-                          child: const _VolumeSlider(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        },
       ),
     );
   }
+}
+
+/// 滑鼠是否在播放列上（進度細線據此變粗，P-12）。
+class _HoverRegion extends StatefulWidget {
+  const _HoverRegion({required this.builder});
+
+  final Widget Function(BuildContext context, bool hovering) builder;
+
+  @override
+  State<_HoverRegion> createState() => _HoverRegionState();
+}
+
+class _HoverRegionState extends State<_HoverRegion> {
+  var _hovering = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovering = true),
+    onExit: (_) => setState(() => _hovering = false),
+    child: widget.builder(context, _hovering),
+  );
 }
 
 /// 曲名與封面那一塊：點一下開播放頁。自己有一個 `FocusNode`，播放頁關掉後焦點回到
@@ -360,7 +394,6 @@ class _MoreMenu extends ConsumerWidget {
     required this.queue,
     required this.live,
     required this.selectsDevice,
-    required this.panelToggle,
   });
 
   final QueueState queue;
@@ -368,7 +401,6 @@ class _MoreMenu extends ConsumerWidget {
   /// 收聽直播：隨機與循環是佇列的設定，不列。
   final bool live;
   final bool selectsDevice;
-  final bool panelToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -377,7 +409,6 @@ class _MoreMenu extends ConsumerWidget {
     final devices = selectsDevice
         ? ref.watch(playbackOutputDevicesProvider).value
         : null;
-    final panelExpanded = ref.watch(panelExpandedProvider);
     return IconMenu(
       tooltip: t.more,
       icon: const Icon(Icons.more_horiz),
@@ -401,12 +432,6 @@ class _MoreMenu extends ConsumerWidget {
             ),
           ),
         ],
-        if (panelToggle)
-          CheckboxMenuButton(
-            value: panelExpanded,
-            onChanged: (_) => rememberPanel(ref, expanded: !panelExpanded),
-            child: Text(translations.shell.panelMenuItem),
-          ),
         if (selectsDevice)
           SubmenuButton(
             leadingIcon: const Icon(Icons.speaker),
@@ -452,7 +477,7 @@ List<Widget> _deviceItems(
   ];
 }
 
-/// 開關右側面板的鈕（整個視窗 >= 840 時，expanded 以上那一段），照 Spotify 的
+/// 開關右側面板的鈕（expanded 以上那一段），照 Spotify 的
 /// 「正在播放」鈕：面板開著時是選取的樣子。
 class _PanelToggleButton extends ConsumerWidget {
   const _PanelToggleButton();

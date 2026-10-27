@@ -10,6 +10,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_controls.dart';
+import 'package:fmp/ui/player/thin_progress_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
@@ -102,7 +103,7 @@ void main() {
         final h = await _listening(tester, size: Size(width, 800));
         await _liveInfo(tester, h);
 
-        expect(_inBar(find.byType(ProgressRow)), findsNothing);
+        expect(_inBar(find.byType(ThinProgressBar)), findsNothing);
         expect(_inBar(find.byTooltip(_previous)), findsNothing);
         expect(_inBar(find.byTooltip(_next)), findsNothing);
         expect(_inBar(find.byTooltip(_stop)), findsOneWidget);
@@ -123,7 +124,7 @@ void main() {
 
       expect(h.controller.queue.live, isNull);
       expect(h.controller.queue.current?.title, 'Song a');
-      expect(_inBar(find.byType(ProgressRow)), findsOneWidget);
+      expect(_inBar(find.byType(ThinProgressBar)), findsOneWidget);
       expect(_inBar(find.byType(LiveBadge)), findsNothing);
     });
 

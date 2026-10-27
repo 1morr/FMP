@@ -235,7 +235,9 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   @override
   String get panelTitle => 'Now playing';
   @override
-  String get panelEmpty => 'Nothing is playing';
+  String get panelNextUp => 'Next up';
+  @override
+  String get panelAddToPlaylistTooltip => 'Add to playlist';
   @override
   String get panelCollapseTooltip => 'Collapse the now playing panel';
   @override

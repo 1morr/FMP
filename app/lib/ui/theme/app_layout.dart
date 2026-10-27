@@ -44,6 +44,19 @@ abstract final class AppLayout {
   /// 播放列上時間文字的最小寬度：位置在播放中變長變短時，進度條不跟著左右跳。
   static const double playerTimeLabel = 48;
 
+  /// 播放列頂端的進度細線（ADR 0035 §決定 4）：平時 2dp，滑鼠移入播放列或拖曳時 6dp 並出現把手；
+  /// 可點可拖的範圍是頂端 [thinProgressHit]（細線太細，觸控點不到）。它等於播放列上方的留白
+  /// （`spacing.x2`）：再高就蓋到下面控制項的點擊區，點按鈕的上緣會變成 seek。
+  static const double thinProgressHeight = 2;
+  static const double thinProgressHoverHeight = 6;
+  static const double thinProgressThumb = 12;
+  static const double thinProgressHit = 8;
+  static const Duration thinProgressDuration = Duration(milliseconds: 120);
+
+  /// 右側面板「下一首」的縮圖邊長與標題旁的圖示。
+  static const double nextUpArtwork = 56;
+  static const double nextUpIcon = 18;
+
   /// 播放列上音量滑桿的寬度（expanded 以上在靜音鈕旁，medium 在彈出的選單裡）。
   static const double volumeSliderWidth = 112;
 
