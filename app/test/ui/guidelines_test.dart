@@ -40,6 +40,8 @@ import 'package:fmp/radio/radio_status_jobs.dart';
 
 import 'tracks/selection_bar_support.dart';
 
+import 'package:fmp/ui/accounts/account_playlists_state.dart';
+import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/charts/explore_page.dart';
 import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/history/history_state.dart';
@@ -1007,7 +1009,7 @@ void main() {
         testWidgets('library with playlists at $width', (tester) async {
           final handle = tester.ensureSemantics();
           await openLibrary(tester);
-          expect(find.text('Local · 2 songs'), findsOneWidget);
+          expect(find.text('2 songs'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
@@ -1162,10 +1164,78 @@ void main() {
           handle.dispose();
         });
 
+        // 歌單頂圖（U PR 13，R7.6）：收起來之後的置中標題頁頂。展開的在上面的詳情測試裡驗過。
+        testWidgets('the playlist hero collapsed at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = await openLibrary(tester, playlists: false);
+          await tester.runAsync(() async {
+            final repository = h
+                .container(tester)
+                .read(playlistRepositoryProvider);
+            final id = await repository.create(name: 'Long road');
+            await repository.addTracks(id, [
+              for (var i = 0; i < 20; i++) summary('s$i').toTrackInfo(),
+            ]);
+          });
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Long road'));
+          await tester.pumpAndSettle();
+          // 頂圖（280）收成頁頂（56）要捲 224 以上；第一列（頂圖加動作列約 344 之下）剛好落在收起來的
+          // 頁頂下面，沒有被頁頂切掉一半的列。
+          tester
+              .state<ScrollableState>(
+                find.descendant(
+                  of: find.byType(CustomScrollView),
+                  matching: find.byType(Scrollable),
+                ),
+              )
+              .position
+              .jumpTo(288);
+          await tester.pumpAndSettle();
+          expect(find.text('Long road'), findsOneWidget);
+          expect(
+            find.textContaining('20 songs'),
+            findsNothing,
+            reason: 'collapsed',
+          );
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        // 「從歌曲封面選」（U PR 13，R7.7）。
+        testWidgets('the cover picker at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openLibrary(tester);
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.ancestor(
+                    of: find.text('Road trip'),
+                    matching: find.byType(InkWell),
+                  ),
+                  matching: find.byTooltip('More options'),
+                )
+                .first,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Edit'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Pick from song covers'));
+          await tester.pumpAndSettle();
+          expect(find.text('Choose a cover'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         testWidgets('an imported playlist details at $width', (tester) async {
           final handle = tester.ensureSemantics();
           await openDetail(tester, imported: true);
-          expect(find.text('Imported · 4 songs'), findsOneWidget);
+          expect(find.textContaining('4 songs'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();
@@ -3078,6 +3148,108 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
           await tester.pump();
           await tester.pump();
           expect(find.text('Room r2'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // 音樂庫的格狀（U PR 13，R7.5）：本機、匯入與 Mix 歌單，卡片角落的音源圖示；字級 1.0 與 2.0。
+      for (final width in const [400.0, 1000.0, 1400.0]) {
+        for (final scale in const [1.0, 2.0]) {
+          testWidgets('the library grid with sources, text scale $scale, '
+              'at $width', (tester) async {
+            final handle = tester.ensureSemantics();
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            final h = ShellHarness(
+              artworkManager: FakeArtworkManager(),
+              registryOfSources: true,
+              mix: true,
+            );
+            await h.pumpShell(
+              tester,
+              size: Size(width, 900),
+              brightness: brightness,
+              at: ShellDestination.library,
+              collapsePanel: true,
+            );
+            await tester.runAsync(() async {
+              final repository = h
+                  .container(tester)
+                  .read(playlistRepositoryProvider);
+              final road = await repository.create(name: 'Road trip');
+              await repository.addTracks(road, [
+                summary(
+                  'a',
+                  artwork: TestArtwork.darkest.artwork,
+                ).toTrackInfo(),
+              ]);
+              await repository.createImported(
+                pluginId: 'fmp-test',
+                remoteId: 'r1',
+                info: const RemotePlaylistInfo(name: 'Remote one'),
+              );
+              await repository.createMix(
+                name: 'Chill mix',
+                pluginId: 'fmp-test',
+                seedSourceId: 'seed',
+              );
+            });
+            for (var i = 0; i < 3; i++) {
+              await h.loadSettings(tester);
+            }
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 100)),
+            );
+            await tester.pumpAndSettle();
+            expect(find.text('TS'), findsNWidgets(2));
+
+            await expectGuidelines(tester);
+            handle.dispose();
+          });
+        }
+      }
+
+      // 帳號歌單頁的全選與底部動作鈕（U PR 13，R7.10）。
+      for (final width in const [400.0, 1000.0]) {
+        testWidgets('the account playlists bottom bar at $width', (
+          tester,
+        ) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            extraOverrides: [
+              accountPlaylistsProvider('fmp-test').overrideWith(
+                (ref) async => const [
+                  LibraryPlaylist(
+                    playlistId: 'a',
+                    title: 'Road trip',
+                    trackCount: 3,
+                    writable: true,
+                  ),
+                  LibraryPlaylist(
+                    playlistId: 'b',
+                    title: 'Study',
+                    trackCount: 5,
+                    writable: false,
+                  ),
+                ],
+              ),
+            ],
+          );
+          await h.pumpApp(
+            tester,
+            const AccountPlaylistsPage(pluginId: 'fmp-test'),
+            size: Size(width, 800),
+            brightness: brightness,
+          );
+          await h.loadSettings(tester);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Select all'));
+          await tester.pumpAndSettle();
+          expect(find.text('Import selected (2)'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

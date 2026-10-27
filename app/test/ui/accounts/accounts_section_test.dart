@@ -25,6 +25,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../plugins/plugin_harness.dart';
 import '../../support/fake_login_webview.dart';
+import '../support/destructive_support.dart';
 import '../support/plugin_page_harness.dart';
 import '../support/shell_harness.dart';
 
@@ -385,6 +386,7 @@ void main() {
 
     await tester.tap(_inCard(name, _button('Sign out')));
     await tester.pumpAndSettle();
+    expectDestructiveConfirm(tester, 'Sign out');
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog),

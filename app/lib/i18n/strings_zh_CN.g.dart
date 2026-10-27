@@ -884,6 +884,39 @@ class Translations$library$zh_CN extends Translations$library$zh_TW {
   String get importAsMatch => '匹配到其他音源';
   @override
   String get importAsMatchHint => '在其他音源找同一首歌，建成不会刷新的本地歌单';
+  @override
+  String get loadingPlaylists => '正在加载歌单';
+  @override
+  String heroOwner({required Object name}) => '拥有者：${name}';
+  @override
+  String heroImported({required Object source}) => '已导入 · ${source}';
+  @override
+  String durationHoursMinutes({
+    required Object hours,
+    required Object minutes,
+  }) => '${hours} 小时 ${minutes} 分';
+  @override
+  String durationMinutes({required Object minutes}) => '${minutes} 分';
+  @override
+  String get durationUnderMinute => '不到 1 分';
+  @override
+  String get coverFromTracks => '从歌曲封面选';
+  @override
+  String get coverFromTracksTitle => '选择封面';
+  @override
+  String get coverFromTracksLoading => '正在读取歌单的封面';
+  @override
+  String get coverFromTracksEmpty => '歌单里的歌曲都没有封面';
+  @override
+  String get coverFromTracksFailed => '无法读取歌单的封面';
+  @override
+  String coverFromTracksItem({required Object index}) => '第 ${index} 张封面';
+  @override
+  String addToPlaylistTracks({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首歌曲',
+      );
 }
 
 // Path: playlist
@@ -940,6 +973,10 @@ class Translations$playlist$zh_CN extends Translations$playlist$zh_TW {
   String get cancel => '取消';
   @override
   String get removed => '已从歌单移除';
+  @override
+  String get loading => '正在加载歌单';
+  @override
+  String get retry => '重试';
 }
 
 // Path: selection
@@ -2727,6 +2764,10 @@ class Translations$accounts$zh_CN extends Translations$accounts$zh_TW {
   String get liveImportEmpty => '这个账号没有关注的直播间';
   @override
   String liveImportFailed({required Object reason}) => '无法导入电台：${reason}';
+  @override
+  String get selectAll => '全选';
+  @override
+  String get deselectAll => '取消全选';
 }
 
 // Path: errors

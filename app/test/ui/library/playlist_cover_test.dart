@@ -123,7 +123,8 @@ VoidCallback? _save(WidgetTester tester) => tester
 void main() {
   testWidgets('a cover with several images is read through the plugin of the '
       'image that is picked, not the first one', (tester) async {
-    // 匯入歌單的封面常有不同網域的多張：第一張（最大）不屬於任何插件，依尺寸挑中的是第二張。
+    // 匯入歌單的封面常有不同網域的多張：第一張（最大）不屬於任何插件，依尺寸挑中的是第二張
+    // （格狀卡片的封面約 176dp，所以第二張要比這寬、比第一張窄）。
     final (_, requests) = await _open(
       tester,
       artwork: [
@@ -131,7 +132,7 @@ void main() {
           url: Uri.parse('https://other.example/big.jpg'),
           width: 2000,
         ),
-        TrackArtwork(url: Uri.parse(_inPlugin), width: 100),
+        TrackArtwork(url: Uri.parse(_inPlugin), width: 300),
       ],
     );
 

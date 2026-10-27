@@ -11,8 +11,10 @@ import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/library/playlist_service.dart';
 import 'package:fmp/playback/playback_providers.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/empty_state/loading_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -22,6 +24,7 @@ import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
+import 'package:fmp/ui/library/playlist_hero.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/library/remove_from_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
@@ -55,8 +58,9 @@ Future<void> openPlaylist(
 
 /// 歌單詳情（ADR 0033 §決定 9，M4 design §10.4）。
 ///
-/// - 標題列：返回鈕（下面還有頁時）與歌單名稱。
-/// - 標頭：封面（自訂或第一首的）、「本機 · n 首」、描述；下面是「全部加入佇列」（只加入，
+/// - 頁頂：280dp 的模糊頂圖（[PlaylistHeroBar]：封面、名稱、描述、擁有者、首數與總時長、來源徽章），捲動後收成
+///   置中標題與返回鈕；Mix 歌單與讀取中、失敗是一般的 [PageAppBar]。
+/// - 頂圖下面是「全部加入佇列」（只加入，
 ///   ADR 0018 的 D2）與「隨機加入佇列」，同音樂庫卡片選單的那兩項（`PlaylistService.addToQueue`：
 ///   超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中停用）。匯入歌單另有
 ///   「音源 · 擁有者」一行、「刷新」（手動刷新，進行中不能再按）與標頭下的狀態列（design §5.3 的
@@ -161,24 +165,14 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
             ?.playlist
             .name ??
         '';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.removeTitle),
-        content: Text(t.removeBody(count: ids.length, name: name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.removeConfirm),
-          ),
-        ],
-      ),
+    final confirmed = await showDestructiveConfirm(
+      context,
+      title: t.removeTitle,
+      body: t.removeBody(count: ids.length, name: name),
+      confirmLabel: t.removeConfirm,
+      cancelLabel: t.cancel,
     );
-    if (confirmed != true) return false;
+    if (!confirmed) return false;
     try {
       await service.removeEntries(widget.playlistId, ids);
     } on Object catch (error, stackTrace) {
@@ -214,6 +208,32 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final t = translations.playlist;
     final detail = ref.watch(provider);
     final local = detail.value?.playlist.kind == PlaylistKind.local;
+    // 選取列（取代頁頂）；頂圖頁沒有 `PageAppBar`，選取時它蓋在頂圖上。
+    Widget selectionBar(Widget child) => TrackSelectionBar<int>(
+      tracks: _tracks,
+      pluginIds: (ids) => {
+        for (final entry in _entries(ids)) entry.track.sourceTypeId,
+      },
+      actions: [
+        if (ref.watch(remoteRemoveEntryProvider(widget.playlistId)))
+          TrackSelectionAction(
+            icon: Icons.cloud_off_outlined,
+            tooltip: translations.library.removeFromRemote,
+            onPressed: _removeRemoteSelected,
+          ),
+        // 匯入歌單的曲目不能在本地刪（ADR 0019 §決定 4）。
+        if (local)
+          TrackSelectionAction(
+            icon: Icons.remove_circle_outline,
+            tooltip: t.remove,
+            onPressed: _removeSelected,
+          ),
+      ],
+      child: child,
+    );
+    final data = detail.value;
+    // 本機與匯入歌單用 280dp 的頂圖；Mix 歌單、載入中、讀失敗與已刪除維持一般的頁頂。
+    final hero = data != null && data.playlist.kind != PlaylistKind.mix;
     return TrackSelectionScope<int>(
       selection: _selection,
       // 畫面順序（拖曳後還沒寫回時照拖曳的順序）；群組標題不是項目。
@@ -221,58 +241,64 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         if (detail.value case final detail?)
           for (final entry in _shown(detail.entries)) entry.id,
       ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TrackSelectionBar<int>(
-            tracks: _tracks,
-            pluginIds: (ids) => {
-              for (final entry in _entries(ids)) entry.track.sourceTypeId,
-            },
-            actions: [
-              if (ref.watch(remoteRemoveEntryProvider(widget.playlistId)))
-                TrackSelectionAction(
-                  icon: Icons.cloud_off_outlined,
-                  tooltip: translations.library.removeFromRemote,
-                  onPressed: _removeRemoteSelected,
+      child: hero
+          ? Stack(
+              children: [
+                Positioned.fill(child: _body(data)),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: ListenableBuilder(
+                    listenable: _selection,
+                    builder: (context, _) => _selection.active
+                        ? ColoredBox(
+                            color: Theme.of(context).colorScheme.surface,
+                            child: selectionBar(const SizedBox.shrink()),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ),
-              // 匯入歌單的曲目不能在本地刪（ADR 0019 §決定 4）。
-              if (local)
-                TrackSelectionAction(
-                  icon: Icons.remove_circle_outline,
-                  tooltip: t.remove,
-                  onPressed: _removeSelected,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                selectionBar(
+                  PageAppBar(
+                    title: detail.value?.playlist.name ?? '',
+                    actions: [
+                      if (detail.value?.playlist case final playlist?
+                          when playlist.kind == PlaylistKind.mix)
+                        _MixMenu(playlist: playlist),
+                    ],
+                  ),
                 ),
-            ],
-            child: PageAppBar(
-              title: detail.value?.playlist.name ?? '',
-              actions: [
-                if (detail.value?.playlist case final playlist?
-                    when playlist.kind == PlaylistKind.mix)
-                  _MixMenu(playlist: playlist),
+                Expanded(
+                  child: switch (detail) {
+                    AsyncData(value: null) => EmptyState(
+                      icon: Icons.playlist_remove,
+                      title: t.notFound,
+                    ),
+                    AsyncData(value: final detail?) => _body(detail),
+                    // 讀失敗（已在上面報過）：不是空歌單，可以重試。
+                    AsyncError(:final error) => EmptyState(
+                      icon: Icons.error_outline,
+                      error: true,
+                      title: errorMessage(
+                        translations,
+                        AppError.wrap(error, StackTrace.current),
+                      ),
+                      action: OutlinedButton(
+                        onPressed: () => ref.invalidate(provider),
+                        child: Text(t.retry),
+                      ),
+                    ),
+                    AsyncLoading() => LoadingState(message: t.loading),
+                  },
+                ),
               ],
             ),
-          ),
-          Expanded(
-            child: switch (detail) {
-              AsyncData(value: null) => EmptyState(
-                icon: Icons.playlist_remove,
-                title: t.notFound,
-              ),
-              AsyncData(value: final detail?) => _body(detail),
-              // 讀失敗（已在上面報過）：不是空歌單。
-              AsyncError(:final error) => EmptyState(
-                icon: Icons.error_outline,
-                title: errorMessage(
-                  translations,
-                  AppError.wrap(error, StackTrace.current),
-                ),
-              ),
-              AsyncLoading() => const SizedBox.shrink(),
-            },
-          ),
-        ],
-      ),
     );
   }
 
@@ -282,23 +308,7 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
     final playlist = detail.playlist;
     if (playlist.kind == PlaylistKind.mix) return _MixBody(detail: detail);
     final local = playlist.kind == PlaylistKind.local;
-    final header = _Header(detail: detail);
     final entries = _shown(detail.entries);
-    if (entries.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          header,
-          Expanded(
-            child: EmptyState(
-              icon: Icons.queue_music,
-              title: t.empty,
-              body: local ? t.emptyHint : null,
-            ),
-          ),
-        ],
-      );
-    }
     final rows = groupParts(entries);
     Widget row(int index) => switch (rows[index]) {
       PlaylistGroupRow(:final parts) => _GroupHeader(
@@ -315,23 +325,37 @@ class _PlaylistDetailPageState extends ConsumerState<PlaylistDetailPage> {
         removable: local,
       ),
     };
-    final padding = EdgeInsets.only(bottom: spacing.x4);
-    if (!local) {
-      return ListView.builder(
-        padding: padding,
-        itemCount: rows.length + 1,
-        itemBuilder: (context, index) => index == 0 ? header : row(index - 1),
-      );
-    }
-    return ReorderableListView.builder(
-      header: header,
-      padding: padding,
-      // 只有把手能拖（同佇列）：長按留給選單；群組標題沒有把手。
-      buildDefaultDragHandles: false,
-      itemCount: rows.length,
-      // `onReorderItem` 的 `newIndex` 已扣掉被拿起來的那一格（同佇列、音樂庫）。
-      onReorderItem: (from, to) => _reorder(reorderedEntryIds(rows, from, to)),
-      itemBuilder: (context, index) => row(index),
+    return CustomScrollView(
+      slivers: [
+        PlaylistHeroBar(detail: detail),
+        SliverToBoxAdapter(child: _Actions(detail: detail)),
+        if (entries.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              icon: Icons.queue_music,
+              title: t.empty,
+              body: local ? t.emptyHint : null,
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.only(bottom: spacing.x4),
+            sliver: local
+                // 只有把手能拖（同佇列）：長按留給選單；群組標題沒有把手。`onReorderItem` 的
+                // `newIndex` 已扣掉被拿起來的那一格（同佇列、音樂庫）。
+                ? SliverReorderableList(
+                    itemCount: rows.length,
+                    onReorderItem: (from, to) =>
+                        _reorder(reorderedEntryIds(rows, from, to)),
+                    itemBuilder: (context, index) => row(index),
+                  )
+                : SliverList.builder(
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) => row(index),
+                  ),
+          ),
+      ],
     );
   }
 }
@@ -363,8 +387,8 @@ class _MixMenu extends ConsumerWidget {
           ),
           child: Text(t.edit),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
+        DestructiveMenuItem(
+          icon: Icons.delete_outline,
           onPressed: () => unawaited(_delete(context, ref)),
           child: Text(t.delete),
         ),
@@ -493,27 +517,19 @@ class _MixBody extends ConsumerWidget {
   }
 }
 
-/// 標頭：封面、「本機 · n 首」、描述，與「全部加入佇列」「隨機加入佇列」。封面在左、資訊在右
-/// （Spotify、YouTube Music 的歌單頁），按鈕在下面一整列，窄的時候換行。
-class _Header extends ConsumerWidget {
-  const _Header({required this.detail});
+/// 頂圖下面的一列：「全部加入佇列」「隨機加入佇列」（匯入歌單另有「刷新」），與匯入歌單的狀態列。
+/// 封面、名稱、描述等資訊在頂圖（[PlaylistHeroBar]）。按鈕在下面一整列，窄的時候換行。
+class _Actions extends ConsumerWidget {
+  const _Actions({required this.detail});
 
   final PlaylistDetail detail;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).library;
-    final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
     final inMix = ref.watch(inMixProvider);
-    final playlist = detail.playlist;
     final remote = detail.remote;
-    final description = playlist.description;
-    final kind = switch (playlist.kind) {
-      PlaylistKind.local => t.local,
-      PlaylistKind.imported => t.imported,
-      PlaylistKind.mix => t.mix,
-    };
     // 空歌單沒有東西可加；Mix 中佇列不收（同音樂庫卡片選單）。
     final canAdd = !inMix && detail.entries.isNotEmpty;
     return Padding(
@@ -526,51 +542,6 @@ class _Header extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PlaylistCover(
-                artwork: playlist.artwork,
-                firstTrack: detail.entries.firstOrNull?.track,
-                size: AppLayout.playlistHeaderCover,
-              ),
-              SizedBox(width: spacing.x4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$kind · ${trackCountText(t, detail.entries.length)}',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (remote != null)
-                      Text(
-                        [
-                          ref.watch(pluginNameProvider(remote.pluginId)) ??
-                              remote.pluginId,
-                          ?remote.ownerName,
-                        ].join(' · '),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    if (description != null) ...[
-                      SizedBox(height: spacing.x2),
-                      Text(
-                        description,
-                        maxLines: 5,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: spacing.x4),
           Wrap(
             spacing: spacing.x2,
             runSpacing: spacing.x2,
@@ -919,8 +890,8 @@ class _EntryRow extends ConsumerWidget {
           ),
         ),
         if (removable)
-          MenuItemButton(
-            leadingIcon: const Icon(Icons.remove_circle_outline),
+          DestructiveMenuItem(
+            icon: Icons.remove_circle_outline,
             onPressed: () => unawaited(remove()),
             child: Text(t.remove),
           ),

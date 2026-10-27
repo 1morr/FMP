@@ -13,6 +13,7 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/radio/radio_service.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/charts/home_charts.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
@@ -743,8 +744,8 @@ class _StationCard extends ConsumerWidget {
     return TrackRowMenu(
       moreTooltip: t.more,
       menuChildren: [
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
+        DestructiveMenuItem(
+          icon: Icons.delete_outline,
           onPressed: () => unawaited(removeStation(context, ref, station)),
           child: Text(t.remove),
         ),

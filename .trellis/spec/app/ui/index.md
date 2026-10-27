@@ -26,7 +26,7 @@ lib/ui/
   home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider；一排卡片 _ShelfRow：底色卡片、滑鼠移入的箭頭與漸層、滑鼠拖曳；卡片選單重用 PlaylistMenu、removeStation）
   charts/              # 首頁的排行區塊（home_charts）、探索頁（explore_page；openExplore 開在巢狀導覽裡）、
                        # 兩者共用的狀態行、內容狀態與排行曲目列（chart_parts）
-  library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單）、建立與編輯歌單的對話框（playlist_dialogs，
+  library/             # 音樂庫（所有寬度都是歌單卡的格狀、角落的音源圖示、拖曳排序、卡片選單）、歌單詳情的 280dp 頂圖（playlist_hero）、「從歌曲封面選」（cover_picker）、建立與編輯歌單的對話框（playlist_dialogs，
                        # 含自訂封面）、歌單封面（playlist_cover）、歌單詳情（playlist_detail_page；openPlaylist 開在巢狀導覽裡）、
                        # 它們讀的 provider 與分組、重排的純函數（library_state：playlistOverviewsProvider、playlistDetailProvider、
                        # groupParts、reorderedEntryIds）、曲目選單的「加入歌單…」與它的對話框（add_to_playlist）、
@@ -47,7 +47,8 @@ lib/ui/
   tracks/              # NowPlayingOverlay（封面上的在播遮罩，佇列、歷史等共用；暫停或減少動態時不動，所以 pumpAndSettle 的測試要先 disableAnimations，見 ShellHarness.openQueue 與 test/ui/tracks/marker_support.dart 的 reduceMotion）；
                        # track_markers：曲目列的在播標示（currentTrackKeyProvider、watchIsPlaying、TrackCover、playingTitleStyle）與固定寬的時長欄（TrackDuration），新的曲目清單照用；TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
                        # track_selection：多選（TrackSelection、TrackSelectionScope、TrackSelectionBar、SelectableTrackRow）
-  plugins/             # pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
+  dialogs/             # showDestructiveConfirm（刪除與移除的紅色確認鈕）、DestructiveMenuItem（選單裡刪除或移除的項目，error 色）；刪除類的確認與選單項目一律用它們，不各自上色
+  plugins/             # SourceIcon（source_icon：manifest 的 icon，沒有時是名稱縮寫；卡片、歷史、網址匯入共用）、pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、
                        # 確認與網址對話框（plugin_dialogs）、能力名稱與來源的文字（plugin_text）、
                        # 插件列的共用元件（plugin_widgets）、搜尋頁的首次啟動引導（plugin_onboarding）
   accounts/            # 設定頁的帳號頁（accounts_section）、它讀的 provider、登入方式的交集與登入失敗的訊息（accounts_state）、
@@ -223,6 +224,18 @@ try {
   讓變動的串流與重讀跑完。
 
 ## 歌單詳情與「加入歌單…」
+
+U PR 13（ADR 0035 R7.5–R7.10）的寫法：
+
+- 歌單詳情（本機、匯入）的頁頂是 `PlaylistHeroBar`（`SliverAppBar` pinned、280dp）。自己畫頁頂的頁面用 `pageBackButton`（`page_app_bar.dart`）放返回鈕，tooltip 與行為才同 `PageAppBar`。
+  頂圖上的字用 `AppLayout.onHero*`、遮罩 `heroScrim`（不跟主題，`lib/ui/theme/` 豁免 `fmp_design_tokens`）；壓在頂圖上的小色塊（徽章）用成對的語意色，不用半透明白。
+  隨捲動重建的 `flexibleSpace` 不在自己的 `build` 裡建重的子樹（模糊背景）：在外層建好、當參數傳進去，同一個實例才不跟著重建。要驗「收起來」的狀態，測試用 `ScrollPosition.jumpTo(288)`
+  （選對 `CustomScrollView` 底下的 `Scrollable`，`find.byType(Scrollable).first` 常常是別的）讓第一列剛好落在收起的頁頂下面，不被切掉一半（切掉的列會讓 tap target 的 guideline 紅）。
+  sliver 本身沒有 `getSize`：量頂圖高度用 `renderObject<RenderSliver>(find.byType(SliverAppBar)).geometry!.paintExtent`。
+- 新的音源標示一律用 `SourceIcon`（要語意名稱不同時給 `semanticLabel`），不要再各自畫「名稱第一個字」的徽章；測試裡 `ShellHarness` 的 `pluginNameProvider` 只認它自己的 `plugin`（名稱 `Test Source`，縮寫 `TS`）。
+- 新的刪除、移除確認用 `showDestructiveConfirm`，選單項目用 `DestructiveMenuItem`；呼叫端的測試加 `expectDestructiveConfirm`（`test/ui/support/destructive_support.dart`）。
+- 「加入歌單…」`showAddToPlaylist` 依 `WindowClass.of(context)` 選底部面板（compact）或對話框，呼叫端不用管。
+- 帳號歌單頁的測試不必跑 QuickJS：`ShellHarness(extraOverrides: [accountPlaylistsProvider(id).overrideWith(...)])`，資料庫要先備好時給 `ShellHarness(database:)`（`account_playlists_actions_test.dart`）。
 
 規則與閘門見 `app/AGENTS.md` § 介面的「音樂庫」「歌單詳情」「加入歌單…」；ADR 0033 §決定 9、11，M4 design §10.4–§10.6。
 

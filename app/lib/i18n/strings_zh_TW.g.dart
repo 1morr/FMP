@@ -1133,6 +1133,52 @@ class Translations$library$zh_TW {
 
   /// zh-TW: '在其他音源找同一首歌，建成不會刷新的本機歌單'
   String get importAsMatchHint => '在其他音源找同一首歌，建成不會刷新的本機歌單';
+
+  /// zh-TW: '正在載入歌單'
+  String get loadingPlaylists => '正在載入歌單';
+
+  /// zh-TW: '擁有者：{name}'
+  String heroOwner({required Object name}) => '擁有者：${name}';
+
+  /// zh-TW: '已匯入 · {source}'
+  String heroImported({required Object source}) => '已匯入 · ${source}';
+
+  /// zh-TW: '{hours} 小時 {minutes} 分'
+  String durationHoursMinutes({
+    required Object hours,
+    required Object minutes,
+  }) => '${hours} 小時 ${minutes} 分';
+
+  /// zh-TW: '{minutes} 分'
+  String durationMinutes({required Object minutes}) => '${minutes} 分';
+
+  /// zh-TW: '不到 1 分'
+  String get durationUnderMinute => '不到 1 分';
+
+  /// zh-TW: '從歌曲封面選'
+  String get coverFromTracks => '從歌曲封面選';
+
+  /// zh-TW: '選擇封面'
+  String get coverFromTracksTitle => '選擇封面';
+
+  /// zh-TW: '正在讀取歌單的封面'
+  String get coverFromTracksLoading => '正在讀取歌單的封面';
+
+  /// zh-TW: '歌單裡的歌曲都沒有封面'
+  String get coverFromTracksEmpty => '歌單裡的歌曲都沒有封面';
+
+  /// zh-TW: '無法讀取歌單的封面'
+  String get coverFromTracksFailed => '無法讀取歌單的封面';
+
+  /// zh-TW: '第 {index} 張封面'
+  String coverFromTracksItem({required Object index}) => '第 ${index} 張封面';
+
+  /// zh-TW: '(other) {{count} 首歌曲}'
+  String addToPlaylistTracks({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('zh'))(
+        count,
+        other: '${count} 首歌曲',
+      );
 }
 
 // Path: playlist
@@ -1209,6 +1255,12 @@ class Translations$playlist$zh_TW {
 
   /// zh-TW: '已從歌單移除'
   String get removed => '已從歌單移除';
+
+  /// zh-TW: '正在載入歌單'
+  String get loading => '正在載入歌單';
+
+  /// zh-TW: '重試'
+  String get retry => '重試';
 }
 
 // Path: selection
@@ -3711,6 +3763,12 @@ class Translations$accounts$zh_TW {
 
   /// zh-TW: '無法匯入電台：{reason}'
   String liveImportFailed({required Object reason}) => '無法匯入電台：${reason}';
+
+  /// zh-TW: '全選'
+  String get selectAll => '全選';
+
+  /// zh-TW: '取消全選'
+  String get deselectAll => '取消全選';
 }
 
 // Path: errors

@@ -1143,11 +1143,11 @@ void main() {
         await reload(tester, h);
 
         expect(find.text('3:05'), findsOneWidget);
-        // 還沒有插件圖示時是插件名稱的第一個字。
+        // 插件沒有圖示時是名稱的縮寫（`SourceIcon`；「Test Source」是 TS）。
         expect(
           find.descendant(
             of: find.widgetWithText(ListTile, 'Song a'),
-            matching: find.text('T'),
+            matching: find.text('TS'),
           ),
           findsOneWidget,
         );

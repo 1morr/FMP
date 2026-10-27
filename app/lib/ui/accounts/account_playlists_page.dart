@@ -13,6 +13,7 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/accounts/account_import_page.dart';
 import 'package:fmp/ui/accounts/account_playlists_state.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/empty_state/loading_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/library_state.dart' show trackCountText;
@@ -115,7 +116,6 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
   Widget build(BuildContext context) {
     final t = ref.watch(translationsProvider);
     final a = t.accounts;
-    final spacing = AppTokens.of(context).spacing;
     final name = ref.watch(pluginNameProvider(_pluginId)) ?? _pluginId;
     final playlists = ref.watch(accountPlaylistsProvider(_pluginId));
     final imported =
@@ -133,20 +133,7 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageAppBar(
-          title: a.playlistsTitle(name: name),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.only(end: spacing.x2),
-              child: FilledButton(
-                onPressed: chosen.isEmpty || _importing
-                    ? null
-                    : () => unawaited(_import(chosen)),
-                child: Text(a.importSelected(count: chosen.length)),
-              ),
-            ),
-          ],
-        ),
+        PageAppBar(title: a.playlistsTitle(name: name)),
         Expanded(
           child: switch (playlists) {
             AsyncData(:final value) when value.isEmpty => EmptyState(
@@ -179,12 +166,60 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
               t,
               error is AppError ? error : null,
             ),
-            _ => Center(
-              child: CircularProgressIndicator(semanticsLabel: a.working),
-            ),
+            _ => LoadingState(message: a.working),
           },
         ),
+        // 主要動作放底部（手機單手操作，L-23）：全選／取消全選與「匯入所選」。
+        if (selectable.isNotEmpty) _bottomBar(a, selectable, chosen),
       ],
+    );
+  }
+
+  Widget _bottomBar(
+    Translations$accounts$zh_TW a,
+    List<LibraryPlaylist> selectable,
+    List<LibraryPlaylist> chosen,
+  ) {
+    final spacing = AppTokens.of(context).spacing;
+    final all = chosen.length == selectable.length;
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.all(spacing.x4),
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: spacing.x2,
+            runSpacing: spacing.x2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                icon: Icon(all ? Icons.deselect : Icons.select_all),
+                onPressed: _importing
+                    ? null
+                    : () => setState(() {
+                        if (all) {
+                          _selected.clear();
+                        } else {
+                          _selected.addAll([
+                            for (final playlist in selectable)
+                              playlist.playlistId,
+                          ]);
+                        }
+                      }),
+                label: Text(all ? a.deselectAll : a.selectAll),
+              ),
+              FilledButton(
+                onPressed: chosen.isEmpty || _importing
+                    ? null
+                    : () => unawaited(_import(chosen)),
+                child: Text(a.importSelected(count: chosen.length)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -199,6 +234,7 @@ class _AccountPlaylistsPageState extends ConsumerState<AccountPlaylistsPage> {
     }
     return EmptyState(
       icon: Icons.error_outline,
+      error: true,
       title: t.accounts.playlistsFailed,
       body: error == null ? t.errors.unexpected : _reason(t, error),
       action: retry,
