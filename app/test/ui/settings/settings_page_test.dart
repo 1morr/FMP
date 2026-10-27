@@ -1,12 +1,21 @@
+import 'dart:async';
+
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/stream_preferences.dart';
+import 'package:fmp/settings/appearance_settings.dart';
+import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
+import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../support/memory_database.dart';
 import '../support/plugin_page_harness.dart';
 import '../support/shell_harness.dart';
 import '../support/home_shown.dart';
@@ -227,5 +236,174 @@ void main() {
 
     expect(find.text('System'), findsOneWidget, reason: 'theme');
     expect(find.text('System default'), findsOneWidget, reason: 'language');
+  });
+
+  /// 分組列的副標；沒有副標時是 `null`。
+  String? subtitleOf(WidgetTester tester, String group) {
+    final tile = tester.widget<ListTile>(find.widgetWithText(ListTile, group));
+    final subtitle = tile.subtitle;
+    return subtitle is Text ? subtitle.data : null;
+  }
+
+  for (final width in [400.0, 1000.0]) {
+    testWidgets('$width wide: appearance and playback rows summarise their '
+        'settings, the others have no subtitle', (tester) async {
+      final h = await openSettings(tester, width);
+
+      expect(subtitleOf(tester, 'Appearance'), 'Theme: System');
+      expect(subtitleOf(tester, 'Playback'), 'Quality: High');
+      for (final group in [
+        'Accounts',
+        'Library',
+        'Network',
+        'Plugins',
+        'Backup and restore',
+        'About',
+      ]) {
+        expect(subtitleOf(tester, group), isNull, reason: group);
+      }
+
+      // 設定一改，摘要跟著變。
+      final container = h.container(tester);
+      // 兩次寫入之間讓串流的重讀跑完（假時間裡開始的讀取握著 drift 的鎖）。
+      await tester.runAsync(
+        () => container
+            .read(appearanceProvider.notifier)
+            .setThemeMode(ThemeModeSetting.dark),
+      );
+      await h.loadSettings(tester);
+      await tester.runAsync(
+        () => container
+            .read(playbackPreferencesProvider.notifier)
+            .setAudioQuality(AudioQuality.low),
+      );
+      await h.loadSettings(tester);
+
+      expect(subtitleOf(tester, 'Appearance'), 'Theme: Dark');
+      expect(subtitleOf(tester, 'Playback'), 'Quality: Low');
+    });
+  }
+
+  testWidgets('the appearance summary names a chosen font', (tester) async {
+    final h = ShellHarness(fontChoices: const ['serif']);
+    await h.pumpShell(tester, size: const Size(1000, 800), collapsePanel: true);
+    await tester.tap(find.text('Settings').first);
+    await h.loadSettings(tester);
+    await tester.runAsync(
+      () => h
+          .container(tester)
+          .read(appearanceProvider.notifier)
+          .setFontFamily('serif'),
+    );
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), 'Theme: System · Serif');
+  });
+
+  testWidgets('a stored font this platform does not offer is left out of the '
+      'summary', (tester) async {
+    // 例如還原了另一個平台的備份：資料庫有值，但這個平台的清單裡沒有。
+    final h = ShellHarness(fontChoices: const ['serif']);
+    await h.pumpShell(tester, size: const Size(1000, 800), collapsePanel: true);
+    await tester.tap(find.text('Settings').first);
+    await h.loadSettings(tester);
+    await tester.runAsync(
+      () => h
+          .container(tester)
+          .read(appearanceSettingsRepositoryProvider)
+          .write(fontFamily: 'Meiryo'),
+    );
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), 'Theme: System');
+  });
+
+  testWidgets('before the settings are read, no row has a summary', (
+    tester,
+  ) async {
+    // 另一個 transaction 佔著資料庫：設定的第一次讀取排在它後面。
+    final database = memoryDatabase();
+    final release = Completer<void>();
+    await tester.runAsync(() async {
+      final started = Completer<void>();
+      unawaited(
+        database.transaction(() {
+          started.complete();
+          return release.future;
+        }),
+      );
+      await started.future;
+    });
+    final h = ShellHarness(database: database);
+    await h.pumpApp(
+      tester,
+      SettingsPage(visible: true, back: SettingsBack()),
+      size: const Size(400, 800),
+    );
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), isNull);
+    expect(subtitleOf(tester, 'Playback'), isNull);
+
+    release.complete();
+    await h.loadSettings(tester);
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), 'Theme: System');
+    expect(subtitleOf(tester, 'Playback'), 'Quality: High');
+  });
+
+  testWidgets('a summary is read with its row, as one tappable node', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await openSettings(tester, 400);
+
+    final row = tester.getSemantics(
+      find.widgetWithText(ListTile, 'Appearance'),
+    );
+    expect(row.label, 'Appearance\nTheme: System');
+    expect(row.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(
+      identical(tester.getSemantics(find.text('Theme: System')), row),
+      isTrue,
+      reason: 'the summary is not a node of its own',
+    );
+    // 沒有摘要的列只念組名。
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, 'Network')).label,
+      'Network',
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('a long summary ellipsizes on one line at text scale 2.0', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    const family = 'An extremely long font family name that cannot fit';
+    final h = ShellHarness(fontChoices: const [family]);
+    await h.pumpShell(tester, size: const Size(400, 800), collapsePanel: true);
+    await tester.tap(find.text('Settings').first);
+    await h.loadSettings(tester);
+    await tester.runAsync(
+      () => h
+          .container(tester)
+          .read(appearanceProvider.notifier)
+          .setFontFamily(family),
+    );
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), contains(family));
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'Appearance'),
+        matching: find.textContaining(family),
+      ),
+    );
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -49,6 +49,13 @@
   `null` 是「清回沒設定過」，走 `repository.clear(themeMode: true)`：`write` 的 `null`
   表示「沒給、不動」，兩者不能共用一個方法。
 
+## 設定頁的分組摘要
+
+設定頁分組清單的列可以帶一行摘要（ADR 0035，L-33；`lib/ui/settings/settings_page.dart` 的 `summary`）：
+- 摘要由生效值（`appearanceProvider`、`playbackPreferencesProvider`）組出來，值一改就跟著變；用 slang 參數（`settings.summary.*`），不拼字串，三個語言都要有。
+- 只有「一句話能說完目前狀態」的組有摘要；沒有就回 `null`、不放副標，不編文字。設定值還沒讀出來時也是 `null`。
+- 不放要另外開資料來源的值（快取用量要開快取庫），設定頁一直掛在外殼裡。
+
 ## 加一個設定欄位
 
 1. **表**：在該組的表加一個 `nullable()` 欄位；列舉照 `spec/app/data` 的寫法存寫死的

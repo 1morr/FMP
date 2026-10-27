@@ -101,6 +101,25 @@ class PlaybackControls extends ConsumerWidget {
               ),
           ],
         ),
+        SizedBox(height: spacing.x2),
+        // 每一級的意思，與音源沒有這一級時怎麼辦（舊版 L-30 的說明）。
+        for (final line in [
+          t.qualityHighDescription,
+          t.qualityMediumDescription,
+          t.qualityLowDescription,
+        ])
+          Text(
+            line,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        Text(
+          t.qualityFallback,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         SizedBox(height: spacing.x4),
         heading(t.formatPriority, t.formatPriorityHint),
         Wrap(

@@ -426,7 +426,12 @@
     "plugins": "插件",
     "backup": "备份与还原",
     "about": "关于",
-    "debug": "Debug"
+    "debug": "Debug",
+    "summary": {
+      "appearance": "主题：{theme}",
+      "appearanceWithFont": "主题：{theme} · {font}",
+      "playback": "音质：{quality}"
+    }
   },
   "about": {
     "version": "版本",
@@ -859,6 +864,10 @@
     "qualityHigh": "高",
     "qualityMedium": "中",
     "qualityLow": "低",
+    "qualityHighDescription": "高：最高码率，音质最佳",
+    "qualityMediumDescription": "中：中等码率，平衡音质与流量",
+    "qualityLowDescription": "低：最低码率，省流量",
+    "qualityFallback": "音源没有所选的那一级时，会改用其他可用的一级",
     "formatPriority": "格式偏好",
     "formatPriorityHint": "音源同时提供两种格式时先选哪一种",
     "formatOpusFirst": "Opus 优先",

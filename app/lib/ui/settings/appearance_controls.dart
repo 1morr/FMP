@@ -248,7 +248,7 @@ class _FontChoices extends ConsumerWidget {
               value: family,
               // 用自己的字型顯示，選之前就看得到樣子。
               title: Text(
-                _fontName(t, family),
+                fontDisplayName(t, family),
                 style: TextStyle(fontFamily: family),
               ),
             ),
@@ -258,8 +258,8 @@ class _FontChoices extends ConsumerWidget {
   }
 }
 
-/// 有翻譯的字型顯示翻譯，其餘（日文字型）顯示 family 名稱。
-String _fontName(Translations$appearance$zh_TW t, String family) =>
+/// 有翻譯的字型顯示翻譯，其餘（日文字型）顯示 family 名稱。設定頁的分組摘要也用它。
+String fontDisplayName(Translations$appearance$zh_TW t, String family) =>
     switch (family) {
       'Microsoft JhengHei UI' => t.fonts.jhengHei,
       'Microsoft YaHei UI' => t.fonts.yaHei,
