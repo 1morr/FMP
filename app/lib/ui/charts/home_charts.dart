@@ -125,6 +125,7 @@ class _ChartPreview extends ConsumerWidget {
           chart: chart.key,
           failedHint: t.failedHint,
           offHint: t.offHint,
+          compact: true,
           builder: (context, content) {
             if (content.tracks.isEmpty) return const ChartEmpty();
             return Column(

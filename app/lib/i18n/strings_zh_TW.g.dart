@@ -356,6 +356,9 @@ class Translations$search$zh_TW {
   /// zh-TW: '收聽'
   String get listen => '收聽';
 
+  /// zh-TW: '尚未開播'
+  String get notLive => '尚未開播';
+
   /// zh-TW: '加為電台'
   String get addToRadio => '加為電台';
 
@@ -646,6 +649,15 @@ class Translations$home$zh_TW {
 
   /// zh-TW: '已加入佇列'
   String get addedToQueue => '已加入佇列';
+
+  /// zh-TW: '建立歌單'
+  String get createPlaylist => '建立歌單';
+
+  /// zh-TW: '向左捲動'
+  String get scrollLeft => '向左捲動';
+
+  /// zh-TW: '向右捲動'
+  String get scrollRight => '向右捲動';
 }
 
 // Path: charts
@@ -3054,6 +3066,18 @@ class Translations$radio$zh_TW {
 
   /// zh-TW: '無法收聽：{reason}'
   String cannotPlay({required Object reason}) => '無法收聽：${reason}';
+
+  /// zh-TW: '排序'
+  String get sort => '排序';
+
+  /// zh-TW: '完成'
+  String get sortDone => '完成';
+
+  /// zh-TW: '拖曳把手調整順序；離開排序模式後開播中的電台會排在前面。'
+  String get sortModeHint => '拖曳把手調整順序；離開排序模式後開播中的電台會排在前面。';
+
+  /// zh-TW: '貼上直播間的網址，由已啟用的音源辨識。'
+  String get urlHint => '貼上直播間的網址，由已啟用的音源辨識。';
 }
 
 // Path: sources

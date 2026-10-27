@@ -2479,7 +2479,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `integration_test/toast_layering_test.dart` 的 `a toast shows above a page in the nested navigation`。
 - 首頁（`lib/ui/home/`，ADR 0033 §決定 6，M4 design §10.2）：區塊依序「排行」「我的歌單」「電台」「最近播放」，沒有內容的區塊不顯示（排行見下一條）。
   「我的歌單」「電台」各是依 `sort_order` 前 20 個，點歌單在首頁的巢狀導覽裡開詳情，點電台收聽（音源不能用時同電台頁：不播、提示原因）；
-  兩個「查看全部」切到音樂庫、電台目的地（各自的內頁留著）。這兩種卡片沒有選單，電台卡不顯示主播與不可用的原因。歌單或電台讀失敗：
+  兩個「查看全部」切到音樂庫、電台目的地（各自的內頁留著）。電台區塊開播中的排前面（`liveFirst`，穩定排序，再取前 20 個）。
+  歌單卡的選單就是音樂庫卡片的 `PlaylistMenu`（全部加入佇列、隨機加入、刷新、編輯、刪除），電台卡的選單同電台頁（刪除，先確認，`removeStation`），
+  不另外發明動作；電台卡不顯示主播與不可用的原因。沒有歌單時（B-16，同舊版）「我的歌單」區塊仍在：沒有「查看全部」，只有灰底大「＋」的「建立歌單」佔位卡，點了開音樂庫同一條 `createPlaylist` 對話框（不切到音樂庫）；有歌單就沒有這張卡。四個區塊都沒有內容時，說明排在這個區塊下面，建立入口不會被擠掉。歌單讀失敗時區塊不顯示。
+  一排卡片（ADR 0035，R6.6）是有底色的 `Card`（主題的卡片樣式），封面在上、文字在下；文字是固定行數（同舊版：歌單名一行、副標只有首數，匯入的前面是連結圖示；最近播放的曲名兩行加作者一行；電台名一行加狀態標記），不論內容都佔滿那幾行、行高固定，同一排一樣高，高度隨字級放大不溢出；桌面的滑鼠移入這一排時兩端出現漸層（不擋點擊，點擊穿過去落在卡片上）與左右箭頭（觸控沒有，該方向捲到底就收起），
+  滑鼠可以按住拖曳（只在這一排的 `ScrollConfiguration` 加 `PointerDeviceKind.mouse`）。歌單或電台讀失敗：
   該區塊不顯示，不在首頁報：音樂庫與電台頁一直掛在外殼裡，由它們報，同一個失敗只進錯誤歷史一次。「最近播放」：`play_history` 最新 20 筆（`recentPlaysProvider`，
   不去重，歷史表變動就重讀），一排可橫向捲動的卡片（封面、兩行曲名、作者；音源不可用時是原因），點一下臨時播放；「查看全部」在首頁的
   巢狀導覽裡開歷史頁。卡片的選單（右鍵、長按、曲名旁的「⋯」，`TrackRowMenu`）有播放、下一首播放、加入佇列、開始 Mix、加入歌單…、加入遠端歌單…；
@@ -2488,21 +2492,25 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   首次啟動引導（見下面「首次啟動引導」）；四個區塊都沒有內容是說明（「搜尋並播放歌曲，或匯入歌單」；啟用的榜單算內容，沒有快取或離線也一樣；資料都讀到才判斷；榜單要等排行工作取到 `chartList`，見 § 排行），沒有音源時附「前往插件頁」。本機資料，
   離線照常顯示。閘門：`test/ui/home/home_page_test.dart`（區塊的有無與順序、歌單與電台各 20 個依 `sort_order`、點歌單開詳情、點電台收聽、電台四種狀態標記、
   音源不能用的電台、讀失敗只報一次、載入中不閃說明、兩個「查看全部」切到音樂庫與電台、最新 20 筆不去重、點一下臨時播放、新的播放跟著出現、「查看全部」與返回、
-  沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁）、`test/ui/library/add_to_playlist_test.dart` 的
+  沒有內容的說明、引導的出現與裝好後消失、「稍後再說」後的說明與前往插件頁、電台區塊開播優先、箭頭只在滑鼠移入時出現與捲動、滑鼠拖曳捲動、歌單卡與電台卡的選單、沒有歌單時的「建立歌單」佔位卡與說明、有歌單時沒有這張卡、一排卡片在字級 1.0／1.3／2.0 都一樣高、點漸層底下的卡片會開它、匯入歌單卡的副標與語意），`test/ui/library/add_to_playlist_test.dart` 的
   `a recent play on Home` 群組（三種開法同一份選單、加入歌單與加入佇列、卡片與「⋯」是兩個語意節點）。
+- 共用的狀態元件（`lib/ui/empty_state/`，ADR 0035，R6.10）：`EmptyState` 預設是置中的整頁版；`error: true` 圖示用 error 色（出錯與「只是空」分得開，失敗畫面一律用它）；
+  `compact: true` 是區塊級的橫條（圓角、圖示在左、動作在右，`error` 時底色 errorContainer）。`LoadingState(message:)` 是轉圈加一行可見的說明，文字就是語意名稱（轉圈排除在語意樹外）。
+  閘門：`test/ui/empty_state/state_widgets_test.dart`。
 - 首頁的排行（`lib/ui/charts/home_charts.dart`、共用的 `chart_parts.dart`，M4 PR 21，design §9.2）：`enabledChartsProvider` 的每個榜單一個子區塊（標題、「音源 · 更新於 時間」，
   `chartFailuresProvider` 標了的接「更新失敗」，「查看全部」開探索頁的那個分頁），前 5 首是清單列（名次、封面、曲名、作者；點一下臨時播放，選單同「最近播放」，沒有多選）。
   內容區放得下幾欄（`AppLayout.chartColumnMinWidth`）就並排幾欄。快取有內容就顯示（空的榜單寫「這個榜單沒有內容」）；沒有快取時不在 `online` 是 `OfflineMessage`，
   在線而標了失敗或快取讀不出來（快取庫開不起來，工作也寫不進去）是失敗說明，排行刷新間隔關閉（`networkProvider`）是「自動更新已關閉」與怎麼手動載入（首頁指向探索頁的刷新，探索頁指向右上角的刷新），
-  其餘是載入中（工作登記時發現沒有快取就立即到期，見 § 排行；寫入後跟著重讀）。全部停用或沒有提供排行的插件就沒有這個區塊。
+  其餘是載入中（`LoadingState`：轉圈加一行字；工作登記時發現沒有快取就立即到期，見 § 排行；寫入後跟著重讀）。首頁的失敗與「自動更新已關閉」是區塊級的緊湊橫條
+  （`ChartContent(compact: true)`，`EmptyState` 的 `compact`），探索頁是整頁置中的版本。全部停用或沒有提供排行的插件就沒有這個區塊。
   閘門：`test/ui/charts/home_charts_test.dart`（第一個區塊、順序照設定、前 5 首與「更新於」、更新失敗、沒有快取的載入中與離線與恢復、沒有快取的失敗、快取讀不出來是失敗不轉圈、間隔關閉時說明而不轉圈且刷新後有內容、空榜單、全部停用沒有區塊且說明回來、
   沒有插件、點一下臨時播放與選單、取到榜單清單後才出現）。
 - 探索頁（`lib/ui/charts/explore_page.dart`，`openExplore(context, ChartKey)`，M4 PR 21，design §9.3、§10.7）：首頁的巢狀導覽裡的內頁（標題有返回鈕）。每個啟用的榜單一個可捲動的分頁
   （`TabBar` 文字「榜單 · 音源」，順序同首頁），分頁裡是狀態行與完整清單；狀態同首頁。榜單增減時分頁跟著變，留在原本的榜單，不在了回到第一個；一個啟用的都沒有時，有榜單而全部停用說明到設定頁打開，連一個提供排行的插件都沒有則說明要裝插件。多選照 `track_selection.dart`，
   鍵是（榜單, 位置），換分頁或內容被刷新（`fetchedAt` 變了）就離開選取模式。工具列「刷新」是目前分頁那個插件的 `ChartJobs.runNow`：完成提示「已更新排行」、`offline` 與失敗時不在 `online`
-  提示離線（不發請求）、全部榜單失敗是錯誤提示、`alreadyRunning`／`unknown` 不提示。新的巢狀內頁，所以進 `toast_layering_test.dart`（`a toast shows above the explore page`）。
+  提示離線（不發請求）、全部榜單失敗是錯誤提示、`alreadyRunning`／`unknown` 不提示。清單可以下拉重新整理（`RefreshIndicator`，B-21），與工具列「刷新」同一條 `_refresh`（一次只刷一個）。新的巢狀內頁，所以進 `toast_layering_test.dart`（`a toast shows above the explore page`）。
   閘門：`test/ui/charts/explore_page_test.dart`（從「查看全部」開在那個分頁、返回、分頁順序與只有啟用的、開著時停用、完整清單與名次、切分頁、多選加入佇列、全選加入歌單、Esc 先離開選取、刷新後內容換了與換分頁都離開選取、能寫遠端時多選列有「加入遠端歌單…」、兩種空狀態、
-  刷新呼叫工作、間隔關閉又沒有快取時指向刷新且刷新後有內容、離線不發並提示、全部失敗的提示與「更新失敗」）。
+  刷新呼叫工作、下拉呼叫同一個工作、間隔關閉又沒有快取時指向刷新且刷新後有內容、離線不發並提示、全部失敗的提示與「更新失敗」）。
 - 音樂庫（`lib/ui/library/`、`lib/library/playlist_service.dart`，ADR 0033 §決定 8，M4 design §10.3、§10.5）：
   - 標題列「匯入」（開匯入對話框）與「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、「本機 · n 首」），點一下在音樂庫的
     巢狀導覽裡開歌單詳情（`openPlaylist`）。格狀的卡片照 `ListTile`：`InkWell` 包 `Semantics(button: true)`，「⋯」與把手各自一個節點（包
@@ -2813,14 +2821,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     輸入框規則照上面（`TextInputAwareAction`）。頁內焦點區是控制區｜（開著時的）詳細面板（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
-- 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3）：
+- 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3；ADR 0035 §決定 2，U PR 12）：
+  - 版面：內容區 compact、medium 是清單，expanded 以上是圓形封面的網格（`SliverGridDelegateWithMaxCrossAxisExtent`，每格的點擊區和「⋯」分開；格子是圓形封面、標題、狀態標記、主播，音源不能用時主播換成原因，同清單；格高的文字部分跟著字級放大）。一般模式開播中的排前面
+    （`liveFirst`，穩定排序，只改畫面不改資料庫）。標題列的排序鈕進入**手動排序模式**：不論寬度都是清單、使用者的順序（`sort_order`）、每列有拖曳把手，
+    標題列只剩「完成」；順序本來就存在 `sort_order`（`RadioService.reorder`），所以沒有新的持久化。新增對話框有一行說明（`urlHint`）。
   - 讀 `radioEntriesProvider`（本機資料，離線照常顯示存的狀態）。每列是封面、標題、狀態標記加主播、開播中而且和標題不同時的
-    直播標題、「⋯」（刪除，先確認）、拖曳把手（同佇列：只有把手能拖，`onReorderItem` 後整批 `reorder`，資料庫追上之前照拖曳後的
+    直播標題、「⋯」（刪除，先確認）；排序模式才有拖曳把手（同佇列：只有把手能拖，`onReorderItem` 後整批 `reorder`，資料庫追上之前照拖曳後的
     順序畫；寫入失敗時回到資料庫的順序並提示，閘門 `a reorder that fails to save goes back to the stored order`）。四種狀態的標記（`RadioStatusTag`）顏色與圖示都不同，「查詢失敗」是警告色，不是未開播的樣子（D10）；標記（含直播的
     `LiveBadge`）的字對背景在淺深兩種主題都 ≥ 4.5，閘門 `test/ui/radio/status_tag_test.dart`（guideline 測試的對比度以整列的語意節點
     量，量不到列裡標記的字）。音源停用或未安裝的
     列留著、主播換成 `sourceUnavailableProvider` 的原因，點了跳警告、不收聽。正在收聽的那一列以主色標示。閘門：
-    `test/ui/radio/radio_page_test.dart` 的 `the list`、`listening`、`editing` 群組。
+    `test/ui/radio/radio_page_test.dart` 的 `the list`、`listening`、`editing`、`layout and sorting`（開播優先、排序模式與完成、清單與網格的斷點、網格的收聽與選單、網格說明音源不能用的原因、網格在字級 1.3／2.0 不溢出）群組，新增對話框的說明是 `adding from a URL` 的 `the dialog says what to paste`。
   - 「以網址新增」是對話框，結果三種各一則提示（加入是成功、已在清單是資訊、認不得是警告），插件拋的 `AppError` 照
     `Toaster.error`（「無法新增電台：原因」）。「刷新狀態」呼叫 `RadioService.refresh`：`offline`（排程器沒發請求）不跳提示，
     清單上方一行說明「沒有刷新、是上次查到的狀態」加重試，回到 `online` 就收起（外殼已有離線橫幅，清單是本機資料不換成
@@ -2832,7 +2843,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   模式、篩選與自動退回曲目都換代、清掉結果，再以**輸入框現在的文字**（`searchInputProvider`，還沒送出的也算；不放進 `SearchState`，
   打字才不重建整頁）重搜第一頁，去掉空白後是空的就停在初始畫面、不發請求；`keyword` 仍是上次送出的（重試、載入更多、「找不到」用它），
   `search` 不寫回輸入框的文字（#260）。結果列是封面、標題、狀態加主播、人數（只在開播中，未開播的不顯示、不管插件給了什麼值，#262）、「⋯」
-  （收聽、加為電台）；點一下 `playLive`；錯誤、空結果、離線、載入更多與曲目共用 `_Results`。閘門：`test/ui/search/search_live_test.dart`
+  （收聽、加為電台）；點一下 `playLive`。未開播的列（B-27）封面灰階、標題改灰色、選單的「收聽」停用、點一下提示「尚未開播」不播；分區標籤要等宿主 API 的 `LiveRoom` 有這個欄位，目前沒有；錯誤、空結果、離線、載入更多與曲目共用 `_Results`。閘門：`test/ui/search/search_live_test.dart`
   （音源清單變了而退回曲目是 `the live source leaving the list goes back to songs`；重搜用輸入框的文字是 `re-searching uses the text in
   the field` 群組；人數是 `an offline room shows no viewers even with a count`）。
 - 直播版（ADR 0031 §決定 7，M3 design §9.4）：直播時 `QueueState.current` 是 `null`，播放列、播放頁、右側面板與外殼

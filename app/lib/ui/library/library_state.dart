@@ -24,7 +24,7 @@ final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
 String trackCountText(Translations$library$zh_TW t, int count) =>
     t.trackCount(count: count);
 
-/// 歌單卡的副標題：「本機／匯入 · n 首」；Mix 不存曲目，只寫「Mix」（音樂庫與首頁共用）。
+/// 歌單卡的副標題：「本機／匯入 · n 首」；Mix 不存曲目，只寫「Mix」（音樂庫的卡片；首頁的卡片窄，只寫首數）。
 String playlistSubtitleText(
   Translations$library$zh_TW t,
   PlaylistOverview overview,

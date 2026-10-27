@@ -93,6 +93,7 @@
     "filterLive": "Live",
     "filterOffline": "Offline",
     "listen": "Listen",
+    "notLive": "Not live yet",
     "addToRadio": "Add to Radio",
     "showParts": "Show parts",
     "hideParts": "Hide parts",
@@ -196,7 +197,10 @@
     "addToQueueInMix": "Add to queue (unavailable in a Mix)",
     "startMix": "Start Mix",
     "addedToNext": "Added to play next",
-    "addedToQueue": "Added to the queue"
+    "addedToQueue": "Added to the queue",
+    "createPlaylist": "Create playlist",
+    "scrollLeft": "Scroll left",
+    "scrollRight": "Scroll right"
   },
   "charts": {
     "title": "Charts",
@@ -986,7 +990,11 @@
     "removeFailed": "Couldn't remove the station: {reason}",
     "reorder": "Drag to reorder",
     "reorderFailed": "Couldn't reorder the stations: {reason}",
-    "cannotPlay": "Can't play: {reason}"
+    "cannotPlay": "Can't play: {reason}",
+    "sort": "Sort",
+    "sortDone": "Done",
+    "sortModeHint": "Drag the handles to reorder. Outside sort mode, live stations are listed first.",
+    "urlHint": "Paste a live room URL; an enabled source will recognise it."
   },
   "sources": {
     "notInstalled": "Source not installed",

@@ -93,6 +93,7 @@
     "filterLive": "開播中",
     "filterOffline": "未開播",
     "listen": "收聽",
+    "notLive": "尚未開播",
     "addToRadio": "加為電台",
     "showParts": "展開分 P",
     "hideParts": "收合分 P",
@@ -190,7 +191,10 @@
     "addToQueueInMix": "加入佇列（Mix 中無法使用）",
     "startMix": "開始 Mix",
     "addedToNext": "已加入下一首播放",
-    "addedToQueue": "已加入佇列"
+    "addedToQueue": "已加入佇列",
+    "createPlaylist": "建立歌單",
+    "scrollLeft": "向左捲動",
+    "scrollRight": "向右捲動"
   },
   "charts": {
     "title": "排行",
@@ -977,7 +981,11 @@
     "removeFailed": "無法刪除電台：{reason}",
     "reorder": "拖曳以排序",
     "reorderFailed": "無法調整順序：{reason}",
-    "cannotPlay": "無法收聽：{reason}"
+    "cannotPlay": "無法收聽：{reason}",
+    "sort": "排序",
+    "sortDone": "完成",
+    "sortModeHint": "拖曳把手調整順序；離開排序模式後開播中的電台會排在前面。",
+    "urlHint": "貼上直播間的網址，由已啟用的音源辨識。"
   },
   "sources": {
     "notInstalled": "音源未安裝",

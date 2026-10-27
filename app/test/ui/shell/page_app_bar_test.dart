@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
+import '../support/home_shown.dart';
 
 /// 目前畫面上（該目的地可見的）頁頂。
 Finder _bar() => find.byType(PageAppBar).hitTestable();
@@ -112,7 +112,7 @@ void main() {
     await tester.pumpAndSettle();
     await h.open(tester, ShellDestination.home);
     await tester.pumpAndSettle();
-    expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+    expect(homeShown, findsOneWidget);
     expect(_elevation(tester), 0, reason: 'another page scrolled');
   });
 }
