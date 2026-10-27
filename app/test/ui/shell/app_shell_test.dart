@@ -476,6 +476,78 @@ void main() {
       expect(find.byType(NowPlayingPanel), findsNothing);
       expect(railWidth(tester), AppLayout.railExpanded);
     });
+
+    testWidgets('widening the window brings the rail back', (tester) async {
+      await pumpPlaying(tester, const Size(914, 412));
+      expect(railWidth(tester), AppLayout.railCollapsed);
+
+      tester.view.physicalSize = const Size(1400, 800);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect(railWidth(tester), AppLayout.railExpanded);
+    });
+
+    // 側欄在 `SafeArea(right: false)` 裡、內容區在 `SafeArea(left: false)` 裡：瀏海吃掉的寬度
+    // 頁面分不到。1100 寬時不扣瀏海放得下（424dp），扣掉左邊 70dp 就只剩 354dp。
+    for (final cutout in [0.0, 70.0]) {
+      testWidgets(
+        '1100 wide with a ${cutout.toInt()}dp cutout: the pages keep 360dp',
+        (tester) async {
+          tester.view.padding = FakeViewPadding(left: cutout);
+          await pumpPlaying(tester, const Size(1100, 600));
+
+          expect(find.byType(NowPlayingPanel), findsOneWidget);
+          expect(
+            railWidth(tester),
+            cutout == 0
+                ? AppLayout.railExpanded
+                : cutout + AppLayout.railCollapsed,
+          );
+          expect(
+            pageWidth(tester),
+            greaterThanOrEqualTo(AppLayout.contentMinWidth),
+          );
+        },
+      );
+    }
+
+    // 兩顆鈕共用一個 FocusNode（`LegacySideRail`）：面板一開把側欄畫成收合時，焦點跟著到展開鈕；
+    // 按下展開一併收起面板，焦點再到收合鈕，不掉回導覽區本身。
+    testWidgets('the toggle keeps the keyboard focus when the panel takes '
+        'the rail', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(
+        tester,
+        size: const Size(914, 412),
+        expandRail: true,
+        collapsePanel: true,
+      );
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(railWidth(tester), AppLayout.railExpanded);
+      bool toggleFocused(String tooltip) =>
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<Tooltip>()
+              ?.message ==
+          tooltip;
+      await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+      await tester.pump();
+      expect(toggleFocused('Collapse side bar'), isTrue);
+
+      await h.rememberLayout(tester, panelExpanded: true);
+      await tester.pumpAndSettle();
+      expect(railWidth(tester), AppLayout.railCollapsed);
+      expect(toggleFocused('Expand side bar'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(railWidth(tester), AppLayout.railExpanded);
+      expect(toggleFocused('Collapse side bar'), isTrue);
+    });
   });
 
   // ADR 0035 §決定 4：播放列橫跨整個視窗，側欄下方也是；面板在內容區右邊、播放列上面。

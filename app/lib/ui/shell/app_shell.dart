@@ -396,10 +396,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     ),
   };
 
-  /// 視窗寬扣掉左右安全區（側欄與內容區各自留的）：內容區實際能分到的寬度。
+  /// 視窗寬扣掉左右安全區（側欄與內容區各自留的）：側欄、內容區與面板實際能分到的寬度。
+  /// 只訂閱尺寸與安全區（不用 `MediaQuery.of`：鍵盤動畫的每一格都會重建整個外殼）。
   double _availableWidth(BuildContext context) {
-    final media = MediaQuery.of(context);
-    return media.size.width - media.padding.left - media.padding.right;
+    final padding = MediaQuery.paddingOf(context);
+    return MediaQuery.sizeOf(context).width - padding.left - padding.right;
   }
 
   @override
