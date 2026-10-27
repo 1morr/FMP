@@ -282,7 +282,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       scheduleMicrotask(() {
         if (!mounted || !navigator.mounted || !navigator.canPop()) return;
-        if (focus.context == null || !focus.canRequestFocus) return;
+        // 這一幀跟著版面拿掉的節點（例如播放頁收掉的詳細面板）不要：沒掛在樹上的節點
+        // `requestFocus` 會記著，等它哪天再掛回來時搶走焦點。
+        if (focus.parent == null || focus.context?.mounted != true) return;
+        if (!focus.canRequestFocus) return;
         if (!focus.hasPrimaryFocus) focus.requestFocus();
       });
     });

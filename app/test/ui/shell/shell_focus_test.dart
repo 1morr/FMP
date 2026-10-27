@@ -124,6 +124,133 @@ void main() {
     }
   });
 
+  group('crossing 600 with a root route on top', () {
+    /// 推一個根 route，[child] 是它的內容。
+    Future<ShellHarness> pushRoute(
+      WidgetTester tester,
+      Size size,
+      Widget child,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: size, collapsePanel: true);
+      h.navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => Scaffold(body: child)),
+      );
+      await tester.pumpAndSettle();
+      return h;
+    }
+
+    testWidgets('back and forth one frame each, the focus never leaves', (
+      tester,
+    ) async {
+      final node = FocusNode();
+      addTearDown(node.dispose);
+      await pushRoute(
+        tester,
+        wide,
+        Focus(focusNode: node, autofocus: true, child: const Text('x')),
+      );
+
+      // A drag-resize: every frame lands on the other side of the breakpoint.
+      for (final size in [compact, wide, compact, wide, compact]) {
+        tester.view.physicalSize = size;
+        await tester.pump();
+        expect(node.hasPrimaryFocus, isTrue, reason: '$size');
+      }
+    });
+
+    testWidgets('a text field keeps the focus, its text and the keyboard', (
+      tester,
+    ) async {
+      final node = FocusNode();
+      addTearDown(node.dispose);
+      await pushRoute(
+        tester,
+        wide,
+        TextField(focusNode: node, autofocus: true),
+      );
+      await tester.enterText(find.byType(TextField), 'abc');
+
+      tester.view.physicalSize = compact;
+      await tester.pumpAndSettle();
+
+      expect(node.hasPrimaryFocus, isTrue);
+      expect(tester.testTextInput.hasAnyClients, isTrue);
+      expect(find.text('abc'), findsOneWidget);
+    });
+
+    testWidgets('a dialog closed in the same frame leaves the focus to the '
+        'route under it', (tester) async {
+      final below = FocusNode();
+      final inDialog = FocusNode();
+      addTearDown(below.dispose);
+      addTearDown(inDialog.dispose);
+      final h = await pushRoute(
+        tester,
+        wide,
+        Focus(focusNode: below, autofocus: true, child: const Text('x')),
+      );
+      showDialog<void>(
+        context: h.navigatorKey.currentContext!,
+        builder: (_) => AlertDialog(
+          content: Focus(
+            focusNode: inDialog,
+            autofocus: true,
+            child: const Text('d'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(inDialog.hasPrimaryFocus, isTrue);
+
+      h.navigatorKey.currentState!.pop();
+      tester.view.physicalSize = compact;
+      await tester.pump();
+      expect(below.hasPrimaryFocus, isTrue);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(below.hasPrimaryFocus, isTrue);
+    });
+
+    // 這一幀跟著拿掉的節點不能被要求焦點：沒掛在樹上時 `requestFocus` 會記著，
+    // 等它之後掛回來（例如播放頁的詳細面板再打開）時搶走焦點。
+    testWidgets('a node dropped in that frame does not take the focus when it '
+        'comes back', (tester) async {
+      final dropped = FocusNode();
+      final other = FocusNode();
+      final shown = ValueNotifier(true);
+      addTearDown(dropped.dispose);
+      addTearDown(other.dispose);
+      addTearDown(shown.dispose);
+      await pushRoute(
+        tester,
+        wide,
+        ValueListenableBuilder(
+          valueListenable: shown,
+          builder: (context, show, _) => Column(
+            children: [
+              Focus(focusNode: other, child: const Text('other')),
+              if (show) Focus(focusNode: dropped, child: const Text('dropped')),
+            ],
+          ),
+        ),
+      );
+      dropped.requestFocus();
+      await tester.pump();
+
+      tester.view.physicalSize = compact;
+      shown.value = false;
+      await tester.pumpAndSettle();
+      other.requestFocus();
+      await tester.pump();
+      shown.value = true;
+      await tester.pumpAndSettle();
+
+      expect(other.hasPrimaryFocus, isTrue);
+    });
+  });
+
   group('only the shell showing', () {
     for (final (name, from, to) in crossings) {
       testWidgets('focus stays in the content ($name)', (tester) async {

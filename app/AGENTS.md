@@ -2891,9 +2891,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   根全螢幕 route 上恰好一條、對話框開著時按鈕仍在語意樹（拿掉 `Semantics(container: true)` 會紅）、對話框的遮罩不蓋標題列（鈕按得到、空白處拖得動）、hover 出 tooltip 不丟 Overlay 錯、提示仍在底部不被標題列蓋住）、
   `player_page_test.dart` 的 `window chrome`、guideline 測試的 `the Windows title bar at …`（淺色與深色、1000 與 1400；視窗鈕 46×36 達不到 48dp，所以只驗標籤與對比，不驗 `androidTapTargetGuideline`）。
   **必須在 Windows 實機驗**：隱藏標題列後的拖曳、雙擊最大化、三顆鈕、最大化時的邊框與螢幕邊緣貼齊、dev 與 prod 同時開時各自單一實例、Debug 頁與播放頁上的視窗鈕、對話框開著時的視窗鈕與 tooltip。
-- 視窗跨過外殼斷點時的焦點（U PR 15，之後通用化）：外殼換導覽元件，內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，
-  把焦點搶進被蓋住的內容區，上面的 route 之後收不到 Esc、F6。`AppShell` 在寬度等級改變而根 Navigator 上有別的 route 蓋著外殼時（`_keepCoveringRouteFocus`：播放頁、Debug 頁、網頁登入、錯誤詳細、對話框都算），
-  build 時記下目前的焦點，這一幀與接著的 autofocus 更新之後還給它；只有外殼自己時不動。新的根 route 不必另外處理。閘門：`shell_focus_test.dart`（Debug 頁、一般根 route、對話框、只有外殼，跨 840 與 600 兩個方向）、
+- 視窗跨過外殼斷點時的焦點（U PR 15，之後通用化）：跨過 600 時外殼換導覽元件（底部導覽列與側欄），內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，
+  把焦點搶進被蓋住的內容區，上面的 route 之後收不到按鍵（F6、播放頁的 Esc 都落到外殼）。`AppShell` 在寬度等級改變而根 Navigator 上有別的 route 蓋著外殼時（`_keepCoveringRouteFocus`：播放頁、Debug 頁、網頁登入、錯誤詳細、對話框都算），
+  build 時記下目前的焦點，這一幀與接著的 autofocus 更新之後還給它；那時節點已經不在樹上（跟著版面拿掉）就不還，否則它之後掛回來時會搶焦點。只有外殼自己時不動。新的根 route 不必另外處理。
+  已知的缺口：route 在跨斷點的同一幀才推上來（還沒拿到焦點）時，焦點仍被外殼或下面的 route 留著。閘門：`shell_focus_test.dart`（Debug 頁、一般根 route、對話框，跨 600 兩個方向會紅；
+  跨 840 不搬子樹，那幾例與「只有外殼」是對照；`crossing 600 with a root route on top`：拖曳時每幀來回、輸入框留著焦點與鍵盤連線、同一幀關掉的對話框、同一幀拿掉的節點之後不搶焦點）、
   `player_page_test.dart` 的 `crossing the shell breakpoint (wide to compact / compact to wide) keeps the keys on the page`。
 - iOS 的 Dart 端慣例（ADR 0035 §決定 13，U PR 15）：頁面轉場與右滑返回是 Flutter 的預設（`PageTransitionsTheme` 對 iOS 用 `CupertinoPageTransitionsBuilder`，
   不另寫程式碼）；安全區域由外殼的 `SafeArea` 處理（頁頂、側欄與右邊在橫向、底部導覽列與播放列在底部）。以 `TargetPlatform.iOS` 的 widget 測試守著
