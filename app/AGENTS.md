@@ -2169,7 +2169,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - `ToastHost` 在 `MaterialApp.builder`，以自己的 `Overlay`、`ScaffoldMessenger`、透明
   `Scaffold` 包住 Navigator：提示在全螢幕頁、對話框、底部面板之上，一次一則、新的取代舊的，
   時長 4／6 秒、帶動作也照時長消失、無障礙導覽時停留並有關閉鈕、App 在背景（hidden／paused）
-  不顯示，位置避開 `toastBottomInsetProvider`。閘門：`test/ui/toast/toast_host_test.dart`。
+  不顯示，位置避開 `toastBottomInsetProvider`（宿主 `watch` 它，以 Scaffold 的 `bottomNavigationBar` 空間隔加 `extendBody` 讓 SnackBar 浮在上面，所以提示顯示之後外殼才長出播放列時，提示會跟著上移，不是顯示當下算一次的 margin）。
+  閘門：`test/ui/toast/toast_host_test.dart`（`a toast already showing moves with the published height`）、`test/ui/player/player_bar_test.dart`（`a toast showing when the bar appears does not cover it`）。
   根 Navigator 推上對話框或底部面板時收起當下那則（下拉與彈出選單、全螢幕頁不算）：手機上外殼的位移正好落在高一點的對話框的按鈕列，
   上一個動作留下的提示會蓋住新對話框的「儲存」、吃掉點擊；開著之後才送的照常在它之上。觀察者是 `toastRouteObserverProvider`，
   包 `ToastHost` 的 `fmpMaterialApp` 要給 `navigatorObservers`（`FmpApp`、`ShellHarness`、`toast_layering_test.dart`），漏給就不會收。

@@ -15,6 +15,7 @@ import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/thin_progress_bar.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
@@ -83,6 +84,45 @@ void main() {
   const volumeIcon = 'Volume (Ctrl+↑/↓)';
   const outputDevice = 'Output device';
   const panelHide = 'Hide the now playing panel';
+
+  // 播放列在提示顯示之後才出現：提示要上移，不能蓋住它（ADR 0023 §決定 2）。
+  for (final size in [const Size(1280, 720), const Size(400, 800)]) {
+    testWidgets('a toast showing when the bar appears does not cover it '
+        '(${size.width.toInt()}x${size.height.toInt()})', (tester) async {
+      final previous = WidgetController.hitTestWarningShouldBeFatal;
+      WidgetController.hitTestWarningShouldBeFatal = true;
+      addTearDown(
+        () => WidgetController.hitTestWarningShouldBeFatal = previous,
+      );
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: size);
+      await h.open(tester, ShellDestination.search);
+      await tester.enterText(find.byType(TextField), 'song');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(PlayerBar), findsNothing);
+
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ListTile, 'Song a'),
+          matching: find.byTooltip('More options'),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('Add to queue'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Added to queue'), findsOneWidget);
+      expect(tester.getSize(find.byType(PlayerBar)).height, greaterThan(0));
+
+      await tester.tap(find.byTooltip(play));
+      await tester.pump();
+      await tester.pump();
+      expect(h.controller.state, isNot(isA<Idle>()));
+    });
+  }
 
   testWidgets('takes no space while nothing is queued', (tester) async {
     await pumpBar(tester);
