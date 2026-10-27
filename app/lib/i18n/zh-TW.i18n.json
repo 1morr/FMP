@@ -792,6 +792,8 @@
     "detailsLoading": "正在載入詳細資料",
     "detailsFailed": "無法取得詳細資料",
     "detailsRetry": "重試",
+    "openWebPage": "在瀏覽器開啟原網頁",
+    "openWebFailed": "無法開啟瀏覽器",
     "statView": "播放",
     "statLike": "按讚",
     "statFavorite": "收藏",

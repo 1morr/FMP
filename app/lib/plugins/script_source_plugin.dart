@@ -31,6 +31,7 @@ final class ScriptSourcePlugin implements SourcePlugin {
     this._http,
     this._redactor,
     this._guard,
+    this._log,
   ) : _allowedHosts = AllowedHosts(manifest.allowedHosts);
 
   @override
@@ -39,6 +40,7 @@ final class ScriptSourcePlugin implements SourcePlugin {
   final SourceHttpClient _http;
   final Redactor _redactor;
   final AccountGuard _guard;
+  final Log _log;
   final AllowedHosts _allowedHosts;
 
   @override
@@ -277,7 +279,16 @@ final class ScriptSourcePlugin implements SourcePlugin {
   Future<TrackDetail> trackDetail(TrackDetailQuery query) async {
     final json = await _invoke(PluginCapability.trackDetail, query.toJson());
     return _decode(
-      () => TrackDetail.fromJson(json, allowedHosts: _allowedHosts),
+      () => TrackDetail.fromJson(
+        json,
+        allowedHosts: _allowedHosts,
+        // 丟掉的網址不進 log（只記原因）：它是插件給的任意字串。
+        onWebUrlDropped: (reason) => _log.warning(
+          'Dropped a trackDetail webUrl that is not https on an allowed host',
+          tag: manifest.id,
+          fields: {'reason': reason},
+        ),
+      ),
     );
   }
 
@@ -458,7 +469,14 @@ final class ScriptPluginLoader {
       manifest.id,
       manifest.login?.browseAsLoggedInDefault ?? true,
     );
-    return ScriptSourcePlugin._(manifest, runtime, http, _redactor, _guard);
+    return ScriptSourcePlugin._(
+      manifest,
+      runtime,
+      http,
+      _redactor,
+      _guard,
+      _log,
+    );
   }
 
   /// manifest 要求的匯出（[PluginManifest.requiredExports]）與實際匯出不一致之處；

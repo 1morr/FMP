@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/plugins/script_source_plugin.dart';
 import 'package:fmp/plugins/source_dto.dart';
 
@@ -107,6 +108,60 @@ void main() {
       }
     });
 
+    test(
+      'webUrl on an allowed host is kept, missing or null is null',
+      () async {
+        final given = await detail(
+          "{ webUrl: 'https://www.example.test/v/1' }",
+        ) as TrackDetail;
+        final nothing = await detail('{}') as TrackDetail;
+        final nulled = await detail('{ webUrl: null }') as TrackDetail;
+
+        expect(given.webUrl, Uri.parse('https://www.example.test/v/1'));
+        // 只有網址也算有內容（面板才不會當成空的詳細）。
+        expect(given.isEmpty, isFalse);
+        expect(nothing.webUrl, isNull);
+        expect(nulled.webUrl, isNull);
+      },
+    );
+
+    // 不符的 webUrl 丟掉、其他欄位照常（ADR 0035 §決定 10），log 一筆 warning、不含網址。
+    for (final (description, url, reason) in [
+      ('on another host', 'https://evil.test/v/secret', 'hostNotAllowed'),
+      (
+        'on a look-alike host',
+        'https://evil-example.test/secret',
+        'hostNotAllowed',
+      ),
+      ('that is not https', 'http://example.test/v/secret', 'notHttps'),
+    ]) {
+      test('a webUrl $description is dropped with a warning', () async {
+        final harness = PluginHarness();
+        final plugin = await harness.load(
+          pluginSource(
+            "export function trackDetail() { return { album: 'A', "
+            "webUrl: '$url' }; }",
+            capabilities: ['trackDetail'],
+          ),
+        );
+
+        final value = await plugin.trackDetail(TrackDetailQuery(sourceId: 'a'));
+
+        expect(value.webUrl, isNull);
+        expect(value.album, 'A');
+        final warnings = [
+          for (final record in harness.records('plugin-a'))
+            if (record.level == LogLevel.warning) record,
+        ];
+        expect(warnings, hasLength(1));
+        expect(warnings.single.fields, {'reason': reason});
+        expect(
+          '${warnings.single.message}${warnings.single.fields}',
+          isNot(contains('secret')),
+        );
+      });
+    }
+
     test('a full detail is decoded', () async {
       final value = await detail('''{
   description: 'About',
@@ -151,6 +206,7 @@ void main() {
         "{ uploaderAvatar: [{ url: 'http://example.test/a.png' }] }",
       ),
       ('a numeric description', '{ description: 1 }'),
+      ('a numeric webUrl', '{ webUrl: 1 }'),
       ('undefined', 'undefined'),
     ]) {
       test('trackDetail rejects $description as ParseError', () async {

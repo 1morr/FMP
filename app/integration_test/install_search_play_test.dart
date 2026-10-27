@@ -29,6 +29,7 @@ import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/repository/plugin_index.dart';
+import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/plugins/plugins_state.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -166,7 +167,13 @@ void main() {
     expect(controller.state, isA<Idle>());
     final opened = app.backend.opened.length;
 
-    await tester.tap(find.byIcon(Icons.play_arrow));
+    // 限定在播放列：搜尋結果的播放數也是 play_arrow 圖示（U PR 16）。
+    await tester.tap(
+      find.descendant(
+        of: find.byType(PlayerBar),
+        matching: find.byIcon(Icons.play_arrow),
+      ),
+    );
     await _waitFor(tester, () => played.contains('0'), 'the first track plays');
     await _waitFor(
       tester,

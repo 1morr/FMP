@@ -47,6 +47,7 @@ lib/ui/
   artwork/             # 封面縮圖（CachedNetworkImage）；cached_network_image 只准在這裡
   tracks/              # NowPlayingOverlay（封面上的在播遮罩，佇列、歷史等共用；暫停或減少動態時不動，所以 pumpAndSettle 的測試要先 disableAnimations，見 ShellHarness.openQueue 與 test/ui/tracks/marker_support.dart 的 reduceMotion）；
                        # track_markers：曲目列的在播標示（currentTrackKeyProvider、watchIsPlaying、TrackCover、playingTitleStyle）與固定寬的時長欄（TrackDuration），新的曲目清單照用；TrackRowMenu：搜尋結果、歷史、佇列、歌單詳情、首頁卡片的曲目共用的選單（右鍵、長按、「⋯」）；
+                       # track_subtitle：TrackSubtitle（副標＝上傳者加「▶ 播放數」，`TrackInfo.viewCount` 有值才畫；搜尋結果與排行列用，兩段都能縮成省略號）；
                        # track_selection：多選（TrackSelection、TrackSelectionScope、TrackSelectionBar、SelectableTrackRow）
   dialogs/             # showDestructiveConfirm（刪除與移除的紅色確認鈕）、DestructiveMenuItem（選單裡刪除或移除的項目，error 色）；刪除類的確認與選單項目一律用它們，不各自上色
   plugins/             # SourceIcon（source_icon：manifest 的 icon，沒有時是名稱縮寫；卡片、歷史、網址匯入共用）、pluginNameProvider、sourceUnavailableProvider；插件頁（plugins_page）、它讀的 provider（plugins_state）、

@@ -1179,6 +1179,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `title`、時長用分 P 的，上傳者與封面沿用影片，`part_index` 與 `parent_title` 見 § 資料層）。請求怎麼標 `auth` 由插件決定。閘門：
   `multi_part_capability_test.dart`（匯出與能力一致、輸入的 JSON、回傳值驗證、`partCount` 的讀取、由分 P 建出的曲目、`fmp-test` 的三種狀況）、
   `type_definitions_test.dart` 的 `the multiPart export is named after the capability…`、`partCount and the part fields match…`（含變異）。
+- 宿主 API v1 的三個選填欄位（ADR 0035 §決定 10，U PR 16；`hostApiVersion` 仍是 1，舊插件不填照常運作）：`TrackSummary.viewCount`
+  （非負整數；負數、小數、非數字是 `ParseError`）、`TrackDetail.webUrl`（`https` 且網域在 `allowedHosts`；**不符只丟掉這個欄位**（`null`，封面與標題不可點），
+  其他欄位照常，`ScriptSourcePlugin` 記一筆 warning、只帶原因不帶網址。和 `Artwork.url` 的整筆拒收不同；不是字串仍是 `ParseError`）、
+  `LiveRoom.area`（字串，宿主 `trim`，空的當沒有；沒有長度上限，同其他字串欄位）。`viewCount` 與 `area` 不存資料庫：`TrackInfo.viewCount`
+  只在記憶體與榜單快取的 JSON 裡（`tracks` 表、佇列、歷史、歌單讀回來是 `null`，所以只有搜尋結果與排行列顯示播放數），而且不算進
+  `TrackInfo` 的 `==`（同一首有沒有播放數都是同一首）；`area` 只畫在搜尋結果的直播間列，電台列沒有（要存進 `radio_stations` 才有，不在 U）；
+  `webUrl` 只在 `trackDetailProvider` 的記憶體 LRU。契約檢查可以期望這三個欄位存在（`checks.json` 的 `nonEmpty`，欄位名稱在 `trackFields`、`trackDetailFields`、
+  `liveRoomFields`）。閘門：`source_dto_test.dart`（不經 JS：有、缺、無效、不允許的網域被丟掉）、`track_info_test.dart` 的 `the play count is display data…`、`script_source_plugin_test.dart`／
+  `track_detail_capability_test.dart`／`live_capability_test.dart` 的同名案例（經 QuickJS）、`type_definitions_test.dart` 比對 d.ts 的欄位表、
+  `track_subtitle_test.dart`、`track_details_test.dart` 的 `the original page`、`search_live_test.dart` 的 `the area tag…`。
 - `trackDetail`（ADR 0028 §決定 6）：匯出就叫 `trackDetail`（和能力同名），回傳的欄位都可以沒有或 `null`，形狀在 `fmp-plugin.d.ts`。
   `publishedAt` 是 UTC epoch 毫秒（非負、不超過 `DateTime` 的上限）；`uploaderAvatar` 的網域照 `Artwork`；`stats.kind` 是封閉的 union
   （`TrackStatKind`），**不認得的 `kind` 整筆拒收成 `ParseError`**（不會悄悄丟掉）：宿主依 `kind` 挑圖示與翻譯，不顯示插件給的文字，

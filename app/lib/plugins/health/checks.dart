@@ -667,6 +667,7 @@ Map<String, Object?> trackDetailFields(TrackDetail detail) => {
     for (final stat in detail.stats)
       {'kind': stat.kind.wireName, 'count': stat.count},
   ],
+  'webUrl': detail.webUrl?.toString(),
 };
 
 /// [LiveRoom] 的欄位，名稱同 `sourceDtoShapes['LiveRoom']`（`status` 是插件介面上的名稱）。
@@ -677,6 +678,7 @@ Map<String, Object?> liveRoomFields(LiveRoom room) => {
   'artwork': room.artwork,
   'status': room.status.wireName,
   'online': room.online,
+  'area': room.area,
 };
 
 /// [LoginAccount] 的欄位，名稱同 `sourceDtoShapes['LoginAccount']`。
@@ -697,6 +699,7 @@ Map<String, Object?> trackFields(TrackSummary track) => {
   'partCount': track.partCount,
   'partIndex': track.partIndex,
   'parentTitle': track.parentTitle,
+  'viewCount': track.viewCount,
 };
 
 /// [MultiPart] 的欄位，名稱同 `sourceDtoShapes['MultiPartItem']`。

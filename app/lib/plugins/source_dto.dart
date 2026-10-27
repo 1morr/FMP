@@ -33,6 +33,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'partCount': false,
     'partIndex': false,
     'parentTitle': false,
+    'viewCount': false,
   },
   'Artwork': {'url': true, 'width': false},
   'StreamRequest': {
@@ -64,6 +65,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'artwork': false,
     'status': true,
     'online': false,
+    'area': false,
   },
   'LiveRoomQuery': {'roomId': true},
   'LiveUrlQuery': {'url': true},
@@ -88,6 +90,7 @@ const sourceDtoShapes = <String, JsonShape>{
     'uploaderAvatar': false,
     'album': false,
     'stats': false,
+    'webUrl': false,
   },
   'TrackStat': {'kind': true, 'count': true},
   'PlaylistUrlQuery': {'url': true},
@@ -216,6 +219,7 @@ final class TrackSummary {
     this.partCount,
     this.partIndex,
     this.parentTitle,
+    this.viewCount,
   }) : assert(
          (partIndex == null) == (parentTitle == null),
          'partIndex and parentTitle come together',
@@ -263,6 +267,7 @@ final class TrackSummary {
       partCount: fields.optionalInteger('partCount', min: 1),
       partIndex: partIndex,
       parentTitle: parentTitle,
+      viewCount: fields.optionalInteger('viewCount'),
     );
   }
 
@@ -287,6 +292,9 @@ final class TrackSummary {
   final int? partIndex;
   final String? parentTitle;
 
+  /// 播放數（非負整數；ADR 0035 §決定 10）。選填：沒有就是不知道，曲目列不顯示。
+  final int? viewCount;
+
   /// 插件以外（佇列、歷史）用的曲目：欄位逐一照搬。
   TrackInfo toTrackInfo() => TrackInfo(
     sourceTypeId: sourceTypeId,
@@ -301,6 +309,7 @@ final class TrackSummary {
     ]),
     partIndex: partIndex,
     parentTitle: parentTitle,
+    viewCount: viewCount,
   );
 }
 
@@ -719,6 +728,7 @@ final class LiveRoom {
     this.artwork = const [],
     required this.status,
     this.online,
+    this.area,
   });
 
   /// 解碼插件回傳的 `LiveRoom`（`liveStatus` 的回傳值）。
@@ -753,6 +763,11 @@ final class LiveRoom {
       ]),
       status: status,
       online: fields.optionalInteger('online'),
+      // 去掉前後空白，空的當沒有（分區標籤只是裝飾，不為它拒收整個直播間）。
+      area: switch (fields.optionalString('area')?.trim()) {
+        final area? when area.isNotEmpty => area,
+        _ => null,
+      },
     );
   }
 
@@ -765,6 +780,9 @@ final class LiveRoom {
 
   /// 觀看人數；不知道就是 `null`。
   final int? online;
+
+  /// 分區（遊戲、聊天之類）的短文字，已去掉前後空白；沒有就是 `null`（ADR 0035 §決定 10 補充）。
+  final String? area;
 }
 
 /// `liveStatus` 的輸入（也是 checks.json 的 `live` 案例的輸入）。
@@ -1083,11 +1101,15 @@ final class TrackDetail {
     this.uploaderAvatar = const [],
     this.album,
     this.stats = const [],
+    this.webUrl,
   });
 
+  /// [onWebUrlDropped] 在 `webUrl` 不是允許網域上的 `https` 網址、因此被丟掉時呼叫，
+  /// 參數是原因（`notHttps`、`hostNotAllowed`），不帶網址本身（給 log 用）。
   factory TrackDetail.fromJson(
     Object? json, {
     required AllowedHosts allowedHosts,
+    void Function(String reason)? onWebUrlDropped,
   }) {
     const path = 'TrackDetail';
     final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
@@ -1116,7 +1138,26 @@ final class TrackDetail {
             in (fields.optionalList('stats') ?? []).indexed)
           TrackStat._fromJson(item, path: '$path.stats[$index]'),
       ]),
+      webUrl: _webUrl(fields, allowedHosts, onWebUrlDropped),
     );
+  }
+
+  /// `webUrl`：`https` 且網域在 allowedHosts 才留著；不符就丟掉（`null`，封面與標題不可點），
+  /// 其他欄位照常（ADR 0035 §決定 10）。和 [Artwork.url] 不同：封面不符整筆拒收，這裡只是
+  /// 少一個連結。不是字串仍是形狀錯誤（`FormatException`）。
+  static Uri? _webUrl(
+    JsonFields fields,
+    AllowedHosts allowedHosts,
+    void Function(String reason)? onDropped,
+  ) {
+    final text = fields.optionalString('webUrl');
+    if (text == null) return null;
+    final url = Uri.tryParse(text);
+    if (url != null && allowedHosts.allows(url)) return url;
+    onDropped?.call(
+      url == null || url.scheme != 'https' ? 'notHttps' : 'hostNotAllowed',
+    );
+    return null;
   }
 
   final String? description;
@@ -1127,13 +1168,17 @@ final class TrackDetail {
   final String? album;
   final List<TrackStat> stats;
 
+  /// 曲目在原網站的網頁（ADR 0035 §決定 10）；有才可以點開。
+  final Uri? webUrl;
+
   /// 沒有任何欄位有內容。
   bool get isEmpty =>
       (description ?? '').trim().isEmpty &&
       publishedAt == null &&
       uploaderAvatar.isEmpty &&
       (album ?? '').trim().isEmpty &&
-      stats.isEmpty;
+      stats.isEmpty &&
+      webUrl == null;
 }
 
 /// `playlistFromUrl` 的輸入（ADR 0032 §決定 2）。
