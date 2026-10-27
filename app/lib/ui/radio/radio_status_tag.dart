@@ -53,10 +53,13 @@ class RadioStatusTag extends ConsumerWidget {
 /// 標記自己的字都只有一行、太長就省略，不會撐破列。用 `Wrap` 而不是 `Text.rich` 的 `WidgetSpan`：
 /// 後者裡面的字不在 guideline 測試的對比度檢查範圍內。
 class TaggedLine extends StatelessWidget {
-  const TaggedLine({super.key, required this.tag, this.text});
+  const TaggedLine({super.key, required this.tag, this.text, this.extraTag});
 
   final Widget tag;
   final String? text;
+
+  /// 狀態標記之後的第二個標記（直播間的分區）。
+  final Widget? extraTag;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +73,7 @@ class TaggedLine extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           tag,
+          ?extraTag,
           if (text != null)
             Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
         ],

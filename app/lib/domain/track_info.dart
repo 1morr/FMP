@@ -18,6 +18,7 @@ final class TrackInfo {
     this.artwork = const [],
     this.partIndex,
     this.parentTitle,
+    this.viewCount,
   });
 
   /// 曲目鍵的三段（`TrackKey.format`）：音源（插件 id）、音源內的 id、分 P 的 cid。
@@ -36,6 +37,10 @@ final class TrackInfo {
   /// 分 P 的標題。顯示用 [displayTitle]。
   final int? partIndex;
   final String? parentTitle;
+
+  /// 播放數（插件有給才有，ADR 0035 §決定 10）：只是列上的顯示資料，不寫進 `tracks` 表
+  /// （佇列、歷史、歌單讀回來沒有），只在搜尋結果與榜單快取裡帶著。
+  final int? viewCount;
 
   /// 分 P 的標籤「P2 分 P 標題」；不是分 P 曲目時是 [title]。分 P 沒有自己的標題時插件
   /// 給的就是 `P<序號>`，這時只顯示一次（不寫成「P3 P3」）。
@@ -66,7 +71,8 @@ final class TrackInfo {
           other.duration == duration &&
           listEquals(other.artwork, artwork) &&
           other.partIndex == partIndex &&
-          other.parentTitle == parentTitle;
+          other.parentTitle == parentTitle &&
+          other.viewCount == viewCount;
 
   @override
   int get hashCode => Object.hash(
@@ -79,6 +85,7 @@ final class TrackInfo {
     Object.hashAll(artwork),
     partIndex,
     parentTitle,
+    viewCount,
   );
 }
 

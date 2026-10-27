@@ -1872,6 +1872,10 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   @override
   String get detailsRetry => '重试';
   @override
+  String get openWebPage => '在浏览器打开原网页';
+  @override
+  String get openWebFailed => '无法打开浏览器';
+  @override
   String get statView => '播放';
   @override
   String get statLike => '点赞';

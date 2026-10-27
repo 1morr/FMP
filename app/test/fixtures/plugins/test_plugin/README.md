@@ -50,7 +50,7 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
 
   | roomId | `liveStatus` | `resolveLive` | 用途 |
   |---|---|---|---|
-  | `live-ok` | 開播中，人數 42 | `live.wav`（60 秒） | 一般收聽 |
+  | `live-ok` | 開播中，人數 42，分區標籤 `Test area`（`live-offline` 的是 `Chat`） | `live.wav`（60 秒） | 一般收聽 |
   | `live-offline` | 未開播 | `NotFound`（錯誤裡沒有「未開播」；`Unavailable` 的原因都會誤導） | 未開播 |
   | `live-drop` | 一律開播中 | `tone.wav`（2 秒） | 提前結束後重連：每次重連又在 2 秒後結束 |
   | `live-ended` | 插件的 isolate 活著期間第一次查是開播中，之後都是未開播 | `tone.wav` | 提前結束後問狀態，得到「直播已結束」 |
@@ -80,7 +80,8 @@ ADR 0015 §決定 6 的測試插件：合成資料、不連網。執行環境的
   | `parts-880` | 沒有 | 一個分 P | 展開後鈕消失；選單照單曲處理 |
 - 曲目詳細（`trackDetail`，不連網，給播放頁「詳細」分頁的實機驗證）：看搜尋結果裡的曲目（點開播放頁的詳細分頁）。
   `tone-440` 有完整的資料（六行的簡介、2024-05-17 的發佈時間、專輯、七種統計；沒有 `uploaderAvatar`，因為
-  `allowedHosts` 是空的，頭像的顯示由 widget 測試守）；`tone-880` 以 `NetworkError` 失敗（看詳細區的失敗與重試）；
+  沒有可用的頭像網址，頭像的顯示由 widget 測試守；有 `webUrl`＝`https://fmp.test/track/tone-440`，
+  `fmp.test` 是 `allowedHosts` 唯一的項目、不連網，只給點封面與標題開原網頁的實機驗證）；`tone-880` 以 `NetworkError` 失敗（看詳細區的失敗與重試）；
   其他曲目回空的詳細資料（詳細區不多顯示東西）。
 - 歌單匯入（`importPlaylist`，不連網，給匯入與刷新的實機驗證；狀態存在插件 isolate 的記憶體，到 App 重啟為止）：
   `playlistFromUrl` 認 `https://fmp.test/playlist/<id>`（任何 id 都認，不存在的在取頁時 `NotFound`）與

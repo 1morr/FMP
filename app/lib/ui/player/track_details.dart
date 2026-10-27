@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/platform/url_opener/url_opener.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
@@ -12,6 +13,7 @@ import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
+import 'package:fmp/ui/toast/toaster.dart';
 
 /// 一首曲目的詳細資料：封面、曲名、上傳者、時長、音源名稱（design §9.3）。播放頁的
 /// 「詳細」分頁與（M2 PR 19 的）右側「正在播放」面板共用。插件宣告 `trackDetail` 時在下面
@@ -56,6 +58,19 @@ class TrackDetails extends ConsumerWidget {
       for (final image in detail?.uploaderAvatar ?? const <Artwork>[])
         TrackArtwork(url: image.url, width: image.width),
     ];
+    // 插件給了原網頁（過了允許網域）且平台開得了瀏覽器，封面與標題才可以點（ADR 0035 §決定 10）。
+    final detailUrl = detail?.webUrl;
+    final webUrl = detailUrl == null || ref.watch(urlOpenerProvider) == null
+        ? null
+        : detailUrl;
+    Future<void> openWeb() async {
+      final uri = webUrl;
+      if (uri == null) return;
+      final toaster = ref.read(toasterProvider);
+      final opened = await ref.read(urlOpenerProvider)?.open(uri) ?? false;
+      if (!opened) toaster.warning(t.openWebFailed);
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.maxWidth.isFinite
@@ -71,14 +86,26 @@ class TrackDetails extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: ArtworkImage(
-                  pluginId: track.sourceTypeId,
-                  artwork: track.artwork,
-                  size: size,
+                child: _WebLink(
+                  label: t.openWebPage,
+                  onOpen: webUrl == null ? null : openWeb,
+                  child: ArtworkImage(
+                    pluginId: track.sourceTypeId,
+                    artwork: track.artwork,
+                    size: size,
+                  ),
                 ),
               ),
               SizedBox(height: spacing.x4),
-              Text(track.displayTitle, style: theme.textTheme.titleLarge),
+              _WebLink(
+                label: t.openWebPage,
+                onOpen: webUrl == null ? null : openWeb,
+                minHeight: kMinInteractiveDimension,
+                child: Text(
+                  track.displayTitle,
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
               SizedBox(height: spacing.x4),
               if (uploader != null)
                 Row(
@@ -123,6 +150,45 @@ class TrackDetails extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 可以點開原網頁的封面或標題：[onOpen] 為 `null`（沒有網址）時什麼都不包，原樣畫 [child]。
+/// 有的話帶「連結」語意，點擊區至少 [minHeight]。
+class _WebLink extends StatelessWidget {
+  const _WebLink({
+    required this.label,
+    required this.onOpen,
+    required this.child,
+    this.minHeight,
+  });
+
+  final String label;
+  final VoidCallback? onOpen;
+  final Widget child;
+  final double? minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final onOpen = this.onOpen;
+    if (onOpen == null) return child;
+    final radius = BorderRadius.circular(AppTokens.of(context).radius.small);
+    return Semantics(
+      link: true,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          onTap: onOpen,
+          borderRadius: radius,
+          child: minHeight == null
+              ? child
+              : ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: minHeight!),
+                  child: Align(alignment: Alignment.centerLeft, child: child),
+                ),
+        ),
+      ),
     );
   }
 }

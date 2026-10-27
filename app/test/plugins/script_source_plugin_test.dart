@@ -198,7 +198,38 @@ void main() {
       expect(page.items.single.cid, 7);
     });
 
+    test('viewCount is optional and kept as given', () async {
+      final page = await search(
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: 12345 }, "
+        "{ sourceId: 'a2', title: 'B', viewCount: 0 }, "
+        "{ sourceId: 'a3', title: 'C', viewCount: null }, "
+        "{ sourceId: 'a4', title: 'D' }], hasMore: false }",
+      );
+
+      page as SearchPage;
+      expect(
+        [for (final item in page.items) item.viewCount],
+        [12345, 0, null, null],
+      );
+      expect(page.items.first.toTrackInfo().viewCount, 12345);
+    });
+
     for (final (description, result) in [
+      (
+        'a negative viewCount',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: -1 }], "
+            'hasMore: false }',
+      ),
+      (
+        'a fractional viewCount',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: 1.5 }], "
+            'hasMore: false }',
+      ),
+      (
+        'a text viewCount',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: '12' }], "
+            'hasMore: false }',
+      ),
       ('a missing hasMore', '{ items: [] }'),
       ('an unknown field', '{ items: [], hasMore: false, total: 3 }'),
       (

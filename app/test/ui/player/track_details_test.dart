@@ -5,11 +5,13 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/player/track_detail_parts.dart';
 import 'package:fmp/ui/player/track_detail_provider.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/fake_url_opener.dart';
 import '../support/shell_harness.dart';
 
 // 詳細區（M3 design §11.2）：插件宣告 `trackDetail` 才多顯示欄位；每首第一次顯示時取一次，
@@ -45,8 +47,13 @@ Future<ShellHarness> _pump(
   FutureOr<TrackDetail> Function(TrackDetailQuery query)? onDetail,
   TrackInfo track = _track,
   Size size = const Size(1000, 700),
+  FakeUrlOpener? opener,
 }) async {
-  final h = ShellHarness(trackDetail: trackDetail, registryOfSources: true);
+  final h = ShellHarness(
+    trackDetail: trackDetail,
+    registryOfSources: true,
+    urlOpener: opener,
+  );
   if (trackDetail) h.plugin.onTrackDetail = onDetail ?? (_) => _full;
   await h.pumpApp(
     tester,
@@ -99,6 +106,97 @@ void main() {
         expect(find.bySemanticsLabel('$name 3'), findsOneWidget, reason: name);
       }
       handle.dispose();
+    });
+
+    group('the original page', () {
+      final webUrl = Uri.parse('https://cdn.example/track/a');
+      Finder coverLink() => find.ancestor(
+        of: find.byType(ArtworkImage),
+        matching: find.byType(InkWell),
+      );
+      Finder titleLink() => find.ancestor(
+        of: find.text('Song a'),
+        matching: find.byType(InkWell),
+      );
+
+      testWidgets('the cover and the title open webUrl when there is one', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+        final opener = FakeUrlOpener();
+        await _pump(
+          tester,
+          onDetail: (_) => TrackDetail(webUrl: webUrl),
+          opener: opener,
+        );
+
+        expect(coverLink(), findsOneWidget);
+        expect(titleLink(), findsOneWidget);
+        // 連結語意：螢幕閱讀器念成連結。
+        expect(
+          tester.getSemantics(titleLink()),
+          matchesSemantics(
+            isLink: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+            isFocusable: true,
+            label: 'Song a',
+            tooltip: 'Open the original page in the browser',
+          ),
+        );
+
+        await tester.tap(coverLink());
+        await tester.pump();
+        await tester.tap(titleLink());
+        await tester.pump();
+
+        expect(opener.opened, [webUrl, webUrl]);
+        handle.dispose();
+      });
+
+      testWidgets('without webUrl neither is tappable', (tester) async {
+        final opener = FakeUrlOpener();
+        await _pump(
+          tester,
+          onDetail: (_) => const TrackDetail(),
+          opener: opener,
+        );
+
+        expect(coverLink(), findsNothing);
+        expect(titleLink(), findsNothing);
+        expect(opener.opened, isEmpty);
+      });
+
+      testWidgets('a plugin without trackDetail has none', (tester) async {
+        await _pump(tester, trackDetail: false, opener: FakeUrlOpener());
+
+        expect(coverLink(), findsNothing);
+      });
+
+      testWidgets('a platform that cannot open a browser has none', (
+        tester,
+      ) async {
+        await _pump(tester, onDetail: (_) => TrackDetail(webUrl: webUrl));
+
+        expect(coverLink(), findsNothing);
+        expect(titleLink(), findsNothing);
+      });
+
+      testWidgets('a browser that cannot be opened says so', (tester) async {
+        final opener = FakeUrlOpener(result: false);
+        await _pump(
+          tester,
+          onDetail: (_) => TrackDetail(webUrl: webUrl),
+          opener: opener,
+        );
+
+        await tester.tap(titleLink());
+        await tester.pump();
+        await tester.pump();
+
+        expect(opener.opened, [webUrl]);
+        expect(find.text("Couldn't open the browser"), findsOneWidget);
+      });
     });
 
     testWidgets('an empty detail adds nothing', (tester) async {

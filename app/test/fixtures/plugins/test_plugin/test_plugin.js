@@ -6,7 +6,7 @@
   "author": "FMP",
   "apiVersion": 1,
   "capabilities": ["search", "resolveStream", "live", "mix", "multiPart", "trackDetail", "importPlaylist", "charts", "libraryRead", "libraryWrite", "login"],
-  "allowedHosts": [],
+  "allowedHosts": ["fmp.test"],
   "login": { "methods": ["qr", "cookie"], "refresh": "onStartup" }
 }
 ==/FMP Plugin== */
@@ -15,6 +15,8 @@
 // App 內附的音檔（dev flavor 的 asset），給執行環境的測試、實機驗證與量測用。
 
 const TONES = [220, 440, 880];
+// 播放數（ADR 0035 §決定 10）：搜尋結果與榜單的曲目帶 viewCount，看縮寫（1234、460萬／4.6M、12）。
+const VIEW_COUNTS = { 220: 1234, 440: 4600000, 880: 12 };
 const PAGE_SIZE = 2;
 const TONE_ASSET = 'asset:///test/fixtures/plugins/test_plugin/tone.wav';
 const MISSING_ASSET = 'asset:///test/fixtures/plugins/test_plugin/missing.wav';
@@ -71,8 +73,8 @@ const EXPIRED_HARD_KEYWORD = 'expired-hard';
 // - live-ended：這個 isolate 第一次查是開播中，之後都是未開播（提前結束後問狀態）。
 // - live-broken：查狀態與解析串流都以 NetworkError 失敗（搜尋結果裡標開播中）。
 const LIVE_ROOMS = [
-  { roomId: 'live-ok', title: 'Test live room', hostName: 'FMP', status: 'live', online: 42 },
-  { roomId: 'live-offline', title: 'Test offline room', hostName: 'FMP', status: 'offline' },
+  { roomId: 'live-ok', title: 'Test live room', hostName: 'FMP', status: 'live', online: 42, area: 'Test area' },
+  { roomId: 'live-offline', title: 'Test offline room', hostName: 'FMP', status: 'offline', area: 'Chat' },
   { roomId: 'live-drop', title: 'Test dropping room', hostName: 'FMP', status: 'live', online: 7 },
   { roomId: 'live-ended', title: 'Test ending room', hostName: 'FMP', status: 'live', online: 3 },
   { roomId: 'live-broken', title: 'Test broken room', hostName: 'FMP', status: 'live', online: 1 },
@@ -105,7 +107,7 @@ const PART_COUNTS = { 220: 3, 440: 2, 880: 1 };
 
 // 曲目詳細（ADR 0028 §決定 6），不連網：
 // - tone-440：完整的詳細資料（長簡介、發佈時間、專輯、七種統計；allowedHosts 是空的，
-//   沒有可用的頭像網址，所以沒有 uploaderAvatar）；
+//   沒有可用的頭像網址，所以沒有 uploaderAvatar；有 webUrl）；
 // - tone-880：以 NetworkError 失敗，看詳細區的失敗與重試；
 // - 其他曲目：空的詳細資料。
 const DETAIL_FULL_ID = 'tone-440';
@@ -439,6 +441,7 @@ export async function search(query) {
     uploader: 'FMP',
     durationMs: 2000,
     artwork: [],
+    viewCount: VIEW_COUNTS[hz],
     ...partCountFor(query.keyword, hz),
   }));
   return { items, hasMore: start + PAGE_SIZE < TONES.length };
@@ -627,7 +630,9 @@ export function chart(query) {
     throw { fmpError: 'NetworkError', message: 'forced failure for on-device checks' };
   }
   return {
-    tracks: found.hz.map((hz) => playlistTrack(`tone-${hz}`, `${found.title} tone ${hz} Hz`)),
+    tracks: found.hz.map((hz) =>
+      playlistTrack(`tone-${hz}`, `${found.title} tone ${hz} Hz`, { viewCount: VIEW_COUNTS[hz] }),
+    ),
   };
 }
 
@@ -686,6 +691,8 @@ export function trackDetail(query) {
     ].join('\n'),
     publishedAt: Date.UTC(2024, 4, 17, 8, 30),
     album: 'Test album',
+    // 允許網域是 fmp.test（不連網，只給實機驗「點封面與標題開原網頁」）。
+    webUrl: 'https://fmp.test/track/tone-440',
     stats: [
       { kind: 'view', count: 46000000 },
       { kind: 'like', count: 1234567 },

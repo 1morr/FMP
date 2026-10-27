@@ -107,6 +107,23 @@ void main() {
       }
     });
 
+    test(
+      'webUrl on an allowed host is kept, missing or null is null',
+      () async {
+        final given = await detail(
+          "{ webUrl: 'https://www.example.test/v/1' }",
+        ) as TrackDetail;
+        final nothing = await detail('{}') as TrackDetail;
+        final nulled = await detail('{ webUrl: null }') as TrackDetail;
+
+        expect(given.webUrl, Uri.parse('https://www.example.test/v/1'));
+        // 只有網址也算有內容（面板才不會當成空的詳細）。
+        expect(given.isEmpty, isFalse);
+        expect(nothing.webUrl, isNull);
+        expect(nulled.webUrl, isNull);
+      },
+    );
+
     test('a full detail is decoded', () async {
       final value = await detail('''{
   description: 'About',
@@ -151,6 +168,13 @@ void main() {
         "{ uploaderAvatar: [{ url: 'http://example.test/a.png' }] }",
       ),
       ('a numeric description', '{ description: 1 }'),
+      ('a webUrl on another host', "{ webUrl: 'https://evil.test/v/1' }"),
+      ('a webUrl that is not https', "{ webUrl: 'http://example.test/v/1' }"),
+      (
+        'a webUrl on a look-alike host',
+        "{ webUrl: 'https://evil-example.test/v/1' }",
+      ),
+      ('a numeric webUrl', '{ webUrl: 1 }'),
       ('undefined', 'undefined'),
     ]) {
       test('trackDetail rejects $description as ParseError', () async {

@@ -19,6 +19,7 @@ final _tracks = [
     title: 'Hot tone 440 Hz',
     uploader: 'FMP',
     duration: const Duration(seconds: 2),
+    viewCount: 46000000,
     artwork: [
       TrackArtwork(url: Uri.parse('https://cdn.example/a.jpg'), width: 300),
       TrackArtwork(url: Uri.parse('https://cdn.example/b.jpg')),
@@ -210,6 +211,7 @@ void main() {
     expect(track['sourceId'], 'tone-440');
     expect(track['durationMs'], 2000);
     expect(track['cid'], isNull);
+    expect(track['viewCount'], 46000000);
     expect(harness.fileNames(), hasLength(1));
   });
 }

@@ -313,7 +313,11 @@ void main() {
           WidgetTester tester,
           FutureOr<TrackDetail> Function(TrackDetailQuery query) onDetail,
         ) async {
-          final h = ShellHarness(trackDetail: true, registryOfSources: true);
+          final h = ShellHarness(
+            trackDetail: true,
+            registryOfSources: true,
+            urlOpener: FakeUrlOpener(),
+          );
           h.plugin.onTrackDetail = onDetail;
           await h.pumpApp(
             tester,
@@ -346,6 +350,8 @@ void main() {
                 for (final kind in TrackStatKind.values)
                   TrackStat(kind: kind, count: 12345),
               ],
+              // 有原網頁：封面與標題是連結（U PR 16）。
+              webUrl: Uri.parse('https://cdn.example/track/a'),
             ),
           );
           expect(find.text('Published'), findsOneWidget);
@@ -434,6 +440,39 @@ void main() {
           await expectGuidelines(tester);
           handle.dispose();
         });
+
+        // 搜尋結果的播放數（U PR 16）：有值與沒有值的列、字級 1.0 與 2.0。
+        for (final scale in const [1.0, 2.0]) {
+          testWidgets('search results with play counts, text scale $scale, '
+              'at $width', (tester) async {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            final handle = tester.ensureSemantics();
+            final h = ShellHarness(
+              onSearch: (_) => SearchPage(
+                items: [
+                  summary('a', viewCount: 46000000),
+                  summary('b', viewCount: 1234),
+                  summary('c'),
+                ],
+                hasMore: false,
+              ),
+            );
+            await h.pumpShell(tester, size: size, brightness: brightness);
+            await tester.enterText(find.byType(TextField), 'song');
+            await tester.testTextInput.receiveAction(TextInputAction.search);
+            await tester.pump();
+            await tester.pump();
+            FocusManager.instance.primaryFocus?.unfocus();
+            await tester.pumpAndSettle();
+            expect(find.text('46M'), findsOneWidget);
+
+            await expectGuidelines(tester);
+            handle.dispose();
+          });
+        }
 
         // 分 P 的搜尋結果（M3 PR 20）：影片列有展開鈕，展開後列出分 P、取分 P 失敗時有重試。
         for (final failed in [false, true]) {
@@ -1829,12 +1868,14 @@ void main() {
                 hostName: 'Host one',
                 status: LiveRoomStatus.live,
                 online: 12345,
+                area: 'Games',
               ),
               LiveRoom(
                 roomId: 'r2',
                 title: 'Room two',
                 hostName: 'Host two',
                 status: LiveRoomStatus.offline,
+                area: 'Chat',
               ),
             ],
             hasMore: false,
@@ -3185,12 +3226,14 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
                 hostName: 'Host r1',
                 status: LiveRoomStatus.live,
                 online: 120,
+                area: 'Games',
               ),
               LiveRoom(
                 roomId: 'r2',
                 title: 'Room r2',
                 hostName: 'Host r2',
                 status: LiveRoomStatus.offline,
+                area: 'Chat',
               ),
             ],
             hasMore: false,

@@ -787,4 +787,44 @@ void main() {
       expect(find.byType(ChoiceChip), findsNWidgets(2));
     });
   });
+
+  group('play count', () {
+    testWidgets('a row shows it when the plugin gave one, and only then', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        onSearch: (_) => SearchPage(
+          items: [summary('a', viewCount: 4600000), summary('b')],
+          hasMore: false,
+        ),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      expect(find.text('Uploader a'), findsOneWidget);
+      expect(find.text('4.6M'), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+      expect(find.text('Uploader b'), findsOneWidget);
+      // 時長欄固定寬度，不因播放數移動。
+      expect(find.text('3:05'), findsNWidgets(2));
+      expect(
+        tester.getTopRight(find.text('3:05').at(0)).dx,
+        tester.getTopRight(find.text('3:05').at(1)).dx,
+      );
+    });
+
+    testWidgets('the search state keeps it', (tester) async {
+      final h = ShellHarness(
+        onSearch: (_) =>
+            SearchPage(items: [summary('a', viewCount: 12)], hasMore: false),
+      );
+      await h.pumpShell(tester);
+      await search(tester, 'song');
+
+      expect(
+        h.container(tester).read(searchProvider).items.single.viewCount,
+        12,
+      );
+    });
+  });
 }

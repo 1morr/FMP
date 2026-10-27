@@ -801,6 +801,8 @@
     "detailsLoading": "Loading details",
     "detailsFailed": "Could not load the details",
     "detailsRetry": "Retry",
+    "openWebPage": "Open the original page in the browser",
+    "openWebFailed": "Couldn't open the browser",
     "statView": "Views",
     "statLike": "Likes",
     "statFavorite": "Favorites",
