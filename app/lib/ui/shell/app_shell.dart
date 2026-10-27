@@ -38,6 +38,7 @@ import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
+import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
@@ -51,6 +52,10 @@ enum ShellDestination { home, search, library, queue, radio, settings }
 ///
 /// - compact：底部 `NavigationBar`，播放列在它上面；
 /// - medium 以上：左側舊版的可展開側欄（[LegacySideRail]，收合 72dp、展開 256dp，各寬度同一個）。
+///
+/// 側欄記住展開、但再加上右側面板會讓內容區不到 [AppLayout.contentMinWidth]（360dp）時，側欄畫成
+/// 收合（記住的狀態不改，面板關上或視窗變寬就自己展開回來）；這時按側欄的展開鈕會一併收起面板
+/// （ADR 0035 §決定 2 的 U 驗收修訂）。
 ///
 /// 後者的版面是一個 `Column`：側欄加內容區加右側面板、
 /// 最底下的播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以播放列讀到的是整個視窗的
@@ -391,6 +396,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     ),
   };
 
+  /// 視窗寬扣掉左右安全區（側欄與內容區各自留的）：側欄、內容區與面板實際能分到的寬度。
+  /// 只訂閱尺寸與安全區（不用 `MediaQuery.of`：鍵盤動畫的每一格都會重建整個外殼）。
+  double _availableWidth(BuildContext context) {
+    final padding = MediaQuery.paddingOf(context);
+    return MediaQuery.sizeOf(context).width - padding.left - padding.right;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(playbackEventsProvider, _onPlaybackEvent);
@@ -411,6 +423,19 @@ class _AppShellState extends ConsumerState<AppShell> {
     _keepCoveringRouteFocus(windowClass);
     // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走）。
     final hasPanel = hasNowPlayingPanel(windowClass) && hasTrack;
+    // 面板實際出現時，側欄展開會讓內容區不到下限就把側欄畫成收合（記住的狀態不動）。
+    final panelShown = hasPanel && ref.watch(panelExpandedProvider);
+    final railYields =
+        panelShown &&
+        railYieldsToPanel(
+          availableWidth: _availableWidth(context),
+          panelWidth: panelWidthFor(
+            stored: ref.watch(panelStoredWidthProvider),
+            windowClass: windowClass,
+            windowWidth: MediaQuery.sizeOf(context).width,
+          ),
+        );
+    final railExpanded = ref.watch(railExpandedProvider) && !railYields;
     final pages = WindowClassScope(
       child: Column(
         children: [
@@ -537,6 +562,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                         selectedIndex: index,
                         onSelected: onSelected,
                         destinations: destinations,
+                        expanded: railExpanded,
+                        // 放不下面板時，按「展開」要看得到結果：一併收起面板。
+                        onExpand: () => rememberRail(
+                          ref,
+                          expanded: true,
+                          panelExpanded: railYields ? false : null,
+                        ),
+                        onCollapse: () => rememberRail(ref, expanded: false),
                       ),
                     ),
                   ),

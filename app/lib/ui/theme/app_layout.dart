@@ -197,6 +197,10 @@ abstract final class AppLayout {
   static const double railExpanded = 256;
   static const Duration railDuration = Duration(milliseconds: 250);
 
+  /// 內容區（頁面）至少要有的寬度（ADR 0035 §決定 2 的 U 驗收修訂）：M3 固定窗格的寬度，也是頁面
+  /// 設計時的最小手機寬。側欄展開加右側面板放不下時側欄畫成收合（[railYieldsToPanel]）。
+  static const double contentMinWidth = 360;
+
   /// Windows 自繪標題列（ADR 0035 §決定 6，舊版 `CustomTitleBar`）：高度、三顆視窗鈕的寬度與圖示尺寸。
   static const double titleBarHeight = 36;
   static const double titleBarButtonWidth = 46;

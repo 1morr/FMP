@@ -384,6 +384,172 @@ void main() {
     });
   });
 
+  // ADR 0035 §決定 2 的 U 驗收修訂：內容區至少 360dp；側欄展開加面板放不下時側欄畫成收合。
+  group('the rail yields to the panel (ADR 0035 §決定 2, U acceptance)', () {
+    double railWidth(WidgetTester tester) =>
+        tester.getSize(find.byType(LegacySideRail)).width;
+    double pageWidth(WidgetTester tester) =>
+        tester.getSize(find.byType(SearchPage)).width;
+
+    Future<LayoutState?> stored(WidgetTester tester, ShellHarness h) =>
+        tester.runAsync(
+          () => h.container(tester).read(layoutStateRepositoryProvider).read(),
+        );
+
+    Future<ShellHarness> pumpPlaying(WidgetTester tester, Size size) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: size, expandRail: true);
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      return h;
+    }
+
+    testWidgets('914 wide: the remembered rail is drawn collapsed and the '
+        'pages keep 360dp', (tester) async {
+      final h = await pumpPlaying(tester, const Size(914, 412));
+
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect(railWidth(tester), AppLayout.railCollapsed);
+      expect(
+        pageWidth(tester),
+        greaterThanOrEqualTo(AppLayout.contentMinWidth),
+      );
+      expect(
+        (await stored(tester, h))?.railExpanded,
+        isTrue,
+        reason: 'the remembered state is not rewritten',
+      );
+    });
+
+    testWidgets('pressing Expand closes the panel and expands the rail', (
+      tester,
+    ) async {
+      final h = await pumpPlaying(tester, const Size(914, 412));
+
+      await tester.tap(find.byTooltip('Expand side bar'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(railWidth(tester), AppLayout.railExpanded);
+      final layout = await stored(tester, h);
+      expect(layout?.panelExpanded, isFalse);
+      expect(layout?.railExpanded, isTrue);
+    });
+
+    testWidgets('1400 wide: the expanded rail and the panel both show', (
+      tester,
+    ) async {
+      await pumpPlaying(tester, const Size(1400, 800));
+
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect(railWidth(tester), AppLayout.railExpanded);
+    });
+
+    testWidgets('1400 wide: pressing Expand leaves the panel open', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1400, 800));
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+
+      await tester.tap(find.byTooltip('Expand side bar'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(railWidth(tester), AppLayout.railExpanded);
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect((await stored(tester, h))?.panelExpanded, isNull);
+    });
+
+    testWidgets('closing the panel brings the rail back without a rail '
+        'write', (tester) async {
+      final h = await pumpPlaying(tester, const Size(914, 412));
+      expect(railWidth(tester), AppLayout.railCollapsed);
+
+      await tester.tap(find.byTooltip('Collapse the now playing panel'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(railWidth(tester), AppLayout.railExpanded);
+    });
+
+    testWidgets('widening the window brings the rail back', (tester) async {
+      await pumpPlaying(tester, const Size(914, 412));
+      expect(railWidth(tester), AppLayout.railCollapsed);
+
+      tester.view.physicalSize = const Size(1400, 800);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect(railWidth(tester), AppLayout.railExpanded);
+    });
+
+    // 側欄在 `SafeArea(right: false)` 裡、內容區在 `SafeArea(left: false)` 裡：瀏海吃掉的寬度
+    // 頁面分不到。1100 寬時不扣瀏海放得下（424dp），扣掉左邊 70dp 就只剩 354dp。
+    for (final cutout in [0.0, 70.0]) {
+      testWidgets(
+        '1100 wide with a ${cutout.toInt()}dp cutout: the pages keep 360dp',
+        (tester) async {
+          tester.view.padding = FakeViewPadding(left: cutout);
+          await pumpPlaying(tester, const Size(1100, 600));
+
+          expect(find.byType(NowPlayingPanel), findsOneWidget);
+          expect(
+            railWidth(tester),
+            cutout == 0
+                ? AppLayout.railExpanded
+                : cutout + AppLayout.railCollapsed,
+          );
+          expect(
+            pageWidth(tester),
+            greaterThanOrEqualTo(AppLayout.contentMinWidth),
+          );
+        },
+      );
+    }
+
+    // 兩顆鈕共用一個 FocusNode（`LegacySideRail`）：面板一開把側欄畫成收合時，焦點跟著到展開鈕；
+    // 按下展開一併收起面板，焦點再到收合鈕，不掉回導覽區本身。
+    testWidgets('the toggle keeps the keyboard focus when the panel takes '
+        'the rail', (tester) async {
+      final h = ShellHarness();
+      await h.pumpShell(
+        tester,
+        size: const Size(914, 412),
+        expandRail: true,
+        collapsePanel: true,
+      );
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(railWidth(tester), AppLayout.railExpanded);
+      bool toggleFocused(String tooltip) =>
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<Tooltip>()
+              ?.message ==
+          tooltip;
+      await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+      await tester.pump();
+      expect(toggleFocused('Collapse side bar'), isTrue);
+
+      await h.rememberLayout(tester, panelExpanded: true);
+      await tester.pumpAndSettle();
+      expect(railWidth(tester), AppLayout.railCollapsed);
+      expect(toggleFocused('Expand side bar'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(railWidth(tester), AppLayout.railExpanded);
+      expect(toggleFocused('Collapse side bar'), isTrue);
+    });
+  });
+
   // ADR 0035 §決定 4：播放列橫跨整個視窗，側欄下方也是；面板在內容區右邊、播放列上面。
   group('the player bar spans the window (ADR 0035 §決定 4)', () {
     for (final width in [700.0, 1000.0, 1400.0]) {

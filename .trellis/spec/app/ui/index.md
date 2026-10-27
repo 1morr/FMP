@@ -92,6 +92,7 @@ switch (WindowClass.of(context)) {
   元件），外殼在內容區與播放列各放一個，頁面與播放列讀到的是自己那一塊的等級（視窗 900 寬時
   內容區扣掉 rail 是 medium；播放列橫跨整個視窗，讀到的就是視窗的等級）。
 - 只在等級改變時重建。要精確寬度的版面仍用 `LayoutBuilder`。
+- 內容區至少 `AppLayout.contentMinWidth`（360dp）：側欄展開加面板放不下時 `railYieldsToPanel` 為真，外殼把側欄畫成收合（記住的狀態不改）；`LegacySideRail` 只收外殼傳的 `expanded` 與展開、收合的 callback。
 
 ## 字串
 
