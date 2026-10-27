@@ -417,7 +417,12 @@
     "plugins": "Plugins",
     "backup": "Backup and restore",
     "about": "About",
-    "debug": "Debug"
+    "debug": "Debug",
+    "summary": {
+      "appearance": "Theme: {theme}",
+      "appearanceWithFont": "Theme: {theme} · {font}",
+      "playback": "Quality: {quality}"
+    }
   },
   "about": {
     "version": "Version",
@@ -851,6 +856,10 @@
     "qualityHigh": "High",
     "qualityMedium": "Medium",
     "qualityLow": "Low",
+    "qualityHighDescription": "High: Highest bitrate, best quality",
+    "qualityMediumDescription": "Medium: Medium bitrate, balances quality and data",
+    "qualityLowDescription": "Low: Lowest bitrate, saves data",
+    "qualityFallback": "If a source does not have the level you chose, another available level is used",
     "formatPriority": "Format preference",
     "formatPriorityHint": "Which format to pick when a source offers both",
     "formatOpusFirst": "Opus first",

@@ -1065,6 +1065,9 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   String get about => 'About';
   @override
   String get debug => 'Debug';
+  @override
+  late final Translations$settings$summary$en summary =
+      Translations$settings$summary$en._(_root);
 }
 
 // Path: about
@@ -2030,6 +2033,16 @@ class Translations$playback$en extends Translations$playback$zh_TW {
   String get qualityMedium => 'Medium';
   @override
   String get qualityLow => 'Low';
+  @override
+  String get qualityHighDescription => 'High: Highest bitrate, best quality';
+  @override
+  String get qualityMediumDescription =>
+      'Medium: Medium bitrate, balances quality and data';
+  @override
+  String get qualityLowDescription => 'Low: Lowest bitrate, saves data';
+  @override
+  String get qualityFallback =>
+      'If a source does not have the level you chose, another available level is used';
   @override
   String get formatPriority => 'Format preference';
   @override
@@ -3026,6 +3039,25 @@ class Translations$legacyResult$unimported$en
   String get cacheLimit => 'Cache limit';
   @override
   String get homeRanking => 'Home chart order and disabled charts';
+}
+
+// Path: settings.summary
+class Translations$settings$summary$en
+    extends Translations$settings$summary$zh_TW {
+  Translations$settings$summary$en._(TranslationsEn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsEn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String appearance({required Object theme}) => 'Theme: ${theme}';
+  @override
+  String appearanceWithFont({required Object theme, required Object font}) =>
+      'Theme: ${theme} · ${font}';
+  @override
+  String playback({required Object quality}) => 'Quality: ${quality}';
 }
 
 // Path: appearance.presets

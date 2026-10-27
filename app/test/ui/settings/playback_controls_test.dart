@@ -45,6 +45,25 @@ void main() {
   ChoiceChip chip(WidgetTester tester, String label, {bool restart = false}) =>
       tester.widget<ChoiceChip>(chipFinder(label, restart: restart));
 
+  testWidgets('each audio quality is explained, with what happens when a '
+      'source lacks it', (tester) async {
+    await openPlayback(tester);
+
+    expect(find.text('High: Highest bitrate, best quality'), findsOneWidget);
+    expect(
+      find.text('Medium: Medium bitrate, balances quality and data'),
+      findsOneWidget,
+    );
+    expect(find.text('Low: Lowest bitrate, saves data'), findsOneWidget);
+    expect(
+      find.text(
+        'If a source does not have the level you chose, another available '
+        'level is used',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('unset fields show the defaults and say so', (tester) async {
     await openPlayback(tester);
 
