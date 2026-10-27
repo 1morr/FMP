@@ -759,6 +759,36 @@ void main() {
       expect(find.byType(PlayerPage), findsNothing);
     });
 
+    // 只有返回鍵與 Esc 先關面板：收合鈕與 Ctrl+Q 是「離開這一頁」，面板開著也關整頁
+    // （頁面的 PopScope 不能攔下它們）。
+    testWidgets('wide: with the panel open the collapse button closes the '
+        'page', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip(_close));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('wide: with the panel open Ctrl+Q closes the page and selects '
+        'the queue', (tester) async {
+      final h = await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      await _chord(tester, LogicalKeyboardKey.keyQ);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(h.container(tester).read(playerPageOpenProvider), isFalse);
+      expect(find.byType(QueueView).hitTestable(), findsOneWidget);
+    });
+
     testWidgets('wide: with the panel closed the back key closes the page', (
       tester,
     ) async {
@@ -1173,7 +1203,7 @@ void main() {
     });
   });
 
-  // U PR 15（ADR 0035 §決定 6）：Windows 自繪標題列時，播放頁蓋住外殼的那一條，自己再放一條。
+  // U PR 15（ADR 0035 §決定 6）：Windows 自繪標題列在根 Navigator 外面，播放頁開著時仍是同一條；頂列後面是拖曳區。
   group('window chrome', () {
     testWidgets(
       'the one title bar stays over the page, with a drag area under the top row',

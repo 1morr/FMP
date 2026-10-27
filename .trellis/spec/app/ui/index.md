@@ -333,7 +333,7 @@ try {
 - 加一個頁內快捷鍵：在 `PlayerPage` 的 `Actions` 加（導覽類）或 `playbackShortcuts` 加一列、`PlaybackShortcuts` 接
   action（播放類）；輸入框規則同外殼。Ctrl+L 現在沒有這個鍵（歌詞 M7 才做，加的時候外殼與頁面各決定要不要接）；Ctrl+Q（Apple 平台 ⌥⌘U）外殼接切到佇列目的地、
   頁面接「關掉自己再請外殼切過去」（`openQueueProvider`）。
-- 返回鍵：寬版詳細面板開著時，頁面的 `PopScope(canPop: !面板開著)` 先關面板（同 Esc）。這是根 Navigator 上的 route，外殼的 `PopScope` 在下面的 route，
+- 返回鍵：寬版詳細面板開著時，頁面的 `PopScope(canPop: !面板開著)` 先關面板（同 Esc）。頁面自己要關（收合鈕、Ctrl+Q）時用 `_close`（最上層時直接 `pop`），不要用 `maybePop`：會被這個 `PopScope` 攔下。這是根 Navigator 上的 route，外殼的 `PopScope` 在下面的 route，
   不會同時動作；巢狀 Navigator 底下的頁面仍不放 `PopScope`（`app/AGENTS.md` § 介面的「返回鍵」）。
 - Windows 自繪標題列只有一條，在根 Navigator 外面（`WindowFrame`，`fmpAppBuilder` 接線），所有根 route（播放頁、Debug 頁、網頁登入、錯誤詳細）自動有，新的全螢幕 route 不用做任何事；
   不要在外殼或頁面裡再放 `WindowTitleBar`。播放頁頂列後面的 `WindowDragArea` 讓空白處也能拖曳視窗。`WindowFrame` 給 navigator 一個 `Semantics(container: true)`（ModalBarrier 的

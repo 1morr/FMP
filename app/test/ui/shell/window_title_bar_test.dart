@@ -195,6 +195,30 @@ void main() {
       handle.dispose();
     });
 
+    // 對話框的遮罩只蓋 Navigator 那一格（同舊版）：開著時視窗鈕照樣按得到、空白處照樣拖得動。
+    testWidgets('a dialog barrier does not cover the bar', (tester) async {
+      final chrome = FakeWindowChrome();
+      await ShellHarness(windowChrome: chrome)
+          .pumpShell(tester, at: ShellDestination.home);
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.byType(AppShell)),
+          builder: (_) => const AlertDialog(title: Text('A dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Minimize'));
+      await tester.dragFrom(
+        tester.getCenter(find.byType(WindowTitleBar)),
+        const Offset(60, 20),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chrome.calls, ['minimize', 'startDragging']);
+      expect(find.text('A dialog'), findsOneWidget);
+    });
+
     testWidgets('a tooltip shows on hover without an Overlay error', (
       tester,
     ) async {

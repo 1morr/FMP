@@ -8,20 +8,22 @@ import 'package:window_manager/window_manager.dart';
 // 只能在 Windows 實機驗；這裡核對呼叫順序與最大化狀態。
 
 void main() {
-  test('init hides the title bar style and shows the window', () async {
-    final manager = _FakeManager();
+  // 不 show、不 focus：視窗由 runner 在第一個畫面出來時顯示（runApp 之前顯示會先露出空白視窗）。
+  test(
+    'init hides the title bar and leaves showing the window to the runner',
+    () async {
+      final manager = _FakeManager();
 
-    await WindowManagerChrome.init(manager: manager);
+      await WindowManagerChrome.init(manager: manager);
 
-    expect(manager.calls, [
-      'ensureInitialized',
-      'waitUntilReadyToShow hidden',
-      'show',
-      'focus',
-      'isMaximized',
-    ]);
-    expect(manager.addedListeners, hasLength(1));
-  });
+      expect(manager.calls, [
+        'ensureInitialized',
+        'waitUntilReadyToShow hidden',
+        'isMaximized',
+      ]);
+      expect(manager.addedListeners, hasLength(1));
+    },
+  );
 
   test('maximized starts from the window and follows its events', () async {
     final manager = _FakeManager()..isMaximizedNow = true;
@@ -83,12 +85,6 @@ final class _FakeManager implements WindowManager {
   ]) async {
     calls.add('waitUntilReadyToShow ${options?.titleBarStyle?.name}');
   }
-
-  @override
-  Future<void> show({bool inactive = false}) async => calls.add('show');
-
-  @override
-  Future<void> focus() async => calls.add('focus');
 
   @override
   Future<bool> isMaximized() async {

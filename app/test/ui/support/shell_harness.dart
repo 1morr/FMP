@@ -328,8 +328,8 @@ final class ShellHarness {
     if (redactor != null) redactorProvider.overrideWithValue(redactor!),
     if (dataReset != null) dataResetProvider.overrideWithValue(dataReset!),
     loginWebViewProvider.overrideWithValue(loginWebView),
-    // 「網路」設定的預設上限讀平台宣告：128 MiB。
     windowChromeProvider.overrideWithValue(windowChrome),
+    // 「網路」設定的預設上限讀平台宣告：128 MiB。
     platformCapabilitiesProvider.overrideWithValue(
       PlatformCapabilities(
         dataDirectory: true,

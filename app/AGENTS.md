@@ -211,10 +211,10 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `PlatformCapabilities.customTitleBar`（只有 Windows）宣告系統標題列已隱藏、由 App 自繪；`shortcutModifier`（`ShortcutModifier.control`／`meta`，
   Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier` 給 macOS／iOS 平台任務接上）宣告快捷鍵的主修飾鍵。
   視窗動作是 `WindowChrome`（`minimize`、`toggleMaximize`、`close`、`startDragging`、`maximized`），Windows 實作 `WindowManagerChrome`
-  （`window_manager` 0.5.2，目前維護中的穩定線；`TitleBarStyle.hidden`；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
+  （`window_manager` 0.5.2，目前維護中的穩定線；`TitleBarStyle.hidden`；不 `show`／`focus`：視窗照舊由 runner 在第一個畫面時顯示，`runApp` 之前先顯示會露出空白視窗；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
   實作在 `main()` 開好資料庫與系統媒體控制之後、`runApp` 之前由 `AppPlatform.withWindowChrome` 初始化（`windowsWindowChrome` 可換掉，測試用），
   失敗時記 log、宣告改為沒有（系統標題列留著），App 照常啟動。UI 只問 `activeWindowChromeProvider`（宣告為真才給 `windowChromeProvider` 的值），
-  `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`）、`window_manager_chrome_test.dart`（呼叫順序與最大化狀態）。
+  `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
   （`supportsSeek`）；Android 以 `audio_service` 實作。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
@@ -2726,13 +2726,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     同一支影片另外選的分 P 不重複加。
   - 加入佇列：Mix 中停用並寫明原因；超過上限整批拒絕（提示由外殼接 `QueueFull`），選取留著。加入歌單…：同一個對話框，加入了才離開。
     從歌單移除（只在本機歌單詳情）：先確認（一次刪好幾首，Namida 的「移除才確認」；單筆的選單項目照舊不確認），經 `removeEntries` 只刪選到的項目。
-  - Ctrl+A 綁在頁面（`TrackSelectionScope` 的 `Shortcuts`），只在選取模式內、焦點不在輸入框時作用（輸入框裡是文字全選）；
+  - Ctrl+A（Apple 平台 ⌘A，`primaryChord`）綁在頁面（`TrackSelectionScope` 的 `Shortcuts`），只在選取模式內、焦點不在輸入框時作用（輸入框裡是文字全選）；
     進入與每次點選後焦點不在頁面裡就移到頁面上一個不在 Tab 順序裡的節點，以滑鼠點的也收得到；焦點退到頁面外層（Esc 離開搜尋框時
     `unfocus` 退到 route 的焦點區）也放回那個節點，不用先點一列。列消失造成的變動不搬焦點（上面可能開著對話框或播放頁）。
     動作進行中（取分 P、對話框、寫入）選取列的鈕停用，連按不會做兩次。Shift＋點選是範圍（Gmail：從上一次點的
     那一列到這一列，都設成這一列點完的狀態），看的是 Shift 鍵的狀態、不判斷平台（手機沒有實體鍵盤就不會發生）。
   - 選取模式的列是一個語意節點（`checked`、`selected`），勾選框排除在語意樹與 Tab 順序外。
-  - 閘門：`test/ui/tracks/track_selection_test.dart`（取消到不剩就離開、Shift 範圍、列消失、列消失時對話框留著焦點、Ctrl+A 在選取模式外不作用與輸入框裡選文字、
+  - 閘門：`test/ui/tracks/track_selection_test.dart`（取消到不剩就離開、Shift 範圍、列消失、列消失時對話框留著焦點、Ctrl+A 在選取模式外不作用與輸入框裡選文字、⌘ 組的 ⌘A、
     全選與取消鈕、取消全選留在模式裡、下一首播放照畫面順序、返回鍵、動作照畫面順序、語意節點與勾選框沒有節點也要不到焦點）、`history_page_test.dart`、`search_page_test.dart`（含 Esc 離開搜尋框後直接 Ctrl+A）、`search_parts_test.dart`（含取分 P 時連按）、
     `playlist_detail_page_test.dart` 的 `selecting` 群組（進入與離開：長按、選單、Esc、返回鍵；動作與上限、Mix；分 P 的取法）、guideline 測試的
     `… while selecting at …` 與 `removing the selected songs asks first at …`。
@@ -2781,11 +2781,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     左上角收合鈕（tooltip「關閉播放頁（Esc）」，只有圖示、不另給 `semanticLabel`）、Esc（頁面自己的 `Shortcuts`，
     `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層；寬版右側詳細面板開著時 Esc 先關面板）、Android 返回鍵（route 先 pop，
     只關這一頁）都關；**例外**是寬版右側詳細面板開著時，返回鍵也先關面板（同 Esc）：頁面有一個 `PopScope(canPop: !面板開著)`，
-    根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽、Debug 頁同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
+    根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽、Debug 頁同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。收合鈕與 Ctrl+Q 不經這個 `PopScope`（頁面是最上層時直接 `pop`）：面板開著也關整頁，否則 Ctrl+Q 等不到 route 完成。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
     也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
     收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、`reopening it while it is
-    still closing keeps it open`、寬版面板開著時返回鍵先關面板（`track details` 群組的 `wide: the back key closes the panel first, then the page`）、視窗跨過外殼斷點後播放頁仍收得到 F6、Esc（`crossing the shell breakpoint…`）、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
+    still closing keeps it open`、寬版面板開著時返回鍵先關面板、收合鈕與 Ctrl+Q 仍關整頁（`track details` 群組的 `wide: the back key closes the panel first, then the page`、`wide: with the panel open the collapse button closes the page`、`wide: with the panel open Ctrl+Q closes the page and selects the queue`）、視窗跨過外殼斷點後播放頁仍收得到 F6、Esc（`crossing the shell breakpoint…`）、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
     `player_bar_test.dart` 的 `the title area is a button that opens the player`。
   - 版面依整個視窗的寬高（ADR 0035 §決定 3；`resolvePlayerLayout`，頁面以 `LayoutBuilder` 量，不看 `WindowClass`）：寬 >= 840 且高 >= 520 是寬版
     （`PlayerLayout.wide`；歌詞 M7 才做，所以單欄置中、內容寬上限 `AppLayout.playerContentMaxWide` 720；`_WideContent.lyrics` 非空時是左 5 右 7 的接口，M7 接上）；
@@ -2850,7 +2850,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   空白處是 `WindowDragArea`（按住拖曳 `startDragging`、雙擊 `toggleMaximize`，`window_manager` 的 `DragToMoveArea` 同款，`translucent` 所以不搶按鈕的點擊）；
   播放頁頂列後面也鋪一塊（`AppLayout.playerDragAreaHeight`，舊版 `immersive_player_scaffold.dart:82`）。
   閘門：`window_title_bar_test.dart`（三種寬度的位置與高度、三顆鈕呼叫視窗、最大化狀態、雙擊、拖曳、拖按鈕不移動視窗、不在 Tab 順序、沒有宣告就沒有；`over every route`：
-  根全螢幕 route 上恰好一條、對話框開著時按鈕仍在語意樹（拿掉 `Semantics(container: true)` 會紅）、hover 出 tooltip 不丟 Overlay 錯、提示仍在底部不被標題列蓋住）、
+  根全螢幕 route 上恰好一條、對話框開著時按鈕仍在語意樹（拿掉 `Semantics(container: true)` 會紅）、對話框的遮罩不蓋標題列（鈕按得到、空白處拖得動）、hover 出 tooltip 不丟 Overlay 錯、提示仍在底部不被標題列蓋住）、
   `player_page_test.dart` 的 `window chrome`、guideline 測試的 `the Windows title bar at …`（淺色與深色、1000 與 1400；視窗鈕 46×36 達不到 48dp，所以只驗標籤與對比，不驗 `androidTapTargetGuideline`）。
   **必須在 Windows 實機驗**：隱藏標題列後的拖曳、雙擊最大化、三顆鈕、最大化時的邊框與螢幕邊緣貼齊、dev 與 prod 同時開時各自單一實例、Debug 頁與播放頁上的視窗鈕、對話框開著時的視窗鈕與 tooltip。
 - 視窗跨過外殼斷點時的焦點（U PR 15）：外殼換導覽元件，內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，

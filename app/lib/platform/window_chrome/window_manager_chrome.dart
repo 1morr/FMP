@@ -17,12 +17,12 @@ final class WindowManagerChrome with WindowListener implements WindowChrome {
   static Future<WindowManagerChrome> init({WindowManager? manager}) async {
     final windowManager = manager ?? WindowManager.instance;
     await windowManager.ensureInitialized();
-    // callback 套件不會等它跑完，所以不用它：隱藏標題列之後再顯示並取得焦點。
+    // 只隱藏標題列，不 show／focus：這時還沒有 runApp，視窗也還沒顯示；runner 在第一個畫面
+    // 出來時才顯示並啟用它（`windows/runner/flutter_window.cpp` 的 `SetNextFrameCallback`）。
+    // 在這裡 show 會先露出一個沒有內容的視窗，第一個畫面出來時 runner 再顯示一次。
     await windowManager.waitUntilReadyToShow(
       const WindowOptions(titleBarStyle: TitleBarStyle.hidden),
     );
-    await windowManager.show();
-    await windowManager.focus();
     final chrome = WindowManagerChrome._(
       windowManager,
       maximized: await windowManager.isMaximized(),

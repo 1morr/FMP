@@ -232,7 +232,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     openQueue();
   }
 
-  void _close() => unawaited(Navigator.of(context).maybePop());
+  /// 關這一頁（收合鈕、Esc 在面板收著時、Ctrl+Q）。不經頁面的 `PopScope`：它只讓返回鍵先關
+  /// 面板，收合鈕與 Ctrl+Q 面板開著也關整頁（`maybePop` 會被它攔下，Ctrl+Q 就一直等不到
+  /// route 完成）。上面還有別的 route 時照舊 `maybePop`，關的是最上面那一個。
+  void _close() {
+    final route = ModalRoute.of(context);
+    final navigator = Navigator.of(context);
+    if (route != null && route.isCurrent) {
+      navigator.pop();
+    } else {
+      unawaited(navigator.maybePop());
+    }
+  }
 
   /// Esc：右側詳細面板開著先關它，否則關頁面。
   void _escape() {
