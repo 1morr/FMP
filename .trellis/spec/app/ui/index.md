@@ -189,6 +189,8 @@ try {
      再呼叫（排在 `openPlayerPage` 把焦點還給開它的元件之後，焦點才落在新的地方）。
 - 焦點三區（導覽、內容、播放列）各是一個 `FocusScope` 加 `FocusTraversalGroup`：Tab 只在區內
   循環；F6 回到那一區上次的焦點，沒有就是它的第一個可聚焦項目。新的可聚焦元件放在對的那一區裡。
+- 蓋在外殼上的根 route（全螢幕頁、對話框）不必處理視窗跨過外殼斷點：`AppShell._keepCoveringRouteFocus` 在寬度等級改變而根 Navigator `canPop` 時，把焦點還給原本的元件
+  （巢狀 Navigator 搬家後的 autofocus 會搶走它）。新的根 route 要有自己的焦點（`autofocus` 或 route 預設的 scope）；測試跨斷點時照 `test/ui/shell/shell_focus_test.dart`。
 
 ## 離線
 

@@ -179,7 +179,7 @@
 - `AllSourcesSearch`（同時最多 3 個）、分組結果、各自的游標與錯誤；來源 chip「全部」排第一並預設。
 - 測試：兩個假插件，一個成功、一個失敗；各自的分頁。
 
-- PR 15 審查留下：Debug 頁、網頁登入等其他根 route 開著時跨過外殼斷點，焦點也會被外殼搶走（`_keepPlayerFocus` 只顧播放頁）。PR 18 之前改成通用的作法並補測試。
+- PR 15 審查留下（已完成）：根 route 開著時跨過外殼斷點焦點被搶走，`_keepPlayerFocus` 改成通用的 `_keepCoveringRouteFocus`，測試 `shell_focus_test.dart`。
 
 ### PR 18 驗收
 
