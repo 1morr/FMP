@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/domain/stream_preferences.dart';
+import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/developer_settings.dart';
+import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -124,6 +128,40 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     };
     final developerMode =
         ref.watch(developerProvider).value?.developerMode ?? false;
+    final appearance = ref.watch(appearanceProvider).value;
+    final playback = ref.watch(playbackPreferencesProvider).value;
+    // 分組列的一行摘要（L-33）：只有設定值能一句話說完的組有；其餘（帳號、音樂庫、
+    // 網路、插件、備份、關於）沒有摘要，不放副標。設定還沒讀出來時也不放。
+    String? summary(SettingsSection group) {
+      final s = t.summary;
+      final tAppearance = ref.watch(translationsProvider).appearance;
+      final tPlayback = ref.watch(translationsProvider).playback;
+      return switch (group) {
+        SettingsSection.appearance when appearance != null => () {
+          final theme = switch (appearance.themeMode) {
+            ThemeModeSetting.system => tAppearance.themeSystem,
+            ThemeModeSetting.light => tAppearance.themeLight,
+            ThemeModeSetting.dark => tAppearance.themeDark,
+          };
+          final font = appearance.fontFamily;
+          return font == null
+              ? s.appearance(theme: theme)
+              : s.appearanceWithFont(
+                  theme: theme,
+                  font: fontDisplayName(tAppearance, font),
+                );
+        }(),
+        SettingsSection.playback when playback != null => s.playback(
+          quality: switch (playback.audioQuality) {
+            AudioQuality.high => tPlayback.qualityHigh,
+            AudioQuality.medium => tPlayback.qualityMedium,
+            AudioQuality.low => tPlayback.qualityLow,
+          },
+        ),
+        _ => null,
+      };
+    }
+
     // 清單會捲動：開發者模式下有九列，矮的視窗（橫向的手機）放不下。
     Widget list(SettingsSection? selected) => ListView(
       children: [
@@ -131,6 +169,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ListTile(
             leading: Icon(group.icon),
             title: Text(name(group)),
+            subtitle: switch (summary(group)) {
+              final text? => Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              null => null,
+            },
             selected: group == selected,
             onTap: () => setState(() => _selected = group),
           ),

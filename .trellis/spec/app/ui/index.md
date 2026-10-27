@@ -36,7 +36,7 @@ lib/ui/
   radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   queue/               # 佇列目的地（QueuePage：佇列空時是空狀態，否則整頁的 QueueView）與可編輯的佇列（QueueView）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
-  settings/            # 設定頁（分組、list-detail）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）
+  settings/            # 設定頁（分組、list-detail；分組列的一行摘要在 settings_page 的 `summary`，加新摘要時加一條 `SettingsSection` 分支與三語字串 `settings.summary.*`，沒有值可說的組不放副標）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」；頂端的進度細線在 thin_progress_bar）、播放頁、
                        # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在

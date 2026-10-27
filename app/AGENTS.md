@@ -2254,7 +2254,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
   標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
   外殼的 `PopScope` 一個（見下一條）：它先問設定頁（`SettingsBack.release`）有沒有一組要退回清單，
-  外殼以 `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）接住。「網路」組
+  外殼以 `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）接住。分組清單的列在有設定值可說時帶一行摘要副標（ADR 0035，L-33）：外觀是「主題：深色」，選了字型時接「・字型」；播放是「音質：高」；其餘組（帳號、音樂庫、網路、插件、備份、關於）
+  沒有副標。摘要讀 `appearanceProvider`、`playbackPreferencesProvider`，設定一改就跟著變，一行加省略號；快取用量不放（要開快取庫，設定頁一直掛在外殼裡）。播放組的音質下方列出每一級的意思與「音源沒有那一級就改用其他可用的一級」。
+  閘門：`settings_page_test.dart` 的 `appearance and playback rows summarise…`、`a long summary ellipsizes…`，`playback_controls_test.dart` 的 `each audio quality is explained…`。
+  「網路」組
   顯示快取上限、封面與排行的用量（跟著索引變動）與「清除快取」：確認後清快取庫並清 Flutter 的
   `ImageCache`（`clear` 加 `clearLiveImages`；畫面上正在用的圖只有後者清得掉）；清除失敗記
   error、不報成功。清除成功後重抓排行：`chartCacheRevisionProvider` 加一（首頁、探索頁重讀成沒有快取），

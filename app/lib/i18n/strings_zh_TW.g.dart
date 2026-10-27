@@ -1317,6 +1317,9 @@ class Translations$settings$zh_TW {
 
   /// zh-TW: 'Debug'
   String get debug => 'Debug';
+
+  late final Translations$settings$summary$zh_TW summary =
+      Translations$settings$summary$zh_TW.internal(_root);
 }
 
 // Path: about
@@ -2629,6 +2632,18 @@ class Translations$playback$zh_TW {
   /// zh-TW: '低'
   String get qualityLow => '低';
 
+  /// zh-TW: '高：最高碼率，音質最佳'
+  String get qualityHighDescription => '高：最高碼率，音質最佳';
+
+  /// zh-TW: '中：中等碼率，平衡音質與流量'
+  String get qualityMediumDescription => '中：中等碼率，平衡音質與流量';
+
+  /// zh-TW: '低：最低碼率，省流量'
+  String get qualityLowDescription => '低：最低碼率，省流量';
+
+  /// zh-TW: '音源沒有選的那一級時，會改用其他可用的一級'
+  String get qualityFallback => '音源沒有選的那一級時，會改用其他可用的一級';
+
   /// zh-TW: '格式偏好'
   String get formatPriority => '格式偏好';
 
@@ -3885,6 +3900,25 @@ class Translations$legacyResult$unimported$zh_TW {
 
   /// zh-TW: '首頁排行的順序與停用'
   String get homeRanking => '首頁排行的順序與停用';
+}
+
+// Path: settings.summary
+class Translations$settings$summary$zh_TW {
+  Translations$settings$summary$zh_TW.internal(this._root);
+
+  final Translations _root; // ignore: unused_field
+
+  // Translations
+
+  /// zh-TW: '主題：{theme}'
+  String appearance({required Object theme}) => '主題：${theme}';
+
+  /// zh-TW: '主題：{theme}・{font}'
+  String appearanceWithFont({required Object theme, required Object font}) =>
+      '主題：${theme}・${font}';
+
+  /// zh-TW: '音質：{quality}'
+  String playback({required Object quality}) => '音質：${quality}';
 }
 
 // Path: appearance.presets

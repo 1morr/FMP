@@ -1027,6 +1027,9 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   String get about => '关于';
   @override
   String get debug => 'Debug';
+  @override
+  late final Translations$settings$summary$zh_CN summary =
+      Translations$settings$summary$zh_CN.internal(_root);
 }
 
 // Path: about
@@ -1954,6 +1957,14 @@ class Translations$playback$zh_CN extends Translations$playback$zh_TW {
   @override
   String get qualityLow => '低';
   @override
+  String get qualityHighDescription => '高：最高码率，音质最佳';
+  @override
+  String get qualityMediumDescription => '中：中等码率，平衡音质与流量';
+  @override
+  String get qualityLowDescription => '低：最低码率，省流量';
+  @override
+  String get qualityFallback => '音源没有所选的那一级时，会改用其他可用的一级';
+  @override
   String get formatPriority => '格式偏好';
   @override
   String get formatPriorityHint => '音源同时提供两种格式时先选哪一种';
@@ -2866,6 +2877,25 @@ class Translations$legacyResult$unimported$zh_CN
   String get cacheLimit => '缓存上限';
   @override
   String get homeRanking => '首页排行的顺序与停用';
+}
+
+// Path: settings.summary
+class Translations$settings$summary$zh_CN
+    extends Translations$settings$summary$zh_TW {
+  Translations$settings$summary$zh_CN.internal(TranslationsZhCn root)
+    : this._root = root,
+      super.internal(root);
+
+  final TranslationsZhCn _root; // ignore: unused_field
+
+  // Translations
+  @override
+  String appearance({required Object theme}) => '主题：${theme}';
+  @override
+  String appearanceWithFont({required Object theme, required Object font}) =>
+      '主题：${theme}・${font}';
+  @override
+  String playback({required Object quality}) => '音质：${quality}';
 }
 
 // Path: appearance.presets
