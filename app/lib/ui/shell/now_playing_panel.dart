@@ -131,7 +131,7 @@ class _NowPlayingPanelSideState extends ConsumerState<NowPlayingPanelSide> {
 /// 面板本身：標題列（加入歌單、收起鈕）加目前這首的 [TrackDetails]，詳細的最後是「下一首」
 /// （[_NextUp]）；收聽直播時是直播間的 [LiveDetails]，附停止鈕，沒有加入歌單與下一首。
 /// 沒有在播的東西時外殼不放面板（ADR 0035 §決定 2），單獨用時什麼都不畫。
-/// 底色是主題的 surface，不用毛玻璃（毛玻璃只在播放頁，ADR 0024 §決定 1）。
+/// 底色是主題的 surface，沒有毛玻璃（ADR 0035 起播放頁也沒有）。
 class NowPlayingPanel extends ConsumerWidget {
   const NowPlayingPanel({super.key});
 

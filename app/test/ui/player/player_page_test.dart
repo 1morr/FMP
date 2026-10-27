@@ -716,6 +716,32 @@ void main() {
       expect(find.byType(PlayerPage), findsOneWidget);
     });
 
+    testWidgets('wide: the panel keeps only the safe area of its own edge', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      tester.view.padding = const FakeViewPadding(left: 48, right: 24);
+      tester.view.viewPadding = const FakeViewPadding(left: 48, right: 24);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      final header = tester.getRect(
+        find.descendant(
+          of: find.byKey(PlayerPage.detailsPanelKey),
+          matching: find.text(_info),
+        ),
+      );
+      // 16dp from the panel's start, not pushed in by the window's left inset.
+      expect(header.left, closeTo(1200 - 400 + 16, 1));
+      expect(
+        tester.getRect(find.byTooltip(_closeInfo)).right,
+        lessThanOrEqualTo(1200 - 24),
+      );
+    });
+
     testWidgets('wide: Esc closes the panel first, then the page', (
       tester,
     ) async {
@@ -745,6 +771,70 @@ void main() {
 
       expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
       expect(find.byType(PlayerPage), findsOneWidget);
+    });
+
+    // Only the height changes, so the window class of the shell underneath
+    // stays the same and only the page's layout goes from wide to short.
+    testWidgets('wide: after a resize drops the focused panel, Esc closes the '
+        'page', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1000, 700));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+      // The focus in the panel (the controls are the first region).
+      for (var i = 0; i < 2; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+      }
+
+      tester.view.physicalSize = const Size(1000, 500);
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('wide: closing the panel from inside it keeps the keys on the '
+        'page', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      // F6 into the panel (the controls are the first region), Esc closes it,
+      // and the next Esc still reaches the page.
+      bool inPanel() {
+        var found = false;
+        FocusManager.instance.primaryFocus!.context!.visitAncestorElements((
+          element,
+        ) {
+          found = element.widget.key == PlayerPage.detailsPanelKey;
+          return !found;
+        });
+        return found;
+      }
+
+      for (var i = 0; i < 2; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+      }
+      expect(inPanel(), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      // The focus is back in the controls, not lost.
+      expect(
+        FocusManager.instance.primaryFocus!.ancestors.map(
+          (node) => node.debugLabel,
+        ),
+        contains('Player page controls'),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
     });
 
     testWidgets('the sheet closes with the page when the queue is cleared', (

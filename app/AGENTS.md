@@ -2616,7 +2616,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `TrackDetails`（與播放頁「詳細」同一個 widget，面板多給 `footer`），詳細最後是「下一首」（縮圖、曲名、上傳者，舊版面板 P-14 的做法；
     讀 `QueueState.upNext`：下一首是按「下一首」會播的那首，隨機開著時是本輪排列的下一個，一輪最後一首時下一輪還沒排所以沒有，
     沒有隨機時循環全部的最後一首接回第一首，臨時播放中是回到佇列的那首，直播沒有；沒有下一首時整段不畫）；加入歌單鈕開
-    `showAddToPlaylist`（直播時沒有）。收聽直播時內容是 `LiveDetails`。底色是主題的 surface，不是毛玻璃（毛玻璃只在播放頁）。
+    `showAddToPlaylist`（直播時沒有）。收聽直播時內容是 `LiveDetails`。底色是主題的 surface，沒有毛玻璃（ADR 0035 拿掉播放頁的毛玻璃之後 App 裡已經沒有）。
     記住收起的狀態時，沒有曲目就沒有地方展開它（播放列沒出現、播放頁也開不了），加歌之後才有入口。
     曲目的封面與標題目前不可點；開原網頁（`TrackDetail.webUrl`）在 U PR 16。
     閘門：`now_playing_panel_test.dart` 的 `when it shows`（400／700／839／840／1000／1800、收起、`no song: no panel…`、有歌、
@@ -2759,7 +2759,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區，Ctrl+L 開的是開頁當下的焦點）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
     收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、Ctrl+L 開的焦點還原、`reopening it while it is
-    still closing keeps it open`、佇列清空自動關閉（窄版的詳細底部面板一起關：`transition` 與 `track details` 群組）、`it closes itself when the queue is empty by its first frame`）、
+    still closing keeps it open`、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
     `player_bar_test.dart` 的 `the title area is a button that opens the player`。
   - 版面依整個視窗的寬高（ADR 0035 §決定 3；`resolvePlayerLayout`，頁面以 `LayoutBuilder` 量，不看 `WindowClass`）：寬 >= 840 且高 >= 520 是寬版
     （`PlayerLayout.wide`；歌詞 M7 才做，所以單欄置中、內容寬上限 `AppLayout.playerContentMaxWide` 720；`_WideContent.lyrics` 非空時是左 5 右 7 的接口，M7 接上）；
@@ -2773,7 +2773,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 頂列（`player_top_bar.dart`，P-01）：收合、加入歌單（`showAddToPlaylist`，直播沒有）、輸出裝置與音量（`audio_controls.dart` 的
     `OutputDeviceButton`、`MuteButton`、`VolumeSlider`，播放列共用；只在平台宣告能選輸出裝置時有，也就是桌面——沒有另外的「桌面」能力，Android 用硬體音量鍵）、
     資訊、「⋯」。資訊鈕：窄版與矮版開底部面板（`DraggableScrollableSheet`，捲動控制器交給 `TrackDetails`），寬版開右側滑入的面板
-    （`PlayerPage.detailsPanelKey`，寬 `AppLayout.playerDetailsPanelWidth` 400，是自己的焦點區，F6 循環；視窗縮到不是寬版時面板收掉）；內容都是 `TrackDetails`
+    （`PlayerPage.detailsPanelKey`，寬 `AppLayout.playerDetailsPanelWidth` 400，是自己的焦點區，F6 循環；Esc 先關它；關掉或視窗縮到不是寬版而收掉時，焦點在面板裡就交回控制區，Esc 接著關頁面）；內容都是 `TrackDetails`
     （直播是 `LiveDetails`）。閘門：`player_page_test.dart` 的 `top row`、`track details`。
   - 「⋯」有播放速度（0.5、0.75、1.0、1.25、1.5、1.75、2.0，目前的打勾，`PlaybackController.speed`／
     `speedChanges`，不持久化，重啟回到 1.0；`NowPlayingPublisher` 推出的 `speed` 跟著實際速度，系統依速度外推進度才

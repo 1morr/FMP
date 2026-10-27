@@ -27,8 +27,8 @@ import 'package:fmp/ui/theme/app_tokens.dart';
 
 /// 播放頁的三種版面（ADR 0035 §決定 3，design §4）。
 enum PlayerLayout {
-  /// 寬 >= 840 且高 >= 520。M7 之前沒有歌詞，所以單欄置中（內容寬上限 720）；有歌詞時
-  /// 是左 5 份封面與控制、右 7 份歌詞（[_WideContent.lyrics]）。
+  /// 寬 >= 840 且高 >= 520。M7 之前沒有歌詞，所以單欄置中（內容寬上限 720）；M7 加歌詞時
+  /// 改成左 5 份封面與控制、右 7 份歌詞（design §4）。
   wide,
 
   /// 單欄：封面在上、控制在下。
@@ -198,11 +198,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   final _controls = FocusScopeNode(debugLabel: 'Player page controls');
   final _details = FocusScopeNode(debugLabel: 'Player page details');
 
-  /// 寬版右側的詳細面板開著。
+  /// 使用者打開了寬版右側的詳細面板。只有寬版畫得出來，看 [_panelOpen]。
   var _detailsOpen = false;
+
+  /// 上一次 build 的版面（視窗縮放時跟著換）。
+  PlayerLayout? _layout;
+
+  /// 右側詳細面板畫在畫面上：打開了而且是寬版。視窗縮到不是寬版時面板收掉，Esc 直接關頁面。
+  bool get _panelOpen => _detailsOpen && _layout == PlayerLayout.wide;
 
   /// 窄版的詳細底部面板開著。
   var _sheetOpen = false;
+
+  /// 那個底部面板的 route（建好之後才有）。
+  ModalRoute<void>? _sheet;
 
   @override
   void dispose() {
@@ -225,19 +234,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   /// Esc：右側詳細面板開著先關它，否則關頁面。
   void _escape() {
-    if (_detailsOpen) {
-      setState(() => _detailsOpen = false);
+    if (_panelOpen) {
+      _closeDetails();
     } else {
       _close();
     }
   }
 
+  /// 關右側詳細面板。焦點在面板裡時不用另外處理：面板的 scope 拆掉後，焦點照 Flutter 的
+  /// scope 記錄回到控制區上次的焦點。
+  void _closeDetails() => setState(() => _detailsOpen = false);
+
   /// 播放頁還在這個 route 上才移除它：佇列清空的當下可能還有對話框蓋在上面。
   void _removeSelf() {
     final route = ModalRoute.of(context);
     if (route != null && route.isActive) {
-      // 窄版的詳細面板是另一個 route，蓋在播放頁上，一起關掉。
-      if (_sheetOpen) Navigator.of(context).pop();
+      // 窄版的詳細面板是另一個 route，蓋在播放頁上，一起移除。指名移除它而不是 pop：
+      // 最上層可能是別的 route（例如提示開的錯誤詳細頁）。
+      final sheet = _sheet;
+      if (sheet != null && sheet.isActive) route.navigator?.removeRoute(sheet);
       route.navigator?.removeRoute(route);
     }
   }
@@ -259,17 +274,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
-        builder: (_) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: AppLayout.playerDetailsSheetInitial,
-          minChildSize: AppLayout.playerDetailsSheetMin,
-          maxChildSize: AppLayout.playerDetailsSheetMax,
-          builder: (_, scrollController) =>
-              _CurrentDetails(scrollController: scrollController),
-        ),
+        builder: (sheetContext) {
+          _sheet = ModalRoute.of(sheetContext);
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: AppLayout.playerDetailsSheetInitial,
+            minChildSize: AppLayout.playerDetailsSheetMin,
+            maxChildSize: AppLayout.playerDetailsSheetMax,
+            builder: (_, scrollController) =>
+                _CurrentDetails(scrollController: scrollController),
+          );
+        },
       );
     } finally {
       _sheetOpen = false;
+      _sheet = null;
     }
   }
 
@@ -307,12 +326,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           artwork: backdrop.artwork,
         );
         final content = switch (layout) {
-          // 歌詞 M7 才做：沒有歌詞欄就是單欄。
-          PlayerLayout.wide => _WideContent(
-            cover: cover,
-            transport: transport,
-            lyrics: null,
-          ),
+          PlayerLayout.wide => _WideContent(cover: cover, transport: transport),
           PlayerLayout.narrow => _NarrowContent(
             cover: cover,
             transport: transport,
@@ -322,9 +336,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             transport: transport,
           ),
         };
-        final panelOpen = layout == PlayerLayout.wide && _detailsOpen;
+        _layout = layout;
+        final panelOpen = _panelOpen;
 
         final regions = [_controls, if (panelOpen) _details];
+        final endIsLeft = Directionality.of(context) == TextDirection.rtl;
         return PlaybackShortcuts(
           child: Shortcuts(
             shortcuts: const {
@@ -379,7 +395,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                         bottom: 0,
                         end: 0,
                         width: AppLayout.playerDetailsPanelWidth,
+                        // 面板貼著結尾那一邊：開頭那一邊不在螢幕邊緣，不留安全區。
                         child: SafeArea(
+                          left: endIsLeft,
+                          right: !endIsLeft,
                           child: AnimatedSwitcher(
                             duration: MediaQuery.disableAnimationsOf(context)
                                 ? Duration.zero
@@ -402,8 +421,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                                 ? _DetailsPanel(
                                     key: PlayerPage.detailsPanelKey,
                                     node: _details,
-                                    onClose: () =>
-                                        setState(() => _detailsOpen = false),
+                                    onClose: _closeDetails,
                                   )
                                 : const SizedBox.shrink(),
                           ),
@@ -529,56 +547,22 @@ class _NarrowContent extends StatelessWidget {
   }
 }
 
-/// 寬版。沒有歌詞（M7 之前一律如此）時用窄版的單欄置中，內容寬上限 720；有歌詞時左 5 份是
-/// 封面與控制、右 7 份是 [lyrics]（M7 接上）。
+/// 寬版：窄版的單欄置中，內容寬上限 720。M7 加歌詞時在這裡改成 5:7 雙欄。
 class _WideContent extends StatelessWidget {
-  const _WideContent({
-    required this.cover,
-    required this.transport,
-    required this.lyrics,
-  });
+  const _WideContent({required this.cover, required this.transport});
 
   final Widget cover;
   final Widget transport;
 
-  /// 歌詞欄；`null` 是單欄。
-  final Widget? lyrics;
-
   @override
-  Widget build(BuildContext context) {
-    final lyrics = this.lyrics;
-    if (lyrics == null) {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppLayout.playerContentMaxWide,
-          ),
-          child: _NarrowContent(cover: cover, transport: transport),
-        ),
-      );
-    }
-    final spacing = AppTokens.of(context).spacing;
-    return Padding(
-      padding: EdgeInsets.all(spacing.x6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                Expanded(child: cover),
-                SizedBox(height: spacing.x6),
-                transport,
-              ],
-            ),
-          ),
-          SizedBox(width: spacing.x8),
-          Expanded(flex: 7, child: lyrics),
-        ],
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: AppLayout.playerContentMaxWide,
       ),
-    );
-  }
+      child: _NarrowContent(cover: cover, transport: transport),
+    ),
+  );
 }
 
 /// 矮版（橫向手機）：左邊封面，右邊控制，控制放不下時可以捲動。

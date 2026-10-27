@@ -1730,7 +1730,7 @@ void main() {
           handle.dispose();
         });
 
-        // 播放頁的直播版（M3 PR 18c）：直播間的封面當背景，毛玻璃上的標記、已收聽與人數。
+        // 播放頁的直播版（M3 PR 18c）：直播間的封面當背景，疊在遮罩上的標記、已收聽與人數。
         testWidgets('the live player page at $width', (tester) async {
           final handle = tester.ensureSemantics();
           await _listening(tester, size, brightness);
