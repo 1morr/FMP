@@ -121,23 +121,11 @@ Future<FileInfo?> read(
   final info = await manager.getFileFromCache(url, ignoreMemCache: true);
   if (info != null) {
     final now = clock.now();
-    await eventually(
+    // flutter_cache_manager 不等這次寫入（在 drift 的背景 isolate），沒有事件可等。
+    await pollUntil(
       () async => (await manager.config.repo.get(url))?.touched == now,
       reason: 'last access of $url was not updated',
     );
   }
   return info;
 });
-
-/// 等 [check] 成立（索引的寫入在 drift 的背景 isolate，有些是
-/// flutter_cache_manager 沒等的寫入）。
-Future<void> eventually(
-  Future<bool> Function() check, {
-  String reason = 'condition never became true',
-}) async {
-  for (var round = 0; round < 50; round++) {
-    if (await check()) return;
-    await settle();
-  }
-  fail(reason);
-}

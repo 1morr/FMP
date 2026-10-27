@@ -13,6 +13,20 @@ final class FakeHttpAdapter implements HttpClientAdapter {
   /// 送到 adapter 的請求，依序。
   final requests = <RequestOptions>[];
 
+  final _waiting = <({int count, Completer<void> reached})>[];
+
+  /// 第 [count] 個請求送到這一層（[handler] 已經叫過）時完成；已經送到就立刻完成。
+  ///
+  /// 請求要先經過事件迴圈以外的進度（drift 的背景 isolate、檔案 I/O）才到得了這裡時用它等，
+  /// 不用 `pumpUntil` 數輪數：負載下那邊多慢都和主 isolate 跑了幾輪無關。等不到就是
+  /// 測試逾時。
+  Future<void> received(int count) {
+    if (requests.length >= count) return Future.value();
+    final reached = Completer<void>();
+    _waiting.add((count: count, reached: reached));
+    return reached.future;
+  }
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -20,7 +34,17 @@ final class FakeHttpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
-    return handler(options);
+    final FutureOr<ResponseBody> response;
+    try {
+      response = handler(options);
+    } finally {
+      _waiting.removeWhere((waiting) {
+        if (requests.length < waiting.count) return false;
+        waiting.reached.complete();
+        return true;
+      });
+    }
+    return response;
   }
 
   @override

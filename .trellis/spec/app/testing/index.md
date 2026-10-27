@@ -23,6 +23,24 @@
   經建構子或 provider 注入。
 - 不設覆蓋率門檻。
 
+## 等非同步進度
+
+助手都在 `test/support/pump_until.dart`（`fmp_test_waits` 擋直接呼叫 `pumpEventQueue`）。先看
+要等的事在哪裡做：
+
+- 只在主 isolate（假的 adapter、microtask、`Future`）：`pumpUntil`／`settle`。
+- 在事件迴圈以外（drift 的背景 isolate 如快取庫、`dart:io` 的檔案操作、插件的背景 isolate）：
+  不數輪數、不給固定的實際時間。`pumpUntil` 的 20 輪在完整套件的負載下只有幾毫秒，
+  `image_cache_manager_test` 在負載下要到 58 輪；`PluginPageHarness.settle` 的約 180ms
+  不夠插件在背景 isolate 載入完。
+  - 有事件就等事件：`FakeHttpAdapter.received(n)`（第 n 個請求送到 adapter）、自己的
+    `Completer`、App 自己的狀態。
+  - 沒有事件（例如 flutter_cache_manager 不等的寫入、dio 開出來的暫存檔）：`pollUntil`，
+    上限是實際時間。
+  - widget 測試裡等插件載入：`PluginPageHarness.settleUntil` 加 App 的狀態，例如插件清單
+    載入完、引導的整批安裝結束（`onboardingProvider` 的 `working`）。
+- 例子：`image_cache_manager_test.dart` 的 `sharing`、`plugin_onboarding_test.dart` 的 `_confirm`。
+
 ## 零聯網
 
 `test/flutter_test_config.dart` 讓建立真實 `HttpClient` 直接拋 `StateError`；

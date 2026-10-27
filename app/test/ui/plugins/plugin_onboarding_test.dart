@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/plugin_page_harness.dart';
@@ -34,7 +35,12 @@ Future<PluginPageHarness> _open(
   if (published.isNotEmpty) h.publish(published);
   if (before != null) await tester.runAsync(() => before(h));
   await h.shell.pumpShell(tester, size: size);
-  await h.settle(tester);
+  // 已安裝的插件由插件清單在背景 isolate 載入。
+  await h.settleUntil(
+    tester,
+    () => h.container(tester).read(pluginRegistryProvider).value != null,
+    reason: 'the plugin list did not load',
+  );
   return h;
 }
 
@@ -49,11 +55,16 @@ bool? _checked(WidgetTester tester, String name) => tester
     )
     .value;
 
+/// 按確認對話框的「安裝」，等整批裝完：每個插件都在自己的背景 isolate 載入，多久看負載。
 Future<void> _confirm(WidgetTester tester, PluginPageHarness h) async {
   await tester.tap(
     find.descendant(of: find.byType(AlertDialog), matching: _button('Install')),
   );
-  await h.settle(tester);
+  await h.settleUntil(
+    tester,
+    () => !h.container(tester).read(onboardingProvider).working,
+    reason: 'the installs did not finish',
+  );
 }
 
 void main() {
