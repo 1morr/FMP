@@ -38,6 +38,7 @@ import 'package:fmp/plugins/manifest/plugin_file.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
 
+import 'support/fake_window_chrome.dart';
 import 'tracks/selection_bar_support.dart';
 
 import 'package:fmp/ui/charts/explore_page.dart';
@@ -54,6 +55,7 @@ import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/ui/accounts/account_import_page.dart';
 import 'package:fmp/ui/shell/legacy_side_rail.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
+import 'package:fmp/ui/shell/window_title_bar.dart';
 import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
@@ -225,6 +227,26 @@ void main() {
             },
           );
         }
+      }
+
+      // Windows 的自繪標題列（ADR 0035 §決定 6）：視窗鈕是 46×36 的標題列慣例尺寸，達不到
+      // androidTapTargetGuideline 的 48dp（桌面滑鼠操作），所以只驗標籤與對比。
+      for (final width in const [1000.0, 1400.0]) {
+        testWidgets('the Windows title bar at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(windowChrome: FakeWindowChrome());
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            brightness: brightness,
+            at: ShellDestination.home,
+          );
+          expect(find.byType(WindowTitleBar), findsOneWidget);
+
+          await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+          await expectLater(tester, meetsGuideline(textContrastGuideline));
+          handle.dispose();
+        });
       }
 
       // 頁頂換成置中的 PageAppBar（ADR 0035 §決定 2）：佇列的空狀態與歷史內頁各驗一次。

@@ -263,6 +263,14 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   String get panelMenuItem => '正在播放面板';
   @override
   String get panelResizeTooltip => '拖动或按 ←／→ 调整宽度';
+  @override
+  String get minimizeTooltip => '最小化';
+  @override
+  String get maximizeTooltip => '最大化';
+  @override
+  String get restoreTooltip => '还原';
+  @override
+  String get closeWindowTooltip => '关闭';
 }
 
 // Path: search

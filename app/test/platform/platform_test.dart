@@ -27,7 +27,10 @@ import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
 import 'package:fmp/platform/share/share_plus_file_sharer.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
+
+import '../ui/support/fake_window_chrome.dart';
 
 void main() {
   group('AppPlatform.assemble', () {
@@ -76,6 +79,10 @@ void main() {
       expect(platform.restarter, isA<AndroidAppRestarter>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
+      // 沒有自繪標題列；外接鍵盤的快捷鍵用 Ctrl。
+      expect(platform.capabilities.customTitleBar, isFalse);
+      expect(platform.windowChrome, isNull);
+      expect(platform.capabilities.shortcutModifier, ShortcutModifier.control);
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
       // 系統依速度自己外推位置，不重推。
       expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
@@ -138,6 +145,10 @@ void main() {
       );
       expect(platform.mediaControls, isNull);
       expect(platform.legacyDataLocator, isNotNull);
+      // 系統標題列隱藏、App 自繪；實作要啟動時初始化，所以 assemble 之後還沒有（withWindowChrome）。
+      expect(platform.capabilities.customTitleBar, isTrue);
+      expect(platform.windowChrome, isNull);
+      expect(platform.capabilities.shortcutModifier, ShortcutModifier.control);
     });
 
     for (final unverified in [
@@ -173,6 +184,12 @@ void main() {
         expect(platform.restarter, isNull);
         expect(platform.capabilities.loginWebView, isFalse);
         expect(platform.loginWebView, isNull);
+        expect(platform.capabilities.customTitleBar, isFalse);
+        expect(platform.windowChrome, isNull);
+        expect(
+          platform.capabilities.shortcutModifier,
+          ShortcutModifier.control,
+        );
         expect(platform.capabilities.mediaControls, isNull);
         expect(platform.mediaControls, isNull);
         expect(platform.capabilities.fontChoices, isEmpty);
@@ -293,6 +310,77 @@ void main() {
       expect(platform.capabilities.playback, same(windowsPlaybackSupport));
       expect(platform.dataDirectory, isA<WindowsAppDataDirectory>());
     });
+  });
+
+  group('window chrome on Windows', () {
+    test('initializing exposes the window and keeps the declaration', () async {
+      final chrome = FakeWindowChrome();
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.windows,
+        AppFlavor.dev,
+        windowsWindowChrome: () async => chrome,
+      ).withWindowChrome(onFailure: (_, _) => fail('should not fail'));
+
+      expect(platform.windowChrome, same(chrome));
+      expect(platform.capabilities.customTitleBar, isTrue);
+    });
+
+    test('the media controls initialize after it without losing it', () async {
+      final chrome = FakeWindowChrome();
+      final controls = _FakeControls();
+      final platform =
+          await (await AppPlatform.assemble(
+                TargetPlatform.windows,
+                AppFlavor.dev,
+                windowsMediaControls: (_) async => controls,
+                windowsWindowChrome: () async => chrome,
+              ).withWindowChrome(onFailure: (_, _) => fail('no failure')))
+              .withMediaControls(
+                log: Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
+                onFailure: (_, _) => fail('no failure'),
+              );
+
+      expect(platform.windowChrome, same(chrome));
+      expect(platform.mediaControls, same(controls));
+      expect(platform.capabilities.customTitleBar, isTrue);
+    });
+
+    test('a failed initialization declares no custom title bar', () async {
+      final failures = <Object>[];
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.windows,
+        AppFlavor.dev,
+        windowsWindowChrome: () async => throw StateError('no window'),
+      ).withWindowChrome(onFailure: (error, _) => failures.add(error));
+
+      expect(failures, hasLength(1));
+      expect(platform.windowChrome, isNull);
+      expect(platform.capabilities.customTitleBar, isFalse);
+      expect(platform.capabilities.shortcutModifier, ShortcutModifier.control);
+      expect(platform.capabilities.playback, same(windowsPlaybackSupport));
+      expect(platform.capabilities.mediaControls, isNotNull);
+    });
+
+    test(
+      'a platform without a custom title bar is returned as it was',
+      () async {
+        final android = AppPlatform.assemble(
+          TargetPlatform.android,
+          AppFlavor.dev,
+        );
+
+        expect(
+          await android.withWindowChrome(
+            onFailure: (_, _) => fail('no failure'),
+          ),
+          same(android),
+        );
+      },
+    );
+  });
+
+  test('Apple platforms will declare ⌘ as the shortcut modifier', () {
+    expect(appleShortcutModifier, ShortcutModifier.meta);
   });
 
   test('cache sizes follow ADR 0016 and the old app', () {

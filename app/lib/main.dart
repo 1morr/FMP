@@ -43,6 +43,7 @@ import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/secure_storage.dart';
 import 'package:fmp/platform/share/share.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
+import 'package:fmp/platform/window_chrome/window_chrome.dart';
 import 'package:fmp/plugins/install/dev_plugin_entry.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -159,6 +160,15 @@ Future<void> main(List<String> arguments) async {
       stackTrace: stackTrace,
     ),
   );
+  // 自繪標題列：隱藏系統標題列要在第一個畫面之前；失敗就宣告為沒有，系統標題列留著。
+  platform = await platform.withWindowChrome(
+    onFailure: (error, stackTrace) => log.error(
+      'Failed to hide the system title bar',
+      tag: 'platform',
+      error: error,
+      stackTrace: stackTrace,
+    ),
+  );
   // 開好的資料庫與資料目錄只從這裡注入，其他地方不自己開。
   runApp(
     appProviderScope(
@@ -179,6 +189,7 @@ Future<void> main(List<String> arguments) async {
         fileSharerProvider.overrideWithValue(platform.fileSharer),
         appRestarterProvider.overrideWithValue(platform.restarter!),
         systemMediaControlsProvider.overrideWithValue(platform.mediaControls),
+        windowChromeProvider.overrideWithValue(platform.windowChrome),
         // 憑證的唯一存放處；有資料目錄的平台（Android、Windows）都有。
         secureStorageProvider.overrideWithValue(platform.secureStorage!),
         // 快取目錄只交給快取模組開（cacheStoreProvider）；開不起來 App 照常。

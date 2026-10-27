@@ -165,6 +165,14 @@ abstract final class AppLayout {
   static const double railExpanded = 256;
   static const Duration railDuration = Duration(milliseconds: 250);
 
+  /// Windows 自繪標題列（ADR 0035 §決定 6，舊版 `CustomTitleBar`）：高度、三顆視窗鈕的寬度與圖示尺寸。
+  static const double titleBarHeight = 36;
+  static const double titleBarButtonWidth = 46;
+  static const double titleBarIcon = 16;
+
+  /// 播放頁頂列後面的視窗拖曳區高度（頂列：48dp 鈕加上下各 8dp 的邊距）。
+  static const double playerDragAreaHeight = 64;
+
   /// 展開的側欄裡相鄰兩項的間隔（舊版每項上下各 2dp）。
   static const double railItemGap = 4;
 

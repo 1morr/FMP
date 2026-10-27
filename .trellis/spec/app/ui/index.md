@@ -21,6 +21,7 @@ lib/ui/
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
+                       # window_title_bar（Windows 自繪標題列 WindowTitleBar、根 Navigator 外的框 WindowFrame、拖曳區 WindowDragArea、activeWindowChromeProvider）、
                        # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）、
                        # legacy_side_rail（medium 以上的可展開側欄）、page_app_bar（每頁的置中頁頂 PageAppBar 與頁面的底 PageSurface）
   home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider；一排卡片 _ShelfRow：底色卡片、滑鼠移入的箭頭與漸層、滑鼠拖曳；卡片選單重用 PlaylistMenu、removeStation）
@@ -166,18 +167,21 @@ try {
   讀失敗的 `log.report` 在頁面的 `ref.listen`（同電台頁），不在 build；外殼裡幾頁讀同一個 provider 時只由一頁報（首頁的歌單、電台區塊交給音樂庫與電台頁）。外殼裡的頁面一直掛著，不要對 join 了 `tracks` 的查詢用
   `watch()`：每寫一次曲目（每播一首）都會重查。
 - 加一個 App 內快捷鍵（ADR 0024 §決定 8 的表）：
-  1. 播放類：`playback_shortcuts.dart` 加一個 `Intent`、`playbackShortcuts` 的一列與
+  1. 播放類：`playback_shortcuts.dart` 加一個 `Intent`、`playbackShortcuts(modifier)` 的一列與
      `PlaybackShortcuts` 的 action（讀控制器放在 `onInvoke` 裡，建構時讀會在沒有後端的環境拋錯）；
-     導覽類：`shell_shortcuts.dart` 加 `Intent` 與 `navigationShortcuts` 的一列，`AppShell` 的 `Actions`
-     接上。
-  2. 輸入框裡的規則一句話：導覽類（Esc、F6、Ctrl+F、Ctrl+,）有效，其餘讓給輸入框，所以播放類的 action
+     導覽類：`shell_shortcuts.dart` 加 `Intent` 與 `navigationShortcuts(modifier)` 的一列，`AppShell` 的 `Actions`
+     接上。表是函式：「Ctrl＋鍵」寫成 `primaryChord(key, modifier)`，modifier 來自
+     `platformCapabilitiesProvider` 的 `shortcutModifier`（Apple 平台是 ⌘，ADR 0035 §決定 7）；不要寫死 `control: true`，
+     也不要在 `lib/ui/` 判斷平台。要和 Ctrl 不同鍵的（開佇列：Ctrl+Q／⌥⌘U）像 `queueChord` 一樣依 modifier 分支。
+  2. 輸入框裡的規則一句話：導覽類（Esc、F6、Ctrl+F、Ctrl+,、Ctrl+Q）有效，其餘讓給輸入框，所以播放類的 action
      用 `TextInputAwareAction`，焦點在輸入框時停用、交給輸入框；
   3. 有對應按鈕的，翻譯檔的 `*Tooltip` 字串寫上按鍵（`播放（空白鍵）`），按鈕的語意標籤
      （`Icon.semanticLabel`）不帶按鍵；
   4. `test/ui/shell/app_shell_test.dart` 的 `shortcuts` 群組加案例（`chord` 輔助函式按組合鍵），播放類
-     另外在輸入框裡按一次確認沒作用、對話框開著時也沒作用。
+     另外在輸入框裡按一次確認沒作用、對話框開著時也沒作用；`test/ui/shell/shortcut_modifier_test.dart` 的表矩陣會逐鍵
+     檢查兩組修飾鍵（新的鍵沒有 ⌘ 的對應就紅），`ShellHarness(shortcutModifier: ShortcutModifier.meta)` 跑 Apple 那一組。
   5. 播放頁（M2 PR 18a）是另一個 route，不在外殼的 `Shortcuts` 之下：自己包一層
-     `PlaybackShortcuts`。新的全螢幕 route 或面板要讓播放鍵有效時照做（對話框不包：開著時播放鍵不作用）。
+     `PlaybackShortcuts`，導覽類要有效的（開佇列）把 `queueShortcuts(modifier)` 放進自己的 `Shortcuts`。新的全螢幕 route 或面板要讓播放鍵有效時照做（對話框不包：開著時播放鍵不作用）。
   6. 根 Navigator 上的頁要外殼做事（播放頁的 Ctrl+Q 切到佇列目的地）：照 `openQueueProvider`／`openAccountsProvider`，
      外殼在 `initState` 接上 handler、handler 先看 `mounted`；頁面先 `ref.read` 好、關掉自己、`await route.completed`
      再呼叫（排在 `openPlayerPage` 把焦點還給開它的元件之後，焦點才落在新的地方）。
@@ -327,8 +331,14 @@ try {
 - 開頁一律 `openPlayerPage(context, opener: …)`（不自己 `Navigator.push`）：它設 `playerPageOpenProvider`（外殼靠它改
   提示的位移）、已開著就不推、關閉後把焦點還給 `opener`。給開它的元件一個 `FocusNode`（見播放列的 `_OpenPlayerArea`）。
 - 加一個頁內快捷鍵：在 `PlayerPage` 的 `Actions` 加（導覽類）或 `playbackShortcuts` 加一列、`PlaybackShortcuts` 接
-  action（播放類）；輸入框規則同外殼。Ctrl+L 外殼接開頁、頁面不接（歌詞 M7 才做）；Ctrl+Q 外殼接切到佇列目的地、
+  action（播放類）；輸入框規則同外殼。Ctrl+L 現在沒有這個鍵（歌詞 M7 才做，加的時候外殼與頁面各決定要不要接）；Ctrl+Q（Apple 平台 ⌥⌘U）外殼接切到佇列目的地、
   頁面接「關掉自己再請外殼切過去」（`openQueueProvider`）。
+- 返回鍵：寬版詳細面板開著時，頁面的 `PopScope(canPop: !面板開著)` 先關面板（同 Esc）。這是根 Navigator 上的 route，外殼的 `PopScope` 在下面的 route，
+  不會同時動作；巢狀 Navigator 底下的頁面仍不放 `PopScope`（`app/AGENTS.md` § 介面的「返回鍵」）。
+- Windows 自繪標題列只有一條，在根 Navigator 外面（`WindowFrame`，`fmpAppBuilder` 接線），所有根 route（播放頁、Debug 頁、網頁登入、錯誤詳細）自動有，新的全螢幕 route 不用做任何事；
+  不要在外殼或頁面裡再放 `WindowTitleBar`。播放頁頂列後面的 `WindowDragArea` 讓空白處也能拖曳視窗。`WindowFrame` 給 navigator 一個 `Semantics(container: true)`（ModalBarrier 的
+  `BlockSemantics` 會把標題列從語意樹擋掉），測試語意樹用 `find.semantics`（IconButton 的 tooltip 在節點的 `tooltip`，不在 `label`）。
+  `MaterialApp.builder` 一律用 `fmpAppBuilder`，不自己拼。
 - 加一個頁內焦點區：`FocusScopeNode` 放進 `_PlayerPageState`、包 `FocusScope`＋`FocusTraversalGroup`、列進 `regions`（目前是控制區與開著時的詳細面板）；
   區裡要至少有一個可聚焦的東西，否則 F6 跳過它。
 - 版面由頁面的 `LayoutBuilder` 量到的整個視窗寬高決定（`resolvePlayerLayout`，不是 `WindowClass`），測試與 golden 因此只要給頁面該有的限制。窄版／矮版的資訊是 `DraggableScrollableSheet`：
@@ -456,7 +466,7 @@ try {
 規則與閘門見 `app/AGENTS.md` § 介面的「電台頁」「搜尋頁的直播間模式」「直播版」；ADR 0031 §決定 3–5、7。
 
 - 判斷「有沒有在播」一律用 `hasNowPlaying(queue)`，不要再寫 `queue.current != null`：直播時 `current` 是 `null`，那樣寫的元件
-  （播放列、播放頁的自動關閉、外殼的 Ctrl+L）會在直播時消失或自己關掉。直播的內容讀 `nowPlayingLiveProvider`。
+  （播放列、播放頁的自動關閉）會在直播時消失或自己關掉。直播的內容讀 `nowPlayingLiveProvider`。
 - 新的直播狀態：階段（`LivePhase`）加在 `LiveBadge` 的 `switch`，播放狀態（重連、停止、失敗）加在 `liveStatusLabel`；兩個都是
   exhaustive，編譯器會指出。只對佇列有意義的新播放鍵用 `_QueueAction` 包（直播時接下、不做事）。
 - 一列「標記＋主播」用 `TaggedLine`（`Wrap`：放不下時主播換行、兩者都省略不撐破列）。不要改成 `Text.rich` 的

@@ -14,11 +14,13 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/shell/window_title_bar.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_audio_backend.dart';
 import '../support/fake_artwork.dart';
+import '../support/fake_window_chrome.dart';
 import '../support/shell_harness.dart';
 
 // M2 PR 18a：播放頁（design §9.3、§9.5、§9.6）。每個測試從外殼開始，點播放列的曲名
@@ -197,7 +199,7 @@ void main() {
     });
 
     // 關閉的轉場中播放頁不收點擊，點擊落到底下的播放列：這時再開的播放頁不能被舊的
-    // route 在轉場結束、被丟掉時標成「沒開」，否則提示會回到播放列的高度、再按 Ctrl+L
+    // route 在轉場結束、被丟掉時標成「沒開」，否則提示會回到播放列的高度、再點播放列
     // 又會推第二個。
     testWidgets('reopening it while it is still closing keeps it open', (
       tester,
@@ -214,8 +216,6 @@ void main() {
       expect(find.byType(PlayerPage), findsOneWidget);
       expect(h.container(tester).read(playerPageOpenProvider), isTrue);
 
-      await _chord(tester, LogicalKeyboardKey.keyL);
-      await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsOneWidget);
 
       // The first page giving the focus back must not pull it out of the new
@@ -223,27 +223,6 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsNothing);
-    });
-
-    testWidgets('a page opened by Ctrl+L gives the focus back to where it '
-        'was', (tester) async {
-      await _pumpPlaying(tester);
-      // F6 puts the focus on the first item of the navigation region.
-      await tester.sendKeyEvent(LogicalKeyboardKey.f6);
-      await tester.pump();
-      final before = FocusManager.instance.primaryFocus;
-      expect(before, isNotNull);
-
-      await _chord(tester, LogicalKeyboardKey.keyL);
-      await tester.pumpAndSettle();
-      expect(find.byType(PlayerPage), findsOneWidget);
-      expect(FocusManager.instance.primaryFocus, isNot(before));
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.pump();
-
-      expect(FocusManager.instance.primaryFocus, before);
     });
 
     // 佇列在 push 之後、頁面第一次 build 之前就空了：頁面的 listen 看不到「變空」那一次，
@@ -275,11 +254,12 @@ void main() {
   });
 
   group('shortcuts', () {
-    testWidgets('Ctrl+L opens the page when it is closed', (tester) async {
+    // ADR 0035 §決定 7：Ctrl+L 在歌詞（M7）之前不做事，連播放頁也不開。
+    testWidgets('Ctrl+L does nothing before the lyrics exist', (tester) async {
       await _pumpPlaying(tester);
       await _chord(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
-      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(find.byType(PlayerPage), findsNothing);
     });
 
     testWidgets('Ctrl+L does nothing while the queue is empty', (tester) async {
@@ -760,6 +740,67 @@ void main() {
       expect(find.byType(PlayerPage), findsNothing);
     });
 
+    // 返回鍵同 Esc：先關面板，再關頁面（U PR 15，PR 7 審查）。
+    testWidgets('wide: the back key closes the panel first, then the page', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      expect(find.byType(PlayerPage), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('wide: with the panel closed the back key closes the page', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    // 視窗跨過外殼的斷點時外殼換了導覽元件，巢狀 Navigator 重建；焦點不能被搶進被蓋住的
+    // 內容區，播放頁之後仍收得到 Esc、F6（U PR 15，PR 7 審查）。
+    for (final (name, from, to) in [
+      ('wide to compact', const Size(1200, 800), const Size(500, 800)),
+      ('compact to wide', const Size(500, 800), const Size(1200, 800)),
+    ]) {
+      testWidgets('crossing the shell breakpoint ($name) keeps the keys on the '
+          'page', (tester) async {
+        await _pumpPlaying(tester, size: from);
+        await _openByTap(tester);
+
+        tester.view.physicalSize = to;
+        await tester.pumpAndSettle();
+
+        final focus = FocusManager.instance.primaryFocus!.context!;
+        expect(focus.findAncestorWidgetOfExactType<PlayerPage>(), isNotNull);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+        expect(
+          FocusManager.instance.primaryFocus!.context!
+              .findAncestorWidgetOfExactType<PlayerPage>(),
+          isNotNull,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PlayerPage), findsNothing);
+      });
+    }
+
     testWidgets('wide: narrowing the window drops the panel', (tester) async {
       await _pumpPlaying(tester, size: const Size(1200, 800));
       await _openByTap(tester);
@@ -1129,6 +1170,49 @@ void main() {
       await tester.tap(find.byKey(PlayerPage.closeKey));
       await tester.pumpAndSettle();
       expect(container.read(toastBottomInsetProvider), withBar);
+    });
+  });
+
+  // U PR 15（ADR 0035 §決定 6）：Windows 自繪標題列時，播放頁蓋住外殼的那一條，自己再放一條。
+  group('window chrome', () {
+    testWidgets(
+      'the one title bar stays over the page, with a drag area under the top row',
+      (tester) async {
+        final chrome = FakeWindowChrome();
+        await _pumpPlaying(tester, harness: ShellHarness(windowChrome: chrome));
+        await _openByTap(tester);
+
+        final bar = find.byType(WindowTitleBar);
+        expect(bar, findsOneWidget);
+        expect(tester.getTopLeft(bar), Offset.zero);
+
+        await tester.tap(
+          find.descendant(of: bar, matching: find.byTooltip('Minimize')),
+        );
+        expect(chrome.calls, ['minimize']);
+      },
+    );
+
+    testWidgets('dragging the empty top row moves the window', (tester) async {
+      final chrome = FakeWindowChrome();
+      await _pumpPlaying(tester, harness: ShellHarness(windowChrome: chrome));
+      await _openByTap(tester);
+
+      // The title bar is 36dp tall; the top row starts under it. The gap between
+      // the collapse button and the right-hand buttons is empty.
+      await tester.dragFrom(const Offset(500, 36 + 32), const Offset(40, 10));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(chrome.calls, ['startDragging']);
+    });
+
+    testWidgets('a platform without a custom title bar has neither', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester);
+      await _openByTap(tester);
+
+      expect(find.byType(WindowTitleBar), findsNothing);
     });
   });
 }

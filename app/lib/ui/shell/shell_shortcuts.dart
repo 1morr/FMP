@@ -1,8 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-// 外殼的導覽類快捷鍵（ADR 0024 §決定 8）：Ctrl+F、Ctrl+,、F6、Esc。播放類在
-// `playback_shortcuts.dart`。
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
+
+// 外殼的導覽類快捷鍵（ADR 0024 §決定 8、ADR 0035 §決定 7）：Ctrl+F、Ctrl+,、Ctrl+Q（Apple 平台是 ⌘F、⌘,、⌥⌘U）、
+// F6、Esc。播放類在 `playback_shortcuts.dart`。Ctrl 是平台宣告的主修飾鍵（`ShortcutModifier`）。
 //
 // 綁在外殼的 `Shortcuts` 上，所以只在 FMP 在前景、焦點在外殼裡時有效（對話框
 // 開著時焦點在對話框的路由裡，這些鍵不作用）。
@@ -51,12 +53,48 @@ final class TextInputAwareAction<T extends Intent> extends CallbackAction<T> {
   bool isEnabled(T intent) => !focusInTextInput();
 }
 
+/// 切到佇列目的地（ADR 0035 §決定 7）。播放頁開著時先關播放頁（`PlayerPage` 的 action）。
+final class ShowQueueIntent extends Intent {
+  const ShowQueueIntent();
+}
+
+/// 主修飾鍵加 [key] 的組合鍵：Ctrl（Windows、Android 外接鍵盤）或 ⌘（Apple 平台）。
+SingleActivator primaryChord(
+  LogicalKeyboardKey key,
+  ShortcutModifier modifier,
+) => SingleActivator(
+  key,
+  control: modifier == ShortcutModifier.control,
+  meta: modifier == ShortcutModifier.meta,
+);
+
+/// 開佇列：Ctrl+Q；Apple 平台是 ⌥⌘U（Apple Music 的「顯示佇列」），避開 ⌘Q（結束 App）。
+SingleActivator queueChord(ShortcutModifier modifier) => switch (modifier) {
+  ShortcutModifier.control => const SingleActivator(
+    LogicalKeyboardKey.keyQ,
+    control: true,
+  ),
+  ShortcutModifier.meta => const SingleActivator(
+    LogicalKeyboardKey.keyU,
+    meta: true,
+    alt: true,
+  ),
+};
+
+/// 開佇列的快捷鍵表。導覽類，所以輸入框裡也有效：Ctrl+Q、⌥⌘U 都不是文字編輯鍵。播放頁
+/// 是另一個 route，不在外殼的 `Shortcuts` 之下，自己包一份。
+Map<ShortcutActivator, Intent> queueShortcuts(ShortcutModifier modifier) => {
+  queueChord(modifier): const ShowQueueIntent(),
+};
+
 /// 導覽類快捷鍵表（外殼）。播放類在 `playback_shortcuts.dart`；這幾個在輸入框內
 /// 也有效（要能從輸入框離開）。
-const navigationShortcuts = <ShortcutActivator, Intent>{
-  SingleActivator(LogicalKeyboardKey.keyF, control: true): FocusSearchIntent(),
-  SingleActivator(LogicalKeyboardKey.comma, control: true):
-      OpenSettingsIntent(),
-  SingleActivator(LogicalKeyboardKey.f6): NextRegionIntent(),
-  SingleActivator(LogicalKeyboardKey.escape): EscapeIntent(),
+Map<ShortcutActivator, Intent> navigationShortcuts(
+  ShortcutModifier modifier,
+) => {
+  primaryChord(LogicalKeyboardKey.keyF, modifier): const FocusSearchIntent(),
+  primaryChord(LogicalKeyboardKey.comma, modifier): const OpenSettingsIntent(),
+  const SingleActivator(LogicalKeyboardKey.f6): const NextRegionIntent(),
+  const SingleActivator(LogicalKeyboardKey.escape): const EscapeIntent(),
+  ...queueShortcuts(modifier),
 };

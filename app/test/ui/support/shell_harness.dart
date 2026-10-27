@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/app/app_builder.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/app/app_scope.dart';
 import 'package:fmp/app/data_reset.dart';
@@ -32,7 +33,9 @@ import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/share/share.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
+import 'package:fmp/platform/window_chrome/window_chrome.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_session.dart';
@@ -44,7 +47,6 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/settings/playback_settings.dart';
-import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/legacy_side_rail.dart';
@@ -96,6 +98,8 @@ final class ShellHarness {
     this.redactor,
     this.loginWebView,
     this.pluginDevTools = false,
+    this.windowChrome,
+    this.shortcutModifier = ShortcutModifier.control,
     this.cacheUnavailable = false,
     this.registrySources = false,
     this.registryOfSources = false,
@@ -209,6 +213,12 @@ final class ShellHarness {
   /// 平台宣告插件開發工具（Debug 頁的「插件開發」區塊依它出現）。
   final bool pluginDevTools;
 
+  /// 平台的視窗動作；給了平台就宣告自繪標題列（`customTitleBar`），外殼最上面多一條標題列。
+  final WindowChrome? windowChrome;
+
+  /// 平台宣告的快捷鍵主修飾鍵（Apple 平台是 ⌘）。
+  final ShortcutModifier shortcutModifier;
+
   /// 搜尋的音源讀真的插件清單（`searchSourcesProvider` 不 override）：要看安裝、停用
   /// 之後搜尋頁怎麼變時用（首次啟動引導）。
   final bool registrySources;
@@ -319,6 +329,7 @@ final class ShellHarness {
     if (dataReset != null) dataResetProvider.overrideWithValue(dataReset!),
     loginWebViewProvider.overrideWithValue(loginWebView),
     // 「網路」設定的預設上限讀平台宣告：128 MiB。
+    windowChromeProvider.overrideWithValue(windowChrome),
     platformCapabilitiesProvider.overrideWithValue(
       PlatformCapabilities(
         dataDirectory: true,
@@ -338,6 +349,8 @@ final class ShellHarness {
         urlOpener: urlOpener != null,
         shareFiles: fileSharer != null,
         pluginDevTools: pluginDevTools,
+        customTitleBar: windowChrome != null,
+        shortcutModifier: shortcutModifier,
         restartsItself: restartsItself,
         loginWebView: loginWebView != null,
         cache: const CacheSizes(
@@ -501,8 +514,7 @@ final class ShellHarness {
             ),
             navigatorKey: navigatorKey,
             navigatorObservers: [ref.watch(toastRouteObserverProvider)],
-            builder: (context, navigator) =>
-                WindowClassScope(child: ToastHost(child: navigator!)),
+            builder: fmpAppBuilder,
             home: home,
           ),
         ),
