@@ -266,9 +266,9 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 不在任何一區時從導覽開始。
   void _nextRegion() => focusNextRegion(_regions);
 
-  void _openPlayer(PlayerPageEntry entry) {
+  void _openPlayer() {
     if (!hasNowPlaying(ref.read(playbackQueueProvider).value)) return;
-    unawaited(openPlayerPage(context, entry: entry));
+    unawaited(openPlayerPage(context));
   }
 
   // ---- 播放的提示 -------------------------------------------------------------
@@ -579,10 +579,9 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onBack: _popInner,
                 canBack: _canPopInner,
               ),
-              // 播放頁沒開時 Ctrl+L 先開播放頁（佇列不空才開）；開著時是頁面自己的 Actions
-              // 在處理（切分頁）。
+              // 播放頁沒開時 Ctrl+L 開播放頁（佇列不空才開）；歌詞 M7 才做，開著時頁面不處理。
               ShowLyricsIntent: TextInputAwareAction<ShowLyricsIntent>(
-                onInvoke: (_) => _openPlayer(PlayerPageEntry.lyrics),
+                onInvoke: (_) => _openPlayer(),
               ),
               // Ctrl+Q：切到佇列目的地（ADR 0035 §決定 7），焦點進內容區。
               ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(

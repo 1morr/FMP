@@ -442,14 +442,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 
 - `search_history` 是 schema v22（ADR 0035 §決定 9）：搜尋歷史，`query`（主鍵，trim 後原樣）、`searched_at`（毫秒）；無外鍵，不是曲目的參照者。`SearchHistoryRepository.record` 在一個 transaction 裡 upsert（再搜同一個關鍵字只更新時間）並修剪到最新 50 筆（`SearchHistoryRepository.limit`；舊版留 100 筆、列出 20 筆），空字串與只有空白不記；`list` 最新的在前，`watch` 是 `changes()` 加重讀（不用 drift 的 `watch()`，理由同 `PlayHistoryRepository.changes`）。備份歸類「帶走」。閘門：`search_history_repository_test.dart`、`migration_test.dart` 的 v21→v22 與 `migration from v<N> to v22 adds search_history`（v1–v21 各一例）、`staging_import_test.dart` 的 `rejects a change to the parts compared in full`（改時間、改關鍵字）、`staging_import_replace_test.dart` 的搜尋歷史往返、`backup_format_test.dart` 的歸類閘門；畫面只在送出與點歷史時記（重試、換音源不記）：`search_history_test.dart`、`search_live_test.dart` 的 `retrying after clearing the field…`。
 
-- `layout_state` 是 schema v6（design §3.4）：依裝置記住的版面狀態，單列（`player_tab`：播放頁右欄上次選的分頁，
-  `lyrics`／`queue`／`details` 寫死在 `PlayerTabConverter`；`panel_expanded`、`panel_width`：右側「正在播放」面板的展開與寬度，
-  M2 PR 19 接上，欄位在 v6 就建好、沒有再升 schema；`rail_expanded`：左側導覽側欄是否展開，schema v21 加，空＝收合，ADR 0035 §決定 5）。欄位為空＝沒記過；`panel_width` 在資料庫只擋明顯的壞值（> 1600），實際範圍讀取時
+- `layout_state` 是 schema v6（design §3.4）：依裝置記住的版面狀態，單列（`panel_expanded`、`panel_width`：右側「正在播放」面板的展開與寬度，
+  M2 PR 19 接上，欄位在 v6 就建好、沒有再升 schema；`rail_expanded`：左側導覽側欄是否展開，schema v21 加，空＝收合，ADR 0035 §決定 5；`player_tab` 在 v6 加、v23 刪：播放頁拿掉分頁後沒有讀者，ADR 0035 §決定 5）。欄位為空＝沒記過；`panel_width` 在資料庫只擋明顯的壞值（> 1600），實際範圍讀取時
   依視窗夾取。不屬於任何設定組，M4 的備份不收它：設定包含在備份裡，還原到另一台裝置時不該帶來這台的面板
-  寬度。`LayoutStateRepository` 讀寫這四欄，`write` 沒給（`null`）的欄位不動。閘門：`layout_state_repository_test.dart`
-  （`stored format`（含面板的布林與 dp）、不認得的字串拋錯、`write` 沒給的欄位不動（含 `a write only changes the fields it is given`）、`watch`、`reads back the panel fields`）、`migration_test.dart` 的 v5→v6
+  寬度。`LayoutStateRepository` 讀寫這三欄，`write` 沒給（`null`）的欄位不動。閘門：`layout_state_repository_test.dart`
+  （`stored format`（含面板的布林與 dp）、`write` 沒給的欄位不動（含 `a write only changes the fields it is given`）、`watch`、`reads back the panel fields`）、`migration_test.dart` 的 v5→v6
   （既有表的使用者值不變）與 `migration from v<N> to v6 creates layout_state…`（v1–v5 各一例：單列 CHECK、
-  寬度 > 1600 寫不進去）、`a new database has layout_state with its checks`、`migration_test.dart` 的 v20→v21（`rail_expanded`：既有的使用者值不變、新欄位為空）與
+  寬度 > 1600 寫不進去）、`a new database has layout_state with its checks`、`migration_test.dart` 的 v22→v23（其餘欄位的使用者值不變）與 `migration from v<N> to v23 leaves no player_tab column`（v1–v22 各一例）、v20→v21（`rail_expanded`：既有的使用者值不變、新欄位為空）與
   `migration from v<N> to v21 adds layout_state.rail_expanded`（v1–v20 各一例）、`reads back railExpanded…`。
 
 - `installed_plugins` 的 `enabled`、`source_index_url`、`checks_json` 與 `plugin_indexes` 是 schema v7（ADR 0030
@@ -2617,7 +2616,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `TrackDetails`（與播放頁「詳細」同一個 widget，面板多給 `footer`），詳細最後是「下一首」（縮圖、曲名、上傳者，舊版面板 P-14 的做法；
     讀 `QueueState.upNext`：下一首是按「下一首」會播的那首，隨機開著時是本輪排列的下一個，一輪最後一首時下一輪還沒排所以沒有，
     沒有隨機時循環全部的最後一首接回第一首，臨時播放中是回到佇列的那首，直播沒有；沒有下一首時整段不畫）；加入歌單鈕開
-    `showAddToPlaylist`（直播時沒有）。收聽直播時內容是 `LiveDetails`。底色是主題的 surface，不是毛玻璃（毛玻璃只在播放頁）。
+    `showAddToPlaylist`（直播時沒有）。收聽直播時內容是 `LiveDetails`。底色是主題的 surface，沒有毛玻璃（ADR 0035 拿掉播放頁的毛玻璃之後 App 裡已經沒有）。
     記住收起的狀態時，沒有曲目就沒有地方展開它（播放列沒出現、播放頁也開不了），加歌之後才有入口。
     曲目的封面與標題目前不可點；開原網頁（`TrackDetail.webUrl`）在 U PR 16。
     閘門：`now_playing_panel_test.dart` 的 `when it shows`（400／700／839／840／1000／1800、收起、`no song: no panel…`、有歌、
@@ -2733,7 +2732,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
   Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼與播放頁各包一層：播放頁是另一個
   route，不在外殼的 `Shortcuts` 之下）；Ctrl+L、Ctrl+Q 也在這張表（`ShowLyricsIntent`、`ShowQueueIntent`），但它們的
-  action 不在 `PlaybackShortcuts`：Ctrl+L 外殼接（播放頁沒開、佇列不空時開播放頁）、播放頁接（切分頁）；Ctrl+Q 外殼接（切到佇列目的地、
+  action 不在 `PlaybackShortcuts`：Ctrl+L 外殼接（播放頁沒開、佇列不空時開播放頁），播放頁不接（歌詞 M7 才做，ADR 0035 §決定 7）；Ctrl+Q 外殼接（切到佇列目的地、
   焦點進內容區，佇列是空的也切，ADR 0035 §決定 7）、播放頁接（見「播放頁」）；導覽類在 `shell_shortcuts.dart` 的
   `navigationShortcuts`（Ctrl+F、Ctrl+,、F6、Esc）。輸入框裡的規則一句話：導覽類在輸入框內也有效，其餘
   都讓給輸入框。文字編輯的快捷鍵（`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，
@@ -2750,34 +2749,39 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `with a dialog open playback shortcuts do nothing and Esc closes the dialog`）。
 - 播放頁（`lib/ui/player/player_page.dart`，design §9.3、§9.5、§9.6，ADR 0024 §決定 4）：
   - 開關：點播放列曲名與封面那一塊（`InkWell`，點擊區與右邊的按鈕分開，語意是按鈕、「開啟播放頁」放在 hint）開；
-    佇列不空時 Ctrl+L 在播放頁沒開時也會開。`openPlayerPage` 把 `_PlayerPageRoute`（`MaterialPageRoute` 的子類別，
-    `fullscreenDialog`）推在根 Navigator 上，所以提示仍在它上面；已開著不再推第二個。`playerPageOpenProvider` 由這個 route
+    佇列不空時 Ctrl+L 在播放頁沒開時也會開。`openPlayerPage` 把 `_PlayerPageRoute`（`PageRouteBuilder` 的子類別，
+    `fullscreenDialog`；從底部上滑 `easeOutCubic`、關閉下滑 `easeInCubic`，`AppLayout.playerTransition` 300ms，同舊版 `router.dart`；系統要求減少動態時改淡入淡出）推在根 Navigator 上，所以提示仍在它上面；已開著不再推第二個。`playerPageOpenProvider` 由這個 route
     設定：`didPush` 設成開，`didComplete`（pop 與 `removeRoute` 都經過，當下就呼叫）設成關，`dispose` 只補沒 complete 就被丟掉的。
     不等到轉場結束的 `dispose` 才報關：關閉轉場中的頁面不收點擊，點擊落到播放列又開了一個，舊的 route 晚報會把新的那個標成沒開。
     左上角收合鈕（tooltip「關閉播放頁（Esc）」，只有圖示、不另給 `semanticLabel`）、Esc（頁面自己的 `Shortcuts`，
-    `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層）、Android 返回鍵（route 先 pop，
+    `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層；寬版右側詳細面板開著時 Esc 先關面板）、Android 返回鍵（route 先 pop，
     只關這一頁；頁面內不放 `PopScope`）都關。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
     也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區，Ctrl+L 開的是開頁當下的焦點）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
     收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、Ctrl+L 開的焦點還原、`reopening it while it is
-    still closing keeps it open`、佇列清空自動關閉、`it closes itself when the queue is empty by its first frame`）、
+    still closing keeps it open`、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
     `player_bar_test.dart` 的 `the title area is a button that opens the player`。
-  - 版面依整個視窗的 `WindowClass`（根 `WindowClassScope` 在 Navigator 之上，所以播放頁讀到的是整個視窗）：compact、
-    medium 是封面與歌詞切換（點封面或 Ctrl+L，不寫入記憶），控制在下方；
-    expanded、large 兩半，左是封面（上限 `AppLayout.playerArtworkMax` 420dp，短視窗縮小）、曲名、上傳者與狀態、進度、
-    五個控制加「⋯」，右是分頁「歌詞｜詳細」；extraLarge 三欄約 1：1.15：0.9（封面與控制｜歌詞｜分頁「詳細」）。佇列不在播放頁：它是
-    導覽目的地（ADR 0035 §決定 2，見下面「佇列」）。
-    五個控制（隨機、上一首、播放、下一首、循環）每個版面都有；狀態標示與進度條與播放列同一份
-    （`player_controls.dart` 的 `playbackStatusLabel`、`ProgressRow`，啟動恢復後顯示恢復的位置也一樣）。閘門：
-    `player_page_test.dart` 的 `layouts`（五個等級各自的控制項與分頁、封面上限、三欄比例、視窗縮放）、`status and
-    progress`、golden `player_page_golden_test.dart`（1000、1400、1800 寬，只守版面結構）。
+  - 版面依整個視窗的寬高（ADR 0035 §決定 3；`resolvePlayerLayout`，頁面以 `LayoutBuilder` 量，不看 `WindowClass`）：寬 >= 840 且高 >= 520 是寬版
+    （`PlayerLayout.wide`；歌詞 M7 才做，所以單欄置中、內容寬上限 `AppLayout.playerContentMaxWide` 720；`_WideContent.lyrics` 非空時是左 5 右 7 的接口，M7 接上）；
+    寬大於高且高 < 520（橫向手機）是矮版（`short`，左封面右控制，控制放不下可捲動）；其餘是窄版（`narrow`，封面在上、控制在下，M7 之前沒有封面／歌詞切換）。
+    封面邊長取可用寬高的較小值、上限 `AppLayout.playerArtworkMax` 420dp，大圓角（`radius.large`）加陰影。控制區照舊版、沒有底板：曲名置中粗體（`headlineSmall`）、
+    狀態與上傳者置中一行、進度（`ProgressRow`，時間在條的兩端）、五個控制均分整列（隨機、上一首、80dp 實心播放鍵、下一首、循環；
+    `AppLayout.playerPlayButton`、`playerSkipIcon`）。佇列不在播放頁：它是導覽目的地（ADR 0035 §決定 2，見下面「佇列」）。
+    狀態標示與進度條與播放列同一份（`player_controls.dart` 的 `playbackStatusLabel`、`ProgressRow`，啟動恢復後顯示恢復的位置也一樣）。閘門：
+    `player_page_test.dart` 的 `layout choice`（839／840 寬、519／520 高、914×411、914×360 的選擇）、`layouts`（各版面的位置、封面上限與圓角陰影、
+    小視窗不 overflow、`the controls follow the legacy sizes`）、`status and progress`、golden `player_page_golden_test.dart`（寬、窄、矮三張，只守版面結構）。
+  - 頂列（`player_top_bar.dart`，P-01）：收合、加入歌單（`showAddToPlaylist`，直播沒有）、輸出裝置與音量（`audio_controls.dart` 的
+    `OutputDeviceButton`、`MuteButton`、`VolumeSlider`，播放列共用；只在平台宣告能選輸出裝置時有，也就是桌面——沒有另外的「桌面」能力，Android 用硬體音量鍵）、
+    資訊、「⋯」。資訊鈕：窄版與矮版開底部面板（`DraggableScrollableSheet`，捲動控制器交給 `TrackDetails`），寬版開右側滑入的面板
+    （`PlayerPage.detailsPanelKey`，寬 `AppLayout.playerDetailsPanelWidth` 400，是自己的焦點區，F6 循環；Esc 先關它；關掉或視窗縮到不是寬版而收掉時，焦點在面板裡就交回控制區，Esc 接著關頁面）；內容都是 `TrackDetails`
+    （直播是 `LiveDetails`）。閘門：`player_page_test.dart` 的 `top row`、`track details`。
   - 「⋯」有播放速度（0.5、0.75、1.0、1.25、1.5、1.75、2.0，目前的打勾，`PlaybackController.speed`／
     `speedChanges`，不持久化，重啟回到 1.0；`NowPlayingPublisher` 推出的 `speed` 跟著實際速度，系統依速度外推進度才
-    不會偏），以及 expanded 以上的「正在播放面板」勾選項（compact、medium 沒有面板，所以沒有；見上面的面板條目）。閘門：`player_page_test.dart` 的 `speed`、
+    不會偏），在頂列的「⋯」（`PlayerMoreMenu`），以及 expanded 以上的「正在播放面板」勾選項（compact、medium 沒有面板，所以沒有；見上面的面板條目）。閘門：`player_page_test.dart` 的 `speed`、
     `playback_controller_test.dart` 的 `the speed is observable…`、`now_playing_publisher_test.dart` 的 `a new speed is
     pushed…`。
-  - 歌詞 M2 一律是「沒有歌詞」的空狀態（M7 接內容）。詳細分頁是 `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查（見 § 插件的
-    「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `tabs`（查不到名稱時顯示插件 id）、`test/ui/plugins/plugin_name_test.dart`。
+  - `TrackDetails`（封面、曲名、上傳者、時長、音源名稱，以 `pluginNameProvider` 查（見 § 插件的
+    「插件庫與生命週期」；清單還沒載入完是 `null`，用插件 id），右側面板共用。閘門：`player_page_test.dart` 的 `track details`（查不到名稱時顯示插件 id）、`test/ui/plugins/plugin_name_test.dart`。
   - 佇列（`lib/ui/queue/`，design §7.3；ADR 0035 §決定 2 起是導覽的第四項）：`QueuePage` 是佇列目的地的根頁，各寬度都是整頁，
     沒有底部面板也沒有播放頁的分頁。沒選到這個目的地時（`visible` 為假）不建清單，所以每次切過來都從目前這首附近開始；佇列空時
     （含收聽直播而佇列是空的）是空狀態（舊版的引導：圖示、`shell.queueEmptyTitle`、`queueEmptyBody` 與「去搜尋」鈕，經 `openSearchProvider`（`lib/ui/shell/open_search.dart`，歷史頁的空狀態也用它）請外殼切到搜尋目的地），否則是 `QueueView`。
@@ -2802,19 +2806,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     不看這個設定。閘門：`queue_view_test.dart` 的 `scrolling to the current song`（開著捲、連續切歌、關著不捲、
     `move` 不算、拖曳中不捲、取消的拖曳之後照常捲）、`playback_controls_test.dart` 的 `the scroll switch…`、`playback_settings_test.dart`
     的預設與 `scrolling to the current song is written alone…`。
-  - 分頁記憶：使用者選的分頁寫進 `layout_state.player_tab`（`layoutStateProvider`；沒記過是歌詞，這次開著期間選的先於
-    資料庫的值生效），依裝置記住，不進設定組。記住的是已拿掉的佇列分頁（`PlayerTab.queue`，ADR 0035 之前的值）時當作沒記過，
-    資料庫的值不動（U PR 5 連欄位一起刪）。extraLarge 沒有歌詞分頁：記住的是歌詞時顯示詳細，但不覆寫記憶，回到兩欄時
-    仍是歌詞。閘門：`player_page_test.dart` 的 `tabs`（選了會寫入、重開還在、`a tab chosen on the page wins over a stored value that arrives later`、
-    記住佇列分頁時退回歌詞且不寫入、extraLarge 記住歌詞時顯示詳細且不覆寫）。
-  - 背景是模糊的封面加遮罩（遮罩用主題的 `surface`、不是黑色：淺色主題下深色封面不會把毛玻璃底下墊黑），控制區與右欄是
-    `GlassPanel`（約 66% `surface` 加 `BackdropFilter` 一般模糊）；沒有封面是實色的佔位背景。數值在 `AppLayout`。
-    系統開高對比時 `GlassPanel` 改不透明、不模糊（Flutter 3.47.5 的 `AccessibilityFeatures` 沒有「減少透明度」，ADR 0024
-    §決定 1 的更正）。閘門：`player_page_test.dart` 的 `glass`、guideline 測試的 `the player page over …`（淺色、深色 ×
-    最淺、最深、沒有封面 × 400／1000／1800 寬）。
-  - 快捷鍵與焦點：頁面包共用的 `PlaybackShortcuts`，另有自己的 Esc、F6；Ctrl+L 右欄切到歌詞（extraLarge 焦點移到歌詞欄、
-    compact／medium 切到歌詞那一面），Ctrl+Q 關掉播放頁並切到佇列目的地（見上面「佇列」）；輸入框規則照上面（`TextInputAwareAction`）。
-    頁內焦點區是控制區｜（extraLarge 的）歌詞欄｜右欄分頁（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
+  - 背景是模糊的封面加遮罩（遮罩用主題的 `surface`、不是黑色：淺色主題下深色封面不會把背景墊黑）；沒有封面是實色的佔位背景。數值在 `AppLayout`。
+    控制區沒有毛玻璃（ADR 0035 §決定 3 取代 ADR 0024 §決定 1 的播放頁部分）。閘門：`player_page_test.dart` 的 `backdrop`、`the controls follow the legacy sizes`
+    （沒有 `BackdropFilter`）、guideline 測試的 `the player page over …`。
+  - 快捷鍵與焦點：頁面包共用的 `PlaybackShortcuts`，另有自己的 Esc、F6；Ctrl+L 在頁面上不做事（M7 之前），Ctrl+Q 關掉播放頁並切到佇列目的地（見上面「佇列」）；
+    輸入框規則照上面（`TextInputAwareAction`）。頁內焦點區是控制區｜（開著時的）詳細面板（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
 - 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3）：

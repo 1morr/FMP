@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/repositories/layout_state_repository.dart';
-import 'package:fmp/domain/player_tab.dart';
 
 import '../../support/memory_database.dart';
 
@@ -13,52 +12,13 @@ void main() {
     expect(await repository.read(), LayoutState.empty);
   });
 
-  test('reads back what was written', () async {
-    final repository = LayoutStateRepository(memoryDatabase());
-
-    await repository.write(playerTab: PlayerTab.queue);
-
-    expect(
-      await repository.read(),
-      const LayoutState(playerTab: PlayerTab.queue),
-    );
-  });
-
   test('a write with nothing given keeps the value', () async {
     final repository = LayoutStateRepository(memoryDatabase());
-    await repository.write(playerTab: PlayerTab.lyrics);
+    await repository.write(railExpanded: true);
 
     await repository.write();
 
-    expect(
-      await repository.read(),
-      const LayoutState(playerTab: PlayerTab.lyrics),
-    );
-  });
-
-  test('stored format: the tabs are written as fixed strings', () async {
-    final database = memoryDatabase();
-    final repository = LayoutStateRepository(database);
-    final stored = <String?>[];
-    for (final tab in PlayerTab.values) {
-      await repository.write(playerTab: tab);
-      final row = await database
-          .customSelect('SELECT player_tab FROM layout_state')
-          .getSingle();
-      stored.add(row.read<String?>('player_tab'));
-    }
-
-    expect(stored, ['lyrics', 'queue', 'details']);
-  });
-
-  test('a tab the database does not know fails loudly', () async {
-    final database = memoryDatabase();
-    final repository = LayoutStateRepository(database);
-    await database.customStatement(
-      "INSERT INTO layout_state (id, player_tab) VALUES (1, 'bogus')",
-    );
-
-    await expectLater(repository.read(), throwsFormatException);
+    expect(await repository.read(), const LayoutState(railExpanded: true));
   });
 
   test('watch emits the current value and every write', () async {
@@ -69,9 +29,9 @@ void main() {
     expect(await events.moveNext(), isTrue);
     expect(events.current, LayoutState.empty);
 
-    await repository.write(playerTab: PlayerTab.details);
+    await repository.write(panelExpanded: true);
     expect(await events.moveNext(), isTrue);
-    expect(events.current, const LayoutState(playerTab: PlayerTab.details));
+    expect(events.current, const LayoutState(panelExpanded: true));
   });
 
   test('reads back the panel fields', () async {
@@ -87,31 +47,18 @@ void main() {
 
   test('a write only changes the fields it is given', () async {
     final repository = LayoutStateRepository(memoryDatabase());
-    await repository.write(
-      playerTab: PlayerTab.queue,
-      panelExpanded: true,
-      panelWidth: 400,
-    );
+    await repository.write(panelExpanded: true, panelWidth: 400);
 
     await repository.write(panelWidth: 500);
     expect(
       await repository.read(),
-      const LayoutState(
-        playerTab: PlayerTab.queue,
-        panelExpanded: true,
-        panelWidth: 500,
-      ),
+      const LayoutState(panelExpanded: true, panelWidth: 500),
     );
 
     await repository.write(panelExpanded: false);
-    await repository.write(playerTab: PlayerTab.details);
     expect(
       await repository.read(),
-      const LayoutState(
-        playerTab: PlayerTab.details,
-        panelExpanded: false,
-        panelWidth: 500,
-      ),
+      const LayoutState(panelExpanded: false, panelWidth: 500),
     );
   });
 

@@ -2,22 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:fmp/data/database/app_database.dart';
-import 'package:fmp/domain/player_tab.dart';
 
 /// 依裝置記住的版面狀態（design §3.4）。欄位為 `null` 表示沒記過。
 @immutable
 final class LayoutState {
-  const LayoutState({
-    this.playerTab,
-    this.panelExpanded,
-    this.panelWidth,
-    this.railExpanded,
-  });
+  const LayoutState({this.panelExpanded, this.panelWidth, this.railExpanded});
 
   static const empty = LayoutState();
-
-  /// 播放頁右欄上次選的分頁。
-  final PlayerTab? playerTab;
 
   /// 右側「正在播放」面板是否展開；沒記過是 `null`（呼叫端當作展開）。
   final bool? panelExpanded;
@@ -31,22 +22,20 @@ final class LayoutState {
   @override
   bool operator ==(Object other) =>
       other is LayoutState &&
-      other.playerTab == playerTab &&
       other.panelExpanded == panelExpanded &&
       other.panelWidth == panelWidth &&
       other.railExpanded == railExpanded;
 
   @override
-  int get hashCode =>
-      Object.hash(playerTab, panelExpanded, panelWidth, railExpanded);
+  int get hashCode => Object.hash(panelExpanded, panelWidth, railExpanded);
 
   @override
   String toString() =>
-      'LayoutState(playerTab: $playerTab, panelExpanded: $panelExpanded, '
+      'LayoutState(panelExpanded: $panelExpanded, '
       'panelWidth: $panelWidth, railExpanded: $railExpanded)';
 }
 
-/// `layout_state` 單列表的存取：播放頁的分頁、右側面板的展開與寬度、左側側欄的展開。
+/// `layout_state` 單列表的存取：右側面板的展開與寬度、左側側欄的展開。
 final class LayoutStateRepository {
   LayoutStateRepository(this._database);
 
@@ -67,7 +56,6 @@ final class LayoutStateRepository {
 
   /// 只寫入有給的欄位；沒給（`null`）的維持原值。
   Future<void> write({
-    PlayerTab? playerTab,
     bool? panelExpanded,
     double? panelWidth,
     bool? railExpanded,
@@ -76,7 +64,6 @@ final class LayoutStateRepository {
       .insertOnConflictUpdate(
         LayoutStateTableCompanion(
           id: const Value(_rowId),
-          playerTab: Value.absentIfNull(playerTab),
           panelExpanded: Value.absentIfNull(panelExpanded),
           panelWidth: Value.absentIfNull(panelWidth),
           railExpanded: Value.absentIfNull(railExpanded),
@@ -86,7 +73,6 @@ final class LayoutStateRepository {
   static LayoutState _fromRow(LayoutStateRow? row) => row == null
       ? LayoutState.empty
       : LayoutState(
-          playerTab: row.playerTab,
           panelExpanded: row.panelExpanded,
           panelWidth: row.panelWidth,
           railExpanded: row.railExpanded,

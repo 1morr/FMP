@@ -4,9 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/network/network_status.dart';
-import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/loop_mode.dart';
-import 'package:fmp/domain/player_tab.dart';
+import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
@@ -18,6 +17,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/fake_audio_backend.dart';
 import '../support/fake_artwork.dart';
 import '../support/shell_harness.dart';
 
@@ -25,7 +25,10 @@ import '../support/shell_harness.dart';
 // 與封面那一塊開頁，和使用者一樣。
 
 const _close = 'Close the player (Esc)';
-const _showLyrics = 'Show lyrics (Ctrl+L)';
+const _info = 'Track info';
+const _closeInfo = 'Close track info';
+const _addToPlaylist = 'Add to playlist';
+const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
 const _more = 'More';
 
 /// 播放列上的曲名（點它開播放頁）。
@@ -72,30 +75,6 @@ Future<void> _openByTap(WidgetTester tester) async {
   await tester.tap(_barTitle);
   await tester.pumpAndSettle();
   expect(find.byType(PlayerPage), findsOneWidget);
-}
-
-/// 記住的分頁（資料庫要真的事件迴圈）。
-Future<PlayerTab?> _storedTab(WidgetTester tester, ShellHarness h) async {
-  // 寫入與讀取都經資料庫的執行緒，先讓還沒完成的寫入跑完。
-  final state = await tester.runAsync(() async {
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    return h.container(tester).read(layoutStateRepositoryProvider).read();
-  });
-  return state!.playerTab;
-}
-
-Future<void> _rememberTab(
-  WidgetTester tester,
-  ShellHarness h,
-  PlayerTab tab,
-) async {
-  await tester.runAsync(
-    () => h
-        .container(tester)
-        .read(layoutStateRepositoryProvider)
-        .write(playerTab: tab),
-  );
-  await h.loadSettings(tester);
 }
 
 void main() {
@@ -297,12 +276,10 @@ void main() {
 
   group('shortcuts', () {
     testWidgets('Ctrl+L opens the page when it is closed', (tester) async {
-      final h = await _pumpPlaying(tester);
+      await _pumpPlaying(tester);
       await _chord(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
       expect(find.byType(PlayerPage), findsOneWidget);
-      expect(await _storedTab(tester, h), PlayerTab.lyrics);
-      expect(find.text('No lyrics'), findsOneWidget);
     });
 
     testWidgets('Ctrl+L does nothing while the queue is empty', (tester) async {
@@ -325,25 +302,20 @@ void main() {
       expect(find.byType(PlayerPage), findsNothing);
       expect(h.container(tester).read(playerPageOpenProvider), isFalse);
       expect(find.byType(QueueView).hitTestable(), findsOneWidget);
-      expect(
-        tester
-            .widget<NavigationRail>(find.byType(NavigationRail))
-            .selectedIndex,
-        ShellDestination.queue.index,
-      );
       final focused = FocusManager.instance.primaryFocus!.context!;
       expect(focused.findAncestorWidgetOfExactType<QueueView>(), isNotNull);
     });
 
-    testWidgets('Ctrl+L switches to the lyrics tab on the page', (
+    testWidgets('Ctrl+L on the page does nothing before the lyrics exist', (
       tester,
     ) async {
-      final h = await _pumpPlaying(tester);
+      await _pumpPlaying(tester);
       await _openByTap(tester);
 
       await _chord(tester, LogicalKeyboardKey.keyL);
-      expect(await _storedTab(tester, h), PlayerTab.lyrics);
-      expect(find.text('No lyrics'), findsOneWidget);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsOneWidget);
     });
 
     testWidgets('the playback keys work on the page', (tester) async {
@@ -363,10 +335,12 @@ void main() {
       expect(h.controller.volume, closeTo(0.95, 0.001));
     });
 
-    testWidgets('F6 moves between the controls and the tabs and Tab stays in '
-        'the region', (tester) async {
+    testWidgets('F6 moves between the controls and the open details panel and '
+        'Tab stays in the region', (tester) async {
       await _pumpPlaying(tester);
       await _openByTap(tester);
+      await tester.tap(find.byKey(PlayerPage.infoKey));
+      await tester.pumpAndSettle();
 
       // F6 cycles through the two regions and comes back.
       final scopes = <FocusScopeNode>[];
@@ -387,20 +361,30 @@ void main() {
         expect(FocusManager.instance.primaryFocus!.enclosingScope, scope);
       }
     });
+  });
 
-    testWidgets('at extraLarge Ctrl+L moves the focus into the lyrics column', (
-      tester,
-    ) async {
-      await _pumpPlaying(tester, size: const Size(1800, 900));
-      await _openByTap(tester);
-
-      await _chord(tester, LogicalKeyboardKey.keyL);
-
-      expect(
-        FocusManager.instance.primaryFocus?.debugLabel,
-        'Player page lyrics column',
-      );
-    });
+  group('layout choice', () {
+    // 840 and 520 are the legacy thresholds; 914x411 and 914x360 are the
+    // logical sizes of common landscape phones.
+    for (final (size, expected) in [
+      (const Size(840, 520), PlayerLayout.wide),
+      (const Size(839, 520), PlayerLayout.narrow),
+      (const Size(840, 519), PlayerLayout.short),
+      (const Size(839, 519), PlayerLayout.short),
+      (const Size(1600, 900), PlayerLayout.wide),
+      (const Size(1000, 400), PlayerLayout.short),
+      (const Size(914, 411), PlayerLayout.short),
+      (const Size(914, 360), PlayerLayout.short),
+      (const Size(400, 800), PlayerLayout.narrow),
+      (const Size(700, 800), PlayerLayout.narrow),
+      // Short but not wider than tall: a portrait window, not a landscape phone.
+      (const Size(400, 519), PlayerLayout.narrow),
+      (const Size(519, 519), PlayerLayout.narrow),
+    ]) {
+      test('$size is $expected', () {
+        expect(resolvePlayerLayout(size), expected);
+      });
+    }
   });
 
   group('layouts', () {
@@ -419,66 +403,65 @@ void main() {
       _close,
     ];
 
+    final title = find.descendant(
+      of: find.byType(PlayerPage),
+      matching: find.text('Song a'),
+    );
+    // The cover is the artwork that is not the 256dp backdrop source.
+    final cover = find.descendant(
+      of: find.byType(PlayerPage),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is ArtworkImage && widget.size != 256,
+      ),
+    );
+
     for (final (name, size) in [
       ('compact', const Size(400, 800)),
       ('medium', const Size(700, 800)),
     ]) {
-      testWidgets('$name: artwork and lyrics swap, the controls are below, no '
-          'tabs', (tester) async {
-        await _pumpPlaying(tester, size: size);
-        await _openByTap(tester);
-
-        // The five controls and the menu, also on a phone held upright.
-        expect(shown(controls), controls);
-        expect(find.byType(TabBar), findsNothing);
-        expect(find.text('No lyrics'), findsNothing);
-
-        await tester.tap(find.bySemanticsLabel(_showLyrics));
-        await tester.pump();
-        expect(find.text('No lyrics'), findsOneWidget);
-
-        await tester.tap(find.text('No lyrics'));
-        await tester.pump();
-        expect(find.text('No lyrics'), findsNothing);
-      });
-
-      testWidgets('$name: Ctrl+L shows the lyrics, there is no queue button', (
+      testWidgets('$name: artwork above the controls, no cover/lyrics toggle', (
         tester,
       ) async {
         await _pumpPlaying(tester, size: size);
         await _openByTap(tester);
 
+        expect(shown(controls), controls);
+        expect(find.byType(TabBar), findsNothing);
         expect(find.byIcon(Icons.queue_music), findsNothing);
-        expect(find.byType(TabBar), findsNothing);
-
-        await _chord(tester, LogicalKeyboardKey.keyL);
-        expect(find.text('No lyrics'), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp('lyrics')), findsNothing);
+        expect(
+          tester.getRect(cover).bottom,
+          lessThan(tester.getRect(title).top),
+        );
+        // The title is centered.
+        expect(tester.getRect(title).center.dx, closeTo(size.width / 2, 1));
       });
     }
 
-    for (final (name, size) in [
-      ('expanded', const Size(1000, 700)),
-      ('large', const Size(1400, 800)),
-    ]) {
-      testWidgets('$name: two halves with the tabs Lyrics and Details', (
-        tester,
-      ) async {
-        await _pumpPlaying(tester, size: size);
-        await _openByTap(tester);
+    testWidgets('wide: one centered column of at most 720', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1400, 900));
+      await _openByTap(tester);
 
-        expect(shown(controls), controls);
-        for (final tab in ['Lyrics', 'Details']) {
-          expect(find.widgetWithText(Tab, tab), findsOneWidget);
-        }
-        expect(find.widgetWithText(Tab, 'Queue'), findsNothing);
-        final half = size.width / 2;
-        final tabs = tester.getRect(find.byType(TabBar));
-        expect(tabs.left, greaterThanOrEqualTo(half));
-        expect(find.text('No lyrics'), findsOneWidget);
-      });
-    }
+      expect(shown(controls), controls);
+      final progress = tester.getRect(find.byType(Slider).first);
+      expect(progress.width, lessThanOrEqualTo(720));
+      expect(progress.center.dx, closeTo(700, 1));
+      expect(tester.getRect(cover).bottom, lessThan(tester.getRect(title).top));
+      expect(find.byType(TabBar), findsNothing);
+    });
 
-    testWidgets('the artwork is at most 420 and fits the window', (
+    testWidgets('short: the artwork on the left, the controls on the right', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(914, 411));
+      await _openByTap(tester);
+
+      expect(shown(controls), controls);
+      expect(tester.getRect(cover).right, lessThan(tester.getRect(title).left));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the artwork is at most 420 with a large radius and a shadow', (
       tester,
     ) async {
       await _pumpPlaying(tester, size: const Size(1400, 1200));
@@ -493,49 +476,21 @@ void main() {
       expect(sizes, contains(420));
       expect(sizes.where((size) => size > 420), isEmpty);
 
-      // A short window shrinks it instead of overflowing.
-      tester.view.physicalSize = const Size(1400, 600);
+      final frame = tester.widget<DecoratedBox>(
+        find.ancestor(of: cover, matching: find.byType(DecoratedBox)).first,
+      );
+      final decoration = frame.decoration as BoxDecoration;
+      expect(decoration.borderRadius, BorderRadius.circular(16));
+      expect(decoration.boxShadow, isNotEmpty);
+
+      // A shorter window shrinks it instead of overflowing.
+      tester.view.physicalSize = const Size(1400, 620);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       final shrunk = tester
           .widgetList<ArtworkImage>(find.byType(ArtworkImage))
           .map((artwork) => artwork.size);
-      expect(shrunk.where((size) => size > 256 && size < 420), isNotEmpty);
-    });
-
-    testWidgets('extraLarge: three columns, the only tab is Details', (
-      tester,
-    ) async {
-      await _pumpPlaying(tester, size: const Size(1800, 900));
-      await _openByTap(tester);
-
-      expect(shown(controls), controls);
-      expect(find.widgetWithText(Tab, 'Lyrics'), findsNothing);
-      expect(find.widgetWithText(Tab, 'Queue'), findsNothing);
-      expect(find.widgetWithText(Tab, 'Details'), findsOneWidget);
-      // The lyrics are their own column.
-      expect(find.text('No lyrics'), findsOneWidget);
-      final lyrics = tester.getRect(find.text('No lyrics'));
-      final tabs = tester.getRect(find.byType(TabBar));
-      expect(lyrics.right, lessThan(tabs.left));
-      // About 1 : 1.15 : 0.9.
-      final lyricsColumn = tester.getSize(
-        find
-            .ancestor(
-              of: find.text('No lyrics'),
-              matching: find.byType(FocusScope),
-            )
-            .first,
-      );
-      final tabsColumn = tester.getSize(
-        find
-            .ancestor(
-              of: find.byType(TabBar),
-              matching: find.byType(FocusScope),
-            )
-            .first,
-      );
-      expect(lyricsColumn.width / tabsColumn.width, closeTo(1.15 / 0.9, 0.05));
+      expect(shrunk.where((size) => size != 256 && size < 420), isNotEmpty);
     });
 
     testWidgets('the layout follows the window when it is resized', (
@@ -543,28 +498,375 @@ void main() {
     ) async {
       await _pumpPlaying(tester, size: const Size(1000, 700));
       await _openByTap(tester);
-      expect(find.byType(TabBar), findsOneWidget);
+      expect(tester.getRect(cover).bottom, lessThan(tester.getRect(title).top));
 
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(914, 411);
       await tester.pumpAndSettle();
-      expect(find.byType(TabBar), findsNothing);
+      expect(tester.getRect(cover).right, lessThan(tester.getRect(title).left));
       expect(find.byType(PlayerPage), findsOneWidget);
+    });
+
+    // The smallest windows the layouts are meant for: no overflow, and the
+    // controls stay reachable.
+    for (final (name, size) in [
+      ('narrow 320x480', const Size(320, 480)),
+      ('narrow 360x640', const Size(360, 640)),
+      ('short 640x360', const Size(640, 360)),
+      ('short 914x360', const Size(914, 360)),
+      ('wide 840x520', const Size(840, 520)),
+    ]) {
+      testWidgets('$name does not overflow', (tester) async {
+        await _pumpPlaying(tester, size: size);
+        await _openByTap(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.byTooltip('Pause (Space)').hitTestable(), findsOneWidget);
+      });
+    }
+
+    testWidgets('the controls follow the legacy sizes', (tester) async {
+      await _pumpPlaying(tester);
+      await _openByTap(tester);
+
+      expect(
+        tester.getSize(find.byTooltip('Pause (Space)')),
+        const Size.square(80),
+      );
+      expect(
+        tester.getSize(find.byTooltip('Next (Ctrl+→)')).width,
+        greaterThan(48),
+      );
+      // No glass behind the controls.
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(tester.widget<Text>(title).style?.fontWeight, FontWeight.bold);
     });
   });
 
-  group('tabs', () {
-    testWidgets('the details tab shows the song and its source', (
+  group('top row', () {
+    const outputDevice = 'Output device';
+    const mute = 'Mute';
+
+    testWidgets('on a phone: add, info and the menu, no volume or device', (
       tester,
     ) async {
+      await _pumpPlaying(tester, size: const Size(400, 800));
+      await _openByTap(tester);
+
+      for (final tooltip in [_close, _addToPlaylist, _info, _more]) {
+        expect(find.byTooltip(tooltip), findsOneWidget, reason: tooltip);
+      }
+      expect(find.byTooltip(outputDevice), findsNothing);
+      expect(find.byTooltip(mute), findsNothing);
+    });
+
+    testWidgets('with output device selection (desktop): the device and the '
+        'volume too', (tester) async {
+      final h = ShellHarness(
+        outputDeviceSelection: true,
+        outputDevices: FakeOutputDevices(const [_speakers]),
+      );
+      await _pumpPlaying(tester, harness: h);
+      await _openByTap(tester);
+
+      for (final tooltip in [
+        _close,
+        _addToPlaylist,
+        outputDevice,
+        mute,
+        _info,
+        _more,
+      ]) {
+        expect(
+          find.descendant(
+            of: find.byType(PlayerPage),
+            matching: find.byTooltip(tooltip),
+          ),
+          findsOneWidget,
+          reason: tooltip,
+        );
+      }
+      expect(
+        find.descendant(
+          of: find.byType(PlayerPage),
+          matching: find.byType(Slider),
+        ),
+        findsNWidgets(2),
+        reason: 'the progress bar and the volume slider',
+      );
+    });
+
+    testWidgets('the mute button in the top row mutes', (tester) async {
+      final h = ShellHarness(
+        outputDeviceSelection: true,
+        outputDevices: FakeOutputDevices(const [_speakers]),
+      );
+      await _pumpPlaying(tester, harness: h);
+      await _openByTap(tester);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(PlayerPage),
+          matching: find.byTooltip(mute),
+        ),
+      );
+      await tester.pump();
+
+      expect(h.controller.muted, isTrue);
+    });
+
+    testWidgets('a small desktop window does not overflow the top row', (
+      tester,
+    ) async {
+      final h = ShellHarness(
+        outputDeviceSelection: true,
+        outputDevices: FakeOutputDevices(const [_speakers]),
+      );
+      await _pumpPlaying(tester, harness: h, size: const Size(360, 640));
+      await _openByTap(tester);
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('add to playlist opens the usual flow', (tester) async {
       await _pumpPlaying(tester);
       await _openByTap(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Details'));
+
+      await tester.tap(find.byTooltip(_addToPlaylist));
       await tester.pumpAndSettle();
 
-      expect(find.text('Song a'), findsWidgets);
-      expect(find.text('Uploader a'), findsWidgets);
-      expect(find.text('3:05'), findsWidgets);
+      expect(find.byType(AlertDialog), findsOneWidget);
+    });
+  });
+
+  group('track details', () {
+    testWidgets('narrow: the info button opens a bottom sheet', (tester) async {
+      await _pumpPlaying(tester, size: const Size(400, 800));
+      await _openByTap(tester);
+
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DraggableScrollableSheet),
+          matching: find.byType(TrackDetails),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Test Source'), findsOneWidget);
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+
+      // The sheet can be dragged up.
+      final before = tester.getRect(find.byType(TrackDetails)).top;
+      await tester.drag(find.byType(TrackDetails), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(TrackDetails)).top, lessThan(before));
+
+      // Dismissing it leaves the page open.
+      await tester.tapAt(const Offset(200, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(DraggableScrollableSheet), findsNothing);
+      expect(find.byType(PlayerPage), findsOneWidget);
+    });
+
+    testWidgets('short: the info button opens a bottom sheet too', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(914, 411));
+      await _openByTap(tester);
+
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('wide: the info button slides in a panel from the right', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+
+      await tester.tap(find.byTooltip(_info));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final sliding = tester.getRect(find.byKey(PlayerPage.detailsPanelKey));
+      await tester.pumpAndSettle();
+      final settled = tester.getRect(find.byKey(PlayerPage.detailsPanelKey));
+
+      expect(sliding.left, greaterThan(settled.left));
+      expect(settled.right, 1200);
+      expect(settled.width, 400);
+      expect(find.byType(DraggableScrollableSheet), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(PlayerPage.detailsPanelKey),
+          matching: find.byType(TrackDetails),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Test Source'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(_closeInfo));
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      expect(find.byType(PlayerPage), findsOneWidget);
+    });
+
+    testWidgets('wide: the panel keeps only the safe area of its own edge', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      tester.view.padding = const FakeViewPadding(left: 48, right: 24);
+      tester.view.viewPadding = const FakeViewPadding(left: 48, right: 24);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      final header = tester.getRect(
+        find.descendant(
+          of: find.byKey(PlayerPage.detailsPanelKey),
+          matching: find.text(_info),
+        ),
+      );
+      // 16dp from the panel's start, not pushed in by the window's left inset.
+      expect(header.left, closeTo(1200 - 400 + 16, 1));
+      expect(
+        tester.getRect(find.byTooltip(_closeInfo)).right,
+        lessThanOrEqualTo(1200 - 24),
+      );
+    });
+
+    testWidgets('wide: Esc closes the panel first, then the page', (
+      tester,
+    ) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      expect(find.byType(PlayerPage), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('wide: narrowing the window drops the panel', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      tester.view.physicalSize = const Size(500, 800);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      expect(find.byType(PlayerPage), findsOneWidget);
+    });
+
+    // Only the height changes, so the window class of the shell underneath
+    // stays the same and only the page's layout goes from wide to short.
+    testWidgets('wide: after a resize drops the focused panel, Esc closes the '
+        'page', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1000, 700));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+      // The focus in the panel (the controls are the first region).
+      for (var i = 0; i < 2; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+      }
+
+      tester.view.physicalSize = const Size(1000, 500);
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('wide: closing the panel from inside it keeps the keys on the '
+        'page', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      // F6 into the panel (the controls are the first region), Esc closes it,
+      // and the next Esc still reaches the page.
+      bool inPanel() {
+        var found = false;
+        FocusManager.instance.primaryFocus!.context!.visitAncestorElements((
+          element,
+        ) {
+          found = element.widget.key == PlayerPage.detailsPanelKey;
+          return !found;
+        });
+        return found;
+      }
+
+      for (var i = 0; i < 2; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+        await tester.pump();
+      }
+      expect(inPanel(), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsNothing);
+      // The focus is back in the controls, not lost.
+      expect(
+        FocusManager.instance.primaryFocus!.ancestors.map(
+          (node) => node.debugLabel,
+        ),
+        contains('Player page controls'),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('the sheet closes with the page when the queue is cleared', (
+      tester,
+    ) async {
+      final h = await _pumpPlaying(tester, size: const Size(400, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      h.controller.clear();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DraggableScrollableSheet), findsNothing);
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(h.container(tester).read(playerPageOpenProvider), isFalse);
+    });
+
+    testWidgets('the details show the song and its source', (tester) async {
+      await _pumpPlaying(tester, size: const Size(1200, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byTooltip(_info));
+      await tester.pumpAndSettle();
+
+      final panel = find.byKey(PlayerPage.detailsPanelKey);
+      for (final text in ['Song a', 'Uploader a', '3:05', 'Test Source']) {
+        expect(
+          find.descendant(of: panel, matching: find.text(text)),
+          findsOneWidget,
+          reason: text,
+        );
+      }
     });
 
     testWidgets('the details name a source without a name by its id', (
@@ -586,116 +888,83 @@ void main() {
 
       expect(find.text('gone-source'), findsOneWidget);
     });
+  });
 
-    testWidgets('a tab chosen is stored and still there when the page opens '
-        'again', (tester) async {
-      final h = await _pumpPlaying(tester);
-      await _openByTap(tester);
-      expect(await _storedTab(tester, h), isNull);
+  group('transition', () {
+    SlideTransition slide(WidgetTester tester) =>
+        tester.widget<SlideTransition>(
+          find
+              .ancestor(
+                of: find.byType(PlayerPage),
+                matching: find.byType(SlideTransition),
+              )
+              .first,
+        );
 
-      await tester.tap(find.widgetWithText(Tab, 'Details'));
+    testWidgets('slides up from the bottom to open', (tester) async {
+      await _pumpPlaying(tester);
+      await tester.tap(_barTitle);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final dy = slide(tester).position.value.dy;
+      expect(dy, greaterThan(0));
+      expect(dy, lessThan(1));
+      expect(dy, closeTo(1 - Curves.easeOutCubic.transform(100 / 300), 0.02));
+
       await tester.pumpAndSettle();
-      expect(await _storedTab(tester, h), PlayerTab.details);
+      expect(slide(tester).position.value, Offset.zero);
+    });
+
+    testWidgets('slides down to close', (tester) async {
+      await _pumpPlaying(tester);
+      await _openByTap(tester);
 
       await tester.tap(find.byKey(PlayerPage.closeKey));
-      await tester.pumpAndSettle();
-      await _openByTap(tester);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Test Source'), findsOneWidget);
-      final controller = DefaultTabController.maybeOf(
-        tester.element(find.byType(TabBar)),
-      );
-      expect(controller, isNull);
+      final dy = slide(tester).position.value.dy;
+      expect(dy, greaterThan(0));
+      expect(dy, lessThan(1));
+      // The reverse curve is applied to the animation value going 1 to 0.
       expect(
-        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        1,
-        reason: 'Details is the second of Lyrics and Details',
+        dy,
+        closeTo(1 - Curves.easeInCubic.transform(1 - 100 / 300), 0.02),
       );
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
     });
 
-    testWidgets('a tab chosen on the page wins over a stored value that '
-        'arrives later', (tester) async {
-      final h = await _pumpPlaying(tester);
-      await _openByTap(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Details'));
-      await tester.pumpAndSettle();
-
-      await _rememberTab(tester, h, PlayerTab.lyrics);
-      await tester.pumpAndSettle();
-
-      expect(
-        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        1,
-        reason: 'Details is the second of Lyrics and Details',
-      );
-    });
-
-    testWidgets('the remembered tab is used from the first frame', (
+    testWidgets('with reduced motion it fades instead of moving', (
       tester,
     ) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester);
-      await _rememberTab(tester, h, PlayerTab.details);
-      await h.play(tester, [summary('a'), summary('b')]);
-
-      await _openByTap(tester);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _pumpPlaying(tester);
+      await tester.tap(_barTitle);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       expect(
-        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        1,
-        reason: 'Details is the second of Lyrics and Details',
+        find.ancestor(
+          of: find.byType(PlayerPage),
+          matching: find.byType(SlideTransition),
+        ),
+        findsNothing,
       );
-    });
-
-    // The queue tab is gone (ADR 0035); an older install may still remember it.
-    testWidgets('a remembered queue tab falls back to the lyrics tab and is '
-        'left alone', (tester) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester);
-      await _rememberTab(tester, h, PlayerTab.queue);
-      await h.play(tester, [summary('a'), summary('b')]);
-
-      await _openByTap(tester);
-
       expect(
-        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        PlayerTab.lyrics.index,
+        find.ancestor(
+          of: find.byType(PlayerPage),
+          matching: find.byType(FadeTransition),
+        ),
+        findsWidgets,
       );
-      expect(find.text('No lyrics'), findsOneWidget);
-      expect(await _storedTab(tester, h), PlayerTab.queue);
-    });
-
-    testWidgets('at extraLarge a remembered queue tab shows the details', (
-      tester,
-    ) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1800, 900));
-      await _rememberTab(tester, h, PlayerTab.queue);
-      await h.play(tester, [summary('a'), summary('b')]);
-
-      await _openByTap(tester);
-
-      expect(find.text('Test Source'), findsOneWidget);
-    });
-
-    testWidgets('at extraLarge a remembered lyrics tab shows the details and '
-        'keeps the memory', (tester) async {
-      final h = ShellHarness();
-      await h.pumpShell(tester, size: const Size(1800, 900));
-      await _rememberTab(tester, h, PlayerTab.lyrics);
-      await h.play(tester, [summary('a'), summary('b')]);
-
-      await _openByTap(tester);
-
-      final tabs = tester.widget<TabBar>(find.byType(TabBar));
-      expect(tabs.controller!.length, 1);
-      expect(find.text('Test Source'), findsOneWidget);
-      expect(await _storedTab(tester, h), PlayerTab.lyrics);
-
-      // Choosing Details there is a real choice and overwrites it.
-      await tester.tap(find.widgetWithText(Tab, 'Details'));
       await tester.pumpAndSettle();
-      expect(await _storedTab(tester, h), PlayerTab.details);
+      expect(find.byType(PlayerPage), findsOneWidget);
     });
   });
 
@@ -809,26 +1078,7 @@ void main() {
     });
   });
 
-  group('glass', () {
-    testWidgets('the panels blur the background', (tester) async {
-      await _pumpPlaying(tester);
-      await _openByTap(tester);
-
-      expect(find.byType(BackdropFilter), findsWidgets);
-    });
-
-    testWidgets('high contrast makes them opaque', (tester) async {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(highContrast: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-      await _pumpPlaying(tester);
-      await _openByTap(tester);
-
-      expect(find.byType(BackdropFilter), findsNothing);
-    });
-
+  group('backdrop', () {
     testWidgets('a song with artwork gets a backdrop of it', (tester) async {
       final h = ShellHarness(artworkManager: FakeArtworkManager());
       await h.pumpShell(tester);

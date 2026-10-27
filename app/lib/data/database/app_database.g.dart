@@ -4811,15 +4811,6 @@ class $LayoutStateTableTable extends LayoutStateTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
-  @override
-  late final GeneratedColumnWithTypeConverter<PlayerTab?, String> playerTab =
-      GeneratedColumn<String>(
-        'player_tab',
-        aliasedName,
-        true,
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-      ).withConverter<PlayerTab?>($LayoutStateTableTable.$converterplayerTabn);
   static const VerificationMeta _panelExpandedMeta = const VerificationMeta(
     'panelExpanded',
   );
@@ -4863,7 +4854,6 @@ class $LayoutStateTableTable extends LayoutStateTable
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    playerTab,
     panelExpanded,
     panelWidth,
     railExpanded,
@@ -4920,12 +4910,6 @@ class $LayoutStateTableTable extends LayoutStateTable
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
-      playerTab: $LayoutStateTableTable.$converterplayerTabn.fromSql(
-        attachedDatabase.typeMapping.read(
-          DriftSqlType.string,
-          data['${effectivePrefix}player_tab'],
-        ),
-      ),
       panelExpanded: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}panel_expanded'],
@@ -4945,19 +4929,11 @@ class $LayoutStateTableTable extends LayoutStateTable
   $LayoutStateTableTable createAlias(String alias) {
     return $LayoutStateTableTable(attachedDatabase, alias);
   }
-
-  static TypeConverter<PlayerTab, String> $converterplayerTab =
-      const PlayerTabConverter();
-  static TypeConverter<PlayerTab?, String?> $converterplayerTabn =
-      NullAwareTypeConverter.wrap($converterplayerTab);
 }
 
 class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   /// 固定為 1；CHECK 讓第二列插不進去。
   final int id;
-
-  /// 播放頁右欄上次選的分頁。
-  final PlayerTab? playerTab;
 
   /// 右側「正在播放」面板展開與否。
   final bool? panelExpanded;
@@ -4969,7 +4945,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   final bool? railExpanded;
   const LayoutStateRow({
     required this.id,
-    this.playerTab,
     this.panelExpanded,
     this.panelWidth,
     this.railExpanded,
@@ -4978,11 +4953,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    if (!nullToAbsent || playerTab != null) {
-      map['player_tab'] = Variable<String>(
-        $LayoutStateTableTable.$converterplayerTabn.toSql(playerTab),
-      );
-    }
     if (!nullToAbsent || panelExpanded != null) {
       map['panel_expanded'] = Variable<bool>(panelExpanded);
     }
@@ -4998,9 +4968,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   LayoutStateTableCompanion toCompanion(bool nullToAbsent) {
     return LayoutStateTableCompanion(
       id: Value(id),
-      playerTab: playerTab == null && nullToAbsent
-          ? const Value.absent()
-          : Value(playerTab),
       panelExpanded: panelExpanded == null && nullToAbsent
           ? const Value.absent()
           : Value(panelExpanded),
@@ -5020,7 +4987,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return LayoutStateRow(
       id: serializer.fromJson<int>(json['id']),
-      playerTab: serializer.fromJson<PlayerTab?>(json['playerTab']),
       panelExpanded: serializer.fromJson<bool?>(json['panelExpanded']),
       panelWidth: serializer.fromJson<double?>(json['panelWidth']),
       railExpanded: serializer.fromJson<bool?>(json['railExpanded']),
@@ -5031,7 +4997,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'playerTab': serializer.toJson<PlayerTab?>(playerTab),
       'panelExpanded': serializer.toJson<bool?>(panelExpanded),
       'panelWidth': serializer.toJson<double?>(panelWidth),
       'railExpanded': serializer.toJson<bool?>(railExpanded),
@@ -5040,13 +5005,11 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
 
   LayoutStateRow copyWith({
     int? id,
-    Value<PlayerTab?> playerTab = const Value.absent(),
     Value<bool?> panelExpanded = const Value.absent(),
     Value<double?> panelWidth = const Value.absent(),
     Value<bool?> railExpanded = const Value.absent(),
   }) => LayoutStateRow(
     id: id ?? this.id,
-    playerTab: playerTab.present ? playerTab.value : this.playerTab,
     panelExpanded: panelExpanded.present
         ? panelExpanded.value
         : this.panelExpanded,
@@ -5056,7 +5019,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   LayoutStateRow copyWithCompanion(LayoutStateTableCompanion data) {
     return LayoutStateRow(
       id: data.id.present ? data.id.value : this.id,
-      playerTab: data.playerTab.present ? data.playerTab.value : this.playerTab,
       panelExpanded: data.panelExpanded.present
           ? data.panelExpanded.value
           : this.panelExpanded,
@@ -5073,7 +5035,6 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   String toString() {
     return (StringBuffer('LayoutStateRow(')
           ..write('id: $id, ')
-          ..write('playerTab: $playerTab, ')
           ..write('panelExpanded: $panelExpanded, ')
           ..write('panelWidth: $panelWidth, ')
           ..write('railExpanded: $railExpanded')
@@ -5082,14 +5043,12 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, playerTab, panelExpanded, panelWidth, railExpanded);
+  int get hashCode => Object.hash(id, panelExpanded, panelWidth, railExpanded);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is LayoutStateRow &&
           other.id == this.id &&
-          other.playerTab == this.playerTab &&
           other.panelExpanded == this.panelExpanded &&
           other.panelWidth == this.panelWidth &&
           other.railExpanded == this.railExpanded);
@@ -5097,34 +5056,29 @@ class LayoutStateRow extends DataClass implements Insertable<LayoutStateRow> {
 
 class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
   final Value<int> id;
-  final Value<PlayerTab?> playerTab;
   final Value<bool?> panelExpanded;
   final Value<double?> panelWidth;
   final Value<bool?> railExpanded;
   const LayoutStateTableCompanion({
     this.id = const Value.absent(),
-    this.playerTab = const Value.absent(),
     this.panelExpanded = const Value.absent(),
     this.panelWidth = const Value.absent(),
     this.railExpanded = const Value.absent(),
   });
   LayoutStateTableCompanion.insert({
     this.id = const Value.absent(),
-    this.playerTab = const Value.absent(),
     this.panelExpanded = const Value.absent(),
     this.panelWidth = const Value.absent(),
     this.railExpanded = const Value.absent(),
   });
   static Insertable<LayoutStateRow> custom({
     Expression<int>? id,
-    Expression<String>? playerTab,
     Expression<bool>? panelExpanded,
     Expression<double>? panelWidth,
     Expression<bool>? railExpanded,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (playerTab != null) 'player_tab': playerTab,
       if (panelExpanded != null) 'panel_expanded': panelExpanded,
       if (panelWidth != null) 'panel_width': panelWidth,
       if (railExpanded != null) 'rail_expanded': railExpanded,
@@ -5133,14 +5087,12 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
 
   LayoutStateTableCompanion copyWith({
     Value<int>? id,
-    Value<PlayerTab?>? playerTab,
     Value<bool?>? panelExpanded,
     Value<double?>? panelWidth,
     Value<bool?>? railExpanded,
   }) {
     return LayoutStateTableCompanion(
       id: id ?? this.id,
-      playerTab: playerTab ?? this.playerTab,
       panelExpanded: panelExpanded ?? this.panelExpanded,
       panelWidth: panelWidth ?? this.panelWidth,
       railExpanded: railExpanded ?? this.railExpanded,
@@ -5152,11 +5104,6 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
-    }
-    if (playerTab.present) {
-      map['player_tab'] = Variable<String>(
-        $LayoutStateTableTable.$converterplayerTabn.toSql(playerTab.value),
-      );
     }
     if (panelExpanded.present) {
       map['panel_expanded'] = Variable<bool>(panelExpanded.value);
@@ -5174,7 +5121,6 @@ class LayoutStateTableCompanion extends UpdateCompanion<LayoutStateRow> {
   String toString() {
     return (StringBuffer('LayoutStateTableCompanion(')
           ..write('id: $id, ')
-          ..write('playerTab: $playerTab, ')
           ..write('panelExpanded: $panelExpanded, ')
           ..write('panelWidth: $panelWidth, ')
           ..write('railExpanded: $railExpanded')
@@ -15107,7 +15053,6 @@ typedef $$SearchHistoryTableTableProcessedTableManager =
 typedef $$LayoutStateTableTableCreateCompanionBuilder =
     LayoutStateTableCompanion Function({
       Value<int> id,
-      Value<PlayerTab?> playerTab,
       Value<bool?> panelExpanded,
       Value<double?> panelWidth,
       Value<bool?> railExpanded,
@@ -15115,7 +15060,6 @@ typedef $$LayoutStateTableTableCreateCompanionBuilder =
 typedef $$LayoutStateTableTableUpdateCompanionBuilder =
     LayoutStateTableCompanion Function({
       Value<int> id,
-      Value<PlayerTab?> playerTab,
       Value<bool?> panelExpanded,
       Value<double?> panelWidth,
       Value<bool?> railExpanded,
@@ -15134,12 +15078,6 @@ class $$LayoutStateTableTableFilterComposer
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
-
-  ColumnWithTypeConverterFilters<PlayerTab?, PlayerTab, String> get playerTab =>
-      $composableBuilder(
-        column: $table.playerTab,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
 
   ColumnFilters<bool> get panelExpanded => $composableBuilder(
     column: $table.panelExpanded,
@@ -15171,11 +15109,6 @@ class $$LayoutStateTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get playerTab => $composableBuilder(
-    column: $table.playerTab,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get panelExpanded => $composableBuilder(
     column: $table.panelExpanded,
     builder: (column) => ColumnOrderings(column),
@@ -15203,9 +15136,6 @@ class $$LayoutStateTableTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumnWithTypeConverter<PlayerTab?, String> get playerTab =>
-      $composableBuilder(column: $table.playerTab, builder: (column) => column);
 
   GeneratedColumn<bool> get panelExpanded => $composableBuilder(
     column: $table.panelExpanded,
@@ -15261,13 +15191,11 @@ class $$LayoutStateTableTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<PlayerTab?> playerTab = const Value.absent(),
                 Value<bool?> panelExpanded = const Value.absent(),
                 Value<double?> panelWidth = const Value.absent(),
                 Value<bool?> railExpanded = const Value.absent(),
               }) => LayoutStateTableCompanion(
                 id: id,
-                playerTab: playerTab,
                 panelExpanded: panelExpanded,
                 panelWidth: panelWidth,
                 railExpanded: railExpanded,
@@ -15275,13 +15203,11 @@ class $$LayoutStateTableTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<PlayerTab?> playerTab = const Value.absent(),
                 Value<bool?> panelExpanded = const Value.absent(),
                 Value<double?> panelWidth = const Value.absent(),
                 Value<bool?> railExpanded = const Value.absent(),
               }) => LayoutStateTableCompanion.insert(
                 id: id,
-                playerTab: playerTab,
                 panelExpanded: panelExpanded,
                 panelWidth: panelWidth,
                 railExpanded: railExpanded,

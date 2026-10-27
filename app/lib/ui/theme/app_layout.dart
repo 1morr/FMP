@@ -63,15 +63,41 @@ abstract final class AppLayout {
   /// 播放頁大封面的邊長上限（ADR 0024 §決定 4）。
   static const double playerArtworkMax = 420;
 
-  /// 播放頁的毛玻璃（ADR 0024 §決定 1）：右欄、佇列、控制區是約 66% 的 `surface` 加
-  /// 一般模糊。高對比時改不透明。
-  static const double playerGlassOpacity = 0.66;
-  static const double playerGlassBlur = 24;
+  /// 播放頁的版面門檻（舊版 `resolvePlayerLayout`）：寬 >= [playerWideMinWidth] 且高 >=
+  /// [playerWideMinHeight] 是寬版；寬大於高而高 < [playerWideMinHeight]（橫向手機）是矮版。
+  static const double playerWideMinWidth = 840;
+  static const double playerWideMinHeight = 520;
+
+  /// 寬版沒有歌詞時單欄的內容寬度上限（ADR 0035 §決定 3）。
+  static const double playerContentMaxWide = 720;
+
+  /// 播放頁的大播放鍵（外框與圖示）、上一首與下一首的圖示（舊版 `UIConstants`）。
+  static const double playerPlayButton = 80;
+  static const double playerPlayIcon = 40;
+  static const double playerSkipIcon = 40;
+
+  /// 五個控制（隨機、上一首、播放、下一首、循環）的自然寬度；放控制的地方比它窄時整排縮小。
+  static const double playerControlsMinWidth = 288;
+
+  /// 播放頁封面的陰影（舊版 `CoverArtContainer`）：模糊、下移與影色不透明度。
+  static const double playerCoverShadowBlur = 20;
+  static const double playerCoverShadowOffset = 10;
+  static const double playerCoverShadowOpacity = 0.2;
+
+  /// 寬版播放頁右側滑入的曲目詳細面板寬度；窄版底部面板的初始、最小與最大高度比例。
+  static const double playerDetailsPanelWidth = 400;
+  static const double playerDetailsSheetInitial = 0.6;
+  static const double playerDetailsSheetMin = 0.3;
+  static const double playerDetailsSheetMax = 0.95;
+
+  /// 播放頁開關的轉場長度（舊版 `router.dart`）。
+  static const Duration playerTransition = Duration(milliseconds: 300);
 
   /// 播放頁背景的模糊封面：模糊半徑、遮罩不透明度，以及載入封面時的邊長（只當模糊
-  /// 的底圖，不用大）。
+  /// 的底圖，不用大）。控制區沒有底板（ADR 0035 §決定 3），文字直接在遮罩上：深色主題配最淺的封面
+  /// 時 0.45 的遮罩對比只有 1.8，0.75 才過 guideline 測試（`the player page over …`）。
   static const double playerBackdropBlur = 48;
-  static const double playerScrimOpacity = 0.45;
+  static const double playerScrimOpacity = 0.75;
   static const double playerBackdropSource = 256;
 
   /// 佇列頁每一列的高度（固定高度讓一萬首的清單不必逐項量測）。
