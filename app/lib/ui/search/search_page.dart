@@ -25,6 +25,7 @@ import 'package:fmp/ui/offline/offline.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
 import 'package:fmp/ui/plugins/source_icon.dart';
+import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_history_list.dart';
 import 'package:fmp/ui/search/search_state.dart';
@@ -35,6 +36,7 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/track_markers.dart';
+import 'package:fmp/ui/tracks/track_subtitle.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
@@ -836,9 +838,9 @@ class _TrackTile extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
           style: playingTitleStyle(context, playing: playing),
         ),
-        subtitle: uploader == null
+        subtitle: uploader == null && track.viewCount == null
             ? null
-            : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+            : TrackSubtitle(text: uploader, viewCount: track.viewCount),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1102,6 +1104,18 @@ class _RoomTile extends ConsumerWidget {
               LiveRoomStatus.offline => RadioStatus.offline,
             },
           ),
+          extraTag: switch (room.area) {
+            final area? => StatusTag(
+              text: area,
+              background: live
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              foreground: live
+                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            null => null,
+          },
           text: host,
         ),
         trailing: Row(

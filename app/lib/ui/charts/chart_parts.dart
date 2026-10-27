@@ -22,6 +22,7 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/track_markers.dart';
+import 'package:fmp/ui/tracks/track_subtitle.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 
@@ -262,9 +263,9 @@ class ChartTrackTile extends ConsumerWidget {
         overflow: TextOverflow.ellipsis,
         style: playingTitleStyle(context, playing: playing),
       ),
-      subtitle: uploader == null
+      subtitle: uploader == null && track.viewCount == null
           ? null
-          : Text(uploader, maxLines: 1, overflow: TextOverflow.ellipsis),
+          : TrackSubtitle(text: uploader, viewCount: track.viewCount),
       trailing: row.trailing,
       onTap: row.onTap ?? () => playChartTrack(ref, track),
       onLongPress: row.onLongPress,

@@ -23,12 +23,14 @@ LiveRoom _room(
   String id, {
   LiveRoomStatus status = LiveRoomStatus.live,
   int? online,
+  String? area,
 }) => LiveRoom(
   roomId: id,
   title: 'Room $id',
   hostName: 'Host $id',
   status: status,
   online: online,
+  area: area,
 );
 
 /// 測試插件宣告 `live`，另有一個沒宣告的音源「Other Source」。
@@ -359,6 +361,35 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('watching'), findsOneWidget);
+    });
+
+    // 分區標籤（B-27、ADR 0035 §決定 10 補充）：有值才畫，在狀態標記旁。
+    testWidgets('the area tag shows next to the status when there is one', (
+      tester,
+    ) async {
+      final h = _harness(
+        onLiveSearch: (_) => LiveSearchPage(
+          items: [
+            _room('r1', online: 5, area: 'Games'),
+            _room('r2', status: LiveRoomStatus.offline, area: 'Chat'),
+            _room('r3'),
+          ],
+          hasMore: false,
+        ),
+      );
+      await h.pumpShell(tester);
+      await _tapAndSettle(tester, find.text('Live rooms'));
+      await _search(tester, 'night');
+
+      List<String> tags(String id) => [
+        for (final tag in tester.widgetList<StatusTag>(
+          find.descendant(of: _roomRow(id), matching: find.byType(StatusTag)),
+        ))
+          tag.text,
+      ];
+      expect(tags('r1'), ['Live', 'Games']);
+      expect(tags('r2'), ['Offline', 'Chat']);
+      expect(tags('r3'), ['Live']);
     });
 
     // 未開播的直播間（B-27）：封面灰階、「收聽」停用、點一下提示，不嘗試播放。

@@ -198,7 +198,60 @@ void main() {
       expect(page.items.single.cid, 7);
     });
 
+    test('viewCount is optional and kept as given', () async {
+      final page = await search(
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: 12345 }, "
+        "{ sourceId: 'a2', title: 'B', viewCount: 0 }, "
+        "{ sourceId: 'a3', title: 'C', viewCount: null }, "
+        "{ sourceId: 'a4', title: 'D' }], hasMore: false }",
+      );
+
+      page as SearchPage;
+      expect(
+        [for (final item in page.items) item.viewCount],
+        [12345, 0, null, null],
+      );
+      expect(page.items.first.toTrackInfo().viewCount, 12345);
+    });
+
+    // 回傳值經 JSON.stringify：1e6、2.0 寫成整數，超過 2^53 的照 JS 的近似值；
+    // 1e21 以上 JSON 寫成指數（宿主讀成小數）是 ParseError，同其他整數欄位。
+    test('viewCount arrives as JSON writes the JS number', () async {
+      final page = await search(
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: 1e6 }, "
+        "{ sourceId: 'a2', title: 'B', viewCount: 2.0 }, "
+        "{ sourceId: 'a3', title: 'C', viewCount: 2 ** 53 + 2 }], "
+        'hasMore: false }',
+      );
+
+      page as SearchPage;
+      expect(
+        [for (final item in page.items) item.viewCount],
+        [1000000, 2, 9007199254740994],
+      );
+    });
+
     for (final (description, result) in [
+      (
+        'a negative viewCount',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: -1 }], "
+            'hasMore: false }',
+      ),
+      (
+        'a fractional viewCount',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: 1.5 }], "
+            'hasMore: false }',
+      ),
+      (
+        'a viewCount JSON writes with an exponent',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: 1e21 }], "
+            'hasMore: false }',
+      ),
+      (
+        'a text viewCount',
+        "{ items: [{ sourceId: 'a1', title: 'A', viewCount: '12' }], "
+            'hasMore: false }',
+      ),
       ('a missing hasMore', '{ items: [] }'),
       ('an unknown field', '{ items: [], hasMore: false, total: 3 }'),
       (

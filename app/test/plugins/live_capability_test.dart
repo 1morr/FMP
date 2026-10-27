@@ -191,6 +191,26 @@ export function resolveLive() { return { candidates: [{ url: 'https://example.te
       expect(room.artwork.single.width, 320);
     });
 
+    test('area is trimmed and an empty one counts as missing', () async {
+      Future<LiveRoom> room(String area) async {
+        final plugin = await _load('''
+export function liveSearch() { return { items: [], hasMore: false }; }
+export function liveRoomFromUrl() { return null; }
+export function liveStatus(query) {
+  return { roomId: query.roomId, title: 'T', status: 'live', area: $area };
+}
+export function resolveLive() { return { candidates: [{ url: 'https://example.test/a' }] }; }
+''');
+        return plugin.liveStatus(LiveRoomQuery(roomId: 'r1'));
+      }
+
+      expect((await room("'  Games '")).area, 'Games');
+      expect((await room("'   '")).area, isNull);
+      expect((await room("''")).area, isNull);
+      expect((await room('null')).area, isNull);
+      expect((await room('undefined')).area, isNull);
+    });
+
     test('inputs are checked before the call', () {
       expect(() => LiveSearchQuery(keyword: ' '), throwsArgumentError);
       expect(() => LiveSearchQuery(keyword: 'k', page: 0), throwsRangeError);
@@ -324,6 +344,10 @@ export function resolveLive() {}
         'artwork on another host',
         "{ roomId: 'r', title: 'T', status: 'live', "
             "artwork: [{ url: 'https://evil.test/a.jpg' }] }",
+      ),
+      (
+        'a numeric area',
+        "{ roomId: 'r', title: 'T', status: 'live', area: 3 }",
       ),
       ('a string', "'live'"),
       ('undefined', 'undefined'),

@@ -22,7 +22,7 @@ void main() {
     final file = PluginFile.parse(testPluginFile.readAsStringSync());
 
     expect(file.manifest.id, 'fmp-test');
-    expect(file.manifest.allowedHosts, isEmpty);
+    expect(file.manifest.allowedHosts, ['fmp.test']);
   });
 
   test('allows a BOM and leading blank lines', () {

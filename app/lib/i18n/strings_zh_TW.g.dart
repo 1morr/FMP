@@ -2521,6 +2521,12 @@ class Translations$playerPage$zh_TW {
   /// zh-TW: '重試'
   String get detailsRetry => '重試';
 
+  /// zh-TW: '在瀏覽器開啟原網頁'
+  String get openWebPage => '在瀏覽器開啟原網頁';
+
+  /// zh-TW: '無法開啟瀏覽器'
+  String get openWebFailed => '無法開啟瀏覽器';
+
   /// zh-TW: '播放'
   String get statView => '播放';
 

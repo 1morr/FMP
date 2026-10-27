@@ -107,14 +107,15 @@ class LiveBadge extends ConsumerWidget {
 class StatusTag extends StatelessWidget {
   const StatusTag({
     super.key,
-    required this.icon,
+    this.icon,
     required this.text,
     required this.background,
     required this.foreground,
     this.border,
   });
 
-  final IconData icon;
+  /// 沒有圖示就只有文字（直播間的分區標籤）。
+  final IconData? icon;
   final String text;
   final Color background;
   final Color foreground;
@@ -139,8 +140,10 @@ class StatusTag extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: style?.fontSize, color: foreground),
-            SizedBox(width: tokens.spacing.x1),
+            if (icon != null) ...[
+              Icon(icon, size: style?.fontSize, color: foreground),
+              SizedBox(width: tokens.spacing.x1),
+            ],
             Flexible(
               child: Text(
                 text,

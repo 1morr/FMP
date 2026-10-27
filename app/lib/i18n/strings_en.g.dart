@@ -1945,6 +1945,10 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   @override
   String get detailsRetry => 'Retry';
   @override
+  String get openWebPage => 'Open the original page in the browser';
+  @override
+  String get openWebFailed => 'Couldn\'t open the browser';
+  @override
   String get statView => 'Views';
   @override
   String get statLike => 'Likes';

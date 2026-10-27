@@ -93,6 +93,7 @@ class ChartCache {
     ],
     'partIndex': track.partIndex,
     'parentTitle': track.parentTitle,
+    'viewCount': track.viewCount,
   };
 
   static ChartCacheEntry _decode(Object? json) {
@@ -128,6 +129,7 @@ class ChartCache {
     ]),
     partIndex: map['partIndex'] as int?,
     parentTitle: map['parentTitle'] as String?,
+    viewCount: map['viewCount'] as int?,
   );
 }
 

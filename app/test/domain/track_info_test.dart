@@ -126,4 +126,33 @@ void main() {
 
     test('nothing to pick', () => expect(pick([], 144), isNull));
   });
+
+  test('the play count is display data, not part of the track', () {
+    const counted = TrackInfo(
+      sourceTypeId: 'bilibili',
+      sourceId: 'BV1',
+      title: 'Song',
+      viewCount: 46000000,
+    );
+    const stored = TrackInfo(
+      sourceTypeId: 'bilibili',
+      sourceId: 'BV1',
+      title: 'Song',
+    );
+
+    expect(counted, stored);
+    expect(counted.hashCode, stored.hashCode);
+    // 變異：別的顯示欄位不同仍然不相等。
+    expect(
+      counted,
+      isNot(
+        const TrackInfo(
+          sourceTypeId: 'bilibili',
+          sourceId: 'BV1',
+          title: 'Other',
+          viewCount: 46000000,
+        ),
+      ),
+    );
+  });
 }
