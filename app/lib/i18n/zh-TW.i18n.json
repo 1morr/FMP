@@ -352,7 +352,22 @@
     "importAsPlatform": "匯入為平台歌單",
     "importAsPlatformHint": "跟著 {source} 上的歌單刷新",
     "importAsMatch": "配對到其他音源",
-    "importAsMatchHint": "在其他音源找同一首歌，建成不會刷新的本機歌單"
+    "importAsMatchHint": "在其他音源找同一首歌，建成不會刷新的本機歌單",
+    "loadingPlaylists": "正在載入歌單",
+    "heroOwner": "擁有者：{name}",
+    "heroImported": "已匯入 · {source}",
+    "durationHoursMinutes": "{hours} 小時 {minutes} 分",
+    "durationMinutes": "{minutes} 分",
+    "durationUnderMinute": "不到 1 分",
+    "coverFromTracks": "從歌曲封面選",
+    "coverFromTracksTitle": "選擇封面",
+    "coverFromTracksLoading": "正在讀取歌單的封面",
+    "coverFromTracksEmpty": "歌單裡的歌曲都沒有封面",
+    "coverFromTracksFailed": "無法讀取歌單的封面",
+    "coverFromTracksItem": "第 {index} 張封面",
+    "addToPlaylistTracks(plural, param=count)": {
+      "other": "{count} 首歌曲"
+    }
   },
   "playlist": {
     "more": "更多選項",
@@ -376,7 +391,9 @@
     "removeBody": "已選的 {count} 首會從「{name}」移除，無法復原。",
     "removeConfirm": "移除",
     "cancel": "取消",
-    "removed": "已從歌單移除"
+    "removed": "已從歌單移除",
+    "loading": "正在載入歌單",
+    "retry": "重試"
   },
   "selection": {
     "select": "選取",
@@ -1206,7 +1223,9 @@
     "liveImportAdded": "新增 {added} 個",
     "liveImportAllExisting": "{existing} 個已在電台清單",
     "liveImportEmpty": "這個帳號沒有關注的直播間",
-    "liveImportFailed": "無法匯入電台：{reason}"
+    "liveImportFailed": "無法匯入電台：{reason}",
+    "selectAll": "全選",
+    "deselectAll": "取消全選"
   },
   "errors": {
     "network": "網路連線失敗，請檢查網路後再試",

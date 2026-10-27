@@ -24,19 +24,32 @@ final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
 String trackCountText(Translations$library$zh_TW t, int count) =>
     t.trackCount(count: count);
 
-/// 歌單卡的副標題：「本機／匯入 · n 首」；Mix 不存曲目，只寫「Mix」（音樂庫的卡片；首頁的卡片窄，只寫首數）。
+/// 音樂庫歌單卡的副標題：首數（同首頁的歌單卡與舊版；匯入歌單的「匯入」由卡片上的連結圖示表示）；
+/// Mix 不存曲目，只寫「Mix」。
 String playlistSubtitleText(
   Translations$library$zh_TW t,
   PlaylistOverview overview,
-) {
-  final kind = switch (overview.playlist.kind) {
-    PlaylistKind.local => t.local,
-    PlaylistKind.imported => t.imported,
-    PlaylistKind.mix => null,
-  };
-  if (kind == null) return t.mix;
-  return '$kind · ${trackCountText(t, overview.trackCount)}';
+) => switch (overview.playlist.kind) {
+  PlaylistKind.mix => t.mix,
+  PlaylistKind.local ||
+  PlaylistKind.imported => trackCountText(t, overview.trackCount),
+};
+
+/// 歌單總時長的文字（「6 小時 12 分」）；沒有時長（曲目都不知道長度）是 `null`。
+String? durationText(Translations$library$zh_TW t, Duration total) {
+  if (total <= Duration.zero) return null;
+  final hours = total.inHours;
+  final minutes = total.inMinutes % 60;
+  if (hours > 0) return t.durationHoursMinutes(hours: hours, minutes: minutes);
+  if (minutes > 0) return t.durationMinutes(minutes: minutes);
+  return t.durationUnderMinute;
 }
+
+/// 歌單卡角落的音源：匯入歌單是來源插件，Mix 歌單是它的 Mix 音源，本機歌單沒有。
+String? playlistSourceId(PlaylistOverview overview) =>
+    overview.playlist.kind == PlaylistKind.mix
+    ? overview.playlist.mixPluginId
+    : overview.sourcePluginId;
 
 /// 歌單詳情頁要的一張歌單：歌單本身、匯入歌單的遠端資料、全部項目。
 @immutable
@@ -44,6 +57,7 @@ final class PlaylistDetail {
   const PlaylistDetail({
     required this.playlist,
     required this.entries,
+    this.totalDuration = Duration.zero,
     this.remote,
     this.seedTrack,
   });
@@ -58,6 +72,9 @@ final class PlaylistDetail {
 
   /// 依（`position`, `id`）。
   final List<PlaylistEntry> entries;
+
+  /// 全部項目的總時長（資料庫加總，`PlaylistRepository.totalDuration`）；標頭顯示用。
+  final Duration totalDuration;
 }
 
 /// 歌單詳情（[playlistId]）；歌單已刪除是 `null`。寫法同 [playlistOverviewsProvider]：
@@ -73,6 +90,7 @@ final playlistDetailProvider = StreamProvider.autoDispose
           playlist: playlist,
           remote: await repository.remote(playlistId),
           entries: await repository.entries(playlistId),
+          totalDuration: await repository.totalDuration(playlistId),
           seedTrack: await repository.mixSeedTrack(playlist),
         );
       });

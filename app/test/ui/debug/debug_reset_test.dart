@@ -7,6 +7,7 @@ import 'package:fmp/ui/debug/debug_database.dart';
 import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/destructive_support.dart';
 import '../support/fake_data_reset.dart';
 import '../support/shell_harness.dart';
 
@@ -75,6 +76,8 @@ void main() {
       await tester.tap(find.byType(CheckboxListTile));
       await tester.pump();
       expect(enabled(tester, confirmButton('Clear and restart')), isTrue);
+      // 清掉全部資料：紅色確認鈕（U PR 13，R7.9）。
+      expectDestructiveConfirm(tester, 'Clear and restart');
       expect(reset.calls, ['backUp']);
 
       await tester.tap(confirmButton('Clear and restart'));

@@ -16,6 +16,7 @@ import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
+import 'package:fmp/ui/plugins/source_icon.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -164,7 +165,12 @@ Future<void> _openMenu(WidgetTester tester, String name) async {
   await tester.tap(
     find.descendant(
       of: find
-          .ancestor(of: find.text(name), matching: find.byType(ListTile))
+          .ancestor(
+            of: find.text(name),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is ListTile || widget is InkWell,
+            ),
+          )
           .first,
       matching: find.byTooltip('More options'),
     ),
@@ -193,9 +199,10 @@ void main() {
       expect(find.byType(PlaylistDetailPage), findsOneWidget);
       expect(find.byType(LibraryPage).hitTestable(), findsNothing);
       expect(find.text('Road mix'), findsOneWidget);
-      expect(find.text('Imported · 2 songs'), findsOneWidget);
-      // 擁有者與音源。
-      expect(find.text('Test Source · Alice'), findsOneWidget);
+      expect(find.text('2 songs'), findsOneWidget);
+      // 擁有者與音源徽章。
+      expect(find.text('Owner: Alice'), findsOneWidget);
+      expect(find.text('Imported · Test Source'), findsOneWidget);
       expect(find.text('Playlist imported'), findsOneWidget);
       final remote = await _remote(tester, h, 1);
       expect(remote.remoteId, 'p1');
@@ -245,7 +252,7 @@ void main() {
       await _advance(tester, h);
 
       expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text('Imported · 3 songs'), findsOneWidget);
+      expect(find.text('3 songs'), findsOneWidget);
     });
 
     testWidgets('without a total the bar is indeterminate and says how many '
@@ -362,7 +369,10 @@ void main() {
         findsOneWidget,
       );
       // 對話框留著、輸入留著，可以改了再送。
-      expect(find.widgetWithText(AlertDialog, 'Import a playlist'), findsOne);
+      expect(
+        find.widgetWithText(AlertDialog, 'Import a playlist'),
+        findsOneWidget,
+      );
       expect(find.text('https://elsewhere.test/x/y'), findsOneWidget);
       expect(_importButton(tester), isNotNull);
       expect(
@@ -590,6 +600,42 @@ void main() {
       expect(plugin.urlQueries, hasLength(1), reason: 'recognised once');
     });
 
+    // 網址欄前面是連結圖示，認出來源之後尾端是它的圖示（舊版 L-20，ADR 0035，R7.10）。
+    testWidgets('the recognised source shows its icon in the link field', (
+      tester,
+    ) async {
+      await _open(tester, _plugin());
+
+      await _openImportDialog(tester);
+      final dialog = find.byType(AlertDialog);
+      expect(
+        find.descendant(of: dialog, matching: find.byIcon(Icons.link)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: dialog, matching: find.byType(SourceIcon)),
+        findsNothing,
+      );
+
+      await _enterUrl(tester, 'https://fmp.test/p1');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      final icon = find.descendant(
+        of: dialog,
+        matching: find.byType(SourceIcon),
+      );
+      expect(icon, findsOneWidget);
+      expect(tester.widget<SourceIcon>(icon).pluginId, 'fmp-test');
+      expect(
+        find.descendant(of: icon, matching: find.text('TS')),
+        findsOneWidget,
+      );
+
+      // 輸入改了，辨識結果跟著不算數。
+      await _enterUrl(tester, 'https://fmp.test/p2');
+      expect(icon, findsNothing);
+    });
+
     testWidgets('choosing to match opens the preview and imports no platform '
         'playlist', (tester) async {
       final plugin = _plugin();
@@ -742,7 +788,7 @@ void main() {
 
       expect(await _songs(tester, h, id), ['b', 'c', 'd']);
       expect(find.text('Playlist refreshed'), findsOneWidget);
-      expect(find.text('Imported · 3 songs'), findsOneWidget);
+      expect(find.text('3 songs'), findsOneWidget);
     });
 
     testWidgets('while refreshing the button shows progress and a second '
@@ -839,8 +885,8 @@ void main() {
 
       await _openMenu(tester, 'Remote title');
       expect(find.widgetWithText(MenuItemButton, 'Refresh'), findsOneWidget);
-      // 匯入歌單的卡片寫「匯入」。
-      expect(find.text('Imported · 3 songs'), findsOneWidget);
+      // 匯入歌單的卡片寫首數（「匯入」是前面的連結圖示）。
+      expect(find.text('3 songs'), findsOneWidget);
       final before = plugin.pageQueries.length;
       await tester.tap(find.widgetWithText(MenuItemButton, 'Refresh'));
       await _advance(tester, h);
@@ -863,9 +909,12 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Refresh'));
       await _advance(tester, h);
 
-      expect(find.textContaining("Couldn't refresh the playlist: "), findsOne);
+      expect(
+        find.textContaining("Couldn't refresh the playlist: "),
+        findsOneWidget,
+      );
       // 本機的資料照常。
-      expect(find.text('Imported · 1 song'), findsOneWidget);
+      expect(find.text('1 song'), findsOneWidget);
     });
 
     testWidgets('a failed manual refresh while offline says offline', (
@@ -884,7 +933,10 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Refresh'));
       await _advance(tester, h);
 
-      expect(find.text("Offline, couldn't refresh the playlist"), findsOne);
+      expect(
+        find.text("Offline, couldn't refresh the playlist"),
+        findsOneWidget,
+      );
       expect(
         find.textContaining("Couldn't refresh the playlist: "),
         findsNothing,
@@ -953,7 +1005,7 @@ void main() {
       await _refresh(tester, h, id);
       await _openDetail(tester, h, 'Remote title');
 
-      expect(find.textContaining('Last refreshed: partial · '), findsOne);
+      expect(find.textContaining('Last refreshed: partial · '), findsOneWidget);
       expect(find.text('Retry'), findsNothing);
       expect(await _songs(tester, h, id), ['a', 'b']);
     });

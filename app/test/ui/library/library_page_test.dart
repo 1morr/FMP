@@ -13,6 +13,7 @@ import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // 音樂庫（M4 PR 2，ADR 0033 §決定 8，design §10.3、§10.5）：歷史入口、建立、編輯、刪除、
@@ -160,7 +161,7 @@ void main() {
       expect(stored.last.description, 'Driving');
       expect(find.text('Playlist created'), findsOneWidget);
       expect(find.text('Road'), findsOneWidget);
-      expect(find.text('Local · 0 songs'), findsNWidgets(2));
+      expect(find.text('0 songs'), findsNWidgets(2));
     });
 
     testWidgets('cancelling creates nothing', (tester) async {
@@ -234,6 +235,7 @@ void main() {
       await _openMenu(tester, 'Gone');
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
+      expectDestructiveConfirm(tester, 'Delete');
       await tester.tap(
         find.descendant(
           of: find.byType(AlertDialog),
@@ -322,7 +324,7 @@ void main() {
           tester.getCenter(find.text(name)).dy,
       };
       expect(ys, hasLength(1));
-      expect(find.text('Local · 1 song'), findsOneWidget);
+      expect(find.text('1 song'), findsOneWidget);
 
       await _drag(
         tester,
@@ -532,6 +534,6 @@ void main() {
 
     expect(find.text('No network connection'), findsOneWidget);
     expect(find.text('Mix'), findsOneWidget);
-    expect(find.text('Local · 1 song'), findsOneWidget);
+    expect(find.text('1 song'), findsOneWidget);
   });
 }

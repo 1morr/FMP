@@ -15,6 +15,7 @@ import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_source_plugin.dart';
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // 電台頁（ADR 0031 §決定 4、M3 design §9.3）：四種狀態、音源不能用的列、收聽、排序、刪除、
@@ -455,6 +456,7 @@ void main() {
       expect(await _storedRooms(h, tester), ['a']);
 
       await openRemove();
+      expectDestructiveConfirm(tester, 'Remove');
       await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
       await tester.pump();
       await _settle(tester);

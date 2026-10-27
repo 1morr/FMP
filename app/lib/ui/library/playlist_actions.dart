@@ -6,6 +6,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/library/playlist_service.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -104,24 +105,14 @@ Future<bool> deletePlaylist(
   final t = ref.read(translationsProvider).library;
   final service = ref.read(playlistServiceProvider);
   final toaster = ref.read(toasterProvider);
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(t.deleteTitle),
-      content: Text(t.deleteBody(name: playlist.name)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(t.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(t.delete),
-        ),
-      ],
-    ),
+  final confirmed = await showDestructiveConfirm(
+    context,
+    title: t.deleteTitle,
+    body: t.deleteBody(name: playlist.name),
+    confirmLabel: t.delete,
+    cancelLabel: t.cancel,
   );
-  if (confirmed != true) return false;
+  if (!confirmed) return false;
   try {
     await service.delete(playlist.id);
   } on Object catch (error, stackTrace) {

@@ -12,6 +12,7 @@ import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/radio/radio_status_jobs.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
@@ -439,8 +440,8 @@ class _StationRow extends ConsumerWidget {
     return TrackRowMenu(
       moreTooltip: t.more,
       menuChildren: [
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
+        DestructiveMenuItem(
+          icon: Icons.delete_outline,
           onPressed: () => unawaited(_remove(context, ref)),
           child: Text(t.remove),
         ),
@@ -537,8 +538,8 @@ class _StationCell extends ConsumerWidget {
     return TrackRowMenu(
       moreTooltip: t.more,
       menuChildren: [
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
+        DestructiveMenuItem(
+          icon: Icons.delete_outline,
           onPressed: () => unawaited(removeStation(context, ref, station)),
           child: Text(t.remove),
         ),
@@ -610,24 +611,14 @@ Future<void> removeStation(
   final t = ref.read(translationsProvider).radio;
   final service = ref.read(radioServiceProvider);
   final toaster = ref.read(toasterProvider);
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(t.removeTitle),
-      content: Text(t.removeBody(title: station.title)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(t.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(t.remove),
-        ),
-      ],
-    ),
+  final confirmed = await showDestructiveConfirm(
+    context,
+    title: t.removeTitle,
+    body: t.removeBody(title: station.title),
+    confirmLabel: t.remove,
+    cancelLabel: t.cancel,
   );
-  if (confirmed != true) return;
+  if (!confirmed) return;
   try {
     await service.remove(station.id);
   } on Object catch (error, stackTrace) {

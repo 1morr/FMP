@@ -9,6 +9,7 @@ import 'package:fmp/core/network/network_status.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/library/remote_playlist_writer.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/library_state.dart';
@@ -35,8 +36,8 @@ class RemoveFromRemoteItem extends ConsumerWidget {
     if (!ref.watch(remoteRemoveEntryProvider(playlistId))) {
       return const SizedBox.shrink();
     }
-    return MenuItemButton(
-      leadingIcon: const Icon(Icons.cloud_off_outlined),
+    return DestructiveMenuItem(
+      icon: Icons.cloud_off_outlined,
       onPressed: onPressed,
       child: Text(ref.watch(translationsProvider).library.removeFromRemote),
     );
@@ -66,30 +67,18 @@ Future<bool> removeFromRemotePlaylist(
       (pluginId == null ? null : ref.read(pluginNameProvider(pluginId))) ??
       pluginId ??
       '';
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(l.removeRemoteTitle),
-      content: Text(
-        l.removeRemoteBody(
-          count: entries.length,
-          name: detail?.playlist.name ?? '',
-          source: sourceName,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l.removeRemoteConfirm),
-        ),
-      ],
+  final confirmed = await showDestructiveConfirm(
+    context,
+    title: l.removeRemoteTitle,
+    body: l.removeRemoteBody(
+      count: entries.length,
+      name: detail?.playlist.name ?? '',
+      source: sourceName,
     ),
+    confirmLabel: l.removeRemoteConfirm,
+    cancelLabel: l.cancel,
   );
-  if (confirmed != true) return false;
+  if (!confirmed) return false;
   final RemoteRemoveOutcome outcome;
   try {
     outcome = await writer.removeFromRemote(playlistId, entries);

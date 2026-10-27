@@ -318,6 +318,60 @@ void main() {
     },
   );
 
+  test('overviews name the source of an imported playlist and nothing '
+      'for local and Mix ones', () async {
+    await repository.create(name: 'Local');
+    await repository.createImported(
+      pluginId: 'fmp-test',
+      remoteId: 'r1',
+      info: const RemotePlaylistInfo(name: 'Remote'),
+    );
+    await repository.createMix(
+      name: 'Mix',
+      pluginId: 'fmp-mix',
+      seedSourceId: 'seed',
+    );
+
+    final overviews = await repository.overviews();
+
+    expect(
+      [for (final o in overviews) o.sourcePluginId],
+      [null, 'fmp-test', null],
+    );
+    expect(overviews.last.playlist.mixPluginId, 'fmp-mix');
+  });
+
+  group('totalDuration', () {
+    test('adds every entry, a repeated song as often as it appears', () async {
+      final id = await repository.create(name: 'A');
+      await repository.addTracks(id, [track('x'), track('y'), track('x')]);
+
+      expect(await repository.totalDuration(id), const Duration(minutes: 9));
+    });
+
+    test('skips songs of unknown length; an empty playlist is zero', () async {
+      final id = await repository.create(name: 'A');
+      final empty = await repository.create(name: 'Empty');
+      await repository.addTracks(id, [
+        track('x'),
+        const TrackInfo(sourceTypeId: 'fmp-test', sourceId: 'n', title: 'N'),
+      ]);
+
+      expect(await repository.totalDuration(id), const Duration(minutes: 3));
+      expect(await repository.totalDuration(empty), Duration.zero);
+    });
+
+    test('counts only its own playlist', () async {
+      final a = await repository.create(name: 'A');
+      final b = await repository.create(name: 'B');
+      await repository.addTracks(a, [track('x')]);
+      await repository.addTracks(b, [track('y'), track('z')]);
+
+      expect(await repository.totalDuration(a), const Duration(minutes: 3));
+      expect(await repository.totalDuration(b), const Duration(minutes: 6));
+    });
+  });
+
   test('changes fires when a playlist or an entry changes', () async {
     final events = <void>[];
     final subscription = repository.changes().listen(events.add);

@@ -21,6 +21,7 @@ import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/tracks/now_playing_overlay.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 import '../tracks/marker_support.dart';
 
@@ -81,6 +82,12 @@ Future<(ShellHarness, int)> _open(
   expect(find.byType(LibraryPage).hitTestable(), findsNothing);
   return (h, id);
 }
+
+/// 頂圖現在佔的高度（展開是 [AppLayout.playlistHeroHeight]，收起來是頁頂的高度）。
+double _heroExtent(WidgetTester tester) => tester
+    .renderObject<RenderSliver>(find.byType(SliverAppBar))
+    .geometry!
+    .paintExtent;
 
 /// 資料庫的寫入與重讀跑完。
 Future<void> _settle(WidgetTester tester, ShellHarness h) async {
@@ -196,8 +203,10 @@ void main() {
         description: 'For the drive',
       );
 
-      expect(find.text('Road').hitTestable(), findsOneWidget);
-      expect(find.text('Local · 2 songs').hitTestable(), findsOneWidget);
+      expect(find.text('Road'), findsOneWidget);
+      // 6 分 10 秒（兩首 3:05）進位以下取整。
+      expect(find.text('2 songs · 6 min'), findsOneWidget);
+      expect(find.text('Local'), findsOneWidget);
       expect(find.text('For the drive'), findsOneWidget);
     });
 
@@ -223,6 +232,100 @@ void main() {
       await _settle(tester, h);
 
       expect(find.text('This playlist no longer exists'), findsOneWidget);
+    });
+  });
+
+  // 280dp 的模糊頂圖（U PR 13，ADR 0035，R7.6）：展開時有封面、名稱、首數與總時長、來源徽章，
+  // 捲動後收成置中標題的頁頂。
+  group('the hero', () {
+    testWidgets('shows the count with the total duration, hours included', (
+      tester,
+    ) async {
+      // 20 首各 3:05＝1 小時 1 分 40 秒。
+      await _open(tester, tracks: [for (var i = 0; i < 20; i++) _song('s$i')]);
+
+      expect(find.text('20 songs · 1 hr 1 min'), findsOneWidget);
+      expect(find.text('Local'), findsOneWidget);
+      expect(_heroExtent(tester), AppLayout.playlistHeroHeight);
+    });
+
+    testWidgets('songs of unknown length add no duration', (tester) async {
+      await _open(
+        tester,
+        tracks: [
+          TrackInfo(
+            sourceTypeId: 'fmp-test',
+            sourceId: 'x',
+            title: 'No length',
+          ),
+        ],
+      );
+
+      expect(find.text('1 song'), findsOneWidget);
+    });
+
+    testWidgets('an imported playlist has the owner and the source badge', (
+      tester,
+    ) async {
+      await _open(
+        tester,
+        harness: ShellHarness(registryOfSources: true),
+        imported: true,
+        tracks: [_song('a')],
+      );
+
+      expect(find.text('Imported · Test Source'), findsOneWidget);
+    });
+
+    testWidgets('scrolling collapses it to a centered title; the back button '
+        'stays', (tester) async {
+      await _open(
+        tester,
+        size: const Size(400, 600),
+        tracks: [for (var i = 0; i < 12; i++) _song('s$i')],
+      );
+      expect(find.text('12 songs · 37 min'), findsOneWidget);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+
+      // 展開時的資訊不在了，名稱在頁頂中央。
+      expect(find.text('12 songs · 37 min'), findsNothing);
+      final title = find.text('Road');
+      expect(title, findsOneWidget);
+      expect(tester.getCenter(title).dx, closeTo(200, 1));
+      expect(find.byTooltip('Back (Esc)'), findsOneWidget);
+      expect(_heroExtent(tester), lessThan(AppLayout.playlistHeroHeight));
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 700));
+      await tester.pumpAndSettle();
+      expect(find.text('12 songs · 37 min'), findsOneWidget);
+    });
+
+    testWidgets('a larger text size makes it taller instead of shrinking '
+        'the text', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _open(tester, tracks: [_song('a')], description: 'For the drive');
+
+      // 視窗 800 高：最多長到一半。
+      expect(_heroExtent(tester), greaterThan(AppLayout.playlistHeroHeight));
+      expect(_heroExtent(tester), lessThanOrEqualTo(400));
+      // 字照字級 2.0 畫（內文一行 20 → 40），沒有被等比縮回去。
+      expect(
+        tester.getRect(find.text('1 song · 3 min')).height,
+        greaterThan(35),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the back button works from the hero too', (tester) async {
+      await _open(tester, tracks: [_song('a')]);
+
+      await tester.tap(find.byTooltip('Back (Esc)'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
     });
   });
 
@@ -334,6 +437,8 @@ void main() {
         'a single part shows the video title too', (tester) async {
       await _open(
         tester,
+        // 頂圖佔掉一大塊，高一點才放得下全部的列。
+        size: const Size(400, 1400),
         tracks: [
           _song('a'),
           _part('v', 1),
@@ -575,7 +680,7 @@ void main() {
       await _settle(tester, h);
 
       expect(await _stored(tester, h, id), ['a', 'b']);
-      expect(find.text('Local · 2 songs'), findsOneWidget);
+      expect(find.textContaining('2 songs'), findsOneWidget);
     });
   });
 
@@ -585,7 +690,8 @@ void main() {
   ) async {
     await _open(tester, imported: true, tracks: [_song('a'), _song('b')]);
 
-    expect(find.text('Imported · 2 songs'), findsOneWidget);
+    expect(find.textContaining('2 songs'), findsOneWidget);
+    expect(find.textContaining('Imported'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle), findsNothing);
     expect(find.byType(ReorderableListView), findsNothing);
     await _openMenu(tester, 'Song a');
@@ -784,13 +890,15 @@ void main() {
       );
 
       await tapSelectionAction(tester, 'Remove from playlist');
+      expectDestructiveConfirm(tester, 'Remove');
       await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
       await _settle(tester, h);
 
       expect(await _stored(tester, h, id), ['a', 'b']);
       expect(find.text('Removed from the playlist'), findsOneWidget);
       expect(find.byType(Checkbox), findsNothing);
-      expect(find.text('Local · 2 songs'), findsOneWidget);
+      // 首數與總時長都跟著重讀（4 首 12 分 → 2 首 6 分）。
+      expect(find.text('2 songs · 6 min'), findsOneWidget);
     });
 
     testWidgets('an imported playlist has no "Remove from playlist"', (

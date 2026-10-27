@@ -6,6 +6,7 @@ import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/queue/queue_view.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
@@ -226,6 +227,123 @@ void main() {
 
       expect(await _stored(tester, h, ids['Road']!), ['a', 'a']);
       expect(find.text('Added to "Road"'), findsOneWidget);
+    });
+  });
+
+  // 面板與資訊卡（U PR 13，ADR 0035，R7.8）：compact 是底部面板，其他是對話框；頂端一張資訊卡。
+  group('the sheet and the info card', () {
+    Future<ShellHarness> openFrom(
+      WidgetTester tester,
+      Size size,
+      List<TrackInfo> tracks,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpApp(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showAddToPlaylist(context, tracks),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+        size: size,
+      );
+      await _seed(
+        tester,
+        h,
+        local: {
+          'Road': ['x'],
+        },
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      return h;
+    }
+
+    final one = [
+      const TrackInfo(
+        sourceTypeId: 'fmp-test',
+        sourceId: 'a',
+        title: 'Song a',
+        uploader: 'Uploader a',
+      ),
+    ];
+    final two = [
+      ...one,
+      const TrackInfo(sourceTypeId: 'fmp-test', sourceId: 'b', title: 'B'),
+    ];
+
+    testWidgets('a compact window gets a bottom sheet with the song, the '
+        'uploader and the same actions', (tester) async {
+      final h = await openFrom(tester, const Size(400, 800), one);
+
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      final sheet = find.byType(BottomSheet);
+      expect(
+        find.descendant(of: sheet, matching: find.text('Song a')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: sheet, matching: find.text('Uploader a')),
+        findsOneWidget,
+      );
+      expect(_addButton(tester).onPressed, isNull, reason: 'nothing checked');
+
+      await tester.tap(_check('Road'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+      await _settle(tester, h);
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('Added to "Road"'), findsOneWidget);
+    });
+
+    testWidgets('a wider window gets a dialog with the same info card', (
+      tester,
+    ) async {
+      await openFrom(tester, const Size(1000, 700), one);
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      final dialog = find.byType(AlertDialog);
+      expect(
+        find.descendant(of: dialog, matching: find.text('Song a')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: dialog, matching: find.text('Uploader a')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('several songs show a count instead of one song', (
+      tester,
+    ) async {
+      await openFrom(tester, const Size(400, 800), two);
+
+      expect(find.text('2 songs'), findsOneWidget);
+      expect(find.text('Song a'), findsNothing);
+    });
+
+    testWidgets('the sheet can create a playlist and check it', (tester) async {
+      await openFrom(tester, const Size(400, 800), one);
+
+      await tester.tap(find.widgetWithText(ListTile, 'New playlist'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Fresh');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_checked(tester, 'Fresh'), isTrue);
+      expect(find.byType(BottomSheet), findsOneWidget);
     });
   });
 

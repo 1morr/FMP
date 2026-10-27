@@ -8,7 +8,9 @@ import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/library/playlist_service.dart';
+import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
@@ -31,32 +33,48 @@ class AddToPlaylistItem extends ConsumerWidget {
   );
 }
 
-/// 「加入歌單」對話框（ADR 0019 §決定 4、ADR 0033 §決定 11）：只列本機歌單，可勾多張；頂端
-/// 「新增歌單」開建立對話框，建好的那張直接勾上。按「加入」把 [tracks] 依序接在每張勾選的
-/// 歌單尾端（同一首可重複加入，ADR 0019），成功後關閉並提示；失敗時提示、對話框留著。
-/// 加入不確認（Namida 的「加入不確認、移除才確認」）。回傳有沒有加入（取消是 `false`）：多選
-/// 加入了才離開選取模式。
+/// 「加入歌單」（ADR 0019 §決定 4、ADR 0033 §決定 11、ADR 0035 R7.8）：compact 寬度是底部面板，其他寬度是
+/// 對話框，內容相同——頂端一張歌曲資訊卡（一首是封面、曲名、上傳者；多首是「n 首歌曲」），
+/// 「新增歌單」開建立對話框，建好的那張直接勾上；只列本機歌單，可勾多張。
+/// 按「加入」把 [tracks] 依序接在每張勾選的歌單尾端（同一首可重複加入，ADR 0019），成功後關閉並提示；
+/// 失敗時提示、面板留著。加入不確認（Namida 的「加入不確認、移除才確認」）。回傳有沒有加入（取消是
+/// `false`）：多選加入了才離開選取模式。
 Future<bool> showAddToPlaylist(
   BuildContext context,
   List<TrackInfo> tracks,
-) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (_) => _AddToPlaylistDialog(tracks: tracks),
-    ) ??
-    false;
+) async {
+  final compact = WindowClass.of(context) == WindowClass.compact;
+  if (!compact) {
+    return await showDialog<bool>(
+          context: context,
+          builder: (_) => _AddToPlaylistView(tracks: tracks, sheet: false),
+        ) ??
+        false;
+  }
+  return await showModalBottomSheet<bool>(
+        context: context,
+        // 蓋住外殼（含底部導覽列與播放列）。
+        useRootNavigator: true,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => _AddToPlaylistView(tracks: tracks, sheet: true),
+      ) ??
+      false;
+}
 
-class _AddToPlaylistDialog extends ConsumerStatefulWidget {
-  const _AddToPlaylistDialog({required this.tracks});
+class _AddToPlaylistView extends ConsumerStatefulWidget {
+  const _AddToPlaylistView({required this.tracks, required this.sheet});
 
   final List<TrackInfo> tracks;
 
+  /// 底部面板（compact）；否則是對話框。
+  final bool sheet;
+
   @override
-  ConsumerState<_AddToPlaylistDialog> createState() =>
-      _AddToPlaylistDialogState();
+  ConsumerState<_AddToPlaylistView> createState() => _AddToPlaylistViewState();
 }
 
-class _AddToPlaylistDialogState extends ConsumerState<_AddToPlaylistDialog> {
+class _AddToPlaylistViewState extends ConsumerState<_AddToPlaylistView> {
   final _selected = <int>{};
 
   /// 正在建立歌單或寫入：按鈕停用。
@@ -132,75 +150,188 @@ class _AddToPlaylistDialogState extends ConsumerState<_AddToPlaylistDialog> {
         if (_selected.contains(overview.playlist.id))
           (id: overview.playlist.id, name: overview.playlist.name),
     ];
-    return AlertDialog(
-      title: Text(t.addToPlaylistTitle),
-      contentPadding: EdgeInsets.symmetric(vertical: spacing.x4),
-      content: SingleChildScrollView(
+    final padding = EdgeInsets.symmetric(horizontal: spacing.x6);
+    final list = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(spacing.x6, 0, spacing.x6, spacing.x2),
+          child: _TracksInfoCard(tracks: widget.tracks),
+        ),
+        ListTile(
+          contentPadding: padding,
+          leading: const Icon(Icons.add),
+          title: Text(t.newPlaylist),
+          enabled: !_busy,
+          onTap: () => unawaited(_create()),
+        ),
+        if (local.isEmpty)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: spacing.x6,
+              vertical: spacing.x2,
+            ),
+            child: Text(
+              t.noLocalPlaylists,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        for (final overview in local)
+          CheckboxListTile(
+            key: ValueKey(overview.playlist.id),
+            contentPadding: padding,
+            value: _selected.contains(overview.playlist.id),
+            onChanged: _busy
+                ? null
+                : (checked) => setState(() {
+                    if (checked ?? false) {
+                      _selected.add(overview.playlist.id);
+                    } else {
+                      _selected.remove(overview.playlist.id);
+                    }
+                  }),
+            secondary: PlaylistCover(
+              artwork: overview.playlist.artwork,
+              firstTrack: overview.firstTrack,
+              size: AppLayout.artworkThumbnail,
+            ),
+            title: Text(
+              overview.playlist.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(trackCountText(t, overview.trackCount)),
+          ),
+      ],
+    );
+    final addButton = FilledButton(
+      onPressed: _busy || chosen.isEmpty ? null : () => unawaited(_add(chosen)),
+      child: Text(t.add),
+    );
+    if (!widget.sheet) {
+      return AlertDialog(
+        title: Text(t.addToPlaylistTitle),
+        contentPadding: EdgeInsets.symmetric(vertical: spacing.x4),
+        content: SingleChildScrollView(child: list),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(t.cancel),
+          ),
+          addButton,
+        ],
+      );
+    }
+    // 底部面板：標題、可捲動的內容、全寬的「加入」。最高到螢幕的 9 成。
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              contentPadding: EdgeInsets.symmetric(horizontal: spacing.x6),
-              leading: const Icon(Icons.add),
-              title: Text(t.newPlaylist),
-              enabled: !_busy,
-              onTap: () => unawaited(_create()),
-            ),
-            if (local.isEmpty)
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: spacing.x6,
-                  vertical: spacing.x2,
-                ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.x6,
+                0,
+                spacing.x6,
+                spacing.x2,
+              ),
+              child: Semantics(
+                header: true,
                 child: Text(
-                  t.noLocalPlaylists,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  t.addToPlaylistTitle,
+                  style: theme.textTheme.titleLarge,
                 ),
               ),
-            for (final overview in local)
-              CheckboxListTile(
-                key: ValueKey(overview.playlist.id),
-                contentPadding: EdgeInsets.symmetric(horizontal: spacing.x6),
-                value: _selected.contains(overview.playlist.id),
-                onChanged: _busy
-                    ? null
-                    : (checked) => setState(() {
-                        if (checked ?? false) {
-                          _selected.add(overview.playlist.id);
-                        } else {
-                          _selected.remove(overview.playlist.id);
-                        }
-                      }),
-                secondary: PlaylistCover(
-                  artwork: overview.playlist.artwork,
-                  firstTrack: overview.firstTrack,
-                  size: AppLayout.artworkThumbnail,
-                ),
-                title: Text(
-                  overview.playlist.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(trackCountText(t, overview.trackCount)),
-              ),
+            ),
+            Flexible(child: SingleChildScrollView(child: list)),
+            Padding(
+              padding: EdgeInsets.all(spacing.x4),
+              child: SizedBox(width: double.infinity, child: addButton),
+            ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(t.cancel),
+    );
+  }
+}
+
+/// 面板頂端的歌曲資訊卡：一首是封面、曲名、上傳者；多首是一個圖示與「n 首歌曲」。
+class _TracksInfoCard extends ConsumerWidget {
+  const _TracksInfoCard({required this.tracks});
+
+  final List<TrackInfo> tracks;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).library;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tokens = AppTokens.of(context);
+    final single = tracks.length == 1 ? tracks.single : null;
+    final Widget leading = single == null
+        ? SizedBox.square(
+            dimension: AppLayout.addToPlaylistInfoCover,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(tokens.radius.small),
+              ),
+              child: Icon(
+                Icons.library_music_outlined,
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+          )
+        : ArtworkImage(
+            pluginId: single.sourceTypeId,
+            artwork: single.artwork,
+            size: AppLayout.addToPlaylistInfoCover,
+          );
+    final uploader = single?.uploader;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(tokens.radius.medium),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(tokens.spacing.x3),
+        child: Row(
+          children: [
+            leading,
+            SizedBox(width: tokens.spacing.x3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    single?.displayTitle ??
+                        t.addToPlaylistTracks(count: tracks.length),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  if (uploader != null)
+                    Text(
+                      uploader,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
-        FilledButton(
-          onPressed: _busy || chosen.isEmpty
-              ? null
-              : () => unawaited(_add(chosen)),
-          child: Text(t.add),
-        ),
-      ],
+      ),
     );
   }
 }

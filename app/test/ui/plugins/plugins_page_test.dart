@@ -18,6 +18,7 @@ import 'package:fmp/ui/plugins/plugin_dialogs.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../plugins/dev/dev_support.dart' show tempFolder;
+import '../support/destructive_support.dart';
 import '../support/plugin_page_harness.dart';
 
 const _custom = 'https://custom.test/index.json';
@@ -202,6 +203,7 @@ void main() {
 
       await tester.tap(_inCard('Alpha', _button('Remove')));
       await tester.pumpAndSettle();
+      expectDestructiveConfirm(tester, 'Remove');
       await tester.tap(
         find.descendant(
           of: find.byType(AlertDialog),

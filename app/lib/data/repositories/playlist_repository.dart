@@ -203,10 +203,15 @@ final class PlaylistOverview {
     required this.playlist,
     required this.trackCount,
     this.firstTrack,
+    this.sourcePluginId,
   });
 
   final Playlist playlist;
   final int trackCount;
+
+  /// 匯入歌單的音源（`playlist_remote.plugin_id`）；本機與 Mix 歌單是 `null`（Mix 的音源在
+  /// [Playlist.mixPluginId]）。
+  final String? sourcePluginId;
 
   /// 依（`position`, `id`）的第一首；空歌單是 `null`。
   final TrackInfo? firstTrack;
@@ -216,10 +221,12 @@ final class PlaylistOverview {
       other is PlaylistOverview &&
       other.playlist == playlist &&
       other.trackCount == trackCount &&
-      other.firstTrack == firstTrack;
+      other.firstTrack == firstTrack &&
+      other.sourcePluginId == sourcePluginId;
 
   @override
-  int get hashCode => Object.hash(playlist, trackCount, firstTrack);
+  int get hashCode =>
+      Object.hash(playlist, trackCount, firstTrack, sourcePluginId);
 
   @override
   String toString() => 'PlaylistOverview($playlist, $trackCount)';
@@ -253,6 +260,13 @@ final class PlaylistRepository {
         ..addColumns([countAll()])
         ..where(counted.playlistId.equalsExp(playlists.id)),
     );
+    final remote = _database.alias(_database.playlistRemoteTable, 'source');
+    final sourcePluginId = subqueryExpression<String>(
+      _database.selectOnly(remote)
+        ..addColumns([remote.pluginId])
+        ..where(remote.playlistId.equalsExp(playlists.id))
+        ..limit(1),
+    );
     final firstKey = subqueryExpression<String>(
       _database.selectOnly(first)
         ..addColumns([first.trackKey])
@@ -267,7 +281,7 @@ final class PlaylistRepository {
         _database.select(playlists).join([
             leftOuterJoin(tracks, tracks.trackKey.equalsExp(firstKey)),
           ])
-          ..addColumns([trackCount])
+          ..addColumns([trackCount, sourcePluginId])
           ..orderBy([
             OrderingTerm.asc(playlists.sortOrder),
             OrderingTerm.asc(playlists.id),
@@ -277,6 +291,7 @@ final class PlaylistRepository {
         PlaylistOverview(
           playlist: _fromRow(row.readTable(playlists)),
           trackCount: row.read(trackCount) ?? 0,
+          sourcePluginId: row.read(sourcePluginId),
           firstTrack: switch (row.readTableOrNull(tracks)) {
             final track? => TracksRepository.toTrackInfo(track),
             null => null,
@@ -647,6 +662,22 @@ final class PlaylistRepository {
           remoteItemId: row.readTable(entries).remoteItemId,
         ),
     ];
+  }
+
+  /// 歌單內全部項目的總時長（同一首出現幾次算幾次；沒有時長的曲目不計）。詳情頁的標頭用，
+  /// 一個 `SUM` 查詢，不在畫面上逐首加。
+  Future<Duration> totalDuration(int playlistId) async {
+    final entries = _database.playlistEntriesTable;
+    final tracks = _database.tracksTable;
+    final total = tracks.durationMs.sum();
+    final query =
+        _database.selectOnly(entries).join([
+            innerJoin(tracks, tracks.trackKey.equalsExp(entries.trackKey)),
+          ])
+          ..addColumns([total])
+          ..where(entries.playlistId.equals(playlistId));
+    final row = await query.getSingle();
+    return Duration(milliseconds: row.read(total) ?? 0);
   }
 
   /// 把 [tracks] 接在歌單尾端（同一首可重複加入）。曲目的顯示資料以

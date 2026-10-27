@@ -919,6 +919,41 @@ class Translations$library$en extends Translations$library$zh_TW {
   @override
   String get importAsMatchHint =>
       'Finds the same songs on other sources and makes a local playlist that does not refresh';
+  @override
+  String get loadingPlaylists => 'Loading playlists';
+  @override
+  String heroOwner({required Object name}) => 'Owner: ${name}';
+  @override
+  String heroImported({required Object source}) => 'Imported · ${source}';
+  @override
+  String durationHoursMinutes({
+    required Object hours,
+    required Object minutes,
+  }) => '${hours} hr ${minutes} min';
+  @override
+  String durationMinutes({required Object minutes}) => '${minutes} min';
+  @override
+  String get durationUnderMinute => 'Under 1 min';
+  @override
+  String get coverFromTracks => 'Pick from song covers';
+  @override
+  String get coverFromTracksTitle => 'Choose a cover';
+  @override
+  String get coverFromTracksLoading => 'Loading the playlist covers';
+  @override
+  String get coverFromTracksEmpty =>
+      'None of the songs in this playlist has a cover';
+  @override
+  String get coverFromTracksFailed => 'Could not load the playlist covers';
+  @override
+  String coverFromTracksItem({required Object index}) => 'Cover ${index}';
+  @override
+  String addToPlaylistTracks({required num count}) =>
+      (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(
+        count,
+        one: '${count} song',
+        other: '${count} songs',
+      );
 }
 
 // Path: playlist
@@ -977,6 +1012,10 @@ class Translations$playlist$en extends Translations$playlist$zh_TW {
   String get cancel => 'Cancel';
   @override
   String get removed => 'Removed from the playlist';
+  @override
+  String get loading => 'Loading the playlist';
+  @override
+  String get retry => 'Retry';
 }
 
 // Path: selection
@@ -2878,6 +2917,10 @@ class Translations$accounts$en extends Translations$accounts$zh_TW {
   @override
   String liveImportFailed({required Object reason}) =>
       'Couldn\'t import live rooms: ${reason}';
+  @override
+  String get selectAll => 'Select all';
+  @override
+  String get deselectAll => 'Deselect all';
 }
 
 // Path: errors

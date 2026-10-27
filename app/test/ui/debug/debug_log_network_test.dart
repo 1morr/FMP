@@ -15,6 +15,7 @@ import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as p;
 
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // Debug 頁的 Log 與網路區塊（M3 PR 12，ADR 0025 §決定 3、4）。
@@ -326,6 +327,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Clear log'));
       await tester.pumpAndSettle();
+      expectDestructiveConfirm(tester, 'Clear log');
       await tester.tap(find.widgetWithText(FilledButton, 'Clear log'));
       await tester.pump();
       await settleIo(tester);

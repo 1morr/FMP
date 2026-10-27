@@ -24,6 +24,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/fake_source_plugin.dart';
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // M2 PR 18b：可編輯的佇列清單（design §7.3）；ADR 0035 起是佇列目的地的整頁。每個動作都經
@@ -408,6 +409,7 @@ void main() {
 
       await tester.tap(find.byTooltip(_clearTooltip));
       await tester.pumpAndSettle();
+      expectDestructiveConfirm(tester, 'Clear');
       await tester.tap(find.text('Clear'));
       await tester.pumpAndSettle();
 
