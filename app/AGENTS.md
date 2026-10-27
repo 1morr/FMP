@@ -2457,7 +2457,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   首頁。medium 以上的外殼是一個 `Column`：標題列的位置（Windows 自繪標題列，U PR 15 才有）、側欄加內容區加右側面板、最底下的播放列；
   播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以它的寬度等級就是視窗的；compact 是播放列在底部導覽列上面。佇列是空的時
   播放列不佔位置（沒有曲目也沒有直播時不建）。閘門：`test/ui/shell/app_shell_test.dart` 的 `the player bar spans the window`（700、1000、
-  1400 寬、側欄收合與展開：播放列從 x=0 到視窗右緣、側欄在它上面結束；面板在頁面右邊、播放列上面；compact；沒有曲目時都不佔位置；914x360 不溢位）、
+  1400 寬、側欄收合與展開：播放列從 x=0 到視窗右緣、側欄在它上面結束；面板在頁面右邊、播放列上面；compact；沒有曲目時都不佔位置；914x360 不溢位；`the bottom safe area is left once, under the bar`：有播放列時側欄不再留底部安全區）、
   `navigation per window class`（每種元件六個項目與順序、`the app opens on Home`、`selecting <目的地> shows its page`）、
   `the legacy side rail`（預設收合、展開與記住、減少動態、展開鈕按了焦點留著、矮視窗可捲）、`page_app_bar_test.dart`（每個目的地的標題置中、內頁的返回鈕、
   只有自己那一頁的捲動讓頁頂變色）、`search_page_test.dart` 的 `Ctrl+F leaves selection mode and focuses the field`。
@@ -2661,9 +2661,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   版面結構）。
 - 播放列的進度是頂端的細線（`ThinProgressBar`，`lib/ui/player/thin_progress_bar.dart`，ADR 0035 §決定 4，P-12），不再有帶時間的 Slider 那一行：
   平時 2dp，滑鼠移入播放列（`PlayerBar` 裡的 `MouseRegion`，整條都算）或拖曳中變 6dp、出現把手，把手上方浮著「位置 / 時長」；點細線跳轉、水平拖曳 seek（放開才送出，
-  拖曳中只改畫面）；可點可拖的範圍是頂端 16dp（觸控點得到）。能不能 seek、位置與時長同播放頁的 `ProgressRow`，共用 `watchProgressView`（`Idle` 時的規則見下一條）；
-  不能 seek 時不長粗、不出時間。語意是滑桿（名稱「播放進度」、值是位置文字、增減各 10%，同原本的 `Slider`），手勢本身不報語意；減少動態時粗細立即變。直播沒有細線（直播的事實
-  放在曲名欄，同以前）。細線在 Tab 順序裡（播放列焦點區），聚焦時同 hover 的 6dp 與把手、外圍是主題的焦點框（`AppTokens.focusRingColor`）；←／→ 一次 `seekStepSeconds` 秒（同 Shift+←／→，有修飾鍵的交給全域快捷鍵）。閘門：`player_bar_test.dart` 的 `dragging the progress line…`、`tapping the line…`、
+  拖曳中只改畫面）；可點可拖的範圍是頂端 8dp，等於播放列上方的留白（觸控點得到；再高就蓋到控制項的點擊區，點按鈕上緣會變成 seek）。能不能 seek、位置與時長同播放頁的 `ProgressRow`，共用 `watchProgressView`（`Idle` 時的規則見下一條）；
+  不能 seek 時不長粗、不出時間，也不在 Tab 順序裡（同停用的 `Slider`）。語意是滑桿（名稱「播放進度」、值是位置文字、增減各 10%，同原本的 `Slider`），手勢本身不報語意；減少動態時粗細立即變。直播沒有細線（直播的事實
+  放在曲名欄，同以前）。細線在 Tab 順序裡（播放列焦點區），聚焦時同 hover 的 6dp 與把手、外圍是主題的焦點框（`AppTokens.focusRingColor`）；←／→ 一次 `seekStepSeconds` 秒（同 Shift+←／→，有修飾鍵的交給全域快捷鍵）。閘門：`player_bar_test.dart` 的 `dragging the progress line…`、`tapping the line…`、`the played part of the line is filled`、`… the top edge of a control presses it, not the line`（400、1000）、
   `the line is 2dp and grows to 6dp…`、`reduced motion…`、`Tab reaches the line…`、`the arrow keys seek…`、`the line is a slider for screen readers…`、`after a restore`、`live_player_test.dart`（直播沒有細線）、guideline 測試的
   `the player bar progress line…`（平時與滑鼠移入，400、1000、1400）、golden `player_bar_golden_test.dart`。
 - 播放列的音量（ADR 0018 §決定 10 的音量與靜音分開記）：滑桿 0–100%，拖曳當下就 `setVolume`（同時取消

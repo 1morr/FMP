@@ -475,6 +475,33 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(tester.getRect(find.byType(PlayerBar)).bottom, 360);
     });
+
+    // 底部安全區（手勢列）只留一次：在播放列裡；側欄在它上面，不再留。沒有播放列時側欄到底，自己留。
+    testWidgets('the bottom safe area is left once, under the bar', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(914, 360));
+      // FakeViewPadding 是物理像素；harness 的比例是 1。
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      await tester.pump();
+      double railBottomPadding() =>
+          MediaQuery.paddingOf(tester.element(find.byType(LegacySideRail)))
+              .bottom;
+      expect(
+        railBottomPadding(),
+        24,
+        reason: 'no bar: the rail reaches the edge',
+      );
+
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+
+      final bar = tester.getRect(find.byType(PlayerBar));
+      expect(bar.bottom, 360 - 24);
+      expect(railBottomPadding(), 0);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   // ADR 0033 §決定 5：每個目的地有自己的巢狀 Navigator，內頁在內容區裡開。

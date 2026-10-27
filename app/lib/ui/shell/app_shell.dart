@@ -499,11 +499,16 @@ class _AppShellState extends ConsumerState<AppShell> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  navigation(
-                    LegacySideRail(
-                      selectedIndex: index,
-                      onSelected: onSelected,
-                      destinations: destinations,
+                  // 播放列在側欄下方、自己留底部安全區，側欄不要再留一次。
+                  MediaQuery.removePadding(
+                    context: context,
+                    removeBottom: playerBar != null,
+                    child: navigation(
+                      LegacySideRail(
+                        selectedIndex: index,
+                        onSelected: onSelected,
+                        destinations: destinations,
+                      ),
                     ),
                   ),
                   Expanded(

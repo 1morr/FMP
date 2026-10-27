@@ -113,6 +113,8 @@ class _ThinProgressBarState extends ConsumerState<ThinProgressBar> {
               : null,
           child: Focus(
             focusNode: _focus,
+            // 不能 seek 時不在 Tab 順序裡（同停用的 `Slider`）。
+            canRequestFocus: seekable,
             onKeyEvent: onKey,
             onFocusChange: (focused) => setState(() => _focused = focused),
             child: GestureDetector(
@@ -137,13 +139,12 @@ class _ThinProgressBarState extends ConsumerState<ThinProgressBar> {
                           _dragging = _at(details.localPosition.dx, width, max),
                     )
                   : null,
-              onHorizontalDragEnd: seekable
-                  ? (_) {
-                      final target = _dragging;
-                      setState(() => _dragging = null);
-                      if (target != null) _seek(target);
-                    }
-                  : null,
+              // 一直接著：拖曳中途變成不能 seek 時也要收起拖曳狀態，不然把手一直留著。
+              onHorizontalDragEnd: (_) {
+                final target = _dragging;
+                setState(() => _dragging = null);
+                if (target != null && seekable) _seek(target);
+              },
               onHorizontalDragCancel: () => setState(() => _dragging = null),
               child: Container(
                 height: AppLayout.thinProgressHit,
@@ -165,8 +166,10 @@ class _ThinProgressBarState extends ConsumerState<ThinProgressBar> {
                       height: lineHeight,
                       color: colors.outlineVariant,
                       alignment: AlignmentDirectional.centerStart,
+                      // heightFactor：外面的 Align 給的是鬆的約束，不給的話已播放的那段高度是 0。
                       child: FractionallySizedBox(
                         widthFactor: fraction,
+                        heightFactor: 1,
                         child: ColoredBox(color: colors.primary),
                       ),
                     ),

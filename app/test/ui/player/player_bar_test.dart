@@ -328,6 +328,41 @@ void main() {
       expect(find.textContaining(' / '), findsNothing);
     });
 
+    testWidgets('the played part of the line is filled', (tester) async {
+      final h = await pumpBar(tester);
+      await h.play(tester, [summary('a')]);
+      await tester.pump(const Duration(seconds: 45));
+
+      // 3:00 的 0:45：左邊四分之一是主色。
+      final fill = tester.getRect(
+        find.descendant(
+          of: find.byType(FractionallySizedBox),
+          matching: find.byType(ColoredBox),
+        ),
+      );
+      final line = tester.getRect(find.byType(ThinProgressBar));
+      expect(fill.left, line.left);
+      expect(fill.width, closeTo(line.width / 4, 2));
+      expect(fill.height, 2);
+    });
+
+    // 細線可點的範圍只到播放列上方的留白：按鈕與曲名的上緣是它們自己的。
+    for (final width in [400.0, 1000.0]) {
+      testWidgets('$width wide: the top edge of a control presses it, not the '
+          'line', (tester) async {
+        final h = await pumpBar(tester, width: width);
+        await h.play(tester, [summary('a'), summary('b')]);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final button = tester.getRect(find.byTooltip(pause));
+        await tester.tapAt(Offset(button.center.dx, button.top + 1));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(h.controller.state, isA<Paused>());
+        expect(h.controller.position, lessThan(const Duration(seconds: 1)));
+      });
+    }
+
     testWidgets('tapping the line seeks to that point', (tester) async {
       final h = await pumpBar(tester);
       await h.play(tester, [summary('a')]);
@@ -931,6 +966,21 @@ void main() {
       await tester.tapAt(onThinBar(tester, 0.5));
       await tester.pump();
       expect(h.controller.position, Duration.zero);
+      // 停用的滑桿一樣不在 Tab 順序裡。
+      expect(
+        tester
+            .widget<Focus>(
+              find
+                  .descendant(
+                    of: find.byType(ThinProgressBar),
+                    matching: find.byType(Focus),
+                  )
+                  .first,
+            )
+            .focusNode!
+            .canRequestFocus,
+        isFalse,
+      );
       handle.dispose();
     });
 
