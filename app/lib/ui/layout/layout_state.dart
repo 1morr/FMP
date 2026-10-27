@@ -44,15 +44,26 @@ void rememberPanel(WidgetRef ref, {bool? expanded, double? width}) =>
     unawaited(savePanel(ref, expanded: expanded, width: width));
 
 /// 把側欄的展開與否寫進 `layout_state`；寫成回 `true`，失敗只記 log（同 [savePanel]）。
-Future<bool> saveRail(WidgetRef ref, {required bool expanded}) => _save(
+/// 給了 [panelExpanded] 時面板的展開與否在同一筆寫入（展開側欄而面板放不下時一併收起，
+/// 不會只成功一半）。
+Future<bool> saveRail(
+  WidgetRef ref, {
+  required bool expanded,
+  bool? panelExpanded,
+}) => _save(
   ref,
   'the side rail',
-  (repository) => repository.write(railExpanded: expanded),
+  (repository) =>
+      repository.write(railExpanded: expanded, panelExpanded: panelExpanded),
 );
 
 /// [saveRail]，不等結果（按鈕的動作用）。
-void rememberRail(WidgetRef ref, {required bool expanded}) =>
-    unawaited(saveRail(ref, expanded: expanded));
+void rememberRail(
+  WidgetRef ref, {
+  required bool expanded,
+  bool? panelExpanded,
+}) =>
+    unawaited(saveRail(ref, expanded: expanded, panelExpanded: panelExpanded));
 
 Future<bool> _save(
   WidgetRef ref,

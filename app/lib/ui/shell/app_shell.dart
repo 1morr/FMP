@@ -563,11 +563,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                         onSelected: onSelected,
                         destinations: destinations,
                         expanded: railExpanded,
-                        onExpand: () {
-                          rememberRail(ref, expanded: true);
-                          // 放不下面板時，按「展開」要看得到結果：一併收起面板。
-                          if (railYields) rememberPanel(ref, expanded: false);
-                        },
+                        // 放不下面板時，按「展開」要看得到結果：一併收起面板。
+                        onExpand: () => rememberRail(
+                          ref,
+                          expanded: true,
+                          panelExpanded: railYields ? false : null,
+                        ),
                         onCollapse: () => rememberRail(ref, expanded: false),
                       ),
                     ),
