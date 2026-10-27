@@ -16,6 +16,7 @@ import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
@@ -30,8 +31,11 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 /// - 標題列（同歷史頁）：「以網址新增」「刷新狀態」；新增或刷新進行中時頂端有進度條，兩個鈕停用
 ///   （同插件頁）。
 /// - 每列：封面、標題、狀態標記與主播（音源停用或未安裝時是原因）、開播中時的直播標題、
-///   「⋯」選單（刪除，先確認）與拖曳把手（同佇列）。點一下收聽；音源不能用的列不播，提示原因。
+///   「⋯」選單（刪除，先確認）。點一下收聽；音源不能用的列不播，提示原因。
 ///   正在收聽的那一列以主色標示。
+/// - 版面（ADR 0035 §決定 2）：compact、medium 是清單，expanded 以上是圓形封面的網格；平常開播中的
+///   排前面（穩定排序，[liveFirst]）。標題列的排序鈕進入手動排序模式：顯示使用者的順序與拖曳把手
+///   （同佇列），按「完成」離開。順序存在 `sort_order`，與一般模式的開播優先無關。
 /// - 本機資料：離線照常顯示存的狀態。手動刷新時排程器說離線（不發請求）就在清單上方說明
 ///   「沒有刷新」，附重試；回到線上就收起。
 class RadioPage extends ConsumerStatefulWidget {
@@ -44,6 +48,9 @@ class RadioPage extends ConsumerStatefulWidget {
 class _RadioPageState extends ConsumerState<RadioPage> {
   /// 新增或刷新進行中（一次只做一件事）。
   var _busy = false;
+
+  /// 手動排序模式。
+  var _sorting = false;
 
   /// 上一次手動刷新因為離線沒有發請求。
   var _refreshedOffline = false;
@@ -182,21 +189,48 @@ class _RadioPageState extends ConsumerState<RadioPage> {
       children: [
         PageAppBar(
           title: t.title,
-          actions: [
-            IconButton(
-              tooltip: t.addFromUrl,
-              icon: const Icon(Icons.add_link),
-              onPressed: _busy ? null : () => unawaited(_addFromUrl()),
-            ),
-            IconButton(
-              tooltip: t.refresh,
-              icon: const Icon(Icons.refresh),
-              onPressed: _busy || !hasStations
-                  ? null
-                  : () => unawaited(_refresh()),
-            ),
-          ],
+          actions: _sorting
+              ? [
+                  TextButton(
+                    onPressed: () => setState(() => _sorting = false),
+                    child: Text(t.sortDone),
+                  ),
+                ]
+              : [
+                  IconButton(
+                    tooltip: t.addFromUrl,
+                    icon: const Icon(Icons.add_link),
+                    onPressed: _busy ? null : () => unawaited(_addFromUrl()),
+                  ),
+                  IconButton(
+                    tooltip: t.refresh,
+                    icon: const Icon(Icons.refresh),
+                    onPressed: _busy || !hasStations
+                        ? null
+                        : () => unawaited(_refresh()),
+                  ),
+                  IconButton(
+                    tooltip: t.sort,
+                    icon: const Icon(Icons.sort),
+                    onPressed: hasStations
+                        ? () => setState(() => _sorting = true)
+                        : null,
+                  ),
+                ],
         ),
+        if (_sorting)
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppTokens.of(context).spacing.x4,
+              vertical: AppTokens.of(context).spacing.x2,
+            ),
+            child: Text(
+              t.sortModeHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         // 不忙時是透明的空條（value 0，不動）：出現與消失不改變下方的位置（同插件頁）。
         Opacity(
           opacity: _busy ? 1 : 0,
@@ -220,10 +254,12 @@ class _RadioPageState extends ConsumerState<RadioPage> {
             ),
             AsyncData(:final value) => _StationList(
               entries: _shown(value),
+              sorting: _sorting,
               onReorder: _reorder,
             ),
             AsyncError(:final error) => EmptyState(
               icon: Icons.error_outline,
+              error: true,
               title: errorMessage(
                 translations,
                 AppError.wrap(error, StackTrace.current),
@@ -269,10 +305,22 @@ class _OfflineNotice extends ConsumerWidget {
   }
 }
 
-class _StationList extends ConsumerWidget {
-  const _StationList({required this.entries, required this.onReorder});
+/// 開播中的排前面，其餘照原本的順序（穩定排序）。電台頁的一般模式與首頁的電台區塊共用。
+List<RadioEntry> liveFirst(List<RadioEntry> entries) => [
+  ...entries.where((entry) => entry.status == RadioStatus.live),
+  ...entries.where((entry) => entry.status != RadioStatus.live),
+];
 
+class _StationList extends ConsumerWidget {
+  const _StationList({
+    required this.entries,
+    required this.sorting,
+    required this.onReorder,
+  });
+
+  /// 使用者的順序。
   final List<RadioEntry> entries;
+  final bool sorting;
   final void Function(List<RadioEntry> shown, int from, int to) onReorder;
 
   @override
@@ -280,24 +328,56 @@ class _StationList extends ConsumerWidget {
     final listening = ref.watch(
       nowPlayingLiveProvider.select((live) => live?.target),
     );
-    return ReorderableListView.builder(
-      padding: EdgeInsets.only(bottom: AppTokens.of(context).spacing.x4),
-      buildDefaultDragHandles: false,
-      itemCount: entries.length,
-      // `onReorderItem` 的 `newIndex` 已扣掉被拿起來的那一格（同佇列）。
-      onReorderItem: (from, to) => onReorder(entries, from, to),
-      itemBuilder: (context, index) {
-        final station = entries[index].station;
-        return _StationRow(
-          key: ValueKey(station.id),
+    bool isListening(RadioStation station) =>
+        listening?.pluginId == station.pluginId &&
+        listening?.roomId == station.roomId;
+    final spacing = AppTokens.of(context).spacing;
+    if (sorting) {
+      return ReorderableListView.builder(
+        padding: EdgeInsets.only(bottom: spacing.x4),
+        buildDefaultDragHandles: false,
+        itemCount: entries.length,
+        // `onReorderItem` 的 `newIndex` 已扣掉被拿起來的那一格（同佇列）。
+        onReorderItem: (from, to) => onReorder(entries, from, to),
+        itemBuilder: (context, index) {
+          final station = entries[index].station;
+          return _StationRow(
+            key: ValueKey(station.id),
+            index: index,
+            entry: entries[index],
+            listening: isListening(station),
+            sorting: true,
+          );
+        },
+      );
+    }
+    final shown = liveFirst(entries);
+    return switch (WindowClass.of(context)) {
+      WindowClass.compact || WindowClass.medium => ListView.builder(
+        padding: EdgeInsets.only(bottom: spacing.x4),
+        itemCount: shown.length,
+        itemBuilder: (context, index) => _StationRow(
+          key: ValueKey(shown[index].station.id),
           index: index,
-          entry: entries[index],
-          listening:
-              listening?.pluginId == station.pluginId &&
-              listening?.roomId == station.roomId,
-        );
-      },
-    );
+          entry: shown[index],
+          listening: isListening(shown[index].station),
+          sorting: false,
+        ),
+      ),
+      _ => GridView.builder(
+        padding: EdgeInsets.all(spacing.x4),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: AppLayout.radioCellMaxWidth,
+          mainAxisExtent: AppLayout.radioCellHeight,
+        ),
+        itemCount: shown.length,
+        itemBuilder: (context, index) => _StationCell(
+          key: ValueKey(shown[index].station.id),
+          entry: shown[index],
+          listening: isListening(shown[index].station),
+        ),
+      ),
+    };
   }
 }
 
@@ -317,6 +397,7 @@ class _StationRow extends ConsumerWidget {
     required this.index,
     required this.entry,
     required this.listening,
+    required this.sorting,
   });
 
   final int index;
@@ -324,6 +405,9 @@ class _StationRow extends ConsumerWidget {
 
   /// 正在收聽這一台。
   final bool listening;
+
+  /// 手動排序模式：尾端多拖曳把手。
+  final bool sorting;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -386,20 +470,21 @@ class _StationRow extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             more,
-            ReorderableDragStartListener(
-              index: index,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.grab,
-                child: Tooltip(
-                  message: t.reorder,
-                  triggerMode: TooltipTriggerMode.manual,
-                  child: Padding(
-                    padding: EdgeInsets.all(tokens.spacing.x3),
-                    child: const Icon(Icons.drag_handle),
+            if (sorting)
+              ReorderableDragStartListener(
+                index: index,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: Tooltip(
+                    message: t.reorder,
+                    triggerMode: TooltipTriggerMode.manual,
+                    child: Padding(
+                      padding: EdgeInsets.all(tokens.spacing.x3),
+                      child: const Icon(Icons.drag_handle),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
         onTap: play,
@@ -408,42 +493,132 @@ class _StationRow extends ConsumerWidget {
     );
   }
 
-  Future<void> _remove(BuildContext context, WidgetRef ref) async {
-    final t = ref.read(translationsProvider).radio;
-    final service = ref.read(radioServiceProvider);
-    final toaster = ref.read(toasterProvider);
+  Future<void> _remove(BuildContext context, WidgetRef ref) =>
+      removeStation(context, ref, entry.station);
+}
+
+/// 網格版（expanded 以上）的一個電台：圓形封面、標題、狀態標記；「⋯」疊在右上角
+/// （不在點擊區裡：卡片是一個按鈕，「⋯」是另一個）。
+class _StationCell extends ConsumerWidget {
+  const _StationCell({super.key, required this.entry, required this.listening});
+
+  final RadioEntry entry;
+  final bool listening;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).radio;
+    final theme = Theme.of(context);
+    final tokens = AppTokens.of(context);
+    final spacing = tokens.spacing;
     final station = entry.station;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.removeTitle),
-        content: Text(t.removeBody(title: station.title)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.cancel),
+    final unavailable = ref.watch(sourceUnavailableProvider(station.pluginId));
+    void play() {
+      if (unavailable != null) {
+        ref.read(toasterProvider).warning(t.cannotPlay(reason: unavailable));
+        return;
+      }
+      unawaited(
+        ref.read(playbackControllerProvider).playLive(radioLiveTarget(station)),
+      );
+    }
+
+    return TrackRowMenu(
+      moreTooltip: t.more,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.delete_outline),
+          onPressed: () => unawaited(removeStation(context, ref, station)),
+          child: Text(t.remove),
+        ),
+      ],
+      builder: (context, more, openMenu) => Stack(
+        children: [
+          MergeSemantics(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(tokens.radius.medium),
+              onTap: play,
+              onLongPress: openMenu,
+              // 同 ListTile：可點的卡片是一個按鈕。
+              child: Semantics(
+                button: true,
+                selected: listening,
+                child: Padding(
+                  padding: EdgeInsets.all(spacing.x2),
+                  child: Column(
+                    children: [
+                      ClipOval(
+                        child: ArtworkImage(
+                          pluginId: station.pluginId,
+                          artwork: station.artwork,
+                          size: AppLayout.radioCover,
+                          rounded: false,
+                        ),
+                      ),
+                      SizedBox(height: spacing.x2),
+                      Text(
+                        station.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: listening ? theme.colorScheme.primary : null,
+                          fontWeight: listening ? FontWeight.w600 : null,
+                        ),
+                      ),
+                      TaggedLine(tag: RadioStatusTag(status: entry.status)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.remove),
-          ),
+          PositionedDirectional(end: 0, top: 0, child: more),
         ],
       ),
     );
-    if (confirmed != true) return;
-    try {
-      await service.remove(station.id);
-    } on Object catch (error, stackTrace) {
-      toaster.error(
-        AppError.wrap(error, stackTrace),
-        operation: 'Failed to remove a radio station',
-        tag: 'radio',
-        sentence: (reason) => t.removeFailed(reason: reason),
-      );
-      return;
-    }
-    toaster.success(t.removed);
   }
+}
+
+/// 確認後刪除電台 [station]（電台頁的列與網格、首頁的電台卡共用）。
+Future<void> removeStation(
+  BuildContext context,
+  WidgetRef ref,
+  RadioStation station,
+) async {
+  final t = ref.read(translationsProvider).radio;
+  final service = ref.read(radioServiceProvider);
+  final toaster = ref.read(toasterProvider);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t.removeTitle),
+      content: Text(t.removeBody(title: station.title)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(t.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t.remove),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  try {
+    await service.remove(station.id);
+  } on Object catch (error, stackTrace) {
+    toaster.error(
+      AppError.wrap(error, stackTrace),
+      operation: 'Failed to remove a radio station',
+      tag: 'radio',
+      sentence: (reason) => t.removeFailed(reason: reason),
+    );
+    return;
+  }
+  toaster.success(t.removed);
 }
 
 /// 「以網址新增」：輸入直播間網址；按「新增」或 Enter 回傳輸入的字，取消回 `null`。
@@ -481,7 +656,11 @@ class _AddUrlDialogState extends ConsumerState<_AddUrlDialog> {
         enableSuggestions: false,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(labelText: t.urlLabel),
+        decoration: InputDecoration(
+          labelText: t.urlLabel,
+          helperText: t.urlHint,
+          helperMaxLines: 3,
+        ),
       ),
       actions: [
         TextButton(

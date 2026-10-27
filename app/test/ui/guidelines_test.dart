@@ -739,7 +739,11 @@ void main() {
             () => Future<void>.delayed(const Duration(milliseconds: 100)),
           );
           await tester.pumpAndSettle();
-          expect(find.text('Tonight on air'), findsOneWidget);
+          // 直播標題只在清單版有；網格（expanded 以上）每格只有封面、標題與狀態。
+          expect(
+            find.text('Tonight on air'),
+            width < 840 ? findsOneWidget : findsNothing,
+          );
           expect(find.text('Check failed'), findsOneWidget);
 
           await expectGuidelines(tester);
@@ -2939,6 +2943,162 @@ ${rooms ? 'export function libraryLiveRooms() { return { rooms: [] }; }' : ''}
           await tester.pump(const Duration(milliseconds: 200));
           expect(find.byType(NowPlayingPanel), findsOneWidget);
           expect(find.text('Next up'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // U PR 12：電台的網格與排序模式、首頁卡片的箭頭與選單、區塊級的失敗橫條、未開播的直播間列。
+      for (final width in const [400.0, 1000.0, 1400.0]) {
+        Future<ShellHarness> openRadio(WidgetTester tester) async {
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            brightness: brightness,
+          );
+          await h.loadSettings(tester);
+          final repository = h.container(tester).read(radioRepositoryProvider);
+          for (final (id, status) in [
+            ('a', RadioLiveStatus.offline),
+            ('b', RadioLiveStatus.live),
+            ('c', null),
+          ]) {
+            await repository.add(
+              pluginId: 'fmp-test',
+              roomId: id,
+              title: 'Station $id',
+              hostName: 'Host $id',
+              artwork: _trackArtwork(TestArtwork.darkest),
+              addedAt: DateTime.utc(2026, 10, 14),
+              liveStatus: status,
+            );
+          }
+          await h.loadSettings(tester);
+          await tester.tap(find.text('Radio'));
+          await h.loadSettings(tester);
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 100)),
+          );
+          await tester.pumpAndSettle();
+          return h;
+        }
+
+        testWidgets('radio, live first, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openRadio(tester);
+          expect(find.text('Station b'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('radio in sort mode at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          await openRadio(tester);
+          await tester.tap(find.byTooltip('Sort'));
+          await tester.pumpAndSettle();
+          expect(find.text('Done'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('home cards with scroll arrows at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(artworkManager: FakeArtworkManager());
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            brightness: brightness,
+            at: ShellDestination.home,
+          );
+          await tester.runAsync(() async {
+            final playlists = h
+                .container(tester)
+                .read(playlistRepositoryProvider);
+            for (var i = 0; i < 12; i++) {
+              final id = await playlists.create(name: 'List $i');
+              await playlists.addTracks(id, [
+                summary(
+                  't$i',
+                  artwork: TestArtwork.darkest.artwork,
+                ).toTrackInfo(),
+              ]);
+            }
+          });
+          for (var i = 0; i < 3; i++) {
+            await h.loadSettings(tester);
+          }
+          await tester.pumpAndSettle();
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          addTearDown(mouse.removePointer);
+          await mouse.moveTo(tester.getCenter(find.text('List 1')));
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Scroll right'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
+        testWidgets('search, an offline live room, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(live: true);
+          h.plugin.onLiveSearch = (_) => const LiveSearchPage(
+            items: [
+              LiveRoom(
+                roomId: 'r1',
+                title: 'Room r1',
+                hostName: 'Host r1',
+                status: LiveRoomStatus.live,
+                online: 120,
+              ),
+              LiveRoom(
+                roomId: 'r2',
+                title: 'Room r2',
+                hostName: 'Host r2',
+                status: LiveRoomStatus.offline,
+              ),
+            ],
+            hasMore: false,
+          );
+          await h.pumpShell(
+            tester,
+            size: Size(width, 800),
+            brightness: brightness,
+          );
+          await tester.tap(find.text('Live rooms'));
+          await tester.pump();
+          await tester.enterText(find.byType(TextField), 'night');
+          await tester.testTextInput.receiveAction(TextInputAction.search);
+          await tester.pump();
+          await tester.pump();
+          expect(find.text('Room r2'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+      }
+
+      // 區塊級的失敗橫條（EmptyState compact）：首頁一個榜單讀不到。
+      for (final width in const [400.0, 1000.0]) {
+        testWidgets('home, a failed chart banner, at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final c = ChartHarness();
+          final tracks = c.plugin.onChart;
+          c.plugin.onChart = (chartId) => chartId == 'new'
+              ? throw StateError('broken chart')
+              : tracks(chartId);
+          await c.pumpShell(
+            tester,
+            size: Size(width, 800),
+            brightness: brightness,
+          );
+          expect(find.text("Couldn't update the chart"), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

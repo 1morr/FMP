@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -19,8 +20,10 @@ import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
+import 'package:fmp/ui/library/library_page.dart' show PlaylistMenu;
 import 'package:fmp/ui/library/library_state.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
+import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
@@ -118,12 +121,17 @@ class HomePage extends ConsumerWidget {
     final playlistsState = ref.watch(playlistOverviewsProvider);
     final radioState = ref.watch(radioEntriesProvider);
     final playlists = [...?playlistsState.value?.take(homeShelfCount)];
-    final stations = [...?radioState.value?.take(homeShelfCount)];
+    // 開播中的排前面（穩定排序），再取前 20 個。
+    final stations = [
+      ...liveFirst(radioState.value ?? const []).take(homeShelfCount),
+    ];
     // `null`＝插件清單、榜單設定或榜單清單還在讀。
     final charts = ref.watch(enabledChartsProvider);
     // 三份資料到齊才判斷「沒有內容」，免得說明一閃而過。
     final loading =
         playlistsState is AsyncLoading || radioState is AsyncLoading;
+    // 歌單讀到了而且是空的：「我的歌單」區塊只有「建立歌單」卡（舊版 B-16）。讀失敗不算。
+    final noPlaylists = playlistsState is AsyncData && playlists.isEmpty;
     final title = PageAppBar(title: t.title);
     // 插件清單還沒載入完時不判斷引導，免得一閃而過。
     if (sources is AsyncData &&
@@ -151,21 +159,31 @@ class HomePage extends ConsumerWidget {
               playlists.isEmpty &&
               stations.isEmpty &&
               charts!.isEmpty =>
-        EmptyState(
-          icon: Icons.music_note_outlined,
-          title: t.empty,
-          body: t.emptyHint,
-          action: sources is AsyncData && !hasSource
-              ? FilledButton.tonal(
-                  onPressed: onOpenPlugins,
-                  child: Text(translations.onboarding.goToPlugins),
-                )
-              : null,
+        // 「建立歌單」的入口在說明上方，說明不會把它擠掉。
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (noPlaylists) _createPlaylistShelf(t.myPlaylists),
+            Expanded(
+              child: EmptyState(
+                icon: Icons.music_note_outlined,
+                title: t.empty,
+                body: t.emptyHint,
+                action: sources is AsyncData && !hasSource
+                    ? FilledButton.tonal(
+                        onPressed: onOpenPlugins,
+                        child: Text(translations.onboarding.goToPlugins),
+                      )
+                    : null,
+              ),
+            ),
+          ],
         ),
       AsyncData(:final value) => ListView(
         padding: EdgeInsets.only(bottom: spacing.x4),
         children: [
           if (charts != null && charts.isNotEmpty) HomeCharts(charts: charts),
+          if (noPlaylists) _createPlaylistShelf(t.myPlaylists),
           if (playlists.isNotEmpty)
             _Shelf(
               title: t.myPlaylists,
@@ -193,6 +211,7 @@ class HomePage extends ConsumerWidget {
       // 讀失敗（已在 provider 報過）：不是「沒有內容」。
       AsyncError(:final error) => EmptyState(
         icon: Icons.error_outline,
+        error: true,
         title: errorMessage(
           translations,
           AppError.wrap(error, StackTrace.current),
@@ -210,12 +229,16 @@ class HomePage extends ConsumerWidget {
   }
 }
 
+/// 沒有歌單時的「我的歌單」：沒有「查看全部」，只有「建立歌單」的灰色佔位卡。
+Widget _createPlaylistShelf(String title) =>
+    _Shelf(title: title, children: const [_CreatePlaylistCard()]);
+
 /// 一個首頁區塊的標題列：標題（語意標題）與尾端的「查看全部」。
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.action});
+  const _SectionHeader({required this.title, this.action});
 
   final String title;
-  final Widget action;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +253,7 @@ class _SectionHeader extends StatelessWidget {
               child: Text(title, style: Theme.of(context).textTheme.titleLarge),
             ),
           ),
-          action,
+          ?action,
         ],
       ),
     );
@@ -239,46 +262,189 @@ class _SectionHeader extends StatelessWidget {
 
 /// 一個區塊：標題列與一排可橫向捲動的卡片（YouTube Music 首頁的一排卡片）。
 class _Shelf extends StatelessWidget {
-  const _Shelf({
-    required this.title,
-    required this.onViewAll,
-    required this.children,
-  });
+  const _Shelf({required this.title, this.onViewAll, required this.children});
 
   final String title;
-  final VoidCallback onViewAll;
+
+  /// 沒有就不放「查看全部」（沒有歌單時的「我的歌單」）。
+  final VoidCallback? onViewAll;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final spacing = AppTokens.of(context).spacing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SectionHeader(
           title: title,
-          action: Consumer(
-            builder: (context, ref, _) => TextButton(
-              onPressed: onViewAll,
-              child: Text(ref.watch(translationsProvider).home.viewAll),
+          action: onViewAll == null
+              ? null
+              : Consumer(
+                  builder: (context, ref, _) => TextButton(
+                    onPressed: onViewAll,
+                    child: Text(ref.watch(translationsProvider).home.viewAll),
+                  ),
+                ),
+        ),
+        _ShelfRow(children: children),
+      ],
+    );
+  }
+}
+
+/// 一排橫向捲動的卡片（ADR 0035，R6.6）。
+///
+/// - 滑鼠可以按住拖曳捲動（只開在這一排：`dragDevices` 加上滑鼠，其他捲動區不受影響）。
+/// - 滑鼠移入時，兩端出現漸層與左右箭頭（觸控沒有：手指直接滑）；該方向捲到底就不出現。
+/// - 卡片數有上限（20），整排一起建；Row 取最高那張的高度，字放大時不會被截掉。
+class _ShelfRow extends ConsumerStatefulWidget {
+  const _ShelfRow({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  ConsumerState<_ShelfRow> createState() => _ShelfRowState();
+}
+
+class _ShelfRowState extends ConsumerState<_ShelfRow> {
+  final _controller = ScrollController();
+
+  /// 滑鼠在這一排上。
+  var _hovering = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scrollBy(double direction) {
+    final position = _controller.position;
+    final target =
+        (position.pixels + direction * position.viewportDimension * 0.8).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        );
+    unawaited(
+      _controller.animateTo(
+        target,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = AppTokens.of(context).spacing;
+    final t = ref.watch(translationsProvider).home;
+    final behavior = ScrollConfiguration.of(context);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Stack(
+        children: [
+          ScrollConfiguration(
+            behavior: behavior.copyWith(
+              dragDevices: {...behavior.dragDevices, PointerDeviceKind.mouse},
+            ),
+            child: SingleChildScrollView(
+              controller: _controller,
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.fromLTRB(
+                spacing.x3,
+                spacing.x2,
+                spacing.x3,
+                spacing.x3,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: widget.children,
+              ),
             ),
           ),
-        ),
-        // 卡片數有上限（20），整排一起建；Row 取最高那張的高度，字放大時不會被截掉。
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.fromLTRB(
-            spacing.x3,
-            spacing.x2,
-            spacing.x3,
-            spacing.x3,
+          if (_hovering)
+            // 捲動位置一變就重畫箭頭（到頭的那一端收起來）。
+            ListenableBuilder(
+              listenable: _controller,
+              builder: (context, _) {
+                final hasClients = _controller.hasClients;
+                final position = hasClients ? _controller.position : null;
+                final canLeft =
+                    position != null &&
+                    position.pixels > position.minScrollExtent;
+                final canRight =
+                    position != null &&
+                    position.pixels < position.maxScrollExtent;
+                return Positioned.fill(
+                  child: Row(
+                    children: [
+                      if (canLeft)
+                        _ShelfArrow(
+                          icon: Icons.chevron_left,
+                          tooltip: t.scrollLeft,
+                          start: true,
+                          onPressed: () => _scrollBy(-1),
+                        ),
+                      const Spacer(),
+                      if (canRight)
+                        _ShelfArrow(
+                          icon: Icons.chevron_right,
+                          tooltip: t.scrollRight,
+                          start: false,
+                          onPressed: () => _scrollBy(1),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 一排卡片一端的漸層與箭頭鈕。漸層只是遮罩（不吃點擊），鈕本身才吃。
+class _ShelfArrow extends StatelessWidget {
+  const _ShelfArrow({
+    required this.icon,
+    required this.tooltip,
+    required this.start,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+
+  /// 在左端（寫入方向的起點）。
+  final bool start;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final fade = start
+        ? [surface, surface.withValues(alpha: 0)]
+        : [surface.withValues(alpha: 0), surface];
+    return SizedBox(
+      width: AppLayout.shelfEdgeFade,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: AlignmentDirectional.centerStart,
+            end: AlignmentDirectional.centerEnd,
+            colors: fade,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
+        ),
+        child: Center(
+          child: IconButton.filledTonal(
+            tooltip: tooltip,
+            icon: Icon(icon),
+            onPressed: onPressed,
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -303,59 +469,127 @@ class _RecentPlays extends ConsumerWidget {
   }
 }
 
-/// 沒有選單的卡片（我的歌單、電台）：封面、名稱（兩行）、[detail]；整張是一個按鈕，點一下
-/// 執行 [onTap]。
+/// 一排裡的一張卡片（我的歌單、電台、最近播放共用）：有底色的 `Card`，封面在上、[text] 在下；
+/// 整張是一個按鈕，點一下執行 [onTap]，長按執行 [onLongPress]。
+///
+/// [more]（選單的「⋯」）疊在文字旁、不在卡片的點擊區裡：卡片是一個按鈕的語意節點（點一下
+/// 播放或開啟），「⋯」是另一個，螢幕閱讀器才分得出兩個動作。
 class _ShelfCard extends StatelessWidget {
   const _ShelfCard({
     required this.cover,
-    required this.title,
-    required this.detail,
+    required this.text,
     required this.onTap,
+    this.onLongPress,
+    this.more,
   });
 
   final Widget cover;
-  final String title;
-  final Widget detail;
+  final Widget text;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final Widget? more;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = AppTokens.of(context);
-    final spacing = tokens.spacing;
-    return MergeSemantics(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(tokens.radius.small),
-        onTap: onTap,
-        // 同 ListTile：可點的卡片是一個按鈕。
-        child: Semantics(
-          button: true,
-          child: Padding(
-            padding: EdgeInsets.all(spacing.x1),
-            child: SizedBox(
-              width: AppLayout.shelfCardWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  cover,
-                  SizedBox(height: spacing.x2),
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
+    final spacing = AppTokens.of(context).spacing;
+    final more = this.more;
+    return Card(
+      margin: EdgeInsets.all(spacing.x1),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: AppLayout.shelfCardWidth,
+        child: Stack(
+          children: [
+            MergeSemantics(
+              child: InkWell(
+                onTap: onTap,
+                onLongPress: onLongPress,
+                // 同 ListTile：可點的卡片是一個按鈕。
+                child: Semantics(
+                  button: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      cover,
+                      Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: spacing.x2,
+                          end: more == null
+                              ? spacing.x2
+                              : kMinInteractiveDimension,
+                          top: spacing.x2,
+                          bottom: spacing.x2,
+                        ),
+                        child: text,
+                      ),
+                    ],
                   ),
-                  detail,
-                ],
+                ),
               ),
             ),
-          ),
+            if (more != null)
+              PositionedDirectional(
+                end: 0,
+                top: AppLayout.shelfCardWidth,
+                child: more,
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// 一張歌單：封面、名稱、「本機 · n 首」（同音樂庫的卡）。點一下在首頁的巢狀導覽裡開詳情。
+/// 卡片上的文字：名稱（兩行）與 [detail]。
+class _CardText extends StatelessWidget {
+  const _CardText({required this.title, this.detail});
+
+  final String title;
+  final Widget? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        ?detail,
+      ],
+    );
+  }
+}
+
+/// 「建立歌單」佔位卡（沒有歌單時「我的歌單」唯一的內容）：灰底、大「＋」，走音樂庫同一條建立流程
+/// （[createPlaylist]），不是切到音樂庫。
+class _CreatePlaylistCard extends ConsumerWidget {
+  const _CreatePlaylistCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).home;
+    final scheme = Theme.of(context).colorScheme;
+    return _ShelfCard(
+      cover: SizedBox.square(
+        dimension: AppLayout.shelfCardWidth,
+        child: Icon(
+          Icons.add,
+          size: AppLayout.emptyStateIcon,
+          color: scheme.primary,
+        ),
+      ),
+      text: _CardText(title: t.createPlaylist),
+      onTap: () => unawaited(createPlaylist(context, ref)),
+    );
+  }
+}
+
+/// 一張歌單：封面、名稱、「本機 · n 首」（同音樂庫的卡）。點一下在首頁的巢狀導覽裡開詳情；
+/// 選單（右鍵、長按、「⋯」）同音樂庫的卡片。
 class _PlaylistCard extends ConsumerWidget {
   const _PlaylistCard({super.key, required this.overview});
 
@@ -365,27 +599,35 @@ class _PlaylistCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).library;
     final theme = Theme.of(context);
-    return _ShelfCard(
-      cover: PlaylistCover(
-        artwork: overview.playlist.artwork,
-        firstTrack: overview.firstTrack,
-        size: AppLayout.shelfCardWidth,
-      ),
-      title: overview.playlist.name,
-      detail: Text(
-        playlistSubtitleText(t, overview),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+    return PlaylistMenu(
+      overview: overview,
+      builder: (context, more, openMenu) => _ShelfCard(
+        cover: PlaylistCover(
+          artwork: overview.playlist.artwork,
+          firstTrack: overview.firstTrack,
+          size: AppLayout.shelfCardWidth,
         ),
+        text: _CardText(
+          title: overview.playlist.name,
+          detail: Text(
+            playlistSubtitleText(t, overview),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        onTap: () => unawaited(openPlaylist(context, overview.playlist.id)),
+        onLongPress: openMenu,
+        more: more,
       ),
-      onTap: () => unawaited(openPlaylist(context, overview.playlist.id)),
     );
   }
 }
 
 /// 一個電台：封面、標題、狀態標記（四種）。點一下收聽；音源不能用時不播、提示原因（同電台頁）。
+/// 選單同電台頁（刪除，先確認）。
 class _StationCard extends ConsumerWidget {
   const _StationCard({super.key, required this.entry});
 
@@ -395,26 +637,43 @@ class _StationCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final station = entry.station;
     final unavailable = ref.watch(sourceUnavailableProvider(station.pluginId));
-    return _ShelfCard(
-      cover: ArtworkImage(
-        pluginId: station.pluginId,
-        artwork: station.artwork,
-        size: AppLayout.shelfCardWidth,
+    final t = ref.watch(translationsProvider).radio;
+    return TrackRowMenu(
+      moreTooltip: t.more,
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.delete_outline),
+          onPressed: () => unawaited(removeStation(context, ref, station)),
+          child: Text(t.remove),
+        ),
+      ],
+      builder: (context, more, openMenu) => _ShelfCard(
+        cover: ArtworkImage(
+          pluginId: station.pluginId,
+          artwork: station.artwork,
+          size: AppLayout.shelfCardWidth,
+          rounded: false,
+        ),
+        text: _CardText(
+          title: station.title,
+          detail: TaggedLine(tag: RadioStatusTag(status: entry.status)),
+        ),
+        onTap: () {
+          if (unavailable != null) {
+            ref
+                .read(toasterProvider)
+                .warning(t.cannotPlay(reason: unavailable));
+            return;
+          }
+          unawaited(
+            ref
+                .read(playbackControllerProvider)
+                .playLive(radioLiveTarget(station)),
+          );
+        },
+        onLongPress: openMenu,
+        more: more,
       ),
-      title: station.title,
-      detail: TaggedLine(tag: RadioStatusTag(status: entry.status)),
-      onTap: () {
-        if (unavailable != null) {
-          final t = ref.read(translationsProvider).radio;
-          ref.read(toasterProvider).warning(t.cannotPlay(reason: unavailable));
-          return;
-        }
-        unawaited(
-          ref
-              .read(playbackControllerProvider)
-              .playLive(radioLiveTarget(station)),
-        );
-      },
     );
   }
 }
@@ -434,8 +693,6 @@ class _RecentCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).home;
     final theme = Theme.of(context);
-    final tokens = AppTokens.of(context);
-    final spacing = tokens.spacing;
     final track = entry.track;
     final uploader =
         ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
@@ -490,68 +747,29 @@ class _RecentCard extends ConsumerWidget {
           onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
       ],
-      builder: (context, more, openMenu) => Stack(
-        children: [
-          MergeSemantics(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(tokens.radius.small),
-              onTap: play,
-              onLongPress: openMenu,
-              // 同 ListTile：可點的卡片是一個按鈕。
-              child: Semantics(
-                button: true,
-                child: Padding(
-                  padding: EdgeInsets.all(spacing.x1),
-                  child: SizedBox(
-                    width: AppLayout.shelfCardWidth,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ArtworkImage(
-                          pluginId: track.sourceTypeId,
-                          artwork: track.artwork,
-                          size: AppLayout.shelfCardWidth,
-                        ),
-                        SizedBox(height: spacing.x2),
-                        // 曲名與作者讓出「⋯」的寬度。
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            end: kMinInteractiveDimension,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                track.displayTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                              if (uploader != null)
-                                Text(
-                                  uploader,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+      builder: (context, more, openMenu) => _ShelfCard(
+        cover: ArtworkImage(
+          pluginId: track.sourceTypeId,
+          artwork: track.artwork,
+          size: AppLayout.shelfCardWidth,
+          rounded: false,
+        ),
+        text: _CardText(
+          title: track.displayTitle,
+          detail: uploader == null
+              ? null
+              : Text(
+                  uploader,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-            ),
-          ),
-          PositionedDirectional(
-            end: 0,
-            top: spacing.x1 + AppLayout.shelfCardWidth + spacing.x1,
-            child: more,
-          ),
-        ],
+        ),
+        onTap: play,
+        onLongPress: openMenu,
+        more: more,
       ),
     );
   }

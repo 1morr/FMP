@@ -24,7 +24,6 @@ import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
-import 'package:fmp/ui/library/playlist_dialogs.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -54,30 +53,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   /// 拖曳後還沒從資料庫回來的順序（歌單 id）；回來之前照它畫，清單才不會跳回去。
   List<int>? _pendingOrder;
 
-  Future<void> _create() async {
-    // 對話框期間外殼可能重建這一頁：要用的先讀好。
-    final t = ref.read(translationsProvider).library;
-    final service = ref.read(playlistServiceProvider);
-    final toaster = ref.read(toasterProvider);
-    final input = await showPlaylistDialog(context);
-    if (input == null) return;
-    try {
-      await service.create(
-        name: input.name,
-        description: input.description,
-        artwork: input.artwork,
-      );
-    } on Object catch (error, stackTrace) {
-      toaster.error(
-        AppError.wrap(error, stackTrace),
-        operation: 'Failed to create a playlist',
-        tag: 'library',
-        sentence: (reason) => t.createFailed(reason: reason),
-      );
-      return;
-    }
-    toaster.success(t.created);
-  }
+  Future<void> _create() => createPlaylist(context, ref);
 
   Future<void> _import() async {
     // 對話框期間外殼可能重建這一頁：要用的先讀好。
@@ -297,7 +273,7 @@ class _PlaylistList extends StatelessWidget {
     },
     itemBuilder: (context, index) {
       final overview = overviews[index];
-      return _PlaylistMenu(
+      return PlaylistMenu(
         key: ValueKey(overview.playlist.id),
         overview: overview,
         builder: (context, more, openMenu) => ListTile(
@@ -544,7 +520,7 @@ class _GridCardState extends State<_GridCard> {
         widget.onDragOver();
         return true;
       },
-      builder: (context, _, _) => _PlaylistMenu(
+      builder: (context, _, _) => PlaylistMenu(
         overview: overview,
         // 同 ListTile：點一下開詳情、長按開選單；卡片是一個按鈕的語意節點，「⋯」與把手各自一個。
         builder: (context, more, openMenu) => Opacity(
@@ -687,10 +663,10 @@ class _PlaylistSubtitle extends ConsumerWidget {
   }
 }
 
-/// 一張歌單的選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除；匯入歌單另有
+/// 一張歌單的選單（右鍵、長按、「⋯」；音樂庫的卡片與首頁的歌單卡共用）：全部加入佇列、隨機加入佇列、編輯、刪除；匯入歌單另有
 /// 刷新，Mix 歌單只有 Mix 播放、編輯、刪除。
-class _PlaylistMenu extends ConsumerWidget {
-  const _PlaylistMenu({
+class PlaylistMenu extends ConsumerWidget {
+  const PlaylistMenu({
     super.key,
     required this.overview,
     required this.builder,

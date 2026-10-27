@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/radio_repository.dart';
@@ -231,6 +232,14 @@ void main() {
       find.text('Search for songs and play them, or import a playlist'),
       findsOneWidget,
     );
+    // 沒有歌單：「我的歌單」只有「建立歌單」佔位卡（沒有「查看全部」），說明在它下面。
+    expect(find.text('My playlists'), findsOneWidget);
+    expect(find.text('Create playlist'), findsOneWidget);
+    expect(find.text('View all'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Nothing here yet')).dy,
+      greaterThan(tester.getBottomLeft(find.text('Create playlist')).dy),
+    );
     expect(find.text('Recently played'), findsNothing);
     // 有音源：說明不附「前往插件頁」。
     expect(find.text('Go to plugins'), findsNothing);
@@ -253,10 +262,14 @@ void main() {
       await h.pumpShell(tester, at: ShellDestination.home);
       await _played(tester, h, ['a']);
       await tester.pumpAndSettle();
-      expect(_sectionTitles(tester), ['Recently played']);
+      // 沒有歌單也有「我的歌單」：只有「建立歌單」佔位卡。
+      expect(_sectionTitles(tester), ['My playlists', 'Recently played']);
+      expect(find.text('Create playlist'), findsOneWidget);
 
       await _playlists(tester, h, {'Mix tape': []});
       expect(_sectionTitles(tester), ['My playlists', 'Recently played']);
+      // 有歌單就沒有佔位卡。
+      expect(find.text('Create playlist'), findsNothing);
     });
 
     testWidgets('a playlist alone replaces the explanation', (tester) async {
@@ -404,6 +417,163 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       expect(container.read(nowPlayingLiveProvider)?.target.roomId, 'r21');
+    });
+
+    testWidgets('live stations come first in the radio section, the rest '
+        'keep their order', (tester) async {
+      final h = harness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await _stations(tester, h, {
+        'a': RadioLiveStatus.offline,
+        'b': RadioLiveStatus.live,
+        'c': null,
+        'd': RadioLiveStatus.live,
+      });
+      expect(_cardTexts(tester, RegExp(r'^Station ')), [
+        'Station b',
+        'Station d',
+        'Station a',
+        'Station c',
+      ]);
+    });
+
+    group('a row of cards', () {
+      Finder rowScrollable() => find.descendant(
+        of: find
+            .descendant(
+              of: find.byType(HomePage),
+              matching: find.byType(SingleChildScrollView),
+            )
+            .first,
+        matching: find.byType(Scrollable),
+      );
+      double offset(WidgetTester tester) =>
+          tester.state<ScrollableState>(rowScrollable()).position.pixels;
+
+      Future<void> openWithPlaylists(WidgetTester tester) async {
+        final h = harness();
+        await h.pumpShell(tester, at: ShellDestination.home);
+        await _playlists(tester, h, {
+          for (var i = 0; i < 12; i++) padded('p', i): ['a'],
+        });
+      }
+
+      testWidgets('shows scroll arrows only for a mouse pointer', (
+        tester,
+      ) async {
+        await openWithPlaylists(tester);
+        expect(find.byTooltip('Scroll right'), findsNothing);
+
+        // 觸控滑動捲得動，但不會讓箭頭出現。
+        await tester.drag(find.text('p01'), const Offset(-300, 0));
+        await tester.pumpAndSettle();
+        expect(offset(tester), greaterThan(0));
+        expect(find.byTooltip('Scroll right'), findsNothing);
+        expect(find.byTooltip('Scroll left'), findsNothing);
+        await tester.drag(find.text('p03'), const Offset(2000, 0));
+        await tester.pumpAndSettle();
+        expect(offset(tester), 0);
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(find.text('p01')));
+        await tester.pumpAndSettle();
+        // 在最左端：只有往右的箭頭。
+        expect(find.byTooltip('Scroll right'), findsOneWidget);
+        expect(find.byTooltip('Scroll left'), findsNothing);
+
+        await tester.tap(find.byTooltip('Scroll right'));
+        await tester.pumpAndSettle();
+        expect(offset(tester), greaterThan(0));
+        expect(find.byTooltip('Scroll left'), findsOneWidget);
+
+        // 移出去就收起。
+        await mouse.moveTo(const Offset(5, 5));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Scroll left'), findsNothing);
+        expect(find.byTooltip('Scroll right'), findsNothing);
+      });
+
+      testWidgets('scrolls when dragged with the mouse', (tester) async {
+        await openWithPlaylists(tester);
+        expect(offset(tester), 0);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: tester.getCenter(find.text('p01')));
+        addTearDown(mouse.removePointer);
+        await mouse.down(tester.getCenter(find.text('p01')));
+        await mouse.moveBy(const Offset(-200, 0));
+        await tester.pump();
+        await mouse.moveBy(const Offset(-200, 0));
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(offset(tester), greaterThan(100));
+      });
+    });
+
+    testWidgets('a playlist card has the library menu', (tester) async {
+      final h = harness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await _playlists(tester, h, {
+        'Road': ['a'],
+      });
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      for (final item in ['Add all to queue', 'Edit', 'Delete']) {
+        expect(find.widgetWithText(MenuItemButton, item), findsOneWidget);
+      }
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete the playlist?'), findsOneWidget);
+    });
+
+    testWidgets('a radio card has a remove item that asks first', (
+      tester,
+    ) async {
+      final h = harness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await _stations(tester, h, {'a': RadioLiveStatus.live});
+
+      await tester.tap(find.byTooltip('More options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Remove'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove the station?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+      expect(h.container(tester).read(radioStationsProvider).value, isEmpty);
+    });
+
+    testWidgets('with no playlists the placeholder creates one in place; with '
+        'playlists there is no create card', (tester) async {
+      final h = harness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Create playlist'), findsOneWidget);
+
+      await tester.tap(find.text('Create playlist'));
+      await tester.pumpAndSettle();
+      // 開的是建立對話框，不是切到音樂庫。
+      expect(find.widgetWithText(TextField, 'Name'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Night');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(
+        [
+          for (final o
+              in h.container(tester).read(playlistOverviewsProvider).value!)
+            o.playlist.name,
+        ],
+        ['Night'],
+      );
+      expect(find.text('Night'), findsOneWidget);
+      expect(find.text('Create playlist'), findsNothing);
+      expect(find.byType(HomePage), findsOneWidget);
     });
 
     testWidgets('radio cards show the four statuses', (tester) async {

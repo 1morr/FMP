@@ -10,6 +10,32 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/playlist_dialogs.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
+/// 建立一張本機歌單：開對話框、存、提示。音樂庫的「建立歌單」與首頁的「建立歌單」卡共用。
+Future<void> createPlaylist(BuildContext context, WidgetRef ref) async {
+  // 對話框期間外殼可能重建呼叫的頁面：要用的先讀好。
+  final t = ref.read(translationsProvider).library;
+  final service = ref.read(playlistServiceProvider);
+  final toaster = ref.read(toasterProvider);
+  final input = await showPlaylistDialog(context);
+  if (input == null) return;
+  try {
+    await service.create(
+      name: input.name,
+      description: input.description,
+      artwork: input.artwork,
+    );
+  } on Object catch (error, stackTrace) {
+    toaster.error(
+      AppError.wrap(error, stackTrace),
+      operation: 'Failed to create a playlist',
+      tag: 'library',
+      sentence: (reason) => t.createFailed(reason: reason),
+    );
+    return;
+  }
+  toaster.success(t.created);
+}
+
 /// 編輯 [overview] 這張歌單：開對話框、存、提示。匯入歌單另讀遠端資料（哪些欄位被覆寫、
 /// 自動刷新間隔）。音樂庫的卡片選單與 Mix 歌單詳情共用。
 Future<void> editPlaylist(

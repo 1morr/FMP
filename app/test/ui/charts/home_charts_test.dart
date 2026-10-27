@@ -8,6 +8,7 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/charts/home_charts.dart';
+import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/offline/offline.dart';
@@ -240,6 +241,23 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  // 區塊級的失敗是緊湊橫條（ADR 0035，R6.10），error 色圖示；探索頁的整頁版不是。
+  testWidgets('a failed chart on Home is a compact error banner', (
+    tester,
+  ) async {
+    final c = ChartHarness();
+    final tracks = c.plugin.onChart;
+    c.plugin.onChart = (chartId) =>
+        chartId == 'new' ? throw StateError('broken chart') : tracks(chartId);
+    await c.pumpShell(tester);
+
+    final banner = tester.widget<EmptyState>(
+      find.descendant(of: _section('NEW'), matching: find.byType(EmptyState)),
+    );
+    expect(banner.compact, isTrue);
+    expect(banner.error, isTrue);
   });
 
   // 快取讀不出來時沒有工作能讓它變成有內容：說失敗，不一直轉圈。

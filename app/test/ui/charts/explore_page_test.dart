@@ -345,6 +345,29 @@ void main() {
       expect(find.text('Charts updated'), findsOneWidget);
     });
 
+    // B-21：下拉重新整理，與標題列的「刷新」同一條路。
+    testWidgets('pulling the list down runs the refresh job', (tester) async {
+      final c = ChartHarness();
+      await c.pumpShell(tester);
+      await _open(tester, c, 'HOT');
+      final before = c.plugin.chartQueries.length;
+
+      await tester.fling(
+        find.descendant(
+          of: find.byType(ExplorePage),
+          matching: find.byType(ListView),
+        ),
+        const Offset(0, 400),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await c.settle(tester);
+
+      expect(c.plugin.chartQueries.sublist(before), ['hot', 'new']);
+      expect(find.text('Charts updated'), findsOneWidget);
+    });
+
     testWidgets('with automatic updates off and no cache the tab points at '
         'Refresh, which loads it', (tester) async {
       final c = ChartHarness(database: await chartsOffDatabase(tester));
