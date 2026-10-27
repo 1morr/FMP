@@ -13,7 +13,7 @@
 | M4a | 音樂庫與平台歌單 | M3b | 完成（2026-10-21，FMP #272–#293、fmp-plugins #16–#22；任務 `archive/2026-10/10-15-m4-library-sync`） |
 | M4b | 外部匯入、排行與備份 | M4a | 完成（2026-10-22，FMP #298–#306、fmp-plugins #23、#24；PR 16、20 與 fmp-plugins 的排行在 M4a 期間先做；同一任務） |
 | M5 | 舊資料匯入 | M4b | 完成（2026-10-24，FMP #308、#310–#317、#320，fmp-plugins #25；任務 `archive/2026-10/10-22-m5-legacy-import`） |
-| U | UI 對齊舊版 | M5 | 進行中（任務 `10-24-ui-legacy-parity`；ADR 0035，PR 0–18） |
+| U | UI 對齊舊版 | M5 | 驗收中：PR 0–17 已合併，Android 驗收通過；待 Windows 實機與擁有者試用（任務 `10-24-ui-legacy-parity`；ADR 0035） |
 | M6 | 下載 | iOS | 未開始 |
 | M7 | 歌詞 | U | 未開始 |
 | M8 | 桌面整合 | M2 | 未開始 |
@@ -168,6 +168,7 @@
 - **驗收**：
   - [ ] 擁有者勾選的每一項在兩平台上和舊版一致
   - [ ] 擁有者以 dev 版試用後認可
+- **進度**（2026-10-27）：PR 0–17 已合併，CI 綠；Android 模擬器逐項驗收通過，沒有功能壞掉的項目，另有 9 項版面觀察待擁有者決定（`10-24-ui-legacy-parity/research/u-acceptance.md`）。Windows 待驗清單在任務的 `implement.md`，等擁有者在 Windows 電腦上驗（Mac 上的 Win11 ARM64 VM 跑不了 FMP：插件與資料庫的原生庫只有 x64）。
 
 ## M6 下載
 
