@@ -294,13 +294,41 @@ final class PluginPageHarness {
   }
 
   /// 讓資料庫、插件的背景 isolate 與假下載跑完（要真的事件迴圈），再畫一次。
+  ///
+  /// 只給了固定的實際時間（約 180ms）：插件在背景 isolate 建 QuickJS、載入腳本要多久看負載，
+  /// 完整套件跑的時候會超過。等插件載入（安裝、啟用、清單載入已安裝的插件）用 [settleUntil]
+  /// 等那件事完成的狀態。
   Future<void> settle(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 30)),
-      );
-      await tester.pump();
+      await _turn(tester);
     }
+  }
+
+  /// [settle] 之後繼續讓事件迴圈跑，直到 [condition] 成立；上限是實際時間 [timeout]。
+  ///
+  /// [condition] 是 App 自己的狀態（例如引導的整批安裝結束、插件清單載入完）：插件的背景
+  /// isolate 多久做完和這裡跑了幾輪無關，只能等它做完的那個狀態。
+  Future<void> settleUntil(
+    WidgetTester tester,
+    bool Function() condition, {
+    Duration timeout = const Duration(seconds: 10),
+    String? reason,
+  }) async {
+    await settle(tester);
+    final elapsed = Stopwatch()..start();
+    while (!condition()) {
+      if (elapsed.elapsed > timeout) {
+        fail(reason ?? 'condition never became true within $timeout');
+      }
+      await _turn(tester);
+    }
+  }
+
+  Future<void> _turn(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
   }
 
   /// 已安裝的插件（資料庫）。

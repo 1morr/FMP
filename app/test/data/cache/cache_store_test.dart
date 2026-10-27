@@ -19,6 +19,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'cache_harness.dart';
 import '../../support/memory_database.dart';
+import '../../support/pump_until.dart';
 
 void main() {
   group('opening', () {
@@ -760,7 +761,7 @@ void main() {
       await at(2, () => put(manager, 'https://example.test/2.jpg', 900 * 1024));
 
       await repository.write(cacheLimitMebibytes: 1);
-      await eventually(
+      await pollUntil(
         () async =>
             (await store.watchUsage().first)[CacheCategory.image] == 900 * 1024,
         reason: 'the cache was not evicted after the limit was lowered',
