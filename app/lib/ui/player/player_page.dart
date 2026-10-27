@@ -6,66 +6,83 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:fmp/core/core_providers.dart';
-import 'package:fmp/core/errors/app_error.dart';
-import 'package:fmp/data/providers.dart';
-import 'package:fmp/domain/playback_speed.dart';
-import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
-import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
-import 'package:fmp/ui/layout/layout_state.dart';
-import 'package:fmp/ui/layout/window_class.dart';
-import 'package:fmp/ui/player/glass_panel.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_controls.dart';
+import 'package:fmp/ui/player/player_top_bar.dart';
 import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/shell/focus_regions.dart';
-import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/open_queue.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 播放頁（ADR 0024 §決定 4，design §9.3、§9.5、§9.6）：全螢幕、推在根 Navigator 上，
-/// 所以提示（`ToastHost` 包住 Navigator）仍在它上面。
+/// 播放頁的三種版面（ADR 0035 §決定 3，design §4）。
+enum PlayerLayout {
+  /// 寬 >= 840 且高 >= 520。M7 之前沒有歌詞，所以單欄置中（內容寬上限 720）；M7 加歌詞時
+  /// 改成左 5 份封面與控制、右 7 份歌詞（design §4）。
+  wide,
+
+  /// 單欄：封面在上、控制在下。
+  narrow,
+
+  /// 寬大於高而高 < 520（橫向手機）：左封面、右控制。
+  short,
+}
+
+/// [size]（整個視窗）該用哪一套版面。
+PlayerLayout resolvePlayerLayout(Size size) {
+  final isShort = size.height < AppLayout.playerWideMinHeight;
+  if (!isShort && size.width >= AppLayout.playerWideMinWidth) {
+    return PlayerLayout.wide;
+  }
+  return isShort && size.width > size.height
+      ? PlayerLayout.short
+      : PlayerLayout.narrow;
+}
+
+/// 播放頁（ADR 0035 §決定 3，design §4）：全螢幕、推在根 Navigator 上，所以提示
+/// （`ToastHost` 包住 Navigator）仍在它上面。從底部上滑開啟、下滑關閉。
 ///
-/// 版面依整個視窗的 `WindowClass`：
-/// - compact、medium：封面與歌詞切換（點封面或按 Ctrl+L），控制在下方；
-/// - expanded、large：左右各半。左是封面、曲名、進度與控制，右是分頁「歌詞｜詳細」；
-/// - extraLarge：三欄約 1：1.15：0.9，封面與控制｜歌詞｜分頁「詳細」。
+/// 版面看整個視窗的寬高（[PlayerLayout]）。頂列是收合、加入歌單、輸出裝置與音量（桌面）、
+/// 資訊、「⋯」（[PlayerTopBar]）；資訊在窄版開底部面板、寬版開右側滑入的面板，內容都是
+/// [TrackDetails]。曲名置中粗體、80dp 實心播放鍵，沒有底板。歌詞 M7 才做，封面與歌詞的切換
+/// 也在那時回來。
 ///
 /// 佇列不在這一頁：它是外殼的導覽目的地（ADR 0035 §決定 2）；Ctrl+Q 關掉這一頁並切過去。
 ///
-/// 背景是模糊的封面加遮罩，控制區與右欄是毛玻璃（[GlassPanel]）。
+/// 背景是模糊的封面加遮罩。
 ///
 /// 關閉：左上角的收合鈕、Esc（頁面自己的 `Shortcuts`；對話框與選單照 Flutter 內建先
-/// 關）、Android 返回鍵（route 先 pop，只關這一頁）。佇列變空或沒有目前這首時自己關閉。
+/// 關；右側詳細面板開著時先關面板）、Android 返回鍵（route 先 pop，只關這一頁）。
+/// 佇列變空或沒有目前這首時自己關閉。
 ///
-/// 焦點分區：控制區｜（extraLarge 的）歌詞欄｜右欄分頁；F6 在頁內循環，Tab 只在區內。
+/// 焦點分區：控制區｜（開著時的）右側詳細面板；F6 在頁內循環，Tab 只在區內。
 /// 外殼的三區留在這頁底下不動。
 class PlayerPage extends ConsumerStatefulWidget {
-  const PlayerPage({super.key, this.entry = PlayerPageEntry.none});
-
-  /// 開啟時要先做的事（Ctrl+L 開頁）。
-  final PlayerPageEntry entry;
+  const PlayerPage({super.key});
 
   /// 收合（關閉）鈕；測試與外殼以它找。
-  static const closeKey = ValueKey('player-page-close');
+  static const closeKey = PlayerTopBar.closeKey;
+
+  /// 資訊鈕。
+  static const infoKey = PlayerTopBar.infoKey;
+
+  /// 寬版右側滑入的詳細面板與它的關閉鈕。
+  static const detailsPanelKey = ValueKey('player-page-details-panel');
+  static const closeDetailsKey = ValueKey('player-page-details-close');
 
   @override
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
 }
-
-/// 開啟播放頁時順便要做的事。
-enum PlayerPageEntry { none, lyrics }
 
 /// Esc：關閉播放頁。
 final class ClosePlayerPageIntent extends Intent {
@@ -88,16 +105,11 @@ final class PlayerPageOpen extends Notifier<bool> {
 
 /// 開播放頁：推在根 Navigator 上。已經開著就什麼都不做。關閉之後（轉場結束）焦點回到
 /// [opener]（沒給就是開的當下有焦點的元件）。
-Future<void> openPlayerPage(
-  BuildContext context, {
-  FocusNode? opener,
-  PlayerPageEntry entry = PlayerPageEntry.none,
-}) async {
+Future<void> openPlayerPage(BuildContext context, {FocusNode? opener}) async {
   final container = ProviderScope.containerOf(context);
   if (container.read(playerPageOpenProvider)) return;
   opener ??= FocusManager.instance.primaryFocus;
   final route = _PlayerPageRoute(
-    entry: entry,
     onOpenChanged: (open) =>
         container.read(playerPageOpenProvider.notifier).set(open),
   );
@@ -113,19 +125,44 @@ Future<void> openPlayerPage(
   }
 }
 
-/// 全螢幕的播放頁 route；push 時通知 [onOpenChanged] 開了，pop 或被移除
-/// （`removeRoute`）時通知關了，各一次。
-final class _PlayerPageRoute extends MaterialPageRoute<void> {
-  _PlayerPageRoute({
-    required PlayerPageEntry entry,
-    required this.onOpenChanged,
-  }) : super(
-         fullscreenDialog: true,
-         settings: const RouteSettings(name: 'player-page'),
-         builder: (_) => PlayerPage(entry: entry),
-       );
+/// 全螢幕的播放頁 route：從底部上滑（`easeOutCubic`），關閉時下滑（`easeInCubic`），同舊版
+/// `router.dart`；系統要求減少動態時改成淡入淡出。push 時通知 [onOpenChanged] 開了，pop 或
+/// 被移除（`removeRoute`）時通知關了，各一次。
+final class _PlayerPageRoute extends PageRouteBuilder<void> {
+  _PlayerPageRoute({required this.onOpenChanged})
+    : super(
+        fullscreenDialog: true,
+        settings: const RouteSettings(name: 'player-page'),
+        transitionDuration: AppLayout.playerTransition,
+        reverseTransitionDuration: AppLayout.playerTransition,
+        pageBuilder: (_, _, _) => const PlayerPage(),
+        transitionsBuilder: _transition,
+      );
 
   final void Function(bool open) onOpenChanged;
+
+  static Widget _transition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return FadeTransition(opacity: curved, child: child);
+    }
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 1),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    );
+  }
 
   var _open = false;
 
@@ -159,93 +196,28 @@ final class _PlayerPageRoute extends MaterialPageRoute<void> {
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
   final _controls = FocusScopeNode(debugLabel: 'Player page controls');
-  final _lyrics = FocusScopeNode(debugLabel: 'Player page lyrics');
-  final _tabs = FocusScopeNode(debugLabel: 'Player page tabs');
-  final _lyricsTarget = FocusNode(debugLabel: 'Player page lyrics column');
+  final _details = FocusScopeNode(debugLabel: 'Player page details');
 
-  /// 這次開著的期間使用者選的分頁；還沒選過用記住的（資料庫的值要等一下才讀出來）。
-  PlayerTab? _selected;
+  /// 使用者打開了寬版右側的詳細面板。只有寬版畫得出來，看 [_panelOpen]。
+  var _detailsOpen = false;
 
-  /// compact、medium：顯示歌詞而不是封面。
-  var _lyricsFace = false;
+  /// 上一次 build 的版面（視窗縮放時跟著換）。
+  PlayerLayout? _layout;
 
-  @override
-  void initState() {
-    super.initState();
-    if (widget.entry != PlayerPageEntry.none) {
-      // 要等第一次 build 之後才知道視窗等級。
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        switch (widget.entry) {
-          case PlayerPageEntry.lyrics:
-            _showLyrics();
-          case PlayerPageEntry.none:
-            break;
-        }
-      });
-    }
-  }
+  /// 右側詳細面板畫在畫面上：打開了而且是寬版。視窗縮到不是寬版時面板收掉，Esc 直接關頁面。
+  bool get _panelOpen => _detailsOpen && _layout == PlayerLayout.wide;
+
+  /// 窄版的詳細底部面板開著。
+  var _sheetOpen = false;
+
+  /// 那個底部面板的 route（建好之後才有）。
+  ModalRoute<void>? _sheet;
 
   @override
   void dispose() {
-    for (final node in [_controls, _lyrics, _tabs, _lyricsTarget]) {
-      node.dispose();
-    }
+    _controls.dispose();
+    _details.dispose();
     super.dispose();
-  }
-
-  // ---- 分頁 -----------------------------------------------------------------
-
-  /// 目前顯示的分頁：使用者選的，沒選過是記住的，再沒有是歌詞。記住的是已拿掉的佇列分頁
-  /// （`PlayerTab.queue`，資料庫的值不動）時當作沒記過。extraLarge 沒有歌詞分頁，是歌詞時
-  /// 顯示詳細，但不覆寫記憶。
-  PlayerTab _tabOf(WindowClass windowClass) {
-    final stored = ref.watch(
-      layoutStateProvider.select((s) => s.value?.playerTab),
-    );
-    final tab =
-        _selected ??
-        (stored == PlayerTab.queue ? null : stored) ??
-        PlayerTab.lyrics;
-    return windowClass == WindowClass.extraLarge && tab == PlayerTab.lyrics
-        ? PlayerTab.details
-        : tab;
-  }
-
-  void _select(PlayerTab tab) {
-    setState(() => _selected = tab);
-    unawaited(
-      ref.read(layoutStateRepositoryProvider).write(playerTab: tab).catchError((
-        Object error,
-        StackTrace stackTrace,
-      ) {
-        ref
-            .read(logProvider)
-            .report(
-              'Failed to remember the player tab',
-              AppError.wrap(error, stackTrace),
-              tag: 'layout',
-            );
-      }),
-    );
-  }
-
-  bool get _hasTabs => switch (WindowClass.of(context)) {
-    WindowClass.expanded || WindowClass.large || WindowClass.extraLarge => true,
-    WindowClass.compact || WindowClass.medium => false,
-  };
-
-  /// Ctrl+L：右欄切到歌詞；extraLarge 的歌詞是一欄，焦點移過去；compact、medium 切到歌詞
-  /// 那一面。
-  void _showLyrics() {
-    switch (WindowClass.of(context)) {
-      case WindowClass.compact || WindowClass.medium:
-        setState(() => _lyricsFace = true);
-      case WindowClass.expanded || WindowClass.large:
-        _select(PlayerTab.lyrics);
-      case WindowClass.extraLarge:
-        focusInto(_lyrics);
-    }
   }
 
   /// Ctrl+Q：關掉播放頁，轉場結束後請外殼切到佇列目的地（和在外殼按 Ctrl+Q 同一個結果）。
@@ -260,15 +232,65 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   void _close() => unawaited(Navigator.of(context).maybePop());
 
+  /// Esc：右側詳細面板開著先關它，否則關頁面。
+  void _escape() {
+    if (_panelOpen) {
+      _closeDetails();
+    } else {
+      _close();
+    }
+  }
+
+  /// 關右側詳細面板。焦點在面板裡時不用另外處理：面板的 scope 拆掉後，焦點照 Flutter 的
+  /// scope 記錄回到控制區上次的焦點。
+  void _closeDetails() => setState(() => _detailsOpen = false);
+
   /// 播放頁還在這個 route 上才移除它：佇列清空的當下可能還有對話框蓋在上面。
   void _removeSelf() {
     final route = ModalRoute.of(context);
     if (route != null && route.isActive) {
+      // 窄版的詳細面板是另一個 route，蓋在播放頁上，一起移除。指名移除它而不是 pop：
+      // 最上層可能是別的 route（例如提示開的錯誤詳細頁）。
+      final sheet = _sheet;
+      if (sheet != null && sheet.isActive) route.navigator?.removeRoute(sheet);
       route.navigator?.removeRoute(route);
     }
   }
 
-  // ---- 版面 -----------------------------------------------------------------
+  void _onInfo(PlayerLayout layout) {
+    if (layout == PlayerLayout.wide) {
+      setState(() => _detailsOpen = !_detailsOpen);
+      return;
+    }
+    unawaited(_showSheet());
+  }
+
+  Future<void> _showSheet() async {
+    if (_sheetOpen) return;
+    _sheetOpen = true;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          _sheet = ModalRoute.of(sheetContext);
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: AppLayout.playerDetailsSheetInitial,
+            minChildSize: AppLayout.playerDetailsSheetMin,
+            maxChildSize: AppLayout.playerDetailsSheetMax,
+            builder: (_, scrollController) =>
+                _CurrentDetails(scrollController: scrollController),
+          );
+        },
+      );
+    } finally {
+      _sheetOpen = false;
+      _sheet = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -290,135 +312,332 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       });
       return const SizedBox.shrink();
     }
-    final windowClass = WindowClass.of(context);
-    final tab = _tabOf(windowClass);
-    final scheme = Theme.of(context).colorScheme;
-    final spacing = AppTokens.of(context).spacing;
-
-    Widget region(FocusScopeNode node, Widget child) => FocusScope(
-      node: node,
-      child: FocusTraversalGroup(child: child),
-    );
-    Widget panel(Widget child) => Padding(
-      padding: EdgeInsets.all(spacing.x4),
-      child: GlassPanel(child: child),
-    );
-    final backdrop = live?.toTrackInfo() ?? track!;
-    final details = live != null
-        ? LiveDetails(info: live)
-        : TrackDetails(track: track!);
-    final left = region(
-      _controls,
-      _MainColumn(
-        pluginId: backdrop.sourceTypeId,
-        artwork: backdrop.artwork,
-        transport: live != null
+    // 整個視窗的寬高（頁面就是全螢幕）。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = resolvePlayerLayout(constraints.biggest);
+        final scheme = Theme.of(context).colorScheme;
+        final backdrop = live?.toTrackInfo() ?? track!;
+        final transport = live != null
             ? _LiveTransport(info: live)
-            : _Transport(track: track!, queue: queue),
-        onClose: _close,
-        // compact、medium 的歌詞那一面在這一欄裡；更寬的版面歌詞在別欄。
-        lyricsFace: !_hasTabs && _lyricsFace,
-        onToggleFace: _hasTabs
-            ? null
-            : () => setState(() => _lyricsFace = !_lyricsFace),
-      ),
-    );
-    final body = switch (windowClass) {
-      WindowClass.compact || WindowClass.medium => left,
-      WindowClass.expanded || WindowClass.large => Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: left),
-          Expanded(
-            child: region(
-              _tabs,
-              panel(
-                _PlayerTabs(
-                  key: const ValueKey('tabs-2'),
-                  tabs: const [PlayerTab.lyrics, PlayerTab.details],
-                  selected: tab,
-                  onSelected: _select,
-                  details: details,
-                ),
-              ),
-            ),
+            : _Transport(track: track!, queue: queue);
+        final cover = _Cover(
+          pluginId: backdrop.sourceTypeId,
+          artwork: backdrop.artwork,
+        );
+        final content = switch (layout) {
+          PlayerLayout.wide => _WideContent(cover: cover, transport: transport),
+          PlayerLayout.narrow => _NarrowContent(
+            cover: cover,
+            transport: transport,
           ),
-        ],
-      ),
-      // 約 1：1.15：0.9。
-      WindowClass.extraLarge => Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(flex: 100, child: left),
-          Expanded(
-            flex: 115,
-            child: region(
-              _lyrics,
-              panel(Focus(focusNode: _lyricsTarget, child: const _NoLyrics())),
-            ),
+          PlayerLayout.short => _ShortContent(
+            cover: cover,
+            transport: transport,
           ),
-          Expanded(
-            flex: 90,
-            child: region(
-              _tabs,
-              panel(
-                _PlayerTabs(
-                  key: const ValueKey('tabs-1'),
-                  tabs: const [PlayerTab.details],
-                  selected: tab,
-                  onSelected: _select,
-                  details: details,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    };
+        };
+        _layout = layout;
+        final panelOpen = _panelOpen;
 
-    final regions = [
-      _controls,
-      if (windowClass == WindowClass.extraLarge) _lyrics,
-      if (_hasTabs) _tabs,
-    ];
-    return PlaybackShortcuts(
-      child: Shortcuts(
-        shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.escape): ClosePlayerPageIntent(),
-          SingleActivator(LogicalKeyboardKey.f6): NextRegionIntent(),
-        },
-        child: Actions(
-          actions: {
-            ClosePlayerPageIntent: CallbackAction<ClosePlayerPageIntent>(
-              onInvoke: (_) => _close(),
-            ),
-            NextRegionIntent: CallbackAction<NextRegionIntent>(
-              onInvoke: (_) => focusNextRegion(regions),
-            ),
-            ShowLyricsIntent: TextInputAwareAction<ShowLyricsIntent>(
-              onInvoke: (_) => _showLyrics(),
-            ),
-            ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
-              onInvoke: (_) => unawaited(_showQueue()),
-            ),
-          },
-          // 一開始就有焦點在頁面裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
-          child: Focus(
-            autofocus: true,
-            skipTraversal: true,
-            child: Material(
-              color: scheme.surface,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _Backdrop(track: backdrop),
-                  SafeArea(child: body),
-                ],
+        final regions = [_controls, if (panelOpen) _details];
+        final endIsLeft = Directionality.of(context) == TextDirection.rtl;
+        return PlaybackShortcuts(
+          child: Shortcuts(
+            shortcuts: const {
+              SingleActivator(LogicalKeyboardKey.escape):
+                  ClosePlayerPageIntent(),
+              SingleActivator(LogicalKeyboardKey.f6): NextRegionIntent(),
+            },
+            child: Actions(
+              actions: {
+                ClosePlayerPageIntent: CallbackAction<ClosePlayerPageIntent>(
+                  onInvoke: (_) => _escape(),
+                ),
+                NextRegionIntent: CallbackAction<NextRegionIntent>(
+                  onInvoke: (_) => focusNextRegion(regions),
+                ),
+                ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
+                  onInvoke: (_) => unawaited(_showQueue()),
+                ),
+              },
+              // 一開始就有焦點在頁面裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
+              child: Focus(
+                autofocus: true,
+                skipTraversal: true,
+                child: Material(
+                  color: scheme.surface,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _Backdrop(track: backdrop),
+                      SafeArea(
+                        child: FocusScope(
+                          node: _controls,
+                          child: FocusTraversalGroup(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                PlayerTopBar(
+                                  track: track,
+                                  live: live,
+                                  onClose: _close,
+                                  onInfo: () => _onInfo(layout),
+                                  infoOpen: panelOpen,
+                                ),
+                                Expanded(child: content),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      PositionedDirectional(
+                        top: 0,
+                        bottom: 0,
+                        end: 0,
+                        width: AppLayout.playerDetailsPanelWidth,
+                        // 面板貼著結尾那一邊：開頭那一邊不在螢幕邊緣，不留安全區。
+                        child: SafeArea(
+                          left: endIsLeft,
+                          right: !endIsLeft,
+                          child: AnimatedSwitcher(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : AppLayout.playerTransition,
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            layoutBuilder: (current, previous) => Stack(
+                              fit: StackFit.expand,
+                              children: [...previous, ?current],
+                            ),
+                            transitionBuilder: (child, animation) =>
+                                SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(1, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                            child: panelOpen
+                                ? _DetailsPanel(
+                                    key: PlayerPage.detailsPanelKey,
+                                    node: _details,
+                                    onClose: _closeDetails,
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 寬版右側滑入的曲目詳細面板：標題、關閉鈕與 [TrackDetails]（直播是 [LiveDetails]）。
+class _DetailsPanel extends ConsumerWidget {
+  const _DetailsPanel({super.key, required this.node, required this.onClose});
+
+  final FocusScopeNode node;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).playerPage;
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    return FocusScope(
+      node: node,
+      child: FocusTraversalGroup(
+        child: Material(
+          color: theme.colorScheme.surfaceContainer,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: spacing.x4,
+                  end: spacing.x2,
+                  top: spacing.x2,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          t.infoTooltip,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: PlayerPage.closeDetailsKey,
+                      tooltip: t.closeInfoTooltip,
+                      icon: const Icon(Icons.close),
+                      onPressed: onClose,
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: _CurrentDetails()),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 目前這首（或直播間）的詳細；換歌時跟著換。窄版的底部面板與寬版的側邊面板共用。
+class _CurrentDetails extends ConsumerWidget {
+  const _CurrentDetails({this.scrollController});
+
+  /// 底部面板的捲動控制器（拖曳面板與捲動內容接在一起）。
+  final ScrollController? scrollController;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final track = ref.watch(playbackQueueProvider).value?.current;
+    final live = ref.watch(nowPlayingLiveProvider);
+    return switch ((live, track)) {
+      (final live?, _) => LiveDetails(
+        info: live,
+        scrollController: scrollController,
+      ),
+      (_, final track?) => TrackDetails(
+        track: track,
+        scrollController: scrollController,
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+}
+
+/// 窄版：封面在上可伸縮，控制在下。
+class _NarrowContent extends StatelessWidget {
+  const _NarrowContent({required this.cover, required this.transport});
+
+  final Widget cover;
+  final Widget transport;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = AppTokens.of(context).spacing;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        spacing.x4,
+        spacing.x2,
+        spacing.x4,
+        spacing.x6,
+      ),
+      child: Column(
+        children: [
+          Expanded(child: cover),
+          SizedBox(height: spacing.x8),
+          transport,
+        ],
+      ),
+    );
+  }
+}
+
+/// 寬版：窄版的單欄置中，內容寬上限 720。M7 加歌詞時在這裡改成 5:7 雙欄。
+class _WideContent extends StatelessWidget {
+  const _WideContent({required this.cover, required this.transport});
+
+  final Widget cover;
+  final Widget transport;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: AppLayout.playerContentMaxWide,
+      ),
+      child: _NarrowContent(cover: cover, transport: transport),
+    ),
+  );
+}
+
+/// 矮版（橫向手機）：左邊封面，右邊控制，控制放不下時可以捲動。
+class _ShortContent extends StatelessWidget {
+  const _ShortContent({required this.cover, required this.transport});
+
+  final Widget cover;
+  final Widget transport;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = AppTokens.of(context).spacing;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(spacing.x6, 0, spacing.x6, spacing.x4),
+      child: Row(
+        children: [
+          Expanded(child: cover),
+          SizedBox(width: spacing.x8),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(primary: false, child: transport),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 大封面（P-17）：邊長取可用寬高的較小值、上限 420，大圓角加陰影。
+class _Cover extends StatelessWidget {
+  const _Cover({required this.pluginId, required this.artwork});
+
+  final String pluginId;
+  final List<TrackArtwork> artwork;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(AppTokens.of(context).radius.large);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = math.max(
+          0.0,
+          math.min(
+            AppLayout.playerArtworkMax,
+            math.min(constraints.maxWidth, constraints.maxHeight),
+          ),
+        );
+        return Center(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.shadow.withValues(
+                    alpha: AppLayout.playerCoverShadowOpacity,
+                  ),
+                  blurRadius: AppLayout.playerCoverShadowBlur,
+                  offset: const Offset(0, AppLayout.playerCoverShadowOffset),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: ArtworkImage(
+                pluginId: pluginId,
+                artwork: artwork,
+                size: size,
+                rounded: false,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -453,7 +672,7 @@ class _Backdrop extends StatelessWidget {
             ),
           ),
         ),
-        // 遮罩用主題的 `surface` 而不是黑色：淺色主題下深色封面不會把毛玻璃底下墊黑，
+        // 遮罩用主題的 `surface` 而不是黑色：淺色主題下深色封面不會把背景墊黑，
         // 上面的深色字才有足夠的對比；深色主題下它本來就是深色。
         ColoredBox(
           color: scheme.surface.withValues(alpha: AppLayout.playerScrimOpacity),
@@ -463,99 +682,8 @@ class _Backdrop extends StatelessWidget {
   }
 }
 
-/// 封面欄（左欄）：頂端的收合鈕、封面、毛玻璃上的曲名、進度與控制（[transport]；直播是
-/// 直播版）。compact、medium 時封面可以換成歌詞。
-class _MainColumn extends ConsumerWidget {
-  const _MainColumn({
-    required this.pluginId,
-    required this.artwork,
-    required this.transport,
-    required this.onClose,
-    required this.lyricsFace,
-    required this.onToggleFace,
-  });
-
-  /// 封面所屬的插件與封面（曲目或直播間的）。
-  final String pluginId;
-  final List<TrackArtwork> artwork;
-
-  /// 毛玻璃上的曲名與控制。
-  final Widget transport;
-  final VoidCallback onClose;
-  final bool lyricsFace;
-
-  /// 點封面（歌詞）切換；有分頁的版面沒有這個動作。
-  final VoidCallback? onToggleFace;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider);
-    final spacing = AppTokens.of(context).spacing;
-    final toggle = onToggleFace;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.all(spacing.x2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                key: PlayerPage.closeKey,
-                tooltip: t.playerPage.closeTooltip,
-                icon: const Icon(Icons.keyboard_arrow_down),
-                onPressed: onClose,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.x4),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final size = math.min(
-                  AppLayout.playerArtworkMax,
-                  math.min(constraints.maxWidth, constraints.maxHeight),
-                );
-                final face = lyricsFace
-                    ? GlassPanel(child: const _NoLyrics())
-                    : Center(
-                        child: ArtworkImage(
-                          pluginId: pluginId,
-                          artwork: artwork,
-                          size: size,
-                        ),
-                      );
-                if (toggle == null) return face;
-                return Semantics(
-                  button: true,
-                  label: lyricsFace
-                      ? t.playerPage.showArtworkTooltip
-                      : t.playerPage.showLyricsTooltip,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(
-                      AppTokens.of(context).radius.large,
-                    ),
-                    onTap: toggle,
-                    child: face,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.all(spacing.x4),
-          child: GlassPanel(child: transport),
-        ),
-      ],
-    );
-  }
-}
-
 /// 直播版的控制區（ADR 0031 §決定 7）：直播標題、狀態與主播、標記與已收聽時間與人數，
-/// 播放（暫停就是停止串流）、停止收聽、「⋯」。沒有進度條，也沒有上一首、下一首、隨機、循環。
+/// 播放（暫停就是停止串流）、停止收聽。沒有進度條，也沒有上一首、下一首、隨機、循環。
 class _LiveTransport extends ConsumerWidget {
   const _LiveTransport({required this.info});
 
@@ -574,47 +702,57 @@ class _LiveTransport extends ConsumerWidget {
       sourceName: ref.watch(pluginNameProvider(info.target.pluginId)),
     );
     final host = info.hostName;
-    final hasMenu = hasNowPlayingPanel(WindowClass.of(context));
-    return Padding(
-      padding: EdgeInsets.all(spacing.x4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            info.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge,
-          ),
-          if (status != null || host != null)
-            _StatusLine(
-              status: status,
-              uploader: host,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Title(info.title),
+        if (status != null || host != null)
+          _StatusLine(
+            status: status,
+            uploader: host,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          SizedBox(height: spacing.x2),
-          LiveFacts(info: info),
-          SizedBox(height: spacing.x2),
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              PlayPauseButton(state: state),
-              const StopLiveButton(),
-              // 直播的「⋯」只有面板的勾選項（直播沒有播放速度）；compact、medium 沒有面板。
-              if (hasMenu) const _MoreMenu(live: true),
-            ],
           ),
-        ],
-      ),
+        SizedBox(height: spacing.x2),
+        LiveFacts(info: info, alignment: WrapAlignment.center),
+        SizedBox(height: spacing.x2),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            PlayPauseButton(
+              state: state,
+              diameter: AppLayout.playerPlayButton,
+              iconSize: AppLayout.playerPlayIcon,
+            ),
+            const StopLiveButton(),
+          ],
+        ),
+      ],
     );
   }
 }
 
-/// 曲名下那一行：狀態（主色）在前、上傳者或主播在後，放不下就省略；狀態改變時讀出來
+/// 曲名：置中、粗體、最多兩行（P-02）。
+class _Title extends StatelessWidget {
+  const _Title(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    textAlign: TextAlign.center,
+    style: Theme.of(context).textTheme.headlineSmall
+        ?.copyWith(fontWeight: FontWeight.bold),
+  );
+}
+
+/// 曲名下那一行：狀態（主色）在前、上傳者或主播在後，置中，放不下就省略；狀態改變時讀出來
 /// （live region），不搶焦點。
 class _StatusLine extends StatelessWidget {
   const _StatusLine({
@@ -649,6 +787,7 @@ class _StatusLine extends StatelessWidget {
             if (uploader != null) TextSpan(text: uploader),
           ],
         ),
+        textAlign: TextAlign.center,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: style,
@@ -657,7 +796,8 @@ class _StatusLine extends StatelessWidget {
   }
 }
 
-/// 曲名、上傳者與狀態、進度條、五個控制加「⋯」。
+/// 曲名、上傳者與狀態、進度條、五個控制（P-02）：隨機、上一首、80dp 實心播放鍵、下一首、
+/// 循環，均分整列寬度。
 class _Transport extends ConsumerWidget {
   const _Transport({required this.track, required this.queue});
 
@@ -673,180 +813,53 @@ class _Transport extends ConsumerWidget {
     final previewing = ref.watch(playbackPreviewProvider).value ?? false;
     final status = playbackStatusLabel(t, state, previewing: previewing);
     final uploader = track.uploader;
-    final subtitleStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    return Padding(
-      padding: EdgeInsets.all(spacing.x4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            track.displayTitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge,
-          ),
-          if (status != null || uploader != null)
-            _StatusLine(
-              status: status,
-              uploader: uploader,
-              style: subtitleStyle,
-            ),
-          const ProgressRow(),
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ShuffleButton(
-                enabled: queue.shuffleEnabled,
-                locked: queue.mix != null,
-              ),
-              const PreviousButton(),
-              PlayPauseButton(state: state),
-              NextButton(enabled: queue.hasNext),
-              LoopButton(mode: queue.loopMode, inMix: queue.mix != null),
-              const _MoreMenu(),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 「⋯」：播放速度（不持久化，重啟回到 1.0；design §7.6），以及 expanded 以上的
-/// 「正在播放面板」勾選項（design §9.3；compact、medium 沒有面板）。直播（[live]）只有
-/// 面板的勾選項：直播跟著實際時間，沒有播放速度。
-class _MoreMenu extends ConsumerWidget {
-  const _MoreMenu({this.live = false});
-
-  final bool live;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider);
-    final speed = ref.watch(playbackSpeedProvider).value ?? 1.0;
-    // 播放頁在根 Navigator 上，讀到的是整個視窗的等級。
-    final hasPanel = hasNowPlayingPanel(WindowClass.of(context));
-    final panelExpanded = ref.watch(panelExpandedProvider);
-    return IconMenu(
-      tooltip: t.player.more,
-      icon: const Icon(Icons.more_horiz),
-      menuChildren: [
-        if (hasPanel)
-          CheckboxMenuButton(
-            value: panelExpanded,
-            onChanged: (_) => rememberPanel(ref, expanded: !panelExpanded),
-            child: Text(t.shell.panelMenuItem),
-          ),
-        if (!live)
-          SubmenuButton(
-            leadingIcon: const Icon(Icons.speed),
-            menuChildren: [
-              for (final option in speedOptions)
-                Semantics(
-                  selected: option == speed,
-                  child: MenuItemButton(
-                    leadingIcon: Visibility.maintain(
-                      visible: option == speed,
-                      child: const Icon(Icons.check),
-                    ),
-                    onPressed: () => unawaited(
-                      ref.read(playbackControllerProvider).setSpeed(option),
-                    ),
-                    child: Text(t.playerPage.speedValue(speed: option)),
-                  ),
-                ),
-            ],
-            child: Text(t.playerPage.speed),
-          ),
-      ],
-    );
-  }
-}
-
-/// 歌詞：M2 一律是「沒有歌詞」（design §9.3；M7 接上內容）。
-class _NoLyrics extends ConsumerWidget {
-  const _NoLyrics();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => EmptyState(
-    icon: Icons.lyrics_outlined,
-    title: ref.watch(translationsProvider).playerPage.noLyrics,
-  );
-}
-
-/// 右欄的分頁列與內容。分頁數不同（extraLarge 沒有歌詞）時以 key 換掉整個 state。
-class _PlayerTabs extends ConsumerStatefulWidget {
-  const _PlayerTabs({
-    super.key,
-    required this.tabs,
-    required this.selected,
-    required this.onSelected,
-    required this.details,
-  });
-
-  final List<PlayerTab> tabs;
-  final PlayerTab selected;
-  final ValueChanged<PlayerTab> onSelected;
-
-  /// 「詳細」分頁的內容：曲目的 [TrackDetails] 或直播間的 [LiveDetails]。
-  final Widget details;
-
-  @override
-  ConsumerState<_PlayerTabs> createState() => _PlayerTabsState();
-}
-
-class _PlayerTabsState extends ConsumerState<_PlayerTabs>
-    with SingleTickerProviderStateMixin {
-  late final TabController _controller = TabController(
-    length: widget.tabs.length,
-    vsync: this,
-    initialIndex: _indexOf(widget.selected),
-  );
-
-  int _indexOf(PlayerTab tab) =>
-      widget.tabs.indexOf(tab).clamp(0, widget.tabs.length - 1);
-
-  @override
-  void didUpdateWidget(_PlayerTabs oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final index = _indexOf(widget.selected);
-    if (_controller.index != index) _controller.index = index;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ref.watch(translationsProvider).playerPage;
-    String label(PlayerTab tab) => switch (tab) {
-      PlayerTab.lyrics => t.tabLyrics,
-      // 佇列分頁已拿掉；`_tabOf` 不會給出它，這裡只為了 switch 完整。
-      PlayerTab.queue => t.tabDetails,
-      PlayerTab.details => t.tabDetails,
-    };
-    final selected = widget.tabs[_indexOf(widget.selected)];
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TabBar(
-          controller: _controller,
-          onTap: (index) => widget.onSelected(widget.tabs[index]),
-          tabs: [for (final tab in widget.tabs) Tab(text: label(tab))],
-        ),
-        Expanded(
-          child: switch (selected) {
-            PlayerTab.lyrics => const _NoLyrics(),
-            PlayerTab.queue => widget.details,
-            PlayerTab.details => widget.details,
-          },
+        _Title(track.displayTitle),
+        if (status != null || uploader != null)
+          _StatusLine(
+            status: status,
+            uploader: uploader,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        SizedBox(height: spacing.x4),
+        const ProgressRow(),
+        SizedBox(height: spacing.x2),
+        // 五個控制的自然寬度加起來約 288dp；比它窄（橫向手機的右半邊）就整排縮小，不 overflow。
+        LayoutBuilder(
+          builder: (context, constraints) => FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: math.max(
+                constraints.maxWidth,
+                AppLayout.playerControlsMinWidth,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ShuffleButton(
+                    enabled: queue.shuffleEnabled,
+                    locked: queue.mix != null,
+                  ),
+                  const PreviousButton(iconSize: AppLayout.playerSkipIcon),
+                  PlayPauseButton(
+                    state: state,
+                    diameter: AppLayout.playerPlayButton,
+                    iconSize: AppLayout.playerPlayIcon,
+                  ),
+                  NextButton(
+                    enabled: queue.hasNext,
+                    iconSize: AppLayout.playerSkipIcon,
+                  ),
+                  LoopButton(mode: queue.loopMode, inMix: queue.mix != null),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );

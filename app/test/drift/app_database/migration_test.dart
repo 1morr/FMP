@@ -30,6 +30,7 @@ import 'generated/schema_v19.dart' as v19;
 import 'generated/schema_v20.dart' as v20;
 import 'generated/schema_v21.dart' as v21;
 import 'generated/schema_v22.dart' as v22;
+import 'generated/schema_v23.dart' as v23;
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -515,8 +516,8 @@ void main() {
   Future<void> expectLayoutStateRules(AppDatabase db) async {
     expect(await db.select(db.layoutStateTable).get(), isEmpty);
     await db.customStatement(
-      "INSERT INTO layout_state (id, player_tab, panel_expanded, panel_width) "
-      "VALUES (1, 'queue', 1, 412.0)",
+      'INSERT INTO layout_state (id, panel_expanded, panel_width) '
+      'VALUES (1, 1, 412.0)',
     );
     // 單列：第二列插不進去。
     await expectLater(
@@ -2343,6 +2344,61 @@ void main() {
         ),
         throwsA(anything),
       );
+      await db.close();
+    });
+  }
+
+  // v23 刪 layout_state.player_tab（ADR 0035 §決定 5）：其餘欄位的值不變。
+  test(
+    'migration from v22 to v23 drops player_tab and keeps the other values',
+    () async {
+      await verifier.testWithDataIntegrity(
+        oldVersion: 22,
+        newVersion: 23,
+        createOld: v22.DatabaseAtV22.new,
+        createNew: v23.DatabaseAtV23.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          batch.insert(
+            oldDb.layoutState,
+            const v22.LayoutStateData(
+              id: 1,
+              playerTab: 'queue',
+              panelExpanded: 0,
+              panelWidth: 480,
+              railExpanded: 1,
+            ),
+          );
+        },
+        validateItems: (newDb) async {
+          expect(await newDb.select(newDb.layoutState).get(), [
+            const v23.LayoutStateData(
+              id: 1,
+              panelExpanded: 0,
+              panelWidth: 480,
+              railExpanded: 1,
+            ),
+          ]);
+        },
+      );
+    },
+  );
+
+  for (var from = 1; from <= 22; from++) {
+    test('migration from v$from to v23 leaves no player_tab column', () async {
+      final schema = await verifier.schemaAt(from);
+      final db = AppDatabase(schema.newConnection());
+      await verifier.migrateAndValidate(db, 23);
+
+      final columns = await db
+          .customSelect('PRAGMA table_info(layout_state)')
+          .get();
+      expect(columns.map((c) => c.read<String>('name')), [
+        'id',
+        'panel_expanded',
+        'panel_width',
+        'rail_expanded',
+      ]);
       await db.close();
     });
   }

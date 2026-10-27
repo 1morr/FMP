@@ -220,10 +220,18 @@ class StopLiveButton extends ConsumerWidget {
 /// 直播間的詳細（播放頁「詳細」分頁與右側面板，同曲目的 [TrackDetails]）：封面、直播標題、
 /// 狀態、標記與人數、主播、音源；[showStop] 時多一個「停止收聽」鈕（面板沒有別的控制）。
 class LiveDetails extends ConsumerWidget {
-  const LiveDetails({super.key, required this.info, this.showStop = false});
+  const LiveDetails({
+    super.key,
+    required this.info,
+    this.showStop = false,
+    this.scrollController,
+  });
 
   final LiveInfo info;
   final bool showStop;
+
+  /// 放在底部面板時，面板給的捲動控制器；其他地方沒有。
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -251,6 +259,7 @@ class LiveDetails extends ConsumerWidget {
               )
             : AppLayout.trackDetailsArtworkMax;
         return SingleChildScrollView(
+          controller: scrollController,
           padding: EdgeInsets.all(spacing.x4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

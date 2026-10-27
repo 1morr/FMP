@@ -1790,15 +1790,9 @@ class Translations$playerPage$zh_CN extends Translations$playerPage$zh_TW {
   @override
   String get closeTooltip => '关闭播放页（Esc）';
   @override
-  String get showLyricsTooltip => '显示歌词（Ctrl+L）';
+  String get infoTooltip => '歌曲信息';
   @override
-  String get showArtworkTooltip => '显示封面';
-  @override
-  String get tabLyrics => '歌词';
-  @override
-  String get tabDetails => '详情';
-  @override
-  String get noLyrics => '没有歌词';
+  String get closeInfoTooltip => '关闭歌曲信息';
   @override
   String get speed => '播放速度';
   @override

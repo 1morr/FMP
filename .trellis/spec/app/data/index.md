@@ -251,7 +251,8 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 
 規則與閘門見 `app/AGENTS.md` § 資料層；design §3.4。
 
-- 單列表，欄位全可空（沒記過）。`LayoutState` 有 `playerTab`、`panelExpanded`、`panelWidth`、`railExpanded`，`write` 的參數也是這四個，
+- 單列表，欄位全可空（沒記過）。`LayoutState` 有 `panelExpanded`、`panelWidth`、`railExpanded`，`write` 的參數也是這三個（`player_tab` 在 v23 刪掉：播放頁拿掉分頁後沒有讀者；
+  刪欄用 `m.dropColumn(schema.layoutState, 'player_tab')`，測試是 v22→v23 的資料完整性與 v1–v22 升上來後欄位清單）。
   沒給（`null`）的不動。
 - 不屬於任何設定組：不進 `settings/`、不進備份。UI 經 `layoutStateProvider`（`lib/ui/layout/layout_state.dart`）讀，
   面板的寫入走同檔的 `rememberPanel`，側欄的走 `rememberRail`。

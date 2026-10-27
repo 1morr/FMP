@@ -150,6 +150,9 @@
 - 平台層 `window_chrome` 與 `shortcutModifier`；`WindowTitleBar`；播放頁頂端的拖曳區。
 - 快捷鍵改讀修飾鍵；Apple 平台用 ⌘，開佇列用 ⌥⌘U。測試以假的平台能力跑兩組。
 - Ctrl+Q 現在是導覽類（切到佇列目的地），決定要不要像 Ctrl+F、Ctrl+, 一樣搬進 `navigationShortcuts`，在輸入框內也有效（PR 3 審查提出）。
+- PR 7 審查留下：Ctrl+L 在 M7 之前不做事（ADR 0035 §決定 7），外殼的對應要拿掉。
+- PR 7 審查留下（改版前就有）：播放頁開著時視窗跨過外殼斷點，外殼重建巢狀 Navigator 會把焦點搶進被蓋住的內容區，播放頁之後收不到 Esc、F6。先寫會紅的測試再修 `app_shell.dart`。
+- PR 7 審查留下：寬版開著曲目詳細面板時，Android 返回鍵直接關整頁（Esc 是先關面板）。照 `app/AGENTS.md` 的 PopScope 規則評估要不要讓返回鍵也先關面板。
 - iOS 的 `CupertinoPageTransitionsBuilder` 與安全區域。用 `TargetPlatform.iOS` 的 widget 測試驗，實機留給 iOS 平台任務。
 - Windows 實機：自繪標題列的拖曳、雙擊最大化、三顆鈕；dev 與 prod 同時開時各自單一實例。
 

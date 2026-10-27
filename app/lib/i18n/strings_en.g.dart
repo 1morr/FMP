@@ -1861,15 +1861,9 @@ class Translations$playerPage$en extends Translations$playerPage$zh_TW {
   @override
   String get closeTooltip => 'Close the player (Esc)';
   @override
-  String get showLyricsTooltip => 'Show lyrics (Ctrl+L)';
+  String get infoTooltip => 'Track info';
   @override
-  String get showArtworkTooltip => 'Show artwork';
-  @override
-  String get tabLyrics => 'Lyrics';
-  @override
-  String get tabDetails => 'Details';
-  @override
-  String get noLyrics => 'No lyrics';
+  String get closeInfoTooltip => 'Close track info';
   @override
   String get speed => 'Playback speed';
   @override

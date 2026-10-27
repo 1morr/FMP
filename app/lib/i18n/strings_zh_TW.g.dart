@@ -2403,20 +2403,11 @@ class Translations$playerPage$zh_TW {
   /// zh-TW: '關閉播放頁（Esc）'
   String get closeTooltip => '關閉播放頁（Esc）';
 
-  /// zh-TW: '顯示歌詞（Ctrl+L）'
-  String get showLyricsTooltip => '顯示歌詞（Ctrl+L）';
+  /// zh-TW: '歌曲資訊'
+  String get infoTooltip => '歌曲資訊';
 
-  /// zh-TW: '顯示封面'
-  String get showArtworkTooltip => '顯示封面';
-
-  /// zh-TW: '歌詞'
-  String get tabLyrics => '歌詞';
-
-  /// zh-TW: '詳細'
-  String get tabDetails => '詳細';
-
-  /// zh-TW: '沒有歌詞'
-  String get noLyrics => '沒有歌詞';
+  /// zh-TW: '關閉歌曲資訊'
+  String get closeInfoTooltip => '關閉歌曲資訊';
 
   /// zh-TW: '播放速度'
   String get speed => '播放速度';

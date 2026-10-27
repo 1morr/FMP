@@ -3,13 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/domain/track_info.dart';
-import 'package:fmp/i18n/strings.g.dart';
-import 'package:fmp/playback/playback_controller.dart' show OutputDeviceState;
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
+import 'package:fmp/ui/player/audio_controls.dart';
 import 'package:fmp/ui/player/live_widgets.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_page.dart';
@@ -221,15 +219,15 @@ class PlayerBar extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const _PanelToggleButton(),
-                  if (selectsDevice) const _OutputDeviceButton(),
-                  const _MuteButton(),
+                  if (selectsDevice) const OutputDeviceButton(),
+                  const MuteButton(),
                   // 開關面板的鈕讓右側變擠時，滑桿先縮短。
                   Flexible(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
                         maxWidth: AppLayout.volumeSliderWidth,
                       ),
-                      child: const _VolumeSlider(),
+                      child: const VolumeSlider(),
                     ),
                   ),
                 ],
@@ -435,7 +433,7 @@ class _MoreMenu extends ConsumerWidget {
         if (selectsDevice)
           SubmenuButton(
             leadingIcon: const Icon(Icons.speaker),
-            menuChildren: _deviceItems(
+            menuChildren: outputDeviceItems(
               t,
               devices ?? (devices: const [], selected: null),
               (device) => unawaited(
@@ -447,34 +445,6 @@ class _MoreMenu extends ConsumerWidget {
       ],
     );
   }
-}
-
-/// 輸出裝置選單的項目：「系統預設」與後端列出的裝置，目前的打勾。選了就交給
-/// 控制器（它也記成偏好）。
-List<Widget> _deviceItems(
-  Translations$player$zh_TW t,
-  OutputDeviceState state,
-  void Function(OutputDevice? device) select,
-) {
-  Widget item(String label, OutputDevice? device) {
-    final selected = state.selected == device;
-    return Semantics(
-      selected: selected,
-      child: MenuItemButton(
-        leadingIcon: Visibility.maintain(
-          visible: selected,
-          child: const Icon(Icons.check),
-        ),
-        onPressed: () => select(device),
-        child: Text(label),
-      ),
-    );
-  }
-
-  return [
-    item(t.systemDefault, null),
-    for (final device in state.devices) item(device.name, device),
-  ];
 }
 
 /// 開關右側面板的鈕（expanded 以上那一段），照 Spotify 的
@@ -496,96 +466,6 @@ class _PanelToggleButton extends ConsumerWidget {
   }
 }
 
-/// 輸出裝置鈕（expanded 以上，平台能選時）。
-class _OutputDeviceButton extends ConsumerWidget {
-  const _OutputDeviceButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).player;
-    final state =
-        ref.watch(playbackOutputDevicesProvider).value ??
-        (devices: const <OutputDevice>[], selected: null);
-    return IconMenu(
-      tooltip: t.outputDevice,
-      isSelected: state.selected != null,
-      icon: const Icon(Icons.speaker),
-      menuChildren: _deviceItems(
-        t,
-        state,
-        (device) => unawaited(
-          ref.read(playbackControllerProvider).selectOutputDevice(device),
-        ),
-      ),
-    );
-  }
-}
-
-/// 音量圖示：靜音或 0 是 off，未滿一半是 down。
-IconData volumeIcon(double volume, {required bool muted}) => switch (volume) {
-  _ when muted || volume <= 0 => Icons.volume_off,
-  < 0.5 => Icons.volume_down,
-  _ => Icons.volume_up,
-};
-
-/// 靜音鈕：切換靜音，圖示反映靜音與音量大小。
-class _MuteButton extends ConsumerWidget {
-  const _MuteButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).player;
-    final state =
-        ref.watch(playbackVolumeProvider).value ?? (volume: 1.0, muted: false);
-    return IconButton(
-      tooltip: state.muted ? t.unmute : t.mute,
-      icon: Icon(volumeIcon(state.volume, muted: state.muted)),
-      onPressed: () =>
-          unawaited(ref.read(playbackControllerProvider).toggleMute()),
-    );
-  }
-}
-
-/// 音量滑桿（0–100%）：拖曳時即時套用，`setVolume` 同時取消靜音；音量拖到 0 不算
-/// 靜音（靜音與音量分開記）。
-class _VolumeSlider extends ConsumerStatefulWidget {
-  const _VolumeSlider({this.autofocus = false});
-
-  /// 彈出的選單裡一開就拿焦點：Esc 才由選單接去關閉。
-  final bool autofocus;
-
-  @override
-  ConsumerState<_VolumeSlider> createState() => _VolumeSliderState();
-}
-
-class _VolumeSliderState extends ConsumerState<_VolumeSlider> {
-  /// 拖動中的值（0–100）；沒在拖是 `null`，免得跟 stream 的更新差一拍。
-  double? _dragging;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = ref.watch(translationsProvider).player;
-    final volume = ref.watch(playbackVolumeProvider).value?.volume ?? 1.0;
-    final value = (_dragging ?? volume * 100).clamp(0.0, 100.0);
-    return Semantics(
-      label: t.volume,
-      child: Slider(
-        autofocus: widget.autofocus,
-        value: value,
-        max: 100,
-        semanticFormatterCallback: (value) => '${value.round()}%',
-        onChanged: (value) {
-          setState(() => _dragging = value);
-          unawaited(
-            ref.read(playbackControllerProvider).setVolume(value / 100),
-          );
-        },
-        onChangeEnd: (_) => setState(() => _dragging = null),
-      ),
-    );
-  }
-}
-
 /// medium 寬度的音量圖示：點開彈出式滑桿，裡面也能切靜音。
 class _VolumeMenu extends ConsumerWidget {
   const _VolumeMenu();
@@ -602,10 +482,10 @@ class _VolumeMenu extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _MuteButton(),
+            MuteButton(),
             SizedBox(
               width: AppLayout.volumeSliderWidth,
-              child: _VolumeSlider(autofocus: true),
+              child: VolumeSlider(autofocus: true),
             ),
           ],
         ),
