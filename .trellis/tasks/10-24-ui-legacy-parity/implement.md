@@ -23,6 +23,13 @@
 - [ ] PR 5：側欄 hover、展開與收合的動畫、記住狀態；搜尋頁多選時按 Ctrl+F 退出多選並聚焦搜尋框。
 - [ ] PR 6：播放列細線滑鼠移入變 6dp、把手與時間泡泡、拖曳中移出播放列；Tab 到細線的焦點框與 ←／→；播放列在展開與收合的側欄下方；面板只在有曲目時出現、「下一首」、加入歌單對話框；840 邊界。
 
+## 偶發失敗的測試
+
+完整套件在 Linux 負載下偶發、單獨跑都過；PR 18 之前一起收斂（先找出等待條件，改成等明確的事件）。
+
+- `test/ui/tracks/part_display_test.dart`「the player bar shows the composed title」卡住到逾時（PR 5 的一輪完整跑）。
+- `test/data/cache/image_cache_manager_test.dart`「two plugins downloading the same URL at once keep separate staging files and separate entries」：`eventually` 50 輪內沒成立（PR 12 合併 main 後的一輪）。
+
 ## PR 清單
 
 | # | 內容 | 需求 | 平台驗證 |
