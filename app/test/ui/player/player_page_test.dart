@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,6 +71,20 @@ Future<ShellHarness> _pumpPlaying(
   }
   await tester.pump(const Duration(milliseconds: 200));
   return h;
+}
+
+/// 整個畫面頂端標題列那一條（36dp）的像素。
+Future<List<int>> _titleBarPixels(WidgetTester tester) async {
+  final bar = find.byType(WindowTitleBar);
+  final height = tester.getSize(bar).height.round();
+  final image = await captureImage(tester.element(bar));
+  final bytes = await tester.runAsync(
+    () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+  );
+  final rowBytes = image.width * 4;
+  final pixels = bytes!.buffer.asUint8List(0, rowBytes * height).toList();
+  image.dispose();
+  return pixels;
 }
 
 /// 點播放列的曲名與封面那一塊開播放頁。
@@ -1222,6 +1237,18 @@ void main() {
         expect(chrome.calls, ['minimize']);
       },
     );
+
+    // 播放頁的背景模糊（`ImageFiltered`）會往外溢出約 3 倍 sigma；沒有裁切時溢到頁面上方，把標題列畫成
+    // 一條沒有字也沒有鈕的灰帶（2026-10-28 Windows 實機）。點擊照樣落在按鈕上，上面那條測不出來。
+    testWidgets('the page paints nothing over the title bar', (tester) async {
+      final chrome = FakeWindowChrome();
+      await _pumpPlaying(tester, harness: ShellHarness(windowChrome: chrome));
+      final before = await _titleBarPixels(tester);
+
+      await _openByTap(tester);
+
+      expect(await _titleBarPixels(tester), before);
+    });
 
     testWidgets('dragging the empty top row moves the window', (tester) async {
       final chrome = FakeWindowChrome();
