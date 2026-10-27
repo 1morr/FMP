@@ -323,6 +323,12 @@ class Translations$search$zh_TW {
   /// zh-TW: '已載入全部'
   String get loadedAll => '已載入全部';
 
+  /// zh-TW: '全部音源'
+  String get allSources => '全部音源';
+
+  /// zh-TW: '這個音源沒有結果'
+  String get groupEmpty => '這個音源沒有結果';
+
   /// zh-TW: '更多選項'
   String get more => '更多選項';
 

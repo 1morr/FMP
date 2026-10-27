@@ -82,6 +82,8 @@
     "retry": "重试",
     "loadMore": "加载更多",
     "loadedAll": "已加载全部",
+    "allSources": "全部音源",
+    "groupEmpty": "这个音源没有结果",
     "more": "更多选项",
     "play": "播放",
     "playNext": "下一首播放",

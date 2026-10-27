@@ -198,6 +198,7 @@ void main() {
     ) async {
       final h = _harness();
       await h.pumpShell(tester);
+      await _tapAndSettle(tester, find.text('Test Source'));
       await _search(tester, 'night');
       expect(h.plugin.searches.single.keyword, 'night');
 
@@ -214,6 +215,7 @@ void main() {
     ) async {
       final h = _harness();
       await h.pumpShell(tester);
+      await _tapAndSettle(tester, find.text('Test Source'));
       await _search(tester, 'night');
 
       await tester.enterText(find.byType(TextField), 'day');

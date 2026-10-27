@@ -309,6 +309,10 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   @override
   String get loadedAll => '已加载全部';
   @override
+  String get allSources => '全部音源';
+  @override
+  String get groupEmpty => '这个音源没有结果';
+  @override
   String get more => '更多选项';
   @override
   String get play => '播放';

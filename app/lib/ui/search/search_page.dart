@@ -11,16 +11,20 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/plugins/search/all_sources_search.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/format/count_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/offline/offline.dart';
+import 'package:fmp/ui/plugins/plugin_name.dart';
 import 'package:fmp/ui/plugins/plugin_onboarding.dart';
+import 'package:fmp/ui/plugins/source_icon.dart';
 import 'package:fmp/ui/radio/radio_status_tag.dart';
 import 'package:fmp/ui/search/search_history_list.dart';
 import 'package:fmp/ui/search/search_state.dart';
@@ -35,9 +39,19 @@ import 'package:fmp/ui/tracks/start_mix.dart';
 import 'package:fmp/ui/tracks/track_row_menu.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 
-/// 多選的一列：第 [item] 個結果（影片），或它展開後的第 [part] 個分 P。以位置當鍵：
-/// 結果換成新的一份時離開選取模式（`_SearchPageState.build` 的 `ref.listen`）。
-typedef _ResultKey = ({int item, int? part});
+/// 多選的一列：音源 [group]（插件 id）的第 [item] 個結果（影片），或它展開後的第 [part] 個分 P。
+/// 以位置當鍵（組內只往後接，載入下一頁不會移動已有的列）：結果換成新的一份時離開選取模式
+/// （`_SearchPageState.build` 的 `ref.listen`）。
+typedef _ResultKey = ({String group, int item, int? part});
+
+/// [key] 指的影片結果；位置超出結果時 `null`。
+TrackSummary? _summaryOf(SearchState state, _ResultKey key) {
+  for (final group in state.trackGroups) {
+    if (group.pluginId != key.group) continue;
+    return key.item < group.items.length ? group.items[key.item] : null;
+  }
+  return null;
+}
 
 /// 搜尋頁：輸入框、音源 chip 列、結果列表。點一首是臨時播放（D1）：不動佇列，
 /// 播完回到佇列。每首的選單（右鍵、尾端「⋯」）有播放、下一首播放、加入
@@ -81,24 +95,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 已選的列要加入的曲目，依畫面順序：影片列是它的全部分 P（取不到就整個不做，回 `null`），
   /// 影片列也選了的分 P 列略過（已經在裡面）。
   Future<List<TrackInfo>?> _selectedTracks(List<_ResultKey> keys) async {
-    final items = ref.read(searchProvider).items;
+    final state = ref.read(searchProvider);
     final videos = {
       for (final key in keys)
-        if (key.part == null) key.item,
+        if (key.part == null) (key.group, key.item),
     };
     final tracks = <TrackInfo>[];
-    for (final (:item, :part) in keys) {
-      if (item >= items.length || !mounted) return null;
-      final video = items[item].toTrackInfo();
+    for (final key in keys) {
+      final summary = _summaryOf(state, key);
+      if (summary == null || !mounted) return null;
+      final part = key.part;
+      final video = summary.toTrackInfo();
       if (part == null) {
         final all = await _videoTracks(
           ref,
           video,
-          partCount: items[item].partCount,
+          partCount: summary.partCount,
         );
         if (all == null) return null;
         tracks.addAll(all);
-      } else if (!videos.contains(item)) {
+      } else if (!videos.contains((key.group, key.item))) {
         final parts =
             ref
                 .read(videoPartsProvider)[VideoParts.keyOf(
@@ -118,7 +134,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 插件清單只為展開了的影片看（同 [_TrackTile] 的 `select`）：搜尋頁一直掛在外殼裡，沒有結果
   /// 時也監看整份插件清單的話，測試裡在假時間開始的讀取會擋住真實非同步裡的寫入（drift 的鎖）。
   List<_ResultKey> _keys(SearchState search, {required bool rooms}) {
-    if (rooms || search.items.isEmpty) return const [];
+    if (rooms || search.trackGroups.every((group) => group.items.isEmpty)) {
+      return const [];
+    }
     final parts = ref.watch(videoPartsProvider);
     bool showsParts(TrackSummary item, VideoPartsEntry entry) =>
         showsExpandButton(
@@ -131,13 +149,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           entry: entry,
         );
     return [
-      for (final (index, item) in search.items.indexed) ...[
-        (item: index, part: null),
-        if (parts[VideoParts.keyOf(item.sourceTypeId, item.sourceId)]
-            case final entry? when entry.expanded && showsParts(item, entry))
-          for (var part = 0; part < entry.parts.length; part++)
-            (item: index, part: part),
-      ],
+      for (final group in search.trackGroups)
+        for (final (index, item) in group.items.indexed) ...[
+          (group: group.pluginId, item: index, part: null),
+          if (parts[VideoParts.keyOf(item.sourceTypeId, item.sourceId)]
+              case final entry? when entry.expanded && showsParts(item, entry))
+            for (var part = 0; part < entry.parts.length; part++)
+              (group: group.pluginId, item: index, part: part),
+        ],
     ];
   }
 
@@ -182,13 +201,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final network = ref.watch(networkStatusProvider);
     final list = sources.value ?? const [];
     final selected = selectedSourceOf(search.sourceId, list);
-    // 直播間模式只在選的音源宣告 `live` 時（ADR 0031 §決定 5）；換到沒宣告的音源時
-    // notifier 已退回曲目，這裡再擋一次，畫面不會停在沒有分段鈕的直播間模式。
-    final hasLive = hasLiveRooms(selected);
+    // 直播間模式只在選的音源（「全部」是任何一個音源）宣告 `live` 時（ADR 0031 §決定 5）；
+    // 換到沒宣告的音源時 notifier 已退回曲目，這裡再擋一次，畫面不會停在沒有分段鈕的直播間模式。
+    final hasLive = searchHasLive(search.sourceId, list);
     final rooms = hasLive && search.mode == SearchMode.rooms;
-    // 新的一份結果（新的搜尋、換音源、模式或篩選都把 `page` 歸零）：選的位置不再是同一首。
+    // 新的一份結果（新的搜尋、換音源、模式或篩選都換 `epoch`）：選的位置不再是同一首。
     ref.listen(searchProvider, (previous, next) {
-      if (next.page < (previous?.page ?? 0)) _selection.exit();
+      if (next.epoch != (previous?.epoch ?? 0)) _selection.exit();
     });
     return TrackSelectionScope<_ResultKey>(
       selection: _selection,
@@ -199,10 +218,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           // 舊版：搜尋框就是頁頂（AppBar 的標題，靠左）；多選時整個換成選取列。
           TrackSelectionBar<_ResultKey>(
             tracks: _selectedTracks,
-            // 結果列自己的音源，不是選的音源：選的音源停用時會退回別的，結果還是舊的。
+            // 結果列自己的音源，不是選的音源：「全部」時一次有好幾個音源的結果。
             pluginIds: (keys) => {
-              for (final (:item, part: _) in keys)
-                if (item < search.items.length) search.items[item].sourceTypeId,
+              for (final key in keys)
+                if (_summaryOf(search, key) case final item?) item.sourceTypeId,
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -249,6 +268,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 if (list.isNotEmpty) ...[
                   SourceChips(
                     sources: list,
+                    allLabel: t.allSources,
                     selectedId: selected?.manifest.id,
                     onSelected: (id) => unawaited(
                       ref.read(searchProvider.notifier).selectSource(id),
@@ -445,6 +465,40 @@ class _ModeBar extends ConsumerWidget {
   }
 }
 
+/// 結果列表的一列（`ListView.builder` 依序建出來）。
+sealed class _Row {
+  const _Row();
+}
+
+/// 一組的標題（音源圖示與名稱）；只有「全部音源」搜到多個音源時才有。
+final class _HeaderRow extends _Row {
+  const _HeaderRow(this.pluginId);
+
+  final String pluginId;
+}
+
+/// 第 [group] 組（[SearchState] 裡的位置）的第 [index] 個結果。
+final class _ItemRow extends _Row {
+  const _ItemRow(this.group, this.index);
+
+  final int group;
+  final int index;
+}
+
+/// 一組結果之後的狀態：載入中、失敗、沒有結果、下一頁（轉圈、按鈕、自動載入）或「已載入全部」。
+final class _StatusRow extends _Row {
+  const _StatusRow(this.group, {required this.last, required this.grouped});
+
+  /// 組的資料（只讀進度，不讀結果）。
+  final SourceGroup<Object?> group;
+
+  /// 最後一組：只有它的最後一列自動載入下一頁，前面的組用「載入更多」按鈕。
+  final bool last;
+
+  /// 有組標題（多個音源）；單一音源時失敗、載入中是整頁的狀態，不會走到這裡。
+  final bool grouped;
+}
+
 class _ResultList extends ConsumerWidget {
   const _ResultList({required this.state, required this.rooms});
 
@@ -453,57 +507,161 @@ class _ResultList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).search;
+    final groups = rooms ? state.roomGroups : state.trackGroups;
+    final grouped = groups.length > 1;
+    final rows = <_Row>[
+      for (final (g, group) in groups.indexed) ...[
+        if (grouped) _HeaderRow(group.pluginId),
+        for (var i = 0; i < group.items.length; i++) _ItemRow(g, i),
+        _StatusRow(group, last: g == groups.length - 1, grouped: grouped),
+      ],
+    ];
     final spacing = AppTokens.of(context).spacing;
-    final count = rooms ? state.rooms.length : state.items.length;
-    // 有下一頁，或已經到底（有結果才顯示「已載入全部」）。
-    final footer =
-        state.hasMore || state.phase == SearchPhase.loadingMore || count > 0;
     return ListView.builder(
       padding: EdgeInsets.only(bottom: spacing.x4),
-      itemCount: count + (footer ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index < count) {
-          return rooms
-              ? _RoomTile(hit: state.rooms[index])
+      itemCount: rows.length,
+      itemBuilder: (context, index) => switch (rows[index]) {
+        _HeaderRow(:final pluginId) => _GroupHeader(pluginId: pluginId),
+        _ItemRow(:final group, :final index) =>
+          rooms
+              ? _RoomTile(hit: state.roomGroups[group].items[index])
               : _TrackTile(
+                  group: state.trackGroups[group].pluginId,
                   index: index,
-                  track: state.items[index].toTrackInfo(),
-                  partCount: state.items[index].partCount,
-                );
-        }
-        final notifier = ref.read(searchProvider.notifier);
-        return Padding(
-          padding: EdgeInsets.all(spacing.x2),
-          child: Center(
-            child: switch (state) {
-              SearchState(phase: SearchPhase.loadingMore) => _Spinner(
-                label: t.loading,
-              ),
-              // 自動載入失敗後留著按鈕當重試；一頁沒帶來新結果時也停止自動載入，手動載一頁。
-              SearchState(hasMore: true, loadMoreFailed: true) ||
-              SearchState(
-                hasMore: true,
-                autoLoadPaused: true,
-              ) => OutlinedButton(
-                onPressed: () => unawaited(notifier.loadMore()),
-                child: Text(t.loadMore),
-              ),
-              // 最後一列出現（建出來）就載入下一頁；每一頁只會建一次這個元件。
-              SearchState(hasMore: true) => _AutoLoad(
-                onVisible: () => unawaited(notifier.loadMore()),
-                child: _Spinner(label: t.loading),
-              ),
-              _ => Text(
-                t.loadedAll,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  track: state.trackGroups[group].items[index].toTrackInfo(),
+                  partCount: state.trackGroups[group].items[index].partCount,
                 ),
-              ),
-            },
-          ),
-        );
+        final _StatusRow status => _GroupStatus(row: status),
       },
+    );
+  }
+}
+
+/// 一組結果的標題：音源圖示與名稱（ADR 0035 §決定 9，結果依音源分組）。
+class _GroupHeader extends ConsumerWidget {
+  const _GroupHeader({required this.pluginId});
+
+  final String pluginId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = AppTokens.of(context).spacing;
+    final name = ref.watch(pluginNameProvider(pluginId)) ?? pluginId;
+    return Semantics(
+      header: true,
+      container: true,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          spacing.x4,
+          spacing.x4,
+          spacing.x4,
+          spacing.x2,
+        ),
+        child: Row(
+          children: [
+            ExcludeSemantics(
+              child: SourceIcon(
+                pluginId: pluginId,
+                size: AppLayout.sourceCardBadge,
+              ),
+            ),
+            SizedBox(width: spacing.x3),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 一組結果之後的那一列（[_StatusRow]）。
+class _GroupStatus extends ConsumerWidget {
+  const _GroupStatus({required this.row});
+
+  final _StatusRow row;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final translations = ref.watch(translationsProvider);
+    final t = translations.search;
+    final spacing = AppTokens.of(context).spacing;
+    final group = row.group;
+    final notifier = ref.read(searchProvider.notifier);
+    final muted = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    final Widget child;
+    if (group.phase == GroupPhase.loading) {
+      child = _Spinner(label: t.loading);
+    } else if (group.phase == GroupPhase.failed) {
+      final network = ref.watch(networkStatusProvider);
+      final error = group.error;
+      final (title, body) = switch (network) {
+        NetworkStatus.online => (
+          t.failed,
+          error == null
+              ? null
+              : errorMessage(
+                  translations,
+                  error,
+                  sourceName: ref.watch(pluginNameProvider(group.pluginId)),
+                ),
+        ),
+        NetworkStatus.noInterface => (translations.offline.noInterface, null),
+        NetworkStatus.unreachable => (translations.offline.unreachable, null),
+      };
+      // 區塊級的橫條：一個音源失敗，其他組照常顯示。多組時不跳提示，所以出現時念給螢幕閱讀器
+      // （liveRegion），不必等使用者捲到這一組。
+      return Semantics(
+        container: true,
+        liveRegion: true,
+        child: EmptyState(
+          icon: Icons.error_outline,
+          title: title,
+          body: body,
+          error: true,
+          compact: true,
+          action: FilledButton.tonal(
+            onPressed: () => unawaited(notifier.retryGroup(group.pluginId)),
+            child: Text(t.retry),
+          ),
+        ),
+      );
+    } else if (group.phase == GroupPhase.loadingMore) {
+      child = _Spinner(label: t.loading);
+    } else if (group.hasMore) {
+      final button = OutlinedButton(
+        onPressed: () => unawaited(notifier.loadMore(group.pluginId)),
+        child: Text(t.loadMore),
+      );
+      child = switch (group) {
+        // 自動載入失敗後留著按鈕當重試；一頁沒帶來新結果時也停止自動載入，手動載一頁。
+        SourceGroup(loadMoreFailed: true) ||
+        SourceGroup(autoLoadPaused: true) => button,
+        // 最後一列出現（建出來）就載入下一頁；每一頁只會建一次這個元件。
+        _ when row.last => _AutoLoad(
+          onVisible: () => unawaited(notifier.loadMore(group.pluginId)),
+          child: _Spinner(label: t.loading),
+        ),
+        // 前面的組不自動載入：捲動途中就把後面的音源一頁頁載完，沒有人要看。
+        _ => button,
+      };
+    } else if (row.grouped && group.items.isEmpty) {
+      child = Text(t.groupEmpty, style: muted);
+    } else if (row.last && group.items.isNotEmpty) {
+      child = Text(t.loadedAll, style: muted);
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: EdgeInsets.all(spacing.x2),
+      child: Center(child: child),
     );
   }
 }
@@ -547,12 +705,16 @@ Future<List<TrackInfo>?> _videoTracks(
 /// 選取模式裡展開鈕留著（展開後才選得到單一分 P）。
 class _TrackTile extends ConsumerWidget {
   const _TrackTile({
+    required this.group,
     required this.index,
     required this.track,
     required this.partCount,
   });
 
-  /// 第幾個結果（多選的鍵）。
+  /// 結果所屬的音源（插件 id，多選的鍵）。
+  final String group;
+
+  /// 組內第幾個結果（多選的鍵）。
   final int index;
   final TrackInfo track;
 
@@ -631,7 +793,7 @@ class _TrackTile extends ConsumerWidget {
     }
 
     final tile = SelectableTrackRow<_ResultKey>(
-      selectionKey: (item: index, part: null),
+      selectionKey: (group: group, item: index, part: null),
       moreTooltip: t.more,
       menuChildren: [
         MenuItemButton(
@@ -714,7 +876,7 @@ class _TrackTile extends ConsumerWidget {
           ),
         for (final (part, info) in entry.parts.indexed)
           _PartTile(
-            selectionKey: (item: index, part: part),
+            selectionKey: (group: group, item: index, part: part),
             track: info.toTrackInfo(track),
             canMix: canMix,
             inMix: inMix,

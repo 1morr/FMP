@@ -35,6 +35,7 @@ lib/plugins/
     account_service.dart      # AccountService：登入（驗證通過才寫入）、登出、移除插件的帳號面、開關
     qr_login.dart             # QrLogin：QR 登入的輪詢（一次性 Timer 接力）與狀態
     account_guard.dart        # AccountGuard：能力呼叫丟 CredentialInvalid 時單飛刷新、重跑一次、標 invalidated
+  search/                     # AllSourcesSearch：「全部音源」搜尋的引擎（每次搜尋同時最多 3 個、每個音源一組、清單變了就拿掉那一組、各自的頁碼與錯誤；只發 search／liveSearch，規則見 app/AGENTS.md § 介面的「搜尋『全部音源』」）
   health/
     checks.dart               # checks.json 的解析、checkShapes、期望的比對（契約執行器與健康檢查共用）
     health_check.dart         # HealthCheck：Debug 頁的健康檢查（一次一個插件、已存憑證、tag health 的 log）

@@ -520,6 +520,43 @@ void main() {
           handle.dispose();
         });
 
+        // 全部音源（U PR 17）：每個音源一組標題；一組失敗是區塊級的橫條，一組有下一頁的按鈕。
+        testWidgets('search results of all sources at $width', (tester) async {
+          final handle = tester.ensureSemantics();
+          final h = ShellHarness(
+            onSearch: (_) => SearchPage(items: [summary('a')], hasMore: true),
+          );
+          h.sources
+            ..add(
+              FakeSourcePlugin(
+                (_) => const [],
+                id: 'other',
+                name: 'Other Source',
+                onSearch: (_) => throw RateLimited(pluginId: 'other'),
+              ),
+            )
+            ..add(
+              FakeSourcePlugin(
+                (_) => const [],
+                id: 'third',
+                name: 'Third Source',
+                onSearch: (_) => const SearchPage(items: [], hasMore: false),
+              ),
+            );
+          await h.pumpShell(tester, size: size, brightness: brightness);
+          await tester.enterText(find.byType(TextField), 'song');
+          await tester.testTextInput.receiveAction(TextInputAction.search);
+          await tester.pump();
+          await tester.pump();
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+          expect(find.text('Load more'), findsOneWidget);
+          expect(find.text('Retry'), findsOneWidget);
+
+          await expectGuidelines(tester);
+          handle.dispose();
+        });
+
         for (final status in [
           NetworkStatus.noInterface,
           NetworkStatus.unreachable,

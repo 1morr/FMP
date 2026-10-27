@@ -151,6 +151,8 @@ void main() {
     tester,
   ) async {
     final h = await open(tester, otherSource: true);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Test Source'));
+    await tester.pump();
     await submit(tester, 'lofi');
     await h.loadSettings(tester);
     expect(await stored(tester, h), ['lofi']);
