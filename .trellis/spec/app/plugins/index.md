@@ -259,7 +259,8 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
 
 - 選填欄位照 ADR 0028／0032／0035 的前例：`hostApiVersion` 不動、`sourceDtoShapes` 加 `false`、d.ts 加 `?: T | null`、檢查用的 `*Fields`
   （`health/checks.dart`）加同名鍵，`fmp-test` 給一些項目有值，`checks.json` 的 `nonEmpty` 加進去，並補「有、缺、無效」的解析測試。
-  網址欄位（`Artwork.url`、`TrackDetail.webUrl`）壞了一律整筆拒收，不悄悄丟掉；純裝飾的字串（`LiveRoom.area`）只 `trim`。
+  封面網址（`Artwork.url`）壞了整筆拒收；只是連結的網址（`TrackDetail.webUrl`）不符就丟掉這個欄位、記一筆不含網址的 warning（ADR 0035 §決定 10：
+  沒有就不可點），其他欄位照常。純裝飾的字串（`LiveRoom.area`）只 `trim`。
   不經 JS 的解析測試放 `source_dto_test.dart`（macOS 上也跑得動）。
 
 ## 測試

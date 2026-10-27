@@ -257,7 +257,7 @@ export interface LiveRoom {
   status: LiveRoomStatus;
   /** 觀看人數（非負整數）。 */
   online?: number | null;
-  /** 分區的短文字（遊戲、聊天之類）；宿主去掉前後空白，空的當沒有（ADR 0035 §決定 10 補充）。 */
+  /** 分區的短文字（遊戲、聊天之類）；宿主去掉前後空白，空的當沒有，只在搜尋結果的直播間列顯示（ADR 0035 §決定 10 補充）。 */
   area?: string | null;
 }
 
@@ -335,7 +335,7 @@ export interface TrackDetail {
   uploaderAvatar?: Artwork[] | null;
   album?: string | null;
   stats?: TrackStat[] | null;
-  /** 曲目在原網站的網頁；`https`，網域在 allowedHosts（不符是 ParseError，同 Artwork.url）。宿主以它開外部瀏覽器（ADR 0035 §決定 10）。 */
+  /** 曲目在原網站的網頁；`https`，網域在 allowedHosts。不符時宿主丟掉它（當作沒有、記一筆 warning），其他欄位照用；和 Artwork.url 的整筆 ParseError 不同。宿主以它開外部瀏覽器（ADR 0035 §決定 10）。 */
   webUrl?: string | null;
 }
 

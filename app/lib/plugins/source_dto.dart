@@ -1104,9 +1104,12 @@ final class TrackDetail {
     this.webUrl,
   });
 
+  /// [onWebUrlDropped] 在 `webUrl` 不是允許網域上的 `https` 網址、因此被丟掉時呼叫，
+  /// 參數是原因（`notHttps`、`hostNotAllowed`），不帶網址本身（給 log 用）。
   factory TrackDetail.fromJson(
     Object? json, {
     required AllowedHosts allowedHosts,
+    void Function(String reason)? onWebUrlDropped,
   }) {
     const path = 'TrackDetail';
     final fields = JsonFields(json, sourceDtoShapes[path]!, path: path);
@@ -1135,25 +1138,26 @@ final class TrackDetail {
             in (fields.optionalList('stats') ?? []).indexed)
           TrackStat._fromJson(item, path: '$path.stats[$index]'),
       ]),
-      webUrl: _webUrl(fields, allowedHosts, path),
+      webUrl: _webUrl(fields, allowedHosts, onWebUrlDropped),
     );
   }
 
-  /// `webUrl`：`https` 且網域在 allowedHosts，不符就拒收（同 [Artwork.url]）。
+  /// `webUrl`：`https` 且網域在 allowedHosts 才留著；不符就丟掉（`null`，封面與標題不可點），
+  /// 其他欄位照常（ADR 0035 §決定 10）。和 [Artwork.url] 不同：封面不符整筆拒收，這裡只是
+  /// 少一個連結。不是字串仍是形狀錯誤（`FormatException`）。
   static Uri? _webUrl(
     JsonFields fields,
     AllowedHosts allowedHosts,
-    String path,
+    void Function(String reason)? onDropped,
   ) {
     final text = fields.optionalString('webUrl');
     if (text == null) return null;
     final url = Uri.tryParse(text);
-    if (url == null || !allowedHosts.allows(url)) {
-      throw FormatException(
-        '$path.webUrl: must be an https URL on an allowed host',
-      );
-    }
-    return url;
+    if (url != null && allowedHosts.allows(url)) return url;
+    onDropped?.call(
+      url == null || url.scheme != 'https' ? 'notHttps' : 'hostNotAllowed',
+    );
+    return null;
   }
 
   final String? description;

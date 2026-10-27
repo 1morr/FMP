@@ -98,17 +98,43 @@ void main() {
       expect(detail(null).webUrl, isNull);
     });
 
-    for (final bad in [
-      'https://evil.test/v/1',
-      'https://evil-example.test/v/1',
-      'http://example.test/v/1',
-      'not a url',
-      1,
+    // 不符的網址只是丟掉（ADR 0035 §決定 10：沒有就不可點），其他欄位照常；
+    // 和 Artwork.url 整筆拒收不同。回呼只拿到原因，不拿網址。
+    for (final (bad, reason) in [
+      ('https://evil.test/v/1', 'hostNotAllowed'),
+      ('https://evil-example.test/v/1', 'hostNotAllowed'),
+      ('http://example.test/v/1', 'notHttps'),
+      ('not a url', 'notHttps'),
+      ('https://example.test:x/', 'notHttps'),
     ]) {
-      test('$bad is a FormatException', () {
-        expect(() => detail(bad), throwsFormatException);
+      test('$bad is dropped and the rest is kept', () {
+        final reasons = <String>[];
+        final value = TrackDetail.fromJson(
+          {'webUrl': bad, 'album': 'Album'},
+          allowedHosts: hosts,
+          onWebUrlDropped: reasons.add,
+        );
+
+        expect(value.webUrl, isNull);
+        expect(value.album, 'Album');
+        expect(reasons, [reason]);
       });
     }
+
+    test('an allowed URL does not report a drop', () {
+      final reasons = <String>[];
+      TrackDetail.fromJson(
+        {'webUrl': 'https://example.test/v/1'},
+        allowedHosts: hosts,
+        onWebUrlDropped: reasons.add,
+      );
+
+      expect(reasons, isEmpty);
+    });
+
+    test('a non-string is a FormatException', () {
+      expect(() => detail(1), throwsFormatException);
+    });
   });
 
   group('LiveRoom.area', () {

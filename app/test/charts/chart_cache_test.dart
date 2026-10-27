@@ -61,8 +61,46 @@ void main() {
       expect(entry.fetchedAt, _fetchedAt);
       expect(entry.fetchedAt.isUtc, isTrue);
       expect(entry.tracks, _tracks);
+      // 播放數不算進 TrackInfo 的 ==，另外比對。
+      expect(
+        [for (final track in entry.tracks) track.viewCount],
+        [46000000, null],
+      );
     },
   );
+
+  test('an entry written before play counts reads with none', () async {
+    final (_, store, cache) = await open();
+    await store.put(
+      CacheCategory.chart,
+      'fmp-test',
+      'chart:fmp-test:hot',
+      Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'fetchedAt': 1,
+            'tracks': [
+              {
+                'sourceTypeId': 'fmp-test',
+                'sourceId': 'a',
+                'cid': null,
+                'title': 'A',
+                'uploader': null,
+                'durationMs': null,
+                'artwork': <Object?>[],
+                'partIndex': null,
+                'parentTitle': null,
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+
+    final entry = (await cache.read(_key('fmp-test', 'hot')))!;
+    expect(entry.tracks.single.title, 'A');
+    expect(entry.tracks.single.viewCount, isNull);
+  });
 
   test('an empty chart is an entry with no tracks, not a miss', () async {
     final (_, _, cache) = await open();

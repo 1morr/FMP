@@ -106,8 +106,8 @@ const PART_TITLES = ['Part one', 'Part two', 'Part three'];
 const PART_COUNTS = { 220: 3, 440: 2, 880: 1 };
 
 // 曲目詳細（ADR 0028 §決定 6），不連網：
-// - tone-440：完整的詳細資料（長簡介、發佈時間、專輯、七種統計；allowedHosts 是空的，
-//   沒有可用的頭像網址，所以沒有 uploaderAvatar；有 webUrl）；
+// - tone-440：完整的詳細資料（長簡介、發佈時間、專輯、七種統計；allowedHosts 只有不連網的
+//   fmp.test，沒有可用的頭像網址，所以沒有 uploaderAvatar；有 webUrl）；
 // - tone-880：以 NetworkError 失敗，看詳細區的失敗與重試；
 // - 其他曲目：空的詳細資料。
 const DETAIL_FULL_ID = 'tone-440';

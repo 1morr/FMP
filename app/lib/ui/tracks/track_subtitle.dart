@@ -31,6 +31,7 @@ class TrackSubtitle extends ConsumerWidget {
     final spacing = AppTokens.of(context).spacing;
     final style = Theme.of(context).textTheme.bodySmall;
     final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    final formatted = formatCount(ref.watch(uiLocaleProvider), count);
     return Row(
       children: [
         if (text != null)
@@ -38,20 +39,27 @@ class TrackSubtitle extends ConsumerWidget {
             child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         Flexible(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (text != null) SizedBox(width: spacing.x2),
-              Icon(Icons.play_arrow, size: style?.fontSize, color: color),
-              Flexible(
-                child: Text(
-                  formatCount(ref.watch(uiLocaleProvider), count),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: style?.copyWith(color: color),
+          // 讀屏念「播放 4.6M」：圖示沒有語意，只念數字聽不出是什麼（同詳細區的統計）。
+          child: Semantics(
+            label:
+                '${ref.watch(translationsProvider).playerPage.statView} '
+                '$formatted',
+            excludeSemantics: true,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (text != null) SizedBox(width: spacing.x2),
+                Icon(Icons.play_arrow, size: style?.fontSize, color: color),
+                Flexible(
+                  child: Text(
+                    formatted,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style?.copyWith(color: color),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],

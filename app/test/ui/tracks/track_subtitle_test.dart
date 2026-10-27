@@ -44,6 +44,18 @@ void main() {
       expect(find.byIcon(Icons.play_arrow), findsOneWidget);
     });
 
+    testWidgets('a screen reader hears what the number is', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _row(uploader: 'Someone', viewCount: 1234));
+
+      // ListTile 把整列併成一個節點：念到數字時前面有「Views」。
+      expect(
+        tester.getSemantics(find.byType(ListTile)).getSemanticsData().label,
+        contains('Someone\nViews 1.23K\n'),
+      );
+      handle.dispose();
+    });
+
     testWidgets('a null count draws the uploader only', (tester) async {
       await _pump(tester, _row(uploader: 'Someone'));
 

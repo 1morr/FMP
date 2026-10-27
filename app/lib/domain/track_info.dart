@@ -40,6 +40,9 @@ final class TrackInfo {
 
   /// 播放數（插件有給才有，ADR 0035 §決定 10）：只是列上的顯示資料，不寫進 `tracks` 表
   /// （佇列、歷史、歌單讀回來沒有），只在搜尋結果與榜單快取裡帶著。
+  ///
+  /// 不算進 `==` 與 [hashCode]：同一首從搜尋（有）與從資料庫（沒有）來的仍是同一首，
+  /// 佇列與播放的比對不因它不同。
   final int? viewCount;
 
   /// 分 P 的標籤「P2 分 P 標題」；不是分 P 曲目時是 [title]。分 P 沒有自己的標題時插件
@@ -71,8 +74,7 @@ final class TrackInfo {
           other.duration == duration &&
           listEquals(other.artwork, artwork) &&
           other.partIndex == partIndex &&
-          other.parentTitle == parentTitle &&
-          other.viewCount == viewCount;
+          other.parentTitle == parentTitle;
 
   @override
   int get hashCode => Object.hash(
@@ -85,7 +87,6 @@ final class TrackInfo {
     Object.hashAll(artwork),
     partIndex,
     parentTitle,
-    viewCount,
   );
 }
 
