@@ -248,6 +248,14 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   String get panelMenuItem => 'Now playing panel';
   @override
   String get panelResizeTooltip => 'Drag or press ←/→ to resize';
+  @override
+  String get minimizeTooltip => 'Minimize';
+  @override
+  String get maximizeTooltip => 'Maximize';
+  @override
+  String get restoreTooltip => 'Restore';
+  @override
+  String get closeWindowTooltip => 'Close';
 }
 
 // Path: search

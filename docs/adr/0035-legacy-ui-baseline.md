@@ -73,6 +73,7 @@
    - 字型：每個平台一份固定清單，加「系統預設」。這是舊版 `AppTheme.availableFonts` 的做法，清單內容改成繁中為主，由平台層提供。CJK fallback 照 ADR 0024 §決定 2，Apple 平台繁中用蘋方（`PingFang TC`）。
    - `appearance_settings` 加 `seed_color`、`font_family`（可空，空＝預設）；側欄展開狀態依裝置記住，放 `layout_state.rail_expanded`（與面板寬度同表）；拿掉播放頁分頁後 `layout_state.player_tab` 刪除。
 6. **標題列**：Windows 用自繪標題列（36dp、主題色、App 名稱加最小化、最大化、關閉），經平台層的能力宣告。套件是 `window_manager`，版本在實作時照 ADR 0021 §後果的維護狀態再查。Mac 的自繪列由 macOS 平台任務實作，規格同設計稿。
+   - 更正（2026-10-27，U PR 15）：查過 pub.dev，`window_manager` 0.5.2（2026-07-04 發版）是最新的穩定版，沒有停止維護的標示（ADR 0021 §後果已更正過同一件事），採用 `^0.5.2`。
 7. **快捷鍵**：ADR 0024 §決定 8 的表照舊，有三處改動：
    - Apple 平台的 Ctrl 一律換成 ⌘。
    - 開佇列在 Windows 是 Ctrl+Q，Mac 是 ⌥⌘U（Apple Music 的「顯示佇列」），避開 ⌘Q。現在都是切到「佇列」目的地。

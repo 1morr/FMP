@@ -62,7 +62,11 @@
     "panelShowTooltip": "Show the now playing panel",
     "panelHideTooltip": "Hide the now playing panel",
     "panelMenuItem": "Now playing panel",
-    "panelResizeTooltip": "Drag or press ←/→ to resize"
+    "panelResizeTooltip": "Drag or press ←/→ to resize",
+    "minimizeTooltip": "Minimize",
+    "maximizeTooltip": "Maximize",
+    "restoreTooltip": "Restore",
+    "closeWindowTooltip": "Close"
   },
   "search": {
     "hint": "Search songs",

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/tracks/track_selection.dart';
 import 'package:material_ui/material_ui.dart';
@@ -278,6 +279,26 @@ void main() {
 
       expect(page.selection.selected, ['a', 'b', 'c', 'd', 'e']);
       expect(find.text('5 selected'), findsOneWidget);
+    });
+
+    // ADR 0035 §決定 7：Apple 平台是 ⌘A，Ctrl+A 不作用。
+    testWidgets('with the ⌘ modifier ⌘A selects every row, Ctrl+A does not', (
+      tester,
+    ) async {
+      await ShellHarness(shortcutModifier: ShortcutModifier.meta)
+          .pumpApp(tester, _ListPage(key: _page));
+      final page = _page.currentState!;
+      await tester.longPress(find.text('Song b'));
+      await tester.pump();
+
+      await _ctrlA(tester);
+      expect(page.selection.selected, ['b']);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(page.selection.selected, ['a', 'b', 'c', 'd', 'e']);
     });
 
     testWidgets('in a text field selects the text, not the rows', (

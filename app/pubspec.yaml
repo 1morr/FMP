@@ -149,6 +149,9 @@ dependencies:
   url_launcher: ^6.3.3
   # 分享診斷包（M3 design §12.4）；只准在 lib/platform/ import（fmp_layer_imports）。
   share_plus: ^13.3.1
+  # Windows 的自繪標題列（ADR 0035 §決定 6）：隱藏系統標題列、最小化／最大化／關閉／拖曳；
+  # 只准在 lib/platform/ import（fmp_layer_imports）。0.5.x 是目前維護中的穩定線（2026-07 發版）。
+  window_manager: ^0.5.2
 
 dev_dependencies:
   # 播放列的 golden（ADR 0024 §如何確認）。只用它的 CI 版（文字畫成色塊），

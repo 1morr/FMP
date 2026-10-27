@@ -5,6 +5,7 @@ import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 
 /// 目前平台的能力宣告。`main()` 以 `AppPlatform` 組出的宣告 override；沒
 /// override 就讀會拋錯。
@@ -36,6 +37,8 @@ final class PlatformCapabilities {
     required this.shareFiles,
     required this.pluginDevTools,
     this.fontChoices = const [],
+    this.customTitleBar = false,
+    this.shortcutModifier = ShortcutModifier.control,
     this.mediaControls,
   });
 
@@ -72,6 +75,15 @@ final class PlatformCapabilities {
   /// 外觀設定可選的字型（`ThemeData.fontFamily`），不含「系統預設」（那一項永遠有，值是 `null`）。
   /// 每個平台一份固定清單（ADR 0035 §決定 5）；沒有可指名字型的平台為空。
   final List<String> fontChoices;
+
+  /// 系統標題列已隱藏，由 App 自繪（`window_chrome/`，ADR 0035 §決定 6）：外殼最上面放
+  /// `WindowTitleBar`，播放頁頂端是拖曳區。實作在啟動時初始化（`AppPlatform.withWindowChrome`），
+  /// 失敗時改成沒有。目前只有 Windows；Mac 的自繪列由 macOS 平台任務接上。
+  final bool customTitleBar;
+
+  /// 快捷鍵的主修飾鍵（`shortcut_modifier/`，ADR 0035 §決定 7）：Apple 平台是 ⌘，其餘是 Ctrl。
+  /// Android 只有外接鍵盤時才用得到。
+  final ShortcutModifier shortcutModifier;
 
   /// 播放用的後端與可播格式（ADR 0018 §決定 3）；沒有播放的實作時為 `null`。
   final PlaybackSupport? playback;
@@ -132,5 +144,27 @@ final class PlatformCapabilities {
     restartsItself: restartsItself,
     shareFiles: shareFiles,
     pluginDevTools: pluginDevTools,
+    customTitleBar: customTitleBar,
+    shortcutModifier: shortcutModifier,
+  );
+
+  /// 同一份宣告，但沒有自繪標題列（視窗初始化失敗時）。
+  PlatformCapabilities withoutCustomTitleBar() => PlatformCapabilities(
+    dataDirectory: dataDirectory,
+    singleInstance: singleInstance,
+    fontFallback: fontFallback,
+    fontChoices: fontChoices,
+    playback: playback,
+    networkInterfaces: networkInterfaces,
+    cache: cache,
+    secureStorage: secureStorage,
+    files: files,
+    loginWebView: loginWebView,
+    urlOpener: urlOpener,
+    restartsItself: restartsItself,
+    shareFiles: shareFiles,
+    pluginDevTools: pluginDevTools,
+    shortcutModifier: shortcutModifier,
+    mediaControls: mediaControls,
   );
 }
