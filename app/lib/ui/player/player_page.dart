@@ -692,21 +692,24 @@ class _Backdrop extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(
-            sigmaX: AppLayout.playerBackdropBlur,
-            sigmaY: AppLayout.playerBackdropBlur,
-            tileMode: TileMode.clamp,
-          ),
-          child: FittedBox(
-            fit: BoxFit.cover,
-            clipBehavior: Clip.hardEdge,
-            child: ArtworkImage(
-              pluginId: track.sourceTypeId,
-              artwork: track.artwork,
-              size: AppLayout.playerBackdropSource,
-              rounded: false,
-              fallback: ColoredBox(color: scheme.surfaceContainerHighest),
+        // 模糊會往外溢出約 3 倍 sigma，不裁的話畫到頁面上方，蓋住 Windows 的自繪標題列。
+        ClipRect(
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(
+              sigmaX: AppLayout.playerBackdropBlur,
+              sigmaY: AppLayout.playerBackdropBlur,
+              tileMode: TileMode.clamp,
+            ),
+            child: FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: ArtworkImage(
+                pluginId: track.sourceTypeId,
+                artwork: track.artwork,
+                size: AppLayout.playerBackdropSource,
+                rounded: false,
+                fallback: ColoredBox(color: scheme.surfaceContainerHighest),
+              ),
             ),
           ),
         ),
