@@ -9,7 +9,6 @@ import 'package:fmp/domain/developer.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/player_mode.dart';
-import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/radio.dart';
 import 'package:fmp/domain/stream_preferences.dart';
@@ -56,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// 改了 `tables.dart` 就要加一，並存新快照（drift_schemas/）。
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -215,6 +214,10 @@ class AppDatabase extends _$AppDatabase {
               // 新表升級後是空的：舊版 App 沒有存過搜尋歷史。
               await m.create(schema.searchHistory);
               await m.create(schema.searchHistorySearchedAt);
+            },
+            from22To23: (m, schema) async {
+              // 播放頁拿掉分頁後沒有讀者（ADR 0035 §決定 5）；其餘欄位的值不變。
+              await m.dropColumn(schema.layoutState, 'player_tab');
             },
           ),
         );

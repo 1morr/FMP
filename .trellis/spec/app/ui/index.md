@@ -39,7 +39,7 @@ lib/ui/
   settings/            # 設定頁（分組、list-detail；分組列的一行摘要在 settings_page 的 `summary`，加新摘要時加一條 `SettingsSection` 分支與三語字串 `settings.summary.*`，沒有值可說的組不放副標）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）
   debug/               # Debug 頁（openDebugPage、路由閘門、區塊的 list-detail）與它的區塊（DebugSection；區塊的 widget 與純函數放 debug_*.dart）
   player/              # 播放列（讀佇列項目的 TrackInfo；隨機、循環、medium 的「⋯」；頂端的進度細線在 thin_progress_bar）、播放頁、
-                       # 兩者共用的控制（player_controls）、毛玻璃面板、TrackDetails（詳細區的欄位、佔位與失敗在
+                       # 兩者共用的控制（player_controls）、播放頁的頂列（player_top_bar）、播放列與頂列共用的音量與輸出裝置（audio_controls）、TrackDetails（詳細區的欄位、佔位與失敗在
                        # track_detail_parts，trackDetailProvider 與記憶體 LRU 在 track_detail_provider）、
                        # 直播版共用的元件（live_widgets：hasNowPlaying、nowPlayingLiveProvider、LiveBadge、
                        # LiveFacts、LiveDetails、StatusTag）
@@ -320,18 +320,20 @@ try {
 
 規則與閘門見 `app/AGENTS.md` § 介面的「播放頁」；design §9.3、§9.5、§9.6。
 
-- 檔案：`player_page.dart`（route、開關、版面、分頁、速度選單）、`player_controls.dart`（播放列與播放頁
+- 檔案：`player_page.dart`（route 與上滑轉場、開關、三種版面、詳細面板）、`player_top_bar.dart`（頂列與「⋯」速度選單）、`audio_controls.dart`（`OutputDeviceButton`、`MuteButton`、`VolumeSlider`，播放列共用）、`player_controls.dart`（播放列與播放頁
   共用：`ShuffleButton`、`LoopButton`、`PreviousButton`、`NextButton`、`PlayPauseButton`、`ProgressRow`、`IconMenu`、
-  `playbackStatusLabel`）、`glass_panel.dart`、`track_details.dart`。播放列新加共用的控制時放 `player_controls.dart`，
+  `playbackStatusLabel`）、`track_details.dart`。播放列新加共用的控制時放 `player_controls.dart`，
   兩邊都會有。
 - 開頁一律 `openPlayerPage(context, opener: …)`（不自己 `Navigator.push`）：它設 `playerPageOpenProvider`（外殼靠它改
   提示的位移）、已開著就不推、關閉後把焦點還給 `opener`。給開它的元件一個 `FocusNode`（見播放列的 `_OpenPlayerArea`）。
 - 加一個頁內快捷鍵：在 `PlayerPage` 的 `Actions` 加（導覽類）或 `playbackShortcuts` 加一列、`PlaybackShortcuts` 接
-  action（播放類）；輸入框規則同外殼。Ctrl+L 外殼接開頁、頁面接切分頁，兩邊各一個 action；Ctrl+Q 外殼接切到佇列目的地、
+  action（播放類）；輸入框規則同外殼。Ctrl+L 外殼接開頁、頁面不接（歌詞 M7 才做）；Ctrl+Q 外殼接切到佇列目的地、
   頁面接「關掉自己再請外殼切過去」（`openQueueProvider`）。
-- 加一個頁內焦點區：`FocusScopeNode` 放進 `_PlayerPageState`、包 `FocusScope`＋`FocusTraversalGroup`、列進 `regions`；
-  區裡要至少有一個可聚焦的東西（歌詞欄用 `Focus(focusNode:)` 當目標），否則 F6 跳過它。
-- 毛玻璃只用 `GlassPanel`；數值（不透明度、模糊半徑、遮罩）在 `AppLayout`。新的文字放在毛玻璃上時，淺色、深色 ×
+- 加一個頁內焦點區：`FocusScopeNode` 放進 `_PlayerPageState`、包 `FocusScope`＋`FocusTraversalGroup`、列進 `regions`（目前是控制區與開著時的詳細面板）；
+  區裡要至少有一個可聚焦的東西，否則 F6 跳過它。
+- 版面由頁面的 `LayoutBuilder` 量到的整個視窗寬高決定（`resolvePlayerLayout`，不是 `WindowClass`），測試與 golden 因此只要給頁面該有的限制。窄版／矮版的資訊是 `DraggableScrollableSheet`：
+  捲動控制器要交給裡面的捲動元件（`TrackDetails(scrollController:)`），拖曳才跟內容連在一起；M7 的歌詞放進 `_WideContent.lyrics`，窄版的封面／歌詞切換也在那時回來。
+- 播放頁的控制區沒有底板、沒有毛玻璃（ADR 0035 §決定 3）；背景是模糊的封面加 `surface` 遮罩，數值在 `AppLayout`。新的文字放在背景上時，淺色、深色 ×
   最淺、最深的封面都要過 guideline（`guidelines_test.dart` 的 `the player page over …`）：次要文字用
   `onSurfaceVariant` 在深色封面上會不夠對比，遮罩用主題的 `surface` 就是為了這個。
 - 佇列（M2 PR 18b；ADR 0035 起是導覽目的地，`lib/ui/queue/`）：`QueuePage` 是佇列目的地的根頁，沒選到時（`visible` 為假）
@@ -342,8 +344,7 @@ try {
   `playbackPreferencesProvider` 的 `autoScrollToCurrent`，比的是目前項目的實例，不是位置。測試切到佇列用 `h.openQueue(tester)`。
 - 測試：`h.play(…)` 後點播放列的曲名開頁（`player_page_test.dart` 的 `_openByTap`）；要封面用
   `ShellHarness(artworkManager: FakeArtworkManager())` 與 `TestArtwork.lightest／darkest`
-  （`test/ui/support/fake_artwork.dart`）；記住的分頁讀寫經 `layoutStateRepositoryProvider`，資料庫要真的事件迴圈
-  （`tester.runAsync`）。golden 在 `player_page_golden_test.dart`，播放頁讀的 provider 在那裡 override。
+  （`test/ui/support/fake_artwork.dart`）；輸出裝置與音量的頂列用 `ShellHarness(outputDeviceSelection: true, outputDevices: FakeOutputDevices(...))`。golden 在 `player_page_golden_test.dart`，播放頁讀的 provider 在那裡 override。
 
 ## 右側「正在播放」面板
 
@@ -358,7 +359,7 @@ try {
   時頁面的 State 會丟。內容區的焦點順序靠 `FocusTraversalOrder`（頁面 0、面板 1）。
 - 面板只在有東西在播時放（`hasPanel = hasNowPlayingPanel(windowClass) && hasTrack`），所以測面板的測試要先 `h.play(...)`
   （`now_playing_panel_test.dart` 的 `_pumpPlaying`）；開關鈕在播放列第三段，播放列橫跨整個視窗，沒有別的參數要給。
-- 面板的詳細最後的區塊（「下一首」）經 `TrackDetails(footer:)` 放，播放頁的詳細分頁不給；要讀下一首用 `QueueState.upNext`，
+- 面板的詳細最後的區塊（「下一首」）經 `TrackDetails(footer:)` 放，播放頁的詳細面板不給；要讀下一首用 `QueueState.upNext`，
   不自己從 `entries` 與 `shuffleOrder` 推。
 - 測試：`h.pumpShell(tester, collapsePanel: true)` 把面板收起（測頁面本身在內容區寬度下的版面時用）；找把手用
   `Tooltip` 的 `message`（名稱在 `Semantics`，`find.byTooltip` 找不到）；拖曳用 `TestGesture`（把手用

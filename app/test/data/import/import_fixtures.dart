@@ -13,7 +13,6 @@ import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/legacy_import.dart';
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/domain/mix_identity.dart';
-import 'package:fmp/domain/player_tab.dart';
 import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/domain/track_info.dart';
@@ -192,10 +191,6 @@ ImportBundle fullBundle() {
       rememberPosition: false,
     ),
     browseAsLoggedIn: const {'bilibili': true, 'youtube': false},
-    layout: const LayoutState(
-      playerTab: PlayerTab.queue,
-      panelExpanded: false,
-      panelWidth: 420,
-    ),
+    layout: const LayoutState(panelExpanded: false, panelWidth: 420),
   );
 }

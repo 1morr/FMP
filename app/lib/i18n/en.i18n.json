@@ -758,11 +758,8 @@
   "playerPage": {
     "openHint": "Open the player",
     "closeTooltip": "Close the player (Esc)",
-    "showLyricsTooltip": "Show lyrics (Ctrl+L)",
-    "showArtworkTooltip": "Show artwork",
-    "tabLyrics": "Lyrics",
-    "tabDetails": "Details",
-    "noLyrics": "No lyrics",
+    "infoTooltip": "Track info",
+    "closeInfoTooltip": "Close track info",
     "speed": "Playback speed",
     "speedValue": "{speed}×",
     "detailsUploader": "Uploader",

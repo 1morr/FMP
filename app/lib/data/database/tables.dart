@@ -293,9 +293,6 @@ class LayoutStateTable extends Table {
   /// 固定為 1；CHECK 讓第二列插不進去。
   late final IntColumn id = integer().check(id.equals(1))();
 
-  /// 播放頁右欄上次選的分頁。
-  late final playerTab = text().nullable().map(const PlayerTabConverter())();
-
   /// 右側「正在播放」面板展開與否。
   late final panelExpanded = boolean().nullable()();
 
