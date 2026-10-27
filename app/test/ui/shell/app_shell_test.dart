@@ -1303,6 +1303,34 @@ void main() {
       expect(find.byType(QueuePage).hitTestable(), findsOneWidget);
     });
 
+    // 導覽類：輸入框裡也有效（Ctrl+Q 不是文字編輯鍵），不像播放類讓給輸入框。
+    testWidgets('Ctrl+Q works while typing in the search field', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester);
+      await tester.tap(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), 'lofi');
+      await tester.pump();
+
+      await chord(tester, LogicalKeyboardKey.keyQ);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QueuePage).hitTestable(), findsOneWidget);
+    });
+
+    // ADR 0035 §決定 7：Ctrl+L（歌詞）M7 之前不做事，外殼也不拿它開播放頁。
+    testWidgets('Ctrl+L does nothing', (tester) async {
+      final h = await playing(tester);
+
+      await chord(tester, LogicalKeyboardKey.keyL);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(find.byType(SearchPage).hitTestable(), findsOneWidget);
+      expect(h.controller.state, isA<Playing>());
+    });
+
     // 已經在那一頁時不換頁、不重建：焦點不能等下一幀（閒著時不會有下一幀）。
     testWidgets('Ctrl+F and Ctrl+, on their own page move focus at once', (
       tester,

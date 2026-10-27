@@ -62,7 +62,11 @@
     "panelShowTooltip": "顯示正在播放面板",
     "panelHideTooltip": "隱藏正在播放面板",
     "panelMenuItem": "正在播放面板",
-    "panelResizeTooltip": "拖曳或按 ←／→ 調整寬度"
+    "panelResizeTooltip": "拖曳或按 ←／→ 調整寬度",
+    "minimizeTooltip": "最小化",
+    "maximizeTooltip": "最大化",
+    "restoreTooltip": "還原",
+    "closeWindowTooltip": "關閉"
   },
   "search": {
     "hint": "搜尋歌曲",

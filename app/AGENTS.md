@@ -207,6 +207,14 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   違反「讀取失敗不刪除」。`flutter_secure_storage` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：
   `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`）、
   `platform_test.dart`；真的寫讀刪是 `integration_test/secure_storage_test.dart`（手動，Windows 另在 CI）。
+- 自繪標題列與快捷鍵修飾鍵（`lib/platform/window_chrome/`、`shortcut_modifier/`，ADR 0035 §決定 6、7，U PR 15）：
+  `PlatformCapabilities.customTitleBar`（只有 Windows）宣告系統標題列已隱藏、由 App 自繪；`shortcutModifier`（`ShortcutModifier.control`／`meta`，
+  Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier` 給 macOS／iOS 平台任務接上）宣告快捷鍵的主修飾鍵。
+  視窗動作是 `WindowChrome`（`minimize`、`toggleMaximize`、`close`、`startDragging`、`maximized`），Windows 實作 `WindowManagerChrome`
+  （`window_manager` 0.5.2，目前維護中的穩定線；`TitleBarStyle.hidden`；不 `show`／`focus`：視窗照舊由 runner 在第一個畫面時顯示，`runApp` 之前先顯示會露出空白視窗；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
+  實作在 `main()` 開好資料庫與系統媒體控制之後、`runApp` 之前由 `AppPlatform.withWindowChrome` 初始化（`windowsWindowChrome` 可換掉，測試用），
+  失敗時記 log、宣告改為沒有（系統標題列留著），App 照常啟動。UI 只問 `activeWindowChromeProvider`（宣告為真才給 `windowChromeProvider` 的值），
+  `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
   （`supportsSeek`）；Android 以 `audio_service` 實作。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
@@ -2457,7 +2465,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   ADR 否決 `flutter_adaptive_scaffold`。各頁的頁頂是 `PageAppBar`（`page_app_bar.dart`：置中標題、內頁自動放返回鈕；
   搜尋頁的搜尋框是它的標題、靠左，多選時 `TrackSelectionBar` 把整條換成選取列，Ctrl+F 先退出選取模式再聚焦搜尋框；每頁包 `PageSurface`，頁頂只跟自己那一頁的捲動變色）。導覽項都是首頁｜搜尋｜音樂庫｜佇列｜電台｜設定（ADR 0035 §決定 2；
   `ShellDestination` 的順序就是 `IndexedStack` 與導覽項的順序，導覽項的圖示與文字只有 `_destinationLabel` 一份），App 開在
-  首頁。medium 以上的外殼是一個 `Column`：標題列的位置（Windows 自繪標題列，U PR 15 才有）、側欄加內容區加右側面板、最底下的播放列；
+  首頁。medium 以上的外殼是一個 `Column`：側欄加內容區加右側面板、最底下的播放列；平台宣告自繪標題列（Windows）時，標題列不在外殼裡，在根 Navigator 外面（`WindowFrame`，見「Windows 自繪標題列」）；
   播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以它的寬度等級就是視窗的；compact 是播放列在底部導覽列上面。佇列是空的時
   播放列不佔位置（沒有曲目也沒有直播時不建）。閘門：`test/ui/shell/app_shell_test.dart` 的 `the player bar spans the window`（700、1000、
   1400 寬、側欄收合與展開：播放列從 x=0 到視窗右緣、側欄在它上面結束；面板在頁面右邊、播放列上面；compact；沒有曲目時都不佔位置；914x360 不溢位；`the bottom safe area is left once, under the bar`：有播放列時側欄不再留底部安全區）、
@@ -2734,13 +2742,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     同一支影片另外選的分 P 不重複加。
   - 加入佇列：Mix 中停用並寫明原因；超過上限整批拒絕（提示由外殼接 `QueueFull`），選取留著。加入歌單…：同一個對話框，加入了才離開。
     從歌單移除（只在本機歌單詳情）：先確認（一次刪好幾首，Namida 的「移除才確認」；單筆的選單項目照舊不確認），經 `removeEntries` 只刪選到的項目。
-  - Ctrl+A 綁在頁面（`TrackSelectionScope` 的 `Shortcuts`），只在選取模式內、焦點不在輸入框時作用（輸入框裡是文字全選）；
+  - Ctrl+A（Apple 平台 ⌘A，`primaryChord`）綁在頁面（`TrackSelectionScope` 的 `Shortcuts`），只在選取模式內、焦點不在輸入框時作用（輸入框裡是文字全選）；
     進入與每次點選後焦點不在頁面裡就移到頁面上一個不在 Tab 順序裡的節點，以滑鼠點的也收得到；焦點退到頁面外層（Esc 離開搜尋框時
     `unfocus` 退到 route 的焦點區）也放回那個節點，不用先點一列。列消失造成的變動不搬焦點（上面可能開著對話框或播放頁）。
     動作進行中（取分 P、對話框、寫入）選取列的鈕停用，連按不會做兩次。Shift＋點選是範圍（Gmail：從上一次點的
     那一列到這一列，都設成這一列點完的狀態），看的是 Shift 鍵的狀態、不判斷平台（手機沒有實體鍵盤就不會發生）。
   - 選取模式的列是一個語意節點（`checked`、`selected`），勾選框排除在語意樹與 Tab 順序外。
-  - 閘門：`test/ui/tracks/track_selection_test.dart`（取消到不剩就離開、Shift 範圍、列消失、列消失時對話框留著焦點、Ctrl+A 在選取模式外不作用與輸入框裡選文字、
+  - 閘門：`test/ui/tracks/track_selection_test.dart`（取消到不剩就離開、Shift 範圍、列消失、列消失時對話框留著焦點、Ctrl+A 在選取模式外不作用與輸入框裡選文字、⌘ 組的 ⌘A、
     全選與取消鈕、取消全選留在模式裡、下一首播放照畫面順序、返回鍵、動作照畫面順序、語意節點與勾選框沒有節點也要不到焦點）、`history_page_test.dart`、`search_page_test.dart`（含 Esc 離開搜尋框後直接 Ctrl+A）、`search_parts_test.dart`（含取分 P 時連按）、
     `playlist_detail_page_test.dart` 的 `selecting` 群組（進入與離開：長按、選單、Esc、返回鍵；動作與上限、Mix；分 P 的取法）、guideline 測試的
     `… while selecting at …` 與 `removing the selected songs asks first at …`。
@@ -2755,13 +2763,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   不再自動載入；一頁沒有帶來新結果（空頁或全是重複）但 `hasMore` 時 `SearchState.autoLoadPaused`（和 `loadMoreFailed` 分開），同樣換成「載入更多」、
   不再自動載入，手動載的那一頁有新結果就恢復，免得最後一列一直重建一直載入；沒有下一頁時是「已載入全部」。閘門：`search_page_test.dart` 的 `auto load` 群組、`search_live_test.dart` 的
   `the next page of rooms loads by itself at the last row`。
-- App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
-  `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
+- App 內快捷鍵（ADR 0024 §決定 8、ADR 0035 §決定 7）分兩張表，都綁在外殼，表是函式、吃平台宣告的主修飾鍵（`ShortcutModifier`，
+  `platformCapabilitiesProvider` 的 `shortcutModifier`；`primaryChord(key, modifier)`）：下面寫的 Ctrl 在 Apple 平台是 ⌘（⌘F、⌘,、⌘S……），`lib/ui/` 不判斷平台。
+  播放類在 `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts(modifier)`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
   Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼與播放頁各包一層：播放頁是另一個
-  route，不在外殼的 `Shortcuts` 之下）；Ctrl+L、Ctrl+Q 也在這張表（`ShowLyricsIntent`、`ShowQueueIntent`），但它們的
-  action 不在 `PlaybackShortcuts`：Ctrl+L 外殼接（播放頁沒開、佇列不空時開播放頁），播放頁不接（歌詞 M7 才做，ADR 0035 §決定 7）；Ctrl+Q 外殼接（切到佇列目的地、
-  焦點進內容區，佇列是空的也切，ADR 0035 §決定 7）、播放頁接（見「播放頁」）；導覽類在 `shell_shortcuts.dart` 的
-  `navigationShortcuts`（Ctrl+F、Ctrl+,、F6、Esc）。輸入框裡的規則一句話：導覽類在輸入框內也有效，其餘
+  route，不在外殼的 `Shortcuts` 之下）；導覽類在 `shell_shortcuts.dart` 的
+  `navigationShortcuts(modifier)`（Ctrl+F、Ctrl+,、F6、Esc，加上開佇列）。**開佇列**（`ShowQueueIntent`，`queueChord`）：Windows 是 Ctrl+Q，Apple 平台是
+  ⌥⌘U（Apple Music 的「顯示佇列」），避開 ⌘Q（結束 App）；它是導覽類（切到佇列目的地、焦點進內容區，佇列是空的也切），所以輸入框裡也有效
+  （Ctrl+Q、⌥⌘U 都不是文字編輯鍵，與 Ctrl+F、Ctrl+, 同一個理由，U PR 15 從播放類搬過來）；播放頁自己包一份 `queueShortcuts(modifier)`（見「播放頁」）。
+  **Ctrl+L（歌詞）M7 之前沒有這個鍵**：不在任何一張表裡，外殼與播放頁都不處理（ADR 0035 §決定 7）；M7 做歌詞時再加。
+  輸入框裡的規則一句話：導覽類在輸入框內也有效，其餘
   都讓給輸入框。文字編輯的快捷鍵（`DefaultTextEditingShortcuts`）由 `WidgetsApp` 放在 App 根、比外殼遠，
   外殼會先接走按鍵；所以播放類的 action 一律用 `TextInputAwareAction`，焦點在輸入框時停用、按鍵交還
   輸入框。Esc 在外殼（`EscapeIntent`）：焦點在輸入框時離開它（焦點回到外殼），否則退出目前目的地的內頁，已在根就不處理
@@ -2769,24 +2780,28 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   裡時有效，以滑鼠打開的選單焦點還在外殼，所以每個 `MenuAnchor` 都給 `childFocusNode`，並把同一個
   `FocusNode` 給打開它的按鈕（打開時焦點移過去）；閘門：`app_shell_test.dart` 的 `Esc closes the "…"
   menu`（播放列三個）、`search_page_test.dart`、`history_page_test.dart` 的 `Esc closes the menu opened
-  from "⋯"`。Esc 關播放頁、Ctrl+L／Ctrl+Q 見「播放頁」。
+  from "⋯"`。Esc 關播放頁、Ctrl+Q 見「播放頁」。
   對話框開著時焦點在對話框的 route 裡，這些鍵不作用。閘門：`app_shell_test.dart` 的 `shortcuts` 群組
   （`text-editing keys in the search field stay in the field`：輸入框裡的空白鍵、Ctrl／Shift 加方向鍵不動
   播放；`in the search field Ctrl+S, Ctrl+R and Ctrl+Up stay with the field; Esc leaves it`；新鍵各一例；
-  `with a dialog open playback shortcuts do nothing and Esc closes the dialog`）。
+  `with a dialog open playback shortcuts do nothing and Esc closes the dialog`；`Ctrl+Q works while typing in the search field`、`Ctrl+L does nothing`）。
+  兩組修飾鍵：`shortcut_modifier_test.dart`（表的矩陣：Ctrl 組沒有 meta、⌘ 組沒有 Ctrl 且每個 Ctrl 鍵有 ⌘ 的對應、開佇列是 Ctrl+Q／⌥⌘U、沒有 ⌘Q、沒有 Ctrl+L；
+  以 `ShellHarness(shortcutModifier:)` 的假宣告跑 ⌘F、⌘,、⌥⌘U（含輸入框裡）、⌘S／R／→，另一組修飾鍵的鍵不作用）。tooltip 裡寫的 `Ctrl+…` 字串目前
+  不隨平台換成 ⌘（Apple 平台還不啟動），macOS 平台任務接上時處理。
 - 播放頁（`lib/ui/player/player_page.dart`，design §9.3、§9.5、§9.6，ADR 0024 §決定 4）：
   - 開關：點播放列曲名與封面那一塊（`InkWell`，點擊區與右邊的按鈕分開，語意是按鈕、「開啟播放頁」放在 hint）開；
-    佇列不空時 Ctrl+L 在播放頁沒開時也會開。`openPlayerPage` 把 `_PlayerPageRoute`（`PageRouteBuilder` 的子類別，
+    `openPlayerPage` 把 `_PlayerPageRoute`（`PageRouteBuilder` 的子類別，
     `fullscreenDialog`；從底部上滑 `easeOutCubic`、關閉下滑 `easeInCubic`，`AppLayout.playerTransition` 300ms，同舊版 `router.dart`；系統要求減少動態時改淡入淡出）推在根 Navigator 上，所以提示仍在它上面；已開著不再推第二個。`playerPageOpenProvider` 由這個 route
     設定：`didPush` 設成開，`didComplete`（pop 與 `removeRoute` 都經過，當下就呼叫）設成關，`dispose` 只補沒 complete 就被丟掉的。
     不等到轉場結束的 `dispose` 才報關：關閉轉場中的頁面不收點擊，點擊落到播放列又開了一個，舊的 route 晚報會把新的那個標成沒開。
     左上角收合鈕（tooltip「關閉播放頁（Esc）」，只有圖示、不另給 `semanticLabel`）、Esc（頁面自己的 `Shortcuts`，
     `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層；寬版右側詳細面板開著時 Esc 先關面板）、Android 返回鍵（route 先 pop，
-    只關這一頁；頁面內不放 `PopScope`）都關。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
-    也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區，Ctrl+L 開的是開頁當下的焦點）；
+    只關這一頁）都關；**例外**是寬版右側詳細面板開著時，返回鍵也先關面板（同 Esc）：頁面有一個 `PopScope(canPop: !面板開著)`，
+    根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽、Debug 頁同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。收合鈕與 Ctrl+Q 不經這個 `PopScope`（頁面是最上層時直接 `pop`）：面板開著也關整頁，否則 Ctrl+Q 等不到 route 完成。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
+    也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
-    收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、Ctrl+L 開的焦點還原、`reopening it while it is
-    still closing keeps it open`、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
+    收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、`reopening it while it is
+    still closing keeps it open`、寬版面板開著時返回鍵先關面板、收合鈕與 Ctrl+Q 仍關整頁（`track details` 群組的 `wide: the back key closes the panel first, then the page`、`wide: with the panel open the collapse button closes the page`、`wide: with the panel open Ctrl+Q closes the page and selects the queue`）、視窗跨過外殼斷點後播放頁仍收得到 F6、Esc（`crossing the shell breakpoint…`）、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
     `player_bar_test.dart` 的 `the title area is a button that opens the player`。
   - 版面依整個視窗的寬高（ADR 0035 §決定 3；`resolvePlayerLayout`，頁面以 `LayoutBuilder` 量，不看 `WindowClass`）：寬 >= 840 且高 >= 520 是寬版
     （`PlayerLayout.wide`；歌詞 M7 才做，所以單欄置中、內容寬上限 `AppLayout.playerContentMaxWide` 720；`_WideContent.lyrics` 非空時是左 5 右 7 的接口，M7 接上）；
@@ -2836,10 +2851,30 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - 背景是模糊的封面加遮罩（遮罩用主題的 `surface`、不是黑色：淺色主題下深色封面不會把背景墊黑）；沒有封面是實色的佔位背景。數值在 `AppLayout`。
     控制區沒有毛玻璃（ADR 0035 §決定 3 取代 ADR 0024 §決定 1 的播放頁部分）。閘門：`player_page_test.dart` 的 `backdrop`、`the controls follow the legacy sizes`
     （沒有 `BackdropFilter`）、guideline 測試的 `the player page over …`。
-  - 快捷鍵與焦點：頁面包共用的 `PlaybackShortcuts`，另有自己的 Esc、F6；Ctrl+L 在頁面上不做事（M7 之前），Ctrl+Q 關掉播放頁並切到佇列目的地（見上面「佇列」）；
+  - 快捷鍵與焦點：頁面包共用的 `PlaybackShortcuts`，另有自己的 Esc、F6，Ctrl+Q（Apple 平台 ⌥⌘U）關掉播放頁並切到佇列目的地（見上面「佇列」）；Ctrl+L 在 M7 之前沒有這個鍵；
     輸入框規則照上面（`TextInputAwareAction`）。頁內焦點區是控制區｜（開著時的）詳細面板（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
+- Windows 自繪標題列（ADR 0035 §決定 6，U PR 15；`lib/ui/shell/window_title_bar.dart`）：平台宣告 `customTitleBar` 時（`activeWindowChromeProvider` 有值），
+  根 Navigator 外面有一條 `WindowTitleBar`，所有 route 共用同一條（同舊版 `app.dart` 的 `AppContentWrapper`）：外殼、播放頁、Debug 頁、網頁登入、錯誤詳細，對話框底下的 route 都一樣，
+  不在外殼或個別頁面裡另放。接線在 `fmpAppBuilder`（`lib/app/app_builder.dart`，`FmpApp` 與測試的 `ShellHarness` 共用）：`WindowClassScope(ToastHost(WindowFrame(navigator)))`。
+  `WindowFrame` 是 `Column[WindowTitleBar, Expanded(Semantics(container: true, navigator))]`：每個 route 的 `ModalBarrier` 帶 `BlockSemantics`，不給 navigator 自己一個語意容器，
+  對話框或全螢幕頁開著時標題列的按鈕會從語意樹消失（舊版的回歸）。標題列在 `ToastHost` 裡面，所以 `ToastHost` 的 `Overlay.wrap` 就是它 tooltip 的 Overlay（Navigator 的 Overlay 在它下面），
+  提示的位置只看視窗寬度與底部，不受頂端這一條影響。
+  標題列 36dp、主題的 `surface`、左邊 App 名稱 `FMP`、右邊最小化／最大化（最大化中是還原，跟著 `WindowChrome.maximized`）／關閉；關閉鈕滑過是 `error` 色
+  （`AppLayout.titleBarHeight`、`titleBarButtonWidth` 46、`titleBarIcon`），不在 Tab 的順序裡（`ExcludeFocus`，與系統標題列一樣）。
+  空白處是 `WindowDragArea`（按住拖曳 `startDragging`、雙擊 `toggleMaximize`，`window_manager` 的 `DragToMoveArea` 同款，`translucent` 所以不搶按鈕的點擊）；
+  播放頁頂列後面也鋪一塊（`AppLayout.playerDragAreaHeight`，舊版 `immersive_player_scaffold.dart:82`）。
+  閘門：`window_title_bar_test.dart`（三種寬度的位置與高度、三顆鈕呼叫視窗、最大化狀態、雙擊、拖曳、拖按鈕不移動視窗、不在 Tab 順序、沒有宣告就沒有；`over every route`：
+  根全螢幕 route 上恰好一條、對話框開著時按鈕仍在語意樹（拿掉 `Semantics(container: true)` 會紅）、對話框的遮罩不蓋標題列（鈕按得到、空白處拖得動）、hover 出 tooltip 不丟 Overlay 錯、提示仍在底部不被標題列蓋住）、
+  `player_page_test.dart` 的 `window chrome`、guideline 測試的 `the Windows title bar at …`（淺色與深色、1000 與 1400；視窗鈕 46×36 達不到 48dp，所以只驗標籤與對比，不驗 `androidTapTargetGuideline`）。
+  **必須在 Windows 實機驗**：隱藏標題列後的拖曳、雙擊最大化、三顆鈕、最大化時的邊框與螢幕邊緣貼齊、dev 與 prod 同時開時各自單一實例、Debug 頁與播放頁上的視窗鈕、對話框開著時的視窗鈕與 tooltip。
+- 視窗跨過外殼斷點時的焦點（U PR 15）：外殼換導覽元件，內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，
+  把焦點搶進被播放頁蓋住的內容區，播放頁之後收不到 Esc、F6。`AppShell` 在寬度等級改變而播放頁開著時（`_keepPlayerFocus`），build 時記下目前的焦點，
+  這一幀與接著的 autofocus 更新之後還給它。閘門：`player_page_test.dart` 的 `crossing the shell breakpoint (wide to compact / compact to wide) keeps the keys on the page`。
+- iOS 的 Dart 端慣例（ADR 0035 §決定 13，U PR 15）：頁面轉場與右滑返回是 Flutter 的預設（`PageTransitionsTheme` 對 iOS 用 `CupertinoPageTransitionsBuilder`，
+  不另寫程式碼）；安全區域由外殼的 `SafeArea` 處理（頁頂、側欄與右邊在橫向、底部導覽列與播放列在底部）。以 `TargetPlatform.iOS` 的 widget 測試守著
+  （`ios_conventions_test.dart`：轉場是 Cupertino、從左緣右滑退出內頁、直向避開瀏海與 Home 指示列、橫向避開兩側）；Apple 平台還不啟動，實機（手勢、動態島）留給 iOS 平台任務。
 - 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3；ADR 0035 §決定 2，U PR 12）：
   - 版面：內容區 compact、medium 是清單，expanded 以上是圓形封面的網格（`SliverGridDelegateWithMaxCrossAxisExtent`，每格的點擊區和「⋯」分開；格子是圓形封面、標題、狀態標記、主播，音源不能用時主播換成原因，同清單；格高的文字部分跟著字級放大）。一般模式開播中的排前面
     （`liveFirst`，穩定排序，只改畫面不改資料庫）。標題列的排序鈕進入**手動排序模式**：不論寬度都是清單、使用者的順序（`sort_order`）、每列有拖曳把手，

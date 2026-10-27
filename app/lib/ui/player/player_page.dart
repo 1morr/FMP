@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/live_play.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -22,6 +23,7 @@ import 'package:fmp/ui/shell/focus_regions.dart';
 import 'package:fmp/ui/shell/open_queue.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
+import 'package:fmp/ui/shell/window_title_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -230,7 +232,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     openQueue();
   }
 
-  void _close() => unawaited(Navigator.of(context).maybePop());
+  /// 關這一頁（收合鈕、Esc 在面板收著時、Ctrl+Q）。不經頁面的 `PopScope`：它只讓返回鍵先關
+  /// 面板，收合鈕與 Ctrl+Q 面板開著也關整頁（`maybePop` 會被它攔下，Ctrl+Q 就一直等不到
+  /// route 完成）。上面還有別的 route 時照舊 `maybePop`，關的是最上面那一個。
+  void _close() {
+    final route = ModalRoute.of(context);
+    final navigator = Navigator.of(context);
+    if (route != null && route.isCurrent) {
+      navigator.pop();
+    } else {
+      unawaited(navigator.maybePop());
+    }
+  }
 
   /// Esc：右側詳細面板開著先關它，否則關頁面。
   void _escape() {
@@ -341,12 +354,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
         final regions = [_controls, if (panelOpen) _details];
         final endIsLeft = Directionality.of(context) == TextDirection.rtl;
+        final modifier = ref.watch(
+          platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+        );
         return PlaybackShortcuts(
           child: Shortcuts(
-            shortcuts: const {
-              SingleActivator(LogicalKeyboardKey.escape):
-                  ClosePlayerPageIntent(),
-              SingleActivator(LogicalKeyboardKey.f6): NextRegionIntent(),
+            shortcuts: {
+              const SingleActivator(LogicalKeyboardKey.escape):
+                  const ClosePlayerPageIntent(),
+              const SingleActivator(LogicalKeyboardKey.f6):
+                  const NextRegionIntent(),
+              // 導覽類，輸入框裡也有效（這一頁沒有輸入框）；外殼的 `Shortcuts` 不在這個 route 之上。
+              ...queueShortcuts(modifier),
             },
             child: Actions(
               actions: {
@@ -356,78 +375,97 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 NextRegionIntent: CallbackAction<NextRegionIntent>(
                   onInvoke: (_) => focusNextRegion(regions),
                 ),
-                ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
-                  onInvoke: (_) => unawaited(_showQueue()),
+                ShowQueueIntent: CallbackAction<ShowQueueIntent>(
+                  onInvoke: (_) {
+                    unawaited(_showQueue());
+                    return null;
+                  },
                 ),
               },
               // 一開始就有焦點在頁面裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。
               child: Focus(
                 autofocus: true,
                 skipTraversal: true,
-                child: Material(
-                  color: scheme.surface,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _Backdrop(track: backdrop),
-                      SafeArea(
-                        child: FocusScope(
-                          node: _controls,
-                          child: FocusTraversalGroup(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                PlayerTopBar(
-                                  track: track,
-                                  live: live,
-                                  onClose: _close,
-                                  onInfo: () => _onInfo(layout),
-                                  infoOpen: panelOpen,
-                                ),
-                                Expanded(child: content),
-                              ],
+                // 返回鍵同 Esc：右側詳細面板開著先關面板，否則放行（route pop，關這一頁）。這一頁是根
+                // Navigator 上的 route，外殼的 `PopScope` 在下面的 route，不會同時動作。
+                child: PopScope(
+                  canPop: !panelOpen,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (!didPop) _closeDetails();
+                  },
+                  child: Material(
+                    color: scheme.surface,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _Backdrop(track: backdrop),
+                        // 頂列後面的空白處也能拖曳視窗（舊版 `immersive_player_scaffold.dart:82`）。
+                        const PositionedDirectional(
+                          top: 0,
+                          start: 0,
+                          end: 0,
+                          height: AppLayout.playerDragAreaHeight,
+                          child: WindowDragArea(),
+                        ),
+                        SafeArea(
+                          child: FocusScope(
+                            node: _controls,
+                            child: FocusTraversalGroup(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  PlayerTopBar(
+                                    track: track,
+                                    live: live,
+                                    onClose: _close,
+                                    onInfo: () => _onInfo(layout),
+                                    infoOpen: panelOpen,
+                                  ),
+                                  Expanded(child: content),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      PositionedDirectional(
-                        top: 0,
-                        bottom: 0,
-                        end: 0,
-                        width: AppLayout.playerDetailsPanelWidth,
-                        // 面板貼著結尾那一邊：開頭那一邊不在螢幕邊緣，不留安全區。
-                        child: SafeArea(
-                          left: endIsLeft,
-                          right: !endIsLeft,
-                          child: AnimatedSwitcher(
-                            duration: MediaQuery.disableAnimationsOf(context)
-                                ? Duration.zero
-                                : AppLayout.playerTransition,
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            layoutBuilder: (current, previous) => Stack(
-                              fit: StackFit.expand,
-                              children: [...previous, ?current],
+                        PositionedDirectional(
+                          top: 0,
+                          bottom: 0,
+                          end: 0,
+                          width: AppLayout.playerDetailsPanelWidth,
+                          // 面板貼著結尾那一邊：開頭那一邊不在螢幕邊緣，不留安全區。
+                          child: SafeArea(
+                            left: endIsLeft,
+                            right: !endIsLeft,
+                            child: AnimatedSwitcher(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : AppLayout.playerTransition,
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              layoutBuilder: (current, previous) => Stack(
+                                fit: StackFit.expand,
+                                children: [...previous, ?current],
+                              ),
+                              transitionBuilder: (child, animation) =>
+                                  SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(1, 0),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                              child: panelOpen
+                                  ? _DetailsPanel(
+                                      key: PlayerPage.detailsPanelKey,
+                                      node: _details,
+                                      onClose: _closeDetails,
+                                    )
+                                  : const SizedBox.shrink(),
                             ),
-                            transitionBuilder: (child, animation) =>
-                                SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(1, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: child,
-                                ),
-                            child: panelOpen
-                                ? _DetailsPanel(
-                                    key: PlayerPage.detailsPanelKey,
-                                    node: _details,
-                                    onClose: _closeDetails,
-                                  )
-                                : const SizedBox.shrink(),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -24,6 +24,7 @@
 - [ ] PR 6：播放列細線滑鼠移入變 6dp、把手與時間泡泡、拖曳中移出播放列；Tab 到細線的焦點框與 ←／→；播放列在展開與收合的側欄下方；面板只在有曲目時出現、「下一首」、加入歌單對話框；840 邊界。
 - [ ] PR 12：首頁一排卡片滑鼠移入時兩端漸層與左右箭頭、捲到頭的箭頭收起、滑鼠拖曳捲動、移出後箭頭消失；右鍵開歌單卡與電台卡選單；漸層下的卡片點得到、滾輪捲得動；電台網格 hover。
 - [ ] PR 13：音樂庫格狀約 7 欄（1400 寬）、卡片 hover、用滑鼠拖封面角的把手排序；頂圖在寬視窗的版面。
+- [ ] PR 15：啟動時不先閃一個空白或帶系統標題列的視窗、開好就在前景有焦點（`WindowManagerChrome.init` 不 show，交給 runner 的第一個畫面）；系統標題列隱藏、36dp 自繪列淺深色；左、右、下三邊與四角可拖曳縮放，頂邊能不能縮放（`TitleBarStyle.hidden` 在 Win 11 頂端不留邊，預期不能，與舊版比對）；Win 10 頂端是否有 1px 白線；空白處拖曳、雙擊最大化；最小化、最大化／還原、關閉，Win+↑↓ 與貼邊時圖示跟著變；最大化時的視窗框與縮放；播放頁、Debug 頁、對話框開著時標題列按鈕與 tooltip 都在；dev 與 prod 同時開各自單一實例、重開同一個 flavor 會聚焦舊視窗；播放頁開著時把視窗縮過 600 與 840，Esc 與 F6 仍有效；搜尋框內 Ctrl+Q 有效、Ctrl+L 沒反應；對話框開著時標題列的鈕按得到、空白處拖得動；Alt+F4 與標題列關閉鈕都正常結束（資料庫、SMTC 不殘留）；Aero Snap（拖到頂端最大化、Win+←→ 半屏）後最大化鈕的圖示；高 DPI（150%）下標題列與縮放邊。
 
 ## 偶發失敗的測試
 
@@ -31,6 +32,7 @@
 
 - `test/ui/tracks/part_display_test.dart`「the player bar shows the composed title」卡住到逾時（PR 5 的一輪完整跑）。
 - `test/data/cache/image_cache_manager_test.dart`「two plugins downloading the same URL at once keep separate staging files and separate entries」：`eventually` 50 輪內沒成立（PR 12 合併 main 後的一輪）。
+- `test/ui/plugins/plugin_onboarding_test.dart`：整個檔的 flutter_tester 子行程 segmentation fault，之後全部 did not complete（PR 15 合併 main 後的一輪）；原生端當掉，疑似 QuickJS。單獨跑 3 次都過。
 
 ## PR 清單
 
@@ -161,6 +163,7 @@
 - PR 7 審查留下：Ctrl+L 在 M7 之前不做事（ADR 0035 §決定 7），外殼的對應要拿掉。
 - PR 7 審查留下（改版前就有）：播放頁開著時視窗跨過外殼斷點，外殼重建巢狀 Navigator 會把焦點搶進被蓋住的內容區，播放頁之後收不到 Esc、F6。先寫會紅的測試再修 `app_shell.dart`。
 - PR 7 審查留下：寬版開著曲目詳細面板時，Android 返回鍵直接關整頁（Esc 是先關面板）。照 `app/AGENTS.md` 的 PopScope 規則評估要不要讓返回鍵也先關面板。
+- 留給 macOS／iOS 平台任務：宣告 `appleShortcutModifier`；tooltip 字串的「Ctrl+」在 Apple 平台改成 ⌘。
 - iOS 的 `CupertinoPageTransitionsBuilder` 與安全區域。用 `TargetPlatform.iOS` 的 widget 測試驗，實機留給 iOS 平台任務。
 - Windows 實機：自繪標題列的拖曳、雙擊最大化、三顆鈕；dev 與 prod 同時開時各自單一實例。
 
@@ -175,6 +178,8 @@
 
 - `AllSourcesSearch`（同時最多 3 個）、分組結果、各自的游標與錯誤；來源 chip「全部」排第一並預設。
 - 測試：兩個假插件，一個成功、一個失敗；各自的分頁。
+
+- PR 15 審查留下：Debug 頁、網頁登入等其他根 route 開著時跨過外殼斷點，焦點也會被外殼搶走（`_keepPlayerFocus` 只顧播放頁）。PR 18 之前改成通用的作法並補測試。
 
 ### PR 18 驗收
 

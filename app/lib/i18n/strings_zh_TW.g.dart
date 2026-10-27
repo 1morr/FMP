@@ -262,6 +262,18 @@ class Translations$shell$zh_TW {
 
   /// zh-TW: '拖曳或按 ←／→ 調整寬度'
   String get panelResizeTooltip => '拖曳或按 ←／→ 調整寬度';
+
+  /// zh-TW: '最小化'
+  String get minimizeTooltip => '最小化';
+
+  /// zh-TW: '最大化'
+  String get maximizeTooltip => '最大化';
+
+  /// zh-TW: '還原'
+  String get restoreTooltip => '還原';
+
+  /// zh-TW: '關閉'
+  String get closeWindowTooltip => '關閉';
 }
 
 // Path: search

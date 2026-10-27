@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/playback/playback_controller.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -56,47 +58,33 @@ final class CycleLoopIntent extends Intent {
   const CycleLoopIntent();
 }
 
-/// Ctrl+L：播放頁的右欄切到歌詞；播放頁沒開（佇列不空）時先開播放頁。這個 intent 的
-/// action 不在 [PlaybackShortcuts]：外殼（開播放頁）與播放頁（切分頁）各接各的。
-final class ShowLyricsIntent extends Intent {
-  const ShowLyricsIntent();
-}
-
-/// Ctrl+Q：外殼切到佇列目的地（ADR 0035 §決定 7）。播放頁開著時先關播放頁（`PlayerPage` 的 action）。
-final class ShowQueueIntent extends Intent {
-  const ShowQueueIntent();
-}
-
 /// Shift+←／→ 一次移動幾秒。
 const seekStepSeconds = 5;
 
 /// Ctrl+↑／↓ 一次調整幾個百分點。
 const volumeStepPercent = 5;
 
-/// 播放快捷鍵表。按鍵也寫在提示文字裡（翻譯檔的 `*Tooltip`），改這裡要一起改。
-const playbackShortcuts = <ShortcutActivator, Intent>{
-  SingleActivator(LogicalKeyboardKey.space): PlayPauseIntent(),
-  SingleActivator(LogicalKeyboardKey.arrowLeft, control: true):
-      PreviousTrackIntent(),
-  SingleActivator(LogicalKeyboardKey.arrowRight, control: true):
-      NextTrackIntent(),
-  SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): SeekByIntent(
-    Duration(seconds: -seekStepSeconds),
-  ),
-  SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): SeekByIntent(
-    Duration(seconds: seekStepSeconds),
-  ),
-  SingleActivator(LogicalKeyboardKey.arrowUp, control: true): VolumeByIntent(
+/// 播放快捷鍵表。按鍵也寫在提示文字裡（翻譯檔的 `*Tooltip`），改這裡要一起改。Ctrl 是平台宣告的
+/// 主修飾鍵（`ShortcutModifier`，Apple 平台是 ⌘）。Ctrl+L（歌詞）M7 才做，現在沒有這個鍵
+/// （ADR 0035 §決定 7）。開佇列在導覽類（`queueShortcuts`）。
+Map<ShortcutActivator, Intent> playbackShortcuts(ShortcutModifier modifier) => {
+  const SingleActivator(LogicalKeyboardKey.space): const PlayPauseIntent(),
+  primaryChord(LogicalKeyboardKey.arrowLeft, modifier):
+      const PreviousTrackIntent(),
+  primaryChord(LogicalKeyboardKey.arrowRight, modifier):
+      const NextTrackIntent(),
+  const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
+      const SeekByIntent(Duration(seconds: -seekStepSeconds)),
+  const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
+      const SeekByIntent(Duration(seconds: seekStepSeconds)),
+  primaryChord(LogicalKeyboardKey.arrowUp, modifier): const VolumeByIntent(
     volumeStepPercent,
   ),
-  SingleActivator(LogicalKeyboardKey.arrowDown, control: true): VolumeByIntent(
+  primaryChord(LogicalKeyboardKey.arrowDown, modifier): const VolumeByIntent(
     -volumeStepPercent,
   ),
-  SingleActivator(LogicalKeyboardKey.keyS, control: true):
-      ToggleShuffleIntent(),
-  SingleActivator(LogicalKeyboardKey.keyR, control: true): CycleLoopIntent(),
-  SingleActivator(LogicalKeyboardKey.keyL, control: true): ShowLyricsIntent(),
-  SingleActivator(LogicalKeyboardKey.keyQ, control: true): ShowQueueIntent(),
+  primaryChord(LogicalKeyboardKey.keyS, modifier): const ToggleShuffleIntent(),
+  primaryChord(LogicalKeyboardKey.keyR, modifier): const CycleLoopIntent(),
 };
 
 /// 在 [child] 之上加播放快捷鍵（[playbackShortcuts]），動作都呼叫
@@ -111,7 +99,11 @@ class PlaybackShortcuts extends ConsumerWidget {
     // 控制器在按鍵時才讀：建構時讀會在沒有播放後端的環境（測試）直接拋錯。
     PlaybackController controller() => ref.read(playbackControllerProvider);
     return Shortcuts(
-      shortcuts: playbackShortcuts,
+      shortcuts: playbackShortcuts(
+        ref.watch(
+          platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+        ),
+      ),
       child: Actions(
         actions: {
           PlayPauseIntent: TextInputAwareAction<PlayPauseIntent>(

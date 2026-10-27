@@ -39,6 +39,8 @@ import 'package:fmp/platform/share/share.dart';
 import 'package:fmp/platform/share/share_plus_file_sharer.dart';
 import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
 import 'package:fmp/platform/url_opener/url_opener.dart';
+import 'package:fmp/platform/window_chrome/window_chrome.dart';
+import 'package:fmp/platform/window_chrome/window_manager_chrome.dart';
 
 /// 平台層的組裝點（ADR 0009 §決定 1–4）：依平台組出能力宣告與各能力的
 /// 實作。整個 App 只有這裡判斷平台；lint `fmp_platform_checks` 擋的是
@@ -57,9 +59,12 @@ final class AppPlatform {
     this.fileSharer,
     this.mediaControls,
     this.legacyDataLocator,
+    this.windowChrome,
+    Future<WindowChrome> Function()? windowChromeFactory,
     Future<SystemMediaControls> Function(Log log)? mediaControlsFactory,
     AppRestarter Function(SystemMediaControls? mediaControls)? restarterFactory,
   }) : _mediaControlsFactory = mediaControlsFactory,
+       _windowChromeFactory = windowChromeFactory,
        _restarterFactory = restarterFactory,
        assert(capabilities.dataDirectory == (dataDirectory != null)),
        assert(capabilities.dataDirectory == (restarterFactory != null)),
@@ -71,6 +76,10 @@ final class AppPlatform {
        assert(capabilities.networkInterfaces == (networkInterfaces != null)),
        assert((capabilities.cache != null) == (cacheDirectory != null)),
        assert(capabilities.secureStorage == (secureStorage != null)),
+       assert(
+         capabilities.customTitleBar ==
+             (windowChrome != null || windowChromeFactory != null),
+       ),
        assert(
          (capabilities.mediaControls != null) ==
              (mediaControls != null || mediaControlsFactory != null),
@@ -94,12 +103,14 @@ final class AppPlatform {
   ///
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
-  /// `WindowsSystemMediaControls.init`）。
+  /// `WindowsSystemMediaControls.init`）；[windowsWindowChrome] 取代 Windows 自繪標題列的
+  /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
     AppFlavor flavor, {
     Future<SystemMediaControls> Function(Log log)? androidMediaControls,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+    Future<WindowChrome> Function()? windowsWindowChrome,
     String? legacyDirectory,
   }) => switch (platform) {
     TargetPlatform.android => AppPlatform._(
@@ -155,6 +166,7 @@ final class AppPlatform {
     TargetPlatform.windows => _windows(
       flavor,
       windowsMediaControls,
+      windowsWindowChrome,
       legacyDirectory,
     ),
     TargetPlatform.linux ||
@@ -168,6 +180,7 @@ final class AppPlatform {
   static AppPlatform _windows(
     AppFlavor flavor,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+    Future<WindowChrome> Function()? windowsWindowChrome,
     String? legacyDirectory,
   ) {
     final dataDirectory = WindowsAppDataDirectory(
@@ -195,6 +208,8 @@ final class AppPlatform {
         restartsItself: true,
         shareFiles: true,
         pluginDevTools: true,
+        // 系統標題列隱藏、App 自繪（ADR 0035 §決定 6）；Windows 的快捷鍵用 Ctrl。
+        customTitleBar: true,
         // SMTC 不支援 seek，timeline 也不會自己前進：播放中每 5 秒重推位置。
         mediaControls: MediaControlsSupport(
           supportsSeek: false,
@@ -222,6 +237,7 @@ final class AppPlatform {
       ),
       urlOpener: const UrlLauncherOpener(),
       fileSharer: SharePlusFileSharer(),
+      windowChromeFactory: windowsWindowChrome ?? WindowManagerChrome.init,
       mediaControlsFactory:
           windowsMediaControls ?? (_) => WindowsSystemMediaControls.init(),
       restarterFactory: (_) => WindowsAppRestarter.system(),
@@ -272,10 +288,15 @@ final class AppPlatform {
   /// 能力宣告：沒有畫面依它決定入口，只有 `main()` 在首次啟動時問它。
   final LegacyDataLocator? legacyDataLocator;
 
+  /// 視窗動作（自繪標題列）；[PlatformCapabilities.customTitleBar] 為假，或還沒呼叫
+  /// [withWindowChrome] 時為 `null`。
+  final WindowChrome? windowChrome;
+
   /// 系統媒體控制；宣告為沒有，或還沒呼叫 [withMediaControls] 時為 `null`。
   final SystemMediaControls? mediaControls;
 
   final Future<SystemMediaControls> Function(Log log)? _mediaControlsFactory;
+  final Future<WindowChrome> Function()? _windowChromeFactory;
   final AppRestarter Function(SystemMediaControls? mediaControls)?
   _restarterFactory;
 
@@ -316,6 +337,42 @@ final class AppPlatform {
       fileSharer: fileSharer,
       mediaControls: controls,
       legacyDataLocator: legacyDataLocator,
+      windowChrome: windowChrome,
+      windowChromeFactory: _windowChromeFactory,
+      restarterFactory: _restarterFactory,
+    );
+  }
+
+  /// 隱藏系統標題列並取得視窗動作，回傳帶著它的平台。`main()` 在 `runApp` 之前呼叫一次。
+  /// 失敗時呼叫 [onFailure]、宣告改為沒有自繪標題列，App 照常啟動（系統標題列留著）。
+  Future<AppPlatform> withWindowChrome({
+    required void Function(Object error, StackTrace stackTrace) onFailure,
+  }) async {
+    final factory = _windowChromeFactory;
+    if (factory == null) return this;
+    WindowChrome? chrome;
+    try {
+      chrome = await factory();
+    } on Object catch (error, stackTrace) {
+      onFailure(error, stackTrace);
+    }
+    return AppPlatform._(
+      capabilities: chrome == null
+          ? capabilities.withoutCustomTitleBar()
+          : capabilities,
+      appInfo: appInfo,
+      dataDirectory: dataDirectory,
+      networkInterfaces: networkInterfaces,
+      cacheDirectory: cacheDirectory,
+      secureStorage: secureStorage,
+      fileDialogs: fileDialogs,
+      loginWebView: loginWebView,
+      urlOpener: urlOpener,
+      fileSharer: fileSharer,
+      mediaControls: mediaControls,
+      mediaControlsFactory: _mediaControlsFactory,
+      legacyDataLocator: legacyDataLocator,
+      windowChrome: chrome,
       restarterFactory: _restarterFactory,
     );
   }

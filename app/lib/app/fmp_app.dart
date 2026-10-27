@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/app/app_lifecycle.dart';
+import 'package:fmp/app/app_builder.dart';
 import 'package:fmp/app/app_material.dart';
 import 'package:fmp/app/root_navigator.dart';
 import 'package:fmp/app/startup_maintenance.dart';
@@ -23,7 +24,6 @@ import 'package:fmp/scheduler/background_scheduler.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/developer_settings.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
-import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/theme/app_theme.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
@@ -145,8 +145,7 @@ class _FmpAppState extends ConsumerState<FmpApp> {
       seedColor: seedColor,
       fontFamily: fontFamily,
       fontFamilyFallback: ref.watch(fontFamilyFallbackProvider),
-      builder: (context, navigator) =>
-          WindowClassScope(child: ToastHost(child: navigator!)),
+      builder: fmpAppBuilder,
       home: const AppShell(),
     );
   }

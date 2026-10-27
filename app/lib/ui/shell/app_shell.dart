@@ -10,6 +10,7 @@ import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/accounts/account_guard.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -51,10 +52,12 @@ enum ShellDestination { home, search, library, queue, radio, settings }
 /// - compact：底部 `NavigationBar`，播放列在它上面；
 /// - medium 以上：左側舊版的可展開側欄（[LegacySideRail]，收合 72dp、展開 256dp，各寬度同一個）。
 ///
-/// 後者的版面是一個 `Column`：標題列的位置（Windows 自繪標題列，PR 15 才有）、側欄加內容區加右側面板、
+/// 後者的版面是一個 `Column`：側欄加內容區加右側面板、
 /// 最底下的播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以播放列讀到的是整個視窗的
 /// 寬度等級。整個視窗 >= 840 且有曲目（或在收聽直播）時內容區右邊是「正在播放」面板與拖曳把手
 /// （[NowPlayingPanelSide]），頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉側欄與面板後的寬度等級。
+///
+/// 自繪標題列（Windows）不在外殼裡：它在根 Navigator 外面（`WindowFrame`），所有 route 共用。
 ///
 /// 內容區頂端是全域離線提示（`OfflineBanner`，ADR 0016 §決定 7），換頁時
 /// 留著。
@@ -260,16 +263,34 @@ class _AppShellState extends ConsumerState<AppShell> {
     _settingsBack.show(SettingsSection.accounts);
   }
 
+  /// 上一次 build 的寬度等級；跨過斷點時才換導覽元件。
+  WindowClass? _lastWindowClass;
+
+  /// 播放頁開著時視窗跨過外殼的斷點（U PR 15，PR 7 審查）。外殼換了導覽元件，內容區的子樹搬了家：
+  /// 每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，把焦點搶進被播放頁
+  /// 蓋住的內容區，播放頁就收不到 Esc、F6。build 時（子樹還沒搬）先記下焦點，這一幀與接著的
+  /// autofocus 更新（microtask）都做完之後還給它。
+  void _keepPlayerFocus(WindowClass windowClass) {
+    final previous = _lastWindowClass;
+    _lastWindowClass = windowClass;
+    if (previous == null || previous == windowClass) return;
+    if (!ref.read(playerPageOpenProvider)) return;
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      scheduleMicrotask(() {
+        if (!mounted || !ref.read(playerPageOpenProvider)) return;
+        if (focus.context == null || !focus.canRequestFocus) return;
+        if (!focus.hasPrimaryFocus) focus.requestFocus();
+      });
+    });
+  }
+
   // ---- 快捷鍵（播放類在 PlaybackShortcuts）-----------------------------------
 
   /// F6：從焦點所在的區往下一區，跳過不在畫面上或沒有可聚焦項目的區。焦點
   /// 不在任何一區時從導覽開始。
   void _nextRegion() => focusNextRegion(_regions);
-
-  void _openPlayer() {
-    if (!hasNowPlaying(ref.read(playbackQueueProvider).value)) return;
-    unawaited(openPlayerPage(context));
-  }
 
   // ---- 播放的提示 -------------------------------------------------------------
 
@@ -378,7 +399,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       playbackQueueProvider.select((queue) => hasNowPlaying(queue.value)),
     );
 
+    final modifier = ref.watch(
+      platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+    );
     final windowClass = WindowClass.of(context);
+    _keepPlayerFocus(windowClass);
     // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走）。
     final hasPanel = hasNowPlayingPanel(windowClass) && hasTrack;
     final pages = WindowClassScope(
@@ -494,7 +519,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       _ => Scaffold(
         body: Column(
           children: [
-            // 標題列的位置：Windows 自繪標題列在 PR 15 放這裡，其他平台不佔位。
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -546,7 +570,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       },
       child: PlaybackShortcuts(
         child: Shortcuts(
-          shortcuts: navigationShortcuts,
+          shortcuts: navigationShortcuts(modifier),
           child: Actions(
             actions: {
               FocusSearchIntent: CallbackAction<FocusSearchIntent>(
@@ -579,13 +603,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onBack: _popInner,
                 canBack: _canPopInner,
               ),
-              // 播放頁沒開時 Ctrl+L 開播放頁（佇列不空才開）；歌詞 M7 才做，開著時頁面不處理。
-              ShowLyricsIntent: TextInputAwareAction<ShowLyricsIntent>(
-                onInvoke: (_) => _openPlayer(),
-              ),
-              // Ctrl+Q：切到佇列目的地（ADR 0035 §決定 7），焦點進內容區。
-              ShowQueueIntent: TextInputAwareAction<ShowQueueIntent>(
-                onInvoke: (_) => _openQueue(),
+              // Ctrl+Q（Apple 平台 ⌥⌘U）：切到佇列目的地（ADR 0035 §決定 7），焦點進內容區。導覽類，
+              // 輸入框裡也有效。
+              ShowQueueIntent: CallbackAction<ShowQueueIntent>(
+                onInvoke: (_) {
+                  _openQueue();
+                  return null;
+                },
               ),
             },
             // 一開始就有焦點在外殼裡，快捷鍵才收得到按鍵；它不在 Tab 的順序裡。

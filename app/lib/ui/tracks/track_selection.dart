@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
@@ -153,7 +154,7 @@ final class _SelectAllAction extends Action<_SelectAllIntent> {
 ///   （例如在播放列，或打開選單的「⋯」被換掉了）就移到頁面上一個不在 Tab 順序裡的節點；
 ///   焦點退到頁面外層（Esc 離開輸入框時 `unfocus` 退到 route 的焦點區）也放回這個節點。
 ///   列換了（[keys]）不是使用者點的，不搬焦點：上面可能開著對話框或播放頁。
-class TrackSelectionScope<K> extends StatefulWidget {
+class TrackSelectionScope<K> extends ConsumerStatefulWidget {
   const TrackSelectionScope({
     super.key,
     required this.selection,
@@ -178,10 +179,12 @@ class TrackSelectionScope<K> extends StatefulWidget {
       ?.notifier;
 
   @override
-  State<TrackSelectionScope<K>> createState() => _TrackSelectionScopeState<K>();
+  ConsumerState<TrackSelectionScope<K>> createState() =>
+      _TrackSelectionScopeState<K>();
 }
 
-class _TrackSelectionScopeState<K> extends State<TrackSelectionScope<K>> {
+class _TrackSelectionScopeState<K>
+    extends ConsumerState<TrackSelectionScope<K>> {
   final _focus = FocusNode(debugLabel: 'Track selection', skipTraversal: true);
   ModalRoute<Object?>? _route;
   LocalHistoryEntry? _entry;
@@ -287,10 +290,14 @@ class _TrackSelectionScopeState<K> extends State<TrackSelectionScope<K>> {
   @override
   Widget build(BuildContext context) {
     widget.selection._order = widget.keys;
+    // Ctrl+A；Apple 平台是 ⌘A（平台宣告的主修飾鍵，ADR 0035 §決定 7）。
+    final modifier = ref.watch(
+      platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+    );
     return Shortcuts(
-      shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.keyA, control: true):
-            _SelectAllIntent(),
+      shortcuts: {
+        primaryChord(LogicalKeyboardKey.keyA, modifier):
+            const _SelectAllIntent(),
       },
       child: Actions(
         actions: {_SelectAllIntent: _SelectAllAction(widget.selection)},

@@ -4,6 +4,7 @@ import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_controller.dart' show OutputDeviceState;
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -30,6 +31,10 @@ Widget _page(double width, double height, {required bool desktop}) {
     height: height,
     child: ProviderScope(
       overrides: [
+        // 播放頁讀快捷鍵的修飾鍵與標題列宣告：沒有自繪標題列、Ctrl。
+        platformCapabilitiesProvider.overrideWithValue(
+          PlatformCapabilities.none,
+        ),
         translationsProvider.overrideWithValue(AppLocale.zhTw.buildSync()),
         playbackQueueProvider.overrideWithValue(
           AsyncData(
