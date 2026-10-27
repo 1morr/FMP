@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/settings/appearance_settings.dart';
@@ -8,9 +12,11 @@ import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
+import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../support/memory_database.dart';
 import '../support/plugin_page_harness.dart';
 import '../support/shell_harness.dart';
 
@@ -292,6 +298,83 @@ void main() {
     await h.loadSettings(tester);
 
     expect(subtitleOf(tester, 'Appearance'), 'Theme: System · Serif');
+  });
+
+  testWidgets('a stored font this platform does not offer is left out of the '
+      'summary', (tester) async {
+    // 例如還原了另一個平台的備份：資料庫有值，但這個平台的清單裡沒有。
+    final h = ShellHarness(fontChoices: const ['serif']);
+    await h.pumpShell(tester, size: const Size(1000, 800), collapsePanel: true);
+    await tester.tap(find.text('Settings').first);
+    await h.loadSettings(tester);
+    await tester.runAsync(
+      () => h
+          .container(tester)
+          .read(appearanceSettingsRepositoryProvider)
+          .write(fontFamily: 'Meiryo'),
+    );
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), 'Theme: System');
+  });
+
+  testWidgets('before the settings are read, no row has a summary', (
+    tester,
+  ) async {
+    // 另一個 transaction 佔著資料庫：設定的第一次讀取排在它後面。
+    final database = memoryDatabase();
+    final release = Completer<void>();
+    await tester.runAsync(() async {
+      final started = Completer<void>();
+      unawaited(
+        database.transaction(() {
+          started.complete();
+          return release.future;
+        }),
+      );
+      await started.future;
+    });
+    final h = ShellHarness(database: database);
+    await h.pumpApp(
+      tester,
+      SettingsPage(visible: true, back: SettingsBack()),
+      size: const Size(400, 800),
+    );
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), isNull);
+    expect(subtitleOf(tester, 'Playback'), isNull);
+
+    release.complete();
+    await h.loadSettings(tester);
+    await h.loadSettings(tester);
+
+    expect(subtitleOf(tester, 'Appearance'), 'Theme: System');
+    expect(subtitleOf(tester, 'Playback'), 'Quality: High');
+  });
+
+  testWidgets('a summary is read with its row, as one tappable node', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await openSettings(tester, 400);
+
+    final row = tester.getSemantics(
+      find.widgetWithText(ListTile, 'Appearance'),
+    );
+    expect(row.label, 'Appearance\nTheme: System');
+    expect(row.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(
+      identical(tester.getSemantics(find.text('Theme: System')), row),
+      isTrue,
+      reason: 'the summary is not a node of its own',
+    );
+    // 沒有摘要的列只念組名。
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, 'Network')).label,
+      'Network',
+    );
+    semantics.dispose();
   });
 
   testWidgets('a long summary ellipsizes on one line at text scale 2.0', (

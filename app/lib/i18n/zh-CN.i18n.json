@@ -408,7 +408,7 @@
     "debug": "Debug",
     "summary": {
       "appearance": "主题：{theme}",
-      "appearanceWithFont": "主题：{theme}・{font}",
+      "appearanceWithFont": "主题：{theme} · {font}",
       "playback": "音质：{quality}"
     }
   },

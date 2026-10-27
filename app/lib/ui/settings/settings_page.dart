@@ -113,7 +113,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final t = ref.watch(translationsProvider).settings;
+    final translations = ref.watch(translationsProvider);
+    final t = translations.settings;
     final theme = Theme.of(context);
     final spacing = AppTokens.of(context).spacing;
     String name(SettingsSection group) => switch (group) {
@@ -134,8 +135,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     // 網路、插件、備份、關於）沒有摘要，不放副標。設定還沒讀出來時也不放。
     String? summary(SettingsSection group) {
       final s = t.summary;
-      final tAppearance = ref.watch(translationsProvider).appearance;
-      final tPlayback = ref.watch(translationsProvider).playback;
+      final tAppearance = translations.appearance;
+      final tPlayback = translations.playback;
       return switch (group) {
         SettingsSection.appearance when appearance != null => () {
           final theme = switch (appearance.themeMode) {

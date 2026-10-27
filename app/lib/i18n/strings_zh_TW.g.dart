@@ -3904,9 +3904,9 @@ class Translations$settings$summary$zh_TW {
   /// zh-TW: '主題：{theme}'
   String appearance({required Object theme}) => '主題：${theme}';
 
-  /// zh-TW: '主題：{theme}・{font}'
+  /// zh-TW: '主題：{theme} · {font}'
   String appearanceWithFont({required Object theme, required Object font}) =>
-      '主題：${theme}・${font}';
+      '主題：${theme} · ${font}';
 
   /// zh-TW: '音質：{quality}'
   String playback({required Object quality}) => '音質：${quality}';

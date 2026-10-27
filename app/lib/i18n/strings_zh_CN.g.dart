@@ -2887,7 +2887,7 @@ class Translations$settings$summary$zh_CN
   String appearance({required Object theme}) => '主题：${theme}';
   @override
   String appearanceWithFont({required Object theme, required Object font}) =>
-      '主题：${theme}・${font}';
+      '主题：${theme} · ${font}';
   @override
   String playback({required Object quality}) => '音质：${quality}';
 }
