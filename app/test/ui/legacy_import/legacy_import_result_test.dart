@@ -13,6 +13,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/plugin_page_harness.dart';
+import '../support/home_shown.dart';
 
 // 首次啟動匯入之後的結果對話框（M5 design §7.3）：有未看過的紀錄才出現、
 // 「知道了」與「安裝音源」都標成看過了、只在有插件還沒裝時給「安裝音源」。
@@ -136,7 +137,7 @@ void main() {
 
     expect(find.byType(AlertDialog), findsNothing);
     expect(container.read(onboardingProvider).dismissed, isFalse);
-    expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+    expect(homeShown, findsOneWidget);
     expect(
       await tester.runAsync(
         () =>

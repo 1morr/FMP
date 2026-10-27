@@ -366,9 +366,13 @@ class _StationList extends ConsumerWidget {
       ),
       _ => GridView.builder(
         padding: EdgeInsets.all(spacing.x4),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: AppLayout.radioCellMaxWidth,
-          mainAxisExtent: AppLayout.radioCellHeight,
+          // 封面固定，文字那一段跟著字級放大（格子是固定高，否則放大字會溢出）。
+          mainAxisExtent:
+              AppLayout.radioCover +
+              _textScale(context) *
+                  (AppLayout.radioCellHeight - AppLayout.radioCover),
         ),
         itemCount: shown.length,
         itemBuilder: (context, index) => _StationCell(
@@ -497,7 +501,14 @@ class _StationRow extends ConsumerWidget {
       removeStation(context, ref, entry.station);
 }
 
-/// 網格版（expanded 以上）的一個電台：圓形封面、標題、狀態標記；「⋯」疊在右上角
+/// 目前字級縮放的倍數（以內文的字級量；Android 的非線性縮放對大字放得少，不能直接拿格子高去縮放）。
+double _textScale(BuildContext context) {
+  final size = Theme.of(context).textTheme.bodyMedium!.fontSize!;
+  return MediaQuery.textScalerOf(context).scale(size) / size;
+}
+
+/// 網格版（expanded 以上）的一個電台：圓形封面、標題、狀態標記與主播（音源停用或未安裝時是原因，
+/// 同清單版）；「⋯」疊在右上角
 /// （不在點擊區裡：卡片是一個按鈕，「⋯」是另一個）。
 class _StationCell extends ConsumerWidget {
   const _StationCell({super.key, required this.entry, required this.listening});
@@ -567,6 +578,16 @@ class _StationCell extends ConsumerWidget {
                         ),
                       ),
                       TaggedLine(tag: RadioStatusTag(status: entry.status)),
+                      // 沒有主播也留著這一行，格子裡的東西才對齊。
+                      Text(
+                        unavailable ?? station.hostName ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),

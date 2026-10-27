@@ -23,6 +23,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../playback/fake_source_plugin.dart';
 import '../support/plugin_page_harness.dart';
 import '../support/shell_harness.dart';
+import '../support/home_shown.dart';
 
 // 首頁（M4 PR 2、4，ADR 0033 §決定 6，design §10.2）：我的歌單、電台、最近播放、「查看全部」、
 // 首次啟動引導、全空時的說明。
@@ -218,7 +219,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Back (Esc)'));
     await tester.pumpAndSettle();
-    expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+    expect(homeShown, findsOneWidget);
   });
 
   testWidgets('with nothing played Home explains what to do', (tester) async {
@@ -332,9 +333,10 @@ void main() {
         'Single',
         for (var i = 0; i < 19; i++) padded('List ', i),
       ]);
-      final local = _cardTexts(tester, RegExp('^Local'));
-      expect(local.where((text) => text == 'Local · 1 song'), hasLength(1));
-      expect(local.where((text) => text == 'Local · 0 songs'), hasLength(19));
+      // 副標只有首數（同舊版首頁的歌單卡）。
+      final counts = _cardTexts(tester, RegExp(r'^\d+ songs?$'));
+      expect(counts.where((text) => text == '1 song'), hasLength(1));
+      expect(counts.where((text) => text == '0 songs'), hasLength(19));
     });
 
     testWidgets('an imported playlist is labelled imported, not local', (
@@ -355,9 +357,28 @@ void main() {
       await h.loadSettings(tester);
       await tester.pumpAndSettle();
 
-      expect(_cardTexts(tester, RegExp('^(Local|Imported)')), [
-        'Imported · 0 songs',
-      ]);
+      // 同舊版：副標只有首數，匯入的前面是連結圖示（語意上念「匯入」），不寫「匯入 ·」。
+      expect(_cardTexts(tester, RegExp('^(Local|Imported)')), isEmpty);
+      final card = find.ancestor(
+        of: find.text('Remote list'),
+        matching: find.byType(Card),
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('0 songs')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card, matching: find.byIcon(Icons.link)),
+        findsOneWidget,
+      );
+      final handle = tester.ensureSemantics();
+      expect(
+        find.bySemanticsLabel(
+          RegExp('Remote list.*Imported.*0 songs', dotAll: true),
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
     });
 
     testWidgets('tapping a playlist opens its detail inside Home', (
@@ -385,7 +406,7 @@ void main() {
       );
       await tester.tap(find.byTooltip('Back (Esc)'));
       await tester.pumpAndSettle();
-      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(homeShown, findsOneWidget);
     });
 
     testWidgets('radio: the first 20 by sort_order; tapping listens', (
@@ -509,6 +530,92 @@ void main() {
         await tester.pumpAndSettle();
         expect(offset(tester), greaterThan(100));
       });
+    });
+
+    // 舊版的卡片是固定大小：一排裡名稱長短不同（一張換行、一張不換）也一樣高，放大字也不溢出。
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('cards in a row are the same height at text scale $scale', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final h = harness();
+        await h.pumpShell(
+          tester,
+          // 高到三排都在畫面裡（清單是懶建的）；寬是手機直向。
+          size: const Size(411, 2400),
+          at: ShellDestination.home,
+        );
+        await _playlists(tester, h, {
+          'A playlist with a name long enough to wrap onto more lines': ['a'],
+          'Short': ['b'],
+        });
+        await _stations(tester, h, {'a': RadioLiveStatus.live, 'b': null});
+        await _played(tester, h, ['x', 'y']);
+        await tester.runAsync(() async {
+          await h
+              .container(tester)
+              .read(playHistoryRepositoryProvider)
+              .record(
+                const TrackInfo(
+                  sourceTypeId: 'fmp-test',
+                  sourceId: 'long',
+                  title:
+                      'Song with a title that is long enough to need ellipsis',
+                ),
+                playedAt: DateTime(2026, 10, 15, 9),
+                limit: 1000,
+              );
+        });
+        await h.loadSettings(tester);
+        await tester.pumpAndSettle();
+
+        double heightOf(String text) => tester
+            .getSize(
+              find
+                  .ancestor(
+                    of: find.textContaining(text, skipOffstage: false),
+                    matching: find.byType(Card),
+                  )
+                  .first,
+            )
+            .height;
+        expect(heightOf('A playlist with'), heightOf('Short'));
+        expect(heightOf('Station a'), heightOf('Station b'));
+        // 一首有作者、一首沒有，曲名也一長一短。
+        expect(heightOf('Song x'), heightOf('Song with a title'));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a click on a card under the edge fade reaches the card', (
+      tester,
+    ) async {
+      final h = harness();
+      await h.pumpShell(tester, at: ShellDestination.home);
+      await _playlists(tester, h, {
+        for (var i = 0; i < 12; i++) padded('p', i): ['a'],
+      });
+      final row = find
+          .descendant(
+            of: find.byType(HomePage),
+            matching: find.byType(SingleChildScrollView),
+          )
+          .first;
+      final rect = tester.getRect(row);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: rect.center);
+      addTearDown(mouse.removePointer);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Scroll right'), findsOneWidget);
+
+      // 右端漸層裡、箭頭鈕上方：落在底下的卡片上，開它的詳情。
+      final fadeSpot = Offset(rect.right - 20, rect.top + 24);
+      await mouse.moveTo(fadeSpot);
+      await mouse.down(fadeSpot);
+      await mouse.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(PlaylistDetailPage), findsOneWidget);
     });
 
     testWidgets('a playlist card has the library menu', (tester) async {

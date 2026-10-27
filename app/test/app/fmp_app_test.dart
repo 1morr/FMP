@@ -30,13 +30,13 @@ import 'package:fmp/ui/errors/error_detail_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toaster.dart';
-import 'package:fmp/ui/home/home_page.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../plugins/plugin_harness.dart';
 import '../support/fake_network_interfaces.dart';
 import '../support/credentials.dart';
 import '../support/memory_database.dart';
+import '../ui/support/home_shown.dart';
 
 void main() {
   final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
@@ -128,7 +128,7 @@ void main() {
 
     // App 開在首頁（ADR 0033 §決定 5）；有可搜尋的插件，所以不是首次啟動引導。
     await until(find.text('Nothing here yet'));
-    expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+    expect(homeShown, findsOneWidget);
     expect(find.text('Install plugins to start searching'), findsNothing);
 
     await tester.tap(find.text('Search'));

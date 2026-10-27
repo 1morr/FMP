@@ -10,6 +10,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/play_history_repository.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
+import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/radio/radio_service.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
@@ -405,7 +406,8 @@ class _ShelfRowState extends ConsumerState<_ShelfRow> {
   }
 }
 
-/// 一排卡片一端的漸層與箭頭鈕。漸層只是遮罩（不吃點擊），鈕本身才吃。
+/// 一排卡片一端的漸層與箭頭鈕。漸層只是遮罩（`IgnorePointer`：點擊、滾輪與拖曳穿過去落在卡片上），
+/// 鈕本身才吃。
 class _ShelfArrow extends StatelessWidget {
   const _ShelfArrow({
     required this.icon,
@@ -429,21 +431,28 @@ class _ShelfArrow extends StatelessWidget {
         : [surface.withValues(alpha: 0), surface];
     return SizedBox(
       width: AppLayout.shelfEdgeFade,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: AlignmentDirectional.centerStart,
-            end: AlignmentDirectional.centerEnd,
-            colors: fade,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: AlignmentDirectional.centerStart,
+                  end: AlignmentDirectional.centerEnd,
+                  colors: fade,
+                ),
+              ),
+            ),
           ),
-        ),
-        child: Center(
-          child: IconButton.filledTonal(
-            tooltip: tooltip,
-            icon: Icon(icon),
-            onPressed: onPressed,
+          Center(
+            child: IconButton.filledTonal(
+              tooltip: tooltip,
+              icon: Icon(icon),
+              onPressed: onPressed,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -540,11 +549,77 @@ class _ShelfCard extends StatelessWidget {
   }
 }
 
-/// 卡片上的文字：名稱（兩行）與 [detail]。
+/// 卡片文字一行的樣式：行高固定（`forceStrutHeight`），中英文、後備字型的行都一樣高，
+/// [_linesHeight] 算得出確切的高度。
+TextStyle _cardLineStyle(TextStyle style) =>
+    style.copyWith(height: style.height ?? _defaultLineHeight);
+
+/// 主題的字級角色沒有行高時的行高倍數（M3 的字級角色都有，這只是保底）。
+const _defaultLineHeight = 1.4;
+
+/// [lines] 行 [style]（[_cardLineStyle] 過的）在目前的字級縮放下的高度。
+double _linesHeight(BuildContext context, TextStyle style, int lines) =>
+    MediaQuery.textScalerOf(context).scale(style.fontSize!) *
+    style.height! *
+    lines;
+
+/// 卡片上固定行數的一段字：不論內容幾行都佔 [lines] 行的高度、超過的截斷，同一排的卡片才一樣高
+/// （舊版的卡片是固定大小）。高度隨字級縮放，放大字也不會溢出。
+class _CardLines extends StatelessWidget {
+  const _CardLines({
+    required this.text,
+    required this.style,
+    required this.lines,
+    this.leading,
+  });
+
+  final String? text;
+  final TextStyle style;
+  final int lines;
+
+  /// 字前面的小圖示（匯入歌單的連結圖示）。
+  final IconData? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _cardLineStyle(this.style);
+    final text = this.text;
+    final leading = this.leading;
+    final paragraph = text == null
+        ? null
+        : Text(
+            text,
+            maxLines: lines,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+            strutStyle: StrutStyle.fromTextStyle(style, forceStrutHeight: true),
+          );
+    return SizedBox(
+      height: _linesHeight(context, style, lines),
+      child: leading == null || paragraph == null
+          ? paragraph
+          : Row(
+              children: [
+                Icon(
+                  leading,
+                  size: MediaQuery.textScalerOf(context).scale(style.fontSize!),
+                  color: style.color,
+                ),
+                SizedBox(width: AppTokens.of(context).spacing.x1),
+                Flexible(child: paragraph),
+              ],
+            ),
+    );
+  }
+}
+
+/// 卡片上的文字：名稱（固定 [titleLines] 行）與 [detail]。同一排的卡片給同樣的行數與同一種
+/// [detail]（[_CardLines] 或狀態標記），高度才一樣。
 class _CardText extends StatelessWidget {
-  const _CardText({required this.title, this.detail});
+  const _CardText({required this.title, this.titleLines = 1, this.detail});
 
   final String title;
+  final int titleLines;
   final Widget? detail;
 
   @override
@@ -552,16 +627,37 @@ class _CardText extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium,
+        _CardLines(
+          text: title,
+          lines: titleLines,
+          style: Theme.of(context).textTheme.bodyMedium!,
         ),
         ?detail,
       ],
     );
   }
+}
+
+/// 卡片的副標一行（bodySmall、次要色）：[text] 是 `null` 時仍佔一行。
+Widget _cardDetail(
+  BuildContext context,
+  String? text, {
+  IconData? leading,
+  String? leadingLabel,
+}) {
+  final theme = Theme.of(context);
+  final line = _CardLines(
+    text: text,
+    lines: 1,
+    leading: leading,
+    style: theme.textTheme.bodySmall!.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
+  );
+  // 圖示是裝飾，意思（「匯入」）給螢幕閱讀器。
+  return leadingLabel == null
+      ? line
+      : Semantics(label: leadingLabel, child: line);
 }
 
 /// 「建立歌單」佔位卡（沒有歌單時「我的歌單」唯一的內容）：灰底、大「＋」，走音樂庫同一條建立流程
@@ -588,7 +684,7 @@ class _CreatePlaylistCard extends ConsumerWidget {
   }
 }
 
-/// 一張歌單：封面、名稱、「本機 · n 首」（同音樂庫的卡）。點一下在首頁的巢狀導覽裡開詳情；
+/// 一張歌單：封面、名稱、首數（同舊版首頁的歌單卡）。點一下在首頁的巢狀導覽裡開詳情；
 /// 選單（右鍵、長按、「⋯」）同音樂庫的卡片。
 class _PlaylistCard extends ConsumerWidget {
   const _PlaylistCard({super.key, required this.overview});
@@ -598,7 +694,6 @@ class _PlaylistCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).library;
-    final theme = Theme.of(context);
     return PlaylistMenu(
       overview: overview,
       builder: (context, more, openMenu) => _ShelfCard(
@@ -607,16 +702,23 @@ class _PlaylistCard extends ConsumerWidget {
           firstTrack: overview.firstTrack,
           size: AppLayout.shelfCardWidth,
         ),
+        // 同舊版首頁的歌單卡：名稱一行，副標只有首數（匯入的前面一個連結圖示），窄卡片上
+        // 「匯入 · n 首」會把有用的首數截掉。Mix 不存曲目，寫「Mix」。
         text: _CardText(
           title: overview.playlist.name,
-          detail: Text(
-            playlistSubtitleText(t, overview),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          detail: switch (overview.playlist.kind) {
+            PlaylistKind.mix => _cardDetail(context, t.mix),
+            PlaylistKind.local => _cardDetail(
+              context,
+              trackCountText(t, overview.trackCount),
             ),
-          ),
+            PlaylistKind.imported => _cardDetail(
+              context,
+              trackCountText(t, overview.trackCount),
+              leading: Icons.link,
+              leadingLabel: t.imported,
+            ),
+          },
         ),
         onTap: () => unawaited(openPlaylist(context, overview.playlist.id)),
         onLongPress: openMenu,
@@ -692,7 +794,6 @@ class _RecentCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).home;
-    final theme = Theme.of(context);
     final track = entry.track;
     final uploader =
         ref.watch(sourceUnavailableProvider(track.sourceTypeId)) ??
@@ -754,18 +855,11 @@ class _RecentCard extends ConsumerWidget {
           size: AppLayout.shelfCardWidth,
           rounded: false,
         ),
+        // 同舊版：曲名兩行；作者一行（沒有作者也佔著，同一排才一樣高）。
         text: _CardText(
           title: track.displayTitle,
-          detail: uploader == null
-              ? null
-              : Text(
-                  uploader,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+          titleLines: 2,
+          detail: _cardDetail(context, uploader),
         ),
         onTap: play,
         onLongPress: openMenu,

@@ -38,6 +38,7 @@ import '../../playback/fake_audio_backend.dart';
 import '../../playback/fake_source_plugin.dart';
 import '../../support/memory_database.dart';
 import '../support/shell_harness.dart';
+import '../support/home_shown.dart';
 
 const _speakers = OutputDevice(id: 'wasapi/{a}', name: 'Speakers');
 
@@ -339,7 +340,7 @@ void main() {
       final h = ShellHarness();
       await h.pumpShell(tester, at: ShellDestination.home);
 
-      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(homeShown, findsOneWidget);
       expect(
         tester
             .widget<NavigationRail>(find.byType(NavigationRail))
@@ -368,7 +369,7 @@ void main() {
         await h.open(tester, destination);
 
         expect(find.byType(page).hitTestable(), findsOneWidget);
-        expect(find.byType(HomePage).hitTestable(), findsNothing);
+        expect(homeShown, findsNothing);
       });
     }
 
@@ -640,7 +641,7 @@ void main() {
       expect(find.byType(HistoryPage), findsNothing);
 
       await back(tester);
-      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(homeShown, findsOneWidget);
       expect(pops, isEmpty);
     });
 
@@ -665,10 +666,10 @@ void main() {
       await tester.tap(find.text('View all'));
       await tester.pumpAndSettle();
       expect(find.byType(HistoryPage).hitTestable(), findsOneWidget);
-      expect(find.byType(HomePage).hitTestable(), findsNothing);
+      expect(homeShown, findsNothing);
 
       await back(tester);
-      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(homeShown, findsOneWidget);
       expect(pops, isEmpty, reason: 'the inner page held the back key');
 
       await back(tester);
@@ -1844,7 +1845,7 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pump();
 
-        expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+        expect(homeShown, findsOneWidget);
         expect(pops, isEmpty);
       });
     }
@@ -1858,7 +1859,7 @@ void main() {
       await tester.pump();
 
       expect(pops, hasLength(1));
-      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(homeShown, findsOneWidget);
     });
   });
 }

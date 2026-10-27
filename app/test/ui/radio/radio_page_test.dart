@@ -541,6 +541,52 @@ void main() {
       });
     }
 
+    testWidgets('a grid cell says why a station of an unavailable source '
+        'does not play', (tester) async {
+      final h = await _openRadio(
+        tester,
+        size: const Size(1100, 800),
+        harness: _harness(
+          sourceUnavailable: (_, pluginId) =>
+              pluginId == 'off' ? 'Source disabled' : null,
+        ),
+        seed: (h) async {
+          await _add(h, tester, 'a', pluginId: 'off');
+          await _add(h, tester, 'b');
+        },
+      );
+      expect(find.byType(GridView), findsOneWidget);
+      expect(find.text('Source disabled'), findsOneWidget);
+      expect(find.text('Host a'), findsNothing);
+      expect(find.text('Host b'), findsOneWidget);
+
+      await tester.tap(find.text('Station a'));
+      await tester.pump();
+      expect(_toast("Can't play: Source disabled"), findsOneWidget);
+      expect(h.plugin.liveRequests, isEmpty);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('grid cells fit their text at text scale $scale', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _openRadio(
+          tester,
+          size: const Size(1100, 1600),
+          seed: (h) async {
+            await _add(h, tester, 'a', status: RadioLiveStatus.live);
+            await _add(h, tester, 'b', status: RadioLiveStatus.offline);
+          },
+        );
+        expect(find.byType(GridView), findsOneWidget);
+        expect(find.text('Host a'), findsOneWidget);
+        // 溢出會以例外報出。
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('a grid cell listens on tap and removes from its menu', (
       tester,
     ) async {
@@ -549,6 +595,10 @@ void main() {
         size: const Size(1100, 800),
         seed: (h) => _add(h, tester, 'a', status: RadioLiveStatus.live),
       );
+      await tester.tap(find.text('Station a'));
+      await _settle(tester);
+      expect(h.controller.queue.live?.target.roomId, 'a');
+
       await tester.tap(find.byTooltip(_more));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Remove'));
@@ -562,6 +612,22 @@ void main() {
   });
 
   group('adding from a URL', () {
+    // B-28：對話框有一行說明，說要貼什麼。
+    testWidgets('the dialog says what to paste', (tester) async {
+      await _openRadio(tester);
+      await tester.tap(find.byTooltip('Add from a URL'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(
+            'Paste a live room URL; an enabled source will recognise it.',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a recognised URL is added', (tester) async {
       final h = await _openRadio(tester);
       h.plugin.onLiveRoomFromUrl = (query) =>
