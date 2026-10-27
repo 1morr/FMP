@@ -32,6 +32,7 @@
 
 - `test/ui/tracks/part_display_test.dart`「the player bar shows the composed title」卡住到逾時（PR 5 的一輪完整跑）。
 - `test/data/cache/image_cache_manager_test.dart`「two plugins downloading the same URL at once keep separate staging files and separate entries」：`eventually` 50 輪內沒成立（PR 12 合併 main 後的一輪）。
+- `test/ui/plugins/plugin_onboarding_test.dart`：整個檔的 flutter_tester 子行程 segmentation fault，之後全部 did not complete（PR 15 合併 main 後的一輪）；原生端當掉，疑似 QuickJS。單獨跑 3 次都過。
 
 ## PR 清單
 
