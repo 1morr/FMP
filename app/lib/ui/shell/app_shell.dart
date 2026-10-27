@@ -266,21 +266,26 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 上一次 build 的寬度等級；跨過斷點時才換導覽元件。
   WindowClass? _lastWindowClass;
 
-  /// 播放頁開著時視窗跨過外殼的斷點（U PR 15，PR 7 審查）。外殼換了導覽元件，內容區的子樹搬了家：
-  /// 每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，把焦點搶進被播放頁
-  /// 蓋住的內容區，播放頁就收不到 Esc、F6。build 時（子樹還沒搬）先記下焦點，這一幀與接著的
-  /// autofocus 更新（microtask）都做完之後還給它。
-  void _keepPlayerFocus(WindowClass windowClass) {
+  /// 根 Navigator 上有別的 route 蓋著外殼（播放頁、Debug 頁、網頁登入、對話框……）時視窗跨過外殼的斷點
+  /// （U PR 15，PR 7 審查；通用化）。外殼換了導覽元件，內容區的子樹搬了家：每個巢狀 `Navigator` 的
+  /// `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，把焦點搶進被蓋住的內容區，上面那個 route
+  /// 之後收不到 Esc、F6。build 時（子樹還沒搬）先記下焦點，這一幀與接著的 autofocus 更新（microtask）
+  /// 都做完之後還給它。只有外殼自己時不動（沒有蓋住的 route，焦點本來就該留在內容區）。
+  void _keepCoveringRouteFocus(WindowClass windowClass) {
     final previous = _lastWindowClass;
     _lastWindowClass = windowClass;
     if (previous == null || previous == windowClass) return;
-    if (!ref.read(playerPageOpenProvider)) return;
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    if (navigator == null || !navigator.canPop()) return;
     final focus = FocusManager.instance.primaryFocus;
     if (focus == null) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       scheduleMicrotask(() {
-        if (!mounted || !ref.read(playerPageOpenProvider)) return;
-        if (focus.context == null || !focus.canRequestFocus) return;
+        if (!mounted || !navigator.mounted || !navigator.canPop()) return;
+        // 這一幀跟著版面拿掉的節點（例如播放頁收掉的詳細面板）不要：沒掛在樹上的節點
+        // `requestFocus` 會記著，等它哪天再掛回來時搶走焦點。
+        if (focus.parent == null || focus.context?.mounted != true) return;
+        if (!focus.canRequestFocus) return;
         if (!focus.hasPrimaryFocus) focus.requestFocus();
       });
     });
@@ -403,7 +408,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       platformCapabilitiesProvider.select((c) => c.shortcutModifier),
     );
     final windowClass = WindowClass.of(context);
-    _keepPlayerFocus(windowClass);
+    _keepCoveringRouteFocus(windowClass);
     // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走）。
     final hasPanel = hasNowPlayingPanel(windowClass) && hasTrack;
     final pages = WindowClassScope(
