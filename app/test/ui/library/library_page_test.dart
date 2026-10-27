@@ -13,6 +13,7 @@ import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // 音樂庫（M4 PR 2，ADR 0033 §決定 8，design §10.3、§10.5）：歷史入口、建立、編輯、刪除、
@@ -234,6 +235,7 @@ void main() {
       await _openMenu(tester, 'Gone');
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
+      expectDestructiveConfirm(tester, 'Delete');
       await tester.tap(
         find.descendant(
           of: find.byType(AlertDialog),

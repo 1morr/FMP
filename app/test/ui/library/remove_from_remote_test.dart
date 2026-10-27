@@ -14,6 +14,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // 「從遠端歌單移除」與歌單詳情裡的遠端入口（M4 PR 14，ADR 0019 §決定 4，design §7.2、§10.6、
@@ -223,6 +224,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(MenuItemButton, _item));
       await tester.pumpAndSettle();
+      expectDestructiveConfirm(tester, 'Remove');
       await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
       await tester.pumpAndSettle();
 

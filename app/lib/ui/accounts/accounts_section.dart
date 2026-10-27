@@ -16,6 +16,7 @@ import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/radio/account_live_import.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/accounts/account_playlists_page.dart';
 import 'package:fmp/ui/accounts/accounts_state.dart';
 import 'package:fmp/ui/accounts/cookie_login_dialog.dart';
@@ -284,25 +285,13 @@ Future<bool> _confirmLogout(
   BuildContext context,
   Translations t,
   String name,
-) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.accounts.logoutTitle(name: name)),
-        content: Text(t.accounts.logoutBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.accounts.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.accounts.confirmLogout),
-          ),
-        ],
-      ),
-    ) ??
-    false;
+) => showDestructiveConfirm(
+  context,
+  title: t.accounts.logoutTitle(name: name),
+  body: t.accounts.logoutBody,
+  confirmLabel: t.accounts.confirmLogout,
+  cancelLabel: t.accounts.cancel,
+);
 
 /// 卡片「⋯」選單的項目。
 enum _CardAction { importLive }

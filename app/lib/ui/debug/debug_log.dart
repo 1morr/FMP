@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/debug/debug_export.dart';
 import 'package:fmp/ui/debug/debug_log_state.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
@@ -247,24 +248,14 @@ class _DebugLogState extends ConsumerState<DebugLog> {
     final t = ref.read(translationsProvider).debug;
     final toaster = ref.read(toasterProvider);
     final log = ref.read(logProvider);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.logClearTitle),
-        content: Text(t.logClearBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.logClear),
-          ),
-        ],
-      ),
+    final confirmed = await showDestructiveConfirm(
+      context,
+      title: t.logClearTitle,
+      body: t.logClearBody,
+      confirmLabel: t.logClear,
+      cancelLabel: t.cancel,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await log.clear();
       toaster.success(t.logCleared);

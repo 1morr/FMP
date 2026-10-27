@@ -13,6 +13,8 @@ import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/plugins/source_icon.dart';
+import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 
@@ -241,6 +243,17 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   labelText: t.importUrlLabel,
                   errorText: error,
                   errorMaxLines: 3,
+                  prefixIcon: const Icon(Icons.link),
+                  // 辨識出來源之後，尾端是它的圖示（舊版也是，L-20）。
+                  suffixIcon: _current == null
+                      ? null
+                      : Padding(
+                          padding: EdgeInsets.all(spacing.x3),
+                          child: SourceIcon(
+                            pluginId: _current!.pluginId,
+                            size: AppLayout.sourceCardBadge,
+                          ),
+                        ),
                 ),
               ),
               if (pairable && !_running) ...[

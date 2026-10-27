@@ -129,12 +129,12 @@ Windows 上 checkout 出來的快照若是 CRLF，`make-migrations` 以字串比
 - `entries` 是 `playlist_entries` join `tracks`，依（`position`, `id`）；`addTracks` 一個 transaction：`TracksRepository.upsert`、
   取歌單內 `max(position) + 1`、`batch.insertAll`。`moveEntries` 用 `batch.update` 逐項寫新位置（不像佇列有主鍵衝突，`position` 不唯一）。
   一萬首的歌單：`addTracks` 約 0.3–0.4 秒、`entries` 約 0.1–0.2 秒、`moveEntries` 約 0.1 秒（PR 1 在開發機的記憶體資料庫量一次，沒有測試重量）。
+- `totalDuration(playlistId)`（U PR 13，歌單詳情頂圖的總時長）：`playlist_entries` join `tracks` 的一個 `SUM(duration_ms)`，同一首出現幾次算幾次、`duration_ms` 為空的不計；隨 `playlistDetailProvider` 讀進 `PlaylistDetail.totalDuration`，不加欄位、不改 schema。
 - Mix 欄位的 CHECK 跨 `kind` 與三欄，寫成表級 `customConstraints`，不掛在某一欄的 `check()`；它進快照與 steps，升級路徑由
   `migrateAndValidate` 比對。測試用 raw SQL 插入違規列，因為 repository 不開放 Mix 欄位；斷言比對 SQLite 的訊息
   （`RESTRICT` 以 trigger 實作，擴充碼不是 `SQLITE_CONSTRAINT_FOREIGNKEY`）。
 - `create` 只建 `local`：匯入與 Mix 歌單要連同 `playlist_remote` 或 Mix 三欄一起寫，由建它們的 PR 另加寫入口。
-- `overviews()`（歌單卡）是一個查詢：`playlists` left join 第一首的 `tracks`，首數與第一首的曲目鍵是相關子查詢（同一張表的兩個
-  alias）。回 `Future`、畫面以 `changes()` 重讀，不給 `watch()` 版：join 了 `tracks`，每寫一次曲目都會觸發重查。
+- `overviews()`（歌單卡）是一個查詢：`playlists` left join 第一首的 `tracks`，首數、第一首的曲目鍵與匯入歌單的來源（`PlaylistOverview.sourcePluginId`，`playlist_remote.plugin_id`）是相關子查詢（同一張表的 alias）。回 `Future`、畫面以 `changes()` 重讀，不給 `watch()` 版：join 了 `tracks`，每寫一次曲目都會觸發重查。
 
 ## 匯入歌單的遠端資料（`playlist_repository.dart`，schema v16）
 

@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/settings/playback_settings.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/artwork/artwork_image.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
@@ -169,24 +170,14 @@ class _QueueViewState extends ConsumerState<QueueView> {
 
   Future<void> _clear() async {
     final t = ref.read(translationsProvider).playerPage;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.queueClearTitle),
-        content: Text(t.queueClearBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.queueCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.queueClearConfirm),
-          ),
-        ],
-      ),
+    final confirmed = await showDestructiveConfirm(
+      context,
+      title: t.queueClearTitle,
+      body: t.queueClearBody,
+      confirmLabel: t.queueClearConfirm,
+      cancelLabel: t.queueCancel,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     // 清空之後佇列頁換成空狀態，這個 widget 也跟著 dispose：先把要用的拿好。
     final toaster = ref.read(toasterProvider);
     unawaited(ref.read(playbackControllerProvider).clear());
@@ -462,8 +453,8 @@ class _QueueRow extends ConsumerWidget {
           pluginIds: {track.sourceTypeId},
           onPressed: () => unawaited(showAddToRemote(context, [track])),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.remove_circle_outline),
+        DestructiveMenuItem(
+          icon: Icons.remove_circle_outline,
           onPressed: () =>
               unawaited(ref.read(playbackControllerProvider).removeAt(index)),
           child: Text(t.queueRemove),

@@ -19,6 +19,7 @@ final class FakeSourcePlugin implements SourcePlugin {
     bool trackDetail = false,
     bool libraryRead = false,
     bool libraryWrite = false,
+    Uri? icon,
   }) : manifest = PluginManifest(
          id: id,
          name: name,
@@ -35,6 +36,7 @@ final class FakeSourcePlugin implements SourcePlugin {
            if (libraryWrite) PluginCapability.libraryWrite,
          },
          allowedHosts: const ['cdn.example'],
+         icon: icon,
        );
 
   FutureOr<List<StreamCandidate>> Function(StreamRequest request) respond;

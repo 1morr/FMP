@@ -356,7 +356,23 @@
     "importAsPlatform": "Import as a platform playlist",
     "importAsPlatformHint": "Refreshes from the playlist on {source}",
     "importAsMatch": "Match to other sources",
-    "importAsMatchHint": "Finds the same songs on other sources and makes a local playlist that does not refresh"
+    "importAsMatchHint": "Finds the same songs on other sources and makes a local playlist that does not refresh",
+    "loadingPlaylists": "Loading playlists",
+    "heroOwner": "Owner: {name}",
+    "heroImported": "Imported · {source}",
+    "durationHoursMinutes": "{hours} hr {minutes} min",
+    "durationMinutes": "{minutes} min",
+    "durationUnderMinute": "Under 1 min",
+    "coverFromTracks": "Pick from song covers",
+    "coverFromTracksTitle": "Choose a cover",
+    "coverFromTracksLoading": "Loading the playlist covers",
+    "coverFromTracksEmpty": "None of the songs in this playlist has a cover",
+    "coverFromTracksFailed": "Could not load the playlist covers",
+    "coverFromTracksItem": "Cover {index}",
+    "addToPlaylistTracks(plural, param=count)": {
+      "one": "{count} song",
+      "other": "{count} songs"
+    }
   },
   "playlist": {
     "more": "More options",
@@ -380,7 +396,9 @@
     "removeBody": "The selected songs ({count}) will be removed from \"{name}\". This cannot be undone.",
     "removeConfirm": "Remove",
     "cancel": "Cancel",
-    "removed": "Removed from the playlist"
+    "removed": "Removed from the playlist",
+    "loading": "Loading the playlist",
+    "retry": "Retry"
   },
   "selection": {
     "select": "Select",
@@ -1202,7 +1220,9 @@
     "liveImportAdded": "Added to Radio: {added}",
     "liveImportAllExisting": "Already in your stations: {existing}",
     "liveImportEmpty": "This account doesn't follow any live rooms",
-    "liveImportFailed": "Couldn't import live rooms: {reason}"
+    "liveImportFailed": "Couldn't import live rooms: {reason}",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
   },
   "errors": {
     "network": "Network connection failed. Check your connection and try again.",

@@ -20,6 +20,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/plugins/source_icon.dart';
 import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -700,8 +701,7 @@ class _DayHeader extends ConsumerWidget {
   }
 }
 
-/// 音源的小徽章：插件名稱的第一個字（還沒有插件圖示的元件可用；音源圖示之後統一，見
-/// PR 13）。
+/// 音源的小徽章：[SourceIcon]，語意名稱是「{音源} 圖示」。
 class _SourceBadge extends ConsumerWidget {
   const _SourceBadge({required this.pluginId});
 
@@ -710,28 +710,11 @@ class _SourceBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).history;
-    final scheme = Theme.of(context).colorScheme;
     final name = ref.watch(pluginNameProvider(pluginId)) ?? pluginId;
-    final initial = name.characters.isEmpty ? '?' : name.characters.first;
-    return Semantics(
-      label: t.sourceIcon(name: name),
-      excludeSemantics: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.secondaryContainer,
-          shape: BoxShape.circle,
-        ),
-        child: SizedBox.square(
-          dimension: AppLayout.sourceBadge,
-          child: Center(
-            child: Text(
-              initial.toUpperCase(),
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.copyWith(color: scheme.onSecondaryContainer),
-            ),
-          ),
-        ),
-      ),
+    return SourceIcon(
+      pluginId: pluginId,
+      size: AppLayout.sourceBadge,
+      semanticLabel: t.sourceIcon(name: name),
     );
   }
 }
@@ -750,7 +733,6 @@ class _HistoryTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).history;
-    final scheme = Theme.of(context).colorScheme;
     final track = entry.track;
     // 音源停用或移除時，「作者」的位置改說原因（ADR 0030 §決定 7、10）。
     final uploader =
@@ -858,14 +840,13 @@ class _HistoryTile extends ConsumerWidget {
         ),
         // 播放次數排序時一列是這首的所有播放：只剩「刪除此曲所有紀錄」。
         if (timeline)
-          MenuItemButton(
-            leadingIcon: const Icon(Icons.delete_outline),
+          DestructiveMenuItem(
+            icon: Icons.delete_outline,
             onPressed: () => unawaited(remove()),
             child: Text(t.remove),
           ),
-        MenuItemButton(
-          style: MenuItemButton.styleFrom(foregroundColor: scheme.error),
-          leadingIcon: Icon(Icons.delete_forever_outlined, color: scheme.error),
+        DestructiveMenuItem(
+          icon: Icons.delete_forever_outlined,
           onPressed: () => unawaited(removeAll()),
           child: Text(t.removeAllOfTrack),
         ),

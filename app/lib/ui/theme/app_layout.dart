@@ -30,7 +30,7 @@ abstract final class AppLayout {
   /// 排行曲目列的名次欄寬（放得下三位數）。
   static const double chartRankWidth = 32;
 
-  /// 音樂庫格狀版面（expanded 以上）一張歌單卡的最大寬度。
+  /// 音樂庫格狀版面（所有寬度）一張歌單卡的最大寬度。
   static const double playlistCardMaxWidth = 200;
 
   /// 格狀清單拖曳排序時：被拖的卡在原位置的不透明度，與拖著走的那張的陰影高度（同
@@ -43,6 +43,36 @@ abstract final class AppLayout {
 
   /// 歌單詳情頁標頭的封面邊長（400 寬的視窗裡旁邊還放得下描述）。
   static const double playlistHeaderCover = 144;
+
+  /// 歌單詳情頁頂圖（舊版的 280dp 模糊背景）展開時的高度，與它裡面的封面邊長。
+  static const double playlistHeroHeight = 280;
+  static const double playlistHeroCover = 120;
+
+  /// 頂圖上的字不跟主題：背景是任意封面，所以一律壓一層深色遮罩、字用白色（對比度與封面無關）。
+  static const Color heroScrim = Color(0x99000000);
+  static const Color onHero = Color(0xFFFFFFFF);
+  static const Color onHeroMuted = Color(0xE6FFFFFF);
+  static const Color heroChip = Color(0x33FFFFFF);
+
+  /// 頂圖背景封面的模糊程度；背景用小圖放大，模糊後看不出差別。
+  static const double heroBlur = 24;
+  static const double heroBackdropSource = 160;
+
+  /// 歌單卡封面角落的音源圖示邊長。
+  static const double sourceCardBadge = 24;
+
+  /// 副標題文字前面的小圖示（匯入歌單的連結圖示）。
+  static const double inlineIcon = 14;
+
+  /// 「從歌曲封面選」的格狀選擇器：一格的最大寬度。
+  static const double coverPickerTile = 96;
+
+  /// 「從歌曲封面選」對話框的內容尺寸。
+  static const double coverPickerDialogWidth = 400;
+  static const double coverPickerDialogHeight = 360;
+
+  /// 加入歌單面板／對話框頂端的歌曲資訊卡的封面邊長。
+  static const double addToPlaylistInfoCover = 48;
 
   /// 空狀態畫面的圖示。
   static const double emptyStateIcon = 48;

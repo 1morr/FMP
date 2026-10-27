@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -9,6 +11,7 @@ import 'package:fmp/library/playlist_service.dart';
 import 'package:fmp/plugins/plugin_artwork.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/library/cover_picker.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -186,6 +189,20 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
     _coverFocus.requestFocus();
   }
 
+  /// 「從歌曲封面選」：選到的封面當成自訂封面的網址填進去，之後的檢查與儲存同貼上網址
+  /// （曲目的音源被停用時，一樣會說「不屬於任何已安裝的音源」）。
+  Future<void> _pickFromTracks() async {
+    final editing = widget.editing;
+    if (editing == null) return;
+    final picked = await showCoverPicker(context, editing.playlist.id);
+    if (picked == null || !mounted) return;
+    _edited(ImportedField.artwork);
+    setState(() {
+      _custom = true;
+      _coverUrl.text = '${picked.url}';
+    });
+  }
+
   void _useDefault() => setState(() {
     _useRemote.remove(ImportedField.artwork);
     _custom = false;
@@ -318,6 +335,16 @@ class _PlaylistDialogState extends ConsumerState<_PlaylistDialog> {
                             ),
                         ],
                       ),
+                      // 只有編輯時有歌單內的曲目可選（建立時還沒有）。
+                      if (widget.editing != null)
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.photo_library_outlined),
+                            onPressed: () => unawaited(_pickFromTracks()),
+                            label: Text(t.coverFromTracks),
+                          ),
+                        ),
                       if (_custom) ...[
                         SizedBox(height: spacing.x2),
                         TextField(

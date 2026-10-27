@@ -23,6 +23,18 @@ class PageSurface extends StatelessWidget {
   );
 }
 
+/// 頁頂的返回鈕（下面還有頁時才有，同 [PageAppBar] 的判斷）；沒有要回的頁是 `null`。
+/// 不用 [PageAppBar] 而自己畫頁頂的頁面（歌單詳情的頂圖）用它，返回鈕的 tooltip 與行為一致。
+Widget? pageBackButton(BuildContext context, WidgetRef ref, {Color? color}) {
+  if (!(ModalRoute.of(context)?.impliesAppBarDismissal ?? false)) return null;
+  return IconButton(
+    tooltip: ref.watch(translationsProvider).shell.backTooltip,
+    icon: const BackButtonIcon(),
+    color: color,
+    onPressed: () => unawaited(Navigator.of(context).maybePop()),
+  );
+}
+
 /// 每一頁的頁頂（ADR 0035 §決定 2）：舊版的置中標題 AppBar，主題的 `appBarTheme` 已經是置中、
 /// 無陰影。巢狀導覽裡的內頁（下面還有頁）在標題前自動放返回鈕。
 ///

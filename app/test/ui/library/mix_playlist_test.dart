@@ -12,6 +12,7 @@ import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../library/fake_import_plugin.dart';
+import '../support/destructive_support.dart';
 import '../support/shell_harness.dart';
 
 // Mix 歌單的卡片選單、詳情與編輯（M4 PR 11，ADR 0033 §決定 1、ADR 0031 §決定 8、9，
@@ -159,7 +160,7 @@ void main() {
       await _open(tester, local: true);
 
       expect(
-        find.descendant(of: find.byType(ListTile), matching: find.text('Mix')),
+        find.descendant(of: find.byType(InkWell), matching: find.text('Mix')),
         findsOneWidget,
       );
       expect(find.textContaining('Mix ·'), findsNothing);
@@ -338,6 +339,7 @@ void main() {
       await tester.tap(find.widgetWithText(MenuItemButton, 'Delete'));
       await tester.pumpAndSettle();
       expect(find.text('Delete the playlist?'), findsOneWidget);
+      expectDestructiveConfirm(tester, 'Delete');
       await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
       await _settle(tester, h);
 

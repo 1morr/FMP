@@ -12,11 +12,12 @@ import 'package:fmp/domain/playlist.dart';
 import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/library/playlist_service.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/empty_state/loading_state.dart';
 import 'package:fmp/ui/errors/error_message.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
-import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/library/import_dialog.dart';
 import 'package:fmp/ui/library/import_preview_page.dart';
 import 'package:fmp/ui/library/library_state.dart';
@@ -24,6 +25,7 @@ import 'package:fmp/ui/library/manual_refresh.dart';
 import 'package:fmp/ui/library/playlist_actions.dart';
 import 'package:fmp/ui/library/playlist_cover.dart';
 import 'package:fmp/ui/library/playlist_detail_page.dart';
+import 'package:fmp/ui/plugins/source_icon.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
@@ -35,11 +37,10 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 ///
 /// - 標題列：「新增歌單」與「匯入」（網址匯入對話框，成功後在巢狀導覽裡開詳情）。
 /// - 頂端「歷史」一列：在音樂庫的巢狀導覽裡開歷史頁（YouTube Music 把歷史放在音樂庫）。
-/// - 歌單卡：封面（自訂封面，沒有就是第一首的封面）、名稱、「本機 · n 首」；點一下在音樂庫的
-///   巢狀導覽裡開歌單詳情。內容區是 compact、medium 時是清單，
-///   expanded 以上是格狀（M3 的 list／grid 依寬度切換）。拖曳把手排序（同電台頁：只有把手能拖，
-///   長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照拖曳後的順序畫。螢幕閱讀器
-///   以語意動作移動（清單是 `ReorderableListView` 自帶的，格狀的卡片給同樣的四個）。
+/// - 歌單卡：封面（自訂封面，沒有就是第一首的封面，角落是音源圖示）、名稱、「本機 · n 首」（匯入歌單前面
+///   一個連結圖示）；點一下在音樂庫的巢狀導覽裡開歌單詳情。所有寬度都是格狀（ADR 0035 R7.5，手機兩欄）。
+///   拖曳把手排序（同電台頁：只有把手能拖，長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照
+///   拖曳後的順序畫。螢幕閱讀器以語意動作移動。載入中是轉圈，讀失敗可重試。
 /// - 卡片選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除（先確認）。
 ///   Mix 歌單只有 Mix 播放、編輯、刪除。
 class LibraryPage extends ConsumerStatefulWidget {
@@ -167,10 +168,6 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         ),
       ),
     ];
-    final wide = switch (WindowClass.of(context)) {
-      WindowClass.compact || WindowClass.medium => false,
-      _ => true,
-    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -179,7 +176,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
           actions: [
             IconButton(
               tooltip: t.importTooltip,
-              icon: const Icon(Icons.file_download_outlined),
+              icon: const Icon(Icons.link),
               onPressed: () => unawaited(_import()),
             ),
             IconButton(
@@ -219,24 +216,25 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 ),
               ],
             ),
-            AsyncData(:final value) when wide => _PlaylistGrid(
+            AsyncData(:final value) => _PlaylistGrid(
               header: top,
               overviews: _shown(value),
               onReorder: _reorder,
             ),
-            AsyncData(:final value) => _PlaylistList(
-              header: top,
-              overviews: _shown(value),
-              onReorder: _reorder,
-            ),
+            // 讀失敗（已在上面報過）：不是「還沒有歌單」，可以重試。
             AsyncError(:final error) => EmptyState(
               icon: Icons.error_outline,
+              error: true,
               title: errorMessage(
                 translations,
                 AppError.wrap(error, StackTrace.current),
               ),
+              action: OutlinedButton(
+                onPressed: () => ref.invalidate(playlistOverviewsProvider),
+                child: Text(t.retry),
+              ),
             ),
-            AsyncLoading() => const SizedBox.shrink(),
+            AsyncLoading() => LoadingState(message: t.loadingPlaylists),
           },
         ),
       ],
@@ -244,70 +242,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   }
 }
 
-/// compact、medium：一列一張（同電台頁），拖曳把手排序。
-class _PlaylistList extends StatelessWidget {
-  const _PlaylistList({
-    required this.header,
-    required this.overviews,
-    required this.onReorder,
-  });
-
-  final List<Widget> header;
-  final List<PlaylistOverview> overviews;
-  final ValueChanged<List<int>> onReorder;
-
-  @override
-  Widget build(BuildContext context) => ReorderableListView.builder(
-    header: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: header,
-    ),
-    padding: EdgeInsets.only(bottom: AppTokens.of(context).spacing.x4),
-    buildDefaultDragHandles: false,
-    itemCount: overviews.length,
-    // `onReorderItem` 的 `newIndex` 已扣掉被拿起來的那一格（同佇列、電台頁）。
-    onReorderItem: (from, to) {
-      final ids = [for (final overview in overviews) overview.playlist.id];
-      ids.insert(to, ids.removeAt(from));
-      onReorder(ids);
-    },
-    itemBuilder: (context, index) {
-      final overview = overviews[index];
-      return PlaylistMenu(
-        key: ValueKey(overview.playlist.id),
-        overview: overview,
-        builder: (context, more, openMenu) => ListTile(
-          leading: PlaylistCover(
-            artwork: overview.playlist.artwork,
-            firstTrack: overview.firstTrack,
-            size: AppLayout.artworkThumbnail,
-          ),
-          title: Text(
-            overview.playlist.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: _PlaylistSubtitle(overview: overview),
-          onTap: () => unawaited(openPlaylist(context, overview.playlist.id)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              more,
-              ReorderableDragStartListener(
-                index: index,
-                child: const _DragHandle(),
-              ),
-            ],
-          ),
-          onLongPress: openMenu,
-        ),
-      );
-    },
-  );
-}
-
-/// expanded 以上：格狀的卡片（封面在上、名稱與「本機 · n 首」在下），每張的寬度不超過
-/// [AppLayout.playlistCardMaxWidth]。Flutter 沒有內建可拖曳排序的格狀清單，所以用
+/// 所有寬度都是格狀的卡片（ADR 0035，R7.5；封面在上、名稱與「本機 · n 首」在下，封面的角落
+/// 是音源圖示），每張的寬度不超過 [AppLayout.playlistCardMaxWidth]，所以手機直向是兩欄。Flutter 沒有內建可拖曳排序的格狀清單，所以用
 /// `Draggable`（把手）與每張卡的 `DragTarget`：拖過某張卡時被拖的卡移到它的位置（畫面
 /// 跟著換），放開時整批寫入。
 class _PlaylistGrid extends StatefulWidget {
@@ -568,10 +504,25 @@ class _GridCardBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LayoutBuilder(
-          builder: (context, constraints) => PlaylistCover(
-            artwork: overview.playlist.artwork,
-            firstTrack: overview.firstTrack,
-            size: constraints.maxWidth,
+          builder: (context, constraints) => Stack(
+            children: [
+              PlaylistCover(
+                artwork: overview.playlist.artwork,
+                firstTrack: overview.firstTrack,
+                size: constraints.maxWidth,
+              ),
+              // 角落的音源圖示（匯入與 Mix 歌單；本機歌單沒有音源）。
+              if (playlistSourceId(overview) case final sourceId?)
+                Positioned.directional(
+                  textDirection: Directionality.of(context),
+                  top: spacing.x2,
+                  start: spacing.x2,
+                  child: SourceIcon(
+                    pluginId: sourceId,
+                    size: AppLayout.sourceCardBadge,
+                  ),
+                ),
+            ],
           ),
         ),
         Padding(
@@ -642,7 +593,18 @@ class _PlaylistSubtitle extends ConsumerWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
-    if (progress == null) return text;
+    if (progress == null) {
+      if (overview.playlist.kind != PlaylistKind.imported) return text;
+      // 匯入歌單前面一個連結圖示（ADR 0035，R7.5）。
+      final style = DefaultTextStyle.of(context).style;
+      return Row(
+        children: [
+          Icon(Icons.link, size: AppLayout.inlineIcon, color: style.color),
+          SizedBox(width: AppTokens.of(context).spacing.x1),
+          Expanded(child: text),
+        ],
+      );
+    }
     // 刷新中：副標題前面一個轉圈，後面是「已更新 n 首」（卡片上的進度，ADR 0035 §決定 11）。
     return Row(
       children: [
@@ -741,8 +703,8 @@ class PlaylistMenu extends ConsumerWidget {
           onPressed: () => unawaited(editPlaylist(context, ref, overview)),
           child: Text(t.edit),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.delete_outline),
+        DestructiveMenuItem(
+          icon: Icons.delete_outline,
           onPressed: () => unawaited(deletePlaylist(context, ref, playlist)),
           child: Text(t.delete),
         ),

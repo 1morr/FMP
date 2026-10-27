@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/plugins/plugin_text.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -211,29 +212,14 @@ class _InstallAllDialog extends StatelessWidget {
 }
 
 /// 移除 [name] 的確認；使用者按了移除才是 `true`。
-Future<bool> confirmRemove(
-  BuildContext context,
-  Translations t,
-  String name,
-) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.plugins.removeTitle(name: name)),
-        content: Text(t.plugins.removeBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.plugins.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.plugins.confirmRemove),
-          ),
-        ],
-      ),
-    ) ??
-    false;
+Future<bool> confirmRemove(BuildContext context, Translations t, String name) =>
+    showDestructiveConfirm(
+      context,
+      title: t.plugins.removeTitle(name: name),
+      body: t.plugins.removeBody,
+      confirmLabel: t.plugins.confirmRemove,
+      cancelLabel: t.plugins.cancel,
+    );
 
 /// 問一個 `https` 網址；取消是 `null`。[warning] 顯示在輸入框下方（加入自訂插件庫的
 /// 「非官方來源」）。
