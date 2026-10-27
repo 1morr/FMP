@@ -384,6 +384,100 @@ void main() {
     });
   });
 
+  // ADR 0035 §決定 2 的 U 驗收修訂：內容區至少 360dp；側欄展開加面板放不下時側欄畫成收合。
+  group('the rail yields to the panel (ADR 0035 §決定 2, U acceptance)', () {
+    double railWidth(WidgetTester tester) =>
+        tester.getSize(find.byType(LegacySideRail)).width;
+    double pageWidth(WidgetTester tester) =>
+        tester.getSize(find.byType(SearchPage)).width;
+
+    Future<LayoutState?> stored(WidgetTester tester, ShellHarness h) =>
+        tester.runAsync(
+          () => h.container(tester).read(layoutStateRepositoryProvider).read(),
+        );
+
+    Future<ShellHarness> pumpPlaying(WidgetTester tester, Size size) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: size, expandRail: true);
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      return h;
+    }
+
+    testWidgets('914 wide: the remembered rail is drawn collapsed and the '
+        'pages keep 360dp', (tester) async {
+      final h = await pumpPlaying(tester, const Size(914, 412));
+
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect(railWidth(tester), AppLayout.railCollapsed);
+      expect(
+        pageWidth(tester),
+        greaterThanOrEqualTo(AppLayout.contentMinWidth),
+      );
+      expect(
+        (await stored(tester, h))?.railExpanded,
+        isTrue,
+        reason: 'the remembered state is not rewritten',
+      );
+    });
+
+    testWidgets('pressing Expand closes the panel and expands the rail', (
+      tester,
+    ) async {
+      final h = await pumpPlaying(tester, const Size(914, 412));
+
+      await tester.tap(find.byTooltip('Expand side bar'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(railWidth(tester), AppLayout.railExpanded);
+      final layout = await stored(tester, h);
+      expect(layout?.panelExpanded, isFalse);
+      expect(layout?.railExpanded, isTrue);
+    });
+
+    testWidgets('1400 wide: the expanded rail and the panel both show', (
+      tester,
+    ) async {
+      await pumpPlaying(tester, const Size(1400, 800));
+
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect(railWidth(tester), AppLayout.railExpanded);
+    });
+
+    testWidgets('1400 wide: pressing Expand leaves the panel open', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(1400, 800));
+      await h.play(tester, [summary('a')]);
+      await h.loadSettings(tester);
+
+      await tester.tap(find.byTooltip('Expand side bar'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(railWidth(tester), AppLayout.railExpanded);
+      expect(find.byType(NowPlayingPanel), findsOneWidget);
+      expect((await stored(tester, h))?.panelExpanded, isNull);
+    });
+
+    testWidgets('closing the panel brings the rail back without a rail '
+        'write', (tester) async {
+      final h = await pumpPlaying(tester, const Size(914, 412));
+      expect(railWidth(tester), AppLayout.railCollapsed);
+
+      await tester.tap(find.byTooltip('Collapse the now playing panel'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NowPlayingPanel), findsNothing);
+      expect(railWidth(tester), AppLayout.railExpanded);
+    });
+  });
+
   // ADR 0035 §決定 4：播放列橫跨整個視窗，側欄下方也是；面板在內容區右邊、播放列上面。
   group('the player bar spans the window (ADR 0035 §決定 4)', () {
     for (final width in [700.0, 1000.0, 1400.0]) {

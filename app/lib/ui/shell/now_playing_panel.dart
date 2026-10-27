@@ -23,6 +23,21 @@ bool hasNowPlayingPanel(WindowClass windowClass) => switch (windowClass) {
   WindowClass.compact || WindowClass.medium => false,
 };
 
+/// 側欄展開（[AppLayout.railExpanded]）加面板（含把手）之後，內容區是否不到
+/// [AppLayout.contentMinWidth]；是的話外殼把側欄畫成收合，記住的展開狀態不動。
+///
+/// [availableWidth] 是視窗寬扣掉左右安全區（橫向手機的瀏海）；[panelWidth] 是面板畫面上的寬度
+/// （[panelWidthFor]）。剛好等於下限不算放不下。
+bool railYieldsToPanel({
+  required double availableWidth,
+  required double panelWidth,
+}) =>
+    availableWidth -
+        AppLayout.railExpanded -
+        AppLayout.panelHandleWidth -
+        panelWidth <
+    AppLayout.contentMinWidth;
+
 /// 面板畫面上的寬度（design §9.4）：[stored]（記住的，沒記過用該等級的預設）夾在
 /// 下限與視窗寬 x 0.4 之間；上限低於下限時以下限為準，高於資料庫收得下的
 /// [AppLayout.panelMaxWidth] 時以它為準。只夾畫面上的值，不改寫記憶。

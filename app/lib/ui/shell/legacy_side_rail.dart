@@ -18,7 +18,9 @@ typedef ShellDestinationLabel = ({
 /// 收合 72dp（圖示加文字標籤）、展開 256dp（FMP 名稱、圖示加文字）。medium 以上各寬度同一個，
 /// 取代 `NavigationRail` 與常駐的 `NavigationDrawer`。
 ///
-/// 展開與否依裝置記住（`layout_state.rail_expanded`），沒記過是收合。高度不夠（橫向手機）時項目
+/// 畫成展開或收合由外殼傳進來的 `expanded` 決定：外殼依記住的狀態（`layout_state.rail_expanded`，沒記過是
+/// 收合）與右側面板放不放得下算出來（[railYieldsToPanel]），所以記住展開、畫面上卻是收合是正常的；
+/// 展開鈕與收合鈕只呼叫 `onExpand`、`onCollapse`，寫入由外殼做。高度不夠（橫向手機）時項目
 /// 可以捲動，頂端的展開／收合鈕不動，「設定」才一直按得到。展開、收合有寬度動畫；系統要求減少
 /// 動態時直接切換。
 ///
@@ -30,11 +32,19 @@ class LegacySideRail extends ConsumerStatefulWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.destinations,
+    required this.expanded,
+    required this.onExpand,
+    required this.onCollapse,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<ShellDestinationLabel> destinations;
+
+  /// 畫面上是否展開（已把「面板放不下」算進去）。
+  final bool expanded;
+  final VoidCallback onExpand;
+  final VoidCallback onCollapse;
 
   @override
   ConsumerState<LegacySideRail> createState() => _LegacySideRailState();
@@ -57,7 +67,7 @@ class _LegacySideRailState extends ConsumerState<LegacySideRail> {
     final selectedIndex = widget.selectedIndex;
     final onSelected = widget.onSelected;
     final destinations = widget.destinations;
-    final expanded = ref.watch(railExpandedProvider);
+    final expanded = widget.expanded;
     final scheme = Theme.of(context).colorScheme;
     // 啟動時第一次讀到記住的狀態直接到位：那不是使用者按的，不要每次開 App 都看它展開一次。
     final loaded = ref.watch(layoutStateProvider.select((s) => s.hasValue));
@@ -87,6 +97,7 @@ class _LegacySideRailState extends ConsumerState<LegacySideRail> {
                       onSelected: onSelected,
                       destinations: destinations,
                       toggleFocus: _toggleFocus,
+                      onCollapse: widget.onCollapse,
                     )
                   : Align(
                       alignment: Alignment.centerLeft,
@@ -97,6 +108,7 @@ class _LegacySideRailState extends ConsumerState<LegacySideRail> {
                           onSelected: onSelected,
                           destinations: destinations,
                           toggleFocus: _toggleFocus,
+                          onExpand: widget.onExpand,
                         ),
                       ),
                     ),
@@ -115,12 +127,14 @@ class _Collapsed extends ConsumerWidget {
     required this.onSelected,
     required this.destinations,
     required this.toggleFocus,
+    required this.onExpand,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<ShellDestinationLabel> destinations;
   final FocusNode toggleFocus;
+  final VoidCallback onExpand;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -139,7 +153,7 @@ class _Collapsed extends ConsumerWidget {
             focusNode: toggleFocus,
             icon: const Icon(Icons.menu),
             tooltip: t.railExpandTooltip,
-            onPressed: () => rememberRail(ref, expanded: true),
+            onPressed: onExpand,
           ),
           SizedBox(height: spacing.x2),
           Divider(indent: spacing.x3, endIndent: spacing.x3),
@@ -164,12 +178,14 @@ class _Expanded extends ConsumerWidget {
     required this.onSelected,
     required this.destinations,
     required this.toggleFocus,
+    required this.onCollapse,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<ShellDestinationLabel> destinations;
   final FocusNode toggleFocus;
+  final VoidCallback onCollapse;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -202,7 +218,7 @@ class _Expanded extends ConsumerWidget {
                 focusNode: toggleFocus,
                 icon: const Icon(Icons.menu_open),
                 tooltip: t.railCollapseTooltip,
-                onPressed: () => rememberRail(ref, expanded: false),
+                onPressed: onCollapse,
               ),
             ],
           ),

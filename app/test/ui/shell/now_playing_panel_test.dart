@@ -255,6 +255,45 @@ void main() {
     );
   });
 
+  group('railYieldsToPanel', () {
+    // 側欄 256 + 把手 8 + 面板，剩下的給內容區。
+    bool yields(double available, double panel) =>
+        railYieldsToPanel(availableWidth: available, panelWidth: panel);
+
+    test('914 wide with the default panel yields (284dp left)', () {
+      final panel = panelWidthFor(
+        stored: null,
+        windowClass: WindowClass.expanded,
+        windowWidth: 914,
+      );
+      expect(yields(914, panel), isTrue);
+    });
+
+    test('1400 wide with the default panel does not', () {
+      final panel = panelWidthFor(
+        stored: null,
+        windowClass: WindowClass.large,
+        windowWidth: 1400,
+      );
+      expect(yields(1400, panel), isFalse);
+    });
+
+    test('exactly 360dp left does not yield, one less does', () {
+      const panel = 400.0;
+      const exact = 256 + 8 + panel + 360;
+      expect(yields(exact, panel), isFalse);
+      expect(yields(exact - 0.5, panel), isTrue);
+    });
+
+    test('a landscape cutout takes from the available width', () {
+      const panel = 400.0;
+      const window = 256 + 8 + panel + 360;
+      expect(yields(window, panel), isFalse);
+      // 左右各 24dp 的瀏海：呼叫端傳的是扣掉安全區之後的寬度。
+      expect(yields(window - 48, panel), isTrue);
+    });
+  });
+
   group('dragging', () {
     testWidgets('left widens, right narrows, and only the release writes', (
       tester,

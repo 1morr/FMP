@@ -212,6 +212,14 @@
 - 兩平台照 `prd.md` 的驗收條件走完整流程；以 1000 首以上的歌單驗匯入進度與取消（測試插件的長歌單）。
 - `research/u-acceptance.md`、`milestones.md` 勾選；擁有者以 dev 版試用後認可才算完成。
 
+## 驗收後修正
+
+- 觀察 1（`research/u-acceptance.md`）：914dp 橫向、側欄展開加面板時內容區只剩約 290dp，標題被截、觀看數被擠掉。
+  規則（ADR 0035 §決定 2 的 2026-10-27 修訂）：內容區至少 `AppLayout.contentMinWidth`（360dp）。
+  - 畫面：`railYieldsToPanel`（`now_playing_panel.dart`）為真時外殼把側欄畫成收合；記住的 `rail_expanded` 不改，面板關上或視窗變寬就展開回來。
+  - 操作：這時按側欄的展開鈕一併收起面板（`LegacySideRail` 改由外殼傳 `expanded`、`onExpand`、`onCollapse`）。
+  - 測試：`now_playing_panel_test.dart`（純函式）、`app_shell_test.dart`（914 與 1400 的整合）。
+
 ## 回退點
 
 - 每個 PR 獨立可 revert。
