@@ -161,7 +161,7 @@ void main() {
       expect(stored.last.description, 'Driving');
       expect(find.text('Playlist created'), findsOneWidget);
       expect(find.text('Road'), findsOneWidget);
-      expect(find.text('Local · 0 songs'), findsNWidgets(2));
+      expect(find.text('0 songs'), findsNWidgets(2));
     });
 
     testWidgets('cancelling creates nothing', (tester) async {
@@ -324,7 +324,7 @@ void main() {
           tester.getCenter(find.text(name)).dy,
       };
       expect(ys, hasLength(1));
-      expect(find.text('Local · 1 song'), findsOneWidget);
+      expect(find.text('1 song'), findsOneWidget);
 
       await _drag(
         tester,
@@ -534,6 +534,6 @@ void main() {
 
     expect(find.text('No network connection'), findsOneWidget);
     expect(find.text('Mix'), findsOneWidget);
-    expect(find.text('Local · 1 song'), findsOneWidget);
+    expect(find.text('1 song'), findsOneWidget);
   });
 }

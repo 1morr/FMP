@@ -24,19 +24,16 @@ final playlistOverviewsProvider = StreamProvider<List<PlaylistOverview>>((
 String trackCountText(Translations$library$zh_TW t, int count) =>
     t.trackCount(count: count);
 
-/// 歌單卡的副標題：「本機／匯入 · n 首」；Mix 不存曲目，只寫「Mix」（音樂庫的卡片；首頁的卡片窄，只寫首數）。
+/// 音樂庫歌單卡的副標題：首數（同首頁的歌單卡與舊版；匯入歌單的「匯入」由卡片上的連結圖示表示）；
+/// Mix 不存曲目，只寫「Mix」。
 String playlistSubtitleText(
   Translations$library$zh_TW t,
   PlaylistOverview overview,
-) {
-  final kind = switch (overview.playlist.kind) {
-    PlaylistKind.local => t.local,
-    PlaylistKind.imported => t.imported,
-    PlaylistKind.mix => null,
-  };
-  if (kind == null) return t.mix;
-  return '$kind · ${trackCountText(t, overview.trackCount)}';
-}
+) => switch (overview.playlist.kind) {
+  PlaylistKind.mix => t.mix,
+  PlaylistKind.local ||
+  PlaylistKind.imported => trackCountText(t, overview.trackCount),
+};
 
 /// 歌單總時長的文字（「6 小時 12 分」）；沒有時長（曲目都不知道長度）是 `null`。
 String? durationText(Translations$library$zh_TW t, Duration total) {

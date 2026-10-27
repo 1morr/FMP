@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -19,6 +21,18 @@ String sourceAbbreviation(String name) {
       ? [words[0].runes.first, words[1].runes.first]
       : words[0].runes.take(2).toList();
   return String.fromCharCodes(chars).toUpperCase();
+}
+
+/// `data:` 圖示解碼後的位元組，依 manifest 的那個 [Uri] 實例記住：每次 build 都解碼的話位元組是新的一份，
+/// `MemoryImage` 的 key（比對位元組的實例）跟著變，圖要重新解碼、重建時會閃（歌單頂圖隨捲動重建）。
+/// 插件更新換了 manifest 就是新的 [Uri]，舊的那一份隨它回收。
+final _dataIcons = Expando<Uint8List>('source icon bytes');
+
+Uint8List? _dataIconBytes(Uri icon) {
+  if (_dataIcons[icon] case final bytes?) return bytes;
+  final bytes = icon.data?.contentAsBytes();
+  if (bytes != null) _dataIcons[icon] = bytes;
+  return bytes;
 }
 
 /// 音源的小圖示（ADR 0035，R7.5、R7.10）：插件 manifest 的 `icon`（`https` 網址經那個插件的媒體
@@ -80,7 +94,7 @@ class SourceIcon extends ConsumerWidget {
     if (icon == null) {
       image = abbreviation;
     } else if (icon.isScheme('data')) {
-      final bytes = icon.data?.contentAsBytes();
+      final bytes = _dataIconBytes(icon);
       image = bytes == null
           ? abbreviation
           : Image.memory(
@@ -88,6 +102,7 @@ class SourceIcon extends ConsumerWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
+              gaplessPlayback: true,
               errorBuilder: (context, error, stackTrace) => abbreviation,
             );
     } else {

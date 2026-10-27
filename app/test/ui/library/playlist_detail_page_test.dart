@@ -302,6 +302,23 @@ void main() {
       expect(find.text('12 songs · 37 min'), findsOneWidget);
     });
 
+    testWidgets('a larger text size makes it taller instead of shrinking '
+        'the text', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _open(tester, tracks: [_song('a')], description: 'For the drive');
+
+      // 視窗 800 高：最多長到一半。
+      expect(_heroExtent(tester), greaterThan(AppLayout.playlistHeroHeight));
+      expect(_heroExtent(tester), lessThanOrEqualTo(400));
+      // 字照字級 2.0 畫（內文一行 20 → 40），沒有被等比縮回去。
+      expect(
+        tester.getRect(find.text('1 song · 3 min')).height,
+        greaterThan(35),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the back button works from the hero too', (tester) async {
       await _open(tester, tracks: [_song('a')]);
 
@@ -880,7 +897,8 @@ void main() {
       expect(await _stored(tester, h, id), ['a', 'b']);
       expect(find.text('Removed from the playlist'), findsOneWidget);
       expect(find.byType(Checkbox), findsNothing);
-      expect(find.textContaining('2 songs'), findsOneWidget);
+      // 首數與總時長都跟著重讀（4 首 12 分 → 2 首 6 分）。
+      expect(find.text('2 songs · 6 min'), findsOneWidget);
     });
 
     testWidgets('an imported playlist has no "Remove from playlist"', (

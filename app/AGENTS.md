@@ -2515,7 +2515,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   閘門：`test/ui/charts/explore_page_test.dart`（從「查看全部」開在那個分頁、返回、分頁順序與只有啟用的、開著時停用、完整清單與名次、切分頁、多選加入佇列、全選加入歌單、Esc 先離開選取、刷新後內容換了與換分頁都離開選取、能寫遠端時多選列有「加入遠端歌單…」、兩種空狀態、
   刷新呼叫工作、下拉呼叫同一個工作、間隔關閉又沒有快取時指向刷新且刷新後有內容、離線不發並提示、全部失敗的提示與「更新失敗」）。
 - 音樂庫（`lib/ui/library/`、`lib/library/playlist_service.dart`，ADR 0033 §決定 8，M4 design §10.3、§10.5）：
-  - 標題列「匯入」（開匯入對話框）與「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、「本機 · n 首」），點一下在音樂庫的
+  - 標題列「匯入」（開匯入對話框）與「新增歌單」；頂端「歷史」一列；下面是歌單卡（封面＝自訂封面，沒有就是第一首的封面、名稱、首數），點一下在音樂庫的
     巢狀導覽裡開歌單詳情（`openPlaylist`）。格狀的卡片照 `ListTile`：`InkWell` 包 `Semantics(button: true)`，「⋯」與把手各自一個節點（包
     `MergeSemantics` 會把點一下與「⋯」的點擊併成一個節點）。卡片資料是
     `PlaylistRepository.overviews()`（一個查詢帶首數與第一首），`playlistOverviewsProvider` 以 `changes()` 重讀，不用 `watch()`：
@@ -2523,10 +2523,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   - **所有寬度都是格狀**（ADR 0035 R7.5，U PR 13；每張不超過 `AppLayout.playlistCardMaxWidth`，手機直向兩欄，400／1000／1400 寬各 2／5／7 欄）：Flutter 沒有可排序的格狀清單，
     所以是把手上的 `Draggable` 加每張卡的 `DragTarget`，拖過某張卡就換到它的位置，放開才整批寫 `sort_order`。資料庫追上之前照拖曳後的順序畫；寫入失敗回到資料庫的順序並提示。
     拖曳只有指標能做：卡片給螢幕閱讀器四個移動動作（`WidgetsLocalizations` 的 `reorderItemToStart`／`Left`／`Right`／`ToEnd`，由左而右排所以是左右）。
-    沒有鍵盤排序（M4 PR 5 決定：ADR 0024 的快捷鍵表沒有排序鍵）。閘門：`library_page_test.dart` 的 `in the grid a screen reader moves a card…`、`library_grid_test.dart` 的欄數。
+    沒有鍵盤排序（M4 PR 5 決定：ADR 0024 的快捷鍵表沒有排序鍵）。把手常駐（R7.12 保留 L-09，不回到舊版的排序模式），但**疊在封面的一角**（主色底的小方塊，舊版排序模式的把手位置），
+    不放在名稱那一列：兩欄的手機上「⋯」加把手會把名稱擠到卡片的一半。閘門：`library_page_test.dart` 的 `in the grid a screen reader moves a card…`、`library_grid_test.dart` 的欄數與
+    `the card footer at 400 wide`（名稱至少佔卡片六成、首數不截斷、字級 2.0 不溢出）。
   - **卡片的音源與狀態**：封面角落是 `SourceIcon`（`lib/ui/plugins/source_icon.dart`；匯入歌單用 `PlaylistOverview.sourcePluginId`＝`playlist_remote.plugin_id`，Mix 歌單用 `mixPluginId`，本機歌單沒有，
     `playlistSourceId`）：manifest 的 `icon`（`data:` 直接解碼，`https` 經那個插件的 `ArtworkImage`），沒有、讀不到或不是點陣圖時是名稱縮寫（`sourceAbbreviation`；停用或未安裝的音源用插件 id）。
-    歷史頁的音源徽章與網址匯入對話框也是它。匯入歌單的副標題前面一個連結圖示，標題列的匯入鈕也是連結圖示。載入中是 `LoadingState`，讀失敗是 `EmptyState(error: true)` 加「重試」
+    歷史頁的音源徽章與網址匯入對話框也是它。副標題只有首數（同首頁的歌單卡與舊版；Mix 是「Mix」），匯入歌單前面一個連結圖示、螢幕閱讀器念「匯入」；標題列的匯入鈕也是連結圖示。載入中是 `LoadingState`，讀失敗是 `EmptyState(error: true)` 加「重試」
     （`ref.invalidate(playlistOverviewsProvider)`）。閘門：`library_grid_test.dart`、`source_icon_test.dart`。
   - 卡片選單（右鍵、長按、「⋯」，`TrackRowMenu`）：全部加入佇列、隨機加入佇列（先打亂再加入；佇列的隨機播放不動）、刷新（只有匯入歌單）、編輯、刪除（先確認）。
     匯入歌單的副標題寫「匯入 · n 首」。**Mix 歌單**的選單只有「Mix 播放」、編輯、刪除（沒有加入佇列、隨機、刷新）；首頁的卡片沒有選單。
@@ -2537,7 +2539,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     **刪除與移除的確認框一律走 `showDestructiveConfirm`，選單裡刪除或移除東西的項目一律是 `DestructiveMenuItem`**（`lib/ui/dialogs/destructive_confirm.dart`；ADR 0035 R7.9：紅色確認鈕、
     選單項目 error 色，停用時照一般停用色）：歌單、電台、插件、遠端歌單項目、已選的歌、佇列清空、登出、Debug 的清除紀錄，與歷史的刪除。新增這類確認或項目時用它們，
     並在該呼叫端的測試裡加 `expectDestructiveConfirm`（`test/ui/support/destructive_support.dart`）；共用元件本身的閘門是 `test/ui/dialogs/destructive_confirm_test.dart`。沒有做成靜態規則：
-    「這個確認框是不是破壞性的」要看語意，掃原始碼分不出（Debug 的「重設資料」有勾選確認與自己的版面，仍是一般的 `FilledButton`）。
+    「這個確認框是不是破壞性的」要看語意，掃原始碼分不出。版面放不進 `showDestructiveConfirm` 的（Debug 的「重設資料」要先勾「我了解」）用同一檔的 `DestructiveConfirmButton`，
+    閘門是 `debug_reset_test.dart` 的 `backs up first…`。清快取不算（舊版清圖片快取連確認都沒有，快取可以重新取得）。
     加入走 `PlaybackController.addToQueue`：超過佇列上限整批拒絕、提示由外殼接 `QueueFull`；空歌單與 Mix 中兩項停用。
   - 建立與編輯是同一個對話框（`showPlaylistDialog`）：名稱必填（去掉空白後不能是空的）、描述選填、封面預設「第一首歌的封面」，「自訂」填
     圖片網址、「使用預設」清回（`playlists.artwork_json`，空＝預設）。**自訂的網址要屬於某個已安裝且啟用的插件的允許網域**
@@ -2589,9 +2592,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `playlist_service_test.dart` 的 `editing an imported playlist`、`playlist_remote_repository_test.dart` 的 `updateImported` 與 `entries`、`playlist_importer_test.dart` 的 `progress`。
 - 歌單詳情（`lib/ui/library/playlist_detail_page.dart`、`library_state.dart`，ADR 0033 §決定 9，M4 design §10.4）：
   - 在目前目的地的巢狀導覽裡開（`openPlaylist`）。本機與匯入歌單的頁頂是 **280dp 的頂圖**（`PlaylistHeroBar`，`playlist_hero.dart`，ADR 0035 R7.6）：`SliverAppBar(pinned, expandedHeight: 280)`，
-    背景是模糊的歌單封面（小圖放大再模糊）加深色遮罩，前景是封面、名稱、描述（2 行）、「擁有者：x」、「n 首 · 6 小時 12 分」（總時長）與來源徽章（本機是「本機」，匯入是來源圖示加「已匯入 · 音源」）；
+    背景是模糊的歌單封面（小圖放大再模糊）加深色遮罩，前景是封面、名稱、描述（2 行）、「擁有者：x」、「n 首 · 6 小時 12 分」（總時長）與來源徽章（本機是「本機」，匯入是來源圖示加「已匯入 · 音源」；底色與字是成對的 `primaryContainer`／`onPrimaryContainer`，同舊版的徽章，半透明白底在淺色封面上不到 4.5:1）；
     往上捲就淡出，收成置中標題、返回鈕的頁頂（頂圖內容與收起的標題各自在 `expand` 超過 0.4／低於 0.5 時才在樹上，名稱不會同時出現兩次）。頂圖上的字不跟主題（`AppLayout.onHero` 等，白字壓
-    `heroScrim`），所以對比度與封面無關；字級放大時整塊等比縮小、不溢出；沒有動畫（隨捲動位置變化），所以不需要另外處理「減少動態」。選取模式時選取列蓋在頂圖上（`Stack`），頂圖的返回鈕不留在樹上。
+    `heroScrim`），所以對比度與封面無關；字級放大時頂圖跟著長高（`playlistHeroHeight`：照實際有的行與字級角色算多出來的高度，最多到視窗高度的一半），超過上限的部分才整塊等比縮小、不溢出；
+    捲動時只有 `_HeroSpace` 重建，模糊背景與頂圖內容在 `PlaylistHeroBar` 建好一次傳進去（背景另包 `RepaintBoundary`）；沒有動畫（隨捲動位置變化），所以不需要另外處理「減少動態」。選取模式時選取列蓋在頂圖上（`Stack`），頂圖的返回鈕不留在樹上。
     **總時長**在資料庫加總（`PlaylistRepository.totalDuration`，一個 `SUM` 查詢，同一首出現幾次算幾次、不知道長度的不計），隨 `playlistDetailProvider` 讀進 `PlaylistDetail.totalDuration`，畫面不逐首加。
     Mix 歌單、載入中、讀失敗與已刪除仍是一般的 `PageAppBar`（載入中 `LoadingState`，讀失敗 `EmptyState(error)` 加「重試」）。頂圖下面一列「全部加入佇列」「隨機加入佇列」：同卡片選單那兩項（`PlaylistService.addToQueue`，超過上限整批拒絕、提示由外殼接
     `QueueFull`；空歌單與 Mix 中停用）。匯入歌單另有「刷新」（見音樂庫的手動刷新）與下面的**狀態列**。清單是 sliver：本機歌單 `SliverReorderableList`（只有把手能拖），匯入歌單 `SliverList`。
@@ -2612,7 +2616,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `PlaylistRepository.removeEntries`／`moveEntries` 只動那張歌單的項目，別張歌單的項目 id 不生效。
   - 重排：清單含群組標題列，`reorderedEntryIds` 把 `onReorderItem` 的列位置換成項目順序（標題列不算位置；放在標題與第一個分 P 之間＝那個
     分 P 之前），整批 `moveEntries` 寫 `position`；資料庫追上之前照拖曳後的順序畫，寫入失敗回到資料庫的順序並提示。
-  - 閘門：`test/ui/library/playlist_detail_page_test.dart`（`the hero` 群組：總時長含小時、不知道長度的不加時長、匯入歌單的徽章、捲動收成置中標題而返回鈕留著、展開高度 280；從清單與格狀開、返回、標頭、空的、被刪掉、分組、臨時播放、三種開法同一份選單、
+  - 閘門：`test/ui/library/playlist_detail_page_test.dart`（`the hero` 群組：總時長含小時、不知道長度的不加時長、匯入歌單的徽章、捲動收成置中標題而返回鈕留著、展開高度 280、字級 2.0 時長高而字不縮回去；多選移除後首數與總時長跟著重讀；從清單與格狀開、返回、標頭、空的、被刪掉、分組、臨時播放、三種開法同一份選單、
     音源不可用、離線、拖曳寫入、分 P 拖出群組、寫入失敗、移除重複的其中一筆、匯入歌單沒有把手與移除、全部加入與隨機加入、超過上限、Mix 中
     停用而「加入歌單…」照常、`selecting` 群組；狀態列與已失效在 `import_ui_test.dart`）、`library_state_test.dart`（分組與重排的純函數）、`playlist_service_test.dart` 的 `the songs of a playlist`、
     `playlist_repository_test.dart` 的 `removeEntries does not touch another playlist`、`moveEntries does not touch another playlist`。

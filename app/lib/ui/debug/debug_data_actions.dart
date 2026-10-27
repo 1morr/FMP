@@ -11,6 +11,7 @@ import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/ui/backup/blocking_progress.dart';
 import 'package:fmp/ui/backup/restore_flow.dart';
+import 'package:fmp/ui/dialogs/destructive_confirm.dart';
 import 'package:fmp/ui/format/byte_size.dart';
 import 'package:fmp/ui/format/home_path.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -188,7 +189,8 @@ class _ResetConfirmDialogState extends ConsumerState<_ResetConfirmDialog> {
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(t.cancel),
         ),
-        FilledButton(
+        // 清掉全部資料：紅色確認鈕（ADR 0035 R7.9；舊版的「重設所有資料」也是）。
+        DestructiveConfirmButton(
           onPressed: _understood ? () => Navigator.of(context).pop(true) : null,
           child: Text(t.resetConfirm),
         ),

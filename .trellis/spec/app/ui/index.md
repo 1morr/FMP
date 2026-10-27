@@ -228,7 +228,8 @@ try {
 U PR 13（ADR 0035 R7.5–R7.10）的寫法：
 
 - 歌單詳情（本機、匯入）的頁頂是 `PlaylistHeroBar`（`SliverAppBar` pinned、280dp）。自己畫頁頂的頁面用 `pageBackButton`（`page_app_bar.dart`）放返回鈕，tooltip 與行為才同 `PageAppBar`。
-  頂圖上的字用 `AppLayout.onHero*`、遮罩 `heroScrim`（不跟主題，`lib/ui/theme/` 豁免 `fmp_design_tokens`）。要驗「收起來」的狀態，測試用 `ScrollPosition.jumpTo(288)`
+  頂圖上的字用 `AppLayout.onHero*`、遮罩 `heroScrim`（不跟主題，`lib/ui/theme/` 豁免 `fmp_design_tokens`）；壓在頂圖上的小色塊（徽章）用成對的語意色，不用半透明白。
+  隨捲動重建的 `flexibleSpace` 不在自己的 `build` 裡建重的子樹（模糊背景）：在外層建好、當參數傳進去，同一個實例才不跟著重建。要驗「收起來」的狀態，測試用 `ScrollPosition.jumpTo(288)`
   （選對 `CustomScrollView` 底下的 `Scrollable`，`find.byType(Scrollable).first` 常常是別的）讓第一列剛好落在收起的頁頂下面，不被切掉一半（切掉的列會讓 tap target 的 guideline 紅）。
   sliver 本身沒有 `getSize`：量頂圖高度用 `renderObject<RenderSliver>(find.byType(SliverAppBar)).geometry!.paintExtent`。
 - 新的音源標示一律用 `SourceIcon`（要語意名稱不同時給 `semanticLabel`），不要再各自畫「名稱第一個字」的徽章；測試裡 `ShellHarness` 的 `pluginNameProvider` 只認它自己的 `plugin`（名稱 `Test Source`，縮寫 `TS`）。

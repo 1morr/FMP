@@ -44,15 +44,17 @@ abstract final class AppLayout {
   /// 歌單詳情頁標頭的封面邊長（400 寬的視窗裡旁邊還放得下描述）。
   static const double playlistHeaderCover = 144;
 
-  /// 歌單詳情頁頂圖（舊版的 280dp 模糊背景）展開時的高度，與它裡面的封面邊長。
+  /// 歌單詳情頁頂圖（舊版的 280dp 模糊背景）展開時的高度（字級 1.0），與它裡面的封面邊長。
   static const double playlistHeroHeight = 280;
   static const double playlistHeroCover = 120;
+
+  /// 字級放大時頂圖跟著長高，最多到視窗高度的這個比例（`playlistHeroHeight` 函式）。
+  static const double playlistHeroMaxShare = 0.5;
 
   /// 頂圖上的字不跟主題：背景是任意封面，所以一律壓一層深色遮罩、字用白色（對比度與封面無關）。
   static const Color heroScrim = Color(0x99000000);
   static const Color onHero = Color(0xFFFFFFFF);
   static const Color onHeroMuted = Color(0xE6FFFFFF);
-  static const Color heroChip = Color(0x33FFFFFF);
 
   /// 頂圖背景封面的模糊程度；背景用小圖放大，模糊後看不出差別。
   static const double heroBlur = 24;

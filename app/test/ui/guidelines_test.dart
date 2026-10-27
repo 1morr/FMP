@@ -1009,7 +1009,7 @@ void main() {
         testWidgets('library with playlists at $width', (tester) async {
           final handle = tester.ensureSemantics();
           await openLibrary(tester);
-          expect(find.text('Local · 2 songs'), findsOneWidget);
+          expect(find.text('2 songs'), findsOneWidget);
 
           await expectGuidelines(tester);
           handle.dispose();

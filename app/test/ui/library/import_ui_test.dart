@@ -885,8 +885,8 @@ void main() {
 
       await _openMenu(tester, 'Remote title');
       expect(find.widgetWithText(MenuItemButton, 'Refresh'), findsOneWidget);
-      // 匯入歌單的卡片寫「匯入」。
-      expect(find.text('Imported · 3 songs'), findsOneWidget);
+      // 匯入歌單的卡片寫首數（「匯入」是前面的連結圖示）。
+      expect(find.text('3 songs'), findsOneWidget);
       final before = plugin.pageQueries.length;
       await tester.tap(find.widgetWithText(MenuItemButton, 'Refresh'));
       await _advance(tester, h);

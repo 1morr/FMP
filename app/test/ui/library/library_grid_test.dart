@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/data/repositories/playlist_repository.dart';
 import 'package:fmp/domain/playlist.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/empty_state/loading_state.dart';
 import 'package:fmp/ui/library/library_state.dart';
@@ -97,6 +99,71 @@ void main() {
     }
   });
 
+  // 實機（411dp 直向兩欄）上「⋯」與拖曳把手都在名稱那一列，名稱只剩一半、首數被「匯入 · 」擠掉。
+  // 把手移到封面的一角之後，名稱那一列只有「⋯」。
+  group('the card footer at 400 wide', () {
+    for (final scale in const [1.0, 2.0]) {
+      testWidgets('the name gets most of the card and the count shows in '
+          'full, text scale $scale', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final h = ShellHarness(registryOfSources: true, mix: true);
+        await h.pumpShell(
+          tester,
+          size: const Size(400, 900),
+          at: ShellDestination.library,
+          collapsePanel: true,
+        );
+        await tester.runAsync(() async {
+          final repository = h
+              .container(tester)
+              .read(playlistRepositoryProvider);
+          final id = (await repository.createImported(
+            pluginId: 'fmp-test',
+            remoteId: 'r1',
+            info: const RemotePlaylistInfo(name: 'Basic playlist name'),
+          ))!;
+          await repository.addTracks(id, [
+            for (var i = 0; i < 12; i++)
+              TrackInfo(
+                sourceTypeId: 'fmp-test',
+                sourceId: 's$i',
+                title: 'Song $i',
+              ),
+          ]);
+        });
+        for (var i = 0; i < 3; i++) {
+          await h.loadSettings(tester);
+        }
+        await tester.pumpAndSettle();
+
+        final card = find.ancestor(
+          of: find.text('Basic playlist name'),
+          matching: find.byType(InkWell),
+        );
+        final cardWidth = tester.getSize(card).width;
+        final name = tester.renderObject<RenderParagraph>(
+          find.text('Basic playlist name'),
+        );
+        // 名稱的欄位至少是卡片的六成（「⋯」一顆 48dp 之外都給它）。
+        expect(name.size.width, greaterThan(cardWidth * 0.6));
+        // 「12 songs」整段畫得出來，沒有被截斷。測試字型每個字元是一個字級寬的方塊（比實際的字寬得多），
+        // 所以只在字級 1.0 驗；2.0 驗不溢出。
+        if (scale == 1.0) {
+          final count = tester.renderObject<RenderParagraph>(
+            find.text('12 songs'),
+          );
+          expect(count.didExceedMaxLines, isFalse);
+        }
+        expect(
+          find.descendant(of: card, matching: find.byIcon(Icons.drag_handle)),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
   group('the source icon', () {
     testWidgets('an imported card and a Mix card show the source, a local card '
         'none; the name is the abbreviation without a manifest icon', (
@@ -122,19 +189,28 @@ void main() {
       expect(find.text('FT'), findsNWidgets(2));
     });
 
-    testWidgets('an imported card has a link icon before its subtitle', (
-      tester,
-    ) async {
+    testWidgets('the subtitle is the count; an imported card has a link icon '
+        'before it that a screen reader reads as "Imported"', (tester) async {
+      final semantics = tester.ensureSemantics();
       await _open(tester, size: const Size(400, 900));
 
-      final subtitle = find.text('Imported · 0 songs');
-      expect(subtitle, findsOneWidget);
-      final row = find.ancestor(of: subtitle, matching: find.byType(Row)).first;
+      // 4 張本機與 1 張匯入都只寫首數（同首頁的歌單卡），Mix 寫「Mix」。
+      expect(find.text('0 songs'), findsNWidgets(5));
+      expect(find.text('Mix'), findsOneWidget);
+      final imported = find.descendant(
+        of: find.ancestor(
+          of: find.text('Remote one'),
+          matching: find.byType(InkWell),
+        ),
+        matching: find.text('0 songs'),
+      );
+      final row = find.ancestor(of: imported, matching: find.byType(Row)).first;
       expect(
         find.descendant(of: row, matching: find.byIcon(Icons.link)),
         findsOneWidget,
       );
-      expect(find.text('Local · 0 songs'), findsNWidgets(4));
+      expect(find.bySemanticsLabel(RegExp('Imported')), findsOneWidget);
+      semantics.dispose();
       // 匯入鈕也是連結圖示（不再是下載箭頭）。
       expect(
         find.descendant(

@@ -75,6 +75,43 @@ void main() {
       expect(find.text('TS'), findsNothing);
     });
 
+    testWidgets('a rebuild reuses the decoded data icon, so the image is not '
+        'decoded again', (tester) async {
+      final plugin = FakeSourcePlugin(
+        (_) => [],
+        name: 'Test Source',
+        icon: Uri.parse('data:image/png;base64,${base64Encode(_png)}'),
+      );
+      final h = ShellHarness(sources: [plugin], registryOfSources: true);
+      late StateSetter rebuild;
+      var count = 0;
+      await h.pumpApp(
+        tester,
+        Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return Center(
+                child: SourceIcon(
+                  pluginId: 'fmp-test',
+                  size: 24,
+                  semanticLabel: '$count',
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      ImageProvider image() => tester.widget<Image>(find.byType(Image)).image;
+      final before = image();
+
+      rebuild(() => count++);
+      await tester.pump();
+
+      expect(image(), before);
+    });
+
     testWidgets('an https icon is read through the plugin like an '
         'artwork', (tester) async {
       await _show(tester, icon: Uri.parse('https://cdn.example/icon.png'));

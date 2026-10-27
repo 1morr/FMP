@@ -37,8 +37,8 @@ import 'package:fmp/ui/tracks/track_row_menu.dart';
 ///
 /// - 標題列：「新增歌單」與「匯入」（網址匯入對話框，成功後在巢狀導覽裡開詳情）。
 /// - 頂端「歷史」一列：在音樂庫的巢狀導覽裡開歷史頁（YouTube Music 把歷史放在音樂庫）。
-/// - 歌單卡：封面（自訂封面，沒有就是第一首的封面，角落是音源圖示）、名稱、「本機 · n 首」（匯入歌單前面
-///   一個連結圖示）；點一下在音樂庫的巢狀導覽裡開歌單詳情。所有寬度都是格狀（ADR 0035 R7.5，手機兩欄）。
+/// - 歌單卡：封面（自訂封面，沒有就是第一首的封面，角落是音源圖示）、名稱、首數（匯入歌單前面
+///   一個連結圖示，Mix 是「Mix」）；點一下在音樂庫的巢狀導覽裡開歌單詳情。所有寬度都是格狀（ADR 0035 R7.5，手機兩欄）。
 ///   拖曳把手排序（同電台頁：只有把手能拖，長按留給選單），放下後整批寫 `sort_order`；資料庫追上之前照
 ///   拖曳後的順序畫。螢幕閱讀器以語意動作移動。載入中是轉圈，讀失敗可重試。
 /// - 卡片選單（右鍵、長按、「⋯」）：全部加入佇列、隨機加入佇列、編輯、刪除（先確認）。
@@ -242,8 +242,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   }
 }
 
-/// 所有寬度都是格狀的卡片（ADR 0035，R7.5；封面在上、名稱與「本機 · n 首」在下，封面的角落
-/// 是音源圖示），每張的寬度不超過 [AppLayout.playlistCardMaxWidth]，所以手機直向是兩欄。Flutter 沒有內建可拖曳排序的格狀清單，所以用
+/// 所有寬度都是格狀的卡片（ADR 0035，R7.5；封面在上、名稱與首數在下，封面的一角
+/// 是音源圖示、另一角是拖曳把手），每張的寬度不超過 [AppLayout.playlistCardMaxWidth]，所以手機直向是兩欄。Flutter 沒有內建可拖曳排序的格狀清單，所以用
 /// `Draggable`（把手）與每張卡的 `DragTarget`：拖過某張卡時被拖的卡移到它的位置（畫面
 /// 跟著換），放開時整批寫入。
 class _PlaylistGrid extends StatefulWidget {
@@ -522,6 +522,9 @@ class _GridCardBody extends StatelessWidget {
                     size: AppLayout.sourceCardBadge,
                   ),
                 ),
+              // 拖曳把手在封面的另一角（舊版排序模式的把手也在卡片右上角），不佔名稱那一列：
+              // 窄的卡片上名稱與首數才放得下。
+              PositionedDirectional(top: 0, end: 0, child: handle),
             ],
           ),
         ),
@@ -549,7 +552,6 @@ class _GridCardBody extends StatelessWidget {
                 ),
               ),
               more,
-              handle,
             ],
           ),
         ),
@@ -558,25 +560,42 @@ class _GridCardBody extends StatelessWidget {
   }
 }
 
-/// 拖曳把手（同電台頁）：tooltip 當語意名稱，不能點，只有拖曳。
+/// 拖曳把手（同電台頁）：tooltip 當語意名稱，不能點，只有拖曳。疊在封面上，所以是主色底的小方塊
+/// （舊版排序模式的把手），任何封面上都看得到；拖曳的範圍是整個 48dp。
 class _DragHandle extends ConsumerWidget {
   const _DragHandle();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MouseRegion(
-    cursor: SystemMouseCursors.grab,
-    child: Tooltip(
-      message: ref.watch(translationsProvider).library.reorder,
-      triggerMode: TooltipTriggerMode.manual,
-      child: Padding(
-        padding: EdgeInsets.all(AppTokens.of(context).spacing.x3),
-        child: const Icon(Icons.drag_handle),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppTokens.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: Tooltip(
+        message: ref.watch(translationsProvider).library.reorder,
+        triggerMode: TooltipTriggerMode.manual,
+        child: SizedBox.square(
+          dimension: kMinInteractiveDimension,
+          child: Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(tokens.radius.small),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(tokens.spacing.x1 / 2),
+                child: Icon(Icons.drag_handle, color: scheme.onPrimary),
+              ),
+            ),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-/// 「本機 · n 首」（匯入歌單是「匯入 · n 首」）。
+/// 首數（同首頁的歌單卡、舊版的卡片）：匯入歌單前面一個連結圖示（螢幕閱讀器念「匯入」），Mix 是「Mix」。
+/// 窄的卡片上「匯入 · n 首」會把有用的首數截掉，所以不寫種類。
 class _PlaylistSubtitle extends ConsumerWidget {
   const _PlaylistSubtitle({required this.overview});
 
@@ -595,14 +614,17 @@ class _PlaylistSubtitle extends ConsumerWidget {
     );
     if (progress == null) {
       if (overview.playlist.kind != PlaylistKind.imported) return text;
-      // 匯入歌單前面一個連結圖示（ADR 0035，R7.5）。
+      // 匯入歌單前面一個連結圖示（ADR 0035，R7.5）；圖示是裝飾，意思給螢幕閱讀器。
       final style = DefaultTextStyle.of(context).style;
-      return Row(
-        children: [
-          Icon(Icons.link, size: AppLayout.inlineIcon, color: style.color),
-          SizedBox(width: AppTokens.of(context).spacing.x1),
-          Expanded(child: text),
-        ],
+      return Semantics(
+        label: t.imported,
+        child: Row(
+          children: [
+            Icon(Icons.link, size: AppLayout.inlineIcon, color: style.color),
+            SizedBox(width: AppTokens.of(context).spacing.x1),
+            Expanded(child: text),
+          ],
+        ),
       );
     }
     // 刷新中：副標題前面一個轉圈，後面是「已更新 n 首」（卡片上的進度，ADR 0035 §決定 11）。
