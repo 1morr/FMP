@@ -276,27 +276,120 @@ void main() {
     expect(search.groups.every((g) => g.items.isEmpty), isTrue);
   });
 
-  test(
-    'a new search shares the pool with the cancelled one still in flight',
-    () async {
+  test('the cap holds across first pages, next pages and retries '
+      'together', () async {
+    final fleet = _Fleet(['a', 'b', 'c', 'd']);
+    final pool = RequestPool(3);
+    final search = fleet.engine(pool: pool);
+    final done = search.start();
+    await _settle();
+    fleet.call('a', 1).done.complete(_page('a', ['a1'], hasMore: true));
+    fleet.call('b', 1).done.completeError(NetworkError(pluginId: 'b'));
+    await _settle();
+    // c 還在路上，d 補上；a 的下一頁、b 的重試要排隊。
+    expect(fleet.calls.map((c) => c.pluginId), ['a', 'b', 'c', 'd']);
+
+    final more = search.loadMore('a');
+    final retry = search.retry('b');
+    await _settle();
+    expect(pool.running, 3);
+    expect(fleet.calls, hasLength(5), reason: 'a page 2 fills the free slot');
+    expect(fleet.calls.where((c) => c.pluginId == 'b'), hasLength(1));
+
+    fleet.call('c', 1).done.complete(_page('c', ['c1']));
+    await _settle();
+    expect(fleet.calls.where((c) => c.pluginId == 'b'), hasLength(2));
+    for (final call in fleet.calls.where((c) => !c.done.isCompleted)) {
+      call.done.complete(_page(call.pluginId, ['${call.pluginId}x']));
+    }
+    await Future.wait([done, more, retry]);
+
+    expect(fleet.peak, 3);
+    expect(pool.running, 0);
+  });
+
+  test('a failed or cancelled request gives its slot back', () async {
+    final fleet = _Fleet(['a', 'b']);
+    final pool = RequestPool(1);
+    final failing = fleet.engine(pool: pool);
+    final done = failing.start();
+    await _settle();
+    // b 在排隊時取消；a 接著失敗，名額交給 b，b 不送出、名額照樣放掉。
+    failing.cancel();
+    fleet.call('a', 1).done.completeError(NetworkError(pluginId: 'a'));
+    await done;
+    expect(pool.running, 0);
+    expect(fleet.calls.map((c) => c.pluginId), ['a']);
+
+    // 沒取消的失敗也放掉名額。
+    final next = fleet.engine(pool: pool);
+    final again = next.start();
+    await _settle();
+    fleet.calls.last.done.completeError(NetworkError(pluginId: 'a'));
+    await _settle();
+    expect(fleet.calls.map((c) => c.pluginId), ['a', 'a', 'b']);
+    fleet.calls.last.done.completeError(NetworkError(pluginId: 'b'));
+    await again;
+    expect(pool.running, 0);
+    expect(next.groups.map((g) => g.phase), [
+      GroupPhase.failed,
+      GroupPhase.failed,
+    ]);
+  });
+
+  group('retain', () {
+    test('drops the group of a plugin that left; its answer is discarded and '
+        'its queued request never sent', () async {
       final fleet = _Fleet(['a', 'b', 'c', 'd']);
+      final errors = <String>[];
+      final changes = <List<SourceGroup<TrackSummary>>>[];
       final pool = RequestPool(3);
-      final old = fleet.engine(pool: pool);
-      unawaited(old.start());
+      final search = fleet.engine(
+        pool: pool,
+        changes: changes,
+        onError: (id, _, _) => errors.add(id),
+      );
+      final done = search.start();
       await _settle();
-      old.cancel();
+      expect(fleet.calls.map((c) => c.pluginId), ['a', 'b', 'c']);
 
-      final fresh = fleet.engine(pool: pool);
-      unawaited(fresh.start());
-      await _settle();
-      // 舊的三個請求還沒回來，名額還被佔著。
+      // b 在路上、d 在排隊：兩個都拿掉。
+      search.retain({'a', 'c'});
+      expect(search.groups.map((g) => g.pluginId), ['a', 'c']);
+      expect(changes.last.map((g) => g.pluginId), ['a', 'c']);
+
+      fleet.call('b', 1).done.completeError(NetworkError(pluginId: 'b'));
+      fleet.call('a', 1).done.complete(_page('a', ['a1'], hasMore: true));
+      fleet.call('c', 1).done.complete(_page('c', ['c1']));
+      await done;
+
+      expect(fleet.calls.map((c) => c.pluginId), ['a', 'b', 'c']);
+      expect(errors, isEmpty, reason: 'b was dropped before it failed');
+      expect(search.groups.map((g) => g.pluginId), ['a', 'c']);
+      expect(pool.running, 0);
+
+      // 拿掉的音源不再有下一頁、重試。
+      await search.loadMore('b');
+      await search.retry('b');
+      await search.loadMore('d');
       expect(fleet.calls, hasLength(3));
-      expect(pool.running, 3);
+    });
 
-      fleet.call('a', 1).done.complete(_page('a', ['a1']));
+    test('keeps the groups still listed untouched', () async {
+      final fleet = _Fleet(['a', 'b']);
+      final changes = <List<SourceGroup<TrackSummary>>>[];
+      final search = fleet.engine(changes: changes);
+      final done = search.start();
       await _settle();
-      expect(fleet.calls, hasLength(4));
-      expect(fleet.peak, lessThanOrEqualTo(3));
-    },
-  );
+      fleet.call('a', 1).done.complete(_page('a', ['a1']));
+      fleet.call('b', 1).done.complete(_page('b', ['b1']));
+      await done;
+      final before = search.groups;
+      final published = changes.length;
+
+      search.retain({'a', 'b', 'new'});
+      expect(search.groups, same(before));
+      expect(changes, hasLength(published), reason: 'nothing changed');
+    });
+  });
 }

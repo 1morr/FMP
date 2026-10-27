@@ -85,7 +85,9 @@ final class SourceGroup<T> {
 /// 同時進行的請求上限：超過的排隊，先到先做。
 ///
 /// 一次「全部音源」搜尋對每個音源各發一個請求，音源多的時候不一次全部送出（ADR 0035 §決定 9
-/// 的上限 3）。搜尋換了之後舊的請求還在路上時仍佔著名額：它們是真的在跑。
+/// 的上限 3）。每次搜尋一個（[AllSourcesSearch.pool]）：換了搜尋之後，舊搜尋還在路上的請求
+/// 不佔新搜尋的名額，新的關鍵字、換 chip 立刻送出。同一個音源前後兩次搜尋重疊時，由插件那一層
+/// 的限流（manifest 的 `rateLimitPolicy`）保護音源。
 final class RequestPool {
   RequestPool(this.limit) : assert(limit > 0);
 
@@ -123,7 +125,7 @@ final class RequestPool {
 ///
 /// 請求經 [RequestPool] 限制同時數量；每個請求是 [fetch] 對一個插件發的一次呼叫，限流、
 /// 重試與錯誤轉換都在插件那一層，這裡不繞過。[cancel] 之後（新的搜尋、離開模式）還沒回來的
-/// 結果丟掉，排隊中還沒送出的不再送出。
+/// 結果丟掉，排隊中還沒送出的不再送出；[retain] 拿掉的音源（停用、移除）也一樣，只限那一組。
 ///
 /// 只有一個音源時也是這個類別（一組）；畫面決定要不要顯示分組標題。
 final class AllSourcesSearch<T> {
@@ -146,6 +148,7 @@ final class AllSourcesSearch<T> {
   /// 同一個音源的結果去重用的鍵（兩次請求之間排序變了，下一頁可能有上一頁已經列出的）。
   final Object Function(T item) keyOf;
 
+  /// 這次搜尋的名額（第一頁、下一頁、重試共用）；不和別次搜尋共用。
   final RequestPool pool;
 
   /// 任何一組變了（結果、進度、錯誤）。
@@ -163,6 +166,22 @@ final class AllSourcesSearch<T> {
 
   /// 丟掉還沒回來的結果。
   void cancel() => _cancelled = true;
+
+  /// 音源清單變了（停用、移除）：不在 [pluginIds] 裡的音源整組拿掉，它還沒回來的結果丟掉、
+  /// 排隊中的不再送出，之後的下一頁與重試也不會再到它。新加入的音源不補，等下一次搜尋。
+  void retain(Set<String> pluginIds) {
+    final gone = [
+      for (final id in _plugins.keys)
+        if (!pluginIds.contains(id)) id,
+    ];
+    if (gone.isEmpty) return;
+    gone.forEach(_plugins.remove);
+    _groups = [
+      for (final group in _groups)
+        if (_plugins.containsKey(group.pluginId)) group,
+    ];
+    if (!_cancelled) onChanged(_groups);
+  }
 
   /// 每個音源發第一頁；全部完成（成功或失敗）才完成。
   Future<void> start() =>
@@ -210,15 +229,17 @@ final class AllSourcesSearch<T> {
   }
 
   Future<void> _load(String pluginId, int page) async {
-    final plugin = _plugins[pluginId]!;
     try {
       final result = await pool.run(() async {
-        // 排隊期間搜尋就換了：不送出。
-        if (_cancelled) return null;
+        // 排隊期間搜尋就換了，或這個音源被拿掉了：不送出。
+        final plugin = _plugins[pluginId];
+        if (_cancelled || plugin == null) return null;
         return fetch(plugin, page);
       });
       if (result == null || _cancelled) return;
-      final group = _find(pluginId)!;
+      // 請求在路上時這個音源被拿掉了（[retain]）：結果丟掉。
+      final group = _find(pluginId);
+      if (group == null) return;
       final listed = {if (page > 1) ...group.items.map(keyOf)};
       // toList：where 的副作用（listed.add）只能跑一次。
       final added = result.items
@@ -237,7 +258,8 @@ final class AllSourcesSearch<T> {
       );
     } on AppError catch (error) {
       if (_cancelled) return;
-      final group = _find(pluginId)!;
+      final group = _find(pluginId);
+      if (group == null) return;
       // 下一頁失敗時留著已有的結果，可以再按一次「載入更多」。
       _set(
         page == 1

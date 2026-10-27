@@ -51,7 +51,7 @@ enum SearchPhase {
 /// 搜尋頁搜的是什麼（ADR 0031 §決定 5）：曲目，或目前的音源宣告 `live` 時的直播間。
 enum SearchMode { tracks, rooms }
 
-/// 同時對音源發出的搜尋請求上限（ADR 0035 §決定 9）。
+/// 一次搜尋同時對音源發出的請求上限（ADR 0035 §決定 9）；每次搜尋各自計算。
 const maxConcurrentSearches = 3;
 
 /// 一筆直播間結果與它所屬的插件（收聽與「加為電台」要用）。
@@ -218,8 +218,9 @@ final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
 /// 搜尋與「載入更多」。新的搜尋開始後，之前還沒回來的結果丟掉，展開的分 P 收起
 /// （[VideoParts.collapseAll]）。
 ///
-/// 預設搜「全部音源」（舊版的預設）：對每個音源各發一個請求，同時最多
-/// [maxConcurrentSearches] 個，每個音源一組結果（[AllSourcesSearch]）。只有一組時失敗經
+/// 預設搜「全部音源」（舊版的預設）：對每個音源各發一個請求，每次搜尋同時最多
+/// [maxConcurrentSearches] 個（舊搜尋還在路上的不算），每個音源一組結果（[AllSourcesSearch]）。
+/// 音源清單變了（停用、移除）時，不在清單上的音源那一組當場拿掉；新啟用的等下一次搜尋。只有一組時失敗經
 /// [Toaster.error] 提示（使用者按了搜尋，屬於使用者動作的回饋）；多組時第一頁的失敗畫在
 /// 那一組裡（只 log），下一頁失敗仍是提示。
 /// 網路狀態不擋使用者的搜尋，`noInterface`、`unreachable` 都照常送出（ADR 0016
@@ -230,15 +231,20 @@ final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
 /// 沒有了（使用者換音源，或那個音源停用了）就退回曲目。換音源、模式、篩選時，還沒回來的
 /// 結果丟掉。選的音源只留在這個 provider 裡（換頁籤再回來還在，重開 App 回到「全部」）。
 final class SearchNotifier extends Notifier<SearchState> {
-  final _pool = RequestPool(maxConcurrentSearches);
   AllSourcesSearch<TrackSummary>? _tracks;
   AllSourcesSearch<LiveRoomHit>? _rooms;
 
   @override
   SearchState build() {
     ref.onDispose(_cancel);
-    // 音源清單改了（停用、移除）而目前選的沒有直播間：退回曲目。
-    ref.listen(searchSourcesProvider, (_, _) {
+    ref.listen(searchSourcesProvider, (_, next) {
+      // 音源停用、移除：那一組拿掉（ADR 0035 §決定 9）。清單還沒有值（重新載入中）時不動。
+      if (next.value case final sources?) {
+        final ids = {for (final source in sources) source.manifest.id};
+        _tracks?.retain(ids);
+        _rooms?.retain(ids);
+      }
+      // 目前選的沒有直播間了：退回曲目。
       if (state.mode == SearchMode.rooms && !_hasLive()) {
         _cancel();
         state = state.restart(mode: SearchMode.tracks);
@@ -253,6 +259,12 @@ final class SearchNotifier extends Notifier<SearchState> {
 
   bool _hasLive() => searchHasLive(state.sourceId, _sources);
 
+  /// 發請求當下的 [plugin]：搜尋之後插件更新了（同一個 id 換成新的實例，舊的已關閉），下一頁與
+  /// 重試發給新的。停用、移除的音源那一組已經拿掉（[AllSourcesSearch.retain]），不會走到這裡；
+  /// 清單沒有值（重新載入中）時照用原本的。
+  SourcePlugin _current(SourcePlugin plugin) =>
+      selectedSourceOf(plugin.manifest.id, _sources) ?? plugin;
+
   /// 丟掉進行中的搜尋。
   void _cancel() {
     _tracks?.cancel();
@@ -262,11 +274,10 @@ final class SearchNotifier extends Notifier<SearchState> {
   }
 
   /// 換音源（`null` 是「全部音源」）；以輸入框現在的文字重新搜尋（空的就只清掉結果）。
-  /// 點的是目前選的就不動。選的音源沒有直播間時退回曲目。
+  /// 點的是目前選的就不動。選的音源已經不在清單上時畫面選的是「全部」，結果卻還是那個音源的：
+  /// 這時點「全部」要重搜，所以比的是存著的 id，不是解析後的。選的音源沒有直播間時退回曲目。
   Future<void> selectSource(String? sourceId) async {
-    if (sourceId == selectedSourceOf(state.sourceId, _sources)?.manifest.id) {
-      return;
-    }
+    if (sourceId == state.sourceId) return;
     _cancel();
     state = state.restart(sourceId: () => sourceId);
     if (state.mode == SearchMode.rooms && !_hasLive()) {
@@ -309,13 +320,15 @@ final class SearchNotifier extends Notifier<SearchState> {
     _cancel();
     state = state.restart(keyword: trimmed);
     ref.read(videoPartsProvider.notifier).collapseAll();
-    final grouped = plugins.length > 1;
+    // 每次搜尋自己的名額：舊搜尋還在路上的請求不擋新的。
+    final pool = RequestPool(maxConcurrentSearches);
     if (rooms) {
       final filter = state.roomFilter;
-      final engine = _rooms = AllSourcesSearch<LiveRoomHit>(
+      late final AllSourcesSearch<LiveRoomHit> engine;
+      engine = _rooms = AllSourcesSearch<LiveRoomHit>(
         plugins: plugins,
         fetch: (plugin, page) async {
-          final result = await plugin.liveSearch(
+          final result = await _current(plugin).liveSearch(
             LiveSearchQuery(keyword: trimmed, page: page, status: filter),
           );
           return GroupPage(
@@ -327,31 +340,32 @@ final class SearchNotifier extends Notifier<SearchState> {
           );
         },
         keyOf: (hit) => hit.room.roomId,
-        pool: _pool,
+        pool: pool,
         onChanged: (groups) {
           if (ref.mounted) state = state.copyWith(roomGroups: groups);
         },
+        // 組數看失敗當下：拿掉音源後可能只剩一組，畫面換成整頁的狀態。
         onError: (pluginId, error, page) =>
-            _failed(error, page: page, grouped: grouped),
+            _failed(error, page: page, grouped: engine.groups.length > 1),
       );
       state = state.copyWith(roomGroups: engine.groups);
       await engine.start();
     } else {
-      final engine = _tracks = AllSourcesSearch<TrackSummary>(
+      late final AllSourcesSearch<TrackSummary> engine;
+      engine = _tracks = AllSourcesSearch<TrackSummary>(
         plugins: plugins,
         fetch: (plugin, page) async {
-          final result = await plugin.search(
-            SearchQuery(keyword: trimmed, page: page),
-          );
+          final result = await _current(plugin)
+              .search(SearchQuery(keyword: trimmed, page: page));
           return GroupPage(items: result.items, hasMore: result.hasMore);
         },
         keyOf: _keyOf,
-        pool: _pool,
+        pool: pool,
         onChanged: (groups) {
           if (ref.mounted) state = state.copyWith(trackGroups: groups);
         },
         onError: (pluginId, error, page) =>
-            _failed(error, page: page, grouped: grouped),
+            _failed(error, page: page, grouped: engine.groups.length > 1),
       );
       state = state.copyWith(trackGroups: engine.groups);
       await engine.start();

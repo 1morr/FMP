@@ -218,7 +218,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           // 舊版：搜尋框就是頁頂（AppBar 的標題，靠左）；多選時整個換成選取列。
           TrackSelectionBar<_ResultKey>(
             tracks: _selectedTracks,
-            // 結果列自己的音源，不是選的音源：選的音源停用時會退回別的，結果還是舊的。
+            // 結果列自己的音源，不是選的音源：「全部」時一次有好幾個音源的結果。
             pluginIds: (keys) => {
               for (final key in keys)
                 if (_summaryOf(search, key) case final item?) item.sourceTypeId,
@@ -616,16 +616,21 @@ class _GroupStatus extends ConsumerWidget {
         NetworkStatus.noInterface => (translations.offline.noInterface, null),
         NetworkStatus.unreachable => (translations.offline.unreachable, null),
       };
-      // 區塊級的橫條：一個音源失敗，其他組照常顯示。
-      return EmptyState(
-        icon: Icons.error_outline,
-        title: title,
-        body: body,
-        error: true,
-        compact: true,
-        action: FilledButton.tonal(
-          onPressed: () => unawaited(notifier.retryGroup(group.pluginId)),
-          child: Text(t.retry),
+      // 區塊級的橫條：一個音源失敗，其他組照常顯示。多組時不跳提示，所以出現時念給螢幕閱讀器
+      // （liveRegion），不必等使用者捲到這一組。
+      return Semantics(
+        container: true,
+        liveRegion: true,
+        child: EmptyState(
+          icon: Icons.error_outline,
+          title: title,
+          body: body,
+          error: true,
+          compact: true,
+          action: FilledButton.tonal(
+            onPressed: () => unawaited(notifier.retryGroup(group.pluginId)),
+            child: Text(t.retry),
+          ),
         ),
       );
     } else if (group.phase == GroupPhase.loadingMore) {

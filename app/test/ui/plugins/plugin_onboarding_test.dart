@@ -104,7 +104,8 @@ void main() {
       {'plugin-a', 'plugin-b'},
     );
     expect(_title, findsNothing);
-    expect(find.byType(ChoiceChip), findsNWidgets(2));
+    // 「全部音源」加上兩個音源。
+    expect(find.byType(ChoiceChip), findsNWidgets(3));
     expect(find.text('Plugins installed: 2'), findsOneWidget);
   });
 
@@ -142,7 +143,7 @@ void main() {
       before: (h) => h.install(_a),
     );
     expect(_title, findsNothing, reason: 'Alpha can search');
-    expect(find.byType(ChoiceChip), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNWidgets(2), reason: 'All and Alpha');
 
     unawaited(
       h
@@ -242,7 +243,7 @@ void main() {
     await tester.tap(_button('Close'));
     await tester.pump(const Duration(milliseconds: 500));
     expect(_title, findsNothing);
-    expect(find.byType(ChoiceChip), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNWidgets(2), reason: 'All and one');
   });
 
   testWidgets('when everything fails the list stays and can be tried again', (

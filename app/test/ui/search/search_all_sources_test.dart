@@ -1,10 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/network/network_status.dart';
+import 'package:fmp/core/redaction/redactor.dart';
+import 'package:fmp/plugins/search/all_sources_search.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
 import 'package:fmp/ui/plugins/source_icon.dart';
 import 'package:fmp/ui/search/search_state.dart';
@@ -36,6 +43,57 @@ FakeSourcePlugin _other(
   onSearch: onSearch,
   live: live,
 );
+
+/// 可以換掉的音源清單（插件更新、停用）。
+final class _Sources extends Notifier<List<SourcePlugin>> {
+  _Sources(this._initial);
+
+  final List<SourcePlugin> _initial;
+
+  @override
+  List<SourcePlugin> build() => _initial;
+
+  void set(List<SourcePlugin> sources) => state = sources;
+}
+
+/// 測試決定什麼時候回的音源：每次搜尋以「插件 id／關鍵字／頁碼」記一個 [Completer]。
+final class _Held {
+  final pending = <String, Completer<SearchPage>>{};
+
+  FakeSourcePlugin plugin(String id) => FakeSourcePlugin(
+    (_) => const [],
+    id: id,
+    name: id,
+    onSearch: (query) =>
+        (pending['$id/${query.keyword}/${query.page}'] = Completer()).future,
+  );
+
+  void answer(String key, SearchPage page) => pending[key]!.complete(page);
+}
+
+/// 搜尋的 notifier，音源清單可以換（停用、移除、更新）。
+(ProviderContainer, NotifierProvider<_Sources, List<SourcePlugin>>) _container(
+  List<SourcePlugin> initial,
+) {
+  final sources = NotifierProvider<_Sources, List<SourcePlugin>>(
+    () => _Sources(initial),
+  );
+  final container = ProviderContainer(
+    overrides: [
+      searchSourcesProvider.overrideWith(
+        (ref) => AsyncData(ref.watch(sources)),
+      ),
+      logProvider.overrideWithValue(
+        Log(redactor: Redactor(), minimumLevel: LogLevel.warning),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  container.listen(searchProvider, (_, _) {});
+  return (container, sources);
+}
+
+Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 Future<void> _search(WidgetTester tester, String keyword) async {
   await tester.enterText(find.byType(TextField), keyword);
@@ -393,4 +451,293 @@ void main() {
       expect(h.container(tester).read(searchProvider).roomGroups, hasLength(2));
     });
   });
+
+  group('the source list changing after a search', () {
+    // 停用、移除：那一組當場拿掉，路上的結果丟掉，之後的下一頁與重試不會再到它。
+    test(
+      'a disabled plugin loses its group and is never asked again',
+      () async {
+        final held = _Held();
+        final more = FakeSourcePlugin(
+          (_) => const [],
+          id: 'more',
+          onSearch: (query) =>
+              SearchPage(items: [summary('m${query.page}')], hasMore: true),
+        );
+        final failing = FakeSourcePlugin(
+          (_) => const [],
+          id: 'failing',
+          onSearch: (_) => throw NetworkError(pluginId: 'failing'),
+        );
+        final slow = held.plugin('slow');
+        final stays = FakeSourcePlugin(
+          (_) => const [],
+          id: 'stays',
+          onSearch: (_) => SearchPage(items: [summary('s')], hasMore: false),
+        );
+        final (container, sources) = _container([more, failing, slow, stays]);
+        final search = container.read(searchProvider.notifier);
+        container.read(searchInputProvider.notifier).set('song');
+        unawaited(search.search('song'));
+        await _settle();
+        await _settle();
+        expect(container.read(searchProvider).trackGroups.map((g) => g.phase), [
+          GroupPhase.loaded,
+          GroupPhase.failed,
+          GroupPhase.loading,
+          GroupPhase.loaded,
+        ]);
+
+        container.read(sources.notifier).set([stays]);
+        await container.pump();
+        expect(
+          container.read(searchProvider).trackGroups.map((g) => g.pluginId),
+          ['stays'],
+        );
+
+        held.answer(
+          'slow/song/1',
+          SearchPage(items: [summary('late')], hasMore: false),
+        );
+        await search.loadMore('more');
+        await search.retryGroup('failing');
+        await _settle();
+
+        expect(more.searches, hasLength(1));
+        expect(failing.searches, hasLength(1));
+        final state = container.read(searchProvider);
+        expect(state.trackGroups.map((g) => g.pluginId), ['stays']);
+        expect(state.items.map((track) => track.sourceId), ['s']);
+        expect(
+          state.phase,
+          SearchPhase.loaded,
+          reason: 'one group: page states',
+        );
+      },
+    );
+
+    test(
+      'the last group leaving goes back to the page before searching',
+      () async {
+        final only = FakeSourcePlugin(
+          (_) => const [],
+          id: 'only',
+          onSearch: (_) => SearchPage(items: [summary('o')], hasMore: false),
+        );
+        final other = FakeSourcePlugin(
+          (_) => const [],
+          id: 'other',
+          onSearch: (_) => SearchPage(items: [summary('x')], hasMore: false),
+        );
+        final (container, sources) = _container([only, other]);
+        final search = container.read(searchProvider.notifier);
+        container.read(searchInputProvider.notifier).set('song');
+        await search.selectSource('only');
+        expect(container.read(searchProvider).groupCount, 1);
+
+        container.read(sources.notifier).set([other]);
+        await container.pump();
+        final state = container.read(searchProvider);
+        expect(state.groupCount, 0);
+        expect(state.phase, SearchPhase.idle);
+        expect(other.searches, isEmpty, reason: 'no search until the next one');
+      },
+    );
+
+    // 新啟用的音源不補進目前的結果，下一次送出才有它。
+    test('a plugin enabled mid-search joins at the next search', () async {
+      SearchPage one(SearchQuery query) =>
+          SearchPage(items: [summary(query.keyword)], hasMore: false);
+      final a = FakeSourcePlugin((_) => const [], id: 'a', onSearch: one);
+      final b = FakeSourcePlugin((_) => const [], id: 'b', onSearch: one);
+      final late = FakeSourcePlugin((_) => const [], id: 'late', onSearch: one);
+      final (container, sources) = _container([a, b]);
+      final search = container.read(searchProvider.notifier);
+      await search.search('first');
+
+      container.read(sources.notifier).set([a, late, b]);
+      await container.pump();
+      expect(
+        container.read(searchProvider).trackGroups.map((g) => g.pluginId),
+        ['a', 'b'],
+      );
+      expect(late.searches, isEmpty);
+
+      await search.search('second');
+      expect(
+        container.read(searchProvider).trackGroups.map((g) => g.pluginId),
+        ['a', 'late', 'b'],
+      );
+      expect(late.searches.single.keyword, 'second');
+    });
+
+    // 插件更新：同一個 id 換成新的實例、舊的關閉。下一頁發給新的，不是搜尋當時的那一個。
+    test('the next page goes to the updated plugin', () async {
+      SearchPage page(SearchQuery query) =>
+          SearchPage(items: [summary('p${query.page}')], hasMore: true);
+      final before = FakeSourcePlugin((_) => const [], onSearch: page);
+      final after = FakeSourcePlugin((_) => const [], onSearch: page);
+      final other = FakeSourcePlugin(
+        (_) => const [],
+        id: 'other',
+        onSearch: (_) => const SearchPage(items: [], hasMore: false),
+      );
+      final sources = NotifierProvider<_Sources, List<SourcePlugin>>(
+        () => _Sources([before, other]),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchSourcesProvider.overrideWith(
+            (ref) => AsyncData(ref.watch(sources)),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(searchProvider, (_, _) {});
+      final search = container.read(searchProvider.notifier);
+      await search.search('song');
+      expect(before.searches.map((query) => query.page), [1]);
+
+      container.read(sources.notifier).set([after, other]);
+      await container.pump();
+      await search.loadMore('fmp-test');
+
+      expect(before.searches, hasLength(1));
+      expect(after.searches.single.page, 2);
+      expect(
+        container.read(searchProvider).items.map((track) => track.sourceId),
+        ['p1', 'p2'],
+      );
+    });
+
+    // 選的音源停用了：chip 列選的是「全部」，結果卻是那個音源的；點「全部」要重搜。
+    test('tapping all sources after the chosen one left re-searches', () async {
+      SearchPage none(SearchQuery _) =>
+          const SearchPage(items: [], hasMore: false);
+      final test = FakeSourcePlugin((_) => const [], onSearch: none);
+      final other = FakeSourcePlugin(
+        (_) => const [],
+        id: 'other',
+        onSearch: none,
+      );
+      final third = FakeSourcePlugin(
+        (_) => const [],
+        id: 'third',
+        onSearch: none,
+      );
+      final sources = NotifierProvider<_Sources, List<SourcePlugin>>(
+        () => _Sources([test, other, third]),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchSourcesProvider.overrideWith(
+            (ref) => AsyncData(ref.watch(sources)),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.listen(searchProvider, (_, _) {});
+      final search = container.read(searchProvider.notifier);
+      container.read(searchInputProvider.notifier).set('song');
+      await search.selectSource('other');
+      expect(other.searches, hasLength(1));
+      expect(test.searches, isEmpty);
+
+      container.read(sources.notifier).set([test, third]);
+      await container.pump();
+      await search.selectSource(null);
+
+      expect(container.read(searchProvider).sourceId, isNull);
+      expect(test.searches, hasLength(1));
+      expect(third.searches, hasLength(1));
+      expect(container.read(searchProvider).trackGroups, hasLength(2));
+
+      // 已經是「全部」：再點不動。
+      await search.selectSource(null);
+      expect(test.searches, hasLength(1));
+    });
+  });
+
+  testWidgets('group titles are headers and a failed group is announced', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final h = ShellHarness(
+      onSearch: (_) => throw RateLimited(pluginId: 'fmp-test'),
+    );
+    h.sources.add(
+      _other((_) => SearchPage(items: [_otherTrack('o1')], hasMore: false)),
+    );
+    await h.pumpShell(tester);
+    await _search(tester, 'song');
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSemantics(_header('Test Source')),
+      isSemantics(label: 'Test Source', isHeader: true),
+    );
+    expect(
+      tester.getSemantics(_header('other')),
+      isSemantics(label: 'other', isHeader: true),
+    );
+    expect(
+      tester.getSemantics(find.text('Search failed')),
+      isSemantics(isLiveRegion: true),
+    );
+    handle.dispose();
+  });
+
+  // 名額每次搜尋各自計算（ADR 0035 §決定 9）：舊搜尋的請求還在路上，新的關鍵字照樣立刻送出；
+  // 舊搜尋排隊中的從來不送出。
+  test(
+    'a new search does not wait for the requests of the one it replaced',
+    () async {
+      final held = _Held();
+      final ids = ['a', 'b', 'c', 'd', 'e'];
+      final (container, _) = _container([
+        for (final id in ids) held.plugin(id),
+      ]);
+      final search = container.read(searchProvider.notifier);
+
+      unawaited(search.search('old'));
+      await _settle();
+      expect(held.pending.keys, ['a/old/1', 'b/old/1', 'c/old/1']);
+
+      unawaited(search.search('new'));
+      await _settle();
+      expect(held.pending.keys.where((key) => key.endsWith('/new/1')), [
+        'a/new/1',
+        'b/new/1',
+        'c/new/1',
+      ], reason: 'sent while the old three are still pending');
+
+      for (final id in ['a', 'b', 'c']) {
+        held.answer(
+          '$id/old/1',
+          SearchPage(items: [summary('old')], hasMore: false),
+        );
+      }
+      await _settle();
+      for (final id in ['a', 'b', 'c']) {
+        held.answer(
+          '$id/new/1',
+          SearchPage(items: [summary(id)], hasMore: false),
+        );
+      }
+      await _settle();
+      for (final id in ['d', 'e']) {
+        held.answer(
+          '$id/new/1',
+          SearchPage(items: [summary(id)], hasMore: false),
+        );
+      }
+      await _settle();
+
+      expect(held.pending.keys, isNot(contains('d/old/1')));
+      expect(held.pending.keys, isNot(contains('e/old/1')));
+      final state = container.read(searchProvider);
+      expect(state.keyword, 'new');
+      expect(state.items.map((track) => track.sourceId), ids);
+    },
+  );
 }
