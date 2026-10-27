@@ -29,10 +29,35 @@
 ## 偶發失敗的測試
 
 完整套件在 Linux 負載下偶發、單獨跑都過；PR 18 之前一起收斂（先找出等待條件，改成等明確的事件）。
+等待的寫法收進 `.trellis/spec/app/testing/index.md` § 等非同步進度。
 
-- `test/ui/tracks/part_display_test.dart`「the player bar shows the composed title」卡住到逾時（PR 5 的一輪完整跑）。
-- `test/data/cache/image_cache_manager_test.dart`「two plugins downloading the same URL at once keep separate staging files and separate entries」：`eventually` 50 輪內沒成立（PR 12 合併 main 後的一輪）。
-- `test/ui/plugins/plugin_onboarding_test.dart`：整個檔的 flutter_tester 子行程 segmentation fault，之後全部 did not complete（PR 15 合併 main 後的一輪）；原生端當掉，疑似 QuickJS。單獨跑 3 次都過。
+- **已解決**：`test/data/cache/image_cache_manager_test.dart`「two plugins downloading the same URL at once keep separate staging files and separate entries」（PR 12 合併 main 後的一輪）。
+  - 原因：`pumpUntil` 等請求到 adapter，上限 20 輪 `pumpEventQueue`；請求先經快取庫（drift 的背景 isolate）查索引、在檔案 I/O 的執行緒上建暫存檔。
+    輪數只量主 isolate，量不到那邊。
+  - 證據：不加負載時用到 1–11 輪（約 5ms）；VM 裡 44 條忙迴圈時到 58 輪。同樣負載下整個檔 6 次紅 1 次（同組的 `share one download`，`pump_until.dart` 的 `condition never became true`）。
+  - 修法：`FakeHttpAdapter.received(n)` 等第 n 個請求送到；沒有事件可等的（暫存檔出現、flutter_cache_manager 不等的索引寫入）用 `pollUntil`，上限是實際時間。
+    `cache_harness.dart` 的 `eventually`（50 輪）刪掉，改用它。修後同樣負載 8 次全綠。
+- **已解決**：`test/ui/plugins/plugin_onboarding_test.dart` 在負載下紅（2026-10-27 重現；segfault 那一次另見下一項）。
+  - 原因：`PluginPageHarness.settle` 只給約 180ms 實際時間，第二個插件在背景 isolate 建 QuickJS、載入還沒完，測試就斷言了。
+    那個安裝留在假時間 zone 裡永遠不會接著跑，runtime 沒人釋放。
+  - 證據：40 份副本同時跑、加 11 條忙迴圈：480 項紅 2 項，都是 `one confirmation lists every selected plugin…` 的 `Set:['plugin-a']`。
+  - 修法：`PluginPageHarness.settleUntil` 等 App 的狀態：`_open` 等插件清單載入完，`_confirm` 等 `onboardingProvider` 的 `working` 變回 false。修後同樣條件 480 項全綠。
+- **未解決**：`plugin_onboarding_test.dart` 的 flutter_tester segmentation fault（PR 15 合併 main 後的一輪）。原本的 log 沒留下。
+  - 重現不出來：修之前的程式碼，每輪跑全部 QuickJS 測試檔、加 10 份 onboarding 副本、開 core dump。
+    沒加負載 3 輪、加 11 條忙迴圈 3 輪，共約 8000 項，沒有當掉。加負載的 3 輪裡有 2 輪是上一項的斷言紅。
+  - 排除的：
+    - 結束時行程不是自己退出：flutter_tools 用 SIGKILL 收，-9 不報錯。所以當掉是在檔案還在跑的時候。
+    - QuickJS 的 stack 檢查：isolate 換執行緒時，橋接層的 `jsEval`、`jsCall`、`jsExecutePendingJob` 每次都先呼叫 `JS_UpdateStackTop`（反組譯確認）。
+    - `Shutdown` 之後：還沒回覆的宿主呼叫不會再完成（`_closed`），排著的 `_pump` 也先檢查 `_closed`。
+  - 已知但沒證明是原因：`QuickJsRuntime2.close` 先 `jsFreeContext` 才釋放 Dart 端持有的 JS 值（flutter_js 0.8.7，第三方）。
+    還有上一項：負載下測試結束時插件可能還在載入，載入完的 runtime 沒人 dispose，背景 isolate 留到行程結束。
+- **未解決**：`test/ui/tracks/part_display_test.dart`「the player bar shows the composed title」卡住到逾時（PR 5 的一輪完整跑，log 沒留下）。
+  - 重現不出來：
+    - 目前的程式碼：40 份副本同時跑、加 22 條忙迴圈，240 項全過；整個檔在 44 條忙迴圈下跑 5 次也全過。
+    - PR 5 當時的程式碼（`15a8ba0b`）：同樣 40 份，全過。
+  - 排除的：這個案例全在假時間裡（記憶體資料庫、假插件、假後端），沒有要真的事件迴圈的等待。故意讓它在播放剛開始時失敗，也是乾淨地紅，不會卡住。
+  - 順手修的：`ShellHarness.pumpApp` 的註解說先拆樹再關庫，實際上反過來。harness 自己建的記憶體庫是在拆樹的 tearDown 之後才登記，所以先跑。
+    改成先取 override 再登記拆樹。現有的測試裡這個順序不會卡住，沒證明和這次卡住有關。
 
 ## PR 清單
 

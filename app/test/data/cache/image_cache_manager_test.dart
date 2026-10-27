@@ -231,9 +231,10 @@ void main() {
       );
       final store = await harness.open();
       final download = harness.manager(store).getSingleFile(_url);
-      await pumpUntil(() => harness.adapter.requests.isNotEmpty);
+      await harness.adapter.received(1);
       body.add(List.filled(8, 1));
-      await pumpUntil(() => harness.stagingEntries().isNotEmpty);
+      // dio 在檔案 I/O 的執行緒上建暫存檔，沒有事件可等。
+      await pollUntil(() => harness.stagingEntries().isNotEmpty);
 
       body.addError(const SocketException('connection reset'));
       await body.close();
@@ -252,7 +253,7 @@ void main() {
 
       final first = manager.getSingleFile(_url);
       final second = manager.getSingleFile(_url);
-      await pumpUntil(() => harness.adapter.requests.isNotEmpty);
+      await harness.adapter.received(1);
       response.complete(image(3));
 
       expect((await first).path, (await second).path);
@@ -277,7 +278,9 @@ void main() {
 
       final fromA = a.getSingleFile(_url);
       final fromB = b.getSingleFile(_url);
-      await pumpUntil(() => responses.length == 2);
+      // 兩個請求都先查過索引（drift 的背景 isolate）、建了暫存檔才送出：等它們真的到了，
+      // 不數事件迴圈的輪數。
+      await harness.adapter.received(2);
       // 兩個請求誰先到 adapter 不一定（各自先查索引、建暫存檔）。
       responses[0].complete(image(3));
       responses[1].complete(image(5));

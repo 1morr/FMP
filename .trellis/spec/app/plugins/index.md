@@ -264,8 +264,9 @@ export async function resolveStream({ sourceId, cid, formats, quality }) {
   匯出都能 `invoke`。`.load(source)` 測整條載入（manifest、匯出檢查、DTO 驗證）；`pluginSource()`
   組標頭。storage 有外鍵，兩者預設先在 `installed_plugins` 放一列。
 - 看門狗用小的 `callTimeout`、`livenessGrace`（例如 500ms／300ms），太小會讓背景 isolate 還在建
-  QuickJS 時就被判逾時。等非同步結果用 `pumpUntil`／`settle`；要等實際時間（計時器）就 await 一個由
-  計時器完成的 `Completer`，`pumpUntil` 不會等時間。
+  QuickJS 時就被判逾時。等背景 isolate 的結果 await 呼叫本身或一個 `Completer`；`pumpUntil` 只數主 isolate
+  的輪數，量不到背景 isolate（見 `.trellis/spec/app/testing/index.md` § 等非同步進度）。要等實際時間
+  （計時器）就 await 一個由計時器完成的 `Completer`，`pumpUntil` 不會等時間。
 - 同步卡住的測試（`while(true){}`）每個會留下一條忙著的執行緒到測試檔的行程結束，只寫必要的幾個。
 - 背景 isolate 當掉的情況用 `runtime(entryPoint: ...)` 換掉進入點（照 `worker_protocol.dart` 的協定
   回訊息再拋錯），不在正式程式碼留開關。
