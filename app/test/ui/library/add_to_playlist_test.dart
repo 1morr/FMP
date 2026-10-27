@@ -441,8 +441,13 @@ void main() {
     ) async {
       final h = await openHome(tester);
       final ids = await _seed(tester, h, local: {'Road': []});
+      // 「Road」的歌單卡也有「⋯」：只取最近播放那張卡的。
+      final recentMore = find.descendant(
+        of: find.ancestor(of: find.text('Song r'), matching: find.byType(Card)),
+        matching: find.byTooltip(_more),
+      );
 
-      await tester.tap(find.byTooltip(_more));
+      await tester.tap(recentMore);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(MenuItemButton, _item));
       await tester.pumpAndSettle();
@@ -452,7 +457,7 @@ void main() {
       await _settle(tester, h);
       expect(await _stored(tester, h, ids['Road']!), ['r']);
 
-      await tester.tap(find.byTooltip(_more));
+      await tester.tap(recentMore);
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(MenuItemButton, 'Add to queue'));
       await tester.pumpAndSettle();

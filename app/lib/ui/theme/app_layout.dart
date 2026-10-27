@@ -15,6 +15,15 @@ abstract final class AppLayout {
   /// 首頁區塊裡橫向一排的卡片（封面）邊長。
   static const double shelfCardWidth = 144;
 
+  /// 首頁橫向一排兩端的漸層寬度與捲動箭頭（桌面滑鼠移入時出現）的鈕寬。
+  static const double shelfEdgeFade = 56;
+
+  /// 電台頁網格（expanded 以上）：一格的最大寬度、高度（字級 1.0 時；封面以外的部分跟著字級放大）
+  /// 與圓形封面的邊長。高度放得下封面、標題、狀態標記與主播各一行。
+  static const double radioCellMaxWidth = 200;
+  static const double radioCellHeight = 224;
+  static const double radioCover = 128;
+
   /// 首頁排行區塊一欄（一個榜單的前幾首）的最小寬度：內容區放得下幾欄就並排幾欄。
   static const double chartColumnMinWidth = 360;
 

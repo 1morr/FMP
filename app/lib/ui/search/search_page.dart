@@ -858,6 +858,8 @@ class _RoomTile extends ConsumerWidget {
         TrackArtwork(url: image.url, width: image.width),
     ];
 
+    final live = room.status == LiveRoomStatus.live;
+
     void listen() => unawaited(
       ref
           .read(playbackControllerProvider)
@@ -902,7 +904,8 @@ class _RoomTile extends ConsumerWidget {
       menuChildren: [
         MenuItemButton(
           leadingIcon: const Icon(Icons.play_arrow),
-          onPressed: listen,
+          // 未開播的直播間沒有東西可收聽（B-27）。
+          onPressed: live ? listen : null,
           child: Text(t.listen),
         ),
         MenuItemButton(
@@ -912,12 +915,24 @@ class _RoomTile extends ConsumerWidget {
         ),
       ],
       builder: (context, more, openMenu) => ListTile(
-        leading: ArtworkImage(
-          pluginId: hit.pluginId,
-          artwork: artwork,
-          size: AppLayout.artworkThumbnail,
+        leading: _GrayscaleUnless(
+          enabled: live,
+          child: ArtworkImage(
+            pluginId: hit.pluginId,
+            artwork: artwork,
+            size: AppLayout.artworkThumbnail,
+          ),
         ),
-        title: Text(room.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(
+          room.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: live
+              ? null
+              : TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+        ),
         subtitle: TaggedLine(
           tag: RadioStatusTag(
             status: switch (room.status) {
@@ -940,11 +955,34 @@ class _RoomTile extends ConsumerWidget {
             more,
           ],
         ),
-        onTap: listen,
+        // 未開播：點了提示，不收聽（舊版的「尚未開播」）。
+        onTap: live
+            ? listen
+            : () => ref.read(toasterProvider).warning(t.notLive),
         onLongPress: openMenu,
       ),
     );
   }
+}
+
+/// [enabled] 為假時把 [child] 轉成灰階（未開播的直播間封面）。
+class _GrayscaleUnless extends StatelessWidget {
+  const _GrayscaleUnless({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  /// 飽和度 0 的色彩矩陣（Rec. 601 亮度）。
+  static const _grayscale = ColorFilter.matrix(<double>[
+    0.299, 0.587, 0.114, 0, 0, //
+    0.299, 0.587, 0.114, 0, 0, //
+    0.299, 0.587, 0.114, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ]);
+
+  @override
+  Widget build(BuildContext context) =>
+      enabled ? child : ColorFiltered(colorFilter: _grayscale, child: child);
 }
 
 class _Loading extends StatelessWidget {

@@ -27,7 +27,7 @@ const _more = 'More options';
 Future<ShellHarness> _openRadio(
   WidgetTester tester, {
   ShellHarness? harness,
-  Size size = const Size(1000, 800),
+  Size size = const Size(800, 800),
   NetworkStatus? network,
   Future<void> Function(ShellHarness h)? seed,
 }) async {
@@ -121,6 +121,12 @@ Finder _tagOf(String roomId) =>
 
 Finder _toast(String text) =>
     find.descendant(of: find.byType(SnackBar), matching: find.text(text));
+
+/// 標題列的排序鈕：進入手動排序模式。
+Future<void> _enterSort(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('Sort'));
+  await tester.pumpAndSettle();
+}
 
 Future<void> _addFromUrl(WidgetTester tester, String url) async {
   await tester.tap(find.byTooltip('Add from a URL'));
@@ -334,6 +340,7 @@ void main() {
           }
         },
       );
+      await _enterSort(tester);
       final height = tester.getSize(_row('a')).height;
 
       final handle = find.descendant(
@@ -376,6 +383,7 @@ void main() {
               );
         },
       );
+      await _enterSort(tester);
       final height = tester.getSize(_row('a')).height;
 
       final handle = find.descendant(
@@ -417,6 +425,7 @@ void main() {
         },
       );
 
+      await _enterSort(tester);
       await tester.drag(_row('a'), const Offset(0, 200));
       await tester.pumpAndSettle();
       await _settle(tester);
@@ -455,7 +464,170 @@ void main() {
     });
   });
 
+  group('layout and sorting', () {
+    Future<void> seedLive(ShellHarness h, WidgetTester tester) async {
+      await _add(h, tester, 'a', status: RadioLiveStatus.offline);
+      await _add(h, tester, 'b', status: RadioLiveStatus.live);
+      await _add(h, tester, 'c');
+      await _add(h, tester, 'd', status: RadioLiveStatus.live);
+    }
+
+    List<String> shownOrder(WidgetTester tester) {
+      // 清單由上到下，網格由左到右、再下一排。
+      Offset at(String room) => tester.getCenter(find.text('Station $room'));
+      return ['a', 'b', 'c', 'd']..sort((x, y) {
+        final byRow = at(x).dy.compareTo(at(y).dy);
+        return byRow != 0 ? byRow : at(x).dx.compareTo(at(y).dx);
+      });
+    }
+
+    testWidgets('live stations come first, the rest keep their order', (
+      tester,
+    ) async {
+      final h = await _openRadio(tester, seed: (h) => seedLive(h, tester));
+      expect(shownOrder(tester), ['b', 'd', 'a', 'c']);
+      // 資料庫的順序沒有動。
+      expect(await _storedRooms(h, tester), ['a', 'b', 'c', 'd']);
+    });
+
+    testWidgets('sort mode shows the stored order with handles; Done leaves', (
+      tester,
+    ) async {
+      await _openRadio(tester, seed: (h) => seedLive(h, tester));
+      expect(find.byIcon(Icons.drag_handle), findsNothing);
+
+      await _enterSort(tester);
+      expect(shownOrder(tester), ['a', 'b', 'c', 'd']);
+      expect(find.byIcon(Icons.drag_handle), findsNWidgets(4));
+      // 排序模式裡標題列只有「完成」。
+      expect(find.byTooltip('Add from a URL'), findsNothing);
+
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.drag_handle), findsNothing);
+      expect(shownOrder(tester), ['b', 'd', 'a', 'c']);
+      expect(find.byTooltip('Sort'), findsOneWidget);
+    });
+
+    testWidgets('the sort button is off while the list is empty', (
+      tester,
+    ) async {
+      await _openRadio(tester);
+      expect(
+        tester
+            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.sort))
+            .onPressed,
+        isNull,
+      );
+    });
+
+    for (final (width, grid) in [
+      (500.0, false),
+      (800.0, false),
+      (1100.0, true),
+    ]) {
+      testWidgets('at $width wide the stations are '
+          '${grid ? 'a grid of round covers' : 'a list'}', (tester) async {
+        await _openRadio(
+          tester,
+          size: Size(width, 800),
+          seed: (h) => seedLive(h, tester),
+        );
+        expect(find.byType(GridView), grid ? findsOneWidget : findsNothing);
+        expect(find.byType(ListTile), grid ? findsNothing : findsWidgets);
+        expect(find.byType(ClipOval), grid ? findsWidgets : findsNothing);
+        // 網格也是開播優先。
+        expect(shownOrder(tester), ['b', 'd', 'a', 'c']);
+      });
+    }
+
+    testWidgets('a grid cell says why a station of an unavailable source '
+        'does not play', (tester) async {
+      final h = await _openRadio(
+        tester,
+        size: const Size(1100, 800),
+        harness: _harness(
+          sourceUnavailable: (_, pluginId) =>
+              pluginId == 'off' ? 'Source disabled' : null,
+        ),
+        seed: (h) async {
+          await _add(h, tester, 'a', pluginId: 'off');
+          await _add(h, tester, 'b');
+        },
+      );
+      expect(find.byType(GridView), findsOneWidget);
+      expect(find.text('Source disabled'), findsOneWidget);
+      expect(find.text('Host a'), findsNothing);
+      expect(find.text('Host b'), findsOneWidget);
+
+      await tester.tap(find.text('Station a'));
+      await tester.pump();
+      expect(_toast("Can't play: Source disabled"), findsOneWidget);
+      expect(h.plugin.liveRequests, isEmpty);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('grid cells fit their text at text scale $scale', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _openRadio(
+          tester,
+          size: const Size(1100, 1600),
+          seed: (h) async {
+            await _add(h, tester, 'a', status: RadioLiveStatus.live);
+            await _add(h, tester, 'b', status: RadioLiveStatus.offline);
+          },
+        );
+        expect(find.byType(GridView), findsOneWidget);
+        expect(find.text('Host a'), findsOneWidget);
+        // 溢出會以例外報出。
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a grid cell listens on tap and removes from its menu', (
+      tester,
+    ) async {
+      final h = await _openRadio(
+        tester,
+        size: const Size(1100, 800),
+        seed: (h) => _add(h, tester, 'a', status: RadioLiveStatus.live),
+      );
+      await tester.tap(find.text('Station a'));
+      await _settle(tester);
+      expect(h.controller.queue.live?.target.roomId, 'a');
+
+      await tester.tap(find.byTooltip(_more));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(find.text('Remove the station?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+      await _settle(tester);
+      expect(await _storedRooms(h, tester), isEmpty);
+    });
+  });
+
   group('adding from a URL', () {
+    // B-28：對話框有一行說明，說要貼什麼。
+    testWidgets('the dialog says what to paste', (tester) async {
+      await _openRadio(tester);
+      await tester.tap(find.byTooltip('Add from a URL'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(
+            'Paste a live room URL; an enabled source will recognise it.',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a recognised URL is added', (tester) async {
       final h = await _openRadio(tester);
       h.plugin.onLiveRoomFromUrl = (query) =>

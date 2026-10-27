@@ -317,6 +317,8 @@ class Translations$search$en extends Translations$search$zh_TW {
   @override
   String get listen => 'Listen';
   @override
+  String get notLive => 'Not live yet';
+  @override
   String get addToRadio => 'Add to Radio';
   @override
   String get showParts => 'Show parts';
@@ -539,6 +541,12 @@ class Translations$home$en extends Translations$home$zh_TW {
   String get addedToNext => 'Added to play next';
   @override
   String get addedToQueue => 'Added to the queue';
+  @override
+  String get createPlaylist => 'Create playlist';
+  @override
+  String get scrollLeft => 'Scroll left';
+  @override
+  String get scrollRight => 'Scroll right';
 }
 
 // Path: charts
@@ -2378,6 +2386,16 @@ class Translations$radio$en extends Translations$radio$zh_TW {
       'Couldn\'t reorder the stations: ${reason}';
   @override
   String cannotPlay({required Object reason}) => 'Can\'t play: ${reason}';
+  @override
+  String get sort => 'Sort';
+  @override
+  String get sortDone => 'Done';
+  @override
+  String get sortModeHint =>
+      'Drag the handles to reorder. Outside sort mode, live stations are listed first.';
+  @override
+  String get urlHint =>
+      'Paste a live room URL; an enabled source will recognise it.';
 }
 
 // Path: sources

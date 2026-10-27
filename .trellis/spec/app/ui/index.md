@@ -17,13 +17,13 @@ lib/ui/
   layout/              # WindowClass、WindowClassScope、layoutStateProvider 與面板展開、寬度（rememberPanel 寫入）
   i18n/ui_locale.dart  # LocaleSetting → Flutter locale／slang／字型；translationsProvider
   errors/              # AppError → 訊息
-  empty_state/         # EmptyState：置中的圖示、標題、說明與動作
+  empty_state/         # EmptyState（置中版、error 色圖示、compact 橫條）、LoadingState（轉圈加一行說明）
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
                        # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）、
                        # legacy_side_rail（medium 以上的可展開側欄）、page_app_bar（每頁的置中頁頂 PageAppBar 與頁面的底 PageSurface）
-  home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider）
+  home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider；一排卡片 _ShelfRow：底色卡片、滑鼠移入的箭頭與漸層、滑鼠拖曳；卡片選單重用 PlaylistMenu、removeStation）
   charts/              # 首頁的排行區塊（home_charts）、探索頁（explore_page；openExplore 開在巢狀導覽裡）、
                        # 兩者共用的狀態行、內容狀態與排行曲目列（chart_parts）
   library/             # 音樂庫（歌單卡的清單／格狀、拖曳排序、卡片選單）、建立與編輯歌單的對話框（playlist_dialogs，
@@ -33,7 +33,7 @@ lib/ui/
                        # 匯入對話框（import_dialog）、匯入預覽（import_preview_page；openImportPreview 開在巢狀導覽裡）、
                        # 手動刷新（manual_refresh：manualRefreshProvider）
   search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列、搜尋歷史清單（search_history_list：輸入框空白且有歷史時取代結果區；點一筆再搜，叉叉刪一筆，「清除」不確認，同舊版；只有輸入框的 Enter 與點歷史會記，換音源、自動載入與重試不記）
-  radio/               # 電台頁、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
+  radio/               # 電台頁（compact／medium 清單、expanded 以上網格、liveFirst 開播優先、排序模式）、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   queue/               # 佇列目的地（QueuePage：佇列空時是空狀態，否則整頁的 QueueView）與可編輯的佇列（QueueView）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider
   settings/            # 設定頁（分組、list-detail；分組列的一行摘要在 settings_page 的 `summary`，加新摘要時加一條 `SettingsSection` 分支與三語字串 `settings.summary.*`，沒有值可說的組不放副標）與外觀、音樂庫（首頁排行）、網路的控制項、「關於」（版本列，連點開啟開發者模式）

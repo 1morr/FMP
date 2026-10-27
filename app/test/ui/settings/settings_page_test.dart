@@ -8,7 +8,6 @@ import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
-import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/settings/appearance_controls.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
@@ -19,6 +18,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../support/memory_database.dart';
 import '../support/plugin_page_harness.dart';
 import '../support/shell_harness.dart';
+import '../support/home_shown.dart';
 
 void main() {
   Future<ShellHarness> openSettings(WidgetTester tester, double width) async {
@@ -131,7 +131,7 @@ void main() {
       // 回到清單之後返回鍵歸外殼：回到第一個目的地（首頁），設定頁看不到了。
       expect(await tester.binding.handlePopRoute(), isTrue);
       await tester.pump();
-      expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+      expect(homeShown, findsOneWidget);
     },
   );
 

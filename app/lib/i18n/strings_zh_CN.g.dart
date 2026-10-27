@@ -331,6 +331,8 @@ class Translations$search$zh_CN extends Translations$search$zh_TW {
   @override
   String get listen => '收听';
   @override
+  String get notLive => '尚未开播';
+  @override
   String get addToRadio => '添加到电台';
   @override
   String get showParts => '展开分P';
@@ -543,6 +545,12 @@ class Translations$home$zh_CN extends Translations$home$zh_TW {
   String get addedToNext => '已加入下一首播放';
   @override
   String get addedToQueue => '已加入队列';
+  @override
+  String get createPlaylist => '创建歌单';
+  @override
+  String get scrollLeft => '向左滚动';
+  @override
+  String get scrollRight => '向右滚动';
 }
 
 // Path: charts
@@ -2271,6 +2279,14 @@ class Translations$radio$zh_CN extends Translations$radio$zh_TW {
   String reorderFailed({required Object reason}) => '无法调整顺序：${reason}';
   @override
   String cannotPlay({required Object reason}) => '无法收听：${reason}';
+  @override
+  String get sort => '排序';
+  @override
+  String get sortDone => '完成';
+  @override
+  String get sortModeHint => '拖动手柄调整顺序；退出排序模式后，开播中的电台会排在前面。';
+  @override
+  String get urlHint => '粘贴直播间的网址，由已启用的音源识别。';
 }
 
 // Path: sources

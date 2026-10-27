@@ -359,6 +359,54 @@ void main() {
       expect(find.textContaining('watching'), findsOneWidget);
     });
 
+    // 未開播的直播間（B-27）：封面灰階、「收聽」停用、點一下提示，不嘗試播放。
+    testWidgets('an offline room is grayed out and cannot be listened to', (
+      tester,
+    ) async {
+      final h = _harness();
+      await h.pumpShell(tester);
+      await _tapAndSettle(tester, find.text('Live rooms'));
+      await _search(tester, 'night');
+
+      Finder grayscale(String id) => find.descendant(
+        of: _roomRow(id),
+        matching: find.byType(ColorFiltered),
+      );
+      expect(grayscale('r1'), findsNothing);
+      expect(grayscale('r2'), findsOneWidget);
+
+      // 點一下：提示，不播。
+      await tester.tap(_roomRow('r2'));
+      await tester.pump();
+      expect(_toast('Not live yet'), findsOneWidget);
+      expect(h.container(tester).read(nowPlayingLiveProvider), isNull);
+
+      // 選單的「收聽」停用，「加為電台」照常。
+      await tester.tap(
+        find.descendant(
+          of: _roomRow('r2'),
+          matching: find.byTooltip('More options'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<MenuItemButton>(
+              find.widgetWithText(MenuItemButton, 'Listen'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<MenuItemButton>(
+              find.widgetWithText(MenuItemButton, 'Add to Radio'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    });
+
     // 未開播的直播間不顯示人數，不管插件給了什麼值（#262）。
     testWidgets('an offline room shows no viewers even with a count', (
       tester,

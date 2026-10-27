@@ -11,6 +11,7 @@ import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/settings/network_settings.dart';
 import 'package:fmp/ui/empty_state/empty_state.dart';
+import 'package:fmp/ui/empty_state/loading_state.dart';
 import 'package:fmp/ui/format/date_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/library/add_to_playlist.dart';
@@ -87,9 +88,13 @@ class ChartContent extends ConsumerWidget {
     required this.offHint,
     required this.builder,
     this.refreshing = false,
+    this.compact = false,
   });
 
   final ChartKey chart;
+
+  /// 首頁的區塊：失敗與「自動更新已關閉」用緊湊橫條，不佔整頁的置中版面。
+  final bool compact;
   final String failedHint;
 
   /// 刷新間隔關閉時怎麼手動載入。
@@ -114,6 +119,8 @@ class ChartContent extends ConsumerWidget {
     if (failed) {
       return EmptyState(
         icon: Icons.error_outline,
+        error: true,
+        compact: compact,
         title: t.failed,
         body: failedHint,
       );
@@ -128,16 +135,12 @@ class ChartContent extends ConsumerWidget {
     if (off && !refreshing) {
       return EmptyState(
         icon: Icons.update_disabled,
+        compact: compact,
         title: t.off,
         body: offHint,
       );
     }
-    return Padding(
-      padding: EdgeInsets.all(AppTokens.of(context).spacing.x6),
-      child: Center(
-        child: CircularProgressIndicator(semanticsLabel: t.loading),
-      ),
-    );
+    return LoadingState(message: t.loading);
   }
 }
 

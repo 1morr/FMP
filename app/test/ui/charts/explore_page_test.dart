@@ -15,6 +15,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../tracks/marker_support.dart';
 import 'chart_harness.dart';
+import '../support/home_shown.dart';
 
 // 探索頁（M4 PR 21，design §9.3、§10.7）：首頁「查看全部」在首頁的巢狀導覽裡開、分頁照設定的順序、
 // 完整清單、多選的動作、工具列的「刷新」（runNow；離線提示）。
@@ -67,12 +68,12 @@ void main() {
     expect(find.text('Track 1 of new'), findsOneWidget);
     // 在內容區裡開：導覽留著。
     expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(HomePage).hitTestable(), findsNothing);
+    expect(homeShown, findsNothing);
 
     await tester.tap(find.byTooltip('Back (Esc)'));
     await tester.pumpAndSettle();
     expect(find.byType(ExplorePage), findsNothing);
-    expect(find.byType(HomePage).hitTestable(), findsOneWidget);
+    expect(homeShown, findsOneWidget);
   });
 
   testWidgets('the tabs follow the order in the settings and only enabled '
@@ -339,6 +340,29 @@ void main() {
       final before = c.plugin.chartQueries.length;
 
       await tester.tap(find.byTooltip('Refresh'));
+      await c.settle(tester);
+
+      expect(c.plugin.chartQueries.sublist(before), ['hot', 'new']);
+      expect(find.text('Charts updated'), findsOneWidget);
+    });
+
+    // B-21：下拉重新整理，與標題列的「刷新」同一條路。
+    testWidgets('pulling the list down runs the refresh job', (tester) async {
+      final c = ChartHarness();
+      await c.pumpShell(tester);
+      await _open(tester, c, 'HOT');
+      final before = c.plugin.chartQueries.length;
+
+      await tester.fling(
+        find.descendant(
+          of: find.byType(ExplorePage),
+          matching: find.byType(ListView),
+        ),
+        const Offset(0, 400),
+        1000,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
       await c.settle(tester);
 
       expect(c.plugin.chartQueries.sublist(before), ['hot', 'new']);

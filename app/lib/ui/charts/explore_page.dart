@@ -107,6 +107,8 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
   ];
 
   Future<void> _refresh(String pluginId) async {
+    // 下拉與標題列的「刷新」是同一條路；一次只刷一個。
+    if (_refreshing != null) return;
     setState(() => _refreshing = pluginId);
     // 刷新期間頁面可能被關掉：之後要讀的先拿好。
     final container = ProviderScope.containerOf(context, listen: false);
@@ -226,6 +228,7 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
                       key: ValueKey(chart.key),
                       chart: chart,
                       refreshing: _refreshing == chart.pluginId,
+                      onRefresh: () => _refresh(chart.pluginId),
                     ),
                 ],
               ),
@@ -239,9 +242,17 @@ class _ExplorePageState extends ConsumerState<ExplorePage>
 
 /// 一個分頁：狀態行（音源、更新於、更新失敗）與完整的清單。
 class _ChartTab extends ConsumerWidget {
-  const _ChartTab({super.key, required this.chart, required this.refreshing});
+  const _ChartTab({
+    super.key,
+    required this.chart,
+    required this.refreshing,
+    required this.onRefresh,
+  });
 
   final ChartEntry chart;
+
+  /// 下拉重新整理（B-21）：同標題列的「刷新」。
+  final Future<void> Function() onRefresh;
 
   /// 這個榜單的插件正在手動刷新。
   final bool refreshing;
@@ -270,20 +281,28 @@ class _ChartTab extends ConsumerWidget {
             refreshing: refreshing,
             builder: (context, content) {
               if (content.tracks.isEmpty) return const ChartEmpty();
-              return ListView.builder(
-                padding: EdgeInsets.only(bottom: spacing.x4),
-                itemCount: content.tracks.length,
-                itemBuilder: (context, index) {
-                  final track = content.tracks[index];
-                  return SelectableTrackRow<ExploreRowKey>(
-                    key: ValueKey((index, track.key)),
-                    selectionKey: (chart: chart.key, index: index),
-                    moreTooltip: translations.home.more,
-                    menuChildren: chartTrackMenu(context, ref, track),
-                    builder: (context, row) =>
-                        ChartTrackTile(rank: index + 1, track: track, row: row),
-                  );
-                },
+              return RefreshIndicator(
+                onRefresh: onRefresh,
+                child: ListView.builder(
+                  // 清單比畫面短時也能下拉。
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.only(bottom: spacing.x4),
+                  itemCount: content.tracks.length,
+                  itemBuilder: (context, index) {
+                    final track = content.tracks[index];
+                    return SelectableTrackRow<ExploreRowKey>(
+                      key: ValueKey((index, track.key)),
+                      selectionKey: (chart: chart.key, index: index),
+                      moreTooltip: translations.home.more,
+                      menuChildren: chartTrackMenu(context, ref, track),
+                      builder: (context, row) => ChartTrackTile(
+                        rank: index + 1,
+                        track: track,
+                        row: row,
+                      ),
+                    );
+                  },
+                ),
               );
             },
           ),
