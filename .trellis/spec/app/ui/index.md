@@ -32,7 +32,7 @@ lib/ui/
                        # groupParts、reorderedEntryIds）、曲目選單的「加入歌單…」與它的對話框（add_to_playlist）、
                        # 匯入對話框（import_dialog）、匯入預覽（import_preview_page；openImportPreview 開在巢狀導覽裡）、
                        # 手動刷新（manual_refresh：manualRefreshProvider）
-  search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式）、音源 chip 列、搜尋歷史清單（search_history_list：輸入框空白且有歷史時取代結果區；點一筆再搜，叉叉刪一筆，「清除」不確認，同舊版；只有輸入框的 Enter 與點歷史會記，換音源、自動載入與重試不記）
+  search/              # 搜尋頁、searchProvider（曲目與直播間兩種模式；結果一律分組，每個音源一組，「全部音源」是預設，引擎在 lib/plugins/search/all_sources_search.dart）、音源 chip 列（第一顆「全部音源」）、搜尋歷史清單（search_history_list：輸入框空白且有歷史時取代結果區；點一筆再搜，叉叉刪一筆，「清除」不確認，同舊版；只有輸入框的 Enter 與點歷史會記，換音源、自動載入與重試不記）
   radio/               # 電台頁（compact／medium 清單、expanded 以上網格、liveFirst 開播優先、排序模式）、狀態標記（RadioStatusTag）與「標記＋文字」那一行（TaggedLine）
   queue/               # 佇列目的地（QueuePage：佇列空時是空狀態，否則整頁的 QueueView）與可編輯的佇列（QueueView）
   history/             # 歷史頁（播放歷史，分頁讀、依日分組；openHistory 開在巢狀導覽裡）、historyProvider

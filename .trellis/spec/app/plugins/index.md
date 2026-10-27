@@ -30,6 +30,7 @@ lib/plugins/
     plugin_downloader.dart    # PluginDownloader：讀 index、下載並驗證（SHA、manifest 比對、checks）
     plugin_updates.dart       # updateStatus（semver）、addedAccess（新增的能力與網域）
   accounts/                   # 憑證與帳號（見 § 帳號）
+  search/                     # AllSourcesSearch：「全部音源」搜尋的引擎（同時最多 3 個、每個音源一組、各自的頁碼與錯誤；只發 search／liveSearch，規則見 app/AGENTS.md § 介面的「搜尋『全部音源』」）
     login_credentials.dart    # LoginCredentials：{cookies, extra?}
     credential_store.dart     # CredentialStore：secure storage 的憑證、狀態、遮蔽登記
     account_service.dart      # AccountService：登入（驗證通過才寫入）、登出、移除插件的帳號面、開關

@@ -1534,7 +1534,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   一個都不能寫是 `hidden`（單首的選單項目與多選列的按鈕都不出現）；「從遠端歌單移除」由 `remoteRemoveEntryProvider(本地歌單 id)`：匯入歌單、`playlist_remote.writable`、插件能寫。
   閘門：`remote_write_state_test.dart`（每一條各有只差那一條件的對照）。
 - **曲目選單**（`TrackRowMenu` 的呼叫端，`AddToRemoteItem`）：搜尋（影片列是它的全部分 P，同「加入歌單…」；分 P 列）、歷史、佇列、歌單詳情、首頁「最近播放」卡片；匯入歌單詳情另有
-  `RemoveFromRemoteItem`。不動佇列，所以 Mix 中照常（M3 的禁止規則只擋加入佇列與下一首播放）。**多選列**（`TrackSelectionBar.pluginIds`，頁面給已選的鍵所屬的插件；搜尋頁取結果列自己的 `sourceTypeId`，不是選的音源：選的音源停用時會退回第一個，畫面上的結果還是舊音源的）多一顆「加入遠端歌單…」，
+  `RemoveFromRemoteItem`。不動佇列，所以 Mix 中照常（M3 的禁止規則只擋加入佇列與下一首播放）。**多選列**（`TrackSelectionBar.pluginIds`，頁面給已選的鍵所屬的插件；搜尋頁取結果列自己的 `sourceTypeId`，不是選的音源：選的音源停用時會退回「全部」，畫面上的結果還是舊音源的）多一顆「加入遠端歌單…」，
   歌單詳情在 `remoteRemoveEntryProvider` 為真時多一個 `TrackSelectionAction`「從遠端歌單移除」。
 - **加入對話框**（`add_to_remote.dart` 的 `showAddToRemote`，版面同本機的「加入歌單…」）：開啟時 `accountPlaylistsProvider`（帳號頁同一份，讀完所有頁、最多 20 頁）；只列 `writable`、勾選框、封面與首數；
   讀取中有進度圈，失敗有原因與「重試」（離線用離線的說法），沒有可加入的歌單有說明。頂端「在遠端新增歌單」→ 名稱輸入 → `createRemote` → 新歌單出現在清單並已勾選（沒有首數；不重新讀清單，因為平台未必
@@ -2750,11 +2750,20 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   歌單詳情的分 P 群組標題）用分組鍵，任何一個分 P 在播都標。佇列照自己的規則（上面「佇列」）。時長一律 `TrackDuration`
   （固定 `AppLayout.trackDurationColumn` 56dp、右對齊，「⋯」不隨位數移動）。閘門：`track_markers_test.dart`、`search_page_test.dart`
   與 `search_parts_test.dart`、`home_charts_test.dart`、`explore_page_test.dart`、`playlist_detail_page_test.dart` 的 `now playing marker`。
-- 搜尋結果捲到底自動載入下一頁（曲目與直播間）：最後一列（`_AutoLoad`）建出來時排一個 post-frame 去 `loadMore`，每一頁只建一次；
-  `loadMore` 只在 `loaded` 且 `hasMore` 時動，不會同時讀兩頁。下一頁失敗時 `SearchState.loadMoreFailed`，最後一列換成「載入更多」當重試、
-  不再自動載入；一頁沒有帶來新結果（空頁或全是重複）但 `hasMore` 時 `SearchState.autoLoadPaused`（和 `loadMoreFailed` 分開），同樣換成「載入更多」、
+- 搜尋結果捲到底自動載入下一頁（曲目與直播間）：最後一列（`_AutoLoad`）建出來時排一個 post-frame 去 `loadMore(pluginId)`，每一頁只建一次；
+  `AllSourcesSearch.loadMore` 只在那一組 `loaded` 且 `hasMore` 時動，不會同時讀兩頁。下一頁失敗時 `SourceGroup.loadMoreFailed`，最後一列換成「載入更多」當重試、
+  不再自動載入；一頁沒有帶來新結果（空頁或全是重複）但 `hasMore` 時 `SourceGroup.autoLoadPaused`（和 `loadMoreFailed` 分開），同樣換成「載入更多」、
   不再自動載入，手動載的那一頁有新結果就恢復，免得最後一列一直重建一直載入；沒有下一頁時是「已載入全部」。閘門：`search_page_test.dart` 的 `auto load` 群組、`search_live_test.dart` 的
   `the next page of rooms loads by itself at the last row`。
+- 搜尋「全部音源」（U PR 17，ADR 0035 §決定 9，design §7）：音源 chip 列第一顆是「全部音源」且預設選它（`SearchState.sourceId == null`；選的音源只留在 `searchProvider`
+  裡，換頁籤再回來還在、重開 App 回到「全部」，沒有持久化，同舊版）。搜尋對每個已啟用、有 `search` 能力的插件（直播間模式是有 `live` 的）各發一個請求，引擎是 `AllSourcesSearch<T>`
+  （`lib/plugins/search/all_sources_search.dart`，只發 `SourcePlugin.search`／`liveSearch`，限流、重試、錯誤轉換仍在插件那一層，不繞過）：同時最多 3 個（`RequestPool`，
+  `SearchNotifier` 一個，換了搜尋之後舊的請求還在路上時仍佔名額）；每個音源一組 `SourceGroup`（自己的頁碼、`hasMore`、載入下一頁與錯誤），依音源清單的順序，不依誰先回來；
+  換條件（`SearchNotifier._cancel`）後舊的結果丟掉、排隊中還沒送出的不再送出。選單一音源也是同一個引擎（一組）。畫面：多於一組時每組有標題（`SourceIcon` 加名稱，
+  音源已移除時是插件 id）；單一組（選單一音源，或「全部」只有一個可搜的音源）沒有標題，載入中、失敗是整頁的狀態，失敗經 `Toaster.error`。多組時第一頁失敗畫在那一組裡
+  （`EmptyState(error, compact)` 加「重試」，只重試那一組，離線時標題換成離線字樣；只 `log.report`，不跳提示），其他組照常；下一頁失敗仍是提示。每組有自己的「載入更多」；只有最後一組的最後一列自動載入，
+  前面的組用按鈕（捲動途中不把每個音源都載到底）。多選的鍵是（組、位置、分 P），全選、下一首播放與加入佇列照畫面順序跨組；`SearchState.epoch` 變了（新的搜尋、換條件）就離開選取模式。
+  閘門：`test/plugins/search/all_sources_search_test.dart`（上限 3、組順序、失敗隔離與重試、各組頁碼、舊搜尋丟掉）、`test/ui/search/search_all_sources_test.dart`、`guidelines_test.dart` 的 `search results of all sources`。
 - App 內快捷鍵（ADR 0024 §決定 8）分兩張表，都綁在外殼：播放類在
   `lib/ui/shell/playback_shortcuts.dart` 的 `playbackShortcuts`（空白鍵、Ctrl+←／→、Shift+←／→ 5 秒、
   Ctrl+↑／↓ 音量、Ctrl+S 隨機、Ctrl+R 循環），由共用的 `PlaybackShortcuts` widget 包（外殼與播放頁各包一層：播放頁是另一個
@@ -2856,7 +2865,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     清單上方一行說明「沒有刷新、是上次查到的狀態」加重試，回到 `online` 就收起（外殼已有離線橫幅，清單是本機資料不換成
     `OfflineMessage`）；`nothingToRefresh` 是資訊提示。新增、刷新進行中頂端有進度條、兩個鈕停用（同插件頁）。閘門：
     `adding from a URL`、`refreshing` 群組。
-- 搜尋頁的直播間模式（ADR 0031 §決定 5，M3 design §9.5）：選的音源宣告 `live` 時搜尋框下有「曲目｜直播間」
+- 搜尋頁的直播間模式（ADR 0031 §決定 5，M3 design §9.5）：選的音源宣告 `live` 時（「全部」是任何一個音源宣告 `live`；直播間模式只搜有 `live` 的，同樣一個音源一組）搜尋框下有「曲目｜直播間」
   （`SegmentedButton`），直播間模式另有「全部｜開播中｜未開播」（`ChoiceChip`，`SearchState.roomFilter` 傳進
   `LiveSearchQuery.status`）。模式在 `SearchNotifier`：換到沒宣告 `live` 的音源（使用者換，或音源清單變了）就退回曲目；換音源、
   模式、篩選與自動退回曲目都換代、清掉結果，再以**輸入框現在的文字**（`searchInputProvider`，還沒送出的也算；不放進 `SearchState`，

@@ -3,19 +3,27 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 音源的 chip 列（ADR 0024 §決定 6）：單選、可橫向捲動，還有內容捲在外面的
+/// 音源的 chip 列（ADR 0024 §決定 6、ADR 0035 §決定 9）：第一顆是「全部音源」，單選、可橫向捲動，還有內容捲在外面的
 /// 那一端以漸層淡出，提示可以捲。
 class SourceChips extends StatefulWidget {
   const SourceChips({
     super.key,
     required this.sources,
+    required this.allLabel,
     required this.selectedId,
     required this.onSelected,
   });
 
   final List<SourcePlugin> sources;
+
+  /// 第一顆「全部音源」chip 的文字。
+  final String allLabel;
+
+  /// 選的音源；`null` 是「全部音源」。
   final String? selectedId;
-  final ValueChanged<String> onSelected;
+
+  /// 點了一顆；`null` 是「全部音源」。
+  final ValueChanged<String?> onSelected;
 
   @override
   State<SourceChips> createState() => _SourceChipsState();
@@ -86,11 +94,14 @@ class _SourceChipsState extends State<SourceChips> {
           padding: EdgeInsets.symmetric(horizontal: spacing.x4),
           child: Row(
             children: [
-              for (final (index, source) in widget.sources.indexed)
+              ChoiceChip(
+                label: Text(widget.allLabel),
+                selected: widget.selectedId == null,
+                onSelected: (_) => widget.onSelected(null),
+              ),
+              for (final source in widget.sources)
                 Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    start: index == 0 ? 0 : spacing.x2,
-                  ),
+                  padding: EdgeInsetsDirectional.only(start: spacing.x2),
                   child: ChoiceChip(
                     label: Text(source.manifest.name),
                     selected: source.manifest.id == widget.selectedId,

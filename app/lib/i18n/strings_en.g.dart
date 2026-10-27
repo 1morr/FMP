@@ -287,6 +287,10 @@ class Translations$search$en extends Translations$search$zh_TW {
   @override
   String get loadedAll => 'All loaded';
   @override
+  String get allSources => 'All sources';
+  @override
+  String get groupEmpty => 'No results from this source';
+  @override
   String get more => 'More options';
   @override
   String get play => 'Play';

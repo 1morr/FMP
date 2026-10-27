@@ -78,6 +78,8 @@
     "retry": "Retry",
     "loadMore": "Load more",
     "loadedAll": "All loaded",
+    "allSources": "All sources",
+    "groupEmpty": "No results from this source",
     "more": "More options",
     "play": "Play",
     "playNext": "Play next",

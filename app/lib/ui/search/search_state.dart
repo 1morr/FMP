@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fmp/core/core_providers.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track_key.dart';
 import 'package:fmp/plugins/manifest/plugin_manifest.dart';
 import 'package:fmp/plugins/plugin_registry.dart';
+import 'package:fmp/plugins/search/all_sources_search.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/plugins/source_plugin.dart';
 import 'package:fmp/ui/search/video_parts.dart';
@@ -28,7 +30,7 @@ final searchSourcesProvider = Provider<AsyncValue<List<SourcePlugin>>>(
       ),
 );
 
-/// 搜尋頁在做什麼。
+/// 搜尋頁在做什麼（只有一個音源時；「全部音源」的進度在各組，見 [SourceGroup]）。
 enum SearchPhase {
   /// 還沒搜尋。
   idle,
@@ -49,6 +51,9 @@ enum SearchPhase {
 /// 搜尋頁搜的是什麼（ADR 0031 §決定 5）：曲目，或目前的音源宣告 `live` 時的直播間。
 enum SearchMode { tracks, rooms }
 
+/// 同時對音源發出的搜尋請求上限（ADR 0035 §決定 9）。
+const maxConcurrentSearches = 3;
+
 /// 一筆直播間結果與它所屬的插件（收聽與「加為電台」要用）。
 @immutable
 final class LiveRoomHit {
@@ -59,6 +64,9 @@ final class LiveRoomHit {
 }
 
 /// 搜尋頁的狀態。
+///
+/// 結果一律分組（[SourceGroup]，每個音源一組）：選了單一音源是一組，「全部」是每個
+/// 已啟用、有 `search`（直播間模式是 `live`）的音源一組，依音源清單的順序。
 @immutable
 final class SearchState {
   const SearchState({
@@ -66,16 +74,12 @@ final class SearchState {
     this.keyword = '',
     this.mode = SearchMode.tracks,
     this.roomFilter,
-    this.items = const [],
-    this.rooms = const [],
-    this.hasMore = false,
-    this.page = 0,
-    this.phase = SearchPhase.idle,
-    this.loadMoreFailed = false,
-    this.autoLoadPaused = false,
+    this.trackGroups = const [],
+    this.roomGroups = const [],
+    this.epoch = 0,
   });
 
-  /// 使用者選的音源（插件 id）；`null` 或不在清單上時是清單的第一個。
+  /// 使用者選的音源（插件 id）；`null` 或不在清單上時是「全部音源」。
   final String? sourceId;
 
   /// 送出的關鍵字（去掉前後空白）。
@@ -89,67 +93,83 @@ final class SearchState {
   final LiveRoomStatus? roomFilter;
 
   /// 曲目結果（[SearchMode.tracks]）。
-  final List<TrackSummary> items;
+  final List<SourceGroup<TrackSummary>> trackGroups;
 
   /// 直播間結果（[SearchMode.rooms]）。
-  final List<LiveRoomHit> rooms;
-  final bool hasMore;
+  final List<SourceGroup<LiveRoomHit>> roomGroups;
 
-  /// 已載入到第幾頁；還沒載入是 0。
-  final int page;
-  final SearchPhase phase;
+  /// 第幾份結果：每次換條件、重搜加一，載入下一頁、重試一個音源不變。多選的鍵是位置，
+  /// 這個數字變了就失效。
+  final int epoch;
 
-  /// 下一頁載入失敗（已有的結果留著）：頁面不再自動載入，改顯示「載入更多」讓使用者重試。
-  final bool loadMoreFailed;
+  /// 目前模式的曲目結果，所有組接在一起。
+  List<TrackSummary> get items => [
+    for (final group in trackGroups) ...group.items,
+  ];
 
-  /// 上一頁沒有帶來新的結果（空頁，或全是重複）但插件說還有下一頁：頁面停止自動載入，
-  /// 改顯示「載入更多」，免得最後一列一直重建、一直載入。和 [loadMoreFailed] 分開（失敗的重試語意
-  /// 不變）；手動載入的那一頁有新結果就恢復自動載入。
-  final bool autoLoadPaused;
+  /// 目前模式的直播間結果，所有組接在一起。
+  List<LiveRoomHit> get rooms => [
+    for (final group in roomGroups) ...group.items,
+  ];
 
-  /// 目前模式的結果是不是空的。
-  bool get isEmpty => switch (mode) {
-    SearchMode.tracks => items.isEmpty,
-    SearchMode.rooms => rooms.isEmpty,
+  /// 目前模式的各組進度。
+  List<GroupPhase> get _phases => switch (mode) {
+    SearchMode.tracks => [for (final group in trackGroups) group.phase],
+    SearchMode.rooms => [for (final group in roomGroups) group.phase],
   };
 
-  /// 同一個音源、關鍵字、模式與篩選，換掉結果與進度。
+  /// 結果有幾組；0 是還沒搜尋。
+  int get groupCount => _phases.length;
+
+  /// 整頁的進度。只有一組時就是那一組的；多組時第一次送出之後一律是 [SearchPhase.loaded]，
+  /// 各組的載入、失敗畫在組裡。
+  SearchPhase get phase {
+    final phases = _phases;
+    if (phases.isEmpty) return SearchPhase.idle;
+    if (phases.length > 1) return SearchPhase.loaded;
+    return switch (phases.single) {
+      GroupPhase.loading => SearchPhase.loading,
+      GroupPhase.loaded => SearchPhase.loaded,
+      GroupPhase.loadingMore => SearchPhase.loadingMore,
+      GroupPhase.failed => SearchPhase.failed,
+    };
+  }
+
+  /// 目前模式的結果是不是空的：每一組都載入完而且沒有東西。
+  bool get isEmpty =>
+      _phases.every((phase) => phase == GroupPhase.loaded) &&
+      switch (mode) {
+        SearchMode.tracks => items.isEmpty,
+        SearchMode.rooms => rooms.isEmpty,
+      };
+
+  /// 同一個音源、關鍵字、模式與篩選，換掉結果。
   SearchState copyWith({
-    List<TrackSummary>? items,
-    List<LiveRoomHit>? rooms,
-    bool? hasMore,
-    int? page,
-    SearchPhase? phase,
-    bool? loadMoreFailed,
-    bool? autoLoadPaused,
+    List<SourceGroup<TrackSummary>>? trackGroups,
+    List<SourceGroup<LiveRoomHit>>? roomGroups,
   }) => SearchState(
     sourceId: sourceId,
     keyword: keyword,
     mode: mode,
     roomFilter: roomFilter,
-    items: items ?? this.items,
-    rooms: rooms ?? this.rooms,
-    hasMore: hasMore ?? this.hasMore,
-    page: page ?? this.page,
-    phase: phase ?? this.phase,
-    loadMoreFailed: loadMoreFailed ?? this.loadMoreFailed,
-    autoLoadPaused: autoLoadPaused ?? this.autoLoadPaused,
+    trackGroups: trackGroups ?? this.trackGroups,
+    roomGroups: roomGroups ?? this.roomGroups,
+    epoch: epoch,
   );
 
-  /// 換條件（音源、模式、篩選、關鍵字）：結果清空，[phase] 預設回到還沒搜尋。
-  /// [roomFilter] 以函式給，才分得出「不改」與「改成全部（`null`）」。
+  /// 換條件（音源、模式、篩選、關鍵字）：結果清空，回到還沒搜尋。
+  /// [sourceId]、[roomFilter] 以函式給，才分得出「不改」與「改成全部（`null`）」。
   SearchState restart({
-    String? sourceId,
+    String? Function()? sourceId,
     String? keyword,
     SearchMode? mode,
     LiveRoomStatus? Function()? roomFilter,
-    SearchPhase phase = SearchPhase.idle,
   }) => SearchState(
-    sourceId: sourceId ?? this.sourceId,
+    sourceId: sourceId == null ? this.sourceId : sourceId(),
     keyword: keyword ?? this.keyword,
     mode: mode ?? this.mode,
     roomFilter: roomFilter == null ? this.roomFilter : roomFilter(),
-    phase: phase,
+    epoch: epoch + 1,
   );
 }
 
@@ -157,12 +177,19 @@ final class SearchState {
 bool hasLiveRooms(SourcePlugin? source) =>
     source?.manifest.capabilities.contains(PluginCapability.live) ?? false;
 
-/// [sources] 裡目前選的音源（[SearchState.sourceId]，不在清單上就是第一個）。
+/// [sources] 裡使用者選的音源（[SearchState.sourceId]）；`null` 是「全部音源」（沒選過，或選的
+/// 那個已經不在清單上）。
 SourcePlugin? selectedSourceOf(String? sourceId, List<SourcePlugin> sources) {
   for (final source in sources) {
     if (source.manifest.id == sourceId) return source;
   }
-  return sources.firstOrNull;
+  return null;
+}
+
+/// 目前的選擇有沒有直播間可搜：選了單一音源看它，「全部」看有沒有任何一個音源宣告 `live`。
+bool searchHasLive(String? sourceId, List<SourcePlugin> sources) {
+  final selected = selectedSourceOf(sourceId, sources);
+  return selected == null ? sources.any(hasLiveRooms) : hasLiveRooms(selected);
 }
 
 /// 輸入框現在的文字（沒有去掉空白），頁面在打字、清除時寫入：換音源、模式、篩選時
@@ -191,22 +218,29 @@ final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
 /// 搜尋與「載入更多」。新的搜尋開始後，之前還沒回來的結果丟掉，展開的分 P 收起
 /// （[VideoParts.collapseAll]）。
 ///
-/// 失敗經 [Toaster.error] 提示（使用者按了搜尋，屬於使用者動作的回饋）。
+/// 預設搜「全部音源」（舊版的預設）：對每個音源各發一個請求，同時最多
+/// [maxConcurrentSearches] 個，每個音源一組結果（[AllSourcesSearch]）。只有一組時失敗經
+/// [Toaster.error] 提示（使用者按了搜尋，屬於使用者動作的回饋）；多組時第一頁的失敗畫在
+/// 那一組裡（只 log），下一頁失敗仍是提示。
 /// 網路狀態不擋使用者的搜尋，`noInterface`、`unreachable` 都照常送出（ADR 0016
 /// §決定 6「使用者操作照常發請求」、§決定 7 的更正）：系統回報可能是錯的，而狀態
 /// 要靠請求拿到回應才回得到 `online`。
 ///
-/// 直播間模式（ADR 0031 §決定 5）只在目前的音源宣告 `live` 時：換到沒宣告的音源（使用者
-/// 換的，或那個音源停用了）就退回曲目。換音源、模式、篩選時，還沒回來的結果丟掉。
+/// 直播間模式（ADR 0031 §決定 5）只在選的音源宣告 `live` 時（「全部」是有任何一個音源宣告）：
+/// 沒有了（使用者換音源，或那個音源停用了）就退回曲目。換音源、模式、篩選時，還沒回來的
+/// 結果丟掉。選的音源只留在這個 provider 裡（換頁籤再回來還在，重開 App 回到「全部」）。
 final class SearchNotifier extends Notifier<SearchState> {
-  int _generation = 0;
+  final _pool = RequestPool(maxConcurrentSearches);
+  AllSourcesSearch<TrackSummary>? _tracks;
+  AllSourcesSearch<LiveRoomHit>? _rooms;
 
   @override
   SearchState build() {
-    // 音源清單改了（停用、移除）而目前選的那個沒有直播間：退回曲目。
+    ref.onDispose(_cancel);
+    // 音源清單改了（停用、移除）而目前選的沒有直播間：退回曲目。
     ref.listen(searchSourcesProvider, (_, _) {
-      if (state.mode == SearchMode.rooms && !hasLiveRooms(_source())) {
-        ++_generation;
+      if (state.mode == SearchMode.rooms && !_hasLive()) {
+        _cancel();
         state = state.restart(mode: SearchMode.tracks);
         unawaited(_researchInput());
       }
@@ -214,24 +248,39 @@ final class SearchNotifier extends Notifier<SearchState> {
     return const SearchState();
   }
 
-  /// 換音源；以輸入框現在的文字重新搜尋（空的就只清掉結果）。點的是目前選的（包括還沒
-  /// 點過時預設的第一個）就不動。新的音源沒有直播間時退回曲目。
-  Future<void> selectSource(String sourceId) async {
-    if (sourceId == _source()?.manifest.id) return;
-    ++_generation;
-    state = state.restart(sourceId: sourceId);
-    if (state.mode == SearchMode.rooms && !hasLiveRooms(_source())) {
+  List<SourcePlugin> get _sources =>
+      ref.read(searchSourcesProvider).value ?? const [];
+
+  bool _hasLive() => searchHasLive(state.sourceId, _sources);
+
+  /// 丟掉進行中的搜尋。
+  void _cancel() {
+    _tracks?.cancel();
+    _rooms?.cancel();
+    _tracks = null;
+    _rooms = null;
+  }
+
+  /// 換音源（`null` 是「全部音源」）；以輸入框現在的文字重新搜尋（空的就只清掉結果）。
+  /// 點的是目前選的就不動。選的音源沒有直播間時退回曲目。
+  Future<void> selectSource(String? sourceId) async {
+    if (sourceId == selectedSourceOf(state.sourceId, _sources)?.manifest.id) {
+      return;
+    }
+    _cancel();
+    state = state.restart(sourceId: () => sourceId);
+    if (state.mode == SearchMode.rooms && !_hasLive()) {
       state = state.restart(mode: SearchMode.tracks);
     }
     await _researchInput();
   }
 
-  /// 換「曲目｜直播間」；以輸入框現在的文字重新搜尋。目前的音源沒有直播間時
+  /// 換「曲目｜直播間」；以輸入框現在的文字重新搜尋。目前的選擇沒有直播間時
   /// 不能切到直播間。
   Future<void> selectMode(SearchMode mode) async {
     if (mode == state.mode) return;
-    if (mode == SearchMode.rooms && !hasLiveRooms(_source())) return;
-    ++_generation;
+    if (mode == SearchMode.rooms && !_hasLive()) return;
+    _cancel();
     state = state.restart(mode: mode);
     await _researchInput();
   }
@@ -239,7 +288,7 @@ final class SearchNotifier extends Notifier<SearchState> {
   /// 換直播間的篩選（`null` 是全部）；在直播間模式就以輸入框現在的文字重新搜尋。
   Future<void> selectRoomFilter(LiveRoomStatus? filter) async {
     if (filter == state.roomFilter) return;
-    ++_generation;
+    _cancel();
     state = state.restart(roomFilter: () => filter);
     if (state.mode == SearchMode.rooms) await _researchInput();
   }
@@ -250,113 +299,91 @@ final class SearchNotifier extends Notifier<SearchState> {
   /// 搜尋 [keyword] 的第一頁；只有空白就不做。
   Future<void> search(String keyword) async {
     final trimmed = keyword.trim();
-    final source = _source();
-    if (trimmed.isEmpty || source == null) return;
-    final generation = ++_generation;
-    state = state.restart(keyword: trimmed, phase: SearchPhase.loading);
+    final rooms = state.mode == SearchMode.rooms;
+    final selected = selectedSourceOf(state.sourceId, _sources);
+    final plugins = [
+      for (final plugin in selected == null ? _sources : [selected])
+        if (!rooms || hasLiveRooms(plugin)) plugin,
+    ];
+    if (trimmed.isEmpty || plugins.isEmpty) return;
+    _cancel();
+    state = state.restart(keyword: trimmed);
     ref.read(videoPartsProvider.notifier).collapseAll();
-    await _load(source, trimmed, page: 1, generation: generation);
-  }
-
-  /// 下一頁，接在已有的結果之後。
-  Future<void> loadMore() async {
-    final source = _source();
-    if (state.phase != SearchPhase.loaded || !state.hasMore || source == null) {
-      return;
+    final grouped = plugins.length > 1;
+    if (rooms) {
+      final filter = state.roomFilter;
+      final engine = _rooms = AllSourcesSearch<LiveRoomHit>(
+        plugins: plugins,
+        fetch: (plugin, page) async {
+          final result = await plugin.liveSearch(
+            LiveSearchQuery(keyword: trimmed, page: page, status: filter),
+          );
+          return GroupPage(
+            items: [
+              for (final room in result.items)
+                LiveRoomHit(pluginId: plugin.manifest.id, room: room),
+            ],
+            hasMore: result.hasMore,
+          );
+        },
+        keyOf: (hit) => hit.room.roomId,
+        pool: _pool,
+        onChanged: (groups) {
+          if (ref.mounted) state = state.copyWith(roomGroups: groups);
+        },
+        onError: (pluginId, error, page) =>
+            _failed(error, page: page, grouped: grouped),
+      );
+      state = state.copyWith(roomGroups: engine.groups);
+      await engine.start();
+    } else {
+      final engine = _tracks = AllSourcesSearch<TrackSummary>(
+        plugins: plugins,
+        fetch: (plugin, page) async {
+          final result = await plugin.search(
+            SearchQuery(keyword: trimmed, page: page),
+          );
+          return GroupPage(items: result.items, hasMore: result.hasMore);
+        },
+        keyOf: _keyOf,
+        pool: _pool,
+        onChanged: (groups) {
+          if (ref.mounted) state = state.copyWith(trackGroups: groups);
+        },
+        onError: (pluginId, error, page) =>
+            _failed(error, page: page, grouped: grouped),
+      );
+      state = state.copyWith(trackGroups: engine.groups);
+      await engine.start();
     }
-    final generation = ++_generation;
-    state = state.copyWith(
-      phase: SearchPhase.loadingMore,
-      loadMoreFailed: false,
-    );
-    await _load(
-      source,
-      state.keyword,
-      page: state.page + 1,
-      generation: generation,
-    );
   }
 
-  SourcePlugin? _source() => selectedSourceOf(
-    state.sourceId,
-    ref.read(searchSourcesProvider).value ?? const [],
-  );
+  /// [pluginId] 那一組的下一頁，接在已有的結果之後。
+  Future<void> loadMore(String pluginId) async {
+    await switch (state.mode) {
+      SearchMode.tracks => _tracks?.loadMore(pluginId),
+      SearchMode.rooms => _rooms?.loadMore(pluginId),
+    };
+  }
 
-  Future<void> _load(
-    SourcePlugin source,
-    String keyword, {
-    required int page,
-    required int generation,
-  }) async {
-    final SearchState next;
-    try {
-      next = switch (state.mode) {
-        SearchMode.tracks => _withTracks(
-          await source.search(SearchQuery(keyword: keyword, page: page)),
-          page,
-        ),
-        SearchMode.rooms => _withRooms(
-          source.manifest.id,
-          await source.liveSearch(
-            LiveSearchQuery(
-              keyword: keyword,
-              page: page,
-              status: state.roomFilter,
-            ),
-          ),
-          page,
-        ),
-      };
-    } on AppError catch (error) {
-      if (!ref.mounted || generation != _generation) return;
+  /// [pluginId] 那一組的第一頁失敗後重試，其他組不動。
+  Future<void> retryGroup(String pluginId) async {
+    await switch (state.mode) {
+      SearchMode.tracks => _tracks?.retry(pluginId),
+      SearchMode.rooms => _rooms?.retry(pluginId),
+    };
+  }
+
+  void _failed(AppError error, {required int page, required bool grouped}) {
+    if (!ref.mounted) return;
+    if (grouped && page == 1) {
+      // 畫在那一組裡，不另外跳提示。
+      ref.read(logProvider).report('Search failed', error, tag: 'search');
+    } else {
       ref
           .read(toasterProvider)
           .error(error, operation: 'Search failed', tag: 'search');
-      // 下一頁失敗時留著已有的結果，可以再按一次「載入更多」。
-      state = state.copyWith(
-        phase: page == 1 ? SearchPhase.failed : SearchPhase.loaded,
-        loadMoreFailed: page > 1,
-      );
-      return;
     }
-    if (!ref.mounted || generation != _generation) return;
-    state = next;
-  }
-
-  /// 兩次請求之間排序變了時，下一頁會有上一頁已經列出的曲目：只留第一次的，
-  /// 同一首不會在列表裡出現兩次。在請求回來之後才讀 [state]：代沒變，就是開始時的那份。
-  SearchState _withTracks(SearchPage result, int page) {
-    final listed = {if (page > 1) ...state.items.map(_keyOf)};
-    // toList：where 的副作用（listed.add）只能跑一次。
-    final added = result.items
-        .where((track) => listed.add(_keyOf(track)))
-        .toList();
-    return state.copyWith(
-      items: List.unmodifiable([if (page > 1) ...state.items, ...added]),
-      hasMore: result.hasMore,
-      page: page,
-      phase: SearchPhase.loaded,
-      loadMoreFailed: false,
-      autoLoadPaused: added.isEmpty,
-    );
-  }
-
-  /// 同 [_withTracks]，以直播間 id 去重。
-  SearchState _withRooms(String pluginId, LiveSearchPage result, int page) {
-    final listed = {if (page > 1) ...state.rooms.map((hit) => hit.room.roomId)};
-    final added = [
-      for (final room in result.items)
-        if (listed.add(room.roomId))
-          LiveRoomHit(pluginId: pluginId, room: room),
-    ];
-    return state.copyWith(
-      rooms: List.unmodifiable([if (page > 1) ...state.rooms, ...added]),
-      hasMore: result.hasMore,
-      page: page,
-      phase: SearchPhase.loaded,
-      loadMoreFailed: false,
-      autoLoadPaused: added.isEmpty,
-    );
   }
 }
 

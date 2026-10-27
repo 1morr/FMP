@@ -529,8 +529,11 @@ void main() {
       final chips = tester
           .widgetList<ChoiceChip>(find.byType(ChoiceChip))
           .toList();
-      expect(chips.map((chip) => chip.selected), [true, false]);
+      // 預設選「全部音源」，其後依序是各個音源。
+      expect(chips.map((chip) => chip.selected), [true, false, false]);
 
+      await tester.tap(find.text('Test Source'));
+      await tester.pump();
       await search(tester, 'song');
       await tester.tap(find.text('Other Source'));
       await tester.pump();
@@ -555,8 +558,8 @@ void main() {
       await h.pumpShell(tester);
       await search(tester, 'song');
 
-      // 還沒點過任何 chip：選的是清單的第一個。
-      await tester.tap(find.text('Test Source'));
+      // 還沒點過任何 chip：選的是「全部音源」。
+      await tester.tap(find.text('All sources'));
       await tester.pump();
       await tester.pump();
 
@@ -681,7 +684,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(queued(h), ['b', 'c']);
-      expect(find.byType(ChoiceChip), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNWidgets(2));
       expect(find.byType(TextField), findsOneWidget);
     });
 
@@ -702,7 +705,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('1 selected'), findsNothing);
-      expect(find.byType(ChoiceChip), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNWidgets(2));
       expect(
         tester
             .widget<EditableText>(find.byType(EditableText))
@@ -726,7 +729,7 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
-      expect(find.byType(ChoiceChip), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNWidgets(2));
       expect(find.byType(Checkbox), findsNothing);
     });
 
@@ -781,7 +784,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(Checkbox), findsNothing);
-      expect(find.byType(ChoiceChip), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNWidgets(2));
     });
   });
 }
