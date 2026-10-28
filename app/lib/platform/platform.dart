@@ -193,8 +193,7 @@ final class AppPlatform {
           cache: macosCacheSizes,
           secureStorage: true,
           files: true,
-          // 登入 WebView、自繪標題列、系統媒體控制之後的 PR 才接上。
-          loginWebView: false,
+          loginWebView: true,
           urlOpener: true,
           restartsItself: true,
           shareFiles: true,
@@ -216,6 +215,7 @@ final class AppPlatform {
         ),
         secureStorage: FlutterSecureStorageAdapter.macos(flavor),
         fileDialogs: const FilePickerDialogs(),
+        loginWebView: InAppLoginWebView.macos(),
         urlOpener: const UrlLauncherOpener(),
         fileSharer: SharePlusFileSharer(),
         restarterFactory: MacosAppRestarter.system,

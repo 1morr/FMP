@@ -359,11 +359,11 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`。系統分享視窗本身只能實機驗。
 
 - 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
-  Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
+  Windows、macOS），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
   `windows/CMakeLists.txt` 的 STL1011 define 才建得起來）。介面只開頁、報「一頁載入完成」、讀 cookie、清全部 cookie、重建環境，
   完成與否由呼叫端判斷（見「帳號」）。
   - UA 由這一層決定，不由插件給：Android 是系統 WebView 的 UA 拿掉 `; wv`／`;wv`（`androidLoginUserAgent`，R1：桌面 UA
-    與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入）。
+    與帶 `wv` 的都被 Google 擋），Windows、macOS 不設（WebView2、WKWebView 的預設）。
   - Windows 的 WebView2 使用者資料在資料目錄的 `webview/`（`loginWebViewDirectoryName`；不給的話是程式旁的
     `fmp.exe.WebView2`，dev 與 prod 混在一起），環境第一次用到才建，`reset` 後重建（同一個目錄，登入狀態留著）。
     cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。環境這一段（目錄位置、延後建立、`reset`、讀刪經同一個
@@ -377,8 +377,9 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：
     `webview_stub_test.dart`（`.flutter-plugins-dependencies` 的 Linux、macOS 解析、
     `linux/flutter/generated_plugins.cmake`、`macos/Flutter/GeneratedPluginRegistrant.swift`）。
-  - macOS 同樣沒有登入 WebView：`flutter_inappwebview_macos` 1.2.0-beta.3 在目前的 Xcode 編不過，改依賴本機的
-    `packages/flutter_inappwebview_macos_stub`（作法同 Linux），macOS 的 WebView 在 macOS 平台任務決定。
+  - macOS 用套件預設的 `flutter_inappwebview_macos`（ADR 0036 §決定 9；經 Swift Package Manager 建置）。沒有 WebView2 那種
+    環境：WKWebView 的資料在 `~/Library/WebKit/<bundle id>`，dev 與 prod 以 bundle id 分開。2026-10-10 它在當時的 Xcode
+    編不過，曾以本機 stub 取代；Xcode 27.1 建得過，stub 已刪。`webview_stub_test.dart` 斷言 macOS 解析到它、registrant 有登記。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有；macOS 的系統媒體控制、

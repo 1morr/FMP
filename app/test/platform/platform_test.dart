@@ -204,9 +204,9 @@ void main() {
       expect(platform.restarter, isA<MacosAppRestarter>());
       expect(platform.legacyDataLocator, isNotNull);
       expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
-      // 之後的 PR 接上：登入 WebView、自繪標題列、系統媒體控制。
-      expect(platform.capabilities.loginWebView, isFalse);
-      expect(platform.loginWebView, isNull);
+      expect(platform.capabilities.loginWebView, isTrue);
+      expect(platform.loginWebView, isA<InAppLoginWebView>());
+      // 之後的 PR 接上：自繪標題列、系統媒體控制。
       expect(platform.capabilities.customTitleBar, isFalse);
       expect(platform.windowChrome, isNull);
       expect(platform.capabilities.mediaControls, isNull);

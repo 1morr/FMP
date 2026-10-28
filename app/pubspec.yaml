@@ -16,7 +16,6 @@ environment:
 workspace:
   - packages/fmp_lints
   - packages/flutter_inappwebview_linux_stub
-  - packages/flutter_inappwebview_macos_stub
   - packages/fmp_quickjs
 
 dependencies:
@@ -79,10 +78,6 @@ dependencies:
   # WebView（ADR 0012 §決定 8）。理由與閘門見 packages/flutter_inappwebview_linux_stub。
   flutter_inappwebview_linux_stub:
     path: packages/flutter_inappwebview_linux_stub
-  # macOS 同理：flutter_inappwebview_macos 1.2.0-beta.3 在目前的 Xcode 編不過，macOS 也沒有登入
-  # WebView（ADR 0012 §決定 8），換成本機 stub。理由與閘門見 packages/flutter_inappwebview_macos_stub。
-  flutter_inappwebview_macos_stub:
-    path: packages/flutter_inappwebview_macos_stub
   # macOS（之後 iOS）的 QuickJS：flutter_js 在 Apple 平台以 DynamicLibrary.process() 找符號，
   # 套件不附，由這個本機套件編進 App（ADR 0036 §決定 1，出處見套件的 SOURCE.md）。沒有 Dart API。
   fmp_quickjs:

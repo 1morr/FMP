@@ -3,15 +3,15 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// Linux 與 macOS 不建 flutter_inappwebview 的原生插件（M3 PR 9，ADR 0012 §決定 8）：App
-// 直接依賴 packages/flutter_inappwebview_{linux,macos}_stub，Flutter 選它而不選預設的
-// flutter_inappwebview_linux（WPE WebKit，建置與執行都要裝 WPE）與
-// flutter_inappwebview_macos（1.2.0-beta.3 在目前的 Xcode 編不過）。這裡讀 Flutter 工具
-// 解析的結果（`flutter pub get` 產生的 `.flutter-plugins-dependencies`）與提交的
+// Linux 不建 flutter_inappwebview 的原生插件（M3 PR 9，ADR 0012 §決定 8）：App 直接依賴
+// packages/flutter_inappwebview_linux_stub，Flutter 選它而不選預設的 flutter_inappwebview_linux
+// （WPE WebKit，建置與執行都要裝 WPE）。macOS 用套件預設的 flutter_inappwebview_macos（登入
+// WebView，ADR 0036 §決定 9；stub 在 macOS 平台任務刪掉）。這裡讀 Flutter 工具解析的結果
+// （`flutter pub get` 產生的 `.flutter-plugins-dependencies`）與提交的
 // `linux/flutter/generated_plugins.cmake`、`macos/Flutter/GeneratedPluginRegistrant.swift`。
 
 const _linuxStub = 'flutter_inappwebview_linux_stub';
-const _macosStub = 'flutter_inappwebview_macos_stub';
+const _macosPlugin = 'flutter_inappwebview_macos';
 
 /// `.flutter-plugins-dependencies` 裡 [platform] 那一組中屬於 flutter_inappwebview 的插件：
 /// 名稱 → 有沒有原生建置。
@@ -59,13 +59,17 @@ void main() {
     expect(webViewPlugins(dependencies, 'linux'), {_linuxStub: false});
   });
 
-  test('macOS resolves flutter_inappwebview to the Dart-only stub', () {
-    expect(webViewPlugins(dependencies, 'macos'), {_macosStub: false});
+  test('macOS resolves flutter_inappwebview to the native plugin', () {
+    expect(webViewPlugins(dependencies, 'macos'), {_macosPlugin: true});
   });
 
-  test('the committed macOS plugin registrant registers no web view', () {
+  test('the committed macOS plugin registrant registers the web view', () {
     expect(swift, contains('RegisterGeneratedPlugins'));
-    expect(swiftWebViewLines(swift), isEmpty);
+    expect(swiftWebViewLines(swift), [
+      'import flutter_inappwebview_macos',
+      '  InAppWebViewFlutterPlugin.register(with: registry.registrar('
+          'forPlugin: "InAppWebViewFlutterPlugin"))',
+    ]);
   });
 
   test('the committed Linux plugin list builds no flutter_inappwebview', () {
@@ -97,32 +101,31 @@ void main() {
       ]);
     });
 
-    test('the endorsed macOS plugin is caught', () {
+    test('a macOS stub in place of the plugin is caught', () {
       final json = jsonDecode(dependencies) as Map<String, Object?>;
       final macos =
           ((json['plugins']! as Map<String, Object?>)['macos']!
                   as List<Object?>)
               .cast<Map<String, Object?>>();
-      final stub = macos.firstWhere((plugin) => plugin['name'] == _macosStub);
-      stub['name'] = 'flutter_inappwebview_macos';
-      stub['native_build'] = true;
+      final plugin = macos.firstWhere(
+        (plugin) => plugin['name'] == _macosPlugin,
+      );
+      plugin['name'] = 'flutter_inappwebview_macos_stub';
+      plugin['native_build'] = false;
       expect(webViewPlugins(jsonEncode(json), 'macos'), {
-        'flutter_inappwebview_macos': true,
+        'flutter_inappwebview_macos_stub': false,
       });
 
       final mutated = swift
-          .replaceFirst(
-            'import flutter_js',
-            'import flutter_inappwebview_macos\nimport flutter_js',
+          .split('\n')
+          .where(
+            (line) =>
+                !line.contains('InAppWebView') &&
+                !line.contains('flutter_inappwebview'),
           )
-          .replaceFirst(
-            '  FlutterJsPlugin.register',
-            '  InAppWebViewFlutterPlugin.register(with: registry.registrar('
-                'forPlugin: "InAppWebViewFlutterPlugin"))\n'
-                '  FlutterJsPlugin.register',
-          );
+          .join('\n');
       expect(mutated, isNot(swift));
-      expect(swiftWebViewLines(mutated), hasLength(2));
+      expect(swiftWebViewLines(mutated), isEmpty);
     });
 
     test('formatting and comments do not change the result', () {
@@ -130,7 +133,7 @@ void main() {
           .convert(jsonDecode(dependencies));
       expect(reformatted, isNot(dependencies));
       expect(webViewPlugins(reformatted, 'linux'), {_linuxStub: false});
-      expect(webViewPlugins(reformatted, 'macos'), {_macosStub: false});
+      expect(webViewPlugins(reformatted, 'macos'), {_macosPlugin: true});
 
       final commented = cmake
           .replaceFirst(
@@ -141,11 +144,11 @@ void main() {
       expect(commented, isNot(cmake));
       expect(cmakePlugins(commented), cmakePlugins(cmake));
 
-      final swiftCommented = swift
+      final swiftReformatted = swift
           .replaceFirst('import flutter_js', '// import flutter_js')
           .replaceAll('\n  ', '\n\t');
-      expect(swiftCommented, isNot(swift));
-      expect(swiftWebViewLines(swiftCommented), isEmpty);
+      expect(swiftReformatted, isNot(swift));
+      expect(swiftWebViewLines(swiftReformatted), hasLength(2));
     });
   });
 }

@@ -13,15 +13,15 @@ final _webViewMarker = RegExp(r'; ?wv(?=[;)])');
 String androidLoginUserAgent(String systemUserAgent) =>
     systemUserAgent.replaceAll(_webViewMarker, '');
 
-/// [LoginWebView] 的實作，Android 與 Windows 共用：`flutter_inappwebview` 6.2.0-beta.3
-/// （ADR 0029 §決定 9）。兩個平台的差異從建構子注入：
+/// [LoginWebView] 的實作，Android、Windows、macOS 共用：`flutter_inappwebview` 6.2.0-beta.3
+/// （ADR 0029 §決定 9、ADR 0036 §決定 9）。平台的差異從建構子注入：
 ///
-/// - UA：Android 是系統 WebView 的 UA 拿掉 `; wv`（[androidLoginUserAgent]）；Windows
-///   不設，用 WebView2 的預設（R1：預設就能登入）。
+/// - UA：Android 是系統 WebView 的 UA 拿掉 `; wv`（[androidLoginUserAgent]）；Windows、macOS
+///   不設，用 WebView2、WKWebView 的預設（R1：預設就能登入）。
 /// - 環境：Windows 的 WebView2 環境以資料目錄下的 [loginWebViewDirectoryName] 當使用者
 ///   資料目錄（不給的話 WebView2 用程式旁的 `fmp.exe.WebView2`，dev 與 prod 混在一起）。
-///   第一次用到才建立，[reset] 之後重建。Android 沒有環境（WebView 的資料在 App 的私有
-///   目錄，dev 與 prod 以 applicationId 分開）。
+///   第一次用到才建立，[reset] 之後重建。Android、macOS 沒有環境（WebView 的資料在 App 的私有
+///   目錄或 `~/Library/WebKit/<bundle id>`，dev 與 prod 以 applicationId、bundle id 分開）。
 final class InAppLoginWebView implements LoginWebView {
   InAppLoginWebView({
     required this._userAgent,
@@ -36,6 +36,10 @@ final class InAppLoginWebView implements LoginWebView {
     ),
     createEnvironment: null,
   );
+
+  /// macOS 的實作（WKWebView）。
+  factory InAppLoginWebView.macos() =>
+      InAppLoginWebView(userAgent: () async => null, createEnvironment: null);
 
   /// Windows 的實作；[userDataFolder] 是 WebView2 的使用者資料目錄。
   factory InAppLoginWebView.windows({
