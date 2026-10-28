@@ -209,11 +209,11 @@ class Translations$shell$zh_TW {
   /// zh-TW: '設定'
   String get settings => '設定';
 
-  /// zh-TW: '搜尋（Ctrl+F）'
-  String get searchTooltip => '搜尋（Ctrl+F）';
+  /// zh-TW: '搜尋（{shortcut}）'
+  String searchTooltip({required Object shortcut}) => '搜尋（${shortcut}）';
 
-  /// zh-TW: '設定（Ctrl+,）'
-  String get settingsTooltip => '設定（Ctrl+,）';
+  /// zh-TW: '設定（{shortcut}）'
+  String settingsTooltip({required Object shortcut}) => '設定（${shortcut}）';
 
   /// zh-TW: '電台'
   String get radio => '電台';
@@ -227,8 +227,8 @@ class Translations$shell$zh_TW {
   /// zh-TW: '展開側邊欄'
   String get railExpandTooltip => '展開側邊欄';
 
-  /// zh-TW: '佇列（Ctrl+Q）'
-  String get queueTooltip => '佇列（Ctrl+Q）';
+  /// zh-TW: '佇列（{shortcut}）'
+  String queueTooltip({required Object shortcut}) => '佇列（${shortcut}）';
 
   /// zh-TW: '佇列是空的'
   String get queueEmptyTitle => '佇列是空的';
@@ -1298,8 +1298,8 @@ class Translations$selection$zh_TW {
   /// zh-TW: '取消選取（Esc）'
   String get cancelTooltip => '取消選取（Esc）';
 
-  /// zh-TW: '全選（Ctrl+A）'
-  String get selectAllTooltip => '全選（Ctrl+A）';
+  /// zh-TW: '全選（{shortcut}）'
+  String selectAllTooltip({required Object shortcut}) => '全選（${shortcut}）';
 
   /// zh-TW: '下一首播放'
   String get playNext => '下一首播放';
@@ -2320,11 +2320,11 @@ class Translations$player$zh_TW {
   /// zh-TW: '暫停（空白鍵）'
   String get pauseTooltip => '暫停（空白鍵）';
 
-  /// zh-TW: '上一首（Ctrl+←）'
-  String get previousTooltip => '上一首（Ctrl+←）';
+  /// zh-TW: '上一首（{shortcut}）'
+  String previousTooltip({required Object shortcut}) => '上一首（${shortcut}）';
 
-  /// zh-TW: '下一首（Ctrl+→）'
-  String get nextTooltip => '下一首（Ctrl+→）';
+  /// zh-TW: '下一首（{shortcut}）'
+  String nextTooltip({required Object shortcut}) => '下一首（${shortcut}）';
 
   /// zh-TW: '播放進度'
   String get progress => '播放進度';
@@ -2380,8 +2380,8 @@ class Translations$player$zh_TW {
   /// zh-TW: '音訊輸出裝置無法使用，已改用系統預設'
   String get outputDeviceFellBack => '音訊輸出裝置無法使用，已改用系統預設';
 
-  /// zh-TW: '隨機播放（Ctrl+S）'
-  String get shuffleTooltip => '隨機播放（Ctrl+S）';
+  /// zh-TW: '隨機播放（{shortcut}）'
+  String shuffleTooltip({required Object shortcut}) => '隨機播放（${shortcut}）';
 
   /// zh-TW: 'Mix 中無法隨機播放'
   String get shuffleInMixTooltip => 'Mix 中無法隨機播放';
@@ -2389,14 +2389,14 @@ class Translations$player$zh_TW {
   /// zh-TW: '隨機播放（Mix 中無法使用）'
   String get shuffleInMix => '隨機播放（Mix 中無法使用）';
 
-  /// zh-TW: '循環：關閉（Ctrl+R）'
-  String get loopOffTooltip => '循環：關閉（Ctrl+R）';
+  /// zh-TW: '循環：關閉（{shortcut}）'
+  String loopOffTooltip({required Object shortcut}) => '循環：關閉（${shortcut}）';
 
-  /// zh-TW: '循環：全部（Ctrl+R）'
-  String get loopAllTooltip => '循環：全部（Ctrl+R）';
+  /// zh-TW: '循環：全部（{shortcut}）'
+  String loopAllTooltip({required Object shortcut}) => '循環：全部（${shortcut}）';
 
-  /// zh-TW: '循環：單曲（Ctrl+R）'
-  String get loopOneTooltip => '循環：單曲（Ctrl+R）';
+  /// zh-TW: '循環：單曲（{shortcut}）'
+  String loopOneTooltip({required Object shortcut}) => '循環：單曲（${shortcut}）';
 
   /// zh-TW: '循環：關閉（Mix 中沒有「全部」）'
   String get loopOffInMix => '循環：關閉（Mix 中沒有「全部」）';
@@ -2404,17 +2404,20 @@ class Translations$player$zh_TW {
   /// zh-TW: '循環：單曲（Mix 中沒有「全部」）'
   String get loopOneInMix => '循環：單曲（Mix 中沒有「全部」）';
 
-  /// zh-TW: '循環：關閉（Ctrl+R；Mix 中沒有「全部」）'
-  String get loopOffInMixTooltip => '循環：關閉（Ctrl+R；Mix 中沒有「全部」）';
+  /// zh-TW: '循環：關閉（{shortcut}；Mix 中沒有「全部」）'
+  String loopOffInMixTooltip({required Object shortcut}) =>
+      '循環：關閉（${shortcut}；Mix 中沒有「全部」）';
 
-  /// zh-TW: '循環：單曲（Ctrl+R；Mix 中沒有「全部」）'
-  String get loopOneInMixTooltip => '循環：單曲（Ctrl+R；Mix 中沒有「全部」）';
+  /// zh-TW: '循環：單曲（{shortcut}；Mix 中沒有「全部」）'
+  String loopOneInMixTooltip({required Object shortcut}) =>
+      '循環：單曲（${shortcut}；Mix 中沒有「全部」）';
 
   /// zh-TW: '音量'
   String get volume => '音量';
 
-  /// zh-TW: '音量（Ctrl+↑／↓）'
-  String get volumeTooltip => '音量（Ctrl+↑／↓）';
+  /// zh-TW: '音量（{up}／{down}）'
+  String volumeTooltip({required Object up, required Object down}) =>
+      '音量（${up}／${down}）';
 
   /// zh-TW: '靜音'
   String get mute => '靜音';

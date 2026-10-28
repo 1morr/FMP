@@ -64,27 +64,35 @@ const seekStepSeconds = 5;
 /// Ctrl+↑／↓ 一次調整幾個百分點。
 const volumeStepPercent = 5;
 
-/// 播放快捷鍵表。按鍵也寫在提示文字裡（翻譯檔的 `*Tooltip`），改這裡要一起改。Ctrl 是平台宣告的
+/// 播放類的組合鍵：表與提示文字（`shortcutLabel`）用同一份，提示不會和綁定不一致。
+SingleActivator previousChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.arrowLeft, modifier);
+SingleActivator nextChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.arrowRight, modifier);
+SingleActivator volumeUpChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.arrowUp, modifier);
+SingleActivator volumeDownChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.arrowDown, modifier);
+SingleActivator shuffleChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.keyS, modifier);
+SingleActivator loopChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.keyR, modifier);
+
+/// 播放快捷鍵表。提示文字的按鍵由上面的組合鍵產生（翻譯檔只有佔位）。Ctrl 是平台宣告的
 /// 主修飾鍵（`ShortcutModifier`，Apple 平台是 ⌘）。Ctrl+L（歌詞）M7 才做，現在沒有這個鍵
 /// （ADR 0035 §決定 7）。開佇列在導覽類（`queueShortcuts`）。
 Map<ShortcutActivator, Intent> playbackShortcuts(ShortcutModifier modifier) => {
   const SingleActivator(LogicalKeyboardKey.space): const PlayPauseIntent(),
-  primaryChord(LogicalKeyboardKey.arrowLeft, modifier):
-      const PreviousTrackIntent(),
-  primaryChord(LogicalKeyboardKey.arrowRight, modifier):
-      const NextTrackIntent(),
+  previousChord(modifier): const PreviousTrackIntent(),
+  nextChord(modifier): const NextTrackIntent(),
   const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
       const SeekByIntent(Duration(seconds: -seekStepSeconds)),
   const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
       const SeekByIntent(Duration(seconds: seekStepSeconds)),
-  primaryChord(LogicalKeyboardKey.arrowUp, modifier): const VolumeByIntent(
-    volumeStepPercent,
-  ),
-  primaryChord(LogicalKeyboardKey.arrowDown, modifier): const VolumeByIntent(
-    -volumeStepPercent,
-  ),
-  primaryChord(LogicalKeyboardKey.keyS, modifier): const ToggleShuffleIntent(),
-  primaryChord(LogicalKeyboardKey.keyR, modifier): const CycleLoopIntent(),
+  volumeUpChord(modifier): const VolumeByIntent(volumeStepPercent),
+  volumeDownChord(modifier): const VolumeByIntent(-volumeStepPercent),
+  shuffleChord(modifier): const ToggleShuffleIntent(),
+  loopChord(modifier): const CycleLoopIntent(),
 };
 
 /// 在 [child] 之上加播放快捷鍵（[playbackShortcuts]），動作都呼叫

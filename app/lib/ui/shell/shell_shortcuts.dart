@@ -68,6 +68,18 @@ SingleActivator primaryChord(
   meta: modifier == ShortcutModifier.meta,
 );
 
+/// 搜尋：Ctrl+F、⌘F。
+SingleActivator searchChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.keyF, modifier);
+
+/// 設定：Ctrl+,、⌘,。
+SingleActivator settingsChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.comma, modifier);
+
+/// 選取模式全選：Ctrl+A、⌘A。
+SingleActivator selectAllChord(ShortcutModifier modifier) =>
+    primaryChord(LogicalKeyboardKey.keyA, modifier);
+
 /// 開佇列：Ctrl+Q；Apple 平台是 ⌥⌘U（Apple Music 的「顯示佇列」），避開 ⌘Q（結束 App）。
 SingleActivator queueChord(ShortcutModifier modifier) => switch (modifier) {
   ShortcutModifier.control => const SingleActivator(
@@ -89,12 +101,11 @@ Map<ShortcutActivator, Intent> queueShortcuts(ShortcutModifier modifier) => {
 
 /// 導覽類快捷鍵表（外殼）。播放類在 `playback_shortcuts.dart`；這幾個在輸入框內
 /// 也有效（要能從輸入框離開）。
-Map<ShortcutActivator, Intent> navigationShortcuts(
-  ShortcutModifier modifier,
-) => {
-  primaryChord(LogicalKeyboardKey.keyF, modifier): const FocusSearchIntent(),
-  primaryChord(LogicalKeyboardKey.comma, modifier): const OpenSettingsIntent(),
-  const SingleActivator(LogicalKeyboardKey.f6): const NextRegionIntent(),
-  const SingleActivator(LogicalKeyboardKey.escape): const EscapeIntent(),
-  ...queueShortcuts(modifier),
-};
+Map<ShortcutActivator, Intent> navigationShortcuts(ShortcutModifier modifier) =>
+    {
+      searchChord(modifier): const FocusSearchIntent(),
+      settingsChord(modifier): const OpenSettingsIntent(),
+      const SingleActivator(LogicalKeyboardKey.f6): const NextRegionIntent(),
+      const SingleActivator(LogicalKeyboardKey.escape): const EscapeIntent(),
+      ...queueShortcuts(modifier),
+    };

@@ -228,9 +228,9 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get settings => '设置';
   @override
-  String get searchTooltip => '搜索（Ctrl+F）';
+  String searchTooltip({required Object shortcut}) => '搜索（${shortcut}）';
   @override
-  String get settingsTooltip => '设置（Ctrl+,）';
+  String settingsTooltip({required Object shortcut}) => '设置（${shortcut}）';
   @override
   String get radio => '电台';
   @override
@@ -240,7 +240,7 @@ class Translations$shell$zh_CN extends Translations$shell$zh_TW {
   @override
   String get railExpandTooltip => '展开侧边栏';
   @override
-  String get queueTooltip => '队列（Ctrl+Q）';
+  String queueTooltip({required Object shortcut}) => '队列（${shortcut}）';
   @override
   String get queueEmptyTitle => '队列是空的';
   @override
@@ -1007,7 +1007,7 @@ class Translations$selection$zh_CN extends Translations$selection$zh_TW {
   @override
   String get cancelTooltip => '取消选择（Esc）';
   @override
-  String get selectAllTooltip => '全选（Ctrl+A）';
+  String selectAllTooltip({required Object shortcut}) => '全选（${shortcut}）';
   @override
   String get playNext => '下一首播放';
   @override
@@ -1732,9 +1732,9 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   @override
   String get pauseTooltip => '暂停（空格键）';
   @override
-  String get previousTooltip => '上一首（Ctrl+←）';
+  String previousTooltip({required Object shortcut}) => '上一首（${shortcut}）';
   @override
-  String get nextTooltip => '下一首（Ctrl+→）';
+  String nextTooltip({required Object shortcut}) => '下一首（${shortcut}）';
   @override
   String get progress => '播放进度';
   @override
@@ -1773,29 +1773,32 @@ class Translations$player$zh_CN extends Translations$player$zh_TW {
   @override
   String get outputDeviceFellBack => '音频输出设备无法使用，已改用系统默认';
   @override
-  String get shuffleTooltip => '随机播放（Ctrl+S）';
+  String shuffleTooltip({required Object shortcut}) => '随机播放（${shortcut}）';
   @override
   String get shuffleInMixTooltip => 'Mix 中无法随机播放';
   @override
   String get shuffleInMix => '随机播放（Mix 中无法使用）';
   @override
-  String get loopOffTooltip => '循环：关闭（Ctrl+R）';
+  String loopOffTooltip({required Object shortcut}) => '循环：关闭（${shortcut}）';
   @override
-  String get loopAllTooltip => '循环：全部（Ctrl+R）';
+  String loopAllTooltip({required Object shortcut}) => '循环：全部（${shortcut}）';
   @override
-  String get loopOneTooltip => '循环：单曲（Ctrl+R）';
+  String loopOneTooltip({required Object shortcut}) => '循环：单曲（${shortcut}）';
   @override
   String get loopOffInMix => '循环：关闭（Mix 中没有“全部”）';
   @override
   String get loopOneInMix => '循环：单曲（Mix 中没有“全部”）';
   @override
-  String get loopOffInMixTooltip => '循环：关闭（Ctrl+R；Mix 中没有“全部”）';
+  String loopOffInMixTooltip({required Object shortcut}) =>
+      '循环：关闭（${shortcut}；Mix 中没有“全部”）';
   @override
-  String get loopOneInMixTooltip => '循环：单曲（Ctrl+R；Mix 中没有“全部”）';
+  String loopOneInMixTooltip({required Object shortcut}) =>
+      '循环：单曲（${shortcut}；Mix 中没有“全部”）';
   @override
   String get volume => '音量';
   @override
-  String get volumeTooltip => '音量（Ctrl+↑／↓）';
+  String volumeTooltip({required Object up, required Object down}) =>
+      '音量（${up}／${down}）';
   @override
   String get mute => '静音';
   @override
