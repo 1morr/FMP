@@ -17,6 +17,7 @@ workspace:
   - packages/fmp_lints
   - packages/flutter_inappwebview_linux_stub
   - packages/flutter_inappwebview_macos_stub
+  - packages/fmp_quickjs
 
 dependencies:
   # 系統媒體控制的 Android 實作（ADR 0018 §決定 8）：通知、鎖定畫面、媒體鍵。
@@ -82,6 +83,10 @@ dependencies:
   # WebView（ADR 0012 §決定 8），換成本機 stub。理由與閘門見 packages/flutter_inappwebview_macos_stub。
   flutter_inappwebview_macos_stub:
     path: packages/flutter_inappwebview_macos_stub
+  # macOS（之後 iOS）的 QuickJS：flutter_js 在 Apple 平台以 DynamicLibrary.process() 找符號，
+  # 套件不附，由這個本機套件編進 App（ADR 0036 §決定 1，出處見套件的 SOURCE.md）。沒有 Dart API。
+  fmp_quickjs:
+    path: packages/fmp_quickjs
   # 憑證存放（ADR 0012 §決定 3、ADR 0029 §決定 5）；只准在 lib/platform/ import
   # （fmp_layer_imports）。
   flutter_secure_storage: ^11.2.0

@@ -10,7 +10,7 @@ import 'package:isar_community/isar.dart';
 /// 與 `linux/libisar.so`；flutter_tester 的搜尋路徑裡沒有它們，所以以 pub cache
 /// 裡的絕對路徑載入（key 是 `dart:ffi` 的 [Abi]，`Isar.initializeIsarCore` 不
 /// 下載：`download` 預設 false）。找不到或載入失敗就拋錯，不跳過：CI（Linux）
-/// 要真的跑到 Isar。macOS 沒有支援（App 在 macOS 沒有驗證），不處理。
+/// 要真的跑到 Isar。macOS 用套件的 `macos/libisar.dylib`（universal），key 依主機架構。
 Future<void> loadLibisarForTests() async {
   final String relative;
   final Abi abi;
@@ -20,6 +20,9 @@ Future<void> loadLibisarForTests() async {
   } else if (Platform.isLinux) {
     relative = 'linux/libisar.so';
     abi = Abi.linuxX64;
+  } else if (Platform.isMacOS) {
+    relative = 'macos/libisar.dylib';
+    abi = Abi.current();
   } else {
     return;
   }

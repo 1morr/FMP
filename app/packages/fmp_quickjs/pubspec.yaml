@@ -1,0 +1,27 @@
+name: fmp_quickjs
+description: >-
+  QuickJS 與 flutter_js 的 C 橋接，編進 Apple 平台的 App 行程（ADR 0036 §決定 1）。
+  flutter_js 0.8.7 在 macOS／iOS 以 DynamicLibrary.process() 找 QuickJS 的符號，
+  套件本身不附；這裡是 Android 用的同一份原始碼。沒有 Dart API。
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.4
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  test: any
+
+# FFI plugin：只有原生碼，不登記 Dart 類別。CocoaPods 把它編成 framework 連進 App，啟動時就載入，
+# flutter_js 的 DynamicLibrary.process() 才找得到符號。
+flutter:
+  plugin:
+    platforms:
+      macos:
+        ffiPlugin: true

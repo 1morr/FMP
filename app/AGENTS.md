@@ -27,14 +27,15 @@
   CI 的 Windows runner 映像內建 Rust，不必另裝。建過之後 `build/windows/x64/<flavor>/plugins/smtc_windows/cargokit_build/`
   底下有 cargokit 自己產生的 `.dart`，`dart format … .` 會報它「Changed」而回非零：只有 `build/` 底下的那一個時不是
   格式問題（CI 的格式檢查沒有 `build/`），其他檔案照常要修。
-- 在 Mac 上，完整的 `flutter test` 用 `tool/linux_test.sh`：它在 OrbStack 的 x86_64 Ubuntu 上跑（和 CI 同架構），
-  第一次先跑 `tool/linux_test.sh setup` 建機器、裝 CI 的 `APP_FLUTTER_VERSION`。參數照傳給 `flutter test`。
-  - 為什麼不在 macOS 本機跑完整套件：
-    - 插件執行環境的 QuickJS 與舊資料匯入的 `libisar` 在 macOS 主機載不到；
-    - 插件測試失敗會連帶拖垮同一個檔案裡後面的測試，`debug_plugin_dev_test.dart` 還會卡死，`--timeout` 擋不住。
-  - macOS 本機只跑不碰插件與舊資料匯入的測試檔，例如 UI、設定、資料庫、快取。
-  - 工作區以 rsync 複製到機器裡再跑。副本的 `ios/`、`macos/` 還原成 HEAD，因為 Mac 建置時 CocoaPods 會改那些檔、
-    讓 `apple_identity_test` 變紅；所以改 Xcode 專案的改動要先 commit 再跑。
+- Mac 本機可以跑完整的 `flutter test`（約 7 分鐘）：
+  - 插件執行環境的 QuickJS 由 `test/support/quickjs.dart` 以 clang 編 `packages/fmp_quickjs`（見下方）；
+  - 舊資料匯入的 `libisar` 用套件附的 universal dylib。
+  - 兩處在 Mac 上會紅：
+    - `windows_identity_test.dart` 要 `cmake`（`brew install cmake`）；
+    - `apple_identity_test.dart` 在 CocoaPods 改過的工作區會紅，`ios/` 的 Podfile 由 iOS 平台任務提交前都是這樣。
+  - 要和 CI 同架構（x86_64 Linux）時用 `tool/linux_test.sh`：它在 OrbStack 的 Ubuntu 上跑，第一次先跑
+    `tool/linux_test.sh setup` 建機器、裝 CI 的 `APP_FLUTTER_VERSION`，參數照傳給 `flutter test`。
+    工作區以 rsync 複製到機器裡再跑；副本的 `ios/`、`macos/` 還原成 HEAD，所以改 Xcode 專案的改動要先 commit 再跑。
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
@@ -53,7 +54,13 @@
 - 插件執行環境的測試在裸 `flutter test` 裡跑真的 QuickJS：`test/flutter_test_config.dart`
   經 `test/support/quickjs.dart` 先以絕對路徑載入 flutter_js 內附的原生庫（Windows、Linux），
   不必先建置桌面版；插件的背景 isolate 以檔名開到同一份（整個行程共用）。找不到就拋錯，CI 不會
-  默默跳過。macOS 不支援。看門狗的測試會留下一條忙著的執行緒，到那個測試檔的行程結束為止。
+  默默跳過。macOS 的 flutter_js 不附 QuickJS、以 `DynamicLibrary.process()` 找符號：測試先把
+  `packages/fmp_quickjs` 的原始碼編成 `.dart_tool/fmp_quickjs/<雜湊>/libfmp_quickjs.dylib` 再載入
+  （原始碼沒變就不重編；App 裡由 podspec 編進行程，ADR 0036 §決定 1）。看門狗的測試會留下一條忙著的
+  執行緒，到那個測試檔的行程結束為止。
+- `packages/fmp_quickjs` 是照搬的第三方原始碼（出處與升級方式見它的 `SOURCE.md`），`src/` 不改。它的
+  `test/symbols_test.dart` 核對 flutter_js `ffi.dart` 查的符號都在，只在 macOS 主機跑；CI 的 macOS job
+  跑它，並以 `nm` 確認 release 的 App 裡 framework 匯出橋接的符號。
 - 插件契約執行器（`test/plugins/contract/`，ADR 0015 §決定 6）就在裸 `flutter test` 裡：
   `contract_test.dart` 以 fixture 重播跑 `test/fixtures/plugins/` 底下每個插件目錄的
   `checks.json`，CI 沒有另外的步驟。

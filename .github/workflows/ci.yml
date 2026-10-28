@@ -443,6 +443,19 @@ jobs:
       - name: Build macOS (dev, debug)
         run: flutter build macos --flavor dev --debug
 
+      # flutter_js 在 macOS 以 DynamicLibrary.process() 找 QuickJS，由 fmp_quickjs 編進 App
+      # （ADR 0036 §決定 1）：release 的 framework 要匯出橋接的符號，沒被剝掉。
+      - name: QuickJS is linked into the app
+        run: |
+          lib=build/macos/Build/Products/Release-prod/fmp.app/Contents/Frameworks/fmp_quickjs.framework/fmp_quickjs
+          nm -gU "$lib" | grep -q ' _jsNewRuntime$'
+          nm -gU "$lib" | grep -q ' _jsSetMemoryLimit$'
+
+      # 符號清單對得上 flutter_js 的 ffi.dart（只在 macOS 主機跑）。
+      - name: fmp_quickjs tests
+        working-directory: app/packages/fmp_quickjs
+        run: flutter test
+
   app-build-ios:
     name: App Build (iOS)
     needs: changes
