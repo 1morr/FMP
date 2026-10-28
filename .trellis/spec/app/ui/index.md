@@ -363,6 +363,18 @@ U PR 13（ADR 0035 R7.5–R7.10）的寫法：
 - 播放頁的控制區沒有底板、沒有毛玻璃（ADR 0035 §決定 3）；背景是模糊的封面加 `surface` 遮罩，數值在 `AppLayout`。新的文字放在背景上時，淺色、深色 ×
   最淺、最深的封面都要過 guideline（`guidelines_test.dart` 的 `the player page over …`）：次要文字用
   `onSurfaceVariant` 在深色封面上會不夠對比，遮罩用主題的 `surface` 就是為了這個。
+- 模糊（`ImageFiltered`、`BackdropFilter`）外面包 `ClipRect`：模糊會往外溢出約 3 倍 sigma（播放頁 sigma 48，溢出約 150dp），不裁就畫到
+  元件外面。根 route 上方就是 Windows 的自繪標題列，播放頁的背景曾把它整條蓋成灰帶（#345）；按鈕照樣點得到，點擊測試抓不到。
+
+  ```dart
+  // 錯：模糊溢出到頁面上方
+  ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48), child: art)
+  // 對
+  ClipRect(child: ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 48, sigmaY: 48), child: art))
+  ```
+
+  守的測試：`player_page_test.dart` 的 `the page paints nothing over the title bar`（開頁前後比標題列那一條的像素；拿掉
+  `ClipRect` 會紅）。歌單頂圖（`playlist_hero.dart`）同樣包了。
 - 佇列（M2 PR 18b；ADR 0035 起是導覽目的地，`lib/ui/queue/`）：`QueuePage` 是佇列目的地的根頁，沒選到時（`visible` 為假）
   不建清單，所以每次切過來都從目前這首附近開始；佇列空時是空狀態，否則是整頁的 `QueueView`。改清單時：列的鍵是佇列
   項目的實例（`ObjectKey`），所以編輯不能換掉既有項目的實例（`QueueModel` 的編輯本來就沿用）；拖曳只經把手，放下用
@@ -552,6 +564,9 @@ U PR 13（ADR 0035 R7.5–R7.10）的寫法：
 - 新畫面加進 guideline 測試（`test/ui/guidelines_test.dart` 的寫法）：淺色、深色各跑
   `labeledTapTargetGuideline`、`androidTapTargetGuideline`、`textContrastGuideline`，
   `tester.ensureSemantics()` 要開。
+- 「點得到但被別的東西畫在上面」只能比像素：`captureImage(tester.element(...))` 拿整個畫面，`tester.runAsync` 裡
+  `toByteData(format: ui.ImageByteFormat.rawRgba)`，比較動作前後同一塊的位元組（例子：`player_page_test.dart` 的
+  `_titleBarPixels`）。`find`、`tap`、語意樹都看不出繪製溢出。
 - 語言：`TestWidgetsFlutterBinding.instance.platformDispatcher.localesTestValue` 設系統語言，
   `addTearDown(clearLocalesTestValue)`；測試預設是 `en_US`。
 

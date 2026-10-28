@@ -10,7 +10,7 @@
 
 依據：
 
-- 逐項對照 94 項（`.trellis/tasks/10-24-ui-legacy-parity/research/compare-*.md`，B-01–B-34、L-01–L-34、P-01–P-26）。
+- 逐項對照 94 項（`.trellis/tasks/archive/2026-10/10-24-ui-legacy-parity/research/compare-*.md`，B-01–B-34、L-01–L-34、P-01–P-26）。
 - 設計稿：8 個畫面 × iPhone／Windows／Mac，22 組 A／B 選擇點（原始檔 `research/design/`）。
 - 擁有者看過設計稿後決定「全都按推薦」：有選擇點的照設計稿的推薦，其餘照對照文件的建議；另有 4 項明確選「照舊版」（B-19、B-33、L-27、P-06）。
 
