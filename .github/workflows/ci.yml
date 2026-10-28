@@ -208,8 +208,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    # 兩次 dart analyze（含第一次編譯插件）比 PR 2 多幾分鐘。
-    timeout-minutes: 20
+    # 兩次 dart analyze（含第一次編譯插件）加約 6300 個測試，平常 15–19 分鐘；runner 慢一點就超過 20
+    # （2026-10-27 #344 連續兩次被取消，測試沒有失敗）。
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app
