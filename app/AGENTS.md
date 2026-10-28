@@ -40,6 +40,8 @@
 - CI 另有五個平台的建置 job（都是 `--flavor prod --release`，iOS 加 `--no-codesign`；macOS、
   iOS 再建一次 `--flavor dev --debug`），以及 Linux（xvfb）與 Windows 的整合測試 job：
   `install_search_play_test.dart`、`toast_layering_test.dart`，Windows 另跑 `secure_storage_test.dart`。
+  macOS 的建置 job 在建置之後跑 `install_search_play_test.dart -d macos --flavor dev`（守插件引擎有編進
+  App）；`secure_storage_test.dart` 不進 CI（runner 的 keychain 可能跳授權視窗），實機手動跑。
   真後端的契約與插件量測只在實機手動跑。
 - 桌面裝置一次 `flutter test` 只能跑一個整合測試檔：flutter_tools 每個桌面裝置只有一個 log
   reader，第一個檔案的 App 結束時就關了，第二個檔案的 App 報 `Unable to start the app on the
@@ -195,7 +197,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   （含 v1.11.0 的真實 asset 與 checksums）。
 - 建置或 verify 失敗時 release 還是草稿（使用者看不到），tag 已建。暫時性的失敗在同一個 run
   重跑失敗的 job；要改程式就修好合併，下一個發版 PR 照常發布，失敗的草稿與 tag 手動刪。
-- Linux、macOS 的發佈物由各自的平台任務加進 workflow 與 `expectedAssets`。
+- macOS 發 `fmp-v{版本}-macos.zip`（`build-macos` job：`flutter build macos --flavor prod --release
+  --build-name --build-number`，再以 `ditto -c -k --keepParent` 打包 `fmp.app`；ditto 保留 framework 裡
+  的符號連結與擴充屬性，一般的 zip 會弄壞）。只有 Xcode 預設的 ad-hoc 簽章，不公證（ADR 0022 §決定 3），
+  沒有別名（舊版沒發過 macOS）。verify 核對 zip 的唯一根是 `fmp.app/`、`Info.plist` 的
+  `CFBundleIdentifier` 是 `com.personal.fmp`、`CFBundleShortVersionString` 是這一版；閘門：
+  `verify_release_assets_test.dart`、`release_workflow_test.dart` 的 `the macOS zip keeps symlinks`。
+- Linux 的發佈物由它的平台任務加進 workflow 與 `expectedAssets`。
 
 ## 平台層
 

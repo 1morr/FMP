@@ -16,13 +16,19 @@ void main() {
   late Map<String, ApkBadging?> badging;
   late Map<String, List<ApkSigner>?> signers;
   late List<String>? zipEntries;
+  late Map<String, List<String>?> macosEntries;
+  late String? macosPlist;
 
   Future<List<String>> verify({String releaseTag = tag}) => verifyReleaseAssets(
     dir: dir,
     tag: releaseTag,
     readBadging: (apk) async => badging[p.basename(apk.path)],
     readSigners: (apk) async => signers[p.basename(apk.path)],
-    listZip: (zip) async => zipEntries,
+    listZip: (zip) async => p.basename(zip.path).endsWith('-macos.zip')
+        ? macosEntries[p.basename(zip.path)]
+        : zipEntries,
+    readZipEntry: (zip, entry) async =>
+        entry == 'fmp.app/Contents/Info.plist' ? macosPlist : null,
   );
 
   File asset(String name) => File(p.join(dir.path, name));
@@ -64,6 +70,14 @@ void main() {
       ...windowsProgramFiles,
       'data/flutter_assets/AssetManifest.bin',
     ];
+    macosEntries = {
+      'fmp-$tag-macos.zip': [
+        'fmp.app/',
+        'fmp.app/Contents/Info.plist',
+        'fmp.app/Contents/MacOS/fmp',
+      ],
+    };
+    macosPlist = macosInfoPlist(applicationId, '2.0.0');
     copyAliases();
     writeManifest();
   });
@@ -78,6 +92,7 @@ void main() {
       'fmp-v2.0.0-android-universal.apk',
       'fmp-v2.0.0-windows-installer.exe',
       'fmp-v2.0.0-windows.zip',
+      'fmp-v2.0.0-macos.zip',
       'fmp-v2.0.0-checksums.sha256',
       'fmp-latest-android-arm64-v8a.apk',
       'fmp-latest-android-universal.apk',
@@ -124,6 +139,19 @@ void main() {
       expect(await verify(), isEmpty);
     });
 
+    test('plist key order, whitespace and extra keys', () async {
+      macosPlist =
+          '<dict><key>CFBundleName</key><string>FMP</string>'
+          '<key>CFBundleShortVersionString</key>\n\t<string> 2.0.0 </string>'
+          '<key>CFBundleIdentifier</key><string>$applicationId</string></dict>';
+      expect(await verify(), isEmpty);
+    });
+
+    test('macOS zip entries with backslashes', () async {
+      macosEntries['fmp-$tag-macos.zip'] = [r'fmp.app\Contents\Info.plist'];
+      expect(await verify(), isEmpty);
+    });
+
     test('zip entries with backslashes or directory entries', () async {
       zipEntries = [
         'data/',
@@ -149,7 +177,7 @@ void main() {
     });
 
     test('a file nobody expects', () async {
-      // Linux、macOS 的發佈物由各自的平台任務加進 expectedAssets。
+      // Linux 的發佈物由它的平台任務加進 expectedAssets。
       asset('fmp-$tag-linux-x86_64.AppImage').writeAsStringSync('later');
       expect(await verify(), [
         'unexpected asset: fmp-$tag-linux-x86_64.AppImage',
@@ -266,6 +294,58 @@ void main() {
       ]);
     });
 
+    test('a macOS zip whose root is not fmp.app alone', () async {
+      macosEntries['fmp-$tag-macos.zip'] = ['FMP.app/Contents/Info.plist'];
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: the root must be only fmp.app, got FMP.app',
+      ]);
+      macosEntries['fmp-$tag-macos.zip'] = [
+        'fmp.app/Contents/Info.plist',
+        '__MACOSX/._fmp.app',
+      ];
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: the root must be only fmp.app, got '
+            '__MACOSX, fmp.app',
+      ]);
+    });
+
+    test('a macOS zip with another bundle id', () async {
+      macosPlist = macosInfoPlist('com.personal.fmp.dev', '2.0.0');
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: CFBundleIdentifier is com.personal.fmp.dev, '
+            'expected $applicationId',
+      ]);
+    });
+
+    test('a macOS zip with another version', () async {
+      macosPlist = macosInfoPlist(applicationId, '1.0.0');
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: CFBundleShortVersionString is 1.0.0, '
+            'expected 2.0.0',
+      ]);
+    });
+
+    test('a macOS zip whose Info.plist is unreadable or not XML', () async {
+      macosPlist = null;
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: could not read fmp.app Info.plist',
+      ]);
+      macosPlist = 'bplist00';
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: CFBundleIdentifier is null, '
+            'expected $applicationId',
+        'fmp-$tag-macos.zip: CFBundleShortVersionString is null, '
+            'expected 2.0.0',
+      ]);
+    });
+
+    test('a macOS zip that cannot be listed', () async {
+      macosEntries['fmp-$tag-macos.zip'] = null;
+      expect(await verify(), [
+        'fmp-$tag-macos.zip: could not list its entries',
+      ]);
+    });
+
     test('a zip that cannot be listed', () async {
       zipEntries = null;
       expect(await verify(), [
@@ -356,3 +436,10 @@ List<int> minimalPe() => [
   0,
   0,
 ];
+
+/// Xcode 建出來的 XML Info.plist 的相關部分。
+String macosInfoPlist(String identifier, String version) =>
+    '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<dict>\n'
+    '\t<key>CFBundleIdentifier</key>\n\t<string>$identifier</string>\n'
+    '\t<key>CFBundleShortVersionString</key>\n\t<string>$version</string>\n'
+    '</dict>\n</plist>\n';

@@ -267,11 +267,65 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-macos:
+    name: Build macOS Zip
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: app
+    env:
+      TAG: ${{ needs.release-please.outputs.tag }}
+      VERSION: ${{ needs.release-please.outputs.version }}
+      VERSION_CODE: ${{ needs.release-please.outputs.version_code }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      # 只有 Xcode 預設的 ad-hoc 簽章，不公證（ADR 0022 §決定 3、ADR 0036 §決定 12）。
+      - name: Build macOS (prod, release)
+        run: flutter build macos --flavor prod --release --build-name "$VERSION" --build-number "$VERSION_CODE"
+
+      # ditto 保留符號連結與擴充屬性，framework 裡有符號連結，一般的 zip 會弄壞它們。
+      # --keepParent：zip 的根就是 fmp.app。
+      - name: Package the zip
+        run: |
+          out="$RUNNER_TEMP/macos-assets"
+          mkdir -p "$out"
+          ditto -c -k --keepParent build/macos/Build/Products/Release-prod/fmp.app "$out/fmp-$TAG-macos.zip"
+          ls -l "$out"
+
+      - name: Upload macOS assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos
+          path: ${{ runner.temp }}/macos-assets/
+          if-no-files-found: error
+          retention-days: 7
+
   # 草稿轉正式之前看過產物的只有這個 job。publish 上傳的就是它檢查過、再打包成
   # release-assets 的那一份。
   verify:
     name: Verify Release Assets
-    needs: [release-please, build-android, build-windows]
+    needs: [release-please, build-android, build-windows, build-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -314,7 +368,7 @@ jobs:
           for abi in arm64-v8a armeabi-v7a x86_64 universal; do
             versioned+=("fmp-$TAG-android-$abi.apk")
           done
-          versioned+=("fmp-$TAG-windows-installer.exe" "fmp-$TAG-windows.zip")
+          versioned+=("fmp-$TAG-windows-installer.exe" "fmp-$TAG-windows.zip" "fmp-$TAG-macos.zip")
           sha256sum "${versioned[@]}" > "fmp-$TAG-checksums.sha256"
           cat "fmp-$TAG-checksums.sha256"
           for suffix in android-arm64-v8a.apk android-universal.apk windows.zip windows-installer.exe; do
