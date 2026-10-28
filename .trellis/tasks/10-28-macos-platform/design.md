@@ -119,6 +119,7 @@
   - cookie 讀刪經 `CookieManager`，同其他平台。
 - 重設資料要刪 WebView 的 cookie：`clearAll` 已經在登出、移除插件時呼叫；重設資料的流程有沒有呼叫它，實作時查。沒有的話，重設前先 `clearAll`。
 - CI 的 macOS job 建不過時：保留 stub，`loginWebView: false`，在 ADR 0036 §決定 9 補一行結果。
+- 結果（2026-10-28）：CI 的 Xcode 26.6 建不過（`presentationAnchor(for:)` 的可用版本），照上一點收尾；#357 的分支留著，CI 的預設 Xcode ≥ 27 時再用。
 
 ## 8. 標題列（R5.1，ADR 0035 §決定 6、ADR 0036 §決定 6 與它的更正）
 

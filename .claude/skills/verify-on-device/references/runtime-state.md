@@ -9,6 +9,7 @@
 | Windows 免安裝版（程式目錄沒有 `unins000.exe`；`flutter run`、直接跑建置產物都是這種） | 執行檔旁的 `userdata-dev\` | `userdata\` |
 | Windows 安裝版（有 `unins000.exe`） | `%APPDATA%\com.personal\fmp-dev` | `%APPDATA%\com.personal\fmp` |
 | Android | `/data/data/com.personal.fmp.dev/files`（`run-as com.personal.fmp.dev`） | `com.personal.fmp` 的 `files`：**不要碰** |
+| macOS | `~/Library/Application Support/com.personal.fmp.dev` | `~/Library/Application Support/com.personal.fmp` |
 
 dev 解析到舊版正式資料的位置（Windows 的 `Documents\FMP`、`%APPDATA%\com.personal\fmp`、Android 的
 `com.personal.fmp` 沙盒）會在啟動時拋 `LegacyDataLocationException`：視窗開了但內容空白。

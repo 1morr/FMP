@@ -93,6 +93,10 @@ ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U �
 9. **登入 WebView**：
    - 移除 `flutter_inappwebview_macos_stub`，改用套件預設的 `flutter_inappwebview_macos`。它在 Xcode 27.1 經 Swift Package Manager 建置成功（2026-10-28 實測）；stub 在 2026-10-10 加入時是建不過的。
    - CI 的 macOS runner 也建得過才採用，否則保留 stub、宣告沒有登入 WebView，帳號登入走 QR 與貼上 cookie（ADR 0012 §決定 8）。
+   - 結果（2026-10-28，#357）：
+     - CI 的 macOS runner（macos-26-arm64，預設 Xcode 26.6）建不過。`WebAuthenticationSession.swift:85` 的 `presentationAnchor(for:)` 可用版本和協定要求不符；本機 Xcode 27.1 的 debug、release 都建得過。
+     - 照上面的退路，macOS 保留 stub、沒有登入 WebView。
+     - 等 CI 的預設 Xcode ≥ 27（GitHub 目前只有預覽映像），或上游修好，再把 #357 的做法拿回來。那個分支保留。
 10. **CocoaPods**：
     - `flutter_js` 與 `isar_community_flutter_libs` 沒有 Swift Package Manager 支援，所以 macOS 一定有 Podfile。
     - 提交 `macos/Podfile` 與 `Podfile.lock`，Podfile 照 Flutter 官方的 flavor 文件對應六個 build configuration；也提交 xcconfig 的 `#include? Pods…` 與 pbxproj 的變動。這樣建置不再改動追蹤中的檔案，`Debug-dev` 的 pod 也用 debug 編。
