@@ -36,6 +36,7 @@ import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_android.dart';
+import 'package:fmp/platform/media_controls/media_controls_macos.dart';
 import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
@@ -109,13 +110,15 @@ final class AppPlatform {
   ///
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
-  /// `WindowsSystemMediaControls.init`）；[windowsWindowChrome] 取代 Windows 自繪標題列的
+  /// `WindowsSystemMediaControls.init`）；[macosMediaControls] 同理（預設是
+  /// `MacosSystemMediaControls.init`）；[windowsWindowChrome] 取代 Windows 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
     AppFlavor flavor, {
     Future<SystemMediaControls> Function(Log log)? androidMediaControls,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+    Future<SystemMediaControls> Function(Log log)? macosMediaControls,
     Future<WindowChrome> Function()? windowsWindowChrome,
     String? legacyDirectory,
   }) => switch (platform) {
@@ -175,55 +178,60 @@ final class AppPlatform {
       windowsWindowChrome,
       legacyDirectory,
     ),
-    TargetPlatform.macOS => _macos(flavor, legacyDirectory),
+    TargetPlatform.macOS => _macos(flavor, macosMediaControls, legacyDirectory),
     TargetPlatform.linux || TargetPlatform.iOS || TargetPlatform.fuchsia =>
       AppPlatform._(capabilities: PlatformCapabilities.none),
   };
 
-  static AppPlatform _macos(AppFlavor flavor, String? legacyDirectory) =>
-      AppPlatform._(
-        capabilities: const PlatformCapabilities(
-          dataDirectory: true,
-          // 原生端的單一實例檢查。
-          singleInstance: true,
-          fontFallback: macosFontFallback,
-          fontChoices: macosFontChoices,
-          playback: macosPlaybackSupport,
-          networkInterfaces: true,
-          cache: macosCacheSizes,
-          secureStorage: true,
-          files: true,
-          // 登入 WebView、自繪標題列、系統媒體控制之後的 PR 才接上。
-          loginWebView: false,
-          urlOpener: true,
-          restartsItself: true,
-          shareFiles: true,
-          pluginDevTools: true,
-          shortcutModifier: appleShortcutModifier,
-        ),
-        appInfo: PackageInfoAppInfo(
-          platform: 'macOS',
-          osVersion: Platform.operatingSystemVersion,
-          homeDirectory: Platform.environment['HOME'],
-        ),
-        dataDirectory: MacosAppDataDirectory(
-          applicationSupportPath: () async =>
-              (await getApplicationSupportDirectory()).path,
-        ),
-        networkInterfaces: ConnectivityPlusInterfaces.system(),
-        cacheDirectory: CacheDirectory(
-          applicationCachePath: _applicationCachePath,
-        ),
-        secureStorage: FlutterSecureStorageAdapter.macos(flavor),
-        fileDialogs: const FilePickerDialogs(),
-        urlOpener: const UrlLauncherOpener(),
-        fileSharer: SharePlusFileSharer(),
-        restarterFactory: MacosAppRestarter.system,
-        legacyDataLocator: macosLegacyDataLocator(
-          flavor: flavor,
-          devDirectory: legacyDirectory,
-        ),
-      );
+  static AppPlatform _macos(
+    AppFlavor flavor,
+    Future<SystemMediaControls> Function(Log log)? macosMediaControls,
+    String? legacyDirectory,
+  ) => AppPlatform._(
+    capabilities: const PlatformCapabilities(
+      dataDirectory: true,
+      // 原生端的單一實例檢查。
+      singleInstance: true,
+      fontFallback: macosFontFallback,
+      fontChoices: macosFontChoices,
+      playback: macosPlaybackSupport,
+      networkInterfaces: true,
+      cache: macosCacheSizes,
+      secureStorage: true,
+      files: true,
+      // 登入 WebView、自繪標題列之後的 PR 才接上。
+      loginWebView: false,
+      urlOpener: true,
+      restartsItself: true,
+      shareFiles: true,
+      pluginDevTools: true,
+      shortcutModifier: appleShortcutModifier,
+      // Now Playing 依經過時間與速度自己推算進度，所以不需要定期重推
+      // （positionRefresh 留空；實機驗證）。
+      mediaControls: MediaControlsSupport(supportsSeek: true),
+    ),
+    appInfo: PackageInfoAppInfo(
+      platform: 'macOS',
+      osVersion: Platform.operatingSystemVersion,
+      homeDirectory: Platform.environment['HOME'],
+    ),
+    dataDirectory: MacosAppDataDirectory(
+      applicationSupportPath: () async =>
+          (await getApplicationSupportDirectory()).path,
+    ),
+    networkInterfaces: ConnectivityPlusInterfaces.system(),
+    cacheDirectory: CacheDirectory(applicationCachePath: _applicationCachePath),
+    secureStorage: FlutterSecureStorageAdapter.macos(flavor),
+    fileDialogs: const FilePickerDialogs(),
+    urlOpener: const UrlLauncherOpener(),
+    fileSharer: SharePlusFileSharer(),
+    mediaControlsFactory: macosMediaControls ?? MacosSystemMediaControls.init,
+    restarterFactory: MacosAppRestarter.system,
+    legacyDataLocator: macosLegacyDataLocator(
+      flavor: flavor,
+      devDirectory: legacyDirectory,
+    ),
+  );
 
   static AppPlatform _windows(
     AppFlavor flavor,
