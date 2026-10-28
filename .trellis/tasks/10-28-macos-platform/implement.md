@@ -85,6 +85,8 @@
 
 ## PR 6：登入 WebView（design §7）
 
+結果：#357 在 CI 的 Xcode 26.6 建不過，關掉；照 design §7 的退路保留 stub（ADR 0036 §決定 9 的結果）。
+
 - 刪掉 macOS stub；`InAppLoginWebView.macos()`；改 `webview_stub_test`；`loginWebView: true`。
 - 驗收：
   - CI 的 macOS 建置過；建不過就照 design §7 最後一點收尾。

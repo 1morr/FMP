@@ -1,9 +1,9 @@
 ---
 name: verify-on-device
 description: >-
-  在 Android 模擬器與 Windows 桌面版實機驗證 `app/`（新 App）的改動：啟動、操作、讀畫面
+  在 Android 模擬器、Windows 與 macOS 桌面版實機驗證 `app/`（新 App）的改動：啟動、操作、讀畫面
   與 log、收尾。`app/` 的使用者看得到的改動（UI、播放、下載、歌詞、設定、原生身分、
-  平台能力）在回報前都要用它驗：Android 每次都驗，改到平台各自實作的再驗 Windows；也用在被要求在裝置上跑、
+  平台能力）在回報前都要用它驗：Android 每次都驗，改到平台各自實作的再驗 Windows、macOS；也用在被要求在裝置上跑、
   截圖、點、觀察新 App 時。根目錄舊專案（`lib/`）的緊急修正改用 `verify-legacy-on-device`。
 ---
 
@@ -16,6 +16,7 @@ description: >-
 |---|---|
 | Android 模擬器、安裝、帶參數啟動、log、音訊焦點、截圖 | `references/android.md` |
 | Windows 建置、單一實例、MSAA 讀畫面與點按鈕、視窗截圖、SMTC、從 Mac 經 SSH 遠端驗（`scripts/remote/`） | `references/windows.md` |
+| macOS 建置與啟動、單一實例、截圖座標、送鍵與輸入法、真的滑鼠事件（`scripts/macos/`）、讀不到 Now Playing | `references/macos.md` |
 | 資料目錄、資料庫、log 格式、清成乾淨狀態、開發入口的參數 | `references/runtime-state.md` |
 
 ## 模式與平台
@@ -28,8 +29,9 @@ description: >-
 - **平台**（ADR 0027 §決定 3 的 2026-10-13 修訂）：Android 模擬器每個使用者看得到的 PR 都驗。Windows 只在
   PR 改到這些地方時驗：`lib/platform/`、`lib/playback/backends/`、`android/`、`windows/`、帶原生程式碼的依賴、
   只在桌面出現的互動（快捷鍵、焦點區、滑鼠右鍵與 hover、視窗、輸出裝置、右側面板）；回報寫明為什麼驗或
-  不驗 Windows。寬版版面在模擬器橫向（914dp）驗。里程碑驗收兩個平台都走完整流程。Linux、macOS、iOS 在各自的
-  平台任務加進 `references/`，現在不驗。
+  不驗 Windows。macOS（ADR 0036，開發機就是 Mac）在 PR 改到 macOS 的平台實作、`macos/`、Apple 專屬的 UI（紅綠燈標題列、
+  ⌘ 快捷鍵）或上面那些桌面互動時驗。寬版版面在模擬器橫向（914dp）驗。里程碑驗收 Android、Windows、macOS 都走完整流程
+  （macOS 至少冒煙測試，ADR 0027）。Linux、iOS 在各自的平台任務加進 `references/`，現在不驗。
 - 操作一律走 UI（搜尋頁點一首就開始播）；UI 還沒有入口的功能（安裝插件）用開發入口
   （`references/runtime-state.md` § 開發入口）。
 
@@ -89,7 +91,7 @@ Android 用 `orca emulator tap/type/button`（座標是 0..1 的正規化值）�
 
 每一份實機驗證回報都要有：
 
-- **平台**：Android 模擬器（AVD 名稱、SDK）或 Windows；兩個平台分開寫。
+- **平台**：Android 模擬器（AVD 名稱、SDK）、Windows 或 macOS（版本）；各平台分開寫。
 - **模式**：重播／測試插件，或真實。真實時列出做了哪些請求（哪個插件、哪個操作、幾次）。
 - 觀察：引用 log 行或語意樹節點，或給截圖路徑（截圖需已確認不含個人資訊）。本機路徑以
   佔位符寫（`<資料目錄>`、`<暫存目錄>`），不寫出使用者名稱。

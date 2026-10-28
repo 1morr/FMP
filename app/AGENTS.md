@@ -91,10 +91,10 @@
   App 有每插件的重播開關之後也可以用它（§決定 1）。
 - **真實連線的條件**：改動本身是插件、網路層、登入，或正在錄 fixture；只做最少的操作，
   不批次、不迴圈（§決定 2）。
-- **每個使用者看得到的 PR 都要在 Android 模擬器驗一次；改到平台各自實作的才另驗 Windows**（§決定 3 的 2026-10-13 修訂）：
+- **每個使用者看得到的 PR 都要在 Android 模擬器驗一次；改到平台各自實作的才另驗 Windows 與 macOS**（§決定 3 的 2026-10-13 修訂；macOS 見 ADR 0036 與 skill 的 `references/macos.md`）：
   平台層 `lib/platform/`、播放後端 `lib/playback/backends/`、原生設定 `android/`、`windows/` 與帶原生程式碼的依賴、
-  只在桌面出現的互動（快捷鍵、焦點區、滑鼠右鍵與 hover、視窗、輸出裝置、右側面板）。寬版版面在模擬器橫向驗。
-  里程碑驗收兩個平台都走完整流程。
+  只在桌面出現的互動（快捷鍵、焦點區、滑鼠右鍵與 hover、視窗、輸出裝置、右側面板）；macOS 另加 `macos/` 與 Apple 專屬的 UI。寬版版面在模擬器橫向驗。
+  里程碑驗收 Android、Windows、macOS 都走完整流程。
 - **回報要有「平台」與「模式：重播／真實」**，真實時列出做了哪些請求；缺任一項 review 退回。
   截圖與回報不得含個人資訊（log 的 `App started` 帶含使用者名稱的資料目錄路徑）。
 - 驗證只用 dev flavor；模擬器上的舊版 `com.personal.fmp` 不碰，prod APK 不安裝。
@@ -377,8 +377,9 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：
     `webview_stub_test.dart`（`.flutter-plugins-dependencies` 的 Linux、macOS 解析、
     `linux/flutter/generated_plugins.cmake`、`macos/Flutter/GeneratedPluginRegistrant.swift`）。
-  - macOS 同樣沒有登入 WebView：`flutter_inappwebview_macos` 1.2.0-beta.3 在目前的 Xcode 編不過，改依賴本機的
-    `packages/flutter_inappwebview_macos_stub`（作法同 Linux），macOS 的 WebView 在 macOS 平台任務決定。
+  - macOS 同樣沒有登入 WebView：`flutter_inappwebview_macos` 1.2.0-beta.3 在 CI 的 Xcode 26.6 編不過（本機 Xcode 27.1 可以），改依賴本機的
+    `packages/flutter_inappwebview_macos_stub`（作法同 Linux）；帳號登入走 QR 與貼上 cookie。CI 的預設 Xcode ≥ 27 或上游修好時，
+    照 #357 換回真的套件（ADR 0036 §決定 9 的結果）。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有；macOS 的系統媒體控制、
