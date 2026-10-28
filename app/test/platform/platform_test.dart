@@ -182,10 +182,10 @@ void main() {
         AudioBackendKind.justAudio,
       );
       expect(platform.capabilities.playback?.outputDeviceSelection, isFalse);
-      // AVPlayer 不播 WebM；HLS 之後的 PR 才加。
+      // AVPlayer 不播 WebM、FLV；直播要 HLS。
       expect(
         macosPlaybackSupport.formats.map((f) => '${f.container}/${f.codec}'),
-        ['mp4/aac', 'mp3/mp3', 'flac/flac', 'wav/pcm_s16le'],
+        ['mp4/aac', 'mp3/mp3', 'flac/flac', 'wav/pcm_s16le', 'hls/aac'],
       );
       expect(platform.capabilities.networkInterfaces, isTrue);
       expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
