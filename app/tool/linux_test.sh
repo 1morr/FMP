@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 在 Mac 上，用 OrbStack 的 x86_64 Ubuntu 跑 app/ 的 flutter test（和 CI 的 ubuntu-latest 同架構）。
 # macOS 主機載不到插件執行環境的 QuickJS 與 libisar，完整套件在 Mac 本機跑不起來
-# （.trellis/tasks/10-24-ui-legacy-parity/research/mac-environment.md）。
+# （.trellis/tasks/archive/2026-10/10-24-ui-legacy-parity/research/mac-environment.md）。
 #
 #   tool/linux_test.sh setup          建立機器、裝 CI 同版的 Flutter（一次）
 #   tool/linux_test.sh [參數...]      同步工作區後跑 flutter test [參數...]
