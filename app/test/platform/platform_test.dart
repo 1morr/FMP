@@ -34,6 +34,7 @@ import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart'
 import 'package:fmp/platform/share/share_plus_file_sharer.dart';
 import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/platform/url_opener/url_launcher_opener.dart';
+import 'package:fmp/platform/window_chrome/window_chrome.dart';
 
 import '../ui/support/fake_window_chrome.dart';
 
@@ -204,11 +205,12 @@ void main() {
       expect(platform.restarter, isA<MacosAppRestarter>());
       expect(platform.legacyDataLocator, isNotNull);
       expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
-      // 之後的 PR 接上：登入 WebView、自繪標題列、系統媒體控制。
+      // 系統標題列隱藏、App 自繪並保留紅綠燈；實作要啟動時初始化（withWindowChrome）。
+      expect(platform.capabilities.customTitleBar, isTrue);
+      expect(platform.windowChrome, isNull);
+      // 之後的 PR 接上：登入 WebView、系統媒體控制。
       expect(platform.capabilities.loginWebView, isFalse);
       expect(platform.loginWebView, isNull);
-      expect(platform.capabilities.customTitleBar, isFalse);
-      expect(platform.windowChrome, isNull);
       expect(platform.capabilities.mediaControls, isNull);
       expect(platform.mediaControls, isNull);
     });
@@ -370,6 +372,37 @@ void main() {
       expect(platform.capabilities.mediaControls, isNull);
       expect(platform.capabilities.playback, same(windowsPlaybackSupport));
       expect(platform.dataDirectory, isA<WindowsAppDataDirectory>());
+    });
+  });
+
+  group('window chrome on macOS', () {
+    test('initializing exposes the window and keeps the declaration', () async {
+      final chrome = FakeWindowChrome(
+        captionButtons: CaptionButtons.systemLeading,
+        titleBarHeight: 32,
+      );
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.macOS,
+        AppFlavor.dev,
+        macosWindowChrome: () async => chrome,
+      ).withWindowChrome(onFailure: (_, _) => fail('should not fail'));
+
+      expect(platform.windowChrome, same(chrome));
+      expect(platform.capabilities.customTitleBar, isTrue);
+    });
+
+    test('a failed initialization declares no custom title bar', () async {
+      final failures = <Object>[];
+      final platform = await AppPlatform.assemble(
+        TargetPlatform.macOS,
+        AppFlavor.dev,
+        macosWindowChrome: () async => throw StateError('no window'),
+      ).withWindowChrome(onFailure: (error, _) => failures.add(error));
+
+      expect(failures, hasLength(1));
+      expect(platform.windowChrome, isNull);
+      expect(platform.capabilities.customTitleBar, isFalse);
+      expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
     });
   });
 

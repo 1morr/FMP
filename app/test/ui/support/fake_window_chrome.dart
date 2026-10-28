@@ -3,8 +3,17 @@ import 'package:fmp/platform/window_chrome/window_chrome.dart';
 
 /// 記下呼叫的視窗動作（自繪標題列的測試）。
 final class FakeWindowChrome implements WindowChrome {
-  FakeWindowChrome({bool maximized = false})
-    : _maximized = ValueNotifier(maximized);
+  FakeWindowChrome({
+    bool maximized = false,
+    this.captionButtons = CaptionButtons.drawn,
+    this.titleBarHeight,
+  }) : _maximized = ValueNotifier(maximized);
+
+  @override
+  final CaptionButtons captionButtons;
+
+  @override
+  final double? titleBarHeight;
 
   final ValueNotifier<bool> _maximized;
 

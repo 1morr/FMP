@@ -120,42 +120,30 @@
 - 重設資料要刪 WebView 的 cookie：`clearAll` 已經在登出、移除插件時呼叫；重設資料的流程有沒有呼叫它，實作時查。沒有的話，重設前先 `clearAll`。
 - CI 的 macOS job 建不過時：保留 stub，`loginWebView: false`，在 ADR 0036 §決定 9 補一行結果。
 
-## 8. 標題列（R5.1，ADR 0035 §決定 6、ADR 0036 §決定 6）
+## 8. 標題列（R5.1，ADR 0035 §決定 6、ADR 0036 §決定 6 與它的更正）
 
 介面 `WindowChrome` 加兩個成員：
 
-```dart
-/// 視窗鈕由誰畫。
-enum CaptionButtons {
-  /// App 在標題列右邊畫最小化、最大化、關閉（Windows）。
-  drawn,
-  /// 系統的紅綠燈在標題列左邊（macOS）；App 不畫，留出 [WindowChrome.leadingInset]。
-  systemLeading,
-}
+- `CaptionButtons get captionButtons`：
+  - `drawn`：Windows，App 在右邊畫三顆鈕；
+  - `systemLeading`：macOS，系統的紅綠燈在左邊，App 不畫。
+- `double? get titleBarHeight`：`null` 是 App 的預設 36。macOS 是系統標題區的高度，`WindowManagerChrome.init` 在隱藏標題列之前用 `getTitleBarHeight` 量（macOS 27 是 32）。
 
-CaptionButtons get captionButtons;
+實作仍是 `WindowManagerChrome` 一個類別，參數 `captionButtons` 決定行為。
 
-/// 標題列開頭要讓給系統鈕的寬度（邏輯像素）；`drawn` 永遠是 0，macOS 全螢幕時是 0。
-ValueListenable<double> get leadingInset;
-```
+`WindowTitleBar` 的 `systemLeading` 版型：
 
-- `WindowTitleBar`：
-  - `drawn` 照現在的版型；
-  - `systemLeading`：左邊留 `leadingInset`（`AnimatedContainer` 不需要，直接換值）、「FMP」置中（同設計稿 APL-2 A）、右邊不放鈕，整條除了文字都是拖曳區。
-- Mac 的實作 `MacosWindowChrome`，用 `window_manager`，放在 `window_chrome/` 底下：
-  - `minimize`、`close`、`startDragging` 同 Windows；
-  - `toggleMaximize` 用 `isMaximized`、`maximize`、`unmaximize`，也就是 macOS 的 zoom；
-  - `maximized` 聽 `onWindowMaximize`、`onWindowUnmaximize`；
-  - `leadingInset`：平常 78，`onWindowEnterFullScreen` 時 0，`onWindowLeaveFullScreen` 時 78。78 是紅綠燈三顆加左右間距的寬度，實機量過再定。
-  - 和 Windows 共用的部分寫成同一個類別帶參數，或抽一個基底；看哪個比較短，實作時決定。
-- 紅綠燈垂直置中：
-  - `TitleBarStyle.hidden` 時，系統把紅綠燈放在 28pt 高的標題區中間，我們的列是 36dp，差 4pt。
-  - 先試在 `MainFlutterWindow` 加一個空的 `NSToolbar`，`toolbarStyle = .unifiedCompact`，讓標題區變高。
-  - 量得不準，就在 `windowDidResize`、`windowDidEnterFullScreen` 等通知裡調三顆鈕的 `frame.origin.y`。
-  - 驗收：紅綠燈中心和標題列中心差不超過 1pt，最大化、全螢幕進出、換主題後都還在原位。
-  - leanflutter/window_manager#333：加了 `NSToolbar` 之後，最大化或還原後的第一次點擊沒反應。實機要特別點一次看看。
-- 雙擊：系統的標題區（上 28pt）自己處理雙擊與拖曳。`WindowDragArea` 的雙擊照樣呼叫 `toggleMaximize`。實機確認兩者不會重複觸發，也就是雙擊一次只縮放一次。
-- 播放頁頂端的拖曳區照舊用 `WindowDragArea`。
+- 高度是 `titleBarHeight`；
+- 「FMP」在整條的正中間，沒有鈕；
+- 不包 `WindowDragArea`：這一條正好在系統的透明標題區底下，拖曳與雙擊由系統處理（雙擊照使用者的系統設定）。
+- 播放頁頂端的 `WindowDragArea` 在標題列下面，照舊。
+
+試過、不採用：在 `MainFlutterWindow` 把標題區 container 加高到 36、把紅綠燈移到中間（Electron `trafficLightPosition` 的做法）。AppKit 重排標題區時會把 container 與按鈕放回原位，實機量到沒有效果。
+
+圖示：
+
+- `macos/Runner/Assets.xcassets/AppIcon.appiconset` 由 `tool/make_macos_icon.py` 從 `assets/icon/app_icon.png` 產生；
+- 照 Apple 的圖示格線：1024 畫布、824 白底圓角矩形、淡陰影。
 
 ## 9. 系統媒體控制（R3.3，ADR 0036 §決定 8）
 
