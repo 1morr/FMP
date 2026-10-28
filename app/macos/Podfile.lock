@@ -1,0 +1,34 @@
+PODS:
+  - flutter_js (0.0.1):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - fmp_quickjs (0.1.0):
+    - FlutterMacOS
+  - isar_community_flutter_libs (1.0.0):
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - flutter_js (from `Flutter/ephemeral/.symlinks/plugins/flutter_js/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - fmp_quickjs (from `Flutter/ephemeral/.symlinks/plugins/fmp_quickjs/macos`)
+  - isar_community_flutter_libs (from `Flutter/ephemeral/.symlinks/plugins/isar_community_flutter_libs/macos`)
+
+EXTERNAL SOURCES:
+  flutter_js:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_js/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  fmp_quickjs:
+    :path: Flutter/ephemeral/.symlinks/plugins/fmp_quickjs/macos
+  isar_community_flutter_libs:
+    :path: Flutter/ephemeral/.symlinks/plugins/isar_community_flutter_libs/macos
+
+SPEC CHECKSUMS:
+  flutter_js: 79c3c70d33ba464c67d8eb88639a61aa718cd8b8
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  fmp_quickjs: 524a80ed3dc6bf1114bea70c7061f7e88611c87b
+  isar_community_flutter_libs: a631ceb5622413b56bcd0a8bf49cb55bf3d8bb2b
+
+PODFILE CHECKSUM: 96e3aadd0585d09e9e61fbfe4e54d30ee88f528e
+
+COCOAPODS: 1.17.0
