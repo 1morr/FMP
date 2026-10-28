@@ -19,7 +19,7 @@
 | M8 | 桌面整合 | M2 | 未開始 |
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
 | L | Linux 平台 | M1、Mac 到貨 | 已開任務，延後到 Mac 上與 macOS、iOS 一起做（`10-01-linux-platform`） |
-| Mac | macOS 平台 | U | 未開始 |
+| Mac | macOS 平台 | U | 進行中（任務 `10-28-macos-platform`；ADR 0036） |
 | iOS | iOS 平台 | Mac | 未開始 |
 
 - M6、M7 互不依賴，可以對調。
