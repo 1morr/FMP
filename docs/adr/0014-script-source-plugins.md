@@ -66,6 +66,8 @@ Flutter federated plugin 的「一套介面、多種實作」；Spotube 的匹�
 
 補充（2026-09-30，M1）：每個插件的 JS 執行環境在自己的背景 isolate 執行。`flutter_js` 0.8.7 的 QuickJS 沒有中斷機制，同步無窮迴圈會卡住所在的執行緒；放在背景 isolate 後 UI 不受影響。呼叫逾時時宿主先送存活探測：有回應代表只是在等網路，這次呼叫以 `NetworkError` 失敗、插件照常；沒有回應或 isolate 已結束，插件標為「沒有回應」並停用到 App 重啟（卡住的執行緒無法回收）。宿主 API 的安全檢查仍在主 isolate。擁有者 2026-09-30 選定；可中斷的替代套件（`flutter_qjs_next`、`quickjs_engine`）因單一作者、低採用而未採用。
 
+修訂（2026-10-28，ADR 0036 §決定 1）：macOS（之後 iOS）也用 QuickJS，不用 JavaScriptCore：和 Android 同一份 `flutter_js` 橋接原始碼，由本機套件 `app/packages/fmp_quickjs/` 編進 App。
+
 ## 後果
 
 - 好的：新增音源＝在插件庫新增一個目錄或自行安裝腳本；修音源不必發 App；ADR 0011–0013 的保護自動套用到所有腳本；

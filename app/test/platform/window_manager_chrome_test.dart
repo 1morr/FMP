@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/platform/window_chrome/window_chrome.dart';
 import 'package:fmp/platform/window_chrome/window_manager_chrome.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -24,6 +25,43 @@ void main() {
       expect(manager.addedListeners, hasLength(1));
     },
   );
+
+  test('Windows draws its buttons at the default height', () async {
+    final chrome = await WindowManagerChrome.init(manager: _FakeManager());
+
+    expect(chrome.captionButtons, CaptionButtons.drawn);
+    expect(chrome.titleBarHeight, isNull);
+  });
+
+  // macOS（ADR 0036 §決定 6）：隱藏之前先量系統標題區（隱藏之後內容延伸到頂端，量到 0）。
+  test('macOS measures the system title bar before hiding it', () async {
+    final manager = _FakeManager()..systemTitleBarHeight = 32;
+
+    final chrome = await WindowManagerChrome.init(
+      manager: manager,
+      captionButtons: CaptionButtons.systemLeading,
+    );
+
+    expect(manager.calls, [
+      'ensureInitialized',
+      'getTitleBarHeight',
+      'waitUntilReadyToShow hidden',
+      'isMaximized',
+    ]);
+    expect(chrome.captionButtons, CaptionButtons.systemLeading);
+    expect(chrome.titleBarHeight, 32);
+  });
+
+  test('a zero measurement falls back to the default height', () async {
+    final manager = _FakeManager()..systemTitleBarHeight = 0;
+
+    final chrome = await WindowManagerChrome.init(
+      manager: manager,
+      captionButtons: CaptionButtons.systemLeading,
+    );
+
+    expect(chrome.titleBarHeight, isNull);
+  });
 
   test('maximized starts from the window and follows its events', () async {
     final manager = _FakeManager()..isMaximizedNow = true;
@@ -74,6 +112,13 @@ final class _FakeManager implements WindowManager {
   final calls = <String>[];
   final addedListeners = <WindowListener>[];
   var isMaximizedNow = false;
+  var systemTitleBarHeight = 28;
+
+  @override
+  Future<int> getTitleBarHeight() async {
+    calls.add('getTitleBarHeight');
+    return systemTitleBarHeight;
+  }
 
   @override
   Future<void> ensureInitialized() async => calls.add('ensureInitialized');

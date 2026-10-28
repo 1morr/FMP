@@ -222,13 +222,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`、macOS 的選項）、
   `platform_test.dart`；真的寫讀刪是 `integration_test/secure_storage_test.dart`（手動，Windows 另在 CI）。
 - 自繪標題列與快捷鍵修飾鍵（`lib/platform/window_chrome/`、`shortcut_modifier/`，ADR 0035 §決定 6、7，U PR 15）：
-  `PlatformCapabilities.customTitleBar`（只有 Windows）宣告系統標題列已隱藏、由 App 自繪；`shortcutModifier`（`ShortcutModifier.control`／`meta`，
+  `PlatformCapabilities.customTitleBar`（Windows、macOS）宣告系統標題列已隱藏、由 App 自繪；`shortcutModifier`（`ShortcutModifier.control`／`meta`，
   Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier`：macOS 已接上，iOS 平台任務接上）宣告快捷鍵的主修飾鍵。
-  視窗動作是 `WindowChrome`（`minimize`、`toggleMaximize`、`close`、`startDragging`、`maximized`），Windows 實作 `WindowManagerChrome`
-  （`window_manager` 0.5.2，目前維護中的穩定線；`TitleBarStyle.hidden`；不 `show`／`focus`：視窗照舊由 runner 在第一個畫面時顯示，`runApp` 之前先顯示會露出空白視窗；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
-  實作在 `main()` 開好資料庫與系統媒體控制之後、`runApp` 之前由 `AppPlatform.withWindowChrome` 初始化（`windowsWindowChrome` 可換掉，測試用），
+  視窗動作是 `WindowChrome`（`minimize`、`toggleMaximize`、`close`、`startDragging`、`maximized`，加上版型用的 `captionButtons`、`titleBarHeight`），兩個平台的實作都是 `WindowManagerChrome`
+  （`window_manager` 0.5.2，目前維護中的穩定線；macOS 以 `captionButtons: systemLeading` 建，隱藏標題列之前先以 `getTitleBarHeight` 量系統標題區（隱藏之後量到 0），標題列就和它一樣高、紅綠燈在正中間（ADR 0036 §決定 6 的更正）；`TitleBarStyle.hidden`；不 `show`／`focus`：視窗照舊由 runner 在第一個畫面時顯示，`runApp` 之前先顯示會露出空白視窗；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
+  實作在 `main()` 開好資料庫與系統媒體控制之後、`runApp` 之前由 `AppPlatform.withWindowChrome` 初始化（`windowsWindowChrome`、`macosWindowChrome` 可換掉，測試用），
   失敗時記 log、宣告改為沒有（系統標題列留著），App 照常啟動。UI 只問 `activeWindowChromeProvider`（宣告為真才給 `windowChromeProvider` 的值），
-  `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態）。
+  `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`、`window chrome on macOS`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態、macOS 先量再隱藏）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
   （`supportsSeek`）；Android 與 macOS 以 `audio_service` 實作（共用的 handler、播放狀態與曲目轉換在
   `media_controls_audio_service.dart`；macOS 的 `MacosSystemMediaControls` 走 darwin 端的 `MPNowPlayingInfoCenter`
@@ -387,7 +387,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
 平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有；macOS 的系統媒體控制、
-自繪標題列、登入 WebView 之後的 PR 才宣告）；lint `fmp_platform_checks` 擋
+登入 WebView 之後的 PR 才宣告）；lint `fmp_platform_checks` 擋
 `lib/platform/` 以外的平台判斷。
 lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、以及「不預留欄位」沒有
 自動閘門，review 時看。
@@ -2499,7 +2499,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   ADR 否決 `flutter_adaptive_scaffold`。各頁的頁頂是 `PageAppBar`（`page_app_bar.dart`：置中標題、內頁自動放返回鈕；
   搜尋頁的搜尋框是它的標題、靠左，多選時 `TrackSelectionBar` 把整條換成選取列，Ctrl+F 先退出選取模式再聚焦搜尋框；每頁包 `PageSurface`，頁頂只跟自己那一頁的捲動變色）。導覽項都是首頁｜搜尋｜音樂庫｜佇列｜電台｜設定（ADR 0035 §決定 2；
   `ShellDestination` 的順序就是 `IndexedStack` 與導覽項的順序，導覽項的圖示與文字只有 `_destinationLabel` 一份），App 開在
-  首頁。medium 以上的外殼是一個 `Column`：側欄加內容區加右側面板、最底下的播放列；平台宣告自繪標題列（Windows）時，標題列不在外殼裡，在根 Navigator 外面（`WindowFrame`，見「Windows 自繪標題列」）；
+  首頁。medium 以上的外殼是一個 `Column`：側欄加內容區加右側面板、最底下的播放列；平台宣告自繪標題列（Windows、macOS）時，標題列不在外殼裡，在根 Navigator 外面（`WindowFrame`，見「自繪標題列」）；
   播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以它的寬度等級就是視窗的；compact 是播放列在底部導覽列上面。佇列是空的時
   播放列不佔位置（沒有曲目也沒有直播時不建）。閘門：`test/ui/shell/app_shell_test.dart` 的 `the player bar spans the window`（700、1000、
   1400 寬、側欄收合與展開：播放列從 x=0 到視窗右緣、側欄在它上面結束；面板在頁面右邊、播放列上面；compact；沒有曲目時都不佔位置；914x360 不溢位；`the bottom safe area is left once, under the bar`：有播放列時側欄不再留底部安全區）、
@@ -2901,20 +2901,26 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     輸入框規則照上面（`TextInputAwareAction`）。頁內焦點區是控制區｜（開著時的）詳細面板（各是 `FocusScope`＋`FocusTraversalGroup`），F6 在頁內循環
     （`focus_regions.dart` 的 `focusNextRegion`，外殼共用），Tab 只在區內；外殼的三區在播放頁底下不動。閘門：
     `player_page_test.dart` 的 `shortcuts`。
-- Windows 自繪標題列（ADR 0035 §決定 6，U PR 15；`lib/ui/shell/window_title_bar.dart`）：平台宣告 `customTitleBar` 時（`activeWindowChromeProvider` 有值），
+- 自繪標題列（ADR 0035 §決定 6，U PR 15；macOS 是 ADR 0036 §決定 6；`lib/ui/shell/window_title_bar.dart`）：平台宣告 `customTitleBar` 時（`activeWindowChromeProvider` 有值），
   根 Navigator 外面有一條 `WindowTitleBar`，所有 route 共用同一條（同舊版 `app.dart` 的 `AppContentWrapper`）：外殼、播放頁、Debug 頁、網頁登入、錯誤詳細，對話框底下的 route 都一樣，
   不在外殼或個別頁面裡另放。接線在 `fmpAppBuilder`（`lib/app/app_builder.dart`，`FmpApp` 與測試的 `ShellHarness` 共用）：`WindowClassScope(ToastHost(WindowFrame(navigator)))`。
   `WindowFrame` 是 `Column[WindowTitleBar, Expanded(Semantics(container: true, navigator))]`：每個 route 的 `ModalBarrier` 帶 `BlockSemantics`，不給 navigator 自己一個語意容器，
   對話框或全螢幕頁開著時標題列的按鈕會從語意樹消失（舊版的回歸）。標題列在 `ToastHost` 裡面，所以 `ToastHost` 的 `Overlay.wrap` 就是它 tooltip 的 Overlay（Navigator 的 Overlay 在它下面），
   提示的位置只看視窗寬度與底部，不受頂端這一條影響。
-  標題列 36dp、主題的 `surface`、左邊 App 名稱 `FMP`、右邊最小化／最大化（最大化中是還原，跟著 `WindowChrome.maximized`）／關閉；關閉鈕滑過是 `error` 色
-  （`AppLayout.titleBarHeight`、`titleBarButtonWidth` 46、`titleBarIcon`），不在 Tab 的順序裡（`ExcludeFocus`，與系統標題列一樣）。
+  版型依 `WindowChrome.captionButtons`：
+  - `drawn`（Windows）：36dp、主題的 `surface`、左邊 App 名稱 `FMP`、右邊最小化／最大化（最大化中是還原，跟著 `WindowChrome.maximized`）／關閉；關閉鈕滑過是 `error` 色
+    （`AppLayout.titleBarHeight`、`titleBarButtonWidth` 46、`titleBarIcon`）。
+  - `systemLeading`（macOS）：高度是 `WindowChrome.titleBarHeight`（系統標題區，macOS 27 是 32），系統的紅綠燈在左、`FMP` 置中、沒有鈕；
+    不包 `WindowDragArea`：這一條在系統的透明標題區底下，拖曳與雙擊（照使用者的系統設定）由系統處理，Flutter 再處理一次雙擊會切換兩次。
+  兩種都不在 Tab 的順序裡（`ExcludeFocus`，與系統標題列一樣）。
   空白處是 `WindowDragArea`（按住拖曳 `startDragging`、雙擊 `toggleMaximize`，`window_manager` 的 `DragToMoveArea` 同款，`translucent` 所以不搶按鈕的點擊）；
   播放頁頂列後面也鋪一塊（`AppLayout.playerDragAreaHeight`，舊版 `immersive_player_scaffold.dart:82`）。
-  閘門：`window_title_bar_test.dart`（三種寬度的位置與高度、三顆鈕呼叫視窗、最大化狀態、雙擊、拖曳、拖按鈕不移動視窗、不在 Tab 順序、沒有宣告就沒有；`over every route`：
+  閘門：`window_title_bar_test.dart`（三種寬度的位置與高度、三顆鈕呼叫視窗、最大化狀態、雙擊、拖曳、拖按鈕不移動視窗、不在 Tab 順序、沒有宣告就沒有；`with the system buttons on the leading side`：系統高度、沒有鈕與拖曳區、`FMP` 置中、點按與拖曳不呼叫視窗；`over every route`：
   根全螢幕 route 上恰好一條、對話框開著時按鈕仍在語意樹（拿掉 `Semantics(container: true)` 會紅）、對話框的遮罩不蓋標題列（鈕按得到、空白處拖得動）、hover 出 tooltip 不丟 Overlay 錯、提示仍在底部不被標題列蓋住）、
   `player_page_test.dart` 的 `window chrome`、guideline 測試的 `the Windows title bar at …`（淺色與深色、1000 與 1400；視窗鈕 46×36 達不到 48dp，所以只驗標籤與對比，不驗 `androidTapTargetGuideline`）。
   **必須在 Windows 實機驗**：隱藏標題列後的拖曳、雙擊最大化、三顆鈕、最大化時的邊框與螢幕邊緣貼齊、dev 與 prod 同時開時各自單一實例、Debug 頁與播放頁上的視窗鈕、對話框開著時的視窗鈕與 tooltip。
+  **必須在 Mac 實機驗**：紅綠燈在列的正中間（截圖量）、拖曳、雙擊、全螢幕進出（紅綠燈隱藏）。
+- macOS 的 App 圖示（`macos/Runner/Assets.xcassets/AppIcon.appiconset`）由 `tool/make_macos_icon.py` 從 `../assets/icon/app_icon.png` 產生（Apple 的圖示格線：白底圓角矩形、淡陰影；要 Pillow）；換圖示時重跑它。
 - 視窗跨過外殼斷點時的焦點（U PR 15，之後通用化）：跨過 600 時外殼換導覽元件（底部導覽列與側欄），內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，
   把焦點搶進被蓋住的內容區，上面的 route 之後收不到按鍵（F6、播放頁的 Esc 都落到外殼）。`AppShell` 在寬度等級改變而根 Navigator 上有別的 route 蓋著外殼時（`_keepCoveringRouteFocus`：播放頁、Debug 頁、網頁登入、錯誤詳細、對話框都算），
   build 時記下目前的焦點，這一幀與接著的 autofocus 更新之後還給它；那時節點已經不在樹上（跟著版面拿掉）就不還，否則它之後掛回來時會搶焦點。只有外殼自己時不動。新的根 route 不必另外處理。

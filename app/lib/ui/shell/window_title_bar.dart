@@ -39,11 +39,18 @@ class WindowDragArea extends ConsumerWidget {
   }
 }
 
-/// Windows 的自繪標題列（ADR 0035 §決定 6，舊版 `CustomTitleBar`）：36dp、主題的 `surface` 色，
-/// 左邊是 App 名稱（拖曳區，雙擊切換最大化），右邊最小化、最大化（最大化中是還原）、關閉。
+/// 自繪標題列（ADR 0035 §決定 6，舊版 `CustomTitleBar`）：36dp、主題的 `surface` 色。依
+/// [WindowChrome.captionButtons] 排兩種版型：
+///
+/// - [CaptionButtons.drawn]（Windows）：左邊是 App 名稱（拖曳區，雙擊切換最大化），右邊最小化、
+///   最大化（最大化中是還原）、關閉。
+/// - [CaptionButtons.systemLeading]（macOS，ADR 0036 §決定 6）：系統的紅綠燈在左邊，App 不畫鈕；
+///   「FMP」在整條的正中間（設計稿 APL-2 A）。拖曳與雙擊由系統的標題區處理。高度是系統標題區的高度
+///   （[WindowChrome.titleBarHeight]），紅綠燈因此在列的正中間。
+///
 /// 沒有自繪標題列的平台不放這個 widget（外殼先看 [activeWindowChromeProvider]）。
 ///
-/// 不在 Tab 的順序裡：系統標題列的按鈕本來就不在，鍵盤用 Win＋方向鍵與 Alt＋F4。
+/// 不在 Tab 的順序裡：系統標題列的按鈕本來就不在，鍵盤用 Win＋方向鍵與 Alt＋F4（macOS 是 ⌘M、⌘W）。
 class WindowTitleBar extends ConsumerWidget {
   const WindowTitleBar({super.key, required this.chrome});
 
@@ -55,6 +62,27 @@ class WindowTitleBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final spacing = AppTokens.of(context).spacing;
+    // App 名稱不翻譯（同側欄與舊版）。
+    final name = Text(
+      'FMP',
+      style: theme.textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
+    if (chrome.captionButtons == CaptionButtons.systemLeading) {
+      return ExcludeFocus(
+        child: Material(
+          color: scheme.surface,
+          child: SizedBox(
+            height: chrome.titleBarHeight ?? AppLayout.titleBarHeight,
+            // 不包 WindowDragArea：這一條正好在系統（透明）的標題區底下，拖曳與雙擊由系統處理，
+            // 雙擊照使用者在系統設定選的動作（縮放或填滿）。Flutter 再處理一次雙擊會切換兩次。
+            child: Center(child: name),
+          ),
+        ),
+      );
+    }
     return ExcludeFocus(
       child: Material(
         color: scheme.surface,
@@ -68,14 +96,7 @@ class WindowTitleBar extends ConsumerWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: Padding(
                       padding: EdgeInsetsDirectional.only(start: spacing.x4),
-                      // App 名稱不翻譯（同側欄與舊版）。
-                      child: Text(
-                        'FMP',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
+                      child: name,
                     ),
                   ),
                 ),

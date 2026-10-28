@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/platform/window_chrome/window_chrome.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/window_title_bar.dart';
 import 'package:material_ui/material_ui.dart';
@@ -39,6 +40,65 @@ void main() {
       );
     });
   }
+
+  // macOS（ADR 0036 §決定 6）：系統的紅綠燈在左邊，App 不畫鈕；「FMP」置中；高度是系統標題區的；
+  // 拖曳與雙擊交給系統的標題區（Flutter 再處理一次雙擊會切換兩次）。
+  group('with the system buttons on the leading side', () {
+    FakeWindowChrome macChrome() => FakeWindowChrome(
+      captionButtons: CaptionButtons.systemLeading,
+      titleBarHeight: 32,
+    );
+
+    testWidgets('the bar has the system height and no window buttons', (
+      tester,
+    ) async {
+      await ShellHarness(windowChrome: macChrome()).pumpShell(
+        tester,
+        size: const Size(1400, 800),
+        at: ShellDestination.home,
+      );
+
+      final bar = find.byType(WindowTitleBar);
+      expect(tester.getSize(bar), const Size(1400, 32));
+      for (final tooltip in ['Minimize', 'Maximize', 'Restore', 'Close']) {
+        expect(find.byTooltip(tooltip), findsNothing);
+      }
+      expect(find.byType(WindowDragArea), findsNothing);
+    });
+
+    testWidgets('the app name is centered on the whole bar', (tester) async {
+      await ShellHarness(windowChrome: macChrome()).pumpShell(
+        tester,
+        size: const Size(1400, 800),
+        at: ShellDestination.home,
+      );
+
+      final name = find.descendant(
+        of: find.byType(WindowTitleBar),
+        matching: find.text('FMP'),
+      );
+      expect(tester.getCenter(name), const Offset(700, 16));
+    });
+
+    testWidgets('a tap or a drag on the bar does not reach the window', (
+      tester,
+    ) async {
+      final chrome = macChrome();
+      await ShellHarness(windowChrome: chrome).pumpShell(
+        tester,
+        size: const Size(1400, 800),
+        at: ShellDestination.home,
+      );
+
+      await tester.tap(find.text('FMP'));
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tap(find.text('FMP'));
+      await tester.drag(find.text('FMP'), const Offset(80, 40));
+      await tester.pumpAndSettle();
+
+      expect(chrome.calls, isEmpty);
+    });
+  });
 
   testWidgets('a platform without a custom title bar has none', (tester) async {
     await ShellHarness().pumpShell(tester, at: ShellDestination.home);

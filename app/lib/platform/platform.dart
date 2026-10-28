@@ -111,7 +111,7 @@ final class AppPlatform {
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
   /// `WindowsSystemMediaControls.init`）；[macosMediaControls] 同理（預設是
-  /// `MacosSystemMediaControls.init`）；[windowsWindowChrome] 取代 Windows 自繪標題列的
+  /// `MacosSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
@@ -120,6 +120,7 @@ final class AppPlatform {
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
     Future<SystemMediaControls> Function(Log log)? macosMediaControls,
     Future<WindowChrome> Function()? windowsWindowChrome,
+    Future<WindowChrome> Function()? macosWindowChrome,
     String? legacyDirectory,
   }) => switch (platform) {
     TargetPlatform.android => AppPlatform._(
@@ -178,7 +179,12 @@ final class AppPlatform {
       windowsWindowChrome,
       legacyDirectory,
     ),
-    TargetPlatform.macOS => _macos(flavor, macosMediaControls, legacyDirectory),
+    TargetPlatform.macOS => _macos(
+      flavor,
+      macosMediaControls,
+      macosWindowChrome,
+      legacyDirectory,
+    ),
     TargetPlatform.linux || TargetPlatform.iOS || TargetPlatform.fuchsia =>
       AppPlatform._(capabilities: PlatformCapabilities.none),
   };
@@ -186,6 +192,7 @@ final class AppPlatform {
   static AppPlatform _macos(
     AppFlavor flavor,
     Future<SystemMediaControls> Function(Log log)? macosMediaControls,
+    Future<WindowChrome> Function()? macosWindowChrome,
     String? legacyDirectory,
   ) => AppPlatform._(
     capabilities: const PlatformCapabilities(
@@ -199,13 +206,16 @@ final class AppPlatform {
       cache: macosCacheSizes,
       secureStorage: true,
       files: true,
-      // 登入 WebView、自繪標題列之後的 PR 才接上。
+      // 沒有登入 WebView：flutter_inappwebview_macos 在 CI 的 Xcode 26.6 建不過，用本機 stub，
+      // 登入走 QR 與貼上 cookie（ADR 0036 §決定 9 的結果）。
       loginWebView: false,
       urlOpener: true,
       restartsItself: true,
       shareFiles: true,
       pluginDevTools: true,
       shortcutModifier: appleShortcutModifier,
+      // 系統的紅綠燈留著，其餘由 App 自繪（ADR 0035 §決定 6、ADR 0036 §決定 6）。
+      customTitleBar: true,
       // Now Playing 依經過時間與速度自己推算進度，所以不需要定期重推
       // （positionRefresh 留空；實機驗證）。
       mediaControls: MediaControlsSupport(supportsSeek: true),
@@ -225,6 +235,11 @@ final class AppPlatform {
     fileDialogs: const FilePickerDialogs(),
     urlOpener: const UrlLauncherOpener(),
     fileSharer: SharePlusFileSharer(),
+    windowChromeFactory:
+        macosWindowChrome ??
+        () => WindowManagerChrome.init(
+          captionButtons: CaptionButtons.systemLeading,
+        ),
     mediaControlsFactory: macosMediaControls ?? MacosSystemMediaControls.init,
     restarterFactory: MacosAppRestarter.system,
     legacyDataLocator: macosLegacyDataLocator(

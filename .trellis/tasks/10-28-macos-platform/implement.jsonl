@@ -1,0 +1,10 @@
+{"file": "docs/adr/0036-macos-platform.md", "reason": "macOS 的決定：不開沙盒、QuickJS 橋接、login keychain、單一實例、重啟、標題列、播放格式、媒體控制、WebView、Podfile、CI 與發版"}
+{"file": ".trellis/tasks/10-28-macos-platform/design.md", "reason": "各 PR 落到程式碼的做法：模組邊界、宣告值、介面變動、測試"}
+{"file": ".trellis/tasks/10-28-macos-platform/research/platform-inventory.md", "reason": "每個能力的現況、Windows 分支原文、斷言、會壞的測試"}
+{"file": ".trellis/tasks/10-28-macos-platform/research/packages-macos.md", "reason": "套件在 macOS 的行為與實測：entitlements、keychain、AVPlayer、window_manager、單一實例、重啟、path_provider 路徑"}
+{"file": ".trellis/tasks/10-28-macos-platform/research/plugin-runtime-macos.md", "reason": "插件 worker 怎麼用 flutter_js、macOS 缺什麼、測試怎麼載入原生庫"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "怎麼加平台能力：介面、實作、宣告、組裝、注入與測試"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "測試的寫法與閘門的變異驗證"}
+{"file": ".trellis/spec/app/plugins/index.md", "reason": "插件執行環境與契約測試"}
+{"file": ".trellis/spec/app/playback/index.md", "reason": "播放後端與系統媒體控制"}
+{"file": ".trellis/spec/app/ui/index.md", "reason": "標題列與外殼的 UI 寫法"}
