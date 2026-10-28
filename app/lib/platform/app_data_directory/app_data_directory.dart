@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 /// App 資料目錄（資料庫、設定、log）的能力（ADR 0009 §決定 7）。
 ///
 /// 開發版與正式版各用一個目錄（ADR 0015 §決定 8），而且開發版拒絕舊版正式
-/// 資料的位置，見 [ensureOutsideLegacyData]。實作只有 Android 與 Windows，
+/// 資料的位置，見 [ensureOutsideLegacyData]。實作有 Android、Windows 與 macOS，
 /// 由 `platform.dart` 組裝。
 abstract interface class AppDataDirectory {
   /// 解析並建立目錄。

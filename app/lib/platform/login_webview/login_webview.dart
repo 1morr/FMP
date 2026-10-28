@@ -13,7 +13,7 @@ final class LoginWebViewSpec {
   final Uri url;
 }
 
-/// App 內網頁登入的 WebView（ADR 0029 §決定 9，design §6.4）。實作有 Android 與 Windows
+/// App 內網頁登入的 WebView（ADR 0029 §決定 9，design §6.4）。實作有 Android 與 Windows（macOS 之後）
 /// （`flutter_inappwebview_login.dart`），由 `platform.dart` 組裝。
 ///
 /// 只給登入用：WebView 的 cookie 是登入頁設的，取出後交給插件驗證；它們不經 App 的網路層，

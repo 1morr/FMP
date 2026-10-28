@@ -2,9 +2,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:fmp/platform/connectivity/connectivity.dart';
 
-/// Android 與 Windows 共用的實作：`connectivity_plus`。
+/// Android、Windows 與 macOS 共用的實作：`connectivity_plus`。
 ///
-/// 兩個平台的差異在套件的原生端，Dart 這邊相同：
+/// 各平台的差異在套件的原生端，Dart 這邊相同：
 ///
 /// - Android：`ConnectivityManager` 的預設網路。Android 8 起 App 在背景收不到
 ///   變化，回到前景時要再 [check] 一次（README；由 `FmpApp` 在 `resumed` 時做）。

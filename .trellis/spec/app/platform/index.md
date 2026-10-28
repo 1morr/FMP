@@ -21,21 +21,21 @@ macOS／iOS 平台任務接上時填 `appleShortcutModifier`；UI 的快捷鍵�
 所以宣告 `customTitleBar` 在組裝點、`AppPlatform.withWindowChrome` 在 `main()` 初始化，失敗時宣告改為沒有，做法同 `media_controls/`；套件的全域實例從建構子注入
 （`WindowManagerChrome.init(manager:)`），單元測試用 `implements WindowManager` 的假物件核對呼叫，隱藏標題列、拖曳只能在 Windows 實機驗。
 標題字串不動：單一實例以視窗類別加標題找第一個實例；UI 端的標題列只有一條，在根 Navigator 外面，見 ui spec）、
-`connectivity/`（介面＋一個實作給兩個平台：差異都在套件的原生端時，實作檔以套件命名，
-`connectivity_plus_interfaces.dart`，組裝點兩個分支各建一個）、`cache_directory/`（沒有介面的
-一個類別：兩個平台只差在 path_provider 的原生端，路徑由組裝點注入；只准快取模組 import，所以
-它的大小宣告另放 `cache_sizes/`）、`secure_storage/`（介面＋一個實作給兩個平台，實作以套件命名 `flutter_secure_storage_adapter.dart`；套件的呼叫從建構子
-注入，單元測試不碰平台通道；`system(flavor)` 才接上真的套件；鍵前綴與 Android 的 `AndroidOptions` 由 flavor 決定，
+`connectivity/`（介面＋一個實作給所有平台：差異都在套件的原生端時，實作檔以套件命名，
+`connectivity_plus_interfaces.dart`，組裝點各分支各建一個）、`cache_directory/`（沒有介面的
+一個類別：各平台只差在 path_provider 的原生端，路徑由組裝點注入；只准快取模組 import，所以
+它的大小宣告另放 `cache_sizes/`）、`secure_storage/`（介面＋一個實作給所有平台，實作以套件命名 `flutter_secure_storage_adapter.dart`；套件的呼叫從建構子
+注入，單元測試不碰平台通道；`system(flavor)` 才接上真的套件；鍵前綴與 Android 的 `AndroidOptions`、macOS 的 `MacOsOptions` 由 flavor 決定，
 選項寫成公開的靜態函式讓測試核對）、`media_controls/`（介面＋值型別＋一個實作；實作要在啟動時
 初始化，所以宣告在組裝點、`AppPlatform.withMediaControls` 在 `main()` 初始化，失敗時改宣告為沒有；
 兩個平台各一個實作檔，轉換成平台格式的部分寫成頂層純函數，單元測試不必建系統物件；Windows 的轉接器
 以建構子收 `SMTCWindows`，呼叫順序用 `implements` 它的假物件測，不載入 Rust 端）、`files/`（介面＋一個以套件
-命名的實作 `file_picker_dialogs.dart` 給兩個平台；測試換掉套件的 `FilePickerPlatform.instance`，不開系統對話框）、
-`app_info/`（值型別 `AppInfo`＋讀取介面＋一個以套件命名的實作 `package_info_app_info.dart` 給兩個平台；平台名稱、系統版本（`Platform.operatingSystemVersion`）與家目錄由組裝點
+命名的實作 `file_picker_dialogs.dart` 給所有平台；測試換掉套件的 `FilePickerPlatform.instance`，不開系統對話框）、
+`app_info/`（值型別 `AppInfo`＋讀取介面＋一個以套件命名的實作 `package_info_app_info.dart` 給所有平台；平台名稱、系統版本（`Platform.operatingSystemVersion`）與家目錄由組裝點
 給，版本由套件讀；不是能力宣告，所以 `PlatformCapabilities` 沒有欄位，`AppPlatform.appInfo` 在未驗證平台為空；`main()` 讀一次後
 以 provider 注入，測試以套件的 `PackageInfo.setMockInitialValues` 換掉平台端）、
-`share/`（介面 `FileSharer`＋一個以套件命名的實作 `share_plus_file_sharer.dart` 給兩個平台；`SharePlus.instance.share` 從建構子注入，單元測試核對檔案與 MIME；`shareFiles` 回的布林是「平台有沒有回報分享結果」，讓呼叫端決定能不能馬上刪暫存檔——Windows 一開視窗就回、接收端之後才讀檔；Android 的 `share_plus` 會先把檔案複製到它自己的 `cacheDir/share_plus/`，下一次分享才清，所以原檔回報結束後就能刪）、`url_opener/`（介面＋一個以套件命名的實作 `url_launcher_opener.dart` 給兩個平台；`launchUrl` 從建構子注入，單元測試核對模式與失敗路徑，
-真的開瀏覽器只能實機驗）、`login_webview/`（介面＋一個以套件命名的實作 `flutter_inappwebview_login.dart` 給兩個平台：差異（UA、WebView2 環境）
+`share/`（介面 `FileSharer`＋一個以套件命名的實作 `share_plus_file_sharer.dart` 給所有平台；`SharePlus.instance.share` 從建構子注入，單元測試核對檔案與 MIME；`shareFiles` 回的布林是「平台有沒有回報分享結果」，讓呼叫端決定能不能馬上刪暫存檔——Windows 一開視窗就回、接收端之後才讀檔；Android 的 `share_plus` 會先把檔案複製到它自己的 `cacheDir/share_plus/`，下一次分享才清，所以原檔回報結束後就能刪）、`url_opener/`（介面＋一個以套件命名的實作 `url_launcher_opener.dart` 給所有平台；`launchUrl` 從建構子注入，單元測試核對模式與失敗路徑，
+真的開瀏覽器只能實機驗）、`login_webview/`（介面＋一個以套件命名的實作 `flutter_inappwebview_login.dart` 給有 WebView 的平台：差異（UA、WebView2 環境）
 以建構子注入，`.android()`／`.windows()` 兩個 factory 在組裝點選；套件的 `CookieManager` 也由建構子
 注入，單元測試以 `implements CookieManager` 的假物件測讀與清除，WebView 本身只能實機驗。Windows 要資料目錄才知道 WebView2 的
 使用者資料放哪，組裝點把 `dataDirectory.resolve()` 包成函式交給它，第一次用到才解析）、`app_restart/`（介面＋每平台一個實作；`exit` 與啟動行程都從建構子注入，單元測試核對呼叫順序；

@@ -201,7 +201,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 
 `lib/platform/`（ADR 0009）。怎麼加一個能力：`.trellis/spec/app/platform/index.md`。
 
-- `PlatformCapabilities` 只含已經有實作的能力。Linux、macOS、iOS 驗證前宣告全部為
+- `PlatformCapabilities` 只含已經有實作的能力。Linux、iOS 驗證前宣告全部為
   「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面（`main()` 的分支沒有測試，review 時看）。
 - 新能力連同實作一起加：宣告欄位、各平台實作、組裝點的分支、測試列在同一個 PR，
   不先為之後的里程碑預留欄位。
@@ -211,18 +211,19 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   Android 不能）不在 `AppPlatform`：引擎只准在 `lib/playback/backends/`，宣告與後端的
   `outputDevices` 是否為空由那裡的組裝點 `createAudioBackend` 的 assert 對齊。閘門：
   `platform_test.dart` 的宣告值；assert 在 debug 建置執行，真後端契約（經
-  `createAudioBackend` 建後端）的 `output devices follow the platform declaration…` 在兩個平台
+  `createAudioBackend` 建後端）的 `output devices follow the platform declaration…` 在各平台
   手動跑時一起檢查。
 
 - Secure storage（`lib/platform/secure_storage/`，ADR 0012 §決定 3、ADR 0029 §決定 5）：`PlatformCapabilities.secureStorage`
-  （Android、Windows）。鍵只准小寫英數、`.`、`-`（Windows 直接當檔名），實作加上 `fmp-dev.`／`fmp.` 前綴，
+  （Android、Windows、macOS）。鍵只准小寫英數、`.`、`-`（Windows 直接當檔名），實作加上 `fmp-dev.`／`fmp.` 前綴，
   `deleteAll` 只刪自己前綴的鍵、不呼叫套件的全刪。Android 的 `resetOnError` 一律關：套件預設讀取失敗就清空，
-  違反「讀取失敗不刪除」。`flutter_secure_storage` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：
-  `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`）、
+  違反「讀取失敗不刪除」。macOS 用傳統的登入 keychain（`MacOsOptions(usesDataProtectionKeychain: false)`，帳號名
+  `fmp-dev`／`fmp`）：data protection keychain 要 keychain-access-groups entitlement 與開發者帳號簽章（ADR 0036）。macOS 的 `deleteAll` 以 service（帳號名）清整個儲存區，不先列出鍵：登入 keychain 不接受「全部項目＋回傳資料」的查詢，套件的 `readAll` 回 `-50`（`FlutterSecureStorageAdapter.macos`）。實機的寫、讀、刪：`integration_test/secure_storage_test.dart -d macos`。`flutter_secure_storage` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：
+  `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`、macOS 的選項）、
   `platform_test.dart`；真的寫讀刪是 `integration_test/secure_storage_test.dart`（手動，Windows 另在 CI）。
 - 自繪標題列與快捷鍵修飾鍵（`lib/platform/window_chrome/`、`shortcut_modifier/`，ADR 0035 §決定 6、7，U PR 15）：
   `PlatformCapabilities.customTitleBar`（只有 Windows）宣告系統標題列已隱藏、由 App 自繪；`shortcutModifier`（`ShortcutModifier.control`／`meta`，
-  Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier` 給 macOS／iOS 平台任務接上）宣告快捷鍵的主修飾鍵。
+  Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier`：macOS 已接上，iOS 平台任務接上）宣告快捷鍵的主修飾鍵。
   視窗動作是 `WindowChrome`（`minimize`、`toggleMaximize`、`close`、`startDragging`、`maximized`），Windows 實作 `WindowManagerChrome`
   （`window_manager` 0.5.2，目前維護中的穩定線；`TitleBarStyle.hidden`；不 `show`／`focus`：視窗照舊由 runner 在第一個畫面時顯示，`runApp` 之前先顯示會露出空白視窗；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
   實作在 `main()` 開好資料庫與系統媒體控制之後、`runApp` 之前由 `AppPlatform.withWindowChrome` 初始化（`windowsWindowChrome` 可換掉，測試用），
@@ -326,30 +327,30 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     緊接著 `exit(0)` 時平台還沒收到，`NO_CLEAR` 的媒體通知留在通知清單（2026-10-14 實測：改前重設後 `dumpsys notification` 還有一筆，改後播放中、暫停中都是 0 筆）。沒有自動閘門，改動後實機看 `dumpsys notification`。
     收掉工作階段丟錯也照樣 `exit`（`finally`）。閘門：`app_restart_test.dart` 的 `Android`（先收工作階段再結束、收不掉也結束、沒有媒體控制照常結束）、`platform_test.dart`。行程結束後通知消失、重開時 `main()` 重跑只能實機驗。
 
-- 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android 與 Windows 共用
+- 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android、Windows 與 macOS 共用
   `PackageInfoAppInfo`（`package_info_plus`；Windows 端是 FFI 讀執行檔的 `ProductVersion`，沒有原生的 plugin registrant）。
   不是能力宣告：沒有畫面依它決定入口，只有能跑主 App 的平台有，`main()` 在 `runApp` 之前讀一次、以 `appInfoProvider`
-  注入。`homeDirectory`（Windows 是 `USERPROFILE`，Android 為空：沙盒路徑不含使用者名稱）給畫面把資料目錄顯示成
-  `~\…`（`homeRelativePath`）；`AppInfoReader.homeDirectory` 是同步的 getter，`main()` 在寫第一筆 log 之前就用它登記遮蔽（見「Log 與遮蔽」）。閘門：`platform_test.dart`（兩個平台的實作、平台名稱與家目錄，未驗證平台為空）、
+  注入。`homeDirectory`（Windows 是 `USERPROFILE`，macOS 是 `HOME`，Android 為空：沙盒路徑不含使用者名稱）給畫面把資料目錄顯示成
+  `~\…`（`homeRelativePath`）；`AppInfoReader.homeDirectory` 是同步的 getter，`main()` 在寫第一筆 log 之前就用它登記遮蔽（見「Log 與遮蔽」）。閘門：`platform_test.dart`（各平台的實作、平台名稱與家目錄，未驗證平台為空）、
   `app_info_test.dart`（以套件的 `setMockInitialValues` 讀版本）；真的版本號只能實機看（「關於」的版本列）。
 
-- 開網址（`lib/platform/url_opener/`，ADR 0023 §決定 4）：`PlatformCapabilities.urlOpener`（Android、Windows），一個實作
+- 開網址（`lib/platform/url_opener/`，ADR 0023 §決定 4）：`PlatformCapabilities.urlOpener`（Android、Windows、macOS），一個實作
   `UrlLauncherOpener`（`url_launcher`，`launchUrl(mode: LaunchMode.externalApplication)`：一律交給外部瀏覽器；開不了或
   `PlatformException` 回 `false`，不拋）。Android 11 起要在 `AndroidManifest.xml` 的 `<queries>` 宣告能開 https 的 intent。
   `url_launcher` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：`url_launcher_opener_test.dart`（模式、
   失敗回 `false`）、`platform_test.dart`、`layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`／`test_ownerDirectoriesMayImport`、
   `android_manifest_test.dart` 的 https query（含變異案例）。真的開瀏覽器只能實機驗。
-- 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android 與 Windows 共用一個實作
+- 檔案對話框（`lib/platform/files/`）：`PlatformCapabilities.files`，Android、Windows 與 macOS 共用一個實作
   `FilePickerDialogs`（`file_picker` 13.x；Windows 端是 FFI，沒有原生的 plugin registrant）。有
   `pickFile(extension:)`（插件頁的「從檔案安裝」）與 `saveFile(name:, bytes:, mimeType:)`（診斷包與 log 檔的存檔：桌面是存檔對話框，
   Android 走 SAF 的建立文件；取消回 `null`）與 `pickDirectory()`（插件開發資料夾；回絕對路徑，取消回 `null`）。副檔名只是篩選：Android
   把它轉成 MIME（`MimeTypeMap`）交給 SAF，選到的內容由呼叫端照格式驗（插件安裝檔解析標頭）。閘門：
   `platform_test.dart` 的宣告與實作型別、`file_picker_dialogs_test.dart`（以假的 `FilePickerPlatform`：篩選是
   `FileType.custom` 加副檔名、讀出內容、存檔的檔名／內容／MIME、選資料夾、取消是 `null`）；系統對話框本身只能實機驗。
-- 插件開發工具（M3 PR 16b，ADR 0025 §決定 7）：`PlatformCapabilities.pluginDevTools`，Windows 真、Android 假（讀任意目錄要 SAF，
+- 插件開發工具（M3 PR 16b，ADR 0025 §決定 7）：`PlatformCapabilities.pluginDevTools`，Windows、macOS 真、Android 假（讀任意目錄要 SAF，
   另立 ADR）；依賴 `files` 的 `pickDirectory`。Debug 頁的「插件開發」區塊與 `PluginDevelopment` 的載入都看它。閘門：
   `platform_test.dart`（Android 假、Windows 真、未驗證的平台假）、`debug_page_test.dart` 的 `the plugin development section`。
-- 檔案分享（`lib/platform/share/`，ADR 0025 §決定 10，M3 design §12.4）：`PlatformCapabilities.shareFiles`（Android、Windows 真；Linux 不能分享檔案；
+- 檔案分享（`lib/platform/share/`，ADR 0025 §決定 10，M3 design §12.4）：`PlatformCapabilities.shareFiles`（Android、Windows、macOS 真；Linux 不能分享檔案；
   Windows 10 1809 以前 `share_plus` 會拋錯，經提示顯示），一個實作 `SharePlusFileSharer`（`share_plus`，`SharePlus.instance.share` 從建構子注入）。
   `shareFiles` 回 `true`＝平台回報了分享的結果（完成或取消），回 `false`＝視窗開了但平台不回報（Windows 的 `DataTransferManager` 一開視窗就回
   `unavailable`、接收端之後才讀檔），呼叫端據此決定能不能馬上刪暫存檔（Android 的 `share_plus` 先把檔案複製到它的 `cacheDir/share_plus/`，
@@ -380,7 +381,8 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     `packages/flutter_inappwebview_macos_stub`（作法同 Linux），macOS 的 WebView 在 macOS 平台任務決定。
 
 閘門：`test/platform/platform_test.dart` 以注入的平台值逐平台核對宣告與實作（未驗證
-平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有）；lint `fmp_platform_checks` 擋
+平台必須全部為沒有；含 Android 與 Windows 系統媒體控制初始化失敗時宣告為沒有；macOS 的系統媒體控制、
+自繪標題列、登入 WebView 之後的 PR 才宣告）；lint `fmp_platform_checks` 擋
 `lib/platform/` 以外的平台判斷。
 lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、以及「不預留欄位」沒有
 自動閘門，review 時看。
@@ -393,6 +395,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
 - Windows 以程式目錄有沒有 `unins000.exe` 分安裝版與免安裝版（ADR 0022 §決定 5）。
   `flutter run` 出來的是免安裝版，dev 的資料在 `build/windows/x64/dev/runner/<模式>/userdata-dev/`，
   `flutter clean` 會一起清掉。
+- macOS 是 `~/Library/Application Support/<bundle id>`（`com.personal.fmp`／`com.personal.fmp.dev`，
+  path_provider 的 application support；App 不開沙盒，ADR 0036）。dev 與 prod 因 bundle id 不同而分開，
+  不加 `-dev`；舊版沒發過 macOS，沒有舊資料位置要避開（舊資料只經 dev 的 `--fmp-legacy-dir` 或首次啟動的匯入），
+  也沒有舊憑證可讀。
 - dev 解析到舊版正式資料的位置（Windows 的 `Documents\FMP` 與
   `%APPDATA%\com.personal\fmp`、Android 舊版沙盒 `com.personal.fmp`）或其下，`main()` 在
   `runApp` 之前就拋 `LegacyDataLocationException`：Windows 的原生視窗仍會開，但內容空白。
@@ -2822,7 +2828,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `with a dialog open playback shortcuts do nothing and Esc closes the dialog`；`Ctrl+Q works while typing in the search field`、`Ctrl+L does nothing`）。
   兩組修飾鍵：`shortcut_modifier_test.dart`（表的矩陣：Ctrl 組沒有 meta、⌘ 組沒有 Ctrl 且每個 Ctrl 鍵有 ⌘ 的對應、開佇列是 Ctrl+Q／⌥⌘U、沒有 ⌘Q、沒有 Ctrl+L；
   以 `ShellHarness(shortcutModifier:)` 的假宣告跑 ⌘F、⌘,、⌥⌘U（含輸入框裡）、⌘S／R／→，另一組修飾鍵的鍵不作用）。tooltip 裡寫的 `Ctrl+…` 字串目前
-  不隨平台換成 ⌘（Apple 平台還不啟動），macOS 平台任務接上時處理。
+  不隨平台換成 ⌘（翻譯檔寫死 `Ctrl+…`），macOS 的後續 PR 處理。
 - 播放頁（`lib/ui/player/player_page.dart`，design §9.3、§9.5、§9.6，ADR 0024 §決定 4）：
   - 開關：點播放列曲名與封面那一塊（`InkWell`，點擊區與右邊的按鈕分開，語意是按鈕、「開啟播放頁」放在 hint）開；
     `openPlayerPage` 把 `_PlayerPageRoute`（`PageRouteBuilder` 的子類別，

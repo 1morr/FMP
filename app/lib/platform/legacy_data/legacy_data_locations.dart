@@ -100,6 +100,22 @@ LegacyDataLocator androidLegacyDataLocator({
   },
 );
 
+/// macOS 的舊資料位置：舊 App 從來沒有發行過 macOS，prod 沒有任何位置。dev 只看
+/// [devDirectory]（`--fmp-legacy-dir`，別處複製來的舊資料副本），沒有指定就沒有位置。
+/// 沒有真實的舊位置，所以不需要 `ensureOutsideLegacyData`；也沒有可讀的舊憑證。
+LegacyDataLocator macosLegacyDataLocator({
+  required AppFlavor flavor,
+  required String? devDirectory,
+}) => LegacyDataLocator(
+  resolve: (log) async {
+    if (flavor != AppFlavor.dev || devDirectory == null) return _none;
+    return LegacyLocations(
+      databaseDirectories: [Directory(devDirectory)],
+      credentialReader: const NoLegacyCredentialReader(),
+    );
+  },
+);
+
 const _none = LegacyLocations(
   databaseDirectories: [],
   credentialReader: NoLegacyCredentialReader(),

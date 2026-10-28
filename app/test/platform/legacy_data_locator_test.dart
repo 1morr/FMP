@@ -263,4 +263,45 @@ void main() {
       );
     });
   });
+
+  group('macOS', () {
+    late Directory copy;
+
+    setUp(() async {
+      copy = await Directory.systemTemp.createTemp('fmp_legacy_macos_test');
+      addTearDown(() => copy.delete(recursive: true));
+      File(p.join(copy.path, legacyDatabaseFile)).writeAsStringSync('x');
+    });
+
+    test(
+      'prod has no legacy location, even when --fmp-legacy-dir is given',
+      () async {
+        final locator = macosLegacyDataLocator(
+          flavor: AppFlavor.prod,
+          devDirectory: copy.path,
+        );
+
+        expect(await locator.locate(), isNull);
+      },
+    );
+
+    test('dev reads only the given copy, without legacy credentials', () async {
+      final source = await macosLegacyDataLocator(
+        flavor: AppFlavor.dev,
+        devDirectory: copy.path,
+      ).locate();
+
+      expect(source!.database.path, p.join(copy.path, legacyDatabaseFile));
+      expect(source.credentialReader, isA<NoLegacyCredentialReader>());
+    });
+
+    test('dev without a copy has no legacy location', () async {
+      final locator = macosLegacyDataLocator(
+        flavor: AppFlavor.dev,
+        devDirectory: null,
+      );
+
+      expect(await locator.locate(), isNull);
+    });
+  });
 }

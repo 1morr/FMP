@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory_macos.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:path/path.dart' as p;
 
@@ -182,6 +183,24 @@ void main() {
         directory.path,
         p.join(root.path, 'data', 'user', '0', 'com.personal.fmp', 'files'),
       );
+    });
+  });
+
+  group('macOS', () {
+    test('uses the application support directory and creates it', () async {
+      final support = p.join(
+        root.path,
+        'Library',
+        'Application Support',
+        'com.personal.fmp.dev',
+      );
+
+      final directory = await MacosAppDataDirectory(
+        applicationSupportPath: () async => support,
+      ).resolve();
+
+      expect(directory.path, support);
+      expect(directory.existsSync(), isTrue);
     });
   });
 
