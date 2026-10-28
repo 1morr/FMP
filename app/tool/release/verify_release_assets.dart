@@ -7,7 +7,8 @@
 /// release-please 建的是草稿，這支通過後 `publish` job 才把 asset 傳上去並轉成
 /// 正式發布（ADR 0022 §決定 1），所以對外之前看過產物的只有它。它只擋結構性的
 /// 錯：缺檔多檔、checksums 或別名對不上、APK 的身分與版本不是這個 tag、APK 用
-/// debug 金鑰簽、Windows 檔不是完整程式目錄或不是執行檔、舊版更新器接不上
+/// debug 金鑰簽、Windows 檔不是完整程式目錄或不是執行檔、macOS zip 的根不是
+/// `fmp.app` 或 `Info.plist` 的身分與版本不對、舊版更新器接不上
 /// （`legacy_updater.dart`）。執行期才會壞的東西它看不到。
 ///
 /// APK 以 Android build-tools 的 aapt2、apksigner 讀，zip 以 `unzip -Z1` 列
@@ -49,11 +50,15 @@ const windowsProgramFiles = [
   'vcruntime140_1.dll',
 ];
 
+/// macOS zip 的根目錄；`ditto --keepParent` 讓整個 App 套件在 zip 的根。
+const macosAppName = 'fmp.app';
+
 /// 帶版本號的產物（ADR 0022 §決定 3）。checksums 只涵蓋這些，不含別名。
 List<String> versionedAssets(String tag) => [
   for (final abi in androidAbis) 'fmp-$tag-android-$abi.apk',
   'fmp-$tag-windows-installer.exe',
   'fmp-$tag-windows.zip',
+  'fmp-$tag-macos.zip',
 ];
 
 String checksumsAssetName(String tag) => 'fmp-$tag-checksums.sha256';
@@ -93,6 +98,9 @@ typedef ApkSignerReader = Future<List<ApkSigner>?> Function(File apk);
 /// 列不出時回傳 `null`。
 typedef ZipLister = Future<List<String>?> Function(File zip);
 
+/// 讀 zip 裡一個 entry 的文字；讀不出時回傳 `null`。
+typedef ZipEntryReader = Future<String?> Function(File zip, String entry);
+
 /// 回傳所有找到的問題；空清單代表可以發布。一次列完，不在第一個問題就停。
 Future<List<String>> verifyReleaseAssets({
   required Directory dir,
@@ -100,6 +108,7 @@ Future<List<String>> verifyReleaseAssets({
   required ApkBadgingReader readBadging,
   required ApkSignerReader readSigners,
   required ZipLister listZip,
+  required ZipEntryReader readZipEntry,
 }) async {
   final problems = <String>[];
   final versionCode = versionCodeOfTag(tag);
@@ -242,6 +251,18 @@ Future<List<String>> verifyReleaseAssets({
     }
   }
 
+  final macosZip = 'fmp-$tag-macos.zip';
+  if (present.contains(macosZip)) {
+    problems.addAll(
+      await _macosZipProblems(
+        file(macosZip),
+        listZip: listZip,
+        readZipEntry: readZipEntry,
+        version: tag.substring(1),
+      ),
+    );
+  }
+
   problems.addAll(
     legacyUpdaterProblems(
       tagName: tag,
@@ -253,6 +274,51 @@ Future<List<String>> verifyReleaseAssets({
   );
   return problems;
 }
+
+/// zip 的唯一根是 `fmp.app/`，`Info.plist` 的 bundle id 與版本是這個 release 的。
+Future<List<String>> _macosZipProblems(
+  File zip, {
+  required ZipLister listZip,
+  required ZipEntryReader readZipEntry,
+  required String version,
+}) async {
+  final name = p.basename(zip.path);
+  final entries = await listZip(zip);
+  if (entries == null) return ['$name: could not list its entries'];
+  final roots = {
+    for (final e in entries) e.replaceAll('\\', '/').split('/').first,
+  };
+  if (roots.length != 1 || roots.single != macosAppName) {
+    return [
+      '$name: the root must be only $macosAppName, got '
+          '${(roots.toList()..sort()).join(', ')}',
+    ];
+  }
+  final plist = await readZipEntry(zip, '$macosAppName/Contents/Info.plist');
+  if (plist == null) return ['$name: could not read $macosAppName Info.plist'];
+  final problems = <String>[];
+  final identifier = plistString(plist, 'CFBundleIdentifier');
+  if (identifier != applicationId) {
+    problems.add(
+      '$name: CFBundleIdentifier is $identifier, expected $applicationId',
+    );
+  }
+  final shortVersion = plistString(plist, 'CFBundleShortVersionString');
+  if (shortVersion != version) {
+    problems.add(
+      '$name: CFBundleShortVersionString is $shortVersion, '
+      'expected $version',
+    );
+  }
+  return problems;
+}
+
+/// XML plist 裡 `<key>$key</key>` 後面的 `<string>`；沒有時回 `null`。
+String? plistString(String plist, String key) =>
+    RegExp('<key>${RegExp.escape(key)}</key>\\s*<string>([^<]*)</string>')
+        .firstMatch(plist)
+        ?.group(1)
+        ?.trim();
 
 /// 檢查 DOS 標頭的 `MZ`，以及 `e_lfanew` 指向的 `PE\0\0` 簽章。0 位元組的檔案、
 /// 錯誤頁、被放錯的壓縮檔都過不了；尾端被截斷的安裝檔過得了，這裡不檢查。
@@ -351,6 +417,11 @@ Future<void> main(List<String> args) async {
         for (final line in (result.stdout as String).split('\n'))
           if (line.trimRight().isNotEmpty) line.trimRight(),
       ];
+    },
+    readZipEntry: (zip, entry) async {
+      final result = await Process.run('unzip', ['-p', zip.path, entry]);
+      if (result.exitCode != 0) return null;
+      return result.stdout as String;
     },
   );
   if (problems.isEmpty) {

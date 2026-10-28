@@ -415,7 +415,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
-    timeout-minutes: 45
+    # 建置兩次加一次整合測試。
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: app
@@ -456,6 +457,13 @@ jobs:
       - name: fmp_quickjs tests
         working-directory: app/packages/fmp_quickjs
         run: flutter test
+
+      # 守插件引擎有沒有編進 App、插件載不載得起來（ADR 0036 §決定 12）。一個檔案一步
+      # （見 app-integration-linux 的說明）。dev 的 debug 建置上面已建過，這步重用它。
+      # secure_storage_test.dart 不放進 CI：runner 的 keychain 可能跳授權視窗，只在
+      # 實機手動跑（app/AGENTS.md § 平台層）。
+      - name: Install a plugin, search and play
+        run: flutter test integration_test/install_search_play_test.dart -d macos --flavor dev
 
   app-build-ios:
     name: App Build (iOS)

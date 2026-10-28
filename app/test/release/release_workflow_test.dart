@@ -174,6 +174,37 @@ void main() {
     });
   });
 
+  group('the macOS zip keeps symlinks', () {
+    // framework 裡有符號連結，一般的 zip 會弄壞它們（ADR 0036 §決定 12）。
+    test('the workflow', () {
+      expect(macosZipProblems(workflow), isEmpty);
+    });
+
+    test('red on plain zip or a missing --keepParent', () {
+      expect(
+        macosZipProblems(
+          mutate(
+            'ditto -c -k --keepParent build',
+            'zip -r "\$out/fmp-\$TAG-macos.zip" build',
+          ),
+        ),
+        ['build-macos does not package with ditto -c -k --keepParent'],
+      );
+      expect(
+        macosZipProblems(mutate('ditto -c -k --keepParent', 'ditto -c -k')),
+        ['build-macos does not package with ditto -c -k --keepParent'],
+      );
+    });
+
+    test('not red on another option order', () {
+      final respelled = mutate(
+        'ditto -c -k --keepParent',
+        'ditto --keepParent -k -c',
+      );
+      expect(macosZipProblems(respelled), isEmpty);
+    });
+  });
+
   group('only verified assets are published', () {
     test('the workflow', () {
       expect(publishGateProblems(workflow), isEmpty);
@@ -183,11 +214,11 @@ void main() {
       expect(
         publishGateProblems(
           mutate(
+            'needs: [release-please, build-android, build-windows, build-macos]',
             'needs: [release-please, build-android, build-windows]',
-            'needs: [release-please, build-android]',
           ),
         ),
-        ['verify does not need build-windows'],
+        ['verify does not need build-macos'],
       );
     });
 
@@ -196,7 +227,7 @@ void main() {
         publishGateProblems(
           mutate(
             '    needs: [release-please, verify]\n',
-            '    needs: [release-please, build-android, build-windows]\n',
+            '    needs: [release-please, build-android, build-windows, build-macos]\n',
           ),
         ),
         ['publish does not need verify'],
@@ -249,9 +280,9 @@ void main() {
     test('not red on another spelling', () {
       final respelled =
           mutate(
-            'needs: [release-please, build-android, build-windows]',
+            'needs: [release-please, build-android, build-windows, build-macos]',
             'needs:\n      - build-windows\n      - release-please\n'
-                '      - build-android',
+                '      - build-macos\n      - build-android',
           ).replaceFirst(
             'gh release upload "\$TAG" "\$RUNNER_TEMP"/release-assets/* --clobber',
             'gh release upload --clobber "\$TAG" \${RUNNER_TEMP}/release-assets/*',
@@ -324,7 +355,7 @@ List<String> releaseGatedProblems(String workflowYaml) {
 }
 
 /// 每一個 `flutter build` 都帶 `--flavor prod`（ADR 0015 §決定 8），而且 apk 與
-/// windows 都有建。
+/// windows、macos 都有建。
 List<String> flavorProblems(String workflowYaml) {
   final problems = <String>[];
   final built = <String>{};
@@ -342,10 +373,24 @@ List<String> flavorProblems(String workflowYaml) {
       }
     }
   }
-  for (final target in ['apk', 'windows']) {
+  for (final target in ['apk', 'windows', 'macos']) {
     if (!built.contains(target)) problems.add('no flutter build $target');
   }
   return problems;
+}
+
+/// macOS 的 zip 以 `ditto -c -k --keepParent` 打包。
+List<String> macosZipProblems(String workflowYaml) {
+  final job = _jobs(workflowYaml)['build-macos'] as YamlMap?;
+  final scripts = job == null
+      ? ''
+      : _steps(job).map((step) => '${step['run'] ?? ''}').join('\n');
+  final command = RegExp(r'\bditto\b[^\n]*').firstMatch(scripts)?.group(0);
+  final options = command?.split(RegExp(r'\s+')).toSet() ?? const <String>{};
+  return [
+    if (!{'-c', '-k', '--keepParent'}.every(options.contains))
+      'build-macos does not package with ditto -c -k --keepParent',
+  ];
 }
 
 const _verifier = 'tool/release/verify_release_assets.dart';
