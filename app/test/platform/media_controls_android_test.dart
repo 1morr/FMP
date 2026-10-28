@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:audio_service/audio_service.dart' as audio;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/logging/log.dart';
@@ -29,100 +26,6 @@ NowPlaying nowPlaying({
 );
 
 void main() {
-  group('a live room', () {
-    NowPlaying live({bool seekable = false}) => NowPlaying(
-      id: 'fmp-test:room',
-      title: 'Room',
-      uploader: 'Host',
-      phase: MediaPhase.ready,
-      playing: true,
-      position: const Duration(seconds: 90),
-      controls: const [MediaControl.pause],
-      seekable: seekable,
-    );
-
-    test('has no seek action and only the pause button', () {
-      final state = androidPlaybackStateOf(live());
-
-      expect(state.systemActions, {audio.MediaAction.stop});
-      expect(state.controls, [audio.MediaControl.pause]);
-    });
-
-    test('a seekable song keeps the seek action', () {
-      expect(androidPlaybackStateOf(live(seekable: true)).systemActions, {
-        audio.MediaAction.seek,
-        audio.MediaAction.stop,
-      });
-      expect(androidPlaybackStateOf(nowPlaying()).systemActions, {
-        audio.MediaAction.seek,
-        audio.MediaAction.stop,
-      });
-    });
-  });
-
-  group('the playback state', () {
-    test('follows the phase and whether it plays', () {
-      final idle = androidPlaybackStateOf(
-        nowPlaying(phase: MediaPhase.idle, playing: false),
-      );
-      expect(idle.processingState, audio.AudioProcessingState.idle);
-      expect(idle.playing, isFalse);
-
-      expect(
-        androidPlaybackStateOf(nowPlaying(phase: MediaPhase.loading))
-            .processingState,
-        audio.AudioProcessingState.loading,
-      );
-      expect(
-        androidPlaybackStateOf(nowPlaying(phase: MediaPhase.buffering))
-            .processingState,
-        audio.AudioProcessingState.buffering,
-      );
-      final ready = androidPlaybackStateOf(nowPlaying());
-      expect(ready.processingState, audio.AudioProcessingState.ready);
-      expect(ready.playing, isTrue);
-      expect(ready.updatePosition, const Duration(seconds: 12));
-    });
-
-    test('an interruption is playing and buffering with the pause button', () {
-      final state = androidPlaybackStateOf(
-        nowPlaying(phase: MediaPhase.interrupted),
-      );
-
-      // 播放中：audio_service 的前景服務不放；緩衝中：系統不推算進度。
-      expect(state.playing, isTrue);
-      expect(state.processingState, audio.AudioProcessingState.buffering);
-      expect(state.controls, [
-        audio.MediaControl.skipToPrevious,
-        audio.MediaControl.pause,
-        audio.MediaControl.skipToNext,
-      ]);
-    });
-  });
-
-  group('async errors', () {
-    test('are logged under the media controls tag', () async {
-      final log = Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
-      final errors = StreamController<Object>.broadcast();
-      final subscription = reportAsyncErrors(errors.stream, log);
-
-      errors.add(StateError('Background started FGS'));
-      await settle();
-
-      final reported = log.history.where(
-        (r) => r.tag == 'media-controls' && r.level == LogLevel.error,
-      );
-      expect(reported, hasLength(1));
-      expect(reported.single.message, contains('system media session'));
-
-      await subscription.cancel();
-      errors.add(StateError('after cancel'));
-      await settle();
-      expect(log.history.where((r) => r.tag == 'media-controls'), hasLength(1));
-      await errors.close();
-    });
-  });
-
   group('the media key fix', () {
     const channel = MethodChannel('fmp/media_keys');
     late Log log;

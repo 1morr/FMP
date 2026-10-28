@@ -36,6 +36,7 @@ import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_android.dart';
+import 'package:fmp/platform/media_controls/media_controls_macos.dart';
 import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
@@ -109,13 +110,15 @@ final class AppPlatform {
   ///
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
-  /// `WindowsSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
+  /// `WindowsSystemMediaControls.init`）；[macosMediaControls] 同理（預設是
+  /// `MacosSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
     AppFlavor flavor, {
     Future<SystemMediaControls> Function(Log log)? androidMediaControls,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
+    Future<SystemMediaControls> Function(Log log)? macosMediaControls,
     Future<WindowChrome> Function()? windowsWindowChrome,
     Future<WindowChrome> Function()? macosWindowChrome,
     String? legacyDirectory,
@@ -176,13 +179,19 @@ final class AppPlatform {
       windowsWindowChrome,
       legacyDirectory,
     ),
-    TargetPlatform.macOS => _macos(flavor, macosWindowChrome, legacyDirectory),
+    TargetPlatform.macOS => _macos(
+      flavor,
+      macosMediaControls,
+      macosWindowChrome,
+      legacyDirectory,
+    ),
     TargetPlatform.linux || TargetPlatform.iOS || TargetPlatform.fuchsia =>
       AppPlatform._(capabilities: PlatformCapabilities.none),
   };
 
   static AppPlatform _macos(
     AppFlavor flavor,
+    Future<SystemMediaControls> Function(Log log)? macosMediaControls,
     Future<WindowChrome> Function()? macosWindowChrome,
     String? legacyDirectory,
   ) => AppPlatform._(
@@ -197,7 +206,8 @@ final class AppPlatform {
       cache: macosCacheSizes,
       secureStorage: true,
       files: true,
-      // 登入 WebView、系統媒體控制之後的 PR 才接上。
+      // 沒有登入 WebView：flutter_inappwebview_macos 在 CI 的 Xcode 26.6 建不過，用本機 stub，
+      // 登入走 QR 與貼上 cookie（ADR 0036 §決定 9 的結果）。
       loginWebView: false,
       urlOpener: true,
       restartsItself: true,
@@ -206,6 +216,9 @@ final class AppPlatform {
       shortcutModifier: appleShortcutModifier,
       // 系統的紅綠燈留著，其餘由 App 自繪（ADR 0035 §決定 6、ADR 0036 §決定 6）。
       customTitleBar: true,
+      // Now Playing 依經過時間與速度自己推算進度，所以不需要定期重推
+      // （positionRefresh 留空；實機驗證）。
+      mediaControls: MediaControlsSupport(supportsSeek: true),
     ),
     appInfo: PackageInfoAppInfo(
       platform: 'macOS',
@@ -227,6 +240,7 @@ final class AppPlatform {
         () => WindowManagerChrome.init(
           captionButtons: CaptionButtons.systemLeading,
         ),
+    mediaControlsFactory: macosMediaControls ?? MacosSystemMediaControls.init,
     restarterFactory: MacosAppRestarter.system,
     legacyDataLocator: macosLegacyDataLocator(
       flavor: flavor,

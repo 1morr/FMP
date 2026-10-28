@@ -208,10 +208,12 @@ void main() {
       // 系統標題列隱藏、App 自繪並保留紅綠燈；實作要啟動時初始化（withWindowChrome）。
       expect(platform.capabilities.customTitleBar, isTrue);
       expect(platform.windowChrome, isNull);
-      // 之後的 PR 接上：登入 WebView、系統媒體控制。
+      // 系統媒體控制宣告了，實作要 withMediaControls 之後才有。
+      expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
+      expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
+      // 沒有登入 WebView：CI 的 Xcode 建不過套件（ADR 0036 §決定 9 的結果）。
       expect(platform.capabilities.loginWebView, isFalse);
       expect(platform.loginWebView, isNull);
-      expect(platform.capabilities.mediaControls, isNull);
       expect(platform.mediaControls, isNull);
     });
 
@@ -264,6 +266,49 @@ void main() {
         }
       });
     }
+  });
+
+  group('system media controls on macOS', () {
+    Log log() => Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
+
+    test('initializing exposes the controls to the restarter', () async {
+      final controls = _FakeControls();
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.macOS,
+            AppFlavor.dev,
+            macosMediaControls: (_) async => controls,
+          ).withMediaControls(
+            log: log(),
+            onFailure: (_, _) => fail('should not fail'),
+          );
+
+      expect(platform.mediaControls, same(controls));
+      expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
+      expect(
+        (platform.restarter! as MacosAppRestarter).mediaControls,
+        same(controls),
+      );
+    });
+
+    test('a failed initialization is logged and declares none', () async {
+      final failures = <Object>[];
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.macOS,
+            AppFlavor.dev,
+            macosMediaControls: (_) async => throw StateError('no session'),
+          ).withMediaControls(
+            log: log(),
+            onFailure: (error, _) => failures.add(error),
+          );
+
+      expect(failures, hasLength(1));
+      expect(platform.mediaControls, isNull);
+      expect(platform.capabilities.mediaControls, isNull);
+      expect(platform.capabilities.playback, same(macosPlaybackSupport));
+      expect(platform.dataDirectory, isA<MacosAppDataDirectory>());
+    });
   });
 
   group('system media controls on Android', () {

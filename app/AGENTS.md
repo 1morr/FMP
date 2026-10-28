@@ -17,7 +17,7 @@
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 繁簡字表的副本或產生器（`tool/opencc/`） | 先 `dart run tool/opencc/generate_ts_characters.dart`，再跑第一列（產生檔 `lib/core/matching/ts_characters.g.dart` 要提交） |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（見 § 播放） |
-| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug` 與 `flutter build windows --flavor dev`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`） |
+| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug`、`flutter build windows --flavor dev` 與 `flutter build macos --flavor dev --debug`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`）；macOS 在 Mac 上實機驗控制中心／選單列的「正在播放」（標題、封面、進度）與媒體鍵 |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 舊資料匯入（`lib/legacy_import/`、`isar_community*` 依賴） | 第一列，加 `flutter build apk --flavor dev --debug`（查 `libisar.so` 的 16KB 對齊，見 § 舊資料匯入）與 `flutter build windows --flavor dev` |
@@ -238,7 +238,12 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   失敗時記 log、宣告改為沒有（系統標題列留著），App 照常啟動。UI 只問 `activeWindowChromeProvider`（宣告為真才給 `windowChromeProvider` 的值），
   `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`、`window chrome on macOS`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態、macOS 先量再隱藏）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
-  （`supportsSeek`）；Android 以 `audio_service` 實作。宣告在組裝點，實作在 `main()` 開好資料庫之後、
+  （`supportsSeek`）；Android 與 macOS 以 `audio_service` 實作（共用的 handler、播放狀態與曲目轉換在
+  `media_controls_audio_service.dart`；macOS 的 `MacosSystemMediaControls` 走 darwin 端的 `MPNowPlayingInfoCenter`
+  與 `MPRemoteCommandCenter`，預設設定、宣告 `supportsSeek: true`、不設 `positionRefresh`〔Now Playing 自己依經過時間與
+  速度推算進度；實機驗證〕，`file://` 封面由 `audio_service` 設成 `artCacheFile`，`dispose` 呼叫 `stopService` 清掉
+  Now Playing，重啟流程會呼叫；閘門 `media_controls_macos_test.dart`、`media_controls_audio_service_test.dart`、
+  `platform_test.dart` 的 `system media controls on macOS`）。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
   `audio_service` 與 `smtc_windows` 的擁有者都是 `lib/platform/`（`platformPackages`）。
 - Windows（SMTC，`media_controls_windows.dart`，`smtc_windows` 釘 1.1.0）：宣告 `supportsSeek: false`、
