@@ -15,7 +15,7 @@ description: >-
 | 何時讀 | 檔案 |
 |---|---|
 | Android 模擬器、安裝、帶參數啟動、log、音訊焦點、截圖 | `references/android.md` |
-| Windows 建置、單一實例、MSAA 讀畫面與點按鈕、視窗截圖、SMTC | `references/windows.md` |
+| Windows 建置、單一實例、MSAA 讀畫面與點按鈕、視窗截圖、SMTC、從 Mac 經 SSH 遠端驗（`scripts/remote/`） | `references/windows.md` |
 | 資料目錄、資料庫、log 格式、清成乾淨狀態、開發入口的參數 | `references/runtime-state.md` |
 
 ## 模式與平台
