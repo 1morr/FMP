@@ -12,7 +12,7 @@
 | 任何改動 | `dart format --output=none --set-exit-if-changed .`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test` |
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
-| Xcode 專案（`ios/`、`macos/`） | 第一列；本機沒有 Mac 時建置交給 CI 的 iOS、macOS job（prod release 與 dev debug 各一次） |
+| Xcode 專案（`ios/`、`macos/`）、`packages/fmp_quickjs/` | 第一列，加 `flutter build macos --flavor dev --debug` 與 `--flavor prod --release`（建完 `git status` 不該有 `app/macos/` 的變動），`fmp_quickjs` 內的 `flutter test`；iOS 建置交給 CI 的 iOS job |
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 繁簡字表的副本或產生器（`tool/opencc/`） | 先 `dart run tool/opencc/generate_ts_characters.dart`，再跑第一列（產生檔 `lib/core/matching/ts_characters.g.dart` 要提交） |
@@ -30,9 +30,7 @@
 - Mac 本機可以跑完整的 `flutter test`（約 7 分鐘）：
   - 插件執行環境的 QuickJS 由 `test/support/quickjs.dart` 以 clang 編 `packages/fmp_quickjs`（見下方）；
   - 舊資料匯入的 `libisar` 用套件附的 universal dylib。
-  - 兩處在 Mac 上會紅：
-    - `windows_identity_test.dart` 要 `cmake`（`brew install cmake`）；
-    - `apple_identity_test.dart` 在 CocoaPods 改過的工作區會紅，`ios/` 的 Podfile 由 iOS 平台任務提交前都是這樣。
+  - `windows_identity_test.dart` 要 `cmake`，沒有就紅（`brew install cmake`）。
   - 要和 CI 同架構（x86_64 Linux）時用 `tool/linux_test.sh`：它在 OrbStack 的 Ubuntu 上跑，第一次先跑
     `tool/linux_test.sh setup` 建機器、裝 CI 的 `APP_FLUTTER_VERSION`，參數照傳給 `flutter test`。
     工作區以 rsync 複製到機器裡再跑；副本的 `ios/`、`macos/` 還原成 HEAD，所以改 Xcode 專案的改動要先 commit 再跑。
@@ -141,9 +139,17 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 - 範本的 `Runner` scheme 與不帶 flavor 的 Debug／Release／Profile 照官方文件留著，身分是 prod，
   但 `appFlavor` 是上一次 flutter 指令寫進 `Flutter/Generated.xcconfig` 的 flavor：在 Xcode 裡不要用它
   建置，選 `dev` 或 `prod`。
-- flutter_js 只有 podspec，iOS、macOS 建置時 flutter 會自己產生 Podfile（沒提交）。產生的 Podfile
-  只對應 Debug／Profile／Release，其他 configuration CocoaPods 一律當 release（`Debug-dev` 的 pod
-  也用 release 編）；要在 Xcode 除錯 pod 時，提交 Podfile 並照官方文件補上六個 configuration。
+- flutter_js、`isar_community_flutter_libs`、`fmp_quickjs` 只有 podspec，所以 iOS、macOS 一定有 Podfile。
+  - macOS 的 Podfile、`Podfile.lock` 與 CocoaPods 對 xcconfig、pbxproj、workspace 的改動都已提交（ADR 0036
+    §決定 10）。Podfile 照官方文件把六個 flavor configuration 對到 debug／release；沒對應的 configuration
+    CocoaPods 一律當 release。建置後 `app/macos/` 不該再有變動，有的話是依賴變了，連同 `Podfile.lock` 提交。
+  - CocoaPods 給 `RunnerTests` 每個 configuration 一份 `Pods-RunnerTests.<configuration>.xcconfig`，
+    `apple_identity_test` 的「同一個 base」把它當成同一個。
+  - `ios/` 的還沒提交，產生的 Podfile 只對應三個模式：iOS 平台任務照 macOS 的做法處理。
+- macOS 不開 App Sandbox（ADR 0036 §決定 2）：
+  - 兩份 entitlements 都沒有 `app-sandbox`、`keychain-access-groups`；沒有 provisioning profile 時，後者會讓 App 一啟動就被系統殺掉。
+  - `Info.plist` 有 `LSMultipleInstancesProhibited`（單一實例）與 `NSAllowsArbitraryLoadsForMedia`（AVPlayer 開 `http://`）。
+  - 閘門：`apple_identity_test.dart`，含變異案例。
 - Android namespace 兩個 flavor 都是 `com.personal.fmp`；只有 applicationId 帶後綴。
 - Windows 的第二個實例以「視窗類別＋標題」找第一個實例帶到前景，所以兩個 flavor
   的標題必須不同；之後若在 Dart 端改視窗標題，要一併改 `main.cpp` 的尋找方式。

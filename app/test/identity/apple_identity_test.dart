@@ -65,8 +65,114 @@ void main() {
           });
         });
       }
+
+      if (platform == 'macos') {
+        // ADR 0036 §決定 2、4、7、10。
+        test('the app is not sandboxed and has no keychain access group', () {
+          for (final name in ['DebugProfile', 'Release']) {
+            final keys = plistKeys(
+              File('macos/Runner/$name.entitlements').readAsStringSync(),
+            );
+            expect(keys, isNot(contains(sandboxEntitlement)), reason: name);
+            expect(
+              keys,
+              isNot(contains(keychainGroupsEntitlement)),
+              reason: name,
+            );
+          }
+        });
+
+        test('Info.plist keeps one instance and allows plain HTTP media', () {
+          expect(plistTrue(infoPlist, 'LSMultipleInstancesProhibited'), isTrue);
+          expect(
+            plistTrue(infoPlist, 'NSAllowsArbitraryLoadsForMedia'),
+            isTrue,
+          );
+        });
+
+        test('the Podfile maps every flavor configuration to its mode', () {
+          expect(
+            podfileConfigurations(File('macos/Podfile').readAsStringSync()),
+            {
+              for (final mode in _modes) ...{
+                mode: _podMode(mode),
+                for (final flavor in AppFlavor.values)
+                  '$mode-${flavor.name}': _podMode(mode),
+              },
+            },
+          );
+        });
+      }
     });
   }
+
+  group('macOS file mutations', () {
+    final entitlements = File('macos/Runner/Release.entitlements')
+        .readAsStringSync();
+    final info = File('macos/Runner/Info.plist').readAsStringSync();
+    final podfile = File('macos/Podfile').readAsStringSync();
+
+    test('a sandbox or keychain group entitlement is found', () {
+      for (final key in [sandboxEntitlement, keychainGroupsEntitlement]) {
+        final mutated = entitlements.replaceFirst(
+          RegExp(r'<dict\s*/>|<dict>'),
+          '<dict>\n\t<key>$key</key>\n\t<true/>\n',
+        );
+        final closed = mutated.contains('</dict>')
+            ? mutated
+            : mutated.replaceFirst('</plist>', '</dict>\n</plist>');
+        expect(plistKeys(closed), contains(key));
+      }
+    });
+
+    test('a false or missing Info.plist flag is not true', () {
+      expect(
+        plistTrue(
+          info.replaceFirst(
+            RegExp(r'(<key>LSMultipleInstancesProhibited</key>\s*)<true/>'),
+            r'$1<false/>',
+          ),
+          'LSMultipleInstancesProhibited',
+        ),
+        isFalse,
+      );
+      expect(
+        plistTrue('<dict></dict>', 'LSMultipleInstancesProhibited'),
+        isFalse,
+      );
+    });
+
+    test('a flavor configuration dropped from the Podfile is noticed', () {
+      final mutated = podfile.replaceFirst(
+        RegExp(r"\s*'Release-dev' => :release,"),
+        '',
+      );
+      expect(mutated, isNot(podfile));
+      expect(podfileConfigurations(mutated), isNot(contains('Release-dev')));
+    });
+
+    test('layout, comments and quoting leave the parsed values unchanged', () {
+      final plist = info
+          .replaceAll('\t', '    ')
+          .replaceAll('<true/>', '<true />')
+          .replaceAll(RegExp(r'\n\s*'), '\n  ');
+      expect(plistTrue(plist, 'LSMultipleInstancesProhibited'), isTrue);
+      expect(plistTrue(plist, 'NSAllowsArbitraryLoadsForMedia'), isTrue);
+
+      final reformatted = podfile
+          .replaceAll("'", '"')
+          .replaceAll(' => ', '=>')
+          .replaceFirst(
+            'project "Runner", {',
+            '# a comment\nproject "Runner", {',
+          );
+      expect(reformatted, isNot(podfile));
+      expect(
+        podfileConfigurations(reformatted),
+        podfileConfigurations(podfile),
+      );
+    });
+  });
 
   group('parser mutations', () {
     final source = File('ios/Runner.xcodeproj/project.pbxproj')
@@ -212,10 +318,26 @@ final class XcodeProject {
       return '$name missing from a list with ${configurations.keys}';
     }
     final base = configurations[mode]?['baseConfigurationReference'];
-    if (configuration['baseConfigurationReference'] != base) {
+    final own = configuration['baseConfigurationReference'];
+    if (own != base && !_isPodsCounterpart(own, base, mode, name)) {
       return '$name is not based on the same xcconfig as $mode';
     }
     return null;
+  }
+
+  /// CocoaPods 給沒有 base xcconfig 的 target（`RunnerTests`）每個 configuration 一份自己的
+  /// `Pods-<target>.<configuration 小寫>.xcconfig`：[own] 是 [base] 那一份換成 [name] 的版本也算同一個 base。
+  bool _isPodsCounterpart(Object? own, Object? base, String mode, String name) {
+    if (own is! String || base is! String) return false;
+    final ownPath = _object(own)['path'];
+    final basePath = _object(base)['path'];
+    if (ownPath is! String || basePath is! String) return false;
+    final suffix = '.${mode.toLowerCase()}.xcconfig';
+    return basePath.contains('/Pods-') &&
+        basePath.endsWith(suffix) &&
+        ownPath ==
+            '${basePath.substring(0, basePath.length - suffix.length)}'
+                '.${name.toLowerCase()}.xcconfig';
   }
 }
 
@@ -234,6 +356,36 @@ String plistString(String plist, String key) {
   ).allMatches(plist).toList();
   expect(matches, hasLength(1), reason: key);
   return matches.single.group(1)!;
+}
+
+const sandboxEntitlement = 'com.apple.security.app-sandbox';
+const keychainGroupsEntitlement = 'keychain-access-groups';
+
+/// XML plist（entitlements）裡出現的每個 key。
+Set<String> plistKeys(String plist) => {
+  for (final match in RegExp(r'<key>\s*([^<]*?)\s*</key>').allMatches(plist))
+    match.group(1)!,
+};
+
+/// XML plist 裡 [key] 的值是不是 `<true/>`（沒有這個 key 也是否）。
+bool plistTrue(String plist, String key) =>
+    RegExp('<key>\\s*${RegExp.escape(key)}\\s*</key>\\s*<true\\s*/>')
+        .hasMatch(plist);
+
+String _podMode(String mode) => mode == 'Debug' ? 'debug' : 'release';
+
+/// Podfile 的 `project 'Runner', { 'Debug-dev' => :debug, ... }`：configuration 名稱對到 pod 的模式。
+Map<String, String> podfileConfigurations(String podfile) {
+  final withoutComments = podfile.replaceAll(RegExp(r'#[^\n]*'), '');
+  final block = RegExp(r'''project\s+['"]Runner['"]\s*,\s*\{([^}]*)\}''')
+      .firstMatch(withoutComments);
+  expect(block, isNotNull, reason: 'project Runner block');
+  return {
+    for (final match in RegExp(
+      r'''['"]([\w-]+)['"]\s*=>\s*:(debug|release)''',
+    ).allMatches(block!.group(1)!))
+      match.group(1)!: match.group(2)!,
+  };
 }
 
 /// OpenStep 格式（`project.pbxproj`）的 plist：字典、陣列、字串，含註解。
