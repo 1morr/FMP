@@ -21,7 +21,7 @@ lib/ui/
   offline/             # OfflineBanner（外殼）、OfflineMessage（頁面的離線空狀態）
   toast/               # Toaster、ToastHost；fmp_toast_entry 的允許目錄
   shell/               # AppShell（導覽、內容、播放列三區；每個目的地一個巢狀 Navigator）、導覽類快捷鍵表、
-                       # window_title_bar（Windows 自繪標題列 WindowTitleBar、根 Navigator 外的框 WindowFrame、拖曳區 WindowDragArea、activeWindowChromeProvider）、
+                       # window_title_bar（自繪標題列 WindowTitleBar（Windows 畫三顆鈕，macOS 留紅綠燈）、根 Navigator 外的框 WindowFrame、拖曳區 WindowDragArea、activeWindowChromeProvider）、
                        # PlaybackShortcuts（播放類快捷鍵表）、now_playing_panel（右側面板、把手、面板寬度規則）、
                        # legacy_side_rail（medium 以上的可展開側欄）、page_app_bar（每頁的置中頁頂 PageAppBar 與頁面的底 PageSurface）
   home/                # 首頁（區塊：排行、我的歌單、電台、最近播放；recentPlaysProvider；一排卡片 _ShelfRow：底色卡片、滑鼠移入的箭頭與漸層、滑鼠拖曳；卡片選單重用 PlaylistMenu、removeStation）
@@ -352,7 +352,7 @@ U PR 13（ADR 0035 R7.5–R7.10）的寫法：
   頁面接「關掉自己再請外殼切過去」（`openQueueProvider`）。
 - 返回鍵：寬版詳細面板開著時，頁面的 `PopScope(canPop: !面板開著)` 先關面板（同 Esc）。頁面自己要關（收合鈕、Ctrl+Q）時用 `_close`（最上層時直接 `pop`），不要用 `maybePop`：會被這個 `PopScope` 攔下。這是根 Navigator 上的 route，外殼的 `PopScope` 在下面的 route，
   不會同時動作；巢狀 Navigator 底下的頁面仍不放 `PopScope`（`app/AGENTS.md` § 介面的「返回鍵」）。
-- Windows 自繪標題列只有一條，在根 Navigator 外面（`WindowFrame`，`fmpAppBuilder` 接線），所有根 route（播放頁、Debug 頁、網頁登入、錯誤詳細）自動有，新的全螢幕 route 不用做任何事；
+- 自繪標題列（Windows、macOS）只有一條，在根 Navigator 外面（`WindowFrame`，`fmpAppBuilder` 接線），所有根 route（播放頁、Debug 頁、網頁登入、錯誤詳細）自動有，新的全螢幕 route 不用做任何事；
   不要在外殼或頁面裡再放 `WindowTitleBar`。播放頁頂列後面的 `WindowDragArea` 讓空白處也能拖曳視窗。`WindowFrame` 給 navigator 一個 `Semantics(container: true)`（ModalBarrier 的
   `BlockSemantics` 會把標題列從語意樹擋掉），測試語意樹用 `find.semantics`（IconButton 的 tooltip 在節點的 `tooltip`，不在 `label`）。
   `MaterialApp.builder` 一律用 `fmpAppBuilder`，不自己拼。

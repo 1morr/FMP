@@ -74,10 +74,11 @@
 
 ## PR 5：Mac 標題列（design §8）
 
-- `WindowChrome` 加 `captionButtons`、`leadingInset`；Windows 實作回 `drawn` 與 0。
-- `MacosWindowChrome`；`WindowTitleBar` 的 `systemLeading` 版型；`MainFlutterWindow` 讓紅綠燈垂直置中；有白閃的話一起修啟動閃爍。
+- `WindowChrome` 加 `captionButtons`、`titleBarHeight`；Windows 實作回 `drawn` 與 `null`。
+- `WindowManagerChrome` 帶 `captionButtons`，macOS 量系統標題區高度；`WindowTitleBar` 的 `systemLeading` 版型；有白閃的話一起修啟動閃爍。
+- App 圖示：`tool/make_macos_icon.py` 從 `assets/icon/app_icon.png` 產生圓角矩形圖示，取代 Flutter 的預設圖。
 - widget 測試：
-  - `systemLeading` 沒有三顆鈕、「FMP」置中、開頭留白跟著 `leadingInset`；
+  - `systemLeading` 沒有三顆鈕、「FMP」置中、高度是 `titleBarHeight`、點按與拖曳不經 Flutter；
   - `drawn` 的測試照舊。
 - 驗收：
   - Mac 實機：紅綠燈置中（截圖量）、拖曳、雙擊縮放一次、全螢幕進出、深淺主題、播放頁頂端拖曳；

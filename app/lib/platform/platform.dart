@@ -109,7 +109,7 @@ final class AppPlatform {
   ///
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
-  /// `WindowsSystemMediaControls.init`）；[windowsWindowChrome] 取代 Windows 自繪標題列的
+  /// `WindowsSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
@@ -117,6 +117,7 @@ final class AppPlatform {
     Future<SystemMediaControls> Function(Log log)? androidMediaControls,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
     Future<WindowChrome> Function()? windowsWindowChrome,
+    Future<WindowChrome> Function()? macosWindowChrome,
     String? legacyDirectory,
   }) => switch (platform) {
     TargetPlatform.android => AppPlatform._(
@@ -175,55 +176,63 @@ final class AppPlatform {
       windowsWindowChrome,
       legacyDirectory,
     ),
-    TargetPlatform.macOS => _macos(flavor, legacyDirectory),
+    TargetPlatform.macOS => _macos(flavor, macosWindowChrome, legacyDirectory),
     TargetPlatform.linux || TargetPlatform.iOS || TargetPlatform.fuchsia =>
       AppPlatform._(capabilities: PlatformCapabilities.none),
   };
 
-  static AppPlatform _macos(AppFlavor flavor, String? legacyDirectory) =>
-      AppPlatform._(
-        capabilities: const PlatformCapabilities(
-          dataDirectory: true,
-          // 原生端的單一實例檢查。
-          singleInstance: true,
-          fontFallback: macosFontFallback,
-          fontChoices: macosFontChoices,
-          playback: macosPlaybackSupport,
-          networkInterfaces: true,
-          cache: macosCacheSizes,
-          secureStorage: true,
-          files: true,
-          // 登入 WebView、自繪標題列、系統媒體控制之後的 PR 才接上。
-          loginWebView: false,
-          urlOpener: true,
-          restartsItself: true,
-          shareFiles: true,
-          pluginDevTools: true,
-          shortcutModifier: appleShortcutModifier,
+  static AppPlatform _macos(
+    AppFlavor flavor,
+    Future<WindowChrome> Function()? macosWindowChrome,
+    String? legacyDirectory,
+  ) => AppPlatform._(
+    capabilities: const PlatformCapabilities(
+      dataDirectory: true,
+      // 原生端的單一實例檢查。
+      singleInstance: true,
+      fontFallback: macosFontFallback,
+      fontChoices: macosFontChoices,
+      playback: macosPlaybackSupport,
+      networkInterfaces: true,
+      cache: macosCacheSizes,
+      secureStorage: true,
+      files: true,
+      // 登入 WebView、系統媒體控制之後的 PR 才接上。
+      loginWebView: false,
+      urlOpener: true,
+      restartsItself: true,
+      shareFiles: true,
+      pluginDevTools: true,
+      shortcutModifier: appleShortcutModifier,
+      // 系統的紅綠燈留著，其餘由 App 自繪（ADR 0035 §決定 6、ADR 0036 §決定 6）。
+      customTitleBar: true,
+    ),
+    appInfo: PackageInfoAppInfo(
+      platform: 'macOS',
+      osVersion: Platform.operatingSystemVersion,
+      homeDirectory: Platform.environment['HOME'],
+    ),
+    dataDirectory: MacosAppDataDirectory(
+      applicationSupportPath: () async =>
+          (await getApplicationSupportDirectory()).path,
+    ),
+    networkInterfaces: ConnectivityPlusInterfaces.system(),
+    cacheDirectory: CacheDirectory(applicationCachePath: _applicationCachePath),
+    secureStorage: FlutterSecureStorageAdapter.macos(flavor),
+    fileDialogs: const FilePickerDialogs(),
+    urlOpener: const UrlLauncherOpener(),
+    fileSharer: SharePlusFileSharer(),
+    windowChromeFactory:
+        macosWindowChrome ??
+        () => WindowManagerChrome.init(
+          captionButtons: CaptionButtons.systemLeading,
         ),
-        appInfo: PackageInfoAppInfo(
-          platform: 'macOS',
-          osVersion: Platform.operatingSystemVersion,
-          homeDirectory: Platform.environment['HOME'],
-        ),
-        dataDirectory: MacosAppDataDirectory(
-          applicationSupportPath: () async =>
-              (await getApplicationSupportDirectory()).path,
-        ),
-        networkInterfaces: ConnectivityPlusInterfaces.system(),
-        cacheDirectory: CacheDirectory(
-          applicationCachePath: _applicationCachePath,
-        ),
-        secureStorage: FlutterSecureStorageAdapter.macos(flavor),
-        fileDialogs: const FilePickerDialogs(),
-        urlOpener: const UrlLauncherOpener(),
-        fileSharer: SharePlusFileSharer(),
-        restarterFactory: MacosAppRestarter.system,
-        legacyDataLocator: macosLegacyDataLocator(
-          flavor: flavor,
-          devDirectory: legacyDirectory,
-        ),
-      );
+    restarterFactory: MacosAppRestarter.system,
+    legacyDataLocator: macosLegacyDataLocator(
+      flavor: flavor,
+      devDirectory: legacyDirectory,
+    ),
+  );
 
   static AppPlatform _windows(
     AppFlavor flavor,

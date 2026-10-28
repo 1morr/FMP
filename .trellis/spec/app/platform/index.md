@@ -17,9 +17,9 @@ lib/platform/
 現有的例子：`app_data_directory/`（介面＋兩個實作）、`fonts/`（值型別＋各平台的常數）、
 `shortcut_modifier/`（只有一個列舉 `ShortcutModifier` 與 Apple 平台的常數 `appleShortcutModifier`；宣告 `PlatformCapabilities.shortcutModifier` 預設 Ctrl，
 macOS／iOS 平台任務接上時填 `appleShortcutModifier`；UI 的快捷鍵表依它組，不判斷平台）、
-`window_chrome/`（自繪標題列要的視窗動作：介面 `WindowChrome`＋一個以套件命名的實作 `window_manager_chrome.dart`（Windows）；實作要啟動時初始化（隱藏系統標題列），
+`window_chrome/`（自繪標題列要的視窗動作：介面 `WindowChrome`＋一個以套件命名的實作 `window_manager_chrome.dart`（Windows、macOS，以 `captionButtons` 分兩種版型；macOS 在隱藏標題列前量系統標題區高度）；實作要啟動時初始化（隱藏系統標題列），
 所以宣告 `customTitleBar` 在組裝點、`AppPlatform.withWindowChrome` 在 `main()` 初始化，失敗時宣告改為沒有，做法同 `media_controls/`；套件的全域實例從建構子注入
-（`WindowManagerChrome.init(manager:)`），單元測試用 `implements WindowManager` 的假物件核對呼叫，隱藏標題列、拖曳只能在 Windows 實機驗。
+（`WindowManagerChrome.init(manager:)`），單元測試用 `implements WindowManager` 的假物件核對呼叫，隱藏標題列、拖曳只能在 Windows、Mac 實機驗。
 標題字串不動：單一實例以視窗類別加標題找第一個實例；UI 端的標題列只有一條，在根 Navigator 外面，見 ui spec）、
 `connectivity/`（介面＋一個實作給所有平台：差異都在套件的原生端時，實作檔以套件命名，
 `connectivity_plus_interfaces.dart`，組裝點各分支各建一個）、`cache_directory/`（沒有介面的
