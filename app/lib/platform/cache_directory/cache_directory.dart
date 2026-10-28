@@ -18,7 +18,7 @@ const cacheDirectoryName = 'fmp_cache';
 ///
 /// 只有快取模組（`lib/data/cache/`）與組裝點 import 這個檔案（lint
 /// `fmp_layer_imports` 的 `restrictedImports`）：其他模組不自己拿快取目錄。
-/// 兩個平台的差異都在 path_provider 的原生端，所以只有這一個實作，路徑由
+/// 各平台的差異都在 path_provider 的原生端，所以只有這一個實作，路徑由
 /// 組裝點注入。
 final class CacheDirectory {
   CacheDirectory({required this._applicationCachePath});

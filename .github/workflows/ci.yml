@@ -292,8 +292,9 @@ jobs:
   # 五個平台的建置（ADR 0009 §決定 9、ADR 0015 §決定 9），都建發出去的 prod
   # release；dev 由下面的整合測試與本機建置涵蓋。只有 macOS、iOS 另建 dev：
   # 兩者的 dev／prod Xcode scheme 與 build configuration 是手寫的，兩個都要有
-  # CI 守著。Linux、macOS、iOS 還沒有平台實作，App 只開「此平台尚未支援」，
-  # 這裡只證明建得起來。
+  # CI 守著。Linux、iOS 還沒有平台實作，App 只開「此平台尚未支援」，這裡只
+  # 證明建得起來；macOS 已有平台實作（尚缺系統媒體控制、自繪標題列、登入
+  # WebView），建置之外的行為靠本機實機驗證。
   app-build-android:
     name: App Build (Android)
     needs: changes

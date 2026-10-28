@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// 只回答「有沒有介面」：有介面不代表能上網（`connectivity_plus` 的 README
 /// 也這樣說），能不能上網由網路層以請求結果判斷（`network_status.dart`）。
-/// 實作只有 Android 與 Windows，由 `platform.dart` 組裝。
+/// 實作有 Android、Windows 與 macOS，由 `platform.dart` 組裝。
 abstract interface class NetworkInterfaces {
   /// 現在有沒有網路介面。
   Future<bool> check();

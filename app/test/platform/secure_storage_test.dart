@@ -51,6 +51,28 @@ void main() {
       expect(raw, {'fmp.a': 'two', 'foreign': 'three'});
     });
 
+    test('a whole-store delete does not list the keys first', () async {
+      // macOS 的登入 keychain：套件的 readAll 會回 -50，deleteAll 以 service 清整個儲存區。
+      var wholeStoreDeletes = 0;
+      final macos = FlutterSecureStorageAdapter(
+        prefix: 'fmp-dev.',
+        read: (key) async => raw[key],
+        write: (key, value) async => raw[key] = value,
+        delete: (key) async => raw.remove(key),
+        readAll: () => throw StateError('errSecParam (-50)'),
+        deleteWholeStore: () async {
+          wholeStoreDeletes++;
+          raw.clear();
+        },
+      );
+      await macos.write('a', 'one');
+
+      await macos.deleteAll();
+
+      expect(wholeStoreDeletes, 1);
+      expect(raw, isEmpty);
+    });
+
     for (final key in ['', 'Upper', 'a:b', 'a/b', 'a_b', '.dot', 'a b']) {
       test('the key "$key" is rejected', () async {
         await expectLater(dev.read(key), throwsArgumentError);
@@ -70,6 +92,21 @@ void main() {
       );
 
       await expectLater(failing.read('a'), throwsStateError);
+    });
+  });
+
+  group('macOS options', () {
+    test('use the login keychain and a per-flavor account', () {
+      for (final flavor in AppFlavor.values) {
+        final options = FlutterSecureStorageAdapter.macOsOptionsFor(flavor);
+
+        // data protection keychain 要開發者帳號簽章的 entitlement（ADR 0036）。
+        expect(options.usesDataProtectionKeychain, isFalse);
+        expect(
+          options.accountName,
+          flavor == AppFlavor.dev ? 'fmp-dev' : 'fmp',
+        );
+      }
     });
   });
 

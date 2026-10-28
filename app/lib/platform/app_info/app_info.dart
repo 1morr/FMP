@@ -43,7 +43,7 @@ final class AppInfo {
       'osVersion: $osVersion, homeDirectory: $homeDirectory)';
 }
 
-/// 讀 [AppInfo]。實作有 Android 與 Windows（`package_info_app_info.dart`），由
+/// 讀 [AppInfo]。實作有 Android、Windows 與 macOS（`package_info_app_info.dart`），由
 /// `platform.dart` 組裝；`main()` 在 `runApp` 之前讀一次。
 abstract interface class AppInfoReader {
   /// 使用者的家目錄（[AppInfo.homeDirectory]）。同步給：`main()` 在寫第一筆 log 之前就要登記

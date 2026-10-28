@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:fmp/platform/files/files.dart';
 
-/// [FileDialogs] 的實作，Android 與 Windows 共用：兩個平台的差異都在 `file_picker`
+/// [FileDialogs] 的實作，Android、Windows 與 macOS 共用：各平台的差異都在 `file_picker`
 /// 的原生端（Android 走 SAF 的 `ACTION_OPEN_DOCUMENT`，Windows 是系統的開檔對話框）。
 final class FilePickerDialogs implements FileDialogs {
   const FilePickerDialogs();

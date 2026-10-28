@@ -7,20 +7,25 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory_macos.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
 import 'package:fmp/platform/app_restart/app_restart_android.dart';
+import 'package:fmp/platform/app_restart/app_restart_macos.dart';
 import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
+import 'package:fmp/platform/audio/audio_macos.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_macos.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/files/file_picker_dialogs.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
+import 'package:fmp/platform/fonts/fonts_macos.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
@@ -151,9 +156,65 @@ void main() {
       expect(platform.capabilities.shortcutModifier, ShortcutModifier.control);
     });
 
+    test('macOS has a data directory, a single instance, PingFang fonts, '
+        'plays with just_audio without WebM, and leaves the pieces of '
+        'later PRs undeclared', () {
+      final platform = AppPlatform.assemble(
+        TargetPlatform.macOS,
+        AppFlavor.dev,
+      );
+
+      expect(platform.capabilities.dataDirectory, isTrue);
+      expect(platform.dataDirectory, isA<MacosAppDataDirectory>());
+      final appInfo = platform.appInfo! as PackageInfoAppInfo;
+      expect(appInfo.platform, 'macOS');
+      expect(appInfo.osVersion, Platform.operatingSystemVersion);
+      expect(appInfo.homeDirectory, Platform.environment['HOME']);
+      expect(platform.capabilities.singleInstance, isTrue);
+      expect(platform.capabilities.fontFallback, same(macosFontFallback));
+      expect(platform.capabilities.fontChoices, macosFontChoices);
+      expect(macosFontChoices, ['PingFang TC', 'PingFang SC', 'Hiragino Sans']);
+      expect(macosFontFallback.traditionalChinese, ['PingFang TC']);
+      expect(macosFontFallback.simplifiedChinese, ['PingFang SC']);
+      expect(platform.capabilities.playback, same(macosPlaybackSupport));
+      expect(
+        platform.capabilities.playback?.backend,
+        AudioBackendKind.justAudio,
+      );
+      expect(platform.capabilities.playback?.outputDeviceSelection, isFalse);
+      // AVPlayer 不播 WebM；HLS 之後的 PR 才加。
+      expect(
+        macosPlaybackSupport.formats.map((f) => '${f.container}/${f.codec}'),
+        ['mp4/aac', 'mp3/mp3', 'flac/flac', 'wav/pcm_s16le'],
+      );
+      expect(platform.capabilities.networkInterfaces, isTrue);
+      expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
+      expect(platform.capabilities.cache, same(macosCacheSizes));
+      expect(platform.cacheDirectory, isA<CacheDirectory>());
+      expect(platform.capabilities.secureStorage, isTrue);
+      expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
+      expect(platform.capabilities.files, isTrue);
+      expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.urlOpener, isTrue);
+      expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.capabilities.pluginDevTools, isTrue);
+      expect(platform.fileSharer, isA<SharePlusFileSharer>());
+      expect(platform.capabilities.restartsItself, isTrue);
+      expect(platform.restarter, isA<MacosAppRestarter>());
+      expect(platform.legacyDataLocator, isNotNull);
+      expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
+      // 之後的 PR 接上：登入 WebView、自繪標題列、系統媒體控制。
+      expect(platform.capabilities.loginWebView, isFalse);
+      expect(platform.loginWebView, isNull);
+      expect(platform.capabilities.customTitleBar, isFalse);
+      expect(platform.windowChrome, isNull);
+      expect(platform.capabilities.mediaControls, isNull);
+      expect(platform.mediaControls, isNull);
+    });
+
     for (final unverified in [
       TargetPlatform.linux,
-      TargetPlatform.macOS,
       TargetPlatform.iOS,
       TargetPlatform.fuchsia,
     ]) {
@@ -392,13 +453,26 @@ void main() {
     expect(windowsCacheSizes.defaultLimitBytes, 256 * 1024 * 1024);
     expect(windowsCacheSizes.memoryImages, 200);
     expect(windowsCacheSizes.memoryImageBytes, 80 * 1024 * 1024);
+    expect(
+      macosCacheSizes.defaultLimitBytes,
+      windowsCacheSizes.defaultLimitBytes,
+    );
+    expect(macosCacheSizes.memoryImages, windowsCacheSizes.memoryImages);
+    expect(
+      macosCacheSizes.memoryImageBytes,
+      windowsCacheSizes.memoryImageBytes,
+    );
   });
 
   test(
-    'both verified platforms can play the test plugin and the M1 sources',
+    'every verified platform can play the test plugin and the M1 sources',
     () {
       // 測試插件的 WAV，B 站的 DASH 音訊（fMP4／AAC）：插件照這張表挑候選。
-      for (final support in [androidPlaybackSupport, windowsPlaybackSupport]) {
+      for (final support in [
+        androidPlaybackSupport,
+        windowsPlaybackSupport,
+        macosPlaybackSupport,
+      ]) {
         expect(
           support.formats,
           containsAll(const [

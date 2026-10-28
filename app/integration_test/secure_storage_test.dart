@@ -2,6 +2,7 @@ import 'package:flutter/services.dart' show appFlavor;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
+import 'package:fmp/platform/platform.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -9,7 +10,12 @@ import 'package:integration_test/integration_test.dart';
 // （design §6.1）。只用假值；只在 dev 跑，`deleteAll` 不能碰 prod 的憑證。
 //
 //   flutter test integration_test/secure_storage_test.dart -d windows
+//   flutter test integration_test/secure_storage_test.dart -d macos
 //   flutter test integration_test/secure_storage_test.dart -d <模擬器>
+//
+// 用平台層組出的實作（macOS 是 `FlutterSecureStorageAdapter.macos`，登入 keychain、以 service 清除）。
+// 「另一個前綴」的鍵：Android、Windows 和 App 在同一個儲存區、只差前綴；macOS 在另一個 service，
+// 那個 service 只屬於這個測試。
 //
 // Windows 另外確認 dev 的 `.secure` 檔在 dev 的 application support 目錄
 // （%APPDATA%\<公司>\fmp-dev\），不在 prod 的目錄。
@@ -22,12 +28,16 @@ void main() {
   ) async {
     final flavor = AppFlavor.parse(appFlavor);
     expect(flavor, AppFlavor.dev, reason: 'deleteAll must not touch prod');
-    final storage = FlutterSecureStorageAdapter.system(flavor);
+    final storage = AppPlatform.current(flavor).secureStorage!;
     // 另一個前綴的鍵：直接用套件寫，`deleteAll` 不能動它。
     const foreignKey = 'fmp-integration-foreign.value';
     // 套件的 Android 選項與 App 一致，免得換了 namespace 看不到同一份資料。
     final rawStorage = FlutterSecureStorage(
       aOptions: FlutterSecureStorageAdapter.androidOptions(flavor),
+      mOptions: const MacOsOptions(
+        usesDataProtectionKeychain: false,
+        accountName: 'fmp-integration-foreign',
+      ),
     );
     addTearDown(() async {
       await storage.deleteAll();

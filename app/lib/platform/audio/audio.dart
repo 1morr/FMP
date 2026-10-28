@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 /// 播放後端的兩個實作（ADR 0018 §決定 3）。平台層只宣告用哪一個，實作在
 /// `lib/playback/backends/`（`just_audio`、`media_kit` 只准在那裡 import）。
 enum AudioBackendKind {
-  /// `just_audio`：Android（之後 iOS、macOS）。
+  /// `just_audio`：Android、macOS（之後 iOS）。
   justAudio,
 
   /// `media_kit`（libmpv）：Windows（之後 Linux）。
