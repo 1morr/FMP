@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/domain/appearance.dart';
 import 'package:fmp/domain/output_device.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -29,6 +30,10 @@ Widget _shell(double width, double height) {
     height: height,
     child: ProviderScope(
       overrides: [
+        // 按鈕的提示文字讀快捷鍵的修飾鍵：Ctrl。
+        platformCapabilitiesProvider.overrideWithValue(
+          PlatformCapabilities.none,
+        ),
         translationsProvider.overrideWithValue(AppLocale.zhTw.buildSync()),
         playbackQueueProvider.overrideWithValue(
           AsyncData(

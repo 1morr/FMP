@@ -2827,8 +2827,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   播放；`in the search field Ctrl+S, Ctrl+R and Ctrl+Up stay with the field; Esc leaves it`；新鍵各一例；
   `with a dialog open playback shortcuts do nothing and Esc closes the dialog`；`Ctrl+Q works while typing in the search field`、`Ctrl+L does nothing`）。
   兩組修飾鍵：`shortcut_modifier_test.dart`（表的矩陣：Ctrl 組沒有 meta、⌘ 組沒有 Ctrl 且每個 Ctrl 鍵有 ⌘ 的對應、開佇列是 Ctrl+Q／⌥⌘U、沒有 ⌘Q、沒有 Ctrl+L；
-  以 `ShellHarness(shortcutModifier:)` 的假宣告跑 ⌘F、⌘,、⌥⌘U（含輸入框裡）、⌘S／R／→，另一組修飾鍵的鍵不作用）。tooltip 裡寫的 `Ctrl+…` 字串目前
-  不隨平台換成 ⌘（翻譯檔寫死 `Ctrl+…`），macOS 的後續 PR 處理。
+  以 `ShellHarness(shortcutModifier:)` 的假宣告跑 ⌘F、⌘,、⌥⌘U（含輸入框裡）、⌘S／R／→，另一組修飾鍵的鍵不作用）。tooltip 裡的按鍵由 `shortcut_label.dart` 的 `shortcutLabel` 從表實際用的
+  `SingleActivator` 產生（翻譯檔只有 `{shortcut}` 佔位；Apple 平台寫 `⌘F`、`⌥⌘U`、`⇧←`），`shortcut_label_test.dart` 釘住。
 - 播放頁（`lib/ui/player/player_page.dart`，design §9.3、§9.5、§9.6，ADR 0024 §決定 4）：
   - 開關：點播放列曲名與封面那一塊（`InkWell`，點擊區與右邊的按鈕分開，語意是按鈕、「開啟播放頁」放在 hint）開；
     `openPlayerPage` 把 `_PlayerPageRoute`（`PageRouteBuilder` 的子類別，

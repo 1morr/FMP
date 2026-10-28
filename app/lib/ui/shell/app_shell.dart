@@ -11,6 +11,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/plugins/accounts/account_guard.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/playback/playback_events.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
@@ -38,6 +39,7 @@ import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:fmp/ui/shell/open_search.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
+import 'package:fmp/ui/shell/shortcut_label.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/toast/toast_host.dart';
 import 'package:fmp/ui/toast/toaster.dart';
@@ -411,6 +413,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     // 記住的版面狀態先讀好，播放頁一開就是上次的分頁。
     ref.listen(layoutStateProvider, (_, _) {});
     final t = ref.watch(translationsProvider).shell;
+    final shortcutModifier = ref.watch(
+      platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+    );
     // 收聽直播時沒有曲目（`current` 是 `null`），播放列照樣在（直播版）。
     final hasTrack = ref.watch(
       playbackQueueProvider.select((queue) => hasNowPlaying(queue.value)),
@@ -515,7 +520,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final index = _destination.index;
     final destinations = [
       for (final destination in ShellDestination.values)
-        _destinationLabel(destination, t),
+        _destinationLabel(destination, t, shortcutModifier),
     ];
 
     final body = switch (windowClass) {
@@ -683,6 +688,7 @@ final class _EscapeAction extends Action<EscapeIntent> {
 ShellDestinationLabel _destinationLabel(
   ShellDestination destination,
   Translations$shell$zh_TW t,
+  ShortcutModifier modifier,
 ) => switch (destination) {
   ShellDestination.home => (
     icon: Icons.home_outlined,
@@ -694,7 +700,9 @@ ShellDestinationLabel _destinationLabel(
     icon: Icons.search_outlined,
     selectedIcon: Icons.search,
     label: t.search,
-    tooltip: t.searchTooltip,
+    tooltip: t.searchTooltip(
+      shortcut: shortcutLabel(searchChord(modifier), modifier),
+    ),
   ),
   ShellDestination.library => (
     icon: Icons.library_music_outlined,
@@ -706,7 +714,9 @@ ShellDestinationLabel _destinationLabel(
     icon: Icons.queue_music_outlined,
     selectedIcon: Icons.queue_music,
     label: t.queue,
-    tooltip: t.queueTooltip,
+    tooltip: t.queueTooltip(
+      shortcut: shortcutLabel(queueChord(modifier), modifier),
+    ),
   ),
   ShellDestination.radio => (
     icon: Icons.radio_outlined,
@@ -718,7 +728,9 @@ ShellDestinationLabel _destinationLabel(
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
     label: t.settings,
-    tooltip: t.settingsTooltip,
+    tooltip: t.settingsTooltip(
+      shortcut: shortcutLabel(settingsChord(modifier), modifier),
+    ),
   ),
 };
 

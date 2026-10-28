@@ -5,10 +5,14 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/loop_mode.dart';
 import 'package:fmp/i18n/strings.g.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
+import 'package:fmp/platform/shortcut_modifier/shortcut_modifier.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/ui/format/duration_text.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/shell/playback_shortcuts.dart';
+import 'package:fmp/ui/shell/shortcut_label.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 
 // 播放列與播放頁共用的播放控制（M2 PR 18a 從 `player_bar.dart` 抽出）：隨機、循環、
@@ -28,6 +32,15 @@ String? playbackStatusLabel(
   _ => null,
 };
 
+/// 平台宣告的主修飾鍵：提示文字的快捷鍵寫法跟它走。
+ShortcutModifier _modifier(WidgetRef ref) =>
+    ref.watch(platformCapabilitiesProvider.select((c) => c.shortcutModifier));
+
+String _label(SingleActivator Function(ShortcutModifier) chord, WidgetRef ref) {
+  final modifier = _modifier(ref);
+  return shortcutLabel(chord(modifier), modifier);
+}
+
 /// 上一首。第一首時回到這首開頭，所以一直可以按。
 class PreviousButton extends ConsumerWidget {
   const PreviousButton({super.key, this.iconSize});
@@ -40,7 +53,7 @@ class PreviousButton extends ConsumerWidget {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
       iconSize: iconSize,
-      tooltip: t.previousTooltip,
+      tooltip: t.previousTooltip(shortcut: _label(previousChord, ref)),
       icon: const Icon(Icons.skip_previous),
       onPressed: () =>
           unawaited(ref.read(playbackControllerProvider).previous()),
@@ -62,7 +75,7 @@ class NextButton extends ConsumerWidget {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
       iconSize: iconSize,
-      tooltip: t.nextTooltip,
+      tooltip: t.nextTooltip(shortcut: _label(nextChord, ref)),
       icon: const Icon(Icons.skip_next),
       onPressed: enabled
           ? () => unawaited(ref.read(playbackControllerProvider).next())
@@ -84,7 +97,9 @@ class ShuffleButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
-      tooltip: locked ? t.shuffleInMixTooltip : t.shuffleTooltip,
+      tooltip: locked
+          ? t.shuffleInMixTooltip
+          : t.shuffleTooltip(shortcut: _label(shuffleChord, ref)),
       isSelected: enabled,
       icon: const Icon(Icons.shuffle),
       onPressed: locked
@@ -107,7 +122,12 @@ class LoopButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).player;
     return IconButton(
-      tooltip: loopTooltip(t, mode, inMix: inMix),
+      tooltip: loopTooltip(
+        t,
+        mode,
+        shortcut: _label(loopChord, ref),
+        inMix: inMix,
+      ),
       isSelected: mode != LoopMode.off,
       icon: Icon(loopIcon(mode)),
       onPressed: () => ref.read(playbackControllerProvider).cycleLoopMode(),
@@ -121,16 +141,23 @@ IconData loopIcon(LoopMode mode) => switch (mode) {
   LoopMode.one => Icons.repeat_one,
 };
 
-/// 循環模式的 tooltip：名稱附按鍵 Ctrl+R（同時是按鈕的語意名稱）。
+/// 循環模式的 tooltip：名稱附按鍵 [shortcut]（同時是按鈕的語意名稱）。
 String loopTooltip(
   Translations$player$zh_TW t,
   LoopMode mode, {
+  required String shortcut,
   bool inMix = false,
 }) => switch (mode) {
-  LoopMode.off => inMix ? t.loopOffInMixTooltip : t.loopOffTooltip,
+  LoopMode.off =>
+    inMix
+        ? t.loopOffInMixTooltip(shortcut: shortcut)
+        : t.loopOffTooltip(shortcut: shortcut),
   // Mix 中不會是 all（佇列模型改成了關）。
-  LoopMode.all => t.loopAllTooltip,
-  LoopMode.one => inMix ? t.loopOneInMixTooltip : t.loopOneTooltip,
+  LoopMode.all => t.loopAllTooltip(shortcut: shortcut),
+  LoopMode.one =>
+    inMix
+        ? t.loopOneInMixTooltip(shortcut: shortcut)
+        : t.loopOneTooltip(shortcut: shortcut),
 };
 
 /// 循環模式的名稱（選單項目）；[inMix] 時註明沒有「全部」。

@@ -177,21 +177,21 @@ void main() {
   });
 
   // ADR 0024 §決定 8：有快捷鍵的按鈕，tooltip 附上按鍵（三語言都要）。按鍵是固定
-  // 的，寫在 `playback_shortcuts.dart` 的表裡，改那邊要一起改這些字串。
+  // 的，寫在 `playback_shortcuts.dart` 的表裡；有組合鍵的 tooltip 只放佔位，按鍵由 `shortcutLabel` 從表產生（`shortcut_label_test.dart`）。
   group('tooltips carry the shortcut', () {
     const keys = {
       'player.playTooltip': ['Space', '空白鍵', '空格键'],
       'player.pauseTooltip': ['Space', '空白鍵', '空格键'],
-      'player.previousTooltip': ['Ctrl+←'],
-      'player.nextTooltip': ['Ctrl+→'],
-      'player.shuffleTooltip': ['Ctrl+S'],
-      'player.loopOffTooltip': ['Ctrl+R'],
-      'player.loopAllTooltip': ['Ctrl+R'],
-      'player.loopOneTooltip': ['Ctrl+R'],
-      'player.volumeTooltip': ['Ctrl+↑'],
+      'player.previousTooltip': ['{shortcut}'],
+      'player.nextTooltip': ['{shortcut}'],
+      'player.shuffleTooltip': ['{shortcut}'],
+      'player.loopOffTooltip': ['{shortcut}'],
+      'player.loopAllTooltip': ['{shortcut}'],
+      'player.loopOneTooltip': ['{shortcut}'],
+      'player.volumeTooltip': ['{up}'],
       'playerPage.closeTooltip': ['Esc'],
       'shell.backTooltip': ['Esc'],
-      'shell.queueTooltip': ['Ctrl+Q'],
+      'shell.queueTooltip': ['{shortcut}'],
     };
     for (final MapEntry(key: locale, value: strings) in catalog.entries) {
       test('in $locale', () {

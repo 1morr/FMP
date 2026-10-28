@@ -212,9 +212,10 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   @override
   String get settings => 'Settings';
   @override
-  String get searchTooltip => 'Search (Ctrl+F)';
+  String searchTooltip({required Object shortcut}) => 'Search (${shortcut})';
   @override
-  String get settingsTooltip => 'Settings (Ctrl+,)';
+  String settingsTooltip({required Object shortcut}) =>
+      'Settings (${shortcut})';
   @override
   String get radio => 'Radio';
   @override
@@ -224,7 +225,7 @@ class Translations$shell$en extends Translations$shell$zh_TW {
   @override
   String get railExpandTooltip => 'Expand side bar';
   @override
-  String get queueTooltip => 'Queue (Ctrl+Q)';
+  String queueTooltip({required Object shortcut}) => 'Queue (${shortcut})';
   @override
   String get queueEmptyTitle => 'The queue is empty';
   @override
@@ -1038,7 +1039,8 @@ class Translations$selection$en extends Translations$selection$zh_TW {
   @override
   String get cancelTooltip => 'Cancel selection (Esc)';
   @override
-  String get selectAllTooltip => 'Select all (Ctrl+A)';
+  String selectAllTooltip({required Object shortcut}) =>
+      'Select all (${shortcut})';
   @override
   String get playNext => 'Play next';
   @override
@@ -1801,9 +1803,10 @@ class Translations$player$en extends Translations$player$zh_TW {
   @override
   String get pauseTooltip => 'Pause (Space)';
   @override
-  String get previousTooltip => 'Previous (Ctrl+←)';
+  String previousTooltip({required Object shortcut}) =>
+      'Previous (${shortcut})';
   @override
-  String get nextTooltip => 'Next (Ctrl+→)';
+  String nextTooltip({required Object shortcut}) => 'Next (${shortcut})';
   @override
   String get progress => 'Playback position';
   @override
@@ -1846,29 +1849,35 @@ class Translations$player$en extends Translations$player$zh_TW {
   String get outputDeviceFellBack =>
       'The audio output device is unavailable; switched to the system default';
   @override
-  String get shuffleTooltip => 'Shuffle (Ctrl+S)';
+  String shuffleTooltip({required Object shortcut}) => 'Shuffle (${shortcut})';
   @override
   String get shuffleInMixTooltip => 'Shuffle is unavailable in a Mix';
   @override
   String get shuffleInMix => 'Shuffle (unavailable in a Mix)';
   @override
-  String get loopOffTooltip => 'Repeat: off (Ctrl+R)';
+  String loopOffTooltip({required Object shortcut}) =>
+      'Repeat: off (${shortcut})';
   @override
-  String get loopAllTooltip => 'Repeat: all (Ctrl+R)';
+  String loopAllTooltip({required Object shortcut}) =>
+      'Repeat: all (${shortcut})';
   @override
-  String get loopOneTooltip => 'Repeat: one (Ctrl+R)';
+  String loopOneTooltip({required Object shortcut}) =>
+      'Repeat: one (${shortcut})';
   @override
   String get loopOffInMix => 'Repeat: off (no "all" in a Mix)';
   @override
   String get loopOneInMix => 'Repeat: one (no "all" in a Mix)';
   @override
-  String get loopOffInMixTooltip => 'Repeat: off (Ctrl+R; no "all" in a Mix)';
+  String loopOffInMixTooltip({required Object shortcut}) =>
+      'Repeat: off (${shortcut}; no "all" in a Mix)';
   @override
-  String get loopOneInMixTooltip => 'Repeat: one (Ctrl+R; no "all" in a Mix)';
+  String loopOneInMixTooltip({required Object shortcut}) =>
+      'Repeat: one (${shortcut}; no "all" in a Mix)';
   @override
   String get volume => 'Volume';
   @override
-  String get volumeTooltip => 'Volume (Ctrl+↑/↓)';
+  String volumeTooltip({required Object up, required Object down}) =>
+      'Volume (${up}/${down})';
   @override
   String get mute => 'Mute';
   @override

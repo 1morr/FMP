@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/track_info.dart';
+import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/playback/playback_providers.dart';
 import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
@@ -17,6 +18,8 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/shell/playback_shortcuts.dart';
+import 'package:fmp/ui/shell/shortcut_label.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
@@ -475,8 +478,14 @@ class _VolumeMenu extends ConsumerWidget {
     final t = ref.watch(translationsProvider).player;
     final state =
         ref.watch(playbackVolumeProvider).value ?? (volume: 1.0, muted: false);
+    final modifier = ref.watch(
+      platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+    );
     return IconMenu(
-      tooltip: t.volumeTooltip,
+      tooltip: t.volumeTooltip(
+        up: shortcutLabel(volumeUpChord(modifier), modifier),
+        down: shortcutKeyLabel(volumeDownChord(modifier).trigger),
+      ),
       icon: Icon(volumeIcon(state.volume, muted: state.muted)),
       menuChildren: const [
         Row(

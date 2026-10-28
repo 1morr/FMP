@@ -14,6 +14,7 @@ import 'package:fmp/ui/library/add_to_playlist.dart';
 import 'package:fmp/ui/library/add_to_remote.dart';
 import 'package:fmp/ui/library/remote_write_state.dart';
 import 'package:fmp/ui/shell/shell_shortcuts.dart';
+import 'package:fmp/ui/shell/shortcut_label.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 import 'package:fmp/ui/toast/toaster.dart';
 import 'package:fmp/ui/tracks/start_mix.dart';
@@ -295,10 +296,7 @@ class _TrackSelectionScopeState<K>
       platformCapabilitiesProvider.select((c) => c.shortcutModifier),
     );
     return Shortcuts(
-      shortcuts: {
-        primaryChord(LogicalKeyboardKey.keyA, modifier):
-            const _SelectAllIntent(),
-      },
+      shortcuts: {selectAllChord(modifier): const _SelectAllIntent()},
       child: Actions(
         actions: {_SelectAllIntent: _SelectAllAction(widget.selection)},
         child: Focus(
@@ -441,6 +439,9 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
     final spacing = tokens.spacing;
     final colors = theme.colorScheme;
     final inMix = ref.watch(inMixProvider);
+    final modifier = ref.watch(
+      platformCapabilitiesProvider.select((c) => c.shortcutModifier),
+    );
     final running = _running;
     final pluginIds = widget.pluginIds;
     final remote = pluginIds == null
@@ -550,7 +551,12 @@ class _TrackSelectionBarState<K> extends ConsumerState<TrackSelectionBar<K>> {
                     )
                   else
                     IconButton(
-                      tooltip: t.selectAllTooltip,
+                      tooltip: t.selectAllTooltip(
+                        shortcut: shortcutLabel(
+                          selectAllChord(modifier),
+                          modifier,
+                        ),
+                      ),
                       icon: const Icon(Icons.select_all),
                       onPressed: running ? null : selection.selectAll,
                     ),
