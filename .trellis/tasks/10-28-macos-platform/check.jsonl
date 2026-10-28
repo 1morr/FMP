@@ -1,0 +1,4 @@
+{"file": "docs/adr/0036-macos-platform.md", "reason": "審查實作有沒有照 macOS 的決定"}
+{"file": ".trellis/tasks/10-28-macos-platform/design.md", "reason": "審查各 PR 是否照設計、測試是否補齊"}
+{"file": ".trellis/spec/app/platform/index.md", "reason": "平台層的寫法：平台判斷只在組裝點、注入、宣告與實作對得上"}
+{"file": ".trellis/spec/app/testing/index.md", "reason": "閘門的雙向變異驗證"}

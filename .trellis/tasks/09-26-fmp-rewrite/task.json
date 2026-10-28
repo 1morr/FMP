@@ -47,7 +47,8 @@
     "10-08-m3-sources-accounts-devtools",
     "10-15-m4-library-sync",
     "10-22-m5-legacy-import",
-    "10-24-ui-legacy-parity"
+    "10-24-ui-legacy-parity",
+    "10-28-macos-platform"
   ],
   "parent": null,
   "relatedFiles": [],
