@@ -19,7 +19,7 @@
 | M8 | 桌面整合 | M2 | 未開始 |
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
 | L | Linux 平台 | M1、Mac 到貨 | 已開任務，延後到 Mac 上與 macOS、iOS 一起做（`10-01-linux-platform`） |
-| Mac | macOS 平台 | U | 進行中（任務 `10-28-macos-platform`；ADR 0036） |
+| Mac | macOS 平台 | U | 驗收中（任務 `10-28-macos-platform`，FMP #352–#362、fmp-plugins #28；ADR 0036） |
 | iOS | iOS 平台 | Mac | 未開始 |
 
 - M6、M7 互不依賴，可以對調。
@@ -190,6 +190,7 @@
 - **驗收**：
   - [ ] 兩平台端到端操作
   - [ ] §8：桌面歌詞、Android 懸浮歌詞、逐字的里程碑實測（ADR 0021）
+  - [ ] §8：macOS 桌面歌詞（ADR 0021；macOS 平台任務移來）
 
 ## M8 桌面整合
 
@@ -211,6 +212,7 @@
   - [ ] 真實資料副本完整匯入，並比對筆數
   - [ ] 從 v1.11.0 實際升級：Android、Windows 安裝版、Windows 免安裝版（§8，ADR 0022）
   - [ ] Windows 自行下載的安裝檔不帶 Mark of the Web
+  - [ ] macOS App 自行下載的更新不帶 quarantine（ADR 0022；macOS 平台任務移來）
   - [ ] App 身分比對（ADR 0008）
   - [ ] 試用 2 週，沒有未解決的阻擋性 bug
 
@@ -222,10 +224,10 @@
   - [ ] §8：沒有 keyring 時的 secure storage（ADR 0012）
   - [ ] §8：X11／Wayland 桌面歌詞（ADR 0021）
   - [ ] §8：AppImage 改名替換（ADR 0022）
-- **macOS**（Mac 到貨後）：
-  - [ ] §8：AVPlayer 對 B 站 DASH 與直播 HLS（ADR 0018）
-  - [ ] §8：桌面歌詞（ADR 0021）
-  - [ ] §8：更新不帶 quarantine（ADR 0022）
+- **macOS**（任務 `10-28-macos-platform`，ADR 0036）：
+  - [x] §8：AVPlayer 對 B 站 DASH 與直播 HLS（ADR 0018）：2026-10-28 實機播放成功。直播走 h5 的 HLS，B 站插件 1.12.0 起支援。紀錄在任務的 `research/macos-acceptance.md`。
+  - 桌面歌詞移到 M7（那時才有東西可測），更新不帶 quarantine 移到 M9（應用內更新在 M9），兩項都列在各自的驗收。
+  - 之後每個里程碑在 Mac 上跑一次冒煙測試（ADR 0027），步驟見 `verify-on-device` 的 `references/macos.md`。
 - **iOS**（Mac 到貨後，實機與付費帳號在該任務決定）：
   - [ ] §8：AVPlayer 對 B 站 DASH 與直播 HLS（ADR 0018）
   - [ ] §8：Live Activity 本機逐行更新（ADR 0021）
