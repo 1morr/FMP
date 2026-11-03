@@ -395,11 +395,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`。系統分享視窗本身只能實機驗。
 
 - 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
-  Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
+  Windows、iOS），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
   `windows/CMakeLists.txt` 的 STL1011 define 才建得起來）。介面只開頁、報「一頁載入完成」、讀 cookie、清全部 cookie、重建環境，
   完成與否由呼叫端判斷（見「帳號」）。
   - UA 由這一層決定，不由插件給：Android 是系統 WebView 的 UA 拿掉 `; wv`／`;wv`（`androidLoginUserAgent`，R1：桌面 UA
-    與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入）。
+    與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入），iOS 補成 Safari 的形狀
+    （`iosLoginUserAgent`：WKWebView 預設 UA 沒有 `Version/…`、`Safari/…`，Google 當嵌入式 WebView 擋；系統版本由組裝點
+    以 `iosMajorMinorVersion(Platform.operatingSystemVersion)` 給，ADR 0037 §決定 11）。iOS 沒有 WebView 環境，cookie 經 WKWebView 的 cookie store。
   - Windows 的 WebView2 使用者資料在資料目錄的 `webview/`（`loginWebViewDirectoryName`；不給的話是程式旁的
     `fmp.exe.WebView2`，dev 與 prod 混在一起），環境第一次用到才建，`reset` 後重建（同一個目錄，登入狀態留著）。
     cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。環境這一段（目錄位置、延後建立、`reset`、讀刪經同一個
@@ -407,7 +409,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   - `cookies(hosts)` 只回問到的網址讀得到的（`getCookies`），同名時前面的網址優先。刪除只有 `clearAll`
     （`deleteAllCookies`）：Google 會把工作階段 cookie 寫到地區網域、分區（CHIPS）cookie 以網址刪不到，所以不以網址刪
     （ADR 0029 §決定 11 更正）；平台可能靜默失敗，由呼叫端用 `cookies` 確認。
-  - 閘門：`login_webview_test.dart`（UA 三種、只回問到的網址、`clearAll`）、`platform_test.dart`。cookie 真的刪掉只能
+  - 閘門：`login_webview_test.dart`（UA 三種加 iOS、版本解析、只回問到的網址、`clearAll`）、`platform_test.dart`、`webview_stub_test.dart`（iOS 解析到真的 `flutter_inappwebview_ios`）。cookie 真的刪掉只能
     實機驗（登出後以名稱檢查）。
   - Linux 沒有登入 WebView（ADR 0012 §決定 8）：App 直接依賴本機的 `packages/flutter_inappwebview_linux_stub`（純 Dart、
     什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：

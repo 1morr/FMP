@@ -271,11 +271,11 @@ void main() {
       expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
       expect(platform.capabilities.customTitleBar, isFalse);
       expect(platform.windowChrome, isNull);
-      // 系統媒體控制（PR 5）與登入 WebView（PR 7）還沒接。
+      // 系統媒體控制（PR 5）還沒接。
       expect(platform.capabilities.mediaControls, isNull);
       expect(platform.mediaControls, isNull);
-      expect(platform.capabilities.loginWebView, isFalse);
-      expect(platform.loginWebView, isNull);
+      expect(platform.capabilities.loginWebView, isTrue);
+      expect(platform.loginWebView, isA<InAppLoginWebView>());
     });
 
     for (final unverified in [TargetPlatform.linux, TargetPlatform.fuchsia]) {

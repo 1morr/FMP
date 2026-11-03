@@ -214,8 +214,7 @@ final class AppPlatform {
       cache: iosCacheSizes,
       secureStorage: true,
       files: true,
-      // 登入 WebView 由 PR 7 接上。
-      loginWebView: false,
+      loginWebView: true,
       urlOpener: true,
       // 沒有重新啟動自己的 API：結束行程，請使用者再開（ADR 0037 §決定 10）。
       restartsItself: false,
@@ -239,6 +238,10 @@ final class AppPlatform {
     cacheDirectory: CacheDirectory(applicationCachePath: _applicationCachePath),
     secureStorage: FlutterSecureStorageAdapter.system(flavor),
     fileDialogs: const FilePickerDialogs(),
+    loginWebView: InAppLoginWebView.ios(
+      osVersion:
+          iosMajorMinorVersion(Platform.operatingSystemVersion) ?? '17.0',
+    ),
     urlOpener: const UrlLauncherOpener(),
     fileSharer: SharePlusFileSharer(),
     restarterFactory: ExitAppRestarter.forMediaControls,

@@ -68,6 +68,43 @@ void main() {
     });
   });
 
+  group('the iOS user agent', () {
+    const iphone =
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) '
+        'AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+    const ipad =
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+        'AppleWebKit/605.1.15 (KHTML, like Gecko)';
+
+    test('an iPhone user agent gets Version and Safari', () {
+      expect(
+        iosLoginUserAgent(iphone, osVersion: '27.0'),
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) '
+        'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 '
+        'Mobile/15E148 Safari/604.1',
+      );
+    });
+
+    test('an iPad desktop user agent gets Version and Safari at the end', () {
+      expect(
+        iosLoginUserAgent(ipad, osVersion: '27.1'),
+        '$ipad Version/27.1 Safari/605.1.15',
+      );
+    });
+
+    test('a user agent that already has Safari is unchanged', () {
+      const safari = '$iphone Version/27.0 Safari/604.1';
+      expect(iosLoginUserAgent(safari, osVersion: '27.0'), safari);
+    });
+
+    test('the version is the major and minor of the system version', () {
+      expect(iosMajorMinorVersion('Version 27.0 (Build 24A5280e)'), '27.0');
+      expect(iosMajorMinorVersion('Version 18.4.1 (Build 22E252)'), '18.4');
+      expect(iosMajorMinorVersion('Version 26 (Build X)'), '26.0');
+      expect(iosMajorMinorVersion('unknown'), isNull);
+    });
+  });
+
   group('cookies', () {
     test('only the asked hosts, the first host wins a name', () async {
       final manager = _FakeCookieManager()
