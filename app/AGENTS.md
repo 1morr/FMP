@@ -142,6 +142,8 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   但 `appFlavor` 是上一次 flutter 指令寫進 `Flutter/Generated.xcconfig` 的 flavor：在 Xcode 裡不要用它
   建置，選 `dev` 或 `prod`。
 - flutter_js、`isar_community_flutter_libs`、`fmp_quickjs` 只有 podspec，所以 iOS、macOS 一定有 Podfile。
+  `fmp_quickjs` 的 `darwin/` 是一份 podspec，iOS、macOS 共用（`sharedDarwinSource`，ADR 0037 §決定 3）；
+  CI 的 macOS 與 iOS job 都以 `nm` 查 framework 有 `_jsNewRuntime`、`_jsSetMemoryLimit`。
   - macOS 的 Podfile、`Podfile.lock` 與 CocoaPods 對 xcconfig、pbxproj、workspace 的改動都已提交（ADR 0036
     §決定 10）。Podfile 照官方文件把六個 flavor configuration 對到 debug／release；沒對應的 configuration
     CocoaPods 一律當 release。建置後 `app/macos/` 不該再有變動，有的話是依賴變了，連同 `Podfile.lock` 提交。

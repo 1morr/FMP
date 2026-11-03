@@ -7,7 +7,7 @@ library;
 
 import 'dart:io';
 
-/// 編進 dylib 的原始碼（相對於套件根），同 podspec 的 `macos/Classes/` 轉接的那些。
+/// 編進 dylib 的原始碼（相對於套件根），同 podspec 的 `darwin/Classes/` 轉接的那些。
 const hostSources = [
   'src/quickjs/cutils.c',
   'src/quickjs/libregexp.c',

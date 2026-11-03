@@ -494,6 +494,14 @@ jobs:
       - name: Build iOS (prod, release)
         run: flutter build ios --flavor prod --release --no-codesign
 
+      # 同 macOS：flutter_js 以 DynamicLibrary.process() 找 QuickJS，由 fmp_quickjs 的 darwin/
+      # podspec 編進 App（ADR 0037 §決定 3）。動態 framework 才匯出符號。
+      - name: QuickJS is linked into the app
+        run: |
+          lib=build/ios/iphoneos/Runner.app/Frameworks/fmp_quickjs.framework/fmp_quickjs
+          nm -gU "$lib" | grep -q ' _jsNewRuntime$'
+          nm -gU "$lib" | grep -q ' _jsSetMemoryLimit$'
+
       - name: Build iOS (dev, debug)
         run: flutter build ios --flavor dev --debug --no-codesign
 
