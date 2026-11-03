@@ -205,54 +205,6 @@ void main() {
     });
   });
 
-  group('the macOS app is signed with the FMP certificate', () {
-    // ad-hoc 簽章每一版的 designated requirement 都不同，keychain 會把更新後的
-    // App 當成另一個（ADR 0036 §決定 3 的更正）。
-    test('the workflow', () {
-      expect(macosSigningProblems(workflow), isEmpty);
-    });
-
-    test('red on a build without the identity or without the check', () {
-      expect(
-        macosSigningProblems(
-          mutate(
-            "echo 'CODE_SIGN_IDENTITY = FMP Code Signing' > "
-                'macos/Runner/Configs/Signing.xcconfig',
-            'true',
-          ),
-        ),
-        ['build-macos does not write Signing.xcconfig before flutter build'],
-      );
-      expect(macosSigningProblems(mutate('certificate leaf = H', 'cdhash H')), [
-        'build-macos does not check the certificate after flutter build',
-      ]);
-    });
-
-    test('red when the identity is written after the build', () {
-      final build =
-          '      - name: Build macOS (prod, release)\n'
-          '        run: flutter build macos --flavor prod --release '
-          '--build-name "\$VERSION" --build-number "\$VERSION_CODE"\n\n';
-      final moved = mutate(build, '').replaceFirst(
-        '      - name: Import the signing certificate\n',
-        '$build      - name: Import the signing certificate\n',
-      );
-      expect(macosSigningProblems(moved), [
-        'build-macos does not write Signing.xcconfig before flutter build',
-      ]);
-    });
-
-    test('not red on another spelling', () {
-      final respelled = mutate(
-        "echo 'CODE_SIGN_IDENTITY = FMP Code Signing' > "
-            'macos/Runner/Configs/Signing.xcconfig',
-        'printf "CODE_SIGN_IDENTITY = FMP Code Signing\\n" '
-            '>macos/Runner/Configs/Signing.xcconfig',
-      );
-      expect(macosSigningProblems(respelled), isEmpty);
-    });
-  });
-
   group('only verified assets are published', () {
     test('the workflow', () {
       expect(publishGateProblems(workflow), isEmpty);
@@ -438,35 +390,6 @@ List<String> macosZipProblems(String workflowYaml) {
   return [
     if (!{'-c', '-k', '--keepParent'}.every(options.contains))
       'build-macos does not package with ditto -c -k --keepParent',
-  ];
-}
-
-/// `build-macos` 在 `flutter build macos` 之前寫 `Signing.xcconfig`（指定
-/// 「FMP Code Signing」），之後以 `codesign` 核對 designated requirement 是這張
-/// 憑證（`certificate leaf`）。
-List<String> macosSigningProblems(String workflowYaml) {
-  final job = _jobs(workflowYaml)['build-macos'] as YamlMap?;
-  final scripts = [
-    for (final step in job == null ? const <YamlMap>[] : _steps(job))
-      '${step['run'] ?? ''}',
-  ];
-  final build = scripts.indexWhere(
-    (script) => RegExp(r'\bflutter build macos\b').hasMatch(script),
-  );
-  final identity = scripts.indexWhere(
-    (script) =>
-        RegExp(r'CODE_SIGN_IDENTITY = FMP Code Signing').hasMatch(script) &&
-        RegExp(r'>\s*macos/Runner/Configs/Signing\.xcconfig').hasMatch(script),
-  );
-  final check = scripts.lastIndexWhere(
-    (script) =>
-        script.contains('codesign') && script.contains('certificate leaf = H'),
-  );
-  return [
-    if (build < 0 || identity < 0 || identity > build)
-      'build-macos does not write Signing.xcconfig before flutter build',
-    if (build < 0 || check < build)
-      'build-macos does not check the certificate after flutter build',
   ];
 }
 

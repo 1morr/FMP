@@ -24,7 +24,7 @@ open build/macos/Build/Products/Debug-dev/fmp.app --args --fmp-dev-plugin=<app �
   `integration_test/secure_storage_test.dart` 驗真的 keychain（只在本機跑，CI 不跑）。
 - 在 worktree 建置前，先把主 checkout 的 `app/macos/Runner/Configs/Signing.xcconfig` 複製過來（gitignore，`app/AGENTS.md`
   § App 身分）。沒有它就是 ad-hoc 簽章，FMP Dev 讀擁有者的登入資料時會跳「想使用鑰匙圈」的視窗：不要替擁有者按，
-  關掉 App、補上檔案重建。`codesign -d -r- <app>` 要看到 `certificate leaf = H"…"`，不是 `cdhash`。
+  關掉 App、補上檔案重建。`codesign -dvv <app>` 要看到 `TeamIdentifier=`，不是 `not set`。
 - `flutter run -d macos --flavor dev` 可以熱重載，要讓它跨對話留著就放進 Orca terminal（SKILL.md § 1）。
 
 ## 讀畫面、操作

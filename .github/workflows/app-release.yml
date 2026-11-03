@@ -282,9 +282,6 @@ jobs:
       TAG: ${{ needs.release-please.outputs.tag }}
       VERSION: ${{ needs.release-please.outputs.version }}
       VERSION_CODE: ${{ needs.release-please.outputs.version_code }}
-      # 「FMP Code Signing」自簽憑證的 SHA-1。keychain 以它認 App，換憑證會讓每個使用者的
-      # 登入資料再跳一次授權（ADR 0036 §決定 3 的更正）。
-      MACOS_SIGNING_SHA1: fc92f2cddf25e3ffaed93d2472e2ac9a2673a94a
 
     steps:
       - name: Checkout code
@@ -303,41 +300,9 @@ jobs:
       - name: Flutter dependencies
         run: flutter pub get
 
-      # 自簽憑證放進只給這個 job 用的 keychain，Signing.xcconfig 讓 Xcode 用它簽（AppInfo.xcconfig 的
-      # #include?）。不公證（ADR 0022 §決定 3）。secret 沒設就失敗，不退回 ad-hoc：ad-hoc 每版都會讓
-      # keychain 把新版當成另一個 App。
-      - name: Import the signing certificate
-        env:
-          MACOS_SIGNING_P12_BASE64: ${{ secrets.MACOS_SIGNING_P12_BASE64 }}
-          MACOS_SIGNING_P12_PASSWORD: ${{ secrets.MACOS_SIGNING_P12_PASSWORD }}
-        run: |
-          if [ -z "$MACOS_SIGNING_P12_BASE64" ] || [ -z "$MACOS_SIGNING_P12_PASSWORD" ]; then
-            echo "::error::MACOS_SIGNING_P12_BASE64 and MACOS_SIGNING_P12_PASSWORD must be set"
-            exit 1
-          fi
-          keychain="$RUNNER_TEMP/signing.keychain-db"
-          password="$(openssl rand -hex 24)"
-          printf %s "$MACOS_SIGNING_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
-          security create-keychain -p "$password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$password" "$keychain"
-          security import "$RUNNER_TEMP/signing.p12" -k "$keychain" -P "$MACOS_SIGNING_P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
-          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
-          rm "$RUNNER_TEMP/signing.p12"
-          echo 'CODE_SIGN_IDENTITY = FMP Code Signing' > macos/Runner/Configs/Signing.xcconfig
-
+      # 只有 Xcode 預設的 ad-hoc 簽章，不公證（ADR 0022 §決定 3、ADR 0036 §決定 12）。
       - name: Build macOS (prod, release)
         run: flutter build macos --flavor prod --release --build-name "$VERSION" --build-number "$VERSION_CODE"
-
-      # keychain 以 designated requirement 認 App：要是「bundle id 加這張憑證」，不是 ad-hoc 的 cdhash。
-      - name: Check the signature
-        run: |
-          app=build/macos/Build/Products/Release-prod/fmp.app
-          codesign --verify --deep --strict "$app"
-          requirement="$(codesign -d -r- "$app" 2>&1)"
-          echo "$requirement"
-          echo "$requirement" | grep -F "identifier \"com.personal.fmp\" and certificate leaf = H\"$MACOS_SIGNING_SHA1\""
 
       # ditto 保留符號連結與擴充屬性，framework 裡有符號連結，一般的 zip 會弄壞它們。
       # --keepParent：zip 的根就是 fmp.app。
