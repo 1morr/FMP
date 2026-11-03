@@ -213,6 +213,7 @@
   - [ ] 從 v1.11.0 實際升級：Android、Windows 安裝版、Windows 免安裝版（§8，ADR 0022）
   - [ ] Windows 自行下載的安裝檔不帶 Mark of the Web
   - [ ] macOS App 自行下載的更新不帶 quarantine（ADR 0022；macOS 平台任務移來）
+  - [ ] macOS 更新後讀憑證不跳 keychain 授權視窗：ad-hoc 每版 partition 不同，選付費 Developer ID 或改存放方式（ADR 0036 §決定 3 的更正）
   - [ ] App 身分比對（ADR 0008）
   - [ ] 試用 2 週，沒有未解決的阻擋性 bug
 

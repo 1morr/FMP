@@ -152,6 +152,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   - 兩份 entitlements 都沒有 `app-sandbox`、`keychain-access-groups`；沒有 provisioning profile 時，後者會讓 App 一啟動就被系統殺掉。
   - `Info.plist` 有 `LSMultipleInstancesProhibited`（單一實例）與 `NSAllowsArbitraryLoadsForMedia`（AVPlayer 開 `http://`）。
   - 閘門：`apple_identity_test.dart`，含變異案例。
+- macOS 本機簽章（ADR 0036 §決定 3 的更正）：login keychain 以 partition 認 App，ad-hoc 是 cdhash，每次建置都不同，
+  重建後讀憑證會跳授權視窗；Apple 發的憑證以 Team ID 分，重建後不再問（自簽憑證一樣是 cdhash，沒用）。
+  - App target 手動簽章，專案層 `CODE_SIGN_IDENTITY = "-"`。`Runner/Configs/AppInfo.xcconfig` 以 `#include?` 讀
+    `Runner/Configs/Signing.xcconfig`（gitignore），內容是 `CODE_SIGN_IDENTITY = Apple Development` 與
+    `DEVELOPMENT_TEAM = <Team ID>`（憑證的 OU，不是名稱括號裡的使用者 ID）。沒有這個檔就是 ad-hoc，CI 與發版都是。
+  - 新的 checkout 或 worktree 要從主 checkout 複製這個檔，不然 FMP Dev 讀憑證會再跳視窗。
+  - 閘門：`apple_identity_test.dart`（手動簽章、`#include?`、gitignore，含變異案例）。
 - Android namespace 兩個 flavor 都是 `com.personal.fmp`；只有 applicationId 帶後綴。
 - Windows 的第二個實例以「視窗類別＋標題」找第一個實例帶到前景，所以兩個 flavor
   的標題必須不同；之後若在 Dart 端改視窗標題，要一併改 `main.cpp` 的尋找方式。
