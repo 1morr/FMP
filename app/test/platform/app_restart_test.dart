@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fmp/platform/app_restart/app_restart_android.dart';
+import 'package:fmp/platform/app_restart/app_restart_exit.dart';
 import 'package:fmp/platform/app_restart/app_restart_macos.dart';
 import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
@@ -66,7 +66,7 @@ void main() {
   group('Android', () {
     test('stops the media session before ending the process', () async {
       final events = <String>[];
-      final restarter = AndroidAppRestarter.forMediaControls(
+      final restarter = ExitAppRestarter.forMediaControls(
         _FakeMediaControls(events),
         exitProcess: (code) => events.add('exit $code'),
       );
@@ -78,7 +78,7 @@ void main() {
 
     test('still ends the process when stopping the session fails', () async {
       final events = <String>[];
-      final restarter = AndroidAppRestarter(
+      final restarter = ExitAppRestarter(
         stopMediaSession: () async => throw StateError('service is gone'),
         exitProcess: (code) => events.add('exit $code'),
       );
@@ -90,7 +90,7 @@ void main() {
 
     test('works without system media controls', () async {
       final events = <String>[];
-      final restarter = AndroidAppRestarter.forMediaControls(
+      final restarter = ExitAppRestarter.forMediaControls(
         null,
         exitProcess: (code) => events.add('exit $code'),
       );

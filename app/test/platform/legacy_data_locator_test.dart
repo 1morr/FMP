@@ -276,7 +276,7 @@ void main() {
     test(
       'prod has no legacy location, even when --fmp-legacy-dir is given',
       () async {
-        final locator = macosLegacyDataLocator(
+        final locator = appleLegacyDataLocator(
           flavor: AppFlavor.prod,
           devDirectory: copy.path,
         );
@@ -286,7 +286,7 @@ void main() {
     );
 
     test('dev reads only the given copy, without legacy credentials', () async {
-      final source = await macosLegacyDataLocator(
+      final source = await appleLegacyDataLocator(
         flavor: AppFlavor.dev,
         devDirectory: copy.path,
       ).locate();
@@ -296,7 +296,7 @@ void main() {
     });
 
     test('dev without a copy has no legacy location', () async {
-      final locator = macosLegacyDataLocator(
+      final locator = appleLegacyDataLocator(
         flavor: AppFlavor.dev,
         devDirectory: null,
       );

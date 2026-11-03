@@ -72,7 +72,7 @@ final class AndroidSystemMediaControls implements SystemMediaControls {
     if (nowPlaying.phase != MediaPhase.idle) unawaited(_mediaKeyFix.install());
   }
 
-  /// 只有重啟流程（`AndroidAppRestarter`）在結束行程前呼叫。先等平台收掉前景服務、通知與
+  /// 只有重啟流程（`ExitAppRestarter`）在結束行程前呼叫。先等平台收掉前景服務、通知與
   /// media session：`audio_service` 自己是在 `playbackState` 的監聽裡非同步呼叫
   /// `stopService`，緊接著 `exit(0)` 時平台還沒收到，`NO_CLEAR` 的媒體通知會殘留（2026-10-14
   /// Android 模擬器實測）。
