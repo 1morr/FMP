@@ -1,1 +1,6 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+
+// 本機簽章（ADR 0037 §決定 1）：DEVELOPMENT_TEAM 寫在這個不進 repo 的檔。
+// 沒有它時模擬器與 --no-codesign 照常建；實機建置要它。
+#include? "Signing.xcconfig"

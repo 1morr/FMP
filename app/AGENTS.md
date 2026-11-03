@@ -12,7 +12,7 @@
 | 任何改動 | `dart format --output=none --set-exit-if-changed .`、`dart analyze --fatal-infos`、`flutter analyze`、`flutter test` |
 | `packages/fmp_lints/`、`analysis_options.yaml` 的 `plugins:` | 上一列，加 `packages/fmp_lints/` 內的 `dart test` 與 `dart run tool/lint_sentinel.dart` |
 | 原生身分（`android/app/`、`windows/runner/`） | 第一列，加 `flutter build apk --flavor dev --debug`／`--flavor prod --debug` 與 `flutter build windows --flavor dev`／`--flavor prod` |
-| Xcode 專案（`ios/`、`macos/`）、`packages/fmp_quickjs/` | 第一列，加 `flutter build macos --flavor dev --debug` 與 `--flavor prod --release`（建完 `git status` 不該有 `app/macos/` 的變動），`fmp_quickjs` 內的 `flutter test`；iOS 建置交給 CI 的 iOS job |
+| Xcode 專案（`ios/`、`macos/`）、`packages/fmp_quickjs/` | 第一列，加 `flutter build macos --flavor dev --debug` 與 `--flavor prod --release`（建完 `git status` 不該有 `app/macos/` 的變動），`fmp_quickjs` 內的 `flutter test`；iOS 另跑 `flutter build ios --simulator --flavor dev --debug` 與 `flutter build ios --flavor prod --release --no-codesign`（建完 `app/ios/` 不該有變動），CI 的 iOS job 也建 |
 | drift 的 table 或資料庫類別（`lib/data/database/`、`lib/data/cache/`） | 先 `dart run build_runner build --delete-conflicting-outputs`，再跑第一列；改了 schema 另照 § 資料層 存新快照 |
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 繁簡字表的副本或產生器（`tool/opencc/`） | 先 `dart run tool/opencc/generate_ts_characters.dart`，再跑第一列（產生檔 `lib/core/matching/ts_characters.g.dart` 要提交） |
@@ -147,7 +147,9 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     CocoaPods 一律當 release。建置後 `app/macos/` 不該再有變動，有的話是依賴變了，連同 `Podfile.lock` 提交。
   - CocoaPods 給 `RunnerTests` 每個 configuration 一份 `Pods-RunnerTests.<configuration>.xcconfig`，
     `apple_identity_test` 的「同一個 base」把它當成同一個。
-  - `ios/` 的還沒提交，產生的 Podfile 只對應三個模式：iOS 平台任務照 macOS 的做法處理。
+  - iOS 同樣（ADR 0037 §決定 5）：`ios/Podfile`（`platform :ios, '15.0'`）、`Podfile.lock`、xcconfig 的
+    `#include? Pods…`、pbxproj 與 workspace 的改動，加上兩份 `xcshareddata/swiftpm/Package.resolved`
+    （釘住 `flutter_inappwebview_ios` 帶進來的 `swift-collections`）都已提交；建置後 `app/ios/` 不該再有變動。
 - macOS 不開 App Sandbox（ADR 0036 §決定 2）：
   - 兩份 entitlements 都沒有 `app-sandbox`、`keychain-access-groups`；沒有 provisioning profile 時，後者會讓 App 一啟動就被系統殺掉。
   - `Info.plist` 有 `LSMultipleInstancesProhibited`（單一實例）與 `NSAllowsArbitraryLoadsForMedia`（AVPlayer 開 `http://`）。
@@ -159,6 +161,16 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     `DEVELOPMENT_TEAM = <Team ID>`（憑證的 OU，不是名稱括號裡的使用者 ID）。沒有這個檔就是 ad-hoc，CI 與發版都是。
   - 新的 checkout 或 worktree 要從主 checkout 複製這個檔，不然 FMP Dev 讀憑證會再跳視窗。
   - 閘門：`apple_identity_test.dart`（手動簽章、`#include?`、gitignore，含變異案例）。
+- iOS（ADR 0037 §決定 1、4）：
+  - `Info.plist` 有 `UIBackgroundModes` = `[audio]`（沒有它 App 進背景後 Dart 與 JS 一起被凍結）與
+    `NSAllowsArbitraryLoadsForMedia`（AVPlayer 開 `http://`）；`CFBundleName` 指向 `$(APP_DISPLAY_NAME)`。
+    沒有 entitlements 檔。
+  - 本機簽章：App target 自動簽章（免費 Apple ID 的 personal team，profile 7 天），pbxproj 不得有
+    `DEVELOPMENT_TEAM`：在 Xcode 的 Signing & Capabilities 選 team 會寫進去，不要選。`Flutter/Debug.xcconfig`、
+    `Release.xcconfig` 以 `#include?` 讀 `ios/Flutter/Signing.xcconfig`（gitignore），內容一行
+    `DEVELOPMENT_TEAM = <Team ID>`；沒有它時模擬器與 `--no-codesign` 照常建，實機建置要它。新的 checkout 或
+    worktree 要自己建這個檔。
+  - 閘門：`apple_identity_test.dart`（含變異案例）。
 - Android namespace 兩個 flavor 都是 `com.personal.fmp`；只有 applicationId 帶後綴。
 - Windows 的第二個實例以「視窗類別＋標題」找第一個實例帶到前景，所以兩個 flavor
   的標題必須不同；之後若在 Dart 端改視窗標題，要一併改 `main.cpp` 的尋找方式。
