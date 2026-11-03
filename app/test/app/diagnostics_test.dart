@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Rect;
 
 import 'package:archive/archive.dart';
 import 'package:clock/clock.dart';
@@ -465,6 +466,16 @@ void main() {
       },
     );
 
+    test('hands the anchor rectangle to the share window', () async {
+      const anchor = Rect.fromLTWH(10, 20, 30, 40);
+
+      await exporter.share(bundle, origin: anchor);
+
+      expect(sharer.origins, [anchor]);
+      await exporter.share(bundle);
+      expect(sharer.origins.last, isNull);
+    });
+
     test('a share that cannot open removes the temp file and throws', () async {
       sharer.error = StateError('no share window');
 
@@ -525,12 +536,15 @@ final class _FakeSharer implements FileSharer {
   bool finished = true;
   Object? error;
   final shared = <({String path, Uint8List bytes})>[];
+  final origins = <Rect?>[];
 
   @override
   Future<bool> shareFiles(
     List<String> paths, {
     required String mimeType,
+    Rect? origin,
   }) async {
+    origins.add(origin);
     // 呼叫當下檔案必須在。
     for (final path in paths) {
       shared.add((path: path, bytes: File(path).readAsBytesSync()));

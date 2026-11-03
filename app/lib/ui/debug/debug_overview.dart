@@ -129,15 +129,19 @@ class DebugOverview extends ConsumerWidget {
                 ),
               ),
             if (capabilities.shareFiles)
-              OutlinedButton.icon(
-                icon: const Icon(Icons.share_outlined),
-                label: Text(t.diagnosticsShare),
-                onPressed: () => unawaited(
-                  exportBundle(
-                    context,
-                    ref,
-                    kind: ExportKind.diagnostics,
-                    action: ExportAction.share,
+              // Builder：錨點要取按鈕自己的位置。
+              Builder(
+                builder: (buttonContext) => OutlinedButton.icon(
+                  icon: const Icon(Icons.share_outlined),
+                  label: Text(t.diagnosticsShare),
+                  onPressed: () => unawaited(
+                    exportBundle(
+                      context,
+                      ref,
+                      kind: ExportKind.diagnostics,
+                      action: ExportAction.share,
+                      origin: shareOriginOf(buttonContext),
+                    ),
                   ),
                 ),
               ),

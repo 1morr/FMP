@@ -386,13 +386,16 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 - 插件開發工具（M3 PR 16b，ADR 0025 §決定 7）：`PlatformCapabilities.pluginDevTools`，Windows、macOS 真、Android 假（讀任意目錄要 SAF，
   另立 ADR）；依賴 `files` 的 `pickDirectory`。Debug 頁的「插件開發」區塊與 `PluginDevelopment` 的載入都看它。閘門：
   `platform_test.dart`（Android 假、Windows 真、未驗證的平台假）、`debug_page_test.dart` 的 `the plugin development section`。
-- 檔案分享（`lib/platform/share/`，ADR 0025 §決定 10，M3 design §12.4）：`PlatformCapabilities.shareFiles`（Android、Windows、macOS 真；Linux 不能分享檔案；
+- 檔案分享（`lib/platform/share/`，ADR 0025 §決定 10，M3 design §12.4）：`PlatformCapabilities.shareFiles`（Android、Windows、macOS、iOS 真；Linux 不能分享檔案；
   Windows 10 1809 以前 `share_plus` 會拋錯，經提示顯示），一個實作 `SharePlusFileSharer`（`share_plus`，`SharePlus.instance.share` 從建構子注入）。
   `shareFiles` 回 `true`＝平台回報了分享的結果（完成或取消），回 `false`＝視窗開了但平台不回報（Windows 的 `DataTransferManager` 一開視窗就回
   `unavailable`、接收端之後才讀檔），呼叫端據此決定能不能馬上刪暫存檔（Android 的 `share_plus` 先把檔案複製到它的 `cacheDir/share_plus/`，
   那份留到下一次分享才清，在 App 的私有快取裡）。`share_plus`（含 `share_plus_*`）只准在平台層（lint `fmp_layer_imports` 的
   `platformPackages`）。閘門：`share_plus_file_sharer_test.dart`（檔案與 MIME、`true`／`false` 的對應、開不起來拋出）、`platform_test.dart`、
   `layer_imports_test.dart` 的 `test_platformPackageOutsidePlatform`。系統分享視窗本身只能實機驗。
+  `shareFiles` 另收可選的 `Rect? origin`（ADR 0037 §決定 14）：交給 `ShareParams.sharePositionOrigin`，iPad 的分享表是 popover、要錨點，其他平台忽略，沒給時 iPad 的表在螢幕中央。
+  呼叫端（`debug_export.dart` 的 `shareOriginOf`）在任何 `await` 之前以按鈕自己的 context 算出位置，經 `exportBundle(origin:)`、`DiagnosticsExporter.share(origin:)` 傳下去；
+  `share_plus_file_sharer_test.dart`、`diagnostics_test.dart`、`debug_export_test.dart` 各有一個案例。
 
 - 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
   Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
@@ -2960,6 +2963,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   **必須在 Windows 實機驗**：隱藏標題列後的拖曳、雙擊最大化、三顆鈕、最大化時的邊框與螢幕邊緣貼齊、dev 與 prod 同時開時各自單一實例、Debug 頁與播放頁上的視窗鈕、對話框開著時的視窗鈕與 tooltip。
   **必須在 Mac 實機驗**：紅綠燈在列的正中間（截圖量）、拖曳、雙擊、全螢幕進出（紅綠燈隱藏）。
 - macOS 的 App 圖示（`macos/Runner/Assets.xcassets/AppIcon.appiconset`）由 `tool/make_macos_icon.py` 從 `../assets/icon/app_icon.png` 產生（Apple 的圖示格線：白底圓角矩形、淡陰影；要 Pillow）；換圖示時重跑它。
+- iOS 的 App 圖示（`ios/Runner/Assets.xcassets/AppIcon.appiconset`）由 `tool/make_ios_icon.py` 從同一個來源產生：iOS 要 1024 的不透明方圖、圓角由系統裁，所以是白底方圖加同樣的 824/1024 大小、不畫圓角與陰影，單一尺寸（`Contents.json` 一張 universal）；要 Pillow。啟動畫面（`LaunchScreen.storyboard`）底色是 `systemBackgroundColor`，深色模式開 App 不閃白。
 - 視窗跨過外殼斷點時的焦點（U PR 15，之後通用化）：跨過 600 時外殼換導覽元件（底部導覽列與側欄），內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，
   把焦點搶進被蓋住的內容區，上面的 route 之後收不到按鍵（F6、播放頁的 Esc 都落到外殼）。`AppShell` 在寬度等級改變而根 Navigator 上有別的 route 蓋著外殼時（`_keepCoveringRouteFocus`：播放頁、Debug 頁、網頁登入、錯誤詳細、對話框都算），
   build 時記下目前的焦點，這一幀與接著的 autofocus 更新之後還給它；那時節點已經不在樹上（跟著版面拿掉）就不還，否則它之後掛回來時會搶焦點。只有外殼自己時不動。新的根 route 不必另外處理。
