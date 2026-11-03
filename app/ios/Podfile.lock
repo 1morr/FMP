@@ -2,12 +2,16 @@ PODS:
   - Flutter (1.0.0)
   - flutter_js (0.1.0):
     - Flutter
+  - fmp_quickjs (0.1.0):
+    - Flutter
+    - FlutterMacOS
   - isar_community_flutter_libs (1.0.0):
     - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_js (from `.symlinks/plugins/flutter_js/ios`)
+  - fmp_quickjs (from `.symlinks/plugins/fmp_quickjs/darwin`)
   - isar_community_flutter_libs (from `.symlinks/plugins/isar_community_flutter_libs/ios`)
 
 EXTERNAL SOURCES:
@@ -15,12 +19,15 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_js:
     :path: ".symlinks/plugins/flutter_js/ios"
+  fmp_quickjs:
+    :path: ".symlinks/plugins/fmp_quickjs/darwin"
   isar_community_flutter_libs:
     :path: ".symlinks/plugins/isar_community_flutter_libs/ios"
 
 SPEC CHECKSUMS:
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_js: 867813c1830e1d9b2c5d547cdb6f61801e2f2145
+  fmp_quickjs: ed6cc7dcb7f01c973a33a44b86b040342e3ff644
   isar_community_flutter_libs: bede843185a61a05ff364a05c9b23209523f7e0d
 
 PODFILE CHECKSUM: 23d6690868eff63169b555c4e2475cab8aab6794

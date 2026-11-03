@@ -14,7 +14,7 @@
 FMP 自己的檔：
 
 - `src/fmp_extras.c`：補 `jsSetMemoryLimit`（`flutter_js` 的 `ffi.dart` 會查，橋接沒有）。
-- `macos/Classes/*`：轉接檔，以 `#include` 編 `src/` 的檔（CocoaPods 只編 podspec 目錄裡的檔）。
+- `darwin/Classes/*`：轉接檔，以 `#include` 編 `src/` 的檔（CocoaPods 只編 podspec 目錄裡的檔）。
 
 升級 `flutter_js` 時：看它 Android 依賴的 `fastdev-jsruntimes-quickjs` 版本有沒有變，有就換成新 tag 的原始碼；
 `test/symbols_test.dart` 會核對 `ffi.dart` 查的每個符號都在。

@@ -1,4 +1,4 @@
-# QuickJS 與 flutter_js 的 C 橋接（ADR 0036 §決定 1）。原始碼在套件根的 src/，Classes/ 裡是轉接檔。
+# QuickJS 與 flutter_js 的 C 橋接（ADR 0036 §決定 1、ADR 0037 §決定 3）。macOS 與 iOS 共用（sharedDarwinSource）。原始碼在套件根的 src/，Classes/ 裡是轉接檔。
 # 編譯旗標照 android-js-runtimes 0.3.6 的 quickjs/CMakeLists.txt（Android 的 libfastdev_quickjs_runtime.so）。
 Pod::Spec.new do |s|
   s.name             = 'fmp_quickjs'
@@ -9,8 +9,10 @@ Pod::Spec.new do |s|
   s.author           = { 'FMP' => 'https://github.com/1morr/FMP' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
-  s.dependency 'FlutterMacOS'
-  s.platform = :osx, '12.0'
+  s.ios.dependency 'Flutter'
+  s.osx.dependency 'FlutterMacOS'
+  s.ios.deployment_target = '13.0'
+  s.osx.deployment_target = '12.0'
   s.library = 'c++'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

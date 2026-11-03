@@ -1,6 +1,6 @@
 name: fmp_quickjs
 description: >-
-  QuickJS 與 flutter_js 的 C 橋接，編進 Apple 平台的 App 行程（ADR 0036 §決定 1）。
+  QuickJS 與 flutter_js 的 C 橋接，編進 macOS 與 iOS 的 App 行程（ADR 0036 §決定 1、ADR 0037 §決定 3）。
   flutter_js 0.8.7 在 macOS／iOS 以 DynamicLibrary.process() 找 QuickJS 的符號，
   套件本身不附；這裡是 Android 用的同一份原始碼。沒有 Dart API。
 publish_to: 'none'
@@ -23,5 +23,9 @@ dev_dependencies:
 flutter:
   plugin:
     platforms:
+      ios:
+        ffiPlugin: true
+        sharedDarwinSource: true
       macos:
         ffiPlugin: true
+        sharedDarwinSource: true
