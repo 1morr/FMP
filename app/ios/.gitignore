@@ -32,3 +32,6 @@ Runner/GeneratedPluginRegistrant.*
 !default.mode2v3
 !default.pbxuser
 !default.perspectivev3
+
+# 本機簽章身分（Flutter/Debug.xcconfig、Release.xcconfig 的 #include?）
+Flutter/Signing.xcconfig
