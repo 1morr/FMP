@@ -210,6 +210,14 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   沒有別名（舊版沒發過 macOS）。verify 核對 zip 的唯一根是 `fmp.app/`、`Info.plist` 的
   `CFBundleIdentifier` 是 `com.personal.fmp`、`CFBundleShortVersionString` 是這一版；閘門：
   `verify_release_assets_test.dart`、`release_workflow_test.dart` 的 `the macOS zip keeps symlinks`。
+- iOS 發 `fmp-v{版本}-ios.ipa`（`build-ios` job：`flutter build ios --flavor prod --release --no-codesign
+  --build-name --build-number`，再把 `Runner.app` 放進 `Payload/` 以 `zip -qry` 打包；`flutter build ipa
+  --no-codesign` 只產 `.xcarchive`）。**未簽章**：使用者以 SideStore／AltStore 用自己的 Apple ID 重簽
+  （ADR 0037 §決定 2），沒有別名（舊版沒發過 iOS）。建置出來的 `Info.plist` 是二進位格式，而 verify 跑在 Linux、
+  只讀 XML，所以打包前 `plutil -convert xml1`（沒有簽章，改它不破壞任何東西）。verify 核對 zip 的唯一根是
+  `Payload/`、裡面唯一的 App 是 `Runner.app`、`Info.plist` 的 `CFBundleIdentifier` 是 `com.personal.fmp`、
+  `CFBundleShortVersionString` 是這一版；閘門：`verify_release_assets_test.dart`、`release_workflow_test.dart`
+  的 `the iOS IPA is unsigned…`。
 - Linux 的發佈物由它的平台任務加進 workflow 與 `expectedAssets`。
 
 ## 平台層
