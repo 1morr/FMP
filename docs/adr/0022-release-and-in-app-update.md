@@ -57,6 +57,7 @@
    - 另有 `fmp-v{版本}-checksums.sha256` 與 `fmp-latest-*` 別名（與版本化檔逐位元相同）。
    
    iOS 沒有發佈物，散佈方式由 iOS 平台任務決定。Windows 不簽章。
+   - 修訂（2026-11-04，ADR 0037 §決定 2）：iOS 發未簽章的 `fmp-v{版本}-ios.ipa`，使用者以 SideStore／AltStore 重簽安裝。
 4. **切換相容**：舊版 v1.x 更新器依上述 Android、Windows 檔名挑檔、驗 checksums、以 `unins000.exe` 判斷安裝版、只比三段版本號。
    - 新 App 沿用這些檔名、Inno AppId、Android 簽名金鑰（ADR 0008）；
    - 免安裝版 zip 的內容就是完整程式目錄；

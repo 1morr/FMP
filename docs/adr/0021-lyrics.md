@@ -102,6 +102,7 @@
    - 以 `flutter_overlay_window`（第二個 engine、共用歌詞 widget 與型別化訊息）為候選，控制經訊息回主 engine 的 `PlaybackController`；不可行就改原生 View，訊息不變。
    - 權限經 `PermissionGateway`（ADR 0020）新增「顯示在其他應用上層」；小米、ColorOS 的額外懸浮權限只能在說明中提示。
 10. **iOS 鎖屏／動態島**：平台能力 `liveActivityLyrics`，以 ActivityKit 顯示目前一行（＋翻譯）、資料 ≤ 4KB、換行時本機更新；iOS 平台任務實測後才宣告。
+    - 修訂（2026-11-04，ADR 0037 §決定 17）：移到 M7，那時才有歌詞可顯示；Widget Extension 佔用免費帳號額度的問題一併評估。
 11. **設定**（ADR 0011 的「歌詞」組）：
     - 歌詞插件的啟用與順序；
     - 自動匹配、純文字自動匹配、顯示模式、逐字高亮；
