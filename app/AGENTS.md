@@ -152,6 +152,16 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   - 兩份 entitlements 都沒有 `app-sandbox`、`keychain-access-groups`；沒有 provisioning profile 時，後者會讓 App 一啟動就被系統殺掉。
   - `Info.plist` 有 `LSMultipleInstancesProhibited`（單一實例）與 `NSAllowsArbitraryLoadsForMedia`（AVPlayer 開 `http://`）。
   - 閘門：`apple_identity_test.dart`，含變異案例。
+- macOS 的簽章身分（ADR 0036 §決定 3 的更正）：login keychain 以 designated requirement 認 App，ad-hoc 每次建置都不同，
+  重建或更新後讀憑證會跳授權視窗。所以用自簽憑證「FMP Code Signing」簽：
+  - App target 手動簽章，專案層 `CODE_SIGN_IDENTITY = "-"`；`Runner/Configs/AppInfo.xcconfig` 以 `#include?` 讀
+    `Runner/Configs/Signing.xcconfig`（gitignore），內容只有 `CODE_SIGN_IDENTITY = FMP Code Signing`。
+  - 有這個檔、login keychain 裡有這張憑證的機器才用它簽，其他建置照舊 ad-hoc。新的 checkout 或 worktree
+    要從主 checkout 複製這個檔，不然 FMP Dev 讀憑證會再跳視窗。
+  - 換一台 Mac：從原本那台的「鑰匙圈存取」匯出這張憑證（含私鑰）成 `.p12`，再匯入新機器。不要另做一張：
+    新憑證的 requirement 不同，每個使用者的登入資料都要再允許一次。
+  - 發版的私鑰在 secret `MACOS_SIGNING_P12_BASE64`、`MACOS_SIGNING_P12_PASSWORD`（§ 發版）。
+  - 閘門：`apple_identity_test.dart`（手動簽章、`#include?`、gitignore，含變異案例）。
 - Android namespace 兩個 flavor 都是 `com.personal.fmp`；只有 applicationId 帶後綴。
 - Windows 的第二個實例以「視窗類別＋標題」找第一個實例帶到前景，所以兩個 flavor
   的標題必須不同；之後若在 Dart 端改視窗標題，要一併改 `main.cpp` 的尋找方式。
@@ -199,10 +209,14 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   重跑失敗的 job；要改程式就修好合併，下一個發版 PR 照常發布，失敗的草稿與 tag 手動刪。
 - macOS 發 `fmp-v{版本}-macos.zip`（`build-macos` job：`flutter build macos --flavor prod --release
   --build-name --build-number`，再以 `ditto -c -k --keepParent` 打包 `fmp.app`；ditto 保留 framework 裡
-  的符號連結與擴充屬性，一般的 zip 會弄壞）。只有 Xcode 預設的 ad-hoc 簽章，不公證（ADR 0022 §決定 3），
+  的符號連結與擴充屬性，一般的 zip 會弄壞）。以自簽憑證「FMP Code Signing」簽章（§ App 身分），不公證（ADR 0022 §決定 3），
   沒有別名（舊版沒發過 macOS）。verify 核對 zip 的唯一根是 `fmp.app/`、`Info.plist` 的
   `CFBundleIdentifier` 是 `com.personal.fmp`、`CFBundleShortVersionString` 是這一版；閘門：
   `verify_release_assets_test.dart`、`release_workflow_test.dart` 的 `the macOS zip keeps symlinks`。
+  - 簽章：job 把 secret `MACOS_SIGNING_P12_BASE64`（`.p12` 的 base64）與 `MACOS_SIGNING_P12_PASSWORD` 匯入只給它用的
+    keychain、寫 `Signing.xcconfig`，建完以 `codesign -d -r-` 核對 requirement 是 job 的 `MACOS_SIGNING_SHA1`；
+    secret 沒設就失敗，不退回 ad-hoc。閘門：`release_workflow_test.dart` 的 `the macOS app is signed with the FMP
+    certificate`。
 - Linux 的發佈物由它的平台任務加進 workflow 與 `expectedAssets`。
 
 ## 平台層

@@ -12,3 +12,8 @@ PRODUCT_NAME = fmp
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.personal. All rights reserved.
+
+// 簽章身分（ADR 0036 §決定 3 的更正）：沒有 Signing.xcconfig 就是專案層的 ad-hoc（"-"）。
+// 這個檔不進 repo，內容只有一行 `CODE_SIGN_IDENTITY = FMP Code Signing`：本機放了自簽憑證的
+// 機器與 app-release.yml 的 build-macos 才有。固定的身分讓 keychain 認得重建後的 App。
+#include? "Signing.xcconfig"

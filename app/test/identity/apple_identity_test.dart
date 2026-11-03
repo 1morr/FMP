@@ -90,6 +90,22 @@ void main() {
           );
         });
 
+        // ADR 0036 §決定 3 的更正：自動簽章沒有開發團隊就建不了，手動才能讓本機的
+        // Signing.xcconfig 指定身分；沒有那個檔就是專案層的 ad-hoc。
+        test('the app signs manually with an optional local identity', () {
+          expect(project.appSettingValues('CODE_SIGN_STYLE'), {'Manual'});
+          expect(
+            xcconfigIncludes(
+              File('macos/Runner/Configs/AppInfo.xcconfig').readAsStringSync(),
+            ),
+            contains(signingInclude),
+          );
+          expect(
+            gitignoreLines(File('macos/.gitignore').readAsStringSync()),
+            contains(signingIgnore),
+          );
+        });
+
         test('the Podfile maps every flavor configuration to its mode', () {
           expect(
             podfileConfigurations(File('macos/Podfile').readAsStringSync()),
@@ -140,6 +156,33 @@ void main() {
         plistTrue('<dict></dict>', 'LSMultipleInstancesProhibited'),
         isFalse,
       );
+    });
+
+    test('automatic signing or a lost signing include is noticed', () {
+      final pbxproj = File('macos/Runner.xcodeproj/project.pbxproj')
+          .readAsStringSync();
+      final automatic = pbxproj.replaceFirst(
+        'CODE_SIGN_STYLE = Manual;',
+        'CODE_SIGN_STYLE = Automatic;',
+      );
+      expect(automatic, isNot(pbxproj));
+      expect(
+        XcodeProject.parse(automatic).appSettingValues('CODE_SIGN_STYLE'),
+        {'Manual', 'Automatic'},
+      );
+
+      const included = '#include? "Signing.xcconfig"\n';
+      expect(xcconfigIncludes('// #include? "Signing.xcconfig"\n'), isEmpty);
+      expect(xcconfigIncludes('#include? "Other.xcconfig"\n'), {
+        'Other.xcconfig',
+      });
+      expect(xcconfigIncludes(included), {signingInclude});
+      expect(xcconfigIncludes('  #include?   "Signing.xcconfig"  \n'), {
+        signingInclude,
+      });
+
+      expect(gitignoreLines('# $signingIgnore\n'), isEmpty);
+      expect(gitignoreLines('  $signingIgnore  \r\n'), {signingIgnore});
     });
 
     test('a flavor configuration dropped from the Podfile is noticed', () {
@@ -291,6 +334,13 @@ final class XcodeProject {
     };
   }
 
+  /// App target 每個 configuration（含沒有 flavor 的三個）的 [setting] 值。
+  Set<String?> appSettingValues(String setting) => {
+    for (final configuration in _app.values)
+      (configuration['buildSettings'] as Map<String, Object?>?)?[setting]
+          as String?,
+  };
+
   Set<String?> bundleIds(AppFlavor flavor) =>
       _flavorSetting(flavor, 'PRODUCT_BUNDLE_IDENTIFIER');
 
@@ -357,6 +407,27 @@ String plistString(String plist, String key) {
   expect(matches, hasLength(1), reason: key);
   return matches.single.group(1)!;
 }
+
+/// `AppInfo.xcconfig` 以 `#include?` 讀的本機簽章身分；`macos/.gitignore` 排除它。
+const signingInclude = 'Signing.xcconfig';
+const signingIgnore = '/Runner/Configs/Signing.xcconfig';
+
+/// xcconfig 的 `#include` 與 `#include?` 路徑（`//` 註解掉的不算）。
+Set<String> xcconfigIncludes(String xcconfig) => {
+  for (final match in RegExp(
+    r'^[ \t]*#include\??[ \t]*"([^"]+)"',
+    multiLine: true,
+  ).allMatches(xcconfig))
+    match.group(1)!,
+};
+
+/// `.gitignore` 的規則（去掉空白、空行與註解）。
+Set<String> gitignoreLines(String gitignore) => {
+  for (final line in gitignore.split('\n'))
+    if (line.trim() case final rule
+        when rule.isNotEmpty && !rule.startsWith('#'))
+      rule,
+};
 
 const sandboxEntitlement = 'com.apple.security.app-sandbox';
 const keychainGroupsEntitlement = 'keychain-access-groups';

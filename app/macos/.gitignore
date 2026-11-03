@@ -5,3 +5,6 @@
 # Xcode-related
 **/dgph
 **/xcuserdata/
+
+# 本機簽章身分（Runner/Configs/AppInfo.xcconfig 的 #include?）
+/Runner/Configs/Signing.xcconfig

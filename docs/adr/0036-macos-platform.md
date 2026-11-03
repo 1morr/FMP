@@ -50,6 +50,7 @@ ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U �
 
 - **付費帳號加 `keychain-access-groups`**：ADR 0022 已經決定暫不付費公證，不採用。
 - **`MacOsOptions(usesDataProtectionKeychain: false)`**（採用）：存在使用者的 login keychain。實測 ad-hoc 簽章、重建二進位後仍讀得到，沒有跳授權視窗。
+  - 更正（2026-11-03，擁有者的 Mac）：那次實測的小程式開著沙盒。不開沙盒的 App 每次重建都會跳授權視窗，見 §決定 3 的更正。
 
 ## 決定
 
@@ -63,6 +64,14 @@ ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U �
    - 不加 `keychain-access-groups`：沒有 provisioning profile 時，App 會被殺掉。
    - 資料目錄是 path_provider 的 application support，也就是 `~/Library/Application Support/<bundle id>`；dev 與 prod 的 bundle id 不同，所以自然分開。
 3. **憑證**：`flutter_secure_storage` 在 macOS 傳 `MacOsOptions(usesDataProtectionKeychain: false)`，存在使用者的 login keychain。之後若改用付費帳號與 data protection keychain，算是換儲存位置，要先另立 ADR 處理遷移。
+   - 更正（2026-11-03，擁有者的 Mac）：
+     - login keychain 的項目只讓建立它的 App 讀，以 designated requirement 認 App。ad-hoc 的 requirement 是 cdhash，每次建置都不同，所以每次重建或更新都會跳「想使用鑰匙圈」的視窗，要輸入登入密碼。
+     - 改用免費的自簽憑證「FMP Code Signing」（RSA 3072，效期到 2046 年）簽章。requirement 變成 `identifier "<bundle id>" and certificate leaf = H"<SHA-1>"`，重建後不變，之前按過「永遠允許」就不再問。
+     - App target 改成手動簽章：自動簽章指定身分時要開發團隊。專案層仍是 `CODE_SIGN_IDENTITY = "-"`。
+     - `Runner/Configs/AppInfo.xcconfig` 以 `#include? "Signing.xcconfig"` 讀身分。這個檔不進 repo：放了憑證的機器與發版 job 才有，其他建置（CI、別的機器）照舊 ad-hoc。
+     - 憑證不必設為受信任：Xcode 與 `codesign` 都照樣簽（實測）。
+     - 發版：私鑰在 GitHub secret `MACOS_SIGNING_P12_BASE64`、`MACOS_SIGNING_P12_PASSWORD`，`build-macos` 匯入只給這個 job 用的 keychain，建完核對 requirement 是這張憑證的 SHA-1。
+     - 不用 Apple Development 憑證：它綁個人 Apple 帳號，放進 CI 等於交出帳號的簽章身分。
 4. **單一實例**：
    - `Info.plist` 設 `LSMultipleInstancesProhibited`：從 Finder、Dock、`open`、`open -n` 開，都會回到已在執行的那一個。
    - `AppDelegate` 實作 `applicationShouldHandleReopen`：沒有可見視窗時把主視窗帶回來。
@@ -105,6 +114,7 @@ ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U �
 12. **CI 與發版**：
     - CI 的 macOS job 在現有的兩次建置之外，跑一次 `install_search_play_test.dart -d macos`，守插件引擎有沒有編進 App。
     - `app-release.yml` 加 `fmp-v{版本}-macos.zip`（ad-hoc 簽章、未公證，ADR 0022 §決定 3）。
+    - 更正（2026-11-03）：zip 裡的 App 改用 §決定 3 更正的自簽憑證簽，仍未公證。
 
 採用的慣例：
 - IINA 不開沙盒；
@@ -124,7 +134,8 @@ ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U �
   - 多維護一份 QuickJS 原始碼；
   - 沒有沙盒，App 被攻破時影響範圍較大；
   - 未公證的 App 第一次開啟要使用者手動放行（ADR 0022 已接受）；
-  - 憑證在 login keychain，換成 data protection keychain 要遷移。
+  - 憑證在 login keychain，換成 data protection keychain 要遷移；
+  - 自簽憑證的私鑰丟了或換了，每個使用者的登入資料要再允許一次。
 - 之後要注意：
   - 升級 `flutter_js` 時重新核對 `ffi.dart` 查的符號（`fmp_quickjs` 的測試列出全部）；
   - `window_manager` 已停止維護，macOS 的頂端點擊問題（leanflutter/window_manager#565）在每次 macOS 大版本實機看一次；
@@ -136,7 +147,9 @@ ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U �
 - `test/identity/apple_identity_test.dart`：
   - entitlements 沒有 `app-sandbox` 與 `keychain-access-groups`；
   - `Info.plist` 有 `LSMultipleInstancesProhibited` 與 `NSAllowsArbitraryLoadsForMedia`；
-  - Podfile 對應六個 configuration。
+  - Podfile 對應六個 configuration；
+  - App target 手動簽章、`AppInfo.xcconfig` 讀不進 repo 的 `Signing.xcconfig`。
+- `test/release/release_workflow_test.dart`：`build-macos` 在建置前寫 `Signing.xcconfig`、建置後核對憑證。
 - `packages/fmp_quickjs` 的測試：`flutter_js` 查的每個符號都在。
 - `test/platform/platform_test.dart`：macOS 的宣告與實作對得上。
 - CI 的 macOS job：`install_search_play_test.dart -d macos`。
