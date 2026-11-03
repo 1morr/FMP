@@ -203,6 +203,7 @@ const _playback = PlaybackSupport(
   backend: AudioBackendKind.mediaKit,
   formats: [PlayableFormat('wav', 'pcm_s16le')],
   outputDeviceSelection: false,
+  interruptions: AudioInterruptions.none,
 );
 
 Future<Directory> _tempRoot() async {
