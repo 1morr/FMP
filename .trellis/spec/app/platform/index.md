@@ -81,5 +81,5 @@ Windows 的 DPAPI 解密（`win32`）是建構子注入的函式，單元測試�
 ## Quality Check
 
 - `AppPlatform` 以外沒有新的平台判斷；`dart analyze --fatal-infos` 乾淨。
-- 未驗證平台（Linux、macOS、iOS）沒有新的實作檔。
+- 未驗證平台（Linux）沒有新的實作檔。
 - 新欄位在 `platform_test.dart` 每個平台都有一個斷言。

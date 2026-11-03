@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,22 +9,26 @@ import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_apple.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
+import 'package:fmp/platform/app_info/ios_home_directory.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
 import 'package:fmp/platform/app_restart/app_restart_exit.dart';
 import 'package:fmp/platform/app_restart/app_restart_macos.dart';
 import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
+import 'package:fmp/platform/audio/audio_ios.dart';
 import 'package:fmp/platform/audio/audio_macos.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_ios.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_macos.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity_plus_interfaces.dart';
 import 'package:fmp/platform/files/file_picker_dialogs.dart';
 import 'package:fmp/platform/fonts/fonts.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
+import 'package:fmp/platform/fonts/fonts_ios.dart';
 import 'package:fmp/platform/fonts/fonts_macos.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
@@ -217,11 +221,64 @@ void main() {
       expect(platform.mediaControls, isNull);
     });
 
-    for (final unverified in [
-      TargetPlatform.linux,
-      TargetPlatform.iOS,
-      TargetPlatform.fuchsia,
-    ]) {
+    test('iOS has a data directory, PingFang fonts, plays with just_audio '
+        'without WebM, exits to restart, and leaves the pieces of later PRs '
+        'undeclared', () {
+      final platform = AppPlatform.assemble(TargetPlatform.iOS, AppFlavor.dev);
+
+      expect(platform.capabilities.dataDirectory, isTrue);
+      expect(platform.dataDirectory, isA<AppleAppDataDirectory>());
+      final appInfo = platform.appInfo! as PackageInfoAppInfo;
+      expect(appInfo.platform, 'iOS');
+      expect(appInfo.osVersion, Platform.operatingSystemVersion);
+      expect(
+        appInfo.homeDirectory,
+        iosHomeDirectory(Directory.systemTemp.path),
+      );
+      expect(platform.capabilities.singleInstance, isFalse);
+      expect(platform.capabilities.fontFallback, same(iosFontFallback));
+      expect(platform.capabilities.fontChoices, iosFontChoices);
+      expect(iosFontChoices, ['PingFang TC', 'PingFang SC', 'Hiragino Sans']);
+      expect(iosFontFallback.traditionalChinese, ['PingFang TC']);
+      expect(iosFontFallback.simplifiedChinese, ['PingFang SC']);
+      expect(platform.capabilities.playback, same(iosPlaybackSupport));
+      expect(
+        platform.capabilities.playback?.backend,
+        AudioBackendKind.justAudio,
+      );
+      expect(platform.capabilities.playback?.outputDeviceSelection, isFalse);
+      // AVPlayer 不播 WebM；直播要 HLS。
+      expect(
+        iosPlaybackSupport.formats.map((f) => '${f.container}/${f.codec}'),
+        ['mp4/aac', 'mp3/mp3', 'flac/flac', 'wav/pcm_s16le', 'hls/aac'],
+      );
+      expect(platform.capabilities.networkInterfaces, isTrue);
+      expect(platform.networkInterfaces, isA<ConnectivityPlusInterfaces>());
+      expect(platform.capabilities.cache, same(iosCacheSizes));
+      expect(platform.cacheDirectory, isA<CacheDirectory>());
+      expect(platform.capabilities.secureStorage, isTrue);
+      expect(platform.secureStorage, isA<FlutterSecureStorageAdapter>());
+      expect(platform.capabilities.files, isTrue);
+      expect(platform.fileDialogs, isA<FilePickerDialogs>());
+      expect(platform.capabilities.urlOpener, isTrue);
+      expect(platform.urlOpener, isA<UrlLauncherOpener>());
+      expect(platform.capabilities.shareFiles, isTrue);
+      expect(platform.fileSharer, isA<SharePlusFileSharer>());
+      expect(platform.capabilities.pluginDevTools, isFalse);
+      expect(platform.capabilities.restartsItself, isFalse);
+      expect(platform.restarter, isA<ExitAppRestarter>());
+      expect(platform.legacyDataLocator, isNotNull);
+      expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
+      expect(platform.capabilities.customTitleBar, isFalse);
+      expect(platform.windowChrome, isNull);
+      // 系統媒體控制（PR 5）與登入 WebView（PR 7）還沒接。
+      expect(platform.capabilities.mediaControls, isNull);
+      expect(platform.mediaControls, isNull);
+      expect(platform.capabilities.loginWebView, isFalse);
+      expect(platform.loginWebView, isNull);
+    });
+
+    for (final unverified in [TargetPlatform.linux, TargetPlatform.fuchsia]) {
       test('${unverified.name} declares nothing and has no implementation', () {
         final platform = AppPlatform.assemble(unverified, AppFlavor.prod);
 

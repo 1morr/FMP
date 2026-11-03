@@ -11,7 +11,7 @@ import 'package:fmp/plugins/source_plugin.dart';
 // 開發入口：啟動時從指定的路徑安裝一個插件，給還沒有選檔 UI（PR 12）與插件頁
 // （M3）的這段期間，以及 dev 的實機驗證用（ADR 0027）。
 //
-// 只在 dev flavor 生效，prod 不讀參數與環境變數（[devPluginPath]）：這條路徑跳過
+// 只在 dev flavor 生效，prod 不讀參數、環境變數與 dart-define（[devPluginPath]）：這條路徑跳過
 // ADR 0014 §決定 6 要求的安裝前確認（能力、網域、「以你的登入身分存取」的
 // 警告），而命令列參數、Android 的 intent extra（`dart_entrypoint_args`）與
 // 環境變數都能由別的程式帶入。正式版的安裝只經使用者看過確認的 UI。
@@ -22,13 +22,22 @@ const devPluginArgumentPrefix = '--fmp-dev-plugin=';
 /// 環境變數（Windows 的 `flutter run` 會傳給 App）。參數優先。
 const devPluginEnvironmentVariable = 'FMP_DEV_PLUGIN';
 
-/// 從 [arguments] 與 [environment] 找開發入口要安裝的路徑；沒有、或 [flavor]
-/// 不是 dev 就是 `null`。
+/// 編譯期的值：`--dart-define=FMP_DEV_PLUGIN=<路徑>`。iOS 的 Dart 讀不到環境變數與 `main()` 的參數
+/// （2026-11-03 模擬器實測），模擬器經 `flutter run`／`flutter build` 的 dart-define 帶入；實機不可用。
+const devPluginDefines = {
+  devPluginEnvironmentVariable: String.fromEnvironment(
+    devPluginEnvironmentVariable,
+  ),
+};
+
+/// 從 [arguments]、[environment]、[defines] 找開發入口要安裝的路徑，優先順序依序；沒有、或
+/// [flavor] 不是 dev 就是 `null`。
 String? devPluginPath(
   AppFlavor flavor,
   List<String> arguments,
-  Map<String, String> environment,
-) {
+  Map<String, String> environment, {
+  Map<String, String> defines = devPluginDefines,
+}) {
   if (flavor != AppFlavor.dev) return null;
   for (final argument in arguments) {
     if (argument.startsWith(devPluginArgumentPrefix)) {
@@ -36,8 +45,11 @@ String? devPluginPath(
       if (path.isNotEmpty) return path;
     }
   }
-  final path = environment[devPluginEnvironmentVariable];
-  return path == null || path.isEmpty ? null : path;
+  for (final source in [environment, defines]) {
+    final path = source[devPluginEnvironmentVariable];
+    if (path != null && path.isNotEmpty) return path;
+  }
+  return null;
 }
 
 /// 開發入口要安裝的路徑。`main()` 以 [devPluginPath] override；預設 `null`。

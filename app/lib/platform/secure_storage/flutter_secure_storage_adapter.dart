@@ -6,7 +6,7 @@ import 'package:fmp/platform/secure_storage/secure_storage.dart';
 /// 鍵允許的字元（[SecureStorage]）。
 final _validKey = RegExp(r'^[a-z0-9][a-z0-9.-]*$');
 
-/// Android、Windows 與 macOS 共用的實作：`flutter_secure_storage` 11.x。
+/// Android、Windows、macOS 與 iOS 共用的實作：`flutter_secure_storage` 11.x。
 ///
 /// - Android：RSA-OAEP 包 AES-GCM 的金鑰（套件預設）。`resetOnError` 關掉：
 ///   套件預設讀取失敗就清空，違反 ADR 0012「讀取失敗時不刪除」。
@@ -17,6 +17,11 @@ final _validKey = RegExp(r'^[a-z0-9][a-z0-9.-]*$');
 /// - macOS：傳統的登入 keychain（`usesDataProtectionKeychain: false`）。data protection
 ///   keychain 要 keychain-access-groups entitlement 與開發者帳號簽章；App 不開沙盒、
 ///   也不用開發者帳號簽（ADR 0036），所以不能用。
+/// - iOS：data protection keychain（套件在 iOS 唯一的做法），accessibility 用
+///   `first_unlock`：背景換曲時插件要讀憑證，鎖屏後 `unlocked` 讀不到。不設 groupId，預設的
+///   access group 是 Team ID 加 bundle id。已知：解除安裝後項目仍在（iOS 的設計）；換 Team
+///   重簽就讀不到，要重新登入（ADR 0037 §決定 6）。`readAll` 在 iOS 正常，`deleteAll` 只刪
+///   自己前綴的鍵。
 ///
 /// dev 與 prod 分開（ADR 0015 §決定 8）：各平台本來就分開（applicationId、
 /// ProductName），這裡再以鍵前綴（`fmp-dev.`／`fmp.`）與 Android 的
@@ -31,9 +36,12 @@ final class FlutterSecureStorageAdapter implements SecureStorage {
     this._deleteWholeStore,
   });
 
-  /// 以套件接上系統（Android、Windows）。
+  /// 以套件接上系統（Android、Windows、iOS）；套件只在各自的平台讀各自的選項。
   factory FlutterSecureStorageAdapter.system(AppFlavor flavor) {
-    final storage = FlutterSecureStorage(aOptions: androidOptions(flavor));
+    final storage = FlutterSecureStorage(
+      aOptions: androidOptions(flavor),
+      iOptions: iosOptionsFor(flavor),
+    );
     return FlutterSecureStorageAdapter(
       prefix: _prefixOf(flavor),
       read: (key) => storage.read(key: key),
@@ -65,6 +73,13 @@ final class FlutterSecureStorageAdapter implements SecureStorage {
   static AndroidOptions androidOptions(AppFlavor flavor) => AndroidOptions(
     resetOnError: false,
     storageNamespace: _namespaceOf(flavor),
+  );
+
+  /// iOS 的選項。測試核對 accessibility 與帳號名。
+  static IOSOptions iosOptionsFor(AppFlavor flavor) => IOSOptions(
+    // 背景換曲時裝置可能鎖著；unlocked（套件預設）鎖屏後讀不到（-25308）。
+    accessibility: KeychainAccessibility.first_unlock,
+    accountName: _namespaceOf(flavor),
   );
 
   /// macOS 的選項。測試核對 `usesDataProtectionKeychain` 與帳號名。
