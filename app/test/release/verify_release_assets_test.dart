@@ -18,17 +18,25 @@ void main() {
   late List<String>? zipEntries;
   late Map<String, List<String>?> macosEntries;
   late String? macosPlist;
+  late Map<String, List<String>?> iosEntries;
+  late String? iosPlist;
 
   Future<List<String>> verify({String releaseTag = tag}) => verifyReleaseAssets(
     dir: dir,
     tag: releaseTag,
     readBadging: (apk) async => badging[p.basename(apk.path)],
     readSigners: (apk) async => signers[p.basename(apk.path)],
-    listZip: (zip) async => p.basename(zip.path).endsWith('-macos.zip')
-        ? macosEntries[p.basename(zip.path)]
-        : zipEntries,
-    readZipEntry: (zip, entry) async =>
-        entry == 'fmp.app/Contents/Info.plist' ? macosPlist : null,
+    listZip: (zip) async {
+      final name = p.basename(zip.path);
+      if (name.endsWith('-macos.zip')) return macosEntries[name];
+      if (name.endsWith('-ios.ipa')) return iosEntries[name];
+      return zipEntries;
+    },
+    readZipEntry: (zip, entry) async => switch (entry) {
+      'fmp.app/Contents/Info.plist' => macosPlist,
+      'Payload/Runner.app/Info.plist' => iosPlist,
+      _ => null,
+    },
   );
 
   File asset(String name) => File(p.join(dir.path, name));
@@ -78,6 +86,15 @@ void main() {
       ],
     };
     macosPlist = macosInfoPlist(applicationId, '2.0.0');
+    iosEntries = {
+      'fmp-$tag-ios.ipa': [
+        'Payload/',
+        'Payload/Runner.app/',
+        'Payload/Runner.app/Info.plist',
+        'Payload/Runner.app/Runner',
+      ],
+    };
+    iosPlist = macosInfoPlist(applicationId, '2.0.0');
     copyAliases();
     writeManifest();
   });
@@ -93,6 +110,7 @@ void main() {
       'fmp-v2.0.0-windows-installer.exe',
       'fmp-v2.0.0-windows.zip',
       'fmp-v2.0.0-macos.zip',
+      'fmp-v2.0.0-ios.ipa',
       'fmp-v2.0.0-checksums.sha256',
       'fmp-latest-android-arm64-v8a.apk',
       'fmp-latest-android-universal.apk',
@@ -337,6 +355,79 @@ void main() {
         'fmp-$tag-macos.zip: CFBundleShortVersionString is null, '
             'expected 2.0.0',
       ]);
+    });
+
+    test('an iOS IPA whose root is not Payload alone', () async {
+      iosEntries['fmp-$tag-ios.ipa'] = ['Runner.app/Info.plist'];
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: the root must be only Payload, got Runner.app',
+      ]);
+      iosEntries['fmp-$tag-ios.ipa'] = [
+        'Payload/Runner.app/Info.plist',
+        '__MACOSX/._Payload',
+      ];
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: the root must be only Payload, got '
+            'Payload, __MACOSX',
+      ]);
+    });
+
+    test('an iOS IPA whose app is not Runner.app alone', () async {
+      iosEntries['fmp-$tag-ios.ipa'] = ['Payload/fmp.app/Info.plist'];
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: Payload must contain only Runner.app, got fmp.app',
+      ]);
+      iosEntries['fmp-$tag-ios.ipa'] = [
+        'Payload/Runner.app/Info.plist',
+        'Payload/Other.app/Info.plist',
+      ];
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: Payload must contain only Runner.app, got '
+            'Other.app, Runner.app',
+      ]);
+    });
+
+    test('an iOS IPA with another bundle id', () async {
+      iosPlist = macosInfoPlist('com.personal.fmp.dev', '2.0.0');
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: CFBundleIdentifier is com.personal.fmp.dev, '
+            'expected com.personal.fmp',
+      ]);
+    });
+
+    test('an iOS IPA with another version', () async {
+      iosPlist = macosInfoPlist(applicationId, '1.0.0');
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: CFBundleShortVersionString is 1.0.0, '
+            'expected 2.0.0',
+      ]);
+    });
+
+    test('an iOS IPA whose Info.plist is unreadable or binary', () async {
+      iosPlist = null;
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: could not read Runner.app Info.plist',
+      ]);
+      iosPlist = 'bplist00';
+      expect(await verify(), [
+        'fmp-$tag-ios.ipa: CFBundleIdentifier is null, '
+            'expected com.personal.fmp',
+        'fmp-$tag-ios.ipa: CFBundleShortVersionString is null, '
+            'expected 2.0.0',
+      ]);
+    });
+
+    test('an iOS IPA that cannot be listed', () async {
+      iosEntries['fmp-$tag-ios.ipa'] = null;
+      expect(await verify(), ['fmp-$tag-ios.ipa: could not list its entries']);
+    });
+
+    test('an iOS IPA with another entry spelling or extra entries', () async {
+      iosEntries['fmp-$tag-ios.ipa'] = [
+        r'Payload\Runner.app\Info.plist',
+        r'Payload\Runner.app\Frameworks\App.framework\App',
+      ];
+      expect(await verify(), isEmpty);
     });
 
     test('a macOS zip that cannot be listed', () async {
