@@ -205,6 +205,55 @@ void main() {
     });
   });
 
+  group(
+    'the iOS IPA is unsigned, with a Payload root and an XML Info.plist',
+    () {
+      // 不簽章讓使用者自己重簽（ADR 0037 §決定 2）；verify 只讀 XML 的 Info.plist。
+      test('the workflow', () {
+        expect(iosIpaProblems(workflow), isEmpty);
+      });
+
+      test(
+        'red on a signed build, a missing plist conversion or a wrong root',
+        () {
+          expect(
+            iosIpaProblems(mutate('--release --no-codesign', '--release')),
+            ['build-ios does not build with --no-codesign'],
+          );
+          expect(
+            iosIpaProblems(
+              mutate(
+                'plutil -convert xml1 "\$stage/Payload/Runner.app/Info.plist"',
+                'true',
+              ),
+            ),
+            ['build-ios does not convert Info.plist to XML'],
+          );
+          expect(
+            iosIpaProblems(
+              mutate(
+                'zip -qry "\$out/fmp-\$TAG-ios.ipa" Payload',
+                'zip -qry "\$out/fmp-\$TAG-ios.ipa" .',
+              ),
+            ),
+            [
+              'build-ios does not zip the Payload directory into fmp-\$TAG-ios.ipa',
+            ],
+          );
+        },
+      );
+
+      test('not red on another option order or spelling', () {
+        final respelled = mutate(
+          '--release --no-codesign --build-name',
+          '--no-codesign --release --build-name',
+        ).replaceFirst('plutil -convert xml1', 'plutil -convert xml1 -r');
+        expect(respelled, isNot(workflow));
+        expect(iosIpaProblems(respelled), isEmpty);
+      });
+    },
+  );
+
   group('only verified assets are published', () {
     test('the workflow', () {
       expect(publishGateProblems(workflow), isEmpty);
@@ -214,8 +263,8 @@ void main() {
       expect(
         publishGateProblems(
           mutate(
-            'needs: [release-please, build-android, build-windows, build-macos]',
-            'needs: [release-please, build-android, build-windows]',
+            'needs: [release-please, build-android, build-windows, build-macos, build-ios]',
+            'needs: [release-please, build-android, build-windows, build-ios]',
           ),
         ),
         ['verify does not need build-macos'],
@@ -227,7 +276,7 @@ void main() {
         publishGateProblems(
           mutate(
             '    needs: [release-please, verify]\n',
-            '    needs: [release-please, build-android, build-windows, build-macos]\n',
+            '    needs: [release-please, build-android, build-windows, build-macos, build-ios]\n',
           ),
         ),
         ['publish does not need verify'],
@@ -280,9 +329,9 @@ void main() {
     test('not red on another spelling', () {
       final respelled =
           mutate(
-            'needs: [release-please, build-android, build-windows, build-macos]',
+            'needs: [release-please, build-android, build-windows, build-macos, build-ios]',
             'needs:\n      - build-windows\n      - release-please\n'
-                '      - build-macos\n      - build-android',
+                '      - build-macos\n      - build-ios\n      - build-android',
           ).replaceFirst(
             'gh release upload "\$TAG" "\$RUNNER_TEMP"/release-assets/* --clobber',
             'gh release upload --clobber "\$TAG" \${RUNNER_TEMP}/release-assets/*',
@@ -355,7 +404,7 @@ List<String> releaseGatedProblems(String workflowYaml) {
 }
 
 /// 每一個 `flutter build` 都帶 `--flavor prod`（ADR 0015 §決定 8），而且 apk 與
-/// windows、macos 都有建。
+/// windows、macos、ios 都有建。
 List<String> flavorProblems(String workflowYaml) {
   final problems = <String>[];
   final built = <String>{};
@@ -373,7 +422,7 @@ List<String> flavorProblems(String workflowYaml) {
       }
     }
   }
-  for (final target in ['apk', 'windows', 'macos']) {
+  for (final target in ['apk', 'windows', 'macos', 'ios']) {
     if (!built.contains(target)) problems.add('no flutter build $target');
   }
   return problems;
@@ -390,6 +439,32 @@ List<String> macosZipProblems(String workflowYaml) {
   return [
     if (!{'-c', '-k', '--keepParent'}.every(options.contains))
       'build-macos does not package with ditto -c -k --keepParent',
+  ];
+}
+
+/// iOS 的 IPA：`flutter build ios --no-codesign`，Info.plist 轉成 XML，再把
+/// `Payload` 打包成 `fmp-$TAG-ios.ipa`。
+List<String> iosIpaProblems(String workflowYaml) {
+  final job = _jobs(workflowYaml)['build-ios'] as YamlMap?;
+  final scripts = job == null
+      ? ''
+      : _steps(job)
+            .map((step) => '${step['run'] ?? ''}')
+            .join('\n')
+            .replaceAll('\\\n', ' ');
+  final build = RegExp(r'flutter build ios\b[^\n]*')
+      .firstMatch(scripts)
+      ?.group(0);
+  final zip = RegExp(r'\bzip\b[^\n]*').firstMatch(scripts)?.group(0) ?? '';
+  return [
+    if (build == null || !build.split(RegExp(r'\s+')).contains('--no-codesign'))
+      'build-ios does not build with --no-codesign',
+    if (!RegExp(r'plutil\s+-convert\s+xml1\b[^\n]*Info\.plist')
+        .hasMatch(scripts))
+      'build-ios does not convert Info.plist to XML',
+    if (!RegExp(r'fmp-\$\{?TAG\}?-ios\.ipa"?\s+Payload\s*$')
+        .hasMatch(zip.replaceAll(')', '').trim()))
+      'build-ios does not zip the Payload directory into fmp-\$TAG-ios.ipa',
   ];
 }
 

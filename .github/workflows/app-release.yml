@@ -321,11 +321,69 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-ios:
+    name: Build iOS IPA
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: app
+    env:
+      TAG: ${{ needs.release-please.outputs.tag }}
+      VERSION: ${{ needs.release-please.outputs.version }}
+      VERSION_CODE: ${{ needs.release-please.outputs.version_code }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.APP_FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ env.APP_FLUTTER_VERSION }}-${{ runner.os }}
+          pub-cache: true
+
+      - name: Flutter dependencies
+        run: flutter pub get
+
+      # 不簽章（ADR 0037 §決定 2）：使用者以 SideStore／AltStore 用自己的 Apple ID 重簽。
+      - name: Build iOS (prod, release, unsigned)
+        run: flutter build ios --flavor prod --release --no-codesign --build-name "$VERSION" --build-number "$VERSION_CODE"
+
+      # IPA 就是根目錄為 Payload/Runner.app 的 zip（`flutter build ipa --no-codesign` 只產
+      # .xcarchive）。-y 保留符號連結。建置出來的 Info.plist 是二進位格式，而 verify 跑在
+      # Linux、只讀 XML：App 沒有簽章，轉成 XML 不破壞任何東西，iOS 兩種格式都讀。
+      - name: Package the IPA
+        run: |
+          out="$RUNNER_TEMP/ios-assets"
+          stage="$RUNNER_TEMP/ios-stage"
+          mkdir -p "$out" "$stage/Payload"
+          cp -R build/ios/iphoneos/Runner.app "$stage/Payload/"
+          plutil -convert xml1 "$stage/Payload/Runner.app/Info.plist"
+          (cd "$stage" && zip -qry "$out/fmp-$TAG-ios.ipa" Payload)
+          ls -l "$out"
+
+      - name: Upload iOS assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios
+          path: ${{ runner.temp }}/ios-assets/
+          if-no-files-found: error
+          retention-days: 7
+
   # 草稿轉正式之前看過產物的只有這個 job。publish 上傳的就是它檢查過、再打包成
   # release-assets 的那一份。
   verify:
     name: Verify Release Assets
-    needs: [release-please, build-android, build-windows, build-macos]
+    needs: [release-please, build-android, build-windows, build-macos, build-ios]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -368,7 +426,7 @@ jobs:
           for abi in arm64-v8a armeabi-v7a x86_64 universal; do
             versioned+=("fmp-$TAG-android-$abi.apk")
           done
-          versioned+=("fmp-$TAG-windows-installer.exe" "fmp-$TAG-windows.zip" "fmp-$TAG-macos.zip")
+          versioned+=("fmp-$TAG-windows-installer.exe" "fmp-$TAG-windows.zip" "fmp-$TAG-macos.zip" "fmp-$TAG-ios.ipa")
           sha256sum "${versioned[@]}" > "fmp-$TAG-checksums.sha256"
           cat "fmp-$TAG-checksums.sha256"
           for suffix in android-arm64-v8a.apk android-universal.apk windows.zip windows-installer.exe; do
