@@ -6,7 +6,7 @@
 
 ## 背景
 
-ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U 之後擁有者的順序是 macOS → iOS → M6（`milestones.md`，2026-10-24），Mac 是主力開發機，擁有者要在 Mac 上日常使用。研究在 `.trellis/tasks/10-28-macos-platform/research/`：
+ADR 0009 §決定 4：平台的實作在它的平台任務開始時才加。U 之後擁有者的順序是 macOS → iOS → M6（`milestones.md`，2026-10-24），Mac 是主力開發機，擁有者要在 Mac 上日常使用。研究在 `.trellis/tasks/archive/2026-11/10-28-macos-platform/research/`：
 
 - `platform-inventory.md`：每個能力在 macOS 要什麼。
 - `packages-macos.md`：釘住版本的套件在 macOS 的行為，含 ad-hoc 簽章加沙盒的實測。

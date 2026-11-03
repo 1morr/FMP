@@ -65,20 +65,20 @@
 
 ## Acceptance Criteria
 
-- [ ] `implement.md` 的 PR 都已合併，CI 綠。
-- [ ] 擁有者的 Mac 上 dev 版，模式是重播加最少量的真實連線，回報列出請求：
-  - [ ] 測試插件：搜尋、播放、佇列、Now Playing、媒體鍵。
-  - [ ] B 站 DASH、B 站直播 HLS、YouTube、網易各播一首或一間。
-  - [ ] 登入：網頁登入或 QR，由擁有者操作；重開 App 之後憑證仍在。
-  - [ ] 標題列、紅綠燈、全螢幕、單一實例、Dock 叫回視窗、重設後自己重啟。
-  - [ ] 快捷鍵與字型。
-- [ ] Mac 上 `flutter test` 跑插件測試通過（`test/plugins/`）。
-- [ ] ADR 0036 已寫入；ADR 0014、0009 有指向它的修訂。
-- [ ] `milestones.md` 的 macOS 列與兩項 §8 處理好：
+- [x] `implement.md` 的 PR 都已合併，CI 綠。
+- [x] 擁有者的 Mac 上 dev 版，模式是重播加最少量的真實連線，回報列出請求：
+  - [x] 測試插件：搜尋、播放、佇列、Now Playing、媒體鍵。
+  - [x] B 站 DASH、B 站直播 HLS、YouTube、網易各播一首或一間。
+  - [x] 登入：網頁登入或 QR，由擁有者操作；重開 App 之後憑證仍在。
+  - [x] 標題列、紅綠燈、全螢幕、單一實例、Dock 叫回視窗、重設後自己重啟。
+  - [x] 快捷鍵與字型。
+- [x] Mac 上 `flutter test` 跑插件測試通過（`test/plugins/`）。
+- [x] ADR 0036 已寫入；ADR 0014、0009 有指向它的修訂。
+- [x] `milestones.md` 的 macOS 列與兩項 §8 處理好：
   - 「AVPlayer 對 B 站 DASH 與直播 HLS」打勾；
   - 「桌面歌詞」移到 M7；
   - 「更新不帶 quarantine」移到 M9。
-- [ ] 擁有者以 dev 版在 Mac 上試用後認可。
+- [x] 擁有者以 dev 版在 Mac 上試用後認可。
 
 ## Out of Scope
 

@@ -19,7 +19,7 @@
 | M8 | 桌面整合 | M2 | 未開始 |
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
 | L | Linux 平台 | M1、Mac 到貨 | 已開任務，延後到 Mac 上與 macOS、iOS 一起做（`10-01-linux-platform`） |
-| Mac | macOS 平台 | U | 驗收中（任務 `10-28-macos-platform`，FMP #352–#362、fmp-plugins #28；ADR 0036） |
+| Mac | macOS 平台 | U | 完成（任務 `archive/2026-11/10-28-macos-platform`，FMP #352–#365、fmp-plugins #28；ADR 0036） |
 | iOS | iOS 平台 | Mac | 未開始 |
 
 - M6、M7 互不依賴，可以對調。
@@ -205,6 +205,7 @@
   - 應用內更新（ADR 0022，E17）；
   - `docs/user-guide.md` 與關於頁（ADR 0024）；
   - 設定頁「刪除舊版資料」（ADR 0010 §決定 4；M6–M8 補匯完才做，M5 規劃時移來）；
+  - UI 打磨：擁有者 2026-11-03 認為各平台的 UI 都還不及舊版，排在兩週試用之前；要打磨的項目在該任務和擁有者逐項列出；
   - 切換 PR（ADR 0008 §決定 5）：刪除根目錄舊專案、`docs/audit/`、ADR 0001–0007；`release.yml`、`ci.yml`、`orca.yaml`、`tool/release/` 改指向 `app/`。
 - **驗收**（ADR 0026 §決定 5）：
   - [ ] 功能清單 E1–E17 與各 ADR 行為逐項通過
@@ -215,6 +216,7 @@
   - [ ] macOS App 自行下載的更新不帶 quarantine（ADR 0022；macOS 平台任務移來）
   - [ ] macOS 更新後讀憑證不跳 keychain 授權視窗：ad-hoc 每版 partition 不同，選付費 Developer ID 或改存放方式（ADR 0036 §決定 3 的更正）
   - [ ] App 身分比對（ADR 0008）
+  - [ ] UI 打磨的項目擁有者逐項認可（在試用之前）
   - [ ] 試用 2 週，沒有未解決的阻擋性 bug
 
 ## 平台任務
@@ -225,10 +227,14 @@
   - [ ] §8：沒有 keyring 時的 secure storage（ADR 0012）
   - [ ] §8：X11／Wayland 桌面歌詞（ADR 0021）
   - [ ] §8：AppImage 改名替換（ADR 0022）
-- **macOS**（任務 `10-28-macos-platform`，ADR 0036）：
+- **macOS**（任務 `archive/2026-11/10-28-macos-platform`，ADR 0036）：
   - [x] §8：AVPlayer 對 B 站 DASH 與直播 HLS（ADR 0018）：2026-10-28 實機播放成功。直播走 h5 的 HLS，B 站插件 1.12.0 起支援。紀錄在任務的 `research/macos-acceptance.md`。
   - 桌面歌詞移到 M7（那時才有東西可測），更新不帶 quarantine 移到 M9（應用內更新在 M9），兩項都列在各自的驗收。
   - 之後每個里程碑在 Mac 上跑一次冒煙測試（ADR 0027），步驟見 `verify-on-device` 的 `references/macos.md`。
+  - 結果（2026-11-03）：PR 都已合併，CI 綠；擁有者在 Mac 上看過 Now Playing 與媒體鍵、QR 登入後重開仍登入、以 dev 版試用。
+    - 驗收中修正：本機 dev 版每次重建都要輸入 keychain 密碼，改用 Apple Development 憑證簽本機建置（#365，ADR 0036 §決定 3 的更正）；發版留到 M9。
+    - 擁有者認為 UI 在各平台都還不及舊版，打磨排到 M9 試用前。
+    - 紀錄：任務的 `research/macos-acceptance.md`。
 - **iOS**（Mac 到貨後，實機與付費帳號在該任務決定）：
   - [ ] §8：AVPlayer 對 B 站 DASH 與直播 HLS（ADR 0018）
   - [ ] §8：Live Activity 本機逐行更新（ADR 0021）
