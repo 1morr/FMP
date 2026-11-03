@@ -110,6 +110,22 @@ void main() {
     });
   });
 
+  group('iOS options', () {
+    test('stay readable after the first unlock, with a per-flavor account', () {
+      for (final flavor in AppFlavor.values) {
+        final options = FlutterSecureStorageAdapter.iosOptionsFor(flavor)
+            .toMap();
+
+        // 背景換曲時裝置鎖著（ADR 0037 §決定 6）；unlocked 讀不到。
+        expect(options['accessibility'], 'first_unlock');
+        expect(
+          options['accountName'],
+          flavor == AppFlavor.dev ? 'fmp-dev' : 'fmp',
+        );
+      }
+    });
+  });
+
   group('Android options', () {
     test('never reset the store on a read error (ADR 0012)', () {
       for (final flavor in AppFlavor.values) {

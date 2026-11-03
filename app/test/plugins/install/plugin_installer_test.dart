@@ -311,6 +311,50 @@ void main() {
       );
     });
 
+    test('falls back to the compile-time define last', () {
+      const defines = {'FMP_DEV_PLUGIN': '/d.js'};
+      expect(
+        devPluginPath(AppFlavor.dev, const [], const {}, defines: defines),
+        '/d.js',
+      );
+      expect(
+        devPluginPath(AppFlavor.dev, const [], const {
+          'FMP_DEV_PLUGIN': '/b.js',
+        }, defines: defines),
+        '/b.js',
+      );
+      expect(
+        devPluginPath(
+          AppFlavor.dev,
+          const ['--fmp-dev-plugin=/a.js'],
+          const {'FMP_DEV_PLUGIN': '/b.js'},
+          defines: defines,
+        ),
+        '/a.js',
+      );
+      expect(
+        devPluginPath(
+          AppFlavor.dev,
+          const [],
+          const {},
+          defines: const {'FMP_DEV_PLUGIN': ''},
+        ),
+        isNull,
+      );
+    });
+
+    test('prod ignores the define too', () {
+      expect(
+        devPluginPath(
+          AppFlavor.prod,
+          const [],
+          const {},
+          defines: const {'FMP_DEV_PLUGIN': '/d.js'},
+        ),
+        isNull,
+      );
+    });
+
     test('prod reads neither the argument nor the environment', () {
       expect(
         devPluginPath(

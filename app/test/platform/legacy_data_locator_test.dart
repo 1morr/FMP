@@ -37,6 +37,46 @@ void main() {
       expect(legacyDirectoryPath(AppFlavor.dev, const [], const {}), isNull);
     });
 
+    test('the compile-time define comes last and prod ignores it', () {
+      const defines = {'FMP_LEGACY_DIR': '/from-define'};
+      expect(
+        legacyDirectoryPath(
+          AppFlavor.dev,
+          const [],
+          const {},
+          defines: defines,
+        ),
+        '/from-define',
+      );
+      expect(
+        legacyDirectoryPath(
+          AppFlavor.dev,
+          const [],
+          environment,
+          defines: defines,
+        ),
+        '/from-env',
+      );
+      expect(
+        legacyDirectoryPath(
+          AppFlavor.dev,
+          arguments,
+          environment,
+          defines: defines,
+        ),
+        '/copy',
+      );
+      expect(
+        legacyDirectoryPath(
+          AppFlavor.prod,
+          arguments,
+          environment,
+          defines: defines,
+        ),
+        null,
+      );
+    });
+
     test('an empty value counts as not given', () {
       expect(
         legacyDirectoryPath(

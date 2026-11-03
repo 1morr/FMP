@@ -136,7 +136,7 @@ ADR 0009 §決定 4：平台的實作在平台任務開始時才加。擁有者�
     | `pluginDevTools` | 沒有 | 同 Android：`file_picker_darwin` 不處理 security-scoped 目錄（`packages-ios.md` §6.2） |
     | `customTitleBar` | 沒有 | `window_manager` 不編進 iOS，呼叫會拋 `MissingPluginException`（實測，`packages-ios.md` §6.8）；組裝點不給 `windowChromeFactory` |
     | `shortcutModifier` | `appleShortcutModifier` | iPad 外接鍵盤用 ⌘（ADR 0035 §決定 7） |
-    | `appInfo` | `platform: 'iOS'`，`homeDirectory` 是 `HOME`（App 容器） | 畫面把路徑顯示成 `~/Library/…`；模擬器的容器路徑含 Mac 的使用者名稱，log 遮蔽靠它 |
+    | `appInfo` | `platform: 'iOS'`，`homeDirectory` 是 `HOME`（App 容器） | 畫面把路徑顯示成 `~/Library/…`；模擬器的容器路徑含 Mac 的使用者名稱，log 遮蔽靠它。更正（2026-11-04，PR 4 實測）：iOS 的 Dart 讀不到環境變數與 `main()` 的參數，`HOME` 是空的；`homeDirectory` 改由 `Directory.systemTemp.path`（`<容器>/tmp`）的上一層推出（`iosHomeDirectory`）。開發入口（`FMP_DEV_PLUGIN`、`FMP_LEGACY_DIR`）因此多一個編譯期的 `--dart-define` 來源，只在模擬器可用 |
     | `legacyDataLocator` | prod 沒有位置；dev 只看 `--fmp-legacy-dir` | 舊版沒發過 iOS（`app/AGENTS.md` § App 身分） |
 13. **共用實作的命名**：
     - 有邏輯的類別與函式改成 Apple 共用，macOS 與 iOS 都用：

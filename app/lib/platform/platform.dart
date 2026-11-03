@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -11,16 +11,19 @@ import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart'
 import 'package:fmp/platform/app_data_directory/app_data_directory_apple.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
+import 'package:fmp/platform/app_info/ios_home_directory.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
 import 'package:fmp/platform/app_restart/app_restart.dart';
 import 'package:fmp/platform/app_restart/app_restart_exit.dart';
 import 'package:fmp/platform/app_restart/app_restart_macos.dart';
 import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
+import 'package:fmp/platform/audio/audio_ios.dart';
 import 'package:fmp/platform/audio/audio_macos.dart';
 import 'package:fmp/platform/audio/audio_windows.dart';
 import 'package:fmp/platform/cache_directory/cache_directory.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_android.dart';
+import 'package:fmp/platform/cache_sizes/cache_sizes_ios.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_macos.dart';
 import 'package:fmp/platform/cache_sizes/cache_sizes_windows.dart';
 import 'package:fmp/platform/connectivity/connectivity.dart';
@@ -30,6 +33,7 @@ import 'package:fmp/platform/files/files.dart';
 import 'package:fmp/platform/legacy_data/legacy_data_locations.dart';
 import 'package:fmp/platform/legacy_data/legacy_data_locator.dart';
 import 'package:fmp/platform/fonts/fonts_android.dart';
+import 'package:fmp/platform/fonts/fonts_ios.dart';
 import 'package:fmp/platform/fonts/fonts_macos.dart';
 import 'package:fmp/platform/fonts/fonts_windows.dart';
 import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
@@ -105,13 +109,14 @@ final class AppPlatform {
 
   /// 依 [platform] 組裝。
   ///
-  /// 只有 Android、Windows 與 macOS 有實作；其他平台驗證前宣告全部為「沒有」、
+  /// 只有 Android、Windows、macOS 與 iOS 有實作；其他平台驗證前宣告全部為「沒有」、
   /// 也沒有實作檔（ADR 0009 §決定 4）。
   ///
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
   /// `WindowsSystemMediaControls.init`）；[macosMediaControls] 同理（預設是
-  /// `AppleSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
+  /// `AppleSystemMediaControls.init`）；[iosMediaControls] 同理（預設是
+  /// `AppleSystemMediaControls.init`，系統媒體控制 PR 5 才接上）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
@@ -119,6 +124,7 @@ final class AppPlatform {
     Future<SystemMediaControls> Function(Log log)? androidMediaControls,
     Future<SystemMediaControls> Function(Log log)? windowsMediaControls,
     Future<SystemMediaControls> Function(Log log)? macosMediaControls,
+    Future<SystemMediaControls> Function(Log log)? iosMediaControls,
     Future<WindowChrome> Function()? windowsWindowChrome,
     Future<WindowChrome> Function()? macosWindowChrome,
     String? legacyDirectory,
@@ -185,9 +191,62 @@ final class AppPlatform {
       macosWindowChrome,
       legacyDirectory,
     ),
-    TargetPlatform.linux || TargetPlatform.iOS || TargetPlatform.fuchsia =>
-      AppPlatform._(capabilities: PlatformCapabilities.none),
+    TargetPlatform.iOS => _ios(flavor, iosMediaControls, legacyDirectory),
+    TargetPlatform.linux || TargetPlatform.fuchsia => AppPlatform._(
+      capabilities: PlatformCapabilities.none,
+    ),
   };
+
+  static AppPlatform _ios(
+    AppFlavor flavor,
+    // 系統媒體控制 PR 5 接上，這個 PR 還不用。
+    Future<SystemMediaControls> Function(Log log)? iosMediaControls,
+    String? legacyDirectory,
+  ) => AppPlatform._(
+    capabilities: const PlatformCapabilities(
+      dataDirectory: true,
+      // iOS 本來就只有一個行程。
+      singleInstance: false,
+      fontFallback: iosFontFallback,
+      fontChoices: iosFontChoices,
+      playback: iosPlaybackSupport,
+      networkInterfaces: true,
+      cache: iosCacheSizes,
+      secureStorage: true,
+      files: true,
+      // 登入 WebView 由 PR 7 接上。
+      loginWebView: false,
+      urlOpener: true,
+      // 沒有重新啟動自己的 API：結束行程，請使用者再開（ADR 0037 §決定 10）。
+      restartsItself: false,
+      shareFiles: true,
+      // 同 Android：file_picker_darwin 不處理 security-scoped 目錄。
+      pluginDevTools: false,
+      shortcutModifier: appleShortcutModifier,
+    ),
+    appInfo: PackageInfoAppInfo(
+      platform: 'iOS',
+      osVersion: Platform.operatingSystemVersion,
+      // 家目錄是 App 容器；模擬器上它含 Mac 的使用者名稱，交給遮蔽。iOS 的 Dart 讀不到
+      // HOME，由暫存目錄推出（ADR 0037 §決定 12 的更正）。
+      homeDirectory: iosHomeDirectory(Directory.systemTemp.path),
+    ),
+    dataDirectory: AppleAppDataDirectory(
+      applicationSupportPath: () async =>
+          (await getApplicationSupportDirectory()).path,
+    ),
+    networkInterfaces: ConnectivityPlusInterfaces.system(),
+    cacheDirectory: CacheDirectory(applicationCachePath: _applicationCachePath),
+    secureStorage: FlutterSecureStorageAdapter.system(flavor),
+    fileDialogs: const FilePickerDialogs(),
+    urlOpener: const UrlLauncherOpener(),
+    fileSharer: SharePlusFileSharer(),
+    restarterFactory: ExitAppRestarter.forMediaControls,
+    legacyDataLocator: appleLegacyDataLocator(
+      flavor: flavor,
+      devDirectory: legacyDirectory,
+    ),
+  );
 
   static AppPlatform _macos(
     AppFlavor flavor,

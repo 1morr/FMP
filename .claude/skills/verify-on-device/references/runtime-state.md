@@ -10,6 +10,7 @@
 | Windows 安裝版（有 `unins000.exe`） | `%APPDATA%\com.personal\fmp-dev` | `%APPDATA%\com.personal\fmp` |
 | Android | `/data/data/com.personal.fmp.dev/files`（`run-as com.personal.fmp.dev`） | `com.personal.fmp` 的 `files`：**不要碰** |
 | macOS | `~/Library/Application Support/com.personal.fmp.dev` | `~/Library/Application Support/com.personal.fmp` |
+| iOS | App 容器的 `Library/Application Support`（`xcrun simctl get_app_container booted com.personal.fmp.dev data`） | `com.personal.fmp` 的容器：不碰 |
 
 dev 解析到舊版正式資料的位置（Windows 的 `Documents\FMP`、`%APPDATA%\com.personal\fmp`、Android 的
 `com.personal.fmp` 沙盒）會在啟動時拋 `LegacyDataLocationException`：視窗開了但內容空白。
@@ -69,6 +70,7 @@ Dart VM Service（`flutter run` 印的 URI）可讀活的物件；URI 是本機�
 | B 站 `bilibili` | `fmp-plugins/bilibili/bilibili.js`（與 FMP 同層的 clone） | 真實：搜尋與解析都連網，照 SKILL.md 只做最少的操作 |
 
 - Windows 直接給絕對路徑；Android 要先複製進 App 的私有目錄（`android.md`）。
+- iOS 模擬器：Dart 讀不到環境變數與參數，改用 `flutter build ios --simulator --flavor dev --debug --dart-define=FMP_DEV_PLUGIN=<絕對路徑>`（順序：參數、環境變數、dart-define；見 `ios.md`）。
 - Windows 的環境變數只對該行程有效：PowerShell 用
   `$env:FMP_DEV_PLUGIN='<路徑>'; Start-Process ...; Remove-Item Env:FMP_DEV_PLUGIN`。
 - 裝好的插件留在 `installed_plugins`，之後不帶參數啟動也會載入。

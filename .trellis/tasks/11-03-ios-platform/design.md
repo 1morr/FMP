@@ -161,9 +161,8 @@
 | `shortcutModifier` | `appleShortcutModifier` |
 | `mediaControls` | PR 4 先 null；PR 5 改 `MediaControlsSupport(supportsSeek: true)`，`mediaControlsFactory: iosMediaControls ?? AppleSystemMediaControls.init` |
 
-- `appInfo`：`PackageInfoAppInfo(platform: 'iOS', osVersion: Platform.operatingSystemVersion, homeDirectory: Platform.environment['HOME'])`。
-  - iOS 的 `HOME` 是 App 容器。模擬器上它含 Mac 的使用者名稱，交給遮蔽之後 log 與畫面都顯示成 `~`。
-  - 實作時在模擬器確認 `HOME` 有值，而且等於資料目錄往上兩層。不對就停下回報。
+- `appInfo`：`PackageInfoAppInfo(platform: 'iOS', osVersion: Platform.operatingSystemVersion, homeDirectory: iosHomeDirectory(Directory.systemTemp.path))`。
+  - 更正（2026-11-04，PR 4 實測）：iOS 的 Dart 讀不到環境變數，`HOME` 是空的。家目錄（App 容器）由 `Directory.systemTemp.path`（`<容器>/tmp`）的上一層推出，純函式 `iosHomeDirectory`。模擬器上它含 Mac 的使用者名稱，交給遮蔽之後 log 與畫面都顯示成 `~`（已實測）。
 - `legacyDataLocator`：`appleLegacyDataLocator(flavor: flavor, devDirectory: legacyDirectory)`。
 - 字型：在模擬器以繁中介面看「骨」「直」「為」的字形（日文字形的「骨」上半部方向相反）。混到日文字形就是 fallback 沒有生效，停下回報。
 - 更新 doc：
@@ -456,7 +455,7 @@ Future<bool> shareFiles(
    - 建置與安裝：`flutter build ios --simulator --flavor dev --debug`、`xcrun simctl install booted build/ios/iphonesimulator/Runner.app`。
    - 帶開發入口啟動：
      1. 測試插件的安裝檔先複製進 App 容器：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下的 `tmp/`；
-     2. `SIMCTL_CHILD_FMP_DEV_PLUGIN=<容器內路徑> xcrun simctl launch booted com.personal.fmp.dev`。`SIMCTL_CHILD_` 前綴的環境變數會交給 App，`devPluginPath` 讀環境變數。
+     2. 更正（2026-11-04，PR 4 實測）：iOS 的 Dart 讀不到環境變數與參數。改用 `flutter build ios --simulator --flavor dev --debug --dart-define=FMP_DEV_PLUGIN=<插件的絕對路徑>`（模擬器讀得到 Mac 的檔案，不必複製進容器），再 `xcrun simctl install`、`launch`。`devPluginPath` 的順序：參數、環境變數、dart-define。實機不可用。
      3. 實作時確認可行；命令列參數在 iOS 不一定進得了 Dart 的 `main`。
    - `flutter run -d <UDID> --flavor dev` 要熱重載時用，放進 Orca terminal。
    - log：資料目錄是容器的 `Library/Application Support`，log 在其下的 `logs/fmp.jsonl`；系統 log：`xcrun simctl spawn booted log stream --predicate 'process == "Runner"'`。

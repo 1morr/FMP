@@ -37,11 +37,13 @@
 - `flutter test` 不加參數：`live` 預設跳過（見「零聯網」）。CI 的 `app` job 跑上表前兩列
   與產生檔檢查（見「資料層」）；
   `fmp_lints` 的測試另外以 `TEST_ANALYZER_WINDOWS_PATHS=true` 再跑一次（Windows 路徑）。
-- CI 另有五個平台的建置 job（都是 `--flavor prod --release`，iOS 加 `--no-codesign`；macOS、
-  iOS 再建一次 `--flavor dev --debug`），以及 Linux（xvfb）與 Windows 的整合測試 job：
+- CI 另有五個平台的建置 job（都是 `--flavor prod --release`，iOS 加 `--no-codesign`；macOS
+  再建一次 `--flavor dev --debug`），以及 Linux（xvfb）與 Windows 的整合測試 job：
   `install_search_play_test.dart`、`toast_layering_test.dart`，Windows 另跑 `secure_storage_test.dart`。
   macOS 的建置 job 在建置之後跑 `install_search_play_test.dart -d macos --flavor dev`（守插件引擎有編進
-  App）；`secure_storage_test.dart` 不進 CI（runner 的 keychain 可能跳授權視窗），實機手動跑。
+  App）；iOS 的建置 job 在建置與符號檢查之後開一台 iOS 模擬器（`xcrun simctl list` 取第一台可用的
+  iPhone，不寫死機型），跑 `install_search_play_test.dart --flavor dev`（ADR 0037 §決定 15；它建的
+  `Debug-dev` 也守 dev 的 scheme）；`secure_storage_test.dart` 不進 CI（runner 的 keychain 可能跳授權視窗），實機手動跑。
   真後端的契約與插件量測只在實機手動跑。
 - 桌面裝置一次 `flutter test` 只能跑一個整合測試檔：flutter_tools 每個桌面裝置只有一個 log
   reader，第一個檔案的 App 結束時就關了，第二個檔案的 App 報 `Unable to start the app on the
@@ -230,7 +232,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
 
 `lib/platform/`（ADR 0009）。怎麼加一個能力：`.trellis/spec/app/platform/index.md`。
 
-- `PlatformCapabilities` 只含已經有實作的能力。Linux、iOS 驗證前宣告全部為
+- `PlatformCapabilities` 只含已經有實作的能力。Linux 驗證前宣告全部為
   「沒有」、沒有實作檔；`main()` 看到沒有資料目錄就只開「此平台尚未支援」的畫面（`main()` 的分支沒有測試，review 時看）。
 - 新能力連同實作一起加：宣告欄位、各平台實作、組裝點的分支、測試列在同一個 PR，
   不先為之後的里程碑預留欄位。
@@ -244,15 +246,15 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   手動跑時一起檢查。
 
 - Secure storage（`lib/platform/secure_storage/`，ADR 0012 §決定 3、ADR 0029 §決定 5）：`PlatformCapabilities.secureStorage`
-  （Android、Windows、macOS）。鍵只准小寫英數、`.`、`-`（Windows 直接當檔名），實作加上 `fmp-dev.`／`fmp.` 前綴，
+  （Android、Windows、macOS、iOS）。鍵只准小寫英數、`.`、`-`（Windows 直接當檔名），實作加上 `fmp-dev.`／`fmp.` 前綴，
   `deleteAll` 只刪自己前綴的鍵、不呼叫套件的全刪。Android 的 `resetOnError` 一律關：套件預設讀取失敗就清空，
   違反「讀取失敗不刪除」。macOS 用傳統的登入 keychain（`MacOsOptions(usesDataProtectionKeychain: false)`，帳號名
-  `fmp-dev`／`fmp`）：data protection keychain 要 keychain-access-groups entitlement 與開發者帳號簽章（ADR 0036）。macOS 的 `deleteAll` 以 service（帳號名）清整個儲存區，不先列出鍵：登入 keychain 不接受「全部項目＋回傳資料」的查詢，套件的 `readAll` 回 `-50`（`FlutterSecureStorageAdapter.macos`）。實機的寫、讀、刪：`integration_test/secure_storage_test.dart -d macos`。`flutter_secure_storage` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：
-  `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`、macOS 的選項）、
+  `fmp-dev`／`fmp`）：data protection keychain 要 keychain-access-groups entitlement 與開發者帳號簽章（ADR 0036）。iOS 用 data protection keychain（套件在 iOS 唯一的做法），`IOSOptions(accessibility: first_unlock, accountName: 'fmp-dev'／'fmp')`：背景換曲時裝置鎖著，套件預設的 `unlocked` 讀不到（`-25308`）；不設 groupId；`deleteAll` 同 Android 只刪自己前綴的鍵；解除安裝後項目仍在、換 Team 重簽就讀不到（ADR 0037 §決定 6）。macOS 的 `deleteAll` 以 service（帳號名）清整個儲存區，不先列出鍵：登入 keychain 不接受「全部項目＋回傳資料」的查詢，套件的 `readAll` 回 `-50`（`FlutterSecureStorageAdapter.macos`）。實機的寫、讀、刪：`integration_test/secure_storage_test.dart -d macos`。`flutter_secure_storage` 只准在平台層（lint `fmp_layer_imports` 的 `platformPackages`）。閘門：
+  `test/platform/secure_storage_test.dart`（前綴、鍵檢查、`deleteAll` 只刪自己、`resetOnError`、macOS 與 iOS 的選項）、
   `platform_test.dart`；真的寫讀刪是 `integration_test/secure_storage_test.dart`（手動，Windows 另在 CI）。
 - 自繪標題列與快捷鍵修飾鍵（`lib/platform/window_chrome/`、`shortcut_modifier/`，ADR 0035 §決定 6、7，U PR 15）：
   `PlatformCapabilities.customTitleBar`（Windows、macOS）宣告系統標題列已隱藏、由 App 自繪；`shortcutModifier`（`ShortcutModifier.control`／`meta`，
-  Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier`：macOS 已接上，iOS 平台任務接上）宣告快捷鍵的主修飾鍵。
+  Windows、Android 是 Ctrl，Apple 平台是 ⌘，常數 `appleShortcutModifier`：macOS、iOS 已接上）宣告快捷鍵的主修飾鍵。
   視窗動作是 `WindowChrome`（`minimize`、`toggleMaximize`、`close`、`startDragging`、`maximized`，加上版型用的 `captionButtons`、`titleBarHeight`），兩個平台的實作都是 `WindowManagerChrome`
   （`window_manager` 0.5.2，目前維護中的穩定線；macOS 以 `captionButtons: systemLeading` 建，隱藏標題列之前先以 `getTitleBarHeight` 量系統標題區（隱藏之後量到 0），標題列就和它一樣高、紅綠燈在正中間（ADR 0036 §決定 6 的更正）；`TitleBarStyle.hidden`；不 `show`／`focus`：視窗照舊由 runner 在第一個畫面時顯示，`runApp` 之前先顯示會露出空白視窗；不改視窗標題，`windows/runner/main.cpp` 的單一實例以視窗類別加標題找第一個實例）。
   實作在 `main()` 開好資料庫與系統媒體控制之後、`runApp` 之前由 `AppPlatform.withWindowChrome` 初始化（`windowsWindowChrome`、`macosWindowChrome` 可換掉，測試用），
@@ -361,7 +363,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
     緊接著 `exit(0)` 時平台還沒收到，`NO_CLEAR` 的媒體通知留在通知清單（2026-10-14 實測：改前重設後 `dumpsys notification` 還有一筆，改後播放中、暫停中都是 0 筆）。沒有自動閘門，改動後實機看 `dumpsys notification`。
     收掉工作階段丟錯也照樣 `exit`（`finally`）。閘門：`app_restart_test.dart` 的 `Android`（先收工作階段再結束、收不掉也結束、沒有媒體控制照常結束）、`platform_test.dart`。行程結束後通知消失、重開時 `main()` 重跑只能實機驗。
 
-- 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android、Windows 與 macOS 共用
+- 版本號、平台名稱與系統版本（`lib/platform/app_info/`，M3 design §12.1；`osVersion` 是組裝點給的 `Platform.operatingSystemVersion`，錯誤報告用）：`AppPlatform.appInfo`，Android、Windows、macOS 與 iOS 共用
   `PackageInfoAppInfo`（`package_info_plus`；Windows 端是 FFI 讀執行檔的 `ProductVersion`，沒有原生的 plugin registrant）。
   不是能力宣告：沒有畫面依它決定入口，只有能跑主 App 的平台有，`main()` 在 `runApp` 之前讀一次、以 `appInfoProvider`
   注入。`homeDirectory`（Windows 是 `USERPROFILE`，macOS 是 `HOME`，Android 為空：沙盒路徑不含使用者名稱）給畫面把資料目錄顯示成
@@ -434,6 +436,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   path_provider 的 application support；App 不開沙盒，ADR 0036）。dev 與 prod 因 bundle id 不同而分開，
   不加 `-dev`；舊版沒發過 macOS，沒有舊資料位置要避開（舊資料只經 dev 的 `--fmp-legacy-dir` 或首次啟動的匯入），
   也沒有舊憑證可讀。
+- iOS 是 App 容器的 `Library/Application Support`（path_provider 的 application support，`AppleAppDataDirectory`，
+  與 macOS 共用；ADR 0037 §決定 12）。dev 與 prod 的容器不同；舊版沒發過 iOS，沒有舊資料位置，也沒有舊憑證。
+  iOS 上 Dart 的 `Platform.environment` 與 `main()` 的參數都是空的（2026-11-03 模擬器實測，環境變數雖交給了行程），
+  所以開發入口（`devPluginPath`、`legacyDirectoryPath`）多一個編譯期的來源 `--dart-define=FMP_DEV_PLUGIN=<路徑>`／
+  `FMP_LEGACY_DIR=<資料夾>`（順序：參數、環境變數、dart-define；prod 一律 null）：iOS 模擬器經
+  `flutter run`／`flutter build ios --simulator` 帶入，實機不可用。`HOME` 也讀不到，`appInfo.homeDirectory` 由
+  `Directory.systemTemp.path`（`<容器>/tmp`）的上一層推出（`iosHomeDirectory`，結尾不是 `/tmp` 就 null）。
 - dev 解析到舊版正式資料的位置（Windows 的 `Documents\FMP` 與
   `%APPDATA%\com.personal\fmp`、Android 舊版沙盒 `com.personal.fmp`）或其下，`main()` 在
   `runApp` 之前就拋 `LegacyDataLocationException`：Windows 的原生視窗仍會開，但內容空白。
