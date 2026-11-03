@@ -20,7 +20,7 @@
 | M9 | 發版、更新與切換 | M1–M8 | 未開始 |
 | L | Linux 平台 | M1、Mac 到貨 | 已開任務，延後到 Mac 上與 macOS、iOS 一起做（`10-01-linux-platform`） |
 | Mac | macOS 平台 | U | 完成（任務 `archive/2026-11/10-28-macos-platform`，FMP #352–#365、fmp-plugins #28；ADR 0036） |
-| iOS | iOS 平台 | Mac | 未開始 |
+| iOS | iOS 平台 | Mac | 進行中（任務 `11-03-ios-platform`；ADR 0037） |
 
 - M6、M7 互不依賴，可以對調。
 - U 是 2026-10-24 插入的：擁有者試用 M5 的 dev 版後認為新版 UI 不如舊版（例：匯入大歌單看不到進度），決定先把 UI 對齊舊版，之後的功能再疊上去。不改其他里程碑的編號。
