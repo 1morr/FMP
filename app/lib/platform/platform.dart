@@ -8,12 +8,12 @@ import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
-import 'package:fmp/platform/app_data_directory/app_data_directory_macos.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory_apple.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/app_info/app_info.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
 import 'package:fmp/platform/app_restart/app_restart.dart';
-import 'package:fmp/platform/app_restart/app_restart_android.dart';
+import 'package:fmp/platform/app_restart/app_restart_exit.dart';
 import 'package:fmp/platform/app_restart/app_restart_macos.dart';
 import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio_android.dart';
@@ -36,7 +36,7 @@ import 'package:fmp/platform/login_webview/flutter_inappwebview_login.dart';
 import 'package:fmp/platform/login_webview/login_webview.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_android.dart';
-import 'package:fmp/platform/media_controls/media_controls_macos.dart';
+import 'package:fmp/platform/media_controls/media_controls_apple.dart';
 import 'package:fmp/platform/media_controls/media_controls_windows.dart';
 import 'package:fmp/platform/platform_capabilities.dart';
 import 'package:fmp/platform/secure_storage/flutter_secure_storage_adapter.dart';
@@ -111,7 +111,7 @@ final class AppPlatform {
   /// [androidMediaControls] 取代 Android 系統媒體控制的初始化（測試用，預設是
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
   /// `WindowsSystemMediaControls.init`）；[macosMediaControls] 同理（預設是
-  /// `MacosSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
+  /// `AppleSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
@@ -163,7 +163,7 @@ final class AppPlatform {
       fileSharer: SharePlusFileSharer(),
       mediaControlsFactory:
           androidMediaControls ?? AndroidSystemMediaControls.init,
-      restarterFactory: AndroidAppRestarter.forMediaControls,
+      restarterFactory: ExitAppRestarter.forMediaControls,
       legacyDataLocator: androidLegacyDataLocator(
         flavor: flavor,
         devDirectory: legacyDirectory,
@@ -225,7 +225,7 @@ final class AppPlatform {
       osVersion: Platform.operatingSystemVersion,
       homeDirectory: Platform.environment['HOME'],
     ),
-    dataDirectory: MacosAppDataDirectory(
+    dataDirectory: AppleAppDataDirectory(
       applicationSupportPath: () async =>
           (await getApplicationSupportDirectory()).path,
     ),
@@ -240,9 +240,9 @@ final class AppPlatform {
         () => WindowManagerChrome.init(
           captionButtons: CaptionButtons.systemLeading,
         ),
-    mediaControlsFactory: macosMediaControls ?? MacosSystemMediaControls.init,
+    mediaControlsFactory: macosMediaControls ?? AppleSystemMediaControls.init,
     restarterFactory: MacosAppRestarter.system,
-    legacyDataLocator: macosLegacyDataLocator(
+    legacyDataLocator: appleLegacyDataLocator(
       flavor: flavor,
       devDirectory: legacyDirectory,
     ),

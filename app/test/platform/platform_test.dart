@@ -7,10 +7,10 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
-import 'package:fmp/platform/app_data_directory/app_data_directory_macos.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory_apple.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:fmp/platform/app_info/package_info_app_info.dart';
-import 'package:fmp/platform/app_restart/app_restart_android.dart';
+import 'package:fmp/platform/app_restart/app_restart_exit.dart';
 import 'package:fmp/platform/app_restart/app_restart_macos.dart';
 import 'package:fmp/platform/app_restart/app_restart_windows.dart';
 import 'package:fmp/platform/audio/audio.dart';
@@ -82,7 +82,7 @@ void main() {
       expect(platform.fileSharer, isA<SharePlusFileSharer>());
       // 沒有正規的「重啟自己」：結束行程後由使用者再開。
       expect(platform.capabilities.restartsItself, isFalse);
-      expect(platform.restarter, isA<AndroidAppRestarter>());
+      expect(platform.restarter, isA<ExitAppRestarter>());
       expect(platform.capabilities.loginWebView, isTrue);
       expect(platform.loginWebView, isA<InAppLoginWebView>());
       // 沒有自繪標題列；外接鍵盤的快捷鍵用 Ctrl。
@@ -166,7 +166,7 @@ void main() {
       );
 
       expect(platform.capabilities.dataDirectory, isTrue);
-      expect(platform.dataDirectory, isA<MacosAppDataDirectory>());
+      expect(platform.dataDirectory, isA<AppleAppDataDirectory>());
       final appInfo = platform.appInfo! as PackageInfoAppInfo;
       expect(appInfo.platform, 'macOS');
       expect(appInfo.osVersion, Platform.operatingSystemVersion);
@@ -307,7 +307,7 @@ void main() {
       expect(platform.mediaControls, isNull);
       expect(platform.capabilities.mediaControls, isNull);
       expect(platform.capabilities.playback, same(macosPlaybackSupport));
-      expect(platform.dataDirectory, isA<MacosAppDataDirectory>());
+      expect(platform.dataDirectory, isA<AppleAppDataDirectory>());
     });
   });
 

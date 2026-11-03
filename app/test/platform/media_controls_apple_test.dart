@@ -4,7 +4,7 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/core/logging/log_record.dart';
 import 'package:fmp/core/redaction/redactor.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
-import 'package:fmp/platform/media_controls/media_controls_macos.dart';
+import 'package:fmp/platform/media_controls/media_controls_apple.dart';
 
 NowPlaying nowPlaying({
   MediaPhase phase = MediaPhase.ready,
@@ -22,10 +22,10 @@ NowPlaying nowPlaying({
 );
 
 void main() {
-  late MacosSystemMediaControls controls;
+  late AppleSystemMediaControls controls;
 
   setUp(() {
-    controls = MacosSystemMediaControls.forTest(
+    controls = AppleSystemMediaControls.forTest(
       Log(redactor: Redactor(), minimumLevel: LogLevel.debug),
     );
   });

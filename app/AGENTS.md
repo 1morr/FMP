@@ -246,10 +246,10 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`、`window chrome on macOS`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態、macOS 先量再隱藏）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
   （`supportsSeek`）；Android 與 macOS 以 `audio_service` 實作（共用的 handler、播放狀態與曲目轉換在
-  `media_controls_audio_service.dart`；macOS 的 `MacosSystemMediaControls` 走 darwin 端的 `MPNowPlayingInfoCenter`
+  `media_controls_audio_service.dart`；macOS 的 `AppleSystemMediaControls` 走 darwin 端的 `MPNowPlayingInfoCenter`
   與 `MPRemoteCommandCenter`，預設設定、宣告 `supportsSeek: true`、不設 `positionRefresh`〔Now Playing 自己依經過時間與
   速度推算進度；實機驗證〕，`file://` 封面由 `audio_service` 設成 `artCacheFile`，`dispose` 呼叫 `stopService` 清掉
-  Now Playing，重啟流程會呼叫；閘門 `media_controls_macos_test.dart`、`media_controls_audio_service_test.dart`、
+  Now Playing，重啟流程會呼叫；閘門 `media_controls_apple_test.dart`、`media_controls_audio_service_test.dart`、
   `platform_test.dart` 的 `system media controls on macOS`）。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
   `audio_service` 與 `smtc_windows` 的擁有者都是 `lib/platform/`（`platformPackages`）。
@@ -340,7 +340,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   - Windows（`WindowsAppRestarter`）：以 `Platform.resolvedExecutable` 脫離式啟動新行程，**只帶** `--fmp-restarted-from=<目前 pid>`（不沿用原本的命令列，例如 `--fmp-dev-plugin`），再 `exit(0)`；啟動失敗就不結束並把錯誤丟出。
     `windows/runner/main.cpp` 看到這個參數時先 `OpenProcess(SYNCHRONIZE)` 等舊行程結束（最多 10 秒），**再**建立單一實例的 mutex，否則新行程會被舊行程還握著的 mutex 擋掉。Dart 端的參數解析（`devPluginPath`）只認自己的參數，忽略它。
     閘門：`app_restart_test.dart` 的 `Windows`（假的 launcher：參數、先啟動再結束、啟動失敗不結束、前綴字串）、`platform_test.dart`。**`main.cpp` 的等待沒有自動閘門**（C++ 沒有單元測試）：改動後建置 Windows 並實機驗（重設或還原後視窗自己回來、log 有新的 `App started`）。
-  - Android（`AndroidAppRestarter`）：沒有正規的「重啟自己」，先 `publish(NowPlaying.nothing)` 加 `dispose()` 收掉系統媒體工作階段與前景服務，再 `exit(0)`，由使用者再開（對話框寫明）。
+  - Android（`ExitAppRestarter`）：沒有正規的「重啟自己」，先 `publish(NowPlaying.nothing)` 加 `dispose()` 收掉系統媒體工作階段與前景服務，再 `exit(0)`，由使用者再開（對話框寫明）。
     **為什麼不能只靠 `SystemNavigator.pop`**：它只結束 Activity；`MainActivity` 與 audio_service 共用的 `FlutterEngine`、前景服務讓行程活著。實測（2026-10-14，Android 模擬器）暫停播放（media session 還在）時按返回鍵回到桌面，
     行程 pid 不變，再開 App 只是把原本的 task 帶回前景（`am start` 回 "Activity not started, its current task has been brought to the front"），log 的 `App started` 沒有增加、`main()` 沒重跑；那樣 App 會拿著已被刪掉重建的資料庫繼續跑。
     `AndroidSystemMediaControls.dispose()` 要 `await` 平台介面的 `stopService`（`audio_service_platform_interface`）：`audio_service` 自己是在 `playbackState` 的監聽裡非同步呼叫它，

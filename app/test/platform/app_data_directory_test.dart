@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/app_flavor.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_android.dart';
-import 'package:fmp/platform/app_data_directory/app_data_directory_macos.dart';
+import 'package:fmp/platform/app_data_directory/app_data_directory_apple.dart';
 import 'package:fmp/platform/app_data_directory/app_data_directory_windows.dart';
 import 'package:path/path.dart' as p;
 
@@ -195,7 +195,7 @@ void main() {
         'com.personal.fmp.dev',
       );
 
-      final directory = await MacosAppDataDirectory(
+      final directory = await AppleAppDataDirectory(
         applicationSupportPath: () async => support,
       ).resolve();
 

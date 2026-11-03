@@ -8,30 +8,30 @@ import 'package:fmp/core/logging/log.dart';
 import 'package:fmp/platform/media_controls/media_controls.dart';
 import 'package:fmp/platform/media_controls/media_controls_audio_service.dart';
 
-/// macOS 的系統媒體控制（ADR 0036 §決定 8）：以 `audio_service` 的 darwin 實作
+/// Apple 平台（目前是 macOS）的系統媒體控制（ADR 0036 §決定 8）：以 `audio_service` 的 darwin 實作
 /// 驅動 `MPNowPlayingInfoCenter` 與 `MPRemoteCommandCenter`（控制中心與選單列的
 /// 「正在播放」、媒體鍵）。
 ///
 /// 播放仍由 `JustAudioBackend` 負責，`audio_service` 只當作「媒體工作階段」：
 /// 系統的按鍵與進度條經 [commands] 回到控制器。
-final class MacosSystemMediaControls implements SystemMediaControls {
-  MacosSystemMediaControls._(this._handler, Log log) {
+final class AppleSystemMediaControls implements SystemMediaControls {
+  AppleSystemMediaControls._(this._handler, Log log) {
     _asyncErrors = reportAsyncErrors(audio.AudioService.asyncError, log);
   }
 
   /// 初始化 `audio_service`（要在 `runApp` 前呼叫；失敗時丟出，由
   /// `AppPlatform.withMediaControls` 改宣告為沒有）。darwin 端沒有通知頻道或前景
   /// 服務，用預設設定即可。
-  static Future<MacosSystemMediaControls> init(Log log) async {
+  static Future<AppleSystemMediaControls> init(Log log) async {
     final handler = await audio.AudioService.init(
       builder: AudioServiceCommandHandler.new,
     );
-    return MacosSystemMediaControls._(handler, log);
+    return AppleSystemMediaControls._(handler, log);
   }
 
   /// 測試用：不初始化 `audio_service`，只建 handler。
   @visibleForTesting
-  MacosSystemMediaControls.forTest(Log log)
+  AppleSystemMediaControls.forTest(Log log)
     : this._(AudioServiceCommandHandler(), log);
 
   final AudioServiceCommandHandler _handler;
