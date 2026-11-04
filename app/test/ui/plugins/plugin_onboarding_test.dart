@@ -340,6 +340,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('No plugins installed'), findsOneWidget);
-    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.byTooltip('Back (Esc)'), findsOneWidget);
   });
 }

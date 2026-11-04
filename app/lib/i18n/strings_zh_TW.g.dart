@@ -1379,9 +1379,6 @@ class Translations$settings$zh_TW {
   /// zh-TW: '網路'
   String get network => '網路';
 
-  /// zh-TW: '返回'
-  String get back => '返回';
-
   /// zh-TW: '播放'
   String get playback => '播放';
 

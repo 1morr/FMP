@@ -92,6 +92,8 @@ switch (WindowClass.of(context)) {
   元件），外殼在內容區與播放列各放一個，頁面與播放列讀到的是自己那一塊的等級（視窗 900 寬時
   內容區扣掉 rail 是 medium；播放列橫跨整個視窗，讀到的就是視窗的等級）。
 - 只在等級改變時重建。要精確寬度的版面仍用 `LayoutBuilder`。
+- 看高度的版面（目前只有右側面板：矮的視窗不並排）用 `WindowHeightClass.of(context)`：讀整個視窗的 `MediaQuery` 高度、沒有 scope，
+  高度一變就重建，所以在外殼這種大的 widget 裡只在真的要用時才讀（`hasTrack && hasNowPlayingPanel(...)`）。
 - 內容區至少 `AppLayout.contentMinWidth`（360dp）：側欄展開加面板放不下時 `railYieldsToPanel` 為真，外殼把側欄畫成收合（記住的狀態不改）；`LegacySideRail` 只收外殼傳的 `expanded` 與展開、收合的 callback。
 
 ## 字串
@@ -425,7 +427,7 @@ U PR 13（ADR 0035 R7.5–R7.10）的寫法：
   操作從畫面發起時（清除、含之前的紀錄），後續落在假時間的微任務裡，要用該檔的 `settleIo`（交替等真實時間與 `pump`）；直接
   `await log.file!.flush()` 會卡死，要在 `tester.runAsync` 裡寫入再 flush。
 - 要離開 Debug 頁去設定頁的某一組時，照概覽的快取用量：先 `Navigator.pop` 這一頁，再呼叫設定頁給的 callback（它經外殼的
-  `SettingsBack.show` 選組，Debug 頁開著期間設定頁換位置重建也找得到）。
+  `SettingsOpener.show` 選組，Debug 頁開著期間設定頁換位置重建也找得到）。窄版開著某一塊時，先 `removeDetail` 再 pop 這一頁。
 - 測試：`ShellHarness(flavor: …, buildLogLevel: …)`（dev 的開發者模式預設開；要關著用 `AppFlavor.prod`，或先寫
   `developerSettingsRepositoryProvider`；建置模式預設固定為 release 的 info，要看 debug build 給 `LogLevelSetting.debug`），
   開設定頁後點清單的「Debug」列；Debug 頁看整個視窗的寬度（不受面板影響）。概覽讀的 `appInfoProvider`、`dataDirectoryProvider`
@@ -435,8 +437,12 @@ U PR 13（ADR 0035 R7.5–R7.10）的寫法：
 
 規則與閘門見 `app/AGENTS.md` § 介面的「插件頁」；ADR 0030 §決定 6–11。
 
-- 設定頁加一個不是設定組的區塊：`SettingsSection` 加一個值與它的名稱，`detail` 的 `switch` 決定它要不要包在捲動的欄裡
-  （自己有捲動清單的像插件頁就不包，填滿剩下的高度）。
+- 設定頁加一個不是設定組的區塊：`SettingsSection` 加一個值、`_groupName` 加它的名稱，`_GroupDetail` 的 `switch` 決定它要不要包在捲動的欄裡
+  （自己有捲動清單的像插件頁就不包，填滿剩下的高度）。寬版右欄與窄版推上去的那一頁共用 `_GroupDetail`。
+- 新的 list-detail 頁（寬版兩欄、窄版點進去看內容）用 `ListDetailRoutes`（`lib/ui/layout/list_detail_routes.dart`，設定頁與 Debug 頁的寫法）：
+  清單的列呼叫 `select`、`build` 裡呼叫 `syncNarrow`、窄版或 `detailOpen` 時只畫清單、`buildDetailPage` 給那一頁（含頁頂）。不要在頁面裡原地換內容：
+  那樣沒有 iOS 的右滑返回，返回鍵也要另接。那一頁在另一個 route 上，要的狀態以參數或 `ValueListenable` 傳進去，被它蓋住的頁面的
+  `ref.watch` 是暫停的（Riverpod），那一頁要自己看它在意的 provider。
 - 設定頁「備份與還原」（`SettingsSection.backup`）：UI 只呼叫 `AppBackup`（匯出、選檔並驗證）與 `DataReset`（還原後半），確認與執行共用 `lib/ui/backup/restore_flow.dart` 的 `confirmAndRestore`（Debug 頁的還原也走它）；進行中蓋全螢幕的進度用 `runBlocking`。規則與閘門見 `app/AGENTS.md` § 介面的「備份與還原」。
 - 插件頁的動作照 `_install` 的寫法：provider 在第一個 `await` 之前讀好；等網路或資料庫的那段包 `_work`（進度條、其他
   動作停用），對話框不包；`await` 之後先看 `mounted` 再碰 `ref` 或開下一個對話框。失敗用 `_failed`（`Toaster.error` 加一句

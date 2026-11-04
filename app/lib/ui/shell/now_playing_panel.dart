@@ -17,10 +17,16 @@ import 'package:fmp/ui/player/track_details.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
 import 'package:fmp/ui/theme/app_tokens.dart';
 
-/// 面板在這個等級以上才會出現（ADR 0024 §決定 3）：整個視窗 >= 840。
-bool hasNowPlayingPanel(WindowClass windowClass) => switch (windowClass) {
-  WindowClass.expanded || WindowClass.large || WindowClass.extraLarge => true,
-  WindowClass.compact || WindowClass.medium => false,
+/// 面板會不會出現（ADR 0024 §決定 3）：整個視窗 >= 840 寬，而且不矮（高度不是 compact，>= 480；
+/// 擁有者決定 2026-11-04：橫向的手機照直放時，不並排面板）。[windowClass]、[heightClass] 都是整個視窗的。
+bool hasNowPlayingPanel(
+  WindowClass windowClass,
+  WindowHeightClass heightClass,
+) => switch ((windowClass, heightClass)) {
+  (_, WindowHeightClass.compact) => false,
+  (WindowClass.expanded || WindowClass.large || WindowClass.extraLarge, _) =>
+    true,
+  (WindowClass.compact || WindowClass.medium, _) => false,
 };
 
 /// 側欄展開（[AppLayout.railExpanded]）加面板（含把手）之後，內容區是否不到

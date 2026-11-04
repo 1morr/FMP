@@ -105,8 +105,8 @@ class PlayerTopBar extends ConsumerWidget {
   }
 }
 
-/// 「⋯」：播放速度（不持久化，重啟回到 1.0；design §7.6），以及 expanded 以上的
-/// 「正在播放面板」勾選項（design §9.3；compact、medium 沒有面板）。直播（[live]）只有
+/// 「⋯」：播放速度（不持久化，重啟回到 1.0；design §7.6），以及有面板時（expanded 以上、不矮的視窗，
+/// [hasNowPlayingPanel]）的「正在播放面板」勾選項（design §9.3；compact、medium 與橫向的手機沒有面板）。直播（[live]）只有
 /// 面板的勾選項：直播跟著實際時間，沒有播放速度；沒有項目時整顆鈕不放。
 class PlayerMoreMenu extends ConsumerWidget {
   const PlayerMoreMenu({super.key, this.live = false});
@@ -118,7 +118,10 @@ class PlayerMoreMenu extends ConsumerWidget {
     final t = ref.watch(translationsProvider);
     final speed = ref.watch(playbackSpeedProvider).value ?? 1.0;
     // 播放頁在根 Navigator 上，讀到的是整個視窗的等級。
-    final hasPanel = hasNowPlayingPanel(WindowClass.of(context));
+    final hasPanel = hasNowPlayingPanel(
+      WindowClass.of(context),
+      WindowHeightClass.of(context),
+    );
     if (live && !hasPanel) return const SizedBox.shrink();
     final panelExpanded = ref.watch(panelExpandedProvider);
     return IconMenu(

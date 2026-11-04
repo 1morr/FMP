@@ -61,8 +61,8 @@ enum ShellDestination { home, search, library, queue, radio, settings }
 ///
 /// 後者的版面是一個 `Column`：側欄加內容區加右側面板、
 /// 最底下的播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以播放列讀到的是整個視窗的
-/// 寬度等級。整個視窗 >= 840 且有曲目（或在收聽直播）時內容區右邊是「正在播放」面板與拖曳把手
-/// （[NowPlayingPanelSide]），頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉側欄與面板後的寬度等級。
+/// 寬度等級。整個視窗 >= 840 寬、高度不是 compact（>= 480，橫向的手機不並排）且有曲目（或在收聽直播）
+/// 時內容區右邊是「正在播放」面板與拖曳把手（[NowPlayingPanelSide]），頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉側欄與面板後的寬度等級。
 ///
 /// 自繪標題列（Windows）不在外殼裡：它在根 Navigator 外面（`WindowFrame`），所有 route 共用。
 ///
@@ -86,7 +86,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   var _destination = ShellDestination.values.first;
-  final _settingsBack = SettingsBack();
+  final _settingsOpener = SettingsOpener();
 
   /// 每個目的地的巢狀 Navigator，與它的觀察者（內頁開關時重建外殼：返回鍵的
   /// `PopScope.canPop` 要跟上）。
@@ -239,7 +239,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 搜尋頁的「前往插件頁」：換到設定頁並選「插件」區塊。
   void _openPlugins() {
     _select(ShellDestination.settings);
-    _settingsBack.show(SettingsSection.plugins);
+    _settingsOpener.show(SettingsSection.plugins);
   }
 
   /// 憑證被音源拒絕：提示一次，附「登入」到設定頁的帳號區塊（design §6.5、ADR 0013 §決定 5）。
@@ -267,7 +267,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _openAccounts() {
     if (!mounted) return;
     _select(ShellDestination.settings);
-    _settingsBack.show(SettingsSection.accounts);
+    _settingsOpener.show(SettingsSection.accounts);
   }
 
   /// 上一次 build 的寬度等級；跨過斷點時才換導覽元件。
@@ -394,7 +394,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     ShellDestination.radio => const RadioPage(),
     ShellDestination.settings => SettingsPage(
       visible: _destination == ShellDestination.settings,
-      back: _settingsBack,
+      opener: _settingsOpener,
     ),
   };
 
@@ -426,8 +426,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
     final windowClass = WindowClass.of(context);
     _keepCoveringRouteFocus(windowClass);
-    // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走）。
-    final hasPanel = hasNowPlayingPanel(windowClass) && hasTrack;
+    // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走；矮的視窗沒有）。
+    // 沒有曲目時不讀高度：不必跟著視窗高度重建。
+    final hasPanel =
+        hasTrack &&
+        hasNowPlayingPanel(windowClass, WindowHeightClass.of(context));
     // 面板實際出現時，側欄展開會讓內容區不到下限就把側欄畫成收合（記住的狀態不動）。
     final panelShown = hasPanel && ref.watch(panelExpandedProvider);
     final railYields =
@@ -600,15 +603,15 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     };
 
-    // 返回鍵（design §9.1、ADR 0033 §決定 5）：先退出目前目的地的內頁；在根時，窄版設定頁
-    // 點進某一組時先回到分組清單；否則不在第一個目的地時回到第一個，在第一個時放行
+    // 返回鍵（design §9.1、ADR 0033 §決定 5）：先退出目前目的地的內頁（窄版設定頁點進的組也是
+    // 內頁）；在根時，不在第一個目的地時回到第一個，在第一個時放行
     // （根 route 沒得 pop，Android 端把 App 退到背景，見 MainActivity）。播放頁、
     // 面板與對話框是根 Navigator 上更上層的 route，Navigator 先關它們。內頁的 route
     // 在巢狀 Navigator 裡、不在根 Navigator 上，所以返回鍵一定先到這裡。
     return PopScope(
       canPop: _destination == ShellDestination.values.first && !_canPopInner(),
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop || _popInner() || _settingsBack.release()) return;
+        if (didPop || _popInner()) return;
         _select(ShellDestination.values.first);
       },
       child: PlaybackShortcuts(

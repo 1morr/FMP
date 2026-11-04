@@ -8,8 +8,10 @@ import 'package:fmp/data/repositories/layout_state_repository.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/player/player_page.dart';
+import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/now_playing_panel.dart';
+import 'package:fmp/ui/shell/open_queue.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/shell_harness.dart';
@@ -111,6 +113,80 @@ void main() {
         );
       });
     }
+
+    // 擁有者決定（2026-11-04）：矮的視窗（M3 的高度 compact，< 480）不並排面板，照直放的手機
+    // （播放頁與佇列目的地）。看視窗的高度、不看平台：iPad 與桌面照舊並排。
+    for (final (name, size, shown) in [
+      ('a landscape iPhone (852x393)', const Size(852, 393), false),
+      ('a landscape iPhone Pro Max (956x440)', const Size(956, 440), false),
+      ('479 high', const Size(1400, 479), false),
+      ('480 high', const Size(1400, 480), true),
+      ('a landscape iPad (1180x820)', const Size(1180, 820), true),
+      ('a landscape 13-inch iPad (1376x1032)', const Size(1376, 1032), true),
+      ('a desktop window (1400x900)', const Size(1400, 900), true),
+    ]) {
+      testWidgets('$name: ${shown ? 'panel' : 'no panel and no toggle'}', (
+        tester,
+      ) async {
+        final h = ShellHarness();
+        await h.pumpShell(tester, size: size);
+        await h.play(tester, [summary('a')]);
+        await h.loadSettings(tester);
+
+        expect(_panel, shown ? findsOneWidget : findsNothing);
+        expect(_handle, shown ? findsOneWidget : findsNothing);
+        expect(find.byTooltip(_hide), shown ? findsOneWidget : findsNothing);
+      });
+    }
+
+    testWidgets('a landscape phone opens the queue as a page, not beside it', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: const Size(852, 393));
+      await h.play(tester, [summary('a'), summary('b')]);
+      await h.loadSettings(tester);
+      final pagesBefore = tester.getSize(find.byType(SearchPage)).width;
+
+      // 393 高時側欄的「佇列」在播放列後面（側欄可捲，不在這次的範圍）：走 Ctrl+Q 的那一條路。
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      h.container(tester).read(openQueueProvider)();
+      await tester.pumpAndSettle();
+
+      expect(_panel, findsNothing);
+      expect(
+        find
+            .descendant(
+              of: find.byType(QueuePage),
+              matching: find.text('Song b'),
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.getSize(find.byType(QueuePage)).width, pagesBefore);
+    });
+
+    testWidgets('the panel leaves when the window gets short and comes back', (
+      tester,
+    ) async {
+      final h = ShellHarness();
+      await _pumpPlaying(tester, h, const Size(1000, 800));
+      expect(_panel, findsOneWidget);
+
+      tester.view.physicalSize = const Size(1000, 400);
+      await tester.pump();
+      expect(_panel, findsNothing);
+
+      tester.view.physicalSize = const Size(1000, 800);
+      await tester.pump();
+      expect(_panel, findsOneWidget);
+      // 記住的展開狀態沒有被改。
+      expect((await _stored(tester, h)).panelExpanded, isNot(isFalse));
+    });
 
     testWidgets('collapsed: neither the panel nor the handle takes space', (
       tester,
@@ -604,12 +680,16 @@ void main() {
       );
     });
 
-    for (final width in [400.0, 700.0]) {
-      testWidgets('the player page menu has no item at $width wide', (
-        tester,
-      ) async {
+    for (final size in [
+      const Size(400, 800),
+      const Size(700, 800),
+      // 橫向的手機：寬度是 expanded，但高度 compact，沒有面板。
+      const Size(852, 393),
+    ]) {
+      testWidgets('the player page menu has no item at '
+          '${size.width.toInt()}x${size.height.toInt()}', (tester) async {
         final h = ShellHarness();
-        await h.pumpShell(tester, size: Size(width, 800));
+        await h.pumpShell(tester, size: size);
         await h.play(tester, [summary('a')]);
         await tester.tap(_barTitle);
         await tester.pumpAndSettle();

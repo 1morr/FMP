@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:fmp/domain/appearance.dart';
+import 'package:fmp/i18n/strings.g.dart';
 import 'package:fmp/domain/stream_preferences.dart';
 import 'package:fmp/settings/appearance_settings.dart';
 import 'package:fmp/settings/developer_settings.dart';
@@ -11,6 +14,7 @@ import 'package:fmp/settings/playback_settings.dart';
 import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
 import 'package:fmp/ui/i18n/ui_locale.dart';
+import 'package:fmp/ui/layout/list_detail_routes.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/plugins/plugins_page.dart';
 import 'package:fmp/ui/settings/about_section.dart';
@@ -44,80 +48,19 @@ enum SettingsSection {
   final IconData icon;
 }
 
-/// 設定頁要不要接住系統返回鍵：窄版點進某一組時，返回鍵先回到分組清單。
+/// 外殼要設定頁顯示某一組（搜尋頁的「前往插件頁」、帳號失效提示的「登入」、Debug 頁的快取用量）。
 ///
-/// 返回鍵只有外殼的 `PopScope` 一個（design §9.1）：它先問這裡，接住了就不
-/// 換頁。兩邊各有一個 `PopScope` 的話，同一次返回兩邊的 callback 都會執行，
-/// 回到清單的同時外殼也跳回第一頁。
-final class SettingsBack {
-  bool Function() _release = () => false;
+/// 外殼在建構時給設定頁一個，之後設定頁的 State 接上 [show]；不是會變的狀態，所以不是 provider（同
+/// `OpenAccounts`）。返回鍵不經這裡：窄版點進的組是巢狀 Navigator 上的 route，外殼的「退出內頁」就退得掉。
+final class SettingsOpener {
   void Function(SettingsSection section) _show = (_) {};
 
-  /// 設定頁在返回鍵該回到分組清單時回到清單並回傳 `true`；否則什麼都不做、回傳 `false`。
-  bool release() => _release();
-
-  /// 設定頁選到 [section]（搜尋頁的「前往插件頁」）。
+  /// 設定頁選到 [section]：寬版右欄換成它，窄版推它的 route。
   void show(SettingsSection section) => _show(section);
 }
 
-/// 設定頁（ADR 0024 §決定 6、ADR 0011 §決定 7 的分組）。
-///
-/// expanded 以上是 M3 canonical layout 的 list-detail：左邊分組清單、右邊那一組
-/// 的內容，預設選第一組。更窄時一次只有一欄：先是分組清單，點進去看那一組的
-/// 內容，系統返回鍵與標題旁的返回鈕回到清單。選了哪一組由頁面記著，視窗寬度
-/// 跨過斷點時不丟。
-class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key, required this.visible, required this.back});
-
-  /// 外殼目前顯示的是不是這一頁。外殼以 `IndexedStack` 留著沒選的頁面，看不到時
-  /// 不接住返回鍵，選的那一組留著。
-  final bool visible;
-
-  /// 外殼的返回鍵先問它（[SettingsBack]）。
-  final SettingsBack back;
-
-  @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends ConsumerState<SettingsPage> {
-  /// 使用者點進去的那一組；`null` 是還沒選（窄版顯示清單，寬版用第一組）。
-  SettingsSection? _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.back._release = _releaseGroup;
-    widget.back._show = _showSection;
-  }
-
-  @override
-  void didUpdateWidget(SettingsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    widget.back._release = _releaseGroup;
-    widget.back._show = _showSection;
-  }
-
-  void _showSection(SettingsSection section) =>
-      setState(() => _selected = section);
-
-  bool _releaseGroup() {
-    final narrow = switch (WindowClass.of(context)) {
-      WindowClass.compact || WindowClass.medium => true,
-      _ => false,
-    };
-    if (!widget.visible || !narrow || _selected == null) return false;
-    setState(() => _selected = null);
-    return true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final translations = ref.watch(translationsProvider);
-    final t = translations.settings;
-    final theme = Theme.of(context);
-    final spacing = AppTokens.of(context).spacing;
-    String name(SettingsSection group) => switch (group) {
+String _groupName(Translations$settings$zh_TW t, SettingsSection group) =>
+    switch (group) {
       SettingsSection.accounts => t.accounts,
       SettingsSection.appearance => t.appearance,
       SettingsSection.playback => t.playback,
@@ -127,6 +70,73 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       SettingsSection.backup => t.backup,
       SettingsSection.about => t.about,
     };
+
+/// 設定頁（ADR 0024 §決定 6、ADR 0011 §決定 7 的分組）。
+///
+/// expanded 以上是 M3 canonical layout 的 list-detail：左邊分組清單、右邊那一組
+/// 的內容，預設選第一組。更窄時一次只有一欄：先是分組清單，點進去的那一組推在設定目的地的
+/// 巢狀 Navigator 上（[ListDetailRoutes]；擁有者決定 2026-11-04），所以返回鈕、系統返回鍵、Esc、
+/// iOS 右滑都回到清單。選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。
+class SettingsPage extends ConsumerStatefulWidget {
+  const SettingsPage({super.key, required this.visible, required this.opener});
+
+  /// 外殼目前顯示的是不是這一頁。外殼以 `IndexedStack` 留著沒選的頁面，看不到時
+  /// 「關於」的連點計數歸零。
+  final bool visible;
+
+  /// 外殼要它顯示某一組時經這裡（[SettingsOpener]）。
+  final SettingsOpener opener;
+
+  @override
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage>
+    with ListDetailRoutes<SettingsPage, SettingsSection> {
+  /// [SettingsPage.visible]，給窄版推上去的那一組（route 不隨這一頁重建）。
+  late final _visible = ValueNotifier(widget.visible);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.opener._show = select;
+  }
+
+  @override
+  void didUpdateWidget(SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    widget.opener._show = select;
+    // 那一組在另一個 route 上：build 中不能叫它重建，排到這一幀之後。
+    if (oldWidget.visible != widget.visible) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _visible.value = widget.visible;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _visible.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget buildDetailPage(BuildContext context, SettingsSection item) =>
+      _GroupPage(group: item, visible: _visible, onOpenPlugins: _openPlugins);
+
+  void _openPlugins() => select(SettingsSection.plugins);
+
+  @override
+  Widget build(BuildContext context) {
+    final translations = ref.watch(translationsProvider);
+    final t = translations.settings;
+    final narrow = switch (WindowClass.of(context)) {
+      WindowClass.compact || WindowClass.medium => true,
+      WindowClass.expanded ||
+      WindowClass.large ||
+      WindowClass.extraLarge => false,
+    };
+    syncNarrow(narrow: narrow);
     final developerMode =
         ref.watch(developerProvider).value?.developerMode ?? false;
     final appearance = ref.watch(appearanceProvider).value;
@@ -169,7 +179,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         for (final group in SettingsSection.values)
           ListTile(
             leading: Icon(group.icon),
-            title: Text(name(group)),
+            title: Text(_groupName(t, group)),
             subtitle: switch (summary(group)) {
               final text? => Text(
                 text,
@@ -179,7 +189,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               null => null,
             },
             selected: group == selected,
-            onTap: () => setState(() => _selected = group),
+            onTap: () => select(group),
           ),
         if (developerMode)
           ListTile(
@@ -189,146 +199,148 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onTap: () => unawaited(
               openDebugPage(
                 context,
-                // 外殼的 SettingsBack 指向目前的 State：Debug 頁開著時這一頁可能換位置重建。
+                // 外殼的 SettingsOpener 指向目前的 State：Debug 頁開著時這一頁可能換位置重建。
                 onShowCacheSettings: () =>
-                    widget.back.show(SettingsSection.network),
+                    widget.opener.show(SettingsSection.network),
               ),
             ),
           ),
       ],
     );
-    Widget sectionTitle(SettingsSection group) => Semantics(
+    if (narrow || detailOpen) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PageAppBar(title: t.title),
+          Expanded(child: list(null)),
+        ],
+      );
+    }
+    final shown = selected ?? SettingsSection.values.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PageAppBar(title: t.title),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: AppLayout.settingsListWidth, child: list(shown)),
+              const VerticalDivider(),
+              Expanded(
+                child: _GroupDetail(
+                  group: shown,
+                  heading: true,
+                  visible: widget.visible,
+                  onOpenPlugins: _openPlugins,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 窄版推上去的那一組：頁頂是組名（巢狀導覽的內頁，[PageAppBar] 自己放返回鈕）。
+class _GroupPage extends ConsumerWidget {
+  const _GroupPage({
+    required this.group,
+    required this.visible,
+    required this.onOpenPlugins,
+  });
+
+  final SettingsSection group;
+  final ValueListenable<bool> visible;
+  final VoidCallback onOpenPlugins;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).settings;
+    return PageSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PageAppBar(title: _groupName(t, group)),
+          // 標題已經在上面那一列。
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: visible,
+              builder: (context, visible, _) => _GroupDetail(
+                group: group,
+                heading: false,
+                visible: visible,
+                onOpenPlugins: onOpenPlugins,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 一組的內容；寬版的右欄（[heading] 是組名）與窄版的那一頁共用。
+class _GroupDetail extends ConsumerWidget {
+  const _GroupDetail({
+    required this.group,
+    required this.heading,
+    required this.visible,
+    required this.onOpenPlugins,
+  });
+
+  final SettingsSection group;
+  final bool heading;
+
+  /// 設定頁在外殼裡看得到（「關於」的連點計數用）。
+  final bool visible;
+  final VoidCallback onOpenPlugins;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(translationsProvider).settings;
+    final theme = Theme.of(context);
+    final spacing = AppTokens.of(context).spacing;
+    Widget sectionTitle() => Semantics(
       header: true,
-      child: Text(name(group), style: theme.textTheme.titleLarge),
+      child: Text(_groupName(t, group), style: theme.textTheme.titleLarge),
     );
     // 設定組：控制項放在捲動的欄裡。
-    Widget scrolling(
-      SettingsSection group,
-      Widget controls, {
-      required bool heading,
-    }) => SingleChildScrollView(
+    Widget scrolling(Widget controls) => SingleChildScrollView(
       padding: EdgeInsets.all(spacing.x4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (heading) ...[sectionTitle(group), SizedBox(height: spacing.x4)],
+          if (heading) ...[sectionTitle(), SizedBox(height: spacing.x4)],
           controls,
         ],
       ),
     );
     // 帳號頁與插件頁自己有捲動的清單（與置中的空狀態）：不包在捲動的欄裡，填滿剩下的
     // 高度。
-    Widget filling(
-      SettingsSection group,
-      Widget page, {
-      required bool heading,
-    }) => Column(
+    Widget filling(Widget page) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (heading)
           Padding(
             padding: EdgeInsets.fromLTRB(spacing.x4, spacing.x4, spacing.x4, 0),
-            child: sectionTitle(group),
+            child: sectionTitle(),
           ),
         Expanded(child: page),
       ],
     );
-    Widget detail(SettingsSection group, {required bool heading}) =>
-        switch (group) {
-          SettingsSection.accounts => filling(
-            group,
-            AccountsSection(
-              onOpenPlugins: () => _showSection(SettingsSection.plugins),
-            ),
-            heading: heading,
-          ),
-          SettingsSection.plugins => filling(
-            group,
-            const PluginsPage(),
-            heading: heading,
-          ),
-          SettingsSection.appearance => scrolling(
-            group,
-            const AppearanceControls(),
-            heading: heading,
-          ),
-          SettingsSection.playback => scrolling(
-            group,
-            const PlaybackControls(),
-            heading: heading,
-          ),
-          SettingsSection.library => scrolling(
-            group,
-            const LibraryControls(),
-            heading: heading,
-          ),
-          SettingsSection.network => scrolling(
-            group,
-            const NetworkControls(),
-            heading: heading,
-          ),
-          SettingsSection.backup => scrolling(
-            group,
-            const BackupControls(),
-            heading: heading,
-          ),
-          SettingsSection.about => scrolling(
-            group,
-            AboutSection(visible: widget.visible),
-            heading: heading,
-          ),
-        };
-    return switch (WindowClass.of(context)) {
-      WindowClass.compact || WindowClass.medium => switch (_selected) {
-        null => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PageAppBar(title: t.title),
-            Expanded(child: list(null)),
-          ],
-        ),
-        final group => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PageAppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: t.back,
-                onPressed: () => setState(() => _selected = null),
-              ),
-              title: name(group),
-            ),
-            // 標題已經在上面那一列。
-            Expanded(child: detail(group, heading: false)),
-          ],
-        ),
-      },
-      WindowClass.expanded ||
-      WindowClass.large ||
-      WindowClass.extraLarge => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          PageAppBar(title: t.title),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: AppLayout.settingsListWidth,
-                  child: list(_selected ?? SettingsSection.values.first),
-                ),
-                const VerticalDivider(),
-                Expanded(
-                  child: detail(
-                    _selected ?? SettingsSection.values.first,
-                    heading: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    return switch (group) {
+      SettingsSection.accounts => filling(
+        AccountsSection(onOpenPlugins: onOpenPlugins),
       ),
+      SettingsSection.plugins => filling(const PluginsPage()),
+      SettingsSection.appearance => scrolling(const AppearanceControls()),
+      SettingsSection.playback => scrolling(const PlaybackControls()),
+      SettingsSection.library => scrolling(const LibraryControls()),
+      SettingsSection.network => scrolling(const NetworkControls()),
+      SettingsSection.backup => scrolling(const BackupControls()),
+      SettingsSection.about => scrolling(AboutSection(visible: visible)),
     };
   }
 }
