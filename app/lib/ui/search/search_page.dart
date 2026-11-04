@@ -214,132 +214,148 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return TrackSelectionScope<_ResultKey>(
       selection: _selection,
       keys: _keys(search, rooms: rooms),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 舊版：搜尋框就是頁頂（AppBar 的標題，靠左）；多選時整個換成選取列。
-          TrackSelectionBar<_ResultKey>(
-            tracks: _selectedTracks,
-            // 結果列自己的音源，不是選的音源：「全部」時一次有好幾個音源的結果。
-            pluginIds: (keys) => {
-              for (final key in keys)
-                if (_summaryOf(search, key) case final item?) item.sourceTypeId,
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                PageAppBar(
-                  centerTitle: false,
-                  toolbarHeight: kToolbarHeight + spacing.x4,
-                  // 用 TextField 而不是 M3 的 SearchBar：SearchBar 整條可點的那一層
-                  // 沒有語意名稱，裡面的輸入框只有文字那一行高（24dp），兩個都過不了
-                  // 點擊區 guideline。外觀照 SearchBar：填色、全圓角、前面放大鏡。
-                  titleWidget: TextField(
-                    controller: _text,
-                    focusNode: widget.fieldFocusNode,
-                    textInputAction: TextInputAction.search,
-                    onChanged: _changed,
-                    onSubmitted: _submit,
-                    decoration: InputDecoration(
-                      hintText: rooms ? t.roomHint : t.hint,
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: ListenableBuilder(
-                        listenable: _text,
-                        builder: (context, _) => _text.text.isEmpty
-                            ? const SizedBox.shrink()
-                            : IconButton(
-                                tooltip: t.clear,
-                                icon: const Icon(Icons.close),
-                                onPressed: () {
-                                  _text.clear();
-                                  _changed('');
-                                  widget.fieldFocusNode.requestFocus();
-                                },
-                              ),
-                      ),
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          tokens.radius.extraLarge,
-                        ),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                if (list.isNotEmpty) ...[
-                  SourceChips(
-                    sources: list,
-                    allLabel: t.allSources,
-                    selectedId: selected?.manifest.id,
-                    onSelected: (id) => unawaited(
-                      ref.read(searchProvider.notifier).selectSource(id),
-                    ),
-                  ),
-                  SizedBox(height: spacing.x2),
-                  if (hasLive) ...[
-                    _ModeBar(rooms: rooms, filter: search.roomFilter),
-                    SizedBox(height: spacing.x2),
-                  ],
-                ],
-              ],
-            ),
-          ),
-          Expanded(
-            child: switch (sources) {
-              // 首次啟動引導（ADR 0030 §決定 12）：沒有音源，或正在裝、還有失敗要看。
-              AsyncData()
-                  when showOnboarding(
-                    hasSource: list.isNotEmpty,
-                    state: onboarding,
-                  ) =>
-                PluginOnboarding(hasSource: list.isNotEmpty),
-              AsyncData() when list.isEmpty => _noSources(),
-              // 輸入框空白而且有歷史：列出歷史（舊版），沒有歷史照常顯示提示或結果。
-              // 歷史在自己的 Consumer 裡 watch：在 ListenableBuilder 的 builder 裡用頁面的 ref，
-              // 頁面每次重建都會先關掉這個訂閱再重開（builder 在頁面的 build 之後才跑）。
-              AsyncData() => Consumer(
-                builder: (context, ref, _) {
-                  ref.listen(searchHistoryProvider, (previous, next) {
-                    if (next case AsyncError(:final error, :final stackTrace)
-                        when previous is! AsyncError) {
-                      ref
-                          .read(logProvider)
-                          .report(
-                            'Failed to read the search history',
-                            AppError.wrap(error, stackTrace),
-                            tag: 'search',
-                          );
-                    }
-                  });
-                  final history = ref.watch(searchHistoryProvider).value;
-                  return ListenableBuilder(
-                    listenable: _text,
-                    builder: (context, _) {
-                      if (_text.text.trim().isEmpty &&
-                          history != null &&
-                          history.isNotEmpty) {
-                        return SearchHistoryList(
-                          entries: history,
-                          onSearch: _searchFromHistory,
-                        );
-                      }
-                      return _Results(
-                        state: search,
-                        rooms: rooms,
-                        network: network,
-                        onRetry: _retry,
-                      );
-                    },
-                  );
-                },
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 頂部最高佔頁面高度的 60%、超過就在自己裡面捲動：橫向的手機開著鍵盤時頁面只剩
+            // 約 110dp，整塊頂部比它高會 overflow。一般高度頂部不到 60%，版面不變。
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight * 0.6,
               ),
-              // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
-              AsyncError() => _noSources(),
-              AsyncLoading() => _Loading(label: t.loadingSources),
-            },
-          ),
-        ],
+              child: SingleChildScrollView(
+                child:
+                    // 舊版：搜尋框就是頁頂（AppBar 的標題，靠左）；多選時整個換成選取列。
+                    TrackSelectionBar<_ResultKey>(
+                      tracks: _selectedTracks,
+                      // 結果列自己的音源，不是選的音源：「全部」時一次有好幾個音源的結果。
+                      pluginIds: (keys) => {
+                        for (final key in keys)
+                          if (_summaryOf(search, key) case final item?)
+                            item.sourceTypeId,
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          PageAppBar(
+                            centerTitle: false,
+                            toolbarHeight: kToolbarHeight + spacing.x4,
+                            // 用 TextField 而不是 M3 的 SearchBar：SearchBar 整條可點的那一層
+                            // 沒有語意名稱，裡面的輸入框只有文字那一行高（24dp），兩個都過不了
+                            // 點擊區 guideline。外觀照 SearchBar：填色、全圓角、前面放大鏡。
+                            titleWidget: TextField(
+                              controller: _text,
+                              focusNode: widget.fieldFocusNode,
+                              textInputAction: TextInputAction.search,
+                              onChanged: _changed,
+                              onSubmitted: _submit,
+                              decoration: InputDecoration(
+                                hintText: rooms ? t.roomHint : t.hint,
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon: ListenableBuilder(
+                                  listenable: _text,
+                                  builder: (context, _) => _text.text.isEmpty
+                                      ? const SizedBox.shrink()
+                                      : IconButton(
+                                          tooltip: t.clear,
+                                          icon: const Icon(Icons.close),
+                                          onPressed: () {
+                                            _text.clear();
+                                            _changed('');
+                                            widget.fieldFocusNode
+                                                .requestFocus();
+                                          },
+                                        ),
+                                ),
+                                filled: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    tokens.radius.extraLarge,
+                                  ),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (list.isNotEmpty) ...[
+                            SourceChips(
+                              sources: list,
+                              allLabel: t.allSources,
+                              selectedId: selected?.manifest.id,
+                              onSelected: (id) => unawaited(
+                                ref
+                                    .read(searchProvider.notifier)
+                                    .selectSource(id),
+                              ),
+                            ),
+                            SizedBox(height: spacing.x2),
+                            if (hasLive) ...[
+                              _ModeBar(rooms: rooms, filter: search.roomFilter),
+                              SizedBox(height: spacing.x2),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+              ),
+            ),
+            Expanded(
+              child: switch (sources) {
+                // 首次啟動引導（ADR 0030 §決定 12）：沒有音源，或正在裝、還有失敗要看。
+                AsyncData()
+                    when showOnboarding(
+                      hasSource: list.isNotEmpty,
+                      state: onboarding,
+                    ) =>
+                  PluginOnboarding(hasSource: list.isNotEmpty),
+                AsyncData() when list.isEmpty => _noSources(),
+                // 輸入框空白而且有歷史：列出歷史（舊版），沒有歷史照常顯示提示或結果。
+                // 歷史在自己的 Consumer 裡 watch：在 ListenableBuilder 的 builder 裡用頁面的 ref，
+                // 頁面每次重建都會先關掉這個訂閱再重開（builder 在頁面的 build 之後才跑）。
+                AsyncData() => Consumer(
+                  builder: (context, ref, _) {
+                    ref.listen(searchHistoryProvider, (previous, next) {
+                      if (next case AsyncError(:final error, :final stackTrace)
+                          when previous is! AsyncError) {
+                        ref
+                            .read(logProvider)
+                            .report(
+                              'Failed to read the search history',
+                              AppError.wrap(error, stackTrace),
+                              tag: 'search',
+                            );
+                      }
+                    });
+                    final history = ref.watch(searchHistoryProvider).value;
+                    return ListenableBuilder(
+                      listenable: _text,
+                      builder: (context, _) {
+                        if (_text.text.trim().isEmpty &&
+                            history != null &&
+                            history.isNotEmpty) {
+                          return SearchHistoryList(
+                            entries: history,
+                            onSearch: _searchFromHistory,
+                          );
+                        }
+                        return _Results(
+                          state: search,
+                          rooms: rooms,
+                          network: network,
+                          onRetry: _retry,
+                        );
+                      },
+                    );
+                  },
+                ),
+                // 插件清單載入失敗時已經 log.report；畫面上等同沒有音源。
+                AsyncError() => _noSources(),
+                AsyncLoading() => _Loading(label: t.loadingSources),
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

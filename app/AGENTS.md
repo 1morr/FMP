@@ -2963,7 +2963,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   **必須在 Windows 實機驗**：隱藏標題列後的拖曳、雙擊最大化、三顆鈕、最大化時的邊框與螢幕邊緣貼齊、dev 與 prod 同時開時各自單一實例、Debug 頁與播放頁上的視窗鈕、對話框開著時的視窗鈕與 tooltip。
   **必須在 Mac 實機驗**：紅綠燈在列的正中間（截圖量）、拖曳、雙擊、全螢幕進出（紅綠燈隱藏）。
 - macOS 的 App 圖示（`macos/Runner/Assets.xcassets/AppIcon.appiconset`）由 `tool/make_macos_icon.py` 從 `../assets/icon/app_icon.png` 產生（Apple 的圖示格線：白底圓角矩形、淡陰影；要 Pillow）；換圖示時重跑它。
-- iOS 的 App 圖示（`ios/Runner/Assets.xcassets/AppIcon.appiconset`）由 `tool/make_ios_icon.py` 從同一個來源產生：iOS 要 1024 的不透明方圖、圓角由系統裁，所以是白底方圖加同樣的 824/1024 大小、不畫圓角與陰影，單一尺寸（`Contents.json` 一張 universal）；要 Pillow。啟動畫面（`LaunchScreen.storyboard`）底色是 `systemBackgroundColor`，深色模式開 App 不閃白。
+- iOS 的 App 圖示（`ios/Runner/Assets.xcassets/AppIcon.appiconset`）由 `tool/make_ios_icon.py` 從同一個來源產生：iOS 要 1024 的不透明方圖、圓角由系統裁，所以是白底方圖加同樣的 824/1024 大小、不畫圓角與陰影，單一尺寸（`Contents.json` 一張 universal）；要 Pillow。啟動畫面（`LaunchScreen.storyboard`）底色是 `systemBackgroundColor`、中央是 FMP 圖示的字形（`LaunchImage.imageset`，同一支腳本產生：字形 96pt、1x／2x／3x；來源字形是黑的，深色模式另有白色版本放 `appearances: dark`），深色模式開 App 不閃白。沒有自動閘門，改了要在模擬器看深淺色冷啟動。
 - 視窗跨過外殼斷點時的焦點（U PR 15，之後通用化）：跨過 600 時外殼換導覽元件（底部導覽列與側欄），內容區的子樹搬了家，每個巢狀 `Navigator` 的 `Focus(autofocus)` 在 `deactivate` 重設、再次 autofocus，
   把焦點搶進被蓋住的內容區，上面的 route 之後收不到按鍵（F6、播放頁的 Esc 都落到外殼）。`AppShell` 在寬度等級改變而根 Navigator 上有別的 route 蓋著外殼時（`_keepCoveringRouteFocus`：播放頁、Debug 頁、網頁登入、錯誤詳細、對話框都算），
   build 時記下目前的焦點，這一幀與接著的 autofocus 更新之後還給它；那時節點已經不在樹上（跟著版面拿掉）就不還，否則它之後掛回來時會搶焦點。只有外殼自己時不動。新的根 route 不必另外處理。
