@@ -1797,6 +1797,12 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `Opening stream`、要重開 App。停住的那首由控制器的開流逾時（下面「恢復」的表）在 20 秒後當成開不起來。閘門：
   後端契約的 `a source opened over a stalled one plays`、`…after stopping a stalled one plays`、`…after stopping a
   stalled first source plays`（`stalled` 是整合測試的 loopback 伺服器不回應的路徑）。
+- 手動下一首（或跳到）的是前瞻那首時，`open` 的網址與標頭就是後端手上的前瞻（`BackendSource.isSameStreamAs`）：
+  後端換到引擎裡那個項目、沿用它已經做的載入，不重新開流（iPhone 實機 2026-11-04：前瞻剛預備、還在載入時按下一首，
+  以新的項目重開同一個網址要 15–16 秒才出聲）。回報照樣用 `open` 的 id、沒有 `SourceAdvanced`；還沒載入好的話照開流
+  逾時計時。just_audio 在 `_openLookAhead`（引擎不能換過去時照一般的 open），mpv 的預開本來就以網址為準、不改。
+  閘門：後端契約的 `opening the stream of a loaded look-ahead does not request it again`、`…still loading continues
+  its load`（`TrackServer` 數 loopback 伺服器的請求）；`backend_rules_test.dart` 的 `the same stream is…`。
 - `SourceFailed.httpStatus` 只有 Windows（mpv）拿得到：來自 ffmpeg 的 warn log `http: HTTP error 403
   Forbidden`（所以 `MediaKitBackend` 以 `MPVLogLevel.warn` 收 log，`httpStatusFromLogLine` 解析），
   mpv 只把 ffmpeg 的 log 交給行程裡第一個還活著的實例（media_kit 在 `dispose` 後 5 秒才銷毀），

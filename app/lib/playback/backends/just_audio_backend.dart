@@ -46,7 +46,14 @@ final class JustAudioBackend implements AudioBackend {
   final _events = StreamController<BackendEvent>.broadcast();
 
   int? _currentId;
-  int? _nextId;
+
+  /// 前瞻（[setNext]）；[open] 的來源是同一個串流時接著用它的載入。
+  BackendSource? _next;
+  int? get _nextId => _next?.id;
+
+  /// [open] 接著用了引擎裡的前瞻（[_openLookAhead]）：那個項目的 `tag` 還是前瞻
+  /// 的 id，[_idAt] 把它對到 [open] 的來源。
+  ({int tag, int id})? _adopted;
 
   /// 目前的來源已經載入（有時長或位置）；之前的失敗算 [BackendFailure.open]。
   bool _loaded = false;
@@ -109,13 +116,22 @@ final class JustAudioBackend implements AudioBackend {
     Duration start = Duration.zero,
     bool play = true,
   }) {
+    final lookAhead = switch (_next) {
+      final next? when next.isSameStreamAs(source) => next,
+      _ => null,
+    };
     _currentId = source.id;
-    _nextId = null;
+    _next = null;
     _wantPlaying = play;
     _resetCurrent();
     _replaceLoad();
     final replaced = _loadReplaced.future;
     return _edit(() async {
+      if (_currentId != source.id) return;
+      if (lookAhead != null &&
+          await _openLookAhead(source, lookAhead, start: start)) {
+        return;
+      }
       if (_currentId != source.id) return;
       if (_pendingLoad != null) {
         _pendingLoad = null;
@@ -154,7 +170,7 @@ final class JustAudioBackend implements AudioBackend {
   Future<void> setNext(BackendSource? next) {
     final owner = _currentId;
     if (owner == null) return Future.value();
-    _nextId = next?.id;
+    _next = next;
     return _edit(() async {
       // 排隊的期間換了來源（open、交接）：這次修改已經過時。
       if (_currentId != owner) return;
@@ -179,7 +195,7 @@ final class JustAudioBackend implements AudioBackend {
         // asset 找不到之類，交給 ExoPlayer 前就失敗（just_audio 的 Dart 清單裡
         // 留著它，下一次修改會移掉）：目前的來源照常播完。
         if (_currentId != owner || _nextId != next.id) return;
-        _nextId = null;
+        _next = null;
         _add(
           _events,
           SourceFailed(id: next.id, failure: BackendFailure.open, cause: error),
@@ -227,7 +243,7 @@ final class JustAudioBackend implements AudioBackend {
   @override
   Future<void> stop() {
     _currentId = null;
-    _nextId = null;
+    _next = null;
     _wantPlaying = false;
     _resetCurrent();
     _replaceLoad();
@@ -322,6 +338,7 @@ final class JustAudioBackend implements AudioBackend {
   );
 
   void _resetCurrent() {
+    _adopted = null;
     _loaded = false;
     _settled = false;
     _lastEvent = null;
@@ -341,6 +358,53 @@ final class JustAudioBackend implements AudioBackend {
   void _replaceLoad() {
     _loadReplaced.complete();
     _loadReplaced = Completer<void>();
+  }
+
+  /// [open] 的 [source] 是引擎裡的前瞻 [lookAhead] 的同一個串流（手動下一首）：
+  /// 換到那個項目（`seek` 到它的索引）、移掉其他的，接著用它已經做的載入，不
+  /// 重建項目、不重新開流。iPhone 實機（2026-11-04）前瞻剛預備、還在載入時按下一首，
+  /// 以新的項目重開同一個網址要 15 秒以上才出聲；換過去的話 AVPlayer 與 ExoPlayer
+  /// 都沿用同一個項目（`AudioPlayer.m` 的 `enqueueFrom:` 保留已在佇列裡的項目；
+  /// ExoPlayer 換到已預備的 period 時在緩衝內 seek）。
+  ///
+  /// 引擎不在能換過去的狀態（前瞻的修改沒套上、目前這首的載入還沒回來、引擎閒置
+  /// 或播完）就回傳 `false`，照一般的 open 重新載入。
+  Future<bool> _openLookAhead(
+    BackendSource source,
+    BackendSource lookAhead, {
+    required Duration start,
+  }) async {
+    final index = _player.sequence.indexWhere((s) => s.tag == lookAhead.id);
+    final state = _player.processingState;
+    if (index < 0 ||
+        _pendingLoad != null ||
+        (state != ProcessingState.ready &&
+            state != ProcessingState.buffering)) {
+      return false;
+    }
+    _adopted = (tag: lookAhead.id, id: source.id);
+    if (!_wantPlaying) await _player.pause();
+    await _player.seek(start, index: index);
+    if (_currentId != source.id) return true;
+    if (_player.currentIndex != index) {
+      // 引擎沒換過去：照一般的 open。
+      _adopted = null;
+      return false;
+    }
+    _log.info('Opening the look-ahead in place', tag: 'playback');
+    final edit = LookAheadEdit.of(
+      itemCount: _player.sequence.length,
+      currentIndex: index,
+      append: false,
+    );
+    for (final i in edit.removeIndices) {
+      await _player.removeAudioSourceAt(i);
+    }
+    if (_wantPlaying && _currentId == source.id) {
+      // play() 的 Future 要到暫停才完成，不能 await。
+      unawaited(_player.play());
+    }
+    return true;
   }
 
   /// 清單的修改一個接一個做：每次都依當下的清單算 [LookAheadEdit]，交接後的
@@ -365,6 +429,7 @@ final class JustAudioBackend implements AudioBackend {
     final sequence = _player.sequence;
     if (index == null || index < 0 || index >= sequence.length) return null;
     return switch (sequence[index].tag) {
+      final int tag when tag == _adopted?.tag => _adopted!.id,
       final int id => id,
       _ => null,
     };
@@ -401,9 +466,12 @@ final class JustAudioBackend implements AudioBackend {
     _checkCurrentSource(event);
     if (_idAt(event.currentIndex) != _currentId) return;
     _lastEvent = event;
+    // 接著用的前瞻可能還沒載入好：同交接，有時長才算（[hasLoadedDuration]）。
     if (!_loaded &&
         event.processingState == ProcessingState.ready &&
-        (event.duration != null || event.updatePosition > Duration.zero)) {
+        (_adopted != null
+            ? hasLoadedDuration(event.duration)
+            : event.duration != null || event.updatePosition > Duration.zero)) {
       _loaded = true;
       _emitStatus();
     }
@@ -443,7 +511,7 @@ final class JustAudioBackend implements AudioBackend {
     if (!hasLoadedDuration(event.duration)) return;
     final end = handover.end;
     _currentId = next;
-    _nextId = null;
+    _next = null;
     _resetCurrent();
     // 前瞻是預備好才接上的。
     _loaded = true;
@@ -494,7 +562,7 @@ final class JustAudioBackend implements AudioBackend {
   void _failLookAhead(int id, PlayerException error) {
     final handover = _pendingHandover;
     _pendingHandover = null;
-    _nextId = null;
+    _next = null;
     _add(
       _events,
       SourceFailed(id: id, failure: BackendFailure.open, cause: error),
@@ -513,7 +581,7 @@ final class JustAudioBackend implements AudioBackend {
   /// 的下一首開流。
   Future<void> _abandonHandover(_PendingHandover handover) async {
     _pendingHandover = null;
-    _nextId = null;
+    _next = null;
     _ended = true;
     if (!_settled) {
       _settled = true;

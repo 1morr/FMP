@@ -51,6 +51,10 @@ final class FakeAudioBackend implements AudioBackend {
   /// 每次 [setNext] 的參數，依序。
   final nextSources = <BackendSource?>[];
 
+  /// 引擎開流的網址，依序（真後端的伺服器看到的請求）：[open] 一次、前瞻接上
+  /// 清單時一次（真引擎一接上就預備它）。
+  final requests = <Uri>[];
+
   final _status = StreamController<BackendStatus>.broadcast();
   final _progress = StreamController<SourceProgress>.broadcast();
   final _events = StreamController<BackendEvent>.broadcast();
@@ -96,6 +100,9 @@ final class FakeAudioBackend implements AudioBackend {
   }) async {
     opened.add(source);
     openedAt.add(start);
+    // 前瞻就是這個串流（手動下一首）：接著用它的載入，不再開流（真後端一樣）。
+    final next = _index + 1 < _playlist.length ? _playlist[_index + 1] : null;
+    if (next == null || !next.isSameStreamAs(source)) requests.add(source.url);
     _ticker?.cancel();
     _playlist
       ..clear()
@@ -283,7 +290,10 @@ final class FakeAudioBackend implements AudioBackend {
       _playlist.removeAt(index);
       if (index < _index) _index--;
     }
-    if (edit.append && next != null) _playlist.add(next);
+    if (edit.append && next != null) {
+      _playlist.add(next);
+      requests.add(next.url);
+    }
   }
 
   void _schedule() {

@@ -443,5 +443,47 @@ void main() {
       });
       expect(() => source.headers['Cookie'] = 'x', throwsUnsupportedError);
     });
+
+    test('the same stream is the same url and headers, whatever the id', () {
+      final url = Uri.parse('https://cdn.example/a.m4a');
+      const headers = {'Referer': 'https://www.example.test/'};
+      final a = BackendSource(id: 1, url: url, headers: headers);
+      expect(
+        a.isSameStreamAs(BackendSource(id: 2, url: url, headers: headers)),
+        isTrue,
+      );
+      expect(
+        a.isSameStreamAs(
+          BackendSource(
+            id: 2,
+            url: url,
+            headers: {...headers, 'Cookie': 'dropped before comparing'},
+          ),
+        ),
+        isTrue,
+        reason: 'only the media headers reach the engine',
+      );
+      expect(
+        a.isSameStreamAs(
+          BackendSource(
+            id: 1,
+            url: Uri.parse('https://cdn.example/b.m4a'),
+            headers: headers,
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        a.isSameStreamAs(
+          BackendSource(
+            id: 1,
+            url: url,
+            headers: const {'Referer': 'https://other.example.test/'},
+          ),
+        ),
+        isFalse,
+      );
+      expect(a.isSameStreamAs(BackendSource(id: 1, url: url)), isFalse);
+    });
   });
 }
