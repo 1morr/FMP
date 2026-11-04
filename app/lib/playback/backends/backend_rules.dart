@@ -47,6 +47,18 @@ TrackEndReason classifyTrackEnd({
   return TrackEndReason.completed;
 }
 
+/// 引擎換到前瞻的索引後，事件的 [duration] 能不能確認前瞻載入好了（接上）：
+/// 有、而且大於 0。
+///
+/// 兩個引擎對開不起來（或還沒預備好）的前瞻給的形狀不同：ExoPlayer 是 `null`；
+/// AVPlayer（just_audio 0.10.6 的 darwin 端）不在前瞻還沒輪到時報它的錯誤
+/// （`AudioPlayer.m` 的 `AVPlayerItemStatusFailed` 只處理 `currentItem`），目前
+/// 這首播完換過去那一刻的事件是 `ready`、時長 0（失敗項目的時長是 indefinite，
+/// `getDuration` 把 `CMTimeGetSeconds` 的 NaN 轉成 int），錯誤緊接著才到。和
+/// [classifyTrackEnd] 一樣把 0 當成沒回報過時長。
+bool hasLoadedDuration(Duration? duration) =>
+    duration != null && duration > Duration.zero;
+
 /// 讓後端的播放清單回到「目前＋最多一個前瞻」要做的修改。
 final class LookAheadEdit {
   const LookAheadEdit._({required this.removeIndices, required this.append});
