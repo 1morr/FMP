@@ -17,7 +17,7 @@
 | 翻譯（`lib/i18n/*.i18n.json`）或 `slang.yaml` | 先 `dart run slang`，再跑第一列 |
 | 繁簡字表的副本或產生器（`tool/opencc/`） | 先 `dart run tool/opencc/generate_ts_characters.dart`，再跑第一列（產生檔 `lib/core/matching/ts_characters.g.dart` 要提交） |
 | 播放後端（`lib/playback/backends/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/audio_backend_contract_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（見 § 播放） |
-| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug`、`flutter build windows --flavor dev` 與 `flutter build macos --flavor dev --debug`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`）；macOS 在 Mac 上實機驗控制中心／選單列的「正在播放」（標題、封面、進度）與媒體鍵 |
+| 系統媒體控制與 `MainActivity`（`lib/platform/media_controls/`、`lib/playback/now_playing_publisher.dart`、`android/app/src/main/`） | 第一列，加 `flutter build apk --flavor dev --debug`、`flutter build windows --flavor dev` 、`flutter build macos --flavor dev --debug` 與 `flutter build ios --simulator --flavor dev --debug`、Android 模擬器實機驗（§ 平台層的 `MainActivity` 覆寫、通知、`dumpsys media_session`、媒體鍵）；Windows 建置要有 `rustup`（見下方），並實機驗（`smtc_probe.ps1 -AppFilter com.personal.fmp.dev`、音量浮層的媒體卡片；指令經工作階段 API 只送給 FMP，不按全域媒體鍵，見 skill 的 `references/windows.md`）；macOS 在 Mac 上實機驗控制中心／選單列的「正在播放」（標題、封面、進度）與媒體鍵 |
 | 提示宿主或外殼（`lib/ui/toast/`、`lib/ui/shell/`、`lib/app/`） | 第一列，加 Windows 與 Android 模擬器各跑一次 `flutter test integration_test/toast_layering_test.dart -d <裝置>`（Android 加 `--flavor dev --no-uninstall`，見 verify-on-device 的 android.md）（提示在對話框、全螢幕頁之上，ADR 0023 §如何確認） |
 | 發版（`../.github/workflows/app-release.yml`、`tool/release/`、`windows/installer/`、release-please 設定） | 第一列，加 actionlint（本機沒有就 `docker run --rm -v <repo>:/repo -w /repo rhysd/actionlint:latest .github/workflows/app-release.yml`）；改了 `.iss` 以 Inno Setup 6 編一次（本機沒有就用 `amake/innosetup` 映像） |
 | 舊資料匯入（`lib/legacy_import/`、`isar_community*` 依賴） | 第一列，加 `flutter build apk --flavor dev --debug`（查 `libisar.so` 的 16KB 對齊，見 § 舊資料匯入）與 `flutter build windows --flavor dev` |
@@ -226,6 +226,14 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   沒有別名（舊版沒發過 macOS）。verify 核對 zip 的唯一根是 `fmp.app/`、`Info.plist` 的
   `CFBundleIdentifier` 是 `com.personal.fmp`、`CFBundleShortVersionString` 是這一版；閘門：
   `verify_release_assets_test.dart`、`release_workflow_test.dart` 的 `the macOS zip keeps symlinks`。
+- iOS 發 `fmp-v{版本}-ios.ipa`（`build-ios` job：`flutter build ios --flavor prod --release --no-codesign
+  --build-name --build-number`，再把 `Runner.app` 放進 `Payload/` 以 `zip -qry` 打包；`flutter build ipa
+  --no-codesign` 只產 `.xcarchive`）。**未簽章**：使用者以 SideStore／AltStore 用自己的 Apple ID 重簽
+  （ADR 0037 §決定 2），沒有別名（舊版沒發過 iOS）。建置出來的 `Info.plist` 是二進位格式，而 verify 跑在 Linux、
+  只讀 XML，所以打包前 `plutil -convert xml1`（沒有簽章，改它不破壞任何東西）。verify 核對 zip 的唯一根是
+  `Payload/`、裡面唯一的 App 是 `Runner.app`、`Info.plist` 的 `CFBundleIdentifier` 是 `com.personal.fmp`、
+  `CFBundleShortVersionString` 是這一版；閘門：`verify_release_assets_test.dart`、`release_workflow_test.dart`
+  的 `the iOS IPA is unsigned…`。
 - Linux 的發佈物由它的平台任務加進 workflow 與 `expectedAssets`。
 
 ## 平台層
@@ -261,12 +269,12 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   失敗時記 log、宣告改為沒有（系統標題列留著），App 照常啟動。UI 只問 `activeWindowChromeProvider`（宣告為真才給 `windowChromeProvider` 的值），
   `window_manager` 只准在平台層。閘門：`platform_test.dart`（逐平台宣告、`window chrome on Windows`、`window chrome on macOS`）、`window_manager_chrome_test.dart`（呼叫順序、沒有 show／focus、最大化狀態、macOS 先量再隱藏）。
 - 系統媒體控制（`lib/platform/media_controls/`，design §8）：`PlatformCapabilities.mediaControls`
-  （`supportsSeek`）；Android 與 macOS 以 `audio_service` 實作（共用的 handler、播放狀態與曲目轉換在
-  `media_controls_audio_service.dart`；macOS 的 `AppleSystemMediaControls` 走 darwin 端的 `MPNowPlayingInfoCenter`
+  （`supportsSeek`）；Android、macOS 與 iOS 以 `audio_service` 實作（共用的 handler、播放狀態與曲目轉換在
+  `media_controls_audio_service.dart`；macOS 與 iOS 共用的 `AppleSystemMediaControls` 走 darwin 端的 `MPNowPlayingInfoCenter`
   與 `MPRemoteCommandCenter`，預設設定、宣告 `supportsSeek: true`、不設 `positionRefresh`〔Now Playing 自己依經過時間與
   速度推算進度；實機驗證〕，`file://` 封面由 `audio_service` 設成 `artCacheFile`，`dispose` 呼叫 `stopService` 清掉
   Now Playing，重啟流程會呼叫；閘門 `media_controls_apple_test.dart`、`media_controls_audio_service_test.dart`、
-  `platform_test.dart` 的 `system media controls on macOS`）。宣告在組裝點，實作在 `main()` 開好資料庫之後、
+  `platform_test.dart` 的 `system media controls on macOS`、`system media controls on iOS`；iOS 要 `UIBackgroundModes: audio`，ADR 0037 §決定 9）。宣告在組裝點，實作在 `main()` 開好資料庫之後、
   `runApp` 之前由 `AppPlatform.withMediaControls` 初始化，失敗時記 log、宣告改為沒有，App 照常啟動。
   `audio_service` 與 `smtc_windows` 的擁有者都是 `lib/platform/`（`platformPackages`）。
 - Windows（SMTC，`media_controls_windows.dart`，`smtc_windows` 釘 1.1.0）：宣告 `supportsSeek: false`、
@@ -398,11 +406,13 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   `share_plus_file_sharer_test.dart`、`diagnostics_test.dart`、`debug_export_test.dart` 各有一個案例。
 
 - 登入 WebView（`lib/platform/login_webview/`，ADR 0029 §決定 9）：`PlatformCapabilities.loginWebView`（Android、
-  Windows），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
+  Windows、iOS），一個實作 `InAppLoginWebView`（`flutter_inappwebview` 釘 6.2.0-beta.3，理由在 `pubspec.yaml`；Windows 要
   `windows/CMakeLists.txt` 的 STL1011 define 才建得起來）。介面只開頁、報「一頁載入完成」、讀 cookie、清全部 cookie、重建環境，
   完成與否由呼叫端判斷（見「帳號」）。
   - UA 由這一層決定，不由插件給：Android 是系統 WebView 的 UA 拿掉 `; wv`／`;wv`（`androidLoginUserAgent`，R1：桌面 UA
-    與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入）。
+    與帶 `wv` 的都被 Google 擋），Windows 不設（WebView2 預設就能登入），iOS 補成 Safari 的形狀
+    （`iosLoginUserAgent`：WKWebView 預設 UA 沒有 `Version/…`、`Safari/…`，Google 當嵌入式 WebView 擋；系統版本由組裝點
+    以 `iosMajorMinorVersion(Platform.operatingSystemVersion)` 給，ADR 0037 §決定 11）。iOS 沒有 WebView 環境，cookie 經 WKWebView 的 cookie store。
   - Windows 的 WebView2 使用者資料在資料目錄的 `webview/`（`loginWebViewDirectoryName`；不給的話是程式旁的
     `fmp.exe.WebView2`，dev 與 prod 混在一起），環境第一次用到才建，`reset` 後重建（同一個目錄，登入狀態留著）。
     cookie 的讀刪也都經這個環境，否則讀到的是預設環境的。環境這一段（目錄位置、延後建立、`reset`、讀刪經同一個
@@ -410,7 +420,7 @@ iOS、macOS 的舊版沒有發過，prod 沿用 Android 的 `com.personal.fmp`�
   - `cookies(hosts)` 只回問到的網址讀得到的（`getCookies`），同名時前面的網址優先。刪除只有 `clearAll`
     （`deleteAllCookies`）：Google 會把工作階段 cookie 寫到地區網域、分區（CHIPS）cookie 以網址刪不到，所以不以網址刪
     （ADR 0029 §決定 11 更正）；平台可能靜默失敗，由呼叫端用 `cookies` 確認。
-  - 閘門：`login_webview_test.dart`（UA 三種、只回問到的網址、`clearAll`）、`platform_test.dart`。cookie 真的刪掉只能
+  - 閘門：`login_webview_test.dart`（UA 三種加 iOS、版本解析、只回問到的網址、`clearAll`）、`platform_test.dart`、`webview_stub_test.dart`（iOS 解析到真的 `flutter_inappwebview_ios`）。cookie 真的刪掉只能
     實機驗（登出後以名稱檢查）。
   - Linux 沒有登入 WebView（ADR 0012 §決定 8）：App 直接依賴本機的 `packages/flutter_inappwebview_linux_stub`（純 Dart、
     什麼都不登記），Flutter 選它而不選套件預設、要裝 WPE WebKit 才建得起來的 `flutter_inappwebview_linux`。閘門：
@@ -1895,6 +1905,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   source`（2 倍速時兩首在一首半的時間內播完：引擎真的照速度播）、`the speed is clamped…`；
   `backend_rules_test.dart` 的 `speed and volume`；`playback_controller_test.dart` 的 `volume,
   mute and speed` 群組。
+- 音訊中斷的語意由平台宣告（`PlaybackSupport.interruptions`：`androidAudioFocus`／`appleAudioSession`／`none`，
+  ADR 0037 §決定 8），`respondToInterruption` 依它對應，後端不判斷平台。`appleAudioSession`（iOS、macOS）：開始一律
+  報 unknown，當暫時中斷（`Interrupted(transient: true)`）；結束帶 shouldResume 時報暫停類、續播，沒帶時報 unknown、
+  不續播。別的 App 開始播放時 iOS 只發開始、不發結束，FMP 停在「因中斷而暫停」直到使用者按播放或暫停（已知限制）。
+  `just_audio` 後端不能配 `none`。以下是 Android 的細節。
 - Android 的音訊中斷與拔耳機（design §7.6、舊版 `playback.md` §3.7）：`JustAudioBackend` 以
   `handleInterruptions: false` 關掉 just_audio 的內建處理（0.10.6 在 duck 結束時無條件把音量乘 2），
   自己聽 audio_session：duck 只把引擎輸出乘 0.5，不改使用者音量、不通知上層；duck 以外的任何

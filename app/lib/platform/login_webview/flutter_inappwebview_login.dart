@@ -13,11 +13,36 @@ final _webViewMarker = RegExp(r'; ?wv(?=[;)])');
 String androidLoginUserAgent(String systemUserAgent) =>
     systemUserAgent.replaceAll(_webViewMarker, '');
 
-/// [LoginWebView] 的實作，Android 與 Windows 共用：`flutter_inappwebview` 6.2.0-beta.3
+/// 從 `Platform.operatingSystemVersion`（iOS 是 `Version 27.0 (Build 24A5…)`）取主次版本
+/// （`27.0`）；只有主版本時補 `.0`，認不出時回 `null`。
+String? iosMajorMinorVersion(String operatingSystemVersion) {
+  final match = RegExp(r'(\d+)(?:\.(\d+))?').firstMatch(operatingSystemVersion);
+  if (match == null) return null;
+  return '${match.group(1)}.${match.group(2) ?? '0'}';
+}
+
+/// iOS 登入頁用的 UA：WKWebView 的預設 UA 沒有 `Version/…` 與 `Safari/…`，Google 把它
+/// 當成嵌入式 WebView 擋下（同 Android 的 `; wv`，R1）。補成 Safari 的形狀；已經有
+/// `Safari/` 的不動。[osVersion] 是系統版本（例如 `27.0`）。
+///
+/// - iPhone 的 UA（有 `Mobile/`）：在 `Mobile/` 前插入 `Version/<osVersion> `，結尾加
+///   ` Safari/604.1`。
+/// - iPad 的桌面版 UA（沒有 `Mobile/`）：結尾加 ` Version/<osVersion> Safari/605.1.15`。
+String iosLoginUserAgent(String systemUserAgent, {required String osVersion}) {
+  if (systemUserAgent.contains('Safari/')) return systemUserAgent;
+  final mobile = systemUserAgent.indexOf('Mobile/');
+  if (mobile < 0) {
+    return '$systemUserAgent Version/$osVersion Safari/605.1.15';
+  }
+  return '${systemUserAgent.substring(0, mobile)}Version/$osVersion '
+      '${systemUserAgent.substring(mobile)} Safari/604.1';
+}
+
+/// [LoginWebView] 的實作，Android、Windows 與 iOS 共用：`flutter_inappwebview` 6.2.0-beta.3
 /// （ADR 0029 §決定 9）。兩個平台的差異從建構子注入：
 ///
 /// - UA：Android 是系統 WebView 的 UA 拿掉 `; wv`（[androidLoginUserAgent]）；Windows
-///   不設，用 WebView2 的預設（R1：預設就能登入）。
+///   不設，用 WebView2 的預設（R1：預設就能登入）；iOS 補成 Safari 的形狀（[iosLoginUserAgent]）。
 /// - 環境：Windows 的 WebView2 環境以資料目錄下的 [loginWebViewDirectoryName] 當使用者
 ///   資料目錄（不給的話 WebView2 用程式旁的 `fmp.exe.WebView2`，dev 與 prod 混在一起）。
 ///   第一次用到才建立，[reset] 之後重建。Android 沒有環境（WebView 的資料在 App 的私有
@@ -36,6 +61,16 @@ final class InAppLoginWebView implements LoginWebView {
     ),
     createEnvironment: null,
   );
+
+  /// iOS 的實作：沒有 WebView 環境，cookie 經 WKWebView 的 cookie store。
+  factory InAppLoginWebView.ios({required String osVersion}) =>
+      InAppLoginWebView(
+        userAgent: () async => iosLoginUserAgent(
+          await InAppWebViewController.getDefaultUserAgent(),
+          osVersion: osVersion,
+        ),
+        createEnvironment: null,
+      );
 
   /// Windows 的實作；[userDataFolder] 是 WebView2 的使用者資料目錄。
   factory InAppLoginWebView.windows({

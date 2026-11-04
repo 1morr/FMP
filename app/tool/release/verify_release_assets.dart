@@ -8,7 +8,8 @@
 /// 正式發布（ADR 0022 §決定 1），所以對外之前看過產物的只有它。它只擋結構性的
 /// 錯：缺檔多檔、checksums 或別名對不上、APK 的身分與版本不是這個 tag、APK 用
 /// debug 金鑰簽、Windows 檔不是完整程式目錄或不是執行檔、macOS zip 的根不是
-/// `fmp.app` 或 `Info.plist` 的身分與版本不對、舊版更新器接不上
+/// `fmp.app` 或 `Info.plist` 的身分與版本不對、iOS IPA 的根不是 `Payload/Runner.app`
+/// 或 `Info.plist` 的身分與版本不對、舊版更新器接不上
 /// （`legacy_updater.dart`）。執行期才會壞的東西它看不到。
 ///
 /// APK 以 Android build-tools 的 aapt2、apksigner 讀，zip 以 `unzip -Z1` 列
@@ -53,12 +54,18 @@ const windowsProgramFiles = [
 /// macOS zip 的根目錄；`ditto --keepParent` 讓整個 App 套件在 zip 的根。
 const macosAppName = 'fmp.app';
 
+/// IPA 的唯一根與裡面唯一的 App 套件（ADR 0037 §決定 2）；`.app` 的名字是 Xcode
+/// target 的產物名，不是 flavor 的顯示名。
+const iosPayloadDir = 'Payload';
+const iosAppName = 'Runner.app';
+
 /// 帶版本號的產物（ADR 0022 §決定 3）。checksums 只涵蓋這些，不含別名。
 List<String> versionedAssets(String tag) => [
   for (final abi in androidAbis) 'fmp-$tag-android-$abi.apk',
   'fmp-$tag-windows-installer.exe',
   'fmp-$tag-windows.zip',
   'fmp-$tag-macos.zip',
+  'fmp-$tag-ios.ipa',
 ];
 
 String checksumsAssetName(String tag) => 'fmp-$tag-checksums.sha256';
@@ -263,6 +270,18 @@ Future<List<String>> verifyReleaseAssets({
     );
   }
 
+  final iosIpa = 'fmp-$tag-ios.ipa';
+  if (present.contains(iosIpa)) {
+    problems.addAll(
+      await _iosIpaProblems(
+        file(iosIpa),
+        listZip: listZip,
+        readZipEntry: readZipEntry,
+        version: tag.substring(1),
+      ),
+    );
+  }
+
   problems.addAll(
     legacyUpdaterProblems(
       tagName: tag,
@@ -296,6 +315,58 @@ Future<List<String>> _macosZipProblems(
   }
   final plist = await readZipEntry(zip, '$macosAppName/Contents/Info.plist');
   if (plist == null) return ['$name: could not read $macosAppName Info.plist'];
+  final problems = <String>[];
+  final identifier = plistString(plist, 'CFBundleIdentifier');
+  if (identifier != applicationId) {
+    problems.add(
+      '$name: CFBundleIdentifier is $identifier, expected $applicationId',
+    );
+  }
+  final shortVersion = plistString(plist, 'CFBundleShortVersionString');
+  if (shortVersion != version) {
+    problems.add(
+      '$name: CFBundleShortVersionString is $shortVersion, '
+      'expected $version',
+    );
+  }
+  return problems;
+}
+
+/// IPA 的唯一根是 `Payload/`，裡面唯一的 App 是 `Runner.app`；`Info.plist` 的
+/// bundle id 與版本是這個 release 的。workflow 打包前把 `Info.plist` 轉成 XML
+/// （建置出來的是二進位格式，這裡只讀 XML）。
+Future<List<String>> _iosIpaProblems(
+  File ipa, {
+  required ZipLister listZip,
+  required ZipEntryReader readZipEntry,
+  required String version,
+}) async {
+  final name = p.basename(ipa.path);
+  final entries = await listZip(ipa);
+  if (entries == null) return ['$name: could not list its entries'];
+  final paths = [for (final e in entries) e.replaceAll('\\', '/').split('/')];
+  final roots = {for (final path in paths) path.first};
+  if (roots.length != 1 || roots.single != iosPayloadDir) {
+    return [
+      '$name: the root must be only $iosPayloadDir, got '
+          '${(roots.toList()..sort()).join(', ')}',
+    ];
+  }
+  final apps = {
+    for (final path in paths)
+      if (path.length > 1 && path[1].isNotEmpty) path[1],
+  };
+  if (apps.length != 1 || apps.single != iosAppName) {
+    return [
+      '$name: $iosPayloadDir must contain only $iosAppName, got '
+          '${(apps.toList()..sort()).join(', ')}',
+    ];
+  }
+  final plist = await readZipEntry(
+    ipa,
+    '$iosPayloadDir/$iosAppName/Info.plist',
+  );
+  if (plist == null) return ['$name: could not read $iosAppName Info.plist'];
   final problems = <String>[];
   final identifier = plistString(plist, 'CFBundleIdentifier');
   if (identifier != applicationId) {

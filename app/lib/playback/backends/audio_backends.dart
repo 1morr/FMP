@@ -11,8 +11,16 @@ import 'package:fmp/playback/backends/media_kit_backend.dart';
 /// audio_backend_contract_test.dart`，debug 建置）經這裡建後端，所以兩個平台
 /// 跑契約時都會檢查。
 AudioBackend createAudioBackend(PlaybackSupport support, {required Log log}) {
+  assert(
+    support.backend != AudioBackendKind.justAudio ||
+        support.interruptions != AudioInterruptions.none,
+    'just_audio listens to interruptions; declare their semantics',
+  );
   final backend = switch (support.backend) {
-    AudioBackendKind.justAudio => JustAudioBackend(log: log),
+    AudioBackendKind.justAudio => JustAudioBackend(
+      log: log,
+      interruptions: support.interruptions,
+    ),
     AudioBackendKind.mediaKit => MediaKitBackend.create(log: log),
   };
   assert(

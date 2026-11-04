@@ -15,4 +15,5 @@ const iosPlaybackSupport = PlaybackSupport(
     PlayableFormat('hls', 'aac'),
   ],
   outputDeviceSelection: false,
+  interruptions: AudioInterruptions.appleAudioSession,
 );

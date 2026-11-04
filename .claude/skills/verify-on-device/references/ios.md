@@ -49,6 +49,10 @@ xcrun simctl install <UDID> build/ios/iphonesimulator/Runner.app
   對任何關鍵字都回三首，所以字不重要；送出要傳兩次換行（`orca emulator type` 傳 `\n`，中間等一秒）：第一次確認組字，第二次送出。
 - 背景：`orca emulator button home`；回來用 `xcrun simctl launch <UDID> com.personal.fmp.dev`。
 - 背景換曲：佇列兩首、按播放、立刻按 home，log 的 `Track audible` 在背景仍會出現第二首（`UIBackgroundModes: audio`）。
+- Now Playing：模擬器沒有可截圖的鎖定畫面與控制中心媒體卡（Simulator.app 在這台 Mac 找不到，無法鎖屏）。改讀系統 log：
+  `xcrun simctl spawn <UDID> log show --last 2m --predicate 'process == "Runner" AND eventMessage CONTAINS[c] "PlaybackRate"'`
+  有 `NPIC: setNowPlayingInfo` 與曲名（`item:<…/曲名/PlaybackRate: …>`），停止後出現 `Clearing nowPlayingInfo`。
+  `PlaybackRate` 播放中仍是 0（audio_service 在 iOS 不設 `playbackState`，上游 #1139）；顯示以實機為準。
 - 重設資料（設定 → Debug → 重設資料）：對話框寫「App 會關閉，請自己重新開啟」，確認後行程消失
   （`xcrun simctl spawn <UDID> launchctl list | grep fmp.dev` 沒有結果），再開時資料是空的。
 - 深淺色：`xcrun simctl ui <UDID> appearance dark|light`。
