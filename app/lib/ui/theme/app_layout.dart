@@ -135,9 +135,11 @@ abstract final class AppLayout {
   static const Duration playerTransition = Duration(milliseconds: 300);
 
   /// 往下拖關閉播放頁：放開時拖過頁高的這個比例就關，否則回到原位；甩的速度（每秒幾個頁高）
-  /// 到這個值以上時看方向，不看距離。同 Cupertino 右滑返回的一半與每秒 1 個頁寬。
-  static const double playerDismissFraction = 0.5;
-  static const double playerDismissFlingVelocity = 1;
+  /// 到這個值以上時看方向，不看距離。比 Cupertino 右滑返回（一半、每秒 1 個頁寬）寬：頁高比頁寬
+  /// 大一倍，照那個值要拖半個螢幕才關，擁有者實機上輕拖都彈回（2026-11-04）。Apple Music 的
+  /// 「正在播放」輕拖、輕甩就收。
+  static const double playerDismissFraction = 0.3;
+  static const double playerDismissFlingVelocity = 0.4;
 
   /// 播放頁背景的模糊封面：模糊半徑、遮罩不透明度，以及載入封面時的邊長（只當模糊
   /// 的底圖，不用大）。控制區沒有底板（ADR 0035 §決定 3），文字直接在遮罩上：深色主題配最淺的封面

@@ -2930,7 +2930,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     左上角收合鈕（tooltip「關閉播放頁（Esc）」，只有圖示、不另給 `semanticLabel`）、Esc（頁面自己的 `Shortcuts`，
     `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層；寬版右側詳細面板開著時 Esc 先關面板）、Android 返回鍵（route 先 pop，
     只關這一頁）、觸控往下拖（Apple Music「正在播放」的慣例，頁面是從底部上來的，所以不是右滑；`_PlayerPageRoute` 的 `_DragToDismiss`：
-    只收觸控，桌面的滑鼠拖不關；跟著手指，放開時拖過頁高一半或往下甩（每秒 1 個頁高，`AppLayout.playerDismiss*`）就關，否則彈回；
+    只收觸控，桌面的滑鼠拖不關；跟著手指，放開時拖過頁高的 30% 或往下甩（每秒 0.4 個頁高，`AppLayout.playerDismiss*`）就關，否則彈回；
     頁面裡會垂直捲動的元件先拿到拖曳；寬版詳細面板開著時不開始）都關；**例外**是寬版右側詳細面板開著時，返回鍵也先關面板（同 Esc）：頁面有一個 `PopScope(canPop: !面板開著)`，
     根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。收合鈕與 Ctrl+Q 不經這個 `PopScope`（頁面是最上層時直接 `pop`）：面板開著也關整頁，否則 Ctrl+Q 等不到 route 完成。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
     也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區）；

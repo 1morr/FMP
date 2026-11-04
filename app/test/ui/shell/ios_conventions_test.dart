@@ -152,6 +152,34 @@ void main() {
       expect(find.byType(PlayerPage), findsNothing);
     }, variant: _ios);
 
+    // 擁有者實機回報（2026-11-04）：拖不到一半就放開會彈回，Apple Music 輕拖、輕甩就收。
+    testWidgets('a slow drag down a third of the height closes it', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+
+      // 每 100ms 25px（約每秒 0.3 個頁高，不算甩），共 300px（頁高的約 35%）。
+      final gesture = await tester.startGesture(const Offset(195, 300));
+      for (var i = 0; i < 12; i++) {
+        await gesture.moveBy(const Offset(0, 25));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    }, variant: _ios);
+
+    testWidgets('a gentle flick down closes it', (tester) async {
+      await openPlayer(tester);
+
+      // 每秒 600px（約每秒 0.7 個頁高），只拖 100px。
+      await tester.flingFrom(const Offset(195, 300), const Offset(0, 100), 600);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    }, variant: _ios);
+
     testWidgets('a short slow drag springs back and keeps it open', (
       tester,
     ) async {
