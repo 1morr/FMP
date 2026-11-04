@@ -237,7 +237,9 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
 - 要不要出聲以執行當下的意願（`_wantPlaying`）為準：`open` 排隊或載入中被 `pause` 的，
   載入完不能照 `open` 當時的 `play` 開始播。契約的 `pausing before the source is ready…`
   守這條。
-- 引擎換到前瞻時先記下 `_PendingHandover`，前瞻真的載入（just_audio：事件有時長；media_kit：
+- 引擎換到前瞻時先記下 `_PendingHandover`，前瞻真的載入（just_audio：事件有時長，
+  `backend_rules.dart` 的 `hasLoadedDuration`——ExoPlayer 對沒預備好的前瞻給 `null`、AVPlayer
+  對開不起來的給 0，兩個都不算；media_kit：
   換過去後的第一個位置或時長）才發 `SourceAdvanced`；載入前的錯誤算前瞻的（`SourceFailed`
   之後補發上一首的 `SourceEnded`，`_ended` 讓狀態不再是在播），載入前 `setNext` 換掉前瞻就停下
   引擎、補發 `SourceEnded`。新的交接邏輯要維持「失敗先到、不發 `SourceAdvanced`」。

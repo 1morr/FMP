@@ -50,6 +50,23 @@ void main() {
     });
   });
 
+  group('hasLoadedDuration', () {
+    test('a reported duration confirms the look-ahead', () {
+      expect(hasLoadedDuration(const Duration(seconds: 2)), isTrue);
+      expect(hasLoadedDuration(const Duration(microseconds: 1)), isTrue);
+    });
+
+    test('ExoPlayer moving to an unprepared look-ahead has no duration', () {
+      expect(hasLoadedDuration(null), isFalse);
+    });
+
+    // 錄自 macOS 的契約案例 `a look-ahead refused over HTTP…`：目前這首播完、
+    // AVPlayer 換到開不起來的前瞻那一刻的事件（`currentIndex: 1`、`ready`）。
+    test('AVPlayer moving to a look-ahead it could not open reports zero', () {
+      expect(hasLoadedDuration(Duration.zero), isFalse);
+    });
+  });
+
   group('LookAheadEdit', () {
     test('appends to a playlist holding only the current source', () {
       final edit = LookAheadEdit.of(

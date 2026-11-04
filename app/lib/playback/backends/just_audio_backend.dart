@@ -55,9 +55,10 @@ final class JustAudioBackend implements AudioBackend {
   /// 目前來源最後一次的事件，用來外推交接時的位置。
   PlaybackEvent? _lastEvent;
 
-  /// ExoPlayer 已經換到前瞻的索引，還不知道它開不開得起來：前瞻沒預備好時，
-  /// 換過去那一刻的事件仍是 `ready`、沒有時長，開不起來的錯誤之後才到。有時長
-  /// 才發 [SourceAdvanced]；這段期間目前的來源還是上一首。
+  /// 引擎已經換到前瞻的索引，還不知道它開不開得起來：前瞻沒預備好時，換過去
+  /// 那一刻的事件仍是 `ready`、沒有時長（ExoPlayer 是 `null`、AVPlayer 是 0，見
+  /// [hasLoadedDuration]），開不起來的錯誤之後才到。有時長才發
+  /// [SourceAdvanced]；這段期間目前的來源還是上一首。
   ///
   /// 已知限制：ExoPlayer 給不出時長的前瞻（沒有長度資訊的串流）因此一直不算
   /// 接上，上一首不會結束。位置不能代替時長：just_audio 在 `ready` 時以時鐘外推
@@ -383,8 +384,8 @@ final class JustAudioBackend implements AudioBackend {
     }
   }
 
-  /// ExoPlayer 自己換到前瞻時，事件的索引指到 [_nextId]；事件有時長（前瞻
-  /// 預備好了）才算接上。
+  /// 引擎自己換到前瞻時，事件的索引指到 [_nextId]；事件有時長（前瞻預備好了，
+  /// [hasLoadedDuration]）才算接上。
   void _checkCurrentSource(PlaybackEvent event) {
     final current = _currentId;
     final next = _nextId;
@@ -398,7 +399,7 @@ final class JustAudioBackend implements AudioBackend {
         duration: _lastEvent?.duration,
       ),
     );
-    if (event.duration == null) return;
+    if (!hasLoadedDuration(event.duration)) return;
     final end = handover.end;
     _currentId = next;
     _nextId = null;
@@ -446,9 +447,9 @@ final class JustAudioBackend implements AudioBackend {
     _add(_events, SourceFailed(id: id, failure: failure, cause: cause));
   }
 
-  /// 前瞻開不起來（錯誤的索引是前瞻）。ExoPlayer 只在換到前瞻之後才報這種錯誤
-  /// （上一首已經播完）：先報前瞻的失敗、再報上一首結束，ExoPlayer 停在錯誤，
-  /// 不再說在播。
+  /// 前瞻開不起來（錯誤的索引是前瞻）。ExoPlayer 與 AVPlayer 都只在換到前瞻
+  /// 之後才報這種錯誤（上一首已經播完）：先報前瞻的失敗、再報上一首結束，引擎
+  /// 停在錯誤，不再說在播。
   void _failLookAhead(int id, PlayerException error) {
     final handover = _pendingHandover;
     _pendingHandover = null;

@@ -1775,14 +1775,16 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   is disabled or removed`（停用與移除各一例，經真的 `PluginRegistry`）。
 - 前瞻開不起來（`AudioBackend.setNext` 的 dartdoc）：後端不接上它，目前這首照常播完；先發
   `SourceFailed(前瞻, open)`、再發目前這首的 `SourceEnded`，不發 `SourceAdvanced`，之後不再說在播。
-  ExoPlayer 換到沒預備好的前瞻時先報新的索引（`ready`、沒有時長），錯誤之後才到；mpv 預開失敗時記
-  一行不帶項目的錯誤、播完換過去後再記一次。所以兩個後端都等前瞻載入（ExoPlayer 的事件有時長、mpv
-  換過去後第一次回報位置或時長）才發 `SourceAdvanced`，這段期間前瞻被換掉或清掉時停下引擎、報目前
+  ExoPlayer 換到沒預備好的前瞻時先報新的索引（`ready`、沒有時長），錯誤之後才到；AVPlayer（macOS、
+  iOS）在前瞻還沒輪到時不報它的錯誤，目前這首播完換過去時同樣先報新的索引（`ready`、時長 0），錯誤
+  緊接著才到；mpv 預開失敗時記一行不帶項目的錯誤、播完換過去後再記一次。所以兩個後端都等前瞻載入
+  （just_audio 的事件有大於 0 的時長，`backend_rules.dart` 的 `hasLoadedDuration`；mpv 換過去後
+  第一次回報位置或時長）才發 `SourceAdvanced`，這段期間前瞻被換掉或清掉時停下引擎、報目前
   這首結束。session 收到前瞻的失敗就作廢它的網址快取、放掉前瞻（`Look-ahead failed to open`）；到
   那首時控制器照一般的下一首重新解析，再失敗才走恢復；目前這首不重試、不跳過。閘門：後端契約的
   `a look-ahead that cannot be opened…`（Dart 端就失敗的 asset）與 `a look-ahead refused over
-  HTTP…`（loopback 403，引擎開流時才失敗）；`playback_controller_test.dart` 的 `a look-ahead that
-  cannot be opened` 群組。換過去、還沒載入時前瞻被換掉的那一段時機抓不到，沒有自動閘門，review 時看。
+  HTTP…`（loopback 403，引擎開流時才失敗）；`backend_rules_test.dart` 的 `hasLoadedDuration`；
+  `playback_controller_test.dart` 的 `a look-ahead that cannot be opened` 群組。換過去、還沒載入時前瞻被換掉的那一段時機抓不到，沒有自動閘門，review 時看。
   已知限制：ExoPlayer 給不出時長的前瞻（沒有長度資訊的串流）一直不算接上，上一首不會結束
   （`JustAudioBackend._pendingHandover` 的註解）。
 - `SourceFailed.httpStatus` 只有 Windows（mpv）拿得到：來自 ffmpeg 的 warn log `http: HTTP error 403
