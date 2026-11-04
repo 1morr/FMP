@@ -55,10 +55,10 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
    `adoptLookAhead` 回 `true`、佇列不動），臨時播放中沒有，其他是佇列的下一首。
    前瞻開不起來時後端不接上它：先發前瞻的 `SourceFailed`（session 作廢它的網址快取、放掉
    前瞻，不交給控制器），再發目前這首的 `SourceEnded`，照「沒有前瞻」往下，到那首時重新解析。
-5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`、插件說只有試聽片段、緩衝飢餓）→
+5. 失敗（`SourceFailed`、提前結束、解析丟出的 `AppError`、插件說只有試聽片段、緩衝飢餓、開流逾時）→
    控制器的 `_decide`（`decideRecovery` 加上當下的計數、網路狀態、設定，記一筆
    `Playback recovery`）→ `_apply`：重試、等網路、重新解析、換候選、照播試聽、跳過或停下。
-   串流本身的失敗（`Recover`、緩衝飢餓）先 `session.invalidateCurrentStream` 作廢快取裡的
+   串流本身的失敗（`Recover`、緩衝飢餓、開流逾時）先 `session.invalidateCurrentStream` 作廢快取裡的
    那一筆，所以 `ReResolve` 與重試都會再問插件；解析失敗本來就不進快取。
 
 ## 改恢復策略
@@ -70,7 +70,11 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
   累計 10 秒時歸零（`_onProgress`）；重新解析的次數不因此歸零（「同一首第二次」才有意義）。
 - 會發提示的結果發 `PlaybackEvent`（`_emitEvent`），不在控制器裡碰 UI；外殼的 `_onPlaybackEvent`
   的 `switch` 編譯器會指出要補的提示。
-- 時間：計時器只有一次性的（重試的等待、緩衝飢餓）；要「播了多久」就累計位置，不開週期計時器。
+- 時間：計時器只有一次性的（重試的等待、緩衝飢餓、開流逾時）；要「播了多久」就累計位置，不開週期計時器。
+  量引擎「多久沒回應」的計時放在控制器（假時鐘測得到、兩個後端共用），不放進後端：開流逾時在把來源交給
+  後端時開（`_watchOpen`，解析不算），`_setState` 離開 `Loading` 就取消，到期時再比對代與狀態，所以引擎先報錯、
+  換歌、停下都不會讓舊的計時器觸發；到期時照既有的失敗（沒有狀態碼的 `StreamUnopenable`）交給恢復，不另加
+  `PlaybackFailure`。
 
 直播的恢復另有一條：`decideLiveRecovery`（先問 `liveStatus` 再重連；沒有跳過、候選、重新解析）。新的直播失敗情況在它加一個
 `LiveRecoveryAction` 並在 `live_playback_test.dart` 的 `decideLiveRecovery` 群組加案例；控制器的 `_recoverLive` 的 `switch` 編譯器會指出。
@@ -296,7 +300,9 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
 - 契約的兩種開不起來：`missing`（Dart 端就失敗：不存在的 asset）、`forbidden`（引擎開流時才
   失敗：整合測試在 `setUpAll` 起的 loopback 伺服器，`/stalled.m4a` 以外一律回 403；假後端以
   `failsToOpen`、`httpStatusOf` 模擬）。一直載入不好的是 `stalled`（同一個伺服器的
-  `/stalled.m4a` 不回應；假後端以 `stallsOnOpen` 停在緩衝）。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。要看引擎實際怎麼報，
+  `/stalled.m4a` 不回應；假後端以 `stallsOnOpen` 停在緩衝，`finishOpening` 讓它晚一點載入好、`failOpening`
+  讓它晚一點報開不起來）。後端契約只守「換掉停住的來源照常播」；停住 20 秒後的恢復在控制器，由
+  `playback_controller_test.dart` 與 `live_playback_test.dart` 的假時間測試守。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。要看引擎實際怎麼報，
   在 `integration_test/` 寫一個暫時的檔案直接用 just_audio／media_kit 記下每個事件（media_kit
   加 `logLevel: MPVLogLevel.warn` 與 `stream.log`），跑完刪掉。
 
@@ -325,7 +331,8 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
   `network`，開流被拒時有 `httpStatus`）。等網路是 `action: waitForNetwork`，網路回來時一筆
   `Network is back; retrying` 接著 `Track requested`；網路狀態本身看 tag `network-status` 的
   `Network status changed`。正常播放 10 秒後重試計數歸零記 `Retry count reset after normal
-  playback`；緩衝飢餓記 `Buffering stalled`。試聽片段不當前瞻時記 `Look-ahead skipped: preview
+  playback`；緩衝飢餓記 `Buffering stalled`，開流逾時記 `Stream open timed out`（接著 `Playback recovery` 的
+  `failure: open`）。試聽片段不當前瞻時記 `Look-ahead skipped: preview
   only`。測試插件的關鍵字 `preview`、`flaky`、`unavailable` 造這些情境（`test_plugin/README.md`）。
 - 音訊中斷（Android，模擬器）：播放中 `adb emu gsm call 5551234`（來電鈴聲要走焦點），應該看到
   `Audio interruption`（`begin: true`、`type: pause`、`response: interrupted`）接著 `Audio interrupted;

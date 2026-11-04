@@ -1794,7 +1794,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   （`JustAudioBackend._pendingHandover` 的註解）。
 - 引擎一直載入不好、也不報錯（iPhone 實機 2026-11-04：AVPlayer 的項目停在載入中，觸發條件沒查到）：後端的清單修改
   一個接一個做，所以換掉它的 `open`、`stop` 一呼叫就不再等它（`JustAudioBackend._replaceLoad`），否則之後換哪首都停在
-  `Opening stream`、要重開 App。控制器沒有開流逾時：停住的那首一直是 `Loading`，使用者換歌才離開（已知限制）。閘門：
+  `Opening stream`、要重開 App。停住的那首由控制器的開流逾時（下面「恢復」的表）在 20 秒後當成開不起來。閘門：
   後端契約的 `a source opened over a stalled one plays`、`…after stopping a stalled one plays`、`…after stopping a
   stalled first source plays`（`stalled` 是整合測試的 loopback 伺服器不回應的路徑）。
 - `SourceFailed.httpStatus` 只有 Windows（mpv）拿得到：來自 ffmpeg 的 warn log `http: HTTP error 403
@@ -1872,13 +1872,24 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `online` 時先等網路。
   - 緩衝飢餓：進 `Buffering` 開一次性的 15 秒計時器、離開就取消；到期時第一次重新解析，同一首
     第二次跳過。
+  - 開流逾時（ADR 0018 §決定 7 的修訂，擁有者 2026-11-04）：控制器把來源交給後端（`session.open`、
+    `openNextCandidate`，直播的開流也是）時開一次性的 20 秒計時器（`streamOpenTimeout`），取代上一個；
+    狀態離開 `Loading` 就取消。到期時還是同一代、仍在 `Loading`（沒有第一次 `MarkReady`）才記
+    `Stream open timed out`、作廢網址快取，當成沒有狀態碼的開流失敗（`StreamUnopenable`，跳過時的錯誤是
+    `openFailureError` 的 `Unsupported`）照上一條走；直播交給 `decideLiveRecovery` 重連。解析的時間不算。
+    暫停中載入好（`MarkReady` 停在 `Paused`）算載入好；載入中按暫停照樣計時（引擎沒回應與暫停無關），
+    逾時後照暫停重開。不在 `online` 時到期照表等網路，等的期間不計時。前瞻的預開不計時（它開不起來
+    不影響目前這首，見上面「前瞻開不起來」）。引擎在 20 秒內自己報錯（AVPlayer 開直播流約 20 秒的
+    `-1008`）時恢復先換了一代或離開 `Loading`，計時器到期不再恢復第二次。
   - 一首在 `Playing` 中位置前進累計 10 秒，重試計數歸零（不開計時器；兩次回報相差超過 2 秒的是
     seek，不算）。
   - 跳過在 `queue` 往下一首，在 `temporary` 回到佇列；連續跳過達佇列長度（最多 10；臨時播放中
     臨時那一首也算一首，佇列只有一首時才回得去）停在 `Failed`。
   閘門：`recovery_policy_test.dart`；`playback_controller_test.dart` 的 `recovery` 與
   `recovery: refused and unopenable streams`、`recovery: counting`（含 `periodicTimerCount`）、
-  `recovery: buffering starved for 15 seconds` 群組、`temporary play` 群組的 `a temporary track that
+  `recovery: buffering starved for 15 seconds` 與 `recovery: a stream that does not open within 20 seconds`
+  群組（假後端的 `stallsOnOpen`、`finishOpening`、`failOpening`）、`live_playback_test.dart` 的 `a stream that
+  does not open within 20 seconds` 群組、`temporary play` 群組的 `a temporary track that
   cannot be played returns to a queue of one song`；`playback_event_router_test.dart` 的
   `a source refused with … carries the status and its error`。
 - 等網路（design §5.3）：網路狀態（`networkStatusProvider`，組裝點以 stream 交給控制器，不重建它）
@@ -2098,7 +2109,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     **開直播時進行中的音樂解析結果以代際丟掉**（`beginRequest` 換代），不播出也不再因它發解析（ADR 0018 §決定 6 的更正）。
   - **暫停就是停止串流**：`pause()` 換代、放掉來源、狀態 `Paused`；再按播放重新 `resolveLive`（`Idle`、`Failed` 時按播放也是重新取流）。
   - **失敗與提前結束**（`PlaybackSnapshot.live` 讓路由器把「來源結束」不論原因都當提前結束）：`decideLiveRecovery`（`recovery_policy.dart`，純函數）決定——
-    網路類的失敗（解析時的 `NetworkError`、`RateLimited`，開不起來、中斷、提前結束、緩衝飢餓）離線時等網路（不計次數）；在線時重連次數沒用完就 `ConfirmThenReconnect`：**先問 `liveStatus`**，是 `live` 才等 1／3／9 秒重新取流（共 3 次，
+    網路類的失敗（解析時的 `NetworkError`、`RateLimited`，開不起來（含開流逾時）、中斷、提前結束、緩衝飢餓）離線時等網路（不計次數）；在線時重連次數沒用完就 `ConfirmThenReconnect`：**先問 `liveStatus`**，是 `live` 才等 1／3／9 秒重新取流（共 3 次，
     每次失敗都再問一次；正常收聽 10 秒後次數歸零），不是 `live` 停在「直播已結束」，拋錯停在「查詢失敗」（D10，**不當成未開播**）；用完 `LiveGiveUp`＝直播已結束；
     解析時插件說無法取得、需登入等重試不會好的錯誤 `LiveStop`＝`Failed`，不重連。
   - **給畫面的狀態**：`PlaybackController.live`／`liveChanges`（`playbackLiveProvider`）是 `LiveInfo`（目標、最新的標題、主播、封面、人數、`LivePhase`：
