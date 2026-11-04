@@ -30,6 +30,28 @@ enum WindowClass {
   }
 }
 
+/// 高度等級，與 M3 window size class 的高度分類同值：compact < 480 ≤ medium < 900 ≤ expanded
+/// （下限含在高的一級）。
+///
+/// 版面幾乎只看寬度（[WindowClass]）；高度只用在「矮的視窗」：橫向的手機（高 393～440）是 compact，
+/// iPad 與桌面的視窗是 medium 以上。看的是整個視窗的高度，沒有 scope。
+enum WindowHeightClass {
+  compact,
+  medium,
+  expanded;
+
+  /// [height]（dp）屬於哪一級；下限含在該級內（480 是 medium）。
+  static WindowHeightClass forHeight(double height) {
+    if (height < 480) return compact;
+    if (height < 900) return medium;
+    return expanded;
+  }
+
+  /// 整個視窗（`MediaQuery` 的尺寸）的高度等級。訂閱的是高度：視窗高度一變就重建，不只在等級改變時。
+  static WindowHeightClass of(BuildContext context) =>
+      forHeight(MediaQuery.heightOf(context));
+}
+
 /// 以自己拿到的寬度決定 [WindowClass]，提供給子樹。
 ///
 /// App 根（`MaterialApp.builder`）放一個，量的是整個視窗；外殼在內容區再放

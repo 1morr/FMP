@@ -2550,7 +2550,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   load shows the error…`、`it works
   offline…`、`paging`：只讀第一頁、`loadMore`、變動時重讀已載入的、`a page read while a reload is in flight…`、捲到底載入下一頁）、
   `play_history_repository_test.dart` 的 `filters, sorts and stats`（含 `sources`、`deleteAllForTracks`）、`history_page_test.dart` 的 `the source chips come from the history…`、`the filter goes back to All…`、`deleting under the most-played sort`、`a filter change while a page is in flight…`、guideline 測試。
-- `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）。閘門：
+- `WindowClass` 與 M3 同值（600／840／1200／1600，下限含在高的一級）；高度只有 `WindowHeightClass`（M3 的高度分類 480／900，
+  讀整個視窗的 `MediaQuery` 高度、沒有 scope，目前只有右側面板用）。閘門：
   `test/ui/layout/window_class_test.dart`。
 - 外殼 `AppShell`（`lib/ui/shell/`）依整個視窗的等級換導覽：compact 底部 `NavigationBar`（播放列
   在它上面）、medium 以上是舊版的可展開側欄 `LegacySideRail`（`legacy_side_rail.dart`，收合 72dp、展開 256dp，各寬度同一個，沒記過是收合；
@@ -2736,8 +2737,10 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   歌單、重複加入與取消、多分 P 影片加全部分 P、取不到分 P 時提示且不開對話框、分 P 列、歷史、佇列、首頁卡片且沒有「從歷史移除」）、
   `mix_ui_test.dart` 的 `a row menu adds the song to a playlist and leaves the mix alone`；面板與資訊卡：同檔的 `the sheet and the info card`。
 - 右側「正在播放」面板（`lib/ui/shell/now_playing_panel.dart`，design §9.4，ADR 0024 §決定 3）：
-  - 出現：整個視窗 >= 840（expanded 以上，`hasNowPlayingPanel`）、沒收起、而且有東西在播（曲目或直播，`hasNowPlaying`；沒有曲目時外殼不放面板，
-    頁面拿到整個寬度，舊版 P-15 的做法）。compact、medium 沒有面板也沒有任何開關。
+  - 出現：整個視窗 >= 840（expanded 以上）而且不矮（高度不是 M3 的 compact：>= 480，`WindowHeightClass`；`hasNowPlayingPanel` 一份，
+    外殼、播放列的開關鈕、播放頁的「⋯」都問它）、沒收起、而且有東西在播（曲目或直播，`hasNowPlaying`；沒有曲目時外殼不放面板，
+    頁面拿到整個寬度，舊版 P-15 的做法）。compact、medium 與矮的視窗沒有面板也沒有任何開關：橫向的手機（高 393～440）照直放，
+    詳細在播放頁、佇列是導覽目的地（擁有者決定 2026-11-04）。看視窗高度、不看平台，iPad 與桌面照舊並排；桌面視窗拉到低於 480 也收掉，記住的展開狀態不動。
     面板在內容區（頁面）右邊、中間是拖曳把手；播放列在它們與側欄下方橫跨整個視窗，所以開關面板不改變播放列的分段。頁面的
     `WindowClassScope` 只量扣掉面板與把手後的寬度（視窗 1000 時頁面只剩 476、是 compact，設定頁是分組清單，視窗更寬才回到 medium）。外殼內容區的結構不隨面板
     有無而變，視窗跨過 840 時頁面不重建（設定頁選的組留著）。內容是標題列（「正在播放」、加入歌單鈕、收起鈕）與目前這首的
@@ -2747,7 +2750,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `showAddToPlaylist`（直播時沒有）。收聽直播時內容是 `LiveDetails`。底色是主題的 surface，沒有毛玻璃（ADR 0035 拿掉播放頁的毛玻璃之後 App 裡已經沒有）。
     記住收起的狀態時，沒有曲目就沒有地方展開它（播放列沒出現、播放頁也開不了），加歌之後才有入口。
     曲目的封面與標題目前不可點；開原網頁（`TrackDetail.webUrl`）在 U PR 16。
-    閘門：`now_playing_panel_test.dart` 的 `when it shows`（400／700／839／840／1000／1800、收起、`no song: no panel…`、有歌、
+    閘門：`now_playing_panel_test.dart` 的 `when it shows`（400／700／839／840／1000／1800、橫向 iPhone 852x393 與 956x440、高 479／480、
+    iPad 1180x820 與 1376x1032、桌面 1400x900、`a landscape phone opens the queue as a page, not beside it`、
+    `the panel leaves when the window gets short and comes back`、收起、`no song: no panel…`、有歌、
     `pages measure the width left of the panel`）、`next up and add to playlist`（下一首、最後一首沒有、隨機的順序、加入歌單鈕）、
     `queue_model_test.dart` 的 `upNext`。
   - 寬度（`panelWidthFor`，數值在 `AppLayout`）：下限 320dp、上限視窗寬 x 0.4（上限低於下限時取下限，視窗 840 時是 336；
@@ -2762,9 +2767,9 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     寫入追上之前畫面維持剛設的寬度（連按不會跳回）；寫失敗時改回以儲存的為準，這一支沒有閘門。閘門：`keyboard`
     群組（`left widens by 16…`、`the keys stop at the range`、`the semantics name the handle and its value`）。
   - 開關（`panel_expanded`，沒記過是展開）有三個入口，切換同一個值並寫入：面板標題列的收起鈕；播放列第三段的圖示鈕
-    （播放列橫跨整個視窗，所以第三段就是視窗 >= 840，`PlayerBar` 沒有額外參數，medium 的「⋯」沒有勾選項）；
-    播放頁「⋯」的勾選項（expanded 以上才有）。閘門：`the toggles` 群組
-    （收起與展開、播放列分段不變、840 寬已是第三段而沒有「⋯」、播放頁的項目與 compact／medium 沒有項目）。重開 App 仍記得由
+    （播放列橫跨整個視窗，所以第三段就是視窗 >= 840，`PlayerBar` 沒有額外參數，medium 的「⋯」沒有勾選項；矮的視窗不放這顆鈕）；
+    播放頁「⋯」的勾選項（有面板時才有）。閘門：`the toggles` 群組
+    （收起與展開、播放列分段不變、840 寬已是第三段而沒有「⋯」、播放頁的項目與 compact／medium／852x393 沒有項目）。重開 App 仍記得由
     `layout_state` 的測試與 `layoutStateProvider` 保證，沒有整個 App 重開的測試。
   - 焦點：把手與面板在「內容」焦點區之內（F6 的三區不變）；F6 進內容區是頁面的第一個項目，Tab 走完頁面才到把手與面板。
     `focusInto` 向該區的走訪策略問第一個項目（`traversalDescendants` 是掛上的先後，不是走訪順序；改回它時 F6 不會落在頁面上）。
@@ -2901,13 +2906,17 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     不等到轉場結束的 `dispose` 才報關：關閉轉場中的頁面不收點擊，點擊落到播放列又開了一個，舊的 route 晚報會把新的那個標成沒開。
     左上角收合鈕（tooltip「關閉播放頁（Esc）」，只有圖示、不另給 `semanticLabel`）、Esc（頁面自己的 `Shortcuts`，
     `Navigator.maybePop`；對話框與選單照 Flutter 內建先關，因為它們的焦點與 overlay 在更上層；寬版右側詳細面板開著時 Esc 先關面板）、Android 返回鍵（route 先 pop，
-    只關這一頁）都關；**例外**是寬版右側詳細面板開著時，返回鍵也先關面板（同 Esc）：頁面有一個 `PopScope(canPop: !面板開著)`，
+    只關這一頁）、觸控往下拖（Apple Music「正在播放」的慣例，頁面是從底部上來的，所以不是右滑；`_PlayerPageRoute` 的 `_DragToDismiss`：
+    只收觸控，桌面的滑鼠拖不關；跟著手指，放開時拖過頁高一半或往下甩（每秒 1 個頁高，`AppLayout.playerDismiss*`）就關，否則彈回；
+    頁面裡會垂直捲動的元件先拿到拖曳；寬版詳細面板開著時不開始）都關；**例外**是寬版右側詳細面板開著時，返回鍵也先關面板（同 Esc）：頁面有一個 `PopScope(canPop: !面板開著)`，
     根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽、Debug 頁同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。收合鈕與 Ctrl+Q 不經這個 `PopScope`（頁面是最上層時直接 `pop`）：面板開著也關整頁，否則 Ctrl+Q 等不到 route 完成。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
     也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
     收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、`reopening it while it is
     still closing keeps it open`、寬版面板開著時返回鍵先關面板、收合鈕與 Ctrl+Q 仍關整頁（`track details` 群組的 `wide: the back key closes the panel first, then the page`、`wide: with the panel open the collapse button closes the page`、`wide: with the panel open Ctrl+Q closes the page and selects the queue`）、視窗跨過外殼斷點後播放頁仍收得到 F6、Esc（`crossing the shell breakpoint…`）、佇列清空自動關閉（窄版的詳細底部面板一起關：`track details` 群組的 `the sheet closes with the page when the queue is cleared`）、`it closes itself when the queue is empty by its first frame`）、
-    `player_bar_test.dart` 的 `the title area is a button that opens the player`。
+    `player_bar_test.dart` 的 `the title area is a button that opens the player`；往下拖：`player_page_test.dart` 的 `a touch drag down closes it`、
+    `a mouse drag down does not close it`、`with the wide details panel open a drag closes nothing`、`under reduced motion a drag still closes it`，
+    `ios_conventions_test.dart` 的 `the player page closes with a downward drag` 群組（跟著手指、甩、短拖彈回、往上拖不動）。
   - 版面依整個視窗的寬高（ADR 0035 §決定 3；`resolvePlayerLayout`，頁面以 `LayoutBuilder` 量，不看 `WindowClass`）：寬 >= 840 且高 >= 520 是寬版
     （`PlayerLayout.wide`；歌詞 M7 才做，所以單欄置中、內容寬上限 `AppLayout.playerContentMaxWide` 720；`_WideContent.lyrics` 非空時是左 5 右 7 的接口，M7 接上）；
     寬大於高且高 < 520（橫向手機）是矮版（`short`，左封面右控制，控制放不下可捲動）；其餘是窄版（`narrow`，封面在上、控制在下，M7 之前沒有封面／歌詞切換）。
@@ -2988,7 +2997,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   跨 840 不搬子樹，那幾例與「只有外殼」是對照；`crossing 600 with a root route on top`：拖曳時每幀來回、輸入框留著焦點與鍵盤連線、同一幀關掉的對話框、同一幀拿掉的節點之後不搶焦點）、
   `player_page_test.dart` 的 `crossing the shell breakpoint (wide to compact / compact to wide) keeps the keys on the page`。
 - iOS 的 Dart 端慣例（ADR 0035 §決定 13，U PR 15）：頁面轉場與右滑返回是 Flutter 的預設（`PageTransitionsTheme` 對 iOS 用 `CupertinoPageTransitionsBuilder`，
-  不另寫程式碼）；安全區域由外殼的 `SafeArea` 處理（頁頂、側欄與右邊在橫向、底部導覽列與播放列在底部）。以 `TargetPlatform.iOS` 的 widget 測試守著
+  不另寫程式碼）：只有 route 有右滑返回（巢狀 Navigator 的內頁、根 Navigator 上的 `MaterialPageRoute`；外殼的 `PopScope` 在根 route，不影響內頁的
+  `popGestureEnabled`，模擬器以真的觸控驗過）。窄版設定頁點進的組、Debug 頁的區塊是頁面自己換內容、不是 route，所以沒有右滑；播放頁是往下拖關閉（見「播放頁」）。安全區域由外殼的 `SafeArea` 處理（頁頂、側欄與右邊在橫向、底部導覽列與播放列在底部）。以 `TargetPlatform.iOS` 的 widget 測試守著
   （`ios_conventions_test.dart`：轉場是 Cupertino、從左緣右滑退出內頁、直向避開瀏海與 Home 指示列、橫向避開兩側）；Apple 平台還不啟動，實機（手勢、動態島）留給 iOS 平台任務。
 - 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3；ADR 0035 §決定 2，U PR 12）：
   - 版面：內容區 compact、medium 是清單，expanded 以上是圓形封面的網格（`SliverGridDelegateWithMaxCrossAxisExtent`，每格的點擊區和「⋯」分開；格子是圓形封面、標題、狀態標記、主播，音源不能用時主播換成原因，同清單；格高的文字部分跟著字級放大）。一般模式開播中的排前面

@@ -18,6 +18,7 @@ import 'package:fmp/ui/i18n/ui_locale.dart';
 import 'package:fmp/ui/layout/layout_state.dart';
 import 'package:fmp/ui/layout/window_class.dart';
 import 'package:fmp/ui/plugins/plugin_name.dart';
+import 'package:fmp/ui/shell/now_playing_panel.dart';
 import 'package:fmp/ui/shell/playback_shortcuts.dart';
 import 'package:fmp/ui/shell/shortcut_label.dart';
 import 'package:fmp/ui/theme/app_layout.dart';
@@ -451,12 +452,19 @@ class _MoreMenu extends ConsumerWidget {
 }
 
 /// 開關右側面板的鈕（expanded 以上那一段），照 Spotify 的
-/// 「正在播放」鈕：面板開著時是選取的樣子。
+/// 「正在播放」鈕：面板開著時是選取的樣子。矮的視窗（橫向的手機）沒有面板，也就不放這顆鈕。
 class _PanelToggleButton extends ConsumerWidget {
   const _PanelToggleButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 播放列橫跨整個視窗，它的寬度等級就是視窗的。
+    if (!hasNowPlayingPanel(
+      WindowClass.of(context),
+      WindowHeightClass.of(context),
+    )) {
+      return const SizedBox.shrink();
+    }
     final t = ref.watch(translationsProvider).shell;
     final expanded = ref.watch(panelExpandedProvider);
     return IconButton(

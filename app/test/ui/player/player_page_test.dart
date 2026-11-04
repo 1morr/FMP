@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
@@ -131,6 +132,63 @@ void main() {
 
       expect(find.byType(PlayerPage), findsNothing);
       expect(find.byType(AppShell), findsOneWidget);
+    });
+
+    // 往下拖關閉（Apple Music 的慣例；iOS 的案例在 `ios_conventions_test.dart`）：只收觸控。
+    testWidgets('a touch drag down closes it', (tester) async {
+      await _pumpPlaying(tester, size: const Size(400, 800));
+      await _openByTap(tester);
+
+      await tester.drag(find.byType(PlayerPage), const Offset(0, 600));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    testWidgets('a mouse drag down does not close it', (tester) async {
+      await _pumpPlaying(tester, size: const Size(400, 800));
+      await _openByTap(tester);
+
+      await tester.drag(
+        find.byType(PlayerPage),
+        const Offset(0, 600),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(PlayerPage)).dy, 0);
+    });
+
+    testWidgets('with the wide details panel open a drag closes nothing', (
+      tester,
+    ) async {
+      // 返回鍵此時先關面板（頁面的 PopScope）；拖曳不做這件事，所以不開始。
+      await _pumpPlaying(tester, size: const Size(1000, 800));
+      await _openByTap(tester);
+      await tester.tap(find.byKey(PlayerPage.infoKey));
+      await tester.pumpAndSettle();
+
+      await tester.dragFrom(const Offset(300, 200), const Offset(0, 600));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(find.byKey(PlayerPage.detailsPanelKey), findsOneWidget);
+    });
+
+    testWidgets('under reduced motion a drag still closes it', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _pumpPlaying(tester, size: const Size(400, 800));
+      await _openByTap(tester);
+
+      await tester.drag(find.byType(PlayerPage), const Offset(0, 600));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
     });
 
     testWidgets('Esc closes it', (tester) async {

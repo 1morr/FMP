@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/ui/history/history_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
+import 'package:fmp/ui/player/player_bar.dart';
+import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/page_app_bar.dart';
 import 'package:material_ui/material_ui.dart';
@@ -57,6 +59,85 @@ void main() {
 
     expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
   }, variant: _ios);
+
+  // 播放頁從底部上滑開、下滑關：照 Apple Music 的「正在播放」，往下拖關閉（跟著手指），不是右滑。
+  group('the player page closes with a downward drag', () {
+    final barTitle = find.descendant(
+      of: find.byType(PlayerBar),
+      matching: find.text('Song a'),
+    );
+
+    Future<void> openPlayer(WidgetTester tester, {Size? size}) async {
+      _asIPhone(tester);
+      final h = ShellHarness();
+      await h.pumpShell(tester, size: size ?? const Size(390, 844));
+      await h.play(tester, [summary('a'), summary('b')]);
+      await tester.tap(barTitle);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsOneWidget);
+    }
+
+    testWidgets('dragging down past half the height closes it', (tester) async {
+      await openPlayer(tester);
+
+      final gesture = await tester.startGesture(const Offset(195, 300));
+      for (var i = 0; i < 10; i++) {
+        await gesture.moveBy(const Offset(0, 50));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // 跟著手指：放開之前頁面已經往下移。
+      expect(tester.getTopLeft(find.byType(PlayerPage)).dy, greaterThan(400));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+      expect(find.byType(PlayerBar).hitTestable(), findsOneWidget);
+    }, variant: _ios);
+
+    testWidgets('a quick flick down closes it', (tester) async {
+      await openPlayer(tester);
+
+      await tester.flingFrom(
+        const Offset(195, 300),
+        const Offset(0, 150),
+        1500,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsNothing);
+    }, variant: _ios);
+
+    testWidgets('a short slow drag springs back and keeps it open', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+
+      final gesture = await tester.startGesture(const Offset(195, 300));
+      for (var i = 0; i < 4; i++) {
+        await gesture.moveBy(const Offset(0, 25));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(PlayerPage)).dy, 0);
+      // 頁面照常可用：收合鈕仍關得掉。
+      await tester.tap(find.byKey(PlayerPage.closeKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsNothing);
+    }, variant: _ios);
+
+    testWidgets('dragging up does nothing', (tester) async {
+      await openPlayer(tester);
+
+      // 不會拖出超過全螢幕。
+      await tester.drag(find.byType(PlayerPage), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(PlayerPage)).dy, 0);
+    }, variant: _ios);
+  });
 
   testWidgets('portrait: the page bar clears the notch and the navigation '
       'bar clears the home indicator', (tester) async {

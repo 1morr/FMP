@@ -61,8 +61,8 @@ enum ShellDestination { home, search, library, queue, radio, settings }
 ///
 /// 後者的版面是一個 `Column`：側欄加內容區加右側面板、
 /// 最底下的播放列橫跨整個視窗，側欄下方也是（ADR 0035 §決定 4），所以播放列讀到的是整個視窗的
-/// 寬度等級。整個視窗 >= 840 且有曲目（或在收聽直播）時內容區右邊是「正在播放」面板與拖曳把手
-/// （[NowPlayingPanelSide]），頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉側欄與面板後的寬度等級。
+/// 寬度等級。整個視窗 >= 840 寬、高度不是 compact（>= 480，橫向的手機不並排）且有曲目（或在收聽直播）
+/// 時內容區右邊是「正在播放」面板與拖曳把手（[NowPlayingPanelSide]），頁面與播放列各自有 `WindowClassScope`，頁面讀到的是扣掉側欄與面板後的寬度等級。
 ///
 /// 自繪標題列（Windows）不在外殼裡：它在根 Navigator 外面（`WindowFrame`），所有 route 共用。
 ///
@@ -426,8 +426,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
     final windowClass = WindowClass.of(context);
     _keepCoveringRouteFocus(windowClass);
-    // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走）。
-    final hasPanel = hasNowPlayingPanel(windowClass) && hasTrack;
+    // 面板要有東西可放才出現；開關它的鈕在播放列（expanded 以上那一段，跟視窗寬度走；矮的視窗沒有）。
+    // 沒有曲目時不讀高度：不必跟著視窗高度重建。
+    final hasPanel =
+        hasTrack &&
+        hasNowPlayingPanel(windowClass, WindowHeightClass.of(context));
     // 面板實際出現時，側欄展開會讓內容區不到下限就把側欄畫成收合（記住的狀態不動）。
     final panelShown = hasPanel && ref.watch(panelExpandedProvider);
     final railYields =

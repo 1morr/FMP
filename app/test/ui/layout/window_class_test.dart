@@ -22,6 +22,23 @@ void main() {
     }
   });
 
+  group('forHeight uses the M3 height breakpoints', () {
+    for (final (height, expected) in [
+      (0.0, WindowHeightClass.compact),
+      // 橫向的 iPhone（393、Pro Max 440）。
+      (393.0, WindowHeightClass.compact),
+      (479.9, WindowHeightClass.compact),
+      (480.0, WindowHeightClass.medium),
+      (899.9, WindowHeightClass.medium),
+      (900.0, WindowHeightClass.expanded),
+      (double.infinity, WindowHeightClass.expanded),
+    ]) {
+      test('$height is ${expected.name}', () {
+        expect(WindowHeightClass.forHeight(height), expected);
+      });
+    }
+  });
+
   group('WindowClassScope', () {
     /// 在 [width] 寬的區域放一個 scope，子樹是同一個 [probe] 實例：它只在
     /// 依賴的等級改變時重建。

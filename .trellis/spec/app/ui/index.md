@@ -92,6 +92,8 @@ switch (WindowClass.of(context)) {
   元件），外殼在內容區與播放列各放一個，頁面與播放列讀到的是自己那一塊的等級（視窗 900 寬時
   內容區扣掉 rail 是 medium；播放列橫跨整個視窗，讀到的就是視窗的等級）。
 - 只在等級改變時重建。要精確寬度的版面仍用 `LayoutBuilder`。
+- 看高度的版面（目前只有右側面板：矮的視窗不並排）用 `WindowHeightClass.of(context)`：讀整個視窗的 `MediaQuery` 高度、沒有 scope，
+  高度一變就重建，所以在外殼這種大的 widget 裡只在真的要用時才讀（`hasTrack && hasNowPlayingPanel(...)`）。
 - 內容區至少 `AppLayout.contentMinWidth`（360dp）：側欄展開加面板放不下時 `railYieldsToPanel` 為真，外殼把側欄畫成收合（記住的狀態不改）；`LegacySideRail` 只收外殼傳的 `expanded` 與展開、收合的 callback。
 
 ## 字串

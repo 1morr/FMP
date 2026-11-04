@@ -74,11 +74,17 @@ Widget _bar(double width) {
         supportedLocales: supportedFlutterLocales,
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         // Column 給不限高的約束，同外殼：播放列只有自己的高度，頂端是 2dp 的進度細線。
-        home: Align(
-          alignment: Alignment.bottomCenter,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [WindowClassScope(child: PlayerBar())],
+        // 視窗是一般的高度（開關面板的鈕看視窗高度，矮的視窗沒有它）。
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(size: Size(width, 800)),
+            child: const Align(
+              alignment: Alignment.bottomCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [WindowClassScope(child: PlayerBar())],
+              ),
+            ),
           ),
         ),
       ),

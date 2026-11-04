@@ -385,6 +385,7 @@ void main() {
   });
 
   // ADR 0035 §決定 2 的 U 驗收修訂：內容區至少 360dp；側欄展開加面板放不下時側欄畫成收合。
+  // 914 寬的視窗高 600：矮的視窗（橫向的手機，高 < 480）沒有面板（擁有者決定 2026-11-04）。
   group('the rail yields to the panel (ADR 0035 §決定 2, U acceptance)', () {
     double railWidth(WidgetTester tester) =>
         tester.getSize(find.byType(LegacySideRail)).width;
@@ -407,7 +408,7 @@ void main() {
 
     testWidgets('914 wide: the remembered rail is drawn collapsed and the '
         'pages keep 360dp', (tester) async {
-      final h = await pumpPlaying(tester, const Size(914, 412));
+      final h = await pumpPlaying(tester, const Size(914, 600));
 
       expect(find.byType(NowPlayingPanel), findsOneWidget);
       expect(railWidth(tester), AppLayout.railCollapsed);
@@ -425,7 +426,7 @@ void main() {
     testWidgets('pressing Expand closes the panel and expands the rail', (
       tester,
     ) async {
-      final h = await pumpPlaying(tester, const Size(914, 412));
+      final h = await pumpPlaying(tester, const Size(914, 600));
 
       await tester.tap(find.byTooltip('Expand side bar'));
       await h.loadSettings(tester);
@@ -466,7 +467,7 @@ void main() {
 
     testWidgets('closing the panel brings the rail back without a rail '
         'write', (tester) async {
-      final h = await pumpPlaying(tester, const Size(914, 412));
+      final h = await pumpPlaying(tester, const Size(914, 600));
       expect(railWidth(tester), AppLayout.railCollapsed);
 
       await tester.tap(find.byTooltip('Collapse the now playing panel'));
@@ -478,7 +479,7 @@ void main() {
     });
 
     testWidgets('widening the window brings the rail back', (tester) async {
-      await pumpPlaying(tester, const Size(914, 412));
+      await pumpPlaying(tester, const Size(914, 600));
       expect(railWidth(tester), AppLayout.railCollapsed);
 
       tester.view.physicalSize = const Size(1400, 800);
@@ -519,7 +520,7 @@ void main() {
       final h = ShellHarness();
       await h.pumpShell(
         tester,
-        size: const Size(914, 412),
+        size: const Size(914, 600),
         expandRail: true,
         collapsePanel: true,
       );

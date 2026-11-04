@@ -147,6 +147,7 @@ ADR 0009 §決定 4：平台的實作在平台任務開始時才加。擁有者�
     - 只是宣告的常數各平台各一份：`audio_ios.dart`、`fonts_ios.dart`、`cache_sizes_ios.dart`。
     - 內部改名不留舊名（相容層）。
 14. **手機與 iPad 的 UI**：沿用現有的 `WindowClass` 版面，不另做 iPad 專屬的版面。
+    - 補充（2026-11-04，擁有者決定）：右側「正在播放」面板另看視窗高度，高度是 M3 的 compact（< 480，橫向的手機）時不並排，照直放的呈現；iPad 與桌面照舊。左側導覽側欄不變（M9 打磨）。
     - `FileSharer.shareFiles` 多一個 `origin`（分享按鈕在螢幕上的位置），交給 share_plus 的 `sharePositionOrigin`：iPad 的分享表是 popover，要錨點（share_plus README 的 iPad 段）。
     - 在模擬器驗：
       - 動態島、home indicator、右滑返回；

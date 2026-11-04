@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -64,7 +65,8 @@ PlayerLayout resolvePlayerLayout(Size size) {
 /// 背景是模糊的封面加遮罩。
 ///
 /// 關閉：左上角的收合鈕、Esc（頁面自己的 `Shortcuts`；對話框與選單照 Flutter 內建先
-/// 關；右側詳細面板開著時先關面板）、Android 返回鍵（route 先 pop，只關這一頁）。
+/// 關；右側詳細面板開著時先關面板）、Android 返回鍵（route 先 pop，只關這一頁）、觸控往下拖
+/// （Apple Music 的慣例，見 [_PlayerPageRoute]；右側詳細面板開著時不作用）。
 /// 佇列變空或沒有目前這首時自己關閉。
 ///
 /// 焦點分區：控制區｜（開著時的）右側詳細面板；F6 在頁內循環，Tab 只在區內。
@@ -130,6 +132,10 @@ Future<void> openPlayerPage(BuildContext context, {FocusNode? opener}) async {
 /// 全螢幕的播放頁 route：從底部上滑（`easeOutCubic`），關閉時下滑（`easeInCubic`），同舊版
 /// `router.dart`；系統要求減少動態時改成淡入淡出。push 時通知 [onOpenChanged] 開了，pop 或
 /// 被移除（`removeRoute`）時通知關了，各一次。
+///
+/// 觸控往下拖關閉（[_DragToDismiss]，Apple Music「正在播放」的慣例）：拖曳中與放開後的回彈、
+/// 關閉跟著手指（線性，不套曲線）。這個 route 是 `fullscreenDialog`，Cupertino 的右滑返回本來就
+/// 不作用在它身上，也不加：頁面是從底部上來的。
 final class _PlayerPageRoute extends PageRouteBuilder<void> {
   _PlayerPageRoute({required this.onOpenChanged})
     : super(
@@ -138,32 +144,75 @@ final class _PlayerPageRoute extends PageRouteBuilder<void> {
         transitionDuration: AppLayout.playerTransition,
         reverseTransitionDuration: AppLayout.playerTransition,
         pageBuilder: (_, _, _) => const PlayerPage(),
-        transitionsBuilder: _transition,
       );
 
   final void Function(bool open) onOpenChanged;
 
-  static Widget _transition(
+  @override
+  Widget buildTransitions(
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    if (MediaQuery.disableAnimationsOf(context)) {
-      return FadeTransition(opacity: curved, child: child);
+    // 拖曳中（到放開後的動畫結束）跟著手指；`userGestureInProgress` 一變 route 就重建轉場。
+    final Animation<double> progress = popGestureInProgress
+        ? animation
+        : CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+    final transition = MediaQuery.disableAnimationsOf(context)
+        ? FadeTransition(opacity: progress, child: child)
+        : SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(progress),
+            child: child,
+          );
+    return _DragToDismiss(route: this, child: transition);
+  }
+
+  /// 按下時能不能開始往下拖：是最上層、轉場已經停了、返回不會被頁面攔下（寬版詳細面板開著時，
+  /// 頁面的 `PopScope` 讓返回鍵先關面板；拖曳不做這件事，所以不開始）。
+  bool get _canDragToDismiss =>
+      isCurrent &&
+      !popGestureInProgress &&
+      animation!.isCompleted &&
+      !willHandlePopInternally &&
+      popDisposition != RoutePopDisposition.doNotPop;
+
+  void _dragStart() => navigator!.didStartUserGesture();
+
+  /// [fraction] 是這一次移動佔頁高的比例，往下為正。
+  void _dragUpdate(double fraction) => controller!.value -= fraction;
+
+  /// [velocity] 是放開時每秒幾個頁高，往下為正。
+  void _dragEnd(double velocity) {
+    final controller = this.controller!;
+    final close = velocity.abs() >= AppLayout.playerDismissFlingVelocity
+        ? velocity > 0
+        : controller.value < 1 - AppLayout.playerDismissFraction;
+    final navigator = this.navigator!;
+    if (close && isCurrent) {
+      // 從現在的位置往下收（`didPop` 的 `reverse`，時間照剩下的距離）。
+      navigator.pop();
+    } else {
+      unawaited(controller.forward());
     }
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(0, 1),
-        end: Offset.zero,
-      ).animate(curved),
-      child: child,
-    );
+    if (controller.isAnimating) {
+      late final AnimationStatusListener done;
+      done = (status) {
+        if (status.isAnimating) return;
+        controller.removeStatusListener(done);
+        if (navigator.mounted) navigator.didStopUserGesture();
+      };
+      controller.addStatusListener(done);
+    } else {
+      navigator.didStopUserGesture();
+    }
   }
 
   var _open = false;
@@ -194,6 +243,80 @@ final class _PlayerPageRoute extends PageRouteBuilder<void> {
     _report(false);
     super.dispose();
   }
+}
+
+/// 往下拖關閉播放頁的手勢：只收觸控（桌面的滑鼠拖不關），按下時 [_PlayerPageRoute] 允許才加入
+/// 手勢競爭。頁面裡會垂直捲動的元件（矮版的控制區、詳細面板）在比較深的地方，先拿到拖曳；
+/// 進度條與音量是水平拖曳，按鈕是點擊，各自照手勢競爭的規則。
+class _DragToDismiss extends StatefulWidget {
+  const _DragToDismiss({required this.route, required this.child});
+
+  final _PlayerPageRoute route;
+  final Widget child;
+
+  @override
+  State<_DragToDismiss> createState() => _DragToDismissState();
+}
+
+class _DragToDismissState extends State<_DragToDismiss> {
+  late final _recognizer =
+      VerticalDragGestureRecognizer(
+          debugOwner: this,
+          supportedDevices: const {PointerDeviceKind.touch},
+        )
+        ..onStart = _start
+        ..onUpdate = _update
+        ..onEnd = _end
+        ..onCancel = _cancel;
+
+  /// 這一次拖曳開始了、還沒結束。
+  var _dragging = false;
+
+  @override
+  void dispose() {
+    _recognizer.dispose();
+    // 拖曳中被拆掉（佇列清空時頁面自己移除）：手勢的狀態要還給 Navigator。
+    if (_dragging) {
+      final navigator = widget.route.navigator;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (navigator != null && navigator.mounted) {
+          navigator.didStopUserGesture();
+        }
+      });
+    }
+    super.dispose();
+  }
+
+  double get _height => context.size!.height;
+
+  void _start(DragStartDetails details) {
+    _dragging = true;
+    widget.route._dragStart();
+  }
+
+  void _update(DragUpdateDetails details) {
+    if (_dragging) widget.route._dragUpdate(details.primaryDelta! / _height);
+  }
+
+  void _end(DragEndDetails details) {
+    if (!_dragging) return;
+    _dragging = false;
+    widget.route._dragEnd(details.velocity.pixelsPerSecond.dy / _height);
+  }
+
+  void _cancel() {
+    if (!_dragging) return;
+    _dragging = false;
+    widget.route._dragEnd(0);
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (event) {
+      if (widget.route._canDragToDismiss) _recognizer.addPointer(event);
+    },
+    child: widget.child,
+  );
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
