@@ -1,3 +1,4 @@
+import 'package:fmp/platform/audio/audio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_rules.dart';
@@ -184,27 +185,51 @@ void main() {
   group('audio interruptions (Android)', () {
     test('each interruption maps to one response', () {
       expect(
-        respondToInterruption(begin: true, kind: InterruptionKind.duck),
+        respondToInterruption(
+          begin: true,
+          kind: InterruptionKind.duck,
+          interruptions: AudioInterruptions.androidAudioFocus,
+        ),
         InterruptionResponse.duck,
       );
       expect(
-        respondToInterruption(begin: false, kind: InterruptionKind.duck),
+        respondToInterruption(
+          begin: false,
+          kind: InterruptionKind.duck,
+          interruptions: AudioInterruptions.androidAudioFocus,
+        ),
         InterruptionResponse.unduck,
       );
       expect(
-        respondToInterruption(begin: true, kind: InterruptionKind.pause),
+        respondToInterruption(
+          begin: true,
+          kind: InterruptionKind.pause,
+          interruptions: AudioInterruptions.androidAudioFocus,
+        ),
         InterruptionResponse.interrupted,
       );
       expect(
-        respondToInterruption(begin: true, kind: InterruptionKind.unknown),
+        respondToInterruption(
+          begin: true,
+          kind: InterruptionKind.unknown,
+          interruptions: AudioInterruptions.androidAudioFocus,
+        ),
         InterruptionResponse.lost,
       );
       expect(
-        respondToInterruption(begin: false, kind: InterruptionKind.pause),
+        respondToInterruption(
+          begin: false,
+          kind: InterruptionKind.pause,
+          interruptions: AudioInterruptions.androidAudioFocus,
+        ),
         InterruptionResponse.endedResumable,
       );
       expect(
-        respondToInterruption(begin: false, kind: InterruptionKind.unknown),
+        respondToInterruption(
+          begin: false,
+          kind: InterruptionKind.unknown,
+          interruptions: AudioInterruptions.androidAudioFocus,
+        ),
         InterruptionResponse.ended,
       );
     });
@@ -228,7 +253,13 @@ void main() {
       bool duckedAfterAll(List<(bool, InterruptionKind)> events) {
         var ducked = false;
         for (final (begin, kind) in events) {
-          ducked = duckedAfter(respondToInterruption(begin: begin, kind: kind));
+          ducked = duckedAfter(
+            respondToInterruption(
+              begin: begin,
+              kind: kind,
+              interruptions: AudioInterruptions.androidAudioFocus,
+            ),
+          );
         }
         return ducked;
       }
@@ -265,6 +296,72 @@ void main() {
         );
       });
     });
+  });
+
+  // ADR 0037 §決定 8：Apple 的開始一律報 unknown，之後有結束；結束帶 shouldResume
+  // 時報暫停類。
+  group('audio interruptions (Apple)', () {
+    InterruptionResponse apple(bool begin, InterruptionKind kind) =>
+        respondToInterruption(
+          begin: begin,
+          kind: kind,
+          interruptions: AudioInterruptions.appleAudioSession,
+        );
+
+    test('an unknown begin is a transient interruption, not a loss', () {
+      expect(
+        apple(true, InterruptionKind.unknown),
+        InterruptionResponse.interrupted,
+      );
+    });
+
+    test('an end with shouldResume resumes, one without does not', () {
+      expect(
+        apple(false, InterruptionKind.pause),
+        InterruptionResponse.endedResumable,
+      );
+      expect(
+        apple(false, InterruptionKind.unknown),
+        InterruptionResponse.ended,
+      );
+    });
+
+    test('the rest of the mapping is complete', () {
+      expect(
+        apple(true, InterruptionKind.pause),
+        InterruptionResponse.interrupted,
+      );
+      expect(apple(true, InterruptionKind.duck), InterruptionResponse.duck);
+      expect(apple(false, InterruptionKind.duck), InterruptionResponse.unduck);
+    });
+
+    test('only a duck halves the output', () {
+      for (final (begin, kind) in [
+        (true, InterruptionKind.unknown),
+        (true, InterruptionKind.pause),
+        (false, InterruptionKind.pause),
+        (false, InterruptionKind.unknown),
+        (false, InterruptionKind.duck),
+      ]) {
+        expect(duckedAfter(apple(begin, kind)), isFalse);
+      }
+      expect(duckedAfter(apple(true, InterruptionKind.duck)), isTrue);
+    });
+  });
+
+  test('a backend that declares no interruptions must not be asked', () {
+    for (final begin in [true, false]) {
+      for (final kind in InterruptionKind.values) {
+        expect(
+          () => respondToInterruption(
+            begin: begin,
+            kind: kind,
+            interruptions: AudioInterruptions.none,
+          ),
+          throwsStateError,
+        );
+      }
+    }
   });
 
   // 樣本是 2026-10-07 在 Windows 以 media_kit 1.2.6（libmpv，`MPVLogLevel.warn`）

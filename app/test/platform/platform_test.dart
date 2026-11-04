@@ -65,6 +65,10 @@ void main() {
       expect(androidFontChoices, ['sans-serif', 'serif', 'monospace']);
       expect(platform.capabilities.playback, same(androidPlaybackSupport));
       expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.androidAudioFocus,
+      );
+      expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
       );
@@ -125,6 +129,10 @@ void main() {
       ]);
       expect(platform.capabilities.playback, same(windowsPlaybackSupport));
       expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.none,
+      );
+      expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.mediaKit,
       );
@@ -182,6 +190,10 @@ void main() {
       expect(macosFontFallback.traditionalChinese, ['PingFang TC']);
       expect(macosFontFallback.simplifiedChinese, ['PingFang SC']);
       expect(platform.capabilities.playback, same(macosPlaybackSupport));
+      expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.appleAudioSession,
+      );
       expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
@@ -243,6 +255,10 @@ void main() {
       expect(iosFontFallback.simplifiedChinese, ['PingFang SC']);
       expect(platform.capabilities.playback, same(iosPlaybackSupport));
       expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.appleAudioSession,
+      );
+      expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
       );
@@ -271,8 +287,9 @@ void main() {
       expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
       expect(platform.capabilities.customTitleBar, isFalse);
       expect(platform.windowChrome, isNull);
-      // 系統媒體控制（PR 5）與登入 WebView（PR 7）還沒接。
-      expect(platform.capabilities.mediaControls, isNull);
+      // 系統媒體控制宣告了，實作要等 withMediaControls；登入 WebView（PR 7）還沒接。
+      expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
+      expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
       expect(platform.mediaControls, isNull);
       expect(platform.capabilities.loginWebView, isFalse);
       expect(platform.loginWebView, isNull);
@@ -365,6 +382,47 @@ void main() {
       expect(platform.capabilities.mediaControls, isNull);
       expect(platform.capabilities.playback, same(macosPlaybackSupport));
       expect(platform.dataDirectory, isA<AppleAppDataDirectory>());
+    });
+  });
+
+  group('system media controls on iOS', () {
+    Log log() => Log(redactor: Redactor(), minimumLevel: LogLevel.debug);
+
+    test('initializing exposes the controls to the restarter', () async {
+      final controls = _FakeControls();
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.iOS,
+            AppFlavor.dev,
+            iosMediaControls: (_) async => controls,
+          ).withMediaControls(
+            log: log(),
+            onFailure: (_, _) => fail('should not fail'),
+          );
+
+      expect(platform.mediaControls, same(controls));
+      final support = platform.capabilities.mediaControls;
+      expect(support?.supportsSeek, isTrue);
+      expect(support?.positionRefresh, isNull);
+      expect(platform.restarter, isA<ExitAppRestarter>());
+    });
+
+    test('a failed initialization is logged and declares none', () async {
+      final failures = <Object>[];
+      final platform =
+          await AppPlatform.assemble(
+            TargetPlatform.iOS,
+            AppFlavor.dev,
+            iosMediaControls: (_) async => throw StateError('no session'),
+          ).withMediaControls(
+            log: log(),
+            onFailure: (error, _) => failures.add(error),
+          );
+
+      expect(failures, hasLength(1));
+      expect(platform.mediaControls, isNull);
+      expect(platform.capabilities.mediaControls, isNull);
+      expect(platform.capabilities.playback, same(iosPlaybackSupport));
     });
   });
 

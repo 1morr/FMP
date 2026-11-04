@@ -116,7 +116,7 @@ final class AppPlatform {
   /// `AndroidSystemMediaControls.init`）；[windowsMediaControls] 同理（預設是
   /// `WindowsSystemMediaControls.init`）；[macosMediaControls] 同理（預設是
   /// `AppleSystemMediaControls.init`）；[iosMediaControls] 同理（預設是
-  /// `AppleSystemMediaControls.init`，系統媒體控制 PR 5 才接上）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
+  /// `AppleSystemMediaControls.init`）；[windowsWindowChrome]、[macosWindowChrome] 取代 Windows、macOS 自繪標題列的
   /// 初始化（預設是 `WindowManagerChrome.init`）。
   factory AppPlatform.assemble(
     TargetPlatform platform,
@@ -199,7 +199,6 @@ final class AppPlatform {
 
   static AppPlatform _ios(
     AppFlavor flavor,
-    // 系統媒體控制 PR 5 接上，這個 PR 還不用。
     Future<SystemMediaControls> Function(Log log)? iosMediaControls,
     String? legacyDirectory,
   ) => AppPlatform._(
@@ -223,6 +222,8 @@ final class AppPlatform {
       // 同 Android：file_picker_darwin 不處理 security-scoped 目錄。
       pluginDevTools: false,
       shortcutModifier: appleShortcutModifier,
+      // 鎖定畫面可以拖進度；Now Playing 自己推算進度，不需要定期重推。
+      mediaControls: MediaControlsSupport(supportsSeek: true),
     ),
     appInfo: PackageInfoAppInfo(
       platform: 'iOS',
@@ -241,6 +242,7 @@ final class AppPlatform {
     fileDialogs: const FilePickerDialogs(),
     urlOpener: const UrlLauncherOpener(),
     fileSharer: SharePlusFileSharer(),
+    mediaControlsFactory: iosMediaControls ?? AppleSystemMediaControls.init,
     restarterFactory: ExitAppRestarter.forMediaControls,
     legacyDataLocator: appleLegacyDataLocator(
       flavor: flavor,

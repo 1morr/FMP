@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'package:fmp/core/logging/log.dart';
+import 'package:fmp/platform/audio/audio.dart' show AudioInterruptions;
 import 'package:fmp/playback/backends/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_rules.dart';
 import 'package:fmp/playback/playback_state.dart';
@@ -17,7 +18,7 @@ import 'package:fmp/playback/playback_state.dart';
 /// `respondToInterruption`）：duck 只把引擎的輸出減半，其餘發事件給上層。焦點
 /// 的取得與釋放仍由 just_audio 管（`handleAudioSessionActivation` 預設開）。
 final class JustAudioBackend implements AudioBackend {
-  JustAudioBackend({required this._log})
+  JustAudioBackend({required this._log, required this._interruptions})
     : _player = AudioPlayer(
         // 標頭直接交給 ExoPlayer（DataSource 的 request properties），不開
         // just_audio 的本機明文 proxy。
@@ -36,6 +37,7 @@ final class JustAudioBackend implements AudioBackend {
   }
 
   final Log _log;
+  final AudioInterruptions _interruptions;
   final AudioPlayer _player;
   final _subscriptions = <StreamSubscription<Object?>>[];
 
@@ -247,6 +249,7 @@ final class JustAudioBackend implements AudioBackend {
         AudioInterruptionType.duck => InterruptionKind.duck,
         AudioInterruptionType.unknown => InterruptionKind.unknown,
       },
+      interruptions: _interruptions,
     );
     _log.info(
       'Audio interruption',
@@ -254,6 +257,7 @@ final class JustAudioBackend implements AudioBackend {
       fields: {
         'begin': event.begin,
         'type': event.type.name,
+        'interruptions': _interruptions.name,
         'response': response.name,
       },
     );

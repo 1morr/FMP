@@ -147,6 +147,8 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
   在 session 的 `_onEvent` 最前面轉成 `SessionEvent`（`AudioInterrupted` 等），不看目前有沒有來源；
   `routePlaybackEvent` 不比對代。新的輸出事件照這條路加：後端事件 → session 轉換 → 路由器的一列
   （`playback_event_router_test.dart` 的 `output events`）→ 控制器的動作。
+- 中斷事件的語意由平台宣告（`PlaybackSupport.interruptions`），`respondToInterruption` 要帶它；新平台的
+  對應在 `backend_rules_test.dart` 加一組（`audio interruptions (Apple)` 是範本），不在後端判斷平台。
 - duck 是後端內部的狀態：每個 audio_session 事件先經 `respondToInterruption`，再以
   `duckedAfter` 決定輸出要不要減半（不是只看 duck 的開始與結束）。新的事件序列在
   `backend_rules_test.dart` 的 `the output is halved only during a duck` 加一例。

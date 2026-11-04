@@ -9,6 +9,8 @@
 //
 // 形狀照舊專案的 `playback_end_reason_rules.dart`、`next_media_plan.dart`。
 
+import 'package:fmp/platform/audio/audio.dart' show AudioInterruptions;
+
 // 速度的範圍與夾取在 domain（控制器與播放頁也用），後端經這裡取得。
 export 'package:fmp/domain/playback_speed.dart'
     show clampSpeed, maxSpeed, minSpeed;
@@ -117,12 +119,11 @@ double clampVolume(double volume) => volume.clamp(0, 1).toDouble();
 bool isSelectableOutputDevice(String name) =>
     name != 'auto' && name != 'openal';
 
-/// Android 音訊中斷的種類：audio_session 的 `AudioInterruptionType` 一對一
-/// 轉過來（`AudioInterruptionEvent.type`）。暫停類是 `AUDIOFOCUS_LOSS_TRANSIENT`，
-/// duck 是 `…_CAN_DUCK`，unknown 是 `AUDIOFOCUS_LOSS`（不會再拿回焦點：
-/// audio_session 的原生端此時就放掉焦點，之後不會有結束的事件）。只對 Android
-/// 成立：audio_session 在 iOS 的中斷開始一律報 unknown、之後照樣有結束，接
-/// iOS 時要另外對應。
+/// 音訊中斷的種類：audio_session 的 `AudioInterruptionType` 一對一轉過來
+/// （`AudioInterruptionEvent.type`）。語意依平台宣告的 [AudioInterruptions]：
+/// Android 的暫停類是 `AUDIOFOCUS_LOSS_TRANSIENT`，duck 是 `…_CAN_DUCK`，unknown
+/// 是 `AUDIOFOCUS_LOSS`（不會再拿回焦點，之後沒有結束事件）；Apple 的開始一律
+/// unknown，結束帶 shouldResume 時是暫停類、沒帶時是 unknown。
 enum InterruptionKind { pause, duck, unknown }
 
 /// 中斷開始或結束時，後端要做的事（design §7.6）。
@@ -149,7 +150,8 @@ enum InterruptionResponse {
   ended,
 }
 
-/// [begin] 是中斷開始還是結束，[kind] 是 audio_session 給的種類。
+/// [begin] 是中斷開始還是結束，[kind] 是 audio_session 給的種類，[interruptions]
+/// 是平台宣告的事件語意（ADR 0037 §決定 8）。
 ///
 /// 不用 just_audio 的內建處理（`handleInterruptions: false`）：0.10.6 在 duck
 /// 結束時無條件把音量乘 2，音樂用途開始 duck 時卻不減半，會把使用者的音量放大
@@ -157,11 +159,21 @@ enum InterruptionResponse {
 InterruptionResponse respondToInterruption({
   required bool begin,
   required InterruptionKind kind,
+  required AudioInterruptions interruptions,
 }) => switch ((begin, kind)) {
+  _ when interruptions == AudioInterruptions.none => throw StateError(
+    'A backend that declares no interruptions must not be asked to respond',
+  ),
   (true, InterruptionKind.duck) => InterruptionResponse.duck,
   (false, InterruptionKind.duck) => InterruptionResponse.unduck,
   (true, InterruptionKind.pause) => InterruptionResponse.interrupted,
-  (true, InterruptionKind.unknown) => InterruptionResponse.lost,
+  // Android 的 unknown 開始是 AUDIOFOCUS_LOSS，不會再拿回；Apple 的開始一律是
+  // unknown，之後有結束事件，所以只是暫時中斷。
+  (true, InterruptionKind.unknown) => switch (interruptions) {
+    AudioInterruptions.androidAudioFocus => InterruptionResponse.lost,
+    AudioInterruptions.appleAudioSession => InterruptionResponse.interrupted,
+    AudioInterruptions.none => throw StateError('unreachable'),
+  },
   (false, InterruptionKind.pause) => InterruptionResponse.endedResumable,
   (false, InterruptionKind.unknown) => InterruptionResponse.ended,
 };

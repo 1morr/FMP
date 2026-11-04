@@ -85,6 +85,7 @@ void main() {
               backend: AudioBackendKind.justAudio,
               formats: [PlayableFormat('mp4', 'aac')],
               outputDeviceSelection: false,
+              interruptions: AudioInterruptions.appleAudioSession,
             ),
             networkInterfaces: false,
             files: false,
