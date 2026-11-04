@@ -2351,10 +2351,13 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     `qr_flutter` 只准在 `lib/ui/accounts/`（`fmp_layer_imports`）。閘門：`closing the QR dialog stops the login`、guideline
     測試的 `the QR login at …`。
 - 設定頁依 ADR 0011 的分組（外觀、播放、網路，design §9.8 的順序）：expanded 以上是
-  list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單、點進去看內容，
-  標題旁的返回鈕與系統返回鍵回到清單；選了哪一組由頁面記著，視窗寬度跨過斷點時不丟。系統返回鍵只有
-  外殼的 `PopScope` 一個（見下一條）：它先問設定頁（`SettingsBack.release`）有沒有一組要退回清單，
-  外殼以 `IndexedStack` 留著沒選的頁面，所以設定頁只在外殼正顯示它時（`visible`）接住。分組清單的列在有設定值可說時帶一行摘要副標（ADR 0035，L-33）：外觀是「主題：深色」，選了字型時接「 · 字型」（存的字型不在這個平台的清單裡就不接）；播放是「音質：高」；其餘組（帳號、音樂庫、網路、插件、備份、關於）
+  list-detail（左分組、右內容，預設第一組），compact 與 medium 先是分組清單，點進去的那一組是推在設定目的地巢狀 Navigator 上的內頁
+  （`ListDetailRoutes`，`lib/ui/layout/list_detail_routes.dart`；擁有者決定 2026-11-04，ADR 0037 §決定 14 的補充）：頁頂的返回鈕、系統返回鍵、Esc、
+  再點「設定」與 iOS 的右滑都是外殼與 Navigator 的「退出內頁」，回到清單，再按返回回到首頁；三個平台都有換頁轉場。選了哪一組由頁面記著
+  （`selected`），視窗寬度跨過斷點時不丟：變寬時拿掉那一頁（沒有轉場）、右欄是同一組，變窄時有選過的組就補推（沒有進場轉場；寬版預設的
+  第一組不算選過，頁面上面已經有別的內頁時不補推）。變寬的那一幀那一頁還蓋著，頁面照窄版只畫清單（`detailOpen`），拿掉之後才畫兩欄：
+  被蓋住的頁面那一幀不重新排版。外殼要它顯示某一組（「前往插件頁」、帳號失效的「登入」、Debug 頁的快取用量）經 `SettingsOpener.show`。
+  「關於」的連點計數看外殼正顯示設定頁（`visible`；推上去的那一頁經 `ValueNotifier`、在那一幀之後更新）。分組清單的列在有設定值可說時帶一行摘要副標（ADR 0035，L-33）：外觀是「主題：深色」，選了字型時接「 · 字型」（存的字型不在這個平台的清單裡就不接）；播放是「音質：高」；其餘組（帳號、音樂庫、網路、插件、備份、關於）
   沒有副標，設定值還沒讀出來時也沒有。摘要讀 `appearanceProvider`、`playbackPreferencesProvider`，設定一改就跟著變，一行加省略號，讀屏時和組名一起念；快取用量不放（要開快取庫，設定頁一直掛在外殼裡）。播放組的音質下方列出每一級的意思與「音源沒有那一級就改用其他可用的一級」。
   閘門：`settings_page_test.dart` 的 `appearance and playback rows summarise…`、`the appearance summary names a chosen font`、`a stored font this platform does not offer…`、
   `before the settings are read…`、`a summary is read with its row…`、`a long summary ellipsizes…`，`playback_controls_test.dart` 的 `each audio quality is explained…`。
@@ -2363,12 +2366,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   error、不報成功。清除成功後重抓排行：`chartCacheRevisionProvider` 加一（首頁、探索頁重讀成沒有快取），
   並對 `chartCatalogProvider` 裡每個有榜單的插件 `ChartJobs.runNow` 一次（不等、不提示；離線時它自己不發），
   不必等下一輪工作；清除失敗時兩件都不做。閘門：`test/ui/settings/settings_page_test.dart`（寬、窄兩種版面、跨斷點、
-  系統返回鍵、`400 wide: a group left open does not hold the back key on another page`）、
+  系統返回鍵、`400 wide: a group left open does not hold the back key on another page`、`the group stays when the window crosses a breakpoint`（變寬再變窄）、
+  `a group chosen on a wide window opens as the page when it narrows…`、`700 wide: Esc and tapping Settings again go back to the list`）、
+  `ios_conventions_test.dart` 的 `swiping right from the left edge goes back from a settings group`、
   `network_controls_test.dart`（預設標明、選擇寫入、排行用量、用量跟著變、取消不清、清除後索引與檔案與
   `ImageCache` 都空、清除失敗、`the charts after clearing` 群組：清除後重讀成沒有快取且每個有榜單的插件各重抓一次、清除失敗時都不做）。
 - 返回鍵（擁有者決定 7，design §9.1，ADR 0033 §決定 5）：播放頁、面板、對話框是根 Navigator 上的 route，
   Navigator 先關最上面的；外殼是 `PopScope(canPop: 在第一個目的地而且它沒有內頁)`，依序：退出目前目的地巢狀
-  Navigator 的內頁 → 窄版設定頁點進某一組時回到分組清單 → 不在第一個目的地時回到第一個（首頁）→ 在第一個時放行，
+  Navigator 的內頁（窄版設定頁點進的組也是）→ 不在第一個目的地時回到第一個（首頁）→ 在第一個時放行，
   Android 端由 `MainActivity.popSystemNavigator` 退到背景（見 § 平台層）。內頁的 route 在巢狀 Navigator 裡、
   不在根 Navigator 上，所以系統返回鍵（含 predictive back）一定先到外殼的 `PopScope`；`canPop` 跟著內頁的增減重建
   （每個巢狀 Navigator 一個 `NavigatorObserver`），有內頁時 Android 不預覽「離開 App」。不要在頁面內另放
@@ -2434,12 +2439,14 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     被蓋住就 `removeRoute`），回到設定頁；直接開進來與在概覽關掉總開關都是這一條。設定還沒讀出來時也不顯示內容。閘門：
     `debug_page_test.dart` 的 `the route gate` 群組（拿掉閘門兩例都紅）與 `the settings entry` 群組（入口只在開著時、在「關於」之後）。
   - 版面照設定頁的 list-detail，看整個視窗的 `WindowClass`（這一頁在根 `WindowClassScope` 之下、外殼之外）。區塊是
-    `DebugSection`（ADR 0025 §決定 2 的八個）；插件開發只在平台宣告 `pluginDevTools` 時列出，清單與內容都看它。窄版點進區塊後，標題列的返回鈕與系統返回鍵
-    先回到清單：這一頁自己有 `PopScope`（外殼的那一個在下面的 route，不會同時動作，「不另放 `PopScope`」只說外殼底下的頁面）。
-    閘門：`debug_page_test.dart` 的 `layout` 群組。
+    `DebugSection`（ADR 0025 §決定 2 的八個）；插件開發只在平台宣告 `pluginDevTools` 時列出，清單與內容都看它。窄版點進的區塊同設定頁是推上去的 route
+    （`ListDetailRoutes`，推在根 Navigator 上），標題列的返回鈕、系統返回鍵、iOS 右滑回到清單；這一頁沒有 `PopScope`。頁面自己關掉時（路由閘門、快取用量）先
+    `removeDetail` 拿掉那一塊。被那一塊蓋住時 Debug 頁的 `ref.watch` 是暫停的（Riverpod 暫停看不見的 widget 的訂閱），所以那一塊自己也看開發者模式、關了就走路由閘門。
+    閘門：`debug_page_test.dart` 的 `layout` 與 `a narrow section is a route` 群組（關掉總開關兩層都關、快取用量、跨斷點），`ios_conventions_test.dart` 的
+    `swiping right from the left edge goes back from a Debug section`。
   - 概覽：總開關（`setDeveloperMode(false)`，見「設定」）、log 層級（顯示生效的層級，建置預設標「（預設）」，選了就寫）、版本／flavor／平台／資料目錄
     （家目錄換成 `~`，`homeRelativePath`：不分大小寫、只比對整段目錄名稱）、快取用量（各類加總）的連結：先 pop 這一頁再經
-    `SettingsBack.show(network)` 選設定頁的「網路」；最下面是診斷包（見「診斷包」）。閘門：`debug_page_test.dart` 的 `the overview`（含 release 與 debug build 的預設標示）、`homeRelativePath` 群組。
+    `SettingsOpener.show(network)` 選設定頁的「網路」；最下面是診斷包（見「診斷包」）。閘門：`debug_page_test.dart` 的 `the overview`（含 release 與 debug build 的預設標示）、`homeRelativePath` 群組。
   - Log 與錯誤歷史（`debug_log.dart`、`debug_log_state.dart`，ADR 0025 §決定 3，M3 design §12.3）：預設是這次執行的記憶體歷史
     （`logHistoryProvider`，`Log.changes` 後 250ms 合併成一次快照），最新的在最上面；「含之前的紀錄」（只在有 log 檔的平台出現）
     把 `LogFile.readStored()` 與記憶體歷史合成一份（`mergeLogRecords`）：同一筆的判準是整行內容（`toJsonLine`）逐字相同，同時間的
@@ -2524,7 +2531,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     或裝失敗的記下來、其餘照裝，引導留著列出失敗、裝好的標「已安裝」（「關閉」收起；有失敗時不跳成功提示，它會蓋住底部的按鈕）。
     取消確認什麼都不裝。第一個插件裝好時搜尋頁就有音源了，所以整批結束前引導以 `OnboardingState.working` 留著，State 不會中途被拆掉。
   - 「稍後再說」只活在這次執行（`OnboardingState.dismissed`，不寫資料庫），連同失敗的清單一起收起；之後的空狀態附「前往插件頁」
-    （`SettingsBack.show` 把外殼換到設定頁的「插件」區塊）。讀不到 index：不在 `online` 是 `OfflineMessage`，`online` 是一般的失敗
+    （`SettingsOpener.show` 把外殼換到設定頁的「插件」區塊）。讀不到 index：不在 `online` 是 `OfflineMessage`，`online` 是一般的失敗
     畫面，都附「重試」。
   - 閘門：`test/ui/plugins/plugin_onboarding_test.dart`（零插件時列出、一次確認與裝好後消失、取消與取消勾選、全部停用時再出現、
     離線與重試、按安裝時重讀 index、部分失敗、全部失敗後再試、全部失敗後「稍後再說」、「稍後再說」與前往插件頁（1000、400 寬））、
@@ -2909,7 +2916,7 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
     只關這一頁）、觸控往下拖（Apple Music「正在播放」的慣例，頁面是從底部上來的，所以不是右滑；`_PlayerPageRoute` 的 `_DragToDismiss`：
     只收觸控，桌面的滑鼠拖不關；跟著手指，放開時拖過頁高一半或往下甩（每秒 1 個頁高，`AppLayout.playerDismiss*`）就關，否則彈回；
     頁面裡會垂直捲動的元件先拿到拖曳；寬版詳細面板開著時不開始）都關；**例外**是寬版右側詳細面板開著時，返回鍵也先關面板（同 Esc）：頁面有一個 `PopScope(canPop: !面板開著)`，
-    根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽、Debug 頁同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。收合鈕與 Ctrl+Q 不經這個 `PopScope`（頁面是最上層時直接 `pop`）：面板開著也關整頁，否則 Ctrl+Q 等不到 route 完成。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
+    根 Navigator 上的 route 的 `PopScope` 只在它是最上層時被問，外殼的 `PopScope` 在下面的 route，不會同時動作（與匯入預覽同一個理由，見「返回鍵」）；其他情況放行、route 先 pop。收合鈕與 Ctrl+Q 不經這個 `PopScope`（頁面是最上層時直接 `pop`）：面板開著也關整頁，否則 Ctrl+Q 等不到 route 完成。佇列變空或沒有目前這首時頁面自己 `removeRoute`（頁面第一次 build 時就已經空了
     也一樣，在那一幀之後移除）。關閉（轉場結束）後焦點回到開它的元件（播放列的點擊區）；
     那時又有播放頁開著就不還。閘門：`player_page_test.dart` 的 `opening and closing`（點空白處開、點按鈕不開、三個寬度、
     收合鈕、Esc、對話框與速度選單先關、返回鍵只關播放頁、焦點回到播放列、`reopening it while it is
@@ -2998,7 +3005,8 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `player_page_test.dart` 的 `crossing the shell breakpoint (wide to compact / compact to wide) keeps the keys on the page`。
 - iOS 的 Dart 端慣例（ADR 0035 §決定 13，U PR 15）：頁面轉場與右滑返回是 Flutter 的預設（`PageTransitionsTheme` 對 iOS 用 `CupertinoPageTransitionsBuilder`，
   不另寫程式碼）：只有 route 有右滑返回（巢狀 Navigator 的內頁、根 Navigator 上的 `MaterialPageRoute`；外殼的 `PopScope` 在根 route，不影響內頁的
-  `popGestureEnabled`，模擬器以真的觸控驗過）。窄版設定頁點進的組、Debug 頁的區塊是頁面自己換內容、不是 route，所以沒有右滑；播放頁是往下拖關閉（見「播放頁」）。安全區域由外殼的 `SafeArea` 處理（頁頂、側欄與右邊在橫向、底部導覽列與播放列在底部）。以 `TargetPlatform.iOS` 的 widget 測試守著
+  `popGestureEnabled`，模擬器以真的觸控驗過），所以有上一層的畫面都做成 route：窄版設定頁點進的組、Debug 頁的區塊也是（`ListDetailRoutes`）。
+  手勢區是左緣 20pt（Flutter 的寬度），全畫面右滑返回不做（M9）；播放頁是往下拖關閉（見「播放頁」）。安全區域由外殼的 `SafeArea` 處理（頁頂、側欄與右邊在橫向、底部導覽列與播放列在底部）。以 `TargetPlatform.iOS` 的 widget 測試守著
   （`ios_conventions_test.dart`：轉場是 Cupertino、從左緣右滑退出內頁、直向避開瀏海與 Home 指示列、橫向避開兩側）；Apple 平台還不啟動，實機（手勢、動態島）留給 iOS 平台任務。
 - 電台頁（`lib/ui/radio/`，ADR 0031 §決定 4，M3 design §9.3；ADR 0035 §決定 2，U PR 12）：
   - 版面：內容區 compact、medium 是清單，expanded 以上是圓形封面的網格（`SliverGridDelegateWithMaxCrossAxisExtent`，每格的點擊區和「⋯」分開；格子是圓形封面、標題、狀態標記、主播，音源不能用時主播換成原因，同清單；格高的文字部分跟著字級放大）。一般模式開播中的排前面

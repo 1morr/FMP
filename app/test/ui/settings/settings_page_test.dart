@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/providers.dart';
 import 'package:fmp/domain/appearance.dart';
@@ -103,13 +104,15 @@ void main() {
 
       await tester.tap(find.widgetWithText(ListTile, 'Network'));
       await h.loadSettings(tester);
+      // 那一組是推上去的內頁（有換頁轉場）。
+      await tester.pumpAndSettle();
 
       expect(find.byType(NetworkControls), findsOneWidget);
       expect(find.widgetWithText(ListTile, 'Appearance'), findsNothing);
       expect(find.text('Network'), findsOneWidget, reason: 'the heading');
 
-      await tester.tap(find.byTooltip('Back'));
-      await tester.pump();
+      await tester.tap(find.byTooltip('Back (Esc)'));
+      await tester.pumpAndSettle();
 
       expect(find.byType(NetworkControls), findsNothing);
       expect(find.widgetWithText(ListTile, 'Appearance'), findsOneWidget);
@@ -122,15 +125,16 @@ void main() {
       final h = await openSettings(tester, 400);
       await tester.tap(find.widgetWithText(ListTile, 'Network'));
       await h.loadSettings(tester);
+      await tester.pumpAndSettle();
 
       expect(await tester.binding.handlePopRoute(), isTrue);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.byType(NetworkControls), findsNothing);
       expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
       // 回到清單之後返回鍵歸外殼：回到第一個目的地（首頁），設定頁看不到了。
       expect(await tester.binding.handlePopRoute(), isTrue);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(homeShown, findsOneWidget);
     },
   );
@@ -141,6 +145,7 @@ void main() {
     final h = await openSettings(tester, 400);
     await tester.tap(find.widgetWithText(ListTile, 'Network'));
     await h.loadSettings(tester);
+    await tester.pumpAndSettle();
 
     // 回到第一個目的地（首頁）：返回鍵在那裡放行，不被看不到的設定頁攔住。
     await tester.tap(ShellHarness.navigationItem(ShellDestination.home));
@@ -153,16 +158,19 @@ void main() {
     expect(find.byType(NetworkControls), findsOneWidget);
   });
 
+  // 窄版的組是推上去的內頁、寬版是同一頁的右欄：跨斷點時頁面補推或拿掉那一頁，選的組不丟。
   testWidgets('the group stays when the window crosses a breakpoint', (
     tester,
   ) async {
     final h = await openSettings(tester, 700);
     await tester.tap(find.widgetWithText(ListTile, 'Network'));
     await h.loadSettings(tester);
+    await tester.pumpAndSettle();
 
     tester.view.physicalSize = const Size(1400, 800);
     await tester.pump();
     await h.loadSettings(tester);
+    await tester.pumpAndSettle();
 
     expect(find.byType(NetworkControls), findsOneWidget);
     expect(
@@ -171,6 +179,70 @@ void main() {
           .selected,
       isTrue,
     );
+    // 內頁拿掉了：沒有返回鈕，返回鍵回到首頁。
+    expect(find.byTooltip('Back (Esc)'), findsNothing);
+
+    tester.view.physicalSize = const Size(700, 800);
+    await tester.pump();
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NetworkControls), findsOneWidget);
+    expect(find.byType(VerticalDivider), findsNothing);
+    await tester.tap(find.byTooltip('Back (Esc)'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NetworkControls), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(homeShown, findsOneWidget);
+  });
+
+  testWidgets('a group chosen on a wide window opens as the page when it '
+      'narrows; one never chosen leaves the list', (tester) async {
+    final h = await openSettings(tester, 1400);
+    tester.view.physicalSize = const Size(700, 800);
+    await tester.pump();
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+    // 寬版預設的第一組不算選過：窄版是清單。
+    expect(find.byType(AccountsSection), findsNothing);
+    expect(find.byTooltip('Back (Esc)'), findsNothing);
+
+    tester.view.physicalSize = const Size(1400, 800);
+    await tester.pump();
+    await h.loadSettings(tester);
+    await tester.tap(find.widgetWithText(ListTile, 'Appearance'));
+    await h.loadSettings(tester);
+    tester.view.physicalSize = const Size(700, 800);
+    await tester.pump();
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppearanceControls), findsOneWidget);
+    expect(find.byTooltip('Back (Esc)'), findsOneWidget);
+  });
+
+  testWidgets('700 wide: Esc and tapping Settings again go back to the list', (
+    tester,
+  ) async {
+    final h = await openSettings(tester, 700);
+    await tester.tap(find.widgetWithText(ListTile, 'Network'));
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(NetworkControls), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ListTile, 'Network'));
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(ShellHarness.navigationItem(ShellDestination.settings));
+    await tester.pumpAndSettle();
+    expect(find.byType(NetworkControls), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
   });
 
   for (final width in [1000.0, 400.0]) {
@@ -204,6 +276,8 @@ void main() {
 
       await tester.tap(find.widgetWithText(ListTile, 'Plugins'));
       await h.settle(tester);
+      // 窄版的那一組是推上去的內頁：等換頁轉場。
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byType(PluginsPage), findsOneWidget);
       expect(find.text('Installed'), findsOneWidget);
@@ -212,8 +286,10 @@ void main() {
       if (width < 600) {
         // 窄版：標題列是區塊名稱與返回鈕，回到清單。
         expect(find.text('Plugins'), findsOneWidget);
-        await tester.tap(find.byTooltip('Back'));
-        await tester.pump();
+        await tester.tap(find.byTooltip('Back (Esc)'));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
         expect(find.byType(PluginsPage), findsNothing);
       } else {
         expect(find.byType(VerticalDivider), findsOneWidget);
@@ -337,7 +413,7 @@ void main() {
     final h = ShellHarness(database: database);
     await h.pumpApp(
       tester,
-      SettingsPage(visible: true, back: SettingsBack()),
+      SettingsPage(visible: true, opener: SettingsOpener()),
       size: const Size(400, 800),
     );
     await h.loadSettings(tester);

@@ -60,6 +60,51 @@ void main() {
     expect(find.byType(LibraryPage).hitTestable(), findsOneWidget);
   }, variant: _ios);
 
+  testWidgets('swiping right from the left edge goes back from a settings '
+      'group', (tester) async {
+    _asIPhone(tester);
+    final h = ShellHarness();
+    await h.pumpShell(
+      tester,
+      size: const Size(390, 844),
+      at: ShellDestination.settings,
+    );
+    await h.loadSettings(tester);
+    await tester.tap(find.widgetWithText(ListTile, 'Appearance'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'Playback'), findsNothing);
+
+    await tester.dragFrom(const Offset(2, 400), const Offset(300, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ListTile, 'Playback'), findsOneWidget);
+  }, variant: _ios);
+
+  testWidgets('swiping right from the left edge goes back from a Debug '
+      'section', (tester) async {
+    _asIPhone(tester);
+    final h = ShellHarness();
+    await h.pumpShell(
+      tester,
+      size: const Size(390, 844),
+      at: ShellDestination.settings,
+    );
+    await h.loadSettings(tester);
+    // dev 的開發者模式預設開著：設定清單最後一列是 Debug。
+    await tester.tap(find.widgetWithText(ListTile, 'Debug'));
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Reset data'));
+    await h.loadSettings(tester);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ListTile, 'Overview'), findsNothing);
+
+    await tester.dragFrom(const Offset(2, 400), const Offset(300, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ListTile, 'Overview'), findsOneWidget);
+  }, variant: _ios);
+
   // 播放頁從底部上滑開、下滑關：照 Apple Music 的「正在播放」，往下拖關閉（跟著手指），不是右滑。
   group('the player page closes with a downward drag', () {
     final barTitle = find.descendant(

@@ -1105,8 +1105,6 @@ class Translations$settings$en extends Translations$settings$zh_TW {
   @override
   String get network => 'Network';
   @override
-  String get back => 'Back';
-  @override
   String get playback => 'Playback';
   @override
   String get library => 'Library';

@@ -11,6 +11,7 @@ import 'package:fmp/library/playlist_importer.dart';
 import 'package:fmp/library/playlist_refresher.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
+import 'package:fmp/ui/accounts/accounts_section.dart';
 import 'package:fmp/ui/library/import_preview_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/library/manual_refresh.dart';
@@ -1138,8 +1139,8 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'Sign in'));
       await tester.pumpAndSettle();
 
-      // 換到設定頁的「帳號」區塊。
-      expect(find.byType(SettingsPage).hitTestable(), findsOneWidget);
+      // 換到設定頁的「帳號」區塊（窄版是推上去的那一頁，蓋住設定清單）。
+      expect(find.byType(AccountsSection).hitTestable(), findsOneWidget);
       expect(find.byType(PlaylistDetailPage).hitTestable(), findsNothing);
     });
   });

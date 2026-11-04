@@ -9,6 +9,7 @@ import 'package:fmp/domain/developer.dart';
 import 'package:fmp/ui/debug/debug_overview.dart';
 import 'package:fmp/ui/format/home_path.dart';
 import 'package:fmp/ui/debug/debug_page.dart';
+import 'package:fmp/ui/debug/debug_reset.dart';
 import 'package:fmp/ui/debug/debug_plugin_dev.dart';
 import 'package:fmp/ui/settings/network_controls.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
@@ -199,6 +200,8 @@ void main() {
 
       await tester.tap(find.widgetWithText(ListTile, 'Overview'));
       await h.loadSettings(tester);
+      // 那一塊是推在根 Navigator 上的 route（有換頁轉場）。
+      await tester.pumpAndSettle();
       expect(find.byType(DebugOverview), findsOneWidget);
       expect(
         find.descendant(
@@ -216,8 +219,9 @@ void main() {
       // 標題列的返回鈕也一樣回到清單。
       await tester.tap(find.widgetWithText(ListTile, 'Overview'));
       await h.loadSettings(tester);
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Back'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.byType(DebugOverview), findsNothing);
       expect(find.byType(DebugPage), findsOneWidget);
 
@@ -225,6 +229,93 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DebugPage), findsNothing);
       expect(find.byType(SettingsPage).hitTestable(), findsOneWidget);
+    });
+  });
+
+  // 窄版的那一塊是根 Navigator 上的 route（同設定頁）：頁面自己關掉時連它一起拿掉，跨斷點時補推或拿掉。
+  group('a narrow section is a route', () {
+    Future<ShellHarness> openOverview(WidgetTester tester) async {
+      final h = await openSettings(tester, width: 400);
+      await openDebug(tester, h);
+      await tester.tap(find.widgetWithText(ListTile, 'Overview'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(DebugOverview), findsOneWidget);
+      return h;
+    }
+
+    testWidgets('turning developer mode off closes the section and the page', (
+      tester,
+    ) async {
+      final h = await openOverview(tester);
+
+      await tester.tap(find.widgetWithText(SwitchListTile, 'Developer mode'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DebugOverview), findsNothing);
+      expect(find.byType(DebugPage), findsNothing);
+      expect(find.byType(SettingsPage).hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('cache usage closes both and opens Settings › Network', (
+      tester,
+    ) async {
+      final h = await openOverview(tester);
+
+      await tester.tap(find.widgetWithText(ListTile, 'Cache usage'));
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DebugPage), findsNothing);
+      expect(find.byType(NetworkControls), findsOneWidget);
+      // 窄版的設定頁：網路是推上去的那一組，返回回到設定的清單。
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(NetworkControls), findsNothing);
+      expect(find.widgetWithText(ListTile, 'Network'), findsOneWidget);
+    });
+
+    testWidgets('a section chosen on a wide window opens as a route when it '
+        'narrows', (tester) async {
+      final h = await openSettings(tester);
+      await openDebug(tester, h);
+      await tester.tap(find.widgetWithText(ListTile, 'Reset data'));
+      await h.loadSettings(tester);
+
+      tester.view.physicalSize = const Size(400, 800);
+      await tester.pump();
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DebugReset), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'Overview'), findsNothing);
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ListTile, 'Overview'), findsOneWidget);
+      expect(find.byType(DebugPage), findsOneWidget);
+    });
+
+    testWidgets('the section stays when the window crosses a breakpoint', (
+      tester,
+    ) async {
+      final h = await openOverview(tester);
+
+      tester.view.physicalSize = const Size(1000, 800);
+      await tester.pump();
+      await h.loadSettings(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(VerticalDivider), findsOneWidget);
+      expect(
+        tester
+            .widget<ListTile>(find.widgetWithText(ListTile, 'Overview'))
+            .selected,
+        isTrue,
+      );
+      // 只剩 Debug 頁一層：返回鍵關掉它。
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(DebugPage), findsNothing);
     });
   });
 

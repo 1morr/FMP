@@ -1071,8 +1071,6 @@ class Translations$settings$zh_CN extends Translations$settings$zh_TW {
   @override
   String get network => '网络';
   @override
-  String get back => '返回';
-  @override
   String get playback => '播放';
   @override
   String get library => '音乐库';
