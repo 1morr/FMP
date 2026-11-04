@@ -14,6 +14,7 @@ final class FakeAudioBackend implements AudioBackend {
     this.durationOf = _twoSeconds,
     this.failsToOpen = _never,
     this.httpStatusOf = _noStatus,
+    this.stallsOnOpen = _never,
     this.tick = const Duration(milliseconds: 50),
     this.outputDevices,
   });
@@ -31,6 +32,10 @@ final class FakeAudioBackend implements AudioBackend {
 
   /// 開不起來的網址被 HTTP 拒絕時的狀態碼（[SourceFailed.httpStatus]）。
   final int? Function(Uri url) httpStatusOf;
+
+  /// 一直載入不好的網址（AVPlayer 停在載入中）：開成目前的來源時停在緩衝，
+  /// 不報好也不報錯，直到被下一次 [open] 或 [stop] 換掉。
+  final bool Function(Uri url) stallsOnOpen;
 
   /// 位置每次前進多少（也是位置回報的間隔）。
   final Duration tick;
@@ -112,6 +117,7 @@ final class FakeAudioBackend implements AudioBackend {
       );
       return;
     }
+    if (stallsOnOpen(source.url)) return;
     _loaded = true;
     _emitStatus(BackendPhase.ready);
     // 暫停中開的來源不回報位置，到播放或 seek 才有（just_audio 的形狀：它的
