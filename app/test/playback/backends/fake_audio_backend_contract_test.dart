@@ -9,6 +9,7 @@ import 'audio_backend_contract.dart';
 void main() {
   final missing = Uri.parse('asset:///missing.wav');
   final forbidden = Uri.parse('asset:///forbidden.wav');
+  final stalled = Uri.parse('asset:///stalled.wav');
   group('FakeAudioBackend', () {
     audioBackendContract(
       define: (description, body) => test(description, body),
@@ -16,6 +17,7 @@ void main() {
         durationOf: (_) => const Duration(milliseconds: 400),
         failsToOpen: (url) => url == missing || url == forbidden,
         httpStatusOf: (url) => url == forbidden ? 403 : null,
+        stallsOnOpen: (url) => url == stalled,
         tick: const Duration(milliseconds: 20),
         outputDevices: FakeOutputDevices(const [
           OutputDevice(id: 'wasapi/{a}', name: 'Speakers'),
@@ -24,6 +26,7 @@ void main() {
       track: Uri.parse('asset:///tone.wav'),
       missing: missing,
       forbidden: () => forbidden,
+      stalled: () => stalled,
       reportsHttpStatus: true,
       selectsOutputDevice: true,
       trackLength: const Duration(milliseconds: 400),

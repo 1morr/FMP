@@ -22,7 +22,8 @@ import '../test/playback/backends/audio_backend_contract.dart';
 //
 // 會出聲。假後端的那一份在 test/playback/backends/，由 `flutter test` 跑。
 //
-// 「HTTP 拒絕」的網址是測試自己在 loopback 起的伺服器（一律回 403），不連外網；
+// 「HTTP 拒絕」與「一直不回應」的網址是測試自己在 loopback 起的伺服器（不回應的
+// 那一個路徑以外一律回 403），不連外網；
 // Android 的 debug 建置以 `android/app/src/debug/res/xml/network_security_config.xml`
 // 只對 127.0.0.1 放行明文。
 void main() {
@@ -39,6 +40,8 @@ void main() {
   setUpAll(() async {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
+      // 不回應：引擎一直停在載入中，`tearDownAll` 關掉伺服器時才斷線。
+      if (request.uri.path == '/stalled.m4a') return;
       request.response
         ..statusCode = HttpStatus.forbidden
         ..write('forbidden');
@@ -61,6 +64,7 @@ void main() {
       ),
       forbidden: () =>
           Uri.parse('http://127.0.0.1:${server.port}/forbidden.wav'),
+      stalled: () => Uri.parse('http://127.0.0.1:${server.port}/stalled.m4a'),
       reportsHttpStatus: support.backend == AudioBackendKind.mediaKit,
       selectsOutputDevice: support.outputDeviceSelection,
       trackLength: const Duration(seconds: 2),

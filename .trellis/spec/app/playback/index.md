@@ -227,7 +227,11 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
   只轉呼叫；只有一個引擎才有的怪癖寫在那個實作裡，收斂不了的差異寫進 `AudioBackend` 的
   dartdoc。
 - 清單的修改（`open`、`setNext`、`stop`、交接後的修剪）一律經 `_edit` 排隊，每次依當下的清單
-  算 `LookAheadEdit`；排隊期間來源換了就不做。
+  算 `LookAheadEdit`；排隊期間來源換了就不做。排隊的修改裡不能有等不完的步驟：just_audio 的
+  `open` 等 `setAudioSources`，引擎一直不回應時（AVPlayer 的項目停在載入中）之後的修改全排在它
+  後面，所以下一次 `open`、`stop` 一呼叫就讓它不再等（`_replaceLoad`），引擎還沒回應的話下一次
+  載入前先 `stop`（just_audio 在引擎閒置後的第一次載入完之前不給出平台）。契約的 `…stalled…`
+  三個案例守這條。
 - `playing` 是使用者要不要出聲，不是引擎當下有沒有在輸出：mpv 在換檔的瞬間會把 `playing`、
   `buffering` 閃一下，而且那時的來源還是舊的。
 - mpv 的屬性只在值改變時發事件（兩個檔案一樣長時，接上後不會再收到 `duration`）。依賴屬性
@@ -290,8 +294,9 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
 - 真後端要實際播放，契約的 `Recorder.until` 等的是實際時間（事件驅動＋逾時計時器），不是
   `pumpUntil`。
 - 契約的兩種開不起來：`missing`（Dart 端就失敗：不存在的 asset）、`forbidden`（引擎開流時才
-  失敗：整合測試在 `setUpAll` 起的 loopback 伺服器一律回 403；假後端以 `failsToOpen`、
-  `httpStatusOf` 模擬）。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。要看引擎實際怎麼報，
+  失敗：整合測試在 `setUpAll` 起的 loopback 伺服器，`/stalled.m4a` 以外一律回 403；假後端以
+  `failsToOpen`、`httpStatusOf` 模擬）。一直載入不好的是 `stalled`（同一個伺服器的
+  `/stalled.m4a` 不回應；假後端以 `stallsOnOpen` 停在緩衝）。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。要看引擎實際怎麼報，
   在 `integration_test/` 寫一個暫時的檔案直接用 just_audio／media_kit 記下每個事件（media_kit
   加 `logLevel: MPVLogLevel.warn` 與 `stream.log`），跑完刪掉。
 
