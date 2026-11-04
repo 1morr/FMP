@@ -10,11 +10,15 @@ void main() {
   final missing = Uri.parse('asset:///missing.wav');
   final forbidden = Uri.parse('asset:///forbidden.wav');
   final stalled = Uri.parse('asset:///stalled.wav');
+  late FakeAudioBackend latest;
+  final tracks = _FakeTrackServer(() => latest);
   group('FakeAudioBackend', () {
     audioBackendContract(
       define: (description, body) => test(description, body),
-      create: () async => FakeAudioBackend(
-        durationOf: (_) => const Duration(milliseconds: 400),
+      create: () async => latest = FakeAudioBackend(
+        durationOf: (url) => Duration(
+          milliseconds: int.tryParse(url.queryParameters['ms'] ?? '') ?? 400,
+        ),
         failsToOpen: (url) => url == missing || url == forbidden,
         httpStatusOf: (url) => url == forbidden ? 403 : null,
         stallsOnOpen: (url) => url == stalled,
@@ -27,10 +31,30 @@ void main() {
       missing: missing,
       forbidden: () => forbidden,
       stalled: () => stalled,
+      server: () => tracks,
       reportsHttpStatus: true,
       selectsOutputDevice: true,
       trackLength: const Duration(milliseconds: 400),
       slack: const Duration(seconds: 2),
     );
   });
+}
+
+/// 假後端沒有伺服器：請求是它自己記下的開流（[FakeAudioBackend.requests]），
+/// 載入一下就好，所以 `held` 不擋什麼。
+final class _FakeTrackServer implements TrackServer {
+  _FakeTrackServer(this._backend);
+
+  final FakeAudioBackend Function() _backend;
+  var _count = 0;
+
+  @override
+  Uri track(Duration length, {bool held = false}) =>
+      Uri.parse('asset:///served-${++_count}.wav?ms=${length.inMilliseconds}');
+
+  @override
+  int requestsTo(Uri url) => _backend().requests.where((u) => u == url).length;
+
+  @override
+  void release(Uri url) {}
 }

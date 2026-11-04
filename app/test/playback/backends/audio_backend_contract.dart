@@ -20,8 +20,9 @@ typedef DefineCase = void Function(String description, Future<void> Function());
 /// `setUpAll` 才起來，所以在案例裡才讀），[stalled] 是 HTTP 一直不回應的網址
 /// （引擎一直停在載入中）。[reportsHttpStatus]：引擎給不給得出
 /// 狀態碼（見 `AudioBackend` 的 dartdoc）。[selectsOutputDevice]：平台宣告
-/// 能不能選輸出裝置（`PlaybackSupport.outputDeviceSelection`）。[slack] 是引擎
-/// 開流與事件延遲的餘裕。
+/// 能不能選輸出裝置（`PlaybackSupport.outputDeviceSelection`）。[server] 給經
+/// HTTP 的音檔並數請求（整合測試是 loopback 伺服器，在 `setUpAll` 才起來，所以
+/// 在案例裡才讀）。[slack] 是引擎開流與事件延遲的餘裕。
 void audioBackendContract({
   required DefineCase define,
   required Future<AudioBackend> Function() create,
@@ -29,6 +30,7 @@ void audioBackendContract({
   required Uri missing,
   required Uri Function() forbidden,
   required Uri Function() stalled,
+  required TrackServer Function() server,
   required bool reportsHttpStatus,
   required bool selectsOutputDevice,
   required Duration trackLength,
@@ -370,6 +372,82 @@ void audioBackendContract({
     () => replacesAStalledSource(playingFirst: false, stopFirst: true),
   );
 
+  // 手動下一首用的是前瞻的解析結果，所以 open 的網址與標頭就是引擎裡那個前瞻的
+  // （iPhone 實機：前瞻剛預備、還在載入時按下一首，重新開同一個網址要 15 秒才
+  // 出聲）。後端接著用前瞻已經做的載入，不再向伺服器要一次。目前的來源要比整個
+  // 案例長，前瞻才不會先被引擎自己接上。
+  Future<(Recorder, Uri)> playWithLookAhead(
+    TrackServer tracks, {
+    required bool held,
+  }) async {
+    final recorder = await record();
+    final a = source(tracks.track(const Duration(seconds: 30)));
+    await recorder.backend.open(a);
+    await recorder.untilReady(a.id, slack);
+    final url = tracks.track(trackLength, held: held);
+    await recorder.backend.setNext(source(url));
+    await eventually(
+      () => tracks.requestsTo(url) > 0,
+      slack,
+      'the engine to start loading the look-ahead',
+    );
+    return (recorder, url);
+  }
+
+  Future<void> untilAudible(Recorder recorder, BackendSource b) async {
+    await recorder.until(
+      () => recorder.progress.any(
+        (p) => p.sourceId == b.id && p.progress.position > Duration.zero,
+      ),
+      slack,
+    );
+    expect(recorder.statuses.last.sourceId, b.id);
+    expect(recorder.statuses.last.playing, isTrue);
+    // 上一個來源被 open 換掉，不是播完：沒有交接也沒有結束。
+    expect(recorder.events, isEmpty);
+  }
+
+  defineCase(
+    'opening the stream of a loaded look-ahead does not request it again',
+    () async {
+      final tracks = server();
+      final (recorder, url) = await playWithLookAhead(tracks, held: false);
+      // 等引擎把前瞻載入完（請求數不再增加）。
+      var requests = tracks.requestsTo(url);
+      final settleBy = DateTime.now().add(slack);
+      while (true) {
+        await Future<void>.delayed(slack ~/ 10);
+        final now = tracks.requestsTo(url);
+        if (now == requests || DateTime.now().isAfter(settleBy)) break;
+        requests = now;
+      }
+      final b = source(url);
+      await recorder.backend.open(b);
+
+      await untilAudible(recorder, b);
+      expect(tracks.requestsTo(url), requests);
+      await recorder.close();
+    },
+  );
+
+  defineCase(
+    'opening the stream of a look-ahead still loading continues its load',
+    () async {
+      final tracks = server();
+      final (recorder, url) = await playWithLookAhead(tracks, held: true);
+      final requests = tracks.requestsTo(url);
+      final b = source(url);
+      unawaited(recorder.backend.open(b));
+      // 前瞻的請求還沒回應：重新開流的話，這段期間會有第二個請求。
+      await Future<void>.delayed(slack ~/ 5);
+      expect(tracks.requestsTo(url), requests);
+      tracks.release(url);
+
+      await untilAudible(recorder, b);
+      await recorder.close();
+    },
+  );
+
   defineCase('pausing before the source is ready keeps it paused', () async {
     final recorder = await record();
     final a = source(track);
@@ -574,6 +652,19 @@ void audioBackendContract({
     );
     await recorder.close();
   });
+}
+
+/// 契約的 HTTP 音檔：整合測試是 loopback 伺服器，假後端是它自己的記帳。
+abstract interface class TrackServer {
+  /// 長 [length] 的音檔，每次呼叫是新的網址。[held] 時伺服器先不回應這個網址的
+  /// 請求，到 [release] 為止（引擎停在載入中）。
+  Uri track(Duration length, {bool held = false});
+
+  /// 引擎向 [url] 發過幾次請求。
+  int requestsTo(Uri url);
+
+  /// 回應 [url] 被擋下的請求，之後的請求也照常回應。
+  void release(Uri url);
 }
 
 /// 每 20 毫秒看一次 [condition]，超過 [timeout] 就以 [what] 失敗：引擎的屬性

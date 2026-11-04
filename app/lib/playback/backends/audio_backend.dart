@@ -66,6 +66,11 @@ abstract interface class AudioBackend {
 
   /// 以 [source] 取代整個清單（目前與前瞻），從 [start] 開始；[play] 為假時
   /// 載入後停在暫停。開不起來不丟出，發 [SourceFailed]（[BackendFailure.open]）。
+  ///
+  /// [source] 是目前前瞻的同一個串流（[BackendSource.isSameStreamAs]：手動下一首
+  /// 用的是前瞻的解析結果）時，接著用引擎裡那個前瞻已經做的載入，不重新開流；
+  /// 回報照樣以 [source] 的 id、沒有 [SourceAdvanced]，和一般的 open 一樣。
+  /// 重新開同一個網址在 iPhone 實機要 15 秒以上才出聲（前瞻還在載入時）。
   Future<void> open(
     BackendSource source, {
     Duration start = Duration.zero,
@@ -143,6 +148,11 @@ final class BackendSource {
   /// `https` 網址，或 App 內附的 `asset:///…`。
   final Uri url;
   final Map<String, String> headers;
+
+  /// 和 [other] 是同一個串流：網址與標頭都相同（[id] 不比）。後端以它認出
+  /// [AudioBackend.open] 的來源就是目前的前瞻（見 [AudioBackend.open]）。
+  bool isSameStreamAs(BackendSource other) =>
+      url == other.url && mapEquals(headers, other.headers);
 }
 
 /// 後端的狀態。

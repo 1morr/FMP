@@ -44,6 +44,9 @@ lib/domain/output_device.dart # OutputDevice（設定層存、播放層與介面
    （`streamPreferencesProvider`）：音質放進 `StreamRequest.quality`，格式偏好重排平台的
    `formats`；兩者都在快取鍵裡，改了偏好的那首會再問插件。
 2. `session.open`：建 `BackendSource`（新的 id、經 `mediaRequestHeaders`），`AudioBackend.open`。
+   用的是前瞻的解析結果（手動下一首、跳到那首）時，網址與標頭就是後端手上那個前瞻的
+   （`BackendSource.isSameStreamAs`）：後端換到引擎裡的那個項目、沿用它的載入，不重新開流，
+   回報照樣用新的 id（見下面「改後端」）。
 3. 後端回報 `ready` → session 發 `SourceReady` → 路由器給 `MarkReady` → `Playing`／`Paused`；
    第一次 ready 時 `session.prepareLookAhead` 解析下一首一次，`setNext` 交給後端，有期限就排一個
    計時器在過期前 30 秒重新解析。
@@ -236,6 +239,14 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
   後面，所以下一次 `open`、`stop` 一呼叫就讓它不再等（`_replaceLoad`），引擎還沒回應的話下一次
   載入前先 `stop`（just_audio 在引擎閒置後的第一次載入完之前不給出平台）。契約的 `…stalled…`
   三個案例守這條。
+- `open` 的來源是目前前瞻的同一個串流時（`isSameStreamAs`），just_audio 後端在排隊的修改裡
+  `seek` 到前瞻的索引、移掉其他項目（`_openLookAhead`，記 `Opening the look-ahead in place`）：
+  AVPlayer（`enqueueFrom:` 保留已在佇列的項目）與 ExoPlayer（已預備的 period）都沿用同一個
+  項目，不再向伺服器要一次。項目的 `tag` 還是前瞻的 id，`_adopted` 讓 `_idAt` 對到新的 id；
+  它可能還沒載入好，所以同交接以 `hasLoadedDuration` 判斷載入。引擎不在 `ready`／`buffering`、
+  前瞻的修改還沒套上、目前這首的載入還沒回來時照一般的 open。mpv 不必改：它的預開以網址為準
+  （`open_demux_reentrant` 比對 `open_url`），換檔時網址相同就沿用。契約的 `opening the stream
+  of a loaded look-ahead…`、`…still loading continues its load` 守這條。
 - `playing` 是使用者要不要出聲，不是引擎當下有沒有在輸出：mpv 在換檔的瞬間會把 `playing`、
   `buffering` 閃一下，而且那時的來源還是舊的。
 - mpv 的屬性只在值改變時發事件（兩個檔案一樣長時，接上後不會再收到 `duration`）。依賴屬性
@@ -298,11 +309,14 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
 - 真後端要實際播放，契約的 `Recorder.until` 等的是實際時間（事件驅動＋逾時計時器），不是
   `pumpUntil`。
 - 契約的兩種開不起來：`missing`（Dart 端就失敗：不存在的 asset）、`forbidden`（引擎開流時才
-  失敗：整合測試在 `setUpAll` 起的 loopback 伺服器，`/stalled.m4a` 以外一律回 403；假後端以
+  失敗：整合測試在 `setUpAll` 起的 loopback 伺服器，`/stalled.m4a` 與 `/tracks/` 以外一律回 403；假後端以
   `failsToOpen`、`httpStatusOf` 模擬）。一直載入不好的是 `stalled`（同一個伺服器的
   `/stalled.m4a` 不回應；假後端以 `stallsOnOpen` 停在緩衝，`finishOpening` 讓它晚一點載入好、`failOpening`
   讓它晚一點報開不起來）。後端契約只守「換掉停住的來源照常播」；停住 20 秒後的恢復在控制器，由
-  `playback_controller_test.dart` 與 `live_playback_test.dart` 的假時間測試守。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。要看引擎實際怎麼報，
+  `playback_controller_test.dart` 與 `live_playback_test.dart` 的假時間測試守。假後端的前瞻在交接時才失敗（ExoPlayer 的形狀）。
+  經 HTTP 的音檔是 `server`（`TrackServer`）：整合測試的伺服器在 `/tracks/` 產生靜音 WAV（支援
+  Range，AVPlayer 要）、數每個路徑的請求，`held` 的路徑到 `release` 才回應；假後端以
+  `FakeAudioBackend.requests`（每次開流與接上前瞻記一筆）代替。要看引擎實際怎麼報，
   在 `integration_test/` 寫一個暫時的檔案直接用 just_audio／media_kit 記下每個事件（media_kit
   加 `logLevel: MPVLogLevel.warn` 與 `stream.log`），跑完刪掉。
 
@@ -315,6 +329,9 @@ Mix 仍是佇列本身，不是「佇列以外」：`QueueState.mix`（`MixIdent
 - 交接：`Look-ahead handover`（`previousPositionMs` 是上一首最後回報的位置）與接著的
   `Track audible`：`sinceHandoverMs` 是交接事件到這首第一次回報位置，`estimatedGapMs` 是從
   上一首最後的位置推算的結束時間到這首第一次回報位置（含位置回報的間隔，只是估計）。
+- 手動下一首到前瞻：`Track requested` 之後沒有 `Resolving stream`（用前瞻的解析結果），`Opening
+  stream` 之後一筆 `Opening the look-ahead in place`（just_audio 後端換到引擎裡的前瞻）。沒有這一筆
+  而 `Track audible` 的 `sinceRequestMs` 很長，看是不是引擎不在能換過去的狀態（見「改後端」）。
 - 解析次數：`Resolving stream` 一筆是一次插件 `resolveStream`；連播 n 首應該剛好 n 筆，
   多出來的看同一首旁邊有沒有 `Stream URL invalidated`（失敗後重解析是對的）或
   `Look-ahead refreshed before expiry`。
