@@ -1900,6 +1900,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   source`（2 倍速時兩首在一首半的時間內播完：引擎真的照速度播）、`the speed is clamped…`；
   `backend_rules_test.dart` 的 `speed and volume`；`playback_controller_test.dart` 的 `volume,
   mute and speed` 群組。
+- 音訊中斷的語意由平台宣告（`PlaybackSupport.interruptions`：`androidAudioFocus`／`appleAudioSession`／`none`，
+  ADR 0037 §決定 8），`respondToInterruption` 依它對應，後端不判斷平台。`appleAudioSession`（iOS、macOS）：開始一律
+  報 unknown，當暫時中斷（`Interrupted(transient: true)`）；結束帶 shouldResume 時報暫停類、續播，沒帶時報 unknown、
+  不續播。別的 App 開始播放時 iOS 只發開始、不發結束，FMP 停在「因中斷而暫停」直到使用者按播放或暫停（已知限制）。
+  `just_audio` 後端不能配 `none`。以下是 Android 的細節。
 - Android 的音訊中斷與拔耳機（design §7.6、舊版 `playback.md` §3.7）：`JustAudioBackend` 以
   `handleInterruptions: false` 關掉 just_audio 的內建處理（0.10.6 在 duck 結束時無條件把音量乘 2），
   自己聽 audio_session：duck 只把引擎輸出乘 0.5，不改使用者音量、不通知上層；duck 以外的任何

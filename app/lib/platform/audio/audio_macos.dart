@@ -15,4 +15,6 @@ const macosPlaybackSupport = PlaybackSupport(
     PlayableFormat('hls', 'aac'),
   ],
   outputDeviceSelection: false,
+  // macOS 的 audio_session 不發中斷事件，宣告的是語意。
+  interruptions: AudioInterruptions.appleAudioSession,
 );

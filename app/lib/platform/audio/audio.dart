@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 /// 播放後端的兩個實作（ADR 0018 §決定 3）。平台層只宣告用哪一個，實作在
 /// `lib/playback/backends/`（`just_audio`、`media_kit` 只准在那裡 import）。
 enum AudioBackendKind {
-  /// `just_audio`：Android、macOS（之後 iOS）。
+  /// `just_audio`：Android、macOS、iOS。
   justAudio,
 
   /// `media_kit`（libmpv）：Windows（之後 Linux）。
@@ -33,6 +33,20 @@ final class PlayableFormat {
   String toString() => '$container/$codec';
 }
 
+/// 後端收到的音訊中斷事件是哪一種語意（audio_session 在各平台給的事件形狀不同，
+/// ADR 0037 §決定 8）。
+enum AudioInterruptions {
+  /// Android 的音訊焦點：unknown 類的開始是 AUDIOFOCUS_LOSS，不會有結束。
+  androidAudioFocus,
+
+  /// Apple 的 AVAudioSession：開始一律報 unknown，之後有結束；結束帶 shouldResume
+  /// 時報暫停類，沒帶時報 unknown。
+  appleAudioSession,
+
+  /// 後端不聽中斷（media_kit）。
+  none,
+}
+
 /// 平台的播放能力：用哪個後端、能播哪些格式、能不能選輸出裝置。
 @immutable
 final class PlaybackSupport {
@@ -40,6 +54,7 @@ final class PlaybackSupport {
     required this.backend,
     required this.formats,
     required this.outputDeviceSelection,
+    required this.interruptions,
   });
 
   final AudioBackendKind backend;
@@ -51,4 +66,7 @@ final class PlaybackSupport {
   /// （`createAudioBackend` 的 assert）。UI 依它決定是否顯示入口（ADR 0009
   /// §如何確認）。
   final bool outputDeviceSelection;
+
+  /// 音訊中斷事件的語意；`justAudio` 後端不能配 [AudioInterruptions.none]。
+  final AudioInterruptions interruptions;
 }

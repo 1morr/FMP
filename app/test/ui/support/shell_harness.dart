@@ -344,6 +344,7 @@ final class ShellHarness {
                 backend: AudioBackendKind.mediaKit,
                 formats: [PlayableFormat('mp4', 'aac')],
                 outputDeviceSelection: true,
+                interruptions: AudioInterruptions.none,
               )
             : null,
         networkInterfaces: false,

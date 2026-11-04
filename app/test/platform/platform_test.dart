@@ -65,6 +65,10 @@ void main() {
       expect(androidFontChoices, ['sans-serif', 'serif', 'monospace']);
       expect(platform.capabilities.playback, same(androidPlaybackSupport));
       expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.androidAudioFocus,
+      );
+      expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
       );
@@ -125,6 +129,10 @@ void main() {
       ]);
       expect(platform.capabilities.playback, same(windowsPlaybackSupport));
       expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.none,
+      );
+      expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.mediaKit,
       );
@@ -182,6 +190,10 @@ void main() {
       expect(macosFontFallback.traditionalChinese, ['PingFang TC']);
       expect(macosFontFallback.simplifiedChinese, ['PingFang SC']);
       expect(platform.capabilities.playback, same(macosPlaybackSupport));
+      expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.appleAudioSession,
+      );
       expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
@@ -242,6 +254,10 @@ void main() {
       expect(iosFontFallback.traditionalChinese, ['PingFang TC']);
       expect(iosFontFallback.simplifiedChinese, ['PingFang SC']);
       expect(platform.capabilities.playback, same(iosPlaybackSupport));
+      expect(
+        platform.capabilities.playback?.interruptions,
+        AudioInterruptions.appleAudioSession,
+      );
       expect(
         platform.capabilities.playback?.backend,
         AudioBackendKind.justAudio,
