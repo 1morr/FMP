@@ -28,11 +28,16 @@ LiveRoom _room({
 }) => LiveRoom(roomId: roomId, title: title, status: status, online: online);
 
 /// 直播間 `<roomId>.flv`，房間 id 含 `broken` 的開不起來；狀態預設開播中。
-Harness _harness(FakeAsync async, {Duration? trackLength}) {
+Harness _harness(
+  FakeAsync async, {
+  Duration? trackLength,
+  bool Function(Uri url)? stallsOnOpen,
+}) {
   final h = Harness(
     async,
     trackLength: trackLength ?? const Duration(hours: 1),
     failsToOpen: (url) => url.path.contains('broken'),
+    stallsOnOpen: stallsOnOpen,
   );
   h.plugin
     ..onResolveLive = ((request) => [candidate('${request.roomId}.flv')])
@@ -295,6 +300,52 @@ void main() {
         expect(h.controller.live?.phase, LivePhase.listening);
         expect(h.controller.state, isA<Playing>());
         expect(h.plugin.liveRequests, hasLength(2));
+      });
+    });
+  });
+
+  group('a stream that does not open within 20 seconds', () {
+    /// 第一次開 `r1.flv` 停在載入中。
+    bool Function(Uri url) stallsFirstOpen() {
+      var stalled = false;
+      return (url) => url.path == '/r1.flv' && !stalled && (stalled = true);
+    }
+
+    test('is reconnected like a stream that cannot be opened', () {
+      fakeAsync((async) {
+        final h = _harness(async, stallsOnOpen: stallsFirstOpen());
+        unawaited(h.controller.playLive(_target));
+        h.elapse(const Duration(seconds: 19, milliseconds: 900));
+        expect(h.controller.state, isA<Loading>());
+        expect(h.plugin.liveStatusQueries, isEmpty);
+
+        h.elapse(const Duration(milliseconds: 200));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        expect(h.plugin.liveStatusQueries, hasLength(1));
+        final state = h.controller.state as Retrying;
+        expect((state.attempt, state.delay), (1, const Duration(seconds: 1)));
+
+        h.elapse(const Duration(seconds: 1, milliseconds: 100));
+        expect(h.plugin.liveRequests, hasLength(2));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.live?.phase, LivePhase.listening);
+      });
+    });
+
+    test('an engine that times out first is reconnected once, not again at '
+        '20 seconds', () {
+      fakeAsync((async) {
+        // AVPlayer 開直播流約 20 秒後自己報 -1008。
+        final h = _harness(async, stallsOnOpen: stallsFirstOpen());
+        unawaited(h.controller.playLive(_target));
+        h.elapse(const Duration(seconds: 19, milliseconds: 500));
+        h.backend.failOpening();
+        h.elapse(const Duration(seconds: 5));
+
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.plugin.liveStatusQueries, hasLength(1));
+        expect(h.plugin.liveRequests, hasLength(2));
+        expect(h.controller.state, isA<Playing>());
       });
     });
   });

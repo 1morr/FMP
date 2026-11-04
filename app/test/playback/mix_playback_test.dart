@@ -61,8 +61,8 @@ List<String> _ids(Harness h) => [
 /// 開始 Mix 之後補歌送出的請求（第一個請求是開始本身）。
 List<MixQuery> _refills(Harness h) => h.plugin.mixQueries.skip(1).toList();
 
-Harness _harness(FakeAsync async) {
-  final h = Harness(async);
+Harness _harness(FakeAsync async, {bool Function(Uri url)? stallsOnOpen}) {
+  final h = Harness(async, stallsOnOpen: stallsOnOpen);
   h.plugin.onMix = _threeBatches;
   h.returnSettings = (rememberPosition: true, rewind: Duration.zero);
   return h;
@@ -439,6 +439,38 @@ void main() {
 
         expect(h.controller.state, isA<Failed>());
         expect(h.controller.queue.currentIndex, 1);
+      });
+    });
+
+    test('a last song the engine fails to open, skipped while the refill '
+        'runs, is not timed out on top', () {
+      fakeAsync((async) {
+        final pending = Completer<MixBatch>();
+        final h = _harness(async, stallsOnOpen: (url) => url.path == '/a2.m4a');
+        h.plugin.onMix = (query) => switch (query) {
+          MixSeedQuery(:final sourceId) when sourceId == 'seed' => _batch([
+            'a1',
+            'a2',
+          ], cursor: 'c2'),
+          _ => pending.future,
+        };
+        unawaited(h.controller.startMix(track('seed')));
+        h.elapse(const Duration(milliseconds: 100));
+        unawaited(h.controller.jumpTo(1));
+
+        // 引擎在 20 秒內自己報開不起來（5xx 只換候選，沒有別的候選就跳過）；跳過
+        // 等補歌，等的時候還是同一代、還在載入。
+        h.elapse(const Duration(seconds: 19));
+        h.backend.failOpening(httpStatus: 500);
+        h.elapse(const Duration(seconds: 5));
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.logged('Playback recovery'), hasLength(1));
+
+        pending.complete(_batch(['a3'], cursor: 'c3'));
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.events, [isA<TrackSkipped>()]);
+        expect(h.controller.queue.currentIndex, 2);
+        expect(h.openedPaths, ['/a1.m4a', '/a2.m4a', '/a3.m4a']);
       });
     });
 

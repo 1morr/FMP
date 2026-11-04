@@ -148,7 +148,8 @@ final class FakeAudioBackend implements AudioBackend {
   Future<void> play() async {
     if (current == null) return;
     _playing = true;
-    _emitStatus(BackendPhase.ready);
+    // 還在載入（[stallsOnOpen]）的來源按播放、暫停不會因此載入好。
+    _emitStatus(_loaded ? BackendPhase.ready : BackendPhase.buffering);
     _schedule();
   }
 
@@ -156,7 +157,9 @@ final class FakeAudioBackend implements AudioBackend {
   Future<void> pause() async {
     _playing = false;
     _ticker?.cancel();
-    if (current != null) _emitStatus(BackendPhase.ready);
+    if (current != null) {
+      _emitStatus(_loaded ? BackendPhase.ready : BackendPhase.buffering);
+    }
   }
 
   @override
@@ -234,6 +237,31 @@ final class FakeAudioBackend implements AudioBackend {
   void failOutputDevice() {
     _ticker?.cancel();
     _events.add(const OutputDeviceFailed(cause: 'ao: no device'));
+  }
+
+  /// [stallsOnOpen] 停住的目前來源終於載入好（引擎很慢才回應）。
+  void finishOpening() {
+    if (current == null || _loaded) return;
+    _loaded = true;
+    _emitStatus(BackendPhase.ready);
+    if (_playing) _emitProgress();
+    _schedule();
+  }
+
+  /// [stallsOnOpen] 停住的目前來源開不起來（引擎自己的逾時，例如 AVPlayer 的
+  /// `-1008`）；[httpStatus] 是被 HTTP 拒絕時的狀態碼（mpv）。
+  void failOpening({int? httpStatus}) {
+    final source = current;
+    if (source == null || _loaded) return;
+    _playing = false;
+    _events.add(
+      SourceFailed(
+        id: source.id,
+        failure: BackendFailure.open,
+        cause: 'timed out',
+        httpStatus: httpStatus,
+      ),
+    );
   }
 
   /// 目前的來源中途停下等資料（緩衝），到 [resume] 為止。

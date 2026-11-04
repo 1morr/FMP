@@ -26,8 +26,9 @@ final class PreviewOnly extends PlaybackFailure {
   const PreviewOnly();
 }
 
-/// 後端開不起來或解碼失敗。[httpStatus] 是開流被 HTTP 拒絕時的狀態碼，只有
-/// mpv 拿得到（`SourceFailed.httpStatus`）；Android 一律是 `null`。
+/// 後端開不起來或解碼失敗，或交給後端後 [streamOpenTimeout] 還沒載入好（開流
+/// 逾時，`null` 狀態碼）。[httpStatus] 是開流被 HTTP 拒絕時的狀態碼，只有 mpv
+/// 拿得到（`SourceFailed.httpStatus`）；Android 一律是 `null`。
 final class StreamUnopenable extends PlaybackFailure {
   const StreamUnopenable({this.httpStatus});
 
@@ -131,6 +132,10 @@ const maxConsecutiveSkips = 10;
 
 /// 中途緩衝多久算緩衝飢餓。
 const bufferingStallTimeout = Duration(seconds: 15);
+
+/// 交給後端開流後多久還沒載入好算開不起來（開流逾時，ADR 0018 §決定 7 的
+/// 修訂，擁有者 2026-11-04）。
+const streamOpenTimeout = Duration(seconds: 20);
 
 /// 一首正常播放（位置前進）累計這麼久，重試計數歸零。
 const retryResetAfter = Duration(seconds: 10);

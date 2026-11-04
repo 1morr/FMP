@@ -43,6 +43,7 @@ final class Harness {
     Duration trackLength = const Duration(seconds: 2),
     bool Function(Uri url)? failsToOpen,
     int? Function(Uri url)? httpStatusOf,
+    bool Function(Uri url)? stallsOnOpen,
     FakeOutputDevices? outputDevices,
   }) : plugin = FakeSourcePlugin(
          respond ?? (request) => [candidate('${request.sourceId}.m4a')],
@@ -56,6 +57,7 @@ final class Harness {
          durationOf: (_) => trackLength,
          failsToOpen: failsToOpen ?? (_) => false,
          httpStatusOf: httpStatusOf ?? (_) => null,
+         stallsOnOpen: stallsOnOpen ?? (_) => false,
          outputDevices: outputDevices,
        ) {
     controller = PlaybackController(
@@ -1496,6 +1498,254 @@ void main() {
           h.controller.state,
           isA<Retrying>().having((s) => s.waitingForNetwork, 'waiting', true),
         );
+      });
+    });
+  });
+
+  group('recovery: a stream that does not open within 20 seconds', () {
+    /// 前 [times] 次開 [path] 停在載入中（AVPlayer 的項目不報好也不報錯）。
+    bool Function(Uri url) stallsFirst(String path, {int times = 1}) {
+      var left = times;
+      return (url) => url.path == path && left-- > 0;
+    }
+
+    test('a source that becomes ready within 20 seconds plays on', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          stallsOnOpen: stallsFirst('/a.m4a'),
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 19, milliseconds: 900));
+        expect(h.controller.state, isA<Loading>());
+
+        h.backend.finishOpening();
+        h.elapse(const Duration(minutes: 1));
+
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.controller.state, isA<Playing>());
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.openedPaths, ['/a.m4a']);
+      });
+    });
+
+    test('after 20 seconds it is resolved again once, then skipped', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          stallsOnOpen: (url) => url.path == '/a.m4a',
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 19, milliseconds: 900));
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.plugin.resolvedCount('a'), 1);
+
+        // 第一次逾時：照沒有狀態碼的開流失敗，作廢網址、重新解析一次。
+        h.elapse(const Duration(milliseconds: 200));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        expect(
+          h.logged('Stream open timed out').single.fields,
+          containsPair('seconds', 20),
+        );
+        expect(
+          h.logged('Playback recovery').single.fields,
+          allOf(
+            containsPair('failure', 'open'),
+            containsPair('action', 'reResolve'),
+          ),
+        );
+        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+        expect(h.controller.state, isA<Loading>());
+
+        // 重開的那次也從開流起算 20 秒：只有一個候選，跳過。
+        h.elapse(const Duration(seconds: 19, milliseconds: 800));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        h.elapse(const Duration(milliseconds: 200));
+        expect(h.logged('Stream open timed out'), hasLength(2));
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.state, isA<Playing>());
+        expect(
+          h.events.single,
+          isA<TrackSkipped>()
+              .having((e) => e.track, 'track', track('a'))
+              .having((e) => e.error, 'error', isA<Unsupported>()),
+        );
+
+        // b 正常播放，之後不再逾時。
+        h.elapse(const Duration(minutes: 1));
+        expect(h.logged('Stream open timed out'), hasLength(2));
+      });
+    });
+
+    test('after resolving again it switches to the next candidate', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          respond: (request) => [
+            candidate('${request.sourceId}.m4a'),
+            candidate('${request.sourceId}-alt.m4a'),
+          ],
+          stallsOnOpen: (url) => url.path == '/a.m4a',
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 40, milliseconds: 100));
+
+        expect(h.openedPaths, ['/a.m4a', '/a.m4a', '/a-alt.m4a']);
+        expect(h.controller.queue.currentIndex, 0);
+        expect(h.controller.state, isA<Playing>());
+        expect(h.events, isEmpty);
+      });
+    });
+
+    test('the time spent resolving does not count', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          respond: (request) async {
+            await Future<void>.delayed(const Duration(seconds: 15));
+            return [candidate('${request.sourceId}.m4a')];
+          },
+          stallsOnOpen: stallsFirst('/a.m4a'),
+        );
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 15, milliseconds: 100));
+        expect(h.openedPaths, ['/a.m4a']);
+
+        // 開流 10 秒後（要求後 25 秒）才載入好：沒逾時。
+        h.elapse(const Duration(seconds: 10));
+        h.backend.finishOpening();
+        h.elapse(const Duration(minutes: 1));
+
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.controller.state, isA<Playing>());
+        expect(h.plugin.resolvedCount('a'), 1);
+      });
+    });
+
+    test('changing songs while it opens leaves the old timer behind', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          stallsOnOpen: (url) => url.path == '/a.m4a' || url.path == '/b.m4a',
+        );
+        unawaited(h.playQueue([track('a'), track('b'), track('c')]));
+        h.elapse(const Duration(seconds: 15));
+
+        unawaited(h.controller.next());
+        // a 開流後 20 秒：計時器是 b 的，還沒到。
+        h.elapse(const Duration(seconds: 5, milliseconds: 100));
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.plugin.resolvedCount('b'), 1);
+        expect(h.controller.queue.currentIndex, 1);
+
+        // b 開流後 20 秒。
+        h.elapse(const Duration(seconds: 14, milliseconds: 900));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        expect(
+          h.logged('Stream open timed out').single.fields,
+          containsPair('track', 'fmp-test:b'),
+        );
+        expect(h.plugin.resolvedCount('a'), 1);
+        expect(h.plugin.resolvedCount('b'), 2);
+      });
+    });
+
+    test('pausing while it opens still times out and reopens paused', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          stallsOnOpen: stallsFirst('/a.m4a'),
+        );
+        unawaited(h.playQueue([track('a')]));
+        h.elapse(const Duration(seconds: 5));
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(seconds: 1));
+        // 引擎沒回應，暫停也不會讓它載入好。
+        expect(h.controller.state, isA<Loading>());
+
+        h.elapse(const Duration(seconds: 14, milliseconds: 100));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+        expect(h.controller.state, isA<Paused>());
+        expect(h.backend.playing, isFalse);
+      });
+    });
+
+    test('a source opened paused that becomes ready is not timed out', () {
+      fakeAsync((async) {
+        final h = Harness(async, trackLength: const Duration(minutes: 5));
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 1));
+        unawaited(h.controller.pause());
+        h.elapse(const Duration(milliseconds: 100));
+
+        unawaited(h.controller.next());
+        h.elapse(const Duration(minutes: 1));
+
+        expect(h.controller.queue.currentIndex, 1);
+        expect(h.controller.state, isA<Paused>());
+        expect(h.logged('Stream open timed out'), isEmpty);
+      });
+    });
+
+    test('offline it waits for the network instead, then opens again', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          stallsOnOpen: stallsFirst('/a.m4a'),
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 5));
+        h.setNetwork(NetworkStatus.noInterface);
+
+        h.elapse(const Duration(seconds: 15, milliseconds: 100));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        expect(
+          h.controller.state,
+          isA<Retrying>().having((s) => s.waitingForNetwork, 'waiting', true),
+        );
+        expect(h.backend.current, isNull);
+        expect(h.events, isEmpty);
+
+        // 等網路不計時：多久都不再逾時、不跳過。
+        h.elapse(const Duration(minutes: 2));
+        expect(h.logged('Stream open timed out'), hasLength(1));
+        expect(h.controller.queue.currentIndex, 0);
+
+        h.setNetwork(NetworkStatus.online);
+        h.elapse(const Duration(milliseconds: 100));
+        expect(h.controller.state, isA<Playing>());
+        expect(h.controller.queue.currentIndex, 0);
+        expect(h.openedPaths, ['/a.m4a', '/a.m4a']);
+      });
+    });
+
+    test('an engine that fails first is recovered once, not again at '
+        '20 seconds', () {
+      fakeAsync((async) {
+        final h = Harness(
+          async,
+          trackLength: const Duration(minutes: 5),
+          stallsOnOpen: stallsFirst('/a.m4a'),
+        );
+        unawaited(h.playQueue([track('a'), track('b')]));
+        h.elapse(const Duration(seconds: 19, milliseconds: 500));
+        h.backend.failOpening();
+        h.elapse(const Duration(seconds: 1));
+
+        expect(h.logged('Stream open timed out'), isEmpty);
+        expect(h.logged('Playback recovery'), hasLength(1));
+        expect(h.plugin.resolvedCount('a'), 2);
+        expect(h.controller.state, isA<Playing>());
       });
     });
   });

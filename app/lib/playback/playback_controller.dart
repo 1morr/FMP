@@ -70,7 +70,8 @@ typedef OutputDeviceState = ({
 /// 失敗由 [decideRecovery] 決定怎麼辦（ADR 0018 §決定 7、design §7.5）；計數
 /// （重試、重新解析、換候選、連續跳過）只在這裡改。網路狀態不是 `online` 時停在
 /// 這首等網路，回到 `online` 立刻從原位置重試（design §5.3）。緩衝飢餓以一次性
-/// 計時器量，進 [Buffering] 開、離開取消；重試計數以位置前進累計
+/// 計時器量，進 [Buffering] 開、離開取消；開流逾時（[streamOpenTimeout]）也是，
+/// 交給後端開流時開、離開 [Loading] 或換一代就作廢；重試計數以位置前進累計
 /// [retryResetAfter] 後歸零，不開計時器。
 final class PlaybackController {
   /// [session] 由控制器擁有，[dispose] 時一起釋放。[temporaryReturnSettings]
@@ -170,6 +171,9 @@ final class PlaybackController {
 
   /// 緩衝飢餓的計時：進 [Buffering] 開，離開取消。
   Timer? _stallTimer;
+
+  /// 開流逾時的計時：交給後端開流時開（[_watchOpen]），離開 [Loading] 取消。
+  Timer? _openTimer;
 
   /// 這次開流以來在 [Playing] 中前進的位置（重試計數歸零用）與上一次的位置。
   Duration _playedSinceLoad = Duration.zero;
@@ -763,6 +767,7 @@ final class PlaybackController {
     _disposed = true;
     _cancelRetry();
     _stallTimer?.cancel();
+    _openTimer?.cancel();
     _unregisterLiveInfo();
     await _outputDeviceLists?.cancel();
     // dispose 的同步部分先換一代：還在進行的解析回來時不再開流或設定前瞻。
@@ -958,7 +963,13 @@ final class PlaybackController {
       _setPreview(null);
     }
     // 解析期間的 seek 記在 _resumeAt。
-    await _session.open(stream, position: _resumeAt, play: _playWhenReady);
+    final opening = _session.open(
+      stream,
+      position: _resumeAt,
+      play: _playWhenReady,
+    );
+    _watchOpen();
+    await opening;
   }
 
   // ---- 後端回報 -------------------------------------------------------------
@@ -1107,9 +1118,15 @@ final class PlaybackController {
     PlaybackFailure failure,
     AppError error,
     Duration position,
-  ) => _queue.state.mode == QueueMode.live
-      ? _recoverLive(failure, error)
-      : _apply(_decide(failure, error), error, position);
+  ) {
+    // 這次開流已經失敗並交給恢復：恢復還在等（例如跳過前等 Mix 補歌）、代沒變
+    // 時，開流逾時不再恢復第二次。
+    _openTimer?.cancel();
+    _openTimer = null;
+    return _queue.state.mode == QueueMode.live
+        ? _recoverLive(failure, error)
+        : _apply(_decide(failure, error), error, position);
+  }
 
   /// 以目前的計數、網路狀態與設定問 [decideRecovery]，記一筆 log。
   RecoveryAction _decide(PlaybackFailure failure, AppError error) {
@@ -1190,10 +1207,13 @@ final class PlaybackController {
         await _load(position: position);
       case TryNextCandidate():
         _candidateSwitched = true;
-        await _session.openNextCandidate(
+        // 換候選換了一代：計時器在這之後開才是新候選的。
+        final opening = _session.openNextCandidate(
           position: position,
           play: _playWhenReady,
         );
+        _watchOpen();
+        await opening;
       case PlayAsPreview():
         // 只有 _load 遇到試聽片段時會得到它，照播在那裡。
         return;
@@ -1351,6 +1371,33 @@ final class PlaybackController {
     );
   }
 
+  /// 開流逾時（[streamOpenTimeout]）：當成沒有狀態碼的開流失敗，作廢網址、照
+  /// 路由器的 [SourceUnopenable] 交給恢復（直播是 [decideLiveRecovery]）。
+  void _onOpenTimedOut() {
+    final live = _queue.state.live?.target;
+    final pluginId = live?.pluginId ?? _queue.state.current?.sourceTypeId;
+    if (pluginId == null) return;
+    _log.warning(
+      'Stream open timed out',
+      tag: _tag,
+      fields: {
+        if (live != null)
+          'live': '${live.pluginId}:${live.roomId}'
+        else
+          'track': '${_queue.state.current?.key}',
+        'seconds': streamOpenTimeout.inSeconds,
+      },
+    );
+    _session.invalidateCurrentStream();
+    unawaited(
+      _recover(
+        const StreamUnopenable(),
+        openFailureError(pluginId, null),
+        _resumeAt,
+      ),
+    );
+  }
+
   Future<void> _stopWith(PlaybackState state) async {
     _restoredPosition = null;
     _keptRestored = null;
@@ -1381,6 +1428,10 @@ final class PlaybackController {
       _announceInterruption();
     }
     _watchBuffering(state);
+    if (state is! Loading) {
+      _openTimer?.cancel();
+      _openTimer = null;
+    }
     _log.debug(
       'Playback state',
       tag: _tag,
@@ -1413,6 +1464,20 @@ final class PlaybackController {
       _stallTimer = null;
       if (generation == _session.generation && _state is Buffering) {
         _onBufferingStalled();
+      }
+    });
+  }
+
+  /// 來源剛交給後端：開流逾時的計時從這裡起算（解析的時間不算），取代上一個。
+  /// 到期時還是同一代、仍在 [Loading]（沒有第一次 [MarkReady]，暫停中載入好也
+  /// 算載入好）才算逾時；引擎先報錯時恢復已經換了一代或離開 [Loading]。
+  void _watchOpen() {
+    _openTimer?.cancel();
+    final generation = _session.generation;
+    _openTimer = Timer(streamOpenTimeout, () {
+      _openTimer = null;
+      if (generation == _session.generation && _state is Loading) {
+        _onOpenTimedOut();
       }
     });
   }
@@ -1553,7 +1618,13 @@ final class PlaybackController {
       return _recoverLive(ResolveFailed(error), error);
     }
     if (generation != _session.generation) return;
-    await _session.open(stream, position: Duration.zero, play: _playWhenReady);
+    final opening = _session.open(
+      stream,
+      position: Duration.zero,
+      play: _playWhenReady,
+    );
+    _watchOpen();
+    await opening;
   }
 
   /// 直播失敗後怎麼辦（[decideLiveRecovery]）。要重連時先問 `liveStatus`，仍在直播
