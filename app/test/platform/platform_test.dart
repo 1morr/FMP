@@ -287,12 +287,12 @@ void main() {
       expect(platform.capabilities.shortcutModifier, appleShortcutModifier);
       expect(platform.capabilities.customTitleBar, isFalse);
       expect(platform.windowChrome, isNull);
-      // 系統媒體控制宣告了，實作要等 withMediaControls；登入 WebView（PR 7）還沒接。
+      // 系統媒體控制宣告了，實作要等 withMediaControls。
       expect(platform.capabilities.mediaControls?.supportsSeek, isTrue);
       expect(platform.capabilities.mediaControls?.positionRefresh, isNull);
       expect(platform.mediaControls, isNull);
-      expect(platform.capabilities.loginWebView, isFalse);
-      expect(platform.loginWebView, isNull);
+      expect(platform.capabilities.loginWebView, isTrue);
+      expect(platform.loginWebView, isA<InAppLoginWebView>());
     });
 
     for (final unverified in [TargetPlatform.linux, TargetPlatform.fuchsia]) {

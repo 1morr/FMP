@@ -59,6 +59,12 @@ void main() {
     expect(webViewPlugins(dependencies, 'linux'), {_linuxStub: false});
   });
 
+  test('iOS resolves flutter_inappwebview to the real plugin', () {
+    expect(webViewPlugins(dependencies, 'ios'), {
+      'flutter_inappwebview_ios': true,
+    });
+  });
+
   test('macOS resolves flutter_inappwebview to the Dart-only stub', () {
     expect(webViewPlugins(dependencies, 'macos'), {_macosStub: false});
   });
