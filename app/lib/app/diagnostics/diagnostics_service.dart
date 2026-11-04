@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' show Rect;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -162,7 +163,9 @@ final class DiagnosticsExporter {
   ///
   /// 平台回報分享結束（[FileSharer.shareFiles] 回 `true`）就刪暫存檔；Windows 的分享視窗開了
   /// 就回傳、接收端之後才讀檔，所以不刪，留給下一次分享前的清理與啟動維護。
-  Future<void> share(DiagnosticsBundle bundle) async {
+  ///
+  /// [origin] 是分享按鈕在螢幕上的位置，給 iPad 的分享表當錨點（[FileSharer.shareFiles]）。
+  Future<void> share(DiagnosticsBundle bundle, {Rect? origin}) async {
     if (await tempDirectory.exists()) {
       await tempDirectory.delete(recursive: true);
     }
@@ -170,9 +173,11 @@ final class DiagnosticsExporter {
     final file = File(p.join(tempDirectory.path, bundle.fileName));
     await file.writeAsBytes(bundle.bytes, flush: true);
     try {
-      final finished = await fileSharer!.shareFiles([
-        file.path,
-      ], mimeType: diagnosticsMimeType);
+      final finished = await fileSharer!.shareFiles(
+        [file.path],
+        mimeType: diagnosticsMimeType,
+        origin: origin,
+      );
       if (finished) await _delete(file);
     } on Object {
       await _delete(file);

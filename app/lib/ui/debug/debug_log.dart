@@ -153,29 +153,33 @@ class _DebugLogState extends ConsumerState<DebugLog> {
                 onPressed: () => unawaited(_copy(shown)),
               ),
               if (hasFile && (capabilities.files || capabilities.shareFiles))
-                PopupMenuButton<ExportAction>(
-                  icon: const Icon(Icons.ios_share),
-                  tooltip: t.logExport,
-                  onSelected: (action) => unawaited(
-                    exportBundle(
-                      context,
-                      ref,
-                      kind: ExportKind.logs,
-                      action: action,
+                // Builder：錨點要取這顆按鈕自己的位置（選單關閉後它還在）。
+                Builder(
+                  builder: (buttonContext) => PopupMenuButton<ExportAction>(
+                    icon: const Icon(Icons.ios_share),
+                    tooltip: t.logExport,
+                    onSelected: (action) => unawaited(
+                      exportBundle(
+                        context,
+                        ref,
+                        kind: ExportKind.logs,
+                        action: action,
+                        origin: shareOriginOf(buttonContext),
+                      ),
                     ),
+                    itemBuilder: (_) => [
+                      if (capabilities.files)
+                        PopupMenuItem(
+                          value: ExportAction.save,
+                          child: Text(t.logExportSave),
+                        ),
+                      if (capabilities.shareFiles)
+                        PopupMenuItem(
+                          value: ExportAction.share,
+                          child: Text(t.logExportShare),
+                        ),
+                    ],
                   ),
-                  itemBuilder: (_) => [
-                    if (capabilities.files)
-                      PopupMenuItem(
-                        value: ExportAction.save,
-                        child: Text(t.logExportSave),
-                      ),
-                    if (capabilities.shareFiles)
-                      PopupMenuItem(
-                        value: ExportAction.share,
-                        child: Text(t.logExportShare),
-                      ),
-                  ],
                 ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),

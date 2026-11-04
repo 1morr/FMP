@@ -10,6 +10,7 @@ import 'package:fmp/playback/playback_state.dart';
 import 'package:fmp/playback/queue_model.dart';
 import 'package:fmp/plugins/source_dto.dart';
 import 'package:fmp/ui/offline/offline.dart';
+import 'package:fmp/ui/search/search_page.dart' as search_ui;
 import 'package:fmp/ui/search/search_state.dart';
 import 'package:fmp/ui/player/player_bar.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
@@ -27,6 +28,29 @@ void main() {
     await tester.pump();
     await tester.pump();
   }
+
+  // iPhone 橫向開著鍵盤時，頁面只剩約 175dp 高：頂部（搜尋框、音源篩選、模式切換）比它高，
+  // 以前會 overflow（debug 的黃黑條）。現在頂部自己捲動，結果列仍佔得到一塊。
+  testWidgets('the header scrolls instead of overflowing in a short window', (
+    tester,
+  ) async {
+    final h = ShellHarness(live: true);
+    // 外殼自己（側欄）在這麼矮時也會 overflow，這裡只看搜尋頁，所以單獨放進視窗。
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await h.pumpApp(
+      tester,
+      Scaffold(
+        body: search_ui.SearchPage(fieldFocusNode: focus, onOpenPlugins: () {}),
+      ),
+      size: const Size(852, 175),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(tester.takeException(), isNull);
+    // 頂部在自己的捲動區裡，搜尋框仍在。
+    expect(find.byType(TextField), findsOneWidget);
+  });
 
   group('states', () {
     testWidgets('before searching, while loading, with no results', (

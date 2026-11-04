@@ -1,3 +1,5 @@
+import 'dart:ui' show Rect;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/platform/share/share_plus_file_sharer.dart';
 import 'package:share_plus/share_plus.dart';
@@ -24,6 +26,21 @@ void main() {
     expect([for (final file in files) file.path], ['/a/one.zip', '/a/two.zip']);
     expect({for (final file in files) file.mimeType}, {'application/zip'});
     expect(calls.single.text, isNull);
+  });
+
+  test('hands the anchor to the share window (iPad popover)', () async {
+    final sharer = sharerReporting(ShareResultStatus.success);
+    const anchor = Rect.fromLTWH(10, 20, 30, 40);
+
+    await sharer.shareFiles(['/a.zip'], mimeType: 'application/zip');
+    await sharer.shareFiles(
+      ['/a.zip'],
+      mimeType: 'application/zip',
+      origin: anchor,
+    );
+
+    expect(calls[0].sharePositionOrigin, isNull);
+    expect(calls[1].sharePositionOrigin, anchor);
   });
 
   test('is finished when the platform reports an outcome', () async {

@@ -19,6 +19,14 @@ enum ExportKind { diagnostics, logs }
 /// 匯出到哪裡：存成檔案（桌面的存檔對話框、Android 的 SAF），或系統的分享視窗。
 enum ExportAction { save, share }
 
+/// [context] 的元件在螢幕上的全域位置，給系統分享表當錨點（iPad 的 popover，share_plus
+/// README 的寫法）。要在任何 `await` 之前、用按鈕自己的 context 呼叫；元件還沒排版時回 `null`。
+Rect? shareOriginOf(BuildContext context) {
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+  return box.localToGlobal(Offset.zero) & box.size;
+}
+
 /// 把純文字摘要複製到剪貼簿（「複製」）。複製不開對話框、不寫檔，所以沒有「送出前請檢查」。
 Future<void> copyDiagnosticsSummary(WidgetRef ref) async {
   final t = ref.read(translationsProvider).debug;
@@ -38,6 +46,8 @@ Future<void> copyDiagnosticsSummary(WidgetRef ref) async {
   }
 }
 
+/// [origin] 是分享按鈕的位置（[shareOriginOf]），只有分享用到。
+///
 /// 匯出 [kind]：第一次先提醒「送出前請檢查」（與 GitHub 回報共用「不再提醒」），再組裝並存檔
 /// 或分享。存檔時使用者取消不提示；失敗經 `toaster.error` 進錯誤歷史並顯示原因。
 Future<void> exportBundle(
@@ -45,6 +55,7 @@ Future<void> exportBundle(
   WidgetRef ref, {
   required ExportKind kind,
   required ExportAction action,
+  Rect? origin,
 }) async {
   final t = ref.read(translationsProvider).debug;
   final toaster = ref.read(toasterProvider);
@@ -65,7 +76,7 @@ Future<void> exportBundle(
         if (!await exporter.save(bundle)) return;
         toaster.success(t.exportSaved);
       case ExportAction.share:
-        await exporter.share(bundle);
+        await exporter.share(bundle, origin: origin);
     }
     log.info(
       'Exported a diagnostics file',

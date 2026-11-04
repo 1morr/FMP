@@ -18,7 +18,7 @@ iOS 平台任務（ADR 0037）的驗證。只用 dev（`com.personal.fmp.dev`，
 - 跑過 `flutter test integration_test/…` 之後，`build/ios/iphonesimulator/Runner.app` 是測試用的建置，直接裝
   會是空白畫面：要手動操作時重跑上面的 `flutter build`。整合測試一次一個檔：
   `flutter test integration_test/<檔>.dart -d <UDID> --flavor dev`（`secure_storage_test.dart` 只在本機跑，CI 不跑）。
-- 收尾：`xcrun simctl terminate`、`xcrun simctl shutdown <UDID>`、`orca emulator kill`。
+- 收尾：`xcrun simctl terminate`、`xcrun simctl shutdown <UDID>`。不要用 `orca emulator kill`：它不分裝置，同時有別的人在用模擬器時會一起關掉。
 
 ## 資料、log
 
@@ -56,6 +56,17 @@ xcrun simctl install <UDID> build/ios/iphonesimulator/Runner.app
 - 重設資料（設定 → Debug → 重設資料）：對話框寫「App 會關閉，請自己重新開啟」，確認後行程消失
   （`xcrun simctl spawn <UDID> launchctl list | grep fmp.dev` 沒有結果），再開時資料是空的。
 - 深淺色：`xcrun simctl ui <UDID> appearance dark|light`。
+- 旋轉：`orca emulator rotate landscape_left|portrait`；旋轉後 `orca emulator tap` 的座標仍是目前畫面的 0..1。鍵盤開著時點空白處
+  不會收，點鍵盤右上角的收合鈕，或 `xcrun simctl terminate` 後重開（橫向加鍵盤時搜尋頁頂部只剩約 100pt，會有 overflow 條）。
+- iPad：機型選 13 吋或 11 吋都行；直向是窄側欄（medium），橫向的設定頁是左右兩欄。診斷包的「分享」（設定 → Debug → 概覽 → 分享 →
+  送出前提醒按「繼續」）在 iPad 是 popover，箭頭要指著「分享」鈕（`origin`，ADR 0037 §決定 14）；點空白處關掉。
+- 分割畫面與台前調度：`simctl` 與 `orca emulator` 都不能叫出，要在 Simulator 視窗手動拖（iPad 的 Dock 拖出第二個 App）；
+  做不到時在回報裡寫「沒驗」，版面跟寬度換由 `WindowClass` 的 widget 測試守。
+- 外接鍵盤的 ⌘ 快捷鍵：Simulator 選單 I/O → Keyboard → Connect Hardware Keyboard，再在視窗內按；`orca emulator type` 不送修飾鍵。
+- 圖示：`xcrun simctl terminate <UDID> com.personal.fmp.dev` 後截主畫面（App 的圖示與名稱 `FMP Dev` 在最後一頁）。
+- 啟動畫面不閃白：`xcrun simctl ui <UDID> appearance dark`，terminate、launch 之後連續 `xcrun simctl io <UDID> screenshot`
+  多張，讀 `LaunchScreen` 那幾張的像素（深色是 `systemBackgroundColor` 的純黑，不是白）。裝置在連拍中途被別的流程關掉時
+  `screenshot` 會報 `Timeout waiting for screen surfaces`，重新 `boot`。
 
 ## 回報
 

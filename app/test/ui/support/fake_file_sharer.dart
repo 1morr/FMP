@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' show Rect;
 
 import 'package:fmp/platform/share/share.dart';
 
@@ -11,11 +12,16 @@ final class FakeFileSharer implements FileSharer {
   Object? error;
   final shared = <({String path, List<int> bytes, String mimeType})>[];
 
+  /// 每次分享收到的 `origin`（iPad 分享表的錨點）。
+  final origins = <Rect?>[];
+
   @override
   Future<bool> shareFiles(
     List<String> paths, {
     required String mimeType,
+    Rect? origin,
   }) async {
+    origins.add(origin);
     for (final path in paths) {
       shared.add((
         path: path,

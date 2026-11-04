@@ -360,6 +360,32 @@ void main() {
       expect(File(shared.path).existsSync(), isFalse);
     });
 
+    testWidgets('anchors the share sheet on the Share button', (tester) async {
+      final h = await open(tester);
+      await tester.runAsync(
+        () => h
+            .container(tester)
+            .read(developerSettingsRepositoryProvider)
+            .write(reportReminderDismissed: true),
+      );
+      await h.loadSettings(tester);
+
+      await tapAndSettle(
+        tester,
+        find.text('Share'),
+        until: () => sharer.shared.isNotEmpty,
+      );
+
+      // 點擊時頁面可能先捲到按鈕可見；比的是按下之後按鈕所在的位置。
+      final button = tester.getRect(
+        find.ancestor(
+          of: find.text('Share'),
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      expect(sharer.origins.single, button);
+    });
+
     testWidgets('a share window that cannot open is reported and cleaned', (
       tester,
     ) async {
