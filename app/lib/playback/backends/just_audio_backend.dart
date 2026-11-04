@@ -87,6 +87,13 @@ final class JustAudioBackend implements AudioBackend {
   int _editing = 0;
   Future<void> _edits = Future.value();
 
+  /// 最近一次 [open] 的來源被換掉（下一次 [open] 或 [stop]）時完成。
+  Completer<void> _loadReplaced = Completer<void>();
+
+  /// 引擎還沒回應的那次載入（`setAudioSources`）；被換掉時還沒回應的話，下一次
+  /// 載入前先 `stop`（見 [_replaceLoad]）。
+  Future<void>? _pendingLoad;
+
   @override
   Stream<BackendStatus> get status => _status.stream;
 
@@ -106,14 +113,28 @@ final class JustAudioBackend implements AudioBackend {
     _nextId = null;
     _wantPlaying = play;
     _resetCurrent();
+    _replaceLoad();
+    final replaced = _loadReplaced.future;
     return _edit(() async {
       if (_currentId != source.id) return;
+      if (_pendingLoad != null) {
+        _pendingLoad = null;
+        await _player.stop();
+        if (_currentId != source.id) return;
+      }
       // just_audio 的 playing 跨來源保留：要停在暫停就先暫停，否則一載入就播。
       if (!_wantPlaying) await _player.pause();
+      final loading = _pendingLoad = _player.setAudioSources([
+        _audioSource(source),
+      ], initialPosition: start);
+      unawaited(
+        loading.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
+          if (identical(_pendingLoad, loading)) _pendingLoad = null;
+        }),
+      );
       try {
-        await _player.setAudioSources([
-          _audioSource(source),
-        ], initialPosition: start);
+        // 下一次 open 或 stop 不等這次載入完（見 [_replaceLoad]）。
+        await Future.any([loading, replaced]);
       } on PlayerInterruptedException {
         // 被下一次 open 取代；新的來源自己會回報。
         return;
@@ -209,8 +230,10 @@ final class JustAudioBackend implements AudioBackend {
     _nextId = null;
     _wantPlaying = false;
     _resetCurrent();
+    _replaceLoad();
     return _edit(() async {
       if (_currentId != null) return;
+      _pendingLoad = null;
       await _player.stop();
       await _player.clearAudioSources();
     });
@@ -304,6 +327,20 @@ final class JustAudioBackend implements AudioBackend {
     _lastEvent = null;
     _pendingHandover = null;
     _ended = false;
+  }
+
+  /// 換掉正在載入的來源（[open]、[stop]）：之前那次 [open] 不再等引擎載入完，
+  /// 它的修改就此結束。AVPlayer 的項目可能一直停在載入中、不報錯也不報好
+  /// （iPhone 實機，2026-11-04）；清單的修改又是一個接一個做，等下去的話之後的
+  /// [open]、[stop] 全排在它後面，換哪首都不出聲，要重開 App。
+  ///
+  /// 被換掉時引擎還沒回應的話，下一次載入前先 `stop`（重建原生的播放器）：
+  /// just_audio 在引擎閒置後的第一次載入期間不給出平台（`_platform` 到載入完才
+  /// 完成），之後的 `setAudioSources`、`play` 都等它；`stop` 換掉它。被換掉的那次
+  /// `setAudioSources` 晚到的結果與錯誤不再看。
+  void _replaceLoad() {
+    _loadReplaced.complete();
+    _loadReplaced = Completer<void>();
   }
 
   /// 清單的修改一個接一個做：每次都依當下的清單算 [LookAheadEdit]，交接後的

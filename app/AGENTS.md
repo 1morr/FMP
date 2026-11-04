@@ -1792,6 +1792,11 @@ lint 的範圍是整個 `lib/platform/`，組裝點以外的平台層檔案、�
   `playback_controller_test.dart` 的 `a look-ahead that cannot be opened` 群組。換過去、還沒載入時前瞻被換掉的那一段時機抓不到，沒有自動閘門，review 時看。
   已知限制：ExoPlayer 給不出時長的前瞻（沒有長度資訊的串流）一直不算接上，上一首不會結束
   （`JustAudioBackend._pendingHandover` 的註解）。
+- 引擎一直載入不好、也不報錯（iPhone 實機 2026-11-04：AVPlayer 的項目停在載入中，觸發條件沒查到）：後端的清單修改
+  一個接一個做，所以換掉它的 `open`、`stop` 一呼叫就不再等它（`JustAudioBackend._replaceLoad`），否則之後換哪首都停在
+  `Opening stream`、要重開 App。控制器沒有開流逾時：停住的那首一直是 `Loading`，使用者換歌才離開（已知限制）。閘門：
+  後端契約的 `a source opened over a stalled one plays`、`…after stopping a stalled one plays`、`…after stopping a
+  stalled first source plays`（`stalled` 是整合測試的 loopback 伺服器不回應的路徑）。
 - `SourceFailed.httpStatus` 只有 Windows（mpv）拿得到：來自 ffmpeg 的 warn log `http: HTTP error 403
   Forbidden`（所以 `MediaKitBackend` 以 `MPVLogLevel.warn` 收 log，`httpStatusFromLogLine` 解析），
   mpv 只把 ffmpeg 的 log 交給行程裡第一個還活著的實例（media_kit 在 `dispose` 後 5 秒才銷毀），

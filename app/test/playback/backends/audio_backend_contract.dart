@@ -17,7 +17,8 @@ typedef DefineCase = void Function(String description, Future<void> Function());
 /// 對 [create] 建出的後端跑契約。[track] 是長 [trackLength] 的音檔，
 /// [missing] 是開不起來的網址（Dart 端就失敗，例如不存在的 asset），
 /// [forbidden] 是 HTTP 回 403 的網址（引擎開流時才失敗；整合測試的伺服器在
-/// `setUpAll` 才起來，所以在案例裡才讀）。[reportsHttpStatus]：引擎給不給得出
+/// `setUpAll` 才起來，所以在案例裡才讀），[stalled] 是 HTTP 一直不回應的網址
+/// （引擎一直停在載入中）。[reportsHttpStatus]：引擎給不給得出
 /// 狀態碼（見 `AudioBackend` 的 dartdoc）。[selectsOutputDevice]：平台宣告
 /// 能不能選輸出裝置（`PlaybackSupport.outputDeviceSelection`）。[slack] 是引擎
 /// 開流與事件延遲的餘裕。
@@ -27,6 +28,7 @@ void audioBackendContract({
   required Uri track,
   required Uri missing,
   required Uri Function() forbidden,
+  required Uri Function() stalled,
   required bool reportsHttpStatus,
   required bool selectsOutputDevice,
   required Duration trackLength,
@@ -310,6 +312,62 @@ void audioBackendContract({
       expect(recorder.progress.where((p) => p.sourceId == bad.id), isEmpty);
       await recorder.close();
     },
+  );
+
+  // 引擎一直載入不好、也不報錯的來源（iPhone 實機：AVPlayer 的項目停在載入
+  // 中）：換掉它的 open 與 stop 不等它。控制器換歌的兩條路都要：用前瞻的解析
+  // 結果時直接 open；重新解析時先 stop（`PlaybackSession.resolve`）再 open。
+  // [playingFirst]：卡住的那個換掉了一個在播的來源（引擎已經開著），否則是引擎
+  // 閒置後的第一個來源。
+  Future<void> replacesAStalledSource({
+    required bool playingFirst,
+    required bool stopFirst,
+  }) async {
+    final recorder = await record();
+    if (playingFirst) {
+      final playing = source(track);
+      await recorder.backend.open(playing);
+      await recorder.untilReady(playing.id, slack);
+    }
+    final stuck = source(stalled());
+    // 不 await：引擎不回應，這次 open 要到被換掉才結束。
+    unawaited(recorder.backend.open(stuck));
+    await Future<void>.delayed(slack ~/ 5);
+    expect(
+      recorder.statuses.where(
+        (s) => s.sourceId == stuck.id && s.phase == BackendPhase.ready,
+      ),
+      isEmpty,
+    );
+    if (stopFirst) unawaited(recorder.backend.stop());
+    final a = source(track);
+    unawaited(recorder.backend.open(a));
+
+    await recorder.until(
+      () => recorder.progress.any(
+        (p) => p.sourceId == a.id && p.progress.position > Duration.zero,
+      ),
+      slack,
+    );
+    expect(recorder.statuses.last.sourceId, a.id);
+    expect(recorder.statuses.last.playing, isTrue);
+    expect(recorder.events, isEmpty);
+    await recorder.close();
+  }
+
+  defineCase(
+    'a source opened over a stalled one plays',
+    () => replacesAStalledSource(playingFirst: true, stopFirst: false),
+  );
+
+  defineCase(
+    'a source opened after stopping a stalled one plays',
+    () => replacesAStalledSource(playingFirst: true, stopFirst: true),
+  );
+
+  defineCase(
+    'a source opened after stopping a stalled first source plays',
+    () => replacesAStalledSource(playingFirst: false, stopFirst: true),
   );
 
   defineCase('pausing before the source is ready keeps it paused', () async {
