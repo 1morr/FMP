@@ -16,7 +16,7 @@
 4. **Comments 歸屬**：票 01–11 的 Comments 與這一票 code-review 沒處理的發現，逐條分成「修掉」「延後」「不做」。延後的寫進 plan 對應里程碑那一節（還沒開工的是 plan §5.x）；不做的寫理由。
 5. **擁有者試用**：需要擁有者在場，開工時先約時間。擁有者在四個平台各搜一次、播一首。
 6. **舊版 CI**：push main 之後確認 `ci.yml` 綠燈（push 照 `AGENTS.md` 流程）。
-7. **封存**（同一個 commit）：M0 的 session 紀錄與偏差整段搬到 `docs/archive/M0.md`，逐列比對不遺失。里程碑表 M0 的備註換成封存檔的連結，加上 M1 列；plan 開頭的狀態行更新。spec 與票留在原處。progress.md 加一列這個 session 的紀錄：D 已定稿時，下一步寫 `/to-tickets docs/plan.md 拆 M1 的票`；D 還沒定稿時，寫 `等使用者：D 設計稿定稿`（plan §5.2，M1 開工前要完成）。
+7. **封存**（同一個 commit）：M0 的 session 紀錄與偏差整段搬到 `docs/archive/M0.md`，逐列比對不遺失。里程碑表 M0 的備註換成封存檔的連結，加上 M1 列；plan 開頭的狀態行更新。spec 與票留在原處。progress.md 加一列 `M1 準備` 的紀錄：D 已定稿時，下一步寫 `/to-tickets docs/plan.md 拆 M1 的票`；D 還沒定稿時，寫 `等使用者：D 設計稿定稿`（plan §5.2，M1 開工前要完成）。
 
 - [ ] 里程碑 code-review 跑完，小問題已修。
 - [ ] spec〈驗收〉每一條在 Comments 有對應的證據；缺的已補。
