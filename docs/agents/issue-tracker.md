@@ -2,7 +2,7 @@
 
 Issues and specs for this repo live as markdown files in `.scratch/`.
 
-GitHub issues on `1morr/FMP` are for outside reports only; turning one into work means writing a ticket here. Rules for writing them are in `AGENTS.md`〈Issues〉.
+GitHub issues on `1morr/FMP` are for outside reports only; turning one into work means writing a ticket here. How to write the GitHub issues themselves is in `AGENTS.md`〈Issues〉.
 
 ## Conventions
 

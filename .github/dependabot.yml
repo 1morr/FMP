@@ -14,6 +14,9 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    # The legacy app at the root is frozen and takes hotfixes only, so no
+    # version-update PRs. Security updates are not limited by this.
+    open-pull-requests-limit: 0
     # Major bumps stay ungrouped: they need their own PR because each one can
     # carry breaking changes that have to be reviewed and verified separately.
     #

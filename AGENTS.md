@@ -8,7 +8,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 - `docs/plan.md`：架構、依賴規則、測試策略；〈里程碑任務〉是路線圖，還沒開工的里程碑各有一小節，開工後縮成一行連到它的 spec；〈待決〉是定了方向、細節未定的事。
 - `docs/progress.md`：各里程碑的閱讀指引、session 紀錄、偏差與決定。每個 session 的起點與終點。
 - `.scratch/<里程碑>/spec.md`：該里程碑的目標、範圍、共同規則、驗收與票序；`issues/` 是票，執行單位，狀態在票的 `Status:` 行。
-- `GLOSSARY.md`、`docs/adr/`：名詞表與架構決定，由 `/grill-with-docs` 按需建立；命名一律用名詞表的詞。ADR 0001–0007 只描述舊版；新的 ADR 從 0038 編起（0008–0037 是上一輪重寫，留在下面的 archive tag）。
+- `GLOSSARY.md`、`docs/adr/`：名詞表與架構決定，由 `/grill-with-docs` 按需建立；命名一律用名詞表的詞。ADR 0001–0007 只描述舊版；新 ADR 的編號規則在 `docs/adr/template.md`。
 - `docs/audit/`：上一輪重寫前對舊版的審計快照，凍結。
 
 上一輪重寫（Trellis 流程、`app/`、ADR 0008–0037）封存在 tag `archive/trellis-rewrite-20261106`。它是線索，不是依據：要沿用裡面的事實或做法，先查證，經擁有者確認後寫進 brief。
