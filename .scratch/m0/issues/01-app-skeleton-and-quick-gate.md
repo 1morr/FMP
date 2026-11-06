@@ -14,6 +14,7 @@
 - [ ] `.githooks/pre-commit` 只在 staged 檔案含 `app/` 時跑 `--quick`；只改舊版或文件的 commit 不跑。啟用方式（`core.hooksPath`）寫進 `AGENTS.md`。
 - [ ] 依賴規則測試照 plan §1.3：`ui` 不碰 `data`、`plugins` 內部與平台套件；只有 `data/` import drift；只有 `platform/` import 平台套件與用 `Platform.isXxx`；Dart 端沒有音源識別碼的字面值分支。測試檔內雙向變異驗證：造違規會紅，改無關的格式或命名不會紅。
 - [ ] 零聯網：測試裡任何真實連線直接報錯（`HttpOverrides`），有測試證明；`live` tag 預設跳過。
+- [ ] 文件閘門（`--quick` 的一步）：每個 `.scratch/m<N>/issues/` 都有一張 `NN-m<N>-acceptance.md`，編號是該目錄最大的（含字母後綴的票如 `14b` 算在它之前）。雙向變異驗證：拿掉驗收票或讓別的票編號比它大會紅，改票的內文或標題不會紅。`AGENTS.md`〈Skills〉里程碑開工第 2 步那句補上「由 `check.dart` 的文件檢查守」。
 - [ ] 舊版不受影響：根目錄的 `flutter analyze`、`dart format`、`flutter test` 與 `ci.yml` 的步驟在有 `app/` 的情況下照舊通過（本機跑一遍 `ci.yml` 的指令並貼輸出）。
 - [ ] 四平台實跑，讀回畫面看到佔位首頁；Windows 經 SSH 用排程工作在桌面工作階段建置、啟動，截圖傳回 Mac。
 - [ ] `winpc` 的做法（同步工作樹、建置、啟動、截圖傳回）寫進 plan §2；brief §17 那條改成指向 plan §2。
