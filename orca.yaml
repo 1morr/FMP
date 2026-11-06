@@ -1,12 +1,5 @@
 # Orca 建立 worktree 時套用的設定：https://www.onorca.dev/docs/model/worktrees
 
-worktree:
-  sharedDirectories:
-    # Trellis 的 session 日誌被 gitignore（repo 是公開的），新 worktree 裡沒有這個
-    # 目錄，`/trellis:finish-work` 寫 journal 會失敗。共用主 checkout 那一份，
-    # 所有 worktree 記在同一處；Orca 在 Windows 上用 junction，刪 worktree 時只解連結。
-    - .trellis/workspace
-
 # codegen 沒跑完就啟動的 agent 會把 stale codegen 的 missing getter 當成原始碼的錯。
 setupAgentStartupPolicy: wait-for-setup
 
