@@ -1,7 +1,0 @@
-{"file": "docs/adr/0037-ios-platform.md", "reason": "審查實作有沒有照 iOS 的決定"}
-{"file": ".trellis/tasks/11-03-ios-platform/design.md", "reason": "審查各 PR 是否照設計、介面與對應表、測試是否補齊"}
-{"file": ".trellis/tasks/11-03-ios-platform/implement.md", "reason": "審查每個 PR 的驗收是否做到、回報有沒有平台與模式、有沒有個人資訊"}
-{"file": "app/AGENTS.md", "reason": "§ App 身分（Team ID 不進 repo、Podfile）、§ 平台層、§ 實機驗證的回報格式"}
-{"file": ".trellis/spec/app/platform/index.md", "reason": "平台層的寫法：平台判斷只在組裝點、注入、宣告與實作對得上"}
-{"file": ".trellis/spec/app/testing/index.md", "reason": "閘門的雙向變異驗證"}
-{"file": ".trellis/spec/app/playback/index.md", "reason": "中斷對應與後端契約測試"}

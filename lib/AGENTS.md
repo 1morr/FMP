@@ -1,8 +1,8 @@
 # AGENTS.md — legacy app
 
 These are the rules for the frozen old app that lives at the repo root. It
-only takes hotfixes until the cut-over PR (ADR 0008). Paths below are
-relative to the repo root.
+only takes hotfixes until the new app replaces it. Paths below are relative
+to the repo root.
 
 ## Verification
 
@@ -83,7 +83,7 @@ with a reason, delete it when it goes away.
   `test/ui/static_rules/slider_overlay_static_rule_test.dart`.
 - **Test waits** — no direct `pumpEventQueue` outside
   `test/support/pump_until.dart`: use its `pumpUntil` / `drainEventQueue`
-  (how: `.trellis/spec/legacy/testing/test-conventions.md`; #43, #55) —
+  (why and how: the dartdoc in `pump_until.dart`; #43, #55) —
   `test/support/wait_convention_static_rule_test.dart`.
 - **Static rules** — a test that reads `lib/` source is named
   `*_static_rule_test.dart` and lives in `test/support/` or

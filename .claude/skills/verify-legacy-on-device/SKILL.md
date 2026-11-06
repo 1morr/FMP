@@ -1,14 +1,14 @@
 ---
 name: verify-legacy-on-device
 description: >-
-  Legacy-app hotfixes only (the app under `app/` uses the `verify-on-device`
-  skill). Run FMP on the Android emulator or the Windows desktop build and verify a
-  change against the live app: boot the emulator, install and launch, drive the
-  UI, read Dart logs, hot reload, and inspect runtime state. Use after every
-  change to UI pages or widgets, playback controls, source result rendering, or
-  layout-affecting strings — `lib/AGENTS.md` requires an on-device check for those
-  before reporting — and whenever asked to run, screenshot, tap, type into, or
-  observe FMP on a device or emulator.
+  Legacy-app hotfixes only. Run FMP on the Android emulator or the Windows
+  desktop build and verify a change against the live app: boot the emulator,
+  install and launch, drive the UI, read Dart logs, hot reload, and inspect
+  runtime state. Use after every change to UI pages or widgets, playback
+  controls, source result rendering, or layout-affecting strings —
+  `lib/AGENTS.md` requires an on-device check for those before reporting — and
+  whenever asked to run, screenshot, tap, type into, or observe FMP on a device
+  or emulator.
 ---
 
 # Verify on Device

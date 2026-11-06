@@ -80,16 +80,11 @@ secrets.json
 /test/.test_coverage.dart
 
 # Local agent/tool state
-# Track shared agent skills and the Trellis wiring (hooks, subagents,
-# commands, settings.json); settings.local.json and the rest stay local.
+# Track shared agent skills and settings.json; settings.local.json and the
+# rest stay local.
 /.claude/*
 !/.claude/skills/
-!/.claude/agents/
-!/.claude/commands/
-!/.claude/hooks/
 !/.claude/settings.json
-# Trellis session journals stay local: the repo is public.
-/.trellis/workspace/
 /.codex/
 /.gstack/
 /.agents/
@@ -107,6 +102,3 @@ secrets.json
 /fmp-v*-android-*.apk
 /fmp-v*-windows.zip
 /fmp-v*-windows-installer.exe
-
-# Local audit scratch space (not version controlled)
-/.scratch/

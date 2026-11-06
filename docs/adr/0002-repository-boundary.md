@@ -1,6 +1,6 @@
 # 0002 — Isar 只出現在 repository 層
 
-> 只適用根目錄舊專案；新專案（`app/`）見 [ADR 0010](0010-drift-data-layer-and-legacy-import.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+> 只適用根目錄的舊版；新版的決定另寫新的 ADR。
 
 - 狀態：已採納
 - 日期：2026-09-04
