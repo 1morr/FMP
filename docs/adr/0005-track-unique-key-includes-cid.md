@@ -1,6 +1,6 @@
 # 0005 — 曲目識別鍵包含 Bilibili 的 cid
 
-> 只適用根目錄舊專案；新專案（`app/`）沿用同一格式，見 [ADR 0010](0010-drift-data-layer-and-legacy-import.md)、[ADR 0019](0019-library-and-sync.md)。本檔在切換 PR 隨舊專案刪除（ADR 0008）。
+> 只適用根目錄的舊版；新版的決定另寫新的 ADR。
 
 - 狀態：已採納
 - 日期：2026-09-24

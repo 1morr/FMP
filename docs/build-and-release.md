@@ -181,24 +181,14 @@ git push origin v1.2.0
 
 ### CI 流程
 
-一般驗證由 `.github/workflows/ci.yml` 負責。`changes` job 依變動路徑分流兩個專案
-（ADR 0015 §決定 9）：`app/**` 與 `.github/**` 跑新專案的 `app`，`app/` 以外有任何
-變動（含純文件）跑舊專案的三個 job，手動觸發全跑。最後的 `CI Result` 彙總所有 job：
-被跳過的算通過，失敗或取消的算失敗。
+一般驗證由 `.github/workflows/ci.yml` 負責，每次都跑下面三個 job。最後的 `CI Result`
+彙總所有 job：失敗或取消的算失敗。
 
 ```text
 pull_request / main push / workflow_dispatch
        │
        ▼
 CI
-       │
-       ├─ changes (ubuntu) ── dorny/paths-filter：app／legacy
-       │
-       ├─ app (ubuntu，app/ 內，Flutter 3.47.5)
-       │   ├─ flutter pub get
-       │   ├─ dart format --output=none --set-exit-if-changed .
-       │   ├─ flutter analyze
-       │   └─ flutter test
        │
        ├─ validate (ubuntu)
        │   ├─ flutter pub get
