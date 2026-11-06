@@ -8,8 +8,7 @@
 ## 怎麼讀
 
 1. 先看下面的「一頁摘要」。
-2. 再打開 [`questions.md`](questions.md) 勾選決策；每一項都附了指向細節文件的證據。
-3. 需要細節時查對應文件。
+2. 需要細節時查對應文件。上一輪的勾選清單 `questions.md` 已在 2026-11-06 刪除：它的決定被 `docs/design-brief.md` 取代，原檔留在 git 歷史。
 
 | 文件 | 內容 |
 |---|---|
@@ -26,7 +25,6 @@
 | [`perf-baseline.md`](perf-baseline.md) | 啟動時間、記憶體、長列表捲動的實機基準（重寫後的比較對象） |
 | [`devtools.md`](devtools.md) | 開發者模式、Toast／log／錯誤呈現 |
 | [`engineering.md`](engineering.md) | CI／發版、測試盤點、聯網點、static-rule、依賴健康度、死代碼、AI 指令檔、ADR 與 CONTEXT.md 比對 |
-| [`questions.md`](questions.md) | 給你勾選的決策清單 |
 
 ## 方法與可信度
 

@@ -4,6 +4,10 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    # The workflows here belong to the frozen legacy app, so no
+    # version-update PRs until the new app ships its own release workflow.
+    # Security updates are not limited by this.
+    open-pull-requests-limit: 0
     # Actions are pinned by commit SHA, so every bump is a separate PR by
     # default. One grouped PR per week keeps the digest churn reviewable.
     groups:

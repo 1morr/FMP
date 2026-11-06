@@ -24,3 +24,4 @@
 - 2026-11-06 框架：流程照 QIM（文件是唯一的記憶、一個 session 一張票）；指令檔沿用 `AGENTS.md` 檔名；名詞表用 `GLOSSARY.md`。
 - 2026-11-06 框架：合併照 Berth，票分支本機合併成 `merge: ticket NN …` 再 push main，不開 PR；`protect-main` 拿掉 required status check，保留禁止刪除與禁止 force push。
 - 2026-11-06 訪談：推翻上一輪的 VIP 不存（ADR 0029）、App 不內建插件（ADR 0014）、另一個插件 repo（ADR 0030）、讀舊版 Isar（ADR 0010）。
+- 2026-11-06 清理：刪 `docs/audit/questions.md`（決定已被 brief 取代）；`dependabot.yml` 的 GitHub Actions 版本更新暫停，M5 重新開啟；遠端只留 main，`probe/youtubejs` 存成 tag `archive/youtubejs-probe-20261106`。舊版的 `docs/` 文件、ADR 0001–0007、`ci.yml`、`release.yml` 留到取代舊版時刪。
