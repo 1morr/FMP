@@ -1,10 +1,10 @@
 # FMP 新版設計綱要（Design Brief）
 
-> 狀態：骨架。由 `/grill-with-docs` 逐節填寫，每節寫入前先給擁有者看草稿。標【決定】的段落是拍板過的，要推翻先問擁有者（`AGENTS.md`〈擁有者確認〉）。每節底下的「要回答」是訪談的起點，填完就刪掉。
+> 狀態：第一版範圍定稿（2026-11-06 訪談）。標【決定】的段落是拍板過的，要推翻先問擁有者（`AGENTS.md`〈擁有者確認〉）。
 
 ## 0. 一句話
 
-要回答：新版 FMP 是什麼、給誰用、和舊版比好在哪。
+FMP 是 iOS、macOS、Android、Windows 上的音樂播放器載體。App 負責播放、音樂庫與介面，Bilibili、YouTube、網易雲音樂由插件提供，讓使用者在同一個地方搜尋、播放，並管理這三個平台上的歌單與帳號。和舊版相比，音源能力集中在插件，新增或修好音源不用動 App，而且四個平台同時支援。
 
 ## 1. 起因
 
@@ -229,56 +229,289 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - 大量閱讀可以分派子代理並行處理，但結論由你彙整，並逐條附上證據。
 ````
 
+
+### 1.1 第二輪（2026-11-06）
+
+上一輪在 5.5 週後放棄。擁有者的評價：仍缺不少舊版有的功能（下載、歌詞、托盤、更新都沒做，VIP 標識被刻意丟掉），UI 也不及舊版。第二輪的方向：
+
+- 所有目標平台一起開發：每個功能在同一個里程碑、同一張票裡，在全部目標平台做完並驗收。
+- 第一版範圍要小。
+- App 是載體，主要功能由音源插件完成，要支援 VIP 標識、操作遠端歌單等舊版已有的功能。
+- UI 以舊版為底再優化，每個頁面先給設計稿確認。
+
 ## 2. 產品定位
 
-### 2.1 本產品負責
+### 2.1 本產品負責【決定】
 
-### 2.2 本產品不負責
+多音源的搜尋與播放、本地歌單與匯入歌單、遠端寫入、帳號與會員狀態、歌詞、系統媒體控制與背景播放。
+
+### 2.2 本產品不負責【決定】
+
+上架 App Store 或 Google Play、影片播放、跨裝置雲端同步、多使用者、第三方插件來源（第一版）。
 
 ### 2.3 參考的成熟產品與採用的慣例
 
-### 2.4 名稱
+- 插件能力宣告：Spotube v6（功能與權限分開、遠端歌單寫入）、MusicFree（方法全部可選）。反例：LX Music 的自訂源只能解析網址，能力太窄。見 `docs/research/plugin-architectures.md`。
+- 佇列與播放模式：Apple Music、Spotify；臨時播放沿用舊版。
+- 架構：Flutter 官方 App Architecture 指南；Riverpod 官方文件。
+- 版面寬度分級：Material 3 的 compact、medium、expanded。
+- 發版：Berth（tag 才跑完整閘門）；檢查指令：QIM 的 `xtask` 加 `.githooks`。
 
-## 3. 使用者與情境
+### 2.4 名稱【決定】
 
-要回答：主要使用者、主要使用場景、哪些場景不支援。
+沿用 FMP。
 
-## 4. 平台範圍
+## 3. 使用者與情境【決定】
 
-要回答：目標平台（Android、Windows、macOS、iOS、Linux）各自的範圍，Linux 在不在範圍內。
+擁有者本人為主，加上從 GitHub 下載的少數外部使用者。主要情境：手機通勤時聽、桌面工作時背景播放。
 
-## 5. 音源與功能範圍
+## 4. 平台範圍【決定】
 
-要回答：三個音源各做哪些事；舊版的功能哪些留、哪些不留（舊版現況見 `docs/audit/features.md`）。
+- 第一版：iOS、macOS、Android、Windows。Linux 不在第一版。
+- 每個功能在同一個里程碑、同一張票裡，在四個平台做完並驗收，不設「某某平台」里程碑。主力開發機是 Mac。
+- 驗收方式：
 
-## 6. 播放
+| 平台 | 方式 |
+| --- | --- |
+| macOS | 本機實跑，`orca computer` 讀回畫面 |
+| iOS | 模擬器，`orca emulator` |
+| Android | 模擬器，`orca emulator-android` |
+| Windows | SSH 到 `winpc`，以排程工作在桌面工作階段建置、測試、截圖傳回 |
 
-## 7. 音樂庫與同步
+- 里程碑驗收時由擁有者在各平台親手試用一次。不做實機驗收。
 
-## 8. 帳號與登入
+## 5. 音源與功能範圍【決定】
 
-## 9. 下載與離線
+### 5.1 第一版的功能
 
-## 10. 歌詞
+1. 三音源搜尋與播放（含 B 站分 P）
+2. 佇列、播放模式、臨時播放
+3. 背景播放、系統媒體控制
+4. 本地歌單（建立、排序、多選）
+5. 匯入歌單與定時刷新
+6. 登入（QR 與 WebView）、會員狀態
+7. 曲目的存取等級標識（三音源）
+8. 遠端寫入（建立歌單、加入曲目、移除曲目）
+9. 歌詞：顯示、自動匹配、手動搜尋
+10. 插件更新：插件頁手動檢查，列出新版本並經使用者確認才安裝；安裝前比對 SHA-256；新版要求的插件能力或網域變多時再確認一次。不做背景自動更新。
+11. 匯入舊版 JSON 備份
 
-## 11. 介面
+### 5.2 之後的里程碑（未排序）
 
-## 12. 舊版的資料與升級
+下載與已下載頁、播放歷史、排行與探索、B 站直播電台、YouTube Mix、Spotify 與 QQ 歌單匯入匹配、AI 歌詞匹配、桌面歌詞、托盤與全域快捷鍵與開機自啟、備份還原、應用內更新、Debug 頁、倍速與輸出裝置、取代舊版。
 
-要回答：舊版使用者的資料、登入、下載檔怎麼帶到新版；新版什麼時候取代舊版。
+### 5.3 插件
 
-## 13. 錯誤、log 與診斷
+- 音源與歌詞源都是插件，見 ADR 0038。第一版的插件：bilibili、youtube、netease、lrclib。
+- 插件宣告插件能力，介面依插件能力出現入口；Dart 端不得有針對特定音源的分支。
+- 插件只能連 manifest 宣告的網域，沒有檔案系統與 socket，只能用宿主給的 API。
+- 錯誤以固定代碼回報，由宿主轉成錯誤分類（§13）。
 
-## 14. 隱私與安全
+### 5.4 存取等級與會員狀態
 
-## 15. 效能與品質指標
+- 每首曲目有存取等級：免費、需會員、需付費、只有試聽；插件判斷不了就不顯示。搜尋結果、歌單、佇列、播放頁都顯示徽章。
+- 帳號有會員狀態（等級、到期日），顯示在帳號頁；快到期或已過期時提示。
+- 插件列出可用音質，並標明哪些需要會員；播放時依偏好與會員狀態選最高可用。
+- 只有試聽時照樣播放片段，播放列與播放頁明確標示「試聽」並提示一次；完全不能播時提示原因並跳下一首。
 
-## 16. 發佈與更新
+## 6. 播放【決定】
+
+- 臨時播放照舊版：在搜尋結果、歌單詳情等處點一首歌，就在佇列之外播放它；播完或按上一首、下一首時，回到佇列原本那首，並依設定倒退若干秒（預設 10 秒）。連續臨時播放時，保留最早那個佇列位置。歌單的「播放全部」取代佇列。舊版行為見 `lib/services/audio/audio_provider.dart:609-640,1012-1060`。
+- 播放模式：順序、列表循環、單曲循環、隨機（真打亂）。
+- 佇列與進度跨重啟保存，重啟後不自動播放。
+- 依插件給的有效期，在串流過期前重新解析；預先解析下一首。
+- 播放失敗時先降一級音質重試，再跳下一首；連續 3 首失敗就停止並提示。
+- 音訊後端：宿主自己的後端介面，Android、iOS、macOS 用 just_audio，Windows 用 media_kit（理由見事實 K1）。系統媒體控制：Android 與 iOS 用 audio_service，Windows 用 `smtc_windows`，macOS 由 M0 實驗決定。Apple 平台的 YouTube 一律選 m4a/AAC（事實 M5）。
+- 第一版不做：倍速、輸出裝置選擇、gapless 保證。
+
+## 7. 音樂庫與同步【決定】
+
+- 本地歌單可以任意編輯。匯入歌單是遠端歌單的唯讀鏡像，依刷新間隔刷新、以遠端為準，可以「複製成本地歌單」。
+- 遠端寫入只對自己帳號底下的遠端歌單；成功後刷新對應的匯入歌單。
+- 寫入前的確認由宿主統一處理，插件無法繞過：移除曲目每次都確認，列出歌單名稱與曲目數；建立與加入以選擇對話框作為確認。失敗時本機不改動，並提示原因。
+
+## 8. 帳號與登入【決定】
+
+- Bilibili、網易雲：QR 與 WebView 兩種登入，四個平台都有。
+- YouTube：WebView 登入；某平台行不通時改成貼上 cookie。
+- WebView 用 `flutter_inappwebview` 6.1.5（穩定版，事實 R1）。
+- 憑證存在 `flutter_secure_storage` 11.2.0：Android `resetOnError: false`；iOS `accessibility: first_unlock`；macOS `usesDataProtectionKeychain: false`。macOS 的 ad-hoc 版每次更新後會跳一次鑰匙圈授權（事實 M2），第一版接受。
+
+## 9. 下載與離線【決定】
+
+- 第一版不做下載。
+- 離線時，音樂庫、佇列、設定照常可用；播放、搜尋、刷新顯示網路錯誤；已解析且未過期的串流照常播放。
+
+## 10. 歌詞【決定】
+
+- 歌詞來源：netease 插件與 lrclib 插件。
+- 功能：逐行 LRC 同步、有翻譯時並排顯示、手動調整偏移、依標題與歌手與時長自動匹配、手動搜尋。
+- 之後再做：逐字歌詞、羅馬音、AI 匹配、桌面歌詞、QQ 歌詞。
+
+## 11. 介面【決定】
+
+- 以舊版 UI 為底再優化。M1 開工前，第一版每個頁面都有經擁有者確認的設計稿。
+- 設計稿是靜態 HTML，每頁做手機版與桌面版、深淺色，放在 `docs/design/`，也發佈成私人網頁；有爭議的地方給 A／B 方案。實作照定稿切版。
+- 第一版的頁面：App 外殼（導覽、迷你播放器）、搜尋與結果、音樂庫、歌單詳情（本地、匯入）、佇列、全螢幕播放頁（含歌詞）、加入歌單對話框、帳號與登入、插件管理、設定、匯入舊版備份。導覽的項目在設計 session 定。
+- 語言：zh-TW 為主，加上 zh-CN、en，用 slang 管理。
+
+## 12. 舊版的資料與升級【決定】
+
+- 正式身分沿用 `com.personal.fmp`（含 Android 的簽名金鑰）；開發與試用一律用 `com.personal.fmp.dev`，可以和舊版並存。
+- 資料搬遷靠匯入舊版 JSON 備份（包含歌單與匯入來源、刷新間隔、曲目、播放與搜尋歷史、電台、設定、歌詞配對；不含憑證與下載檔，見 `lib/services/backup/backup_data.dart`）。登入要重新做一次。不讀舊版的 Isar。
+- 版號從 `2.0.0` 起算，tag 用 `app-v*`。取代舊版之前，新版的 release 一律是 prerelease：舊版 v1.11.0 的自動更新讀 `releases/latest`（`lib/services/update/update_service.dart:397`），這支 API 不回傳 prerelease。
+- 取代舊版的方式見〈待決〉。
+
+## 13. 錯誤、log 與診斷【決定】
+
+- 錯誤分類（sealed）：網路、限流、需登入、憑證失效、需驗證、不可用（原因：地區、版權、需會員、只有試聽）、找不到、解析失敗、不支援。重試只在網路層做一層。UI 依類別決定顯示提示、要求登入或只記錄。
+- 單一 Toast 入口，依錯誤類別給文字與動作（例如「登入」「重試」）。
+- 單一 log 門面，寫檔並輪替（2MB × 3），release 版保留 info 級。
+- 單一遮蔽函式，log 與匯出都經過它。設定頁有「匯出診斷」。
+- 之後再做：Debug 頁、開發者模式的錯誤詳細。
+
+## 14. 隱私與安全【決定】
+
+- 會送到第三方的資料只有一項：曲名、歌手、時長送到 lrclib。第一版沒有 AI 功能。
+- 憑證只存在 secure storage，不進 log、診斷包與備份。
+- 插件只能連宣告的網域（§5.3）。
+- 公開 repo 與擁有者帳號的規則見 `AGENTS.md`。
+
+## 15. 效能與品質指標【決定】
+
+- profile build，跑 5 次取中位數，只在里程碑驗收時量。
+- Android 與 Windows 不比舊版差（`docs/audit/perf-baseline.md`）：
+  - 冷啟動到第一幀：Android 1239 ms、Windows 1731 ms。
+  - 首頁穩定後的記憶體：Android PSS 179 MB、Windows Working Set 300 MB。
+  - 1000 首以上的長列表捲動不掉幀（舊版 Windows 佇列 1195 首，0 幀超過 16.7 ms）。
+- macOS 與 iOS 以第一次量到的數字為基準。
+- 匯入大歌單時要顯示進度。
+
+## 16. 發佈與更新【決定】
+
+| 平台 | 安裝檔 | 簽章 |
+| --- | --- | --- |
+| Android | 依 ABI 分開的 APK | 沿用舊版的簽名金鑰 |
+| Windows | Inno Setup 安裝檔加免安裝 zip | 不簽 |
+| macOS | `.app` 的 zip | ad-hoc；擁有者自己的機器用本機的 Apple Development 憑證建置 |
+| iOS | 未簽章的 IPA | 用 SideStore 或 AltStore 以免費 Apple ID 自簽 |
+
+- 沒有付費的 Apple Developer 帳號。
+- 由 `app-v*` tag 觸發 `app-release.yml`，在 GitHub runner 上跑完整閘門，綠了才發佈。
+- 第一版沒有應用內更新；插件更新見 §5.1。
 
 ## 17. 待決
 
-尚未拍板的問題，每條寫明卡在哪、誰來決定。
+- **取代舊版的方式**：舊版使用者怎麼升上來（舊版的自動更新、資料搬遷、要不要讀 Isar）。卡在新版功能還沒齊全；到「取代舊版」的里程碑由擁有者決定。
+- **JS 引擎**：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async。由 M0 實驗（`scripts/experiments/`）決定。
+- **macOS 的 Now Playing 接法**：事實 R4 顯示 audio_service 在 macOS 不完整。由 M0 實驗決定。
+- **Windows 經 SSH 截圖傳回**：由 M0 第一張票實測。
 
 ## 18. 查證過的事實
 
-外部事實（音源 API 行為、套件與平台框架的能力、授權），每條附來源連結或 `docs/research/` 的檔案。沒有來源的不寫進來。
+外部事實（音源 API 行為、套件與平台框架的能力、授權），每條附來源。可信度：「舊版程式碼」是舊版程式碼本身體現了這個做法（多數註解自稱實測）；「上一版文件」是只有上一輪的 ADR、research 或 references，標【待重驗】，用到它的票要重驗，驗過拿掉標記，對不上就改寫。`legacy:` 指根目錄舊版，`archive:` 指 tag `archive/trellis-rewrite-20261106`。驗證工具本身的怪癖不放這裡，在 plan〈平台〉。
+
+### 18.1 Bilibili
+
+- **F1** 匿名請求 `/x/web-interface/view` 回 HTTP 412；`/x/web-interface/wbi/view` 與 `/x/player/pagelist` 回 200（2026-09-15）。出處：`legacy:lib/data/sources/bilibili_source.dart:77-83`。可信度：舊版程式碼。
+- **F2** 風控碼 `-352`、`-412`、`-509`、`-799` 與 HTTP 412、429 要當限流退避，換 buvid 指紋救不回來。節流針對匿名身分：2026-09-22 同時間窗匿名 23/40 被擋、帶登入 0/40；`curl`、`okhttp` 這類 UA 必被擋。出處：`legacy:lib/data/sources/bilibili_source.dart:923-940`、`legacy:lib/data/sources/bilibili_exception.dart:15-24`。可信度：舊版程式碼。
+- **F3** 認證失敗是 HTTP 200 加 JSON `code: -101/-111`，不是 401；cookie 刷新用 RSA-OAEP，刷新後仍 `-101` 才是憑證真的失效；QR 輪詢回 `86038` 表示過期。出處：`legacy:lib/services/account/bilibili_auth_interceptor.dart:10-14,78`。可信度：舊版程式碼。
+- **F4** 媒體與圖片 CDN 只需要 Referer（不帶結尾斜線）；API 要 Referer（帶斜線）加 Origin；媒體請求不帶憑證。出處：`legacy:lib/data/sources/source_http_policy.dart:45,73-84,100-104`。可信度：舊版程式碼。
+- **F5** 串流網址的有效期寫在 `deadline` 參數（unix 秒），實測約 7178 秒；要讀參數，不要寫死。出處：`legacy:lib/data/sources/bilibili_source.dart:429-445`。可信度：舊版程式碼。
+- **F6** `/x/player/playurl` 的 `fnval=16` 回 DASH 音訊軌（m4a/AAC），`fnval=0` 回 FLV；點播沒有 HLS。Apple 平台的 AVPlayer 不播 FLV。出處：`legacy:lib/data/sources/bilibili_source.dart:297-426`。可信度：舊版程式碼。
+- **F7** 直播：mpv 開流後約 50 秒內位置與時長都是 0；Apple 平台要改用 h5 的 HLS（aac）。出處：`legacy:lib/services/audio/media_kit_audio_service.dart:555-565`（Windows，舊版程式碼）；`archive:docs/adr/0036` §決定 7（Apple，上一版文件【待重驗】）。
+
+### 18.2 YouTube
+
+- **F8**【待重驗】2026-08-26 起，ANDROID_VR client 不帶 PO token 的 googlevideo 網址只給約前 60 秒，之後 Range 一律 403；2026-09-30 實測 VISIONOS、IOS client 給完整長度的明文網址，不需要 PO token。client 每隔幾個月會變，解析串流要準備候選 client 序列。出處：archive 的 `youtubejs-probe.md`〈哪個 client 能用〉。可信度：上一版文件。
+- **F9** 帶登入的 InnerTube `/player` 要用 WEB client，並帶 Origin 與 Referer 才通過 SAPISIDHASH 驗證；必要的 cookie 是 `SAPISID`、`__Secure-1PSID`、`__Secure-3PSID`。出處：`legacy:lib/data/sources/youtube_source.dart:60-70,407-410`。可信度：舊版程式碼。
+- **F10** 每種串流類型先匿名試，失敗再帶登入重試同一類型；先把所有類型都匿名試完，會拿到含影像、位元率 3–5 倍的串流。出處：`legacy:lib/data/sources/youtube_source.dart:338-352`。可信度：舊版程式碼。
+- **F11** googlevideo 網址約 1 小時過期；libmpv 分段請求之間連線閒置會被 CDN 切斷（WSAECONNRESET）。出處：`legacy:lib/data/sources/youtube_source.dart:52-54`、`legacy:lib/services/audio/media_kit_audio_service.dart:195-232`。可信度：舊版程式碼。
+- **F12**【待重驗】Google 擋嵌入式 WebView 登入：Android 要從 UA 拿掉 `; wv`，iOS 的 WKWebView 要補成 Safari 形狀的 UA；Windows WebView2 的預設 UA 可以登入。登入完成看 cookie，不看網址；登出要清掉 WebView 的全部 cookie（Google 會寫地區網域與 CHIPS 分區 cookie）。出處：archive 的 `r1-youtube-login.md`、`archive:docs/adr/0029` §決定 9、11、`archive:docs/adr/0037` §決定 11。可信度：上一版文件。
+- **F13**【待重驗】Windows 的 WebView 登入偶爾卡在 `accounts.youtube.com/accounts/SetSID` 或程序消失，原因不明，重開 App 再登入就好。出處：archive 的 `r1-youtube-login.md`〈Windows 跳轉時的偶發失敗〉。可信度：上一版文件。
+
+### 18.3 網易雲音樂
+
+- **F14** 播放串流走 eapi `/eapi/song/enhance/player/url/v1`，有效期看回應的 `expi`，實測約 1200 秒。出處：`legacy:lib/data/sources/netease_source.dart:40,69-70`。可信度：舊版程式碼。
+- **F15** VIP 看 `fee`（1 或 4）；`flag & 4` 不是 VIP 標記（歌曲 139774 是 `flag=6`，匿名就拿到 320 kbps）。`cloudsearch` 的 `privilege.fee` 對 VIP 歌可能回 0，以 `song.fee` 為準。出處：`legacy:lib/data/sources/netease_source.dart:697-698,849-940`。可信度：舊版程式碼。
+- **F16** 未登入時的失敗長相是 `code=404` 或 `301`、`fee=0`、`url=null`，要提示登入而不是引導付費（#87）。出處：`legacy:lib/data/sources/netease_source.dart:849-940`。可信度：舊版程式碼。
+- **F17** 試聽片段（`freeTrialInfo != null`）會被當成完整歌曲回傳；API 在什麼情況下回試聽網址還沒實測過。出處：`legacy:lib/data/sources/netease_source.dart:139-150`。可信度：舊版程式碼（觸發條件未驗）。
+- **F18** eapi 回的串流網址是 `http://`：Android 要 `usesCleartextTraffic`，Apple 要 `NSAllowsArbitraryLoadsForMedia`。出處：`legacy:android/app/src/main/AndroidManifest.xml:33-40`。可信度：舊版程式碼。
+- **F19**【待重驗】QR 登入走 weapi（兩層 AES-128-CBC 加不帶 padding 的 RSA），帶固定的匿名 cookie 偽裝 Windows 客戶端；eapi、weapi 兩套加密並存；搜尋用明文 `/api/*`。出處：`docs/audit/accounts-network.md`。可信度：上一版文件。
+
+### 18.4 Android
+
+- **A1** App 自動備份會還原 shared preferences，但 Keystore 金鑰不會跟著還原，secure storage 解不開還原的憑證；設 `allowBackup="false"`。出處：`legacy:android/app/src/main/AndroidManifest.xml:26-31`（issue #35）。可信度：舊版程式碼。
+- **A2** `MANAGE_EXTERNAL_STORAGE` 加裸路徑不能上 Google Play；`permission_handler_windows` 一註冊就訂閱位置事件，Windows 會顯示 App 正在使用位置。出處：`legacy:lib/services/platform/storage_permission_service.dart:18-24`。可信度：舊版程式碼。
+- **A3** AGP 9 下，`package_info_plus` 9.0.1 需要 `android.builtInKotlin=false`；`file_picker` 11.0.3 要手動套 KGP。出處：`legacy:android/gradle.properties:3-6`、`legacy:android/build.gradle.kts:18-26`。可信度：舊版程式碼。
+- **A4** AGP 9 移除了 `proguard-android.txt`，`flutter_inappwebview` 6.1.5 要加暫時旗標 `android.r8.proguardAndroidTxt.disallowed=false`。出處：`legacy:android/gradle.properties:9-12`。可信度：舊版程式碼。
+- **A5**【待重驗】targetSdk 36 在 Android 16 預設開 predictive back：從通知等入口開啟的 task 按返回鍵會被 finish；要覆寫 `setFrameworkHandlesBack(true)` 與 `popSystemNavigator`。出處：commit `b2421e88`。可信度：上一版文件。
+- **A6**【待重驗】`audio_service` 0.18.19 把真正的媒體鍵 PLAY、PAUSE 當成切換，暫停時按暫停鍵反而開始播放。出處：commit `fb75a020`。可信度：上一版文件。
+- **A7**【待重驗】來電中斷後要在背景續播，會撞上 Android 12+ 的前景服務限制，中斷期間要回報 `playing` 加 `buffering`；`AUDIOFOCUS_LOSS` 不會送結束事件。出處：commits `a737e41c`、`2bfce093`。可信度：上一版文件。
+
+### 18.5 Windows
+
+- **W1** Material `Slider` 與 hover 時的 `Tooltip` 會弄壞 Windows 的無障礙樹，之後 Narrator 讀不到內容（flutter/flutter#182444，未修）；`Slider` 要包 `Overlay.wrap`。出處：`legacy:lib/ui/widgets/controls/scoped_slider.dart`、`docs/troubleshooting.md`。可信度：舊版程式碼。
+- **W2** `runApp()` 之前的例外會變成「雙擊後什麼都沒發生」，要 try/catch 並顯示錯誤畫面。出處：`legacy:lib/main.dart:46-62`（issue #37）。可信度：舊版程式碼。
+- **W3** `media_kit_libs_windows_audio` 1.0.9 帶的是 2023-09-24 的 libmpv（mpv 0.36、FFmpeg 6.0），pub 上沒有更新版（2026-11-06 查）；同一條串流 Android 能播、Windows 不能時先懷疑它。出處：`docs/troubleshooting.md`、`docs/research/audio-webview-2026-11.md`。可信度：舊版文件加 2026-11-06 研究。
+- **W4** media_kit 的 `errorController` 不轉發 `ao` 開頭的錯誤（音訊裝置失敗），要另聽 log；長度為零的串流不報錯、一直 buffering，要有看門狗。出處：`legacy:lib/services/audio/media_kit_audio_service.dart:384-392`、`legacy:lib/services/audio/buffer_starvation_watchdog.dart:11-14`。可信度：舊版程式碼。
+- **W5** media_kit 在 Windows 上同時 dispose 多個 player 會原生 crash（media-kit #1472）。出處：`docs/research/audio-webview-2026-11.md`。可信度：2026-11-06 研究。
+- **W6**【待重驗】`smtc_windows` 的限制：收不到 seek 請求；時間軸不會自己前進，要每約 5 秒重推位置；讀不到 `file:///` 的封面，要給 https；`updateMetadata` 只設定非 null 的欄位，換歌時要先清空。出處：`legacy:lib/services/audio/now_playing_publisher.dart:283-284`、`archive:app/AGENTS.md`〈Windows（SMTC…）〉。可信度：上一版文件。
+- **W7**【待重驗】`smtc_windows` 每次建置都從原始碼編 Rust，Windows 要裝 rustup；`flutter_rust_bridge` 要釘在和它 Rust 端相同的版本（=2.11.1）。出處：`docs/building.md:21,170`、commit `b7ab8de0`。可信度：上一版文件。
+- **W8** `flutter_inappwebview_windows` 0.6.0 在 VS 2026（MSVC 14.5x）要補 `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` 與 `/FS`；繁中 Windows（cp950）要用 `/utf-8` 編譯。出處：`legacy:windows/CMakeLists.txt:60-73`。可信度：舊版程式碼。
+- **W9**【待重驗】`flutter_secure_storage_windows` 把所有鍵值用 DPAPI 存成單一 `flutter_secure_storage.dat`，解不開或 JSON 壞掉就整個刪掉；鍵名只能用小寫英數、`.`、`-`。出處：`archive:docs/adr/0029` §決定 5 更正。可信度：上一版文件。
+- **W10**【待重驗】`desktop_multi_window` 的子視窗 engine 不能註冊 `tray_manager`、`hotkey_manager`、`window_manager`（它們用全域 static channel）。出處：`docs/audit/platforms.md` §3.7。可信度：上一版文件。
+
+### 18.6 macOS
+
+- **M1**【待重驗】ad-hoc 簽章下，`flutter_secure_storage` 的預設設定回 `-34018`；加了 `keychain-access-groups` 卻沒有 provisioning profile，App 一啟動就被 AMFI 殺掉。`usesDataProtectionKeychain: false` 可用，但 `readAll` 回 `-50`。出處：`archive:docs/adr/0036` §決定 3。可信度：上一版文件。
+- **M2**【待重驗】登入 keychain 的授權依簽章分區：ad-hoc 與自簽憑證每次重建或更新都會跳授權視窗，只有 Apple 發的憑證（依 Team ID 分區）不會。出處：`archive:docs/adr/0036` §決定 3 更正、commits `bb2419d8`、`ae40e004`。可信度：上一版文件。
+- **M3**【待重驗】開了 App Sandbox：子行程寫不了 `/Applications`；用 `open` 重啟會丟掉命令列參數；WKWebView 與 AVPlayer 缺 `network.client` 時靜默失敗。出處：`archive:docs/adr/0036` §決定 2。可信度：上一版文件。
+- **M4**【待重驗】media_kit 的 Apple 版原生庫停在 2023-09，而且在 Apple 平台不接 Now Playing。出處：`archive:docs/adr/0018`〈考慮過的選項〉。可信度：上一版文件。
+- **M5**【待重驗】AVPlayer（iOS 也一樣）：不播 WebM/Opus（iOS 回 `-11828`）與 FLV；`http://` 網域被 ATS 擋，要 `NSAllowsArbitraryLoadsForMedia`；`.m4s` 回 `application/octet-stream` 會打不開，`audio/mp4` 才行；自訂 header 要靠未公開的 `AVURLAssetHTTPHeaderFieldsKey`。真實 B 站、YouTube CDN 回的 Content-Type 沒驗過。出處：`archive:docs/adr/0036` §決定 7、`archive:docs/adr/0037` §決定 4、7。可信度：上一版文件。
+- **M6**【待重驗】`window_manager` 已停止維護：macOS Tahoe 上點不到視窗頂端的按鈕（#565，closed NOT_PLANNED）；`hide()` 兩次後從 Dock 叫不回（#501）；隱藏標題列後量到的標題區高度是 0。出處：`archive:docs/adr/0036` §決定 6。可信度：上一版文件。
+- **M7**【待重驗】單一實例要靠 Info.plist 的 `LSMultipleInstancesProhibited`；點 Dock 叫回視窗要自己實作 `applicationShouldHandleReopen`，`FlutterAppDelegate` 沒實作它。出處：`archive:docs/adr/0036` §決定 4。可信度：上一版文件。
+- **M8**【待重驗】`flutter_inappwebview_macos` 1.2.0-beta.3 在 Xcode 26.6 建不過、27.1 可以（上游 #2813）；穩定版 6.1.5 還沒試。出處：`archive:docs/adr/0036` §決定 9、tag `archive/macos-webview-20261106`。可信度：上一版文件。
+
+### 18.7 iOS
+
+- **I1**【待重驗】Info.plist 沒有 `UIBackgroundModes: [audio]` 的話，App 一進背景，Dart 與 JS 就一起被凍結；這個 key 免費帳號也能用。出處：`archive:docs/adr/0037` §決定 4。可信度：上一版文件。
+- **I2**【待重驗】`audio_session` 在 iOS 把每次中斷開始都報成 `unknown`；要等結束事件帶 `shouldResume` 才續播；別的 App 開始播放時只發開始、不發結束。just_audio 0.10.6 的 `handleInterruptions` 在 duck 結束時把音量乘 2，所以中斷要自己處理。出處：commit `f6b07480`、`archive:docs/adr/0037` §決定 8。可信度：上一版文件。
+- **I3**【待重驗】secure storage 在 iOS 預設 `unlocked`，鎖屏時讀不到（`-25308`）；解除安裝後 keychain 項目還在；換一個 Team 重簽後讀不到。出處：`archive:docs/adr/0037` §決定 6。可信度：上一版文件。
+- **I4**【待重驗】AVPlayer 預載失敗時會吞掉錯誤，交接後才把壞項目報成 ready、時長 0，所以時長 0 要當成沒載入；一個卡住的項目會凍結之後所有的開檔；跳到已預載的下一首要用 seek，不要重開。出處：commits `49eb674a`、`ed1bc889`、`6c5d681b`。可信度：上一版文件。
+- **I5**【待重驗】`audio_service` 0.18.19 在 iOS 不設 `MPNowPlayingInfoCenter.playbackState`（上游 #1139）。出處：`archive:docs/adr/0037` §決定 9。可信度：上一版文件。
+- **I6**【待重驗】iOS 上 Dart 讀不到環境變數與 `main()` 參數，`--dart-entrypoint-args` 只支援桌面，開發用的切換只能靠 `--dart-define`。出處：`archive:docs/adr/0037` §決定 12。可信度：上一版文件。
+- **I7**【待重驗】免費 Apple ID：描述檔 7 天到期；最多 10 個 App ID、3 台裝置；`DEVELOPMENT_TEAM` 不能寫進 pbxproj；`flutter build ipa --no-codesign` 只產出 `.xcarchive`，IPA 要自己把 `Payload/Runner.app` 壓成 zip。出處：`archive:docs/adr/0037` §決定 1、2。可信度：上一版文件。
+- **I8**【待重驗】iPad 的分享表要給 `sharePositionOrigin` 錨點；只有桌面版的套件在 iOS 呼叫會拋 `MissingPluginException`。出處：`archive:docs/adr/0037` §決定 12、14。可信度：上一版文件。
+
+### 18.8 套件
+
+- **K1** just_audio 0.10.6 只支援 Android、iOS、macOS、web；`audio_session` 在 Windows 的 `setActive` 什麼都不做；`just_audio_windows` 不支援 request header；`just_audio_media_kit` 的代理對純音訊串流有相容問題（舊版因此拆回兩個後端）。出處：`docs/adr/0003`（commits `7fdec08e`、`2e73d1b8`、`6d39d15c`）。可信度：舊版程式碼。
+- **K2** just_audio 要用 `setAudioSources` 才能在播放中追加下一首做 gapless；換回 `setAudioSource` 不報錯，只是不再 gapless。出處：`legacy:lib/services/audio/just_audio_service.dart:655-667`。可信度：舊版程式碼。
+- **K3** ExoPlayer 把幾乎所有網路問題都壓成 `code=0, Source error`；Android 背景播放會漏掉 completed 事件，要用位置檢查補上。出處：`legacy:lib/services/audio/playback_end_reason_rules.dart:77,102`。可信度：舊版程式碼。
+- **K4** media_kit 在 Windows：用 `Media.httpHeaders` 加 `on_load` hook 帶 header；`vid=no` 可省 200–400 MB；`prefetch-playlist=yes` 才會預載；先判斷 `buffering` 再判斷 `playing`。出處：`legacy:lib/services/audio/media_kit_audio_service.dart:190-250`。可信度：舊版程式碼。
+- **K5** Riverpod 3 預設自動重試失敗的 provider（10 次、約 38 秒），連 `UnmountedRefException` 也會重試，要全域關掉。出處：`legacy:lib/main.dart:263-267`。可信度：舊版程式碼。
+- **K6**【待重驗】`flutter_secure_storage` 跨大版本升級會讀不出舊憑證；Android 預設 `resetOnError: true` 要關掉。出處：`legacy:pubspec.yaml:68-72`、`archive:docs/adr/0029` §決定 5。可信度：上一版文件。
+- **K7**【待重驗】`flutter_js` 0.8.7 的 QuickJS 沒有中斷機制，要放在背景 isolate；macOS 與 iOS 版只附 JavaScriptCore 的空殼，要自編 QuickJS；iOS 要 `use_frameworks!`。出處：`archive:docs/adr/0014`、`0036` §決定 1、`0037` §決定 3。可信度：上一版文件。
+- **K8**【待重驗】`flutter_inappwebview` 6.1.5（2024-10）是最後一個穩定版；從 beta 退回 stable 時，`pubspec.lock` 會殘留 beta 版的 `_platform_interface` 而建置失敗。出處：archive 的 `r1-youtube-login.md`〈建置〉。可信度：上一版文件。
+- **K9**【待重驗】桌面套件的維護狀態：`window_manager` 在 2026-09 批次關閉 issue；`hotkey_manager` 0.2.3 最後發佈在 2024-05；`qr_flutter` 4.1.0 停在 2023。出處：`docs/audit/platforms.md` §4.1。可信度：上一版文件。
+
+### 18.9 工具鏈
+
+- **T1** 版本基線：2026-11-06 實查 Mac 與 `winpc` 都是 Flutter 3.47.5，本機 Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 API 37。【待重驗】AGP 9.1.0、KGP 2.4.0、Gradle 9.3.1、JDK 17；Material 從 Flutter 3.47 起改成獨立套件。出處：本機指令輸出；`docs/audit/platforms.md` §5.1、`docs/building.md:11-12`。
+- **T2**【待重驗】Apple 平台的 flavor：scheme 名稱要等於小寫的 flavor 名；每個 target 都要有六個 build configuration，並在 Podfile 對應；Podfile、`Podfile.lock`、xcconfig、pbxproj 都要提交。出處：`archive:docs/adr/0036` §決定 10、`0037` §決定 5。可信度：上一版文件。
+- **T3**【待重驗】Apple 本機簽章設定檔放進 gitignore（Team ID 不進公開 repo）；`codesign -dvv` 看到 `TeamIdentifier=` 才算簽到。出處：archive 的 `.claude/skills/verify-on-device/references/macos.md`。可信度：上一版文件。
+- **T4**【待重驗】Windows 安裝檔：`inno_bundle` 不認 flavor，要手寫 `.iss`；安裝檔的 `AppId` 發佈後不能改；專案路徑超過 260 字元會報 `FTK1011`。出處：`archive:app/AGENTS.md`〈發版〉。可信度：上一版文件。
+
+### 18.10 2026-11-06 研究
+
+出處：`docs/research/audio-webview-2026-11.md`（R1–R5、R8）、`docs/research/plugin-architectures.md`（R6、R7），內附 URL。
+
+- **R1** `flutter_inappwebview` 穩定版 6.1.5 包含 Windows（WebView2）與 macOS；6.2.0 只有 beta（最新 beta.3，2026-02-04）。Windows 透過 CDP 的 `Network.getCookies` 讀 cookie，含 httpOnly；iOS 與 macOS 走 `WKHTTPCookieStore`。
+- **R2** `webview_flutter` 沒有 Windows 實作；它在 Android 上 `getCookies` 時，值含 `=` 的 cookie 會被截斷。
+- **R3** media_kit 最後一次發佈是 1.2.6（2025-12-13）；main 分支已換新版 libmpv，但沒發到 pub。
+- **R4** `audio_service` 與 `audio_session` 都不支援 Windows；`audio_service` 在 macOS 不完整。
+- **R5** `flutter_secure_storage` 最新是 11.2.0（2026-09-16）；macOS 預設的 Data Protection Keychain 需要 `keychain-access-groups` 與 provisioning profile。
+- **R6** App Store Guideline 2.5.2 禁止下載會改變功能的程式碼；4.7 允許 JS 插件，但要同時滿足 4.7.1–4.7.5（過濾與檢舉、不暴露原生 API、逐次同意、軟體索引、年齡限制）。
+- **R7** Spotube v6 的插件介面定義了遠端歌單寫入（`createPlaylist`、`addTracksToPlaylist` 等），並把功能（abilities）與權限（capabilities）分開；MusicFree 沒有 VIP 欄位，也沒有遠端寫入；LX Music 的自訂源只有 `musicUrl`、`lyric`、`pic`。
+- **R8** Google 對嵌入式 WebView 的 OAuth 會回 `disallowed_useragent`（Google Developers Blog）；直接載入登入網頁時改 UA 是否有效，沒有可靠來源，要實測。

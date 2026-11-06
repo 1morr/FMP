@@ -8,16 +8,19 @@
 
 | 里程碑 | 票目錄 | 拆票前讀 | 備註 |
 | --- | --- | --- | --- |
-| M0 | `.scratch/m0/issues/` | brief 全文；plan §1、§4、§5.1、§6 | 未拆票。brief 與 plan 定稿後跑 `/to-tickets docs/plan.md 拆 M0 的票` |
+| M0 | `.scratch/m0/issues/` | brief §4、§5.3、§6、§12、§13、§17；plan §1、§3、§4、§5.1 | 未拆票 |
+| D | 無 | brief §11；舊版截圖（`docs/audit/screenshots/`） | 和 M0 並行，M1 開工前完成 |
 
 ## Session 紀錄
 
 | 日期 | 票 | 結果 | 下一步 |
 | --- | --- | --- | --- |
 | 2026-11-06 | 框架 | 放棄 Trellis 與上一輪的 `app/`、ADR 0008–0037（封存在 tag `archive/trellis-rewrite-20261106`）；照 QIM 建 `AGENTS.md`、brief 與 plan 骨架、本檔、`docs/agents/` | 新 session 下 `/grill-with-docs 填 FMP 新版的 docs/design-brief.md` |
+| 2026-11-06 | 訪談 | brief 第一版範圍定稿；plan 里程碑 M0–M5 與 D；`GLOSSARY.md`；ADR 0038；`docs/research/` 研究檔 2 份 | 新 session 下 `/to-tickets docs/plan.md 拆 M0 的票` |
 
 ## 偏差與決定
 
 - 2026-11-06 框架：新版從零重做，不沿用上一輪的 `app/` 與 ADR 0008–0037；未合併的 macOS 登入 WebView 在 tag `archive/macos-webview-20261106`。舊版照舊凍結。
 - 2026-11-06 框架：流程照 QIM（文件是唯一的記憶、一個 session 一張票）；指令檔沿用 `AGENTS.md` 檔名；名詞表用 `GLOSSARY.md`。
 - 2026-11-06 框架：合併照 Berth，票分支本機合併成 `merge: ticket NN …` 再 push main，不開 PR；`protect-main` 拿掉 required status check，保留禁止刪除與禁止 force push。
+- 2026-11-06 訪談：推翻上一輪的 VIP 不存（ADR 0029）、App 不內建插件（ADR 0014）、另一個插件 repo（ADR 0030）、讀舊版 Isar（ADR 0010）。
