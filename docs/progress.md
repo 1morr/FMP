@@ -1,0 +1,23 @@
+# 進度
+
+工作單位是票（`.scratch/<里程碑>/issues/NN-slug.md`），狀態在票的 `Status:` 行。這裡只記各里程碑的閱讀指引、session 紀錄、偏差與決定。
+
+本檔只留進行中的里程碑；里程碑驗收後，它的 session 紀錄與偏差整段移到 `docs/archive/<里程碑>.md`，里程碑表的備註換成那個檔的連結。
+
+## 里程碑與閱讀指引
+
+| 里程碑 | 票目錄 | 拆票前讀 | 備註 |
+| --- | --- | --- | --- |
+| M0 | `.scratch/m0/issues/` | brief 全文；plan §1、§4、§5.1、§6 | 未拆票。brief 與 plan 定稿後跑 `/to-tickets docs/plan.md 拆 M0 的票` |
+
+## Session 紀錄
+
+| 日期 | 票 | 結果 | 下一步 |
+| --- | --- | --- | --- |
+| 2026-11-06 | 框架 | 放棄 Trellis 與上一輪的 `app/`、ADR 0008–0037（封存在 tag `archive/trellis-rewrite-20261106`）；照 QIM 建 `AGENTS.md`、brief 與 plan 骨架、本檔、`docs/agents/` | 新 session 下 `/grill-with-docs 填 FMP 新版的 docs/design-brief.md` |
+
+## 偏差與決定
+
+- 2026-11-06 框架：新版從零重做，不沿用上一輪的 `app/` 與 ADR 0008–0037；未合併的 macOS 登入 WebView 在 tag `archive/macos-webview-20261106`。舊版照舊凍結。
+- 2026-11-06 框架：流程照 QIM（文件是唯一的記憶、一個 session 一張票）；指令檔沿用 `AGENTS.md` 檔名；名詞表用 `GLOSSARY.md`。
+- 2026-11-06 框架：合併照 Berth，票分支本機合併成 `merge: ticket NN …` 再 push main，不開 PR；`protect-main` 拿掉 required status check，保留禁止刪除與禁止 force push。
