@@ -91,8 +91,8 @@ app/
 
 ## 4. 開發環境與閘門
 
-- `dart run tool/check.dart --quick`：format、analyze、單元測試；由 `.githooks/pre-commit` 執行。
-- `dart run tool/check.dart`（完整版）：quick 之外，再做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 到 `winpc` 的排程工作）的建置與 `integration_test`，並檢查插件打包產物是否最新。每張票合併前跑完整版。
+- `dart run tool/check.dart --quick`：format、analyze、單元測試；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
+- `dart run tool/check.dart`（完整版）：quick 之外，再做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置與 `integration_test`，並檢查插件打包產物是否最新。每張票合併前跑完整版。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）。
 
@@ -100,18 +100,7 @@ app/
 
 ### 5.1 M0 骨架與 tracer bullet
 
-目標：repo 骨架與閘門就位，四個平台都建得起來，並跑通同一條 tracer bullet。
-
-- 實驗（`scripts/experiments/`，結論寫回 brief）：JS 引擎（fjs 對 flutter_js）、macOS 的 Now Playing 接法、`winpc` 截圖傳回、`flutter_inappwebview` 6.1.5 四平台建置。
-- `app/` 四平台骨架（dev 身分 `com.personal.fmp.dev`）、`tool/check.dart` 與 pre-commit、依賴規則測試、零聯網防線、log 門面與遮蔽、錯誤分類骨架、drift 空庫與 schema 快照流程。
-- tracer bullet：bilibili 插件（TypeScript）搜尋一首歌、解析串流、播放出聲，四平台實跑；畫面用佔位。
-- 舊版 `ci.yml` 不受 `app/` 影響。
-
-驗收：
-
-- 四個平台各自搜尋並播放出一首 B 站曲目。
-- `check.dart` 完整版綠燈。
-- 四項實驗的結論已寫進 brief。
+已開工：[`.scratch/m0/spec.md`](../.scratch/m0/spec.md)。
 
 ### 5.2 D 設計稿
 
