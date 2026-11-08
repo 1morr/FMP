@@ -404,7 +404,13 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .dpl-l{display:flex;flex-direction:column;justify-content:center;max-width:440px;justify-self:end;width:100%}
 .dpl-l .pmeta{margin-top:0}
 .dpl-l .cv{margin-bottom:22px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.dpl-r{position:relative;overflow:hidden;-webkit-mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);padding-top:120px}
+.dpl-r{position:relative;display:flex;flex-direction:column;min-height:0}
+.dsw{align-self:flex-start;margin:4px 0 0}
+.dpl-c{flex:1;min-height:0;overflow:hidden}
+.ly-c{-webkit-mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);padding-top:64px}
+.q-c{margin-top:14px;-webkit-mask:linear-gradient(#000 86%,transparent);mask:linear-gradient(#000 86%,transparent)}
+.q-c .qmeta{padding:0 0 8px 8px}
+.q-c .foldrule{margin:0}
 .dpl-r .ly b{font-size:24px}
 .lyx{position:absolute;right:64px;bottom:28px;display:flex;gap:10px;align-items:center;font-size:var(--fs-meta);color:var(--fg2)}
 .dpl .ptop .vol{width:96px}
@@ -584,13 +590,28 @@ def phone_player(theme, lyrics):
     return phone(theme + " onart", inner, f"播放頁 · {cap} · {'深色' if theme == 't-dark' else '淺色'}")
 
 
-def desk_player_page(theme):
+def desk_player_page(theme, view="lyrics"):
     k = PLAYER_TRACK[6]
+    sw = (f'<div class="pbot glass dsw"><span class="pb{" on" if view == "lyrics" else ""}">{ic("lyrics")}<span>歌詞</span></span>'
+          f'<span class="pb{" on" if view == "queue" else ""}">{ic("queue")}<span>佇列</span></span></div>')
+    if view == "lyrics":
+        content = f'<div class="dpl-c ly-c">{lyric_lines(3)}</div><div class="lyx"><span class="tag">網易雲 歌詞</span><span>偏移 +0.3 秒</span></div>'
+        cap = "封面＋歌詞"
+    else:
+        played = TRACKS[10:12]
+        upcoming = TRACKS[4:12]
+        content = ('<div class="dpl-c q-c"><p class="qmeta">42 首 · 剩 1 小時 52 分</p><ul class="tl">'
+                   + "".join(track_row(1 + i, t, "played") for i, t in enumerate(played))
+                   + f'<li class="tr now"><span class="ix">3</span>{cover(k, 44)}<span class="tx"><b>{PLAYER_TRACK[0]}</b><i>{PLAYER_TRACK[1]}</i></span>'
+                     f'<span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">1:40 / 4:04</span></span></li></ul>'
+                   + '<div class="foldrule" role="separator"></div><ul class="tl">'
+                   + "".join(track_row(4 + i, t) for i, t in enumerate(upcoming)) + '</ul></div>')
+        cap = "封面＋佇列"
     inner = (f'{titlebar()}<div class="player dpl" style="{art_bg(theme)}">{ptop(True)}'
              f'<div class="dpl-l">{cover(k, 360, 14)}{now_meta()}{seek()}{transport()}</div>'
-             f'<div class="dpl-r">{lyric_lines(3)}</div><div class="lyx"><span class="tag">網易雲 歌詞</span><span>偏移 +0.3 秒</span></div></div>')
+             f'<div class="dpl-r">{sw}{content}</div></div>')
     return (f'<figure class="frame"><div class="desk {theme} onart">{inner}</div>'
-            f'<figcaption>播放頁 · 桌面（封面＋歌詞兩欄，1280×800）· {"深色" if theme == "t-dark" else "淺色"}</figcaption></figure>')
+            f'<figcaption>播放頁 · 桌面（{cap}，1280×800）· {"深色" if theme == "t-dark" else "淺色"}</figcaption></figure>')
 
 
 def page_player():
@@ -599,7 +620,8 @@ def page_player():
             '<p class="note">歌詞是自擬的示意文字，不是這首歌的歌詞。第一版不做倍速與輸出裝置選擇，所以畫面上沒有這兩個控制。</p>' + NOTE
             + '<h2 class="sec">手機</h2><div class="row">' + phone_player("t-dark", False) + phone_player("t-dark", True)
             + phone_player("t-light", False) + phone_player("t-light", True) + '</div>'
-            + '<h2 class="sec">桌面</h2><div class="row">' + desk_player_page("t-dark") + desk_player_page("t-light") + '</div>')
+            + '<h2 class="sec">桌面</h2><p class="note">右欄頂端的「歌詞／佇列」切換決定右欄顯示什麼，和手機底部那顆是同一個控制。</p><div class="row">'
+            + desk_player_page("t-dark") + desk_player_page("t-dark", "queue") + desk_player_page("t-light") + desk_player_page("t-light", "queue") + '</div>')
     return html("FMP 設計稿 · 播放頁", body)
 
 
