@@ -41,7 +41,7 @@ ICONS = {
     "more": "M5 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
     "shuffle": "M16 4h4v4l-1.5-1.5-3.3 3.3-1.4-1.4 3.3-3.3zM4 6.6 5.4 5.2l13.1 13.1L20 16.8V20h-4l1.5-1.5L4.4 5.4zM9.8 13.4l1.4 1.4-5.8 5.8L4 19.2z",
     "repeat": "M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2z",
-    "locate": "M11 2h2v3.1A7 7 0 0 1 18.9 11H22v2h-3.1A7 7 0 0 1 13 18.9V22h-2v-3.1A7 7 0 0 1 5.1 13H2v-2h3.1A7 7 0 0 1 11 5.1zm1 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z",
+    "repeat1": "M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2zM11.2 10.2 13 9.5h.8v5h-1.4v-3.4l-1.2.4z",
     "volume": "M4 9h4l5-4v14l-5-4H4zm12.5-1.5a6 6 0 0 1 0 9l-1.4-1.4a4 4 0 0 0 0-6.2zm2.8-2.8a10 10 0 0 1 0 14.6l-1.4-1.4a8 8 0 0 0 0-11.8z",
     "lyrics": "M4 5h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z",
     "speaker": "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm5 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0-6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z",
@@ -157,20 +157,20 @@ NOW_ROW = (f'<li class="tr now"><span class="ix">13</span>{cover(0, 44)}<span cl
            f'<span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">1:04 / 3:26</span></span></li>')
 
 
-REPEAT = {"off": ("repeat", "不循環", False), "all": ("repeat", "列表循環", True), "one": ("repeat", "單曲循環", True)}
+REPEAT = {"off": ("repeat", "不循環", False), "all": ("repeat", "列表循環", True), "one": ("repeat1", "單曲循環", True)}
 
 
 def toggles(shuffle, repeat):
-    """隨機與循環：同一組裡的兩顆圖示鈕，各自獨立開關，可以同時開。開啟時淡紫底、強調色圖示。"""
+    """隨機與循環是兩個獨立控制，可以同時開。開啟時亮強調色。"""
     ri, rl, ron = REPEAT[repeat]
-    one = '<span class="one">1</span>' if repeat == "one" else ""
-    return (f'<span class="qm"><span class="qb{" on" if shuffle else ""}" role="switch" aria-checked="{str(shuffle).lower()}" aria-label="隨機">{ic("shuffle", "s")}</span>'
-            f'<span class="qb{" on" if ron else ""}" role="button" aria-label="{rl}">{ic("repeat", "s")}{one}</span></span>')
+    return (f'<span class="togs"><span class="tog{" on" if shuffle else ""}" role="switch" aria-checked="{str(shuffle).lower()}">{ic("shuffle", "s")}隨機</span>'
+            f'<span class="tog{" on" if ron else ""}" role="button">{ic(ri, "s")}{rl}</span></span>')
 
 
 def queue_header(shuffle, repeat):
-    return (f'<header class="qh"><div><h1>佇列</h1><p class="qmeta">42 首 · 剩 1 小時 52 分</p></div>'
-            f'<span class="qctl"><span class="qb solo" role="button" aria-label="跳到正在播放">{ic("locate", "s")}</span>{toggles(shuffle, repeat)}</span></header>')
+    # 點「佇列」標題就捲回正在播的那首
+    return (f'<header class="qh"><div><h1 role="button" aria-label="佇列，點一下跳到正在播放">佇列</h1><p class="qmeta">42 首 · 剩 1 小時 52 分</p></div>'
+            f'{toggles(shuffle, repeat)}</header>')
 
 
 def queue_body(shuffle=False, repeat="off"):
@@ -316,7 +316,6 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .qh{display:flex;align-items:flex-end;gap:12px;justify-content:space-between;padding:12px 20px 10px}
 .qh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
 .qmeta{font-size:var(--fs-sm);color:var(--fg2)}
-.qctl{display:flex;gap:8px;align-items:center}
 /* 桌面 */
 .desk{position:relative;width:1280px;height:800px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 24px 60px rgba(0,0,0,.45)}
 .wtitle{height:36px;display:flex;align-items:center;gap:14px;padding:0 14px;font-size:13px;color:var(--fg2);border-bottom:1px solid var(--line)}
@@ -435,8 +434,8 @@ def system_card(theme):
     sw = "".join(f'<div class="sw"><i style="background:var({v})"></i><span>{l}</span><code>{v}</code></div>' for v, l in colors)
     tags = ('<div class="tagrow"><span class="tag">B站</span><span class="tag">YT</span><span class="tag">網易</span>'
             '<span class="tag vip">VIP</span><span class="tag trial">試聽</span><span class="tag login">需登入</span></div>')
-    togrow = ('<div class="tagrow" style="gap:16px">' + toggles(False, "off") + toggles(True, "all") + toggles(True, "one") + '</div>'
-              '<p class="stl" style="margin:-4px 0 12px">隨機與循環是同一組裡的兩顆獨立開關：依序是兩個都關、隨機＋列表循環、隨機＋單曲循環</p>')
+    togrow = ('<div class="tagrow">' + toggles(False, "off") + toggles(True, "all") + toggles(True, "one") + '</div>'
+              '<p class="stl" style="margin:-4px 0 12px">隨機與循環各自獨立：上排依序是兩個都關、隨機＋列表循環、隨機＋單曲循環</p>')
     btns = f'<div class="tagrow"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span><span class="btn out">{ic("plus", "s")}加入佇列</span></div>'
     demo = ('<div class="glassdemo"><ul class="tl">' + "".join(track_row(i + 1, t, "now" if i == 0 else "") for i, t in enumerate(TRACKS[:4]))
             + '</ul>' + spine("", 0.31).replace('class="spine glass "', 'class="spine glass"') + '</div>')
