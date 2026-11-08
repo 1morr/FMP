@@ -20,6 +20,7 @@
 | 2026-11-06 | M0 拆票 | plan §5.1 細化成 `.scratch/m0/spec.md`，拆成 12 張票（01–11 實作與實驗、12 驗收與封存），plan §5.1 縮成連結 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-08 | D 方向 | 設計稿方向定案：以舊版為底、玻璃只用在控制層、App 外殼出 A／B 兩版；查證 Flutter Liquid Glass 現況（事實 K10）；brief §2.3、§11、§17、plan §5.2 已更新 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md`（D 設計稿可並行開工） |
 | 2026-11-08 | D 設計系統與外殼 | 設計世界選定「卡帶 J-card」；`docs/design/` 出設計系統、外殼 A、外殼 B（手機與桌面、深淺色），頁面由 `docs/design/src/build.py` 產生；finish review 判 ship；`DESIGN.md` 記錄 token 與規則 | 擁有者選 A（見下一列） |
+| 2026-11-08 | D 外殼與佇列 | 外殼選 A，寫回 brief §11；佇列拿掉 A／B 面字樣，隨機時的佇列顯示分兩種（brief §6）；私人網頁已重新發佈 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：全螢幕播放頁（含歌詞）、搜尋與結果、音樂庫`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 
 ## 偏差與決定
 
