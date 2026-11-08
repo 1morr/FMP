@@ -72,10 +72,9 @@ ul{list-style:none}
 .spine .t i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
 .spine .c{position:relative;display:flex;gap:18px;color:var(--fg)}
 
-/* 摺線：佇列的 A 面／B 面 */
-.foldrule{display:flex;align-items:center;gap:10px;padding:14px 20px 8px;font-size:var(--fs-meta);color:var(--fg2)}
-.foldrule::after{content:"";flex:1;border-top:1px solid var(--line-strong);box-shadow:0 1px 0 var(--glass-hi)}
-.foldrule b{color:var(--fg);font-weight:600}
+/* 摺線：佇列依播放順序顯示時，標在正在播的那首下方；不寫字 */
+.foldrule{height:0;margin:0 20px;border-top:1px solid var(--line-strong);box-shadow:0 1px 0 var(--glass-hi)}
+.foldrule::before{content:"";display:block;width:2px;height:12px;margin:-6px 0 0 -1px;background:var(--accent)}
 
 /* 按鈕 */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 18px;border-radius:var(--r-ctl);font-weight:600;font-size:14px;border:0}

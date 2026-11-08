@@ -122,7 +122,7 @@ def phone(theme, inner, caption):
             f'<figcaption>{caption}</figcaption></figure>')
 
 
-def spine(cls_pos, progress=0.31, sub="茉ひる · A 面 1:04 / 3:26", compact=False):
+def spine(cls_pos, progress=0.31, sub="茉ひる · 1:04 / 3:26", compact=False):
     pct = f"{progress * 100:.0f}%"
     return (f'<div class="spine glass {cls_pos}"><span class="pl" style="width:{pct}"></span><span class="fold" style="left:{pct}"></span>'
             f'{cover(0, 32 if compact else 40)}<span class="t"><b>フレグランス (Fragrance/香味)</b><i>{sub}</i></span>'
@@ -152,20 +152,44 @@ def phone_a_playlist(theme):
     return phone(theme, inner, f"A · 歌單詳情 · {'深色' if theme == 't-dark' else '淺色'}")
 
 
-def queue_body():
+NOW_ROW = (f'<li class="tr now"><span class="ix">13</span>{cover(0, 44)}<span class="tx"><b>フレグランス (Fragrance/香味)</b><i>茉ひる · 1050萬 次播放</i></span>'
+           f'<span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">1:04 / 3:26</span></span></li>')
+
+
+def queue_header(mode):
+    segs = "".join(f'<span class="seg{" on" if s == mode else ""}">{s}</span>' for s in ["順序", "循環", "單曲", "隨機"])
+    return (f'<header class="qh"><div><h1>佇列</h1><p class="qmeta">42 首 · 剩 1 小時 52 分</p></div>'
+            f'<span class="qm">{segs}</span></header>')
+
+
+def queue_body(mode="順序"):
+    """預設顯示：畫面永遠是播放順序。播過的在上方變淡，摺線在正在播的那首下方，不寫字。"""
     played = TRACKS[10:12]
     upcoming = TRACKS[1:9]
-    return (f'<header class="qh"><h1>佇列</h1><span class="qm"><span class="seg on">順序</span><span class="seg">隨機</span><span class="seg">單曲</span></span></header>'
-            f'<div class="foldrule"><b>A 面</b>已播 12 首</div>'
-            '<ul class="tl">' + "".join(track_row(11 + i, t, "played") for i, t in enumerate(played)) + '</ul>'
-            f'<ul class="tl"><li class="tr now"><span class="ix">13</span>{cover(0, 44)}<span class="tx"><b>フレグランス (Fragrance/香味)</b><i>茉ひる · 1050萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">1:04 / 3:26</span></span></li></ul>'
-            f'<div class="foldrule"><b>B 面</b>接下來 30 首 · 1 小時 52 分</div>'
-            '<ul class="tl">' + "".join(track_row(14 + i, t) for i, t in enumerate(upcoming)) + '</ul>')
+    return (queue_header(mode)
+            + '<ul class="tl">' + "".join(track_row(11 + i, t, "played") for i, t in enumerate(played)) + NOW_ROW + '</ul>'
+            + '<div class="foldrule" role="separator"></div>'
+            + '<ul class="tl">' + "".join(track_row(14 + i, t) for i, t in enumerate(upcoming)) + '</ul>')
 
 
-def phone_a_queue(theme):
-    inner = f'<div class="scroll">{queue_body()}</div>{spine("sp-a")}{tabbar_a("佇列")}'
-    return phone(theme, inner, f"A · 佇列（招牌：摺線分 A／B 面）· {'深色' if theme == 't-dark' else '淺色'}")
+def queue_body_keep():
+    """隨機・維持原順序（舊版，設定可選）：畫面不動，只標亮正在播的那首，不畫摺線、不變淡。"""
+    before = TRACKS[9:12]
+    after = TRACKS[1:8]
+    return (queue_header("隨機")
+            + '<ul class="tl">' + "".join(track_row(10 + i, t) for i, t in enumerate(before)) + NOW_ROW
+            + "".join(track_row(14 + i, t) for i, t in enumerate(after)) + '</ul>')
+
+
+def phone_a_queue(theme, mode="順序"):
+    inner = f'<div class="scroll">{queue_body(mode)}</div>{spine("sp-a")}{tabbar_a("佇列")}'
+    note = "隨機・預設：畫面重排成播放順序" if mode == "隨機" else "預設：依播放順序，摺線標正在播"
+    return phone(theme, inner, f"A · 佇列（{note}）· {'深色' if theme == 't-dark' else '淺色'}")
+
+
+def phone_a_queue_keep(theme):
+    inner = f'<div class="scroll">{queue_body_keep()}</div>{spine("sp-a")}{tabbar_a("佇列")}'
+    return phone(theme, inner, f"A · 佇列（隨機・維持原順序，設定可選）· {'深色' if theme == 't-dark' else '淺色'}")
 
 
 # ---------- 外殼 B（Apple Music 式） ----------
@@ -184,7 +208,7 @@ def phone_b(theme, collapsed):
         body = (f'<div class="scroll scrolled"><ul class="tl">' + "".join(track_row(4 + i, t) for i, t in enumerate(rows)) + '</ul></div>'
                 '<div class="edge"></div>'
                 f'<span class="orb glass orb-tab" aria-label="音樂庫">{ic("library", "l")}</span>'
-                f'{spine("sp-b-col", sub="A 面 1:04 / 3:26", compact=True)}'
+                f'{spine("sp-b-col", sub="1:04 / 3:26", compact=True)}'
                 f'<span class="orb glass orb-search" aria-label="搜尋">{ic("search", "l")}</span>')
         cap = "B · 往下捲：導覽收成圓鈕"
     else:
@@ -292,8 +316,9 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .orb-tab{left:12px;bottom:34px;color:var(--accent)}
 .sp-b-col{left:76px;right:76px;bottom:34px;height:56px;border-radius:28px;padding:0 14px 0 12px}
 .edge{position:absolute;left:0;right:0;top:0;height:96px;z-index:4;background:linear-gradient(var(--bg) 52%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask:linear-gradient(#000 55%,transparent);mask:linear-gradient(#000 55%,transparent)}
-.qh{display:flex;align-items:flex-end;justify-content:space-between;padding:12px 20px 4px}
+.qh{display:flex;align-items:flex-end;justify-content:space-between;padding:12px 20px 10px}
 .qh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
+.qmeta{font-size:var(--fs-sm);color:var(--fg2)}
 .qm{display:flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;font-size:var(--fs-meta)}
 .seg{padding:5px 10px;color:var(--fg2)}.seg.on{background:var(--accent-soft);color:var(--fg);font-weight:600}
 /* 桌面 */
@@ -387,7 +412,7 @@ def page_shell_a():
     body = (navlinks() + '<h1 class="pt">外殼 A：舊版結構換成玻璃</h1>'
             '<p class="lead">手機是底部分頁列加上方的迷你播放器；桌面是左側導覽軌、右側詳情面板、底部播放列。位置都照舊版，只把浮在內容上的控制層換成玻璃，捲動時不收合。</p>' + NOTE
             + '<h2 class="sec">手機</h2><div class="row">' + phone_a_playlist("t-dark") + phone_a_playlist("t-light")
-            + phone_a_queue("t-dark") + phone_a_queue("t-light") + '</div>'
+            + phone_a_queue("t-dark") + phone_a_queue("t-light", "隨機") + phone_a_queue_keep("t-dark") + '</div>'
             + '<h2 class="sec">桌面</h2><div class="row">' + desk_a("t-dark") + desk_a("t-light") + '</div>')
     return html("FMP 設計稿 · 外殼 A", body)
 
