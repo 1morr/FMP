@@ -253,7 +253,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 
 - 插件能力宣告：Spotube v6（功能與權限分開、遠端歌單寫入）、MusicFree（方法全部可選）。反例：LX Music 的自訂源只能解析網址，能力太窄。見 `docs/research/plugin-architectures.md`。
 - 佇列與播放模式：Apple Music、Spotify；臨時播放沿用舊版。
-- App 外殼與材質：Apple Music（iOS 26、macOS 26）的 Liquid Glass 用法：玻璃只用在浮在內容上的控制層，內容維持實心；外殼 B 方案的捲動收合也照它。
+- App 外殼與材質：Apple Music（iOS 26、macOS 26）的 Liquid Glass 用法：玻璃只用在浮在內容上的控制層，內容維持實心。
 - 架構：Flutter 官方 App Architecture 指南；Riverpod 官方文件。
 - 版面寬度分級：Material 3 的 compact、medium、expanded。
 - 發版：Berth（tag 才跑完整閘門）；檢查指令：QIM 的 `xtask` 加 `.githooks`。
@@ -353,10 +353,8 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 
 - 以舊版 UI 為底再優化：頁面地圖、資訊架構、各頁的功能入口照舊版；設計系統（色彩、字級、間距、圓角、材質）重新訂定。M1 開工前，第一版每個頁面都有經擁有者確認的設計稿。
 - 材質分兩種。玻璃（模糊、提高飽和、邊緣高光）只用在浮在內容上的控制層：導覽、迷你播放器、播放頁背景、sheet 與對話框、捲動時的頂部邊緣。內容（列表、卡片、封面）一律實心。四個平台用同一套視覺。
-- App 外殼出兩版，擁有者看稿後選一版，結果寫回本節：
-  - **A 舊版結構**：手機是底部導覽加上方的迷你播放器；桌面是左側導覽列、右側資訊面板、底部播放列。位置都照舊版，只換成浮動玻璃，不收合。
-  - **B Apple Music 式**：手機上迷你播放器和導覽是兩條浮動膠囊。往下捲時，導覽收成一顆顯示目前分頁的圓鈕，迷你播放器移到中間，搜尋變成右側獨立的圓鈕；往上捲再展開。頂部不用實心標題列，大標題跟著內容捲動，狀態列底下漸進模糊。桌面是浮動的玻璃側邊欄加玻璃播放列。
-  - 兩版各自在稿裡提出導覽項目，以及設定、帳號、插件管理的入口。
+- App 外殼採 A（舊版結構）：手機是底部分頁列（搜尋、佇列、音樂庫、設定）加上方的迷你播放器；桌面是左側導覽軌、右側詳情面板、底部浮動播放列。控制層是浮動玻璃，捲動時不收合。帳號與插件管理從設定進入。B（Apple Music 式膠囊與捲動收合）的稿留在 `docs/design/shell-b.html` 作為參考。
+- 設計系統是「卡帶 J-card」，token 與規則見 `docs/design/DESIGN.md`。
 - 設計稿是靜態 HTML（玻璃用 CSS `backdrop-filter` 模擬），每頁做手機版與桌面版、深淺色，放在 `docs/design/`，也發佈成私人網頁；有爭議的地方給 A／B 方案。實作照定稿切版。
 - 第一版的頁面：App 外殼（導覽、迷你播放器）、搜尋與結果、音樂庫、歌單詳情（本地、匯入）、佇列、全螢幕播放頁（含歌詞）、加入歌單對話框、帳號與登入、插件管理、設定、匯入舊版備份。導覽的項目在設計 session 定。
 - 語言：zh-TW 為主，加上 zh-CN、en，用 slang 管理。
@@ -412,7 +410,6 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **JS 引擎**：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async。由 M0 實驗（`scripts/experiments/`）決定。
 - **macOS 的 Now Playing 接法**：事實 R4 顯示 audio_service 在 macOS 不完整。由 M0 實驗決定。
 - **Windows 經 SSH 截圖傳回**：由 M0 第一張票實測。
-- **App 外殼選 A 或 B**：D 設計稿出兩版，擁有者看稿後決定，結果寫回 §11。
 - **玻璃的 Flutter 實作**：見事實 K10。M1 做 App 外殼的票開工時，查 `cupertino_ui` 是否已經發佈 Liquid Glass：已發佈就評估接它，沒發佈就用核心 Flutter 的 `BackdropFilter` 自己做。兩種做法都包在同一個玻璃元件後面，日後替換只改一處。
 
 ## 18. 查證過的事實
