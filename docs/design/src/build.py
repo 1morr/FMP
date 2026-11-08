@@ -40,6 +40,9 @@ ICONS = {
     "back": "M15.4 4.6 8 12l7.4 7.4-1.4 1.4L5.2 12 14 3.2z",
     "more": "M5 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
     "shuffle": "M16 4h4v4l-1.5-1.5-3.3 3.3-1.4-1.4 3.3-3.3zM4 6.6 5.4 5.2l13.1 13.1L20 16.8V20h-4l1.5-1.5L4.4 5.4zM9.8 13.4l1.4 1.4-5.8 5.8L4 19.2z",
+    "down": "M4.6 8.6 12 16l7.4-7.4 1.4 1.4-8.8 8.8L3.2 10z",
+    "listadd": "M3 6h12v2H3zm0 5h12v2H3zm0 5h8v2H3zm14-3h2v3h3v2h-3v3h-2v-3h-3v-2h3z",
+    "info": "M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm-1 7h2v6h-2zm0-4h2v2h-2z",
     "repeat": "M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2z",
     "repeat1": "M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2zM11.2 10.2 13 9.5h.8v5h-1.4v-3.4l-1.2.4z",
     "volume": "M4 9h4l5-4v14l-5-4H4zm12.5-1.5a6 6 0 0 1 0 9l-1.4-1.4a4 4 0 0 0 0-6.2zm2.8-2.8a10 10 0 0 1 0 14.6l-1.4-1.4a8 8 0 0 0 0-11.8z",
@@ -363,6 +366,49 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .dp-r{justify-content:flex-end;color:var(--fg2)}
 .vol{width:84px;height:4px;border-radius:2px;background:var(--line-strong);display:block}.vol span{display:block;width:70%;height:100%;border-radius:2px;background:var(--fg)}
 .dp-b .dp-l b{max-width:170px}.dp-b .dp-l .ic,.dp-b .dp-c>.ic.s,.dp-b .dp-r .ic:nth-child(3),.dp-b .vol{display:none}.dp-b .dp-c{gap:14px}.dp-b .dp-r{gap:12px}
+/* 播放頁 */
+.onart.t-dark{--fg:#F7F6F3;--fg2:rgba(247,246,243,.72);--fg3:rgba(247,246,243,.5);--line-strong:rgba(255,255,255,.28)}
+.onart.t-light{--fg:#141416;--fg2:rgba(20,20,22,.68);--fg3:rgba(20,20,22,.48);--line-strong:rgba(0,0,0,.22)}
+.player{position:absolute;inset:0}
+.pin{position:absolute;inset:50px 0 0;display:flex;flex-direction:column;padding:0 24px}
+.ptop{display:flex;align-items:center;justify-content:space-between;height:48px;color:var(--fg)}
+.ptop .pr{display:flex;align-items:center;gap:18px}
+.pcov{display:flex;justify-content:center;padding:20px 0 0}
+.pcov .cv{box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.plyr{flex:1;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(transparent,#000 14%,#000 80%,transparent);mask:linear-gradient(transparent,#000 14%,#000 80%,transparent);padding-top:22px}
+.lys{display:flex;flex-direction:column;gap:16px}
+.ly{display:flex;flex-direction:column;gap:3px;color:var(--fg3)}
+.ly b{font-size:20px;line-height:1.3;font-weight:700}
+.ly i{font-style:normal;font-size:14px}
+.ly.cur{color:var(--fg)}
+.ly.cur i{color:var(--fg2)}
+.pmeta{display:flex;align-items:flex-start;gap:12px;margin-top:auto}
+.pmeta div{flex:1;min-width:0}
+.pmeta h2{font-size:var(--fs-h3);line-height:1.3;font-weight:700;color:var(--fg)}
+.pmeta p{font-size:var(--fs-sm);color:var(--fg2);margin-top:4px;display:flex;align-items:center;gap:6px}
+.pbtn{color:var(--fg2);padding-top:4px}
+.seek{margin-top:18px}
+.seek .bar{position:relative;height:4px;border-radius:2px;background:var(--line-strong)}
+.seek .fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--fg)}
+.seek .head{position:absolute;top:-8px;width:2px;height:20px;margin-left:-1px;background:var(--accent);box-shadow:-1px 0 0 var(--crease-lo),1px 0 0 var(--crease-hi)}
+.seek .times{display:flex;justify-content:space-between;margin-top:8px;font:var(--fs-meta)/1 var(--mono);color:var(--fg2)}
+.tp{display:flex;align-items:center;justify-content:space-between;margin-top:14px;color:var(--fg)}
+.tp .it{color:var(--fg2)}.tp .it.on{color:var(--accent)}
+.ppb{width:72px;height:72px;border-radius:36px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center}
+.onart.t-dark .ppb{color:#141416}.onart.t-light .ppb{color:#F7F6F3}
+.pbot{align-self:center;margin-top:22px;margin-bottom:34px;display:flex;gap:4px;padding:4px;border-radius:24px}
+.pb{display:flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:20px;font-size:var(--fs-sm);font-weight:600;color:var(--fg2)}
+.pb.on{background:var(--accent-soft);color:var(--accent)}
+.dpl{top:36px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:56px 1fr;column-gap:56px;padding:0 64px 40px}
+.dpl .ptop{grid-column:1/3;padding:0 0}
+.dpl-l{display:flex;flex-direction:column;justify-content:center;max-width:440px;justify-self:end;width:100%}
+.dpl-l .pmeta{margin-top:0}
+.dpl-l .cv{margin-bottom:22px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.dpl-r{position:relative;overflow:hidden;-webkit-mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);padding-top:120px}
+.dpl-r .ly b{font-size:24px}
+.lyx{position:absolute;right:64px;bottom:28px;display:flex;gap:10px;align-items:center;font-size:var(--fs-meta);color:var(--fg2)}
+.dpl .ptop .vol{width:96px}
+
 /* 系統頁 */
 .sys{display:grid;grid-template-columns:repeat(2,minmax(0,560px));gap:32px}
 .card{border-radius:16px;padding:24px;overflow:hidden}
@@ -397,7 +443,7 @@ def html(title, body):
 
 def navlinks():
     return ('<nav class="navl"><a href="index.html">總覽</a><a href="system.html">設計系統</a>'
-            '<a href="shell-a.html">外殼 A</a><a href="shell-b.html">外殼 B</a></nav>')
+            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
 
 
 NOTE = '<p class="note">曲目、播放量與封面都是示意資料；封面是自繪的幾何圖，不是真實專輯封面。強調色用預設的 FMP 紫。</p>'
@@ -470,16 +516,104 @@ def page_system():
     return html("FMP 設計稿 · 設計系統", body)
 
 
+# ---------- 全螢幕播放頁（背景跟著封面取色） ----------
+PLAYER_TRACK = TRACKS[3]  # 【初音ミク】千本桜，示意封面 k=3
+LYRICS = [  # 自擬的示意文字，不是這首歌的歌詞
+    ("街の灯りが ひとつずつ消えて", "街燈一盞一盞熄滅"),
+    ("始発を待つ ホームの端で", "在月台邊等著首班車"),
+    ("君の声を まだ覚えてる", "我還記得你的聲音"),
+    ("明日の地図を 描きかけのまま", "明天的地圖還畫到一半"),
+    ("遠回りでも 迎えに行くよ", "就算繞遠路也會去接你"),
+    ("夜明けの色が 窓に滲む", "黎明的顏色滲進窗裡"),
+    ("names on the platform fade", "月台上的名字漸漸淡去"),
+]
+
+
+def art_bg(theme):
+    a, b, c = COVERS[PLAYER_TRACK[6] % len(COVERS)]
+    if theme == "t-dark":
+        return (f"background:linear-gradient(rgba(10,12,16,.50),rgba(10,12,16,.78)),"
+                f"radial-gradient(120% 70% at 20% 10%,{a},transparent 70%),radial-gradient(90% 60% at 90% 80%,{b},transparent 70%),#0E1620")
+    return (f"background:linear-gradient(rgba(248,247,244,.62),rgba(248,247,244,.82)),"
+            f"radial-gradient(120% 70% at 20% 10%,{c},transparent 70%),radial-gradient(90% 60% at 90% 80%,{b},transparent 70%),#EEF2F4")
+
+
+def seek(pct=0.41, cur="1:40", total="4:04"):
+    return (f'<div class="seek"><div class="bar"><span class="fill" style="width:{pct*100:.0f}%"></span>'
+            f'<span class="head" style="left:{pct*100:.0f}%"></span></div><div class="times"><span>{cur}</span><span>-2:24</span></div></div>')
+
+
+def transport(big=True):
+    return (f'<div class="tp"><span class="it" aria-label="隨機：關">{ic("shuffle")}</span>{ic("prev", "l")}'
+            f'<span class="ppb">{ic("pause", "l")}</span>{ic("next", "l")}<span class="it on" aria-label="列表循環">{ic("repeat")}</span></div>')
+
+
+def now_meta():
+    title, artist, src, acc, dur, plays, k = PLAYER_TRACK
+    return (f'<div class="pmeta"><div><h2>{title}</h2><p>{artist} · <span class="tag">{SOURCE_NAME[src]}</span></p></div>'
+            f'<span class="pbtn">{ic("heart")}</span></div>')
+
+
+def lyric_lines(cur=2):
+    out = ""
+    for i, (o, tr) in enumerate(LYRICS):
+        out += f'<li class="ly{" cur" if i == cur else ""}"><b>{o}</b><i>{tr}</i></li>'
+    return f'<ul class="lys">{out}</ul>'
+
+
+def ptop(desktop=False):
+    right = (f'{ic("listadd")}{ic("volume")}<span class="vol"><span></span></span>{ic("info")}{ic("more")}' if desktop
+             else f'{ic("listadd")}{ic("info")}{ic("more")}')
+    return f'<div class="ptop">{ic("down", "l")}<span class="pr">{right}</span></div>'
+
+
+def pbottom(lyrics_on):
+    return (f'<div class="pbot glass"><span class="pb{" on" if lyrics_on else ""}">{ic("lyrics")}<span>歌詞</span></span>'
+            f'<span class="pb">{ic("queue")}<span>佇列</span></span></div>')
+
+
+def phone_player(theme, lyrics):
+    k = PLAYER_TRACK[6]
+    if lyrics:
+        mid = f'<div class="plyr">{lyric_lines()}</div>'
+        cap = "歌詞"
+    else:
+        mid = f'<div class="pcov">{cover(k, 342, 12)}</div>'
+        cap = "封面"
+    inner = (f'<div class="player" style="{art_bg(theme)}"><div class="pin">{ptop()}{mid}{now_meta()}{seek()}{transport()}{pbottom(lyrics)}</div></div>')
+    return phone(theme + " onart", inner, f"播放頁 · {cap} · {'深色' if theme == 't-dark' else '淺色'}")
+
+
+def desk_player_page(theme):
+    k = PLAYER_TRACK[6]
+    inner = (f'{titlebar()}<div class="player dpl" style="{art_bg(theme)}">{ptop(True)}'
+             f'<div class="dpl-l">{cover(k, 360, 14)}{now_meta()}{seek()}{transport()}</div>'
+             f'<div class="dpl-r">{lyric_lines(3)}</div><div class="lyx"><span class="tag">網易雲 歌詞</span><span>偏移 +0.3 秒</span></div></div>')
+    return (f'<figure class="frame"><div class="desk {theme} onart">{inner}</div>'
+            f'<figcaption>播放頁 · 桌面（封面＋歌詞兩欄，1280×800）· {"深色" if theme == "t-dark" else "淺色"}</figcaption></figure>')
+
+
+def page_player():
+    body = (navlinks() + '<h1 class="pt">全螢幕播放頁</h1>'
+            '<p class="lead">照舊版：上方收合鈕與加入歌單、資訊、更多；中間是封面，點封面切到歌詞；下方是曲名、進度與播放控制。背景跟著封面取色，是整個 App 唯一帶封面色的地方；控制層仍是中性玻璃。進度的播放頭是書脊的強調色摺線。桌面寬度夠時封面與歌詞並排。</p>'
+            '<p class="note">歌詞是自擬的示意文字，不是這首歌的歌詞。第一版不做倍速與輸出裝置選擇，所以畫面上沒有這兩個控制。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_player("t-dark", False) + phone_player("t-dark", True)
+            + phone_player("t-light", False) + phone_player("t-light", True) + '</div>'
+            + '<h2 class="sec">桌面</h2><div class="row">' + desk_player_page("t-dark") + desk_player_page("t-light") + '</div>')
+    return html("FMP 設計稿 · 播放頁", body)
+
+
 def page_index():
     body = (navlinks() + '<h1 class="pt">FMP 新版設計稿（D）</h1>'
             '<p class="lead">第一步：設計系統與 App 外殼。外殼出 A、B 兩版，選定後其餘頁面照選定的外殼做。決定依據見 docs/design-brief.md §11。</p>' + NOTE
             + '<ul style="line-height:2"><li><a style="color:#CFBCFF" href="system.html">設計系統</a>：色彩、字級、間距、寬度分級、玻璃與實心材質、元件</li>'
-            '<li><a style="color:#CFBCFF" href="shell-a.html">外殼 A</a>：舊版結構換成玻璃</li>'
-            '<li><a style="color:#CFBCFF" href="shell-b.html">外殼 B</a>：Apple Music 式浮動膠囊與捲動收合</li></ul>')
+            '<li><a style="color:#CFBCFF" href="shell-a.html">外殼 A</a>（採用）：舊版結構換成玻璃</li>'
+            '<li><a style="color:#CFBCFF" href="player.html">全螢幕播放頁</a>：封面、歌詞、背景跟著封面取色</li>'
+            '<li><a style="color:#CFBCFF" href="shell-b.html">外殼 B</a>（未採用，留作參考）：Apple Music 式浮動膠囊與捲動收合</li></ul>')
     return html("FMP 設計稿", body)
 
 
 if __name__ == "__main__":
-    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b)]:
+    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player)]:
         (ROOT / name).write_text(fn(), encoding="utf-8")
     print("written:", ROOT)
