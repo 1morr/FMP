@@ -102,3 +102,8 @@ secrets.json
 /fmp-v*-android-*.apk
 /fmp-v*-windows.zip
 /fmp-v*-windows-installer.exe
+
+# 設計工具的暫存（決策草圖、審查截圖、決策頁狀態）
+/docs/design/.impeccable/mocks/
+/docs/design/.impeccable/review/
+/docs/design/.impeccable/questions/

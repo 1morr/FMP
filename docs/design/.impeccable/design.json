@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-08T00:00:00Z",
+  "title": "Design System: FMP",
+  "extensions": {
+    "colorMeta": {
+      "accent-dark": {"role": "primary", "displayName": "FMP 紫（深色）", "canonical": "#CFBCFF", "tonalRamp": []},
+      "accent-light": {"role": "primary", "displayName": "FMP 紫（淺色）", "canonical": "#6750A4", "tonalRamp": []},
+      "vip-dark": {"role": "secondary", "displayName": "VIP 金", "canonical": "#E3B341", "tonalRamp": []},
+      "bg-dark": {"role": "neutral", "displayName": "深色底", "canonical": "#121214", "tonalRamp": ["#121214", "#1A1A1D"]},
+      "bg-light": {"role": "neutral", "displayName": "淺色底", "canonical": "#F5F5F3", "tonalRamp": ["#F5F5F3", "#EBEBE8"]}
+    },
+    "typographyMeta": {
+      "body": {"displayName": "內文／曲名", "purpose": "曲目列曲名，tabular-nums。"},
+      "duration": {"displayName": "時長", "purpose": "等寬、右對齊成一欄。"}
+    },
+    "shadows": [
+      {"name": "glass-shadow-dark", "value": "0 10px 28px rgba(0,0,0,.38)", "purpose": "浮動玻璃控制層（深色）。"},
+      {"name": "glass-shadow-light", "value": "0 10px 28px rgba(0,0,0,.12)", "purpose": "浮動玻璃控制層（淺色）。"},
+      {"name": "glass-blur", "value": "blur(22px) saturate(180%)", "purpose": "backdrop-filter，僅浮動控制層。"}
+    ],
+    "motion": [],
+    "breakpoints": [
+      {"name": "compact", "value": "< 600px"},
+      {"name": "medium", "value": "600-839px"},
+      {"name": "expanded", "value": ">= 840px"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Track Row",
+      "kind": "custom",
+      "refersTo": "track-row-phone",
+      "description": "手機曲目列，固定 60 高，髮絲線分列。",
+      "html": "<div class=\"ds-tr\"><span class=\"ds-ix\">13</span><span class=\"ds-cv\"></span><span class=\"ds-tx\"><b>曲名</b><i>歌手</i></span><span class=\"ds-du\">3:26</span></div>",
+      "css": ".ds-tr{display:grid;grid-template-columns:24px 44px minmax(0,1fr) auto;align-items:center;column-gap:12px;height:60px;padding:0 20px 0 8px;border-bottom:1px solid var(--line);color:var(--fg)} .ds-tr:hover{background:var(--hover)} .ds-tr:active{background:var(--pressed)} .ds-tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px} .ds-ix{font-size:12px;color:var(--fg3);text-align:right} .ds-cv{width:44px;height:44px;border-radius:6px;background:var(--bg2)} .ds-tx{display:flex;flex-direction:column;gap:3px} .ds-tx b{font-weight:500} .ds-tx i{font-style:normal;font-size:12px;color:var(--fg2)} .ds-du{font:12px/1 ui-monospace,Menlo,monospace;color:var(--fg2)}"
+    },
+    {
+      "name": "Source Tag",
+      "kind": "chip",
+      "refersTo": "tag-source",
+      "description": "音源標籤，線框。",
+      "html": "<span class=\"ds-tag\">YT</span>",
+      "css": ".ds-tag{display:inline-block;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid var(--line-strong);color:var(--fg2);font-weight:500}"
+    },
+    {
+      "name": "VIP Tag",
+      "kind": "chip",
+      "refersTo": "tag-vip",
+      "description": "唯一的實心標籤。",
+      "html": "<span class=\"ds-tag-vip\">VIP</span>",
+      "css": ".ds-tag-vip{display:inline-block;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;background:var(--vip);border:1px solid var(--vip);color:var(--on-vip);font-weight:700}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "主要動作，強調色底。",
+      "html": "<button class=\"ds-btn-pri\">播放</button>",
+      "css": ".ds-btn-pri{height:40px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:14px} .ds-btn-pri:focus-visible{outline:2px solid var(--accent);outline-offset:2px}"
+    },
+    {
+      "name": "Spine Mini Player",
+      "kind": "custom",
+      "refersTo": "spine-phone",
+      "description": "玻璃書脊：已播中性陰影加上下兩端露出的強調色摺線。",
+      "html": "<div class=\"ds-spine\"><span class=\"ds-pl\"></span><span class=\"ds-fold\"></span><span class=\"ds-t\"><b>曲名</b><i>歌手 · 1:04 / 3:26</i></span></div>",
+      "css": ".ds-spine{position:relative;display:flex;align-items:center;height:58px;border-radius:16px;padding:0 12px 0 9px;overflow:hidden;background:var(--glass);backdrop-filter:blur(22px) saturate(180%);border:1px solid var(--glass-edge);box-shadow:inset 0 1px 0 var(--glass-hi),var(--glass-shadow);color:var(--fg)} .ds-pl{position:absolute;left:0;top:0;bottom:0;width:31%;background:var(--played)} .ds-fold{position:absolute;left:31%;top:0;bottom:0;border-left:2px solid var(--accent);box-shadow:-1px 0 0 var(--crease-lo),1px 0 0 var(--crease-hi);-webkit-mask:linear-gradient(#000 0 12px,transparent 12px calc(100% - 12px),#000 calc(100% - 12px));mask:linear-gradient(#000 0 12px,transparent 12px calc(100% - 12px),#000 calc(100% - 12px))} .ds-t{position:relative;display:flex;flex-direction:column} .ds-t b{font-size:14px;font-weight:600} .ds-t i{font-style:normal;font-size:12px;color:var(--fg2)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "摺起來的卡帶 J-card",
+    "overview": "介面像一張摺起來的卡帶曲目卡：曲目密排、時長對齊成一欄，一條摺線把已播和接下來分開。底色中性，列與列只用髮絲線分隔。音源是線框文字標籤，VIP 是唯一的實心金色。層級只靠疊放：玻璃浮在實心內容之上，內容本身不加陰影。",
+    "keyCharacteristics": ["中性深／淺底，強調色為單一 token", "固定列高，4pt 網格，等寬數字欄", "玻璃只給浮動控制層；書脊與摺線是招牌", "深淺色同等設計"],
+    "rules": [
+      {"name": "The One Accent Rule", "body": "強調色只有一個 token，使用者從預設清單選；玻璃與底色永遠不帶強調色。", "section": "colors"},
+      {"name": "The Only Solid Tag Rule", "body": "VIP 是唯一實心標籤；其他標籤一律線框。", "section": "colors"},
+      {"name": "The Dim Login Rule", "body": "需登入的曲目，整列在所有列表變淡，點了引導登入。", "section": "colors"},
+      {"name": "The Mono Duration Rule", "body": "時長與計時一律等寬字型、右對齊成一欄。", "section": "typography"},
+      {"name": "The Floating Glass Rule", "body": "玻璃只用在浮在捲動內容之上的控制層；底下沒有內容捲過的面（如 B 桌面側欄）用實心。", "section": "elevation"},
+      {"name": "The No Content Shadow Rule", "body": "列、封面、面板不加陰影。", "section": "elevation"}
+    ],
+    "dos": ["Do 用 accent 標互動與目前狀態。", "Do 時長用等寬、右對齊。", "Do 以固定列高與髮絲線分列。", "Do 玻璃只給浮動控制層。", "Do hover／pressed 用中性填色，focus 用 2px 強調色外框。"],
+    "donts": ["Don't 讓玻璃或底色帶強調色。", "Don't 增加第二種實心標籤。", "Don't 給列、封面、面板加陰影，或用卡片分列。", "Don't 把黃 #F9A825 放進淺色強調色清單。", "Don't 做大封面、低密度的列表。"]
+  }
+}

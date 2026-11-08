@@ -18,7 +18,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 | 路徑 | 內容 |
 | --- | --- |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
-| `docs/` | brief、plan、progress、ADR、`docs/research/`、`docs/agents/`；其餘是舊版的使用者與開發文件 |
+| `docs/` | brief、plan、progress、ADR、`docs/research/`、`docs/agents/`、`docs/design/`（新版設計稿，頁面由 `src/build.py` 產生）；其餘是舊版的使用者與開發文件 |
 | `.scratch/` | 里程碑的 spec 與票 |
 | `.github/workflows/` | `ci.yml`、`release.yml` 都屬於舊版 |
 | `.claude/skills/` | `verify-legacy-on-device`：舊版緊急修正的實機驗證 |
