@@ -41,6 +41,7 @@ ICONS = {
     "more": "M5 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z",
     "shuffle": "M16 4h4v4l-1.5-1.5-3.3 3.3-1.4-1.4 3.3-3.3zM4 6.6 5.4 5.2l13.1 13.1L20 16.8V20h-4l1.5-1.5L4.4 5.4zM9.8 13.4l1.4 1.4-5.8 5.8L4 19.2z",
     "repeat": "M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2z",
+    "repeat1": "M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2zM11.2 10.2 13 9.5h.8v5h-1.4v-3.4l-1.2.4z",
     "volume": "M4 9h4l5-4v14l-5-4H4zm12.5-1.5a6 6 0 0 1 0 9l-1.4-1.4a4 4 0 0 0 0-6.2zm2.8-2.8a10 10 0 0 1 0 14.6l-1.4-1.4a8 8 0 0 0 0-11.8z",
     "lyrics": "M4 5h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z",
     "speaker": "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm5 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0-6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z",
@@ -156,40 +157,36 @@ NOW_ROW = (f'<li class="tr now"><span class="ix">13</span>{cover(0, 44)}<span cl
            f'<span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">1:04 / 3:26</span></span></li>')
 
 
-def queue_header(mode):
-    segs = "".join(f'<span class="seg{" on" if s == mode else ""}">{s}</span>' for s in ["順序", "循環", "單曲", "隨機"])
+REPEAT = {"off": ("repeat", "不循環", False), "all": ("repeat", "列表循環", True), "one": ("repeat1", "單曲循環", True)}
+
+
+def toggles(shuffle, repeat):
+    """隨機與循環是兩個獨立控制，可以同時開。開啟時亮強調色。"""
+    ri, rl, ron = REPEAT[repeat]
+    return (f'<span class="togs"><span class="tog{" on" if shuffle else ""}" role="switch" aria-checked="{str(shuffle).lower()}">{ic("shuffle", "s")}隨機</span>'
+            f'<span class="tog{" on" if ron else ""}" role="button">{ic(ri, "s")}{rl}</span></span>')
+
+
+def queue_header(shuffle, repeat):
     return (f'<header class="qh"><div><h1>佇列</h1><p class="qmeta">42 首 · 剩 1 小時 52 分</p></div>'
-            f'<span class="qm">{segs}</span></header>')
+            f'{toggles(shuffle, repeat)}</header>'
+            f'<div class="qnow" role="button">{ic("playcount", "s")}<span>正在播放 · 第 13 首</span><span class="qgo">跳到這首{ic("chev", "s")}</span></div>')
 
 
-def queue_body(mode="順序"):
-    """預設顯示：畫面永遠是播放順序。播過的在上方變淡，摺線在正在播的那首下方，不寫字。"""
+def queue_body(shuffle=False, repeat="off"):
+    """佇列畫面永遠是播放順序。播過的在上方變淡，摺線在正在播的那首下方，不寫字。"""
     played = TRACKS[10:12]
     upcoming = TRACKS[1:9]
-    return (queue_header(mode)
+    return (queue_header(shuffle, repeat)
             + '<ul class="tl">' + "".join(track_row(11 + i, t, "played") for i, t in enumerate(played)) + NOW_ROW + '</ul>'
             + '<div class="foldrule" role="separator"></div>'
             + '<ul class="tl">' + "".join(track_row(14 + i, t) for i, t in enumerate(upcoming)) + '</ul>')
 
 
-def queue_body_keep():
-    """隨機・維持原順序（舊版，設定可選）：畫面不動，只標亮正在播的那首，不畫摺線、不變淡。"""
-    before = TRACKS[9:12]
-    after = TRACKS[1:8]
-    return (queue_header("隨機")
-            + '<ul class="tl">' + "".join(track_row(10 + i, t) for i, t in enumerate(before)) + NOW_ROW
-            + "".join(track_row(14 + i, t) for i, t in enumerate(after)) + '</ul>')
-
-
-def phone_a_queue(theme, mode="順序"):
-    inner = f'<div class="scroll">{queue_body(mode)}</div>{spine("sp-a")}{tabbar_a("佇列")}'
-    note = "隨機・預設：畫面重排成播放順序" if mode == "隨機" else "預設：依播放順序，摺線標正在播"
+def phone_a_queue(theme, shuffle=False, repeat="off"):
+    inner = f'<div class="scroll">{queue_body(shuffle, repeat)}</div>{spine("sp-a")}{tabbar_a("佇列")}'
+    note = "隨機＋列表循環同時開：畫面是打亂後的播放順序" if shuffle else "隨機關、不循環：摺線標正在播"
     return phone(theme, inner, f"A · 佇列（{note}）· {'深色' if theme == 't-dark' else '淺色'}")
-
-
-def phone_a_queue_keep(theme):
-    inner = f'<div class="scroll">{queue_body_keep()}</div>{spine("sp-a")}{tabbar_a("佇列")}'
-    return phone(theme, inner, f"A · 佇列（隨機・維持原順序，設定可選）· {'深色' if theme == 't-dark' else '淺色'}")
 
 
 # ---------- 外殼 B（Apple Music 式） ----------
@@ -249,7 +246,7 @@ def desk_panel():
 def desk_player(cls):
     return (f'<div class="dplayer glass {cls}"><span class="pl" style="width:31%"></span><span class="fold" style="left:31%"></span>'
             f'<div class="dp-l">{cover(0, 48)}<span class="tx"><b>フレグランス (Fragrance/香味)</b><i>茉ひる</i></span>{ic("heart", "s")}</div>'
-            f'<div class="dp-c">{ic("shuffle", "s")}{ic("prev")}<span class="pp">{ic("pause", "l")}</span>{ic("next")}{ic("repeat", "s")}<span class="du">1:04 / 3:26</span></div>'
+            f'<div class="dp-c"><span class="it on" aria-label="隨機：開">{ic("shuffle", "s")}</span>{ic("prev")}<span class="pp">{ic("pause", "l")}</span>{ic("next")}<span class="it on" aria-label="列表循環">{ic("repeat", "s")}</span><span class="du">1:04 / 3:26</span></div>'
             f'<div class="dp-r">{ic("lyrics", "s")}{ic("queue", "s")}{ic("speaker", "s")}{ic("volume", "s")}<span class="vol"><span></span></span></div></div>')
 
 
@@ -316,11 +313,11 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .orb-tab{left:12px;bottom:34px;color:var(--accent)}
 .sp-b-col{left:76px;right:76px;bottom:34px;height:56px;border-radius:28px;padding:0 14px 0 12px}
 .edge{position:absolute;left:0;right:0;top:0;height:96px;z-index:4;background:linear-gradient(var(--bg) 52%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask:linear-gradient(#000 55%,transparent);mask:linear-gradient(#000 55%,transparent)}
-.qh{display:flex;align-items:flex-end;justify-content:space-between;padding:12px 20px 10px}
+.qh{display:flex;align-items:flex-end;gap:12px;justify-content:space-between;padding:12px 20px 10px}
 .qh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
 .qmeta{font-size:var(--fs-sm);color:var(--fg2)}
-.qm{display:flex;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;font-size:var(--fs-meta)}
-.seg{padding:5px 10px;color:var(--fg2)}.seg.on{background:var(--accent-soft);color:var(--fg);font-weight:600}
+.qnow{display:flex;align-items:center;gap:6px;margin:0 12px 6px;padding:0 8px 0 10px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-size:var(--fs-sm);font-weight:600}
+.qnow .qgo{margin-left:auto;display:flex;align-items:center;gap:2px;color:var(--fg2);font-weight:500}
 /* 桌面 */
 .desk{position:relative;width:1280px;height:800px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 24px 60px rgba(0,0,0,.45)}
 .wtitle{height:36px;display:flex;align-items:center;gap:14px;padding:0 14px;font-size:13px;color:var(--fg2);border-bottom:1px solid var(--line)}
@@ -412,7 +409,7 @@ def page_shell_a():
     body = (navlinks() + '<h1 class="pt">外殼 A：舊版結構換成玻璃</h1>'
             '<p class="lead">手機是底部分頁列加上方的迷你播放器；桌面是左側導覽軌、右側詳情面板、底部播放列。位置都照舊版，只把浮在內容上的控制層換成玻璃，捲動時不收合。</p>' + NOTE
             + '<h2 class="sec">手機</h2><div class="row">' + phone_a_playlist("t-dark") + phone_a_playlist("t-light")
-            + phone_a_queue("t-dark") + phone_a_queue("t-light", "隨機") + phone_a_queue_keep("t-dark") + '</div>'
+            + phone_a_queue("t-dark") + phone_a_queue("t-light", True, "all") + '</div>'
             + '<h2 class="sec">桌面</h2><div class="row">' + desk_a("t-dark") + desk_a("t-light") + '</div>')
     return html("FMP 設計稿 · 外殼 A", body)
 
@@ -439,11 +436,13 @@ def system_card(theme):
     sw = "".join(f'<div class="sw"><i style="background:var({v})"></i><span>{l}</span><code>{v}</code></div>' for v, l in colors)
     tags = ('<div class="tagrow"><span class="tag">B站</span><span class="tag">YT</span><span class="tag">網易</span>'
             '<span class="tag vip">VIP</span><span class="tag trial">試聽</span><span class="tag login">需登入</span></div>')
+    togrow = ('<div class="tagrow">' + toggles(False, "off") + toggles(True, "all") + toggles(True, "one") + '</div>'
+              '<p class="stl" style="margin:-4px 0 12px">隨機與循環各自獨立：上排依序是兩個都關、隨機＋列表循環、隨機＋單曲循環</p>')
     btns = f'<div class="tagrow"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span><span class="btn out">{ic("plus", "s")}加入佇列</span></div>'
     demo = ('<div class="glassdemo"><ul class="tl">' + "".join(track_row(i + 1, t, "now" if i == 0 else "") for i, t in enumerate(TRACKS[:4]))
             + '</ul>' + spine("", 0.31).replace('class="spine glass "', 'class="spine glass"') + '</div>')
     return (f'<div class="card {theme}"><h3>色彩 · {name}</h3>{sw}</div>'
-            f'<div class="card {theme}"><h3>元件 · {name}</h3>{tags}{btns}'
+            f'<div class="card {theme}"><h3>元件 · {name}</h3>{tags}{btns}{togrow}'
             f'<ul class="tl">{track_row(3, TRACKS[2])}{track_row(6, TRACKS[5])}{track_row(8, TRACKS[7], "off")}</ul>'
             f'<h3 style="margin-top:20px">狀態</h3><ul class="tl">{track_row(4, TRACKS[3], "hover")}{track_row(5, TRACKS[4], "pressed")}{track_row(7, TRACKS[6], "focus")}{track_row(8, TRACKS[7], "off")}</ul>'
             f'<p class="stl">由上而下：滑鼠移入、按下、鍵盤焦點、不能播（需登入，整列變淡，點了引導登入）</p>'

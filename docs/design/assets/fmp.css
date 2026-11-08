@@ -81,3 +81,11 @@ ul{list-style:none}
 .btn.pri{background:var(--accent);color:var(--on-accent)}
 .btn.ton{background:var(--accent-soft);color:var(--fg)}
 .btn.out{border:1px solid var(--line-strong);color:var(--fg)}
+
+/* 隨機與循環：兩個獨立控制，開啟時亮強調色 */
+.togs{display:flex;gap:6px}
+.tog{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:16px;border:1px solid var(--line-strong);color:var(--fg2);font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.tog.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.it{position:relative;display:inline-flex;color:var(--fg2)}
+.it.on{color:var(--accent)}
+.it.on::after{content:"";position:absolute;left:50%;bottom:-7px;width:4px;height:4px;margin-left:-2px;border-radius:2px;background:var(--accent)}
