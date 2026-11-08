@@ -253,6 +253,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 
 - 插件能力宣告：Spotube v6（功能與權限分開、遠端歌單寫入）、MusicFree（方法全部可選）。反例：LX Music 的自訂源只能解析網址，能力太窄。見 `docs/research/plugin-architectures.md`。
 - 佇列與播放模式：Apple Music、Spotify；臨時播放沿用舊版。
+- App 外殼與材質：Apple Music（iOS 26、macOS 26）的 Liquid Glass 用法：玻璃只用在浮在內容上的控制層，內容維持實心；外殼 B 方案的捲動收合也照它。
 - 架構：Flutter 官方 App Architecture 指南；Riverpod 官方文件。
 - 版面寬度分級：Material 3 的 compact、medium、expanded。
 - 發版：Berth（tag 才跑完整閘門）；檢查指令：QIM 的 `xtask` 加 `.githooks`。
@@ -350,8 +351,13 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 
 ## 11. 介面【決定】
 
-- 以舊版 UI 為底再優化。M1 開工前，第一版每個頁面都有經擁有者確認的設計稿。
-- 設計稿是靜態 HTML，每頁做手機版與桌面版、深淺色，放在 `docs/design/`，也發佈成私人網頁；有爭議的地方給 A／B 方案。實作照定稿切版。
+- 以舊版 UI 為底再優化：頁面地圖、資訊架構、各頁的功能入口照舊版；設計系統（色彩、字級、間距、圓角、材質）重新訂定。M1 開工前，第一版每個頁面都有經擁有者確認的設計稿。
+- 材質分兩種。玻璃（模糊、提高飽和、邊緣高光）只用在浮在內容上的控制層：導覽、迷你播放器、播放頁背景、sheet 與對話框、捲動時的頂部邊緣。內容（列表、卡片、封面）一律實心。四個平台用同一套視覺。
+- App 外殼出兩版，擁有者看稿後選一版，結果寫回本節：
+  - **A 舊版結構**：手機是底部導覽加上方的迷你播放器；桌面是左側導覽列、右側資訊面板、底部播放列。位置都照舊版，只換成浮動玻璃，不收合。
+  - **B Apple Music 式**：手機上迷你播放器和導覽是兩條浮動膠囊。往下捲時，導覽收成一顆顯示目前分頁的圓鈕，迷你播放器移到中間，搜尋變成右側獨立的圓鈕；往上捲再展開。頂部不用實心標題列，大標題跟著內容捲動，狀態列底下漸進模糊。桌面是浮動的玻璃側邊欄加玻璃播放列。
+  - 兩版各自在稿裡提出導覽項目，以及設定、帳號、插件管理的入口。
+- 設計稿是靜態 HTML（玻璃用 CSS `backdrop-filter` 模擬），每頁做手機版與桌面版、深淺色，放在 `docs/design/`，也發佈成私人網頁；有爭議的地方給 A／B 方案。實作照定稿切版。
 - 第一版的頁面：App 外殼（導覽、迷你播放器）、搜尋與結果、音樂庫、歌單詳情（本地、匯入）、佇列、全螢幕播放頁（含歌詞）、加入歌單對話框、帳號與登入、插件管理、設定、匯入舊版備份。導覽的項目在設計 session 定。
 - 語言：zh-TW 為主，加上 zh-CN、en，用 slang 管理。
 
@@ -406,6 +412,8 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **JS 引擎**：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async。由 M0 實驗（`scripts/experiments/`）決定。
 - **macOS 的 Now Playing 接法**：事實 R4 顯示 audio_service 在 macOS 不完整。由 M0 實驗決定。
 - **Windows 經 SSH 截圖傳回**：由 M0 第一張票實測。
+- **App 外殼選 A 或 B**：D 設計稿出兩版，擁有者看稿後決定，結果寫回 §11。
+- **玻璃的 Flutter 實作**：見事實 K10。M1 做 App 外殼的票開工時，查 `cupertino_ui` 是否已經發佈 Liquid Glass：已發佈就評估接它，沒發佈就用核心 Flutter 的 `BackdropFilter` 自己做。兩種做法都包在同一個玻璃元件後面，日後替換只改一處。
 
 ## 18. 查證過的事實
 
@@ -495,6 +503,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **K7**【待重驗】`flutter_js` 0.8.7 的 QuickJS 沒有中斷機制，要放在背景 isolate；macOS 與 iOS 版只附 JavaScriptCore 的空殼，要自編 QuickJS；iOS 要 `use_frameworks!`。出處：`archive:docs/adr/0014`、`0036` §決定 1、`0037` §決定 3。可信度：上一版文件。
 - **K8**【待重驗】`flutter_inappwebview` 6.1.5（2024-10）是最後一個穩定版；從 beta 退回 stable 時，`pubspec.lock` 會殘留 beta 版的 `_platform_interface` 而建置失敗。出處：archive 的 `r1-youtube-login.md`〈建置〉。可信度：上一版文件。
 - **K9**【待重驗】桌面套件的維護狀態：`window_manager` 在 2026-09 批次關閉 issue；`hotkey_manager` 0.2.3 最後發佈在 2024-05；`qr_flutter` 4.1.0 停在 2023。出處：`docs/audit/platforms.md` §4.1。可信度：上一版文件。
+- **K10** Flutter 官方的 Liquid Glass 還沒發佈。flutter/packages 把社群的 `liquid_glass_widgets`、`liquid_glass_renderer` 改編進 `cupertino_ui`（PR #13162、#13163、#13344、#13453、#13454，2026-10-20 至 11-06 合併），但合進的是 `liquid_glass` 功能分支，不在 main；pub 上 `cupertino_ui` 的 changelog 到 1.1.5（2026-11-03）都沒有 glass；追蹤 issue flutter/flutter#170310 仍開著。分支裡的 `doc/liquid_glass/PLATFORM_SUPPORT.md`：品質分三級，premium 是折射 shader，需要 Impeller，不適合捲動列表；standard 是輕量 shader，全平台可用；minimal 只用 `BackdropFilter`。平台分級：iOS、Android（Impeller）是主力，macOS 是 Supported，Windows 是 Partial（文件寫走 Skia，最高只到 standard）。出處：上述 PR；flutter/packages `liquid_glass` 分支的 `packages/cupertino_ui/doc/liquid_glass/PLATFORM_SUPPORT.md`；https://pub.dev/packages/cupertino_ui/changelog。可信度：2026-11-08 查證。
 
 ### 18.9 工具鏈
 
