@@ -1,7 +1,7 @@
 """產生 docs/design/ 的設計稿頁面。
 
 用法：python3 -I docs/design/src/build.py
-輸出：docs/design/system.html、shell-a.html、shell-b.html、index.html。
+輸出：docs/design/ 底下的 index、system、shell-a、shell-b、player、search、library 各頁。
 樣式在 docs/design/assets/fmp.css；這裡只組版面與示意資料。
 """
 import pathlib
@@ -53,6 +53,17 @@ ICONS = {
     "thumb": "M3 10h4v10H3zm6 10V10l4-7c1.6 0 2.5 1.2 2.1 2.7L14.5 9H20a1.8 1.8 0 0 1 1.8 2.1l-1.4 7.3A2 2 0 0 1 18.4 20z",
     "playcount": "M8 5.5 18 12 8 18.5z",
     "chev": "M8.6 4.6 16 12l-7.4 7.4 1.4 1.4 8.8-8.8L10 3.2z",
+    "history": "M13 3a9 9 0 1 1-8.5 12h2.1A7 7 0 1 0 6 10.6V11h2.5L5 14.5 1.5 11H4v-.4A9 9 0 0 1 13 3Zm-1 4h2v5.2l3.6 2.1-1 1.7-4.6-2.7z",
+    "close": "M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z",
+    "check": "M9.5 15.6 19.1 6l1.4 1.4-11 11-5.9-5.9L5 11.1z",
+    "sort": "M8 3l4 4.5h-3V16H7V7.5H4zm8 18-4-4.5h3V8h2v8.5h3z",
+    "link": "M10.6 13.4a1 1 0 0 1 0-1.4l3.5-3.5 1.4 1.4-3.5 3.5a1 1 0 0 1-1.4 0ZM8 11.5l-2.1 2.1a3 3 0 0 0 4.2 4.3l2.2-2.2 1.4 1.4-2.2 2.2a5 5 0 0 1-7-7.1l2.1-2.1zm8 1 2.1-2.1a3 3 0 0 0-4.2-4.3l-2.2 2.2-1.4-1.4 2.2-2.2a5 5 0 0 1 7 7.1l-2.1 2.1z",
+    "refresh": "M12 4a8 8 0 0 1 7.4 5H22l-3.5 4-3.5-4h2.2A6 6 0 1 0 18 14.6l1.8.9A8 8 0 1 1 12 4Z",
+    "copy": "M8 3h11a2 2 0 0 1 2 2v11h-2V5H8zM5 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h10V9z",
+    "trash": "M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zm2.1 2 .8 9h6.2l.8-9z",
+    "playnext": "M3 5h11v2H3zm0 5h11v2H3zm0 5h7v2H3zm10-1 8 4-8 4z",
+    "minus": "M5 11h14v2H5z",
+    "edit": "M4 16.8 15.6 5.2l3.2 3.2L7.2 20H4zm13-13 1.4-1.4a1 1 0 0 1 1.4 0l1.8 1.8a1 1 0 0 1 0 1.4L20.2 7z",
 }
 
 
@@ -335,7 +346,7 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .sn:first-of-type{color:var(--accent);background:var(--accent-soft)}
 .sp.on{background:var(--line)}
 .sh{font-size:var(--fs-cap);color:var(--fg2);padding:14px 10px 4px;font-weight:600}
-.dmain{overflow:hidden;padding:0 0 0 0}
+.dmain{position:relative;overflow:hidden;padding:0 0 0 0}
 .dplh{display:flex;gap:20px;align-items:flex-end;padding:22px 28px 18px}
 .dplh h1{font-size:var(--fs-h1);line-height:40px;font-weight:700}
 .dplh p{font-size:var(--fs-sm);color:var(--fg2)}
@@ -417,6 +428,158 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .lyx{position:absolute;right:64px;bottom:28px;display:flex;gap:10px;align-items:center;font-size:var(--fs-meta);color:var(--fg2)}
 .dpl .ptop .vol{width:96px}
 
+/* 搜尋 */
+.ic.xs{width:14px;height:14px}
+.shead{padding:6px 20px 0;background:var(--bg)}
+.qf{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:var(--r-ctl);background:var(--bg2);border:1px solid var(--line);color:var(--fg2)}
+.qf.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.qph{flex:1;color:var(--fg3);display:flex;align-items:center}
+.caret{display:inline-block;width:2px;height:20px;background:var(--accent);margin-right:2px;border-radius:1px}
+.qv{flex:1;color:var(--fg);font-weight:500}
+.qx{display:flex;color:var(--fg3)}
+.chips{display:flex;gap:6px;padding:12px 0 10px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:10px;border:1px solid var(--line-strong);color:var(--fg2);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
+.chip em{font:normal var(--fs-cap)/1 var(--mono);color:var(--fg3)}
+.chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.chip.on em{color:var(--accent)}
+.sech{display:flex;align-items:center;justify-content:space-between;height:40px;padding:8px 20px 0;border-bottom:1px solid var(--line-strong)}
+.sech b{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);font-weight:600}
+.sech b em{font:normal var(--fs-meta)/1 var(--mono);color:var(--fg3)}
+.sortb{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-meta);font-weight:600;color:var(--fg2)}
+.tbtn{font-size:var(--fs-sm);font-weight:600;color:var(--accent)}
+.hl .hr{display:grid;grid-template-columns:18px minmax(0,1fr) 18px;align-items:center;column-gap:14px;height:48px;padding:0 20px;border-bottom:1px solid var(--line);color:var(--fg3)}
+.hr span:nth-child(2){color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snote{display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 20px;border-bottom:1px solid var(--line);font-size:var(--fs-meta);color:var(--error)}
+.snote span:first-child{display:flex;align-items:center;gap:6px}
+.tr.sr{grid-template-columns:44px minmax(0,1fr) auto 18px;padding:0 12px 0 20px}
+.tr.sr.sm{grid-template-columns:20px 44px minmax(0,1fr) auto;padding:0 20px}
+.tr.picked{background:var(--accent-soft)}
+.mo{display:flex;color:var(--fg3)}
+.tag.pts{display:inline-flex;align-items:center;gap:1px;padding:0 2px 0 5px}
+.tag.pts .ic{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.tag.pts.on{border-color:var(--accent);color:var(--accent)}
+.tag.pts.on .ic{transform:rotate(180deg)}
+.ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--on-accent)}
+.ck.on{background:var(--accent);border-color:var(--accent)}
+/* 分 P：縮排到曲名欄，左側一條細線接回母列 */
+.prt{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) auto 18px;align-items:center;column-gap:12px;height:44px;padding:0 12px 0 76px;border-bottom:1px solid var(--line)}
+.prt::before{content:"";position:absolute;left:42px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
+.prt.last::before{bottom:50%}
+.prt::after{content:"";position:absolute;left:42px;top:50%;width:22px;border-top:1px solid var(--line-strong)}
+.px{font:var(--fs-meta)/1 var(--mono);color:var(--fg3)}
+.pn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selh{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 20px}
+.selh b{font-size:var(--fs-title);font-weight:600}
+.seltb .ni{width:96px;color:var(--fg)}
+/* 搜尋 · 桌面 */
+.dsh{padding:20px 28px 0}
+.dsh .qf{height:40px;max-width:560px}
+.dsel{display:flex;align-items:center;gap:12px;height:40px;margin-bottom:10px}
+.dsel b{font-size:var(--fs-title);font-weight:600;margin-right:8px}
+.dsel .btn{height:34px;padding:0 14px;font-size:13px}
+.dsel .tbtn{margin-left:auto}
+.dmain .sech{padding:8px 28px 0}
+.dh.s,.dr.s,.dpt{grid-template-columns:36px minmax(0,1fr) 84px 56px 72px 52px 18px;padding:0 20px 0 28px}
+.dh.s.cks,.dr.s.cks{grid-template-columns:20px 36px minmax(0,1fr) 84px 56px 72px 52px 18px}
+.dh.s{border-bottom:1px solid var(--line)}
+.dr.s .tx b{display:flex;align-items:center;gap:8px}
+.dr.s .tx b span{overflow:hidden;text-overflow:ellipsis}
+.dr.s .tx b .tag{font-weight:500}
+.dr.s .mo{visibility:hidden}
+.dr.s.hover{background:var(--hover)}.dr.s.hover .mo{visibility:visible;color:var(--fg)}
+.dr.picked{background:var(--accent-soft)}
+.dr.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+.chip.focus{outline:2px solid var(--accent);outline-offset:2px}
+.dpt{position:relative;display:grid;column-gap:12px;align-items:center;height:36px;border-bottom:1px solid var(--line)}
+.dpt .px{text-align:center;position:relative;z-index:1;background:var(--bg);line-height:16px}
+.dpt::before{content:"";position:absolute;left:46px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
+.dpt.last::before{bottom:50%}
+.dpt .du{text-align:right}
+.dpt .mo{visibility:hidden}
+/* 音樂庫 */
+.lh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:12px 20px 16px}
+.lh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
+.lh-a{display:flex;align-items:center;gap:4px}
+.ib{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;color:var(--fg)}
+.pg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px;padding:0 20px 220px}
+.pc{display:flex;flex-direction:column;min-width:0;border-radius:8px}
+.pcw{position:relative;display:block}
+.cv.fill{width:100%;aspect-ratio:1}
+.pc>b{margin-top:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px;font-size:var(--fs-meta);color:var(--fg2);min-height:16px}
+.pl-l{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
+.pm .du{color:var(--fg3)}
+.st{overflow:hidden;text-overflow:ellipsis}
+.st.busy{color:var(--accent);font-weight:600}
+.st.err{color:var(--error)}
+.rbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.35);border-radius:0 0 var(--r-cover) var(--r-cover);overflow:hidden}
+.rbar span{display:block;height:100%;background:var(--accent)}
+.pcov-act{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
+.pcov-act .pp{width:36px;height:36px;border-radius:18px}
+.pmore{width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(18,18,20,.62);color:#F2F1EE}
+.pc.focus{outline:2px solid var(--accent);outline-offset:4px}
+.pg.d{grid-template-columns:repeat(5,minmax(0,1fr));gap:24px 20px;padding:0 28px 120px}
+.dmain .lh{padding:22px 28px 18px}
+.dmain .lh-a{gap:8px}
+/* 排序：只有拖動中的那張浮起來 */
+.pc.slot{border:1.5px dashed var(--line-strong);border-radius:var(--r-cover);aspect-ratio:1}
+.lift{position:absolute;left:186px;top:262px;width:167px;z-index:3}
+.pc.lifted{transform:rotate(-2deg) scale(1.04);background:var(--bg);padding:0 0 8px;border-radius:8px;box-shadow:var(--glass-shadow)}
+/* 動作選單（sheet）：浮在內容上，玻璃 */
+.scrim{position:absolute;inset:0;z-index:7;background:rgba(0,0,0,.42)}
+.sheet{position:absolute;z-index:8;left:8px;right:8px;bottom:8px;border-radius:var(--r-sheet) var(--r-sheet) 36px 36px;padding:8px 0 22px}
+.grab{display:block;width:36px;height:5px;border-radius:3px;background:var(--line-strong);margin:0 auto 10px}
+.sh-h{display:flex;gap:12px;align-items:center;padding:4px 20px 14px;border-bottom:1px solid var(--line)}
+.sh-h b{display:block;font-size:var(--fs-title);font-weight:600}
+.sh-h i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:3px}
+.sh-l li{display:grid;grid-template-columns:22px auto 1fr;align-items:center;column-gap:14px;height:50px;padding:0 20px;font-size:var(--fs-body);font-weight:500}
+.sh-l li i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2);text-align:right;white-space:nowrap}
+.sh-l li.danger{color:var(--error);border-top:1px solid var(--line)}
+/* 空狀態：三條書脊示意空的架子 */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:96px 36px 0}
+.emark{display:flex;align-items:flex-end;gap:5px;height:64px;margin-bottom:20px}
+.emark i{display:block;width:14px;border-radius:3px;border:1.5px solid var(--line-strong)}
+.emark i:nth-child(1){height:52px}.emark i:nth-child(2){height:64px;border-color:var(--accent)}.emark i:nth-child(3){height:44px;transform:rotate(9deg);transform-origin:bottom left}
+.empty h2{font-size:var(--fs-h3);font-weight:700}
+.empty p{font-size:var(--fs-sm);color:var(--fg2);margin-top:8px;max-width:30ch;text-wrap:balance}
+.empty .plh-b{margin-top:20px}
+
+.snote.busy{color:var(--fg2)}
+.spin{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line-strong);border-top-color:var(--accent);display:inline-block}
+.skel .sk{display:block;background:var(--bg2);border-radius:4px}
+.skel .sk.cv{width:44px;height:44px;border-radius:var(--r-cover)}
+.skel .sk.l1{width:72%;height:12px}.skel .sk.l2{width:44%;height:10px}
+.sfail{padding:40px 36px 0;text-align:center}
+.sfail b{display:block;font-size:var(--fs-title);font-weight:600}
+.sfail p{font-size:var(--fs-sm);color:var(--fg2);margin:8px auto 18px;max-width:30ch;text-wrap:balance}
+.sfail.none{padding-top:120px}
+.cmenu{position:absolute;left:626px;top:366px;width:216px;padding:6px;border-radius:var(--r-ctl);z-index:6}
+.cmenu li{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;font-size:14px}
+.cmenu li:first-child{background:var(--hover)}
+.cmenu li.sep{margin-top:6px;position:relative}
+.cmenu li.sep::before{content:"";position:absolute;left:10px;right:10px;top:-4px;border-top:1px solid var(--line)}
+.cmenu kbd{margin-left:auto;font:var(--fs-cap) var(--mono);color:var(--fg2)}
+.sheet.imp{padding-bottom:26px}
+.imp-h{display:flex;align-items:center;justify-content:space-between;padding:0 20px 12px}
+.imp-h b{font-size:var(--fs-title);font-weight:600}
+.fl{display:block;font-size:var(--fs-cap);font-weight:500;color:var(--fg2);padding:10px 20px 6px}
+.sheet .qf{margin:0 20px}
+.qf.filled{border-color:var(--line-strong)}
+.qv.url{font:var(--fs-meta) var(--mono);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
+.found{display:flex;align-items:center;gap:12px;margin:10px 20px 2px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--accent-soft);color:var(--accent)}
+.found div{flex:1;min-width:0}
+.found b{display:block;font-size:14px;font-weight:600;color:var(--fg)}
+.found i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:3px}
+.opts{margin-top:12px}
+.opts li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:0 20px;border-top:1px solid var(--line)}
+.opts b{display:block;font-size:var(--fs-body);font-weight:500}
+.opts i{display:block;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:2px}
+.val{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap}
+.sw-t{width:44px;height:26px;border-radius:13px;background:var(--line-strong);position:relative;flex:none}
+.sw-t i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--bg)}
+.sw-t.on{background:var(--accent)}.sw-t.on i{left:21px;background:var(--on-accent)}
+.imp-n{font-size:var(--fs-meta);color:var(--fg2);padding:12px 20px 0;border-top:1px solid var(--line)}
+
 /* 系統頁 */
 .sys{display:grid;grid-template-columns:repeat(2,minmax(0,560px));gap:32px}
 .card{border-radius:16px;padding:24px;overflow:hidden}
@@ -451,7 +614,7 @@ def html(title, body):
 
 def navlinks():
     return ('<nav class="navl"><a href="index.html">總覽</a><a href="system.html">設計系統</a>'
-            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
+            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
 
 
 NOTE = '<p class="note">曲目、播放量與封面都是示意資料；封面是自繪的幾何圖，不是真實專輯封面。強調色用預設的 FMP 紫。</p>'
@@ -631,17 +794,360 @@ def page_player():
     return html("FMP 設計稿 · 播放頁", body)
 
 
+# ---------- 桌面外殼 A（共用） ----------
+def desk_frame_a(theme, active, main, caption):
+    rail = "".join(f'<span class="rn{" on" if l == active else ""}">{ic(i)}<span>{l}</span></span>' for i, l in A_TABS)
+    inner = (f'{titlebar()}<div class="dbody a"><nav class="rail" aria-label="主要導覽">{rail}</nav>'
+             f'<main class="dmain">{main}</main>{desk_panel()}</div>{desk_player("dp-a")}')
+    return (f'<figure class="frame"><div class="desk {theme}">{inner}</div>'
+            f'<figcaption>{caption} · {"深色" if theme == "t-dark" else "淺色"}</figcaption></figure>')
+
+
+def theme_name(theme):
+    return "深色" if theme == "t-dark" else "淺色"
+
+
+# ---------- 搜尋與結果 ----------
+QUERY = "YOASOBI"
+HISTORY = ["YOASOBI", "米津玄師 Lemon", "千本桜 初音ミク", "Nightcore", "周杰倫 晴天", "残響散歌"]
+# 歌單中：本地與匯入歌單裡已有的曲目（同一首只列一次）
+S_LOCAL = [
+    ("夜に駆ける", "YOASOBI", "網易", "VIP", "4:21", "", 9, "通勤用"),
+    ("アイドル", "YOASOBI", "網易", "試聽", "3:33", "", 5, "工作背景"),
+]
+# 線上結果：三個音源混排；第二首是 B 站的多 P 影片
+S_PARTS = [("夜に駆ける", "4:21"), ("群青", "4:09"), ("アイドル", "3:33"), ("怪物", "4:00")]
+S_ONLINE = [
+    ("YOASOBI「夜に駆ける」Official Music Video", "Ayase / YOASOBI", "YT", None, "4:22", "6.1億", 9),
+    ("【中日字幕】YOASOBI 演唱會精選", "夜行バス字幕組", "B站", None, "16:03", "52萬", 3),
+    ("群青", "YOASOBI", "網易", "VIP", "4:09", "", 1),
+    ("怪物", "YOASOBI", "網易", "需登入", "3:26", "", 6),
+    ("ハルカ (Acoustic Session)", "YOASOBI", "YT", None, "4:15", "3020萬", 11),
+    ("【鋼琴】夜に駆ける 慢速版", "白鍵練習生", "B站", None, "4:30", "18萬", 4),
+    ("勇者", "YOASOBI", "YT", None, "3:16", "1.2億", 7),
+    ("祝福 (TV Size)", "YOASOBI", "B站", None, "1:30", "96萬", 8),
+    ("たぶん", "YOASOBI", "網易", None, "4:18", "", 10),
+]
+SRC_CHIPS = [("全部", "128"), ("Bilibili", "48"), ("YouTube", "40"), ("網易雲", "40")]
+
+
+def search_field(query="", focused=False):
+    if query:
+        body = f'<span class="qv">{query}</span><span class="qx" aria-label="清除">{ic("close", "s")}</span>'
+    else:
+        body = f'<span class="qph">{"<i class=caret></i>" if focused else ""}搜尋曲目、歌手</span>'
+    return f'<div class="qf{" on" if focused else ""}" role="search">{ic("search", "s")}{body}</div>'
+
+
+def chips(active="全部", counts=False):
+    out = ""
+    for n, c in SRC_CHIPS:
+        out += f'<span class="chip{" on" if n == active else ""}" role="radio" aria-checked="{str(n == active).lower()}">{n}{f"<em>{c}</em>" if counts else ""}</span>'
+    return f'<div class="chips" role="radiogroup" aria-label="音源">{out}</div>'
+
+
+def sec_head(label, count, sort=False):
+    right = f'<span class="sortb" role="button">{ic("sort", "s")}綜合排序{ic("down", "xs")}</span>' if sort else ""
+    return f'<div class="sech"><b>{label}<em>{count}</em></b>{right}</div>'
+
+
+def sr_row(t, cls="", parts=None, expanded=False, select=None, local_in=None):
+    title, artist, src, acc, dur, plays, k = t[:7]
+    meta = artist + (f" · {plays} 次播放" if plays else "") + (f" · 在「{local_in}」" if local_in else "")
+    ptag = ""
+    if parts:
+        ptag = f'<span class="tag pts{" on" if expanded else ""}" role="button" aria-expanded="{str(expanded).lower()}">{len(parts)}P{ic("down", "xs")}</span>'
+    lead = ""
+    if select is not None:
+        lead = f'<span class="ck{" on" if select else ""}" role="checkbox" aria-checked="{str(select).lower()}">{ic("check", "xs") if select else ""}</span>'
+    tail = "" if select is not None else f'<span class="mo" aria-label="更多">{ic("more", "s")}</span>'
+    off = " off" if acc == "需登入" else ""
+    mode = " sm" if select is not None else ""
+    pick = " picked" if select else ""
+    return (f'<li class="tr sr{mode}{pick}{off} {cls}">{lead}{cover(k, 44)}<span class="tx"><b>{title}</b><i>{meta}</i></span>'
+            f'<span class="mt"><span class="tags"><span class="tag">{src}</span>{access(acc)}{ptag}</span><span class="du">{dur}</span></span>{tail}</li>')
+
+
+def part_rows(parts, now=None):
+    out = ""
+    for i, (n, d) in enumerate(parts):
+        out += (f'<li class="prt{" last" if i == len(parts) - 1 else ""}{" now" if i == now else ""}"><span class="px">P{i + 1}</span>'
+                f'<span class="pn">{n}</span><span class="du">{d}</span><span class="mo" aria-label="更多">{ic("more", "s")}</span></li>')
+    return out
+
+
+def phone_search_history(theme):
+    hist = "".join(f'<li class="hr">{ic("history", "s")}<span>{h}</span><span class="hx" aria-label="刪除這筆">{ic("close", "s")}</span></li>' for h in HISTORY)
+    inner = (f'<div class="scroll"><div class="shead">{search_field(focused=True)}{chips()}</div>'
+             f'<div class="sech"><b>搜尋紀錄</b><span class="tbtn" role="button">清空</span></div><ul class="hl">{hist}</ul></div>'
+             f'{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, inner, f"搜尋 · 輸入前：搜尋紀錄 · {theme_name(theme)}")
+
+
+def phone_search_results(theme):
+    rows = "".join(sr_row(t, local_in=t[7]) for t in S_LOCAL)
+    online = "".join(sr_row(t, parts=S_PARTS if i == 1 else None) for i, t in enumerate(S_ONLINE[:7]))
+    inner = (f'<div class="scroll"><div class="shead">{search_field(QUERY)}{chips()}</div>'
+             f'{sec_head("歌單中", "2")}<ul class="tl">{rows}</ul>'
+             f'{sec_head("線上結果", "128", sort=True)}<ul class="tl">{online}</ul></div>'
+             f'{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, inner, f"搜尋結果 · 歌單中＋線上結果 · {theme_name(theme)}")
+
+
+def phone_search_parts(theme):
+    online = (sr_row(S_ONLINE[0]) + sr_row(S_ONLINE[1], parts=S_PARTS, expanded=True) + part_rows(S_PARTS)
+              + "".join(sr_row(t) for t in S_ONLINE[2:6]))
+    note = f'<div class="snote" role="status"><span>{ic("info", "s")}網易雲：連線逾時，這次結果不含網易雲</span><span class="tbtn" role="button">重試</span></div>'
+    inner = (f'<div class="scroll"><div class="shead">{search_field(QUERY)}{chips()}</div>'
+             f'{sec_head("線上結果", "88", sort=True)}{note}<ul class="tl">{online}</ul></div>'
+             f'{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, inner, f"搜尋結果 · 展開 B 站分 P、某個音源失敗 · {theme_name(theme)}")
+
+
+def skel_rows(n):
+    return "".join('<li class="tr sr skel" aria-hidden="true"><span class="sk cv"></span><span class="tx"><span class="sk l1"></span><span class="sk l2"></span></span><span></span><span></span></li>' for _ in range(n))
+
+
+def phone_search_loading(theme):
+    rows = "".join(sr_row(t, local_in=t[7]) for t in S_LOCAL)
+    online = sr_row(S_ONLINE[1], parts=S_PARTS) + sr_row(S_ONLINE[5]) + sr_row(S_ONLINE[7])
+    note = '<div class="snote busy" role="status"><span><i class="spin" aria-hidden="true"></i>YouTube、網易雲搜尋中</span></div>'
+    inner = (f'<div class="scroll"><div class="shead">{search_field(QUERY)}{chips()}</div>'
+             f'{sec_head("歌單中", "2")}<ul class="tl">{rows}</ul>'
+             f'{sec_head("線上結果", "48", sort=True)}{note}<ul class="tl">{online}{skel_rows(3)}</ul></div>'
+             f'{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, inner, f"搜尋結果 · 載入中：先回來的音源先顯示 · {theme_name(theme)}")
+
+
+def phone_search_offline(theme):
+    rows = "".join(sr_row(t, local_in=t[7]) for t in S_LOCAL)
+    inner = (f'<div class="scroll"><div class="shead">{search_field(QUERY)}{chips()}</div>'
+             f'{sec_head("歌單中", "2")}<ul class="tl">{rows}</ul>'
+             f'{sec_head("線上結果", "0")}'
+             f'<div class="sfail" role="alert"><b>沒有網路連線</b><p>三個音源都連不上，線上結果無法載入。上面「歌單中」的曲目照常可以播放。</p>'
+             f'<span class="btn out">{ic("refresh", "s")}重試</span></div></div>'
+             f'{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, inner, f"搜尋結果 · 離線：只剩音樂庫裡的結果 · {theme_name(theme)}")
+
+
+def phone_search_none(theme):
+    inner = (f'<div class="scroll"><div class="shead">{search_field("夜に駆けるるる")}{chips()}</div>'
+             f'<div class="sfail none"><b>找不到「夜に駆けるるる」</b><p>音樂庫和三個音源都沒有符合的曲目。檢查拼字，或換成歌手名、曲名的一部分。</p></div></div>'
+             f'{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, inner, f"搜尋結果 · 零結果 · {theme_name(theme)}")
+
+
+def sel_toolbar(n):
+    acts = [("playnext", "下一首播放"), ("queue", "加入佇列"), ("listadd", "加入歌單")]
+    items = "".join(f'<span class="ni">{ic(i)}<span>{l}</span></span>' for i, l in acts)
+    return f'<nav class="tabbar-a glass seltb" aria-label="已選 {n} 首的動作">{items}</nav>'
+
+
+def phone_search_select(theme):
+    picks = [False, True, True, False, True, False, False]
+    online = "".join(sr_row(t, select=picks[i]) for i, t in enumerate(S_ONLINE[:7]))
+    inner = (f'<div class="scroll"><div class="selh"><span class="tbtn" role="button">取消</span><b>已選 3 首</b><span class="tbtn" role="button">全選</span></div>'
+             f'{sec_head("線上結果", "128")}<ul class="tl">{online}</ul></div>'
+             f'{spine("sp-a")}{sel_toolbar(3)}')
+    return phone(theme, inner, f"搜尋結果 · 多選（長按進入）· {theme_name(theme)}")
+
+
+DS_COLS = '<div class="dh s{ck}">{lead}<span></span><span>標題</span><span>音源</span><span>存取</span><span>播放量</span><span>時長</span><span></span></div>'
+
+
+def ds_row(t, cls="", parts=None, expanded=False, select=None, local_in=None):
+    title, artist, src, acc, dur, plays, k = t[:7]
+    sub = artist + (f" · 在「{local_in}」" if local_in else "")
+    ptag = f'<span class="tag pts{" on" if expanded else ""}" role="button" aria-expanded="{str(expanded).lower()}">{len(parts)}P{ic("down", "xs")}</span>' if parts else ""
+    lead = f'<span class="ck{" on" if select else ""}" role="checkbox" aria-checked="{str(bool(select)).lower()}">{ic("check", "xs") if select else ""}</span>' if select is not None else ""
+    ckc = " cks" if select is not None else ""
+    pick = " picked" if select else ""
+    return (f'<li class="dr s{ckc}{pick}{" off" if acc == "需登入" else ""} {cls}">{lead}{cover(k, 36)}'
+            f'<span class="tx"><b><span>{title}</span>{ptag}</b><i>{sub}</i></span><span class="c-src"><span class="tag">{SOURCE_NAME[src]}</span></span>'
+            f'<span class="c-acc">{access(acc)}</span><span class="c-pl">{plays or "—"}</span><span class="du">{dur}</span>'
+            f'<span class="mo" aria-label="更多">{ic("more", "s")}</span></li>')
+
+
+def ds_parts(parts):
+    return "".join(f'<li class="dpt{" last" if i == len(parts) - 1 else ""}"><span class="px">P{i + 1}</span><span class="pn">{n}</span>'
+                   f'<span></span><span></span><span></span><span class="du">{d}</span><span class="mo">{ic("more", "s")}</span></li>' for i, (n, d) in enumerate(parts))
+
+
+def desk_search_main(select=False):
+    if select:
+        picks = [False, True, True, False, True, False, False, False, False]
+        head = (f'<div class="dsh"><div class="dsel"><b>已選 3 首</b>'
+                f'<span class="btn ton">{ic("playnext", "s")}下一首播放</span><span class="btn out">{ic("queue", "s")}加入佇列</span>'
+                f'<span class="btn out">{ic("listadd", "s")}加入歌單</span><span class="tbtn" role="button">取消</span></div></div>')
+        body = (sec_head("線上結果", "128", sort=True) + DS_COLS.format(ck=" cks", lead=f'<span class="ck on" role="checkbox" aria-checked="mixed" aria-label="全選">{ic("minus", "xs")}</span>')
+                + '<ul class="dl">' + "".join(ds_row(t, "focus" if i == 5 else "", select=picks[i]) for i, t in enumerate(S_ONLINE)) + '</ul>')
+        return head + body
+    head = f'<div class="dsh">{search_field(QUERY)}{chips(counts=True)}</div>'
+    menu = ('<ul class="cmenu glass" role="menu" aria-label="YOASOBI「夜に駆ける」的動作">'
+            + "".join(f'<li role="menuitem"{" class=sep" if sep else ""}>{ic(i, "s")}<span>{l}</span>{f"<kbd>{k}</kbd>" if k else ""}</li>'
+                      for i, l, k, sep in [("play", "播放", "Enter", False), ("playnext", "下一首播放", "", False), ("queue", "加入佇列", "", False),
+                                           ("listadd", "加入歌單…", "", False), ("link", "複製連結", "", True)])
+            + '</ul>')
+    body = (sec_head("歌單中", "2") + '<ul class="dl">' + "".join(ds_row(t, local_in=t[7]) for t in S_LOCAL) + '</ul>'
+            + sec_head("線上結果", "128", sort=True) + DS_COLS.format(ck="", lead="")
+            + '<ul class="dl">' + ds_row(S_ONLINE[0], "hover") + ds_row(S_ONLINE[1], parts=S_PARTS, expanded=True) + ds_parts(S_PARTS)
+            + "".join(ds_row(t) for t in S_ONLINE[2:]) + '</ul>' + menu)
+    return head + body
+
+
+def page_search():
+    body = (navlinks() + '<h1 class="pt">搜尋與結果</h1>'
+            '<p class="lead">照舊版：上方搜尋框與音源篩選，輸入前列出搜尋紀錄；結果分「歌單中」（音樂庫裡已有的曲目，同一首只列一次）和「線上結果」（三個音源混排，每列標音源與存取等級）。點一首是臨時播放；長按進入多選。B 站多 P 影片以「4P」標籤展開分 P，每個分 P 都能單獨播放或加入。</p>'
+            '<p class="note">排序只作用在線上結果，所以排序鈕放在「線上結果」段標題右側，篩選列只放音源，修掉舊版篩選列被排序鈕蓋住的問題（審計 §6.1 第 4 點）。某個音源失敗時，結果照常顯示其他音源，段標題下一行寫原因與重試。三個音源各自回來，先到的先顯示，還沒回來的在段標題下一行標「搜尋中」，列尾補三列佔位。全部連不上時，「歌單中」照常顯示（離線時音樂庫可用，brief §9）。篩選片的音源清單來自有搜尋能力的插件；排序選項沿用舊版：綜合排序、最多播放、最新發布。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_search_history("t-dark") + phone_search_results("t-dark")
+            + phone_search_parts("t-light") + phone_search_select("t-light")
+            + phone_search_loading("t-dark") + phone_search_offline("t-light") + phone_search_none("t-dark") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面的篩選片附各音源的結果數；列的「更多」在滑鼠移入或焦點時才出現，點了或按右鍵在原處開玻璃選單（深色稿第一列）。多選時搜尋框換成選取工具列，部分選取時表頭勾選框是橫線；淺色稿的「鋼琴」那列示意鍵盤焦點。</p><div class="row">'
+            + desk_frame_a("t-dark", "搜尋", desk_search_main(), "搜尋結果 · 桌面（1280×800）")
+            + desk_frame_a("t-light", "搜尋", desk_search_main(True), "搜尋結果 · 桌面多選（1280×800）") + '</div>')
+    return html("FMP 設計稿 · 搜尋與結果", body)
+
+
+# ---------- 音樂庫 ----------
+# (名稱, 封面, 類型, 音源, 首數, 總時長, 狀態)；類型：本地／匯入
+PLAYLISTS = [
+    ("通勤用", 0, "本地", None, 42, "2:48:12", None),
+    ("Vocaloid", 3, "匯入", "B站", 154, "10:21:40", "3 小時前刷新"),
+    ("我喜歡的音樂", 4, "匯入", "網易", 312, "21:05:33", "refreshing"),
+    ("工作背景", 2, "本地", None, 128, "8:12:05", None),
+    ("J-Pop 2024", 5, "匯入", "YT", 54, "3:31:09", "failed"),
+    ("睡前", 7, "本地", None, 18, "1:04:51", None),
+    ("遊戲 BGM", 6, "匯入", "B站", 210, "13:47:22", "昨天刷新"),
+    ("Nightcore", 1, "本地", None, 64, "3:58:30", None),
+    ("新歌待聽", 11, "本地", None, 0, "0:00", None),
+    ("周杰倫精選", 8, "匯入", "網易", 36, "2:31:17", "2 天前刷新"),
+]
+
+
+def cover_fill(k):
+    return f'<span class="cv fill">{cover_svg(k)}</span>'
+
+
+def pl_tile(p, cls="", hover=False):
+    name, k, kind, src, n, total, st = p
+    if kind == "匯入":
+        left = f'<span class="tag">{src}</span><span>{n} 首</span>'
+    else:
+        left = f'<span>{n} 首</span>' if n else '<span>空歌單</span>'
+    over = (f'<span class="pcov-act"><span class="pp" aria-label="播放 {name}">{ic("play", "s")}</span>'
+            f'<span class="pmore" aria-label="更多">{ic("more", "s")}</span></span>') if hover else ""
+    # 刷新中與失敗時，狀態取代總時長；空歌單不寫時長
+    if st == "refreshing":
+        dur = '<span class="st busy">刷新中</span>'
+    elif st == "failed":
+        dur = '<span class="st err">刷新失敗</span>'
+    else:
+        dur = f'<span class="du">{total}</span>' if n else ""
+    bar = '<span class="rbar"><span style="width:28%"></span></span>' if st == "refreshing" else ""
+    return (f'<li class="pc {cls}" tabindex="0"><span class="pcw">{cover_fill(k)}{over}{bar}</span>'
+            f'<b>{name}</b><span class="pm"><span class="pl-l">{left}</span>{dur}</span></li>')
+
+
+def lib_head(sort=False, desktop=False):
+    if sort:
+        return ('<header class="lh"><div><h1>拖曳排序</h1><p class="qmeta">按住歌單拖到新位置</p></div>'
+                '<span class="btn ton">完成</span></header>')
+    if desktop:
+        acts = (f'<span class="ib" role="button" aria-label="排序歌單">{ic("sort")}</span>'
+                f'<span class="btn out">{ic("link", "s")}匯入歌單</span><span class="btn ton">{ic("plus", "s")}新建歌單</span>')
+    else:
+        acts = (f'<span class="ib" role="button" aria-label="排序歌單">{ic("sort")}</span>'
+                f'<span class="ib" role="button" aria-label="新建歌單">{ic("plus")}</span>'
+                f'<span class="ib" role="button" aria-label="匯入歌單">{ic("link")}</span>')
+    return (f'<header class="lh"><div><h1>音樂庫</h1><p class="qmeta">10 個歌單 · 5 個匯入</p></div>'
+            f'<span class="lh-a">{acts}</span></header>')
+
+
+def phone_library(theme):
+    tiles = "".join(pl_tile(p) for p in PLAYLISTS[:8])
+    inner = f'<div class="scroll">{lib_head()}<ul class="pg">{tiles}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}'
+    return phone(theme, inner, f"音樂庫 · 匯入歌單標音源與刷新狀態 · {theme_name(theme)}")
+
+
+def phone_library_sort(theme):
+    order = [PLAYLISTS[0], None, PLAYLISTS[2], PLAYLISTS[3], PLAYLISTS[4], PLAYLISTS[5], PLAYLISTS[6], PLAYLISTS[7]]
+    tiles = ""
+    for p in order:
+        tiles += '<li class="pc slot" aria-hidden="true"></li>' if p is None else pl_tile(p, "wig")
+    lifted = f'<ul class="lift">{pl_tile(PLAYLISTS[1], "lifted")}</ul>'
+    inner = f'<div class="scroll">{lib_head(sort=True)}<ul class="pg">{tiles}</ul>{lifted}</div>{spine("sp-a")}{tabbar_a("音樂庫")}'
+    return phone(theme, inner, f"音樂庫 · 排序：拖動中 · {theme_name(theme)}")
+
+
+def phone_library_sheet(theme):
+    p = PLAYLISTS[1]
+    tiles = "".join(pl_tile(x) for x in PLAYLISTS[:8])
+    acts = [("play", "播放", "取代目前的佇列"), ("shuffle", "隨機播放", ""), ("queue", "加入佇列", "加在佇列最後"),
+            ("refresh", "立即刷新", "3 小時前刷新過"), ("copy", "複製成本地歌單", "副本可以任意編輯")]
+    rows = "".join(f'<li>{ic(i)}<span>{l}</span>{f"<i>{d}</i>" if d else ""}</li>' for i, l, d in acts)
+    rows += f'<li class="danger">{ic("trash")}<span>移除匯入歌單</span><i>不會動到 B 站的收藏夾</i></li>'
+    sheet = (f'<div class="scrim"></div><div class="sheet glass" role="dialog" aria-label="{p[0]}"><span class="grab"></span>'
+             f'<div class="sh-h">{cover(p[1], 48)}<div><b>{p[0]}</b><i><span class="tag">B站</span> 匯入 · 154 首 · 唯讀</i></div></div>'
+             f'<ul class="sh-l">{rows}</ul></div>')
+    inner = f'<div class="scroll">{lib_head()}<ul class="pg">{tiles}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}{sheet}'
+    return phone(theme, inner, f"音樂庫 · 長按匯入歌單 · {theme_name(theme)}")
+
+
+def phone_library_import(theme):
+    tiles = "".join(pl_tile(x) for x in PLAYLISTS[:6])
+    sheet = (f'<div class="scrim"></div><div class="sheet glass imp" role="dialog" aria-label="匯入歌單"><span class="grab"></span>'
+             f'<div class="imp-h"><span class="tbtn" role="button">取消</span><b>匯入歌單</b><span class="tbtn" role="button">匯入</span></div>'
+             f'<label class="fl">連結</label><div class="qf filled">{ic("link", "s")}<span class="qv url">https://www.bilibili.com/medialist/detail/ml***</span></div>'
+             f'<div class="found">{cover(3, 44)}<div><b>Vocaloid</b><i><span class="tag">B站</span> 收藏夾 · 154 首 · 公開</i></div>{ic("check", "s")}</div>'
+             f'<label class="fl">名稱</label><div class="qf"><span class="qph">留空就用原名稱「Vocaloid」</span></div>'
+             f'<ul class="opts"><li><span><b>用登入帳號讀取</b><i>私人收藏夾要開；B 站帳號已登入</i></span><span class="sw-t on" role="switch" aria-checked="true"><i></i></span></li>'
+             f'<li><span><b>自動刷新</b><i>以遠端為準，本機不能改動</i></span><span class="val">每 24 小時{ic("chev", "xs")}</span></li></ul>'
+             f'<p class="imp-n">支援 B 站收藏夾、YouTube 播放清單、網易雲歌單。匯入後在音樂庫顯示進度，大歌單也不必停在這裡等。</p></div>')
+    inner = f'<div class="scroll">{lib_head()}<ul class="pg">{tiles}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}{sheet}'
+    return phone(theme, inner, f"音樂庫 · 匯入歌單：貼上連結後辨識出來源 · {theme_name(theme)}")
+
+
+def phone_library_empty(theme):
+    inner = (f'<div class="scroll"><header class="lh"><div><h1>音樂庫</h1></div><span class="lh-a">'
+             f'<span class="ib" aria-label="新建歌單">{ic("plus")}</span><span class="ib" aria-label="匯入歌單">{ic("link")}</span></span></header>'
+             f'<div class="empty"><div class="emark" aria-hidden="true"><i></i><i></i><i></i></div><h2>還沒有歌單</h2>'
+             f'<p>建立本地歌單，或貼上 B 站收藏夾、YouTube 播放清單、網易雲歌單的連結來匯入。</p>'
+             f'<div class="plh-b"><span class="btn pri">{ic("plus", "s")}新建歌單</span><span class="btn out">{ic("link", "s")}匯入歌單</span></div></div></div>'
+             f'{spine("sp-a")}{tabbar_a("音樂庫")}')
+    return phone(theme, inner, f"音樂庫 · 空 · {theme_name(theme)}")
+
+
+def desk_library_main(theme):
+    tiles = "".join(pl_tile(p, "focus" if (theme == "t-light" and i == 3) else "hover" if (theme == "t-dark" and i == 3) else "",
+                            hover=(theme == "t-dark" and i == 3)) for i, p in enumerate(PLAYLISTS))
+    return f'{lib_head(desktop=True)}<ul class="pg d">{tiles}</ul>'
+
+
+def page_library():
+    body = (navlinks() + '<h1 class="pt">音樂庫</h1>'
+            '<p class="lead">照舊版：歌單以封面網格排列，順序由使用者拖曳決定；頂部是排序、新建歌單、匯入歌單。封面下方是歌單名稱，再下一行左邊是首數（匯入歌單前面加音源標籤），右邊是等寬的總時長。點封面進歌單詳情，長按（桌面右鍵或「更多」）開動作選單。</p>'
+            '<p class="note">網格是 J-card 密排規則在音樂庫的例外（擁有者 2026-11-09 選定）：歌單靠封面辨認，數量也比曲目少。其餘規則照舊：沒有卡片底、沒有陰影，只有拖動中的那張浮起來。匯入歌單是唯讀鏡像：刷新中（第一次匯入也一樣）在封面底部顯示進度，刷新中與失敗時狀態取代總時長，原因寫在動作選單與歌單詳情；動作選單沒有「編輯」，改成「立即刷新」與「複製成本地歌單」。第一版沒有下載，舊版頂部的「已下載」入口拿掉。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_library("t-dark") + phone_library("t-light")
+            + phone_library_sheet("t-dark") + phone_library_sort("t-light") + phone_library_import("t-light") + phone_library_empty("t-dark") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">滑鼠移入時封面右下角出現播放鈕與「更多」（深色稿第四張）；鍵盤焦點是 2px 強調色框（淺色稿第四張）。</p><div class="row">'
+            + desk_frame_a("t-dark", "音樂庫", desk_library_main("t-dark"), "音樂庫 · 桌面（1280×800）")
+            + desk_frame_a("t-light", "音樂庫", desk_library_main("t-light"), "音樂庫 · 桌面（1280×800）") + '</div>')
+    return html("FMP 設計稿 · 音樂庫", body)
+
+
 def page_index():
     body = (navlinks() + '<h1 class="pt">FMP 新版設計稿（D）</h1>'
             '<p class="lead">第一步：設計系統與 App 外殼。外殼出 A、B 兩版，選定後其餘頁面照選定的外殼做。決定依據見 docs/design-brief.md §11。</p>' + NOTE
             + '<ul style="line-height:2"><li><a style="color:#CFBCFF" href="system.html">設計系統</a>：色彩、字級、間距、寬度分級、玻璃與實心材質、元件</li>'
             '<li><a style="color:#CFBCFF" href="shell-a.html">外殼 A</a>（採用）：舊版結構換成玻璃</li>'
             '<li><a style="color:#CFBCFF" href="player.html">全螢幕播放頁</a>：封面、歌詞、背景跟著封面取色</li>'
+            '<li><a style="color:#CFBCFF" href="search.html">搜尋與結果</a>：搜尋紀錄、歌單中與線上結果、B 站分 P、多選</li>'
+            '<li><a style="color:#CFBCFF" href="library.html">音樂庫</a>：歌單封面網格、匯入歌單的刷新狀態、排序、動作選單、空狀態</li>'
             '<li><a style="color:#CFBCFF" href="shell-b.html">外殼 B</a>（未採用，留作參考）：Apple Music 式浮動膠囊與捲動收合</li></ul>')
     return html("FMP 設計稿", body)
 
 
 if __name__ == "__main__":
-    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player)]:
+    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player), ("search.html", page_search), ("library.html", page_library)]:
         (ROOT / name).write_text(fn(), encoding="utf-8")
     print("written:", ROOT)
