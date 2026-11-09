@@ -22,6 +22,7 @@
 | 2026-11-08 | D 設計系統與外殼 | 設計世界選定「卡帶 J-card」；`docs/design/` 出設計系統、外殼 A、外殼 B（手機與桌面、深淺色），頁面由 `docs/design/src/build.py` 產生；finish review 判 ship；`DESIGN.md` 記錄 token 與規則 | 擁有者選 A（見下一列） |
 | 2026-11-08 | D 外殼與佇列 | 外殼選 A，寫回 brief §11；佇列拿掉 A／B 面字樣，隨機時的佇列顯示分兩種（brief §6）；私人網頁已重新發佈 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：全螢幕播放頁（含歌詞）、搜尋與結果、音樂庫`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-08 | D 播放頁 | `docs/design/player.html`：手機封面／歌詞、桌面封面＋歌詞或佇列兩欄，深淺色；背景跟封面取色；桌面歌詞／佇列切換在頂列；DESIGN.md 已補播放頁一節。未送獨立審查 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：搜尋與結果、音樂庫`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
+| 2026-11-09 | D 搜尋與音樂庫 | `docs/design/search.html`（搜尋紀錄、歌單中＋線上結果、B 站分 P、多選、載入、單一音源失敗、離線、零結果、桌面右鍵選單）與 `library.html`（封面網格、匯入歌單刷新狀態、動作選單、排序、匯入、空狀態），深淺色；DESIGN.md 補兩節；finish review 判 fix，已改完，未再送審 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：歌單詳情（本地、匯入）、加入歌單對話框`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 
 ## 偏差與決定
 
@@ -39,3 +40,4 @@
 - 2026-11-08 D 佇列標頭：擁有者看稿後拿掉「正在播放 · 第 N 首」列，改成標頭一顆「跳到正在播放」圖示鈕；隨機與循環改回分段樣式的兩顆圖示鈕（各自獨立）。已改 brief §6 最後一條與 `docs/design/DESIGN.md`。
 - 2026-11-08 D 佇列標頭（續）：擁有者要求回退圖示鈕組，隨機與循環回到帶文字的兩顆切換鈕；拿掉定位鈕，改成點「佇列」標題捲回正在播放。已改 brief §6 與 `docs/design/DESIGN.md`。
 - 2026-11-08 D 播放頁：桌面的「歌詞／佇列」切換放在頂列右側的兩顆圖示鈕（照 Apple Music、Spotify 桌面版）；手機維持底部玻璃膠囊。擁有者確認。
+- 2026-11-09 D 音樂庫：擁有者選歌單用封面網格（照舊版），不用設計 session 建議的密排列表；這是 J-card 密排規則唯一的例外，已寫進 `docs/design/DESIGN.md`。搜尋結果照舊版混排加音源篩選，排序鈕移到「線上結果」段標題（修審計 §6.1 第 4 點）。
