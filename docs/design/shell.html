@@ -54,7 +54,7 @@ FMP.page({
   sections: [
     {
       title: '手機：導覽與迷你播放器',
-      desc: '導覽三項：音樂庫、佇列、設定；搜尋獨立成右側的圓鈕（iOS 26 的搜尋分頁慣例），單手時拇指最容易碰到。首頁、電台等之後的功能加進導覽列，不改結構。',
+      desc: '導覽四項：首頁、音樂庫、佇列、設定，App 打開在首頁（擁有者 2026-11-11）；搜尋獨立成右側的圓鈕（iOS 26 的搜尋分頁慣例），單手時拇指最容易碰到。電台等之後的功能加進導覽列，不改結構。',
       frames: [
         { kind: 'phone', label: '展開', render: (ctx) => phoneLib(ctx, { tab: 'library' }) },
         { kind: 'phone', label: '捲到下方（外殼不變）', render: (ctx) => phoneLib(ctx, { tab: 'library' }), after: (root) => { const s = root.querySelector('.page.scroll'); s.scrollTop = 330; root.classList.add('scrolled'); } },

@@ -23,6 +23,7 @@
   }
   const P = {
     search: '<circle cx="10.8" cy="10.8" r="6.3"/><path d="M15.6 15.6 20 20"/>',
+    home: '<path d="M3.8 11 12 4.2l8.2 6.8"/><path d="M6 9.4v9.1c0 .8.7 1.5 1.5 1.5h9c.8 0 1.5-.7 1.5-1.5V9.4"/><path d="M10 20v-4.6c0-.6.4-1 1-1h2c.6 0 1 .4 1 1V20"/>',
     library: '<rect x="3.5" y="7.5" width="13" height="13" rx="3"/><path d="M8 3.5h9.5a3 3 0 0 1 3 3V16"/><circle cx="8.6" cy="16.6" r="1.7"/><path d="M10.3 16.6v-5.2l3.2-.9"/>',
     queue: '<path d="M4 6.5h16M4 12h10M4 17.5h7"/><path d="M15.5 14.6v6l4.9-3z" fill="currentColor" stroke-width="1.2"/>',
     settings: '<path d="' + gearPath() + '"/><circle cx="12" cy="12" r="2.8"/>',
@@ -312,14 +313,16 @@
       '<button class="ibtn" aria-label="下一首">' + I('next', 's24') + '</button></div>';
   };
 
+  // the app opens on home (owner, 2026-11-11); search stays the separate orb
   const TABS = [
+    ['home', '首頁', 'home', 'home.html'],
     ['library', '音樂庫', 'library', 'library.html'],
     ['queue', '佇列', 'queue', 'queue.html'],
     ['settings', '設定', 'settings', 'settings.html'],
   ];
   FMP.dock = function (o) {
     o = o || {};
-    const tab = o.tab || 'library';
+    const tab = o.tab || 'home';
     const cls = ['dock'];
     if (o.track === false) cls.push('no-mini');
     const tabs = TABS.map(([k, label, icon, href]) => '<button class="tab' + (k === tab ? ' on' : '') + '" data-href="' + href + '" data-tab="' + k + '">' + I(icon) + '<span>' + label + '</span></button>').join('');
@@ -349,13 +352,13 @@
   /* ---------------- desktop ---------------- */
   FMP.side = function (ctx, o) {
     o = o || {};
-    const nav = o.nav || 'library';
+    const nav = o.nav || 'home';
     const item = (k, icon, label, cnt) => '<button class="nav-i' + (nav === k ? ' on' : '') + '" data-href="' + k + '.html">' + I(icon) + '<span>' + label + '</span>' + (cnt ? '<span class="cnt">' + cnt + '</span>' : '') + '</button>';
     const pls = FMP.playlists.map((p) => '<button class="nav-pl' + (o.pl === p.id ? ' on' : '') + '" data-href="playlist.html">' + FMP.coverEl(p.cv, 20) + '<span class="ell">' + FMP.esc(p.name) + '</span>' + (p.kind === 'imported' ? FMP.src(p.src) : '') + '</button>').join('');
     return '<aside class="lg side" data-lg-blur="6">' +
       '<div class="lights"><i></i><i></i><i></i></div>' +
       '<div class="sfield' + (nav === 'search' ? ' on' : '') + '" data-href="search.html">' + I('search') + '<span>' + (o.query ? FMP.esc(o.query) : '搜尋三個音源') + '</span><kbd>⌘K</kbd></div>' +
-      item('library', 'library', '音樂庫') + item('queue', 'queue', '佇列', '64') +
+      item('home', 'home', '首頁') + item('library', 'library', '音樂庫') + item('queue', 'queue', '佇列', '64') +
       '<div class="nav-h"><span>歌單</span><button class="ibtn" aria-label="新建歌單">' + I('plus') + '</button></div>' +
       '<div class="scroll" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:1px;margin:0 -4px;padding:0 4px">' + pls + '</div>' +
       '<div class="sfoot">' + item('settings', 'settings', '設定') + '</div></aside>';
@@ -486,7 +489,7 @@
   /* Review harness                                                     */
   /* ---------------------------------------------------------------- */
   const PAGES = [
-    ['index.html', '總覽'], ['system.html', '設計系統'], ['shell.html', '外殼與迷你播放器'], ['search.html', '搜尋'],
+    ['index.html', '總覽'], ['system.html', '設計系統'], ['shell.html', '外殼與迷你播放器'], ['home.html', '首頁'], ['search.html', '搜尋'],
     ['library.html', '音樂庫'], ['playlist.html', '歌單詳情'], ['queue.html', '佇列'], ['player.html', '播放頁'],
     ['add-to-playlist.html', '加入歌單'], ['account.html', '帳號與登入'], ['plugins.html', '插件'],
     ['settings.html', '設定'], ['backup-import.html', '匯入舊版備份'],
