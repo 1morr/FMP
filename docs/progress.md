@@ -9,7 +9,7 @@
 | 里程碑 | 票目錄 | 拆票前讀 | 備註 |
 | --- | --- | --- | --- |
 | M0 | `.scratch/m0/issues/` | `.scratch/m0/spec.md`，再讀票列出的章節 | 已拆 12 張票，票序在 spec |
-| D | 無 | brief §2.3、§6、§11、§17、事實 K10；舊版截圖（`docs/audit/screenshots/`） | 和 M0 並行，M1 開工前完成；從零重做，還沒有稿 |
+| D | 無 | brief §2.3、§6、§11、§17、事實 K10；舊版截圖（`docs/audit/screenshots/`） | 和 M0 並行，M1 開工前完成；重做 B 的稿在分支 `design/d-redesign-b`（`docs/design/`），待和 main 的稿對比後選定 |
 
 ## Session 紀錄
 
@@ -19,6 +19,7 @@
 | 2026-11-06 | 訪談 | brief 第一版範圍定稿；plan 里程碑 M0–M5 與 D；`GLOSSARY.md`；ADR 0038；`docs/research/` 研究檔 2 份 | 新 session 下 `/to-tickets docs/plan.md 拆 M0 的票` |
 | 2026-11-06 | M0 拆票 | plan §5.1 細化成 `.scratch/m0/spec.md`，拆成 12 張票（01–11 實作與實驗、12 驗收與封存），plan §5.1 縮成連結 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-10 | D 重做準備 | 設計稿從零重做：刪掉 `docs/design/`，brief §11 的設計系統、材質用法與外殼改成待訂；擁有者已定的產品決定記在〈偏差與決定〉 | 新 session 下 `/impeccable` 從零做 D 設計稿（完整指令由擁有者提供） |
+| 2026-11-10 | D 重做 B | 在分支 `design/d-redesign-b` 從零做第一版全部頁面的設計稿（`docs/design/`，手機與桌面、深淺色）：設計系統（Liquid Glass 折射玻璃三級、固定堇紫強調色、音源與存取等級標識）、外殼與 11 頁；`PRODUCT.md`、`DESIGN.md`；待擁有者選的 A／B 與未確認的設計決定列在 `DESIGN.md` | 等使用者：和 main 上的 D 設計稿對比後選定 |
 
 ## 偏差與決定
 
