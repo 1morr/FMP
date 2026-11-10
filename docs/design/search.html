@@ -133,7 +133,7 @@
 .srh-derr .w svg.i { width: 16px; height: 16px; }
 .srh-derr span.t { flex: 1; color: var(--label-2); }
 .srh-derr span.t b { color: var(--label); font-weight: 600; }
-.srh-dact { position: absolute; z-index: 29; left: 256px; right: 336px; bottom: 92px; display: flex; justify-content: center; pointer-events: none; }
+.srh-dact { position: absolute; z-index: 29; left: 280px; right: 344px; bottom: 94px; display: flex; justify-content: center; pointer-events: none; }
 .srh-dact > .lg { pointer-events: auto; height: 44px; border-radius: 22px; display: flex; align-items: center; gap: 2px; padding: 0 6px 0 16px; font-size: 13px; }
 .srh-dact .cnt { font-weight: 600; margin-right: 8px; }
 .srh-dact .vs { width: 1px; height: 20px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); margin: 0 6px; }
@@ -250,6 +250,13 @@ function srhErr() {
 function srhMenuHead(t, note) {
   return '<div class="mh">' + FMP.coverEl(t.cv, 40) + '<div class="mt"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src, true) + (note ? ' · ' + note : ' · ' + FMP.esc(t.artist)) + '</span></div></div>';
 }
+/* phone: the row's ⋮ opens the shared track sheet */
+function srhSheet(t, note) {
+  return FMP.trackSheet(t, [
+    ['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-',
+    ['lyrics', '匹配歌詞…'], ['link', '複製連結'],
+  ], { sub: note ? t.artist + ' · ' + note : t.artist });
+}
 function srhMenu(t, style, o) {
   o = o || {};
   const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
@@ -354,15 +361,15 @@ FMP.page({
       notes: '<h3>規則</h3><ul><li>三個音源各自搜尋、各自失敗。某一個音源出錯時，它的位置（「線上結果」最上面）放一張說明：哪個音源、原因、「重試」只重查那一個；對應的篩選 chip 也帶警示符號。其他音源的結果照常顯示，數量只算成功的。</li><li>原因依 brief §13 的錯誤類別給文字：限流「請求太頻繁」、網路「連不上網路」、需登入「這個音源要登入才能搜尋」並把按鈕換成「登入」。</li><li>篩選切到出錯的音源時，整個列表換成同一張說明，置中顯示。</li><li>找不到：三個音源都成功、都沒有結果時才顯示。只要有一個音源出錯就不說「找不到」，避免誤導。</li></ul>',
     },
     {
-      title: '手機：選單與多選',
+      title: '手機：更多與多選',
       frames: [
-        { kind: 'phone', label: '每列 ⋮ 選單', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' }, body: srhResults(),
-          overlay: '<div class="srh-scrim"></div>' + srhMenu(SRH_LOCAL[1], 'right:16px;top:402px', { note: '6 個分 P 全部套用' }) }) },
+        { kind: 'phone', label: '每列的 ⋮（底部 sheet）', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' }, body: srhResults(),
+          overlay: srhSheet(SRH_LOCAL[1], '6 個分 P 全部套用') }) },
         { kind: 'phone', label: '多選與動作列', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), body: srhResults({ sel: ['o0', 'o1', 'o3'] }),
           top: '<div class="ptop"><button class="lg srh-gtext" data-adapt>取消</button><span class="srh-seltitle">已選擇 3 首</span><span class="sp"></span><button class="lg srh-gtext acc" data-adapt>全選</button></div>',
           dockHtml: '<div class="lg srh-act" data-adapt><button>' + I('nextUp') + '下一首播放</button><button>' + I('queue') + '加入佇列</button><button>' + I('addlist') + '加入歌單</button></div>' }) },
       ],
-      notes: '<h3>規則</h3><ul><li>⋮ 開玻璃選單：播放、下一首播放、加入佇列、加入歌單…、匹配歌詞…。選單頂端重複這首的封面、標題、音源與存取等級，確認動作套用在哪一首；多 P 影片寫明「3 個分 P 全部套用」。</li><li>「加入歌單…」開加入歌單對話框，裡面同時列本地歌單與這首所屬音源的遠端歌單（見加入歌單頁）。舊版另外的「加入遠端歌單」已合進去，不再單獨出現。未登入時對話框裡的遠端區塊提示登入。</li><li>長按一列進多選：頂列換成「取消」「已選擇 n 首」「全選」，搜尋欄位、導覽圓鈕與迷你播放器讓位給浮動的玻璃動作列（下一首播放、加入佇列、加入歌單）。點其他列加減選取。</li><li>多選時多 P 影片算一首，動作套用到全部分 P；分 P 列不能單獨勾選，要單一分 P 就展開後用它的 ⋮。</li></ul>',
+      notes: '<h3>規則</h3><ul><li>⋮ 從底部升起 sheet（手機上一首歌的「更多」都用它）：播放（臨時播放）、下一首播放、加入佇列、加入歌單…、匹配歌詞…、複製連結，右邊小字補充後果。頂端重複這首的封面、標題、音源與存取等級，確認動作套用在哪一首；多 P 影片寫明「6 個分 P 全部套用」。桌面照舊是右鍵選單。</li><li>「加入歌單…」開加入歌單對話框，裡面同時列本地歌單與這首所屬音源的遠端歌單（見加入歌單頁）。舊版另外的「加入遠端歌單」已合進去，不再單獨出現。未登入時對話框裡的遠端區塊提示登入。</li><li>長按一列進多選：頂列換成「取消」「已選擇 n 首」「全選」，搜尋欄位、導覽圓鈕與迷你播放器讓位給浮動的玻璃動作列（下一首播放、加入佇列、加入歌單）。點其他列加減選取。</li><li>多選時多 P 影片算一首，動作套用到全部分 P；分 P 列不能單獨勾選，要單一分 P 就展開後用它的 ⋮。</li></ul>',
     },
     {
       title: '桌面',

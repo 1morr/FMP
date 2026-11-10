@@ -52,6 +52,15 @@
 .st-tile .half .ac { position: absolute; left: 40px; top: 46px; width: 22px; height: 9px; border-radius: 5px; background: var(--accent-fill); }
 .st-tile .half .cv { position: absolute; top: 24px; width: 14px; height: 14px; border-radius: 3px; background: var(--label-4); }
 .st-row-hover { background: var(--cell-hover); }
+/* accent picker: "none" is the label colour; the chosen one gets a ring */
+.st-accs { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+.st-acc { position: relative; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 .5px var(--sep-strong); cursor: pointer; }
+.st-acc.on::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; box-shadow: 0 0 0 2px var(--label); }
+.st-acc svg.i { width: 14px; height: 14px; color: var(--bg); stroke-width: 2.6; }
+.desk .st-accs { gap: 14px; padding: 12px 12px 10px; }
+.desk .st-accb { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; color: var(--label-2); }
+.desk .st-accb.on { color: var(--label); font-weight: 600; }
+.desk .st-acc { width: 22px; height: 22px; }
 </style>
 </head>
 <body>
@@ -75,6 +84,16 @@ function stCell(o) {
 const stGroup = (cells, ic) => '<div class="group' + (ic ? ' st-ic' : '') + '">' + cells.join('') + '</div>';
 const stHead = (t) => '<div class="ghead">' + t + '</div>';
 const stFoot = (t) => '<div class="gfoot">' + t + '</div>';
+/* accent swatches; the selected one is the review bar's current accent, and clicking one switches every page */
+const stAccOn = () => document.documentElement.dataset.accent || 'none';
+const stAccDot = (k, c) => '<span class="st-acc' + (stAccOn() === k ? ' on' : '') + '" data-acc="' + k + '" role="radio" aria-checked="' + (stAccOn() === k) + '" style="background:' + (c || 'var(--label)') + '"></span>';
+const stAccName = () => (FMP.ACCENTS.find(([k]) => k === stAccOn()) || FMP.ACCENTS[0])[1];
+function stAccWire(root) {
+  root.querySelectorAll('[data-acc]').forEach((n) => n.addEventListener('click', () => {
+    const b = document.querySelector('[data-pref="accent"][data-v="' + n.dataset.acc + '"]');
+    if (b) b.click();
+  }));
+}
 const stSw = (on) => '<span class="switch' + (on ? ' on' : '') + '" role="switch"></span>';
 function stPhone(ctx, o) {
   return FMP.phone(ctx, o).replace('class="phone scr', 'class="phone scr st-grp');
@@ -90,8 +109,10 @@ function stMainList() {
   ], true) +
   stHead('外觀') + stGroup([
     stCell({ icon: stGi('appearance'), t: '主題', v: '跟隨系統', chev: 'updown' }),
+    stCell({ icon: stGi('select'), t: '強調色', s: stAccName(), trail: '<span class="st-accs" role="radiogroup" aria-label="強調色">' + FMP.ACCENTS.map(([k, , c]) => stAccDot(k, c)).join('') + '</span>' }),
     stCell({ icon: stGi('language'), t: '語言', v: '跟隨系統', chev: 'updown' }),
   ], true) +
+  stFoot('預設「無」：選取與主要動作用文字的黑白。選了顏色後，開著的切換鈕、勾選、正在播放與主要按鈕換成那個顏色。') +
   stHead('播放') + stGroup([
     stCell({ icon: stGi('wave'), t: '音質', v: '高', chev: true }),
     stCell({ icon: stGi('clock'), t: '重啟後恢復播放進度', trail: stSw(true) }),
@@ -126,7 +147,7 @@ function stMain(ctx, o) {
   return stPhone(ctx, {
     content: '<div class="lt" style="padding-top:58px"><div class="ty-large">設定</div></div>' + stMainList(),
     top: FMP.ptop('設定', '', '', 96),
-    dock: { tab: 'settings', compact: o.compact },
+    dock: { tab: 'settings' },
     overlay: o.overlay,
   });
 }
@@ -229,6 +250,10 @@ function stDeskAppearance(ctx) {
       tile('跟隨系統', half('light') + half('dark'), true) + tile('淺色', half('light')) + tile('深色', half('dark')) +
     '</div></div>' +
     stFoot('跟隨系統時，iOS、macOS、Android、Windows 切換深淺色會即時跟著換。') +
+    stHead('強調色') + '<div class="group"><div class="st-accs" role="radiogroup" aria-label="強調色">' +
+      FMP.ACCENTS.map(([k, l, c]) => '<span class="st-accb' + (stAccOn() === k ? ' on' : '') + '">' + stAccDot(k, c) + l + (k === 'none' ? '（預設）' : '') + '</span>').join('') +
+    '</div></div>' +
+    stFoot('用在主要按鈕、開著的切換鈕、勾選、正在播放與連結。不跟封面變色；紅、粉、金、天藍留給音源與存取等級，所以不在選項裡。') +
     stHead('語言') + stGroup([
       stCell({ t: '介面語言', s: '改了之後立即生效，不用重開', trail: '<span class="st-pop">跟隨系統（繁體中文）' + stI('updown') + '</span>' }),
     ]) +
@@ -271,14 +296,14 @@ function stDeskStorage(ctx) {
 
 FMP.page({
   title: '設定',
-  intro: '<p>設定是第三個導覽項目；帳號與插件從這裡進入。分組照舊版，拿掉第一版不做的（下載、桌面歌詞、快捷鍵、開發者選項、主題色、字體）。佇列頁「自動捲到正在播放」已是固定行為，不放開關。</p><p>手機是 iOS 群組列表；桌面是 macOS 系統設定式的「分類欄＋內容」，右側詳情面板預設收起，頂列右端可以叫回。</p>',
+  intro: '<p>設定是第三個導覽項目；帳號與插件從這裡進入。分組照舊版，拿掉第一版不做的（下載、桌面歌詞、快捷鍵、開發者選項、字體）。外觀裡可以選強調色，預設不用（擁有者 2026-11-10）。佇列頁「自動捲到正在播放」已是固定行為，不放開關。</p><p>手機是 iOS 群組列表；桌面是 macOS 系統設定式的「分類欄＋內容」，右側詳情面板預設收起，頂列右端可以叫回。</p>',
   sections: [
     {
       title: '手機：設定首頁',
       desc: '入口列直接帶狀態：帳號列顯示已登入的音源與會員快到期，插件列顯示待安裝的更新數，不用點進去才知道。',
       frames: [
-        { kind: 'phone', label: '首頁', render: (ctx) => stMain(ctx) },
-        { kind: 'phone', label: '捲到下方，清除快取後', render: (ctx) => stMain(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已清除圖片快取，釋放 182 MB</span></span>', { style: 'bottom:112px;padding-right:18px' }) }), after: (root) => { root.querySelector('.dock').classList.add('pin', 'compact'); const s = root.querySelector('.page.scroll'); s.scrollTop = 9999; root.classList.add('scrolled'); } },
+        { kind: 'phone', label: '首頁', render: (ctx) => stMain(ctx), after: stAccWire },
+        { kind: 'phone', label: '捲到下方，清除快取後', render: (ctx) => stMain(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已清除圖片快取，釋放 182 MB</span></span>', { style: 'bottom:112px;padding-right:18px' }) }), after: (root) => { const s = root.querySelector('.page.scroll'); s.scrollTop = 9999; root.classList.add('scrolled'); } },
         { kind: 'phone', label: '主題選單', render: (ctx) => stThemeMenu(ctx) },
       ],
       notes: '<h3>規則</h3><ul><li>群組列表是實心的；玻璃只在頂列、dock 與選單上。圖示方塊用中性的灰底，不用彩色：設定頁的顏色留給音源標識與狀態（會員快到期用警示色）。</li><li>只有一個值、選項少於 6 個的設定（主題、語言、倒退秒數、刷新間隔）用 iOS 的下拉選單，就地改，不推新頁；選項帶說明或有子設定的（音質、歌詞源順序）才推子頁。</li><li>「清除」不另外確認，完成後跳提示說釋放了多少；快取刪了只會重新下載，不會丟資料。桌面版用確認框，因為按鈕離游標近、容易誤點（見下方桌面稿）。</li><li>「重啟後恢復播放進度」只決定進度；佇列一定保存，重啟後不自動播放（brief §6）。</li></ul>',
@@ -296,11 +321,11 @@ FMP.page({
       desc: '桌面不把手機列表拉寬：內容區裡再分一欄分類，右邊一次只顯示一類，像 macOS 系統設定。帳號、插件也是分類，點了就在右邊打開帳號頁、插件頁（見那兩頁）。',
       frames: [
         { kind: 'desktop', label: '播放', render: (ctx) => stDeskPlayback(ctx) },
-        { kind: 'desktop', label: '外觀', render: (ctx) => stDeskAppearance(ctx) },
+        { kind: 'desktop', label: '外觀', render: (ctx) => stDeskAppearance(ctx), after: stAccWire },
         { kind: 'desktop', label: '歌詞：滑過列時出現拖曳提示', render: (ctx) => stDeskLyrics(ctx) },
         { kind: 'desktop', label: '儲存空間：清除前確認', render: (ctx) => stDeskStorage(ctx) },
       ],
-      notes: '<h3>規則</h3><ul><li>分類欄是實心的內容欄，不是第二塊玻璃；選取用強調色實心底，和側欄的灰色選取區分「App 導覽」與「設定分類」兩層。</li><li>分類欄頂端有「搜尋設定」，⌘F 聚焦；⌘, 從任何頁面打開設定。帳號分類上的黃點表示會員快到期，插件分類上的數字是待安裝的更新數。</li><li>右側詳情面板預設收起（設定是管理頁，需要寬度），頂列右端的按鈕可以叫回；播放膠囊照常浮在底部。</li><li>桌面用桌面的控制項：分段控制、彈出選單、步進器，不用手機的推頁。外觀用三張預覽圖選主題，預覽圖本身就是用深淺兩套 token 畫的。</li></ul>',
+      notes: '<h3>規則</h3><ul><li>分類欄是實心的內容欄，不是第二塊玻璃；選取用強調色實心底，和側欄的灰色選取區分「App 導覽」與「設定分類」兩層。</li><li>分類欄頂端有「搜尋設定」，⌘F 聚焦；⌘, 從任何頁面打開設定。帳號分類上的黃點表示會員快到期，插件分類上的數字是待安裝的更新數。</li><li>右側詳情面板預設收起（設定是管理頁，需要寬度），頂列右端的按鈕可以叫回；播放膠囊照常浮在底部。</li><li>桌面用桌面的控制項：分段控制、彈出選單、步進器，不用手機的推頁。外觀用三張預覽圖選主題，預覽圖本身就是用深淺兩套 token 畫的；強調色是一排色點，預設「無」。點設定稿裡的色點會切換每一頁的強調色（和上方工具列同一個設定）。</li></ul>',
     },
   ],
 });

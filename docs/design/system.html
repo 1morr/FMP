@@ -60,6 +60,7 @@ function stage(ctx) {
     '</div>';
 }
 
+const ACC_NAME = () => (FMP.ACCENTS.find(([k]) => k === document.documentElement.dataset.accent) || FMP.ACCENTS[0])[1];
 function swatches(ctx) {
   const sw = (name, v, note) => '<div class="sys-sw"><i style="background:' + v + '"></i><span><b>' + name + '</b><small>' + note + '</small></span></div>';
   const dark = ctx.theme === 'dark';
@@ -73,8 +74,8 @@ function swatches(ctx) {
     sw('三級 label-3', 'var(--label-3)', '40%') +
     sw('分隔線 sep', 'var(--sep)', dark ? 'white 9%' : 'ink 10%') +
     '</div><div class="sys-h" style="margin-top:24px">功能色</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
-    sw('強調 accent', 'var(--accent)', dark ? '#A396FF 文字與圖示' : '#5E4BFF 文字與圖示') +
-    sw('強調底 accent-fill', 'var(--accent-fill)', '#5E4BFF 白字 5.4:1') +
+    sw('強調 accent', 'var(--accent)', '目前：' + ACC_NAME() + '；文字與圖示') +
+    sw('強調底 accent-fill', 'var(--accent-fill)', '按鈕底，字 ≥ 5:1') +
     sw('會員 vip', 'var(--vip)', '#F4B400') +
     sw('試聽 trial', 'var(--trial-ink)', dark ? '#6CB6FF' : '#0066D6') +
     sw('錯誤 danger', 'var(--danger)', dark ? '#FF6961' : '#E5372B') +
@@ -114,11 +115,17 @@ function components(ctx) {
 }
 
 function overlays(ctx) {
-  return '<div style="position:relative;height:330px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
+  return '<div style="position:relative;height:400px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
     '<div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px">' + FMP.playlists.map((p) => FMP.coverEl(p.cv, null, '', 'width:100%;aspect-ratio:1')).join('') + '</div>' +
-    '<div class="dialog-wrap" style="position:absolute"><div class="lg alert"><h4>從「翻唱精選」移除 3 首？</h4><p>會從你在 Bilibili 的收藏夾刪掉，App 裡的匯入歌單隨後刷新。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">移除 3 首</button></div></div></div>' +
+    FMP.confirm({ title: '從「翻唱精選」移除 2 首？', body: '會從你在 Bilibili 的收藏夾刪掉，App 裡的匯入歌單隨後刷新。', tracks: ['t03', 't08'], ok: '移除 2 首' }).replace('class="dialog-wrap"', 'class="dialog-wrap" style="position:absolute"') +
     FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已加入「通勤路上」</span></span><button class="btn btn-plain">查看</button>', { style: 'bottom:14px;left:60px;right:60px' }) +
-    '</div><div class="sys-note">提示只有一個入口（brief §13），依錯誤類別給文字與動作，例如「登入」「重試」。警示框、sheet、選單都是加厚的玻璃（填色比導覽重），因為它們上面有整段文字。</div>';
+    '</div><div class="sys-note">提示只有一個入口（brief §13），依錯誤類別給文字與動作，例如「登入」「重試」。警示框、sheet、選單都是加厚的玻璃（填色比導覽重），因為它們上面有整段文字。確認框列出它作用的曲目，每首帶封面。</div>' +
+    '<div class="sys-h" style="margin-top:22px">手機：一首歌的「更多」是底部 sheet</div><div style="position:relative;height:560px;max-width:390px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
+    FMP.trackSheet(FMP.T.t08, [['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-', ['lyrics', '匹配歌詞…'], ['link', '複製連結'], '=', ['cloud', '從 B 站收藏夾移除', '寫回 B 站，會先確認', 'danger']]).replace('class="sheet-wrap"', 'class="sheet-wrap" style="position:absolute"') +
+    '</div><div class="sys-note">選單和確認刻意不同形狀：手機上一首歌的「更多」從底部升起（拇指搆得到，頂端是曲目摘要），會寫到遠端的確認是置中的對話框。連點兩下不會從選單直接點進「移除」。頂列按鈕（例如歌單右上的 ⋯）的選單照 iOS 慣例從按鈕往下長；長按卡片是 iOS 的情境選單。桌面一律右鍵選單＋置中確認框。</div>' +
+    '<div class="sys-h" style="margin-top:22px">刷新狀態列</div><div style="max-width:420px;border-radius:12px;overflow:hidden;background:var(--bg)">' +
+    FMP.refreshLine({ text: '刷新中 · 已讀 128 / 214 首', pct: 60 }) + FMP.refreshLine({ state: 'err', text: '刷新失敗：B 站的登入已失效', action: '<button class="btn btn-plain">重新登入</button>' }) +
+    '</div><div class="sys-note">匯入歌單刷新時，在按鈕下方出現一條狀態列，底邊的細線就是進度（取自 A）；不用卡片。</div>';
 }
 
 function radii(ctx) {
@@ -128,7 +135,7 @@ function radii(ctx) {
 }
 
 function motion(ctx) {
-  return '<div class="sys-kv"><dt>變形（morph）</dt><dd>520ms，cubic-bezier(.32,.72,0,1)：導覽收合、迷你播放器併列、sheet 升起</dd><dt>彈性（spring）</dt><dd>520ms，cubic-bezier(.32,1.28,.52,1)：選取膠囊滑動、開關</dd><dt>一般</dt><dd>160ms／280ms，ease-out：hover、顏色、明暗翻轉</dd><dt>按下</dt><dd>按鈕縮到 0.96；導覽的選取膠囊放大到 1.12 再回彈，像一滴水被按住</dd><dt>減少動態效果</dt><dd>變形改成直接切換加淡入淡出，選取膠囊不彈跳，播放頁背景停止流動，等化器靜止</dd><dt>降低透明度</dt><dd>玻璃全部換成「最低」：不透明的實心底，保留邊緣高光</dd></div>';
+  return '<div class="sys-kv"><dt>變形（morph）</dt><dd>520ms，cubic-bezier(.32,.72,0,1)：sheet 升起、播放頁左右滑換畫面（導覽與迷你播放器捲動時不變形）</dd><dt>彈性（spring）</dt><dd>520ms，cubic-bezier(.32,1.28,.52,1)：選取膠囊滑動、開關</dd><dt>一般</dt><dd>160ms／280ms，ease-out：hover、顏色、明暗翻轉</dd><dt>按下</dt><dd>按鈕縮到 0.96；導覽的選取膠囊放大到 1.12 再回彈，像一滴水被按住</dd><dt>減少動態效果</dt><dd>sheet 與換畫面改成淡入淡出，選取膠囊不彈跳，播放頁背景停止流動，等化器靜止</dd><dt>降低透明度</dt><dd>玻璃全部換成「最低」：不透明的實心底，保留邊緣高光</dd></div>';
 }
 
 function windowsBar(ctx) {
@@ -140,7 +147,7 @@ function windowsBar(ctx) {
 
 FMP.page({
   title: '設計系統',
-  intro: '<p>FMP 新版的材質、顏色、字級、間距、元件。所有頁面都只用這頁的東西組成；之後 Flutter 照這裡的 token 實作。</p><p>工具列可以切換：外觀（深／淺／並排）、玻璃等級（折射／標準／最低）、玻璃範圍 A／B、強調色 A／B，設定會帶到每一頁。</p>',
+  intro: '<p>FMP 新版的材質、顏色、字級、間距、元件。所有頁面都只用這頁的東西組成；之後 Flutter 照這裡的 token 實作。</p><p>工具列可以切換：外觀（深／淺／並排）、玻璃等級（折射／標準／最低）、玻璃範圍 A／B、強調色（無／堇紫／靛藍／青綠），設定會帶到每一頁。</p>',
   sections: [
     {
       title: '材質：Liquid Glass',
@@ -154,18 +161,22 @@ FMP.page({
       html: '<div class="rv-notes" style="margin-top:0"><ul><li><b>折射</b> = Flutter「premium」（Impeller 折射 shader）：iOS、Android、macOS。捲動中的長列表上方不用 premium（K10：不適合捲動列表），導覽與迷你播放器在列表上方時降到標準。</li><li><b>標準</b> = Flutter「standard」：只有模糊、飽和、邊緣高光與陰影，沒有折射。Windows 最高到這一級。</li><li><b>最低</b> = 只用 BackdropFilter 或完全不透明：系統開了「降低透明度」、或裝置效能不足時。玻璃換成實心的 #24232C／#F7F6FA，保留邊緣高光與陰影，版面不變。</li><li>三級都包在同一個玻璃元件後面（brief §17），設計稿裡每個玻璃元素都標了 <code>lg</code>，實作時一對一換成那個元件。</li></ul></div>',
     },
     {
-      title: '強調色提案',
-      desc: '提案：要有強調色，而且固定，不跟封面取色。',
-      frames: [{ kind: 'panel', label: '強調色用在哪', render: (ctx) => panel(ctx, 520,
+      title: '強調色：預設無，使用者自選',
+      desc: '預設沒有強調色（擁有者 2026-11-10 選定）：選取、主要動作、正在播放都用主文字色，整個 App 只有封面是彩色的。設定的「外觀」可以選一個強調色。',
+      frames: [{ kind: 'panel', label: '強調色用在哪（隨工具列的強調色切換）', render: (ctx) => panel(ctx, 520,
         '<div class="sys-acc-demo"><button class="btn btn-primary">' + I('play', 's18') + '播放全部</button><button class="tog on">' + I('shuffle') + '隨機</button><span class="check on">' + I('check') + '</span><span class="cacc" style="display:inline-flex;align-items:center;gap:6px;font-weight:600"><span class="eq"><i></i><i></i><i></i></span>正在播放</span></div>' +
         '<div style="margin-top:18px" class="sys-box">' + FMP.trackRow(FMP.T.t01, { playing: true }) + FMP.trackRow(FMP.T.t02) + '</div>' +
+        '<div class="sys-h" style="margin-top:20px">可選的強調色</div><div class="sys-row" style="gap:14px">' + FMP.ACCENTS.map(([k, l, c]) => '<span style="display:inline-flex;align-items:center;gap:7px;font-size:13px"><i style="width:22px;height:22px;border-radius:50%;background:' + (c || 'var(--label)') + ';box-shadow:inset 0 0 0 .5px var(--sep-strong)"></i>' + l + (k === 'none' ? '（預設）' : '') + '</span>').join('') + '</div>' +
         '<div class="sys-note">強調色只做四件事：主要動作、選取與開啟中的狀態、正在播放、連結。它不出現在背景、卡片或裝飾上。</div>') }],
-      notes: '<h3><span class="rv-ab">A</span> 固定的堇紫（推薦）</h3><ul><li><b>為什麼要有</b>：導覽、切換鈕、勾選、「正在播放」都需要一個一看就知道「這是開著的／這是你選的」的顏色。只用黑白，開啟中的隨機鈕和普通按鈕在玻璃上很難分。</li><li><b>為什麼固定、不跟封面</b>：玻璃本來就會跟著底下的內容變色調，播放頁的背景也跟封面變色（已定）。如果強調色也跟著封面跑，控制項每換一首歌就換一次顏色，而且會撞上封面本身的顏色變得看不見。Apple Music 也是這樣分工：強調色固定，只有播放頁背景跟封面。</li><li><b>為什麼是堇紫</b>：要避開三個會和它同時出現的顏色：音源標識（B 站粉、YouTube 紅、網易雲紅）與「會員」的金色。紫色和它們都不撞。舊版預設也是紫色（#6750A4），升上來的使用者會覺得熟悉。</li><li><b>對比</b>：淺色 #5E4BFF 在白底 5.4:1；深色文字與圖示改用 #A396FF，在深底約 6:1；按鈕底兩種外觀都是 #5E4BFF 配白字。</li></ul><h3><span class="rv-ab">B</span> 不用強調色</h3><ul><li>選取與主要動作改用主文字色（深色是白、淺色是黑），整個 App 只有封面是彩色的，更安靜。</li><li>代價：玻璃上的開啟狀態要靠填色區分，迷你播放器、導覽的選取比較不明顯。用工具列「強調色 → B 無」切到每一頁看。</li></ul>',
+      notes: '<ul><li><b>預設無</b>：選取與主要動作用主文字色（深色是白、淺色是黑），主要按鈕是反色實心。開啟中的切換鈕靠實心底與文字區分，不只靠顏色。</li>' +
+        '<li><b>可選三色</b>：堇紫 #5E4BFF／#A396FF、靛藍 #3D5BD9／#8EA6FF、青綠 #00786F／#5AD4C8（前者是淺色的文字與兩種外觀的按鈕底，後者是深色的文字與播放頁上的強調色）。按鈕底配白字都在 5:1 以上，深色文字在深底 7:1 以上。</li>' +
+        '<li><b>為什麼只給這三個</b>：紅、粉、金、天藍分別是音源標識（B 站粉、YouTube 紅、網易雲紅）、「會員」與「試聽」的顏色，強調色用了會分不清。</li>' +
+        '<li><b>不跟封面取色</b>：玻璃已經跟著底下內容變色調，播放頁背景也跟封面變色（已定）；強調色再跟著跑，控制項每換一首歌就換色，還會撞上封面本身的顏色。</li></ul>',
     },
     {
       title: '顏色',
       frames: [{ kind: 'panel', label: '色票', render: (ctx) => panel(ctx, 640, swatches(ctx)) }],
-      notes: '<ul><li>深色的底不是純黑，帶一點紫（#0D0C11），和強調色同一家族；淺色的底是純白，設定頁這種群組列表用 #F2F1F6 襯底。</li><li>次要文字在有顏色的底上（播放頁）用白色的透明度，不用灰色。</li><li>封面是唯一的大面積顏色。</li></ul>',
+      notes: '<ul><li>深色的底不是純黑，帶一點紫（#0D0C11），不是純中性灰；淺色的底是純白，設定頁這種群組列表用 #F2F1F6 襯底。</li><li>次要文字在有顏色的底上（播放頁）用白色的透明度，不用灰色。</li><li>封面是唯一的大面積顏色。</li></ul>',
     },
     {
       title: '字級',

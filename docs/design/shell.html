@@ -14,7 +14,7 @@ const I = FMP.icon;
 
 function libGrid(o) {
   o = o || {};
-  const cards = FMP.playlists.map((p) => FMP.playlistCard(p, { desk: o.desk })).join('');
+  const cards = (o.fill ? FMP.playlists.concat(FMP.playlists) : FMP.playlists).map((p) => FMP.playlistCard(p, { desk: o.desk })).join('');
   return '<div style="display:grid;grid-template-columns:repeat(' + (o.cols || 2) + ',1fr);gap:' + (o.desk ? '22px 18px' : '20px 14px') + ';padding:' + (o.pad || '4px 20px 0') + '">' + cards + '</div>';
 }
 function phoneLib(ctx, dockOpts, extra) {
@@ -31,22 +31,56 @@ function deskLib(ctx, o) {
   o = o || {};
   const content = '<div style="padding:66px 32px 120px 8px"><div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px"><div class="ty-large">音樂庫</div>' +
     '<div style="display:flex;gap:6px"><button class="btn btn-gray btn-sm">' + I('sort', 's16') + '排序</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入歌單</button><button class="btn btn-primary btn-sm">' + I('plus', 's16') + '新建歌單</button></div></div>' +
-    libGrid({ desk: true, cols: o.detail === false ? 6 : 5, pad: '0' }) + '</div>';
+    libGrid({ desk: true, cols: o.detail === false ? 6 : 5, pad: '0', fill: o.fill }) + '</div>';
   return FMP.desktop(ctx, { nav: 'library', content, top: '<span class="wt">音樂庫</span>', detail: o.detail, transport: o.transport, transportOpts: o.transportOpts });
 }
 
+/* show only the bottom strip of a desktop frame, so the transport candidates sit side by side in scale */
+function strip(h) {
+  return (root) => {
+    const slot = root.parentElement;
+    const m = /scale\(([\d.]+)\)/.exec(root.style.transform);
+    const sc = m ? parseFloat(m[1]) : 1;
+    slot.style.height = h * sc + 'px';
+    slot.style.overflow = 'hidden';
+    slot.style.borderRadius = '0 0 16px 16px';
+    root.style.transform = (sc < 1 ? 'scale(' + sc + ') ' : '') + 'translateY(-' + (800 - h) + 'px)';
+  };
+}
+const MINI_V = [['line', '甲 細線'], ['spine', '乙 書脊'], ['ring', '丙 外環']];
+const TRANSPORT_V = [['line', '甲 細線'], ['spine', '乙 書脊'], ['rim', '丙 底緣']];
+
 FMP.page({
   title: 'App 外殼與迷你播放器',
-  intro: '<p>導覽、迷你播放器與桌面詳情面板浮在內容上，內容是實心的，捲動時從玻璃底下流過。這頁拿音樂庫當底，示範外殼本身；音樂庫的細節在「音樂庫」頁。</p><p>手機稿可以實際捲動：往下捲時導覽列收成一顆圓鈕，迷你播放器併進同一列；往上捲就展開。點導覽項目會看到選取膠囊滑過去再換頁。</p>',
+  intro: '<p>導覽、迷你播放器與桌面詳情面板浮在內容上，內容是實心的，捲動時從玻璃底下流過。這頁拿音樂庫當底，示範外殼本身；音樂庫的細節在「音樂庫」頁。</p><p>手機稿可以實際捲動：捲動時導覽列與迷你播放器維持原樣，不收合、不變形，只有狀態列底下的淡出會出現。點導覽項目會看到選取膠囊滑過去、短暫拉長再換頁。</p><p>迷你播放器（手機）與播放膠囊（桌面）各做了三版，在下方「迷你播放器候選」選一版；其他頁面先用甲版。</p>',
   sections: [
     {
       title: '手機：導覽與迷你播放器',
       desc: '導覽三項：音樂庫、佇列、設定；搜尋獨立成右側的圓鈕（iOS 26 的搜尋分頁慣例），單手時拇指最容易碰到。首頁、電台等之後的功能加進導覽列，不改結構。',
       frames: [
         { kind: 'phone', label: '展開', render: (ctx) => phoneLib(ctx, { tab: 'library' }) },
-        { kind: 'phone', label: '往下捲後收起', render: (ctx) => phoneLib(ctx, { tab: 'library', compact: true }), after: (root) => { root.querySelector('.dock').classList.add('pin'); const s = root.querySelector('.page.scroll'); s.scrollTop = 330; root.classList.add('scrolled'); } },
+        { kind: 'phone', label: '捲到下方（外殼不變）', render: (ctx) => phoneLib(ctx, { tab: 'library' }), after: (root) => { const s = root.querySelector('.page.scroll'); s.scrollTop = 330; root.classList.add('scrolled'); } },
       ],
-      notes: '<h3>規則</h3><ul><li>玻璃只在三個膠囊上：迷你播放器、導覽列、搜尋鈕。底下的封面網格是實心的。</li><li>選取中的項目用強調色加一顆內嵌膠囊；按下時膠囊會放大一點，換項目時滑過去並短暫拉長（spring）。</li><li>玻璃會跟著底下的內容換色調：底下是淺色封面時變亮、字變深；底下是深色時變暗、字變白。</li><li>迷你播放器底部有一條 2pt 的進度線，點整條進播放頁。</li></ul>',
+      notes: '<h3>規則</h3><ul><li>玻璃只在三個膠囊上：迷你播放器、導覽列、搜尋鈕。底下的封面網格是實心的。</li><li>選取中的項目用強調色加一顆內嵌膠囊；按下時膠囊會放大一點，換項目時滑過去並短暫拉長（spring）。</li><li>玻璃會跟著底下的內容換色調：底下是淺色封面時變亮、字變深；底下是深色時變暗、字變白。</li><li>捲動時不收合：導覽列與迷你播放器的大小、位置都不變（擁有者 2026-11-10）。內容從它們底下流過，玻璃只跟著底下換色調。</li><li>點整條迷你播放器進播放頁；暫停與下一首各自是按鈕。</li></ul>',
+    },
+    {
+      title: '迷你播放器候選（手機）',
+      desc: '三版只差在進度怎麼畫，其他都一樣：封面、曲名＋存取等級、音源＋歌手、暫停、下一首。',
+      frames: MINI_V.map(([v, label]) => ({ kind: 'phone', label, render: (ctx) => phoneLib(ctx, { tab: 'library', variant: v, progress: 38 }) })),
+      notes: '<ul><li><b>甲 細線</b>：膠囊底部一條 2pt 的線。最安靜，但線很細，走動中不容易看出進度。</li>' +
+        '<li><b>乙 書脊</b>（取自 A 的書脊）：膠囊本身就是進度條，已播放的部分是較密的玻璃，交界處上下各一小段強調色折線（沒有強調色時是主文字色）；副標多一個「1:36 / 4:12」。一眼看得出播到哪，代價是玻璃左右兩段明暗不同，淺色封面在底下時對比較弱。</li>' +
+        '<li><b>丙 外環</b>：進度畫在暫停鈕外的一圈，膠囊本身保持乾淨。看得出「快播完了」，但看不出精確位置。</li>' +
+        '<li>三版的拖動進度都在播放頁做，迷你播放器只顯示；點整條進播放頁。</li>' +
+        '<li><b>我推薦乙</b>：走動中一眼看得出播到哪，也延續 A 書脊的做法；要注意淺色封面在底下時兩段的差別較弱，實作時已播放段的密度要跟著自適應色調調整。</li></ul>',
+    },
+    {
+      title: '播放膠囊候選（桌面）',
+      desc: '只截出視窗底部。膠囊和左側側欄、右側詳情面板各留 24pt，和內容的左緣對齊（先前只留 16pt，看起來貼在側欄上）。',
+      frames: TRANSPORT_V.map(([v, label]) => ({ kind: 'desktop', label, render: (ctx) => deskLib(ctx, { fill: true, transportOpts: { variant: v } }), after: (root) => { strip(220)(root); const sc = root.querySelector('.wcontent > .scroll'); sc.scrollTop = sc.scrollHeight; } })),
+      notes: '<ul><li><b>甲 細線</b>：控制鈕下方一條進度條，左右是時間。資訊最完整，中間那一欄比較擠。</li>' +
+        '<li><b>乙 書脊</b>：和手機乙版同一個做法，整顆膠囊是進度條；時間移到右側，控制鈕置中。拖動膠囊上沒有按鈕的地方或折線就能調進度，hover 時游標變成左右箭頭並浮出時間。</li>' +
+        '<li><b>丙 底緣</b>：一條和膠囊幾乎等寬的線沿著底緣，帶一個小圓點，可以直接拖；時間在右側。中間只剩控制鈕，最寬鬆。</li>' +
+        '<li>手機與桌面最好選同一個做法（甲配甲、乙配乙），兩邊看起來是同一個東西；丙在兩邊做法不同（手機外環、桌面底緣），各自成立。</li></ul>',
     },
     {
       title: '手機：狀態',
@@ -59,11 +93,11 @@ FMP.page({
           overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px;color:var(--glass-ink)">' + I('warn', 's18') + '<span>「不眠的城」需單曲付費，已跳下一首</span></span>', { style: 'bottom:176px;padding-right:18px' }),
         }) },
       ],
-      notes: '<ul><li>沒有目前曲目時不顯示迷你播放器，導覽列不收起。</li><li>迷你播放器的標題旁帶存取等級徽章（會員、付費、試聽）；只有試聽時，第一次另外跳一則提示（brief §5.4）。</li><li>提示只有一個入口，浮在迷你播放器上方，依錯誤類別給文字與動作（brief §13）。</li></ul>',
+      notes: '<ul><li>沒有目前曲目時不顯示迷你播放器，導覽列留在原位。</li><li>迷你播放器的標題旁帶存取等級徽章（會員、付費、試聽）；只有試聽時，第一次另外跳一則提示（brief §5.4）。</li><li>提示只有一個入口，浮在迷你播放器上方，依錯誤類別給文字與動作（brief §13）。</li></ul>',
     },
     {
       title: '桌面：側欄、詳情面板、播放膠囊',
-      desc: '側欄是浮在左邊的玻璃，除了導覽也列出全部歌單（匯入的帶音源標識），寬螢幕不用再點進音樂庫找歌單。右側詳情面板照舊保留；播放膠囊浮在內容欄底部。',
+      desc: '側欄是浮在左邊的玻璃，除了導覽也列出全部歌單（匯入的帶音源標識），寬螢幕不用再點進音樂庫找歌單。右側詳情面板照舊保留；播放膠囊浮在內容欄底部，左右各離側欄與面板 24pt。',
       frames: [
         { kind: 'desktop', label: '完整外殼', render: (ctx) => deskLib(ctx, {}) },
         { kind: 'desktop', label: '收起詳情面板', render: (ctx) => deskLib(ctx, { detail: false }) },

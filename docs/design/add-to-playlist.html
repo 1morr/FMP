@@ -304,7 +304,13 @@ function atpDesk(ctx, o) {
     rows.map((t, i) => FMP.trackRow(t, { desk: true, check: o.multi ? i < 3 : undefined })).join('') + '</div>';
   return FMP.desktop(ctx, { nav: 'library', pl: 'code', content: content, top: '<span class="wt">深夜寫程式</span>', overlay: o.overlay });
 }
-const atpAlert = '<div class="dialog-wrap" style="z-index:85"><div class="lg alert"><h4>從遠端歌單移除？</h4><p>會從你網易雲音樂帳號的「華語私藏 2026」移除 1 首（夜行列車）。同時把這首加入本地歌單「週末慢活」。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">移除並儲存</button></div></div></div>';
+const atpAlert = FMP.confirm({
+  wrapStyle: 'z-index:85',
+  who: FMP.srcMark('netease') + '網易雲音樂 歌單',
+  title: '從「華語私藏 2026」移除 1 首？',
+  body: '會改動你網易雲音樂帳號底下的這張歌單。同時把這首加入本地歌單「週末慢活」。',
+  tracks: ['t01'], ok: '移除並儲存',
+});
 
 FMP.page({
   title: '加入歌單',
@@ -343,7 +349,7 @@ FMP.page({
         { kind: 'phone', label: '完成提示', render: (ctx) => atpPhone(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已加入 2 個歌單。網易雲音樂的「通勤日推收藏」已更新</span></span>', { style: 'bottom:176px;padding-right:18px' }) }) },
         { kind: 'phone', label: '失敗提示', render: (ctx) => atpPhone(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px">' + I('warn', 's18') + '<span>網易雲音樂寫入失敗：登入已失效。「通勤日推收藏」沒有改動；本地歌單「週末慢活」已加入</span></span><button class="btn btn-tinted">重新登入</button>', { style: 'bottom:176px' }) }) },
       ],
-      notes: '<h3>移出遠端</h3><ul><li>取消勾選一個本來有這首的遠端歌單：那一列劃線並標紅色「將移出」，按鈕變「加入 1 個，移出 1 個」。按下時跳確認框，寫出歌單名稱與曲目數（brief §7：移除每次都確認），連同這次其他變更一起說明。本地歌單的移出不另外確認。</li></ul>' +
+      notes: '<h3>移出遠端</h3><ul><li>取消勾選一個本來有這首的遠端歌單：那一列劃線並標紅色「將移出」，按鈕變「加入 1 個，移出 1 個」。按下時跳置中的確認框，寫出歌單名稱與曲目數，並列出要移出的曲目（封面、曲名、存取等級、音源與歌手）（brief §7：移除每次都確認），連同這次其他變更一起說明。本地歌單的移出不另外確認。</li></ul>' +
         '<h3><span class="rv-ab">A</span>／<span class="rv-ab">B</span> 什麼時候確認</h3><ul>' +
         '<li><b>A 按主按鈕時確認（圖上這樣做）</b>：取消勾選只先標「將移出」，按下主按鈕才跳一次確認，列出這次全部的遠端移出。勾錯了可以直接勾回來，不會被打斷。</li>' +
         '<li><b>B 取消勾選當下確認</b>：一取消勾選就跳確認，確認後那一列才變成未勾。比較直覺，但連續移出多個歌單要按很多次。</li>' +
@@ -358,7 +364,7 @@ FMP.page({
         { kind: 'desktop', label: '多曲、跨音源（網易雲展開）', render: (ctx) => atpDesk(ctx, { multi: true, overlay: atpDialog({ multi: true, remote: 'open', localOn: [2], remoteOn: ['n2'] }) }), after: atpWire },
         { kind: 'desktop', label: '單曲：移出遠端再確認', render: (ctx) => atpDesk(ctx, { overlay: atpDialog({ remote: 'open', localOn: [2], remoteOff: ['n1'] }) + atpAlert }), after: atpWire },
       ],
-      notes: '<ul><li>對話框從曲目的右鍵選單、多選列、播放頁頂列的「加入歌單」打開；Esc 取消、⏎ 確認。</li><li>欄內各自捲動；遠端欄同樣預設收起、點開才載入。</li><li>移出遠端的確認框疊在對話框上（同一個 alert 元件）。</li></ul>',
+      notes: '<ul><li>對話框從曲目的右鍵選單、多選列、播放頁頂列的「加入歌單」打開；Esc 取消、⏎ 確認。</li><li>欄內各自捲動；遠端欄同樣預設收起、點開才載入。</li><li>移出遠端的確認框疊在對話框上（同一個確認元件，列出的曲目帶封面）。</li></ul>',
     },
   ],
 });

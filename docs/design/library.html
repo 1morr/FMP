@@ -252,13 +252,13 @@ FMP.page({
           inline: '拖曳排序', right: '<button class="lg lib-gtext acc" data-adapt>完成</button>',
           body: '<div style="position:relative">' + libGrid({ cls: 'lib-sorting', order: ['commute', 'code', 'lofi', '_slot', 'weekend', 'cpop', 'learn', 'live'] }) +
             libCard(PL.covers, { cls: 'lib-lift', style: 'left:190px;top:218px;width:168px' }) + '</div>',
-          dock: { tab: 'library', compact: true } }), after: (root) => root.querySelector('.dock').classList.add('pin') },
+          dock: false }) },
         { kind: 'phone', label: '長按卡片的選單', render: (ctx) => libPhone(ctx, {
           overlay: '<div class="lib-scrim"></div>' + libCard(PL.covers, { cls: 'lib-preview' }) + libMenu(PL.covers, 'left:24px;top:392px') }) },
         { kind: 'phone', label: '刪除確認', render: (ctx) => libPhone(ctx, {
           overlay: '<div class="dialog-wrap"><div class="lg alert"><h4>刪除「翻唱精選」？</h4><p>這是 Bilibili 收藏夾的匯入歌單，只會刪掉 FMP 裡的鏡像（214 首），B 站上的收藏夾不受影響。之後可以再匯入。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">刪除</button></div></div></div>' }) },
       ],
-      notes: '<h3>規則</h3><ul><li>排序：點右上的排序鈕進拖曳排序模式，大標題換成「拖曳排序」，右上只剩「完成」。卡片輕微晃動表示可以拖；拿起的卡片放大、帶陰影，原位置留虛框。放開就存，「完成」只是離開模式。這個模式下導覽列收起，避免誤點換頁。</li><li>選單：長按卡片時背景變暗模糊，卡片浮起，玻璃選單在它下面：播放全部、隨機播放、編輯…、立即刷新（只有匯入歌單）、刪除歌單（紅色）。</li><li>「播放全部」取代佇列（brief §6），所以選單裡直接寫出「取代目前的佇列」。</li><li>刪除是本機動作，但匯入歌單的使用者容易以為會刪到音源上的歌單，所以選單和確認框都寫明「只刪 FMP 裡的鏡像」。本地歌單的確認框改寫「這張歌單的 n 首會一起刪除，無法復原」。</li></ul>',
+      notes: '<h3>規則</h3><ul><li>排序：點右上的排序鈕進拖曳排序模式，大標題換成「拖曳排序」，右上只剩「完成」。卡片輕微晃動表示可以拖；拿起的卡片放大、帶陰影，原位置留虛框。放開就存，「完成」只是離開模式。這個模式下底部的導覽與迷你播放器暫時藏起來，避免拖曳時誤點換頁；按「完成」就回來。</li><li>選單：長按卡片時背景變暗模糊，卡片浮起，玻璃選單在它下面：播放全部、隨機播放、編輯…、立即刷新（只有匯入歌單）、刪除歌單（紅色）。</li><li>「播放全部」取代佇列（brief §6），所以選單裡直接寫出「取代目前的佇列」。</li><li>刪除是本機動作，但匯入歌單的使用者容易以為會刪到音源上的歌單，所以選單和確認框都寫明「只刪 FMP 裡的鏡像」。本地歌單的確認框改寫「這張歌單的 n 首會一起刪除，無法復原」。</li></ul>',
     },
     {
       title: '手機：新建與匯入',

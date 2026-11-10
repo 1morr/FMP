@@ -299,16 +299,22 @@
   /* status bar for the phone frame */
   FMP.statusBar = () => '<div class="status"><span>9:41</span><span class="sr">' + I('signal', 's18') + I('wifi', 's18') + '<svg class="i" viewBox="0 0 24 24" style="width:27px;height:22px">' + P.battery + '</svg></span></div><div class="island"></div>';
 
+  /* phone mini player. o: paused, progress (0-100), variant: 'line' (default) | 'spine' | 'ring', time ('1:36') */
   FMP.mini = function (t, o) {
     o = o || {};
     t = t || FMP.now;
-    const trial = FMP.acc(t.acc);
-    return '<div class="lg mini" data-adapt data-act="open-player" role="button" aria-label="打開播放頁">' +
+    const v = o.variant || FMP.miniVariant || 'line';
+    const pct = o.progress ?? 38;
+    const playBtn = '<button class="ibtn" aria-label="' + (o.paused ? '播放' : '暫停') + '">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>';
+    const ring = '<span class="ring"><svg class="rg" viewBox="0 0 36 36" aria-hidden="true"><circle class="bg" cx="18" cy="18" r="16.5"/><circle class="fg" cx="18" cy="18" r="16.5" pathLength="100" stroke-dasharray="' + pct + ' 100"/></svg>' + playBtn + '</span>';
+    const sub = FMP.src(t.src) + '<span class="ell">' + FMP.esc(t.artist) + '</span>' + (v === 'spine' ? '<span class="tm">· ' + (o.time || '1:36') + ' / ' + t.dur + '</span>' : '');
+    return '<div class="lg mini v-' + v + '" data-adapt data-act="open-player" role="button" aria-label="打開播放頁">' +
+      (v === 'spine' ? '<span class="played" style="width:' + pct + '%"></span>' : '') +
       FMP.coverEl(t.cv, 40) +
-      '<div class="mi"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + trial + '</b><span>' + FMP.src(t.src) + '<span class="ell">' + FMP.esc(t.artist) + '</span></span></div>' +
-      '<button class="ibtn" aria-label="' + (o.paused ? '播放' : '暫停') + '">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>' +
-      '<button class="ibtn hide-c" aria-label="下一首">' + I('next', 's24') + '</button>' +
-      '<span class="prog"><i style="width:' + (o.progress ?? 38) + '%"></i></span></div>';
+      '<div class="mi"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + sub + '</span></div>' +
+      (v === 'ring' ? ring : playBtn) +
+      '<button class="ibtn" aria-label="下一首">' + I('next', 's24') + '</button>' +
+      '<span class="prog"><i style="width:' + pct + '%"></i></span></div>';
   };
 
   const TABS = [
@@ -320,7 +326,6 @@
     o = o || {};
     const tab = o.tab || 'library';
     const cls = ['dock'];
-    if (o.compact) cls.push('compact');
     if (o.track === false) cls.push('no-mini');
     const tabs = TABS.map(([k, label, icon, href]) => '<button class="tab' + (k === tab ? ' on' : '') + '" data-href="' + href + '" data-tab="' + k + '">' + I(icon) + '<span>' + label + '</span></button>').join('');
     return '<div class="' + cls.join(' ') + '">' +
@@ -361,11 +366,18 @@
       '<div class="sfoot">' + item('settings', 'settings', '設定') + '</div></aside>';
   };
 
+  /* desktop transport capsule. o: left, right, shuffle, repeat, paused,
+   * variant: 'line' (default, slider under the controls) | 'spine' (the capsule fills as it plays) | 'rim' (one line along the bottom edge) */
   FMP.transport = function (t, o) {
     o = o || {};
     t = t || FMP.now;
-    const left = o.left ?? 256, right = o.right ?? 336;
-    return '<div class="lg transport" data-adapt style="left:' + left + 'px;right:' + right + 'px">' +
+    const v = o.variant || FMP.transportVariant || 'line';
+    const left = o.left ?? 280, right = o.right ?? 344;
+    const pct = o.progress ?? 38;
+    const times = '<span class="tm">1:36 / ' + t.dur + '</span>';
+    return '<div class="lg transport v-' + v + '" data-adapt style="left:' + left + 'px;right:' + right + 'px">' +
+      (v === 'spine' ? '<span class="played" style="width:' + pct + '%"></span>' : '') +
+      (v === 'rim' ? '<span class="rim"><i style="width:' + pct + '%"></i><b style="left:' + pct + '%"></b></span>' : '') +
       '<div class="ti" data-act="open-player" role="button">' + FMP.coverEl(t.cv, 44) + '<div style="min-width:0;display:flex;flex-direction:column;gap:2px"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + '<span class="tt">' + FMP.esc(t.artist) + '</span></span></div></div>' +
       '<div class="tc"><div class="row-c">' +
       '<button class="ibtn' + (o.shuffle ? ' on' : '') + '" aria-label="隨機">' + I('shuffle', 's18') + '</button>' +
@@ -373,8 +385,8 @@
       '<button class="ibtn big" aria-label="暫停">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>' +
       '<button class="ibtn" aria-label="下一首">' + I('next', 's20') + '</button>' +
       '<button class="ibtn' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat', 's18') + '</button>' +
-      '</div><div class="tp"><span class="num">1:36</span><span class="slider"><i style="width:38%"></i></span><span class="num">' + t.dur + '</span></div></div>' +
-      '<div class="tr"><button class="ibtn" aria-label="歌詞">' + I('lyrics', 's18') + '</button><button class="ibtn" aria-label="佇列">' + I('queue', 's18') + '</button><button class="ibtn" aria-label="音量">' + I('volume', 's18') + '</button></div></div>';
+      '</div><div class="tp"><span class="num">1:36</span><span class="slider"><i style="width:' + pct + '%"></i></span><span class="num">' + t.dur + '</span></div></div>' +
+      '<div class="tr">' + (v === 'line' ? '' : times) + '<button class="ibtn" aria-label="歌詞">' + I('lyrics', 's18') + '</button><button class="ibtn" aria-label="佇列">' + I('queue', 's18') + '</button><button class="ibtn" aria-label="音量">' + I('volume', 's18') + '</button></div></div>';
   };
 
   FMP.detailPanel = function (ctx, o) {
@@ -404,7 +416,7 @@
   /* desktop window. o: nav, pl, content, top, detail(bool), transport(bool|track), overlay, query */
   FMP.desktop = function (ctx, o) {
     const detail = o.detail !== false;
-    const right = detail ? 336 : 16; // A: 320 panel + 16 gap; B: 312 panel + 8 margin + 16 gap
+    const right = detail ? 344 : 24; // 24 clear of the detail panel (320) or the window edge; left is 24 clear of the sidebar (ends at 256)
     const scrollStyle = 'padding-right:' + (detail ? 320 : 0) + 'px;' + (o.scrollStyle || '');
     return '<div class="win scr desk t-' + ctx.theme + '" data-tone="' + ctx.theme + '">' +
       (o.ambient ? FMP.ambient(o.ambient) : '') +
@@ -453,6 +465,33 @@
       '<span style="position:absolute;inset:0;background:rgba(0,0,0,.28)"></span></div>';
   };
 
+  /* phone: a track's "more" sheet. items: [icon, label, hint, cls], '-' (thin), '=' (thick, before actions that change data) or raw html */
+  FMP.trackSheet = function (t, items, o) {
+    o = o || {};
+    const head = '<div class="th">' + FMP.coverEl(t.cv, 52) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src, true) + '<span>·</span><span class="tt">' + FMP.esc(o.sub || t.artist) + '</span></span></div></div>';
+    const body = items.map((it) => it === '-' ? '<div class="ts"></div>' : it === '=' ? '<div class="ts thick"></div>' : typeof it === 'string' ? it
+      : '<button class="ti ' + (it[3] || '') + '" role="menuitem">' + I(it[0]) + '<span class="l">' + it[1] + '</span>' + (it[2] ? '<small>' + it[2] + '</small>' : '') + '</button>').join('');
+    return '<div class="sheet-wrap"' + (o.wrapStyle ? ' style="' + o.wrapStyle + '"' : '') + '><div class="lg sheet tsheet" role="menu" aria-label="' + FMP.esc(t.title) + ' 的動作"><div class="grab"></div>' + head + '<div class="ts"></div>' + body + '</div></div>';
+  };
+
+  /* centered confirm with the tracks it acts on (covers included).
+   * o: who (html chip), title, body, tracks (ids or track objects), more (extra count), ok, okCls, cancel, style, wrapStyle */
+  FMP.confirm = function (o) {
+    const list = (o.tracks || []).map((x) => typeof x === 'string' ? FMP.T[x] : x);
+    const rows = list.length ? '<div class="cf-list">' + list.map((t) => '<div class="cf-t">' + FMP.coverEl(t.cv, 36) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + '<span class="tt">' + FMP.esc(t.artist) + '</span></span></div><span class="num">' + t.dur + '</span></div>').join('') +
+      (o.more ? '<div class="cf-more">還有 ' + o.more + ' 首</div>' : '') + '</div>' : '';
+    return '<div class="dialog-wrap"' + (o.wrapStyle ? ' style="' + o.wrapStyle + '"' : '') + '><div class="lg alert cf" role="alertdialog"' + (o.style ? ' style="' + o.style + '"' : '') + '>' + (o.who ? '<span class="cf-who">' + o.who + '</span>' : '') +
+      '<h4>' + o.title + '</h4>' + (o.body ? '<p>' + o.body + '</p>' : '') + rows +
+      '<div class="acts"><button class="btn btn-gray">' + (o.cancel || '取消') + '</button><button class="btn ' + (o.okCls || 'btn-danger') + '">' + o.ok + '</button></div></div></div>';
+  };
+
+  /* refresh status row. o: state 'busy' | 'err', text, pct, action (button html) */
+  FMP.refreshLine = function (o) {
+    const icon = o.state === 'err' ? I('warn') : '<span class="spinner"></span>';
+    return '<div class="rfs ' + (o.state || 'busy') + '" role="status"><span class="tx">' + icon + '<span>' + o.text + '</span></span>' + (o.action || '') +
+      (o.pct !== undefined ? '<span class="rline" style="width:' + o.pct + '%"></span>' : '') + '</div>';
+  };
+
   FMP.toast = (html, o) => '<div class="lg toast" data-adapt style="' + ((o && o.style) || 'bottom:112px') + '">' + html + '</div>';
 
   /* ---------------------------------------------------------------- */
@@ -465,13 +504,17 @@
     ['settings.html', '設定'], ['backup-import.html', '匯入舊版備份'],
   ];
   FMP.PAGES = PAGES;
-  const PREFS = { theme: 'both', glass: 'refract', reach: 'A', accent: 'on' };
+  const PREFS = { theme: 'both', glass: 'refract', reach: 'A', accent: 'none' };
   try { Object.assign(PREFS, JSON.parse(localStorage.getItem('fmp-draft-prefs') || '{}')); } catch (e) { /* ignore broken storage */ }
+  FMP.ACCENTS = [['none', '無', null], ['violet', '堇紫', '#5E4BFF'], ['indigo', '靛藍', '#3D5BD9'], ['teal', '青綠', '#00786F']];
+  // drafts before 2026-11-10 stored accent 'on'/'none' for the old A/B toggle; the owner then made "none" the default
+  if (!FMP.ACCENTS.some(([k]) => k === PREFS.accent)) PREFS.accent = 'none';
+  FMP.prefs = PREFS;
   function applyPrefs() {
     const h = document.documentElement;
     h.dataset.glass = PREFS.glass;
     h.dataset.reach = PREFS.reach;
-    h.dataset.accent = PREFS.accent === 'on' ? 'on' : 'none';
+    h.dataset.accent = PREFS.accent;
   }
   applyPrefs();
 
@@ -482,7 +525,7 @@
       g('theme', '外觀', [['both', '並排'], ['dark', '深'], ['light', '淺']]) +
       g('glass', '玻璃', [['refract', '折射'], ['standard', '標準'], ['minimal', '最低']]) +
       g('reach', '玻璃範圍', [['A', 'A 控制層'], ['B', 'B 延伸']]) +
-      g('accent', '強調色', [['on', 'A 有'], ['none', 'B 無']]) + '</div>';
+      g('accent', '強調色', FMP.ACCENTS.map(([k, l]) => [k, k === 'none' ? '無（預設）' : l])) + '</div>';
   }
 
   FMP.page = function (spec) {
@@ -556,21 +599,9 @@
 
   /* behaviours shared by every frame */
   function wire(root, ctx) {
-    // scroll edge + dock minimize (iOS 26 tabBarMinimizeBehavior .onScrollDown)
+    // scroll edge only: the dock keeps its shape while scrolling (owner, 2026-11-10)
     const sc = root.querySelector('.page.scroll, .wcontent > .scroll');
-    const dock = root.querySelector('.dock');
-    if (sc) {
-      let last = sc.scrollTop;
-      sc.addEventListener('scroll', () => {
-        const y = sc.scrollTop;
-        root.classList.toggle('scrolled', y > 12);
-        if (dock && !dock.classList.contains('pin')) {
-          if (y > last + 4 && y > 60) dock.classList.add('compact');
-          else if (y < last - 4) dock.classList.remove('compact');
-        }
-        last = y;
-      }, { passive: true });
-    }
+    if (sc) sc.addEventListener('scroll', () => root.classList.toggle('scrolled', sc.scrollTop > 12), { passive: true });
     // tab indicator: a capsule that slides and stretches between tabs
     root.querySelectorAll('.tabbar').forEach((bar) => {
       const ind = bar.querySelector('.tab-ind');
@@ -584,7 +615,6 @@
       requestAnimationFrame(() => place(bar.querySelector('.tab.on'), false));
       bar.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (dock && dock.classList.contains('compact')) { dock.classList.remove('compact'); return; }
         bar.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === tab));
         bar.classList.add('pressing');
         place(tab, true);

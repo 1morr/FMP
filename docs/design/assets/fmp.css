@@ -23,10 +23,14 @@
   --ease-morph: cubic-bezier(.32, .72, 0, 1);
   --t-fast: 160ms; --t-mid: 280ms; --t-morph: 520ms;
 
-  /* fixed accent, both appearances (see system.html for the rationale) */
-  --accent-500: #5E4BFF;
-  --accent-300: #A396FF;
+  /* accent: none by default (selection and primary actions use the label colour);
+   * Settings > Appearance lets the user pick one. 500 = light-theme text and every
+   * button fill (white text >= 5:1), 300 = dark-theme text and on-media accent. */
+  --accent-500: #15141A;
+  --accent-300: #FFFFFF;
   --accent-ink: #FFFFFF;
+  --accent-soft-d: rgba(255, 255, 255, .16);
+  --accent-soft-l: rgba(21, 20, 26, .08);
 
   /* access levels */
   --vip: #F4B400; --vip-ink: #3B2B00;
@@ -56,7 +60,7 @@
   --fill-2: rgba(255, 255, 255, .13);
   --accent: var(--accent-300);
   --accent-fill: var(--accent-500);
-  --accent-soft: rgba(124, 107, 255, .22);
+  --accent-soft: var(--accent-soft-d);
   --trial-ink: var(--trial-dark);
   --danger: #FF6961;
   --warn: #FFC23D;
@@ -94,7 +98,7 @@
   --fill-2: rgba(21, 20, 26, .10);
   --accent: var(--accent-500);
   --accent-fill: var(--accent-500);
-  --accent-soft: rgba(94, 75, 255, .12);
+  --accent-soft: var(--accent-soft-l);
   --trial-ink: #0066D6;
   --danger: #E5372B;
   --warn: #B87800;
@@ -114,10 +118,13 @@
   --scrim: rgba(20, 16, 40, .28);
 }
 
-/* B option: no accent. Selection and primary actions use the label colour. */
-html[data-accent="none"] .t-dark { --accent: #FFFFFF; --accent-fill: #F5F4FA; --accent-ink: #15141A; --accent-soft: rgba(255,255,255,.16); }
-html[data-accent="none"] .t-light { --accent: #15141A; --accent-fill: #15141A; --accent-ink: #FFFFFF; --accent-soft: rgba(21,20,26,.08); }
-html[data-accent="none"] .t-dark .btn-primary, html[data-accent="none"] .t-dark .fab-play { color: #15141A; }
+/* user-picked accents (Settings > Appearance). Reds, pinks, gold and sky blue are
+ * left out: they belong to the source marks, 會員 and 試聽. */
+html[data-accent="violet"] { --accent-500: #5E4BFF; --accent-300: #A396FF; --accent-soft-d: rgba(124, 107, 255, .22); --accent-soft-l: rgba(94, 75, 255, .12); }
+html[data-accent="indigo"] { --accent-500: #3D5BD9; --accent-300: #8EA6FF; --accent-soft-d: rgba(110, 138, 255, .22); --accent-soft-l: rgba(61, 91, 217, .11); }
+html[data-accent="teal"] { --accent-500: #00786F; --accent-300: #5AD4C8; --accent-soft-d: rgba(90, 212, 200, .18); --accent-soft-l: rgba(0, 120, 111, .10); }
+/* no accent (default): on dark the fill flips to near-white with ink text */
+html:not([data-accent]) .t-dark, html[data-accent="none"] .t-dark { --accent-fill: #F5F4FA; --accent-ink: #15141A; }
 
 /* ------------------------------------------------------------------ */
 /* Glass material                                                      */
@@ -170,7 +177,7 @@ html[data-accent="none"] .t-dark .btn-primary, html[data-accent="none"] .t-dark 
   --glass-ink: #15141A; --glass-ink-2: rgba(21, 20, 26, .62);
   --glass-rim-a: rgba(255, 255, 255, .95); --glass-rim-b: rgba(255, 255, 255, .35);
   --glass-sheen: rgba(255, 255, 255, .35); --glass-press: rgba(21, 20, 26, .07);
-  --accent: var(--accent-500);
+  --accent: var(--accent-500); --accent-fill: var(--accent-500); --accent-ink: #FFFFFF;
 }
 .lg[data-adapt][data-over="dark"] {
   --glass-fill: rgba(28, 27, 36, .44);
@@ -179,8 +186,7 @@ html[data-accent="none"] .t-dark .btn-primary, html[data-accent="none"] .t-dark 
   --glass-sheen: rgba(255, 255, 255, .10); --glass-press: rgba(255, 255, 255, .14);
   --accent: var(--accent-300);
 }
-html[data-accent="none"] .lg[data-adapt][data-over="light"] { --accent: #15141A; }
-html[data-accent="none"] .lg[data-adapt][data-over="dark"] { --accent: #FFFFFF; }
+html:not([data-accent]) .lg[data-adapt][data-over="dark"], html[data-accent="none"] .lg[data-adapt][data-over="dark"] { --accent-fill: #F5F4FA; --accent-ink: #15141A; }
 
 /* tiers */
 html[data-glass="standard"] .lg { backdrop-filter: blur(18px) saturate(1.8) !important; }
@@ -194,8 +200,6 @@ html.no-refract[data-glass="refract"] .lg { backdrop-filter: blur(16px) saturate
 /* minimal = Reduce Transparency: the fill is the theme's solid, so the ink stays the theme's ink */
 html[data-glass="minimal"] .t-dark .lg[data-adapt] { --glass-ink: #FFFFFF; --glass-ink-2: rgba(255,255,255,.66); --glass-press: rgba(255,255,255,.14); --accent: var(--accent-300); }
 html[data-glass="minimal"] .t-light .lg[data-adapt] { --glass-ink: #15141A; --glass-ink-2: rgba(21,20,26,.62); --glass-press: rgba(21,20,26,.07); --accent: var(--accent-500); }
-html[data-glass="minimal"][data-accent="none"] .t-dark .lg[data-adapt] { --accent: #FFFFFF; }
-html[data-glass="minimal"][data-accent="none"] .t-light .lg[data-adapt] { --accent: #15141A; }
 
 /* thick glass: menus, dialogs, sheets, alerts, toasts carry text, so no lens and a heavy frost at every tier */
 .lg.lg-thick { --glass-fill: var(--glass-fill-strong); -webkit-backdrop-filter: blur(28px) saturate(1.6); backdrop-filter: blur(28px) saturate(1.6) !important; }
@@ -443,30 +447,20 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .ptop .sp { flex: 1; }
 .lt { padding: 4px 20px 10px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 
-/* dock: mini player + tab bar + search, morphs on scroll */
+/* dock: mini player + tab bar + search. Keeps its shape while scrolling (no minimize). */
 .dock { position: absolute; left: 0; right: 0; bottom: 0; height: 160px; z-index: 50; pointer-events: none; }
 .dock::before { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent, color-mix(in srgb, var(--bg) 55%, transparent) 70%); pointer-events: none; }
 .dock > .lg { position: absolute; pointer-events: auto; transition: left var(--t-morph) var(--ease-morph), top var(--t-morph) var(--ease-morph), width var(--t-morph) var(--ease-morph), height var(--t-morph) var(--ease-morph), border-radius var(--t-morph) var(--ease-morph), background-color var(--t-mid), color var(--t-mid); }
 .dock .tabbar { left: 14px; top: 88px; width: 290px; height: 62px; border-radius: 31px; display: flex; align-items: center; padding: 0 4px; overflow: hidden; }
 .dock .search-orb { left: 314px; top: 88px; width: 62px; height: 62px; border-radius: 31px; display: grid; place-items: center; }
 .dock .mini { left: 14px; top: 24px; width: 362px; height: 56px; border-radius: 28px; }
-.dock.compact .tabbar { top: 96px; width: 54px; height: 54px; border-radius: 27px; padding: 0; }
-.dock.compact .search-orb { left: 322px; top: 96px; width: 54px; height: 54px; }
-.dock.compact .mini { left: 76px; top: 96px; width: 238px; height: 54px; border-radius: 27px; }
 .dock.no-mini .mini { opacity: 0; pointer-events: none; transform: translateY(20px); }
-.dock.no-mini.compact .tabbar { width: 290px; height: 62px; top: 88px; border-radius: 31px; padding: 0 4px; }
 .tab { position: relative; z-index: 2; flex: 1; height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--glass-ink); font-size: 10.5px; font-weight: 600; letter-spacing: .01em; transition: opacity var(--t-mid), color var(--t-mid), flex var(--t-morph) var(--ease-morph); min-width: 0; }
 .tab svg.i { width: 25px; height: 25px; stroke-width: 1.7; }
 .tab.on { color: var(--accent); }
 .tab-ind { position: absolute; z-index: 1; top: 4px; height: 54px; border-radius: 27px; background: var(--glass-press); transition: left var(--t-morph) var(--ease-spring), width var(--t-morph) var(--ease-spring), transform 220ms var(--ease-out), opacity var(--t-mid); }
 .tab-ind::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.25), inset 0 1px 0 rgba(255,255,255,.18); }
 .tabbar.pressing .tab-ind { transform: scale(1.12, 1.18); }
-.dock.compact .tab:not(.on) { flex: 0 0 0; opacity: 0; pointer-events: none; }
-.dock.compact .tab.on span { display: none; }
-.dock.compact .tab-ind { opacity: 0; }
-.dock.no-mini.compact .tab:not(.on) { flex: 1; opacity: 1; pointer-events: auto; }
-.dock.no-mini.compact .tab.on span { display: block; }
-.dock.no-mini.compact .tab-ind { opacity: 1; }
 .search-orb svg.i { width: 25px; height: 25px; color: var(--glass-ink); }
 .search-orb.on svg.i { color: var(--accent); }
 
@@ -480,10 +474,20 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .mini .ibtn:hover { background: var(--glass-press); }
 .mini .prog { position: absolute; left: 22px; right: 22px; bottom: 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); overflow: hidden; }
 .mini .prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--glass-ink); opacity: .7; border-radius: 2px; }
-.dock.compact .mini .cover { width: 36px; height: 36px; border-radius: 18px; }
-.dock.compact .mini .hide-c { display: none; }
-.dock.compact .mini .mi > span { display: none; }
-.dock.compact .mini .prog { left: 27px; right: 27px; }
+/* mini player candidates (owner picks one): line = 2pt line (above);
+ * spine = the played part of the capsule is a denser fill with a crease at the playhead (from A's spine);
+ * ring = a ring around play/pause, the capsule itself stays clean */
+.mini .played, .transport .played { position: absolute; left: 0; top: 0; bottom: 0; z-index: 0; background: color-mix(in srgb, var(--glass-ink) 15%, transparent); pointer-events: none; }
+.mini .played::after, .transport .played::after { content: ""; position: absolute; right: -1px; top: 0; bottom: 0; width: 2px; background: var(--accent); --crease: linear-gradient(#000 0 11px, transparent 11px calc(100% - 11px), #000 calc(100% - 11px)); -webkit-mask: var(--crease); mask: var(--crease); }
+.mini.v-spine .prog, .mini.v-ring .prog { display: none; }
+.mini .mi .tm { font-variant-numeric: tabular-nums; flex: none; }
+.mini .ring { position: relative; width: 42px; height: 42px; flex: none; display: grid; place-items: center; }
+.mini .ring svg.rg { position: absolute; inset: 3px; width: 36px; height: 36px; transform: rotate(-90deg); }
+.mini .ring svg.rg circle { fill: none; stroke-width: 2.2; }
+.mini .ring svg.rg .bg { stroke: color-mix(in srgb, var(--glass-ink) 16%, transparent); }
+.mini .ring svg.rg .fg { stroke: var(--glass-ink); stroke-linecap: round; }
+.mini .ring .ibtn { width: 42px; height: 42px; }
+.mini .ring .ibtn svg.i { width: 20px; height: 20px; }
 
 /* sheets and dialogs */
 .sheet-wrap { position: absolute; inset: 0; z-index: 70; display: flex; flex-direction: column; justify-content: flex-end; background: var(--scrim); }
@@ -501,6 +505,25 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .alert .acts .btn { flex: 1; height: 46px; }
 .desk .alert { width: 340px; }
 .desk .alert .acts .btn { height: 32px; }
+/* confirm: tracks it acts on, with covers, so the user sees what goes (FMP.confirm) */
+.alert .cf-who { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 7px; border-radius: var(--r-cap); background: color-mix(in srgb, var(--glass-ink) 9%, transparent); font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+.alert .cf-who svg { width: 14px; height: 14px; }
+.alert .cf-list { margin: -6px 0 16px; padding: 4px 0; border-radius: 14px; background: color-mix(in srgb, var(--glass-ink) 6%, transparent); text-align: left; }
+.alert .cf-t { display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 6px; min-width: 0; }
+.alert .cf-t .cover { width: 36px; height: 36px; border-radius: 6px; flex: none; }
+.alert .cf-t .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.alert .cf-t .m b { display: flex; align-items: center; gap: 5px; font-size: 13.5px; line-height: 18px; font-weight: 600; color: var(--glass-ink); min-width: 0; }
+.alert .cf-t .m b .tt, .alert .cf-t .m span .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.alert .cf-t .m > span { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 15px; color: var(--glass-ink-2); min-width: 0; }
+.alert .cf-t .m .src svg { width: 13px; height: 13px; }
+.alert .cf-t .num { font-size: 12px; color: var(--glass-ink-2); flex: none; }
+.alert .cf-more { padding: 4px 12px 6px 52px; font-size: 12px; color: var(--glass-ink-2); }
+.desk .alert.cf { width: 400px; }
+.desk .alert.cf h4 { font-size: 14px; }
+.desk .alert.cf p { font-size: 12.5px; line-height: 17px; }
+.desk .alert .cf-t .cover { width: 30px; height: 30px; }
+.desk .alert .cf-t .m b { font-size: 12.5px; }
+.desk .alert .cf-t .m > span { font-size: 11px; }
 
 /* menu: one component, two densities (phone 44pt rows, desktop 28pt rows) */
 .gmenu { position: absolute; z-index: 90; width: 252px; border-radius: 22px; padding: 6px 0; font-size: 16px; }
@@ -513,6 +536,7 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .gmenu .mi { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0 16px; color: var(--glass-ink); text-align: left; }
 .gmenu .mi svg.i { width: 20px; height: 20px; margin-left: auto; order: 2; color: var(--glass-ink-2); }
 .gmenu .mi small { display: block; font-size: 12px; line-height: 15px; color: var(--glass-ink-2); }
+.phone .gmenu .mi > span { padding: 7px 0; }
 .gmenu .mi .k { margin-left: auto; font: 500 12px var(--font-num); color: var(--glass-ink-2); order: 3; }
 .gmenu .mi:hover { background: var(--glass-press); }
 .gmenu .mi.on svg.i.chk { color: var(--accent); }
@@ -547,6 +571,36 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .sheet .sbody { flex: 1; min-height: 0; overflow-y: auto; }
 .sheet .sfoot { flex: none; padding: 12px 16px 28px; display: flex; gap: 10px; }
 .sheet .sfoot .btn { flex: 1; height: 50px; }
+/* phone: a track's "more" is a bottom sheet (A's form); menus anchored to a top-bar button stay pull-down menus */
+.tsheet { padding-bottom: 14px; }
+.tsheet .th { display: flex; align-items: center; gap: 12px; padding: 12px 18px 14px; }
+.tsheet .th .cover { width: 52px; height: 52px; border-radius: 8px; flex: none; }
+.tsheet .th .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tsheet .th .m b { display: flex; align-items: center; gap: 6px; font-size: 17px; line-height: 22px; font-weight: 600; min-width: 0; }
+.tsheet .th .m b .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tsheet .th .m > span { display: flex; align-items: center; gap: 5px; font-size: 13px; line-height: 17px; color: var(--glass-ink-2); min-width: 0; }
+.tsheet .ti { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; padding: 0 20px; color: var(--glass-ink); font-size: 16px; text-align: left; }
+.tsheet .ti > svg.i { width: 22px; height: 22px; flex: none; color: var(--glass-ink); }
+.tsheet .ti .l { flex: 1; min-width: 0; }
+.tsheet .ti small { flex: none; max-width: 52%; font-size: 12.5px; line-height: 16px; color: var(--glass-ink-2); text-align: right; }
+.tsheet .ti.on > svg.i { color: var(--accent); }
+.tsheet .ti:active { background: var(--glass-press); }
+.tsheet .ti.danger, .tsheet .ti.danger > svg.i { color: var(--danger); }
+.tsheet .ts { height: .5px; margin: 4px 20px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); }
+.tsheet .ts.thick { height: 7px; margin: 6px 0; background: color-mix(in srgb, var(--glass-ink) 6%, transparent); }
+.tsheet .th + .ts { margin-top: 0; }
+.tsheet .tcap { padding: 8px 20px 2px; font-size: 13px; color: var(--glass-ink-2); }
+
+/* refresh line: a slim status row; a thin accent line along its bottom edge is the progress (from A) */
+.rfs { position: relative; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 20px; box-shadow: inset 0 .5px 0 var(--sep), inset 0 -.5px 0 var(--sep-strong); font-size: 13px; color: var(--label-2); white-space: nowrap; }
+.rfs > span.tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+.rfs.busy { color: var(--accent); font-weight: 600; }
+.rfs.err { color: var(--danger); font-weight: 600; }
+.rfs .spinner { width: 14px; height: 14px; border-width: 2px; border-color: color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; flex: none; }
+.rfs svg.i { width: 16px; height: 16px; flex: none; }
+.rfs .rline { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); }
+.rfs .btn { height: 28px; padding: 0 10px; font-size: 13px; }
+.desk .rfs { height: 34px; padding: 0 10px; font-size: 12px; }
 
 /* toast: the single entry for errors and confirmations */
 .toast { position: absolute; left: 12px; right: 12px; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 8px 8px 16px; border-radius: 26px; font-size: 13.5px; line-height: 18px; font-weight: 500; z-index: 80; --glass-fill: var(--glass-fill-strong); }
@@ -595,7 +649,7 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .win.scrolled .edge-top { opacity: 1; }
 
 /* transport capsule: the desktop mini player */
-.transport { position: absolute; z-index: 28; bottom: 14px; height: 64px; border-radius: 32px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) max-content; align-items: center; gap: 14px; padding: 0 14px 0 10px; }
+.transport { position: absolute; z-index: 28; bottom: 16px; height: 64px; border-radius: 32px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) max-content; align-items: center; gap: 14px; padding: 0 14px 0 10px; }
 .transport .ti { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .transport .ti .cover { width: 44px; height: 44px; border-radius: 10px; }
 .transport .ti b { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -613,6 +667,18 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .transport .tr { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .transport .tr .slider { width: 64px; height: 3px; background: color-mix(in srgb, var(--glass-ink) 16%, transparent); }
 .transport .tr .slider > i { background: var(--glass-ink); opacity: .75; }
+.transport .tr .tm { font-size: 11px; color: var(--glass-ink-2); font-variant-numeric: tabular-nums; margin-right: 6px; white-space: nowrap; }
+/* spine: the whole capsule is the progress bar; drag on empty glass or on the crease to seek */
+.transport.v-spine { grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); overflow: hidden; }
+.transport.v-spine .tc .tp { display: none; }
+.transport.v-spine .tr { justify-self: end; }
+/* rim: one full-width line along the capsule's bottom edge, times at the right */
+.transport.v-rim { grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); overflow: hidden; }
+.transport.v-rim .tc .tp { display: none; }
+.transport.v-rim .tr { justify-self: end; }
+.transport .rim { position: absolute; left: 34px; right: 34px; bottom: 6px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); z-index: 0; }
+.transport .rim i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--glass-ink); opacity: .75; }
+.transport .rim b { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--glass-ink); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 
 /* right detail panel: A solid (default), B glass */
 .detail { position: absolute; z-index: 26; top: 0; bottom: 0; right: 0; width: 320px; display: flex; flex-direction: column; background: var(--bg); box-shadow: inset .5px 0 0 var(--sep); }

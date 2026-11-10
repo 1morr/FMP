@@ -11,6 +11,8 @@
   --label: #fff; --label-2: rgba(255, 255, 255, .74); --label-3: rgba(255, 255, 255, .52); --label-4: rgba(255, 255, 255, .3);
   --fill: rgba(255, 255, 255, .14); --fill-2: rgba(255, 255, 255, .24); --sep: rgba(255, 255, 255, .14);
   --cell-hover: rgba(255, 255, 255, .08); --accent: var(--accent-300); --accent-soft: rgba(255, 255, 255, .12); --trial-ink: var(--trial-dark); }
+/* no accent: on the cover field the "on" fill is white with ink text */
+html:not([data-accent]) .pl-m, html[data-accent="none"] .pl-m { --accent-fill: #fff; --accent-ink: #15141A; }
 .pl-m .acc-paid { color: var(--vip); box-shadow: inset 0 0 0 1.3px var(--vip); }
 /* luminance scrim: keeps white type at AA over light covers */
 .pl-scrim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(rgba(0, 0, 0, .26), rgba(0, 0, 0, .1) 30%, rgba(0, 0, 0, .2) 55%, rgba(0, 0, 0, .5)); }
@@ -44,12 +46,12 @@
 .pl-ctl .ibtn.on { color: var(--accent); }
 .pl-ctl .ibtn.on::after { content: ""; position: absolute; bottom: 8px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
 /* the signature: source + access level + stream quality, one capsule above the progress bar */
-.pl-sig { position: absolute; left: 22px; top: 522px; display: inline-flex; align-items: center; gap: 8px; height: 40px; max-width: calc(100% - 44px); padding: 0 10px 0 12px; border-radius: var(--r-cap); font-size: 13.5px; font-weight: 600; color: #fff; white-space: nowrap; }
-.pl-sig > svg:not(.i) { width: 18px; height: 18px; flex: none; }
-.pl-sig .sep { width: 1px; height: 16px; background: rgba(255, 255, 255, .32); flex: none; }
-.pl-sig svg.i { width: 16px; height: 16px; }
-.pl-sig svg.i.chev { width: 15px; height: 15px; opacity: .7; margin-left: -2px; }
-.pl-sig .acc { height: 19px; }
+.pl-sig { position: absolute; left: 26px; top: 536px; display: inline-flex; align-items: center; gap: 6px; height: 30px; max-width: calc(100% - 52px); padding: 0 7px 0 9px; border-radius: var(--r-cap); font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }
+.pl-sig > svg:not(.i) { width: 14px; height: 14px; flex: none; }
+.pl-sig .sep { width: 1px; height: 12px; background: rgba(255, 255, 255, .32); flex: none; }
+.pl-sig svg.i { width: 13px; height: 13px; }
+.pl-sig svg.i.chev { width: 13px; height: 13px; opacity: .7; margin-left: -2px; }
+.pl-sig .acc { height: 16px; font-size: 10px; padding: 0 4px; }
 .pl-sig span.q { font-weight: 500; color: rgba(255, 255, 255, .88); }
 .pl-sig.trial { --glass-fill: color-mix(in srgb, var(--trial) 46%, transparent); }
 .pl-sig.trial b { font-weight: 700; }
@@ -58,11 +60,12 @@
 .pl-gp { display: inline-flex; align-items: center; height: 44px; padding: 0 2px; border-radius: var(--r-cap); flex: none; }
 .pl-gp .ibtn { color: #fff; width: 44px; height: 44px; }
 .pl-gp .ibtn svg.i { width: 20px; height: 20px; }
-/* labelled view switch: 封面 / 歌詞 / 佇列 (same toggle as the desktop top-right) */
-.pl-views { position: absolute; left: 50%; top: 732px; transform: translateX(-50%); width: max-content; white-space: nowrap; display: inline-flex; gap: 2px; padding: 4px; border-radius: var(--r-cap); }
-.pl-views button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 13px; border-radius: var(--r-cap); font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .78); }
-.pl-views button svg.i { width: 18px; height: 18px; }
-.pl-views button.on { background: rgba(255, 255, 255, .24); color: #fff; }
+/* swipe pages: 佇列 ← 封面 → 歌詞. Dots show where you are; the active one stretches (iOS 26 page control) */
+.pl-pane { position: absolute; inset: 0; pointer-events: none; }
+.pl-pane > * { pointer-events: auto; }
+.pl-dots { position: absolute; left: 50%; top: 752px; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; }
+.pl-dots i { display: block; width: 7px; height: 7px; border-radius: 4px; background: rgba(255, 255, 255, .38); transition: width var(--t-morph) var(--ease-spring), background-color var(--t-mid); }
+.pl-dots i.on { width: 20px; background: #fff; }
 .pl-pq { position: absolute; left: 0; right: 0; top: 178px; height: 332px; overflow: hidden; -webkit-mask: linear-gradient(#000 82%, transparent); mask: linear-gradient(#000 82%, transparent); }
 .pl-pq .qh { white-space: nowrap; display: flex; align-items: center; gap: 8px; padding: 6px 20px 8px 24px; font-size: 13px; font-weight: 700; }
 .pl-pq .qh span { color: var(--label-2); font-weight: 500; }
@@ -165,8 +168,8 @@
 .pl-seg .seg button svg.i { width: 14px; height: 14px; }
 .pl-dcover { position: absolute; left: 132px; top: 80px; width: 380px; height: 380px; border-radius: var(--r-cover-lg); box-shadow: 0 30px 60px rgba(0, 0, 0, .38); }
 .pl-dinfo { position: absolute; left: 132px; width: 380px; top: 476px; }
-.pl-dsig { left: 126px; top: 538px; height: 34px; font-size: 12.5px; max-width: 392px; }
-.pl-dsig > svg:not(.i) { width: 16px; height: 16px; }
+.pl-dsig { left: 132px; top: 541px; height: 28px; font-size: 11.5px; max-width: 392px; }
+.pl-dsig > svg:not(.i) { width: 14px; height: 14px; }
 .pl-dinfo .pl-title { font-size: 21px; line-height: 27px; }
 .pl-dinfo .pl-artist { font-size: 15px; line-height: 20px; }
 .pl-dprog { position: absolute; left: 132px; width: 380px; top: 588px; }
@@ -275,9 +278,15 @@ function plCtl(o) {
     '<button class="ibtn" aria-label="下一首">' + I('next') + '</button>' +
     '<button class="ibtn md' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat') + '</button></div>';
 }
-function plViews(view) {
-  const b = (k, icon, label) => '<button class="' + ((view || 'cover') === k ? 'on' : '') + '">' + I(icon) + label + '</button>';
-  return '<div class="lg pl-views" data-lg-variant="clear" role="tablist">' + b('cover', 'note', '封面') + b('lyrics', 'lyrics', '歌詞') + b('queue', 'queue', '佇列') + '</div>';
+const PL_PAGES = ['queue', 'cover', 'lyrics'];
+/* o.swipe: 0..1 from the current page toward o.to, for the mid-swipe frame */
+function plDots(view, o) {
+  o = o || {};
+  const at = PL_PAGES.indexOf(view || 'cover');
+  return '<div class="pl-dots" role="tablist" aria-label="畫面：佇列、封面、歌詞">' + PL_PAGES.map((k, i) => {
+    const w = o.swipe ? (i === at ? 20 - 13 * o.swipe : i === PL_PAGES.indexOf(o.to) ? 7 + 13 * o.swipe : 7) : null;
+    return '<i role="tab" aria-label="' + { queue: '佇列', cover: '封面', lyrics: '歌詞' }[k] + '" aria-selected="' + (i === at) + '" class="' + (i === at && !o.swipe ? 'on' : '') + '"' + (w ? ' style="width:' + w + 'px;background:rgba(255,255,255,' + (0.38 + 0.62 * (w - 7) / 13).toFixed(2) + ')"' : '') + '></i>';
+  }).join('') + '</div>';
 }
 function plLyLines(o) {
   o = o || {};
@@ -306,9 +315,12 @@ function plPhone(ctx, o) {
     : '<div class="pl-ctx"><b>佇列 · 第 6 / 64 首</b>下一首：Glass Harbor</div>';
   let h = '<div class="pl-m">';
   h += '<div class="pl-top">' + plG('chevD', '收起') + ctxLine + '<div class="lg pl-gp" data-lg-variant="clear"><button class="ibtn" aria-label="加入歌單">' + I('addlist') + '</button><button class="ibtn" aria-label="更多">' + I('more') + '</button></div></div>';
-  if (o.view === 'lyrics' || o.view === 'queue') {
+  const view = o.view || 'cover';
+  const pane = (v) => {
+  let h = '';
+  if (v === 'lyrics' || v === 'queue') {
     h += '<div class="pl-mini">' + FMP.coverEl(t.cv, 56) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + '</span></div></div>';
-    if (o.view === 'queue') {
+    if (v === 'queue') {
       const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11];
       h += '<div class="pl-pq"><div class="qh">接下來<span>58 首</span><span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
         nexts.map((x) => FMP.trackRow(x, { more: false, drag: true })).join('') + '</div>';
@@ -332,19 +344,30 @@ function plPhone(ctx, o) {
     h += FMP.coverEl(t.cv, null, 'pl-cover');
     h += '<div class="pl-info"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>';
   }
-  h += plSig(t, o) + plProg(o) + plCtl({ repeat: o.repeat === undefined ? 'all' : o.repeat, shuffle: o.shuffle }) + plViews(o.view) + '</div>';
+  return h;
+  };
+  if (o.swipe) {
+    // finger moving left: the current page slides out to the left, the next one comes in from the right
+    const dir = PL_PAGES.indexOf(o.to) > PL_PAGES.indexOf(view) ? -1 : 1;
+    const dx = Math.round(390 * o.swipe);
+    h += '<div class="pl-pane" style="transform:translateX(' + dir * dx + 'px)">' + pane(view) + '</div>' +
+      '<div class="pl-pane" style="transform:translateX(' + (-dir * (390 - dx)) + 'px)">' + pane(o.to) + '</div>';
+  } else {
+    h += pane(view);
+  }
+  h += plSig(t, o) + plProg(o) + plCtl({ repeat: o.repeat === undefined ? 'all' : o.repeat, shuffle: o.shuffle }) + plDots(view, o) + '</div>';
   return FMP.phone(ctx, { raw: true, content: plBg(t) + h, dock: false, onMedia: true, noEdge: true, overlay: o.overlay });
 }
 
-/* ⋮ menu */
+/* ⋮ on the player: the same bottom sheet as a track's "more" anywhere on the phone */
 function plMenu(mode) {
   mode = mode || 'both';
-  const radio = (v, label) => '<button class="mi' + (mode === v ? ' on' : '') + '" role="menuitemradio" aria-checked="' + (mode === v) + '"><span>' + label + '</span>' + (mode === v ? I('check', 'chk') : '') + '</button>';
-  return '<div class="pl-menu-scrim"></div><div class="lg gmenu" data-adapt role="menu" style="top:108px;right:14px">' +
-    '<button class="mi" role="menuitem"><span>搜尋歌詞</span>' + I('search') + '</button>' +
-    '<button class="mi" role="menuitem"><span>調整歌詞偏移</span>' + I('offset') + '</button><div class="ms thick"></div>' +
-    '<div class="mcap">歌詞顯示</div>' + radio('both', '原文＋翻譯') + radio('orig', '只顯示原文') + radio('trans', '優先顯示翻譯') + '<div class="ms thick"></div>' +
-    '<button class="mi" role="menuitem"><span>曲目資訊</span>' + I('info') + '</button></div>';
+  const radio = (v, label) => [mode === v ? 'check' : '', label, '', 'on'];
+  return FMP.trackSheet(PL_T, [
+    ['search', '搜尋歌詞'], ['offset', '調整歌詞偏移'], '=',
+    '<div class="tcap">歌詞顯示</div>', radio('both', '原文＋翻譯'), radio('orig', '只顯示原文'), radio('trans', '優先顯示翻譯'), '=',
+    ['info', '曲目資訊'],
+  ]);
 }
 
 /* lyrics search body, shared by phone sheet and desktop dialog */
@@ -430,27 +453,30 @@ const trialToast = FMP.toast('<span style="display:flex;align-items:center;gap:8
 
 FMP.page({
   title: '播放頁（含歌詞）',
-  intro: '<p>全螢幕播放頁是唯一跟封面變色的地方：背景是封面取色的色場（<code>FMP.ambient</code>），上面再壓一層由上而下的暗層，白字在淺色封面上也維持 AA。強調色不跟著變，仍是固定的堇紫（在媒體上用亮的那一階）。</p><p><b>FMP 的招牌是進度條正上方那顆「音源膠囊」</b>：音源（符號＋全名）、存取等級、實際在播的音質合成一顆清玻璃膠囊，例如「網易雲音樂 │ 會員 │ 無損 FLAC ›」，點它打開曲目資訊。多音源播放器最要緊的資訊（這首從哪來、能不能完整聽、聽到的是哪一級）放在拇指最常經過的地方，而不是曲名下的一排小標籤；試聽時它變成藍色的試聽膠囊。</p><p>深淺色兩份的播放頁本體相同（都在封面色上、白字）；跟主題走的是浮出來的選單、sheet 與對話框。上方工具列的「玻璃範圍」只影響桌面右欄。</p>',
+  intro: '<p>全螢幕播放頁是唯一跟封面變色的地方：背景是封面取色的色場（<code>FMP.ambient</code>），上面再壓一層由上而下的暗層，白字在淺色封面上也維持 AA。預設沒有強調色，開著的狀態用白色；使用者在設定選了強調色時，這裡用那個顏色亮的一階，不跟封面變。</p><p><b>FMP 的招牌是進度條正上方那顆「音源膠囊」</b>：音源（符號＋全名）、存取等級、實際在播的音質合成一顆清玻璃膠囊，例如「網易雲音樂 │ 會員 │ 無損 FLAC ›」，點它打開曲目資訊；它是小字的一條，不和曲名搶。多音源播放器最要緊的資訊（這首從哪來、能不能完整聽、聽到的是哪一級）放在拇指最常經過的地方，而不是曲名下的一排小標籤；試聽時它變成藍色的試聽膠囊。</p><p>深淺色兩份的播放頁本體相同（都在封面色上、白字）；跟主題走的是浮出來的選單、sheet 與對話框。上方工具列的「玻璃範圍」只影響桌面右欄。</p>',
   sections: [
     {
       title: '手機：封面與歌詞',
-      desc: '頂列：收起、播放來源（佇列第幾首或臨時播放）、加入歌單與 ⋮。封面下只有曲名與歌手；音源、存取等級、音質合在進度條上方的音源膠囊。底部是帶文字的「封面／歌詞／佇列」切換。',
+      desc: '頂列：收起、播放來源（佇列第幾首或臨時播放）、加入歌單與 ⋮。封面下只有曲名與歌手；音源、存取等級、音質合在進度條上方的音源膠囊。打開時是封面；向左滑是歌詞、向右滑是佇列，底部三個點標出目前在哪一頁。',
       frames: [
         { kind: 'phone', label: '封面畫面', render: (ctx) => plPhone(ctx, {}) },
         { kind: 'phone', label: '歌詞畫面', render: (ctx) => plPhone(ctx, { view: 'lyrics' }), after: plWire },
         { kind: 'phone', label: '手動捲動歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', manual: true }), after: plWire },
         { kind: 'phone', label: '佇列畫面', render: (ctx) => plPhone(ctx, { view: 'queue' }) },
+        { kind: 'phone', label: '向左滑到歌詞（滑到一半）', render: (ctx) => plPhone(ctx, { swipe: 0.42, to: 'lyrics' }) },
       ],
       notes: '<h3>規則</h3><ul>' +
         '<li>頂列中間寫播放來源：「佇列 · 第 6 / 64 首」與下一首；臨時播放時改成強調色的「臨時播放 · 播完回到佇列第 6 首」，和佇列頁的說法一致。</li>' +
-        '<li><b>音源膠囊</b>（招牌）：清玻璃、40pt 高，左起音源符號＋全名、存取等級徽章（免費與未知不顯示這段）、音質（插件列出可用音質，宿主依偏好與會員狀態選最高可用，brief §5.4；這裡寫實際在播的那一級）、›。點它開曲目資訊 sheet。歌詞與佇列畫面也在同一個位置，三個畫面都看得到。</li>' +
+        '<li><b>音源膠囊</b>（招牌）：清玻璃、30pt 高、12pt 字，左起音源符號＋全名、存取等級徽章（免費與未知不顯示這段）、音質（插件列出可用音質，宿主依偏好與會員狀態選最高可用，brief §5.4；這裡寫實際在播的那一級）、›。點它開曲目資訊 sheet。歌詞與佇列畫面也在同一個位置，三個畫面都看得到。</li>' +
         '<li>頂列右邊一顆清玻璃膠囊放「加入歌單」與 ⋮（舊版頂列就有加入歌單；資訊改由音源膠囊進入）。</li>' +
         '<li>控制列：隨機、上一首、播放／暫停、下一首、循環。隨機、循環開著時是強調色並在下方加一個點（不只靠顏色）；循環三態圖示分 repeat／repeat1。</li>' +
-        '<li>底部是帶文字的分段切換「封面／歌詞／佇列」，和桌面頂列右側的「歌詞／佇列」是同一個控制，只是手機放在拇指碰得到的底部。三個畫面的音源膠囊、進度與控制列位置都不動，只換上半部。手機不放音量列（用實體按鍵），也沒有輸出裝置按鈕（第一版不做）。</li>' +
+        '<li><b>左右滑換畫面</b>：三個畫面排成「佇列 ← 封面 → 歌詞」，打開時在封面；向左滑到歌詞，向右滑到佇列。只有頂列與音源膠囊之間的那一塊會滑，音源膠囊、進度與控制列不動。底部三個點是頁面指示，目前那一頁拉長成膠囊；點點也能切換（VoiceOver 唸「封面，第 2 頁，共 3 頁」）。</li>' +
+        '<li><b>代價</b>：封面不能再左右滑來切歌（Apple Music、Spotify 的手勢），換歌只靠控制列的上一首／下一首。左右滑也不會跟系統的返回手勢打架：收起播放頁是往下拉或點左上。手機不放音量列（用實體按鍵），也沒有輸出裝置按鈕（第一版不做）。</li>' +
+        '<li>第一次打開播放頁時，點點旁短暫出現「左右滑看歌詞與佇列」，之後不再出現。</li>' +
         '<li>佇列畫面只列接下來的，可拖動，隨機與循環的文字切換鈕在標題列；完整編輯在佇列分頁。</li>' +
         '<li>歌詞：當前行全白，播過的最淡，未播的半透明；有翻譯時在原文下方一行。上方小字標來源（網易雲音樂或 lrclib）與自動／手動匹配。</li>' +
         '<li>手動捲動時暫停自動捲動：所有行稍微變亮，畫面中央那一行出現底色與「▶ 1:53」，點它跳到該時間；下方浮出清玻璃「回到目前歌詞」。3 秒沒動作也會自己回去。任何一行都可以直接點來跳轉。</li>' +
-        '<li>玻璃都是清玻璃，只在控制上：頂列的收起與右側膠囊、音源膠囊、底部切換、浮出來的「回到目前歌詞」。歌詞與曲名直接放在色場上。</li></ul>',
+        '<li>玻璃都是清玻璃，只在控制上：頂列的收起與右側膠囊、音源膠囊、浮出來的「回到目前歌詞」。頁面點點不是玻璃，直接畫在色場上。歌詞與曲名直接放在色場上。</li></ul>',
     },
     {
       title: '手機：試聽',
@@ -463,13 +489,13 @@ FMP.page({
         '<li>第一次遇到試聽時跳一則提示並附「登入」，之後不再跳（每個音源各一次）；試聽膠囊一直都在。</li></ul>',
     },
     {
-      title: '手機：⋮ 選單、偏移、顯示方式',
+      title: '手機：⋮、偏移、顯示方式',
       frames: [
-        { kind: 'phone', label: '⋮ 選單', render: (ctx) => plPhone(ctx, { view: 'lyrics', overlay: plMenu('both') }) },
+        { kind: 'phone', label: '⋮（底部 sheet）', render: (ctx) => plPhone(ctx, { view: 'lyrics', overlay: plMenu('both') }) },
         { kind: 'phone', label: '偏移調整列', render: (ctx) => plPhone(ctx, { view: 'lyrics', offset: true }) },
         { kind: 'phone', label: '優先顯示翻譯', render: (ctx) => plPhone(ctx, { view: 'lyrics', mode: 'trans' }) },
       ],
-      notes: '<ul><li>⋮：搜尋歌詞、調整歌詞偏移；「歌詞顯示」三選一（原文＋翻譯、只顯示原文、優先顯示翻譯）；曲目資訊。加入歌單在頂列膠囊上，不重複。選單用共用的 <code>.gmenu</code>（厚玻璃、跟主題走），在色場上也讀得清。</li>' +
+      notes: '<ul><li>⋮ 打開底部 sheet，和手機上任何一首歌的「更多」同一個元件：頂端是目前這首，接著搜尋歌詞、調整歌詞偏移；「歌詞顯示」三選一（原文＋翻譯、只顯示原文、優先顯示翻譯）；曲目資訊。加入歌單在頂列膠囊上，不重複。厚玻璃、跟主題走，在色場上也讀得清。</li>' +
         '<li>偏移列浮在歌詞下緣，清玻璃：顯示目前偏移與意思（「歌詞提早 0.3 秒出現」），七顆按鈕 −1／−0.5／−0.1／重置／+0.1／+0.5／+1 秒，每顆 ≥40pt 高。偏移記在這首曲目上；調過後歌詞來源那行多一個「偏移 +0.3 秒」。</li>' +
         '<li>優先顯示翻譯：翻譯當主行，原文移到下方小行。沒有翻譯的歌詞三個選項看起來一樣。</li></ul>',
     },
