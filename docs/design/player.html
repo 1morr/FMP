@@ -207,6 +207,8 @@ html:not([data-accent]) .pl-m, html[data-accent="none"] .pl-m { --accent-fill: #
 .pl-dq .qh { display: flex; align-items: center; gap: 8px; padding: 14px 12px 8px; font-size: 12px; font-weight: 700; }
 .pl-dq .qh span { color: var(--label-2); font-weight: 500; }
 .pl-dq .qh .sp { flex: 1; }
+.pl-dq .qn { display: flex; align-items: center; gap: 8px; margin: 6px 12px 2px; padding-top: 8px; box-shadow: inset 0 .5px 0 var(--sep); font-size: 12px; font-weight: 700; }
+.pl-dq .qn span { color: var(--label-2); font-weight: 500; }
 .pl-dq .tog { background: var(--fill); color: #fff; }
 .pl-dq .tog.on { background: var(--accent-fill); color: var(--accent-ink); }
 .pl-dq .row.playing { background: var(--fill); }
@@ -426,10 +428,12 @@ function plDesk(ctx, o) {
       '<div class="pl-dly"><div class="in">' + plLyLines({ desk: true, hov: o.hov }) + '</div></div>';
   } else {
     const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11, T.t12, T.t06, T.t17, T.t15];
-    r = '<div class="pl-dq"><div class="qh">接下來<span>58 首 · 3 小時 58 分</span><span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+    // same order as the queue page: now playing, then the fold, then what comes next
+    r = '<div class="pl-dq"><div class="qh">佇列<span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
       FMP.trackRow(t, { desk: true, playing: true, more: false, sub: FMP.esc(t.artist) + ' · 正在播放' }) +
+      '<div class="qn">接下來<span>58 首 · 3 小時 58 分</span></div>' +
       nexts.map((x) => FMP.trackRow(x, { desk: true, more: false, drag: true })).join('') +
-      '<div style="padding:12px;font-size:12px;color:var(--label-3)">在這裡可以拖動與移除；完整的佇列（清空、播過的）在側欄的「佇列」。</div></div>';
+      '<div style="padding:12px;font-size:12px;color:var(--label-3)">在這裡可以拖動排序；移除、清空與播過的曲目在側欄的「佇列」。</div></div>';
   }
   h += '<div class="pl-right">' + r + '</div>';
   h += '</div>' + (o.overlay || '') + '</div>';
@@ -529,7 +533,7 @@ FMP.page({
       notes: '<h3>規則</h3><ul><li>桌面播放頁蓋滿整個視窗（側欄、詳情面板收起來），Esc 或左上的收起回到原頁。macOS 的紅綠燈留在左上；Windows 的視窗按鈕在右上，頂列右側的控制往左讓出 138px。</li>' +
         '<li>左欄曲名、歌手下方同樣是音源膠囊（點它開曲目資訊），下面是進度、控制與音量（桌面保留音量）。</li>' +
         '<li>右欄歌詞字更大（28pt），滑過一行出現底色與「▶ 1:46」，點了跳到該時間；頂端一列是歌詞來源與「偏移 0 秒」按鈕（點開偏移列，和手機同一套）。</li>' +
-        '<li>右欄佇列只列正在播放與接下來的，可以拖動；隨機與循環的文字切換鈕也在這裡。完整編輯在佇列頁。</li>' +
+        '<li>右欄佇列只列正在播放與接下來的，順序和佇列頁一樣：正在播放在上，下面一條分隔與「接下來」。可以拖動排序；隨機與循環的文字切換鈕在標題列。移除、清空與播過的曲目在佇列頁。</li>' +
         '<li>鍵盤：Space 播放／暫停、←／→ 倒退／快轉 5 秒、⌘←／⌘→ 上一首／下一首、⌘I 曲目資訊、Esc 收起。</li>' +
         '<li>歌詞搜尋在桌面是置中的對話框，內容和手機的 sheet 一樣，多了鍵盤操作（↑↓ 選、⏎ 套用、Esc 關）。</li></ul>' +
         '<h3>右欄直接放在色場上（擁有者 2026-11-11 選定）</h3><ul>' +

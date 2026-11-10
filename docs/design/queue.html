@@ -150,7 +150,7 @@ function quTemp(t, o) {
     '<div class="qu-th"><b>' + I('history', 's16') + '臨時播放</b><span class="c2">不在佇列裡</span></div>' +
     FMP.trackRow(t, { playing: true, more: false }) +
     '<div class="qu-tf">' + I('chevD') + '<span>播完或切歌後回到下方第 6 首 <b style="white-space:nowrap">「夜行列車」</b>，從 <b class="num">1:26</b> 繼續（倒退 10 秒）</span></div>' +
-    '<div class="qu-ta"><button class="btn btn-sm btn-tinted">' + I('history', 's16') + '現在回到佇列</button><button class="btn btn-sm btn-gray">' + I('plus', 's16') + '加入佇列</button></div></div>';
+    '<div class="qu-ta"><button class="btn btn-sm btn-tinted">' + I('history', 's16') + '現在回到佇列</button><button class="btn btn-sm btn-gray">' + I('nextUp', 's16') + '下一首播放</button></div></div>';
 }
 function quPhoneList(o) {
   o = o || {};
@@ -245,7 +245,7 @@ function quDeskList(o) {
   if (o.temp) {
     const tt = T.t19;
     h += '<div class="qu-dtemp"><div class="qu-th"><b>' + I('history', 's16') + '臨時播放</b><span class="c2">不在佇列裡</span><span class="sp" style="flex:1"></span>' +
-      '<button class="btn btn-sm btn-gray">' + I('plus', 's16') + '加入佇列</button><button class="btn btn-sm btn-tinted">' + I('history', 's16') + '現在回到佇列</button></div>' +
+      '<button class="btn btn-sm btn-gray">' + I('nextUp', 's16') + '下一首播放</button><button class="btn btn-sm btn-tinted">' + I('history', 's16') + '現在回到佇列</button></div>' +
       '<div class="qu-tbody">' + FMP.coverEl(tt.cv, 44, 'thumb') + '<div class="meta"><div class="t1"><span class="eq"><i></i><i></i><i></i></span><span class="ell">' + FMP.esc(tt.title) + '</span>' + FMP.acc(tt.acc) + '</div><div class="t2">' + FMP.src(tt.src, 'full') + '<span>' + FMP.esc(tt.artist) + '</span></div></div><span class="num c3" style="font-size:12px">1:12 / ' + tt.dur + '</span></div>' +
       '<div class="qu-tf">' + I('chevD') + '<span>播完或按上一首／下一首，回到下方第 6 首<b>「夜行列車」</b>，從 <b class="num">1:26</b> 繼續（倒退 10 秒，可在設定 › 播放調整）</span></div></div>';
     h += quTr(QU_NOW, { n: 6, sub: '<span class="tt">' + FMP.esc(QU_NOW.artist) + ' · <span class="qu-ret">回來時從 1:26 繼續</span></span>' });
@@ -336,7 +336,7 @@ FMP.page({
         '<li>臨時播放的曲目不在佇列裡，所以佇列裡沒有一列是「正在播放」。畫面在原本正在播的那首上方插入一塊「臨時播放」，像繞了一段路；打開佇列時捲到這塊。</li>' +
         '<li>這塊寫清楚回去的地方：「回到下方第 6 首「夜行列車」，從 1:26 繼續（倒退 10 秒）」。秒數照設定；那一列的副標也寫「回來時從 1:26 繼續」。</li>' +
         '<li>連續臨時播放時只換掉這塊裡的曲目，回去的位置不變（保留最早那個佇列位置）。</li>' +
-        '<li>兩個動作：「現在回到佇列」立刻回去；「加入佇列」把它放進佇列，排在摺線下第一首（等同「下一首播放」），臨時播放就結束。</li>' +
+        '<li>兩個動作：「現在回到佇列」立刻回去；「下一首播放」把它放進佇列、排在摺線下第一首，臨時播放就結束；和選單的「下一首播放」同一個意思（「加入佇列」一律是加到最後）。</li>' +
         '<li>迷你播放器在臨時播放時標題旁多一個「臨時」小標（建議加進 kit 的 <code>FMP.mini</code>）。</li></ul>',
     },
     {

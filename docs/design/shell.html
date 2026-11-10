@@ -85,8 +85,22 @@ FMP.page({
         { kind: 'phone', label: '錯誤提示：跳下一首', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t02 }, {
           overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px;color:var(--glass-ink)">' + I('warn', 's18') + '<span>「不眠的城」需單曲付費，已跳下一首</span></span>', { style: 'bottom:176px;padding-right:18px' }),
         }) },
+        { kind: 'phone', label: '連續 3 首都不能播：停止', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t09, paused: true, progress: 0, time: '0:00' }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px;color:var(--glass-ink)">' + I('warn', 's18') + '<span>連續 3 首都無法播放，已停止。最後一首「不眠的城」需單曲付費。</span></span><button class="btn btn-tinted" data-href="queue.html">看佇列</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '沒有網路', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t03, paused: true, progress: 0, time: '0:00' }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px;color:var(--glass-ink)">' + I('wifi', 's18') + '<span>沒有網路，「' + FMP.esc(FMP.T.t03.title) + '」無法播放。音樂庫與佇列照常可用。</span></span><button class="btn btn-tinted">重試</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '音源要求驗證', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t05, paused: true, progress: 0, time: '0:00' }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px;color:var(--glass-ink)">' + I('shield', 's18') + '<span>B 站要求驗證才能繼續播放。</span></span><button class="btn btn-tinted" data-href="account.html">去驗證</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '重啟 App 後', render: (ctx) => phoneLib(ctx, { tab: 'library', paused: true, progress: 38 }) },
       ],
-      notes: '<ul><li>沒有目前曲目時不顯示迷你播放器，導覽列留在原位。</li><li>迷你播放器的標題旁帶存取等級徽章（會員、付費、試聽）；只有試聽時，第一次另外跳一則提示（brief §5.4）。</li><li>提示只有一個入口，浮在迷你播放器上方，依錯誤類別給文字與動作（brief §13）。</li></ul>',
+      notes: '<ul><li>沒有目前曲目時不顯示迷你播放器，導覽列留在原位。</li><li>迷你播放器的標題旁帶存取等級徽章（會員、付費、試聽）；只有試聽時，第一次另外跳一則提示（brief §5.4）。</li><li>提示只有一個入口，浮在迷你播放器上方，依錯誤類別給文字與動作（brief §13）。</li>' +
+        '<li>連續 3 首都無法播放就停止並提示（brief §6），寫出最後一首的原因；動作「看佇列」。迷你播放器停在那首、暫停。</li>' +
+        '<li>沒有網路（brief §9）：播放、搜尋、刷新顯示網路錯誤，動作「重試」；已解析且還沒過期的串流照常播。音樂庫、佇列、設定照常可用。匯入歌單刷新時沒有網路，狀態列寫「沒有網路，刷新沒有完成」。</li>' +
+        '<li>需驗證（brief §13）：音源要求人機驗證（例如 B 站風控）時暫停並提示，「去驗證」用帳號頁同一個網頁對話框打開音源給的驗證頁，驗證完自動重試那一首。</li>' +
+        '<li>重啟 App 後：佇列與進度都還在，迷你播放器顯示上次那首、停在上次的位置、暫停，不自動播放（brief §6）。重啟前如果正在臨時播放，不保留臨時播放，回到佇列原本那首（照舊版）。</li></ul>',
     },
     {
       title: '桌面：側欄、詳情面板、播放膠囊',

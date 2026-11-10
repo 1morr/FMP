@@ -34,7 +34,12 @@
 .srh-kb .k.go { flex-basis: 92px; font-size: 15px; font-weight: 600; background: var(--accent-fill); color: var(--accent-ink); }
 
 /* ---- phone content ---- */
-.srh-chips { display: flex; gap: 8px; padding: 2px 20px 6px; overflow-x: auto; scrollbar-width: none; }
+.srh-fil { display: flex; align-items: center; padding: 2px 0 6px; }
+.srh-chips { flex: 1; min-width: 0; display: flex; gap: 8px; padding: 0 8px 0 20px; overflow-x: auto; scrollbar-width: none; -webkit-mask: linear-gradient(90deg, #000 calc(100% - 20px), transparent); mask: linear-gradient(90deg, #000 calc(100% - 20px), transparent); }
+/* sort sits at the right end of the filter row, like the legacy app; it stays put while the chips scroll */
+.srh-sortc { flex: none; margin-right: 16px; display: inline-flex; align-items: center; gap: 3px; height: 32px; padding: 0 8px 0 10px; border-radius: var(--r-cap); box-shadow: inset 0 0 0 1px var(--sep-strong); font-size: 13px; font-weight: 500; color: var(--label); white-space: nowrap; }
+.srh-sortc svg.i { width: 15px; height: 15px; color: var(--label-2); }
+.desk .srh-sortc { height: 26px; margin: 0 0 0 14px; font-size: 12px; }
 .srh-chips::-webkit-scrollbar { display: none; }
 .srh-chips .chip .src svg { width: 15px; height: 15px; }
 .srh-chips .chip.on .src { color: inherit; }
@@ -44,7 +49,6 @@
 .srh-sh .ty-title3 { font-weight: 700; }
 .srh-sh .cnt { font-size: 15px; color: var(--label-3); font-family: var(--font-num); }
 .srh-sh .sp { flex: 1; }
-.srh-sh .sort { font-size: 13px; color: var(--label-2); display: inline-flex; align-items: center; gap: 3px; }
 .srh-loc { width: 14px !important; height: 14px !important; color: var(--accent); stroke-width: 2.4 !important; vertical-align: -2px; margin-right: 3px; }
 .srh-part { min-height: 48px !important; padding-left: 76px !important; --sep-inset: 76px; }
 .srh-part .pn { width: 26px; flex: none; font-size: 12px; font-weight: 600; color: var(--label-3); }
@@ -195,13 +199,13 @@ function srhChips(on, o) {
   o = o || {};
   const c = (k, label, cnt) => '<button class="chip' + (on === k ? ' on' : '') + '">' + (k !== 'all' ? FMP.src(k) : '') + label +
     (o.err === k ? '<span class="w">' + I('warn', 's16') + '</span>' : (cnt !== undefined ? '<span class="cnt num">' + cnt + '</span>' : '')) + '</button>';
-  return '<div class="srh-chips">' + c('all', '全部', o.counts ? o.counts[0] : undefined) + c('bilibili', 'Bilibili', o.counts ? o.counts[1] : undefined) +
-    c('youtube', 'YouTube', o.counts ? o.counts[2] : undefined) + c('netease', '網易雲', o.counts ? o.counts[3] : undefined) + '</div>';
+  return '<div class="srh-fil"><div class="srh-chips">' + c('all', '全部', o.counts ? o.counts[0] : undefined) + c('bilibili', 'Bilibili', o.counts ? o.counts[1] : undefined) +
+    c('youtube', 'YouTube', o.counts ? o.counts[2] : undefined) + c('netease', '網易雲', o.counts ? o.counts[3] : undefined) + '</div>' + SRH_SORTC + '</div>';
 }
 function srhSH(title, cnt, right) {
   return '<div class="srh-sh"><span class="ty-title3">' + title + '</span>' + (cnt !== undefined ? '<span class="cnt">' + cnt + '</span>' : '') + '<span class="sp"></span>' + (right || '') + '</div>';
 }
-const SRH_SORT = '<span class="sort">' + I('sort', 's16') + '綜合排序</span>';
+const SRH_SORTC = '<button class="srh-sortc" aria-label="排序：綜合排序">' + I('sort') + '綜合排序' + I('chevD') + '</button>';
 function srhDock(o) {
   o = o || {};
   const field = '<div class="lg srh-field" data-adapt>' + I('search') +
@@ -220,7 +224,7 @@ function srhKeyboard() {
 }
 function srhPhone(ctx, o) {
   const title = '<div class="lt" style="padding-top:58px"><div class="ty-large">搜尋</div></div>';
-  const top = o.top !== undefined ? o.top : FMP.ptop('搜尋', '', FMP.gbtn('sort', '排序'), 120);
+  const top = o.top !== undefined ? o.top : FMP.ptop('搜尋', '', '', 120);
   return FMP.phone(ctx, {
     content: title + (o.chips === false ? '' : (o.chips || srhChips('all'))) + o.body,
     top,
@@ -232,7 +236,7 @@ function srhResults(o) {
   o = o || {};
   let h = srhSH('歌單中', SRH_LOCAL.length);
   h += SRH_LOCAL.map((t, i) => srhRow(t, { playing: i === 0, check: o.sel ? (o.sel.includes('l' + i)) : undefined, more: !o.sel, chev: t.parts > 1 && !o.sel ? 'chevD' : undefined })).join('');
-  h += srhSH('線上結果', 49, SRH_SORT);
+  h += srhSH('線上結果', 49);
   if (o.err) h += srhErr();
   const list = o.err ? SRH_ONLINE.filter((t) => t.src !== 'youtube') : SRH_ONLINE;
   list.forEach((t, i) => {
@@ -290,11 +294,10 @@ function srhDesk(ctx, o) {
   o = o || {};
   const sel = o.sel || [];
   let h = '<div style="padding:66px 24px 170px 8px">' +
-    '<div class="srh-dhead"><div><div class="ty-large">「夜」<span class="c3"> 的搜尋結果</span></div></div><span class="sp"></span>' +
-    '<button class="btn btn-gray btn-sm">' + I('sort', 's16') + '綜合排序' + I('chevD', 's16') + '</button></div>' +
+    '<div class="srh-dhead"><div><div class="ty-large">「夜」<span class="c3"> 的搜尋結果</span></div></div></div>' +
     '<div class="srh-dfil">' + ['all', 'bilibili', 'youtube', 'netease'].map((k, i) => '<button class="chip' + (i === 0 ? ' on' : '') + '">' + (k === 'all' ? '' : FMP.src(k)) + ['全部', 'Bilibili', 'YouTube', '網易雲'][i] +
       (k === 'youtube' ? '<span class="w">' + I('warn', 's16') + '</span>' : '<span class="cnt num">' + [52, 19, '', 18][i] + '</span>') + '</button>').join('') +
-    '<span class="hint"><span><kbd>雙擊</kbd>臨時播放</span><span><kbd>⌘</kbd>點選多選</span><span><kbd>右鍵</kbd>更多</span></span></div>';
+    '<span class="hint"><span><kbd>雙擊</kbd>臨時播放</span><span><kbd>⌘</kbd>點選多選</span><span><kbd>右鍵</kbd>更多</span></span>' + SRH_SORTC + '</div>';
   h += '<div class="srh-dsh">歌單中<span class="cnt">' + SRH_LOCAL.length + '</span></div>' + SRH_TH;
   h += SRH_LOCAL.map((t, i) => srhDRow(t, i, { playing: i === 0, sel: sel.includes('l' + i) })).join('');
   h += '<div class="srh-dsh">線上結果<span class="cnt">49</span></div>' + SRH_TH;
@@ -339,11 +342,11 @@ FMP.page({
     },
     {
       title: '手機：結果',
-      desc: '「歌單中」在上、「線上結果」在下，同一個捲動列表。篩選 chip 在大標題下面；排序收在右上角的玻璃圓鈕（綜合排序、最多播放、最新發布），目前的排序寫在「線上結果」標頭的右邊。',
+      desc: '「歌單中」在上、「線上結果」在下，同一個捲動列表。篩選 chip 在大標題下面；排序是同一排最右邊的外框按鈕，寫著目前的排序（綜合排序、最多播放、最新發布），位置照舊版；篩選 chip 太多時往左捲，排序鈕固定不動。',
       frames: [
         { kind: 'phone', label: '結果（全部音源）', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' }, body: srhResults() }) },
         { kind: 'phone', label: 'B 站多 P 展開', render: (ctx) => srhPhone(ctx, { chips: srhChips('bilibili'), dock: { query: '夜' },
-          body: srhSH('線上結果', 19, SRH_SORT) + (() => { const b = SRH_ONLINE.filter((t) => t.src === 'bilibili'); let h = ''; b.forEach((t) => { const open = t.id === 'o6'; h += srhRow(t, { chev: t.parts > 1 ? (open ? 'chevU' : 'chevD') : undefined, cls: open ? 'srh-open' : '' }); if (open) h += srhParts(t, 1); }); return h; })() +
+          body: srhSH('線上結果', 19) + (() => { const b = SRH_ONLINE.filter((t) => t.src === 'bilibili'); let h = ''; b.forEach((t) => { const open = t.id === 'o6'; h += srhRow(t, { chev: t.parts > 1 ? (open ? 'chevU' : 'chevD') : undefined, cls: open ? 'srh-open' : '' }); if (open) h += srhParts(t, 1); }); return h; })() +
             srhRow(FMP.T.t03) + srhRow(FMP.T.t18, { chev: 'chevD' }) + '<div class="srh-foot">已載入全部</div>' }) },
         { kind: 'phone', label: '載入中', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' },
           body: srhSH('歌單中', 3) + SRH_LOCAL.map((t, i) => srhRow(t, { playing: i === 0, chev: t.parts > 1 ? 'chevD' : undefined })).join('') + srhSH('線上結果') +

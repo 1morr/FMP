@@ -115,7 +115,6 @@ function stMainList() {
   stFoot('預設「無」：選取與主要動作用文字的黑白。選了顏色後，開著的切換鈕、勾選、正在播放與主要按鈕換成那個顏色。') +
   stHead('播放') + stGroup([
     stCell({ icon: stGi('wave'), t: '音質', v: '高', chev: true }),
-    stCell({ icon: stGi('clock'), t: '重啟後恢復播放進度', trail: stSw(true) }),
     stCell({ icon: stGi('history'), t: '臨時播放結束後倒退', v: '10 秒', chev: 'updown' }),
   ], true) +
   stFoot('臨時播放結束、回到佇列原本那首時，從離開的位置往前倒退幾秒，接得上剛才聽到的地方。') +
@@ -235,7 +234,6 @@ function stDeskPlayback(ctx) {
     ], true) +
     stFoot('清單由插件提供；標「會員」的只在帳號有會員時選到。') +
     stHead('進度') + stGroup([
-      stCell({ t: '重啟後恢復播放進度', s: '回到上次停下的位置；關閉時從曲目開頭開始', trail: stSw(true) }),
       stCell({ t: '臨時播放結束後倒退', s: '回到佇列原本那首時，往前倒退幾秒', trail: '<span class="st-step"><button aria-label="減少">' + I('minus') + '</button><span class="st-num">10 秒</span><button aria-label="增加">' + I('plus') + '</button></span>' }),
     ]);
   return stDesk(ctx, { cat: 'playback', pane });
@@ -306,7 +304,7 @@ FMP.page({
         { kind: 'phone', label: '捲到下方，清除快取後', render: (ctx) => stMain(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已清除圖片快取，釋放 182 MB</span></span>', { style: 'bottom:112px;padding-right:18px' }) }), after: (root) => { const s = root.querySelector('.page.scroll'); s.scrollTop = 9999; root.classList.add('scrolled'); } },
         { kind: 'phone', label: '主題選單', render: (ctx) => stThemeMenu(ctx) },
       ],
-      notes: '<h3>規則</h3><ul><li>群組列表是實心的；玻璃只在頂列、dock 與選單上。圖示方塊用中性的灰底，不用彩色：設定頁的顏色留給音源標識與狀態（會員快到期用警示色）。</li><li>只有一個值、選項少於 6 個的設定（主題、語言、倒退秒數、刷新間隔）用 iOS 的下拉選單，就地改，不推新頁；選項帶說明或有子設定的（音質、歌詞源順序）才推子頁。</li><li>「清除」不另外確認，完成後跳提示說釋放了多少；快取刪了只會重新下載，不會丟資料。桌面版用確認框，因為按鈕離游標近、容易誤點（見下方桌面稿）。</li><li>「重啟後恢復播放進度」只決定進度；佇列一定保存，重啟後不自動播放（brief §6）。</li></ul>',
+      notes: '<h3>規則</h3><ul><li>群組列表是實心的；玻璃只在頂列、dock 與選單上。圖示方塊用中性的灰底，不用彩色：設定頁的顏色留給音源標識與狀態（會員快到期用警示色）。</li><li>只有一個值、選項少於 6 個的設定（主題、語言、倒退秒數、刷新間隔）用 iOS 的下拉選單，就地改，不推新頁；選項帶說明或有子設定的（音質、歌詞源順序）才推子頁。</li><li>「清除」不另外確認，完成後跳提示說釋放了多少；快取刪了只會重新下載，不會丟資料。桌面版用確認框，因為按鈕離游標近、容易誤點（見下方桌面稿）。</li><li>佇列與播放進度一定保存，重啟後停在上次的位置、不自動播放（brief §6），所以沒有「重啟後恢復播放進度」的開關（舊版有，2026-11-11 擁有者同意拿掉）。</li></ul>',
     },
     {
       title: '手機：子頁',
