@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>首頁候選丁：小工具 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+[class^="hd-"], [class*=" hd-"] { box-sizing: border-box; }
+
+/* ---- board surface: light theme puts white tiles on grouped grey (iOS widgets) ---- */
+.phone.t-light:has(.hd-board) { --bg: var(--bg-grouped); }
+.win.t-light:has(.hd-board) { --bg: var(--bg-grouped); }
+.win.t-light:has(.hd-board) .detail { background: var(--cell); }
+
+/* ---- grid: phone 2 columns of 168, desktop auto-fill (4 with the detail panel, 6 without) ---- */
+.hd-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 168px; grid-auto-flow: row dense; gap: 14px; padding: 4px 20px 0; }
+.hd-m { grid-column: span 2; }
+.hd-l { grid-column: span 2; grid-row: span 2; }
+.hd-xl { grid-column: span 4; grid-row: span 2; }
+.desk .hd-board { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-auto-rows: 150px; gap: 16px; padding: 0; }
+
+/* ---- tile: solid content ---- */
+.hd-t { position: relative; min-width: 0; border-radius: 20px; background: var(--cell); }
+.desk .hd-t { border-radius: 14px; }
+.hd-in { position: absolute; inset: 0; padding: 10px 12px 0 14px; display: flex; flex-direction: column; overflow: hidden; border-radius: inherit; }
+.hd-s .hd-in { padding-bottom: 12px; }
+.desk .hd-in { padding: 10px 10px 0 12px; }
+.desk .hd-s .hd-in { padding-bottom: 10px; }
+
+.hd-h { display: flex; align-items: center; gap: 6px; height: 22px; margin-bottom: 4px; flex: none; font-size: 13px; line-height: 16px; font-weight: 600; min-width: 0; }
+.hd-h b { font-weight: 600; }
+.hd-h .sp { flex: 1; }
+.hd-h .mt { font-size: 12px; font-weight: 500; color: var(--label-3); white-space: nowrap; }
+.hd-h .cv { display: grid; place-items: center; color: var(--label-3); }
+.hd-h .cv svg.i { width: 15px; height: 15px; stroke-width: 2.2; }
+.hd-h .hm { display: none; width: 24px; height: 24px; color: var(--label-2); }
+.hd-h .hm svg.i { width: 16px; height: 16px; }
+.hd-mk { display: grid; place-items: center; flex: none; }
+.hd-mk svg { width: 16px; height: 16px; display: block; }
+.hd-ic { display: grid; place-items: center; flex: none; color: var(--label-2); }
+.hd-ic svg.i { width: 17px; height: 17px; }
+.hd-ic.gold { color: var(--vip); }
+.desk .hd-h { height: 18px; margin-bottom: 6px; font-size: 12px; }
+.desk .hd-h .mt { font-size: 11px; }
+.desk .hd-mk svg { width: 14px; height: 14px; }
+.desk .hd-ic svg.i { width: 15px; height: 15px; }
+
+/* ---- rows inside tiles (not cards: no fill, no border) ---- */
+.hd-list { display: flex; flex-direction: column; min-height: 0; }
+.hd-r { position: relative; display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 0; }
+.hd-r .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.hd-r .a { display: flex; align-items: center; gap: 5px; font-size: 14px; line-height: 18px; font-weight: 500; min-width: 0; }
+.hd-r .b { display: flex; align-items: center; gap: 5px; font-size: 12px; line-height: 15px; color: var(--label-2); min-width: 0; }
+.hd-r .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hd-r .src svg { width: 13px; height: 13px; }
+.hd-r .thumb { border-radius: 6px; }
+.hd-r.playing .a { color: var(--accent); font-weight: 600; }
+.hd-rk { width: 16px; flex: none; text-align: center; font-size: 13px; font-weight: 600; color: var(--label-2); display: grid; place-items: center; }
+.hd-rk svg.i { width: 14px; height: 14px; color: var(--label); }
+.hd-du { font-size: 12px; color: var(--label-3); flex: none; }
+.hd-r .hd-more { width: 36px; height: 44px; margin-right: -8px; color: var(--label-3); }
+.hd-r .hd-more svg.i { width: 18px; height: 18px; }
+.hd-dl { flex: none; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; gap: 6px; }
+.hd-dl .neg { color: var(--label-3); }
+.hd-r .b .w { color: var(--warn); font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+.hd-r .b .w svg.i { width: 13px; height: 13px; }
+.hd-s .hd-r { min-height: 36px; gap: 8px; }
+.hd-s .hd-r .a { font-size: 13.5px; }
+.hd-l .hd-r { min-height: 50px; }
+.hd-l .hd-list.pl .hd-r, .hd-l .hd-list.nw .hd-r { min-height: 44px; }
+.hd-sub { display: flex; align-items: center; gap: 6px; height: 24px; flex: none; font-size: 12px; font-weight: 600; color: var(--label-2); }
+.hd-sub .cover { width: 18px; height: 18px; border-radius: 4px; }
+.hd-hr { height: .5px; background: var(--sep); margin: 4px 0; flex: none; }
+
+.desk .hd-r { min-height: 37px; gap: 9px; padding: 0 6px; margin: 0 -6px; border-radius: 8px; }
+.desk .hd-r .a { font-size: 12.5px; line-height: 16px; }
+.desk .hd-r .b { font-size: 11px; line-height: 14px; }
+.desk .hd-r .src svg { width: 12px; height: 12px; }
+.desk .hd-s .hd-r { min-height: 34px; gap: 7px; }
+.desk .hd-s .hd-r .a { font-size: 12px; }
+.desk .hd-l .hd-r { min-height: 44px; }
+.desk .hd-l .hd-list.pl .hd-r, .desk .hd-l .hd-list.nw .hd-r { min-height: 37px; }
+.desk .hd-xl .hd-r { min-height: 52px; }
+.desk .hd-rk { font-size: 12px; }
+.desk .hd-du { font-size: 11px; }
+.desk .hd-dl { font-size: 13px; }
+.desk .hd-r .hd-more { display: none; width: 28px; height: 28px; margin: 0; }
+.desk .hd-r:hover, .desk .hd-r.hov { background: var(--fill); }
+.desk .hd-r:hover .hd-more, .desk .hd-r.hov .hd-more { display: inline-grid; }
+.desk .hd-r.hov .hd-du { display: none; }
+.hd-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, auto); grid-auto-flow: column; column-gap: 28px; }
+
+/* ---- per-type content ---- */
+/* up next, small */
+.hd-nx .cover { width: 56px; height: 56px; border-radius: 8px; }
+.hd-nt { margin-top: 8px; display: flex; align-items: center; gap: 5px; font-size: 14px; line-height: 18px; font-weight: 600; min-width: 0; }
+.hd-ns { margin-top: 2px; display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 15px; color: var(--label-2); min-width: 0; }
+.hd-ns .src svg { width: 13px; height: 13px; }
+.hd-nt .tt, .hd-ns .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* refresh results, small: the number is the news */
+.hd-big { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.hd-big .n { font-family: var(--font-display); font-size: 40px; line-height: 42px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.hd-big .n small { font-family: var(--font); font-size: 15px; font-weight: 600; margin-left: 3px; letter-spacing: 0; color: var(--label-2); }
+.hd-big .cover { width: 44px; height: 44px; border-radius: 8px; }
+.hd-foot-n { margin-top: auto; font-size: 12px; line-height: 15px; color: var(--label-3); }
+.desk .hd-big .n { font-size: 32px; line-height: 34px; }
+.desk .hd-big .cover { width: 36px; height: 36px; }
+.desk .hd-nt { font-size: 12.5px; } .desk .hd-ns, .desk .hd-foot-n { font-size: 11px; }
+/* playlists strip */
+.hd-pls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.hd-l .hd-pls { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.hd-pl { min-width: 0; }
+.hd-pl .cover { width: 100%; aspect-ratio: 1; border-radius: 10px; }
+.hd-pl .nm { margin-top: 5px; display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 15px; font-weight: 500; min-width: 0; }
+.hd-pl .nm .ell { flex: 1; }
+.hd-pl .nm .src svg { width: 12px; height: 12px; }
+.hd-pl .sb { font-size: 11.5px; line-height: 14px; color: var(--label-2); }
+.desk .hd-pl .cover { border-radius: 8px; }
+.desk .hd-pl .nm { font-size: 11.5px; }
+/* pinned playlist */
+.hd-pin { display: flex; flex-direction: column; height: 100%; }
+.hd-pin .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.hd-pin .top .cover { width: 76px; height: 76px; border-radius: 10px; }
+.hd-playb { width: 44px; height: 44px; border-radius: 22px; background: var(--fill); display: grid; place-items: center; color: var(--label); flex: none; }
+.hd-playb svg.i { width: 20px; height: 20px; }
+.hd-pin .nm { margin-top: auto; font-size: 15px; line-height: 20px; font-weight: 600; }
+.hd-pin .sb { font-size: 12px; line-height: 16px; color: var(--label-2); display: flex; align-items: center; gap: 4px; }
+.desk .hd-pin .top .cover { width: 64px; height: 64px; border-radius: 8px; }
+.desk .hd-playb { width: 32px; height: 32px; }
+.desk .hd-playb svg.i { width: 16px; height: 16px; }
+.desk .hd-pin .nm { font-size: 13px; line-height: 17px; }
+.desk .hd-pin .sb { font-size: 11px; }
+.hd-pinm { display: flex; gap: 14px; height: 100%; padding: 2px 0 12px; }
+.hd-pinm > .cover { width: 144px; height: 144px; border-radius: 12px; }
+.hd-pinm .r { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hd-pinm .r b { font-size: 17px; line-height: 22px; font-weight: 600; }
+.hd-pinm .r .sb { font-size: 12px; color: var(--label-2); margin-top: 2px; }
+.hd-pinm .r p { margin: 6px 0 0; font-size: 13px; line-height: 17px; color: var(--label-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hd-pinm .r .bt { margin-top: auto; display: flex; gap: 8px; }
+/* membership */
+.hd-mem { display: flex; flex-direction: column; gap: 8px; }
+.hd-mr { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hd-mr .src svg { width: 15px; height: 15px; }
+.hd-mr .m { flex: 1; min-width: 0; }
+.hd-mr .m b { display: block; font-size: 13px; line-height: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-mr .m span { display: block; font-size: 12px; line-height: 15px; color: var(--label-2); white-space: nowrap; }
+.hd-mr .m span.w { color: var(--warn); font-weight: 600; }
+.hd-mr.out .m b { color: var(--label-3); font-weight: 500; }
+.desk .hd-mem { gap: 6px; }
+.desk .hd-mr .m b { font-size: 12px; line-height: 15px; }
+.desk .hd-mr .m span { font-size: 11px; line-height: 14px; }
+
+/* ---- empty, offline, failure: in place, same position ---- */
+.hd-st { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; padding-bottom: 6px; }
+.hd-st .ic { color: var(--label-3); margin-bottom: 4px; display: grid; }
+.hd-st .ic svg.i { width: 24px; height: 24px; }
+.hd-st b { font-size: 15px; line-height: 20px; font-weight: 600; }
+.hd-st .tx { font-size: 13px; line-height: 17px; color: var(--label-2); }
+.hd-st .bt { display: flex; gap: 8px; margin-top: 8px; }
+.hd-st.err .ic { color: var(--warn); }
+.hd-t.off .hd-h { color: var(--label-2); }
+
+/* ---- top-bar text capsule, hint lines ---- */
+.hd-gtext { height: 44px; padding: 0 18px; border-radius: var(--r-cap); font-size: 16px; font-weight: 600; display: inline-flex; align-items: center; color: var(--glass-ink); }
+.hd-gtext.acc { color: var(--accent); }
+.hd-hint { padding: 0 20px 14px; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.hd-note { display: flex; align-items: center; gap: 8px; margin: 0 20px 12px; min-height: 32px; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.hd-note > svg.i { width: 18px; height: 18px; flex: none; }
+.hd-note .tx { flex: 1; min-width: 0; }
+.hd-note .ibtn { margin-right: -12px; color: var(--label-3); }
+.hd-note .ibtn svg.i { width: 18px; height: 18px; }
+.hd-foot { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 20px 0; }
+.hd-foot span { font-size: 13px; color: var(--label-3); }
+
+/* ---- edit mode (phone): jiggle, remove badge, size button ---- */
+.hd-editing .hd-t { animation: hd-jig 300ms ease-in-out infinite alternate; }
+.hd-editing .hd-t:nth-child(2n) { animation-delay: -150ms; }
+.hd-editing .hd-m, .hd-editing .hd-l { animation-name: hd-jig-wide; }
+@keyframes hd-jig { from { transform: rotate(-.9deg); } to { transform: rotate(.9deg); } }
+@keyframes hd-jig-wide { from { transform: rotate(-.35deg); } to { transform: rotate(.35deg); } }
+@media (prefers-reduced-motion: reduce) { .hd-editing .hd-t { animation: none; } }
+.hd-editing .hd-t.sel { animation: none; z-index: 5; box-shadow: 0 0 0 2px var(--accent); }
+.hd-rm { position: absolute; z-index: 3; left: -8px; top: -8px; width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; }
+.hd-rm svg.i { width: 15px; height: 15px; stroke-width: 2.8; }
+.hd-rs { position: absolute; z-index: 3; right: 8px; bottom: 8px; width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; }
+.hd-rs svg.i { width: 16px; height: 16px; stroke-width: 2.2; }
+.hd-rs.sel { background: var(--accent-fill); color: var(--accent-ink); }
+.hd-dragwrap { position: relative; }
+.hd-slot { border-radius: 20px; box-shadow: inset 0 0 0 1.5px var(--sep-strong); background: var(--fill); }
+.hd-lift { position: absolute !important; z-index: 10; transform: scale(1.05) rotate(-2deg); box-shadow: var(--shadow-float); animation: none !important; }
+/* size menu */
+.hd-szm { top: calc(100% + 8px); left: 0; }
+.hd-szm .mi { gap: 12px; }
+.hd-szm .mi > span:not(.hd-gly) { flex: 1; min-width: 0; }
+.hd-szm .mi svg.i { margin-left: 0; }
+.hd-szm .mi:not(.on) svg.i.chk { visibility: hidden; }
+.hd-gly { display: grid; grid-template-columns: repeat(2, 9px); grid-auto-rows: 9px; gap: 2px; width: 20px; flex: none; order: 0; }
+.hd-gly i { border-radius: 2.5px; background: color-mix(in srgb, var(--glass-ink) 18%, transparent); }
+.hd-gly i.f { background: var(--glass-ink); }
+
+/* ---- add-tile sheet ---- */
+.hd-ag .cap { padding: 8px 20px 2px; font-size: 13px; color: var(--glass-ink-2); }
+.hd-ar { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 10px 0 20px; color: var(--glass-ink); }
+.hd-ar + .hd-ar::before { content: ""; position: absolute; top: 0; left: 72px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.hd-ai { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); flex: none; }
+.hd-ai svg { width: 20px; height: 20px; }
+.hd-ai svg.i { width: 20px; height: 20px; }
+.hd-ai.gold { color: var(--vip); }
+.hd-ar .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 0; }
+.hd-ar .m b { font-size: 16px; line-height: 21px; font-weight: 500; }
+.hd-ar .m small { font-size: 12.5px; line-height: 16px; color: var(--glass-ink-2); }
+.hd-on { display: inline-flex; align-items: center; gap: 3px; flex: none; padding-right: 8px; font-size: 13px; color: var(--glass-ink-2); }
+.hd-on svg.i { width: 16px; height: 16px; }
+.hd-plus { width: 44px; height: 44px; display: grid; place-items: center; flex: none; }
+.hd-plus .o { width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: var(--accent-fill); color: var(--accent-ink); }
+.hd-plus svg.i { width: 17px; height: 17px; stroke-width: 2.4; }
+.hd-afoot { padding: 10px 20px 22px; font-size: 12.5px; line-height: 17px; color: var(--glass-ink-2); }
+
+/* ---- ranking page ---- */
+.hd-chips { display: flex; gap: 8px; padding: 0 20px 16px; }
+.hd-rhd { padding: 0 20px 14px; }
+.hd-rhd .s { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 13px; color: var(--label-2); }
+.hd-rhd .s .src-name { font-size: 13px; }
+.hd-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 20px 12px; }
+
+/* ---- desktop ---- */
+.hd-dwrap { padding: 66px 24px 120px; }
+.hd-dh { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 20px; }
+.hd-dh .sp { flex: 1; }
+.hd-dh .c2 { font-size: 12px; margin-top: 2px; }
+.desk .hd-t.hov .hd-h .cv { display: none; }
+.desk .hd-t.hov .hd-h .hm { display: inline-grid; }
+.desk .hd-t.hov .hd-h { cursor: grab; }
+.desk .hd-t.rsel { box-shadow: 0 0 0 2px var(--accent); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const T = FMP.T;
+const PL = FMP.PL;
+const esc = FMP.esc;
+
+/* icons the kit lacks */
+const X = {
+  resize: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5"/></svg>',
+  offline: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 10a11 11 0 0 1 4-2.5M13.8 6.7A11 11 0 0 1 19.5 10M7.5 13.2a6.6 6.6 0 0 1 2.6-1.5" stroke-width="2"/><circle cx="12" cy="16.8" r="1.5" fill="currentColor" stroke="none"/><path d="M4.5 4.5l15 15"/></svg>',
+};
+
+/* ---------------- data (v1 only: rankings, queue, imported refresh results, playlists, membership) ---------------- */
+const RANK = {
+  netease: { title: '網易雲 熱歌榜', name: '熱歌榜', ids: ['t23', 't01', 't14', 't09', 't04', 't20', 't12', 't17', 't07', 't24'], when: '2 小時前' },
+  bilibili: { title: 'B站 音樂排行', name: '音樂區排行', ids: ['t11', 't03', 't21', 't05', 't08', 't18', 't15'], when: '35 分鐘前' },
+  youtube: { title: 'YouTube 音樂熱門', name: '音樂熱門', ids: ['t13', 't02', 't19', 't10', 't06', 't22', 't16'], when: '1 小時前' },
+};
+const NEXT = ['t02', 't03', 't04', 't05', 't06'];
+const UPD = [
+  { p: 'lofi', add: 3, when: '2 小時前', news: ['t19', 't16', 't22'] },
+  { p: 'covers', add: 2, del: 1, when: '12 分鐘前' },
+  { p: 'cpop', err: '登入已失效', when: '1 小時前' },
+];
+const LIB = ['commute', 'covers', 'code', 'lofi', 'weekend', 'cpop', 'learn', 'live'];
+
+/* ---------------- tile parts ---------------- */
+function head(lead, title, o) {
+  o = o || {};
+  return '<div class="hd-h">' + lead + '<b class="ell">' + title + '</b><span class="sp"></span>' +
+    (o.meta ? '<span class="mt num">' + o.meta + '</span>' : '') +
+    (o.chev === false ? '' : '<span class="cv">' + I('chevR') + '</span><button class="ibtn hm" aria-label="小工具選單">' + I('more') + '</button>') + '</div>';
+}
+const mk = (s) => '<span class="hd-mk">' + FMP.srcMark(s) + '</span>';
+const ic = (name, cls) => '<span class="hd-ic ' + (cls || '') + '">' + I(name) + '</span>';
+
+function row(t, o) {
+  o = o || {};
+  const rank = o.rank !== undefined ? '<span class="hd-rk num">' + (o.hov ? I('play') : o.rank) + '</span>' : '';
+  const cv = o.cv ? FMP.coverEl(t.cv, o.cv, 'thumb') : '';
+  const eq = o.playing ? '<span class="eq" aria-label="正在播放"><i></i><i></i><i></i></span>' : '';
+  const part = t.parts > 1 ? '<span class="part">' + t.parts + 'P</span>' : '';
+  return '<div class="hd-r' + (o.playing ? ' playing' : '') + (o.hov ? ' hov' : '') + '">' + rank + cv +
+    '<div class="m"><div class="a">' + eq + '<span class="tt">' + esc(t.title) + '</span>' + FMP.acc(t.acc) + '</div>' +
+    '<div class="b">' + FMP.src(t.src) + part + '<span class="tt">' + esc(t.artist) + '</span></div></div>' +
+    (o.dur ? '<span class="hd-du num">' + t.dur + '</span>' : '') +
+    (o.more ? '<button class="ibtn hd-more" aria-label="更多">' + I('more') + '</button>' : '') + '</div>';
+}
+
+function stateBlock(o) {
+  return '<div class="hd-st ' + (o.cls || '') + '">' + (o.icon ? '<span class="ic">' + o.icon + '</span>' : '') +
+    '<b>' + o.title + '</b>' + (o.text ? '<span class="tx">' + o.text + '</span>' : '') + (o.bt ? '<div class="bt">' + o.bt + '</div>' : '') + '</div>';
+}
+
+function tile(size, inner, o) {
+  o = o || {};
+  const cls = ['hd-t', 'hd-' + size];
+  if (o.cls) cls.push(o.cls);
+  const edit = o.edit
+    ? '<button class="lg hd-rm" data-adapt aria-label="從首頁移除">' + I('minus') + '</button>' +
+      (o.rsSel ? '<button class="hd-rs sel" aria-label="改尺寸" aria-expanded="true">' + X.resize + '</button>' : '<button class="lg hd-rs" data-adapt aria-label="改尺寸">' + X.resize + '</button>')
+    : '';
+  return '<section class="' + cls.join(' ') + '"' + (o.style ? ' style="' + o.style + '"' : '') + '><div class="hd-in">' + inner + '</div>' + edit + (o.extra || '') + '</section>';
+}
+
+/* ---------------- tile types ---------------- */
+function rankTile(src, size, o) {
+  o = o || {};
+  const R = RANK[src];
+  const d = o.desk;
+  const h = head(mk(src), R.title, { chev: size !== 's' });
+  let body;
+  if (o.state === 'offline') {
+    body = stateBlock({ cls: 'off', icon: X.offline, title: '離線', text: '連上網路後自動更新' });
+  } else if (o.state === 'error') {
+    body = stateBlock({ cls: 'err', icon: I('warn'), title: '讀不到排行榜', text: FMP.SRC[src].short + '回應「請求太頻繁」', bt: '<button class="btn btn-gray btn-xs">' + I('refresh', 's16') + '重試</button>' });
+  } else {
+    const n = { s: 3, m: 3, l: 6, xl: 10 }[size];
+    const ids = R.ids.slice(0, n);
+    const r = (id, i) => row(T[id], {
+      rank: i + 1, playing: !o.idle && id === FMP.now.id,
+      cv: size === 's' ? 0 : d ? (size === 'xl' ? 36 : size === 'l' ? 32 : 28) : (size === 'l' ? 40 : 36),
+      more: size !== 's', dur: d && size !== 's', hov: o.hov === i,
+    });
+    body = '<div class="hd-list' + (size === 'xl' ? ' hd-cols' : '') + '">' + ids.map(r).join('') + '</div>';
+  }
+  return tile(size, h + body, { ...o, cls: (o.cls || '') + (o.state === 'offline' ? ' off' : '') });
+}
+
+function nextTile(size, o) {
+  o = o || {};
+  const h = head(ic('nextUp'), '接下來', { meta: o.empty ? '' : (size === 's' ? '6 / 64' : '佇列第 6 / 64 首'), chev: size !== 's' });
+  if (o.empty) {
+    return tile(size, h + stateBlock({ title: '佇列是空的', text: '點下面排行榜的任一首就會開始播放，或去搜尋三個音源。', bt: '<button class="btn btn-gray btn-sm">' + I('search', 's16') + '搜尋</button>' }), o);
+  }
+  if (size === 's') {
+    const t = T[NEXT[0]];
+    return tile('s', h + '<div class="hd-nx">' + FMP.coverEl(t.cv, 56) + '</div><div class="hd-nt"><span class="tt">' + esc(t.title) + '</span>' + FMP.acc(t.acc) + '</div><div class="hd-ns">' + FMP.src(t.src) + '<span class="tt">' + esc(t.artist) + '</span></div>', o);
+  }
+  const ids = size === 'm' ? NEXT.slice(0, 3) : [FMP.now.id].concat(NEXT);
+  return tile(size, h + '<div class="hd-list">' + ids.map((id) => row(T[id], { cv: o.desk ? 28 : (size === 'l' ? 40 : 36), more: true, dur: o.desk, playing: id === FMP.now.id })).join('') + '</div>', o);
+}
+
+function plRow(u, o) {
+  const p = PL[u.p];
+  const sub = u.err
+    ? '<span class="w">' + I('warn') + '刷新失敗 · ' + u.err + '</span>'
+    : '<span class="tt">' + (u.add ? '多了 ' + u.add + ' 首' : '') + (u.del ? '、少了 ' + u.del + ' 首' : '') + ' · ' + u.when + '</span>';
+  const delta = u.err ? '' : '<span class="hd-dl"><span>+' + u.add + '</span>' + (u.del ? '<span class="neg">−' + u.del + '</span>' : '') + '</span>';
+  return '<div class="hd-r">' + FMP.coverEl(p.cv, o.desk ? 28 : 36, 'thumb') + '<div class="m"><div class="a"><span class="tt">' + esc(p.name) + '</span></div><div class="b">' + FMP.src(p.src) + sub + '</div></div>' + delta + '</div>';
+}
+function updTile(size, o) {
+  o = o || {};
+  const h = head(ic('refresh'), '歌單更新', { meta: size === 's' || o.empty ? '' : '最近 7 天', chev: size !== 's' && !o.empty });
+  if (o.empty) {
+    return tile(size, h + stateBlock({ title: '還沒有匯入歌單', text: '匯入後，新加的曲目會出現在這裡。', bt: '<button class="btn btn-gray btn-xs">' + I('link', 's16') + '匯入歌單</button>' }), o);
+  }
+  const u = UPD[0], p = PL[u.p];
+  if (size === 's') {
+    return tile('s', h + '<div class="hd-big"><span class="n">+' + u.add + '<small>首</small></span>' + FMP.coverEl(p.cv, null, '') + '</div>' +
+      '<div class="hd-nt"><span class="tt">' + esc(p.name) + '</span></div><div class="hd-ns">' + FMP.src(p.src) + '<span class="tt">' + u.when + '</span></div>' +
+      '<div class="hd-foot-n">另有 2 張有變動</div>', o);
+  }
+  if (size === 'm') {
+    return tile('m', h + '<div class="hd-list pl">' + UPD.map((x) => plRow(x, o)).join('') + '</div>', o);
+  }
+  return tile(size, h + '<div class="hd-sub">' + FMP.coverEl(p.cv, 18) + esc(p.name) + ' 新加的 ' + u.add + ' 首 · ' + u.when + '</div>' +
+    '<div class="hd-list nw">' + u.news.map((id) => row(T[id], { cv: o.desk ? 28 : 36, more: true, dur: o.desk })).join('') + '</div>' +
+    '<div class="hd-hr"></div><div class="hd-list pl">' + UPD.slice(1).map((x) => plRow(x, o)).join('') + '</div>', o);
+}
+
+function libTile(size, o) {
+  o = o || {};
+  const h = head(ic('library'), '歌單', { meta: o.empty ? '' : LIB.length + ' 張', chev: !o.empty });
+  if (o.empty) {
+    return tile(size, h + stateBlock({ title: '還沒有歌單', text: '建立自己的歌單，或貼上連結匯入。', bt: '<button class="btn btn-gray btn-sm">' + I('plus', 's16') + '新建</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入</button>' }), o);
+  }
+  const ids = LIB.slice(0, size === 'm' ? 4 : 6);
+  return tile(size, h + '<div class="hd-pls">' + ids.map((id) => {
+    const p = PL[id];
+    return '<div class="hd-pl">' + FMP.coverEl(p.cv) + '<div class="nm">' + (p.kind === 'imported' ? FMP.src(p.src) : '') + '<span class="ell">' + esc(p.name) + '</span></div>' +
+      (size === 'l' ? '<div class="sb num">' + p.count + ' 首</div>' : '') + '</div>';
+  }).join('') + '</div>', o);
+}
+
+function pinTile(id, size, o) {
+  o = o || {};
+  const p = PL[id];
+  const sub = (p.kind === 'imported' ? FMP.src(p.src) : '') + '<span class="num">' + p.count + ' 首</span>';
+  if (size === 's') {
+    return tile('s', '<div class="hd-pin"><div class="top">' + FMP.coverEl(p.cv) + '<button class="hd-playb" aria-label="播放「' + esc(p.name) + '」">' + I('play') + '</button></div>' +
+      '<div class="nm ell">' + esc(p.name) + '</div><div class="sb">' + sub + '</div></div>', o);
+  }
+  return tile('m', '<div class="hd-pinm">' + FMP.coverEl(p.cv) + '<div class="r"><b class="ell">' + esc(p.name) + '</b><span class="sb num">' + p.count + ' 首 · ' + p.dur + '</span>' + (p.desc ? '<p>' + esc(p.desc) + '</p>' : '') +
+    '<div class="bt"><button class="btn btn-primary btn-sm">' + I('play', 's16') + '播放</button><button class="btn btn-gray btn-sm">' + I('shuffle', 's16') + '隨機</button></div></div></div>', o);
+}
+
+function memTile(size, o) {
+  o = o || {};
+  const h = head(ic('crown', 'gold'), '會員', { chev: size !== 's' });
+  const line = (s, b, span, cls) => '<div class="hd-mr ' + (cls || '') + '">' + FMP.src(s) + '<div class="m"><b>' + b + '</b>' + (span ? '<span class="' + (cls === 'warn' ? 'w' : '') + '">' + span + '</span>' : '') + '</div></div>';
+  return tile(size, h + '<div class="hd-mem">' +
+    line('netease', size === 's' ? '黑膠 VIP' : '網易雲音樂 · 黑膠 VIP', '8 天後到期', 'warn') +
+    line('bilibili', size === 's' ? '大會員' : 'Bilibili · 大會員', '2027-03-02 到期') +
+    line('youtube', size === 's' ? 'YouTube' : 'YouTube', '未登入', 'out') + '</div>', o);
+}
+
+/* ---------------- boards ---------------- */
+const board = (tiles, cls) => '<div class="hd-board' + (cls ? ' ' + cls : '') + '">' + tiles.join('') + '</div>';
+// the default arrangement for a new user (phone)
+function defaultTiles(o) {
+  o = o || {};
+  const st = o.state || {};
+  const e = { edit: o.edit };
+  return [
+    nextTile('m', { ...e, empty: o.first }),
+    rankTile('netease', 's', { ...e, state: st.netease, idle: o.first }),
+    updTile('s', { ...e, empty: o.first }),
+    rankTile('bilibili', 's', { ...e, state: st.bilibili }),
+    rankTile('youtube', 's', { ...e, state: st.youtube }),
+    libTile('m', { ...e, empty: o.first }),
+  ];
+}
+const HOME_TITLE = '<div class="lt" style="padding-top:58px"><div class="ty-large">首頁</div></div>';
+const EDIT_TITLE = '<div class="lt" style="padding-top:58px"><div class="ty-large">編輯首頁</div></div><div class="hd-hint">拖曳換位置，點右下角改尺寸，點 − 從首頁移除。</div>';
+const FOOT = '<div class="hd-foot"><button class="btn btn-gray">' + I('grid', 's20') + '編輯首頁</button><span>長按任一個小工具也能編輯</span></div>';
+
+function homePhone(ctx, o) {
+  o = o || {};
+  const right = o.right !== undefined ? o.right : '<button class="lg hd-gtext" data-adapt>編輯</button>';
+  return FMP.phone(ctx, {
+    content: (o.title || HOME_TITLE) + (o.pre || '') + o.body + (o.post !== undefined ? o.post : FOOT),
+    top: FMP.ptop(o.inline || '首頁', o.left || '', right, 120),
+    dock: o.dock !== undefined ? o.dock : { tab: 'home' },
+    overlay: o.overlay,
+  });
+}
+function editPhone(ctx, body, overlay) {
+  return homePhone(ctx, {
+    title: EDIT_TITLE, inline: '編輯首頁', body, post: '', dock: false, overlay,
+    left: FMP.gbtn('plus', '加入小工具'), right: '<button class="lg hd-gtext acc" data-adapt>完成</button>',
+  });
+}
+
+/* size menu (phone pull-down from the tile's size button) */
+function sizeMenu() {
+  const g = (cells) => '<span class="hd-gly">' + cells.map((f) => '<i' + (f ? ' class="f"' : '') + (f === 2 ? ' style="grid-column:span 2"' : '') + '></i>').join('') + '</span>';
+  const mi = (gl, label, small, on) => '<button class="mi' + (on ? ' on' : '') + '" role="menuitemradio" aria-checked="' + !!on + '">' + gl + '<span>' + label + '<small>' + small + '</small></span>' + I('check', 'chk') + '</button>';
+  return '<div class="lg gmenu hd-szm" role="menu" aria-label="尺寸"><div class="mcap">網易雲 熱歌榜 · 尺寸</div>' +
+    mi(g([1, 0, 0, 0]), '小', '前 3 名，點一下打開完整榜', true) +
+    mi(g([2, 0, 0]), '中', '前 3 名附封面，可直接點播') +
+    mi(g([1, 1, 1, 1]), '大', '前 6 名') + '</div>';
+}
+
+/* add-tile sheet: every tile type, one list */
+function addSheet() {
+  const r = (icon, name, desc, state, cls) => '<div class="hd-ar"><span class="hd-ai ' + (cls || '') + '">' + icon + '</span><div class="m"><b>' + name + '</b><small>' + desc + '</small></div>' +
+    (state === 'on' ? '<span class="hd-on">' + I('check') + '已加入</span>' : state === 'none' ? '' : '<button class="hd-plus" aria-label="加入' + name + '"><span class="o">' + I('plus') + '</span></button>') + '</div>';
+  const g = (cap, rows) => '<div class="hd-ag"><div class="cap">' + cap + '</div>' + rows.join('') + '</div>';
+  return '<div class="sheet-wrap"><div class="sheet lg" role="dialog" aria-label="加入小工具" style="height:740px"><div class="grab"></div><div class="shead">' + FMP.gbtn('close', '關閉') + '<span class="stitle">加入小工具</span><span style="width:44px"></span></div><div class="sbody">' +
+    g('播放', [r(I('nextUp'), '接下來', '佇列接下來的曲目', 'on')]) +
+    g('排行榜 · 不需登入', [
+      r(FMP.srcMark('bilibili'), 'B站 音樂排行', '音樂區排行前 10', 'on'),
+      r(FMP.srcMark('youtube'), 'YouTube 音樂熱門', '音樂類熱門前 10'),
+      r(FMP.srcMark('netease'), '網易雲 熱歌榜', '熱歌榜前 10', 'on')]) +
+    g('歌單', [
+      r(I('refresh'), '歌單更新', '匯入歌單刷新後多了、少了什麼', 'on'),
+      r(I('library'), '歌單', '跟著音樂庫順序，最前面幾張', 'on'),
+      r(I('note'), '單張歌單', '到那張歌單的 ⋯ 選「釘選到首頁」', 'none')]) +
+    g('帳號', [r(I('crown'), '會員狀態', '各音源的會員等級與到期日', '', 'gold')]) +
+    '<div class="hd-afoot">新加的小工具放在最上面、用預設尺寸，之後可以拖曳和改尺寸。每種只能放一個，單張歌單除外。</div>' +
+    '</div></div></div>';
+}
+
+/* ranking page (a tile opened) */
+function rankPage(ctx, o) {
+  o = o || {};
+  const R = RANK.netease;
+  const chips = '<div class="hd-chips">' + ['bilibili', 'youtube', 'netease'].map((s) => '<button class="chip' + (s === 'netease' ? ' on' : '') + '">' + FMP.srcMark(s) + FMP.SRC[s].short + '</button>').join('') + '</div>';
+  const hd = '<div class="hd-rhd"><div class="ty-title2">' + R.name + '</div><div class="s">' + FMP.src('netease', 'full') + '<span>·</span><span>前 10 名 · ' + R.when + '更新</span></div></div>';
+  const acts = '<div class="hd-acts"><button class="btn btn-primary">' + I('play', 's20') + '播放全部</button><button class="btn btn-gray">' + I('queue', 's20') + '加入佇列</button></div>';
+  const rows = R.ids.map((id, i) => FMP.trackRow(T[id], { num: i + 1, playing: id === FMP.now.id })).join('');
+  return FMP.phone(ctx, {
+    content: '<div class="lt" style="padding-top:58px"><div class="ty-large">排行榜</div></div>' + chips + hd + acts + rows,
+    top: FMP.ptop('排行榜', FMP.gbtn('chevL', '返回首頁'), FMP.gbtn('more', '更多'), 120),
+    dock: { tab: 'home' }, overlay: o.overlay,
+  });
+}
+
+/* ---------------- desktop ---------------- */
+function deskTiles(o) {
+  o = o || {};
+  const d = { desk: true };
+  return [
+    rankTile('netease', 'xl', { ...d, hov: o.hovRow, cls: (o.hovTile ? 'hov' : '') + (o.rsel ? ' rsel' : '') }),
+    updTile('m', d),
+    memTile('s', d),
+    pinTile('commute', 's', d),
+    rankTile('bilibili', 'l', d),
+    rankTile('youtube', 'l', d),
+    libTile('m', d),
+  ];
+}
+function homeDesk(ctx, o) {
+  o = o || {};
+  const content = '<div class="hd-dwrap"><div class="hd-dh"><div><div class="ty-large">首頁</div></div><span class="sp"></span>' +
+    '<button class="btn btn-gray btn-sm">' + I('plus', 's16') + '加入小工具…</button></div>' + board(deskTiles(o)) + '</div>';
+  return FMP.desktop(ctx, { nav: 'home', content, top: '<span class="wt">首頁</span>', detail: o.detail, overlay: o.overlay });
+}
+function deskTileMenu(style) {
+  const mi = (icon, label, o) => { o = o || {}; return '<button class="mi ' + (o.cls || '') + '" role="menuitem">' + (icon ? I(icon) : '<svg class="i" viewBox="0 0 24 24"></svg>') + '<span>' + label + '</span>' + (o.k ? '<span class="k">' + o.k + '</span>' : '') + '</button>'; };
+  return '<div class="lg gmenu" data-adapt role="menu" style="' + style + '">' +
+    mi('external', '打開排行榜', { k: '↩' }) + '<div class="ms"></div><div class="mcap">尺寸</div>' +
+    mi('', '小') + mi('', '中') + mi('', '大', { cls: 'hl' }) + mi('check', '特大', { cls: 'on' }) +
+    '<div class="ms"></div>' + mi('plus', '加入小工具…') + '<div class="ms thick"></div>' + mi('minus', '從首頁移除', { cls: 'danger', k: '⌫' }) + '</div>';
+}
+
+/* ---------------- page ---------------- */
+FMP.page({
+  title: '首頁候選丁：小工具',
+  intro: '<p class="hm-cands" style="font-size:13px">首頁候選：<a href="home.html">甲 區塊</a>　<a href="home-b.html">乙 動態</a>　<a href="home-c.html">丙 封面</a>　<a href="home-d.html">丁 小工具</a>（乙丙丁由沒看過甲的設計者各自做，方便對比）</p><p>首頁是一面使用者自己擺的小工具板。每個小工具只看一種資料：某個音源的排行榜、佇列接下來的曲目、匯入歌單的更新、歌單、會員狀態。尺寸有小（1×1）、中（2×1）、大（2×2）三種，桌面多一個特大（4×2）。長按進入編輯，可以拖曳、改尺寸、移除、加入。</p>' +
+    '<p>小工具是實心內容；玻璃只用在頂列按鈕、dock，以及編輯時小工具角落的兩顆小圓鈕。第一版能用的資料只有四種：三個音源的排行榜（各前 10 名，不用登入）、本機佇列、匯入歌單的刷新結果、本地歌單與會員狀態。播放紀錄、推薦、電台、探索、下載都還沒有，稿上不畫。</p>',
+  sections: [
+    {
+      title: '手機：首頁',
+      frames: [
+        { kind: 'phone', label: '預設排列', render: (ctx) => homePhone(ctx, { body: board(defaultTiles()) }) },
+        { kind: 'phone', label: '往下捲到底', render: (ctx) => homePhone(ctx, { body: board(defaultTiles()) }),
+          after: (root) => { const sc = root.querySelector('.page.scroll'); sc.scrollTop = sc.scrollHeight; root.classList.add('scrolled'); } },
+        { kind: 'phone', label: '整理過的首頁（大尺寸、釘選歌單）', render: (ctx) => homePhone(ctx, { body: board([
+          memTile('s'), pinTile('commute', 's'), rankTile('netease', 'l'), updTile('m'), rankTile('bilibili', 's'), rankTile('youtube', 's'), nextTile('m')]) }) },
+      ],
+      notes: '<h3>為什麼做成小工具板</h3><ul>' +
+        '<li>舊版首頁是一疊順序固定、各有標題的區塊。這版把每種資料做成一塊獨立的小工具：大小不一，順序和尺寸都由使用者決定。第一版只有四種資料，與其替每個人猜誰該排第一，不如讓人自己擺一次。</li>' +
+        '<li>沿用 iOS 主畫面小工具與 macOS 桌面小工具的慣例：固定幾種尺寸（小、中、大，桌面多一個特大）；長按進入編輯，小工具晃動，左上 − 移除，＋ 從清單加入。有一點沒照 iOS：iOS 要先移除再重新加入才能換尺寸，這裡在編輯模式點右下角直接改（macOS Sonoma 用右鍵改尺寸，做法類似）。</li></ul>' +
+        '<h3>格子與小工具</h3><ul>' +
+        '<li>手機兩欄：格子 168×168、間距 14、左右邊距 20；中＝350×168，大＝350×350。照順序排，一個小的後面如果接中或大，空出來的格子由後面最近的小工具補上，不留洞。</li>' +
+        '<li>小工具是實心內容（<code>--cell</code>，圓角 20）。淺色時頁面底換成 <code>--bg-grouped</code> 的灰，白色小工具才浮得出來（iOS 小工具的做法）；深色時是 <code>--bg</code> 上放 <code>--cell</code>。沒有陰影、沒有漸層，小工具裡面也不再放卡片。</li>' +
+        '<li>標頭：音源符號或圖示加名稱。中、大尺寸的標頭右邊有 ›，點標頭打開完整內容。<b>小尺寸整塊只有一個點擊目標</b>（iOS 小型小工具的規則），點了就打開完整內容；所以小尺寸裡的列不必各自做到 44pt。中、大尺寸的每一列都至少 44pt，可以直接點。</li>' +
+        '<li>每首曲目都帶音源符號和存取等級徽章（多 P 再加分 P 標籤）。排名用等寬數字，顏色都一樣，前三名沒有金銀銅。正在播放的那首照列表規則：標題用強調色，前面有跳動的等化器。</li>' +
+        '<li>點排行榜或「歌單更新」裡的一首＝臨時播放（brief §6）；點「接下來」裡的一首＝跳到佇列裡的那一首（它本來就在佇列裡，不算臨時播放）。⋮ 開曲目 sheet。</li></ul>' +
+        '<h3>新使用者的預設排列</h3><ul>' +
+        '<li>接下來（中）→ 網易雲熱歌榜（小）、歌單更新（小）→ B站音樂排行（小）、YouTube 音樂熱門（小）→ 歌單（中）。三個排行榜一樣大，不偏向哪個音源；想多看哪一個，自己放大。整面約一屏半，捲到底是「編輯首頁」。</li>' +
+        '<li>會員狀態和單張歌單不放在預設裡：會員狀態要登入後才有意義，單張歌單要從歌單頁「釘選到首頁」才會出現。</li>' +
+        '<li>第三格示範整理過的樣子：網易雲熱歌榜放大到前 6 名，加了會員狀態和釘選的「通勤路上」，接下來被移到最後。</li>' +
+        '<li>第一版沒有的資料（播放紀錄、推薦、電台）以後做成新的小工具，放進加入清單，版面結構不用改。</li></ul>',
+    },
+    {
+      title: '手機：編輯首頁',
+      desc: '從右上「編輯」、長按任一個小工具，或捲到底的「編輯首頁」進入。',
+      frames: [
+        { kind: 'phone', label: '拖曳換位置', render: (ctx) => editPhone(ctx, '<div class="hd-dragwrap">' + board([
+          nextTile('m', { edit: true }), rankTile('netease', 's', { edit: true }), '<div class="hd-slot"></div>',
+          rankTile('bilibili', 's', { edit: true }), rankTile('youtube', 's', { edit: true }), libTile('m', { edit: true })], 'hd-editing') +
+          updTile('s', { edit: true, cls: 'hd-lift', style: 'left:194px;top:236px;width:168px;height:168px' }) + '</div>') },
+        { kind: 'phone', label: '改尺寸', render: (ctx) => editPhone(ctx, board([
+          nextTile('m', { edit: true }), rankTile('netease', 's', { edit: true, rsSel: true, cls: 'sel', extra: sizeMenu() }), updTile('s', { edit: true }),
+          rankTile('bilibili', 's', { edit: true }), rankTile('youtube', 's', { edit: true }), libTile('m', { edit: true })], 'hd-editing')) },
+        { kind: 'phone', label: '加入小工具', render: (ctx) => editPhone(ctx, board([
+          nextTile('m', { edit: true }), rankTile('netease', 's', { edit: true }), updTile('s', { edit: true }),
+          rankTile('bilibili', 's', { edit: true }), libTile('m', { edit: true })], 'hd-editing'), addSheet()) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>編輯模式：大標題換成「編輯首頁」，左上 ＋ 加入，右上「完成」。dock 整個藏起來，和音樂庫的拖曳排序一樣，免得拖曳時誤點換頁。編輯中小工具裡的列不能點。</li>' +
+        '<li>小工具輕微晃動（中、大的晃動幅度更小；開「減少動態效果」時不晃）。按住拖到新位置：拿起的那塊放大、帶陰影，落點留一個框，其他小工具即時讓位。放開就存好，「完成」只是離開編輯。</li>' +
+        '<li>移除：點左上 −，立刻移除，不跳確認。它隨時能從清單加回來，也不會刪掉任何資料；釘選的歌單只是取消釘選。</li>' +
+        '<li>改尺寸：點右下圓鈕，往下開選單，只列這種小工具支援的尺寸，每一項寫出那個尺寸看得到什麼。選完小工具在原地變大或變小，後面的自動補位。</li>' +
+        '<li>加入：玻璃 sheet 列出全部 7 種小工具，已經在首頁的寫「已加入」。每種只能放一個（單張歌單除外），所以清單永遠很短。新加的放在最上面、用預設尺寸，加完回到編輯模式讓人調位置。</li>' +
+        '<li><b>小工具沒有設定頁</b>，只有種類、尺寸、位置三件事。「歌單」跟著音樂庫的順序，顯示最前面 4 張或 6 張，不另外挑選；要固定某一張，就到那張歌單的 ⋯ 選「釘選到首頁」。這是刻意的：每多一個選項，首頁就多一分填表的感覺。</li></ul>' +
+        '<h3>尺寸與內容</h3><table style="border-collapse:collapse;font-size:13px;margin-top:6px"><tr style="text-align:left;color:#6A6775"><th style="padding:4px 12px 4px 0">小工具</th><th style="padding:4px 12px">小 1×1</th><th style="padding:4px 12px">中 2×1</th><th style="padding:4px 12px">大 2×2</th><th style="padding:4px 12px">特大 4×2（桌面）</th></tr>' +
+        '<tr><td style="padding:4px 12px 4px 0">排行榜（每個音源各一）</td><td style="padding:4px 12px">前 3 名，曲名＋徽章、音源＋歌手（預設）</td><td style="padding:4px 12px">前 3 名附封面，可直接點播</td><td style="padding:4px 12px">前 6 名</td><td style="padding:4px 12px">完整前 10 名，兩欄</td></tr>' +
+        '<tr><td style="padding:4px 12px 4px 0">接下來</td><td style="padding:4px 12px">下一首（封面）＋佇列位置</td><td style="padding:4px 12px">接下來 3 首（預設）</td><td style="padding:4px 12px">正在播放＋接下來 5 首</td><td style="padding:4px 12px">—</td></tr>' +
+        '<tr><td style="padding:4px 12px 4px 0">歌單更新</td><td style="padding:4px 12px">最新一筆，多了幾首（預設）</td><td style="padding:4px 12px">最近 3 筆，含刷新失敗</td><td style="padding:4px 12px">最新那張新加的曲目＋另外 2 筆</td><td style="padding:4px 12px">—</td></tr>' +
+        '<tr><td style="padding:4px 12px 4px 0">歌單</td><td style="padding:4px 12px">—</td><td style="padding:4px 12px">音樂庫前 4 張（預設）</td><td style="padding:4px 12px">前 6 張＋首數</td><td style="padding:4px 12px">—</td></tr>' +
+        '<tr><td style="padding:4px 12px 4px 0">單張歌單</td><td style="padding:4px 12px">封面、名稱、播放鈕（預設）</td><td style="padding:4px 12px">封面、描述、播放與隨機</td><td style="padding:4px 12px">—</td><td style="padding:4px 12px">—</td></tr>' +
+        '<tr><td style="padding:4px 12px 4px 0">會員狀態</td><td style="padding:4px 12px">三個音源的等級與到期（預設）</td><td style="padding:4px 12px">同左，寫全名</td><td style="padding:4px 12px">—</td><td style="padding:4px 12px">—</td></tr></table>' +
+        '<p style="margin:8px 0 0;color:#55525F;font-size:13px">小尺寸最多多一顆按鈕（單張歌單的播放鈕），其餘點哪裡都是打開。</p>',
+    },
+    {
+      title: '手機：打開小工具',
+      frames: [
+        { kind: 'phone', label: '網易雲熱歌榜：完整前 10 名', render: (ctx) => rankPage(ctx) },
+        { kind: 'phone', label: '排行榜一首的 ⋮', render: (ctx) => rankPage(ctx, { overlay: FMP.trackSheet(T.t09, [
+          ['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-', ['lyrics', '匹配歌詞…'], ['link', '複製連結']]) }) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>點排行榜小工具（小尺寸點整塊，中、大點標頭）會推進「排行榜」頁，停在那個音源；上方的 chip 可以切換三個音源，不用回首頁。返回鍵回到首頁原本的捲動位置。</li>' +
+        '<li>頁首寫榜名、音源全名和「前 10 名 · 2 小時前更新」。「播放全部」會取代佇列，和歌單的「播放全部」一致；「加入佇列」加到佇列最後。</li>' +
+        '<li>列表用搜尋結果的那種列：排名、封面、曲名＋徽章、音源＋歌手、時長、⋮。點一首是臨時播放，⋮ 開曲目 sheet，項目和搜尋結果一樣。</li>' +
+        '<li>其他小工具都打開現有的頁：接下來 → 佇列頁；歌單更新 → 那張匯入歌單的詳情，新加的曲目排在最上面、標出來；歌單 → 音樂庫或那張歌單；會員狀態 → 設定的帳號分類。首頁只有排行榜需要一張新頁。</li>' +
+        '<li>排行榜的抓取時機：打開首頁時，如果距離上次超過 1 小時就重抓；也可以下拉重新整理。三個音源各自抓、各自失敗，誰先回來誰先顯示。</li></ul>',
+    },
+    {
+      title: '手機：第一次打開、離線、單一音源失敗',
+      frames: [
+        { kind: 'phone', label: '第一次打開（空佇列、沒有匯入歌單）', render: (ctx) => homePhone(ctx, {
+          pre: '<div class="hd-note">' + I('grid') + '<span class="tx">這是你的首頁。長按任一個小工具就能整理。</span><button class="ibtn" aria-label="不再提示">' + I('close') + '</button></div>',
+          body: board(defaultTiles({ first: true })), dock: { tab: 'home', track: false } }) },
+        { kind: 'phone', label: '離線', render: (ctx) => homePhone(ctx, {
+          pre: '<div class="hd-note">' + X.offline + '<span class="tx">目前離線。排行榜和播放要等連上網路。</span></div>',
+          body: board(defaultTiles({ state: { netease: 'offline', bilibili: 'offline', youtube: 'offline' } })), dock: { tab: 'home', paused: true } }) },
+        { kind: 'phone', label: 'B站排行榜讀取失敗', render: (ctx) => homePhone(ctx, { body: board(defaultTiles({ state: { bilibili: 'error' } })) }),
+          after: (root) => { root.querySelector('.page.scroll').scrollTop = 150; root.classList.add('scrolled'); } },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>第一次打開：排列和預設一樣。沒有資料的小工具留在原位，顯示一句說明和一個動作：接下來 → 搜尋；歌單更新 → 匯入歌單；歌單 → 新建或匯入。不把它們藏起來、也不換位置，資料進來後版面不會跳。排行榜不用登入，所以第一次打開就有東西可聽，「接下來」的說明也直接指向下面的排行榜。大標題下一行提示「長按就能整理」，按 × 後不再出現。沒有目前曲目，所以沒有迷你播放器。</li>' +
+        '<li>離線：大標題下一行寫「目前離線」。排行榜小工具保留位置和標頭，內容換成「離線・連上網路後自動更新」，不顯示上次的排行（沒網路也播不了）。接下來、歌單更新、歌單、會員狀態都是本機資料，照常顯示、照常能打開。</li>' +
+        '<li>單一音源失敗：只有那一塊換成錯誤說明，依 brief §13 的錯誤類別給文字：限流「請求太頻繁」、網路「連不上網路」、需登入「登入後才能看」（按鈕換成「登入」）。「重試」只重抓那一個音源，其他兩塊照常。和搜尋頁單一音源出錯是同一套規則。小尺寸整塊就是重試鈕。</li>' +
+        '<li>自動刷新的失敗不跳提示，只寫在「歌單更新」裡（例：華語私藏 2026「刷新失敗 · 登入已失效」），點進去是那張歌單的刷新狀態列與「重新登入」。</li>' +
+        '<li>插件停用或沒有「排行榜」能力時，那個小工具會從首頁和加入清單一起消失；重新啟用後回到原本的位置。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '同一套小工具，用寬螢幕自己的格子排：有詳情面板時 4 欄，收起時 6 欄，另外多一個特大尺寸。',
+      frames: [
+        { kind: 'desktop', label: '首頁（4 欄）：hover 排行榜的一列', render: (ctx) => homeDesk(ctx, { hovRow: 3, hovTile: true }) },
+        { kind: 'desktop', label: '收起詳情面板（6 欄）＋小工具的右鍵選單', render: (ctx) => homeDesk(ctx, { detail: false, rsel: true, overlay: deskTileMenu('left:708px;top:150px') }) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>格子用 auto-fill（最小 140pt、間距 16、列高 150）：有詳情面板時 4 欄，收起時 6 欄，同一份順序和尺寸自動重排，而不是把手機版放大。內容左緣和播放膠囊對齊（280），右緣留 24。</li>' +
+        '<li>多一個<b>特大</b>（4×2，macOS 桌面小工具的 Extra Large）：排行榜用特大時兩欄列完整前 10 名，不必打開新頁。視窗窄到不足 4 欄時，特大暫時用大的樣子顯示。</li>' +
+        '<li>桌面的預設排列：網易雲熱歌榜（特大）、歌單更新（中）、會員狀態（小）、通勤路上（小）、B站與 YouTube（大）、歌單（中）。<b>預設不放「接下來」</b>：右側詳情面板和播放膠囊已經顯示下一首；收起面板的人可以自己加。</li>' +
+        '<li>hover：列底變 <code>--fill</code>，排名換成播放鈕，⋮ 出現，時長讓位。單擊選取，雙擊或 ↩ 臨時播放（〈待確認〉1）。hover 小工具時，標頭的 › 換成 ⋯，標頭可以按住拖曳。</li>' +
+        '<li><b>桌面沒有編輯模式</b>：直接按住標頭拖曳換位置（macOS 桌面小工具就是這樣）；右鍵或 ⋯ 開選單，改尺寸、移除；「加入小工具…」在大標題右邊，打開和手機同一份清單（popover）。右鍵選單作用中的小工具加強調色外框，和音樂庫右鍵卡片一樣。</li>' +
+        '<li>手機和桌面各存一份排列（兩邊格子的欄數不同），不同步。</li></ul>',
+    },
+    {
+      title: '需要擁有者確認',
+      notes: '<ol style="margin:0;padding-left:20px">' +
+        '<li>方向：首頁做成使用者可以排列的小工具板（本稿），還是固定順序的區塊。</li>' +
+        '<li>尺寸只有小、中、大，桌面多一個特大；在編輯模式右下角直接改尺寸，不學 iOS 的移除再加入。</li>' +
+        '<li>小尺寸整塊只有一個點擊目標，所以小尺寸的列不做到 44pt；要直接點播就放大到中。</li>' +
+        '<li>新使用者的預設排列（手機與桌面不同；桌面預設不放「接下來」）。</li>' +
+        '<li>小工具沒有設定；「歌單」跟著音樂庫順序，固定某一張改從歌單 ⋯「釘選到首頁」（歌單頁的選單要多這一項）。</li>' +
+        '<li>排行榜頁的「播放全部」取代佇列（和歌單一致）。</li>' +
+        '<li>離線時排行榜不顯示上次的結果；排行榜超過 1 小時才重抓。</li>' +
+        '<li>「歌單更新」保留最近 7 天的變動；要不要在打開那張歌單之後就把那一筆清掉。</li>' +
+        '<li>桌面沒有編輯模式，直接拖曳標頭；手機與桌面各存一份排列，不同步。</li>' +
+        '<li>排列要不要納入備份。第一版沒有匯出備份，所以目前不納入。</li></ol>',
+    },
+  ],
+});
+</script>
+</body>
+</html>
