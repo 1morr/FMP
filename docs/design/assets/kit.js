@@ -299,22 +299,17 @@
   /* status bar for the phone frame */
   FMP.statusBar = () => '<div class="status"><span>9:41</span><span class="sr">' + I('signal', 's18') + I('wifi', 's18') + '<svg class="i" viewBox="0 0 24 24" style="width:27px;height:22px">' + P.battery + '</svg></span></div><div class="island"></div>';
 
-  /* phone mini player. o: paused, progress (0-100), variant: 'line' (default) | 'spine' | 'ring', time ('1:36') */
+  /* phone mini player (spine: the capsule fills as it plays; owner picked it 2026-11-11). o: paused, progress (0-100), time ('1:36') */
   FMP.mini = function (t, o) {
     o = o || {};
     t = t || FMP.now;
-    const v = o.variant || FMP.miniVariant || 'line';
     const pct = o.progress ?? 38;
-    const playBtn = '<button class="ibtn" aria-label="' + (o.paused ? '播放' : '暫停') + '">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>';
-    const ring = '<span class="ring"><svg class="rg" viewBox="0 0 36 36" aria-hidden="true"><circle class="bg" cx="18" cy="18" r="16.5"/><circle class="fg" cx="18" cy="18" r="16.5" pathLength="100" stroke-dasharray="' + pct + ' 100"/></svg>' + playBtn + '</span>';
-    const sub = FMP.src(t.src) + '<span class="ell">' + FMP.esc(t.artist) + '</span>' + (v === 'spine' ? '<span class="tm">· ' + (o.time || '1:36') + ' / ' + t.dur + '</span>' : '');
-    return '<div class="lg mini v-' + v + '" data-adapt data-act="open-player" role="button" aria-label="打開播放頁">' +
-      (v === 'spine' ? '<span class="played" style="width:' + pct + '%"></span>' : '') +
+    return '<div class="lg mini" data-adapt data-act="open-player" role="button" aria-label="打開播放頁">' +
+      '<span class="played" style="width:' + pct + '%"></span>' +
       FMP.coverEl(t.cv, 40) +
-      '<div class="mi"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + sub + '</span></div>' +
-      (v === 'ring' ? ring : playBtn) +
-      '<button class="ibtn" aria-label="下一首">' + I('next', 's24') + '</button>' +
-      '<span class="prog"><i style="width:' + pct + '%"></i></span></div>';
+      '<div class="mi"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + '<span class="ell">' + FMP.esc(t.artist) + '</span><span class="tm">· ' + (o.time || '1:36') + ' / ' + t.dur + '</span></span></div>' +
+      '<button class="ibtn" aria-label="' + (o.paused ? '播放' : '暫停') + '">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>' +
+      '<button class="ibtn" aria-label="下一首">' + I('next', 's24') + '</button></div>';
   };
 
   const TABS = [
@@ -366,27 +361,22 @@
       '<div class="sfoot">' + item('settings', 'settings', '設定') + '</div></aside>';
   };
 
-  /* desktop transport capsule. o: left, right, shuffle, repeat, paused,
-   * variant: 'line' (default, slider under the controls) | 'spine' (the capsule fills as it plays) | 'rim' (one line along the bottom edge) */
+  /* desktop transport capsule (spine, same as the phone mini player). o: left, right, shuffle, repeat, paused, progress */
   FMP.transport = function (t, o) {
     o = o || {};
     t = t || FMP.now;
-    const v = o.variant || FMP.transportVariant || 'line';
     const left = o.left ?? 280, right = o.right ?? 344;
     const pct = o.progress ?? 38;
-    const times = '<span class="tm">1:36 / ' + t.dur + '</span>';
-    return '<div class="lg transport v-' + v + '" data-adapt style="left:' + left + 'px;right:' + right + 'px">' +
-      (v === 'spine' ? '<span class="played" style="width:' + pct + '%"></span>' : '') +
-      (v === 'rim' ? '<span class="rim"><i style="width:' + pct + '%"></i><b style="left:' + pct + '%"></b></span>' : '') +
+    return '<div class="lg transport" data-adapt style="left:' + left + 'px;right:' + right + 'px">' +
+      '<span class="played" style="width:' + pct + '%"></span>' +
       '<div class="ti" data-act="open-player" role="button">' + FMP.coverEl(t.cv, 44) + '<div style="min-width:0;display:flex;flex-direction:column;gap:2px"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + '<span class="tt">' + FMP.esc(t.artist) + '</span></span></div></div>' +
-      '<div class="tc"><div class="row-c">' +
+      '<div class="row-c">' +
       '<button class="ibtn' + (o.shuffle ? ' on' : '') + '" aria-label="隨機">' + I('shuffle', 's18') + '</button>' +
       '<button class="ibtn" aria-label="上一首">' + I('prev', 's20') + '</button>' +
       '<button class="ibtn big" aria-label="暫停">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>' +
       '<button class="ibtn" aria-label="下一首">' + I('next', 's20') + '</button>' +
-      '<button class="ibtn' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat', 's18') + '</button>' +
-      '</div><div class="tp"><span class="num">1:36</span><span class="slider"><i style="width:' + pct + '%"></i></span><span class="num">' + t.dur + '</span></div></div>' +
-      '<div class="tr">' + (v === 'line' ? '' : times) + '<button class="ibtn" aria-label="歌詞">' + I('lyrics', 's18') + '</button><button class="ibtn" aria-label="佇列">' + I('queue', 's18') + '</button><button class="ibtn" aria-label="音量">' + I('volume', 's18') + '</button></div></div>';
+      '<button class="ibtn' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat', 's18') + '</button></div>' +
+      '<div class="tr"><span class="tm">1:36 / ' + t.dur + '</span><button class="ibtn" aria-label="歌詞">' + I('lyrics', 's18') + '</button><button class="ibtn" aria-label="佇列">' + I('queue', 's18') + '</button><button class="ibtn" aria-label="音量">' + I('volume', 's18') + '</button></div></div>';
   };
 
   FMP.detailPanel = function (ctx, o) {

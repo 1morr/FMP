@@ -465,29 +465,18 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .search-orb.on svg.i { color: var(--accent); }
 
 .mini { display: flex; align-items: center; gap: 10px; padding: 0 6px 0 8px; overflow: hidden; }
-.mini .cover { width: 40px; height: 40px; border-radius: 9px; transition: width var(--t-morph) var(--ease-morph), height var(--t-morph) var(--ease-morph); }
+.mini .cover { width: 40px; height: 40px; border-radius: 9px; }
 .mini .mi { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mini .mi b { font-size: 15px; line-height: 19px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
 .mini .mi b .tt { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .mini .mi span { font-size: 13px; line-height: 17px; color: var(--glass-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
 .mini .ibtn { color: var(--glass-ink); width: 42px; height: 42px; }
 .mini .ibtn:hover { background: var(--glass-press); }
-.mini .prog { position: absolute; left: 22px; right: 22px; bottom: 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); overflow: hidden; }
-.mini .prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--glass-ink); opacity: .7; border-radius: 2px; }
-/* mini player candidates (owner picks one): line = 2pt line (above);
- * spine = the played part of the capsule is a denser fill with a crease at the playhead (from A's spine);
- * ring = a ring around play/pause, the capsule itself stays clean */
+/* spine (owner picked it 2026-11-11, from A): the played part of the capsule is a denser fill,
+ * with a crease at the playhead that shows only at the top and bottom edges */
 .mini .played, .transport .played { position: absolute; left: 0; top: 0; bottom: 0; z-index: 0; background: color-mix(in srgb, var(--glass-ink) 15%, transparent); pointer-events: none; }
 .mini .played::after, .transport .played::after { content: ""; position: absolute; right: -1px; top: 0; bottom: 0; width: 2px; background: var(--accent); --crease: linear-gradient(#000 0 11px, transparent 11px calc(100% - 11px), #000 calc(100% - 11px)); -webkit-mask: var(--crease); mask: var(--crease); }
-.mini.v-spine .prog, .mini.v-ring .prog { display: none; }
 .mini .mi .tm { font-variant-numeric: tabular-nums; flex: none; }
-.mini .ring { position: relative; width: 42px; height: 42px; flex: none; display: grid; place-items: center; }
-.mini .ring svg.rg { position: absolute; inset: 3px; width: 36px; height: 36px; transform: rotate(-90deg); }
-.mini .ring svg.rg circle { fill: none; stroke-width: 2.2; }
-.mini .ring svg.rg .bg { stroke: color-mix(in srgb, var(--glass-ink) 16%, transparent); }
-.mini .ring svg.rg .fg { stroke: var(--glass-ink); stroke-linecap: round; }
-.mini .ring .ibtn { width: 42px; height: 42px; }
-.mini .ring .ibtn svg.i { width: 20px; height: 20px; }
 
 /* sheets and dialogs */
 .sheet-wrap { position: absolute; inset: 0; z-index: 70; display: flex; flex-direction: column; justify-content: flex-end; background: var(--scrim); }
@@ -649,36 +638,21 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .win.scrolled .edge-top { opacity: 1; }
 
 /* transport capsule: the desktop mini player */
-.transport { position: absolute; z-index: 28; bottom: 16px; height: 64px; border-radius: 32px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) max-content; align-items: center; gap: 14px; padding: 0 14px 0 10px; }
+.transport { position: absolute; z-index: 28; bottom: 16px; height: 64px; border-radius: 32px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); align-items: center; gap: 14px; padding: 0 14px 0 10px; }
 .transport .ti { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .transport .ti .cover { width: 44px; height: 44px; border-radius: 10px; }
 .transport .ti b { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .transport .ti b .tt, .transport .ti span .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .transport .ti span { font-size: 12px; color: var(--glass-ink-2); display: flex; align-items: center; gap: 5px; min-width: 0; }
-.transport .tc { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
-.transport .tc .row-c { display: flex; align-items: center; gap: 6px; }
 .transport .ibtn { color: var(--glass-ink); width: 32px; height: 32px; }
 .transport .ibtn:hover { background: var(--glass-press); }
 .transport .ibtn.on { color: var(--accent); }
 .transport .ibtn.big { width: 38px; height: 38px; }
-.transport .tp { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 10.5px; color: var(--glass-ink-2); }
-.transport .tp .slider { flex: 1; height: 3px; background: color-mix(in srgb, var(--glass-ink) 16%, transparent); }
-.transport .tp .slider > i { background: var(--glass-ink); opacity: .75; }
-.transport .tr { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.transport .row-c { display: flex; align-items: center; gap: 6px; }
+.transport .tr { display: flex; align-items: center; justify-content: flex-end; gap: 4px; justify-self: end; }
 .transport .tr .slider { width: 64px; height: 3px; background: color-mix(in srgb, var(--glass-ink) 16%, transparent); }
 .transport .tr .slider > i { background: var(--glass-ink); opacity: .75; }
 .transport .tr .tm { font-size: 11px; color: var(--glass-ink-2); font-variant-numeric: tabular-nums; margin-right: 6px; white-space: nowrap; }
-/* spine: the whole capsule is the progress bar; drag on empty glass or on the crease to seek */
-.transport.v-spine { grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); overflow: hidden; }
-.transport.v-spine .tc .tp { display: none; }
-.transport.v-spine .tr { justify-self: end; }
-/* rim: one full-width line along the capsule's bottom edge, times at the right */
-.transport.v-rim { grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr); overflow: hidden; }
-.transport.v-rim .tc .tp { display: none; }
-.transport.v-rim .tr { justify-self: end; }
-.transport .rim { position: absolute; left: 34px; right: 34px; bottom: 6px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); z-index: 0; }
-.transport .rim i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--glass-ink); opacity: .75; }
-.transport .rim b { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--glass-ink); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 
 /* right detail panel: A solid (default), B glass */
 .detail { position: absolute; z-index: 26; top: 0; bottom: 0; right: 0; width: 320px; display: flex; flex-direction: column; background: var(--bg); box-shadow: inset .5px 0 0 var(--sep); }
