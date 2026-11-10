@@ -652,8 +652,17 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .nsq{width:40px;height:40px;border-radius:var(--r-cover);border:1.5px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--accent)}
 .pkl li.new .qf{height:40px}
 .pkl li.new .qv{flex:none}
-.pk-login .tbtn{white-space:nowrap}
-.pk-login{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 20px;font-size:var(--fs-sm);color:var(--fg2);border-bottom:1px solid var(--line)}
+.plat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:52px;padding:6px 20px;border-bottom:1px solid var(--line)}
+.plat .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.plat b{font-size:14px;font-weight:600}
+.plat i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.plat .tbtn{white-space:nowrap}
+.chev{display:flex;color:var(--fg2);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.chev.on{transform:rotate(180deg)}
+.scope.busy{display:flex;align-items:center;gap:6px}
+.pkl li.skel .sk{display:block;background:var(--bg2);border-radius:4px}
+.pkl li.skel .sk.cv{width:40px;height:40px;border-radius:var(--r-cover)}
+.pkl li.skel .tx{gap:6px}
 .atp-f{padding:12px 20px 0;border-top:1px solid var(--line)}
 .atp-s{font-size:var(--fs-meta);color:var(--fg2);margin-bottom:10px}
 .atp-s.err{color:var(--error)}
@@ -1535,18 +1544,33 @@ def atp_local(states, note=None, new_field=False):
     return f'<div class="sech"><b>本地歌單</b></div><ul class="pkl">{new}{rows}</ul>'
 
 
-def atp_remote(label, account, states, scope="", single=True, err=None):
+REMOTE_H = '<div class="sech"><b>你的遠端歌單</b></div>'
+
+
+def plat(label, sub, expanded=None, action=""):
+    """一個平台一列。expanded 為 None 時不能展開（沒登入），右側放 action。"""
+    tail = action if expanded is None else f'<span class="chev{" on" if expanded else ""}">{ic("down", "s")}</span>'
+    aria = "" if expanded is None else f' role="button" aria-expanded="{str(expanded).lower()}"'
+    return f'<div class="plat"{aria}><span class="tx"><b>{label}</b><i>{sub}</i></span>{tail}</div>'
+
+
+def atp_remote(label, account, states=(), scope="", single=True, err=None, expanded=True, summary="", loading=False):
+    """遠端歌單預設收起；收起時摘要只用本機已知的事（匯入歌單裡有沒有這首），展開時才向平台載入清單。"""
+    sub = account + (f" · {summary}" if summary else "")
+    if not expanded:
+        return plat(label, sub, False)
+    if loading:
+        rows = "".join('<li class="skel" aria-hidden="true"><span class="sk cv"></span><span class="tx"><span class="sk l1"></span><span class="sk l2"></span></span><span></span></li>' for _ in range(3))
+        return plat(label, sub, True) + f'<p class="scope busy"><i class="spin" aria-hidden="true"></i>正在讀取你的 B 站收藏夾</p><ul class="pkl">{rows}</ul>'
     rows = "".join(atp_row(n, k, f"{c} 首 · {p}" + (" · 沒能加入" if n == err else " · 已在這個收藏夾" if was and single and st else " · 這首會被移除" if was and single else ""),
                            st, "err" if n == err else "")
                    for (n, k, c, p, was), st in zip(ATP_REMOTE, states))
-    return (f'<div class="sech"><b>{label}</b><span class="acct">{account}</span></div>'
-            f'{f"<p class=scope>{scope}</p>" if scope else ""}'
+    return (plat(label, sub, True) + f'{f"<p class=scope>{scope}</p>" if scope else ""}'
             f'<ul class="pkl">{rows}<li class="new sm"><span class="nsq">{ic("plus", "s")}</span><span class="tx"><b>新建收藏夾</b></span></li></ul>')
 
 
 def atp_login(label, text):
-    return (f'<div class="sech"><b>{label}</b></div>'
-            f'<div class="pk-login"><span>{text}</span><span class="tbtn" role="button">登入</span></div>')
+    return plat(label, text, None, '<span class="tbtn" role="button">登入</span>')
 
 
 def atp_target_of(t):
@@ -1587,46 +1611,58 @@ def atp_bg(multi=False):
 
 
 MULTI_SUM = "B 站收藏夾「稍後再聽」會加入 2 首（寫入你的 B 站帳號）"
-YT_LOGIN = ("YouTube 播放清單", "登入 YouTube 帳號後，可以把其中 1 首加進你的播放清單")
+YT_LOGIN = ("YouTube 播放清單", "未登入 · 登入後可以把其中 1 首加進你的播放清單")
+B_IN = "已在「Vocaloid」"  # 本機的匯入歌單「Vocaloid」裡有千本桜，不必連網就知道
 
 
 def phone_atp_single(theme):
-    content = atp_target() + atp_local([True, True, False, False]) + atp_remote("B 站收藏夾", "示意帳號", [True, False, False])
-    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("加入 1 個歌單")), f"單首（從歌單裡一首的「更多」）：已在的歌單預先勾好 · {theme_name(theme)}")
+    content = (atp_target() + atp_local([True, True, False, False, False])
+               + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", expanded=False, summary=B_IN))
+    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("加入 1 個歌單"), fit=True),
+                 f"單首：本地展開、遠端收起，收起列寫出已在哪個收藏夾 · {theme_name(theme)}")
+
+
+def phone_atp_loading(theme):
+    content = (atp_target() + atp_local([True, True, False, False, False])
+               + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", summary=B_IN, loading=True))
+    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("加入 1 個歌單")),
+                 f"點開 B 站收藏夾：展開時才向 B 站讀取清單 · {theme_name(theme)}")
 
 
 def phone_atp_multi(theme):
     content = (atp_target(True) + atp_local(["mixed", True, False], note={"通勤用": "3 首中 1 首已在"})
-               + atp_remote("B 站收藏夾", "示意帳號", [False, True], scope="只會加入其中 2 首 B 站曲目", single=False)
+               + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", [False, True], scope="只會加入其中 2 首 B 站曲目", single=False)
                + atp_login(*YT_LOGIN))
     return phone(theme, atp_bg(True) + atp_sheet(content, atp_foot("加入 2 個歌單", MULTI_SUM)),
-                 f"多選 3 首、混音源：部分已在的歌單顯示橫線，遠端歌單依音源分段 · {theme_name(theme)}")
+                 f"多選 3 首、混音源：B 站上次展開過所以保持展開，YouTube 沒登入 · {theme_name(theme)}")
 
 
 def phone_atp_remove(theme):
-    content = atp_target() + atp_local([True, True, False, False]) + atp_remote("B 站收藏夾", "示意帳號", [False, False, False])
+    content = (atp_target() + atp_local([True, True, False, False])
+               + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", [False, False, False], summary=B_IN))
     foot = atp_foot("加入 1 個、移出 1 個", "會從 B 站收藏夾「Vocaloid」移除這首；按下後再確認一次", "err")
     return phone(theme, atp_bg() + atp_sheet(content, foot), f"取消勾選遠端歌單：先寫出後果，按下後再確認 · {theme_name(theme)}")
 
 
 def phone_atp_failed(theme):
     content = (atp_target(True) + atp_local(["mixed", True, False], note={"通勤用": "3 首中 1 首已在", "工作背景": "剛加入"})
-               + atp_remote("B 站收藏夾", "示意帳號", [False, True], scope="只會加入其中 2 首 B 站曲目", single=False, err="稍後再聽")
+               + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", [False, True], scope="只會加入其中 2 首 B 站曲目", single=False, err="稍後再聽")
                + atp_login(*YT_LOGIN))
     foot = atp_foot("重試加入 B 站", "「工作背景」已加入。B 站收藏夾「稍後再聽」沒能加入：連線逾時，B 站沒有改動。", "err")
     return phone(theme, atp_bg(True) + atp_sheet(content, foot), f"遠端寫入失敗：對話框不關、勾選保留，寫出哪個失敗 · {theme_name(theme)}")
 
 
 def phone_atp_new(theme):
-    content = atp_target() + atp_local([True, False, False, False], new_field=True) + atp_remote("B 站收藏夾", "示意帳號", [True, False, False])
-    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("沒有變更", disabled=True)), f"新建歌單：在原處命名，建立後自動勾選（鍵盤略去）· {theme_name(theme)}")
+    content = (atp_target() + atp_local([True, False, False, False, False], new_field=True)
+               + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", expanded=False, summary=B_IN))
+    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("沒有變更", disabled=True), fit=True), f"新建歌單：在原處命名，建立後自動勾選（鍵盤略去）· {theme_name(theme)}")
 
 
 def phone_atp_empty(theme):
     t = S_ONLINE[0]
     content = (atp_target_of(t) + '<div class="sech"><b>本地歌單</b></div><ul class="pkl">'
                f'<li class="new"><span class="nsq">{ic("plus", "s")}</span><span class="tx"><b>新建歌單</b><i>還沒有本地歌單；建好就會勾選，再按「加入」</i></span></li></ul>'
-               + atp_login("YouTube 播放清單", "登入 YouTube 帳號後，可以加進你的播放清單"))
+               + REMOTE_H + atp_login("YouTube 播放清單", "未登入 · 登入後可以加進你的播放清單"))
     rows = "".join(sr_row(x, "pressed" if i == 0 else "") for i, x in enumerate(S_ONLINE[:7]))
     bg = (f'<div class="scroll"><div class="shead">{search_field(QUERY)}{chips()}</div>{sec_head("線上結果", "128", sort=True)}'
           f'<ul class="tl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("搜尋")}')
@@ -1637,14 +1673,15 @@ def phone_atp_empty(theme):
 def desk_atp(theme, multi=False):
     if multi:
         content = (atp_target(True) + atp_local(["mixed", True, False, False], note={"通勤用": "3 首中 1 首已在"})
-                   + atp_remote("B 站收藏夾", "示意帳號", [False, True, False], scope="只會加入其中 2 首 B 站曲目", single=False)
+                   + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", [False, True, False], scope="只會加入其中 2 首 B 站曲目", single=False)
                    + atp_login(*YT_LOGIN))
         summary, label = MULTI_SUM, "加入 2 個歌單"
         i = content.index('<li>', content.index('class="pkl"'))  # 鍵盤焦點在第一個歌單
         content = content[:i] + '<li class="focus">' + content[i + 4:]
         bg, active = desk_search_main(True, picks=ATP_PICKS + [False, False]), "搜尋"
     else:
-        content = atp_target() + atp_local([True, True, False, False]) + atp_remote("B 站收藏夾", "示意帳號", [True, False, False])
+        content = (atp_target() + atp_local([True, True, False, False, False])
+                   + REMOTE_H + atp_remote("B 站收藏夾", "示意帳號", expanded=False, summary=B_IN))
         summary, label = "", "加入 1 個歌單"
         bg, active = desk_pd_local(menu=False, hover=4), "音樂庫"  # 從「通勤用」裡千本桜那列的「更多」打開
     s = f'<p class="atp-s">{summary}</p>' if summary else ''
@@ -1661,9 +1698,9 @@ def desk_atp(theme, multi=False):
 def page_add_to_playlist():
     body = (navlinks() + '<h1 class="pt">加入歌單對話框</h1>'
             '<p class="lead">照舊版：列出所有本地歌單，可以一次勾多個；已經有這首的歌單預先勾好，取消勾選就是移出。頂端可以就地新建歌單。按鈕不寫「儲存」，直接寫出按下後會發生什麼（「加入 1 個歌單」「加入 1 個、移出 1 個」），沒有變更時停用。手機是從底部升起的玻璃 sheet，桌面是置中的玻璃對話框，底下都壓一層暗幕。</p>'
-            '<p class="note">舊版的「加入遠端歌單」是另一個入口，每個音源再各跳一個對話框。新版併進同一個對話框（設計 session 的決定，待擁有者看稿確認）：本地歌單下面，依選取曲目的音源各列一段「你的遠端歌單」，只收那個音源的曲目，段首寫清楚只會加入其中幾首；那個音源沒登入就換成一行登入提示，沒有遠端寫入能力的插件不出現。匯入歌單是鏡像，不在清單裡；要改它，就改它的遠端歌單。這個對話框本身就是建立與加入遠端歌單的確認（brief §7）：勾了遠端歌單時，按鈕上方寫出會寫入哪個帳號的哪個歌單；取消勾選遠端歌單是移除，先用 error 色寫出後果，按下後照 brief 再確認一次（畫法見歌單詳情頁）。遠端寫入失敗時對話框不關、勾選保留，寫出哪個成功、哪個失敗與原因，主鈕改成重試；失敗的那邊不改動。多選時，只有部分曲目已在的歌單顯示橫線，點一下變成全部加入。這裡的「新建歌單」就地命名。</p>' + NOTE
-            + '<h2 class="sec">手機</h2><div class="row">' + phone_atp_single("t-dark") + phone_atp_multi("t-light")
-            + phone_atp_remove("t-dark") + phone_atp_failed("t-light") + phone_atp_new("t-dark") + phone_atp_empty("t-light") + '</div>'
+            '<p class="note">舊版的「加入遠端歌單」是另一個入口，每個音源再各跳一個對話框。新版併進同一個對話框（設計 session 的決定，待擁有者看稿確認）：本地歌單照舊展開；下面「你的遠端歌單」依選取曲目的音源各一列，預設收起，點一下才展開並向那個平台讀取清單（打開對話框不必每次連三個平台，B 站的風控壓力也小）。收起的列寫帳號與本機已知的摘要：本機的匯入歌單裡已有這首時寫「已在『Vocaloid』」，讓使用者不展開也知道。每個平台記住上次展開或收起；有勾選變動的平台保持展開。展開後只收那個音源的曲目，混音源時段首寫清楚只會加入其中幾首。沒登入的平台不能展開，那一列直接放「登入」；沒有遠端寫入能力的插件不出現。匯入歌單是鏡像，不在清單裡；要改它，就改它的遠端歌單。這個對話框本身就是建立與加入遠端歌單的確認（brief §7）：勾了遠端歌單時，按鈕上方寫出會寫入哪個帳號的哪個歌單；取消勾選遠端歌單是移除，先用 error 色寫出後果，按下後照 brief 再確認一次（畫法見歌單詳情頁）。遠端寫入失敗時對話框不關、勾選保留，寫出哪個成功、哪個失敗與原因，主鈕改成重試；失敗的那邊不改動。多選時，只有部分曲目已在的歌單顯示橫線，點一下變成全部加入。這裡的「新建歌單」就地命名。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_atp_single("t-dark") + phone_atp_loading("t-light") + phone_atp_multi("t-dark")
+            + phone_atp_remove("t-light") + phone_atp_failed("t-dark") + phone_atp_new("t-light") + phone_atp_empty("t-dark") + '</div>'
             + '<h2 class="sec">桌面</h2><p class="note">桌面版內容相同，按鈕放右下角，Esc 等於取消、Enter 等於主按鈕；方向鍵在清單裡移動，空白鍵勾選。</p><div class="row">'
             + desk_atp("t-dark") + desk_atp("t-light", True) + '</div>')
     return html("FMP 設計稿 · 加入歌單對話框", body)

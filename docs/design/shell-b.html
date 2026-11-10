@@ -366,8 +366,17 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .nsq{width:40px;height:40px;border-radius:var(--r-cover);border:1.5px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--accent)}
 .pkl li.new .qf{height:40px}
 .pkl li.new .qv{flex:none}
-.pk-login .tbtn{white-space:nowrap}
-.pk-login{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 20px;font-size:var(--fs-sm);color:var(--fg2);border-bottom:1px solid var(--line)}
+.plat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:52px;padding:6px 20px;border-bottom:1px solid var(--line)}
+.plat .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.plat b{font-size:14px;font-weight:600}
+.plat i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.plat .tbtn{white-space:nowrap}
+.chev{display:flex;color:var(--fg2);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.chev.on{transform:rotate(180deg)}
+.scope.busy{display:flex;align-items:center;gap:6px}
+.pkl li.skel .sk{display:block;background:var(--bg2);border-radius:4px}
+.pkl li.skel .sk.cv{width:40px;height:40px;border-radius:var(--r-cover)}
+.pkl li.skel .tx{gap:6px}
 .atp-f{padding:12px 20px 0;border-top:1px solid var(--line)}
 .atp-s{font-size:var(--fs-meta);color:var(--fg2);margin-bottom:10px}
 .atp-s.err{color:var(--error)}
