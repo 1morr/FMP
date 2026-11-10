@@ -1,10 +1,11 @@
 """產生 docs/design/ 的設計稿頁面。
 
 用法：python3 -I docs/design/src/build.py
-輸出：docs/design/ 底下的 index、system、shell-a、shell-b、player、search、library 各頁。
+輸出：docs/design/ 底下的 index、system、shell-a、shell-b、player、search、library、playlist、add-to-playlist 各頁。
 樣式在 docs/design/assets/fmp.css；這裡只組版面與示意資料。
 """
 import pathlib
+import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -152,18 +153,12 @@ def tabbar_a(active):
     return f'<nav class="tabbar-a glass" aria-label="主要導覽">{items}</nav>'
 
 
-def playlist_header():
-    return (f'<div class="topbar">{ic("back", "l")}<span class="tb-title">音樂庫</span>{ic("more", "l")}</div>'
-            f'<header class="plh">{cover(0, 96)}<div class="plh-t"><h1>通勤用</h1><p>本地歌單 · 42 首 · 2 小時 48 分</p>'
-            f'<div class="plh-b"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span></div></div></header>')
-
-
 def track_list(rows=TRACKS, start=1, now=1):
     return '<ul class="tl">' + "".join(track_row(start + i, t, "now" if start + i == now else "") for i, t in enumerate(rows)) + "</ul>"
 
 
 def phone_a_playlist(theme):
-    inner = f'<div class="scroll">{playlist_header()}{track_list()}</div>{spine("sp-a")}{tabbar_a("音樂庫")}'
+    inner = f'<div class="scroll">{pd_topbar()}{local_head()}<ul class="tl pdl">' + "".join(pd_row(i + 1, t, "now" if i == 0 else "") for i, t in enumerate(TRACKS)) + f'</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}'
     return phone(theme, inner, f"A · 歌單詳情 · {'深色' if theme == 't-dark' else '淺色'}")
 
 
@@ -246,7 +241,7 @@ def desk_table():
 
 def desk_main():
     return (f'<header class="dplh">{cover(0, 132)}<div><h1>通勤用</h1><p>本地歌單 · 42 首 · 2 小時 48 分 · 音源：Bilibili 14、YouTube 16、網易雲 12</p>'
-            f'<div class="plh-b"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span><span class="btn out">{ic("plus", "s")}加入佇列</span></div></div></header>'
+            f'<div class="plh-b"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span><span class="btn out">{ic("queue", "s")}加入佇列</span><span class="ib" role="button" aria-label="歌單動作">{ic("more")}</span></div></div></header>'
             f'{desk_table()}')
 
 
@@ -580,6 +575,103 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .sw-t.on{background:var(--accent)}.sw-t.on i{left:21px;background:var(--on-accent)}
 .imp-n{font-size:var(--fs-meta);color:var(--fg2);padding:12px 20px 0;border-top:1px solid var(--line)}
 
+/* 歌單詳情 */
+.tb-back{display:flex;align-items:center;gap:0;font-size:var(--fs-body);font-weight:500;color:var(--accent);margin-left:-6px}
+.topbar .ib{margin-right:-8px}
+.plh-t{flex:1;min-width:0}
+.plh-t h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pmeta2,.srcl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pown{font-size:var(--fs-meta);color:var(--fg3);margin-top:3px}
+.pdesc{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:60ch}
+.pdl{border-top:1px solid var(--line-strong)}
+.rfs+.pdl{border-top:0}
+.tr.pr{grid-template-columns:24px 44px minmax(0,1fr) auto 18px;padding:0 12px 0 8px}
+.tr.pr.sm{grid-template-columns:20px 44px minmax(0,1fr) auto;padding:0 20px}
+.prt.pi{padding-left:88px}
+.prt.pi::before,.prt.pi::after{left:66px}
+.prt.pi::after{width:16px}
+.prt.now .px,.prt.now .pn{color:var(--accent)}
+.rfs{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line-strong);font-size:var(--fs-meta);color:var(--fg2)}
+.rfs>span:first-child{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rfs.busy{color:var(--accent);font-weight:600}
+.rfs.err{color:var(--error);font-weight:600}
+.rline{position:absolute;left:0;bottom:-1px;height:2px;background:var(--accent)}
+.rfs-n{font-size:var(--fs-meta);color:var(--fg2);padding:8px 20px;border-bottom:1px solid var(--line-strong)}
+.rfs-n+.pdl{border-top:0}
+.seltb.pd .ni{width:84px}
+.seltb .ni.dgr{color:var(--error)}
+.cvx{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-strong);color:var(--fg3)}
+.empty.pe{padding-top:56px;border-top:1px solid var(--line-strong)}
+.erows{display:flex;flex-direction:column;gap:6px;width:132px;margin-bottom:20px}
+.erows i{display:grid;grid-template-columns:18px 1fr 22px;gap:8px;height:22px;align-items:center;border-bottom:1px solid var(--line-strong);background:linear-gradient(var(--line-strong),var(--line-strong)) 26px 6px/56px 2px no-repeat}
+.erows i::before{content:"";width:18px;height:18px;border-radius:4px;border:1.5px solid var(--line-strong);margin-bottom:4px}
+.erows i:nth-child(2)::before{border-color:var(--accent)}
+.erows i::after{content:"";grid-column:3;height:2px;margin-bottom:4px;background:var(--line-strong)}
+.dplh .pdesc{margin-top:4px}
+.dplh .plh-b{align-items:center}
+.dplh .srcl{font-size:var(--fs-sm);color:var(--fg2)}
+.dh.p,.dr.p{grid-template-columns:28px 36px minmax(0,1fr) 84px 56px 72px 52px 18px;padding:0 20px 0 16px}
+.dr.p .tx b{display:flex;align-items:center;gap:8px}
+.dr.p .tx b span{overflow:hidden;text-overflow:ellipsis}
+.dr.p .tx b .tag{font-weight:500}
+.dr.p .mo{visibility:hidden}
+.dr.p.hover{background:var(--hover)}.dr.p.hover .mo,.dr.p.focus .mo{visibility:visible;color:var(--fg)}
+.dmain .rfs{padding:0 28px 0 16px;margin-top:2px}
+.dmain .rfs+.dh{border-top:0}
+.cmenu li.dgr{color:var(--error)}
+.cmenu li span{white-space:nowrap}
+.cmenu:has(li.dgr){width:236px}
+.cmenu li.dgr kbd{color:var(--error)}
+/* 確認（遠端寫入的移除） */
+.sheet.cfm{padding:8px 20px 26px}
+.cfm h2{font-size:var(--fs-title);font-weight:600;line-height:1.3}
+.cfm>p{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px}
+.cf-t{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;column-gap:12px;margin-top:14px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cf-t .tx,.atp-t .tx,.pkl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cf-t b,.atp-t b,.pkl b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-t i,.atp-t i,.pkl i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-b{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+.btn.dgr{background:var(--error);color:var(--on-error)}
+.btn.wide{display:flex;width:100%}
+/* 加入歌單 */
+.sheet.atp{top:58px;display:flex;flex-direction:column;padding-bottom:26px}
+.tbtn.ghost{visibility:hidden}
+.sheet.atp.fit{top:auto}.sheet.atp.fit .atp-c{flex:none;-webkit-mask:none;mask:none}
+.atp-c{flex:1;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(#000 calc(100% - 28px),transparent);mask:linear-gradient(#000 calc(100% - 28px),transparent)}
+.atp-t{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:12px;padding:2px 20px 12px}
+.stack{display:flex}.stack .cv+.cv{margin-left:-24px;box-shadow:-2px 0 0 var(--bg2)}
+.atp .sech,.ddlg .sech{height:34px;padding:8px 20px 0}
+.acct{font-size:var(--fs-meta);color:var(--fg3)}
+.scope{font-size:var(--fs-meta);color:var(--fg2);padding:8px 20px 0}
+.pkl li{display:grid;grid-template-columns:40px minmax(0,1fr) 20px;align-items:center;column-gap:12px;height:52px;padding:0 20px;border-bottom:1px solid var(--line)}
+.pkl li.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+.pkl li.new{grid-template-columns:40px minmax(0,1fr) auto}
+.pkl li.new b{color:var(--accent)}
+.pkl li.new.sm{height:48px}
+.pkl li.new.sm .nsq{height:32px;width:32px;margin-left:4px}
+.nsq{width:40px;height:40px;border-radius:var(--r-cover);border:1.5px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.pkl li.new .qf{height:40px}
+.pkl li.new .qv{flex:none}
+.pk-login .tbtn{white-space:nowrap}
+.pk-login{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 20px;font-size:var(--fs-sm);color:var(--fg2);border-bottom:1px solid var(--line)}
+.atp-f{padding:12px 20px 0;border-top:1px solid var(--line)}
+.atp-s{font-size:var(--fs-meta);color:var(--fg2);margin-bottom:10px}
+.atp-s.err{color:var(--error)}
+.ddlg{position:absolute;z-index:8;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;max-height:700px;display:flex;flex-direction:column;border-radius:var(--r-sheet);padding:14px 0 16px}
+.pkl li.err i{color:var(--error)}
+.ddlg.cfmd{width:440px;padding:22px 24px 20px}
+.cfmd .cf-b{flex-direction:row;justify-content:flex-end;margin-top:20px}
+.ddlg-h{display:flex;align-items:center;justify-content:space-between;padding:0 12px 8px 20px}
+.ddlg-h b{font-size:var(--fs-title);font-weight:600}
+.ddlg-h .ib{width:32px;height:32px;color:var(--fg2)}
+.ddlg-f{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px 16px;padding:12px 20px 0;border-top:1px solid var(--line)}
+.ddlg-f .atp-s{margin:0;flex:1 0 100%}
+.ddlg-f .btns{display:flex;gap:8px;flex:none}
+.ddlg .pkl li{height:48px}
+.ddlg .pkl .cv,.ddlg .nsq{width:36px!important;height:36px!important}
+.ddlg .pkl li{grid-template-columns:36px minmax(0,1fr) 20px}
+.ddlg .pkl li:not(.focus):first-child{background:none}
+
 /* 系統頁 */
 .sys{display:grid;grid-template-columns:repeat(2,minmax(0,560px));gap:32px}
 .card{border-radius:16px;padding:24px;overflow:hidden}
@@ -614,7 +706,7 @@ def html(title, body):
 
 def navlinks():
     return ('<nav class="navl"><a href="index.html">總覽</a><a href="system.html">設計系統</a>'
-            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
+            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="playlist.html">歌單詳情</a><a href="add-to-playlist.html">加入歌單</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
 
 
 NOTE = '<p class="note">曲目、播放量與封面都是示意資料；封面是自繪的幾何圖，不是真實專輯封面。強調色用預設的 FMP 紫。</p>'
@@ -795,10 +887,11 @@ def page_player():
 
 
 # ---------- 桌面外殼 A（共用） ----------
-def desk_frame_a(theme, active, main, caption):
+def desk_frame_a(theme, active, main, caption, overlay=""):
+    """overlay 是蓋在整個視窗上的層（暗幕與對話框），不只蓋內容欄。"""
     rail = "".join(f'<span class="rn{" on" if l == active else ""}">{ic(i)}<span>{l}</span></span>' for i, l in A_TABS)
     inner = (f'{titlebar()}<div class="dbody a"><nav class="rail" aria-label="主要導覽">{rail}</nav>'
-             f'<main class="dmain">{main}</main>{desk_panel()}</div>{desk_player("dp-a")}')
+             f'<main class="dmain">{main}</main>{desk_panel()}</div>{desk_player("dp-a")}{overlay}')
     return (f'<figure class="frame"><div class="desk {theme}">{inner}</div>'
             f'<figcaption>{caption} · {"深色" if theme == "t-dark" else "淺色"}</figcaption></figure>')
 
@@ -973,9 +1066,9 @@ def ds_parts(parts):
                    f'<span></span><span></span><span></span><span class="du">{d}</span><span class="mo">{ic("more", "s")}</span></li>' for i, (n, d) in enumerate(parts))
 
 
-def desk_search_main(select=False):
+def desk_search_main(select=False, picks=None):
     if select:
-        picks = [False, True, True, False, True, False, False, False, False]
+        picks = picks or [False, True, True, False, True, False, False, False, False]
         head = (f'<div class="dsh"><div class="dsel"><b>已選 3 首</b>'
                 f'<span class="btn ton">{ic("playnext", "s")}下一首播放</span><span class="btn out">{ic("queue", "s")}加入佇列</span>'
                 f'<span class="btn out">{ic("listadd", "s")}加入歌單</span><span class="tbtn" role="button">取消</span></div></div>')
@@ -1135,6 +1228,447 @@ def page_library():
     return html("FMP 設計稿 · 音樂庫", body)
 
 
+# ---------- 歌單詳情 ----------
+# B 站多 P 影片在歌單裡是一組：母列帶「3P」，分 P 縮排在下面
+PD_GROUP = ("【合唱】千本桜 七人版", "合唱団P", "B站", None, "12:10", "48萬", 3)
+PD_PARTS = [("P1 前奏～一番", "4:02"), ("P2 二番", "4:05"), ("P3 大サビ", "4:03")]
+VOCA = [
+    ("【初音ミク】千本桜", "黒うさP", "B站", None, "4:04", "1203萬", 3),
+    ("【鏡音リン・レン】ロキ", "みきとP", "B站", None, "3:48", "860萬", 6),
+    ("【IA】六兆年と一夜物語", "kemu", "B站", None, "4:22", "1020萬", 9),
+    ("【巡音ルカ】ダブルラリアット", "アゴアニキ", "B站", None, "4:11", "530萬", 1),
+    ("【GUMI】ドラマツルギー", "Eve", "B站", None, "4:01", "740萬", 5),
+    ("【初音ミク】砂の惑星", "ハチ", "B站", None, "3:58", "2210萬", 2),
+    ("【初音ミク】メルト", "ryo", "B站", None, "4:20", "690萬", 11),
+    ("【初音ミク】ヴァンパイア", "DECO*27", "B站", None, "3:47", "1580萬", 8),
+    ("【初音ミク】ローリンガール", "wowaka", "B站", None, "3:15", "910萬", 10),
+    ("【v flower】ベノム", "かいりきベア", "B站", None, "3:26", "480萬", 4),
+]
+NETEASE_FAV = [TRACKS[2], TRACKS[4], TRACKS[11], TRACKS[7], TRACKS[5],
+               ("群青", "YOASOBI", "網易", "VIP", "4:09", "", 1), ("たぶん", "YOASOBI", "網易", None, "4:18", "", 10),
+               ("稻香", "周杰倫", "網易", "VIP", "3:43", "", 6), ("紅豆", "王菲", "網易", "試聽", "4:17", "", 7)]
+JPOP = [("Subtitle", "Official髭男dism", "YT", None, "5:05", "1.9億", 5), ("怪物", "YOASOBI", "YT", None, "3:26", "3.1億", 6),
+        ("ケセラセラ", "Mrs. GREEN APPLE", "YT", None, "4:22", "8200萬", 1), ("Bling-Bang-Bang-Born", "Creepy Nuts", "YT", None, "2:48", "4.4億", 8),
+        ("晩餐歌", "tuki.", "YT", None, "4:15", "1.6億", 11), ("SPECIALZ", "King Gnu", "YT", None, "3:59", "1.1億", 0),
+        ("唱", "Ado", "YT", None, "3:09", "2.8億", 9), ("さよーならまたいつか！", "米津玄師", "YT", None, "3:52", "9600萬", 4),
+        ("アイドル", "YOASOBI", "YT", None, "3:45", "6.1億", 5)]
+
+
+def pd_row(i, t, cls="", parts=None, expanded=False, select=None):
+    """歌單裡的曲目列：保留序號（歌單順序有意義），右端多一顆「更多」。多選時序號換成勾選框。"""
+    title, artist, src, acc, dur, plays, k = t[:7]
+    meta = artist + (f" · {plays} 次播放" if plays else "")
+    ptag = (f'<span class="tag pts{" on" if expanded else ""}" role="button" aria-expanded="{str(expanded).lower()}">{len(parts)}P{ic("down", "xs")}</span>'
+            if parts else "")
+    if select is None:
+        lead, tail, mode = f'<span class="ix">{i}</span>', f'<span class="mo" aria-label="更多">{ic("more", "s")}</span>', ""
+    else:
+        lead = f'<span class="ck{" on" if select else ""}" role="checkbox" aria-checked="{str(select).lower()}">{ic("check", "xs") if select else ""}</span>'
+        tail, mode = "", " sm"
+    off = " off" if acc == "需登入" else ""
+    pick = " picked" if select else ""
+    return (f'<li class="tr pr{mode}{pick}{off} {cls}">{lead}{cover(k, 44)}<span class="tx"><b>{title}</b><i>{meta}</i></span>'
+            f'<span class="mt"><span class="tags"><span class="tag">{src}</span>{access(acc)}{ptag}</span><span class="du">{dur}</span></span>{tail}</li>')
+
+
+def pd_parts(parts, now=None):
+    return "".join(f'<li class="prt pi{" last" if i == len(parts) - 1 else ""}{" now" if i == now else ""}"><span class="px">P{i + 1}</span>'
+                   f'<span class="pn">{n}</span><span class="du">{d}</span><span class="mo" aria-label="更多">{ic("more", "s")}</span></li>'
+                   for i, (n, d) in enumerate(parts))
+
+
+def pd_topbar(select=None):
+    if select is not None:
+        return (f'<div class="selh"><span class="tbtn" role="button">取消</span><b>已選 {select} 首</b>'
+                f'<span class="tbtn" role="button">全選</span></div>')
+    return (f'<div class="topbar"><span class="tb-back" role="button">{ic("back", "l")}<span>音樂庫</span></span>'
+            f'<span class="ib" role="button" aria-label="歌單動作">{ic("more", "l")}</span></div>')
+
+
+def pd_head(name, k, meta, sub="", desc=""):
+    """手機的歌單頭：封面 96、名稱、類型與首數、（匯入歌單）擁有者，再下面是播放與隨機。"""
+    return (f'<header class="plh">{cover(k, 96)}<div class="plh-t"><h1>{name}</h1><p class="pmeta2">{meta}</p>'
+            f'{f"<p class=pown>{sub}</p>" if sub else ""}{f"<p class=pdesc>{desc}</p>" if desc else ""}'
+            f'<div class="plh-b"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span></div></div></header>')
+
+
+def local_head():
+    return pd_head("通勤用", 0, "本地歌單 · 42 首 · 2 小時 48 分", desc="早上 8:10 那班車，從家門口到公司剛好一輪。")
+
+
+def refresh_row(state, text, action=""):
+    """匯入歌單的刷新狀態列：平常寫上次刷新時間，刷新中亮強調色並畫進度，失敗寫原因。"""
+    bar = '<span class="rline" style="width:56%"></span>' if state == "busy" else ""
+    lead = '<i class="spin" aria-hidden="true"></i>' if state == "busy" else ic("info" if state == "err" else "refresh", "xs")
+    act = f'<span class="tbtn" role="button">{action}</span>' if action else ""
+    role = "alert" if state == "err" else "status"
+    return f'<div class="rfs {state}" role="{role}"><span>{lead}{text}</span>{act}{bar}</div>'
+
+
+def phone_pd_local(theme):
+    rows = (pd_row(1, TRACKS[0], "now") + pd_row(2, TRACKS[1]) + pd_row(3, PD_GROUP, parts=PD_PARTS, expanded=True) + pd_parts(PD_PARTS)
+            + "".join(pd_row(4 + i, t) for i, t in enumerate(TRACKS[2:9])))
+    inner = f'<div class="scroll">{pd_topbar()}{local_head()}<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}'
+    return phone(theme, inner, f"本地歌單 · 正在播第 1 首、B 站多 P 展開 · {theme_name(theme)}")
+
+
+def phone_pd_local_sheet(theme):
+    t = TRACKS[4]
+    rows = "".join(pd_row(i + 1, x) for i, x in enumerate(TRACKS[:9]))
+    acts = [("play", "播放", "臨時播放，不動佇列"), ("playnext", "下一首播放", ""), ("queue", "加入佇列", "加在佇列最後"),
+            ("listadd", "加入歌單…", ""), ("link", "複製連結", "")]
+    items = "".join(f'<li>{ic(i)}<span>{l}</span>{f"<i>{d}</i>" if d else ""}</li>' for i, l, d in acts)
+    items += f'<li class="danger">{ic("minus")}<span>從歌單移除</span><i>只動「通勤用」</i></li>'
+    sheet = (f'<div class="scrim"></div><div class="sheet glass" role="dialog" aria-label="{t[0]}"><span class="grab"></span>'
+             f'<div class="sh-h">{cover(t[6], 48)}<div><b>{t[0]}</b><i>{t[1]} · <span class="tag">{t[2]}</span>{access(t[3])}</i></div></div>'
+             f'<ul class="sh-l">{items}</ul></div>')
+    inner = f'<div class="scroll">{pd_topbar()}{local_head()}<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}{sheet}'
+    return phone(theme, inner, f"本地歌單 · 一首的「更多」· {theme_name(theme)}")
+
+
+def pd_sel_toolbar(n, remove_label="移除"):
+    acts = [("playnext", "下一首播放", ""), ("queue", "加入佇列", ""), ("listadd", "加入歌單", ""), ("minus", remove_label, " dgr")]
+    items = "".join(f'<span class="ni{c}">{ic(i)}<span>{l}</span></span>' for i, l, c in acts)
+    return f'<nav class="tabbar-a glass seltb pd" aria-label="已選 {n} 首的動作">{items}</nav>'
+
+
+def phone_pd_select(theme):
+    picks = [False, True, False, True, True, False, False, False, False, False]
+    rows = "".join(pd_row(i + 1, t, select=picks[i]) for i, t in enumerate(TRACKS[:10]))
+    inner = f'<div class="scroll">{pd_topbar(3)}{local_head()}<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{pd_sel_toolbar(3)}'
+    return phone(theme, inner, f"本地歌單 · 多選（長按進入）· {theme_name(theme)}")
+
+
+def phone_pd_empty(theme):
+    head = (f'<header class="plh">{cover_empty(96)}<div class="plh-t"><h1>新歌待聽</h1><p class="pmeta2">本地歌單 · 0 首</p>'
+            f'<div class="plh-b"><span class="btn pri dis" aria-disabled="true">{ic("play", "s")}播放</span><span class="btn ton dis" aria-disabled="true">{ic("shuffle", "s")}隨機</span></div></div></header>')
+    body = ('<div class="empty pe"><div class="erows" aria-hidden="true"><i></i><i></i><i></i></div><h2>這個歌單還沒有曲目</h2>'
+            '<p>在搜尋結果或其他歌單裡，從一首歌的「更多」選「加入歌單」；長按可以多選後一次加入。</p>'
+            f'<div class="plh-b"><span class="btn pri">{ic("search", "s")}去搜尋</span></div></div>')
+    inner = f'<div class="scroll">{pd_topbar()}{head}{body}</div>{spine("sp-a")}{tabbar_a("音樂庫")}'
+    return phone(theme, inner, f"本地歌單 · 空 · {theme_name(theme)}")
+
+
+def cover_empty(size):
+    return f'<span class="cv cvx" style="width:{size}px;height:{size}px" aria-hidden="true">{ic("library", "l")}</span>'
+
+
+def voca_head():
+    # 自己帳號底下的遠端歌單：可以移除（寫回 B 站），所以不寫「唯讀」
+    return pd_head("Vocaloid", 3, '<span class="tag">B站</span>收藏夾 · 154 首 · 10 小時 21 分', sub="匯入 · 你的 B 站帳號 · 移除會寫回 B 站")
+
+
+VOCA_OK = ("ok", "3 小時前刷新 · 每 24 小時自動刷新", "立即刷新")
+
+
+def phone_voca(theme, caption, overlay="", rfs=VOCA_OK, note=""):
+    rows = "".join(pd_row(1 + i, t) for i, t in enumerate(VOCA))
+    inner = (f'<div class="scroll">{pd_topbar()}{voca_head()}{refresh_row(*rfs)}{note}'
+             f'<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}{overlay}')
+    return phone(theme, inner, f"{caption} · {theme_name(theme)}")
+
+
+def phone_pd_imported(theme):
+    return phone_voca(theme, "匯入歌單（你的 B 站收藏夾）· 平常：標上次刷新")
+
+
+ROW_ACTS = [("play", "播放", "臨時播放，不動佇列"), ("playnext", "下一首播放", ""), ("queue", "加入佇列", "加在佇列最後"),
+            ("listadd", "加入歌單…", ""), ("link", "複製連結", "")]
+
+
+def row_sheet(t, items, danger=None):
+    rows = "".join(f'<li>{ic(i)}<span>{l}</span>{f"<i>{d}</i>" if d else ""}</li>' for i, l, d in items)
+    if danger:
+        rows += f'<li class="danger">{ic("minus")}<span>{danger[0]}</span><i>{danger[1]}</i></li>'
+    return (f'<div class="scrim"></div><div class="sheet glass" role="dialog" aria-label="{t[0]}"><span class="grab"></span>'
+            f'<div class="sh-h">{cover(t[6], 48)}<div><b>{t[0]}</b><i>{t[1]} · <span class="tag">{t[2]}</span>{access(t[3])}</i></div></div>'
+            f'<ul class="sh-l">{rows}</ul></div>')
+
+
+def phone_pd_imported_sheet(theme):
+    sheet = row_sheet(VOCA[4], ROW_ACTS, ("從 B 站收藏夾移除", "寫回 B 站，會先確認"))
+    return phone_voca(theme, "匯入歌單（你的收藏夾）· 一首的「更多」：最後一項是遠端移除", sheet)
+
+
+def remote_confirm(t, desktop=False):
+    tid = "cf-t-d" if desktop else "cf-t"
+    body = (f'<h2 id="{tid}">從 B 站收藏夾移除 1 首？</h2>'
+            f'<p>會改動你 B 站帳號底下的收藏夾「Vocaloid」（154 首）。B 站上也會少這首，接著這個匯入歌單會刷新。</p>'
+            f'<div class="cf-t">{cover(t[6], 40)}<span class="tx"><b>{t[0]}</b><i>{t[1]} · {t[4]}</i></span><span class="tag">B站</span></div>')
+    if desktop:
+        return (f'<div class="scrim"></div><div class="ddlg glass cfm cfmd" role="alertdialog" aria-labelledby="{tid}">{body}'
+                f'<div class="cf-b"><span class="btn out">取消</span><span class="btn dgr">從收藏夾移除</span></div></div>')
+    return (f'<div class="scrim"></div><div class="sheet glass cfm" role="alertdialog" aria-labelledby="{tid}"><span class="grab"></span>{body}'
+            f'<div class="cf-b"><span class="btn dgr">從收藏夾移除</span><span class="btn out">取消</span></div></div>')
+
+
+def phone_pd_remote_remove(theme):
+    return phone_voca(theme, "匯入歌單 · 從遠端歌單移除前確認（遠端寫入）", remote_confirm(VOCA[4]))
+
+
+def phone_pd_remote_failed(theme):
+    return phone_voca(theme, "匯入歌單 · 遠端移除失敗：兩邊都不改動，寫出原因",
+                      rfs=("err", "沒能從 B 站移除「ドラマツルギー」：連線逾時", "重試"),
+                      note='<p class="rfs-n">B 站和這個歌單都沒有改動。</p>')
+
+
+NETEASE_HEAD = ("我喜歡的音樂", 4, '<span class="tag">網易</span>歌單 · 312 首 · 21 小時 5 分')
+
+
+def phone_netease(theme, caption, rfs, overlay=""):
+    head = pd_head(*NETEASE_HEAD, sub="匯入 · 擁有者「示意帳號」· 唯讀")
+    rows = "".join(pd_row(1 + i, t) for i, t in enumerate(NETEASE_FAV))
+    inner = (f'<div class="scroll">{pd_topbar()}{head}{refresh_row(*rfs)}'
+             f'<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}{overlay}')
+    return phone(theme, inner, f"{caption} · {theme_name(theme)}")
+
+
+def phone_pd_others_sheet(theme):
+    return phone_netease(theme, "匯入歌單（別人的）· 一首的「更多」：唯讀，沒有移除",
+                         ("ok", "昨天刷新 · 每 24 小時自動刷新", "立即刷新"), row_sheet(NETEASE_FAV[1], ROW_ACTS))
+
+
+def phone_pd_refreshing(theme):
+    return phone_netease(theme, "匯入歌單（別人的）· 刷新中：列表照舊可播，刷完一次換新", ("busy", "刷新中 · 已讀 176／312 首"))
+
+
+def phone_pd_failed(theme):
+    head = pd_head("J-Pop 2024", 5, '<span class="tag">YT</span>播放清單 · 54 首 · 3 小時 31 分', sub="匯入 · 擁有者「示意帳號」· 唯讀")
+    rows = "".join(pd_row(1 + i, t) for i, t in enumerate(JPOP))
+    inner = (f'<div class="scroll">{pd_topbar()}{head}{refresh_row("err", "刷新失敗：YouTube 登入已過期", "重新登入")}'
+             f'<p class="rfs-n">顯示的是 2 天前刷新的內容。登入後會自動再刷新一次。</p>'
+             f'<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}')
+    return phone(theme, inner, f"匯入歌單 · 刷新失敗：保留上次內容，寫出原因與下一步 · {theme_name(theme)}")
+
+
+PD_DCOLS = '<div class="dh p"><span>#</span><span></span><span>標題</span><span>音源</span><span>存取</span><span>播放量</span><span>時長</span><span></span></div>'
+
+
+def dpd_row(i, t, cls="", parts=None, now=False):
+    title, artist, src, acc, dur, plays, k = t[:7]
+    ptag = f'<span class="tag pts" role="button" aria-expanded="false">{len(parts)}P{ic("down", "xs")}</span>' if parts else ""
+    return (f'<li class="dr p{" now" if now else ""}{" off" if acc == "需登入" else ""} {cls}"><span class="ix">{i}</span>{cover(k, 36)}'
+            f'<span class="tx"><b><span>{title}</span>{ptag}</b><i>{artist}</i></span><span class="c-src"><span class="tag">{SOURCE_NAME[src]}</span></span>'
+            f'<span class="c-acc">{access(acc)}</span><span class="c-pl">{plays or "—"}</span><span class="du">{dur}</span>'
+            f'<span class="mo" aria-label="更多">{ic("more", "s")}</span></li>')
+
+
+def cmenu(items, left, top, label):
+    out = ""
+    for i, l, k, c in items:
+        cls = f' class="{c}"' if c else ""
+        out += f'<li role="menuitem"{cls}>{ic(i, "s")}<span>{l}</span>{f"<kbd>{k}</kbd>" if k else ""}</li>'
+    return f'<ul class="cmenu glass" style="left:{left}px;top:{top}px" role="menu" aria-label="{label}">{out}</ul>'
+
+
+DMENU = [("play", "播放", "Enter", ""), ("playnext", "下一首播放", "", ""), ("queue", "加入佇列", "", ""),
+         ("listadd", "加入歌單…", "", ""), ("link", "複製連結", "", "sep")]
+
+
+def desk_pd_local(menu=True, hover=3):
+    """hover：滑鼠移入的那列（從 0 數）；menu：在那列開右鍵選單。"""
+    head = (f'<header class="dplh">{cover(0, 132)}<div><h1>通勤用</h1><p>本地歌單 · 42 首 · 2 小時 48 分 · 音源：Bilibili 14、YouTube 16、網易雲 12</p>'
+            f'<p class="pdesc">早上 8:10 那班車，從家門口到公司剛好一輪。</p>'
+            f'<div class="plh-b"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span>'
+            f'<span class="btn out">{ic("queue", "s")}加入佇列</span><span class="ib" role="button" aria-label="歌單動作">{ic("more")}</span></div></div></header>')
+    lst = [(TRACKS[0], None), (TRACKS[1], None), (PD_GROUP, PD_PARTS)] + [(t, None) for t in TRACKS[2:12]]
+    rows = "".join(dpd_row(i + 1, t, "hover" if i == hover else "", parts=pp, now=(i == 0)) for i, (t, pp) in enumerate(lst))
+    m = cmenu(DMENU + [("minus", "從歌單移除", "Del", "sep dgr")], 560, 404, "晴天的動作") if menu else ""
+    return head + PD_DCOLS + '<ul class="dl">' + rows + '</ul>' + m
+
+
+def desk_pd_imported(menu=False):
+    head = (f'<header class="dplh">{cover(3, 132)}<div><h1>Vocaloid</h1><p class="srcl"><span class="tag">Bilibili</span>收藏夾 · 154 首 · 10 小時 21 分 · 匯入 · 你的 B 站帳號 · 移除會寫回 B 站</p>'
+            f'<div class="plh-b"><span class="btn pri">{ic("play", "s")}播放</span><span class="btn ton">{ic("shuffle", "s")}隨機</span>'
+            f'<span class="btn out">{ic("queue", "s")}加入佇列</span><span class="btn out">{ic("refresh", "s")}立即刷新</span>'
+            f'<span class="ib" role="button" aria-label="歌單動作">{ic("more")}</span></div></div></header>')
+    rows = "".join(dpd_row(1 + i, t, "focus" if (menu and i == 4) else "") for i, t in enumerate(VOCA))
+    m = cmenu(DMENU + [("minus", "從 B 站收藏夾移除…", "Del", "sep dgr")], 560, 300, "ドラマツルギー的動作") if menu else ""
+    return head + refresh_row("ok", "3 小時前刷新 · 每 24 小時自動刷新 · 以 B 站為準") + PD_DCOLS + '<ul class="dl">' + rows + '</ul>' + m
+
+
+def page_playlist():
+    body = (navlinks() + '<h1 class="pt">歌單詳情</h1>'
+            '<p class="lead">照舊版：頂部是封面、名稱、首數與總時長，下面是「播放」（取代佇列）與「隨機」；列表保留序號，因為歌單的順序是使用者排的。點一首是臨時播放，不動佇列；長按進入多選。B 站多 P 影片在歌單裡是一組，母列以「3P」標籤展開分 P，和搜尋結果同一種畫法。</p>'
+            '<p class="note">本地歌單和匯入歌單用同一個頁面，差在三處。一、頭部：匯入歌單在類型前加音源標籤，下一行寫擁有者；別人的寫「唯讀」，你自己帳號底下的寫「移除會寫回 B 站」。二、頭部下方多一條刷新狀態列：平常寫上次刷新時間與「立即刷新」；刷新中亮強調色、寫進度並在列底畫進度線，列表照舊可以播；失敗用 error 色寫原因與下一步，列表保留上次的內容。三、動作：本地歌單的列有「從歌單移除」；匯入歌單只有在它是你帳號底下的遠端歌單時，列上（與多選工具列）才有「從 B 站收藏夾移除」，這是遠端寫入，每次都先確認並寫出歌單名稱與首數；失敗時 B 站與本機都不改動，在狀態列寫出原因與重試（brief §7）。右上角「更多」打開的是音樂庫同一份動作選單。第一版沒有下載，舊版頂部的下載鈕拿掉。</p>' + NOTE
+            + '<h2 class="sec">本地歌單 · 手機</h2><div class="row">' + phone_pd_local("t-dark") + phone_pd_local_sheet("t-light")
+            + phone_pd_select("t-dark") + phone_pd_empty("t-light") + '</div>'
+            + '<h2 class="sec">匯入歌單 · 手機</h2><div class="row">' + phone_pd_imported("t-dark") + phone_pd_imported_sheet("t-light")
+            + phone_pd_remote_remove("t-dark") + phone_pd_remote_failed("t-light")
+            + phone_pd_others_sheet("t-dark") + phone_pd_refreshing("t-light") + phone_pd_failed("t-dark") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面的列「更多」在滑鼠移入或焦點時出現，點了、按右鍵或選單鍵在原處開玻璃選單；本地歌單的選單最後一項是「從歌單移除」（Del），你的收藏夾是「從 B 站收藏夾移除…」（Del，接著開確認）。匯入歌單把「立即刷新」放進按鈕列，刷新狀態列在表頭上方。桌面的確認是置中的玻璃對話框，危險鈕在右下，Esc 取消。</p><div class="row">'
+            + desk_frame_a("t-dark", "音樂庫", desk_pd_local(), "本地歌單 · 桌面（1280×800）")
+            + desk_frame_a("t-light", "音樂庫", desk_pd_imported(menu=True), "匯入歌單 · 鍵盤焦點在第 5 列、按選單鍵開選單（1280×800）")
+            + desk_frame_a("t-dark", "音樂庫", desk_pd_imported(), "匯入歌單 · 遠端移除確認（1280×800）", overlay=remote_confirm(VOCA[4], desktop=True)) + '</div>')
+    return html("FMP 設計稿 · 歌單詳情", body)
+
+
+# ---------- 加入歌單對話框 ----------
+# (名稱, 封面, 首數, 已勾選：True／False／"mixed"（多選時部分曲目已在）, 是否原本就在)
+ATP_LOCAL = [("通勤用", 0, 42, True, True), ("工作背景", 2, 128, True, False), ("睡前", 7, 18, False, False),
+             ("Nightcore", 1, 64, False, False), ("新歌待聽", 11, 0, False, False)]
+ATP_REMOTE = [("Vocaloid", 3, 154, "公開", True), ("稍後再聽", 9, 27, "私人", False), ("預設收藏夾", 6, 312, "公開", False)]
+
+
+def ck(state):
+    if state == "mixed":
+        return f'<span class="ck on" role="checkbox" aria-checked="mixed">{ic("minus", "xs")}</span>'
+    return f'<span class="ck{" on" if state else ""}" role="checkbox" aria-checked="{str(bool(state)).lower()}">{ic("check", "xs") if state else ""}</span>'
+
+
+def atp_row(name, k, meta, state, cls=""):
+    c = f' class="{cls}"' if cls else ""
+    return f'<li{c}>{cover(k, 40)}<span class="tx"><b>{name}</b><i>{meta}</i></span>{ck(state)}</li>'
+
+
+def atp_local(states, note=None, new_field=False):
+    """states 的長度決定畫出幾列；清單在 sheet 裡可以捲。"""
+    rows = ""
+    for (name, k, n, _, was), st in zip(ATP_LOCAL, states):
+        meta = (f"{n} 首" if n else "空歌單") + (f" · {note[name]}" if note and name in note else " · 已在這個歌單" if was and st is True else "")
+        rows += atp_row(name, k, meta, st)
+    if new_field:
+        new = (f'<li class="new on"><span class="nsq">{ic("plus", "s")}</span><div class="qf on"><span class="qv">週末健行</span><i class="caret"></i></div>'
+               f'<span class="tbtn" role="button">建立</span></li>')
+    else:
+        new = f'<li class="new"><span class="nsq">{ic("plus", "s")}</span><span class="tx"><b>新建歌單</b></span></li>'
+    return f'<div class="sech"><b>本地歌單</b></div><ul class="pkl">{new}{rows}</ul>'
+
+
+def atp_remote(label, account, states, scope="", single=True, err=None):
+    rows = "".join(atp_row(n, k, f"{c} 首 · {p}" + (" · 沒能加入" if n == err else " · 已在這個收藏夾" if was and single and st else " · 這首會被移除" if was and single else ""),
+                           st, "err" if n == err else "")
+                   for (n, k, c, p, was), st in zip(ATP_REMOTE, states))
+    return (f'<div class="sech"><b>{label}</b><span class="acct">{account}</span></div>'
+            f'{f"<p class=scope>{scope}</p>" if scope else ""}'
+            f'<ul class="pkl">{rows}<li class="new sm"><span class="nsq">{ic("plus", "s")}</span><span class="tx"><b>新建收藏夾</b></span></li></ul>')
+
+
+def atp_login(label, text):
+    return (f'<div class="sech"><b>{label}</b></div>'
+            f'<div class="pk-login"><span>{text}</span><span class="tbtn" role="button">登入</span></div>')
+
+
+def atp_target_of(t):
+    return (f'<div class="atp-t">{cover(t[6], 40)}<span class="tx"><b>{t[0]}</b>'
+            f'<i>{t[1]} · <span class="tag">{t[2]}</span></i></span></div>')
+
+
+def atp_target(multi=False):
+    if multi:  # 背景勾的是 B 站 2 首（多 P 影片、鋼琴版）與 YouTube 1 首
+        return (f'<div class="atp-t"><span class="stack">{cover(3, 40)}{cover(4, 40)}</span><span class="tx"><b>3 首</b>'
+                f'<i><span class="tag">B站</span> 2 · <span class="tag">YT</span> 1</i></span></div>')
+    return atp_target_of(TRACKS[3])  # 背景「通勤用」裡的千本桜；它也在 B 站收藏夾「Vocaloid」裡
+
+
+def atp_foot(label, summary="", kind="", disabled=False):
+    s = f'<p class="atp-s {kind}">{summary}</p>' if summary else ""
+    return f'<div class="atp-f">{s}<span class="btn pri wide{" dis" if disabled else ""}"{" aria-disabled=true" if disabled else ""}>{label}</span></div>'
+
+
+def atp_sheet(content, foot, fit=False):
+    """內容少時 sheet 只長到內容的高度；多時長到狀態列下方，清單在裡面捲。"""
+    return (f'<div class="scrim"></div><div class="sheet glass atp{" fit" if fit else ""}" role="dialog" aria-labelledby="atp-t"><span class="grab"></span>'
+            f'<div class="imp-h"><span class="tbtn" role="button">取消</span><b id="atp-t">加入歌單</b><span class="tbtn ghost" aria-hidden="true">取消</span></div>'
+            f'<div class="atp-c">{content}</div>{foot}</div>')
+
+
+ATP_PICKS = [False, True, False, False, True, True, False]
+
+
+def atp_bg(multi=False):
+    """單首：從「通勤用」裡那首的「更多」打開；多選：從搜尋結果的多選工具列打開。"""
+    if multi:
+        rows = "".join(sr_row(t, select=ATP_PICKS[i]) for i, t in enumerate(S_ONLINE[:7]))
+        return (f'<div class="scroll"><div class="selh"><span class="tbtn" role="button">取消</span><b>已選 3 首</b><span class="tbtn" role="button">全選</span></div>'
+                f'{sec_head("線上結果", "128")}<ul class="tl">{rows}</ul></div>{spine("sp-a")}{sel_toolbar(3)}')
+    rows = "".join(pd_row(i + 1, t, "pressed" if i == 3 else "") for i, t in enumerate(TRACKS[:10]))
+    return f'<div class="scroll">{pd_topbar()}{local_head()}<ul class="tl pdl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("音樂庫")}'
+
+
+MULTI_SUM = "B 站收藏夾「稍後再聽」會加入 2 首（寫入你的 B 站帳號）"
+YT_LOGIN = ("YouTube 播放清單", "登入 YouTube 帳號後，可以把其中 1 首加進你的播放清單")
+
+
+def phone_atp_single(theme):
+    content = atp_target() + atp_local([True, True, False, False]) + atp_remote("B 站收藏夾", "示意帳號", [True, False, False])
+    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("加入 1 個歌單")), f"單首（從歌單裡一首的「更多」）：已在的歌單預先勾好 · {theme_name(theme)}")
+
+
+def phone_atp_multi(theme):
+    content = (atp_target(True) + atp_local(["mixed", True, False], note={"通勤用": "3 首中 1 首已在"})
+               + atp_remote("B 站收藏夾", "示意帳號", [False, True], scope="只會加入其中 2 首 B 站曲目", single=False)
+               + atp_login(*YT_LOGIN))
+    return phone(theme, atp_bg(True) + atp_sheet(content, atp_foot("加入 2 個歌單", MULTI_SUM)),
+                 f"多選 3 首、混音源：部分已在的歌單顯示橫線，遠端歌單依音源分段 · {theme_name(theme)}")
+
+
+def phone_atp_remove(theme):
+    content = atp_target() + atp_local([True, True, False, False]) + atp_remote("B 站收藏夾", "示意帳號", [False, False, False])
+    foot = atp_foot("加入 1 個、移出 1 個", "會從 B 站收藏夾「Vocaloid」移除這首；按下後再確認一次", "err")
+    return phone(theme, atp_bg() + atp_sheet(content, foot), f"取消勾選遠端歌單：先寫出後果，按下後再確認 · {theme_name(theme)}")
+
+
+def phone_atp_failed(theme):
+    content = (atp_target(True) + atp_local(["mixed", True, False], note={"通勤用": "3 首中 1 首已在", "工作背景": "剛加入"})
+               + atp_remote("B 站收藏夾", "示意帳號", [False, True], scope="只會加入其中 2 首 B 站曲目", single=False, err="稍後再聽")
+               + atp_login(*YT_LOGIN))
+    foot = atp_foot("重試加入 B 站", "「工作背景」已加入。B 站收藏夾「稍後再聽」沒能加入：連線逾時，B 站沒有改動。", "err")
+    return phone(theme, atp_bg(True) + atp_sheet(content, foot), f"遠端寫入失敗：對話框不關、勾選保留，寫出哪個失敗 · {theme_name(theme)}")
+
+
+def phone_atp_new(theme):
+    content = atp_target() + atp_local([True, False, False, False], new_field=True) + atp_remote("B 站收藏夾", "示意帳號", [True, False, False])
+    return phone(theme, atp_bg() + atp_sheet(content, atp_foot("沒有變更", disabled=True)), f"新建歌單：在原處命名，建立後自動勾選（鍵盤略去）· {theme_name(theme)}")
+
+
+def phone_atp_empty(theme):
+    t = S_ONLINE[0]
+    content = (atp_target_of(t) + '<div class="sech"><b>本地歌單</b></div><ul class="pkl">'
+               f'<li class="new"><span class="nsq">{ic("plus", "s")}</span><span class="tx"><b>新建歌單</b><i>還沒有本地歌單；建好就會勾選，再按「加入」</i></span></li></ul>'
+               + atp_login("YouTube 播放清單", "登入 YouTube 帳號後，可以加進你的播放清單"))
+    rows = "".join(sr_row(x, "pressed" if i == 0 else "") for i, x in enumerate(S_ONLINE[:7]))
+    bg = (f'<div class="scroll"><div class="shead">{search_field(QUERY)}{chips()}</div>{sec_head("線上結果", "128", sort=True)}'
+          f'<ul class="tl">{rows}</ul></div>{spine("sp-a")}{tabbar_a("搜尋")}')
+    return phone(theme, bg + atp_sheet(content, atp_foot("沒有變更", disabled=True), fit=True),
+                 f"還沒有歌單、也沒登入（剛安裝，從搜尋結果加入）· {theme_name(theme)}")
+
+
+def desk_atp(theme, multi=False):
+    if multi:
+        content = (atp_target(True) + atp_local(["mixed", True, False, False], note={"通勤用": "3 首中 1 首已在"})
+                   + atp_remote("B 站收藏夾", "示意帳號", [False, True, False], scope="只會加入其中 2 首 B 站曲目", single=False)
+                   + atp_login(*YT_LOGIN))
+        summary, label = MULTI_SUM, "加入 2 個歌單"
+        i = content.index('<li>', content.index('class="pkl"'))  # 鍵盤焦點在第一個歌單
+        content = content[:i] + '<li class="focus">' + content[i + 4:]
+        bg, active = desk_search_main(True, picks=ATP_PICKS + [False, False]), "搜尋"
+    else:
+        content = atp_target() + atp_local([True, True, False, False]) + atp_remote("B 站收藏夾", "示意帳號", [True, False, False])
+        summary, label = "", "加入 1 個歌單"
+        bg, active = desk_pd_local(menu=False, hover=4), "音樂庫"  # 從「通勤用」裡千本桜那列的「更多」打開
+    s = f'<p class="atp-s">{summary}</p>' if summary else ''
+    dlg = (f'<div class="scrim"></div><div class="ddlg glass" role="dialog" aria-labelledby="d-atp">'
+           f'<div class="ddlg-h"><b id="d-atp">加入歌單</b><span class="ib" role="button" aria-label="關閉">{ic("close", "s")}</span></div>'
+           f'<div class="atp-c">{content}</div>'
+           f'<div class="ddlg-f">{s}<span class="btns"><span class="btn out">取消</span><span class="btn pri">{label}</span></span></div></div>')
+    # 選了「加入歌單…」之後選單已關，焦點移進對話框
+    bg = re.sub(r' focus(?=")', "", re.sub(r'<ul class="cmenu.*?</ul>', "", bg))
+    cap = "多選（從搜尋結果）、鍵盤焦點在第一個歌單" if multi else "單首（從歌單裡一首的「更多」）"
+    return desk_frame_a(theme, active, bg, f"加入歌單 · 桌面{cap}（1280×800）", overlay=dlg)
+
+
+def page_add_to_playlist():
+    body = (navlinks() + '<h1 class="pt">加入歌單對話框</h1>'
+            '<p class="lead">照舊版：列出所有本地歌單，可以一次勾多個；已經有這首的歌單預先勾好，取消勾選就是移出。頂端可以就地新建歌單。按鈕不寫「儲存」，直接寫出按下後會發生什麼（「加入 1 個歌單」「加入 1 個、移出 1 個」），沒有變更時停用。手機是從底部升起的玻璃 sheet，桌面是置中的玻璃對話框，底下都壓一層暗幕。</p>'
+            '<p class="note">舊版的「加入遠端歌單」是另一個入口，每個音源再各跳一個對話框。新版併進同一個對話框（設計 session 的決定，待擁有者看稿確認）：本地歌單下面，依選取曲目的音源各列一段「你的遠端歌單」，只收那個音源的曲目，段首寫清楚只會加入其中幾首；那個音源沒登入就換成一行登入提示，沒有遠端寫入能力的插件不出現。匯入歌單是鏡像，不在清單裡；要改它，就改它的遠端歌單。這個對話框本身就是建立與加入遠端歌單的確認（brief §7）：勾了遠端歌單時，按鈕上方寫出會寫入哪個帳號的哪個歌單；取消勾選遠端歌單是移除，先用 error 色寫出後果，按下後照 brief 再確認一次（畫法見歌單詳情頁）。遠端寫入失敗時對話框不關、勾選保留，寫出哪個成功、哪個失敗與原因，主鈕改成重試；失敗的那邊不改動。多選時，只有部分曲目已在的歌單顯示橫線，點一下變成全部加入。這裡的「新建歌單」就地命名。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_atp_single("t-dark") + phone_atp_multi("t-light")
+            + phone_atp_remove("t-dark") + phone_atp_failed("t-light") + phone_atp_new("t-dark") + phone_atp_empty("t-light") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面版內容相同，按鈕放右下角，Esc 等於取消、Enter 等於主按鈕；方向鍵在清單裡移動，空白鍵勾選。</p><div class="row">'
+            + desk_atp("t-dark") + desk_atp("t-light", True) + '</div>')
+    return html("FMP 設計稿 · 加入歌單對話框", body)
+
+
 def page_index():
     body = (navlinks() + '<h1 class="pt">FMP 新版設計稿（D）</h1>'
             '<p class="lead">第一步：設計系統與 App 外殼。外殼出 A、B 兩版，選定後其餘頁面照選定的外殼做。決定依據見 docs/design-brief.md §11。</p>' + NOTE
@@ -1143,11 +1677,13 @@ def page_index():
             '<li><a style="color:#CFBCFF" href="player.html">全螢幕播放頁</a>：封面、歌詞、背景跟著封面取色</li>'
             '<li><a style="color:#CFBCFF" href="search.html">搜尋與結果</a>：搜尋紀錄、歌單中與線上結果、B 站分 P、多選</li>'
             '<li><a style="color:#CFBCFF" href="library.html">音樂庫</a>：歌單封面網格、匯入歌單的刷新狀態、排序、動作選單、空狀態</li>'
+            '<li><a style="color:#CFBCFF" href="playlist.html">歌單詳情</a>：本地與匯入歌單、刷新狀態、多選、遠端歌單的移除確認、空歌單</li>'
+            '<li><a style="color:#CFBCFF" href="add-to-playlist.html">加入歌單對話框</a>：本地與遠端歌單、部分已在、就地新建、移出的後果</li>'
             '<li><a style="color:#CFBCFF" href="shell-b.html">外殼 B</a>（未採用，留作參考）：Apple Music 式浮動膠囊與捲動收合</li></ul>')
     return html("FMP 設計稿", body)
 
 
 if __name__ == "__main__":
-    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player), ("search.html", page_search), ("library.html", page_library)]:
+    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player), ("search.html", page_search), ("library.html", page_library), ("playlist.html", page_playlist), ("add-to-playlist.html", page_add_to_playlist)]:
         (ROOT / name).write_text(fn(), encoding="utf-8")
     print("written:", ROOT)

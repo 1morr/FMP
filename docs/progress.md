@@ -23,6 +23,7 @@
 | 2026-11-08 | D 外殼與佇列 | 外殼選 A，寫回 brief §11；佇列拿掉 A／B 面字樣，隨機時的佇列顯示分兩種（brief §6）；私人網頁已重新發佈 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：全螢幕播放頁（含歌詞）、搜尋與結果、音樂庫`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-08 | D 播放頁 | `docs/design/player.html`：手機封面／歌詞、桌面封面＋歌詞或佇列兩欄，深淺色；背景跟封面取色；桌面歌詞／佇列切換在頂列；DESIGN.md 已補播放頁一節。未送獨立審查 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：搜尋與結果、音樂庫`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-09 | D 搜尋與音樂庫 | `docs/design/search.html`（搜尋紀錄、歌單中＋線上結果、B 站分 P、多選、載入、單一音源失敗、離線、零結果、桌面右鍵選單）與 `library.html`（封面網格、匯入歌單刷新狀態、動作選單、排序、匯入、空狀態），深淺色；DESIGN.md 補兩節；finish review 判 fix，已改完，未再送審 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：歌單詳情（本地、匯入）、加入歌單對話框`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
+| 2026-11-10 | D 歌單詳情與加入歌單 | `docs/design/playlist.html`（本地：播放中與 B 站多 P、列的「更多」、多選、空歌單；匯入：平常、刷新中、刷新失敗、你的收藏夾的遠端移除入口與確認、遠端移除失敗、別人的歌單沒有移除；桌面本地右鍵選單、匯入鍵盤焦點與選單、桌面確認）與 `add-to-playlist.html`（單首、多選混音源、取消勾選遠端歌單、遠端寫入失敗、就地新建、沒有歌單也沒登入；桌面單首與多選），深淺色；新 token `on-error` 與危險按鈕；外殼 A 的歌單詳情改用同一個頭部；DESIGN.md 補兩節；finish review 判 fix，六項改完再送審判 ship | 等使用者：看稿確認「加入遠端歌單併進加入歌單對話框」（見〈偏差與決定〉）。確認後新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：帳號與登入、插件管理、設定、匯入舊版備份`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 
 ## 偏差與決定
 
@@ -41,3 +42,4 @@
 - 2026-11-08 D 佇列標頭（續）：擁有者要求回退圖示鈕組，隨機與循環回到帶文字的兩顆切換鈕；拿掉定位鈕，改成點「佇列」標題捲回正在播放。已改 brief §6 與 `docs/design/DESIGN.md`。
 - 2026-11-08 D 播放頁：桌面的「歌詞／佇列」切換放在頂列右側的兩顆圖示鈕（照 Apple Music、Spotify 桌面版）；手機維持底部玻璃膠囊。擁有者確認。
 - 2026-11-09 D 音樂庫：擁有者選歌單用封面網格（照舊版），不用設計 session 建議的密排列表；這是 J-card 密排規則唯一的例外，已寫進 `docs/design/DESIGN.md`。搜尋結果照舊版混排加音源篩選，排序鈕移到「線上結果」段標題（修審計 §6.1 第 4 點）。
+- 2026-11-10 D 加入歌單：設計 session 把舊版另一個入口「加入遠端歌單」（每個音源各跳一個對話框）併進加入歌單對話框，本地歌單下依選取曲目的音源各列一段自己帳號的遠端歌單，對話框本身當作建立與加入的確認（brief §7），取消勾選遠端歌單照 §7 再確認一次。待擁有者看稿確認；不同意就改回兩個入口。細節在 `docs/design/DESIGN.md`〈加入歌單對話框〉。
