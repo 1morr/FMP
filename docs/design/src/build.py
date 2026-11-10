@@ -1,7 +1,7 @@
 """產生 docs/design/ 的設計稿頁面。
 
 用法：python3 -I docs/design/src/build.py
-輸出：docs/design/ 底下的 index、system、shell-a、shell-b、player、search、library、playlist、add-to-playlist 各頁。
+輸出：docs/design/ 底下的 index、system、shell-a、shell-b、player、search、library、playlist、add-to-playlist、settings、account、plugins、backup 各頁。
 樣式在 docs/design/assets/fmp.css；這裡只組版面與示意資料。
 """
 import pathlib
@@ -65,6 +65,10 @@ ICONS = {
     "playnext": "M3 5h11v2H3zm0 5h11v2H3zm0 5h7v2H3zm10-1 8 4-8 4z",
     "minus": "M5 11h14v2H5z",
     "edit": "M4 16.8 15.6 5.2l3.2 3.2L7.2 20H4zm13-13 1.4-1.4a1 1 0 0 1 1.4 0l1.8 1.8a1 1 0 0 1 0 1.4L20.2 7z",
+    "lock": "M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0zm-2 2v7h10v-7z",
+    "file": "M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 2v16h11V9h-5V4zm3 9h6v2H9zm0 3h6v2H9z",
+    "ext": "M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z",
+    "warn": "M12 2.5 23 21.5H1zm0 4L4.5 19.5h15zM11 10h2v5h-2zm0 6h2v2h-2z",
 }
 
 
@@ -295,7 +299,7 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .row{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;overflow-x:auto;padding:12px;margin:-12px}
 .frame{flex:none}
 @media (max-width:600px){body.doc{padding:24px 16px 60px}.row{flex-wrap:nowrap}.sys{grid-template-columns:minmax(0,1fr)}}
-.frame figcaption{margin-top:10px;font-size:13px;color:#C8C7C2}
+.frame figcaption{margin-top:10px;font-size:13px;color:#C8C7C2;width:0;min-width:100%}
 .phone{position:relative;width:390px;height:844px;border-radius:48px;overflow:hidden;box-shadow:0 0 0 10px #0B0B0C,0 20px 50px rgba(0,0,0,.45)}
 .sb{position:absolute;top:0;left:0;right:0;z-index:5;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 38px;font-weight:600;font-size:16px}
 .sbi{display:flex;gap:6px;align-items:center}.sbi svg{fill:currentColor}
@@ -681,6 +685,191 @@ body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px
 .ddlg .pkl li{grid-template-columns:36px minmax(0,1fr) 20px}
 .ddlg .pkl li:not(.focus):first-child{background:none}
 
+/* 設定類頁面（設定、帳號、插件、匯入舊版備份） */
+.mn{font-family:var(--mono);font-size:.92em}
+.sgh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;height:48px;padding:0 20px 8px;border-bottom:1px solid var(--line-strong)}
+.sgh b{font-size:var(--fs-sm);font-weight:600}
+.sgm{font-size:var(--fs-meta);color:var(--fg2)}
+.sgl>li{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;padding:8px 20px;border-bottom:1px solid var(--line)}
+.sgl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sgl .tx b{font-size:var(--fs-body);font-weight:500}
+.sgl .tx i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.sgl .tbtn{white-space:nowrap}
+.sgl li.stack{flex-direction:column;align-items:stretch;gap:12px;padding:12px 20px 14px}
+.val em{font-style:normal}
+/* 快到期：金色只屬於 VIP 與試聽，所以用前景色加粗，不另開顏色 */
+.val .warn,.warn{font-style:normal;color:var(--fg);font-weight:600}
+.up{font-style:normal;color:var(--accent);font-weight:600}
+em.err,.err{font-style:normal;color:var(--error)}
+.seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line-strong);border-radius:10px;flex:none}
+.seg span{display:flex;align-items:center;height:28px;padding:0 11px;border-radius:8px;font-size:var(--fs-sm);font-weight:600;color:var(--fg2);white-space:nowrap}
+.seg span.on{background:var(--accent-soft);color:var(--accent)}
+.sws{display:flex;gap:12px;flex-wrap:wrap}
+.swc{width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;flex:none}
+/* 稿裡淺色手機殼包在深色展示底裡，所以用較深一層的選擇器讓最近的主題勝出 */
+.t-dark .swc,.t-light .t-dark .swc{background:var(--d)}.t-light .swc,.t-dark .t-light .swc{background:var(--l)}
+.t-dark .swc .ic,.t-light .t-dark .swc .ic{fill:#121214}.t-light .swc .ic,.t-dark .t-light .swc .ic{fill:#fff}
+.swc.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg)}
+.swc.focus{outline:2px solid var(--accent);outline-offset:5px}
+.cbar{display:flex;align-items:center;justify-content:center;height:44px;border-bottom:1px solid var(--line);background:var(--bg)}
+.cbar b{font-size:var(--fs-title);font-weight:600}
+.scut .sgh:first-child{height:40px}
+.lh.sub{padding-top:0}
+.lh.sub h1{font-size:var(--fs-h2);line-height:32px}
+.fnote{font-size:var(--fs-meta);color:var(--fg2);padding:10px 20px 0;max-width:62ch}
+.sgl.q li{min-height:44px}
+.sgl.q li .tx b{font-size:14px}
+.sgl.q li.cur .tx b{color:var(--accent);font-weight:600}
+.sgl.q li.no .tx b{color:var(--fg3)}
+.qr-r{display:flex;align-items:center;gap:8px}
+.curm{display:inline-flex;align-items:center;gap:3px;font-style:normal;font-size:var(--fs-meta);font-weight:600;color:var(--accent)}
+.btn.sm{height:34px;padding:0 14px;font-size:13px}
+.dset{max-width:760px;padding:6px 28px 120px}
+.dset.w{max-width:none}
+.dmain .dset .lh{padding:0 0 16px}
+.dmain .dset .topbar{padding:0;margin:8px 0 4px}
+.dset .sgh,.dset .sgl>li{padding-left:0;padding-right:0}
+.dset .fnote{padding-left:0}
+/* 帳號 */
+.acb{padding:16px 20px 16px;border-top:1px solid var(--line-strong)}
+.dset .acb{padding:18px 0}
+.ach{display:grid;grid-template-columns:48px minmax(0,1fr) auto;column-gap:12px;align-items:center}
+.ach .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ach b{font-size:var(--fs-title);font-weight:600}
+.ach i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-sm);color:var(--fg2)}
+.av{width:48px;height:48px;border-radius:24px;overflow:hidden;display:block}
+.av svg{display:block;width:100%;height:100%}
+.av.ax{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-strong);font:600 13px/1 var(--mono);color:var(--fg3)}
+.acn{font-size:var(--fs-sm);color:var(--fg2);margin:10px 0 0 60px;max-width:56ch}
+.acl{margin:12px 0 0 60px;border-top:1px solid var(--line)}
+.acl li{display:grid;grid-template-columns:72px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:40px;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
+.acl li>span:first-child{font-size:var(--fs-meta);color:var(--fg2)}
+.acl .v{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.acl .why{font-size:var(--fs-meta);color:var(--fg2)}
+.acl .dim{color:var(--fg3)}
+.aca{display:flex;gap:8px;margin:12px 0 0 60px}
+/* 登入 */
+.lgh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:44px;padding:0 20px}
+.lgh b{font-size:var(--fs-title);font-weight:600}
+.lgh .tbtn:last-child{justify-self:end}
+.lgseg{display:flex;justify-content:center;padding:6px 20px 0}
+.lgn{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 28px}
+.qrw{position:relative;width:236px;height:236px;margin-top:28px;padding:18px;border-radius:16px;background:#FFFFFF;box-shadow:0 0 0 1px var(--line)}
+.qrw svg{display:block;width:100%;height:100%}
+.qrw.dim svg{opacity:.1}
+.qro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#141416}
+.qro b{font-size:var(--fs-title);font-weight:600}
+.qok{width:52px;height:52px;border-radius:26px;background:#141416;display:flex;align-items:center;justify-content:center}.qok .ic{fill:#fff}
+.qst{margin-top:22px;display:flex;flex-direction:column;align-items:center}
+.qst b{font-size:var(--fs-title);font-weight:600}
+.qst p{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px;max-width:28ch;text-wrap:balance}
+.qst .btn{margin-top:16px}
+.qst p.qtime{font:var(--fs-meta) var(--mono);color:var(--fg3);margin-top:12px}
+.lgalt{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--fg2);padding-top:14px;margin:0 20px;border-top:1px solid var(--line)}
+.wvb{display:flex;align-items:center;gap:6px;height:32px;margin:14px 16px 0;padding:0 10px;border-radius:10px;background:var(--bg2);font:var(--fs-meta) var(--mono);color:var(--fg2)}
+.wvb span{flex:1}
+.wvp{position:absolute;left:0;right:0;top:182px;bottom:96px;background:#F4F4F2;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:44px 40px 0;gap:14px}
+.t-dark .wvp{background:#E9E9E6}
+.wsk{display:block;background:#D9D9D5;border-radius:6px}
+.wsk.w1{width:96px;height:28px}.wsk.w2{width:180px;height:12px;margin-bottom:12px}
+.wsk.f{width:100%;height:42px;background:#FFFFFF;border:1px solid #D2D2CE}
+.wsk.b{width:100%;height:42px;background:#C8C8C4}
+.wsk.w3{width:140px;height:10px}
+.wvp em{font-style:normal;font-size:var(--fs-meta);color:#6B6A65;margin-top:auto;margin-bottom:16px}
+.wvf{position:absolute;left:0;right:0;bottom:0;height:96px;padding:12px 24px 0;font-size:var(--fs-meta);color:var(--fg2);background:var(--bg);border-top:1px solid var(--line)}
+.lgi{font-size:var(--fs-sm);color:var(--fg);padding:8px 20px 4px}
+.steps{counter-reset:s;padding:4px 20px 0}
+.steps li{display:grid;grid-template-columns:20px 1fr;gap:8px;padding:9px 0;font-size:var(--fs-sm);color:var(--fg2);border-bottom:1px solid var(--line)}
+.steps li::before{counter-increment:s;content:counter(s);font:var(--fs-meta)/18px var(--mono);color:var(--fg3)}
+.steps .mn{color:var(--fg)}
+.ta{margin:0 20px;min-height:84px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--bg2);border:1px solid var(--line-strong);font:var(--fs-meta)/1.6 var(--mono);color:var(--fg);word-break:break-all}
+.tchk{display:flex;align-items:center;gap:6px;font-size:var(--fs-meta);color:var(--fg2);padding:10px 20px 0}
+.tchk .ic{fill:var(--accent)}
+.lgf{padding:20px 20px 0}
+.lgd{padding-bottom:28px}
+.lgd .qrw{margin-top:22px}
+/* 插件 */
+.mk{display:flex;align-items:center;justify-content:center;flex:none;border-radius:10px;background:var(--bg2);border:1px solid var(--line-strong);font:600 13px/1 var(--mono);color:var(--fg2)}
+.plg li{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:72px;padding:10px 20px;border-bottom:1px solid var(--line)}
+.plg .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.plg b{font-size:var(--fs-body);font-weight:600}
+.plg i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plg i.caps{color:var(--fg3)}
+.plg li.bad i{white-space:normal}
+.pr-r{display:flex;color:var(--fg3)}
+.rfs.up{color:var(--accent);font-weight:600}
+.rfs.up .tbtn{font-weight:600}
+.sh-h.nb{border-bottom:0;padding-bottom:4px}
+.uph{font-size:var(--fs-meta);font-weight:600;color:var(--fg2);margin-top:12px}
+.rnl{margin-top:6px;padding-left:16px;list-style:disc;font-size:var(--fs-sm)}
+.rnl li{padding:2px 0}
+.upd .tchk,.upd .fnote,.cfm .fnote{padding-left:0;padding-right:0}
+.adds{margin-top:14px;border-top:1px solid var(--line)}
+.adds li{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.adds .pl{font:600 15px/20px var(--mono);color:var(--accent)}
+.adds .tx{display:flex;flex-direction:column;gap:3px}
+.adds b{font-size:14px;font-weight:600}
+.adds i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.pdh{display:flex;gap:14px;align-items:center;padding:0 20px 18px}
+.pdh h1{font-size:var(--fs-h2);line-height:32px;font-weight:700}
+.capl li{display:grid;grid-template-columns:14px minmax(0,1fr);column-gap:12px;align-items:center;min-height:48px;padding:6px 20px;border-bottom:1px solid var(--line)}
+.capl .dot{width:4px;height:4px;border:0;border-radius:2px;background:var(--fg3);justify-self:center}
+.capl .tx{display:flex;flex-direction:column;gap:2px}
+.capl b{font-size:14px;font-weight:600}.capl i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.doml li{display:flex;align-items:center;height:36px;padding:0 20px;border-bottom:1px solid var(--line);font-size:var(--fs-meta)}
+.dh.g,.dg{display:grid;grid-template-columns:36px minmax(0,1fr) 56px 120px minmax(0,1.6fr) 104px;column-gap:14px;align-items:center}
+.dh.g{padding:0;border-bottom:1px solid var(--line-strong)}
+.dgl .dg{position:relative;height:60px;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
+.dg b{font-size:14px;font-weight:600}
+.dg .o{color:var(--fg2);font-size:var(--fs-meta)}
+.dg .caps{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dg .act{display:flex;justify-content:flex-end}
+.dg.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+.dset .rfs{padding:0;margin-top:4px}
+.fnote.d{padding-top:14px}
+/* 匯入舊版備份 */
+.bkp{font-size:var(--fs-sm);color:var(--fg2);padding:0 20px 8px;max-width:60ch}
+.fcard{display:grid;grid-template-columns:26px minmax(0,1fr) auto;column-gap:12px;align-items:center;margin:0 20px 6px;padding:12px 14px;border-radius:var(--r-ctl);background:var(--bg2);color:var(--fg2)}
+.fcard .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fcard b{font-size:var(--fs-meta);font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fcard i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.fcard.err{color:var(--error);grid-template-columns:26px minmax(0,1fr)}
+.fcard.err i{color:var(--error)}
+.dset .fcard{margin:0 0 6px}
+.bkl li{display:grid;grid-template-columns:minmax(0,1fr) auto 20px;column-gap:14px;align-items:center;min-height:56px;padding:8px 20px;border-bottom:1px solid var(--line)}
+.bkl.res li{grid-template-columns:minmax(0,1fr) auto;min-height:52px}
+.bkl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bkl b{font-size:var(--fs-body);font-weight:500}
+.bkl i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
+.bkl .n{font:var(--fs-meta)/1 var(--mono);color:var(--fg2);text-align:right;white-space:nowrap}
+.bkl li.skip b,.bkl li.skip i,.bkl li.skip .n{color:var(--fg3)}
+.ck.dis{opacity:.38;border-style:dashed}
+.dset .bkl li{padding-left:0;padding-right:0}
+.bkf{position:absolute;left:0;right:0;bottom:170px;z-index:2;padding:12px 20px 0;border-top:1px solid var(--line);background:var(--bg)}
+.bkp-l li{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto;column-gap:12px;align-items:center;height:48px;padding:0 20px;border-bottom:1px solid var(--line)}
+.bkp-l b{font-size:var(--fs-body);font-weight:500}
+.bkp-l .n{font:var(--fs-meta)/1 var(--mono);color:var(--fg2)}
+.bkp-l .ld{display:flex;align-items:center;justify-content:center}
+.bkp-l li.done .ic{fill:var(--accent)}
+.bkp-l li.now b,.bkp-l li.now .n{color:var(--accent);font-weight:600}
+.bkp-l li.todo b,.bkp-l li.todo .n{color:var(--fg3)}
+.dot{display:block;width:6px;height:6px;border-radius:3px;border:1.5px solid var(--line-strong)}
+.dbf{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
+.dbf .atp-s{flex:1;margin:0}
+.dbf .btns{display:flex;gap:8px}
+.bke li{display:grid;grid-template-columns:140px minmax(0,1fr);column-gap:14px;align-items:center;min-height:44px;border-bottom:1px solid var(--line);font-size:var(--fs-sm);font-weight:600;color:var(--error)}
+.bke li span{font-weight:400;color:var(--fg2);font-size:var(--fs-meta)}
+.wvp.ns{top:136px}
+.tchk.bad{color:var(--error)}.tchk.bad .ic{fill:var(--error)}
+.lerr{display:flex;flex-direction:column;gap:4px;margin:6px 20px 4px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:var(--fs-sm);color:var(--error)}
+.lerr b{font-weight:600}.lerr span{font-size:var(--fs-meta);color:var(--fg2)}
+.pkl.bat{margin-top:12px;border-top:1px solid var(--line)}
+.pkl.bat li{padding:8px 0;height:auto;min-height:64px}
+.pkl.bat i.up{font-weight:600}
+.pkl.bat i{white-space:normal}
+.dset .pdh{padding:0 0 18px}
+.dset .capl li,.dset .doml li{padding-left:0;padding-right:0}
+
 /* 系統頁 */
 .sys{display:grid;grid-template-columns:repeat(2,minmax(0,560px));gap:32px}
 .card{border-radius:16px;padding:24px;overflow:hidden}
@@ -715,7 +904,7 @@ def html(title, body):
 
 def navlinks():
     return ('<nav class="navl"><a href="index.html">總覽</a><a href="system.html">設計系統</a>'
-            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="playlist.html">歌單詳情</a><a href="add-to-playlist.html">加入歌單</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
+            '<a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="playlist.html">歌單詳情</a><a href="add-to-playlist.html">加入歌單</a><a href="settings.html">設定</a><a href="account.html">帳號與登入</a><a href="plugins.html">插件</a><a href="backup.html">匯入舊版備份</a><a href="shell-b.html">外殼 B（未採用）</a></nav>')
 
 
 NOTE = '<p class="note">曲目、播放量與封面都是示意資料；封面是自繪的幾何圖，不是真實專輯封面。強調色用預設的 FMP 紫。</p>'
@@ -1698,12 +1887,632 @@ def desk_atp(theme, multi=False):
 def page_add_to_playlist():
     body = (navlinks() + '<h1 class="pt">加入歌單對話框</h1>'
             '<p class="lead">照舊版：列出所有本地歌單，可以一次勾多個；已經有這首的歌單預先勾好，取消勾選就是移出。頂端可以就地新建歌單。按鈕不寫「儲存」，直接寫出按下後會發生什麼（「加入 1 個歌單」「加入 1 個、移出 1 個」），沒有變更時停用。手機是從底部升起的玻璃 sheet，桌面是置中的玻璃對話框，底下都壓一層暗幕。</p>'
-            '<p class="note">舊版的「加入遠端歌單」是另一個入口，每個音源再各跳一個對話框。新版併進同一個對話框（設計 session 的決定，待擁有者看稿確認）：本地歌單照舊展開；下面「你的遠端歌單」依選取曲目的音源各一列，預設收起，點一下才展開並向那個平台讀取清單（打開對話框不必每次連三個平台，B 站的風控壓力也小）。收起的列寫帳號與本機已知的摘要：本機的匯入歌單裡已有這首時寫「已在『Vocaloid』」，讓使用者不展開也知道。每個平台記住上次展開或收起；有勾選變動的平台保持展開。展開後只收那個音源的曲目，混音源時段首寫清楚只會加入其中幾首。沒登入的平台不能展開，那一列直接放「登入」；沒有遠端寫入能力的插件不出現。匯入歌單是鏡像，不在清單裡；要改它，就改它的遠端歌單。這個對話框本身就是建立與加入遠端歌單的確認（brief §7）：勾了遠端歌單時，按鈕上方寫出會寫入哪個帳號的哪個歌單；取消勾選遠端歌單是移除，先用 error 色寫出後果，按下後照 brief 再確認一次（畫法見歌單詳情頁）。遠端寫入失敗時對話框不關、勾選保留，寫出哪個成功、哪個失敗與原因，主鈕改成重試；失敗的那邊不改動。多選時，只有部分曲目已在的歌單顯示橫線，點一下變成全部加入。這裡的「新建歌單」就地命名。</p>' + NOTE
+            '<p class="note">舊版的「加入遠端歌單」是另一個入口，每個音源再各跳一個對話框。新版併進同一個對話框（擁有者 2026-11-10 確認）：本地歌單照舊展開；下面「你的遠端歌單」依選取曲目的音源各一列，預設收起，點一下才展開並向那個平台讀取清單（打開對話框不必每次連三個平台，B 站的風控壓力也小）。收起的列寫帳號與本機已知的摘要：本機的匯入歌單裡已有這首時寫「已在『Vocaloid』」，讓使用者不展開也知道。每個平台記住上次展開或收起；有勾選變動的平台保持展開。展開後只收那個音源的曲目，混音源時段首寫清楚只會加入其中幾首。沒登入的平台不能展開，那一列直接放「登入」；沒有遠端寫入能力的插件不出現。匯入歌單是鏡像，不在清單裡；要改它，就改它的遠端歌單。這個對話框本身就是建立與加入遠端歌單的確認（brief §7）：勾了遠端歌單時，按鈕上方寫出會寫入哪個帳號的哪個歌單；取消勾選遠端歌單是移除，先用 error 色寫出後果，按下後照 brief 再確認一次（畫法見歌單詳情頁）。遠端寫入失敗時對話框不關、勾選保留，寫出哪個成功、哪個失敗與原因，主鈕改成重試；失敗的那邊不改動。多選時，只有部分曲目已在的歌單顯示橫線，點一下變成全部加入。這裡的「新建歌單」就地命名。</p>' + NOTE
             + '<h2 class="sec">手機</h2><div class="row">' + phone_atp_single("t-dark") + phone_atp_loading("t-light") + phone_atp_multi("t-dark")
             + phone_atp_remove("t-light") + phone_atp_failed("t-dark") + phone_atp_new("t-light") + phone_atp_empty("t-dark") + '</div>'
             + '<h2 class="sec">桌面</h2><p class="note">桌面版內容相同，按鈕放右下角，Esc 等於取消、Enter 等於主按鈕；方向鍵在清單裡移動，空白鍵勾選。</p><div class="row">'
             + desk_atp("t-dark") + desk_atp("t-light", True) + '</div>')
     return html("FMP 設計稿 · 加入歌單對話框", body)
+
+
+# ---------- 設定、帳號、插件、匯入舊版備份 共用 ----------
+def sgh(label, right=""):
+    """設定類頁面的分組標題：13/600，下方 line-strong，同搜尋的段標題。"""
+    return f'<div class="sgh"><b>{label}</b>{right}</div>'
+
+
+def srow(label, sub="", right="", cls="", chev=False, attrs=""):
+    r = f'<span class="val">{right}{ic("chev", "xs")}</span>' if chev else right
+    c = f' class="{cls}"' if cls else ""
+    s = f"<i>{sub}</i>" if sub else ""
+    return f'<li{c}{attrs}><span class="tx"><b>{label}</b>{s}</span>{r}</li>'
+
+
+def seg(opts, on, label=""):
+    items = "".join(f'<span role="radio" aria-checked="{str(o == on).lower()}"{" class=on" if o == on else ""}>{o}</span>' for o in opts)
+    return f'<span class="seg" role="radiogroup" aria-label="{label}">{items}</span>'
+
+
+def toggle(on, label=""):
+    return f'<span class="sw-t{" on" if on else ""}" role="switch" aria-checked="{str(on).lower()}" aria-label="{label}"><i></i></span>'
+
+
+def swatches(focus=None):
+    out = ""
+    for n, l, d, ok in ACCENTS:
+        if not ok:
+            continue  # 黃色劃掉，不在可選清單
+        on = n == "預設紫"
+        out += (f'<span class="swc{" on" if on else ""}{" focus" if n == focus else ""}" style="--l:{l};--d:{d}" role="radio" '
+                f'aria-checked="{str(on).lower()}" aria-label="{n}">{ic("check", "xs") if on else ""}</span>')
+    return f'<span class="sws" role="radiogroup" aria-label="強調色">{out}</span>'
+
+
+def sub_top(back, right=""):
+    return f'<div class="topbar"><span class="tb-back" role="button">{ic("back", "l")}<span>{back}</span></span>{right}</div>'
+
+
+def sub_head(title, meta="", right=""):
+    m = f'<p class="qmeta">{meta}</p>' if meta else ""
+    return f'<header class="lh sub"><div><h1>{title}</h1>{m}</div>{right}</header>'
+
+
+def cbar(title):
+    """捲動後的頂列：大標題捲走，留一條實心的小標題列。"""
+    return f'<div class="cbar"><b>{title}</b></div>'
+
+
+# ---------- 設定 ----------
+def set_group(key, desktop=False, focus=None):
+    if key == "acct":
+        return (sgh("帳號與插件") + '<ul class="sgl">'
+                + srow("帳號", right='2 個已登入 · <em class="warn">1 個會員快到期</em>', chev=True)
+                + srow("插件", right='<em class="up">2 個有新版本</em>', chev=True) + '</ul>')
+    if key == "look":
+        theme_row = srow("主題", right=seg(["跟隨系統", "淺色", "深色"], "跟隨系統", "主題"))
+        accent_row = (f'<li class="stack"><span class="tx"><b>強調色</b><i>預設紫 · 只用在按鈕、選中與正在播放</i></span>{swatches(focus)}</li>')
+        return (sgh("外觀") + '<ul class="sgl">' + theme_row + accent_row
+                + srow("語言", right="跟隨系統（繁體中文）", chev=True) + '</ul>')
+    if key == "play":
+        return (sgh("播放") + '<ul class="sgl">'
+                + srow("音質", "依偏好與帳號的會員狀態，選可用的最高一級", "偏好：高", chev=True)
+                + srow("臨時播放結束後倒退", "回到佇列原本那首時，往前倒一點", "10 秒", chev=True)
+                + srow("重新開啟後倒退", "App 重開後接著上次的進度，不會自動播放", "不倒退", chev=True) + '</ul>')
+    if key == "lyrics":
+        return (sgh("歌詞") + '<ul class="sgl">'
+                + srow("自動匹配歌詞", "播放時還沒有配對的歌詞，才自動去找", toggle(True, "自動匹配歌詞"))
+                + srow("歌詞源順序", "排前面的先找", "網易雲、lrclib", chev=True) + '</ul>')
+    if key == "cache":
+        return (sgh("快取") + '<ul class="sgl">'
+                + srow("圖片快取", "封面與頭像", '已用 <span class="mn">18.4 MB</span> · 上限 32 MB', chev=True)
+                + srow("歌詞快取", "", '已用 <span class="mn">31</span> 個 · 上限 50 個', chev=True) + '</ul>')
+    if key == "data":
+        return (sgh("資料") + '<ul class="sgl">'
+                + srow("匯入舊版備份", "把 FMP 1.x 匯出的 JSON 搬進來：歌單、搜尋紀錄、歌詞配對、設定", chev=True) + '</ul>')
+    if key == "about":
+        return (sgh("關於") + '<ul class="sgl">'
+                + srow("版本", right='<span class="val mn">2.0.0</span>')
+                + srow("匯出診斷", "打包 log 與裝置資訊；帳號憑證一律遮蔽", chev=True)
+                + srow("原始碼與發佈頁", right=f'<span class="val">GitHub{ic("ext", "xs")}</span>')
+                + srow("開源授權", chev=True) + '</ul>')
+    return ""
+
+
+SET_ALL = ["acct", "look", "play", "lyrics", "cache", "data", "about"]
+
+
+def phone_settings_top(theme):
+    body = f'<header class="lh"><div><h1>設定</h1></div></header>' + "".join(set_group(k) for k in ["acct", "look", "play"])
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"設定 · 帳號與插件在最上面，主題與強調色直接在列上選 · {theme_name(theme)}")
+
+
+def phone_settings_scrolled(theme):
+    body = cbar("設定") + '<div class="scut">' + "".join(set_group(k) for k in ["lyrics", "cache", "data", "about"]) + '</div>'
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"設定 · 往下捲：歌詞、快取、資料、關於 · {theme_name(theme)}")
+
+
+# 各音源的音質是示意：實際清單由插件列出，並標明哪些要會員
+QUALITY = [
+    ("Bilibili", "大會員", [("Hi-Res 無損", "VIP", True), ("192 kbps", None, False), ("132 kbps", None, False), ("64 kbps", None, False)]),
+    ("網易雲音樂", "黑膠 VIP · 11-22 到期，剩 12 天", [("Hi-Res", "VIP", "你的會員不含這一級"), ("無損 FLAC", "VIP", True), ("極高 320 kbps", None, False), ("標準 128 kbps", None, False)]),
+    ("YouTube", "未登入", [("160 kbps Opus", None, True), ("128 kbps AAC", None, False)]),
+]
+
+
+def quality_groups():
+    out = ""
+    for src, mem, qs in QUALITY:
+        rows = ""
+        for name, acc, cur in qs:
+            no = isinstance(cur, str)  # 字串：帳號用不了這一級，寫出原因
+            right = (f'<span class="qr-r">{access(acc)}' + (f'<em class="curm">{ic("check", "xs")}會用這個</em>' if cur is True else "") + '</span>')
+            rows += srow(name, cur if no else "", right, "cur" if cur is True else "no" if no else "")
+        out += sgh(src, f'<span class="sgm">{mem}</span>') + f'<ul class="sgl q">{rows}</ul>'
+    return out
+
+
+def phone_quality(theme):
+    pref = (f'<ul class="sgl">{srow("偏好", "播放時選不超過偏好、帳號用得了的最高一級", seg(["高", "中", "低"], "高", "偏好音質"))}</ul>')
+    body = (sub_top("設定") + sub_head("音質") + pref + quality_groups()
+            + '<p class="fnote">清單由各插件列出，標了 VIP 的要會員。Apple 平台的 YouTube 一律用 AAC。播放失敗會先降一級重試。</p>')
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"設定 › 音質 · 每個音源標出現在會用哪一級 · {theme_name(theme)}")
+
+
+def desk_settings_main(focus=None):
+    return f'<div class="dset">{sub_head("設定")}' + "".join(set_group(k, True, focus) for k in SET_ALL) + '</div>'
+
+
+def page_settings():
+    body = (navlinks() + '<h1 class="pt">設定</h1>'
+            '<p class="lead">照舊版的分組與順序：帳號（新版多了插件）、外觀、播放、歌詞、快取、資料、關於。帳號與插件管理從這裡進入（brief §11）。每列左邊寫設定名稱與一句後果，右邊寫目前的值；值能在列上直接改的（主題、強調色、開關）就不另開對話框。</p>'
+            '<p class="note">和舊版不同的地方：拿掉字體（新版每個平台用一個系統字族，字級跟系統設定；擁有者 2026-11-10 確認）；強調色只剩預設清單的 8 色，沒有自訂色（DESIGN.md 的 One Accent Rule）；「自動定位目前播放」與「記住播放位置」不再是開關，因為 brief §6 已經定成一律這樣做，只留兩個倒退秒數；「用帳號播放」移到帳號頁各帳號底下。第一版沒有的功能（首頁排行、電台、下載、播放歷史、托盤與快捷鍵、應用內更新、開發者選項）連同它們的設定一起拿掉。分組標題用 13/600 的墨色字加 line-strong 底線，不用強調色：強調色只標互動與狀態。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_settings_top("t-dark") + phone_settings_top("t-light")
+            + phone_settings_scrolled("t-dark") + phone_quality("t-light") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面的設定在內容欄裡排成一欄，最寬 720，右側詳情面板照舊。淺色稿的鍵盤焦點在強調色的「藍」：方向鍵在色點之間移動，空白鍵選取。</p><div class="row">'
+            + desk_frame_a("t-dark", "設定", desk_settings_main(), "設定 · 桌面（1280×800）")
+            + desk_frame_a("t-light", "設定", desk_settings_main("藍"), "設定 · 桌面，鍵盤焦點在強調色（1280×800）") + '</div>')
+    return html("FMP 設計稿 · 設定", body)
+
+
+# ---------- 帳號與登入 ----------
+def avatar(k=None, src=""):
+    """示意頭像：自繪幾何圖，不是真實頭像。沒登入時是虛線圈加音源縮寫。"""
+    if k is None:
+        return f'<span class="av ax" aria-hidden="true">{src}</span>'
+    return f'<span class="av">{cover_svg(k)}</span>'
+
+
+def acc_rows(rows):
+    out = ""
+    for label, value, right in rows:
+        out += f'<li><span>{label}</span><span class="v">{value}</span>{right}</li>'
+    return f'<ul class="acl">{out}</ul>'
+
+
+def acc_block(name, sub, k=None, short="", rows=(), acts="", head_right="", note=""):
+    return (f'<section class="acb"><div class="ach">{avatar(k, short)}<span class="tx"><b>{name}</b><i>{sub}</i></span>{head_right}</div>'
+            f'{f"<p class=acn>{note}</p>" if note else ""}{acc_rows(rows) if rows else ""}{f"<div class=aca>{acts}</div>" if acts else ""}</section>')
+
+
+def use_acct(on, why):
+    return ("播放用帳號", f'<span class="why">{why}</span>', toggle(on, "播放時帶上這個帳號"))
+
+
+def acc_bili(expired_mem=False):
+    mem = ('<span class="err">大會員 11-03 已過期</span>', "") if expired_mem else ("大會員 · 2027-03-01 到期", "")
+    sub = "示意帳號" if expired_mem else f'示意帳號 {access("VIP")}'
+    note = "大會員過期了：會員曲目改播試聽，音質降到 192 kbps。" if expired_mem else ""
+    return acc_block("Bilibili", sub, 9, note=note, rows=[
+        ("會員", mem[0], mem[1]),
+        ("可用音質", "192 kbps" if expired_mem else "最高 Hi-Res 無損", ""),
+        use_acct(True, "B 站會限流沒登入的請求"),
+    ], acts=f'<span class="btn ton sm">{ic("link", "s")}匯入我的收藏夾</span><span class="btn out sm">登出</span>')
+
+
+def acc_netease(expired=False):
+    if expired:
+        return acc_block("網易雲音樂", '<span class="err">示意帳號 · 登入已失效</span>', 4, rows=[
+            ("會員", '<span class="dim">重新登入後再讀取</span>', ""),
+            ("可用音質", "標準 128 kbps（未登入）", ""),
+        ], acts=f'<span class="btn pri sm">重新登入</span><span class="btn out sm">登出</span>',
+            note="憑證過期了。登入前，VIP 曲目只能試聽，匯入歌單也刷新不了。")
+    return acc_block("網易雲音樂", f'示意帳號 {access("VIP")}', 4, rows=[
+        ("會員", '黑膠 VIP · 11-22 到期，<em class="warn">剩 12 天</em>', ""),
+        ("可用音質", "最高無損 FLAC", ""),
+        use_acct(True, "VIP 與需要帳號的歌曲要開"),
+    ], acts=f'<span class="btn ton sm">{ic("link", "s")}匯入我的歌單</span><span class="btn out sm">登出</span>')
+
+
+def acc_youtube():
+    return acc_block("YouTube", "未登入", short="YT", head_right='<span class="btn pri sm">登入</span>',
+                     note="登入後可以匯入與寫入你的播放清單，也能播需要帳號的影片。")
+
+
+def acct_head(desktop=False):
+    right = f'<span class="ib" role="button" aria-label="重新檢查帳號狀態">{ic("refresh")}</span>'
+    return sub_head("帳號", "每個音源一個帳號 · 剛剛檢查", right)
+
+
+def phone_account(theme):
+    body = sub_top("設定") + acct_head() + acc_bili() + acc_youtube() + acc_netease()
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"帳號 · 已登入、會員快到期、未登入 · {theme_name(theme)}")
+
+
+def phone_account_bad(theme):
+    body = sub_top("設定") + acct_head() + acc_netease(True) + acc_bili(True) + acc_youtube()
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"帳號 · 登入失效排到最上面；會員已過期寫出影響 · {theme_name(theme)}")
+
+
+def qr_svg(seed=7, n=25):
+    """示意 QR：亂數方塊加三個定位框，不能掃。"""
+    import random
+    rnd = random.Random(seed)
+    corners = [(0, 0), (n - 7, 0), (0, n - 7)]
+    reserved = {(fx + i, fy + j) for fx, fy in corners for i in range(-1, 8) for j in range(-1, 8)}
+    mods = "".join(f"M{x} {y}h1v1h-1z" for y in range(n) for x in range(n) if (x, y) not in reserved and rnd.random() < 0.47)
+    finders = "".join(f"M{x} {y}h7v7h-7zM{x + 1} {y + 1}v5h5v-5zM{x + 2} {y + 2}h3v3h-3z" for x, y in corners)
+    return (f'<svg viewBox="0 0 {n} {n}" shape-rendering="crispEdges" aria-hidden="true"><path fill="#141416" d="{mods}"/>'
+            f'<path fill="#141416" fill-rule="evenodd" d="{finders}"/></svg>')
+
+
+def login_top(src):
+    return (f'<div class="lgh"><span class="tbtn" role="button">取消</span><b>登入 {src}</b>'
+            f'<span class="tbtn ghost" aria-hidden="true">取消</span></div>')
+
+
+def qr_block(state, app, seed=7):
+    if state == "wait":
+        over, dim = "", ""
+        st = (f'<b>用 {app} App 掃描</b><p>掃描後在手機上按確認，這裡就會完成登入。</p>'
+              f'<p class="qtime">2:41 後失效</p>')
+    elif state == "scanned":
+        over = f'<span class="qro"><span class="qok">{ic("check")}</span><b>已掃描</b></span>'
+        dim = " dim"
+        st = '<b>請在手機上確認登入</b><p>確認後這裡會自動完成；手機上按了取消，就重新掃一次。</p>'
+    else:
+        over = '<span class="qro"><b>已失效</b></span>'
+        dim = " dim"
+        st = (f'<b class="err">QR 碼已失效</b><p>QR 碼過一段時間就不能用，重新產生一個再掃。</p>'
+              f'<span class="btn pri">{ic("refresh", "s")}重新產生</span>')
+    return f'<div class="lgn"><div class="qrw{dim}">{qr_svg(seed)}{over}</div><div class="qst" role="status">{st}</div></div>'
+
+
+def phone_login_qr(theme, state, src="Bilibili", seed=7):
+    alt = '<p class="lgalt">只有這支手機？<span class="tbtn" role="button">改用網頁登入</span></p>'
+    body = (login_top(src) + f'<div class="lgseg">{seg(["掃碼登入", "網頁登入"], "掃碼登入", "登入方式")}</div>'
+            + qr_block(state, src if src != "網易雲音樂" else "網易雲音樂", seed) + alt)
+    cap = {"wait": "掃碼登入 · 等待掃描", "scanned": "掃碼登入 · 已掃描，等手機確認", "expired": "掃碼登入 · QR 碼失效"}[state]
+    return phone(theme, f'<div class="scroll">{body}</div>', f"{cap}（{src}）· {theme_name(theme)}")
+
+
+def phone_login_web(theme, src="Bilibili", domain="passport.bilibili.com", with_seg=True):
+    page = (f'<div class="wvp{"" if with_seg else " ns"}" aria-label="{src} 的登入網頁（示意）"><span class="wsk w1"></span><span class="wsk w2"></span>'
+            '<span class="wsk f"></span><span class="wsk f"></span><span class="wsk b"></span><span class="wsk w3"></span>'
+            f'<em>這裡是 {src} 自己的登入網頁</em></div>')
+    sg = f'<div class="lgseg">{seg(["掃碼登入", "網頁登入"], "網頁登入", "登入方式")}</div>' if with_seg else ""
+    body = (login_top(src) + sg
+            + f'<div class="wvb">{ic("lock", "xs")}<span>{domain}</span>{ic("refresh", "xs")}</div>'
+            + page + f'<p class="wvf">帳號密碼輸入在 {src} 的網頁裡。登入完成會自動回到 FMP，FMP 只保存登入後的憑證。</p>')
+    cap = f"網頁登入（{src}）· " + ("網址列寫出目前在哪個網域" if with_seg else "YouTube 只有網頁登入，沒有分段")
+    return phone(theme, f'<div class="scroll">{body}</div>', f"{cap} · {theme_name(theme)}")
+
+
+def phone_login_cookie(theme, state="missing"):
+    if state == "missing":
+        val = "SAPISID=***; __Secure-1PSID=***"
+        check = f'<p class="tchk bad">{ic("info", "xs")}還少 <span class="mn">__Secure-3PSID</span></p>'
+        foot = '<span class="btn pri wide dis" aria-disabled="true">登入</span>'
+        alert, cap = "", "貼上 cookie · 缺了必要的一項，登入鈕停用"
+    else:
+        val = "SAPISID=***; __Secure-1PSID=***; __Secure-3PSID=***"
+        check = f'<p class="tchk">{ic("check", "xs")}三個必要的 cookie 都有了</p>'
+        foot = '<span class="btn pri wide">再試一次</span>'
+        alert = ('<div class="lerr" role="alert"><b>YouTube 不接受這組 cookie</b>'
+                 '<span>多半是已經過期或在瀏覽器登出了。重新登入 youtube.com 後再複製一次。</span></div>')
+        cap = "貼上 cookie · 送出後被 YouTube 拒絕"
+    body = (login_top("YouTube")
+            + '<p class="lgi">在這台裝置上沒辦法用網頁登入 YouTube，改成貼上 cookie。</p>' + alert
+            + '<ol class="steps"><li><span>在電腦的瀏覽器登入 youtube.com</span></li>'
+            '<li><span>從 youtube.com 的 cookie 複製 <span class="mn">SAPISID</span>、<span class="mn">__Secure-1PSID</span>、<span class="mn">__Secure-3PSID</span></span></li>'
+            '<li><span>貼到下面，寫成「名稱=值」，用分號隔開</span></li></ol>'
+            + f'<label class="fl">Cookie</label><div class="ta">{val}</div>' + check
+            + '<p class="fnote">cookie 只存在這台裝置的安全儲存區，不會寫進 log、診斷與備份。</p>'
+            + f'<div class="lgf">{foot}</div>')
+    return phone(theme, f'<div class="scroll">{body}</div>', f"{cap}（網頁登入行不通的平台；是哪個平台由 M2 實測決定）· {theme_name(theme)}")
+
+
+def desk_account_main():
+    return f'<div class="dset">{sub_top("設定")}{acct_head(True)}{acc_bili()}{acc_youtube()}{acc_netease()}</div>'
+
+
+def desk_login_dialog():
+    return (f'<div class="scrim"></div><div class="ddlg glass lgd" role="dialog" aria-labelledby="d-lg">'
+            f'<div class="ddlg-h"><b id="d-lg">登入網易雲音樂</b><span class="ib" role="button" aria-label="關閉">{ic("close", "s")}</span></div>'
+            f'<div class="lgseg">{seg(["掃碼登入", "網頁登入"], "掃碼登入", "登入方式")}</div>'
+            f'{qr_block("scanned", "網易雲音樂", 11)}</div>')
+
+
+def page_account():
+    body = (navlinks() + '<h1 class="pt">帳號與登入</h1>'
+            '<p class="lead">從設定進入。每個音源一段：頭像、帳號名稱，下面三列寫會員、這個帳號用得了的最高音質、播放時要不要帶上帳號，最後是動作。會員狀態寫等級與到期日，快到期用試聽的金色、已過期用 error 色，並寫出影響（brief §5.4）。登入失效的帳號排到最上面。</p>'
+            '<p class="note">和舊版不同的地方：舊版只有一個 VIP 小圖示，新版寫出等級與到期日；「用帳號播放」從音質頁搬到各帳號底下；B 站的「電台」鈕拿掉（第一版沒有電台）；「歌單」鈕改名「匯入我的收藏夾／歌單」，開的是舊版那個選歌單匯入的 sheet。音源列表來自有帳號插件能力的插件，沒有音源專屬的畫面。登入照 brief §8：B 站與網易雲有掃碼和網頁兩種，YouTube 只有網頁；網頁登入行不通的平台，YouTube 改貼 cookie。手機上掃碼的問題是 QR 和掃描的 App 常在同一支手機上，所以 QR 下方直接給「改用網頁登入」。網頁登入的內容是音源自己的網頁，FMP 只畫外框與網址列；稿裡用灰塊代替，不仿畫音源的頁面。頭像是自繪幾何圖，帳號名稱一律寫「示意帳號」。登出前照舊版確認一次（未畫，版面同歌單詳情的確認）。</p>' + NOTE
+            + '<h2 class="sec">帳號 · 手機</h2><div class="row">' + phone_account("t-dark") + phone_account_bad("t-light") + '</div>'
+            + '<h2 class="sec">登入 · 手機</h2><div class="row">' + phone_login_qr("t-dark", "wait") + phone_login_qr("t-light", "scanned", "網易雲音樂", 11)
+            + phone_login_qr("t-dark", "expired", seed=3) + phone_login_web("t-light")
+            + phone_login_web("t-dark", "YouTube", "accounts.google.com", False)
+            + phone_login_cookie("t-light", "missing") + phone_login_cookie("t-dark", "rejected") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面的登入是置中的玻璃對話框，掃碼與網頁登入同樣用分段切換；網頁登入時對話框放大成 720×600，內容同手機。</p><div class="row">'
+            + desk_frame_a("t-dark", "設定", desk_account_main(), "帳號 · 桌面（1280×800）")
+            + desk_frame_a("t-light", "設定", desk_account_main(), "登入對話框 · 掃碼後等手機確認（1280×800）", overlay=desk_login_dialog()) + '</div>')
+    return html("FMP 設計稿 · 帳號與登入", body)
+
+
+# ---------- 插件管理 ----------
+# (名稱, 縮寫, 類型, 版本, 來源, 插件能力, 新版本)；版本與能力是示意
+PLUGINS = [
+    ("Bilibili", "B", "音源", "1.0.3", "隨 App 內建", ["搜尋", "串流", "帳號", "會員狀態", "遠端歌單", "遠端寫入"], None),
+    ("YouTube", "YT", "音源", "1.2.0", "11-02 更新", ["搜尋", "串流", "帳號", "遠端歌單"], "1.3.0"),
+    ("網易雲音樂", "網", "音源", "1.0.2", "隨 App 內建", ["搜尋", "串流", "帳號", "會員狀態", "遠端歌單", "遠端寫入", "歌詞"], "1.0.3"),
+    ("lrclib", "lr", "歌詞源", "1.0.0", "隨 App 內建", ["歌詞"], None),
+]
+
+
+def mark(short, size=40):
+    return f'<span class="mk" style="width:{size}px;height:{size}px" aria-hidden="true">{short}</span>'
+
+
+def plg_row(p, state=None, focus=False):
+    name, short, kind, ver, origin, caps, new = p
+    cap = "、".join(caps)
+    if state == "busy":
+        line = f'<em class="up">下載中 · 64%</em>'
+        right, bar, cls = "", '<span class="rline" style="width:64%"></span>', "busy"
+    elif state == "verify":
+        line = '<em class="up">比對 SHA-256…</em>'
+        right, bar, cls = "", '<span class="rline" style="width:100%"></span>', "busy"
+    elif state == "err":
+        line = '<em class="err">SHA-256 和發佈頁不符，沒有安裝</em>'
+        right, bar, cls = '<span class="btn out sm">重試</span>', "", "bad"
+    elif state == "done":
+        line = f'<span class="mn">{new}</span> · 剛剛更新'
+        right, bar, cls = ic("chev", "xs"), "", ""
+        ver = new
+    elif new:
+        line = f'<span class="mn">{ver} → <em class="up">{new}</em></span>'
+        right, bar, cls = '<span class="btn ton sm">更新</span>', "", ""
+    else:
+        line = f'<span class="mn">{ver}</span> · {origin}'
+        right, bar, cls = ic("chev", "xs"), "", ""
+    cls += " focus" if focus else ""
+    if state == "err":  # 失敗時第三行改寫仍在用的版本
+        cap = f'仍在用 <span class="mn">{ver}</span>'
+    return (f'<li class="{cls.strip()}">{mark(short)}<span class="tx"><b>{name}</b><i>{line}</i><i class="caps">{cap}</i></span>'
+            f'<span class="pr-r">{right}</span>{bar}</li>')
+
+
+def plg_list(states=None):
+    states = states or {}
+    src = "".join(plg_row(p, states.get(p[0])) for p in PLUGINS if p[2] == "音源")
+    lyr = "".join(plg_row(p, states.get(p[0])) for p in PLUGINS if p[2] == "歌詞源")
+    return sgh("音源") + f'<ul class="plg">{src}</ul>' + sgh("歌詞源") + f'<ul class="plg">{lyr}</ul>'
+
+
+def plg_strip(kind="updates"):
+    if kind == "updates":
+        return refresh_row("busy-no", "2 個插件有新版本 · 今天 09:12 檢查", "全部更新…").replace('class="rfs busy-no"', 'class="rfs up"')
+    if kind == "busy":
+        return refresh_row("busy", "正在更新 2 個插件")
+    return refresh_row("ok", "都是最新版本 · 剛剛檢查")
+
+
+def plg_head():
+    return sub_head("插件", "4 個插件 · 音源與歌詞都由插件提供", f'<span class="btn ton sm">{ic("refresh", "s")}檢查更新</span>')
+
+
+def phone_plugins(theme, overlay="", states=None, strip="updates", cap=""):
+    body = sub_top("設定") + plg_head() + plg_strip(strip) + plg_list(states)
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}{overlay}'
+    return phone(theme, inner, f"{cap} · {theme_name(theme)}")
+
+
+def update_sheet():
+    p = PLUGINS[2]
+    notes = "".join(f"<li>{x}</li>" for x in ["修正部分 VIP 歌曲被標成免費", "搜尋結果多帶專輯名稱", "QR 登入失效後的提示改得更清楚"])
+    return (f'<div class="scrim"></div><div class="sheet glass cfm upd" role="dialog" aria-labelledby="upd-t"><span class="grab"></span>'
+            f'<div class="sh-h nb">{mark(p[1], 48)}<div><b id="upd-t">更新網易雲音樂插件</b><i><span class="mn">1.0.2 → 1.0.3</span> · 186 KB</i></div></div>'
+            f'<p class="uph">新版內容</p><ul class="rnl">{notes}</ul>'
+            f'<p class="tchk">{ic("check", "xs")}插件能力與可連線的網域都沒有變</p>'
+            f'<p class="fnote">下載後先比對發佈頁寫的 SHA-256，對不上就不安裝，維持 1.0.2。</p>'
+            f'<div class="cf-b"><span class="btn pri">更新到 1.0.3</span><span class="btn out">取消</span></div></div>')
+
+
+def batch_sheet():
+    rows = ""
+    for p, note in [(PLUGINS[1], "新版多要 1 項插件能力、1 個網域；按下更新後會先單獨問你"), (PLUGINS[2], "插件能力與網域沒有變")]:
+        rows += (f'<li>{mark(p[1])}<span class="tx"><b>{p[0]}</b><i><span class="mn">{p[3]} → {p[6]}</span></i>'
+                 f'<i{" class=up" if "單獨" in note else ""}>{note}</i></span>{ck(True)}</li>')
+    return (f'<div class="scrim"></div><div class="sheet glass cfm" role="dialog" aria-labelledby="bat-t"><span class="grab"></span>'
+            f'<h2 id="bat-t">更新 2 個插件</h2><p>取消勾選的維持現在的版本。</p><ul class="pkl bat">{rows}</ul>'
+            f'<p class="fnote">每個插件下載後都先比對 SHA-256，對不上的不安裝。</p>'
+            f'<div class="cf-b"><span class="btn pri">更新 2 個</span><span class="btn out">取消</span></div></div>')
+
+
+def perm_body(tid):
+    adds = [("插件能力", "遠端寫入", "把曲目加進你的 YouTube 播放清單，或從播放清單移除；每次寫入前仍會先確認"),
+            ("網域", '<span class="mn">music.youtube.com</span>', "插件只能連宣告過的網域")]
+    rows = "".join(f'<li><span class="pl">+</span><span class="tx"><b>{v}</b><i>{k} · {d}</i></span></li>' for k, v, d in adds)
+    return (f'<h2 id="{tid}">YouTube 插件 1.3.0 要多做這些事</h2>'
+            f'<p>同意才安裝；不同意就維持 1.2.0，之後還能再更新。</p><ul class="adds">{rows}</ul>')
+
+
+def perm_sheet():
+    return (f'<div class="scrim"></div><div class="sheet glass cfm" role="alertdialog" aria-labelledby="perm-t"><span class="grab"></span>'
+            f'{perm_body("perm-t")}<div class="cf-b"><span class="btn pri">同意並更新</span><span class="btn out">維持 1.2.0</span></div></div>')
+
+
+def plugin_detail_body():
+    p = PLUGINS[0]
+    caps = [("搜尋", "搜尋頁的 Bilibili 結果與篩選片"), ("串流", "播放 Bilibili 的曲目，含分 P"), ("帳號", "帳號頁的掃碼與網頁登入"),
+            ("會員狀態", "大會員狀態、曲目的 VIP 標識"), ("遠端歌單", "匯入收藏夾、定時刷新"), ("遠端寫入", "加入歌單對話框裡的 B 站收藏夾、從收藏夾移除")]
+    cap_rows = "".join(f'<li><i class="dot" aria-hidden="true"></i><span class="tx"><b>{c}</b><i>{d}</i></span></li>' for c, d in caps)
+    doms = "".join(f'<li class="mn">{d}</li>' for d in ["api.bilibili.com", "passport.bilibili.com", "*.bilivideo.com", "*.hdslb.com"])
+    return (sub_top("插件") + f'<header class="pdh">{mark(p[1], 56)}<div><h1>{p[0]}</h1><p class="qmeta">音源插件 · <span class="mn">1.0.3</span> · 隨 App 2.0.0 內建</p></div></header>'
+            + sgh("插件能力", '<span class="sgm">介面依這些出現入口</span>') + f'<ul class="capl">{cap_rows}</ul>'
+            + sgh("可以連線的網域") + f'<ul class="doml">{doms}</ul><p class="fnote">插件只能連這些網域，不能讀寫檔案。</p>'
+            + sgh("版本") + '<ul class="sgl">' + srow("SHA-256", right='<span class="val mn">9c1e…4b07</span>')
+            + srow("上次檢查", right='<span class="val">今天 09:12 · 已是最新</span>') + '</ul>')
+
+
+def phone_plugin_detail(theme):
+    inner = f'<div class="scroll">{plugin_detail_body()}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"插件詳情 · 插件能力寫出它在介面上開了哪些入口 · {theme_name(theme)}")
+
+
+def desk_plugin_detail_main():
+    return f'<div class="dset">{plugin_detail_body()}</div>'
+
+
+DPL_HEAD = '<div class="dh g"><span></span><span>插件</span><span>類型</span><span>版本</span><span>插件能力</span><span></span></div>'
+
+
+def dplg_row(p, state=None, focus=False):
+    name, short, kind, ver, origin, caps, new = p
+    if state == "busy":
+        v, act = f'<span class="mn">{ver} → {new}</span>', '<em class="up">下載中 64%</em>'
+    elif new:
+        v, act = f'<span class="mn">{ver} → <em class="up">{new}</em></span>', '<span class="btn ton sm">更新</span>'
+    else:
+        v, act = f'<span class="mn">{ver}</span>', f'<span class="o">{origin}</span>'
+    bar = '<span class="rline" style="width:64%"></span>' if state == "busy" else ""
+    return (f'<li class="dg{" focus" if focus else ""}">{mark(short, 36)}<span class="tx"><b>{name}</b></span><span class="o">{kind}</span>{v}'
+            f'<span class="o caps">{"、".join(caps)}</span><span class="act">{act}</span>{bar}</li>')
+
+
+def desk_plugins_main(focus=False):
+    rows = "".join(dplg_row(p, focus=(focus and i == 1)) for i, p in enumerate(PLUGINS))
+    return (f'<div class="dset w">{sub_top("設定")}{plg_head()}{plg_strip()}{DPL_HEAD}<ul class="dgl">{rows}</ul>'
+            f'<p class="fnote d">點一列看插件能力與可連線的網域。更新從 GitHub 發佈頁取得，安裝前比對 SHA-256；不會在背景自動更新。</p></div>')
+
+
+def desk_perm_dialog():
+    return (f'<div class="scrim"></div><div class="ddlg glass cfm cfmd" role="alertdialog" aria-labelledby="d-perm">{perm_body("d-perm")}'
+            f'<div class="cf-b"><span class="btn out">維持 1.2.0</span><span class="btn pri">同意並更新</span></div></div>')
+
+
+def page_plugins():
+    body = (navlinks() + '<h1 class="pt">插件管理</h1>'
+            '<p class="lead">從設定進入。音源與歌詞源分兩段，每列寫名稱、版本與它宣告的插件能力；介面上的入口就是依這些能力出現的。有新版本時，列右側出現「更新」，版本寫成「舊 → 新」。</p>'
+            '<p class="note">更新照 brief §5.1：只在這頁手動檢查，列出新版本，經使用者確認才安裝；安裝前比對 SHA-256，對不上就不裝並維持舊版。新版要求的插件能力或網域變多時，第一次確認之後再跳一次權限確認，逐條寫出多了什麼、會讓插件多做什麼；不同意就維持舊版。插件的標記是縮寫字樣，不用音源的商標。第一版沒有第三方插件來源（ADR 0038），所以沒有「新增插件」。版本號、更新內容與網域清單都是示意。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">'
+            + phone_plugins("t-dark", cap="插件 · 兩個有新版本")
+            + phone_plugins("t-dark", batch_sheet(), cap="全部更新 · 一起列出，權限變多的那個之後再單獨問")
+            + phone_plugins("t-light", update_sheet(), cap="單個更新確認 · 插件能力與網域沒變，一次確認")
+            + phone_plugins("t-dark", perm_sheet(), cap="權限確認 · 新版多要了插件能力與網域，再確認一次")
+            + phone_plugins("t-light", states={"YouTube": "busy", "網易雲音樂": "err"}, strip="busy", cap="更新中與更新失敗 · 失敗的維持舊版")
+            + phone_plugin_detail("t-dark") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面把插件排成表格，插件能力整串寫在一欄；點一列在內容欄推入詳情頁（右側面板照舊是正在播放）；權限確認是置中的玻璃對話框，「同意並更新」在右下，Esc 等於「維持 1.2.0」。淺色稿的鍵盤焦點在 YouTube 那列。</p><div class="row">'
+            + desk_frame_a("t-dark", "設定", desk_plugins_main(), "插件 · 桌面（1280×800）")
+            + desk_frame_a("t-light", "設定", desk_plugins_main(True), "插件 · 權限確認（1280×800）", overlay=desk_perm_dialog())
+            + desk_frame_a("t-dark", "設定", desk_plugin_detail_main(), "插件詳情 · 桌面在內容欄推入一頁，右側面板照舊（1280×800）") + '</div>')
+    return html("FMP 設計稿 · 插件管理", body)
+
+
+# ---------- 匯入舊版備份 ----------
+BK_FILE = "fmp_backup_2026-11-09T21-30-12.json"
+
+
+def bk_file():
+    return (f'<div class="fcard">{ic("file", "l")}<span class="tx"><b class="mn">{BK_FILE}</b>'
+            f'<i>舊版 1.11.0 匯出 · 2026-11-09 21:30 · 備份格式 5</i></span><span class="tbtn" role="button">換一個</span></div>')
+
+
+# (名稱, 說明, 筆數, 狀態)：True 勾選、"skip" 第一版沒有這個功能
+BK_ITEMS = [("歌單", "本地 15 · 匯入 8，含 2,481 首曲目；匯入歌單沿用原本的刷新間隔", "23", True),
+            ("搜尋紀錄", "", "120", True),
+            ("歌詞配對", "曲目和歌詞的對應與偏移", "342", True),
+            ("設定", "主題、強調色、語言、音質、歌詞；新版沒有的設定略過", "", True),
+            ("播放歷史", "新版還沒有播放歷史，略過", "5,210", "skip"),
+            ("電台", "新版還沒有電台，略過", "6", "skip")]
+
+
+def bk_rows(items=BK_ITEMS):
+    out = ""
+    for name, sub, n, st in items:
+        if st == "skip":
+            tail, cls = '<span class="ck dis" aria-disabled="true"></span>', ' class="skip"'
+        else:
+            tail, cls = ck(st), ""
+        out += f'<li{cls}><span class="tx"><b>{name}</b>{f"<i>{sub}</i>" if sub else ""}</span><span class="n">{n}</span>{tail}</li>'
+    return f'<ul class="bkl">{out}</ul>'
+
+
+def phone_bk_intro(theme):
+    body = (sub_top("設定") + sub_head("匯入舊版備份")
+            + '<p class="bkp">把 FMP 1.x 的資料搬進新版。先在舊版的「設定 → 資料備份 → 匯出資料」存出一個 JSON 檔，再回來這裡選它。</p>'
+            + sgh("會搬進來") + '<ul class="sgl">'
+            + srow("歌單", "本地歌單、匯入歌單與它們的曲目、刷新間隔") + srow("搜尋紀錄與歌詞配對") + srow("設定", "新版有的部分") + '</ul>'
+            + sgh("不會搬") + '<ul class="sgl">'
+            + srow("帳號登入", "備份裡沒有憑證，匯入後要重新登入") + srow("下載的檔案", "新版還沒有下載")
+            + srow("播放歷史與電台", "新版還沒有這兩個功能") + '</ul>'
+            + f'<div class="lgf"><span class="btn pri wide">{ic("file", "s")}選擇備份檔</span></div>')
+    inner = f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}'
+    return phone(theme, inner, f"匯入舊版備份 · 先說清楚會搬什麼、不會搬什麼 · {theme_name(theme)}")
+
+
+def bk_foot(label, note="", disabled=False):
+    n = f'<p class="atp-s">{note}</p>' if note else ""
+    return f'<div class="bkf">{n}<span class="btn pri wide{" dis" if disabled else ""}"{" aria-disabled=true" if disabled else ""}>{label}</span></div>'
+
+
+def phone_bk_preview(theme):
+    body = (sub_top("設定") + sub_head("匯入舊版備份") + bk_file() + sgh("要匯入的資料", '<span class="sgm">筆數</span>') + bk_rows()
+            + bk_foot("匯入 4 項", "已經在音樂庫的跳過：同名歌單、同一首曲目、同一條紀錄。"))
+    return phone(theme, f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}', f"選好檔案 · 逐項列出筆數，第一版沒有的功能變淡略過 · {theme_name(theme)}")
+
+
+def phone_bk_progress(theme):
+    steps = [("done", "歌單", "23 個"), ("now", "曲目", "1,204 / 2,481"), ("todo", "搜尋紀錄", "120"),
+             ("todo", "歌詞配對", "342"), ("todo", "設定", "")]
+    rows = ""
+    for st, name, n in steps:
+        lead = {"done": ic("check", "xs"), "now": '<i class="spin" aria-hidden="true"></i>', "todo": '<i class="dot"></i>'}[st]
+        bar = '<span class="rline" style="width:49%"></span>' if st == "now" else ""
+        rows += f'<li class="{st}"><span class="ld">{lead}</span><b>{name}</b><span class="n">{n}</span>{bar}</li>'
+    body = (sub_top("設定") + sub_head("匯入舊版備份", "匯入中 · 已用 14 秒") + bk_file().replace('<span class="tbtn" role="button">換一個</span>', "")
+            + sgh("進度") + f'<ul class="bkp-l" role="status">{rows}</ul>'
+            + bk_foot("匯入中…", "可以切到別的頁面，匯入會繼續；不要關閉 App。", True))
+    return phone(theme, f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}', f"匯入中 · 一項一項來，曲目寫出進度 · {theme_name(theme)}")
+
+
+BK_RESULT = [("歌單", "匯入 21 · 跳過 2", "同名的已經在：通勤用、工作背景"),
+             ("曲目", "匯入 2,377 · 跳過 104", "已經在音樂庫"),
+             ("搜尋紀錄", "匯入 96 · 跳過 24", ""),
+             ("歌詞配對", "匯入 342", ""),
+             ("設定", "已套用", "舊版的陽光黃不在新版的清單裡，改成預設紫"),
+             ("略過", "播放歷史、電台", "新版還沒有這兩個功能")]
+
+
+def bk_result_rows(errors=False):
+    res = list(BK_RESULT)
+    if errors:  # 有 2 個歌單失敗時，歌單那列的筆數跟著變
+        res[0] = ("歌單", "匯入 19 · 跳過 2 · 失敗 2", res[0][2])
+    rows = "".join(f'<li><span class="tx"><b>{a}</b>{f"<i>{c}</i>" if c else ""}</span><span class="n">{b}</span></li>' for a, b, c in res)
+    return f'<ul class="bkl res">{rows}</ul>'
+
+
+def bk_next():
+    return (sgh("接下來") + '<ul class="sgl">'
+            + srow("重新登入帳號", "備份不含登入憑證；匯入歌單裡私人的要登入才刷新得了", '<span class="tbtn" role="button">前往帳號</span>')
+            + srow("8 個匯入歌單正在刷新", "進度畫在音樂庫的封面上", '<span class="tbtn" role="button">去音樂庫</span>') + '</ul>')
+
+
+def phone_bk_result(theme):
+    # 結果頁不能再返回匯入流程，左上角換成右上角的「完成」
+    top = '<div class="topbar"><span></span><span class="tbtn" role="button">完成</span></div>'
+    body = top + sub_head("匯入完成", f'<span class="mn">{BK_FILE}</span> · 用了 38 秒') + sgh("結果") + bk_result_rows() + bk_next()
+    return phone(theme, f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}', f"匯入完成 · 寫出匯入與跳過的筆數、下一步 · {theme_name(theme)}")
+
+
+def phone_bk_error(theme):
+    body = (sub_top("設定") + sub_head("匯入舊版備份")
+            + f'<div class="fcard err">{ic("warn", "l")}<span class="tx"><b class="mn">playlist_export.json</b><i>不是 FMP 的備份檔</i></span></div>'
+            + '<div class="sfail"><b>這個檔案沒辦法匯入</b><p>裡面找不到舊版備份的格式。請選舊版「設定 → 資料備份 → 匯出資料」存出的 fmp_backup_….json。</p>'
+            + f'<span class="btn out">{ic("file", "s")}選擇別的檔案</span></div>'
+            + '<p class="fnote">音樂庫沒有任何改動。</p>')
+    return phone(theme, f'<div class="scroll">{body}</div>{spine("sp-a")}{tabbar_a("設定")}', f"選錯檔案 · 寫出原因與要選哪個檔（備份格式比 App 新時，同一個版面改寫「這份備份來自較新的 FMP，請先更新 App」）· {theme_name(theme)}")
+
+
+def desk_bk_preview():
+    return (f'<div class="dset">{sub_top("設定")}{sub_head("匯入舊版備份")}{bk_file()}'
+            + sgh("要匯入的資料", '<span class="sgm">筆數</span>') + bk_rows()
+            + '<p class="fnote">音樂庫裡已經有的不重複匯入：同名的歌單、同一首曲目、同一條紀錄都跳過。</p>'
+            + '<div class="dbf"><p class="atp-s">備份裡沒有登入憑證，匯入後要重新登入。</p><span class="btns"><span class="btn out">取消</span><span class="btn pri">匯入 4 項</span></span></div></div>')
+
+
+def desk_bk_result():
+    errs = "".join(f'<li>{a}<span>{b}</span></li>' for a, b in [("睡前 2", "曲目資料不完整（缺少音源識別碼）"), ("試聽區", "曲目資料不完整（缺少音源識別碼）")])
+    return (f'<div class="dset">{sub_top("設定")}{sub_head("匯入完成，2 個歌單沒能匯入", f"<span class=mn>{BK_FILE}</span> · 用了 41 秒")}'
+            + sgh("沒能匯入") + f'<ul class="bke" role="alert">{errs}</ul>'
+            + '<p class="fnote">其他資料都匯入了；這兩個歌單沒有建立，音樂庫裡不會有半個歌單。</p>'
+            + sgh("結果") + bk_result_rows(True) + bk_next()
+            + '<div class="dbf"><span class="btns"><span class="btn pri">完成</span></span></div></div>')
+
+
+def page_backup():
+    body = (navlinks() + '<h1 class="pt">匯入舊版備份</h1>'
+            '<p class="lead">從設定的「資料」進入。新版不讀舊版的資料庫，資料搬遷只靠舊版匯出的 JSON 備份（brief §12）。流程四步：說明會搬什麼、選檔、逐項預覽筆數後匯入、看結果與下一步。筆數用等寬字靠右對齊，同曲目列的時長欄。</p>'
+            '<p class="note">照舊版：只有「合併、已存在的跳過」一種模式，同名歌單跳過、不改名。和舊版不同的地方：匯入中逐項顯示進度，曲目寫出已匯入的筆數（舊版只有按鈕轉圈，brief §15 要求大量匯入顯示進度）；播放歷史與電台第一版沒有，在預覽裡變淡並寫「略過」，之後的版本有了這兩個功能再匯入一次（擁有者 2026-11-10 確認）；舊版的陽光黃與自訂色不在新版的強調色清單裡，匯入時改成預設紫並在結果寫出來；結果多一段「接下來」，提醒重新登入，以及匯入歌單正在背景刷新。舊版解析失敗時什麼都不顯示，新版寫出原因與該選哪個檔。</p>' + NOTE
+            + '<h2 class="sec">手機</h2><div class="row">' + phone_bk_intro("t-dark") + phone_bk_preview("t-light") + phone_bk_progress("t-dark")
+            + phone_bk_result("t-light") + phone_bk_error("t-dark") + '</div>'
+            + '<h2 class="sec">桌面</h2><p class="note">桌面在內容欄裡走同樣的頁面，按鈕在右下。淺色稿是部分失敗：失敗的歌單整個不建立，其他資料照常匯入，失敗段排在結果最上面。</p><div class="row">'
+            + desk_frame_a("t-dark", "設定", desk_bk_preview(), "匯入舊版備份 · 預覽（1280×800）")
+            + desk_frame_a("t-light", "設定", desk_bk_result(), "匯入完成 · 部分失敗（1280×800）") + '</div>')
+    return html("FMP 設計稿 · 匯入舊版備份", body)
 
 
 def page_index():
@@ -1716,11 +2525,15 @@ def page_index():
             '<li><a style="color:#CFBCFF" href="library.html">音樂庫</a>：歌單封面網格、匯入歌單的刷新狀態、排序、動作選單、空狀態</li>'
             '<li><a style="color:#CFBCFF" href="playlist.html">歌單詳情</a>：本地與匯入歌單、刷新狀態、多選、遠端歌單的移除確認、空歌單</li>'
             '<li><a style="color:#CFBCFF" href="add-to-playlist.html">加入歌單對話框</a>：本地與遠端歌單、部分已在、就地新建、移出的後果</li>'
+            '<li><a style="color:#CFBCFF" href="settings.html">設定</a>：分組照舊版、主題與強調色在列上直接選、音質</li>'
+            '<li><a style="color:#CFBCFF" href="account.html">帳號與登入</a>：會員狀態與到期、登入失效、掃碼與網頁登入、貼 cookie</li>'
+            '<li><a style="color:#CFBCFF" href="plugins.html">插件管理</a>：插件能力、手動檢查更新、權限變多時再確認、SHA-256 不符</li>'
+            '<li><a style="color:#CFBCFF" href="backup.html">匯入舊版備份</a>：會搬什麼、逐項預覽、進度、結果與下一步、選錯檔</li>'
             '<li><a style="color:#CFBCFF" href="shell-b.html">外殼 B</a>（未採用，留作參考）：Apple Music 式浮動膠囊與捲動收合</li></ul>')
     return html("FMP 設計稿", body)
 
 
 if __name__ == "__main__":
-    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player), ("search.html", page_search), ("library.html", page_library), ("playlist.html", page_playlist), ("add-to-playlist.html", page_add_to_playlist)]:
+    for name, fn in [("index.html", page_index), ("system.html", page_system), ("shell-a.html", page_shell_a), ("shell-b.html", page_shell_b), ("player.html", page_player), ("search.html", page_search), ("library.html", page_library), ("playlist.html", page_playlist), ("add-to-playlist.html", page_add_to_playlist), ("settings.html", page_settings), ("account.html", page_account), ("plugins.html", page_plugins), ("backup.html", page_backup)]:
         (ROOT / name).write_text(fn(), encoding="utf-8")
     print("written:", ROOT)
