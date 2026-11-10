@@ -22,6 +22,8 @@
 .hm-chips .chip .w { color: var(--warn); display: grid; }
 .hm-chips .chip.on .w { color: inherit; }
 .hm-cap { padding: 2px 20px 4px; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.hm-stale { display: flex; align-items: center; gap: 6px; }
+.hm-stale svg.i { width: 15px; height: 15px; flex: none; }
 .hm-rk .row { --sep-inset: 108px; }
 .hm-no { width: 20px; flex: none; text-align: center; font-size: 15px; font-weight: 600; color: var(--label-2); }
 .hm-more { position: relative; display: flex; align-items: center; gap: 4px; width: 100%; min-height: 48px; padding: 0 16px 0 108px; font-size: 15px; font-weight: 500; color: var(--label-2); }
@@ -100,6 +102,7 @@
 .hm-derr p { margin: 0; color: var(--label-2); }
 .hm-band { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; margin-top: 8px; }
 .hm-band > div { min-width: 0; }
+.hm-band.one { grid-template-columns: minmax(0, 1fr); }
 .hm-dnow { display: flex; align-items: center; gap: 7px; padding: 0 4px 4px; font-size: 12px; color: var(--label-2); min-height: 22px; }
 .hm-dnow b { color: var(--label); font-weight: 600; }
 .desk .hm-pl .t2 b { color: var(--label); font-weight: 600; }
@@ -171,8 +174,14 @@ function hmRanking(o) {
   o = o || {};
   const src = o.src || 'bilibili';
   let h = '<section class="hm-rk" data-hm="rank"><div class="hm-sh"><span class="ty-title3">近期熱門</span></div>';
-  if (o.offline) {
+  // offline with a cached copy: keep showing the last ranking and say how old it is (owner, 2026-11-11);
+  // only a first launch without any cache falls back to the error card
+  if (o.offline === 'nocache') {
     return h + hmErrCard(null, '沒有網路，排行榜載入不了', '連上網路後按重試。佇列與歌單照常可用。') + '</section>';
+  }
+  if (o.offline) {
+    return h + hmChips(src) + '<div class="hm-cap hm-stale">' + I('wifi') + '<span>沒有網路 · 這是 3 小時前的榜</span></div>' +
+      HM_RANK[src].list.slice(0, 5).map((t, i) => hmRow(t, i + 1)).join('') + '<button class="hm-more">顯示第 6–10 名' + I('chevD') + '</button></section>';
   }
   h += hmChips(src, { err: o.errs });
   if (o.err) return h + hmErrCard(src, 'YouTube 的榜載入不了', '請求太頻繁，被 YouTube 限流。其他音源照常顯示。') + '</section>';
@@ -261,7 +270,8 @@ function hmDesk(ctx, o) {
   const upd = '<div><div class="hm-dsh">最近更新的匯入歌單</div>' + HM_UPDATED.map(([p, n]) => hmPlRow(p, n, true)).join('') + '</div>';
   const content = '<div class="hm-d"><div class="ty-large" style="padding:0 4px">首頁</div>' +
     '<div class="hm-dsh" style="padding-top:18px">近期熱門</div>' + hmDCols(o) +
-    '<div class="hm-band">' + cont + upd + '</div></div>';
+    // the detail panel already lists what comes next, so 繼續聽 only shows when the panel is collapsed (owner, 2026-11-11)
+    (o.detail === false ? '<div class="hm-band">' + cont + upd + '</div>' : '<div class="hm-band one">' + upd + '</div>') + '</div>';
   return FMP.desktop(ctx, { nav: 'home', content, top: '<span class="wt">首頁</span>', detail: o.detail, overlay: o.overlay });
 }
 
@@ -290,7 +300,7 @@ FMP.page({
         '<h3>繼續聽</h3><ul><li>資料來自本機佇列。第一行寫正在播的曲名和在佇列的位置，下面列接下來 3 首；不畫大的正在播放卡，迷你播放器就在下面。</li>' +
         '<li>右上「佇列 ›」切到佇列分頁（導覽的選取膠囊一起滑過去）。點接下來的某一首＝從那首開始播，和在佇列頁點它一樣。</li>' +
         '<li>臨時播放中，第一行改寫「臨時播放 · 播完回到佇列第 6 首」，接下來仍是佇列裡的下 3 首。佇列是空的時整區不出現。</li></ul>' +
-        '<h3>最近更新的匯入歌單</h3><ul><li>資料來自本機匯入歌單的刷新結果：只列最近一次刷新有新增曲目的匯入歌單，新刷新的在上面，最多 3 張；副標寫音源、「多了 n 首」與刷新時間。點整列進歌單詳情。</li>' +
+        '<h3>最近更新的匯入歌單</h3><ul><li>資料來自本機匯入歌單的刷新結果：只列最近一次刷新有新增曲目的匯入歌單，新刷新的在上面，最多 3 張；點開過那張歌單、或刷新已超過 7 天就從這裡消失（擁有者 2026-11-11）；副標寫音源、「多了 n 首」與刷新時間。點整列進歌單詳情。</li>' +
         '<li>之後某次刷新沒有新增，這張就不再列出；沒有符合的歌單時整區不出現。手動刷新與自動刷新都算。</li>' +
         '<li>最近播放要等有了播放歷史再加進首頁，第一版不畫。</li></ul>',
     },
@@ -300,13 +310,14 @@ FMP.page({
         { kind: 'phone', label: '第一次打開', render: (ctx) => hmPhone(ctx, { firstRun: true }) },
         { kind: 'phone', label: '排行榜載入中', render: (ctx) => hmPhone(ctx, { rank: { loading: true } }) },
         { kind: 'phone', label: 'YouTube 的榜載入失敗', render: (ctx) => hmPhone(ctx, { rank: { src: 'youtube', err: true, errs: ['youtube'] } }) },
-        { kind: 'phone', label: '沒有網路', render: (ctx) => hmPhone(ctx, { rank: { offline: true } }) },
+        { kind: 'phone', label: '沒有網路（顯示上次的榜）', render: (ctx) => hmPhone(ctx, { rank: { offline: true } }) },
+        { kind: 'phone', label: '第一次打開就沒有網路', render: (ctx) => hmPhone(ctx, { rank: { offline: 'nocache' }, firstRun: true }) },
       ],
       notes: '<h3>規則</h3><ul><li>第一次打開：沒有佇列也沒有歌單，只剩近期熱門，下面一段安靜的提示和兩顆按鈕（匯入歌單開音樂庫的匯入 sheet、搜尋）。有了任何一張歌單提示就消失。沒有目前曲目，所以迷你播放器不出現，導覽留在原位。</li>' +
         '<li>載入中：名次先出現，封面和文字用骨架佔位；三個音源各自回來就各自顯示，不等最慢的那個。繼續聽與匯入歌單是本機資料，立刻出現。</li>' +
         '<li>單一音源失敗：那個音源的 chip 帶警示符號；切到它時，列表的位置換成說明卡，寫出音源、原因與只重試這個音源的「重試」，和搜尋頁單一音源出錯是同一張卡。原因依 brief §13 的錯誤類別寫（限流、網路、插件出錯）。其他 chip 照常。</li>' +
-        '<li>沒有網路（brief §9）：三個音源因為同一個原因失敗，合成一張卡，chip 先收起來；「重試」三個一起重查。繼續聽與最近更新的匯入歌單是本機資料，照常顯示；正在播的曲目如果串流還有效就照常播。</li>' +
-        '<li>重新載入：App 啟動後第一次顯示首頁時向插件要一次；手機可以下拉重新載入（iOS 慣例）。排行榜要不要快取、離線時要不要顯示上次的榜，待擁有者確認。</li></ul>',
+        '<li>沒有網路（brief §9）：有快取就顯示上次的榜並寫明多久以前（見上）；從沒載入過才把三個音源合成一張錯誤卡，chip 先收起來，「重試」三個一起重查。繼續聽與最近更新的匯入歌單是本機資料，照常顯示；正在播的曲目如果串流還有效就照常播。</li>' +
+        '<li>重新載入：App 啟動後第一次顯示首頁時向插件要一次；手機可以下拉重新載入（iOS 慣例）。</li><li>快取（擁有者 2026-11-11）：每個音源的榜存最後一份；沒有網路時照樣顯示上次的榜，標題下寫「沒有網路 · 這是 3 小時前的榜」；點一首照常走播放，串流拿不到就是網路錯誤提示。只有從沒成功載入過（第一次打開就離線）才顯示錯誤卡。</li><li>音源順序固定（B 站、YouTube、網易雲），chip 記住上次選的；第一版設定裡不能調整順序。</li></ul>',
     },
     {
       title: '桌面',
@@ -319,7 +330,7 @@ FMP.page({
         '<li>單擊選取、雙擊或 ↩ 臨時播放（DESIGN.md〈待確認〉1）；hover 時名次變成播放鈕、尾端出現 ⋮。右鍵與 ⋮ 開同一個選單，和搜尋頁的右鍵選單相同，這裡不另外畫。</li>' +
         '<li>有詳情面板時一欄約 210pt，先省略時長讓曲名多一點位置；收起詳情面板後欄夠寬，時長回來。存取等級徽章與音源符號不省略。</li>' +
         '<li>單一音源失敗時只有那一欄換成說明與「重試 YouTube」，其他兩欄照常；沒有網路時三欄合成一段說明。</li>' +
-        '<li>繼續聽：正在播放的曲名與位置、接下來 3 首；「佇列 ›」切到側欄的佇列。右側詳情面板也列了下一首，兩處重疊的部分見待確認。</li>' +
+        '<li>繼續聽：只在收起詳情面板時出現（正在播放的曲名與位置、接下來 3 首；「佇列 ›」切到側欄的佇列）。詳情面板開著時它已經列了下一首，首頁不重複，最近更新的匯入歌單佔滿整寬（擁有者 2026-11-11）。</li>' +
         '<li>最近更新的匯入歌單：規則同手機。側欄的歌單清單不另外標新增，只在首頁出現。</li></ul>',
     },
   ],
