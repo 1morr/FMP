@@ -9,7 +9,7 @@
 | 里程碑 | 票目錄 | 拆票前讀 | 備註 |
 | --- | --- | --- | --- |
 | M0 | `.scratch/m0/issues/` | `.scratch/m0/spec.md`，再讀票列出的章節 | 已拆 12 張票，票序在 spec |
-| D | 無 | brief §2.3、§11、§17、事實 K10；`docs/design/DESIGN.md`、`PRODUCT.md`；舊版截圖（`docs/audit/screenshots/`） | 和 M0 並行，M1 開工前完成；設計系統已出稿，外殼採 A |
+| D | 無 | brief §2.3、§11、§17、事實 K10；`docs/design/DESIGN.md`、`PRODUCT.md`；舊版截圖（`docs/audit/screenshots/`） | 和 M0 並行，M1 開工前完成；外殼採 A；brief §11 的第一版頁面都已出稿，等擁有者逐頁確認 |
 
 ## Session 紀錄
 
@@ -24,6 +24,7 @@
 | 2026-11-08 | D 播放頁 | `docs/design/player.html`：手機封面／歌詞、桌面封面＋歌詞或佇列兩欄，深淺色；背景跟封面取色；桌面歌詞／佇列切換在頂列；DESIGN.md 已補播放頁一節。未送獨立審查 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：搜尋與結果、音樂庫`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-09 | D 搜尋與音樂庫 | `docs/design/search.html`（搜尋紀錄、歌單中＋線上結果、B 站分 P、多選、載入、單一音源失敗、離線、零結果、桌面右鍵選單）與 `library.html`（封面網格、匯入歌單刷新狀態、動作選單、排序、匯入、空狀態），深淺色；DESIGN.md 補兩節；finish review 判 fix，已改完，未再送審 | 新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：歌單詳情（本地、匯入）、加入歌單對話框`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-10 | D 歌單詳情與加入歌單 | `docs/design/playlist.html`（本地：播放中與 B 站多 P、列的「更多」、多選、空歌單；匯入：平常、刷新中、刷新失敗、你的收藏夾的遠端移除入口與確認、遠端移除失敗、別人的歌單沒有移除；桌面本地右鍵選單、匯入鍵盤焦點與選單、桌面確認）與 `add-to-playlist.html`（單首、多選混音源、取消勾選遠端歌單、遠端寫入失敗、就地新建、沒有歌單也沒登入；桌面單首與多選），深淺色；新 token `on-error` 與危險按鈕；外殼 A 的歌單詳情改用同一個頭部；DESIGN.md 補兩節；finish review 判 fix，六項改完再送審判 ship | 等使用者：看稿確認「加入遠端歌單併進加入歌單對話框」（見〈偏差與決定〉）。確認後新 session 下 `/impeccable 照 docs/design/DESIGN.md 與外殼 A 做 D 設計稿的其餘頁面：帳號與登入、插件管理、設定、匯入舊版備份`；或並行做 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
+| 2026-11-10 | D 設定、帳號、插件、匯入備份 | `docs/design/settings.html`（分組照舊版、主題與強調色在列上選、音質子頁）、`account.html`（會員等級與到期、快到期、已過期、登入失效、未登入；掃碼三態、B 站與 YouTube 網頁登入、貼 cookie 缺項與被拒）、`plugins.html`（新版本、單個與批次更新確認、權限變多再確認、更新中與 SHA-256 不符、詳情）、`backup.html`（說明、預覽、匯入中、結果、部分失敗、選錯檔），手機與桌面、深淺色；DESIGN.md 補共用元件與四節；加入遠端歌單併進對話框已確認；finish review 判 fix，八項改完再送審判 ship | 等使用者：逐頁看稿確認 D 的所有頁面（plan §5.2 驗收），以及〈偏差與決定〉2026-11-10 設定類頁面那條待確認的幾點；確認後 D 完成，回到 M0：`/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 
 ## 偏差與決定
 
@@ -43,3 +44,5 @@
 - 2026-11-08 D 播放頁：桌面的「歌詞／佇列」切換放在頂列右側的兩顆圖示鈕（照 Apple Music、Spotify 桌面版）；手機維持底部玻璃膠囊。擁有者確認。
 - 2026-11-09 D 音樂庫：擁有者選歌單用封面網格（照舊版），不用設計 session 建議的密排列表；這是 J-card 密排規則唯一的例外，已寫進 `docs/design/DESIGN.md`。搜尋結果照舊版混排加音源篩選，排序鈕移到「線上結果」段標題（修審計 §6.1 第 4 點）。
 - 2026-11-10 D 加入歌單：設計 session 把舊版另一個入口「加入遠端歌單」（每個音源各跳一個對話框）併進加入歌單對話框，本地歌單下依選取曲目的音源各列一段自己帳號的遠端歌單（擁有者同日要求各平台預設收起、點開才載入，已照改），對話框本身當作建立與加入的確認（brief §7），取消勾選遠端歌單照 §7 再確認一次。待擁有者看稿確認；不同意就改回兩個入口。細節在 `docs/design/DESIGN.md`〈加入歌單對話框〉。
+- 2026-11-10 D 加入歌單：擁有者確認把「加入遠端歌單」併進加入歌單對話框（含預設收起）。DESIGN.md 與 `add-to-playlist.html` 的「待確認」字樣已拿掉。
+- 2026-11-10 D 設定類頁面：擁有者確認設定拿掉字體選項；匯入舊版備份時播放歷史與電台變淡略過，之後的版本有了這兩個功能再匯入一次。設計 session 自行決定、待擁有者看稿確認：強調色不留自訂色；「自動定位目前播放」「記住播放位置」不再是開關（brief §6 已定成一律如此），只留兩個倒退秒數；「用帳號播放」從音質頁搬到帳號頁；快到期用前景色加粗而不是金色；插件更新的「全部更新」先批次確認，權限變多的那個再單獨確認；匯入時舊版的陽光黃與自訂色改成預設紫。細節在 `docs/design/DESIGN.md`。
