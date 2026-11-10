@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>帳號與登入 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+.phone.ac-grp { --bg: var(--bg-grouped); }
+.ac-lead { padding: 0 20px 4px; font-size: 14px; line-height: 20px; color: var(--label-2); }
+/* account card: solid content */
+.ac-card { margin: 14px 16px 0; padding: 14px 16px 16px; border-radius: var(--r-group); background: var(--cell); }
+.ac-top { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--label-2); }
+.ac-top .src svg { width: 18px; height: 18px; }
+.ac-top .sp { flex: 1; }
+.ac-st { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--label-2); }
+.ac-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--label-3); }
+.ac-st.in { color: var(--ok); } .ac-st.in i { background: var(--ok); }
+.ac-st.exp { color: var(--warn); } .ac-st.exp i { background: var(--warn); }
+.ac-id { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.ac-av { width: 52px; height: 52px; border-radius: 50%; flex: none; }
+.ac-av-empty { width: 52px; height: 52px; border-radius: 50%; background: var(--fill); color: var(--label-3); display: grid; place-items: center; flex: none; }
+.ac-name { font-size: 17px; line-height: 22px; font-weight: 600; }
+.ac-mem { display: flex; align-items: center; gap: 7px; margin-top: 3px; font-size: 13px; color: var(--label-2); flex-wrap: wrap; }
+.ac-mem .acc svg { width: 12px; height: 12px; }
+.ac-strip { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 18px; background: color-mix(in srgb, var(--warn) 13%, transparent); color: var(--label); }
+.ac-strip > svg { color: var(--warn); margin-top: 1px; }
+.ac-strip b { font-weight: 600; }
+.ac-acts { display: flex; gap: 8px; margin-top: 14px; }
+.ac-acts .btn { flex: 1; }
+.ac-why { margin-top: 12px; font-size: 13.5px; line-height: 19px; color: var(--label-2); }
+.desk .ac-card { margin: 0; padding: 12px 14px 14px; border-radius: 12px; box-shadow: inset 0 0 0 .5px var(--sep); display: flex; flex-direction: column; }
+.desk .ac-card.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.desk .ac-av, .desk .ac-av-empty { width: 40px; height: 40px; }
+.desk .ac-name { font-size: 14px; line-height: 19px; }
+.desk .ac-mem { font-size: 11.5px; }
+.desk .ac-strip { font-size: 11.5px; line-height: 16px; padding: 8px 10px; border-radius: 9px; }
+.desk .ac-acts { margin-top: auto; padding-top: 12px; }
+.desk .ac-why { font-size: 12px; line-height: 17px; }
+.desk .ac-top { font-size: 12px; }
+.desk .ac-top .src svg { width: 15px; height: 15px; }
+.desk .ac-st { font-size: 11.5px; }
+/* sheet body */
+.sheet.ac-full { height: calc(100% - 56px); max-height: none; }
+.sheet .sfoot.ac-col { flex-direction: column; gap: 8px; box-shadow: 0 -.5px 0 var(--sep); }
+.sheet .sfoot.ac-col .btn { flex: none; width: 100%; }
+.sheet .sfoot.ac-col .ty-foot { text-align: center; }
+.ac-lapsed { background: var(--fill-2); color: var(--label-2); }
+.ac-hsp { width: 44px; flex: none; }
+.ac-stitle2 { flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.ac-stitle2 b { font-size: 17px; font-weight: 600; }
+.ac-stitle2 small { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--label-2); margin-top: 2px; }
+.ac-stitle2 small svg.i { width: 12px; height: 12px; }
+/* remote playlist rows */
+.ac-pl { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 16px; position: relative; }
+.ac-pl + .ac-pl::before { content: ""; position: absolute; top: 0; right: 0; left: 108px; height: .5px; background: var(--sep); }
+.ac-pl .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ac-pl .meta b { font-size: 16px; font-weight: 400; line-height: 21px; }
+.ac-pl .meta span { font-size: 13px; color: var(--label-2); display: flex; align-items: center; gap: 6px; }
+.ac-pl.done .meta, .ac-pl.done .cover { opacity: .5; }
+.ac-tag { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 6px; background: var(--fill-2); color: var(--label-2); font-size: 11.5px; font-weight: 600; flex: none; }
+.ac-tag svg.i { width: 12px; height: 12px; }
+.ac-tag.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.ac-bar { height: 4px; border-radius: 2px; background: var(--fill-2); overflow: hidden; margin-top: 5px; }
+.ac-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+/* login */
+.ac-seg { display: flex; justify-content: center; padding: 4px 0 18px; }
+.ac-seg .seg button { min-width: 92px; height: 30px; text-align: center; }
+.ac-qrbox { display: flex; flex-direction: column; align-items: center; padding: 6px 24px 0; text-align: center; }
+.ac-qr { position: relative; padding: 14px; border-radius: 22px; background: var(--bg); box-shadow: 0 8px 28px rgba(0,0,0,.18), 0 0 0 .5px var(--sep); }
+.ac-qr svg { display: block; }
+.ac-qr .ov { position: absolute; inset: 0; border-radius: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: color-mix(in srgb, var(--bg) 86%, transparent); color: var(--label); font-size: 15px; font-weight: 600; }
+.ac-qr .ov .big { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-fill); color: var(--accent-ink); }
+.ac-qr .ov .big svg.i { width: 30px; height: 30px; stroke-width: 2.4; }
+.ac-qr.blur svg { filter: blur(3px); opacity: .35; }
+.ac-qst { margin-top: 22px; font-size: 19px; line-height: 25px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.ac-qsub { margin-top: 6px; font-size: 14px; line-height: 20px; color: var(--label-2); max-width: 300px; }
+.ac-steps { margin: 26px 16px 0; }
+.ac-step { display: flex; gap: 12px; align-items: center; padding: 10px 16px; font-size: 14.5px; }
+.ac-step .n { width: 24px; height: 24px; border-radius: 50%; background: var(--fill-2); display: grid; place-items: center; font-size: 12.5px; font-weight: 700; flex: none; font-family: var(--font-num); }
+.ac-safe { display: flex; gap: 10px; align-items: flex-start; margin: 16px 20px 0; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.ac-safe svg.i { color: var(--accent); flex: none; }
+.ac-ok { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.ac-ok svg.i { width: 44px; height: 44px; stroke-width: 2.4; }
+/* webview */
+.ac-banner { display: flex; gap: 10px; align-items: flex-start; margin: 0 12px 10px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); font-size: 13px; line-height: 18px; color: var(--label); }
+.ac-banner svg.i { color: var(--accent); flex: none; margin-top: 1px; }
+.ac-webcap { margin: 0 16px 6px; font-size: 11.5px; color: var(--label-3); display: flex; align-items: center; gap: 6px; }
+.ac-webcap::after { content: ""; flex: 1; height: .5px; background: var(--sep); }
+.ac-web { flex: 1; min-height: 0; background: var(--bg); color: var(--label); overflow: hidden; display: flex; flex-direction: column; align-items: stretch; padding: 22px 26px; gap: 14px; }
+.ac-web .wl { height: 26px; width: 96px; border-radius: 6px; background: var(--fill-2); }
+.ac-web .wh { font-size: 22px; font-weight: 700; margin-top: 10px; }
+.ac-web .wtabs { display: flex; gap: 18px; font-size: 14px; color: var(--label-2); }
+.ac-web .wtabs b { color: var(--label); border-bottom: 2px solid var(--label); padding-bottom: 4px; }
+.ac-web .wfield { height: 44px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--sep-strong); display: flex; align-items: center; padding: 0 12px; color: var(--label-3); font-size: 14px; }
+.ac-web .wbtn { height: 44px; border-radius: 22px; background: var(--label-2); color: var(--bg); display: grid; place-items: center; font-weight: 600; font-size: 15px; }
+.ac-web .wsm { display: flex; justify-content: center; gap: 18px; margin-top: 8px; }
+.ac-web .wsm i { width: 36px; height: 36px; border-radius: 50%; background: var(--fill-2); }
+.ac-web .wln { height: 8px; border-radius: 4px; background: var(--fill); }
+/* cookie */
+.ac-paste { margin: 0 16px; min-height: 92px; border-radius: 14px; background: var(--cell); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ac-mask { font-family: var(--font-num); letter-spacing: .16em; color: var(--label-2); font-size: 15px; word-break: break-all; line-height: 20px; }
+.ac-paste .row2 { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--label-2); }
+.ac-paste .row2 .sp { flex: 1; }
+.ac-ck { font-family: var(--font-num); font-size: 14.5px; }
+.ac-okc { color: var(--ok); display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; }
+.ac-instr { margin: 0 16px; padding: 4px 0; }
+.ac-instr .ac-step { padding: 7px 0; font-size: 14px; line-height: 19px; align-items: flex-start; }
+.ac-instr code { font-family: var(--font-num); font-size: 13px; background: var(--fill); padding: 1px 5px; border-radius: 5px; }
+.ac-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.ac-tbl { margin-top: 8px; border-radius: 12px; background: var(--cell); box-shadow: inset 0 0 0 .5px var(--sep); padding: 4px; }
+.ac-tr { display: grid; grid-template-columns: 28px 40px minmax(0, 1fr) 80px 200px; align-items: center; gap: 8px; min-height: 46px; padding: 0 10px; border-radius: 8px; font-size: 13px; }
+.ac-tr.th { min-height: 28px; font-size: 11.5px; font-weight: 600; color: var(--label-2); }
+.ac-tr.hov { background: var(--cell-hover); }
+.ac-tr.done { color: var(--label-3); }
+.ac-tr .sub { font-size: 11.5px; color: var(--label-2); }
+.ac-sech { display: flex; align-items: center; gap: 10px; margin-top: 26px; }
+.ac-sech .t { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.ac-sech .sp { flex: 1; }
+.ac-addr { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 12px; border-radius: 13px; background: var(--fill); font-size: 12px; color: var(--label-2); }
+.ac-addr svg.i { width: 12px; height: 12px; }
+.ac-cbody .ac-paste, .ac-cbody .ac-instr, .ac-cbody .ac-banner { margin-left: 0 !important; margin-right: 0 !important; }
+.ac-cbody .ac-paste { background: var(--cell); box-shadow: inset 0 0 0 .5px var(--sep); }
+.ac-alt { margin: 22px 20px 0; text-align: center; font-size: 13.5px; color: var(--label-2); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const AC_P = {
+  logout: '<path d="M14 4.5H7c-.8 0-1.5.7-1.5 1.5v12c0 .8.7 1.5 1.5 1.5h7"/><path d="M10.5 12H20M16.5 8.5 20 12l-3.5 3.5"/>',
+  disk: '<ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-11M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+  paste: '<rect x="5.5" y="5" width="13" height="15.5" rx="2.4"/><path d="M9 5V4.2c0-.4.3-.7.7-.7h4.6c.4 0 .7.3.7.7V5M9 11h6M9 14.5h4"/>',
+};
+const acI = (n, cls) => AC_P[n] ? '<svg class="i ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + AC_P[n] + '</svg>' : I(n, cls);
+
+/* fake QR: deterministic modules with the three finder squares */
+function acQR(seed, px) {
+  const N = 29;
+  let h = 7;
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const r = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+  const fin = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+  let d = '';
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (fin(x, y)) continue;
+    const timing = (x === 6 || y === 6) ? (x + y) % 2 === 0 : r() > 0.52;
+    if (timing) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+  }
+  const F = (x, y) => '<path d="M' + x + ' ' + y + 'h7v7h-7zM' + (x + 1) + ' ' + (y + 1) + 'v5h5v-5z" fill-rule="evenodd"/><rect x="' + (x + 2) + '" y="' + (y + 2) + '" width="3" height="3"/>';
+  return '<svg viewBox="0 0 ' + N + ' ' + N + '" width="' + px + '" height="' + px + '" shape-rendering="crispEdges" style="fill:var(--label)"><path d="' + d + '"/>' + F(0, 0) + F(N - 7, 0) + F(0, N - 7) + '</svg>';
+}
+
+/* synthetic accounts (names are fictional) */
+const AC = {
+  bilibili: { name: '晚風收藏家', tier: '大會員', until: '2027-03-02', lapsedOn: '2026-10-31', cv: FMP.cover('acc-bili', { pal: 9, kind: 0 }), lists: 9 },
+  netease: { name: '夜行的貓', tier: '黑膠 VIP', until: '2026-11-18', soon: 8, cv: FMP.cover('acc-ne', { pal: 7, kind: 7 }), lists: 6 },
+  youtube: {},
+};
+const acCrown = (tier) => '<span class="acc acc-vip acc-lg">' + I('crown') + tier + '</span>';
+function acCard(src, state, o) {
+  o = o || {};
+  const a = AC[src];
+  const desk = o.desk;
+  const stl = { in: ['in', '已登入'], lapsed: ['in', '已登入'], exp: ['exp', '登入已失效'], out: ['', '未登入'] }[state];
+  let h = '<div class="ac-card' + (o.sel ? ' sel' : '') + '"><div class="ac-top">' + FMP.src(src) + '<span>' + FMP.SRC[src].name + '</span><span class="sp"></span><span class="ac-st ' + stl[0] + '"><i></i>' + stl[1] + '</span></div>';
+  if (state === 'out') {
+    h += '<div class="ac-id"><span class="ac-av-empty">' + I('user', desk ? 's20' : 's24') + '</span><div><div class="ac-name c2">尚未登入</div></div></div>';
+    h += '<div class="ac-why">' + (o.why || '登入後可以播放會員曲目，並讀取、寫入你的遠端歌單。') + '</div>';
+    h += '<div class="ac-acts"><button class="btn btn-primary' + (desk ? ' btn-sm' : '') + '">' + I('globe', 's18') + '用網頁登入</button></div>';
+  } else {
+    const mem = state === 'lapsed'
+      ? '<span class="acc acc-lg ac-lapsed">' + I('crown') + a.tier + '已過期</span><span>' + a.lapsedOn + ' 到期</span>'
+      : acCrown(a.tier) + '<span>' + a.until + ' 到期</span>';
+    h += '<div class="ac-id">' + FMP.coverEl(a.cv, null, 'ac-av') + '<div style="min-width:0"><div class="ac-name ell">' + a.name + '</div>' +
+      '<div class="ac-mem">' + mem + '</div></div></div>';
+    if (state === 'lapsed') {
+      h += '<div class="ac-strip">' + I('warn', 's18') + '<span><b>' + a.tier + '已過期。</b>需要會員的曲目改成試聽或無法播放，會員音質也不會再選到。續費後按右上角的「檢查帳號」更新。</span></div>';
+      h += '<div class="ac-acts"><button class="btn btn-tinted' + (desk ? ' btn-sm' : '') + '">' + I('list', 's18') + '歌單</button><button class="btn btn-gray' + (desk ? ' btn-sm' : '') + '">' + acI('logout', 's18') + '登出</button></div>';
+    } else if (state === 'exp') {
+      h += '<div class="ac-strip">' + I('warn', 's18') + '<span><b>登入已失效。</b>播放與刷新改用未登入的身分，會員曲目只能試聽。重新登入就能恢復。</span></div>';
+      h += '<div class="ac-acts"><button class="btn btn-primary' + (desk ? ' btn-sm' : '') + '">重新登入</button><button class="btn btn-gray' + (desk ? ' btn-sm' : '') + '">登出</button></div>';
+    } else {
+      if (a.soon) h += '<div class="ac-strip">' + I('clock', 's18') + '<span><b>' + a.soon + ' 天後到期。</b>到期後需要會員的曲目只能試聽或無法播放。</span></div>';
+      h += '<div class="ac-acts"><button class="btn btn-tinted' + (desk ? ' btn-sm' : '') + '">' + I('list', 's18') + '歌單</button><button class="btn btn-gray' + (desk ? ' btn-sm' : '') + '">' + acI('logout', 's18') + '登出</button></div>';
+    }
+  }
+  return h + '</div>';
+}
+
+function acPhone(ctx, o) {
+  return FMP.phone(ctx, o).replace('class="phone scr', 'class="phone scr ac-grp');
+}
+function acPage(ctx, o) {
+  o = o || {};
+  const st = o.st || { bilibili: 'in', netease: 'in', youtube: 'out' };
+  const content = '<div class="lt" style="padding-top:58px"><div class="ty-large">帳號</div></div>' +
+    acCard('bilibili', st.bilibili) + acCard('netease', st.netease) + acCard('youtube', st.youtube) +
+    '<div class="gfoot" style="margin-top:12px">每個音源一個帳號。登入資訊只存在這台裝置的系統鑰匙圈，不進備份與診斷檔。</div>';
+  const right = o.checking ? '<button class="lg gbtn" data-adapt aria-label="檢查中"><span class="spinner"></span></button>' : FMP.gbtn('refresh', '檢查帳號');
+  return acPhone(ctx, {
+    content,
+    top: FMP.ptop('帳號', FMP.gbtn('chevL', '返回'), right, 96),
+    dock: { tab: 'settings', compact: o.compact },
+    overlay: o.overlay,
+  });
+}
+
+/* a solid sheet over the account page */
+function acSheet(o) {
+  return '<div class="sheet-wrap"><div class="sheet solid ac-full"><div class="grab"></div>' +
+    '<div class="shead">' + (o.left || '<span class="ac-hsp"></span>') + (o.titleHtml || '<span class="stitle">' + o.title + '</span>') + (o.right || '<span class="ac-hsp"></span>') + '</div>' +
+    (o.raw ? o.body : '<div class="sbody" style="padding-bottom:24px">' + o.body + '</div>') + (o.foot ? '<div class="sfoot ac-col">' + o.foot + '</div>' : '') + '</div></div>';
+}
+
+const AC_RL = [
+  { id: 'cpop', name: '華語私藏 2026', n: 157, kind: '建立', cv: FMP.PL.cpop.cv, done: true },
+  { id: 'love', name: '我喜歡的音樂', n: 1024, kind: '建立', cv: FMP.cover('rl-love', { pal: 19, kind: 0 }) },
+  { id: 'run', name: '跑步 BPM 170', n: 46, kind: '建立', cv: FMP.cover('rl-run', { pal: 14, kind: 1 }) },
+  { id: 'city', name: '城市夜晚 Lo-fi', n: 88, kind: '收藏', cv: FMP.cover('rl-city', { pal: 10, kind: 2 }), by: '夜燈電台' },
+  { id: '90s', name: '九〇年代華語金曲', n: 120, kind: '收藏', cv: FMP.cover('rl-90s', { pal: 5, kind: 3, glyph: '九' }), by: '老歌倉庫' },
+  { id: 'rain', name: '下雨天的鋼琴', n: 32, kind: '收藏', cv: FMP.cover('rl-rain', { pal: 17, kind: 5 }), by: '琴鍵上的鯨' },
+];
+const AC_SEL = { love: true, run: true };
+
+function acRemoteRow(p, mode) {
+  const sel = AC_SEL[p.id];
+  let lead, sub, trail = '';
+  sub = '<span>' + p.n.toLocaleString() + ' 首' + (p.by ? ' · ' + p.by : '') + '</span>';
+  if (p.done) {
+    lead = '<span class="check" style="opacity:.35"></span>';
+    trail = '<span class="ac-tag ok">' + I('check') + '已匯入</span>';
+  } else if (mode === 'progress' && sel) {
+    lead = p.id === 'run' ? '<span class="check on">' + I('check') + '</span>' : '<span class="spinner" style="width:22px;height:22px"></span>';
+    sub = p.id === 'run' ? '<span class="ac-okc">' + I('check', 's16') + '完成，46 首</span>' : '<span>取得曲目 412 / 1,024</span>';
+    if (p.id === 'love') sub += '<div class="ac-bar"><i style="width:40%"></i></div>';
+  } else {
+    lead = '<span class="check' + (sel ? ' on' : '') + '" data-toggle>' + I('check') + '</span>';
+  }
+  return '<div class="ac-pl' + (p.done ? ' done' : '') + '">' + lead + FMP.coverEl(p.cv, 48, 'thumb') + '<div class="meta"><b class="ell">' + p.name + '</b>' + (p.id === 'love' && mode === 'progress' ? '<div>' + sub + '</div>' : sub) + '</div>' + trail + '</div>';
+}
+function acRemoteSheet(ctx, mode) {
+  const g = (k) => '<div class="group" style="margin-top:0">' + AC_RL.filter((p) => p.kind === k).map((p) => acRemoteRow(p, mode)).join('') + '</div>';
+  const body = '<div style="display:flex;align-items:center;gap:10px;padding:2px 20px 4px">' + FMP.coverEl(AC.netease.cv, 28, 'ac-av', 'width:28px;height:28px') + '<span class="ty-foot c2">夜行的貓 · 6 個遠端歌單</span></div>' +
+    '<div class="ghead" style="margin-top:14px">建立的歌單</div>' + g('建立') +
+    '<div class="ghead">收藏的歌單</div>' + g('收藏') +
+    '<div class="gfoot">匯入後成為唯讀的匯入歌單，依刷新間隔自動刷新；已匯入的不能再勾。</div>' +
+    '<div class="ghead">匯入選項</div><div class="group">' +
+      '<div class="gcell"><div class="gl"><span>使用登入狀態匯入</span><small>才讀得到私人歌單與會員曲目資訊</small></div><span class="switch on"></span></div>' +
+      '<div class="gcell"><div class="gl"><span>刷新間隔</span></div><span class="gv">每 6 小時<svg class="i chev" viewBox="0 0 24 24"><path d="m8 9.5 4-4 4 4M8 14.5l4 4 4-4"/></svg></span></div></div>';
+  const foot = mode === 'progress'
+    ? '<button class="btn btn-primary" disabled>匯入中 1 / 2…</button><div class="ty-foot c2">可以關閉這個畫面，匯入會在背景繼續。</div>'
+    : '<button class="btn btn-primary">匯入 2 個歌單</button>';
+  return acPage(ctx, {
+    overlay: acSheet({
+      left: FMP.gbtn('close', '關閉'),
+      titleHtml: '<span class="ac-stitle2"><b>網易雲音樂的歌單</b></span>',
+      right: mode === 'progress' ? '<span class="ac-hsp"></span>' : '<button class="btn btn-plain" style="height:44px">全選</button>',
+      body, foot,
+    }),
+  });
+}
+
+function acLogout(ctx) {
+  const alert = '<div class="dialog-wrap"><div class="lg alert" data-adapt><h4>登出網易雲音樂？</h4><p>會從這台裝置刪除登入資訊。匯入歌單會保留，之後用未登入的身分刷新；需要會員的曲目將無法完整播放。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">登出</button></div></div></div>';
+  return acPage(ctx, { overlay: alert });
+}
+
+/* ---------------- login ---------------- */
+function acQRBlock(state, size) {
+  size = size || 196;
+  let ov = '', cls = '';
+  if (state === 'scanned') ov = '<div class="ov"><span class="big">' + I('check') + '</span>已掃描</div>';
+  if (state === 'expired') { cls = ' blur'; ov = '<div class="ov">QR 已過期<button class="btn btn-primary btn-sm">' + I('refresh', 's16') + '重新產生</button></div>'; }
+  return '<div class="t-light ac-qr' + cls + '">' + acQR('fmp-login-' + state, size) + ov + '</div>';
+}
+const AC_QTXT = {
+  wait: ['請用嗶哩嗶哩 App 掃描', '用 App 的掃一掃掃描這個 QR，再在手機上確認登入。'],
+  scanned: ['<span class="spinner"></span>已掃描，請在手機上確認', '在手機上按「確認登入」。如果不是你掃的，在手機上取消即可。'],
+  expired: ['QR 已過期', '太久沒有掃描，重新產生一個再掃。'],
+};
+function acLoginSeg(on) {
+  return '<div class="ac-seg"><div class="seg"><button class="' + (on === 'qr' ? 'on' : '') + '">掃碼</button><button class="' + (on === 'web' ? 'on' : '') + '">網頁</button></div></div>';
+}
+function acQRSheet(ctx, state) {
+  let body;
+  if (state === 'ok') {
+    body = acLoginSeg('qr') + '<div class="ac-qrbox" style="padding-top:40px"><span class="ac-ok">' + I('check') + '</span>' +
+      '<div class="ac-qst">已登入 Bilibili</div>' +
+      '<div class="ac-id" style="justify-content:center;margin-top:18px">' + FMP.coverEl(AC.bilibili.cv, null, 'ac-av') + '<div style="text-align:left"><div class="ac-name">' + AC.bilibili.name + '</div><div class="ac-mem">' + acCrown('大會員') + '<span>2027-03-02 到期</span></div></div></div>' +
+      '<div class="ac-qsub" style="margin-top:22px">即將返回帳號頁…</div></div>';
+  } else {
+    const t = AC_QTXT[state];
+    body = acLoginSeg('qr') + '<div class="ac-qrbox">' + acQRBlock(state) +
+      '<div class="ac-qst">' + t[0] + '</div><div class="ac-qsub">' + t[1] + '</div></div>' +
+      '<div class="ac-safe">' + I('shield', 's18') + '<span>FMP 只保存登入後的憑證，存在系統鑰匙圈；不經手你的密碼。</span></div>' +
+      '<div class="ac-alt">要在這支手機上登入？<button class="btn btn-plain" style="height:44px;font-size:14px">改用網頁登入</button></div>';
+  }
+  return acPage(ctx, { overlay: acSheet({ left: FMP.gbtn('close', '取消登入'), title: '登入 Bilibili', body }) });
+}
+
+function acWebMock() {
+  return '<div class="t-light ac-web"><div style="display:flex;align-items:center;justify-content:space-between"><span class="wl"></span><span class="wln" style="width:60px"></span></div>' +
+    '<div class="wh">登入</div><div class="wtabs"><b>密碼登入</b><span>簡訊登入</span></div>' +
+    '<div class="wfield">手機號碼</div><div class="wfield">密碼</div><div class="wbtn">登入</div>' +
+    '<div class="wln" style="width:46%;align-self:center;margin-top:6px"></div><div class="wsm"><i></i><i></i><i></i></div></div>';
+}
+function acWebSheet(ctx) {
+  const body = acLoginSeg('web') +
+    '<div class="ac-banner">' + I('shield', 's18') + '<span>下面是網易雲音樂的網頁。FMP 不讀取也不儲存你的密碼，登入完成後會自動返回。</span></div>' +
+    '<div class="ac-webcap">網站內容</div>' + acWebMock();
+  return acPage(ctx, {
+    overlay: acSheet({
+      left: FMP.gbtn('close', '取消登入'),
+      titleHtml: '<span class="ac-stitle2"><b>登入網易雲音樂</b><small>' + I('lock') + 'music.163.com</small></span>',
+      right: FMP.gbtn('refresh', '重新載入'),
+      raw: true, body: '<div style="flex:1;min-height:0;display:flex;flex-direction:column">' + body + '</div>',
+    }),
+  });
+}
+
+const AC_CK = ['SAPISID', '__Secure-1PSID', '__Secure-3PSID'];
+function acCookieBody(desk) {
+  const ck = AC_CK.map((n) => '<div class="gcell"><div class="gl"><span class="ac-ck">' + n + '</span></div><span class="gv" style="font-size:13px">已遮蔽</span><span class="ac-okc">' + I('check', 's16') + '找到</span></div>').join('');
+  return '<div class="ac-banner" style="margin:0 16px 4px">' + I('info', 's18') + '<span><b>這個平台的內嵌網頁無法登入 YouTube。</b>改成從瀏覽器複製 Cookie 貼上；FMP 只取下面三個值，其餘丟棄。</span></div>' +
+    '<div class="ghead" style="margin-top:18px">怎麼取得</div>' +
+    '<div class="ac-instr">' +
+      '<div class="ac-step"><span class="n">1</span><span>在電腦的瀏覽器登入 youtube.com。</span></div>' +
+      '<div class="ac-step"><span class="n">2</span><span>打開開發者工具的「網路」分頁，點任一個 youtube.com 的請求，複製 <code>Cookie</code> 標頭的值。</span></div>' +
+      '<div class="ac-step"><span class="n">3</span><span>回到這裡按「從剪貼簿貼上」。</span></div></div>' +
+    '<div class="ghead">Cookie</div>' +
+    '<div class="ac-paste"><div class="ac-mask">••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••</div>' +
+      '<div class="row2"><span>已貼上 1,842 字元</span><span class="sp"></span><button class="btn btn-gray btn-xs">清除</button><button class="btn btn-tinted btn-xs">' + acI('paste', 's16') + '從剪貼簿貼上</button></div></div>' +
+    '<div class="ghead">需要的值</div><div class="group">' + ck + '</div>' +
+    '<div class="gfoot">值不顯示、不寫進 log，只存在系統鑰匙圈。缺少任何一個時會標「找不到」，按鈕不能按。</div>';
+}
+function acCookieSheet(ctx) {
+  return acPage(ctx, {
+    st: { bilibili: 'in', netease: 'in', youtube: 'out' },
+    overlay: acSheet({ left: FMP.gbtn('close', '取消登入'), title: '登入 YouTube', body: acCookieBody(), foot: '<button class="btn btn-primary">驗證並登入</button>' }),
+  });
+}
+
+/* ---------------- desktop ---------------- */
+const acDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay });
+function acDeskPane(o) {
+  o = o || {};
+  const rows = AC_RL.map((p, i) => {
+    const sel = AC_SEL[p.id];
+    const status = p.done ? '<span class="ac-tag ok">' + I('check') + '已匯入為「華語私藏 2026」</span>' : '<span class="c3">未匯入</span>';
+    return '<div class="ac-tr' + (p.done ? ' done' : '') + (i === 2 ? ' hov' : '') + '"><span class="check' + (sel ? ' on' : '') + '" style="' + (p.done ? 'opacity:.35' : '') + '">' + I('check') + '</span>' + FMP.coverEl(p.cv, 32, 'thumb') +
+      '<div style="min-width:0"><div class="ell" style="color:var(--label);' + (p.done ? 'opacity:.55' : '') + '">' + p.name + '</div><div class="sub">' + p.kind + (p.by ? ' · ' + p.by : '') + '</div></div>' +
+      '<span class="num c2">' + p.n.toLocaleString() + ' 首</span>' + status + '</div>';
+  }).join('');
+  return '<div class="sx-h"><div class="ty-large">帳號</div><div style="display:flex;gap:8px;align-items:center"><span class="ty-foot c3">上次檢查：5 分鐘前</span><button class="btn btn-gray btn-sm">' + I('refresh', 's16') + '檢查帳號</button></div></div>' +
+    '<p class="sx-lead">每個音源一個帳號。登入資訊只存在這台裝置的系統鑰匙圈，不進備份與診斷檔。</p>' +
+    '<div class="ac-grid">' + acCard('bilibili', o.biliExp ? 'exp' : 'in', { desk: true }) + acCard('netease', 'in', { desk: true, sel: !o.noSel }) + acCard('youtube', 'out', { desk: true, why: '登入後可以讀取、寫入你的 YouTube 播放清單。' }) + '</div>' +
+    '<div class="ac-sech"><span class="t">' + FMP.src('netease') + '夜行的貓的遠端歌單</span><span class="ty-foot c2">6 個 · 已匯入 1 個</span><span class="sp"></span>' +
+      '<span class="ty-foot c2" style="display:flex;align-items:center;gap:6px">使用登入狀態匯入<span class="switch on"></span></span>' +
+      '<button class="btn btn-primary btn-sm">匯入 2 個歌單</button></div>' +
+    '<div class="ac-tbl"><div class="ac-tr th"><span class="check part-on" style="width:14px;height:14px">' + I('minus') + '</span><span></span><span>歌單</span><span>曲目</span><span>狀態</span></div>' + rows + '</div>' +
+    '<div class="ty-foot c2" style="margin-top:8px">按卡片上的「歌單」在這裡列出該帳號的遠端歌單；⌘A 全選，Space 勾選目前列。</div>';
+}
+function acDeskMain(ctx) { return acDesk(ctx, { cat: 'account', pane: acDeskPane() }); }
+
+function acDeskQR(ctx) {
+  const dlg = '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:400px">' +
+    '<div class="dlg-head"><span class="dt">登入 Bilibili</span><span class="ty-cap c3">esc</span><button class="ibtn" aria-label="關閉">' + I('close', 's18') + '</button></div><div class="dlg-body" style="padding:0">' +
+    acLoginSeg('qr') + '<div class="ac-qrbox" style="padding-bottom:6px">' + acQRBlock('scanned', 168) +
+    '<div class="ac-qst" style="font-size:16px;margin-top:18px">' + AC_QTXT.scanned[0] + '</div><div class="ac-qsub" style="font-size:12.5px;line-height:18px">' + AC_QTXT.scanned[1] + '</div></div>' +
+    '<div class="ac-safe" style="margin:14px 20px 20px;font-size:12px">' + I('shield', 's16') + '<span>FMP 只保存登入後的憑證，存在系統鑰匙圈；不經手你的密碼。</span></div></div></div></div>';
+  return acDesk(ctx, { cat: 'account', pane: acDeskPane({ biliExp: true, noSel: true }), overlay: dlg });
+}
+function acDeskWeb(ctx) {
+  const dlg = '<div class="dialog-wrap"><div class="dlg solid" role="dialog" style="width:720px;height:600px">' +
+    '<div class="dlg-head"><button class="ibtn" aria-label="關閉">' + I('close', 's18') + '</button><span class="dt">登入網易雲音樂</span>' +
+    '<span class="ac-addr">' + I('lock') + 'music.163.com</span><span style="flex:1"></span>' +
+    '<div class="seg"><button style="height:24px">掃碼</button><button class="on" style="height:24px">網頁</button></div><button class="ibtn" aria-label="重新載入">' + I('refresh', 's18') + '</button></div>' +
+    '<div class="dlg-body" style="display:flex;flex-direction:column;overflow:hidden;padding:0 14px 14px"><div class="ac-banner" style="margin:0 0 12px;font-size:12.5px">' + I('shield', 's16') + '<span>下面是網易雲音樂的網頁。FMP 不讀取也不儲存你的密碼，登入完成後會自動關閉這個視窗。</span></div>' +
+    '<div style="flex:1;min-height:0;border-radius:10px;overflow:hidden;display:flex;box-shadow:0 0 0 .5px var(--sep-strong)"><div style="flex:1;display:flex;justify-content:center" class="t-light"><div style="width:380px;display:flex">' + acWebMock() + '</div></div></div></div></div></div>';
+  return acDesk(ctx, { cat: 'account', pane: acDeskPane(), overlay: dlg });
+}
+function acDeskCookie(ctx) {
+  const dlg = '<div class="dialog-wrap"><div class="dlg solid" role="dialog" style="width:540px;height:680px">' +
+    '<div class="dlg-head"><span class="dt">登入 YouTube</span><span class="ty-cap c3">esc</span><button class="ibtn" aria-label="關閉">' + I('close', 's18') + '</button></div>' +
+    '<div class="dlg-body scroll ac-cbody">' + acCookieBody(true) + '</div>' +
+    '<div class="dlg-foot"><button class="btn btn-gray">取消</button><button class="btn btn-primary">驗證並登入</button></div></div></div>';
+  return acDesk(ctx, { cat: 'account', pane: acDeskPane(), overlay: dlg });
+}
+
+FMP.page({
+  title: '帳號與登入',
+  intro: '<p>從「設定 → 帳號」進入。每個有登入插件能力的音源一張卡：帳號、會員狀態（等級與到期日）、登入狀態三種（已登入、登入已失效、未登入）。Bilibili、網易雲有掃碼與網頁兩種登入；YouTube 用網頁，某平台行不通時改貼 Cookie（brief §8）。</p><p>今天是 2026-11-10：網易雲的黑膠 VIP 11-18 到期，所以帶「快到期」提示。</p>',
+  sections: [
+    {
+      title: '手機：帳號頁',
+      desc: '卡片是實心的內容；狀態用點＋文字，快到期與失效用同一種警示條，放在帳號資訊下方、動作按鈕上方。',
+      frames: [
+        { kind: 'phone', label: '帳號頁', render: (ctx) => acPage(ctx) },
+        { kind: 'phone', label: '檢查帳號後：B 站登入已失效', render: (ctx) => acPage(ctx, { st: { bilibili: 'exp', netease: 'in', youtube: 'out' }, overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('warn', 's18') + '<span>Bilibili 登入已失效</span></span><button class="btn btn-tinted">重新登入</button>', { style: 'bottom:176px' }) }) },
+        { kind: 'phone', label: 'B 站大會員已過期', render: (ctx) => acPage(ctx, { st: { bilibili: 'lapsed', netease: 'in', youtube: 'out' } }) },
+        { kind: 'phone', label: '登出確認', render: (ctx) => acLogout(ctx) },
+      ],
+      notes: '<h3>規則</h3><ul><li>卡片頂端固定是「音源標識＋音源名＋狀態」，所以三張卡一眼分得出是哪個音源、登入了沒，不靠顏色區分卡片。</li><li>會員狀態用金色皇冠徽章（和曲目的「會員」存取等級同一個金色），旁邊寫到期日。到期前 14 天出現「快到期」警示條；過期後徽章換成灰色「大會員已過期」，警示條寫明影響與續費後怎麼更新（第三格）。登入狀態仍是「已登入」，因為帳號本身還能用。</li><li>「檢查帳號」逐一呼叫各插件確認登入與會員狀態，頂列按鈕轉成 spinner；發現失效時跳一則提示，帶「重新登入」動作（brief §13 的單一 Toast）。App 啟動時也會靜默檢查一次。</li><li>登出要確認，並說清楚匯入歌單會保留、改用未登入身分刷新。</li></ul>',
+    },
+    {
+      title: '手機：遠端歌單（從卡片的「歌單」打開）',
+      frames: [
+        { kind: 'phone', label: '勾選要匯入的遠端歌單', render: (ctx) => acRemoteSheet(ctx, 'select') },
+        { kind: 'phone', label: '匯入進度', render: (ctx) => acRemoteSheet(ctx, 'progress') },
+      ],
+      notes: '<ul><li>列出這個帳號的遠端歌單，分「建立的」與「收藏的」；已匯入的變淡並標「已匯入」，不能重複勾。</li><li>匯入選項沿用舊版的「使用登入狀態匯入」，加上刷新間隔（預設值來自設定）。</li><li>進度逐張顯示：正在取的那張有「取得曲目 412 / 1,024」與進度條（brief §15 大歌單要有進度）。可以關掉 sheet，匯入在背景繼續，完成時跳提示；音樂庫的封面上也有刷新中的覆蓋。</li></ul>',
+    },
+    {
+      title: '手機：掃碼登入（Bilibili、網易雲）',
+      desc: '登入是從帳號頁推起的 sheet，上方分頁「掃碼」「網頁」。QR 固定白底深色模組，深色模式也一樣，才掃得到。',
+      frames: [
+        { kind: 'phone', label: '等待掃描', render: (ctx) => acQRSheet(ctx, 'wait') },
+        { kind: 'phone', label: '已掃描，請在手機上確認', render: (ctx) => acQRSheet(ctx, 'scanned') },
+        { kind: 'phone', label: '已過期', render: (ctx) => acQRSheet(ctx, 'expired') },
+        { kind: 'phone', label: '登入成功', render: (ctx) => acQRSheet(ctx, 'ok') },
+      ],
+      notes: '<ul><li>四個狀態共用同一個版面，只換 QR 上的覆蓋層與下方兩行字，畫面不跳動。</li><li>已過期時 QR 模糊、蓋上「重新產生」，不自動重新產生（使用者可能已經離開）。</li><li>登入成功顯示帳號與會員狀態，1.5 秒後自動回到帳號頁，那張卡變成「已登入」。</li><li>手機上掃碼的情境是「用另一台裝置掃」；同一台手機用網頁登入比較順，所以手機預設開「網頁」分頁、桌面預設開「掃碼」分頁。</li></ul>',
+    },
+    {
+      title: '手機：網頁登入與貼上 Cookie',
+      frames: [
+        { kind: 'phone', label: '網頁登入（網易雲）', render: (ctx) => acWebSheet(ctx) },
+        { kind: 'phone', label: 'YouTube：貼上 Cookie', render: (ctx) => acCookieSheet(ctx) },
+      ],
+      notes: '<ul><li>網頁登入：App 的頂列（取消、標題、網域與鎖頭、重新載入）＋一條說明，下面整塊是網站自己的內容，用細線和「網站內容」分開，讓人知道哪些是 FMP、哪些是網站。網頁區塊不跟 App 的深淺色。</li><li>偵測到登入完成（插件判斷 cookie 已齊）就自動關閉並回到帳號頁。</li><li>貼上 Cookie 只在「這個平台的網頁登入行不通」時出現，YouTube 卡上的按鈕直接寫「貼上 Cookie 登入」，不讓使用者自己選。說明為什麼、怎麼拿、只取哪三個名稱；值一律遮成圓點，連貼上後也不顯示，只告訴使用者字元數與三個名稱有沒有找到。</li></ul>',
+    },
+    {
+      title: '桌面：帳號分類',
+      desc: '桌面的帳號頁是設定裡的「帳號」分類。三張卡並排；按「歌單」在下方表格列出該帳號的遠端歌單，不另開視窗。登入用對話框。',
+      frames: [
+        { kind: 'desktop', label: '帳號＋網易雲的遠端歌單', render: (ctx) => acDeskMain(ctx) },
+        { kind: 'desktop', label: '重新登入 Bilibili：掃碼對話框，已掃描', render: (ctx) => acDeskQR(ctx) },
+        { kind: 'desktop', label: '網頁登入對話框', render: (ctx) => acDeskWeb(ctx) },
+        { kind: 'desktop', label: 'YouTube 貼上 Cookie（Windows）', render: (ctx) => acDeskCookie(ctx) },
+      ],
+      notes: '<h3>規則</h3><ul><li>選中的帳號卡用強調色外框，對應下方的歌單表格；表格可以多選、⌘A 全選、Space 勾選，已匯入的列變淡。</li><li>登入對話框是實心的：它承載網頁或表單，放在玻璃上會隨背後內容變色而難讀。玻璃只用在小的確認框（例如登出）與提示。</li><li>網頁登入對話框是一個小瀏覽器：網址列只顯示網域與鎖頭，不能輸入網址；網頁區塊保持網站原本的淺色。</li><li>Esc 關閉對話框（取消登入，不留下半套憑證）。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

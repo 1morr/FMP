@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>歌單詳情 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+[class^="pld-"], [class*=" pld-"] { box-sizing: border-box; }
+/* ---- blurred cover backdrop (phone + desktop) ---- */
+.pld-hbg { position: absolute; left: 0; right: 0; top: 0; height: 430px; overflow: hidden; pointer-events: none; z-index: 0; }
+.pld-hbg img { position: absolute; left: -20%; top: -30%; width: 140%; height: 140%; object-fit: cover; filter: blur(46px) saturate(1.5); opacity: .9; }
+.pld-hbg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(color-mix(in srgb, var(--bg) 38%, transparent), color-mix(in srgb, var(--bg) 62%, transparent) 55%, var(--bg)); }
+.pld-in { position: relative; z-index: 1; }
+
+/* ---- phone header ---- */
+.pld-hero { padding: 58px 20px 0; }
+.pld-hrow { display: flex; gap: 16px; align-items: flex-end; }
+.pld-hrow > .cover { width: 132px; height: 132px; border-radius: var(--r-cover-lg); box-shadow: var(--shadow-float); }
+.pld-hrow .ht { min-width: 0; flex: 1; padding-bottom: 2px; }
+.pld-hrow .ht h1 { margin: 0; font: 700 24px/29px var(--font-display); letter-spacing: -.01em; }
+.pld-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.pld-tag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px 0 6px; border-radius: var(--r-cap); background: var(--fill); color: var(--label); font-size: 12px; font-weight: 500; }
+.pld-lim { gap: 4px; }
+.pld-lim .gap { width: 6px; }
+.pld-tag svg.i { width: 14px; height: 14px; color: var(--label-2); }
+.pld-desc { margin-top: 12px; font-size: 14px; line-height: 20px; color: var(--label-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pld-btns { display: flex; gap: 10px; margin-top: 16px; }
+.pld-btns .btn { flex: 1; }
+.pld-btns .btn[disabled] { opacity: .38; }
+/* source mix: the multi-source playlist at a glance */
+.pld-mix { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+.pld-mix .src-chip .num { font-weight: 500; margin-left: 1px; }
+.pld-mix .bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 2px; }
+.pld-mix .bar i { display: block; height: 100%; }
+.pld-mix .lg2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--label-2); }
+.pld-mix .lg2 > span { display: inline-flex; align-items: center; gap: 4px; }
+.pld-mix .lg2 .sp { flex: 1; }
+/* mirror status block for imported playlists */
+.pld-sync { margin: 16px 0 0; border-radius: var(--r-group); background: var(--cell); box-shadow: inset 0 0 0 .5px var(--sep); overflow: hidden; }
+.t-light .pld-sync { background: var(--cell-2); box-shadow: none; }
+.pld-sync .sc { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 12px 8px 14px; position: relative; }
+.pld-sync .sc + .sc::before { content: ""; position: absolute; top: 0; left: 48px; right: 0; height: .5px; background: var(--sep); }
+.pld-sync .sc > svg.i { width: 22px; height: 22px; color: var(--label-2); }
+.pld-sync .sc .gl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 15px; }
+.pld-sync .sc .gl small { font-size: 12.5px; line-height: 16px; color: var(--label-2); }
+.pld-sync .sc .chev { color: var(--label-3); }
+.pld-sync .lib-bar { height: 4px; border-radius: 2px; background: var(--fill-2); overflow: hidden; margin-top: 6px; }
+.pld-sync .lib-bar i { display: block; height: 100%; background: var(--accent-fill); border-radius: 2px; }
+.pld-list { margin-top: 14px; }
+.pld-part { min-height: 46px !important; padding-left: 76px !important; --sep-inset: 76px; }
+.pld-part .pn { width: 26px; flex: none; font-size: 12px; font-weight: 600; color: var(--label-3); }
+.pld-part .t1 { font-size: 15px !important; }
+.row.pld-open { background: var(--fill); }
+.pld-count { padding: 16px 20px 0; font-size: 13px; color: var(--label-3); text-align: center; }
+.pld-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 56px 36px 0; gap: 8px; }
+.pld-empty .big { width: 64px; height: 64px; border-radius: 20px; background: var(--fill); display: grid; place-items: center; color: var(--label-2); margin-bottom: 8px; }
+.pld-empty .big svg.i { width: 30px; height: 30px; }
+.pld-empty .btn { margin-top: 16px; }
+
+/* ---- glass text capsule, select title ---- */
+.pld-gtext { height: 44px; padding: 0 17px; border-radius: var(--r-cap); font-size: 16px; font-weight: 600; display: inline-flex; align-items: center; color: var(--glass-ink); }
+.pld-gtext.acc { color: var(--accent); }
+.pld-seltitle { position: absolute; left: 110px; right: 110px; text-align: center; font-size: 17px; font-weight: 600; pointer-events: none; }
+
+/* ---- floating action bar ---- */
+.pld-act { position: absolute; z-index: 55; left: 14px; right: 14px; bottom: 30px; height: 64px; border-radius: 32px; display: flex; align-items: center; padding: 0 6px; }
+.pld-act button { flex: 1; min-width: 0; height: 56px; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--glass-ink); white-space: nowrap; }
+.pld-act button svg.i { width: 23px; height: 23px; }
+.pld-act button.dz { color: var(--danger); }
+.pld-act button:hover { background: var(--glass-press); }
+
+/* ---- glass menu ---- */
+.pld-scrim { position: absolute; inset: 0; z-index: 64; background: var(--scrim); }
+
+/* ---- remote remove confirm ---- */
+.pld-alert { width: 316px; }
+.pld-alert .who { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 7px; border-radius: var(--r-cap); background: color-mix(in srgb, var(--glass-ink) 9%, transparent); font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+.pld-alert .who svg { width: 14px; height: 14px; }
+.pld-alert ul { list-style: none; margin: -6px 0 16px; padding: 6px 12px; border-radius: 12px; background: color-mix(in srgb, var(--glass-ink) 6%, transparent); text-align: left; }
+.pld-alert li { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 28px; color: var(--glass-ink); min-width: 0; }
+.pld-alert li .tt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pld-alert li .num { color: var(--glass-ink-2); font-size: 12px; }
+.desk .pld-alert { width: 380px; }
+.desk .pld-alert h4 { font-size: 14px; }
+.desk .pld-alert p { font-size: 12.5px; line-height: 17px; }
+
+/* ---- desktop ---- */
+.pld-dhero { position: relative; margin-left: -256px; padding: 66px 28px 18px calc(256px + 8px); }
+.pld-dhero .pld-hbg { height: 100%; bottom: 0; }
+.pld-dhero .pld-hbg::after { background: linear-gradient(color-mix(in srgb, var(--bg) 30%, transparent), color-mix(in srgb, var(--bg) 58%, transparent) 60%, var(--bg)); }
+.pld-drow { display: flex; gap: 22px; align-items: flex-end; }
+.pld-drow > .cover { width: 176px; height: 176px; border-radius: 12px; box-shadow: var(--shadow-float); }
+.pld-drow .ht { flex: 1; min-width: 0; padding-bottom: 2px; }
+.pld-drow h1 { margin: 0; font: 700 30px/36px var(--font-display); letter-spacing: -.01em; }
+.desk .pld-meta { font-size: 12px; margin-top: 6px; }
+.desk .pld-tag { height: 20px; font-size: 11.5px; }
+.desk .pld-desc { font-size: 12.5px; line-height: 18px; margin-top: 8px; max-width: 460px; }
+.pld-dbtns { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.pld-dsync { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--label-2); }
+.pld-dsync svg.i { width: 15px; height: 15px; }
+.desk .pld-mix { margin-top: 12px; max-width: 460px; }
+.desk .pld-mix .lg2 { font-size: 11.5px; }
+.pld-th, .pld-tr { display: grid; grid-template-columns: 26px minmax(0, 1fr) 92px 56px 46px 28px; align-items: center; column-gap: 12px; padding: 0 10px; }
+.pld-th { height: 28px; font-size: 11px; font-weight: 600; color: var(--label-2); box-shadow: inset 0 -.5px 0 var(--sep); margin: 0 0 4px; }
+.pld-th .r, .pld-tr .r { text-align: right; justify-self: end; }
+.pld-tr { height: 48px; border-radius: 8px; font-size: 13px; }
+.pld-tr:hover, .pld-tr.hov { background: var(--cell-hover); }
+.pld-tr.sel { background: var(--accent-soft); }
+.pld-tr .n { text-align: right; font-size: 12px; color: var(--label-3); display: flex; justify-content: flex-end; }
+.pld-tr .n svg.i { width: 15px; height: 15px; color: var(--label); }
+.pld-tr .tc { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pld-tr .tc .cover { width: 34px; height: 34px; }
+.pld-tr .tc .m { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pld-tr .tc .m > b { font-weight: 500; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pld-tr .tc .m .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pld-tr .tc .m > span { font-size: 12px; color: var(--label-2); display: flex; min-width: 0; }
+.pld-tr.playing .tc .m > b { color: var(--accent); font-weight: 600; }
+.pld-tr .sc .src svg { width: 15px; height: 15px; }
+.pld-tr .sc .src-name { font-size: 12px; color: var(--label); }
+.pld-tr .dc { font-size: 12px; color: var(--label-2); }
+.pld-tr .mc { opacity: 0; }
+.pld-tr:hover .mc, .pld-tr.hov .mc, .pld-tr.sel .mc { opacity: 1; }
+.pld-tr .mc .ibtn { width: 28px; height: 28px; color: var(--label-2); }
+.pld-tr .xp { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; color: var(--label-2); }
+.pld-tr .xp svg.i { width: 14px; height: 14px; stroke-width: 2.2; }
+.pld-tr.pt { height: 34px; }
+.pld-tr.pt .tc { padding-left: 44px; }
+.pld-tr.pt .pn { font-size: 11px; font-weight: 600; color: var(--label-3); width: 22px; flex: none; }
+.pld-dact { position: absolute; z-index: 29; left: 256px; right: 336px; bottom: 92px; display: flex; justify-content: center; pointer-events: none; }
+.pld-dact > .lg { pointer-events: auto; height: 44px; border-radius: 22px; display: flex; align-items: center; gap: 2px; padding: 0 6px 0 16px; font-size: 13px; }
+.pld-dact .cnt { font-weight: 600; margin-right: 8px; }
+.pld-dact .vs { width: 1px; height: 20px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); margin: 0 6px; }
+.pld-dact button.a { height: 32px; padding: 0 10px; border-radius: 16px; display: inline-flex; align-items: center; gap: 6px; color: var(--glass-ink); font-size: 12.5px; font-weight: 600; }
+.pld-dact button.a.dz { color: var(--danger); }
+.pld-dact button.a svg.i { width: 16px; height: 16px; }
+.pld-dact button.a:hover { background: var(--glass-press); }
+.pld-dact .ibtn { width: 32px; height: 32px; color: var(--glass-ink-2); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const T = FMP.T;
+const PL = FMP.PL;
+
+/* ---------------- demo contents (synthetic) ---------------- */
+const PLD_TRACKS = {
+  commute: ['t01', 't02', 't03', 't04', 't05', 't06', 't07', 't09', 't10', 't12', 't13', 't14'],
+  covers: ['t03', 't05', 't08', 't11', 't15', 't18', 't21'],
+  lofi: ['t19', 't10', 't16', 't22', 't02', 't13', 't06', 't20'],
+};
+const PLD_SRCW = { bilibili: ' B 站', youtube: ' YouTube ', netease: '網易雲' };
+const PLD_LIMITS = { commute: [['vip', 5], ['trial', 2]] };
+const PLD_MIX = { commute: [['netease', 18], ['bilibili', 14], ['youtube', 10]] };
+
+/* ---------------- phone ---------------- */
+function pldMeta(p) {
+  if (p.kind === 'imported') {
+    return '<div class="pld-meta">' + FMP.srcChip(p.src, true) + '<span class="pld-tag">' + I('cloud') + '已匯入</span></div>' +
+      '<div class="pld-meta" style="margin-top:6px"><span>' + FMP.esc(p.owner) + '</span><span>·</span><span class="num">' + p.count + ' 首</span><span>·</span><span>' + p.dur + '</span></div>';
+  }
+  const lim = PLD_LIMITS[p.id];
+  return '<div class="pld-meta"><span class="pld-tag">' + I('library') + '本地歌單</span></div><div class="pld-meta" style="margin-top:6px"><span class="num">' + p.count + ' 首</span><span>·</span><span>' + p.dur + '</span></div>' +
+    (lim && p.count ? '<div class="pld-meta pld-lim" style="margin-top:4px">' + lim.map(([a, n]) => FMP.acc(a) + '<span class="num">' + n + ' 首</span>').join('<span class="gap"></span>') + '</div>' : '');
+}
+function pldMix(id) {
+  const mix = PLD_MIX[id];
+  if (!mix) return '';
+  const total = mix.reduce((a, [, n]) => a + n, 0);
+  void total;
+  return '<div class="pld-mix">' + mix.map(([s, n]) => '<span class="src-chip">' + FMP.srcMark(s) + FMP.SRC[s].short + '<span class="num c2">' + n + '</span></span>').join('') + '</div>';
+}
+function pldSync(p, o) {
+  o = o || {};
+  const refresh = o.refreshing
+    ? '<div class="sc">' + '<span class="spinner" style="width:20px;height:20px;margin:0 1px"></span><div class="gl">正在刷新…<small class="num">讀取曲目 128 / 214</small><div class="lib-bar"><i style="width:60%"></i></div></div></div>'
+    : '<div class="sc">' + I('refresh') + '<div class="gl">' + p.refresh + '自動刷新<small>上次 ' + p.last + ' · 以' + PLD_SRCW[p.src] + '為準</small></div><button class="btn btn-tinted btn-sm">立即刷新</button></div>';
+  return '<div class="pld-sync">' + refresh +
+    '<div class="sc">' + I('copy') + '<div class="gl">複製成本地歌單<small>匯入歌單是唯讀的，想編輯就複製一份</small></div>' + I('chevR', 's18 chev') + '</div></div>';
+}
+function pldHero(p, o) {
+  o = o || {};
+  const empty = o.empty;
+  return '<div class="pld-hbg"><img alt="" src="' + p.cv.url + '"></div><div class="pld-in pld-hero">' +
+    '<div class="pld-hrow">' + FMP.coverEl(p.cv) + '<div class="ht"><h1>' + FMP.esc(p.name) + '</h1>' + pldMeta(empty ? Object.assign({}, p, { count: 0, dur: '0 分' }) : p) + '</div></div>' +
+    (p.desc ? '<div class="pld-desc">' + FMP.esc(p.desc) + '</div>' : '') +
+    '<div class="pld-btns"><button class="btn btn-primary"' + (empty ? ' disabled' : '') + '>' + I('play', 's20') + '播放全部</button><button class="btn btn-gray"' + (empty ? ' disabled' : '') + '>' + I('shuffle', 's20') + '隨機播放</button></div>' +
+    (p.kind === 'imported' ? pldSync(p, o) : (empty ? '' : pldMix(p.id))) + '</div>';
+}
+function pldParts(t, playingIdx) {
+  return FMP.partsOf(t).map((pt, i) => '<div class="row pld-part' + (i === playingIdx ? ' playing' : '') + '"><span class="pn num">P' + pt.n + '</span><div class="meta"><div class="t1">' +
+    (i === playingIdx ? '<span class="eq"><i></i><i></i><i></i></span>' : '') + '<span class="tt">' + FMP.esc(pt.title) + '</span></div></div><span class="dur num">' + pt.dur + '</span>' +
+    '<button class="ibtn" aria-label="更多" style="color:var(--label-2);margin-right:-10px">' + I('more', 's20') + '</button></div>').join('');
+}
+function pldList(id, o) {
+  o = o || {};
+  let h = '<div class="pld-in pld-list">';
+  PLD_TRACKS[id].forEach((tid, i) => {
+    const t = T[tid];
+    const open = o.open === tid;
+    const sel = o.sel ? o.sel.includes(i) : undefined;
+    h += FMP.trackRow(t, { playing: o.playing === tid, check: o.sel ? sel : undefined, more: !o.sel, drag: o.drag, chev: t.parts > 1 && !o.sel ? (open ? 'chevU' : 'chevD') : undefined, cls: open ? 'pld-open' : '' });
+    if (open) h += pldParts(t, o.partPlaying);
+  });
+  return h + '</div>';
+}
+function pldPhone(ctx, p, o) {
+  o = o || {};
+  const right = FMP.gpill([['select', '選取'], ['more', '更多']]);
+  return FMP.phone(ctx, {
+    content: pldHero(p, o) + (o.body !== undefined ? o.body : pldList(p.id, o)),
+    top: o.top || FMP.ptop(p.name, FMP.gbtn('chevL', '返回'), right, 110),
+    dock: o.dockHtml !== undefined ? false : { tab: 'library' },
+    overlay: (o.dockHtml || '') + (o.overlay || ''),
+  });
+}
+function pldSelTop(n) {
+  return '<div class="ptop"><button class="lg pld-gtext" data-adapt>取消</button><span class="pld-seltitle">已選擇 ' + n + ' 首</span><span class="sp"></span><button class="lg pld-gtext acc" data-adapt>全選</button></div>';
+}
+function pldAct(kind) {
+  const remove = kind === 'imported' ? '<button class="dz">' + I('cloud') + '從遠端移除</button>' : '<button class="dz">' + I('trash') + '從歌單移除</button>';
+  return '<div class="lg pld-act" data-adapt><button>' + I('nextUp') + '下一首播放</button><button>' + I('queue') + '加入佇列</button><button>' + I('addlist') + '加入歌單</button>' + remove + '</div>';
+}
+function pldRowMenu(t, p, style) {
+  const mi = (icon, label, small, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + (small ? '<small>' + small + '</small>' : '') + '</span></button>';
+  const rm = p.kind === 'imported'
+    ? (p.own ? mi('cloud', '從遠端歌單移除', '會改動你在' + PLD_SRCW[p.src] + '上的歌單', 'danger') : '')
+    : mi('trash', '從歌單移除', '', 'danger');
+  return '<div class="lg gmenu" data-adapt role="menu" style="' + style + '"><div class="mh">' + FMP.coverEl(t.cv, 40) + '<div class="mt"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src, true) + ' · ' + FMP.esc(t.artist) + (t.parts > 1 ? ' · ' + t.parts + ' 個分 P' : '') + '</span></div></div><div class="ms"></div>' +
+    mi('nextUp', '下一首播放') + mi('queue', '加入佇列') + mi('addlist', '加入歌單…') + '<div class="ms thick"></div>' + mi('lyrics', '匹配歌詞…') + (rm ? '<div class="ms thick"></div>' + rm : '') + '</div>';
+}
+function pldConfirm(p, ids) {
+  return '<div class="dialog-wrap"><div class="lg alert pld-alert"><span class="who">' + FMP.srcMark(p.src) + FMP.SRC[p.src].name + ' 收藏夾</span>' +
+    '<h4>從「' + FMP.esc(p.name) + '」移除 ' + ids.length + ' 首？</h4><p>這會改動你在 B 站上的收藏夾，FMP 無法復原。成功後這張匯入歌單會跟著刷新。</p>' +
+    '<ul>' + ids.map((id) => '<li><span class="tt">' + FMP.esc(T[id].title) + '</span><span class="num">' + T[id].dur + '</span></li>').join('') + '</ul>' +
+    '<div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">移除 ' + ids.length + ' 首</button></div></div></div>';
+}
+
+/* ---------------- desktop ---------------- */
+function pldDHero(p, o) {
+  o = o || {};
+  const imp = p.kind === 'imported';
+  const btns = '<div class="pld-dbtns"><button class="btn btn-primary">' + I('play', 's16') + '播放全部</button><button class="btn btn-gray">' + I('shuffle', 's16') + '隨機播放</button>' +
+    (imp ? '<button class="btn btn-gray">' + I('copy', 's16') + '複製成本地歌單</button>' : '<button class="btn btn-gray">' + I('edit', 's16') + '編輯資訊</button>') +
+    '<button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button>' +
+    '</div>';
+  return '<div class="pld-dhero" data-tone="' + o.theme + '"><div class="pld-hbg"><img alt="" src="' + p.cv.url + '"></div><div class="pld-in"><div class="pld-drow">' + FMP.coverEl(p.cv) +
+    '<div class="ht"><h1>' + FMP.esc(p.name) + '</h1>' + pldMeta(p).replace('</div><div class="pld-meta" style="margin-top:6px">', '<span>·</span>') +
+    (imp ? '<div class="pld-dsync">' + I('refresh') + p.refresh + '自動刷新 · 上次 ' + p.last + ' · 以' + PLD_SRCW[p.src] + '為準<button class="btn btn-plain btn-sm" style="padding:0 4px;height:22px">立即刷新</button></div>' : '') +
+    (p.desc ? '<div class="pld-desc">' + FMP.esc(p.desc) + '</div>' : '') + (imp ? '' : pldMix(p.id)) + '</div></div>' + btns + '</div></div>';
+}
+function pldDRow(t, i, o) {
+  o = o || {};
+  const cls = ['pld-tr'];
+  if (o.hov) cls.push('hov');
+  if (o.sel) cls.push('sel');
+  if (o.playing) cls.push('playing');
+  const n = o.playing ? '<span class="eq"><i></i><i></i><i></i></span>' : o.hov ? I('play') : '<span class="num">' + (i + 1) + '</span>';
+  const part = t.parts > 1 ? '<span class="part">' + t.parts + 'P</span>' : '';
+  const xp = t.parts > 1 ? '<button class="xp" aria-label="' + (o.open ? '收起分 P' : '展開分 P') + '">' + I(o.open ? 'chevD' : 'chevR') + '</button>' : '';
+  return '<div class="' + cls.join(' ') + '"><span class="n">' + n + '</span><div class="tc">' + FMP.coverEl(t.cv, 34, 'thumb') + '<div class="m"><b>' + xp + '<span class="tt">' + FMP.esc(t.title) + '</span>' + part + '</b><span><span class="tt">' + FMP.esc(t.artist) + '</span></span></div></div>' +
+    '<span class="sc">' + FMP.src(t.src, true) + '</span><span>' + FMP.acc(t.acc) + '</span><span class="dc num r">' + t.dur + '</span><span class="mc"><button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button></span></div>';
+}
+function pldDParts(t) {
+  return FMP.partsOf(t).map((pt) => '<div class="pld-tr pt"><span class="n"></span><div class="tc"><span class="pn num">P' + pt.n + '</span><span class="ell">' + FMP.esc(pt.title) + '</span></div><span></span><span></span><span class="dc num r">' + pt.dur + '</span><span class="mc"><button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button></span></div>').join('');
+}
+function pldDesk(ctx, p, o) {
+  o = o || {};
+  let rows = '';
+  PLD_TRACKS[p.id].forEach((id, i) => {
+    const t = T[id];
+    rows += pldDRow(t, i, { playing: o.playing === id, hov: o.hov === id, sel: (o.sel || []).includes(id), open: o.open === id });
+    if (o.open === id) rows += pldDParts(t);
+  });
+  const content = pldDHero(p, { theme: ctx.theme }) + '<div style="padding:4px 28px 170px 8px"><div class="pld-th"><span class="r">#</span><span>標題／歌手</span><span>音源</span><span>存取</span><span class="r">時長</span><span></span></div>' + rows + '</div>';
+  return FMP.desktop(ctx, { nav: 'none', pl: p.id, content, top: '<span class="wt">' + FMP.esc(p.name) + '</span>', overlay: o.overlay || '' });
+}
+function pldDAct(n, kind) {
+  return '<div class="pld-dact"><div class="lg" data-adapt><span class="cnt">已選擇 ' + n + ' 首</span>' +
+    '<button class="a">' + I('nextUp') + '下一首播放</button><button class="a">' + I('queue') + '加入佇列</button><button class="a">' + I('addlist') + '加入歌單…</button><span class="vs"></span>' +
+    (kind === 'imported' ? '<button class="a dz">' + I('cloud') + '從遠端移除…</button>' : '<button class="a dz">' + I('trash') + '從歌單移除</button>') +
+    '<span class="vs"></span><button class="ibtn" aria-label="取消選取（Esc）">' + I('close', 's16') + '</button></div></div>';
+}
+
+/* ---------------- page ---------------- */
+FMP.page({
+  title: '歌單詳情',
+  intro: '<p>同一個頁面承載兩種歌單：<b>本地歌單</b>可以任意編輯；<b>匯入歌單</b>是遠端歌單的唯讀鏡像，頂部明確寫出音源、「已匯入」、刷新間隔與上次刷新時間，並提供「複製成本地歌單」（brief §7）。</p><p>頂部是封面的模糊背景，往下捲時淡出，只留返回鍵與行內標題。點一首是臨時播放；「播放全部」才會取代佇列（brief §6）。</p>',
+  sections: [
+    {
+      title: '手機：三種歌單的主畫面',
+      desc: '本地歌單多一條音源組成：一眼看出這張歌單混了哪些音源、有幾首受限。匯入歌單把「鏡像狀態」放在按鈕下方的區塊：刷新規則、立即刷新、複製成本地歌單。',
+      frames: [
+        { kind: 'phone', label: '本地歌單', render: (ctx) => pldPhone(ctx, PL.commute, { playing: 't01' }) },
+        { kind: 'phone', label: '匯入歌單（自己的收藏夾）', render: (ctx) => pldPhone(ctx, PL.covers, { open: 't05' }) },
+        { kind: 'phone', label: '匯入歌單（別人的播放清單）', render: (ctx) => pldPhone(ctx, PL.lofi) },
+      ],
+      notes: '<h3>規則</h3><ul><li>頂部：封面（左）、名稱、種類標籤與數量時長（右）；描述最多兩行。封面模糊背景只在頂部，往下淡進底色，內容區保持實心可讀。</li><li>種類一眼可辨：本地歌單是「本地歌單」標籤；匯入歌單是音源標識（符號＋全名）加「已匯入」標籤，再寫所有者（「自己的收藏夾」或對方的名稱）。</li><li>「播放全部」取代佇列，「隨機播放」取代佇列並開啟隨機。點單首是臨時播放：在佇列之外播它，播完回到佇列原本那首。</li><li>B 站多 P 影片成一組，尾端有展開箭頭；展開後分 P 縮排列在下面，點分 P 只播那一段，點父列從 P1 播整組。</li><li>右上玻璃按鈕組：選取（進多選）、⋮（本地：編輯資訊、刪除歌單；匯入：立即刷新、複製成本地歌單、編輯刷新設定、在瀏覽器開啟、刪除）。</li><li>匯入歌單是唯讀的：沒有拖曳、沒有「從歌單移除」。別人的播放清單也沒有「從遠端移除」，因為遠端寫入只對自己帳號底下的歌單（brief §7）。</li></ul>',
+    },
+    {
+      title: '手機：編輯與遠端寫入',
+      frames: [
+        { kind: 'phone', label: '多選（本地）：勾選與拖曳', render: (ctx) => pldPhone(ctx, PL.commute, { sel: [1, 3, 4], drag: true, top: pldSelTop(3), dockHtml: pldAct('local') }) },
+        { kind: 'phone', label: '單曲選單（自己的匯入歌單）', render: (ctx) => pldPhone(ctx, PL.covers, { overlay: '<div class="pld-scrim"></div>' + pldRowMenu(T.t08, PL.covers, 'right:16px;top:300px') }) },
+        { kind: 'phone', label: '從遠端移除：確認', render: (ctx) => pldPhone(ctx, PL.covers, { sel: [0, 2, 4], top: pldSelTop(3), dockHtml: pldAct('imported'), overlay: pldConfirm(PL.covers, ['t03', 't08', 't15']) }) },
+        { kind: 'phone', label: '從遠端移除：失敗', render: (ctx) => pldPhone(ctx, PL.covers, { sel: [0, 2, 4], top: pldSelTop(3), dockHtml: pldAct('imported'),
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px">' + I('warn', 's18') + '<span>沒有移除：B 站的登入已失效。收藏夾和這張歌單都沒有改動。</span></span><button class="btn btn-tinted">重新登入</button>', { style: 'bottom:108px' }) }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>本地歌單的多選就是編輯模式：左邊勾選、右邊拖曳把手直接排序（iOS 編輯模式的慣例），不另開排序模式。動作列：下一首播放、加入佇列、加入歌單、從歌單移除（紅色，可以從提示「復原」，不跳確認）。</li><li>匯入歌單的多選沒有拖曳；只有自己帳號底下的才有紅色「從遠端移除」。</li><li>從遠端移除每次都確認（brief §7）：確認框頂端是音源與歌單種類，標題寫歌單名稱與曲目數，下面列出要移除的曲目，主按鈕寫「移除 3 首」。這是宿主統一的確認框，插件不能略過。</li><li>失敗時本機不改動（多選維持原樣，方便再試），提示寫出原因與能做的事；依 brief §13 的類別：憑證失效「重新登入」、網路與限流「重試」、找不到「刷新歌單」。成功後勾選退出、匯入歌單立即刷新。</li><li>單曲選單：下一首播放、加入佇列、加入歌單…、匹配歌詞…；最後一區是會動到資料的動作，匯入歌單的寫明「會改動你在 B 站上的歌單」。</li></ul>',
+    },
+    {
+      title: '手機：刷新中與空歌單',
+      frames: [
+        { kind: 'phone', label: '刷新中', render: (ctx) => pldPhone(ctx, PL.covers, { refreshing: true }) },
+        { kind: 'phone', label: '空歌單', render: (ctx) => pldPhone(ctx, PL.learn, { empty: true, body: '<div class="pld-in pld-empty"><span class="big">' + I('note') + '</span><div class="ty-title3" style="font-weight:700">歌單裡還沒有曲目</div><div class="ty-sub c2">在搜尋結果的選單選「加入歌單」，或長按多選後一起加入。</div><button class="btn btn-tinted">' + I('search', 's20') + '去搜尋</button></div>' }) },
+      ],
+      notes: '<ul><li>刷新中：鏡像區塊的第一列換成進度（讀取曲目 n / 總數，brief §15），列表照舊可以捲動、播放；刷新完成才一次換掉內容，不在刷新途中跳動。</li><li>手動刷新失敗時，第一列改成錯誤原因＋「重試」；自動刷新失敗只在這裡顯示，不跳提示。</li><li>空歌單：播放鈕停用，給一個去搜尋的捷徑。匯入歌單的遠端是空的時候寫「遠端的歌單是空的」，不給去搜尋（加不進去）。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '頂部的封面模糊背景一路延伸到左側玻璃側欄底下，側欄的折射與色調會跟著這張歌單變；往下捲時背景跟著內容捲走。曲目用表格：標題／歌手、音源、存取等級、時長。',
+      frames: [
+        { kind: 'desktop', label: '本地歌單：hover、分 P 展開', render: (ctx) => pldDesk(ctx, PL.commute, { playing: 't01', hov: 't03', open: 't05' }) },
+        { kind: 'desktop', label: '匯入歌單（自己的）：多選與動作列', render: (ctx) => pldDesk(ctx, PL.covers, { sel: ['t03', 't08', 't15'], overlay: pldDAct(3, 'imported') }) },
+        { kind: 'desktop', label: '從遠端移除：確認', render: (ctx) => pldDesk(ctx, PL.covers, { sel: ['t03', 't08', 't15'], overlay: pldDAct(3, 'imported') + pldConfirm(PL.covers, ['t03', 't08', 't15']) }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>桌面的按鈕列把手機收在 ⋮ 裡的常用動作攤開：本地歌單多「編輯資訊」，匯入歌單多「複製成本地歌單」與刷新資訊＋「立即刷新」。</li><li>單擊選取、雙擊或 ↩ 臨時播放；hover 時序號變播放鈕。⌘／⇧ 點選多選，浮動動作列出現在播放膠囊上方。本地歌單直接拖列排序，Delete 從歌單移除（可復原）。</li><li>匯入歌單按 Delete 不會直接動到遠端：自己的歌單開同一個確認框，別人的歌單沒有反應。</li><li>確認框置中，Esc 取消；主按鈕不是預設鍵，↩ 不會直接移除。</li><li>側欄裡目前的歌單高亮；側欄的歌單清單就是桌面版的音樂庫捷徑。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

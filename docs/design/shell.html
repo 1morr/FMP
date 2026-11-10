@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外殼與迷你播放器 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+
+function libGrid(o) {
+  o = o || {};
+  const cards = FMP.playlists.map((p) => FMP.playlistCard(p, { desk: o.desk })).join('');
+  return '<div style="display:grid;grid-template-columns:repeat(' + (o.cols || 2) + ',1fr);gap:' + (o.desk ? '22px 18px' : '20px 14px') + ';padding:' + (o.pad || '4px 20px 0') + '">' + cards + '</div>';
+}
+function phoneLib(ctx, dockOpts, extra) {
+  extra = extra || {};
+  const right = FMP.gpill([['sort', '排序歌單'], ['plus', '新建歌單'], ['link', '匯入歌單']]);
+  return FMP.phone(ctx, {
+    content: '<div class="lt" style="padding-top:58px"><div class="ty-large">音樂庫</div></div>' + libGrid(),
+    top: FMP.ptop('音樂庫', '', right, 150),
+    dock: dockOpts,
+    overlay: extra.overlay,
+  });
+}
+function deskLib(ctx, o) {
+  o = o || {};
+  const content = '<div style="padding:66px 32px 120px 8px"><div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px"><div class="ty-large">音樂庫</div>' +
+    '<div style="display:flex;gap:6px"><button class="btn btn-gray btn-sm">' + I('sort', 's16') + '排序</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入歌單</button><button class="btn btn-primary btn-sm">' + I('plus', 's16') + '新建歌單</button></div></div>' +
+    libGrid({ desk: true, cols: o.detail === false ? 6 : 5, pad: '0' }) + '</div>';
+  return FMP.desktop(ctx, { nav: 'library', content, top: '<span class="wt">音樂庫</span>', detail: o.detail, transport: o.transport, transportOpts: o.transportOpts });
+}
+
+FMP.page({
+  title: 'App 外殼與迷你播放器',
+  intro: '<p>導覽、迷你播放器與桌面詳情面板浮在內容上，內容是實心的，捲動時從玻璃底下流過。這頁拿音樂庫當底，示範外殼本身；音樂庫的細節在「音樂庫」頁。</p><p>手機稿可以實際捲動：往下捲時導覽列收成一顆圓鈕，迷你播放器併進同一列；往上捲就展開。點導覽項目會看到選取膠囊滑過去再換頁。</p>',
+  sections: [
+    {
+      title: '手機：導覽與迷你播放器',
+      desc: '導覽三項：音樂庫、佇列、設定；搜尋獨立成右側的圓鈕（iOS 26 的搜尋分頁慣例），單手時拇指最容易碰到。首頁、電台等之後的功能加進導覽列，不改結構。',
+      frames: [
+        { kind: 'phone', label: '展開', render: (ctx) => phoneLib(ctx, { tab: 'library' }) },
+        { kind: 'phone', label: '往下捲後收起', render: (ctx) => phoneLib(ctx, { tab: 'library', compact: true }), after: (root) => { root.querySelector('.dock').classList.add('pin'); const s = root.querySelector('.page.scroll'); s.scrollTop = 330; root.classList.add('scrolled'); } },
+      ],
+      notes: '<h3>規則</h3><ul><li>玻璃只在三個膠囊上：迷你播放器、導覽列、搜尋鈕。底下的封面網格是實心的。</li><li>選取中的項目用強調色加一顆內嵌膠囊；按下時膠囊會放大一點，換項目時滑過去並短暫拉長（spring）。</li><li>玻璃會跟著底下的內容換色調：底下是淺色封面時變亮、字變深；底下是深色時變暗、字變白。</li><li>迷你播放器底部有一條 2pt 的進度線，點整條進播放頁。</li></ul>',
+    },
+    {
+      title: '手機：狀態',
+      frames: [
+        { kind: 'phone', label: '沒有目前曲目', render: (ctx) => phoneLib(ctx, { tab: 'library', track: false }) },
+        { kind: 'phone', label: '試聽中，第一次提示', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t04 }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + FMP.acc('trial') + '<span>只能試聽 30 秒，登入網易雲可聽完整版</span></span><button class="btn btn-tinted">登入</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '錯誤提示：跳下一首', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t02 }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px;color:var(--glass-ink)">' + I('warn', 's18') + '<span>「不眠的城」需單曲付費，已跳下一首</span></span>', { style: 'bottom:176px;padding-right:18px' }),
+        }) },
+      ],
+      notes: '<ul><li>沒有目前曲目時不顯示迷你播放器，導覽列不收起。</li><li>迷你播放器的標題旁帶存取等級徽章（會員、付費、試聽）；只有試聽時，第一次另外跳一則提示（brief §5.4）。</li><li>提示只有一個入口，浮在迷你播放器上方，依錯誤類別給文字與動作（brief §13）。</li></ul>',
+    },
+    {
+      title: '桌面：側欄、詳情面板、播放膠囊',
+      desc: '側欄是浮在左邊的玻璃，除了導覽也列出全部歌單（匯入的帶音源標識），寬螢幕不用再點進音樂庫找歌單。右側詳情面板照舊保留；播放膠囊浮在內容欄底部。',
+      frames: [
+        { kind: 'desktop', label: '完整外殼', render: (ctx) => deskLib(ctx, {}) },
+        { kind: 'desktop', label: '收起詳情面板', render: (ctx) => deskLib(ctx, { detail: false }) },
+      ],
+      notes: '<h3><span class="rv-ab">A</span>／<span class="rv-ab">B</span> 玻璃範圍</h3><ul><li><b>A 控制層（預設，照 brief §2.3）</b>：側欄與播放膠囊是玻璃；右側詳情面板是實心的內容區。</li><li><b>B 延伸</b>：詳情面板也變成浮動的玻璃板，和側欄對稱，底下的內容與封面色會透出來。用上方工具列的「玻璃範圍」切換。</li><li>我推薦 <b>A</b>：詳情面板主要是文字（簡介、下一首），放在玻璃上會隨背後內容忽明忽暗；B 的好處是視窗看起來更像一個整體。</li></ul><h3>Windows</h3><ul><li>Windows 的玻璃最高到「標準」（brief 事實 K10）：沒有折射，只有模糊與飽和。用工具列切到「標準」看效果；「最低」是降低透明度或效能不足時的實心底。</li><li>Windows 的視窗按鈕放在側欄右上角以外的頂列右端，見設計系統頁。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

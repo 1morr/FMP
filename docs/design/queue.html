@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>佇列 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+/* ---------- phone ---------- */
+.qu-ititle { height: 44px; padding: 0 6px; font-size: 17px; font-weight: 600; color: var(--label); opacity: 0; transition: opacity var(--t-mid); }
+.phone.scrolled .qu-ititle { opacity: 1; }
+.qu-bar { display: inline-flex; align-items: center; gap: 2px; height: 44px; padding: 0 5px; border-radius: var(--r-cap); flex: none; }
+.qu-bar .tog { background: transparent; color: var(--glass-ink); }
+.qu-bar .tog:hover { background: var(--glass-press); }
+.qu-bar .tog.on { background: var(--accent-fill); color: var(--accent-ink); }
+.qu-head { padding: 58px 20px 6px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.qu-head .qu-totop { text-align: left; }
+.qu-list .row { gap: 10px; }
+.qu-list .row .qu-x { width: 40px; color: var(--label-3); margin-right: -6px; }
+.qu-list .row .qu-x:hover { color: var(--label); }
+.qu-cap { padding: 14px 20px 6px; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.qu-now { background: var(--accent-soft); }
+.qu-now::before, .qu-now + .row::before { display: none; }
+.qu-fold { position: relative; display: flex; align-items: baseline; gap: 8px; padding: 18px 20px 8px; font-size: 13px; line-height: 18px; }
+.qu-fold::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--sep-strong); }
+.qu-fold b { font-weight: 700; color: var(--label); }
+.qu-fold span { color: var(--label-2); }
+.qu-end { padding: 18px 20px 0; font-size: 13px; line-height: 18px; color: var(--label-3); display: flex; align-items: center; gap: 6px; }
+.qu-lift { margin: 0 8px; border-radius: 14px; background: var(--cell-2); box-shadow: var(--shadow-float); transform: scale(1.02); z-index: 3; }
+.qu-lift::before, .qu-lift + .row::before { display: none; }
+.qu-lift .qu-x { visibility: hidden; }
+.qu-slot { height: 6px; margin: 0 20px; border-radius: 3px; background: var(--accent); opacity: .0; }
+.qu-temp { margin: 10px 12px 12px; border-radius: var(--r-group); background: var(--accent-soft); padding: 12px 0 12px; }
+.qu-temp .qu-th { display: flex; align-items: center; gap: 8px; padding: 0 14px 4px; font-size: 13px; line-height: 18px; }
+.qu-temp .qu-th b { color: var(--accent); font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
+.qu-temp .row { padding: 0 14px; min-height: 60px; }
+.qu-temp .row:hover { background: transparent; }
+.qu-temp .qu-tf { display: flex; align-items: flex-start; gap: 10px; padding: 4px 14px 0; font-size: 13px; line-height: 18px; color: var(--label-2); }
+.qu-temp .qu-tf svg.i { width: 16px; height: 16px; margin-top: 1px; color: var(--accent); }
+.qu-temp .qu-tf b { color: var(--label); font-weight: 600; }
+.qu-temp .qu-ta { display: flex; gap: 8px; padding: 10px 14px 0; }
+.qu-tag { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 5px; background: var(--accent-fill); color: var(--accent-ink); font-size: 11px; font-weight: 700; flex: none; }
+.qu-ret { color: var(--accent); font-weight: 600; }
+.qu-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 120px 40px 0; gap: 8px; }
+.qu-empty .qu-ei { width: 72px; height: 72px; border-radius: var(--r-cap); background: var(--fill); display: grid; place-items: center; color: var(--label-2); margin-bottom: 10px; }
+.qu-empty .qu-ei svg.i { width: 34px; height: 34px; stroke-width: 1.6; }
+.qu-empty .qu-eb { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; width: 220px; }
+.qu-off { opacity: .38; pointer-events: none; }
+
+/* ---------- desktop ---------- */
+.qu-dh { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.qu-dh .qu-totop { text-align: left; }
+.qu-keys { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--label-3); }
+.qu-keys kbd { font: 600 10.5px var(--font-num); color: var(--label-2); background: var(--fill); border-radius: 5px; padding: 2px 6px; }
+.qu-wt { pointer-events: auto !important; cursor: pointer; }
+.qu-dtop { display: flex; align-items: center; gap: 6px; }
+.qu-tr { display: grid; grid-template-columns: 26px 36px minmax(0, 1fr) 112px 48px 66px; align-items: center; gap: 10px; min-height: 48px; padding: 0 10px; border-radius: 8px; position: relative; }
+.qu-tr:hover, .qu-tr.hov { background: var(--cell-hover); }
+.qu-tr .qn { font-size: 12px; color: var(--label-3); text-align: right; }
+.qu-tr .cover { width: 36px; height: 36px; }
+.qu-tr .meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.qu-tr .t1 { font-size: 13px; line-height: 17px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.qu-tr .t2 { font-size: 12px; line-height: 15px; color: var(--label-2); display: flex; align-items: center; gap: 6px; min-width: 0; }
+.qu-tr .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.qu-tr .qs { font-size: 12px; }
+.qu-tr .qs .src { gap: 6px; }
+.qu-tr .qd { font-size: 12px; color: var(--label-3); text-align: right; }
+.qu-tr .qa { display: flex; align-items: center; justify-content: flex-end; gap: 2px; opacity: 0; transition: opacity var(--t-fast); }
+.qu-tr:hover .qa, .qu-tr.hov .qa { opacity: 1; }
+.qu-tr .qa .ibtn { width: 28px; height: 28px; color: var(--label-2); }
+.qu-tr .qa .qg { color: var(--label-3); display: grid; place-items: center; width: 26px; cursor: grab; }
+.qu-tr.dim .meta, .qu-tr.dim .cover, .qu-tr.dim .qs { opacity: .45; }
+.qu-tr.now { background: var(--accent-soft); }
+.qu-tr.now .t1 { color: var(--accent); font-weight: 600; }
+.qu-tr.sel { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.qu-th-row { display: grid; grid-template-columns: 26px 36px minmax(0, 1fr) 112px 48px 66px; gap: 10px; padding: 0 10px 6px; font-size: 11.5px; font-weight: 600; color: var(--label-3); box-shadow: inset 0 -.5px 0 var(--sep); margin-bottom: 4px; }
+.qu-dcap { padding: 10px 10px 4px; font-size: 11.5px; font-weight: 600; color: var(--label-3); }
+.qu-dfold { position: relative; display: flex; align-items: baseline; gap: 8px; margin-top: 6px; padding: 14px 10px 6px; font-size: 12px; }
+.qu-dfold::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--sep-strong); }
+.qu-dfold b { font-weight: 700; }
+.qu-dfold span { color: var(--label-2); }
+.qu-dtemp { margin: 6px 0 8px; border-radius: 12px; background: var(--accent-soft); padding: 10px 12px 12px; }
+.qu-dtemp .qu-th { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+.qu-dtemp .qu-th b { color: var(--accent); display: inline-flex; align-items: center; gap: 5px; }
+.qu-dtemp .qu-tbody { display: flex; align-items: center; gap: 12px; }
+.qu-dtemp .qu-tbody .cover { width: 44px; height: 44px; }
+.qu-dtemp .qu-tbody .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.qu-dtemp .t1 { font-size: 13px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 6px; }
+.qu-dtemp .t2 { font-size: 12px; color: var(--label-2); display: flex; align-items: center; gap: 6px; }
+.qu-dtemp .qu-tf { font-size: 12px; color: var(--label-2); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+.qu-dtemp .qu-tf svg.i { width: 14px; height: 14px; color: var(--accent); }
+.qu-dtemp .qu-tf b { color: var(--label); font-weight: 600; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const T = FMP.T;
+
+/* ---------------- queue data (synthetic) ---------------- */
+// A B站 multi-part video enters the queue as one track per part.
+function quPart(n, title, dur) {
+  return Object.assign({}, T.t05, { id: 't05p' + n, title: title, dur: dur, parts: 0, partNo: n });
+}
+const QU_PLAYED = [T.t07, T.t13, T.t14, T.t20, T.t10];
+const QU_NOW = T.t01; // #6
+const QU_NEXT = [T.t02, T.t03, T.t04, quPart(1, '開場：夏夜序曲', '6:12'), quPart(2, '漫遊者', '5:48'), T.t09, T.t11, T.t12, T.t06, T.t17, T.t15, T.t16, T.t22, T.t23, T.t24, T.t08];
+const QU_SHUF = [T.t16, T.t09, T.t02, T.t22, quPart(2, '漫遊者', '5:48'), T.t12, T.t03, T.t24, T.t17, T.t06, T.t11, T.t04, T.t15, T.t23, T.t08, T.t07];
+const QU_TOTAL = '64 首 · 4 小時 37 分';
+const REPEAT = { off: ['循環', 'repeat', false], all: ['列表循環', 'repeat', true], one: ['單曲循環', 'repeat1', true] };
+
+function quSub(t) {
+  if (t.partNo) return '<span class="part">P' + t.partNo + '</span><span class="tt">' + FMP.esc(t.artist) + ' · 夏夜漫遊 全曲 Live</span>';
+  return null;
+}
+
+/* ---------------- shared bits ---------------- */
+function quTogs(o) {
+  const r = REPEAT[o.repeat || 'off'];
+  return '<button class="tog' + (o.shuffle ? ' on' : '') + '" data-qu="shuffle" aria-pressed="' + !!o.shuffle + '">' + I('shuffle') + '隨機</button>' +
+    '<button class="tog' + (r[2] ? ' on' : '') + '" data-qu="repeat" data-v="' + (o.repeat || 'off') + '" aria-pressed="' + r[2] + '">' + I(r[1]) + '<span>' + r[0] + '</span></button>';
+}
+function quWireTogs(root) {
+  root.querySelectorAll('[data-qu="shuffle"]').forEach((b) => b.addEventListener('click', () => b.classList.toggle('on')));
+  root.querySelectorAll('[data-qu="repeat"]').forEach((b) => b.addEventListener('click', () => {
+    const next = { off: 'all', all: 'one', one: 'off' }[b.dataset.v];
+    const r = REPEAT[next];
+    b.dataset.v = next;
+    b.classList.toggle('on', r[2]);
+    b.innerHTML = I(r[1]) + '<span>' + r[0] + '</span>';
+  }));
+}
+
+/* ---------------- phone ---------------- */
+function quRow(t, o) {
+  o = o || {};
+  const x = '<span class="dur num">' + t.dur + '</span><button class="ibtn qu-x" aria-label="從佇列移除">' + I('close', 's18') + '</button>';
+  const sub = o.sub !== undefined ? o.sub : quSub(t);
+  const opts = { dim: o.dim, playing: o.playing, noDur: true, more: false, drag: true, trailing: x, cls: o.cls || '' };
+  let html = FMP.trackRow(t, sub ? Object.assign(opts, { sub: sub }) : opts);
+  // part rows carry their own badge + ellipsis span; unwrap kit's extra .tt
+  if (t.partNo && o.sub === undefined) html = html.replace('<span class="tt">' + sub + '</span>', sub);
+  return html;
+}
+function quTemp(t, o) {
+  o = o || {};
+  return '<div class="qu-temp">' +
+    '<div class="qu-th"><b>' + I('history', 's16') + '臨時播放</b><span class="c2">不在佇列裡</span></div>' +
+    FMP.trackRow(t, { playing: true, more: false }) +
+    '<div class="qu-tf">' + I('chevD') + '<span>播完或切歌後回到下方第 6 首 <b style="white-space:nowrap">「夜行列車」</b>，從 <b class="num">1:26</b> 繼續（倒退 10 秒）</span></div>' +
+    '<div class="qu-ta"><button class="btn btn-sm btn-tinted">' + I('history', 's16') + '現在回到佇列</button><button class="btn btn-sm btn-gray">' + I('plus', 's16') + '加入佇列</button></div></div>';
+}
+function quPhoneList(o) {
+  o = o || {};
+  let h = '<div class="qu-list">';
+  if (o.shuffle) {
+    h += quRow(QU_NOW, { playing: true, cls: 'qu-now' });
+    h += '<div class="qu-fold"><b>接下來</b><span>隨機順序 · 63 首 · 4 小時 33 分</span></div>';
+    h += QU_SHUF.map((t) => quRow(t)).join('');
+  } else {
+    h += '<div class="qu-cap">已播放 5 首</div>';
+    h += QU_PLAYED.map((t) => quRow(t, { dim: true })).join('');
+    if (o.temp) {
+      h += quTemp(T.t19);
+      h += quRow(QU_NOW, { sub: FMP.esc(QU_NOW.artist) + ' · <span class="qu-ret">回來時從 1:26 繼續</span>' });
+    } else {
+      h += quRow(QU_NOW, { playing: true, cls: 'qu-now' });
+    }
+    h += '<div class="qu-fold"><b>接下來</b><span>58 首 · 3 小時 58 分</span></div>';
+    let next = QU_NEXT.slice();
+    if (o.drag) {
+      // T.t09 is being dragged from #10 to right after #7
+      const lifted = next.splice(5, 1)[0];
+      h += quRow(next[0]);
+      h += quRow(lifted, { cls: 'qu-lift' });
+      next = next.slice(1);
+    }
+    h += next.map((t) => quRow(t)).join('');
+  }
+  const endText = o.repeat === 'all' ? '列表循環開著：最後一首播完回到第 1 首' + (o.shuffle ? '，並重新打亂' : '')
+    : o.repeat === 'one' ? '單曲循環開著：一直重複正在播的那首' : '循環關閉：最後一首播完就停止';
+  h += '<div class="qu-end">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat', 's16') + endText + '</div>';
+  return h + '</div>';
+}
+function quPhone(ctx, o) {
+  o = o || {};
+  const empty = !!o.empty;
+  const right = '<div class="lg qu-bar" data-adapt>' + quTogs(o) + '</div>' + FMP.gbtn('trash', '清空佇列', empty ? 'disabled style="opacity:.4"' : '');
+  const left = '<button class="qu-ititle" data-qu="totop">佇列</button>';
+  const head = '<div class="qu-head"><button class="ty-large qu-totop" data-qu="totop">佇列</button>' +
+    (empty ? '' : '<span class="c2 ty-foot num">' + QU_TOTAL + '</span>') + '</div>';
+  const body = empty
+    ? '<div class="qu-empty"><span class="qu-ei">' + I('queue') + '</span><div class="ty-title3">佇列是空的</div><div class="c2 ty-sub">從搜尋或歌單加入曲目，就會排在這裡</div>' +
+      '<div class="qu-eb"><button class="btn btn-primary" data-href="search.html">' + I('search', 's20') + '去搜尋</button><button class="btn btn-gray" data-href="library.html">打開音樂庫</button></div></div>'
+    : quPhoneList(o);
+  return FMP.phone(ctx, {
+    content: head + body,
+    top: FMP.ptop('', left, right),
+    dock: { tab: 'queue', track: empty ? false : (o.temp ? T.t19 : QU_NOW) },
+    overlay: o.overlay,
+  });
+}
+// open the page scrolled to the playing track, then let the title bring it back
+function quAfterPhone(root, o) {
+  o = o || {};
+  const s = root.querySelector('.page.scroll');
+  const dock = root.querySelector('.dock');
+  const target = root.querySelector(o.temp ? '.qu-temp' : '.qu-now');
+  quWireTogs(root);
+  if (o.temp) {
+    const b = root.querySelector('.mini .mi b');
+    if (b) b.insertAdjacentHTML('beforeend', '<span class="qu-tag">臨時</span>');
+  }
+  if (!s || !target) return;
+  const topFor = () => Math.max(0, target.offsetTop - 106 - (o.temp ? 70 : 100));
+  root.querySelectorAll('[data-qu="totop"]').forEach((b) => b.addEventListener('click', () => s.scrollTo({ top: topFor(), behavior: 'smooth' })));
+  if (o.noScroll) return;
+  if (dock) dock.classList.add('pin');
+  s.scrollTop = topFor();
+  root.classList.add('scrolled');
+  setTimeout(() => dock && dock.classList.remove('pin'), 300);
+}
+
+/* ---------------- desktop ---------------- */
+function quTr(t, o) {
+  o = o || {};
+  const lead = o.now ? '<span class="eq" style="justify-self:end" aria-label="正在播放"><i></i><i></i><i></i></span>' : '<span class="qn num">' + (o.n || '') + '</span>';
+  const part = t.partNo ? '<span class="part">P' + t.partNo + '</span>' : '';
+  const artist = t.partNo ? FMP.esc(t.artist) + ' · 夏夜漫遊 全曲 Live' : FMP.esc(t.artist);
+  const sub = o.sub || ('<span class="tt">' + artist + '</span>');
+  return '<div class="qu-tr' + (o.dim ? ' dim' : '') + (o.now ? ' now' : '') + (o.hov ? ' hov' : '') + (o.sel ? ' sel' : '') + '">' + lead +
+    FMP.coverEl(t.cv, 36, 'thumb') +
+    '<div class="meta"><div class="t1"><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</div><div class="t2">' + part + sub + '</div></div>' +
+    '<span class="qs">' + FMP.src(t.src, 'full') + '</span>' +
+    '<span class="qd num">' + t.dur + '</span>' +
+    '<span class="qa"><button class="ibtn" aria-label="從佇列移除" title="從佇列移除（Delete）">' + I('close', 's16') + '</button><span class="qg" title="拖動調整順序">' + I('drag', 's16') + '</span></span></div>';
+}
+function quDeskList(o) {
+  o = o || {};
+  let h = '<div class="qu-th-row"><span style="text-align:right">#</span><span></span><span>曲目</span><span>音源</span><span style="text-align:right">時長</span><span></span></div>';
+  h += '<div class="qu-dcap">已播放 5 首</div>';
+  h += QU_PLAYED.map((t, i) => quTr(t, { dim: true, n: i + 1 })).join('');
+  if (o.temp) {
+    const tt = T.t19;
+    h += '<div class="qu-dtemp"><div class="qu-th"><b>' + I('history', 's16') + '臨時播放</b><span class="c2">不在佇列裡</span><span class="sp" style="flex:1"></span>' +
+      '<button class="btn btn-sm btn-gray">' + I('plus', 's16') + '加入佇列</button><button class="btn btn-sm btn-tinted">' + I('history', 's16') + '現在回到佇列</button></div>' +
+      '<div class="qu-tbody">' + FMP.coverEl(tt.cv, 44, 'thumb') + '<div class="meta"><div class="t1"><span class="eq"><i></i><i></i><i></i></span><span class="ell">' + FMP.esc(tt.title) + '</span>' + FMP.acc(tt.acc) + '</div><div class="t2">' + FMP.src(tt.src, 'full') + '<span>' + FMP.esc(tt.artist) + '</span></div></div><span class="num c3" style="font-size:12px">1:12 / ' + tt.dur + '</span></div>' +
+      '<div class="qu-tf">' + I('chevD') + '<span>播完或按上一首／下一首，回到下方第 6 首<b>「夜行列車」</b>，從 <b class="num">1:26</b> 繼續（倒退 10 秒，可在設定 › 播放調整）</span></div></div>';
+    h += quTr(QU_NOW, { n: 6, sub: '<span class="tt">' + FMP.esc(QU_NOW.artist) + ' · <span class="qu-ret">回來時從 1:26 繼續</span></span>' });
+  } else {
+    h += quTr(QU_NOW, { now: true });
+  }
+  h += '<div class="qu-dfold"><b>接下來</b><span>58 首 · 3 小時 58 分</span></div>';
+  h += QU_NEXT.map((t, i) => quTr(t, { n: i + 7, hov: o.hov === i, sel: o.sel === i })).join('');
+  h += '<div class="qu-end" style="padding:16px 10px 0">' + I('repeat', 's16') + '列表循環開著：最後一首播完回到第 1 首</div>';
+  return h;
+}
+function quDesk(ctx, o) {
+  o = o || {};
+  const top = '<span class="wt qu-wt" data-qu="totop">佇列</span><span class="sp"></span><div class="qu-dtop">' + quTogs(o) +
+    '<button class="btn btn-sm btn-gray" style="margin-left:6px">' + I('trash', 's16') + '清空佇列</button></div>';
+  const head = '<div class="qu-dh"><div><button class="ty-large qu-totop" data-qu="totop">佇列</button><div class="c2 ty-foot num" style="margin-top:2px">' + QU_TOTAL + '</div></div>' +
+    '<div class="qu-keys">拖動或 <kbd>⌥↑</kbd><kbd>⌥↓</kbd> 調整順序 · <kbd>Delete</kbd> 移除 · <kbd>⏎</kbd> 播放</div></div>';
+  return FMP.desktop(ctx, {
+    nav: 'queue',
+    top: top,
+    content: '<div style="padding:66px 28px 120px 8px">' + head + quDeskList(o) + '</div>',
+    detailOpts: o.temp ? { track: T.t19 } : undefined,
+    transport: o.temp ? T.t19 : true,
+    transportOpts: { repeat: o.repeat === 'off' ? false : o.repeat, shuffle: o.shuffle },
+    overlay: o.overlay,
+  });
+}
+function quAfterDesk(root, o) {
+  o = o || {};
+  quWireTogs(root);
+  const s = root.querySelector('.wcontent > .scroll');
+  const target = root.querySelector(o.temp ? '.qu-dtemp' : '.qu-tr.now');
+  if (!s || !target) return;
+  const topFor = () => Math.max(0, target.offsetTop - 66 - 48 * 2 - 20);
+  root.querySelectorAll('[data-qu="totop"]').forEach((b) => b.addEventListener('click', () => s.scrollTo({ top: topFor(), behavior: 'smooth' })));
+  s.scrollTop = topFor();
+  root.classList.add('scrolled');
+  if (o.menu) {
+    const row = root.querySelectorAll('.qu-tr')[QU_PLAYED.length + 1 + o.sel];
+    const win = root.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    const sc = win.width / 1280;
+    const m = root.querySelector('.gmenu');
+    m.style.top = ((r.top - win.top) / sc + 30) + 'px';
+  }
+}
+function quMenu() {
+  const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
+  return '<div class="lg gmenu" data-adapt role="menu" style="left:560px;top:420px">' +
+    mi('play', '從這首開始播放', '⏎', 'hl') + mi('nextUp', '移到下一首') + '<div class="ms"></div>' +
+    mi('addlist', '加入歌單…') + mi('lyrics', '匹配歌詞…') + mi('info', '曲目資訊', '⌘I') + '<div class="ms"></div>' +
+    mi('close', '從佇列移除', 'Delete', 'danger') + '</div>';
+}
+
+FMP.page({
+  title: '佇列',
+  intro: '<p>佇列畫面永遠是播放順序：上面是播過的（變淡），正在播的那首用強調色底標出來，底下一條摺線，摺線以下是接下來的。打開時自動捲到正在播的那首；點「佇列」標題（大標題、捲動後左上的小標題、桌面頂列的標題）隨時捲回去。</p><p>手機稿可以操作：點「隨機」切開關、點「循環」依序切換關、列表、單曲；捲走後點左上「佇列」會捲回正在播的那首。</p>',
+  sections: [
+    {
+      title: '手機：一般',
+      desc: '隨機與循環是兩顆帶文字的切換鈕，放在頂列的玻璃膠囊裡；佇列很長、捲到中間時也一直按得到。清空在旁邊的圓鈕。',
+      frames: [
+        { kind: 'phone', label: '打開時：捲到正在播放', render: (ctx) => quPhone(ctx, { repeat: 'all' }), after: (root) => quAfterPhone(root) },
+        { kind: 'phone', label: '捲到最上面', render: (ctx) => quPhone(ctx, { repeat: 'all' }), after: (root) => quAfterPhone(root, { noScroll: true }) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>每列：縮圖、曲名＋存取等級、音源符號＋歌手、時長、移除（×）、拖動把手。點整列從那首開始播；拖動把手直接改播放順序。</li>' +
+        '<li>B 站多 P 影片在佇列裡是一個分 P 一列（名詞表：每個分 P 是一首獨立的曲目），副標前面帶「P2」。</li>' +
+        '<li>大標題下一行是「共幾首 · 總時長」；摺線上寫「接下來」與剩下的首數、時長；最底下一行說明循環設定播完後會怎樣。</li>' +
+        '<li>正在播放的列：強調色底＋強調色曲名＋跳動的等化器。不另放「正在播放」列，也沒有定位鈕。</li>' +
+        '<li>頂列的玻璃膠囊依底下內容翻轉明暗（<code>data-adapt</code>）；切換鈕開著時是實心強調色，關著時只有文字，兩種狀態不靠顏色以外的提示也看得出（開著有底）。</li>' +
+        '<li>Flutter：列表用 <code>ReorderableListView</code>（長列表要能撐 1000 首以上不掉幀，brief §15）；打開時用 <code>Scrollable.ensureVisible</code> 把正在播的那首放在第三列的位置，讓上面露出兩首播過的。</li></ul>',
+    },
+    {
+      title: '手機：隨機、拖動與臨時播放',
+      frames: [
+        { kind: 'phone', label: '剛打開隨機', render: (ctx) => quPhone(ctx, { shuffle: true, repeat: 'all', overlay: FMP.toast('<span>已打亂接下來的 63 首；關掉隨機會恢復原本的順序</span>', { style: 'bottom:176px;padding-right:18px' }) }), after: (root) => quAfterPhone(root, { noScroll: true }) },
+        { kind: 'phone', label: '拖動排序中', render: (ctx) => quPhone(ctx, { repeat: 'all', drag: true }), after: (root) => quAfterPhone(root) },
+        { kind: 'phone', label: '臨時播放中', render: (ctx) => quPhone(ctx, { repeat: 'all', temp: true }), after: (root) => quAfterPhone(root, { temp: true }) },
+      ],
+      notes: '<h3>隨機（brief §6）</h3><ul>' +
+        '<li>打開隨機時，正在播的那首移到最上面，其他的打亂排在摺線下；摺線上寫「隨機順序」。第一次打開跳一則提示說明關掉會恢復原順序。</li>' +
+        '<li>關掉隨機：恢復原本的順序，從正在播的那首在原順序裡的位置繼續；畫面再捲到它。</li>' +
+        '<li>隨機時「下一首播放」加入的歌一定排在摺線下第一列。</li></ul>' +
+        '<h3>拖動</h3><ul><li>按住把手拖動：那一列浮起（實心底＋陰影），其他列讓位；放開就寫入播放順序。手機上長按整列也能拖（舊版習慣）。</li>' +
+        '<li>可以拖過摺線放到上面播過的區域：它就算播過了，列表循環的下一輪才會再播到。</li></ul>' +
+        '<h3>臨時播放（brief §6）</h3><ul>' +
+        '<li>臨時播放的曲目不在佇列裡，所以佇列裡沒有一列是「正在播放」。畫面在原本正在播的那首上方插入一塊「臨時播放」，像繞了一段路；打開佇列時捲到這塊。</li>' +
+        '<li>這塊寫清楚回去的地方：「回到下方第 6 首「夜行列車」，從 1:26 繼續（倒退 10 秒）」。秒數照設定；那一列的副標也寫「回來時從 1:26 繼續」。</li>' +
+        '<li>連續臨時播放時只換掉這塊裡的曲目，回去的位置不變（保留最早那個佇列位置）。</li>' +
+        '<li>兩個動作：「現在回到佇列」立刻回去；「加入佇列」把它放進佇列，排在摺線下第一首（等同「下一首播放」），臨時播放就結束。</li>' +
+        '<li>迷你播放器在臨時播放時標題旁多一個「臨時」小標（建議加進 kit 的 <code>FMP.mini</code>）。</li></ul>',
+    },
+    {
+      title: '手機：空佇列與清空',
+      frames: [
+        { kind: 'phone', label: '空佇列', render: (ctx) => quPhone(ctx, { empty: true, repeat: 'all' }) },
+        { kind: 'phone', label: '清空確認', render: (ctx) => quPhone(ctx, { repeat: 'all', overlay: '<div class="dialog-wrap"><div class="lg alert"><h4>清空佇列？</h4><p>會移除佇列裡全部 64 首曲目並停止播放。歌單不受影響。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">清空</button></div></div></div>' }), after: (root) => quAfterPhone(root) },
+      ],
+      notes: '<ul><li>空佇列：沒有迷你播放器、清空鈕變灰；隨機與循環照樣可以先設定好。主要動作「去搜尋」，次要「打開音樂庫」。</li>' +
+        '<li>清空一定要確認（舊版照舊），按鈕寫動作「清空」，用紅色。清空後畫面換成空佇列。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '佇列在內容區，表格式的列：編號、曲目、音源（符號＋全名）、時長；移除與拖動把手在滑過時出現。右側詳情面板照舊；播放膠囊的隨機、循環和這頁的切換鈕同步。',
+      frames: [
+        { kind: 'desktop', label: '一般（滑過一列）', render: (ctx) => quDesk(ctx, { repeat: 'all', hov: 1 }), after: (root) => quAfterDesk(root) },
+        { kind: 'desktop', label: '右鍵選單', render: (ctx) => quDesk(ctx, { repeat: 'all', sel: 2, overlay: quMenu() }), after: (root) => quAfterDesk(root, { menu: true, sel: 2 }) },
+        { kind: 'desktop', label: '臨時播放中', render: (ctx) => quDesk(ctx, { repeat: 'all', temp: true }), after: (root) => quAfterDesk(root, { temp: true }) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>頂列右邊固定放隨機、循環與「清空佇列」，捲到哪裡都按得到；捲動後頂列左邊出現小標題「佇列」，點它捲回正在播放。</li>' +
+        '<li>滑過的列顯示 × 與拖動把手；不滑過時隱藏，讓表格安靜。點一下選取（強調色框），雙擊或 ⏎ 從那首開始播，Delete 移除，⌥↑／⌥↓ 移動一格。</li>' +
+        '<li>右鍵選單：從這首開始播放、移到下一首、加入歌單、匹配歌詞、曲目資訊、從佇列移除（紅色，Delete）。選單是浮在內容上的控制層，所以是玻璃。</li>' +
+        '<li>臨時播放的那塊在桌面一樣插在原本正在播的那首上方，動作放在右上；詳情面板與播放膠囊顯示臨時播放的曲目。</li>' +
+        '<li>桌面的佇列另外會出現在播放頁右欄（見播放頁），那裡只列接下來的；完整的編輯（拖動、清空、右鍵）在這頁。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

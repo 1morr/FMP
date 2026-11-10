@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>播放頁 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+/* on-media token set: everything inside sits on the cover-coloured field */
+.pl-m { position: absolute; inset: 0; color: #fff;
+  --label: #fff; --label-2: rgba(255, 255, 255, .74); --label-3: rgba(255, 255, 255, .52); --label-4: rgba(255, 255, 255, .3);
+  --fill: rgba(255, 255, 255, .14); --fill-2: rgba(255, 255, 255, .24); --sep: rgba(255, 255, 255, .14);
+  --cell-hover: rgba(255, 255, 255, .08); --accent: var(--accent-300); --accent-soft: rgba(255, 255, 255, .12); --trial-ink: var(--trial-dark); }
+.pl-m .acc-paid { color: var(--vip); box-shadow: inset 0 0 0 1.3px var(--vip); }
+/* luminance scrim: keeps white type at AA over light covers */
+.pl-scrim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(rgba(0, 0, 0, .26), rgba(0, 0, 0, .1) 30%, rgba(0, 0, 0, .2) 55%, rgba(0, 0, 0, .5)); }
+
+/* ---------- phone ---------- */
+.pl-top { position: absolute; top: 54px; left: 0; right: 0; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 16px; z-index: 35; }
+.pl-ctx { flex: 1; min-width: 0; text-align: center; font-size: 12px; line-height: 15px; color: var(--label-2); }
+.pl-ctx b { display: block; color: var(--label); font-size: 13px; line-height: 17px; font-weight: 600; }
+.pl-ctx.temp b { color: var(--accent); }
+.pl-cover { position: absolute; left: 45px; top: 118px; width: 300px; height: 300px; border-radius: var(--r-cover-lg); box-shadow: 0 24px 50px rgba(0, 0, 0, .38); }
+.pl-info { position: absolute; left: 28px; right: 28px; top: 442px; }
+.pl-title { font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 700; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pl-title .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-artist { font-size: 17px; line-height: 22px; color: var(--label-2); margin-top: 1px; }
+.pl-prog { position: absolute; left: 28px; right: 28px; top: 580px; }
+.pl-prog .slider { height: 6px; background: var(--fill-2); }
+.pl-prog .slider > i { background: #fff; }
+.pl-prog .slider .knob { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.pl-times { display: flex; justify-content: space-between; align-items: center; font-size: 12px; line-height: 16px; color: var(--label-2); margin-top: 7px; }
+.pl-band { position: absolute; top: 0; bottom: 0; border-radius: inherit; background: rgba(255, 255, 255, .42); }
+.pl-trial .slider { background: var(--fill); }
+.pl-trial .slider > i { border-radius: 0; }
+.pl-ctl { position: absolute; left: 22px; right: 22px; top: 622px; height: 76px; display: flex; align-items: center; justify-content: space-between; }
+.pl-ctl .ibtn { width: 56px; height: 56px; color: #fff; position: relative; }
+.pl-ctl .ibtn:hover { background: var(--fill); }
+.pl-ctl .ibtn.big { width: 76px; height: 76px; }
+.pl-ctl .ibtn svg.i { width: 34px; height: 34px; }
+.pl-ctl .ibtn.big svg.i { width: 46px; height: 46px; }
+.pl-ctl .ibtn.md svg.i { width: 24px; height: 24px; }
+.pl-ctl .ibtn.md { color: var(--label-2); }
+.pl-ctl .ibtn.on { color: var(--accent); }
+.pl-ctl .ibtn.on::after { content: ""; position: absolute; bottom: 8px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+/* the signature: source + access level + stream quality, one capsule above the progress bar */
+.pl-sig { position: absolute; left: 22px; top: 522px; display: inline-flex; align-items: center; gap: 8px; height: 40px; max-width: calc(100% - 44px); padding: 0 10px 0 12px; border-radius: var(--r-cap); font-size: 13.5px; font-weight: 600; color: #fff; white-space: nowrap; }
+.pl-sig > svg:not(.i) { width: 18px; height: 18px; flex: none; }
+.pl-sig .sep { width: 1px; height: 16px; background: rgba(255, 255, 255, .32); flex: none; }
+.pl-sig svg.i { width: 16px; height: 16px; }
+.pl-sig svg.i.chev { width: 15px; height: 15px; opacity: .7; margin-left: -2px; }
+.pl-sig .acc { height: 19px; }
+.pl-sig span.q { font-weight: 500; color: rgba(255, 255, 255, .88); }
+.pl-sig.trial { --glass-fill: color-mix(in srgb, var(--trial) 46%, transparent); }
+.pl-sig.trial b { font-weight: 700; }
+.pl-sig.trial span.q { color: #fff; font-weight: 600; }
+/* top-right glass capsule: add to playlist + more */
+.pl-gp { display: inline-flex; align-items: center; height: 44px; padding: 0 2px; border-radius: var(--r-cap); flex: none; }
+.pl-gp .ibtn { color: #fff; width: 44px; height: 44px; }
+.pl-gp .ibtn svg.i { width: 20px; height: 20px; }
+/* labelled view switch: 封面 / 歌詞 / 佇列 (same toggle as the desktop top-right) */
+.pl-views { position: absolute; left: 50%; top: 732px; transform: translateX(-50%); width: max-content; white-space: nowrap; display: inline-flex; gap: 2px; padding: 4px; border-radius: var(--r-cap); }
+.pl-views button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 13px; border-radius: var(--r-cap); font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .78); }
+.pl-views button svg.i { width: 18px; height: 18px; }
+.pl-views button.on { background: rgba(255, 255, 255, .24); color: #fff; }
+.pl-pq { position: absolute; left: 0; right: 0; top: 178px; height: 332px; overflow: hidden; -webkit-mask: linear-gradient(#000 82%, transparent); mask: linear-gradient(#000 82%, transparent); }
+.pl-pq .qh { white-space: nowrap; display: flex; align-items: center; gap: 8px; padding: 6px 20px 8px 24px; font-size: 13px; font-weight: 700; }
+.pl-pq .qh span { color: var(--label-2); font-weight: 500; }
+.pl-pq .qh .sp { flex: 1; }
+.pl-pq .tog { flex: none; background: var(--fill); color: #fff; height: 32px; padding: 0 12px 0 9px; font-size: 13px; }
+.pl-pq .tog.on { background: var(--accent-fill); color: var(--accent-ink); }
+.pl-pq .row { padding: 0 20px 0 24px; min-height: 56px; }
+.pl-pq .row .t2, .pl-pq .row .dur { color: var(--label-2); }
+.pl-pq .row.playing { background: var(--fill); }
+.pl-pq .row.playing .t1 { color: #fff; }
+.pl-mini { position: absolute; left: 24px; right: 24px; top: 112px; display: flex; gap: 12px; align-items: center; }
+.pl-mini .cover { width: 56px; height: 56px; border-radius: 9px; }
+.pl-mini .m { flex: 1; min-width: 0; }
+.pl-mini .m b { display: flex; align-items: center; gap: 6px; font-size: 17px; line-height: 22px; font-weight: 700; }
+.pl-mini .m b .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-mini .m > span { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 19px; color: var(--label-2); }
+.pl-lysrc { position: absolute; left: 24px; right: 24px; top: 180px; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--label-3); }
+.pl-lysrc .src svg { width: 13px; height: 13px; }
+.pl-lysrc b { color: var(--label-2); font-weight: 600; }
+.pl-ly { position: absolute; left: 0; right: 0; top: 200px; height: 312px; overflow: hidden;
+  -webkit-mask: linear-gradient(transparent, #000 10%, #000 82%, transparent); mask: linear-gradient(transparent, #000 10%, #000 82%, transparent); }
+.pl-ly .in { padding: 24px 28px 120px; }
+.pl-l { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 24px; line-height: 30px; font-weight: 700; color: var(--label-3); transition: color var(--t-mid); cursor: pointer; }
+.pl-l .tx { flex: 1; min-width: 0; }
+.pl-l small { display: block; font-size: 16px; line-height: 21px; font-weight: 600; margin-top: 3px; }
+.pl-l.cur { color: #fff; }
+.pl-l.past { color: var(--label-4); }
+.pl-ly.manual .pl-l { color: var(--label-2); }
+.pl-ly.manual .pl-l.cur { color: #fff; }
+.pl-l.guide { margin: 0 -14px; padding: 9px 14px; border-radius: 14px; background: var(--fill); color: #fff; }
+.pl-jump { display: inline-flex; align-items: center; gap: 4px; font: 600 13px var(--font-num); color: #fff; background: var(--fill-2); border-radius: var(--r-cap); height: 30px; padding: 0 10px 0 8px; flex: none; }
+.pl-jump svg.i { width: 14px; height: 14px; }
+.pl-back { position: absolute; left: 50%; top: 462px; transform: translateX(-50%); z-index: 5; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 12px; border-radius: var(--r-cap); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.pl-back svg.i { width: 18px; height: 18px; }
+.pl-off { position: absolute; left: 14px; right: 14px; top: 412px; z-index: 6; border-radius: 26px; padding: 10px 10px 10px; }
+.pl-off .oh { display: flex; align-items: center; gap: 8px; padding: 0 2px 8px 8px; font-size: 13px; line-height: 18px; color: var(--glass-ink-2); }
+.pl-off .oh b { color: var(--glass-ink); font: 700 15px var(--font-num); }
+.pl-off .oh .ibtn { width: 32px; height: 32px; margin-left: auto; color: var(--glass-ink); }
+.pl-off .ob { display: flex; gap: 4px; }
+.pl-off .ob button { display: grid; place-items: center; flex: 1; height: 40px; border-radius: var(--r-cap); background: rgba(255, 255, 255, .14); color: #fff; font: 600 13px var(--font-num); }
+.pl-off .ob button.rs { flex: 1.3; font-family: var(--font); }
+.pl-state { position: absolute; left: 32px; right: 32px; top: 200px; height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; }
+.pl-state .si { width: 64px; height: 64px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; margin-bottom: 8px; }
+.pl-state .si svg.i { width: 30px; height: 30px; stroke-width: 1.6; }
+.pl-state .spinner { width: 30px; height: 30px; border: 3px solid var(--label-4); border-top-color: #fff; }
+.pl-state h5 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; }
+.pl-state p { margin: 0; font-size: 14px; line-height: 20px; color: var(--label-2); max-width: 280px; }
+.pl-state .btn { margin-top: 12px; background: #fff; color: #15141A; }
+
+/* menus, sheets, dialogs are the shared components; below is only the content inside them */
+.pl-sb { padding: 0 16px 24px; }
+.dlg .pl-sb { padding: 0 20px 14px; }
+.pl-menu-scrim { position: absolute; inset: 0; z-index: 74; background: rgba(0, 0, 0, .18); }
+.pl-trk { display: flex; align-items: center; gap: 12px; padding: 4px 4px 14px; }
+.pl-trk .m { flex: 1; min-width: 0; }
+.pl-trk .m b { display: block; font-size: 15px; line-height: 20px; font-weight: 600; }
+.pl-trk .m > span { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 17px; color: var(--glass-ink-2); }
+.pl-matched { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--glass-ink) 6%, transparent); font-size: 13px; line-height: 18px; margin-bottom: 12px; }
+.pl-matched .ok { color: var(--ok); }
+.pl-matched span.t { flex: 1; min-width: 0; color: var(--glass-ink-2); }
+.pl-matched span.t b { color: var(--glass-ink); font-weight: 600; }
+.pl-sb .field { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+.pl-chips { display: flex; gap: 8px; margin: 12px 0 6px; }
+.pl-chips .chip { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+.pl-chips .chip.on { background: var(--glass-ink); color: var(--glass-solid); }
+.pl-res { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 4px; position: relative; }
+.pl-res + .pl-res::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.pl-res .ic { width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--glass-ink) 8%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--glass-ink-2); flex: none; }
+.pl-res .ic svg.i { width: 17px; height: 17px; }
+.pl-res .ic em { font-style: normal; font-size: 9px; line-height: 10px; font-weight: 700; }
+.pl-res .ic.sync { color: var(--accent); background: var(--accent-soft); }
+.pl-res .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-res .m b { display: flex; align-items: center; gap: 6px; font-size: 15px; line-height: 20px; font-weight: 500; min-width: 0; }
+.pl-res .m b .tt, .pl-res .m > span .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-res .m > span { display: flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 16px; color: var(--glass-ink-2); min-width: 0; }
+.pl-res .d { font: 13px var(--font-num); color: var(--glass-ink-2); text-align: right; flex: none; }
+.pl-res .d.far { color: var(--warn); }
+.pl-res .d small { display: block; font-size: 11px; }
+.pl-res.on .m b { color: var(--accent); font-weight: 600; }
+.pl-res .ck { color: var(--accent); width: 20px; flex: none; }
+.pl-res .ck svg.i { width: 18px; height: 18px; stroke-width: 2.4; }
+.pl-tr { display: inline-flex; align-items: center; height: 17px; padding: 0 5px; border-radius: 5px; background: color-mix(in srgb, var(--glass-ink) 10%, transparent); color: var(--glass-ink); font-size: 11px; font-weight: 600; flex: none; }
+.pl-hint { font-size: 12px; line-height: 17px; color: var(--glass-ink-2); padding: 12px 4px 0; }
+.pl-ih { display: flex; gap: 14px; align-items: center; padding: 4px 4px 16px; }
+.pl-ih .m b { display: block; font-size: 18px; line-height: 23px; font-weight: 700; }
+.pl-ih .m > span { display: block; font-size: 14px; line-height: 19px; color: var(--glass-ink-2); }
+.pl-kv { display: flex; align-items: flex-start; gap: 12px; padding: 11px 4px; font-size: 15px; line-height: 20px; position: relative; }
+.pl-kv + .pl-kv::before { content: ""; position: absolute; top: 0; left: 4px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.pl-kv > span:first-child { width: 76px; flex: none; color: var(--glass-ink-2); }
+.pl-kv > span:last-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pl-kv .src-chip, .pl-trk .src-chip { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+.pl-sb .btn-gray { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+
+/* ---------- desktop ---------- */
+.pl-dtop { position: absolute; top: 10px; left: 0; right: 0; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 20px 0 86px; z-index: 30; }
+.pl-dtop .sp { flex: 1; }
+.pl-seg { display: inline-flex; padding: 3px; border-radius: var(--r-cap); }
+.pl-seg .seg { padding: 0; }
+.pl-seg .seg button { height: 28px; padding: 0 14px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; }
+.pl-seg .seg button svg.i { width: 14px; height: 14px; }
+.pl-dcover { position: absolute; left: 132px; top: 80px; width: 380px; height: 380px; border-radius: var(--r-cover-lg); box-shadow: 0 30px 60px rgba(0, 0, 0, .38); }
+.pl-dinfo { position: absolute; left: 132px; width: 380px; top: 476px; }
+.pl-dsig { left: 126px; top: 538px; height: 34px; font-size: 12.5px; max-width: 392px; }
+.pl-dsig > svg:not(.i) { width: 16px; height: 16px; }
+.pl-dinfo .pl-title { font-size: 21px; line-height: 27px; }
+.pl-dinfo .pl-artist { font-size: 15px; line-height: 20px; }
+.pl-dprog { position: absolute; left: 132px; width: 380px; top: 588px; }
+.pl-dprog .slider { height: 5px; background: var(--fill-2); }
+.pl-dprog .slider > i { background: #fff; }
+.pl-dprog .pl-times { font-size: 11px; margin-top: 6px; }
+.pl-dctl { position: absolute; left: 132px; width: 380px; top: 614px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+.pl-dctl .ibtn { width: 46px; height: 46px; color: #fff; position: relative; }
+.pl-dctl .ibtn svg.i { width: 28px; height: 28px; }
+.pl-dctl .ibtn.big { width: 60px; height: 60px; }
+.pl-dctl .ibtn.big svg.i { width: 38px; height: 38px; }
+.pl-dctl .ibtn.md { color: var(--label-2); }
+.pl-dctl .ibtn.md svg.i { width: 20px; height: 20px; }
+.pl-dctl .ibtn.on { color: var(--accent); }
+.pl-dctl .ibtn.on::after { content: ""; position: absolute; bottom: 6px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+.pl-dvol { position: absolute; left: 132px; width: 380px; top: 700px; display: flex; align-items: center; gap: 10px; color: var(--label-2); }
+.pl-dvol .slider { flex: 1; height: 4px; background: var(--fill-2); }
+.pl-dvol .slider > i { background: var(--label-2); }
+.pl-dvol svg.i { width: 18px; height: 18px; }
+.pl-right { position: absolute; left: 620px; right: 28px; top: 64px; bottom: 28px; display: flex; flex-direction: column; }
+.pl-right.glass { left: 612px; right: 20px; top: 62px; bottom: 20px; border-radius: 26px; padding: 4px 8px 0; }
+.pl-rhead { display: flex; align-items: center; gap: 8px; padding: 10px 16px 8px; font-size: 12px; color: var(--label-3); flex: none; }
+.pl-rhead b { color: var(--label-2); font-weight: 600; }
+.pl-rhead .src svg { width: 13px; height: 13px; }
+.pl-rhead .sp { flex: 1; }
+.pl-rhead .btn-xs { background: var(--fill); color: var(--label); }
+.pl-dly { flex: 1; min-height: 0; overflow: hidden; -webkit-mask: linear-gradient(transparent, #000 9%, #000 84%, transparent); mask: linear-gradient(transparent, #000 9%, #000 84%, transparent); }
+.pl-dly .in { padding: 60px 16px 200px; }
+.pl-dly .pl-l { font-size: 28px; line-height: 36px; padding: 10px 14px; margin: 0 -14px; border-radius: 14px; }
+.pl-dly .pl-l small { font-size: 17px; line-height: 23px; margin-top: 4px; }
+.pl-dly .pl-l:hover, .pl-dly .pl-l.hov { background: var(--fill); color: #fff; }
+.pl-dly .pl-l .pl-jump { opacity: 0; }
+.pl-dly .pl-l:hover .pl-jump, .pl-dly .pl-l.hov .pl-jump { opacity: 1; }
+.pl-dq { flex: 1; min-height: 0; overflow: hidden; padding: 0 8px; }
+.pl-dq .row .t2, .pl-dq .row .dur { color: var(--label-2); }
+.pl-dq .qh { display: flex; align-items: center; gap: 8px; padding: 14px 12px 8px; font-size: 12px; font-weight: 700; }
+.pl-dq .qh span { color: var(--label-2); font-weight: 500; }
+.pl-dq .qh .sp { flex: 1; }
+.pl-dq .tog { background: var(--fill); color: #fff; }
+.pl-dq .tog.on { background: var(--accent-fill); color: var(--accent-ink); }
+.pl-dq .row.playing { background: var(--fill); }
+.pl-dq .row.playing .t1 { color: #fff; }
+.dlg .pl-sb .pl-res { min-height: 52px; }
+.dlg .pl-sb .pl-res .m b { font-size: 13px; line-height: 17px; }
+.dlg .pl-sb .pl-res .m > span { font-size: 11.5px; }
+.dlg .pl-sb .pl-res .ic { width: 32px; height: 32px; }
+.dlg .pl-sb .pl-res + .pl-res::before { left: 46px; }
+.dlg .pl-sb .pl-trk .m b { font-size: 13px; }
+.dlg .pl-sb .pl-matched { font-size: 12px; }
+.dlg .pl-sb .pl-hint { font-size: 11.5px; }
+.dlg .pl-sb kbd { font: 600 10.5px var(--font-num); background: color-mix(in srgb, var(--glass-ink) 10%, transparent); border-radius: 5px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const T = FMP.T;
+const PL_T = T.t23; // 星屑ランデブー: netease, member-only, has a translation
+const PL_LY = [
+  ['1:15', '夜明け前の駅で', '在黎明前的車站'],
+  ['1:21', '君の名前を数えた', '一遍遍數著你的名字'],
+  ['1:27', '星屑みたいな約束', '像星屑一樣的約定'],
+  ['1:34', 'ポケットの中で光る', '在口袋裡閃著光'],
+  ['1:40', 'ランデブー 遠回りして', '約會吧 繞一段遠路'],
+  ['1:46', 'ランデブー 迷子のままで', '約會吧 就這樣迷路'],
+  ['1:53', '終電の窓に映る', '映在末班車窗上的'],
+  ['1:59', 'ふたりの影が揺れた', '兩個人的影子在搖晃'],
+  ['2:06', 'さよならは まだ言わない', '還不說再見'],
+  ['2:12', '朝が来るまで', '直到早晨來臨'],
+  ['2:19', '線路の先に', '在鐵軌的盡頭'],
+];
+const PL_CUR = 3;
+
+function plG(icon, label, extra) {
+  return '<button class="lg gbtn" data-lg-variant="clear" aria-label="' + label + '" title="' + label + '" ' + (extra || '') + '>' + I(icon) + '</button>';
+}
+function plBg(t) { return FMP.ambient(t.cv) + '<div class="pl-scrim"></div>'; }
+const PL_Q = { netease: '無損 FLAC', youtube: 'AAC', bilibili: '高音質' };
+// signature capsule: tapping opens 曲目資訊
+function plSig(t, o, desk) {
+  o = o || {};
+  const cls = 'lg pl-sig' + (desk ? ' pl-dsig' : '');
+  if (o.trial) {
+    return '<button class="' + cls + ' trial" data-lg-variant="clear" aria-label="試聽說明">' + FMP.srcMark(t.src) + '<b>試聽 0:45–1:15</b><i class="sep"></i><span class="q">' + (o.trial === 'login' ? '登入聽完整版' : '開通會員聽完整版') + '</span>' + I('chevR', 'chev') + '</button>';
+  }
+  return '<button class="' + cls + '" data-lg-variant="clear" aria-label="曲目資訊">' + FMP.srcMark(t.src) + '<span>' + FMP.SRC[t.src].name + '</span>' +
+    (t.acc ? '<i class="sep"></i>' + FMP.acc(t.acc) : '') + '<i class="sep"></i>' + I('wave') + '<span class="q">' + PL_Q[t.src] + '</span>' + I('chevR', 'chev') + '</button>';
+}
+function plProg(o) {
+  o = o || {};
+  if (o.trial) {
+    return '<div class="pl-prog pl-trial"><div class="slider"><span class="pl-band" style="left:16.6%;width:11.1%"></span><i style="left:16.6%;width:6.4%"></i><span class="knob" style="left:23%"></span></div>' +
+      '<div class="pl-times num"><span>1:02</span><span>4:31</span></div></div>';
+  }
+  return '<div class="pl-prog"><div class="slider"><i style="width:' + (o.p || 38.5) + '%"></i><span class="knob" style="left:' + (o.p || 38.5) + '%"></span></div>' +
+    '<div class="pl-times num"><span>' + (o.at || '1:36') + '</span><span>-' + (o.left || '2:33') + '</span></div></div>';
+}
+function plCtl(o) {
+  o = o || {};
+  return '<div class="pl-ctl">' +
+    '<button class="ibtn md' + (o.shuffle ? ' on' : '') + '" aria-label="隨機">' + I('shuffle') + '</button>' +
+    '<button class="ibtn" aria-label="上一首">' + I('prev') + '</button>' +
+    '<button class="ibtn big" aria-label="暫停">' + I(o.paused ? 'play' : 'pause') + '</button>' +
+    '<button class="ibtn" aria-label="下一首">' + I('next') + '</button>' +
+    '<button class="ibtn md' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat') + '</button></div>';
+}
+function plViews(view) {
+  const b = (k, icon, label) => '<button class="' + ((view || 'cover') === k ? 'on' : '') + '">' + I(icon) + label + '</button>';
+  return '<div class="lg pl-views" data-lg-variant="clear" role="tablist">' + b('cover', 'note', '封面') + b('lyrics', 'lyrics', '歌詞') + b('queue', 'queue', '佇列') + '</div>';
+}
+function plLyLines(o) {
+  o = o || {};
+  const mode = o.mode || 'both';
+  return PL_LY.map(([at, a, b], i) => {
+    const cls = i === PL_CUR ? ' cur' : (i < PL_CUR && !o.manual ? ' past' : '');
+    const main = mode === 'trans' ? b : a;
+    const sub = mode === 'orig' ? '' : '<small>' + (mode === 'trans' ? a : b) + '</small>';
+    const guide = o.guide === i;
+    const jump = (guide || o.desk) ? '<span class="pl-jump">' + I('play') + at + '</span>' : '';
+    return '<div class="pl-l' + cls + (guide ? ' guide' : '') + (o.hov === i ? ' hov' : '') + '" data-at="' + at + '"><span class="tx">' + main + sub + '</span>' + jump + '</div>';
+  }).join('');
+}
+function plLySrc(t, o) {
+  o = o || {};
+  return '<span>歌詞</span>' + FMP.src(o.src || 'netease') + '<b>' + (o.src === 'lrclib' ? 'lrclib' : '網易雲音樂') + '</b><span>· ' + (o.manual ? '手動匹配' : '自動匹配') + '</span>' +
+    (o.offset ? '<span>· 偏移 <b class="num">' + o.offset + '</b></span>' : '');
+}
+
+/* phone screens. o: track, view ('cover'|'lyrics'), state, trial, manual, offset, overlay, temp, mode */
+function plPhone(ctx, o) {
+  o = o || {};
+  const t = o.track || PL_T;
+  const ctxLine = o.temp
+    ? '<div class="pl-ctx temp"><b>臨時播放</b>播完回到佇列第 6 首</div>'
+    : '<div class="pl-ctx"><b>佇列 · 第 6 / 64 首</b>下一首：Glass Harbor</div>';
+  let h = '<div class="pl-m">';
+  h += '<div class="pl-top">' + plG('chevD', '收起') + ctxLine + '<div class="lg pl-gp" data-lg-variant="clear"><button class="ibtn" aria-label="加入歌單">' + I('addlist') + '</button><button class="ibtn" aria-label="更多">' + I('more') + '</button></div></div>';
+  if (o.view === 'lyrics' || o.view === 'queue') {
+    h += '<div class="pl-mini">' + FMP.coverEl(t.cv, 56) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + '</span></div></div>';
+    if (o.view === 'queue') {
+      const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11];
+      h += '<div class="pl-pq"><div class="qh">接下來<span>58 首</span><span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+        nexts.map((x) => FMP.trackRow(x, { more: false, drag: true })).join('') + '</div>';
+    } else if (o.state === 'matching') {
+      h += '<div class="pl-state"><span class="spinner"></span><h5 style="margin-top:14px">正在匹配歌詞…</h5><p>依曲名、歌手與時長在網易雲音樂、lrclib 尋找</p></div>';
+    } else if (o.state === 'none') {
+      h += '<div class="pl-state"><span class="si">' + I('lyrics') + '</span><h5>暫無歌詞</h5><p>自動匹配沒找到這首的歌詞，可以自己搜尋或換個關鍵字</p><button class="btn btn-sm">' + I('search', 's18') + '搜尋歌詞</button></div>';
+    } else if (o.state === 'inst') {
+      h += '<div class="pl-state"><span class="si">' + I('note') + '</span><h5>純音樂，沒有歌詞</h5><p>歌詞源把這首標成純音樂。認錯了可以從 ⋮ 搜尋歌詞</p></div>';
+    } else {
+      h += '<div class="pl-lysrc">' + plLySrc(t, { offset: o.offset ? '+0.3 秒' : '' }) + '</div>';
+      const shift = o.manual ? -262 : -120;
+      h += '<div class="pl-ly' + (o.manual ? ' manual' : '') + '"' + (o.offset ? ' style="height:212px"' : '') + '><div class="in" style="transform:translateY(' + (o.offset ? -150 : shift) + 'px)">' + plLyLines({ manual: o.manual, guide: o.manual ? 6 : undefined, mode: o.mode }) + '</div></div>';
+      if (o.manual) h += '<button class="lg pl-back" data-lg-variant="clear">' + I('target') + '回到目前歌詞</button>';
+      if (o.offset) {
+        h += '<div class="lg pl-off" data-lg-variant="clear"><div class="oh">' + I('offset', 's18') + '<span>歌詞偏移</span><b>+0.3 秒</b><span>歌詞提早 0.3 秒出現</span><button class="ibtn" aria-label="關閉偏移列">' + I('close', 's18') + '</button></div>' +
+          '<div class="ob"><button>−1</button><button>−0.5</button><button>−0.1</button><button class="rs">重置</button><button>+0.1</button><button>+0.5</button><button>+1</button></div></div>';
+      }
+    }
+  } else {
+    h += FMP.coverEl(t.cv, null, 'pl-cover');
+    h += '<div class="pl-info"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>';
+  }
+  h += plSig(t, o) + plProg(o) + plCtl({ repeat: o.repeat === undefined ? 'all' : o.repeat, shuffle: o.shuffle }) + plViews(o.view) + '</div>';
+  return FMP.phone(ctx, { raw: true, content: plBg(t) + h, dock: false, onMedia: true, noEdge: true, overlay: o.overlay });
+}
+
+/* ⋮ menu */
+function plMenu(mode) {
+  mode = mode || 'both';
+  const radio = (v, label) => '<button class="mi' + (mode === v ? ' on' : '') + '" role="menuitemradio" aria-checked="' + (mode === v) + '"><span>' + label + '</span>' + (mode === v ? I('check', 'chk') : '') + '</button>';
+  return '<div class="pl-menu-scrim"></div><div class="lg gmenu" data-adapt role="menu" style="top:108px;right:14px">' +
+    '<button class="mi" role="menuitem"><span>搜尋歌詞</span>' + I('search') + '</button>' +
+    '<button class="mi" role="menuitem"><span>調整歌詞偏移</span>' + I('offset') + '</button><div class="ms thick"></div>' +
+    '<div class="mcap">歌詞顯示</div>' + radio('both', '原文＋翻譯') + radio('orig', '只顯示原文') + radio('trans', '優先顯示翻譯') + '<div class="ms thick"></div>' +
+    '<button class="mi" role="menuitem"><span>曲目資訊</span>' + I('info') + '</button></div>';
+}
+
+/* lyrics search body, shared by phone sheet and desktop dialog */
+function plSearchBody(t, desk) {
+  const res = [
+    { sync: true, title: t.title, by: t.artist + ' · ' + t.title, src: 'netease', tr: true, d: '4:09', on: true },
+    { sync: true, title: t.title, by: t.artist + ' · 夜明けの駅 EP', src: 'lrclib', tr: false, d: '4:09' },
+    { sync: true, title: t.title + '（TV size）', by: t.artist, src: 'netease', tr: true, d: '1:31', far: '差 2:38' },
+    { sync: false, title: t.title, by: t.artist + ' · 星屑ランデブー', src: 'lrclib', tr: false, d: '4:10' },
+    { sync: true, title: t.title + '（Live）', by: t.artist + ' · Hotaru Live 2026', src: 'netease', tr: false, d: '4:36', far: '差 27 秒' },
+  ];
+  const row = (r) => '<div class="pl-res' + (r.on ? ' on' : '') + '"><span class="ic' + (r.sync ? ' sync' : '') + '">' + I(r.sync ? 'clock' : 'doc') + '<em>' + (r.sync ? '同步' : '純文字') + '</em></span>' +
+    '<div class="m"><b><span class="tt">' + FMP.esc(r.title) + '</span>' + (r.tr ? '<span class="pl-tr">翻譯</span>' : '') + '</b><span>' + FMP.src(r.src, true) + '<span class="tt">' + FMP.esc(r.by) + '</span></span></div>' +
+    '<span class="d' + (r.far ? ' far' : '') + '">' + r.d + (r.far ? '<small>' + r.far + '</small>' : '') + '</span><span class="ck">' + (r.on ? I('check') : '') + '</span></div>';
+  return '<div class="pl-trk">' + FMP.coverEl(t.cv, desk ? 40 : 44, 'thumb') + '<div class="m"><b>' + FMP.esc(t.title) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + ' · <span class="num">' + t.dur + '</span></span></div></div>' +
+    '<div class="pl-matched"><span class="ok">' + I('check', 's18') + '</span><span class="t">已匹配 <b>網易雲音樂</b> 的歌詞（自動）</span><button class="btn btn-xs btn-danger">移除匹配</button></div>' +
+    '<div class="field">' + I('search') + '<input value="' + FMP.esc(t.title + ' - ' + t.artist) + '" aria-label="歌曲名 - 歌手"><span style="color:var(--glass-ink-2)">' + I('close', 's16') + '</span></div>' +
+    '<div class="pl-chips"><button class="chip on">全部</button><button class="chip">' + FMP.srcMark('netease').replace('<svg', '<svg width="15" height="15"') + '網易雲</button><button class="chip">' + FMP.srcMark('lrclib').replace('<svg', '<svg width="15" height="15"') + 'lrclib</button></div>' +
+    res.map(row).join('') +
+    '<div class="pl-hint">點一筆結果就套用，並記住這首用哪份歌詞。時長和這首差很多的標成橘色（可能是剪輯版或現場版）。' + (desk ? ' <kbd>↑</kbd><kbd>↓</kbd> 選擇 · <kbd>⏎</kbd> 套用 · <kbd>Esc</kbd> 關閉' : '') + '</div>';
+}
+function plSearchSheet(t) {
+  return '<div class="sheet-wrap"><div class="lg sheet" role="dialog" style="height:740px"><div class="grab"></div><div class="shead"><span style="width:44px"></span><span class="stitle">搜尋歌詞</span><button class="ibtn" aria-label="關閉" style="color:var(--glass-ink)">' + I('close') + '</button></div>' +
+    '<div class="sbody pl-sb">' + plSearchBody(t) + '</div></div></div>';
+}
+function plInfoSheet(t) {
+  const kv = (k, v) => '<div class="pl-kv"><span>' + k + '</span><span>' + v + '</span></div>';
+  return '<div class="sheet-wrap"><div class="lg sheet" role="dialog" style="height:700px"><div class="grab"></div><div class="shead"><span style="width:44px"></span><span class="stitle">曲目資訊</span><button class="ibtn" aria-label="關閉" style="color:var(--glass-ink)">' + I('close') + '</button></div>' +
+    '<div class="sbody pl-sb"><div class="pl-ih">' + FMP.coverEl(t.cv, 72) + '<div class="m"><b>' + FMP.esc(t.title) + '</b><span>' + FMP.esc(t.artist) + '</span></div></div>' +
+    kv('音源', FMP.srcChip(t.src, true)) +
+    kv('存取等級', FMP.acc(t.acc, true) + '<span>需要網易雲音樂會員；你的會員到 2027-02-28</span>') +
+    kv('音質', '<span>無損（FLAC）· 需會員</span><span style="color:var(--glass-ink-2);font-size:13px;width:100%">依偏好與會員狀態選最高可用；可選：無損、極高、標準</span>') +
+    kv('專輯', '星屑ランデブー') + kv('發佈日期', '<span class="num">2026-03-14</span>') + kv('時長', '<span class="num">' + t.dur + '</span>') +
+    kv('評論', '<span class="num">3,120</span>') +
+    kv('簡介', '<span style="color:var(--glass-ink-2);font-size:14px;line-height:20px">動畫《夜行列車》片尾曲。示範資料，歌詞與簡介都是虛構的。</span>') +
+    '<div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-gray" style="flex:1">' + I('external', 's18') + '在網易雲音樂打開</button><button class="btn btn-gray" style="flex:1">' + I('copy', 's18') + '複製連結</button></div>' +
+    '</div></div></div>';
+}
+
+/* desktop: full-window player. o: right ('lyrics'|'queue'), overlay, hov */
+function plDesk(ctx, o) {
+  o = o || {};
+  const t = o.track || PL_T;
+  const reachB = document.documentElement.dataset.reach === 'B';
+  const right = o.right || 'lyrics';
+  let h = '<div class="win scr desk t-' + ctx.theme + '" data-tone="' + ctx.theme + '">' + plBg(t) + '<div class="pl-m">';
+  h += '<div class="side" style="top:4px;left:6px;bottom:auto;width:auto;padding:0;z-index:40"><div class="lights"><i></i><i></i><i></i></div></div>';
+  h += '<div class="pl-dtop">' + plG('chevD', '收起（Esc）') + '<span class="sp"></span>' + plG('addlist', '加入歌單') + plG('info', '曲目資訊（⌘I）') + plG('more', '更多') +
+    '<div class="lg pl-seg" data-lg-variant="clear"><div class="seg lg-seg"><button class="' + (right === 'lyrics' ? 'on' : '') + '">' + I('lyrics') + '歌詞</button><button class="' + (right === 'queue' ? 'on' : '') + '">' + I('queue') + '佇列</button></div></div></div>';
+  h += FMP.coverEl(t.cv, null, 'pl-dcover');
+  h += '<div class="pl-dinfo"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>' + plSig(t, o, true);
+  h += '<div class="pl-dprog"><div class="slider"><i style="width:38.5%"></i></div><div class="pl-times num"><span>1:36</span><span>-2:33</span></div></div>';
+  h += '<div class="pl-dctl"><button class="ibtn md" aria-label="隨機">' + I('shuffle') + '</button><button class="ibtn" aria-label="上一首">' + I('prev') + '</button><button class="ibtn big" aria-label="暫停（Space）">' + I('pause') + '</button><button class="ibtn" aria-label="下一首">' + I('next') + '</button><button class="ibtn md on" aria-label="循環">' + I('repeat') + '</button></div>';
+  h += '<div class="pl-dvol">' + I('volumeLow') + '<span class="slider"><i style="width:64%"></i></span>' + I('volume') + '</div>';
+  let r = '';
+  if (right === 'lyrics') {
+    r = '<div class="pl-rhead">' + plLySrc(t) + '<span class="sp"></span><button class="btn btn-xs">' + I('offset', 's16') + '偏移 0 秒</button></div>' +
+      '<div class="pl-dly"><div class="in">' + plLyLines({ desk: true, hov: o.hov }) + '</div></div>';
+  } else {
+    const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11, T.t12, T.t06, T.t17, T.t15];
+    r = '<div class="pl-dq"><div class="qh">接下來<span>58 首 · 3 小時 58 分</span><span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+      FMP.trackRow(t, { desk: true, playing: true, more: false, sub: FMP.esc(t.artist) + ' · 正在播放' }) +
+      nexts.map((x) => FMP.trackRow(x, { desk: true, more: false, drag: true })).join('') +
+      '<div style="padding:12px;font-size:12px;color:var(--label-3)">在這裡可以拖動與移除；完整的佇列（清空、播過的）在側欄的「佇列」。</div></div>';
+  }
+  h += '<div class="pl-right' + (reachB ? ' glass lg' : '') + '"' + (reachB ? ' data-lg-variant="clear" data-lg-blur="8"' : '') + '>' + r + '</div>';
+  h += '</div>' + (o.overlay || '') + '</div>';
+  return h;
+}
+function plDeskSearch(t) {
+  return '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:600px"><div class="dlg-head"><span class="dt">搜尋歌詞</span><button class="ibtn" aria-label="關閉（Esc）">' + I('close', 's18') + '</button></div><div class="dlg-body pl-sb">' + plSearchBody(t, true) + '</div></div></div>';
+}
+
+// lyrics tap → seek: demo by moving the highlight
+function plWire(root) {
+  root.querySelectorAll('.pl-l').forEach((l) => l.addEventListener('click', () => {
+    l.parentElement.querySelectorAll('.pl-l').forEach((x) => x.classList.remove('cur', 'guide', 'past'));
+    l.classList.add('cur');
+  }));
+}
+
+const trialToast = FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + FMP.acc('trial') + '<span>這首只能試聽 30 秒，登入網易雲音樂可聽完整版</span></span><button class="btn btn-tinted">登入</button>', { style: 'top:112px;bottom:auto' });
+
+FMP.page({
+  title: '播放頁（含歌詞）',
+  intro: '<p>全螢幕播放頁是唯一跟封面變色的地方：背景是封面取色的色場（<code>FMP.ambient</code>），上面再壓一層由上而下的暗層，白字在淺色封面上也維持 AA。強調色不跟著變，仍是固定的堇紫（在媒體上用亮的那一階）。</p><p><b>FMP 的招牌是進度條正上方那顆「音源膠囊」</b>：音源（符號＋全名）、存取等級、實際在播的音質合成一顆清玻璃膠囊，例如「網易雲音樂 │ 會員 │ 無損 FLAC ›」，點它打開曲目資訊。多音源播放器最要緊的資訊（這首從哪來、能不能完整聽、聽到的是哪一級）放在拇指最常經過的地方，而不是曲名下的一排小標籤；試聽時它變成藍色的試聽膠囊。</p><p>深淺色兩份的播放頁本體相同（都在封面色上、白字）；跟主題走的是浮出來的選單、sheet 與對話框。上方工具列的「玻璃範圍」只影響桌面右欄。</p>',
+  sections: [
+    {
+      title: '手機：封面與歌詞',
+      desc: '頂列：收起、播放來源（佇列第幾首或臨時播放）、加入歌單與 ⋮。封面下只有曲名與歌手；音源、存取等級、音質合在進度條上方的音源膠囊。底部是帶文字的「封面／歌詞／佇列」切換。',
+      frames: [
+        { kind: 'phone', label: '封面畫面', render: (ctx) => plPhone(ctx, {}) },
+        { kind: 'phone', label: '歌詞畫面', render: (ctx) => plPhone(ctx, { view: 'lyrics' }), after: plWire },
+        { kind: 'phone', label: '手動捲動歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', manual: true }), after: plWire },
+        { kind: 'phone', label: '佇列畫面', render: (ctx) => plPhone(ctx, { view: 'queue' }) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>頂列中間寫播放來源：「佇列 · 第 6 / 64 首」與下一首；臨時播放時改成強調色的「臨時播放 · 播完回到佇列第 6 首」，和佇列頁的說法一致。</li>' +
+        '<li><b>音源膠囊</b>（招牌）：清玻璃、40pt 高，左起音源符號＋全名、存取等級徽章（免費與未知不顯示這段）、音質（插件列出可用音質，宿主依偏好與會員狀態選最高可用，brief §5.4；這裡寫實際在播的那一級）、›。點它開曲目資訊 sheet。歌詞與佇列畫面也在同一個位置，三個畫面都看得到。</li>' +
+        '<li>頂列右邊一顆清玻璃膠囊放「加入歌單」與 ⋮（舊版頂列就有加入歌單；資訊改由音源膠囊進入）。</li>' +
+        '<li>控制列：隨機、上一首、播放／暫停、下一首、循環。隨機、循環開著時是強調色並在下方加一個點（不只靠顏色）；循環三態圖示分 repeat／repeat1。</li>' +
+        '<li>底部是帶文字的分段切換「封面／歌詞／佇列」，和桌面頂列右側的「歌詞／佇列」是同一個控制，只是手機放在拇指碰得到的底部。三個畫面的音源膠囊、進度與控制列位置都不動，只換上半部。手機不放音量列（用實體按鍵），也沒有輸出裝置按鈕（第一版不做）。</li>' +
+        '<li>佇列畫面只列接下來的，可拖動，隨機與循環的文字切換鈕在標題列；完整編輯在佇列分頁。</li>' +
+        '<li>歌詞：當前行全白，播過的最淡，未播的半透明；有翻譯時在原文下方一行。上方小字標來源（網易雲音樂或 lrclib）與自動／手動匹配。</li>' +
+        '<li>手動捲動時暫停自動捲動：所有行稍微變亮，畫面中央那一行出現底色與「▶ 1:53」，點它跳到該時間；下方浮出清玻璃「回到目前歌詞」。3 秒沒動作也會自己回去。任何一行都可以直接點來跳轉。</li>' +
+        '<li>玻璃都是清玻璃，只在控制上：頂列的收起與右側膠囊、音源膠囊、底部切換、浮出來的「回到目前歌詞」。歌詞與曲名直接放在色場上。</li></ul>',
+    },
+    {
+      title: '手機：試聽',
+      frames: [
+        { kind: 'phone', label: '試聽（第一次，未登入）', render: (ctx) => plPhone(ctx, { track: T.t04, trial: 'login', overlay: trialToast }) },
+        { kind: 'phone', label: '試聽（已登入、非會員）', render: (ctx) => plPhone(ctx, { track: T.t04, trial: 'vip' }) },
+      ],
+      notes: '<ul><li>只有試聽時照樣播片段（brief §5.4）。音源膠囊變成藍色的試聽膠囊：「試聽 0:45–1:15 │ 登入聽完整版 ›」，登入但不是會員時後段是「開通會員聽完整版」；點它直接走登入或開通。</li>' +
+        '<li>膠囊就在進度條正上方，進度條畫出整首長度，只有可聽的片段（0:45–1:15）是亮的一段，兩者上下對齊、一看就懂。播放頭在片段裡走，拖動只能落在片段內。</li>' +
+        '<li>第一次遇到試聽時跳一則提示並附「登入」，之後不再跳（每個音源各一次）；試聽膠囊一直都在。</li></ul>',
+    },
+    {
+      title: '手機：⋮ 選單、偏移、顯示方式',
+      frames: [
+        { kind: 'phone', label: '⋮ 選單', render: (ctx) => plPhone(ctx, { view: 'lyrics', overlay: plMenu('both') }) },
+        { kind: 'phone', label: '偏移調整列', render: (ctx) => plPhone(ctx, { view: 'lyrics', offset: true }) },
+        { kind: 'phone', label: '優先顯示翻譯', render: (ctx) => plPhone(ctx, { view: 'lyrics', mode: 'trans' }) },
+      ],
+      notes: '<ul><li>⋮：搜尋歌詞、調整歌詞偏移；「歌詞顯示」三選一（原文＋翻譯、只顯示原文、優先顯示翻譯）；曲目資訊。加入歌單在頂列膠囊上，不重複。選單用共用的 <code>.gmenu</code>（厚玻璃、跟主題走），在色場上也讀得清。</li>' +
+        '<li>偏移列浮在歌詞下緣，清玻璃：顯示目前偏移與意思（「歌詞提早 0.3 秒出現」），七顆按鈕 −1／−0.5／−0.1／重置／+0.1／+0.5／+1 秒，每顆 ≥40pt 高。偏移記在這首曲目上；調過後歌詞來源那行多一個「偏移 +0.3 秒」。</li>' +
+        '<li>優先顯示翻譯：翻譯當主行，原文移到下方小行。沒有翻譯的歌詞三個選項看起來一樣。</li></ul>',
+    },
+    {
+      title: '手機：歌詞狀態',
+      frames: [
+        { kind: 'phone', label: '匹配中', render: (ctx) => plPhone(ctx, { view: 'lyrics', state: 'matching' }) },
+        { kind: 'phone', label: '暫無歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', state: 'none' }) },
+        { kind: 'phone', label: '純音樂', render: (ctx) => plPhone(ctx, { track: T.t16, view: 'lyrics', state: 'inst' }) },
+      ],
+      notes: '<ul><li>匹配中：依曲名、歌手、時長自動匹配（brief §10），歌詞源順序照設定（netease、lrclib）。</li><li>暫無歌詞：主要動作「搜尋歌詞」開歌詞搜尋 sheet。載入失敗（網路）用同一個版面，標題改「歌詞載入失敗」、按鈕改「重試」。</li><li>純音樂：不給大按鈕，避免干擾；真的認錯從 ⋮ 搜尋。</li></ul>',
+    },
+    {
+      title: '手機：歌詞搜尋與曲目資訊',
+      frames: [
+        { kind: 'phone', label: '搜尋歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', overlay: plSearchSheet(PL_T) }) },
+        { kind: 'phone', label: '曲目資訊', render: (ctx) => plPhone(ctx, { overlay: plInfoSheet(PL_T) }) },
+      ],
+      notes: '<h3>搜尋歌詞</h3><ul><li>上方是這首的曲名、歌手、時長；已匹配時一列綠勾「已匹配 網易雲音樂 的歌詞（自動）」＋紅色「移除匹配」。</li>' +
+        '<li>搜尋框預填「曲名 - 歌手」；來源 chip：全部、網易雲、lrclib。</li>' +
+        '<li>結果列：左邊的方塊標同步（強調色、時鐘）或純文字（灰、文件）；曲名後有「翻譯」標籤；副標是來源（符號＋簡稱）與「歌手 · 專輯」；右邊時長，和這首差很多的標橘色並寫差多少。目前套用的那筆用強調色與勾。</li>' +
+        '<li>點一筆就套用並關閉，提示「歌詞已匹配」。狀態：尚未搜尋（只有預填）、搜尋中、未找到、出錯（重試），與搜尋頁同一套。</li></ul>' +
+        '<h3>曲目資訊</h3><ul><li>從音源膠囊、⋮ 或桌面頂列的資訊鈕打開。列出音源、存取等級（含會員到期日）、音質（實際在播的與可選的）、專輯、發佈日期、時長、評論、簡介；B 站多了播放數、點讚與分 P。各插件給不了的欄位就不顯示。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '兩欄：左邊封面與控制，右邊歌詞或佇列。頂列左邊收起；右邊加入歌單、資訊、⋮，最右是「歌詞／佇列」分段切換。',
+      frames: [
+        { kind: 'desktop', label: '歌詞（滑過一行）', render: (ctx) => plDesk(ctx, { hov: 5 }), after: plWire },
+        { kind: 'desktop', label: '佇列', render: (ctx) => plDesk(ctx, { right: 'queue' }) },
+        { kind: 'desktop', label: '搜尋歌詞對話框', render: (ctx) => plDesk(ctx, { overlay: plDeskSearch(PL_T) }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>桌面播放頁蓋滿整個視窗（側欄、詳情面板收起來），Esc 或左上的收起回到原頁。macOS 的紅綠燈留在左上；Windows 的視窗按鈕在右上，頂列右側的控制往左讓出 138px。</li>' +
+        '<li>左欄曲名、歌手下方同樣是音源膠囊（點它開曲目資訊），下面是進度、控制與音量（桌面保留音量）。</li>' +
+        '<li>右欄歌詞字更大（28pt），滑過一行出現底色與「▶ 1:46」，點了跳到該時間；頂端一列是歌詞來源與「偏移 0 秒」按鈕（點開偏移列，和手機同一套）。</li>' +
+        '<li>右欄佇列只列正在播放與接下來的，可以拖動；隨機與循環的文字切換鈕也在這裡。完整編輯在佇列頁。</li>' +
+        '<li>鍵盤：Space 播放／暫停、←／→ 倒退／快轉 5 秒、⌘←／⌘→ 上一首／下一首、⌘I 曲目資訊、Esc 收起。</li>' +
+        '<li>歌詞搜尋在桌面是置中的對話框，內容和手機的 sheet 一樣，多了鍵盤操作（↑↓ 選、⏎ 套用、Esc 關）。</li></ul>' +
+        '<h3><span class="rv-ab">A</span>／<span class="rv-ab">B</span> 玻璃範圍（用上方工具列切換）</h3><ul>' +
+        '<li><b>A 直接放在色場上</b>：右欄的歌詞或佇列直接是色場上的白字，跟手機一樣。整頁只有頂列的圓鈕與分段切換是玻璃。</li>' +
+        '<li><b>B 玻璃板</b>：右欄是一塊清玻璃板，邊緣有高光，歌詞在板子裡捲動，左右兩欄分得更清楚。</li>' +
+        '<li>我推薦 <b>A</b>：右欄本來就是大段文字，放在玻璃板上不會更好讀（清玻璃幾乎透明，底下還是同一片色場），只多一個邊框；而且 Windows 只到「標準」玻璃、沒有折射，B 的板子在那邊會變成一塊灰霧。A 也和手機的歌詞畫面一致。B 的好處是佇列模式時列表有明確的容器。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

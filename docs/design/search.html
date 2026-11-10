@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>搜尋與結果 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+[class^="srh-"], [class*=" srh-"] { box-sizing: border-box; }
+/* ---- phone: bottom search dock (iOS 26 search-tab variant) ---- */
+.srh-dock { position: absolute; left: 0; right: 0; bottom: 0; height: 160px; z-index: 50; pointer-events: none; }
+.srh-dock::before { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent, color-mix(in srgb, var(--bg) 55%, transparent) 70%); pointer-events: none; }
+.srh-dock > .lg { position: absolute; pointer-events: auto; }
+.srh-dock .mini { left: 14px; top: 24px; width: 362px; height: 56px; border-radius: 28px; }
+.srh-orb { left: 14px; top: 88px; width: 62px; height: 62px; border-radius: 31px; display: grid; place-items: center; color: var(--glass-ink); }
+.srh-orb svg.i { width: 25px; height: 25px; stroke-width: 1.7; }
+.srh-field { left: 86px; top: 88px; width: 290px; height: 62px; border-radius: 31px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 20px; font-size: 17px; color: var(--glass-ink); }
+.srh-field > svg.i { width: 21px; height: 21px; color: var(--glass-ink-2); }
+.srh-field .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srh-field .ph { flex: 1; color: var(--glass-ink-2); }
+.srh-field .caret { display: inline-block; width: 2px; height: 22px; margin-left: 1px; vertical-align: -5px; background: var(--accent); border-radius: 1px; }
+.srh-field .clr { width: 44px; height: 44px; display: grid; place-items: center; color: var(--glass-ink-2); }
+.srh-field .clr span { width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in srgb, var(--glass-ink) 18%, transparent); color: var(--glass-ink); }
+.srh-field .clr svg.i { width: 13px; height: 13px; stroke-width: 2.6; }
+/* focused: the field rides on top of the keyboard, full width */
+.srh-dock.kb { bottom: 300px; height: 76px; }
+.srh-dock.kb::before { display: none; }
+.srh-dock.kb .srh-field { left: 14px; top: 8px; width: 362px; height: 56px; border-radius: 28px; }
+.srh-kb { position: absolute; left: 0; right: 0; bottom: 0; height: 300px; z-index: 49; background: var(--cell-2); padding: 10px 3px 0; display: flex; flex-direction: column; gap: 11px; box-shadow: 0 -.5px 0 var(--sep); }
+.srh-kb .kr { display: flex; justify-content: center; gap: 6px; }
+.srh-kb .k { height: 44px; flex: 0 0 33px; border-radius: 8px; background: var(--cell); display: grid; place-items: center; font-size: 22px; color: var(--label); box-shadow: 0 1px 0 var(--sep-strong); }
+.srh-kb .k.w { flex-basis: 44px; font-size: 15px; background: var(--fill-2); }
+.srh-kb .k.sp { flex: 1; font-size: 15px; }
+.srh-kb .k.go { flex-basis: 92px; font-size: 15px; font-weight: 600; background: var(--accent-fill); color: var(--accent-ink); }
+
+/* ---- phone content ---- */
+.srh-chips { display: flex; gap: 8px; padding: 2px 20px 6px; overflow-x: auto; scrollbar-width: none; }
+.srh-chips::-webkit-scrollbar { display: none; }
+.srh-chips .chip .src svg { width: 15px; height: 15px; }
+.srh-chips .chip.on .src { color: inherit; }
+.srh-chips .chip .w { color: var(--warn); }
+.srh-chips .chip.on .w { color: inherit; }
+.srh-sh { display: flex; align-items: baseline; gap: 8px; padding: 18px 20px 6px; }
+.srh-sh .ty-title3 { font-weight: 700; }
+.srh-sh .cnt { font-size: 15px; color: var(--label-3); font-family: var(--font-num); }
+.srh-sh .sp { flex: 1; }
+.srh-sh .sort { font-size: 13px; color: var(--label-2); display: inline-flex; align-items: center; gap: 3px; }
+.srh-loc { width: 14px !important; height: 14px !important; color: var(--accent); stroke-width: 2.4 !important; vertical-align: -2px; margin-right: 3px; }
+.srh-part { min-height: 48px !important; padding-left: 76px !important; --sep-inset: 76px; }
+.srh-part .pn { width: 26px; flex: none; font-size: 12px; font-weight: 600; color: var(--label-3); }
+.srh-part .t1 { font-size: 15px !important; }
+.row.srh-open { background: var(--fill); }
+.srh-err { margin: 4px 16px 10px; padding: 12px 12px 12px 14px; border-radius: var(--r-cell); background: var(--fill); display: flex; align-items: center; gap: 12px; }
+.srh-err .ei { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--cell); flex: none; position: relative; }
+.srh-err .ei .src svg { width: 18px; height: 18px; }
+.srh-err .ei .wb { position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; border-radius: 9px; background: var(--bg); display: grid; place-items: center; color: var(--warn); }
+.srh-err .ei .wb svg.i { width: 13px; height: 13px; stroke-width: 2.2; }
+.srh-err .et { flex: 1; min-width: 0; }
+.srh-err .et b { display: block; font-size: 15px; line-height: 20px; font-weight: 600; }
+.srh-err .et span { display: block; font-size: 13px; line-height: 17px; color: var(--label-2); }
+.srh-foot { padding: 18px 20px 0; text-align: center; font-size: 13px; color: var(--label-3); }
+.srh-hist .row { min-height: 50px; }
+.srh-hist .row .hi { color: var(--label-3); width: 22px; display: grid; place-items: center; }
+.srh-hist .row .t1 { font-size: 17px; }
+.srh-hist .row { --sep-inset: 50px; }
+.srh-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 90px 40px 0; gap: 8px; }
+.srh-empty .big { width: 64px; height: 64px; border-radius: 32px; background: var(--fill); display: grid; place-items: center; color: var(--label-3); margin-bottom: 8px; }
+.srh-empty .big svg.i { width: 30px; height: 30px; }
+.srh-empty .ty-title3 { font-weight: 700; }
+.srh-sk { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 16px; }
+.srh-sk i { display: block; background: var(--fill); border-radius: 6px; }
+.srh-sk .c { width: 48px; height: 48px; flex: none; }
+.srh-sk .l { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+
+/* ---- glass text capsule (iOS 26 toolbar text button) ---- */
+.srh-gtext { height: 44px; padding: 0 17px; border-radius: var(--r-cap); font-size: 16px; font-weight: 600; display: inline-flex; align-items: center; color: var(--glass-ink); }
+.srh-gtext.acc { color: var(--accent); }
+.srh-seltitle { position: absolute; left: 110px; right: 110px; text-align: center; font-size: 17px; font-weight: 600; pointer-events: none; }
+
+/* ---- floating action bar (multi-select) ---- */
+.srh-act { position: absolute; z-index: 55; left: 14px; right: 14px; bottom: 30px; height: 64px; border-radius: 32px; display: flex; align-items: center; padding: 0 6px; }
+.srh-act button { flex: 1; height: 56px; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--glass-ink); }
+.srh-act button svg.i { width: 23px; height: 23px; }
+.srh-act button:hover { background: var(--glass-press); }
+
+/* ---- glass menu (phone + desktop) ---- */
+.srh-scrim { position: absolute; inset: 0; z-index: 64; background: var(--scrim); }
+
+/* ---- desktop results table ---- */
+.srh-dhead { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 14px; }
+.srh-dhead .ty-large .c3 { font-weight: 600; }
+.srh-dhead .sp { flex: 1; }
+.srh-dfil { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.srh-dfil .chip .src svg { width: 13px; height: 13px; }
+.srh-dfil .chip.on .src { color: inherit; }
+.srh-dfil .chip .w { color: var(--warn); }
+.srh-dfil .hint { margin-left: auto; font-size: 11.5px; color: var(--label-3); display: flex; gap: 12px; }
+.srh-dfil .hint kbd { font: 500 11px var(--font-num); padding: 1px 5px; border-radius: 4px; background: var(--fill); color: var(--label-2); margin-right: 4px; }
+.srh-dsh { display: flex; align-items: baseline; gap: 7px; padding: 22px 10px 6px; font-size: 15px; font-weight: 700; }
+.srh-dsh .cnt { font-size: 13px; color: var(--label-3); font-weight: 500; font-family: var(--font-num); }
+.srh-th, .srh-tr { display: grid; grid-template-columns: 26px minmax(0, 1fr) 88px 56px 66px 46px 28px; align-items: center; column-gap: 12px; padding: 0 10px; }
+.srh-th { height: 28px; font-size: 11px; font-weight: 600; color: var(--label-2); box-shadow: inset 0 -.5px 0 var(--sep); margin-bottom: 4px; }
+.srh-th .r, .srh-tr .r { text-align: right; justify-self: end; }
+.srh-tr { height: 50px; border-radius: 8px; font-size: 13px; position: relative; }
+.srh-tr:hover, .srh-tr.hov { background: var(--cell-hover); }
+.srh-tr.sel { background: var(--accent-soft); }
+.srh-tr.sel + .srh-tr.sel { border-top-left-radius: 0; border-top-right-radius: 0; }
+.srh-tr.sel:has(+ .srh-tr.sel) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.srh-tr .n { text-align: right; font-size: 12px; color: var(--label-3); display: flex; justify-content: flex-end; }
+.srh-tr .n svg.i { width: 15px; height: 15px; color: var(--label); }
+.srh-tr .tc { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.srh-tr .tc .cover { width: 36px; height: 36px; }
+.srh-tr .tc .m { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.srh-tr .tc .m b { font-weight: 500; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.srh-tr .tc .m b .tt, .srh-tr .tc .m span .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.srh-tr .tc .m > span { font-size: 12px; color: var(--label-2); display: flex; align-items: center; gap: 5px; min-width: 0; }
+.srh-tr.playing .tc .m b { color: var(--accent); font-weight: 600; }
+.srh-tr .sc { font-size: 12px; color: var(--label-2); }
+.srh-tr .sc .src svg { width: 15px; height: 15px; }
+.srh-tr .sc .src-name { font-size: 12px; color: var(--label); }
+.srh-tr .pc { font-size: 12px; color: var(--label-2); }
+.srh-tr .dc { font-size: 12px; color: var(--label-2); }
+.srh-tr .mc { opacity: 0; }
+.srh-tr:hover .mc, .srh-tr.hov .mc, .srh-tr.sel .mc { opacity: 1; }
+.srh-tr .mc .ibtn { width: 28px; height: 28px; color: var(--label-2); }
+.srh-tr .xp { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; color: var(--label-2); }
+.srh-tr .xp svg.i { width: 14px; height: 14px; stroke-width: 2.2; }
+.srh-tr.pt { height: 34px; }
+.srh-tr.pt .tc { padding-left: 46px; }
+.srh-tr.pt .pn { font-size: 11px; font-weight: 600; color: var(--label-3); width: 22px; flex: none; }
+.srh-derr { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; padding: 8px 10px; border-radius: 10px; background: var(--fill); font-size: 12.5px; }
+.srh-derr .w { color: var(--warn); display: grid; }
+.srh-derr .w svg.i { width: 16px; height: 16px; }
+.srh-derr span.t { flex: 1; color: var(--label-2); }
+.srh-derr span.t b { color: var(--label); font-weight: 600; }
+.srh-dact { position: absolute; z-index: 29; left: 256px; right: 336px; bottom: 92px; display: flex; justify-content: center; pointer-events: none; }
+.srh-dact > .lg { pointer-events: auto; height: 44px; border-radius: 22px; display: flex; align-items: center; gap: 2px; padding: 0 6px 0 16px; font-size: 13px; }
+.srh-dact .cnt { font-weight: 600; margin-right: 8px; }
+.srh-dact .vs { width: 1px; height: 20px; background: color-mix(in srgb, var(--glass-ink) 14%, transparent); margin: 0 6px; }
+.srh-dact button.a { height: 32px; padding: 0 10px; border-radius: 16px; display: inline-flex; align-items: center; gap: 6px; color: var(--glass-ink); font-size: 12.5px; font-weight: 600; }
+.srh-dact button.a svg.i { width: 16px; height: 16px; }
+.srh-dact button.a:hover { background: var(--glass-press); }
+.srh-dact .ibtn { width: 32px; height: 32px; color: var(--glass-ink-2); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+
+/* ---------------- demo data: results for 「夜」 (synthetic) ---------------- */
+function srhT(id, title, artist, src, dur, acc, x) {
+  x = x || {};
+  return { id, title, artist, src, dur, acc, parts: x.parts || 0, plays: x.plays || '', cv: FMP.cover('srh-' + id, x.g ? { glyph: x.g, kind: 3 } : undefined), pl: x.pl };
+}
+const SRH_LOCAL = [
+  Object.assign({}, FMP.T.t01, { pl: '通勤路上' }),
+  Object.assign({}, FMP.T.t05, { pl: '星野町 Live 合集', title: '【4K】「夏夜漫遊」全曲 Live' }),
+  Object.assign({}, FMP.T.t14, { pl: '週末慢活', title: '晚風告白（夜版）' }),
+];
+const SRH_ONLINE = [
+  srhT('o1', '夜行列車（Live at 河岸留言）', '鹿野青', 'youtube', '4:40', null, { plays: '21萬' }),
+  srhT('o2', '【鋼琴】夜行列車 改編 附琴譜', '琴鍵上的鯨', 'bilibili', '4:05', null, { plays: '8.4萬' }),
+  srhT('o3', '夜行列車（伴奏）', '鹿野青', 'netease', '4:12', 'paid', { g: '伴' }),
+  srhT('o4', '夜曲集', '林以澄', 'netease', '3:58', 'trial', { g: '曲' }),
+  srhT('o5', 'Night Train to Nowhere', 'Juno Vale', 'youtube', '3:31', null, { plays: '4.7萬' }),
+  srhT('o6', '【合集】深夜電台 夜行 BGM', '安靜的午後', 'bilibili', '1:12:40', null, { parts: 3, plays: '56萬' }),
+  srhT('o7', '夜色溫柔', '許晴川', 'netease', '4:21', 'vip', { g: '夜' }),
+  srhT('o8', 'Midnight Ferry (lofi)', 'lofi atlas', 'youtube', '2:58', null, { plays: '12萬' }),
+  srhT('o9', '【翻唱】夜のむこう 女聲版', '栗子Kuri', 'bilibili', '4:22', null, { plays: '31.5萬' }),
+];
+const SRH_PARTS = { o6: [['深夜電台 Vol.1', '24:10'], ['深夜電台 Vol.2', '23:52'], ['深夜電台 Vol.3', '24:38']] };
+const SRH_SRC_NAME = { bilibili: 'B站', youtube: 'YouTube', netease: '網易雲' };
+
+/* ---------------- phone helpers ---------------- */
+function srhRow(t, o) {
+  o = o || {};
+  const plays = t.plays ? ' · ' + t.plays + '次播放' : '';
+  const sub = t.pl
+    ? I('check', 'srh-loc') + FMP.esc(t.artist) + ' · ' + FMP.esc(t.pl)
+    : FMP.esc(t.artist) + plays;
+  let h = FMP.trackRow(t, Object.assign({ sub }, o));
+  // mixed results: show the source name next to its mark, not just the mark
+  h = h.replace('<div class="t2">' + FMP.src(t.src), '<div class="t2">' + FMP.src(t.src, true));
+  return h;
+}
+function srhParts(t, playingIdx) {
+  return (SRH_PARTS[t.id] || FMP.partsOf(t).map((p) => [p.title, p.dur])).map(([title, dur], i) =>
+    '<div class="row srh-part' + (i === playingIdx ? ' playing' : '') + '"><span class="pn num">P' + (i + 1) + '</span><div class="meta"><div class="t1">' +
+    (i === playingIdx ? '<span class="eq"><i></i><i></i><i></i></span>' : '') + '<span class="tt">' + FMP.esc(title) + '</span></div></div><span class="dur num">' + dur + '</span>' +
+    '<button class="ibtn" aria-label="更多" style="color:var(--label-2);margin-right:-10px">' + I('more', 's20') + '</button></div>').join('');
+}
+function srhChips(on, o) {
+  o = o || {};
+  const c = (k, label, cnt) => '<button class="chip' + (on === k ? ' on' : '') + '">' + (k !== 'all' ? FMP.src(k) : '') + label +
+    (o.err === k ? '<span class="w">' + I('warn', 's16') + '</span>' : (cnt !== undefined ? '<span class="cnt num">' + cnt + '</span>' : '')) + '</button>';
+  return '<div class="srh-chips">' + c('all', '全部', o.counts ? o.counts[0] : undefined) + c('bilibili', 'Bilibili', o.counts ? o.counts[1] : undefined) +
+    c('youtube', 'YouTube', o.counts ? o.counts[2] : undefined) + c('netease', '網易雲', o.counts ? o.counts[3] : undefined) + '</div>';
+}
+function srhSH(title, cnt, right) {
+  return '<div class="srh-sh"><span class="ty-title3">' + title + '</span>' + (cnt !== undefined ? '<span class="cnt">' + cnt + '</span>' : '') + '<span class="sp"></span>' + (right || '') + '</div>';
+}
+const SRH_SORT = '<span class="sort">' + I('sort', 's16') + '綜合排序</span>';
+function srhDock(o) {
+  o = o || {};
+  const field = '<div class="lg srh-field" data-adapt>' + I('search') +
+    (o.query ? '<span class="q">' + FMP.esc(o.query) + (o.caret ? '<span class="caret"></span>' : '') + '</span><button class="clr" aria-label="清除"><span>' + I('close') + '</span></button>'
+      : '<span class="ph">搜尋歌曲、歌手' + (o.caret ? '<span class="caret"></span>' : '') + '</span>') + '</div>';
+  if (o.kb) return '<div class="srh-dock kb">' + field + '</div>' + srhKeyboard();
+  return '<div class="srh-dock">' + (o.track === false ? '' : FMP.mini(o.track)) +
+    '<button class="lg srh-orb" data-adapt data-href="library.html" aria-label="回到音樂庫">' + I('library') + '</button>' + field + '</div>';
+}
+function srhKeyboard() {
+  const row = (keys) => '<div class="kr">' + keys + '</div>';
+  const ks = (s) => s.split('').map((k) => '<span class="k">' + k + '</span>').join('');
+  return '<div class="srh-kb" aria-hidden="true">' + row(ks('qwertyuiop')) + row(ks('asdfghjkl')) +
+    row('<span class="k w">' + I('up', 's18') + '</span>' + ks('zxcvbnm') + '<span class="k w">' + I('chevL', 's18') + '</span>') +
+    row('<span class="k w">123</span><span class="k w">' + I('globe', 's18') + '</span><span class="k sp">空格</span><span class="k go">搜尋</span>') + '</div>';
+}
+function srhPhone(ctx, o) {
+  const title = '<div class="lt" style="padding-top:58px"><div class="ty-large">搜尋</div></div>';
+  const top = o.top !== undefined ? o.top : FMP.ptop('搜尋', '', FMP.gbtn('sort', '排序'), 120);
+  return FMP.phone(ctx, {
+    content: title + (o.chips === false ? '' : (o.chips || srhChips('all'))) + o.body,
+    top,
+    dock: false,
+    overlay: (o.dockHtml !== undefined ? o.dockHtml : srhDock(o.dock || {})) + (o.overlay || ''),
+  });
+}
+function srhResults(o) {
+  o = o || {};
+  let h = srhSH('歌單中', SRH_LOCAL.length);
+  h += SRH_LOCAL.map((t, i) => srhRow(t, { playing: i === 0, check: o.sel ? (o.sel.includes('l' + i)) : undefined, more: !o.sel, chev: t.parts > 1 && !o.sel ? 'chevD' : undefined })).join('');
+  h += srhSH('線上結果', 49, SRH_SORT);
+  if (o.err) h += srhErr();
+  const list = o.err ? SRH_ONLINE.filter((t) => t.src !== 'youtube') : SRH_ONLINE;
+  list.forEach((t, i) => {
+    const open = o.open === t.id;
+    h += srhRow(t, { check: o.sel ? o.sel.includes('o' + i) : undefined, more: !o.sel, chev: t.parts > 1 && !o.sel ? (open ? 'chevU' : 'chevD') : undefined, cls: open ? 'srh-open' : '' });
+    if (open) h += srhParts(t, -1);
+  });
+  return h;
+}
+function srhErr() {
+  return '<div class="srh-err"><span class="ei">' + FMP.src('youtube') + '<span class="wb">' + I('warn') + '</span></span><div class="et"><b>YouTube 暫時無法搜尋</b><span>請求太頻繁，被 YouTube 限流。其他音源照常顯示。</span></div><button class="btn btn-tinted btn-sm">' + I('refresh', 's16') + '重試</button></div>';
+}
+
+/* ---------------- shared menu ---------------- */
+function srhMenuHead(t, note) {
+  return '<div class="mh">' + FMP.coverEl(t.cv, 40) + '<div class="mt"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src, true) + (note ? ' · ' + note : ' · ' + FMP.esc(t.artist)) + '</span></div></div>';
+}
+function srhMenu(t, style, o) {
+  o = o || {};
+  const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
+  return '<div class="lg gmenu" data-adapt role="menu" style="' + style + '">' + srhMenuHead(t, o.note) + '<div class="ms"></div>' +
+    mi('play', '播放', o.desk ? '↩' : '', o.hl === 'play' ? 'hl' : '') + mi('nextUp', '下一首播放', '', o.hl === 'next' ? 'hl' : '') + mi('queue', '加入佇列') + mi('addlist', '加入歌單…', o.desk ? '⌘L' : '') +
+    '<div class="ms' + (o.desk ? '' : ' thick') + '"></div>' + mi('lyrics', '匹配歌詞…') + '</div>';
+}
+
+/* ---------------- desktop helpers ---------------- */
+function srhDRow(t, i, o) {
+  o = o || {};
+  const cls = ['srh-tr'];
+  if (o.hov) cls.push('hov');
+  if (o.sel) cls.push('sel');
+  if (o.playing) cls.push('playing');
+  const n = o.playing ? '<span class="eq"><i></i><i></i><i></i></span>' : o.hov ? I('play') : '<span class="num">' + (i + 1) + '</span>';
+  const part = t.parts > 1 ? '<span class="part">' + t.parts + 'P</span>' : '';
+  const xp = t.parts > 1 ? '<button class="xp" aria-label="' + (o.open ? '收起分 P' : '展開分 P') + '">' + I(o.open ? 'chevD' : 'chevR') + '</button>' : '';
+  const sub = (t.pl ? I('check', 'srh-loc') : '') + '<span class="tt">' + FMP.esc(t.artist) + (t.pl ? ' · ' + FMP.esc(t.pl) : '') + '</span>';
+  return '<div class="' + cls.join(' ') + '"><span class="n">' + n + '</span>' +
+    '<div class="tc">' + FMP.coverEl(t.cv, 36, 'thumb') + '<div class="m"><b>' + xp + '<span class="tt">' + FMP.esc(t.title) + '</span>' + part + '</b><span>' + sub + '</span></div></div>' +
+    '<span class="sc">' + FMP.src(t.src, true) + '</span><span>' + FMP.acc(t.acc) + '</span>' +
+    '<span class="pc num r">' + (t.plays || '—') + '</span><span class="dc num r">' + t.dur + '</span>' +
+    '<span class="mc"><button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button></span></div>';
+}
+function srhDParts(t) {
+  return SRH_PARTS[t.id].map(([title, dur], i) => '<div class="srh-tr pt"><span class="n"></span><div class="tc"><span class="pn num">P' + (i + 1) + '</span><span class="ell">' + FMP.esc(title) + '</span></div><span></span><span></span><span></span><span class="dc num r">' + dur + '</span><span class="mc"><button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button></span></div>').join('');
+}
+const SRH_TH = '<div class="srh-th"><span class="r">#</span><span>標題／歌手</span><span>音源</span><span>存取</span><span class="r">播放數</span><span class="r">時長</span><span></span></div>';
+function srhDesk(ctx, o) {
+  o = o || {};
+  const sel = o.sel || [];
+  let h = '<div style="padding:66px 24px 170px 8px">' +
+    '<div class="srh-dhead"><div><div class="ty-large">「夜」<span class="c3"> 的搜尋結果</span></div></div><span class="sp"></span>' +
+    '<button class="btn btn-gray btn-sm">' + I('sort', 's16') + '綜合排序' + I('chevD', 's16') + '</button></div>' +
+    '<div class="srh-dfil">' + ['all', 'bilibili', 'youtube', 'netease'].map((k, i) => '<button class="chip' + (i === 0 ? ' on' : '') + '">' + (k === 'all' ? '' : FMP.src(k)) + ['全部', 'Bilibili', 'YouTube', '網易雲'][i] +
+      (k === 'youtube' ? '<span class="w">' + I('warn', 's16') + '</span>' : '<span class="cnt num">' + [52, 19, '', 18][i] + '</span>') + '</button>').join('') +
+    '<span class="hint"><span><kbd>雙擊</kbd>臨時播放</span><span><kbd>⌘</kbd>點選多選</span><span><kbd>右鍵</kbd>更多</span></span></div>';
+  h += '<div class="srh-dsh">歌單中<span class="cnt">' + SRH_LOCAL.length + '</span></div>' + SRH_TH;
+  h += SRH_LOCAL.map((t, i) => srhDRow(t, i, { playing: i === 0, sel: sel.includes('l' + i) })).join('');
+  h += '<div class="srh-dsh">線上結果<span class="cnt">49</span></div>' + SRH_TH;
+  h += '<div class="srh-derr"><span class="w">' + I('warn') + '</span>' + FMP.src('youtube') + '<span class="t"><b>YouTube 暫時無法搜尋</b>：請求太頻繁，被限流。下面是另外兩個音源的結果。</span><button class="btn btn-gray btn-sm">' + I('refresh', 's16') + '重試 YouTube</button></div>';
+  ['o2', 'o6', 'o3', 'o4', 'o7', 'o9'].map((id) => SRH_ONLINE.find((t) => t.id === id)).forEach((t, i) => {
+    h += srhDRow(t, i, { hov: o.hov === t.id, sel: sel.includes(t.id), open: o.open === t.id });
+    if (o.open === t.id) h += srhDParts(t);
+  });
+  h += '<div class="srh-foot" style="font-size:12px">捲到底自動載入更多</div></div>';
+  return FMP.desktop(ctx, { nav: 'search', query: '夜', content: h, top: '<span class="wt">「夜」的搜尋結果</span>', overlay: o.overlay || '' });
+}
+function srhDAct(n) {
+  return '<div class="srh-dact"><div class="lg" data-adapt><span class="cnt">已選擇 ' + n + ' 首</span>' +
+    '<button class="a">' + I('nextUp') + '下一首播放</button><button class="a">' + I('queue') + '加入佇列</button><button class="a">' + I('addlist') + '加入歌單…</button>' +
+    '<span class="vs"></span><button class="ibtn" aria-label="取消選取（Esc）">' + I('close', 's16') + '</button></div></div>';
+}
+
+/* ---------------- page ---------------- */
+FMP.page({
+  title: '搜尋與結果',
+  intro: '<p>搜尋同時查三個音源，結果照舊版混排：「歌單中」（本機歌單已有的曲目）在上，「線上結果」在下。每一列都帶音源（符號＋簡稱）與存取等級徽章，因為這是三個音源混在一起的地方，最需要一眼分辨。</p><p>手機的搜尋欄位在底部的玻璃膠囊裡（iOS 26 搜尋分頁的慣例），通勤時單手拇指就按得到；桌面的搜尋欄位在側欄，結果用表格。</p>',
+  sections: [
+    {
+      title: '手機：開始搜尋',
+      desc: '從導覽列右側的搜尋圓鈕進來：導覽列收成左邊一顆圓鈕（顯示剛才的分頁，點了回去），搜尋圓鈕展開成欄位，迷你播放器留在上面。',
+      frames: [
+        { kind: 'phone', label: '搜尋紀錄（空查詢）', render: (ctx) => srhPhone(ctx, {
+          chips: false,
+          top: FMP.ptop('搜尋', '', '', 120),
+          body: '<div class="srh-sh" style="padding-top:8px"><span class="ty-head">搜尋紀錄</span><span class="sp"></span><button class="btn btn-plain btn-sm" style="padding:0 2px">清空</button></div><div class="srh-hist">' +
+            ['夜行列車', '鹿野青', '夏夜漫遊 live', 'lofi study', '群青の街 翻唱', '鋼琴 改編', 'Mira Ochoa'].map((q) => '<div class="row"><span class="hi">' + I('history', 's20') + '</span><div class="meta"><div class="t1"><span class="tt">' + q + '</span></div></div><button class="ibtn" aria-label="刪除這筆紀錄" style="color:var(--label-3);margin-right:-10px">' + I('close', 's18') + '</button></div>').join('') + '</div>',
+        }) },
+        { kind: 'phone', label: '輸入中（鍵盤）', render: (ctx) => srhPhone(ctx, {
+          chips: false,
+          top: FMP.ptop('搜尋', '', '', 120),
+          dock: { kb: true, query: '夜', caret: true },
+          body: '<div class="srh-sh" style="padding-top:8px"><span class="ty-head">搜尋紀錄</span><span class="sp"></span><button class="btn btn-plain btn-sm" style="padding:0 2px">清空</button></div><div class="srh-hist">' +
+            ['夜行列車', '夏夜漫遊 live'].map((q) => '<div class="row"><span class="hi">' + I('history', 's20') + '</span><div class="meta"><div class="t1"><span class="tt">' + q.replace('夜', '<b>夜</b>') + '</span></div></div><button class="ibtn" aria-label="刪除這筆紀錄" style="color:var(--label-3);margin-right:-10px">' + I('close', 's18') + '</button></div>').join('') + '</div>',
+        }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>空查詢顯示搜尋紀錄：點整列重搜、尾端 × 刪單筆、「清空」刪全部（不確認，紀錄不是重要資料）。沒有紀錄時只留大標題，欄位的提示文字已經說明能做什麼。</li><li>搜尋欄位在底部的玻璃膠囊，和導覽列同一層。左邊圓鈕是收起來的導覽列，顯示進搜尋前的分頁；點它回去，搜尋的內容保留。</li><li>點欄位時鍵盤升起，欄位貼在鍵盤上方並撐滿寬度，迷你播放器和導覽圓鈕暫時藏起來；按「搜尋」或 Enter 送出、收起鍵盤。輸入中紀錄會依字串過濾。</li><li>空查詢時不顯示音源篩選；篩選記住上一次的選擇。</li></ul>',
+    },
+    {
+      title: '手機：結果',
+      desc: '「歌單中」在上、「線上結果」在下，同一個捲動列表。篩選 chip 在大標題下面；排序收在右上角的玻璃圓鈕（綜合排序、最多播放、最新發布），目前的排序寫在「線上結果」標頭的右邊。',
+      frames: [
+        { kind: 'phone', label: '結果（全部音源）', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' }, body: srhResults() }) },
+        { kind: 'phone', label: 'B 站多 P 展開', render: (ctx) => srhPhone(ctx, { chips: srhChips('bilibili'), dock: { query: '夜' },
+          body: srhSH('線上結果', 19, SRH_SORT) + (() => { const b = SRH_ONLINE.filter((t) => t.src === 'bilibili'); let h = ''; b.forEach((t) => { const open = t.id === 'o6'; h += srhRow(t, { chev: t.parts > 1 ? (open ? 'chevU' : 'chevD') : undefined, cls: open ? 'srh-open' : '' }); if (open) h += srhParts(t, 1); }); return h; })() +
+            srhRow(FMP.T.t03) + srhRow(FMP.T.t18, { chev: 'chevD' }) + '<div class="srh-foot">已載入全部</div>' }) },
+        { kind: 'phone', label: '載入中', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' },
+          body: srhSH('歌單中', 3) + SRH_LOCAL.map((t, i) => srhRow(t, { playing: i === 0, chev: t.parts > 1 ? 'chevD' : undefined })).join('') + srhSH('線上結果') +
+            Array.from({ length: 5 }, (_, i) => '<div class="srh-sk"><i class="c"></i><span class="l"><i style="height:13px;width:' + [72, 55, 80, 62, 68][i] + '%"></i><i style="height:10px;width:' + [40, 32, 46, 36, 30][i] + '%"></i></span></div>').join('') }) },
+      ],
+      notes: '<h3>規則</h3><ul><li><b>點一首是臨時播放</b>（brief §6）：在佇列之外播它，佇列不動；播完或按上一首、下一首時回到佇列原本那首，並倒退設定的秒數（預設 10 秒）。要放進佇列用 ⋮ 或多選的「下一首播放」「加入佇列」。</li><li>每列：縮圖（正在播的那首標題變強調色並有跳動的音量條）、標題＋存取等級徽章；副標是音源符號＋簡稱、分 P 數、歌手、播放數。「歌單中」的副標前面有一個勾，後面寫它在哪一張歌單。</li><li>免費與插件判斷不了的曲目不顯示存取等級徽章（brief §5.4），所以徽章出現就代表有限制。</li><li>多 P 影片的尾端有展開箭頭；點箭頭展開分 P，點列本身是播放整支（從 P1 開始）。展開後父列帶淺底，分 P 縮排、對齊標題，點分 P 只播那一段。</li><li>捲到底自動載入下一頁，最後一頁顯示「已載入全部」。</li><li>載入中：「歌單中」是本機查詢，立刻出現；線上結果先用骨架列佔位，三個音源各自回來就各自插入，不等最慢的那個。</li></ul>',
+    },
+    {
+      title: '手機：錯誤與空結果',
+      frames: [
+        { kind: 'phone', label: 'YouTube 被限流', render: (ctx) => srhPhone(ctx, { chips: srhChips('all', { err: 'youtube' }), dock: { query: '夜' }, body: srhResults({ err: true }).replace(/srh-sh"><span class="ty-title3">線上結果<\/span><span class="cnt">49/, 'srh-sh"><span class="ty-title3">線上結果</span><span class="cnt">34') }) },
+        { kind: 'phone', label: '找不到結果', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜行列車 鋼琴四手聯彈 2019' },
+          body: '<div class="srh-empty"><span class="big">' + I('search') + '</span><div class="ty-title3">找不到「夜行列車 鋼琴四手聯彈 2019」</div><div class="ty-sub c2">三個音源都沒有相符的曲目。試試少一點關鍵字，或檢查有沒有錯字。</div></div>' }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>三個音源各自搜尋、各自失敗。某一個音源出錯時，它的位置（「線上結果」最上面）放一張說明：哪個音源、原因、「重試」只重查那一個；對應的篩選 chip 也帶警示符號。其他音源的結果照常顯示，數量只算成功的。</li><li>原因依 brief §13 的錯誤類別給文字：限流「請求太頻繁」、網路「連不上網路」、需登入「這個音源要登入才能搜尋」並把按鈕換成「登入」。</li><li>篩選切到出錯的音源時，整個列表換成同一張說明，置中顯示。</li><li>找不到：三個音源都成功、都沒有結果時才顯示。只要有一個音源出錯就不說「找不到」，避免誤導。</li></ul>',
+    },
+    {
+      title: '手機：選單與多選',
+      frames: [
+        { kind: 'phone', label: '每列 ⋮ 選單', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), dock: { query: '夜' }, body: srhResults(),
+          overlay: '<div class="srh-scrim"></div>' + srhMenu(SRH_LOCAL[1], 'right:16px;top:402px', { note: '6 個分 P 全部套用' }) }) },
+        { kind: 'phone', label: '多選與動作列', render: (ctx) => srhPhone(ctx, { chips: srhChips('all'), body: srhResults({ sel: ['o0', 'o1', 'o3'] }),
+          top: '<div class="ptop"><button class="lg srh-gtext" data-adapt>取消</button><span class="srh-seltitle">已選擇 3 首</span><span class="sp"></span><button class="lg srh-gtext acc" data-adapt>全選</button></div>',
+          dockHtml: '<div class="lg srh-act" data-adapt><button>' + I('nextUp') + '下一首播放</button><button>' + I('queue') + '加入佇列</button><button>' + I('addlist') + '加入歌單</button></div>' }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>⋮ 開玻璃選單：播放、下一首播放、加入佇列、加入歌單…、匹配歌詞…。選單頂端重複這首的封面、標題、音源與存取等級，確認動作套用在哪一首；多 P 影片寫明「3 個分 P 全部套用」。</li><li>「加入歌單…」開加入歌單對話框，裡面同時列本地歌單與這首所屬音源的遠端歌單（見加入歌單頁）。舊版另外的「加入遠端歌單」已合進去，不再單獨出現。未登入時對話框裡的遠端區塊提示登入。</li><li>長按一列進多選：頂列換成「取消」「已選擇 n 首」「全選」，搜尋欄位、導覽圓鈕與迷你播放器讓位給浮動的玻璃動作列（下一首播放、加入佇列、加入歌單）。點其他列加減選取。</li><li>多選時多 P 影片算一首，動作套用到全部分 P；分 P 列不能單獨勾選，要單一分 P 就展開後用它的 ⋮。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '側欄的搜尋欄位是作用中狀態（強調色外框），⌘K 隨時聚焦。結果是表格：標題／歌手、音源、存取等級、播放數、時長各一欄，可以直接掃欄位比較。',
+      frames: [
+        { kind: 'desktop', label: '結果：hover、分 P 展開、YouTube 出錯', render: (ctx) => srhDesk(ctx, { hov: 'o2', open: 'o6' }) },
+        { kind: 'desktop', label: '右鍵選單', render: (ctx) => srhDesk(ctx, { hov: 'o2', overlay: srhMenu(SRH_ONLINE[1], 'left:560px;top:318px', { desk: true, hl: 'next' }) }) },
+        { kind: 'desktop', label: '多選（⌘ 點選）與浮動動作列', render: (ctx) => srhDesk(ctx, { sel: ['o2', 'o3', 'o4'], overlay: srhDAct(3) }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>單擊選取、雙擊或按 ↩ 臨時播放；hover 時序號變成播放鈕，點它也播放。⌘ 點選加減選取、⇧ 點選選一段，Esc 取消選取。</li><li>⋮ 只在 hover 或選取時出現，避免整欄的點點干擾閱讀；右鍵和 ⋮ 開同一個選單，選單項目帶鍵盤提示。</li><li>選了兩首以上，內容欄底部、播放膠囊上方浮出玻璃動作列；動作列只列多選能做的事。</li><li>多 P 影片在標題前有展開箭頭，展開後分 P 縮排列在下面，只顯示分 P 編號、名稱與時長。</li><li>某音源出錯時，「線上結果」表頭下方一列說明加「重試 YouTube」，篩選 chip 帶警示符號。</li><li>播放數沒有資料（網易雲）時顯示「—」，不留白，避免看起來像載入失敗。</li><li>右側詳情面板照舊顯示正在播放；搜尋不搶它的位置。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

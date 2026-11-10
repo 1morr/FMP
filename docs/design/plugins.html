@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>插件 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+.phone.pg-grp { --bg: var(--bg-grouped); }
+.group.pg-ic { --sep-inset: 58px; }
+.desk .group.pg-ic { --sep-inset: 46px; }
+.pg-srcic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--fill); flex: none; }
+.pg-srcic svg { width: 20px; height: 20px; }
+.pg-srcic.big { width: 64px; height: 64px; border-radius: 16px; }
+.pg-srcic.big svg { width: 40px; height: 40px; }
+.desk .pg-srcic { width: 24px; height: 24px; border-radius: 6px; }
+.desk .pg-srcic svg { width: 16px; height: 16px; }
+.pg-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-ver { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.pg-tag { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 600; flex: none; background: var(--fill-2); color: var(--label-2); white-space: nowrap; }
+.pg-tag svg.i { width: 12px; height: 12px; }
+.pg-tag.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.pg-tag.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.pg-tag.bad { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.pg-stat { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--fill); color: var(--label-2); flex: none; }
+.pg-stat.acc { background: var(--accent-soft); color: var(--accent); }
+.pg-stat.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.pg-stat svg.i { width: 18px; height: 18px; }
+.pg-cap { color: var(--label); }
+.pg-cap.no { color: var(--label-3); }
+.pg-cap.no .gl > span { color: var(--label-3); }
+.pg-dom { font-family: var(--font-num); font-size: 15px; }
+.pg-new { background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.pg-hero { display: flex; align-items: center; gap: 14px; padding: 4px 20px 6px; }
+.pg-hero .t { font-size: 22px; line-height: 28px; font-weight: 700; }
+.pg-upcard { margin: 18px 16px 0; padding: 14px 16px 16px; border-radius: var(--r-group); background: var(--cell); }
+.pg-upcard .h { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+.pg-upcard p { margin: 6px 0 12px; font-size: 14px; line-height: 20px; color: var(--label-2); }
+.pg-upcard .btn { width: 100%; }
+/* sheets */
+.pg-sh { padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+.pg-sh .hd { display: flex; gap: 14px; align-items: center; }
+.pg-sh .hd .t { font-size: 19px; line-height: 24px; font-weight: 700; }
+.pg-sh .hd .s { font-size: 14px; color: var(--label-2); margin-top: 2px; }
+.pg-box { border-radius: 14px; background: var(--cell); padding: 12px 14px; font-size: 14px; line-height: 20px; }
+.pg-box .bh { font-size: 13px; font-weight: 600; color: var(--label-2); margin-bottom: 4px; }
+.pg-line { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 20px; }
+.pg-line > svg.i { flex: none; margin-top: 1px; }
+.pg-steps { display: flex; flex-direction: column; }
+.pg-step { display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; position: relative; }
+.pg-step .dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none; box-shadow: inset 0 0 0 1.6px var(--label-4); color: var(--label-3); }
+.pg-step.done .dot { background: var(--ok); box-shadow: none; color: var(--accent-ink); }
+.pg-step.done .dot svg.i { width: 14px; height: 14px; stroke-width: 2.6; }
+.pg-step.wait { color: var(--label-3); }
+.pg-step .r { margin-left: auto; font-size: 13px; color: var(--label-2); }
+.pg-bar { height: 4px; border-radius: 2px; background: var(--fill-2); overflow: hidden; }
+.pg-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.pg-hash { font-family: var(--font-num); font-size: 13px; text-align: left; background: color-mix(in srgb, var(--glass-ink) 7%, transparent); border-radius: 10px; padding: 8px 10px; margin: 0 0 16px; line-height: 19px; }
+.pg-hash b { font-weight: 600; }
+.pg-hash .bad { color: var(--danger); }
+.alert.pg-wide { width: 330px; }
+.pg-alist { text-align: left; margin: -6px 0 14px; border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--glass-ink) 7%, transparent); }
+.pg-alist div { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 14px; }
+.pg-alist div + div { box-shadow: inset 0 .5px 0 color-mix(in srgb, var(--glass-ink) 14%, transparent); }
+.pg-alist .plus { color: var(--warn); }
+.pg-alist small { display: block; font-size: 12px; color: var(--glass-ink-2); }
+.pg-tbl { margin-top: 18px; border-radius: 12px; background: var(--cell); box-shadow: inset 0 0 0 .5px var(--sep); padding: 4px; }
+.pg-tr { display: grid; grid-template-columns: minmax(0, 1fr) 60px 120px 56px 56px 112px; align-items: center; gap: 10px; min-height: 50px; padding: 0 10px; border-radius: 8px; font-size: 13px; }
+.pg-tr.th { min-height: 28px; font-size: 11.5px; font-weight: 600; color: var(--label-2); }
+.pg-tr.sel { background: var(--accent-soft); }
+.pg-tr .nm { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pg-tr .nm b { font-weight: 600; }
+.pg-tr .nm small { display: block; font-size: 11.5px; color: var(--label-2); }
+.pg-tr .act { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.pg-tr + .pg-tr:not(.sel):not(.after-sel)::before { content: none; }
+.pg-x { margin: 2px 6px 8px; padding: 14px 14px 14px; border-radius: 10px; background: var(--bg-grouped); display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 18px; }
+.t-dark .pg-x { background: var(--cell-2); }
+.pg-x h5 { margin: 0 0 8px; font-size: 11.5px; font-weight: 700; color: var(--label-2); }
+.pg-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.pg-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px 0 6px; border-radius: 6px; background: var(--fill); font-size: 11.5px; color: var(--label); }
+.pg-chip svg.i { width: 13px; height: 13px; }
+.pg-chip.no { background: transparent; color: var(--label-3); box-shadow: inset 0 0 0 .5px var(--sep-strong); }
+.pg-dl { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.pg-dl .d { display: flex; align-items: center; gap: 6px; font-family: var(--font-num); min-height: 22px; }
+.pg-dl .d.new { color: var(--label); font-weight: 600; }
+.pg-kv { font-size: 12px; line-height: 18px; color: var(--label-2); }
+.pg-kv b { color: var(--label); font-weight: 500; }
+.pg-mini { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--label-2); }
+.pg-mini .pg-bar { width: 70px; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const PG_P = {
+  disk: '<ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-11M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+};
+const pgI = (n, cls) => PG_P[n] ? '<svg class="i ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + PG_P[n] + '</svg>' : I(n, cls);
+
+/* demo manifests: versions, capabilities and domains are illustrative */
+const CAPS = [['search', 'search', '搜尋'], ['stream', 'wave', '解析串流'], ['parts', 'grid', '分 P'], ['login', 'user', '登入'], ['member', 'crown', '會員狀態'], ['readRemote', 'cloud', '讀取遠端歌單'], ['writeRemote', 'cloudUp', '寫入遠端歌單'], ['lyrics', 'lyrics', '歌詞']];
+const PG = {
+  bilibili: { id: 'bilibili', name: 'Bilibili', kind: '音源', ver: '1.4.0', caps: ['search', 'stream', 'parts', 'login', 'member', 'readRemote', 'writeRemote'], dom: ['api.bilibili.com', 'passport.bilibili.com', '*.bilivideo.com', '*.hdslb.com'] },
+  youtube: { id: 'youtube', name: 'YouTube', kind: '音源', ver: '1.2.0', next: '1.3.0', size: '640 KB', caps: ['search', 'stream', 'login', 'readRemote', 'writeRemote'], dom: ['www.youtube.com', 'youtubei.googleapis.com', '*.googlevideo.com'], add: ['music.youtube.com'], log: '搜尋可以只找 YouTube Music 的歌曲。', why: '搜尋 YouTube Music 的歌曲' },
+  netease: { id: 'netease', name: '網易雲音樂', kind: '音源', ver: '1.3.1', next: '1.3.2', size: '512 KB', caps: ['search', 'stream', 'login', 'member', 'readRemote', 'writeRemote', 'lyrics'], dom: ['music.163.com', 'interface.music.163.com', '*.music.126.net'], log: '修正部分曲目解析串流失敗。' },
+  lrclib: { id: 'lrclib', name: 'lrclib', kind: '歌詞源', ver: '1.0.2', caps: ['lyrics'], dom: ['lrclib.net'] },
+};
+const ORDER = ['bilibili', 'youtube', 'netease', 'lrclib'];
+const pgIc = (s, big) => '<span class="pg-srcic' + (big ? ' big' : '') + '">' + FMP.srcMark(s) + '</span>';
+const pgChange = (p) => p.add ? '<span class="pg-tag warn">' + I('plus') + '新增 ' + p.add.length + ' 個網域</span>' : '<span class="pg-tag">權限不變</span>';
+function pgPhone(ctx, o) { return FMP.phone(ctx, o).replace('class="phone scr', 'class="phone scr pg-grp'); }
+
+/* ---------------- phone list ---------------- */
+function pgStatus(state) {
+  const cell = (ic, t, s, trail) => '<div class="group pg-ic" style="margin-top:6px"><div class="gcell">' + ic + '<div class="gl"><span>' + t + '</span><small>' + s + '</small></div>' + (trail || '') + '</div></div>';
+  if (state === 'checking') return cell('<span class="pg-stat"><span class="spinner"></span></span>', '正在檢查 4 個插件…', '讀取發佈的版本資訊', '<button class="btn btn-gray btn-sm" disabled>檢查中</button>');
+  if (state === 'updates') return cell('<span class="pg-stat acc">' + I('down') + '</span>', '找到 2 個更新', '剛剛檢查 · 安裝前都會先問你', '<button class="btn btn-plain btn-sm">' + I('refresh', 's16') + '</button>');
+  if (state === 'latest') return cell('<span class="pg-stat ok">' + I('check') + '</span>', '所有插件都是最新版本', '剛剛檢查', '<button class="btn btn-plain btn-sm">' + I('refresh', 's16') + '</button>');
+  return cell('<span class="pg-stat">' + I('refresh') + '</span>', '檢查更新', '上次檢查：3 天前', '<button class="btn btn-tinted btn-sm">檢查</button>');
+}
+function pgRow(p, o) {
+  o = o || {};
+  if (o.update) {
+    return '<div class="gcell">' + pgIc(p.id) + '<div class="gl"><span>' + p.name + '</span><small class="pg-sub"><span class="pg-ver">' + p.ver + ' → ' + p.next + '</span>' + pgChange(p) + '</small></div><button class="btn btn-tinted btn-sm">更新</button></div>';
+  }
+  const ver = o.latest && p.next ? p.next : p.ver;
+  const checking = o.checking ? '<span class="spinner" style="width:16px;height:16px"></span>' : '';
+  return '<div class="gcell" data-href="#">' + pgIc(p.id) + '<div class="gl"><span>' + p.name + '</span><small>' + p.kind + ' · <span class="pg-ver">' + ver + '</span> · ' + p.caps.length + ' 項能力</small></div><span class="gv">' + checking + I('chevR', 'chev') + '</span></div>';
+}
+function pgList(ctx, state, o) {
+  o = o || {};
+  let body = '';
+  if (state === 'updates') {
+    body += '<div class="ghead">可以更新</div><div class="group pg-ic">' + pgRow(PG.youtube, { update: 1 }) + pgRow(PG.netease, { update: 1 }) + '</div>';
+    body += '<div class="ghead">已是最新</div><div class="group pg-ic">' + pgRow(PG.bilibili) + pgRow(PG.lrclib) + '</div>';
+  } else {
+    body += '<div class="ghead">已安裝</div><div class="group pg-ic">' + ORDER.map((k) => pgRow(PG[k], { checking: state === 'checking', latest: state === 'latest' })).join('') + '</div>';
+  }
+  body += '<div class="gfoot">插件隨 App 安裝，不會在背景自動更新。按「更新」並確認後才安裝，安裝前比對 SHA-256。</div>';
+  const content = '<div class="lt" style="padding-top:58px"><div class="ty-large">插件</div></div>' + pgStatus(state) + body;
+  return pgPhone(ctx, { content, top: FMP.ptop('插件', FMP.gbtn('chevL', '返回'), '', 96), dock: { tab: 'settings' }, overlay: o.overlay });
+}
+
+function pgDetail(ctx) {
+  const p = PG.youtube;
+  const caps = CAPS.map(([k, ic, label]) => {
+    const on = p.caps.includes(k);
+    return '<div class="gcell pg-cap' + (on ? '' : ' no') + '"><span class="gicon" style="background:var(--fill);color:' + (on ? 'var(--label)' : 'var(--label-3)') + '">' + I(ic) + '</span><div class="gl"><span>' + label + '</span></div><span class="gv" style="font-size:14px">' + (on ? '<span class="cacc">' + I('check', 's18') + '</span>' : '不支援') + '</span></div>';
+  }).join('');
+  const doms = p.dom.map((d) => '<div class="gcell"><div class="gl"><span class="pg-dom">' + d + '</span></div></div>').join('');
+  const content = '<div style="height:60px"></div>' +
+    '<div class="pg-hero">' + pgIc('youtube', true) + '<div><div class="t">YouTube</div><div class="c2 ty-foot">youtube 插件 · 音源 · <span class="pg-ver">1.2.0</span></div></div></div>' +
+    '<div class="pg-upcard"><div class="h">' + I('down', 's18') + '可以更新到 <span class="pg-ver">1.3.0</span>' + '<span style="flex:1"></span>' + pgChange(p) + '</div><p>' + p.log + '要多連一個網域：music.youtube.com。</p><button class="btn btn-primary">更新到 1.3.0</button></div>' +
+    '<div class="ghead">插件能力</div><div class="group" style="--sep-inset:58px">' + caps + '</div>' +
+    '<div class="gfoot">介面依插件能力出現入口：沒有「會員狀態」，帳號頁就不顯示會員；沒有「歌詞」，就不在歌詞源清單裡。</div>' +
+    '<div class="ghead">允許的網域</div><div class="group">' + doms + '</div>' +
+    '<div class="gfoot">插件只能連這些網域，沒有檔案系統與 socket，只能用 FMP 給的介面。</div>' +
+    '<div class="ghead">版本</div><div class="group">' +
+      '<div class="gcell"><div class="gl"><span>目前版本</span></div><span class="gv pg-ver">1.2.0</span></div>' +
+      '<div class="gcell"><div class="gl"><span>安裝日期</span></div><span class="gv pg-ver">2026-10-02</span></div>' +
+      '<div class="gcell"><div class="gl"><span>SHA-256</span></div><span class="gv pg-ver" style="font-size:14px">3b7e…c91d</span><button class="ibtn" aria-label="複製" style="margin-right:-10px">' + I('copy', 's18') + '</button></div></div>';
+  return pgPhone(ctx, { content, top: FMP.ptop('YouTube', FMP.gbtn('chevL', '返回'), '', 96), dock: { tab: 'settings' } });
+}
+
+/* bottom sheet: solid, auto height */
+const pgSheet = ([title, body, foot]) => '<div class="sheet-wrap"><div class="sheet solid"><div class="grab"></div><div class="shead">' + FMP.gbtn('close', '關閉') + '<span class="stitle">' + title + '</span><span style="width:44px;flex:none"></span></div>' +
+  '<div class="sbody">' + body + '</div>' + (foot ? '<div class="sfoot">' + foot + '</div>' : '') + '</div></div>';
+function pgConfirm(p) {
+  const perm = p.add
+    ? '<div class="pg-line">' + I('warn', 's18').replace('class="i', 'style="color:var(--warn)" class="i') + '<span>這次更新多要 <b>' + p.add.length + ' 個網域</b>，下一步會請你確認。</span></div>'
+    : '<div class="pg-line"><span style="color:var(--ok)">' + I('check', 's18') + '</span><span>插件能力與網域都沒有變動。</span></div>';
+  return ['確認更新', '<div class="pg-sh"><div class="hd">' + pgIc(p.id, true) + '<div><div class="t">更新 ' + p.name + '</div><div class="s"><span class="pg-ver">' + p.ver + ' → ' + p.next + '</span> · ' + p.size + '</div></div></div>' +
+    '<div class="pg-box"><div class="bh">更新內容</div>' + p.log + '</div>' +
+    '<div class="pg-box" style="display:flex;flex-direction:column;gap:10px">' + perm +
+      '<div class="pg-line"><span class="cacc">' + I('shield', 's18') + '</span><span>下載後先比對 SHA-256，不符就不安裝，目前版本不受影響。</span></div></div></div>',
+    '<button class="btn btn-gray">取消</button><button class="btn btn-primary">' + (p.add ? '繼續' : '安裝') + '</button>'];
+}
+function pgPermAlert(desk) {
+  const p = PG.youtube;
+  return '<div class="dialog-wrap"><div class="lg alert pg-wide" data-adapt><h4>允許 YouTube 連到新的網域？</h4><p>1.3.0 要多連一個網域。允許後插件才能連到它；不允許就維持 1.2.0。</p>' +
+    '<div class="pg-alist"><div><span class="plus">' + I('plus', 's18') + '</span><span><span class="pg-ver">music.youtube.com</span><small>插件說明：' + p.why + '</small></span></div>' +
+    '<div style="color:var(--glass-ink-2)">' + I('check', 's16') + '<span style="font-size:13px">其餘 3 個網域、5 項插件能力不變</span></div></div>' +
+    '<div class="acts"><button class="btn btn-gray">不要更新</button><button class="btn btn-primary">允許並更新</button></div></div></div>';
+}
+function pgInstall(p, step) {
+  const st = (i) => i < step ? 'done' : i === step ? 'act' : 'wait';
+  const dot = (i) => st(i) === 'done' ? '<span class="dot">' + I('check') + '</span>' : st(i) === 'act' ? '<span class="dot" style="box-shadow:none"><span class="spinner" style="width:22px;height:22px"></span></span>' : '<span class="dot"></span>';
+  return ['正在更新', '<div class="pg-sh"><div class="hd">' + pgIc(p.id, true) + '<div><div class="t">' + p.name + '</div><div class="s"><span class="pg-ver">' + p.ver + ' → ' + p.next + '</span></div></div></div>' +
+    '<div class="pg-box pg-steps">' +
+      '<div class="pg-step ' + st(0) + '">' + dot(0) + '<span>下載</span><span class="r pg-ver">' + (step === 0 ? '410 / 640 KB' : '640 KB') + '</span></div>' +
+      (step === 0 ? '<div class="pg-bar" style="margin:0 0 8px 36px"><i style="width:64%"></i></div>' : '') +
+      '<div class="pg-step ' + st(1) + '">' + dot(1) + '<span>比對 SHA-256</span></div>' +
+      '<div class="pg-step ' + st(2) + '">' + dot(2) + '<span>安裝並重新載入插件</span></div></div>' +
+    '<div class="ty-foot c2" style="text-align:center">失敗時保留目前版本，正在播放的曲目不受影響。</div></div>'];
+}
+function pgShaAlert() {
+  return '<div class="dialog-wrap"><div class="lg alert pg-wide" data-adapt><h4>YouTube 更新失敗</h4><p>下載的檔案和發佈的 SHA-256 不符，可能在傳輸中損壞或被竄改。檔案已刪除，插件維持 1.2.0。</p>' +
+    '<div class="pg-hash">預期 <b>9f2c 81d0 … 7a3e 41ab</b><br>實際 <b class="bad">0d17 c4b9 … 22f0 e8f3</b></div>' +
+    '<div class="acts"><button class="btn btn-gray">關閉</button><button class="btn btn-primary">重試</button></div></div></div>';
+}
+
+/* ---------------- desktop ---------------- */
+const pgDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay, updates: o.cnt });
+function pgExpand(p, o) {
+  o = o || {};
+  const caps = CAPS.map(([k, ic, label]) => '<span class="pg-chip' + (p.caps.includes(k) ? '' : ' no') + '">' + I(ic) + label + '</span>').join('');
+  const doms = p.dom.map((d) => '<span class="d">' + I('globe', 's16') + d + '</span>').join('') +
+    (p.add || []).map((d) => '<span class="d new">' + I('plus', 's16').replace('class="i', 'style="color:var(--warn)" class="i') + d + '<span class="pg-tag warn">' + p.next + ' 新增</span></span>').join('');
+  let right;
+  if (o.installing) {
+    right = '<h5>正在更新到 ' + p.next + '</h5><div class="pg-steps" style="font-size:12.5px">' +
+      '<div class="pg-mini" style="min-height:26px"><span style="color:var(--ok)">' + I('check', 's16') + '</span>下載 640 KB</div>' +
+      '<div class="pg-mini" style="min-height:26px;color:var(--label)"><span class="spinner" style="width:14px;height:14px"></span>比對 SHA-256…</div>' +
+      '<div class="pg-mini" style="min-height:26px;color:var(--label-3)"><span style="width:16px"></span>安裝並重新載入</div></div>';
+  } else {
+    right = '<h5>' + p.next + ' 更新內容</h5><div class="pg-kv" style="color:var(--label)">' + p.log + '</div>' +
+      '<div class="pg-kv" style="margin-top:8px">大小 <b>' + p.size + '</b> · 目前 SHA-256 <b class="pg-ver">3b7e…c91d</b></div>' +
+      '<div style="margin-top:12px;display:flex;gap:6px"><button class="btn btn-primary btn-sm">更新到 ' + p.next + '…</button></div>';
+  }
+  return '<div class="pg-x"><div><h5>插件能力（' + p.caps.length + ' / 8）</h5><div class="pg-chips">' + caps + '</div></div>' +
+    '<div><h5>允許的網域</h5><div class="pg-dl">' + doms + '</div></div><div>' + right + '</div></div>';
+}
+function pgDeskPane(o) {
+  o = o || {};
+  const row = (k) => {
+    const p = PG[k];
+    let ver = '<span class="pg-ver">' + p.ver + '</span>';
+    let act = '<span class="c3 ty-cap">最新</span>';
+    if (p.next) {
+      ver = '<span class="pg-ver">' + p.ver + ' <span class="c3">→</span> <b>' + p.next + '</b></span>';
+      act = '<button class="btn btn-tinted btn-sm">更新…</button>';
+    }
+    if (k === 'netease' && o.neteaseDone) { ver = '<span class="pg-ver">1.3.2</span>'; act = '<span class="pg-tag ok">' + I('check') + '已更新</span>'; }
+    if (k === 'youtube' && o.yt === 'wait') act = '<span class="pg-tag warn">等待確認</span>';
+    if (k === 'youtube' && o.yt === 'installing') act = '<span class="pg-mini"><span class="spinner" style="width:14px;height:14px"></span>更新中</span>';
+    if (k === 'youtube' && o.yt === 'failed') { act = '<span class="pg-tag bad">' + I('warn') + '更新失敗</span>'; }
+    const sel = k === 'youtube' && o.expand;
+    return '<div class="pg-tr' + (sel ? ' sel' : '') + '"><div class="nm">' + I(sel ? 'chevD' : 'chevR', 's16').replace('class="i', 'style="color:var(--label-3)" class="i') + pgIc(k) + '<div style="min-width:0"><b>' + p.name + '</b><small>' + p.id + ' 插件</small></div></div>' +
+      '<span>' + p.kind + '</span>' + ver + '<span class="num">' + p.caps.length + '</span><span class="num">' + (p.dom.length) + (p.add && !(o.yt === 'failed') ? '<span style="color:var(--warn)"> +1</span>' : '') + '</span><span class="act">' + act + '</span></div>' +
+      (sel ? pgExpand(p, { installing: o.yt === 'installing' }) : '');
+  };
+  const banner = o.neteaseDone ? '1 個更新' : '2 個更新';
+  return '<div class="sx-h"><div class="ty-large">插件</div><div style="display:flex;gap:8px;align-items:center"><span class="ty-foot c3">剛剛檢查 · 找到 ' + banner + '</span><button class="btn btn-gray btn-sm">' + I('refresh', 's16') + '檢查更新</button></div></div>' +
+    '<p class="sx-lead">插件提供音源與歌詞源。FMP 不在背景自動更新：按「檢查更新」列出新版本，你確認後才安裝，安裝前比對 SHA-256。</p>' +
+    '<div class="pg-tbl"><div class="pg-tr th"><span style="padding-left:26px">插件</span><span>類型</span><span>版本</span><span>能力</span><span>網域</span><span></span></div>' + ORDER.map(row).join('') + '</div>' +
+    '<div class="ty-foot c2" style="margin-top:8px">點列展開插件能力與允許的網域；↑↓ 移動，Space 展開。</div>';
+}
+
+FMP.page({
+  title: '插件',
+  intro: '<p>從「設定 → 插件」進入。第一版的插件隨 App 安裝：bilibili、youtube、netease（音源）與 lrclib（歌詞源）。每個插件宣告插件能力與允許的網域，介面依能力出現入口（brief §5.3）。</p><p>更新只在這頁手動檢查；列出新版本、經使用者確認才安裝；安裝前比對 SHA-256；新版要的插件能力或網域變多時再確認一次（brief §5.1 第 10 點）。示範：youtube 1.2.0 → 1.3.0 多一個網域；netease 1.3.1 → 1.3.2 權限不變。版本號、網域與雜湊都是示範資料。</p>',
+  sections: [
+    {
+      title: '手機：檢查更新',
+      desc: '頂端一張狀態列取代「檢查更新」按鈕本身：還沒檢查、檢查中、有更新、已是最新，都在同一個位置換內容。',
+      frames: [
+        { kind: 'phone', label: '列表（3 天前檢查過）', render: (ctx) => pgList(ctx, 'idle') },
+        { kind: 'phone', label: '檢查中', render: (ctx) => pgList(ctx, 'checking') },
+        { kind: 'phone', label: '有更新', render: (ctx) => pgList(ctx, 'updates') },
+        { kind: 'phone', label: '已是最新', render: (ctx) => pgList(ctx, 'latest') },
+      ],
+      notes: '<h3>規則</h3><ul><li>有更新時，可更新的插件移到上方「可以更新」群組，每列寫明版本變化與權限變化（「新增 1 個網域」用警示色，「權限不變」用灰色），再放一顆「更新」。沒有「全部更新」：每個插件都要各自確認。</li><li>設定首頁插件列的「n 個更新」與桌面分類上的數字，來自最後一次手動檢查的結果；App 不會自己去查。</li><li>點插件列進詳情。</li></ul>',
+    },
+    {
+      title: '手機：插件詳情',
+      frames: [
+        { kind: 'phone', label: 'YouTube 插件詳情', render: (ctx) => pgDetail(ctx) },
+      ],
+      notes: '<ul><li>八項插件能力全部列出，不支援的變灰寫「不支援」，讓使用者看懂為什麼某個音源沒有某個入口（例如 YouTube 沒有「會員狀態」，帳號卡就不顯示會員）。</li><li>允許的網域逐條列出；有更新時頂端的卡片先講更新內容與權限變化。</li><li>SHA-256 只顯示頭尾，可以複製全文。</li></ul>',
+    },
+    {
+      title: '手機：更新流程',
+      desc: '兩段確認：第一段是更新本身（sheet），權限變多時第二段只問新增的部分（確認框）。',
+      frames: [
+        { kind: 'phone', label: '確認更新：權限不變（netease）', render: (ctx) => pgList(ctx, 'updates', { overlay: pgSheet(pgConfirm(PG.netease)) }) },
+        { kind: 'phone', label: '確認更新：權限變多（youtube）', render: (ctx) => pgList(ctx, 'updates', { overlay: pgSheet(pgConfirm(PG.youtube)) }) },
+        { kind: 'phone', label: '再確認新增的網域', render: (ctx) => pgList(ctx, 'updates', { overlay: pgPermAlert() }) },
+        { kind: 'phone', label: '安裝中：下載', render: (ctx) => pgList(ctx, 'updates', { overlay: pgSheet(pgInstall(PG.youtube, 0)) }) },
+        { kind: 'phone', label: '安裝中：比對 SHA-256', render: (ctx) => pgList(ctx, 'updates', { overlay: pgSheet(pgInstall(PG.youtube, 1)) }) },
+        { kind: 'phone', label: 'SHA-256 不符', render: (ctx) => pgList(ctx, 'updates', { overlay: pgShaAlert() }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>確認 sheet 固定三塊：更新內容、權限變化、SHA-256 的說明。確認 sheet 底部是「取消」「安裝」兩顆並排；權限不變時主按鈕直接是「安裝」；權限變多時主按鈕是「繼續」，不會一次就裝下去。</li><li>再確認是確認框（玻璃，控制層），只列新增的網域或插件能力，每項附插件自己寫的用途；不變的部分收成一行。「不要更新」與「允許並更新」兩顆一樣大，不要更新放在左邊，按 Esc 也等於不要更新。</li><li>安裝分三步：下載（有進度）、比對 SHA-256、安裝並重新載入插件。重新載入時正在播放的曲目不中斷（串流已經解析好）。</li><li>SHA-256 不符是安全問題，不是網路錯誤：用確認框而不是提示，列出預期與實際的雜湊頭尾，寫明檔案已刪、維持舊版。「重試」重新下載一次。</li></ul>',
+    },
+    {
+      title: '桌面：插件分類',
+      desc: '桌面用表格：一列一個插件，欄位是類型、版本、能力數、網域數與動作；點列就地展開能力與網域，不推新頁。',
+      frames: [
+        { kind: 'desktop', label: '有更新，展開 YouTube', render: (ctx) => pgDesk(ctx, { cat: 'plugins', pane: pgDeskPane({ expand: true }) }) },
+        { kind: 'desktop', label: '再確認新增的網域', render: (ctx) => pgDesk(ctx, { cat: 'plugins', pane: pgDeskPane({ expand: true, yt: 'wait', neteaseDone: true }), cnt: 1, overlay: pgPermAlert(true) }) },
+        { kind: 'desktop', label: '安裝中：比對 SHA-256', render: (ctx) => pgDesk(ctx, { cat: 'plugins', pane: pgDeskPane({ expand: true, yt: 'installing', neteaseDone: true }), cnt: 1 }) },
+        { kind: 'desktop', label: 'SHA-256 不符', render: (ctx) => pgDesk(ctx, { cat: 'plugins', pane: pgDeskPane({ expand: true, yt: 'failed', neteaseDone: true }), cnt: 1, overlay: pgShaAlert() }) },
+      ],
+      notes: '<ul><li>網域欄的「+1」用警示色，掃一眼就知道哪個更新會多要權限；展開後新增的網域帶「1.3.0 新增」標籤。</li><li>「更新…」帶刪節號，表示按下去還會有確認。桌面的第一段確認和手機同內容，以對話框呈現；這裡直接示範第二段。</li><li>安裝進度在展開區就地顯示，其他列照常可以操作；完成的列換成「已更新」。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設定 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+/* grouped pages sit on the grouped background, cells stay solid */
+.phone.st-grp { --bg: var(--bg-grouped); }
+.st-gi { background: var(--fill-2); color: var(--label); }
+.group.st-ic { --sep-inset: 58px; }
+.desk .group.st-ic { --sep-inset: 46px; }
+.st-srcic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--fill); flex: none; }
+.st-srcic svg { width: 20px; height: 20px; }
+.desk .st-srcic { width: 22px; height: 22px; border-radius: 6px; }
+.desk .st-srcic svg { width: 15px; height: 15px; }
+.st-sub { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.st-marks { display: inline-flex; gap: 2px; }
+.st-marks svg { width: 13px; height: 13px; }
+.st-warn { color: var(--warn); font-weight: 600; }
+.st-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--r-cap); background: var(--accent-soft); color: var(--accent); font-size: 12.5px; font-weight: 700; flex: none; }
+.desk .st-badge { height: 18px; padding: 0 7px; font-size: 11px; }
+.st-q { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 7px; background: var(--fill); font-size: 12.5px; color: var(--label); }
+.desk .st-q { height: 20px; font-size: 11.5px; padding: 0 7px; border-radius: 6px; }
+.st-qrow { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 12px; }
+.st-radio { color: var(--accent); }
+.st-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.st-drag { color: var(--label-3); display: grid; place-items: center; width: 28px; }
+.st-idx { width: 18px; text-align: center; color: var(--label-3); font-size: 13px; font-weight: 600; flex: none; }
+.st-chiprow { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
+.st-note { padding: 12px 16px 14px; font-size: 14px; line-height: 20px; }
+.st-note b { font-weight: 600; }
+.desk .st-note { padding: 10px 12px 12px; font-size: 12.5px; line-height: 18px; }
+
+.st-pop { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px 0 10px; border-radius: 7px; background: var(--fill-2); font-size: 12.5px; color: var(--label); }
+.st-pop svg.i { width: 13px; height: 13px; color: var(--label-2); }
+.st-step { display: inline-flex; align-items: center; border-radius: 7px; background: var(--fill-2); height: 24px; }
+.st-step button { width: 26px; height: 24px; display: grid; place-items: center; color: var(--label-2); }
+.st-step button svg.i { width: 13px; height: 13px; }
+.st-step span { min-width: 46px; text-align: center; font-size: 12.5px; }
+.st-meter { width: 120px; height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.st-meter i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.st-tiles { display: flex; gap: 16px; padding: 14px 12px 12px; }
+.st-tile { display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 12px; }
+.st-tile .pv { width: 112px; height: 72px; border-radius: 9px; overflow: hidden; position: relative; display: flex; box-shadow: 0 0 0 .5px var(--sep-strong); }
+.st-tile.on .pv { box-shadow: 0 0 0 3px var(--accent); }
+.st-tile.on { font-weight: 600; }
+.st-tile .half { flex: 1; position: relative; background: var(--bg); overflow: hidden; }
+.st-tile .half .sb { position: absolute; left: 5px; top: 5px; bottom: 5px; width: 28px; border-radius: 5px; background: var(--fill-2); }
+.st-tile .half .ln { position: absolute; left: 40px; height: 5px; border-radius: 3px; background: var(--label-4); }
+.st-tile .half .ac { position: absolute; left: 40px; top: 46px; width: 22px; height: 9px; border-radius: 5px; background: var(--accent-fill); }
+.st-tile .half .cv { position: absolute; top: 24px; width: 14px; height: 14px; border-radius: 3px; background: var(--label-4); }
+.st-row-hover { background: var(--cell-hover); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+/* page icons in the kit's stroke family */
+const ST_P = {
+  disk: '<ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-11M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+  updown: '<path d="m8 9.5 4-4 4 4M8 14.5l4 4 4-4"/>',
+};
+const stI = (n, cls) => ST_P[n] ? '<svg class="i ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + ST_P[n] + '</svg>' : I(n, cls);
+const stGi = (n) => '<span class="gicon st-gi">' + stI(n) + '</span>';
+const stSrcIc = (s) => '<span class="st-srcic">' + FMP.srcMark(s) + '</span>';
+function stCell(o) {
+  const chev = o.chev === 'updown' ? stI('updown', 'chev') : o.chev ? I('chevR', 'chev') : '';
+  const gv = (o.v !== undefined || chev) ? '<span class="gv">' + (o.v || '') + chev + '</span>' : '';
+  return '<div class="gcell ' + (o.cls || '') + '" style="' + (o.style || '') + '">' + (o.icon || '') + '<div class="gl"><span>' + o.t + '</span>' + (o.s ? '<small>' + o.s + '</small>' : '') + '</div>' + gv + (o.trail || '') + '</div>';
+}
+const stGroup = (cells, ic) => '<div class="group' + (ic ? ' st-ic' : '') + '">' + cells.join('') + '</div>';
+const stHead = (t) => '<div class="ghead">' + t + '</div>';
+const stFoot = (t) => '<div class="gfoot">' + t + '</div>';
+const stSw = (on) => '<span class="switch' + (on ? ' on' : '') + '" role="switch"></span>';
+function stPhone(ctx, o) {
+  return FMP.phone(ctx, o).replace('class="phone scr', 'class="phone scr st-grp');
+}
+
+/* ---------------- phone screens ---------------- */
+const ST_ACC_SUB = '<span class="st-sub"><span class="st-marks">' + FMP.srcMark('bilibili') + FMP.srcMark('netease') + '</span>2 個已登入 · <span class="st-warn">1 個會員快到期</span></span>';
+
+function stMainList() {
+  return stHead('帳號與插件') + stGroup([
+    stCell({ icon: stGi('user'), t: '帳號', s: ST_ACC_SUB, chev: true }),
+    stCell({ icon: stGi('plugin'), t: '插件', s: '4 個插件 · 3 天前檢查', v: '<span class="st-badge">2 個更新</span>', chev: true }),
+  ], true) +
+  stHead('外觀') + stGroup([
+    stCell({ icon: stGi('appearance'), t: '主題', v: '跟隨系統', chev: 'updown' }),
+    stCell({ icon: stGi('language'), t: '語言', v: '跟隨系統', chev: 'updown' }),
+  ], true) +
+  stHead('播放') + stGroup([
+    stCell({ icon: stGi('wave'), t: '音質', v: '高', chev: true }),
+    stCell({ icon: stGi('clock'), t: '重啟後恢復播放進度', trail: stSw(true) }),
+    stCell({ icon: stGi('history'), t: '臨時播放結束後倒退', v: '10 秒', chev: 'updown' }),
+  ], true) +
+  stFoot('臨時播放結束、回到佇列原本那首時，從離開的位置往前倒退幾秒，接得上剛才聽到的地方。') +
+  stHead('歌詞') + stGroup([
+    stCell({ icon: stGi('lyrics'), t: '自動匹配歌詞', trail: stSw(true) }),
+    stCell({ icon: stGi('sort'), t: '歌詞源順序', v: '網易雲、lrclib', chev: true }),
+  ], true) +
+  stFoot('自動匹配會把曲名、歌手、時長送到 lrclib 查歌詞，不送其他資料。') +
+  stHead('匯入歌單') + stGroup([
+    stCell({ icon: stGi('refresh'), t: '預設刷新間隔', v: '每 6 小時', chev: 'updown' }),
+  ], true) +
+  stFoot('新匯入的歌單用這個間隔；每張歌單可以在「編輯歌單」裡另外設定。') +
+  stHead('儲存空間') + stGroup([
+    stCell({ icon: stGi('disk'), t: '圖片快取', s: '已用 182 MB，上限 500 MB', trail: '<button class="btn btn-gray btn-sm">清除</button>' }),
+    stCell({ icon: stGi('lyrics'), t: '歌詞快取', s: '已用 2.4 MB · 1,284 首', trail: '<button class="btn btn-gray btn-sm">清除</button>' }),
+  ], true) +
+  stFoot('清除快取不影響歌單、佇列與歌詞配對；封面與歌詞會在需要時重新下載。') +
+  stHead('資料') + stGroup([
+    '<div class="gcell" data-href="backup-import.html">' + stGi('importBox') + '<div class="gl"><span>匯入舊版備份</span><small>FMP 1.x 匯出的 JSON 備份</small></div><span class="gv">' + I('chevR', 'chev') + '</span></div>',
+    stCell({ icon: stGi('diag'), t: '匯出診斷', s: 'log 與裝置資訊，憑證一律遮蔽', chev: true }),
+  ], true) +
+  stHead('關於') + stGroup([
+    stCell({ icon: stGi('info'), t: '版本', v: '<span class="st-num">2.0.0</span>' }),
+    stCell({ icon: stGi('doc'), t: '開源授權', chev: true }),
+  ], true) + '<div style="height:24px"></div>';
+}
+function stMain(ctx, o) {
+  o = o || {};
+  return stPhone(ctx, {
+    content: '<div class="lt" style="padding-top:58px"><div class="ty-large">設定</div></div>' + stMainList(),
+    top: FMP.ptop('設定', '', '', 96),
+    dock: { tab: 'settings', compact: o.compact },
+    overlay: o.overlay,
+  });
+}
+
+function stQuality(ctx) {
+  const radio = (t, s, on) => stCell({ t, s, trail: on ? '<span class="st-radio">' + I('check', 's20') + '</span>' : '<span style="width:20px"></span>' });
+  const q = (name, vip) => '<span class="st-q">' + name + (vip ? FMP.acc('vip') : '') + '</span>';
+  const qrow = (s, list) => '<div class="gcell" style="align-items:flex-start;padding-top:12px">' + stSrcIc(s) + '<div class="gl" style="padding:4px 0 0"><span>' + FMP.SRC[s].name + '</span><div class="st-qrow">' + list + '</div></div></div>';
+  const content = '<div class="lt" style="padding-top:58px"><div class="ty-large">音質</div></div>' +
+    stHead('偏好音質') + stGroup([
+      radio('高', '各音源能給的最高音質', true),
+      radio('中', '較省流量'),
+      radio('低', '最省流量，適合訊號差的時候'),
+    ]) +
+    stFoot('播放時依偏好與帳號的會員狀態，選最高可用的音質；播放失敗會先降一級再試。') +
+    stHead('播放時使用登入狀態') + stGroup([
+      stCell({ icon: stSrcIc('bilibili'), t: 'Bilibili', s: '已登入 · 大會員', trail: stSw(true) }),
+      stCell({ icon: stSrcIc('netease'), t: '網易雲音樂', s: '<span class="st-sub">已登入 · <span class="st-warn">黑膠 VIP 8 天後到期</span></span>', trail: stSw(true) }),
+      stCell({ icon: stSrcIc('youtube'), t: 'YouTube', s: '未登入', trail: '<button class="btn btn-tinted btn-sm" data-href="account.html">登入</button>' }),
+    ], true) +
+    stFoot('關閉後用未登入的身分取得串流：會員音質與需要會員的曲目會變成試聽或無法播放。') +
+    stHead('各音源可用的音質') + stGroup([
+      qrow('bilibili', q('64K') + q('132K') + q('192K') + q('無損', 1) + q('Hi-Res', 1)),
+      qrow('netease', q('標準') + q('較高') + q('極高') + q('無損', 1) + q('Hi-Res', 1)),
+      qrow('youtube', q('中') + q('高')),
+    ], true) +
+    stFoot('清單由插件提供，標「會員」的只在帳號有會員時選到。');
+  return stPhone(ctx, {
+    content,
+    top: FMP.ptop('音質', FMP.gbtn('chevL', '返回'), '', 96),
+    dock: { tab: 'settings' },
+  });
+}
+
+function stLyrics(ctx) {
+  const src = (n, s, name, sub) => '<div class="gcell"><span class="st-idx">' + n + '</span>' + stSrcIc(s) + '<div class="gl"><span>' + name + '</span><small>' + sub + '</small></div><span class="st-drag">' + I('drag', 's20') + '</span></div>';
+  const content = '<div class="lt" style="padding-top:58px"><div class="ty-large">歌詞</div></div>' +
+    '<div style="height:12px"></div>' + stGroup([
+      stCell({ t: '自動匹配歌詞', s: '播放沒有歌詞的曲目時，依曲名、歌手、時長找歌詞', trail: stSw(true) }),
+    ]) +
+    stHead('歌詞源順序') + '<div class="group" style="--sep-inset:92px">' +
+      src(1, 'netease', '網易雲音樂', 'netease 插件 · 有翻譯') +
+      src(2, 'lrclib', 'lrclib', 'lrclib 插件 · 開放歌詞資料庫') + '</div>' +
+    stFoot('拖曳調整順序。自動匹配照這個順序找，找到就停；手動搜尋會同時列出全部來源。') +
+    stHead('送到 lrclib 的資料') + stGroup([
+      '<div class="st-note"><div style="display:flex;gap:10px;align-items:flex-start"><span class="cacc" style="margin-top:1px">' + I('shield', 's20') + '</span><div>向 lrclib 查歌詞時只送出這三項：<div class="st-chiprow"><span class="st-q">曲名</span><span class="st-q">歌手</span><span class="st-q">時長</span></div><span class="c2">不送帳號、Cookie、歌單或播放紀錄。這是 FMP 唯一會送到第三方的資料。</span></div></div></div>',
+    ]) +
+    stFoot('網易雲的歌詞走你已登入的音源插件，不經過其他服務。');
+  return stPhone(ctx, {
+    content,
+    top: FMP.ptop('歌詞', FMP.gbtn('chevL', '返回'), '', 96),
+    dock: { tab: 'settings' },
+  });
+}
+
+function stThemeMenu(ctx) {
+  const menu = '<div class="lg gmenu" data-adapt role="menu" style="right:16px;top:446px">' +
+    '<button class="mi on">跟隨系統' + I('check', 'chk') + '</button>' +
+    '<button class="mi">淺色</button>' +
+    '<button class="mi">深色</button></div>';
+  return stMain(ctx, { overlay: menu });
+}
+
+/* ---------------- desktop ---------------- */
+const stDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay });
+const sxH = (t, right) => '<div class="sx-h"><div class="ty-large">' + t + '</div>' + (right || '') + '</div>';
+
+function stDeskPlayback(ctx) {
+  const q = (name, vip) => '<span class="st-q">' + name + (vip ? FMP.acc('vip') : '') + '</span>';
+  const pane = sxH('播放') +
+    '<p class="sx-lead">音質依偏好與帳號的會員狀態自動選；佇列與進度一定會保存，重啟後不會自動開始播放。</p>' +
+    stHead('音質') + stGroup([
+      stCell({ t: '偏好音質', s: '播放時選最高可用的一級；失敗時先降一級再試', trail: '<div class="seg"><button class="on" style="height:22px;padding:0 14px">高</button><button style="height:22px;padding:0 14px">中</button><button style="height:22px;padding:0 14px">低</button></div>' }),
+    ]) +
+    stHead('播放時使用登入狀態') + stGroup([
+      stCell({ icon: stSrcIc('bilibili'), t: 'Bilibili', s: '已登入 · 大會員，2027-03-02 到期', trail: stSw(true) }),
+      stCell({ icon: stSrcIc('netease'), t: '網易雲音樂', s: '<span class="st-sub">已登入 · <span class="st-warn">黑膠 VIP 8 天後到期（2026-11-18）</span></span>', trail: stSw(true) }),
+      stCell({ icon: stSrcIc('youtube'), t: 'YouTube', s: '未登入', trail: '<button class="btn btn-tinted btn-sm" data-href="account.html">登入…</button>' }),
+    ], true) +
+    stFoot('關閉後用未登入的身分取得串流：會員音質與需要會員的曲目會變成試聽或無法播放。') +
+    stHead('各音源可用的音質') + stGroup([
+      stCell({ icon: stSrcIc('bilibili'), t: 'Bilibili', trail: '<span class="st-chiprow" style="margin:0">' + q('64K') + q('132K') + q('192K') + q('無損', 1) + q('Hi-Res', 1) + '</span>' }),
+      stCell({ icon: stSrcIc('netease'), t: '網易雲音樂', trail: '<span class="st-chiprow" style="margin:0">' + q('標準') + q('較高') + q('極高') + q('無損', 1) + q('Hi-Res', 1) + '</span>' }),
+      stCell({ icon: stSrcIc('youtube'), t: 'YouTube', trail: '<span class="st-chiprow" style="margin:0">' + q('中') + q('高') + '</span>' }),
+    ], true) +
+    stFoot('清單由插件提供；標「會員」的只在帳號有會員時選到。') +
+    stHead('進度') + stGroup([
+      stCell({ t: '重啟後恢復播放進度', s: '回到上次停下的位置；關閉時從曲目開頭開始', trail: stSw(true) }),
+      stCell({ t: '臨時播放結束後倒退', s: '回到佇列原本那首時，往前倒退幾秒', trail: '<span class="st-step"><button aria-label="減少">' + I('minus') + '</button><span class="st-num">10 秒</span><button aria-label="增加">' + I('plus') + '</button></span>' }),
+    ]);
+  return stDesk(ctx, { cat: 'playback', pane });
+}
+
+function stDeskAppearance(ctx) {
+  const half = (th) => '<span class="half t-' + th + '"><i class="sb"></i><i class="ln" style="top:9px;width:40px"></i><i class="cv" style="left:40px"></i><i class="cv" style="left:58px"></i><i class="ac"></i></span>';
+  const tile = (label, inner, on) => '<button class="st-tile' + (on ? ' on' : '') + '"><span class="pv">' + inner + '</span><span>' + label + '</span></button>';
+  const pane = sxH('外觀') +
+    '<p class="sx-lead">字體跟隨系統，不另外提供選項。</p>' +
+    stHead('主題') + '<div class="group"><div class="st-tiles">' +
+      tile('跟隨系統', half('light') + half('dark'), true) + tile('淺色', half('light')) + tile('深色', half('dark')) +
+    '</div></div>' +
+    stFoot('跟隨系統時，iOS、macOS、Android、Windows 切換深淺色會即時跟著換。') +
+    stHead('語言') + stGroup([
+      stCell({ t: '介面語言', s: '改了之後立即生效，不用重開', trail: '<span class="st-pop">跟隨系統（繁體中文）' + stI('updown') + '</span>' }),
+    ]) +
+    stFoot('可選：跟隨系統、繁體中文、简体中文、English。');
+  return stDesk(ctx, { cat: 'appearance', pane });
+}
+
+function stDeskLyrics(ctx) {
+  const src = (n, s, name, sub, hov) => '<div class="gcell' + (hov ? ' st-row-hover' : '') + '"><span class="st-idx">' + n + '</span>' + stSrcIc(s) + '<div class="gl"><span>' + name + '</span><small>' + sub + '</small></div>' + (hov ? '<span class="c3 ty-cap">拖曳調整順序</span>' : '') + '<span class="st-drag" style="' + (hov ? 'color:var(--label)' : '') + '">' + I('drag', 's18') + '</span></div>';
+  const pane = sxH('歌詞') +
+    '<p class="sx-lead">歌詞來自 netease 與 lrclib 兩個插件；同步歌詞、翻譯、偏移調整在播放頁。</p>' +
+    stHead('自動匹配') + stGroup([
+      stCell({ t: '自動匹配歌詞', s: '播放沒有歌詞的曲目時，依曲名、歌手、時長找歌詞', trail: stSw(true) }),
+    ]) +
+    stHead('歌詞源順序') + '<div class="group" style="--sep-inset:74px">' +
+      src(1, 'netease', '網易雲音樂', 'netease 插件 · 有翻譯') +
+      src(2, 'lrclib', 'lrclib', 'lrclib 插件 · 開放歌詞資料庫', true) + '</div>' +
+    stFoot('自動匹配照這個順序找，找到就停；手動搜尋同時列出全部來源。') +
+    stHead('送到 lrclib 的資料') + stGroup([
+      '<div class="st-note"><div style="display:flex;gap:10px;align-items:flex-start"><span class="cacc" style="margin-top:1px">' + I('shield', 's18') + '</span><div>向 lrclib 查歌詞時只送出這三項：<div class="st-chiprow"><span class="st-q">曲名</span><span class="st-q">歌手</span><span class="st-q">時長</span></div><span class="c2">不送帳號、Cookie、歌單或播放紀錄。這是 FMP 唯一會送到第三方的資料；第一版沒有 AI 功能。</span></div></div></div>',
+    ]);
+  return stDesk(ctx, { cat: 'lyrics', pane });
+}
+
+function stDeskStorage(ctx) {
+  const pane = sxH('儲存空間') +
+    '<p class="sx-lead">FMP 不下載曲目，佔空間的只有封面與歌詞的快取。</p>' +
+    stHead('快取') + stGroup([
+      stCell({ icon: stGi('disk'), t: '圖片快取', s: '已用 182 MB，上限 500 MB', trail: '<span class="st-meter"><i style="width:36%"></i></span><button class="btn btn-gray btn-sm">清除…</button>' }),
+      stCell({ icon: stGi('updown'), t: '圖片快取上限', trail: '<span class="st-pop">500 MB' + stI('updown') + '</span>' }),
+      stCell({ icon: stGi('lyrics'), t: '歌詞快取', s: '已用 2.4 MB · 1,284 首', trail: '<button class="btn btn-gray btn-sm">清除…</button>' }),
+    ], true) +
+    stFoot('清除快取不影響歌單、佇列與歌詞配對；封面與歌詞會在需要時重新下載。') +
+    stHead('匯入歌單') + stGroup([
+      stCell({ t: '預設刷新間隔', s: '新匯入的歌單用這個間隔；每張歌單可以另外設定', trail: '<span class="st-pop">每 6 小時' + stI('updown') + '</span>' }),
+    ]);
+  const alert = '<div class="dialog-wrap"><div class="lg alert" data-adapt><h4>清除圖片快取？</h4><p>會刪除 182 MB 的封面快取。之後瀏覽歌單時，封面會重新下載。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">清除</button></div></div></div>';
+  return stDesk(ctx, { cat: 'storage', pane, overlay: alert });
+}
+
+FMP.page({
+  title: '設定',
+  intro: '<p>設定是第三個導覽項目；帳號與插件從這裡進入。分組照舊版，拿掉第一版不做的（下載、桌面歌詞、快捷鍵、開發者選項、主題色、字體）。佇列頁「自動捲到正在播放」已是固定行為，不放開關。</p><p>手機是 iOS 群組列表；桌面是 macOS 系統設定式的「分類欄＋內容」，右側詳情面板預設收起，頂列右端可以叫回。</p>',
+  sections: [
+    {
+      title: '手機：設定首頁',
+      desc: '入口列直接帶狀態：帳號列顯示已登入的音源與會員快到期，插件列顯示待安裝的更新數，不用點進去才知道。',
+      frames: [
+        { kind: 'phone', label: '首頁', render: (ctx) => stMain(ctx) },
+        { kind: 'phone', label: '捲到下方，清除快取後', render: (ctx) => stMain(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已清除圖片快取，釋放 182 MB</span></span>', { style: 'bottom:112px;padding-right:18px' }) }), after: (root) => { root.querySelector('.dock').classList.add('pin', 'compact'); const s = root.querySelector('.page.scroll'); s.scrollTop = 9999; root.classList.add('scrolled'); } },
+        { kind: 'phone', label: '主題選單', render: (ctx) => stThemeMenu(ctx) },
+      ],
+      notes: '<h3>規則</h3><ul><li>群組列表是實心的；玻璃只在頂列、dock 與選單上。圖示方塊用中性的灰底，不用彩色：設定頁的顏色留給音源標識與狀態（會員快到期用警示色）。</li><li>只有一個值、選項少於 6 個的設定（主題、語言、倒退秒數、刷新間隔）用 iOS 的下拉選單，就地改，不推新頁；選項帶說明或有子設定的（音質、歌詞源順序）才推子頁。</li><li>「清除」不另外確認，完成後跳提示說釋放了多少；快取刪了只會重新下載，不會丟資料。桌面版用確認框，因為按鈕離游標近、容易誤點（見下方桌面稿）。</li><li>「重啟後恢復播放進度」只決定進度；佇列一定保存，重啟後不自動播放（brief §6）。</li></ul>',
+    },
+    {
+      title: '手機：子頁',
+      frames: [
+        { kind: 'phone', label: '音質', render: (ctx) => stQuality(ctx) },
+        { kind: 'phone', label: '歌詞', render: (ctx) => stLyrics(ctx) },
+      ],
+      notes: '<ul><li>音質分三塊：偏好（高／中／低）、每個音源的「播放時使用登入狀態」、各音源可用的音質。最後一塊是插件回報的清單，需要會員的音質帶跟曲目一樣的金色「會員」徽章，讓使用者知道為什麼有會員才聽得到無損（brief §5.4）。</li><li>未登入的音源不顯示開關，改成「登入」按鈕，直接進帳號頁的登入流程。</li><li>網易雲黑膠 VIP 快到期的提示在三個地方都出現：設定首頁的帳號列、音質頁、帳號頁；文字一致，都用警示色。</li><li>歌詞源順序常駐拖曳把手（只有兩項，不需要「編輯」模式）。lrclib 的資料說明寫在設定裡，因為它是唯一會送到第三方的資料（brief §14）。</li></ul>',
+    },
+    {
+      title: '桌面：分類欄＋內容',
+      desc: '桌面不把手機列表拉寬：內容區裡再分一欄分類，右邊一次只顯示一類，像 macOS 系統設定。帳號、插件也是分類，點了就在右邊打開帳號頁、插件頁（見那兩頁）。',
+      frames: [
+        { kind: 'desktop', label: '播放', render: (ctx) => stDeskPlayback(ctx) },
+        { kind: 'desktop', label: '外觀', render: (ctx) => stDeskAppearance(ctx) },
+        { kind: 'desktop', label: '歌詞：滑過列時出現拖曳提示', render: (ctx) => stDeskLyrics(ctx) },
+        { kind: 'desktop', label: '儲存空間：清除前確認', render: (ctx) => stDeskStorage(ctx) },
+      ],
+      notes: '<h3>規則</h3><ul><li>分類欄是實心的內容欄，不是第二塊玻璃；選取用強調色實心底，和側欄的灰色選取區分「App 導覽」與「設定分類」兩層。</li><li>分類欄頂端有「搜尋設定」，⌘F 聚焦；⌘, 從任何頁面打開設定。帳號分類上的黃點表示會員快到期，插件分類上的數字是待安裝的更新數。</li><li>右側詳情面板預設收起（設定是管理頁，需要寬度），頂列右端的按鈕可以叫回；播放膠囊照常浮在底部。</li><li>桌面用桌面的控制項：分段控制、彈出選單、步進器，不用手機的推頁。外觀用三張預覽圖選主題，預覽圖本身就是用深淺兩套 token 畫的。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

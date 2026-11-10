@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>匯入舊版備份 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+.phone.bk-grp { --bg: var(--bg-grouped); }
+.bk-gi { background: var(--fill-2); color: var(--label); }
+.group.bk-ic { --sep-inset: 58px; }
+.desk .group.bk-ic { --sep-inset: 46px; }
+.bk-dim .gl, .bk-dim .gicon { opacity: .45; }
+.bk-tag { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 600; background: var(--fill-2); color: var(--label-2); flex: none; white-space: nowrap; }
+.bk-tag.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.bk-num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+/* sheet */
+.sheet.bk-full { height: calc(100% - 56px); max-height: none; }
+.sheet .sfoot.bk-col { flex-direction: column; gap: 8px; box-shadow: 0 -.5px 0 var(--sep); }
+.sheet .sfoot.bk-col .btn { flex: none; width: 100%; }
+.sheet .sfoot.bk-col .ty-foot { text-align: center; }
+.bk-hsp { width: 44px; flex: none; }
+.bk-prog { display: flex; gap: 4px; padding: 0 20px 2px; }
+.bk-prog i { flex: 1; height: 4px; border-radius: 2px; background: var(--fill-2); }
+.bk-prog i.on { background: var(--accent); }
+.bk-plab { text-align: center; font-size: 12.5px; color: var(--label-2); padding: 6px 0 4px; }
+.bk-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 14px 28px 0; }
+.bk-hero .ic { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.bk-hero .ic svg.i { width: 32px; height: 32px; }
+.bk-hero .ic.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.bk-hero .ic.bad { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.bk-hero h3 { margin: 14px 0 6px; font-size: 22px; line-height: 28px; font-weight: 700; }
+.bk-hero p { margin: 0; font-size: 15px; line-height: 21px; color: var(--label-2); }
+.bk-file { margin: 18px 16px 0; padding: 12px 14px; border-radius: var(--r-group); background: var(--cell); display: flex; align-items: center; gap: 12px; }
+.bk-file .fi { width: 40px; height: 40px; border-radius: 10px; background: var(--fill); display: grid; place-items: center; color: var(--label-2); flex: none; }
+.bk-file b { display: block; font-size: 15px; font-weight: 600; }
+.bk-file small { display: block; font-size: 13px; color: var(--label-2); margin-top: 1px; }
+.bk-check { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 16px; font-size: 15px; }
+.bk-check + .bk-check { box-shadow: inset 0 .5px 0 var(--sep); }
+.bk-check.wait { color: var(--label-3); }
+.bk-check .d { width: 22px; display: grid; place-items: center; flex: none; }
+.bk-err { margin: 18px 16px 0; padding: 18px 18px 16px; border-radius: var(--r-group); background: var(--cell); display: flex; flex-direction: column; gap: 6px; }
+.bk-err .h { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; }
+.bk-err .h svg.i { color: var(--warn); }
+.bk-err p { margin: 0; font-size: 14.5px; line-height: 21px; color: var(--label-2); }
+.bk-err .meta { font-family: var(--font-num); font-size: 12.5px; color: var(--label-3); margin-top: 4px; }
+.bk-bar { height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.bk-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.bk-bar.thin { height: 4px; }
+.bk-big { margin: 18px 16px 0; padding: 16px; border-radius: var(--r-group); background: var(--cell); }
+.bk-big .row1 { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.bk-big .row1 b { font-size: 17px; font-weight: 600; }
+.bk-big .row1 span { font-size: 28px; font-weight: 700; font-family: var(--font-num); }
+.bk-res { display: flex; gap: 8px; align-items: center; flex: none; font-size: 13px; }
+.bk-res .n { color: var(--label); font-weight: 600; }
+.bk-why { padding: 0 16px 12px 58px; margin-top: -4px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--label-2); }
+.bk-why div { display: flex; justify-content: space-between; gap: 10px; }
+.bk-why + .gcell::before { content: ""; position: absolute; top: 0; right: 0; left: var(--sep-inset, 16px); height: .5px; background: var(--sep); }
+.desk .bk-why { padding: 0 12px 10px 46px; font-size: 11.5px; }
+.bk-next { margin: 18px 16px 0; padding: 14px 16px; border-radius: var(--r-group); background: var(--accent-soft); display: flex; gap: 12px; align-items: flex-start; }
+.bk-next > svg.i { color: var(--accent); margin-top: 2px; }
+.bk-next b { display: block; font-size: 15px; font-weight: 600; }
+.bk-next p { margin: 3px 0 10px; font-size: 13.5px; line-height: 19px; color: var(--label-2); }
+/* desktop wizard dialog */
+.dlg.bk-wiz { flex-direction: row; max-height: none; }
+.bk-wiz .bk-rail { width: 196px; flex: none; }
+.bk-rail { padding: 22px 12px; box-shadow: inset -.5px 0 0 var(--sep); display: flex; flex-direction: column; gap: 2px; }
+.bk-rail .t { font-size: 14px; font-weight: 700; padding: 0 8px 14px; }
+.bk-st { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px; font-size: 13px; color: var(--label-3); }
+.bk-st .n { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; box-shadow: inset 0 0 0 1.3px var(--label-4); font-family: var(--font-num); flex: none; }
+.bk-st.done { color: var(--label-2); }
+.bk-st.done .n { background: var(--ok); box-shadow: none; color: var(--accent-ink); }
+.bk-st.done .n svg.i { width: 12px; height: 12px; stroke-width: 2.8; }
+.bk-st.on { color: var(--label); font-weight: 600; background: var(--fill); }
+.bk-st.on .n { background: var(--accent-fill); color: var(--accent-ink); box-shadow: none; }
+.bk-rail .ft { margin-top: auto; padding: 0 8px; font-size: 11.5px; line-height: 16px; color: var(--label-3); }
+.bk-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.bk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.bk-drop { margin-top: 18px; height: 120px; border-radius: 14px; border: 1.5px dashed var(--sep-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--label-2); background: var(--cell); }
+.bk-drop svg.i { width: 28px; height: 28px; color: var(--label-3); }
+.desk .bk-file { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 .5px var(--sep); }
+.desk .bk-file .fi { width: 32px; height: 32px; border-radius: 8px; }
+.desk .bk-file b { font-size: 13px; }
+.desk .bk-file small { font-size: 11.5px; }
+.desk .bk-big { margin: 10px 0 0; padding: 14px; border-radius: 12px; box-shadow: inset 0 0 0 .5px var(--sep); }
+.desk .bk-big .row1 b { font-size: 14px; }
+.desk .bk-big .row1 span { font-size: 22px; }
+.desk .bk-next { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; }
+.desk .bk-next b { font-size: 13px; }
+.desk .bk-next p { font-size: 12px; line-height: 17px; margin-bottom: 8px; }
+.desk .bk-res { font-size: 12px; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const BK_P = {
+  disk: '<ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-11M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+  radio: '<circle cx="12" cy="13" r="6.5"/><circle cx="12" cy="13" r="1.8"/><path d="M8 4.5 15.5 7"/>',
+  folder: '<path d="M3.5 7.2c0-.9.7-1.7 1.7-1.7h4.2l2 2.2h7.4c.9 0 1.7.8 1.7 1.7v8.4c0 .9-.8 1.7-1.7 1.7H5.2c-1 0-1.7-.8-1.7-1.7z"/>',
+};
+const bkI = (n, cls) => BK_P[n] ? '<svg class="i ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + BK_P[n] + '</svg>' : I(n, cls);
+const bkGi = (n) => '<span class="gicon bk-gi">' + bkI(n) + '</span>';
+const bkCell = (o) => '<div class="gcell ' + (o.cls || '') + '">' + (o.lead || '') + (o.icon ? bkGi(o.icon) : '') + '<div class="gl"><span>' + o.t + '</span>' + (o.s ? '<small>' + o.s + '</small>' : '') + '</div>' + (o.v ? '<span class="gv">' + o.v + '</span>' : '') + (o.trail || '') + '</div>';
+const bkGroup = (cells, cls) => '<div class="group bk-ic ' + (cls || '') + '">' + cells.join('') + '</div>';
+const ck = (on) => '<span class="check' + (on ? ' on' : '') + '" data-toggle>' + I('check') + '</span>';
+
+/* demo backup: counts are illustrative */
+const BK_FILE = { name: 'fmp_backup_2026-11-08.json', size: '2.1 MB', at: '2026-11-08 22:14', app: '1.11.0' };
+const BK_SKIP_WHY = '新版還沒有這兩個功能。之後有了，可以再匯入同一個備份。';
+
+/* ---------------- step bodies (shared by phone and desktop) ---------------- */
+function bkIntroLists() {
+  return {
+    yes: bkGroup([
+      bkCell({ icon: 'library', t: '歌單與匯入來源', s: '本地歌單、匯入歌單的連結與刷新間隔' }),
+      bkCell({ icon: 'note', t: '曲目', s: '歌單裡的曲目與排序' }),
+      bkCell({ icon: 'search', t: '搜尋紀錄' }),
+      bkCell({ icon: 'lyrics', t: '歌詞配對', s: '手動配對過的歌詞與偏移' }),
+      bkCell({ icon: 'settings', t: '設定', s: '新版沒有的設定會略過' }),
+    ]),
+    skip: bkGroup([
+      bkCell({ cls: 'bk-dim', icon: 'history', t: '播放歷史', trail: '<span class="bk-tag">這次略過</span>' }),
+      bkCell({ cls: 'bk-dim', icon: 'radio', t: '電台', trail: '<span class="bk-tag">這次略過</span>' }),
+    ]),
+    none: bkGroup([
+      bkCell({ icon: 'key', t: '登入資訊', s: '匯入後要重新登入各音源' }),
+      bkCell({ icon: 'down', t: '下載的檔案', s: '第一版不做下載' }),
+    ]),
+  };
+}
+function bkPreviewRows() {
+  return bkGroup([
+    bkCell({ lead: ck(true), icon: 'library', t: '歌單', s: '本地 8、匯入 4 · 1,846 首', v: '<span class="bk-num">12 個</span>' }),
+    bkCell({ lead: ck(true), icon: 'search', t: '搜尋紀錄', v: '<span class="bk-num">230 筆</span>' }),
+    bkCell({ lead: ck(true), icon: 'lyrics', t: '歌詞配對', v: '<span class="bk-num">412 首</span>' }),
+    bkCell({ lead: ck(true), icon: 'settings', t: '設定', s: '4 項新版沒有，會略過', v: '<span class="bk-num">18 項</span>' }),
+  ], 'bk-lead') + '<div class="ghead">略過</div>' + bkGroup([
+    bkCell({ cls: 'bk-dim', lead: '<span class="check" style="opacity:.3"></span>', icon: 'history', t: '播放歷史', s: '新版還沒有這個功能', v: '<span class="bk-num">5,120 筆</span>' }),
+    bkCell({ cls: 'bk-dim', lead: '<span class="check" style="opacity:.3"></span>', icon: 'radio', t: '電台', s: '新版還沒有這個功能', v: '<span class="bk-num">6 個</span>' }),
+  ], 'bk-lead') + '<div class="gfoot">' + BK_SKIP_WHY + '</div>';
+}
+function bkProgressRows() {
+  const done = '<span class="bk-tag ok">' + I('check') + '完成</span>';
+  const wait = '<span class="bk-tag">等待中</span>';
+  return bkGroup([
+    bkCell({ icon: 'settings', t: '設定', s: '14 項', trail: done }),
+    '<div class="gcell" style="align-items:flex-start">' + bkGi('library') + '<div class="gl"><span>歌單</span><small><span class="bk-num">7 / 12</span> 個歌單 · <span class="bk-num">1,204 / 1,846</span> 首</small>' +
+      '<div class="bk-bar thin" style="margin:8px 0 6px"><i style="width:65%"></i></div><small>正在匯入「翻唱精選」<span class="bk-num">132 / 214</span> 首</small></div><span class="spinner" style="margin-top:14px"></span></div>',
+    bkCell({ icon: 'search', t: '搜尋紀錄', s: '230 筆', trail: wait }),
+    bkCell({ icon: 'lyrics', t: '歌詞配對', s: '412 首', trail: wait }),
+  ]);
+}
+function bkResultRows() {
+  const res = (a, b) => '<span class="bk-res"><span>匯入 <span class="n bk-num">' + a + '</span></span>' + (b ? '<span class="c2">略過 <span class="bk-num">' + b + '</span></span>' : '') + '</span>';
+  const why = (rows) => '<div class="bk-why">' + rows.map(([t, n]) => '<div><span>' + t + '</span><span class="bk-num">' + n + '</span></div>').join('') + '</div>';
+  return bkGroup([
+    bkCell({ icon: 'library', t: '歌單', trail: res('11', '1') }) + why([['同名歌單已存在', '1 個']]),
+    bkCell({ icon: 'note', t: '曲目', trail: res('1,823', '23') }) + why([['找不到對應插件', '19 首'], ['已在歌單裡', '4 首']]),
+    bkCell({ icon: 'search', t: '搜尋紀錄', trail: res('230') }),
+    bkCell({ icon: 'lyrics', t: '歌詞配對', trail: res('405', '7') }) + why([['對應的曲目沒有匯入', '7 首']]),
+    bkCell({ icon: 'settings', t: '設定', trail: res('14', '4') }) + why([['新版沒有：字體、主題色、下載路徑、桌面歌詞', '4 項']]),
+    bkCell({ cls: 'bk-dim', icon: 'history', t: '播放歷史與電台', s: '新版還沒有這兩個功能', trail: '<span class="bk-tag">略過</span>' }),
+  ]);
+}
+const bkNext = (desk) => '<div class="bk-next">' + I('key', desk ? 's18' : 's20') + '<div><b>重新登入帳號</b><p>備份不含登入資訊。重新登入 Bilibili、網易雲後，匯入歌單才能用登入狀態刷新。</p><button class="btn btn-tinted btn-sm" data-href="account.html">前往帳號</button></div></div>';
+const BK_ERR = {
+  newer: ['備份的格式太新', '這個備份的格式版本是 5，這版 FMP 只認得 1 到 3。請先更新 FMP 再匯入。', '格式版本 5 · 舊版 1.12.0 匯出'],
+  empty: ['備份裡沒有可以匯入的資料', '歌單、紀錄、歌詞配對與設定都是空的。確認舊版裡有資料，再重新匯出一次。', '格式版本 3 · 0 個歌單'],
+  parse: ['無法讀取這個檔案', '這不是 FMP 的備份，或檔案已經損壞。請選擇舊版匯出的 .json 檔。', '不是有效的 JSON（位置 1,024）'],
+};
+
+/* ---------------- phone ---------------- */
+function bkBehind() {
+  return '<div class="lt" style="padding-top:58px"><div class="ty-large">設定</div></div>' +
+    '<div class="ghead">資料</div><div class="group bk-ic">' + bkCell({ icon: 'importBox', t: '匯入舊版備份', s: 'FMP 1.x 匯出的 JSON 備份' }) + bkCell({ icon: 'diag', t: '匯出診斷' }) + '</div>';
+}
+const BK_STEPS = ['說明', '選擇檔案', '預覽', '匯入'];
+function bkSheetPhone(ctx, step, body, foot, label) {
+  const prog = '<div class="bk-prog">' + BK_STEPS.map((_, i) => '<i class="' + (i <= step ? 'on' : '') + '"></i>').join('') + '</div><div class="bk-plab">' + (label || (BK_STEPS[step] + ' · ' + (step + 1) + ' / 4')) + '</div>';
+  const sheet = '<div class="sheet-wrap"><div class="sheet solid bk-full"><div class="grab"></div>' +
+    '<div class="shead">' + FMP.gbtn('close', '關閉') + '<span class="stitle">匯入舊版備份</span><span class="bk-hsp"></span></div>' + prog +
+    '<div class="sbody" style="padding-bottom:24px">' + body + '</div>' + (foot ? '<div class="sfoot bk-col">' + foot + '</div>' : '') + '</div></div>';
+  return FMP.phone(ctx, { content: bkBehind(), dock: { tab: 'settings' }, overlay: sheet }).replace('class="phone scr', 'class="phone scr bk-grp');
+}
+const bkFile = (sub, trail) => '<div class="bk-file"><span class="fi">' + I('doc') + '</span><div style="flex:1;min-width:0"><b class="ell">' + BK_FILE.name + '</b><small>' + sub + '</small></div>' + (trail || '') + '</div>';
+
+function bkIntro(ctx) {
+  const L = bkIntroLists();
+  const body = '<div class="bk-hero"><span class="ic">' + I('importBox') + '</span><h3>從舊版搬資料過來</h3><p>選擇 FMP 1.x 匯出的 JSON 備份。新版裡已經有的資料會跳過，不會重複。</p></div>' +
+    '<div class="ghead">會匯入</div>' + L.yes +
+    '<div class="ghead">這次略過</div>' + L.skip + '<div class="gfoot">' + BK_SKIP_WHY + '</div>' +
+    '<div class="ghead">備份裡沒有</div>' + L.none;
+  return bkSheetPhone(ctx, 0, body, '<button class="btn btn-primary">' + bkI('folder', 's20') + '選擇備份檔案</button><div class="ty-foot c2">在舊版的設定裡匯出備份，存成 .json 檔。</div>');
+}
+function bkVerify(ctx) {
+  const body = bkFile(BK_FILE.size) +
+    '<div class="ghead">正在檢查備份</div><div class="group">' +
+      '<div class="bk-check"><span class="d" style="color:var(--ok)">' + I('check', 's18') + '</span>讀取檔案</div>' +
+      '<div class="bk-check"><span class="d"><span class="spinner"></span></span>確認格式版本</div>' +
+      '<div class="bk-check wait"><span class="d"></span>計算可以匯入的資料</div></div>' +
+    '<div class="gfoot">只讀取檔案，這一步不會改動任何資料。</div>';
+  return bkSheetPhone(ctx, 1, body, '<button class="btn btn-primary" disabled>檢查中…</button>');
+}
+function bkError(ctx, kind) {
+  const e = BK_ERR[kind];
+  const body = bkFile(kind === 'parse' ? '1.4 MB' : BK_FILE.size, '<span style="color:var(--warn)">' + I('warn', 's20') + '</span>') +
+    '<div class="bk-err"><div class="h">' + I('warn', 's20') + e[0] + '</div><p>' + e[1] + '</p><div class="meta">' + e[2] + '</div></div>' +
+    '<div class="gfoot" style="margin-top:12px">沒有任何資料被改動。</div>';
+  return bkSheetPhone(ctx, 1, body, '<button class="btn btn-primary">' + bkI('folder', 's20') + '選擇其他檔案</button>');
+}
+function bkPreview(ctx) {
+  const body = bkFile('匯出於 ' + BK_FILE.at + ' · 舊版 ' + BK_FILE.app, '<button class="btn btn-plain btn-sm">更換</button>') +
+    '<div class="ghead">勾選要匯入的資料</div>' + bkPreviewRows().replace(/group bk-ic bk-lead/g, 'group bk-ic" style="--sep-inset:94px');
+  return bkSheetPhone(ctx, 2, body, '<button class="btn btn-primary">匯入 4 類資料</button><div class="ty-foot c2">已經在新版裡的歌單、曲目與紀錄會跳過。</div>');
+}
+function bkProgress(ctx) {
+  const body = '<div class="bk-big"><div class="row1"><b>正在匯入…</b><span>62%</span></div><div class="bk-bar"><i style="width:62%"></i></div><div class="ty-foot c2" style="margin-top:8px">大約還要 20 秒</div></div>' +
+    '<div class="ghead">進度</div>' + bkProgressRows();
+  return bkSheetPhone(ctx, 3, body, '<button class="btn btn-gray">在背景繼續</button><div class="ty-foot c2">可以繼續聽歌；匯入完成時會提示。不要關閉 App。</div>');
+}
+function bkResult(ctx) {
+  const body = '<div class="bk-hero"><span class="ic ok">' + I('check') + '</span><h3>匯入完成</h3><p>匯入 <b class="bk-num" style="color:var(--label)">2,483</b> 筆，略過 <b class="bk-num" style="color:var(--label)">35</b> 筆。</p></div>' +
+    bkNext() + '<div class="ghead">各類結果</div>' + bkResultRows();
+  return bkSheetPhone(ctx, 3, body, '<button class="btn btn-primary">完成</button>', '完成');
+}
+
+/* ---------------- desktop ---------------- */
+function bkDataPane() {
+  return '<div class="sx-h"><div class="ty-large">資料</div></div><p class="sx-lead">搬移舊版的資料，或匯出診斷檔回報問題。</p>' +
+    '<div class="ghead">舊版</div>' + bkGroup([bkCell({ icon: 'importBox', t: '匯入舊版備份', s: 'FMP 1.x 匯出的 JSON 備份；已經有的資料會跳過', trail: '<button class="btn btn-gray btn-sm">匯入…</button>' })]) +
+    '<div class="ghead">診斷</div>' + bkGroup([bkCell({ icon: 'diag', t: '匯出診斷', s: 'log 與裝置資訊，憑證一律遮蔽', trail: '<button class="btn btn-gray btn-sm">匯出…</button>' })]);
+}
+function bkDesk(ctx, dlg) {
+  return FMP.settingsShell(ctx, { cat: 'data', content: bkDataPane(), overlay: dlg ? '<div class="dialog-wrap">' + dlg + '</div>' : '' });
+}
+const BK_DSTEPS = ['說明', '選擇檔案', '預覽', '匯入', '完成'];
+function bkDlg(step, title, body, foot) {
+  const rail = '<div class="bk-rail"><div class="t">匯入舊版備份</div>' + BK_DSTEPS.map((s, i) => '<div class="bk-st ' + (i < step ? 'done' : i === step ? 'on' : '') + '"><span class="n">' + (i < step ? I('check') : i + 1) + '</span>' + s + '</div>').join('') +
+    '<div class="ft">不含登入資訊與下載的檔案。匯入後要重新登入。</div></div>';
+  return '<div class="dlg solid bk-wiz" role="dialog" style="width:800px;height:600px">' + rail + '<div class="bk-main"><div class="dlg-head"><span class="dt">' + title + '</span><button class="ibtn" aria-label="關閉">' + I('close', 's18') + '</button></div>' +
+    '<div class="dlg-body scroll">' + body + '</div><div class="dlg-foot">' + foot + '</div></div></div>';
+}
+function bkDeskIntro(ctx) {
+  const L = bkIntroLists();
+  const body = '<p class="sx-lead" style="margin-top:0">選擇 FMP 1.x 匯出的 JSON 備份。新版裡已經有的資料會跳過，不會重複。</p>' +
+    '<div class="bk-cols"><div><div class="ghead">會匯入</div>' + L.yes + '</div><div><div class="ghead">這次略過</div>' + L.skip + '<div class="gfoot">' + BK_SKIP_WHY + '</div><div class="ghead">備份裡沒有</div>' + L.none + '</div></div>' +
+    '<div class="bk-drop">' + I('importBox') + '<span>把 .json 備份拖到這裡，或按「選擇檔案…」</span></div>';
+  return bkDesk(ctx, bkDlg(0, '從舊版搬資料過來', body, '<span class="ty-foot c3">esc 取消</span><span style="flex:1"></span><button class="btn btn-gray">取消</button><button class="btn btn-primary">選擇檔案…</button>'));
+}
+function bkDeskPreview(ctx) {
+  const body = bkFile('匯出於 ' + BK_FILE.at + ' · 舊版 ' + BK_FILE.app + ' · ' + BK_FILE.size, '<button class="btn btn-plain btn-sm">更換…</button>') +
+    '<div class="ghead">勾選要匯入的資料</div>' + bkPreviewRows().replace(/group bk-ic bk-lead/g, 'group bk-ic" style="--sep-inset:74px');
+  return bkDesk(ctx, bkDlg(2, '預覽', body, '<span class="ty-foot c2">已經在新版裡的資料會跳過</span><span style="flex:1"></span><button class="btn btn-gray">返回</button><button class="btn btn-primary">匯入 4 類資料</button>'));
+}
+function bkDeskProgress(ctx) {
+  const body = '<div class="bk-big"><div class="row1"><b>正在匯入…</b><span>62%</span></div><div class="bk-bar"><i style="width:62%"></i></div><div class="ty-foot c2" style="margin-top:8px">大約還要 20 秒</div></div>' +
+    '<div class="ghead">進度</div>' + bkProgressRows();
+  return bkDesk(ctx, bkDlg(3, '匯入中', body, '<span class="ty-foot c2">可以關閉這個視窗，匯入會在背景繼續。</span><span style="flex:1"></span><button class="btn btn-gray">在背景繼續</button>'));
+}
+function bkDeskResult(ctx) {
+  const body = '<div style="display:flex;align-items:center;gap:12px;margin-top:2px"><span class="bk-hero" style="padding:0"><span class="ic ok" style="width:44px;height:44px">' + I('check') + '</span></span><div><div class="ty-head">匯入 <span class="bk-num">2,483</span> 筆，略過 <span class="bk-num">35</span> 筆</div><div class="ty-foot c2">完成於 2026-11-10 09:42</div></div></div>' +
+    bkNext(true) + '<div class="ghead">各類結果</div>' + bkResultRows();
+  return bkDesk(ctx, bkDlg(4, '匯入完成', body, '<button class="btn btn-gray btn-sm">' + I('copy', 's16') + '複製結果</button><span style="flex:1"></span><button class="btn btn-primary">完成</button>'));
+}
+
+FMP.page({
+  title: '匯入舊版備份',
+  intro: '<p>從「設定 → 資料 → 匯入舊版備份」進入。新版不讀舊版的資料庫，資料搬遷只靠舊版匯出的 JSON 備份：歌單與匯入來源、刷新間隔、曲目、搜尋紀錄、歌詞配對、設定；不含登入資訊與下載的檔案，登入要重做一次（brief §12）。</p><p>播放歷史與電台在備份裡，但新版第一版沒有這兩個功能：預覽時變淡、略過並說明原因，之後有了再匯入一次。檔名、數量都是示範資料。</p>',
+  sections: [
+    {
+      title: '手機：流程',
+      desc: '從設定推起一張全高的 sheet，頂端四格進度：說明 → 選擇檔案 → 預覽 → 匯入，最後是結果。',
+      frames: [
+        { kind: 'phone', label: '1 說明', render: (ctx) => bkIntro(ctx) },
+        { kind: 'phone', label: '2 選檔後驗證', render: (ctx) => bkVerify(ctx) },
+        { kind: 'phone', label: '3 預覽', render: (ctx) => bkPreview(ctx) },
+        { kind: 'phone', label: '4 匯入進度', render: (ctx) => bkProgress(ctx) },
+        { kind: 'phone', label: '5 結果', render: (ctx) => bkResult(ctx) },
+      ],
+      notes: '<h3>規則</h3><ul><li>說明頁先講清楚「會匯入、這次略過、備份裡沒有」三件事，再讓使用者選檔；登入要重做寫在最前面，免得匯入後以為帳號也搬過來了。</li><li>選檔用系統的檔案選擇器（不另外畫）；選完立刻驗證，只讀不寫。</li><li>預覽沿用舊版的勾選列（預設全選、帶數量）。播放歷史與電台不能勾、變淡，下方寫原因。設定列先講「4 項新版沒有」，結果頁再列出是哪 4 項。</li><li>匯入進度有總百分比，也有逐類進度；大歌單另外顯示「正在匯入「翻唱精選」132 / 214 首」（brief §15）。可以按「在背景繼續」關掉 sheet，完成時跳提示。</li><li>結果逐類列「匯入 n、略過 m」，略過的原因直接展開在那一類底下，不藏在詳情裡。第一張卡是下一步：重新登入。</li></ul>',
+    },
+    {
+      title: '手機：錯誤',
+      desc: '錯誤留在同一張 sheet 的「選擇檔案」這一步，換掉驗證清單；不跳確認框，使用者可以直接選另一個檔案。',
+      frames: [
+        { kind: 'phone', label: '備份版本過新', render: (ctx) => bkError(ctx, 'newer') },
+        { kind: 'phone', label: '空備份', render: (ctx) => bkError(ctx, 'empty') },
+        { kind: 'phone', label: '檔案無法解析', render: (ctx) => bkError(ctx, 'parse') },
+      ],
+      notes: '<ul><li>三種錯誤同一個版面：檔案卡（帶警示圖示）＋錯誤卡（標題、原因與該怎麼做、一行技術細節）＋「沒有任何資料被改動」。</li><li>舊版的錯誤是對話框；改成留在流程裡，因為唯一的下一步就是換一個檔案。</li><li>匯入途中失敗（例如磁碟滿）不在這裡：已經寫入的部分保留，結果頁的對應類別標「出錯」並列原因，可以重試同一個備份（已存在的會跳過）。</li></ul>',
+    },
+    {
+      title: '桌面：精靈對話框',
+      desc: '桌面從「資料」分類的「匯入…」打開一個精靈對話框：左邊步驟、右邊內容、底部按鈕列，像 macOS 的安裝程式。說明頁可以直接把檔案拖進來。',
+      frames: [
+        { kind: 'desktop', label: '說明＋拖放區', render: (ctx) => bkDeskIntro(ctx) },
+        { kind: 'desktop', label: '預覽', render: (ctx) => bkDeskPreview(ctx) },
+        { kind: 'desktop', label: '匯入進度', render: (ctx) => bkDeskProgress(ctx) },
+        { kind: 'desktop', label: '結果', render: (ctx) => bkDeskResult(ctx) },
+      ],
+      notes: '<ul><li>精靈是實心的對話框：內容多、要逐條讀，不放在玻璃上。</li><li>說明頁兩欄（會匯入｜略過與不含），下面是拖放區；把 .json 拖到視窗任何地方也會打開這個精靈。</li><li>結果頁多一顆「複製結果」，方便貼到 issue 回報。Esc 在匯入前等於取消，匯入中等於「在背景繼續」。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

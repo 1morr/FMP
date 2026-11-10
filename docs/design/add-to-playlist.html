@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>加入歌單 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+/* sheet, dialog and alert are the shared components (thick glass via glass.js); only the content layout lives here */
+.atp-cancel { min-width: 60px; height: 44px; }
+.atp-sum { display: flex; align-items: center; gap: 12px; padding: 2px 20px 12px; flex: none; box-shadow: inset 0 -.5px 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.atp-sum .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atp-sum .m b { display: flex; align-items: center; gap: 6px; font-size: 16px; line-height: 21px; font-weight: 600; min-width: 0; }
+.atp-sum .m b .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.atp-sum .m > span { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 17px; color: var(--glass-ink-2); }
+.atp-stack { position: relative; width: 62px; height: 48px; flex: none; }
+.atp-stack .cover { position: absolute; top: 4px; width: 40px; height: 40px; border-radius: 8px; box-shadow: 0 0 0 2px var(--glass-solid); }
+.atp-body { padding: 0 0 12px; }
+.atp-sh { display: flex; align-items: baseline; gap: 8px; padding: 18px 20px 6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--glass-ink-2); }
+.atp-sh .sp { flex: 1; }
+.atp-sh small { font-size: 12px; font-weight: 500; }
+.atp-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 20px; position: relative; cursor: pointer; }
+.atp-row:hover { background: var(--glass-press); }
+.atp-row + .atp-row::before, .atp-newf + .atp-row::before { content: ""; position: absolute; top: 0; left: 76px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 11%, transparent); }
+.atp-row .cover { width: 44px; height: 44px; border-radius: 8px; }
+.atp-row .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atp-row .m b { display: flex; align-items: center; gap: 6px; font-size: 16px; line-height: 21px; font-weight: 500; min-width: 0; }
+.atp-row .m b .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.atp-row .m > span { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 17px; color: var(--glass-ink-2); min-width: 0; }
+.atp-row .m span .has { color: var(--glass-ink); }
+.atp-row .check { box-shadow: inset 0 0 0 1.6px color-mix(in srgb, var(--glass-ink) 30%, transparent); }
+.atp-row.on .check { background: var(--accent-fill); box-shadow: none; color: var(--accent-ink); }
+.atp-tile { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; flex: none; background: var(--accent-soft); color: var(--accent); }
+.atp-tile svg.i { width: 22px; height: 22px; }
+.atp-row.act .m b { color: var(--accent); font-weight: 600; }
+.atp-tag { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 700; flex: none; background: color-mix(in srgb, var(--glass-ink) 9%, transparent); color: var(--glass-ink-2); }
+.atp-tag.rmtag { display: none; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.atp-row.rm .rmtag { display: inline-flex; }
+.atp-row.rm .m b .tt { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent); }
+.atp-tag.newtag { background: var(--accent-soft); color: var(--accent); }
+.atp-src { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 16px 0 20px; cursor: pointer; position: relative; }
+.atp-src::before { content: ""; position: absolute; top: 0; left: 20px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 11%, transparent); }
+.atp-src .mk { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; background: color-mix(in srgb, var(--glass-ink) 7%, transparent); flex: none; }
+.atp-src .mk svg { width: 24px; height: 24px; }
+.atp-src .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atp-src .m b { font-size: 16px; line-height: 21px; font-weight: 600; }
+.atp-src .m > span { font-size: 13px; line-height: 17px; color: var(--glass-ink-2); }
+.atp-src .m span em { font-style: normal; color: var(--glass-ink); font-weight: 600; }
+.atp-src .chev { color: var(--glass-ink-2); width: 44px; height: 44px; display: grid; place-items: center; transition: transform var(--t-mid) var(--ease-out); }
+.atp-src[data-state="open"] .chev, .atp-src[data-state="loading"] .chev { transform: rotate(180deg); }
+.atp-src .spinner { margin-right: 13px; border-top-color: var(--accent); }
+.atp-src[data-state="collapsed"] + .atp-srcbody { display: none; }
+.atp-srcbody .atp-row { padding-left: 20px; }
+.atp-skel { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 20px; }
+.atp-skel i { display: block; border-radius: 6px; background: color-mix(in srgb, var(--glass-ink) 8%, transparent); }
+.atp-load { padding: 4px 20px 6px 76px; font-size: 13px; color: var(--glass-ink-2); display: flex; align-items: center; gap: 8px; }
+.atp-note { padding: 6px 20px 0 76px; font-size: 12px; line-height: 17px; color: var(--glass-ink-2); }
+.atp-newf { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 20px; position: relative; }
+.atp-newf .field { flex: 1; background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.atp-newf .caret { display: inline-block; width: 2px; height: 20px; background: var(--accent); margin-left: 1px; animation: atp-blink 1s steps(1) infinite; }
+@keyframes atp-blink { 50% { opacity: 0; } }
+.sheet .sfoot.atp-foot { padding: 10px 16px 22px; box-shadow: inset 0 .5px 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); flex-direction: column; gap: 10px; }
+.atp-cap { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px; color: var(--glass-ink-2); padding: 0 4px; }
+.atp-cap svg.i { width: 17px; height: 17px; flex: none; margin-top: 0; color: var(--accent); }
+.atp-cap b { color: var(--glass-ink); font-weight: 600; }
+.sheet .sfoot.atp-foot .btn { flex: none; width: 100%; height: 50px; font-size: 17px; }
+.sheet .btn-gray, .dlg .btn-gray { background: color-mix(in srgb, var(--glass-ink) 9%, transparent); color: var(--glass-ink); }
+
+/* desktop dialog */
+.desk .dlg .dlg-head.atp-dh { padding: 14px 14px 12px 18px; gap: 12px; box-shadow: inset 0 -.5px 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.dlg .atp-dh .m { flex: 1; min-width: 0; }
+.dlg .atp-dh .m b { display: block; font-size: 15px; line-height: 20px; font-weight: 700; }
+.dlg .atp-dh .m > span { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--glass-ink-2); }
+.dlg .atp-dh .ibtn { color: var(--glass-ink); }
+.desk .dlg .dlg-body.atp-cols { padding: 0; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; }
+.dlg .col { min-height: 0; overflow: auto; padding: 0 8px 10px; }
+.dlg .col + .col { box-shadow: inset .5px 0 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.dlg .atp-sh { padding: 14px 12px 6px; font-size: 11.5px; }
+.dlg .atp-row, .dlg .atp-src, .dlg .atp-newf { min-height: 44px; padding: 0 10px; gap: 10px; border-radius: 8px; }
+.dlg .atp-row .cover, .dlg .atp-tile, .dlg .atp-src .mk { width: 32px; height: 32px; border-radius: 6px; }
+.dlg .atp-tile svg.i { width: 17px; height: 17px; }
+.dlg .atp-src .mk svg { width: 18px; height: 18px; }
+.dlg .atp-row .m b, .dlg .atp-src .m b { font-size: 13px; line-height: 17px; }
+.dlg .atp-row .m > span, .dlg .atp-src .m > span { font-size: 11.5px; line-height: 15px; }
+.dlg .atp-row + .atp-row::before, .dlg .atp-src::before, .dlg .atp-newf + .atp-row::before { display: none; }
+.dlg .atp-src { margin-top: 4px; }
+.dlg .atp-src .chev { width: 28px; height: 28px; }
+.dlg .atp-srcbody { padding-left: 14px; }
+.dlg .atp-srcbody .atp-row { padding-left: 10px; }
+.dlg .atp-note { padding: 4px 10px 0 52px; font-size: 11.5px; }
+.dlg .atp-load { padding-left: 52px; font-size: 12px; }
+.dlg .dlg-foot .atp-cap { flex: 1; padding: 0; font-size: 12px; line-height: 16px; }
+.dlg .dlg-foot kbd { font: 600 10.5px var(--font-num); background: color-mix(in srgb, var(--glass-ink) 10%, transparent); border-radius: 5px; padding: 1px 5px; color: var(--glass-ink-2); }
+.dlg .atp-row .check { width: 18px; height: 18px; }
+.dlg .atp-row .check svg { width: 11px; height: 11px; }
+.dlg .atp-src .btn { height: 26px; font-size: 12px; padding: 0 10px; }
+.dlg .atp-newf .field { height: 28px; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const T = FMP.T;
+const PL = FMP.PL;
+
+/* synthetic remote playlists on the signed-in NetEase account */
+const ATP_REMOTE = {
+  netease: {
+    account: '夜行貓',
+    lists: [
+      { id: 'n1', name: '華語私藏 2026', count: 157, cv: PL.cpop.cv, imported: true, has: 1 },
+      { id: 'n2', name: '通勤日推收藏', count: 46, cv: FMP.cover('rn-commute', { pal: 14, kind: 6 }), has: 0 },
+      { id: 'n3', name: '我喜歡的音樂', count: 1024, cv: FMP.cover('rn-liked', { pal: 8, kind: 0 }), has: 0 },
+      { id: 'n4', name: '2025 年度歌單', count: 88, cv: FMP.cover('rn-2025', { pal: 12, kind: 3, glyph: '年' }), has: 0 },
+    ],
+  },
+};
+const ATP_LOCAL = [
+  { p: PL.commute, has: 1 },
+  { p: PL.code, has: 1 },
+  { p: PL.weekend, has: 0 },
+  { p: PL.learn, has: 0 },
+];
+const ATP_MULTI = [T.t01, T.t04, T.t03]; // two NetEase, one B站
+
+/* ---------------- pieces ---------------- */
+// o: init (already contains → preselected), on (current), sub, tag, create
+function atpRow(name, cv, o) {
+  o = o || {};
+  const on = o.on !== undefined ? o.on : !!o.init;
+  const rm = o.init && !on;
+  const lead = o.create ? '<span class="atp-tile">' + I('cloudUp') + '</span>' : FMP.coverEl(cv, null);
+  return '<div class="atp-row' + (on ? ' on' : '') + (rm ? ' rm' : '') + '" role="checkbox" aria-checked="' + on + '" data-init="' + (o.init ? 1 : 0) + '" data-name="' + FMP.esc(name) + '" data-src="' + (o.src || 'local') + '"' + (o.create ? ' data-create="1"' : '') + '>' +
+    lead + '<div class="m"><b><span class="tt">' + FMP.esc(name) + '</span>' + (o.tag || '') + '<span class="atp-tag rmtag">將移出</span></b><span>' + (o.sub || '') + '</span></div>' +
+    '<span class="check">' + I('check') + '</span></div>';
+}
+function atpLocal(o) {
+  o = o || {};
+  const multi = !!o.multi;
+  let h = '<div class="atp-sh"><span>本地歌單</span><span class="sp"></span><small>可多選</small></div>';
+  if (o.newField) {
+    h += '<div class="atp-newf"><span class="atp-tile">' + I('plus') + '</span><div class="field"><span>夜車</span><span class="caret"></span></div><button class="btn btn-sm btn-primary">建立</button></div>';
+  } else {
+    h += '<div class="atp-row act" data-noop="1"><span class="atp-tile">' + I('plus') + '</span><div class="m"><b>新建本地歌單</b></div></div>';
+  }
+  h += ATP_LOCAL.map((x, i) => {
+    let sub = x.p.count + ' 首';
+    let init = x.has;
+    if (multi) {
+      // multi-select: preselect only when every selected track is already in it
+      const k = [2, 3, 0, 0][i];
+      init = k === 3;
+      if (k) sub += ' · <span class="has">' + (k === 3 ? '3 首都有' : '已有其中 ' + k + ' 首') + '</span>';
+    } else if (x.has) sub += ' · <span class="has">已有這首</span>';
+    const on = (o.localOn || []).includes(i) ? true : (init ? !(o.localOff || []).includes(i) : false);
+    return atpRow(x.p.name, x.p.cv, { init, on, sub });
+  }).join('');
+  return h;
+}
+// state: collapsed | loading | open; o.multiCount → "會加入其中 n 首"
+function atpRemote(src, state, o) {
+  o = o || {};
+  const S = FMP.SRC[src];
+  const r = ATP_REMOTE.netease;
+  const sub = o.multiCount
+    ? '<em>會加入其中 ' + o.multiCount + ' 首</em>（' + S.short + '的曲目）· ' + r.account
+    : r.account + ' 的遠端歌單' + (state === 'collapsed' ? ' · 點開載入' : '');
+  let h = '<div class="atp-sh"><span>' + S.name + ' · 遠端歌單</span></div>';
+  h += '<div class="atp-src" data-src="' + src + '" data-state="' + state + '"><span class="mk">' + S.svg + '</span><div class="m"><b>' + S.name + '</b><span>' + sub + '</span></div>' +
+    (state === 'loading' ? '<span class="spinner"></span>' : '<span class="chev">' + I('chevD', 's20') + '</span>') + '</div>';
+  h += '<div class="atp-srcbody">';
+  if (state === 'loading') {
+    h += '<div class="atp-load">正在載入你的網易雲音樂歌單…</div>';
+    h += [0.62, 0.48, 0.7].map((w) => '<div class="atp-skel"><i style="width:44px;height:44px;border-radius:8px"></i><span style="flex:1;display:flex;flex-direction:column;gap:7px"><i style="width:' + (w * 100) + '%;height:13px"></i><i style="width:30%;height:10px"></i></span></div>').join('');
+  } else {
+    if (o.pending) h += atpRow('日系通勤', null, { create: true, on: true, src: src, sub: '按下方按鈕時在網易雲音樂建立', tag: '<span class="atp-tag newtag">將建立</span>' });
+    else h += '<div class="atp-row act" data-noop="1"><span class="atp-tile">' + I('plus') + '</span><div class="m"><b>在網易雲音樂建立歌單</b><span>建立後才寫入，按下方按鈕時一起送出</span></div></div>';
+    h += r.lists.map((x) => {
+      const init = !o.multiCount && x.has;
+      const on = (o.on || []).includes(x.id) ? true : (init ? !(o.off || []).includes(x.id) : false);
+      let sub = x.count.toLocaleString() + ' 首';
+      if (init) sub += ' · <span class="has">已有這首</span>';
+      return atpRow(x.name, x.cv, { init, on, sub, src: src, tag: x.imported ? '<span class="atp-tag">已匯入</span>' : '' });
+    }).join('');
+    h += '<div class="atp-note">只列出你帳號底下的遠端歌單。加入成功後，已匯入的那份會自動刷新。</div>';
+  }
+  return h + '</div>';
+}
+function atpLogin(src) {
+  const S = FMP.SRC[src];
+  return '<div class="atp-sh"><span>' + S.name + ' · 遠端歌單</span></div>' +
+    '<div class="atp-src" data-state="login"><span class="mk">' + S.svg + '</span><div class="m"><b>' + S.name + '</b><span>未登入。登入後可加入你的遠端歌單（' + S.short + '的曲目 1 首）</span></div><button class="btn btn-sm btn-tinted">登入</button></div>';
+}
+function atpSum(multi, desk) {
+  if (multi) {
+    const st = '<span class="atp-stack">' + ATP_MULTI.map((t, i) => FMP.coverEl(t.cv, 40, '', 'left:' + i * 11 + 'px;z-index:' + (3 - i))).join('') + '</span>';
+    return { lead: st, title: '3 首曲目', sub: FMP.src('netease', true) + '<span>2 首</span>' + FMP.src('bilibili', true) + '<span>1 首</span>' };
+  }
+  const t = T.t01;
+  return { lead: FMP.coverEl(t.cv, desk ? 40 : 48, 'thumb'), title: '<span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc), sub: FMP.src(t.src) + FMP.esc(t.artist) };
+}
+function atpBody(o) {
+  let h = atpLocal(o);
+  h += atpRemote('netease', o.remote || 'collapsed', { multiCount: o.multi ? 2 : 0, on: o.remoteOn, off: o.remoteOff, pending: o.pending });
+  if (o.multi) h += atpLogin('bilibili');
+  return h;
+}
+function atpSheet(o) {
+  o = o || {};
+  const s = atpSum(o.multi);
+  return '<div class="sheet-wrap"><div class="lg sheet" role="dialog" style="height:780px"><div class="grab"></div>' +
+    '<div class="shead"><button class="btn btn-plain atp-cancel">取消</button><span class="stitle">加入歌單</span><span style="min-width:60px"></span></div>' +
+    '<div class="atp-sum">' + s.lead + '<div class="m"><b>' + s.title + '</b><span>' + s.sub + '</span></div></div>' +
+    '<div class="sbody atp-body">' + atpBody(o) + '</div>' +
+    '<div class="sfoot atp-foot"><div class="atp-cap"></div><button class="btn btn-primary atp-go">完成</button></div></div></div>';
+}
+function atpDialog(o) {
+  o = o || {};
+  const s = atpSum(o.multi, true);
+  let right = atpRemote('netease', o.remote || 'collapsed', { multiCount: o.multi ? 2 : 0, on: o.remoteOn, off: o.remoteOff });
+  if (o.multi) right += atpLogin('bilibili');
+  return '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:780px;height:600px">' +
+    '<div class="dlg-head atp-dh">' + s.lead + '<div class="m"><b>加入歌單</b><span>' + s.title.replace(/<span class="acc[\s\S]*$/, '') + ' · ' + s.sub + '</span></div><button class="ibtn" aria-label="關閉（Esc）">' + I('close', 's18') + '</button></div>' +
+    '<div class="dlg-body atp-cols"><div class="col">' + atpLocal(o) + '</div><div class="col">' + right + '</div></div>' +
+    '<div class="dlg-foot"><div class="atp-cap"></div><span class="c2" style="font-size:11.5px"><kbd>Esc</kbd> 取消 <kbd>⏎</kbd> 確認</span><button class="btn btn-gray">取消</button><button class="btn btn-primary atp-go">完成</button></div>' +
+    '</div></div>';
+}
+
+/* the footer reads the rows: one source of truth for label + remote-write summary */
+function atpUpdate(root) {
+  const rows = [...root.querySelectorAll('.atp-row:not([data-noop])')];
+  let add = 0, rm = 0;
+  const remote = {};
+  let multi = !!root.querySelector('.atp-stack');
+  rows.forEach((r) => {
+    const on = r.classList.contains('on');
+    const init = r.dataset.init === '1';
+    r.classList.toggle('rm', init && !on);
+    if (on === init) return;
+    if (on) add++; else rm++;
+    if (r.dataset.src !== 'local') {
+      const k = r.dataset.src;
+      (remote[k] = remote[k] || []).push((r.dataset.create ? '建立並加入' : on ? '加入' : '移出') + '「' + r.dataset.name + '」');
+    }
+  });
+  const label = !add && !rm ? '完成' : add && !rm ? '加入 ' + add + ' 個歌單' : !add ? '從 ' + rm + ' 個歌單移出' : '加入 ' + add + ' 個，移出 ' + rm + ' 個';
+  root.querySelectorAll('.atp-go').forEach((b) => { b.textContent = label; b.toggleAttribute('disabled', !add && !rm); });
+  const keys = Object.keys(remote);
+  const hasRemoteRm = keys.some((k) => remote[k].some((x) => x.startsWith('移出')));
+  const cap = keys.length
+    ? I('cloudUp') + '<span>會寫入<b>' + keys.map((k) => FMP.SRC[k].name).join('、') + '</b>：' + keys.map((k) => remote[k].join('、')).join('；') + (multi ? '（只送網易雲的 2 首）' : '') + (hasRemoteRm ? '。按下按鈕後會再確認一次移出。' : '。按下按鈕就送出，不再另外確認。') + '</span>'
+    : (add || rm) ? I('check') + '<span>只改本地歌單</span>' : I('info') + '<span>勾選要加入的歌單；已有這首的歌單預先勾好</span>';
+  root.querySelectorAll('.atp-cap').forEach((c) => (c.innerHTML = cap));
+}
+function atpWire(root) {
+  atpUpdate(root);
+  root.querySelectorAll('.atp-row:not([data-noop])').forEach((r) => r.addEventListener('click', () => {
+    r.classList.toggle('on');
+    r.setAttribute('aria-checked', r.classList.contains('on'));
+    atpUpdate(root);
+  }));
+  root.querySelectorAll('.atp-src[data-src]').forEach((h) => h.addEventListener('click', () => {
+    if (h.dataset.state === 'open') { h.dataset.state = 'collapsed'; return; }
+    if (h.dataset.state !== 'collapsed') return;
+    // demo: show the loading state, then the loaded list
+    const body = h.nextElementSibling;
+    const keep = body.innerHTML;
+    h.dataset.state = 'loading';
+    const chev = h.querySelector('.chev');
+    chev.outerHTML = '<span class="spinner"></span>';
+    body.innerHTML = '<div class="atp-load">正在載入你的網易雲音樂歌單…</div>';
+    setTimeout(() => {
+      const fresh = document.createElement('div');
+      fresh.innerHTML = atpRemote(h.dataset.src, 'open', { multiCount: root.querySelector('.atp-stack') ? 2 : 0 });
+      h.querySelector('.spinner').outerHTML = '<span class="chev">' + I('chevD', 's20') + '</span>';
+      h.dataset.state = 'open';
+      body.innerHTML = fresh.querySelector('.atp-srcbody').innerHTML;
+      body.querySelectorAll('.atp-row:not([data-noop])').forEach((r) => r.addEventListener('click', () => { r.classList.toggle('on'); atpUpdate(root); }));
+      void keep;
+    }, 900);
+  }));
+}
+
+/* backgrounds the sheet opens over */
+function atpBgList(multi) {
+  const rows = [T.t01, T.t04, T.t03, T.t02, T.t07, T.t12, T.t10, T.t14, T.t20];
+  const sel = multi ? [0, 1, 2] : [];
+  return '<div class="lt" style="padding-top:58px"><div class="ty-large">深夜寫程式</div></div>' +
+    rows.map((t, i) => FMP.trackRow(t, multi ? { check: sel.includes(i), more: false } : {})).join('');
+}
+function atpPhone(ctx, o) {
+  o = o || {};
+  const top = o.multi
+    ? FMP.ptop('已選擇 3 項', FMP.gbtn('close', '退出多選'), '<button class="lg gbtn" data-adapt style="width:auto;padding:0 16px;font-size:15px;font-weight:600">全選</button>', 110)
+    : FMP.ptop('深夜寫程式', FMP.gbtn('chevL', '返回'), FMP.gbtn('more', '更多'));
+  return FMP.phone(ctx, { content: atpBgList(o.multi), top: top, dock: o.dock === false ? false : { tab: 'library' }, overlay: o.overlay });
+}
+function atpDesk(ctx, o) {
+  o = o || {};
+  const rows = [T.t01, T.t04, T.t03, T.t02, T.t07, T.t12, T.t10, T.t14, T.t20, T.t22, T.t24];
+  const content = '<div style="padding:66px 28px 120px 8px"><div class="ty-large" style="margin-bottom:6px">深夜寫程式</div><div class="c2 ty-foot" style="margin-bottom:18px">128 首 · 9 小時 14 分</div>' +
+    rows.map((t, i) => FMP.trackRow(t, { desk: true, check: o.multi ? i < 3 : undefined })).join('') + '</div>';
+  return FMP.desktop(ctx, { nav: 'library', pl: 'code', content: content, top: '<span class="wt">深夜寫程式</span>', overlay: o.overlay });
+}
+const atpAlert = '<div class="dialog-wrap" style="z-index:85"><div class="lg alert"><h4>從遠端歌單移除？</h4><p>會從你網易雲音樂帳號的「華語私藏 2026」移除 1 首（夜行列車）。同時把這首加入本地歌單「週末慢活」。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">移除並儲存</button></div></div></div>';
+
+FMP.page({
+  title: '加入歌單',
+  intro: '<p>同一個對話框裡有本地歌單，也有選取曲目所屬音源、你帳號底下的遠端歌單。遠端的區塊預設收起，點開才向音源載入。對話框本身就是建立與加入的確認（brief §7）：底部一行寫清楚按下去會寫到哪個音源的哪個歌單，按鈕文字跟著變更改變。</p><p>手機稿可以操作：勾選或取消勾選看按鈕與說明怎麼變；點收起的網易雲音樂區塊會先轉圈再展開。</p>',
+  sections: [
+    {
+      title: '手機：單曲與多曲',
+      desc: '手機是浮起的 sheet，桌面是置中對話框，都用共用的厚玻璃（不折射、重霧化），一整排歌單列也讀得清。',
+      frames: [
+        { kind: 'phone', label: '單曲', render: (ctx) => atpPhone(ctx, { overlay: atpSheet({ localOn: [2] }) }), after: atpWire },
+        { kind: 'phone', label: '多曲、跨音源', render: (ctx) => atpPhone(ctx, { multi: true, dock: false, overlay: atpSheet({ multi: true, localOn: [2] }) }), after: atpWire },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>頂部摘要：單曲是封面、曲名＋存取等級、音源＋歌手；多曲是疊起來的封面、「3 首曲目」與各音源各幾首。</li>' +
+        '<li>本地歌單：第一列「新建本地歌單」，接著是全部本地歌單（匯入歌單是唯讀鏡像，不能加，不列在這裡；它對應的遠端歌單會出現在遠端區塊並標「已匯入」）。</li>' +
+        '<li>開啟時預選已經有這首的歌單，副標寫「已有這首」。多曲時只有全部都有才預選；部分有的寫「已有其中 1 首」，勾了只補沒有的那幾首。</li>' +
+        '<li>遠端區塊只列選取曲目所屬的音源。多選跨音源時，每個音源的標頭寫「會加入其中 2 首（網易雲的曲目）」：遠端歌單只收自己音源的曲目。</li>' +
+        '<li>沒登入的音源只有一列：說明與「登入」，登入回來後這一塊變成可展開的區塊。</li>' +
+        '<li>主按鈕依變更：「完成」（沒變更時停用）、「加入 2 個歌單」、「從 1 個歌單移出」、「加入 1 個，移出 1 個」。按鈕上方一行說明：只改本地，或「會寫入網易雲音樂：加入「通勤日推收藏」」。</li></ul>',
+    },
+    {
+      title: '手機：遠端區塊',
+      frames: [
+        { kind: 'phone', label: '展開載入中', render: (ctx) => atpPhone(ctx, { overlay: atpSheet({ remote: 'loading' }) }), after: atpWire },
+        { kind: 'phone', label: '展開後', render: (ctx) => atpPhone(ctx, { overlay: atpSheet({ remote: 'open', localOn: [2], remoteOn: ['n2'] }) }), after: (root) => { atpWire(root); const b = root.querySelector('.atp-body'); b.scrollTop = 170; } },
+        { kind: 'phone', label: '建立新歌單', render: (ctx) => atpPhone(ctx, { overlay: atpSheet({ remote: 'open', newField: true, pending: true }) }), after: atpWire },
+      ],
+      notes: '<ul><li>點收起的音源標頭才向音源載入（遠端讀取也算對帳號的請求，預設不打）：標頭的箭頭換成轉圈，下方三列骨架與「正在載入你的網易雲音樂歌單…」。載入失敗在同一處寫原因與「重試」。</li>' +
+        '<li>展開後第一列「在網易雲音樂建立歌單」，再列出帳號底下的遠端歌單；已有這首的預選；已匯入的標「已匯入」，加入成功後那份匯入歌單自動刷新（brief §7）。</li>' +
+        '<li>建立新歌單：本地與遠端不一樣。本地歌單在列上就地輸入名稱、按「建立」立刻建立並勾好（只動本機）。遠端歌單輸入名稱後先變成一列「將建立」的待送項目，和其他變更一起在按下主按鈕時送出：遠端寫入包含建立歌單，所以也由這個對話框確認。</li></ul>',
+    },
+    {
+      title: '手機：移出遠端的再確認與結果',
+      frames: [
+        { kind: 'phone', label: '取消勾選遠端：再確認', render: (ctx) => atpPhone(ctx, { overlay: atpSheet({ remote: 'open', localOn: [2], remoteOff: ['n1'] }) + atpAlert }), after: (root) => { atpWire(root); root.querySelector('.atp-body').scrollTop = 170; } },
+        { kind: 'phone', label: '完成提示', render: (ctx) => atpPhone(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已加入 2 個歌單。網易雲音樂的「通勤日推收藏」已更新</span></span>', { style: 'bottom:176px;padding-right:18px' }) }) },
+        { kind: 'phone', label: '失敗提示', render: (ctx) => atpPhone(ctx, { overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px">' + I('warn', 's18') + '<span>網易雲音樂寫入失敗：登入已失效。「通勤日推收藏」沒有改動；本地歌單「週末慢活」已加入</span></span><button class="btn btn-tinted">重新登入</button>', { style: 'bottom:176px' }) }) },
+      ],
+      notes: '<h3>移出遠端</h3><ul><li>取消勾選一個本來有這首的遠端歌單：那一列劃線並標紅色「將移出」，按鈕變「加入 1 個，移出 1 個」。按下時跳確認框，寫出歌單名稱與曲目數（brief §7：移除每次都確認），連同這次其他變更一起說明。本地歌單的移出不另外確認。</li></ul>' +
+        '<h3><span class="rv-ab">A</span>／<span class="rv-ab">B</span> 什麼時候確認</h3><ul>' +
+        '<li><b>A 按主按鈕時確認（圖上這樣做）</b>：取消勾選只先標「將移出」，按下主按鈕才跳一次確認，列出這次全部的遠端移出。勾錯了可以直接勾回來，不會被打斷。</li>' +
+        '<li><b>B 取消勾選當下確認</b>：一取消勾選就跳確認，確認後那一列才變成未勾。比較直覺，但連續移出多個歌單要按很多次。</li>' +
+        '<li>我推薦 <b>A</b>：對話框本身是確認的單位，所有寫入在同一刻送出；確認框也能一次寫完整（哪些歌單、幾首）。</li></ul>' +
+        '<h3>結果</h3><ul><li>成功：一則提示寫加入了幾個歌單，有遠端的話點名更新了哪個遠端歌單。</li>' +
+        '<li>失敗：失敗的遠端歌單本機一律不改動（匯入歌單保持原樣），提示寫原因、哪個歌單沒改，和已經成功的本地部分；動作依錯誤類別（登入失效給「重新登入」、網路錯誤給「重試」，brief §13）。</li></ul>',
+    },
+    {
+      title: '桌面：置中對話框',
+      desc: '桌面寬度夠，本地與遠端左右兩欄並排，不用捲；底部左邊是寫入說明與鍵盤提示，右邊取消與主按鈕。',
+      frames: [
+        { kind: 'desktop', label: '多曲、跨音源（網易雲展開）', render: (ctx) => atpDesk(ctx, { multi: true, overlay: atpDialog({ multi: true, remote: 'open', localOn: [2], remoteOn: ['n2'] }) }), after: atpWire },
+        { kind: 'desktop', label: '單曲：移出遠端再確認', render: (ctx) => atpDesk(ctx, { overlay: atpDialog({ remote: 'open', localOn: [2], remoteOff: ['n1'] }) + atpAlert }), after: atpWire },
+      ],
+      notes: '<ul><li>對話框從曲目的右鍵選單、多選列、播放頁頂列的「加入歌單」打開；Esc 取消、⏎ 確認。</li><li>欄內各自捲動；遠端欄同樣預設收起、點開才載入。</li><li>移出遠端的確認框疊在對話框上（同一個 alert 元件）。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FMP D 設計稿（重做 B）</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+  .ix-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; max-width: 1280px; }
+  .ix-card { display: block; background: #fff; border-radius: 16px; padding: 16px 18px 18px; color: inherit; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,.06); transition: transform 160ms cubic-bezier(.22,1,.36,1), box-shadow 160ms; }
+  .ix-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .ix-card b { display: block; font-size: 16px; margin-bottom: 4px; }
+  .ix-card span { display: block; color: #55525F; font-size: 13px; line-height: 1.5; }
+  .ix-table { border-collapse: collapse; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.06); max-width: 1100px; font-size: 13.5px; }
+  .ix-table th, .ix-table td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid #EEEDF2; }
+  .ix-table th { background: #F6F5F9; font-weight: 600; color: #3B3944; }
+  .ix-table tr:last-child td { border-bottom: 0; }
+  .ix-table a { color: #4B39E6; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const pages = [
+  ['system.html', '設計系統', '材質（Liquid Glass 三個等級）、強調色提案、顏色、字級、音源與存取等級標識、元件、動態。'],
+  ['shell.html', 'App 外殼與迷你播放器', '手機三項導覽＋獨立搜尋鈕，捲動時收合變形；桌面浮動玻璃側欄、右側詳情面板、底部播放膠囊。'],
+  ['search.html', '搜尋與結果', '底部搜尋欄、音源篩選與排序；「歌單中」與「線上結果」混排；分 P、單一音源出錯、多選。'],
+  ['library.html', '音樂庫', '歌單封面網格；排序、新建、匯入歌單（貼連結）；空狀態、刷新中。'],
+  ['playlist.html', '歌單詳情', '本地歌單與匯入歌單；播放全部、刷新、複製成本地歌單；多選與遠端移除確認。'],
+  ['queue.html', '佇列', '隨機與循環兩顆文字切換鈕；摺線分開播過與接下來；臨時播放狀態。'],
+  ['player.html', '全螢幕播放頁', '背景跟封面取色；歌詞同步、翻譯、偏移、歌詞搜尋；試聽標示；桌面歌詞／佇列切換。'],
+  ['add-to-playlist.html', '加入歌單對話框', '本地歌單＋各音源自己的遠端歌單（收起、點開才載入）；取消勾選遠端要再確認。'],
+  ['account.html', '帳號與登入', '各音源帳號、會員狀態與到期提示；QR、WebView、貼上 cookie。'],
+  ['plugins.html', '插件管理', '插件能力與網域；手動檢查更新、SHA-256 比對、權限變多再確認。'],
+  ['settings.html', '設定', '帳號與插件入口、外觀、播放、歌詞、匯入歌單、儲存空間、資料、關於。'],
+  ['backup-import.html', '匯入舊版備份', '說明、預覽、略過播放歷史與電台、進度、結果。'],
+];
+FMP.page({
+  title: 'FMP D 設計稿（重做 B）',
+  noSynthetic: true,
+  intro: '<p>FMP 新版第一版全部頁面的設計稿（brief §11）：每頁有手機（390×844）與桌面（1280×800）版，深淺色並排。這是和 main 上那份 D 設計稿對比用的重做，沒有參考任何先前的設計。</p>' +
+    '<p>上方工具列的設定會帶到每一頁：<b>外觀</b>（並排／深／淺）、<b>玻璃</b>（折射／標準／最低）、<b>玻璃範圍</b>（A 控制層／B 延伸）、<b>強調色</b>（A 有／B 無）。手機稿可以捲動，導覽與迷你播放器會跟著變形；點導覽、側欄、迷你播放器可以換頁。</p>' +
+    '<p>玻璃的折射要用 Chrome 或 Edge 看；Safari 與 Firefox 會自動退到「標準」等級（只有模糊，沒有折射）。封面、曲名、歌手、帳號都是虛構的示範資料。</p>',
+  sections: [
+    { title: '頁面', html: '<div class="ix-grid">' + pages.map(([h, t, d]) => '<a class="ix-card" href="' + h + '"><b>' + t + '</b><span>' + d + '</span></a>').join('') + '</div>' },
+    { title: '這份稿訂下的事（待擁有者確認後寫回 brief §11）', html: '<table class="ix-table"><tr><th style="width:180px">項目</th><th>提案</th><th style="width:260px">在哪裡看</th></tr>' +
+      '<tr><td>材質</td><td>iOS 26／macOS 26 的 Liquid Glass：會折射、邊緣高光、色調隨底下內容翻轉、控制項是會變形的膠囊。三個等級對應 Flutter 的 premium／standard／minimal，Windows 最高到標準。</td><td><a href="system.html">設計系統</a></td></tr>' +
+      '<tr><td>手機導覽</td><td>音樂庫、佇列、設定三項，搜尋獨立成右側圓鈕；往下捲時導覽收成圓鈕、迷你播放器併入同一列。帳號與插件從設定進入（已定）。</td><td><a href="shell.html">外殼</a></td></tr>' +
+      '<tr><td>桌面外殼</td><td>左側浮動玻璃側欄：搜尋欄、音樂庫、佇列、全部歌單、設定；右側詳情面板（已定保留）；底部浮動播放膠囊。</td><td><a href="shell.html">外殼</a></td></tr>' +
+      '<tr><td>強調色</td><td>固定的堇紫 #5E4BFF（深色文字 #A396FF），不跟封面取色；封面取色只用在播放頁背景（已定）。</td><td><a href="system.html">設計系統</a></td></tr>' +
+      '<tr><td>存取等級</td><td>會員（金底）、付費（金框）、試聽（藍底半圓）；免費與未知不顯示。</td><td><a href="system.html">設計系統</a></td></tr>' +
+      '<tr><td>字體</td><td>各平台系統字，不打包、不提供選項（已定不提供字體選項）。</td><td><a href="system.html">設計系統</a></td></tr></table>' },
+    { title: '請你選的 A／B', html: '<table class="ix-table"><tr><th style="width:180px">爭議</th><th><span class="rv-ab">A</span></th><th><span class="rv-ab">B</span></th><th style="width:120px">推薦</th></tr>' +
+      '<tr><td>玻璃範圍（brief §2.3 寫玻璃只用在控制層）</td><td>照 §2.3：側欄、播放膠囊、導覽、按鈕、浮層是玻璃；桌面詳情面板與播放頁的歌詞／佇列欄是實心內容。</td><td>突破：桌面詳情面板與播放頁右欄也變成浮動玻璃板，底下的內容與封面色透出來。</td><td>A</td></tr>' +
+      '<tr><td>強調色</td><td>固定堇紫。</td><td>不用強調色，選取與主要動作用主文字色。</td><td>A</td></tr>' +
+      '<tr><td>播放頁桌面右欄（<a href="player.html">播放頁</a>）</td><td>歌詞或佇列直接放在封面色背景上。</td><td>右欄是一塊清玻璃板。跟著「玻璃範圍」切換。</td><td>A</td></tr>' +
+      '<tr><td>取消勾選遠端歌單的確認時機（<a href="add-to-playlist.html">加入歌單</a>）</td><td>按主按鈕時一次確認全部的遠端移出。</td><td>取消勾選的當下就確認。</td><td>A</td></tr>' +
+      '<tr><td colspan="4" style="color:#55525F">做稿時另外訂了一些還沒經你確認的細節（例如桌面單擊選取、雙擊播放），彙整在 <code>DESIGN.md</code>〈待確認〉。</td></tr></table>' },
+  ],
+});
+</script>
+</body>
+</html>

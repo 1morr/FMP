@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音樂庫 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+[class^="lib-"], [class*=" lib-"] { box-sizing: border-box; }
+/* ---- cards ---- */
+.lib-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; padding: 4px 20px 0; }
+.desk .lib-grid { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 22px 18px; padding: 0; }
+.lib-card { display: flex; flex-direction: column; gap: 7px; min-width: 0; position: relative; }
+.lib-card .cw { position: relative; }
+.lib-card .cw > .cover { width: 100%; aspect-ratio: 1; border-radius: 12px; }
+.desk .lib-card .cw > .cover { border-radius: 10px; }
+.lib-card .nm { font-size: 15px; line-height: 1.3; font-weight: 500; }
+.lib-card .sb { font-size: 13px; color: var(--label-2); display: flex; align-items: center; gap: 5px; margin-top: 1px; white-space: nowrap; }
+.lib-card .sb .src-name { color: var(--label-2); font-size: 13px; }
+.desk .lib-card .nm { font-size: 13px; }
+.desk .lib-card .sb, .desk .lib-card .sb .src-name { font-size: 12px; }
+.lib-card .sb .dot { color: var(--label-3); }
+.lib-card .sb .err { color: var(--warn); display: inline-flex; align-items: center; gap: 3px; }
+.lib-card .sb .err svg.i { width: 13px; height: 13px; }
+/* refreshing: dim the cover, determinate ring */
+.lib-ring { position: absolute; inset: 0; display: grid; place-items: center; border-radius: inherit; background: color-mix(in srgb, var(--bg) 45%, transparent); }
+.lib-card .cw .lib-ring { border-radius: 12px; }
+.lib-ring svg { width: 54px; height: 54px; transform: rotate(-90deg); }
+.lib-ring circle { fill: none; stroke-width: 4; stroke-linecap: round; }
+.lib-ring .tr { stroke: color-mix(in srgb, var(--label) 18%, transparent); }
+.lib-ring .pr { stroke: var(--label); }
+.lib-ring b { position: absolute; font: 700 13px var(--font-num); color: var(--label); }
+.desk .lib-ring svg { width: 44px; height: 44px; }
+.desk .lib-ring b { font-size: 11px; }
+/* desktop hover: glass play + more over the cover */
+.lib-hov .cw > .cover { filter: brightness(.92); }
+.lib-cplay { position: absolute; left: 8px; bottom: 8px; width: 38px; height: 38px; border-radius: 19px; display: grid; place-items: center; z-index: 2; }
+.lib-cplay svg.i { width: 18px; height: 18px; }
+.lib-cmore { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; z-index: 2; }
+.lib-cmore svg.i { width: 16px; height: 16px; }
+.lib-rsel .cw > .cover { box-shadow: 0 0 0 3px var(--accent); }
+/* drag sort */
+.lib-slot { width: 100%; aspect-ratio: 1; border-radius: 12px; box-shadow: inset 0 0 0 1.5px var(--sep-strong); background: var(--fill); }
+.lib-lift { position: absolute; z-index: 20; transform: scale(1.06) rotate(-2deg); }
+.lib-lift .cw > .cover { box-shadow: var(--shadow-float); }
+.lib-sorting .lib-card:not(.lib-lift) .cw > .cover { animation: lib-jiggle 260ms ease-in-out infinite alternate; }
+.lib-sorting .lib-card:nth-child(2n) .cw > .cover { animation-delay: -130ms; }
+@keyframes lib-jiggle { from { transform: rotate(-.8deg); } to { transform: rotate(.8deg); } }
+@media (prefers-reduced-motion: reduce) { .lib-sorting .lib-card .cw > .cover { animation: none; } }
+.lib-hint { padding: 0 20px 14px; font-size: 13px; color: var(--label-2); }
+
+/* ---- top bar text capsule ---- */
+.lib-gtext { height: 44px; padding: 0 18px; border-radius: var(--r-cap); font-size: 16px; font-weight: 600; display: inline-flex; align-items: center; color: var(--glass-ink); }
+.lib-gtext.acc { color: var(--accent); }
+
+/* ---- empty ---- */
+.lib-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 120px 36px 0; gap: 8px; }
+.lib-empty .big { width: 72px; height: 72px; border-radius: 22px; background: var(--fill); display: grid; place-items: center; color: var(--label-2); margin-bottom: 10px; }
+.lib-empty .big svg.i { width: 34px; height: 34px; }
+.lib-empty .ty-title2 { margin-bottom: 2px; }
+.lib-empty .acts { display: flex; gap: 10px; margin-top: 20px; }
+
+/* ---- context menu (phone + desktop) ---- */
+.lib-scrim { position: absolute; inset: 0; z-index: 64; background: var(--scrim); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.lib-preview { position: absolute; z-index: 66; left: 24px; top: 128px; width: 196px; }
+.lib-preview .cw > .cover { box-shadow: var(--shadow-float); }
+.lib-preview .nm { color: var(--label); }
+
+/* ---- sheets & dialogs ---- */
+/* kit gap: the second line of a highlighted desktop menu item keeps glass-ink-2 */
+/* page content inside the shared sheet/dialog */
+.lib-form { padding: 6px 16px 4px; display: flex; flex-direction: column; gap: 10px; }
+.lib-form .src-chip { background: color-mix(in srgb, var(--glass-ink) 10%, transparent); color: var(--glass-ink); }
+.dlg .lib-form { padding: 0; }
+.desk .lib-f { min-height: 34px; font-size: 13px; border-radius: 8px; padding: 0 10px; gap: 8px; }
+.desk .lib-f > svg.i { width: 15px; height: 15px; }
+.desk .lib-lab { font-size: 11.5px; font-weight: 600; padding: 4px 2px 0; }
+.desk .lib-tip { font-size: 11.5px; line-height: 15px; padding: 0 2px; }
+.desk .lib-sw { min-height: 48px; padding: 6px 12px; border-radius: 10px; }
+.desk .lib-sw .gl { font-size: 13px; }
+.desk .lib-sw .gl small { font-size: 11.5px; line-height: 15px; }
+.desk .lib-form .src-chip { height: 20px; font-size: 11.5px; }
+
+.lib-f { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border-radius: 14px; background: color-mix(in srgb, var(--glass-ink) 7%, transparent); font-size: 17px; color: var(--glass-ink); }
+.lib-f .ph { color: var(--glass-ink-2); }
+.lib-f .v { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-f > svg.i { width: 19px; height: 19px; color: var(--glass-ink-2); }
+.lib-f.ta { align-items: flex-start; min-height: 88px; padding-top: 15px; }
+.lib-f.bad { box-shadow: inset 0 0 0 1.5px var(--danger); }
+.lib-f .caret { display: inline-block; width: 2px; height: 21px; vertical-align: -4px; background: var(--accent); border-radius: 1px; }
+.lib-lab { font-size: 13px; color: var(--glass-ink-2); padding: 6px 4px 0; }
+.lib-tip { font-size: 13px; line-height: 18px; color: var(--glass-ink-2); padding: 0 4px; }
+.lib-tip.bad { color: var(--danger); display: flex; gap: 6px; }
+.lib-tip.bad svg.i { width: 16px; height: 16px; margin-top: 1px; }
+.lib-sw { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; border-radius: 14px; background: color-mix(in srgb, var(--glass-ink) 7%, transparent); }
+.lib-sw .gl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 16px; color: var(--glass-ink); }
+.lib-sw .gl small { font-size: 13px; line-height: 17px; color: var(--glass-ink-2); display: flex; align-items: center; gap: 5px; }
+.lib-sw.hl { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.lib-prog { display: flex; flex-direction: column; gap: 14px; padding: 6px 16px 0; }
+.lib-prog .hd { display: flex; align-items: center; gap: 14px; }
+.lib-prog .hd .cover { width: 72px; height: 72px; border-radius: 12px; }
+.lib-prog .hd b { display: block; font-size: 19px; line-height: 24px; font-weight: 700; color: var(--glass-ink); }
+.lib-prog .hd span { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--glass-ink-2); margin-top: 4px; }
+.lib-bar { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--glass-ink) 12%, transparent); overflow: hidden; }
+.lib-bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent-fill); }
+.lib-pt { display: flex; justify-content: space-between; font-size: 13px; color: var(--glass-ink-2); margin-top: -6px; }
+.lib-pt b { color: var(--glass-ink); font-weight: 600; }
+.lib-steps { display: flex; flex-direction: column; gap: 0; border-radius: 14px; background: color-mix(in srgb, var(--glass-ink) 7%, transparent); padding: 4px 14px; }
+.lib-steps .st { display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 15px; color: var(--glass-ink); }
+.lib-steps .st + .st { box-shadow: inset 0 .5px 0 color-mix(in srgb, var(--glass-ink) 10%, transparent); }
+.lib-steps .st .ic { width: 22px; height: 22px; display: grid; place-items: center; flex: none; }
+.lib-steps .st .ic svg.i { width: 18px; height: 18px; }
+.lib-steps .st.done .ic { color: var(--ok); }
+.lib-steps .st.todo { color: var(--glass-ink-2); }
+.lib-steps .st .ic .dotc { width: 8px; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--glass-ink) 25%, transparent); }
+.lib-steps .st .n { margin-left: auto; font: 500 13px var(--font-num); color: var(--glass-ink-2); }
+.lib-kbd { font: 500 11px var(--font-num); color: var(--glass-ink-2); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const PL = FMP.PL;
+
+/* ---------------- cards ---------------- */
+// the user's own order: local and imported mixed, as people actually arrange them
+const LIB_ORDER = ['commute', 'covers', 'code', 'lofi', 'weekend', 'cpop', 'learn', 'live'];
+function libRing(pct) {
+  const r = 22, c = 2 * Math.PI * r;
+  return '<span class="lib-ring"><svg viewBox="0 0 54 54"><circle class="tr" cx="27" cy="27" r="' + r + '"/><circle class="pr" cx="27" cy="27" r="' + r + '" stroke-dasharray="' + (c * pct / 100).toFixed(1) + ' ' + c.toFixed(1) + '"/></svg><b>' + pct + '%</b></span>';
+}
+function libCard(p, o) {
+  o = o || {};
+  const cls = ['lib-card'];
+  if (o.hov) cls.push('lib-hov');
+  if (o.rsel) cls.push('lib-rsel');
+  if (o.cls) cls.push(o.cls);
+  let sub;
+  if (o.refreshing) sub = '<span>刷新中…</span>';
+  else if (o.failed) sub = FMP.src(p.src) + '<span class="err">' + I('warn') + '刷新失敗</span>';
+  else if (p.kind === 'imported') sub = FMP.src(p.src, true) + '<span class="dot">·</span><span class="num">' + p.count + ' 首</span>';
+  else sub = '<span class="num">' + p.count + ' 首</span>';
+  const over = (o.refreshing ? libRing(o.refreshing) : '') +
+    (o.hov ? '<button class="lg lib-cplay" data-adapt aria-label="播放全部">' + I('play') + '</button><button class="lg lib-cmore" data-adapt aria-label="更多">' + I('more') + '</button>' : '');
+  return '<div class="' + cls.join(' ') + '" style="' + (o.style || '') + '"><div class="cw">' + FMP.coverEl(p.cv) + over + '</div>' +
+    '<div style="min-width:0"><div class="nm ell">' + FMP.esc(p.name) + '</div><div class="sb">' + sub + '</div></div></div>';
+}
+function libGrid(o) {
+  o = o || {};
+  const order = o.order || LIB_ORDER;
+  return '<div class="lib-grid' + (o.cls ? ' ' + o.cls : '') + '">' + order.map((id) => {
+    if (id === '_slot') return '<div class="lib-card"><div class="lib-slot"></div></div>';
+    const s = (o.state || {})[id] || {};
+    return libCard(PL[id], s);
+  }).join('') + '</div>';
+}
+const LIB_TITLE = '<div class="lt" style="padding-top:58px"><div class="ty-large">音樂庫</div></div>';
+function libPhone(ctx, o) {
+  o = o || {};
+  const right = o.right !== undefined ? o.right : FMP.gpill([['sort', '排序歌單'], ['plus', '新建歌單'], ['link', '匯入歌單']]);
+  return FMP.phone(ctx, {
+    content: (o.title || LIB_TITLE) + (o.body !== undefined ? o.body : libGrid(o.grid)),
+    top: FMP.ptop(o.inline || '音樂庫', o.left || '', right, 150),
+    dock: o.dock !== undefined ? o.dock : { tab: 'library' },
+    overlay: o.overlay,
+  });
+}
+
+/* ---------------- menu ---------------- */
+function libMenu(p, style, o) {
+  o = o || {};
+  const mi = (icon, label, small, cls, k) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + (small ? '<small>' + small + '</small>' : '') + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
+  const imp = p.kind === 'imported';
+  return '<div class="lg gmenu" data-adapt role="menu" style="' + style + '">' +
+    mi('play', '播放全部', o.desk ? '' : '取代目前的佇列', o.hl === 'play' ? 'hl' : '') + mi('shuffle', '隨機播放') +
+    '<div class="ms"></div>' + mi('edit', '編輯…', '', o.hl === 'edit' ? 'hl' : '', o.desk ? '⌘I' : '') +
+    (imp ? mi('refresh', '立即刷新', '上次 ' + p.last, o.hl === 'refresh' ? 'hl' : '', o.desk ? '⌘R' : '') : '') +
+    '<div class="ms thick"></div>' + mi('trash', '刪除歌單', imp ? '只刪 FMP 裡的鏡像，' + (p.src === 'youtube' ? 'YouTube ' : FMP.SRC[p.src].short) + '上的歌單不受影響' : '', 'danger', o.desk ? '⌘⌫' : '') + '</div>';
+}
+
+/* ---------------- sheets ---------------- */
+function libSheet(title, body, o) {
+  o = o || {};
+  return '<div class="sheet-wrap"><div class="sheet lg" role="dialog" style="' + (o.style || '') + '"><div class="grab"></div><div class="shead">' +
+    FMP.gbtn('close', '取消') + '<span class="stitle">' + title + '</span>' +
+    (o.ok === false ? '<span style="width:44px"></span>' : '<button class="gbtn acc-solid" aria-label="完成"' + (o.okDisabled ? ' disabled' : '') + '>' + I('check') + '</button>') + '</div>' + body + '</div></div>';
+}
+function libImportBody(o) {
+  o = o || {};
+  const link = o.link === false ? '<span class="v ph">貼上歌單連結</span>' : '<span class="v">' + (o.link || 'https://www.bilibili.com/medialist/detail/ml***') + '</span>';
+  const det = o.src ? FMP.srcChip(o.src, true) : '';
+  return '<div class="sbody"><div class="lib-form">' +
+    '<div class="lib-f' + (o.bad ? ' bad' : '') + '">' + I('link') + link + det + '</div>' +
+    (o.bad ? '<div class="lib-tip bad">' + I('warn') + '<span>' + o.bad + '</span></div>' : '<div class="lib-tip">支援 Bilibili 收藏夾與合集、YouTube 播放清單、網易雲歌單的分享連結。</div>') +
+    '<div class="lib-lab">歌單名稱（選填）</div><div class="lib-f"><span class="v ph">沿用遠端的名稱</span></div>' +
+    '<div class="lib-sw' + (o.hlSwitch ? ' hl' : '') + '"><div class="gl">使用登入狀態匯入<small>' + (o.src ? FMP.src(o.src) + '已登入 ' + FMP.SRC[o.src].name + '・私人歌單需要開啟' : '讀取私人歌單需要先登入該音源') + '</small></div><span class="switch' + (o.on ? ' on' : '') + '"></span></div>' +
+    '</div></div><div class="sfoot"><button class="btn btn-primary"' + (o.disabled ? ' disabled' : '') + '>' + (o.cta || '匯入') + '</button></div>';
+}
+function libProgBody(o) {
+  o = o || {};
+  const p = PL.covers;
+  return '<div class="sbody"><div class="lib-prog"><div class="hd">' + FMP.coverEl(p.cv, 72) + '<div style="min-width:0"><b>' + p.name + '</b><span>' + FMP.src('bilibili', 'full') + '<span>·</span><span>' + p.owner + '</span><span>·</span><span class="num">' + p.count + ' 首</span></span></div></div>' +
+    '<div class="lib-bar"><i style="width:60%"></i></div><div class="lib-pt"><span>正在讀取曲目</span><b class="num">128 / 214</b></div>' +
+    '<div class="lib-steps"><div class="st done"><span class="ic">' + I('check') + '</span>取得歌單資訊</div>' +
+    '<div class="st"><span class="ic"><span class="spinner"></span></span>讀取曲目<span class="n">128 / 214</span></div>' +
+    '<div class="st todo"><span class="ic"><span class="dotc"></span></span>建立匯入歌單</div></div>' +
+    '<div class="lib-tip">可以先關掉這個視窗，匯入會在背景繼續，音樂庫的卡片會顯示進度。</div></div></div>' +
+    '<div class="sfoot"><button class="btn btn-gray">在背景繼續</button></div>';
+}
+
+/* ---------------- desktop ---------------- */
+function libDesk(ctx, o) {
+  o = o || {};
+  const content = '<div style="padding:66px 28px 120px 8px"><div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px"><div><div class="ty-large">音樂庫</div><div class="c2" style="font-size:12px;margin-top:2px">8 張歌單 · 4 張本地、4 張匯入</div></div>' +
+    '<div style="display:flex;gap:6px"><button class="btn btn-gray btn-sm">' + I('sort', 's16') + '排序</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入歌單…</button><button class="btn btn-primary btn-sm">' + I('plus', 's16') + '新建歌單</button></div></div>' +
+    libGrid(o.grid) + '</div>';
+  return FMP.desktop(ctx, { nav: 'library', content, top: '<span class="wt">音樂庫</span>', detail: o.detail, overlay: o.overlay });
+}
+function libDeskImport() {
+  return '<div class="dialog-wrap"><div class="lg dlg" role="dialog"><div class="dlg-head"><span class="dt">匯入歌單</span><button class="ibtn" aria-label="關閉">' + I('close', 's16') + '</button></div><div class="dlg-body"><div class="lib-form">' +
+    '<div class="lib-lab">歌單連結</div><div class="lib-f">' + I('link') + '<span class="v">https://music.163.com/playlist?id=***</span>' + FMP.srcChip('netease', true) + '</div>' +
+    '<div class="lib-tip">支援 Bilibili 收藏夾與合集、YouTube 播放清單、網易雲歌單的分享連結。</div>' +
+    '<div class="lib-lab">歌單名稱（選填）</div><div class="lib-f"><span class="v ph">沿用遠端的名稱</span></div>' +
+    '<div class="lib-sw"><div class="gl">使用登入狀態匯入<small>' + FMP.src('netease') + '已登入網易雲音樂・私人歌單需要開啟</small></div><span class="switch on"></span></div>' +
+    '</div></div><div class="dlg-foot"><span class="lib-kbd" style="margin-right:auto">預設每 6 小時自動刷新</span><button class="btn btn-gray">取消</button><button class="btn btn-primary">匯入</button></div></div></div>';
+}
+
+/* ---------------- page ---------------- */
+const ALL = FMP.playlists.map((p) => p.id);
+FMP.page({
+  title: '音樂庫',
+  intro: '<p>音樂庫是自己的歌單封面牆：本地歌單與匯入歌單排在同一個網格，順序由使用者拖曳決定。匯入歌單的副標寫音源（符號＋簡稱），不用點進去就知道它鏡像的是哪裡的歌單。</p><p>頂列三個動作照舊版：排序歌單、新建歌單、匯入歌單。音樂庫沒有多選。</p>',
+  sections: [
+    {
+      title: '手機：主畫面與空狀態',
+      frames: [
+        { kind: 'phone', label: '主畫面', render: (ctx) => libPhone(ctx) },
+        { kind: 'phone', label: '刷新中、刷新完成提示', render: (ctx) => libPhone(ctx, { grid: { state: { covers: { refreshing: 56 }, cpop: { failed: true } } },
+          overlay: FMP.toast('<span>「Lo-fi Focus」已刷新：多了 3 首</span><button class="btn btn-tinted">查看</button>', { style: 'bottom:176px' }) }) },
+        { kind: 'phone', label: '空狀態', render: (ctx) => libPhone(ctx, { dock: { tab: 'library', track: false }, right: FMP.gpill([['plus', '新建歌單'], ['link', '匯入歌單']]),
+          body: '<div class="lib-empty"><span class="big">' + I('library') + '</span><div class="ty-title2">還沒有歌單</div><div class="ty-sub c2">建立自己的歌單，或貼上 Bilibili、YouTube、網易雲的歌單連結匯入。</div><div class="acts"><button class="btn btn-primary">' + I('plus', 's20') + '新建歌單</button><button class="btn btn-gray">' + I('link', 's20') + '匯入歌單</button></div></div>' }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>兩欄封面網格（progress.md 2026-11-10 決定）。卡片是實心的：封面、名稱、副標。本地歌單副標「n 首」；匯入歌單副標「音源符號＋簡稱 · n 首」。</li><li>點卡片進歌單詳情；長按開選單。玻璃只在右上的按鈕組和底部的導覽、迷你播放器。</li><li>刷新中：封面變暗並蓋一個有百分比的圓環（知道總數時用確定進度，brief §15），副標改「刷新中…」。卡片照樣可以點進去看舊內容。</li><li>刷新完成跳一則提示，寫出增減；沒有變動就不提示。自動刷新失敗時副標換成「刷新失敗」與警示符號，不跳提示（背景工作不打斷人），點進去看原因。</li><li>空狀態只留新建與匯入兩個動作，排序鈕隱藏（沒東西可排）。</li></ul>',
+    },
+    {
+      title: '手機：排序與選單',
+      frames: [
+        { kind: 'phone', label: '拖曳排序', render: (ctx) => libPhone(ctx, {
+          title: '<div class="lt" style="padding-top:58px"><div class="ty-large">拖曳排序</div></div><div class="lib-hint">按住封面拖到新位置，放開就存。</div>',
+          inline: '拖曳排序', right: '<button class="lg lib-gtext acc" data-adapt>完成</button>',
+          body: '<div style="position:relative">' + libGrid({ cls: 'lib-sorting', order: ['commute', 'code', 'lofi', '_slot', 'weekend', 'cpop', 'learn', 'live'] }) +
+            libCard(PL.covers, { cls: 'lib-lift', style: 'left:190px;top:218px;width:168px' }) + '</div>',
+          dock: { tab: 'library', compact: true } }), after: (root) => root.querySelector('.dock').classList.add('pin') },
+        { kind: 'phone', label: '長按卡片的選單', render: (ctx) => libPhone(ctx, {
+          overlay: '<div class="lib-scrim"></div>' + libCard(PL.covers, { cls: 'lib-preview' }) + libMenu(PL.covers, 'left:24px;top:392px') }) },
+        { kind: 'phone', label: '刪除確認', render: (ctx) => libPhone(ctx, {
+          overlay: '<div class="dialog-wrap"><div class="lg alert"><h4>刪除「翻唱精選」？</h4><p>這是 Bilibili 收藏夾的匯入歌單，只會刪掉 FMP 裡的鏡像（214 首），B 站上的收藏夾不受影響。之後可以再匯入。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">刪除</button></div></div></div>' }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>排序：點右上的排序鈕進拖曳排序模式，大標題換成「拖曳排序」，右上只剩「完成」。卡片輕微晃動表示可以拖；拿起的卡片放大、帶陰影，原位置留虛框。放開就存，「完成」只是離開模式。這個模式下導覽列收起，避免誤點換頁。</li><li>選單：長按卡片時背景變暗模糊，卡片浮起，玻璃選單在它下面：播放全部、隨機播放、編輯…、立即刷新（只有匯入歌單）、刪除歌單（紅色）。</li><li>「播放全部」取代佇列（brief §6），所以選單裡直接寫出「取代目前的佇列」。</li><li>刪除是本機動作，但匯入歌單的使用者容易以為會刪到音源上的歌單，所以選單和確認框都寫明「只刪 FMP 裡的鏡像」。本地歌單的確認框改寫「這張歌單的 n 首會一起刪除，無法復原」。</li></ul>',
+    },
+    {
+      title: '手機：新建與匯入',
+      desc: '兩個都是玻璃 sheet，左上取消、右上確認（iOS 26 sheet 的慣例）。匯入的確認放在底部的大按鈕，因為它會開始一段可能很長的工作。',
+      frames: [
+        { kind: 'phone', label: '新建歌單', render: (ctx) => libPhone(ctx, {
+          overlay: libSheet('新建歌單', '<div class="sbody"><div class="lib-form"><div class="lib-f"><span class="v">雨天開車<span class="caret"></span></span></div><div class="lib-f ta"><span class="v ph">描述（選填）</span></div><div class="lib-tip">封面先用第一首曲目的封面，之後可以在「編輯」換。</div></div></div>', { style: 'height:380px' }) }) },
+        { kind: 'phone', label: '匯入：偵測到音源', render: (ctx) => libPhone(ctx, { overlay: libSheet('匯入歌單', libImportBody({ src: 'bilibili', on: true }), { ok: false }) }) },
+        { kind: 'phone', label: '匯入：進度（大歌單）', render: (ctx) => libPhone(ctx, { overlay: libSheet('正在匯入', libProgBody(), { ok: false }) }) },
+        { kind: 'phone', label: '匯入：讀不到私人歌單', render: (ctx) => libPhone(ctx, { overlay: libSheet('匯入歌單', libImportBody({ src: 'bilibili', on: false, hlSwitch: true, bad: '這個收藏夾是私人的。開啟「使用登入狀態匯入」再試一次。', cta: '再試一次' }), { ok: false }) }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>新建歌單：名稱必填，空白時右上的確認鈕停用；描述選填。編輯歌單用同一個 sheet，多了封面、（匯入歌單）使用登入狀態刷新、自動刷新開關與間隔（1、6、12、24、48、72 小時、1 週）。</li><li>匯入：貼上連結後立刻辨識音源，欄位尾端出現音源標識（Bilibili 符號＋全名）；辨識不了就顯示「看不出是哪個音源的連結」，匯入鈕停用。</li><li>「使用登入狀態匯入」：已登入時說明已登入哪個音源；未登入時開關停用，說明要先登入並給「登入」連結。</li><li>匯入進度分三步：取得歌單資訊、讀取曲目（n / 總數）、建立匯入歌單。大歌單可能要一分鐘以上（brief §15），所以可以關掉 sheet 在背景繼續，進度改顯示在音樂庫的卡片上；完成時提示「匯入成功，加入 n 首」。</li><li>錯誤直接寫在欄位下方，並把要改的那個控制項（這裡是開關）框起來；主按鈕改「再試一次」。依 brief §13 的類別：需登入、找不到（連結失效或歌單已刪）、網路、限流各有一句話。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '網格欄數依寬度自動增減：有詳情面板時 5 欄，收起面板時 7 欄。hover 卡片時封面上浮出播放與更多兩顆小玻璃鈕。',
+      frames: [
+        { kind: 'desktop', label: '主畫面：hover、刷新中', render: (ctx) => libDesk(ctx, { grid: { state: { weekend: { hov: true }, covers: { refreshing: 56 } } } }) },
+        { kind: 'desktop', label: '收起詳情面板（7 欄）＋右鍵選單', render: (ctx) => libDesk(ctx, { detail: false, grid: { state: { lofi: { rsel: true } } }, overlay: libMenu(PL.lofi, 'left:772px;top:262px', { desk: true, hl: 'refresh' }) }) },
+        { kind: 'desktop', label: '匯入對話框（置中）', render: (ctx) => libDesk(ctx, { overlay: libDeskImport() }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>欄數用 auto-fill，卡片最小 128pt；寬螢幕不是把手機網格放大，而是放更多欄。</li><li>hover：封面略暗，左下玻璃播放鈕（播放全部）、右下 ⋮。這是封面上唯一的玻璃，因為它們浮在內容上。</li><li>右鍵與 ⋮ 開同一個選單，選單項目帶快捷鍵（⌘I 編輯、⌘R 刷新、⌘⌫ 刪除）。右鍵的卡片封面加強調色外框，表示選單作用在誰身上。</li><li>匯入對話框置中、玻璃，欄位和手機版一樣；按鈕在右下（取消、匯入），Esc 關閉、↩ 匯入。進度在同一個對話框裡接著顯示，關掉後改到卡片上。</li><li>新建歌單也可以從側欄「歌單」旁的 ＋ 開始：直接在側欄插入一列可編輯的名稱（Finder 新資料夾的慣例），不開對話框。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

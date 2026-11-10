@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設計系統 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+  .sys-panel { border-radius: 22px; padding: 26px 28px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 12px 40px rgba(0,0,0,.08); }
+  .sys-h { font-size: 13px; font-weight: 600; color: var(--label-2); margin: 0 0 12px; }
+  .sys-h + .sys-h { margin-top: 24px; }
+  .sys-grid { display: grid; gap: 18px; }
+  .sys-sw { display: flex; align-items: center; gap: 12px; }
+  .sys-sw i { width: 44px; height: 44px; border-radius: 12px; flex: none; box-shadow: inset 0 0 0 .5px var(--sep-strong); }
+  .sys-sw b { display: block; font-size: 13px; font-weight: 600; }
+  .sys-sw small { display: block; font: 12px var(--font-num); color: var(--label-2); }
+  .sys-stage { position: relative; height: 430px; border-radius: 18px; overflow: hidden; background: var(--bg); }
+  .sys-belt { position: absolute; top: 14px; left: 0; display: flex; gap: 14px; animation: sysBelt 26s linear infinite alternate; }
+  .sys-belt .cover { width: 150px; height: 150px; border-radius: 14px; }
+  .sys-belt.b2 { top: 240px; animation-duration: 33s; animation-direction: alternate-reverse; }
+  .sys-text { position: absolute; left: 24px; top: 184px; font: 700 38px/1 var(--font-display); color: var(--label); letter-spacing: -.01em; white-space: nowrap; }
+  @keyframes sysBelt { from { transform: translateX(0); } to { transform: translateX(-520px); } }
+  @media (prefers-reduced-motion: reduce) { .sys-belt { animation: none; } }
+  .sys-kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 16px; font-size: 13px; }
+  .sys-kv dt { color: var(--label-2); }
+  .sys-kv dd { margin: 0; }
+  .sys-type > div { display: flex; align-items: baseline; gap: 18px; padding: 7px 0; border-bottom: .5px solid var(--sep); }
+  .sys-type > div > small { width: 120px; flex: none; font: 12px var(--font-num); color: var(--label-2); }
+  .sys-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .sys-box { border-radius: 16px; background: var(--cell); overflow: hidden; box-shadow: inset 0 0 0 .5px var(--sep); }
+  .t-light .sys-box { box-shadow: inset 0 0 0 .5px var(--sep), 0 1px 2px rgba(0,0,0,.04); }
+  .sys-note { font-size: 12.5px; color: var(--label-2); line-height: 1.5; margin-top: 10px; }
+  .sys-acc-demo { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .sys-radius { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .sys-radius div { background: var(--fill-2); display: grid; place-items: center; font: 11px var(--font-num); color: var(--label-2); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const panel = (ctx, w, html, style) => '<div class="scr sys-panel t-' + ctx.theme + '" data-tone="' + ctx.theme + '" style="width:' + w + 'px;background:' + (ctx.theme === 'dark' ? '#0D0C11' : '#FFFFFF') + ';' + (style || '') + '">' + html + '</div>';
+
+function stage(ctx) {
+  const covers = (k) => FMP.tracks.slice(k, k + 9).map((t) => FMP.coverEl(t.cv)).join('');
+  return '<div class="sys-stage">' +
+    '<div class="sys-belt">' + covers(0) + '</div><div class="sys-text">文字也會被折彎 Liquid Glass</div><div class="sys-belt b2">' + covers(9) + '</div>' +
+    // regular glass: tab bar
+    '<nav class="lg tabbar" data-adapt style="position:absolute;left:24px;top:346px;width:290px;height:62px;border-radius:31px;display:flex;align-items:center;padding:0 4px">' +
+    '<span class="tab-ind" style="left:4px;width:94px"></span>' +
+    '<button class="tab on">' + I('library') + '<span>音樂庫</span></button><button class="tab">' + I('queue') + '<span>佇列</span></button><button class="tab">' + I('settings') + '<span>設定</span></button></nav>' +
+    '<button class="lg search-orb" data-adapt style="position:absolute;left:324px;top:346px;width:62px;height:62px;border-radius:31px;display:grid;place-items:center">' + I('search') + '</button>' +
+    // mini player
+    '<div class="lg mini" data-adapt style="position:absolute;left:24px;top:174px;width:362px;height:56px;border-radius:28px">' + FMP.coverEl(FMP.now.cv, 40) + '<div class="mi"><b><span class="tt">夜行列車</span></b><span>' + FMP.src('netease') + '<span class="ell">鹿野青</span></span></div><button class="ibtn">' + I('pause', 's24') + '</button><button class="ibtn">' + I('next', 's24') + '</button><span class="prog"><i style="width:38%"></i></span></div>' +
+    // round buttons + pill
+    '<div style="position:absolute;right:24px;top:24px;display:flex;gap:10px">' + FMP.gbtn('chevL', '返回') + FMP.gpill([['select', '多選'], ['sort', '排序'], ['plus', '新建']]) + FMP.gbtn('more', '更多') + '</div>' +
+    // clear glass over media
+    '<button class="lg gbtn" data-lg-variant="clear" style="position:absolute;right:48px;top:290px;width:64px;height:64px">' + I('play', 's28') + '</button>' +
+    '</div>';
+}
+
+function swatches(ctx) {
+  const sw = (name, v, note) => '<div class="sys-sw"><i style="background:' + v + '"></i><span><b>' + name + '</b><small>' + note + '</small></span></div>';
+  const dark = ctx.theme === 'dark';
+  return '<div class="sys-h">中性色（' + (dark ? '深色' : '淺色') + '）</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
+    sw('底 bg', 'var(--bg)', dark ? '#0D0C11' : '#FFFFFF') +
+    sw('分組底 bg-grouped', 'var(--bg-grouped)', dark ? '#0D0C11' : '#F2F1F6') +
+    sw('格 cell', 'var(--cell)', dark ? '#19181F' : '#FFFFFF') +
+    sw('填色 fill', 'var(--fill)', dark ? 'white 8%' : 'ink 6%') +
+    sw('主文字 label', 'var(--label)', dark ? '#F5F4FA' : '#15141A') +
+    sw('次文字 label-2', 'var(--label-2)', dark ? '62%' : '60%') +
+    sw('三級 label-3', 'var(--label-3)', '40%') +
+    sw('分隔線 sep', 'var(--sep)', dark ? 'white 9%' : 'ink 10%') +
+    '</div><div class="sys-h" style="margin-top:24px">功能色</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
+    sw('強調 accent', 'var(--accent)', dark ? '#A396FF 文字與圖示' : '#5E4BFF 文字與圖示') +
+    sw('強調底 accent-fill', 'var(--accent-fill)', '#5E4BFF 白字 5.4:1') +
+    sw('會員 vip', 'var(--vip)', '#F4B400') +
+    sw('試聽 trial', 'var(--trial-ink)', dark ? '#6CB6FF' : '#0066D6') +
+    sw('錯誤 danger', 'var(--danger)', dark ? '#FF6961' : '#E5372B') +
+    sw('警告 warn', 'var(--warn)', dark ? '#FFC23D' : '#B87800') +
+    sw('成功 ok', 'var(--ok)', dark ? '#42D88A' : '#148A4C') +
+    sw('遮罩 scrim', 'var(--scrim)', dark ? 'black 50%' : 'ink 28%') +
+    '</div><div class="sys-h" style="margin-top:24px">音源（由插件宣告，宿主只負責畫）</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
+    sw('Bilibili', 'var(--src-bilibili)', '#FB7299') + sw('YouTube', 'var(--src-youtube)', '#FF3B30') + sw('網易雲音樂', 'var(--src-netease)', '#E8463B') + sw('lrclib', 'var(--src-lrclib)', '#8E8A99') + '</div>';
+}
+
+function typeScale(ctx, desk) {
+  const rows = desk
+    ? [['ty-large', '頁面標題 26/32 Bold', '音樂庫'], ['ty-title2', '區段標題 19/24 Bold', '線上結果'], ['ty-head', '列表標題 14/18 Semibold', '夜行列車'], ['ty-body', '內文 14/19', '收錄於 2026 年專輯《夜行》'], ['ty-sub', '次要 13/17', '鹿野青 · 4:12'], ['ty-foot', '註腳 12/16', '每 6 小時刷新'], ['ty-cap', '說明 11/14', '分 P 6']]
+    : [['ty-large', '大標題 34/41 Bold', '音樂庫'], ['ty-title2', '標題二 22/28 Bold', '線上結果'], ['ty-title3', '標題三 20/25 Semibold', '通勤路上'], ['ty-head', '標題列 17/22 Semibold', '夜行列車'], ['ty-body', '內文 17/22', '收錄於 2026 年專輯《夜行》'], ['ty-sub', '次要 15/20', '鹿野青'], ['ty-foot', '註腳 13/18', '每 6 小時刷新 · 12 分鐘前'], ['ty-cap', '說明 12/16', '共 64 首']];
+  return '<div class="sys-h">' + (desk ? '桌面（macOS／Windows 的內文較小）' : '手機（iOS 文字樣式，跟隨系統字級）') + '</div><div class="sys-type' + (desk ? ' desk' : '') + '">' + rows.map(([c, n, s]) => '<div><small>' + n + '</small><span class="' + c + '">' + s + '</span></div>').join('') + '</div>' +
+    '<div class="sys-note">字體用各平台的系統字：Apple 是 SF Pro＋蘋方，Android 是 Roboto＋Noto Sans CJK，Windows 是 Segoe UI Variable＋微軟正黑體。不打包字體，設定也不提供字體選項。數字一律等寬數字（tabular）。</div>';
+}
+
+function badges(ctx) {
+  const rows = ['t01', 't04', 't09', 't05', 't02'].map((id, i) => FMP.trackRow(FMP.T[id], { playing: i === 0 })).join('');
+  return '<div class="sys-h">音源標識</div><div class="sys-row">' + ['bilibili', 'youtube', 'netease', 'lrclib'].map((s) => FMP.src(s, true)).join('<span style="width:10px"></span>') + '</div>' +
+    '<div class="sys-row" style="margin-top:10px">' + ['bilibili', 'youtube', 'netease'].map((s) => FMP.srcChip(s, true)).join('') + '</div>' +
+    '<div class="sys-h" style="margin-top:22px">存取等級</div><div class="sys-row">' + FMP.acc('vip') + FMP.acc('paid') + FMP.acc('trial') + '<span style="width:16px"></span>' + FMP.acc('vip', true) + FMP.acc('paid', true) + FMP.acc('trial', true) + '<span class="part">6P</span></div>' +
+    '<div class="sys-note">三種會限制收聽的等級才顯示，形狀各不同（實心、外框、半圓），色盲也分得出；免費與插件判斷不了的不顯示，列表不會被徽章淹沒。</div>' +
+    '<div class="sys-h" style="margin-top:22px">在曲目列裡</div><div class="sys-box" style="--sep-inset:76px">' + rows + '</div>';
+}
+
+function components(ctx) {
+  return '<div class="sys-h">按鈕</div><div class="sys-row"><button class="btn btn-primary">' + I('play', 's18') + '播放全部</button><button class="btn btn-tinted">' + I('shuffle', 's18') + '隨機播放</button><button class="btn btn-gray">取消</button><button class="btn btn-plain">清空</button><button class="btn btn-danger">從遠端移除</button><button class="btn btn-primary btn-sm">新建歌單</button></div>' +
+    '<div class="sys-h" style="margin-top:22px">切換</div><div class="sys-row"><button class="tog on" data-toggle>' + I('shuffle') + '隨機</button><button class="tog" data-toggle>' + I('repeat') + '循環</button><button class="tog on">' + I('repeat1') + '單曲循環</button><span style="width:12px"></span><span class="switch on"></span><span class="switch"></span><span class="check on">' + I('check') + '</span><span class="check">' + I('check') + '</span></div>' +
+    '<div class="sys-h" style="margin-top:22px">篩選與分段</div><div class="sys-row"><button class="chip on">全部音源</button><button class="chip">' + FMP.srcMark('bilibili') + 'Bilibili</button><button class="chip">' + FMP.srcMark('youtube') + 'YouTube</button><button class="chip">' + FMP.srcMark('netease') + '網易雲</button><div class="seg"><button class="on">歌詞</button><button>佇列</button></div></div>' +
+    '<div class="sys-h" style="margin-top:22px">欄位</div><div class="field" style="max-width:360px">' + I('search') + '<span class="ph">搜尋三個音源</span></div>' +
+    '<div class="sys-h" style="margin-top:22px">群組列表</div><div class="group" style="margin:0;max-width:420px">' +
+    '<div class="gcell" style="--sep-inset:58px"><span class="gicon" style="background:#8E8A99">' + I('user') + '</span><span class="gl">帳號<small>2 個已登入 · 1 個會員快到期</small></span><span class="gv">' + I('chevR', 'chev') + '</span></div>' +
+    '<div class="gcell" style="--sep-inset:58px"><span class="gicon" style="background:#8E8A99">' + I('plugin') + '</span><span class="gl">插件</span><span class="gv">1 個更新' + I('chevR', 'chev') + '</span></div>' +
+    '<div class="gcell" style="--sep-inset:58px"><span class="gicon" style="background:#8E8A99">' + I('lyrics') + '</span><span class="gl">自動匹配歌詞</span><span class="switch on"></span></div></div>';
+}
+
+function overlays(ctx) {
+  return '<div style="position:relative;height:330px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
+    '<div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px">' + FMP.playlists.map((p) => FMP.coverEl(p.cv, null, '', 'width:100%;aspect-ratio:1')).join('') + '</div>' +
+    '<div class="dialog-wrap" style="position:absolute"><div class="lg alert"><h4>從「翻唱精選」移除 3 首？</h4><p>會從你在 Bilibili 的收藏夾刪掉，App 裡的匯入歌單隨後刷新。</p><div class="acts"><button class="btn btn-gray">取消</button><button class="btn btn-danger">移除 3 首</button></div></div></div>' +
+    FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已加入「通勤路上」</span></span><button class="btn btn-plain">查看</button>', { style: 'bottom:14px;left:60px;right:60px' }) +
+    '</div><div class="sys-note">提示只有一個入口（brief §13），依錯誤類別給文字與動作，例如「登入」「重試」。警示框、sheet、選單都是加厚的玻璃（填色比導覽重），因為它們上面有整段文字。</div>';
+}
+
+function radii(ctx) {
+  const r = (n, w, h) => '<div style="width:' + w + 'px;height:' + h + 'px;border-radius:' + n + '">' + n + '</div>';
+  return '<div class="sys-h">圓角：控制項一律膠囊，容器和裝它的東西同心</div><div class="sys-radius">' + r('6px', 48, 48) + r('10px', 72, 72) + r('14px', 96, 96) + r('16px', 120, 72) + r('26px', 120, 80) + r('30px', 120, 80) + r('999px', 150, 44) + '</div>' +
+    '<div class="sys-kv" style="margin-top:18px"><dt>縮圖</dt><dd>6（列表 48×48、桌面 36×36）</dd><dt>封面卡</dt><dd>10–12；大封面 14</dd><dt>群組列表</dt><dd>16（手機）、12（桌面）</dd><dt>對話框／sheet</dt><dd>26／30；浮動 sheet 34</dd><dt>視窗</dt><dd>16，側欄內縮 8 → 圓角 12（同心）</dd><dt>間距</dt><dd>4 的倍數：4、8、12、16、20、24、32、40、56；手機邊距 16–20，桌面內容邊距 32</dd><dt>觸控目標</dt><dd>手機的點擊區域 ≥ 44：視覺比 44 小的控制（切換鈕 34、chip 32、勾選 24）四周補透明的點擊區；桌面滑鼠目標 ≥ 28</dd></div>';
+}
+
+function motion(ctx) {
+  return '<div class="sys-kv"><dt>變形（morph）</dt><dd>520ms，cubic-bezier(.32,.72,0,1)：導覽收合、迷你播放器併列、sheet 升起</dd><dt>彈性（spring）</dt><dd>520ms，cubic-bezier(.32,1.28,.52,1)：選取膠囊滑動、開關</dd><dt>一般</dt><dd>160ms／280ms，ease-out：hover、顏色、明暗翻轉</dd><dt>按下</dt><dd>按鈕縮到 0.96；導覽的選取膠囊放大到 1.12 再回彈，像一滴水被按住</dd><dt>減少動態效果</dt><dd>變形改成直接切換加淡入淡出，選取膠囊不彈跳，播放頁背景停止流動，等化器靜止</dd><dt>降低透明度</dt><dd>玻璃全部換成「最低」：不透明的實心底，保留邊緣高光</dd></div>';
+}
+
+function windowsBar(ctx) {
+  return '<div class="sys-h">Windows 視窗按鈕</div><div style="position:relative;height:120px;border-radius:12px;overflow:hidden;background:var(--bg);box-shadow:inset 0 0 0 .5px var(--sep)">' +
+    '<div class="lg" style="position:absolute;left:8px;top:8px;bottom:8px;width:200px;border-radius:10px;padding:14px 12px;font-size:12px;color:var(--glass-ink-2)">側欄（沒有紅綠燈）</div>' +
+    '<div style="position:absolute;right:0;top:0;display:flex">' + ['minus', 'sidebar', 'close'].map((ic, i) => '<span style="width:46px;height:32px;display:grid;place-items:center;color:var(--label-2)">' + (i === 1 ? '<svg class="i s16" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>' : I(ic, 's16')) + '</span>').join('') + '</div>' +
+    '<div style="position:absolute;left:224px;top:46px;font-size:12px;color:var(--label-2)">macOS 的紅綠燈在側欄左上；Windows 沒有紅綠燈，最小化／最大化／關閉放在視窗右上，內容頂列右端讓出 138px。</div></div>';
+}
+
+FMP.page({
+  title: '設計系統',
+  intro: '<p>FMP 新版的材質、顏色、字級、間距、元件。所有頁面都只用這頁的東西組成；之後 Flutter 照這裡的 token 實作。</p><p>工具列可以切換：外觀（深／淺／並排）、玻璃等級（折射／標準／最低）、玻璃範圍 A／B、強調色 A／B，設定會帶到每一頁。</p>',
+  sections: [
+    {
+      title: '材質：Liquid Glass',
+      desc: '下面的封面帶會左右流動，看玻璃怎麼折射：邊緣像凸透鏡把底下的內容放大、拉彎，最外圈有一點色散；中間是平的，只做輕微模糊和加飽和，字才讀得清楚。玻璃底下是淺色封面時會變亮、字變深；底下是深色時變暗、字變白。',
+      frames: [{ kind: 'panel', label: '玻璃示範', render: (ctx) => panel(ctx, 640, stage(ctx), 'padding:16px') }],
+      notes: '<h3>玻璃的構成（由下往上）</h3><ul><li><b>折射</b>：凸面邊緣的位移貼圖，邊緣寬度是短邊的 42%、最多 22px，越靠邊彎得越多；紅綠藍三色位移量差 ±6%，邊緣出現色散。</li><li><b>模糊與飽和</b>：折射級的平面中心先模糊 5px（側欄 6px）再加 1.9 倍飽和；標準級沒有折射，改成 18px 模糊＋1.8 倍飽和才讀得清；清玻璃（在封面與播放頁上）幾乎不模糊。</li><li><b>填色</b>：深色 #1E1D26 42%、淺色白 46%；選單、sheet、對話框、警示框、提示用厚玻璃：填色 84%（深）／86%（淺）、28px 模糊、不折射，因為上面有整段文字。</li><li><b>邊緣高光</b>：1px 斜向漸層，左上最亮、右下次亮，像光從左上打過來。</li><li><b>頂部光暈與陰影</b>：頂部淡淡的放射光，底下有柔和的投影，讓玻璃浮起來。</li></ul><h3>用在哪裡</h3><ul><li>用：導覽列、搜尋鈕、迷你播放器、桌面側欄與播放膠囊、頂列的圓形按鈕與按鈕組、浮動動作列、選單、sheet、警示框、提示。</li><li>不用：曲目列表、封面卡片、設定的群組列表、任何整段文字。這些是內容，維持實心（brief §2.3）。玻璃範圍的 B 案只把桌面詳情面板與播放頁側欄改成玻璃，見外殼頁與播放頁。</li></ul>',
+    },
+    {
+      title: '玻璃等級與平台',
+      desc: '設計稿的三個等級對應 Flutter 實作的三級（brief 事實 K10）。用工具列切換看每一頁在各等級下的樣子。',
+      html: '<div class="rv-notes" style="margin-top:0"><ul><li><b>折射</b> = Flutter「premium」（Impeller 折射 shader）：iOS、Android、macOS。捲動中的長列表上方不用 premium（K10：不適合捲動列表），導覽與迷你播放器在列表上方時降到標準。</li><li><b>標準</b> = Flutter「standard」：只有模糊、飽和、邊緣高光與陰影，沒有折射。Windows 最高到這一級。</li><li><b>最低</b> = 只用 BackdropFilter 或完全不透明：系統開了「降低透明度」、或裝置效能不足時。玻璃換成實心的 #24232C／#F7F6FA，保留邊緣高光與陰影，版面不變。</li><li>三級都包在同一個玻璃元件後面（brief §17），設計稿裡每個玻璃元素都標了 <code>lg</code>，實作時一對一換成那個元件。</li></ul></div>',
+    },
+    {
+      title: '強調色提案',
+      desc: '提案：要有強調色，而且固定，不跟封面取色。',
+      frames: [{ kind: 'panel', label: '強調色用在哪', render: (ctx) => panel(ctx, 520,
+        '<div class="sys-acc-demo"><button class="btn btn-primary">' + I('play', 's18') + '播放全部</button><button class="tog on">' + I('shuffle') + '隨機</button><span class="check on">' + I('check') + '</span><span class="cacc" style="display:inline-flex;align-items:center;gap:6px;font-weight:600"><span class="eq"><i></i><i></i><i></i></span>正在播放</span></div>' +
+        '<div style="margin-top:18px" class="sys-box">' + FMP.trackRow(FMP.T.t01, { playing: true }) + FMP.trackRow(FMP.T.t02) + '</div>' +
+        '<div class="sys-note">強調色只做四件事：主要動作、選取與開啟中的狀態、正在播放、連結。它不出現在背景、卡片或裝飾上。</div>') }],
+      notes: '<h3><span class="rv-ab">A</span> 固定的堇紫（推薦）</h3><ul><li><b>為什麼要有</b>：導覽、切換鈕、勾選、「正在播放」都需要一個一看就知道「這是開著的／這是你選的」的顏色。只用黑白，開啟中的隨機鈕和普通按鈕在玻璃上很難分。</li><li><b>為什麼固定、不跟封面</b>：玻璃本來就會跟著底下的內容變色調，播放頁的背景也跟封面變色（已定）。如果強調色也跟著封面跑，控制項每換一首歌就換一次顏色，而且會撞上封面本身的顏色變得看不見。Apple Music 也是這樣分工：強調色固定，只有播放頁背景跟封面。</li><li><b>為什麼是堇紫</b>：要避開三個會和它同時出現的顏色：音源標識（B 站粉、YouTube 紅、網易雲紅）與「會員」的金色。紫色和它們都不撞。舊版預設也是紫色（#6750A4），升上來的使用者會覺得熟悉。</li><li><b>對比</b>：淺色 #5E4BFF 在白底 5.4:1；深色文字與圖示改用 #A396FF，在深底約 6:1；按鈕底兩種外觀都是 #5E4BFF 配白字。</li></ul><h3><span class="rv-ab">B</span> 不用強調色</h3><ul><li>選取與主要動作改用主文字色（深色是白、淺色是黑），整個 App 只有封面是彩色的，更安靜。</li><li>代價：玻璃上的開啟狀態要靠填色區分，迷你播放器、導覽的選取比較不明顯。用工具列「強調色 → B 無」切到每一頁看。</li></ul>',
+    },
+    {
+      title: '顏色',
+      frames: [{ kind: 'panel', label: '色票', render: (ctx) => panel(ctx, 640, swatches(ctx)) }],
+      notes: '<ul><li>深色的底不是純黑，帶一點紫（#0D0C11），和強調色同一家族；淺色的底是純白，設定頁這種群組列表用 #F2F1F6 襯底。</li><li>次要文字在有顏色的底上（播放頁）用白色的透明度，不用灰色。</li><li>封面是唯一的大面積顏色。</li></ul>',
+    },
+    {
+      title: '字級',
+      frames: [
+        { kind: 'panel', label: '手機', render: (ctx) => panel(ctx, 520, typeScale(ctx, false)) },
+        { kind: 'panel', label: '桌面', render: (ctx) => panel(ctx, 520, typeScale(ctx, true)) },
+      ],
+    },
+    {
+      title: '音源與存取等級',
+      desc: '每一首曲目出現的地方（搜尋結果、歌單、佇列、迷你播放器、播放頁）都帶音源標識；三種會限制收聽的存取等級帶徽章（brief §5.4）。',
+      frames: [{ kind: 'panel', label: '標識', render: (ctx) => panel(ctx, 560, badges(ctx)) }],
+      notes: '<ul><li>音源標識是自繪的簡化符號，不是官方 logo：B 站是電視、YouTube 是播放鍵、網易雲是圓形音符。符號與顏色由插件宣告，宿主只負責畫，Dart 端沒有音源分支（brief §5.3）。</li><li>列表裡只放符號（15pt），符號旁邊就是歌手名；播放頁、詳情面板、篩選 chip 放符號加名稱。</li><li>「會員」金底黑字、「付費」金框、「試聽」藍底半圓圖示；迷你播放器、播放膠囊與播放頁也都帶著徽章，試聽時另外跳一次提示。</li></ul>',
+    },
+    {
+      title: '元件',
+      frames: [{ kind: 'panel', label: '控制項', render: (ctx) => panel(ctx, 640, components(ctx)) }],
+    },
+    {
+      title: '浮層：警示框與提示',
+      frames: [{ kind: 'panel', label: '浮層', render: (ctx) => panel(ctx, 560, overlays(ctx), 'padding:16px') }],
+    },
+    {
+      title: '圓角、間距、動態',
+      frames: [
+        { kind: 'panel', label: '圓角與間距', render: (ctx) => panel(ctx, 560, radii(ctx)) },
+        { kind: 'panel', label: '動態', render: (ctx) => panel(ctx, 560, motion(ctx)) },
+        { kind: 'panel', label: 'Windows', render: (ctx) => panel(ctx, 560, windowsBar(ctx)) },
+      ],
+    },
+  ],
+});
+</script>
+</body>
+</html>
