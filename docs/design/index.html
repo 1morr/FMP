@@ -40,7 +40,7 @@ FMP.page({
   title: 'FMP D 設計稿（重做 B）',
   noSynthetic: true,
   intro: '<p>FMP 新版第一版全部頁面的設計稿（brief §11）：每頁有手機（390×844）與桌面（1280×800）版，深淺色並排。這是和 main 上那份 D 設計稿對比用的重做，沒有參考任何先前的設計。</p>' +
-    '<p>上方工具列的設定會帶到每一頁：<b>外觀</b>（並排／深／淺）、<b>玻璃</b>（折射／標準／最低）、<b>玻璃範圍</b>（A 控制層／B 延伸）、<b>強調色</b>（無（預設）／堇紫／靛藍／青綠，和設定頁的色點同一個設定）。手機稿可以捲動；點導覽、側欄、迷你播放器可以換頁。</p>' +
+    '<p>上方工具列的設定會帶到每一頁：<b>外觀</b>（並排／深／淺）、<b>玻璃</b>（折射／標準／最低）、<b>強調色</b>（無（預設）／堇紫／靛藍／青綠，和設定頁的色點同一個設定）。手機稿可以捲動；點導覽、側欄、迷你播放器可以換頁。</p>' +
     '<p>玻璃的折射要用 Chrome 或 Edge 看；Safari 與 Firefox 會自動退到「標準」等級（只有模糊，沒有折射）。封面、曲名、歌手、帳號都是虛構的示範資料。</p>',
   sections: [
     { title: '頁面', html: '<div class="ix-grid">' + pages.map(([h, t, d]) => '<a class="ix-card" href="' + h + '"><b>' + t + '</b><span>' + d + '</span></a>').join('') + '</div>' },
@@ -61,12 +61,11 @@ FMP.page({
       '<tr><td>強調色</td><td>預設不用強調色，選取與主要動作用主文字色；設定可選堇紫、靛藍、青綠（已定）。不跟封面取色；封面取色只用在播放頁背景（已定）。</td><td><a href="system.html">設計系統</a></td></tr>' +
       '<tr><td>存取等級</td><td>會員（金底）、付費（金框）、試聽（藍底半圓）；免費與未知不顯示。</td><td><a href="system.html">設計系統</a></td></tr>' +
       '<tr><td>字體</td><td>各平台系統字，不打包、不提供選項（已定不提供字體選項）。</td><td><a href="system.html">設計系統</a></td></tr></table>' },
-    { title: '請你選的 A／B', html: '<table class="ix-table"><tr><th style="width:180px">爭議</th><th><span class="rv-ab">A</span></th><th><span class="rv-ab">B</span></th><th style="width:120px">推薦</th></tr>' +
-      '<tr><td>玻璃範圍（brief §2.3 寫玻璃只用在控制層）</td><td>照 §2.3：側欄、播放膠囊、導覽、按鈕、浮層是玻璃；桌面詳情面板與播放頁的歌詞／佇列欄是實心內容。</td><td>突破：桌面詳情面板與播放頁右欄也變成浮動玻璃板，底下的內容與封面色透出來。</td><td>A</td></tr>' +
-
-      '<tr><td>播放頁桌面右欄（<a href="player.html">播放頁</a>）</td><td>歌詞或佇列直接放在封面色背景上。</td><td>右欄是一塊清玻璃板。跟著「玻璃範圍」切換。</td><td>A</td></tr>' +
-      '<tr><td>取消勾選遠端歌單的確認時機（<a href="add-to-playlist.html">加入歌單</a>）</td><td>按主按鈕時一次確認全部的遠端移出。</td><td>取消勾選的當下就確認。</td><td>A</td></tr>' +
-      '<tr><td colspan="4" style="color:#55525F">做稿時另外訂了一些還沒經你確認的細節（例如桌面單擊選取、雙擊播放），彙整在 <code>DESIGN.md</code>〈待確認〉。</td></tr></table>' },
+    { title: '已定的 A／B（擁有者 2026-11-11 全選 A）', html: '<table class="ix-table"><tr><th style="width:240px">題目</th><th>定案</th></tr>' +
+      '<tr><td>玻璃範圍（brief §2.3）</td><td>只在控制層：側欄、播放膠囊、導覽、按鈕、浮層是玻璃；桌面詳情面板與播放頁的歌詞／佇列欄是實心內容。</td></tr>' +
+      '<tr><td>播放頁桌面右欄（<a href="player.html">播放頁</a>）</td><td>歌詞或佇列直接放在封面色背景上。</td></tr>' +
+      '<tr><td>取消勾選遠端歌單的確認時機（<a href="add-to-playlist.html">加入歌單</a>）</td><td>按主按鈕時一次確認全部的遠端移出。</td></tr>' +
+      '<tr><td colspan="2" style="color:#55525F">做稿時訂下的細節（例如桌面單擊選取、雙擊播放）都在 <code>DESIGN.md</code>〈待確認〉，2026-11-11 已全部照稿確認。</td></tr></table>' },
   ],
 });
 </script>

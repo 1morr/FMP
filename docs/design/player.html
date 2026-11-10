@@ -190,7 +190,6 @@ html:not([data-accent]) .pl-m, html[data-accent="none"] .pl-m { --accent-fill: #
 .pl-dvol .slider > i { background: var(--label-2); }
 .pl-dvol svg.i { width: 18px; height: 18px; }
 .pl-right { position: absolute; left: 620px; right: 28px; top: 64px; bottom: 28px; display: flex; flex-direction: column; }
-.pl-right.glass { left: 612px; right: 20px; top: 62px; bottom: 20px; border-radius: 26px; padding: 4px 8px 0; }
 .pl-rhead { display: flex; align-items: center; gap: 8px; padding: 10px 16px 8px; font-size: 12px; color: var(--label-3); flex: none; }
 .pl-rhead b { color: var(--label-2); font-weight: 600; }
 .pl-rhead .src svg { width: 13px; height: 13px; }
@@ -411,7 +410,6 @@ function plInfoSheet(t) {
 function plDesk(ctx, o) {
   o = o || {};
   const t = o.track || PL_T;
-  const reachB = document.documentElement.dataset.reach === 'B';
   const right = o.right || 'lyrics';
   let h = '<div class="win scr desk t-' + ctx.theme + '" data-tone="' + ctx.theme + '">' + plBg(t) + '<div class="pl-m">';
   h += '<div class="side" style="top:4px;left:6px;bottom:auto;width:auto;padding:0;z-index:40"><div class="lights"><i></i><i></i><i></i></div></div>';
@@ -433,7 +431,7 @@ function plDesk(ctx, o) {
       nexts.map((x) => FMP.trackRow(x, { desk: true, more: false, drag: true })).join('') +
       '<div style="padding:12px;font-size:12px;color:var(--label-3)">在這裡可以拖動與移除；完整的佇列（清空、播過的）在側欄的「佇列」。</div></div>';
   }
-  h += '<div class="pl-right' + (reachB ? ' glass lg' : '') + '"' + (reachB ? ' data-lg-variant="clear" data-lg-blur="8"' : '') + '>' + r + '</div>';
+  h += '<div class="pl-right">' + r + '</div>';
   h += '</div>' + (o.overlay || '') + '</div>';
   return h;
 }
@@ -453,7 +451,7 @@ const trialToast = FMP.toast('<span style="display:flex;align-items:center;gap:8
 
 FMP.page({
   title: '播放頁（含歌詞）',
-  intro: '<p>全螢幕播放頁是唯一跟封面變色的地方：背景是封面取色的色場（<code>FMP.ambient</code>），上面再壓一層由上而下的暗層，白字在淺色封面上也維持 AA。預設沒有強調色，開著的狀態用白色；使用者在設定選了強調色時，這裡用那個顏色亮的一階，不跟封面變。</p><p><b>FMP 的招牌是進度條正上方那顆「音源膠囊」</b>：音源（符號＋全名）、存取等級、實際在播的音質合成一顆清玻璃膠囊，例如「網易雲音樂 │ 會員 │ 無損 FLAC ›」，點它打開曲目資訊；它是小字的一條，不和曲名搶。多音源播放器最要緊的資訊（這首從哪來、能不能完整聽、聽到的是哪一級）放在拇指最常經過的地方，而不是曲名下的一排小標籤；試聽時它變成藍色的試聽膠囊。</p><p>深淺色兩份的播放頁本體相同（都在封面色上、白字）；跟主題走的是浮出來的選單、sheet 與對話框。上方工具列的「玻璃範圍」只影響桌面右欄。</p>',
+  intro: '<p>全螢幕播放頁是唯一跟封面變色的地方：背景是封面取色的色場（<code>FMP.ambient</code>），上面再壓一層由上而下的暗層，白字在淺色封面上也維持 AA。預設沒有強調色，開著的狀態用白色；使用者在設定選了強調色時，這裡用那個顏色亮的一階，不跟封面變。</p><p><b>FMP 的招牌是進度條正上方那顆「音源膠囊」</b>：音源（符號＋全名）、存取等級、實際在播的音質合成一顆清玻璃膠囊，例如「網易雲音樂 │ 會員 │ 無損 FLAC ›」，點它打開曲目資訊；它是小字的一條，不和曲名搶。多音源播放器最要緊的資訊（這首從哪來、能不能完整聽、聽到的是哪一級）放在拇指最常經過的地方，而不是曲名下的一排小標籤；試聽時它變成藍色的試聽膠囊。</p><p>深淺色兩份的播放頁本體相同（都在封面色上、白字）；跟主題走的是浮出來的選單、sheet 與對話框。</p>',
   sections: [
     {
       title: '手機：封面與歌詞',
@@ -534,10 +532,8 @@ FMP.page({
         '<li>右欄佇列只列正在播放與接下來的，可以拖動；隨機與循環的文字切換鈕也在這裡。完整編輯在佇列頁。</li>' +
         '<li>鍵盤：Space 播放／暫停、←／→ 倒退／快轉 5 秒、⌘←／⌘→ 上一首／下一首、⌘I 曲目資訊、Esc 收起。</li>' +
         '<li>歌詞搜尋在桌面是置中的對話框，內容和手機的 sheet 一樣，多了鍵盤操作（↑↓ 選、⏎ 套用、Esc 關）。</li></ul>' +
-        '<h3><span class="rv-ab">A</span>／<span class="rv-ab">B</span> 玻璃範圍（用上方工具列切換）</h3><ul>' +
-        '<li><b>A 直接放在色場上</b>：右欄的歌詞或佇列直接是色場上的白字，跟手機一樣。整頁只有頂列的圓鈕與分段切換是玻璃。</li>' +
-        '<li><b>B 玻璃板</b>：右欄是一塊清玻璃板，邊緣有高光，歌詞在板子裡捲動，左右兩欄分得更清楚。</li>' +
-        '<li>我推薦 <b>A</b>：右欄本來就是大段文字，放在玻璃板上不會更好讀（清玻璃幾乎透明，底下還是同一片色場），只多一個邊框；而且 Windows 只到「標準」玻璃、沒有折射，B 的板子在那邊會變成一塊灰霧。A 也和手機的歌詞畫面一致。B 的好處是佇列模式時列表有明確的容器。</li></ul>',
+        '<h3>右欄直接放在色場上（擁有者 2026-11-11 選定）</h3><ul>' +
+        '<li>右欄的歌詞或佇列直接是色場上的白字，跟手機的歌詞畫面一致；整頁只有頂列的圓鈕與分段切換是玻璃。大段文字不放在玻璃板上：清玻璃幾乎透明，只多一個邊框，Windows 只到「標準」玻璃時還會變成一塊灰霧。</li></ul>',
     },
   ],
 });

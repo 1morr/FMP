@@ -382,9 +382,8 @@
   FMP.detailPanel = function (ctx, o) {
     o = o || {};
     const t = o.track || FMP.now;
-    const glass = document.documentElement.dataset.reach === 'B';
     const next = ['t02', 't03', 't04'].map((id) => FMP.trackRow(FMP.T[id], { desk: true, size: 32, more: false, style: 'padding:0 6px;min-height:44px' })).join('');
-    return '<aside class="detail' + (glass ? ' lg' : '') + '"' + (glass ? ' data-adapt data-lg-blur="10"' : '') + '>' +
+    return '<aside class="detail">' +
       '<div class="dhead"><span>正在播放</span><span class="sp"></span>' +
       '<button class="ibtn" aria-label="加入歌單">' + I('addlist', 's18') + '</button>' +
       '<div class="seg" style="margin:0 2px"><button class="on" style="height:24px;padding:0 9px">' + I('info', 's16') + '</button><button style="height:24px;padding:0 9px">' + I('lyrics', 's16') + '</button></div>' +
@@ -410,7 +409,6 @@
     const scrollStyle = 'padding-right:' + (detail ? 320 : 0) + 'px;' + (o.scrollStyle || '');
     return '<div class="win scr desk t-' + ctx.theme + '" data-tone="' + ctx.theme + '">' +
       (o.ambient ? FMP.ambient(o.ambient) : '') +
-      (detail && document.documentElement.dataset.reach === 'B' ? '<div class="amb-r">' + FMP.ambient(((o.detailOpts && o.detailOpts.track) || FMP.now).cv) + '</div>' : '') +
       '<div class="wcontent">' + (o.raw ? o.content : '<div class="scroll" style="' + scrollStyle + '">' + o.content + '</div>') + '</div>' +
       '<div class="edge-top" style="left:0;right:' + (detail ? 320 : 0) + 'px"></div>' +
       (o.top ? '<div class="wtop" style="left:248px;right:' + (detail ? 328 : 8) + 'px">' + o.top + '</div>' : '') +
@@ -494,7 +492,7 @@
     ['settings.html', '設定'], ['backup-import.html', '匯入舊版備份'],
   ];
   FMP.PAGES = PAGES;
-  const PREFS = { theme: 'both', glass: 'refract', reach: 'A', accent: 'none' };
+  const PREFS = { theme: 'both', glass: 'refract', accent: 'none' };
   try { Object.assign(PREFS, JSON.parse(localStorage.getItem('fmp-draft-prefs') || '{}')); } catch (e) { /* ignore broken storage */ }
   FMP.ACCENTS = [['none', '無', null], ['violet', '堇紫', '#5E4BFF'], ['indigo', '靛藍', '#3D5BD9'], ['teal', '青綠', '#00786F']];
   // drafts before 2026-11-10 stored accent 'on'/'none' for the old A/B toggle; the owner then made "none" the default
@@ -503,7 +501,6 @@
   function applyPrefs() {
     const h = document.documentElement;
     h.dataset.glass = PREFS.glass;
-    h.dataset.reach = PREFS.reach;
     h.dataset.accent = PREFS.accent;
   }
   applyPrefs();
@@ -514,7 +511,6 @@
       '<nav>' + PAGES.slice(1).map(([h, l]) => '<a href="' + h + '" class="' + (h === current ? 'on' : '') + '">' + l + '</a>').join('') + '</nav><span class="sp"></span>' +
       g('theme', '外觀', [['both', '並排'], ['dark', '深'], ['light', '淺']]) +
       g('glass', '玻璃', [['refract', '折射'], ['standard', '標準'], ['minimal', '最低']]) +
-      g('reach', '玻璃範圍', [['A', 'A 控制層'], ['B', 'B 延伸']]) +
       g('accent', '強調色', FMP.ACCENTS.map(([k, l]) => [k, k === 'none' ? '無（預設）' : l])) + '</div>';
   }
 

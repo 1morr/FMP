@@ -654,17 +654,12 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .transport .tr .slider > i { background: var(--glass-ink); opacity: .75; }
 .transport .tr .tm { font-size: 11px; color: var(--glass-ink-2); font-variant-numeric: tabular-nums; margin-right: 6px; white-space: nowrap; }
 
-/* right detail panel: A solid (default), B glass */
+/* right detail panel: solid content, not glass (owner chose glass reach A, 2026-11-11) */
 .detail { position: absolute; z-index: 26; top: 0; bottom: 0; right: 0; width: 320px; display: flex; flex-direction: column; background: var(--bg); box-shadow: inset .5px 0 0 var(--sep); }
 .detail .dhead { height: 52px; display: flex; align-items: center; gap: 6px; padding: 8px 10px 0 16px; flex: none; font-size: 13px; font-weight: 700; }
 .detail .dhead .sp { flex: 1; }
 .detail .dbody { flex: 1; padding: 6px 18px 100px; }
-html[data-reach="B"] .detail { top: 8px; bottom: 8px; right: 8px; width: 312px; border-radius: 12px; box-shadow: var(--shadow-float); }
-html[data-reach="B"] .detail:not(.lg) { background: transparent; }
-/* B: the current cover's colour field sits behind the glass panel */
-.amb-r { position: absolute; top: 0; bottom: 0; right: 0; width: 460px; z-index: 0; -webkit-mask: linear-gradient(90deg, transparent, #000 45%); mask: linear-gradient(90deg, transparent, #000 45%); }
-.t-light .amb-r { opacity: .55; }
-
+.t-light 
 /* ambient colour field from the current cover, used under B panels and the player */
 .ambient { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .ambient i { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .9; animation: drift 24s ease-in-out infinite alternate; }
@@ -711,7 +706,6 @@ body.rv { margin: 0; font: 14px/1.5 var(--font); color: #1A1920; -webkit-font-sm
 .rv-notes h3 { margin: 0 0 6px; font-size: 15px; }
 .rv-notes ul { margin: 0; padding-left: 20px; }
 .rv-notes li { margin: 3px 0; }
-.rv-ab { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 6px; background: #1A1920; color: #fff; font-size: 11px; font-weight: 700; }
 
 /* ------------------------------------------------------------------ */
 /* Desktop settings: category column + pane (FMP.settingsShell)        */
