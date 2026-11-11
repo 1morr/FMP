@@ -272,7 +272,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 - YouTube 的 client 會變（事實 F8）：解析串流準備候選序列；壞了就更新插件。
 - B 站風控（事實 F2）：網路層依音源限流；登入後要確實帶憑證。
-- `flutter_inappwebview` 的穩定版停在 2024-10（事實 R1、K8）：登入票先實測四個平台。
+- `flutter_inappwebview` 的穩定版停在 2024-10（事實 R1、K8）：四平台的建置與開頁 M0 票 04 已實測（`scripts/experiments/inappwebview/`，要加的設定見事實 A4、W8、M3、K17）；登入流程本身由登入票在四個平台實測。
 - Windows 的 libmpv 是舊快照（事實 W3）：遇到 Windows 獨有的播放失敗先懷疑它。
 - iOS 的中斷與 Now Playing（事實 I2、I5）：模擬器驗不到的部分記在票的 Comments。
 - 實作時發現與 brief 不符：停下來問擁有者，改 brief 並在 progress.md〈偏差與決定〉記一行。

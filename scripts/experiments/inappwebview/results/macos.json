@@ -1,0 +1,9 @@
+{
+  "platform": "macos",
+  "url": "https://example.com/",
+  "ok": true,
+  "loadedUrl": "https://example.com/",
+  "title": "Example Domain",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+  "at": "2026-11-11T14:18:51.216476Z"
+}
