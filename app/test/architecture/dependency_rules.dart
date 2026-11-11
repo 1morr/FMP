@@ -56,6 +56,7 @@ const packageScopes = <String, PackageScope>{
   'slang_flutter': PackageScope.anywhere,
   'drift': PackageScope.dataOnly,
   'sqlite3': PackageScope.dataOnly,
+  'path_provider': PackageScope.platformOnly,
   'just_audio': PackageScope.audioBackend,
   'media_kit': PackageScope.audioBackend,
 };

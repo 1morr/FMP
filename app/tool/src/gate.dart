@@ -2,9 +2,10 @@ import 'dart:io';
 
 import 'doc_gate.dart';
 import 'full_gate.dart';
+import 'schema_gate.dart';
 import 'steps.dart';
 
-/// `tool/check.dart` 的步驟（plan §4）。[quick] 時只有 quick 的五步；完整版
+/// `tool/check.dart` 的步驟（plan §4）。[quick] 時只有 quick 的步驟；完整版
 /// 再接上四平台的建置與 integration_test（[platformSteps]）。
 List<CheckStep> gateSteps({
   required bool quick,
@@ -18,6 +19,8 @@ List<CheckStep> gateSteps({
   return [
     // *.g.dart 不進 git；先產生，analyze 與測試才看得到最新的字串。
     command('i18n (slang)', 'dart', ['run', 'slang']),
+    // drift 的 database.g.dart 同理。
+    command('codegen (build_runner)', 'dart', ['run', 'build_runner', 'build']),
     command('format', 'dart', [
       'format',
       '--output=none',
@@ -26,6 +29,7 @@ List<CheckStep> gateSteps({
     ]),
     command('analyze', 'flutter', ['analyze']),
     command('test', 'flutter', ['test']),
+    schemaSnapshotStep(app: app, shell: shell, out: out),
     CheckStep('doc gate', () async {
       final problems = checkAcceptanceTickets(app.parent);
       problems.forEach(out.writeln);

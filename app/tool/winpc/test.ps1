@@ -1,5 +1,5 @@
 # Runs one integration_test file on Windows inside the desktop session via
-# scheduled task. Run build.ps1 first (it does pub get and slang). ASCII only.
+# scheduled task. Run build.ps1 first (it does pub get, slang and build_runner). ASCII only.
 param([string]$File)
 $wt = 'C:\fmp-wt\app'
 $log = 'C:\fmp-wt\test.log'

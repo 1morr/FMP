@@ -1,0 +1,9 @@
+# drift 的 codegen 與 schema 快照（plan §3）。快照在 drift_schemas/，
+# 升級測試在 test/drift/；都由 `dart run drift_dev make-migrations` 產生。
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          databases:
+            app_database: lib/data/database.dart

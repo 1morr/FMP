@@ -56,7 +56,8 @@ app/
 | --- | --- | --- |
 | 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
 | 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
-| 資料庫與設定 | drift 加 sqlite3 | schema 快照與升級測試；設定也存這裡，不用 shared_preferences |
+| 資料庫與設定 | drift 2.35.4、sqlite3 3.9.1；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K12）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
+| 檔案位置（平台） | path_provider 2.1.6 | 資料庫放 application support 目錄（`platform/storage.dart`） |
 | HTTP | dio | 插件請求都經宿主網路層，統一限流、重試、遮蔽 |
 | 音訊 | just_audio（Android、iOS、macOS）、media_kit（Windows） | brief §6、事實 K1 |
 | 媒體控制 | audio_service、audio_session、smtc_windows | macOS 由 M0 實驗定 |
@@ -78,7 +79,7 @@ app/
 
 ### macOS
 
-框架與套件：Flutter macOS 桌面，目前沒有平台套件。
+框架與套件：Flutter macOS 桌面；path_provider（資料庫位置）。資料庫在 `~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Support/com.personal.fmp.dev/fmp.sqlite`。
 
 閘門：`flutter build macos --debug`；`flutter test integration_test/<檔> -d macos`（會在本機開一個 App 視窗）。
 
@@ -86,7 +87,7 @@ app/
 
 ### iOS 模擬器
 
-框架與套件：Flutter iOS，目前沒有平台套件。
+框架與套件：Flutter iOS；path_provider（資料庫位置）。資料庫在 `xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下的 `Library/Application Support/fmp.sqlite`。
 
 閘門：`flutter build ios --simulator --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好；`check.dart` 從 `flutter devices --machine` 挑第一台 `emulator: true` 的 iOS 裝置，不會挑連著的實體 iPhone，找不到就讓這一步失敗。
 
@@ -94,7 +95,7 @@ app/
 
 ### Android 模擬器
 
-框架與套件：Flutter Android，目前沒有平台套件。
+框架與套件：Flutter Android；path_provider（資料庫位置）。資料庫在 App 的 `files/fmp.sqlite`，取出：`adb exec-out run-as com.personal.fmp.dev cat files/fmp.sqlite > <暫存目錄>/fmp.sqlite`。
 
 閘門：`flutter build apk --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好（`flutter emulators --launch Medium_Phone_API_37.0`），挑法同 iOS。`--no-uninstall` 讓測試跑完不刪 App 與資料。
 
@@ -104,12 +105,12 @@ app/
 
 框架與套件：Flutter Windows 桌面，目前沒有平台套件。
 
-閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get` 與 slang）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
+閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get`、slang 與 build_runner）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
 
 經 SSH 操作，不 push（2026-11-11 票 01 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑：
 
 1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
-2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
+2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
 3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。
 4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉。
 
@@ -140,11 +141,12 @@ app/
 - `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
 - 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。
 - 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。
+- drift 的 schema（M0 票 07）：每個版本的快照在 `app/drift_schemas/app_database/`，升級測試在 `app/test/drift/app_database/`。改 schema 時：改表、`schemaVersion` 加一、在 `app/` 跑 `dart run drift_dev make-migrations`（產生新快照、`generated/` 的各版本資料庫、`lib/data/database.steps.dart`），在 `AppDatabase.migration` 用 `stepByStep` 寫這一步；`migration_test.dart` 自動涵蓋每一對版本，改到既有欄位時照檔頭加資料完整性測試。閘門的 `schema snapshot (drift)` 比對目前的 schema 與最新快照，`migration_test.dart` 比對 `schemaVersion` 與最新快照的版本，忘了任一步都會紅。`*.g.dart` 不進 git，閘門的 `codegen (build_runner)` 先產生。
 - 聯網冒煙測試：每個音源每種插件能力最多一條，手動執行，不擋合併；用真實帳號時照 `AGENTS.md` 的最少操作規則。
 
 ## 4. 開發環境與閘門
 
-- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、format、analyze、單元測試、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
+- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（§3）、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
 - `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見 §2 各平台的「閘門」），最後檢查插件打包產物是否最新（票 08 接上）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。

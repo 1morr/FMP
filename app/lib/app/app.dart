@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/ui/placeholder/placeholder_page.dart';
 
@@ -8,10 +9,12 @@ import 'package:fmp/ui/placeholder/placeholder_page.dart';
 /// `UnmountedRefException` 也會重試（brief 事實 K5），所以全域關掉。
 Duration? noRetry(int retryCount, Object error) => null;
 
-/// App 的根：`main` 直接 `runApp` 它，測試也從這裡起。
-Widget buildRoot() {
+/// App 的根：`main` 直接 `runApp` 它，測試也從這裡起。[overrides] 放
+/// 啟動時才備好的東西，例如資料庫。
+Widget buildRoot({List<Override> overrides = const []}) {
   return ProviderScope(
     retry: noRetry,
+    overrides: overrides,
     child: TranslationProvider(child: const FmpApp()),
   );
 }
