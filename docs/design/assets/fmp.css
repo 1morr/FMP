@@ -628,7 +628,7 @@ html[data-glass="minimal"] .phone .edge-top { background: linear-gradient(var(--
 .side .sfoot { margin-top: auto; padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
 
 .wcontent { position: absolute; inset: 0; }
-.wcontent > .scroll { position: absolute; inset: 0; padding-left: 256px; }
+.wcontent > .scroll { position: absolute; inset: 0; padding-left: var(--side, 256px); }
 .wtop { position: absolute; z-index: 25; top: 8px; height: 50px; display: flex; align-items: center; gap: 8px; padding: 0 16px 0 24px; pointer-events: none; }
 .wtop > * { pointer-events: auto; }
 .wtop .wt { font-size: 15px; font-weight: 700; opacity: 0; transition: opacity var(--t-mid); pointer-events: none; }
@@ -710,7 +710,7 @@ body.rv { margin: 0; font: 14px/1.5 var(--font); color: #1A1920; -webkit-font-sm
 /* ------------------------------------------------------------------ */
 /* Desktop settings: category column + pane (FMP.settingsShell)        */
 /* ------------------------------------------------------------------ */
-.sx { position: absolute; left: 256px; right: 16px; top: 0; bottom: 0; display: grid; grid-template-columns: 212px minmax(0, 1fr); }
+.sx { position: absolute; left: var(--side, 256px); right: 16px; top: 0; bottom: 0; display: grid; grid-template-columns: 212px minmax(0, 1fr); }
 .sx-cats { padding: 64px 12px 100px 2px; display: flex; flex-direction: column; gap: 1px; box-shadow: inset -.5px 0 0 var(--sep); }
 .sx-cats .field { margin: 0 0 10px; }
 .sx-i { display: flex; align-items: center; gap: 9px; width: 100%; height: 32px; padding: 0 8px 0 6px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--label); }
@@ -728,3 +728,85 @@ body.rv { margin: 0; font: 14px/1.5 var(--font); color: #1A1920; -webkit-font-sm
 .sx-wt { font-size: 13px; font-weight: 700; }
 .sx-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .sx-lead { max-width: 620px; margin: 4px 0 0; font-size: 13px; line-height: 19px; color: var(--label-2); }
+
+/* ------------------------------------------------------------------ */
+/* Medium width (600–1199): glass rail + content + transport          */
+/* One structure, two densities: .desk (narrow window, mouse) and      */
+/* .tablet (touch). The detail panel floats instead of docking.        */
+/* ------------------------------------------------------------------ */
+.rail { position: absolute; z-index: 30; top: calc(var(--top0, 0px) + 8px); bottom: 8px; left: 8px; width: 60px; border-radius: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0 6px 6px; }
+.rail .lights { display: flex; gap: 6px; padding: 14px 0 0 7px; height: 38px; flex: none; }
+.rail .lights i { width: 11px; height: 11px; border-radius: 50%; background: #FF5F57; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.2); }
+.rail .lights i:nth-child(2) { background: #FEBC2E; } .rail .lights i:nth-child(3) { background: #28C840; }
+.rail-i { position: relative; flex: none; height: 50px; border-radius: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--glass-ink); font-size: 10px; font-weight: 600; letter-spacing: .01em; }
+.rail-i svg.i { stroke-width: 1.7; }
+.rail-i:hover { background: var(--glass-press); }
+.rail-i.on { color: var(--accent); background: var(--glass-press); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.22), inset 0 1px 0 rgba(255,255,255,.16); }
+.rail-sep { flex: none; height: .5px; margin: 6px 10px; background: color-mix(in srgb, var(--glass-ink) 18%, transparent); }
+.rail-pls { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0; margin: 0 -6px; scrollbar-width: none; }
+.rail-pls::-webkit-scrollbar { display: none; }
+.rail-pl { position: relative; flex: none; border-radius: 9px; }
+.rail-pl .cover { border-radius: 8px; display: block; }
+.rail-pl.on { box-shadow: 0 0 0 2px var(--glass-ink); }
+.rail-pl.hov { box-shadow: 0 0 0 2px color-mix(in srgb, var(--glass-ink) 35%, transparent); }
+.rail-pl .rail-src { position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; border-radius: 9px; display: grid; place-items: center; background: var(--glass-solid); box-shadow: 0 0 0 .5px var(--sep-strong); }
+.rail-pl .rail-src svg { width: 11px; height: 11px; }
+.rail-add { flex: none; width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: var(--glass-ink-2); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--glass-ink) 22%, transparent); }
+.rail-add:hover { background: var(--glass-press); color: var(--glass-ink); }
+.rail-foot { flex: none; padding-top: 4px; display: flex; flex-direction: column; }
+/* hover tooltip with the playlist name (desktop) */
+.rail-tip { position: absolute; z-index: 31; left: 86px; gap: 0; height: 28px; padding: 0 11px; border-radius: 14px; display: flex; align-items: center; font-size: 12px; font-weight: 600; white-space: nowrap; --glass-fill: var(--glass-fill-strong); color: var(--glass-ink); }
+.rail-tip .c2 { font-weight: 500; color: var(--glass-ink-2); }
+/* tablet density: 80 wide, 44pt targets */
+.tablet .rail { width: 68px; bottom: 20px; border-radius: 22px; padding: 6px 6px 8px; }
+.tablet .rail-i { height: 58px; border-radius: 17px; font-size: 11px; gap: 3px; }
+.tablet .rail-pls { gap: 10px; }
+.tablet .rail-pl, .tablet .rail-pl .cover { border-radius: 10px; }
+.tablet .rail-add { width: 44px; height: 44px; border-radius: 11px; }
+
+/* tablet frame: status bar + home indicator; the bezel is drawn like the phone's */
+.win.tablet { border-radius: 22px; box-shadow: 0 0 0 12px #1B1A20, 0 0 0 13px #3A3942, 0 30px 60px rgba(0,0,0,.3); }
+.win.tablet .tstatus { position: absolute; top: 0; left: 0; right: 0; height: 24px; z-index: 40; display: flex; align-items: center; justify-content: space-between; padding: 2px 24px 0 26px; font: 600 13px var(--font-num); color: var(--label); pointer-events: none; }
+.win.tablet .tstatus .sr { display: flex; align-items: center; gap: 5px; }
+.win.tablet .homebar { position: absolute; bottom: 7px; left: 50%; width: 200px; height: 5px; margin-left: -100px; border-radius: 3px; background: var(--label); opacity: .8; z-index: 60; pointer-events: none; }
+.win.tablet.on-media .tstatus { color: #fff; }
+.win.tablet.on-media .homebar { background: #fff; }
+.win.tablet .wtop { top: 30px; height: 52px; padding: 0 16px 0 24px; }
+.win.tablet .wtop .wt { font-size: 17px; font-weight: 600; }
+.win.tablet .edge-top { height: 116px; }
+.win.tablet .wcontent > .scroll { padding-top: var(--top0); }
+.win.tablet .toast { left: auto; right: auto; }
+
+/* transport: touch density on a tablet; compact (< 640 wide) drops the time and volume */
+.transport.touch { height: 68px; border-radius: 34px; bottom: 20px; padding: 0 12px 0 10px; }
+.transport.touch .ti .cover { width: 48px; height: 48px; border-radius: 10px; }
+.transport.touch .ti b { font-size: 15px; line-height: 19px; }
+.transport.touch .ti span { font-size: 13px; line-height: 17px; }
+.transport.touch .ibtn { width: 44px; height: 44px; }
+.transport.touch .ibtn svg.i { width: 22px; height: 22px; }
+.transport.touch .ibtn.big { width: 50px; height: 50px; }
+.transport.touch .ibtn.big svg.i { width: 28px; height: 28px; }
+.transport.touch .row-c { gap: 4px; }
+.transport.touch .tr .tm { font-size: 12px; }
+.transport.compact .tr .tm, .transport.compact .tr .vol { display: none; }
+
+/* detail panel, medium width: floats over the content (solid, not glass) and closes on Esc or a click outside */
+.detail.float { z-index: 32; top: calc(var(--top0, 0px) + 8px); bottom: 8px; right: 8px; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-float), inset 0 0 0 .5px var(--sep-strong); }
+.detail.touch { width: 360px; border-radius: 22px; bottom: 20px; }
+.detail.touch .dhead { height: 60px; font-size: 17px; padding: 8px 10px 0 20px; }
+.detail.touch .dhead .ibtn { width: 44px; height: 44px; }
+.detail.touch .dhead .seg button { height: 32px !important; padding: 0 12px !important; }
+.detail.touch .dbody { padding: 8px 20px 100px; }
+
+/* tablet settings: wider category column with 44pt rows */
+.tablet .sx { grid-template-columns: 260px minmax(0, 1fr); right: 0; }
+.tablet .sx-cats { padding: 92px 14px 110px 8px; gap: 2px; }
+.tablet .sx-i { height: 44px; font-size: 16px; gap: 12px; padding: 0 10px 0 8px; border-radius: 12px; }
+.tablet .sx-i .gicon { width: 30px; height: 30px; border-radius: 8px; }
+.tablet .sx-i .gicon svg.i { width: 18px; height: 18px; }
+.tablet .sx-cats .field { height: 40px; font-size: 16px; }
+.tablet .sx-pane { padding: 92px 32px 120px; }
+.tablet .sx-wt { font-size: 17px; font-weight: 600; }
+
+/* review harness: medium frames */
+.rv-mid { margin-top: 36px; }

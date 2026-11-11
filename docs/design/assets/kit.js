@@ -370,7 +370,8 @@
     t = t || FMP.now;
     const left = o.left ?? 280, right = o.right ?? 344;
     const pct = o.progress ?? 38;
-    return '<div class="lg transport" data-adapt style="left:' + left + 'px;right:' + right + 'px">' +
+    // touch: tablet density, no volume (hardware buttons); compact: capsule under 640 wide hides the time and volume
+    return '<div class="lg transport' + (o.touch ? ' touch' : '') + (o.compact ? ' compact' : '') + '" data-adapt style="left:' + left + 'px;right:' + right + 'px">' +
       '<span class="played" style="width:' + pct + '%"></span>' +
       '<div class="ti" data-act="open-player" role="button">' + FMP.coverEl(t.cv, 44) + '<div style="min-width:0;display:flex;flex-direction:column;gap:2px"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + '<span class="tt">' + FMP.esc(t.artist) + '</span></span></div></div>' +
       '<div class="row-c">' +
@@ -379,29 +380,31 @@
       '<button class="ibtn big" aria-label="暫停">' + I(o.paused ? 'play' : 'pause', 's24') + '</button>' +
       '<button class="ibtn" aria-label="下一首">' + I('next', 's20') + '</button>' +
       '<button class="ibtn' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat', 's18') + '</button></div>' +
-      '<div class="tr"><span class="tm">1:36 / ' + t.dur + '</span><button class="ibtn" aria-label="歌詞">' + I('lyrics', 's18') + '</button><button class="ibtn" aria-label="佇列">' + I('queue', 's18') + '</button><button class="ibtn" aria-label="音量">' + I('volume', 's18') + '</button></div></div>';
+      '<div class="tr"><span class="tm">1:36 / ' + t.dur + '</span><button class="ibtn" aria-label="歌詞">' + I('lyrics', 's18') + '</button><button class="ibtn" aria-label="佇列">' + I('queue', 's18') + '</button>' + (o.touch ? '' : '<button class="ibtn vol" aria-label="音量">' + I('volume', 's18') + '</button>') + '</div></div>';
   };
 
+  /* o.float: medium width, the panel floats over the content instead of docking; o.touch: tablet density */
   FMP.detailPanel = function (ctx, o) {
     o = o || {};
     const t = o.track || FMP.now;
-    const next = ['t02', 't03', 't04'].map((id) => FMP.trackRow(FMP.T[id], { desk: true, size: 32, more: false, style: 'padding:0 6px;min-height:44px' })).join('');
-    return '<aside class="detail">' +
+    const z = o.touch ? { t: '20px;line-height:25px', s: '15px', c: '13px', b: '15px' } : { t: '17px;line-height:22px', s: '13px', c: '12px', b: '12.5px' };
+    const next = ['t02', 't03', 't04'].map((id) => FMP.trackRow(FMP.T[id], o.touch ? { size: 40, more: false, style: 'padding:0 6px;min-height:52px' } : { desk: true, size: 32, more: false, style: 'padding:0 6px;min-height:44px' })).join('');
+    return '<aside class="detail' + (o.float ? ' float' : '') + (o.touch ? ' touch' : '') + '">' +
       '<div class="dhead"><span>正在播放</span><span class="sp"></span>' +
       '<button class="ibtn" aria-label="加入歌單">' + I('addlist', 's18') + '</button>' +
       '<div class="seg" style="margin:0 2px"><button class="on" style="height:24px;padding:0 9px">' + I('info', 's16') + '</button><button style="height:24px;padding:0 9px">' + I('lyrics', 's16') + '</button></div>' +
       '<button class="ibtn" aria-label="收起面板">' + I('sidebarR', 's18') + '</button></div>' +
       '<div class="dbody scroll">' +
       FMP.coverEl(t.cv, null, '', 'width:100%;aspect-ratio:1;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25)') +
-      '<div style="margin-top:14px;font-size:17px;line-height:22px;font-weight:700">' + FMP.esc(t.title) + '</div>' +
-      '<div class="c2" style="font-size:13px;margin-top:2px">' + FMP.esc(t.artist) + '</div>' +
+      '<div style="margin-top:14px;font-size:' + z.t + ';font-weight:700">' + FMP.esc(t.title) + '</div>' +
+      '<div class="c2" style="font-size:' + z.s + ';margin-top:2px">' + FMP.esc(t.artist) + '</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center">' + FMP.srcChip(t.src, true) + FMP.acc(t.acc, true) + (t.id === 't01' ? '<span class="src-chip">' + I('wave', 's16') + '無損 · 會員</span>' : '') + '</div>' +
       (t.id === 't01'
-        ? '<div style="display:flex;gap:18px;margin-top:14px" class="c2"><span style="font-size:12px"><b class="num" style="color:var(--label);font-size:13px">8,214</b> 則評論</span><span style="font-size:12px">專輯《<span style="color:var(--label)">夜行</span>》</span></div>'
-        : (t.plays ? '<div style="margin-top:14px;font-size:12px" class="c2"><b class="num" style="color:var(--label);font-size:13px">' + t.plays + '</b> 次播放</div>' : '')) +
-      '<div style="margin:22px 0 4px;font-size:12px;font-weight:700;color:var(--label-2)">下一首</div>' + next +
-      '<div style="margin:20px 0 6px;font-size:12px;font-weight:700;color:var(--label-2)">簡介</div>' +
-      (t.id === 't01' ? '<div class="c2" style="font-size:12.5px;line-height:1.55">收錄於 2026 年專輯《夜行》。錄音在台北一間舊公寓完成，鋼琴是房東留下的老琴，最後一段的雜音是窗外的末班車。</div>' : '<div class="c3" style="font-size:12.5px">這個音源沒有提供簡介。</div>') +
+        ? '<div style="display:flex;gap:18px;margin-top:14px" class="c2"><span style="font-size:' + z.c + '"><b class="num" style="color:var(--label);font-size:' + z.s + '">8,214</b> 則評論</span><span style="font-size:' + z.c + '">專輯《<span style="color:var(--label)">夜行</span>》</span></div>'
+        : (t.plays ? '<div style="margin-top:14px;font-size:' + z.c + '" class="c2"><b class="num" style="color:var(--label);font-size:' + z.s + '">' + t.plays + '</b> 次播放</div>' : '')) +
+      '<div style="margin:22px 0 4px;font-size:' + z.c + ';font-weight:700;color:var(--label-2)">下一首</div>' + next +
+      '<div style="margin:20px 0 6px;font-size:' + z.c + ';font-weight:700;color:var(--label-2)">簡介</div>' +
+      (t.id === 't01' ? '<div class="c2" style="font-size:' + z.b + ';line-height:1.55">收錄於 2026 年專輯《夜行》。錄音在台北一間舊公寓完成，鋼琴是房東留下的老琴，最後一段的雜音是窗外的末班車。</div>' : '<div class="c3" style="font-size:' + z.b + '">這個音源沒有提供簡介。</div>') +
       '</div></aside>';
   };
 
@@ -419,6 +422,55 @@
       (detail ? FMP.detailPanel(ctx, o.detailOpts) : '') +
       (o.transport === false ? '' : FMP.transport(o.transport && o.transport !== true ? o.transport : null, { right, ...(o.transportOpts || {}) })) +
       (o.overlay || '') + '</div>';
+  };
+
+  /* ---------------- medium width (600–1199): glass rail + content + transport ----------------
+   * Same structure on a tablet (touch density) and a narrow desktop window (mouse density);
+   * owner picked the rail 2026-11-11 (Material 3 navigation rail; collapsed playlists as covers like Spotify). */
+  FMP.MID = { window: [960, 720], tablet: [820, 1180] };
+  FMP.rail = function (ctx, o) {
+    o = o || {};
+    const nav = o.nav || 'home';
+    const ic = o.touch ? 's24' : 's20';
+    const item = (k, icon, label) => '<button class="rail-i' + (nav === k ? ' on' : '') + '" data-href="' + k + '.html" aria-label="' + label + '">' + I(icon, ic) + '<span>' + label + '</span></button>';
+    const pls = FMP.playlists.map((p, i) => '<button class="rail-pl' + (o.pl === p.id ? ' on' : '') + (o.tip && o.tip.index === i ? ' hov' : '') + '" data-href="playlist.html" aria-label="' + FMP.esc(p.name) + '" title="' + FMP.esc(p.name) + '">' + FMP.coverEl(p.cv, o.touch ? 44 : 36) + (p.kind === 'imported' ? '<span class="rail-src">' + FMP.srcMark(p.src) + '</span>' : '') + '</button>').join('');
+    // o.tip: { index } shows the hover tooltip beside that playlist (name · source · count); placed by wire()
+    const tp = o.tip && FMP.playlists[o.tip.index];
+    const tip = tp ? '<span class="lg rail-tip">' + FMP.esc(tp.name) + '<span class="c2">&nbsp;· ' + (tp.kind === 'imported' ? FMP.SRC[tp.src].short + ' · ' : '') + tp.count + ' 首</span></span>' : '';
+    return '<aside class="lg rail" data-lg-blur="6">' +
+      (o.touch ? '' : '<div class="lights"><i></i><i></i><i></i></div>') +
+      item('search', 'search', '搜尋') + item('home', 'home', '首頁') + item('library', 'library', '音樂庫') + item('queue', 'queue', '佇列') +
+      '<div class="rail-sep"></div>' +
+      '<div class="rail-pls scroll">' + pls + '<button class="rail-add" aria-label="新建歌單">' + I('plus', o.touch ? 's20' : 's16') + '</button></div>' +
+      '<div class="rail-foot">' + item('settings', 'settings', '設定') + '</div></aside>' + tip;
+  };
+
+  /* medium frame. o: device 'window'|'tablet', w, h, nav, pl, content, raw, top, panel (floating detail open),
+   *   panelBtn (false hides the top bar's panel button), transport (false|track), transportOpts, overlay, ambient, scrollStyle, tip, noRail */
+  FMP.medium = function (ctx, o) {
+    const dev = o.device || 'window';
+    const touch = dev === 'tablet';
+    const w = o.w || FMP.MID[dev][0], h = o.h || FMP.MID[dev][1];
+    const side = o.noRail ? 0 : touch ? 88 : 80; // rail 72 (80 on a tablet) inset 8
+    const top0 = touch ? 24 : 0; // tablet status bar
+    const pw = touch ? 360 : 320;
+    const right = o.panel ? 8 + pw + 24 : 24;
+    const left = side + 24;
+    const compact = w - left - right < 640;
+    let top = o.top || '';
+    const panelBtn = !o.panel && o.panelBtn !== false && !o.noRail;
+    if (panelBtn && top.indexOf('class="sp"') < 0) top += '<span class="sp"></span>';
+    if (panelBtn) top += FMP.gbtn('sidebarR', '顯示詳情面板');
+    const status = touch ? '<div class="tstatus"><span>9:41　11月11日 週三</span><span class="sr">' + I('wifi', 's16') + '<span style="font-size:12px">82%</span><svg class="i" viewBox="0 0 24 24" style="width:25px;height:20px">' + P.battery + '</svg></span></div><div class="homebar"></div>' : '';
+    return '<div class="win mid scr ' + (touch ? 'tablet' : 'desk') + (o.onMedia ? ' on-media' : '') + ' t-' + ctx.theme + '" data-tone="' + ctx.theme + '" style="width:' + w + 'px;height:' + h + 'px;--side:' + side + 'px;--top0:' + top0 + 'px">' +
+      (o.ambient ? FMP.ambient(o.ambient) : '') +
+      '<div class="wcontent">' + (o.raw ? o.content : '<div class="scroll" style="' + (o.scrollStyle || '') + '">' + o.content + '</div>') + '</div>' +
+      (o.noEdge ? '' : '<div class="edge-top" style="left:0;right:0"></div>') +
+      (top ? '<div class="wtop" style="left:' + Math.max(side - 8, 0) + 'px;right:8px">' + top + '</div>' : '') +
+      (o.noRail ? '' : FMP.rail(ctx, { nav: o.nav, pl: o.pl, touch, tip: o.tip })) +
+      (o.panel ? FMP.detailPanel(ctx, Object.assign({}, o.detailOpts, { float: true, touch })) : '') +
+      (o.transport === false ? '' : FMP.transport(o.transport && o.transport !== true ? o.transport : null, Object.assign({ left, right, touch, compact }, o.transportOpts))) +
+      (o.overlay || '') + status + '</div>';
   };
 
   /* desktop settings window: app sidebar + a category column + one pane (macOS System Settings).
@@ -439,6 +491,11 @@
       '<button class="sx-i' + (o.cat === c[0] ? ' on' : '') + '"><span class="gicon">' + (c[1] === 'disk' ? SX_DISK : I(c[1])) + '</span><span>' + c[2] + '</span><span class="sp"></span>' + badge(c[0]) + '</button>').join('');
     const content = '<div class="sx"><nav class="sx-cats" aria-label="設定分類"><div class="field">' + I('search') + '<span class="ph">搜尋設定</span></div>' + cats + '</nav>' +
       '<div class="sx-pane scroll">' + o.content + '</div></div>';
+    // o.mid: { device, w, h } puts the same two columns in the medium frame (rail instead of the sidebar)
+    if (o.mid) return FMP.medium(ctx, Object.assign({}, o.mid, {
+      nav: 'settings', raw: true, content, panelBtn: false, overlay: o.overlay,
+      top: '<span class="sx-wt">設定</span><span class="sp"></span>' + FMP.gbtn('sidebarR', '顯示詳情面板'),
+    }));
     return FMP.desktop(ctx, {
       nav: 'settings', raw: true, content, detail: false,
       top: '<span class="sx-wt">設定</span><span class="sp"></span>' + FMP.gbtn('sidebarR', '顯示詳情面板'),
@@ -538,6 +595,15 @@
           }));
           h += '</div>';
         }
+        // medium width: each frame's themes side by side, scaled to fit the row
+        frames.filter(isMid).forEach((f) => {
+          h += '<div class="rv-row rv-mid">';
+          themes.forEach((th) => {
+            const [w, hh] = midSize(f);
+            h += '<div class="rv-frame"><div class="cap"><b>' + f.label + '</b>' + (f.kind === 'tablet' ? '平板 ' : '窄視窗 ') + w + '×' + hh + (themes.length > 1 ? (th === 'dark' ? ' · 深色' : ' · 淺色') : '') + '</div><div class="mid-slot' + (f.kind === 'tablet' ? ' is-tablet' : '') + '" data-frame="' + (n++) + '" data-th="' + th + '" data-w="' + w + '" data-h="' + hh + '"></div></div>';
+          });
+          h += '</div>';
+        });
         desks.forEach((f) => themes.forEach((th) => {
           h += '<div class="rv-frame" style="margin-top:36px"><div class="cap"><b>' + f.label + '</b>' + (themes.length > 1 ? (th === 'dark' ? '深色' : '淺色') : '') + '</div><div class="desk-slot" data-frame="' + (n++) + '" data-th="' + th + '"></div></div>';
         }));
@@ -551,7 +617,7 @@
       const all = [];
       (spec.sections || []).forEach((sec) => {
         const frames = sec.frames || [];
-        const ordered = frames.filter((f) => f.kind === 'phone' || f.kind === 'panel').concat(frames.filter((f) => f.kind === 'desktop'));
+        const ordered = frames.filter((f) => f.kind === 'phone' || f.kind === 'panel').concat(frames.filter(isMid), frames.filter((f) => f.kind === 'desktop'));
         ordered.forEach((f) => themes.forEach((th) => all.push([f, th])));
       });
       all.forEach(([f, th]) => {
@@ -560,6 +626,7 @@
         slot.innerHTML = f.render(ctx);
         const root = slot.firstElementChild;
         if (f.kind === 'desktop') fitDesktop(slot, root);
+        if (isMid(f)) fitMid(slot, root, themes.length);
         wire(root, ctx);
         if (f.after) f.after(root, ctx);
       });
@@ -573,6 +640,22 @@
       requestAnimationFrame(() => { window.FMPGlass && FMPGlass.scan(document); FMPGlass && FMPGlass.updateTones(); });
       setTimeout(() => window.FMPGlass && FMPGlass.updateTones(), 300);
     }
+    function isMid(f) { return f.kind === 'tablet' || f.kind === 'window'; }
+    function midSize(f) { const d = FMP.MID[f.kind === 'tablet' ? 'tablet' : 'window']; return [f.w || d[0], f.h || d[1]]; }
+    // two themes side by side; the tablet bezel (13) sits in the slot's padding
+    function fitMid(slot, root, count) {
+      const w = +slot.dataset.w, hh = +slot.dataset.h;
+      const pad = slot.classList.contains('is-tablet') ? 13 : 0;
+      const avail = (document.querySelector('.rv-main').clientWidth || 1280) - 64;
+      const per = (avail - 48 * (count - 1)) / count - pad * 2;
+      const sc = Math.min(1, per / w);
+      slot.style.padding = pad + 'px';
+      slot.style.width = w * sc + 'px';
+      slot.style.height = hh * sc + 'px';
+      slot.style.boxSizing = 'content-box';
+      root.classList.add('rv-scale');
+      root.style.transform = sc < 1 ? 'scale(' + sc + ')' : '';
+    }
     function fitDesktop(slot, root) {
       const avail = Math.min(slot.parentElement.parentElement.clientWidth || 1280, 1600);
       const sc = Math.min(1, avail / 1280);
@@ -583,7 +666,11 @@
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render); else render();
     let rt;
-    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => document.querySelectorAll('.desk-slot').forEach((s) => fitDesktop(s, s.firstElementChild)), 150); });
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => {
+      document.querySelectorAll('.desk-slot').forEach((s) => fitDesktop(s, s.firstElementChild));
+      const count = PREFS.theme === 'both' ? 2 : 1;
+      document.querySelectorAll('.mid-slot').forEach((s) => fitMid(s, s.firstElementChild, count));
+    }, 150); });
   };
 
   /* behaviours shared by every frame */
@@ -621,6 +708,16 @@
       if (e.target.closest('.ibtn')) return;
       if (!location.pathname.endsWith('player.html')) location.href = 'player.html';
     }));
+    // rail tooltip sits level with the hovered playlist cover
+    root.querySelectorAll('.rail-tip').forEach((tip) => {
+      const pl = root.querySelector('.rail-pl.hov');
+      if (!pl) return;
+      requestAnimationFrame(() => {
+        let y = pl.offsetHeight / 2, n = pl;
+        while (n && n !== root) { y += n.offsetTop - (n.parentElement && n.parentElement !== root ? n.parentElement.scrollTop : 0); n = n.offsetParent; }
+        tip.style.top = (y - tip.offsetHeight / 2) + 'px';
+      });
+    });
     // generic toggles for demo controls
     root.querySelectorAll('.switch, .tog[data-toggle], .check[data-toggle]').forEach((n) => n.addEventListener('click', () => n.classList.toggle('on')));
   }
