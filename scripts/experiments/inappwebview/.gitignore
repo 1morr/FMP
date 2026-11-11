@@ -1,0 +1,6 @@
+# 原始 log 含本機路徑，只提交整理過的 results/*.json；截圖不進 repo。
+results/raw-*
+results/*.png
+
+# Gradle 在 android/ 底下也會產生 build/（問題報告含本機路徑）。
+probe/android/build/

@@ -1,0 +1,9 @@
+{
+  "platform": "windows",
+  "url": "https://example.com/",
+  "ok": true,
+  "loadedUrl": "https://example.com/",
+  "title": "Example Domain",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+  "at": "2026-11-11T14:58:26.507599Z"
+}
