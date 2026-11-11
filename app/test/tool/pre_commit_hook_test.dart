@@ -74,6 +74,16 @@ void main(List<String> args) {
     );
   });
 
+  test('moving a file out of app/ also runs it', () {
+    write('app/lib/moved.dart', 'void main() {}\n' * 20);
+    git(['add', '-A']);
+    git(['commit', '-q', '--no-verify', '-m', 'add']);
+    git(['mv', 'app/lib/moved.dart', 'moved.dart']);
+    final result = git(['commit', '-q', '-m', 'move out of app']);
+    expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+    expect(marker().existsSync(), isTrue);
+  });
+
   test('a commit touching only the legacy app or docs skips it', () {
     write('lib/main.dart', 'void main() {}\n');
     write('docs/progress.md', '# 進度\n');
