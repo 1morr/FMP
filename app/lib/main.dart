@@ -23,6 +23,11 @@ Future<void> main() async {
   log.info('Database opened, schema version $version');
 
   runApp(
-    buildRoot(overrides: [appDatabaseProvider.overrideWithValue(database)]),
+    buildRoot(
+      overrides: [
+        logProvider.overrideWithValue(log),
+        appDatabaseProvider.overrideWithValue(database),
+      ],
+    ),
   );
 }

@@ -3,6 +3,13 @@
     "name": "FMP"
   },
   "placeholder": {
-    "subtitle": "New version in development"
+    "subtitle": "New version in development",
+    "search": {
+      "hint": "Search",
+      "empty": "No results",
+      "failed": "Search failed",
+      "network": "Can't connect to the network",
+      "rateLimited": "Too many requests, try again later"
+    }
   }
 }

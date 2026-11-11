@@ -1,0 +1,14 @@
+{
+  "name": "fmp-plugins",
+  "private": true,
+  "description": "FMP 隨 App 打包的插件（ADR 0038）。npm run build 產生各插件的 dist/plugin.js。",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}
