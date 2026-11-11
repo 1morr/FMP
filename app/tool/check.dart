@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'src/gate.dart';
-import 'src/steps.dart';
+import 'src/steps.dart' show runSteps;
 
 /// 新版的閘門（plan §4）。在 `app/` 裡跑：
 ///
@@ -17,7 +17,7 @@ Future<void> main(List<String> args) async {
   final steps = gateSteps(
     quick: args.contains('--quick'),
     app: app,
-    shell: const ProcessShell(),
+    shell: gateShell(),
     out: stdout,
   );
   exit(await runSteps(steps, stdout));

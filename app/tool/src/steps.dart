@@ -50,7 +50,10 @@ abstract interface class Shell {
 }
 
 class ProcessShell implements Shell {
-  const ProcessShell();
+  const ProcessShell({this.environment = const {}});
+
+  /// 加在每個指令的環境變數上（其餘照這個行程的環境）。
+  final Map<String, String> environment;
 
   @override
   Future<int> run(
@@ -63,6 +66,7 @@ class ProcessShell implements Shell {
       arguments,
       workingDirectory: workingDirectory.path,
       mode: ProcessStartMode.inheritStdio,
+      environment: environment,
       // Windows 上的 flutter、dart 是 .bat。
       runInShell: Platform.isWindows,
     );
@@ -79,6 +83,7 @@ class ProcessShell implements Shell {
       executable,
       arguments,
       workingDirectory: workingDirectory.path,
+      environment: environment,
       runInShell: Platform.isWindows,
       stdoutEncoding: const Utf8Codec(allowMalformed: true),
     );

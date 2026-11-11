@@ -50,6 +50,9 @@ List<CheckStep> gateSteps({
   ];
 }
 
+/// `tool/check.dart` 跑外部指令用的 [Shell]：帶 [sharedDeviceEnvironment]。
+Shell gateShell() => const ProcessShell(environment: sharedDeviceEnvironment);
+
 /// slang 的產物不照 dart format，所以 format 只看手寫的檔。
 List<String> _handwrittenDartFiles(Directory app) {
   return [

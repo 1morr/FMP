@@ -2,8 +2,10 @@
 # Copy app/ (tracked and untracked files, minus gitignored ones) and the
 # winpc scripts to winpc:C:\fmp-wt over SSH. No git push involved.
 # The old C:\fmp-wt\app is removed first, so the next build starts clean.
+# Runs under the shared-device lock (lock_guard.sh).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
+source "$here/lock_guard.sh"
 repo=$(git -C "$here" rev-parse --show-toplevel)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

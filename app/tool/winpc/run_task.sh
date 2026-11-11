@@ -3,6 +3,8 @@
 # Needs winpc console user logged in. Args must not contain double quotes.
 # A failed status query (e.g. SSH timeout) is retried; deleting the task while
 # it still runs would kill the script. Exits 1 after 12 failed queries in a row.
+# Runs under the shared-device lock (lock_guard.sh).
+source "$(cd "$(dirname "$0")" && pwd)/lock_guard.sh"
 NAME=$1; PS1=$2; shift 2; ARGS="$*"
 ssh winpc "schtasks /Create /F /TN $NAME /SC ONCE /ST 00:00 /RL LIMITED /IT /TR \"powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PS1 $ARGS\"" || exit 1
 ssh winpc "schtasks /Run /TN $NAME" || exit 1
