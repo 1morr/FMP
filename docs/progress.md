@@ -8,7 +8,7 @@
 
 | 里程碑 | 票目錄 | 拆票前讀 | 備註 |
 | --- | --- | --- | --- |
-| M0 | `.scratch/m0/issues/` | `.scratch/m0/spec.md`，再讀票列出的章節 | 已拆 12 張票，票序在 spec |
+| M0 | `.scratch/m0/issues/` | `.scratch/m0/spec.md`，再讀票列出的章節 | 已拆 13 張票（05b 於 2026-11-11 補），票序在 spec |
 | D | 無 | brief §2.3、§6、§11、§17、事實 K10；舊版截圖（`docs/audit/screenshots/`） | 和 M0 並行，M1 開工前完成；重做 B 的稿在分支 `design/d-redesign-b`（`docs/design/`）；擁有者傾向 B，2026-11-11 已照看稿意見改稿，稿內的 A／B 已定案；〈待確認〉1–26 已確認；中寬度 2026-11-11 已補，〈待確認〉27–36 已確認；**擁有者 2026-11-11 定稿**，已合併回 main |
 
 ## Session 紀錄
@@ -41,6 +41,7 @@
 | 2026-11-11 | D 重做 B 首頁細節、brief 與 plan 寫入 | 擁有者照建議確認首頁甲的 7 個細節（排行榜快取與離線顯示上次的榜、匯入歌單點開或 7 天後消失、桌面面板開著時不放繼續聽等），稿與 `DESIGN.md` §6.7 已改；brief §5.1、§5.2、§11 與 plan §5.3–§5.7、〈待決〉P3–P5 照草稿寫入；`PRODUCT.md` 與 surface brief 跟著改 | 新 session 在這個 worktree 下 `/impeccable 照 docs/plan.md〈待決〉P4 為 docs/design/ 每頁補中寬度（平板、窄桌面視窗）版本` |
 | 2026-11-11 | D 重做 B 中寬度 | 照 plan〈待決〉P4 補中寬度（600–1199）：擁有者選定左側玻璃細欄（Material 3 navigation rail）；kit 加 `FMP.medium`／`FMP.rail` 與平板、窄視窗兩種框，`shell.html` 畫平板直向與橫向、窄視窗、浮出的詳情面板、最小視窗，`system.html` 加〈寬度分級〉；其餘 12 頁各加一節「中寬度（平板、窄視窗）」。`DESIGN.md` 加 §5.3，做稿時訂的細節列在〈待確認〉27–36；擁有者已確認 27–36（手機一首歌的「更多」維持底部 sheet），brief §11（寬度分級）與 plan §5.2 已照草稿寫入，〈待決〉P4 刪除 | 等使用者：看完全部頁面後告知 D 定稿；定稿後把 `design/d-redesign-b` 合併回 main 並 push |
 | 2026-11-11 | D 定稿 | 擁有者確認 D 設計稿定稿（`docs/design/`，重做 B，手機、中寬度、桌面三種寬度）；`design/d-redesign-b` 合併回 main 並 push。玻璃三級對事實 K10（plan〈待決〉P5）照原定等 M0 實驗 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
+| 2026-11-11 | D 定稿後對齊 M0 與 brief | 補 M0 票 05b（玻璃三級的四平台可行性），spec 改成五項實驗、票 12 也被 05b 擋，「佔位首頁」改稱「佔位畫面」，票 08 讀 plan〈待決〉P3；D 已定案但沒寫回的決定寫進 brief §5.1、§5.4、§6、§7、§10、§11、§13、§17 與名詞表；plan〈待決〉P3、P5 改歸屬 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 
 ## 偏差與決定
 
@@ -71,3 +72,4 @@
 - 2026-11-11 D 重做 B 中寬度：擁有者選定中寬度（600–1199，平板與縮小的桌面視窗）的導覽用左側玻璃細欄，不用 iPadOS 的頂部 tab bar 或放大的手機 dock；平板與桌面共用版面，只差密度。
 - 2026-11-11 D 重做 B 中寬度：擁有者確認寬度分級（窄 < 600、中 600–1199、寬 ≥ 1200；手機固定直向；桌面最小 720×560；密度跟裝置走）與〈待確認〉27–36，brief §11 與 plan §5.2 已寫入，plan〈待決〉P4 刪除。D 定稿後才合併 push。
 - 2026-11-11 D 定稿：擁有者確認 D 設計稿定稿，`design/d-redesign-b` 合併回 main（main 上先前 A 版的設計稿 commit 留在歷史裡，`docs/design/` 以 B 為準）。
+- 2026-11-11 D 定稿後對齊：擁有者同意插件能力清單（plan〈待決〉P3）改在 M1 拆票時定；玻璃的 Flutter 做法從「M1 外殼票開工時查」（brief §17）提前到 M0 實驗票 05b，P5 跟著改。brief、名詞表、plan 同一個 commit 修改。
