@@ -61,6 +61,16 @@
 .bk-next > svg.i { color: var(--accent); margin-top: 2px; }
 .bk-next b { display: block; font-size: 15px; font-weight: 600; }
 .bk-next p { margin: 3px 0 10px; font-size: 13.5px; line-height: 19px; color: var(--label-2); }
+/* tablet wizard dialog: centered, solid, phone density */
+.dlg.bk-tdlg { width: 600px; height: 820px; max-height: calc(100% - 140px); }
+.bk-tdlg .dlg-head { padding: 14px 16px 6px; }
+.bk-tdlg .dlg-head .dt { font-size: 17px; }
+.bk-tdlg .dlg-body { padding: 0 20px 12px; }
+.bk-tdlg .bk-file { margin: 6px 0 0; }
+.bk-tdlg .dlg-foot.bk-tfoot { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 20px 20px; border-top: .5px solid var(--sep); }
+.bk-tdlg .bk-tfoot .ty-foot { text-align: center; }
+.bk-tbtns { display: flex; gap: 10px; }
+.bk-tbtns .btn { flex: 1; }
 /* desktop wizard dialog */
 .dlg.bk-wiz { flex-direction: row; max-height: none; }
 .bk-wiz .bk-rail { width: 196px; flex: none; }
@@ -233,8 +243,17 @@ function bkDataPane() {
     '<div class="ghead">舊版</div>' + bkGroup([bkCell({ icon: 'importBox', t: '匯入舊版備份', s: 'FMP 1.x 匯出的 JSON 備份；已經有的資料會跳過', trail: '<button class="btn btn-gray btn-sm">匯入…</button>' })]) +
     '<div class="ghead">診斷</div>' + bkGroup([bkCell({ icon: 'diag', t: '匯出診斷', s: 'log 與裝置資訊，憑證一律遮蔽', trail: '<button class="btn btn-gray btn-sm">匯出…</button>' })]);
 }
-function bkDesk(ctx, dlg) {
-  return FMP.settingsShell(ctx, { cat: 'data', content: bkDataPane(), overlay: dlg ? '<div class="dialog-wrap">' + dlg + '</div>' : '' });
+function bkDesk(ctx, dlg, mid) {
+  return FMP.settingsShell(ctx, { cat: 'data', content: bkDataPane(), overlay: dlg ? '<div class="dialog-wrap">' + dlg + '</div>' : '', mid });
+}
+/* medium width: tablet gets a centered solid dialog in phone density (progress bars instead of the step rail); window reuses the desktop wizard */
+function bkTabletPreview(ctx) {
+  const prog = '<div class="bk-prog">' + BK_STEPS.map((_, i) => '<i class="' + (i <= 2 ? 'on' : '') + '"></i>').join('') + '</div><div class="bk-plab">預覽 · 3 / 4</div>';
+  const body = bkFile('匯出於 ' + BK_FILE.at + ' · 舊版 ' + BK_FILE.app, '<button class="btn btn-plain btn-sm">更換</button>') +
+    '<div class="ghead">勾選要匯入的資料</div>' + bkPreviewRows().replace(/group bk-ic bk-lead/g, 'group bk-ic" style="--sep-inset:94px');
+  const dlg = '<div class="dlg solid bk-tdlg" role="dialog"><div class="dlg-head"><button class="gbtn lg" data-adapt aria-label="關閉">' + I('close') + '</button><span class="dt" style="text-align:center">匯入舊版備份</span><span class="bk-hsp"></span></div>' + prog +
+    '<div class="dlg-body scroll">' + body + '</div><div class="dlg-foot bk-tfoot"><div class="ty-foot c2">已經在新版裡的歌單、曲目與紀錄會跳過。</div><div class="bk-tbtns"><button class="btn btn-gray">返回</button><button class="btn btn-primary">匯入 4 類資料</button></div></div></div>';
+  return bkDesk(ctx, dlg, { device: 'tablet' });
 }
 const BK_DSTEPS = ['說明', '選擇檔案', '預覽', '匯入', '完成'];
 function bkDlg(step, title, body, foot) {
@@ -243,12 +262,12 @@ function bkDlg(step, title, body, foot) {
   return '<div class="dlg solid bk-wiz" role="dialog" style="width:800px;height:600px">' + rail + '<div class="bk-main"><div class="dlg-head"><span class="dt">' + title + '</span><button class="ibtn" aria-label="關閉">' + I('close', 's18') + '</button></div>' +
     '<div class="dlg-body scroll">' + body + '</div><div class="dlg-foot">' + foot + '</div></div></div>';
 }
-function bkDeskIntro(ctx) {
+function bkDeskIntro(ctx, mid) {
   const L = bkIntroLists();
   const body = '<p class="sx-lead" style="margin-top:0">選擇 FMP 1.x 匯出的 JSON 備份。新版裡已經有的資料會跳過，不會重複。</p>' +
     '<div class="bk-cols"><div><div class="ghead">會匯入</div>' + L.yes + '</div><div><div class="ghead">這次略過</div>' + L.skip + '<div class="gfoot">' + BK_SKIP_WHY + '</div><div class="ghead">備份裡沒有</div>' + L.none + '</div></div>' +
     '<div class="bk-drop">' + I('importBox') + '<span>把 .json 備份拖到這裡，或按「選擇檔案…」</span></div>';
-  return bkDesk(ctx, bkDlg(0, '從舊版搬資料過來', body, '<span class="ty-foot c3">esc 取消</span><span style="flex:1"></span><button class="btn btn-gray">取消</button><button class="btn btn-primary">選擇檔案…</button>'));
+  return bkDesk(ctx, bkDlg(0, '從舊版搬資料過來', body, '<span class="ty-foot c3">esc 取消</span><span style="flex:1"></span><button class="btn btn-gray">取消</button><button class="btn btn-primary">選擇檔案…</button>'), mid);
 }
 function bkDeskPreview(ctx) {
   const body = bkFile('匯出於 ' + BK_FILE.at + ' · 舊版 ' + BK_FILE.app + ' · ' + BK_FILE.size, '<button class="btn btn-plain btn-sm">更換…</button>') +
@@ -291,6 +310,15 @@ FMP.page({
         { kind: 'phone', label: '檔案無法解析', render: (ctx) => bkError(ctx, 'parse') },
       ],
       notes: '<ul><li>三種錯誤同一個版面：檔案卡（帶警示圖示）＋錯誤卡（標題、原因與該怎麼做、一行技術細節）＋「沒有任何資料被改動」。</li><li>舊版的錯誤是對話框；改成留在流程裡，因為唯一的下一步就是換一個檔案。</li><li>匯入途中失敗（例如磁碟滿）不在這裡：已經寫入的部分保留，結果頁的對應類別標「出錯」並列原因，可以重試同一個備份（已存在的會跳過）。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '「資料」分類在中寬度是細欄、分類欄、窗格三段，精靈疊在最上面。平板用置中的實心對話框，手機密度；窄視窗照桌面的精靈。',
+      frames: [
+        { kind: 'tablet', label: '預覽', render: (ctx) => bkTabletPreview(ctx) },
+        { kind: 'window', label: '說明＋拖放區', render: (ctx) => bkDeskIntro(ctx, { device: 'window' }) },
+      ],
+      notes: '<ul><li>平板的設定是兩欄（分類欄不收起，iPad「設定」App 的慣例），精靈開在「資料」分類上。對話框寬約 600，沿用手機的內容：頂端四段進度條取代桌面的左側步驟欄，底部兩顆按鈕並排、說明文字在上方。</li><li>窄視窗的桌面精靈（800×600）放得進 960×720 的視窗，版面與桌面相同。</li><li>平板精靈的其他步驟（說明、驗證、進度、結果）用手機各步驟的內容放進同一個對話框，不另畫。</li></ul>',
     },
     {
       title: '桌面：精靈對話框',

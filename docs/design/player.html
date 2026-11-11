@@ -222,6 +222,56 @@ html:not([data-accent]) .pl-m, html[data-accent="none"] .pl-m { --accent-fill: #
 .dlg .pl-sb .pl-matched { font-size: 12px; }
 .dlg .pl-sb .pl-hint { font-size: 11.5px; }
 .dlg .pl-sb kbd { font: 600 10.5px var(--font-num); background: color-mix(in srgb, var(--glass-ink) 10%, transparent); border-radius: 5px; padding: 1px 5px; }
+
+/* ---------- medium width (tablet .pl-mt, narrow window .pl-mw) ----------
+   The phone and desktop parts above are absolutely placed for 390x844 / 1280x800. Here the reused parts
+   (signature, progress, controls, dots, lyric lines) are put back in flow inside a column. */
+.pl-mm .pl-sig, .pl-mm .pl-prog, .pl-mm .pl-dprog, .pl-mm .pl-ctl, .pl-mm .pl-dctl, .pl-mm .pl-dots, .pl-mm .pl-mini, .pl-mm .pl-lysrc, .pl-mm .pl-dvol {
+  position: relative; left: auto; right: auto; top: auto; bottom: auto; width: auto; transform: none; flex: none; }
+.pl-mm .pl-sig { align-self: flex-start; max-width: 100%; }
+.pl-mm .pl-dots { align-self: center; }
+/* portrait: one centred column */
+.pl-mp { position: absolute; inset: 0; display: flex; justify-content: center; padding: 92px 0 40px; }
+.pl-mcol { width: min(560px, calc(100% - 64px)); display: flex; flex-direction: column; min-height: 0; }
+.pl-mbody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pl-mbody.cov { justify-content: center; align-items: center; }
+.pl-mcover { width: min(520px, 100%); aspect-ratio: 1; flex: none; border-radius: var(--r-cover-lg); box-shadow: 0 28px 56px rgba(0, 0, 0, .38); }
+.pl-minfo { align-self: stretch; margin-top: 26px; padding: 0 2px; }
+.pl-mt .pl-minfo .pl-title { font-size: 26px; line-height: 32px; }
+.pl-mt .pl-minfo .pl-artist { font-size: 18px; line-height: 23px; margin-top: 2px; }
+.pl-mm .pl-sig { margin-bottom: 14px; }
+.pl-mp .pl-ctl { margin: 4px -8px 0; align-self: stretch; }
+.pl-mp .pl-dots { margin-top: 8px; }
+.pl-mp .pl-mini { margin: 28px 0 18px; }
+.pl-mp .pl-mini .cover { width: 64px; height: 64px; }
+.pl-mp .pl-mini .m b { font-size: 20px; line-height: 26px; }
+.pl-mp .pl-mini .m > span { font-size: 15px; line-height: 20px; }
+.pl-mp .pl-lysrc { font-size: 13px; padding: 0 2px; margin-bottom: 4px; }
+.pl-mp .pl-ly { position: relative; left: auto; right: auto; top: auto; height: auto; flex: 1; min-height: 0; margin: 0 -8px 8px; }
+.pl-mp .pl-ly .in { padding: 20px 8px 160px; }
+.pl-mp .pl-l { font-size: 30px; line-height: 38px; padding: 11px 0; }
+.pl-mp .pl-l small { font-size: 19px; line-height: 25px; margin-top: 4px; }
+/* two columns: tablet landscape and the narrow window. --lx/--lw: left column, --rx: right column */
+.pl-ml { position: absolute; inset: 0; }
+.pl-mlc { position: absolute; left: var(--lx); width: var(--lw); top: 70px; bottom: 30px; display: flex; flex-direction: column; justify-content: center; }
+.pl-mlc .pl-mcover { width: 100%; box-shadow: 0 26px 52px rgba(0, 0, 0, .38); }
+.pl-mlc .pl-minfo { margin-top: 18px; }
+.pl-mlc .pl-sig { margin: 14px 0 12px; }
+.pl-mlc .pl-prog, .pl-mlc .pl-dprog { align-self: stretch; }
+.pl-mlc .pl-ctl, .pl-mlc .pl-dctl { align-self: stretch; margin-top: 6px; }
+.pl-mlc .pl-dvol { margin-top: 10px; }
+.pl-mr { position: absolute; left: var(--rx); right: 28px; top: 66px; bottom: 28px; display: flex; flex-direction: column; }
+.pl-mt .pl-dtop { top: 30px; height: 52px; padding: 0 24px; }
+.pl-mt .pl-seg .seg button { height: 38px; padding: 0 16px; font-size: 15px; }
+.pl-mt .pl-seg .seg button svg.i { width: 18px; height: 18px; }
+.pl-mt .pl-mr { top: 90px; }
+.pl-mt .pl-mlc { top: 96px; }
+.pl-mt .pl-rhead { font-size: 13px; }
+.pl-mt .pl-minfo .pl-title { font-size: 24px; line-height: 30px; }
+.pl-mt .pl-minfo .pl-artist { font-size: 17px; line-height: 22px; }
+.pl-mw .pl-minfo .pl-title { font-size: 21px; line-height: 27px; }
+.pl-mw .pl-minfo .pl-artist { font-size: 15px; line-height: 20px; }
+.pl-mw .pl-mlc .pl-sig { margin: 12px 0 10px; }
 </style>
 </head>
 <body>
@@ -443,6 +493,58 @@ function plDeskSearch(t) {
   return '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:600px"><div class="dlg-head"><span class="dt">搜尋歌詞</span><button class="ibtn" aria-label="關閉（Esc）">' + I('close', 's18') + '</button></div><div class="dlg-body pl-sb">' + plSearchBody(t, true) + '</div></div></div>';
 }
 
+/* medium width. o: device ('tablet'|'window'), w, h, view ('cover'|'lyrics', portrait only), right ('lyrics'|'queue', two columns), hov, overlay.
+   Portrait tablet = phone layout in one column (swipe + dots); landscape tablet and the window = desktop's two columns. */
+function plMid(ctx, o) {
+  o = o || {};
+  const t = o.track || PL_T;
+  const win = o.device === 'window';
+  const w = o.w || (win ? 960 : 820), h = o.h || (win ? 720 : 1180);
+  const two = win || w > h;
+  let h2 = '';
+  if (!two) {
+    const view = o.view || 'cover';
+    const top = '<div class="pl-top">' + plG('chevD', '收起') + '<div class="pl-ctx"><b>佇列 · 第 6 / 64 首</b>下一首：Glass Harbor</div><div class="lg pl-gp" data-lg-variant="clear"><button class="ibtn" aria-label="加入歌單">' + I('addlist') + '</button><button class="ibtn" aria-label="更多">' + I('more') + '</button></div></div>';
+    let body;
+    if (view === 'lyrics') {
+      body = '<div class="pl-mbody"><div class="pl-mini">' + FMP.coverEl(t.cv, 64) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + '</span></div></div>' +
+        '<div class="pl-lysrc">' + plLySrc(t) + '</div>' +
+        '<div class="pl-ly"><div class="in" style="transform:translateY(-150px)">' + plLyLines({}) + '</div></div></div>';
+    } else {
+      body = '<div class="pl-mbody cov">' + FMP.coverEl(t.cv, null, 'pl-mcover') +
+        '<div class="pl-minfo"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div></div>';
+    }
+    h2 = '<div class="pl-m pl-mm pl-mt">' + top + '<div class="pl-mp"><div class="pl-mcol">' + body + plSig(t) + plProg() + plCtl({ repeat: 'all' }) + plDots(view) + '</div></div></div>';
+  } else {
+    const right = o.right || 'lyrics';
+    const dim = win ? '--lx:56px;--lw:300px;--rx:420px' : '--lx:56px;--lw:380px;--rx:520px';
+    const top = (win ? '<div class="side" style="top:4px;left:6px;bottom:auto;width:auto;padding:0;z-index:40"><div class="lights"><i></i><i></i><i></i></div></div>' : '') +
+      '<div class="pl-dtop">' + plG('chevD', win ? '收起（Esc）' : '收起') + '<span class="sp"></span>' + plG('addlist', '加入歌單') + plG('info', win ? '曲目資訊（⌘I）' : '曲目資訊') + plG('more', '更多') +
+      '<div class="lg pl-seg" data-lg-variant="clear"><div class="seg lg-seg"><button class="' + (right === 'lyrics' ? 'on' : '') + '">' + I('lyrics') + '歌詞</button><button class="' + (right === 'queue' ? 'on' : '') + '">' + I('queue') + '佇列</button></div></div></div>';
+    let left = FMP.coverEl(t.cv, null, 'pl-mcover') +
+      '<div class="pl-minfo"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>' + plSig(t, {}, win);
+    if (win) {
+      left += plProg().replace('class="pl-prog', 'class="pl-dprog') + plCtl({ repeat: 'all' }).replace('class="pl-ctl"', 'class="pl-dctl"') +
+        '<div class="pl-dvol">' + I('volumeLow') + '<span class="slider"><i style="width:64%"></i></span>' + I('volume') + '</div>';
+    } else {
+      left += plProg() + plCtl({ repeat: 'all' }); // no volume row on a tablet: hardware keys
+    }
+    let r;
+    if (right === 'lyrics') {
+      r = '<div class="pl-rhead">' + plLySrc(t) + '<span class="sp"></span><button class="btn btn-xs">' + I('offset', 's16') + '偏移 0 秒</button></div>' +
+        '<div class="pl-dly"><div class="in">' + plLyLines({ desk: win, hov: o.hov }) + '</div></div>';
+    } else {
+      const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11, T.t12, T.t06];
+      r = '<div class="pl-dq"><div class="qh">佇列<span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+        FMP.trackRow(t, { desk: win, playing: true, more: false, sub: FMP.esc(t.artist) + ' · 正在播放' }) +
+        '<div class="qn">接下來<span>58 首 · 3 小時 58 分</span></div>' +
+        nexts.map((x) => FMP.trackRow(x, { desk: win, more: false, drag: true })).join('') + '</div>';
+    }
+    h2 = '<div class="pl-m pl-mm ' + (win ? 'pl-mw' : 'pl-mt') + '">' + top + '<div class="pl-ml" style="' + dim + '"><div class="pl-mlc">' + left + '</div><div class="pl-mr">' + r + '</div></div></div>';
+  }
+  return FMP.medium(ctx, { device: o.device, w: o.w, h: o.h, raw: true, noRail: true, transport: false, panelBtn: false, onMedia: true, noEdge: true, content: plBg(t) + h2, overlay: o.overlay });
+}
+
 // lyrics tap → seek: demo by moving the highlight
 function plWire(root) {
   root.querySelectorAll('.pl-l').forEach((l) => l.addEventListener('click', () => {
@@ -521,6 +623,22 @@ FMP.page({
         '<li>結果列：左邊的方塊標同步（強調色、時鐘）或純文字（灰、文件）；曲名後有「翻譯」標籤；副標是來源（符號＋簡稱）與「歌手 · 專輯」；右邊時長，和這首差很多的標橘色並寫差多少。目前套用的那筆用強調色與勾。</li>' +
         '<li>點一筆就套用並關閉，提示「歌詞已匹配」。狀態：尚未搜尋（只有預填）、搜尋中、未找到、出錯（重試），與搜尋頁同一套。</li></ul>' +
         '<h3>曲目資訊</h3><ul><li>從音源膠囊、⋮ 或桌面頂列的資訊鈕打開。列出音源、存取等級（含會員到期日）、音質（實際在播的與可選的）、專輯、發佈日期、時長、評論、簡介；B 站多了播放數、點讚與分 P。各插件給不了的欄位就不顯示。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '播放頁全螢幕，蓋住玻璃細欄，也沒有播放膠囊。平板直向是手機版面放進一條置中的欄（左右滑換畫面、底部點點）；平板橫向與窄視窗是桌面的兩欄，頂列右端用「歌詞／佇列」分段。',
+      frames: [
+        { kind: 'tablet', label: '平板直向：封面畫面', render: (ctx) => plMid(ctx, { device: 'tablet' }) },
+        { kind: 'tablet', label: '平板直向：歌詞畫面', render: (ctx) => plMid(ctx, { device: 'tablet', view: 'lyrics' }), after: plWire },
+        { kind: 'tablet', label: '平板橫向：歌詞', w: 1180, h: 820, render: (ctx) => plMid(ctx, { device: 'tablet', w: 1180, h: 820 }), after: plWire },
+        { kind: 'window', label: '窄視窗：歌詞（滑過一行）', render: (ctx) => plMid(ctx, { device: 'window', hov: 5 }), after: plWire },
+      ],
+      notes: '<ul>' +
+        '<li><b>直向用手機的作法</b>：單欄置中、寬度上限 560，封面約 520；左右滑在封面、歌詞、佇列之間換，底部三個點標示目前的頁。歌詞畫面字放大到 30pt（手機 24pt），音源膠囊、進度、控制列的位置和封面畫面一樣，換畫面時不動。</li>' +
+        '<li><b>橫向與窄視窗用桌面的作法</b>：左欄封面、曲名歌手、音源膠囊、進度、控制；右欄歌詞或佇列；頂列右端「歌詞／佇列」分段，不用點點。窄視窗封面約 300，左欄從 x=56、右欄從 x=420 起，保留音量列與紅綠燈（macOS）。</li>' +
+        '<li><b>平板沒有音量列</b>：音量用實體按鍵，和手機一樣。窄視窗（滑鼠）保留。</li>' +
+        '<li>播放頁在中寬度同樣蓋住細欄與播放膠囊，Esc 或左上收起回到原頁。平板直向與橫向由裝置方向決定，不是使用者切換。</li>' +
+        '<li>⋮、曲目資訊、歌詞搜尋沿用各自的元件：平板從按鈕長出選單、置中對話框；窄視窗照桌面。</li></ul>',
     },
     {
       title: '桌面',

@@ -64,37 +64,45 @@
 .atp-cap svg.i { width: 17px; height: 17px; flex: none; margin-top: 0; color: var(--accent); }
 .atp-cap b { color: var(--glass-ink); font-weight: 600; }
 .sheet .sfoot.atp-foot .btn { flex: none; width: 100%; height: 50px; font-size: 17px; }
-.sheet .btn-gray, .dlg .btn-gray { background: color-mix(in srgb, var(--glass-ink) 9%, transparent); color: var(--glass-ink); }
+.sheet .btn-gray, .desk .dlg .btn-gray { background: color-mix(in srgb, var(--glass-ink) 9%, transparent); color: var(--glass-ink); }
 
 /* desktop dialog */
 .desk .dlg .dlg-head.atp-dh { padding: 14px 14px 12px 18px; gap: 12px; box-shadow: inset 0 -.5px 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); }
-.dlg .atp-dh .m { flex: 1; min-width: 0; }
-.dlg .atp-dh .m b { display: block; font-size: 15px; line-height: 20px; font-weight: 700; }
-.dlg .atp-dh .m > span { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--glass-ink-2); }
-.dlg .atp-dh .ibtn { color: var(--glass-ink); }
+.desk .dlg .atp-dh .m { flex: 1; min-width: 0; }
+.desk .dlg .atp-dh .m b { display: block; font-size: 15px; line-height: 20px; font-weight: 700; }
+.desk .dlg .atp-dh .m > span { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--glass-ink-2); }
+.desk .dlg .atp-dh .ibtn { color: var(--glass-ink); }
 .desk .dlg .dlg-body.atp-cols { padding: 0; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; }
-.dlg .col { min-height: 0; overflow: auto; padding: 0 8px 10px; }
-.dlg .col + .col { box-shadow: inset .5px 0 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); }
-.dlg .atp-sh { padding: 14px 12px 6px; font-size: 11.5px; }
-.dlg .atp-row, .dlg .atp-src, .dlg .atp-newf { min-height: 44px; padding: 0 10px; gap: 10px; border-radius: 8px; }
-.dlg .atp-row .cover, .dlg .atp-tile, .dlg .atp-src .mk { width: 32px; height: 32px; border-radius: 6px; }
-.dlg .atp-tile svg.i { width: 17px; height: 17px; }
-.dlg .atp-src .mk svg { width: 18px; height: 18px; }
-.dlg .atp-row .m b, .dlg .atp-src .m b { font-size: 13px; line-height: 17px; }
-.dlg .atp-row .m > span, .dlg .atp-src .m > span { font-size: 11.5px; line-height: 15px; }
-.dlg .atp-row + .atp-row::before, .dlg .atp-src::before, .dlg .atp-newf + .atp-row::before { display: none; }
-.dlg .atp-src { margin-top: 4px; }
-.dlg .atp-src .chev { width: 28px; height: 28px; }
-.dlg .atp-srcbody { padding-left: 14px; }
-.dlg .atp-srcbody .atp-row { padding-left: 10px; }
-.dlg .atp-note { padding: 4px 10px 0 52px; font-size: 11.5px; }
-.dlg .atp-load { padding-left: 52px; font-size: 12px; }
-.dlg .dlg-foot .atp-cap { flex: 1; padding: 0; font-size: 12px; line-height: 16px; }
-.dlg .dlg-foot kbd { font: 600 10.5px var(--font-num); background: color-mix(in srgb, var(--glass-ink) 10%, transparent); border-radius: 5px; padding: 1px 5px; color: var(--glass-ink-2); }
-.dlg .atp-row .check { width: 18px; height: 18px; }
-.dlg .atp-row .check svg { width: 11px; height: 11px; }
-.dlg .atp-src .btn { height: 26px; font-size: 12px; padding: 0 10px; }
-.dlg .atp-newf .field { height: 28px; }
+.desk .dlg .col { min-height: 0; overflow: auto; padding: 0 8px 10px; }
+.desk .dlg .col + .col { box-shadow: inset .5px 0 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.desk .dlg .atp-sh { padding: 14px 12px 6px; font-size: 11.5px; }
+.desk .dlg .atp-row, .desk .dlg .atp-src, .desk .dlg .atp-newf { min-height: 44px; padding: 0 10px; gap: 10px; border-radius: 8px; }
+.desk .dlg .atp-row .cover, .desk .dlg .atp-tile, .desk .dlg .atp-src .mk { width: 32px; height: 32px; border-radius: 6px; }
+.desk .dlg .atp-tile svg.i { width: 17px; height: 17px; }
+.desk .dlg .atp-src .mk svg { width: 18px; height: 18px; }
+.desk .dlg .atp-row .m b, .desk .dlg .atp-src .m b { font-size: 13px; line-height: 17px; }
+.desk .dlg .atp-row .m > span, .desk .dlg .atp-src .m > span { font-size: 11.5px; line-height: 15px; }
+.desk .dlg .atp-row + .atp-row::before, .desk .dlg .atp-src::before, .desk .dlg .atp-newf + .atp-row::before { display: none; }
+.desk .dlg .atp-src { margin-top: 4px; }
+.desk .dlg .atp-src .chev { width: 28px; height: 28px; }
+.desk .dlg .atp-srcbody { padding-left: 14px; }
+.desk .dlg .atp-srcbody .atp-row { padding-left: 10px; }
+.desk .dlg .atp-note { padding: 4px 10px 0 52px; font-size: 11.5px; }
+.desk .dlg .atp-load { padding-left: 52px; font-size: 12px; }
+.desk .dlg .dlg-foot .atp-cap { flex: 1; padding: 0; font-size: 12px; line-height: 16px; }
+.desk .dlg .dlg-foot kbd { font: 600 10.5px var(--font-num); background: color-mix(in srgb, var(--glass-ink) 10%, transparent); border-radius: 5px; padding: 1px 5px; color: var(--glass-ink-2); }
+.desk .dlg .atp-row .check { width: 18px; height: 18px; }
+.desk .dlg .atp-row .check svg { width: 11px; height: 11px; }
+.desk .dlg .atp-src .btn { height: 26px; font-size: 12px; padding: 0 10px; }
+.desk .dlg .atp-newf .field { height: 28px; }
+
+/* medium width: tablet dialog keeps the phone density (single column) */
+.atp-mdlg .dlg-body { padding: 0; }
+.atp-mdlg .atp-sum { padding-top: 4px; }
+.atp-mdlg .dlg-head { padding-bottom: 6px; }
+.atp-mfoot { flex-wrap: wrap; box-shadow: inset 0 .5px 0 color-mix(in srgb, var(--glass-ink) 12%, transparent); padding-top: 10px !important; }
+.atp-mfoot .atp-cap { flex: 1 0 100%; padding: 0 4px 2px; }
+.atp-mfoot .btn { min-width: 96px; }
 </style>
 </head>
 <body>
@@ -304,6 +312,32 @@ function atpDesk(ctx, o) {
     rows.map((t, i) => FMP.trackRow(t, { desk: true, check: o.multi ? i < 3 : undefined })).join('') + '</div>';
   return FMP.desktop(ctx, { nav: 'library', pl: 'code', content: content, top: '<span class="wt">深夜寫程式</span>', overlay: o.overlay });
 }
+/* ---------------- medium width (tablet / narrow window) ---------------- */
+function atpMidBg(ctx, o) {
+  o = o || {};
+  const touch = o.device === 'tablet';
+  const rows = [T.t01, T.t04, T.t03, T.t02, T.t07, T.t12, T.t10, T.t14, T.t20, T.t22, T.t24];
+  const sel = o.multi ? [0, 1, 2] : [];
+  const content = touch
+    ? '<div style="padding:62px 24px 150px 8px"><div class="ty-large" style="margin:0 0 4px 16px">深夜寫程式</div><div class="c2 ty-foot" style="margin:0 0 14px 16px">128 首 · 9 小時 14 分</div>' +
+      rows.map((t, i) => FMP.trackRow(t, o.multi ? { check: sel.includes(i), more: false } : {})).join('') + '</div>'
+    : '<div style="padding:66px 32px 120px 24px"><div class="ty-large" style="margin-bottom:6px">深夜寫程式</div><div class="c2 ty-foot" style="margin-bottom:18px">128 首 · 9 小時 14 分</div>' +
+      rows.map((t, i) => FMP.trackRow(t, { desk: true, check: o.multi ? i < 3 : undefined })).join('') + '</div>';
+  const top = touch
+    ? (o.multi ? '<span class="wt">已選擇 3 項</span><span class="sp"></span>' + FMP.gpill([['close', '退出多選']]) : '<span class="wt">深夜寫程式</span><span class="sp"></span>' + FMP.gbtn('more', '更多'))
+    : '<span class="wt">深夜寫程式</span>';
+  return FMP.medium(ctx, { device: o.device, nav: 'library', pl: 'code', content, top, overlay: o.overlay });
+}
+function atpMidDialog(o) {
+  o = o || {};
+  const s = atpSum(o.multi);
+  return '<div class="dialog-wrap"><div class="lg dlg atp-mdlg" role="dialog" style="width:560px;height:' + (o.h || 900) + 'px">' +
+    '<div class="dlg-head"><span class="dt">加入歌單</span><button class="ibtn" aria-label="關閉">' + I('close', 's20') + '</button></div>' +
+    '<div class="atp-sum">' + s.lead + '<div class="m"><b>' + s.title + '</b><span>' + s.sub + '</span></div></div>' +
+    '<div class="dlg-body atp-body">' + atpBody(o) + '</div>' +
+    '<div class="dlg-foot atp-mfoot"><div class="atp-cap"></div><button class="btn btn-gray">取消</button><button class="btn btn-primary atp-go">完成</button></div></div></div>';
+}
+
 const atpAlert = FMP.confirm({
   wrapStyle: 'z-index:85',
   who: FMP.srcMark('netease') + '網易雲音樂 歌單',
@@ -354,6 +388,19 @@ FMP.page({
         '<li>按主按鈕時才確認：取消勾選只先標「將移出」，按下主按鈕才跳一次確認，列出這次全部的遠端移出。勾錯了可以直接勾回來，不會被打斷；對話框本身是確認的單位，所有寫入在同一刻送出。</li></ul>' +
         '<h3>結果</h3><ul><li>成功：一則提示寫加入了幾個歌單，有遠端的話點名更新了哪個遠端歌單。</li>' +
         '<li>失敗：失敗的遠端歌單本機一律不改動（匯入歌單保持原樣），提示寫原因、哪個歌單沒改，和已經成功的本地部分；動作依錯誤類別（登入失效給「重新登入」、網路錯誤給「重試」，brief §13）。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '平板不用底部 sheet，改成置中的厚玻璃對話框（iPad 表單 sheet 的慣例），內容是手機的單欄；窄視窗直接用桌面的兩欄對話框。',
+      frames: [
+        { kind: 'tablet', label: '多曲、跨音源（置中對話框）', render: (ctx) => atpMidBg(ctx, { device: 'tablet', multi: true, overlay: atpMidDialog({ multi: true, localOn: [2], h: 840 }) }), after: atpWire },
+        { kind: 'tablet', label: '取消勾選遠端：再確認', render: (ctx) => atpMidBg(ctx, { device: 'tablet', overlay: atpMidDialog({ remote: 'open', localOn: [2], remoteOff: ['n1'] }) + atpAlert }), after: (root) => { atpWire(root); root.querySelector('.atp-body').scrollTop = 60; } },
+        { kind: 'window', label: '多曲、跨音源（網易雲展開）', render: (ctx) => atpMidBg(ctx, { multi: true, overlay: atpDialog({ multi: true, remote: 'open', localOn: [2], remoteOn: ['n2'] }) }), after: atpWire },
+      ],
+      notes: '<ul><li>平板的對話框寬 560，高度跟著內容、上限是畫面高減去上下邊距；單欄，順序是曲目摘要、本地歌單、各音源的遠端區塊，中間那一段自己捲動，摘要與底部列不動。</li>' +
+        '<li>底部先寫入說明，再放取消與主按鈕（右對齊）；手機 sheet 那顆整列寬的大按鈕在這裡改成一般尺寸。取消勾選遠端的再確認照舊置中，疊在對話框上。</li>' +
+        '<li>窄視窗的桌面對話框寬 780、高 600，放進 960×720 的視窗還留得出邊距；視窗縮到最小（720×560）時對話框寬度跟著縮，內容欄各自捲動。</li>' +
+        '<li>背後是歌單頁（單曲）或多選中的歌單頁（多曲），加一層 scrim。</li></ul>',
     },
     {
       title: '桌面：置中對話框',

@@ -61,6 +61,14 @@
 .desk .st-accb { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; color: var(--label-2); }
 .desk .st-accb.on { color: var(--label); font-weight: 600; }
 .desk .st-acc { width: 22px; height: 22px; }
+/* tablet settings pane (470 wide): the desktop pane's tiles and swatches, sized for touch */
+.tablet .st-tiles { gap: 10px; padding: 14px 12px 12px; }
+.tablet .st-tile { flex: 1; min-width: 0; }
+.tablet .st-tile .pv { width: 100%; }
+.tablet .st-accs { gap: 14px; padding: 14px 12px 12px; flex-wrap: wrap; }
+.tablet .st-accb { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--label-2); }
+.tablet .st-accb.on { color: var(--label); font-weight: 600; }
+.tablet .gl small { text-wrap: balance; }
 </style>
 </head>
 <body>
@@ -211,10 +219,10 @@ function stThemeMenu(ctx) {
 }
 
 /* ---------------- desktop ---------------- */
-const stDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay });
+const stDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay, mid: o.mid });
 const sxH = (t, right) => '<div class="sx-h"><div class="ty-large">' + t + '</div>' + (right || '') + '</div>';
 
-function stDeskPlayback(ctx) {
+function stDeskPlayback(ctx, mid) {
   const q = (name, vip) => '<span class="st-q">' + name + (vip ? FMP.acc('vip') : '') + '</span>';
   const pane = sxH('播放') +
     '<p class="sx-lead">音質依偏好與帳號的會員狀態自動選；佇列與進度一定會保存，重啟後不會自動開始播放。</p>' +
@@ -236,10 +244,10 @@ function stDeskPlayback(ctx) {
     stHead('進度') + stGroup([
       stCell({ t: '臨時播放結束後倒退', s: '回到佇列原本那首時，往前倒退幾秒', trail: '<span class="st-step"><button aria-label="減少">' + I('minus') + '</button><span class="st-num">10 秒</span><button aria-label="增加">' + I('plus') + '</button></span>' }),
     ]);
-  return stDesk(ctx, { cat: 'playback', pane });
+  return stDesk(ctx, { cat: 'playback', pane, mid });
 }
 
-function stDeskAppearance(ctx) {
+function stDeskAppearance(ctx, mid) {
   const half = (th) => '<span class="half t-' + th + '"><i class="sb"></i><i class="ln" style="top:9px;width:40px"></i><i class="cv" style="left:40px"></i><i class="cv" style="left:58px"></i><i class="ac"></i></span>';
   const tile = (label, inner, on) => '<button class="st-tile' + (on ? ' on' : '') + '"><span class="pv">' + inner + '</span><span>' + label + '</span></button>';
   const pane = sxH('外觀') +
@@ -256,7 +264,7 @@ function stDeskAppearance(ctx) {
       stCell({ t: '介面語言', s: '改了之後立即生效，不用重開', trail: '<span class="st-pop">跟隨系統（繁體中文）' + stI('updown') + '</span>' }),
     ]) +
     stFoot('可選：跟隨系統、繁體中文、简体中文、English。');
-  return stDesk(ctx, { cat: 'appearance', pane });
+  return stDesk(ctx, { cat: 'appearance', pane, mid });
 }
 
 function stDeskLyrics(ctx) {
@@ -313,6 +321,15 @@ FMP.page({
         { kind: 'phone', label: '歌詞', render: (ctx) => stLyrics(ctx) },
       ],
       notes: '<ul><li>音質分三塊：偏好（高／中／低）、每個音源的「播放時使用登入狀態」、各音源可用的音質。最後一塊是插件回報的清單，需要會員的音質帶跟曲目一樣的金色「會員」徽章，讓使用者知道為什麼有會員才聽得到無損（brief §5.4）。</li><li>未登入的音源不顯示開關，改成「登入」按鈕，直接進帳號頁的登入流程。</li><li>網易雲黑膠 VIP 快到期的提示在三個地方都出現：設定首頁的帳號列、音質頁、帳號頁；文字一致，都用警示色。</li><li>歌詞源順序常駐拖曳把手（只有兩項，不需要「編輯」模式）。lrclib 的資料說明寫在設定裡，因為它是唯一會送到第三方的資料（brief §14）。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '設定在中寬度是細欄、分類欄、內容窗格三段。分類欄不收起，和 iPad 的「設定」App 一樣；窗格直接用桌面的內容，平板換成手機密度的元件。',
+      frames: [
+        { kind: 'tablet', label: '外觀', render: (ctx) => stDeskAppearance(ctx, { device: 'tablet' }), after: stAccWire },
+        { kind: 'window', label: '播放', render: (ctx) => stDeskPlayback(ctx, { device: 'window' }) },
+      ],
+      notes: '<ul><li>平板的設定是兩欄：分類欄 260 寬、列高 44pt，窗格約 470 寬，分類欄不收起，沿用 iPad「設定」App 的慣例。左邊再加一條玻璃細欄，所以平板直向是三段。</li><li>窄視窗的版面同桌面：分類欄加窗格，窗格較窄，說明文字與控制項換行但順序不變。</li><li>設定頁自己用兩欄，詳情面板不並排，頂列右端的按鈕叫出浮動面板。</li></ul>',
     },
     {
       title: '桌面：分類欄＋內容',

@@ -106,6 +106,28 @@
 .hm-dnow { display: flex; align-items: center; gap: 7px; padding: 0 4px 4px; font-size: 12px; color: var(--label-2); min-height: 22px; }
 .hm-dnow b { color: var(--label); font-weight: 600; }
 .desk .hm-pl .t2 b { color: var(--label); font-weight: 600; }
+
+/* ---- medium width (tablet / narrow window): one ranking at a time, 10 entries in two columns ---- */
+.hm-m { padding: 62px 24px 150px 4px; }
+.desk .hm-m { padding: 66px 24px 120px 24px; }
+.hm-m-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+.hm-m-cols > div { min-width: 0; }
+.hm-m-cols .hm-rk-r .row { --sep-inset: 108px; }
+/* tablet portrait: two 340pt columns leave the title too little room, so the duration goes (it is on the player and in the menu) */
+.hm-m-cols.hm-rk-r .row .dur { display: none; }
+.hm-m-band { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; align-items: start; }
+.hm-m-band > section { min-width: 0; }
+.hm-m-band .hm-sh { height: 64px; min-height: 0; }
+.hm-mt { padding: 0 20px; }
+.hm-mchips { display: flex; gap: 6px; padding: 14px 4px 8px; }
+.hm-mchips .chip .src svg { width: 13px; height: 13px; }
+.hm-mchips .chip.on .src { color: inherit; }
+.hm-mchips .chip .w { color: var(--warn); display: grid; }
+.hm-mchips .chip.on .w { color: inherit; }
+.hm-mcap { padding: 0 4px 6px; font-size: 12px; line-height: 16px; color: var(--label-2); }
+.desk .hm-m .hm-band { gap: 0 12px; }
+.desk .hm-m .hm-cols-d { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.desk .hm-m .hm-cols-d > div { min-width: 0; container-type: inline-size; }
 </style>
 </head>
 <body>
@@ -189,6 +211,10 @@ function hmRanking(o) {
   if (o.loading) {
     return h + [72, 55, 80, 62, 68].map((w, i) => '<div class="hm-sk"><span class="hm-no num">' + (i + 1) + '</span><i class="c"></i><span class="l"><i style="height:13px;width:' + w + '%"></i><i style="height:10px;width:' + (w - 30) + '%"></i></span></div>').join('') + '</section>';
   }
+  if (o.two) { // medium width: all 10 at once, 1-5 | 6-10
+    const all = HM_RANK[src].list;
+    return h + '<div class="hm-m-cols hm-rk-r">' + [all.slice(0, 5), all.slice(5, 10)].map((c, k) => '<div>' + c.map((t, i) => hmRow(t, k * 5 + i + 1)).join('') + '</div>').join('') + '</div></section>';
+  }
   const list = HM_RANK[src].list.slice(0, o.expanded ? 10 : 5);
   h += list.map((t, i) => hmRow(t, i + 1)).join('');
   h += o.expanded
@@ -262,17 +288,46 @@ function hmDCols(o) {
   }).join('') + '</div>' +
     '<div class="hm-dmore"><button class="btn btn-gray btn-sm">' + (o.expanded ? '收起' + I('chevU', 's16') : '顯示第 6–10 名' + I('chevD', 's16')) + '</button></div>';
 }
-function hmDesk(ctx, o) {
-  o = o || {};
-  const cont = '<div><div class="hm-dsh">繼續聽<span class="sp"></span><button class="btn btn-plain btn-sm" data-href="queue.html">佇列' + I('chevR', 's16') + '</button></div>' +
+function hmDCont() {
+  return '<div><div class="hm-dsh">繼續聽<span class="sp"></span><button class="btn btn-plain btn-sm" data-href="queue.html">佇列' + I('chevR', 's16') + '</button></div>' +
     '<div class="hm-dnow"><span class="eq" aria-label="正在播放"><i></i><i></i><i></i></span><span class="ell" style="flex:1">正在播放 <b>' + FMP.esc(FMP.now.title) + '</b> · 接下來</span><span class="num">第 6 / 64 首</span></div>' +
     HM_NEXT.map((t) => FMP.trackRow(t, { desk: true, size: 32, more: false })).join('') + '</div>';
-  const upd = '<div><div class="hm-dsh">最近更新的匯入歌單</div>' + HM_UPDATED.map(([p, n]) => hmPlRow(p, n, true)).join('') + '</div>';
+}
+function hmDUpd() {
+  return '<div><div class="hm-dsh">最近更新的匯入歌單</div>' + HM_UPDATED.map(([p, n]) => hmPlRow(p, n, true)).join('') + '</div>';
+}
+function hmDesk(ctx, o) {
+  o = o || {};
+  const cont = hmDCont();
+  const upd = hmDUpd();
   const content = '<div class="hm-d"><div class="ty-large" style="padding:0 4px">首頁</div>' +
     '<div class="hm-dsh" style="padding-top:18px">近期熱門</div>' + hmDCols(o) +
     // the detail panel already lists what comes next, so 繼續聽 only shows when the panel is collapsed (owner, 2026-11-11)
     (o.detail === false ? '<div class="hm-band">' + cont + upd + '</div>' : '<div class="hm-band one">' + upd + '</div>') + '</div>';
   return FMP.desktop(ctx, { nav: 'home', content, top: '<span class="wt">首頁</span>', detail: o.detail, overlay: o.overlay });
+}
+
+/* ---------------- medium width builders (tablet = phone density, narrow window = desktop density) ---------------- */
+/* o: device, w, h, err ('youtube' failed), src, hov (index in the chosen ranking, window only) */
+function hmMid(ctx, o) {
+  o = o || {};
+  const touch = o.device === 'tablet';
+  const src = o.src || (o.err ? 'youtube' : 'bilibili');
+  let body;
+  if (touch) {
+    body = '<div class="hm-mt"><div class="ty-large">首頁</div></div>' +
+      hmRanking({ src, two: true, err: o.err, errs: o.err ? ['youtube'] : undefined }) +
+      '<div class="hm-m-band">' + hmContinue() + hmUpdated() + '</div>';
+  } else {
+    const chips = '<div class="hm-mchips" role="tablist" aria-label="排行榜音源">' + HM_SRCS.map((k) => '<button class="chip' + (src === k ? ' on' : '') + '" role="tab" aria-selected="' + (src === k) + '">' +
+      FMP.src(k) + HM_SRC_LABEL[k] + '</button>').join('') + '</div>';
+    const all = HM_RANK[src].list;
+    const cols = '<div class="hm-cols-d">' + [all.slice(0, 5), all.slice(5, 10)].map((c, k) => '<div>' + c.map((t, i) => hmDRow(t, k * 5 + i + 1, { hov: o.hov === k * 5 + i })).join('') + '</div>').join('') + '</div>';
+    body = '<div class="ty-large" style="padding:0 4px">首頁</div><div class="hm-dsh" style="padding-top:14px;padding-bottom:0">近期熱門</div>' + chips +
+      '<div class="hm-mcap">' + HM_RANK[src].name + ' · 前 10 名</div>' + cols +
+      '<div class="hm-band">' + hmDCont() + hmDUpd() + '</div>';
+  }
+  return FMP.medium(ctx, { device: o.device, w: o.w, h: o.h, nav: 'home', content: '<div class="hm-m">' + body + '</div>', top: '<span class="wt">首頁</span>' });
 }
 
 /* ---------------- page ---------------- */
@@ -318,6 +373,21 @@ FMP.page({
         '<li>單一音源失敗：那個音源的 chip 帶警示符號；切到它時，列表的位置換成說明卡，寫出音源、原因與只重試這個音源的「重試」，和搜尋頁單一音源出錯是同一張卡。原因依 brief §13 的錯誤類別寫（限流、網路、插件出錯）。其他 chip 照常。</li>' +
         '<li>沒有網路（brief §9）：有快取就顯示上次的榜並寫明多久以前（見上）；從沒載入過才把三個音源合成一張錯誤卡，chip 先收起來，「重試」三個一起重查。繼續聽與最近更新的匯入歌單是本機資料，照常顯示；正在播的曲目如果串流還有效就照常播。</li>' +
         '<li>重新載入：App 啟動後第一次顯示首頁時向插件要一次；手機可以下拉重新載入（iOS 慣例）。</li><li>快取（擁有者 2026-11-11）：每個音源的榜存最後一份；沒有網路時照樣顯示上次的榜，標題下寫「沒有網路 · 這是 3 小時前的榜」；點一首照常走播放，串流拿不到就是網路錯誤提示。只有從沒成功載入過（第一次打開就離線）才顯示錯誤卡。</li><li>音源順序固定（B 站、YouTube、網易雲），chip 記住上次選的；第一版設定裡不能調整順序。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '寬度不到 1200 時三張榜並排太窄，所以照手機一次看一張，但 10 名直接排成兩欄；左邊是細欄、沒有常駐詳情面板，繼續聽一律出現，和最近更新的匯入歌單並排。',
+      frames: [
+        { kind: 'tablet', label: '打開 App', render: (ctx) => hmMid(ctx, { device: 'tablet' }) },
+        { kind: 'tablet', label: 'YouTube 的榜載入失敗', render: (ctx) => hmMid(ctx, { device: 'tablet', err: 'youtube' }) },
+        { kind: 'window', label: '首頁', render: (ctx) => hmMid(ctx, { device: 'window', hov: 1 }) },
+      ],
+      notes: '<h3>和手機、桌面不同的地方</h3><ul>' +
+        '<li>寬度不到 1200 時三張榜並排太窄（一欄不到 200pt），所以照手機一次看一張，用音源 chip 切換，chip 記住上次選的音源；10 名直接分兩欄（左 1–5、右 6–10），不用「顯示第 6–10 名」。</li>' +
+        '<li>平板用手機密度的排行列（封面 48、列高 60、尾端 ⋮）；窄視窗用桌面密度（chip 26 高、列高 46、⋮ 只在 hover 時出現），兩邊的欄寬都夠顯示時長。</li>' +
+        '<li>某個音源載入失敗：chip 帶警示，榜的位置換成同一張說明卡，橫跨兩欄；其他 chip 照常。</li>' +
+        '<li>沒有常駐詳情面板，所以繼續聽一律出現（桌面只在收起面板時才出現），和最近更新的匯入歌單左右並排。點頂列右端的按鈕才浮出詳情面板。</li>' +
+        '<li>一首歌的「更多」：平板從 ⋮ 長出選單，窄視窗右鍵或 ⋮ 開選單，內容同搜尋頁，這裡不另外畫。</li></ul>',
     },
     {
       title: '桌面',

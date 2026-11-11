@@ -119,6 +119,14 @@
 .ac-sech .sp { flex: 1; }
 .ac-addr { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 12px; border-radius: 13px; background: var(--fill); font-size: 12px; color: var(--label-2); }
 .ac-addr svg.i { width: 12px; height: 12px; }
+.ac-grid.m { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.tablet .ac-card { margin: 0; box-shadow: inset 0 0 0 .5px var(--sep); }
+.tablet .ac-card.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.ac-tr.m { grid-template-columns: 28px 48px minmax(0, 1fr) auto; min-height: 60px; font-size: 14px; }
+.ac-tr.m.th { min-height: 36px; font-size: 13px; }
+.ac-sech.m { flex-wrap: wrap; row-gap: 10px; }
+.ac-sech.m .sp { display: none; }
+.ac-sech.m .t { flex: 1 1 100%; }
 .ac-cbody .ac-paste, .ac-cbody .ac-instr, .ac-cbody .ac-banner { margin-left: 0 !important; margin-right: 0 !important; }
 .ac-cbody .ac-paste { background: var(--cell); box-shadow: inset 0 0 0 .5px var(--sep); }
 .ac-alt { margin: 22px 20px 0; text-align: center; font-size: 13.5px; color: var(--label-2); }
@@ -344,26 +352,32 @@ function acCookieSheet(ctx) {
 }
 
 /* ---------------- desktop ---------------- */
-const acDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay });
+const acDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay, mid: o.mid });
 function acDeskPane(o) {
   o = o || {};
   const rows = AC_RL.map((p, i) => {
     const sel = AC_SEL[p.id];
     const status = p.done ? '<span class="ac-tag ok">' + I('check') + '已匯入為「華語私藏 2026」</span>' : '<span class="c3">未匯入</span>';
+    if (o.tablet) {
+      const st2 = p.done ? '<span class="ac-tag ok">' + I('check') + '已匯入</span>' : '';
+      return '<div class="ac-tr m' + (p.done ? ' done' : '') + '"><span class="check' + (sel ? ' on' : '') + '" style="' + (p.done ? 'opacity:.35' : '') + '">' + I('check') + '</span>' + FMP.coverEl(p.cv, 48, 'thumb') +
+        '<div style="min-width:0"><div class="ell" style="font-size:16px;color:var(--label);' + (p.done ? 'opacity:.55' : '') + '">' + p.name + '</div><div class="sub">' + p.n.toLocaleString() + ' 首 · ' + p.kind + (p.by ? ' · ' + p.by : '') + '</div></div>' + st2 + '</div>';
+    }
     return '<div class="ac-tr' + (p.done ? ' done' : '') + (i === 2 ? ' hov' : '') + '"><span class="check' + (sel ? ' on' : '') + '" style="' + (p.done ? 'opacity:.35' : '') + '">' + I('check') + '</span>' + FMP.coverEl(p.cv, 32, 'thumb') +
       '<div style="min-width:0"><div class="ell" style="color:var(--label);' + (p.done ? 'opacity:.55' : '') + '">' + p.name + '</div><div class="sub">' + p.kind + (p.by ? ' · ' + p.by : '') + '</div></div>' +
       '<span class="num c2">' + p.n.toLocaleString() + ' 首</span>' + status + '</div>';
   }).join('');
   return '<div class="sx-h"><div class="ty-large">帳號</div><div style="display:flex;gap:8px;align-items:center"><span class="ty-foot c3">上次檢查：5 分鐘前</span><button class="btn btn-gray btn-sm">' + I('refresh', 's16') + '檢查帳號</button></div></div>' +
     '<p class="sx-lead">每個音源一個帳號。登入資訊只存在這台裝置的系統鑰匙圈，不進備份與診斷檔。</p>' +
-    '<div class="ac-grid">' + acCard('bilibili', o.biliExp ? 'exp' : 'in', { desk: true }) + acCard('netease', 'in', { desk: true, sel: !o.noSel }) + acCard('youtube', 'out', { desk: true, why: '登入後可以讀取、寫入你的 YouTube 播放清單。' }) + '</div>' +
-    '<div class="ac-sech"><span class="t">' + FMP.src('netease') + '夜行的貓的遠端歌單</span><span class="ty-foot c2">6 個 · 已匯入 1 個</span><span class="sp"></span>' +
+    '<div class="ac-grid' + (o.tablet ? ' m' : '') + '">' + acCard('bilibili', o.biliExp ? 'exp' : 'in', { desk: !o.tablet }) + acCard('netease', 'in', { desk: !o.tablet, sel: !o.noSel }) + acCard('youtube', 'out', { desk: !o.tablet, why: '登入後可以讀取、寫入你的 YouTube 播放清單。' }) + '</div>' +
+    '<div class="ac-sech' + (o.tablet ? ' m' : '') + '"><span class="t">' + FMP.src('netease') + '夜行的貓的遠端歌單</span><span class="ty-foot c2">6 個 · 已匯入 1 個</span><span class="sp"></span>' +
       '<span class="ty-foot c2" style="display:flex;align-items:center;gap:6px">使用登入狀態匯入<span class="switch on"></span></span>' +
-      '<button class="btn btn-primary btn-sm">匯入 2 個歌單</button></div>' +
-    '<div class="ac-tbl"><div class="ac-tr th"><span class="check part-on" style="width:14px;height:14px">' + I('minus') + '</span><span></span><span>歌單</span><span>曲目</span><span>狀態</span></div>' + rows + '</div>' +
-    '<div class="ty-foot c2" style="margin-top:8px">按卡片上的「歌單」在這裡列出該帳號的遠端歌單；⌘A 全選，Space 勾選目前列。</div>';
+      '<button class="btn btn-primary' + (o.tablet ? '' : ' btn-sm') + '">匯入 2 個歌單</button></div>' +
+    '<div class="ac-tbl">' + (o.tablet ? '<div class="ac-tr m th"><span class="check part-on" style="width:20px;height:20px">' + I('minus') + '</span><span></span><span>全選</span><span></span></div>' : '<div class="ac-tr th"><span class="check part-on" style="width:14px;height:14px">' + I('minus') + '</span><span></span><span>歌單</span><span>曲目</span><span>狀態</span></div>') + rows + '</div>' +
+    (o.tablet ? '' : '<div class="ty-foot c2" style="margin-top:8px">按卡片上的「歌單」在這裡列出該帳號的遠端歌單；⌘A 全選，Space 勾選目前列。</div>');
 }
 function acDeskMain(ctx) { return acDesk(ctx, { cat: 'account', pane: acDeskPane() }); }
+function acMid(ctx, device) { return acDesk(ctx, { cat: 'account', pane: acDeskPane({ tablet: device === 'tablet' }), mid: { device } }); }
 
 function acDeskQR(ctx) {
   const dlg = '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:400px">' +
@@ -431,6 +445,15 @@ FMP.page({
         { kind: 'phone', label: 'YouTube：貼上 Cookie', render: (ctx) => acCookieSheet(ctx) },
       ],
       notes: '<ul><li>網頁登入：App 的頂列（取消、標題、網域與鎖頭、重新載入）＋一條說明，下面整塊是網站自己的內容，用細線和「網站內容」分開，讓人知道哪些是 FMP、哪些是網站。網頁區塊不跟 App 的深淺色。</li><li>偵測到登入完成（插件判斷 cookie 已齊）就自動關閉並回到帳號頁。</li><li>貼上 Cookie 只在「這個平台的網頁登入行不通」時出現，YouTube 卡上的按鈕直接寫「貼上 Cookie 登入」，不讓使用者自己選。說明為什麼、怎麼拿、只取哪三個名稱；值一律遮成圓點，連貼上後也不顯示，只告訴使用者字元數與三個名稱有沒有找到。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '帳號仍是設定裡的「帳號」分類，用細欄、分類欄、窗格三段。窗格窄，平板的三張卡改成單欄直排，遠端歌單列改成手機密度。',
+      frames: [
+        { kind: 'tablet', label: '帳號', render: (ctx) => acMid(ctx, 'tablet') },
+        { kind: 'window', label: '帳號＋網易雲的遠端歌單', render: (ctx) => acMid(ctx, 'window') },
+      ],
+      notes: '<ul><li>平板的設定是兩欄（分類欄不收起，iPad「設定」App 的慣例），窗格約 470 寬，所以帳號卡一張一列，沿用手機的卡片尺寸；遠端歌單的曲目數移到名稱下方，狀態標籤留在右端。</li><li>窄視窗同桌面：三張卡並排、歌單用表格，窗格比桌面窄，卡片內的文字換行。</li><li>登入的掃碼、網頁、貼上 Cookie：平板用置中的對話框（手機密度、實心），窄視窗照桌面對話框；內容與手機、桌面相同，不另畫。</li></ul>',
     },
     {
       title: '桌面：帳號分類',

@@ -85,6 +85,18 @@
 .pg-dl .d.new { color: var(--label); font-weight: 600; }
 .pg-kv { font-size: 12px; line-height: 18px; color: var(--label-2); }
 .pg-kv b { color: var(--label); font-weight: 500; }
+.pg-tr.tablet { grid-template-columns: minmax(0, 1fr) auto auto; min-height: 64px; font-size: 14px; }
+.pg-tr.tablet .nm b { font-size: 16px; font-weight: 600; }
+.pg-tr.tablet .nm small { font-size: 12.5px; }
+.pg-tr.window { grid-template-columns: minmax(0, 1fr) 100px 40px 40px 92px; gap: 8px; }
+.tablet .pg-srcic { width: 36px; height: 36px; border-radius: 9px; }
+.tablet .pg-srcic svg { width: 24px; height: 24px; }
+.pg-x.m { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.tablet .pg-x h5 { font-size: 13px; }
+.tablet .pg-chip { height: 28px; font-size: 13px; padding: 0 10px 0 8px; }
+.tablet .pg-dl { font-size: 14px; }
+.tablet .pg-kv { font-size: 14px; line-height: 20px; }
+.tablet .pg-x .btn-sm { height: 44px; padding: 0 18px; font-size: 16px; }
 .pg-mini { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--label-2); }
 .pg-mini .pg-bar { width: 70px; }
 </style>
@@ -202,7 +214,7 @@ function pgShaAlert() {
 }
 
 /* ---------------- desktop ---------------- */
-const pgDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay, updates: o.cnt });
+const pgDesk = (ctx, o) => FMP.settingsShell(ctx, { cat: o.cat, content: o.pane, overlay: o.overlay, updates: o.cnt, mid: o.mid });
 function pgExpand(p, o) {
   o = o || {};
   const caps = CAPS.map(([k, ic, label]) => '<span class="pg-chip' + (p.caps.includes(k) ? '' : ' no') + '">' + I(ic) + label + '</span>').join('');
@@ -219,7 +231,7 @@ function pgExpand(p, o) {
       '<div class="pg-kv" style="margin-top:8px">大小 <b>' + p.size + '</b> · 目前 SHA-256 <b class="pg-ver">3b7e…c91d</b></div>' +
       '<div style="margin-top:12px;display:flex;gap:6px"><button class="btn btn-primary btn-sm">更新到 ' + p.next + '…</button></div>';
   }
-  return '<div class="pg-x"><div><h5>插件能力（' + p.caps.length + ' / 8）</h5><div class="pg-chips">' + caps + '</div></div>' +
+  return '<div class="pg-x' + (o.mid === 'tablet' ? ' m' : '') + '"><div><h5>插件能力（' + p.caps.length + ' / 8）</h5><div class="pg-chips">' + caps + '</div></div>' +
     '<div><h5>允許的網域</h5><div class="pg-dl">' + doms + '</div></div><div>' + right + '</div></div>';
 }
 function pgDeskPane(o) {
@@ -237,15 +249,24 @@ function pgDeskPane(o) {
     if (k === 'youtube' && o.yt === 'installing') act = '<span class="pg-mini"><span class="spinner" style="width:14px;height:14px"></span>更新中</span>';
     if (k === 'youtube' && o.yt === 'failed') { act = '<span class="pg-tag bad">' + I('warn') + '更新失敗</span>'; }
     const sel = k === 'youtube' && o.expand;
-    return '<div class="pg-tr' + (sel ? ' sel' : '') + '"><div class="nm">' + I(sel ? 'chevD' : 'chevR', 's16').replace('class="i', 'style="color:var(--label-3)" class="i') + pgIc(k) + '<div style="min-width:0"><b>' + p.name + '</b><small>' + p.id + ' 插件</small></div></div>' +
-      '<span>' + p.kind + '</span>' + ver + '<span class="num">' + p.caps.length + '</span><span class="num">' + (p.dom.length) + (p.add && !(o.yt === 'failed') ? '<span style="color:var(--warn)"> +1</span>' : '') + '</span><span class="act">' + act + '</span></div>' +
+    const warnAdd = p.add && !(o.yt === 'failed');
+    const nm = '<div class="nm">' + I(sel ? 'chevD' : 'chevR', 's16').replace('class="i', 'style="color:var(--label-3)" class="i') + pgIc(k);
+    if (o.mid) {
+      // medium width: the type moves under the name, so the row keeps four columns (tablet: three, counts live in the expanded area)
+      const sm = '<small>' + (o.mid === 'tablet' ? '' : p.id + ' 插件 · ') + p.kind + (o.mid === 'tablet' && warnAdd ? ' · <span style="color:var(--warn)">+1 網域</span>' : '') + '</small>';
+      return '<div class="pg-tr ' + o.mid + (sel ? ' sel' : '') + '">' + nm + '<div style="min-width:0"><b>' + p.name + '</b>' + sm + '</div></div>' +
+        ver + (o.mid === 'tablet' ? '' : '<span class="num">' + p.caps.length + '</span><span class="num">' + p.dom.length + (warnAdd ? '<span style="color:var(--warn)"> +1</span>' : '') + '</span>') + '<span class="act">' + act + '</span></div>' +
+        (sel ? pgExpand(p, { installing: o.yt === 'installing', mid: o.mid }) : '');
+    }
+    return '<div class="pg-tr' + (sel ? ' sel' : '') + '">' + nm + '<div style="min-width:0"><b>' + p.name + '</b><small>' + p.id + ' 插件</small></div></div>' +
+      '<span>' + p.kind + '</span>' + ver + '<span class="num">' + p.caps.length + '</span><span class="num">' + (p.dom.length) + (warnAdd ? '<span style="color:var(--warn)"> +1</span>' : '') + '</span><span class="act">' + act + '</span></div>' +
       (sel ? pgExpand(p, { installing: o.yt === 'installing' }) : '');
   };
   const banner = o.neteaseDone ? '1 個更新' : '2 個更新';
   return '<div class="sx-h"><div class="ty-large">插件</div><div style="display:flex;gap:8px;align-items:center"><span class="ty-foot c3">剛剛檢查 · 找到 ' + banner + '</span><button class="btn btn-gray btn-sm">' + I('refresh', 's16') + '檢查更新</button></div></div>' +
     '<p class="sx-lead">插件提供音源與歌詞源。FMP 不在背景自動更新：按「檢查更新」列出新版本，你確認後才安裝，安裝前比對 SHA-256。</p>' +
-    '<div class="pg-tbl"><div class="pg-tr th"><span style="padding-left:26px">插件</span><span>類型</span><span>版本</span><span>能力</span><span>網域</span><span></span></div>' + ORDER.map(row).join('') + '</div>' +
-    '<div class="ty-foot c2" style="margin-top:8px">點列展開插件能力與允許的網域；↑↓ 移動，Space 展開。</div>';
+    '<div class="pg-tbl">' + (o.mid === 'tablet' ? '' : o.mid ? '<div class="pg-tr window th"><span style="padding-left:26px">插件</span><span>版本</span><span>能力</span><span>網域</span><span></span></div>' : '<div class="pg-tr th"><span style="padding-left:26px">插件</span><span>類型</span><span>版本</span><span>能力</span><span>網域</span><span></span></div>') + ORDER.map(row).join('') + '</div>' +
+    (o.mid === 'tablet' ? '' : '<div class="ty-foot c2" style="margin-top:8px">點列展開插件能力與允許的網域；↑↓ 移動，Space 展開。</div>');
 }
 
 FMP.page({
@@ -282,6 +303,15 @@ FMP.page({
         { kind: 'phone', label: 'SHA-256 不符', render: (ctx) => pgList(ctx, 'updates', { overlay: pgShaAlert() }) },
       ],
       notes: '<h3>規則</h3><ul><li>確認 sheet 固定三塊：更新內容、權限變化、SHA-256 的說明。確認 sheet 底部是「取消」「安裝」兩顆並排；權限不變時主按鈕直接是「安裝」；權限變多時主按鈕是「繼續」，不會一次就裝下去。</li><li>再確認是確認框（玻璃，控制層），只列新增的網域或插件能力，每項附插件自己寫的用途；不變的部分收成一行。「不要更新」與「允許並更新」兩顆一樣大，不要更新放在左邊，按 Esc 也等於不要更新。</li><li>安裝分三步：下載（有進度）、比對 SHA-256、安裝並重新載入插件。重新載入時正在播放的曲目不中斷（串流已經解析好）。</li><li>SHA-256 不符是安全問題，不是網路錯誤：用確認框而不是提示，列出預期與實際的雜湊頭尾，寫明檔案已刪、維持舊版。「重試」重新下載一次。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '插件是設定裡的「插件」分類，用細欄、分類欄、窗格三段。窗格窄，表格欄位減少：平板一列只放名稱、版本與動作，窄視窗保留能力與網域數。',
+      frames: [
+        { kind: 'tablet', label: '有更新（展開 YouTube）', render: (ctx) => pgDesk(ctx, { cat: 'plugins', pane: pgDeskPane({ expand: true, mid: 'tablet' }), mid: { device: 'tablet' } }) },
+        { kind: 'window', label: '有更新，展開 YouTube', render: (ctx) => pgDesk(ctx, { cat: 'plugins', pane: pgDeskPane({ expand: true, mid: 'window' }), mid: { device: 'window' } }) },
+      ],
+      notes: '<ul><li>平板的設定是兩欄（分類欄不收起，iPad「設定」App 的慣例），窗格約 470 寬：類型移到名稱下方，能力數與網域數欄拿掉，會多要網域的更新改在名稱下方標「+1 網域」，展開後才看到完整的能力與網域。展開區單欄直排。</li><li>窄視窗同桌面的表格與展開區，類型欄一樣移到名稱下方。</li><li>更新的確認與再確認：平板用置中的對話框（手機密度），窄視窗照桌面對話框，內容與手機、桌面相同，不另畫。</li></ul>',
     },
     {
       title: '桌面：插件分類',

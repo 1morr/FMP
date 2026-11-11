@@ -21,6 +21,18 @@
   .sys-text { position: absolute; left: 24px; top: 184px; font: 700 38px/1 var(--font-display); color: var(--label); letter-spacing: -.01em; white-space: nowrap; }
   @keyframes sysBelt { from { transform: translateX(0); } to { transform: translateX(-520px); } }
   @media (prefers-reduced-motion: reduce) { .sys-belt { animation: none; } }
+  .sys-tiers { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 22px; }
+  .sys-tier { margin: 0; flex: none; }
+  .sys-tier figcaption { margin-top: 8px; font-size: 12px; color: var(--label-2); line-height: 1.45; }
+  .sys-tier figcaption b { display: block; font-size: 13px; color: var(--label); }
+  .sys-scr { position: relative; border-radius: 10px; overflow: hidden; background: var(--cell-2); box-shadow: inset 0 0 0 .5px var(--sep-strong); }
+  .sys-scr i { position: absolute; display: block; }
+  .sys-scr .g { background: color-mix(in srgb, var(--label) 22%, transparent); }
+  .sys-scr .c { background: var(--fill-2); border-radius: 3px; }
+  .sys-scr .s { background: color-mix(in srgb, var(--label) 7%, var(--bg)); box-shadow: inset 1px 0 0 var(--sep-strong); }
+  .sys-tt { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .sys-tt th, .sys-tt td { text-align: left; vertical-align: top; padding: 7px 10px 7px 0; border-bottom: .5px solid var(--sep); }
+  .sys-tt th { color: var(--label-2); font-weight: 600; }
   .sys-kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 16px; font-size: 13px; }
   .sys-kv dt { color: var(--label-2); }
   .sys-kv dd { margin: 0; }
@@ -138,6 +150,38 @@ function motion(ctx) {
   return '<div class="sys-kv"><dt>變形（morph）</dt><dd>520ms，cubic-bezier(.32,.72,0,1)：sheet 升起、播放頁左右滑換畫面（導覽與迷你播放器捲動時不變形）</dd><dt>彈性（spring）</dt><dd>520ms，cubic-bezier(.32,1.28,.52,1)：選取膠囊滑動、開關</dd><dt>一般</dt><dd>160ms／280ms，ease-out：hover、顏色、明暗翻轉</dd><dt>按下</dt><dd>按鈕縮到 0.96；導覽的選取膠囊放大到 1.12 再回彈，像一滴水被按住</dd><dt>減少動態效果</dt><dd>sheet 與換畫面改成淡入淡出，選取膠囊不彈跳，播放頁背景停止流動，等化器靜止</dd><dt>降低透明度</dt><dd>玻璃全部換成「最低」：不透明的實心底，保留邊緣高光</dd></div>';
 }
 
+/* width tiers: three schematic screens + the rules table */
+function widthTiers(ctx) {
+  const cards = (x0, y0, w, h, cols, rows, gap) => { let o = ''; const cw = (w - gap * (cols - 1)) / cols; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) o += '<i class="c" style="left:' + (x0 + c * (cw + gap)) + 'px;top:' + (y0 + r * (cw + gap)) + 'px;width:' + cw + 'px;height:' + cw + 'px"></i>'; return o; };
+  const narrow = '<div class="sys-scr" style="width:96px;height:180px">' + cards(10, 22, 76, 0, 2, 3, 8) +
+    '<i class="g" style="left:6px;right:6px;bottom:38px;height:14px;border-radius:7px"></i><i class="g" style="left:6px;width:62px;bottom:10px;height:22px;border-radius:11px"></i><i class="g" style="right:6px;width:22px;bottom:10px;height:22px;border-radius:11px"></i></div>';
+  const mid = '<div class="sys-scr" style="width:240px;height:180px">' +
+    '<i class="g" style="left:5px;top:5px;bottom:5px;width:20px;border-radius:7px"></i>' + cards(36, 18, 196, 0, 4, 2, 8) +
+    '<i class="g" style="left:36px;right:8px;bottom:8px;height:18px;border-radius:9px"></i></div>';
+  const wide = '<div class="sys-scr" style="width:324px;height:180px">' +
+    '<i class="g" style="left:5px;top:5px;bottom:5px;width:56px;border-radius:7px"></i>' + cards(72, 18, 168, 0, 5, 3, 6) +
+    '<i class="s" style="right:0;top:0;bottom:0;width:76px"></i><i class="c" style="right:12px;top:16px;width:52px;height:52px"></i><i class="c" style="right:12px;top:76px;width:52px;height:6px"></i><i class="c" style="right:28px;top:88px;width:36px;height:6px"></i>' +
+    '<i class="g" style="left:72px;right:84px;bottom:8px;height:18px;border-radius:9px"></i></div>';
+  const tier = (scr, t, d) => '<figure class="sys-tier">' + scr + '<figcaption><b>' + t + '</b>' + d + '</figcaption></figure>';
+  const rows = [
+    ['寬度', '小於 600', '600–1199', '1200 以上'],
+    ['裝置', '手機（固定直向）', '平板直向與橫向、縮小的桌面視窗（最小 720×560）', '桌面、13 吋 iPad 橫向'],
+    ['導覽', '底部 dock：迷你播放器、四項導覽、搜尋圓鈕', '左側玻璃細欄（72，平板 80）：導覽、歌單封面、設定', '左側玻璃側欄（248）：搜尋欄、導覽、歌單名稱、設定'],
+    ['正在播放', '迷你播放器（書脊）', '播放膠囊（書脊）；寬不到 640 收掉時間與音量', '播放膠囊（書脊）'],
+    ['詳情面板', '無（點迷你播放器進播放頁）', '點了才浮出來，蓋在內容上', '常駐右側，可收起'],
+    ['一首歌的更多', '底部 sheet', '平板：從按鈕長出的選單；桌面：右鍵選單', '右鍵選單'],
+    ['對話框', '底部 sheet 或置中警示框', '置中（平板是表單大小）', '置中'],
+    ['播放頁', '單欄，左右滑換歌詞與佇列', '直向單欄（同手機）；橫向兩欄（同桌面）', '兩欄，頂列分段切歌詞與佇列'],
+    ['設定', '一層一層推頁', '細欄＋分類欄＋窗格', '側欄＋分類欄＋窗格'],
+  ];
+  const table = '<table class="sys-tt"><tr><th style="width:84px"></th><th>窄</th><th>中</th><th>寬</th></tr>' + rows.map((r) => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>').join('') + '</table>';
+  const density = '<div class="sys-h" style="margin-top:24px">密度跟裝置走，不跟寬度走</div><table class="sys-tt"><tr><th style="width:84px"></th><th>觸控（iOS、Android）</th><th>滑鼠（macOS、Windows）</th></tr>' +
+    '<tr><th>目標</th><td>44×44 以上</td><td>28 以上</td></tr><tr><th>字級</th><td>手機那一欄（body 17）</td><td>桌面那一欄（body 14）</td></tr>' +
+    '<tr><th>hover</th><td>沒有；⋮ 一直在</td><td>⋮、拖曳把手 hover 才出現</td></tr></table>';
+  return '<div class="sys-h">三種寬度的外殼</div><div class="sys-tiers">' +
+    tier(narrow, '窄', '小於 600') + tier(mid, '中', '600–1199') + tier(wide, '寬', '1200 以上') + '</div>' + table + density;
+}
+
 function windowsBar(ctx) {
   return '<div class="sys-h">Windows 視窗按鈕</div><div style="position:relative;height:120px;border-radius:12px;overflow:hidden;background:var(--bg);box-shadow:inset 0 0 0 .5px var(--sep)">' +
     '<div class="lg" style="position:absolute;left:8px;top:8px;bottom:8px;width:200px;border-radius:10px;padding:14px 12px;font-size:12px;color:var(--glass-ink-2)">側欄（沒有紅綠燈）</div>' +
@@ -206,6 +250,12 @@ FMP.page({
         { kind: 'panel', label: '動態', render: (ctx) => panel(ctx, 560, motion(ctx)) },
         { kind: 'panel', label: 'Windows', render: (ctx) => panel(ctx, 560, windowsBar(ctx)) },
       ],
+    },
+    {
+      title: '寬度分級',
+      desc: '照 Material 3 的 compact／medium／expanded 分三級，邊界依這個 App 的版面調整：寬級要放得下側欄、內容與常駐詳情面板（1200）。中寬度的導覽是左側玻璃細欄（擁有者 2026-11-11 選定），平板與縮小的桌面視窗共用，只差密度。各頁的中寬度稿在每頁的「中寬度」一節，外殼的規則在外殼頁。',
+      frames: [{ kind: 'panel', label: '窄、中、寬', render: (ctx) => panel(ctx, 760, widthTiers(ctx)) }],
+      notes: '<ul><li>邊界看的是視窗寬度，不是螢幕：桌面視窗拖窄到 1200 以下就換中寬度版面，拖寬回來再換回去，捲動位置與選取不變。</li><li>手機固定直向，不會因為橫放進中寬度。</li><li>13 吋 iPad 橫向（1366）是寬級，用觸控密度：側欄與詳情面板照桌面，目標照 44。</li><li>沒有第四級：1600 以上照寬級，內容欄變寬（網格多幾欄），不加第三欄。</li></ul>',
     },
   ],
 });

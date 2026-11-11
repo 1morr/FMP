@@ -150,7 +150,8 @@ function libCard(p, o) {
 function libGrid(o) {
   o = o || {};
   const order = o.order || LIB_ORDER;
-  return '<div class="lib-grid' + (o.cls ? ' ' + o.cls : '') + '">' + order.map((id) => {
+  const gs = o.cols ? ' style="grid-template-columns:repeat(' + o.cols + ',minmax(0,1fr));gap:' + (o.gap || '22px 18px') + ';padding:0"' : '';
+  return '<div class="lib-grid' + (o.cls ? ' ' + o.cls : '') + '"' + gs + '>' + order.map((id) => {
     if (id === '_slot') return '<div class="lib-card"><div class="lib-slot"></div></div>';
     const s = (o.state || {})[id] || {};
     return libCard(PL[id], s);
@@ -191,12 +192,18 @@ function libImportBody(o) {
   o = o || {};
   const link = o.link === false ? '<span class="v ph">貼上歌單連結</span>' : '<span class="v">' + (o.link || 'https://www.bilibili.com/medialist/detail/ml***') + '</span>';
   const det = o.src ? FMP.srcChip(o.src, true) : '';
-  return '<div class="sbody"><div class="lib-form">' +
+  return '<div class="sbody">' + libImportForm(o) + '</div><div class="sfoot"><button class="btn btn-primary"' + (o.disabled ? ' disabled' : '') + '>' + (o.cta || '匯入') + '</button></div>';
+}
+function libImportForm(o) {
+  o = o || {};
+  const link = o.link === false ? '<span class="v ph">貼上歌單連結</span>' : '<span class="v">' + (o.link || 'https://www.bilibili.com/medialist/detail/ml***') + '</span>';
+  const det = o.src ? FMP.srcChip(o.src, true) : '';
+  return '<div class="lib-form">' +
     '<div class="lib-f' + (o.bad ? ' bad' : '') + '">' + I('link') + link + det + '</div>' +
     (o.bad ? '<div class="lib-tip bad">' + I('warn') + '<span>' + o.bad + '</span></div>' : '<div class="lib-tip">支援 Bilibili 收藏夾與合集、YouTube 播放清單、網易雲歌單的分享連結。</div>') +
     '<div class="lib-lab">歌單名稱（選填）</div><div class="lib-f"><span class="v ph">沿用遠端的名稱</span></div>' +
     '<div class="lib-sw' + (o.hlSwitch ? ' hl' : '') + '"><div class="gl">使用登入狀態匯入<small>' + (o.src ? FMP.src(o.src) + '已登入 ' + FMP.SRC[o.src].name + '・私人歌單需要開啟' : '讀取私人歌單需要先登入該音源') + '</small></div><span class="switch' + (o.on ? ' on' : '') + '"></span></div>' +
-    '</div></div><div class="sfoot"><button class="btn btn-primary"' + (o.disabled ? ' disabled' : '') + '>' + (o.cta || '匯入') + '</button></div>';
+    '</div>';
 }
 function libProgBody(o) {
   o = o || {};
@@ -225,6 +232,27 @@ function libDeskImport() {
     '<div class="lib-lab">歌單名稱（選填）</div><div class="lib-f"><span class="v ph">沿用遠端的名稱</span></div>' +
     '<div class="lib-sw"><div class="gl">使用登入狀態匯入<small>' + FMP.src('netease') + '已登入網易雲音樂・私人歌單需要開啟</small></div><span class="switch on"></span></div>' +
     '</div></div><div class="dlg-foot"><span class="lib-kbd" style="margin-right:auto">預設每 6 小時自動刷新</span><button class="btn btn-gray">取消</button><button class="btn btn-primary">匯入</button></div></div></div>';
+}
+
+/* ---------------- medium width (tablet / narrow window) ---------------- */
+function libMid(ctx, o) {
+  o = o || {};
+  const touch = o.device === 'tablet';
+  const head = touch
+    ? '<div class="ty-large" style="margin-bottom:18px">音樂庫</div>'
+    : '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px"><div><div class="ty-large">音樂庫</div><div class="c2" style="font-size:12px;margin-top:2px">8 張歌單 · 4 張本地、4 張匯入</div></div>' +
+      '<div style="display:flex;gap:6px"><button class="btn btn-gray btn-sm">' + I('sort', 's16') + '排序</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入歌單…</button><button class="btn btn-primary btn-sm">' + I('plus', 's16') + '新建歌單</button></div></div>';
+  const content = '<div style="padding:' + (touch ? '62px 32px 150px 24px' : '66px 32px 120px 24px') + '">' + head +
+    libGrid({ cols: o.cols, gap: touch ? '26px 20px' : '22px 18px', state: o.state, cls: o.cls }) + '</div>';
+  const top = touch
+    ? '<span class="wt">音樂庫</span><span class="sp"></span>' + FMP.gpill([['sort', '排序歌單'], ['plus', '新建歌單'], ['link', '匯入歌單']])
+    : '<span class="wt">音樂庫</span>';
+  return FMP.medium(ctx, { device: o.device, w: o.w, h: o.h, nav: 'library', content, top, overlay: o.overlay });
+}
+function libMidImport() {
+  return '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:560px"><div class="dlg-head"><span class="dt">匯入歌單</span><button class="ibtn" aria-label="關閉">' + I('close', 's20') + '</button></div>' +
+    '<div class="dlg-body">' + libImportForm({ src: 'bilibili', on: true }) + '</div>' +
+    '<div class="dlg-foot"><span class="lib-kbd" style="margin-right:auto;font-size:13px">預設每 6 小時自動刷新</span><button class="btn btn-gray">取消</button><button class="btn btn-primary">匯入</button></div></div></div>';
 }
 
 /* ---------------- page ---------------- */
@@ -271,6 +299,22 @@ FMP.page({
         { kind: 'phone', label: '匯入：讀不到私人歌單', render: (ctx) => libPhone(ctx, { overlay: libSheet('匯入歌單', libImportBody({ src: 'bilibili', on: false, hlSwitch: true, bad: '這個收藏夾是私人的。開啟「使用登入狀態匯入」再試一次。', cta: '再試一次' }), { ok: false }) }) },
       ],
       notes: '<h3>規則</h3><ul><li>新建歌單：名稱必填，空白時右上的確認鈕停用；描述選填。編輯歌單用同一個 sheet，多了封面、（匯入歌單）使用登入狀態刷新、自動刷新開關與間隔（1、6、12、24、48、72 小時、1 週）。</li><li>匯入：貼上連結後立刻辨識音源，欄位尾端出現音源標識（Bilibili 符號＋全名）；辨識不了就顯示「看不出是哪個音源的連結」，匯入鈕停用。</li><li>「使用登入狀態匯入」：已登入時說明已登入哪個音源；未登入時開關停用，說明要先登入並給「登入」連結。</li><li>匯入進度分三步：取得歌單資訊、讀取曲目（n / 總數）、建立匯入歌單。大歌單可能要一分鐘以上（brief §15），所以可以關掉 sheet 在背景繼續，進度改顯示在音樂庫的卡片上；完成時提示「匯入成功，加入 n 首」。</li><li>錯誤直接寫在欄位下方，並把要改的那個控制項（這裡是開關）框起來；主按鈕改「再試一次」。依 brief §13 的類別：需登入、找不到（連結失效或歌單已刪）、網路、限流各有一句話。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '內容單欄，左邊是玻璃細欄，卡片網格只是欄數不同：平板用手機的卡片尺寸，窄視窗用桌面的卡片尺寸。詳情面板不常駐，頂列右端的按鈕才叫出來。',
+      frames: [
+        { kind: 'tablet', label: '主畫面（4 欄、一張刷新中）', render: (ctx) => libMid(ctx, { device: 'tablet', cols: 4, state: { covers: { refreshing: 56 }, cpop: { failed: true } } }) },
+        { kind: 'tablet', label: '長按卡片的選單（從卡片長出）', render: (ctx) => libMid(ctx, { device: 'tablet', cols: 4, state: { covers: { rsel: true } },
+          overlay: '<div class="lib-scrim" style="z-index:64"></div>' + libCard(PL.covers, { cls: 'lib-preview', style: 'left:112px;top:118px;width:154px' }) + libMenu(PL.covers, 'left:112px;top:340px') }) },
+        { kind: 'tablet', label: '匯入歌單（置中對話框）', render: (ctx) => libMid(ctx, { device: 'tablet', cols: 4, overlay: libMidImport() }) },
+        { kind: 'window', label: '主畫面：hover、刷新中（5 欄）', render: (ctx) => libMid(ctx, { cols: 5, state: { weekend: { hov: true }, covers: { refreshing: 56 } } }) },
+        { kind: 'window', label: '最小視窗（4 欄）', w: 720, h: 560, render: (ctx) => libMid(ctx, { w: 720, h: 560, cols: 4, state: { weekend: { hov: true } } }) },
+      ],
+      notes: '<ul><li>欄數依內容寬度：平板直向 4 欄，橫向（1180）6 欄，窄視窗 5 欄，最小視窗 4 欄。卡片寬度大致落在 140 到 160pt，不是把卡片放大。</li>' +
+        '<li>平板頂列右側是排序、新建、匯入三顆玻璃鈕（照手機）；窄視窗照桌面，三顆按鈕放在標題列右邊，頂列只有捲動後淡入的標題。</li>' +
+        '<li>長按卡片的選單在平板從卡片長出：背景變暗，卡片浮起，選單貼在卡片下方（iPad 的 context menu 慣例），項目和手機、桌面相同。窄視窗照舊右鍵與 hover 上的 ⋮。</li>' +
+        '<li>匯入歌單在平板是置中的對話框（寬 560），欄位和手機的 sheet 相同；按鈕在右下，不是整排大按鈕。窄視窗沿用桌面的對話框。</li></ul>',
     },
     {
       title: '桌面',

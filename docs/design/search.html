@@ -145,6 +145,23 @@
 .srh-dact button.a svg.i { width: 16px; height: 16px; }
 .srh-dact button.a:hover { background: var(--glass-press); }
 .srh-dact .ibtn { width: 32px; height: 32px; color: var(--glass-ink-2); }
+
+/* ---- medium width: the rail has no search field, so the field sits at the top of the page ---- */
+.srh-mf { margin: 0 16px 10px 20px; }
+.srh-mf .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srh-mf .clr { display: grid; place-items: center; width: 28px; height: 28px; margin-right: -6px; color: var(--label-3); }
+.srh-mf .clr span { width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; background: var(--fill-2); color: var(--label-2); }
+.srh-mf .clr svg.i { width: 11px; height: 11px; stroke-width: 2.6; }
+.srh-mf kbd { font: 500 11px var(--font-num); padding: 1px 6px; border-radius: 4px; background: var(--fill-2); color: var(--label-2); }
+.desk .srh-mf { margin: 0; width: 360px; flex: none; }
+.srh-m { padding: 62px 24px 150px 4px; }
+.desk .srh-m { padding: 66px 24px 120px 24px; }
+.srh-mtop { display: flex; align-items: center; gap: 24px; margin-bottom: 10px; }
+.srh-mtop .hint { margin-left: auto; font-size: 11.5px; color: var(--label-3); display: flex; gap: 12px; white-space: nowrap; }
+.srh-mtop .hint kbd { font: 500 11px var(--font-num); padding: 1px 5px; border-radius: 4px; background: var(--fill); color: var(--label-2); margin-right: 4px; }
+.srh-m .srh-th, .srh-m .srh-tr { grid-template-columns: 26px minmax(0, 1fr) 80px 48px 56px 46px 28px; column-gap: 10px; }
+.srh-m .srh-dfil { margin-bottom: 0; }
+.srh-m-hov { background: var(--cell-hover); }
 </style>
 </head>
 <body>
@@ -266,7 +283,7 @@ function srhMenu(t, style, o) {
   const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
   return '<div class="lg gmenu" data-adapt role="menu" style="' + style + '">' + srhMenuHead(t, o.note) + '<div class="ms"></div>' +
     mi('play', '播放', o.desk ? '↩' : '', o.hl === 'play' ? 'hl' : '') + mi('nextUp', '下一首播放', '', o.hl === 'next' ? 'hl' : '') + mi('queue', '加入佇列') + mi('addlist', '加入歌單…', o.desk ? '⌘L' : '') +
-    '<div class="ms' + (o.desk ? '' : ' thick') + '"></div>' + mi('lyrics', '匹配歌詞…') + '</div>';
+    '<div class="ms' + (o.desk ? '' : ' thick') + '"></div>' + mi('lyrics', '匹配歌詞…') + (o.link ? mi('link', '複製連結') : '') + '</div>';
 }
 
 /* ---------------- desktop helpers ---------------- */
@@ -290,15 +307,16 @@ function srhDParts(t) {
   return SRH_PARTS[t.id].map(([title, dur], i) => '<div class="srh-tr pt"><span class="n"></span><div class="tc"><span class="pn num">P' + (i + 1) + '</span><span class="ell">' + FMP.esc(title) + '</span></div><span></span><span></span><span></span><span class="dc num r">' + dur + '</span><span class="mc"><button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button></span></div>').join('');
 }
 const SRH_TH = '<div class="srh-th"><span class="r">#</span><span>標題／歌手</span><span>音源</span><span>存取</span><span class="r">播放數</span><span class="r">時長</span><span></span></div>';
-function srhDesk(ctx, o) {
-  o = o || {};
+/* filter chips + sort (+ the shortcut hint on the wide desktop) */
+function srhDFilters(hint) {
+  return '<div class="srh-dfil">' + ['all', 'bilibili', 'youtube', 'netease'].map((k, i) => '<button class="chip' + (i === 0 ? ' on' : '') + '">' + (k === 'all' ? '' : FMP.src(k)) + ['全部', 'Bilibili', 'YouTube', '網易雲'][i] +
+    (k === 'youtube' ? '<span class="w">' + I('warn', 's16') + '</span>' : '<span class="cnt num">' + [52, 19, '', 18][i] + '</span>') + '</button>').join('') +
+    (hint ? '<span class="hint"><span><kbd>雙擊</kbd>臨時播放</span><span><kbd>⌘</kbd>點選多選</span><span><kbd>右鍵</kbd>更多</span></span>' : '') + SRH_SORTC + '</div>';
+}
+/* 歌單中 + 線上結果 tables */
+function srhDTables(o) {
   const sel = o.sel || [];
-  let h = '<div style="padding:66px 24px 170px 8px">' +
-    '<div class="srh-dhead"><div><div class="ty-large">「夜」<span class="c3"> 的搜尋結果</span></div></div></div>' +
-    '<div class="srh-dfil">' + ['all', 'bilibili', 'youtube', 'netease'].map((k, i) => '<button class="chip' + (i === 0 ? ' on' : '') + '">' + (k === 'all' ? '' : FMP.src(k)) + ['全部', 'Bilibili', 'YouTube', '網易雲'][i] +
-      (k === 'youtube' ? '<span class="w">' + I('warn', 's16') + '</span>' : '<span class="cnt num">' + [52, 19, '', 18][i] + '</span>') + '</button>').join('') +
-    '<span class="hint"><span><kbd>雙擊</kbd>臨時播放</span><span><kbd>⌘</kbd>點選多選</span><span><kbd>右鍵</kbd>更多</span></span>' + SRH_SORTC + '</div>';
-  h += '<div class="srh-dsh">歌單中<span class="cnt">' + SRH_LOCAL.length + '</span></div>' + SRH_TH;
+  let h = '<div class="srh-dsh">歌單中<span class="cnt">' + SRH_LOCAL.length + '</span></div>' + SRH_TH;
   h += SRH_LOCAL.map((t, i) => srhDRow(t, i, { playing: i === 0, sel: sel.includes('l' + i) })).join('');
   h += '<div class="srh-dsh">線上結果<span class="cnt">49</span></div>' + SRH_TH;
   h += '<div class="srh-derr"><span class="w">' + I('warn') + '</span>' + FMP.src('youtube') + '<span class="t"><b>YouTube 暫時無法搜尋</b>：請求太頻繁，被限流。下面是另外兩個音源的結果。</span><button class="btn btn-gray btn-sm">' + I('refresh', 's16') + '重試 YouTube</button></div>';
@@ -306,8 +324,44 @@ function srhDesk(ctx, o) {
     h += srhDRow(t, i, { hov: o.hov === t.id, sel: sel.includes(t.id), open: o.open === t.id });
     if (o.open === t.id) h += srhDParts(t);
   });
+  return h;
+}
+function srhDesk(ctx, o) {
+  o = o || {};
+  let h = '<div style="padding:66px 24px 170px 8px">' +
+    '<div class="srh-dhead"><div><div class="ty-large">「夜」<span class="c3"> 的搜尋結果</span></div></div></div>' + srhDFilters(true);
+  h += srhDTables(o);
   h += '<div class="srh-foot" style="font-size:12px">捲到底自動載入更多</div></div>';
   return FMP.desktop(ctx, { nav: 'search', query: '夜', content: h, top: '<span class="wt">「夜」的搜尋結果</span>', overlay: o.overlay || '' });
+}
+/* medium width: the query field moves from the sidebar to the top of the page (the rail only has a search item) */
+function srhMField(touch) {
+  return '<div class="field srh-mf" role="search">' + I('search') + '<span class="q">夜</span>' +
+    (touch ? '<button class="clr" aria-label="清除"><span>' + I('close') + '</span></button>' : '<kbd>⌘K</kbd>') + '</div>';
+}
+/* o: device, w, h, overlay, hov, open */
+function srhMid(ctx, o) {
+  o = o || {};
+  const touch = o.device === 'tablet';
+  const body = touch
+    ? srhMField(true) + srhChips('all') + srhResults()
+    : '<div class="srh-mtop">' + srhMField(false) + '<span class="hint"><span><kbd>雙擊</kbd>臨時播放</span><span><kbd>⌘</kbd>點選多選</span><span><kbd>右鍵</kbd>更多</span></span></div>' +
+      srhDFilters(false) + srhDTables(o) + '<div class="srh-foot" style="font-size:12px">捲到底自動載入更多</div>';
+  return FMP.medium(ctx, { device: o.device, w: o.w, h: o.h, nav: 'search', content: '<div class="srh-m">' + body + '</div>', top: '<span class="wt">「夜」的搜尋結果</span>', overlay: o.overlay || '' });
+}
+/* tablet: grow the popover out of a row's ⋮ (placed after layout, in frame coordinates) */
+function srhAfterPopover(rowIndex, w) {
+  return (root) => {
+    const m = root.querySelector('.gmenu');
+    const btn = root.querySelectorAll('.srh-m .row .ibtn[aria-label="更多"]')[rowIndex];
+    if (!m || !btn) return;
+    const fr = root.getBoundingClientRect();
+    const sc = fr.width / w;
+    const r = btn.getBoundingClientRect();
+    m.style.left = Math.round((r.right - fr.left) / sc - m.offsetWidth + 6) + 'px';
+    m.style.top = Math.round((r.bottom - fr.top) / sc + 2) + 'px';
+    btn.closest('.row').classList.add('srh-m-hov');
+  };
 }
 function srhDAct(n) {
   return '<div class="srh-dact"><div class="lg" data-adapt><span class="cnt">已選擇 ' + n + ' 首</span>' +
@@ -373,6 +427,21 @@ FMP.page({
           dockHtml: '<div class="lg srh-act" data-adapt><button>' + I('nextUp') + '下一首播放</button><button>' + I('queue') + '加入佇列</button><button>' + I('addlist') + '加入歌單</button></div>' }) },
       ],
       notes: '<h3>規則</h3><ul><li>⋮ 從底部升起 sheet（手機上一首歌的「更多」都用它）：播放（臨時播放）、下一首播放、加入佇列、加入歌單…、匹配歌詞…、複製連結，右邊小字補充後果。頂端重複這首的封面、標題、音源與存取等級，確認動作套用在哪一首；多 P 影片寫明「6 個分 P 全部套用」。桌面照舊是右鍵選單。</li><li>「加入歌單…」開加入歌單對話框，裡面同時列本地歌單與這首所屬音源的遠端歌單（見加入歌單頁）。舊版另外的「加入遠端歌單」已合進去，不再單獨出現。未登入時對話框裡的遠端區塊提示登入。</li><li>長按一列進多選：頂列換成「取消」「已選擇 n 首」「全選」，搜尋欄位、導覽圓鈕與迷你播放器讓位給浮動的玻璃動作列（下一首播放、加入佇列、加入歌單）。點其他列加減選取。</li><li>多選時多 P 影片算一首，動作套用到全部分 P；分 P 列不能單獨勾選，要單一分 P 就展開後用它的 ⋮。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '左邊是細欄，沒有搜尋欄位也沒有底部搜尋圓鈕：欄位放在搜尋頁的頂端，下面接篩選 chip 與排序。平板用手機密度的列，窄視窗用桌面的表格。',
+      frames: [
+        { kind: 'tablet', label: '結果（全部音源）', render: (ctx) => srhMid(ctx, { device: 'tablet' }) },
+        { kind: 'tablet', label: '每列的 ⋮（從按鈕長出的選單）', render: (ctx) => srhMid(ctx, { device: 'tablet', overlay: srhMenu(SRH_ONLINE[1], 'left:0;top:0', { link: true }) }), after: srhAfterPopover(4, 820) },
+        { kind: 'window', label: '結果：hover、YouTube 出錯', render: (ctx) => srhMid(ctx, { device: 'window', hov: 'o2', open: 'o6' }) },
+      ],
+      notes: '<h3>和手機、桌面不同的地方</h3><ul>' +
+        '<li>細欄裡的搜尋是一個項目，不是欄位：點它（或 ⌘K）進搜尋頁，欄位在頁面頂端，進來時自動聚焦。手機的底部搜尋膠囊、桌面側欄的欄位在中寬度都不存在。</li>' +
+        '<li>欄位下一排是音源篩選 chip，排序鈕固定在同一排最右，位置和手機、桌面一致。平板的欄位用手機尺寸（40 高，帶清除鈕），窄視窗用桌面尺寸（30 高，寬約 360，帶 ⌘K 提示）。</li>' +
+        '<li>平板鍵盤升起時欄位不動，因為它已經在頂端；不需要像手機那樣把欄位搬到鍵盤上方。捲動時欄位跟著內容捲走，和手機的結果列表一樣。</li>' +
+        '<li>平板每一列的 ⋮ 開從按鈕長出的選單（iPad popover 慣例），項目和手機的 sheet 相同：播放、下一首播放、加入佇列、加入歌單…、匹配歌詞…、複製連結，頂端帶這首的摘要。窄視窗照桌面，右鍵或 hover 的 ⋮ 開選單。</li>' +
+        '<li>窄視窗的表格縮小：欄位寬度略減，標題欄仍有 450pt 左右；快速鍵提示移到欄位右邊。多選與動作列照桌面，動作列置中在內容欄。</li></ul>',
     },
     {
       title: '桌面',

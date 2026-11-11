@@ -90,6 +90,15 @@
 .qu-dtemp .qu-tf { font-size: 12px; color: var(--label-2); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
 .qu-dtemp .qu-tf svg.i { width: 14px; height: 14px; color: var(--accent); }
 .qu-dtemp .qu-tf b { color: var(--label); font-weight: 600; }
+
+/* ---------- medium width ---------- */
+.qu-m { padding: 62px 24px 150px 4px; }
+.desk .qu-m { padding: 66px 24px 120px 24px; }
+.qu-m .qu-head { padding: 0 20px 6px; }
+.qu-md { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+.qu-md .qu-totop { text-align: left; }
+.qu-md .qu-keys { margin-bottom: 12px; }
+.qu-md .qu-dtop { padding-bottom: 4px; flex: none; }
 </style>
 </head>
 <body>
@@ -292,6 +301,38 @@ function quAfterDesk(root, o) {
     m.style.top = ((r.top - win.top) / sc + 30) + 'px';
   }
 }
+/* medium width. tablet: phone list + glass toggles in the top bar; window: desktop table, toggles in the title row */
+function quMid(ctx, o) {
+  o = o || {};
+  const touch = o.device === 'tablet';
+  const transport = o.temp ? T.t19 : true;
+  const transportOpts = { repeat: o.repeat === 'off' ? false : o.repeat, shuffle: o.shuffle };
+  if (touch) {
+    const top = '<span class="wt qu-wt" data-qu="totop">佇列</span><span class="sp"></span><div class="lg qu-bar" data-adapt>' + quTogs(o) + '</div>' + FMP.gbtn('trash', '清空佇列');
+    const head = '<div class="qu-head"><button class="ty-large qu-totop" data-qu="totop">佇列</button><span class="c2 ty-foot num">' + QU_TOTAL + '</span></div>';
+    return FMP.medium(ctx, { device: 'tablet', w: o.w, h: o.h, nav: 'queue', top, content: '<div class="qu-m">' + head + quPhoneList(o) + '</div>', transport, transportOpts });
+  }
+  const top = '<span class="wt qu-wt" data-qu="totop">佇列</span>';
+  const head = '<div class="qu-md"><div><button class="ty-large qu-totop" data-qu="totop">佇列</button><div class="c2 ty-foot num" style="margin-top:2px">' + QU_TOTAL + '</div></div>' +
+    '<div class="qu-dtop">' + quTogs(o) + '<button class="btn btn-sm btn-gray" style="margin-left:6px">' + I('trash', 's16') + '清空佇列</button></div></div>' +
+    '<div class="qu-keys">拖動或 <kbd>⌥↑</kbd><kbd>⌥↓</kbd> 調整順序 · <kbd>Delete</kbd> 移除 · <kbd>⏎</kbd> 播放</div>';
+  return FMP.medium(ctx, { device: 'window', w: o.w, h: o.h, nav: 'queue', top, content: '<div class="qu-m">' + head + quDeskList(o) + '</div>', transport, transportOpts });
+}
+function quAfterMid(root, o) {
+  o = o || {};
+  quWireTogs(root);
+  const s = root.querySelector('.wcontent > .scroll');
+  const target = root.querySelector(o.temp ? (o.touch ? '.qu-temp' : '.qu-dtemp') : (o.touch ? '.qu-now' : '.qu-tr.now'));
+  if (!s || !target) return;
+  const fr = root.getBoundingClientRect();
+  const sc = fr.width / root.offsetWidth;
+  // land the playing row (or the temporary block) a couple of rows below the top bar
+  const topFor = () => Math.max(0, s.scrollTop + (target.getBoundingClientRect().top - fr.top) / sc - (o.touch ? (o.temp ? 120 : 200) : 170));
+  root.querySelectorAll('[data-qu="totop"]').forEach((b) => b.addEventListener('click', () => s.scrollTo({ top: topFor(), behavior: 'smooth' })));
+  s.scrollTop = topFor();
+  root.classList.add('scrolled');
+}
+
 function quMenu() {
   const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
   return '<div class="lg gmenu" data-adapt role="menu" style="left:560px;top:420px">' +
@@ -349,6 +390,20 @@ FMP.page({
       ],
       notes: '<ul><li>空佇列：沒有迷你播放器、清空鈕變灰；隨機與循環照樣可以先設定好。主要動作「去搜尋」，次要「打開音樂庫」。</li>' +
         '<li>清空一定要確認（舊版照舊），按鈕寫動作「清空」，用紅色。清空後畫面換成空佇列。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '平板沿用手機的列表與頂列玻璃膠囊，窄視窗沿用桌面的表格；兩邊都是單欄，詳情面板點頂列右端的按鈕才浮出。',
+      frames: [
+        { kind: 'tablet', label: '打開時：捲到正在播放', render: (ctx) => quMid(ctx, { device: 'tablet', repeat: 'all' }), after: (root) => quAfterMid(root, { touch: true }) },
+        { kind: 'tablet', label: '臨時播放中', render: (ctx) => quMid(ctx, { device: 'tablet', repeat: 'all', temp: true }), after: (root) => quAfterMid(root, { touch: true, temp: true }) },
+        { kind: 'window', label: '一般（滑過一列）', render: (ctx) => quMid(ctx, { device: 'window', repeat: 'all', hov: 1 }), after: (root) => quAfterMid(root) },
+      ],
+      notes: '<h3>和手機、桌面不同的地方</h3><ul>' +
+        '<li>平板：隨機、循環與清空都在頂列右側，隨機與循環是同一個玻璃膠囊（照手機），清空是旁邊的圓鈕，最右邊是詳情面板鈕；列表照手機（60 高、拖動把手、×），整列撐滿內容欄，不另外限制寬度。</li>' +
+        '<li>窄視窗：頂列只放捲動後淡入的「佇列」小標題；隨機、循環、清空移到內容標題列右邊，和桌面的頂列按鈕同一組。快速鍵提示移到標題下方一行，因為 960 寬放不下三組。</li>' +
+        '<li>兩種寬度播放膠囊的隨機、循環和這頁的切換鈕同步；詳情面板不常駐，所以臨時播放的曲目只出現在這頁的臨時播放區塊與播放膠囊。</li>' +
+        '<li>其餘規則（摺線、臨時播放回到哪裡、拖動、清空確認）與手機、桌面相同。</li></ul>',
     },
     {
       title: '桌面',

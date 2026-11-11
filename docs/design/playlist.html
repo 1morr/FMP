@@ -119,6 +119,20 @@
 .pld-dact button.a svg.i { width: 16px; height: 16px; }
 .pld-dact button.a:hover { background: var(--glass-press); }
 .pld-dact .ibtn { width: 32px; height: 32px; color: var(--glass-ink-2); }
+
+/* ---- medium width: tablet header (cover left, info right) ---- */
+.pld-mhero { padding: 62px 32px 0 24px; }
+.pld-mhero .pld-hbg { height: 100%; bottom: 0; }
+.pld-mrow { display: flex; gap: 28px; align-items: flex-end; }
+.pld-mrow > .cover { width: 220px; height: 220px; border-radius: 16px; box-shadow: var(--shadow-float); flex: none; }
+.pld-mrow .ht { flex: 1; min-width: 0; padding-bottom: 2px; }
+.pld-mrow .ht h1 { margin: 0; }
+.pld-mrow .pld-desc { max-width: 380px; }
+.pld-mbtns { display: flex; gap: 10px; margin-top: 18px; }
+.pld-mbtns .btn { min-width: 132px; }
+.pld-mlist { margin: 14px 12px 0 8px; }
+.pld-mrfs { margin: 18px 12px 0 4px; }
+.pld-mrfs + .pld-mlist { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -214,14 +228,24 @@ function pldAct(kind) {
   const remove = kind === 'imported' ? '<button class="dz">' + I('cloud') + '從遠端移除</button>' : '<button class="dz">' + I('trash') + '從歌單移除</button>';
   return '<div class="lg pld-act" data-adapt><button>' + I('nextUp') + '下一首播放</button><button>' + I('queue') + '加入佇列</button><button>' + I('addlist') + '加入歌單</button>' + remove + '</div>';
 }
-function pldRowSheet(t, p) {
+function pldRowItems(t, p) {
   const rm = p.kind === 'imported'
     ? (p.own ? ['=', ['cloud', '從' + PLD_SRCW[p.src] + '收藏夾移除', '寫回' + PLD_SRCW[p.src] + '，會先確認', 'danger']] : [])
     : ['=', ['trash', '從歌單移除', '可以復原', 'danger']];
-  return FMP.trackSheet(t, [
+  return [
     ['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-',
     ['lyrics', '匹配歌詞…'], ['link', '複製連結'], ...rm,
-  ], { sub: t.artist + (t.parts > 1 ? ' · ' + t.parts + ' 個分 P' : '') });
+  ];
+}
+function pldRowSheet(t, p) {
+  return FMP.trackSheet(t, pldRowItems(t, p), { sub: t.artist + (t.parts > 1 ? ' · ' + t.parts + ' 個分 P' : '') });
+}
+/* tablet: the same items as a popover that grows from the row's ⋮ (touch density) */
+function pldRowMenu(t, p, style) {
+  const mh = '<div class="mh">' + FMP.coverEl(t.cv, 40) + '<div class="mt"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src, true) + ' · ' + FMP.esc(t.artist) + '</span></div></div><div class="ms"></div>';
+  const body = pldRowItems(t, p).map((it) => it === '-' ? '<div class="ms"></div>' : it === '=' ? '<div class="ms thick"></div>'
+    : '<button class="mi ' + (it[3] || '') + '" role="menuitem">' + I(it[0]) + '<span>' + it[1] + (it[2] ? '<small>' + it[2] + '</small>' : '') + '</span></button>').join('');
+  return '<div class="pld-scrim" style="background:transparent"></div><div class="lg gmenu" data-adapt role="menu" style="width:300px;' + style + '">' + mh + body + '</div>';
 }
 function pldConfirm(p, ids) {
   return FMP.confirm({
@@ -235,12 +259,13 @@ function pldConfirm(p, ids) {
 /* ---------------- desktop ---------------- */
 function pldDHero(p, o) {
   o = o || {};
+  const heroStyle = o.side ? ' style="margin-left:-' + o.side + 'px;padding:66px 32px 18px ' + (o.side + 24) + 'px"' : '';
   const imp = p.kind === 'imported';
   const btns = '<div class="pld-dbtns"><button class="btn btn-primary">' + I('play', 's16') + '播放全部</button><button class="btn btn-gray">' + I('shuffle', 's16') + '隨機播放</button>' +
     (imp ? '' : '<button class="btn btn-gray">' + I('edit', 's16') + '編輯資訊</button>') +
     '<button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button>' +
     '</div>';
-  return '<div class="pld-dhero" data-tone="' + o.theme + '"><div class="pld-hbg"><img alt="" src="' + p.cv.url + '"></div><div class="pld-in"><div class="pld-drow">' + FMP.coverEl(p.cv) +
+  return '<div class="pld-dhero" data-tone="' + o.theme + '"' + heroStyle + '><div class="pld-hbg"><img alt="" src="' + p.cv.url + '"></div><div class="pld-in"><div class="pld-drow">' + FMP.coverEl(p.cv) +
     '<div class="ht"><h1>' + FMP.esc(p.name) + '</h1>' + pldMeta(p, true).replace('</div><div class="pld-meta" style="margin-top:6px">', '<span>·</span>') +
     (imp ? '<div class="pld-dsync">' + I('refresh') + p.refresh + '自動刷新 · 上次 ' + p.last + ' · 以' + PLD_SRCW[p.src] + '為準<button class="btn btn-plain btn-sm" style="padding:0 4px;height:22px">立即刷新</button></div>' : '') +
     (p.desc ? '<div class="pld-desc">' + FMP.esc(p.desc) + '</div>' : '') + (imp ? '' : pldMix(p.id)) + '</div></div>' + btns + '</div></div>';
@@ -260,14 +285,18 @@ function pldDRow(t, i, o) {
 function pldDParts(t) {
   return FMP.partsOf(t).map((pt) => '<div class="pld-tr pt"><span class="n"></span><div class="tc"><span class="pn num">P' + pt.n + '</span><span class="ell">' + FMP.esc(pt.title) + '</span></div><span></span><span></span><span class="dc num r">' + pt.dur + '</span><span class="mc"><button class="ibtn" aria-label="更多">' + I('more', 's18') + '</button></span></div>').join('');
 }
-function pldDesk(ctx, p, o) {
-  o = o || {};
+function pldDRows(p, o) {
   let rows = '';
   PLD_TRACKS[p.id].forEach((id, i) => {
     const t = T[id];
     rows += pldDRow(t, i, { playing: o.playing === id, hov: o.hov === id, sel: (o.sel || []).includes(id), open: o.open === id });
     if (o.open === id) rows += pldDParts(t);
   });
+  return rows;
+}
+function pldDesk(ctx, p, o) {
+  o = o || {};
+  const rows = pldDRows(p, o);
   const content = pldDHero(p, { theme: ctx.theme }) + '<div style="padding:4px 28px 170px 8px"><div class="pld-th"><span class="r">#</span><span>標題／歌手</span><span>音源</span><span>存取</span><span class="r">時長</span><span></span></div>' + rows + '</div>';
   return FMP.desktop(ctx, { nav: 'none', pl: p.id, content, top: '<span class="wt">' + FMP.esc(p.name) + '</span>', overlay: o.overlay || '' });
 }
@@ -276,6 +305,29 @@ function pldDAct(n, kind) {
     '<button class="a">' + I('nextUp') + '下一首播放</button><button class="a">' + I('queue') + '加入佇列</button><button class="a">' + I('addlist') + '加入歌單…</button><span class="vs"></span>' +
     (kind === 'imported' ? '<button class="a dz">' + I('cloud') + '從遠端移除…</button>' : '<button class="a dz">' + I('trash') + '從歌單移除</button>') +
     '<span class="vs"></span><button class="ibtn" aria-label="取消選取（Esc）">' + I('close', 's16') + '</button></div></div>';
+}
+
+/* ---------------- medium width (tablet / narrow window) ---------------- */
+function pldMHero(p, o) {
+  o = o || {};
+  const imp = p.kind === 'imported';
+  return '<div class="pld-in pld-mhero"><div class="pld-hbg"><img alt="" src="' + p.cv.url + '"></div><div class="pld-in pld-mrow">' + FMP.coverEl(p.cv, 220) +
+    '<div class="ht"><h1 class="ty-title1">' + FMP.esc(p.name) + '</h1>' + pldMeta(p) +
+    (p.desc ? '<div class="pld-desc">' + FMP.esc(p.desc) + '</div>' : '') + (imp ? '' : pldMix(p.id)) +
+    '<div class="pld-mbtns"><button class="btn btn-primary">' + I('play', 's20') + '播放全部</button><button class="btn btn-gray">' + I('shuffle', 's20') + '隨機播放</button></div></div></div></div>';
+}
+function pldMidTablet(ctx, p, o) {
+  o = o || {};
+  const rfs = pldRfs(o);
+  const list = pldList(p.id, o).replace('class="pld-in pld-list"', 'class="pld-in pld-mlist"');
+  const content = pldMHero(p, o) + (rfs ? '<div class="pld-mrfs">' + rfs.replace(' pld-rfs', '') + '</div>' : '') + list + '<div style="height:150px"></div>';
+  return FMP.medium(ctx, { device: 'tablet', nav: 'library', pl: p.id, content,
+    top: '<span class="wt">' + FMP.esc(p.name) + '</span><span class="sp"></span>' + FMP.gbtn('more', '更多'), overlay: o.overlay });
+}
+function pldMidWindow(ctx, p, o) {
+  o = o || {};
+  const content = pldDHero(p, { theme: ctx.theme, side: 80 }) + '<div style="padding:4px 32px 150px 24px"><div class="pld-th"><span class="r">#</span><span>標題／歌手</span><span>音源</span><span>存取</span><span class="r">時長</span><span></span></div>' + pldDRows(p, o) + '</div>';
+  return FMP.medium(ctx, { device: 'window', nav: 'library', pl: p.id, content, top: '<span class="wt">' + FMP.esc(p.name) + '</span>', overlay: o.overlay });
 }
 
 /* ---------------- page ---------------- */
@@ -313,6 +365,21 @@ FMP.page({
         { kind: 'phone', label: '空歌單', render: (ctx) => pldPhone(ctx, PL.learn, { empty: true, body: '<div class="pld-in pld-empty"><span class="big">' + I('note') + '</span><div class="ty-title3" style="font-weight:700">歌單裡還沒有曲目</div><div class="ty-sub c2">在搜尋結果的選單選「加入歌單」，或長按多選後一起加入。</div><button class="btn btn-tinted">' + I('search', 's20') + '去搜尋</button></div>' }) },
       ],
       notes: '<ul><li>刷新中：按鈕下方出現一條狀態列「刷新中 · 已讀 n / 總數」（brief §15），底邊一條細的強調色線就是進度（A 的樣式），不用卡片。列表照舊可以捲動、播放；刷新完成才一次換掉內容，不在刷新途中跳動。</li><li>手動刷新失敗時，同一條狀態列改成錯誤原因與能做的事（重新登入、重試）；自動刷新失敗只在這裡顯示，不跳提示。</li><li>空歌單：播放鈕停用，給一個去搜尋的捷徑。匯入歌單的遠端是空的時候寫「遠端的歌單是空的」，不給去搜尋（加不進去）。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '單欄內容，左邊玻璃細欄。平板頭部改成封面在左、資訊在右，曲目列表照手機；窄視窗用桌面的頭部與表格。',
+      frames: [
+        { kind: 'tablet', label: '匯入歌單（自己的收藏夾）', render: (ctx) => pldMidTablet(ctx, PL.covers, { open: 't05' }) },
+        { kind: 'tablet', label: '匯入歌單：刷新中', render: (ctx) => pldMidTablet(ctx, PL.covers, { refreshing: true }) },
+        { kind: 'tablet', label: '單曲的「更多」（從按鈕長出的選單）', render: (ctx) => pldMidTablet(ctx, PL.covers, { overlay: pldRowMenu(T.t08, PL.covers, 'right:36px;top:512px') }) },
+        { kind: 'window', label: '本地歌單：hover', render: (ctx) => pldMidWindow(ctx, PL.commute, { playing: 't01', hov: 't03', open: 't05' }) },
+      ],
+      notes: '<ul><li>平板頭部左右並排：封面 220 在左，右邊是名稱、音源與種類標籤、數量與刷新規則、播放與隨機。封面模糊背景延伸到細欄底下並往下淡出，和手機、桌面相同。頭部放得下描述與歌單種類的資訊，所以不像手機那樣讓按鈕撐滿整列。</li>' +
+        '<li>刷新狀態列（刷新中、失敗）在頭部下方，和曲目列表同寬，規則與手機一樣。</li>' +
+        '<li>頂列右側只有 ⋯，加上自動出現的詳情面板鈕。多選、立即刷新、複製成本地歌單都在 ⋯ 的選單裡，和手機相同。</li>' +
+        '<li>單曲的「更多」在平板是從 ⋮ 長出的選單，項目與手機的底部 sheet 相同，頂端一樣有曲目摘要；窄視窗照舊右鍵與 hover 上的 ⋮。確認框照舊置中。</li>' +
+        '<li>窄視窗的頭部與表格用桌面的版面，只是內容欄變窄：表格欄位不變，標題欄吃掉剩下的寬度。多選的浮動動作列在窄視窗落在播放膠囊上方，和桌面一樣。</li></ul>',
     },
     {
       title: '桌面',
