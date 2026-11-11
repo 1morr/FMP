@@ -18,8 +18,8 @@
 
 ### 決定與取捨
 
-- 依賴：drift 2.35.4、drift_dev 2.35.3、build_runner 2.17.1、path_provider 2.1.6；sqlite3 3.9.1 由 drift 帶進來，不直接宣告。sqlite3 3.x 用 build hook 自帶 SQLite，`sqlite3_flutter_libs` 已 EOL（brief 事實 K12）。沒用 `drift_flutter`：它會在 `data/` 裡自己找路徑，票要求路徑由 `platform/` 給。
-- 組裝：`platform/storage.dart` 的 `databaseFile()` 給 application support 目錄下的 `fmp.sqlite`；`main` 用它開 `AppDatabase.open`，先查一次 `PRAGMA user_version`（`storedSchemaVersion()`）讓庫真的開起來，再以 `appDatabaseProvider` override 進 `ProviderScope`。開不了庫時 `main` 在 `runApp` 前就拋錯；錯誤怎麼呈現留給之後的票。log 先用 `debugPrint`，票 06 的 log 門面合進來後再改。
+- 依賴：drift 2.35.4、drift_dev 2.35.3、build_runner 2.17.1、path_provider 2.1.6；sqlite3 3.9.1 由 drift 帶進來，不直接宣告。sqlite3 3.x 用 build hook 自帶 SQLite，`sqlite3_flutter_libs` 已 EOL（brief 事實 K14）。沒用 `drift_flutter`：它會在 `data/` 裡自己找路徑，票要求路徑由 `platform/` 給。
+- 組裝：`platform/database_file.dart` 的 `databaseFile()`（和票 06 的 `log_directory.dart` 並列） 給 application support 目錄下的 `fmp.sqlite`；`main` 用它開 `AppDatabase.open`，先查一次 `PRAGMA user_version`（`storedSchemaVersion()`）讓庫真的開起來，再以 `appDatabaseProvider` override 進 `ProviderScope`。開不了庫時 `main` 在 `runApp` 前就拋錯；錯誤怎麼呈現留給之後的票。log 先用 `debugPrint`，票 06 的 log 門面合進來後再改。
 - 快照與閘門：`make-migrations` 在同版本快照不同時會報錯，但版本加一卻忘了跑時不會有任何檢查，所以不直接拿它當閘門。閘門的 `schema snapshot (drift)` 用 `drift_dev schema dump` 出目前的 schema，跟版本最高的快照逐字比對；`migration_test.dart` 斷言 `schemaVersion` 等於最新快照的版本。兩者合起來，改表沒加版本、加版本沒產生快照都會紅。
 - `*.g.dart` 照舊不進 git：閘門在 slang 後加 `codegen (build_runner)`，`winpc` 的 `build.ps1` 也加了這步。
 - 升級測試範本：只有一個版本時 `make-migrations` 不產生測試，所以手寫 `test/drift/app_database/migration_test.dart`，結構照 drift_dev 之後會產生的範本（`make-migrations` 不覆寫已存在的這個檔）；`generated/` 用 `drift_dev schema generate` 產生，之後由 `make-migrations` 重寫。

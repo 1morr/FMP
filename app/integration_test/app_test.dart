@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/data/database.dart';
+import 'package:fmp/core/log/log.dart';
 import 'package:fmp/main.dart' as app;
+import 'package:fmp/platform/log_directory.dart';
 import 'package:integration_test/integration_test.dart';
 
 import '../test/support/no_network.dart';
@@ -15,9 +17,13 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   installNoNetworkGuard();
 
-  testWidgets('the app opens its database and starts on the placeholder page', (
-    tester,
-  ) async {
+  testWidgets('the app opens its database, writes its log and starts on the '
+      'placeholder page', (tester) async {
+    // log 的時間到微秒，比對時往前留 1 秒。
+    final startedAt = DateTime.now().toUtc().subtract(
+      const Duration(seconds: 1),
+    );
+
     await app.main();
     await tester.pumpAndSettle();
 
@@ -31,6 +37,27 @@ void main() {
     );
     final database = container.read(appDatabaseProvider);
     expect(await database.storedSchemaVersion(), 1);
+
+    // 這次啟動的那一行寫進了平台給的 log 目錄（之前的執行可能留下舊的行）。
+    final startedLine = await tester.runAsync(() async {
+      final file = File('${(await logDirectory()).path}/${Log.fileName}');
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (DateTime.now().isBefore(deadline)) {
+        if (file.existsSync()) {
+          for (final line in file.readAsLinesSync().reversed) {
+            final time = DateTime.tryParse(line.split(' ').first);
+            if (line.endsWith(' INFO App started') &&
+                time != null &&
+                !time.isBefore(startedAt)) {
+              return line;
+            }
+          }
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      return null;
+    });
+    expect(startedLine, isNotNull, reason: 'no fresh "App started" in fmp.log');
   });
 
   testWidgets('integration tests cannot open a real HTTP connection', (

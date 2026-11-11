@@ -13,6 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.5.0
+  logger: ^2.8.0
   path_provider: ^2.1.6
   slang: ^4.19.2
   slang_flutter: ^4.19.0
@@ -25,6 +26,8 @@ dev_dependencies:
   analyzer: ^14.7.0
   drift_dev: ^2.35.3
   build_runner: ^2.17.1
+  path_provider_platform_interface: ^2.1.3
+  plugin_platform_interface: ^2.1.8
 
 flutter:
   uses-material-design: true

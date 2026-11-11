@@ -164,6 +164,18 @@ void pick(String id) {
       }, Rule.sourceIdBranch);
     });
 
+    test('the logging package outside core/log/', () {
+      expectViolation({
+        'plugins/host.dart': "import 'package:logger/logger.dart';",
+      }, Rule.logPackageOutsideLogFacade);
+    });
+
+    test('the logging package elsewhere in core/', () {
+      expectViolation({
+        'core/net/client.dart': "import 'package:logger/logger.dart' as lg;",
+      }, Rule.logPackageOutsideLogFacade);
+    });
+
     test('an unclassified package', () {
       expectViolation({
         'core/net.dart': "import 'package:left_pad/left_pad.dart';",
@@ -249,6 +261,17 @@ bool other(String a) => a == 'bilibili-legacy';
       });
     });
 
+    test('the logging package inside core/log/', () {
+      expectClean({
+        'core/log/log.dart': '''
+import 'package:logger/logger.dart' as lg;
+final printer = lg.LogfmtPrinter();
+''',
+        'core/log/sinks/file_sink.dart':
+            "import 'package:logger/logger.dart' show AdvancedFileOutput;",
+      });
+    });
+
     test('other Platform members outside platform/', () {
       expectClean({
         'core/env.dart': '''
@@ -267,4 +290,5 @@ const _packages = {
   'audio_service': PackageScope.platformOnly,
   'just_audio': PackageScope.audioBackend,
   'media_kit': PackageScope.audioBackend,
+  'logger': PackageScope.logFacade,
 };
