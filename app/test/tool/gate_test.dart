@@ -42,11 +42,13 @@ void main() {
       'build macos',
       'build ios',
       'build android',
+      'lock shared devices',
       'build windows',
       'integration_test macos: integration_test/app_test.dart',
       'integration_test ios: integration_test/app_test.dart',
       'integration_test android: integration_test/app_test.dart',
       'integration_test windows: integration_test/app_test.dart',
+      'unlock shared devices',
     ]);
   });
 }

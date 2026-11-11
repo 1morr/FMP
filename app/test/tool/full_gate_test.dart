@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../tool/src/device_lock.dart';
 import '../../tool/src/full_gate.dart';
 import '../../tool/src/steps.dart';
 
@@ -12,26 +13,36 @@ void main() {
   final out = StringBuffer();
   late _FakeShell shell;
   late Directory logs;
+  late DeviceLock lock;
 
   setUp(() {
     out.clear();
-    shell = _FakeShell();
     logs = Directory.systemTemp.createTempSync('fmp_gate_');
+    lock = DeviceLock(
+      File('${logs.path}/${DeviceLock.fileName}'),
+      worktree: '/repo',
+    );
+    shell = _FakeShell(lock);
   });
-  tearDown(() => logs.deleteSync(recursive: true));
+  tearDown(() async {
+    await lock.release();
+    logs.deleteSync(recursive: true);
+  });
+
+  List<CheckStep> steps({
+    List<String> tests = const ['integration_test/app_test.dart'],
+  }) => platformSteps(
+    app: app,
+    shell: shell,
+    integrationTests: tests,
+    out: out,
+    winpcLogs: logs,
+    deviceLock: lock,
+  );
 
   Future<int> runGate({
     List<String> tests = const ['integration_test/app_test.dart'],
-  }) => runSteps(
-    platformSteps(
-      app: app,
-      shell: shell,
-      integrationTests: tests,
-      out: out,
-      winpcLogs: logs,
-    ),
-    out,
-  );
+  }) => runSteps(steps(tests: tests), out);
 
   test('builds all four platforms, then runs integration tests on all four, '
       'one file per invocation', () async {
@@ -66,6 +77,134 @@ void main() {
     final lastBuild = shell.ran.lastIndexWhere((c) => c.contains(' build '));
     final firstTest = shell.ran.indexWhere((c) => c.startsWith('flutter test'));
     expect(lastBuild, lessThan(firstTest));
+  });
+
+  group('shared-device lock', () {
+    /// 違規：碰共用裝置、卻不在持鎖時跑的指令；一個共用裝置的指令都沒跑也
+    /// 算（鎖沒拿到時步驟不執行，不能因此放過）。
+    List<String> violations(List<(String, bool)> ran) => [
+      for (final (command, held) in ran)
+        if (_touchesSharedDevice(command) && !held) command,
+      if (!ran.any((r) => _touchesSharedDevice(r.$1))) 'no shared-device step',
+    ];
+
+    test('every command that touches winpc, the simulators or the Mac app '
+        'runs while holding the lock, and the gate releases it at the '
+        'end', () async {
+      expect(await runGate(), 0);
+
+      expect(violations(shell.ranWithLock), isEmpty);
+      expect(
+        shell.ranWithLock,
+        containsAll([
+          ('tool/winpc/sync.sh', true),
+          (
+            'tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug',
+            true,
+          ),
+          ('flutter test integration_test/app_test.dart -d macos', true),
+          (
+            'flutter test integration_test/app_test.dart -d SIM-UDID '
+                '--no-uninstall',
+            true,
+          ),
+          ('adb start-server', true),
+          (
+            'flutter test integration_test/app_test.dart -d emulator-5554 '
+                '--no-uninstall',
+            true,
+          ),
+          (
+            'tool/winpc/run_task.sh fmptest C:/fmp-wt/test.ps1 '
+                '-File integration_test/app_test.dart',
+            true,
+          ),
+        ]),
+      );
+      expect(lock.isHeld, isFalse);
+      expect(out.toString(), contains('ok   unlock shared devices'));
+    });
+
+    test('mutation: without the lock step, the check goes red', () async {
+      final noLock = [
+        for (final step in steps())
+          if (step.name != 'lock shared devices') step,
+      ];
+
+      expect(await runSteps(noLock, out), isNot(0));
+      expect(violations(shell.ranWithLock), isNotEmpty);
+    });
+
+    test('mutation: unrelated changes (renamed tests, extra local steps, '
+        'reordered Mac builds) stay green', () async {
+      final mutated = steps(tests: ['integration_test/z_renamed_test.dart'])
+          .toList();
+      final macBuilds = mutated.take(3).toList().reversed;
+      final rest = mutated.skip(3);
+      final code = await runSteps([
+        CheckStep('unrelated local step', () async => true),
+        ...macBuilds,
+        ...rest,
+      ], out);
+
+      expect(code, 0);
+      expect(violations(shell.ranWithLock), isEmpty);
+    });
+
+    group('the check itself, on a recorded run', () {
+      late List<(String, bool)> recorded;
+
+      setUp(() async {
+        await runGate();
+        recorded = [...shell.ranWithLock];
+      });
+
+      List<(String, bool)> unlockedAt(bool Function(String) which) => [
+        for (final (command, held) in recorded)
+          (command, which(command) ? false : held),
+      ];
+
+      test('turns red on any shared-device command run without the '
+          'lock', () {
+        for (final command in [
+          'tool/winpc/sync.sh',
+          'flutter test integration_test/app_test.dart -d macos',
+          'flutter test integration_test/app_test.dart -d emulator-5554 '
+              '--no-uninstall',
+          'ssh winpc Get-Content -Raw C:\\fmp-wt\\test.log',
+        ]) {
+          expect(violations(unlockedAt((c) => c == command)), [
+            command,
+          ], reason: command);
+        }
+      });
+
+      test('stays green when only the Mac builds or the device listing run '
+          'without the lock', () {
+        final mutated = unlockedAt(
+          (c) =>
+              c.startsWith('flutter build') || c.startsWith('flutter devices'),
+        );
+
+        expect(mutated, isNot(recorded));
+        expect(violations(mutated), isEmpty);
+      });
+    });
+  });
+
+  test('before looking for the Android emulator, the gate makes sure an adb '
+      'server runs (started with mDNS off, see gateShell)', () async {
+    await runGate();
+
+    final start = shell.ran.indexOf('adb start-server');
+    final androidLookup = shell.ran.lastIndexOf('flutter devices --machine');
+    expect(start, isNonNegative);
+    expect(start, lessThan(androidLookup));
+    expect(
+      start,
+      greaterThan(shell.ran.indexOf('flutter devices --machine')),
+      reason: 'only for Android, after the iOS lookup',
+    );
   });
 
   test('a failing platform step exits non-zero and names the platform and '
@@ -173,8 +312,23 @@ void main() {
   });
 }
 
+/// 碰共用裝置的指令：`winpc` 的同步、排程工作、SSH、scp，adb，以及指定裝置
+/// 的 `flutter test`（macOS 上的 App、模擬器）。Mac 上的建置與查裝置清單不算。
+bool _touchesSharedDevice(String command) =>
+    command.startsWith('tool/winpc/') ||
+    command.startsWith('adb ') ||
+    command.startsWith('ssh ') ||
+    command.startsWith('scp ') ||
+    (command.startsWith('flutter test ') && command.contains(' -d '));
+
 class _FakeShell implements Shell {
+  _FakeShell(this.lock);
+
+  final DeviceLock lock;
   final ran = <String>[];
+
+  /// 每個指令跑的時候是否持有 [lock]。
+  final ranWithLock = <(String, bool)>[];
 
   /// 指令以這些前綴開頭時回傳非零。
   final failing = <String>{};
@@ -193,6 +347,7 @@ class _FakeShell implements Shell {
   }) async {
     final command = [executable, ...arguments].join(' ');
     ran.add(command);
+    ranWithLock.add((command, lock.isHeld));
     return failing.any(command.startsWith) ? 1 : 0;
   }
 
@@ -204,6 +359,7 @@ class _FakeShell implements Shell {
   }) async {
     final command = [executable, ...arguments].join(' ');
     ran.add(command);
+    ranWithLock.add((command, lock.isHeld));
     for (final MapEntry(:key, :value) in outputs.entries) {
       if (command.startsWith(key)) return value;
     }

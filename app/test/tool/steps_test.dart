@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../tool/src/gate.dart';
 import '../../tool/src/steps.dart';
 
 void main() {
@@ -36,5 +39,15 @@ void main() {
       CheckStep('doc gate', () async => throw StateError('broken')),
     ], out);
     expect(code, isNot(0));
+  });
+
+  test('commands the gate runs start any adb server with mDNS off '
+      '(ADB_MDNS=0, brief fact K15)', () async {
+    final echoed = await gateShell().capture('sh', [
+      '-c',
+      r'echo "$ADB_MDNS"',
+    ], workingDirectory: Directory.current);
+
+    expect(echoed.trim(), '0');
   });
 }

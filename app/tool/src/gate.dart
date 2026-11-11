@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'device_lock.dart';
 import 'doc_gate.dart';
 import 'full_gate.dart';
 import 'schema_gate.dart';
@@ -42,11 +43,15 @@ List<CheckStep> gateSteps({
         integrationTests: integrationTestFiles(app),
         out: out,
         winpcLogs: Directory('${app.path}/build/winpc'),
+        deviceLock: DeviceLock.forRepo(app),
       ),
       // M0 票 08：「插件打包產物是否最新」（plan §4）接在這裡。
     ],
   ];
 }
+
+/// `tool/check.dart` 跑外部指令用的 [Shell]：帶 [sharedDeviceEnvironment]。
+Shell gateShell() => const ProcessShell(environment: sharedDeviceEnvironment);
 
 /// slang 的產物不照 dart format，所以 format 只看手寫的檔。
 List<String> _handwrittenDartFiles(Directory app) {

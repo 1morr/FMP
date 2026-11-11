@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'device_lock.dart';
 import 'steps.dart';
 
 /// 完整版閘門在 quick 之後的平台步驟（plan §2、§4）：先建置四個平台，再在
 /// 四個平台跑 [integrationTests]。步驟名稱帶平台，失敗時看得出是哪個平台、
 /// 哪一步。
 ///
+/// - 碰共用裝置的步驟（`winpc` 的同步與建置、四平台的 integration_test）
+///   夾在 `lock shared devices` 與 `unlock shared devices` 之間，持有
+///   [deviceLock] 時才跑；沒拿到鎖就判失敗、不執行。Mac 上的三個建置只寫
+///   這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
 /// - 一次只給 `flutter test` 一個 integration_test 檔（plan §2 的怪癖）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
-///   不刪模擬器上的 App 與資料。
+///   不刪模擬器上的 App 與資料。Android 先 `adb start-server`。
 /// - Windows 經 SSH 在 `winpc` 的桌面工作階段跑（plan §2〈Windows〉），
 ///   log 取回 [winpcLogs] 並印到 [out]。
 List<CheckStep> platformSteps({
@@ -18,22 +23,32 @@ List<CheckStep> platformSteps({
   required List<String> integrationTests,
   required StringSink out,
   required Directory winpcLogs,
+  required DeviceLock deviceLock,
 }) {
   CheckStep flutter(String name, List<String> args) =>
       commandStep(name, shell, 'flutter', args, workingDirectory: app);
 
-  final windows = _Winpc(app, shell, out, winpcLogs);
+  CheckStep locked(CheckStep step) => CheckStep(step.name, () async {
+    if (!deviceLock.isHeld) {
+      out.writeln('Skipped: the shared-device lock is not held.');
+      return false;
+    }
+    return step.run();
+  });
 
-  return [
-    flutter('build macos', ['build', 'macos', '--debug']),
-    flutter('build ios', ['build', 'ios', '--simulator', '--debug']),
-    flutter('build android', ['build', 'apk', '--debug']),
+  final windows = _Winpc(app, shell, out, winpcLogs);
+  final sharedDeviceSteps = [
     CheckStep('build windows', windows.build),
     for (final file in integrationTests)
       flutter('integration_test macos: $file', ['test', file, '-d', 'macos']),
     for (final (platform, isTarget) in _emulators)
       for (final file in integrationTests)
         CheckStep('integration_test $platform: $file', () async {
+          if (platform == 'android') {
+            // adb server 不在時以 ADB_MDNS=0 叫起來（brief 事實 K15），在跑時
+            // 什麼都不做；先叫起來，`flutter devices` 才看得到模擬器。
+            await shell.run('adb', ['start-server'], workingDirectory: app);
+          }
           final device = await _findEmulator(shell, app, platform, isTarget);
           final args = ['test', file, '-d', device, '--no-uninstall'];
           return await shell.run('flutter', args, workingDirectory: app) == 0;
@@ -43,6 +58,21 @@ List<CheckStep> platformSteps({
         'integration_test windows: $file',
         () => windows.integrationTest(file),
       ),
+  ];
+
+  return [
+    flutter('build macos', ['build', 'macos', '--debug']),
+    flutter('build ios', ['build', 'ios', '--simulator', '--debug']),
+    flutter('build android', ['build', 'apk', '--debug']),
+    CheckStep('lock shared devices', () async {
+      await deviceLock.acquire(out);
+      return true;
+    }),
+    ...sharedDeviceSteps.map(locked),
+    CheckStep('unlock shared devices', () async {
+      await deviceLock.release();
+      return true;
+    }),
   ];
 }
 
