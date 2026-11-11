@@ -59,7 +59,7 @@ app/
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio | 插件請求都經宿主網路層，統一限流、重試、遮蔽 |
 | 音訊 | just_audio（Android、iOS、macOS）、media_kit（Windows） | brief §6、事實 K1 |
-| 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 由 M0 票 05 實測（brief 事實 M10、K17）；Windows 不在 audio_service 的平台內（事實 R4） |
+| 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 由 M0 票 05 實測（brief 事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4） |
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
@@ -271,8 +271,8 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 - YouTube 的 client 會變（事實 F8）：解析串流準備候選序列；壞了就更新插件。
 - B 站風控（事實 F2）：網路層依音源限流；登入後要確實帶憑證。
-- `flutter_inappwebview` 的穩定版停在 2024-10（事實 R1、K8）：登入票先實測四個平台。
+- `flutter_inappwebview` 的穩定版停在 2024-10（事實 R1、K8）：登入票先實測四個平台。建置與開頁 M0 票 04 已驗過（`scripts/experiments/inappwebview/`，要加的設定見事實 A4、W8、M3、K17）。Apple 端沒有 SwiftPM，Flutter 已警告將來會變成錯誤（事實 K17）：升級 Flutter 前先用 `scripts/experiments/inappwebview/` 建一次 iOS、macOS。
 - Windows 的 libmpv 是舊快照（事實 W3）：遇到 Windows 獨有的播放失敗先懷疑它。
 - iOS 的中斷與 Now Playing（事實 I2、I5）：模擬器驗不到的部分記在票的 Comments。
-- audio_service 更新慢（事實 I5、K17：#1139 的 iOS 修正 2026-07 合併，至今沒發佈）：macOS 端壞了就改用自己的 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter`（M0 票 05 已實測可行，原型在 `scripts/experiments/macos-now-playing/probe_channel/`）。
+- audio_service 更新慢（事實 I5、K18：#1139 的 iOS 修正 2026-07 合併，至今沒發佈）：macOS 端壞了就改用自己的 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter`（M0 票 05 已實測可行，原型在 `scripts/experiments/macos-now-playing/probe_channel/`）。
 - 實作時發現與 brief 不符：停下來問擁有者，改 brief 並在 progress.md〈偏差與決定〉記一行。
