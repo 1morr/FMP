@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外殼與迷你播放器 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+
+function libGrid(o) {
+  o = o || {};
+  const cards = (o.fill ? FMP.playlists.concat(FMP.playlists) : FMP.playlists).map((p) => FMP.playlistCard(p, { desk: o.desk })).join('');
+  return '<div style="display:grid;grid-template-columns:repeat(' + (o.cols || 2) + ',1fr);gap:' + (o.desk ? '22px 18px' : '20px 14px') + ';padding:' + (o.pad || '4px 20px 0') + '">' + cards + '</div>';
+}
+function phoneLib(ctx, dockOpts, extra) {
+  extra = extra || {};
+  const right = FMP.gpill([['sort', '排序歌單'], ['plus', '新建歌單'], ['link', '匯入歌單']]);
+  return FMP.phone(ctx, {
+    content: '<div class="lt" style="padding-top:58px"><div class="ty-large">音樂庫</div></div>' + libGrid(),
+    top: FMP.ptop('音樂庫', '', right, 150),
+    dock: dockOpts,
+    overlay: extra.overlay,
+  });
+}
+function deskLib(ctx, o) {
+  o = o || {};
+  const content = '<div style="padding:66px 32px 120px 8px"><div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px"><div class="ty-large">音樂庫</div>' +
+    '<div style="display:flex;gap:6px"><button class="btn btn-gray btn-sm">' + I('sort', 's16') + '排序</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入歌單</button><button class="btn btn-primary btn-sm">' + I('plus', 's16') + '新建歌單</button></div></div>' +
+    libGrid({ desk: true, cols: o.detail === false ? 6 : 5, pad: '0', fill: o.fill }) + '</div>';
+  return FMP.desktop(ctx, { nav: 'library', content, top: '<span class="wt">音樂庫</span>', detail: o.detail, transport: o.transport, transportOpts: o.transportOpts });
+}
+
+/* medium width: tablet (touch) or narrow window (mouse); content starts 24 right of the rail, in line with the transport */
+function midLib(ctx, o) {
+  o = o || {};
+  const touch = o.device === 'tablet';
+  const head = touch
+    ? '<div class="ty-large" style="margin-bottom:18px">音樂庫</div>'
+    : '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px"><div class="ty-large">音樂庫</div>' +
+      '<div style="display:flex;gap:6px"><button class="btn btn-gray btn-sm">' + I('sort', 's16') + '排序</button><button class="btn btn-gray btn-sm">' + I('link', 's16') + '匯入歌單</button><button class="btn btn-primary btn-sm">' + I('plus', 's16') + '新建歌單</button></div></div>';
+  const cards = FMP.playlists.concat(FMP.playlists).map((p) => FMP.playlistCard(p, { desk: !touch })).join('');
+  const grid = '<div style="display:grid;grid-template-columns:repeat(' + o.cols + ',minmax(0,1fr));gap:' + (touch ? '26px 20px' : '22px 18px') + '">' + cards + '</div>';
+  const content = '<div style="padding:' + (touch ? '62px 32px 150px 24px' : '66px 32px 120px 24px') + '">' + head + grid + '</div>';
+  const top = touch
+    ? '<span class="wt">音樂庫</span><span class="sp"></span>' + FMP.gpill([['sort', '排序歌單'], ['plus', '新建歌單'], ['link', '匯入歌單']])
+    : '<span class="wt">音樂庫</span>';
+  return FMP.medium(ctx, { device: o.device, w: o.w, h: o.h, nav: 'library', content, top, panel: o.panel, tip: o.tip, transportOpts: o.transportOpts });
+}
+
+/* show only the bottom strip of a desktop frame, so the transport candidates sit side by side in scale */
+function strip(h) {
+  return (root) => {
+    const slot = root.parentElement;
+    const m = /scale\(([\d.]+)\)/.exec(root.style.transform);
+    const sc = m ? parseFloat(m[1]) : 1;
+    slot.style.height = h * sc + 'px';
+    slot.style.overflow = 'hidden';
+    slot.style.borderRadius = '0 0 16px 16px';
+    root.style.transform = (sc < 1 ? 'scale(' + sc + ') ' : '') + 'translateY(-' + (800 - h) + 'px)';
+  };
+}
+
+FMP.page({
+  title: 'App 外殼與迷你播放器',
+  intro: '<p>導覽、迷你播放器與桌面詳情面板浮在內容上，內容是實心的，捲動時從玻璃底下流過。這頁拿音樂庫當底，示範外殼本身；音樂庫的細節在「音樂庫」頁。</p><p>手機稿可以實際捲動：捲動時導覽列與迷你播放器維持原樣，不收合、不變形，只有狀態列底下的淡出會出現。點導覽項目會看到選取膠囊滑過去、短暫拉長再換頁。</p><p>迷你播放器與播放膠囊用書脊式的進度：膠囊本身隨播放填滿。</p>',
+  sections: [
+    {
+      title: '手機：導覽與迷你播放器',
+      desc: '導覽四項：首頁、音樂庫、佇列、設定，App 打開在首頁（擁有者 2026-11-11）；搜尋獨立成右側的圓鈕（iOS 26 的搜尋分頁慣例），單手時拇指最容易碰到。電台等之後的功能加進導覽列，不改結構。',
+      frames: [
+        { kind: 'phone', label: '展開', render: (ctx) => phoneLib(ctx, { tab: 'library' }) },
+        { kind: 'phone', label: '捲到下方（外殼不變）', render: (ctx) => phoneLib(ctx, { tab: 'library' }), after: (root) => { const s = root.querySelector('.page.scroll'); s.scrollTop = 330; root.classList.add('scrolled'); } },
+      ],
+      notes: '<h3>規則</h3><ul><li>玻璃只在三個膠囊上：迷你播放器、導覽列、搜尋鈕。底下的封面網格是實心的。</li><li>選取中的項目用強調色加一顆內嵌膠囊；按下時膠囊會放大一點，換項目時滑過去並短暫拉長（spring）。</li><li>玻璃會跟著底下的內容換色調：底下是淺色封面時變亮、字變深；底下是深色時變暗、字變白。</li><li>捲動時不收合：導覽列與迷你播放器的大小、位置都不變（擁有者 2026-11-10）。內容從它們底下流過，玻璃只跟著底下換色調。</li><li>點整條迷你播放器進播放頁；暫停與下一首各自是按鈕。</li></ul>',
+    },
+    {
+      title: '迷你播放器：書脊',
+      desc: '迷你播放器（手機）與播放膠囊（桌面）本身就是進度條：已播放的部分是較密的玻璃，交界處上下各一小段折線（取自 A 的書脊，擁有者 2026-11-11 選定）。',
+      frames: [
+        { kind: 'phone', label: '播到 38%', render: (ctx) => phoneLib(ctx, { tab: 'library', progress: 38 }) },
+        { kind: 'phone', label: '快播完（86%）', render: (ctx) => phoneLib(ctx, { tab: 'library', progress: 86, time: '3:37' }) },
+        { kind: 'desktop', label: '桌面播放膠囊（只截出視窗底部）', render: (ctx) => deskLib(ctx, { fill: true }), after: (root) => { strip(220)(root); const sc = root.querySelector('.wcontent > .scroll'); sc.scrollTop = sc.scrollHeight; } },
+      ],
+      notes: '<ul><li>已播放的部分：玻璃上再疊一層 15% 的字色（深色玻璃上變亮、淺色玻璃上變暗），跟著自適應色調翻轉。交界處是 2px 的強調色折線，只露出上下各 11px，不切過文字；沒有強調色時是主文字色。</li>' +
+        '<li>手機：副標是「音源 · 歌手 · 1:36 / 4:12」。迷你播放器只顯示進度，拖動進度在播放頁做；點整條進播放頁，暫停與下一首各自是按鈕。</li>' +
+        '<li>桌面：控制鈕置中，時間「1:36 / 4:12」在右側，旁邊是歌詞、佇列、音量。拖膠囊上沒有按鈕的地方或折線就能調進度，hover 時游標變成左右箭頭並浮出那個位置的時間。</li>' +
+        '<li>膠囊和左側側欄、右側詳情面板各留 24pt，和內容的左緣對齊（先前實際是貼著側欄）。</li>' +
+        '<li>淺色封面在底下時，已播放與未播放兩段的差別較弱；實作時已播放段的密度要跟著底下的亮度調整，最低要看得出交界。</li></ul>',
+    },
+    {
+      title: '手機：狀態',
+      frames: [
+        { kind: 'phone', label: '沒有目前曲目', render: (ctx) => phoneLib(ctx, { tab: 'library', track: false }) },
+        { kind: 'phone', label: '試聽中，第一次提示', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t04 }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + FMP.acc('trial') + '<span>只能試聽 30 秒，登入網易雲可聽完整版</span></span><button class="btn btn-tinted">登入</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '錯誤提示：跳下一首', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t02 }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:center;gap:8px;color:var(--glass-ink)">' + I('warn', 's18') + '<span>「不眠的城」需單曲付費，已跳下一首</span></span>', { style: 'bottom:176px;padding-right:18px' }),
+        }) },
+        { kind: 'phone', label: '連續 3 首都不能播：停止', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t09, paused: true, progress: 0, time: '0:00' }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px;color:var(--glass-ink)">' + I('warn', 's18') + '<span>連續 3 首都無法播放，已停止。最後一首「不眠的城」需單曲付費。</span></span><button class="btn btn-tinted" data-href="queue.html">看佇列</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '沒有網路', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t03, paused: true, progress: 0, time: '0:00' }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px;color:var(--glass-ink)">' + I('wifi', 's18') + '<span>沒有網路，「' + FMP.esc(FMP.T.t03.title) + '」無法播放。音樂庫與佇列照常可用。</span></span><button class="btn btn-tinted">重試</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '音源要求驗證', render: (ctx) => phoneLib(ctx, { tab: 'library', track: FMP.T.t05, paused: true, progress: 0, time: '0:00' }, {
+          overlay: FMP.toast('<span style="display:flex;align-items:flex-start;gap:8px;color:var(--glass-ink)">' + I('shield', 's18') + '<span>B 站要求驗證才能繼續播放。</span></span><button class="btn btn-tinted" data-href="account.html">去驗證</button>', { style: 'bottom:176px' }),
+        }) },
+        { kind: 'phone', label: '重啟 App 後', render: (ctx) => phoneLib(ctx, { tab: 'library', paused: true, progress: 38 }) },
+      ],
+      notes: '<ul><li>沒有目前曲目時不顯示迷你播放器，導覽列留在原位。</li><li>迷你播放器的標題旁帶存取等級徽章（會員、付費、試聽）；只有試聽時，第一次另外跳一則提示（brief §5.4）。</li><li>提示只有一個入口，浮在迷你播放器上方，依錯誤類別給文字與動作（brief §13）。</li>' +
+        '<li>連續 3 首都無法播放就停止並提示（brief §6），寫出最後一首的原因；動作「看佇列」。迷你播放器停在那首、暫停。</li>' +
+        '<li>沒有網路（brief §9）：播放、搜尋、刷新顯示網路錯誤，動作「重試」；已解析且還沒過期的串流照常播。音樂庫、佇列、設定照常可用。匯入歌單刷新時沒有網路，狀態列寫「沒有網路，刷新沒有完成」。</li>' +
+        '<li>需驗證（brief §13）：音源要求人機驗證（例如 B 站風控）時暫停並提示，「去驗證」用帳號頁同一個網頁對話框打開音源給的驗證頁，驗證完自動重試那一首。</li>' +
+        '<li>重啟 App 後：佇列與進度都還在，迷你播放器顯示上次那首、停在上次的位置、暫停，不自動播放（brief §6）。重啟前如果正在臨時播放，不保留臨時播放，回到佇列原本那首（照舊版）。</li></ul>',
+    },
+    {
+      title: '桌面：側欄、詳情面板、播放膠囊',
+      desc: '側欄是浮在左邊的玻璃，除了導覽也列出全部歌單（匯入的帶音源標識），寬螢幕不用再點進音樂庫找歌單。右側詳情面板照舊保留；播放膠囊浮在內容欄底部，左右各離側欄與面板 24pt。',
+      frames: [
+        { kind: 'desktop', label: '完整外殼', render: (ctx) => deskLib(ctx, {}) },
+        { kind: 'desktop', label: '收起詳情面板', render: (ctx) => deskLib(ctx, { detail: false }) },
+      ],
+      notes: '<h3>玻璃範圍：只在控制層（擁有者 2026-11-11 選定，照 brief §2.3）</h3><ul><li>側欄與播放膠囊是玻璃；右側詳情面板是實心的內容區。詳情面板主要是文字（簡介、下一首），放在玻璃上會隨背後內容忽明忽暗。</li></ul><h3>Windows</h3><ul><li>Windows 的玻璃最高到「標準」（brief 事實 K10）：沒有折射，只有模糊與飽和。用工具列切到「標準」看效果；「最低」是降低透明度或效能不足時的實心底。</li><li>Windows 的視窗按鈕放在側欄右上角以外的頂列右端，見設計系統頁。</li></ul>',
+    },
+    {
+      title: '中寬度（600–1199）：玻璃細欄',
+      desc: '平板與窄桌面視窗用同一個版面（擁有者 2026-11-11 選定）：側欄收成左邊一條玻璃細欄，底部照舊是播放膠囊，詳情面板不再常駐、點了才浮出來。平板用觸控密度（44pt 目標、手機字級），桌面用滑鼠密度（桌面字級），結構一樣。',
+      frames: [
+        { kind: 'tablet', label: '平板直向', render: (ctx) => midLib(ctx, { device: 'tablet', cols: 4 }) },
+        { kind: 'tablet', label: '平板橫向', w: 1180, h: 820, render: (ctx) => midLib(ctx, { device: 'tablet', w: 1180, h: 820, cols: 6 }) },
+        { kind: 'window', label: '窄視窗：滑過細欄上的歌單', render: (ctx) => midLib(ctx, { cols: 5, tip: { index: 5 } }) },
+        { kind: 'window', label: '窄視窗：叫出詳情面板（浮在內容上）', render: (ctx) => midLib(ctx, { cols: 5, panel: true }) },
+        { kind: 'window', label: '最小視窗：播放膠囊收掉時間與音量', w: 720, h: 560, render: (ctx) => midLib(ctx, { w: 720, h: 560, cols: 4 }) },
+      ],
+      notes: '<h3>寬度分級（Material 3 的 compact／medium／expanded，邊界照這個 App 的版面調整）</h3><ul>' +
+        '<li><b>窄</b>（小於 600）：手機版面，底部 dock。手機固定直向，不進中寬度。</li>' +
+        '<li><b>中</b>（600–1199）：這一節。平板直向（744–1032）、平板橫向（1133–1194）、桌面視窗縮到 1200 以下。</li>' +
+        '<li><b>寬</b>（1200 以上）：桌面版面，側欄＋內容＋常駐詳情面板（可收起）。13 吋 iPad 橫向（1366）也是寬，用觸控密度。</li>' +
+        '<li>桌面視窗最小 720×560，所以桌面永遠不會掉到手機版面。</li>' +
+        '<li>密度跟裝置走，不跟寬度走：iOS 與 Android 用觸控密度，macOS 與 Windows 用滑鼠密度。</li></ul>' +
+        '<h3>細欄</h3><ul><li>外框寬 72（平板 80），浮動玻璃，和桌面側欄同一種材質。由上而下：（macOS）紅綠燈、搜尋、首頁、音樂庫、佇列、分隔線、全部歌單（只剩封面，匯入歌單右下角帶音源符號）、新建歌單（＋）、底部設定。</li>' +
+        '<li>導覽項目是圖示加小字（10pt，平板 11pt），選取的項目用強調色加一顆內嵌膠囊，和手機導覽的選取同一個樣子。</li>' +
+        '<li>歌單只有封面：桌面滑過時浮出名稱（音源 · 首數），平板長按出歌單選單。和 Spotify 收起音樂庫時只剩封面的做法相同。</li>' +
+        '<li>細欄裡的搜尋是一個項目，不是欄位：點了（或 ⌘K）進搜尋頁，欄位在搜尋頁的頂端。</li></ul>' +
+        '<h3>詳情面板與播放膠囊</h3><ul><li>詳情面板不常駐：頂列右端的按鈕叫出來，浮在內容上（實心，不是玻璃），Esc、點外面或面板上的收起按鈕關掉。叫出來時播放膠囊的右端讓開，左右一樣離 24pt。</li>' +
+        '<li>播放膠囊左緣離細欄 24pt，和內容的左緣對齊。平板版高 68、按鈕 44，沒有音量（用實體按鍵，和手機一樣）。</li>' +
+        '<li>膠囊寬度不到 640 時，時間與音量收掉（最小視窗）；拖膠囊調進度照舊，hover 時浮出那個位置的時間。</li></ul>' +
+        '<h3>中寬度共同的規則（各頁照這個）</h3><ul><li>內容單欄，不並排詳情面板；需要第二欄的頁（設定、播放頁）在頁內自己分欄。</li>' +
+        '<li>一首歌的「更多」：平板用從按鈕長出的選單（iPad 的 popover 慣例），不用手機的底部 sheet；桌面照舊右鍵選單。確認照舊置中。</li>' +
+        '<li>對話框：平板用置中的對話框（iPad 的表單 sheet），不用底部 sheet；桌面照舊。</li>' +
+        '<li>提示浮在播放膠囊上方、內容欄置中。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

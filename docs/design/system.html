@@ -1,606 +1,264 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FMP 設計稿 · 設計系統</title><link rel="stylesheet" href="assets/fmp.css"><style>
-body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px 48px 80px}
-.doc h1.pt{font-size:28px;line-height:1.25;margin-bottom:8px}
-.doc .lead{max-width:72ch;color:#C8C7C2;margin-bottom:8px}
-.doc .note{max-width:72ch;color:#A9A8A3;font-size:13px;margin-bottom:28px}
-.doc h2.sec{font-size:20px;margin:48px 0 16px;padding-top:24px;border-top:1px solid rgba(255,255,255,.12)}
-.doc .navl{display:flex;gap:16px;margin-bottom:24px;font-size:14px}
-.doc .navl a{color:#CFBCFF;text-underline-offset:3px}
-.row{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;overflow-x:auto;padding:12px;margin:-12px}
-.frame{flex:none}
-@media (max-width:600px){body.doc{padding:24px 16px 60px}.row{flex-wrap:nowrap}.sys{grid-template-columns:minmax(0,1fr)}}
-.frame figcaption{margin-top:10px;font-size:13px;color:#C8C7C2;width:0;min-width:100%}
-.phone{position:relative;width:390px;height:844px;border-radius:48px;overflow:hidden;box-shadow:0 0 0 10px #0B0B0C,0 20px 50px rgba(0,0,0,.45)}
-.sb{position:absolute;top:0;left:0;right:0;z-index:5;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 38px;font-weight:600;font-size:16px}
-.sbi{display:flex;gap:6px;align-items:center}.sbi svg{fill:currentColor}
-.homebar{position:absolute;z-index:6;left:50%;bottom:8px;width:134px;height:5px;border-radius:3px;background:var(--fg);transform:translateX(-50%)}
-.scroll{position:absolute;inset:0;padding-top:50px;overflow:hidden}
-.scroll.scrolled{padding-top:0}
-.topbar{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 14px;color:var(--fg)}
-.topbar .tb-title{font-size:var(--fs-title);font-weight:600}
-.topbar.b{justify-content:space-between}
-.plh{display:flex;gap:16px;padding:8px 20px 16px;align-items:flex-start}
-.plh-t h1{font-size:var(--fs-h2);line-height:32px;font-weight:700}
-.plh-t p{font-size:var(--fs-sm);color:var(--fg2);margin-top:2px}
-.plh-b{display:flex;gap:8px;margin-top:12px}
-.plh.big{flex-direction:column;align-items:flex-start;padding-top:0}
-.plh.big h1{font-size:var(--fs-h1);line-height:38px}
-.sp-a{left:12px;right:12px;bottom:104px}
-.tabbar-a{position:absolute;left:12px;right:12px;bottom:30px;height:64px;border-radius:32px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
-.ni{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:var(--fs-cap);color:var(--fg2);width:78px;height:54px;border-radius:27px;font-weight:500}
-.ni.on{color:var(--accent);background:var(--accent-soft)}
-.sp-b{left:12px;right:12px;bottom:104px}
-.tabbar-b{position:absolute;left:12px;right:76px;bottom:30px;height:64px;border-radius:32px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
-.orb{position:absolute;width:56px;height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;color:var(--fg)}
-.orb-search{right:12px;bottom:34px}
-.orb-tab{left:12px;bottom:34px;color:var(--accent)}
-.sp-b-col{left:76px;right:76px;bottom:34px;height:56px;border-radius:28px;padding:0 14px 0 12px}
-.edge{position:absolute;left:0;right:0;top:0;height:96px;z-index:4;background:linear-gradient(var(--bg) 52%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask:linear-gradient(#000 55%,transparent);mask:linear-gradient(#000 55%,transparent)}
-.qh{display:flex;align-items:flex-end;gap:12px;justify-content:space-between;padding:12px 20px 10px}
-.qh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
-.qmeta{font-size:var(--fs-sm);color:var(--fg2)}
-/* 桌面 */
-.desk{position:relative;width:1280px;height:800px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 24px 60px rgba(0,0,0,.45)}
-.wtitle{height:36px;display:flex;align-items:center;gap:14px;padding:0 14px;font-size:13px;color:var(--fg2);border-bottom:1px solid var(--line)}
-.lights{display:flex;gap:8px}.lights i{width:12px;height:12px;border-radius:50%;background:var(--line-strong)}
-.dbody{position:absolute;top:36px;bottom:0;left:0;right:0;display:grid}
-.dbody.a{grid-template-columns:76px minmax(0,1fr) 352px}
-.dbody.b{grid-template-columns:256px minmax(0,1fr) 352px}
-.rail{background:var(--bg2);display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:14px;border-right:1px solid var(--line)}
-.rn{display:flex;flex-direction:column;align-items:center;gap:3px;width:60px;padding:8px 0;border-radius:14px;font-size:var(--fs-cap);color:var(--fg2);font-weight:500}
-.rn.on{color:var(--accent);background:var(--accent-soft)}
-.side{margin:12px 0 12px 12px;border-radius:18px;background:var(--bg2);border:1px solid var(--line);padding:12px 10px;display:flex;flex-direction:column;gap:2px;z-index:3}
-.sfield{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:10px;background:var(--line);color:var(--fg2);font-size:var(--fs-sm);margin-bottom:8px}
-.sn,.sp{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:10px;font-size:14px;color:var(--fg)}
-.sn:first-of-type{color:var(--accent);background:var(--accent-soft)}
-.sp.on{background:var(--line)}
-.sh{font-size:var(--fs-cap);color:var(--fg2);padding:14px 10px 4px;font-weight:600}
-.dmain{position:relative;overflow:hidden;padding:0 0 0 0}
-.dplh{display:flex;gap:20px;align-items:flex-end;padding:22px 28px 18px}
-.dplh h1{font-size:var(--fs-h1);line-height:40px;font-weight:700}
-.dplh p{font-size:var(--fs-sm);color:var(--fg2)}
-.dh,.dr{display:grid;grid-template-columns:28px 36px minmax(0,1fr) 84px 56px 72px 52px;column-gap:12px;align-items:center;padding:0 28px 0 16px}
-.dh{height:30px;font-size:var(--fs-cap);color:var(--fg2);border-bottom:1px solid var(--line-strong);font-weight:600}
-.dr{height:52px;border-bottom:1px solid var(--line)}
-.dr .ix{font-size:var(--fs-meta);color:var(--fg3);text-align:right}
-.dr .tx{display:flex;flex-direction:column;gap:2px;min-width:0}.dr .tx b{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dr .tx i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.dr .c-pl{font-size:var(--fs-meta);color:var(--fg2);text-align:right}.dr .du{text-align:right}
-.dr.now .tx b,.dr.now .ix{color:var(--accent)}
-.dr.off .tx b,.dr.off .tx i,.dr.off .du,.dr.off .ix,.dr.off .c-pl{color:var(--fg3)}.dr.off .cv{opacity:.45}
-.dpanel{background:var(--bg2);border-left:1px solid var(--line);padding:24px 28px;overflow:hidden}
-.dpanel h2{font-size:var(--fs-h3);line-height:1.3;margin-top:18px}
-.dpanel .who{font-size:var(--fs-sm);color:var(--fg2);margin-top:4px}
-.stats{display:flex;gap:24px;margin:14px 0 6px;font-size:var(--fs-sm);font-weight:600}.stats span{display:flex;align-items:center;gap:6px}
-.dpanel h3{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--fg2);margin:20px 0 10px;padding-top:16px;border-top:1px solid var(--line)}
-.nxt{display:flex;gap:12px;align-items:center}.nxt .tx{display:flex;flex-direction:column;gap:2px}.nxt b{font-weight:500;font-size:14px}.nxt i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.desc{font-size:var(--fs-sm);color:var(--fg2)}
-.dplayer{position:absolute;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;overflow:hidden;z-index:5}
-.dplayer .pl{position:absolute;left:0;top:0;bottom:0;background:var(--played)}
-.dplayer .fold{position:absolute;top:0;bottom:0;border-left:2px solid var(--accent);box-shadow:-1px 0 0 var(--crease-lo),1px 0 0 var(--crease-hi);-webkit-mask:var(--fold-mask);mask:var(--fold-mask)}
-.dp-a{left:12px;right:12px;bottom:12px;height:72px;border-radius:18px;padding:0 20px}
-.dp-b{left:280px;right:364px;bottom:14px;height:68px;border-radius:18px;padding:0 16px;grid-template-columns:minmax(0,1fr) auto auto;column-gap:16px}
-.dplayer .du{white-space:nowrap}
-.dp-l,.dp-c,.dp-r{position:relative;display:flex;align-items:center;gap:14px}
-.dp-l .tx{display:flex;flex-direction:column;gap:2px;min-width:0}.dp-l b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}.dp-l i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.dp-c{gap:18px}.pp{width:40px;height:40px;border-radius:20px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center}
-.dp-r{justify-content:flex-end;color:var(--fg2)}
-.vol{width:84px;height:4px;border-radius:2px;background:var(--line-strong);display:block}.vol span{display:block;width:70%;height:100%;border-radius:2px;background:var(--fg)}
-.dp-b .dp-l b{max-width:170px}.dp-b .dp-l .ic,.dp-b .dp-c>.ic.s,.dp-b .dp-r .ic:nth-child(3),.dp-b .vol{display:none}.dp-b .dp-c{gap:14px}.dp-b .dp-r{gap:12px}
-/* 播放頁 */
-.onart.t-dark{--fg:#F7F6F3;--fg2:rgba(247,246,243,.72);--fg3:rgba(247,246,243,.5);--line-strong:rgba(255,255,255,.28)}
-.onart.t-light{--fg:#141416;--fg2:rgba(20,20,22,.68);--fg3:rgba(20,20,22,.48);--line-strong:rgba(0,0,0,.22)}
-.player{position:absolute;inset:0}
-.pin{position:absolute;inset:50px 0 0;display:flex;flex-direction:column;padding:0 24px}
-.ptop{display:flex;align-items:center;justify-content:space-between;height:48px;color:var(--fg)}
-.ptop .pr{display:flex;align-items:center;gap:18px}
-.pcov{display:flex;justify-content:center;padding:20px 0 0}
-.pcov .cv{box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.plyr{flex:1;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(transparent,#000 14%,#000 80%,transparent);mask:linear-gradient(transparent,#000 14%,#000 80%,transparent);padding-top:22px}
-.lys{display:flex;flex-direction:column;gap:16px}
-.ly{display:flex;flex-direction:column;gap:3px;color:var(--fg3)}
-.ly b{font-size:20px;line-height:1.3;font-weight:700}
-.ly i{font-style:normal;font-size:14px}
-.ly.cur{color:var(--fg)}
-.ly.cur i{color:var(--fg2)}
-.pmeta{display:flex;align-items:flex-start;gap:12px;margin-top:auto}
-.pmeta div{flex:1;min-width:0}
-.pmeta h2{font-size:var(--fs-h3);line-height:1.3;font-weight:700;color:var(--fg)}
-.pmeta p{font-size:var(--fs-sm);color:var(--fg2);margin-top:4px;display:flex;align-items:center;gap:6px}
-.pbtn{color:var(--fg2);padding-top:4px}
-.seek{margin-top:18px}
-.seek .bar{position:relative;height:4px;border-radius:2px;background:var(--line-strong)}
-.seek .fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--fg)}
-.seek .head{position:absolute;top:-8px;width:2px;height:20px;margin-left:-1px;background:var(--accent);box-shadow:-1px 0 0 var(--crease-lo),1px 0 0 var(--crease-hi)}
-.seek .times{display:flex;justify-content:space-between;margin-top:8px;font:var(--fs-meta)/1 var(--mono);color:var(--fg2)}
-.tp{display:flex;align-items:center;justify-content:space-between;margin-top:14px;color:var(--fg)}
-.tp .it{color:var(--fg2)}.tp .it.on{color:var(--accent)}
-.ppb{width:72px;height:72px;border-radius:36px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center}
-.onart.t-dark .ppb{color:#141416}.onart.t-light .ppb{color:#F7F6F3}
-.pbot{align-self:center;margin-top:22px;margin-bottom:34px;display:flex;gap:4px;padding:4px;border-radius:24px}
-.pb{display:flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:20px;font-size:var(--fs-sm);font-weight:600;color:var(--fg2)}
-.pb.on{background:var(--accent-soft);color:var(--accent)}
-.dpl{top:36px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:56px 1fr;column-gap:56px;padding:0 64px 40px}
-.dpl .ptop{grid-column:1/3;padding:0 0}
-.dpl-l{display:flex;flex-direction:column;justify-content:center;max-width:440px;justify-self:end;width:100%}
-.dpl-l .pmeta{margin-top:0}
-.dpl-l .cv{margin-bottom:22px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.dpl-r{position:relative;display:flex;flex-direction:column;min-height:0}
-.vsep{width:1px;height:20px;background:var(--line-strong)}
-.ptop .it{color:var(--fg2)}.ptop .it.on{color:var(--accent)}
-.dpl-r .ly-c{padding-top:96px}.dpl-r .q-c{margin-top:40px}
-.dpl-c{flex:1;min-height:0;overflow:hidden}
-.ly-c{-webkit-mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);padding-top:64px}
-.q-c{margin-top:14px;-webkit-mask:linear-gradient(#000 86%,transparent);mask:linear-gradient(#000 86%,transparent)}
-.q-c .qmeta{padding:0 0 8px 8px}
-.q-c .foldrule{margin:0}
-.dpl-r .ly b{font-size:24px}
-.lyx{position:absolute;right:64px;bottom:28px;display:flex;gap:10px;align-items:center;font-size:var(--fs-meta);color:var(--fg2)}
-.dpl .ptop .vol{width:96px}
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>設計系統 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+  .sys-panel { border-radius: 22px; padding: 26px 28px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 12px 40px rgba(0,0,0,.08); }
+  .sys-h { font-size: 13px; font-weight: 600; color: var(--label-2); margin: 0 0 12px; }
+  .sys-h + .sys-h { margin-top: 24px; }
+  .sys-grid { display: grid; gap: 18px; }
+  .sys-sw { display: flex; align-items: center; gap: 12px; }
+  .sys-sw i { width: 44px; height: 44px; border-radius: 12px; flex: none; box-shadow: inset 0 0 0 .5px var(--sep-strong); }
+  .sys-sw b { display: block; font-size: 13px; font-weight: 600; }
+  .sys-sw small { display: block; font: 12px var(--font-num); color: var(--label-2); }
+  .sys-stage { position: relative; height: 430px; border-radius: 18px; overflow: hidden; background: var(--bg); }
+  .sys-belt { position: absolute; top: 14px; left: 0; display: flex; gap: 14px; animation: sysBelt 26s linear infinite alternate; }
+  .sys-belt .cover { width: 150px; height: 150px; border-radius: 14px; }
+  .sys-belt.b2 { top: 240px; animation-duration: 33s; animation-direction: alternate-reverse; }
+  .sys-text { position: absolute; left: 24px; top: 184px; font: 700 38px/1 var(--font-display); color: var(--label); letter-spacing: -.01em; white-space: nowrap; }
+  @keyframes sysBelt { from { transform: translateX(0); } to { transform: translateX(-520px); } }
+  @media (prefers-reduced-motion: reduce) { .sys-belt { animation: none; } }
+  .sys-tiers { display: flex; gap: 20px; align-items: flex-end; margin-bottom: 22px; }
+  .sys-tier { margin: 0; flex: none; }
+  .sys-tier figcaption { margin-top: 8px; font-size: 12px; color: var(--label-2); line-height: 1.45; }
+  .sys-tier figcaption b { display: block; font-size: 13px; color: var(--label); }
+  .sys-scr { position: relative; border-radius: 10px; overflow: hidden; background: var(--cell-2); box-shadow: inset 0 0 0 .5px var(--sep-strong); }
+  .sys-scr i { position: absolute; display: block; }
+  .sys-scr .g { background: color-mix(in srgb, var(--label) 22%, transparent); }
+  .sys-scr .c { background: var(--fill-2); border-radius: 3px; }
+  .sys-scr .s { background: color-mix(in srgb, var(--label) 7%, var(--bg)); box-shadow: inset 1px 0 0 var(--sep-strong); }
+  .sys-tt { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .sys-tt th, .sys-tt td { text-align: left; vertical-align: top; padding: 7px 10px 7px 0; border-bottom: .5px solid var(--sep); }
+  .sys-tt th { color: var(--label-2); font-weight: 600; }
+  .sys-kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 16px; font-size: 13px; }
+  .sys-kv dt { color: var(--label-2); }
+  .sys-kv dd { margin: 0; }
+  .sys-type > div { display: flex; align-items: baseline; gap: 18px; padding: 7px 0; border-bottom: .5px solid var(--sep); }
+  .sys-type > div > small { width: 120px; flex: none; font: 12px var(--font-num); color: var(--label-2); }
+  .sys-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .sys-box { border-radius: 16px; background: var(--cell); overflow: hidden; box-shadow: inset 0 0 0 .5px var(--sep); }
+  .t-light .sys-box { box-shadow: inset 0 0 0 .5px var(--sep), 0 1px 2px rgba(0,0,0,.04); }
+  .sys-note { font-size: 12.5px; color: var(--label-2); line-height: 1.5; margin-top: 10px; }
+  .sys-acc-demo { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .sys-radius { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .sys-radius div { background: var(--fill-2); display: grid; place-items: center; font: 11px var(--font-num); color: var(--label-2); }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const panel = (ctx, w, html, style) => '<div class="scr sys-panel t-' + ctx.theme + '" data-tone="' + ctx.theme + '" style="width:' + w + 'px;background:' + (ctx.theme === 'dark' ? '#0D0C11' : '#FFFFFF') + ';' + (style || '') + '">' + html + '</div>';
 
-/* 搜尋 */
-.ic.xs{width:14px;height:14px}
-.shead{padding:6px 20px 0;background:var(--bg)}
-.qf{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:var(--r-ctl);background:var(--bg2);border:1px solid var(--line);color:var(--fg2)}
-.qf.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.qph{flex:1;color:var(--fg3);display:flex;align-items:center}
-.caret{display:inline-block;width:2px;height:20px;background:var(--accent);margin-right:2px;border-radius:1px}
-.qv{flex:1;color:var(--fg);font-weight:500}
-.qx{display:flex;color:var(--fg3)}
-.chips{display:flex;gap:6px;padding:12px 0 10px}
-.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:10px;border:1px solid var(--line-strong);color:var(--fg2);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
-.chip em{font:normal var(--fs-cap)/1 var(--mono);color:var(--fg3)}
-.chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
-.chip.on em{color:var(--accent)}
-.sech{display:flex;align-items:center;justify-content:space-between;height:40px;padding:8px 20px 0;border-bottom:1px solid var(--line-strong)}
-.sech b{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);font-weight:600}
-.sech b em{font:normal var(--fs-meta)/1 var(--mono);color:var(--fg3)}
-.sortb{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-meta);font-weight:600;color:var(--fg2)}
-.tbtn{font-size:var(--fs-sm);font-weight:600;color:var(--accent)}
-.hl .hr{display:grid;grid-template-columns:18px minmax(0,1fr) 18px;align-items:center;column-gap:14px;height:48px;padding:0 20px;border-bottom:1px solid var(--line);color:var(--fg3)}
-.hr span:nth-child(2){color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.snote{display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 20px;border-bottom:1px solid var(--line);font-size:var(--fs-meta);color:var(--error)}
-.snote span:first-child{display:flex;align-items:center;gap:6px}
-.tr.sr{grid-template-columns:44px minmax(0,1fr) auto 18px;padding:0 12px 0 20px}
-.tr.sr.sm{grid-template-columns:20px 44px minmax(0,1fr) auto;padding:0 20px}
-.tr.picked{background:var(--accent-soft)}
-.mo{display:flex;color:var(--fg3)}
-.tag.pts{display:inline-flex;align-items:center;gap:1px;padding:0 2px 0 5px}
-.tag.pts .ic{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-.tag.pts.on{border-color:var(--accent);color:var(--accent)}
-.tag.pts.on .ic{transform:rotate(180deg)}
-.ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--on-accent)}
-.ck.on{background:var(--accent);border-color:var(--accent)}
-/* 分 P：縮排到曲名欄，左側一條細線接回母列 */
-.prt{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) auto 18px;align-items:center;column-gap:12px;height:44px;padding:0 12px 0 76px;border-bottom:1px solid var(--line)}
-.prt::before{content:"";position:absolute;left:42px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
-.prt.last::before{bottom:50%}
-.prt::after{content:"";position:absolute;left:42px;top:50%;width:22px;border-top:1px solid var(--line-strong)}
-.px{font:var(--fs-meta)/1 var(--mono);color:var(--fg3)}
-.pn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.selh{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 20px}
-.selh b{font-size:var(--fs-title);font-weight:600}
-.seltb .ni{width:96px;color:var(--fg)}
-/* 搜尋 · 桌面 */
-.dsh{padding:20px 28px 0}
-.dsh .qf{height:40px;max-width:560px}
-.dsel{display:flex;align-items:center;gap:12px;height:40px;margin-bottom:10px}
-.dsel b{font-size:var(--fs-title);font-weight:600;margin-right:8px}
-.dsel .btn{height:34px;padding:0 14px;font-size:13px}
-.dsel .tbtn{margin-left:auto}
-.dmain .sech{padding:8px 28px 0}
-.dh.s,.dr.s,.dpt{grid-template-columns:36px minmax(0,1fr) 84px 56px 72px 52px 18px;padding:0 20px 0 28px}
-.dh.s.cks,.dr.s.cks{grid-template-columns:20px 36px minmax(0,1fr) 84px 56px 72px 52px 18px}
-.dh.s{border-bottom:1px solid var(--line)}
-.dr.s .tx b{display:flex;align-items:center;gap:8px}
-.dr.s .tx b span{overflow:hidden;text-overflow:ellipsis}
-.dr.s .tx b .tag{font-weight:500}
-.dr.s .mo{visibility:hidden}
-.dr.s.hover{background:var(--hover)}.dr.s.hover .mo{visibility:visible;color:var(--fg)}
-.dr.picked{background:var(--accent-soft)}
-.dr.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
-.chip.focus{outline:2px solid var(--accent);outline-offset:2px}
-.dpt{position:relative;display:grid;column-gap:12px;align-items:center;height:36px;border-bottom:1px solid var(--line)}
-.dpt .px{text-align:center;position:relative;z-index:1;background:var(--bg);line-height:16px}
-.dpt::before{content:"";position:absolute;left:46px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
-.dpt.last::before{bottom:50%}
-.dpt .du{text-align:right}
-.dpt .mo{visibility:hidden}
-/* 音樂庫 */
-.lh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:12px 20px 16px}
-.lh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
-.lh-a{display:flex;align-items:center;gap:4px}
-.ib{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;color:var(--fg)}
-.pg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px;padding:0 20px 220px}
-.pc{display:flex;flex-direction:column;min-width:0;border-radius:8px}
-.pcw{position:relative;display:block}
-.cv.fill{width:100%;aspect-ratio:1}
-.pc>b{margin-top:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pm{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px;font-size:var(--fs-meta);color:var(--fg2);min-height:16px}
-.pl-l{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
-.pm .du{color:var(--fg3)}
-.st{overflow:hidden;text-overflow:ellipsis}
-.st.busy{color:var(--accent);font-weight:600}
-.st.err{color:var(--error)}
-.rbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.35);border-radius:0 0 var(--r-cover) var(--r-cover);overflow:hidden}
-.rbar span{display:block;height:100%;background:var(--accent)}
-.pcov-act{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
-.pcov-act .pp{width:36px;height:36px;border-radius:18px}
-.pmore{width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(18,18,20,.62);color:#F2F1EE}
-.pc.focus{outline:2px solid var(--accent);outline-offset:4px}
-.pg.d{grid-template-columns:repeat(5,minmax(0,1fr));gap:24px 20px;padding:0 28px 120px}
-.dmain .lh{padding:22px 28px 18px}
-.dmain .lh-a{gap:8px}
-/* 排序：只有拖動中的那張浮起來 */
-.pc.slot{border:1.5px dashed var(--line-strong);border-radius:var(--r-cover);aspect-ratio:1}
-.lift{position:absolute;left:186px;top:262px;width:167px;z-index:3}
-.pc.lifted{transform:rotate(-2deg) scale(1.04);background:var(--bg);padding:0 0 8px;border-radius:8px;box-shadow:var(--glass-shadow)}
-/* 動作選單（sheet）：浮在內容上，玻璃 */
-.scrim{position:absolute;inset:0;z-index:7;background:rgba(0,0,0,.42)}
-.sheet{position:absolute;z-index:8;left:8px;right:8px;bottom:8px;border-radius:var(--r-sheet) var(--r-sheet) 36px 36px;padding:8px 0 22px}
-.grab{display:block;width:36px;height:5px;border-radius:3px;background:var(--line-strong);margin:0 auto 10px}
-.sh-h{display:flex;gap:12px;align-items:center;padding:4px 20px 14px;border-bottom:1px solid var(--line)}
-.sh-h b{display:block;font-size:var(--fs-title);font-weight:600}
-.sh-h i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:3px}
-.sh-l li{display:grid;grid-template-columns:22px auto 1fr;align-items:center;column-gap:14px;height:50px;padding:0 20px;font-size:var(--fs-body);font-weight:500}
-.sh-l li i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2);text-align:right;white-space:nowrap}
-.sh-l li.danger{color:var(--error);border-top:1px solid var(--line)}
-/* 空狀態：三條書脊示意空的架子 */
-.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:96px 36px 0}
-.emark{display:flex;align-items:flex-end;gap:5px;height:64px;margin-bottom:20px}
-.emark i{display:block;width:14px;border-radius:3px;border:1.5px solid var(--line-strong)}
-.emark i:nth-child(1){height:52px}.emark i:nth-child(2){height:64px;border-color:var(--accent)}.emark i:nth-child(3){height:44px;transform:rotate(9deg);transform-origin:bottom left}
-.empty h2{font-size:var(--fs-h3);font-weight:700}
-.empty p{font-size:var(--fs-sm);color:var(--fg2);margin-top:8px;max-width:30ch;text-wrap:balance}
-.empty .plh-b{margin-top:20px}
+function stage(ctx) {
+  const covers = (k) => FMP.tracks.slice(k, k + 9).map((t) => FMP.coverEl(t.cv)).join('');
+  return '<div class="sys-stage">' +
+    '<div class="sys-belt">' + covers(0) + '</div><div class="sys-text">文字也會被折彎 Liquid Glass</div><div class="sys-belt b2">' + covers(9) + '</div>' +
+    // regular glass: tab bar
+    '<nav class="lg tabbar" data-adapt style="position:absolute;left:24px;top:346px;width:290px;height:62px;border-radius:31px;display:flex;align-items:center;padding:0 4px">' +
+    '<span class="tab-ind" style="left:4px;width:94px"></span>' +
+    '<button class="tab on">' + I('library') + '<span>音樂庫</span></button><button class="tab">' + I('queue') + '<span>佇列</span></button><button class="tab">' + I('settings') + '<span>設定</span></button></nav>' +
+    '<button class="lg search-orb" data-adapt style="position:absolute;left:324px;top:346px;width:62px;height:62px;border-radius:31px;display:grid;place-items:center">' + I('search') + '</button>' +
+    // mini player
+    '<div class="lg mini" data-adapt style="position:absolute;left:24px;top:174px;width:362px;height:56px;border-radius:28px">' + FMP.coverEl(FMP.now.cv, 40) + '<div class="mi"><b><span class="tt">夜行列車</span></b><span>' + FMP.src('netease') + '<span class="ell">鹿野青</span></span></div><button class="ibtn">' + I('pause', 's24') + '</button><button class="ibtn">' + I('next', 's24') + '</button><span class="prog"><i style="width:38%"></i></span></div>' +
+    // round buttons + pill
+    '<div style="position:absolute;right:24px;top:24px;display:flex;gap:10px">' + FMP.gbtn('chevL', '返回') + FMP.gpill([['select', '多選'], ['sort', '排序'], ['plus', '新建']]) + FMP.gbtn('more', '更多') + '</div>' +
+    // clear glass over media
+    '<button class="lg gbtn" data-lg-variant="clear" style="position:absolute;right:48px;top:290px;width:64px;height:64px">' + I('play', 's28') + '</button>' +
+    '</div>';
+}
 
-.snote.busy{color:var(--fg2)}
-.spin{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line-strong);border-top-color:var(--accent);display:inline-block}
-.skel .sk{display:block;background:var(--bg2);border-radius:4px}
-.skel .sk.cv{width:44px;height:44px;border-radius:var(--r-cover)}
-.skel .sk.l1{width:72%;height:12px}.skel .sk.l2{width:44%;height:10px}
-.sfail{padding:40px 36px 0;text-align:center}
-.sfail b{display:block;font-size:var(--fs-title);font-weight:600}
-.sfail p{font-size:var(--fs-sm);color:var(--fg2);margin:8px auto 18px;max-width:30ch;text-wrap:balance}
-.sfail.none{padding-top:120px}
-.cmenu{position:absolute;left:626px;top:366px;width:216px;padding:6px;border-radius:var(--r-ctl);z-index:6}
-.cmenu li{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;font-size:14px}
-.cmenu li:first-child{background:var(--hover)}
-.cmenu li.sep{margin-top:6px;position:relative}
-.cmenu li.sep::before{content:"";position:absolute;left:10px;right:10px;top:-4px;border-top:1px solid var(--line)}
-.cmenu kbd{margin-left:auto;font:var(--fs-cap) var(--mono);color:var(--fg2)}
-.sheet.imp{padding-bottom:26px}
-.imp-h{display:flex;align-items:center;justify-content:space-between;padding:0 20px 12px}
-.imp-h b{font-size:var(--fs-title);font-weight:600}
-.fl{display:block;font-size:var(--fs-cap);font-weight:500;color:var(--fg2);padding:10px 20px 6px}
-.sheet .qf{margin:0 20px}
-.qf.filled{border-color:var(--line-strong)}
-.qv.url{font:var(--fs-meta) var(--mono);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
-.found{display:flex;align-items:center;gap:12px;margin:10px 20px 2px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--accent-soft);color:var(--accent)}
-.found div{flex:1;min-width:0}
-.found b{display:block;font-size:14px;font-weight:600;color:var(--fg)}
-.found i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:3px}
-.opts{margin-top:12px}
-.opts li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:0 20px;border-top:1px solid var(--line)}
-.opts b{display:block;font-size:var(--fs-body);font-weight:500}
-.opts i{display:block;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:2px}
-.val{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap}
-.sw-t{width:44px;height:26px;border-radius:13px;background:var(--line-strong);position:relative;flex:none}
-.sw-t i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--bg)}
-.sw-t.on{background:var(--accent)}.sw-t.on i{left:21px;background:var(--on-accent)}
-.imp-n{font-size:var(--fs-meta);color:var(--fg2);padding:12px 20px 0;border-top:1px solid var(--line)}
+const ACC_NAME = () => (FMP.ACCENTS.find(([k]) => k === document.documentElement.dataset.accent) || FMP.ACCENTS[0])[1];
+function swatches(ctx) {
+  const sw = (name, v, note) => '<div class="sys-sw"><i style="background:' + v + '"></i><span><b>' + name + '</b><small>' + note + '</small></span></div>';
+  const dark = ctx.theme === 'dark';
+  return '<div class="sys-h">中性色（' + (dark ? '深色' : '淺色') + '）</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
+    sw('底 bg', 'var(--bg)', dark ? '#0D0C11' : '#FFFFFF') +
+    sw('分組底 bg-grouped', 'var(--bg-grouped)', dark ? '#0D0C11' : '#F2F1F6') +
+    sw('格 cell', 'var(--cell)', dark ? '#19181F' : '#FFFFFF') +
+    sw('填色 fill', 'var(--fill)', dark ? 'white 8%' : 'ink 6%') +
+    sw('主文字 label', 'var(--label)', dark ? '#F5F4FA' : '#15141A') +
+    sw('次文字 label-2', 'var(--label-2)', dark ? '62%' : '60%') +
+    sw('三級 label-3', 'var(--label-3)', '40%') +
+    sw('分隔線 sep', 'var(--sep)', dark ? 'white 9%' : 'ink 10%') +
+    '</div><div class="sys-h" style="margin-top:24px">功能色</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
+    sw('強調 accent', 'var(--accent)', '目前：' + ACC_NAME() + '；文字與圖示') +
+    sw('強調底 accent-fill', 'var(--accent-fill)', '按鈕底，字 ≥ 5:1') +
+    sw('會員 vip', 'var(--vip)', '#F4B400') +
+    sw('試聽 trial', 'var(--trial-ink)', dark ? '#6CB6FF' : '#0066D6') +
+    sw('錯誤 danger', 'var(--danger)', dark ? '#FF6961' : '#E5372B') +
+    sw('警告 warn', 'var(--warn)', dark ? '#FFC23D' : '#B87800') +
+    sw('成功 ok', 'var(--ok)', dark ? '#42D88A' : '#148A4C') +
+    sw('遮罩 scrim', 'var(--scrim)', dark ? 'black 50%' : 'ink 28%') +
+    '</div><div class="sys-h" style="margin-top:24px">音源（由插件宣告，宿主只負責畫）</div><div class="sys-grid" style="grid-template-columns:repeat(4,1fr)">' +
+    sw('Bilibili', 'var(--src-bilibili)', '#FB7299') + sw('YouTube', 'var(--src-youtube)', '#FF3B30') + sw('網易雲音樂', 'var(--src-netease)', '#E8463B') + sw('lrclib', 'var(--src-lrclib)', '#8E8A99') + '</div>';
+}
 
-/* 歌單詳情 */
-.tb-back{display:flex;align-items:center;gap:0;font-size:var(--fs-body);font-weight:500;color:var(--accent);margin-left:-6px}
-.topbar .ib{margin-right:-8px}
-.plh-t{flex:1;min-width:0}
-.plh-t h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pmeta2,.srcl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.pown{font-size:var(--fs-meta);color:var(--fg3);margin-top:3px}
-.pdesc{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:60ch}
-.pdl{border-top:1px solid var(--line-strong)}
-.rfs+.pdl{border-top:0}
-.tr.pr{grid-template-columns:24px 44px minmax(0,1fr) auto 18px;padding:0 12px 0 8px}
-.tr.pr.sm{grid-template-columns:20px 44px minmax(0,1fr) auto;padding:0 20px}
-.prt.pi{padding-left:88px}
-.prt.pi::before,.prt.pi::after{left:66px}
-.prt.pi::after{width:16px}
-.prt.now .px,.prt.now .pn{color:var(--accent)}
-.rfs{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line-strong);font-size:var(--fs-meta);color:var(--fg2)}
-.rfs>span:first-child{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rfs.busy{color:var(--accent);font-weight:600}
-.rfs.err{color:var(--error);font-weight:600}
-.rline{position:absolute;left:0;bottom:-1px;height:2px;background:var(--accent)}
-.rfs-n{font-size:var(--fs-meta);color:var(--fg2);padding:8px 20px;border-bottom:1px solid var(--line-strong)}
-.rfs-n+.pdl{border-top:0}
-.seltb.pd .ni{width:84px}
-.seltb .ni.dgr{color:var(--error)}
-.cvx{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-strong);color:var(--fg3)}
-.empty.pe{padding-top:56px;border-top:1px solid var(--line-strong)}
-.erows{display:flex;flex-direction:column;gap:6px;width:132px;margin-bottom:20px}
-.erows i{display:grid;grid-template-columns:18px 1fr 22px;gap:8px;height:22px;align-items:center;border-bottom:1px solid var(--line-strong);background:linear-gradient(var(--line-strong),var(--line-strong)) 26px 6px/56px 2px no-repeat}
-.erows i::before{content:"";width:18px;height:18px;border-radius:4px;border:1.5px solid var(--line-strong);margin-bottom:4px}
-.erows i:nth-child(2)::before{border-color:var(--accent)}
-.erows i::after{content:"";grid-column:3;height:2px;margin-bottom:4px;background:var(--line-strong)}
-.dplh .pdesc{margin-top:4px}
-.dplh .plh-b{align-items:center}
-.dplh .srcl{font-size:var(--fs-sm);color:var(--fg2)}
-.dh.p,.dr.p{grid-template-columns:28px 36px minmax(0,1fr) 84px 56px 72px 52px 18px;padding:0 20px 0 16px}
-.dr.p .tx b{display:flex;align-items:center;gap:8px}
-.dr.p .tx b span{overflow:hidden;text-overflow:ellipsis}
-.dr.p .tx b .tag{font-weight:500}
-.dr.p .mo{visibility:hidden}
-.dr.p.hover{background:var(--hover)}.dr.p.hover .mo,.dr.p.focus .mo{visibility:visible;color:var(--fg)}
-.dmain .rfs{padding:0 28px 0 16px;margin-top:2px}
-.dmain .rfs+.dh{border-top:0}
-.cmenu li.dgr{color:var(--error)}
-.cmenu li span{white-space:nowrap}
-.cmenu:has(li.dgr){width:236px}
-.cmenu li.dgr kbd{color:var(--error)}
-/* 確認（遠端寫入的移除） */
-.sheet.cfm{padding:8px 20px 26px}
-.cfm h2{font-size:var(--fs-title);font-weight:600;line-height:1.3}
-.cfm>p{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px}
-.cf-t{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;column-gap:12px;margin-top:14px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.cf-t .tx,.atp-t .tx,.pkl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.cf-t b,.atp-t b,.pkl b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cf-t i,.atp-t i,.pkl i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cf-b{display:flex;flex-direction:column;gap:8px;margin-top:18px}
-.btn.dgr{background:var(--error);color:var(--on-error)}
-.btn.wide{display:flex;width:100%}
-/* 加入歌單 */
-.sheet.atp{top:58px;display:flex;flex-direction:column;padding-bottom:26px}
-.tbtn.ghost{visibility:hidden}
-.sheet.atp.fit{top:auto}.sheet.atp.fit .atp-c{flex:none;-webkit-mask:none;mask:none}
-.atp-c{flex:1;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(#000 calc(100% - 28px),transparent);mask:linear-gradient(#000 calc(100% - 28px),transparent)}
-.atp-t{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:12px;padding:2px 20px 12px}
-.stack{display:flex}.stack .cv+.cv{margin-left:-24px;box-shadow:-2px 0 0 var(--bg2)}
-.atp .sech,.ddlg .sech{height:34px;padding:8px 20px 0}
-.acct{font-size:var(--fs-meta);color:var(--fg3)}
-.scope{font-size:var(--fs-meta);color:var(--fg2);padding:8px 20px 0}
-.pkl li{display:grid;grid-template-columns:40px minmax(0,1fr) 20px;align-items:center;column-gap:12px;height:52px;padding:0 20px;border-bottom:1px solid var(--line)}
-.pkl li.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
-.pkl li.new{grid-template-columns:40px minmax(0,1fr) auto}
-.pkl li.new b{color:var(--accent)}
-.pkl li.new.sm{height:48px}
-.pkl li.new.sm .nsq{height:32px;width:32px;margin-left:4px}
-.nsq{width:40px;height:40px;border-radius:var(--r-cover);border:1.5px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--accent)}
-.pkl li.new .qf{height:40px}
-.pkl li.new .qv{flex:none}
-.plat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:52px;padding:6px 20px;border-bottom:1px solid var(--line)}
-.plat .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.plat b{font-size:14px;font-weight:600}
-.plat i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.plat .tbtn{white-space:nowrap}
-.chev{display:flex;color:var(--fg2);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-.chev.on{transform:rotate(180deg)}
-.scope.busy{display:flex;align-items:center;gap:6px}
-.pkl li.skel .sk{display:block;background:var(--bg2);border-radius:4px}
-.pkl li.skel .sk.cv{width:40px;height:40px;border-radius:var(--r-cover)}
-.pkl li.skel .tx{gap:6px}
-.atp-f{padding:12px 20px 0;border-top:1px solid var(--line)}
-.atp-s{font-size:var(--fs-meta);color:var(--fg2);margin-bottom:10px}
-.atp-s.err{color:var(--error)}
-.ddlg{position:absolute;z-index:8;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;max-height:700px;display:flex;flex-direction:column;border-radius:var(--r-sheet);padding:14px 0 16px}
-.pkl li.err i{color:var(--error)}
-.ddlg.cfmd{width:440px;padding:22px 24px 20px}
-.cfmd .cf-b{flex-direction:row;justify-content:flex-end;margin-top:20px}
-.ddlg-h{display:flex;align-items:center;justify-content:space-between;padding:0 12px 8px 20px}
-.ddlg-h b{font-size:var(--fs-title);font-weight:600}
-.ddlg-h .ib{width:32px;height:32px;color:var(--fg2)}
-.ddlg-f{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px 16px;padding:12px 20px 0;border-top:1px solid var(--line)}
-.ddlg-f .atp-s{margin:0;flex:1 0 100%}
-.ddlg-f .btns{display:flex;gap:8px;flex:none}
-.ddlg .pkl li{height:48px}
-.ddlg .pkl .cv,.ddlg .nsq{width:36px!important;height:36px!important}
-.ddlg .pkl li{grid-template-columns:36px minmax(0,1fr) 20px}
-.ddlg .pkl li:not(.focus):first-child{background:none}
+function typeScale(ctx, desk) {
+  const rows = desk
+    ? [['ty-large', '頁面標題 26/32 Bold', '音樂庫'], ['ty-title2', '區段標題 19/24 Bold', '線上結果'], ['ty-head', '列表標題 14/18 Semibold', '夜行列車'], ['ty-body', '內文 14/19', '收錄於 2026 年專輯《夜行》'], ['ty-sub', '次要 13/17', '鹿野青 · 4:12'], ['ty-foot', '註腳 12/16', '每 6 小時刷新'], ['ty-cap', '說明 11/14', '分 P 6']]
+    : [['ty-large', '大標題 34/41 Bold', '音樂庫'], ['ty-title2', '標題二 22/28 Bold', '線上結果'], ['ty-title3', '標題三 20/25 Semibold', '通勤路上'], ['ty-head', '標題列 17/22 Semibold', '夜行列車'], ['ty-body', '內文 17/22', '收錄於 2026 年專輯《夜行》'], ['ty-sub', '次要 15/20', '鹿野青'], ['ty-foot', '註腳 13/18', '每 6 小時刷新 · 12 分鐘前'], ['ty-cap', '說明 12/16', '共 64 首']];
+  return '<div class="sys-h">' + (desk ? '桌面（macOS／Windows 的內文較小）' : '手機（iOS 文字樣式，跟隨系統字級）') + '</div><div class="sys-type' + (desk ? ' desk' : '') + '">' + rows.map(([c, n, s]) => '<div><small>' + n + '</small><span class="' + c + '">' + s + '</span></div>').join('') + '</div>' +
+    '<div class="sys-note">字體用各平台的系統字：Apple 是 SF Pro＋蘋方，Android 是 Roboto＋Noto Sans CJK，Windows 是 Segoe UI Variable＋微軟正黑體。不打包字體，設定也不提供字體選項。數字一律等寬數字（tabular）。</div>';
+}
 
-/* 設定類頁面（設定、帳號、插件、匯入舊版備份） */
-.mn{font-family:var(--mono);font-size:.92em}
-.sgh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;height:48px;padding:0 20px 8px;border-bottom:1px solid var(--line-strong)}
-.sgh b{font-size:var(--fs-sm);font-weight:600}
-.sgm{font-size:var(--fs-meta);color:var(--fg2)}
-.sgl>li{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;padding:8px 20px;border-bottom:1px solid var(--line)}
-.sgl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.sgl .tx b{font-size:var(--fs-body);font-weight:500}
-.sgl .tx i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.sgl .tbtn{white-space:nowrap}
-.sgl li.stack{flex-direction:column;align-items:stretch;gap:12px;padding:12px 20px 14px}
-.val em{font-style:normal}
-/* 快到期：金色只屬於 VIP 與試聽，所以用前景色加粗，不另開顏色 */
-.val .warn,.warn{font-style:normal;color:var(--fg);font-weight:600}
-.up{font-style:normal;color:var(--accent);font-weight:600}
-em.err,.err{font-style:normal;color:var(--error)}
-.seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line-strong);border-radius:10px;flex:none}
-.seg span{display:flex;align-items:center;height:28px;padding:0 11px;border-radius:8px;font-size:var(--fs-sm);font-weight:600;color:var(--fg2);white-space:nowrap}
-.seg span.on{background:var(--accent-soft);color:var(--accent)}
-.sws{display:flex;gap:12px;flex-wrap:wrap}
-.swc{width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;flex:none}
-/* 稿裡淺色手機殼包在深色展示底裡，所以用較深一層的選擇器讓最近的主題勝出 */
-.t-dark .swc,.t-light .t-dark .swc{background:var(--d)}.t-light .swc,.t-dark .t-light .swc{background:var(--l)}
-.t-dark .swc .ic,.t-light .t-dark .swc .ic{fill:#121214}.t-light .swc .ic,.t-dark .t-light .swc .ic{fill:#fff}
-.swc.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg)}
-.swc.focus{outline:2px solid var(--accent);outline-offset:5px}
-.cbar{display:flex;align-items:center;justify-content:center;height:44px;border-bottom:1px solid var(--line);background:var(--bg)}
-.cbar b{font-size:var(--fs-title);font-weight:600}
-.scut .sgh:first-child{height:40px}
-.lh.sub{padding-top:0}
-.lh.sub h1{font-size:var(--fs-h2);line-height:32px}
-.fnote{font-size:var(--fs-meta);color:var(--fg2);padding:10px 20px 0;max-width:62ch}
-.sgl.q li{min-height:44px}
-.sgl.q li .tx b{font-size:14px}
-.sgl.q li.cur .tx b{color:var(--accent);font-weight:600}
-.sgl.q li.no .tx b{color:var(--fg3)}
-.qr-r{display:flex;align-items:center;gap:8px}
-.curm{display:inline-flex;align-items:center;gap:3px;font-style:normal;font-size:var(--fs-meta);font-weight:600;color:var(--accent)}
-.btn.sm{height:34px;padding:0 14px;font-size:13px}
-.dset{max-width:760px;padding:6px 28px 120px}
-.dset.w{max-width:none}
-.dmain .dset .lh{padding:0 0 16px}
-.dmain .dset .topbar{padding:0;margin:8px 0 4px}
-.dset .sgh,.dset .sgl>li{padding-left:0;padding-right:0}
-.dset .fnote{padding-left:0}
-/* 帳號 */
-.acb{padding:16px 20px 16px;border-top:1px solid var(--line-strong)}
-.dset .acb{padding:18px 0}
-.ach{display:grid;grid-template-columns:48px minmax(0,1fr) auto;column-gap:12px;align-items:center}
-.ach .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.ach b{font-size:var(--fs-title);font-weight:600}
-.ach i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-sm);color:var(--fg2)}
-.av{width:48px;height:48px;border-radius:24px;overflow:hidden;display:block}
-.av svg{display:block;width:100%;height:100%}
-.av.ax{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-strong);font:600 13px/1 var(--mono);color:var(--fg3)}
-.acn{font-size:var(--fs-sm);color:var(--fg2);margin:10px 0 0 60px;max-width:56ch}
-.acl{margin:12px 0 0 60px;border-top:1px solid var(--line)}
-.acl li{display:grid;grid-template-columns:72px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:40px;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
-.acl li>span:first-child{font-size:var(--fs-meta);color:var(--fg2)}
-.acl .v{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
-.acl .why{font-size:var(--fs-meta);color:var(--fg2)}
-.acl .dim{color:var(--fg3)}
-.aca{display:flex;gap:8px;margin:12px 0 0 60px}
-/* 登入 */
-.lgh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:44px;padding:0 20px}
-.lgh b{font-size:var(--fs-title);font-weight:600}
-.lgh .tbtn:last-child{justify-self:end}
-.lgseg{display:flex;justify-content:center;padding:6px 20px 0}
-.lgn{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 28px}
-.qrw{position:relative;width:236px;height:236px;margin-top:28px;padding:18px;border-radius:16px;background:#FFFFFF;box-shadow:0 0 0 1px var(--line)}
-.qrw svg{display:block;width:100%;height:100%}
-.qrw.dim svg{opacity:.1}
-.qro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#141416}
-.qro b{font-size:var(--fs-title);font-weight:600}
-.qok{width:52px;height:52px;border-radius:26px;background:#141416;display:flex;align-items:center;justify-content:center}.qok .ic{fill:#fff}
-.qst{margin-top:22px;display:flex;flex-direction:column;align-items:center}
-.qst b{font-size:var(--fs-title);font-weight:600}
-.qst p{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px;max-width:28ch;text-wrap:balance}
-.qst .btn{margin-top:16px}
-.qst p.qtime{font:var(--fs-meta) var(--mono);color:var(--fg3);margin-top:12px}
-.lgalt{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--fg2);padding-top:14px;margin:0 20px;border-top:1px solid var(--line)}
-.wvb{display:flex;align-items:center;gap:6px;height:32px;margin:14px 16px 0;padding:0 10px;border-radius:10px;background:var(--bg2);font:var(--fs-meta) var(--mono);color:var(--fg2)}
-.wvb span{flex:1}
-.wvp{position:absolute;left:0;right:0;top:182px;bottom:96px;background:#F4F4F2;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:44px 40px 0;gap:14px}
-.t-dark .wvp{background:#E9E9E6}
-.wsk{display:block;background:#D9D9D5;border-radius:6px}
-.wsk.w1{width:96px;height:28px}.wsk.w2{width:180px;height:12px;margin-bottom:12px}
-.wsk.f{width:100%;height:42px;background:#FFFFFF;border:1px solid #D2D2CE}
-.wsk.b{width:100%;height:42px;background:#C8C8C4}
-.wsk.w3{width:140px;height:10px}
-.wvp em{font-style:normal;font-size:var(--fs-meta);color:#6B6A65;margin-top:auto;margin-bottom:16px}
-.wvf{position:absolute;left:0;right:0;bottom:0;height:96px;padding:12px 24px 0;font-size:var(--fs-meta);color:var(--fg2);background:var(--bg);border-top:1px solid var(--line)}
-.lgi{font-size:var(--fs-sm);color:var(--fg);padding:8px 20px 4px}
-.steps{counter-reset:s;padding:4px 20px 0}
-.steps li{display:grid;grid-template-columns:20px 1fr;gap:8px;padding:9px 0;font-size:var(--fs-sm);color:var(--fg2);border-bottom:1px solid var(--line)}
-.steps li::before{counter-increment:s;content:counter(s);font:var(--fs-meta)/18px var(--mono);color:var(--fg3)}
-.steps .mn{color:var(--fg)}
-.ta{margin:0 20px;min-height:84px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--bg2);border:1px solid var(--line-strong);font:var(--fs-meta)/1.6 var(--mono);color:var(--fg);word-break:break-all}
-.tchk{display:flex;align-items:center;gap:6px;font-size:var(--fs-meta);color:var(--fg2);padding:10px 20px 0}
-.tchk .ic{fill:var(--accent)}
-.lgf{padding:20px 20px 0}
-.lgd{padding-bottom:28px}
-.lgd .qrw{margin-top:22px}
-/* 插件 */
-.mk{display:flex;align-items:center;justify-content:center;flex:none;border-radius:10px;background:var(--bg2);border:1px solid var(--line-strong);font:600 13px/1 var(--mono);color:var(--fg2)}
-.plg li{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:72px;padding:10px 20px;border-bottom:1px solid var(--line)}
-.plg .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.plg b{font-size:var(--fs-body);font-weight:600}
-.plg i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.plg i.caps{color:var(--fg3)}
-.plg li.bad i{white-space:normal}
-.pr-r{display:flex;color:var(--fg3)}
-.rfs.up{color:var(--accent);font-weight:600}
-.rfs.up .tbtn{font-weight:600}
-.sh-h.nb{border-bottom:0;padding-bottom:4px}
-.uph{font-size:var(--fs-meta);font-weight:600;color:var(--fg2);margin-top:12px}
-.rnl{margin-top:6px;padding-left:16px;list-style:disc;font-size:var(--fs-sm)}
-.rnl li{padding:2px 0}
-.upd .tchk,.upd .fnote,.cfm .fnote{padding-left:0;padding-right:0}
-.adds{margin-top:14px;border-top:1px solid var(--line)}
-.adds li{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.adds .pl{font:600 15px/20px var(--mono);color:var(--accent)}
-.adds .tx{display:flex;flex-direction:column;gap:3px}
-.adds b{font-size:14px;font-weight:600}
-.adds i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.pdh{display:flex;gap:14px;align-items:center;padding:0 20px 18px}
-.pdh h1{font-size:var(--fs-h2);line-height:32px;font-weight:700}
-.capl li{display:grid;grid-template-columns:14px minmax(0,1fr);column-gap:12px;align-items:center;min-height:48px;padding:6px 20px;border-bottom:1px solid var(--line)}
-.capl .dot{width:4px;height:4px;border:0;border-radius:2px;background:var(--fg3);justify-self:center}
-.capl .tx{display:flex;flex-direction:column;gap:2px}
-.capl b{font-size:14px;font-weight:600}.capl i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.doml li{display:flex;align-items:center;height:36px;padding:0 20px;border-bottom:1px solid var(--line);font-size:var(--fs-meta)}
-.dh.g,.dg{display:grid;grid-template-columns:36px minmax(0,1fr) 56px 120px minmax(0,1.6fr) 104px;column-gap:14px;align-items:center}
-.dh.g{padding:0;border-bottom:1px solid var(--line-strong)}
-.dgl .dg{position:relative;height:60px;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
-.dg b{font-size:14px;font-weight:600}
-.dg .o{color:var(--fg2);font-size:var(--fs-meta)}
-.dg .caps{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dg .act{display:flex;justify-content:flex-end}
-.dg.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
-.dset .rfs{padding:0;margin-top:4px}
-.fnote.d{padding-top:14px}
-/* 匯入舊版備份 */
-.bkp{font-size:var(--fs-sm);color:var(--fg2);padding:0 20px 8px;max-width:60ch}
-.fcard{display:grid;grid-template-columns:26px minmax(0,1fr) auto;column-gap:12px;align-items:center;margin:0 20px 6px;padding:12px 14px;border-radius:var(--r-ctl);background:var(--bg2);color:var(--fg2)}
-.fcard .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.fcard b{font-size:var(--fs-meta);font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fcard i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.fcard.err{color:var(--error);grid-template-columns:26px minmax(0,1fr)}
-.fcard.err i{color:var(--error)}
-.dset .fcard{margin:0 0 6px}
-.bkl li{display:grid;grid-template-columns:minmax(0,1fr) auto 20px;column-gap:14px;align-items:center;min-height:56px;padding:8px 20px;border-bottom:1px solid var(--line)}
-.bkl.res li{grid-template-columns:minmax(0,1fr) auto;min-height:52px}
-.bkl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.bkl b{font-size:var(--fs-body);font-weight:500}
-.bkl i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.bkl .n{font:var(--fs-meta)/1 var(--mono);color:var(--fg2);text-align:right;white-space:nowrap}
-.bkl li.skip b,.bkl li.skip i,.bkl li.skip .n{color:var(--fg3)}
-.ck.dis{opacity:.38;border-style:dashed}
-.dset .bkl li{padding-left:0;padding-right:0}
-.bkf{position:absolute;left:0;right:0;bottom:170px;z-index:2;padding:12px 20px 0;border-top:1px solid var(--line);background:var(--bg)}
-.bkp-l li{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto;column-gap:12px;align-items:center;height:48px;padding:0 20px;border-bottom:1px solid var(--line)}
-.bkp-l b{font-size:var(--fs-body);font-weight:500}
-.bkp-l .n{font:var(--fs-meta)/1 var(--mono);color:var(--fg2)}
-.bkp-l .ld{display:flex;align-items:center;justify-content:center}
-.bkp-l li.done .ic{fill:var(--accent)}
-.bkp-l li.now b,.bkp-l li.now .n{color:var(--accent);font-weight:600}
-.bkp-l li.todo b,.bkp-l li.todo .n{color:var(--fg3)}
-.dot{display:block;width:6px;height:6px;border-radius:3px;border:1.5px solid var(--line-strong)}
-.dbf{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
-.dbf .atp-s{flex:1;margin:0}
-.dbf .btns{display:flex;gap:8px}
-.bke li{display:grid;grid-template-columns:140px minmax(0,1fr);column-gap:14px;align-items:center;min-height:44px;border-bottom:1px solid var(--line);font-size:var(--fs-sm);font-weight:600;color:var(--error)}
-.bke li span{font-weight:400;color:var(--fg2);font-size:var(--fs-meta)}
-.wvp.ns{top:136px}
-.tchk.bad{color:var(--error)}.tchk.bad .ic{fill:var(--error)}
-.lerr{display:flex;flex-direction:column;gap:4px;margin:6px 20px 4px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:var(--fs-sm);color:var(--error)}
-.lerr b{font-weight:600}.lerr span{font-size:var(--fs-meta);color:var(--fg2)}
-.pkl.bat{margin-top:12px;border-top:1px solid var(--line)}
-.pkl.bat li{padding:8px 0;height:auto;min-height:64px}
-.pkl.bat i.up{font-weight:600}
-.pkl.bat i{white-space:normal}
-.dset .pdh{padding:0 0 18px}
-.dset .capl li,.dset .doml li{padding-left:0;padding-right:0}
+function badges(ctx) {
+  const rows = ['t01', 't04', 't09', 't05', 't02'].map((id, i) => FMP.trackRow(FMP.T[id], { playing: i === 0 })).join('');
+  return '<div class="sys-h">音源標識</div><div class="sys-row">' + ['bilibili', 'youtube', 'netease', 'lrclib'].map((s) => FMP.src(s, true)).join('<span style="width:10px"></span>') + '</div>' +
+    '<div class="sys-row" style="margin-top:10px">' + ['bilibili', 'youtube', 'netease'].map((s) => FMP.srcChip(s, true)).join('') + '</div>' +
+    '<div class="sys-h" style="margin-top:22px">存取等級</div><div class="sys-row">' + FMP.acc('vip') + FMP.acc('paid') + FMP.acc('trial') + '<span style="width:16px"></span>' + FMP.acc('vip', true) + FMP.acc('paid', true) + FMP.acc('trial', true) + '<span class="part">6P</span></div>' +
+    '<div class="sys-note">三種會限制收聽的等級才顯示，形狀各不同（實心、外框、半圓），色盲也分得出；免費與插件判斷不了的不顯示，列表不會被徽章淹沒。</div>' +
+    '<div class="sys-h" style="margin-top:22px">在曲目列裡</div><div class="sys-box" style="--sep-inset:76px">' + rows + '</div>';
+}
 
-/* 系統頁 */
-.sys{display:grid;grid-template-columns:repeat(2,minmax(0,560px));gap:32px}
-.card{border-radius:16px;padding:24px;overflow:hidden}
-.card h3{font-size:var(--fs-title);margin-bottom:14px}
-.sw{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
-.sw i{width:44px;height:28px;border-radius:6px;border:1px solid var(--line-strong)}
-.sw code{font:var(--fs-meta) var(--mono);color:var(--fg2)}
-.ts{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
-.ts code{font:var(--fs-meta) var(--mono);color:var(--fg2)}
-.sp-demo{display:flex;align-items:flex-end;gap:10px;padding-top:6px}
-.sp-demo span{display:block;background:var(--accent-soft);border:1px solid var(--accent)}
-.sp-demo figure{display:flex;flex-direction:column;align-items:center;gap:6px;font:var(--fs-cap) var(--mono);color:var(--fg2)}
-.wc{display:grid;grid-template-columns:1fr;gap:8px;font-size:var(--fs-sm)}
-.wc div{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
-.glassdemo{position:relative;height:220px;border-radius:12px;overflow:hidden;background:var(--bg)}
-.glassdemo ul{position:absolute;inset:0}
-.glassdemo .spine{left:16px;right:16px;bottom:16px}
-.stl{font-size:var(--fs-meta);color:var(--fg2);margin-top:8px}
-.tagrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.accents{display:flex;gap:10px;flex-wrap:wrap}
-.accents figure{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--fg2)}
-.accents i{width:36px;height:36px;border-radius:18px;display:block;border:1px solid var(--line-strong)}
-.accents .x i{opacity:.35;background-image:linear-gradient(135deg,transparent 47%,var(--fg) 47%,var(--fg) 53%,transparent 53%)!important}
-</style></head><body class="doc t-dark"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm5.2 9.8 4 4-1.4 1.4-4-4z"/></symbol><symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 5h12v2H4zm0 5h8v2H4zm14-3 4 3-4 3z"/></symbol><symbol id="i-library" viewBox="0 0 24 24"><path d="M5 4h2v16H5zm4 0h2v16H9zm4.2.6 1.9-.6 4.9 15.2-1.9.6z"/></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm-1.2-6h2.4l.5 2.6 1.8.8 2.2-1.5 1.7 1.7-1.5 2.2.8 1.8 2.6.5v2.4l-2.6.5-.8 1.8 1.5 2.2-1.7 1.7-2.2-1.5-1.8.8-.5 2.6h-2.4l-.5-2.6-1.8-.8-2.2 1.5-1.7-1.7 1.5-2.2-.8-1.8-2.6-.5v-2.4l2.6-.5.8-1.8-1.5-2.2 1.7-1.7 2.2 1.5 1.8-.8z"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5z"/></symbol><symbol id="i-next" viewBox="0 0 24 24"><path d="M5 5l9 7-9 7zm10 0h3v14h-3z"/></symbol><symbol id="i-prev" viewBox="0 0 24 24"><path d="M19 5l-9 7 9 7zM6 5h3v14H6z"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="M15.4 4.6 8 12l7.4 7.4-1.4 1.4L5.2 12 14 3.2z"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><path d="M5 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></symbol><symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 4h4v4l-1.5-1.5-3.3 3.3-1.4-1.4 3.3-3.3zM4 6.6 5.4 5.2l13.1 13.1L20 16.8V20h-4l1.5-1.5L4.4 5.4zM9.8 13.4l1.4 1.4-5.8 5.8L4 19.2z"/></symbol><symbol id="i-down" viewBox="0 0 24 24"><path d="M4.6 8.6 12 16l7.4-7.4 1.4 1.4-8.8 8.8L3.2 10z"/></symbol><symbol id="i-listadd" viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 5h12v2H3zm0 5h8v2H3zm14-3h2v3h3v2h-3v3h-2v-3h-3v-2h3z"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm-1 7h2v6h-2zm0-4h2v2h-2z"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24"><path d="M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2z"/></symbol><symbol id="i-repeat1" viewBox="0 0 24 24"><path d="M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2zM11.2 10.2 13 9.5h.8v5h-1.4v-3.4l-1.2.4z"/></symbol><symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zm12.5-1.5a6 6 0 0 1 0 9l-1.4-1.4a4 4 0 0 0 0-6.2zm2.8-2.8a10 10 0 0 1 0 14.6l-1.4-1.4a8 8 0 0 0 0-11.8z"/></symbol><symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></symbol><symbol id="i-speaker" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm5 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0-6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 0 1 6.5 6.5z"/></symbol><symbol id="i-thumb" viewBox="0 0 24 24"><path d="M3 10h4v10H3zm6 10V10l4-7c1.6 0 2.5 1.2 2.1 2.7L14.5 9H20a1.8 1.8 0 0 1 1.8 2.1l-1.4 7.3A2 2 0 0 1 18.4 20z"/></symbol><symbol id="i-playcount" viewBox="0 0 24 24"><path d="M8 5.5 18 12 8 18.5z"/></symbol><symbol id="i-chev" viewBox="0 0 24 24"><path d="M8.6 4.6 16 12l-7.4 7.4 1.4 1.4 8.8-8.8L10 3.2z"/></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 1-8.5 12h2.1A7 7 0 1 0 6 10.6V11h2.5L5 14.5 1.5 11H4v-.4A9 9 0 0 1 13 3Zm-1 4h2v5.2l3.6 2.1-1 1.7-4.6-2.7z"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M9.5 15.6 19.1 6l1.4 1.4-11 11-5.9-5.9L5 11.1z"/></symbol><symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 3l4 4.5h-3V16H7V7.5H4zm8 18-4-4.5h3V8h2v8.5h3z"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a1 1 0 0 1 0-1.4l3.5-3.5 1.4 1.4-3.5 3.5a1 1 0 0 1-1.4 0ZM8 11.5l-2.1 2.1a3 3 0 0 0 4.2 4.3l2.2-2.2 1.4 1.4-2.2 2.2a5 5 0 0 1-7-7.1l2.1-2.1zm8 1 2.1-2.1a3 3 0 0 0-4.2-4.3l-2.2 2.2-1.4-1.4 2.2-2.2a5 5 0 0 1 7 7.1l-2.1 2.1z"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 1 7.4 5H22l-3.5 4-3.5-4h2.2A6 6 0 1 0 18 14.6l1.8.9A8 8 0 1 1 12 4Z"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M8 3h11a2 2 0 0 1 2 2v11h-2V5H8zM5 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h10V9z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zm2.1 2 .8 9h6.2l.8-9z"/></symbol><symbol id="i-playnext" viewBox="0 0 24 24"><path d="M3 5h11v2H3zm0 5h11v2H3zm0 5h7v2H3zm10-1 8 4-8 4z"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></symbol><symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 16.8 15.6 5.2l3.2 3.2L7.2 20H4zm13-13 1.4-1.4a1 1 0 0 1 1.4 0l1.8 1.8a1 1 0 0 1 0 1.4L20.2 7z"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0zm-2 2v7h10v-7z"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 2v16h11V9h-5V4zm3 9h6v2H9zm0 3h6v2H9z"/></symbol><symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></symbol><symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 2.5 23 21.5H1zm0 4L4.5 19.5h15zM11 10h2v5h-2zm0 6h2v2h-2z"/></symbol></svg><nav class="navl"><a href="index.html">總覽</a><a href="system.html">設計系統</a><a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="playlist.html">歌單詳情</a><a href="add-to-playlist.html">加入歌單</a><a href="settings.html">設定</a><a href="account.html">帳號與登入</a><a href="plugins.html">插件</a><a href="backup.html">匯入舊版備份</a><a href="shell-b.html">外殼 B（未採用）</a></nav><h1 class="pt">設計系統：卡帶 J-card</h1><p class="lead">介面像一張摺起來的卡帶曲目卡：曲目密排、時長對齊成一欄、一條摺線把已播和接下來分開。玻璃只用在浮在內容上的控制層，內容一律實心；層級只靠疊放，內容本身不加陰影。</p><p class="note">曲目、播放量與封面都是示意資料；封面是自繪的幾何圖，不是真實專輯封面。強調色用預設的 FMP 紫。</p><h2 class="sec">色彩與元件</h2><div class="sys"><div class="card t-dark"><h3>色彩 · 深色</h3><div class="sw"><i style="background:var(--bg)"></i><span>底</span><code>--bg</code></div><div class="sw"><i style="background:var(--bg2)"></i><span>第二層底（面板、導覽軌）</span><code>--bg2</code></div><div class="sw"><i style="background:var(--fg)"></i><span>主要文字</span><code>--fg</code></div><div class="sw"><i style="background:var(--fg2)"></i><span>次要文字</span><code>--fg2</code></div><div class="sw"><i style="background:var(--fg3)"></i><span>序號、已播</span><code>--fg3</code></div><div class="sw"><i style="background:var(--accent)"></i><span>強調色（互動與目前狀態）</span><code>--accent</code></div><div class="sw"><i style="background:var(--vip)"></i><span>VIP（唯一的實心標籤）</span><code>--vip</code></div><div class="sw"><i style="background:var(--trial)"></i><span>試聽</span><code>--trial</code></div></div><div class="card t-dark"><h3>元件 · 深色</h3><div class="tagrow"><span class="tag">B站</span><span class="tag">YT</span><span class="tag">網易</span><span class="tag vip">VIP</span><span class="tag trial">試聽</span><span class="tag login">需登入</span></div><div class="tagrow"><span class="btn pri"><svg class="ic s" aria-hidden="true"><use href="#i-play"/></svg>播放</span><span class="btn ton"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="btn out"><svg class="ic s" aria-hidden="true"><use href="#i-plus"/></svg>加入佇列</span></div><div class="tagrow"><span class="togs"><span class="tog" role="switch" aria-checked="false"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="tog" role="button"><svg class="ic s" aria-hidden="true"><use href="#i-repeat"/></svg>不循環</span></span><span class="togs"><span class="tog on" role="switch" aria-checked="true"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="tog on" role="button"><svg class="ic s" aria-hidden="true"><use href="#i-repeat"/></svg>列表循環</span></span><span class="togs"><span class="tog on" role="switch" aria-checked="true"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="tog on" role="button"><svg class="ic s" aria-hidden="true"><use href="#i-repeat1"/></svg>單曲循環</span></span></div><p class="stl" style="margin:-4px 0 12px">隨機與循環各自獨立：上排依序是兩個都關、隨機＋列表循環、隨機＋單曲循環</p><ul class="tl"><li class="tr "><span class="ix">3</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#2F5D50"/><path d="M0 100 L100 18 L100 100Z" fill="#C9B37E"/><circle cx="28" cy="30" r="12" fill="#F2EBDD"/></svg></span><span class="tx"><b>晴天</b><i>周杰倫</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:29</span></span></li><li class="tr "><span class="ix">6</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#191335"/><circle cx="64" cy="40" r="30" fill="#E7537B"/><rect x="0" y="72" width="100" height="6" fill="#F6C1D0"/></svg></span><span class="tx"><b>アイドル</b><i>YOASOBI</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag trial">試聽</span></span><span class="du">3:33</span></span></li><li class="tr off off"><span class="ix">8</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#5B6770"/><rect x="12" y="48" width="9" height="22" fill="#1F2529"/><rect x="28" y="24" width="9" height="46" fill="#D8D2C4"/><rect x="44" y="36" width="9" height="34" fill="#1F2529"/><rect x="60" y="12" width="9" height="58" fill="#D8D2C4"/><rect x="76" y="42" width="9" height="28" fill="#1F2529"/></svg></span><span class="tx"><b>富士山下</b><i>陳奕迅</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag login">需登入</span></span><span class="du">4:19</span></span></li></ul><h3 style="margin-top:20px">狀態</h3><ul class="tl"><li class="tr hover"><span class="ix">4</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><span class="tx"><b>【初音ミク】千本桜</b><i>黒うさP · 1203萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">4:04</span></span></li><li class="tr pressed"><span class="ix">5</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#C23B3B"/><circle cx="50" cy="50" r="40" fill="#E8E1C9"/><circle cx="50" cy="50" r="12" fill="#2A2A2A"/></svg></span><span class="tx"><b>Lemon</b><i>米津玄師</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:15</span></span></li><li class="tr focus"><span class="ix">7</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#7A1F2B"/><path d="M0 100 L100 18 L100 100Z" fill="#F0B46B"/><circle cx="28" cy="30" r="12" fill="#2B0E12"/></svg></span><span class="tx"><b>残響散歌</b><i>Aimer · 312萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">3:05</span></span></li><li class="tr off off"><span class="ix">8</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#5B6770"/><rect x="12" y="48" width="9" height="22" fill="#1F2529"/><rect x="28" y="24" width="9" height="46" fill="#D8D2C4"/><rect x="44" y="36" width="9" height="34" fill="#1F2529"/><rect x="60" y="12" width="9" height="58" fill="#D8D2C4"/><rect x="76" y="42" width="9" height="28" fill="#1F2529"/></svg></span><span class="tx"><b>富士山下</b><i>陳奕迅</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag login">需登入</span></span><span class="du">4:19</span></span></li></ul><p class="stl">由上而下：滑鼠移入、按下、鍵盤焦點、不能播（需登入，整列變淡，點了引導登入）</p><div class="tagrow" style="margin-top:12px"><span class="btn pri focus"><svg class="ic s" aria-hidden="true"><use href="#i-play"/></svg>焦點</span><span class="btn pri dis"><svg class="ic s" aria-hidden="true"><use href="#i-play"/></svg>停用</span><span class="ni on focus" style="width:78px"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>焦點</span></span></div><h3 style="margin-top:20px">玻璃只在浮動控制層</h3><div class="glassdemo"><ul class="tl"><li class="tr now"><span class="ix">1</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#9AA3B5"/><circle cx="50" cy="50" r="40" fill="#2B2F3A"/><circle cx="50" cy="50" r="12" fill="#E9E4D8"/></svg></span><span class="tx"><b>フレグランス (Fragrance/香味)</b><i>茉ひる · 1050萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">3:26</span></span></li><li class="tr "><span class="ix">2</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#F1C9D9"/><circle cx="64" cy="40" r="30" fill="#7B5FA8"/><rect x="0" y="72" width="100" height="6" fill="#FFFFFF"/></svg></span><span class="tx"><b>一輪花 (Nightcore)</b><i>親親2o音樂 · 86萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">4:02</span></span></li><li class="tr "><span class="ix">3</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#2F5D50"/><path d="M0 100 L100 18 L100 100Z" fill="#C9B37E"/><circle cx="28" cy="30" r="12" fill="#F2EBDD"/></svg></span><span class="tx"><b>晴天</b><i>周杰倫</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:29</span></span></li><li class="tr "><span class="ix">4</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><span class="tx"><b>【初音ミク】千本桜</b><i>黒うさP · 1203萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">4:04</span></span></li></ul><div class="spine glass"><span class="pl" style="width:31%"></span><span class="fold" style="left:31%"></span><span class="cv" style="width:40px;height:40px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#9AA3B5"/><circle cx="50" cy="50" r="40" fill="#2B2F3A"/><circle cx="50" cy="50" r="12" fill="#E9E4D8"/></svg></span><span class="t"><b>フレグランス (Fragrance/香味)</b><i>茉ひる · 1:04 / 3:26</i></span><span class="c"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg></span></div></div></div><div class="card t-light"><h3>色彩 · 淺色</h3><div class="sw"><i style="background:var(--bg)"></i><span>底</span><code>--bg</code></div><div class="sw"><i style="background:var(--bg2)"></i><span>第二層底（面板、導覽軌）</span><code>--bg2</code></div><div class="sw"><i style="background:var(--fg)"></i><span>主要文字</span><code>--fg</code></div><div class="sw"><i style="background:var(--fg2)"></i><span>次要文字</span><code>--fg2</code></div><div class="sw"><i style="background:var(--fg3)"></i><span>序號、已播</span><code>--fg3</code></div><div class="sw"><i style="background:var(--accent)"></i><span>強調色（互動與目前狀態）</span><code>--accent</code></div><div class="sw"><i style="background:var(--vip)"></i><span>VIP（唯一的實心標籤）</span><code>--vip</code></div><div class="sw"><i style="background:var(--trial)"></i><span>試聽</span><code>--trial</code></div></div><div class="card t-light"><h3>元件 · 淺色</h3><div class="tagrow"><span class="tag">B站</span><span class="tag">YT</span><span class="tag">網易</span><span class="tag vip">VIP</span><span class="tag trial">試聽</span><span class="tag login">需登入</span></div><div class="tagrow"><span class="btn pri"><svg class="ic s" aria-hidden="true"><use href="#i-play"/></svg>播放</span><span class="btn ton"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="btn out"><svg class="ic s" aria-hidden="true"><use href="#i-plus"/></svg>加入佇列</span></div><div class="tagrow"><span class="togs"><span class="tog" role="switch" aria-checked="false"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="tog" role="button"><svg class="ic s" aria-hidden="true"><use href="#i-repeat"/></svg>不循環</span></span><span class="togs"><span class="tog on" role="switch" aria-checked="true"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="tog on" role="button"><svg class="ic s" aria-hidden="true"><use href="#i-repeat"/></svg>列表循環</span></span><span class="togs"><span class="tog on" role="switch" aria-checked="true"><svg class="ic s" aria-hidden="true"><use href="#i-shuffle"/></svg>隨機</span><span class="tog on" role="button"><svg class="ic s" aria-hidden="true"><use href="#i-repeat1"/></svg>單曲循環</span></span></div><p class="stl" style="margin:-4px 0 12px">隨機與循環各自獨立：上排依序是兩個都關、隨機＋列表循環、隨機＋單曲循環</p><ul class="tl"><li class="tr "><span class="ix">3</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#2F5D50"/><path d="M0 100 L100 18 L100 100Z" fill="#C9B37E"/><circle cx="28" cy="30" r="12" fill="#F2EBDD"/></svg></span><span class="tx"><b>晴天</b><i>周杰倫</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:29</span></span></li><li class="tr "><span class="ix">6</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#191335"/><circle cx="64" cy="40" r="30" fill="#E7537B"/><rect x="0" y="72" width="100" height="6" fill="#F6C1D0"/></svg></span><span class="tx"><b>アイドル</b><i>YOASOBI</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag trial">試聽</span></span><span class="du">3:33</span></span></li><li class="tr off off"><span class="ix">8</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#5B6770"/><rect x="12" y="48" width="9" height="22" fill="#1F2529"/><rect x="28" y="24" width="9" height="46" fill="#D8D2C4"/><rect x="44" y="36" width="9" height="34" fill="#1F2529"/><rect x="60" y="12" width="9" height="58" fill="#D8D2C4"/><rect x="76" y="42" width="9" height="28" fill="#1F2529"/></svg></span><span class="tx"><b>富士山下</b><i>陳奕迅</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag login">需登入</span></span><span class="du">4:19</span></span></li></ul><h3 style="margin-top:20px">狀態</h3><ul class="tl"><li class="tr hover"><span class="ix">4</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><span class="tx"><b>【初音ミク】千本桜</b><i>黒うさP · 1203萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">4:04</span></span></li><li class="tr pressed"><span class="ix">5</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#C23B3B"/><circle cx="50" cy="50" r="40" fill="#E8E1C9"/><circle cx="50" cy="50" r="12" fill="#2A2A2A"/></svg></span><span class="tx"><b>Lemon</b><i>米津玄師</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:15</span></span></li><li class="tr focus"><span class="ix">7</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#7A1F2B"/><path d="M0 100 L100 18 L100 100Z" fill="#F0B46B"/><circle cx="28" cy="30" r="12" fill="#2B0E12"/></svg></span><span class="tx"><b>残響散歌</b><i>Aimer · 312萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">3:05</span></span></li><li class="tr off off"><span class="ix">8</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#5B6770"/><rect x="12" y="48" width="9" height="22" fill="#1F2529"/><rect x="28" y="24" width="9" height="46" fill="#D8D2C4"/><rect x="44" y="36" width="9" height="34" fill="#1F2529"/><rect x="60" y="12" width="9" height="58" fill="#D8D2C4"/><rect x="76" y="42" width="9" height="28" fill="#1F2529"/></svg></span><span class="tx"><b>富士山下</b><i>陳奕迅</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag login">需登入</span></span><span class="du">4:19</span></span></li></ul><p class="stl">由上而下：滑鼠移入、按下、鍵盤焦點、不能播（需登入，整列變淡，點了引導登入）</p><div class="tagrow" style="margin-top:12px"><span class="btn pri focus"><svg class="ic s" aria-hidden="true"><use href="#i-play"/></svg>焦點</span><span class="btn pri dis"><svg class="ic s" aria-hidden="true"><use href="#i-play"/></svg>停用</span><span class="ni on focus" style="width:78px"><svg class="ic " aria-hidden="true"><use href="#i-library"/></svg><span>焦點</span></span></div><h3 style="margin-top:20px">玻璃只在浮動控制層</h3><div class="glassdemo"><ul class="tl"><li class="tr now"><span class="ix">1</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#9AA3B5"/><circle cx="50" cy="50" r="40" fill="#2B2F3A"/><circle cx="50" cy="50" r="12" fill="#E9E4D8"/></svg></span><span class="tx"><b>フレグランス (Fragrance/香味)</b><i>茉ひる · 1050萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">3:26</span></span></li><li class="tr "><span class="ix">2</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#F1C9D9"/><circle cx="64" cy="40" r="30" fill="#7B5FA8"/><rect x="0" y="72" width="100" height="6" fill="#FFFFFF"/></svg></span><span class="tx"><b>一輪花 (Nightcore)</b><i>親親2o音樂 · 86萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">4:02</span></span></li><li class="tr "><span class="ix">3</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#2F5D50"/><path d="M0 100 L100 18 L100 100Z" fill="#C9B37E"/><circle cx="28" cy="30" r="12" fill="#F2EBDD"/></svg></span><span class="tx"><b>晴天</b><i>周杰倫</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:29</span></span></li><li class="tr "><span class="ix">4</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><span class="tx"><b>【初音ミク】千本桜</b><i>黒うさP · 1203萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">4:04</span></span></li></ul><div class="spine glass"><span class="pl" style="width:31%"></span><span class="fold" style="left:31%"></span><span class="cv" style="width:40px;height:40px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#9AA3B5"/><circle cx="50" cy="50" r="40" fill="#2B2F3A"/><circle cx="50" cy="50" r="12" fill="#E9E4D8"/></svg></span><span class="t"><b>フレグランス (Fragrance/香味)</b><i>茉ひる · 1:04 / 3:26</i></span><span class="c"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg></span></div></div></div></div><h2 class="sec">字級</h2><div class="sys"><div class="card t-dark"><div class="ts"><code>--fs-h1</code><span style="font-size:32px;font-weight:700">32 · 大標題 通勤用 フレグランス</span></div><div class="ts"><code>--fs-h2</code><span style="font-size:26px;font-weight:700">26 · 頁標題 通勤用 フレグランス</span></div><div class="ts"><code>--fs-h3</code><span style="font-size:20px;font-weight:700">20 · 區段 通勤用 フレグランス</span></div><div class="ts"><code>--fs-title</code><span style="font-size:17px;font-weight:600">17 · 標題列 通勤用 フレグランス</span></div><div class="ts"><code>--fs-body</code><span style="font-size:15px;font-weight:500">15 · 內文、曲名 通勤用 フレグランス</span></div><div class="ts"><code>--fs-sm</code><span style="font-size:13px;font-weight:400">13 · 說明 通勤用 フレグランス</span></div><div class="ts"><code>--fs-meta</code><span style="font-size:12px;font-weight:400">12 · 歌手、時長 通勤用 フレグランス</span></div><div class="ts"><code>--fs-cap</code><span style="font-size:11px;font-weight:500">11 · 標籤 通勤用 フレグランス</span></div></div><div class="card t-dark"><h3>字型</h3><p class="desc" style="font-size:14px;color:var(--fg2)">一個系統字族撐全部：Apple 平台用 PingFang TC，Windows 用 Microsoft JhengHei UI，Android 用 Noto Sans TC／Roboto。數字一律等寬（tabular）；時長與計時用等寬字型，對齊成一欄。比例約 1.2，字級跟系統字級設定縮放。</p><h3 style="margin-top:20px">間距（4pt 網格）</h3><div class="sp-demo"><figure><span style="width:4px;height:4px"></span>4</figure><figure><span style="width:8px;height:8px"></span>8</figure><figure><span style="width:12px;height:12px"></span>12</figure><figure><span style="width:16px;height:16px"></span>16</figure><figure><span style="width:20px;height:20px"></span>20</figure><figure><span style="width:24px;height:24px"></span>24</figure><figure><span style="width:32px;height:32px"></span>32</figure></div><h3 style="margin-top:20px">列高</h3><p class="desc" style="font-size:14px;color:var(--fg2)">手機曲目列 60（封面 44），桌面曲目列 52（封面 36），固定不隨內容長短變。圓角：封面 6、標籤 4、按鈕 12、書脊 16、sheet 20。</p></div></div><h2 class="sec">寬度分級</h2><div class="sys"><div class="card t-dark wc"><div><b>compact</b><span>&lt; 600：底部分頁列，迷你播放器在上方（A）或浮動膠囊（B）</span></div><div><b>medium</b><span>600–839：左側收合導覽軌，播放列在底部</span></div><div><b>expanded</b><span>≥ 840：導覽軌（A）或浮動側欄（B）＋內容＋有目前曲目時的右側詳情面板</span></div></div><div class="card t-dark"><h3>強調色預設（左淺色、右深色）</h3><div class="accents"><figure class=""><i style="background:linear-gradient(90deg,#6750A4 50%,#CFBCFF 50%)"></i>預設紫</figure><figure class=""><i style="background:linear-gradient(90deg,#3F51B5 50%,#BAC3FF 50%)"></i>靛藍</figure><figure class=""><i style="background:linear-gradient(90deg,#0061A4 50%,#9FCAFF 50%)"></i>藍</figure><figure class=""><i style="background:linear-gradient(90deg,#006A6A 50%,#4CDADA 50%)"></i>青綠</figure><figure class=""><i style="background:linear-gradient(90deg,#006E1C 50%,#78DC77 50%)"></i>綠</figure><figure class="x"><i style="background:linear-gradient(90deg,#F9A825 50%,#F9A825 50%)"></i>黃</figure><figure class=""><i style="background:linear-gradient(90deg,#7C5800 50%,#F5BF48 50%)"></i>橙</figure><figure class=""><i style="background:linear-gradient(90deg,#BA1A1A 50%,#FFB4AB 50%)"></i>紅</figure><figure class=""><i style="background:linear-gradient(90deg,#984061 50%,#FFB0C8 50%)"></i>粉</figure></div><p class="desc" style="font-size:13px;color:var(--fg2);margin-top:14px">沿用舊版 9 色。黃色在淺色底上和白字、和底色的對比都不足，劃掉；其餘 8 色淺色用原值、深色用同色相的淺階。強調色只標互動與目前狀態，玻璃與底色不帶它。</p></div></div></body></html>
+function components(ctx) {
+  return '<div class="sys-h">按鈕</div><div class="sys-row"><button class="btn btn-primary">' + I('play', 's18') + '播放全部</button><button class="btn btn-tinted">' + I('shuffle', 's18') + '隨機播放</button><button class="btn btn-gray">取消</button><button class="btn btn-plain">清空</button><button class="btn btn-danger">從遠端移除</button><button class="btn btn-primary btn-sm">新建歌單</button></div>' +
+    '<div class="sys-h" style="margin-top:22px">切換</div><div class="sys-row"><button class="tog on" data-toggle>' + I('shuffle') + '隨機</button><button class="tog" data-toggle>' + I('repeat') + '循環</button><button class="tog on">' + I('repeat1') + '單曲循環</button><span style="width:12px"></span><span class="switch on"></span><span class="switch"></span><span class="check on">' + I('check') + '</span><span class="check">' + I('check') + '</span></div>' +
+    '<div class="sys-h" style="margin-top:22px">篩選與分段</div><div class="sys-row"><button class="chip on">全部音源</button><button class="chip">' + FMP.srcMark('bilibili') + 'Bilibili</button><button class="chip">' + FMP.srcMark('youtube') + 'YouTube</button><button class="chip">' + FMP.srcMark('netease') + '網易雲</button><div class="seg"><button class="on">歌詞</button><button>佇列</button></div></div>' +
+    '<div class="sys-h" style="margin-top:22px">欄位</div><div class="field" style="max-width:360px">' + I('search') + '<span class="ph">搜尋三個音源</span></div>' +
+    '<div class="sys-h" style="margin-top:22px">群組列表</div><div class="group" style="margin:0;max-width:420px">' +
+    '<div class="gcell" style="--sep-inset:58px"><span class="gicon" style="background:#8E8A99">' + I('user') + '</span><span class="gl">帳號<small>2 個已登入 · 1 個會員快到期</small></span><span class="gv">' + I('chevR', 'chev') + '</span></div>' +
+    '<div class="gcell" style="--sep-inset:58px"><span class="gicon" style="background:#8E8A99">' + I('plugin') + '</span><span class="gl">插件</span><span class="gv">1 個更新' + I('chevR', 'chev') + '</span></div>' +
+    '<div class="gcell" style="--sep-inset:58px"><span class="gicon" style="background:#8E8A99">' + I('lyrics') + '</span><span class="gl">自動匹配歌詞</span><span class="switch on"></span></div></div>';
+}
+
+function overlays(ctx) {
+  return '<div style="position:relative;height:400px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
+    '<div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:10px">' + FMP.playlists.map((p) => FMP.coverEl(p.cv, null, '', 'width:100%;aspect-ratio:1')).join('') + '</div>' +
+    FMP.confirm({ title: '從「翻唱精選」移除 2 首？', body: '會從你在 Bilibili 的收藏夾刪掉，App 裡的匯入歌單隨後刷新。', tracks: ['t03', 't08'], ok: '移除 2 首' }).replace('class="dialog-wrap"', 'class="dialog-wrap" style="position:absolute"') +
+    FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已加入「通勤路上」</span></span><button class="btn btn-plain">查看</button>', { style: 'bottom:14px;left:60px;right:60px' }) +
+    '</div><div class="sys-note">提示只有一個入口（brief §13），依錯誤類別給文字與動作，例如「登入」「重試」。警示框、sheet、選單都是加厚的玻璃（填色比導覽重），因為它們上面有整段文字。確認框列出它作用的曲目，每首帶封面。</div>' +
+    '<div class="sys-h" style="margin-top:22px">手機：一首歌的「更多」是底部 sheet</div><div style="position:relative;height:560px;max-width:390px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
+    FMP.trackSheet(FMP.T.t08, [['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-', ['lyrics', '匹配歌詞…'], ['link', '複製連結'], '=', ['cloud', '從 B 站收藏夾移除', '寫回 B 站，會先確認', 'danger']]).replace('class="sheet-wrap"', 'class="sheet-wrap" style="position:absolute"') +
+    '</div><div class="sys-note">選單和確認刻意不同形狀：手機上一首歌的「更多」從底部升起（拇指搆得到，頂端是曲目摘要），會寫到遠端的確認是置中的對話框。連點兩下不會從選單直接點進「移除」。頂列按鈕（例如歌單右上的 ⋯）的選單照 iOS 慣例從按鈕往下長；長按卡片是 iOS 的情境選單。桌面一律右鍵選單＋置中確認框。</div>' +
+    '<div class="sys-h" style="margin-top:22px">刷新狀態列</div><div style="max-width:420px;border-radius:12px;overflow:hidden;background:var(--bg)">' +
+    FMP.refreshLine({ text: '刷新中 · 已讀 128 / 214 首', pct: 60 }) + FMP.refreshLine({ state: 'err', text: '刷新失敗：B 站的登入已失效', action: '<button class="btn btn-plain">重新登入</button>' }) +
+    '</div><div class="sys-note">匯入歌單刷新時，在按鈕下方出現一條狀態列，底邊的細線就是進度（取自 A）；不用卡片。</div>';
+}
+
+function radii(ctx) {
+  const r = (n, w, h) => '<div style="width:' + w + 'px;height:' + h + 'px;border-radius:' + n + '">' + n + '</div>';
+  return '<div class="sys-h">圓角：控制項一律膠囊，容器和裝它的東西同心</div><div class="sys-radius">' + r('6px', 48, 48) + r('10px', 72, 72) + r('14px', 96, 96) + r('16px', 120, 72) + r('26px', 120, 80) + r('30px', 120, 80) + r('999px', 150, 44) + '</div>' +
+    '<div class="sys-kv" style="margin-top:18px"><dt>縮圖</dt><dd>6（列表 48×48、桌面 36×36）</dd><dt>封面卡</dt><dd>10–12；大封面 14</dd><dt>群組列表</dt><dd>16（手機）、12（桌面）</dd><dt>對話框／sheet</dt><dd>26／30；浮動 sheet 34</dd><dt>視窗</dt><dd>16，側欄內縮 8 → 圓角 12（同心）</dd><dt>間距</dt><dd>4 的倍數：4、8、12、16、20、24、32、40、56；手機邊距 16–20，桌面內容邊距 32</dd><dt>觸控目標</dt><dd>手機的點擊區域 ≥ 44：視覺比 44 小的控制（切換鈕 34、chip 32、勾選 24）四周補透明的點擊區；桌面滑鼠目標 ≥ 28</dd></div>';
+}
+
+function motion(ctx) {
+  return '<div class="sys-kv"><dt>變形（morph）</dt><dd>520ms，cubic-bezier(.32,.72,0,1)：sheet 升起、播放頁左右滑換畫面（導覽與迷你播放器捲動時不變形）</dd><dt>彈性（spring）</dt><dd>520ms，cubic-bezier(.32,1.28,.52,1)：選取膠囊滑動、開關</dd><dt>一般</dt><dd>160ms／280ms，ease-out：hover、顏色、明暗翻轉</dd><dt>按下</dt><dd>按鈕縮到 0.96；導覽的選取膠囊放大到 1.12 再回彈，像一滴水被按住</dd><dt>減少動態效果</dt><dd>sheet 與換畫面改成淡入淡出，選取膠囊不彈跳，播放頁背景停止流動，等化器靜止</dd><dt>降低透明度</dt><dd>玻璃全部換成「最低」：不透明的實心底，保留邊緣高光</dd></div>';
+}
+
+/* width tiers: three schematic screens + the rules table */
+function widthTiers(ctx) {
+  const cards = (x0, y0, w, h, cols, rows, gap) => { let o = ''; const cw = (w - gap * (cols - 1)) / cols; for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) o += '<i class="c" style="left:' + (x0 + c * (cw + gap)) + 'px;top:' + (y0 + r * (cw + gap)) + 'px;width:' + cw + 'px;height:' + cw + 'px"></i>'; return o; };
+  const narrow = '<div class="sys-scr" style="width:96px;height:180px">' + cards(10, 22, 76, 0, 2, 3, 8) +
+    '<i class="g" style="left:6px;right:6px;bottom:38px;height:14px;border-radius:7px"></i><i class="g" style="left:6px;width:62px;bottom:10px;height:22px;border-radius:11px"></i><i class="g" style="right:6px;width:22px;bottom:10px;height:22px;border-radius:11px"></i></div>';
+  const mid = '<div class="sys-scr" style="width:240px;height:180px">' +
+    '<i class="g" style="left:5px;top:5px;bottom:5px;width:20px;border-radius:7px"></i>' + cards(36, 18, 196, 0, 4, 2, 8) +
+    '<i class="g" style="left:36px;right:8px;bottom:8px;height:18px;border-radius:9px"></i></div>';
+  const wide = '<div class="sys-scr" style="width:324px;height:180px">' +
+    '<i class="g" style="left:5px;top:5px;bottom:5px;width:56px;border-radius:7px"></i>' + cards(72, 18, 168, 0, 5, 3, 6) +
+    '<i class="s" style="right:0;top:0;bottom:0;width:76px"></i><i class="c" style="right:12px;top:16px;width:52px;height:52px"></i><i class="c" style="right:12px;top:76px;width:52px;height:6px"></i><i class="c" style="right:28px;top:88px;width:36px;height:6px"></i>' +
+    '<i class="g" style="left:72px;right:84px;bottom:8px;height:18px;border-radius:9px"></i></div>';
+  const tier = (scr, t, d) => '<figure class="sys-tier">' + scr + '<figcaption><b>' + t + '</b>' + d + '</figcaption></figure>';
+  const rows = [
+    ['寬度', '小於 600', '600–1199', '1200 以上'],
+    ['裝置', '手機（固定直向）', '平板直向與橫向、縮小的桌面視窗（最小 720×560）', '桌面、13 吋 iPad 橫向'],
+    ['導覽', '底部 dock：迷你播放器、四項導覽、搜尋圓鈕', '左側玻璃細欄（72，平板 80）：導覽、歌單封面、設定', '左側玻璃側欄（248）：搜尋欄、導覽、歌單名稱、設定'],
+    ['正在播放', '迷你播放器（書脊）', '播放膠囊（書脊）；寬不到 640 收掉時間與音量', '播放膠囊（書脊）'],
+    ['詳情面板', '無（點迷你播放器進播放頁）', '點了才浮出來，蓋在內容上', '常駐右側，可收起'],
+    ['一首歌的更多', '底部 sheet', '平板：從按鈕長出的選單；桌面：右鍵選單', '右鍵選單'],
+    ['對話框', '底部 sheet 或置中警示框', '置中（平板是表單大小）', '置中'],
+    ['播放頁', '單欄，左右滑換歌詞與佇列', '直向單欄（同手機）；橫向兩欄（同桌面）', '兩欄，頂列分段切歌詞與佇列'],
+    ['設定', '一層一層推頁', '細欄＋分類欄＋窗格', '側欄＋分類欄＋窗格'],
+  ];
+  const table = '<table class="sys-tt"><tr><th style="width:84px"></th><th>窄</th><th>中</th><th>寬</th></tr>' + rows.map((r) => '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>').join('') + '</table>';
+  const density = '<div class="sys-h" style="margin-top:24px">密度跟裝置走，不跟寬度走</div><table class="sys-tt"><tr><th style="width:84px"></th><th>觸控（iOS、Android）</th><th>滑鼠（macOS、Windows）</th></tr>' +
+    '<tr><th>目標</th><td>44×44 以上</td><td>28 以上</td></tr><tr><th>字級</th><td>手機那一欄（body 17）</td><td>桌面那一欄（body 14）</td></tr>' +
+    '<tr><th>hover</th><td>沒有；⋮ 一直在</td><td>⋮、拖曳把手 hover 才出現</td></tr></table>';
+  return '<div class="sys-h">三種寬度的外殼</div><div class="sys-tiers">' +
+    tier(narrow, '窄', '小於 600') + tier(mid, '中', '600–1199') + tier(wide, '寬', '1200 以上') + '</div>' + table + density;
+}
+
+function windowsBar(ctx) {
+  return '<div class="sys-h">Windows 視窗按鈕</div><div style="position:relative;height:120px;border-radius:12px;overflow:hidden;background:var(--bg);box-shadow:inset 0 0 0 .5px var(--sep)">' +
+    '<div class="lg" style="position:absolute;left:8px;top:8px;bottom:8px;width:200px;border-radius:10px;padding:14px 12px;font-size:12px;color:var(--glass-ink-2)">側欄（沒有紅綠燈）</div>' +
+    '<div style="position:absolute;right:0;top:0;display:flex">' + ['minus', 'sidebar', 'close'].map((ic, i) => '<span style="width:46px;height:32px;display:grid;place-items:center;color:var(--label-2)">' + (i === 1 ? '<svg class="i s16" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>' : I(ic, 's16')) + '</span>').join('') + '</div>' +
+    '<div style="position:absolute;left:224px;top:46px;font-size:12px;color:var(--label-2)">macOS 的紅綠燈在側欄左上；Windows 沒有紅綠燈，最小化／最大化／關閉放在視窗右上，內容頂列右端讓出 138px。</div></div>';
+}
+
+FMP.page({
+  title: '設計系統',
+  intro: '<p>FMP 新版的材質、顏色、字級、間距、元件。所有頁面都只用這頁的東西組成；之後 Flutter 照這裡的 token 實作。</p><p>工具列可以切換：外觀（深／淺／並排）、玻璃等級（折射／標準／最低）、強調色（無／堇紫／靛藍／青綠），設定會帶到每一頁。</p>',
+  sections: [
+    {
+      title: '材質：Liquid Glass',
+      desc: '下面的封面帶會左右流動，看玻璃怎麼折射：邊緣像凸透鏡把底下的內容放大、拉彎，最外圈有一點色散；中間是平的，只做輕微模糊和加飽和，字才讀得清楚。玻璃底下是淺色封面時會變亮、字變深；底下是深色時變暗、字變白。',
+      frames: [{ kind: 'panel', label: '玻璃示範', render: (ctx) => panel(ctx, 640, stage(ctx), 'padding:16px') }],
+      notes: '<h3>玻璃的構成（由下往上）</h3><ul><li><b>折射</b>：凸面邊緣的位移貼圖，邊緣寬度是短邊的 42%、最多 22px，越靠邊彎得越多；紅綠藍三色位移量差 ±6%，邊緣出現色散。</li><li><b>模糊與飽和</b>：折射級的平面中心先模糊 5px（側欄 6px）再加 1.9 倍飽和；標準級沒有折射，改成 18px 模糊＋1.8 倍飽和才讀得清；清玻璃（在封面與播放頁上）幾乎不模糊。</li><li><b>填色</b>：深色 #1E1D26 42%、淺色白 46%；選單、sheet、對話框、警示框、提示用厚玻璃：填色 84%（深）／86%（淺）、28px 模糊、不折射，因為上面有整段文字。</li><li><b>邊緣高光</b>：1px 斜向漸層，左上最亮、右下次亮，像光從左上打過來。</li><li><b>頂部光暈與陰影</b>：頂部淡淡的放射光，底下有柔和的投影，讓玻璃浮起來。</li></ul><h3>用在哪裡</h3><ul><li>用：導覽列、搜尋鈕、迷你播放器、桌面側欄與播放膠囊、頂列的圓形按鈕與按鈕組、浮動動作列、選單、sheet、警示框、提示。</li><li>不用：曲目列表、封面卡片、設定的群組列表、任何整段文字。這些是內容，維持實心（brief §2.3）。</li></ul>',
+    },
+    {
+      title: '玻璃等級與平台',
+      desc: '設計稿的三個等級對應 Flutter 實作的三級（brief 事實 K10）。用工具列切換看每一頁在各等級下的樣子。',
+      html: '<div class="rv-notes" style="margin-top:0"><ul><li><b>折射</b> = Flutter「premium」（Impeller 折射 shader）：iOS、Android、macOS。捲動中的長列表上方不用 premium（K10：不適合捲動列表），導覽與迷你播放器在列表上方時降到標準。</li><li><b>標準</b> = Flutter「standard」：只有模糊、飽和、邊緣高光與陰影，沒有折射。Windows 最高到這一級。</li><li><b>最低</b> = 只用 BackdropFilter 或完全不透明：系統開了「降低透明度」、或裝置效能不足時。玻璃換成實心的 #24232C／#F7F6FA，保留邊緣高光與陰影，版面不變。</li><li>三級都包在同一個玻璃元件後面（brief §17），設計稿裡每個玻璃元素都標了 <code>lg</code>，實作時一對一換成那個元件。</li></ul></div>',
+    },
+    {
+      title: '強調色：預設無，使用者自選',
+      desc: '預設沒有強調色（擁有者 2026-11-10 選定）：選取、主要動作、正在播放都用主文字色，整個 App 只有封面是彩色的。設定的「外觀」可以選一個強調色。',
+      frames: [{ kind: 'panel', label: '強調色用在哪（隨工具列的強調色切換）', render: (ctx) => panel(ctx, 520,
+        '<div class="sys-acc-demo"><button class="btn btn-primary">' + I('play', 's18') + '播放全部</button><button class="tog on">' + I('shuffle') + '隨機</button><span class="check on">' + I('check') + '</span><span class="cacc" style="display:inline-flex;align-items:center;gap:6px;font-weight:600"><span class="eq"><i></i><i></i><i></i></span>正在播放</span></div>' +
+        '<div style="margin-top:18px" class="sys-box">' + FMP.trackRow(FMP.T.t01, { playing: true }) + FMP.trackRow(FMP.T.t02) + '</div>' +
+        '<div class="sys-h" style="margin-top:20px">可選的強調色</div><div class="sys-row" style="gap:14px">' + FMP.ACCENTS.map(([k, l, c]) => '<span style="display:inline-flex;align-items:center;gap:7px;font-size:13px"><i style="width:22px;height:22px;border-radius:50%;background:' + (c || 'var(--label)') + ';box-shadow:inset 0 0 0 .5px var(--sep-strong)"></i>' + l + (k === 'none' ? '（預設）' : '') + '</span>').join('') + '</div>' +
+        '<div class="sys-note">強調色只做四件事：主要動作、選取與開啟中的狀態、正在播放、連結。它不出現在背景、卡片或裝飾上。</div>') }],
+      notes: '<ul><li><b>預設無</b>：選取與主要動作用主文字色（深色是白、淺色是黑），主要按鈕是反色實心。開啟中的切換鈕靠實心底與文字區分，不只靠顏色。</li>' +
+        '<li><b>可選三色</b>：堇紫 #5E4BFF／#A396FF、靛藍 #3D5BD9／#8EA6FF、青綠 #00786F／#5AD4C8（前者是淺色的文字與兩種外觀的按鈕底，後者是深色的文字與播放頁上的強調色）。按鈕底配白字都在 5:1 以上，深色文字在深底 7:1 以上。</li>' +
+        '<li><b>為什麼只給這三個</b>：紅、粉、金、天藍分別是音源標識（B 站粉、YouTube 紅、網易雲紅）、「會員」與「試聽」的顏色，強調色用了會分不清。</li>' +
+        '<li><b>不跟封面取色</b>：玻璃已經跟著底下內容變色調，播放頁背景也跟封面變色（已定）；強調色再跟著跑，控制項每換一首歌就換色，還會撞上封面本身的顏色。</li></ul>',
+    },
+    {
+      title: '顏色',
+      frames: [{ kind: 'panel', label: '色票', render: (ctx) => panel(ctx, 640, swatches(ctx)) }],
+      notes: '<ul><li>深色的底不是純黑，帶一點紫（#0D0C11），不是純中性灰；淺色的底是純白，設定頁這種群組列表用 #F2F1F6 襯底。</li><li>次要文字在有顏色的底上（播放頁）用白色的透明度，不用灰色。</li><li>封面是唯一的大面積顏色。</li></ul>',
+    },
+    {
+      title: '字級',
+      frames: [
+        { kind: 'panel', label: '手機', render: (ctx) => panel(ctx, 520, typeScale(ctx, false)) },
+        { kind: 'panel', label: '桌面', render: (ctx) => panel(ctx, 520, typeScale(ctx, true)) },
+      ],
+    },
+    {
+      title: '音源與存取等級',
+      desc: '每一首曲目出現的地方（搜尋結果、歌單、佇列、迷你播放器、播放頁）都帶音源標識；三種會限制收聽的存取等級帶徽章（brief §5.4）。',
+      frames: [{ kind: 'panel', label: '標識', render: (ctx) => panel(ctx, 560, badges(ctx)) }],
+      notes: '<ul><li>音源標識是自繪的簡化符號，不是官方 logo：B 站是電視、YouTube 是播放鍵、網易雲是圓形音符。符號與顏色由插件宣告，宿主只負責畫，Dart 端沒有音源分支（brief §5.3）。</li><li>列表裡只放符號（15pt），符號旁邊就是歌手名；播放頁、詳情面板、篩選 chip 放符號加名稱。</li><li>「會員」金底黑字、「付費」金框、「試聽」藍底半圓圖示；迷你播放器、播放膠囊與播放頁也都帶著徽章，試聽時另外跳一次提示。</li></ul>',
+    },
+    {
+      title: '元件',
+      frames: [{ kind: 'panel', label: '控制項', render: (ctx) => panel(ctx, 640, components(ctx)) }],
+    },
+    {
+      title: '浮層：警示框與提示',
+      frames: [{ kind: 'panel', label: '浮層', render: (ctx) => panel(ctx, 560, overlays(ctx), 'padding:16px') }],
+    },
+    {
+      title: '圓角、間距、動態',
+      frames: [
+        { kind: 'panel', label: '圓角與間距', render: (ctx) => panel(ctx, 560, radii(ctx)) },
+        { kind: 'panel', label: '動態', render: (ctx) => panel(ctx, 560, motion(ctx)) },
+        { kind: 'panel', label: 'Windows', render: (ctx) => panel(ctx, 560, windowsBar(ctx)) },
+      ],
+    },
+    {
+      title: '寬度分級',
+      desc: '照 Material 3 的 compact／medium／expanded 分三級，邊界依這個 App 的版面調整：寬級要放得下側欄、內容與常駐詳情面板（1200）。中寬度的導覽是左側玻璃細欄（擁有者 2026-11-11 選定），平板與縮小的桌面視窗共用，只差密度。各頁的中寬度稿在每頁的「中寬度」一節，外殼的規則在外殼頁。',
+      frames: [{ kind: 'panel', label: '窄、中、寬', render: (ctx) => panel(ctx, 760, widthTiers(ctx)) }],
+      notes: '<ul><li>邊界看的是視窗寬度，不是螢幕：桌面視窗拖窄到 1200 以下就換中寬度版面，拖寬回來再換回去，捲動位置與選取不變。</li><li>手機固定直向，不會因為橫放進中寬度。</li><li>13 吋 iPad 橫向（1366）是寬級，用觸控密度：側欄與詳情面板照桌面，目標照 44。</li><li>沒有第四級：1600 以上照寬級，內容欄變寬（網格多幾欄），不加第三欄。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

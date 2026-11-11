@@ -1,606 +1,664 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FMP 設計稿 · 播放頁</title><link rel="stylesheet" href="assets/fmp.css"><style>
-body.doc{background:#2A2A2D;color:#EDEDEA;font:15px/1.6 var(--font);padding:40px 48px 80px}
-.doc h1.pt{font-size:28px;line-height:1.25;margin-bottom:8px}
-.doc .lead{max-width:72ch;color:#C8C7C2;margin-bottom:8px}
-.doc .note{max-width:72ch;color:#A9A8A3;font-size:13px;margin-bottom:28px}
-.doc h2.sec{font-size:20px;margin:48px 0 16px;padding-top:24px;border-top:1px solid rgba(255,255,255,.12)}
-.doc .navl{display:flex;gap:16px;margin-bottom:24px;font-size:14px}
-.doc .navl a{color:#CFBCFF;text-underline-offset:3px}
-.row{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;overflow-x:auto;padding:12px;margin:-12px}
-.frame{flex:none}
-@media (max-width:600px){body.doc{padding:24px 16px 60px}.row{flex-wrap:nowrap}.sys{grid-template-columns:minmax(0,1fr)}}
-.frame figcaption{margin-top:10px;font-size:13px;color:#C8C7C2;width:0;min-width:100%}
-.phone{position:relative;width:390px;height:844px;border-radius:48px;overflow:hidden;box-shadow:0 0 0 10px #0B0B0C,0 20px 50px rgba(0,0,0,.45)}
-.sb{position:absolute;top:0;left:0;right:0;z-index:5;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 38px;font-weight:600;font-size:16px}
-.sbi{display:flex;gap:6px;align-items:center}.sbi svg{fill:currentColor}
-.homebar{position:absolute;z-index:6;left:50%;bottom:8px;width:134px;height:5px;border-radius:3px;background:var(--fg);transform:translateX(-50%)}
-.scroll{position:absolute;inset:0;padding-top:50px;overflow:hidden}
-.scroll.scrolled{padding-top:0}
-.topbar{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 14px;color:var(--fg)}
-.topbar .tb-title{font-size:var(--fs-title);font-weight:600}
-.topbar.b{justify-content:space-between}
-.plh{display:flex;gap:16px;padding:8px 20px 16px;align-items:flex-start}
-.plh-t h1{font-size:var(--fs-h2);line-height:32px;font-weight:700}
-.plh-t p{font-size:var(--fs-sm);color:var(--fg2);margin-top:2px}
-.plh-b{display:flex;gap:8px;margin-top:12px}
-.plh.big{flex-direction:column;align-items:flex-start;padding-top:0}
-.plh.big h1{font-size:var(--fs-h1);line-height:38px}
-.sp-a{left:12px;right:12px;bottom:104px}
-.tabbar-a{position:absolute;left:12px;right:12px;bottom:30px;height:64px;border-radius:32px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
-.ni{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:var(--fs-cap);color:var(--fg2);width:78px;height:54px;border-radius:27px;font-weight:500}
-.ni.on{color:var(--accent);background:var(--accent-soft)}
-.sp-b{left:12px;right:12px;bottom:104px}
-.tabbar-b{position:absolute;left:12px;right:76px;bottom:30px;height:64px;border-radius:32px;display:flex;align-items:center;justify-content:space-around;padding:0 6px}
-.orb{position:absolute;width:56px;height:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;color:var(--fg)}
-.orb-search{right:12px;bottom:34px}
-.orb-tab{left:12px;bottom:34px;color:var(--accent)}
-.sp-b-col{left:76px;right:76px;bottom:34px;height:56px;border-radius:28px;padding:0 14px 0 12px}
-.edge{position:absolute;left:0;right:0;top:0;height:96px;z-index:4;background:linear-gradient(var(--bg) 52%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask:linear-gradient(#000 55%,transparent);mask:linear-gradient(#000 55%,transparent)}
-.qh{display:flex;align-items:flex-end;gap:12px;justify-content:space-between;padding:12px 20px 10px}
-.qh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
-.qmeta{font-size:var(--fs-sm);color:var(--fg2)}
-/* 桌面 */
-.desk{position:relative;width:1280px;height:800px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 24px 60px rgba(0,0,0,.45)}
-.wtitle{height:36px;display:flex;align-items:center;gap:14px;padding:0 14px;font-size:13px;color:var(--fg2);border-bottom:1px solid var(--line)}
-.lights{display:flex;gap:8px}.lights i{width:12px;height:12px;border-radius:50%;background:var(--line-strong)}
-.dbody{position:absolute;top:36px;bottom:0;left:0;right:0;display:grid}
-.dbody.a{grid-template-columns:76px minmax(0,1fr) 352px}
-.dbody.b{grid-template-columns:256px minmax(0,1fr) 352px}
-.rail{background:var(--bg2);display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:14px;border-right:1px solid var(--line)}
-.rn{display:flex;flex-direction:column;align-items:center;gap:3px;width:60px;padding:8px 0;border-radius:14px;font-size:var(--fs-cap);color:var(--fg2);font-weight:500}
-.rn.on{color:var(--accent);background:var(--accent-soft)}
-.side{margin:12px 0 12px 12px;border-radius:18px;background:var(--bg2);border:1px solid var(--line);padding:12px 10px;display:flex;flex-direction:column;gap:2px;z-index:3}
-.sfield{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:10px;background:var(--line);color:var(--fg2);font-size:var(--fs-sm);margin-bottom:8px}
-.sn,.sp{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:10px;font-size:14px;color:var(--fg)}
-.sn:first-of-type{color:var(--accent);background:var(--accent-soft)}
-.sp.on{background:var(--line)}
-.sh{font-size:var(--fs-cap);color:var(--fg2);padding:14px 10px 4px;font-weight:600}
-.dmain{position:relative;overflow:hidden;padding:0 0 0 0}
-.dplh{display:flex;gap:20px;align-items:flex-end;padding:22px 28px 18px}
-.dplh h1{font-size:var(--fs-h1);line-height:40px;font-weight:700}
-.dplh p{font-size:var(--fs-sm);color:var(--fg2)}
-.dh,.dr{display:grid;grid-template-columns:28px 36px minmax(0,1fr) 84px 56px 72px 52px;column-gap:12px;align-items:center;padding:0 28px 0 16px}
-.dh{height:30px;font-size:var(--fs-cap);color:var(--fg2);border-bottom:1px solid var(--line-strong);font-weight:600}
-.dr{height:52px;border-bottom:1px solid var(--line)}
-.dr .ix{font-size:var(--fs-meta);color:var(--fg3);text-align:right}
-.dr .tx{display:flex;flex-direction:column;gap:2px;min-width:0}.dr .tx b{font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dr .tx i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.dr .c-pl{font-size:var(--fs-meta);color:var(--fg2);text-align:right}.dr .du{text-align:right}
-.dr.now .tx b,.dr.now .ix{color:var(--accent)}
-.dr.off .tx b,.dr.off .tx i,.dr.off .du,.dr.off .ix,.dr.off .c-pl{color:var(--fg3)}.dr.off .cv{opacity:.45}
-.dpanel{background:var(--bg2);border-left:1px solid var(--line);padding:24px 28px;overflow:hidden}
-.dpanel h2{font-size:var(--fs-h3);line-height:1.3;margin-top:18px}
-.dpanel .who{font-size:var(--fs-sm);color:var(--fg2);margin-top:4px}
-.stats{display:flex;gap:24px;margin:14px 0 6px;font-size:var(--fs-sm);font-weight:600}.stats span{display:flex;align-items:center;gap:6px}
-.dpanel h3{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--fg2);margin:20px 0 10px;padding-top:16px;border-top:1px solid var(--line)}
-.nxt{display:flex;gap:12px;align-items:center}.nxt .tx{display:flex;flex-direction:column;gap:2px}.nxt b{font-weight:500;font-size:14px}.nxt i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.desc{font-size:var(--fs-sm);color:var(--fg2)}
-.dplayer{position:absolute;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;overflow:hidden;z-index:5}
-.dplayer .pl{position:absolute;left:0;top:0;bottom:0;background:var(--played)}
-.dplayer .fold{position:absolute;top:0;bottom:0;border-left:2px solid var(--accent);box-shadow:-1px 0 0 var(--crease-lo),1px 0 0 var(--crease-hi);-webkit-mask:var(--fold-mask);mask:var(--fold-mask)}
-.dp-a{left:12px;right:12px;bottom:12px;height:72px;border-radius:18px;padding:0 20px}
-.dp-b{left:280px;right:364px;bottom:14px;height:68px;border-radius:18px;padding:0 16px;grid-template-columns:minmax(0,1fr) auto auto;column-gap:16px}
-.dplayer .du{white-space:nowrap}
-.dp-l,.dp-c,.dp-r{position:relative;display:flex;align-items:center;gap:14px}
-.dp-l .tx{display:flex;flex-direction:column;gap:2px;min-width:0}.dp-l b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}.dp-l i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.dp-c{gap:18px}.pp{width:40px;height:40px;border-radius:20px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center}
-.dp-r{justify-content:flex-end;color:var(--fg2)}
-.vol{width:84px;height:4px;border-radius:2px;background:var(--line-strong);display:block}.vol span{display:block;width:70%;height:100%;border-radius:2px;background:var(--fg)}
-.dp-b .dp-l b{max-width:170px}.dp-b .dp-l .ic,.dp-b .dp-c>.ic.s,.dp-b .dp-r .ic:nth-child(3),.dp-b .vol{display:none}.dp-b .dp-c{gap:14px}.dp-b .dp-r{gap:12px}
-/* 播放頁 */
-.onart.t-dark{--fg:#F7F6F3;--fg2:rgba(247,246,243,.72);--fg3:rgba(247,246,243,.5);--line-strong:rgba(255,255,255,.28)}
-.onart.t-light{--fg:#141416;--fg2:rgba(20,20,22,.68);--fg3:rgba(20,20,22,.48);--line-strong:rgba(0,0,0,.22)}
-.player{position:absolute;inset:0}
-.pin{position:absolute;inset:50px 0 0;display:flex;flex-direction:column;padding:0 24px}
-.ptop{display:flex;align-items:center;justify-content:space-between;height:48px;color:var(--fg)}
-.ptop .pr{display:flex;align-items:center;gap:18px}
-.pcov{display:flex;justify-content:center;padding:20px 0 0}
-.pcov .cv{box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.plyr{flex:1;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(transparent,#000 14%,#000 80%,transparent);mask:linear-gradient(transparent,#000 14%,#000 80%,transparent);padding-top:22px}
-.lys{display:flex;flex-direction:column;gap:16px}
-.ly{display:flex;flex-direction:column;gap:3px;color:var(--fg3)}
-.ly b{font-size:20px;line-height:1.3;font-weight:700}
-.ly i{font-style:normal;font-size:14px}
-.ly.cur{color:var(--fg)}
-.ly.cur i{color:var(--fg2)}
-.pmeta{display:flex;align-items:flex-start;gap:12px;margin-top:auto}
-.pmeta div{flex:1;min-width:0}
-.pmeta h2{font-size:var(--fs-h3);line-height:1.3;font-weight:700;color:var(--fg)}
-.pmeta p{font-size:var(--fs-sm);color:var(--fg2);margin-top:4px;display:flex;align-items:center;gap:6px}
-.pbtn{color:var(--fg2);padding-top:4px}
-.seek{margin-top:18px}
-.seek .bar{position:relative;height:4px;border-radius:2px;background:var(--line-strong)}
-.seek .fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--fg)}
-.seek .head{position:absolute;top:-8px;width:2px;height:20px;margin-left:-1px;background:var(--accent);box-shadow:-1px 0 0 var(--crease-lo),1px 0 0 var(--crease-hi)}
-.seek .times{display:flex;justify-content:space-between;margin-top:8px;font:var(--fs-meta)/1 var(--mono);color:var(--fg2)}
-.tp{display:flex;align-items:center;justify-content:space-between;margin-top:14px;color:var(--fg)}
-.tp .it{color:var(--fg2)}.tp .it.on{color:var(--accent)}
-.ppb{width:72px;height:72px;border-radius:36px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center}
-.onart.t-dark .ppb{color:#141416}.onart.t-light .ppb{color:#F7F6F3}
-.pbot{align-self:center;margin-top:22px;margin-bottom:34px;display:flex;gap:4px;padding:4px;border-radius:24px}
-.pb{display:flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:20px;font-size:var(--fs-sm);font-weight:600;color:var(--fg2)}
-.pb.on{background:var(--accent-soft);color:var(--accent)}
-.dpl{top:36px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:56px 1fr;column-gap:56px;padding:0 64px 40px}
-.dpl .ptop{grid-column:1/3;padding:0 0}
-.dpl-l{display:flex;flex-direction:column;justify-content:center;max-width:440px;justify-self:end;width:100%}
-.dpl-l .pmeta{margin-top:0}
-.dpl-l .cv{margin-bottom:22px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.dpl-r{position:relative;display:flex;flex-direction:column;min-height:0}
-.vsep{width:1px;height:20px;background:var(--line-strong)}
-.ptop .it{color:var(--fg2)}.ptop .it.on{color:var(--accent)}
-.dpl-r .ly-c{padding-top:96px}.dpl-r .q-c{margin-top:40px}
-.dpl-c{flex:1;min-height:0;overflow:hidden}
-.ly-c{-webkit-mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);mask:linear-gradient(transparent,#000 12%,#000 82%,transparent);padding-top:64px}
-.q-c{margin-top:14px;-webkit-mask:linear-gradient(#000 86%,transparent);mask:linear-gradient(#000 86%,transparent)}
-.q-c .qmeta{padding:0 0 8px 8px}
-.q-c .foldrule{margin:0}
-.dpl-r .ly b{font-size:24px}
-.lyx{position:absolute;right:64px;bottom:28px;display:flex;gap:10px;align-items:center;font-size:var(--fs-meta);color:var(--fg2)}
-.dpl .ptop .vol{width:96px}
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>播放頁 · FMP D 設計稿</title>
+<link rel="stylesheet" href="assets/fmp.css">
+<style>
+/* on-media token set: everything inside sits on the cover-coloured field */
+.pl-m { position: absolute; inset: 0; color: #fff;
+  --label: #fff; --label-2: rgba(255, 255, 255, .74); --label-3: rgba(255, 255, 255, .52); --label-4: rgba(255, 255, 255, .3);
+  --fill: rgba(255, 255, 255, .14); --fill-2: rgba(255, 255, 255, .24); --sep: rgba(255, 255, 255, .14);
+  --cell-hover: rgba(255, 255, 255, .08); --accent: var(--accent-300); --accent-soft: rgba(255, 255, 255, .12); --trial-ink: var(--trial-dark); }
+/* no accent: on the cover field the "on" fill is white with ink text */
+html:not([data-accent]) .pl-m, html[data-accent="none"] .pl-m { --accent-fill: #fff; --accent-ink: #15141A; }
+.pl-m .acc-paid { color: var(--vip); box-shadow: inset 0 0 0 1.3px var(--vip); }
+/* luminance scrim: keeps white type at AA over light covers */
+.pl-scrim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(rgba(0, 0, 0, .26), rgba(0, 0, 0, .1) 30%, rgba(0, 0, 0, .2) 55%, rgba(0, 0, 0, .5)); }
 
-/* 搜尋 */
-.ic.xs{width:14px;height:14px}
-.shead{padding:6px 20px 0;background:var(--bg)}
-.qf{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:var(--r-ctl);background:var(--bg2);border:1px solid var(--line);color:var(--fg2)}
-.qf.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.qph{flex:1;color:var(--fg3);display:flex;align-items:center}
-.caret{display:inline-block;width:2px;height:20px;background:var(--accent);margin-right:2px;border-radius:1px}
-.qv{flex:1;color:var(--fg);font-weight:500}
-.qx{display:flex;color:var(--fg3)}
-.chips{display:flex;gap:6px;padding:12px 0 10px}
-.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:10px;border:1px solid var(--line-strong);color:var(--fg2);font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
-.chip em{font:normal var(--fs-cap)/1 var(--mono);color:var(--fg3)}
-.chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
-.chip.on em{color:var(--accent)}
-.sech{display:flex;align-items:center;justify-content:space-between;height:40px;padding:8px 20px 0;border-bottom:1px solid var(--line-strong)}
-.sech b{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);font-weight:600}
-.sech b em{font:normal var(--fs-meta)/1 var(--mono);color:var(--fg3)}
-.sortb{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-meta);font-weight:600;color:var(--fg2)}
-.tbtn{font-size:var(--fs-sm);font-weight:600;color:var(--accent)}
-.hl .hr{display:grid;grid-template-columns:18px minmax(0,1fr) 18px;align-items:center;column-gap:14px;height:48px;padding:0 20px;border-bottom:1px solid var(--line);color:var(--fg3)}
-.hr span:nth-child(2){color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.snote{display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 20px;border-bottom:1px solid var(--line);font-size:var(--fs-meta);color:var(--error)}
-.snote span:first-child{display:flex;align-items:center;gap:6px}
-.tr.sr{grid-template-columns:44px minmax(0,1fr) auto 18px;padding:0 12px 0 20px}
-.tr.sr.sm{grid-template-columns:20px 44px minmax(0,1fr) auto;padding:0 20px}
-.tr.picked{background:var(--accent-soft)}
-.mo{display:flex;color:var(--fg3)}
-.tag.pts{display:inline-flex;align-items:center;gap:1px;padding:0 2px 0 5px}
-.tag.pts .ic{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-.tag.pts.on{border-color:var(--accent);color:var(--accent)}
-.tag.pts.on .ic{transform:rotate(180deg)}
-.ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--on-accent)}
-.ck.on{background:var(--accent);border-color:var(--accent)}
-/* 分 P：縮排到曲名欄，左側一條細線接回母列 */
-.prt{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) auto 18px;align-items:center;column-gap:12px;height:44px;padding:0 12px 0 76px;border-bottom:1px solid var(--line)}
-.prt::before{content:"";position:absolute;left:42px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
-.prt.last::before{bottom:50%}
-.prt::after{content:"";position:absolute;left:42px;top:50%;width:22px;border-top:1px solid var(--line-strong)}
-.px{font:var(--fs-meta)/1 var(--mono);color:var(--fg3)}
-.pn{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.selh{display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 20px}
-.selh b{font-size:var(--fs-title);font-weight:600}
-.seltb .ni{width:96px;color:var(--fg)}
-/* 搜尋 · 桌面 */
-.dsh{padding:20px 28px 0}
-.dsh .qf{height:40px;max-width:560px}
-.dsel{display:flex;align-items:center;gap:12px;height:40px;margin-bottom:10px}
-.dsel b{font-size:var(--fs-title);font-weight:600;margin-right:8px}
-.dsel .btn{height:34px;padding:0 14px;font-size:13px}
-.dsel .tbtn{margin-left:auto}
-.dmain .sech{padding:8px 28px 0}
-.dh.s,.dr.s,.dpt{grid-template-columns:36px minmax(0,1fr) 84px 56px 72px 52px 18px;padding:0 20px 0 28px}
-.dh.s.cks,.dr.s.cks{grid-template-columns:20px 36px minmax(0,1fr) 84px 56px 72px 52px 18px}
-.dh.s{border-bottom:1px solid var(--line)}
-.dr.s .tx b{display:flex;align-items:center;gap:8px}
-.dr.s .tx b span{overflow:hidden;text-overflow:ellipsis}
-.dr.s .tx b .tag{font-weight:500}
-.dr.s .mo{visibility:hidden}
-.dr.s.hover{background:var(--hover)}.dr.s.hover .mo{visibility:visible;color:var(--fg)}
-.dr.picked{background:var(--accent-soft)}
-.dr.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
-.chip.focus{outline:2px solid var(--accent);outline-offset:2px}
-.dpt{position:relative;display:grid;column-gap:12px;align-items:center;height:36px;border-bottom:1px solid var(--line)}
-.dpt .px{text-align:center;position:relative;z-index:1;background:var(--bg);line-height:16px}
-.dpt::before{content:"";position:absolute;left:46px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
-.dpt.last::before{bottom:50%}
-.dpt .du{text-align:right}
-.dpt .mo{visibility:hidden}
-/* 音樂庫 */
-.lh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:12px 20px 16px}
-.lh h1{font-size:var(--fs-h1);line-height:38px;font-weight:700}
-.lh-a{display:flex;align-items:center;gap:4px}
-.ib{width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;color:var(--fg)}
-.pg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px;padding:0 20px 220px}
-.pc{display:flex;flex-direction:column;min-width:0;border-radius:8px}
-.pcw{position:relative;display:block}
-.cv.fill{width:100%;aspect-ratio:1}
-.pc>b{margin-top:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pm{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px;font-size:var(--fs-meta);color:var(--fg2);min-height:16px}
-.pl-l{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap}
-.pm .du{color:var(--fg3)}
-.st{overflow:hidden;text-overflow:ellipsis}
-.st.busy{color:var(--accent);font-weight:600}
-.st.err{color:var(--error)}
-.rbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(0,0,0,.35);border-radius:0 0 var(--r-cover) var(--r-cover);overflow:hidden}
-.rbar span{display:block;height:100%;background:var(--accent)}
-.pcov-act{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
-.pcov-act .pp{width:36px;height:36px;border-radius:18px}
-.pmore{width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(18,18,20,.62);color:#F2F1EE}
-.pc.focus{outline:2px solid var(--accent);outline-offset:4px}
-.pg.d{grid-template-columns:repeat(5,minmax(0,1fr));gap:24px 20px;padding:0 28px 120px}
-.dmain .lh{padding:22px 28px 18px}
-.dmain .lh-a{gap:8px}
-/* 排序：只有拖動中的那張浮起來 */
-.pc.slot{border:1.5px dashed var(--line-strong);border-radius:var(--r-cover);aspect-ratio:1}
-.lift{position:absolute;left:186px;top:262px;width:167px;z-index:3}
-.pc.lifted{transform:rotate(-2deg) scale(1.04);background:var(--bg);padding:0 0 8px;border-radius:8px;box-shadow:var(--glass-shadow)}
-/* 動作選單（sheet）：浮在內容上，玻璃 */
-.scrim{position:absolute;inset:0;z-index:7;background:rgba(0,0,0,.42)}
-.sheet{position:absolute;z-index:8;left:8px;right:8px;bottom:8px;border-radius:var(--r-sheet) var(--r-sheet) 36px 36px;padding:8px 0 22px}
-.grab{display:block;width:36px;height:5px;border-radius:3px;background:var(--line-strong);margin:0 auto 10px}
-.sh-h{display:flex;gap:12px;align-items:center;padding:4px 20px 14px;border-bottom:1px solid var(--line)}
-.sh-h b{display:block;font-size:var(--fs-title);font-weight:600}
-.sh-h i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:3px}
-.sh-l li{display:grid;grid-template-columns:22px auto 1fr;align-items:center;column-gap:14px;height:50px;padding:0 20px;font-size:var(--fs-body);font-weight:500}
-.sh-l li i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2);text-align:right;white-space:nowrap}
-.sh-l li.danger{color:var(--error);border-top:1px solid var(--line)}
-/* 空狀態：三條書脊示意空的架子 */
-.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:96px 36px 0}
-.emark{display:flex;align-items:flex-end;gap:5px;height:64px;margin-bottom:20px}
-.emark i{display:block;width:14px;border-radius:3px;border:1.5px solid var(--line-strong)}
-.emark i:nth-child(1){height:52px}.emark i:nth-child(2){height:64px;border-color:var(--accent)}.emark i:nth-child(3){height:44px;transform:rotate(9deg);transform-origin:bottom left}
-.empty h2{font-size:var(--fs-h3);font-weight:700}
-.empty p{font-size:var(--fs-sm);color:var(--fg2);margin-top:8px;max-width:30ch;text-wrap:balance}
-.empty .plh-b{margin-top:20px}
+/* ---------- phone ---------- */
+.pl-top { position: absolute; top: 54px; left: 0; right: 0; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 16px; z-index: 35; }
+.pl-ctx { flex: 1; min-width: 0; text-align: center; font-size: 12px; line-height: 15px; color: var(--label-2); }
+.pl-ctx b { display: block; color: var(--label); font-size: 13px; line-height: 17px; font-weight: 600; }
+.pl-ctx.temp b { color: var(--accent); }
+.pl-cover { position: absolute; left: 45px; top: 118px; width: 300px; height: 300px; border-radius: var(--r-cover-lg); box-shadow: 0 24px 50px rgba(0, 0, 0, .38); }
+.pl-info { position: absolute; left: 28px; right: 28px; top: 442px; }
+.pl-title { font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 700; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pl-title .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-artist { font-size: 17px; line-height: 22px; color: var(--label-2); margin-top: 1px; }
+.pl-prog { position: absolute; left: 28px; right: 28px; top: 580px; }
+.pl-prog .slider { height: 6px; background: var(--fill-2); }
+.pl-prog .slider > i { background: #fff; }
+.pl-prog .slider .knob { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
+.pl-times { display: flex; justify-content: space-between; align-items: center; font-size: 12px; line-height: 16px; color: var(--label-2); margin-top: 7px; }
+.pl-band { position: absolute; top: 0; bottom: 0; border-radius: inherit; background: rgba(255, 255, 255, .42); }
+.pl-trial .slider { background: var(--fill); }
+.pl-trial .slider > i { border-radius: 0; }
+.pl-ctl { position: absolute; left: 22px; right: 22px; top: 622px; height: 76px; display: flex; align-items: center; justify-content: space-between; }
+.pl-ctl .ibtn { width: 56px; height: 56px; color: #fff; position: relative; }
+.pl-ctl .ibtn:hover { background: var(--fill); }
+.pl-ctl .ibtn.big { width: 76px; height: 76px; }
+.pl-ctl .ibtn svg.i { width: 34px; height: 34px; }
+.pl-ctl .ibtn.big svg.i { width: 46px; height: 46px; }
+.pl-ctl .ibtn.md svg.i { width: 24px; height: 24px; }
+.pl-ctl .ibtn.md { color: var(--label-2); }
+.pl-ctl .ibtn.on { color: var(--accent); }
+.pl-ctl .ibtn.on::after { content: ""; position: absolute; bottom: 8px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+/* the signature: source + access level + stream quality, one capsule above the progress bar */
+.pl-sig { position: absolute; left: 26px; top: 536px; display: inline-flex; align-items: center; gap: 6px; height: 30px; max-width: calc(100% - 52px); padding: 0 7px 0 9px; border-radius: var(--r-cap); font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }
+.pl-sig > svg:not(.i) { width: 14px; height: 14px; flex: none; }
+.pl-sig .sep { width: 1px; height: 12px; background: rgba(255, 255, 255, .32); flex: none; }
+.pl-sig svg.i { width: 13px; height: 13px; }
+.pl-sig svg.i.chev { width: 13px; height: 13px; opacity: .7; margin-left: -2px; }
+.pl-sig .acc { height: 16px; font-size: 10px; padding: 0 4px; }
+.pl-sig span.q { font-weight: 500; color: rgba(255, 255, 255, .88); }
+.pl-sig.trial { --glass-fill: color-mix(in srgb, var(--trial) 46%, transparent); }
+.pl-sig.trial b { font-weight: 700; }
+.pl-sig.trial span.q { color: #fff; font-weight: 600; }
+/* top-right glass capsule: add to playlist + more */
+.pl-gp { display: inline-flex; align-items: center; height: 44px; padding: 0 2px; border-radius: var(--r-cap); flex: none; }
+.pl-gp .ibtn { color: #fff; width: 44px; height: 44px; }
+.pl-gp .ibtn svg.i { width: 20px; height: 20px; }
+/* swipe pages: 佇列 ← 封面 → 歌詞. Dots show where you are; the active one stretches (iOS 26 page control) */
+.pl-pane { position: absolute; inset: 0; pointer-events: none; }
+.pl-pane > * { pointer-events: auto; }
+.pl-dots { position: absolute; left: 50%; top: 752px; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; }
+.pl-dots i { display: block; width: 7px; height: 7px; border-radius: 4px; background: rgba(255, 255, 255, .38); transition: width var(--t-morph) var(--ease-spring), background-color var(--t-mid); }
+.pl-dots i.on { width: 20px; background: #fff; }
+.pl-pq { position: absolute; left: 0; right: 0; top: 178px; height: 332px; overflow: hidden; -webkit-mask: linear-gradient(#000 82%, transparent); mask: linear-gradient(#000 82%, transparent); }
+.pl-pq .qh { white-space: nowrap; display: flex; align-items: center; gap: 8px; padding: 6px 20px 8px 24px; font-size: 13px; font-weight: 700; }
+.pl-pq .qh span { color: var(--label-2); font-weight: 500; }
+.pl-pq .qh .sp { flex: 1; }
+.pl-pq .tog { flex: none; background: var(--fill); color: #fff; height: 32px; padding: 0 12px 0 9px; font-size: 13px; }
+.pl-pq .tog.on { background: var(--accent-fill); color: var(--accent-ink); }
+.pl-pq .row { padding: 0 20px 0 24px; min-height: 56px; }
+.pl-pq .row .t2, .pl-pq .row .dur { color: var(--label-2); }
+.pl-pq .row.playing { background: var(--fill); }
+.pl-pq .row.playing .t1 { color: #fff; }
+.pl-mini { position: absolute; left: 24px; right: 24px; top: 112px; display: flex; gap: 12px; align-items: center; }
+.pl-mini .cover { width: 56px; height: 56px; border-radius: 9px; }
+.pl-mini .m { flex: 1; min-width: 0; }
+.pl-mini .m b { display: flex; align-items: center; gap: 6px; font-size: 17px; line-height: 22px; font-weight: 700; }
+.pl-mini .m b .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-mini .m > span { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 19px; color: var(--label-2); }
+.pl-lysrc { position: absolute; left: 24px; right: 24px; top: 180px; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--label-3); }
+.pl-lysrc .src svg { width: 13px; height: 13px; }
+.pl-lysrc b { color: var(--label-2); font-weight: 600; }
+.pl-ly { position: absolute; left: 0; right: 0; top: 200px; height: 312px; overflow: hidden;
+  -webkit-mask: linear-gradient(transparent, #000 10%, #000 82%, transparent); mask: linear-gradient(transparent, #000 10%, #000 82%, transparent); }
+.pl-ly .in { padding: 24px 28px 120px; }
+.pl-l { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 24px; line-height: 30px; font-weight: 700; color: var(--label-3); transition: color var(--t-mid); cursor: pointer; }
+.pl-l .tx { flex: 1; min-width: 0; }
+.pl-l small { display: block; font-size: 16px; line-height: 21px; font-weight: 600; margin-top: 3px; }
+.pl-l.cur { color: #fff; }
+.pl-l.past { color: var(--label-4); }
+.pl-ly.manual .pl-l { color: var(--label-2); }
+.pl-ly.manual .pl-l.cur { color: #fff; }
+.pl-l.guide { margin: 0 -14px; padding: 9px 14px; border-radius: 14px; background: var(--fill); color: #fff; }
+.pl-jump { display: inline-flex; align-items: center; gap: 4px; font: 600 13px var(--font-num); color: #fff; background: var(--fill-2); border-radius: var(--r-cap); height: 30px; padding: 0 10px 0 8px; flex: none; }
+.pl-jump svg.i { width: 14px; height: 14px; }
+.pl-back { position: absolute; left: 50%; top: 462px; transform: translateX(-50%); z-index: 5; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 12px; border-radius: var(--r-cap); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.pl-back svg.i { width: 18px; height: 18px; }
+.pl-off { position: absolute; left: 14px; right: 14px; top: 412px; z-index: 6; border-radius: 26px; padding: 10px 10px 10px; }
+.pl-off .oh { display: flex; align-items: center; gap: 8px; padding: 0 2px 8px 8px; font-size: 13px; line-height: 18px; color: var(--glass-ink-2); }
+.pl-off .oh b { color: var(--glass-ink); font: 700 15px var(--font-num); }
+.pl-off .oh .ibtn { width: 32px; height: 32px; margin-left: auto; color: var(--glass-ink); }
+.pl-off .ob { display: flex; gap: 4px; }
+.pl-off .ob button { display: grid; place-items: center; flex: 1; height: 40px; border-radius: var(--r-cap); background: rgba(255, 255, 255, .14); color: #fff; font: 600 13px var(--font-num); }
+.pl-off .ob button.rs { flex: 1.3; font-family: var(--font); }
+.pl-state { position: absolute; left: 32px; right: 32px; top: 200px; height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; }
+.pl-state .si { width: 64px; height: 64px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; margin-bottom: 8px; }
+.pl-state .si svg.i { width: 30px; height: 30px; stroke-width: 1.6; }
+.pl-state .spinner { width: 30px; height: 30px; border: 3px solid var(--label-4); border-top-color: #fff; }
+.pl-state h5 { margin: 0; font-size: 20px; line-height: 25px; font-weight: 700; }
+.pl-state p { margin: 0; font-size: 14px; line-height: 20px; color: var(--label-2); max-width: 280px; }
+.pl-state .btn { margin-top: 12px; background: #fff; color: #15141A; }
 
-.snote.busy{color:var(--fg2)}
-.spin{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line-strong);border-top-color:var(--accent);display:inline-block}
-.skel .sk{display:block;background:var(--bg2);border-radius:4px}
-.skel .sk.cv{width:44px;height:44px;border-radius:var(--r-cover)}
-.skel .sk.l1{width:72%;height:12px}.skel .sk.l2{width:44%;height:10px}
-.sfail{padding:40px 36px 0;text-align:center}
-.sfail b{display:block;font-size:var(--fs-title);font-weight:600}
-.sfail p{font-size:var(--fs-sm);color:var(--fg2);margin:8px auto 18px;max-width:30ch;text-wrap:balance}
-.sfail.none{padding-top:120px}
-.cmenu{position:absolute;left:626px;top:366px;width:216px;padding:6px;border-radius:var(--r-ctl);z-index:6}
-.cmenu li{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;font-size:14px}
-.cmenu li:first-child{background:var(--hover)}
-.cmenu li.sep{margin-top:6px;position:relative}
-.cmenu li.sep::before{content:"";position:absolute;left:10px;right:10px;top:-4px;border-top:1px solid var(--line)}
-.cmenu kbd{margin-left:auto;font:var(--fs-cap) var(--mono);color:var(--fg2)}
-.sheet.imp{padding-bottom:26px}
-.imp-h{display:flex;align-items:center;justify-content:space-between;padding:0 20px 12px}
-.imp-h b{font-size:var(--fs-title);font-weight:600}
-.fl{display:block;font-size:var(--fs-cap);font-weight:500;color:var(--fg2);padding:10px 20px 6px}
-.sheet .qf{margin:0 20px}
-.qf.filled{border-color:var(--line-strong)}
-.qv.url{font:var(--fs-meta) var(--mono);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
-.found{display:flex;align-items:center;gap:12px;margin:10px 20px 2px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--accent-soft);color:var(--accent)}
-.found div{flex:1;min-width:0}
-.found b{display:block;font-size:14px;font-weight:600;color:var(--fg)}
-.found i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:3px}
-.opts{margin-top:12px}
-.opts li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:0 20px;border-top:1px solid var(--line)}
-.opts b{display:block;font-size:var(--fs-body);font-weight:500}
-.opts i{display:block;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);margin-top:2px}
-.val{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap}
-.sw-t{width:44px;height:26px;border-radius:13px;background:var(--line-strong);position:relative;flex:none}
-.sw-t i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:var(--bg)}
-.sw-t.on{background:var(--accent)}.sw-t.on i{left:21px;background:var(--on-accent)}
-.imp-n{font-size:var(--fs-meta);color:var(--fg2);padding:12px 20px 0;border-top:1px solid var(--line)}
+/* menus, sheets, dialogs are the shared components; below is only the content inside them */
+.pl-sb { padding: 0 16px 24px; }
+.dlg .pl-sb { padding: 0 20px 14px; }
+.pl-menu-scrim { position: absolute; inset: 0; z-index: 74; background: rgba(0, 0, 0, .18); }
+.pl-trk { display: flex; align-items: center; gap: 12px; padding: 4px 4px 14px; }
+.pl-trk .m { flex: 1; min-width: 0; }
+.pl-trk .m b { display: block; font-size: 15px; line-height: 20px; font-weight: 600; }
+.pl-trk .m > span { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 17px; color: var(--glass-ink-2); }
+.pl-matched { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--glass-ink) 6%, transparent); font-size: 13px; line-height: 18px; margin-bottom: 12px; }
+.pl-matched .ok { color: var(--ok); }
+.pl-matched span.t { flex: 1; min-width: 0; color: var(--glass-ink-2); }
+.pl-matched span.t b { color: var(--glass-ink); font-weight: 600; }
+.pl-sb .field { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+.pl-chips { display: flex; gap: 8px; margin: 12px 0 6px; }
+.pl-chips .chip { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+.pl-chips .chip.on { background: var(--glass-ink); color: var(--glass-solid); }
+.pl-res { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 4px; position: relative; }
+.pl-res + .pl-res::before { content: ""; position: absolute; top: 0; left: 52px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.pl-res .ic { width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--glass-ink) 8%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--glass-ink-2); flex: none; }
+.pl-res .ic svg.i { width: 17px; height: 17px; }
+.pl-res .ic em { font-style: normal; font-size: 9px; line-height: 10px; font-weight: 700; }
+.pl-res .ic.sync { color: var(--accent); background: var(--accent-soft); }
+.pl-res .m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-res .m b { display: flex; align-items: center; gap: 6px; font-size: 15px; line-height: 20px; font-weight: 500; min-width: 0; }
+.pl-res .m b .tt, .pl-res .m > span .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pl-res .m > span { display: flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 16px; color: var(--glass-ink-2); min-width: 0; }
+.pl-res .d { font: 13px var(--font-num); color: var(--glass-ink-2); text-align: right; flex: none; }
+.pl-res .d.far { color: var(--warn); }
+.pl-res .d small { display: block; font-size: 11px; }
+.pl-res.on .m b { color: var(--accent); font-weight: 600; }
+.pl-res .ck { color: var(--accent); width: 20px; flex: none; }
+.pl-res .ck svg.i { width: 18px; height: 18px; stroke-width: 2.4; }
+.pl-tr { display: inline-flex; align-items: center; height: 17px; padding: 0 5px; border-radius: 5px; background: color-mix(in srgb, var(--glass-ink) 10%, transparent); color: var(--glass-ink); font-size: 11px; font-weight: 600; flex: none; }
+.pl-hint { font-size: 12px; line-height: 17px; color: var(--glass-ink-2); padding: 12px 4px 0; }
+.pl-ih { display: flex; gap: 14px; align-items: center; padding: 4px 4px 16px; }
+.pl-ih .m b { display: block; font-size: 18px; line-height: 23px; font-weight: 700; }
+.pl-ih .m > span { display: block; font-size: 14px; line-height: 19px; color: var(--glass-ink-2); }
+.pl-kv { display: flex; align-items: flex-start; gap: 12px; padding: 11px 4px; font-size: 15px; line-height: 20px; position: relative; }
+.pl-kv + .pl-kv::before { content: ""; position: absolute; top: 0; left: 4px; right: 0; height: .5px; background: color-mix(in srgb, var(--glass-ink) 12%, transparent); }
+.pl-kv > span:first-child { width: 76px; flex: none; color: var(--glass-ink-2); }
+.pl-kv > span:last-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pl-kv .src-chip, .pl-trk .src-chip { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
+.pl-sb .btn-gray { background: color-mix(in srgb, var(--glass-ink) 8%, transparent); color: var(--glass-ink); }
 
-/* 歌單詳情 */
-.tb-back{display:flex;align-items:center;gap:0;font-size:var(--fs-body);font-weight:500;color:var(--accent);margin-left:-6px}
-.topbar .ib{margin-right:-8px}
-.plh-t{flex:1;min-width:0}
-.plh-t h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pmeta2,.srcl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.pown{font-size:var(--fs-meta);color:var(--fg3);margin-top:3px}
-.pdesc{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:60ch}
-.pdl{border-top:1px solid var(--line-strong)}
-.rfs+.pdl{border-top:0}
-.tr.pr{grid-template-columns:24px 44px minmax(0,1fr) auto 18px;padding:0 12px 0 8px}
-.tr.pr.sm{grid-template-columns:20px 44px minmax(0,1fr) auto;padding:0 20px}
-.prt.pi{padding-left:88px}
-.prt.pi::before,.prt.pi::after{left:66px}
-.prt.pi::after{width:16px}
-.prt.now .px,.prt.now .pn{color:var(--accent)}
-.rfs{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;height:40px;padding:0 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line-strong);font-size:var(--fs-meta);color:var(--fg2)}
-.rfs>span:first-child{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rfs.busy{color:var(--accent);font-weight:600}
-.rfs.err{color:var(--error);font-weight:600}
-.rline{position:absolute;left:0;bottom:-1px;height:2px;background:var(--accent)}
-.rfs-n{font-size:var(--fs-meta);color:var(--fg2);padding:8px 20px;border-bottom:1px solid var(--line-strong)}
-.rfs-n+.pdl{border-top:0}
-.seltb.pd .ni{width:84px}
-.seltb .ni.dgr{color:var(--error)}
-.cvx{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-strong);color:var(--fg3)}
-.empty.pe{padding-top:56px;border-top:1px solid var(--line-strong)}
-.erows{display:flex;flex-direction:column;gap:6px;width:132px;margin-bottom:20px}
-.erows i{display:grid;grid-template-columns:18px 1fr 22px;gap:8px;height:22px;align-items:center;border-bottom:1px solid var(--line-strong);background:linear-gradient(var(--line-strong),var(--line-strong)) 26px 6px/56px 2px no-repeat}
-.erows i::before{content:"";width:18px;height:18px;border-radius:4px;border:1.5px solid var(--line-strong);margin-bottom:4px}
-.erows i:nth-child(2)::before{border-color:var(--accent)}
-.erows i::after{content:"";grid-column:3;height:2px;margin-bottom:4px;background:var(--line-strong)}
-.dplh .pdesc{margin-top:4px}
-.dplh .plh-b{align-items:center}
-.dplh .srcl{font-size:var(--fs-sm);color:var(--fg2)}
-.dh.p,.dr.p{grid-template-columns:28px 36px minmax(0,1fr) 84px 56px 72px 52px 18px;padding:0 20px 0 16px}
-.dr.p .tx b{display:flex;align-items:center;gap:8px}
-.dr.p .tx b span{overflow:hidden;text-overflow:ellipsis}
-.dr.p .tx b .tag{font-weight:500}
-.dr.p .mo{visibility:hidden}
-.dr.p.hover{background:var(--hover)}.dr.p.hover .mo,.dr.p.focus .mo{visibility:visible;color:var(--fg)}
-.dmain .rfs{padding:0 28px 0 16px;margin-top:2px}
-.dmain .rfs+.dh{border-top:0}
-.cmenu li.dgr{color:var(--error)}
-.cmenu li span{white-space:nowrap}
-.cmenu:has(li.dgr){width:236px}
-.cmenu li.dgr kbd{color:var(--error)}
-/* 確認（遠端寫入的移除） */
-.sheet.cfm{padding:8px 20px 26px}
-.cfm h2{font-size:var(--fs-title);font-weight:600;line-height:1.3}
-.cfm>p{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px}
-.cf-t{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;column-gap:12px;margin-top:14px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.cf-t .tx,.atp-t .tx,.pkl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.cf-t b,.atp-t b,.pkl b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cf-t i,.atp-t i,.pkl i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-meta);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cf-b{display:flex;flex-direction:column;gap:8px;margin-top:18px}
-.btn.dgr{background:var(--error);color:var(--on-error)}
-.btn.wide{display:flex;width:100%}
-/* 加入歌單 */
-.sheet.atp{top:58px;display:flex;flex-direction:column;padding-bottom:26px}
-.tbtn.ghost{visibility:hidden}
-.sheet.atp.fit{top:auto}.sheet.atp.fit .atp-c{flex:none;-webkit-mask:none;mask:none}
-.atp-c{flex:1;min-height:0;overflow:hidden;-webkit-mask:linear-gradient(#000 calc(100% - 28px),transparent);mask:linear-gradient(#000 calc(100% - 28px),transparent)}
-.atp-t{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:12px;padding:2px 20px 12px}
-.stack{display:flex}.stack .cv+.cv{margin-left:-24px;box-shadow:-2px 0 0 var(--bg2)}
-.atp .sech,.ddlg .sech{height:34px;padding:8px 20px 0}
-.acct{font-size:var(--fs-meta);color:var(--fg3)}
-.scope{font-size:var(--fs-meta);color:var(--fg2);padding:8px 20px 0}
-.pkl li{display:grid;grid-template-columns:40px minmax(0,1fr) 20px;align-items:center;column-gap:12px;height:52px;padding:0 20px;border-bottom:1px solid var(--line)}
-.pkl li.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
-.pkl li.new{grid-template-columns:40px minmax(0,1fr) auto}
-.pkl li.new b{color:var(--accent)}
-.pkl li.new.sm{height:48px}
-.pkl li.new.sm .nsq{height:32px;width:32px;margin-left:4px}
-.nsq{width:40px;height:40px;border-radius:var(--r-cover);border:1.5px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--accent)}
-.pkl li.new .qf{height:40px}
-.pkl li.new .qv{flex:none}
-.plat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;min-height:52px;padding:6px 20px;border-bottom:1px solid var(--line)}
-.plat .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.plat b{font-size:14px;font-weight:600}
-.plat i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.plat .tbtn{white-space:nowrap}
-.chev{display:flex;color:var(--fg2);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-.chev.on{transform:rotate(180deg)}
-.scope.busy{display:flex;align-items:center;gap:6px}
-.pkl li.skel .sk{display:block;background:var(--bg2);border-radius:4px}
-.pkl li.skel .sk.cv{width:40px;height:40px;border-radius:var(--r-cover)}
-.pkl li.skel .tx{gap:6px}
-.atp-f{padding:12px 20px 0;border-top:1px solid var(--line)}
-.atp-s{font-size:var(--fs-meta);color:var(--fg2);margin-bottom:10px}
-.atp-s.err{color:var(--error)}
-.ddlg{position:absolute;z-index:8;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;max-height:700px;display:flex;flex-direction:column;border-radius:var(--r-sheet);padding:14px 0 16px}
-.pkl li.err i{color:var(--error)}
-.ddlg.cfmd{width:440px;padding:22px 24px 20px}
-.cfmd .cf-b{flex-direction:row;justify-content:flex-end;margin-top:20px}
-.ddlg-h{display:flex;align-items:center;justify-content:space-between;padding:0 12px 8px 20px}
-.ddlg-h b{font-size:var(--fs-title);font-weight:600}
-.ddlg-h .ib{width:32px;height:32px;color:var(--fg2)}
-.ddlg-f{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px 16px;padding:12px 20px 0;border-top:1px solid var(--line)}
-.ddlg-f .atp-s{margin:0;flex:1 0 100%}
-.ddlg-f .btns{display:flex;gap:8px;flex:none}
-.ddlg .pkl li{height:48px}
-.ddlg .pkl .cv,.ddlg .nsq{width:36px!important;height:36px!important}
-.ddlg .pkl li{grid-template-columns:36px minmax(0,1fr) 20px}
-.ddlg .pkl li:not(.focus):first-child{background:none}
+/* ---------- desktop ---------- */
+.pl-dtop { position: absolute; top: 10px; left: 0; right: 0; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 20px 0 86px; z-index: 30; }
+.pl-dtop .sp { flex: 1; }
+.pl-seg { display: inline-flex; padding: 3px; border-radius: var(--r-cap); }
+.pl-seg .seg { padding: 0; }
+.pl-seg .seg button { height: 28px; padding: 0 14px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; }
+.pl-seg .seg button svg.i { width: 14px; height: 14px; }
+.pl-dcover { position: absolute; left: 132px; top: 80px; width: 380px; height: 380px; border-radius: var(--r-cover-lg); box-shadow: 0 30px 60px rgba(0, 0, 0, .38); }
+.pl-dinfo { position: absolute; left: 132px; width: 380px; top: 476px; }
+.pl-dsig { left: 132px; top: 541px; height: 28px; font-size: 11.5px; max-width: 392px; }
+.pl-dsig > svg:not(.i) { width: 14px; height: 14px; }
+.pl-dinfo .pl-title { font-size: 21px; line-height: 27px; }
+.pl-dinfo .pl-artist { font-size: 15px; line-height: 20px; }
+.pl-dprog { position: absolute; left: 132px; width: 380px; top: 588px; }
+.pl-dprog .slider { height: 5px; background: var(--fill-2); }
+.pl-dprog .slider > i { background: #fff; }
+.pl-dprog .pl-times { font-size: 11px; margin-top: 6px; }
+.pl-dctl { position: absolute; left: 132px; width: 380px; top: 614px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+.pl-dctl .ibtn { width: 46px; height: 46px; color: #fff; position: relative; }
+.pl-dctl .ibtn svg.i { width: 28px; height: 28px; }
+.pl-dctl .ibtn.big { width: 60px; height: 60px; }
+.pl-dctl .ibtn.big svg.i { width: 38px; height: 38px; }
+.pl-dctl .ibtn.md { color: var(--label-2); }
+.pl-dctl .ibtn.md svg.i { width: 20px; height: 20px; }
+.pl-dctl .ibtn.on { color: var(--accent); }
+.pl-dctl .ibtn.on::after { content: ""; position: absolute; bottom: 6px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+.pl-dvol { position: absolute; left: 132px; width: 380px; top: 700px; display: flex; align-items: center; gap: 10px; color: var(--label-2); }
+.pl-dvol .slider { flex: 1; height: 4px; background: var(--fill-2); }
+.pl-dvol .slider > i { background: var(--label-2); }
+.pl-dvol svg.i { width: 18px; height: 18px; }
+.pl-right { position: absolute; left: 620px; right: 28px; top: 64px; bottom: 28px; display: flex; flex-direction: column; }
+.pl-rhead { display: flex; align-items: center; gap: 8px; padding: 10px 16px 8px; font-size: 12px; color: var(--label-3); flex: none; }
+.pl-rhead b { color: var(--label-2); font-weight: 600; }
+.pl-rhead .src svg { width: 13px; height: 13px; }
+.pl-rhead .sp { flex: 1; }
+.pl-rhead .btn-xs { background: var(--fill); color: var(--label); }
+.pl-dly { flex: 1; min-height: 0; overflow: hidden; -webkit-mask: linear-gradient(transparent, #000 9%, #000 84%, transparent); mask: linear-gradient(transparent, #000 9%, #000 84%, transparent); }
+.pl-dly .in { padding: 60px 16px 200px; }
+.pl-dly .pl-l { font-size: 28px; line-height: 36px; padding: 10px 14px; margin: 0 -14px; border-radius: 14px; }
+.pl-dly .pl-l small { font-size: 17px; line-height: 23px; margin-top: 4px; }
+.pl-dly .pl-l:hover, .pl-dly .pl-l.hov { background: var(--fill); color: #fff; }
+.pl-dly .pl-l .pl-jump { opacity: 0; }
+.pl-dly .pl-l:hover .pl-jump, .pl-dly .pl-l.hov .pl-jump { opacity: 1; }
+.pl-dq { flex: 1; min-height: 0; overflow: hidden; padding: 0 8px; }
+.pl-dq .row .t2, .pl-dq .row .dur { color: var(--label-2); }
+.pl-dq .qh { display: flex; align-items: center; gap: 8px; padding: 14px 12px 8px; font-size: 12px; font-weight: 700; }
+.pl-dq .qh span { color: var(--label-2); font-weight: 500; }
+.pl-dq .qh .sp { flex: 1; }
+.pl-dq .qn { display: flex; align-items: center; gap: 8px; margin: 6px 12px 2px; padding-top: 8px; box-shadow: inset 0 .5px 0 var(--sep); font-size: 12px; font-weight: 700; }
+.pl-dq .qn span { color: var(--label-2); font-weight: 500; }
+.pl-dq .tog { background: var(--fill); color: #fff; }
+.pl-dq .tog.on { background: var(--accent-fill); color: var(--accent-ink); }
+.pl-dq .row.playing { background: var(--fill); }
+.pl-dq .row.playing .t1 { color: #fff; }
+.dlg .pl-sb .pl-res { min-height: 52px; }
+.dlg .pl-sb .pl-res .m b { font-size: 13px; line-height: 17px; }
+.dlg .pl-sb .pl-res .m > span { font-size: 11.5px; }
+.dlg .pl-sb .pl-res .ic { width: 32px; height: 32px; }
+.dlg .pl-sb .pl-res + .pl-res::before { left: 46px; }
+.dlg .pl-sb .pl-trk .m b { font-size: 13px; }
+.dlg .pl-sb .pl-matched { font-size: 12px; }
+.dlg .pl-sb .pl-hint { font-size: 11.5px; }
+.dlg .pl-sb kbd { font: 600 10.5px var(--font-num); background: color-mix(in srgb, var(--glass-ink) 10%, transparent); border-radius: 5px; padding: 1px 5px; }
 
-/* 設定類頁面（設定、帳號、插件、匯入舊版備份） */
-.mn{font-family:var(--mono);font-size:.92em}
-.sgh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;height:48px;padding:0 20px 8px;border-bottom:1px solid var(--line-strong)}
-.sgh b{font-size:var(--fs-sm);font-weight:600}
-.sgm{font-size:var(--fs-meta);color:var(--fg2)}
-.sgl>li{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;padding:8px 20px;border-bottom:1px solid var(--line)}
-.sgl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.sgl .tx b{font-size:var(--fs-body);font-weight:500}
-.sgl .tx i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.sgl .tbtn{white-space:nowrap}
-.sgl li.stack{flex-direction:column;align-items:stretch;gap:12px;padding:12px 20px 14px}
-.val em{font-style:normal}
-/* 快到期：金色只屬於 VIP 與試聽，所以用前景色加粗，不另開顏色 */
-.val .warn,.warn{font-style:normal;color:var(--fg);font-weight:600}
-.up{font-style:normal;color:var(--accent);font-weight:600}
-em.err,.err{font-style:normal;color:var(--error)}
-.seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--line-strong);border-radius:10px;flex:none}
-.seg span{display:flex;align-items:center;height:28px;padding:0 11px;border-radius:8px;font-size:var(--fs-sm);font-weight:600;color:var(--fg2);white-space:nowrap}
-.seg span.on{background:var(--accent-soft);color:var(--accent)}
-.sws{display:flex;gap:12px;flex-wrap:wrap}
-.swc{width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;flex:none}
-/* 稿裡淺色手機殼包在深色展示底裡，所以用較深一層的選擇器讓最近的主題勝出 */
-.t-dark .swc,.t-light .t-dark .swc{background:var(--d)}.t-light .swc,.t-dark .t-light .swc{background:var(--l)}
-.t-dark .swc .ic,.t-light .t-dark .swc .ic{fill:#121214}.t-light .swc .ic,.t-dark .t-light .swc .ic{fill:#fff}
-.swc.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg)}
-.swc.focus{outline:2px solid var(--accent);outline-offset:5px}
-.cbar{display:flex;align-items:center;justify-content:center;height:44px;border-bottom:1px solid var(--line);background:var(--bg)}
-.cbar b{font-size:var(--fs-title);font-weight:600}
-.scut .sgh:first-child{height:40px}
-.lh.sub{padding-top:0}
-.lh.sub h1{font-size:var(--fs-h2);line-height:32px}
-.fnote{font-size:var(--fs-meta);color:var(--fg2);padding:10px 20px 0;max-width:62ch}
-.sgl.q li{min-height:44px}
-.sgl.q li .tx b{font-size:14px}
-.sgl.q li.cur .tx b{color:var(--accent);font-weight:600}
-.sgl.q li.no .tx b{color:var(--fg3)}
-.qr-r{display:flex;align-items:center;gap:8px}
-.curm{display:inline-flex;align-items:center;gap:3px;font-style:normal;font-size:var(--fs-meta);font-weight:600;color:var(--accent)}
-.btn.sm{height:34px;padding:0 14px;font-size:13px}
-.dset{max-width:760px;padding:6px 28px 120px}
-.dset.w{max-width:none}
-.dmain .dset .lh{padding:0 0 16px}
-.dmain .dset .topbar{padding:0;margin:8px 0 4px}
-.dset .sgh,.dset .sgl>li{padding-left:0;padding-right:0}
-.dset .fnote{padding-left:0}
-/* 帳號 */
-.acb{padding:16px 20px 16px;border-top:1px solid var(--line-strong)}
-.dset .acb{padding:18px 0}
-.ach{display:grid;grid-template-columns:48px minmax(0,1fr) auto;column-gap:12px;align-items:center}
-.ach .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.ach b{font-size:var(--fs-title);font-weight:600}
-.ach i{display:flex;align-items:center;gap:6px;font-style:normal;font-size:var(--fs-sm);color:var(--fg2)}
-.av{width:48px;height:48px;border-radius:24px;overflow:hidden;display:block}
-.av svg{display:block;width:100%;height:100%}
-.av.ax{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-strong);font:600 13px/1 var(--mono);color:var(--fg3)}
-.acn{font-size:var(--fs-sm);color:var(--fg2);margin:10px 0 0 60px;max-width:56ch}
-.acl{margin:12px 0 0 60px;border-top:1px solid var(--line)}
-.acl li{display:grid;grid-template-columns:72px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:40px;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
-.acl li>span:first-child{font-size:var(--fs-meta);color:var(--fg2)}
-.acl .v{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
-.acl .why{font-size:var(--fs-meta);color:var(--fg2)}
-.acl .dim{color:var(--fg3)}
-.aca{display:flex;gap:8px;margin:12px 0 0 60px}
-/* 登入 */
-.lgh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:44px;padding:0 20px}
-.lgh b{font-size:var(--fs-title);font-weight:600}
-.lgh .tbtn:last-child{justify-self:end}
-.lgseg{display:flex;justify-content:center;padding:6px 20px 0}
-.lgn{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 28px}
-.qrw{position:relative;width:236px;height:236px;margin-top:28px;padding:18px;border-radius:16px;background:#FFFFFF;box-shadow:0 0 0 1px var(--line)}
-.qrw svg{display:block;width:100%;height:100%}
-.qrw.dim svg{opacity:.1}
-.qro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#141416}
-.qro b{font-size:var(--fs-title);font-weight:600}
-.qok{width:52px;height:52px;border-radius:26px;background:#141416;display:flex;align-items:center;justify-content:center}.qok .ic{fill:#fff}
-.qst{margin-top:22px;display:flex;flex-direction:column;align-items:center}
-.qst b{font-size:var(--fs-title);font-weight:600}
-.qst p{font-size:var(--fs-sm);color:var(--fg2);margin-top:6px;max-width:28ch;text-wrap:balance}
-.qst .btn{margin-top:16px}
-.qst p.qtime{font:var(--fs-meta) var(--mono);color:var(--fg3);margin-top:12px}
-.lgalt{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--fg2);padding-top:14px;margin:0 20px;border-top:1px solid var(--line)}
-.wvb{display:flex;align-items:center;gap:6px;height:32px;margin:14px 16px 0;padding:0 10px;border-radius:10px;background:var(--bg2);font:var(--fs-meta) var(--mono);color:var(--fg2)}
-.wvb span{flex:1}
-.wvp{position:absolute;left:0;right:0;top:182px;bottom:96px;background:#F4F4F2;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:44px 40px 0;gap:14px}
-.t-dark .wvp{background:#E9E9E6}
-.wsk{display:block;background:#D9D9D5;border-radius:6px}
-.wsk.w1{width:96px;height:28px}.wsk.w2{width:180px;height:12px;margin-bottom:12px}
-.wsk.f{width:100%;height:42px;background:#FFFFFF;border:1px solid #D2D2CE}
-.wsk.b{width:100%;height:42px;background:#C8C8C4}
-.wsk.w3{width:140px;height:10px}
-.wvp em{font-style:normal;font-size:var(--fs-meta);color:#6B6A65;margin-top:auto;margin-bottom:16px}
-.wvf{position:absolute;left:0;right:0;bottom:0;height:96px;padding:12px 24px 0;font-size:var(--fs-meta);color:var(--fg2);background:var(--bg);border-top:1px solid var(--line)}
-.lgi{font-size:var(--fs-sm);color:var(--fg);padding:8px 20px 4px}
-.steps{counter-reset:s;padding:4px 20px 0}
-.steps li{display:grid;grid-template-columns:20px 1fr;gap:8px;padding:9px 0;font-size:var(--fs-sm);color:var(--fg2);border-bottom:1px solid var(--line)}
-.steps li::before{counter-increment:s;content:counter(s);font:var(--fs-meta)/18px var(--mono);color:var(--fg3)}
-.steps .mn{color:var(--fg)}
-.ta{margin:0 20px;min-height:84px;padding:10px 12px;border-radius:var(--r-ctl);background:var(--bg2);border:1px solid var(--line-strong);font:var(--fs-meta)/1.6 var(--mono);color:var(--fg);word-break:break-all}
-.tchk{display:flex;align-items:center;gap:6px;font-size:var(--fs-meta);color:var(--fg2);padding:10px 20px 0}
-.tchk .ic{fill:var(--accent)}
-.lgf{padding:20px 20px 0}
-.lgd{padding-bottom:28px}
-.lgd .qrw{margin-top:22px}
-/* 插件 */
-.mk{display:flex;align-items:center;justify-content:center;flex:none;border-radius:10px;background:var(--bg2);border:1px solid var(--line-strong);font:600 13px/1 var(--mono);color:var(--fg2)}
-.plg li{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr) auto;column-gap:12px;align-items:center;min-height:72px;padding:10px 20px;border-bottom:1px solid var(--line)}
-.plg .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.plg b{font-size:var(--fs-body);font-weight:600}
-.plg i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.plg i.caps{color:var(--fg3)}
-.plg li.bad i{white-space:normal}
-.pr-r{display:flex;color:var(--fg3)}
-.rfs.up{color:var(--accent);font-weight:600}
-.rfs.up .tbtn{font-weight:600}
-.sh-h.nb{border-bottom:0;padding-bottom:4px}
-.uph{font-size:var(--fs-meta);font-weight:600;color:var(--fg2);margin-top:12px}
-.rnl{margin-top:6px;padding-left:16px;list-style:disc;font-size:var(--fs-sm)}
-.rnl li{padding:2px 0}
-.upd .tchk,.upd .fnote,.cfm .fnote{padding-left:0;padding-right:0}
-.adds{margin-top:14px;border-top:1px solid var(--line)}
-.adds li{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.adds .pl{font:600 15px/20px var(--mono);color:var(--accent)}
-.adds .tx{display:flex;flex-direction:column;gap:3px}
-.adds b{font-size:14px;font-weight:600}
-.adds i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.pdh{display:flex;gap:14px;align-items:center;padding:0 20px 18px}
-.pdh h1{font-size:var(--fs-h2);line-height:32px;font-weight:700}
-.capl li{display:grid;grid-template-columns:14px minmax(0,1fr);column-gap:12px;align-items:center;min-height:48px;padding:6px 20px;border-bottom:1px solid var(--line)}
-.capl .dot{width:4px;height:4px;border:0;border-radius:2px;background:var(--fg3);justify-self:center}
-.capl .tx{display:flex;flex-direction:column;gap:2px}
-.capl b{font-size:14px;font-weight:600}.capl i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.doml li{display:flex;align-items:center;height:36px;padding:0 20px;border-bottom:1px solid var(--line);font-size:var(--fs-meta)}
-.dh.g,.dg{display:grid;grid-template-columns:36px minmax(0,1fr) 56px 120px minmax(0,1.6fr) 104px;column-gap:14px;align-items:center}
-.dh.g{padding:0;border-bottom:1px solid var(--line-strong)}
-.dgl .dg{position:relative;height:60px;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
-.dg b{font-size:14px;font-weight:600}
-.dg .o{color:var(--fg2);font-size:var(--fs-meta)}
-.dg .caps{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dg .act{display:flex;justify-content:flex-end}
-.dg.focus{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
-.dset .rfs{padding:0;margin-top:4px}
-.fnote.d{padding-top:14px}
-/* 匯入舊版備份 */
-.bkp{font-size:var(--fs-sm);color:var(--fg2);padding:0 20px 8px;max-width:60ch}
-.fcard{display:grid;grid-template-columns:26px minmax(0,1fr) auto;column-gap:12px;align-items:center;margin:0 20px 6px;padding:12px 14px;border-radius:var(--r-ctl);background:var(--bg2);color:var(--fg2)}
-.fcard .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.fcard b{font-size:var(--fs-meta);font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fcard i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.fcard.err{color:var(--error);grid-template-columns:26px minmax(0,1fr)}
-.fcard.err i{color:var(--error)}
-.dset .fcard{margin:0 0 6px}
-.bkl li{display:grid;grid-template-columns:minmax(0,1fr) auto 20px;column-gap:14px;align-items:center;min-height:56px;padding:8px 20px;border-bottom:1px solid var(--line)}
-.bkl.res li{grid-template-columns:minmax(0,1fr) auto;min-height:52px}
-.bkl .tx{display:flex;flex-direction:column;gap:3px;min-width:0}
-.bkl b{font-size:var(--fs-body);font-weight:500}
-.bkl i{font-style:normal;font-size:var(--fs-meta);color:var(--fg2)}
-.bkl .n{font:var(--fs-meta)/1 var(--mono);color:var(--fg2);text-align:right;white-space:nowrap}
-.bkl li.skip b,.bkl li.skip i,.bkl li.skip .n{color:var(--fg3)}
-.ck.dis{opacity:.38;border-style:dashed}
-.dset .bkl li{padding-left:0;padding-right:0}
-.bkf{position:absolute;left:0;right:0;bottom:170px;z-index:2;padding:12px 20px 0;border-top:1px solid var(--line);background:var(--bg)}
-.bkp-l li{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto;column-gap:12px;align-items:center;height:48px;padding:0 20px;border-bottom:1px solid var(--line)}
-.bkp-l b{font-size:var(--fs-body);font-weight:500}
-.bkp-l .n{font:var(--fs-meta)/1 var(--mono);color:var(--fg2)}
-.bkp-l .ld{display:flex;align-items:center;justify-content:center}
-.bkp-l li.done .ic{fill:var(--accent)}
-.bkp-l li.now b,.bkp-l li.now .n{color:var(--accent);font-weight:600}
-.bkp-l li.todo b,.bkp-l li.todo .n{color:var(--fg3)}
-.dot{display:block;width:6px;height:6px;border-radius:3px;border:1.5px solid var(--line-strong)}
-.dbf{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
-.dbf .atp-s{flex:1;margin:0}
-.dbf .btns{display:flex;gap:8px}
-.bke li{display:grid;grid-template-columns:140px minmax(0,1fr);column-gap:14px;align-items:center;min-height:44px;border-bottom:1px solid var(--line);font-size:var(--fs-sm);font-weight:600;color:var(--error)}
-.bke li span{font-weight:400;color:var(--fg2);font-size:var(--fs-meta)}
-.wvp.ns{top:136px}
-.tchk.bad{color:var(--error)}.tchk.bad .ic{fill:var(--error)}
-.lerr{display:flex;flex-direction:column;gap:4px;margin:6px 20px 4px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:var(--fs-sm);color:var(--error)}
-.lerr b{font-weight:600}.lerr span{font-size:var(--fs-meta);color:var(--fg2)}
-.pkl.bat{margin-top:12px;border-top:1px solid var(--line)}
-.pkl.bat li{padding:8px 0;height:auto;min-height:64px}
-.pkl.bat i.up{font-weight:600}
-.pkl.bat i{white-space:normal}
-.dset .pdh{padding:0 0 18px}
-.dset .capl li,.dset .doml li{padding-left:0;padding-right:0}
+/* ---------- medium width (tablet .pl-mt, narrow window .pl-mw) ----------
+   The phone and desktop parts above are absolutely placed for 390x844 / 1280x800. Here the reused parts
+   (signature, progress, controls, dots, lyric lines) are put back in flow inside a column. */
+.pl-mm .pl-sig, .pl-mm .pl-prog, .pl-mm .pl-dprog, .pl-mm .pl-ctl, .pl-mm .pl-dctl, .pl-mm .pl-dots, .pl-mm .pl-mini, .pl-mm .pl-lysrc, .pl-mm .pl-dvol {
+  position: relative; left: auto; right: auto; top: auto; bottom: auto; width: auto; transform: none; flex: none; }
+.pl-mm .pl-sig { align-self: flex-start; max-width: 100%; }
+.pl-mm .pl-dots { align-self: center; }
+/* portrait: one centred column */
+.pl-mp { position: absolute; inset: 0; display: flex; justify-content: center; padding: 92px 0 40px; }
+.pl-mcol { width: min(560px, calc(100% - 64px)); display: flex; flex-direction: column; min-height: 0; }
+.pl-mbody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pl-mbody.cov { justify-content: center; align-items: center; }
+.pl-mcover { width: min(520px, 100%); aspect-ratio: 1; flex: none; border-radius: var(--r-cover-lg); box-shadow: 0 28px 56px rgba(0, 0, 0, .38); }
+.pl-minfo { align-self: stretch; margin-top: 26px; padding: 0 2px; }
+.pl-mt .pl-minfo .pl-title { font-size: 26px; line-height: 32px; }
+.pl-mt .pl-minfo .pl-artist { font-size: 18px; line-height: 23px; margin-top: 2px; }
+.pl-mm .pl-sig { margin-bottom: 14px; }
+.pl-mp .pl-ctl { margin: 4px -8px 0; align-self: stretch; }
+.pl-mp .pl-dots { margin-top: 8px; }
+.pl-mp .pl-mini { margin: 28px 0 18px; }
+.pl-mp .pl-mini .cover { width: 64px; height: 64px; }
+.pl-mp .pl-mini .m b { font-size: 20px; line-height: 26px; }
+.pl-mp .pl-mini .m > span { font-size: 15px; line-height: 20px; }
+.pl-mp .pl-lysrc { font-size: 13px; padding: 0 2px; margin-bottom: 4px; }
+.pl-mp .pl-ly { position: relative; left: auto; right: auto; top: auto; height: auto; flex: 1; min-height: 0; margin: 0 -8px 8px; }
+.pl-mp .pl-ly .in { padding: 20px 8px 160px; }
+.pl-mp .pl-l { font-size: 30px; line-height: 38px; padding: 11px 0; }
+.pl-mp .pl-l small { font-size: 19px; line-height: 25px; margin-top: 4px; }
+/* two columns: tablet landscape and the narrow window. --lx/--lw: left column, --rx: right column */
+.pl-ml { position: absolute; inset: 0; }
+.pl-mlc { position: absolute; left: var(--lx); width: var(--lw); top: 70px; bottom: 30px; display: flex; flex-direction: column; justify-content: center; }
+.pl-mlc .pl-mcover { width: 100%; box-shadow: 0 26px 52px rgba(0, 0, 0, .38); }
+.pl-mlc .pl-minfo { margin-top: 18px; }
+.pl-mlc .pl-sig { margin: 14px 0 12px; }
+.pl-mlc .pl-prog, .pl-mlc .pl-dprog { align-self: stretch; }
+.pl-mlc .pl-ctl, .pl-mlc .pl-dctl { align-self: stretch; margin-top: 6px; }
+.pl-mlc .pl-dvol { margin-top: 10px; }
+.pl-mr { position: absolute; left: var(--rx); right: 28px; top: 66px; bottom: 28px; display: flex; flex-direction: column; }
+.pl-mt .pl-dtop { top: 30px; height: 52px; padding: 0 24px; }
+.pl-mt .pl-seg .seg button { height: 38px; padding: 0 16px; font-size: 15px; }
+.pl-mt .pl-seg .seg button svg.i { width: 18px; height: 18px; }
+.pl-mt .pl-mr { top: 90px; }
+.pl-mt .pl-mlc { top: 96px; }
+.pl-mt .pl-rhead { font-size: 13px; }
+.pl-mt .pl-minfo .pl-title { font-size: 24px; line-height: 30px; }
+.pl-mt .pl-minfo .pl-artist { font-size: 17px; line-height: 22px; }
+.pl-mw .pl-minfo .pl-title { font-size: 21px; line-height: 27px; }
+.pl-mw .pl-minfo .pl-artist { font-size: 15px; line-height: 20px; }
+.pl-mw .pl-mlc .pl-sig { margin: 12px 0 10px; }
+</style>
+</head>
+<body>
+<script src="assets/glass.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+const I = FMP.icon;
+const T = FMP.T;
+const PL_T = T.t23; // 星屑ランデブー: netease, member-only, has a translation
+const PL_LY = [
+  ['1:15', '夜明け前の駅で', '在黎明前的車站'],
+  ['1:21', '君の名前を数えた', '一遍遍數著你的名字'],
+  ['1:27', '星屑みたいな約束', '像星屑一樣的約定'],
+  ['1:34', 'ポケットの中で光る', '在口袋裡閃著光'],
+  ['1:40', 'ランデブー 遠回りして', '約會吧 繞一段遠路'],
+  ['1:46', 'ランデブー 迷子のままで', '約會吧 就這樣迷路'],
+  ['1:53', '終電の窓に映る', '映在末班車窗上的'],
+  ['1:59', 'ふたりの影が揺れた', '兩個人的影子在搖晃'],
+  ['2:06', 'さよならは まだ言わない', '還不說再見'],
+  ['2:12', '朝が来るまで', '直到早晨來臨'],
+  ['2:19', '線路の先に', '在鐵軌的盡頭'],
+];
+const PL_CUR = 3;
 
-/* 系統頁 */
-.sys{display:grid;grid-template-columns:repeat(2,minmax(0,560px));gap:32px}
-.card{border-radius:16px;padding:24px;overflow:hidden}
-.card h3{font-size:var(--fs-title);margin-bottom:14px}
-.sw{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
-.sw i{width:44px;height:28px;border-radius:6px;border:1px solid var(--line-strong)}
-.sw code{font:var(--fs-meta) var(--mono);color:var(--fg2)}
-.ts{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)}
-.ts code{font:var(--fs-meta) var(--mono);color:var(--fg2)}
-.sp-demo{display:flex;align-items:flex-end;gap:10px;padding-top:6px}
-.sp-demo span{display:block;background:var(--accent-soft);border:1px solid var(--accent)}
-.sp-demo figure{display:flex;flex-direction:column;align-items:center;gap:6px;font:var(--fs-cap) var(--mono);color:var(--fg2)}
-.wc{display:grid;grid-template-columns:1fr;gap:8px;font-size:var(--fs-sm)}
-.wc div{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
-.glassdemo{position:relative;height:220px;border-radius:12px;overflow:hidden;background:var(--bg)}
-.glassdemo ul{position:absolute;inset:0}
-.glassdemo .spine{left:16px;right:16px;bottom:16px}
-.stl{font-size:var(--fs-meta);color:var(--fg2);margin-top:8px}
-.tagrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.accents{display:flex;gap:10px;flex-wrap:wrap}
-.accents figure{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--fg2)}
-.accents i{width:36px;height:36px;border-radius:18px;display:block;border:1px solid var(--line-strong)}
-.accents .x i{opacity:.35;background-image:linear-gradient(135deg,transparent 47%,var(--fg) 47%,var(--fg) 53%,transparent 53%)!important}
-</style></head><body class="doc t-dark"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm5.2 9.8 4 4-1.4 1.4-4-4z"/></symbol><symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 6h12v2H4zm0 5h12v2H4zm0 5h8v2H4zm14-3 4 3-4 3z"/></symbol><symbol id="i-library" viewBox="0 0 24 24"><path d="M5 4h2v16H5zm4 0h2v16H9zm4.2.6 1.9-.6 4.9 15.2-1.9.6z"/></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm-1.2-6h2.4l.5 2.6 1.8.8 2.2-1.5 1.7 1.7-1.5 2.2.8 1.8 2.6.5v2.4l-2.6.5-.8 1.8 1.5 2.2-1.7 1.7-2.2-1.5-1.8.8-.5 2.6h-2.4l-.5-2.6-1.8-.8-2.2 1.5-1.7-1.7 1.5-2.2-.8-1.8-2.6-.5v-2.4l2.6-.5.8-1.8-1.5-2.2 1.7-1.7 2.2 1.5 1.8-.8z"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5z"/></symbol><symbol id="i-next" viewBox="0 0 24 24"><path d="M5 5l9 7-9 7zm10 0h3v14h-3z"/></symbol><symbol id="i-prev" viewBox="0 0 24 24"><path d="M19 5l-9 7 9 7zM6 5h3v14H6z"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="M15.4 4.6 8 12l7.4 7.4-1.4 1.4L5.2 12 14 3.2z"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><path d="M5 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></symbol><symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 4h4v4l-1.5-1.5-3.3 3.3-1.4-1.4 3.3-3.3zM4 6.6 5.4 5.2l13.1 13.1L20 16.8V20h-4l1.5-1.5L4.4 5.4zM9.8 13.4l1.4 1.4-5.8 5.8L4 19.2z"/></symbol><symbol id="i-down" viewBox="0 0 24 24"><path d="M4.6 8.6 12 16l7.4-7.4 1.4 1.4-8.8 8.8L3.2 10z"/></symbol><symbol id="i-listadd" viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 5h12v2H3zm0 5h8v2H3zm14-3h2v3h3v2h-3v3h-2v-3h-3v-2h3z"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm-1 7h2v6h-2zm0-4h2v2h-2z"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24"><path d="M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2z"/></symbol><symbol id="i-repeat1" viewBox="0 0 24 24"><path d="M7 7h10V4l4 4-4 4V9H9v3H7zm10 10H7v3l-4-4 4-4v3h8v-3h2zM11.2 10.2 13 9.5h.8v5h-1.4v-3.4l-1.2.4z"/></symbol><symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zm12.5-1.5a6 6 0 0 1 0 9l-1.4-1.4a4 4 0 0 0 0-6.2zm2.8-2.8a10 10 0 0 1 0 14.6l-1.4-1.4a8 8 0 0 0 0-11.8z"/></symbol><symbol id="i-lyrics" viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></symbol><symbol id="i-speaker" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm5 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0-6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 0 1 6.5 6.5z"/></symbol><symbol id="i-thumb" viewBox="0 0 24 24"><path d="M3 10h4v10H3zm6 10V10l4-7c1.6 0 2.5 1.2 2.1 2.7L14.5 9H20a1.8 1.8 0 0 1 1.8 2.1l-1.4 7.3A2 2 0 0 1 18.4 20z"/></symbol><symbol id="i-playcount" viewBox="0 0 24 24"><path d="M8 5.5 18 12 8 18.5z"/></symbol><symbol id="i-chev" viewBox="0 0 24 24"><path d="M8.6 4.6 16 12l-7.4 7.4 1.4 1.4 8.8-8.8L10 3.2z"/></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 1-8.5 12h2.1A7 7 0 1 0 6 10.6V11h2.5L5 14.5 1.5 11H4v-.4A9 9 0 0 1 13 3Zm-1 4h2v5.2l3.6 2.1-1 1.7-4.6-2.7z"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M9.5 15.6 19.1 6l1.4 1.4-11 11-5.9-5.9L5 11.1z"/></symbol><symbol id="i-sort" viewBox="0 0 24 24"><path d="M8 3l4 4.5h-3V16H7V7.5H4zm8 18-4-4.5h3V8h2v8.5h3z"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10.6 13.4a1 1 0 0 1 0-1.4l3.5-3.5 1.4 1.4-3.5 3.5a1 1 0 0 1-1.4 0ZM8 11.5l-2.1 2.1a3 3 0 0 0 4.2 4.3l2.2-2.2 1.4 1.4-2.2 2.2a5 5 0 0 1-7-7.1l2.1-2.1zm8 1 2.1-2.1a3 3 0 0 0-4.2-4.3l-2.2 2.2-1.4-1.4 2.2-2.2a5 5 0 0 1 7 7.1l-2.1 2.1z"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 1 7.4 5H22l-3.5 4-3.5-4h2.2A6 6 0 1 0 18 14.6l1.8.9A8 8 0 1 1 12 4Z"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M8 3h11a2 2 0 0 1 2 2v11h-2V5H8zM5 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v10h10V9z"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zm2.1 2 .8 9h6.2l.8-9z"/></symbol><symbol id="i-playnext" viewBox="0 0 24 24"><path d="M3 5h11v2H3zm0 5h11v2H3zm0 5h7v2H3zm10-1 8 4-8 4z"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></symbol><symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 16.8 15.6 5.2l3.2 3.2L7.2 20H4zm13-13 1.4-1.4a1 1 0 0 1 1.4 0l1.8 1.8a1 1 0 0 1 0 1.4L20.2 7z"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0zm-2 2v7h10v-7z"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm0 2v16h11V9h-5V4zm3 9h6v2H9zm0 3h6v2H9z"/></symbol><symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></symbol><symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 2.5 23 21.5H1zm0 4L4.5 19.5h15zM11 10h2v5h-2zm0 6h2v2h-2z"/></symbol></svg><nav class="navl"><a href="index.html">總覽</a><a href="system.html">設計系統</a><a href="shell-a.html">外殼 A</a><a href="player.html">播放頁</a><a href="search.html">搜尋</a><a href="library.html">音樂庫</a><a href="playlist.html">歌單詳情</a><a href="add-to-playlist.html">加入歌單</a><a href="settings.html">設定</a><a href="account.html">帳號與登入</a><a href="plugins.html">插件</a><a href="backup.html">匯入舊版備份</a><a href="shell-b.html">外殼 B（未採用）</a></nav><h1 class="pt">全螢幕播放頁</h1><p class="lead">照舊版：上方收合鈕與加入歌單、資訊、更多；中間是封面，點封面切到歌詞；下方是曲名、進度與播放控制。背景跟著封面取色，是整個 App 唯一帶封面色的地方；控制層仍是中性玻璃。進度的播放頭是書脊的強調色摺線。桌面寬度夠時封面與歌詞並排。</p><p class="note">歌詞是自擬的示意文字，不是這首歌的歌詞。第一版不做倍速與輸出裝置選擇，所以畫面上沒有這兩個控制。</p><p class="note">曲目、播放量與封面都是示意資料；封面是自繪的幾何圖，不是真實專輯封面。強調色用預設的 FMP 紫。</p><h2 class="sec">手機</h2><div class="row"><figure class="frame"><div class="phone t-dark onart"><div class="sb"><span>15:15</span><span class="sbi"><svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg viewBox="0 0 27 12" width="27" height="12"><rect x=".5" y=".5" width="23" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="1.5"/><rect x="25" y="4" width="2" height="4" rx="1" opacity=".5"/></svg></span></div><div class="player" style="background:linear-gradient(rgba(10,12,16,.50),rgba(10,12,16,.78)),radial-gradient(120% 70% at 20% 10%,#13506A,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#0E1620"><div class="pin"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="pcov"><span class="cv" style="width:342px;height:342px;border-radius:12px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span></div><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div><div class="pbot glass"><span class="pb"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg><span>歌詞</span></span><span class="pb"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg><span>佇列</span></span></div></div></div><div class="homebar"></div></div><figcaption>播放頁 · 封面 · 深色</figcaption></figure><figure class="frame"><div class="phone t-dark onart"><div class="sb"><span>15:15</span><span class="sbi"><svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg viewBox="0 0 27 12" width="27" height="12"><rect x=".5" y=".5" width="23" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="1.5"/><rect x="25" y="4" width="2" height="4" rx="1" opacity=".5"/></svg></span></div><div class="player" style="background:linear-gradient(rgba(10,12,16,.50),rgba(10,12,16,.78)),radial-gradient(120% 70% at 20% 10%,#13506A,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#0E1620"><div class="pin"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="plyr"><ul class="lys"><li class="ly"><b>街の灯りが ひとつずつ消えて</b><i>街燈一盞一盞熄滅</i></li><li class="ly"><b>始発を待つ ホームの端で</b><i>在月台邊等著首班車</i></li><li class="ly cur"><b>君の声を まだ覚えてる</b><i>我還記得你的聲音</i></li><li class="ly"><b>明日の地図を 描きかけのまま</b><i>明天的地圖還畫到一半</i></li><li class="ly"><b>遠回りでも 迎えに行くよ</b><i>就算繞遠路也會去接你</i></li><li class="ly"><b>夜明けの色が 窓に滲む</b><i>黎明的顏色滲進窗裡</i></li><li class="ly"><b>names on the platform fade</b><i>月台上的名字漸漸淡去</i></li></ul></div><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div><div class="pbot glass"><span class="pb on"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg><span>歌詞</span></span><span class="pb"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg><span>佇列</span></span></div></div></div><div class="homebar"></div></div><figcaption>播放頁 · 歌詞 · 深色</figcaption></figure><figure class="frame"><div class="phone t-light onart"><div class="sb"><span>15:15</span><span class="sbi"><svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg viewBox="0 0 27 12" width="27" height="12"><rect x=".5" y=".5" width="23" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="1.5"/><rect x="25" y="4" width="2" height="4" rx="1" opacity=".5"/></svg></span></div><div class="player" style="background:linear-gradient(rgba(248,247,244,.62),rgba(248,247,244,.82)),radial-gradient(120% 70% at 20% 10%,#7FD1E8,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#EEF2F4"><div class="pin"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="pcov"><span class="cv" style="width:342px;height:342px;border-radius:12px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span></div><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div><div class="pbot glass"><span class="pb"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg><span>歌詞</span></span><span class="pb"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg><span>佇列</span></span></div></div></div><div class="homebar"></div></div><figcaption>播放頁 · 封面 · 淺色</figcaption></figure><figure class="frame"><div class="phone t-light onart"><div class="sb"><span>15:15</span><span class="sbi"><svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg viewBox="0 0 27 12" width="27" height="12"><rect x=".5" y=".5" width="23" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="1.5"/><rect x="25" y="4" width="2" height="4" rx="1" opacity=".5"/></svg></span></div><div class="player" style="background:linear-gradient(rgba(248,247,244,.62),rgba(248,247,244,.82)),radial-gradient(120% 70% at 20% 10%,#7FD1E8,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#EEF2F4"><div class="pin"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="plyr"><ul class="lys"><li class="ly"><b>街の灯りが ひとつずつ消えて</b><i>街燈一盞一盞熄滅</i></li><li class="ly"><b>始発を待つ ホームの端で</b><i>在月台邊等著首班車</i></li><li class="ly cur"><b>君の声を まだ覚えてる</b><i>我還記得你的聲音</i></li><li class="ly"><b>明日の地図を 描きかけのまま</b><i>明天的地圖還畫到一半</i></li><li class="ly"><b>遠回りでも 迎えに行くよ</b><i>就算繞遠路也會去接你</i></li><li class="ly"><b>夜明けの色が 窓に滲む</b><i>黎明的顏色滲進窗裡</i></li><li class="ly"><b>names on the platform fade</b><i>月台上的名字漸漸淡去</i></li></ul></div><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div><div class="pbot glass"><span class="pb on"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg><span>歌詞</span></span><span class="pb"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg><span>佇列</span></span></div></div></div><div class="homebar"></div></div><figcaption>播放頁 · 歌詞 · 淺色</figcaption></figure></div><h2 class="sec">桌面</h2><p class="note">頂列右側的「歌詞」「佇列」兩顆圖示鈕決定右欄顯示什麼（Apple Music、Spotify 桌面版的位置）；手機頂列空間小，維持底部膠囊。</p><div class="row"><figure class="frame"><div class="desk t-dark onart"><div class="wtitle"><span class="lights"><i></i><i></i><i></i></span><span>FMP</span></div><div class="player dpl" style="background:linear-gradient(rgba(10,12,16,.50),rgba(10,12,16,.78)),radial-gradient(120% 70% at 20% 10%,#13506A,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#0E1620"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><span class="it on" aria-label="歌詞"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg></span><span class="it" aria-label="佇列"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></span><span class="vsep"></span><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-volume"/></svg><span class="vol"><span></span></span><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="dpl-l"><span class="cv" style="width:360px;height:360px;border-radius:14px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div></div><div class="dpl-r"><div class="dpl-c ly-c"><ul class="lys"><li class="ly"><b>街の灯りが ひとつずつ消えて</b><i>街燈一盞一盞熄滅</i></li><li class="ly"><b>始発を待つ ホームの端で</b><i>在月台邊等著首班車</i></li><li class="ly"><b>君の声を まだ覚えてる</b><i>我還記得你的聲音</i></li><li class="ly cur"><b>明日の地図を 描きかけのまま</b><i>明天的地圖還畫到一半</i></li><li class="ly"><b>遠回りでも 迎えに行くよ</b><i>就算繞遠路也會去接你</i></li><li class="ly"><b>夜明けの色が 窓に滲む</b><i>黎明的顏色滲進窗裡</i></li><li class="ly"><b>names on the platform fade</b><i>月台上的名字漸漸淡去</i></li></ul></div><div class="lyx"><span class="tag">網易雲 歌詞</span><span>偏移 +0.3 秒</span></div></div></div></div><figcaption>播放頁 · 桌面（封面＋歌詞，1280×800）· 深色</figcaption></figure><figure class="frame"><div class="desk t-dark onart"><div class="wtitle"><span class="lights"><i></i><i></i><i></i></span><span>FMP</span></div><div class="player dpl" style="background:linear-gradient(rgba(10,12,16,.50),rgba(10,12,16,.78)),radial-gradient(120% 70% at 20% 10%,#13506A,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#0E1620"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><span class="it" aria-label="歌詞"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg></span><span class="it on" aria-label="佇列"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></span><span class="vsep"></span><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-volume"/></svg><span class="vol"><span></span></span><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="dpl-l"><span class="cv" style="width:360px;height:360px;border-radius:14px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div></div><div class="dpl-r"><div class="dpl-c q-c"><p class="qmeta">42 首 · 剩 1 小時 52 分</p><ul class="tl"><li class="tr played"><span class="ix">1</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#1D1D1F"/><path d="M0 100 L100 18 L100 100Z" fill="#B91D2A"/><circle cx="28" cy="30" r="12" fill="#E9E9E9"/></svg></span><span class="tx"><b>Die For Me</b><i>ZAYN · 330萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">3:47</span></span></li><li class="tr played"><span class="ix">2</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#DCEBDF"/><rect x="12" y="48" width="9" height="22" fill="#F7C948"/><rect x="28" y="24" width="9" height="46" fill="#3E7C5A"/><rect x="44" y="36" width="9" height="34" fill="#F7C948"/><rect x="60" y="12" width="9" height="58" fill="#3E7C5A"/><rect x="76" y="42" width="9" height="28" fill="#F7C948"/></svg></span><span class="tx"><b>小幸運</b><i>田馥甄</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:25</span></span></li><li class="tr now"><span class="ix">3</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><span class="tx"><b>【初音ミク】千本桜</b><i>黒うさP</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">1:40 / 4:04</span></span></li></ul><div class="foldrule" role="separator"></div><ul class="tl"><li class="tr "><span class="ix">4</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#C23B3B"/><circle cx="50" cy="50" r="40" fill="#E8E1C9"/><circle cx="50" cy="50" r="12" fill="#2A2A2A"/></svg></span><span class="tx"><b>Lemon</b><i>米津玄師</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:15</span></span></li><li class="tr "><span class="ix">5</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#191335"/><circle cx="64" cy="40" r="30" fill="#E7537B"/><rect x="0" y="72" width="100" height="6" fill="#F6C1D0"/></svg></span><span class="tx"><b>アイドル</b><i>YOASOBI</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag trial">試聽</span></span><span class="du">3:33</span></span></li><li class="tr "><span class="ix">6</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#7A1F2B"/><path d="M0 100 L100 18 L100 100Z" fill="#F0B46B"/><circle cx="28" cy="30" r="12" fill="#2B0E12"/></svg></span><span class="tx"><b>残響散歌</b><i>Aimer · 312萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">3:05</span></span></li><li class="tr  off"><span class="ix">7</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#5B6770"/><rect x="12" y="48" width="9" height="22" fill="#1F2529"/><rect x="28" y="24" width="9" height="46" fill="#D8D2C4"/><rect x="44" y="36" width="9" height="34" fill="#1F2529"/><rect x="60" y="12" width="9" height="58" fill="#D8D2C4"/><rect x="76" y="42" width="9" height="28" fill="#1F2529"/></svg></span><span class="tx"><b>富士山下</b><i>陳奕迅</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag login">需登入</span></span><span class="du">4:19</span></span></li><li class="tr "><span class="ix">8</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#1E1E1E"/><circle cx="50" cy="50" r="40" fill="#C94F2C"/><circle cx="50" cy="50" r="12" fill="#F3D9B1"/></svg></span><span class="tx"><b>Escapism.</b><i>RAYE · 270萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">4:32</span></span></li><li class="tr "><span class="ix">9</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#0C1D3D"/><circle cx="64" cy="40" r="30" fill="#F08A8A"/><rect x="0" y="72" width="100" height="6" fill="#FFE3A3"/></svg></span><span class="tx"><b>夜に駆ける</b><i>YOASOBI · 880萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">4:21</span></span></li><li class="tr "><span class="ix">10</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#1D1D1F"/><path d="M0 100 L100 18 L100 100Z" fill="#B91D2A"/><circle cx="28" cy="30" r="12" fill="#E9E9E9"/></svg></span><span class="tx"><b>Die For Me</b><i>ZAYN · 330萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">3:47</span></span></li><li class="tr "><span class="ix">11</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#DCEBDF"/><rect x="12" y="48" width="9" height="22" fill="#F7C948"/><rect x="28" y="24" width="9" height="46" fill="#3E7C5A"/><rect x="44" y="36" width="9" height="34" fill="#F7C948"/><rect x="60" y="12" width="9" height="58" fill="#3E7C5A"/><rect x="76" y="42" width="9" height="28" fill="#F7C948"/></svg></span><span class="tx"><b>小幸運</b><i>田馥甄</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:25</span></span></li></ul></div></div></div></div><figcaption>播放頁 · 桌面（封面＋佇列，1280×800）· 深色</figcaption></figure><figure class="frame"><div class="desk t-light onart"><div class="wtitle"><span class="lights"><i></i><i></i><i></i></span><span>FMP</span></div><div class="player dpl" style="background:linear-gradient(rgba(248,247,244,.62),rgba(248,247,244,.82)),radial-gradient(120% 70% at 20% 10%,#7FD1E8,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#EEF2F4"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><span class="it on" aria-label="歌詞"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg></span><span class="it" aria-label="佇列"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></span><span class="vsep"></span><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-volume"/></svg><span class="vol"><span></span></span><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="dpl-l"><span class="cv" style="width:360px;height:360px;border-radius:14px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div></div><div class="dpl-r"><div class="dpl-c ly-c"><ul class="lys"><li class="ly"><b>街の灯りが ひとつずつ消えて</b><i>街燈一盞一盞熄滅</i></li><li class="ly"><b>始発を待つ ホームの端で</b><i>在月台邊等著首班車</i></li><li class="ly"><b>君の声を まだ覚えてる</b><i>我還記得你的聲音</i></li><li class="ly cur"><b>明日の地図を 描きかけのまま</b><i>明天的地圖還畫到一半</i></li><li class="ly"><b>遠回りでも 迎えに行くよ</b><i>就算繞遠路也會去接你</i></li><li class="ly"><b>夜明けの色が 窓に滲む</b><i>黎明的顏色滲進窗裡</i></li><li class="ly"><b>names on the platform fade</b><i>月台上的名字漸漸淡去</i></li></ul></div><div class="lyx"><span class="tag">網易雲 歌詞</span><span>偏移 +0.3 秒</span></div></div></div></div><figcaption>播放頁 · 桌面（封面＋歌詞，1280×800）· 淺色</figcaption></figure><figure class="frame"><div class="desk t-light onart"><div class="wtitle"><span class="lights"><i></i><i></i><i></i></span><span>FMP</span></div><div class="player dpl" style="background:linear-gradient(rgba(248,247,244,.62),rgba(248,247,244,.82)),radial-gradient(120% 70% at 20% 10%,#7FD1E8,transparent 70%),radial-gradient(90% 60% at 90% 80%,#E85D75,transparent 70%),#EEF2F4"><div class="ptop"><svg class="ic l" aria-hidden="true"><use href="#i-down"/></svg><span class="pr"><span class="it" aria-label="歌詞"><svg class="ic " aria-hidden="true"><use href="#i-lyrics"/></svg></span><span class="it on" aria-label="佇列"><svg class="ic " aria-hidden="true"><use href="#i-queue"/></svg></span><span class="vsep"></span><svg class="ic " aria-hidden="true"><use href="#i-listadd"/></svg><svg class="ic " aria-hidden="true"><use href="#i-volume"/></svg><span class="vol"><span></span></span><svg class="ic " aria-hidden="true"><use href="#i-info"/></svg><svg class="ic " aria-hidden="true"><use href="#i-more"/></svg></span></div><div class="dpl-l"><span class="cv" style="width:360px;height:360px;border-radius:14px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><div class="pmeta"><div><h2>【初音ミク】千本桜</h2><p>黒うさP · <span class="tag">Bilibili</span></p></div><span class="pbtn"><svg class="ic " aria-hidden="true"><use href="#i-heart"/></svg></span></div><div class="seek"><div class="bar"><span class="fill" style="width:41%"></span><span class="head" style="left:41%"></span></div><div class="times"><span>1:40</span><span>-2:24</span></div></div><div class="tp"><span class="it" aria-label="隨機：關"><svg class="ic " aria-hidden="true"><use href="#i-shuffle"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-prev"/></svg><span class="ppb"><svg class="ic l" aria-hidden="true"><use href="#i-pause"/></svg></span><svg class="ic l" aria-hidden="true"><use href="#i-next"/></svg><span class="it on" aria-label="列表循環"><svg class="ic " aria-hidden="true"><use href="#i-repeat"/></svg></span></div></div><div class="dpl-r"><div class="dpl-c q-c"><p class="qmeta">42 首 · 剩 1 小時 52 分</p><ul class="tl"><li class="tr played"><span class="ix">1</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#1D1D1F"/><path d="M0 100 L100 18 L100 100Z" fill="#B91D2A"/><circle cx="28" cy="30" r="12" fill="#E9E9E9"/></svg></span><span class="tx"><b>Die For Me</b><i>ZAYN · 330萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">3:47</span></span></li><li class="tr played"><span class="ix">2</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#DCEBDF"/><rect x="12" y="48" width="9" height="22" fill="#F7C948"/><rect x="28" y="24" width="9" height="46" fill="#3E7C5A"/><rect x="44" y="36" width="9" height="34" fill="#F7C948"/><rect x="60" y="12" width="9" height="58" fill="#3E7C5A"/><rect x="76" y="42" width="9" height="28" fill="#F7C948"/></svg></span><span class="tx"><b>小幸運</b><i>田馥甄</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:25</span></span></li><li class="tr now"><span class="ix">3</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#13506A"/><rect x="12" y="48" width="9" height="22" fill="#7FD1E8"/><rect x="28" y="24" width="9" height="46" fill="#E85D75"/><rect x="44" y="36" width="9" height="34" fill="#7FD1E8"/><rect x="60" y="12" width="9" height="58" fill="#E85D75"/><rect x="76" y="42" width="9" height="28" fill="#7FD1E8"/></svg></span><span class="tx"><b>【初音ミク】千本桜</b><i>黒うさP</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">1:40 / 4:04</span></span></li></ul><div class="foldrule" role="separator"></div><ul class="tl"><li class="tr "><span class="ix">4</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#C23B3B"/><circle cx="50" cy="50" r="40" fill="#E8E1C9"/><circle cx="50" cy="50" r="12" fill="#2A2A2A"/></svg></span><span class="tx"><b>Lemon</b><i>米津玄師</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:15</span></span></li><li class="tr "><span class="ix">5</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#191335"/><circle cx="64" cy="40" r="30" fill="#E7537B"/><rect x="0" y="72" width="100" height="6" fill="#F6C1D0"/></svg></span><span class="tx"><b>アイドル</b><i>YOASOBI</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag trial">試聽</span></span><span class="du">3:33</span></span></li><li class="tr "><span class="ix">6</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#7A1F2B"/><path d="M0 100 L100 18 L100 100Z" fill="#F0B46B"/><circle cx="28" cy="30" r="12" fill="#2B0E12"/></svg></span><span class="tx"><b>残響散歌</b><i>Aimer · 312萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">3:05</span></span></li><li class="tr  off"><span class="ix">7</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#5B6770"/><rect x="12" y="48" width="9" height="22" fill="#1F2529"/><rect x="28" y="24" width="9" height="46" fill="#D8D2C4"/><rect x="44" y="36" width="9" height="34" fill="#1F2529"/><rect x="60" y="12" width="9" height="58" fill="#D8D2C4"/><rect x="76" y="42" width="9" height="28" fill="#1F2529"/></svg></span><span class="tx"><b>富士山下</b><i>陳奕迅</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag login">需登入</span></span><span class="du">4:19</span></span></li><li class="tr "><span class="ix">8</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#1E1E1E"/><circle cx="50" cy="50" r="40" fill="#C94F2C"/><circle cx="50" cy="50" r="12" fill="#F3D9B1"/></svg></span><span class="tx"><b>Escapism.</b><i>RAYE · 270萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">4:32</span></span></li><li class="tr "><span class="ix">9</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#0C1D3D"/><circle cx="64" cy="40" r="30" fill="#F08A8A"/><rect x="0" y="72" width="100" height="6" fill="#FFE3A3"/></svg></span><span class="tx"><b>夜に駆ける</b><i>YOASOBI · 880萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">B站</span></span><span class="du">4:21</span></span></li><li class="tr "><span class="ix">10</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#1D1D1F"/><path d="M0 100 L100 18 L100 100Z" fill="#B91D2A"/><circle cx="28" cy="30" r="12" fill="#E9E9E9"/></svg></span><span class="tx"><b>Die For Me</b><i>ZAYN · 330萬 次播放</i></span><span class="mt"><span class="tags"><span class="tag">YT</span></span><span class="du">3:47</span></span></li><li class="tr "><span class="ix">11</span><span class="cv" style="width:44px;height:44px"><svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><rect width="100" height="100" fill="#DCEBDF"/><rect x="12" y="48" width="9" height="22" fill="#F7C948"/><rect x="28" y="24" width="9" height="46" fill="#3E7C5A"/><rect x="44" y="36" width="9" height="34" fill="#F7C948"/><rect x="60" y="12" width="9" height="58" fill="#3E7C5A"/><rect x="76" y="42" width="9" height="28" fill="#F7C948"/></svg></span><span class="tx"><b>小幸運</b><i>田馥甄</i></span><span class="mt"><span class="tags"><span class="tag">網易</span><span class="tag vip">VIP</span></span><span class="du">4:25</span></span></li></ul></div></div></div></div><figcaption>播放頁 · 桌面（封面＋佇列，1280×800）· 淺色</figcaption></figure></div></body></html>
+function plG(icon, label, extra) {
+  return '<button class="lg gbtn" data-lg-variant="clear" aria-label="' + label + '" title="' + label + '" ' + (extra || '') + '>' + I(icon) + '</button>';
+}
+function plBg(t) { return FMP.ambient(t.cv) + '<div class="pl-scrim"></div>'; }
+const PL_Q = { netease: '無損 FLAC', youtube: 'AAC', bilibili: '高音質' };
+// signature capsule: tapping opens 曲目資訊
+function plSig(t, o, desk) {
+  o = o || {};
+  const cls = 'lg pl-sig' + (desk ? ' pl-dsig' : '');
+  if (o.trial) {
+    return '<button class="' + cls + ' trial" data-lg-variant="clear" aria-label="試聽說明">' + FMP.srcMark(t.src) + '<b>試聽 0:45–1:15</b><i class="sep"></i><span class="q">' + (o.trial === 'login' ? '登入聽完整版' : '開通會員聽完整版') + '</span>' + I('chevR', 'chev') + '</button>';
+  }
+  return '<button class="' + cls + '" data-lg-variant="clear" aria-label="曲目資訊">' + FMP.srcMark(t.src) + '<span>' + FMP.SRC[t.src].name + '</span>' +
+    (t.acc ? '<i class="sep"></i>' + FMP.acc(t.acc) : '') + '<i class="sep"></i>' + I('wave') + '<span class="q">' + PL_Q[t.src] + '</span>' + I('chevR', 'chev') + '</button>';
+}
+function plProg(o) {
+  o = o || {};
+  if (o.trial) {
+    return '<div class="pl-prog pl-trial"><div class="slider"><span class="pl-band" style="left:16.6%;width:11.1%"></span><i style="left:16.6%;width:6.4%"></i><span class="knob" style="left:23%"></span></div>' +
+      '<div class="pl-times num"><span>1:02</span><span>4:31</span></div></div>';
+  }
+  return '<div class="pl-prog"><div class="slider"><i style="width:' + (o.p || 38.5) + '%"></i><span class="knob" style="left:' + (o.p || 38.5) + '%"></span></div>' +
+    '<div class="pl-times num"><span>' + (o.at || '1:36') + '</span><span>-' + (o.left || '2:33') + '</span></div></div>';
+}
+function plCtl(o) {
+  o = o || {};
+  return '<div class="pl-ctl">' +
+    '<button class="ibtn md' + (o.shuffle ? ' on' : '') + '" aria-label="隨機">' + I('shuffle') + '</button>' +
+    '<button class="ibtn" aria-label="上一首">' + I('prev') + '</button>' +
+    '<button class="ibtn big" aria-label="暫停">' + I(o.paused ? 'play' : 'pause') + '</button>' +
+    '<button class="ibtn" aria-label="下一首">' + I('next') + '</button>' +
+    '<button class="ibtn md' + (o.repeat ? ' on' : '') + '" aria-label="循環">' + I(o.repeat === 'one' ? 'repeat1' : 'repeat') + '</button></div>';
+}
+const PL_PAGES = ['queue', 'cover', 'lyrics'];
+/* o.swipe: 0..1 from the current page toward o.to, for the mid-swipe frame */
+function plDots(view, o) {
+  o = o || {};
+  const at = PL_PAGES.indexOf(view || 'cover');
+  return '<div class="pl-dots" role="tablist" aria-label="畫面：佇列、封面、歌詞">' + PL_PAGES.map((k, i) => {
+    const w = o.swipe ? (i === at ? 20 - 13 * o.swipe : i === PL_PAGES.indexOf(o.to) ? 7 + 13 * o.swipe : 7) : null;
+    return '<i role="tab" aria-label="' + { queue: '佇列', cover: '封面', lyrics: '歌詞' }[k] + '" aria-selected="' + (i === at) + '" class="' + (i === at && !o.swipe ? 'on' : '') + '"' + (w ? ' style="width:' + w + 'px;background:rgba(255,255,255,' + (0.38 + 0.62 * (w - 7) / 13).toFixed(2) + ')"' : '') + '></i>';
+  }).join('') + '</div>';
+}
+function plLyLines(o) {
+  o = o || {};
+  const mode = o.mode || 'both';
+  return PL_LY.map(([at, a, b], i) => {
+    const cls = i === PL_CUR ? ' cur' : (i < PL_CUR && !o.manual ? ' past' : '');
+    const main = mode === 'trans' ? b : a;
+    const sub = mode === 'orig' ? '' : '<small>' + (mode === 'trans' ? a : b) + '</small>';
+    const guide = o.guide === i;
+    const jump = (guide || o.desk) ? '<span class="pl-jump">' + I('play') + at + '</span>' : '';
+    return '<div class="pl-l' + cls + (guide ? ' guide' : '') + (o.hov === i ? ' hov' : '') + '" data-at="' + at + '"><span class="tx">' + main + sub + '</span>' + jump + '</div>';
+  }).join('');
+}
+function plLySrc(t, o) {
+  o = o || {};
+  return '<span>歌詞</span>' + FMP.src(o.src || 'netease') + '<b>' + (o.src === 'lrclib' ? 'lrclib' : '網易雲音樂') + '</b><span>· ' + (o.manual ? '手動匹配' : '自動匹配') + '</span>' +
+    (o.offset ? '<span>· 偏移 <b class="num">' + o.offset + '</b></span>' : '');
+}
+
+/* phone screens. o: track, view ('cover'|'lyrics'), state, trial, manual, offset, overlay, temp, mode */
+function plPhone(ctx, o) {
+  o = o || {};
+  const t = o.track || PL_T;
+  const ctxLine = o.temp
+    ? '<div class="pl-ctx temp"><b>臨時播放</b>播完回到佇列第 6 首</div>'
+    : '<div class="pl-ctx"><b>佇列 · 第 6 / 64 首</b>下一首：Glass Harbor</div>';
+  let h = '<div class="pl-m">';
+  h += '<div class="pl-top">' + plG('chevD', '收起') + ctxLine + '<div class="lg pl-gp" data-lg-variant="clear"><button class="ibtn" aria-label="加入歌單">' + I('addlist') + '</button><button class="ibtn" aria-label="更多">' + I('more') + '</button></div></div>';
+  const view = o.view || 'cover';
+  const pane = (v) => {
+  let h = '';
+  if (v === 'lyrics' || v === 'queue') {
+    h += '<div class="pl-mini">' + FMP.coverEl(t.cv, 56) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + '</span></div></div>';
+    if (v === 'queue') {
+      const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11];
+      h += '<div class="pl-pq"><div class="qh">接下來<span>58 首</span><span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+        nexts.map((x) => FMP.trackRow(x, { more: false, drag: true })).join('') + '</div>';
+    } else if (o.state === 'matching') {
+      h += '<div class="pl-state"><span class="spinner"></span><h5 style="margin-top:14px">正在匹配歌詞…</h5><p>依曲名、歌手與時長在網易雲音樂、lrclib 尋找</p></div>';
+    } else if (o.state === 'none') {
+      h += '<div class="pl-state"><span class="si">' + I('lyrics') + '</span><h5>暫無歌詞</h5><p>自動匹配沒找到這首的歌詞，可以自己搜尋或換個關鍵字</p><button class="btn btn-sm">' + I('search', 's18') + '搜尋歌詞</button></div>';
+    } else if (o.state === 'inst') {
+      h += '<div class="pl-state"><span class="si">' + I('note') + '</span><h5>純音樂，沒有歌詞</h5><p>歌詞源把這首標成純音樂。認錯了可以從 ⋮ 搜尋歌詞</p></div>';
+    } else {
+      h += '<div class="pl-lysrc">' + plLySrc(t, { offset: o.offset ? '+0.3 秒' : '' }) + '</div>';
+      const shift = o.manual ? -262 : -120;
+      h += '<div class="pl-ly' + (o.manual ? ' manual' : '') + '"' + (o.offset ? ' style="height:212px"' : '') + '><div class="in" style="transform:translateY(' + (o.offset ? -150 : shift) + 'px)">' + plLyLines({ manual: o.manual, guide: o.manual ? 6 : undefined, mode: o.mode }) + '</div></div>';
+      if (o.manual) h += '<button class="lg pl-back" data-lg-variant="clear">' + I('target') + '回到目前歌詞</button>';
+      if (o.offset) {
+        h += '<div class="lg pl-off" data-lg-variant="clear"><div class="oh">' + I('offset', 's18') + '<span>歌詞偏移</span><b>+0.3 秒</b><span>歌詞提早 0.3 秒出現</span><button class="ibtn" aria-label="關閉偏移列">' + I('close', 's18') + '</button></div>' +
+          '<div class="ob"><button>−1</button><button>−0.5</button><button>−0.1</button><button class="rs">重置</button><button>+0.1</button><button>+0.5</button><button>+1</button></div></div>';
+      }
+    }
+  } else {
+    h += FMP.coverEl(t.cv, null, 'pl-cover');
+    h += '<div class="pl-info"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>';
+  }
+  return h;
+  };
+  if (o.swipe) {
+    // finger moving left: the current page slides out to the left, the next one comes in from the right
+    const dir = PL_PAGES.indexOf(o.to) > PL_PAGES.indexOf(view) ? -1 : 1;
+    const dx = Math.round(390 * o.swipe);
+    h += '<div class="pl-pane" style="transform:translateX(' + dir * dx + 'px)">' + pane(view) + '</div>' +
+      '<div class="pl-pane" style="transform:translateX(' + (-dir * (390 - dx)) + 'px)">' + pane(o.to) + '</div>';
+  } else {
+    h += pane(view);
+  }
+  h += plSig(t, o) + plProg(o) + plCtl({ repeat: o.repeat === undefined ? 'all' : o.repeat, shuffle: o.shuffle }) + plDots(view, o) + '</div>';
+  return FMP.phone(ctx, { raw: true, content: plBg(t) + h, dock: false, onMedia: true, noEdge: true, overlay: o.overlay });
+}
+
+/* ⋮ on the player: the same bottom sheet as a track's "more" anywhere on the phone */
+function plMenu(mode) {
+  mode = mode || 'both';
+  const radio = (v, label) => [mode === v ? 'check' : '', label, '', 'on'];
+  return FMP.trackSheet(PL_T, [
+    ['search', '搜尋歌詞'], ['offset', '調整歌詞偏移'], '=',
+    '<div class="tcap">歌詞顯示</div>', radio('both', '原文＋翻譯'), radio('orig', '只顯示原文'), radio('trans', '優先顯示翻譯'), '=',
+    ['info', '曲目資訊'],
+  ]);
+}
+
+/* lyrics search body, shared by phone sheet and desktop dialog */
+function plSearchBody(t, desk) {
+  const res = [
+    { sync: true, title: t.title, by: t.artist + ' · ' + t.title, src: 'netease', tr: true, d: '4:09', on: true },
+    { sync: true, title: t.title, by: t.artist + ' · 夜明けの駅 EP', src: 'lrclib', tr: false, d: '4:09' },
+    { sync: true, title: t.title + '（TV size）', by: t.artist, src: 'netease', tr: true, d: '1:31', far: '差 2:38' },
+    { sync: false, title: t.title, by: t.artist + ' · 星屑ランデブー', src: 'lrclib', tr: false, d: '4:10' },
+    { sync: true, title: t.title + '（Live）', by: t.artist + ' · Hotaru Live 2026', src: 'netease', tr: false, d: '4:36', far: '差 27 秒' },
+  ];
+  const row = (r) => '<div class="pl-res' + (r.on ? ' on' : '') + '"><span class="ic' + (r.sync ? ' sync' : '') + '">' + I(r.sync ? 'clock' : 'doc') + '<em>' + (r.sync ? '同步' : '純文字') + '</em></span>' +
+    '<div class="m"><b><span class="tt">' + FMP.esc(r.title) + '</span>' + (r.tr ? '<span class="pl-tr">翻譯</span>' : '') + '</b><span>' + FMP.src(r.src, true) + '<span class="tt">' + FMP.esc(r.by) + '</span></span></div>' +
+    '<span class="d' + (r.far ? ' far' : '') + '">' + r.d + (r.far ? '<small>' + r.far + '</small>' : '') + '</span><span class="ck">' + (r.on ? I('check') : '') + '</span></div>';
+  return '<div class="pl-trk">' + FMP.coverEl(t.cv, desk ? 40 : 44, 'thumb') + '<div class="m"><b>' + FMP.esc(t.title) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + ' · <span class="num">' + t.dur + '</span></span></div></div>' +
+    '<div class="pl-matched"><span class="ok">' + I('check', 's18') + '</span><span class="t">已匹配 <b>網易雲音樂</b> 的歌詞（自動）</span><button class="btn btn-xs btn-danger">移除匹配</button></div>' +
+    '<div class="field">' + I('search') + '<input value="' + FMP.esc(t.title + ' - ' + t.artist) + '" aria-label="歌曲名 - 歌手"><span style="color:var(--glass-ink-2)">' + I('close', 's16') + '</span></div>' +
+    '<div class="pl-chips"><button class="chip on">全部</button><button class="chip">' + FMP.srcMark('netease').replace('<svg', '<svg width="15" height="15"') + '網易雲</button><button class="chip">' + FMP.srcMark('lrclib').replace('<svg', '<svg width="15" height="15"') + 'lrclib</button></div>' +
+    res.map(row).join('') +
+    '<div class="pl-hint">點一筆結果就套用，並記住這首用哪份歌詞。時長和這首差很多的標成橘色（可能是剪輯版或現場版）。' + (desk ? ' <kbd>↑</kbd><kbd>↓</kbd> 選擇 · <kbd>⏎</kbd> 套用 · <kbd>Esc</kbd> 關閉' : '') + '</div>';
+}
+function plSearchSheet(t) {
+  return '<div class="sheet-wrap"><div class="lg sheet" role="dialog" style="height:740px"><div class="grab"></div><div class="shead"><span style="width:44px"></span><span class="stitle">搜尋歌詞</span><button class="ibtn" aria-label="關閉" style="color:var(--glass-ink)">' + I('close') + '</button></div>' +
+    '<div class="sbody pl-sb">' + plSearchBody(t) + '</div></div></div>';
+}
+function plInfoSheet(t) {
+  const kv = (k, v) => '<div class="pl-kv"><span>' + k + '</span><span>' + v + '</span></div>';
+  return '<div class="sheet-wrap"><div class="lg sheet" role="dialog" style="height:700px"><div class="grab"></div><div class="shead"><span style="width:44px"></span><span class="stitle">曲目資訊</span><button class="ibtn" aria-label="關閉" style="color:var(--glass-ink)">' + I('close') + '</button></div>' +
+    '<div class="sbody pl-sb"><div class="pl-ih">' + FMP.coverEl(t.cv, 72) + '<div class="m"><b>' + FMP.esc(t.title) + '</b><span>' + FMP.esc(t.artist) + '</span></div></div>' +
+    kv('音源', FMP.srcChip(t.src, true)) +
+    kv('存取等級', FMP.acc(t.acc, true) + '<span>需要網易雲音樂會員；你的會員到 2027-02-28</span>') +
+    kv('音質', '<span>無損（FLAC）· 需會員</span><span style="color:var(--glass-ink-2);font-size:13px;width:100%">依偏好與會員狀態選最高可用；可選：無損、極高、標準</span>') +
+    kv('專輯', '星屑ランデブー') + kv('發佈日期', '<span class="num">2026-03-14</span>') + kv('時長', '<span class="num">' + t.dur + '</span>') +
+    kv('評論', '<span class="num">3,120</span>') +
+    kv('簡介', '<span style="color:var(--glass-ink-2);font-size:14px;line-height:20px">動畫《夜行列車》片尾曲。示範資料，歌詞與簡介都是虛構的。</span>') +
+    '<div style="display:flex;gap:10px;margin-top:16px"><button class="btn btn-gray" style="flex:1">' + I('external', 's18') + '在網易雲音樂打開</button><button class="btn btn-gray" style="flex:1">' + I('copy', 's18') + '複製連結</button></div>' +
+    '</div></div></div>';
+}
+
+/* desktop: full-window player. o: right ('lyrics'|'queue'), overlay, hov */
+function plDesk(ctx, o) {
+  o = o || {};
+  const t = o.track || PL_T;
+  const right = o.right || 'lyrics';
+  let h = '<div class="win scr desk t-' + ctx.theme + '" data-tone="' + ctx.theme + '">' + plBg(t) + '<div class="pl-m">';
+  h += '<div class="side" style="top:4px;left:6px;bottom:auto;width:auto;padding:0;z-index:40"><div class="lights"><i></i><i></i><i></i></div></div>';
+  h += '<div class="pl-dtop">' + plG('chevD', '收起（Esc）') + '<span class="sp"></span>' + plG('addlist', '加入歌單') + plG('info', '曲目資訊（⌘I）') + plG('more', '更多') +
+    '<div class="lg pl-seg" data-lg-variant="clear"><div class="seg lg-seg"><button class="' + (right === 'lyrics' ? 'on' : '') + '">' + I('lyrics') + '歌詞</button><button class="' + (right === 'queue' ? 'on' : '') + '">' + I('queue') + '佇列</button></div></div></div>';
+  h += FMP.coverEl(t.cv, null, 'pl-dcover');
+  h += '<div class="pl-dinfo"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>' + plSig(t, o, true);
+  h += '<div class="pl-dprog"><div class="slider"><i style="width:38.5%"></i></div><div class="pl-times num"><span>1:36</span><span>-2:33</span></div></div>';
+  h += '<div class="pl-dctl"><button class="ibtn md" aria-label="隨機">' + I('shuffle') + '</button><button class="ibtn" aria-label="上一首">' + I('prev') + '</button><button class="ibtn big" aria-label="暫停（Space）">' + I('pause') + '</button><button class="ibtn" aria-label="下一首">' + I('next') + '</button><button class="ibtn md on" aria-label="循環">' + I('repeat') + '</button></div>';
+  h += '<div class="pl-dvol">' + I('volumeLow') + '<span class="slider"><i style="width:64%"></i></span>' + I('volume') + '</div>';
+  let r = '';
+  if (right === 'lyrics') {
+    r = '<div class="pl-rhead">' + plLySrc(t) + '<span class="sp"></span><button class="btn btn-xs">' + I('offset', 's16') + '偏移 0 秒</button></div>' +
+      '<div class="pl-dly"><div class="in">' + plLyLines({ desk: true, hov: o.hov }) + '</div></div>';
+  } else {
+    const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11, T.t12, T.t06, T.t17, T.t15];
+    // same order as the queue page: now playing, then the fold, then what comes next
+    r = '<div class="pl-dq"><div class="qh">佇列<span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+      FMP.trackRow(t, { desk: true, playing: true, more: false, sub: FMP.esc(t.artist) + ' · 正在播放' }) +
+      '<div class="qn">接下來<span>58 首 · 3 小時 58 分</span></div>' +
+      nexts.map((x) => FMP.trackRow(x, { desk: true, more: false, drag: true })).join('') +
+      '<div style="padding:12px;font-size:12px;color:var(--label-3)">在這裡可以拖動排序；移除、清空與播過的曲目在側欄的「佇列」。</div></div>';
+  }
+  h += '<div class="pl-right">' + r + '</div>';
+  h += '</div>' + (o.overlay || '') + '</div>';
+  return h;
+}
+function plDeskSearch(t) {
+  return '<div class="dialog-wrap"><div class="lg dlg" role="dialog" style="width:600px"><div class="dlg-head"><span class="dt">搜尋歌詞</span><button class="ibtn" aria-label="關閉（Esc）">' + I('close', 's18') + '</button></div><div class="dlg-body pl-sb">' + plSearchBody(t, true) + '</div></div></div>';
+}
+
+/* medium width. o: device ('tablet'|'window'), w, h, view ('cover'|'lyrics', portrait only), right ('lyrics'|'queue', two columns), hov, overlay.
+   Portrait tablet = phone layout in one column (swipe + dots); landscape tablet and the window = desktop's two columns. */
+function plMid(ctx, o) {
+  o = o || {};
+  const t = o.track || PL_T;
+  const win = o.device === 'window';
+  const w = o.w || (win ? 960 : 820), h = o.h || (win ? 720 : 1180);
+  const two = win || w > h;
+  let h2 = '';
+  if (!two) {
+    const view = o.view || 'cover';
+    const top = '<div class="pl-top">' + plG('chevD', '收起') + '<div class="pl-ctx"><b>佇列 · 第 6 / 64 首</b>下一首：Glass Harbor</div><div class="lg pl-gp" data-lg-variant="clear"><button class="ibtn" aria-label="加入歌單">' + I('addlist') + '</button><button class="ibtn" aria-label="更多">' + I('more') + '</button></div></div>';
+    let body;
+    if (view === 'lyrics') {
+      body = '<div class="pl-mbody"><div class="pl-mini">' + FMP.coverEl(t.cv, 64) + '<div class="m"><b><span class="tt">' + FMP.esc(t.title) + '</span>' + FMP.acc(t.acc) + '</b><span>' + FMP.src(t.src) + FMP.esc(t.artist) + '</span></div></div>' +
+        '<div class="pl-lysrc">' + plLySrc(t) + '</div>' +
+        '<div class="pl-ly"><div class="in" style="transform:translateY(-150px)">' + plLyLines({}) + '</div></div></div>';
+    } else {
+      body = '<div class="pl-mbody cov">' + FMP.coverEl(t.cv, null, 'pl-mcover') +
+        '<div class="pl-minfo"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div></div>';
+    }
+    h2 = '<div class="pl-m pl-mm pl-mt">' + top + '<div class="pl-mp"><div class="pl-mcol">' + body + plSig(t) + plProg() + plCtl({ repeat: 'all' }) + plDots(view) + '</div></div></div>';
+  } else {
+    const right = o.right || 'lyrics';
+    const dim = win ? '--lx:56px;--lw:300px;--rx:420px' : '--lx:56px;--lw:380px;--rx:520px';
+    const top = (win ? '<div class="side" style="top:4px;left:6px;bottom:auto;width:auto;padding:0;z-index:40"><div class="lights"><i></i><i></i><i></i></div></div>' : '') +
+      '<div class="pl-dtop">' + plG('chevD', win ? '收起（Esc）' : '收起') + '<span class="sp"></span>' + plG('addlist', '加入歌單') + plG('info', win ? '曲目資訊（⌘I）' : '曲目資訊') + plG('more', '更多') +
+      '<div class="lg pl-seg" data-lg-variant="clear"><div class="seg lg-seg"><button class="' + (right === 'lyrics' ? 'on' : '') + '">' + I('lyrics') + '歌詞</button><button class="' + (right === 'queue' ? 'on' : '') + '">' + I('queue') + '佇列</button></div></div></div>';
+    let left = FMP.coverEl(t.cv, null, 'pl-mcover') +
+      '<div class="pl-minfo"><div class="pl-title"><span class="tt">' + FMP.esc(t.title) + '</span></div><div class="pl-artist">' + FMP.esc(t.artist) + '</div></div>' + plSig(t, {}, win);
+    if (win) {
+      left += plProg().replace('class="pl-prog', 'class="pl-dprog') + plCtl({ repeat: 'all' }).replace('class="pl-ctl"', 'class="pl-dctl"') +
+        '<div class="pl-dvol">' + I('volumeLow') + '<span class="slider"><i style="width:64%"></i></span>' + I('volume') + '</div>';
+    } else {
+      left += plProg() + plCtl({ repeat: 'all' }); // no volume row on a tablet: hardware keys
+    }
+    let r;
+    if (right === 'lyrics') {
+      r = '<div class="pl-rhead">' + plLySrc(t) + '<span class="sp"></span><button class="btn btn-xs">' + I('offset', 's16') + '偏移 0 秒</button></div>' +
+        '<div class="pl-dly"><div class="in">' + plLyLines({ desk: win, hov: o.hov }) + '</div></div>';
+    } else {
+      const nexts = [T.t02, T.t03, T.t04, T.t09, T.t11, T.t12, T.t06];
+      r = '<div class="pl-dq"><div class="qh">佇列<span class="sp"></span><button class="tog">' + I('shuffle') + '隨機</button><button class="tog on">' + I('repeat') + '列表循環</button></div>' +
+        FMP.trackRow(t, { desk: win, playing: true, more: false, sub: FMP.esc(t.artist) + ' · 正在播放' }) +
+        '<div class="qn">接下來<span>58 首 · 3 小時 58 分</span></div>' +
+        nexts.map((x) => FMP.trackRow(x, { desk: win, more: false, drag: true })).join('') + '</div>';
+    }
+    h2 = '<div class="pl-m pl-mm ' + (win ? 'pl-mw' : 'pl-mt') + '">' + top + '<div class="pl-ml" style="' + dim + '"><div class="pl-mlc">' + left + '</div><div class="pl-mr">' + r + '</div></div></div>';
+  }
+  return FMP.medium(ctx, { device: o.device, w: o.w, h: o.h, raw: true, noRail: true, transport: false, panelBtn: false, onMedia: true, noEdge: true, content: plBg(t) + h2, overlay: o.overlay });
+}
+
+// lyrics tap → seek: demo by moving the highlight
+function plWire(root) {
+  root.querySelectorAll('.pl-l').forEach((l) => l.addEventListener('click', () => {
+    l.parentElement.querySelectorAll('.pl-l').forEach((x) => x.classList.remove('cur', 'guide', 'past'));
+    l.classList.add('cur');
+  }));
+}
+
+const trialToast = FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + FMP.acc('trial') + '<span>這首只能試聽 30 秒，登入網易雲音樂可聽完整版</span></span><button class="btn btn-tinted">登入</button>', { style: 'top:112px;bottom:auto' });
+
+FMP.page({
+  title: '播放頁（含歌詞）',
+  intro: '<p>全螢幕播放頁是唯一跟封面變色的地方：背景是封面取色的色場（<code>FMP.ambient</code>），上面再壓一層由上而下的暗層，白字在淺色封面上也維持 AA。預設沒有強調色，開著的狀態用白色；使用者在設定選了強調色時，這裡用那個顏色亮的一階，不跟封面變。</p><p><b>FMP 的招牌是進度條正上方那顆「音源膠囊」</b>：音源（符號＋全名）、存取等級、實際在播的音質合成一顆清玻璃膠囊，例如「網易雲音樂 │ 會員 │ 無損 FLAC ›」，點它打開曲目資訊；它是小字的一條，不和曲名搶。多音源播放器最要緊的資訊（這首從哪來、能不能完整聽、聽到的是哪一級）放在拇指最常經過的地方，而不是曲名下的一排小標籤；試聽時它變成藍色的試聽膠囊。</p><p>深淺色兩份的播放頁本體相同（都在封面色上、白字）；跟主題走的是浮出來的選單、sheet 與對話框。</p>',
+  sections: [
+    {
+      title: '手機：封面與歌詞',
+      desc: '頂列：收起、播放來源（佇列第幾首或臨時播放）、加入歌單與 ⋮。封面下只有曲名與歌手；音源、存取等級、音質合在進度條上方的音源膠囊。打開時是封面；向左滑是歌詞、向右滑是佇列，底部三個點標出目前在哪一頁。',
+      frames: [
+        { kind: 'phone', label: '封面畫面', render: (ctx) => plPhone(ctx, {}) },
+        { kind: 'phone', label: '歌詞畫面', render: (ctx) => plPhone(ctx, { view: 'lyrics' }), after: plWire },
+        { kind: 'phone', label: '手動捲動歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', manual: true }), after: plWire },
+        { kind: 'phone', label: '佇列畫面', render: (ctx) => plPhone(ctx, { view: 'queue' }) },
+        { kind: 'phone', label: '向左滑到歌詞（滑到一半）', render: (ctx) => plPhone(ctx, { swipe: 0.42, to: 'lyrics' }) },
+      ],
+      notes: '<h3>規則</h3><ul>' +
+        '<li>頂列中間寫播放來源：「佇列 · 第 6 / 64 首」與下一首；臨時播放時改成強調色的「臨時播放 · 播完回到佇列第 6 首」，和佇列頁的說法一致。</li>' +
+        '<li><b>音源膠囊</b>（招牌）：清玻璃、30pt 高、12pt 字，左起音源符號＋全名、存取等級徽章（免費與未知不顯示這段）、音質（插件列出可用音質，宿主依偏好與會員狀態選最高可用，brief §5.4；這裡寫實際在播的那一級）、›。點它開曲目資訊 sheet。歌詞與佇列畫面也在同一個位置，三個畫面都看得到。</li>' +
+        '<li>頂列右邊一顆清玻璃膠囊放「加入歌單」與 ⋮（舊版頂列就有加入歌單；資訊改由音源膠囊進入）。</li>' +
+        '<li>控制列：隨機、上一首、播放／暫停、下一首、循環。隨機、循環開著時是強調色並在下方加一個點（不只靠顏色）；循環三態圖示分 repeat／repeat1。</li>' +
+        '<li><b>左右滑換畫面</b>：三個畫面排成「佇列 ← 封面 → 歌詞」，打開時在封面；向左滑到歌詞，向右滑到佇列。只有頂列與音源膠囊之間的那一塊會滑，音源膠囊、進度與控制列不動。底部三個點是頁面指示，目前那一頁拉長成膠囊；點點也能切換（VoiceOver 唸「封面，第 2 頁，共 3 頁」）。</li>' +
+        '<li><b>代價</b>：封面不能再左右滑來切歌（Apple Music、Spotify 的手勢），換歌只靠控制列的上一首／下一首。左右滑也不會跟系統的返回手勢打架：收起播放頁是往下拉或點左上。手機不放音量列（用實體按鍵），也沒有輸出裝置按鈕（第一版不做）。</li>' +
+        '<li>第一次打開播放頁時，點點旁短暫出現「左右滑看歌詞與佇列」，之後不再出現。</li>' +
+        '<li>佇列畫面只列接下來的，可拖動，隨機與循環的文字切換鈕在標題列；完整編輯在佇列分頁。</li>' +
+        '<li>歌詞：當前行全白，播過的最淡，未播的半透明；有翻譯時在原文下方一行。上方小字標來源（網易雲音樂或 lrclib）與自動／手動匹配。</li>' +
+        '<li>手動捲動時暫停自動捲動：所有行稍微變亮，畫面中央那一行出現底色與「▶ 1:53」，點它跳到該時間；下方浮出清玻璃「回到目前歌詞」。3 秒沒動作也會自己回去。任何一行都可以直接點來跳轉。</li>' +
+        '<li>玻璃都是清玻璃，只在控制上：頂列的收起與右側膠囊、音源膠囊、浮出來的「回到目前歌詞」。頁面點點不是玻璃，直接畫在色場上。歌詞與曲名直接放在色場上。</li></ul>',
+    },
+    {
+      title: '手機：試聽',
+      frames: [
+        { kind: 'phone', label: '試聽（第一次，未登入）', render: (ctx) => plPhone(ctx, { track: T.t04, trial: 'login', overlay: trialToast }) },
+        { kind: 'phone', label: '試聽（已登入、非會員）', render: (ctx) => plPhone(ctx, { track: T.t04, trial: 'vip' }) },
+      ],
+      notes: '<ul><li>只有試聽時照樣播片段（brief §5.4）。音源膠囊變成藍色的試聽膠囊：「試聽 0:45–1:15 │ 登入聽完整版 ›」，登入但不是會員時後段是「開通會員聽完整版」；點它直接走登入或開通。</li>' +
+        '<li>膠囊就在進度條正上方，進度條畫出整首長度，只有可聽的片段（0:45–1:15）是亮的一段，兩者上下對齊、一看就懂。播放頭在片段裡走，拖動只能落在片段內。</li>' +
+        '<li>第一次遇到試聽時跳一則提示並附「登入」，之後不再跳（每個音源各一次）；試聽膠囊一直都在。</li></ul>',
+    },
+    {
+      title: '手機：⋮、偏移、顯示方式',
+      frames: [
+        { kind: 'phone', label: '⋮（底部 sheet）', render: (ctx) => plPhone(ctx, { view: 'lyrics', overlay: plMenu('both') }) },
+        { kind: 'phone', label: '偏移調整列', render: (ctx) => plPhone(ctx, { view: 'lyrics', offset: true }) },
+        { kind: 'phone', label: '優先顯示翻譯', render: (ctx) => plPhone(ctx, { view: 'lyrics', mode: 'trans' }) },
+      ],
+      notes: '<ul><li>⋮ 打開底部 sheet，和手機上任何一首歌的「更多」同一個元件：頂端是目前這首，接著搜尋歌詞、調整歌詞偏移；「歌詞顯示」三選一（原文＋翻譯、只顯示原文、優先顯示翻譯）；曲目資訊。加入歌單在頂列膠囊上，不重複。厚玻璃、跟主題走，在色場上也讀得清。</li>' +
+        '<li>偏移列浮在歌詞下緣，清玻璃：顯示目前偏移與意思（「歌詞提早 0.3 秒出現」），七顆按鈕 −1／−0.5／−0.1／重置／+0.1／+0.5／+1 秒，每顆 ≥40pt 高。偏移記在這首曲目上；調過後歌詞來源那行多一個「偏移 +0.3 秒」。</li>' +
+        '<li>優先顯示翻譯：翻譯當主行，原文移到下方小行。沒有翻譯的歌詞三個選項看起來一樣。</li></ul>',
+    },
+    {
+      title: '手機：歌詞狀態',
+      frames: [
+        { kind: 'phone', label: '匹配中', render: (ctx) => plPhone(ctx, { view: 'lyrics', state: 'matching' }) },
+        { kind: 'phone', label: '暫無歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', state: 'none' }) },
+        { kind: 'phone', label: '純音樂', render: (ctx) => plPhone(ctx, { track: T.t16, view: 'lyrics', state: 'inst' }) },
+      ],
+      notes: '<ul><li>匹配中：依曲名、歌手、時長自動匹配（brief §10），歌詞源順序照設定（netease、lrclib）。</li><li>暫無歌詞：主要動作「搜尋歌詞」開歌詞搜尋 sheet。載入失敗（網路）用同一個版面，標題改「歌詞載入失敗」、按鈕改「重試」。</li><li>純音樂：不給大按鈕，避免干擾；真的認錯從 ⋮ 搜尋。</li></ul>',
+    },
+    {
+      title: '手機：歌詞搜尋與曲目資訊',
+      frames: [
+        { kind: 'phone', label: '搜尋歌詞', render: (ctx) => plPhone(ctx, { view: 'lyrics', overlay: plSearchSheet(PL_T) }) },
+        { kind: 'phone', label: '曲目資訊', render: (ctx) => plPhone(ctx, { overlay: plInfoSheet(PL_T) }) },
+      ],
+      notes: '<h3>搜尋歌詞</h3><ul><li>上方是這首的曲名、歌手、時長；已匹配時一列綠勾「已匹配 網易雲音樂 的歌詞（自動）」＋紅色「移除匹配」。</li>' +
+        '<li>搜尋框預填「曲名 - 歌手」；來源 chip：全部、網易雲、lrclib。</li>' +
+        '<li>結果列：左邊的方塊標同步（強調色、時鐘）或純文字（灰、文件）；曲名後有「翻譯」標籤；副標是來源（符號＋簡稱）與「歌手 · 專輯」；右邊時長，和這首差很多的標橘色並寫差多少。目前套用的那筆用強調色與勾。</li>' +
+        '<li>點一筆就套用並關閉，提示「歌詞已匹配」。狀態：尚未搜尋（只有預填）、搜尋中、未找到、出錯（重試），與搜尋頁同一套。</li></ul>' +
+        '<h3>曲目資訊</h3><ul><li>從音源膠囊、⋮ 或桌面頂列的資訊鈕打開。列出音源、存取等級（含會員到期日）、音質（實際在播的與可選的）、專輯、發佈日期、時長、評論、簡介；B 站多了播放數、點讚與分 P。各插件給不了的欄位就不顯示。</li></ul>',
+    },
+    {
+      title: '中寬度（平板、窄視窗）',
+      desc: '播放頁全螢幕，蓋住玻璃細欄，也沒有播放膠囊。平板直向是手機版面放進一條置中的欄（左右滑換畫面、底部點點）；平板橫向與窄視窗是桌面的兩欄，頂列右端用「歌詞／佇列」分段。',
+      frames: [
+        { kind: 'tablet', label: '平板直向：封面畫面', render: (ctx) => plMid(ctx, { device: 'tablet' }) },
+        { kind: 'tablet', label: '平板直向：歌詞畫面', render: (ctx) => plMid(ctx, { device: 'tablet', view: 'lyrics' }), after: plWire },
+        { kind: 'tablet', label: '平板橫向：歌詞', w: 1180, h: 820, render: (ctx) => plMid(ctx, { device: 'tablet', w: 1180, h: 820 }), after: plWire },
+        { kind: 'window', label: '窄視窗：歌詞（滑過一行）', render: (ctx) => plMid(ctx, { device: 'window', hov: 5 }), after: plWire },
+      ],
+      notes: '<ul>' +
+        '<li><b>直向用手機的作法</b>：單欄置中、寬度上限 560，封面約 520；左右滑在封面、歌詞、佇列之間換，底部三個點標示目前的頁。歌詞畫面字放大到 30pt（手機 24pt），音源膠囊、進度、控制列的位置和封面畫面一樣，換畫面時不動。</li>' +
+        '<li><b>橫向與窄視窗用桌面的作法</b>：左欄封面、曲名歌手、音源膠囊、進度、控制；右欄歌詞或佇列；頂列右端「歌詞／佇列」分段，不用點點。窄視窗封面約 300，左欄從 x=56、右欄從 x=420 起，保留音量列與紅綠燈（macOS）。</li>' +
+        '<li><b>平板沒有音量列</b>：音量用實體按鍵，和手機一樣。窄視窗（滑鼠）保留。</li>' +
+        '<li>播放頁在中寬度同樣蓋住細欄與播放膠囊，Esc 或左上收起回到原頁。平板直向與橫向由裝置方向決定，不是使用者切換。</li>' +
+        '<li>⋮、曲目資訊、歌詞搜尋沿用各自的元件：平板從按鈕長出選單、置中對話框；窄視窗照桌面。</li></ul>',
+    },
+    {
+      title: '桌面',
+      desc: '兩欄：左邊封面與控制，右邊歌詞或佇列。頂列左邊收起；右邊加入歌單、資訊、⋮，最右是「歌詞／佇列」分段切換。',
+      frames: [
+        { kind: 'desktop', label: '歌詞（滑過一行）', render: (ctx) => plDesk(ctx, { hov: 5 }), after: plWire },
+        { kind: 'desktop', label: '佇列', render: (ctx) => plDesk(ctx, { right: 'queue' }) },
+        { kind: 'desktop', label: '搜尋歌詞對話框', render: (ctx) => plDesk(ctx, { overlay: plDeskSearch(PL_T) }) },
+      ],
+      notes: '<h3>規則</h3><ul><li>桌面播放頁蓋滿整個視窗（側欄、詳情面板收起來），Esc 或左上的收起回到原頁。macOS 的紅綠燈留在左上；Windows 的視窗按鈕在右上，頂列右側的控制往左讓出 138px。</li>' +
+        '<li>左欄曲名、歌手下方同樣是音源膠囊（點它開曲目資訊），下面是進度、控制與音量（桌面保留音量）。</li>' +
+        '<li>右欄歌詞字更大（28pt），滑過一行出現底色與「▶ 1:46」，點了跳到該時間；頂端一列是歌詞來源與「偏移 0 秒」按鈕（點開偏移列，和手機同一套）。</li>' +
+        '<li>右欄佇列只列正在播放與接下來的，順序和佇列頁一樣：正在播放在上，下面一條分隔與「接下來」。可以拖動排序；隨機與循環的文字切換鈕在標題列。移除、清空與播過的曲目在佇列頁。</li>' +
+        '<li>鍵盤：Space 播放／暫停、←／→ 倒退／快轉 5 秒、⌘←／⌘→ 上一首／下一首、⌘I 曲目資訊、Esc 收起。</li>' +
+        '<li>歌詞搜尋在桌面是置中的對話框，內容和手機的 sheet 一樣，多了鍵盤操作（↑↓ 選、⏎ 套用、Esc 關）。</li></ul>' +
+        '<h3>右欄直接放在色場上（擁有者 2026-11-11 選定）</h3><ul>' +
+        '<li>右欄的歌詞或佇列直接是色場上的白字，跟手機的歌詞畫面一致；整頁只有頂列的圓鈕與分段切換是玻璃。大段文字不放在玻璃板上：清玻璃幾乎透明，只多一個邊框，Windows 只到「標準」玻璃時還會變成一塊灰霧。</li></ul>',
+    },
+  ],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.32, 1.28, .52, 1)",
+        "createdAt": "2026-11-10T11:47:17.722Z",
+        "reason": "owner's brief pins iOS 26 Liquid Glass morphing capsules; the slight spring overshoot on the tab indicator and switches is that platform's native motion"
+      }
+    ]
+  }
+}
