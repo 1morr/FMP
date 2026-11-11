@@ -22,6 +22,8 @@ analyzer:
     # 新版（app/）是另一個套件，有自己的 analysis_options 與閘門
     # （app/tool/check.dart）；CI 只對根目錄 pub get，不排除會解析失敗。
     - app/**
+    # 新版的實驗程式是各自獨立的 Flutter 專案，有自己的依賴與 analysis_options（M0 票 03）。
+    - scripts/**
 
 linter:
   # The lint rules applied to this project can be customized in the

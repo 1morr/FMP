@@ -10,6 +10,7 @@
 
 - [ ] 插件宿主的介面用 `mattpocock-skills:codebase-design` 設計，只涵蓋搜尋與之後的解析串流；完整的插件能力清單在 M1 拆票時定（plan〈待決〉P3），這張票不先定，但 manifest 的插件能力宣告要能直接加新的能力；介面與取捨記到票的 Comments，影響架構的另寫 ADR（照〈擁有者確認〉）。
 - [ ] manifest 宣告插件能力與網域；插件連未宣告的網域會被宿主拒絕，有測試。插件沒有檔案系統與 socket。
+- [ ] 建立 fjs 引擎時只開白名單內的內建模組，不含 `fs`、`net`、`child_process`、`fetch` 等：fjs 自帶的 fetch 會繞過宿主的網域白名單（brief 事實 K11）。由測試強制，並在測試檔內做雙向變異驗證：多開一個非白名單模組會紅，改無關的設定不紅。（擁有者 2026-11-11 在票 03 確認加入）
 - [ ] 宿主網路 API 經 dio，請求與錯誤都經過票 06 的 log 與遮蔽；B 站的風控碼與 HTTP 412、429 由插件回報成固定代碼，宿主轉成「限流」（事實 F2）。
 - [ ] bilibili 插件的原始碼在 `app/plugins/bilibili/`（TypeScript），esbuild 打包的產物提交；`check.dart` 完整版檢查產物與原始碼一致，造一次不一致證明會紅。開發需要的 Node 版本寫進 plan §4。
 - [ ] Dart 端沒有 bilibili 專屬的分支（依賴規則測試通過）。

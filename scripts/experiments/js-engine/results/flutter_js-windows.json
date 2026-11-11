@@ -1,0 +1,49 @@
+{
+  "candidate": "flutter_js 0.8.7",
+  "platform": "windows \"Windows 10 Pro for Workstations\" 10.0 (Build 26200)",
+  "at": "2026-11-11T08:46:02.454480Z",
+  "checks": [
+    {
+      "id": "engine_identity",
+      "pass": true,
+      "detail": "QuickJsRuntime2: quickjs-like (V8/QuickJS stack format) | first frame: at probeFrame (<eval>); globals: fetch:undefined XMLHttpRequest:undefined WebSocket:undefined require:undefined process:undefined Deno:undefined std:undefined os:undefined; package default getJavascriptRuntime() = QuickJsRuntime2: quickjs-like (V8/QuickJS stack format) | first frame: at probeFrame (<eval>)",
+      "ms": 64
+    },
+    {
+      "id": "memory_limit",
+      "pass": false,
+      "detail": "QuickJsRuntime2(memoryLimit:) threw: Invalid argument(s): Failed to lookup symbol 'jsSetMemoryLimit': The specified procedure could not be found.\r\n (error code: 127)",
+      "ms": 0
+    },
+    {
+      "id": "await_js_promise",
+      "pass": true,
+      "detail": "rawResult is a Dart Future (flutter_qjs wrapper); awaited with executePendingJob polling: 42",
+      "ms": 6
+    },
+    {
+      "id": "async_host_call",
+      "pass": true,
+      "detail": "Dart function passed into JS, its Future became a JS Promise: pong!; needs executePendingJob polling; caller isolate worst stall 340ms",
+      "ms": 345
+    },
+    {
+      "id": "isolate_layout",
+      "pass": true,
+      "detail": "create + first eval: 0ms; cpu work on the caller isolate: 523ms, caller stalled 523ms (evaluate is synchronous); background isolates: 1 runtime 502ms, 4 runtimes in 4 isolates 567ms; main isolate worst stall during 4-isolate work: 12ms",
+      "ms": 1595
+    },
+    {
+      "id": "interrupt_infinite_loop",
+      "pass": false,
+      "detail": "timeout option (500ms) did not interrupt: still running after 3503ms; Isolate.kill(immediate): isolate did not exit within 3s; process CPU per 1000ms window: 968ms while looping, 1016ms after kill; the native thread keeps spinning for the rest of the process; loops after await or in timers were not measured because the top-level loop already cannot be stopped",
+      "ms": 8511
+    },
+    {
+      "id": "stuck_engine_isolation",
+      "pass": true,
+      "detail": "while 4 isolates spin in while(true): a runtime in another isolate evaluated 1+2=3 in 1ms (the spinning threads cannot be stopped)",
+      "ms": 505
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+name: fmp_quickjs
+description: >-
+  實驗用（可丟棄）：把 flutter_js 0.8.7 在 Android 用的 QuickJS 與 C 橋接原始碼
+  （android-js-runtimes 0.3.6）編進 macOS／iOS 的 App 行程，讓 flutter_js 的
+  QuickJsRuntime2 以 DynamicLibrary.process() 找到符號。取自上一輪的
+  app/packages/fmp_quickjs（tag archive/trellis-rewrite-20261106），已和上游逐檔比對。
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        ffiPlugin: true
+        sharedDarwinSource: true
+      macos:
+        ffiPlugin: true
+        sharedDarwinSource: true

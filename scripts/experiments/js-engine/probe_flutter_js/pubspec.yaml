@@ -1,0 +1,24 @@
+name: probe_flutter_js
+description: "實驗用（可丟棄）：在四平台實測 flutter_js 加自編 QuickJS 當插件的 JS 引擎（M0 票 03）。"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_js: 0.8.7
+  fmp_quickjs:
+    path: packages/fmp_quickjs
+  probe_common:
+    path: ../probe_common
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

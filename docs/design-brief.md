@@ -418,7 +418,6 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 ## 17. 待決
 
 - **取代舊版的方式**：舊版使用者怎麼升上來（舊版的自動更新、資料搬遷、要不要讀 Isar）。卡在新版功能還沒齊全；到「取代舊版」的里程碑由擁有者決定。
-- **JS 引擎**：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async。由 M0 實驗（`scripts/experiments/`）決定。
 - **macOS 的 Now Playing 接法**：事實 R4 顯示 audio_service 在 macOS 不完整。由 M0 實驗決定。
 - **Windows 經 SSH 截圖傳回**：M0 票 01 已實測，做法見 plan §2〈Windows（`winpc`）〉。
 - **玻璃的 Flutter 實作**：見事實 K10。由 M0 實驗（票 05b）決定：重驗 K10，在四平台實測已發佈的官方或社群套件，以及用 `BackdropFilter` 自己做，各平台做到哪一級。不論用哪種做法，都包在同一個玻璃元件後面，日後替換只改一處。
@@ -508,10 +507,11 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **K4** media_kit 在 Windows：用 `Media.httpHeaders` 加 `on_load` hook 帶 header；`vid=no` 可省 200–400 MB；`prefetch-playlist=yes` 才會預載；先判斷 `buffering` 再判斷 `playing`。出處：`legacy:lib/services/audio/media_kit_audio_service.dart:190-250`。可信度：舊版程式碼。
 - **K5** Riverpod 3 預設自動重試失敗的 provider（10 次、約 38 秒），連 `UnmountedRefException` 也會重試，要全域關掉。出處：`legacy:lib/main.dart:263-267`。可信度：舊版程式碼。
 - **K6**【待重驗】`flutter_secure_storage` 跨大版本升級會讀不出舊憑證；Android 預設 `resetOnError: true` 要關掉。出處：`legacy:pubspec.yaml:68-72`、`archive:docs/adr/0029` §決定 5。可信度：上一版文件。
-- **K7**【待重驗】`flutter_js` 0.8.7 的 QuickJS 沒有中斷機制，要放在背景 isolate；macOS 與 iOS 版只附 JavaScriptCore 的空殼，要自編 QuickJS；iOS 要 `use_frameworks!`。出處：`archive:docs/adr/0014`、`0036` §決定 1、`0037` §決定 3。可信度：上一版文件。
+- **K7** `flutter_js` 0.8.7：`getJavascriptRuntime()` 在 iOS、macOS 回 JavaScriptCore，Android、Windows 回 QuickJS 2021-03-27；Apple 版的 podspec 只連 JavaScriptCore，要用 QuickJS 得自己把 android-js-runtimes 0.3.6 的原始碼編進 App。`QuickJsRuntime2` 的 `timeout` 中斷不了同步迴圈（橋接 `quickjs_runtime.cpp` 的 interrupt handler 比較的 `op->start` 從沒被設值），放進背景 isolate 再 `Isolate.kill` 也停不了原生執行緒（行程 CPU 持續滿載）；Android、Windows 附的二進位沒有 `jsSetMemoryLimit`，設 `memoryLimit` 會拋符號找不到；Android 在 AGP 9 下要 `kotlin.jvm.target.validation.mode=warning` 才建得過（上游 #191）。出處：M0 票 03（`scripts/experiments/js-engine/`）。可信度：2026-11-11 四平台實測。
 - **K8**【待重驗】`flutter_inappwebview` 6.1.5（2024-10）是最後一個穩定版；從 beta 退回 stable 時，`pubspec.lock` 會殘留 beta 版的 `_platform_interface` 而建置失敗。出處：archive 的 `r1-youtube-login.md`〈建置〉。可信度：上一版文件。
 - **K9**【待重驗】桌面套件的維護狀態：`window_manager` 在 2026-09 批次關閉 issue；`hotkey_manager` 0.2.3 最後發佈在 2024-05；`qr_flutter` 4.1.0 停在 2023。出處：`docs/audit/platforms.md` §4.1。可信度：上一版文件。
 - **K10** Flutter 官方的 Liquid Glass 還沒發佈。flutter/packages 把社群的 `liquid_glass_widgets`、`liquid_glass_renderer` 改編進 `cupertino_ui`（PR #13162、#13163、#13344、#13453、#13454，2026-10-20 至 11-06 合併），但合進的是 `liquid_glass` 功能分支，不在 main；pub 上 `cupertino_ui` 的 changelog 到 1.1.5（2026-11-03）都沒有 glass；追蹤 issue flutter/flutter#170310 仍開著。分支裡的 `doc/liquid_glass/PLATFORM_SUPPORT.md`：品質分三級，premium 是折射 shader，需要 Impeller，不適合捲動列表；standard 是輕量 shader，全平台可用；minimal 只用 `BackdropFilter`。平台分級：iOS、Android（Impeller）是主力，macOS 是 Supported，Windows 是 Partial（文件寫走 Skia，最高只到 standard）。出處：上述 PR；flutter/packages `liquid_glass` 分支的 `packages/cupertino_ui/doc/liquid_glass/PLATFORM_SUPPORT.md`；https://pub.dev/packages/cupertino_ui/changelog。可信度：2026-11-08 查證。
+- **K11** `fjs` 3.3.2（2026-09-30）：四平台都是 rquickjs 包的 QuickJS-NG；所有引擎共用一個只有 2 條執行緒的 tokio runtime（寫死），2 個引擎卡在同步迴圈時其他引擎都無法執行，`close()` 後恢復。Android、Windows 由 Cargokit 從 Rust 原始碼編（Rust ≥ 1.95；Windows 的 rustup default host 是 gnu 時缺 `dlltool.exe` 而失敗，要 msvc）；iOS、macOS 走 SwiftPM，用套件附的預編譯 xcframework。中斷只有 `engine.close()`：進行中的 eval 以 `CANCELLED_ERROR` 結束，await 之後與 timer 回呼裡的迴圈也會停（timer 那種 `close()` 會拋出被中斷的背景錯誤），原生迴圈實測停止，引擎不能再用。記憶體上限是 `JsEngineRuntimeOptions(memoryLimit:)`，超過時 JS 拿到可捕捉的 out of memory。`eval` 會等 Promise；宿主函式只有單一 bridge（JS 端 `fjs.bridge_call(value)` 回 Promise）。JS 跑在 Rust 執行緒，Dart 端是 async，不卡主 isolate。內建 llrt 的 fs、net、child_process、fetch 等模組，建立引擎時指名才開；README 寫明記憶體與堆疊上限不是防惡意程式碼的沙箱。出處：M0 票 03（`scripts/experiments/js-engine/`）；https://pub.dev/packages/fjs ；fjs README〈Security Boundary〉。可信度：2026-11-11 四平台實測。
 
 ### 18.9 工具鏈
 

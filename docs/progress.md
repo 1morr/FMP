@@ -44,6 +44,7 @@
 | 2026-11-11 | D 定稿後對齊 M0 與 brief | 補 M0 票 05b（玻璃三級的四平台可行性），spec 改成五項實驗、票 12 也被 05b 擋，「佔位首頁」改稱「佔位畫面」，票 08 讀 plan〈待決〉P3；D 已定案但沒寫回的決定寫進 brief §5.1、§5.4、§6、§7、§10、§11、§13、§17 與名詞表；plan〈待決〉P3、P5 改歸屬 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-11 | 01 | `app/` 四平台骨架（`com.personal.fmp.dev`、佔位畫面、slang 三語、Riverpod 關閉重試）；`tool/check.dart --quick`（i18n、format、analyze、test、文件閘門）與 `.githooks/pre-commit`；依賴規則測試、零聯網、`live` 預設跳過；四平台讀回畫面；`winpc` 做法寫進 plan §2；plan §1.3 照擁有者決定加 `playback/backends/` 例外。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/02-full-gate.md` |
 | 2026-11-11 | 02 | `dart run tool/check.dart` 完整版：quick 之後四平台建置、四平台 `integration_test`（一次一個檔、iOS／Android 只挑模擬器並加 `--no-uninstall`、Windows 經 SSH 以排程工作跑並取回 log）；佔位畫面的 `integration_test` 四平台通過，`integration_test/` 也裝零聯網防線並有靜態規則守；插件打包產物的位置留給票 08；plan §1.4、§2、§4 與 `AGENTS.md` 已更新。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/03-experiment-js-engine.md` |
+| 2026-11-11 | 03 | fjs 3.3.2 與 flutter_js 0.8.7 在四平台實測（`scripts/experiments/js-engine/`）：只有 fjs 過全部四項標準；擁有者確認選 fjs，brief 事實 K7、K11 與 plan §1.1、§1.4、§4、§6 P2 已寫入；票 08 加了白名單內建模組的測試；fjs 全行程只有 2 條 JS 執行緒，記在 K11 | 新 session 下 `/implement .scratch/m0/issues/04-experiment-inappwebview-build.md` |
 
 ## 偏差與決定
 
@@ -76,3 +77,4 @@
 - 2026-11-11 D 定稿：擁有者確認 D 設計稿定稿，`design/d-redesign-b` 合併回 main（main 上先前 A 版的設計稿 commit 留在歷史裡，`docs/design/` 以 B 為準）。
 - 2026-11-11 D 定稿後對齊：擁有者同意插件能力清單（plan〈待決〉P3）改在 M1 拆票時定；玻璃的 Flutter 做法從「M1 外殼票開工時查」（brief §17）提前到 M0 實驗票 05b，P5 跟著改。brief、名詞表、plan 同一個 commit 修改。
 - 2026-11-11 票 01：plan §1.3 加例外，只有 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`（原本 §1.2 與 §1.3 互相矛盾；擁有者確認）。
+- 2026-11-11 M0 票 03：擁有者確認插件的 JS 引擎用 fjs 3.3.2（brief 事實 K7、K11；plan §1.1、§1.4），票 08 的驗收加上「建立引擎時只開白名單內建模組」的測試；`winpc` 的 rustup default host 改成 msvc（fjs 在 Windows 從 Rust 原始碼編）。
