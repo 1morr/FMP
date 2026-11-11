@@ -28,7 +28,7 @@
 
 ### 已知的界線（code-review 後留下，不修）
 
-- **遮不到的音源專屬名稱**：沒寫在 Cookie header 裡、單獨出現的 `SESSDATA=…`、`bili_jct=…`、`{"SESSDATA": …}`，YouTube 簽名參數 `s=`，以及 `key=`、`tokenValue` 這類不以敏感字結尾的名稱。目前 M0 只做匿名請求，不會出現這些值。M2 登入時（例如 B 站掃碼回傳的 crossDomain 網址），由插件 manifest 宣告額外的敏感名稱再交給 `redact`，比較符合 ADR 0038。這個介面這張票不先做。
+- **遮不到的音源專屬名稱**：沒寫在 Cookie header 裡、單獨出現的 `SESSDATA=…`、`bili_jct=…`、`{"SESSDATA": …}`，YouTube 簽名參數 `s=`，以及 `key=`、`tokenValue` 這類不以敏感字結尾的名稱。還有網易雲的串流網址：簽名放在路徑裡，不在 query，`redact` 只看 query 的參數名稱，所以整段照原樣留著。目前 M0 只做匿名請求，也沒有網易雲，不會出現這些值。M2 登入時（例如 B 站掃碼回傳的 crossDomain 網址），由插件 manifest 宣告額外的敏感名稱再交給 `redact`；M1 加網易雲時，同樣由插件宣告它的網址哪一段帶簽名。這比較符合 ADR 0038。這個介面這張票不先做。
 - **B 站 WBI 的 `w_rid`**：這是用公開的 `img_key`／`sub_key` 算出來的請求簽名，不是憑證，`redact` 不遮（「leaves alone」測試列著它）。`AGENTS.md` 寫「簽名網址的值寫成 `***`」，字面上可以讀成也包含它。票 09 檢查 fixture 時，請擁有者決定要不要也遮。
 - **寧可多遮的副作用**：敏感名稱的 `名稱: 值` 一路遮到行尾，例如 `refresh token: expired` 會遮掉 `expired`；`Auth: failed`、`Login session: …` 同樣。一行裡有 Cookie 時，同一行後面的 error 也會被遮。
 - **uncaught error 還沒接進 log**：`FlutterError.onError`、`PlatformDispatcher.onError` 不在票的範圍，留給之後需要的票（例如票 08 或 M1）。
