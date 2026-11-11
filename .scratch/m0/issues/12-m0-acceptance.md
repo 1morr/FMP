@@ -2,9 +2,9 @@
 
 **What to build:** 把 spec〈驗收〉逐條對到證據，跑完里程碑的 code-review 與乾淨 checkout 上的完整閘門，請擁有者在四個平台各試一次，最後封存 M0：session 紀錄與偏差搬到 `docs/archive/M0.md`，交棒給下一個里程碑。
 
-讀：spec〈驗收〉〈共同規則〉；`docs/progress.md` 開頭的封存規則；plan §4、§5.3；票 01–11、05b 的 `## Comments`
+讀：spec〈驗收〉〈共同規則〉；`docs/progress.md` 開頭的封存規則；plan §4、§5.3；票 01–11、02b、05b 的 `## Comments`
 
-**Blocked by:** 01–11、05b 全部
+**Blocked by:** 01–11、02b、05b 全部
 
 **Status:** ready-for-agent
 
