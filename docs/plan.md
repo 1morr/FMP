@@ -27,7 +27,7 @@ app/
     domain/     曲目、歌單、存取等級等模型（純 Dart）
     core/       log、遮蔽、錯誤分類、網路
     plugins/    JS 引擎、宿主 API、插件管理
-    playback/   佇列、臨時播放、音訊後端介面與兩個實作
+    playback/   佇列、臨時播放、音訊後端介面與兩個實作（實作在 `playback/backends/`）
     library/    本地歌單、匯入歌單、刷新、遠端寫入
     accounts/   帳號、登入、會員狀態
     lyrics/     歌詞匹配與顯示用的資料
@@ -43,7 +43,7 @@ app/
 ### 1.3 依賴規則
 
 - `ui` 只能依賴功能模組與 `domain`，不能直接碰 `data`、`plugins` 的內部，也不能碰平台套件。
-- 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件，例外是 `playback/` 的音訊後端實作可 import `just_audio`、`media_kit`；平台層以外不得用 `Platform.isXxx`（依平台選音訊後端也在平台層做）。
+- 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件，例外是 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`；平台層以外不得用 `Platform.isXxx`（依平台選音訊後端也在平台層做）。
 - 音源專屬的邏輯只能在 `app/plugins/` 裡；Dart 端不得出現音源識別碼的字面值分支（ADR 0038）。
 - 由一支掃 import 與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。M0 票 01 接上。
 - 模組的實際介面在 M0 用 codebase-design skill 細化。
@@ -66,15 +66,46 @@ app/
 | i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
 | JS 引擎 | M0 實驗定 | brief §17 |
 | 插件建置 | TypeScript 加 esbuild（需 Node） | ADR 0038 |
+| lint（dev） | flutter_lints 6.0.0 | `flutter create` 的預設；`app/analysis_options.yaml` 另開幾條 |
 | 依賴規則測試（dev） | analyzer 14.7.0 | 以 AST 判斷 import 與分支，不靠字串比對；只在測試裡用，不做 lint 套件（§1.3） |
 
 ## 2. 平台
 
-每個平台一節：用的框架與套件、怎麼建置、怎麼實跑驗證。M0 建好各平台後補齊。
+每個平台一節：用的框架與套件、怎麼建置、怎麼實跑驗證。以下指令都在 `app/` 裡跑，`<暫存目錄>` 放截圖（截圖不進 repo）。框架與套件由加入它們的票補。
 
-驗證工具的已知怪癖（上一版文件，用到時重驗）：
+### macOS
 
-- **Windows 遠端**：SSH 的 session 0 沒有桌面，`flutter build windows` 會失敗，要用排程工作在桌面工作階段跑；PowerShell 5.1 讀無 BOM 的 `.ps1` 用 cp950；`$ErrorActionPreference='Stop'` 會把 CMake 的 stderr 警告當錯誤。出處：archive 的 `references/windows.md`。
+`flutter build macos --debug`，`open "build/macos/Build/Products/Debug/FMP Dev.app"`，用 `orca computer get-app-state --app com.personal.fmp.dev` 讀回畫面（回傳的截圖路徑要打開來看）。
+
+### iOS 模擬器
+
+`flutter build ios --simulator --debug`，`xcrun simctl install booted build/ios/iphonesimulator/Runner.app`、`xcrun simctl launch booted com.personal.fmp.dev`；`orca emulator attach <裝置>` 後用 `orca emulator ax` 讀文字，截圖用 `xcrun simctl io booted screenshot <檔>`（雙螢幕的 iPhone Duo 要加 `--display=1`，否則報 `Invalid argument`）。
+
+### Android 模擬器
+
+`flutter build apk --debug`，`orca emulator install build/app/outputs/flutter-apk/app-debug.apk --reinstall`、`orca emulator launch com.personal.fmp.dev`，用 `orca emulator ax` 讀文字、`adb exec-out screencap -p > <檔>` 截圖。debug 版第一次啟動要十幾秒，太早讀只會看到啟動畫面。
+
+### Windows（`winpc`）
+
+經 SSH 操作，不 push（2026-11-11 票 01 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑：
+
+1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與兩支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
+2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
+3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。
+4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉。
+
+注意：
+
+- 建置與截圖都要擁有者已登入 `winpc` 的桌面。截圖會短暫搶走前景視窗，擁有者正在用 `winpc` 時先說一聲。
+- 截圖可能夾到擁有者桌面的其他內容（輸入法候選窗、視窗邊緣外的桌面），只留在 `<暫存目錄>`。
+- 經 SSH 組 `schtasks /TR` 時反斜線會被吃掉，腳本路徑與參數一律寫正斜線。`schtasks /Query` 的狀態字串是在地化的（zh-TW 是「執行中」）。
+- 腳本維持純 ASCII，避開 PowerShell 5.1 以 cp950 讀無 BOM 檔案的問題。原生指令用 `cmd /c "… 2>&1"` 包起來，不設 `$ErrorActionPreference='Stop'`。
+- `Start-Process` 失敗不會讓腳本中止，只會拿到 null；`shot.ps1` 用 `-ErrorAction Stop` 把錯誤寫進 log。
+
+### 其他已知怪癖
+
+上一版文件，用到時重驗：
+
 - **Windows 自動化輸入**：`SendKeys` 與掃描碼為 0 的 `keybd_event` 會讓 Ctrl 組合鍵失效；中文輸入法會吃掉英數字；跨行程最小化與還原會讓 lifecycle 卡在 `inactive`。
 - **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。
 - **Android 模擬器**：音訊比實際快約 1.7 倍，不能拿來量時長；`adb shell input text` 打不了中文；畫面持續更新時 `uiautomator dump` 會失敗；Claude Code 的沙箱擋 `adb` 連 5037。
@@ -92,7 +123,7 @@ app/
 
 ## 4. 開發環境與閘門
 
-- `dart run tool/check.dart --quick`：format、analyze、單元測試；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
+- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、format、analyze、單元測試、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
 - `dart run tool/check.dart`（完整版）：quick 之外，再做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置與 `integration_test`，並檢查插件打包產物是否最新。每張票合併前跑完整版。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）。
@@ -176,7 +207,7 @@ app/
 定了方向、細節未定的事。每條寫明卡在哪、怎麼定；定案後移到對應的章節，這裡刪掉。
 
 - **P1 取代舊版的方式**：同 brief §17。卡在新版功能還沒齊全，到「取代舊版」的里程碑由擁有者決定。
-- **P2 JS 引擎、macOS Now Playing、Windows 截圖傳回**：由 M0 實驗定，定案後寫進 §1.4、§2。
+- **P2 JS 引擎、macOS Now Playing**：由 M0 實驗定，定案後寫進 §1.4、§2。
 - **P3 插件能力清單**：設計稿用到的能力（搜尋排序、排行榜、評論、點讚、複製連結、在瀏覽器開啟、遠端歌單分建立與收藏等）還沒列成清單，見 `docs/design/audit-2026-11-11.md` §3 第 6 項。宿主 API 在 v2.0.0 凍結，所以清單在 M1 拆票時定，寫進 M1 spec；M0 票 08 只做搜尋與解析串流。定案後寫進 brief §5.3 與 ADR。
 - **P5 玻璃三級對 brief 事實 K10**：設計稿的三級定義和 K10 不同，brief §17 的退路做不出折射級。由 M0 票 05b 的實驗定，再一起改 brief 與 `docs/design/DESIGN.md`。
 

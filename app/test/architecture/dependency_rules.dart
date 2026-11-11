@@ -19,7 +19,7 @@ enum Rule {
   dataPackageOutsideData,
 
   /// 只有 `platform/` 能 import 平台套件；音訊播放器套件另外允許
-  /// `playback/` 的音訊後端實作（[PackageScope.audioBackend]）。
+  /// `playback/backends/`（[PackageScope.audioBackend]）。
   platformPackageOutsidePlatform,
 
   /// 只有 `platform/` 能用 `Platform.isXxx`。
@@ -39,8 +39,8 @@ enum PackageScope {
   dataOnly,
   platformOnly,
 
-  /// 音訊播放器（just_audio、media_kit）：`platform/` 與 `playback/` 的音訊
-  /// 後端實作（plan §1.3 的例外）。
+  /// 音訊播放器（just_audio、media_kit）：`platform/` 與音訊後端的兩個實作
+  /// `playback/backends/`（plan §1.3 的例外）。`playback/` 其他檔只依賴介面。
   audioBackend,
 }
 
@@ -172,12 +172,11 @@ class _Visitor extends RecursiveAstVisitor<void> {
           'only platform/ may import package:$package',
         );
       case PackageScope.audioBackend
-          when module != 'platform' && module != 'playback':
+          when module != 'platform' && !path.startsWith('playback/backends/'):
         _flag(
           node,
           Rule.platformPackageOutsidePlatform,
-          'only platform/ and the playback/ audio backends may import '
-          'package:$package',
+          'only platform/ and playback/backends/ may import package:$package',
         );
       default:
     }

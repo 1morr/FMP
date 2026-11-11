@@ -82,6 +82,19 @@ void main() {
       }, Rule.platformPackageOutsidePlatform);
     });
 
+    test('an audio player package in playback/ outside backends/', () {
+      expectViolation({
+        'playback/queue.dart': "import 'package:just_audio/just_audio.dart';",
+      }, Rule.platformPackageOutsidePlatform);
+    });
+
+    test('another platform package in playback/backends/', () {
+      expectViolation({
+        'playback/backends/just_audio_backend.dart':
+            "import 'package:audio_service/audio_service.dart';",
+      }, Rule.platformPackageOutsidePlatform);
+    });
+
     test('Platform.isXxx outside platform/', () {
       expectViolation({
         'playback/backend.dart': '''
@@ -204,7 +217,7 @@ bool get windows => Platform.isWindows;
       });
     });
 
-    test('the audio player packages in the playback/ audio backends', () {
+    test('the audio player packages in playback/backends/', () {
       expectClean({
         'playback/backends/just_audio_backend.dart':
             "import 'package:just_audio/just_audio.dart';",
