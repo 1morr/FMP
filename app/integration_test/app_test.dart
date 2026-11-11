@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/core/log/log.dart';
 import 'package:fmp/main.dart' as app;
 import 'package:fmp/platform/log_directory.dart';
 import 'package:integration_test/integration_test.dart';
@@ -30,7 +31,7 @@ void main() {
 
     // 這次啟動的那一行寫進了平台給的 log 目錄（之前的執行可能留下舊的行）。
     final startedLine = await tester.runAsync(() async {
-      final file = File('${(await logDirectory()).path}/fmp.log');
+      final file = File('${(await logDirectory()).path}/${Log.fileName}');
       final deadline = DateTime.now().add(const Duration(seconds: 10));
       while (DateTime.now().isBefore(deadline)) {
         if (file.existsSync()) {

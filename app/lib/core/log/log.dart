@@ -18,6 +18,9 @@ LogLevel minimumLogLevel({required bool release}) =>
 class Log {
   Log._(this._logger);
 
+  /// 正在寫的檔名；輪替出去的檔是 `fmp-<時間>.log`。
+  static const fileName = 'fmp.log';
+
   /// 單檔上限，超過就輪替。
   static const defaultMaxFileKB = 2048;
 
@@ -40,7 +43,7 @@ class Log {
   }) async {
     final file = lg.AdvancedFileOutput(
       path: directory.path,
-      latestFileName: 'fmp.log',
+      latestFileName: fileName,
       fileNameFormatter: _rotatedFileName,
       maxFileSizeKB: maxFileKB,
       maxRotatedFilesCount: keptFiles - 1,

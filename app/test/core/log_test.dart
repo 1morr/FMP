@@ -10,7 +10,7 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('fmp_log_test'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  File current() => File('${dir.path}/fmp.log');
+  File current() => File('${dir.path}/${Log.fileName}');
 
   test('writes each record as a line in fmp.log', () async {
     final log = await Log.open(dir, minimumLevel: LogLevel.debug);

@@ -48,7 +48,7 @@ void main() {
           r'"Cookie": "SESSDATA=FAKE_S", "csrf" : 123456, "title":"token"}',
         ),
         r'{"access_token":"***","expires_in":7200,'
-        r'"Cookie": "***", "csrf" : ***, "title":"token"}',
+        r'"Cookie": "***", "csrf" : "***", "title":"token"}',
       );
     });
 
@@ -97,6 +97,65 @@ void main() {
     });
   });
 
+  group('masks, from code review', () {
+    test('a secret after a non-secret pair in a JSON-escaped query', () {
+      expect(
+        redact(
+          r'{"u":"https:\/\/api.example.com\/x?e=1\u0026access_token=FAKE"}',
+        ),
+        r'{"u":"https:\/\/api.example.com\/x?e=1\u0026access_token=***"}',
+      );
+    });
+
+    test('spaced or quoted key=value pairs', () {
+      expect(
+        redact('token = FAKE_1; token="FAKE 2"; secret=\'FAKE3\''),
+        'token = ***; token="***"; secret=\'***\'',
+      );
+    });
+
+    test('a JSON array or object value, kept as valid JSON', () {
+      expect(
+        redact(
+          '{"Set-Cookie":["a=FAKE","b=FAKE2"],"session":{"id":"FAKE"},"x":1}',
+        ),
+        '{"Set-Cookie":"***","session":"***","x":1}',
+      );
+    });
+
+    test('the user info of a URL', () {
+      expect(
+        redact('proxy https://user:FAKE_PW@proxy.example.com:8080/x'),
+        'proxy https://***@proxy.example.com:8080/x',
+      );
+    });
+
+    test('a signed URL followed by punctuation, escaped or not', () {
+      expect(
+        redact('see https://cdn.example.com/a?sig=FAKE&b=1, then retry.'),
+        'see https://cdn.example.com/a?sig=***&b=***, then retry.',
+      );
+      expect(
+        redact(r'"https:\/\/cdn.example.com\/a?sig=FAKE\u0026b=1"'),
+        r'"https:\/\/cdn.example.com\/a?sig=***\u0026b=***"',
+      );
+    });
+
+    test('a single-quoted key in a printed map', () {
+      expect(
+        redact("{'access_token': 'FAKE1', 'n': 1}"),
+        "{'access_token': ***, 'n': 1}",
+      );
+    });
+
+    test('a colon pair inside parentheses or brackets', () {
+      expect(
+        redact('(token: FAKE) [secret: FAKE]'),
+        '(token: ***) [secret: ***]',
+      );
+    });
+  });
+
   group('leaves alone', () {
     // 名稱只是含有敏感字、但不是以它結尾的，也照原樣留著。
     const untouched = [
@@ -109,6 +168,7 @@ void main() {
       'tokens_left=3&signal=5&session_count=2&sid_hint',
       'the bearer of bad news',
       '{user-agent: Mozilla/5.0, accept: */*}',
+      'design: see doc; assign=1; name = "lo-fi"; a=b',
       '',
     ];
     for (final text in untouched) {
