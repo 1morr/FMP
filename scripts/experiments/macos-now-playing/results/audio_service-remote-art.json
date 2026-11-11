@@ -1,0 +1,32 @@
+{
+  "candidate": "audio_service",
+  "scenario": "remote-art",
+  "date": "2026-11-11",
+  "macos": "27.0.1",
+  "versions": {
+    "audio_service": "0.18.19",
+    "just_audio": "0.10.6",
+    "flutter": "3.47.5"
+  },
+  "steps": [
+    {
+      "step": "遠端封面顯示",
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 3.7,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    }
+  ],
+  "syslog": [
+    "22:56:58.986 state Unknown -> Paused",
+    "22:56:58.986 state Paused -> Playing"
+  ]
+}

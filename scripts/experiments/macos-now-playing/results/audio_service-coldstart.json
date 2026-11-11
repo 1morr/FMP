@@ -1,0 +1,28 @@
+{
+  "candidate": "audio_service",
+  "scenario": "coldstart",
+  "date": "2026-11-11",
+  "macos": "27.0.1",
+  "versions": {
+    "audio_service": "0.18.19",
+    "just_audio": "0.10.6",
+    "flutter": "3.47.5"
+  },
+  "steps": [
+    {
+      "step": "沒播過：Now Playing 面板是不是這個 App",
+      "panel": {
+        "error": "378:434: execution error: 選單列沒有 now-playing 項目（沒有 App 在 Now Playing，或選單列設定把它關掉了） (-2700)"
+      },
+      "ok": false
+    },
+    {
+      "step": "沒播過：媒體鍵播放／暫停",
+      "skipped": "不是 Now Playing App，按了會叫起「音樂」",
+      "ok": false
+    }
+  ],
+  "syslog": [
+    "22:55:43.058 state Unknown -> Paused"
+  ]
+}

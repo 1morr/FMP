@@ -329,7 +329,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - 佇列與進度跨重啟保存，重啟後不自動播放；設定不提供開關。
 - 依插件給的有效期，在串流過期前重新解析；預先解析下一首。
 - 播放失敗時先降一級音質重試，再跳下一首；連續 3 首失敗就停止並提示。
-- 音訊後端：宿主自己的後端介面，Android、iOS、macOS 用 just_audio，Windows 用 media_kit（理由見事實 K1）。系統媒體控制：Android 與 iOS 用 audio_service，Windows 用 `smtc_windows`，macOS 由 M0 實驗決定。Apple 平台的 YouTube 一律選 m4a/AAC（事實 M5）。
+- 音訊後端：宿主自己的後端介面，Android、iOS、macOS 用 just_audio，Windows 用 media_kit（理由見事實 K1）。系統媒體控制：Android、iOS、macOS 用 audio_service（macOS 依 M0 票 05 實測，事實 M10、K17），Windows 用 `smtc_windows`。App 要出過聲才會成為 Now Playing App（事實 M10），所以重啟後要先在 App 裡按播放，系統媒體控制才接到 FMP。Apple 平台的 YouTube 一律選 m4a/AAC（事實 M5）。
 - 第一版不做：倍速、輸出裝置選擇、gapless 保證。
 
 ## 7. 音樂庫與同步【決定】
@@ -418,7 +418,6 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 ## 17. 待決
 
 - **取代舊版的方式**：舊版使用者怎麼升上來（舊版的自動更新、資料搬遷、要不要讀 Isar）。卡在新版功能還沒齊全；到「取代舊版」的里程碑由擁有者決定。
-- **macOS 的 Now Playing 接法**：事實 R4 顯示 audio_service 在 macOS 不完整。由 M0 實驗決定。
 - **Windows 經 SSH 截圖傳回**：M0 票 01 已實測，做法見 plan §2〈Windows（`winpc`）〉。
 - **玻璃的 Flutter 實作**：見事實 K10。由 M0 實驗（票 05b）決定：重驗 K10，在四平台實測已發佈的官方或社群套件，以及用 `BackdropFilter` 自己做，各平台做到哪一級。不論用哪種做法，都包在同一個玻璃元件後面，日後替換只改一處。
 
@@ -482,11 +481,13 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **M1**【待重驗】ad-hoc 簽章下，`flutter_secure_storage` 的預設設定回 `-34018`；加了 `keychain-access-groups` 卻沒有 provisioning profile，App 一啟動就被 AMFI 殺掉。`usesDataProtectionKeychain: false` 可用，但 `readAll` 回 `-50`。出處：`archive:docs/adr/0036` §決定 3。可信度：上一版文件。
 - **M2**【待重驗】登入 keychain 的授權依簽章分區：ad-hoc 與自簽憑證每次重建或更新都會跳授權視窗，只有 Apple 發的憑證（依 Team ID 分區）不會。出處：`archive:docs/adr/0036` §決定 3 更正、commits `bb2419d8`、`ae40e004`。可信度：上一版文件。
 - **M3**【待重驗】開了 App Sandbox：子行程寫不了 `/Applications`；用 `open` 重啟會丟掉命令列參數；WKWebView 與 AVPlayer 缺 `network.client` 時靜默失敗。出處：`archive:docs/adr/0036` §決定 2。可信度：上一版文件。
-- **M4**【待重驗】media_kit 的 Apple 版原生庫停在 2023-09，而且在 Apple 平台不接 Now Playing。出處：`archive:docs/adr/0018`〈考慮過的選項〉。可信度：上一版文件。
+- **M4** media_kit 的 Apple 版原生庫停在 2023-09：pub 上 `media_kit_libs_macos_audio` 最新是 1.1.4（2023-09-27）；GitHub main 已有 2026-06-27 的「bump libmpv」與 1.1.6，但沒發到 pub。media_kit 在 Apple 平台不接 Now Playing：main（最後 commit 2026-08-30）整個 repo 沒有 `MPNowPlayingInfoCenter`、`MPRemoteCommand`、`MediaRemote`，`media_kit_libs_macos_audio` 的 Swift plugin 只有空的 `register(with:)`。出處：https://pub.dev/packages/media_kit_libs_macos_audio ；https://github.com/media-kit/media-kit （M0 票 05 重驗）。可信度：2026-11-11 查 pub 與原始碼。
 - **M5**【待重驗】AVPlayer（iOS 也一樣）：不播 WebM/Opus（iOS 回 `-11828`）與 FLV；`http://` 網域被 ATS 擋，要 `NSAllowsArbitraryLoadsForMedia`；`.m4s` 回 `application/octet-stream` 會打不開，`audio/mp4` 才行；自訂 header 要靠未公開的 `AVURLAssetHTTPHeaderFieldsKey`。真實 B 站、YouTube CDN 回的 Content-Type 沒驗過。出處：`archive:docs/adr/0036` §決定 7、`archive:docs/adr/0037` §決定 4、7。可信度：上一版文件。
 - **M6**【待重驗】`window_manager` 已停止維護：macOS Tahoe 上點不到視窗頂端的按鈕（#565，closed NOT_PLANNED）；`hide()` 兩次後從 Dock 叫不回（#501）；隱藏標題列後量到的標題區高度是 0。出處：`archive:docs/adr/0036` §決定 6。可信度：上一版文件。
 - **M7**【待重驗】單一實例要靠 Info.plist 的 `LSMultipleInstancesProhibited`；點 Dock 叫回視窗要自己實作 `applicationShouldHandleReopen`，`FlutterAppDelegate` 沒實作它。出處：`archive:docs/adr/0036` §決定 4。可信度：上一版文件。
 - **M8**【待重驗】`flutter_inappwebview_macos` 1.2.0-beta.3 在 Xcode 26.6 建不過、27.1 可以（上游 #2813）；穩定版 6.1.5 還沒試。出處：`archive:docs/adr/0036` §決定 9、tag `archive/macos-webview-20261106`。可信度：上一版文件。
+- **M9** 第三方 App 從 macOS 15.4 起經 MediaRemote 私有框架讀不到 Now Playing（`mediaremoted` 改成要 entitlement）；發佈自己的 Now Playing 用公開的 `MPNowPlayingInfoCenter`，不受影響。驗證自己的 App 改用兩個管道：macOS 27 選單列的「正在播放」項目由 `MenuBarAgent` 提供（`AXIdentifier` 為 `com.apple.menuextra.now-playing`），點開的面板是 ControlCenter 的視窗，呼叫端有「輔助使用」權限時讀得到標題與歌手、按鈕識別碼（`backward.fill`、`play.fill`／`pause.fill`、`forward.fill`）、進度條的值與最大值（= 曲長），也能按按鈕與設定進度條（= seek）；`mediaremoted` 的系統 log 記下每個指令（`Sending command … command = Pause, SenderBundleIdentifier = <com.apple.controlcenter>` 與目標 App）與 `PlaybackState changed from Playing to Paused`，鍵盤媒體鍵的指令來自 `com.apple.rcd`。出處：Apple 的 macOS 15.4 安全公告 MediaRemote 條目（https://support.apple.com/en-us/122373 ，只寫 improved access restrictions）；https://community.folivora.ai/t/now-playing-is-no-longer-working-on-macos-15-4/42802 ；M0 票 05（`scripts/experiments/macos-now-playing/`）。可信度：限制來自社群回報與官方公告；驗證管道 2026-11-11 在 macOS 27.0.1 實測。
+- **M10** macOS 選 Now Playing App 要看實際出聲：App 送了 `nowPlayingInfo`、`playbackState = paused`、也註冊了 `MPRemoteCommandCenter` 的指令，`mediaremoted` 記下 `CanBeNowPlaying changed to true`，但沒出過聲就不會出現在選單列的「正在播放」，等 25 秒也一樣；這時按鍵盤的播放鍵，系統把 `TogglePlayPause` 轉給「音樂」App 並把它叫起來。出過聲之後暫停仍是 Now Playing App（暫停幾秒後從面板與媒體鍵都叫得回來；多久會被換掉沒有量）；App 結束後面板變成「未在播放」。`MPNowPlayingInfoCenter.playbackState` 只在 macOS 有作用，Apple 文件要求每次開始、停止播放都要設，否則遠端控制可能不正常。出處：M0 票 05（`scripts/experiments/macos-now-playing/`，`results/*-coldstart.json`）；https://developer.apple.com/documentation/mediaplayer/mpnowplayinginfocenter/playbackstate 。可信度：2026-11-11 在 macOS 27.0.1 實測。
 
 ### 18.7 iOS
 
@@ -494,7 +495,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **I2**【待重驗】`audio_session` 在 iOS 把每次中斷開始都報成 `unknown`；要等結束事件帶 `shouldResume` 才續播；別的 App 開始播放時只發開始、不發結束。just_audio 0.10.6 的 `handleInterruptions` 在 duck 結束時把音量乘 2，所以中斷要自己處理。出處：commit `f6b07480`、`archive:docs/adr/0037` §決定 8。可信度：上一版文件。
 - **I3**【待重驗】secure storage 在 iOS 預設 `unlocked`，鎖屏時讀不到（`-25308`）；解除安裝後 keychain 項目還在；換一個 Team 重簽後讀不到。出處：`archive:docs/adr/0037` §決定 6。可信度：上一版文件。
 - **I4**【待重驗】AVPlayer 預載失敗時會吞掉錯誤，交接後才把壞項目報成 ready、時長 0，所以時長 0 要當成沒載入；一個卡住的項目會凍結之後所有的開檔；跳到已預載的下一首要用 seek，不要重開。出處：commits `49eb674a`、`ed1bc889`、`6c5d681b`。可信度：上一版文件。
-- **I5**【待重驗】`audio_service` 0.18.19 在 iOS 不設 `MPNowPlayingInfoCenter.playbackState`（上游 #1139）。出處：`archive:docs/adr/0037` §決定 9。可信度：上一版文件。
+- **I5** `audio_service` 0.18.19 在 iOS 不設 `MPNowPlayingInfoCenter.playbackState`：`AudioServicePlugin.m` 只在 `#if TARGET_OS_OSX` 裡設（上游 #1139，仍開著）。修正（PR #1140，移除這層 `#if` 並把 iOS 最低版本提到 13.0）2026-07-01 合進 master，0.18.19（2026-06-29）之後沒有新版。出處：audio_service 0.18.19 原始碼；https://github.com/ryanheise/audio_service/issues/1139 ；`archive:docs/adr/0037` §決定 9。可信度：2026-11-11 讀原始碼與 issue（M0 票 05），iOS 上的效果沒實測。
 - **I6**【待重驗】iOS 上 Dart 讀不到環境變數與 `main()` 參數，`--dart-entrypoint-args` 只支援桌面，開發用的切換只能靠 `--dart-define`。出處：`archive:docs/adr/0037` §決定 12。可信度：上一版文件。
 - **I7**【待重驗】免費 Apple ID：描述檔 7 天到期；最多 10 個 App ID、3 台裝置；`DEVELOPMENT_TEAM` 不能寫進 pbxproj；`flutter build ipa --no-codesign` 只產出 `.xcarchive`，IPA 要自己把 `Payload/Runner.app` 壓成 zip。出處：`archive:docs/adr/0037` §決定 1、2。可信度：上一版文件。
 - **I8**【待重驗】iPad 的分享表要給 `sharePositionOrigin` 錨點；只有桌面版的套件在 iOS 呼叫會拋 `MissingPluginException`。出處：`archive:docs/adr/0037` §決定 12、14。可信度：上一版文件。
@@ -517,6 +518,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **K14** drift 2.35.4、drift_dev 2.35.3、sqlite3 3.9.1：sqlite3 3.x 以 build hook 把 SQLite 打包進 App，`sqlite3_flutter_libs` 已停止維護（pub 上最後是 0.6.0+eol）。預設的 hook 在建置時從 sqlite3.dart 的 GitHub release 下載預編譯的 SQLite，以套件內的 SHA-256 比對，所以每台建置機器第一次建置要能連網；`flutter test` 也會在本機跑這個 hook。`drift_dev make-migrations` 讀 `build.yaml` 的 `databases`：只有一個版本時只寫 `drift_schemas/<資料庫>/drift_schema_v<N>.json`，不產生 steps 檔與測試；同版本的快照已存在而內容不同時報錯退出，版本加一時才新增快照；`test_dir` 下的 `migration_test.dart` 已存在就不覆寫，`generated/` 每次重寫。`drift_dev schema dump` 的輸出與 `make-migrations` 寫的快照逐字相同。出處：drift_dev 2.35.3 原始碼 `lib/src/cli/commands/make_migrations.dart`；sqlite3 3.9.1 原始碼 `hook/build.dart`、`lib/src/hook/asset_hashes.dart`；https://pub.dev/packages/sqlite3_flutter_libs ；https://drift.simonbinder.eu/migrations/ 。可信度：2026-11-11 讀原始碼並在本機實跑（M0 票 07）。
 - **K15** Android SDK platform-tools 37.0.1 的 adb server 在 macOS 上會自己當掉：預設的 mDNS 後端 `libadbmdns`（Rust）解析區網的 mDNS 封包時 panic（`adbmdns_bridge` → `simple_dns` 的 `Name::try_from`），unwind 失敗後 `abort()`。下一個 adb 指令（含 `flutter devices`）會再啟動 server，所以看起來像被別人重啟；server 不在的那段時間 `flutter devices` 看不到 Android 模擬器。`adb server-status` 的 `mdns_enabled` 顯示 mDNS 是否開著；環境變數 `ADB_MDNS=0` 啟動的 server 不開 mDNS（mDNS 只用在無線偵錯的自動發現，模擬器不靠它）。出處：開發機 `~/Library/Logs/DiagnosticReports/adb-*.ips`（2026-11-08 至 11-11 共 25 份，父行程都是 launchd、堆疊相同）與 adb server log（11-10 18:53 起 server 啟動 53 次，50 次留下 `libunwind: stepWithCompactEncoding - invalid compact unwind encoding`）；https://developer.android.com/tools/adb 〈adb mDNS backends〉與 `server-status`；Google Issue Tracker 573133666（adb 37.0.1 server 因 mDNS 封包當掉，`ADB_MDNS=0` 可避開；只讀到搜尋摘要，頁面要登入）。實測（2026-11-11，M0 票 02b）：`adb kill-server` 後以 `ADB_MDNS=0 adb start-server` 啟動，`adb server-status` 回 `mdns_enabled: false`、`mdns_backend: MDNS_DISABLED`，Android 模擬器 1 秒內回到 `device`。可信度：2026-11-11 讀 crash report 與官方文件，並在開發機實測 `ADB_MDNS=0`。
 - **K16** Dart 的 `RandomAccessFile.lock()` 在 macOS 是 POSIX fcntl 記錄鎖：屬於整個行程，持有的行程結束（含 `kill -9`）時 OS 自動放掉；同一個行程裡另外打開同一個檔再關掉，鎖就被放掉，同一個行程再鎖一次也不會被擋。`FileLock.exclusive` 拿不到時丟 `FileSystemException`（errno 35），`FileLock.blockingExclusive` 會一直等。出處：M0 票 02b 的實驗與 `app/test/tool/device_lock_test.dart`。可信度：2026-11-11 本機實測（Flutter 3.47.5 附的 Dart）。
+- **K17** `audio_service` 0.18.19（2026-06-29，pub 最新；`audio_service_platform_interface` 0.1.3）在 macOS：原生端和 iOS 共用 `darwin/audio_service/Sources/audio_service/AudioServicePlugin.m`，用 `#if TARGET_OS_OSX` 設 `MPNowPlayingInfoCenter.playbackState`（事實 M10）；要等第一次收到 `playing == true` 的 `PlaybackState` 才註冊 `MPRemoteCommandCenter`；`changePlaybackPosition`（seek）要在 `PlaybackState.systemActions` 放 `MediaAction.seek` 才開；play、pause、上一首、下一首依 `controls` 開關；媒體鍵與 AirPods 的播放／暫停走 `togglePlayPauseCommand`，轉成 `click(MediaButton.media)`，`BaseAudioHandler.click` 依 `playbackState.playing` 呼叫 `play` 或 `pause`。封面由 Dart 端把 `artUri` 下載成檔案（`flutter_cache_manager` 的 `DefaultCacheManager`，`file://` 直接用路徑；`MediaItem.artHeaders` 可帶 header），原生端以 `NSImage` 讀檔，所以沙盒 App 要有 `com.apple.security.network.client`。README 的平台表 macOS 只缺 lock screen controls 與 CarPlay，其餘（含 control center、album art、seek）都打勾。實測 macOS 27.0.1 加 just_audio 0.10.6：選單列「正在播放」顯示標題、歌手、封面（本機檔與 HTTP 網址）、播放狀態與進度；面板的播放、暫停、上一首、下一首、seek 與鍵盤媒體鍵都收到，和自己用 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter` 的結果相同。上游 #1139（iOS 不設 `playbackState`，事實 I5）的修正 2026-07-01 合進 master，至今沒發佈；macOS 不受影響。出處：audio_service 0.18.19 原始碼；https://github.com/ryanheise/audio_service/blob/master/audio_service/README.md ；https://github.com/ryanheise/audio_service/issues/1139 ；M0 票 05（`scripts/experiments/macos-now-playing/`）。可信度：2026-11-11 讀原始碼並在 macOS 27.0.1 實測。
 
 ### 18.9 工具鏈
 
@@ -532,7 +534,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **R1** `flutter_inappwebview` 穩定版 6.1.5 包含 Windows（WebView2）與 macOS；6.2.0 只有 beta（最新 beta.3，2026-02-04）。Windows 透過 CDP 的 `Network.getCookies` 讀 cookie，含 httpOnly；iOS 與 macOS 走 `WKHTTPCookieStore`。
 - **R2** `webview_flutter` 沒有 Windows 實作；它在 Android 上 `getCookies` 時，值含 `=` 的 cookie 會被截斷。
 - **R3** media_kit 最後一次發佈是 1.2.6（2025-12-13）；main 分支已換新版 libmpv，但沒發到 pub。
-- **R4** `audio_service` 與 `audio_session` 都不支援 Windows；`audio_service` 在 macOS 不完整。
+- **R4** `audio_service` 與 `audio_session` 都不支援 Windows。`audio_service` 在 macOS 的平台表只缺 lock screen controls 與 CarPlay，Now Playing 的顯示與指令實測可用（M0 票 05 重驗，事實 K17）。
 - **R5** `flutter_secure_storage` 最新是 11.2.0（2026-09-16）；macOS 預設的 Data Protection Keychain 需要 `keychain-access-groups` 與 provisioning profile。
 - **R6** App Store Guideline 2.5.2 禁止下載會改變功能的程式碼；4.7 允許 JS 插件，但要同時滿足 4.7.1–4.7.5（過濾與檢舉、不暴露原生 API、逐次同意、軟體索引、年齡限制）。
 - **R7** Spotube v6 的插件介面定義了遠端歌單寫入（`createPlaylist`、`addTracksToPlaylist` 等），並把功能（abilities）與權限（capabilities）分開；MusicFree 沒有 VIP 欄位，也沒有遠端寫入；LX Music 的自訂源只有 `musicUrl`、`lyric`、`pic`。
