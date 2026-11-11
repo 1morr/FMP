@@ -57,14 +57,13 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
-# M0 ticket 04 (brief fact W8): flutter_inappwebview_windows 0.6.0 on MSVC 14.5x
-# (VS 2026). The plugin builds with /std:c++17 and includes
-# <experimental/coroutine>, which MSVC 14.5x turned into error C2338 (STL1011).
-# /FS is a safeguard against C1041 (concurrent writes to one PDB); ticket 04
-# never reproduced C1041 without it, but it is harmless on VS 2022 too.
-# Upstream fix: https://github.com/pichillilorenzo/flutter_inappwebview/pull/2869
-# Experiment switch (env FMPX_WIN_PATCH, read at configure time):
-#   unset or 1 = both; define = only the define; 0 = neither.
+# M0 票 04（brief 事實 W8）：flutter_inappwebview_windows 0.6.0 以 /std:c++17 編譯並
+# include <experimental/coroutine>，MSVC 14.5x（VS 2026）把它的棄用（STL1011）當成
+# error C2338，要加 define。/FS 防多個編譯行程同時寫同一個 PDB（C1041）：票 04 不加
+# 它也沒重現過 C1041，留著當保險。上游修正：
+# https://github.com/pichillilorenzo/flutter_inappwebview/pull/2869
+# 實驗開關（環境變數 FMPX_WIN_PATCH，CMake configure 時讀）：
+#   不設或 1 = 兩個都加；define = 只加 define；0 = 都不加。
 set(FMPX_WIN_PATCH "$ENV{FMPX_WIN_PATCH}")
 if(FMPX_WIN_PATCH STREQUAL "")
   set(FMPX_WIN_PATCH "1")

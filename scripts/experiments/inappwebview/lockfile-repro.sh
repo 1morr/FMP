@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 實驗用（M0 票 04，重驗 brief 事實 K8）：從 6.2.0-beta 退回 6.1.5 時 pubspec.lock 的殘留。
 # 在暫存目錄複製 probe，依序：升到 beta → 改回 6.1.5 並 pub get → 建 macOS（預期失敗）
-# → pub upgrade --unlock-transitive → 再建（預期成功）。不碰裝置，不必持鎖。
+# → pub upgrade（預期清不掉）→ pub upgrade --unlock-transitive → 再建（預期成功）。不碰裝置，不必持鎖。
 #
 #   ./lockfile-repro.sh            BETA=6.2.0-beta.3 可換 beta 版本
 set -euo pipefail
@@ -29,8 +29,10 @@ if flutter build macos --debug >build1.log 2>&1; then
   echo "== build: OK (the leftover no longer breaks the build)"
 else
   echo "== build: FAILED as K8 says; first errors:"
-  grep -m3 'Error:' build1.log | sed 's#.*/pub.dev/#    #'
+  grep -m3 'Error:' build1.log | sed 's#.*/pub.dev/#    #' || tail -20 build1.log
 fi
+flutter pub upgrade flutter_inappwebview >/dev/null
+echo "== after pub upgrade flutter_inappwebview (without --unlock-transitive)"; versions
 flutter pub upgrade --unlock-transitive flutter_inappwebview >/dev/null
 echo "== after pub upgrade --unlock-transitive flutter_inappwebview"; versions
 if flutter build macos --debug >build2.log 2>&1; then echo "== build: OK"; else echo "== build: FAILED"; tail -20 build2.log; exit 1; fi

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 實驗用（M0 票 04）：在 macOS、iOS 模擬器或 Android 模擬器建置 probe，開頁、截圖，
-# 結果存到 results/<平台>.json，截圖存到 SHOT_DIR（預設一個新的暫存目錄，不進 repo）。
+# 結果存到 results/<平台>.json（release 是 <平台>-release.json），截圖存到 SHOT_DIR（預設一個新的暫存目錄，不進 repo）。
 #
 #   ./run.sh <macos|ios|android>      MODE=release 建 release（iOS 模擬器只有 debug）
 #
@@ -11,6 +11,7 @@ set -euo pipefail
 
 plat=${1:?platform: macos | ios | android}
 mode=${MODE:-debug}
+[[ $plat == ios ]] && mode=debug  # iOS 模擬器只能建 debug
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$here" rev-parse --show-toplevel)
 app="$here/probe"
@@ -29,56 +30,63 @@ case $plat in
 esac
 
 cfg=$([[ $mode == release ]] && echo Release || echo Debug)
-export plat mode cfg app out shots bundle android_id
+# debug 的結果寫 <平台>.json，release 寫 <平台>-release.json，互不覆蓋。
+suffix=""; [[ $mode == release ]] && suffix=-release
+result_json="$out/$plat$suffix.json"
+rm -f "$result_json"
+export plat mode cfg app out shots bundle android_id result_json
 export IOS_DEVICE=${IOS_DEVICE:-booted} IOS_SHOT_ARGS=${IOS_SHOT_ARGS:-}
 # 以下碰共用裝置：經包裝指令持鎖（同一個 worktree 已持鎖時直接執行）。
+# 逾時不中止：照樣截圖、關 App，最後由外層判斷有沒有結果。
 (cd "$repo/app" && dart run tool/device_lock.dart -- bash -c '
-set -euo pipefail
+set -uo pipefail
 raw="$out/raw-$plat.log"
-wait_for() { for ((i = 0; i < 90; i++)); do eval "$1" && return 0; sleep 1; done; return 1; }
+wait_for() { for ((i = 0; i < 90; i++)); do eval "$1" && return 0; sleep 1; done; echo "timed out: $1" >&2; return 1; }
+# App 印出的最後一行 PROBE_RESULT（JSON）。
+last_result() { grep -ao "PROBE_RESULT .*" "$raw" | tail -1 | sed "s/^PROBE_RESULT //" | tr -d "\r"; }
 case $plat in
   macos)
     exe="$app/build/macos/Build/Products/$cfg/inappwebview_probe.app/Contents/MacOS/inappwebview_probe"
     "$exe" >"$raw" 2>&1 &
     pid=$!
-    wait_for "grep -q PROBE_FILE \"$raw\"" || echo "timed out waiting for PROBE_FILE" >&2
+    wait_for "grep -q PROBE_RESULT \"$raw\""
     sleep 2
-    orca computer get-app-state --app "$bundle" --json >"$shots/macos-state.json" || true
-    shot=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))[\"result\"][\"screenshot\"][\"path\"])" "$shots/macos-state.json" || true)
+    orca computer get-app-state --app "$bundle" --json >"$shots/macos-state.json"
+    shot=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))[\"result\"][\"screenshot\"][\"path\"])" "$shots/macos-state.json")
     [[ -n $shot ]] && cp "$shot" "$shots/macos.png"
-    kill "$pid" 2>/dev/null || true
-    path=$(grep -o "PROBE_FILE .*" "$raw" | tail -1 | sed "s/^PROBE_FILE //")
-    [[ -n $path ]] && cp "$path" "$out/macos.json"
+    kill "$pid" 2>/dev/null
+    last_result >"$result_json"
     ;;
   ios)
     xcrun simctl install "$IOS_DEVICE" "$app/build/ios/iphonesimulator/Runner.app"
+    # iOS 的 print 進系統 log、不進 stdout：改等 App 容器裡的結果檔。
     result="$(xcrun simctl get_app_container "$IOS_DEVICE" "$bundle" data)/tmp/inappwebview-probe.json"
     rm -f "$result"
     xcrun simctl launch --terminate-running-process "$IOS_DEVICE" "$bundle" >/dev/null
-    wait_for "[[ -s \"$result\" ]]" || echo "timed out waiting for result" >&2
+    wait_for "[[ -s \"$result\" ]]"
     sleep 2
     xcrun simctl io "$IOS_DEVICE" screenshot $IOS_SHOT_ARGS "$shots/ios.png" >/dev/null
-    xcrun simctl terminate "$IOS_DEVICE" "$bundle" || true
-    [[ -s $result ]] && cp "$result" "$out/ios.json"
+    xcrun simctl terminate "$IOS_DEVICE" "$bundle"
+    [[ -s $result ]] && cp "$result" "$result_json"
     ;;
   android)
     adb install -r "$app/build/app/outputs/flutter-apk/app-$mode.apk" >/dev/null
     adb logcat -c
     adb shell am start -n "$android_id/.MainActivity" >/dev/null
-    wait_for "adb logcat -d -s flutter:I >\"$raw\" 2>/dev/null; grep -q PROBE_FILE \"$raw\"" ||
-      echo "timed out waiting for PROBE_FILE" >&2
+    wait_for "adb logcat -d -s flutter:I >\"$raw\" 2>/dev/null; grep -q PROBE_RESULT \"$raw\""
     sleep 2
     adb exec-out screencap -p >"$shots/android.png"
-    path=$(grep -o "PROBE_FILE .*" "$raw" | tail -1 | sed "s/^PROBE_FILE //" | tr -d "\r")
-    # release 版不能 run-as：結果改從 log 那一行取。
-    if [[ $mode == debug && -n $path ]]; then
-      adb exec-out run-as "$android_id" cat "$path" >"$out/android.json"
-    else
-      grep -o "PROBE_RESULT .*" "$raw" | tail -1 | sed "s/^PROBE_RESULT //" | tr -d "\r" >"$out/android.json"
-    fi
     adb shell am force-stop "$android_id"
+    last_result >"$result_json"
     ;;
 esac
+exit 0
 ')
 echo "screenshots: $shots"
-if [[ -s $out/$plat.json ]]; then cat "$out/$plat.json"; else echo "no result; see $out/raw-$plat.log" >&2; exit 1; fi
+if [[ -s $result_json ]]; then
+  cat "$result_json"
+else
+  rm -f "$result_json"
+  echo "no result; see $out/raw-$plat.log" >&2
+  exit 1
+fi
