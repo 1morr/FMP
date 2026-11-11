@@ -3,6 +3,13 @@
     "name": "FMP"
   },
   "placeholder": {
-    "subtitle": "新版開發中"
+    "subtitle": "新版開發中",
+    "search": {
+      "hint": "搜尋",
+      "empty": "沒有結果",
+      "failed": "搜尋失敗",
+      "network": "連不上網路",
+      "rateLimited": "請求太頻繁，請稍後再試"
+    }
   }
 }

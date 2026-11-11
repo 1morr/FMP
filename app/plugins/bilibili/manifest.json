@@ -1,0 +1,7 @@
+{
+  "id": "bilibili",
+  "name": "Bilibili",
+  "version": "0.1.0",
+  "capabilities": ["search"],
+  "domains": ["api.bilibili.com"]
+}

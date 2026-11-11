@@ -1,7 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/redaction/redact.dart';
 import 'package:logger/logger.dart' as lg;
+
+/// 整個 App 共用的 log。`main` 開好再 override 進來。
+final logProvider = Provider<Log>(
+  (ref) => throw StateError('logProvider is overridden in main()'),
+);
 
 /// log 的層級，由低到高。
 enum LogLevel { debug, info, warning, error }

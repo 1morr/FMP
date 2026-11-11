@@ -34,7 +34,8 @@ void main() {
   });
 
   test('the full gate runs the quick steps first, then builds and '
-      'integration tests on all four platforms', () {
+      'integration tests on all four platforms, then checks the plugin '
+      'bundles', () {
     final full = names(quick: false);
 
     expect(full.take(quickSteps.length), quickSteps);
@@ -44,11 +45,12 @@ void main() {
       'build android',
       'lock shared devices',
       'build windows',
-      'integration_test macos: integration_test/app_test.dart',
-      'integration_test ios: integration_test/app_test.dart',
-      'integration_test android: integration_test/app_test.dart',
-      'integration_test windows: integration_test/app_test.dart',
+      for (final platform in ['macos', 'ios', 'android', 'windows']) ...[
+        'integration_test $platform: integration_test/app_test.dart',
+        'integration_test $platform: integration_test/plugin_search_test.dart',
+      ],
       'unlock shared devices',
+      'plugin bundles (esbuild)',
     ]);
   });
 }

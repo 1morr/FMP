@@ -1,5 +1,7 @@
 # Launch fmp.exe in desktop session, wait, screenshot window to PNG, close app. ASCII only.
-param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8)
+# -Type <text>: after raising the window, press Tab (focus the first field), type
+# <text> as Unicode SendInput (bypasses the IME), press Enter, wait -TypeWait s.
+param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10)
 $log = 'C:\fmp-wt\shot.log'
 "start" | Out-File $log -Encoding ascii
 Add-Type -AssemblyName System.Drawing
@@ -16,6 +18,17 @@ public class W {
  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool f);
  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
+ [StructLayout(LayoutKind.Sequential)] public struct KI { public ushort vk; public ushort scan; public uint flags; public uint time; public IntPtr extra; }
+ [StructLayout(LayoutKind.Sequential)] public struct MI { public int dx; public int dy; public uint data; public uint flags; public uint time; public IntPtr extra; }
+ [StructLayout(LayoutKind.Explicit)] public struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KI ki; [FieldOffset(8)] public MI mi; }
+ [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] i, int size);
+ [DllImport("user32.dll")] public static extern uint MapVirtualKey(uint code, uint type);
+ static void Send(ushort vk, ushort scan, uint flags) {
+  var i = new INPUT[1]; i[0].type = 1; i[0].ki.vk = vk; i[0].ki.scan = scan; i[0].ki.flags = flags;
+  SendInput(1, i, Marshal.SizeOf(typeof(INPUT)));
+ }
+ public static void Key(ushort vk) { ushort s = (ushort)MapVirtualKey(vk, 0); Send(vk, s, 0); Send(vk, s, 2); }
+ public static void Text(string t) { foreach (char c in t) { Send(0, c, 4); Send(0, c, 6); } }
 }
 "@
 [W]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null
@@ -35,6 +48,14 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
   [W]::AttachThreadInput($me, $ft, $false) | Out-Null
   "foreground_is_fmp=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
   Start-Sleep -Milliseconds 800
+  if ($Type -ne '') {
+    [W]::Key(0x09); Start-Sleep -Milliseconds 300
+    [W]::Text($Type); Start-Sleep -Milliseconds 300
+    [W]::Key(0x0D)
+    "typed [$Type], waiting $TypeWait s" | Out-File $log -Append -Encoding ascii
+    Start-Sleep -Seconds $TypeWait
+    "foreground_is_fmp_after_typing=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+  }
   $r = New-Object W+RECT
   [W]::GetWindowRect($h, [ref]$r) | Out-Null
   $w = $r.R - $r.L; $hh = $r.B - $r.T

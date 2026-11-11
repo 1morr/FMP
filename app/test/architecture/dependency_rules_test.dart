@@ -176,6 +176,15 @@ void pick(String id) {
       }, Rule.logPackageOutsideLogFacade);
     });
 
+    test('the JS engine outside plugins/', () {
+      expectViolation({
+        'playback/lyrics_script.dart': "import 'package:fjs/fjs.dart';",
+      }, Rule.jsEngineOutsidePlugins);
+      expectViolation({
+        'ui/search/search_page.dart': "import 'package:fjs/fjs.dart' as js;",
+      }, Rule.jsEngineOutsidePlugins);
+    });
+
     test('an unclassified package', () {
       expectViolation({
         'core/net.dart': "import 'package:left_pad/left_pad.dart';",
@@ -272,6 +281,14 @@ final printer = lg.LogfmtPrinter();
       });
     });
 
+    test('the JS engine anywhere inside plugins/', () {
+      expectClean({
+        'plugins/src/js_engine.dart': "import 'package:fjs/fjs.dart';",
+        'plugins/src/deep/engine_pool.dart':
+            "import 'package:fjs/fjs.dart' show JsEngine;",
+      });
+    });
+
     test('other Platform members outside platform/', () {
       expectClean({
         'core/env.dart': '''
@@ -291,4 +308,5 @@ const _packages = {
   'just_audio': PackageScope.audioBackend,
   'media_kit': PackageScope.audioBackend,
   'logger': PackageScope.logFacade,
+  'fjs': PackageScope.pluginsOnly,
 };

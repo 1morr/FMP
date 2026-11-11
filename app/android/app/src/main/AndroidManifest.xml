@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 插件經宿主網路層（dio）連音源；release 版沒有這行就連不了網。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="FMP Dev"
         android:name="${applicationName}"
