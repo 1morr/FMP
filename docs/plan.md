@@ -43,18 +43,18 @@ app/
 ### 1.3 依賴規則
 
 - `ui` 只能依賴功能模組與 `domain`，不能直接碰 `data`、`plugins` 的內部，也不能碰平台套件。
-- 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件；平台層以外不得用 `Platform.isXxx`。
+- 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件，例外是 `playback/` 的音訊後端實作可 import `just_audio`、`media_kit`；平台層以外不得用 `Platform.isXxx`（依平台選音訊後端也在平台層做）。
 - 音源專屬的邏輯只能在 `app/plugins/` 裡；Dart 端不得出現音源識別碼的字面值分支（ADR 0038）。
 - 由一支掃 import 與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。M0 票 01 接上。
 - 模組的實際介面在 M0 用 codebase-design skill 細化。
 
 ### 1.4 主要依賴
 
-確切版本由 M0 寫入。
+版本寫的是加入時 `pubspec.lock` 解出的版本；還沒加的由加入的那張票寫。
 
 | 用途 | 依賴 | 理由 |
 | --- | --- | --- |
-| 狀態管理 | flutter_riverpod 3（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
+| 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
 | 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
 | 資料庫與設定 | drift 加 sqlite3 | schema 快照與升級測試；設定也存這裡，不用 shared_preferences |
 | HTTP | dio | 插件請求都經宿主網路層，統一限流、重試、遮蔽 |
@@ -63,9 +63,10 @@ app/
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
-| i18n | slang | 舊版用過 |
+| i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
 | JS 引擎 | M0 實驗定 | brief §17 |
 | 插件建置 | TypeScript 加 esbuild（需 Node） | ADR 0038 |
+| 依賴規則測試（dev） | analyzer 14.7.0 | 以 AST 判斷 import 與分支，不靠字串比對；只在測試裡用，不做 lint 套件（§1.3） |
 
 ## 2. 平台
 

@@ -18,7 +18,8 @@ enum Rule {
   /// 只有 `data/` 能 import drift 這類資料庫套件。
   dataPackageOutsideData,
 
-  /// 只有 `platform/` 能 import 平台套件。
+  /// 只有 `platform/` 能 import 平台套件；音訊播放器套件另外允許
+  /// `playback/` 的音訊後端實作（[PackageScope.audioBackend]）。
   platformPackageOutsidePlatform,
 
   /// 只有 `platform/` 能用 `Platform.isXxx`。
@@ -33,10 +34,18 @@ enum Rule {
 }
 
 /// 套件可以在 `lib/` 的哪裡被 import。
-enum PackageScope { anywhere, dataOnly, platformOnly }
+enum PackageScope {
+  anywhere,
+  dataOnly,
+  platformOnly,
+
+  /// 音訊播放器（just_audio、media_kit）：`platform/` 與 `playback/` 的音訊
+  /// 後端實作（plan §1.3 的例外）。
+  audioBackend,
+}
 
 /// 每個 `lib/` 用得到的套件都要在這裡分類；沒分類的會被 [Rule.unclassifiedPackage]
-/// 擋下。drift 先列著，因為規則本身（只有 `data/` 能用）在加依賴前就定了。
+/// 擋下。drift 與音訊播放器先列著，因為它們的規則（plan §1.3）在加依賴前就定了。
 const packageScopes = <String, PackageScope>{
   'fmp': PackageScope.anywhere,
   'flutter': PackageScope.anywhere,
@@ -47,6 +56,8 @@ const packageScopes = <String, PackageScope>{
   'slang_flutter': PackageScope.anywhere,
   'drift': PackageScope.dataOnly,
   'sqlite3': PackageScope.dataOnly,
+  'just_audio': PackageScope.audioBackend,
+  'media_kit': PackageScope.audioBackend,
 };
 
 /// 音源與歌詞源的識別碼，比對時不分大小寫。
@@ -159,6 +170,14 @@ class _Visitor extends RecursiveAstVisitor<void> {
           node,
           Rule.platformPackageOutsidePlatform,
           'only platform/ may import package:$package',
+        );
+      case PackageScope.audioBackend
+          when module != 'platform' && module != 'playback':
+        _flag(
+          node,
+          Rule.platformPackageOutsidePlatform,
+          'only platform/ and the playback/ audio backends may import '
+          'package:$package',
         );
       default:
     }

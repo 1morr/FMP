@@ -69,6 +69,19 @@ void main() {
       }, Rule.platformPackageOutsidePlatform);
     });
 
+    test('an audio player package in ui/', () {
+      expectViolation({
+        'ui/player/player_page.dart':
+            "import 'package:just_audio/just_audio.dart';",
+      }, Rule.platformPackageOutsidePlatform);
+    });
+
+    test('an audio player package in another module', () {
+      expectViolation({
+        'library/preview.dart': "import 'package:media_kit/media_kit.dart';",
+      }, Rule.platformPackageOutsidePlatform);
+    });
+
     test('Platform.isXxx outside platform/', () {
       expectViolation({
         'playback/backend.dart': '''
@@ -191,6 +204,17 @@ bool get windows => Platform.isWindows;
       });
     });
 
+    test('the audio player packages in the playback/ audio backends', () {
+      expectClean({
+        'playback/backends/just_audio_backend.dart':
+            "import 'package:just_audio/just_audio.dart';",
+        'playback/backends/media_kit_backend.dart':
+            "import 'package:media_kit/media_kit.dart' as mk;",
+        'platform/audio_backend_choice.dart':
+            "import 'package:just_audio/just_audio.dart';",
+      });
+    });
+
     test('Platform.isXxx and source ids that only appear in comments', () {
       expectClean({
         'playback/backend.dart': '''
@@ -228,4 +252,6 @@ const _packages = {
   'fmp': PackageScope.anywhere,
   'drift': PackageScope.dataOnly,
   'audio_service': PackageScope.platformOnly,
+  'just_audio': PackageScope.audioBackend,
+  'media_kit': PackageScope.audioBackend,
 };
