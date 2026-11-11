@@ -1,0 +1,15 @@
+#!/bin/sh
+# 新版的快速閘門（plan §4）：只有這次 commit 改到 app/ 才跑；只改舊版或
+# 文件的 commit 不跑，舊版的緊急修正不受新版閘門影響。
+# 啟用：git config core.hooksPath .githooks
+# --no-renames：把檔案搬出 app/ 時，預設只會列出新路徑。
+git diff --cached --name-only --no-renames | grep -q '^app/' || exit 0
+
+# git 給 hook 的 GIT_DIR、GIT_INDEX_FILE 等變數會讓 flutter 把自己 SDK 的
+# 版本讀成 0.0.0-unknown，pub get 就解不出依賴。
+for name in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do
+  unset "$name"
+done
+
+cd "$(git rev-parse --show-toplevel)/app" || exit 1
+exec dart run tool/check.dart --quick

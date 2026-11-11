@@ -1,0 +1,19 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - windows/**
+    - macos/**
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    # 依賴規則測試（test/architecture/）以 package: 路徑判斷模組歸屬；
+    # 統一用 package: import，搬檔案時也只是路徑字串替換。
+    always_use_package_imports: true
+    comment_references: true

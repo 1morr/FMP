@@ -19,6 +19,9 @@ analyzer:
     - web/**
     - macos/**
     - linux/**
+    # 新版（app/）是另一個套件，有自己的 analysis_options 與閘門
+    # （app/tool/check.dart）；CI 只對根目錄 pub get，不排除會解析失敗。
+    - app/**
 
 linter:
   # The lint rules applied to this project can be customized in the

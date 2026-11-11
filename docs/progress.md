@@ -42,6 +42,7 @@
 | 2026-11-11 | D 重做 B 中寬度 | 照 plan〈待決〉P4 補中寬度（600–1199）：擁有者選定左側玻璃細欄（Material 3 navigation rail）；kit 加 `FMP.medium`／`FMP.rail` 與平板、窄視窗兩種框，`shell.html` 畫平板直向與橫向、窄視窗、浮出的詳情面板、最小視窗，`system.html` 加〈寬度分級〉；其餘 12 頁各加一節「中寬度（平板、窄視窗）」。`DESIGN.md` 加 §5.3，做稿時訂的細節列在〈待確認〉27–36；擁有者已確認 27–36（手機一首歌的「更多」維持底部 sheet），brief §11（寬度分級）與 plan §5.2 已照草稿寫入，〈待決〉P4 刪除 | 等使用者：看完全部頁面後告知 D 定稿；定稿後把 `design/d-redesign-b` 合併回 main 並 push |
 | 2026-11-11 | D 定稿 | 擁有者確認 D 設計稿定稿（`docs/design/`，重做 B，手機、中寬度、桌面三種寬度）；`design/d-redesign-b` 合併回 main 並 push。玻璃三級對事實 K10（plan〈待決〉P5）照原定等 M0 實驗 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-11 | D 定稿後對齊 M0 與 brief | 補 M0 票 05b（玻璃三級的四平台可行性），spec 改成五項實驗、票 12 也被 05b 擋，「佔位首頁」改稱「佔位畫面」，票 08 讀 plan〈待決〉P3；D 已定案但沒寫回的決定寫進 brief §5.1、§5.4、§6、§7、§10、§11、§13、§17 與名詞表；plan〈待決〉P3、P5 改歸屬 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
+| 2026-11-11 | 01 | `app/` 四平台骨架（`com.personal.fmp.dev`、佔位畫面、slang 三語、Riverpod 關閉重試）；`tool/check.dart --quick`（i18n、format、analyze、test、文件閘門）與 `.githooks/pre-commit`；依賴規則測試、零聯網、`live` 預設跳過；四平台讀回畫面；`winpc` 做法寫進 plan §2；plan §1.3 照擁有者決定加 `playback/backends/` 例外。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/02-full-gate.md` |
 
 ## 偏差與決定
 
@@ -73,3 +74,4 @@
 - 2026-11-11 D 重做 B 中寬度：擁有者確認寬度分級（窄 < 600、中 600–1199、寬 ≥ 1200；手機固定直向；桌面最小 720×560；密度跟裝置走）與〈待確認〉27–36，brief §11 與 plan §5.2 已寫入，plan〈待決〉P4 刪除。D 定稿後才合併 push。
 - 2026-11-11 D 定稿：擁有者確認 D 設計稿定稿，`design/d-redesign-b` 合併回 main（main 上先前 A 版的設計稿 commit 留在歷史裡，`docs/design/` 以 B 為準）。
 - 2026-11-11 D 定稿後對齊：擁有者同意插件能力清單（plan〈待決〉P3）改在 M1 拆票時定；玻璃的 Flutter 做法從「M1 外殼票開工時查」（brief §17）提前到 M0 實驗票 05b，P5 跟著改。brief、名詞表、plan 同一個 commit 修改。
+- 2026-11-11 票 01：plan §1.3 加例外，只有 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`（原本 §1.2 與 §1.3 互相矛盾；擁有者確認）。
