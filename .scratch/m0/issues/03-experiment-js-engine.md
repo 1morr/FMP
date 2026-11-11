@@ -28,3 +28,4 @@
   - flutter_js 中斷「timeout 生效」那條分支用絕對門檻，和 `loopStopped` 的相對門檻不一致：四平台都沒走到那條分支。
   - flutter_js 沒量 await 之後與 timer 裡的迴圈：頂層迴圈已經中斷不了。
 - 2026-11-11 下午 `winpc` 藍屏重開（bugcheck 0x1E，核心模式例外），那時一次 Windows 執行因連線中斷失敗，已重跑；現在的兩份 Windows 結果都在重開之後。
+- 驗證（把 main 合進票分支之後，`app/` 和 main 相同）：根目錄 `flutter analyze` 與 `dart format --output=none --set-exit-if-changed lib test tool`（舊版 `ci.yml` 的兩步）綠燈；`app/` 的 `dart run tool/check.dart` 完整版第三次全綠（i18n、format、analyze、test、doc gate、四平台 build、四平台 `integration_test`）。前兩次失敗都在共用環境：第一次 `build windows` 時 `winpc` 的 `CL.exe` 以 0xC0000409 崩潰，第二次 Android 跑到時 adb daemon 剛被重啟、找不到模擬器，Windows 在共用的遠端目錄 assemble 失敗（MSB8066）。
