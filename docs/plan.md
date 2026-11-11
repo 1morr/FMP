@@ -36,7 +36,8 @@ app/
     ui/<頁面>/  畫面與 view model
   plugins/      官方插件原始碼：bilibili、youtube、netease、lrclib（TypeScript）
                 每個插件一個目錄：manifest.json、src/index.ts、dist/plugin.js
-                （esbuild 產物，提交）；共用的 host.d.ts、build.mjs、package.json
+                （esbuild 產物，提交）、fixtures/（契約測試，§3）；
+                共用的 host.d.ts、build.mjs、package.json
   test/
   integration_test/
   tool/check.dart
@@ -168,7 +169,10 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 - 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個檔在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。
 - `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
-- 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。
+- 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。M0 票 09 接上（工具在 `test/support/plugin_fixtures.dart`）：
+  - `test/plugins/plugin_contract_test.dart` 掃 `app/plugins/` 底下每個插件，對 manifest 宣告的每個插件能力，重播 `plugins/<id>/fixtures/<插件能力>/*.json` 的每個案例（格式照 VCR 的 cassette：`input` 加一串請求與回應，見 `PluginFixture`）。請求以方法加遮蔽後的網址比對，每筆只用一次；沒有 fixture 的請求、沒用到的錄製請求、宣告了插件能力卻沒有案例都會紅。各插件能力的契約在 `checkContract` 的 switch，新增插件能力時編譯不過，提醒補契約。同一個測試檢查每份 fixture 都是遮蔽函式的不動點（沒有 cookie、token、簽名網址的值）。
+  - 錄製（打真實音源，一次一個案例）：先建 `plugins/<id>/fixtures/<插件能力>/<案例>.json`，至少寫 `{"input": {…}}`，再在 `app/` 跑 `FMP_RECORD=<id>/<插件能力>/<案例> flutter test --run-skipped --tags live test/plugins/record_plugin_fixture_test.dart`。網址、header、內文經遮蔽函式才寫檔，回應 header 只留 `content-type`、`location`；契約不過（例如被限流）就不寫。提交前看一次 diff，確認沒有個人資訊（`AGENTS.md`〈公開 repo〉）。
+  - 聯網冒煙測試：`flutter test --run-skipped --tags live test/plugins/plugin_live_test.dart`（加 `--plain-name <id>` 只跑一個插件），每個插件的每個插件能力用第一個案例的 `input` 打一次真實音源，檢查同一套契約。
 - 插件宿主與插件的單元測試在 Mac 上跑真的 fjs 引擎（`loadFjsForTests()`，brief 事實 K19），網路換成 `test/support/fake_http.dart`。widget 測試裡會呼叫引擎的動作要在 `tester.runAsync` 裡發起，等結果時交替真實等待與 `pump`（事實 K19）。
 - 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。
 - drift 的 schema（M0 票 07）：每個版本的快照在 `app/drift_schemas/app_database/`，升級測試在 `app/test/drift/app_database/`。改 schema 時：改表、`schemaVersion` 加一、在 `app/` 跑 `dart run drift_dev make-migrations`（產生新快照、`generated/` 的各版本資料庫、`lib/data/database.steps.dart`），在 `AppDatabase.migration` 用 `stepByStep` 寫這一步；`migration_test.dart` 自動涵蓋每一對版本，改到既有欄位時照檔頭加資料完整性測試。閘門的 `schema snapshot (drift)` 比對目前的 schema 與最新快照，`migration_test.dart` 比對 `schemaVersion` 與最新快照的版本，忘了任一步都會紅。`*.g.dart` 不進 git，閘門的 `codegen (build_runner)` 先產生。

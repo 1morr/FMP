@@ -11,8 +11,8 @@ import '../support/fake_http.dart';
 import '../support/fjs.dart';
 
 /// bilibili 插件提交的打包產物（`app/plugins/bilibili/dist/plugin.js`）在
-/// 真的引擎裡跑，網路換成手寫的假回應（零聯網）。錄下來的真實回應與契約
-/// 測試是票 09。
+/// 真的引擎裡跑，網路換成手寫的假回應（零聯網），測錯誤代碼與轉換的細節。
+/// 錄下來的真實回應由 `plugin_contract_test.dart` 重播。
 void main() {
   late Directory logDir;
   late Log log;

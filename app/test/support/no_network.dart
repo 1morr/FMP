@@ -17,9 +17,16 @@ class _NoNetwork extends HttpOverrides {
   }
 }
 
-/// 測試裡有程式想連網。`live` tag 的測試要連網時，用
-/// [HttpOverrides.runWithHttpOverrides] 包一個不覆寫任何方法的
-/// [HttpOverrides] 子類別，換回真的 client。
+/// 真的 [HttpClient]，給 `live` tag 的測試用（例如交給 dio 的
+/// `IOHttpClientAdapter(createHttpClient: realHttpClient)`）。在只屬於這次
+/// 建立的 zone 裡換回 dart:io 預設的行為，不動全域的防線：插件宿主的網路
+/// 請求從 fjs 的 bridge 回到 Dart，不一定跑在測試的 zone 裡。
+HttpClient realHttpClient() =>
+    HttpOverrides.runWithHttpOverrides(HttpClient.new, _RealNetwork());
+
+class _RealNetwork extends HttpOverrides {}
+
+/// 測試裡有程式想連網。`live` tag 的測試要連網時用 [realHttpClient]。
 class NetworkAccessInTest implements Exception {
   @override
   String toString() =>
