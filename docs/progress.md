@@ -79,3 +79,4 @@
 - 2026-11-11 D 定稿後對齊：擁有者同意插件能力清單（plan〈待決〉P3）改在 M1 拆票時定；玻璃的 Flutter 做法從「M1 外殼票開工時查」（brief §17）提前到 M0 實驗票 05b，P5 跟著改。brief、名詞表、plan 同一個 commit 修改。
 - 2026-11-11 票 01：plan §1.3 加例外，只有 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`（原本 §1.2 與 §1.3 互相矛盾；擁有者確認）。
 - 2026-11-11 M0 票 03：擁有者確認插件的 JS 引擎用 fjs 3.3.2（brief 事實 K7、K11；plan §1.1、§1.4），票 08 的驗收加上「建立引擎時只開白名單內建模組」的測試；`winpc` 的 rustup default host 改成 msvc（fjs 在 Windows 從 Rust 原始碼編）。
+- 2026-11-11 票 06 後：擁有者確認 B 站 WBI 的 `w_rid` 不遮（用公開的 `img_key`／`sub_key` 算出、不是憑證）；`AGENTS.md`〈公開 repo〉補一句，`app/test/core/redaction_test.dart` 的「不遮」案例守著它。

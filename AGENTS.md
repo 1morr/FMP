@@ -61,7 +61,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 repo 是公開的。commit、文件、票、fixture、log 摘錄與截圖：
 
 - 不含個人資訊：使用者名稱、email、手機號、帳號名稱、私人歌單的內容。
-- cookie、token、簽名網址、API key 的值寫成 `***`。
+- cookie、token、簽名網址、API key 的值寫成 `***`。用公開值算出、只對單次請求有效的請求簽名（例如 B 站 WBI 的 `w_rid`）不算，照原樣保留。
 - 本機路徑用代稱：`<資料目錄>`、`<暫存目錄>`、`<repo>`。
 - 不寫 Apple Team ID、裝置 UDID、裝置名稱；簽名設定放 gitignore 的本機檔。
 
