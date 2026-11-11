@@ -22,6 +22,9 @@ enum Rule {
   /// `playback/backends/`（[PackageScope.audioBackend]）。
   platformPackageOutsidePlatform,
 
+  /// 只有 log 門面 `core/log/` 能 import log 套件（brief §13 的單一 log 門面）。
+  logPackageOutsideLogFacade,
+
   /// 只有 `platform/` 能用 `Platform.isXxx`。
   platformCheckOutsidePlatform,
 
@@ -42,6 +45,9 @@ enum PackageScope {
   /// 音訊播放器（just_audio、media_kit）：`platform/` 與音訊後端的兩個實作
   /// `playback/backends/`（plan §1.3 的例外）。`playback/` 其他檔只依賴介面。
   audioBackend,
+
+  /// log 套件（logger）：只有 log 門面 `core/log/`，其他模組經門面寫 log。
+  logFacade,
 }
 
 /// 每個 `lib/` 用得到的套件都要在這裡分類；沒分類的會被 [Rule.unclassifiedPackage]
@@ -58,6 +64,8 @@ const packageScopes = <String, PackageScope>{
   'sqlite3': PackageScope.dataOnly,
   'just_audio': PackageScope.audioBackend,
   'media_kit': PackageScope.audioBackend,
+  'logger': PackageScope.logFacade,
+  'path_provider': PackageScope.platformOnly,
 };
 
 /// 音源與歌詞源的識別碼，比對時不分大小寫。
@@ -177,6 +185,12 @@ class _Visitor extends RecursiveAstVisitor<void> {
           node,
           Rule.platformPackageOutsidePlatform,
           'only platform/ and playback/backends/ may import package:$package',
+        );
+      case PackageScope.logFacade when !path.startsWith('core/log/'):
+        _flag(
+          node,
+          Rule.logPackageOutsideLogFacade,
+          'only core/log/ may import package:$package; log through Log',
         );
       default:
     }

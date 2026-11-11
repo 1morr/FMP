@@ -45,6 +45,7 @@
 | 2026-11-11 | 01 | `app/` 四平台骨架（`com.personal.fmp.dev`、佔位畫面、slang 三語、Riverpod 關閉重試）；`tool/check.dart --quick`（i18n、format、analyze、test、文件閘門）與 `.githooks/pre-commit`；依賴規則測試、零聯網、`live` 預設跳過；四平台讀回畫面；`winpc` 做法寫進 plan §2；plan §1.3 照擁有者決定加 `playback/backends/` 例外。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/02-full-gate.md` |
 | 2026-11-11 | 02 | `dart run tool/check.dart` 完整版：quick 之後四平台建置、四平台 `integration_test`（一次一個檔、iOS／Android 只挑模擬器並加 `--no-uninstall`、Windows 經 SSH 以排程工作跑並取回 log）；佔位畫面的 `integration_test` 四平台通過，`integration_test/` 也裝零聯網防線並有靜態規則守；插件打包產物的位置留給票 08；plan §1.4、§2、§4 與 `AGENTS.md` 已更新。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/03-experiment-js-engine.md` |
 | 2026-11-11 | 03 | fjs 3.3.2 與 flutter_js 0.8.7 在四平台實測（`scripts/experiments/js-engine/`）：只有 fjs 過全部四項標準；擁有者確認選 fjs，brief 事實 K7、K11 與 plan §1.1、§1.4、§4、§6 P2 已寫入；票 08 加了白名單內建模組的測試；fjs 全行程只有 2 條 JS 執行緒，記在 K11 | 新 session 下 `/implement .scratch/m0/issues/04-experiment-inappwebview-build.md` |
+| 2026-11-11 | 06 | log 門面（`core/log/`，logger 2.8.0 寫 `fmp.log`、2MB × 3 輪替、release 保留 info）、單一遮蔽函式 `redact`（只用通用規則，照 ADR 0038 不列音源專屬名稱）、錯誤分類 sealed `AppError`、`platform/` 的 `logDirectory()`；四平台啟動後在 log 目錄讀到 `App started`；依賴規則加「只有 `core/log/` 能 import logger」；brief 事實 K12、K13，plan §1.4、§2 已更新。`winpc` 的 frontend_server 偶發當掉寫進 plan §2；`w_rid` 要不要遮等擁有者決定（見票的 Comments） | 新 session 下 `/implement .scratch/m0/issues/04-experiment-inappwebview-build.md` |
 
 ## 偏差與決定
 

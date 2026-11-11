@@ -64,10 +64,13 @@ app/
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
 | i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
+| log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
+| App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄由 `platform/` 經它取得（brief 事實 K13） |
 | JS 引擎 | fjs 3.3.2 | 四平台同一個 QuickJS-NG，能中斷、能設記憶體上限、支援 async（M0 票 03，brief 事實 K11） |
 | 插件建置 | TypeScript 加 esbuild（需 Node） | ADR 0038 |
 | lint（dev） | flutter_lints 6.0.0 | `flutter create` 的預設；`app/analysis_options.yaml` 另開幾條 |
 | 依賴規則測試（dev） | analyzer 14.7.0 | 以 AST 判斷 import 與分支，不靠字串比對；只在測試裡用，不做 lint 套件（§1.3） |
+| 換掉平台實作（dev） | path_provider_platform_interface 2.1.3、plugin_platform_interface 2.1.8 | path_provider 官方的測試做法：換一個假的 `PathProviderPlatform` |
 | 平台上的測試（dev） | integration_test（SDK） | Flutter 官方的 `flutter test integration_test/…`；完整閘門在四平台跑（§2、§4） |
 
 ## 2. 平台
@@ -78,7 +81,9 @@ app/
 
 ### macOS
 
-框架與套件：Flutter macOS 桌面，目前沒有平台套件。
+框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄）。
+
+log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Support/com.personal.fmp.dev/logs/fmp.log`。
 
 閘門：`flutter build macos --debug`；`flutter test integration_test/<檔> -d macos`（會在本機開一個 App 視窗）。
 
@@ -86,7 +91,9 @@ app/
 
 ### iOS 模擬器
 
-框架與套件：Flutter iOS，目前沒有平台套件。
+框架與套件：Flutter iOS，平台套件：path_provider（log 目錄）。
+
+log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下的 `Library/Application Support/logs/fmp.log`。
 
 閘門：`flutter build ios --simulator --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好；`check.dart` 從 `flutter devices --machine` 挑第一台 `emulator: true` 的 iOS 裝置，不會挑連著的實體 iPhone，找不到就讓這一步失敗。
 
@@ -94,7 +101,9 @@ app/
 
 ### Android 模擬器
 
-框架與套件：Flutter Android，目前沒有平台套件。
+框架與套件：Flutter Android，平台套件：path_provider（log 目錄）。
+
+log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
 閘門：`flutter build apk --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好（`flutter emulators --launch Medium_Phone_API_37.0`），挑法同 iOS。`--no-uninstall` 讓測試跑完不刪 App 與資料。
 
@@ -102,7 +111,9 @@ app/
 
 ### Windows（`winpc`）
 
-框架與套件：Flutter Windows 桌面，目前沒有平台套件。
+框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄）。
+
+log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.log" -Tail 20'`。
 
 閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get` 與 slang）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
 
@@ -129,6 +140,7 @@ app/
 - **Windows 自動化輸入**：`SendKeys` 與掃描碼為 0 的 `keybd_event` 會讓 Ctrl 組合鍵失效；中文輸入法會吃掉英數字；跨行程最小化與還原會讓 lifecycle 卡在 `inactive`。
 - **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。完整閘門照這兩條做（見上面各平台的「閘門」）。
 - **多個 session 共用裝置**：別的 session 停掉 Mac 上的 adb daemon 時，`flutter devices` 看不到 Android 模擬器，完整閘門的 `integration_test android` 會報「No running android simulator/emulator」；跑一次 `adb devices` 重啟 daemon、等模擬器回到 `device` 再重跑（2026-11-11 票 02）。
+- **`winpc` 的建置偶發失敗**：`flutter build windows` 或 Windows 的 `integration_test` 有時只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1），原因是 Dart 的 `frontend_server_aot` 編 kernel 時當掉（`ExceptionCode=-1073741819`，存取違規）。main 沒有插件時也會發生，同一份工作樹重跑就過。加 `-v` 才看得到 `===== CRASH =====`。遇到時重跑那一步；連續失敗再查 `winpc` 本身（2026-11-11 票 06）。
 - **Android 模擬器**：音訊比實際快約 1.7 倍，不能拿來量時長；`adb shell input text` 打不了中文；畫面持續更新時 `uiautomator dump` 會失敗；Claude Code 的沙箱擋 `adb` 連 5037。
 - **macOS**：macOS 27 不讓第三方讀 Now Playing，媒體控制只能目測；Flutter 的語意樹不經 macOS AX 暴露，要用截圖加座標。
 - **iOS 模擬器**：沒有可截圖的鎖定畫面與控制中心，Now Playing 只能讀系統 log；不要用 `orca emulator kill`。
