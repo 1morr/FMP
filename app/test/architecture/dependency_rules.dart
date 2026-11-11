@@ -25,10 +25,8 @@ enum Rule {
   /// 只有 log 門面 `core/log/` 能 import log 套件（brief §13 的單一 log 門面）。
   logPackageOutsideLogFacade,
 
-  /// 只有插件宿主 `plugins/` 能 import JS 引擎套件（plan §1.2）：插件引擎
-  /// 只開白名單內建模組（`test/plugins/js_engine_builtins_test.dart`），別處不該
-  /// 自己建引擎。
-  jsEngineOutsidePlugins,
+  /// 只有插件宿主 `plugins/` 能 import JS 引擎與 HTTP 套件（[PackageScope.pluginsOnly]）。
+  pluginPackageOutsidePlugins,
 
   /// 只有 `platform/` 能用 `Platform.isXxx`。
   platformCheckOutsidePlatform,
@@ -54,7 +52,10 @@ enum PackageScope {
   /// log 套件（logger）：只有 log 門面 `core/log/`，其他模組經門面寫 log。
   logFacade,
 
-  /// JS 引擎（fjs）：只有插件宿主 `plugins/`。
+  /// JS 引擎（fjs）與 HTTP（dio）：只有插件宿主 `plugins/`。插件引擎只開
+  /// 白名單內建模組（`test/plugins/js_engine_builtins_test.dart`），別處不該
+  /// 自己建引擎；連網都經宿主網路層的網域白名單（ADR 0038），別處不該自己
+  /// 開 HTTP client。
   pluginsOnly,
 }
 
@@ -74,7 +75,7 @@ const packageScopes = <String, PackageScope>{
   'media_kit': PackageScope.audioBackend,
   'logger': PackageScope.logFacade,
   'path_provider': PackageScope.platformOnly,
-  'dio': PackageScope.anywhere,
+  'dio': PackageScope.pluginsOnly,
   'fjs': PackageScope.pluginsOnly,
 };
 
@@ -205,7 +206,7 @@ class _Visitor extends RecursiveAstVisitor<void> {
       case PackageScope.pluginsOnly when module != 'plugins':
         _flag(
           node,
-          Rule.jsEngineOutsidePlugins,
+          Rule.pluginPackageOutsidePlugins,
           'only plugins/ may import package:$package',
         );
       default:

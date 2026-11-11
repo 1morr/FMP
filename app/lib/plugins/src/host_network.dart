@@ -5,7 +5,7 @@ import 'package:fmp/plugins/src/plugin_error.dart';
 
 /// 插件唯一的連網方式（宿主 API `host.http.request`）。
 ///
-/// - 只放行 https，且主機要在插件 manifest 的 `domains` 裡；轉址由這裡逐跳
+/// - 只放行 https 的 443 埠，且主機要在插件 manifest 的 `domains` 裡；轉址由這裡逐跳
 ///   跟（最多 [maxRedirects] 次），每一跳都檢查，不讓 dio 自己跟到別的網域。
 /// - 任何狀態碼都照實交回插件，由插件判斷（例如音源的限流碼）；連不上、
 ///   逾時才算失敗，丟 [PluginFailure]（代碼 `network`）。
@@ -70,7 +70,11 @@ class HostNetwork {
   }
 
   void _checkAllowed(PluginManifest plugin, Uri? uri) {
-    if (uri != null && uri.scheme == 'https' && plugin.allowsHost(uri.host)) {
+    // 只放行預設的 443 埠：manifest 宣告的是網域，不是任意連接埠。
+    if (uri != null &&
+        uri.scheme == 'https' &&
+        uri.port == 443 &&
+        plugin.allowsHost(uri.host)) {
       return;
     }
     final target = uri == null

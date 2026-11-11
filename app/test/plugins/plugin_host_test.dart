@@ -157,6 +157,18 @@ void main() {
       },
     );
 
+    test('rejects other ports on a declared host', () async {
+      final http = FakeHttp((_) => const FakeResponse(200, 'ok'));
+      final h = host(probe, http: http);
+
+      expect(
+        await fetch(h, 'https://api.example.com:8443/x'),
+        'error domain_not_allowed',
+      );
+      expect(await fetch(h, 'https://api.example.com:443/x'), '200 ok');
+      expect(http.requests, hasLength(1));
+    });
+
     test('rejects plain http even on a declared host', () async {
       final http = FakeHttp((_) => const FakeResponse(200, 'ok'));
       final h = host(probe, http: http);
@@ -356,7 +368,7 @@ void main() {
     );
   });
 
-  test('a call that hangs times out as NetworkError, and the next call runs '
+  test('a call that hangs times out as ParseFailure, and the next call runs '
       'on a fresh engine', () async {
     final h = host('''
       export async function search({ query }) {
@@ -365,7 +377,7 @@ void main() {
       }
     ''', callTimeout: const Duration(milliseconds: 500));
 
-    await expectLater(only(h).search('hang'), throwsA(isA<NetworkError>()));
+    await expectLater(only(h).search('hang'), throwsA(isA<ParseFailure>()));
     expect(await only(h).search('ok'), isEmpty);
     expect(
       await closeAndReadLog(),

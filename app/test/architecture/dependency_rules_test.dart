@@ -176,13 +176,19 @@ void pick(String id) {
       }, Rule.logPackageOutsideLogFacade);
     });
 
-    test('the JS engine outside plugins/', () {
+    test('the JS engine or HTTP client outside plugins/', () {
       expectViolation({
         'playback/lyrics_script.dart': "import 'package:fjs/fjs.dart';",
-      }, Rule.jsEngineOutsidePlugins);
+      }, Rule.pluginPackageOutsidePlugins);
       expectViolation({
         'ui/search/search_page.dart': "import 'package:fjs/fjs.dart' as js;",
-      }, Rule.jsEngineOutsidePlugins);
+      }, Rule.pluginPackageOutsidePlugins);
+      expectViolation({
+        'ui/search/search_page.dart': "import 'package:dio/dio.dart';",
+      }, Rule.pluginPackageOutsidePlugins);
+      expectViolation({
+        'core/net/client.dart': "import 'package:dio/dio.dart' show Dio;",
+      }, Rule.pluginPackageOutsidePlugins);
     });
 
     test('an unclassified package', () {
@@ -281,11 +287,13 @@ final printer = lg.LogfmtPrinter();
       });
     });
 
-    test('the JS engine anywhere inside plugins/', () {
+    test('the JS engine and HTTP client anywhere inside plugins/', () {
       expectClean({
         'plugins/src/js_engine.dart': "import 'package:fjs/fjs.dart';",
         'plugins/src/deep/engine_pool.dart':
             "import 'package:fjs/fjs.dart' show JsEngine;",
+        'plugins/src/host_network.dart':
+            "import 'package:dio/dio.dart' as http;",
       });
     });
 
@@ -309,4 +317,5 @@ const _packages = {
   'media_kit': PackageScope.audioBackend,
   'logger': PackageScope.logFacade,
   'fjs': PackageScope.pluginsOnly,
+  'dio': PackageScope.pluginsOnly,
 };

@@ -22,13 +22,15 @@ class PluginBundle {
 ///
 /// manifest 不合格的插件略過並寫 log。每個插件一個 JS 引擎，第一次呼叫時
 /// 才建；呼叫超過 `callTimeout` 就關掉引擎（中斷卡住的 JS，brief 事實
-/// K11），下一次呼叫重建（plan §1.1）。
+/// K11），下一次呼叫重建（plan §1.1）。`callTimeout` 要比宿主網路單次請求
+/// 的上限（連線 15 秒加讀取 30 秒）長，慢的網路才會以 `network` 回到插件，
+/// 不會被當成插件卡住。
 class PluginHost {
   PluginHost({
     required List<PluginBundle> bundles,
     required Log log,
     HttpClientAdapter? httpAdapter,
-    Duration callTimeout = const Duration(seconds: 30),
+    Duration callTimeout = const Duration(seconds: 60),
   }) : _network = HostNetwork(log: log, adapter: httpAdapter) {
     final plugins = <Plugin>[];
     for (final bundle in bundles) {
@@ -62,7 +64,8 @@ class PluginHost {
 }
 
 /// 一個載入的插件。插件能力的方法在插件沒宣告該能力時丟 [Unsupported]；
-/// 失敗一律丟 [AppError]。
+/// 插件或音源造成的失敗丟 [AppError]，宿主自己的程式錯誤（例如原生庫
+/// 載入失敗）照原樣丟出。
 class Plugin {
   Plugin._(this.manifest, this._code, this._network, this._log, this._timeout);
 
@@ -101,7 +104,7 @@ class Plugin {
     PluginCapability capability,
     Map<String, Object?> args,
   ) async {
-    final method = capability.wireName;
+    final method = capability.name;
     if (!manifest.capabilities.contains(capability)) {
       throw const Unsupported();
     }
@@ -124,7 +127,7 @@ class Plugin {
         '${_timeout.inMilliseconds}ms; restarting its engine',
       );
       await _closeEngine();
-      throw const NetworkError();
+      throw const ParseFailure();
     } on JsError catch (e) {
       _log.error('plugin ${manifest.id}: $method failed in the engine: $e');
       await _closeEngine();

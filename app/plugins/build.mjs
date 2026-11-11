@@ -1,6 +1,7 @@
 // 把每個插件（含 manifest.json 的子目錄）的 src/index.ts 打包成
 // dist/plugin.js（ADR 0038）。產物提交進 repo；`tool/check.dart` 完整版以
-// `node build.mjs --outdir <暫存目錄>` 重建一次，和提交的產物逐位元組比對。
+// `npm run build -- --outdir <暫存目錄>`（先 tsc 型別檢查再跑這支）重建一次，
+// 和提交的產物逐位元組比對。
 //
 //   node build.mjs                  寫進各插件的 dist/
 //   node build.mjs --outdir <dir>   寫進 <dir>/<插件>/dist/

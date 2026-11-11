@@ -1,15 +1,9 @@
 import 'dart:convert';
 
 /// 插件能力（`GLOSSARY.md`）：插件在 manifest 宣告做得到的事。新增能力時在
-/// 這裡加一個值，[wireName] 是 manifest 裡的字串；宿主不認得的字串略過，
-/// 舊版宿主讀得了新版插件的 manifest。
-enum PluginCapability {
-  search('search');
-
-  const PluginCapability(this.wireName);
-
-  final String wireName;
-}
+/// 這裡加一個值，值的名稱就是 manifest 裡的字串，也是插件匯出的函式名；
+/// 宿主不認得的字串略過，舊版宿主讀得了新版插件的 manifest。
+enum PluginCapability { search }
 
 /// 插件的 manifest（`app/plugins/<id>/manifest.json`）。
 ///
@@ -69,7 +63,7 @@ class PluginManifest {
       version: field<String>('version'),
       capabilities: {
         for (final c in PluginCapability.values)
-          if (declared.contains(c.wireName)) c,
+          if (declared.contains(c.name)) c,
       },
       domains: List.unmodifiable(domains),
     );
