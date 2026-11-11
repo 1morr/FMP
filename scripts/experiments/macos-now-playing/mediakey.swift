@@ -17,10 +17,10 @@ guard AXIsProcessTrusted() else {
 }
 
 func post(down: Bool) {
-  let flags: UInt = down ? 0xa00 : 0xb00
-  let data1 = Int((key << 16) | (down ? 0xa00 : 0xb00))
+  let flags: Int32 = down ? 0xa00 : 0xb00  // NX_KEYDOWN／NX_KEYUP 放在 bit 8–15
+  let data1 = Int((key << 16) | flags)
   let event = NSEvent.otherEvent(
-    with: .systemDefined, location: .zero, modifierFlags: NSEvent.ModifierFlags(rawValue: flags),
+    with: .systemDefined, location: .zero, modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags)),
     timestamp: 0, windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)
   event?.cgEvent?.post(tap: .cghidEventTap)
 }

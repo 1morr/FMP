@@ -20,7 +20,7 @@ Future<void> runProbe(NowPlayingBridge bridge) async {
   await dir.create(recursive: true);
   final log = File('${dir.path}/events.jsonl');
   if (log.existsSync()) log.deleteSync();
-  // run.sh 從 stdout 找這一行，取回結果檔。
+  // run.py 從 stdout 找這一行，取回結果檔。
   stdout.writeln('PROBE_FILE ${log.path}');
 
   final tracks = await _makeTracks(dir);

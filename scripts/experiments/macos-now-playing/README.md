@@ -12,7 +12,7 @@ macOS 上的系統媒體控制怎麼接：`audio_service` 在 macOS 的實作，
 | --- | --- | --- |
 | 顯示標題、歌手 | ✅ | ✅ |
 | 顯示封面（本機檔） | ✅ | ✅ |
-| 顯示封面（HTTP 網址） | ✅（audio_service 用 `flutter_cache_manager` 下載） | 沒測（要自己下載） |
+| 顯示封面（HTTP 網址） | ✅（audio_service 用 `flutter_cache_manager` 下載；結果檔記了本機 server 收到的 `GET /art-0.png`） | 沒測（要自己下載） |
 | 播放狀態（面板的播放／暫停鈕跟著變） | ✅ | ✅ |
 | 進度（面板進度條前進、暫停時停住、曲長 40 秒） | ✅ | ✅ |
 | 面板：播放、暫停、下一首、上一首 | ✅ | ✅ |
@@ -26,7 +26,7 @@ macOS 上的系統媒體控制怎麼接：`audio_service` 在 macOS 的實作，
 ### 觀察
 
 - **兩個候選的表現相同**。audio_service 的 macOS 原生端和 iOS 共用 `darwin/.../AudioServicePlugin.m`：會設 macOS 才有的 `MPNowPlayingInfoCenter.playbackState`（Apple 文件要求每次開始、停止播放都要設），`changePlaybackPosition` 要在 `PlaybackState.systemActions` 放 `MediaAction.seek` 才開。媒體鍵與 AirPods 的播放／暫停走 `togglePlayPauseCommand`，audio_service 轉成 `click(MediaButton.media)`，`BaseAudioHandler.click` 依 `playbackState.playing` 呼叫 `play` 或 `pause`，所以 `playbackState` 必須即時。
-- **沒出過聲就不是 Now Playing App**（平台行為，兩個候選一樣）。`AUTOPLAY=false` 時，App 已送出曲目資訊與暫停狀態、channel 版也已註冊指令，系統 log 有 `CanBeNowPlaying changed to true`、`PlaybackState changed from Unknown to Paused`，但選單列沒有出現 Now Playing，等 25 秒也沒有。這時按媒體鍵，系統把 `TogglePlayPause` 轉給「音樂」App，並把它叫起來（第一次跑時實際發生，之後的 coldstart 情境改成不按）。audio_service 另外要等第一次 `playing=true` 才註冊 `MPRemoteCommandCenter`，但就算提早註冊（channel 版）也一樣。含意：重啟後要先在 App 裡按播放，系統媒體控制才會接到 FMP。
+- **沒出過聲就不是 Now Playing App**（平台行為，兩個候選一樣）。`AUTOPLAY=false` 時，兩個候選都送出了曲目資訊與暫停狀態（系統 log 有 `PlaybackState changed from Unknown to Paused`）；channel 版也已註冊指令，系統 log 還多了 `CanBeNowPlaying changed to true`（audio_service 版沒有，因為它還沒註冊指令）。兩者的選單列都沒有出現 Now Playing，等 25 秒也沒有（`results/*-coldstart.json`）。這時按媒體鍵，系統把 `TogglePlayPause` 轉給「音樂」App，並把它叫起來：第一次跑時實際發生（手動讀系統 log 看到 `> to com.apple.Music`，沒存進結果檔），之後的 coldstart 情境改成不按，那一步記成 `skipped`。audio_service 另外要等第一次 `playing=true` 才註冊 `MPRemoteCommandCenter`，但就算提早註冊（channel 版）也一樣。含意：重啟後要先在 App 裡按播放，系統媒體控制才會接到 FMP。
 - **暫停後仍是 Now Playing App**：basic 情境暫停幾秒後再從面板或媒體鍵播放都收得到。暫停多久會被系統換掉沒有量。
 - **封面**：audio_service 的 Dart 端把 `artUri` 下載成檔案（`flutter_cache_manager` 的 `DefaultCacheManager`，`cached_network_image` 預設也用它），原生端用 `NSImage` 讀檔。沙盒 App 要有 `com.apple.security.network.client`。`MediaItem.artHeaders` 可帶 header。
 - 依賴：audio_service 會帶進 `flutter_cache_manager`、sqflite、rxdart、audio_session。Android、iOS 本來就用 audio_service（brief §6），所以 macOS 也用它不會讓 App 多出依賴。
@@ -36,7 +36,7 @@ macOS 上的系統媒體控制怎麼接：`audio_service` 在 macOS 的實作，
 
 macOS 15.4 起，第三方 App 經 MediaRemote 讀不到 Now Playing（brief 事實 M9）。這個實驗不讀 MediaRemote，改用三份證據：
 
-1. **面板**：macOS 27 選單列的「正在播放」項目由 `MenuBarAgent` 提供（`AXIdentifier` 是 `com.apple.menuextra.now-playing`），點開後的面板是 ControlCenter 的視窗。呼叫端有「輔助使用」權限時，`np-panel.sh` 經 System Events 讀得到標題與歌手（一段文字）、按鈕（`backward.fill`、`play.fill` 或 `pause.fill`、`forward.fill`）、進度條的值與最大值（= 曲長）、有沒有封面的影像元素；也能按按鈕、設定進度條的值（= 拖進度條 seek）。封面對不對看截圖（`np-panel.sh shot`，要「螢幕錄製」權限）。
+1. **面板**：macOS 27 選單列的「正在播放」項目由 `MenuBarAgent` 提供（`AXIdentifier` 是 `com.apple.menuextra.now-playing`），點開後的面板是 ControlCenter 的視窗。呼叫端有「輔助使用」權限時，`np-panel.sh` 經 System Events 讀得到標題與歌手（一段文字）、按鈕（`backward.fill`、`play.fill` 或 `pause.fill`、`forward.fill`）、進度條的值與最大值（= 曲長）、有沒有封面的影像元素；也能按按鈕、設定進度條的值（= 拖進度條 seek）。結果檔的 `image` 只表示面板上有影像元素，封面對不對看截圖（`np-panel.sh shot`，要「螢幕錄製」權限）。限制：`np-panel.sh` 只看 ControlCenter 有沒有視窗，控制中心的其他模組開著時會讀錯；`close` 送的是全域的 Escape，會打到最前面的 App，所以別和會開視窗的測試（例如完整閘門的 macOS integration_test）同時跑。
 2. **App 收到的指令**：App 把收到的每個系統指令寫進容器暫存目錄的 `events.jsonl`，也印到 stdout。
 3. **系統 log**：`mediaremoted` 記下每個指令（`Sending command … command = Pause, SenderBundleIdentifier = <com.apple.controlcenter>` 與目標 App）與播放狀態的變化（`PlaybackState changed from Playing to Paused`）。面板的指令來自 `com.apple.controlcenter`，媒體鍵來自 `com.apple.rcd`（和實體鍵同一條路）。用 `/usr/bin/log show --predicate 'process == "mediaremoted"'` 讀；zsh 的 `log` 是內建指令，要寫全路徑。
 

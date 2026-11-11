@@ -1,7 +1,7 @@
 {
   "candidate": "audio_service",
   "scenario": "basic",
-  "date": "2026-11-11",
+  "date": "2026-11-12",
   "macos": "27.0.1",
   "versions": {
     "audio_service": "0.18.19",
@@ -19,7 +19,7 @@
             "pause.fill",
             "forward.fill"
           ],
-          "position": 11.7,
+          "position": 1.5,
           "duration": 40.0,
           "image": true
         },
@@ -30,7 +30,7 @@
             "pause.fill",
             "forward.fill"
           ],
-          "position": 14.3,
+          "position": 3.9,
           "duration": 40.0,
           "image": true
         }
@@ -52,7 +52,7 @@
           "play.fill",
           "forward.fill"
         ],
-        "position": 15.6,
+        "position": 5.3,
         "duration": 40.0,
         "image": true
       },
@@ -73,7 +73,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 17.5,
+        "position": 7.2,
         "duration": 40.0,
         "image": true
       },
@@ -94,7 +94,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.4,
+        "position": 1.3,
         "duration": 40.0,
         "image": true
       },
@@ -115,7 +115,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.9,
+        "position": 1.8,
         "duration": 40.0,
         "image": true
       },
@@ -136,7 +136,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 31.9,
+        "position": 31.8,
         "duration": 40.0,
         "image": true
       },
@@ -159,7 +159,7 @@
           "play.fill",
           "forward.fill"
         ],
-        "position": 32.3,
+        "position": 32.1,
         "duration": 40.0,
         "image": true
       },
@@ -182,7 +182,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 34.3,
+        "position": 34.0,
         "duration": 40.0,
         "image": true
       },
@@ -203,7 +203,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.4,
+        "position": 1.2,
         "duration": 40.0,
         "image": true
       },
@@ -224,7 +224,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.9,
+        "position": 1.8,
         "duration": 40.0,
         "image": true
       },
@@ -246,20 +246,21 @@
     }
   ],
   "syslog": [
-    "22:53:55.620 state Unknown -> Paused",
-    "22:53:55.621 state Paused -> Playing",
-    "22:54:11.377 command Pause from com.apple.controlcenter",
-    "22:54:11.387 state Playing -> Paused",
-    "22:54:13.944 command Play from com.apple.controlcenter",
-    "22:54:13.952 state Paused -> Playing",
-    "22:54:17.185 command NextTrack from com.apple.controlcenter",
-    "22:54:20.240 command PreviousTrack from com.apple.controlcenter",
-    "22:54:22.755 command SeekToPlaybackPosition from com.apple.controlcenter",
-    "22:54:25.173 command TogglePlayPause from com.apple.rcd",
-    "22:54:25.187 state Playing -> Paused",
-    "22:54:28.608 command TogglePlayPause from com.apple.rcd",
-    "22:54:28.610 state Paused -> Playing",
-    "22:54:31.486 command NextTrack from com.apple.rcd",
-    "22:54:34.268 command PreviousTrack from com.apple.rcd"
+    "23:59:57.769 state Unknown -> Paused",
+    "23:59:57.770 CanBeNowPlaying -> true",
+    "23:59:57.770 state Paused -> Playing",
+    "00:00:03.185 command Pause from com.apple.controlcenter",
+    "00:00:03.191 state Playing -> Paused",
+    "00:00:05.558 command Play from com.apple.controlcenter",
+    "00:00:05.562 state Paused -> Playing",
+    "00:00:08.506 command NextTrack from com.apple.controlcenter",
+    "00:00:11.296 command PreviousTrack from com.apple.controlcenter",
+    "00:00:13.737 command SeekToPlaybackPosition from com.apple.controlcenter",
+    "00:00:16.027 command TogglePlayPause from com.apple.rcd",
+    "00:00:16.030 state Playing -> Paused",
+    "00:00:19.305 command TogglePlayPause from com.apple.rcd",
+    "00:00:19.308 state Paused -> Playing",
+    "00:00:21.817 command NextTrack from com.apple.rcd",
+    "00:00:24.266 command PreviousTrack from com.apple.rcd"
   ]
 }

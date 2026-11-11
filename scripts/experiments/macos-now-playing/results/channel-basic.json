@@ -18,7 +18,7 @@
             "pause.fill",
             "forward.fill"
           ],
-          "position": 11.7,
+          "position": 1.4,
           "duration": 40.0,
           "image": true
         },
@@ -29,7 +29,7 @@
             "pause.fill",
             "forward.fill"
           ],
-          "position": 14.3,
+          "position": 3.7,
           "duration": 40.0,
           "image": true
         }
@@ -51,7 +51,7 @@
           "play.fill",
           "forward.fill"
         ],
-        "position": 15.5,
+        "position": 4.9,
         "duration": 40.0,
         "image": true
       },
@@ -72,7 +72,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 17.4,
+        "position": 6.7,
         "duration": 40.0,
         "image": true
       },
@@ -93,7 +93,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.3,
+        "position": 1.2,
         "duration": 40.0,
         "image": true
       },
@@ -114,7 +114,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.3,
+        "position": 1.2,
         "duration": 40.0,
         "image": true
       },
@@ -135,7 +135,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 31.9,
+        "position": 31.8,
         "duration": 40.0,
         "image": true
       },
@@ -156,7 +156,7 @@
           "play.fill",
           "forward.fill"
         ],
-        "position": 32.2,
+        "position": 32.0,
         "duration": 40.0,
         "image": true
       },
@@ -177,7 +177,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 34.2,
+        "position": 33.8,
         "duration": 40.0,
         "image": true
       },
@@ -219,7 +219,7 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 1.3,
+        "position": 1.2,
         "duration": 40.0,
         "image": true
       },
@@ -241,20 +241,21 @@
     }
   ],
   "syslog": [
-    "22:54:49.249 state Unknown -> Paused",
-    "22:54:49.249 state Paused -> Playing",
-    "22:55:05.021 command Pause from com.apple.controlcenter",
-    "22:55:05.027 state Playing -> Paused",
-    "22:55:07.634 command Play from com.apple.controlcenter",
-    "22:55:07.640 state Paused -> Playing",
-    "22:55:10.862 command NextTrack from com.apple.controlcenter",
-    "22:55:13.961 command PreviousTrack from com.apple.controlcenter",
-    "22:55:16.512 command SeekToPlaybackPosition from com.apple.controlcenter",
-    "22:55:18.902 command TogglePlayPause from com.apple.rcd",
-    "22:55:18.904 state Playing -> Paused",
-    "22:55:22.380 command TogglePlayPause from com.apple.rcd",
-    "22:55:22.383 state Paused -> Playing",
-    "22:55:25.211 command NextTrack from com.apple.rcd",
-    "22:55:27.985 command PreviousTrack from com.apple.rcd"
+    "23:57:40.281 CanBeNowPlaying -> true",
+    "23:57:40.376 state Unknown -> Paused",
+    "23:57:40.380 state Paused -> Playing",
+    "23:57:45.544 command Pause from com.apple.controlcenter",
+    "23:57:45.547 state Playing -> Paused",
+    "23:57:47.850 command Play from com.apple.controlcenter",
+    "23:57:47.857 state Paused -> Playing",
+    "23:57:50.611 command NextTrack from com.apple.controlcenter",
+    "23:57:53.255 command PreviousTrack from com.apple.controlcenter",
+    "23:57:55.569 command SeekToPlaybackPosition from com.apple.controlcenter",
+    "23:57:57.723 command TogglePlayPause from com.apple.rcd",
+    "23:57:57.725 state Playing -> Paused",
+    "23:58:00.892 command TogglePlayPause from com.apple.rcd",
+    "23:58:00.895 state Paused -> Playing",
+    "23:58:03.265 command NextTrack from com.apple.rcd",
+    "23:58:05.647 command PreviousTrack from com.apple.rcd"
   ]
 }

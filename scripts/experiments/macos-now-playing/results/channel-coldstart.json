@@ -18,10 +18,11 @@
     {
       "step": "沒播過：媒體鍵播放／暫停",
       "skipped": "不是 Now Playing App，按了會叫起「音樂」",
-      "ok": false
+      "ok": null
     }
   ],
   "syslog": [
-    "22:56:18.903 state Unknown -> Paused"
+    "23:59:08.755 CanBeNowPlaying -> true",
+    "23:59:08.845 state Unknown -> Paused"
   ]
 }

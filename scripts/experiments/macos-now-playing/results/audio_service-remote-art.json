@@ -1,7 +1,7 @@
 {
   "candidate": "audio_service",
   "scenario": "remote-art",
-  "date": "2026-11-11",
+  "date": "2026-11-12",
   "macos": "27.0.1",
   "versions": {
     "audio_service": "0.18.19",
@@ -18,15 +18,19 @@
           "pause.fill",
           "forward.fill"
         ],
-        "position": 3.7,
+        "position": 3.6,
         "duration": 40.0,
         "image": true
       },
+      "http": [
+        "GET /art-0.png -> 200"
+      ],
       "ok": true
     }
   ],
   "syslog": [
-    "22:56:58.986 state Unknown -> Paused",
-    "22:56:58.986 state Paused -> Playing"
+    "00:00:42.087 state Unknown -> Paused",
+    "00:00:42.087 state Paused -> Playing",
+    "00:00:42.089 CanBeNowPlaying -> true"
   ]
 }

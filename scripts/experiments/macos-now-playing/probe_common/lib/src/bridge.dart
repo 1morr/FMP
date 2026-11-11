@@ -21,7 +21,7 @@ class TrackInfo {
   /// PNG 封面的本機路徑。
   final String artPath;
 
-  /// 有設 `--dart-define=ART_BASE=<網址>` 時，同一張封面的 HTTP 網址（run.sh 起本機 server）。
+  /// 有設 `--dart-define=ART_BASE=<網址>` 時，同一張封面的 HTTP 網址（run.py 起本機 server）。
   final String? artUrl;
 }
 
