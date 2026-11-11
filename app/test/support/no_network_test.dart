@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../flutter_test_config.dart';
+import 'no_network.dart';
 
 void main() {
   test('a plain test cannot open a real HTTP connection', () async {

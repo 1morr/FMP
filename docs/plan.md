@@ -136,7 +136,7 @@ app/
 
 ## 3. 測試策略
 
-- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯。
+- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個檔在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。
 - `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
 - 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。
 - 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。
