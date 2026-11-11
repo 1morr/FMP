@@ -31,7 +31,7 @@
   - 不紅：改 integration_test 檔名、多一個本機步驟、調換 Mac 建置的順序；只有 Mac 建置與 `flutter devices` 在鎖外。
   - 另外手動改過正式碼：拿掉 `acquire` 的阻塞等待，等待測試與 repro 變紅；拿掉鎖步驟與包裝，閘門的鎖測試與 repro 變紅；只改區域變數名稱，全部仍綠。
 - **實機確認**：完整版持有鎖時，從另一個行程去拿 `<repo>/.git/fmp-device.lock`，印出 `Waiting for the shared-device lock <repo>/.git/fmp-device.lock, held by worktree <repo 的 t02b worktree>, pid 84446, since 2026-11-11T21:05:14.077122` 並等待；停掉它不影響閘門。
-- **手動實跑不拿鎖**：`sync.sh`、`orca emulator install` 這類手動實跑不在票的範圍裡，plan §2 寫了動手前先看 `.holder` 的 pid 還在不在。
+- **手動實跑**：第一輪只寫了「動手前先看 `.holder`」，第二輪（見下面〈補強：手動實跑也經過鎖〉）改成一律經過鎖。
 
 ### `winpc` 的 frontend_server 崩潰（diagnosing-bugs）
 
@@ -115,3 +115,95 @@ gate_exit=0
 - 第 4 次：`FAIL build windows`（只報 `MSB8066`）與 `FAIL integration_test android`（`No running android simulator/emulator`）。Mac 上的 adb server 在 21:21:50 又重啟（事實 K15），`flutter devices` 剛好在 server 不在時執行。
 
 每次都有 `lock shared devices`／`unlock shared devices`，鎖照預期取得與放掉。
+
+### 補強：手動實跑也經過鎖（協調者 2026-11-11 追加）
+
+協調者轉來的 Heads up 經查證屬實：手動跑 `sync.sh` 或手動裝 App 不經過鎖，A 票跑閘門時 B 票手動實跑，照樣會蓋掉 A 的程式碼。協調者接下來要同時跑兩張票，所以在這張票補齊。commit `a0ee3f89`、`d4c566b4`。
+
+- **包裝指令** `app/tool/device_lock.dart`：照 util-linux `flock(1)`「包住一個指令」的慣例。
+  - `dart run tool/device_lock.dart [--repo <目錄>] -- <指令>`：拿同一把鎖、寫同一份持有者資訊，執行指令後放鎖，退出碼照傳（被訊號結束時是 128 + n）。SIGINT、SIGTERM、SIGHUP 會轉給指令。死掉時同樣由 OS 放鎖。
+  - `--held`：只回答「這個 worktree 是否持有這把鎖」。
+- **腳本自己守**：`tool/winpc/lock_guard.sh` 由 `sync.sh`、`run_task.sh` 一開頭 source。沒持鎖就經包裝指令重新執行自己，等於自己拿鎖。重新執行時用腳本的絕對路徑，所以 `bash sync.sh` 這種只給檔名的叫法也行。測試會檢查 `tool/winpc/` 的每支 `*.sh` 都在碰 `ssh`／`scp` 之前 source 它。
+- **可重入的判斷**：先做成「持有者是祖先行程」（沿 `ps -o ppid=` 往上找），審查後改成「`.holder` 的 worktree 是自己這個，而且鎖確實被佔著」。理由：
+  - 鎖本來就是跨 worktree 的，同一個 worktree 就是同一張票。
+  - 互動實跑要跨好幾輪讀畫面、操作，可以先在背景用 `dart run tool/device_lock.dart -- sleep <秒>` 持鎖，之後這個 worktree 下的指令都不必等。祖先判斷做不到這件事：另開的 shell 不是背景持有者的子行程，`sync.sh` 會一直等它。
+  - 沒有採用協調者舉例的環境變數：殘留或手動設的變數會繞過鎖，`.holder` 加上鎖的實際狀態比較可靠。
+  - 代價：如果有人在持有者還活著時刪掉 `.holder`，它自己開的腳本會一直等它。plan §4 已寫明不要刪。
+- **plan §2**：手動實跑一律經過鎖，分兩種用法，一口氣做完的（整串包進一個 `bash -c`）與互動的（背景持鎖）。各平台的「實跑」改成持鎖的寫法：macOS 開 dev App、iOS／Android 安裝並啟動、`winpc` 的同步、建置、截圖、取回截圖，以及清掉 `C:\fmp-wt`，步驟之間都用 `&&` 串接。手動解除寫在 §4，持有者可能是閘門，也可能是包裝指令。AGENTS.md 與 spec 沒動。
+- **測試**（`test/tool/device_lock_cli_test.dart`，在暫存的 git repo 裡跑，PATH 前面放一支假的 `adb`，不碰開發機上真的鎖與 adb server）：
+  - 包裝指令：持鎖時執行、放鎖、退出碼照傳；別的 worktree 持有時印出持有者並等待；巢狀不等自己；這個 worktree 在背景持鎖時直接執行；`--held` 的三種情況；拿到鎖後以 `ADB_MDNS=0` 跑 `adb start-server`，指令也帶 `ADB_MDNS=0`。
+  - 守門：沒持鎖時先拿鎖，別的 worktree 持有就等；只給檔名也能重新執行；持鎖的行程（閘門）呼叫時直接跑。
+  - 靜態規則的雙向變異（在測試檔內）：拿掉 source、註解掉、移到第一個 `ssh`／`scp` 之後都會紅；加註解或空行、改變數名、在守門前多一個無關指令、縮排都不紅。
+  - 這輪的測試是先寫實作才補的，所以改正式碼做變異，每一項都讓對應的測試變紅，還原後全綠：
+    - 不檢查 worktree；
+    - 永遠不可重入；
+    - 守門改回直接用 `$0`；
+    - 包裝指令不拿鎖；
+    - 守門不重新執行；
+    - 包裝指令不叫 adb；
+    - 閘門不叫 adb。
+- **真實環境驗證**：
+  - 單獨跑 `tool/winpc/sync.sh`，印出 `Holding the shared-device lock <repo>/.git/fmp-device.lock` 後同步，退出碼 0。
+  - 背景 `dart run tool/device_lock.dart -- sleep 40` 持鎖時跑 `sync.sh`，沒有另外拿鎖，2 秒完成；`kill` 背景持有者後鎖與 `.holder` 都放掉了。
+  - 完整版裡只出現一次 `Holding`：閘門呼叫 `sync.sh`、`run_task.sh` 時沒有卡住等自己。
+
+### 擁有者的決定（2026-11-11，協調者轉達）
+
+1. **`winpc` 硬體檢查**：先不查，遇到 Dart 崩潰就重跑，不重開 `winpc`。plan §2 維持「重跑那一步」。
+2. **adb 用 `ADB_MDNS=0`**：在這張票實測。21:41 用包裝指令持鎖，`adb kill-server` 回 `cannot connect to daemon`（server 在那之前又自己當掉了），接著 `ADB_MDNS=0 adb start-server`。`adb server-status` 顯示 `mdns_backend: MDNS_DISABLED`、`mdns_enabled: false`，模擬器 1 秒內回到 `device`。到 22:09 為止 server 沒再重啟（adb log 的啟動次數停在 58，中間跑了 4 次完整版），在那之前是 11-10 18:53 起 57 次。結果寫進 brief 事實 K15（協調者說的 K16 是 Dart 檔案鎖那條）與 plan §2。
+   - 之後由誰、怎麼以 `ADB_MDNS=0` 啟動：包裝指令拿到鎖後、完整閘門找 Android 模擬器之前，各跑一次 `adb start-server`，兩者開的指令也都帶 `ADB_MDNS=0`（`sharedDeviceEnvironment`）。
+   - 判斷與理由：server 不在時就以 `ADB_MDNS=0` 啟動；在跑時 `start-server` 什麼都不做，不會打斷別的 session，所以不必先偵測，也不主動 kill 開著 mDNS 的 server，它當掉後由閘門或包裝指令叫起來的就關掉了。只靠環境變數不夠：`orca emulator …` 交給 Orca App 跑 adb，帶的是 Orca 的環境（審查時指出）。
+   - 要全面關掉，得把 `ADB_MDNS=0` 放進擁有者的登入環境（含 Orca 的）。那是機器設定，這張票沒做。
+
+### 補強的 code-review
+
+- 已修：
+  - `$0` 只有檔名時重新執行會失敗；
+  - SIGHUP 沒轉給指令；
+  - 被訊號結束時的退出碼；
+  - `heldByThisWorktree` 與 `acquire` 重複的非阻塞上鎖，抽成 `_tryLock`；
+  - `lock_repo` 改名 `lock_dir`；
+  - 測試輔助檔的註解；
+  - plan 裡 Windows 的清理與取回截圖原本在鎖外；
+  - 互動實跑原本沒有辦法做；
+  - iOS 讀文字的指令沒寫完整；
+  - Android 那串用 `;` 會吃掉失敗；
+  - 「包裝指令帶 `ADB_MDNS=0` 就夠」說得太滿（Orca 的 adb）；
+  - progress 那一列的待決敘述已過時。
+- 不修：
+  - 在終端機按 Ctrl-C 時，指令本來就會收到 SIGINT，包裝指令再轉一次，等於收到兩次，無害。
+  - pid 被重用造成誤判的機率可以忽略（現在只看 worktree，這點已經不適用）。
+  - `lock_guard.sh` 的註解維持英文，和同目錄的腳本一致。
+
+### 補強後的驗證輸出
+
+`cd app && dart run tool/check.dart`（完整版，commit `d4c566b4`，2026-11-11）：
+
+```text
+Holding the shared-device lock <repo>/.git/fmp-device.lock
+ok   i18n (slang)
+ok   codegen (build_runner)
+ok   format
+ok   analyze
+ok   test                     # 00:17 +158: All tests passed!
+ok   schema snapshot (drift)
+ok   doc gate
+ok   build macos
+ok   build ios
+ok   build android
+ok   lock shared devices
+ok   build windows            # exit pubget=0、exit slang=0、exit codegen=0、exit build=0
+ok   integration_test macos: integration_test/app_test.dart     # +2: All tests passed!
+ok   integration_test ios: integration_test/app_test.dart       # +2: All tests passed!
+ok   integration_test android: integration_test/app_test.dart   # +2: All tests passed!
+ok   integration_test windows: integration_test/app_test.dart   # +2: All tests passed!、exit test=0
+ok   unlock shared devices
+gate_exit=0
+```
+
+補強期間的另外兩次完整版都只紅在 Windows，都是 `winpc` 上已知的 Dart 當掉，照擁有者的決定重跑：
+
+- `a0ee3f89`：`FAIL build windows`，build_runner `===== CRASH =====` 後 `Compilation did not produce any result`；
+- `d4c566b4` 第一次：`FAIL integration_test windows`，只報 `MSB8066`。
+
+Android 在 `ADB_MDNS=0` 之後每次都過。
