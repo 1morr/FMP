@@ -14,7 +14,7 @@
 
 ### 1.1 執行形態
 
-單一 Flutter App。插件在 JS 引擎裡執行，引擎與 isolate 的配置由 M0 實驗定。音訊在原生播放器裡（ExoPlayer、AVPlayer、libmpv）。
+單一 Flutter App。插件在 fjs 的 JS 引擎（QuickJS-NG，brief 事實 K11）裡執行：每個插件一個引擎，JS 跑在 fjs 全行程共用的 2 條原生執行緒，Dart 端在主 isolate 以 async 呼叫，不另開 isolate。每個引擎設記憶體上限；每次呼叫都有逾時，逾時就 `close()` 這個引擎再重建、重新載入插件（2 個插件同時卡住會讓其他插件停擺到逾時為止）。宿主 API 都經 fjs 的單一 bridge 進 Dart，在一處分派與檢查；建立引擎時只開白名單內的內建模組。音訊在原生播放器裡（ExoPlayer、AVPlayer、libmpv）。
 
 ### 1.2 目錄結構
 
@@ -64,7 +64,7 @@ app/
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
 | i18n | slang | 舊版用過 |
-| JS 引擎 | M0 實驗定 | brief §17 |
+| JS 引擎 | fjs 3.3.2 | 四平台同一個 QuickJS-NG，能中斷、能設記憶體上限、支援 async（M0 票 03，brief 事實 K11） |
 | 插件建置 | TypeScript 加 esbuild（需 Node） | ADR 0038 |
 
 ## 2. 平台
@@ -94,7 +94,7 @@ app/
 - `dart run tool/check.dart --quick`：format、analyze、單元測試；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
 - `dart run tool/check.dart`（完整版）：quick 之外，再做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置與 `integration_test`，並檢查插件打包產物是否最新。每張票合併前跑完整版。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
-- 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）。
+- 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。
 
 ## 5. 里程碑任務
 
@@ -175,7 +175,7 @@ app/
 定了方向、細節未定的事。每條寫明卡在哪、怎麼定；定案後移到對應的章節，這裡刪掉。
 
 - **P1 取代舊版的方式**：同 brief §17。卡在新版功能還沒齊全，到「取代舊版」的里程碑由擁有者決定。
-- **P2 JS 引擎、macOS Now Playing、Windows 截圖傳回**：由 M0 實驗定，定案後寫進 §1.4、§2。
+- **P2 macOS Now Playing、Windows 截圖傳回**：由 M0 實驗定，定案後寫進 §1.4、§2。
 - **P3 插件能力清單**：設計稿用到的能力（搜尋排序、排行榜、評論、點讚、複製連結、在瀏覽器開啟、遠端歌單分建立與收藏等）還沒列成清單，見 `docs/design/audit-2026-11-11.md` §3 第 6 項。宿主 API 在 v2.0.0 凍結，所以清單在 M1 拆票時定，寫進 M1 spec；M0 票 08 只做搜尋與解析串流。定案後寫進 brief §5.3 與 ADR。
 - **P5 玻璃三級對 brief 事實 K10**：設計稿的三級定義和 K10 不同，brief §17 的退路做不出折射級。由 M0 票 05b 的實驗定，再一起改 brief 與 `docs/design/DESIGN.md`。
 
