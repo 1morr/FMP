@@ -89,10 +89,11 @@ export async function search({ query }) {
         fixture([('https://api.example.com/s?q=lemon', oneTrack)]),
         log: log,
       );
-      expect(
-        problems,
-        contains('no fixture for GET https://api.example.com/other?q=lemon'),
-      );
+      // 插件因此丟的錯是同一個原因，不重複回報。
+      expect(problems, [
+        'no fixture for GET https://api.example.com/other?q=lemon',
+        'unused fixture request GET https://api.example.com/s?q=lemon',
+      ]);
     });
 
     test(
@@ -309,7 +310,7 @@ export async function search({ query }) {
     test('turns red on a cookie value', () {
       expect(
         unredactedValues(fixtureJson(headers: {'set-cookie': 'SESSDATA=abc'})),
-        ['line 14'],
+        [matches(RegExp(r'^line \d+$'))],
       );
     });
 

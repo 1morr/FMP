@@ -3,12 +3,10 @@ library;
 
 import 'dart:io';
 
-import 'package:dio/io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/log/log.dart';
 
 import '../support/fjs.dart';
-import '../support/no_network.dart';
 import '../support/plugin_fixtures.dart';
 
 /// 聯網冒煙測試（plan §3）：每個插件的每個插件能力打一次真實音源，用它第一
@@ -41,9 +39,7 @@ void main() {
       if (files.isEmpty) continue;
       test('${plugin.id} ${capability.name} against the real source', () async {
         final input = PluginFixture.parse(files.first.readAsStringSync()).input;
-        final recording = RecordingHttp(
-          IOHttpClientAdapter(createHttpClient: realHttpClient),
-        );
+        final recording = liveRecording();
         final problems = await runContract(
           plugin.bundle,
           capability,
@@ -54,7 +50,7 @@ void main() {
         // ignore: avoid_print -- 手動執行，印出打了什麼（已遮蔽）給人看。
         print(
           '${plugin.id} ${capability.name} $input:\n'
-          '${recording.recorded.map((i) => '  ${i.request} -> ${i.status}').join('\n')}',
+          '${recording.summary}',
         );
         expect(problems, isEmpty);
       });

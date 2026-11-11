@@ -3,12 +3,10 @@ library;
 
 import 'dart:io';
 
-import 'package:dio/io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/log/log.dart';
 
 import '../support/fjs.dart';
-import '../support/no_network.dart';
 import '../support/plugin_fixtures.dart';
 
 /// 錄製一個插件契約測試的案例：打真實音源，遮蔽後寫進 fixture（plan §3）。
@@ -31,12 +29,21 @@ void main() {
       markTestSkipped('set FMP_RECORD=<plugin>/<capability>/<case> to record');
       return;
     }
-    final [id, capabilityName, caseName] = target.split('/');
+    final parts = target.split('/');
+    if (parts.length != 3 || parts.any((p) => p.isEmpty)) {
+      fail('FMP_RECORD must be <plugin>/<capability>/<case>, got "$target"');
+    }
+    final [id, capabilityName, caseName] = parts;
     final plugin = pluginDirectories(Directory('plugins'))
-        .singleWhere((p) => p.id == id);
-    final capability = plugin.manifest.capabilities.singleWhere(
-      (c) => c.name == capabilityName,
-    );
+        .where((p) => p.id == id)
+        .firstOrNull;
+    if (plugin == null) fail('no plugin "$id" under plugins/');
+    final capability = plugin.manifest.capabilities
+        .where((c) => c.name == capabilityName)
+        .firstOrNull;
+    if (capability == null) {
+      fail('plugin "$id" does not declare "$capabilityName"');
+    }
     final file = File(
       '${plugin.dir.path}/fixtures/$capabilityName/$caseName.json',
     );
@@ -50,9 +57,7 @@ void main() {
       logDir.deleteSync(recursive: true);
     });
 
-    final recording = RecordingHttp(
-      IOHttpClientAdapter(createHttpClient: realHttpClient),
-    );
+    final recording = liveRecording();
     final problems = await runContract(
       plugin.bundle,
       capability,
@@ -73,7 +78,7 @@ void main() {
     // ignore: avoid_print -- 錄製是手動執行，印出寫了什麼給人看。
     print(
       'recorded ${recording.recorded.length} request(s) into ${file.path}:\n'
-      '${recording.recorded.map((i) => '  ${i.request} -> ${i.status}').join('\n')}',
+      '${recording.summary}',
     );
   });
 }

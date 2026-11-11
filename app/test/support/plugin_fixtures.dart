@@ -3,10 +3,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/core/redaction/redact.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/plugins.dart';
+
+import 'no_network.dart';
 
 /// 插件契約測試的 fixture（plan §3）：一個插件能力的一個案例，
 /// `plugins/<插件 id>/fixtures/<插件能力>/<案例>.json`。
@@ -116,6 +119,10 @@ class Interaction {
 /// 用 [fixture] 回應宿主網路的請求，零聯網。請求以方法加遮蔽後的網址比對
 /// （fixture 裡的網址錄製時已遮蔽，[redact] 對遮過的文字結果不變），每筆只
 /// 用一次。對不上的請求記在 [unmatched]，那次請求失敗。
+///
+/// 不比對請求的 header 與 body（目前宿主網路只有 GET）。網址裡每次都變、又
+/// 不遮的參數（例如 B 站 WBI 簽名的 `wts`、`w_rid`）會讓重播永遠對不上：
+/// 用到這種端點的插件能力要先決定怎麼比對。
 class FixtureReplay implements HttpClientAdapter {
   FixtureReplay(this.fixture);
 
@@ -220,7 +227,7 @@ Future<List<String>> runContract(
 }
 
 /// 用 [fixture] 重播跑 [runContract]，再加上沒有 fixture 的請求與沒用到的
-/// 錄製請求。空的就是通過。
+/// 錄製請求。有請求沒有 fixture 時，插件因此丟的錯不另外列。空的就是通過。
 Future<List<String>> runContractCase(
   PluginBundle bundle,
   PluginCapability capability,
@@ -237,7 +244,7 @@ Future<List<String>> runContractCase(
   );
   return [
     for (final request in replay.unmatched) 'no fixture for $request',
-    ...problems,
+    if (replay.unmatched.isEmpty) ...problems,
     for (final i in replay.unused) 'unused fixture request ${i.request}',
   ];
 }
@@ -288,9 +295,17 @@ class RecordingHttp implements HttpClientAdapter {
     );
   }
 
+  /// 錄了哪些請求，一行一個（已遮蔽），給手動執行的人看。
+  String get summary =>
+      recorded.map((i) => '  ${i.request} -> ${i.status}').join('\n');
+
   @override
   void close({bool force = false}) => inner.close(force: force);
 }
+
+/// 打真實網路的 [RecordingHttp]，只給 `live` tag 的測試用。
+RecordingHttp liveRecording() =>
+    RecordingHttp(IOHttpClientAdapter(createHttpClient: realHttpClient));
 
 /// fixture 裡沒遮到的 cookie、token、簽名網址：回傳遮蔽函式（[redact]）還會
 /// 改動的地方。遮過的 fixture 每個字串都是 [redact] 的不動點；整份文字也查
