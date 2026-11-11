@@ -1,8 +1,9 @@
 // 實驗用：模擬鍵盤的媒體鍵（F7 上一首、F8 播放／暫停、F9 下一首），跟實體鍵送出同一種
 // NSSystemDefined（subtype 8）事件，系統再轉成 MPRemoteCommand 給 Now Playing 的 App。
 //
-//   swift mediakey.swift <play|next|previous>
+//   ./mediakey.sh <play|next|previous>
 //
+// 經 mediakey.sh（或已持鎖的 run.py）跑：媒體鍵會控制最近出過聲的 App，要持共用裝置鎖。
 // 執行者要有「輔助使用」權限，否則 CGEvent.post 靜默失敗。
 import AppKit
 

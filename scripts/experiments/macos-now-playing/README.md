@@ -36,11 +36,11 @@ macOS 上的系統媒體控制怎麼接：`audio_service` 在 macOS 的實作，
 
 macOS 15.4 起，第三方 App 經 MediaRemote 讀不到 Now Playing（brief 事實 M9）。這個實驗不讀 MediaRemote，改用三份證據：
 
-1. **面板**：macOS 27 選單列的「正在播放」項目由 `MenuBarAgent` 提供（`AXIdentifier` 是 `com.apple.menuextra.now-playing`），點開後的面板是 ControlCenter 的視窗。呼叫端有「輔助使用」權限時，`np-panel.sh` 經 System Events 讀得到標題與歌手（一段文字）、按鈕（`backward.fill`、`play.fill` 或 `pause.fill`、`forward.fill`）、進度條的值與最大值（= 曲長）、有沒有封面的影像元素；也能按按鈕、設定進度條的值（= 拖進度條 seek）。結果檔的 `image` 只表示面板上有影像元素，封面對不對看截圖（`np-panel.sh shot`，要「螢幕錄製」權限）。限制：`np-panel.sh` 只看 ControlCenter 有沒有視窗，控制中心的其他模組開著時會讀錯；`close` 送的是全域的 Escape，會打到最前面的 App，所以別和會開視窗的測試（例如完整閘門的 macOS integration_test）同時跑。
+1. **面板**：macOS 27 選單列的「正在播放」項目由 `MenuBarAgent` 提供（`AXIdentifier` 是 `com.apple.menuextra.now-playing`），點開後的面板是 ControlCenter 的視窗。呼叫端有「輔助使用」權限時，`np-panel.sh` 經 System Events 讀得到標題與歌手（一段文字）、按鈕（`backward.fill`、`play.fill` 或 `pause.fill`、`forward.fill`）、進度條的值與最大值（= 曲長）、有沒有封面的影像元素；也能按按鈕、設定進度條的值（= 拖進度條 seek）。結果檔的 `image` 只表示面板上有影像元素，封面對不對看截圖（`np-panel.sh shot`，要「螢幕錄製」權限）。限制：`np-panel.sh` 只看 ControlCenter 有沒有視窗，控制中心的其他模組開著時會讀錯；`close` 送的是全域的 Escape，會打到最前面的 App；面板的按鈕與媒體鍵控制的是最近出過聲的 App。所以這些腳本都持共用裝置鎖才跑（見〈怎麼跑〉），不會和別的 worktree 的閘門或實跑（可能正開著 dev App）同時進行。
 2. **App 收到的指令**：App 把收到的每個系統指令寫進容器暫存目錄的 `events.jsonl`，也印到 stdout。
 3. **系統 log**：`mediaremoted` 記下每個指令（`Sending command … command = Pause, SenderBundleIdentifier = <com.apple.controlcenter>` 與目標 App）與播放狀態的變化（`PlaybackState changed from Playing to Paused`）。面板的指令來自 `com.apple.controlcenter`，媒體鍵來自 `com.apple.rcd`（和實體鍵同一條路）。用 `/usr/bin/log show --predicate 'process == "mediaremoted"'` 讀；zsh 的 `log` 是內建指令，要寫全路徑。
 
-媒體鍵由 `mediakey.swift` 模擬：送出和實體鍵相同的 `NSSystemDefined`（subtype 8）事件，要「輔助使用」權限。
+媒體鍵由 `mediakey.swift` 模擬（單獨用時跑 `./mediakey.sh <play|next|previous>`）：送出和實體鍵相同的 `NSSystemDefined`（subtype 8）事件，要「輔助使用」權限。
 
 只有系統選為 Now Playing 的那一個 App 會出現在面板上（最近出過聲的那個），所以跑實驗時不要讓別的 App 播放。
 
@@ -51,9 +51,10 @@ macOS 15.4 起，第三方 App 經 MediaRemote 讀不到 Now Playing（brief 事
 | `probe_common/` | 兩個候選共用：產生三首 40 秒的正弦波 WAV 與單色封面（不連網）、just_audio 播放器、畫面、指令紀錄；候選只實作 `NowPlayingBridge` |
 | `probe_audio_service/` | 候選一：audio_service 的 `BaseAudioHandler` 當橋，播放器仍是 just_audio（`com.personal.fmp.exp.probeAudioService`） |
 | `probe_channel/` | 候選二：`macos/Runner/MainFlutterWindow.swift` 的 `NowPlayingChannel`（約 100 行）加 Dart 端的 MethodChannel（`com.personal.fmp.exp.probeChannel`） |
-| `run.py` | 建置、啟動、照情境操作、收集三份證據，寫 `results/<候選>-<情境>.json` |
+| `run.py` | 建置、啟動、照情境操作、收集三份證據，寫 `results/<候選>-<情境>.json`；整段持共用裝置鎖 |
 | `np-panel.sh` | 讀與操作選單列的「正在播放」面板 |
-| `mediakey.swift` | 模擬媒體鍵（`run.py` 編成 `build/mediakey`） |
+| `mediakey.swift`、`mediakey.sh` | 模擬媒體鍵；`mediakey.sh` 持鎖並編成 `build/mediakey`（`run.py` 直接呼叫編好的檔） |
+| `lock_guard.sh` | 照 `app/tool/winpc/lock_guard.sh`：這個 worktree 沒持共用裝置鎖時，經 `app/tool/device_lock.dart` 拿鎖再重新執行呼叫它的腳本 |
 | `results/` | 上表的原始結果與面板截圖。原始 log（`raw-*`）含本機路徑，不提交 |
 
 ## 怎麼跑
@@ -69,7 +70,8 @@ python3 run.py audio_service remote-art  # 封面改用本機 HTTP server 的網
 
 需要：
 
-- Flutter 3.47.5、Xcode。實驗 App 的 bundle id 是 `com.personal.fmp.exp.*`，不碰 dev App（`com.personal.fmp.dev`）、模擬器與 `winpc`，所以不拿共用裝置鎖。
+- Flutter 3.47.5、Xcode。
+- **共用裝置鎖**（plan §2、§4）：`run.py`、`np-panel.sh`、`mediakey.sh` 會送 Escape、按面板、送媒體鍵，影響的是整台 Mac 最前面或最近出過聲的 App，不只實驗 App（`com.personal.fmp.exp.*`）。所以它們像 `app/tool/winpc/` 的腳本一樣自己拿鎖：別的 worktree 持有時印出持有者並等待；同一個 worktree 已持有（外層或背景的 `dart run tool/device_lock.dart -- …`、完整閘門）時直接跑。`run.py` 整段持鎖，含建置。不要直接跑 `swift mediakey.swift`，那樣不拿鎖。
 - 執行的終端機有「輔助使用」與「螢幕錄製」權限（讀面板、送媒體鍵、截圖）。
 - 選單列的「正在播放」設成播放時顯示（系統預設）。
 - App 會以 15% 音量播放測試音；跑的時候不要讓別的 App 播放。coldstart 情境在 App 不是 Now Playing 時不按媒體鍵，避免叫起「音樂」。

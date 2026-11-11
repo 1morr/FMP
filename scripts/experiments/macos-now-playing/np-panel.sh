@@ -12,6 +12,8 @@
 # ControlCenter 的視窗，呼叫端有「輔助使用」權限就讀得到。只看得到系統選為 Now Playing
 # 的那一個 App（最近播放的那個），所以實驗時不要讓別的 App 播放。
 set -euo pipefail
+# 按面板與送 Escape 會影響別的 App，持共用裝置鎖才跑（lock_guard.sh）。
+source "$(cd "$(dirname "$0")" && pwd)/lock_guard.sh"
 
 cmd=${1:?open | state | press | seek | shot | close}
 
