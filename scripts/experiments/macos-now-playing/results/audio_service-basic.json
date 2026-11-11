@@ -1,0 +1,266 @@
+{
+  "candidate": "audio_service",
+  "scenario": "basic",
+  "date": "2026-11-12",
+  "macos": "27.0.1",
+  "versions": {
+    "audio_service": "0.18.19",
+    "just_audio": "0.10.6",
+    "flutter": "3.47.5"
+  },
+  "steps": [
+    {
+      "step": "顯示：標題、歌手、封面、播放中、進度前進",
+      "panel": [
+        {
+          "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+          "buttons": [
+            "backward.fill",
+            "pause.fill",
+            "forward.fill"
+          ],
+          "position": 1.5,
+          "duration": 40.0,
+          "image": true
+        },
+        {
+          "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+          "buttons": [
+            "backward.fill",
+            "pause.fill",
+            "forward.fill"
+          ],
+          "position": 3.9,
+          "duration": 40.0,
+          "image": true
+        }
+      ],
+      "ok": true
+    },
+    {
+      "step": "面板：暫停",
+      "expect": [
+        "pause"
+      ],
+      "received": [
+        "pause"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "play.fill",
+          "forward.fill"
+        ],
+        "position": 5.3,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "面板：播放",
+      "expect": [
+        "play"
+      ],
+      "received": [
+        "play"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 7.2,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "面板：下一首",
+      "expect": [
+        "next"
+      ],
+      "received": [
+        "next"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 2、測試音源 554 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 1.3,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "面板：上一首",
+      "expect": [
+        "previous"
+      ],
+      "received": [
+        "previous"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 1.8,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "面板：seek 到 30 秒",
+      "expect": [
+        "seek(30000)"
+      ],
+      "received": [
+        "seek(30000)"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 31.8,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "媒體鍵：播放／暫停（暫停）",
+      "expect": [
+        "click(media)",
+        "pause"
+      ],
+      "received": [
+        "click(media)",
+        "pause"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "play.fill",
+          "forward.fill"
+        ],
+        "position": 32.1,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "媒體鍵：播放／暫停（播放）",
+      "expect": [
+        "click(media)",
+        "play"
+      ],
+      "received": [
+        "click(media)",
+        "play"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 34.0,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "媒體鍵：下一首",
+      "expect": [
+        "next"
+      ],
+      "received": [
+        "next"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 2、測試音源 554 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 1.2,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "媒體鍵：上一首",
+      "expect": [
+        "previous"
+      ],
+      "received": [
+        "previous"
+      ],
+      "panel": {
+        "title": "FMP 實驗曲目 1、測試音源 440 Hz – macOS Now Playing 實驗",
+        "buttons": [
+          "backward.fill",
+          "pause.fill",
+          "forward.fill"
+        ],
+        "position": 1.8,
+        "duration": 40.0,
+        "image": true
+      },
+      "ok": true
+    },
+    {
+      "step": "關掉 App 後 Now Playing 清掉",
+      "panel": {
+        "title": "未在播放",
+        "buttons": [
+          "play.fill",
+          "forward.fill"
+        ],
+        "position": null,
+        "duration": null,
+        "image": false
+      },
+      "ok": true
+    }
+  ],
+  "syslog": [
+    "23:59:57.769 state Unknown -> Paused",
+    "23:59:57.770 CanBeNowPlaying -> true",
+    "23:59:57.770 state Paused -> Playing",
+    "00:00:03.185 command Pause from com.apple.controlcenter",
+    "00:00:03.191 state Playing -> Paused",
+    "00:00:05.558 command Play from com.apple.controlcenter",
+    "00:00:05.562 state Paused -> Playing",
+    "00:00:08.506 command NextTrack from com.apple.controlcenter",
+    "00:00:11.296 command PreviousTrack from com.apple.controlcenter",
+    "00:00:13.737 command SeekToPlaybackPosition from com.apple.controlcenter",
+    "00:00:16.027 command TogglePlayPause from com.apple.rcd",
+    "00:00:16.030 state Playing -> Paused",
+    "00:00:19.305 command TogglePlayPause from com.apple.rcd",
+    "00:00:19.308 state Paused -> Playing",
+    "00:00:21.817 command NextTrack from com.apple.rcd",
+    "00:00:24.266 command PreviousTrack from com.apple.rcd"
+  ]
+}

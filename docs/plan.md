@@ -59,7 +59,7 @@ app/
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio | 插件請求都經宿主網路層，統一限流、重試、遮蔽 |
 | 音訊 | just_audio（Android、iOS、macOS）、media_kit（Windows） | brief §6、事實 K1 |
-| 媒體控制 | audio_service、audio_session、smtc_windows | macOS 由 M0 實驗定 |
+| 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 由 M0 票 05 實測（brief 事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4） |
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
@@ -157,7 +157,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - **adb server 自己當掉**：完整閘門的 `integration_test android` 報「No running android simulator/emulator」、`flutter devices` 看不到 Android 模擬器時，多半是 Mac 上的 adb server 不在。票 02、06、07 以為是別的 session 重啟了 adb；票 02b 查過，`app/`、`.githooks/`、`.claude/skills/` 都沒有 `adb kill-server`、`start-server`（`verify-legacy-on-device` 收尾的 `adb emu kill` 關的是模擬器，不是 server），閘門也只跑 `flutter devices` 與 `flutter test`。原因是 platform-tools 37.0.1 的 adb server 被區網的 mDNS 封包弄當（事實 K15），下一個 adb 指令再把它叫起來。擁有者 2026-11-11 決定 adb server 以 `ADB_MDNS=0` 啟動（關掉 mDNS，模擬器不靠它）。票 02b 實測：持鎖後 `adb kill-server`、`ADB_MDNS=0 adb start-server`，`adb server-status` 顯示 `mdns_enabled: false`、`mdns_backend: MDNS_DISABLED`，模擬器 1 秒內回到 `device`。之後由誰啟動：包裝指令拿到鎖後、完整閘門找 Android 模擬器之前，各跑一次 `adb start-server`，閘門與包裝指令開的每個指令也都帶 `ADB_MDNS=0`（`app/tool/src/device_lock.dart` 的 `sharedDeviceEnvironment`）。server 不在時就以 `ADB_MDNS=0` 叫起來；在跑時 `start-server` 什麼都不做，不會打斷別的 session。不主動 kill 已經在跑的 server：萬一在跑的是開著 mDNS 的，它當掉後下一次由閘門或包裝指令叫起來的就關掉了。之所以主動叫而不只靠環境變數：`orca emulator …` 是交給 Orca App 去跑 adb，帶的是 Orca 的環境，不是包裝指令的；Orca、Android Studio、其他專案在 server 不在時叫起來的仍會開 mDNS。要全面關掉得把 `ADB_MDNS=0` 放進登入環境（含 Orca 的），那是擁有者機器的設定，還沒做。遇到「No running android simulator/emulator」時跑一次 `ADB_MDNS=0 adb devices`、等模擬器回到 `device` 再重跑那一步。
 - **`winpc` 的 Dart 偶發當掉（環境問題）**：`flutter build windows`、Windows 的 `integration_test` 或 `build.ps1` 的 build_runner 偶發失敗。症狀有三種，根源相同：只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1，加 `-v` 才看得到 `===== CRASH =====`）；`exit codegen=78`、`exit codegen=-1073740791` 或 `exit codegen=1` 加上 `Compilation did not produce any result`，之後 `flutter build` 因為缺 `database.g.dart` 跟著失敗；或不存在的「缺成員」編譯錯（票 07）。都是 Dart 的 `dartaotruntime.exe`（frontend_server）或 `gen_snapshot.exe` 存取違規（`0xc0000005`），VM 印出 `===== CRASH =====` 後自己 abort（事件記錄是 `0xc0000409`，位移固定在 `0x332aa1`）。票 02b 查證：沒有其他閘門同時跑時，main（`b2fadc04`）連續乾淨建置 5 次，第 4、5 次失敗；在 SSH 工作階段（不經排程工作）對同一份輸入連跑 60 次 `dart compile kernel`（編 pub cache 裡的 build_runner，不含 App 的程式碼），2 次當掉（其中 1 次留下空的輸出檔），成功的 58 次輸出逐位元組相同。三次當掉的位址扣掉 snapshot 基址後都不同（`0x46455d`、`0x6a425`、`0x2b47b2`），呼叫堆疊也不同。同一台機器 14 天內還有 Windows 自己的服務（`sppsvc`、Windows Update、Defender）、MSVC 的 `CL.exe` 與其他使用者程式以存取違規、非法指令（`0xc000001d`）當掉，6 次 Kernel-Power 41（非預期重開），11-10、11-11 有藍屏（兩次 `0x00020001` HYPERVISOR_ERROR、一次 `0x1E`，minidump 在 `C:\WINDOWS\Minidump\`）。結論：是 `winpc` 的硬體或韌體不穩（i9-13900HX、BIOS KWCN54WW、microcode `0x12E`），不是產品也不是閘門；worktree 互蓋可能造成過部分紅燈（票 07 的缺成員錯），但不是當掉的原因。還沒定位到是哪個元件：記憶體、處理器電壓（降壓或超頻工具）、BIOS 或 Hyper-V／VBS，要擁有者在場檢查（Windows 記憶體診斷要重開機）。Intel 的 13、14 代 Vmin 不穩問題官方只認桌上型處理器，行動版說沒有受影響，13900HX 是行動版，不能直接套用。在那之前，閘門照實報紅，遇到時重跑；重跑能過就不是程式問題。照票 02b，說不出原因的重試不收，閘門也沒有自動重試。重現：在 `winpc` 對任一份已經 `pub get` 的 `app/` 連跑 `dart compile kernel --packages=.dart_tool\package_config.json -o <檔> <build_runner>\bin\build_runner.dart` 60 次，約 5 分鐘，失敗率約 3%（2026-11-11）。
 - **Android 模擬器**：音訊比實際快約 1.7 倍，不能拿來量時長；`adb shell input text` 打不了中文；畫面持續更新時 `uiautomator dump` 會失敗；Claude Code 的沙箱擋 `adb` 連 5037。
-- **macOS**：macOS 27 不讓第三方讀 Now Playing，媒體控制只能目測；Flutter 的語意樹不經 macOS AX 暴露，要用截圖加座標。
+- **macOS**：macOS 27 不讓第三方經 MediaRemote 讀 Now Playing。媒體控制改用輔助使用 API 讀選單列的「正在播放」面板（標題、按鈕、進度條，也能按按鈕與 seek），再對照 `mediaremoted` 的系統 log（brief 事實 M9）；腳本是 `scripts/experiments/macos-now-playing/` 的 `np-panel.sh`、`mediakey.sh`（模擬媒體鍵），要「輔助使用」權限；它們會送 Escape、按面板、送媒體鍵，影響最前面或最近出過聲的 App，所以自己拿共用裝置鎖（同 `tool/winpc/` 的腳本）。App 沒出過聲時不是 Now Playing App，這時送媒體鍵會叫起「音樂」App（事實 M10），先播再測。zsh 的 `log` 是內建指令，讀系統 log 要寫 `/usr/bin/log`。Flutter 的語意樹不經 macOS AX 暴露，要用截圖加座標。
 - **iOS 模擬器**：沒有可截圖的鎖定畫面與控制中心，Now Playing 只能讀系統 log；不要用 `orca emulator kill`。
 - **無害的建置雜訊**：`media_kit_libs_windows_audio` 的 CMake `CMP0175` 警告、`flutter_inappwebview_windows` 在 cp950 下的 C4819、`resolve_symlinks.ps1` 的 `Get-Item` 錯誤。
 
@@ -264,7 +264,6 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 定了方向、細節未定的事。每條寫明卡在哪、怎麼定；定案後移到對應的章節，這裡刪掉。
 
 - **P1 取代舊版的方式**：同 brief §17。卡在新版功能還沒齊全，到「取代舊版」的里程碑由擁有者決定。
-- **P2 macOS Now Playing**：由 M0 實驗定，定案後寫進 §1.4、§2。
 - **P3 插件能力清單**：設計稿用到的能力（搜尋排序、排行榜、評論、點讚、複製連結、在瀏覽器開啟、遠端歌單分建立與收藏等）還沒列成清單，見 `docs/design/audit-2026-11-11.md` §3 第 6 項。宿主 API 在 v2.0.0 凍結，所以清單在 M1 拆票時定，寫進 M1 spec；M0 票 08 只做搜尋與解析串流。定案後寫進 brief §5.3 與 ADR。
 - **P5 玻璃三級對 brief 事實 K10**：設計稿的三級定義和 K10 不同，brief §17 的退路做不出折射級。由 M0 票 05b 的實驗定，再一起改 brief 與 `docs/design/DESIGN.md`。
 
@@ -275,4 +274,5 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - `flutter_inappwebview` 的穩定版停在 2024-10（事實 R1、K8）：登入票先實測四個平台。建置與開頁 M0 票 04 已驗過（`scripts/experiments/inappwebview/`，要加的設定見事實 A4、W8、M3、K17）。Apple 端沒有 SwiftPM，Flutter 已警告將來會變成錯誤（事實 K17）：升級 Flutter 前先用 `scripts/experiments/inappwebview/` 建一次 iOS、macOS。
 - Windows 的 libmpv 是舊快照（事實 W3）：遇到 Windows 獨有的播放失敗先懷疑它。
 - iOS 的中斷與 Now Playing（事實 I2、I5）：模擬器驗不到的部分記在票的 Comments。
+- audio_service 更新慢（事實 I5、K18：#1139 的 iOS 修正 2026-07 合併，至今沒發佈）：macOS 端壞了就改用自己的 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter`（M0 票 05 已實測可行，原型在 `scripts/experiments/macos-now-playing/probe_channel/`）。
 - 實作時發現與 brief 不符：停下來問擁有者，改 brief 並在 progress.md〈偏差與決定〉記一行。
