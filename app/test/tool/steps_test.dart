@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/src/steps.dart';
@@ -38,11 +36,5 @@ void main() {
       CheckStep('doc gate', () async => throw StateError('broken')),
     ], out);
     expect(code, isNot(0));
-  });
-
-  test('check.dart without --quick refuses instead of passing', () async {
-    final result = await Process.run('dart', ['run', 'tool/check.dart']);
-    expect(result.exitCode, isNot(0));
-    expect(result.stderr, contains('--quick'));
   });
 }

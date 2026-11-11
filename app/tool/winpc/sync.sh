@@ -10,5 +10,5 @@ trap 'rm -rf "$tmp"' EXIT
 (cd "$repo" && git ls-files -co --exclude-standard app |
   COPYFILE_DISABLE=1 tar -cf "$tmp/app.tar" -T -)
 ssh winpc 'New-Item -ItemType Directory -Force C:\fmp-wt | Out-Null; Remove-Item -Recurse -Force C:\fmp-wt\app -EA SilentlyContinue'
-scp -q "$tmp/app.tar" "$here/build.ps1" "$here/shot.ps1" winpc:C:/fmp-wt/
+scp -q "$tmp/app.tar" "$here/build.ps1" "$here/test.ps1" "$here/shot.ps1" winpc:C:/fmp-wt/
 ssh winpc 'cd C:\fmp-wt; tar -xf app.tar; Remove-Item app.tar'

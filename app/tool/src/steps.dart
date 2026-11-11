@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// 閘門的一步；回傳 true 代表通過。
@@ -31,14 +32,32 @@ Future<int> runSteps(List<CheckStep> steps, StringSink out) async {
   return failed.isEmpty ? 0 : 1;
 }
 
-/// 跑一個指令，輸出直接接到終端機。
-CheckStep commandStep(
-  String name,
-  String executable,
-  List<String> arguments, {
-  required Directory workingDirectory,
-}) {
-  return CheckStep(name, () async {
+/// 跑外部指令的邊界；測試換成假的。
+abstract interface class Shell {
+  /// 跑指令，輸出直接接到終端機，回傳退出碼。
+  Future<int> run(
+    String executable,
+    List<String> arguments, {
+    required Directory workingDirectory,
+  });
+
+  /// 跑指令並回傳 stdout；退出碼非零時丟 [ProcessException]。
+  Future<String> capture(
+    String executable,
+    List<String> arguments, {
+    required Directory workingDirectory,
+  });
+}
+
+class ProcessShell implements Shell {
+  const ProcessShell();
+
+  @override
+  Future<int> run(
+    String executable,
+    List<String> arguments, {
+    required Directory workingDirectory,
+  }) async {
     final process = await Process.start(
       executable,
       arguments,
@@ -47,6 +66,50 @@ CheckStep commandStep(
       // Windows 上的 flutter、dart 是 .bat。
       runInShell: Platform.isWindows,
     );
-    return await process.exitCode == 0;
-  });
+    return process.exitCode;
+  }
+
+  @override
+  Future<String> capture(
+    String executable,
+    List<String> arguments, {
+    required Directory workingDirectory,
+  }) async {
+    final result = await Process.run(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory.path,
+      runInShell: Platform.isWindows,
+      stdoutEncoding: const Utf8Codec(allowMalformed: true),
+    );
+    if (result.exitCode != 0) {
+      throw ProcessException(
+        executable,
+        arguments,
+        '${result.stderr}',
+        result.exitCode,
+      );
+    }
+    return result.stdout as String;
+  }
+}
+
+/// 跑一個指令當作一步，退出碼 0 才算通過。
+CheckStep commandStep(
+  String name,
+  Shell shell,
+  String executable,
+  List<String> arguments, {
+  required Directory workingDirectory,
+}) {
+  return CheckStep(
+    name,
+    () async =>
+        await shell.run(
+          executable,
+          arguments,
+          workingDirectory: workingDirectory,
+        ) ==
+        0,
+  );
 }

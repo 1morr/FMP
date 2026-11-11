@@ -43,6 +43,7 @@
 | 2026-11-11 | D 定稿 | 擁有者確認 D 設計稿定稿（`docs/design/`，重做 B，手機、中寬度、桌面三種寬度）；`design/d-redesign-b` 合併回 main 並 push。玻璃三級對事實 K10（plan〈待決〉P5）照原定等 M0 實驗 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-11 | D 定稿後對齊 M0 與 brief | 補 M0 票 05b（玻璃三級的四平台可行性），spec 改成五項實驗、票 12 也被 05b 擋，「佔位首頁」改稱「佔位畫面」，票 08 讀 plan〈待決〉P3；D 已定案但沒寫回的決定寫進 brief §5.1、§5.4、§6、§7、§10、§11、§13、§17 與名詞表；plan〈待決〉P3、P5 改歸屬 | 新 session 下 `/implement .scratch/m0/issues/01-app-skeleton-and-quick-gate.md` |
 | 2026-11-11 | 01 | `app/` 四平台骨架（`com.personal.fmp.dev`、佔位畫面、slang 三語、Riverpod 關閉重試）；`tool/check.dart --quick`（i18n、format、analyze、test、文件閘門）與 `.githooks/pre-commit`；依賴規則測試、零聯網、`live` 預設跳過；四平台讀回畫面；`winpc` 做法寫進 plan §2；plan §1.3 照擁有者決定加 `playback/backends/` 例外。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/02-full-gate.md` |
+| 2026-11-11 | 02 | `dart run tool/check.dart` 完整版：quick 之後四平台建置、四平台 `integration_test`（一次一個檔、iOS／Android 只挑模擬器並加 `--no-uninstall`、Windows 經 SSH 以排程工作跑並取回 log）；佔位畫面的 `integration_test` 四平台通過，`integration_test/` 也裝零聯網防線並有靜態規則守；插件打包產物的位置留給票 08；plan §1.4、§2、§4 與 `AGENTS.md` 已更新。細節與未處理的發現在票的 Comments | 新 session 下 `/implement .scratch/m0/issues/03-experiment-js-engine.md` |
 
 ## 偏差與決定
 

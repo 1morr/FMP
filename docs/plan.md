@@ -68,28 +68,47 @@ app/
 | 插件建置 | TypeScript 加 esbuild（需 Node） | ADR 0038 |
 | lint（dev） | flutter_lints 6.0.0 | `flutter create` 的預設；`app/analysis_options.yaml` 另開幾條 |
 | 依賴規則測試（dev） | analyzer 14.7.0 | 以 AST 判斷 import 與分支，不靠字串比對；只在測試裡用，不做 lint 套件（§1.3） |
+| 平台上的測試（dev） | integration_test（SDK） | Flutter 官方的 `flutter test integration_test/…`；完整閘門在四平台跑（§2、§4） |
 
 ## 2. 平台
 
 每個平台一節：用的框架與套件、怎麼建置、怎麼實跑驗證。以下指令都在 `app/` 裡跑，`<暫存目錄>` 放截圖（截圖不進 repo）。框架與套件由加入它們的票補。
 
+完整閘門（§4）在每個平台跑 `integration_test/` 的每個 `*_test.dart`，一次一個檔；四平台共用的測試依賴是 `integration_test`（SDK）。各節的「閘門」是 `tool/check.dart` 實際下的指令，手動重跑單一平台時照抄。
+
 ### macOS
 
-`flutter build macos --debug`，`open "build/macos/Build/Products/Debug/FMP Dev.app"`，用 `orca computer get-app-state --app com.personal.fmp.dev` 讀回畫面（回傳的截圖路徑要打開來看）。
+框架與套件：Flutter macOS 桌面，目前沒有平台套件。
+
+閘門：`flutter build macos --debug`；`flutter test integration_test/<檔> -d macos`（會在本機開一個 App 視窗）。
+
+實跑：`flutter build macos --debug`，`open "build/macos/Build/Products/Debug/FMP Dev.app"`，用 `orca computer get-app-state --app com.personal.fmp.dev` 讀回畫面（回傳的截圖路徑要打開來看）。
 
 ### iOS 模擬器
 
-`flutter build ios --simulator --debug`，`xcrun simctl install booted build/ios/iphonesimulator/Runner.app`、`xcrun simctl launch booted com.personal.fmp.dev`；`orca emulator attach <裝置>` 後用 `orca emulator ax` 讀文字，截圖用 `xcrun simctl io booted screenshot <檔>`（雙螢幕的 iPhone Duo 要加 `--display=1`，否則報 `Invalid argument`）。
+框架與套件：Flutter iOS，目前沒有平台套件。
+
+閘門：`flutter build ios --simulator --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好；`check.dart` 從 `flutter devices --machine` 挑第一台 `emulator: true` 的 iOS 裝置，不會挑連著的實體 iPhone，找不到就讓這一步失敗。
+
+實跑：`flutter build ios --simulator --debug`，`xcrun simctl install booted build/ios/iphonesimulator/Runner.app`、`xcrun simctl launch booted com.personal.fmp.dev`；`orca emulator attach <裝置>` 後用 `orca emulator ax` 讀文字，截圖用 `xcrun simctl io booted screenshot <檔>`（雙螢幕的 iPhone Duo 要加 `--display=1`，否則報 `Invalid argument`）。
 
 ### Android 模擬器
 
-`flutter build apk --debug`，`orca emulator install build/app/outputs/flutter-apk/app-debug.apk --reinstall`、`orca emulator launch com.personal.fmp.dev`，用 `orca emulator ax` 讀文字、`adb exec-out screencap -p > <檔>` 截圖。debug 版第一次啟動要十幾秒，太早讀只會看到啟動畫面。
+框架與套件：Flutter Android，目前沒有平台套件。
+
+閘門：`flutter build apk --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好（`flutter emulators --launch Medium_Phone_API_37.0`），挑法同 iOS。`--no-uninstall` 讓測試跑完不刪 App 與資料。
+
+實跑：`flutter build apk --debug`，`orca emulator install build/app/outputs/flutter-apk/app-debug.apk --reinstall`、`orca emulator launch com.personal.fmp.dev`，用 `orca emulator ax` 讀文字、`adb exec-out screencap -p > <檔>` 截圖。debug 版第一次啟動要十幾秒，太早讀只會看到啟動畫面。
 
 ### Windows（`winpc`）
 
+框架與套件：Flutter Windows 桌面，目前沒有平台套件。
+
+閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get` 與 slang）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
+
 經 SSH 操作，不 push（2026-11-11 票 01 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑：
 
-1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與兩支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
+1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
 2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
 3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。
 4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉。
@@ -101,13 +120,15 @@ app/
 - 經 SSH 組 `schtasks /TR` 時反斜線會被吃掉，腳本路徑與參數一律寫正斜線。`schtasks /Query` 的狀態字串是在地化的（zh-TW 是「執行中」）。
 - 腳本維持純 ASCII，避開 PowerShell 5.1 以 cp950 讀無 BOM 檔案的問題。原生指令用 `cmd /c "… 2>&1"` 包起來，不設 `$ErrorActionPreference='Stop'`。
 - `Start-Process` 失敗不會讓腳本中止，只會拿到 null；`shot.ps1` 用 `-ErrorAction Stop` 把錯誤寫進 log。
+- `run_task.sh` 輪詢狀態時 SSH 失敗會重試，連續 12 次才放棄並回傳非零。不能把查詢失敗當成工作結束：刪掉還在跑的排程工作會連同腳本一起終止（2026-11-11 票 02，`winpc` 藍屏時遇到）。
 
 ### 其他已知怪癖
 
 上一版文件，用到時重驗：
 
 - **Windows 自動化輸入**：`SendKeys` 與掃描碼為 0 的 `keybd_event` 會讓 Ctrl 組合鍵失效；中文輸入法會吃掉英數字；跨行程最小化與還原會讓 lifecycle 卡在 `inactive`。
-- **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。
+- **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。完整閘門照這兩條做（見上面各平台的「閘門」）。
+- **多個 session 共用裝置**：別的 session 停掉 Mac 上的 adb daemon 時，`flutter devices` 看不到 Android 模擬器，完整閘門的 `integration_test android` 會報「No running android simulator/emulator」；跑一次 `adb devices` 重啟 daemon、等模擬器回到 `device` 再重跑（2026-11-11 票 02）。
 - **Android 模擬器**：音訊比實際快約 1.7 倍，不能拿來量時長；`adb shell input text` 打不了中文；畫面持續更新時 `uiautomator dump` 會失敗；Claude Code 的沙箱擋 `adb` 連 5037。
 - **macOS**：macOS 27 不讓第三方讀 Now Playing，媒體控制只能目測；Flutter 的語意樹不經 macOS AX 暴露，要用截圖加座標。
 - **iOS 模擬器**：沒有可截圖的鎖定畫面與控制中心，Now Playing 只能讀系統 log；不要用 `orca emulator kill`。
@@ -115,7 +136,7 @@ app/
 
 ## 3. 測試策略
 
-- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯。
+- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個檔在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。
 - `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
 - 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。
 - 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。
@@ -124,7 +145,7 @@ app/
 ## 4. 開發環境與閘門
 
 - `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、format、analyze、單元測試、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
-- `dart run tool/check.dart`（完整版）：quick 之外，再做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置與 `integration_test`，並檢查插件打包產物是否最新。每張票合併前跑完整版。
+- `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見 §2 各平台的「閘門」），最後檢查插件打包產物是否最新（票 08 接上）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）。
 

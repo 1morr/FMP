@@ -17,7 +17,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 | 路徑 | 內容 |
 | --- | --- |
-| `app/` | 新版，獨立的 Flutter 套件，內部目錄照 plan §1.2；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart --quick` |
+| `app/` | 新版，獨立的 Flutter 套件，內部目錄照 plan §1.2；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 plan §4），pre-commit 跑其中的 `--quick` |
 | `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
 | `docs/` | brief、plan、progress、ADR、`docs/research/`、`docs/agents/`、`docs/design/`（新版設計稿）；其餘是舊版的使用者與開發文件 |
@@ -36,7 +36,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 1. 讀 `docs/progress.md` 的 session 紀錄與偏差、該里程碑的 spec，再讀票；只讀票列出的 plan / brief 章節，其他按需讀。
 2. `/implement <票路徑>`：tdd、定期 typecheck、結尾 `/code-review <開工時的 commit>`、commit。
-3. 驗證：plan〈開發環境與閘門〉的全部檢查（涵蓋所有目標平台）加 test；貼指令輸出。M0 票 02 接上完整版之前，跑 `--quick` 加票寫的驗證。
+3. 驗證：plan〈開發環境與閘門〉的全部檢查，也就是在 `app/` 跑 `dart run tool/check.dart` 完整版（涵蓋所有目標平台，含 test）；貼指令輸出。
 4. 只在票內的取捨記到票的 `## Comments`；影響架構的另寫 ADR（照〈擁有者確認〉）。
 5. 票的 `Status:` 改為 `done`、勾掉驗收條件、code-review 未處理的發現記到票的 `## Comments`；progress.md 加一列 session 紀錄（做了什麼、下一步，細節留在票裡）；驗收票多一步：照 progress.md 開頭的做法封存這個里程碑；commit。
 6. 合併：在 main 上 `git merge --no-ff <票分支>`，merge commit 寫 `merge: ticket NN <slug>`，再 push main。不開 PR；擁有者靠 progress.md 與里程碑驗收跟進度。
