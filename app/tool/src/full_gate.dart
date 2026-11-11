@@ -37,33 +37,7 @@ List<CheckStep> platformSteps({
   });
 
   final windows = _Winpc(app, shell, out, winpcLogs);
-
-  return [
-    flutter('build macos', ['build', 'macos', '--debug']),
-    flutter('build ios', ['build', 'ios', '--simulator', '--debug']),
-    flutter('build android', ['build', 'apk', '--debug']),
-    CheckStep('lock shared devices', () async {
-      await deviceLock.acquire(out);
-      return true;
-    }),
-    ..._sharedDeviceSteps(app, shell, integrationTests, windows).map(locked),
-    CheckStep('unlock shared devices', () async {
-      await deviceLock.release();
-      return true;
-    }),
-  ];
-}
-
-List<CheckStep> _sharedDeviceSteps(
-  Directory app,
-  Shell shell,
-  List<String> integrationTests,
-  _Winpc windows,
-) {
-  CheckStep flutter(String name, List<String> args) =>
-      commandStep(name, shell, 'flutter', args, workingDirectory: app);
-
-  return [
+  final sharedDeviceSteps = [
     CheckStep('build windows', windows.build),
     for (final file in integrationTests)
       flutter('integration_test macos: $file', ['test', file, '-d', 'macos']),
@@ -79,6 +53,21 @@ List<CheckStep> _sharedDeviceSteps(
         'integration_test windows: $file',
         () => windows.integrationTest(file),
       ),
+  ];
+
+  return [
+    flutter('build macos', ['build', 'macos', '--debug']),
+    flutter('build ios', ['build', 'ios', '--simulator', '--debug']),
+    flutter('build android', ['build', 'apk', '--debug']),
+    CheckStep('lock shared devices', () async {
+      await deviceLock.acquire(out);
+      return true;
+    }),
+    ...sharedDeviceSteps.map(locked),
+    CheckStep('unlock shared devices', () async {
+      await deviceLock.release();
+      return true;
+    }),
   ];
 }
 

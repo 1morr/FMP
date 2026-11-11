@@ -14,21 +14,72 @@ void main() {
   setUp(() => tmp = Directory.systemTemp.createTempSync('fmp_lock_'));
   tearDown(() => tmp.deleteSync(recursive: true));
 
+  /// 兩個子行程同時跑完整版的平台步驟，回傳兩者的退出碼與輸出。
+  Future<(List<int>, String)> runTwoGates({List<String>? lockFiles}) async {
+    final shared = Directory('${tmp.path}/devices')..createSync();
+    final children = [
+      for (final (i, name) in ['wt-a', 'wt-b'].indexed)
+        await _Child.start('concurrent_gate.dart', [
+          shared.path,
+          name,
+          if (lockFiles != null) lockFiles[i],
+        ]),
+    ];
+    await Future.wait([for (final c in children) c.waitFor('ready')]);
+    for (final c in children) {
+      c.send('go');
+    }
+    final codes = await Future.wait([for (final c in children) c.exitCode]);
+    return (codes, children.map((c) => c.output).join('\n---\n'));
+  }
+
   test('two worktrees running the full gate at the same time do not '
       'overwrite each other on the shared devices', () async {
-    final shared = Directory('${tmp.path}/devices')..createSync();
-    final a = await _Child.start('concurrent_gate.dart', [shared.path, 'wt-a']);
-    final b = await _Child.start('concurrent_gate.dart', [shared.path, 'wt-b']);
-    await Future.wait([a.waitFor('ready'), b.waitFor('ready')]);
-    a.send('go');
-    b.send('go');
+    final (codes, output) = await runTwoGates();
 
-    final codes = await Future.wait([a.exitCode, b.exitCode]);
-
-    expect(codes, [0, 0], reason: '${a.output}\n---\n${b.output}');
+    expect(codes, [0, 0], reason: output);
     // 兩個真的撞在一起過：其中一個等了另一個。
-    expect('${a.output}${b.output}', contains('Waiting for the shared-device'));
+    expect(output, contains('Waiting for the shared-device'));
   }, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('mutation: with the lock taken away (each worktree locking its own '
+      'file), the same run overwrites and goes red', () async {
+    final (codes, output) = await runTwoGates(
+      lockFiles: ['${tmp.path}/a.lock', '${tmp.path}/b.lock'],
+    );
+
+    expect(codes, contains(isNot(0)), reason: output);
+    expect(output, contains('was overwritten'));
+  }, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('every worktree of a repo finds the same lock, under the git common '
+      'dir', () {
+    final root = tmp.resolveSymbolicLinksSync();
+    void git(String dir, List<String> args) {
+      final result = Process.runSync('git', [
+        '-c',
+        'user.name=t',
+        '-c',
+        'user.email=t@example.invalid',
+        ...args,
+      ], workingDirectory: dir);
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+    }
+
+    Directory('$root/main/app').createSync(recursive: true);
+    git('$root/main', ['init', '-q']);
+    git('$root/main', ['commit', '-q', '--allow-empty', '-m', 'init']);
+    git('$root/main', ['worktree', 'add', '-q', '$root/linked']);
+    Directory('$root/linked/app').createSync();
+
+    final fromMain = DeviceLock.forRepo(Directory('$root/main/app'));
+    final fromLinked = DeviceLock.forRepo(Directory('$root/linked/app'));
+
+    expect(fromMain.file.path, '$root/main/.git/${DeviceLock.fileName}');
+    expect(fromLinked.file.path, fromMain.file.path);
+    expect(fromMain.worktree, '$root/main');
+    expect(fromLinked.worktree, '$root/linked');
+  });
 
   group('DeviceLock', () {
     late File lockFile;

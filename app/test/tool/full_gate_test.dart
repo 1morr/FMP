@@ -93,9 +93,9 @@ void main() {
         'end', () async {
       expect(await runGate(), 0);
 
-      expect(violations(shell.log), isEmpty);
+      expect(violations(shell.ranWithLock), isEmpty);
       expect(
-        shell.log,
+        shell.ranWithLock,
         containsAll([
           ('tool/winpc/sync.sh', true),
           (
@@ -131,7 +131,7 @@ void main() {
       ];
 
       expect(await runSteps(noLock, out), isNot(0));
-      expect(violations(shell.log), isNotEmpty);
+      expect(violations(shell.ranWithLock), isNotEmpty);
     });
 
     test('mutation: unrelated changes (renamed tests, extra local steps, '
@@ -147,7 +147,47 @@ void main() {
       ], out);
 
       expect(code, 0);
-      expect(violations(shell.log), isEmpty);
+      expect(violations(shell.ranWithLock), isEmpty);
+    });
+
+    group('the check itself, on a recorded run', () {
+      late List<(String, bool)> recorded;
+
+      setUp(() async {
+        await runGate();
+        recorded = [...shell.ranWithLock];
+      });
+
+      List<(String, bool)> unlockedAt(bool Function(String) which) => [
+        for (final (command, held) in recorded)
+          (command, which(command) ? false : held),
+      ];
+
+      test('turns red on any shared-device command run without the '
+          'lock', () {
+        for (final command in [
+          'tool/winpc/sync.sh',
+          'flutter test integration_test/app_test.dart -d macos',
+          'flutter test integration_test/app_test.dart -d emulator-5554 '
+              '--no-uninstall',
+          'ssh winpc Get-Content -Raw C:\\fmp-wt\\test.log',
+        ]) {
+          expect(violations(unlockedAt((c) => c == command)), [
+            command,
+          ], reason: command);
+        }
+      });
+
+      test('stays green when only the Mac builds or the device listing run '
+          'without the lock', () {
+        final mutated = unlockedAt(
+          (c) =>
+              c.startsWith('flutter build') || c.startsWith('flutter devices'),
+        );
+
+        expect(mutated, isNot(recorded));
+        expect(violations(mutated), isEmpty);
+      });
     });
   });
 
@@ -271,7 +311,7 @@ class _FakeShell implements Shell {
   final ran = <String>[];
 
   /// 每個指令跑的時候是否持有 [lock]。
-  final log = <(String, bool)>[];
+  final ranWithLock = <(String, bool)>[];
 
   /// 指令以這些前綴開頭時回傳非零。
   final failing = <String>{};
@@ -290,7 +330,7 @@ class _FakeShell implements Shell {
   }) async {
     final command = [executable, ...arguments].join(' ');
     ran.add(command);
-    log.add((command, lock.isHeld));
+    ranWithLock.add((command, lock.isHeld));
     return failing.any(command.startsWith) ? 1 : 0;
   }
 
@@ -302,7 +342,7 @@ class _FakeShell implements Shell {
   }) async {
     final command = [executable, ...arguments].join(' ');
     ran.add(command);
-    log.add((command, lock.isHeld));
+    ranWithLock.add((command, lock.isHeld));
     for (final MapEntry(:key, :value) in outputs.entries) {
       if (command.startsWith(key)) return value;
     }

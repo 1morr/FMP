@@ -42,6 +42,10 @@ class DeviceLock {
 
   static const fileName = 'fmp-device.lock';
 
+  /// 非阻塞上鎖時「別人持有」的 errno：macOS 的 EAGAIN（35）；Linux 的
+  /// EAGAIN（11）與 EACCES（13）。其他錯誤照常拋出。
+  static const _heldElsewhere = {35, 11, 13};
+
   final File file;
 
   /// 這個閘門所在的 worktree，寫進持有者資訊。
@@ -59,7 +63,11 @@ class DeviceLock {
     final handle = await file.open(mode: FileMode.append);
     try {
       await handle.lock(FileLock.exclusive);
-    } on FileSystemException {
+    } on FileSystemException catch (error) {
+      if (!_heldElsewhere.contains(error.osError?.errorCode)) {
+        await handle.close();
+        rethrow;
+      }
       out.writeln(
         'Waiting for the shared-device lock ${file.path}, '
         'held by ${_describeHolder()}',

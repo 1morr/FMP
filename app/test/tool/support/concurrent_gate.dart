@@ -7,15 +7,19 @@ import '../../../tool/src/steps.dart';
 
 /// 模擬一個 worktree 跑完整版的平台步驟，給 `device_lock_test.dart` 當子行程。
 ///
-///     dart test/tool/support/concurrent_gate.dart <共用目錄> <worktree 名稱>
+///     dart test/tool/support/concurrent_gate.dart <共用目錄> <worktree 名稱> [<鎖檔>]
 ///
+/// 鎖檔預設是 <共用目錄> 裡的同一個檔；給每個 worktree 不同的鎖檔，等於拿掉鎖。
 /// [_SharedDeviceShell] 把 `winpc` 的 `C:\fmp-wt` 與各模擬器換成 <共用目錄>
 /// 裡的檔：同步、安裝時寫入自己的名稱，建置、測試途中再讀回來；被別的
 /// worktree 蓋掉時那一步失敗。印出 `ready` 後等 stdin 一行才開跑，讓兩個
 /// 子行程同時開始。退出碼就是閘門的退出碼。
 Future<void> main(List<String> args) async {
-  final [path, worktree] = args;
+  final [path, worktree, ...rest] = args;
   final shared = Directory(path);
+  final lockFile = rest.isEmpty
+      ? File('${shared.path}/${DeviceLock.fileName}')
+      : File(rest.single);
   final shell = _SharedDeviceShell(shared, worktree);
   final logs = Directory.systemTemp.createTempSync('fmp_gate_logs_');
 
@@ -29,10 +33,7 @@ Future<void> main(List<String> args) async {
       integrationTests: const ['integration_test/app_test.dart'],
       out: stdout,
       winpcLogs: logs,
-      deviceLock: DeviceLock(
-        File('${shared.path}/${DeviceLock.fileName}'),
-        worktree: worktree,
-      ),
+      deviceLock: DeviceLock(lockFile, worktree: worktree),
     ),
     stdout,
   );
