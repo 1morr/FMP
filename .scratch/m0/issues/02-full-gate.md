@@ -27,30 +27,31 @@
 - **建置模式**：四平台都建 debug（和 integration_test 一致）；release 建置不在閘門裡，票 01 實測過四平台 release 都建得起來。
 - **文件**：plan §2 各平台補「框架與套件／閘門／實跑」，§1.4 補 `integration_test`，§4 寫完整版的步驟、`FAIL` 格式與前置條件（在 Mac 上跑、模擬器先開好、`winpc` 桌面有人登入）。這些是描述做法，沒有改 §4 的決定。`AGENTS.md`〈目錄〉與流程第 3 步原本寫「票 02 接上完整版之前跑 `--quick`」，接上後改成完整版。
 - **`run_task.sh` 的修正**：原本輪詢時一次 SSH 失敗就當成工作結束、刪掉排程工作，連帶終止還在跑的建置（`winpc` 藍屏時遇到）。改成查詢失敗就重試，連續 12 次才回傳非零；寫進 plan §2。
+- **integration_test 的零聯網（協調者轉來的 Heads up，2026-11-11）**：票 01 的 `HttpOverrides` 防線裝在 `test/flutter_test_config.dart`，只套用在 `test/` 底下，這張票加的 `integration_test/` 沒有防線。之後的主流程測試如果連網，每次合併都會打 4 次搜尋加 4 次播放，超過匿名風控的上限（spec〈共同規則〉〈聯網〉）。防線搬到 `test/support/no_network.dart` 的 `installNoNetworkGuard()`，`flutter_test_config.dart` 和每個 integration_test 檔共用這一份。`test/architecture/integration_test_guard_test.dart` 用 AST 檢查 `integration_test/` 每個 `*_test.dart` 的 `main()` 都有呼叫它，掃的檔案清單和閘門用的是同一份 `integrationTestFiles`。雙向變異驗證：拿掉呼叫、註解掉、移到 `main()` 外、換成名字相近的函式都會紅；換格式、換測試名稱與註解、改在 `setUpAll` 裡呼叫都不紅。拿真的檔案也驗過：拿掉 `app_test.dart` 的防線，規則會紅；拿掉 `flutter_test_config.dart` 的防線，`no_network_test.dart` 會紅。`app_test.dart` 多一條「integration tests cannot open a real HTTP connection」，證明防線在四個平台都生效。plan §3 已補。
 - **撤掉的測試**：票 01 的「`check.dart` 不帶 `--quick` 時拒跑」測試刪掉，由 `test/tool/gate_test.dart` 接手（`--quick` 只有五步、完整版接上八個平台步驟）。中途加過「非 Mac 拒跑完整版」，沒有測試也不必要（在別的平台跑會在 `build macos` 失敗並指名），code-review 後拿掉。
 
 ### 驗證輸出
 
-`cd app && dart run tool/check.dart`（完整版，2026-11-11 第四次，2 分 52 秒）：
+`cd app && dart run tool/check.dart`（完整版，2026-11-11 補上 integration_test 零聯網之後，3 分 17 秒）：
 
 ```text
 ok   i18n (slang)
 ok   format
 ok   analyze
-ok   test                     # 00:02 +70: All tests passed!
+ok   test                     # 00:02 +78: All tests passed!
 ok   doc gate
 ok   build macos
 ok   build ios
 ok   build android
 ok   build windows            # exit pubget=0、exit slang=0、exit build=0
-ok   integration_test macos: integration_test/app_test.dart     # +1: All tests passed!
-ok   integration_test ios: integration_test/app_test.dart       # +1: All tests passed!
-ok   integration_test android: integration_test/app_test.dart   # +1: All tests passed!
-ok   integration_test windows: integration_test/app_test.dart   # +1: All tests passed!、exit test=0
+ok   integration_test macos: integration_test/app_test.dart     # +2: All tests passed!
+ok   integration_test ios: integration_test/app_test.dart       # +2: All tests passed!
+ok   integration_test android: integration_test/app_test.dart   # +2: All tests passed!
+ok   integration_test windows: integration_test/app_test.dart   # +2: All tests passed!、exit test=0
 gate_exit=0
 ```
 
-第一次（code-review 前）也全綠。第二、三次閘門照實報了兩步失敗，都是環境問題，不是程式：
+這之前的第一次與第四次也全綠。第二、三次閘門照實報了兩步失敗，都是環境問題，不是程式：
 
 - `FAIL build windows`：`flutter_assemble` 的 MSB8066。擁有者告知 `winpc` 那段時間藍屏過；重開後乾淨同步、以排程工作建置就成功了。
 - `FAIL integration_test android`：Mac 上的 adb daemon 被停掉（同時有別的 session 在用同一台模擬器），`flutter devices` 看不到模擬器。`adb devices` 重啟 daemon 後恢復；做法寫進 plan §2〈其他已知怪癖〉。
