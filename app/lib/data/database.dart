@@ -14,9 +14,7 @@ final appDatabaseProvider = Provider<AppDatabase>(
 /// 新版的 drift 資料庫。檔案位置由 `platform/` 決定（plan §1.3），這裡只管
 /// schema 與升級。
 ///
-/// 改 schema 照 plan §3：改表、把 [schemaVersion] 加一、跑
-/// `dart run drift_dev make-migrations`，在 [migration] 用 `stepByStep` 補上
-/// 新的一步；升級測試的做法在 `test/drift/app_database/migration_test.dart`。
+/// 改 schema 的流程（快照、[migration]、升級測試）照 plan §3。
 @DriftDatabase(tables: [])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);

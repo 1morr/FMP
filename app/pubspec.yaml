@@ -16,8 +16,6 @@ dependencies:
   path_provider: ^2.1.6
   slang: ^4.19.2
   slang_flutter: ^4.19.0
-  sqlite3: ^3.9.1
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

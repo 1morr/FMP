@@ -56,7 +56,7 @@ app/
 | --- | --- | --- |
 | 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
 | 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
-| 資料庫與設定 | drift 2.35.4、sqlite3 3.9.1；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K12）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
+| 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K12）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | 檔案位置（平台） | path_provider 2.1.6 | 資料庫放 application support 目錄（`platform/storage.dart`） |
 | HTTP | dio | 插件請求都經宿主網路層，統一限流、重試、遮蔽 |
 | 音訊 | just_audio（Android、iOS、macOS）、media_kit（Windows） | brief §6、事實 K1 |

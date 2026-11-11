@@ -6,20 +6,14 @@ import 'package:fmp/data/database.dart';
 
 import 'generated/schema.dart';
 
-/// 升級測試（plan §3）。每個 schema 版本的快照在 `drift_schemas/`，
-/// `generated/` 是 `dart run drift_dev make-migrations` 依快照產生的各版本
-/// 資料庫，不要手改。`make-migrations` 不會覆寫本檔。
+/// 升級測試。改 schema 的流程照 plan §3；`generated/` 是
+/// `dart run drift_dev make-migrations` 依 `drift_schemas/` 的快照產生的
+/// 各版本資料庫，不要手改。`make-migrations` 不會覆寫本檔。
 ///
-/// 下一個 schema 版本照這樣做：
-///
-/// 1. 改表，把 `AppDatabase.schemaVersion` 加一，跑
-///    `dart run drift_dev make-migrations`：多一個快照、`generated/` 多一版、
-///    `lib/data/database.steps.dart` 更新。
-/// 2. 在 `AppDatabase.migration` 用 `stepByStep(fromNToM: …)` 寫這一步。
-/// 3. 下面「simple migrations」自動涵蓋新的每一對版本，不用改。
-/// 4. 這一步會改到既有欄位（型別、約束、搬資料）時，照
-///    https://drift.simonbinder.eu/migrations/tests/#verifying-data-integrity
-///    加一條 `verifier.testWithDataIntegrity` 的測試，放在本檔最後。
+/// 下面的「simple migrations」自動涵蓋每一對版本，加版本時不用改。某一步
+/// 會改到既有欄位（型別、約束、搬資料）時，照
+/// https://drift.simonbinder.eu/migrations/tests/#verifying-data-integrity
+/// 在本檔最後加一條 `verifier.testWithDataIntegrity` 的測試。
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   late SchemaVerifier verifier;
