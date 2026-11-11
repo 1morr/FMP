@@ -108,6 +108,7 @@ void main() {
                 '--no-uninstall',
             true,
           ),
+          ('adb start-server', true),
           (
             'flutter test integration_test/app_test.dart -d emulator-5554 '
                 '--no-uninstall',
@@ -189,6 +190,21 @@ void main() {
         expect(violations(mutated), isEmpty);
       });
     });
+  });
+
+  test('before looking for the Android emulator, the gate makes sure an adb '
+      'server runs (started with mDNS off, see gateShell)', () async {
+    await runGate();
+
+    final start = shell.ran.indexOf('adb start-server');
+    final androidLookup = shell.ran.lastIndexOf('flutter devices --machine');
+    expect(start, isNonNegative);
+    expect(start, lessThan(androidLookup));
+    expect(
+      start,
+      greaterThan(shell.ran.indexOf('flutter devices --machine')),
+      reason: 'only for Android, after the iOS lookup',
+    );
   });
 
   test('a failing platform step exits non-zero and names the platform and '
@@ -296,10 +312,11 @@ void main() {
   });
 }
 
-/// 碰共用裝置的指令：`winpc` 的同步、排程工作、SSH、scp，以及指定裝置的
-/// `flutter test`（macOS 上的 App、模擬器）。Mac 上的建置與查裝置清單不算。
+/// 碰共用裝置的指令：`winpc` 的同步、排程工作、SSH、scp，adb，以及指定裝置
+/// 的 `flutter test`（macOS 上的 App、模擬器）。Mac 上的建置與查裝置清單不算。
 bool _touchesSharedDevice(String command) =>
     command.startsWith('tool/winpc/') ||
+    command.startsWith('adb ') ||
     command.startsWith('ssh ') ||
     command.startsWith('scp ') ||
     (command.startsWith('flutter test ') && command.contains(' -d '));

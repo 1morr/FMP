@@ -14,7 +14,7 @@ import 'steps.dart';
 ///   這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
 /// - 一次只給 `flutter test` 一個 integration_test 檔（plan §2 的怪癖）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
-///   不刪模擬器上的 App 與資料。
+///   不刪模擬器上的 App 與資料。Android 先 `adb start-server`。
 /// - Windows 經 SSH 在 `winpc` 的桌面工作階段跑（plan §2〈Windows〉），
 ///   log 取回 [winpcLogs] 並印到 [out]。
 List<CheckStep> platformSteps({
@@ -44,6 +44,11 @@ List<CheckStep> platformSteps({
     for (final (platform, isTarget) in _emulators)
       for (final file in integrationTests)
         CheckStep('integration_test $platform: $file', () async {
+          if (platform == 'android') {
+            // adb server 不在時以 ADB_MDNS=0 叫起來（brief 事實 K15），在跑時
+            // 什麼都不做；先叫起來，`flutter devices` 才看得到模擬器。
+            await shell.run('adb', ['start-server'], workingDirectory: app);
+          }
           final device = await _findEmulator(shell, app, platform, isTarget);
           final args = ['test', file, '-d', device, '--no-uninstall'];
           return await shell.run('flutter', args, workingDirectory: app) == 0;

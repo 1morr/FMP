@@ -3,8 +3,8 @@ import 'dart:io';
 
 import '../../../tool/src/device_lock.dart';
 
-/// 模擬另一個 worktree 的閘門持有共用裝置鎖，給 `device_lock_test.dart` 當
-/// 子行程。
+/// 模擬另一個 worktree 的閘門持有共用裝置鎖，給 `device_lock_test.dart` 與
+/// `device_lock_cli_test.dart` 當子行程。
 ///
 ///     dart test/tool/support/hold_device_lock.dart <鎖檔> <worktree 名稱>
 ///

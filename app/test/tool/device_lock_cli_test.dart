@@ -17,6 +17,8 @@ void main() {
       .path;
   late String repo;
   late DeviceLock lock;
+  late File adbCalls;
+  late Map<String, String> fakeAdbPath;
 
   setUp(() {
     repo = Directory.systemTemp
@@ -25,6 +27,15 @@ void main() {
     final init = Process.runSync('git', ['init', '-q'], workingDirectory: repo);
     expect(init.exitCode, 0);
     lock = DeviceLock.forRepo(Directory(repo));
+    // 假的 adb：記下呼叫，不碰開發機上真的 adb server。
+    final bin = Directory('$repo/.fake-bin')..createSync();
+    adbCalls = File('$repo/.adb-calls');
+    File('${bin.path}/adb').writeAsStringSync(
+      '#!/bin/sh\n'
+      'echo "ADB_MDNS=\$ADB_MDNS \$*" >> "${adbCalls.path}"\n',
+    );
+    Process.runSync('chmod', ['+x', '${bin.path}/adb']);
+    fakeAdbPath = {'PATH': '${bin.path}:${Platform.environment['PATH']}'};
   });
   tearDown(() async {
     await lock.release();
@@ -32,16 +43,18 @@ void main() {
   });
 
   /// 在 [repo] 裡開一個子行程。
-  Future<_Child> start(String executable, List<String> args) async =>
-      _Child(await Process.start(executable, args, workingDirectory: repo));
+  Future<_Child> start(String executable, List<String> args) async => _Child(
+    await Process.start(
+      executable,
+      args,
+      workingDirectory: repo,
+      environment: fakeAdbPath,
+    ),
+  );
 
-  /// 另一個 worktree 的閘門持有 [repo] 的鎖。
-  Future<_Child> holdElsewhere() async {
-    final holder = await start('dart', [
-      holdScript,
-      lock.file.path,
-      '/work/other-ticket',
-    ]);
+  /// 另一個行程以 [worktree] 的名義持有 [repo] 的鎖。
+  Future<_Child> holdElsewhere({String worktree = '/work/other-ticket'}) async {
+    final holder = await start('dart', [holdScript, lock.file.path, worktree]);
     await holder.waitFor('held');
     return holder;
   }
@@ -77,6 +90,14 @@ void main() {
       final out = StringBuffer();
       await lock.acquire(out);
       expect(out.toString(), isNot(contains('Waiting')));
+    }, timeout: const Timeout(Duration(minutes: 1)));
+
+    test('after taking the lock it makes sure an adb server runs, started '
+        'with mDNS off (brief fact K15)', () async {
+      final child = await start('dart', [tool, '--', 'true']);
+
+      expect(await child.exitCode, 0, reason: child.output);
+      expect(adbCalls.readAsStringSync(), 'ADB_MDNS=0 start-server\n');
     }, timeout: const Timeout(Duration(minutes: 1)));
 
     test('the command starts any adb server with mDNS off (ADB_MDNS=0, '
@@ -129,17 +150,39 @@ void main() {
       expect(child.output, isNot(contains('Waiting')));
     }, timeout: const Timeout(Duration(minutes: 1)));
 
-    test('--held is true only under the holder', () async {
+    test('--held is true only while this worktree holds the lock', () async {
       Future<int> held(List<String> wrap) async =>
           (await start('dart', [...wrap, tool, '--held'])).exitCode;
 
       expect(await held([]), 1, reason: 'nobody holds the lock');
       expect(await held([tool, '--', 'dart']), 0, reason: 'under the wrapper');
 
-      final holder = await holdElsewhere();
-      expect(await held([]), 1, reason: 'held by an unrelated process');
-      holder.send('release');
-      await holder.exitCode;
+      final other = await holdElsewhere();
+      expect(await held([]), 1, reason: 'held by another worktree');
+      other.send('release');
+      await other.exitCode;
+
+      // 互動實跑：同一個 worktree 在背景持鎖，之後另開的指令不必等它。
+      final background = await holdElsewhere(worktree: repo);
+      expect(await held([]), 0, reason: 'held in the background by this one');
+      background.send('release');
+      await background.exitCode;
+    }, timeout: const Timeout(Duration(minutes: 1)));
+
+    test('while this worktree holds the lock in the background, a command '
+        'runs at once', () async {
+      final background = await holdElsewhere(worktree: repo);
+
+      final child = await start('dart', [tool, '--', 'echo', 'ran']);
+
+      expect(
+        await child.exitCode.timeout(const Duration(seconds: 30)),
+        0,
+        reason: child.output,
+      );
+      expect(child.output, isNot(contains('Waiting')));
+      background.send('release');
+      await background.exitCode;
     }, timeout: const Timeout(Duration(minutes: 1)));
   });
 
@@ -156,6 +199,16 @@ void main() {
       holder.send('release');
       expect(await script.exitCode, 0, reason: script.output);
       expect(script.output, contains('guarded args=a b'));
+    }, timeout: const Timeout(Duration(minutes: 1)));
+
+    test('started by its bare name from its own directory (`bash x.sh`), the '
+        'guarded script still re-runs itself under the lock', () async {
+      final name = guardedScript().split('/').last;
+      final script = await start('bash', [name, 'y']);
+
+      expect(await script.exitCode, 0, reason: script.output);
+      expect(script.output, contains('guarded args=y'));
+      expect(script.output, contains('Holding the shared-device lock'));
     }, timeout: const Timeout(Duration(minutes: 1)));
 
     test('called by a process that holds the lock (the full gate), a guarded '

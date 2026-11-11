@@ -15,8 +15,9 @@ const sharedDeviceEnvironment = {'ADB_MDNS': '0'};
 /// fcntl）。持有的行程結束（含 `kill -9`、當掉）時 OS 會放掉它，不會留下
 /// 永久的鎖。持有者是誰另外寫在 [holderFile]，等待的一方印出來。
 ///
-/// 可重入：持有者開的行程（例如完整閘門呼叫的 `sync.sh`）用
-/// [heldByAncestor] 確認鎖在祖先手上，不再自己拿。完整閘門與包裝指令
+/// 鎖是跨 worktree 的：同一個 worktree（同一張票）裡的行程用
+/// [heldByThisWorktree] 確認鎖已在自己這邊，不再自己拿，例如完整閘門呼叫的
+/// `sync.sh`、互動實跑時背景持鎖的包裝指令。完整閘門與包裝指令
 /// `tool/device_lock.dart` 都用這把鎖。
 ///
 /// fcntl 鎖屬於整個行程：同一個行程裡另外打開 [file] 再關掉，鎖就會被放掉。
@@ -68,23 +69,18 @@ class DeviceLock {
 
   bool get isHeld => _handle != null;
 
-  /// 鎖是否在這個行程的祖先手上：持有者資訊的 pid 是祖先行程，而且鎖確實
-  /// 被佔著（持有者被 `kill -9` 時資訊檔會留著）。只看祖先關係，不看環境
-  /// 變數，所以偽造不了；持有者死掉後留下的孤兒行程也不算。
+  /// 鎖是否被這個 worktree 的行程持有：持有者資訊的 worktree 是 [worktree]，
+  /// 而且鎖確實被佔著（持有者被 `kill -9` 時資訊檔會留著）。
   ///
   /// 會打開再關掉 [file]，所以不能在持有這把鎖的行程裡呼叫（fcntl 會放掉鎖）。
-  Future<bool> heldByAncestor() async {
-    if (isHeld) throw StateError('heldByAncestor() would release this lock');
-    final holder = _readHolder()?.pid;
-    if (holder == null || !await _isAncestor(holder)) return false;
+  Future<bool> heldByThisWorktree() async {
+    if (isHeld) throw StateError('heldByThisWorktree() would release the lock');
+    if (_readHolder()?.worktree != worktree) return false;
     final probe = await file.open(mode: FileMode.append);
     try {
-      await probe.lock(FileLock.exclusive);
+      if (!await _tryLock(probe)) return true;
       await probe.unlock();
       return false;
-    } on FileSystemException catch (error) {
-      if (_heldElsewhere.contains(error.osError?.errorCode)) return true;
-      rethrow;
     } finally {
       await probe.close();
     }
@@ -94,13 +90,14 @@ class DeviceLock {
   Future<void> acquire(StringSink out) async {
     if (_handle != null) return;
     final handle = await file.open(mode: FileMode.append);
+    final bool free;
     try {
-      await handle.lock(FileLock.exclusive);
-    } on FileSystemException catch (error) {
-      if (!_heldElsewhere.contains(error.osError?.errorCode)) {
-        await handle.close();
-        rethrow;
-      }
+      free = await _tryLock(handle);
+    } on Object {
+      await handle.close();
+      rethrow;
+    }
+    if (!free) {
       out.writeln(
         'Waiting for the shared-device lock ${file.path}, '
         'held by ${_describeHolder()}',
@@ -127,17 +124,15 @@ class DeviceLock {
     await handle.close();
   }
 
-  /// 沿著父行程往上找 [candidate]（`ps -o ppid=`，macOS 與 Linux 都有）。
-  static Future<bool> _isAncestor(int candidate) async {
-    var current = pid;
-    for (var depth = 0; depth < 64; depth++) {
-      final result = await Process.run('ps', ['-o', 'ppid=', '-p', '$current']);
-      final parent = int.tryParse('${result.stdout}'.trim());
-      if (parent == null || parent <= 1) return false;
-      if (parent == candidate) return true;
-      current = parent;
+  /// 不等待地上鎖：拿到回 true，別人持有回 false，其他錯誤照常拋出。
+  static Future<bool> _tryLock(RandomAccessFile handle) async {
+    try {
+      await handle.lock(FileLock.exclusive);
+      return true;
+    } on FileSystemException catch (error) {
+      if (_heldElsewhere.contains(error.osError?.errorCode)) return false;
+      rethrow;
     }
-    return false;
   }
 
   String _describeHolder() {
