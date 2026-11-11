@@ -1,0 +1,49 @@
+{
+  "candidate": "fjs 3.3.2",
+  "platform": "macos Version 27.0.1 (Build 26A434)",
+  "at": "2026-11-11T08:47:53.858383Z",
+  "checks": [
+    {
+      "id": "engine_identity",
+      "pass": true,
+      "detail": "package engine: rquickjs (QuickJS-NG) on every platform; js: quickjs-like (V8/QuickJS stack format) | first frame: at probeFrame (eval_script:2:38); globals with builtins(timers, console): fetch:undefined XMLHttpRequest:undefined WebSocket:undefined require:undefined process:undefined Deno:undefined std:undefined os:undefined",
+      "ms": 32
+    },
+    {
+      "id": "memory_limit",
+      "pass": true,
+      "detail": "limit 32 MiB; returned: caught: InternalError: out of memory; same engine afterwards 1+2=3; memoryUsedSize after: 105530 bytes, mallocLimit: 33554432",
+      "ms": 22
+    },
+    {
+      "id": "await_js_promise",
+      "pass": true,
+      "detail": "eval awaited the promise: 42",
+      "ms": 0
+    },
+    {
+      "id": "async_host_call",
+      "pass": true,
+      "detail": "JS awaited Dart Future via fjs.bridge_call: pong!; caller isolate worst stall 12ms",
+      "ms": 67
+    },
+    {
+      "id": "isolate_layout",
+      "pass": true,
+      "detail": "create+close one engine: 0ms; cpu work: 1 engine 268ms, 4 engines in parallel 559ms; main isolate worst stall during 4-engine work: 14ms; starting background isolate; background isolate (own LibFjs.init): 1+2=3",
+      "ms": 833
+    },
+    {
+      "id": "interrupt_infinite_loop",
+      "pass": true,
+      "detail": "top-level loop: eval before close: still running, after close: failed with CANCELLED_ERROR; close() 0ms; process CPU per 1000ms window 989ms while looping, 12ms after close; caller worst stall 16ms | loop after await: eval before close: still running, after close: failed with CANCELLED_ERROR; close() 0ms; process CPU per 1000ms window 997ms while looping, 22ms after close; caller worst stall 13ms | loop in setTimeout callback: eval before close: returned scheduled, after close: returned scheduled; close() threw: Runtime error: Unhandled JavaScript background error: Error: interrupted; close() 0ms; process CPU per 1000ms window 1006ms while looping, 18ms after close; caller worst stall 15ms | engine is dead after close, a new engine evaluates 1+2=3",
+      "ms": 7536
+    },
+    {
+      "id": "stuck_engine_isolation",
+      "pass": false,
+      "detail": "1 stuck: another engine created in 0ms, 1+2=3 after 0ms; 1 stuck: closed 1/1 concurrently in 0ms; 1 stuck: after closing, a new engine evaluates 1+2=3 in 0ms; 2 stuck: another engine did not answer within 5s (5003ms); 2 stuck: closed 2/2 concurrently in 0ms; 2 stuck: after closing, a new engine evaluates 1+2=3 in 0ms; 4 stuck: another engine did not answer within 5s (5008ms); 4 stuck: closed 4/4 concurrently in 2ms; 4 stuck: after closing, a new engine evaluates 1+2=3 in 3ms",
+      "ms": 11532
+    }
+  ]
+}

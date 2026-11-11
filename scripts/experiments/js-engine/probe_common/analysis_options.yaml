@@ -1,0 +1,7 @@
+# 實驗用：不沿用根目錄（舊版）的 analysis_options。
+analyzer:
+  exclude:
+    - build/**
+linter:
+  rules:
+    - avoid_print

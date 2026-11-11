@@ -19,6 +19,8 @@ analyzer:
     - web/**
     - macos/**
     - linux/**
+    # 新版的實驗程式是各自獨立的 Flutter 專案，有自己的依賴與 analysis_options（M0 票 03）。
+    - scripts/**
 
 linter:
   # The lint rules applied to this project can be customized in the

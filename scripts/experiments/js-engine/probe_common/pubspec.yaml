@@ -1,0 +1,11 @@
+name: probe_common
+description: "實驗用（可丟棄）：JS 引擎實驗兩個候選共用的測項與回報格式。"
+publish_to: none
+version: 0.0.0
+
+environment:
+  sdk: ^3.13.0
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.2.0

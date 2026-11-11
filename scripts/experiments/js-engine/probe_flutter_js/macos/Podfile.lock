@@ -1,0 +1,29 @@
+PODS:
+  - flutter_js (0.0.1):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+  - fmp_quickjs (0.1.0):
+    - Flutter
+    - FlutterMacOS
+
+DEPENDENCIES:
+  - flutter_js (from `Flutter/ephemeral/.symlinks/plugins/flutter_js/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - fmp_quickjs (from `Flutter/ephemeral/.symlinks/plugins/fmp_quickjs/darwin`)
+
+EXTERNAL SOURCES:
+  flutter_js:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_js/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  fmp_quickjs:
+    :path: Flutter/ephemeral/.symlinks/plugins/fmp_quickjs/darwin
+
+SPEC CHECKSUMS:
+  flutter_js: 79c3c70d33ba464c67d8eb88639a61aa718cd8b8
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  fmp_quickjs: ed6cc7dcb7f01c973a33a44b86b040342e3ff644
+
+PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
+
+COCOAPODS: 1.17.0
