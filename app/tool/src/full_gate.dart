@@ -1,12 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'device_lock.dart';
 import 'steps.dart';
 
 /// 完整版閘門在 quick 之後的平台步驟（plan §2、§4）：先建置四個平台，再在
 /// 四個平台跑 [integrationTests]。步驟名稱帶平台，失敗時看得出是哪個平台、
 /// 哪一步。
 ///
+/// - 碰共用裝置的步驟（`winpc` 的同步與建置、四平台的 integration_test）
+///   夾在 `lock shared devices` 與 `unlock shared devices` 之間，持有
+///   [deviceLock] 時才跑；沒拿到鎖就判失敗、不執行。Mac 上的三個建置只寫
+///   這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
 /// - 一次只給 `flutter test` 一個 integration_test 檔（plan §2 的怪癖）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
 ///   不刪模擬器上的 App 與資料。
@@ -18,9 +23,18 @@ List<CheckStep> platformSteps({
   required List<String> integrationTests,
   required StringSink out,
   required Directory winpcLogs,
+  required DeviceLock deviceLock,
 }) {
   CheckStep flutter(String name, List<String> args) =>
       commandStep(name, shell, 'flutter', args, workingDirectory: app);
+
+  CheckStep locked(CheckStep step) => CheckStep(step.name, () async {
+    if (!deviceLock.isHeld) {
+      out.writeln('Skipped: the shared-device lock is not held.');
+      return false;
+    }
+    return step.run();
+  });
 
   final windows = _Winpc(app, shell, out, winpcLogs);
 
@@ -28,6 +42,28 @@ List<CheckStep> platformSteps({
     flutter('build macos', ['build', 'macos', '--debug']),
     flutter('build ios', ['build', 'ios', '--simulator', '--debug']),
     flutter('build android', ['build', 'apk', '--debug']),
+    CheckStep('lock shared devices', () async {
+      await deviceLock.acquire(out);
+      return true;
+    }),
+    ..._sharedDeviceSteps(app, shell, integrationTests, windows).map(locked),
+    CheckStep('unlock shared devices', () async {
+      await deviceLock.release();
+      return true;
+    }),
+  ];
+}
+
+List<CheckStep> _sharedDeviceSteps(
+  Directory app,
+  Shell shell,
+  List<String> integrationTests,
+  _Winpc windows,
+) {
+  CheckStep flutter(String name, List<String> args) =>
+      commandStep(name, shell, 'flutter', args, workingDirectory: app);
+
+  return [
     CheckStep('build windows', windows.build),
     for (final file in integrationTests)
       flutter('integration_test macos: $file', ['test', file, '-d', 'macos']),

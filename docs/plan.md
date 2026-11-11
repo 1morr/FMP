@@ -79,6 +79,8 @@ app/
 
 完整閘門（§4）在每個平台跑 `integration_test/` 的每個 `*_test.dart`，一次一個檔；四平台共用的測試依賴是 `integration_test`（SDK）。各節的「閘門」是 `tool/check.dart` 實際下的指令，手動重跑單一平台時照抄。
 
+`winpc` 的 `C:\fmp-wt`、iOS 與 Android 模擬器、Mac 上的 `com.personal.fmp.dev` 是所有 worktree 共用的：`sync.sh` 每次都刪掉 `C:\fmp-wt\app` 再解開，模擬器與 Mac 上同一個 applicationId 只有一份。所以完整閘門碰它們之前先拿共用裝置鎖（§4〈共用裝置鎖〉）。手動實跑（下面各節的「實跑」、`sync.sh`、`orca emulator install`）不拿鎖，先看鎖的持有者資訊確認沒有閘門在跑。
+
 ### macOS
 
 框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）。
@@ -147,8 +149,8 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 - **Windows 自動化輸入**：`SendKeys` 與掃描碼為 0 的 `keybd_event` 會讓 Ctrl 組合鍵失效；中文輸入法會吃掉英數字；跨行程最小化與還原會讓 lifecycle 卡在 `inactive`。
 - **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。完整閘門照這兩條做（見上面各平台的「閘門」）。
-- **多個 session 共用裝置**：別的 session 停掉 Mac 上的 adb daemon 時，`flutter devices` 看不到 Android 模擬器，完整閘門的 `integration_test android` 會報「No running android simulator/emulator」；跑一次 `adb devices` 重啟 daemon、等模擬器回到 `device` 再重跑（2026-11-11 票 02）。
-- **`winpc` 的建置偶發失敗**：`flutter build windows` 或 Windows 的 `integration_test` 有時只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1），原因是 Dart 的 `frontend_server_aot` 編 kernel 時當掉（`ExceptionCode=-1073741819`，存取違規）。main 沒有插件時也會發生，同一份工作樹重跑就過。加 `-v` 才看得到 `===== CRASH =====`。build_runner 編譯 build script 時也會同樣當掉（`check.dart` 的 Windows 建置印出 `exit codegen=78` 與 `===== CRASH =====`），還出現過不存在的「缺成員」編譯錯，pub cache 的檔案與 Mac 逐位元組相同（票 07）。遇到時重跑那一步；連續失敗再查 `winpc` 本身（2026-11-11 票 06）。同期 `winpc` 有藍屏紀錄（11-10、11-11 兩次 `0x00020001` HYPERVISOR_ERROR、一次 `0x1E` 核心存取違規，minidump 在 `C:\WINDOWS\Minidump\`），這類偶發的存取違規可能是硬體不穩（記憶體、超頻或降壓設定、Hyper-V／VBS），還沒讀 minidump 確認。
+- **adb server 自己當掉**：完整閘門的 `integration_test android` 報「No running android simulator/emulator」、`flutter devices` 看不到 Android 模擬器時，多半是 Mac 上的 adb server 不在。票 02、06、07 以為是別的 session 重啟了 adb；票 02b 查過，`app/`、`.githooks/`、`.claude/skills/` 都沒有 `adb kill-server`、`start-server`（`verify-legacy-on-device` 收尾的 `adb emu kill` 關的是模擬器，不是 server），閘門也只跑 `flutter devices` 與 `flutter test`。原因是 platform-tools 37.0.1 的 adb server 被區網的 mDNS 封包弄當（事實 K15），下一個 adb 指令再把它叫起來。遇到時跑一次 `adb devices`、等模擬器回到 `device` 再重跑那一步。要根治可讓 adb server 以 `ADB_MDNS=0` 啟動（要先停掉現有的 server，會打斷正在用模擬器的 session；還沒實測，等擁有者決定）。
+- **`winpc` 的 Dart 偶發當掉（環境問題）**：`flutter build windows`、Windows 的 `integration_test` 或 `build.ps1` 的 build_runner 偶發失敗。症狀有三種，根源相同：只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1，加 `-v` 才看得到 `===== CRASH =====`）；`exit codegen=78`、`exit codegen=-1073740791` 或 `exit codegen=1` 加上 `Compilation did not produce any result`，之後 `flutter build` 因為缺 `database.g.dart` 跟著失敗；或不存在的「缺成員」編譯錯（票 07）。都是 Dart 的 `dartaotruntime.exe`（frontend_server）或 `gen_snapshot.exe` 存取違規（`0xc0000005`），VM 印出 `===== CRASH =====` 後自己 abort（事件記錄是 `0xc0000409`，位移固定在 `0x332aa1`）。票 02b 查證：沒有其他閘門同時跑時，main（`b2fadc04`）連續乾淨建置 5 次，第 4、5 次失敗；在 SSH 工作階段（不經排程工作）對同一份輸入連跑 60 次 `dart compile kernel`（編 pub cache 裡的 build_runner，不含 App 的程式碼），2 次當掉、1 次產出空檔，成功的 58 次輸出逐位元組相同。三次當掉的位址扣掉 snapshot 基址後都不同（`0x46455d`、`0x6a425`、`0x2b47b2`），呼叫堆疊也不同。同一台機器 14 天內還有 Windows 自己的服務（`sppsvc`、Windows Update、Defender）、MSVC 的 `CL.exe` 與其他使用者程式以存取違規、非法指令（`0xc000001d`）當掉，6 次 Kernel-Power 41（非預期重開），11-10、11-11 有藍屏（兩次 `0x00020001` HYPERVISOR_ERROR、一次 `0x1E`，minidump 在 `C:\WINDOWS\Minidump\`）。結論：是 `winpc` 的硬體或韌體不穩（i9-13900HX、BIOS KWCN54WW、microcode `0x12E`），不是產品也不是閘門；worktree 互蓋可能造成過部分紅燈（票 07 的缺成員錯），但不是當掉的原因。還沒定位到是哪個元件：記憶體、處理器電壓（降壓或超頻工具）、BIOS 或 Hyper-V／VBS，要擁有者在場檢查（Windows 記憶體診斷要重開機）。Intel 的 13、14 代 Vmin 不穩問題官方只認桌上型處理器，行動版說沒有受影響，13900HX 是行動版，不能直接套用。在那之前，閘門照實報紅，遇到時單獨重跑那一步；重跑能過就不是程式問題。閘門不加自動重試：重試會把同一台機器上的錯誤結果（例如空檔）當成通過。重現：在 `winpc` 對任一份已經 `pub get` 的 `app/` 連跑 `dart compile kernel --packages=.dart_tool\package_config.json -o <檔> <build_runner>\bin\build_runner.dart` 60 次，約 5 分鐘，失敗率約 3%（2026-11-11）。
 - **Android 模擬器**：音訊比實際快約 1.7 倍，不能拿來量時長；`adb shell input text` 打不了中文；畫面持續更新時 `uiautomator dump` 會失敗；Claude Code 的沙箱擋 `adb` 連 5037。
 - **macOS**：macOS 27 不讓第三方讀 Now Playing，媒體控制只能目測；Flutter 的語意樹不經 macOS AX 暴露，要用截圖加座標。
 - **iOS 模擬器**：沒有可截圖的鎖定畫面與控制中心，Now Playing 只能讀系統 log；不要用 `orca emulator kill`。
@@ -167,6 +169,10 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 - `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（§3）、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
 - `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見 §2 各平台的「閘門」），最後檢查插件打包產物是否最新（票 08 接上）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
+- **共用裝置鎖**（M0 票 02b）：完整版在 Mac 上的三個建置之後、`build windows` 之前跑 `lock shared devices`，四平台的 `integration_test` 跑完後跑 `unlock shared devices`；中間的步驟（`winpc` 的同步、建置與 integration_test，模擬器與 macOS 的 integration_test）持有鎖時才跑，沒拿到就判失敗。同一時間只有一個 worktree 的完整版在碰共用裝置。
+  - 位置：`git rev-parse --path-format=absolute --git-common-dir` 底下（所有 worktree 共用的 `.git`）的 `fmp-device.lock`，持有者資訊在同目錄的 `fmp-device.lock.holder`（JSON：`worktree`、`pid`、`started`）。實作在 `app/tool/src/device_lock.dart`。
+  - 行為：鎖是 OS 的檔案鎖（事實 K16）。別人持有時印出 `Waiting for the shared-device lock …, held by worktree <路徑>, pid <pid>, since <開始時間>` 然後等，沒有逾時。持有的閘門結束、當掉或被 `kill -9` 時，OS 自動放掉鎖，不必清理。
+  - 手動解除：只在持有者卡住時需要。看 `fmp-device.lock.holder` 的 `pid`，`ps -p <pid>` 確認是 `dart run tool/check.dart`，`kill <pid>`，鎖就放掉了。不要刪 `fmp-device.lock`：持有者還活著時刪掉，下一個閘門會鎖到新建的同名檔，兩邊同時碰裝置。持有者死掉後 `.holder` 可能留著，內容是上一個持有者，不影響拿鎖。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。
 
