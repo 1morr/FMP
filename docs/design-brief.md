@@ -420,7 +420,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **取代舊版的方式**：舊版使用者怎麼升上來（舊版的自動更新、資料搬遷、要不要讀 Isar）。卡在新版功能還沒齊全；到「取代舊版」的里程碑由擁有者決定。
 - **JS 引擎**：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async。由 M0 實驗（`scripts/experiments/`）決定。
 - **macOS 的 Now Playing 接法**：事實 R4 顯示 audio_service 在 macOS 不完整。由 M0 實驗決定。
-- **Windows 經 SSH 截圖傳回**：由 M0 第一張票實測。
+- **Windows 經 SSH 截圖傳回**：M0 票 01 已實測，做法見 plan §2〈Windows（`winpc`）〉。
 - **玻璃的 Flutter 實作**：見事實 K10。由 M0 實驗（票 05b）決定：重驗 K10，在四平台實測已發佈的官方或社群套件，以及用 `BackdropFilter` 自己做，各平台做到哪一級。不論用哪種做法，都包在同一個玻璃元件後面，日後替換只改一處。
 
 ## 18. 查證過的事實
@@ -515,7 +515,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 
 ### 18.9 工具鏈
 
-- **T1** 版本基線：2026-11-06 實查 Mac 與 `winpc` 都是 Flutter 3.47.5，本機 Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 API 37。【待重驗】AGP 9.1.0、KGP 2.4.0、Gradle 9.3.1、JDK 17；Material 從 Flutter 3.47 起改成獨立套件。出處：本機指令輸出；`docs/audit/platforms.md` §5.1、`docs/building.md:11-12`。
+- **T1** 版本基線：2026-11-06 實查 Mac 與 `winpc` 都是 Flutter 3.47.5，本機 Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 API 37。Flutter 3.47.5 的 `flutter create` 產生的 Android 專案是 AGP 9.1.0、KGP 2.4.0、Gradle 9.3.1、JDK 17。Material 已拆成獨立套件 `material_ui`（flutter/packages，pub 1.11.0，要求 Flutter 3.47.0 以上），但 Flutter 3.47.5 仍內建 `package:flutter/material.dart`，`flutter create` 也還用它；遷移用 `dart fix --apply --code=migrate_design_widgets`。出處：本機指令輸出、`app/android/`；https://pub.dev/packages/material_ui 與其 README〈Migrating existing code to this package〉。可信度：2026-11-11 實查。
 - **T2**【待重驗】Apple 平台的 flavor：scheme 名稱要等於小寫的 flavor 名；每個 target 都要有六個 build configuration，並在 Podfile 對應；Podfile、`Podfile.lock`、xcconfig、pbxproj 都要提交。出處：`archive:docs/adr/0036` §決定 10、`0037` §決定 5。可信度：上一版文件。
 - **T3**【待重驗】Apple 本機簽章設定檔放進 gitignore（Team ID 不進公開 repo）；`codesign -dvv` 看到 `TeamIdentifier=` 才算簽到。出處：archive 的 `.claude/skills/verify-on-device/references/macos.md`。可信度：上一版文件。
 - **T4**【待重驗】Windows 安裝檔：`inno_bundle` 不認 flavor，要手寫 `.iss`；安裝檔的 `AppId` 發佈後不能改；專案路徑超過 260 字元會報 `FTK1011`。出處：`archive:app/AGENTS.md`〈發版〉。可信度：上一版文件。
