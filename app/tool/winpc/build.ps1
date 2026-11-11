@@ -9,6 +9,8 @@ Set-Location $wt
 "exit pubget=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
 & cmd /c "dart run slang 2>&1" | Out-File $log -Append -Encoding ascii
 "exit slang=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
+& cmd /c "dart run build_runner build 2>&1" | Out-File $log -Append -Encoding ascii
+"exit codegen=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
 & cmd /c "flutter build windows --$Mode 2>&1" | Out-File $log -Append -Encoding ascii
 "exit build=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
 "=== done $(Get-Date -Format s)" | Out-File $log -Append -Encoding ascii

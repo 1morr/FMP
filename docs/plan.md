@@ -56,7 +56,7 @@ app/
 | --- | --- | --- |
 | 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
 | 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
-| 資料庫與設定 | drift 加 sqlite3 | schema 快照與升級測試；設定也存這裡，不用 shared_preferences |
+| 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio | 插件請求都經宿主網路層，統一限流、重試、遮蔽 |
 | 音訊 | just_audio（Android、iOS、macOS）、media_kit（Windows） | brief §6、事實 K1 |
 | 媒體控制 | audio_service、audio_session、smtc_windows | macOS 由 M0 實驗定 |
@@ -65,7 +65,7 @@ app/
 | 圖片 | cached_network_image | |
 | i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
 | log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
-| App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄由 `platform/` 經它取得（brief 事實 K13） |
+| App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄與資料庫檔案由 `platform/` 經它取得（brief 事實 K13） |
 | JS 引擎 | fjs 3.3.2 | 四平台同一個 QuickJS-NG，能中斷、能設記憶體上限、支援 async（M0 票 03，brief 事實 K11） |
 | 插件建置 | TypeScript 加 esbuild（需 Node） | ADR 0038 |
 | lint（dev） | flutter_lints 6.0.0 | `flutter create` 的預設；`app/analysis_options.yaml` 另開幾條 |
@@ -81,9 +81,11 @@ app/
 
 ### macOS
 
-框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄）。
+框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）。
 
 log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Support/com.personal.fmp.dev/logs/fmp.log`。
+
+資料庫：`logs/` 的上一層（App 支援目錄）的 `fmp.sqlite`。
 
 閘門：`flutter build macos --debug`；`flutter test integration_test/<檔> -d macos`（會在本機開一個 App 視窗）。
 
@@ -91,9 +93,11 @@ log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Suppor
 
 ### iOS 模擬器
 
-框架與套件：Flutter iOS，平台套件：path_provider（log 目錄）。
+框架與套件：Flutter iOS，平台套件：path_provider（log 目錄、資料庫位置）。
 
 log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下的 `Library/Application Support/logs/fmp.log`。
+
+資料庫：`logs/` 的上一層（App 支援目錄）的 `fmp.sqlite`。
 
 閘門：`flutter build ios --simulator --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好；`check.dart` 從 `flutter devices --machine` 挑第一台 `emulator: true` 的 iOS 裝置，不會挑連著的實體 iPhone，找不到就讓這一步失敗。
 
@@ -101,9 +105,11 @@ log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下�
 
 ### Android 模擬器
 
-框架與套件：Flutter Android，平台套件：path_provider（log 目錄）。
+框架與套件：Flutter Android，平台套件：path_provider（log 目錄、資料庫位置）。
 
 log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
+
+資料庫：`files/fmp.sqlite`，取出：`adb exec-out run-as com.personal.fmp.dev cat files/fmp.sqlite > <暫存目錄>/fmp.sqlite`。
 
 閘門：`flutter build apk --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好（`flutter emulators --launch Medium_Phone_API_37.0`），挑法同 iOS。`--no-uninstall` 讓測試跑完不刪 App 與資料。
 
@@ -111,17 +117,19 @@ log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
 ### Windows（`winpc`）
 
-框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄）。
+框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄、資料庫位置）。
 
 log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.log" -Tail 20'`。
 
-閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get` 與 slang）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
+資料庫：`logs/` 的上一層（App 支援目錄）的 `fmp.sqlite`。path_provider 連帶把 `jni` 列進 Windows 的 FFI 插件。
+
+閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get`、slang 與 build_runner）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
 
 經 SSH 操作，不 push（2026-11-11 票 01 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑：
 
 1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
-2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
-3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。
+2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
+3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。完整閘門跑完後，`Debug\fmp.exe` 已被 `flutter test -d windows` 用 integration_test 的入口重建，實跑前先重跑一次步驟 2（2026-11-11 票 07：直接啟動閘門留下的 exe，畫面正常卻沒有建立資料庫檔）。
 4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉。
 
 注意：
@@ -140,7 +148,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - **Windows 自動化輸入**：`SendKeys` 與掃描碼為 0 的 `keybd_event` 會讓 Ctrl 組合鍵失效；中文輸入法會吃掉英數字；跨行程最小化與還原會讓 lifecycle 卡在 `inactive`。
 - **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。完整閘門照這兩條做（見上面各平台的「閘門」）。
 - **多個 session 共用裝置**：別的 session 停掉 Mac 上的 adb daemon 時，`flutter devices` 看不到 Android 模擬器，完整閘門的 `integration_test android` 會報「No running android simulator/emulator」；跑一次 `adb devices` 重啟 daemon、等模擬器回到 `device` 再重跑（2026-11-11 票 02）。
-- **`winpc` 的建置偶發失敗**：`flutter build windows` 或 Windows 的 `integration_test` 有時只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1），原因是 Dart 的 `frontend_server_aot` 編 kernel 時當掉（`ExceptionCode=-1073741819`，存取違規）。main 沒有插件時也會發生，同一份工作樹重跑就過。加 `-v` 才看得到 `===== CRASH =====`。遇到時重跑那一步；連續失敗再查 `winpc` 本身（2026-11-11 票 06）。
+- **`winpc` 的建置偶發失敗**：`flutter build windows` 或 Windows 的 `integration_test` 有時只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1），原因是 Dart 的 `frontend_server_aot` 編 kernel 時當掉（`ExceptionCode=-1073741819`，存取違規）。main 沒有插件時也會發生，同一份工作樹重跑就過。加 `-v` 才看得到 `===== CRASH =====`。build_runner 編譯 build script 時也會同樣當掉（`check.dart` 的 Windows 建置印出 `exit codegen=78` 與 `===== CRASH =====`），還出現過不存在的「缺成員」編譯錯，pub cache 的檔案與 Mac 逐位元組相同（票 07）。遇到時重跑那一步；連續失敗再查 `winpc` 本身（2026-11-11 票 06）。
 - **Android 模擬器**：音訊比實際快約 1.7 倍，不能拿來量時長；`adb shell input text` 打不了中文；畫面持續更新時 `uiautomator dump` 會失敗；Claude Code 的沙箱擋 `adb` 連 5037。
 - **macOS**：macOS 27 不讓第三方讀 Now Playing，媒體控制只能目測；Flutter 的語意樹不經 macOS AX 暴露，要用截圖加座標。
 - **iOS 模擬器**：沒有可截圖的鎖定畫面與控制中心，Now Playing 只能讀系統 log；不要用 `orca emulator kill`。
@@ -152,11 +160,12 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
 - 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。
 - 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。
+- drift 的 schema（M0 票 07）：每個版本的快照在 `app/drift_schemas/app_database/`，升級測試在 `app/test/drift/app_database/`。改 schema 時：改表、`schemaVersion` 加一、在 `app/` 跑 `dart run drift_dev make-migrations`（產生新快照、`generated/` 的各版本資料庫、`lib/data/database.steps.dart`），在 `AppDatabase.migration` 用 `stepByStep` 寫這一步；`migration_test.dart` 自動涵蓋每一對版本，改到既有欄位時照檔頭加資料完整性測試。閘門的 `schema snapshot (drift)` 比對目前的 schema 與最新快照，`migration_test.dart` 比對 `schemaVersion` 與最新快照的版本，忘了任一步都會紅。`*.g.dart` 不進 git，閘門的 `codegen (build_runner)` 先產生。
 - 聯網冒煙測試：每個音源每種插件能力最多一條，手動執行，不擋合併；用真實帳號時照 `AGENTS.md` 的最少操作規則。
 
 ## 4. 開發環境與閘門
 
-- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、format、analyze、單元測試、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
+- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（§3）、文件閘門（還沒驗收的里程碑要有驗收票）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
 - `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見 §2 各平台的「閘門」），最後檢查插件打包產物是否最新（票 08 接上）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件用）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。

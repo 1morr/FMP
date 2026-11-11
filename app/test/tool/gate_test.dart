@@ -19,7 +19,15 @@ void main() {
       step.name,
   ];
 
-  const quickSteps = ['i18n (slang)', 'format', 'analyze', 'test', 'doc gate'];
+  const quickSteps = [
+    'i18n (slang)',
+    'codegen (build_runner)',
+    'format',
+    'analyze',
+    'test',
+    'schema snapshot (drift)',
+    'doc gate',
+  ];
 
   test('--quick runs only the quick steps', () {
     expect(names(quick: true), quickSteps);
