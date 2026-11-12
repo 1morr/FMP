@@ -105,7 +105,9 @@ void main() {
     );
     // 網址照遮蔽規則顯示（brief §13）。
     expect(
-      find.text('網址：https://cdn.example.com/ok.m4a?deadline=***&upsig=***'),
+      find.text(
+        '網址：https://cdn.example.com/ok.m4a?deadline=1767225600&upsig=***',
+      ),
       findsOneWidget,
     );
     expect(find.textContaining('SECRET123'), findsNothing);

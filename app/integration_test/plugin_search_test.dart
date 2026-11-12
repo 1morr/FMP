@@ -117,7 +117,7 @@ void main() {
     expect(find.text('音質：mp4a.40.2 · 135 kbps'), findsOneWidget);
     expect(
       find.text(
-        '網址：https://cdn.example.com/4242-1-30280.m4s?deadline=***&upsig=***',
+        '網址：https://cdn.example.com/4242-1-30280.m4s?deadline=1767225600&upsig=***',
       ),
       findsOneWidget,
     );

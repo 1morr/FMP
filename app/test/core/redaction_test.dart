@@ -52,14 +52,15 @@ void main() {
       );
     });
 
-    test('every query value of a URL that carries a signature parameter', () {
+    test('every query value of a URL that carries a signature parameter, '
+        'except a plain-timestamp expiry', () {
       expect(
         redact(
           'play https://cdn.example.com/v/1.m4s?e=FAKE_E&oi=FAKE_IP'
           '&mid=FAKE_UID&deadline=1762000000&upsig=FAKE_SIG&bvc=vod ok',
         ),
         'play https://cdn.example.com/v/1.m4s?e=***&oi=***'
-        '&mid=***&deadline=***&upsig=***&bvc=*** ok',
+        '&mid=***&deadline=1762000000&upsig=***&bvc=*** ok',
       );
       expect(
         redact('https://media.example.net/play?ip=FAKE_IP&sig=FAKE_SIG#t=3'),
@@ -146,6 +147,32 @@ void main() {
       expect(
         redact(r'{"body": "{\"u\":\"https://cdn.example.com/a?upsig=FAKE\"}"}'),
         r'{"body": "{\"u\":\"https://cdn.example.com/a?upsig=***\"}"}',
+      );
+    });
+
+    test('the expiry of a signed URL only when it is a plain timestamp', () {
+      // 擁有者 2026-11-12：deadline、expire 這類有效期參數只是時間，不是
+      // 憑證；值不是純時間戳時照樣遮，簽名與其他值也照樣遮。
+      expect(
+        redact(
+          'https://cdn.example.com/a.m4s?deadline=1762912345&e=FAKE'
+          '&upsig=FAKE&Expires=1762912345000&expire=soon&expiry=17629x',
+        ),
+        'https://cdn.example.com/a.m4s?deadline=1762912345&e=***'
+        '&upsig=***&Expires=1762912345000&expire=***&expiry=***',
+      );
+      expect(
+        redact(r'"https:\/\/cdn.example.com\/a?expire=1762912345&sig=F"'),
+        r'"https:\/\/cdn.example.com\/a?expire=1762912345&sig=***"',
+      );
+      // 名稱只是含有 expire、或時間戳長度不對的，不算。
+      expect(
+        redact(
+          'https://cdn.example.com/a?sig=F&expire_token=1762912345'
+          '&deadline=12345&expires=17629123450',
+        ),
+        'https://cdn.example.com/a?sig=***&expire_token=***'
+        '&deadline=***&expires=***',
       );
     });
 

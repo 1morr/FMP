@@ -157,9 +157,20 @@ final _querySeparator = RegExp(r'&amp;|&|\\u0026', caseSensitive: false);
 /// 任一參數名稱以這些字結尾，就是帶簽名的網址。
 const _signatureNameEndings = ['sig', 'sign', 'signature', 'hmac'];
 
+/// 帶簽名的網址裡照原樣留下的有效期參數（名稱完全相同，不分大小寫）：值
+/// 只是時間，不是憑證（擁有者 2026-11-12）。插件要從遮過的 fixture 讀得到
+/// 有效期，契約測試才驗得到。
+const _expiryNames = {'deadline', 'expire', 'expires', 'expiry'};
+
+/// 純時間戳：unix 秒（10 位數）或毫秒（13 位數）。其他形式的值照樣遮。
+final _timestamp = RegExp(r'^\d{10}(?:\d{3})?$');
+
+bool _isExpiry(String name, String value) =>
+    _expiryNames.contains(name.toLowerCase()) && _timestamp.hasMatch(value);
+
 /// 遮掉網址的帳密；帶簽名的網址再把 query 的值全部遮掉、只留參數名稱：同一個網址裡的使用者
 /// id、由 IP 算出的值各音源叫法不同，宿主不列音源專屬的名單，所以整段遮。
-/// 沒有簽名參數的網址原樣留著。
+/// 例外是純時間戳的有效期參數（[_isExpiry]）。沒有簽名參數的網址原樣留著。
 String _redactSignedUrl(String rawUrl) {
   final url = rawUrl.replaceFirstMapped(_userInfo, (m) => '${m[1]}$mask@');
   final queryStart = url.indexOf('?');
@@ -187,7 +198,11 @@ String _redactSignedUrl(String rawUrl) {
   final out = StringBuffer(url.substring(0, queryStart + 1));
   for (final (i, part) in parts.indexed) {
     final eq = part.indexOf('=');
-    out.write(eq < 0 ? part : '${part.substring(0, eq)}=$mask');
+    if (eq < 0 || _isExpiry(part.substring(0, eq), part.substring(eq + 1))) {
+      out.write(part);
+    } else {
+      out.write('${part.substring(0, eq)}=$mask');
+    }
     if (i < separators.length) out.write(separators[i]);
   }
   return (out..write(url.substring(queryEnd))).toString();
