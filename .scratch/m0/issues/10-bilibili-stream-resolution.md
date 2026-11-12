@@ -138,3 +138,4 @@ recorded 2 request(s) into plugins/bilibili/fixtures/resolveStream/first-part.js
 ```
 
 - **曲目 id 格式採用**：宿主把曲目 id 當不透明字串，格式由插件定；B 站是 `<bvid>` 與 `<bvid>?p=<n≥2>`。已寫進 brief §5.3，之後改格式要做資料 migration。
+- 改了遮蔽函式（`app/lib`），完整閘門重跑（`dart run tool/check.dart`，commit 028c3544），退出碼 0，22 步全部 `ok`：快速閘門 7 步、四平台建置、裝置鎖、四平台的 `app_test.dart` 與 `plugin_search_test.dart`、插件打包產物。
