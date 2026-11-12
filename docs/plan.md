@@ -61,7 +61,7 @@ app/
 | 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio 5.11.1 | 插件請求都經宿主網路層（`plugins/src/host_network.dart`：網域白名單、log 與遮蔽；依音源限流與重試還沒做，plan §7），只有 `plugins/` 能 import（依賴規則）；測試換掉 `HttpClientAdapter` |
-| 音訊 | just_audio（Android、iOS、macOS）、media_kit（Windows） | brief §6、事實 K1 |
+| 音訊 | just_audio 0.10.6（Android、iOS、macOS；帶進 audio_session 0.2.4）、media_kit 1.2.6 與 media_kit_libs_windows_audio 1.0.9（Windows） | brief §6、事實 K1；介面在 `playback/audio_backend.dart`，兩個實作在 `playback/backends/`，依平台挑在 `platform/audio_backend.dart`。just_audio 關掉 Dart 端的 header proxy，由原生播放器帶 header（事實 K25）；media_kit 的錯誤只在 mpv 的 log（事實 K26） |
 | 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 由 M0 票 05 實測（brief 事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4） |
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
@@ -93,7 +93,7 @@ app/
 
 ### macOS
 
-框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）。
+框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）。
 
 log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Support/com.personal.fmp.dev/logs/fmp.log`。
 
@@ -105,7 +105,7 @@ log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Suppor
 
 ### iOS 模擬器
 
-框架與套件：Flutter iOS，平台套件：path_provider（log 目錄、資料庫位置）。
+框架與套件：Flutter iOS，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）。
 
 log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下的 `Library/Application Support/logs/fmp.log`。
 
@@ -117,7 +117,7 @@ log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下�
 
 ### Android 模擬器
 
-框架與套件：Flutter Android，平台套件：path_provider（log 目錄、資料庫位置）。
+框架與套件：Flutter Android，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（ExoPlayer）。
 
 log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
@@ -129,7 +129,7 @@ log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
 ### Windows（`winpc`）
 
-框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄、資料庫位置）。
+框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄、資料庫位置）、media_kit（libmpv；建置時從 GitHub 下載，事實 K26）。
 
 log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.log" -Tail 20'`。
 
@@ -141,7 +141,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
 2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
-3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`-Type <文字>` 在截圖前按 Tab 聚焦第一個欄位、打字、按 Enter，`-Click x,y` 再點客戶區的邏輯座標（依視窗 DPI 換算），兩者動作前都重新拉一次前景；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。完整閘門跑完後，`Debug\fmp.exe` 已被 `flutter test -d windows` 用 integration_test 的入口重建，實跑前先重跑一次步驟 2（2026-11-11 票 07：直接啟動閘門留下的 exe，畫面正常卻沒有建立資料庫檔）。
+3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`-Type <文字>` 在截圖前按 Tab 聚焦第一個欄位、打字、按 Enter，`-Click x,y` 再點客戶區的邏輯座標（依視窗 DPI 換算），兩者動作前都重新拉一次前景；`-Click "x,y;x,y;…"` 依序點好幾下，每下等 `-ClickWait` 秒後另存一張 `shot-<n>.png`（n 從 1 起，和 `shot.png` 同目錄，例如票 11 用「點一首、暫停、空點一下、繼續」看暫停與繼續）；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。App 的 stdout、stderr 存到 `C:\fmp-wt\app-stdout.txt`、`app-stderr.txt`（Dart VM 中止時訊息印在這裡），關視窗後 `shot.log` 記 `exited_after_close`；看有沒有在關閉時崩潰，再對照事件記錄（`Get-WinEvent -FilterHashtable @{LogName="Application"; Id=1000}`，事實 W11）。完整閘門跑完後，`Debug\fmp.exe` 已被 `flutter test -d windows` 用 integration_test 的入口重建，實跑前先重跑一次步驟 2（2026-11-11 票 07：直接啟動閘門留下的 exe，畫面正常卻沒有建立資料庫檔）。
 4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `dart run tool/device_lock.dart -- ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉（持鎖做，別的 worktree 的閘門可能正在用它）。
 
 注意：
@@ -175,7 +175,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
   - 錄製（打真實音源，一次一個案例）：先建 `plugins/<id>/fixtures/<插件能力>/<案例>.json`，至少寫 `{"input": {…}}`，再在 `app/` 跑 `FMP_RECORD=<id>/<插件能力>/<案例> flutter test --run-skipped --tags live test/plugins/record_plugin_fixture_test.dart`。網址、header、內文經遮蔽函式，回應內文再裁成插件會讀的欄位（清單在插件的 `fixtures/keep.json`，例如 `{"search": ["code", "data.result.title"]}`，路徑照 MongoDB projection：`.` 分隔、陣列套到每個元素；沒列的插件能力不錄），才寫檔；回應 header 只留 `content-type`、`location`；契約不過（例如被限流）就不寫。契約測試也檢查提交的 fixture 只有 `keep.json` 列的欄位。插件改成讀新的欄位時，先加進 `keep.json` 再重錄。提交前看一次 diff，確認沒有個人資訊（`AGENTS.md`〈公開 repo〉）。
   - 聯網冒煙測試：`flutter test --run-skipped --tags live test/plugins/plugin_live_test.dart`（加 `--plain-name <id>` 只跑一個插件），每個插件的每個插件能力用第一個案例的 `input` 打一次真實音源，檢查同一套契約。
 - 插件宿主與插件的單元測試在 Mac 上跑真的 fjs 引擎（`loadFjsForTests()`，brief 事實 K19），網路換成 `test/support/fake_http.dart`。widget 測試裡會呼叫引擎的動作要在 `tester.runAsync` 裡發起，等結果時交替真實等待與 `pump`（事實 K19）。
-- 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。
+- 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。M0 的是 `integration_test/search_and_play_test.dart`（搜尋、點一首、播放、暫停、繼續），跑的是這個平台真的音訊後端。原生播放器的連線不經 Dart 的 `HttpOverrides`，所以它的串流網址指向 `test/support/local_audio_server.dart`：只聽 127.0.0.1 的假 CDN，回產生出來的無聲 WAV、支援 Range，少了 Referer 或瀏覽器的 User-Agent 就回 403（brief 事實 F22），播得起來就證明 header 帶到了。
 - drift 的 schema（M0 票 07）：每個版本的快照在 `app/drift_schemas/app_database/`，升級測試在 `app/test/drift/app_database/`。改 schema 時：改表、`schemaVersion` 加一、在 `app/` 跑 `dart run drift_dev make-migrations`（產生新快照、`generated/` 的各版本資料庫、`lib/data/database.steps.dart`），在 `AppDatabase.migration` 用 `stepByStep` 寫這一步；`migration_test.dart` 自動涵蓋每一對版本，改到既有欄位時照檔頭加資料完整性測試。閘門的 `schema snapshot (drift)` 比對目前的 schema 與最新快照，`migration_test.dart` 比對 `schemaVersion` 與最新快照的版本，忘了任一步都會紅。`*.g.dart` 不進 git，閘門的 `codegen (build_runner)` 先產生。
 - 聯網冒煙測試：每個音源每種插件能力最多一條，手動執行，不擋合併；用真實帳號時照 `AGENTS.md` 的最少操作規則。
 

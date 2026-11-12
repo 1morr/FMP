@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fmp/app/app.dart';
+import 'package:fmp/app/audio_backend_lifecycle.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
+import 'package:fmp/platform/audio_backend.dart';
 import 'package:fmp/platform/database_file.dart';
 import 'package:fmp/platform/log_directory.dart';
 
@@ -27,6 +29,7 @@ Future<void> main() async {
       overrides: [
         logProvider.overrideWithValue(log),
         appDatabaseProvider.overrideWithValue(database),
+        audioBackendOverride(createAudioBackend),
       ],
     ),
   );

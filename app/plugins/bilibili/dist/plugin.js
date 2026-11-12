@@ -4,10 +4,13 @@ var PAGELIST_URL = "https://api.bilibili.com/x/player/pagelist";
 var PLAYURL_URL = "https://api.bilibili.com/x/player/playurl";
 var API_REFERER = "https://www.bilibili.com/";
 var API_ORIGIN = "https://www.bilibili.com";
-var MEDIA_HEADERS = { Referer: "https://www.bilibili.com" };
 var FNVAL_DASH = "16";
 var TRACK_ID = /^(BV[0-9A-Za-z]{10})(?:\?p=([2-9]|[1-9]\d+))?$/;
 var USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+var MEDIA_HEADERS = {
+  Referer: "https://www.bilibili.com",
+  "User-Agent": USER_AGENT
+};
 var RISK_CONTROL_CODES = /* @__PURE__ */ new Set([-352, -412, -509, -799]);
 var ERROR_CODES = /* @__PURE__ */ new Map([
   [-404, "not_found"],

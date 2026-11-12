@@ -55,6 +55,10 @@ class PluginHost {
   /// 載入成功的插件，順序同傳入的 bundles。
   late final List<Plugin> plugins;
 
+  /// 提供 [source]（[Track.source]）的插件；沒有載入這個插件時是 null。
+  Plugin? pluginFor(String source) =>
+      plugins.where((p) => p.manifest.id == source).firstOrNull;
+
   /// 關掉所有引擎與網路。之後不能再用。
   Future<void> close() async {
     for (final plugin in plugins) {

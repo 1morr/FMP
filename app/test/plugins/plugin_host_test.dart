@@ -112,6 +112,26 @@ void main() {
     },
   );
 
+  test('pluginFor finds the plugin that provides a source', () {
+    final h = PluginHost(
+      bundles: [
+        PluginBundle(
+          manifest: manifest(id: 'one'),
+          code: '',
+        ),
+        PluginBundle(
+          manifest: manifest(id: 'two'),
+          code: '',
+        ),
+      ],
+      log: log,
+    );
+    hosts.add(h);
+
+    expect(h.pluginFor('two')?.manifest.id, 'two');
+    expect(h.pluginFor('three'), isNull);
+  });
+
   group('resolveStream', () {
     String resolving(String result) =>
         '''
