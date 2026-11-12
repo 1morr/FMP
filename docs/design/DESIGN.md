@@ -39,12 +39,12 @@ Flutter 對應：一個玻璃元件（brief §11），三級全部藏在它後�
 | 稿上 `data-glass` | Flutter（`liquid_glass_easy`，brief §11） | 內容 | 平台 |
 | --- | --- | --- | --- |
 | `refract` | `LiquidGlassLens` | 完整構成 | iOS、Android、macOS、Windows（四平台都是 Impeller，brief 事實 K10、K21） |
-| `standard` | lite glass（`LiquidGlassStyle(liteGlass: true)`） | `blur(18px) saturate(1.8)`＋高光＋陰影，無折射 | 四平台都做得到；預設不用，留給效能不足時降級，以及使用者在「外觀 › 玻璃效果」選「標準」時（系統沒開「降低透明度」）。降級時模糊半徑不能比折射級大：M0 實測 lite glass 用模糊 16 時比用模糊 5 的 lens 還慢（brief 事實 K21） |
-| `minimal` | 自己畫的實心填色（不用套件） | 無 backdrop；填色換成實心 `--glass-solid`（深 `#24232C`、淺 `#F7F6FA`），保留高光與陰影，`::after` 光暈關閉；clear 變體換 `rgba(20,18,28,.72)`；thick 同樣實心 | iOS、macOS、Windows 系統開「降低透明度」時，不管「玻璃效果」選哪個（brief 事實 K23；Android 沒有這個系統設定）；或使用者選「實心」時 |
+| `standard` | lite glass（`LiquidGlassStyle(liteGlass: true)`） | `blur(18px) saturate(1.8)`＋高光＋陰影，無折射 | 四平台都做得到；預設不用，留給效能不足時降級，以及使用者在「外觀 › 玻璃效果」選「輕量」時（系統沒開「降低透明度」）。降級時模糊半徑不能比折射級大：M0 實測 lite glass 用模糊 16 時比用模糊 5 的 lens 還慢（brief 事實 K21） |
+| `minimal` | 自己畫的實心填色（不用套件） | 無 backdrop；填色換成實心 `--glass-solid`（深 `#24232C`、淺 `#F7F6FA`），保留高光與陰影，`::after` 光暈關閉；clear 變體換 `rgba(20,18,28,.72)`；thick 同樣實心 | iOS、macOS、Windows 系統開「降低透明度」時，不管「玻璃效果」選哪個（brief 事實 K23；Android 沒有這個系統設定）；或使用者選「關閉」時 |
 
 - M0 票 05b 實測（`scripts/experiments/glass/`）：四個平台都做得到折射級；折射級浮在捲動中的 1500 首列表上方時，macOS、Windows 都沒有超過 16.7 ms 的幀，所以捲動時不降級（擁有者 2026-11-12）。玻璃元件要能在執行期切換級數：里程碑量效能（brief §15）時若掉幀，改成捲動時降到 standard。
 - 瀏覽器不支援 SVG backdrop-filter 時自動退到 standard（`html.no-refract`）。
-- 「外觀 › 玻璃效果」（擁有者 2026-11-12，brief §11）：折射（預設）／標準／實心，不開放細部參數；整個 App 一起切換。系統「降低透明度」打開時一律 minimal，設定列下方註明「系統已開啟降低透明度」。
+- 「外觀 › 玻璃效果」（擁有者 2026-11-12，brief §11）：完整（預設，refract）／輕量（standard）／關閉（minimal），選項下方的說明依序是「折射、模糊與高光」「只有模糊，比較省效能」「實心背景」，不開放細部參數；整個 App 一起切換。系統「降低透明度」打開時一律 minimal，設定列下方註明「系統已開啟降低透明度」。
 - 降級時版面不變，只有材質變；`minimal` 下 adaptive 的字色回到主題字色。
 
 ### 1.5 自適應色調（adaptive tone）
