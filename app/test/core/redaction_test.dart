@@ -141,6 +141,14 @@ void main() {
       );
     });
 
+    test('a signed URL inside a JSON string inside JSON keeps its escapes', () {
+      // 票 10：fixture 的回應內文是 JSON 字串，網址後面緊接跳脫的引號。
+      expect(
+        redact(r'{"body": "{\"u\":\"https://cdn.example.com/a?upsig=FAKE\"}"}'),
+        r'{"body": "{\"u\":\"https://cdn.example.com/a?upsig=***\"}"}',
+      );
+    });
+
     test('a single-quoted key in a printed map', () {
       expect(
         redact("{'access_token': 'FAKE1', 'n': 1}"),

@@ -138,9 +138,10 @@ int _jsonValueEnd(String text, int start) {
 }
 
 /// 網址，含 JSON 跳脫的 `https:\/\/`。結尾的標點（句點、逗號、右括號）
-/// 不算網址的一部分。
+/// 不算網址的一部分，反斜線也不算：JSON 字串裡再包的 JSON（例如 fixture 的
+/// 回應內文）中，網址後面緊接跳脫引號的 `\`。
 final _url = RegExp(
-  r'''https?:(?:\\?/){2}[^\s"'<>]*[^\s"'<>.,;:!?)\]}]''',
+  r'''https?:(?:\\?/){2}[^\s"'<>]*[^\s"'<>.,;:!?)\]}\\]''',
   caseSensitive: false,
 );
 
