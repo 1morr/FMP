@@ -8,14 +8,14 @@
 
 **Status:** ready-for-agent
 
-- [ ] 音訊後端介面用 `mattpocock-skills:codebase-design` 設計，只涵蓋 M0 要的載入、播放、暫停、狀態與錯誤；兩個實作在 `playback/backends/`（plan §1.3 的例外，擁有者 2026-11-11 決定），平台判斷只在 `platform/`。
-- [ ] 帶 header 播放：Apple 平台照事實 M5 重驗 B 站 CDN 回的 Content-Type 與 header 做法；Windows 照事實 K4。重驗結果更新 brief §18。
-- [ ] 播放錯誤轉成錯誤分類並寫 log；長度為零或一直 buffering 的情況至少有記錄（事實 W4），完整的看門狗留給 M1，記到票的 Comments。
-- [ ] 單元測試用 fake 後端測播放流程；零聯網。
-- [ ] `integration_test`：搜尋、點一首、進入播放狀態，用 fixture 重播與不連網的音訊來源，四平台在 `check.dart` 完整版通過。
-- [ ] 四平台實跑：搜一次、播一首，確認出聲並能暫停、繼續（macOS、Windows 本機聽；模擬器以播放狀態與進度前進為證），讀回畫面。
-- [ ] 依賴版本寫進 plan §1.4。
-- [ ] Windows 上的原生崩潰要分清來源再處理：建置階段 `frontend_server` 當掉（MSB8066，plan §2 記的 `winpc` 不穩）可以重跑；App 執行中的崩潰（崩的是 App 自己的行程，例如事實 W5 的 media_kit 同時 dispose）一律當產品 bug 查，不能重跑放過。判斷依據（log、crash dump 的模組名）記在票的 Comments。
+- [x] 音訊後端介面用 `mattpocock-skills:codebase-design` 設計，只涵蓋 M0 要的載入、播放、暫停、狀態與錯誤；兩個實作在 `playback/backends/`（plan §1.3 的例外，擁有者 2026-11-11 決定），平台判斷只在 `platform/`。
+- [x] 帶 header 播放：Apple 平台照事實 M5 重驗 B 站 CDN 回的 Content-Type 與 header 做法；Windows 照事實 K4。重驗結果更新 brief §18。
+- [x] 播放錯誤轉成錯誤分類並寫 log；長度為零或一直 buffering 的情況至少有記錄（事實 W4），完整的看門狗留給 M1，記到票的 Comments。
+- [x] 單元測試用 fake 後端測播放流程；零聯網。
+- [x] `integration_test`：搜尋、點一首、進入播放狀態，用 fixture 重播與不連網的音訊來源，四平台在 `check.dart` 完整版通過。
+- [x] 四平台實跑：搜一次、播一首，確認出聲並能暫停、繼續（macOS、Windows 本機聽；模擬器以播放狀態與進度前進為證），讀回畫面。
+- [x] 依賴版本寫進 plan §1.4。
+- [x] Windows 上的原生崩潰要分清來源再處理：建置階段 `frontend_server` 當掉（MSB8066，plan §2 記的 `winpc` 不穩）可以重跑；App 執行中的崩潰（崩的是 App 自己的行程，例如事實 W5 的 media_kit 同時 dispose）一律當產品 bug 查，不能重跑放過。判斷依據（log、crash dump 的模組名）記在票的 Comments。
 - [ ] `dart run tool/check.dart` 完整版綠燈。
 
 ## Comments
@@ -71,12 +71,18 @@
 
 ### Windows 原生崩潰的判斷
 
-- 這張票在 `winpc` 沒遇到 App 執行中的崩潰，也沒遇到建置階段的 `frontend_server` 崩潰（MSB8066）。
-- 判斷依據：
-  - 四次手動跑 integration_test，每次 `test.log` 都有 `exit test=0` 與 `=== done`。
-  - 建置的 `build.log` 每個階段的退出碼都是 0。
-  - 實跑時 App 的 log 沒有 error，`shot.ps1` 關 App 前行程都還在（`exited=False`）。
-- 只有一個播放器，`dispose` 只在 provider 釋放與 integration_test 收尾時各做一次（事實 W5）。
+- **App 執行中的崩潰（產品 bug，已修）**：第一次完整閘門跑完後查事件記錄，發現實跑那次 `fmp.exe` 在 `flutter_windows.dll` 出 `0xc0000409`，時間正是 `shot.ps1` 關視窗的那一刻。4 天內 `fmp.exe` 只崩過這一次；integration_test 收尾時會明確 dispose 後端，從沒崩過。
+  - 重現：`shot.ps1` 改成把 App 的 stdout、stderr 存檔，播一首後關視窗。每次都崩，stderr 是 `runtime_entry.cc: 5363: error: GetFfiCallbackMetadata called after shutdown`：Dart VM 關掉後，libmpv 的執行緒還在呼叫 media_kit 的 FFI callback（事實 W11）。
+  - 修法（`c89fa777`）：`app/audio_backend_lifecycle.dart` 的 `audioBackendOverride`，在建後端時註冊 `AppLifecycleListener.onExitRequested`，App 要結束時先 dispose 後端再結束，只 dispose 一次。測試用引擎的 `System.requestAppExit` 訊息測，雙向變異：拿掉 dispose 會紅。
+  - 驗證：同樣的步驟（播放中 0:09 時關視窗）正常結束，stderr 沒有錯誤，事件記錄沒有新紀錄。
+  - `shot.ps1` 之後每次都存 App 的輸出、記 `exited_after_close`（plan §2）。
+- **建置階段的失敗（不是 App 的行程）**：
+  - 手動重建時兩次 `exit codegen=1`（`database.g.dart` 是空的，`flutter build` 跟著失敗）。事件記錄各有一筆 `dartaotruntime.exe` 的 `0xc0000409`（11:40、11:46），是 plan §2 記的 `winpc` Dart 當掉，照規則重跑。
+  - 完整閘門前兩次（11:33、11:58）的 `integration_test windows: search_and_play_test.dart`，都在 `flutter test` 為第二個檔重建時報 `error MSB8066`（`flutter_windows.dll.rule`／`flutter_assemble.rule` 結束代碼 1），約 10 秒就失敗，測試沒開始跑。那兩個時間點**沒有** `dartaotruntime.exe` 的崩潰紀錄，所以不能確定是同一種環境問題。
+  - 手動照閘門的順序重跑（先 `app_test.dart`，馬上接 `search_and_play_test.dart`）三次：失敗一次、通過兩次（其中一次加了 `-v`，所以沒拿到失敗時的詳細輸出）。兩個檔之間沒有殘留的 `fmp.exe`。
+  - 經 SSH 直接跑 `flutter test -v` 會因為外掛 symlink 在 SSH 工作階段解不開，在 CMake 就失敗，和這個問題無關。
+  - 原因沒查到。下一個在 `winpc` 遇到的人，先把 `test.ps1` 改成加 `-v`，等它再失敗，看 `flutter_assemble` 的實際錯誤。
+- 只有一個播放器，dispose 在收到結束請求、provider 釋放、integration_test 收尾時做，同一個後端只做一次（事實 W5）。
 
 ### 四平台實跑（最終程式碼，合併 main 之後）
 
@@ -114,3 +120,39 @@
 - media_kit 的 `vid=no`、`prefetch-playlist=yes` 等 mpv 設定（事實 K4）沒設：M0 只播一首純音訊。
 - just_audio 沒設定 `audio_session`：背景播放、中斷處理在 M1。
 - 403 時重新解析、換 `backupUrl`、降一級音質重試（brief §6）都在 M1。
+
+### 完整閘門（還沒綠）
+
+`dart run tool/check.dart` 跑了三次（後兩次在 `c89fa777`），macOS、iOS、Android 的建置與 integration_test 每次都綠，快速閘門與插件打包產物也都綠；紅的只有 Windows：
+
+- 第 1、2 次：只有 `FAIL integration_test windows: integration_test/search_and_play_test.dart`，第二個檔重建時的 `MSB8066`，原因沒查到（見上面〈Windows 原生崩潰的判斷〉）。同一個檔在這個 session 裡單獨或照閘門順序手動跑，通過過五次。
+- 第 3 次：`winpc` 在 `build windows` 途中藍屏（12:07，BugCheck `0x00020001` HYPERVISOR_ERROR，minidump `C:\WINDOWS\Minidump\111226-19421-01.dmp`，Kernel-Power 41），重開後沒有人登入桌面，Windows 的三步都紅。這是 plan §2 記的 `winpc` 硬體或韌體不穩，不是這張票的程式。
+
+第 3 次的結果：
+
+```
+ok   i18n (slang)
+ok   codegen (build_runner)
+ok   format
+ok   analyze
+ok   test
+ok   schema snapshot (drift)
+ok   doc gate
+ok   build macos
+ok   build ios
+ok   build android
+ok   lock shared devices
+FAIL build windows
+ok   integration_test macos: integration_test/app_test.dart
+ok   integration_test macos: integration_test/search_and_play_test.dart
+ok   integration_test ios: integration_test/app_test.dart
+ok   integration_test ios: integration_test/search_and_play_test.dart
+ok   integration_test android: integration_test/app_test.dart
+ok   integration_test android: integration_test/search_and_play_test.dart
+FAIL integration_test windows: integration_test/app_test.dart
+FAIL integration_test windows: integration_test/search_and_play_test.dart
+ok   unlock shared devices
+ok   plugin bundles (esbuild)
+```
+
+要擁有者登入 `winpc` 的桌面後，在這個分支重跑完整版，綠了才把 Status 改成 `done`、勾掉最後一條。
