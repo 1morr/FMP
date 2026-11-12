@@ -50,4 +50,13 @@ void main() {
 
     expect(echoed.trim(), '0');
   });
+  test('a failed capture reports the command even when stderr is not UTF-8 '
+      '(winpc answers in cp950)', () async {
+    // 「找不到」的 cp950 位元組，不是合法的 UTF-8。
+    final failure = const ProcessShell().capture('sh', [
+      '-c',
+      r"printf '\247\344\244\243\250\354' >&2; exit 1",
+    ], workingDirectory: Directory.systemTemp);
+    await expectLater(failure, throwsA(isA<ProcessException>()));
+  });
 }
