@@ -38,7 +38,8 @@ void main() {
     ).entries) {
       if (files.isEmpty) continue;
       test('${plugin.id} ${capability.name} against the real source', () async {
-        final input = PluginFixture.parse(files.first.readAsStringSync()).input;
+        final first = PluginFixture.parse(files.first.readAsStringSync());
+        final input = first.input;
         final recording = liveRecording();
         final problems = await runContract(
           plugin.bundle,
@@ -46,6 +47,7 @@ void main() {
           input,
           log: log,
           httpAdapter: recording,
+          expect: first.expect,
         );
         // ignore: avoid_print -- 手動執行，印出打了什麼（已遮蔽）給人看。
         print(

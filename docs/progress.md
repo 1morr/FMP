@@ -89,3 +89,5 @@
 - 2026-11-11 票 06 後：擁有者確認 B 站 WBI 的 `w_rid` 不遮（用公開的 `img_key`／`sub_key` 算出、不是憑證）；`AGENTS.md`〈公開 repo〉補一句，`app/test/core/redaction_test.dart` 的「不遮」案例守著它。
 - 2026-11-12 M0 票 05：擁有者確認 macOS 的系統媒體控制用 audio_service（brief §6、事實 M10、K18；plan §1.4），自己的 platform channel 留作退路（plan §7）；brief §17 那條與 plan〈待決〉P2 刪除。
 - 2026-11-12 票 09：擁有者決定插件契約測試的 fixture 只留插件會讀的回應欄位（各插件的 `fixtures/keep.json`，錄製時裁掉、契約測試檢查）；音源上公開內容的作者名稱與標題不算個人資訊，已寫進 `AGENTS.md`〈公開 repo〉與 plan §3。
+- 2026-11-12 票 10 後：擁有者決定遮蔽函式留下簽名網址裡純時間戳的有效期參數（`deadline`、`expire`、`expires`、`expiry`，值是 10 或 13 位數；不是憑證），照 `w_rid` 的前例：`AGENTS.md`〈公開 repo〉擴充那一句，`app/test/core/redaction_test.dart` 有「不遮」與「仍要遮」的案例。bilibili 的 resolveStream fixture 已重錄，案例加 `expect: {expiresAt: true}`，契約測試驗得到有效期讀自 `deadline`。`expiresAt` 在約定裡仍是選填。
+- 2026-11-12 票 10 後：擁有者採用曲目 id 格式：宿主把曲目 id 當不透明字串，格式由插件定；B 站是 `<bvid>` 與 `<bvid>?p=<n≥2>`，寫進 brief §5.3，之後改格式要做資料 migration。

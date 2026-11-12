@@ -211,6 +211,100 @@ export async function search({ query }) {
     });
   });
 
+  group('expectations', () {
+    final resolveManifest = jsonEncode({
+      'id': 'demo',
+      'name': 'Demo',
+      'version': '1.0.0',
+      'capabilities': ['resolveStream'],
+      'domains': ['api.example.com'],
+    });
+
+    /// 回傳 [stream] 的 resolveStream。
+    PluginBundle resolving(Map<String, Object?> stream) => PluginBundle(
+      manifest: resolveManifest,
+      code:
+          'export async function resolveStream() { '
+          'return ${jsonEncode(stream)}; }',
+    );
+
+    Future<List<String>> run(
+      PluginBundle bundle,
+      PluginCapability capability,
+      Map<String, Object?> expect,
+    ) => runContractCase(
+      bundle,
+      capability,
+      PluginFixture(
+        input: capability == PluginCapability.search
+            ? const {'query': 'q'}
+            : const {'trackId': 't'},
+        expect: expect,
+        interactions: const [],
+      ),
+      log: log,
+    );
+
+    test('expiresAt: a stream without an expiry turns red', () async {
+      expect(
+        await run(
+          resolving({'url': 'https://cdn.example.com/a.m4a'}),
+          PluginCapability.resolveStream,
+          const {'expiresAt': true},
+        ),
+        ['expected an expiresAt, got none'],
+      );
+    });
+
+    test('expiresAt: a stream with an expiry stays green', () async {
+      expect(
+        await run(
+          resolving({
+            'url': 'https://cdn.example.com/a.m4a',
+            'expiresAtMs': 1767225600000,
+          }),
+          PluginCapability.resolveStream,
+          const {'expiresAt': true},
+        ),
+        isEmpty,
+      );
+    });
+
+    test('an expectation the capability does not know turns red', () async {
+      expect(
+        await run(
+          PluginBundle(
+            manifest: manifest,
+            code:
+                'export async function search() { '
+                'return ${jsonEncode({
+                  'tracks': [
+                    {'id': '1', 'title': 'x', 'author': ''},
+                  ],
+                })}; }',
+          ),
+          PluginCapability.search,
+          const {'expiresAt': true},
+        ),
+        ['search has no expectation "expiresAt"'],
+      );
+    });
+
+    test('parse and encode keep the expectations', () {
+      final source = PluginFixture(
+        input: const {'trackId': 't'},
+        expect: const {'expiresAt': true},
+        interactions: const [],
+      ).encode();
+      expect(PluginFixture.parse(source).expect, {'expiresAt': true});
+      expect(
+        PluginFixture.parse('{"input": {}}').expect,
+        isEmpty,
+        reason: 'a fixture without expectations',
+      );
+    });
+  });
+
   group('resolveStreamContractViolations', () {
     final url = Uri.parse('https://cdn.example.com/a.m4a');
 

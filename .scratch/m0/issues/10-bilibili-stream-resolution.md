@@ -24,7 +24,7 @@
 - 宿主檢查回傳形狀：網址要是 http(s) 的絕對網址，數字要是有限值，時間要在 DateTime 的範圍內，不對就是 `ParseFailure`。log 不記網址：`Uri.parse` 的例外會帶整個簽名網址，所以只記訊息。`AudioStream.toString()` 也不印網址。有效期是 UTC，畫面顯示時轉本地時間。
 - WBI（協調者的提醒）：這張票不用 WBI。cid 從 `/x/player/pagelist` 拿，串流從 `/x/player/playurl` 拿，兩支都不帶 `wts`、`w_rid`（事實 F1、F21），fixture 照原本的完整網址比對就對得上。票 09 Comments 記的比對問題，留給之後真的用到 WBI 的插件能力。所以 plan §3 沒有改。
 - bilibili：先查 pagelist 拿分 P 的 cid，再打 playurl（`fnval=16`），從 `dash.audio` 選頻寬最高的音訊軌（事實 F6）。有效期讀網址的 `deadline`，讀不到就不給（事實 F5）。回傳的 header 只有 `Referer: https://www.bilibili.com`（事實 F4）。
-- 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<n>`）：`<bvid>` 是第一個分 P，`<bvid>?p=<n>`（n ≥ 2）是第 n 個分 P。不收 `?p=1`，一首曲目只有一個 id。這個格式寫在插件檔頭。之後會存進資料庫（M3），算持久化格式，**要不要寫進 brief 或名詞表，等擁有者確認**（〈擁有者確認〉）。
+- 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<n>`）：`<bvid>` 是第一個分 P，`<bvid>?p=<n>`（n ≥ 2）是第 n 個分 P。不收 `?p=1`，一首曲目只有一個 id。這個格式寫在插件檔頭。之後會存進資料庫（M3），算持久化格式，擁有者 2026-11-12 採用，已寫進 brief §5.3（見文末〈擁有者決定〉）。
 - 錯誤分類：
   - HTTP 412、429 與風控碼是限流（沿用事實 F2）。
   - `-404` 是找不到。舊版把它歸「不可用」，但它是稿件不存在，票上也列了「找不到」。
@@ -39,7 +39,7 @@
 ### fixture 與 live
 
 - 案例只有 `resolveStream/first-part.json`（`BV1xx411c7mD`，即 av170001）。原本也要錄 `?p=2`，但這支影片的 pagelist 現在只剩一個分 P，就沒錄，也沒有為了找多 P 的影片多打請求。「不同分 P 解析出不同串流」由 `bilibili_plugin_test.dart` 的單元測試證明，用的是 F21 的 pagelist 形狀。
-- fixture 裡的網址整段遮成 `***`（帶 `upsig`），`deadline` 也一樣，所以重播時 `expiresAt` 一律是 null。「有效期讀 `deadline`」只由單元測試守，契約測試證明不了。
+- 原本 fixture 裡的網址整段遮成 `***`（帶 `upsig`），`deadline` 也一樣，重播時 `expiresAt` 一律是 null，契約測試證明不了「有效期讀 `deadline`」。擁有者決定遮蔽函式留下純時間戳的有效期參數，之後已重錄，見文末〈擁有者決定〉。
 - 錄製：共打了 3 次，都是匿名。前兩次被寫檔前的檢查擋下（上面那個遮蔽 bug），只有第 3 次寫了檔：
 
 ```
@@ -118,4 +118,23 @@ ok   plugin bundles (esbuild)
 未處理：
 - 佔位頁解析串流的錯誤文字和搜尋的錯誤文字各有一個 switch，網路與限流兩句借用 `placeholder.search.*` 的字串。M0 的佔位頁到 M1 就整頁換掉，沒有抽共用。
 - UI 自己在 `host.plugins` 裡用 `track.source` 找插件。宿主沒有提供 `pluginFor(source)`：目前只有這一個地方要用。票 11 播放時若也要找，再搬進宿主。
-- 曲目 id 的格式要不要進 brief：見〈做法〉，等擁有者確認。
+- 曲目 id 的格式要不要進 brief：擁有者已採用，見文末〈擁有者決定〉。
+
+### 擁有者決定（2026-11-12，協調者轉達）
+
+- **遮蔽函式留下有效期參數**：簽名網址裡名稱是 `deadline`、`expire`、`expires`、`expiry`（不分大小寫、名稱完全相同），而且值是純時間戳（10 或 13 位數）的參數照原樣留下，其他值與 `upsig` 等簽名照樣遮。照 `w_rid` 的前例，`AGENTS.md`〈公開 repo〉那一句擴充。
+  - 測試在 `redaction_test.dart`：留下的案例，以及 `expire=soon`、5 位數、11 位數、`expire_token` 仍要遮的案例。原本「簽名網址的值全遮」那條改成例外留下 `deadline`。
+  - 雙向變異：讓例外永遠不成立，兩條紅；拿掉時間戳檢查（任何值都留），「仍要遮」那條紅；還原後綠。
+- **契約測試驗有效期**：fixture 案例加了選填的 `expect`，resolveStream 認得 `{"expiresAt": true}`（串流要有有效期），認不得的鍵會紅。錄製、重播與 live 冒煙測試都套用，錄製時照原樣寫回；plan §3 已補。
+  - 加上 `expect` 後，舊 fixture（`deadline=***`）在契約測試紅了（`expected an expiresAt, got none`）。重錄（匿名、解析一首）後，網址留下 `deadline=1794456901`，其他值仍是 `***`，契約測試轉綠。`expiresAt` 在約定裡仍是選填。
+
+```
+$ FMP_RECORD=bilibili/resolveStream/first-part flutter test --run-skipped --tags live test/plugins/record_plugin_fixture_test.dart
+00:00 +0: record the plugin fixture named by FMP_RECORD
+recorded 2 request(s) into plugins/bilibili/fixtures/resolveStream/first-part.json:
+  GET https://api.bilibili.com/x/player/pagelist?bvid=BV1xx411c7mD -> 200
+  GET https://api.bilibili.com/x/player/playurl?bvid=BV1xx411c7mD&cid=62131&fnval=16 -> 200
+00:00 +1: All tests passed!
+```
+
+- **曲目 id 格式採用**：宿主把曲目 id 當不透明字串，格式由插件定；B 站是 `<bvid>` 與 `<bvid>?p=<n≥2>`。已寫進 brief §5.3，之後改格式要做資料 migration。

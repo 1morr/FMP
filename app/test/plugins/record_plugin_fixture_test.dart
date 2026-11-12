@@ -56,7 +56,8 @@ void main() {
     final file = File(
       '${plugin.dir.path}/fixtures/$capabilityName/$caseName.json',
     );
-    final input = PluginFixture.parse(file.readAsStringSync()).input;
+    final existing = PluginFixture.parse(file.readAsStringSync());
+    final input = existing.input;
 
     await loadFjsForTests();
     final logDir = Directory.systemTemp.createTempSync('fmp_record_');
@@ -73,12 +74,14 @@ void main() {
       input,
       log: log,
       httpAdapter: recording,
+      expect: existing.expect,
     );
     expect(problems, isEmpty, reason: 'nothing written to ${file.path}');
 
     final today = DateTime.now().toIso8601String().substring(0, 10);
     final source = PluginFixture(
       input: input,
+      expect: existing.expect,
       recorded: today,
       interactions: recording.recorded,
     ).trimmed(keep).encode();
