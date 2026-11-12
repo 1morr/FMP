@@ -5,6 +5,7 @@ import 'package:dio/dio.dart' show DioException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/plugins.dart';
 
@@ -110,6 +111,91 @@ void main() {
       expect(http.requests.single.method, 'GET');
     },
   );
+
+  group('resolveStream', () {
+    String resolving(String result) =>
+        '''
+      export async function resolveStream({ trackId }) {
+        return $result;
+      }
+    ''';
+    final resolveManifest = manifest(capabilities: ['resolveStream']);
+
+    test('returns the stream the plugin resolves for the track id', () async {
+      final h = host(
+        resolving('''{
+          url: 'https://cdn.example.com/a.m4a?track=' + trackId,
+          headers: { Referer: 'https://example.com' },
+          expiresAtMs: 1767225600000,
+          codec: 'mp4a.40.2',
+          bitrate: 132000,
+        }'''),
+        manifestJson: resolveManifest,
+      );
+
+      expect(
+        await only(h).resolveStream('a1'),
+        AudioStream(
+          url: Uri.parse('https://cdn.example.com/a.m4a?track=a1'),
+          headers: const {'Referer': 'https://example.com'},
+          expiresAt: DateTime.utc(2026),
+          codec: 'mp4a.40.2',
+          bitrate: 132000,
+        ),
+      );
+    });
+
+    test('headers, expiry, codec and bitrate are optional', () async {
+      final h = host(
+        resolving("{ url: 'https://cdn.example.com/a.m4a' }"),
+        manifestJson: resolveManifest,
+      );
+
+      expect(
+        await only(h).resolveStream('a1'),
+        AudioStream(url: Uri.parse('https://cdn.example.com/a.m4a')),
+      );
+    });
+
+    for (final (name, result) in [
+      ('no url', '{}'),
+      ('a relative url', "{ url: '/a.m4a' }"),
+      ('a non-http url', "{ url: 'file:///etc/passwd' }"),
+      (
+        'an expiry that is not a number',
+        "{ url: 'https://a.example/x', expiresAtMs: NaN }",
+      ),
+      (
+        'an expiry out of range',
+        "{ url: 'https://a.example/x', expiresAtMs: 1e300 }",
+      ),
+      (
+        'a bitrate that is not finite',
+        "{ url: 'https://a.example/x', bitrate: Infinity }",
+      ),
+      (
+        'a header that is not a string',
+        "{ url: 'https://a.example/x', "
+            'headers: { Referer: 1 } }',
+      ),
+    ]) {
+      test('$name is a ParseFailure', () async {
+        final h = host(resolving(result), manifestJson: resolveManifest);
+        await expectLater(
+          only(h).resolveStream('a1'),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+
+    test('a plugin that does not declare it is Unsupported', () async {
+      final h = host(resolving("{ url: 'https://a.example/x' }"));
+      await expectLater(
+        only(h).resolveStream('a1'),
+        throwsA(isA<Unsupported>()),
+      );
+    });
+  });
 
   group('host network', () {
     // 插件抓 query 給的網址，把狀態碼與內文、或錯誤代碼放進標題回傳，

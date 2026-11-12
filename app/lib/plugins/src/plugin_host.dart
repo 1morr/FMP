@@ -4,6 +4,7 @@ import 'package:dio/dio.dart' show HttpClientAdapter;
 import 'package:fjs/fjs.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/src/host_network.dart';
 import 'package:fmp/plugins/src/js_engine.dart';
@@ -79,14 +80,68 @@ class Plugin {
   /// 插件能力 `search`：用 [query] 搜尋曲目。
   Future<List<Track>> search(String query) async {
     final result = await _invoke(PluginCapability.search, {'query': query});
-    try {
+    return _parse(PluginCapability.search, () {
       final tracks = (result as Map)['tracks'] as List;
       return [for (final t in tracks) _track(t as Map)];
-    } on TypeError catch (e) {
-      _log.warning('plugin ${manifest.id}: search returned a bad shape: $e');
+    });
+  }
+
+  /// 插件能力 `resolveStream`：把 [trackId]（[Track.id]）解析成串流。
+  Future<AudioStream> resolveStream(String trackId) async {
+    final result = await _invoke(PluginCapability.resolveStream, {
+      'trackId': trackId,
+    });
+    return _parse(PluginCapability.resolveStream, () {
+      final json = result as Map;
+      final url = Uri.parse(json['url'] as String);
+      if (!url.isAbsolute || !const {'http', 'https'}.contains(url.scheme)) {
+        throw const FormatException('url is not an absolute http(s) url');
+      }
+      final headers = json['headers'] as Map? ?? const {};
+      final expiresAtMs = _whole(json['expiresAtMs'], 'expiresAtMs');
+      return AudioStream(
+        url: url,
+        headers: {
+          for (final MapEntry(:key, :value) in headers.entries)
+            key as String: value as String,
+        },
+        expiresAt: expiresAtMs == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(expiresAtMs, isUtc: true),
+        codec: json['codec'] as String?,
+        bitrate: _whole(json['bitrate'], 'bitrate'),
+      );
+    });
+  }
+
+  /// 把插件能力的回傳值轉成 Dart 的型別。形狀不對（型別、格式、數字或時間
+  /// 超出範圍）時寫 log、丟 [ParseFailure]。FormatException 只記訊息：
+  /// `Uri.parse` 的例外會帶整個（簽名過的）網址。
+  T _parse<T>(PluginCapability capability, T Function() parse) {
+    Never badShape(Object why) {
+      _log.warning(
+        'plugin ${manifest.id}: ${capability.name} returned a bad shape: $why',
+      );
       throw const ParseFailure();
     }
+
+    try {
+      return parse();
+    } on TypeError catch (e) {
+      badShape(e);
+    } on FormatException catch (e) {
+      badShape(e.message);
+    } on ArgumentError catch (e) {
+      badShape(e);
+    }
   }
+
+  /// 選填的數字欄位，四捨五入成整數；NaN 與無限大不算數字。
+  static int? _whole(Object? value, String name) => switch (value) {
+    null => null,
+    num n when n.isFinite => n.round(),
+    _ => throw FormatException('$name is not a finite number'),
+  };
 
   Track _track(Map<dynamic, dynamic> json) {
     final ms = json['durationMs'];

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/core/redaction/redact.dart';
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/plugins.dart';
 
@@ -19,6 +20,7 @@ import 'no_network.dart';
 /// ```json
 /// {
 ///   "input": {"query": "lemon"},
+///   "expect": {},
 ///   "recorded": "2026-11-12",
 ///   "interactions": [
 ///     {
@@ -32,6 +34,7 @@ class PluginFixture {
   PluginFixture({
     required this.input,
     required this.interactions,
+    this.expect = const {},
     this.recorded,
   });
 
@@ -46,8 +49,13 @@ class PluginFixture {
     if (interactions is! List) {
       throw const FormatException('"interactions" must be a list');
     }
+    final expect = json['expect'] ?? const <String, Object?>{};
+    if (expect is! Map) {
+      throw const FormatException('"expect" must be an object');
+    }
     return PluginFixture(
       input: Map<String, Object?>.from(json['input'] as Map),
+      expect: Map<String, Object?>.from(expect),
       recorded: json['recorded'] as String?,
       interactions: [
         for (final i in interactions) Interaction._fromJson(i as Map),
@@ -58,6 +66,11 @@ class PluginFixture {
   /// 插件能力的參數，和宿主傳給插件的一樣（例如 search 的 `query`）。
   final Map<String, Object?> input;
 
+  /// 這個案例另外要求的結果，鍵是各插件能力認得的期望（[checkContract]），
+  /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期。錄製、
+  /// 重播與 live 冒煙測試都套用；錄製時照原樣寫回。
+  final Map<String, Object?> expect;
+
   /// 錄製的日期（`YYYY-MM-DD`）。
   final String? recorded;
 
@@ -67,6 +80,7 @@ class PluginFixture {
   /// 丟 [FormatException]：裁不了，就不該寫檔。
   PluginFixture trimmed(List<String> keep) => PluginFixture(
     input: input,
+    expect: expect,
     recorded: recorded,
     interactions: [
       for (final i in interactions)
@@ -84,6 +98,7 @@ class PluginFixture {
   String encode() =>
       '${const JsonEncoder.withIndent('  ').convert({
         'input': input,
+        if (expect.isNotEmpty) 'expect': expect,
         'recorded': ?recorded,
         'interactions': [for (final i in interactions) i._toJson()],
       })}\n';
@@ -184,15 +199,31 @@ class FixtureReplay implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-/// 對 [plugin] 呼叫 [capability]，回傳違反契約的地方。插件或音源失敗時
-/// 照原樣丟出 `AppError`；[input] 的形狀不對時丟 [FormatException]。
+/// 對 [plugin] 呼叫 [capability]，回傳違反契約與 [expect]（案例的期望，
+/// [PluginFixture.expect]）的地方。插件或音源失敗時照原樣丟出 `AppError`；
+/// [input] 或 [expect] 的形狀不對時丟 [FormatException]。
 ///
 /// 新增插件能力時這個 switch 不完整、編譯不過，提醒要補它的契約。
 Future<List<String>> checkContract(
   Plugin plugin,
   PluginCapability capability,
-  Map<String, Object?> input,
-) async {
+  Map<String, Object?> input, {
+  Map<String, Object?> expect = const {},
+}) async {
+  final known = switch (capability) {
+    PluginCapability.search => const <String>{},
+    PluginCapability.resolveStream => const {'expiresAt'},
+  };
+  final unknown = [
+    for (final key in expect.keys)
+      if (!known.contains(key)) '${capability.name} has no expectation "$key"',
+  ];
+  if (unknown.isNotEmpty) return unknown;
+  for (final MapEntry(:key, :value) in expect.entries) {
+    if (value != true) {
+      throw FormatException('expectation "$key" must be true');
+    }
+  }
   switch (capability) {
     case PluginCapability.search:
       final query = input['query'];
@@ -203,6 +234,19 @@ Future<List<String>> checkContract(
         plugin.manifest.id,
         await plugin.search(query),
       );
+    case PluginCapability.resolveStream:
+      final trackId = input['trackId'];
+      if (trackId is! String) {
+        throw const FormatException(
+          'resolveStream input needs a "trackId" string',
+        );
+      }
+      final stream = await plugin.resolveStream(trackId);
+      return [
+        ...resolveStreamContractViolations(stream),
+        if (expect.containsKey('expiresAt') && stream.expiresAt == null)
+          'expected an expiresAt, got none',
+      ];
   }
 }
 
@@ -219,6 +263,19 @@ List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
   ],
 ];
 
+/// 插件能力 resolveStream 的契約（`app/plugins/host.d.ts`）：網址是 http(s)
+/// 的絕對網址（宿主已檢查），其餘欄位不知道就不給，給了就要有意義。
+/// 有效期只檢查晚於 epoch：重播的是過去錄的回應，早就過期了。
+List<String> resolveStreamContractViolations(AudioStream stream) => [
+  if (stream.headers.keys.any((name) => name.trim().isEmpty))
+    'empty header name',
+  if (stream.expiresAt case final at? when at.millisecondsSinceEpoch <= 0)
+    'expiresAt $at is not after the epoch',
+  if (stream.codec case final codec? when codec.trim().isEmpty) 'empty codec',
+  if (stream.bitrate case final bitrate? when bitrate <= 0)
+    'bitrate $bitrate is not positive',
+];
+
 /// 對 [bundle] 的插件跑 [capability] 的契約，網路經 [httpAdapter]。回傳
 /// 插件丟的錯誤與違反契約的地方；空的就是通過。
 Future<List<String>> runContract(
@@ -227,6 +284,7 @@ Future<List<String>> runContract(
   Map<String, Object?> input, {
   required Log log,
   required HttpClientAdapter httpAdapter,
+  Map<String, Object?> expect = const {},
 }) async {
   final host = PluginHost(
     bundles: [bundle],
@@ -235,7 +293,12 @@ Future<List<String>> runContract(
   );
   try {
     if (host.plugins.isEmpty) return ['the plugin did not load; see the log'];
-    return await checkContract(host.plugins.single, capability, input);
+    return await checkContract(
+      host.plugins.single,
+      capability,
+      input,
+      expect: expect,
+    );
   } catch (e) {
     return ['${capability.name} threw $e'];
   } finally {
@@ -258,6 +321,7 @@ Future<List<String>> runContractCase(
     fixture.input,
     log: log,
     httpAdapter: replay,
+    expect: fixture.expect,
   );
   return [
     for (final request in replay.unmatched) 'no fixture for $request',
