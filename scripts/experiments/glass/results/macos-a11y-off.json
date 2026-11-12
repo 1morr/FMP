@@ -1,0 +1,22 @@
+{
+  "env": {
+    "platform": "macOS",
+    "os": "Version 27.0.1 (Build 26A434)",
+    "buildMode": "profile",
+    "shaderFilterSupported": true,
+    "refractProgramLoaded": true,
+    "refreshRate": 160.0,
+    "devicePixelRatio": 2.0,
+    "logicalSize": [
+      600.0,
+      828.0
+    ],
+    "a11y": {
+      "reduceTransparency(native)": false,
+      "highContrast": false,
+      "reduceMotion": false,
+      "disableAnimations": false
+    }
+  },
+  "variants": []
+}

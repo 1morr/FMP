@@ -1,0 +1,183 @@
+{
+  "env": {
+    "platform": "android",
+    "os": "CE2A.260420.051.A2",
+    "buildMode": "profile",
+    "shaderFilterSupported": true,
+    "refractProgramLoaded": true,
+    "refreshRate": 60.000003814697266,
+    "devicePixelRatio": 2.625,
+    "logicalSize": [
+      411.42857142857144,
+      914.2857142857143
+    ],
+    "a11y": {
+      "reduceTransparency(native)": null,
+      "highContrast": false,
+      "reduceMotion": false,
+      "disableAnimations": false
+    }
+  },
+  "variants": [
+    {
+      "variant": "lgw-premium",
+      "frames": 50,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.637,
+        "p90": 0.967,
+        "p99": 1.452,
+        "max": 1.452
+      },
+      "rasterMs": {
+        "p50": 162.789,
+        "p90": 231.63,
+        "p99": 327.811,
+        "max": 327.811
+      },
+      "over16_7ms": 46,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 46
+    },
+    {
+      "variant": "lgw-standard",
+      "frames": 69,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.559,
+        "p90": 0.933,
+        "p99": 2.403,
+        "max": 2.403
+      },
+      "rasterMs": {
+        "p50": 115.249,
+        "p90": 142.904,
+        "p99": 227.937,
+        "max": 227.937
+      },
+      "over16_7ms": 62,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 62
+    },
+    {
+      "variant": "lgw-minimal",
+      "frames": 29,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.843,
+        "p90": 1.599,
+        "p99": 1.98,
+        "max": 1.98
+      },
+      "rasterMs": {
+        "p50": 294.221,
+        "p90": 519.44,
+        "p99": 570.222,
+        "max": 570.222
+      },
+      "over16_7ms": 28,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 28
+    },
+    {
+      "variant": "lge-lens",
+      "frames": 42,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.769,
+        "p90": 1.301,
+        "p99": 12.56,
+        "max": 12.56
+      },
+      "rasterMs": {
+        "p50": 196.276,
+        "p90": 327.411,
+        "p99": 411.452,
+        "max": 411.452
+      },
+      "over16_7ms": 37,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 37
+    },
+    {
+      "variant": "lge-lite",
+      "frames": 23,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 1.006,
+        "p90": 1.497,
+        "p99": 5.12,
+        "max": 5.12
+      },
+      "rasterMs": {
+        "p50": 338.974,
+        "p90": 362.061,
+        "p99": 640.935,
+        "max": 640.935
+      },
+      "over16_7ms": 21,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 21
+    },
+    {
+      "variant": "own-refract",
+      "frames": 26,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.993,
+        "p90": 1.406,
+        "p99": 5.776,
+        "max": 5.776
+      },
+      "rasterMs": {
+        "p50": 313.629,
+        "p90": 364.901,
+        "p99": 564.247,
+        "max": 564.247
+      },
+      "over16_7ms": 26,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 26
+    },
+    {
+      "variant": "own-blur",
+      "frames": 61,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.605,
+        "p90": 0.945,
+        "p99": 4.558,
+        "max": 4.558
+      },
+      "rasterMs": {
+        "p50": 125.661,
+        "p90": 228.988,
+        "p99": 274.12,
+        "max": 274.12
+      },
+      "over16_7ms": 56,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 56
+    },
+    {
+      "variant": "solid",
+      "frames": 327,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.282,
+        "p90": 0.436,
+        "p99": 2.214,
+        "max": 11.608
+      },
+      "rasterMs": {
+        "p50": 23.888,
+        "p90": 32.855,
+        "p99": 39.219,
+        "max": 48.802
+      },
+      "over16_7ms": 303,
+      "budgetMs": 16.666665607028605,
+      "overBudget": 303
+    }
+  ]
+}

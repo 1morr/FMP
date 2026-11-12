@@ -1,0 +1,22 @@
+{
+  "env": {
+    "platform": "iOS",
+    "os": "Version 27.1 (Build 24A94425)",
+    "buildMode": "debug",
+    "shaderFilterSupported": true,
+    "refractProgramLoaded": true,
+    "refreshRate": 60.0,
+    "devicePixelRatio": 3.0,
+    "logicalSize": [
+      466.0,
+      678.0
+    ],
+    "a11y": {
+      "reduceTransparency(native)": false,
+      "highContrast": false,
+      "reduceMotion": false,
+      "disableAnimations": false
+    }
+  },
+  "variants": []
+}
