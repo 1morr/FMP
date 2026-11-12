@@ -9,8 +9,16 @@ import 'dart:typed_data';
 /// 照 CDN 的行為支援 `Range`（AVPlayer 要求伺服器支援位元組範圍）。設了
 /// [requiredHeaders] 時，少帶或帶錯的請求回 403，像 B 站 CDN 檢查 Referer
 /// 一樣：播得起來就證明串流的 header 有帶到原生播放器的請求上。
+/// [requireBrowserUserAgent] 為真時，`User-Agent` 不是瀏覽器的（不以
+/// `Mozilla/` 開頭，例如 ExoPlayer 或 AVPlayer 自己的）也回 403，像 B 站
+/// 部分串流網址那樣（brief 事實 F22）。
 class LocalAudioServer {
-  LocalAudioServer._(this._server, this._wav, this.requiredHeaders) {
+  LocalAudioServer._(
+    this._server,
+    this._wav,
+    this.requiredHeaders,
+    this.requireBrowserUserAgent,
+  ) {
     _server.listen(_handle);
   }
 
@@ -18,14 +26,21 @@ class LocalAudioServer {
   static Future<LocalAudioServer> start({
     Duration length = const Duration(seconds: 30),
     Map<String, String> requiredHeaders = const {},
+    bool requireBrowserUserAgent = false,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    return LocalAudioServer._(server, silentWav(length), requiredHeaders);
+    return LocalAudioServer._(
+      server,
+      silentWav(length),
+      requiredHeaders,
+      requireBrowserUserAgent,
+    );
   }
 
   final HttpServer _server;
   final Uint8List _wav;
   final Map<String, String> requiredHeaders;
+  final bool requireBrowserUserAgent;
 
   /// 收到的每個請求：方法、路徑與小寫 header 名稱對到值。
   final requests =
@@ -48,9 +63,12 @@ class LocalAudioServer {
     ));
     final response = request.response;
     try {
-      final missing = requiredHeaders.entries.any(
-        (e) => headers[e.key.toLowerCase()] != e.value,
-      );
+      final missing =
+          requiredHeaders.entries.any(
+            (e) => headers[e.key.toLowerCase()] != e.value,
+          ) ||
+          (requireBrowserUserAgent &&
+              !(headers['user-agent'] ?? '').startsWith('Mozilla/'));
       if (missing) {
         response.statusCode = HttpStatus.forbidden;
         return;

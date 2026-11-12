@@ -62,6 +62,24 @@ void main() {
     );
   });
 
+  test('can refuse a player\'s own User-Agent, like some bilibili stream '
+      'urls', () async {
+    await server.close();
+    server = await LocalAudioServer.start(
+      length: const Duration(seconds: 2),
+      requireBrowserUserAgent: true,
+    );
+    expect(
+      await get({'User-Agent': 'ExoPlayerLib/1.4.1'}),
+      startsWith('HTTP/1.1 403'),
+    );
+    expect(await get({}), startsWith('HTTP/1.1 403'));
+    expect(
+      await get({'User-Agent': 'Mozilla/5.0 (X11) Chrome/130'}),
+      startsWith('HTTP/1.1 200'),
+    );
+  });
+
   test('silentWav is a valid PCM header of the right length', () {
     final wav = silentWav(const Duration(seconds: 1));
     expect(ascii.decode(wav.sublist(0, 4)), 'RIFF');

@@ -20,8 +20,9 @@ import '../test/support/no_network.dart';
 /// （`platform/audio_backend.dart` 挑的原生播放器）。
 ///
 /// 零聯網：插件的請求重播假的回應；串流網址指向本機的 [LocalAudioServer]，
-/// 它只在帶了插件給的 Referer 時才回音訊，所以播得起來就證明 header 帶到了
-/// 原生播放器的請求上。真的打 B 站是手動實跑（票的驗收）。
+/// 它像 B 站 CDN 一樣只在帶了 Referer 與瀏覽器的 User-Agent 時才回音訊
+/// （brief 事實 F4、F22），所以播得起來就證明插件給的 header 帶到了原生
+/// 播放器的請求上。真的打 B 站是手動實跑（票的驗收）。
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   installNoNetworkGuard();
@@ -36,10 +37,11 @@ void main() {
       "platform's audio backend", (tester) async {
     final logDir = Directory.systemTemp.createTempSync('fmp_it_play_');
     final log = await Log.open(logDir, minimumLevel: LogLevel.debug);
-    // 插件的 resolveStream 給的 header（brief 事實 F4）。
+    // 插件的 resolveStream 給的 header（brief 事實 F4、F22）。
     final cdn = (await tester.runAsync(
       () => LocalAudioServer.start(
         requiredHeaders: {'Referer': 'https://www.bilibili.com'},
+        requireBrowserUserAgent: true,
       ),
     ))!;
     final streamUrl = cdn.url(query: 'deadline=1767225600&upsig=FAKE_SIG');
@@ -147,6 +149,7 @@ void main() {
     expect(cdn.requests, isNotEmpty);
     for (final request in cdn.requests) {
       expect(request.headers['referer'], 'https://www.bilibili.com');
+      expect(request.headers['user-agent'], startsWith('Mozilla/'));
     }
 
     await tester.tap(find.byTooltip('暫停'));

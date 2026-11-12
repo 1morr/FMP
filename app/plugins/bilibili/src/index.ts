@@ -13,8 +13,6 @@ const PLAYURL_URL = 'https://api.bilibili.com/x/player/playurl';
 const API_REFERER = 'https://www.bilibili.com/';
 const API_ORIGIN = 'https://www.bilibili.com';
 
-/** 媒體 CDN 只要 Referer，不帶結尾斜線、不帶憑證（brief 事實 F4）。 */
-const MEDIA_HEADERS = { Referer: 'https://www.bilibili.com' };
 
 /** playurl 的 DASH 格式；音訊軌是 m4a/AAC（brief 事實 F6）。 */
 const FNVAL_DASH = '16';
@@ -25,6 +23,16 @@ const TRACK_ID = /^(BV[0-9A-Za-z]{10})(?:\?p=([2-9]|[1-9]\d+))?$/;
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+/**
+ * 媒體 CDN：Referer 不帶結尾斜線、不帶憑證（brief 事實 F4），還要瀏覽器的
+ * User-Agent：部分串流網址拒絕 ExoPlayer、AVPlayer 自己的 User-Agent，回
+ * 403（事實 F22）。
+ */
+const MEDIA_HEADERS = {
+  Referer: 'https://www.bilibili.com',
+  'User-Agent': USER_AGENT,
+};
 
 /** 風控碼：要當限流退避，換 buvid 救不回來（brief 事實 F2）。 */
 const RISK_CONTROL_CODES = new Set([-352, -412, -509, -799]);

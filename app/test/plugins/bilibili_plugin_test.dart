@@ -251,12 +251,18 @@ void main() {
     test('resolves the first part to its best DASH audio track', () async {
       respond = video;
 
+      final stream = await bilibili().resolveStream('BV1xx411c7mD');
+      // 媒體請求帶不含結尾斜線的 Referer 與瀏覽器的 User-Agent，不帶憑證：
+      // 部分串流網址會拒絕播放器自己的 User-Agent（brief 事實 F4、F22）。
+      expect(stream.headers, {
+        'Referer': 'https://www.bilibili.com',
+        'User-Agent': startsWith('Mozilla/5.0 '),
+      });
       expect(
-        await bilibili().resolveStream('BV1xx411c7mD'),
+        stream,
         AudioStream(
           url: Uri.parse(cdnUrl(101)),
-          // 媒體請求只帶不含結尾斜線的 Referer，不帶憑證（brief 事實 F4）。
-          headers: const {'Referer': 'https://www.bilibili.com'},
+          headers: stream.headers,
           // 有效期讀自網址的 deadline（brief 事實 F5）。
           expiresAt: DateTime.utc(2026),
           codec: 'mp4a.40.2',
