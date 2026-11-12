@@ -25,6 +25,9 @@ enum Rule {
   /// 只有 log 門面 `core/log/` 能 import log 套件（brief §13 的單一 log 門面）。
   logPackageOutsideLogFacade,
 
+  /// 只有插件宿主 `plugins/` 能 import JS 引擎與 HTTP 套件（[PackageScope.pluginsOnly]）。
+  pluginPackageOutsidePlugins,
+
   /// 只有 `platform/` 能用 `Platform.isXxx`。
   platformCheckOutsidePlatform,
 
@@ -48,6 +51,12 @@ enum PackageScope {
 
   /// log 套件（logger）：只有 log 門面 `core/log/`，其他模組經門面寫 log。
   logFacade,
+
+  /// JS 引擎（fjs）與 HTTP（dio）：只有插件宿主 `plugins/`。插件引擎只開
+  /// 白名單內建模組（`test/plugins/js_engine_builtins_test.dart`），別處不該
+  /// 自己建引擎；連網都經宿主網路層的網域白名單（ADR 0038），別處不該自己
+  /// 開 HTTP client。
+  pluginsOnly,
 }
 
 /// 每個 `lib/` 用得到的套件都要在這裡分類；沒分類的會被 [Rule.unclassifiedPackage]
@@ -66,6 +75,8 @@ const packageScopes = <String, PackageScope>{
   'media_kit': PackageScope.audioBackend,
   'logger': PackageScope.logFacade,
   'path_provider': PackageScope.platformOnly,
+  'dio': PackageScope.pluginsOnly,
+  'fjs': PackageScope.pluginsOnly,
 };
 
 /// 音源與歌詞源的識別碼，比對時不分大小寫。
@@ -191,6 +202,12 @@ class _Visitor extends RecursiveAstVisitor<void> {
           node,
           Rule.logPackageOutsideLogFacade,
           'only core/log/ may import package:$package; log through Log',
+        );
+      case PackageScope.pluginsOnly when module != 'plugins':
+        _flag(
+          node,
+          Rule.pluginPackageOutsidePlugins,
+          'only plugins/ may import package:$package',
         );
       default:
     }

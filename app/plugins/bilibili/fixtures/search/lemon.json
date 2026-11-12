@@ -1,0 +1,21 @@
+{
+  "input": {
+    "query": "lemon"
+  },
+  "recorded": "2026-11-12",
+  "interactions": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.bilibili.com/x/web-interface/search/type?search_type=video&page=1&keyword=lemon"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"code\":0,\"message\":\"OK\",\"data\":{\"result\":[{\"author\":\"JLRS-LeoFM\",\"bvid\":\"BV1tY411B7T9\",\"title\":\"在百万豪装录音棚大声听米津玄师《<em class=\\\"keyword\\\">Lemon</em>》【Hi-res】\",\"duration\":\"4:19\"},{\"author\":\"蚕豆音乐侠\",\"bvid\":\"BV1cY41117NG\",\"title\":\"【4K顶级画质】米津玄师《<em class=\\\"keyword\\\">Lemon</em>》2019神级现场，八爷永远滴神！！！\",\"duration\":\"4:37\"},{\"author\":\"看哦爱随风原创鼓谱\",\"bvid\":\"BV1igWGzqERG\",\"title\":\"<em class=\\\"keyword\\\">Lemon</em>【米津玄師】动态鼓谱\",\"duration\":\"4:17\"},{\"author\":\"亚太的小窝\",\"bvid\":\"BV1dQWy6UEyg\",\"title\":\"【キョータ】柠檬/<em class=\\\"keyword\\\">Lemon</em>【男声Cover】\",\"duration\":\"0:33\"},{\"author\":\"造物编年史\",\"bvid\":\"BV1ArW26NEqn\",\"title\":\"3600字深度解析米津玄师/《<em class=\\\"keyword\\\">lemon</em>》\",\"duration\":\"12:24\"},{\"author\":\"大家的音乐机\",\"bvid\":\"BV1hz4y1f7MH\",\"title\":\"<em class=\\\"keyword\\\">Lemon</em> - 米津玄师\",\"duration\":\"4:35\"},{\"author\":\"hgfcvbjf\",\"bvid\":\"BV1ykW26YE5F\",\"title\":\"目前综合体验最佳的Switch模拟器，<em class=\\\"keyword\\\">Lemon</em>模拟器重磅更新 支持局内调用金手指+帧生成和即时存档！#模拟器 #switch\",\"duration\":\"1:18\"},{\"author\":\"K19N\",\"bvid\":\"BV1R9Wy67E9H\",\"title\":\"【两年之后的二见】<em class=\\\"keyword\\\">lemon</em> tree1.2 97%\",\"duration\":\"3:34\"},{\"author\":\"大奥百万电台\",\"bvid\":\"BV1bkxd6GEZc\",\"title\":\"【大奥百万滤镜版】Fool&#x27;s Garden《<em class=\\\"keyword\\\">Lemon</em> Tree》\",\"duration\":\"3:12\"},{\"author\":\"Smile源枫\",\"bvid\":\"BV1aP41157Rs\",\"title\":\"《<em class=\\\"keyword\\\">Lemon</em>》填词——暗杀小队「我们致死都没抛弃荣耀」\",\"duration\":\"4:10\"},{\"author\":\"挺乚啊\",\"bvid\":\"BV1NnWV66E5R\",\"title\":\"<em class=\\\"keyword\\\">lemon</em> orbit opal umbrella cliff hollow\",\"duration\":\"0:13\"},{\"author\":\"KG音乐\",\"bvid\":\"BV18e7mzjE2N\",\"title\":\"【单曲循环】“热门日文歌神曲”《<em class=\\\"keyword\\\">Lemon</em>》\",\"duration\":\"42:33\"},{\"author\":\"雨涟空\",\"bvid\":\"BV1D8WU6JEgH\",\"title\":\"【蓝清唱】<em class=\\\"keyword\\\">Lemon</em>+串烧+打上花火+破绷see you again\",\"duration\":\"16:45\"},{\"author\":\"55老师\",\"bvid\":\"BV1wy4y1k7aZ\",\"title\":\"米津玄师《<em class=\\\"keyword\\\">Lemon</em>》教学全网最详细版本\",\"duration\":\"84:32\"},{\"author\":\"你也想挨揍吗\",\"bvid\":\"BV1pnWV6zEWw\",\"title\":\"<em class=\\\"keyword\\\">lemon</em> gale anchor haven honey\",\"duration\":\"0:13\"},{\"author\":\"没有硬币来改名\",\"bvid\":\"BV1snWV6zEGt\",\"title\":\"iris fern <em class=\\\"keyword\\\">lemon</em>\",\"duration\":\"0:11\"},{\"author\":\"皮卡黄视频PKHSP8\",\"bvid\":\"BV1dV4y1y7xa\",\"title\":\"适合跟唱学习的英文歌《<em class=\\\"keyword\\\">Lemon</em> Tree》\",\"duration\":\"3:11\"},{\"author\":\"阿宝创作\",\"bvid\":\"BV1tcwhehE38\",\"title\":\"《<em class=\\\"keyword\\\">Lemon</em> Tree》柠檬树英文歌曲背景视频\",\"duration\":\"3:1\"},{\"author\":\"DengYuni\",\"bvid\":\"BV19K411c7Ei\",\"title\":\"Live • <em class=\\\"keyword\\\">Lemon</em> | Công diễn 2 Sáng Tạo Doanh Chuang 2021\",\"duration\":\"3:47\"},{\"author\":\"卡西斯Hykio\",\"bvid\":\"BV1TdHy6FEhD\",\"title\":\"⚡️《<em class=\\\"keyword\\\">lemon</em>（司凤版）》⚡️（日语）\",\"duration\":\"4:1\"}]}}"
+      }
+    }
+  ]
+}

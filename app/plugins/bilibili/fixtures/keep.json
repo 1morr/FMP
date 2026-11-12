@@ -1,0 +1,10 @@
+{
+  "search": [
+    "code",
+    "message",
+    "data.result.bvid",
+    "data.result.title",
+    "data.result.author",
+    "data.result.duration"
+  ]
+}

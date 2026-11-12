@@ -3,6 +3,7 @@ import 'dart:io';
 import 'device_lock.dart';
 import 'doc_gate.dart';
 import 'full_gate.dart';
+import 'plugin_bundle_gate.dart';
 import 'schema_gate.dart';
 import 'steps.dart';
 
@@ -45,7 +46,7 @@ List<CheckStep> gateSteps({
         winpcLogs: Directory('${app.path}/build/winpc'),
         deviceLock: DeviceLock.forRepo(app),
       ),
-      // M0 票 08：「插件打包產物是否最新」（plan §4）接在這裡。
+      pluginBundleStep(app: app, shell: shell, out: out),
     ],
   ];
 }

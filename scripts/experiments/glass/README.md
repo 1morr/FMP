@@ -4,7 +4,7 @@
 
 實驗程式可丟棄，但留在這裡：換 Flutter 或套件版本時照〈怎麼跑〉重量。
 
-**決定**（擁有者 2026-11-12，看過 `results/` 的四平台對照圖後選定）：玻璃元件用 `liquid_glass_easy`（折射級 lens、standard 用 lite glass、minimal 自己畫實心）；捲動中不降級，但元件要能在執行期切換級數；iOS、macOS、Windows 跟系統的「降低透明度」退到 minimal，Android 不提供。寫在 brief §11、事實 K10、K19–K22，plan §1.4、§7，`docs/design/DESIGN.md` §1.4。
+**決定**（擁有者 2026-11-12，看過 `results/` 的四平台對照圖後選定）：玻璃元件用 `liquid_glass_easy`（折射級 lens、standard 用 lite glass、minimal 自己畫實心）；捲動中不降級，但元件要能在執行期切換級數；iOS、macOS、Windows 跟系統的「降低透明度」退到 minimal，Android 不提供。寫在 brief §11、事實 K10、K21–K24，plan §1.4、§7，`docs/design/DESIGN.md` §1.4。
 
 ## 結果（2026-11-12）
 
