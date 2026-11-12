@@ -1,7 +1,9 @@
 # Launch fmp.exe in desktop session, wait, screenshot window to PNG, close app. ASCII only.
 # -Type <text>: after raising the window, press Tab (focus the first field), type
 # <text> as Unicode SendInput (bypasses the IME), press Enter, wait -TypeWait s.
-param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10)
+# -Click "x,y": then left-click at x,y logical pixels of the client area (scaled by
+# the window DPI), wait -ClickWait s.
+param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$Click = '', [int]$ClickWait = 8)
 $log = 'C:\fmp-wt\shot.log'
 "start" | Out-File $log -Encoding ascii
 Add-Type -AssemblyName System.Drawing
@@ -18,6 +20,10 @@ public class W {
  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool f);
  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
+ [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X,Y; }
+ [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
+ [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
  [StructLayout(LayoutKind.Sequential)] public struct KI { public ushort vk; public ushort scan; public uint flags; public uint time; public IntPtr extra; }
  [StructLayout(LayoutKind.Sequential)] public struct MI { public int dx; public int dy; public uint data; public uint flags; public uint time; public IntPtr extra; }
  [StructLayout(LayoutKind.Explicit)] public struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KI ki; [FieldOffset(8)] public MI mi; }
@@ -29,6 +35,13 @@ public class W {
  }
  public static void Key(ushort vk) { ushort s = (ushort)MapVirtualKey(vk, 0); Send(vk, s, 0); Send(vk, s, 2); }
  public static void Text(string t) { foreach (char c in t) { Send(0, c, 4); Send(0, c, 6); } }
+ public static string Click(IntPtr h, int x, int y) {
+  double k = GetDpiForWindow(h) / 96.0; var p = new POINT(); p.X = (int)(x * k); p.Y = (int)(y * k);
+  ClientToScreen(h, ref p); SetCursorPos(p.X, p.Y);
+  var i = new INPUT[2]; i[0].type = 0; i[0].mi.flags = 2; i[1].type = 0; i[1].mi.flags = 4;
+  SendInput(2, i, Marshal.SizeOf(typeof(INPUT)));
+  return p.X + "," + p.Y;
+ }
 }
 "@
 [W]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null
@@ -40,21 +53,34 @@ $p.Refresh()
 if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
   $h = $p.MainWindowHandle
   [W]::ShowWindow($h, 9) | Out-Null
-  # raise: attach to foreground thread, TOPMOST round trip, SetForegroundWindow
-  $fg = [W]::GetForegroundWindow(); $ft = [W]::GetWindowThreadProcessId($fg, [IntPtr]::Zero); $me = [W]::GetCurrentThreadId()
-  [W]::AttachThreadInput($me, $ft, $true) | Out-Null
-  [W]::SetWindowPos($h, [IntPtr](-1), 0, 0, 0, 0, 0x43) | Out-Null   # HWND_TOPMOST, NOMOVE|NOSIZE|SHOWWINDOW
-  [W]::SetForegroundWindow($h) | Out-Null
-  [W]::AttachThreadInput($me, $ft, $false) | Out-Null
+  # raise: attach to foreground thread, TOPMOST round trip, SetForegroundWindow.
+  # Repeated before typing and clicking: another app can take the foreground meanwhile.
+  function Raise {
+    $fg = [W]::GetForegroundWindow(); $ft = [W]::GetWindowThreadProcessId($fg, [IntPtr]::Zero); $me = [W]::GetCurrentThreadId()
+    [W]::AttachThreadInput($me, $ft, $true) | Out-Null
+    [W]::SetWindowPos($h, [IntPtr](-1), 0, 0, 0, 0, 0x43) | Out-Null   # HWND_TOPMOST, NOMOVE|NOSIZE|SHOWWINDOW
+    [W]::SetForegroundWindow($h) | Out-Null
+    [W]::AttachThreadInput($me, $ft, $false) | Out-Null
+  }
+  Raise
   "foreground_is_fmp=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
   Start-Sleep -Milliseconds 800
   if ($Type -ne '') {
+    Raise; "foreground_is_fmp_before_typing=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
     [W]::Key(0x09); Start-Sleep -Milliseconds 300
     [W]::Text($Type); Start-Sleep -Milliseconds 300
     [W]::Key(0x0D)
     "typed [$Type], waiting $TypeWait s" | Out-File $log -Append -Encoding ascii
     Start-Sleep -Seconds $TypeWait
     "foreground_is_fmp_after_typing=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+  }
+  if ($Click -ne '') {
+    Raise; "foreground_is_fmp_before_click=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+    $xy = $Click.Split(',')
+    $at = [W]::Click($h, [int]$xy[0], [int]$xy[1])
+    "clicked [$Click] at screen $at, waiting $ClickWait s" | Out-File $log -Append -Encoding ascii
+    Start-Sleep -Seconds $ClickWait
+    "foreground_is_fmp_after_click=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
   }
   $r = New-Object W+RECT
   [W]::GetWindowRect($h, [ref]$r) | Out-Null
