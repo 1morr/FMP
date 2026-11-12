@@ -17,7 +17,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 | 路徑 | 內容 |
 | --- | --- |
-| `app/` | 新版，獨立的 Flutter 套件，內部目錄照 plan §1.2；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 plan §4），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 plan §3（`dart run drift_dev make-migrations`，閘門會比對快照） |
+| `app/` | 新版，獨立的 Flutter 套件，內部目錄照 plan §1.2；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 plan §4），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 plan §3（`dart run drift_dev make-migrations`，閘門會比對快照）；錄製插件契約測試的 fixture、跑 `live` 冒煙測試也照 plan §3 |
 | `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
 | `docs/` | brief、plan、progress、ADR、`docs/research/`、`docs/agents/`、`docs/design/`（新版設計稿）；其餘是舊版的使用者與開發文件 |
@@ -60,7 +60,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 repo 是公開的。commit、文件、票、fixture、log 摘錄與截圖：
 
-- 不含個人資訊：使用者名稱、email、手機號、帳號名稱、私人歌單的內容。
+- 不含個人資訊：使用者名稱、email、手機號、帳號名稱、私人歌單的內容。音源上公開內容的作者名稱與標題（例如匿名搜尋結果裡的 UP 主名稱）不算，可以保留。
 - cookie、token、簽名網址、API key 的值寫成 `***`。用公開值算出、只對單次請求有效的請求簽名（例如 B 站 WBI 的 `w_rid`）不算，照原樣保留。
 - 本機路徑用代稱：`<資料目錄>`、`<暫存目錄>`、`<repo>`。
 - 不寫 Apple Team ID、裝置 UDID、裝置名稱；簽名設定放 gitignore 的本機檔。

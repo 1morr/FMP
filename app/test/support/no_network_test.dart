@@ -20,4 +20,12 @@ void main() {
     expect(() => HttpClient(), throwsA(isA<NetworkAccessInTest>()));
     await tester.pumpWidget(const SizedBox());
   });
+
+  test('live tests can still build a real client', () {
+    // 只建立 client，不連線；真的連網在 `live` tag 的測試裡。
+    final client = realHttpClient();
+    addTearDown(client.close);
+    expect(client, isNotNull);
+    expect(() => HttpClient(), throwsA(isA<NetworkAccessInTest>()));
+  });
 }
