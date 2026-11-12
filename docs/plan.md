@@ -1,6 +1,6 @@
 # FMP 新版實作計劃
 
-> 狀態：第一版定稿（2026-11-06）。`/to-tickets docs/plan.md` 以〈里程碑任務〉為輸入，拆票後以票為準。決定的來源是 `docs/design-brief.md`，兩者衝突時以 brief 為準。
+> 狀態：第一版定稿（2026-11-06）；M0 已驗收（2026-11-12，紀錄封存在 `docs/archive/M0.md`），D 已定稿（2026-11-11），下一個開工的是 M1。`/to-tickets docs/plan.md` 以〈里程碑任務〉為輸入，拆票後以票為準。決定的來源是 `docs/design-brief.md`，兩者衝突時以 brief 為準。
 
 ## 0. 工程慣例
 
@@ -25,8 +25,8 @@ app/
   lib/
     app/        組裝、路由、主題、i18n
     domain/     曲目、歌單、存取等級等模型（純 Dart）
-    core/       log、遮蔽、錯誤分類、網路
-    plugins/    JS 引擎、宿主 API、插件管理
+    core/       log、遮蔽、錯誤分類
+    plugins/    JS 引擎、宿主 API、宿主網路（只放行 manifest 宣告的網域）、插件管理
     playback/   佇列、臨時播放、音訊後端介面與兩個實作（實作在 `playback/backends/`）
     library/    本地歌單、匯入歌單、刷新、遠端寫入
     accounts/   帳號、登入、會員狀態
@@ -158,6 +158,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 上一版文件，用到時重驗：
 
 - **Windows 自動化輸入**：`SendKeys` 與掃描碼為 0 的 `keybd_event` 會讓 Ctrl 組合鍵失效；中文輸入法會吃掉英數字；跨行程最小化與還原會讓 lifecycle 卡在 `inactive`。
+- **模擬器的輸入法**（2026-11-12 票 12）：iOS 模擬器的鍵盤是注音、Android 模擬器的是速成，`orca emulator type lofi` 在 iOS 會變成注音符號直接送出（搜尋的 keyword 是 `ㄠ ㄟ ㄑ ㄛ`），在 Android 會停在組字區、不送出。打英文前先按鍵盤的地球鍵切到英文，打完切回；送出前看 log 的 keyword 對不對，打錯也算一次匿名搜尋。
 - **integration_test**：一次只能給一個檔；Android 不加 `--no-uninstall` 時可能刪掉模擬器上同 applicationId 的 App 連同資料。完整閘門照這兩條做（見上面各平台的「閘門」）。
 - **adb server 自己當掉**：完整閘門的 `integration_test android` 報「No running android simulator/emulator」、`flutter devices` 看不到 Android 模擬器時，多半是 Mac 上的 adb server 不在。票 02、06、07 以為是別的 session 重啟了 adb；票 02b 查過，`app/`、`.githooks/`、`.claude/skills/` 都沒有 `adb kill-server`、`start-server`（`verify-legacy-on-device` 收尾的 `adb emu kill` 關的是模擬器，不是 server），閘門也只跑 `flutter devices` 與 `flutter test`。原因是 platform-tools 37.0.1 的 adb server 被區網的 mDNS 封包弄當（事實 K15），下一個 adb 指令再把它叫起來。擁有者 2026-11-11 決定 adb server 以 `ADB_MDNS=0` 啟動（關掉 mDNS，模擬器不靠它）。票 02b 實測：持鎖後 `adb kill-server`、`ADB_MDNS=0 adb start-server`，`adb server-status` 顯示 `mdns_enabled: false`、`mdns_backend: MDNS_DISABLED`，模擬器 1 秒內回到 `device`。之後由誰啟動：包裝指令拿到鎖後、完整閘門找 Android 模擬器之前，各跑一次 `adb start-server`，閘門與包裝指令開的每個指令也都帶 `ADB_MDNS=0`（`app/tool/src/device_lock.dart` 的 `sharedDeviceEnvironment`）。server 不在時就以 `ADB_MDNS=0` 叫起來；在跑時 `start-server` 什麼都不做，不會打斷別的 session。不主動 kill 已經在跑的 server：萬一在跑的是開著 mDNS 的，它當掉後下一次由閘門或包裝指令叫起來的就關掉了。之所以主動叫而不只靠環境變數：`orca emulator …` 是交給 Orca App 去跑 adb，帶的是 Orca 的環境，不是包裝指令的；Orca、Android Studio、其他專案在 server 不在時叫起來的仍會開 mDNS。要全面關掉得把 `ADB_MDNS=0` 放進登入環境（含 Orca 的），那是擁有者機器的設定，還沒做。遇到「No running android simulator/emulator」時跑一次 `ADB_MDNS=0 adb devices`、等模擬器回到 `device` 再重跑那一步。
 - **`winpc` 的 Dart 偶發當掉（環境問題）**：`flutter build windows`、Windows 的 `integration_test` 或 `build.ps1` 的 build_runner 偶發失敗。症狀有三種，根源相同：只報 `error MSB8066`（`flutter_assemble.rule` 結束代碼 1，加 `-v` 才看得到 `===== CRASH =====`）；`exit codegen=78`、`exit codegen=-1073740791` 或 `exit codegen=1` 加上 `Compilation did not produce any result`，之後 `flutter build` 因為缺 `database.g.dart` 跟著失敗；或不存在的「缺成員」編譯錯（票 07）。都是 Dart 的 `dartaotruntime.exe`（frontend_server）或 `gen_snapshot.exe` 存取違規（`0xc0000005`），VM 印出 `===== CRASH =====` 後自己 abort（事件記錄是 `0xc0000409`，位移固定在 `0x332aa1`）。票 02b 查證：沒有其他閘門同時跑時，main（`b2fadc04`）連續乾淨建置 5 次，第 4、5 次失敗；在 SSH 工作階段（不經排程工作）對同一份輸入連跑 60 次 `dart compile kernel`（編 pub cache 裡的 build_runner，不含 App 的程式碼），2 次當掉（其中 1 次留下空的輸出檔），成功的 58 次輸出逐位元組相同。三次當掉的位址扣掉 snapshot 基址後都不同（`0x46455d`、`0x6a425`、`0x2b47b2`），呼叫堆疊也不同。同一台機器 14 天內還有 Windows 自己的服務（`sppsvc`、Windows Update、Defender）、MSVC 的 `CL.exe` 與其他使用者程式以存取違規、非法指令（`0xc000001d`）當掉，6 次 Kernel-Power 41（非預期重開），11-10、11-11 有藍屏（兩次 `0x00020001` HYPERVISOR_ERROR、一次 `0x1E`，minidump 在 `C:\WINDOWS\Minidump\`）。結論：是 `winpc` 的硬體或韌體不穩（i9-13900HX、BIOS KWCN54WW、microcode `0x12E`），不是產品也不是閘門；worktree 互蓋可能造成過部分紅燈（票 07 的缺成員錯），但不是當掉的原因。還沒定位到是哪個元件：記憶體、處理器電壓（降壓或超頻工具）、BIOS 或 Hyper-V／VBS，要擁有者在場檢查（Windows 記憶體診斷要重開機）。Intel 的 13、14 代 Vmin 不穩問題官方只認桌上型處理器，行動版說沒有受影響，13900HX 是行動版，不能直接套用。在那之前，閘門照實報紅，遇到時重跑；重跑能過就不是程式問題。照票 02b，說不出原因的重試不收，閘門也沒有自動重試。重現：在 `winpc` 對任一份已經 `pub get` 的 `app/` 連跑 `dart compile kernel --packages=.dart_tool\package_config.json -o <檔> <build_runner>\bin\build_runner.dart` 60 次，約 5 分鐘，失敗率約 3%（2026-11-11）。
@@ -199,7 +200,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 ### 5.1 M0 骨架與 tracer bullet
 
-已開工：[`.scratch/m0/spec.md`](../.scratch/m0/spec.md)。
+已驗收（2026-11-12）：spec 與票在 [`.scratch/m0/`](../.scratch/m0/spec.md)，session 紀錄與偏差封存在 [`docs/archive/M0.md`](archive/M0.md)。
 
 ### 5.2 D 設計稿
 
@@ -209,7 +210,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - App 外殼與其餘頁面都做手機、中寬度與桌面三種寬度、深淺色。
 - 有爭議的地方給 A／B 方案。
 
-驗收：擁有者逐頁確認；M1 開工前完成。
+驗收：擁有者逐頁確認；M1 開工前完成。擁有者 2026-11-11 定稿（`docs/design/`）。
 
 ### 5.3 M1 三音源與播放核心
 
@@ -221,6 +222,19 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - 照設計稿實作：App 外殼、首頁、搜尋頁、迷你播放器、播放頁、佇列頁；設定頁的外殼、外觀（主題、強調色、語言、玻璃效果）與臨時播放倒退秒數；錯誤 Toast（含沒有網路、連續 3 首失敗）。
 - 插件的「排行榜」能力（首頁的近期熱門，brief §5.1 第 12 項）。
 
+M0 留下的（票 12 歸屬，出處是各票的 Comments）：
+
+- 開工前（擁有者在場）：檢查 `winpc` 硬體（Windows 記憶體診斷要重開機；M0 驗收時 `link.exe`、`CL.exe`、Dart VM 輪流存取違規，又有藍屏，§2〈`winpc` 的 Dart 偶發當掉〉）；在四個平台親耳聽一次播放（M0 驗收由 agent 代測，只看畫面與 log）。
+- 串流網址比對 manifest 宣告的媒體網域並限 https：現在 `resolveStream` 回傳的網址只檢查是 http(s) 絕對網址，header 照單全收，原生播放器連線繞過宿主網路的網域白名單（ADR 0038）。加 youtube、netease 時三個插件的 CDN 一起定 manifest 的格式。
+- 網易雲的串流簽名在路徑裡，`redact` 只看 query：由插件宣告網址哪一段要遮（票 06）。
+- 未捕捉的錯誤（`FlutterError.onError`、`PlatformDispatcher.onError`）接進 log（票 06）。
+- 播放：media_kit 的 `vid=no`、`prefetch-playlist=yes` 等 mpv 設定（事實 K4）；just_audio 的 `audio_session`；`classifyMpvLog` 只把致命的 `cplayer` 錯誤當失敗（票 11）。
+- CDN 回 `application/octet-stream` 時 Apple 平台能不能播（事實 M5 沒重驗的部分），YouTube 重驗。
+- 插件宿主：逾時後關引擎的競態、建引擎失敗的 future 被快取（票 08；寫得出會紅的測試再修）。
+- 插件 id 與曲目 id 成對的型別（現在 `Track.source` 是裸字串）：佇列與持久化前定。
+- 用到 WBI 的插件能力：契約測試重播比對網址時忽略 `wts`、`w_rid`（票 09）。
+- 照稿切版前定：要不要改用 `material_ui`（票 01、事實 T1）；`DESIGN.md` standard 玻璃的模糊值 16／18 統一（票 05b）；依賴規則要不要也禁 `defaultTargetPlatform`（票 01，plan §1.3 現在只寫 `Platform.isXxx`）。
+
 驗收：四個平台上，三個音源各搜尋並播放一首；臨時播放、隨機與循環的組合照 brief §6 運作；背景播放與媒體控制可用。
 
 ### 5.4 M2 帳號與存取等級
@@ -230,6 +244,12 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - 三音源的 QR 與 WebView 登入（YouTube 用 WebView 加貼 cookie）、憑證存放、登出。
 - 會員狀態、存取等級徽章、音質選擇、試聽處理（brief §5.4）。
 - 照設計稿實作：帳號頁（從設定進入）、設定的音質與「播放時使用登入狀態」、播放頁的音源膠囊與試聽、需驗證的流程。
+
+M0 留下的（票 12 歸屬）：
+
+- `flutter_inappwebview` 的平台設定清單（票 04 的 Comments）與 Apple 端退回 CocoaPods（事實 K17）：plan §2、§4 的前置條件跟著改。
+- 登入憑證的遮蔽：插件宣告額外的敏感名稱交給 `redact`（例如 B 站單獨出現的 `SESSDATA=`，票 06）。
+- 宿主擋掉插件給的串流 header 裡的憑證（Cookie、Authorization；事實 F4）。
 
 驗收：四個平台上，三個音源都登入成功；VIP、試聽歌曲的標示與播放行為照 brief §5.4。
 

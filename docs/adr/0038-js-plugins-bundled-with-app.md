@@ -40,4 +40,4 @@
 - 每個插件套同一套契約測試（fixture 重播）。
 - `tool/check.dart` 檢查打包產物與原始碼一致。
 
-三者由 M0 建立；建好之前這份 ADR 沒有閘門。
+M0 已建立，都在 `dart run tool/check.dart`：依賴規則測試（`test/architecture/dependency_rules_test.dart`）與契約測試（`test/plugins/plugin_contract_test.dart`）在 `test` 步驟，打包產物在 `plugin bundles (esbuild)` 步驟。

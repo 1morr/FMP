@@ -32,6 +32,10 @@ App 在某個作業系統上做得到的一件事，例如背景播放、系統�
 音源上的一首可播放音訊，由音源和它在音源內的識別碼確定。
 _Avoid_：歌曲、song、media
 
+**作者（Author）**：
+曲目在音源上掛名的人或頻道：B 站的 UP 主、YouTube 的頻道、網易雲的歌手。
+_Avoid_：歌手、UP 主、artist、uploader
+
 **分 P（Part）**：
 B 站一支影片裡的其中一段音訊；每個分 P 是一首獨立的曲目。
 
@@ -44,6 +48,10 @@ _Avoid_：VIP 標記、fee
 
 **串流（Stream）**：
 插件為一首曲目解析出的音訊網址，可以直接播放，會過期。
+
+**音訊後端（Audio backend）**：
+宿主裡實際把串流播出聲音的元件；Android、iOS、macOS 用 just_audio，Windows 用 media_kit，播放核心只透過同一個介面使用它。
+_Avoid_：播放器、player、engine
 
 **佇列（Queue）**：
 要播放的曲目序列，含播過的與接下來的；畫面永遠照播放順序排。
