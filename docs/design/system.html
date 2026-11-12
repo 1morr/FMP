@@ -201,8 +201,8 @@ FMP.page({
     },
     {
       title: '玻璃等級與平台',
-      desc: '設計稿的三個等級對應 Flutter 實作的三級（brief 事實 K10）。用工具列切換看每一頁在各等級下的樣子。',
-      html: '<div class="rv-notes" style="margin-top:0"><ul><li><b>折射</b> = Flutter「premium」（Impeller 折射 shader）：iOS、Android、macOS。捲動中的長列表上方不用 premium（K10：不適合捲動列表），導覽與迷你播放器在列表上方時降到標準。</li><li><b>標準</b> = Flutter「standard」：只有模糊、飽和、邊緣高光與陰影，沒有折射。Windows 最高到這一級。</li><li><b>最低</b> = 只用 BackdropFilter 或完全不透明：系統開了「降低透明度」、或裝置效能不足時。玻璃換成實心的 #24232C／#F7F6FA，保留邊緣高光與陰影，版面不變。</li><li>三級都包在同一個玻璃元件後面（brief §17），設計稿裡每個玻璃元素都標了 <code>lg</code>，實作時一對一換成那個元件。</li></ul></div>',
+      desc: '設計稿的三個等級對應 Flutter 實作的三級（brief §11，M0 票 05b 實測）。用工具列切換看每一頁在各等級下的樣子。',
+      html: '<div class="rv-notes" style="margin-top:0"><ul><li><b>折射</b> = <code>liquid_glass_easy</code> 的 <code>LiquidGlassLens</code>：iOS、Android、macOS、Windows 都做得到（四平台都是 Impeller）。捲動中的長列表上方也不降級（macOS、Windows 實測不掉幀）。</li><li><b>標準</b> = 它的 lite glass：只有模糊、飽和、邊緣高光與陰影，沒有折射。預設不用，留給效能不足時降級。</li><li><b>最低</b> = 完全不透明：iOS、macOS、Windows 系統開了「降低透明度」時（Android 沒有這個設定）。玻璃換成實心的 #24232C／#F7F6FA，保留邊緣高光與陰影，版面不變。</li><li>三級都包在同一個玻璃元件後面（brief §11），設計稿裡每個玻璃元素都標了 <code>lg</code>，實作時一對一換成那個元件。</li></ul></div>',
     },
     {
       title: '強調色：預設無，使用者自選',
