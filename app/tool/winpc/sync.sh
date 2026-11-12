@@ -1,8 +1,7 @@
 #!/bin/bash
-# Copy app/ (tracked and untracked files, minus gitignored ones) and the
-# winpc scripts to winpc:C:\fmp-wt over SSH. No git push involved.
-# The old C:\fmp-wt\app is removed first, so the next build starts clean.
-# Runs under the shared-device lock (lock_guard.sh).
+# 經 SSH 把 app/（追蹤與未追蹤的檔，排除 gitignore 的）和 winpc 腳本複製到
+# winpc:C:\fmp-wt，不靠 git push。先刪掉舊的 C:\fmp-wt\app，下一次建置從乾淨的
+# 目錄開始。在共用裝置鎖裡跑（lock_guard.sh）。
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 source "$here/lock_guard.sh"

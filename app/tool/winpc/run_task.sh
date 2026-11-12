@@ -1,9 +1,8 @@
 #!/bin/bash
-# usage: run_task.sh <name> <remote .ps1 path> [args...]  -- runs script in interactive desktop session, waits for completion
-# Needs winpc console user logged in. Args must not contain double quotes.
-# A failed status query (e.g. SSH timeout) is retried; deleting the task while
-# it still runs would kill the script. Exits 1 after 12 failed queries in a row.
-# Runs under the shared-device lock (lock_guard.sh).
+# 用法：run_task.sh <名稱> <遠端 .ps1 路徑> [參數…]
+# 以排程工作在互動桌面工作階段跑腳本，等它結束。winpc 要有人登入桌面；
+# 參數不能含雙引號。查詢狀態失敗（例如 SSH 逾時）就重試：工作還在跑時刪掉
+# 會連帶終止腳本。連續 12 次查詢失敗才以 1 結束。在共用裝置鎖裡跑（lock_guard.sh）。
 source "$(cd "$(dirname "$0")" && pwd)/lock_guard.sh"
 NAME=$1; PS1=$2; shift 2; ARGS="$*"
 ssh winpc "schtasks /Create /F /TN $NAME /SC ONCE /ST 00:00 /RL LIMITED /IT /TR \"powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PS1 $ARGS\"" || exit 1
