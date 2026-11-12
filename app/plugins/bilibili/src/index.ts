@@ -2,8 +2,8 @@
 // F1、F4、F5、F6、F21）。
 //
 // 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
-// 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P（GLOSSARY.md：每個分 P 是一首
-// 獨立的曲目）。
+// 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P，n ≥ 2（GLOSSARY.md：每個分 P
+// 是一首獨立的曲目）。不收 `?p=1`，一首曲目只有一個 id。
 
 const SEARCH_URL = 'https://api.bilibili.com/x/web-interface/search/type';
 const PAGELIST_URL = 'https://api.bilibili.com/x/player/pagelist';
@@ -19,7 +19,7 @@ const MEDIA_HEADERS = { Referer: 'https://www.bilibili.com' };
 /** playurl 的 DASH 格式；音訊軌是 m4a/AAC（brief 事實 F6）。 */
 const FNVAL_DASH = '16';
 
-const TRACK_ID = /^(BV[0-9A-Za-z]{10})(?:\?p=([1-9]\d*))?$/;
+const TRACK_ID = /^(BV[0-9A-Za-z]{10})(?:\?p=([2-9]|[1-9]\d+))?$/;
 
 // curl、okhttp 這類 UA 必被風控擋（brief 事實 F2），用瀏覽器的。
 const USER_AGENT =
@@ -29,11 +29,15 @@ const USER_AGENT =
 /** 風控碼：要當限流退避，換 buvid 救不回來（brief 事實 F2）。 */
 const RISK_CONTROL_CODES = new Set([-352, -412, -509, -799]);
 
-/** 其他已知的 API 代碼（brief 事實 F21）。 */
+/**
+ * 其他已知的 API 代碼（brief 事實 F21）對到錯誤分類（brief §13）。舊版把
+ * `-404` 歸不可用；它是「啥都木有」、稿件不存在，這裡歸找不到。`62002`
+ * （稿件不可見）歸下架。舊版的「沒有權限」（`-403`、`62012`）與 `-503` 在
+ * 錯誤分類裡沒有對應的原因，不猜，和其他代碼一樣是 parse_failure。
+ */
 const ERROR_CODES = new Map<number, PluginErrorCode>([
   [-404, 'not_found'],
   [62002, 'unavailable_copyright'],
-  [62012, 'unavailable_copyright'],
   [-10403, 'unavailable_region'],
 ]);
 

@@ -477,7 +477,7 @@ export async function search({ query }) {
     });
 
     test('a recorded signed URL in a body passes the secret check', () {
-      // 票 10：B 站的 playurl 回應裡是簽名網址，`&` 寫成 `&`；遮過、
+      // 票 10：B 站的 playurl 回應裡是簽名網址，`&` 寫成 JSON 跳脫；遮過、
       // 裁過、寫成檔之後，整份文字仍要是遮蔽函式的不動點。
       final body = redact(
         r'{"code":0,"data":{"dash":{"audio":[{"baseUrl":'

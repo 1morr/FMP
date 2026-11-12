@@ -80,13 +80,10 @@ class Plugin {
   /// 插件能力 `search`：用 [query] 搜尋曲目。
   Future<List<Track>> search(String query) async {
     final result = await _invoke(PluginCapability.search, {'query': query});
-    try {
+    return _parse(PluginCapability.search, () {
       final tracks = (result as Map)['tracks'] as List;
       return [for (final t in tracks) _track(t as Map)];
-    } on TypeError catch (e) {
-      _log.warning('plugin ${manifest.id}: search returned a bad shape: $e');
-      throw const ParseFailure();
-    }
+    });
   }
 
   /// 插件能力 `resolveStream`：把 [trackId]（[Track.id]）解析成串流。
@@ -94,7 +91,7 @@ class Plugin {
     final result = await _invoke(PluginCapability.resolveStream, {
       'trackId': trackId,
     });
-    try {
+    return _parse(PluginCapability.resolveStream, () {
       final json = result as Map;
       final url = Uri.parse(json['url'] as String);
       if (!url.isAbsolute || !const {'http', 'https'}.contains(url.scheme)) {
@@ -114,17 +111,28 @@ class Plugin {
         codec: json['codec'] as String?,
         bitrate: _whole(json['bitrate'], 'bitrate'),
       );
-    } catch (e) {
-      // 型別不對、數字不是有限值、時間超出 DateTime 的範圍。
-      if (e is! TypeError && e is! FormatException && e is! ArgumentError) {
-        rethrow;
-      }
-      // 訊息不帶網址：簽名網址只在遮蔽過的 log 裡出現也不該。
+    });
+  }
+
+  /// 把插件能力的回傳值轉成 Dart 的型別。形狀不對（型別、格式、數字或時間
+  /// 超出範圍）時寫 log、丟 [ParseFailure]。FormatException 只記訊息：
+  /// `Uri.parse` 的例外會帶整個（簽名過的）網址。
+  T _parse<T>(PluginCapability capability, T Function() parse) {
+    Never badShape(Object why) {
       _log.warning(
-        'plugin ${manifest.id}: resolveStream returned a bad shape: '
-        '${e is FormatException ? e.message : e.runtimeType}',
+        'plugin ${manifest.id}: ${capability.name} returned a bad shape: $why',
       );
       throw const ParseFailure();
+    }
+
+    try {
+      return parse();
+    } on TypeError catch (e) {
+      badShape(e);
+    } on FormatException catch (e) {
+      badShape(e.message);
+    } on ArgumentError catch (e) {
+      badShape(e);
     }
   }
 

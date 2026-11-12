@@ -24,7 +24,8 @@ class PlaceholderStream extends Notifier<TrackStream?> {
   @override
   TrackStream? build() => null;
 
-  /// 用提供 [track] 的插件解析；插件沒宣告 resolveStream 時是 [Unsupported]。
+  /// 用提供 [track] 的插件解析；沒有這個插件、或它沒宣告 resolveStream 時
+  /// 是 [Unsupported]。
   Future<void> resolve(Track track) async {
     final generation = ++_generation;
     state = TrackStream(track, const AsyncLoading());
@@ -33,12 +34,7 @@ class PlaceholderStream extends Notifier<TrackStream?> {
       final plugin = host.plugins
           .where((p) => p.manifest.id == track.source)
           .firstOrNull;
-      if (plugin == null ||
-          !plugin.manifest.capabilities.contains(
-            PluginCapability.resolveStream,
-          )) {
-        throw const Unsupported();
-      }
+      if (plugin == null) throw const Unsupported();
       return plugin.resolveStream(track.id);
     });
     if (!ref.mounted) return;

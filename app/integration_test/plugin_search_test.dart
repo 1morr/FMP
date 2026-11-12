@@ -82,6 +82,9 @@ void main() {
 
     // 斷言用 zh-TW 的字串，不跟裝置語言走。
     LocaleSettings.setLocaleSync(AppLocale.zhTw);
+    addTearDown(
+      () => LocaleSettings.setLocaleSync(AppLocaleUtils.instance.baseLocale),
+    );
     await tester.pumpWidget(
       buildRoot(
         overrides: [

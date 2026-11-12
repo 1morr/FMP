@@ -159,6 +159,20 @@ void main() {
     await expectLater(bilibili().search('q'), throwsA(isA<ParseFailure>()));
   });
 
+  test('search maps the known API codes too', () async {
+    respond = (_) => FakeResponse.json({'code': -10403, 'message': 'x'});
+    await expectLater(
+      bilibili().search('q'),
+      throwsA(
+        isA<Unavailable>().having(
+          (e) => e.reason,
+          'reason',
+          UnavailableReason.region,
+        ),
+      ),
+    );
+  });
+
   test('a response that is not JSON is a ParseFailure', () async {
     respond = (_) => const FakeResponse(200, '<html>');
     await expectLater(bilibili().search('q'), throwsA(isA<ParseFailure>()));
@@ -296,14 +310,6 @@ void main() {
       );
     });
 
-    test('p=1 is the same track as the bare id', () async {
-      respond = video;
-      expect(
-        (await bilibili().resolveStream('BV1xx411c7mD?p=1')).url,
-        Uri.parse(cdnUrl(101)),
-      );
-    });
-
     test('a url without a readable deadline has no expiry', () async {
       // 例如 fixture 裡被遮蔽成 *** 的 deadline。
       respond = (url) => url.path == '/x/player/pagelist'
@@ -325,7 +331,14 @@ void main() {
         await expectError('BV1xx411c7mD?p=4', isA<NotFound>());
       });
 
-      for (final id in ['', 'av170001', 'BV1xx411c7mD?p=0', 'BV1xx411c7mD#2']) {
+      // ?p=1 不收：第一個分 P 的 id 是裸 bvid，一首曲目只有一個 id。
+      for (final id in [
+        '',
+        'av170001',
+        'BV1xx411c7mD?p=0',
+        'BV1xx411c7mD?p=1',
+        'BV1xx411c7mD#2',
+      ]) {
         test(
           'a track id that is not a bvid part ("$id") is NotFound',
           () async {
@@ -339,7 +352,7 @@ void main() {
       for (final (code, matcher) in [
         (-404, isA<NotFound>()),
         (62002, unavailable(UnavailableReason.copyright)),
-        (62012, unavailable(UnavailableReason.copyright)),
+        (62012, isA<ParseFailure>()),
         (-10403, unavailable(UnavailableReason.region)),
         (-352, isA<RateLimited>()),
         (-400, isA<ParseFailure>()),
