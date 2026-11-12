@@ -4,7 +4,7 @@
 
 實驗程式可丟棄，但留在這裡：換 Flutter 或套件版本時照〈怎麼跑〉重量。
 
-**決定**（擁有者 2026-11-12，看過 `results/` 的四平台對照圖後選定）：玻璃元件用 `liquid_glass_easy`（折射級 lens、standard 用 lite glass、minimal 自己畫實心）；捲動中不降級，但元件要能在執行期切換級數；iOS、macOS、Windows 跟系統的「降低透明度」退到 minimal，Android 不提供。寫在 brief §11、事實 K10、K21–K24，plan §1.4、§7，`docs/design/DESIGN.md` §1.4。
+**決定**（擁有者 2026-11-12，看過 `results/` 的四平台對照圖後選定，再親手在 macOS、Windows 試過兩個套件可切換的互動 prototype 後確認）：玻璃元件用 `liquid_glass_easy`（折射級 lens、standard 用 lite glass、minimal 自己畫實心）；捲動中不降級，但元件要能在執行期切換級數；iOS、macOS、Windows 跟系統的「降低透明度」退到 minimal，Android 不提供。寫在 brief §11、事實 K10、K21–K24，plan §1.4、§7，`docs/design/DESIGN.md` §1.4。
 
 ## 結果（2026-11-12）
 
@@ -24,7 +24,7 @@
 | 自己做：`BackdropFilter` 模糊加飽和矩陣（`own-blur`） | 核心 Flutter | 模糊加飽和 | 模糊加飽和 | 模糊加飽和 | 模糊加飽和 |
 | 實心退路（`solid`） | 核心 Flutter | 實心 | 實心 | 實心 | 實心 |
 
-- **`liquid_glass_widgets` 在 Windows 不能用**：照 README 呼叫 `LiquidGlassWidgets.initialize()`、`LiquidGlassWidgets.wrap()` 並用 `LiquidGlassScope` + `GlassBackgroundSource` 包列表時，整個視窗是白的，連列表都沒畫出來（`results/windows-sheet.jpg`；profile 與 debug 都一樣，FrameTiming 照常回報，所以 `windows.json` 的幀時間不算數）。用 `--plain` 拿掉這三樣之後 App 正常（`windows-plain-sheet.jpg`），但這時 `lgw-premium` 什麼都不畫、`lgw-standard` 只剩半透明填色。沒有再細分是三樣中的哪一樣造成白屏。
+- **`liquid_glass_widgets` 在 Windows 不能用**：probe 第一個候選就是 premium，整段截圖都是白的，連列表都沒畫出來（`results/windows-sheet.jpg`；profile 與 debug 都一樣，FrameTiming 照常回報，所以 `windows.json` 的幀時間不算數）。根因（擁有者 2026-11-12 用互動 prototype 查到，brief 事實 K22）：premium 在 Windows（Impeller OpenGLES／ANGLE）第一次編 shader 會卡住 raster thread 約 55–60 秒，每次啟動都卡，第一幀就是 premium 時視窗出不來；和 README 要求的 `initialize()`、`wrap()`、`LiquidGlassScope` + `GlassBackgroundSource` 無關（solid 加這三樣全開正常，premium 的五種組合都卡）。套件原始碼 `lib/utils/glass_quality_adapter.dart:547-556` 自己註明 ANGLE 上 runtime GLSL 編譯會擋 raster thread；上游 issue https://github.com/sdegenaar/liquid_glass_widgets/issues/204 。繞過是 `wrap(adaptiveQuality: true, adaptiveConfig: GlassAdaptiveScopeConfig(initialQuality: GlassQuality.standard))`，Windows 就只有 standard、沒有折射。用 `--plain` 拿掉那三樣時 App 正常（`windows-plain-sheet.jpg`），但 `lgw-premium` 什麼都不畫、`lgw-standard` 只剩半透明填色。
 - **自己做的折射**：`probe/shaders/refract.frag` 照 `DESIGN.md` §1.1 算邊緣寬（min(短邊 × 0.42, 22)）與位移量（min(56, 短邊 × 0.6) 的一半，對應 SVG `feDisplacementMap` 的 scale），紅、綠、藍位移 1.06／1.00／0.94 倍；外面先套 5 的模糊、後套飽和 1.9。玻璃的矩形用全域實體像素傳給 shader：在 macOS 用 `REFRACT_DEBUG=true` 畫 SDF 確認，BackdropFilter 的輸入就是整個畫面的座標。
 - **Impeller GLES 不要翻 Y 軸**：`ImageFilter.shader` 的 dartdoc 寫 OpenGL(ES) 後端要自己翻 Y，照做之後 Android 模擬器（Impeller GLES）取樣到畫面上方的列，顏色整個錯；拿掉翻轉才對（Flutter 3.47.0 的 release notes 有「[Impeller] Remove the texture coordinate system Y-flip workaround」）。iOS、macOS（Metal）不受影響。
 - `liquid_glass_widgets` 的 standard 在 iOS、macOS 看不出折射（只有模糊），和它文件說的「輕量 shader、取背景貼圖」一致；套件預設的模糊與飽和比設計稿弱，probe 改成照 `DESIGN.md`（折射級模糊 5、其他 16、飽和 1.8、填色 .42）。
