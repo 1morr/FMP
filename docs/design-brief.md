@@ -503,7 +503,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **I6**【待重驗】iOS 上 Dart 讀不到環境變數與 `main()` 參數，`--dart-entrypoint-args` 只支援桌面，開發用的切換只能靠 `--dart-define`。出處：`archive:docs/adr/0037` §決定 12。可信度：上一版文件。
 - **I7**【待重驗】免費 Apple ID：描述檔 7 天到期；最多 10 個 App ID、3 台裝置；`DEVELOPMENT_TEAM` 不能寫進 pbxproj；`flutter build ipa --no-codesign` 只產出 `.xcarchive`，IPA 要自己把 `Payload/Runner.app` 壓成 zip。出處：`archive:docs/adr/0037` §決定 1、2。可信度：上一版文件。
 - **I8**【待重驗】iPad 的分享表要給 `sharePositionOrigin` 錨點；只有桌面版的套件在 iOS 呼叫會拋 `MissingPluginException`。出處：`archive:docs/adr/0037` §決定 12、14。可信度：上一版文件。
-- **I9** iOS 27.1 模擬器的 AVPlayer 開一條約 5 MB 的 B 站 `.m4s`（分段 MP4）要約 25 秒才進入 ready：CFNetwork log 顯示它發了十幾個小的 Range 請求、多數中途取消（`-999`），回應都是 206；macOS 開同類串流不到 5 秒。原因沒查。出處：M0 票 11 的 Comments（模擬器系統 log）。可信度：2026-11-12 實測一次。
+- **I9** iOS 27.1 模擬器的 AVPlayer 開 B 站 `.m4s`（分段 MP4，約 5 MB）的時間不穩：2026-11-12 修正 User-Agent（事實 F22）之前，`BV1DXYCzrENa` 一次約 25 秒才進入 ready（CFNetwork log 記到的十幾個 Range 請求都是 206、多數中途取消 `-999`，但 log 在 ready 之前就斷了，沒看到後面的請求）；修正之後同一首 5 秒內就在播。macOS 開同類串流不到 5 秒。原因沒查清楚，可能和 F22 的 403 有關。出處：M0 票 11 的 Comments（模擬器系統 log）。可信度：2026-11-12 實測，各一次。
 
 ### 18.8 套件
 

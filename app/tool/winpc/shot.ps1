@@ -2,7 +2,8 @@
 # -Type <text>: after raising the window, press Tab (focus the first field), type
 # <text> as Unicode SendInput (bypasses the IME), press Enter, wait -TypeWait s.
 # -Click "x,y": then left-click at x,y logical pixels of the client area (scaled by
-# the window DPI), wait -ClickWait s.
+# the window DPI), wait -ClickWait s. Several clicks "x,y;x,y;...": each one is
+# followed by -ClickWait s and a screenshot <Out without .png>-<n>.png (n from 1).
 param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$Click = '', [int]$ClickWait = 8)
 $log = 'C:\fmp-wt\shot.log'
 "start" | Out-File $log -Encoding ascii
@@ -74,25 +75,34 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
     Start-Sleep -Seconds $TypeWait
     "foreground_is_fmp_after_typing=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
   }
-  if ($Click -ne '') {
-    Raise; "foreground_is_fmp_before_click=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
-    $xy = $Click.Split(',')
-    $at = [W]::Click($h, [int]$xy[0], [int]$xy[1])
-    "clicked [$Click] at screen $at, waiting $ClickWait s" | Out-File $log -Append -Encoding ascii
-    Start-Sleep -Seconds $ClickWait
-    "foreground_is_fmp_after_click=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+  function Shot($path) {
+    $r = New-Object W+RECT
+    [W]::GetWindowRect($h, [ref]$r) | Out-Null
+    $w = $r.R - $r.L; $hh = $r.B - $r.T
+    "rect $($r.L),$($r.T) ${w}x${hh}" | Out-File $log -Append -Encoding ascii
+    $bmp = New-Object System.Drawing.Bitmap $w, $hh
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
+    $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+    $g.Dispose(); $bmp.Dispose()
+    "saved $path" | Out-File $log -Append -Encoding ascii
   }
-  $r = New-Object W+RECT
-  [W]::GetWindowRect($h, [ref]$r) | Out-Null
-  $w = $r.R - $r.L; $hh = $r.B - $r.T
-  "rect $($r.L),$($r.T) ${w}x${hh}" | Out-File $log -Append -Encoding ascii
-  $bmp = New-Object System.Drawing.Bitmap $w, $hh
-  $g = [System.Drawing.Graphics]::FromImage($bmp)
-  $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
-  $bmp.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
-  $g.Dispose(); $bmp.Dispose()
+  if ($Click -ne '') {
+    $clicks = $Click.Split(';')
+    $n = 0
+    foreach ($c in $clicks) {
+      $n++
+      Raise; "foreground_is_fmp_before_click_$n=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+      $xy = $c.Split(',')
+      $at = [W]::Click($h, [int]$xy[0], [int]$xy[1])
+      "clicked [$c] at screen $at, waiting $ClickWait s" | Out-File $log -Append -Encoding ascii
+      Start-Sleep -Seconds $ClickWait
+      "foreground_is_fmp_after_click_$n=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+      if ($clicks.Count -gt 1) { Shot ($Out -replace '\.png$', "-$n.png") }
+    }
+  }
+  Shot $Out
   [W]::SetWindowPos($h, [IntPtr](-2), 0, 0, 0, 0, 0x43) | Out-Null   # HWND_NOTOPMOST
-  "saved $Out" | Out-File $log -Append -Encoding ascii
 }
 if (-not $p.HasExited) { $null = $p.CloseMainWindow(); Start-Sleep 2; if (-not $p.HasExited) { $p.Kill() } }
 "closed" | Out-File $log -Append -Encoding ascii
