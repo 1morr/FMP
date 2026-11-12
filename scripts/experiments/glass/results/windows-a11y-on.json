@@ -1,0 +1,44 @@
+{
+  "env": {
+    "platform": "windows",
+    "os": "\"Windows 10 Pro for Workstations\" 10.0 (Build 26200)",
+    "plain": true,
+    "buildMode": "profile",
+    "shaderFilterSupported": true,
+    "refractProgramLoaded": true,
+    "refreshRate": 160.0,
+    "devicePixelRatio": 1.5,
+    "logicalSize": [
+      1265.3333333333333,
+      682.6666666666666
+    ],
+    "a11y": {
+      "reduceTransparency(native)": true,
+      "highContrast": false,
+      "reduceMotion": false,
+      "disableAnimations": false
+    }
+  },
+  "variants": [
+    {
+      "variant": "solid",
+      "frames": 1554,
+      "expectedFrames": 1280,
+      "buildMs": {
+        "p50": 0.224,
+        "p90": 0.59,
+        "p99": 0.963,
+        "max": 1.863
+      },
+      "rasterMs": {
+        "p50": 4.571,
+        "p90": 7.082,
+        "p99": 9.511,
+        "max": 10.963
+      },
+      "over16_7ms": 0,
+      "budgetMs": 6.25,
+      "overBudget": 214
+    }
+  ]
+}

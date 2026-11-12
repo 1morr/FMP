@@ -1,0 +1,183 @@
+{
+  "env": {
+    "platform": "iOS",
+    "os": "Version 27.1 (Build 24A94425)",
+    "buildMode": "debug",
+    "shaderFilterSupported": true,
+    "refractProgramLoaded": true,
+    "refreshRate": 60.0,
+    "devicePixelRatio": 3.0,
+    "logicalSize": [
+      466.0,
+      678.0
+    ],
+    "a11y": {
+      "reduceTransparency(native)": false,
+      "highContrast": false,
+      "reduceMotion": false,
+      "disableAnimations": false
+    }
+  },
+  "variants": [
+    {
+      "variant": "lgw-premium",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.524,
+        "p90": 0.889,
+        "p99": 1.285,
+        "max": 1.449
+      },
+      "rasterMs": {
+        "p50": 3.906,
+        "p90": 4.374,
+        "p99": 4.978,
+        "max": 5.252
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "lgw-standard",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.711,
+        "p90": 1.401,
+        "p99": 1.906,
+        "max": 2.955
+      },
+      "rasterMs": {
+        "p50": 3.761,
+        "p90": 4.7,
+        "p99": 5.554,
+        "max": 6.974
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "lgw-minimal",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.698,
+        "p90": 0.914,
+        "p99": 1.042,
+        "max": 1.291
+      },
+      "rasterMs": {
+        "p50": 5.0,
+        "p90": 5.736,
+        "p99": 6.517,
+        "max": 6.665
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "lge-lens",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.413,
+        "p90": 0.723,
+        "p99": 0.991,
+        "max": 1.315
+      },
+      "rasterMs": {
+        "p50": 3.884,
+        "p90": 4.376,
+        "p99": 4.832,
+        "max": 5.332
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "lge-lite",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.598,
+        "p90": 0.868,
+        "p99": 1.075,
+        "max": 1.386
+      },
+      "rasterMs": {
+        "p50": 4.683,
+        "p90": 5.332,
+        "p99": 5.865,
+        "max": 6.242
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "own-refract",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.298,
+        "p90": 0.58,
+        "p99": 0.841,
+        "max": 0.889
+      },
+      "rasterMs": {
+        "p50": 3.979,
+        "p90": 4.475,
+        "p99": 5.019,
+        "max": 5.259
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "own-blur",
+      "frames": 483,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 0.491,
+        "p90": 1.028,
+        "p99": 2.063,
+        "max": 2.878
+      },
+      "rasterMs": {
+        "p50": 3.838,
+        "p90": 5.017,
+        "p99": 5.844,
+        "max": 6.402
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    },
+    {
+      "variant": "solid",
+      "frames": 480,
+      "expectedFrames": 480,
+      "buildMs": {
+        "p50": 1.33,
+        "p90": 3.331,
+        "p99": 3.875,
+        "max": 5.277
+      },
+      "rasterMs": {
+        "p50": 1.291,
+        "p90": 1.633,
+        "p99": 1.85,
+        "max": 1.931
+      },
+      "over16_7ms": 0,
+      "budgetMs": 16.666666666666668,
+      "overBudget": 0
+    }
+  ]
+}
