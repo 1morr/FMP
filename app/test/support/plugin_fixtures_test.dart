@@ -338,6 +338,103 @@ export async function search({ query }) {
     });
   });
 
+  group('keepFields', () {
+    const body = {
+      'code': 0,
+      'ttl': 1,
+      'data': {
+        'seid': '42',
+        'result': [
+          {'bvid': 'BV1', 'title': 'A', 'mid': 7, 'pic': '//x/1.jpg'},
+          {'bvid': 'BV2', 'title': 'B', 'mid': 8},
+        ],
+      },
+    };
+
+    test('keeps only the listed paths, through lists, in order', () {
+      expect(
+        keepFields(body, ['code', 'data.result.bvid', 'data.result.title']),
+        {
+          'code': 0,
+          'data': {
+            'result': [
+              {'bvid': 'BV1', 'title': 'A'},
+              {'bvid': 'BV2', 'title': 'B'},
+            ],
+          },
+        },
+      );
+    });
+
+    test('a path to an object keeps all of it; missing paths are skipped', () {
+      expect(keepFields(body, ['data.result', 'nope.x']), {
+        'data': {'result': (body['data']! as Map)['result']},
+      });
+    });
+  });
+
+  group('untrimmedResponses', () {
+    PluginFixture withBody(String body) => PluginFixture(
+      input: const {'query': 'q'},
+      interactions: [
+        Interaction(
+          method: 'GET',
+          url: 'https://api.example.com/s',
+          status: 200,
+          headers: const {},
+          body: body,
+        ),
+      ],
+    );
+    const keep = ['code', 'data.result.bvid'];
+
+    test('a body with only the kept fields stays green, however formatted', () {
+      expect(
+        untrimmedResponses(
+          withBody('{"code":0,"data":{"result":[{"bvid":"BV1"}]}}'),
+          keep,
+        ),
+        isEmpty,
+      );
+      expect(
+        untrimmedResponses(
+          withBody(
+            '{\n  "code": 0,\n  "data": {"result": [{"bvid": "BV1"}]}\n}',
+          ),
+          keep,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('turns red on a field the plugin does not read', () {
+      expect(
+        untrimmedResponses(
+          withBody('{"code":0,"data":{"result":[{"bvid":"BV1","mid":7}]}}'),
+          keep,
+        ),
+        ['interactions[0] keeps fields outside keep.json'],
+      );
+    });
+
+    test('turns red on a body that is not JSON', () {
+      expect(untrimmedResponses(withBody('<html>'), keep), [
+        'interactions[0] body is not JSON, so it cannot be trimmed',
+      ]);
+    });
+
+    test('trimmed() leaves a fixture that passes', () {
+      final fixture = withBody(
+        '{"code":0,"ttl":1,"data":{"result":[{"bvid":"BV1","mid":7}]}}',
+      ).trimmed(keep);
+      expect(
+        fixture.interactions.single.body,
+        '{"code":0,"data":{"result":[{"bvid":"BV1"}]}}',
+      );
+      expect(untrimmedResponses(fixture, keep), isEmpty);
+    });
+  });
+
   group('fixture discovery', () {
     late Directory root;
 
@@ -354,6 +451,7 @@ export async function search({ query }) {
     setUp(() {
       write('demo/manifest.json', manifest);
       write('demo/dist/plugin.js', '// code');
+      write('demo/fixtures/keep.json', '{"search": ["code"]}');
       write('node_modules/x/index.js');
     });
 
@@ -380,6 +478,23 @@ export async function search({ query }) {
         ]);
       },
     );
+
+    test('reads the kept fields per capability from fixtures/keep.json', () {
+      write('demo/fixtures/keep.json', '{"search": ["code", "data.x"]}');
+      write('demo/fixtures/search/lemon.json');
+      expect(keptFields(onlyPlugin()), {
+        PluginCapability.search: ['code', 'data.x'],
+      });
+      expect(fixtureProblems(onlyPlugin()), isEmpty);
+    });
+
+    test('a declared capability without kept fields is a problem', () {
+      write('demo/fixtures/search/lemon.json');
+      write('demo/fixtures/keep.json', '{}');
+      expect(fixtureProblems(onlyPlugin()), [
+        'demo declares search but fixtures/keep.json does not list its fields',
+      ]);
+    });
 
     test('lists each declared capability with its cases, sorted', () {
       write('demo/fixtures/search/b.json');

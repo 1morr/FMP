@@ -60,7 +60,7 @@ recorded 1 request(s) into plugins/bilibili/fixtures/search/lemon.json:
 00:00 +1: All tests passed!
 ```
 
-  - 提交前人工看過內容：沒有 IP，沒有被遮掉的值。內文是公開的搜尋結果，20 筆影片，有標題、UP 主名稱與 mid、封面網址。
+  - 提交前人工看過內容：沒有 IP，沒有被遮掉的值。這次錄下的內文是完整的搜尋結果，20 筆影片，有標題、UP 主名稱與 mid、封面網址；擁有者決定裁掉之後已重錄，見文末〈擁有者決定〉。
 - `live` 冒煙測試（手動，匿名、一次）：
 
 ```
@@ -110,9 +110,25 @@ ok   plugin bundles (esbuild)
 - 重播比對的限制寫進 `FixtureReplay` 的註解。
 
 未處理：
-- **要擁有者確認**：fixture 的回應內文原樣留著 20 位 B 站 UP 主的名稱、mid 與頭像網址。這些是匿名搜尋拿到的公開資料，不是擁有者的個資，遮蔽函式本來就不處理。但 `AGENTS.md`〈公開 repo〉寫的是「不含個人資訊：使用者名稱……」，沒限定是誰的名稱。如果擁有者不接受，錄製時要把回應裁成插件會讀的欄位，重錄。
 - 重播不比對請求 header 與 body。插件改了 Referer、UA 或 cookie，契約測試抓不到，這部分由 `bilibili_plugin_test.dart` 的單元測試守。網址裡每次都變、又不遮的參數（WBI 的 `wts`、`w_rid`）會讓重播永遠對不上；票 10 以後用到 WBI 的插件能力時要決定怎麼比對（例如比對時忽略這兩個參數）。
 - `realHttpClient()` 沒有東西限制只能在 `live` tag 的檔案裡用。目前只有 `liveRecording()` 呼叫它；要守的話，在依賴規則那類測試加一條。
 - 「有 `manifest.json` 的目錄就是插件」又多了一份（`pluginDirectories`）。`plugin_assets_test.dart` 沒改用它：那個測試要在 `dist/` 缺檔時回報缺什麼，`pluginDirectories` 遇到缺檔會直接讀檔失敗。
 - 「暫存目錄加 `Log.open`」的 setUp 在測試檔裡各寫一次。沿用既有的寫法，沒抽出來。
 - plan §3 寫進了格式（VCR cassette）、只留哪些回應 header 這類做法。這些是這張票的實作，不是新的決定；擁有者看過後覺得要改，照常改。
+
+### 擁有者決定：裁掉插件用不到的欄位（2026-11-12，協調者轉達）
+
+- 決定：fixture 的回應內文只留插件會讀的欄位，拿掉 mid、頭像網址、seid、exp_list 這類。`AGENTS.md`〈公開 repo〉補一句：音源上公開內容的作者名稱、標題不算個人資訊。
+- 做法：每個插件在 `fixtures/keep.json` 宣告各插件能力要留的欄位。路徑照 MongoDB projection 的慣例：用 `.` 分隔，遇到陣列就套到每個元素，路徑指到物件時整個留下。錄製工具寫檔前，先遮蔽再裁（`PluginFixture.trimmed`）；插件能力沒列欄位就不錄。欄位名是音源專屬的，所以清單放在插件目錄裡，測試的 Dart 碼不寫音源欄位名（ADR 0038）。
+- 守法：契約測試檢查每份提交的 fixture 的回應內文都是 JSON，而且只有 `keep.json` 列的欄位；宣告了插件能力卻沒有欄位清單也會紅。雙向驗證：
+  - 在真的 fixture 塞回 `mid`：`keeps only listed fields` 紅，還原後轉綠。
+  - 單元測試也有格式不同（多行、空白）仍然綠、非 JSON 內文紅的案例。
+- bilibili 搜尋的欄位清單是 `code`、`message`、`data.result.{bvid,title,author,duration}`。插件不讀 `type`，所以沒列。重錄一次（匿名、一次）：fixture 從 35KB 縮到 4KB，每筆只剩這四個欄位。
+
+```
+$ FMP_RECORD=bilibili/search/lemon flutter test --run-skipped --tags live test/plugins/record_plugin_fixture_test.dart
+00:00 +0: record the plugin fixture named by FMP_RECORD
+recorded 1 request(s) into plugins/bilibili/fixtures/search/lemon.json:
+  GET https://api.bilibili.com/x/web-interface/search/type?search_type=video&page=1&keyword=lemon -> 200
+00:00 +1: All tests passed!
+```

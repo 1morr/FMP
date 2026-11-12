@@ -9,7 +9,8 @@ import 'package:fmp/core/log/log.dart';
 import '../support/fjs.dart';
 import '../support/plugin_fixtures.dart';
 
-/// 錄製一個插件契約測試的案例：打真實音源，遮蔽後寫進 fixture（plan §3）。
+/// 錄製一個插件契約測試的案例：打真實音源，遮蔽、裁掉插件用不到的欄位後
+/// 寫進 fixture（plan §3）。
 ///
 /// 一次只錄 `FMP_RECORD` 指定的一個案例（音源的匿名風控，brief 事實 F2）：
 ///
@@ -20,7 +21,8 @@ import '../support/plugin_fixtures.dart';
 ///
 /// 案例檔 `plugins/<插件 id>/fixtures/<插件能力>/<案例>.json` 要先存在，至少
 /// 有 `input`（新案例只寫 `{"input": {…}}`）；錄好會覆寫成完整的 fixture。
-/// 契約不過（例如被限流）時不寫檔。寫好後看一次 diff 再提交。
+/// 回應內文只留插件會讀的欄位：清單在插件的 `fixtures/keep.json`，沒列就不
+/// 錄。契約不過（例如被限流）時不寫檔。寫好後看一次 diff 再提交。
 void main() {
   final target = Platform.environment['FMP_RECORD'];
 
@@ -43,6 +45,13 @@ void main() {
         .firstOrNull;
     if (capability == null) {
       fail('plugin "$id" does not declare "$capabilityName"');
+    }
+    final keep = keptFields(plugin)[capability];
+    if (keep == null) {
+      fail(
+        'list the response fields the plugin reads for "$capabilityName" '
+        'in ${plugin.dir.path}/fixtures/keep.json',
+      );
     }
     final file = File(
       '${plugin.dir.path}/fixtures/$capabilityName/$caseName.json',
@@ -72,7 +81,7 @@ void main() {
       input: input,
       recorded: today,
       interactions: recording.recorded,
-    ).encode();
+    ).trimmed(keep).encode();
     expect(unredactedValues(source), isEmpty);
     file.writeAsStringSync(source);
     // ignore: avoid_print -- 錄製是手動執行，印出寫了什麼給人看。

@@ -63,6 +63,23 @@ class PluginFixture {
 
   final List<Interaction> interactions;
 
+  /// 回應內文只留 [keep] 列的欄位（[keepFields]）的副本。內文不是 JSON 時
+  /// 丟 [FormatException]：裁不了，就不該寫檔。
+  PluginFixture trimmed(List<String> keep) => PluginFixture(
+    input: input,
+    recorded: recorded,
+    interactions: [
+      for (final i in interactions)
+        Interaction(
+          method: i.method,
+          url: i.url,
+          status: i.status,
+          headers: i.headers,
+          body: jsonEncode(keepFields(jsonDecode(i.body), keep)),
+        ),
+    ],
+  );
+
   /// 寫檔用的文字：兩格縮排、結尾換行。
   String encode() =>
       '${const JsonEncoder.withIndent('  ').convert({
@@ -307,6 +324,51 @@ class RecordingHttp implements HttpClientAdapter {
 RecordingHttp liveRecording() =>
     RecordingHttp(IOHttpClientAdapter(createHttpClient: realHttpClient));
 
+/// 只留 [paths] 列的欄位，key 的順序照原本的（照 MongoDB projection 的
+/// 慣例）：路徑以 `.` 分隔，遇到陣列就套到每個元素；路徑指到物件時整個留下；
+/// 不存在的路徑略過。
+///
+/// fixture 的回應內文只留插件會讀的欄位（擁有者 2026-11-12）：音源回應裡的
+/// 使用者 id、頭像網址、追蹤用的 id 插件用不到，不進公開 repo。
+Object? keepFields(Object? value, List<String> paths) =>
+    _keep(value, [for (final p in paths) p.split('.')]);
+
+Object? _keep(Object? value, List<List<String>> paths) {
+  if (paths.any((p) => p.isEmpty)) return value;
+  return switch (value) {
+    List<dynamic> list => [for (final e in list) _keep(e, paths)],
+    Map<String, dynamic> map => {
+      for (final MapEntry(:key, :value) in map.entries)
+        if (paths.any((p) => p.first == key))
+          key: _keep(value, [
+            for (final p in paths)
+              if (p.first == key) p.sublist(1),
+          ]),
+    },
+    _ => value,
+  };
+}
+
+/// 提交的 fixture 是否裁過：回應內文要是 JSON，而且只有 [keep] 列的欄位。
+List<String> untrimmedResponses(PluginFixture fixture, List<String> keep) {
+  final problems = <String>[];
+  for (final (i, interaction) in fixture.interactions.indexed) {
+    final Object? json;
+    try {
+      json = jsonDecode(interaction.body);
+    } on FormatException {
+      problems.add(
+        'interactions[$i] body is not JSON, so it cannot be trimmed',
+      );
+      continue;
+    }
+    if (jsonEncode(keepFields(json, keep)) != jsonEncode(json)) {
+      problems.add('interactions[$i] keeps fields outside keep.json');
+    }
+  }
+  return problems;
+}
+
 /// fixture 裡沒遮到的 cookie、token、簽名網址：回傳遮蔽函式（[redact]）還會
 /// 改動的地方。遮過的 fixture 每個字串都是 [redact] 的不動點；整份文字也查
 /// 一次，抓到值不是字串、或敏感名稱是 JSON 鍵的情況（例如
@@ -388,8 +450,22 @@ Map<PluginCapability, List<File>> fixtureFiles(PluginDirectory plugin) => {
       capability: _jsonFiles(_fixtureDir(plugin, capability.name)),
 };
 
-/// 宣告了插件能力卻沒有案例，或 `fixtures/` 底下有沒宣告的插件能力的目錄
-/// （多半是打錯字，那些案例永遠不會跑）。
+/// 每個插件能力的 fixture 只留哪些回應欄位：`fixtures/keep.json`，例如
+/// `{"search": ["code", "data.result.title"]}`（路徑寫法見 [keepFields]）。
+/// 音源回應的形狀由插件決定，所以清單放在插件目錄裡，宿主與測試不寫音源
+/// 專屬的欄位名（ADR 0038）。
+Map<PluginCapability, List<String>> keptFields(PluginDirectory plugin) {
+  final file = File('${plugin.dir.path}/fixtures/keep.json');
+  if (!file.existsSync()) return {};
+  final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  return {
+    for (final c in PluginCapability.values)
+      if (json[c.name] case final List<dynamic> paths) c: paths.cast<String>(),
+  };
+}
+
+/// 宣告了插件能力卻沒有案例或沒有 `keep.json` 的欄位清單，或 `fixtures/`
+/// 底下有沒宣告的插件能力的目錄（多半是打錯字，那些案例永遠不會跑）。
 List<String> fixtureProblems(PluginDirectory plugin) {
   final declared = {for (final c in plugin.manifest.capabilities) c.name};
   final root = Directory('${plugin.dir.path}/fixtures');
@@ -399,11 +475,16 @@ List<String> fixtureProblems(PluginDirectory plugin) {
             dir.uri.pathSegments.where((s) => s.isNotEmpty).last,
         ]
       : <String>[];
+  final kept = keptFields(plugin);
   return [
-    for (final MapEntry(:key, :value) in fixtureFiles(plugin).entries)
+    for (final MapEntry(:key, :value) in fixtureFiles(plugin).entries) ...[
       if (value.isEmpty)
         '${plugin.id} declares ${key.name} but has no '
             'fixtures/${key.name}/*.json',
+      if (!kept.containsKey(key))
+        '${plugin.id} declares ${key.name} but fixtures/keep.json does not '
+            'list its fields',
+    ],
     for (final name in present..sort())
       if (!declared.contains(name))
         '${plugin.id} has fixtures/$name but does not declare that capability',

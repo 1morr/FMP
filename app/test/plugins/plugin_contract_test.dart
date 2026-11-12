@@ -8,7 +8,8 @@ import '../support/plugin_fixtures.dart';
 
 /// 插件契約測試（ADR 0038〈如何確認〉、plan §3）：`app/plugins/` 底下每個
 /// 插件，對它宣告的每個插件能力，用 `fixtures/<插件能力>/` 裡錄好的每個案例
-/// 重播音源的回應（零聯網），檢查回傳照宿主 API 的約定。新增插件或案例不用
+/// 重播音源的回應（零聯網），檢查回傳照宿主 API 的約定；fixture 沒有沒遮的值，
+/// 回應內文只有 `fixtures/keep.json` 列的欄位。新增插件或案例不用
 /// 改這個檔；新增插件能力時 `checkContract` 的 switch 會編譯不過，提醒補它
 /// 的契約。錄製與 `live` 冒煙測試的指令在 plan §3。
 void main() {
@@ -56,6 +57,13 @@ void main() {
 
           test('${capability.name} fixture $name has no secrets', () {
             expect(unredactedValues(file.readAsStringSync()), isEmpty);
+          });
+
+          test('${capability.name} fixture $name keeps only listed fields', () {
+            final keep = keptFields(plugin)[capability];
+            expect(keep, isNotNull, reason: 'list them in fixtures/keep.json');
+            final fixture = PluginFixture.parse(file.readAsStringSync());
+            expect(untrimmedResponses(fixture, keep!), isEmpty);
           });
         }
       }
