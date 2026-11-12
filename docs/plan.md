@@ -66,7 +66,7 @@ app/
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
-| 玻璃 | liquid_glass_easy 5.2.0（M0 票 05b 實測的版本；加入的票照當時的 stable 重查） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。系統的「降低透明度」由 `platform/` 經原生 API 讀（事實 K23） |
+| 玻璃 | liquid_glass_easy 5.2.0（M0 票 05b 實測的版本；加入的票照當時的 stable 重查） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
 | i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
 | log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
 | App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄與資料庫檔案由 `platform/` 經它取得（brief 事實 K13） |
