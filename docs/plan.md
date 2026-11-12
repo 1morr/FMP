@@ -275,5 +275,5 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - Windows 的 libmpv 是舊快照（事實 W3）：遇到 Windows 獨有的播放失敗先懷疑它。
 - iOS 的中斷與 Now Playing（事實 I2、I5）：模擬器驗不到的部分記在票的 Comments。
 - audio_service 更新慢（事實 I5、K18：#1139 的 iOS 修正 2026-07 合併，至今沒發佈）：macOS 端壞了就改用自己的 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter`（M0 票 05 已實測可行，原型在 `scripts/experiments/macos-now-playing/probe_channel/`）。
-- `liquid_glass_easy` 主版本換得快（4.0.0 在 2026-08、5.0.0 在 2026-10）：升級前用 `scripts/experiments/glass/` 在四平台重量。套件壞了或停更，退回自己用 `BackdropFilter` + `ImageFilter.shader` 做折射（原型是同目錄 probe 的 `own-refract`，四平台實測可行；GLES 上不要翻 Y 軸，事實 K22）。手機的捲動幀時間 M0 量不到（iOS 只有模擬器、Android 模擬器沒有 GPU 加速），里程碑量效能時若掉幀，玻璃元件改成捲動時降到 standard（brief §11）。
+- `liquid_glass_easy` 主版本換得快（4.0.0 在 2026-08、5.0.0 在 2026-10）：升級前用 `scripts/experiments/glass/` 在四平台重量。套件壞了或停更，退回自己用 `BackdropFilter` + `ImageFilter.shader` 做折射（原型是同目錄 probe 的 `own-refract`，四平台實測可行；GLES 上不要翻 Y 軸，事實 K22）。手機的捲動幀時間 M0 量不到（iOS 只有模擬器、Android 模擬器沒有 GPU 加速），里程碑量效能時若掉幀，玻璃元件改成捲動時降到 standard（brief §11），降級時的模糊半徑不能比折射級大（事實 K19）。手機的幀時間要在實機或有 GPU 加速的模擬器量（例如舊版基準用的 `winpc` 模擬器）。
 - 實作時發現與 brief 不符：停下來問擁有者，改 brief 並在 progress.md〈偏差與決定〉記一行。

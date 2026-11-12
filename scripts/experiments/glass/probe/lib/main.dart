@@ -9,7 +9,7 @@
 //
 // Output: `PROBE_RESULT <json>` lines on stdout / logcat, and
 // <systemTemp>/glass-probe.json (results) + glass-probe-status.json (phase).
-// run.sh / windows/probe.ps1 read them; print is intentional.
+// run.py / windows/probe.ps1 read them; print is intentional.
 // ignore_for_file: avoid_print
 import 'dart:async';
 import 'dart:convert';

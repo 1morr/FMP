@@ -26,7 +26,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 PROBE = HERE / "probe"
 RESULTS = HERE / "results"
 REPO = pathlib.Path(subprocess.check_output(["git", "-C", str(HERE), "rev-parse", "--show-toplevel"], text=True).strip())
-IOS_BUNDLE = "com.personal.fmpx.glassProbe"
+APPLE_BUNDLE = "com.personal.fmpx.glassProbe"
 ANDROID_ID = "com.personal.fmpx.glass_probe"
 MAC_APP = PROBE / "build/macos/Build/Products/Profile/glass_probe.app"
 TIMEOUT_S = 400
@@ -98,10 +98,10 @@ class Device:
         elif self.plat == "ios":
             run("xcrun", "simctl", "install", self.dev, str(PROBE / "build/ios/iphonesimulator/Runner.app"))
             # iOS 的 print 進系統 log：改讀 App 容器 tmp/ 裡的狀態檔與結果檔。
-            self.tmp = pathlib.Path(out("xcrun", "simctl", "get_app_container", self.dev, IOS_BUNDLE, "data").strip()) / "tmp"
+            self.tmp = pathlib.Path(out("xcrun", "simctl", "get_app_container", self.dev, APPLE_BUNDLE, "data").strip()) / "tmp"
             for f in ("glass-probe-status.json", "glass-probe.json"):
                 (self.tmp / f).unlink(missing_ok=True)
-            run("xcrun", "simctl", "launch", "--terminate-running-process", self.dev, IOS_BUNDLE, stdout=subprocess.DEVNULL)
+            run("xcrun", "simctl", "launch", "--terminate-running-process", self.dev, APPLE_BUNDLE, stdout=subprocess.DEVNULL)
         else:
             run(*self.adb, "install", "-r", str(PROBE / "build/app/outputs/flutter-apk/app-profile.apk"), stdout=subprocess.DEVNULL)
             run(*self.adb, "logcat", "-c")
@@ -137,7 +137,7 @@ class Device:
     def screenshot(self, name):
         path = self.shots / f"{self.plat}-{name}.png"
         if self.plat == "macos":
-            state = json.loads(out("orca", "computer", "get-app-state", "--app", IOS_BUNDLE, "--json"))
+            state = json.loads(out("orca", "computer", "get-app-state", "--app", APPLE_BUNDLE, "--json"))
             src = state["result"]["screenshot"]["path"]
             run("cp", src, str(path))
         elif self.plat == "ios":
@@ -167,7 +167,7 @@ class Device:
         if self.plat == "macos" and self.proc:
             self.proc.terminate()
         elif self.plat == "ios":
-            subprocess.run(["xcrun", "simctl", "terminate", self.dev, IOS_BUNDLE], capture_output=True)
+            subprocess.run(["xcrun", "simctl", "terminate", self.dev, APPLE_BUNDLE], capture_output=True)
         elif self.plat == "android":
             subprocess.run([*self.adb, "shell", "am", "force-stop", ANDROID_ID], capture_output=True)
 

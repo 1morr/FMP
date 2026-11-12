@@ -54,7 +54,6 @@ function Shot($h, $path) {
   $g.ReleaseHdc($hdc)
   $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
   $g.Dispose(); $bmp.Dispose()
-  $g2 = $null
   $bmp2 = New-Object System.Drawing.Bitmap ($r.R - $r.L), ($r.B - $r.T)
   $g2 = [System.Drawing.Graphics]::FromImage($bmp2)
   $g2.CopyFromScreen($r.L, $r.T, 0, 0, $bmp2.Size)
