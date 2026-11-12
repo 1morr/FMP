@@ -23,15 +23,18 @@ class JustAudioBackend implements AudioBackend {
           ),
         ),
       ),
-      _player.positionStream.listen(
-        (p) => _states.update((state) => state.copyWith(position: p)),
-      ),
+      _player.positionStream.listen((p) {
+        // 載入中報的可能還是上一條的位置。
+        if (_pendingLoads == 0) {
+          _states.update((state) => state.copyWith(position: p));
+        }
+      }),
       _player.durationStream.listen(
         (d) => _states.update((state) => state.copyWith(duration: () => d)),
       ),
       _player.errorStream.listen((e) {
         // 載入中的錯誤由 setAudioSource 丟出，交給 load 處理。
-        if (!_loading) _states.fail(_error(e));
+        if (_pendingLoads == 0) _states.fail(_error(e));
       }),
     ];
   }
@@ -39,7 +42,12 @@ class JustAudioBackend implements AudioBackend {
   final _player = ja.AudioPlayer(useProxyForRequestHeaders: false);
   final _states = BackendStates();
   late final List<StreamSubscription<Object?>> _subscriptions;
-  bool _loading = false;
+
+  /// 每次 [load] 加一；載入完時不是自己的就表示被取代了。
+  int _generation = 0;
+
+  /// 還沒回來的 [load] 數。
+  int _pendingLoads = 0;
 
   @override
   AudioBackendState get state => _states.current;
@@ -49,8 +57,9 @@ class JustAudioBackend implements AudioBackend {
 
   @override
   Future<void> load(AudioStream stream) async {
+    final generation = ++_generation;
     _states.reset();
-    _loading = true;
+    _pendingLoads++;
     try {
       final duration = await _player.setAudioSource(
         ja.AudioSource.uri(
@@ -58,26 +67,26 @@ class JustAudioBackend implements AudioBackend {
           headers: stream.headers.isEmpty ? null : stream.headers,
         ),
       );
+      if (generation != _generation) return;
       _states.update((s) => s.copyWith(duration: () => duration));
     } on ja.PlayerException catch (e) {
+      if (generation != _generation) return;
       final error = _error(e);
       _states.fail(error);
       throw error;
-    } on ja.PlayerInterruptedException catch (e) {
-      // 又載入了別的串流；呼叫端只看最後一次。
-      throw AudioBackendError(
-        const ParseFailure(),
-        'interrupted: ${e.message}',
-      );
+    } on ja.PlayerInterruptedException {
+      // 被下一次載入取代（介面的約定：直接回來）。
+      return;
     } finally {
-      _loading = false;
+      _pendingLoads--;
     }
   }
 
   @override
   Future<void> play() async {
-    // just_audio 的 play() 要到暫停或播完才完成；這裡不等。
-    unawaited(_player.play());
+    // just_audio 的 play() 要到暫停或播完才完成，這裡不等（事實 K25）。
+    // 播放中的錯誤另從 errorStream 來，這裡只接住免得成為沒人處理的錯誤。
+    unawaited(_player.play().catchError((Object _) {}));
   }
 
   @override

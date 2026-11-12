@@ -174,8 +174,11 @@ void main() {
     expect(current()!.status, PlaybackStatus.failed);
     expect(current()!.error, isA<NetworkError>());
     expect(backend.calls, ['load']);
+    final log = await closeAndReadLog();
+    // 後端發出 failed 又丟錯，只記一次。
+    expect('Playback failed'.allMatches(log), hasLength(1));
     expect(
-      await closeAndReadLog(),
+      log,
       contains(
         'Playback failed: NetworkError (code 0: Source error) '
         'for songs/ok from cdn.example.com',
@@ -203,6 +206,40 @@ void main() {
       ),
     );
   });
+
+  test('a backend that refuses to play fails with its category', () async {
+    backend.failNextPlay = const AudioBackendError(
+      Unsupported(),
+      'code 1: renderer',
+    );
+
+    await playback().play(playable);
+
+    expect(current()!.status, PlaybackStatus.failed);
+    expect(current()!.error, isA<Unsupported>());
+    expect(
+      await closeAndReadLog(),
+      contains('Playback failed: Unsupported (code 1: renderer)'),
+    );
+  });
+
+  test(
+    'a stream that failed to load is not later reported as stalled',
+    () async {
+      backend.holdLoad = Completer<void>();
+      backend.failNextLoad = const AudioBackendError(NetworkError(), 'x');
+      final playing = playback().play(playable);
+      await _until(() => backend.calls.isNotEmpty);
+      // 載入中（stall 計時器在跑）時失敗。
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      backend.holdLoad!.complete();
+      await playing;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      expect(current()!.status, PlaybackStatus.failed);
+      expect(await closeAndReadLog(), isNot(contains('Playback stalled')));
+    },
+  );
 
   test(
     'a stream that reports a zero duration is logged (facts I4, W4)',

@@ -140,7 +140,12 @@ class Playback extends Notifier<PlaybackState?> {
     }
     if (!_isCurrent(generation)) return;
     _onBackendState(_backend.state);
-    await _backend.play();
+    try {
+      await _backend.play();
+    } catch (error, stackTrace) {
+      if (!_isCurrent(generation)) return;
+      _fail(track, stream, error, stackTrace, 'Starting playback failed');
+    }
   }
 
   /// 沒播過時什麼都不做。
@@ -158,6 +163,12 @@ class Playback extends Notifier<PlaybackState?> {
     StackTrace stackTrace,
     String programErrorMessage,
   ) {
+    _stallTimer?.cancel();
+    _stallTimer = null;
+    // 後端出錯時會先發 failed 再丟錯；先到的那一邊已經記過、改過狀態。
+    if (error is AudioBackendError && state?.status == PlaybackStatus.failed) {
+      return;
+    }
     final AppError? category;
     switch (error) {
       case AudioBackendError():

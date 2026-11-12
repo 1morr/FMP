@@ -19,7 +19,9 @@ abstract interface class AudioBackend {
   Stream<AudioBackendState> get states;
 
   /// 開啟 [stream]，請求時帶上它的 header；開好後停在開頭、不自動播放。
-  /// 取代原本放的串流。開不了時丟 [AudioBackendError]。
+  /// 取代原本放的串流。開不了時先把 [state] 改成 failed，再丟
+  /// [AudioBackendError]。還沒開好就被下一次 [load] 取代時直接回來，不丟錯，
+  /// 狀態歸下一次。
   Future<void> load(AudioStream stream);
 
   /// 開始或繼續播放。不等播完。

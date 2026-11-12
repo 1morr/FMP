@@ -4,7 +4,8 @@ import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/playback/audio_backend.dart';
 
 /// 測試用的音訊後端：記下呼叫，狀態由測試用 [emit] 推進。照真的後端的
-/// 習慣，[load] 先發 loading 再發 ready，[play]、[pause] 改 `playing`。
+/// 習慣，[load] 先發 loading 再發 ready（失敗時發 failed 再丟錯），[play]、
+/// [pause] 改 `playing`。
 class FakeAudioBackend implements AudioBackend {
   final _states = StreamController<AudioBackendState>.broadcast(sync: true);
 
@@ -19,6 +20,9 @@ class FakeAudioBackend implements AudioBackend {
 
   /// 設了就讓 [load] 等它完成才回來，用來測載入途中又點了別首。
   Completer<void>? holdLoad;
+
+  /// 設了就讓下一次 [play] 丟它（只丟一次）。
+  AudioBackendError? failNextPlay;
 
   /// [load] 開好時回報的長度。
   Duration? loadedDuration = const Duration(minutes: 3);
@@ -45,7 +49,10 @@ class FakeAudioBackend implements AudioBackend {
     await holdLoad?.future;
     if (failNextLoad case final error?) {
       failNextLoad = null;
-      emit(state.copyWith(status: AudioBackendStatus.idle));
+      // 照真的後端：先發 failed 再丟錯。
+      emit(
+        state.copyWith(status: AudioBackendStatus.failed, error: () => error),
+      );
       throw error;
     }
     emit(
@@ -59,6 +66,10 @@ class FakeAudioBackend implements AudioBackend {
   @override
   Future<void> play() async {
     calls.add('play');
+    if (failNextPlay case final error?) {
+      failNextPlay = null;
+      throw error;
+    }
     emit(state.copyWith(playing: true));
   }
 

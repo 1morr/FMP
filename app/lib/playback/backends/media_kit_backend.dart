@@ -24,12 +24,13 @@ class MediaKitBackend implements AudioBackend {
             _states.update((s) => _withStatus(s.copyWith(playing: playing))),
       ),
       stream.completed.listen((_) => _states.update(_withStatus)),
-      stream.position.listen(
-        (p) => _states.update((s) => s.copyWith(position: p)),
-      ),
+      stream.position.listen((p) {
+        // 開好之前報的可能還是上一條的位置。
+        if (_opened) _states.update((s) => s.copyWith(position: p));
+      }),
       stream.duration.listen((d) {
         if (_loaded case final loaded? when d > Duration.zero) {
-          if (!loaded.isCompleted) loaded.complete();
+          if (!loaded.isCompleted) loaded.complete(true);
         }
         if (_loaded == null) {
           _states.update((s) => s.copyWith(duration: () => d));
@@ -55,8 +56,12 @@ class MediaKitBackend implements AudioBackend {
   final _states = BackendStates();
   late final List<StreamSubscription<Object?>> _subscriptions;
 
-  /// 載入中時，長度出現就完成、mpv 報錯就失敗。
-  Completer<void>? _loaded;
+  /// 載入中時，長度出現就以 true 完成、被下一次載入取代就以 false 完成、
+  /// mpv 報錯就失敗。
+  Completer<bool>? _loaded;
+
+  /// 每次 [load] 加一；載入完時不是自己的就表示被取代了。
+  int _generation = 0;
 
   /// 載入完成之後才把 mpv 的狀態當真；之前 mpv 報的是上一條或還沒開好。
   bool _opened = false;
@@ -81,16 +86,24 @@ class MediaKitBackend implements AudioBackend {
 
   @override
   Future<void> load(AudioStream stream) async {
+    final generation = ++_generation;
+    if (_loaded case final previous? when !previous.isCompleted) {
+      previous.complete(false);
+    }
     _opened = false;
     _states.reset();
-    final loaded = _loaded = Completer<void>();
+    final loaded = _loaded = Completer<bool>();
+    // 先接上等待，mpv 在 open 期間就報錯時才不會成為沒人處理的錯誤。
+    final waiting = loaded.future.timeout(loadTimeout, onTimeout: () => true)
+      ..ignore();
     try {
       await _player.open(
         mk.Media(stream.url.toString(), httpHeaders: stream.headers),
         play: false,
       );
-      await loaded.future.timeout(loadTimeout, onTimeout: () {});
+      if (!await waiting || generation != _generation) return;
     } on AudioBackendError catch (error) {
+      if (generation != _generation) return;
       _states.fail(error);
       rethrow;
     } finally {
@@ -99,7 +112,9 @@ class MediaKitBackend implements AudioBackend {
     _opened = true;
     final duration = _player.state.duration;
     _states.update((s) {
-      final next = _withStatus(s.copyWith(duration: () => duration));
+      final next = _withStatus(
+        s.copyWith(duration: () => duration, position: _player.state.position),
+      );
       // 逾時時長度還是 0：當成一直在緩衝（事實 W4），交給呼叫端記錄。
       return duration == Duration.zero
           ? next.copyWith(status: AudioBackendStatus.buffering)
