@@ -176,7 +176,10 @@ void main() {
     expect(backend.calls, ['load']);
     expect(
       await closeAndReadLog(),
-      contains('Playback failed: NetworkError (code 0: Source error)'),
+      contains(
+        'Playback failed: NetworkError (code 0: Source error) '
+        'for songs/ok from cdn.example.com',
+      ),
     );
   });
 
@@ -194,7 +197,10 @@ void main() {
     expect(current()!.error, isA<Unsupported>());
     expect(
       await closeAndReadLog(),
-      contains('Playback failed: Unsupported (ao: no device)'),
+      contains(
+        'Playback failed: Unsupported (ao: no device) '
+        'for songs/ok from cdn.example.com',
+      ),
     );
   });
 

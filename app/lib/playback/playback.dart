@@ -161,7 +161,7 @@ class Playback extends Notifier<PlaybackState?> {
     final AppError? category;
     switch (error) {
       case AudioBackendError():
-        _logBackendError(error);
+        _logBackendError(error, track, stream);
         category = error.category;
       case AppError():
         // 插件宿主已經記過它的錯誤。
@@ -178,8 +178,15 @@ class Playback extends Notifier<PlaybackState?> {
     );
   }
 
-  void _logBackendError(AudioBackendError error) =>
-      _log.error('Playback failed: ${error.category} (${error.detail})');
+  /// 只記 CDN 的主機，不記簽名網址。
+  void _logBackendError(
+    AudioBackendError error,
+    Track track,
+    AudioStream? stream,
+  ) => _log.error(
+    'Playback failed: ${error.category} (${error.detail}) '
+    'for ${track.source}/${track.id} from ${stream?.url.host}',
+  );
 
   void _onBackendState(AudioBackendState backend) {
     final current = state;
@@ -200,7 +207,9 @@ class Playback extends Notifier<PlaybackState?> {
       AudioBackendStatus.failed => PlaybackStatus.failed,
     };
     if (backend.status == AudioBackendStatus.failed) {
-      if (backend.error case final error?) _logBackendError(error);
+      if (backend.error case final error?) {
+        _logBackendError(error, current.track, current.stream);
+      }
     }
     _watchForStall(backend);
     if (backend.status == AudioBackendStatus.ready &&

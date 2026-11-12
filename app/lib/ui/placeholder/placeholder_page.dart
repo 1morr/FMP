@@ -149,8 +149,8 @@ class _PlaybackPanel extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             _controls(context, ref, t, playback),
-            if (stream != null && playback.status != PlaybackStatus.failed)
-              ..._details(t, stream),
+            // 播放失敗時也顯示，方便看是哪個 CDN。
+            if (stream != null) ..._details(t, stream),
           ],
         ),
       ),
