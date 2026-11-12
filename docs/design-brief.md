@@ -308,6 +308,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - 插件宣告插件能力，介面依插件能力出現入口；Dart 端不得有針對特定音源的分支。
 - 插件只能連 manifest 宣告的網域，沒有檔案系統與 socket，只能用宿主給的 API。
 - 錯誤以固定代碼回報，由宿主轉成錯誤分類（§13）。
+- 曲目 id 由插件決定格式，宿主當成不透明字串，只拿來交回同一個插件（2026-11-12）。B 站照影片頁網址的慣例（`/video/<bvid>?p=<n>`）：`<bvid>` 是第一個分 P，`<bvid>?p=<n>`（n ≥ 2）是第 n 個分 P，不收 `?p=1`，一首曲目只有一個 id。曲目 id 會存進資料庫，之後改任何插件的格式都要做資料 migration。
 
 ### 5.4 存取等級與會員狀態
 
@@ -435,6 +436,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - **F6** `/x/player/playurl` 的 `fnval=16` 回 DASH 音訊軌（m4a/AAC），`fnval=0` 回 FLV；點播沒有 HLS。Apple 平台的 AVPlayer 不播 FLV。出處：`legacy:lib/data/sources/bilibili_source.dart:297-426`。可信度：舊版程式碼。
 - **F7** 直播：mpv 開流後約 50 秒內位置與時長都是 0；Apple 平台要改用 h5 的 HLS（aac）。出處：`legacy:lib/services/audio/media_kit_audio_service.dart:555-565`（Windows，舊版程式碼）；`archive:docs/adr/0036` §決定 7（Apple，上一版文件【待重驗】）。
 - **F20** 匿名影片搜尋：`GET https://api.bilibili.com/x/web-interface/search/type?search_type=video&page=1&keyword=<關鍵字>`，帶瀏覽器 UA、`Referer: https://search.bilibili.com/`、`Origin: https://search.bilibili.com`，以及本地亂數產生的指紋 cookie（`buvid3=<8-4-4-4-12 大寫十六進位>infoc; buvid4=…; b_nut=<unix 秒>; _uuid=<同 buvid3>; buvid_fp=<同 buvid3>`），回 HTTP 200、JSON `code: 0`。結果在 `data.result`，每筆有 `bvid`、`title`（關鍵字以 `<em class="keyword">` 標出，含 `&amp;` 這類 HTML 實體）、`author`、`duration`（`m:ss` 或 `h:mm:ss` 字串）；舊版把沒有 `data.result` 當成零筆。不用 WBI 簽名。出處：`legacy:lib/data/sources/bilibili_source.dart:86,90-108,476-516`、`legacy:lib/data/sources/source_http_policy.dart:21-27,138-152`；M0 票 08 的 bilibili 插件（`app/plugins/bilibili/src/index.ts`）在 macOS、iOS 模擬器、Android 模擬器、Windows 各匿名搜尋一次都拿到結果。可信度：舊版程式碼，2026-11-12 四平台實跑。
+- **F21** 匿名解析串流（點播）：先 `GET https://api.bilibili.com/x/player/pagelist?bvid=<bvid>` 取分 P 清單（`data` 是陣列，每筆有 `cid` 與從 1 起算的 `page`），再 `GET https://api.bilibili.com/x/player/playurl?bvid=<bvid>&cid=<cid>&fnval=16`（事實 F6）。兩支都不用 WBI 簽名，帶瀏覽器 UA、`Referer: https://www.bilibili.com/`、`Origin: https://www.bilibili.com`（事實 F4）與事實 F20 的指紋 cookie，回 HTTP 200、JSON `code: 0`。音訊軌在 `data.dash.audio`，每筆有 `baseUrl`（與 `base_url` 相同）、`bandwidth`（bit/s）、`codecs`；2026-11-12 匿名拿到兩條 `mp4a.40.2`（`bandwidth` 68646 與 134695），網址在 `upos-hz-mirrorakam.akamaized.net`、副檔名 `.m4s`，query 帶 `deadline` 與簽名參數 `upsig`。`BV1xx411c7mD`（av170001）的 pagelist 現在只有一個分 P。錯誤代碼舊版的分類：`-404`、`-503`、`62002` 是不可用，`-403`、`62012` 是沒有權限，`-10403` 是地區限制。出處：`legacy:lib/data/sources/bilibili_source.dart:327-376,649-672`、`legacy:lib/data/sources/bilibili_exception.dart:43-50`；M0 票 10 的錄製（`app/plugins/bilibili/fixtures/resolveStream/first-part.json`）。可信度：端點與回應 2026-11-12 匿名實測；錯誤代碼是舊版程式碼，沒有實測。
 
 ### 18.2 YouTube
 

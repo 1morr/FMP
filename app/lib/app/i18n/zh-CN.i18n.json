@@ -10,6 +10,16 @@
       "failed": "搜索失败",
       "network": "无法连接网络",
       "rateLimited": "请求太频繁，请稍后再试"
+    },
+    "stream": {
+      "quality": "音质：$value",
+      "expires": "到期：$value",
+      "url": "网址：$value",
+      "unknown": "未知",
+      "failed": "解析失败",
+      "notFound": "找不到这首曲目",
+      "unavailable": "这首曲目目前无法播放",
+      "unsupported": "这个音源不支持解析音频流"
     }
   }
 }

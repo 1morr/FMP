@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/core/redaction/redact.dart';
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/plugins.dart';
 
@@ -204,6 +206,140 @@ export async function search({ query }) {
           'track 1: empty id',
           'track 1: empty title',
           'track 1: duration 0:00:00.000000 is not positive',
+        ],
+      );
+    });
+  });
+
+  group('expectations', () {
+    final resolveManifest = jsonEncode({
+      'id': 'demo',
+      'name': 'Demo',
+      'version': '1.0.0',
+      'capabilities': ['resolveStream'],
+      'domains': ['api.example.com'],
+    });
+
+    /// 回傳 [stream] 的 resolveStream。
+    PluginBundle resolving(Map<String, Object?> stream) => PluginBundle(
+      manifest: resolveManifest,
+      code:
+          'export async function resolveStream() { '
+          'return ${jsonEncode(stream)}; }',
+    );
+
+    Future<List<String>> run(
+      PluginBundle bundle,
+      PluginCapability capability,
+      Map<String, Object?> expect,
+    ) => runContractCase(
+      bundle,
+      capability,
+      PluginFixture(
+        input: capability == PluginCapability.search
+            ? const {'query': 'q'}
+            : const {'trackId': 't'},
+        expect: expect,
+        interactions: const [],
+      ),
+      log: log,
+    );
+
+    test('expiresAt: a stream without an expiry turns red', () async {
+      expect(
+        await run(
+          resolving({'url': 'https://cdn.example.com/a.m4a'}),
+          PluginCapability.resolveStream,
+          const {'expiresAt': true},
+        ),
+        ['expected an expiresAt, got none'],
+      );
+    });
+
+    test('expiresAt: a stream with an expiry stays green', () async {
+      expect(
+        await run(
+          resolving({
+            'url': 'https://cdn.example.com/a.m4a',
+            'expiresAtMs': 1767225600000,
+          }),
+          PluginCapability.resolveStream,
+          const {'expiresAt': true},
+        ),
+        isEmpty,
+      );
+    });
+
+    test('an expectation the capability does not know turns red', () async {
+      expect(
+        await run(
+          PluginBundle(
+            manifest: manifest,
+            code:
+                'export async function search() { '
+                'return ${jsonEncode({
+                  'tracks': [
+                    {'id': '1', 'title': 'x', 'author': ''},
+                  ],
+                })}; }',
+          ),
+          PluginCapability.search,
+          const {'expiresAt': true},
+        ),
+        ['search has no expectation "expiresAt"'],
+      );
+    });
+
+    test('parse and encode keep the expectations', () {
+      final source = PluginFixture(
+        input: const {'trackId': 't'},
+        expect: const {'expiresAt': true},
+        interactions: const [],
+      ).encode();
+      expect(PluginFixture.parse(source).expect, {'expiresAt': true});
+      expect(
+        PluginFixture.parse('{"input": {}}').expect,
+        isEmpty,
+        reason: 'a fixture without expectations',
+      );
+    });
+  });
+
+  group('resolveStreamContractViolations', () {
+    final url = Uri.parse('https://cdn.example.com/a.m4a');
+
+    test('accepts a stream with only a url, or with every field', () {
+      expect(resolveStreamContractViolations(AudioStream(url: url)), isEmpty);
+      expect(
+        resolveStreamContractViolations(
+          AudioStream(
+            url: url,
+            headers: const {'Referer': 'https://example.com'},
+            expiresAt: DateTime.utc(2026),
+            codec: 'mp4a.40.2',
+            bitrate: 1,
+          ),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('flags each broken field', () {
+      expect(
+        resolveStreamContractViolations(
+          AudioStream(
+            url: url,
+            headers: const {'': 'x'},
+            expiresAt: DateTime.utc(1970),
+            codec: ' ',
+            bitrate: 0,
+          ),
+        ),
+        [
+          'empty header name',
+          'expiresAt 1970-01-01 00:00:00.000Z is not after the epoch',
+          'empty codec',
+          'bitrate 0 is not positive',
         ],
       );
     });
@@ -432,6 +568,29 @@ export async function search({ query }) {
         '{"code":0,"data":{"result":[{"bvid":"BV1"}]}}',
       );
       expect(untrimmedResponses(fixture, keep), isEmpty);
+    });
+
+    test('a recorded signed URL in a body passes the secret check', () {
+      // 票 10：B 站的 playurl 回應裡是簽名網址，`&` 寫成 JSON 跳脫；遮過、
+      // 裁過、寫成檔之後，整份文字仍要是遮蔽函式的不動點。
+      final body = redact(
+        r'{"code":0,"data":{"dash":{"audio":[{"baseUrl":'
+        r'"https://cdn.example.com/a.m4s?deadline=1&upsig=FAKE"}]}}}',
+      );
+      final written = PluginFixture(
+        input: const {'trackId': 'BV1'},
+        interactions: [
+          Interaction(
+            method: 'GET',
+            url: 'https://api.example.com/play',
+            status: 200,
+            headers: const {},
+            body: body,
+          ),
+        ],
+      ).trimmed(['code', 'data.dash.audio.baseUrl']).encode();
+      expect(written, isNot(contains('FAKE')));
+      expect(unredactedValues(written), isEmpty);
     });
   });
 

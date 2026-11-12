@@ -10,6 +10,16 @@
       "failed": "Search failed",
       "network": "Can't connect to the network",
       "rateLimited": "Too many requests, try again later"
+    },
+    "stream": {
+      "quality": "Quality: $value",
+      "expires": "Expires: $value",
+      "url": "URL: $value",
+      "unknown": "unknown",
+      "failed": "Couldn't resolve the stream",
+      "notFound": "Track not found",
+      "unavailable": "This track can't be played right now",
+      "unsupported": "This source can't resolve streams"
     }
   }
 }

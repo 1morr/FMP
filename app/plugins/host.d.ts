@@ -63,3 +63,23 @@ interface SearchRequest {
 interface SearchResponse {
   tracks: PluginTrack[];
 }
+
+/** 插件能力 resolveStream：把一首曲目解析成串流（GLOSSARY.md）。 */
+interface ResolveStreamRequest {
+  /** 搜尋等插件能力回傳的 PluginTrack.id。 */
+  trackId: string;
+}
+
+/** 串流。欄位命名參考 Spotube 插件的音訊來源（url、codec、bitrate）。 */
+interface ResolveStreamResponse {
+  /** http(s) 的絕對網址，可以直接播放。 */
+  url: string;
+  /** 播放時請求 url 要帶的 header。 */
+  headers?: Record<string, string>;
+  /** 網址失效的時間（unix 毫秒）；不知道就不給。 */
+  expiresAtMs?: number;
+  /** RFC 6381 的 codec 字串，例如 AAC-LC 的 'mp4a.40.2'。 */
+  codec?: string;
+  /** 位元率（bit/s）。 */
+  bitrate?: number;
+}
