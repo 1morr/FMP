@@ -5,11 +5,11 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/redaction/redact.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:fmp/ui/placeholder/placeholder_search.dart';
-import 'package:fmp/ui/placeholder/placeholder_stream.dart';
 
-/// M0 的佔位畫面：App 名稱、一個搜尋框與點選曲目解析出的串流；照設計稿的
-/// 畫面從 M1 開始。
+/// M0 的佔位畫面：App 名稱、一個搜尋框、搜尋結果，點一首就播放；照設計稿
+/// 的畫面從 M1 開始。
 class PlaceholderPage extends ConsumerStatefulWidget {
   const PlaceholderPage({super.key});
 
@@ -58,7 +58,7 @@ class _PlaceholderPageState extends ConsumerState<PlaceholderPage> {
                 ),
               ),
             ),
-            const _StreamPanel(),
+            const _PlaybackPanel(),
             const Expanded(child: _Results()),
           ],
         ),
@@ -114,7 +114,7 @@ class _TrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final duration = track.duration;
     return ListTile(
-      onTap: () => ref.read(placeholderStreamProvider.notifier).resolve(track),
+      onTap: () => ref.read(playbackProvider.notifier).play(track),
       title: Text(track.title),
       subtitle: Text(
         duration == null
@@ -125,15 +125,17 @@ class _TrackTile extends ConsumerWidget {
   }
 }
 
-/// 點過的曲目解析出的串流：音質、到期時間與遮蔽過的網址（brief §13）。
-class _StreamPanel extends ConsumerWidget {
-  const _StreamPanel();
+/// 正在播的曲目：播放狀態、進度、暫停與繼續，以及它的串流的音質、到期時間
+/// 與遮蔽過的網址（brief §13）。
+class _PlaybackPanel extends ConsumerWidget {
+  const _PlaybackPanel();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(placeholderStreamProvider);
-    if (selected == null) return const SizedBox.shrink();
+    final playback = ref.watch(playbackProvider);
+    if (playback == null) return const SizedBox.shrink();
     final t = context.t;
+    final stream = playback.stream;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Padding(
@@ -142,18 +144,59 @@ class _StreamPanel extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              selected.track.title,
+              playback.track.title,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 4),
-            ...switch (selected.stream) {
-              AsyncData(:final value) => _details(t, value),
-              AsyncError(:final error) => [Text(_errorText(t, error))],
-              _ => [const LinearProgressIndicator()],
-            },
+            _controls(context, ref, t, playback),
+            if (stream != null && playback.status != PlaybackStatus.failed)
+              ..._details(t, stream),
           ],
         ),
       ),
+    );
+  }
+
+  static Widget _controls(
+    BuildContext context,
+    WidgetRef ref,
+    Translations t,
+    PlaybackState playback,
+  ) {
+    final notifier = ref.read(playbackProvider.notifier);
+    final status = switch (playback.status) {
+      PlaybackStatus.resolving => t.placeholder.playback.resolving,
+      PlaybackStatus.loading => t.placeholder.playback.loading,
+      PlaybackStatus.buffering => t.placeholder.playback.buffering,
+      PlaybackStatus.playing => t.placeholder.playback.playing,
+      PlaybackStatus.paused => t.placeholder.playback.paused,
+      PlaybackStatus.completed => t.placeholder.playback.completed,
+      PlaybackStatus.failed => _errorText(t, playback),
+    };
+    final button = switch (playback.status) {
+      PlaybackStatus.playing || PlaybackStatus.buffering => IconButton(
+        tooltip: t.placeholder.playback.pause,
+        icon: const Icon(Icons.pause),
+        onPressed: notifier.pause,
+      ),
+      PlaybackStatus.paused => IconButton(
+        tooltip: t.placeholder.playback.play,
+        icon: const Icon(Icons.play_arrow),
+        onPressed: notifier.resume,
+      ),
+      _ => null,
+    };
+    final duration = playback.duration;
+    return Row(
+      children: [
+        ?button,
+        Expanded(child: Text(status)),
+        if (playback.status != PlaybackStatus.failed && duration != null)
+          Text(
+            '${formatDuration(playback.position)} / '
+            '${formatDuration(duration)}',
+          ),
+      ],
     );
   }
 
@@ -185,14 +228,20 @@ class _StreamPanel extends ConsumerWidget {
     ];
   }
 
-  static String _errorText(Translations t, Object error) => switch (error) {
-    NotFound() => t.placeholder.stream.notFound,
-    Unavailable() => t.placeholder.stream.unavailable,
-    Unsupported() => t.placeholder.stream.unsupported,
-    NetworkError() => t.placeholder.search.network,
-    RateLimited() => t.placeholder.search.rateLimited,
-    _ => t.placeholder.stream.failed,
-  };
+  /// 還沒有串流時是解析失敗，有了之後是播放失敗。
+  static String _errorText(Translations t, PlaybackState playback) {
+    final resolved = playback.stream != null;
+    return switch (playback.error) {
+      NotFound() => t.placeholder.stream.notFound,
+      Unavailable() => t.placeholder.stream.unavailable,
+      Unsupported() when resolved => t.placeholder.playback.unsupportedFormat,
+      Unsupported() => t.placeholder.stream.unsupported,
+      NetworkError() => t.placeholder.search.network,
+      RateLimited() => t.placeholder.search.rateLimited,
+      _ when resolved => t.placeholder.playback.failed,
+      _ => t.placeholder.stream.failed,
+    };
+  }
 }
 
 /// 到期時間：`yyyy-MM-dd HH:mm`，照傳入的時區（畫面傳本地時間）。

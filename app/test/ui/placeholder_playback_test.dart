@@ -6,14 +6,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/placeholder/placeholder_page.dart';
 
+import '../support/fake_audio_backend.dart';
 import '../support/fake_http.dart';
 import '../support/fjs.dart';
 
-/// 佔位畫面點一首曲目（票 10）：用提供它的插件解析串流，顯示音質、到期
-/// 時間與遮蔽過的網址；失敗時顯示錯誤分類。插件寫在這裡，跑在真的引擎裡。
+/// 佔位畫面點一首曲目（票 10、11）：用提供它的插件解析串流並播放，顯示
+/// 播放狀態、音質、到期時間與遮蔽過的網址，能暫停、繼續；失敗時顯示錯誤
+/// 分類。插件寫在這裡，跑在真的引擎裡；音訊後端是假的。
 void main() {
   late Directory logDir;
   late Log log;
@@ -83,11 +86,16 @@ void main() {
     }
   }
 
-  testWidgets('tapping a track shows its stream, or why it has none', (
-    tester,
-  ) async {
+  testWidgets('tapping a track plays it and shows its stream, or why it '
+      'cannot play', (tester) async {
+    final backend = FakeAudioBackend();
     await tester.pumpWidget(
-      buildRoot(overrides: [pluginHostProvider.overrideWith((_) => host)]),
+      buildRoot(
+        overrides: [
+          pluginHostProvider.overrideWith((_) => host),
+          audioBackendProvider.overrideWithValue(backend),
+        ],
+      ),
     );
     await tester.enterText(find.byType(TextField), 'q');
     await tester.runAsync(
@@ -112,10 +120,23 @@ void main() {
     );
     expect(find.textContaining('SECRET123'), findsNothing);
 
+    // 播放出聲（票 11）：交給後端的是插件給的 header，能暫停、繼續。
+    await waitFor(tester, find.text('播放中'));
+    expect(backend.loaded.single.headers, {'Referer': 'https://example.com'});
+    expect(find.text('0:00 / 3:00'), findsOneWidget);
+    await tester.tap(find.byTooltip('暫停'));
+    await tester.pump();
+    expect(find.text('已暫停'), findsOneWidget);
+    await tester.tap(find.byTooltip('播放'));
+    await tester.pump();
+    expect(find.text('播放中'), findsOneWidget);
+    expect(backend.calls, ['load', 'play', 'pause', 'play']);
+
     await tester.runAsync(() async => tester.tap(find.text('Gone')));
     await waitFor(tester, find.text('找不到這首曲目'));
     expect(find.text('找不到這首曲目'), findsOneWidget);
     expect(find.textContaining('音質'), findsNothing);
+    expect(find.byTooltip('暫停'), findsNothing);
 
     await tester.runAsync(() async => tester.tap(find.text('Search only')));
     await waitFor(tester, find.text('這個音源不支援解析串流'));

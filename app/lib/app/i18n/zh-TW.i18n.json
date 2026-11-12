@@ -20,6 +20,18 @@
       "notFound": "找不到這首曲目",
       "unavailable": "這首曲目目前無法播放",
       "unsupported": "這個音源不支援解析串流"
+    },
+    "playback": {
+      "resolving": "正在解析…",
+      "loading": "載入中…",
+      "buffering": "緩衝中…",
+      "playing": "播放中",
+      "paused": "已暫停",
+      "completed": "播完了",
+      "failed": "播放失敗",
+      "unsupportedFormat": "這個平台播不了這條串流",
+      "play": "播放",
+      "pause": "暫停"
     }
   }
 }

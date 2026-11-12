@@ -20,6 +20,18 @@
       "notFound": "Track not found",
       "unavailable": "This track can't be played right now",
       "unsupported": "This source can't resolve streams"
+    },
+    "playback": {
+      "resolving": "Resolving…",
+      "loading": "Loading…",
+      "buffering": "Buffering…",
+      "playing": "Playing",
+      "paused": "Paused",
+      "completed": "Finished",
+      "failed": "Playback failed",
+      "unsupportedFormat": "This platform can't play this stream",
+      "play": "Play",
+      "pause": "Pause"
     }
   }
 }

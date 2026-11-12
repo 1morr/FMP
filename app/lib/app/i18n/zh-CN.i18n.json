@@ -20,6 +20,18 @@
       "notFound": "找不到这首曲目",
       "unavailable": "这首曲目目前无法播放",
       "unsupported": "这个音源不支持解析音频流"
+    },
+    "playback": {
+      "resolving": "正在解析…",
+      "loading": "加载中…",
+      "buffering": "缓冲中…",
+      "playing": "播放中",
+      "paused": "已暂停",
+      "completed": "播放完毕",
+      "failed": "播放失败",
+      "unsupportedFormat": "这个平台播放不了这条音频流",
+      "play": "播放",
+      "pause": "暂停"
     }
   }
 }
