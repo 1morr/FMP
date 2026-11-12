@@ -4,6 +4,8 @@
 # -Click "x,y": then left-click at x,y logical pixels of the client area (scaled by
 # the window DPI), wait -ClickWait s. Several clicks "x,y;x,y;...": each one is
 # followed by -ClickWait s and a screenshot <Out without .png>-<n>.png (n from 1).
+# The app's stdout/stderr go to C:\fmp-wt\app-stdout.txt / app-stderr.txt (a Dart VM
+# abort prints there); after closing the window the log says exited_after_close.
 param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$Click = '', [int]$ClickWait = 8)
 $log = 'C:\fmp-wt\shot.log'
 "start" | Out-File $log -Encoding ascii
@@ -47,7 +49,7 @@ public class W {
 "@
 [W]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null
 "exe=[$Exe]" | Out-File $log -Append -Encoding ascii
-try { $Exe = $Exe -replace "/", "\"; $p = Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe) -PassThru -ErrorAction Stop } catch { "ERR $_" | Out-File $log -Append -Encoding ascii; exit 1 }
+try { $Exe = $Exe -replace "/", "\"; $p = Start-Process -FilePath $Exe -WorkingDirectory (Split-Path $Exe) -PassThru -ErrorAction Stop -RedirectStandardOutput C:\fmp-wt\app-stdout.txt -RedirectStandardError C:\fmp-wt\app-stderr.txt } catch { "ERR $_" | Out-File $log -Append -Encoding ascii; exit 1 }
 Start-Sleep -Seconds $Wait
 $p.Refresh()
 "pid=$($p.Id) exited=$($p.HasExited) title=$($p.MainWindowTitle)" | Out-File $log -Append -Encoding ascii
@@ -104,5 +106,5 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
   Shot $Out
   [W]::SetWindowPos($h, [IntPtr](-2), 0, 0, 0, 0, 0x43) | Out-Null   # HWND_NOTOPMOST
 }
-if (-not $p.HasExited) { $null = $p.CloseMainWindow(); Start-Sleep 2; if (-not $p.HasExited) { $p.Kill() } }
+if (-not $p.HasExited) { $null = $p.CloseMainWindow(); Start-Sleep 6; "exited_after_close=$($p.HasExited) code=$($p.ExitCode)" | Out-File $log -Append -Encoding ascii; if (-not $p.HasExited) { $p.Kill() } }
 "closed" | Out-File $log -Append -Encoding ascii
