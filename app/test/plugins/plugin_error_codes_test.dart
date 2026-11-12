@@ -23,7 +23,7 @@ void main() {
       File('plugins/host.d.ts').readAsStringSync(),
     );
     expect(declared, isNotEmpty);
-    expect(declared, dartCodes());
+    expect(codeMismatches(declared, dartCodes()), isEmpty);
   });
 
   group('errorCodeUnion', () {
@@ -33,8 +33,10 @@ type PluginErrorCode =
   | 'network'
   | 'rate_limited';
 ''';
-      expect(errorCodeUnion(dts), isNot({'network', 'rate_limited', 'x'}));
-      expect(errorCodeUnion(dts), isNot({'network'}));
+      final declared = errorCodeUnion(dts);
+      expect(codeMismatches(declared, {'network', 'rate_limited', 'x'}), {'x'});
+      expect(codeMismatches(declared, {'network'}), {'rate_limited'});
+      expect(codeMismatches(declared, {'network', 'rate_limited'}), isEmpty);
     });
 
     test('stays green on layout, quotes and comments', () {
@@ -50,6 +52,10 @@ type After = 'ignored';
     });
   });
 }
+
+/// 只出現在 `host.d.ts` 或只出現在 Dart 端的代碼。
+Set<String> codeMismatches(Set<String> declared, Set<String> dartCodes) =>
+    declared.difference(dartCodes).union(dartCodes.difference(declared));
 
 /// `host.d.ts` 裡 `type PluginErrorCode = …;` 列出的字串。
 Set<String> errorCodeUnion(String dts) {

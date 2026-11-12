@@ -86,6 +86,9 @@ class ProcessShell implements Shell {
       environment: environment,
       runInShell: Platform.isWindows,
       stdoutEncoding: const Utf8Codec(allowMalformed: true),
+      // winpc 的錯誤訊息是 cp950；照 stdout 寬鬆解碼，免得 FormatException 蓋掉
+      // 下面的 ProcessException（指令與退出碼）。
+      stderrEncoding: const Utf8Codec(allowMalformed: true),
     );
     if (result.exitCode != 0) {
       throw ProcessException(

@@ -12,7 +12,7 @@
 - [x] 帶 header 播放：Apple 平台照事實 M5 重驗 B 站 CDN 回的 Content-Type 與 header 做法；Windows 照事實 K4。重驗結果更新 brief §18。
 - [x] 播放錯誤轉成錯誤分類並寫 log；長度為零或一直 buffering 的情況至少有記錄（事實 W4），完整的看門狗留給 M1，記到票的 Comments。
 - [x] 單元測試用 fake 後端測播放流程；零聯網。
-- [x] `integration_test`：搜尋、點一首、進入播放狀態，用 fixture 重播與不連網的音訊來源，四平台在 `check.dart` 完整版通過。
+- [x] `integration_test`：搜尋、點一首、進入播放狀態，用 fixture 重播與不連網的音訊來源，四平台在 `check.dart` 完整版通過。（插件的回應改用 `FakeHttp` 手寫，不是重播 `fixtures/`，理由見票 12 的 Comments）
 - [x] 四平台實跑：搜一次、播一首，確認出聲並能暫停、繼續（macOS、Windows 本機聽；模擬器以播放狀態與進度前進為證），讀回畫面。
 - [x] 依賴版本寫進 plan §1.4。
 - [x] Windows 上的原生崩潰要分清來源再處理：建置階段 `frontend_server` 當掉（MSB8066，plan §2 記的 `winpc` 不穩）可以重跑；App 執行中的崩潰（崩的是 App 自己的行程，例如事實 W5 的 media_kit 同時 dispose）一律當產品 bug 查，不能重跑放過。判斷依據（log、crash dump 的模組名）記在票的 Comments。

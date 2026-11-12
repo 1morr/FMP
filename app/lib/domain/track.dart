@@ -17,11 +17,14 @@ class Track {
 
   final String title;
 
-  /// 作者：歌手或上傳者，由插件決定放哪個。
+  /// 作者（`GLOSSARY.md`）：曲目在音源上掛名的人或頻道，由插件決定放哪個。
   final String author;
 
   /// 插件不知道時是 null。
   final Duration? duration;
+
+  /// log 用的 `<插件 id>/<曲目 id>`。
+  String get logId => '$source/$id';
 
   @override
   bool operator ==(Object other) =>

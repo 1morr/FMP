@@ -23,12 +23,8 @@ async function search({ query }) {
   const res = await host.http.request({
     url,
     headers: {
-      "User-Agent": USER_AGENT,
-      Referer: "https://search.bilibili.com/",
-      Origin: "https://search.bilibili.com",
-      Accept: "application/json, text/plain, */*",
-      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-      Cookie: COOKIE
+      ...browserHeaders("https://search.bilibili.com/", "https://search.bilibili.com"),
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
     }
   });
   const data = parseResponse(res);
@@ -98,15 +94,18 @@ function deadlineMs(url) {
 async function apiGet(url) {
   const res = await host.http.request({
     url,
-    headers: {
-      "User-Agent": USER_AGENT,
-      Referer: API_REFERER,
-      Origin: API_ORIGIN,
-      Accept: "application/json, text/plain, */*",
-      Cookie: COOKIE
-    }
+    headers: browserHeaders(API_REFERER, API_ORIGIN)
   });
   return parseResponse(res);
+}
+function browserHeaders(referer, origin) {
+  return {
+    "User-Agent": USER_AGENT,
+    Referer: referer,
+    Origin: origin,
+    Accept: "application/json, text/plain, */*",
+    Cookie: COOKIE
+  };
 }
 function parseResponse(res) {
   if (res.status === 412 || res.status === 429) {
