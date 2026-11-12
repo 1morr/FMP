@@ -6,7 +6,7 @@
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] 音訊後端介面用 `mattpocock-skills:codebase-design` 設計，只涵蓋 M0 要的載入、播放、暫停、狀態與錯誤；兩個實作在 `playback/backends/`（plan §1.3 的例外，擁有者 2026-11-11 決定），平台判斷只在 `platform/`。
 - [x] 帶 header 播放：Apple 平台照事實 M5 重驗 B 站 CDN 回的 Content-Type 與 header 做法；Windows 照事實 K4。重驗結果更新 brief §18。
@@ -16,7 +16,7 @@
 - [x] 四平台實跑：搜一次、播一首，確認出聲並能暫停、繼續（macOS、Windows 本機聽；模擬器以播放狀態與進度前進為證），讀回畫面。
 - [x] 依賴版本寫進 plan §1.4。
 - [x] Windows 上的原生崩潰要分清來源再處理：建置階段 `frontend_server` 當掉（MSB8066，plan §2 記的 `winpc` 不穩）可以重跑；App 執行中的崩潰（崩的是 App 自己的行程，例如事實 W5 的 media_kit 同時 dispose）一律當產品 bug 查，不能重跑放過。判斷依據（log、crash dump 的模組名）記在票的 Comments。
-- [ ] `dart run tool/check.dart` 完整版綠燈。
+- [x] `dart run tool/check.dart` 完整版綠燈。
 
 ## Comments
 
@@ -121,14 +121,9 @@
 - just_audio 沒設定 `audio_session`：背景播放、中斷處理在 M1。
 - 403 時重新解析、換 `backupUrl`、降一級音質重試（brief §6）都在 M1。
 
-### 完整閘門（還沒綠）
+### 完整閘門
 
-`dart run tool/check.dart` 跑了三次（後兩次在 `c89fa777`），macOS、iOS、Android 的建置與 integration_test 每次都綠，快速閘門與插件打包產物也都綠；紅的只有 Windows：
-
-- 第 1、2 次：只有 `FAIL integration_test windows: integration_test/search_and_play_test.dart`，第二個檔重建時的 `MSB8066`，原因沒查到（見上面〈Windows 原生崩潰的判斷〉）。同一個檔在這個 session 裡單獨或照閘門順序手動跑，通過過五次。
-- 第 3 次：`winpc` 在 `build windows` 途中藍屏（12:07，BugCheck `0x00020001` HYPERVISOR_ERROR，minidump `C:\WINDOWS\Minidump\111226-19421-01.dmp`，Kernel-Power 41），重開後沒有人登入桌面，Windows 的三步都紅。這是 plan §2 記的 `winpc` 硬體或韌體不穩，不是這張票的程式。
-
-第 3 次的結果：
+`dart run tool/check.dart` 第 6 次全綠（commit `1773bf5f`，已合併 main），退出碼 0：
 
 ```
 ok   i18n (slang)
@@ -142,17 +137,24 @@ ok   build macos
 ok   build ios
 ok   build android
 ok   lock shared devices
-FAIL build windows
+ok   build windows
 ok   integration_test macos: integration_test/app_test.dart
 ok   integration_test macos: integration_test/search_and_play_test.dart
 ok   integration_test ios: integration_test/app_test.dart
 ok   integration_test ios: integration_test/search_and_play_test.dart
 ok   integration_test android: integration_test/app_test.dart
 ok   integration_test android: integration_test/search_and_play_test.dart
-FAIL integration_test windows: integration_test/app_test.dart
-FAIL integration_test windows: integration_test/search_and_play_test.dart
+ok   integration_test windows: integration_test/app_test.dart
+ok   integration_test windows: integration_test/search_and_play_test.dart
 ok   unlock shared devices
 ok   plugin bundles (esbuild)
 ```
 
-要擁有者登入 `winpc` 的桌面後，在這個分支重跑完整版，綠了才把 Status 改成 `done`、勾掉最後一條。
+前 5 次每次都只有 Windows 紅，macOS、iOS、Android、快速閘門與插件打包產物每次都綠：
+
+- 第 1、2 次：`search_and_play_test.dart` 第二個檔重建時 `MSB8066`，原因沒查到（見〈Windows 原生崩潰的判斷〉）。
+- 第 3 次：`winpc` 在 `build windows` 途中藍屏（12:07，BugCheck `0x00020001` HYPERVISOR_ERROR，minidump `C:\WINDOWS\Minidump\111226-19421-01.dmp`），重開後沒人登入桌面。
+- 第 4 次（擁有者 12:14 登入後）：build_runner 的 Dart 編譯器 `===== CRASH =====`（事件記錄 12:22:33 有 `dartaotruntime.exe` 崩潰）。兩個 integration_test 重建時，rustc 在 `cexpr`、`regex-automata`、`zerocopy`、`windows` 共四次「the compiler unexpectedly panicked」，接著 `MSB8066`。App 都沒啟動。
+- 第 5 次：又是 Dart 編譯器崩潰（13:04:12）。`database.g.dart` 是空的，`build windows` 與 `app_test` 跟著紅；`search_and_play_test` 在 Windows 通過。
+
+第 3～5 次都是 plan §2 記的 `winpc` 硬體或韌體不穩：藍屏、Dart 與 rustc 編譯器各自崩潰，App 的行程沒有參與。擁有者選擇馬上重跑，第 6 次綠。
