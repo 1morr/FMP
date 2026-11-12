@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/core/redaction/redact.dart';
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/plugins.dart';
 
@@ -203,6 +204,16 @@ Future<List<String>> checkContract(
         plugin.manifest.id,
         await plugin.search(query),
       );
+    case PluginCapability.resolveStream:
+      final trackId = input['trackId'];
+      if (trackId is! String) {
+        throw const FormatException(
+          'resolveStream input needs a "trackId" string',
+        );
+      }
+      return resolveStreamContractViolations(
+        await plugin.resolveStream(trackId),
+      );
   }
 }
 
@@ -217,6 +228,19 @@ List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
     if (t.duration case final d? when d <= Duration.zero)
       'track $i: duration $d is not positive',
   ],
+];
+
+/// 插件能力 resolveStream 的契約（`app/plugins/host.d.ts`）：網址是 http(s)
+/// 的絕對網址（宿主已檢查），其餘欄位不知道就不給，給了就要有意義。
+/// 有效期只檢查晚於 epoch：重播的是過去錄的回應，早就過期了。
+List<String> resolveStreamContractViolations(AudioStream stream) => [
+  if (stream.headers.keys.any((name) => name.trim().isEmpty))
+    'empty header name',
+  if (stream.expiresAt case final at? when at.millisecondsSinceEpoch <= 0)
+    'expiresAt $at is not after the epoch',
+  if (stream.codec case final codec? when codec.trim().isEmpty) 'empty codec',
+  if (stream.bitrate case final bitrate? when bitrate <= 0)
+    'bitrate $bitrate is not positive',
 ];
 
 /// 對 [bundle] 的插件跑 [capability] 的契約，網路經 [httpAdapter]。回傳

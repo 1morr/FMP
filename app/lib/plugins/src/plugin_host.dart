@@ -4,6 +4,7 @@ import 'package:dio/dio.dart' show HttpClientAdapter;
 import 'package:fjs/fjs.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/plugins/src/host_network.dart';
 import 'package:fmp/plugins/src/js_engine.dart';
@@ -87,6 +88,52 @@ class Plugin {
       throw const ParseFailure();
     }
   }
+
+  /// 插件能力 `resolveStream`：把 [trackId]（[Track.id]）解析成串流。
+  Future<AudioStream> resolveStream(String trackId) async {
+    final result = await _invoke(PluginCapability.resolveStream, {
+      'trackId': trackId,
+    });
+    try {
+      final json = result as Map;
+      final url = Uri.parse(json['url'] as String);
+      if (!url.isAbsolute || !const {'http', 'https'}.contains(url.scheme)) {
+        throw const FormatException('url is not an absolute http(s) url');
+      }
+      final headers = json['headers'] as Map? ?? const {};
+      final expiresAtMs = _whole(json['expiresAtMs'], 'expiresAtMs');
+      return AudioStream(
+        url: url,
+        headers: {
+          for (final MapEntry(:key, :value) in headers.entries)
+            key as String: value as String,
+        },
+        expiresAt: expiresAtMs == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(expiresAtMs, isUtc: true),
+        codec: json['codec'] as String?,
+        bitrate: _whole(json['bitrate'], 'bitrate'),
+      );
+    } catch (e) {
+      // 型別不對、數字不是有限值、時間超出 DateTime 的範圍。
+      if (e is! TypeError && e is! FormatException && e is! ArgumentError) {
+        rethrow;
+      }
+      // 訊息不帶網址：簽名網址只在遮蔽過的 log 裡出現也不該。
+      _log.warning(
+        'plugin ${manifest.id}: resolveStream returned a bad shape: '
+        '${e is FormatException ? e.message : e.runtimeType}',
+      );
+      throw const ParseFailure();
+    }
+  }
+
+  /// 選填的數字欄位，四捨五入成整數；NaN 與無限大不算數字。
+  static int? _whole(Object? value, String name) => switch (value) {
+    null => null,
+    num n when n.isFinite => n.round(),
+    _ => throw FormatException('$name is not a finite number'),
+  };
 
   Track _track(Map<dynamic, dynamic> json) {
     final ms = json['durationMs'];

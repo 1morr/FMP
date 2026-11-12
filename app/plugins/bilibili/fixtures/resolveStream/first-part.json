@@ -1,0 +1,34 @@
+{
+  "input": {
+    "trackId": "BV1xx411c7mD"
+  },
+  "recorded": "2026-11-12",
+  "interactions": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.bilibili.com/x/player/pagelist?bvid=BV1xx411c7mD"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"code\":0,\"message\":\"OK\",\"data\":[{\"cid\":62131,\"page\":1}]}"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.bilibili.com/x/player/playurl?bvid=BV1xx411c7mD&cid=62131&fnval=16"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"code\":0,\"message\":\"OK\",\"data\":{\"dash\":{\"audio\":[{\"baseUrl\":\"https://upos-hz-mirrorakam.akamaized.net/upgcxcode/31/21/62131/62131_da3-1-30216.m4s?e=***&os=***&og=***&oi=***&gen=***&uipk=***&nbs=***&platform=***&trid=***&mid=***&deadline=***&upsig=***&uparams=***&hdnts=***&bvc=***&nettype=***&bw=***&lrs=***&V=***&f=***&qn_dyeid=***&agrr=***&buvid=***&build=***&dl=***&orderid=***\",\"base_url\":\"https://upos-hz-mirrorakam.akamaized.net/upgcxcode/31/21/62131/62131_da3-1-30216.m4s?e=***&os=***&og=***&oi=***&gen=***&uipk=***&nbs=***&platform=***&trid=***&mid=***&deadline=***&upsig=***&uparams=***&hdnts=***&bvc=***&nettype=***&bw=***&lrs=***&V=***&f=***&qn_dyeid=***&agrr=***&buvid=***&build=***&dl=***&orderid=***\",\"bandwidth\":68646,\"codecs\":\"mp4a.40.2\"},{\"baseUrl\":\"https://upos-hz-mirrorakam.akamaized.net/upgcxcode/31/21/62131/62131_da3-1-30232.m4s?e=***&gen=***&nbs=***&trid=***&mid=***&uipk=***&os=***&og=***&platform=***&deadline=***&oi=***&upsig=***&uparams=***&hdnts=***&bvc=***&nettype=***&bw=***&lrs=***&V=***&agrr=***&buvid=***&build=***&dl=***&f=***&qn_dyeid=***&orderid=***\",\"base_url\":\"https://upos-hz-mirrorakam.akamaized.net/upgcxcode/31/21/62131/62131_da3-1-30232.m4s?e=***&gen=***&nbs=***&trid=***&mid=***&uipk=***&os=***&og=***&platform=***&deadline=***&oi=***&upsig=***&uparams=***&hdnts=***&bvc=***&nettype=***&bw=***&lrs=***&V=***&agrr=***&buvid=***&build=***&dl=***&f=***&qn_dyeid=***&orderid=***\",\"bandwidth\":134695,\"codecs\":\"mp4a.40.2\"}]}}}"
+      }
+    }
+  ]
+}

@@ -1,6 +1,25 @@
-// Bilibili 插件。目前的插件能力：search（brief 事實 F20）。
+// Bilibili 插件。插件能力：search（brief 事實 F20）、resolveStream（事實
+// F1、F4、F5、F6、F21）。
+//
+// 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
+// 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P（GLOSSARY.md：每個分 P 是一首
+// 獨立的曲目）。
 
 const SEARCH_URL = 'https://api.bilibili.com/x/web-interface/search/type';
+const PAGELIST_URL = 'https://api.bilibili.com/x/player/pagelist';
+const PLAYURL_URL = 'https://api.bilibili.com/x/player/playurl';
+
+/** API 請求的 Referer 帶結尾斜線、加 Origin（brief 事實 F4）。 */
+const API_REFERER = 'https://www.bilibili.com/';
+const API_ORIGIN = 'https://www.bilibili.com';
+
+/** 媒體 CDN 只要 Referer，不帶結尾斜線、不帶憑證（brief 事實 F4）。 */
+const MEDIA_HEADERS = { Referer: 'https://www.bilibili.com' };
+
+/** playurl 的 DASH 格式；音訊軌是 m4a/AAC（brief 事實 F6）。 */
+const FNVAL_DASH = '16';
+
+const TRACK_ID = /^(BV[0-9A-Za-z]{10})(?:\?p=([1-9]\d*))?$/;
 
 // curl、okhttp 這類 UA 必被風控擋（brief 事實 F2），用瀏覽器的。
 const USER_AGENT =
@@ -9,6 +28,14 @@ const USER_AGENT =
 
 /** 風控碼：要當限流退避，換 buvid 救不回來（brief 事實 F2）。 */
 const RISK_CONTROL_CODES = new Set([-352, -412, -509, -799]);
+
+/** 其他已知的 API 代碼（brief 事實 F21）。 */
+const ERROR_CODES = new Map<number, PluginErrorCode>([
+  [-404, 'not_found'],
+  [62002, 'unavailable_copyright'],
+  [62012, 'unavailable_copyright'],
+  [-10403, 'unavailable_region'],
+]);
 
 /** 匿名的瀏覽器指紋 cookie，引擎載入插件時產生一次（brief 事實 F20）。 */
 const COOKIE = browserCookie();
@@ -33,6 +60,99 @@ export async function search({ query }: SearchRequest): Promise<SearchResponse> 
   return { tracks: results.map(toTrack) };
 }
 
+export async function resolveStream({
+  trackId,
+}: ResolveStreamRequest): Promise<ResolveStreamResponse> {
+  const match = TRACK_ID.exec(trackId);
+  if (match === null) {
+    throw new PluginError('not_found', `not a bilibili track id: ${trackId}`);
+  }
+  const bvid = match[1] as string;
+  const page = Number(match[2] ?? '1');
+  const cid = await partCid(bvid, page);
+  const data = (await apiGet(
+    `${PLAYURL_URL}?bvid=${bvid}&cid=${cid}&fnval=${FNVAL_DASH}`,
+  )) as { dash?: { audio?: unknown } } | undefined;
+  const audio = bestAudio(data?.dash?.audio);
+  return {
+    url: audio.url,
+    headers: { ...MEDIA_HEADERS },
+    expiresAtMs: deadlineMs(audio.url),
+    codec: audio.codec,
+    bitrate: audio.bandwidth,
+  };
+}
+
+/** 第 [page] 個分 P 的 cid；匿名查 cid 走 pagelist（brief 事實 F1）。 */
+async function partCid(bvid: string, page: number): Promise<number> {
+  const data = await apiGet(`${PAGELIST_URL}?bvid=${bvid}`);
+  if (!Array.isArray(data)) {
+    throw new PluginError('parse_failure', 'pagelist without a list');
+  }
+  const part = (data as { cid?: unknown; page?: unknown }[]).find(
+    (p) => p?.page === page,
+  );
+  if (part === undefined) {
+    throw new PluginError('not_found', `${bvid} has no part ${page}`);
+  }
+  if (typeof part.cid !== 'number') {
+    throw new PluginError('parse_failure', 'pagelist part without a cid');
+  }
+  return part.cid;
+}
+
+interface DashAudio {
+  url: string;
+  bandwidth: number;
+  codec?: string;
+}
+
+/** 頻寬最高的 DASH 音訊軌。 */
+function bestAudio(tracks: unknown): DashAudio {
+  const audios: DashAudio[] = [];
+  for (const track of Array.isArray(tracks) ? tracks : []) {
+    const { baseUrl, base_url, bandwidth, codecs } = (track ?? {}) as {
+      baseUrl?: unknown;
+      base_url?: unknown;
+      bandwidth?: unknown;
+      codecs?: unknown;
+    };
+    const url = typeof baseUrl === 'string' ? baseUrl : base_url;
+    if (typeof url === 'string' && url !== '' && typeof bandwidth === 'number') {
+      audios.push({
+        url,
+        bandwidth,
+        codec: typeof codecs === 'string' ? codecs : undefined,
+      });
+    }
+  }
+  if (audios.length === 0) {
+    throw new PluginError('parse_failure', 'playurl without DASH audio');
+  }
+  return audios.reduce((best, a) => (a.bandwidth > best.bandwidth ? a : best));
+}
+
+/** 網址的 `deadline`（unix 秒）換成毫秒；讀不到就不給（brief 事實 F5）。 */
+function deadlineMs(url: string): number | undefined {
+  const match = /[?&]deadline=(\d+)(?:&|#|$)/.exec(url);
+  return match === null ? undefined : Number(match[1]) * 1000;
+}
+
+/** 帶瀏覽器 header 的 API 請求，回傳 `data`。 */
+async function apiGet(url: string): Promise<unknown> {
+  const res = await host.http.request({
+    url,
+    headers: {
+      'User-Agent': USER_AGENT,
+      Referer: API_REFERER,
+      Origin: API_ORIGIN,
+      Accept: 'application/json, text/plain, */*',
+      Cookie: COOKIE,
+    },
+  });
+  return parseResponse(res);
+}
+
 /** 檢查 HTTP 狀態與 B 站的 `code`，回傳 `data`。 */
 function parseResponse(res: HostHttpResponse): unknown {
   if (res.status === 412 || res.status === 429) {
@@ -52,6 +172,9 @@ function parseResponse(res: HostHttpResponse): unknown {
     if (typeof body.code === 'number' && RISK_CONTROL_CODES.has(body.code)) {
       throw new PluginError('rate_limited', detail);
     }
+    const known =
+      typeof body.code === 'number' ? ERROR_CODES.get(body.code) : undefined;
+    if (known !== undefined) throw new PluginError(known, detail);
     throw new PluginError('parse_failure', detail);
   }
   return body.data;

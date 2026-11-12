@@ -6,5 +6,15 @@
     "data.result.title",
     "data.result.author",
     "data.result.duration"
+  ],
+  "resolveStream": [
+    "code",
+    "message",
+    "data.cid",
+    "data.page",
+    "data.dash.audio.baseUrl",
+    "data.dash.audio.base_url",
+    "data.dash.audio.bandwidth",
+    "data.dash.audio.codecs"
   ]
 }

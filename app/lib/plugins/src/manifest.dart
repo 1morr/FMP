@@ -3,7 +3,7 @@ import 'dart:convert';
 /// 插件能力（`GLOSSARY.md`）：插件在 manifest 宣告做得到的事。新增能力時在
 /// 這裡加一個值，值的名稱就是 manifest 裡的字串，也是插件匯出的函式名；
 /// 宿主不認得的字串略過，舊版宿主讀得了新版插件的 manifest。
-enum PluginCapability { search }
+enum PluginCapability { search, resolveStream }
 
 /// 插件的 manifest（`app/plugins/<id>/manifest.json`）。
 ///
