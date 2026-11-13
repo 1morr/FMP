@@ -1,5 +1,5 @@
 #!/bin/sh
-# 新版的快速閘門（docs/app-development.md〈開發環境與閘門〉）：只有這次 commit 改到 app/ 才跑；只改舊版或
+# 新版的快速閘門（docs/development.md〈開發環境與閘門〉）：只有這次 commit 改到 app/ 才跑；只改舊版或
 # 文件的 commit 不跑，舊版的緊急修正不受新版閘門影響。
 # 啟用：git config core.hooksPath .githooks
 # --no-renames：把檔案搬出 app/ 時，預設只會列出新路徑。

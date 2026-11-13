@@ -16,5 +16,5 @@
 ## 紀錄
 
 - 2026-11-13 流程（使用者同意）：文件與做票流程對齊 project-init 的新範本，章節號不再寫進程式碼；plan〈里程碑任務〉搬走後 §6、§7 改成 §5、§6。
-- 2026-11-13 流程（使用者同意）：決定集中到本檔、progress.md 只留 session 紀錄；plan 拆成根目錄的 `ARCHITECTURE.md` 與 `docs/app-development.md`。
+- 2026-11-13 流程（使用者同意）：決定集中到本檔、progress.md 只留 session 紀錄；plan 拆成根目錄的 `ARCHITECTURE.md` 與 `docs/development.md`。
 - 2026-11-13 流程（使用者同意）：決定跟著里程碑封存，M0 的搬回 `docs/archive/M0.md`；本檔只留進行中的。

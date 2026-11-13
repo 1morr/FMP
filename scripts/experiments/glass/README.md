@@ -71,7 +71,7 @@
 - 套件的「lite／minimal」在 Windows 比折射版還慢（`lge-lite`、`lgw-minimal` 每幀都超過 6.2 ms）：推測是它們的模糊比較大（16 對 5），沒有做同半徑的對照。所以退到 standard 時模糊半徑不能比折射級大，否則比折射級還慢。
 - Windows 的「幀數」比「應有」（8 秒 × 160 Hz）多（`solid` 1680）：FrameTiming 每畫一幀記一筆，Windows 上的出幀數和 `display.refreshRate` 不一致，所以「> 預算」一欄在 Windows 只能參考；以 16.7 ms 為標準的結論不受影響。
 - 模糊值：`own-blur` 照 `DESIGN.md` §1.4 用 18，套件的 standard／lite 用 §1.1 一般玻璃的 16，折射級的預模糊都是 5。
-- 手機的實際效能這個環境量不到：iOS 只有模擬器（debug），Android 模擬器沒有 GPU 加速。舊版基準（`docs/audit/perf-baseline.md`）的 Android 數字是在 `winpc` 的模擬器（主機 GPU 模擬）上量的，和這台 Mac 的模擬器不能比。要量手機，用實機或有 GPU 加速的模擬器（例如 `winpc` 上的 Android 模擬器）跑 `python3 run.py android`。
+- 手機的實際效能這個環境量不到：iOS 只有模擬器（debug），Android 模擬器沒有 GPU 加速。舊版基準（`docs/legacy/audit/perf-baseline.md`）的 Android 數字是在 `winpc` 的模擬器（主機 GPU 模擬）上量的，和這台 Mac 的模擬器不能比。要量手機，用實機或有 GPU 加速的模擬器（例如 `winpc` 上的 Android 模擬器）跑 `python3 run.py android`。
 
 ### 「降低透明度」讀不讀得到
 
@@ -118,7 +118,7 @@ python3 summarize.py results/macos.json
 需要：
 
 - Flutter 3.47.5、Xcode；Python 3 加 Pillow（產生對照圖）。iOS 模擬器與 Android 模擬器先開好。
-- **共用裝置鎖**（docs/app-development.md〈平台〉、§4）：`run.py` 的裝置階段經 `app/tool/device_lock.dart` 持鎖；`run-windows.sh` 開頭 source `app/tool/winpc/lock_guard.sh`。macOS、iOS、Android 的建置在鎖外；Windows 在 `winpc` 上建置，整段持鎖。
+- **共用裝置鎖**（docs/development.md〈平台〉、§4）：`run.py` 的裝置階段經 `app/tool/device_lock.dart` 持鎖；`run-windows.sh` 開頭 source `app/tool/winpc/lock_guard.sh`。macOS、iOS、Android 的建置在鎖外；Windows 在 `winpc` 上建置，整段持鎖。
 - macOS 截圖用 `orca computer get-app-state`（執行的終端機要有「螢幕錄製」權限）。
 - `winpc` 的桌面有人登入；截圖會短暫把 probe 視窗拉到最上層。
 - 結果檔名照模式自動加尾碼：`-partial`（設了 `VARIANTS`）、`-a11y`（`MODE=a11y`）、`-plain`（Windows 的 `APP_ARGS`）。

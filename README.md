@@ -125,10 +125,10 @@ The in-depth docs are written in Traditional Chinese.
 | | |
 |---|---|
 | [docs/README.md](docs/README.md) | What each document covers |
-| [docs/building.md](docs/building.md) | Local Android and Windows builds |
-| [docs/development.md](docs/development.md) | Architecture, sources, data model |
-| [docs/build-and-release.md](docs/build-and-release.md) | CI, releases, signing, in-app update assets |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common build and runtime problems |
+| [docs/legacy/building.md](docs/legacy/building.md) | Local Android and Windows builds |
+| [docs/legacy/development.md](docs/legacy/development.md) | Architecture, sources, data model |
+| [docs/legacy/build-and-release.md](docs/legacy/build-and-release.md) | CI, releases, signing, in-app update assets |
+| [docs/legacy/troubleshooting.md](docs/legacy/troubleshooting.md) | Common build and runtime problems |
 
 ## Privacy and disclaimer
 

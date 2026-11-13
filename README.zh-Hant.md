@@ -107,10 +107,10 @@ flutter test --exclude-tags live
 | | |
 |---|---|
 | [docs/README.md](docs/README.md) | 各份文件涵蓋的內容 |
-| [docs/building.md](docs/building.md) | 本機 Android 與 Windows 建置方式 |
-| [docs/development.md](docs/development.md) | 架構、資料來源、資料模型 |
-| [docs/build-and-release.md](docs/build-and-release.md) | CI、發布流程、簽章、應用內更新資源 |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | 常見的建置與執行期問題 |
+| [docs/legacy/building.md](docs/legacy/building.md) | 本機 Android 與 Windows 建置方式 |
+| [docs/legacy/development.md](docs/legacy/development.md) | 架構、資料來源、資料模型 |
+| [docs/legacy/build-and-release.md](docs/legacy/build-and-release.md) | CI、發布流程、簽章、應用內更新資源 |
+| [docs/legacy/troubleshooting.md](docs/legacy/troubleshooting.md) | 常見的建置與執行期問題 |
 
 ## 隱私與免責聲明
 

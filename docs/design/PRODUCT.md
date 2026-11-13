@@ -29,7 +29,7 @@ FMP 是音樂播放器載體：App 負責播放、音樂庫與介面；Bilibili�
 ## Operating Context
 
 - 第一版頁面：App 外殼（導覽、迷你播放器）、首頁、搜尋與結果、音樂庫、歌單詳情（本地、匯入）、佇列、全螢幕播放頁（含歌詞）、加入歌單對話框、帳號與登入、插件管理、設定、匯入舊版備份（brief §11）。
-- 頁面地圖、資訊架構、各頁的功能入口照舊版（截圖在 `docs/audit/screenshots/`）。
+- 頁面地圖、資訊架構、各頁的功能入口照舊版（截圖在 `docs/legacy/audit/screenshots/`）。
 - 語言：zh-TW 為主，加 zh-CN、en。
 
 ## Capabilities and Constraints
@@ -51,7 +51,7 @@ FMP 是音樂播放器載體：App 負責播放、音樂庫與介面；Bilibili�
 
 ## Evidence on Hand
 
-- 舊版截圖：`docs/audit/screenshots/`（個人資料已模糊）。
+- 舊版截圖：`docs/legacy/audit/screenshots/`（個人資料已模糊）。
 - 沒有真實的封面、曲目與帳號資料可用；設計稿裡的封面、曲名、歌手、帳號名稱都是虛構的示範資料，要標示。
 - 不使用三個音源的官方 logo；音源標識用自繪的簡化符號。
 

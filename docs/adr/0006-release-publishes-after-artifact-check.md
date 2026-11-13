@@ -4,7 +4,7 @@
 
 - 狀態：已實作
 - 日期：2026-09-24
-- 影響範圍：`.github/workflows/release.yml`、`test/workflows/release_workflow_test.dart`、`docs/build-and-release.md` 的發布流程
+- 影響範圍：`.github/workflows/release.yml`、`test/workflows/release_workflow_test.dart`、`docs/legacy/build-and-release.md` 的發布流程
 
 ## 背景
 
@@ -66,7 +66,7 @@ App 內更新讀的正是這份 checksums（`update_service.dart` 找
 - 草稿之前的所有檢查（tag 格式、analyze、test、ISS patch 驗證、各 build job）
   不論有沒有草稿都照跑。撤掉草稿不會少掉任何一項既有檢查，保留它也不會多一項。
 - 人工那一步沒有清單。`release.yml` 的註解寫「artifacts are unverified until
-  someone looks」，`docs/build-and-release.md` 寫「這一步是給人看 body 與產物的
+  someone looks」，`docs/legacy/build-and-release.md` 寫「這一步是給人看 body 與產物的
   機會」，但沒有一處說要看什麼。上面四項驗證比「有人看過」具體。
 - 擁有者不想要這個手動步驟。
 
@@ -81,7 +81,7 @@ App 內更新讀的正是這份 checksums（`update_service.dart` 找
   自動分組產生的，發布後直接成為 App 內更新對話框的內容。這是知情接受的取捨。
 - **驗證通過就立刻對外**：README 的穩定連結與 App 內更新同時指向新版。驗證 job
   只擋結構性錯誤（缺檔、hash 不符、版本錯、壞的安裝檔），不擋執行期的壞 build。
-- `docs/build-and-release.md` 的「發布流程」一節隨實作改寫，不再描述草稿流程。
+- `docs/legacy/build-and-release.md` 的「發布流程」一節隨實作改寫，不再描述草稿流程。
 
 ## 實作
 

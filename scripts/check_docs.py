@@ -14,12 +14,15 @@
   大小與寫法
     - 字元上限（Python `len`）：AGENTS.md 8,000、ARCHITECTURE.md 15,000、docs/progress.md 20,000、docs/design-brief.md 30,000；不存在的檔不查
     - docs/design-brief.md、ARCHITECTURE.md 不寫票號（「票 12」「票12」）；程式碼區塊裡的不算
+  docs/ 的結構
+    - docs/ 第一層的每個檔與資料夾，名字都出現在指令檔（AGENTS.md，沒有就看 CLAUDE.md）裡；兩個都沒有就不查
+    - docs/research/ 第一層：檔名裡有日期的，日期在最後（`<主題>-YYYY-MM-DD`）；`facts-*.md` 有〈事實〉段
   程式碼
     - git 追蹤的檔，除了 Markdown、docs/、.scratch/ 與本腳本和它的測試，不引用 brief 或架構文檔的章節號（「brief §4」「architecture §3」「plan §3.2」）；
       不是 git repo 就不查
   .scratch/
     - 有 issues/ 的目錄要有 spec.md，`##` 段含：目標、範圍、共同規則、驗收、票序（標題後面可以加括號說明）
-    - 里程碑目錄（m 加數字，例如 m0、m1.5）的 issues/ 要有一張 -acceptance.md 結尾的驗收票
+    - 里程碑目錄（m 加數字，例如 m0、m1.5）的 issues/ 要有一張 -acceptance.md 結尾的驗收票（早期專案叫收尾票的 -close.md 也算）
     - 每張票在第一個 `##` 之前有一行 `Status:`
     - roadmap.md 標「進行中」的里程碑（表的第一欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
       有一行以 `Session 紀錄：` 開頭，以 `決定：` 開頭的行都標一個決定者；spec 的〈驗收〉底下有 `### 使用者試`
@@ -40,6 +43,10 @@ TICKET_NUMBER = re.compile(r"票\s*\d")
 SECTION_REF = re.compile(r"(?:architecture|plan|brief)(?:\.md)?\s*§\s*\d", re.I)
 NOT_CODE = ("docs/", ".scratch/", "scripts/check_docs.py", "scripts/tests/test_check_docs.py")
 MAX_SCANNED_BYTES = 1_000_000
+INSTRUCTIONS = ("AGENTS.md", "CLAUDE.md")
+DATED = re.compile(r"\d{4}-\d{2}-\d{2}")
+DATED_LAST = re.compile(r"-\d{4}-\d{2}-\d{2}$")
+FACTS = "事實"
 SCRATCH = ".scratch"
 MILESTONES, SESSIONS, LOG = "里程碑", "Session 紀錄", "紀錄"
 STATE = "狀態"
@@ -59,6 +66,7 @@ STATUS = re.compile(r"^\**Status:?\**:?\s*\S", re.I)
 DONE = re.compile(r"^\**Status:?\**:?\s*done\b", re.I)
 SESSION_NOTE, DECISION_NOTE = "Session 紀錄：", "決定："
 ACCEPTANCE, USER_TRIAL = "驗收", "使用者試"
+ACCEPTANCE_SUFFIXES = ("-acceptance.md", "-close.md")
 CELL_SPLIT = re.compile(r"(?<!\\)\|")
 
 
@@ -210,6 +218,27 @@ def check_current_state(root: Path) -> list:
     return out
 
 
+def check_layout(root: Path) -> list:
+    out = []
+    docs = root / "docs"
+    guide = next((root / name for name in INSTRUCTIONS if (root / name).is_file()), None)
+    if docs.is_dir() and guide is not None:
+        text = guide.read_text(encoding="utf-8")
+        for entry in sorted(docs.iterdir()):
+            name = entry.name + ("/" if entry.is_dir() else "")
+            if not entry.name.startswith(".") and name not in text:
+                out.append(f"docs/{name}：{guide.name} 沒有提到它。在〈文件〉加一行說明它是什麼，或搬到 docs/legacy/、docs/archive/")
+    research = docs / "research"
+    for entry in sorted(research.iterdir()) if research.is_dir() else []:
+        stem = entry.name if entry.is_dir() else entry.stem
+        if DATED.search(stem) and not DATED_LAST.search(stem):
+            out.append(f"docs/research/{entry.name}：日期放在檔名最後，寫成 <主題>-YYYY-MM-DD")
+        if entry.is_file() and entry.name.startswith("facts-") and entry.suffix == ".md":
+            if not any(t == FACTS for t, _ in sections(entry.read_text(encoding="utf-8"))):
+                out.append(f"docs/research/{entry.name}：facts- 開頭的檔要有〈{FACTS}〉段，一條一個編號")
+    return out
+
+
 def tracked_files(root: Path) -> list:
     try:
         r = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True, check=True)
@@ -258,7 +287,7 @@ def check_scratch(root: Path) -> list:
                 if not any(re.match(rf"###\s*{USER_TRIAL}", l) for _, l in body):
                     out.append(f"{rel}/spec.md：〈{ACCEPTANCE}〉底下要有 `### {USER_TRIAL}`：使用者親手試什麼、怎麼啟動；沒有就寫「無」和理由")
         tickets = sorted((d / "issues").glob("*.md"))
-        if MILESTONE_DIR.match(d.name) and not any(t.name.endswith("-acceptance.md") for t in tickets):
+        if MILESTONE_DIR.match(d.name) and not any(t.name.endswith(ACCEPTANCE_SUFFIXES) for t in tickets):
             out.append(f"{rel}/issues/：沒有驗收票（檔名以 -acceptance.md 結尾），它是里程碑的最後一張票")
         for t in tickets:
             text = t.read_text(encoding="utf-8")
@@ -282,7 +311,7 @@ def run(root: Path) -> list:
             out += check((root / rel).read_text(encoding="utf-8"))
         else:
             out.append(f"找不到 {rel}")
-    return out + check_budgets(root) + check_current_state(root) + check_code_refs(root) + check_scratch(root)
+    return out + check_budgets(root) + check_current_state(root) + check_layout(root) + check_code_refs(root) + check_scratch(root)
 
 
 def main(argv) -> int:

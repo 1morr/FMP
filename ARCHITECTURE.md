@@ -1,8 +1,8 @@
 # FMP 新版架構
 
-> 模組地圖與跨模組的規則。里程碑的順序與範圍在 `docs/roadmap.md`；怎麼建置、在各平台實跑、閘門怎麼跑在 `docs/app-development.md`；決定的來源是 `docs/design-brief.md`，兩者衝突時以 brief 為準。
+> 模組地圖與跨模組的規則。里程碑的順序與範圍在 `docs/roadmap.md`；怎麼建置、在各平台實跑、閘門怎麼跑在 `docs/development.md`；決定的來源是 `docs/design-brief.md`，兩者衝突時以 brief 為準。
 >
-> 寫法：只寫現況，改了就改寫原句，舊說法留給 git；票號不寫進來。只寫打開程式碼看不出來的：模組的分工、誰能依賴誰、跨模組的資料與契約。操作步驟寫在 `docs/app-development.md`，選型與取捨的理由寫 ADR。節用標題引用、不編號。全檔上限 15,000 字元，`scripts/check_docs.py` 強制。
+> 寫法：只寫現況，改了就改寫原句，舊說法留給 git；票號不寫進來。只寫打開程式碼看不出來的：模組的分工、誰能依賴誰、跨模組的資料與契約。操作步驟寫在 `docs/development.md`，選型與取捨的理由寫 ADR。節用標題引用、不編號。全檔上限 15,000 字元，`scripts/check_docs.py` 強制。
 
 ## 工程慣例
 
@@ -77,7 +77,7 @@ app/
 | 依賴規則測試（dev） | analyzer 14.7.0 | 以 AST 判斷 import 與分支，不靠字串比對；只在測試裡用，不做 lint 套件（〈依賴規則〉） |
 | 主機上跑 fjs（dev） | flutter_rust_bridge 2.13.0 | fjs 釘死的版本；`test/support/fjs.dart` 用它的 `ExternalLibrary` 載入 macOS 動態庫（brief 事實 K19） |
 | 換掉平台實作（dev） | path_provider_platform_interface 2.1.3、plugin_platform_interface 2.1.8 | path_provider 官方的測試做法：換一個假的 `PathProviderPlatform` |
-| 平台上的測試（dev） | integration_test（SDK） | Flutter 官方的 `flutter test integration_test/…`；完整閘門在四平台跑（`docs/app-development.md`） |
+| 平台上的測試（dev） | integration_test（SDK） | Flutter 官方的 `flutter test integration_test/…`；完整閘門在四平台跑（`docs/development.md`） |
 
 ## 測試策略
 

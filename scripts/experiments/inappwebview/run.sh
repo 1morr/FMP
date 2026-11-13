@@ -6,7 +6,7 @@
 #
 # 環境變數：IOS_DEVICE（模擬器 UDID，預設 booted）、IOS_SHOT_ARGS（例如 iPhone Duo 要
 # --display=1）、ANDROID_SERIAL（預設 adb 唯一的裝置）。Windows 用 run-windows.sh。
-# 建置只寫這個 worktree 的 build/，在鎖外做；裝 App 到截圖整段持有共用裝置鎖（docs/app-development.md〈平台〉）。
+# 建置只寫這個 worktree 的 build/，在鎖外做；裝 App 到截圖整段持有共用裝置鎖（docs/development.md〈平台〉）。
 set -euo pipefail
 
 plat=${1:?platform: macos | ios | android}

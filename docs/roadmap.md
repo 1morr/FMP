@@ -65,7 +65,7 @@ M0 留下的（票 12 歸屬，出處是各票的 Comments）：
 
 M0 留下的（票 12 歸屬）：
 
-- `flutter_inappwebview` 的平台設定清單（票 04 的 Comments）與 Apple 端退回 CocoaPods（事實 K17）：docs/app-development.md〈平台〉、§4 的前置條件跟著改。
+- `flutter_inappwebview` 的平台設定清單（票 04 的 Comments）與 Apple 端退回 CocoaPods（事實 K17）：docs/development.md〈平台〉、§4 的前置條件跟著改。
 - 登入憑證的遮蔽：插件宣告額外的敏感名稱交給 `redact`（例如 B 站單獨出現的 `SESSDATA=`，票 06）。
 - 宿主擋掉插件給的串流 header 裡的憑證（Cookie、Authorization；事實 F4）。
 

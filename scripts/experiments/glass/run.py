@@ -6,7 +6,7 @@
     MODE=a11y python3 run.py macos              # 只讀無障礙旗標（降低透明度），結果 results/<平台>-a11y.json
 
 建置：macOS、Android 用 profile（brief〈效能與品質指標〉 量幀用 profile）；iOS 模擬器 Flutter 只能建 debug，幀時間只供參考。
-建置只寫 probe/build/，在鎖外做；裝 App 到截圖整段持有共用裝置鎖（docs/app-development.md〈平台〉），經
+建置只寫 probe/build/，在鎖外做；裝 App 到截圖整段持有共用裝置鎖（docs/development.md〈平台〉），經
 app/tool/device_lock.dart 重新執行本檔的 --device 階段（同一個 worktree 已持鎖時直接跑）。
 完整截圖存在 SHOT_DIR（預設新的暫存目錄，不進 repo），results/ 只放裁切後的對照圖。
 環境變數：IOS_DEVICE（模擬器 UDID，預設 booted）、IOS_SHOT_ARGS（iPhone Duo 要 --display=1）、ANDROID_SERIAL（預設第一台 emulator-*）。
@@ -141,7 +141,7 @@ class Device:
             src = state["result"]["screenshot"]["path"]
             run("cp", src, str(path))
         elif self.plat == "ios":
-            # iPhone Duo（雙螢幕）要 IOS_SHOT_ARGS=--display=1（docs/app-development.md〈平台〉）。
+            # iPhone Duo（雙螢幕）要 IOS_SHOT_ARGS=--display=1（docs/development.md〈平台〉）。
             extra = os.environ.get("IOS_SHOT_ARGS", "").split()
             run("xcrun", "simctl", "io", self.dev, "screenshot", *extra, str(path), stdout=subprocess.DEVNULL)
         else:

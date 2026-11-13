@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'src/device_lock.dart';
 
-/// 拿共用裝置鎖再執行一個指令（docs/app-development.md〈平台〉〈開發環境與閘門〉）。照 util-linux `flock(1)`
+/// 拿共用裝置鎖再執行一個指令（docs/development.md〈平台〉〈開發環境與閘門〉）。照 util-linux `flock(1)`
 /// 「包住一個指令」的慣例：
 ///
 ///     dart run tool/device_lock.dart [--repo <目錄>] -- <指令> [參數...]

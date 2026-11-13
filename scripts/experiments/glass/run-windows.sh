@@ -6,7 +6,7 @@
 #   VARIANTS=own-refract ./run-windows.sh   部分候選（windows-partial.json）
 #   MODE=a11y ./run-windows.sh              只讀無障礙旗標（windows-a11y.json）；debug 建置
 #
-# 整段持有共用裝置鎖（docs/app-development.md〈平台〉）：winpc 的桌面是幾個 worktree 共用的。不經 git push。
+# 整段持有共用裝置鎖（docs/development.md〈平台〉）：winpc 的桌面是幾個 worktree 共用的。不經 git push。
 # 完整截圖存在 SHOT_DIR（預設新的暫存目錄）。
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)

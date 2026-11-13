@@ -200,7 +200,7 @@ flutter run -d windows
 
 ## 更多資源
 
-- [文件地圖](README.md)
+- [文件地圖](../README.md)
 - [建置與發布指南](build-and-release.md) - CI、Release、簽名 Secrets、更新資產
-- [返回 README](../README.md)
+- [返回 README](../../README.md)
 - [開發文件](development.md) - 專案架構、技術棧、開發規範

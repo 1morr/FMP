@@ -19,14 +19,14 @@
 # The engine exposes no MSAA default action, so -Click moves the mouse to the
 # element's centre and clicks; the element must be on screen. It then parks the
 # cursor on the window's top-left corner: a tooltip left under the pointer
-# freezes the tree for the rest of the run (docs/troubleshooting.md). A name
+# freezes the tree for the rest of the run (docs/legacy/troubleshooting.md). A name
 # matches when it equals -Click or when its first line does: rail tabs and list
 # rows carry multi-line names such as "設定" + "第 6 個分頁 (共 6 個)".
 #
 # First output line is `nodes=<n>`. Compare it with the framework's tree
 # (`ext.flutter.debugDumpSemanticsTreeInInverseHitTestOrder`): a handful of
 # nodes against a full framework tree means the accessibility bridge stopped
-# taking updates (see docs/troubleshooting.md), and -Click cannot see past it.
+# taking updates (see docs/legacy/troubleshooting.md), and -Click cannot see past it.
 #
 # Exit codes: 0 = ok, 1 = no window or no FLUTTERVIEW, 2 = -Click matched
 # nothing, 3 = the window could not be brought to the foreground.

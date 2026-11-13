@@ -20,7 +20,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $S/msaa_tree.ps1 -Click 
 
 - The script prints `nodes=<n>` first. A healthy tree is 120-odd nodes on the
   home page; a handful (7 against 93 in the framework tree) means the
-  accessibility bridge is stuck — see `docs/troubleshooting.md`.
+  accessibility bridge is stuck — see `docs/legacy/troubleshooting.md`.
 - `-Click` raises the window, clicks the element's centre and parks the cursor
   on the title bar (`-Role` / `-Index` pick among duplicates; exit 2 = no
   match). It matches a name exactly or by its first line, so `-Click '設定'`

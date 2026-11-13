@@ -102,4 +102,4 @@ just_audio_media_kit 在 `2e73d1b8` 被換掉（理由見背景）。
 - Android 的後端行為只能在模擬器或實機上驗證；桌面後端有一部分能在
   `flutter test` 裡驗。
 - Windows 的解碼器停在 2023-09-24 的 FFmpeg。某條串流 Android 能播、Windows
-  開不起來時，先懷疑它（`docs/troubleshooting.md` 有一節）。
+  開不起來時，先懷疑它（`docs/legacy/troubleshooting.md` 有一節）。

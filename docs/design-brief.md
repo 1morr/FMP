@@ -396,7 +396,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 ## 15. 效能與品質指標【決定】
 
 - profile build，跑 5 次取中位數，只在里程碑驗收時量。
-- Android 與 Windows 不比舊版差（`docs/audit/perf-baseline.md`）：
+- Android 與 Windows 不比舊版差（`docs/legacy/audit/perf-baseline.md`）：
   - 冷啟動到第一幀：Android 1239 ms、Windows 1731 ms。
   - 首頁穩定後的記憶體：Android PSS 179 MB、Windows Working Set 300 MB。
   - 1000 首以上的長列表捲動不掉幀（舊版 Windows 佇列 1195 首，0 幀超過 16.7 ms）。
@@ -419,11 +419,11 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 ## 17. 待決
 
 - **取代舊版的方式**：舊版使用者怎麼升上來（舊版的自動更新、資料搬遷、要不要讀 Isar）。卡在新版功能還沒齊全；到「取代舊版」的里程碑由擁有者決定。
-- **Windows 經 SSH 截圖傳回**：已實測，做法見 docs/app-development.md〈平台〉〈Windows（`winpc`）〉。
+- **Windows 經 SSH 截圖傳回**：已實測，做法見 docs/development.md〈平台〉〈Windows（`winpc`）〉。
 
 ## 18. 事實索引
 
-外部事實（音源 API 行為、套件與平台框架的能力、授權）寫在 `docs/research/`，一條一個編號、附來源，別處用編號引用（「事實 F22」）。可信度：「舊版程式碼」是舊版程式碼本身體現了這個做法（多數註解自稱實測）；「上一版文件」是只有上一輪的 ADR、research 或 references，標【待重驗】，用到它的票要重驗，驗過拿掉標記，對不上就改寫。`legacy:` 指根目錄舊版，`archive:` 指 tag `archive/trellis-rewrite-20261106`。驗證工具本身的怪癖不放進事實，在 docs/app-development.md〈平台〉。
+外部事實（音源 API 行為、套件與平台框架的能力、授權）寫在 `docs/research/`，一條一個編號、附來源，別處用編號引用（「事實 F22」）。可信度：「舊版程式碼」是舊版程式碼本身體現了這個做法（多數註解自稱實測）；「上一版文件」是只有上一輪的 ADR、research 或 references，標【待重驗】，用到它的票要重驗，驗過拿掉標記，對不上就改寫。`legacy:` 指根目錄舊版，`archive:` 指 tag `archive/trellis-rewrite-20261106`。驗證工具本身的怪癖不放進事實，在 docs/development.md〈平台〉。
 
 | 編號開頭 | 檔案 | 主題 |
 | --- | --- | --- |

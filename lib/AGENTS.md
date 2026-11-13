@@ -41,7 +41,7 @@ be reached, report that blocker by name; tests alone do not count.
   public architecture or cross-platform behaviour in a way not already
   documented.
 - For questions about the running app — live field values, HTTP traffic, what
-  Isar actually holds — use the VM Service recipes in `docs/development.md`
+  Isar actually holds — use the VM Service recipes in `docs/legacy/development.md`
   § 執行期除錯.
 
 ## Boundaries
@@ -79,7 +79,7 @@ with a reason, delete it when it goes away.
   `ImageTargetSizes` tier; pages pass them a variant or a display size (#107) —
   `test/ui/static_rules/ui_consistency_static_rule_test.dart`.
 - **Sliders** — build `ScopedSlider`; a raw Material `Slider` freezes the
-  Windows accessibility tree (`docs/troubleshooting.md`) —
+  Windows accessibility tree (`docs/legacy/troubleshooting.md`) —
   `test/ui/static_rules/slider_overlay_static_rule_test.dart`.
 - **Test waits** — no direct `pumpEventQueue` outside
   `test/support/pump_until.dart`: use its `pumpUntil` / `drainEventQueue`

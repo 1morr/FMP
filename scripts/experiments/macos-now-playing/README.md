@@ -71,7 +71,7 @@ python3 run.py audio_service remote-art  # 封面改用本機 HTTP server 的網
 需要：
 
 - Flutter 3.47.5、Xcode。
-- **共用裝置鎖**（docs/app-development.md〈平台〉、§4）：`run.py`、`np-panel.sh`、`mediakey.sh` 會送 Escape、按面板、送媒體鍵，影響的是整台 Mac 最前面或最近出過聲的 App，不只實驗 App（`com.personal.fmp.exp.*`）。所以它們像 `app/tool/winpc/` 的腳本一樣自己拿鎖：別的 worktree 持有時印出持有者並等待；同一個 worktree 已持有（外層或背景的 `dart run tool/device_lock.dart -- …`、完整閘門）時直接跑。`run.py` 整段持鎖，含建置。不要直接跑 `swift mediakey.swift`，那樣不拿鎖。
+- **共用裝置鎖**（docs/development.md〈平台〉、§4）：`run.py`、`np-panel.sh`、`mediakey.sh` 會送 Escape、按面板、送媒體鍵，影響的是整台 Mac 最前面或最近出過聲的 App，不只實驗 App（`com.personal.fmp.exp.*`）。所以它們像 `app/tool/winpc/` 的腳本一樣自己拿鎖：別的 worktree 持有時印出持有者並等待；同一個 worktree 已持有（外層或背景的 `dart run tool/device_lock.dart -- …`、完整閘門）時直接跑。`run.py` 整段持鎖，含建置。不要直接跑 `swift mediakey.swift`，那樣不拿鎖。
 - 執行的終端機有「輔助使用」與「螢幕錄製」權限（讀面板、送媒體鍵、截圖）。
 - 選單列的「正在播放」設成播放時顯示（系統預設）。
 - App 會以 15% 音量播放測試音；跑的時候不要讓別的 App 播放。coldstart 情境在 App 不是 Now Playing 時不按媒體鍵，避免叫起「音樂」。

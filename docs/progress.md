@@ -16,5 +16,6 @@
 | --- | --- | --- | --- |
 | 2026-11-12 | M1 準備 | M0 已驗收並封存（[`docs/archive/M0.md`](archive/M0.md)）；M0 留下的與開工前的兩項待辦在 roadmap〈M1 三音源與播放核心〉 | 新 session 下 `/1morr:checkpoint M0` |
 | 2026-11-13 | 流程 | 對齊 project-init：路線圖搬到 `docs/roadmap.md`、事實搬到 `docs/research/facts-*.md`、票留 Session 紀錄由合併的人寫本檔、驗收加使用者試 | 新 session 下 `/1morr:checkpoint M0` |
-| 2026-11-13 | 流程 | 決定集中到 `docs/decisions.md`；plan 拆成 `ARCHITECTURE.md` 與 `docs/app-development.md`，引用改成節的標題 | 新 session 下 `/1morr:checkpoint M0` |
+| 2026-11-13 | 流程 | 決定集中到 `docs/decisions.md`；plan 拆成 `ARCHITECTURE.md` 與 `docs/development.md`，引用改成節的標題 | 新 session 下 `/1morr:checkpoint M0` |
 | 2026-11-13 | 流程 | 決定改成跟著里程碑封存：M0 的搬回 `docs/archive/M0.md`，`docs/decisions.md` 只留進行中的 | 新 session 下 `/1morr:checkpoint M0` |
+| 2026-11-13 | 流程 | 舊版的文件與審計快照搬進 `docs/legacy/`，新版的開發文件改名成 `docs/development.md`；`docs/` 第一層的檔都列在 `AGENTS.md`〈文件〉 | 新 session 下 `/1morr:checkpoint M0` |

@@ -255,12 +255,57 @@ class MilestonesTest(Repo):
         self.clean()
 
 
+class LayoutTest(Repo):
+    GUIDE = "# Demo\n\n## 文件\n\n- `docs/progress.md`、`docs/roadmap.md`、`docs/decisions.md`、`docs/research/`\n"
+
+    def setUp(self):
+        super().setUp()
+        self.write("AGENTS.md", self.GUIDE)
+        self.write("docs/research/facts-rime.md", "# 事實：Rime\n\n## 事實\n\n- **R1** 來源。\n")
+
+    def test_fixture_with_instructions_is_clean(self):
+        self.clean()
+
+    def test_a_doc_the_instructions_do_not_mention(self):
+        self.write("docs/notes.md", "# 筆記\n")
+        self.red("docs/notes.md：AGENTS.md 沒有提到它")
+        self.write("docs/design/index.html", "<p>")
+        self.red("docs/design/：AGENTS.md 沒有提到它")
+        self.write("AGENTS.md", self.GUIDE + "- `docs/notes.md`：筆記。\n- `docs/design/`：設計稿。\n")
+        self.clean()
+
+    def test_claude_md_counts_when_there_is_no_agents_md(self):
+        (self.root / "AGENTS.md").rename(self.root / "CLAUDE.md")
+        self.clean()
+        self.write("docs/notes.md", "# 筆記\n")
+        self.red("docs/notes.md：CLAUDE.md 沒有提到它")
+
+    def test_without_an_instruction_file_or_for_hidden_and_nested_entries_nothing_is_checked(self):
+        self.write("docs/.gitkeep", "")
+        self.write("docs/research/anything.md", "# 主題\n")
+        self.write("docs/research/trial-2026-01-02/log.txt", "ok")
+        self.clean()
+        (self.root / "AGENTS.md").unlink()
+        self.write("docs/notes.md", "# 筆記\n")
+        self.clean()
+
+    def test_research_date_must_come_last(self):
+        self.write("docs/research/2026-01-02-audit.md", "# 審計\n")
+        self.red("docs/research/2026-01-02-audit.md：日期放在檔名最後")
+        (self.root / "docs/research/2026-01-02-audit.md").rename(self.root / "docs/research/audit-2026-01-02.md")
+        self.clean()
+
+    def test_facts_file_needs_a_facts_section(self):
+        self.write("docs/research/facts-rime.md", "# 事實：Rime\n\n## 清單\n\n- 沒有編號。\n")
+        self.red("docs/research/facts-rime.md：facts- 開頭的檔要有〈事實〉段")
+
+
 class BudgetTest(Repo):
     def test_over_budget(self):
         for rel, limit in m.BUDGETS.items():
             with self.subTest(rel):
                 self.setUp()
-                base = (self.root / rel).read_text(encoding="utf-8") if (self.root / rel).is_file() else "# 文件\n"
+                base = (self.root / rel).read_text(encoding="utf-8") if (self.root / rel).is_file() else "# 文件\n提到 progress.md、roadmap.md、decisions.md。\n"
                 head, rest = base.split("\n", 1)  # 填在第一個 ## 之前，不屬於任何段
                 pad = "字" * (limit - len(base) - 1)
                 self.write(rel, f"{head}\n{pad}\n{rest}")
@@ -359,8 +404,12 @@ class ScratchTest(Repo):
         self.clean()
 
     def test_milestone_without_acceptance_ticket(self):
-        (self.root / ".scratch/m1/issues/02-m1-acceptance.md").rename(self.root / ".scratch/m1/issues/02-m1-close.md")
+        (self.root / ".scratch/m1/issues/02-m1-acceptance.md").rename(self.root / ".scratch/m1/issues/02-m1-wrap-up.md")
         self.red("沒有驗收票")
+
+    def test_a_close_ticket_counts_as_the_acceptance_ticket(self):
+        (self.root / ".scratch/m1/issues/02-m1-acceptance.md").rename(self.root / ".scratch/m1/issues/02-m1-close.md")
+        self.clean()
 
     def test_effort_that_is_not_a_milestone_needs_no_acceptance_ticket(self):
         self.write(".scratch/docs-cleanup/spec.md", SPEC)

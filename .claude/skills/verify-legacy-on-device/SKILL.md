@@ -78,7 +78,7 @@ still healthy — read the tail before concluding anything failed.
 
 `flutter run -d windows` works the same way. A `Failed to update ui::AXTree`
 line in its output means the Windows accessibility tree has frozen (see
-`docs/troubleshooting.md`); find the node before filtering the line away.
+`docs/legacy/troubleshooting.md`); find the node before filtering the line away.
 
 ## 3. Observe
 

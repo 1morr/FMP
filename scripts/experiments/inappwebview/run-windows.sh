@@ -5,7 +5,7 @@
 #   ./run-windows.sh                 結果在 results/windows.json；MODE=release 建 release（windows-release.json）；VERBOSE=1 讓 flutter build 加 -v
 #   FMPX_WIN_PATCH=0 ./run-windows.sh   不套 probe/windows/CMakeLists.txt 的補丁（重驗 W8）
 #
-# 整段持有共用裝置鎖（docs/app-development.md〈平台〉）：winpc 的桌面是幾個 worktree 共用的。不經 git push。
+# 整段持有共用裝置鎖（docs/development.md〈平台〉）：winpc 的桌面是幾個 worktree 共用的。不經 git push。
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$here" rev-parse --show-toplevel)

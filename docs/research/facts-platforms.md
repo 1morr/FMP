@@ -16,16 +16,16 @@
 
 ### Windows
 
-- **W1** Material `Slider` 與 hover 時的 `Tooltip` 會弄壞 Windows 的無障礙樹，之後 Narrator 讀不到內容（flutter/flutter#182444，未修）；`Slider` 要包 `Overlay.wrap`。出處：`legacy:lib/ui/widgets/controls/scoped_slider.dart`、`docs/troubleshooting.md`。可信度：舊版程式碼。
+- **W1** Material `Slider` 與 hover 時的 `Tooltip` 會弄壞 Windows 的無障礙樹，之後 Narrator 讀不到內容（flutter/flutter#182444，未修）；`Slider` 要包 `Overlay.wrap`。出處：`legacy:lib/ui/widgets/controls/scoped_slider.dart`、`docs/legacy/troubleshooting.md`。可信度：舊版程式碼。
 - **W2** `runApp()` 之前的例外會變成「雙擊後什麼都沒發生」，要 try/catch 並顯示錯誤畫面。出處：`legacy:lib/main.dart:46-62`（issue #37）。可信度：舊版程式碼。
-- **W3** `media_kit_libs_windows_audio` 1.0.9 帶的是 2023-09-24 的 libmpv（mpv 0.36、FFmpeg 6.0），pub 上沒有更新版（2026-11-06 查）；同一條串流 Android 能播、Windows 不能時先懷疑它。出處：`docs/troubleshooting.md`、`docs/research/audio-webview-2026-11.md`。可信度：舊版文件加 2026-11-06 研究。
+- **W3** `media_kit_libs_windows_audio` 1.0.9 帶的是 2023-09-24 的 libmpv（mpv 0.36、FFmpeg 6.0），pub 上沒有更新版（2026-11-06 查）；同一條串流 Android 能播、Windows 不能時先懷疑它。出處：`docs/legacy/troubleshooting.md`、`docs/research/audio-webview-2026-11.md`。可信度：舊版文件加 2026-11-06 研究。
 - **W4** media_kit 的 `errorController` 不轉發 `ao` 開頭的錯誤（音訊裝置失敗），要另聽 log；長度為零的串流不報錯、一直 buffering，要有看門狗。出處：`legacy:lib/services/audio/media_kit_audio_service.dart:384-392`、`legacy:lib/services/audio/buffer_starvation_watchdog.dart:11-14`。可信度：舊版程式碼。
 - **W5** media_kit 在 Windows 上同時 dispose 多個 player 會原生 crash（media-kit #1472）。出處：`docs/research/audio-webview-2026-11.md`。可信度：2026-11-06 研究。
 - **W6**【待重驗】`smtc_windows` 的限制：收不到 seek 請求；時間軸不會自己前進，要每約 5 秒重推位置；讀不到 `file:///` 的封面，要給 https；`updateMetadata` 只設定非 null 的欄位，換歌時要先清空。出處：`legacy:lib/services/audio/now_playing_publisher.dart:283-284`、`archive:app/AGENTS.md`〈Windows（SMTC…）〉。可信度：上一版文件。
-- **W7**【待重驗】`smtc_windows` 每次建置都從原始碼編 Rust，Windows 要裝 rustup；`flutter_rust_bridge` 要釘在和它 Rust 端相同的版本（=2.11.1）。出處：`docs/building.md:21,170`、commit `b7ab8de0`。可信度：上一版文件。
+- **W7**【待重驗】`smtc_windows` 每次建置都從原始碼編 Rust，Windows 要裝 rustup；`flutter_rust_bridge` 要釘在和它 Rust 端相同的版本（=2.11.1）。出處：`docs/legacy/building.md:21,170`、commit `b7ab8de0`。可信度：上一版文件。
 - **W8** `flutter_inappwebview_windows` 0.6.0（6.1.5 帶進來的）在 VS 2026（MSVC 14.51.36231）不加設定時，插件編譯報 `error C2338`（STL1011：`<experimental/coroutine>` 已棄用），要在 App 的 `windows/CMakeLists.txt` 對 `flutter_inappwebview_windows_plugin` 加 `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`。`/FS`（防多個編譯行程同時寫同一個 PDB 的 C1041）沒重現出需要：只加 define 的乾淨建置 3 次成功、沒出現 C1041，插件的 CMake 也沒開 `/MP`；留著當保險（舊版的註解說它在 VS 2022 不起作用，這點沒實測）。繁中 Windows（cp950）下插件只報 C4819 警告：插件用自己的標準設定、刻意不開 `/WX`，所以不需要 `/utf-8`（舊版 `windows/` 也沒加）。上游 PR https://github.com/pichillilorenzo/flutter_inappwebview/pull/2869 仍開著（2026-11-11）。出處：M0 票 04（`scripts/experiments/inappwebview/` 的 README〈W8〉，13 次建置的結果）；`flutter_inappwebview_windows-0.6.0/windows/CMakeLists.txt`；`legacy:windows/CMakeLists.txt:60-73`。可信度：2026-11-11 在 `winpc` 實測。
 - **W9**【待重驗】`flutter_secure_storage_windows` 把所有鍵值用 DPAPI 存成單一 `flutter_secure_storage.dat`，解不開或 JSON 壞掉就整個刪掉；鍵名只能用小寫英數、`.`、`-`。出處：`archive:docs/adr/0029` §決定 5 更正。可信度：上一版文件。
-- **W10**【待重驗】`desktop_multi_window` 的子視窗 engine 不能註冊 `tray_manager`、`hotkey_manager`、`window_manager`（它們用全域 static channel）。出處：`docs/audit/platforms.md` §3.7。可信度：上一版文件。
+- **W10**【待重驗】`desktop_multi_window` 的子視窗 engine 不能註冊 `tray_manager`、`hotkey_manager`、`window_manager`（它們用全域 static channel）。出處：`docs/legacy/audit/platforms.md` §3.7。可信度：上一版文件。
 - **W11** media_kit 1.2.6 在 Windows：`Player` 還在播時關掉 App 視窗，整個行程崩潰。事件記錄是 `fmp.exe` 在 `flutter_windows.dll` 出 `0xc0000409`，stderr 有 `runtime_entry.cc: 5363: error: GetFfiCallbackMetadata called after shutdown`：Dart VM 關掉後，libmpv 的執行緒還在呼叫 media_kit 的 FFI callback。修法是 App 要結束時先 `dispose` player：`AppLifecycleListener.onExitRequested`，Windows 關視窗會經過它。修正後同樣的步驟正常結束，沒有事件記錄。出處：M0 票 11（`app/lib/app/audio_backend_lifecycle.dart`、`app/test/app/audio_backend_exit_test.dart`；重現：`tool/winpc/shot.ps1 -Type lemon -Click 200,262` 播一首後關視窗）。可信度：2026-11-12 `winpc` 實測，修正前後各一次。
 
 ### macOS

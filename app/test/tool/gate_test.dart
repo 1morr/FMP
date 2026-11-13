@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/src/gate.dart';
 import '../../tool/src/steps.dart';
 
-/// `tool/check.dart` 組出的步驟（docs/app-development.md〈開發環境與閘門〉）。只看步驟名稱，不執行。
+/// `tool/check.dart` 組出的步驟（docs/development.md〈開發環境與閘門〉）。只看步驟名稱，不執行。
 void main() {
   final app = Directory.current;
 

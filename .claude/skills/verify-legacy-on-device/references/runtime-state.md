@@ -9,7 +9,7 @@ is blocked.
 - **Prefer the VM Service over screenshots.** `getInstances` + `getObject` on a
   live object answers "what is the controller's state" in one call, as text, and
   sees what is off-screen. Recipes, including why `evaluate` does not work over
-  HTTP: `docs/development.md` § 執行期除錯. Reach for pixels only for layout.
+  HTTP: `docs/legacy/development.md` § 執行期除錯. Reach for pixels only for layout.
 - **The VM Service URI scrolls out of the terminal tail.** Read it with
   `orca terminal read --cursor 0 --limit 5000`. It is a local debug credential:
   quote the port and purpose only.

@@ -6,7 +6,7 @@
 /// 理由寫在 manifest 的註解裡；這條規則守的是有人把它改回 true 或整個拿掉。
 /// 拿掉等於 true，因為那是 Android 的預設值。
 ///
-/// 代價寫在 `docs/troubleshooting.md`：換手機時 FMP 的資料不會跟著系統備份走。
+/// 代價寫在 `docs/legacy/troubleshooting.md`：換手機時 FMP 的資料不會跟著系統備份走。
 library;
 
 import 'dart:io';

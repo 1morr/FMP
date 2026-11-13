@@ -7,13 +7,16 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 - `docs/design-brief.md`：需求與決定。決定衝突時以它為準。
 - `docs/research/facts-*.md`：查證過的外部事實，每條有編號與來源；索引在 brief〈事實索引〉。
 - `ARCHITECTURE.md`：模組地圖、依賴規則、主要依賴、測試策略；〈待決〉是定了方向、細節未定的事。
-- `docs/app-development.md`：新版怎麼建置、在各平台實跑驗證、閘門怎麼跑。
+- `docs/development.md`：新版怎麼建置、在各平台實跑驗證、閘門怎麼跑。
 - `docs/roadmap.md`：里程碑的順序、狀態與閱讀指引；還沒開工的里程碑各有一小節，開工後縮成一行連到它的 spec；〈不排里程碑〉收沒人接的遺留。
 - `docs/progress.md`：進行中里程碑的 session 紀錄。每個 session 的起點與終點。
 - `docs/decisions.md`：進行中里程碑的決策紀錄，一條一行，標決定者；驗收後跟著封存。
 - `.scratch/<里程碑>/spec.md`：該里程碑的目標、範圍、共同規則、驗收（Agent 驗、使用者試）與票序；`issues/` 是票，執行單位，狀態在票的 `Status:` 行。
 - `GLOSSARY.md`、`docs/adr/`：名詞表與架構決定，由 `/grill-with-docs` 按需建立；命名一律用名詞表的詞。ADR 0001–0007 只描述舊版；新 ADR 的編號規則在 `docs/adr/template.md`。
-- `docs/audit/`：上一輪重寫前對舊版的審計快照，凍結。
+- `docs/design/`：新版的設計稿與設計系統（`DESIGN.md`、`PRODUCT.md`）。
+- `docs/legacy/`：舊版的文件，隨舊版凍結：`development.md`、`building.md`、`build-and-release.md`、`troubleshooting.md`，以及上一輪重寫前的審計快照 `audit/`。
+- `docs/README.md`：`docs/` 的索引，給人看的；新增或搬動文件時同輪改它。
+- 上面這些檔名與位置是固定的，別的 skill 靠它們找檔。`docs/` 第一層每多一個檔或資料夾，就在這一段加一行說明它是什麼（`scripts/check_docs.py` 擋）。`docs/research/` 一層、不分資料夾：`facts-<主題>.md`、會更新的 `<主題>.md`、寫完就凍結的 `<主題>-<YYYY-MM-DD>.md`。
 
 上一輪重寫（Trellis 流程、`app/`、ADR 0008–0037）封存在 tag `archive/trellis-rewrite-20261106`。它是線索，不是依據：要沿用裡面的事實或做法，先查證，經擁有者確認後寫進 brief。
 
@@ -21,10 +24,10 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 | 路徑 | 內容 |
 | --- | --- |
-| `app/` | 新版，獨立的 Flutter 套件，內部目錄照 architecture〈目錄結構〉；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 docs/app-development.md〈開發環境與閘門〉），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 architecture〈測試策略〉（`dart run drift_dev make-migrations`，閘門會比對快照）；錄製插件契約測試的 fixture、跑 `live` 冒煙測試也照 architecture〈測試策略〉 |
+| `app/` | 新版，獨立的 Flutter 套件，內部目錄照 architecture〈目錄結構〉；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 docs/development.md〈開發環境與閘門〉），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 architecture〈測試策略〉（`dart run drift_dev make-migrations`，閘門會比對快照）；錄製插件契約測試的 fixture、跑 `live` 冒煙測試也照 architecture〈測試策略〉 |
 | `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
-| `docs/` | brief、roadmap、progress、decisions、`app-development.md`、ADR、`docs/research/`、`docs/agents/`、`docs/design/`（新版設計稿）；其餘是舊版的使用者與開發文件 |
+| `docs/` | 新版的文件（見〈文件〉）；`docs/legacy/` 是舊版的 |
 | `.scratch/` | 里程碑的 spec 與票 |
 | `scripts/` | `check_docs.py`（文件檢查，`app/` 的快速閘門會跑它，要 Python 3）與它的測試；設計實驗在 `scripts/experiments/` |
 | `.github/workflows/` | `ci.yml`、`release.yml` 都屬於舊版 |
@@ -44,7 +47,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 1. 讀 `docs/progress.md`、`docs/decisions.md` 裡這個里程碑的決定、該里程碑的 spec，再讀票；只讀票列出的架構與 brief 章節，其他按需讀。
 2. `/implement <票路徑>`：tdd、定期 typecheck、結尾 `/code-review <開工時的 commit>`、commit。
-3. 驗證：docs/app-development.md〈開發環境與閘門〉的全部檢查，也就是在 `app/` 跑 `dart run tool/check.dart` 完整版（涵蓋所有目標平台，含 test）；貼指令輸出。
+3. 驗證：docs/development.md〈開發環境與閘門〉的全部檢查，也就是在 `app/` 跑 `dart run tool/check.dart` 完整版（涵蓋所有目標平台，含 test）；貼指令輸出。
 4. 影響架構的決定另寫 ADR（照〈擁有者確認〉）。
 5. 票的 `Status:` 改為 `done`、勾掉驗收條件、code-review 未處理的發現記到票的 `## Comments`；Comments 最後加一行 `Session 紀錄：<做了什麼，一句>`，做票時定的每個選擇各加一行 `決定：<一句>（<決定者>）`；commit。票的分支不改 progress.md 與 decisions.md：平行的票都改它們會互撞。
 6. 合併：在 main 上 `git merge --no-ff <票分支>`，merge commit 寫 `merge: ticket NN <slug>`；接著在 main 把票上那兩種行抄進去（progress.md 一列 session 紀錄含下一步、decisions.md 每個決定一條）並 commit，再 push main。協調者（`/1morr:ticket-coordinator`）開的 session 只在自己的分支 commit，這一步留給協調者。不開 PR；擁有者靠 progress.md 與里程碑驗收跟進度。

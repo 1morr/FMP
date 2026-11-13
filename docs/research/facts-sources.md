@@ -33,4 +33,4 @@
 - **F16** 未登入時的失敗長相是 `code=404` 或 `301`、`fee=0`、`url=null`，要提示登入而不是引導付費（#87）。出處：`legacy:lib/data/sources/netease_source.dart:849-940`。可信度：舊版程式碼。
 - **F17** 試聽片段（`freeTrialInfo != null`）會被當成完整歌曲回傳；API 在什麼情況下回試聽網址還沒實測過。出處：`legacy:lib/data/sources/netease_source.dart:139-150`。可信度：舊版程式碼（觸發條件未驗）。
 - **F18** eapi 回的串流網址是 `http://`：Android 要 `usesCleartextTraffic`，Apple 要 `NSAllowsArbitraryLoadsForMedia`。出處：`legacy:android/app/src/main/AndroidManifest.xml:33-40`。可信度：舊版程式碼。
-- **F19**【待重驗】QR 登入走 weapi（兩層 AES-128-CBC 加不帶 padding 的 RSA），帶固定的匿名 cookie 偽裝 Windows 客戶端；eapi、weapi 兩套加密並存；搜尋用明文 `/api/*`。出處：`docs/audit/accounts-network.md`。可信度：上一版文件。
+- **F19**【待重驗】QR 登入走 weapi（兩層 AES-128-CBC 加不帶 padding 的 RSA），帶固定的匿名 cookie 偽裝 Windows 客戶端；eapi、weapi 兩套加密並存；搜尋用明文 `/api/*`。出處：`docs/legacy/audit/accounts-network.md`。可信度：上一版文件。
