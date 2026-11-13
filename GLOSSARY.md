@@ -49,6 +49,14 @@ _Avoid_：VIP 標記、fee
 **串流（Stream）**：
 插件為一首曲目解析出的音訊網址，可以直接播放，會過期。
 
+**排行榜（Chart）**：
+音源上依熱度排出的一張曲目榜，取前幾名；首頁的「近期熱門」每個音源一張，不需登入。
+_Avoid_：熱門榜、top list
+
+**曲目資訊（Track info）**：
+插件給的一首曲目的詳細資料，例如專輯、發佈日期、播放數、簡介；給不了的欄位不顯示。
+_Avoid_：詳情、metadata
+
 **音訊後端（Audio backend）**：
 宿主裡實際把串流播出聲音的元件；Android、iOS、macOS 用 just_audio，Windows 用 media_kit，播放核心只透過同一個介面使用它。
 _Avoid_：播放器、player、engine
