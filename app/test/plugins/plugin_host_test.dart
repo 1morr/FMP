@@ -392,7 +392,7 @@ void main() {
   });
 
   group('plugin errors', () {
-    // brief §13 的錯誤分類，對照 app/plugins/host.d.ts 的代碼。
+    // brief〈錯誤、log 與診斷〉 的錯誤分類，對照 app/plugins/host.d.ts 的代碼。
     Matcher unavailable(UnavailableReason reason) =>
         isA<Unavailable>().having((e) => e.reason, 'reason', reason);
     final expected = <String, Matcher>{

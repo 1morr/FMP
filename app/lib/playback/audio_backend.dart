@@ -1,7 +1,7 @@
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/audio_stream.dart';
 
-/// 音訊後端：宿主自己的播放器介面（brief §6）。Android、iOS、macOS 的實作
+/// 音訊後端：宿主自己的播放器介面（brief〈播放〉）。Android、iOS、macOS 的實作
 /// 用 just_audio，Windows 用 media_kit（`playback/backends/`）；依平台挑哪個
 /// 在 `platform/audio_backend.dart`。
 ///

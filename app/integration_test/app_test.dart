@@ -12,7 +12,7 @@ import 'package:integration_test/integration_test.dart';
 
 import '../test/support/no_network.dart';
 
-/// 在真的平台上啟動 App（plan §3）。完整閘門在四個平台各跑一次。
+/// 在真的平台上啟動 App（plan〈測試策略〉）。完整閘門在四個平台各跑一次。
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   installNoNetworkGuard();

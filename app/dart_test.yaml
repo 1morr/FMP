@@ -1,5 +1,5 @@
 tags:
-  # 打真實音源的測試。預設跳過（plan §3），手動跑：
+  # 打真實音源的測試。預設跳過（plan〈測試策略〉），手動跑：
   #   flutter test --run-skipped --tags live
   live:
     skip: "live: hits the real network; run with --run-skipped --tags live"

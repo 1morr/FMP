@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'dependency_rules.dart';
 
-/// plan §1.3 的依賴規則，掃 `lib/` 底下所有手寫的 Dart 檔。
+/// plan〈依賴規則〉 的依賴規則，掃 `lib/` 底下所有手寫的 Dart 檔。
 ///
 /// 下面的變異驗證兩個方向都要有：造一個違規，規則要紅；改無關的格式、
 /// 命名或註解，規則不能紅。

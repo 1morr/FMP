@@ -29,7 +29,7 @@ Future<void> runProbe(NowPlayingBridge bridge) async {
   await probe.start();
 }
 
-/// `--dart-define=AUTOPLAY=false`：載入第一首但不播放（模擬重啟後不自動播放，brief §6）。
+/// `--dart-define=AUTOPLAY=false`：載入第一首但不播放（模擬重啟後不自動播放，brief〈播放〉）。
 const _autoplay = bool.fromEnvironment('AUTOPLAY', defaultValue: true);
 const _artBase = String.fromEnvironment('ART_BASE');
 

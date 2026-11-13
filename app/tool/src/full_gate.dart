@@ -4,7 +4,7 @@ import 'dart:io';
 import 'device_lock.dart';
 import 'steps.dart';
 
-/// 完整版閘門在 quick 之後的平台步驟（plan §2、§4）：先建置四個平台，再在
+/// 完整版閘門在 quick 之後的平台步驟（plan〈平台〉〈開發環境與閘門〉）：先建置四個平台，再在
 /// 四個平台跑 [integrationTests]。步驟名稱帶平台，失敗時看得出是哪個平台、
 /// 哪一步。
 ///
@@ -12,10 +12,10 @@ import 'steps.dart';
 ///   夾在 `lock shared devices` 與 `unlock shared devices` 之間，持有
 ///   [deviceLock] 時才跑；沒拿到鎖就判失敗、不執行。Mac 上的三個建置只寫
 ///   這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
-/// - 一次只給 `flutter test` 一個 integration_test 檔（plan §2 的怪癖）。
+/// - 一次只給 `flutter test` 一個 integration_test 檔（plan〈平台〉 的怪癖）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
 ///   不刪模擬器上的 App 與資料。Android 先 `adb start-server`。
-/// - Windows 經 SSH 在 `winpc` 的桌面工作階段跑（plan §2〈Windows〉），
+/// - Windows 經 SSH 在 `winpc` 的桌面工作階段跑（plan〈平台〉〈Windows〉），
 ///   log 取回 [winpcLogs] 並印到 [out]。
 List<CheckStep> platformSteps({
   required Directory app,
@@ -98,7 +98,7 @@ Future<String> _findEmulator(
   }
   throw StateError(
     'No running $platform simulator/emulator found by `flutter devices`; '
-    'boot one first (plan §2).',
+    'boot one first (plan〈平台〉).',
   );
 }
 

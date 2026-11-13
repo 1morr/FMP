@@ -23,7 +23,7 @@ class PluginBundle {
 ///
 /// manifest 不合格的插件略過並寫 log。每個插件一個 JS 引擎，第一次呼叫時
 /// 才建；呼叫超過 `callTimeout` 就關掉引擎（中斷卡住的 JS，brief 事實
-/// K11），下一次呼叫重建（plan §1.1）。`callTimeout` 要比宿主網路單次請求
+/// K11），下一次呼叫重建（plan〈執行形態〉）。`callTimeout` 要比宿主網路單次請求
 /// 的上限（連線 15 秒加讀取 30 秒）長，慢的網路才會以 `network` 回到插件，
 /// 不會被當成插件卡住。
 class PluginHost {

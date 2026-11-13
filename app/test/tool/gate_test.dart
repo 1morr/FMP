@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/src/gate.dart';
 import '../../tool/src/steps.dart';
 
-/// `tool/check.dart` 組出的步驟（plan §4）。只看步驟名稱，不執行。
+/// `tool/check.dart` 組出的步驟（plan〈開發環境與閘門〉）。只看步驟名稱，不執行。
 void main() {
   final app = Directory.current;
 
@@ -27,6 +27,7 @@ void main() {
     'test',
     'schema snapshot (drift)',
     'doc gate',
+    'doc gate tests',
   ];
 
   test('--quick runs only the quick steps', () {

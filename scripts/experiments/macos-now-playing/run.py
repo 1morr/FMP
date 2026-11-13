@@ -6,7 +6,7 @@
 情境：
   basic       自動播放；面板的播放、暫停、上一首、下一首、seek，再用媒體鍵播放／暫停、下一首、上一首；
               最後關掉 App，看 Now Playing 有沒有清掉。
-  coldstart   不自動播放（brief §6 重啟後不自動播放）：App 開著、曲目已載入但沒播過時，
+  coldstart   不自動播放（brief〈播放〉 重啟後不自動播放）：App 開著、曲目已載入但沒播過時，
               Now Playing 面板有沒有它、按媒體鍵的播放能不能叫它播。
   remote-art  封面改用本機 HTTP server 的網址（模擬 M1 的遠端封面，不連外網）。
 
@@ -277,7 +277,7 @@ def ensure_device_lock():
     """沒持共用裝置鎖時，經 app/tool/device_lock.dart 拿鎖（等別的 worktree 放掉）再重新執行自己。
 
     實驗會送 Escape（打到最前面的 App）、媒體鍵與面板的按鈕（控制最近出過聲的 App），
-    別的 worktree 的閘門或實跑可能正開著 dev App（plan §2、§4）。同一個 worktree 已持有時直接跑。
+    別的 worktree 的閘門或實跑可能正開著 dev App（plan〈平台〉〈開發環境與閘門〉）。同一個 worktree 已持有時直接跑。
     """
     repo = sh("git", "rev-parse", "--show-toplevel")
     tool = f"{repo}/app/tool/device_lock.dart"

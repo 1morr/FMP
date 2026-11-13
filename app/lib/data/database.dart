@@ -11,10 +11,10 @@ final appDatabaseProvider = Provider<AppDatabase>(
   (ref) => throw StateError('appDatabaseProvider is overridden in main()'),
 );
 
-/// 新版的 drift 資料庫。檔案位置由 `platform/` 決定（plan §1.3），這裡只管
+/// 新版的 drift 資料庫。檔案位置由 `platform/` 決定（plan〈依賴規則〉），這裡只管
 /// schema 與升級。
 ///
-/// 改 schema 的流程（快照、[migration]、升級測試）照 plan §3。
+/// 改 schema 的流程（快照、[migration]、升級測試）照 plan〈測試策略〉。
 @DriftDatabase(tables: [])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);

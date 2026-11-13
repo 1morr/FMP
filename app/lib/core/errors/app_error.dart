@@ -1,4 +1,4 @@
-/// 錯誤分類（brief §13）。插件與播放的錯誤都轉成這些類別，UI 以 exhaustive
+/// 錯誤分類（brief〈錯誤、log 與診斷〉）。插件與播放的錯誤都轉成這些類別，UI 以 exhaustive
 /// `switch` 依類別決定顯示提示、要求登入或只記錄。
 ///
 /// [toString] 是 log 用的名稱，寫死而不用 `runtimeType`：release 版的混淆

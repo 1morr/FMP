@@ -16,7 +16,7 @@ bool _loaded = false;
 Future<void> loadFjsForTests() async {
   if (_loaded) return;
   if (!Platform.isMacOS) {
-    throw UnsupportedError('fjs host tests only run on macOS (plan §4)');
+    throw UnsupportedError('fjs host tests only run on macOS (plan〈開發環境與閘門〉)');
   }
   final root = _fjsPackageRoot();
   final version = root.path.split('-').last;

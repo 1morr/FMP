@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/data/database.dart';
 
-/// 新版的 drift 資料庫：開在 `platform/` 給的檔案上（plan §1.3）。
+/// 新版的 drift 資料庫：開在 `platform/` 給的檔案上（plan〈依賴規則〉）。
 void main() {
   late Directory dir;
 

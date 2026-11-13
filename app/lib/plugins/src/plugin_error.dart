@@ -1,7 +1,7 @@
 import 'package:fmp/core/errors/app_error.dart';
 
-/// 插件回報錯誤用的固定代碼（brief §5.3）。插件丟 `new PluginError(code)`，
-/// 宿主照 [toAppError] 轉成錯誤分類（brief §13）。[wire] 是 JS 端的字串，
+/// 插件回報錯誤用的固定代碼（brief〈插件〉）。插件丟 `new PluginError(code)`，
+/// 宿主照 [toAppError] 轉成錯誤分類（brief〈錯誤、log 與診斷〉）。[wire] 是 JS 端的字串，
 /// 列在 `app/plugins/host.d.ts`，兩邊要一起改（`test/plugins/
 /// plugin_error_codes_test.dart` 守著）。
 enum PluginErrorCode {

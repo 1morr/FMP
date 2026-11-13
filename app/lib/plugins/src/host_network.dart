@@ -9,7 +9,7 @@ import 'package:fmp/plugins/src/plugin_error.dart';
 ///   跟（最多 [maxRedirects] 次），每一跳都檢查，不讓 dio 自己跟到別的網域。
 /// - 任何狀態碼都照實交回插件，由插件判斷（例如音源的限流碼）；連不上、
 ///   逾時才算失敗，丟 [PluginFailure]（代碼 `network`）。
-/// - 每個請求與失敗都經 [Log] 寫 log，log 門面負責遮蔽（brief §13）。
+/// - 每個請求與失敗都經 [Log] 寫 log，log 門面負責遮蔽（brief〈錯誤、log 與診斷〉）。
 class HostNetwork {
   HostNetwork({required this._log, HttpClientAdapter? adapter})
     : _dio = Dio(

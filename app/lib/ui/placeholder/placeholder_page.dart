@@ -126,7 +126,7 @@ class _TrackTile extends ConsumerWidget {
 }
 
 /// 正在播的曲目：播放狀態、進度、暫停與繼續，以及它的串流的音質、到期時間
-/// 與遮蔽過的網址（brief §13）。
+/// 與遮蔽過的網址（brief〈錯誤、log 與診斷〉）。
 class _PlaybackPanel extends ConsumerWidget {
   const _PlaybackPanel();
 

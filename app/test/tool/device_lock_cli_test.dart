@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/src/device_lock.dart';
 
-/// 包裝指令 `tool/device_lock.dart` 與 `tool/winpc/lock_guard.sh`（plan §2、
+/// 包裝指令 `tool/device_lock.dart` 與 `tool/winpc/lock_guard.sh`（plan〈平台〉、
 /// §4）。都在暫存的 git repo 裡跑，用那個 repo 自己的鎖，不碰開發機上真的
 /// 共用裝置鎖。
 void main() {

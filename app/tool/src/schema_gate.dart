@@ -6,7 +6,7 @@ import 'steps.dart';
 const databaseSource = 'lib/data/database.dart';
 const snapshotDir = 'drift_schemas/app_database';
 
-/// 閘門的 schema 快照檢查（plan §3）：`drift_dev schema dump` 出目前的
+/// 閘門的 schema 快照檢查（plan〈測試策略〉）：`drift_dev schema dump` 出目前的
 /// schema，要跟 [snapshotDir] 裡版本最高的快照一字不差（`make-migrations`
 /// 也是逐字比對）。改了表卻沒加版本、跑 `make-migrations`，這步就紅。
 ///
@@ -46,7 +46,7 @@ CheckStep schemaSnapshotStep({
         'The schema in $databaseSource differs from '
         '$snapshotDir/drift_schema_v${latest.version}.json. '
         'Bump schemaVersion, then run `dart run drift_dev make-migrations` '
-        'and add the migration step (plan §3).',
+        'and add the migration step (plan〈測試策略〉).',
       );
       return false;
     } finally {

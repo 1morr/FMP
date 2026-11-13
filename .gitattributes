@@ -17,6 +17,3 @@
 
 # Resolved by `flutter pub get`; collapse it in review diffs.
 pubspec.lock linguist-generated=true
-
-# progress.md 的 session 紀錄與偏差只追加：平行的票各加一行，合併時兩邊都留（git 內建 union）。
-docs/progress.md merge=union

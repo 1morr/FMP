@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/src/plugin_bundle_gate.dart';
 import '../../tool/src/steps.dart';
 
-/// 閘門的打包產物檢查（ADR 0038、plan §4）：從原始碼重建一次插件，和提交
+/// 閘門的打包產物檢查（ADR 0038、plan〈開發環境與閘門〉）：從原始碼重建一次插件，和提交
 /// 的 `dist/` 逐位元組比對。npm 經 [Shell]，這裡換成假的，「重建」就是把
 /// [_FakeShell.built] 寫進 `--outdir`。
 void main() {

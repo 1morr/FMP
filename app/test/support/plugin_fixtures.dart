@@ -12,7 +12,7 @@ import 'package:fmp/plugins/plugins.dart';
 
 import 'no_network.dart';
 
-/// 插件契約測試的 fixture（plan §3）：一個插件能力的一個案例，
+/// 插件契約測試的 fixture（plan〈測試策略〉）：一個插件能力的一個案例，
 /// `plugins/<插件 id>/fixtures/<插件能力>/<案例>.json`。
 ///
 /// 格式照 VCR 的 cassette（一串請求與回應），加上呼叫插件能力的參數：

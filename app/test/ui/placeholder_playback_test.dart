@@ -111,7 +111,7 @@ void main() {
       find.text('到期：${formatExpiry(DateTime.utc(2026).toLocal())}'),
       findsOneWidget,
     );
-    // 網址照遮蔽規則顯示（brief §13）。
+    // 網址照遮蔽規則顯示（brief〈錯誤、log 與診斷〉）。
     expect(
       find.text(
         '網址：https://cdn.example.com/ok.m4a?deadline=1767225600&upsig=***',

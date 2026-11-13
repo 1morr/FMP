@@ -6,7 +6,7 @@ import 'package:fmp/playback/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_states.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 
-/// Android、iOS、macOS 的音訊後端（brief §6、事實 K1）。
+/// Android、iOS、macOS 的音訊後端（brief〈播放〉、事實 K1）。
 ///
 /// header 由原生播放器直接帶（ExoPlayer 的 default request properties、
 /// AVPlayer 的 `AVURLAssetHTTPHeaderFieldsKey`），不用 just_audio 預設的

@@ -1,13 +1,12 @@
 import 'dart:io';
 
 import 'device_lock.dart';
-import 'doc_gate.dart';
 import 'full_gate.dart';
 import 'plugin_bundle_gate.dart';
 import 'schema_gate.dart';
 import 'steps.dart';
 
-/// `tool/check.dart` 的步驟（plan §4）。[quick] 時只有 quick 的步驟；完整版
+/// `tool/check.dart` 的步驟（plan〈開發環境與閘門〉）。[quick] 時只有 quick 的步驟；完整版
 /// 再接上四平台的建置與 integration_test（[platformSteps]）。
 List<CheckStep> gateSteps({
   required bool quick,
@@ -32,11 +31,17 @@ List<CheckStep> gateSteps({
     command('analyze', 'flutter', ['analyze']),
     command('test', 'flutter', ['test']),
     schemaSnapshotStep(app: app, shell: shell, out: out),
-    CheckStep('doc gate', () async {
-      final problems = checkAcceptanceTickets(app.parent);
-      problems.forEach(out.writeln);
-      return problems.isEmpty;
-    }),
+    // 文件檢查是 Python 腳本（規則寫在它的 docstring），在 repo 根目錄跑。
+    commandStep('doc gate', shell, 'python3', [
+      'scripts/check_docs.py',
+    ], workingDirectory: app.parent),
+    commandStep('doc gate tests', shell, 'python3', [
+      '-m',
+      'unittest',
+      'discover',
+      '-s',
+      'scripts/tests',
+    ], workingDirectory: app.parent),
     if (!quick) ...[
       ...platformSteps(
         app: app,

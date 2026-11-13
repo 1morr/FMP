@@ -6,7 +6,7 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
 
-/// plan §1.3 的依賴規則。由 `dependency_rules_test.dart` 執行；不做成
+/// plan〈依賴規則〉 的依賴規則。由 `dependency_rules_test.dart` 執行；不做成
 /// analyzer lint 套件（flutter/flutter#187999）。
 enum Rule {
   /// `ui/` 不能直接碰 `data/`。
@@ -22,7 +22,7 @@ enum Rule {
   /// `playback/backends/`（[PackageScope.audioBackend]）。
   platformPackageOutsidePlatform,
 
-  /// 只有 log 門面 `core/log/` 能 import log 套件（brief §13 的單一 log 門面）。
+  /// 只有 log 門面 `core/log/` 能 import log 套件（brief〈錯誤、log 與診斷〉 的單一 log 門面）。
   logPackageOutsideLogFacade,
 
   /// 只有插件宿主 `plugins/` 能 import JS 引擎與 HTTP 套件（[PackageScope.pluginsOnly]）。
@@ -46,7 +46,7 @@ enum PackageScope {
   platformOnly,
 
   /// 音訊播放器（just_audio、media_kit）：`platform/` 與音訊後端的兩個實作
-  /// `playback/backends/`（plan §1.3 的例外）。`playback/` 其他檔只依賴介面。
+  /// `playback/backends/`（plan〈依賴規則〉 的例外）。`playback/` 其他檔只依賴介面。
   audioBackend,
 
   /// log 套件（logger）：只有 log 門面 `core/log/`，其他模組經門面寫 log。
@@ -60,7 +60,7 @@ enum PackageScope {
 }
 
 /// 每個 `lib/` 用得到的套件都要在這裡分類；沒分類的會被 [Rule.unclassifiedPackage]
-/// 擋下。drift 與音訊播放器先列著，因為它們的規則（plan §1.3）在加依賴前就定了。
+/// 擋下。drift 與音訊播放器先列著，因為它們的規則（plan〈依賴規則〉）在加依賴前就定了。
 const packageScopes = <String, PackageScope>{
   'fmp': PackageScope.anywhere,
   'flutter': PackageScope.anywhere,

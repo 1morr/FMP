@@ -6,7 +6,7 @@ import 'package:fmp/playback/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_states.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 
-/// Windows 的音訊後端（brief §6、事實 K1）：media_kit（libmpv）。header 由
+/// Windows 的音訊後端（brief〈播放〉、事實 K1）：media_kit（libmpv）。header 由
 /// `Media.httpHeaders` 轉成 mpv 的 `http-header-fields`（事實 K4）。
 ///
 /// media_kit 的 `open()` 開不了也不會丟錯，錯誤只出現在 mpv 的 log

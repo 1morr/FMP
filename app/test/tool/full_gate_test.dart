@@ -6,7 +6,7 @@ import '../../tool/src/device_lock.dart';
 import '../../tool/src/full_gate.dart';
 import '../../tool/src/steps.dart';
 
-/// 完整版閘門（plan §4）的平台步驟。外部指令經 [Shell]，這裡換成假的：
+/// 完整版閘門（plan〈開發環境與閘門〉）的平台步驟。外部指令經 [Shell]，這裡換成假的：
 /// 記下跑過的指令，依前綴決定結果與輸出。
 void main() {
   final app = Directory('/repo/app');

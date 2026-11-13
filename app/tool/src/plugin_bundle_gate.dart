@@ -5,7 +5,7 @@ import 'steps.dart';
 /// 插件原始碼的目錄（相對 `app/`），`npm` 在這裡跑。
 const pluginsDir = 'plugins';
 
-/// 閘門的打包產物檢查（ADR 0038、plan §4）：`npm ci` 照 lockfile 裝好
+/// 閘門的打包產物檢查（ADR 0038、plan〈開發環境與閘門〉）：`npm ci` 照 lockfile 裝好
 /// esbuild 與 TypeScript，`npm run build -- --outdir <暫存目錄>`（型別檢查
 /// 加 esbuild）從原始碼重建每個插件，再和提交的 `plugins/<id>/dist/` 逐
 /// 位元組比對。改了插件原始碼卻沒重建、沒提交產物，這步就紅。

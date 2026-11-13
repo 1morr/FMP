@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/errors/app_error.dart';
 
-/// 錯誤分類照 brief §13。UI 以 exhaustive switch 依類別決定怎麼呈現；
+/// 錯誤分類照 brief〈錯誤、log 與診斷〉。UI 以 exhaustive switch 依類別決定怎麼呈現；
 /// 新增或刪掉類別時這裡會編譯失敗，提醒去對 brief。
 String category(AppError error) => switch (error) {
   NetworkError() => 'network',
@@ -16,7 +16,7 @@ String category(AppError error) => switch (error) {
 };
 
 void main() {
-  test('every category in brief §13 is a case of AppError', () {
+  test('every category in brief〈錯誤、log 與診斷〉 is a case of AppError', () {
     expect(
       [
         const NetworkError(),
@@ -43,7 +43,7 @@ void main() {
     );
   });
 
-  test('unavailable carries one of the four reasons in brief §13', () {
+  test('unavailable carries one of the four reasons in brief〈錯誤、log 與診斷〉', () {
     expect(UnavailableReason.values.map((r) => r.name), [
       'region',
       'copyright',

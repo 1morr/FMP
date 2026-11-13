@@ -12,11 +12,11 @@ final logProvider = Provider<Log>(
 /// log 的層級，由低到高。
 enum LogLevel { debug, info, warning, error }
 
-/// release 版保留 info 以上，其他建置保留 debug 以上（brief §13）。
+/// release 版保留 info 以上，其他建置保留 debug 以上（brief〈錯誤、log 與診斷〉）。
 LogLevel minimumLogLevel({required bool release}) =>
     release ? LogLevel.info : LogLevel.debug;
 
-/// App 唯一的 log 門面（brief §13）。每一筆在寫出前都經過 [redact]，寫進
+/// App 唯一的 log 門面（brief〈錯誤、log 與診斷〉）。每一筆在寫出前都經過 [redact]，寫進
 /// `fmp.log` 並依大小輪替。
 ///
 /// 只有 `core/log/` 能 import `logger` 套件（依賴規則測試守著）；其他模組只用

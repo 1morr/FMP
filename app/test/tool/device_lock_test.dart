@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/src/device_lock.dart';
 
-/// 共用裝置鎖（plan §4）。兩個 worktree 的閘門是兩個行程，所以這裡用子行程
+/// 共用裝置鎖（plan〈開發環境與閘門〉）。兩個 worktree 的閘門是兩個行程，所以這裡用子行程
 /// （`dart test/tool/support/*.dart`）模擬另一個 worktree。
 void main() {
   late Directory tmp;

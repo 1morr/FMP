@@ -3,7 +3,7 @@
 // 改這裡要同時改 Dart 端：錯誤代碼對照 plugin_error.dart，宿主 API 對照
 // js_engine.dart 的 prelude，插件能力的參數與回傳值對照 plugin_host.dart。
 
-/** 插件回報錯誤用的固定代碼，宿主轉成錯誤分類（brief §13）。 */
+/** 插件回報錯誤用的固定代碼，宿主轉成錯誤分類（brief〈錯誤、log 與診斷〉）。 */
 type PluginErrorCode =
   | 'network'
   | 'rate_limited'
