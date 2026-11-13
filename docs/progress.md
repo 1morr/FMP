@@ -19,3 +19,4 @@
 | 2026-11-13 | 流程 | 決定集中到 `docs/decisions.md`；plan 拆成 `ARCHITECTURE.md` 與 `docs/development.md`，引用改成節的標題 | 新 session 下 `/1morr:checkpoint M0` |
 | 2026-11-13 | 流程 | 決定改成跟著里程碑封存：M0 的搬回 `docs/archive/M0.md`，`docs/decisions.md` 只留進行中的 | 新 session 下 `/1morr:checkpoint M0` |
 | 2026-11-13 | 流程 | 舊版的文件與審計快照搬進 `docs/legacy/`，新版的開發文件改名成 `docs/development.md`；`docs/` 第一層的檔都列在 `AGENTS.md`〈文件〉 | 新 session 下 `/1morr:checkpoint M0` |
+| 2026-11-13 | 流程 | 里程碑表的狀態改成固定詞開頭（已驗收）；`scripts/check_docs.py` 換成新版：有票的目錄要列在表裡、還沒結束的里程碑每張票要有 `## 驗收` | 新 session 下 `/1morr:checkpoint M0` |

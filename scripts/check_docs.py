@@ -10,9 +10,12 @@
   decisions.md
     - 有〈紀錄〉段，每條一行、以 `- YYYY-MM-DD ` 開頭、不超過 200 字元、標一個決定者：（使用者定）（使用者同意）（Agent 定）
   roadmap.md
-    - 有〈里程碑〉段，裡面的表有「里程碑」「目標」「狀態」三欄，狀態以「進行中」開頭的最多一個
+    - 有〈里程碑〉段，裡面的表有「里程碑」「目標」「狀態」三欄；每列的狀態以這四個詞之一開頭：未開工、進行中、已驗收、不做，
+      後面可以接說明；以「進行中」開頭的最多一個
   docs/archive/*.md、docs/adr/
     - 封存檔有〈Session 紀錄〉段，並有〈決定〉或舊名〈偏差與決定〉；〈決定〉每條的格式同 decisions.md
+    - 用〈決定〉的封存檔還要有〈使用者試〉段，裡面至少一行字：使用者試了什麼、結果如何，或誰代測、哪幾項沒有人親手試過；
+      用舊名的封存檔不查
     - ADR 的檔名是 `NNNN-<小寫英數與連字號>.md`，第一行是 `# ` 標題；template.md、README.md 不查
   大小與寫法
     - 字元上限（Python `len`）：AGENTS.md 8,000、ARCHITECTURE.md 15,000、docs/progress.md 20,000、docs/design-brief.md 30,000；不存在的檔不查
@@ -24,10 +27,12 @@
     - git 追蹤的檔，除了 Markdown、docs/、.scratch/ 與本腳本和它的測試，不引用 brief 或架構文檔的章節號（「brief §4」「architecture §3」「plan §3.2」）；
       不是 git repo 就不查
   .scratch/
+    - 有 issues/ 的目錄都列在 roadmap.md 的里程碑表（表的「里程碑」欄第一個詞，小寫後就是目錄名）；不是里程碑的工作（文件瘦身、審計）也佔一列
     - 有 issues/ 的目錄要有 spec.md，`##` 段含：目標、範圍、共同規則、驗收、票序（標題後面可以加括號說明）
     - 里程碑目錄（m 加數字，例如 m0、m1.5）的 issues/ 要有一張 -acceptance.md 結尾的驗收票（早期專案叫收尾票的 -close.md 也算）
     - 每張票在第一個 `##` 之前有一行 `Status:`
-    - roadmap.md 標「進行中」的里程碑（表的第一欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
+    - 還沒結束的里程碑（roadmap.md 的狀態不是「已驗收」「不做」開頭）每張票有 `## 驗收` 段，裡面至少一個勾選框
+    - roadmap.md 標「進行中」的里程碑（表的「里程碑」欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
       有一行以 `Session 紀錄：` 開頭，以 `決定：` 開頭的行都標一個決定者；spec 的〈驗收〉底下有 `### 使用者試`
 只用標準函式庫。
 """
@@ -62,6 +67,7 @@ SPEC_SECTIONS = ("目標", "範圍", "共同規則", "驗收", "票序")
 MAX_CHARS = 200
 WAITING = "等使用者："
 ACTIVE = "進行中"
+STATES = ("未開工", ACTIVE, "已驗收", "不做")
 
 COMMAND = re.compile(r"`/[^`\s][^`]*`")
 DEVIATION = re.compile(r"^- \d{4}-\d{2}-\d{2} \S")
@@ -75,6 +81,8 @@ SESSION_NOTE, DECISION_NOTE = "Session 紀錄：", "決定："
 ACCEPTANCE, USER_TRIAL = "驗收", "使用者試"
 ACCEPTANCE_SUFFIXES = ("-acceptance.md", "-close.md")
 CELL_SPLIT = re.compile(r"(?<!\\)\|")
+CLOSED = ("已驗收", "不做")
+CHECKBOX = re.compile(r"^\s*[-*] \[[ xX]\]")
 
 
 def sections(text: str) -> list:
@@ -187,6 +195,9 @@ def check_archive(root: Path) -> list:
             out.append(f"{rel}：缺〈{SESSIONS}〉段")
         if ARCHIVED in by_title:
             out += decision_lines(rel, ARCHIVED, by_title[ARCHIVED])
+            if not any(l.strip() for _, l in by_title.get(USER_TRIAL, [])):
+                out.append(f"{rel}：缺〈{USER_TRIAL}〉段，或段裡沒有字。寫使用者試了什麼、結果如何；代測的寫誰測、哪幾項沒有人親手試過；"
+                           f"沒有可試的寫「無」和理由")
         elif OLD_ARCHIVED not in by_title:
             out.append(f"{rel}：缺〈{ARCHIVED}〉段（這個里程碑沒有決定就留空段）")
     return out
@@ -206,7 +217,7 @@ def check_adrs(root: Path) -> list:
 
 
 def active_milestones(text: str):
-    """(進行中的列, 違規)：〈里程碑〉表裡狀態以「進行中」開頭的列。"""
+    """(進行中的列對應的目錄名, 違規)：〈里程碑〉表裡狀態以「進行中」開頭的列。"""
     by_title = {}
     for title, lines in sections(text):
         by_title.setdefault(title, lines)
@@ -217,22 +228,53 @@ def active_milestones(text: str):
     if missing:
         return [], [f"{ROADMAP}：〈{MILESTONES}〉的表要有「{'」「'.join(missing)}」欄"]
     i = head.index(STATE)
-    return [r for _, r in rows if len(r) > i and r[i].startswith(ACTIVE)], []
+    return [dir_of(head, r) for _, r in rows if len(r) > i and r[i].startswith(ACTIVE)], []
 
 
 def check_roadmap(text: str) -> list:
     active, out = active_milestones(text)
+    if out:
+        return out
     if len(active) > 1:
         out.append(f"{ROADMAP}：有 {len(active)} 個里程碑的狀態以「{ACTIVE}」開頭，最多一個")
+    by_title = {}
+    for title, lines in sections(text):
+        by_title.setdefault(title, lines)
+    head, rows = table(by_title[MILESTONES])
+    i = head.index(STATE)
+    for n, r in rows:
+        if len(r) <= i or not r[i].startswith(STATES):
+            out.append(f"{ROADMAP}:{n}：狀態要以{'、'.join(f'「{s}」' for s in STATES)}其中一個開頭，後面可以接說明（「已驗收，封存在 …」）")
     return out
 
 
+def dir_of(head: list, row: list) -> str:
+    """里程碑表一列對應的目錄名：「里程碑」欄第一個詞的小寫（`M1.5 媒體庫` → `m1.5`）；行內程式碼的反引號不算。"""
+    i = head.index(MILESTONES) if MILESTONES in head else 0
+    words = row[i].replace("`", "").split() if len(row) > i else []
+    return words[0].lower() if words else ""
+
+
 def active_dirs(root: Path) -> set:
-    """進行中里程碑的目錄名：表的第一欄第一個詞的小寫（`M1.5 媒體庫` → `m1.5`）。"""
+    """進行中里程碑的目錄名。"""
     if not (root / ROADMAP).is_file():
         return set()
     active, _ = active_milestones((root / ROADMAP).read_text(encoding="utf-8"))
-    return {r[0].split()[0].lower() for r in active if r and r[0].split()}
+    return set(active) - {""}
+
+
+def listed_dirs(root: Path):
+    """{里程碑表列出的目錄名: 狀態}；roadmap.md 或它的表不在就回傳 None（那是別條規則的違規）。"""
+    if not (root / ROADMAP).is_file():
+        return None
+    by_title = {}
+    for title, lines in sections((root / ROADMAP).read_text(encoding="utf-8")):
+        by_title.setdefault(title, lines)
+    head, rows = table(by_title.get(MILESTONES, []))
+    if MILESTONES not in by_title or not head:
+        return None
+    i = head.index(STATE) if STATE in head else len(head)
+    return {dir_of(head, r): (r[i] if len(r) > i else "") for _, r in rows if dir_of(head, r)}
 
 
 def check_budgets(root: Path) -> list:
@@ -312,9 +354,11 @@ def check_scratch(root: Path) -> list:
     base = root / SCRATCH
     if not base.is_dir():
         return out
-    active = active_dirs(root)
+    active, listed = active_dirs(root), listed_dirs(root)
     for d in sorted(p for p in base.iterdir() if (p / "issues").is_dir()):
         rel = f"{SCRATCH}/{d.name}"
+        if listed is not None and d.name.lower() not in listed:
+            out.append(f"{rel}/：{ROADMAP} 的里程碑表沒有列它。加一列，「里程碑」欄以 `{d.name}` 開頭；不列的話總覽頁和下一個 session 都看不到這批票")
         spec = d / "spec.md"
         if not spec.is_file():
             out.append(f"{rel}/：有票卻沒有 spec.md，里程碑開工的第一步是寫 spec")
@@ -343,6 +387,10 @@ def check_scratch(root: Path) -> list:
                 for l in (comments[1].split("\n") if len(comments) == 2 else []):
                     if l.startswith(DECISION_NOTE) and len(DECIDER.findall(l)) != 1:
                         out.append(f"{rel}/issues/{t.name}：「{DECISION_NOTE}」那一行要標一個決定者：{DECIDER_LIST}")
+            if listed and d.name.lower() in listed and not listed[d.name.lower()].startswith(CLOSED):
+                criteria = next((lines for title, lines in sections(text) if title == ACCEPTANCE), None)
+                if criteria is None or not any(CHECKBOX.match(l) for _, l in criteria):
+                    out.append(f"{rel}/issues/{t.name}：要有 `## {ACCEPTANCE}` 段，驗收條件寫成裡面的勾選框（照 docs/agents/ticket-template.md）")
     return out
 
 

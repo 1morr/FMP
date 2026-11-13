@@ -6,8 +6,8 @@
 
 | 里程碑 | 目標 | 拆票前讀 | 狀態 |
 | --- | --- | --- | --- |
-| M0 骨架與 tracer bullet | 四平台的骨架、閘門與第一條播放路徑 | `.scratch/m0/spec.md` | 2026-11-12 驗收，紀錄封存在 [`docs/archive/M0.md`](archive/M0.md) |
-| D 設計稿 | brief §11 的第一版頁面全部有定稿 | `docs/design/DESIGN.md` | 2026-11-11 定稿（`docs/design/`），紀錄併在 [`docs/archive/M0.md`](archive/M0.md) |
+| M0 骨架與 tracer bullet | 四平台的骨架、閘門與第一條播放路徑 | `.scratch/m0/spec.md` | 已驗收（2026-11-12），紀錄封存在 [`docs/archive/M0.md`](archive/M0.md) |
+| D 設計稿 | brief §11 的第一版頁面全部有定稿 | `docs/design/DESIGN.md` | 已驗收（2026-11-11 定稿，`docs/design/`），紀錄併在 [`docs/archive/M0.md`](archive/M0.md) |
 | M1 三音源與播放核心 | 三個音源都能搜尋、播放，播放核心完整 | 下面〈M1 三音源與播放核心〉（含〈M0 留下的〉）、brief §6、`docs/design/DESIGN.md` | 未開工，下一個 |
 | M2 帳號與存取等級 | 三個音源都能登入，會員狀態與存取等級正確呈現 | 開工時定 | 未開工 |
 | M3 音樂庫與遠端歌單 | 本地歌單、匯入歌單、遠端寫入都可用，並能搬入舊版資料 | 開工時定 | 未開工 |

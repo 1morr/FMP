@@ -56,7 +56,7 @@ ROADMAP = """# 路線圖
 
 | 里程碑 | 目標 | 拆票前讀 | 狀態 |
 | --- | --- | --- | --- |
-| M0 骨架 | 閘門 | brief | 完成，[已封存](archive/M0.md) |
+| M0 骨架 | 閘門 | brief | 已驗收，封存在 [`docs/archive/M0.md`](archive/M0.md) |
 | M1 核心 | 第一個功能 | plan §2 | 進行中，已拆 3 張票 |
 | M2 介面 | 畫面 | brief §4 | 未開工 |
 
@@ -91,6 +91,10 @@ class Repo(unittest.TestCase):
         text = (self.root / rel).read_text(encoding="utf-8")
         self.assertIn(old, text)
         self.write(rel, text.replace(old, new))
+
+    def row(self, name, state="未開工"):
+        """在里程碑表加一列。"""
+        self.sub("docs/roadmap.md", "| M2 介面 | 畫面 | brief §4 | 未開工 |\n", f"| M2 介面 | 畫面 | brief §4 | 未開工 |\n| {name} | 目標 | — | {state} |\n")
 
     def clean(self):
         self.assertEqual(m.run(self.root), [])
@@ -233,7 +237,7 @@ class DecisionsTest(Repo):
 
 class MilestonesTest(Repo):
     def test_two_active(self):
-        self.sub("docs/roadmap.md", "| 完成，[已封存](archive/M0.md) |", "| 進行中，還有 1 張 |")
+        self.sub("docs/roadmap.md", "| 已驗收，封存在 [`docs/archive/M0.md`](archive/M0.md) |", "| 進行中，還有 1 張 |")
         self.red("最多一個")
 
     def test_none_active_is_fine(self):
@@ -254,13 +258,31 @@ class MilestonesTest(Repo):
 
     def test_other_sections_columns_and_wording_do_not_matter(self):
         self.sub("docs/roadmap.md", "## M2 介面\n\n目標：畫面。\n", "## M2 介面\n\n已開工，見 spec。\n\n## M3 發佈\n\n進行中的字出現在表外不算。\n")
-        self.sub("docs/roadmap.md", "| 里程碑 | 目標 | 拆票前讀 | 狀態 |\n| --- | --- | --- | --- |", "| 狀態 | 里程碑 | 目標 | 拆票前讀 |\n| --- | --- | --- | --- |")
-        self.sub("docs/roadmap.md", "| M2 介面 | 畫面 | brief §4 | 未開工 |", "| 等 M1 進行中的票做完 | M2 介面 | 畫面 | brief §4 |")
+        text = (self.root / "docs/roadmap.md").read_text(encoding="utf-8")
+        rows = [l for l in text.split("\n") if l.startswith("|")]
+        for row in rows:  # 狀態欄搬到最前面
+            cells = row.strip("|").split("|")
+            text = text.replace(row, "|" + "|".join(cells[-1:] + cells[:-1]) + "|")
+        self.write("docs/roadmap.md", text)
+        self.sub("docs/roadmap.md", "| 未開工 | M2 介面 | 畫面 | brief §4 |", "| 未開工，等 M1 進行中的票做完 | M2 介面 | 畫面 | brief §4 |")
+        self.clean()
+
+
+class MilestoneStateTest(Repo):
+    def test_state_that_starts_with_another_word(self):
+        for state in ("完成，[已封存](archive/M0.md)", "2026-01-02 驗收", "[`docs/archive/M0.md`](archive/M0.md)", "待驗收", ""):
+            with self.subTest(state=state):
+                self.write("docs/roadmap.md", ROADMAP.replace("已驗收，封存在 [`docs/archive/M0.md`](archive/M0.md)", state))
+                self.red("docs/roadmap.md:9：狀態要以「未開工」、「進行中」、「已驗收」、「不做」其中一個開頭")
+
+    def test_what_follows_the_word_is_free(self):
+        self.sub("docs/roadmap.md", "| 未開工 |", "| 不做：併進 M1（2026-01-05 使用者定） |")
+        self.sub("docs/roadmap.md", "已驗收，封存在 [`docs/archive/M0.md`](archive/M0.md)", "已驗收（2026-01-02）")
         self.clean()
 
 
 class ArchiveTest(Repo):
-    ARCHIVE = "# M0\n\n## Session 紀錄\n\n| 日期 | 票 | 結果 | 下一步 |\n| --- | --- | --- | --- |\n| 2026-01-01 | M0 01 | 做完 | 舊列的下一步不查，長度也不查：%s |\n\n## 決定\n\n- 2026-01-01 M0（使用者定）：用 Rust。\n" % ("長" * 300)
+    ARCHIVE = "# M0\n\n## Session 紀錄\n\n| 日期 | 票 | 結果 | 下一步 |\n| --- | --- | --- | --- |\n| 2026-01-01 | M0 01 | 做完 | 舊列的下一步不查，長度也不查：%s |\n\n## 決定\n\n- 2026-01-01 M0（使用者定）：用 Rust。\n\n## 使用者試\n\n- 啟動後打一個字：可以。\n" % ("長" * 300)
 
     def setUp(self):
         super().setUp()
@@ -281,8 +303,19 @@ class ArchiveTest(Repo):
                 self.write("docs/archive/M0.md", self.ARCHIVE.replace(old, new))
                 self.red(needle)
 
+    def test_archive_without_the_user_trial(self):
+        for old, new in (("## 使用者試\n\n- 啟動後打一個字：可以。\n", ""), ("- 啟動後打一個字：可以。\n", ""), ("## 使用者試", "### 使用者試")):
+            with self.subTest(old=old, new=new):
+                self.write("docs/archive/M0.md", self.ARCHIVE.replace(old, new))
+                self.red("docs/archive/M0.md：缺〈使用者試〉段")
+
+    def test_how_the_user_trial_is_written_and_where_it_sits_do_not_matter(self):
+        body = self.ARCHIVE.split("## 使用者試")[0]
+        self.write("docs/archive/M0.md", "# M0\n\n## 使用者試\n\n代測：使用者不在，四個平台都由 agent 測，沒有人聽過聲音。\n\n" + body.split("# M0\n\n", 1)[1])
+        self.clean()
+
     def test_the_old_section_name_and_extra_sections_are_left_alone(self):
-        self.write("docs/archive/M0.md", self.ARCHIVE.replace("## 決定\n\n- 2026-01-01 M0（使用者定）：用 Rust。", "## 偏差與決定\n\n- 2026-01-01 沒有決定者也很長：%s\n  - 還有子項。\n\n## plan §11\n\n舊的範圍。" % ("長" * 300)))
+        self.write("docs/archive/M0.md", self.ARCHIVE.split("## 使用者試")[0].replace("## 決定\n\n- 2026-01-01 M0（使用者定）：用 Rust。", "## 偏差與決定\n\n- 2026-01-01 沒有決定者也很長：%s\n  - 還有子項。\n\n## plan §11\n\n舊的範圍。" % ("長" * 300)))
         self.clean()
 
     def test_other_files_in_archive_are_not_checked(self):
@@ -460,6 +493,7 @@ class ScratchTest(Repo):
         self.write(".scratch/m0/issues/01-m0-acceptance.md", TICKET)
         self.write(".scratch/docs-cleanup/spec.md", old)
         self.write(".scratch/docs-cleanup/issues/01-trim.md", TICKET)
+        self.row("docs-cleanup 文件瘦身")
         self.clean()
 
     def test_milestone_without_acceptance_ticket(self):
@@ -473,16 +507,51 @@ class ScratchTest(Repo):
     def test_effort_that_is_not_a_milestone_needs_no_acceptance_ticket(self):
         self.write(".scratch/docs-cleanup/spec.md", SPEC)
         self.write(".scratch/docs-cleanup/issues/01-trim.md", TICKET)
+        self.row("docs-cleanup 文件瘦身")
         self.clean()
 
     def test_decimal_milestone_needs_one(self):
         self.write(".scratch/m1.5/spec.md", SPEC)
         self.write(".scratch/m1.5/issues/01-x.md", TICKET)
+        self.row("M1.5 插入的")
         self.red(".scratch/m1.5/issues/：沒有驗收票")
+
+    def test_directory_with_tickets_missing_from_the_roadmap(self):
+        self.write(".scratch/docs-cleanup/spec.md", SPEC)
+        self.write(".scratch/docs-cleanup/issues/01-trim.md", TICKET)
+        self.red(".scratch/docs-cleanup/：docs/roadmap.md 的里程碑表沒有列它")
+        self.row("`docs-cleanup`")
+        self.clean()
+
+    def test_how_the_roadmap_row_is_worded_does_not_matter(self):
+        self.sub("docs/roadmap.md", "| M1 核心 | 第一個功能 |", "| M1 換了名字的核心（第二版） | 改寫過的目標 |")
+        self.sub("docs/roadmap.md", "| M2 介面 | 畫面 | brief §4 | 未開工 |\n", "")
+        self.clean()
+
+    def test_without_a_roadmap_table_the_listing_is_not_checked(self):
+        self.sub("docs/roadmap.md", "## 里程碑", "## 階段")
+        self.assertEqual(m.run(self.root), ["docs/roadmap.md：缺〈里程碑〉段"])
 
     def test_directory_without_issues_is_ignored(self):
         self.write(".scratch/notes/draft.md", "隨手記")
         self.clean()
+
+    def test_ticket_without_acceptance_criteria(self):
+        for old, new in (("## 驗收\n\n- [ ] 條件\n", "- [ ] 條件\n"), ("- [ ] 條件\n", "條件寫成一句話。\n"), ("## 驗收", "## Acceptance criteria")):
+            with self.subTest(old=old, new=new):
+                self.write(".scratch/m1/issues/01-first.md", TICKET.replace(old, new))
+                self.red("m1/issues/01-first.md：要有 `## 驗收` 段")
+
+    def test_how_the_criteria_are_ticked_and_what_else_the_ticket_holds_do_not_matter(self):
+        self.write(".scratch/m1/issues/01-first.md", TICKET.replace("- [ ] 條件\n", "說明。\n\n* [x] 條件\n  - [ ] 子項\n").replace("## What to build", "## 為什麼"))
+        self.clean()
+
+    def test_tickets_of_a_closed_milestone_need_no_criteria(self):
+        self.write(".scratch/m0/spec.md", SPEC)
+        self.write(".scratch/m0/issues/01-m0-acceptance.md", "# 01\n\n**Status:** done\n\n- [x] 舊格式沒有驗收段\n")
+        self.clean()
+        self.sub("docs/roadmap.md", "已驗收，封存在", "未開工，還沒做完，原本寫封存在")
+        self.red("m0/issues/01-m0-acceptance.md：要有 `## 驗收` 段")
 
     def test_ticket_without_status(self):
         self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent\n", "")
@@ -526,6 +595,7 @@ class ScratchTest(Repo):
         self.write(".scratch/m0/issues/02-m0-acceptance.md", TICKET.replace("ready-for-agent", "done"))
         self.write(".scratch/docs-cleanup/spec.md", SPEC)
         self.write(".scratch/docs-cleanup/issues/01-trim.md", TICKET.replace("ready-for-agent", "done"))
+        self.row("docs-cleanup 文件瘦身")
         self.clean()
 
 
