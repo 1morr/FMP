@@ -26,7 +26,7 @@
 
 選 C。插件用 TypeScript 寫，以 esbuild 打包成單一 JS 檔（產物提交進 repo，`tool/check.dart` 檢查它是否最新），隨 App 打包；更新從 GitHub Release 的 `index.json` 取得，安裝前驗 SHA-256，並經使用者確認。插件只能連 manifest 宣告的網域，沒有檔案系統與 socket。第一版不支援第三方插件來源。
 
-能力宣告參考 Spotube v6：功能與權限分開，有遠端歌單寫入。方法可選的做法參考 MusicFree。不上 App Store，所以不受 Guideline 2.5.2 限制（brief〈查證過的事實〉R6）。
+能力宣告參考 Spotube v6：功能與權限分開，有遠端歌單寫入。方法可選的做法參考 MusicFree。不上 App Store，所以不受 Guideline 2.5.2 限制（事實 R6）。
 
 ## 後果
 
