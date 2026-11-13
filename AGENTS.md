@@ -25,7 +25,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 | 路徑 | 內容 |
 | --- | --- |
 | `app/` | 新版，獨立的 Flutter 套件，內部目錄照 architecture〈目錄結構〉；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 docs/development.md〈開發環境與閘門〉），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 architecture〈測試策略〉（`dart run drift_dev make-migrations`，閘門會比對快照）；錄製插件契約測試的 fixture、跑 `live` 冒煙測試也照 architecture〈測試策略〉 |
-| `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
+| `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`；只改到文件或票時跑 `python3 scripts/check_docs.py`。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
 | `docs/` | 新版的文件（見〈文件〉）；`docs/legacy/` 是舊版的 |
 | `.scratch/` | 里程碑的 spec 與票 |

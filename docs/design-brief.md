@@ -419,7 +419,6 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 ## 17. 待決
 
 - **取代舊版的方式**：舊版使用者怎麼升上來（舊版的自動更新、資料搬遷、要不要讀 Isar）。卡在新版功能還沒齊全；到「取代舊版」的里程碑由擁有者決定。
-- **Windows 經 SSH 截圖傳回**：已實測，做法見 docs/development.md〈平台〉〈Windows（`winpc`）〉。
 
 ## 18. 事實索引
 
