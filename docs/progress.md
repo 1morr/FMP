@@ -21,3 +21,4 @@
 | 2026-11-13 | 流程 | 舊版的文件與審計快照搬進 `docs/legacy/`，新版的開發文件改名成 `docs/development.md`；`docs/` 第一層的檔都列在 `AGENTS.md`〈文件〉 | 新 session 下 `/1morr:checkpoint M0` |
 | 2026-11-13 | 流程 | 里程碑表的狀態改成固定詞開頭（已驗收）；`scripts/check_docs.py` 換成新版：有票的目錄要列在表裡、還沒結束的里程碑每張票要有 `## 驗收` | 新 session 下 `/1morr:checkpoint M0` |
 | 2026-11-14 | M0 回顧 | M1 拆成 M1（B 站：播放核心與照稿頁面）與 M1.5（YouTube、網易雲）；決定記在 `docs/decisions.md`，M0 封存補〈決定〉〈使用者試〉；修 7 處文件矛盾 | 新 session 下 `/to-tickets docs/roadmap.md 拆 M1 的票` |
+| 2026-11-14 | M0 回顧追問 | 預載定為先解析再緩衝下一首開頭、第一版不做磁碟音訊快取、M1 拆票時寫〈快取〉策略；brief §6、§9 與 roadmap〈M1〉已改 | 新 session 下 `/to-tickets docs/roadmap.md 拆 M1 的票` |
