@@ -1,15 +1,24 @@
 #!/bin/sh
-# 新版的快速閘門（docs/development.md〈開發環境與閘門〉）：只有這次 commit 改到 app/ 才跑；只改舊版或
-# 文件的 commit 不跑，舊版的緊急修正不受新版閘門影響。
-# 啟用：git config core.hooksPath .githooks
+# commit 前的檢查（docs/development.md〈開發環境與閘門〉）。啟用：git config core.hooksPath .githooks
+# - 改到 app/：跑新版的快速閘門（裡面含文件檢查）。
+# - 沒改到 app/、但改到文件或票：只跑文件檢查。
+# - 只改舊版：都不跑，舊版的緊急修正不受新版閘門影響。
 # --no-renames：把檔案搬出 app/ 時，預設只會列出新路徑。
-git diff --cached --name-only --no-renames | grep -q '^app/' || exit 0
+staged=$(git diff --cached --name-only --no-renames)
 
 # git 給 hook 的 GIT_DIR、GIT_INDEX_FILE 等變數會讓 flutter 把自己 SDK 的
-# 版本讀成 0.0.0-unknown，pub get 就解不出依賴。
+# 版本讀成 0.0.0-unknown，pub get 就解不出依賴；文件檢查的測試也會開暫存 repo。
 for name in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do
   unset "$name"
 done
 
-cd "$(git rev-parse --show-toplevel)/app" || exit 1
-exec dart run tool/check.dart --quick
+root=$(git rev-parse --show-toplevel) || exit 1
+if echo "$staged" | grep -q '^app/'; then
+  cd "$root/app" || exit 1
+  exec dart run tool/check.dart --quick
+fi
+if echo "$staged" | grep -qE '^(docs/|\.scratch/|scripts/check_docs\.py$|scripts/tests/|AGENTS\.md$|ARCHITECTURE\.md$)'; then
+  cd "$root" || exit 1
+  exec python3 scripts/check_docs.py
+fi
+exit 0

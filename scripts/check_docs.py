@@ -10,7 +10,10 @@
   decisions.md
     - 有〈紀錄〉段，每條一行、以 `- YYYY-MM-DD ` 開頭、不超過 200 字元、標一個決定者：（使用者定）（使用者同意）（Agent 定）
   roadmap.md
-    - 有〈里程碑〉段，裡面的表有「狀態」欄，狀態以「進行中」開頭的最多一個
+    - 有〈里程碑〉段，裡面的表有「里程碑」「目標」「狀態」三欄，狀態以「進行中」開頭的最多一個
+  docs/archive/*.md、docs/adr/
+    - 封存檔有〈Session 紀錄〉段，並有〈決定〉或舊名〈偏差與決定〉；〈決定〉每條的格式同 decisions.md
+    - ADR 的檔名是 `NNNN-<小寫英數與連字號>.md`，第一行是 `# ` 標題；template.md、README.md 不查
   大小與寫法
     - 字元上限（Python `len`）：AGENTS.md 8,000、ARCHITECTURE.md 15,000、docs/progress.md 20,000、docs/design-brief.md 30,000；不存在的檔不查
     - docs/design-brief.md、ARCHITECTURE.md 不寫票號（「票 12」「票12」）；程式碼區塊裡的不算
@@ -50,6 +53,10 @@ FACTS = "事實"
 SCRATCH = ".scratch"
 MILESTONES, SESSIONS, LOG = "里程碑", "Session 紀錄", "紀錄"
 STATE = "狀態"
+ROADMAP_COLUMNS = ("里程碑", "目標", STATE)
+ARCHIVED, OLD_ARCHIVED = "決定", "偏差與決定"
+ADR_NAME = re.compile(r"^\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$")
+ADR_EXEMPT = ("template.md", "README.md")
 PROGRESS_SECTIONS = ("寫法與封存", SESSIONS)
 SPEC_SECTIONS = ("目標", "範圍", "共同規則", "驗收", "票序")
 MAX_CHARS = 200
@@ -145,22 +152,56 @@ def check_progress(text: str) -> list:
     return out
 
 
+def decision_lines(rel: str, title: str, lines) -> list:
+    out = []
+    for n, l in lines:
+        if not l.strip():
+            continue
+        if not DEVIATION.match(l):
+            out.append(f"{rel}:{n}：〈{title}〉每條一行，寫成「- YYYY-MM-DD <里程碑>（<決定者>）：…」")
+        elif len(DECIDER.findall(l)) != 1:
+            out.append(f"{rel}:{n}：這一條要標一個決定者：{DECIDER_LIST}")
+        if len(l) > MAX_CHARS:
+            out.append(f"{rel}:{n}：這一條 {len(l)} 字元，上限 {MAX_CHARS}。細節放票、brief、ADR，這裡連過去")
+    return out
+
+
 def check_decisions(text: str) -> list:
     by_title = {}
     for title, lines in sections(text):
         by_title.setdefault(title, lines)
     if LOG not in by_title:
         return [f"{DECISIONS}：缺〈{LOG}〉段"]
+    return decision_lines(DECISIONS, LOG, by_title[LOG])
+
+
+def check_archive(root: Path) -> list:
     out = []
-    for n, l in by_title[LOG]:
-        if not l.strip():
+    archive = root / "docs" / "archive"
+    for p in sorted(archive.glob("*.md")) if archive.is_dir() else []:
+        rel = f"docs/archive/{p.name}"
+        by_title = {}
+        for title, lines in sections(p.read_text(encoding="utf-8")):
+            by_title.setdefault(title, lines)
+        if SESSIONS not in by_title:
+            out.append(f"{rel}：缺〈{SESSIONS}〉段")
+        if ARCHIVED in by_title:
+            out += decision_lines(rel, ARCHIVED, by_title[ARCHIVED])
+        elif OLD_ARCHIVED not in by_title:
+            out.append(f"{rel}：缺〈{ARCHIVED}〉段（這個里程碑沒有決定就留空段）")
+    return out
+
+
+def check_adrs(root: Path) -> list:
+    out = []
+    adr = root / "docs" / "adr"
+    for p in sorted(adr.glob("*.md")) if adr.is_dir() else []:
+        if p.name in ADR_EXEMPT:
             continue
-        if not DEVIATION.match(l):
-            out.append(f"{DECISIONS}:{n}：〈{LOG}〉每條一行，寫成「- YYYY-MM-DD <里程碑>（<決定者>）：…」")
-        elif len(DECIDER.findall(l)) != 1:
-            out.append(f"{DECISIONS}:{n}：這一條要標一個決定者：{DECIDER_LIST}")
-        if len(l) > MAX_CHARS:
-            out.append(f"{DECISIONS}:{n}：這一條 {len(l)} 字元，上限 {MAX_CHARS}。細節放票、brief、ADR，這裡連過去")
+        if not ADR_NAME.match(p.name):
+            out.append(f"docs/adr/{p.name}：檔名寫成 NNNN-<小寫英數與連字號>.md")
+        elif not p.read_text(encoding="utf-8").lstrip().startswith("# "):
+            out.append(f"docs/adr/{p.name}：第一行要是 `# ` 開頭的標題")
     return out
 
 
@@ -172,8 +213,9 @@ def active_milestones(text: str):
     if MILESTONES not in by_title:
         return [], [f"{ROADMAP}：缺〈{MILESTONES}〉段"]
     head, rows = table(by_title[MILESTONES])
-    if STATE not in head:
-        return [], [f"{ROADMAP}：〈{MILESTONES}〉的表要有「{STATE}」欄"]
+    missing = [c for c in ROADMAP_COLUMNS if c not in head]
+    if missing:
+        return [], [f"{ROADMAP}：〈{MILESTONES}〉的表要有「{'」「'.join(missing)}」欄"]
     i = head.index(STATE)
     return [r for _, r in rows if len(r) > i and r[i].startswith(ACTIVE)], []
 
@@ -311,7 +353,8 @@ def run(root: Path) -> list:
             out += check((root / rel).read_text(encoding="utf-8"))
         else:
             out.append(f"找不到 {rel}")
-    return out + check_budgets(root) + check_current_state(root) + check_layout(root) + check_code_refs(root) + check_scratch(root)
+    return (out + check_archive(root) + check_adrs(root) + check_budgets(root) + check_current_state(root) + check_layout(root)
+            + check_code_refs(root) + check_scratch(root))
 
 
 def main(argv) -> int:

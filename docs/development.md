@@ -93,7 +93,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 ## 開發環境與閘門
 
-- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（`ARCHITECTURE.md`〈測試策略〉）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
+- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（`ARCHITECTURE.md`〈測試策略〉）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行；沒改到 `app/`、但改到 `docs/`、`.scratch/`、`AGENTS.md` 或 `ARCHITECTURE.md` 時，hook 只跑文件閘門。
 - `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見〈平台〉各平台的「閘門」），最後檢查插件打包產物是否最新（`plugin bundles (esbuild)`：在 `app/plugins/` 跑 `npm ci` 與 `npm run build -- --outdir <暫存目錄>`，含型別檢查，再和提交的各插件 `dist/` 逐位元組比對）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
 - **共用裝置鎖**：完整版在 Mac 上的三個建置之後、`build windows` 之前跑 `lock shared devices`，四平台的 `integration_test` 跑完後跑 `unlock shared devices`；中間的步驟（`winpc` 的同步、建置與 integration_test，模擬器與 macOS 的 integration_test）持有鎖時才跑，沒拿到就判失敗。同一時間只有一個 worktree 的完整版在碰共用裝置。
   - 位置：`git rev-parse --path-format=absolute --git-common-dir` 底下（所有 worktree 共用的 `.git`）的 `fmp-device.lock`，持有者資訊在同目錄的 `fmp-device.lock.holder`（JSON：`worktree`、`pid`、`started`）。實作在 `app/tool/src/device_lock.dart`。

@@ -244,6 +244,10 @@ class MilestonesTest(Repo):
         self.sub("docs/roadmap.md", "| 里程碑 | 目標 | 拆票前讀 | 狀態 |", "| 里程碑 | 目標 | 拆票前讀 | 備註 |")
         self.red("「狀態」欄")
 
+    def test_missing_name_or_goal_column(self):
+        self.sub("docs/roadmap.md", "| 里程碑 | 目標 | 拆票前讀 | 狀態 |", "| 階段 | 做什麼 | 拆票前讀 | 狀態 |")
+        self.red("的表要有「里程碑」「目標」欄")
+
     def test_missing_milestone_section(self):
         self.sub("docs/roadmap.md", "## 里程碑\n", "## 總表\n")
         self.red("缺〈里程碑〉")
@@ -252,6 +256,61 @@ class MilestonesTest(Repo):
         self.sub("docs/roadmap.md", "## M2 介面\n\n目標：畫面。\n", "## M2 介面\n\n已開工，見 spec。\n\n## M3 發佈\n\n進行中的字出現在表外不算。\n")
         self.sub("docs/roadmap.md", "| 里程碑 | 目標 | 拆票前讀 | 狀態 |\n| --- | --- | --- | --- |", "| 狀態 | 里程碑 | 目標 | 拆票前讀 |\n| --- | --- | --- | --- |")
         self.sub("docs/roadmap.md", "| M2 介面 | 畫面 | brief §4 | 未開工 |", "| 等 M1 進行中的票做完 | M2 介面 | 畫面 | brief §4 |")
+        self.clean()
+
+
+class ArchiveTest(Repo):
+    ARCHIVE = "# M0\n\n## Session 紀錄\n\n| 日期 | 票 | 結果 | 下一步 |\n| --- | --- | --- | --- |\n| 2026-01-01 | M0 01 | 做完 | 舊列的下一步不查，長度也不查：%s |\n\n## 決定\n\n- 2026-01-01 M0（使用者定）：用 Rust。\n" % ("長" * 300)
+
+    def setUp(self):
+        super().setUp()
+        self.write("docs/archive/M0.md", self.ARCHIVE)
+
+    def test_archive_fixture_is_clean(self):
+        self.clean()
+
+    def test_missing_sections(self):
+        self.sub("docs/archive/M0.md", "## Session 紀錄", "## 紀錄")
+        self.red("docs/archive/M0.md：缺〈Session 紀錄〉")
+        self.write("docs/archive/M0.md", self.ARCHIVE.replace("## 決定", "## 其他"))
+        self.red("docs/archive/M0.md：缺〈決定〉")
+
+    def test_archived_decisions_keep_the_format(self):
+        for old, new, needle in (("（使用者定）", "", "決定者"), ("- 2026-01-01 M0", "- M0", "YYYY-MM-DD"), ("用 Rust。", "用 Rust。" + "字" * 200, "上限 200")):
+            with self.subTest(needle):
+                self.write("docs/archive/M0.md", self.ARCHIVE.replace(old, new))
+                self.red(needle)
+
+    def test_the_old_section_name_and_extra_sections_are_left_alone(self):
+        self.write("docs/archive/M0.md", self.ARCHIVE.replace("## 決定\n\n- 2026-01-01 M0（使用者定）：用 Rust。", "## 偏差與決定\n\n- 2026-01-01 沒有決定者也很長：%s\n  - 還有子項。\n\n## plan §11\n\n舊的範圍。" % ("長" * 300)))
+        self.clean()
+
+    def test_other_files_in_archive_are_not_checked(self):
+        self.write("docs/archive/notes.txt", "隨手記")
+        self.clean()
+
+
+class AdrTest(Repo):
+    def setUp(self):
+        super().setUp()
+        self.write("docs/adr/0001-own-core.md", "# 核心自己寫\n\n理由。\n")
+        self.write("docs/adr/template.md", "<!-- 範本 -->\n")
+        self.write("docs/adr/.gitkeep", "")
+
+    def test_adr_fixture_is_clean(self):
+        self.clean()
+
+    def test_badly_named_adr(self):
+        for name in ("1-own-core.md", "0002_Own_Core.md", "adr-0002.md", "0002-.md"):
+            with self.subTest(name):
+                self.setUp()
+                self.write(f"docs/adr/{name}", "# 標題\n")
+                self.red(f"docs/adr/{name}：檔名寫成")
+
+    def test_adr_without_a_title(self):
+        self.write("docs/adr/0002-two-backends.md", "狀態：已採用\n\n# 標題在後面\n")
+        self.red("docs/adr/0002-two-backends.md：第一行要是")
+        self.write("docs/adr/0002-two-backends.md", "\n# 兩個後端\n\n內文怎麼寫不管。\n")
         self.clean()
 
 

@@ -2,9 +2,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// `.githooks/pre-commit`：只有 staged 檔案含 `app/` 時才跑
-/// `dart run tool/check.dart --quick`。在暫存 repo 裡用真的 `git commit`
-/// 驗證，`app/tool/check.dart` 換成留下記號的替身。
+/// `.githooks/pre-commit`：staged 檔案含 `app/` 時跑
+/// `dart run tool/check.dart --quick`；沒有 `app/`、但有文件或票時跑
+/// `python3 scripts/check_docs.py`；只改舊版時都不跑。在暫存 repo 裡用真的
+/// `git commit` 驗證，兩支檢查都換成留下記號的替身。
 void main() {
   final hook = File('../.githooks/pre-commit');
   late Directory repo;
@@ -84,13 +85,58 @@ void main(List<String> args) {
     expect(marker().existsSync(), isTrue);
   });
 
-  test('a commit touching only the legacy app or docs skips it', () {
+  File docsMarker() => File('${repo.path}/docs-check-ran');
+
+  /// 文件檢查的替身：留下記號，`DOCS_FAIL` 存在時失敗。
+  void fakeDocsCheck() {
+    write('scripts/check_docs.py', '''
+import os, sys
+open("docs-check-ran", "w").write(" ".join(k for k in os.environ if k.startswith("GIT_")))
+sys.exit(1 if os.path.exists("DOCS_FAIL") else 0)
+''');
+    git(['add', '-A']);
+    git(['commit', '-q', '--no-verify', '-m', 'add the docs check']);
+  }
+
+  test('a commit touching only the legacy app skips both checks', () {
+    fakeDocsCheck();
     write('lib/main.dart', 'void main() {}\n');
-    write('docs/progress.md', '# 進度\n');
     write('application/notes.md', 'not app/\n');
+    write('documents/notes.md', 'not docs/\n');
     git(['add', '-A']);
     final result = git(['commit', '-q', '-m', 'legacy change']);
     expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
     expect(marker().existsSync(), isFalse);
+    expect(docsMarker().existsSync(), isFalse);
+  });
+
+  for (final path in [
+    'docs/progress.md',
+    '.scratch/m1/issues/01-x.md',
+    'AGENTS.md',
+    'ARCHITECTURE.md',
+  ]) {
+    test('a commit touching $path runs only the docs check', () {
+      fakeDocsCheck();
+      write(path, '# x\n');
+      git(['add', '-A']);
+      final result = git(['commit', '-q', '-m', 'docs change']);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      expect(marker().existsSync(), isFalse);
+      // 檢查裡的 git 指令不能繼承 hook 的 GIT_* 變數。
+      expect(docsMarker().readAsStringSync(), isEmpty);
+    });
+  }
+
+  test('a failing docs check blocks the commit', () {
+    fakeDocsCheck();
+    write('DOCS_FAIL', '');
+    write('docs/progress.md', '# 進度\n');
+    git(['add', 'docs/progress.md']);
+    expect(git(['commit', '-q', '-m', 'docs change']).exitCode, isNot(0));
+    expect(
+      git(['log', '--oneline']).stdout.toString().trim().split('\n'),
+      hasLength(2),
+    );
   });
 }
