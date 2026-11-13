@@ -1,27 +1,28 @@
-"""檢查 docs/progress.md、docs/roadmap.md、里程碑 spec 與票的格式；規則寫在 progress.md〈寫法與封存〉。
+"""檢查 docs/progress.md、docs/decisions.md、docs/roadmap.md、里程碑 spec 與票的格式。
 
     python check_docs.py [repo 根目錄，預設目前目錄]
 
 全部通過 exit 0；否則每條違規印一行到 stderr、exit 1。規則：
   progress.md
-    - `##` 段依序各一次：寫法與封存、Session 紀錄、偏差與決定
+    - `##` 段依序各一次：寫法與封存、Session 紀錄
     - 〈Session 紀錄〉整段是一張表（表外沒有別的字），每列不超過 200 字元
     - 最後一列的「下一步」給得出指令（含 `/…` 的行內程式碼），或以「等使用者：」開頭
-    - 〈偏差與決定〉每條一行、以 `- YYYY-MM-DD ` 開頭、不超過 200 字元、標一個決定者：（使用者定）（使用者同意）（Agent 定）
+  decisions.md
+    - 有〈紀錄〉段，每條一行、以 `- YYYY-MM-DD ` 開頭、不超過 200 字元、標一個決定者：（使用者定）（使用者同意）（Agent 定）
   roadmap.md
     - 有〈里程碑〉段，裡面的表有「狀態」欄，狀態以「進行中」開頭的最多一個
   大小與寫法
-    - 字元上限（Python `len`）：AGENTS.md 8,000、docs/progress.md 20,000、docs/design-brief.md 30,000、docs/plan.md 60,000；不存在的檔不查
-    - docs/design-brief.md、docs/plan.md 不寫票號（「票 12」「票12」）；程式碼區塊裡的不算
+    - 字元上限（Python `len`）：AGENTS.md 8,000、ARCHITECTURE.md 15,000、docs/progress.md 20,000、docs/design-brief.md 30,000；不存在的檔不查
+    - docs/design-brief.md、ARCHITECTURE.md 不寫票號（「票 12」「票12」）；程式碼區塊裡的不算
   程式碼
-    - git 追蹤的檔，除了 Markdown、docs/、.scratch/ 與本腳本和它的測試，不引用 brief 或 plan 的章節號（「plan §3.2」「brief §4」）；
+    - git 追蹤的檔，除了 Markdown、docs/、.scratch/ 與本腳本和它的測試，不引用 brief 或架構文檔的章節號（「brief §4」「architecture §3」「plan §3.2」）；
       不是 git repo 就不查
   .scratch/
     - 有 issues/ 的目錄要有 spec.md，`##` 段含：目標、範圍、共同規則、驗收、票序（標題後面可以加括號說明）
     - 里程碑目錄（m 加數字，例如 m0、m1.5）的 issues/ 要有一張 -acceptance.md 結尾的驗收票
     - 每張票在第一個 `##` 之前有一行 `Status:`
     - roadmap.md 標「進行中」的里程碑（表的第一欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
-      有一行以 `Session 紀錄：` 開頭；spec 的〈驗收〉底下有 `### 使用者試`
+      有一行以 `Session 紀錄：` 開頭，以 `決定：` 開頭的行都標一個決定者；spec 的〈驗收〉底下有 `### 使用者試`
 只用標準函式庫。
 """
 
@@ -32,16 +33,17 @@ from pathlib import Path
 
 PROGRESS = "docs/progress.md"
 ROADMAP = "docs/roadmap.md"
-BRIEF, PLAN = "docs/design-brief.md", "docs/plan.md"
-BUDGETS = {"AGENTS.md": 8000, PROGRESS: 20000, BRIEF: 30000, PLAN: 60000}
+DECISIONS = "docs/decisions.md"
+BRIEF, ARCHITECTURE = "docs/design-brief.md", "ARCHITECTURE.md"
+BUDGETS = {"AGENTS.md": 8000, ARCHITECTURE: 15000, PROGRESS: 20000, BRIEF: 30000}
 TICKET_NUMBER = re.compile(r"票\s*\d")
-SECTION_REF = re.compile(r"(?:plan|brief)(?:\.md)?\s*§\s*\d", re.I)
+SECTION_REF = re.compile(r"(?:architecture|plan|brief)(?:\.md)?\s*§\s*\d", re.I)
 NOT_CODE = ("docs/", ".scratch/", "scripts/check_docs.py", "scripts/tests/test_check_docs.py")
 MAX_SCANNED_BYTES = 1_000_000
 SCRATCH = ".scratch"
-MILESTONES, SESSIONS, DEVIATIONS = "里程碑", "Session 紀錄", "偏差與決定"
+MILESTONES, SESSIONS, LOG = "里程碑", "Session 紀錄", "紀錄"
 STATE = "狀態"
-PROGRESS_SECTIONS = ("寫法與封存", SESSIONS, DEVIATIONS)
+PROGRESS_SECTIONS = ("寫法與封存", SESSIONS)
 SPEC_SECTIONS = ("目標", "範圍", "共同規則", "驗收", "票序")
 MAX_CHARS = 200
 WAITING = "等使用者："
@@ -51,10 +53,11 @@ COMMAND = re.compile(r"`/[^`\s][^`]*`")
 DEVIATION = re.compile(r"^- \d{4}-\d{2}-\d{2} \S")
 DECIDERS = ("使用者定", "使用者同意", "Agent 定")
 DECIDER = re.compile("（(?:%s)）" % "|".join(DECIDERS))
+DECIDER_LIST = "".join(f"（{d}）" for d in DECIDERS)
 MILESTONE_DIR = re.compile(r"^m\d+(\.\d+)?$")
 STATUS = re.compile(r"^\**Status:?\**:?\s*\S", re.I)
 DONE = re.compile(r"^\**Status:?\**:?\s*done\b", re.I)
-SESSION_NOTE = "Session 紀錄："
+SESSION_NOTE, DECISION_NOTE = "Session 紀錄：", "決定："
 ACCEPTANCE, USER_TRIAL = "驗收", "使用者試"
 CELL_SPLIT = re.compile(r"(?<!\\)\|")
 
@@ -107,7 +110,7 @@ def check_progress(text: str) -> list:
         out.append(f"{PROGRESS}：## 段的順序不對，依序是{order}")
     extra = [t for t in titles if t not in PROGRESS_SECTIONS]
     if extra:
-        out.append(f"{PROGRESS}：多了〈{'〉〈'.join(extra)}〉段。細節放票、spec、brief 或 plan，這裡只有{order}")
+        out.append(f"{PROGRESS}：多了〈{'〉〈'.join(extra)}〉段。細節放票與 spec，這裡只有{order}")
     by_title = {}
     for title, lines in secs:
         by_title.setdefault(title, lines)
@@ -131,16 +134,25 @@ def check_progress(text: str) -> list:
                 out.append(f"{PROGRESS}:{n}：最後一列的「下一步」要給下一個 session 的完整指令（寫成 `/指令 …`），"
                            f"或以「{WAITING}」開頭")
 
-    if DEVIATIONS in by_title:
-        for n, l in by_title[DEVIATIONS]:
-            if not l.strip():
-                continue
-            if not DEVIATION.match(l):
-                out.append(f"{PROGRESS}:{n}：〈{DEVIATIONS}〉每條一行，寫成「- YYYY-MM-DD <里程碑> …」")
-            elif len(DECIDER.findall(l)) != 1:
-                out.append(f"{PROGRESS}:{n}：這一條要標一個決定者：" + "".join(f"（{d}）" for d in DECIDERS))
-            if len(l) > MAX_CHARS:
-                out.append(f"{PROGRESS}:{n}：這一條 {len(l)} 字元，上限 {MAX_CHARS}。細節放票、brief、plan 或 ADR")
+    return out
+
+
+def check_decisions(text: str) -> list:
+    by_title = {}
+    for title, lines in sections(text):
+        by_title.setdefault(title, lines)
+    if LOG not in by_title:
+        return [f"{DECISIONS}：缺〈{LOG}〉段"]
+    out = []
+    for n, l in by_title[LOG]:
+        if not l.strip():
+            continue
+        if not DEVIATION.match(l):
+            out.append(f"{DECISIONS}:{n}：〈{LOG}〉每條一行，寫成「- YYYY-MM-DD <里程碑>（<決定者>）：…」")
+        elif len(DECIDER.findall(l)) != 1:
+            out.append(f"{DECISIONS}:{n}：這一條要標一個決定者：{DECIDER_LIST}")
+        if len(l) > MAX_CHARS:
+            out.append(f"{DECISIONS}:{n}：這一條 {len(l)} 字元，上限 {MAX_CHARS}。細節放票、brief、ADR，這裡連過去")
     return out
 
 
@@ -184,9 +196,9 @@ def check_budgets(root: Path) -> list:
 
 
 def check_current_state(root: Path) -> list:
-    """brief 與 plan 只寫現況：票號留在票與 progress.md。"""
+    """brief 與架構文檔只寫現況：票號留在票與 progress.md。"""
     out = []
-    for rel in (BRIEF, PLAN):
+    for rel in (BRIEF, ARCHITECTURE):
         if not (root / rel).is_file():
             continue
         fenced = False
@@ -220,7 +232,7 @@ def check_code_refs(root: Path) -> list:
             continue
         for n, line in enumerate(data.decode("utf-8", "replace").split("\n"), 1):
             if SECTION_REF.search(line):
-                out.append(f"{rel}:{n}：引用了 brief 或 plan 的章節號。改引 ADR 編號或事實編號，或直接寫出理由")
+                out.append(f"{rel}:{n}：引用了 brief 或架構文檔的章節號。改引 ADR 編號、事實編號或節的標題")
     return out
 
 
@@ -257,12 +269,15 @@ def check_scratch(root: Path) -> list:
                 comments = text.split("\n## Comments", 1)
                 if len(comments) < 2 or not any(l.startswith(SESSION_NOTE) for l in comments[1].split("\n")):
                     out.append(f"{rel}/issues/{t.name}：做完的票要在 `## Comments` 之後留一行「{SESSION_NOTE}<做了什麼>」，合併的人照它寫 progress.md")
+                for l in (comments[1].split("\n") if len(comments) == 2 else []):
+                    if l.startswith(DECISION_NOTE) and len(DECIDER.findall(l)) != 1:
+                        out.append(f"{rel}/issues/{t.name}：「{DECISION_NOTE}」那一行要標一個決定者：{DECIDER_LIST}")
     return out
 
 
 def run(root: Path) -> list:
     out = []
-    for rel, check in ((PROGRESS, check_progress), (ROADMAP, check_roadmap)):
+    for rel, check in ((PROGRESS, check_progress), (DECISIONS, check_decisions), (ROADMAP, check_roadmap)):
         if (root / rel).is_file():
             out += check((root / rel).read_text(encoding="utf-8"))
         else:

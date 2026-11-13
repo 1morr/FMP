@@ -7,7 +7,7 @@ import 'dart:io';
 /// 已經在跑的 server。
 const sharedDeviceEnvironment = {'ADB_MDNS': '0'};
 
-/// 共用裝置鎖（plan〈開發環境與閘門〉）：`winpc` 的 `C:\fmp-wt`、iOS 與
+/// 共用裝置鎖（docs/app-development.md〈開發環境與閘門〉）：`winpc` 的 `C:\fmp-wt`、iOS 與
 /// Android 模擬器、macOS 上的 `com.personal.fmp.dev` 同一時間只給一個
 /// worktree 用。
 ///

@@ -1,5 +1,5 @@
 # 會送按鍵、媒體鍵或按「正在播放」面板的腳本開頭 source 這個檔（照 app/tool/winpc/lock_guard.sh）。
-# 這個 worktree 還沒持有共用裝置鎖（plan〈平台〉〈開發環境與閘門〉）時，經 app/tool/device_lock.dart 拿鎖
+# 這個 worktree 還沒持有共用裝置鎖（docs/app-development.md〈平台〉〈開發環境與閘門〉）時，經 app/tool/device_lock.dart 拿鎖
 # （別的 worktree 持有時等待）再重新執行呼叫它的腳本；已持有時（run.py、完整閘門、
 # 外層或背景的包裝指令）直接往下跑。
 # 為什麼要鎖：Escape 會打到最前面的 App，媒體鍵與面板的按鈕會控制最近出過聲的 App，

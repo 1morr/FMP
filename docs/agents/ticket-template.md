@@ -2,7 +2,7 @@
 
 Status: ready-for-agent
 Blocked by: None
-讀: plan §x；brief §y
+讀: architecture〈節名〉；brief §y
 
 ## What to build
 

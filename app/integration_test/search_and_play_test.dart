@@ -15,7 +15,7 @@ import '../test/support/fake_http.dart';
 import '../test/support/local_audio_server.dart';
 import '../test/support/no_network.dart';
 
-/// M0 的主要流程（plan〈測試策略〉）：在佔位畫面搜尋、點一首、播放、暫停、繼續。
+/// M0 的主要流程（architecture〈測試策略〉）：在佔位畫面搜尋、點一首、播放、暫停、繼續。
 /// 在真的平台上跑 App 打包的 bilibili 插件（fjs 引擎）與這個平台的音訊後端
 /// （`platform/audio_backend.dart` 挑的原生播放器）。
 ///

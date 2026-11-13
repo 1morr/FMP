@@ -6,7 +6,7 @@ import 'package:fmp/data/database.dart';
 
 import 'generated/schema.dart';
 
-/// 升級測試。改 schema 的流程照 plan〈測試策略〉；`generated/` 是
+/// 升級測試。改 schema 的流程照 architecture〈測試策略〉；`generated/` 是
 /// `dart run drift_dev make-migrations` 依 `drift_schemas/` 的快照產生的
 /// 各版本資料庫，不要手改。`make-migrations` 不會覆寫本檔。
 ///

@@ -51,7 +51,7 @@ M0 留下的（票 12 歸屬，出處是各票的 Comments）：
 - 插件宿主：逾時後關引擎的競態、建引擎失敗的 future 被快取（票 08；寫得出會紅的測試再修）。
 - 插件 id 與曲目 id 成對的型別（現在 `Track.source` 是裸字串）：佇列與持久化前定。
 - 用到 WBI 的插件能力：契約測試重播比對網址時忽略 `wts`、`w_rid`（票 09）。
-- 照稿切版前定：要不要改用 `material_ui`（票 01、事實 T1）；`DESIGN.md` standard 玻璃的模糊值 16／18 統一（票 05b）；依賴規則要不要也禁 `defaultTargetPlatform`（票 01，plan §1.3 現在只寫 `Platform.isXxx`）。
+- 照稿切版前定：要不要改用 `material_ui`（票 01、事實 T1）；`DESIGN.md` standard 玻璃的模糊值 16／18 統一（票 05b）；依賴規則要不要也禁 `defaultTargetPlatform`（票 01，architecture〈依賴規則〉 現在只寫 `Platform.isXxx`）。
 
 驗收：四個平台上，三個音源各搜尋並播放一首；臨時播放、隨機與循環的組合照 brief §6 運作；背景播放與媒體控制可用。
 
@@ -65,7 +65,7 @@ M0 留下的（票 12 歸屬，出處是各票的 Comments）：
 
 M0 留下的（票 12 歸屬）：
 
-- `flutter_inappwebview` 的平台設定清單（票 04 的 Comments）與 Apple 端退回 CocoaPods（事實 K17）：plan §2、§4 的前置條件跟著改。
+- `flutter_inappwebview` 的平台設定清單（票 04 的 Comments）與 Apple 端退回 CocoaPods（事實 K17）：docs/app-development.md〈平台〉、§4 的前置條件跟著改。
 - 登入憑證的遮蔽：插件宣告額外的敏感名稱交給 `redact`（例如 B 站單獨出現的 `SESSDATA=`，票 06）。
 - 宿主擋掉插件給的串流 header 裡的憑證（Cookie、Authorization；事實 F4）。
 

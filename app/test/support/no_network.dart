@@ -1,6 +1,6 @@
 import 'dart:io';
 
-/// 測試零聯網（plan〈測試策略〉）：裝上後任何真實的 HTTP 連線都直接報錯。
+/// 測試零聯網（architecture〈測試策略〉）：裝上後任何真實的 HTTP 連線都直接報錯。
 ///
 /// `test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，
 /// 每個檔在 `main()` 裡自己呼叫（`test/architecture/integration_test_guard_test.dart`
@@ -30,6 +30,6 @@ class _RealNetwork extends HttpOverrides {}
 class NetworkAccessInTest implements Exception {
   @override
   String toString() =>
-      'NetworkAccessInTest: tests run offline (plan〈測試策略〉); '
+      'NetworkAccessInTest: tests run offline (architecture〈測試策略〉); '
       'replay a fixture instead, or tag the test `live`.';
 }

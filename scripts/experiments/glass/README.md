@@ -4,7 +4,7 @@
 
 實驗程式可丟棄，但留在這裡：換 Flutter 或套件版本時照〈怎麼跑〉重量。
 
-**決定**（擁有者 2026-11-12，看過 `results/` 的四平台對照圖後選定，再親手在 macOS、Windows 試過兩個套件可切換的互動 prototype 後確認）：玻璃元件用 `liquid_glass_easy`（折射級 lens、standard 用 lite glass、minimal 自己畫實心）；捲動中不降級，但元件要能在執行期切換級數；iOS、macOS、Windows 跟系統的「降低透明度」退到 minimal，Android 不提供。寫在 brief §11、事實 K10、K21–K24，plan §1.4、§7，`docs/design/DESIGN.md` §1.4。
+**決定**（擁有者 2026-11-12，看過 `results/` 的四平台對照圖後選定，再親手在 macOS、Windows 試過兩個套件可切換的互動 prototype 後確認）：玻璃元件用 `liquid_glass_easy`（折射級 lens、standard 用 lite glass、minimal 自己畫實心）；捲動中不降級，但元件要能在執行期切換級數；iOS、macOS、Windows 跟系統的「降低透明度」退到 minimal，Android 不提供。寫在 brief §11、事實 K10、K21–K24，architecture〈主要依賴〉、§7，`docs/design/DESIGN.md` §1.4。
 
 ## 結果（2026-11-12）
 
@@ -118,7 +118,7 @@ python3 summarize.py results/macos.json
 需要：
 
 - Flutter 3.47.5、Xcode；Python 3 加 Pillow（產生對照圖）。iOS 模擬器與 Android 模擬器先開好。
-- **共用裝置鎖**（plan §2、§4）：`run.py` 的裝置階段經 `app/tool/device_lock.dart` 持鎖；`run-windows.sh` 開頭 source `app/tool/winpc/lock_guard.sh`。macOS、iOS、Android 的建置在鎖外；Windows 在 `winpc` 上建置，整段持鎖。
+- **共用裝置鎖**（docs/app-development.md〈平台〉、§4）：`run.py` 的裝置階段經 `app/tool/device_lock.dart` 持鎖；`run-windows.sh` 開頭 source `app/tool/winpc/lock_guard.sh`。macOS、iOS、Android 的建置在鎖外；Windows 在 `winpc` 上建置，整段持鎖。
 - macOS 截圖用 `orca computer get-app-state`（執行的終端機要有「螢幕錄製」權限）。
 - `winpc` 的桌面有人登入；截圖會短暫把 probe 視窗拉到最上層。
 - 結果檔名照模式自動加尾碼：`-partial`（設了 `VARIANTS`）、`-a11y`（`MODE=a11y`）、`-plain`（Windows 的 `APP_ARGS`）。

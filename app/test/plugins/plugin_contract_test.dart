@@ -6,12 +6,12 @@ import 'package:fmp/core/log/log.dart';
 import '../support/fjs.dart';
 import '../support/plugin_fixtures.dart';
 
-/// 插件契約測試（ADR 0038〈如何確認〉、plan〈測試策略〉）：`app/plugins/` 底下每個
+/// 插件契約測試（ADR 0038〈如何確認〉、architecture〈測試策略〉）：`app/plugins/` 底下每個
 /// 插件，對它宣告的每個插件能力，用 `fixtures/<插件能力>/` 裡錄好的每個案例
 /// 重播音源的回應（零聯網），檢查回傳照宿主 API 的約定；fixture 沒有沒遮的值，
 /// 回應內文只有 `fixtures/keep.json` 列的欄位。新增插件或案例不用
 /// 改這個檔；新增插件能力時 `checkContract` 的 switch 會編譯不過，提醒補它
-/// 的契約。錄製與 `live` 冒煙測試的指令在 plan〈測試策略〉。
+/// 的契約。錄製與 `live` 冒煙測試的指令在 architecture〈測試策略〉。
 void main() {
   late Directory logDir;
   late Log log;

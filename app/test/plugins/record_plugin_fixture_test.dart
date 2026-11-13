@@ -10,7 +10,7 @@ import '../support/fjs.dart';
 import '../support/plugin_fixtures.dart';
 
 /// 錄製一個插件契約測試的案例：打真實音源，遮蔽、裁掉插件用不到的欄位後
-/// 寫進 fixture（plan〈測試策略〉）。
+/// 寫進 fixture（architecture〈測試策略〉）。
 ///
 /// 一次只錄 `FMP_RECORD` 指定的一個案例（音源的匿名風控，brief 事實 F2）：
 ///

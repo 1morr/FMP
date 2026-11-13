@@ -1,90 +1,14 @@
-# FMP 新版實作計劃
+# FMP 新版開發
 
-> 狀態：第一版定稿（2026-11-06）；M0 已驗收（2026-11-12，紀錄封存在 `docs/archive/M0.md`），D 已定稿（2026-11-11），里程碑的順序與範圍在 `docs/roadmap.md`，這裡只寫架構。決定的來源是 `docs/design-brief.md`，兩者衝突時以 brief 為準。
+> 新版（`app/`）怎麼建置、在各平台實跑驗證、閘門怎麼跑。架構在根目錄的 `ARCHITECTURE.md`。舊版的開發文件是 `docs/development.md`。
 
-## 0. 工程慣例
-
-- 一張票一個分支，在本機 `git merge --no-ff` 合回 main 再 push，不開 PR（`AGENTS.md`）。
-- 每張票在四個平台做完並驗收，合併前跑 `dart run tool/check.dart`（完整版）。
-- 新字串在同一張票補齊 zh-TW、zh-CN、en 三種語言。
-- 依賴的版本開工時查 pub.dev 決定，寫進〈主要依賴〉，不憑記憶寫。
-- 命名用 `GLOSSARY.md` 的詞。
-
-## 1. 架構總覽
-
-### 1.1 執行形態
-
-單一 Flutter App。插件在 fjs 的 JS 引擎（QuickJS-NG，brief 事實 K11）裡執行：每個插件一個引擎，JS 跑在 fjs 全行程共用的 2 條原生執行緒，Dart 端在主 isolate 以 async 呼叫，不另開 isolate。每個引擎設記憶體上限；每次呼叫都有逾時，逾時就 `close()` 這個引擎再重建、重新載入插件（2 個插件同時卡住會讓其他插件停擺到逾時為止）。宿主 API 都經 fjs 的單一 bridge 進 Dart，在一處分派與檢查；建立引擎時只開白名單內的內建模組。音訊在原生播放器裡（ExoPlayer、AVPlayer、libmpv）。
-
-### 1.2 目錄結構
-
-新版放在 `app/`，根目錄舊版不動；建好後補進 `AGENTS.md`〈目錄〉。
-
-```text
-app/
-  lib/
-    app/        組裝、路由、主題、i18n
-    domain/     曲目、歌單、存取等級等模型（純 Dart）
-    core/       log、遮蔽、錯誤分類
-    plugins/    JS 引擎、宿主 API、宿主網路（只放行 manifest 宣告的網域）、插件管理
-    playback/   佇列、臨時播放、音訊後端介面與兩個實作（實作在 `playback/backends/`）
-    library/    本地歌單、匯入歌單、刷新、遠端寫入
-    accounts/   帳號、登入、會員狀態
-    lyrics/     歌詞匹配與顯示用的資料
-    data/       drift 資料庫
-    platform/   平台能力
-    ui/<頁面>/  畫面與 view model
-  plugins/      官方插件原始碼：bilibili、youtube、netease、lrclib（TypeScript）
-                每個插件一個目錄：manifest.json、src/index.ts、dist/plugin.js
-                （esbuild 產物，提交）、fixtures/（契約測試的案例與 keep.json，§3）；
-                共用的 host.d.ts、build.mjs、package.json
-  test/
-  integration_test/
-  tool/check.dart
-```
-
-### 1.3 依賴規則
-
-- `ui` 只能依賴功能模組與 `domain`，不能直接碰 `data`、`plugins` 的內部，也不能碰平台套件。
-- 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件，例外是 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`；平台層以外不得用 `Platform.isXxx`（依平台選音訊後端也在平台層做）。
-- 音源專屬的邏輯只能在 `app/plugins/` 裡；Dart 端不得出現音源識別碼的字面值分支（ADR 0038）。
-- 由一支掃 import 與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。已接上。
-- 模組的實際介面在 M0 用 codebase-design skill 細化。
-
-### 1.4 主要依賴
-
-版本寫的是加入時 `pubspec.lock` 解出的版本；還沒加的由加入的那張票寫。
-
-| 用途 | 依賴 | 理由 |
-| --- | --- | --- |
-| 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
-| 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
-| 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（§3）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
-| HTTP | dio 5.11.1 | 插件請求都經宿主網路層（`plugins/src/host_network.dart`：網域白名單、log 與遮蔽；依音源限流與重試還沒做，§6），只有 `plugins/` 能 import（依賴規則）；測試換掉 `HttpClientAdapter` |
-| 音訊 | just_audio 0.10.6（Android、iOS、macOS；帶進 audio_session 0.2.4）、media_kit 1.2.6 與 media_kit_libs_windows_audio 1.0.9（Windows） | brief §6、事實 K1；介面在 `playback/audio_backend.dart`，兩個實作在 `playback/backends/`，依平台挑在 `platform/audio_backend.dart`。just_audio 關掉 Dart 端的 header proxy，由原生播放器帶 header（事實 K25）；media_kit 的錯誤只在 mpv 的 log（事實 K26） |
-| 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 已實測（brief 事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4） |
-| 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
-| 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
-| 圖片 | cached_network_image | |
-| 玻璃 | liquid_glass_easy 5.2.0（實測的版本；加入的票照當時的 stable 重查） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
-| i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
-| log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
-| App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄與資料庫檔案由 `platform/` 經它取得（brief 事實 K13） |
-| JS 引擎 | fjs 3.3.2 | 四平台同一個 QuickJS-NG，能中斷、能設記憶體上限、支援 async（brief 事實 K11） |
-| 插件建置 | TypeScript 7.0.2、esbuild 0.28.2（`app/plugins/package.json`，需 Node） | ADR 0038；版本由 `package-lock.json` 鎖住，閘門以 `npm ci` 安裝後重建比對 |
-| lint（dev） | flutter_lints 6.0.0 | `flutter create` 的預設；`app/analysis_options.yaml` 另開幾條 |
-| 依賴規則測試（dev） | analyzer 14.7.0 | 以 AST 判斷 import 與分支，不靠字串比對；只在測試裡用，不做 lint 套件（§1.3） |
-| 主機上跑 fjs（dev） | flutter_rust_bridge 2.13.0 | fjs 釘死的版本；`test/support/fjs.dart` 用它的 `ExternalLibrary` 載入 macOS 動態庫（brief 事實 K19） |
-| 換掉平台實作（dev） | path_provider_platform_interface 2.1.3、plugin_platform_interface 2.1.8 | path_provider 官方的測試做法：換一個假的 `PathProviderPlatform` |
-| 平台上的測試（dev） | integration_test（SDK） | Flutter 官方的 `flutter test integration_test/…`；完整閘門在四平台跑（§2、§4） |
-
-## 2. 平台
+## 平台
 
 每個平台一節：用的框架與套件、怎麼建置、怎麼實跑驗證。以下指令都在 `app/` 裡跑，`<暫存目錄>` 放截圖（截圖不進 repo）。框架與套件由加入它們的票補。
 
-完整閘門（§4）在每個平台跑 `integration_test/` 的每個 `*_test.dart`，一次一個檔；四平台共用的測試依賴是 `integration_test`（SDK）。各節的「閘門」是 `tool/check.dart` 實際下的指令，手動重跑單一平台時照抄。
+完整閘門（〈開發環境與閘門〉）在每個平台跑 `integration_test/` 的每個 `*_test.dart`，一次一個檔；四平台共用的測試依賴是 `integration_test`（SDK）。各節的「閘門」是 `tool/check.dart` 實際下的指令，手動重跑單一平台時照抄。
 
-`winpc` 的 `C:\fmp-wt`、iOS 與 Android 模擬器、Mac 上的 `com.personal.fmp.dev` 是所有 worktree 共用的：`sync.sh` 每次都刪掉 `C:\fmp-wt\app` 再解開，模擬器與 Mac 上同一個 applicationId 只有一份。所以碰它們之前一律先拿共用裝置鎖（§4〈共用裝置鎖〉）：完整閘門自己拿；手動實跑經包裝指令 `dart run tool/device_lock.dart -- <指令>`（在 `app/` 裡跑）。鎖以 worktree 為單位：同一個 worktree 已持有時，包裝指令與 `tool/winpc/` 的腳本直接執行，不會等自己。兩種用法：
+`winpc` 的 `C:\fmp-wt`、iOS 與 Android 模擬器、Mac 上的 `com.personal.fmp.dev` 是所有 worktree 共用的：`sync.sh` 每次都刪掉 `C:\fmp-wt\app` 再解開，模擬器與 Mac 上同一個 applicationId 只有一份。所以碰它們之前一律先拿共用裝置鎖（〈開發環境與閘門〉的共用裝置鎖）：完整閘門自己拿；手動實跑經包裝指令 `dart run tool/device_lock.dart -- <指令>`（在 `app/` 裡跑）。鎖以 worktree 為單位：同一個 worktree 已持有時，包裝指令與 `tool/winpc/` 的腳本直接執行，不會等自己。兩種用法：
 
 - 一口氣做完：把碰裝置的步驟（安裝、啟動、讀畫面、截圖、關 App、讀 log）包在同一個 `dart run tool/device_lock.dart -- bash -c '…'` 裡，整段持有鎖。分成好幾次包時，中間鎖會放掉，別的 worktree 的閘門可能插進來重裝。截圖與輸出存到 `<暫存目錄>`，放鎖之後再看。
 - 互動（要跨好幾輪讀畫面、操作）：先在背景持鎖，`dart run tool/device_lock.dart -- sleep 1200 &`，記下它的 pid；之後這個 worktree 裡的指令照常一條條下（不必再包）；做完 `kill <pid>` 放鎖。持鎖期間別的 worktree 都在等，用完就放，`sleep` 的秒數抓實際需要。同一個 worktree 自己跑完整閘門前也要先放掉，閘門不認背景的持有者，會等它。
@@ -137,7 +61,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get`、slang 與 build_runner）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
 
-經 SSH 操作，不 push（2026-11-11 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑。`sync.sh`、`run_task.sh` 沒持鎖時會自己經包裝指令拿鎖（§4），但只在那一支腳本的期間；一次實跑的同步、建置、截圖、取回截圖要連續做完，整串包在一個 `dart run tool/device_lock.dart -- bash -c 'tool/winpc/sync.sh && tool/winpc/run_task.sh fmpbuild … && tool/winpc/run_task.sh fmpshot … && scp winpc:C:/fmp-wt/shot.png <暫存目錄>/'` 裡（或用上面的互動持鎖），裡面的腳本認得這個 worktree 已持鎖，不會再等：
+經 SSH 操作，不 push（2026-11-11 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑。`sync.sh`、`run_task.sh` 沒持鎖時會自己經包裝指令拿鎖（〈開發環境與閘門〉），但只在那一支腳本的期間；一次實跑的同步、建置、截圖、取回截圖要連續做完，整串包在一個 `dart run tool/device_lock.dart -- bash -c 'tool/winpc/sync.sh && tool/winpc/run_task.sh fmpbuild … && tool/winpc/run_task.sh fmpshot … && scp winpc:C:/fmp-wt/shot.png <暫存目錄>/'` 裡（或用上面的互動持鎖），裡面的腳本認得這個 worktree 已持鎖，不會再等：
 
 1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
 2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
@@ -167,49 +91,18 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - **iOS 模擬器**：沒有可截圖的鎖定畫面與控制中心，Now Playing 只能讀系統 log；不要用 `orca emulator kill`。
 - **無害的建置雜訊**：`media_kit_libs_windows_audio` 的 CMake `CMP0175` 警告、`flutter_inappwebview_windows` 在 cp950 下的 C4819、`resolve_symlinks.ps1` 的 `Get-Item` 錯誤。
 
-## 3. 測試策略
+## 開發環境與閘門
 
-- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個檔在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。
-- `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
-- 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。已接上（工具在 `test/support/plugin_fixtures.dart`）：
-  - `test/plugins/plugin_contract_test.dart` 掃 `app/plugins/` 底下每個插件，對 manifest 宣告的每個插件能力，重播 `plugins/<id>/fixtures/<插件能力>/*.json` 的每個案例（格式照 VCR 的 cassette：`input` 加一串請求與回應，見 `PluginFixture`）。案例可以加選填的 `expect`，要求插件能力的結果多滿足一條期望，例如 resolveStream 的 `{"expiresAt": true}`（串流要有有效期）；各插件能力認得哪些期望寫在 `checkContract`，認不得的會紅。錄製、重播與 live 冒煙測試都套用，錄製時照原樣寫回。請求以方法加遮蔽後的網址比對，每筆只用一次；沒有 fixture 的請求、沒用到的錄製請求、宣告了插件能力卻沒有案例或沒有 `keep.json` 的欄位清單都會紅。各插件能力的契約在 `checkContract` 的 switch，新增插件能力時編譯不過，提醒補契約。同一個測試檢查每份 fixture 都是遮蔽函式的不動點（沒有 cookie、token、簽名網址的值），回應內文只有 `keep.json` 列的欄位。
-  - 錄製（打真實音源，一次一個案例）：先建 `plugins/<id>/fixtures/<插件能力>/<案例>.json`，至少寫 `{"input": {…}}`，再在 `app/` 跑 `FMP_RECORD=<id>/<插件能力>/<案例> flutter test --run-skipped --tags live test/plugins/record_plugin_fixture_test.dart`。網址、header、內文經遮蔽函式，回應內文再裁成插件會讀的欄位（清單在插件的 `fixtures/keep.json`，例如 `{"search": ["code", "data.result.title"]}`，路徑照 MongoDB projection：`.` 分隔、陣列套到每個元素；沒列的插件能力不錄），才寫檔；回應 header 只留 `content-type`、`location`；契約不過（例如被限流）就不寫。契約測試也檢查提交的 fixture 只有 `keep.json` 列的欄位。插件改成讀新的欄位時，先加進 `keep.json` 再重錄。提交前看一次 diff，確認沒有個人資訊（`AGENTS.md`〈公開 repo〉）。
-  - 聯網冒煙測試：`flutter test --run-skipped --tags live test/plugins/plugin_live_test.dart`（加 `--plain-name <id>` 只跑一個插件），每個插件的每個插件能力用第一個案例的 `input` 打一次真實音源，檢查同一套契約。
-- 插件宿主與插件的單元測試在 Mac 上跑真的 fjs 引擎（`loadFjsForTests()`，brief 事實 K19），網路換成 `test/support/fake_http.dart`。widget 測試裡會呼叫引擎的動作要在 `tester.runAsync` 裡發起，等結果時交替真實等待與 `pump`（事實 K19）。
-- 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。M0 的是 `integration_test/search_and_play_test.dart`（搜尋、點一首、播放、暫停、繼續），跑的是這個平台真的音訊後端。原生播放器的連線不經 Dart 的 `HttpOverrides`，所以它的串流網址指向 `test/support/local_audio_server.dart`：只聽 127.0.0.1 的假 CDN，回產生出來的無聲 WAV、支援 Range，少了 Referer 或瀏覽器的 User-Agent 就回 403（brief 事實 F22），播得起來就證明 header 帶到了。
-- drift 的 schema：每個版本的快照在 `app/drift_schemas/app_database/`，升級測試在 `app/test/drift/app_database/`。改 schema 時：改表、`schemaVersion` 加一、在 `app/` 跑 `dart run drift_dev make-migrations`（產生新快照、`generated/` 的各版本資料庫、`lib/data/database.steps.dart`），在 `AppDatabase.migration` 用 `stepByStep` 寫這一步；`migration_test.dart` 自動涵蓋每一對版本，改到既有欄位時照檔頭加資料完整性測試。閘門的 `schema snapshot (drift)` 比對目前的 schema 與最新快照，`migration_test.dart` 比對 `schemaVersion` 與最新快照的版本，忘了任一步都會紅。`*.g.dart` 不進 git，閘門的 `codegen (build_runner)` 先產生。
-- 聯網冒煙測試：每個音源每種插件能力最多一條，手動執行，不擋合併；用真實帳號時照 `AGENTS.md` 的最少操作規則。
-
-## 4. 開發環境與閘門
-
-- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（§3）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
-- `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見 §2 各平台的「閘門」），最後檢查插件打包產物是否最新（`plugin bundles (esbuild)`：在 `app/plugins/` 跑 `npm ci` 與 `npm run build -- --outdir <暫存目錄>`，含型別檢查，再和提交的各插件 `dist/` 逐位元組比對）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
+- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（`ARCHITECTURE.md`〈測試策略〉）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行。
+- `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見〈平台〉各平台的「閘門」），最後檢查插件打包產物是否最新（`plugin bundles (esbuild)`：在 `app/plugins/` 跑 `npm ci` 與 `npm run build -- --outdir <暫存目錄>`，含型別檢查，再和提交的各插件 `dist/` 逐位元組比對）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
 - **共用裝置鎖**：完整版在 Mac 上的三個建置之後、`build windows` 之前跑 `lock shared devices`，四平台的 `integration_test` 跑完後跑 `unlock shared devices`；中間的步驟（`winpc` 的同步、建置與 integration_test，模擬器與 macOS 的 integration_test）持有鎖時才跑，沒拿到就判失敗。同一時間只有一個 worktree 的完整版在碰共用裝置。
   - 位置：`git rev-parse --path-format=absolute --git-common-dir` 底下（所有 worktree 共用的 `.git`）的 `fmp-device.lock`，持有者資訊在同目錄的 `fmp-device.lock.holder`（JSON：`worktree`、`pid`、`started`）。實作在 `app/tool/src/device_lock.dart`。
   - 包裝指令：`dart run tool/device_lock.dart [--repo <目錄>] -- <指令> [參數…]`（在 `app/` 裡跑，照 util-linux `flock(1)` 包住一個指令的慣例）拿目前目錄所在 repo 的鎖、執行指令、指令結束就放鎖，退出碼是指令的退出碼（被訊號結束時是 128 + 訊號編號）；收到 SIGINT、SIGTERM、SIGHUP 時轉給指令。訊息印到 stderr。`--held` 只回答這個 worktree 是否持有這把鎖（是 0，否則 1）。
   - 腳本自己守：`tool/winpc/` 的每支 `*.sh` 一開頭 source `lock_guard.sh`，沒持鎖就經包裝指令重新執行自己（先拿鎖、必要時等）。`test/tool/device_lock_cli_test.dart` 檢查每支都在碰 `ssh`／`scp` 之前 source 它，新加的腳本也一樣。
   - 可重入：鎖以 worktree 為單位。`.holder` 記的 `worktree` 是自己這個 worktree、而且鎖確實被佔著時，包裝指令與 `tool/winpc/` 的腳本直接執行（完整閘門呼叫的 `sync.sh`、包裝指令裡再包一次、互動時背景持鎖之後下的指令）。持有者死掉後 `.holder` 會留著，但鎖已放掉，不算。完整閘門自己拿鎖時不看這條，背景持鎖要先放掉。
-  - adb：包裝指令拿到鎖後、完整閘門找 Android 模擬器之前跑 `adb start-server`，開的指令都帶 `ADB_MDNS=0`（§2〈adb server 自己當掉〉）。
+  - adb：包裝指令拿到鎖後、完整閘門找 Android 模擬器之前跑 `adb start-server`，開的指令都帶 `ADB_MDNS=0`（〈平台〉〈adb server 自己當掉〉）。
   - 行為：鎖是 OS 的檔案鎖（事實 K16）。別人持有時印出 `Waiting for the shared-device lock …, held by worktree <路徑>, pid <pid>, since <開始時間>` 然後等，沒有逾時。持有的閘門結束、當掉或被 `kill -9` 時，OS 自動放掉鎖，鎖本身不必清理（還在跑的子行程與 `winpc` 排程工作見下一條）。
   - 手動解除：只在持有者卡住時需要。看 `fmp-device.lock.holder` 的 `pid`，`ps -o pid,pgid,command -p <pid>` 確認是 `dart run tool/check.dart` 或 `tool/device_lock.dart`，先 `ps -o pid,command -g <pgid>` 看群組裡只有這個閘門與它開的行程（從沒有 job control 的 shell 啟動時，群組可能包含那個 shell），再用 `kill -- -<pgid>` 停掉整個群組（只停閘門本身時，它開的 `flutter test`、`run_task.sh` 會繼續用裝置），鎖隨之放掉。再確認 `winpc` 上沒有還在跑的排程工作（`ssh winpc 'schtasks /Query /TN fmpbuild'`、`fmptest`），有的話等它結束：排程工作不會跟著 Mac 上的行程結束，下一個閘門同步時會刪掉它正在用的 `C:\fmp-wt\app`。閘門在終端機按 Ctrl-C 時同理。不要刪 `fmp-device.lock`：持有者還活著時刪掉，下一個閘門會鎖到新建的同名檔，兩邊同時碰裝置。也不要刪 `fmp-device.lock.holder`：持有者還活著時刪掉，它自己開的 `sync.sh` 等腳本認不出鎖在自己這邊，會一直等它。持有者死掉後 `.holder` 可能留著，內容是上一個持有者，不影響拿鎖。
 - 插件：原始碼在 `app/plugins/<id>/src/`。改了之後在 `app/plugins/` 跑 `npm ci`（第一次）與 `npm run build`（`tsc --noEmit` 加 esbuild），把 `dist/plugin.js` 一起提交；新插件目錄另外要列進 `pubspec.yaml` 的 `assets`（`test/plugins/plugin_assets_test.dart` 守著）。宿主 API 的型別在 `app/plugins/host.d.ts`，和 Dart 端（`lib/plugins/src/`）一起改。npm 11 預設不跑 esbuild 的 postinstall，不影響建置（平台二進位由 optional dependency 裝好）。
 - GitHub Actions：新版平常不跑。`app-v*` tag 觸發 `app-release.yml`，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件與完整閘門用；2026-11-12 本機 26.12.0、npm 11.20.0，esbuild 0.28 要 Node ≥ 18）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。
-
-## 5. 待決
-
-定了方向、細節未定的事。每條寫明卡在哪、怎麼定；定案後移到對應的章節，這裡刪掉。
-
-- **P1 取代舊版的方式**：同 brief §17。卡在新版功能還沒齊全，到「取代舊版」的里程碑由擁有者決定。
-- **P3 插件能力清單**：設計稿用到的能力（搜尋排序、排行榜、評論、點讚、複製連結、在瀏覽器開啟、遠端歌單分建立與收藏等）還沒列成清單，見 `docs/design/audit-2026-11-11.md` §3 第 6 項。宿主 API 在 v2.0.0 凍結，所以清單在 M1 拆票時定，寫進 M1 spec；M0 只做了搜尋與解析串流。定案後寫進 brief §5.3 與 ADR。
-
-## 6. 風險與回寫點
-
-- YouTube 的 client 會變（事實 F8）：解析串流準備候選序列；壞了就更新插件。
-- B 站風控（事實 F2）：網路層依音源限流；登入後要確實帶憑證。
-- `flutter_inappwebview` 的穩定版停在 2024-10（事實 R1、K8）：登入票先實測四個平台。建置與開頁 已驗過（`scripts/experiments/inappwebview/`，要加的設定見事實 A4、W8、M3、K17）。Apple 端沒有 SwiftPM，Flutter 已警告將來會變成錯誤（事實 K17）：升級 Flutter 前先用 `scripts/experiments/inappwebview/` 建一次 iOS、macOS。
-- Windows 的 libmpv 是舊快照（事實 W3）：遇到 Windows 獨有的播放失敗先懷疑它。
-- iOS 的中斷與 Now Playing（事實 I2、I5）：模擬器驗不到的部分記在票的 Comments。
-- audio_service 更新慢（事實 I5、K18：#1139 的 iOS 修正 2026-07 合併，至今沒發佈）：macOS 端壞了就改用自己的 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter`（已實測可行，原型在 `scripts/experiments/macos-now-playing/probe_channel/`）。
-- `liquid_glass_easy` 主版本換得快（4.0.0 在 2026-08、5.0.0 在 2026-10）：升級前用 `scripts/experiments/glass/` 在四平台重量。套件壞了或停更，退回自己用 `BackdropFilter` + `ImageFilter.shader` 做折射（原型是同目錄 probe 的 `own-refract`，四平台實測可行；GLES 上不要翻 Y 軸，事實 K24）。手機的捲動幀時間 M0 量不到（iOS 只有模擬器、Android 模擬器沒有 GPU 加速），里程碑量效能時若掉幀，玻璃元件改成捲動時降到 standard（brief §11），降級時的模糊半徑不能比折射級大（事實 K21）。手機的幀時間要在實機或有 GPU 加速的模擬器量（例如舊版基準用的 `winpc` 模擬器）。
-- 實作時發現與 brief 不符：停下來問擁有者，改 brief 並在 progress.md〈偏差與決定〉記一行。

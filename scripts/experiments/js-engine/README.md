@@ -1,6 +1,6 @@
 # 實驗：JS 引擎（M0 票 03）
 
-插件要跑在哪個 JS 引擎：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準照 brief §17：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async；另測 JS await Dart 提供的 async 函式，並量引擎與 isolate 的配置（plan §1.1）。
+插件要跑在哪個 JS 引擎：`fjs` 或 `flutter_js`（加自編 QuickJS）。標準照 brief §17：四平台同一引擎、能中斷無窮迴圈、能設記憶體上限、支援 async；另測 JS await Dart 提供的 async 函式，並量引擎與 isolate 的配置（architecture〈執行形態〉）。
 
 實驗程式可丟棄，但留在這裡：換 Flutter 或套件版本時照〈怎麼跑〉重量。
 

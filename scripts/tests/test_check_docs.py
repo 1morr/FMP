@@ -33,8 +33,17 @@ PROGRESS = """# 進度
 | --- | --- | --- | --- |
 | 2026-01-02 | M1 01 | 做了 a\\|b 兩件事 | 沒寫指令的舊列不檢查 |
 | 2026-01-03 | M1 02 | 做完 | 新 session 下 `/implement .scratch/m1/issues/03-x.md` |
+""" % ("長" * 300)
 
-## 偏差與決定
+DECISIONS = """# 決策紀錄
+
+開頭的說明不屬於任何段。
+
+## 寫法
+
+- 這一段的行可以很長、不必是清單：%s
+
+## 紀錄
 
 - 2026-01-02 M1 票 01（使用者同意）：改用另一個套件，見 ADR 0003。
 """ % ("長" * 300)
@@ -68,6 +77,7 @@ class Repo(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         self.write("docs/progress.md", PROGRESS)
         self.write("docs/roadmap.md", ROADMAP)
+        self.write("docs/decisions.md", DECISIONS)
         self.write(".scratch/m1/spec.md", SPEC)
         self.write(".scratch/m1/issues/01-first.md", TICKET)
         self.write(".scratch/m1/issues/02-m1-acceptance.md", TICKET)
@@ -96,7 +106,7 @@ class BasicsTest(Repo):
 
     def test_main_exit_codes(self):
         self.assertEqual(m.main([str(self.root)]), 0)
-        self.sub("docs/progress.md", "## 偏差與決定", "## 其他")
+        self.sub("docs/progress.md", "## Session 紀錄", "## 其他")
         with contextlib.redirect_stderr(io.StringIO()) as err:
             self.assertEqual(m.main([str(self.root)]), 1)
         self.assertIn("2 條違規", err.getvalue())
@@ -116,18 +126,18 @@ class ProgressSectionsTest(Repo):
         self.red("缺〈寫法與封存〉")
 
     def test_duplicate_section(self):
-        self.sub("docs/progress.md", "## 偏差與決定", "## 偏差與決定\n\n## 偏差與決定")
+        self.sub("docs/progress.md", "## 寫法與封存", "## 寫法與封存\n\n## 寫法與封存")
         self.red("出現 2 次")
 
     def test_wrong_order(self):
         text = (self.root / "docs/progress.md").read_text(encoding="utf-8")
-        a, b = text.index("## Session 紀錄"), text.index("## 偏差與決定")
+        a, b = text.index("## 寫法與封存"), text.index("## Session 紀錄")
         self.write("docs/progress.md", text[:a] + text[b:] + "\n" + text[a:b])
         self.red("順序不對")
 
     def test_extra_section(self):
-        self.sub("docs/progress.md", "## 偏差與決定", "## 待辦\n\n## 偏差與決定")
-        self.red("多了〈待辦〉")
+        self.sub("docs/progress.md", "## Session 紀錄", "## 偏差與決定\n\n## Session 紀錄")
+        self.red("多了〈偏差與決定〉")
 
     def test_heading_in_code_block_and_h3_are_not_sections(self):
         self.sub("docs/progress.md", "- 規則寫在這裡", "### 小節\n\n```\n## 範例\n```\n\n- 規則寫在這裡")
@@ -136,7 +146,7 @@ class ProgressSectionsTest(Repo):
 
 class SessionsTest(Repo):
     def test_text_outside_the_table(self):
-        self.sub("docs/progress.md", "\n## 偏差與決定", "補充說明寫在表外。\n\n## 偏差與決定")
+        self.write("docs/progress.md", (self.root / "docs/progress.md").read_text(encoding="utf-8") + "\n補充說明寫在表外。\n")
         self.red("表外不放別的字")
 
     def test_row_too_long(self):
@@ -178,36 +188,46 @@ class SessionsTest(Repo):
         self.clean()
 
 
-class DeviationsTest(Repo):
+class DecisionsTest(Repo):
     def test_entry_without_a_date(self):
-        self.sub("docs/progress.md", "- 2026-01-02 M1 票 01", "- M1 票 01")
+        self.sub("docs/decisions.md", "- 2026-01-02 M1 票 01", "- M1 票 01")
         self.red("YYYY-MM-DD")
 
     def test_wrapped_entry(self):
-        self.sub("docs/progress.md", "見 ADR 0003。", "見 ADR 0003。\n  第二行的補充。")
+        self.sub("docs/decisions.md", "見 ADR 0003。", "見 ADR 0003。\n  第二行的補充。")
         self.red("每條一行")
 
     def test_entry_too_long(self):
-        self.sub("docs/progress.md", "見 ADR 0003。", "見 ADR 0003。" + "字" * 200)
+        self.sub("docs/decisions.md", "見 ADR 0003。", "見 ADR 0003。" + "字" * 200)
         self.red("上限 200")
 
     def test_entry_without_a_decider(self):
-        self.sub("docs/progress.md", "（使用者同意）：", "：")
+        self.sub("docs/decisions.md", "（使用者同意）：", "：")
         self.red("決定者")
 
     def test_entry_with_two_deciders(self):
-        self.sub("docs/progress.md", "（使用者同意）：", "（使用者同意）（Agent 定）：")
+        self.sub("docs/decisions.md", "（使用者同意）：", "（使用者同意）（Agent 定）：")
         self.red("決定者")
 
     def test_any_decider_anywhere_in_the_entry(self):
         for tag in m.DECIDERS:
             with self.subTest(tag):
                 self.setUp()
-                self.sub("docs/progress.md", "（使用者同意）：改用另一個套件，見 ADR 0003。", f"：換了套件，見 ADR 0003（{tag}）。")
+                self.sub("docs/decisions.md", "（使用者同意）：改用另一個套件，見 ADR 0003。", f"：換了套件，見 ADR 0003（{tag}）。")
                 self.clean()
 
     def test_empty_section_is_fine(self):
-        self.sub("docs/progress.md", "- 2026-01-02 M1 票 01（使用者同意）：改用另一個套件，見 ADR 0003。\n", "")
+        self.sub("docs/decisions.md", "- 2026-01-02 M1 票 01（使用者同意）：改用另一個套件，見 ADR 0003。\n", "")
+        self.clean()
+
+    def test_missing_file_or_section(self):
+        self.sub("docs/decisions.md", "## 紀錄", "## 清單")
+        self.red("docs/decisions.md：缺〈紀錄〉")
+        (self.root / "docs/decisions.md").unlink()
+        self.red("找不到 docs/decisions.md")
+
+    def test_other_sections_are_free_form(self):
+        self.sub("docs/decisions.md", "## 寫法\n", "## 怎麼寫\n\n沒有日期的一行。\n\n## 附註\n")
         self.clean()
 
 
@@ -255,7 +275,7 @@ class BudgetTest(Repo):
 
 class CurrentStateTest(Repo):
     def test_ticket_number_in_brief_or_plan(self):
-        for rel in (m.BRIEF, m.PLAN):
+        for rel in (m.BRIEF, m.ARCHITECTURE):
             for text in ("照 M1 票 12 的做法", "（票3）"):
                 with self.subTest(rel=rel, text=text):
                     self.setUp()
@@ -265,7 +285,7 @@ class CurrentStateTest(Repo):
     def test_other_wording_is_fine(self):
         text = "# 文件\n\n## 1. 節\n\n- 拆票後以票為準；M0 的第一張票接上；門票 3 張不是票號的寫法也不要用。\n\n```\n票 12\n```\n"
         self.write(m.BRIEF, text.replace("門票 3 張不是票號的寫法也不要用", "見 ADR 0003、事實 B3"))
-        self.write(m.PLAN, text.replace("門票 3 張不是票號的寫法也不要用", "見 ADR 0003、事實 B3"))
+        self.write(m.ARCHITECTURE, text.replace("門票 3 張不是票號的寫法也不要用", "見 ADR 0003、事實 B3"))
         self.clean()
 
     def test_ticket_numbers_elsewhere_are_fine(self):
@@ -280,15 +300,15 @@ class CodeRefsTest(Repo):
             subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True)
 
     def test_code_citing_a_section_number(self):
-        for text in ("// 見 plan §3.2", "# brief §4 的規則", "/* docs/plan.md § 11 */"):
+        for text in ("// 見 plan §3.2", "# brief §4 的規則", "/* docs/plan.md § 11 */", "// ARCHITECTURE.md §2"):
             with self.subTest(text):
                 self.setUp()
                 self.write("src/engine.rs", f"fn main() {{}}\n{text}\n")
                 self.track()
-                self.red("src/engine.rs:2：引用了 brief 或 plan 的章節號")
+                self.red("src/engine.rs:2：引用了 brief 或架構文檔的章節號")
 
     def test_citing_an_adr_or_a_fact_is_fine(self):
-        self.write("src/engine.rs", "// ADR 0003、事實 B3；計畫裡寫的 plan 與 brief 兩個字本身不算；§ 單獨出現也不算\n")
+        self.write("src/engine.rs", "// ADR 0003、事實 B3、architecture〈依賴規則〉；plan 與 brief 兩個字本身不算；§ 單獨出現也不算\n")
         self.track()
         self.clean()
 
@@ -375,8 +395,17 @@ class ScratchTest(Repo):
                 self.setUp()
                 self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent", status)
                 self.red("01-first.md：做完的票")
-                self.sub(".scratch/m1/issues/01-first.md", "## Comments\n", "## Comments\n\n- code-review 沒處理的發現。\n\nSession 紀錄：閘門就位。\n偏差：改用另一個套件（使用者同意）。\n")
+                self.sub(".scratch/m1/issues/01-first.md", "## Comments\n", "## Comments\n\n- code-review 沒處理的發現。\n\nSession 紀錄：閘門就位。\n決定：改用另一個套件（使用者同意）。\n")
                 self.clean()
+
+    def test_decision_line_on_a_done_ticket_needs_one_decider(self):
+        self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent", "Status: done")
+        for line in ("決定：改用另一個套件。", "決定：改用另一個套件（使用者定）（Agent 定）。"):
+            with self.subTest(line):
+                self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + f"\nSession 紀錄：做完。\n{line}\n")
+                self.red("01-first.md：「決定：」那一行要標一個決定者")
+        self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：做完。\n- 這一行提到決定：但不是開頭。\n")
+        self.clean()
 
     def test_session_note_before_comments_does_not_count(self):
         self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent", "Status: done")

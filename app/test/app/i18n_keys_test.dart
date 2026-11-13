@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// 新字串要在同一張票補齊三種語言（plan〈工程慣例〉）；slang 的 fallback 會把漏翻
+/// 新字串要在同一張票補齊三種語言（architecture〈工程慣例〉）；slang 的 fallback 會把漏翻
 /// 默默換成 zh-TW，所以在這裡直接比 key。
 ///
 /// 變異驗證兩個方向都要有：任一邊多一個或少一個 key 要紅；改譯文、排版或

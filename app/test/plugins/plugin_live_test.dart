@@ -9,7 +9,7 @@ import 'package:fmp/core/log/log.dart';
 import '../support/fjs.dart';
 import '../support/plugin_fixtures.dart';
 
-/// 聯網冒煙測試（plan〈測試策略〉）：每個插件的每個插件能力打一次真實音源，用它第一
+/// 聯網冒煙測試（architecture〈測試策略〉）：每個插件的每個插件能力打一次真實音源，用它第一
 /// 個案例的 `input`，檢查和契約測試同一套契約。預設跳過，手動執行：
 ///
 /// ```sh

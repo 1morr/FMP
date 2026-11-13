@@ -277,7 +277,7 @@ def ensure_device_lock():
     """沒持共用裝置鎖時，經 app/tool/device_lock.dart 拿鎖（等別的 worktree 放掉）再重新執行自己。
 
     實驗會送 Escape（打到最前面的 App）、媒體鍵與面板的按鈕（控制最近出過聲的 App），
-    別的 worktree 的閘門或實跑可能正開著 dev App（plan〈平台〉〈開發環境與閘門〉）。同一個 worktree 已持有時直接跑。
+    別的 worktree 的閘門或實跑可能正開著 dev App（docs/app-development.md〈平台〉〈開發環境與閘門〉）。同一個 worktree 已持有時直接跑。
     """
     repo = sh("git", "rev-parse", "--show-toplevel")
     tool = f"{repo}/app/tool/device_lock.dart"

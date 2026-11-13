@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/src/schema_gate.dart';
 import '../../tool/src/steps.dart';
 
-/// 閘門的 schema 快照檢查（plan〈測試策略〉）：程式裡的 schema 要跟最新版本的快照
+/// 閘門的 schema 快照檢查（architecture〈測試策略〉）：程式裡的 schema 要跟最新版本的快照
 /// 一字不差。`drift_dev schema dump` 經 [Shell]，這裡換成假的，直接寫出
 /// 「目前的 schema」。
 void main() {

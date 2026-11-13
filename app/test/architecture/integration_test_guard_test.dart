@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/src/full_gate.dart';
 import 'integration_test_guard.dart';
 
-/// plan〈測試策略〉 的零聯網也涵蓋 integration_test：`flutter_test_config.dart` 只套用
+/// architecture〈測試策略〉 的零聯網也涵蓋 integration_test：`flutter_test_config.dart` 只套用
 /// 在 `test/` 底下，所以 `integration_test/` 的每個測試檔都要在 `main()` 裡
 /// 自己呼叫 `installNoNetworkGuard()`。
 ///
