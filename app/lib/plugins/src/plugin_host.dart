@@ -62,7 +62,7 @@ class PluginHost {
   /// 關掉所有引擎與網路。之後不能再用。
   Future<void> close() async {
     for (final plugin in plugins) {
-      if (plugin._engine case final engine?) await plugin._retire(engine);
+      await plugin._closeEngine();
     }
     _network.close();
   }
@@ -246,14 +246,19 @@ class Plugin {
     }
   }
 
-  /// 關掉 [engine]，下一次呼叫重建。同一個引擎上好幾個呼叫一起失敗時只有
-  /// 第一個會關；之後才失敗的那些，[_engine] 可能已經是別的呼叫重建的新
-  /// 引擎，不能動它。
-  Future<void> _retire(Future<JsEngine> engine) async {
-    if (!identical(_engine, engine)) return;
+  /// 關掉目前的引擎（宿主關閉時）。
+  Future<void> _closeEngine() async {
+    if (_engine case final pending?) await _retire(pending);
+  }
+
+  /// 關掉 [pending] 建出的引擎，下一次呼叫重建。同一個引擎上好幾個呼叫一起
+  /// 失敗時只有第一個會關；之後才失敗的那些，[_engine] 可能已經是別的呼叫
+  /// 重建的新引擎，不能動它。
+  Future<void> _retire(Future<JsEngine> pending) async {
+    if (!identical(_engine, pending)) return;
     _engine = null;
     try {
-      await (await engine).close();
+      await (await pending).close();
     } catch (e) {
       // 中斷卡住的呼叫時，close() 會把被中斷的背景錯誤丟出來（事實 K11）。
       _log.debug('plugin ${manifest.id}: engine closed with: $e');
