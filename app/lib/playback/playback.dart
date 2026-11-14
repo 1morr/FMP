@@ -71,7 +71,7 @@ class PlaybackState {
 
   @override
   String toString() =>
-      'PlaybackState(${track.logId}, ${status.name}, '
+      'PlaybackState(${track.ref.logId}, ${status.name}, '
       '$position / $duration, $error)';
 }
 
@@ -116,9 +116,9 @@ class Playback extends Notifier<PlaybackState?> {
     final AudioStream stream;
     try {
       final host = await ref.read(pluginHostProvider.future);
-      final plugin = host.pluginFor(track.source);
+      final plugin = host.pluginFor(track.ref);
       if (plugin == null) throw const Unsupported();
-      stream = await plugin.resolveStream(track.id);
+      stream = await plugin.resolveStream(track.ref);
     } catch (error, stackTrace) {
       if (!_isCurrent(generation)) return;
       _fail(track, null, error, stackTrace, 'Resolving a stream failed');
@@ -196,7 +196,7 @@ class Playback extends Notifier<PlaybackState?> {
     AudioStream? stream,
   ) => _log.error(
     'Playback failed: ${error.category} (${error.detail}) '
-    'for ${track.logId} from ${stream?.url.host}',
+    'for ${track.ref.logId} from ${stream?.url.host}',
   );
 
   void _onBackendState(AudioBackendState backend) {
@@ -228,7 +228,9 @@ class Playback extends Notifier<PlaybackState?> {
         !_zeroDurationLogged) {
       _zeroDurationLogged = true;
       // 事實 I4（AVPlayer 把載入失敗的項目報成 ready、長度 0）、W4。
-      _log.warning('Stream reported a zero duration: ${current.track.logId}');
+      _log.warning(
+        'Stream reported a zero duration: ${current.track.ref.logId}',
+      );
     }
     state = PlaybackState(
       track: current.track,
@@ -259,7 +261,7 @@ class Playback extends Notifier<PlaybackState?> {
       _stallLogged = true;
       _log.warning(
         'Playback stalled: buffering for over ${after.inMilliseconds} ms: '
-        '${current.track.logId}',
+        '${current.track.ref.logId}',
       );
     });
   }

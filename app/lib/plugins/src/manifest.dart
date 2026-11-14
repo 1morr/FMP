@@ -69,7 +69,7 @@ class PluginManifest {
     );
   }
 
-  /// 小寫英數、`_`、`-`；也是曲目的 `Track.source`。
+  /// 小寫英數、`_`、`-`；也是曲目的 `TrackRef.pluginId`。
   final String id;
   final String name;
   final String version;

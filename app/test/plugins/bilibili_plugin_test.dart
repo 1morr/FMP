@@ -44,6 +44,8 @@ void main() {
   });
 
   Plugin bilibili() => host.plugins.single;
+  TrackRef bv(String trackId) =>
+      TrackRef(pluginId: 'bilibili', trackId: trackId);
 
   Map<String, Object?> ok(Object? data) => {
     'code': 0,
@@ -91,22 +93,19 @@ void main() {
 
     expect(await bilibili().search('晴天 翻唱'), const [
       Track(
-        source: 'bilibili',
-        id: 'BV1xx411c7mD',
+        ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1xx411c7mD'),
         title: '晴天 翻唱 & 練習 "1"',
         author: '某 UP 主',
         duration: Duration(minutes: 4, seconds: 5),
       ),
       Track(
-        source: 'bilibili',
-        id: 'BV1yy411c7mE',
+        ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1yy411c7mE'),
         title: '長影片',
         author: '另一位',
         duration: Duration(hours: 1, minutes: 2, seconds: 3),
       ),
       Track(
-        source: 'bilibili',
-        id: 'BV1zz411c7mF',
+        ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1zz411c7mF'),
         title: '時長不明',
         author: '第三位',
       ),
@@ -251,7 +250,7 @@ void main() {
     test('resolves the first part to its best DASH audio track', () async {
       respond = video;
 
-      final stream = await bilibili().resolveStream('BV1xx411c7mD');
+      final stream = await bilibili().resolveStream(bv('BV1xx411c7mD'));
       // 媒體請求帶不含結尾斜線的 Referer 與瀏覽器的 User-Agent，不帶憑證：
       // 部分串流網址會拒絕播放器自己的 User-Agent（brief 事實 F4、F22）。
       expect(stream.headers, {
@@ -273,7 +272,7 @@ void main() {
 
     test('asks pagelist for the cid, then playurl for DASH audio', () async {
       respond = video;
-      await bilibili().resolveStream('BV1xx411c7mD');
+      await bilibili().resolveStream(bv('BV1xx411c7mD'));
 
       final [pagelist, play] = http.requests;
       expect(pagelist.uri.host, 'api.bilibili.com');
@@ -301,9 +300,9 @@ void main() {
     test('each part of a video resolves to its own stream', () async {
       respond = video;
 
-      final first = await bilibili().resolveStream('BV1xx411c7mD');
-      final second = await bilibili().resolveStream('BV1xx411c7mD?p=2');
-      final third = await bilibili().resolveStream('BV1xx411c7mD?p=3');
+      final first = await bilibili().resolveStream(bv('BV1xx411c7mD'));
+      final second = await bilibili().resolveStream(bv('BV1xx411c7mD?p=2'));
+      final third = await bilibili().resolveStream(bv('BV1xx411c7mD?p=3'));
 
       expect(first.url, Uri.parse(cdnUrl(101)));
       expect(second.url, Uri.parse(cdnUrl(102)));
@@ -321,14 +320,14 @@ void main() {
       respond = (url) => url.path == '/x/player/pagelist'
           ? pages(url)
           : playurl(url, deadlineParam: '***');
-      final stream = await bilibili().resolveStream('BV1xx411c7mD');
+      final stream = await bilibili().resolveStream(bv('BV1xx411c7mD'));
       expect(stream.expiresAt, isNull);
       expect(stream.bitrate, 132000);
     });
 
     group('failures', () {
       Future<void> expectError(String trackId, Matcher matcher) =>
-          expectLater(bilibili().resolveStream(trackId), throwsA(matcher));
+          expectLater(bilibili().resolveStream(bv(trackId)), throwsA(matcher));
       Matcher unavailable(UnavailableReason reason) =>
           isA<Unavailable>().having((e) => e.reason, 'reason', reason);
 
