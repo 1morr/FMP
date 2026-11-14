@@ -491,6 +491,51 @@ void main() {
     );
   });
 
+  test('a call cancelled by a timeout does not close the engine a newer call '
+      'has started', () async {
+    // A 卡住逾時、關掉引擎（引擎先清掉，再等 close()）。同一個引擎上排著
+    // 的 B 接著也失敗：被 close() 取消，或自己的逾時先到。B 寫完 log、還沒
+    // 去關引擎的那一刻 C 進來建了新引擎：B 不能把 C 的新引擎關掉。C 在 B
+    // 寫 log 的同步段裡發出，時序是固定的。
+    final hooked = _HookedLog(log);
+    var failures = 0;
+    Future<List<Track>>? c;
+    hooked.onLog = (message) {
+      final failed =
+          message.contains('search timed out') ||
+          message.contains('search failed in the engine');
+      // 第一筆是 A 的逾時：B 只會在 A 關引擎之後失敗。
+      if (failed && ++failures == 2) c = hooked.plugin!.search('ok');
+    };
+    final h = PluginHost(
+      bundles: [
+        PluginBundle(
+          manifest: manifest(),
+          code: '''
+            export async function search({ query }) {
+              if (query === 'hang') while (true) {}
+              return { tracks: [] };
+            }
+          ''',
+        ),
+      ],
+      log: hooked,
+      callTimeout: const Duration(milliseconds: 500),
+    );
+    hosts.add(h);
+    hooked.plugin = only(h);
+
+    final a = only(h).search('hang');
+    final b = only(h).search('hang');
+    await Future.wait([
+      expectLater(a, throwsA(isA<ParseFailure>())),
+      expectLater(b, throwsA(isA<ParseFailure>())),
+    ]);
+
+    expect(c, isNotNull, reason: 'B failed after A closed the engine');
+    expect(await c, isEmpty);
+  });
+
   test(
     'plugins with a bad or duplicate manifest are skipped and logged',
     () async {
@@ -528,4 +573,37 @@ void main() {
       );
     },
   );
+}
+
+/// 照原樣轉給 [inner]；[onLog] 讓測試在宿主寫 warning 或 error log 的
+/// 同步段裡插進別的呼叫。
+class _HookedLog implements Log {
+  _HookedLog(this.inner);
+
+  final Log inner;
+  void Function(String message)? onLog;
+  Plugin? plugin;
+
+  @override
+  void debug(String message, {Object? error, StackTrace? stackTrace}) =>
+      inner.debug(message, error: error, stackTrace: stackTrace);
+
+  @override
+  void info(String message, {Object? error, StackTrace? stackTrace}) =>
+      inner.info(message, error: error, stackTrace: stackTrace);
+
+  @override
+  void warning(String message, {Object? error, StackTrace? stackTrace}) {
+    inner.warning(message, error: error, stackTrace: stackTrace);
+    onLog?.call(message);
+  }
+
+  @override
+  void error(String message, {Object? error, StackTrace? stackTrace}) {
+    inner.error(message, error: error, stackTrace: stackTrace);
+    onLog?.call(message);
+  }
+
+  @override
+  Future<void> close() => inner.close();
 }

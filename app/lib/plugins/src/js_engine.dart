@@ -69,13 +69,21 @@ export async function invoke(method, args) {
 ''';
 
 /// fjs 的原生庫（flutter_rust_bridge）每個 isolate 要初始化一次才能用；
-/// 同時建好幾個引擎時共用同一次。測試先以 `loadFjsForTests()` 自己初始化
-/// 了，這裡就略過。
+/// 同時建好幾個引擎時共用同一次。失敗的那次不留著，下一次建引擎再試。
+/// 測試先以 `loadFjsForTests()` 自己初始化了，這裡就略過。
 Future<void>? _fjsReady;
 
-Future<void> _ensureFjs() => _fjsReady ??=
-    // ignore: invalid_use_of_internal_member -- fjs 只把 instance 標成內部；`initialized` 是 flutter_rust_bridge 公開的，沒有別的方式問初始化過沒
-    LibFjs.instance.initialized ? Future.value() : LibFjs.init();
+Future<void> _ensureFjs() async {
+  // ignore: invalid_use_of_internal_member -- fjs 只把 instance 標成內部；`initialized` 是 flutter_rust_bridge 公開的，沒有別的方式問初始化過沒
+  if (LibFjs.instance.initialized) return;
+  final ready = _fjsReady ??= LibFjs.init();
+  try {
+    await ready;
+  } catch (_) {
+    if (identical(_fjsReady, ready)) _fjsReady = null;
+    rethrow;
+  }
+}
 
 /// 建一個插件引擎：只開 [pluginBuiltins]、設記憶體上限、接上 [bridge]、
 /// 放進宿主 API 與插件的程式 [code]（esbuild 打包的 ES module）。

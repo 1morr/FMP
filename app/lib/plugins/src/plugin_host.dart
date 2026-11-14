@@ -62,7 +62,7 @@ class PluginHost {
   /// 關掉所有引擎與網路。之後不能再用。
   Future<void> close() async {
     for (final plugin in plugins) {
-      await plugin._closeEngine();
+      if (plugin._engine case final engine?) await plugin._retire(engine);
     }
     _network.close();
   }
@@ -167,12 +167,20 @@ class Plugin {
     if (!manifest.capabilities.contains(capability)) {
       throw const Unsupported();
     }
+    final pending = _engine ??= createPluginEngine(
+      code: _code,
+      bridge: _bridge,
+    );
     final JsValue value;
     try {
-      final engine = await (_engine ??= createPluginEngine(
-        code: _code,
-        bridge: _bridge,
-      ));
+      final JsEngine engine;
+      try {
+        engine = await pending;
+      } catch (_) {
+        // 建不起來的引擎不留著：下一次呼叫重建，不會一直拿到同一個失敗。
+        if (identical(_engine, pending)) _engine = null;
+        rethrow;
+      }
       value = await engine
           .call(
             module: invokeModule,
@@ -185,11 +193,11 @@ class Plugin {
         'plugin ${manifest.id}: $method timed out after '
         '${_timeout.inMilliseconds}ms; restarting its engine',
       );
-      await _closeEngine();
+      await _retire(pending);
       throw const ParseFailure();
     } on JsError catch (e) {
       _log.error('plugin ${manifest.id}: $method failed in the engine: $e');
-      await _closeEngine();
+      await _retire(pending);
       throw const ParseFailure();
     }
     final result = value.value;
@@ -238,10 +246,12 @@ class Plugin {
     }
   }
 
-  Future<void> _closeEngine() async {
-    final engine = _engine;
+  /// 關掉 [engine]，下一次呼叫重建。同一個引擎上好幾個呼叫一起失敗時只有
+  /// 第一個會關；之後才失敗的那些，[_engine] 可能已經是別的呼叫重建的新
+  /// 引擎，不能動它。
+  Future<void> _retire(Future<JsEngine> engine) async {
+    if (!identical(_engine, engine)) return;
     _engine = null;
-    if (engine == null) return;
     try {
       await (await engine).close();
     } catch (e) {
