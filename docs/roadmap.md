@@ -1,6 +1,6 @@
 # FMP 新版路線圖
 
-> 里程碑的順序、狀態、開工前要讀什麼。還沒開工的里程碑在下面各有一小節；開工 session（`/to-tickets docs/roadmap.md 拆 <里程碑> 的票`）把那一節細化成 `.scratch/<里程碑>/spec.md`，這裡縮成一行連到它。插入里程碑用小數（`M1.5`），已有的編號不改。
+> 里程碑的順序、狀態、開工前要讀什麼。還沒開工的里程碑在下面各有一小節；開工 session（`/to-tickets docs/roadmap.md 拆 <里程碑> 的票`）把那一節細化成 `.scratch/<里程碑>/spec.md`，這裡縮成一行連到它。插入里程碑用小數（`M1.5`），已有的編號不改。不是里程碑的工作（文件瘦身、審計）也在表裡佔一列，「里程碑」欄以它的目錄名開頭（`gates 閘門補齊` 對 `.scratch/gates/`）；`scripts/check_docs.py` 擋有票卻沒列的目錄。同時有兩批票可以做時，只有一列是「進行中」，另一列的狀態寫明排在誰之後（`未開工，排在 M1 之後`）；要先插做另一批，就把兩列的狀態對調。`python3 scripts/next_step.py` 照這些狀態算出下一步。
 
 ## 里程碑
 
@@ -9,6 +9,7 @@
 | M0 骨架與 tracer bullet | 四平台的骨架、閘門與第一條播放路徑 | `.scratch/m0/spec.md` | 已驗收（2026-11-12），紀錄封存在 [`docs/archive/M0.md`](archive/M0.md) |
 | D 設計稿 | brief §11 的第一版頁面全部有定稿 | `docs/design/DESIGN.md` | 已驗收（2026-11-11 定稿，`docs/design/`），紀錄併在 [`docs/archive/M0.md`](archive/M0.md) |
 | M1 播放核心與照稿頁面 | 用 B 站做完播放核心、背景播放與照設計稿的主要頁面 | `.scratch/m1/spec.md` | 進行中（2026-11-14 開工），spec 與票在 [`.scratch/m1/`](../.scratch/m1/spec.md) |
+| gates 閘門補齊 | 新版補上密鑰掃描、依賴漏洞與依賴更新三道閘門 | `.scratch/gates/spec.md` | 未開工，排在 M1 之後；3 張票在 [`.scratch/gates/`](../.scratch/gates/spec.md) |
 | M1.5 YouTube 與網易雲 | 另外兩個音源都能搜尋、播放，首頁的排行榜補齊三個音源 | 下面〈M1.5 YouTube 與網易雲〉、brief §5.3 | 未開工 |
 | M2 帳號與存取等級 | 三個音源都能登入，會員狀態與存取等級正確呈現 | 開工時定 | 未開工 |
 | M3 音樂庫與遠端歌單 | 本地歌單、匯入歌單、遠端寫入都可用，並能搬入舊版資料 | 開工時定 | 未開工 |

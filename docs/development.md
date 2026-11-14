@@ -107,6 +107,21 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - GitHub Actions：新版平常不跑。`app-release.yml` 還沒建（M5）：預定由 `app-v*` tag 觸發，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件與完整閘門用；2026-11-12 本機 26.12.0、npm 11.20.0，esbuild 0.28 要 Node ≥ 18）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。
 
+## 閘門
+
+成熟專案都有的幾道檢查各對到哪個指令；怎麼跑、跑在哪裡見〈開發環境與閘門〉。標「待定」的由 `.scratch/gates/` 的票補上，做完把那一列換成指令或設定檔。
+
+| 閘門 | 指令或設定檔 | 擋什麼 |
+| --- | --- | --- |
+| 格式 | `dart format --output=none --set-exit-if-changed`（`tool/check.dart --quick`，只查手寫的 Dart 檔） | 排版不一致造成的無謂 diff |
+| Lint | `flutter analyze`（`--quick`；規則在 `app/analysis_options.yaml`） | 常見的錯誤寫法、沒人用的程式碼 |
+| 型別 | `flutter analyze`（Dart 的型別錯誤由 analyzer 報）；插件的 TypeScript 由完整版的 `plugin bundles (esbuild)` 跑 `tsc --noEmit` | 型別對不上 |
+| 單元測試 | `flutter test`（`--quick`） | 行為退化 |
+| 端到端冒煙 | `integration_test/` 的每個 `*_test.dart`，四平台各跑一次（`dart run tool/check.dart` 完整版） | 各模組都過、接起來卻跑不動 |
+| 密鑰掃描 | 待定，由 `.scratch/gates/issues/01-secret-scan.md` 補 | token、密碼被 commit 進公開 repo |
+| 依賴漏洞 | 待定，由 `.scratch/gates/issues/02-dependency-audit.md` 補 | 用到有已知漏洞的套件 |
+| 依賴更新 | 待定，由 `.scratch/gates/issues/03-dependency-updates.md` 補 | 依賴長期沒更新 |
+
 ## Commit message
 
 Conventional Commits：`<type>(<scope>): <subject>`，英文祈使句、小寫開頭、無句號，標題不超過 72 字元。type 是 feat、fix、docs、style、refactor、perf、test、build、ci、chore、revert。`.githooks/commit-msg` 跑 `scripts/check_commit_msg.py` 擋不合格的；照收的例外：git 預設的合併與 revert 訊息，以及合併票用的 `merge: ticket NN <slug>`（正在合併時的訊息一律放行）。舊版的緊急修正也照這個格式。

@@ -92,6 +92,17 @@ class TicketNotesTest(unittest.TestCase):
             subprocess.run(["git", "-C", str(self.repo), *args], env=env, check=True, capture_output=True)
         self.assertEqual(m.notes(self.repo, "m0")[0]["date"], "2026-01-03")
 
+    def test_questions_for_the_user_are_printed_until_a_decision_follows(self):
+        self.ticket("m0/issues/01-a.md", "甲", "等使用者：上限寫死還是做成設定？", "Session 紀錄：2026-01-04 停在這一題。")
+        self.ticket("m0/issues/02-b.md", "乙", "等使用者：早先的題。", "決定：寫死（使用者定）", "等使用者：", "等使用者：之後又問的題。")
+        self.ticket("m0/issues/03-c.md", "丙", "等使用者：答過了。", "Session 紀錄：2026-01-05 接著做完。", "決定：做成設定（使用者定）")
+        found = {t["number"]: t["waiting"] for t in m.notes(self.repo, "m0")}
+        self.assertEqual(found, {"01": ["上限寫死還是做成設定？"], "02": ["之後又問的題。"], "03": []})
+        out = self.run_it("m0", str(self.repo))[1]
+        self.assertIn("  等使用者：上限寫死還是做成設定？\n", out)
+        self.assertNotIn("答過了", out)
+        self.assertNotIn("等使用者", self.run_it("m0", str(self.repo), "--archive")[1])
+
     def test_no_notes_and_wrong_usage(self):
         self.ticket("m0/issues/01-gates.md", "閘門")
         self.assertEqual(self.run_it("m0", str(self.repo))[:2], (0, "M0 的票還沒有留紀錄\n"))

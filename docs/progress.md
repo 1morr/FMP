@@ -24,3 +24,4 @@
 | 2026-11-14 | M0 回顧追問 | 預載定為先解析再緩衝下一首開頭、第一版不做磁碟音訊快取、M1 拆票時寫〈快取〉策略；brief §6、§9 與 roadmap〈M1〉已改 | 新 session 下 `/to-tickets docs/roadmap.md 拆 M1 的票` |
 | 2026-11-14 | 流程 | 對齊 project-init：做票的紀錄只留在票上（帶日期的 Session 紀錄、`決定：`、`變更：`），加 `CHANGELOG.md`、commit-msg hook 與兩支紀錄腳本 | 新 session 下 `/to-tickets docs/roadmap.md 拆 M1 的票` |
 | 2026-11-14 | M1 開工 | spec 與 20 張票在 `.scratch/m1/`；ARCHITECTURE 加〈快取〉、事實 T1 補 Material 棄用時程；決定記在 `docs/decisions.md` | 新 session 下 `/implement .scratch/m1/issues/01-plugin-host-races.md` |
+| 2026-11-15 | 流程 | 對齊新版 project-init：加 `next_step.py`、票上的 `等使用者：`、〈閘門〉表；缺的三道閘門開成 `.scratch/gates/`，排在 M1 之後 | 新 session 下 `/implement .scratch/m1/issues/01-plugin-host-races.md` |

@@ -98,7 +98,7 @@ class Repo(unittest.TestCase):
         self.assertIn(old, text)
         self.write(rel, text.replace(old, new))
 
-    def row(self, name, state="未開工"):
+    def row(self, name, state="未開工，排在 M1 之後"):
         """在里程碑表加一列。"""
         self.sub("docs/roadmap.md", "| M2 介面 | 畫面 | brief §4 | 未開工 |\n", f"| M2 介面 | 畫面 | brief §4 | 未開工 |\n| {name} | 目標 | — | {state} |\n")
 
@@ -247,7 +247,7 @@ class MilestonesTest(Repo):
         self.red("最多一個")
 
     def test_none_active_is_fine(self):
-        self.sub("docs/roadmap.md", "| 進行中，已拆 3 張票 |", "| 未開工，上一個里程碑還在進行中的檢查不算 |")
+        self.sub("docs/roadmap.md", "| 進行中，已拆 3 張票 |", "| 未開工，排在 M0 之後；上一個里程碑還在進行中的檢查不算 |")
         self.clean()
 
     def test_missing_state_column(self):
@@ -674,6 +674,104 @@ class ChangelogTest(Repo):
 
     def test_code_blocks_are_skipped(self):
         self.write("CHANGELOG.md", self.GOOD.replace("升級說明可以是段落。", "```\n## 隨便\n### 隨便\n- 隨便\n```"))
+        self.clean()
+
+
+
+class QueueOrderTest(Repo):
+    """有兩批票可以做時，不是進行中的那一批要寫明排在誰之後。"""
+
+    def effort(self, state):
+        self.write(".scratch/docs-cleanup/spec.md", SPEC)
+        self.write(".scratch/docs-cleanup/issues/01-trim.md", TICKET)
+        self.row("docs-cleanup 文件瘦身", state)
+
+    def test_open_tickets_outside_the_active_row_need_a_place_in_the_queue(self):
+        for state in ("未開工", "未開工，和 M1 互不相擋", "未開工，排在 docs-cleanup 之後", "未開工，排在 M9 之後"):
+            with self.subTest(state):
+                self.setUp()
+                self.effort(state)
+                self.red("docs/roadmap.md：docs-cleanup 有票沒做完")
+
+    def test_how_the_place_is_worded_does_not_matter(self):
+        for state in ("未開工，排在 M1 之後", "未開工。9 張票已拆，排在 `m1` 之後，用協調者跑", "未開工，排在M2之後"):
+            with self.subTest(state):
+                self.setUp()
+                self.effort(state)
+                self.clean()
+
+    def test_rows_that_are_active_closed_or_have_nothing_left_are_not_asked(self):
+        self.sub("docs/roadmap.md", "| M1 核心 | 第一個功能 | plan §2 | 進行中，已拆 3 張票 |", "| M1 核心 | 第一個功能 | plan §2 | 未開工，排在 M0 之後 |")
+        self.effort("進行中")
+        self.clean()
+        for state, status in (("已驗收，封存在 x", "ready-for-agent"), ("不做，沒必要", "ready-for-agent"), ("未開工", "done"), ("未開工", "wontfix")):
+            with self.subTest(state=state, status=status):
+                self.setUp()
+                self.effort(state)
+                self.sub(".scratch/docs-cleanup/issues/01-trim.md", "Status: ready-for-agent", f"Status: {status}")
+                self.clean()
+
+
+class WaitingOnTicketsTest(Repo):
+    DONE = TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n"
+
+    def test_a_done_ticket_cannot_leave_a_question_open(self):
+        self.write(".scratch/m1/issues/01-first.md", self.DONE + "等使用者：上限寫死還是做成設定？\n")
+        self.red("01-first.md：票做完了，Comments 裡的「等使用者：」還沒有回答")
+        self.write(".scratch/m1/issues/01-first.md", self.DONE + "決定：先寫死（Agent 定）\n等使用者：之後又問的。\n")
+        self.red("01-first.md：票做完了")
+
+    def test_answered_questions_and_unfinished_tickets_are_fine(self):
+        self.write(".scratch/m1/issues/01-first.md", self.DONE + "等使用者：上限寫死還是做成設定？\n決定：做成設定（使用者定）\n")
+        self.clean()
+        self.write(".scratch/m1/issues/01-first.md", TICKET + "\n等使用者：上限寫死還是做成設定？\n")
+        self.clean()
+        self.write(".scratch/m1/issues/01-first.md", self.DONE.replace("## Comments", "等使用者：在 Comments 之前的不算。\n\n## Comments") + "內文提到「等使用者：」不算。\n")
+        self.clean()
+
+
+class GatesTest(Repo):
+    TABLE = "# 開發\n\n## 閘門\n\n說明可以隨便寫。\n\n| 閘門 | 指令或設定檔 | 在哪裡跑 |\n| --- | --- | --- |\n" + "".join(
+        f"| {name} | 待定 | — |\n" for name in m.GATE_ROWS)
+
+    def filled(self):
+        return self.TABLE.replace("| 待定 |", "| `make check` |")
+
+    def finish_a_ticket(self):
+        self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n")
+
+    def test_a_repo_without_the_file_is_not_checked_and_the_fresh_table_passes(self):
+        self.clean()
+        self.write("docs/development.md", self.TABLE)
+        self.clean()
+
+    def test_the_section_and_every_row_are_required(self):
+        self.write("docs/development.md", "# 開發\n\n## 全部檢查\n")
+        self.red("docs/development.md：缺〈閘門〉段")
+        self.write("docs/development.md", self.TABLE.replace("| 閘門 | 指令或設定檔 |", "| 名字 | 指令 |"))
+        self.red("〈閘門〉的表要有")
+        for name in m.GATE_ROWS:
+            with self.subTest(name):
+                self.write("docs/development.md", self.TABLE.replace(f"| {name} | 待定 | — |\n", ""))
+                self.red(f"缺「{name}」這一列")
+
+    def test_once_a_ticket_is_done_every_gate_has_a_command_or_a_reason(self):
+        self.write("docs/development.md", self.TABLE)
+        self.finish_a_ticket()
+        self.assertEqual(len([p for p in m.run(self.root) if "還沒有著落" in p]), len(m.GATE_ROWS))
+        for cell in ("待定", "不適用", "不適用：", "之後再說", ""):
+            with self.subTest(cell):
+                self.write("docs/development.md", self.filled().replace("| 密鑰掃描 | `make check` |", f"| 密鑰掃描 | {cell} |"))
+                self.red("「密鑰掃描」還沒有著落")
+
+    def test_how_a_gate_is_filled_in_does_not_matter(self):
+        self.finish_a_ticket()
+        self.write("docs/development.md", self.filled())
+        self.clean()
+        text = (self.filled().replace("| 密鑰掃描 | `make check` | — |", "| **密鑰掃描**（gitleaks） | 不適用：repo 裡沒有任何憑證，也不連外部服務 | |")
+                .replace("| 依賴更新 | `make check` |", "| 依賴更新 | 設定在 `.github/dependabot.yml`，每週一次 |")
+                .replace("| 格式 | `make check` | — |", "| 格式與排版 | 用 `ruff format --check .`，pre-commit 也跑 | 兩邊 |"))
+        self.write("docs/development.md", text + "\n| 多的一列 | 隨便 | |\n\n## 別的段\n\n| 閘門 | 指令或設定檔 |\n| --- | --- |\n| 格式 | 待定 |\n")
         self.clean()
 
 

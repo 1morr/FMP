@@ -9,7 +9,8 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 - `ARCHITECTURE.md`：模組地圖、依賴規則、主要依賴、測試策略；〈待決〉是定了方向、細節未定的事。
 - `docs/development.md`：新版怎麼建置、在各平台實跑驗證、閘門怎麼跑。
 - `docs/roadmap.md`：里程碑的順序、狀態與閱讀指引；還沒開工的里程碑各有一小節，開工後縮成一行連到它的 spec；〈不排里程碑〉收沒人接的遺留。
-- `docs/progress.md`：進行中里程碑裡不是做票的 session（訪談、規劃、開工、驗收）的紀錄；最後一列的「下一步」是下一個 session 的起點。
+- `docs/progress.md`：進行中里程碑裡不是做票的 session（訪談、規劃、開工、驗收）的紀錄。
+- **下一步**不靠記：`python3 scripts/next_step.py` 從 roadmap、票的狀態與 progress.md 最後一列算出等擁有者決定的事、現在要下的指令、後面排著什麼。使用者問接下來做什麼，就跑它。
 - `docs/decisions.md`：進行中里程碑裡不是做票時定的決定，一條一行，標決定者；驗收後跟著封存。
 - `.scratch/<里程碑>/spec.md`：該里程碑的目標、範圍、共同規則、驗收（Agent 驗、使用者試）與票序；`issues/` 是票，執行單位，狀態在票的 `Status:` 行。做票的 session 紀錄與決定留在票上，`python3 scripts/ticket_notes.py <里程碑的目錄名>` 印出整個里程碑的。
 - `CHANGELOG.md`：新版的使用者拿到什麼、改了什麼，依功能記。做票時寫在票的 `變更：` 行，驗收票組進 `[Unreleased]`；舊版的發版說明由 `release.yml` 從 commit 產生，不寫這裡。
@@ -26,7 +27,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 | 路徑 | 內容 |
 | --- | --- |
 | `app/` | 新版，獨立的 Flutter 套件，內部目錄照 architecture〈目錄結構〉；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 docs/development.md〈開發環境與閘門〉），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 architecture〈測試策略〉（`dart run drift_dev make-migrations`，閘門會比對快照）；錄製插件契約測試的 fixture、跑 `live` 冒煙測試也照 architecture〈測試策略〉 |
-| `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`；只改到文件、票或 `scripts/` 時跑文件檢查。`commit-msg`：擋不合格的 commit message（docs/development.md〈Commit message〉）。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
+| `.githooks/` | `pre-commit`、`commit-msg`，各跑什麼見 docs/development.md〈開發環境與閘門〉〈Commit message〉。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
 | `docs/` | 新版的文件（見〈文件〉）；`docs/legacy/` 是舊版的 |
 | `.scratch/` | 里程碑的 spec 與票 |
@@ -38,9 +39,9 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 - brief、`ARCHITECTURE.md`、ADR、`GLOSSARY.md` 裡的決定：草稿先給擁有者看，確認後才寫入；訪談中（`/grill-with-docs`）也一樣。
 - 做票時要推翻已定的決定（brief、`ARCHITECTURE.md`、ADR、spec、`docs/decisions.md` 裡的）：停下來問擁有者。同意後，同一個 commit 改文件，並記一條決定。
-- 問擁有者決定（對話裡，或 progress.md 的 `等使用者：`）：每題寫成沒讀過票也看得懂的話，依序是背景一句、選項、你的建議、不決定會卡住什麼；票號、函式名、章節號後面跟一句它是什麼。
+- 問擁有者決定（對話裡，或留給下一個 session 的 `等使用者：`）：每題寫成沒讀過票也看得懂的話，依序是背景一句、選項、你的建議、不決定會卡住什麼；票號、函式名、章節號後面跟一句它是什麼。
 - 擁有者回「照建議」，只算同意這一則訊息裡列出來的那幾題。
-- 每個決定佔一行並標**決定者**，做票時定的記在票上（見〈每個 session 的流程〉），其餘記在 `docs/decisions.md`：`（使用者定）` 擁有者自己定的、`（使用者同意）` agent 提議而擁有者同意的、`（Agent 定）` 擁有者沒看過的。做票時在兩種做法之間選了一種，就是一個 `（Agent 定）` 的決定；`/1morr:checkpoint` 會把它們拿給擁有者看。
+- 每個決定佔一行並標**決定者**，做票時定的記在票上（見〈每個 session 的流程〉），其餘記在 `docs/decisions.md`：`（使用者定）` 擁有者自己定的、`（使用者同意）` agent 提議而擁有者同意的、`（Agent 定）` 擁有者沒看過的。做票時在兩種做法之間選了一種，就是一個 `（Agent 定）` 的決定；協調者（`/1morr:ticket-coordinator`）代答的題也是；`/1morr:checkpoint` 會把它們拿給擁有者看。
 
 ## 每個 session 的流程
 
@@ -57,7 +58,11 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 完成標準：票上每個驗收條件打勾、全部檢查與 test 綠燈、Comments 有帶日期的 `Session 紀錄：` 與至少一行 `變更：`、已合併並 push main（協調者開的 session 到已 commit 為止）。缺一就還沒完成。
 
-**所有 session 的結尾**（做票、訪談、寫架構、里程碑開工都算）：告訴使用者下一步要在新 session 下的完整指令；不是做票的 session 在 progress.md 加一列，把同一句寫進「下一步」。下一張票是 `/implement <票路徑>`，里程碑做完是 `/1morr:checkpoint <剛做完的里程碑>`（回顧上一段、和使用者對齊下一段；它結束時寫 `/to-tickets docs/roadmap.md 拆 <下一個里程碑> 的票`）；要使用者先決定才能繼續時，寫 `等使用者：<要決定什麼>`。協調者開的 session 不知道下一張是哪張，只回報做完了。
+**所有 session 的結尾**（做票、訪談、寫架構、里程碑開工都算），依序：
+
+1. 不是做票的 session 在 progress.md 加一列，「下一步」寫下一個 session 要下的完整指令：里程碑做完是 `/1morr:checkpoint <剛做完的里程碑>`（它結束時寫 `/to-tickets docs/roadmap.md 拆 <下一個里程碑> 的票`），拆完票是第一張票的 `/implement <票路徑>`。
+2. 要擁有者先決定才能繼續：做票的 session 在票的 `## Comments` 加一行 `等使用者：<要決定什麼>`，票不改 `done`；其他 session 寫進 progress.md 的「下一步」。擁有者回答後，接手的 session 在那一行下面記 `決定：<一句>（使用者定）`，那一題就結了。
+3. commit 之後跑 `python3 scripts/next_step.py`，輸出原樣貼給使用者。協調者開的 session 只回報做完了，下一步由協調者報。
 
 ## 事實與查證
 

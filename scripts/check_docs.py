@@ -12,6 +12,8 @@
   roadmap.md
     - 有〈里程碑〉段，裡面的表有「里程碑」「目標」「狀態」三欄；每列的狀態以這四個詞之一開頭：未開工、進行中、已驗收、不做，
       後面可以接說明；以「進行中」開頭的最多一個
+    - 不是「進行中」、也還沒結束的列，它的目錄裡有票沒做完時，狀態要寫「排在 <表裡另一列的第一個詞> 之後」（`未開工，排在 M1 之後`）：
+      同時有兩批票可以做，`scripts/next_step.py` 靠這一句排先後
   docs/archive/*.md、docs/adr/
     - 封存檔有〈Session 紀錄〉段，並有〈決定〉或舊名〈偏差與決定〉；〈決定〉每條的格式同 decisions.md
     - 用〈決定〉的封存檔還要有〈使用者試〉段，裡面至少一行字：使用者試了什麼、結果如何，或誰代測、哪幾項沒有人親手試過；
@@ -39,8 +41,14 @@
     - roadmap.md 標「進行中」的里程碑（表的「里程碑」欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
       有一行 `Session 紀錄：<YYYY-MM-DD> <做了什麼>`，以 `決定：` 開頭的行都標一個決定者、不超過 160 字元
       （票是這兩種紀錄唯一的來源，封存時加上日期與票號仍在 200 字元內）；spec 的〈驗收〉底下有 `### 使用者試`
+    - 上一條那些 done 的票，`## Comments` 之後沒有還沒回答的「等使用者：」行（它後面要有一行「決定：」）
     - 有 CHANGELOG.md 的 repo，上一條那些 done 的票還要至少一行 `變更：`：`變更：<分類>｜<功能>｜<一句>`（分類是上面六個之一），
       或沒有使用者看得到的改動時 `變更：無`
+  docs/development.md（不存在就不查）
+    - 有〈閘門〉段，裡面的表有「閘門」「指令或設定檔」兩欄，而且這幾列都在（「閘門」欄以它開頭）：
+      格式、Lint、型別、單元測試、端到端冒煙、密鑰掃描、依賴漏洞、依賴更新
+    - .scratch/ 裡有任何一張票的 Status 是 done 之後，每一列的「指令或設定檔」都要有行內程式碼（指令或設定檔的路徑），
+      或以「不適用：」開頭並接理由；在那之前可以寫「待定」
 只用標準函式庫。
 """
 
@@ -98,6 +106,12 @@ ACCEPTANCE_SUFFIXES = ("-acceptance.md", "-close.md")
 CELL_SPLIT = re.compile(r"(?<!\\)\|")
 CLOSED = ("已驗收", "不做")
 CHECKBOX = re.compile(r"^\s*[-*] \[[ xX]\]")
+DROPPED = re.compile(r"^\**Status:?\**:?\s*(?:wontfix|cancelled|canceled)", re.I)
+AFTER = re.compile(r"排在\s*`?([^\s`，。；、]+)`?\s*之後")
+DEVELOPMENT, GATE_SECTION, GATE_COLUMNS = "docs/development.md", "閘門", ("閘門", "指令或設定檔")
+GATE_ROWS = ("格式", "Lint", "型別", "單元測試", "端到端冒煙", "密鑰掃描", "依賴漏洞", "依賴更新")
+NOT_APPLICABLE = re.compile(r"^不適用[：:]\s*\S")
+INLINE_CODE = re.compile(r"`[^`\s][^`]*`")
 
 
 def sections(text: str) -> list:
@@ -417,6 +431,12 @@ def check_scratch(root: Path) -> list:
                 if not any(re.match(rf"###\s*{USER_TRIAL}", l) for _, l in body):
                     out.append(f"{rel}/spec.md：〈{ACCEPTANCE}〉底下要有 `### {USER_TRIAL}`：使用者親手試什麼、怎麼啟動；沒有就寫「無」和理由")
         tickets = sorted((d / "issues").glob("*.md"))
+        state = listed.get(d.name.lower(), "") if listed else ""
+        if state and not state.startswith((ACTIVE,) + CLOSED) and any(unfinished(t) for t in tickets):
+            after = AFTER.search(state)
+            if not after or after.group(1).lower() == d.name.lower() or after.group(1).lower() not in listed:
+                out.append(f"{ROADMAP}：{d.name} 有票沒做完，狀態又不是「{ACTIVE}」。寫明它排在誰之後（`未開工，排在 M1 之後`，"
+                           f"M1 換成表裡另一列的第一個詞），或把它改成「{ACTIVE}」")
         if MILESTONE_DIR.match(d.name) and not any(t.name.endswith(ACCEPTANCE_SUFFIXES) for t in tickets):
             out.append(f"{rel}/issues/：沒有驗收票（檔名以 -acceptance.md 結尾），它是里程碑的最後一張票")
         for t in tickets:
@@ -428,6 +448,8 @@ def check_scratch(root: Path) -> list:
                 comments = text.split("\n## Comments", 1)
                 noted = comments[1].split("\n") if len(comments) == 2 else []
                 where = f"{rel}/issues/{t.name}"
+                if open_questions(noted):
+                    out.append(f"{where}：票做完了，Comments 裡的「{WAITING}」還沒有回答。在它後面加一行「{DECISION_NOTE}…（<決定者>）」")
                 if not any(DATED_SESSION_NOTE.match(l) for l in noted):
                     out.append(f"{where}：做完的票要在 `## Comments` 之後留一行「{SESSION_NOTE}<YYYY-MM-DD> <做了什麼>」，票是這條紀錄唯一的來源")
                 if has_changelog and not any(l.startswith(CHANGE_NOTE) for l in noted):
@@ -447,6 +469,56 @@ def check_scratch(root: Path) -> list:
     return out
 
 
+def unfinished(path: Path) -> bool:
+    head = path.read_text(encoding="utf-8").split("\n## ")[0].split("\n")
+    return not any(DONE.match(line) or DROPPED.match(line) for line in head)
+
+
+def open_questions(noted: list) -> list:
+    """`## Comments` 之後還沒回答的「等使用者：」：最後一行「決定：」之後的那幾題。"""
+    out = []
+    for l in noted:
+        if l.startswith(DECISION_NOTE):
+            out = []
+        elif l.startswith(WAITING) and l[len(WAITING):].strip():
+            out.append(l)
+    return out
+
+
+def any_ticket_done(root: Path) -> bool:
+    for t in (root / SCRATCH).glob("*/issues/*.md") if (root / SCRATCH).is_dir() else []:
+        if any(DONE.match(line) for line in t.read_text(encoding="utf-8").split("\n## ")[0].split("\n")):
+            return True
+    return False
+
+
+def check_gates(root: Path) -> list:
+    """成熟專案都有的那幾道閘門，每一道不是有指令，就是寫明為什麼不適用。"""
+    if not (root / DEVELOPMENT).is_file():
+        return []
+    by_title = {}
+    for title, lines in sections((root / DEVELOPMENT).read_text(encoding="utf-8")):
+        by_title.setdefault(title, lines)
+    names = "、".join(GATE_ROWS)
+    if GATE_SECTION not in by_title:
+        return [f"{DEVELOPMENT}：缺〈{GATE_SECTION}〉段。裡面一張表，欄位是「{'」「'.join(GATE_COLUMNS)}」，每列一道閘門：{names}"]
+    head, rows = table(by_title[GATE_SECTION])
+    if any(c not in head for c in GATE_COLUMNS):
+        return [f"{DEVELOPMENT}：〈{GATE_SECTION}〉的表要有「{'」「'.join(GATE_COLUMNS)}」兩欄"]
+    name_at, how_at = head.index(GATE_COLUMNS[0]), head.index(GATE_COLUMNS[1])
+    out, started = [], any_ticket_done(root)
+    for gate in GATE_ROWS:
+        found = [(n, r) for n, r in rows if len(r) > max(name_at, how_at) and r[name_at].replace("*", "").startswith(gate)]
+        if not found:
+            out.append(f"{DEVELOPMENT}：〈{GATE_SECTION}〉的表缺「{gate}」這一列。每列一道閘門：{names}")
+            continue
+        n, row = found[0]
+        if started and not (INLINE_CODE.search(row[how_at]) or NOT_APPLICABLE.match(row[how_at])):
+            out.append(f"{DEVELOPMENT}:{n}：已經有票做完了，「{gate}」還沒有著落。填指令或設定檔的路徑（行內程式碼），"
+                       f"或寫「不適用：<理由>」")
+    return out
+
+
 def run(root: Path) -> list:
     out = []
     for rel, check in ((PROGRESS, check_progress), (DECISIONS, check_decisions), (ROADMAP, check_roadmap)):
@@ -455,7 +527,7 @@ def run(root: Path) -> list:
         else:
             out.append(f"找不到 {rel}")
     return (out + check_archive(root) + check_adrs(root) + check_changelog(root) + check_budgets(root) + check_current_state(root) + check_layout(root)
-            + check_code_refs(root) + check_scratch(root))
+            + check_code_refs(root) + check_scratch(root) + check_gates(root))
 
 
 def main(argv) -> int:

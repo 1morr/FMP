@@ -1,10 +1,11 @@
-"""印出一個里程碑各張票留在 `## Comments` 之後的紀錄：`Session 紀錄：`、`決定：`、`變更：`。票是這些紀錄唯一的來源。
+"""印出一個里程碑各張票留在 `## Comments` 之後的紀錄：`Session 紀錄：`、`決定：`、`變更：`，以及還沒回答的 `等使用者：`。票是這些紀錄唯一的來源。
 
     python ticket_notes.py <里程碑的目錄名，例如 m0> [repo 根目錄，預設目前目錄]
     python ticket_notes.py <里程碑的目錄名> [repo 根目錄] --archive
     python ticket_notes.py <里程碑的目錄名> [repo 根目錄] --changelog
 
 不加參數：每張留了紀錄的票一段，第一行 `<里程碑> <票號> <標題>（<日期>）`，底下每條紀錄縮排兩格。做票前用它看先前的票定過什麼。
+  還沒回答的 `等使用者：<題目>`（它後面沒有 `決定：` 行）也印，`--archive`、`--changelog` 不印。
 `--archive`：里程碑封存時用，印兩段照貼進 `docs/archive/<里程碑>.md`：
   `## Session 紀錄` 底下是表格的列 `| <日期> | <里程碑> <票號> | <做了什麼> | |`，接在搬過去的那張表後面；
   `## 決定` 底下是 `- <日期> <里程碑> 票 <票號>（<決定者>）：<決定>`。
@@ -23,6 +24,7 @@ from pathlib import Path
 
 SESSION_NOTE, DECISION_NOTE = "Session 紀錄：", "決定："
 CHANGE_NOTE = "變更："
+WAITING = "等使用者："
 KINDS = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")
 CHANGE = re.compile(r"^變更：(%s)｜([^｜]+)｜(.+)$" % "|".join(KINDS))
 COMMENTS = "## Comments"
@@ -49,13 +51,13 @@ def committed_on(path: Path) -> str:
 
 
 def ticket_notes(path: Path) -> dict:
-    """一張票的紀錄：{number, title, date, sessions: [一句], decisions: [(一句, 決定者)], changes: [(分類, 功能, 一句)]}。
+    """一張票的紀錄：{number, title, date, sessions: [一句], decisions: [(一句, 決定者)], changes: [(分類, 功能, 一句)], waiting: [還沒回答的題目]}。
     只讀 `## Comments` 之後的行。"""
     text = path.read_text(encoding="utf-8")
     title = next((l.lstrip("# ").strip() for l in text.split("\n") if l.startswith("# ")), path.stem)
     number = NUMBER.match(path.name)
     out = {"number": number.group(1) if number else path.stem, "title": re.sub(r"^\S+[:：]\s*", "", title), "date": "",
-           "sessions": [], "decisions": [], "changes": []}
+           "sessions": [], "decisions": [], "changes": [], "waiting": []}
     for line in text.split("\n" + COMMENTS, 1)[1].split("\n") if "\n" + COMMENTS in text else []:
         if line.startswith(SESSION_NOTE):
             rest = line[len(SESSION_NOTE):].strip()
@@ -67,9 +69,12 @@ def ticket_notes(path: Path) -> dict:
             rest = line[len(DECISION_NOTE):].strip()
             decider = DECIDER.search(rest)
             out["decisions"].append((DECIDER.sub("", rest).strip(), decider.group(1) if decider else ""))
+            out["waiting"] = []  # 回答寫成一行「決定：」，它前面的題就算答了
+        elif line.startswith(WAITING) and line[len(WAITING):].strip():
+            out["waiting"].append(line[len(WAITING):].strip())
         elif CHANGE.match(line.strip()):
             out["changes"].append(tuple(part.strip() for part in CHANGE.match(line.strip()).groups()))
-    if not out["date"] and (out["sessions"] or out["decisions"]):
+    if not out["date"] and (out["sessions"] or out["decisions"] or out["waiting"]):
         out["date"] = committed_on(path)
     return out
 
@@ -77,7 +82,7 @@ def ticket_notes(path: Path) -> dict:
 def notes(root: Path, name: str) -> list:
     """里程碑裡留了紀錄的票，依日期、票號排序。"""
     found = [ticket_notes(p) for p in sorted((root / ".scratch" / name / "issues").glob("*.md"))]
-    return sorted((t for t in found if t["sessions"] or t["decisions"] or t["changes"]), key=lambda t: (t["date"], t["number"]))
+    return sorted((t for t in found if t["sessions"] or t["decisions"] or t["changes"] or t["waiting"]), key=lambda t: (t["date"], t["number"]))
 
 
 def archive(root: Path, name: str) -> tuple:
@@ -131,6 +136,8 @@ def main(argv) -> int:
             print(f"  {DECISION_NOTE}{said}" + (f"（{decider}）" if decider else ""))
         for change in t["changes"]:
             print(f"  {CHANGE_NOTE}" + "｜".join(change))
+        for asked in t["waiting"]:
+            print(f"  {WAITING}{asked}")
     if not found:
         print(f"{label_of(name)} 的票還沒有留紀錄")
     return 0
