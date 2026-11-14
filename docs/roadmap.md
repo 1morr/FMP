@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | M0 骨架與 tracer bullet | 四平台的骨架、閘門與第一條播放路徑 | `.scratch/m0/spec.md` | 已驗收（2026-11-12），紀錄封存在 [`docs/archive/M0.md`](archive/M0.md) |
 | D 設計稿 | brief §11 的第一版頁面全部有定稿 | `docs/design/DESIGN.md` | 已驗收（2026-11-11 定稿，`docs/design/`），紀錄併在 [`docs/archive/M0.md`](archive/M0.md) |
-| M1 播放核心與照稿頁面 | 用 B 站做完播放核心、背景播放與照設計稿的主要頁面 | 下面〈M1 播放核心與照稿頁面〉（含〈M0 留下的〉）、brief §5.3、§6、`docs/design/DESIGN.md` | 未開工，下一個 |
+| M1 播放核心與照稿頁面 | 用 B 站做完播放核心、背景播放與照設計稿的主要頁面 | `.scratch/m1/spec.md` | 進行中（2026-11-14 開工），spec 與票在 [`.scratch/m1/`](../.scratch/m1/spec.md) |
 | M1.5 YouTube 與網易雲 | 另外兩個音源都能搜尋、播放，首頁的排行榜補齊三個音源 | 下面〈M1.5 YouTube 與網易雲〉、brief §5.3 | 未開工 |
 | M2 帳號與存取等級 | 三個音源都能登入，會員狀態與存取等級正確呈現 | 開工時定 | 未開工 |
 | M3 音樂庫與遠端歌單 | 本地歌單、匯入歌單、遠端寫入都可用，並能搬入舊版資料 | 開工時定 | 未開工 |
@@ -33,34 +33,7 @@
 
 ## M1 播放核心與照稿頁面
 
-目標：只用 B 站，做完播放核心、背景播放與系統媒體控制，以及照設計稿的主要頁面。原本的「M1 三音源與播放核心」在 2026-11-14 的 M0 回顧拆成本段與 M1.5（`docs/decisions.md`）：播放核心與音源無關，先用已跑通的 B 站做完，再加音源。
-
-- 插件能力清單定案（ARCHITECTURE〈待決〉P3），寫進 brief §5.3 與 ADR；youtube、netease 照它寫，所以一次列齊。
-- B 站分 P：插件能力加「列出分 P」，搜尋頁展開分 P，臨時播放把一組分 P 當一首（brief §5.1 第 1 項、§6）。
-- 佇列、臨時播放、播放模式、持久化、串流過期重解析、預載、失敗處理。預載照 brief §6 是「先解析、再讓音訊後端緩衝下一首的開頭」：音訊後端介面現在一次只裝一首，要改（`mattpocock-skills:codebase-design`）；預載票的第一步在四個平台量「按下一首到出聲」，數字給擁有者定目標（平台的坑見事實 K4、I4）。
-- 快取策略：拆票時在 ARCHITECTURE 加〈快取〉一段（串流網址、排行榜、圖片、歌詞各存在哪、何時失效），草稿先給擁有者看；第一版不做磁碟音訊快取（brief §9）。失敗處理在本段是「重新解析一次 → 跳下一首 → 連續 3 首停止並提示」；brief §6 的「先降一級音質」要等音質清單，跟音質選擇一起在 M2 做。
-- 背景播放與系統媒體控制。
-- 照設計稿實作：App 外殼、首頁（繼續聽、B 站的近期熱門）、搜尋頁、迷你播放器、播放頁、佇列頁；設定頁的外殼、外觀（主題、強調色、語言、玻璃效果）與臨時播放倒退秒數；錯誤 Toast（含沒有網路、連續 3 首失敗）。
-- 插件的「排行榜」能力，本段先做 bilibili（首頁的近期熱門，brief §5.1 第 12 項）。
-
-照稿切版前（2026-11-14 回顧定案）：
-
-- 改用 `material_ui`：在第一張切版票裡做。拆票時先查 Flutter 官方對內建 Material 的棄用時程，寫進事實 T1。
-- 依賴規則補兩條，加進依賴規則測試（正反兩向都驗），同票改 ARCHITECTURE〈依賴規則〉：`platform/` 以外不得用 `defaultTargetPlatform`（畫面要的平台差異由 `platform/` 提供）；`domain/` 不得 import Flutter。
-- 「輕量」玻璃的模糊值：玻璃元件票的第一步用 `scripts/experiments/glass/` 在 Windows 量 lite glass 模糊 5、10、18 的幀時間，選看起來仍是模糊玻璃、又比折射級快的值，截圖與數字給擁有者看後改 `DESIGN.md`（現在 16、18、「不比折射級大」三種說法並存）。
-
-M0 留下的（票 12 歸屬與 2026-11-14 回顧，出處是各票的 Comments）：
-
-- 第一張改播放路徑的票開工前（擁有者在場，拆票不必等）：檢查 `winpc` 硬體（Windows 記憶體診斷要重開機；M0 驗收時 `link.exe`、`CL.exe`、Dart VM 輪流存取違規，又有藍屏，2026-11-13 回顧時的閘門也碰到一次 build_runner 當掉），順便追 MSB8066 的根因（docs/development.md〈`winpc` 的 Dart 偶發當掉〉）；在四個平台親耳聽一次播放（M0 驗收由 agent 代測，只看畫面與 log）。
-- 未捕捉的錯誤（`FlutterError.onError`、`PlatformDispatcher.onError`）接進 log（票 06）。
-- 播放：media_kit 的 `vid=no`、`prefetch-playlist=yes` 等 mpv 設定（事實 K4）；just_audio 的 `audio_session`；`classifyMpvLog` 只把致命的 `cplayer` 錯誤當失敗（票 11）。403 時重新解析併進失敗處理。
-- macOS 點下到出聲約 15 秒（票 12 的觀察）：預載與看門狗的票先量慢在哪裡，原因寫進事實。
-- 插件宿主：逾時後關引擎的競態、建引擎失敗的 future 被快取（票 08；寫得出會紅的測試再修）。
-- 插件 id 與曲目 id 成對的型別（現在 `Track.source` 是裸字串）：佇列與持久化前定。
-- 持久化：開資料庫失敗時怎麼呈現（票 07）；資料完整性測試的骨架在第一次建表時一起建（票 12 原判不做，理由是 M3 才第一次升 schema，但本段的佇列與進度保存會先建表）。
-- 用到 WBI 的插件能力：契約測試重播比對網址時忽略 `wts`、`w_rid`（票 09）。
-
-驗收：四個平台上，B 站搜尋並播放一首（含一組分 P）；臨時播放、隨機與循環的組合照 brief §6 運作；背景播放與媒體控制可用。使用者試：親耳聽播放、背景播放與系統媒體控制（iOS 的中斷與 Now Playing 模擬器驗不到的部分，事實 I2、I5）。
+進行中（2026-11-14 開工）：目標、範圍、M0 留下的各項與票序在 [`.scratch/m1/spec.md`](../.scratch/m1/spec.md)。
 
 ## M1.5 YouTube 與網易雲
 
@@ -71,7 +44,7 @@ M0 留下的（票 12 歸屬與 2026-11-14 回顧，出處是各票的 Comments�
 
 M0 留下的（票 12 歸屬與 2026-11-14 回顧）：
 
-- 串流網址比對 manifest 宣告的媒體網域並限 https：現在 `resolveStream` 回傳的網址只檢查是 http(s) 絕對網址，header 照單全收，原生播放器連線繞過宿主網路的網域白名單（ADR 0038）。三個插件的 CDN 一起定 manifest 的格式。
+- 串流網址比對 manifest 宣告的媒體網域並限 https：現在 `resolveStream` 回傳的網址只檢查是 http(s) 絕對網址，header 照單全收，原生播放器連線繞過宿主網路的網域白名單（ADR 0038）。三個插件的 CDN 一起定 manifest 的格式。封面圖片的網址也由插件給、不經宿主網路層（ARCHITECTURE〈快取〉），一起處理。
 - 網易雲的串流簽名在路徑裡，`redact` 只看 query：由插件宣告網址哪一段要遮（票 06）。YouTube 的簽名參數（`s=`、`key=` 這類名稱）同樣遮不到，一起做。
 - CDN 回 `application/octet-stream` 時 Apple 平台能不能播（事實 M5 沒重驗的部分），YouTube 重驗。
 
@@ -136,4 +109,5 @@ M0 留下的（票 12 歸屬）：
 
 - `osascript -e 'quit app "FMP Dev"'` 回 -128，原因沒查（M0 票 12 的觀察）；只影響 macOS 實跑指令的收尾。
 - 把 `ADB_MDNS=0` 放進擁有者的登入環境（含 Orca）：擁有者機器的設定，不是 repo 的事（M0 票 02b；docs/development.md〈其他已知怪癖〉）。
+- Flutter 從 3.47.5 升到 3.50（2026-11-11 發佈，內建 Material 從這版起 deprecated，事實 T1）：升級前照 ARCHITECTURE〈風險與回寫點〉用 inappwebview 的實驗重建 iOS、macOS，四平台重驗；M1 開工時決定不在設計系統的票裡升（`docs/decisions.md`）。
 - M0 各票 code-review 判「影響小」或票 12 判不做的小發現（約 35 項，列在各票的 Comments）：不另開票，之後的票碰到那段程式時順手改（2026-11-14 回顧）。

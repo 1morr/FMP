@@ -79,6 +79,17 @@ app/
 | 換掉平台實作（dev） | path_provider_platform_interface 2.1.3、plugin_platform_interface 2.1.8 | path_provider 官方的測試做法：換一個假的 `PathProviderPlatform` |
 | 平台上的測試（dev） | integration_test（SDK） | Flutter 官方的 `flutter test integration_test/…`；完整閘門在四平台跑（`docs/development.md`） |
 
+## 快取
+
+第一版只有下面這些快取；清除快取在設定的「儲存空間」（M5）。
+
+- 串流網址：只在記憶體，跟著正在播的那首與預載的下一首，不進資料庫，重啟後重新解析。要用網址前（載入、預載、暫停後繼續、seek）離過期不到 2 分鐘就先重新解析；插件沒給有效期的，失敗（含 403）時重新解析一次。
+- 排行榜：每個音源最後一份榜存 drift，帶抓取時間。首頁先顯示快取，超過 1 小時才在背景重抓，下拉刷新強制重抓；沒有網路時照樣顯示並寫抓取多久了（`docs/design/DESIGN.md` §6.7）。
+- 圖片：`cached_network_image` 的磁碟快取，上限 500 MB。封面網址由插件給，請求不經宿主網路層，和串流網址的網域檢查一起在 M1.5 處理。
+- 搜尋結果、曲目資訊：只在記憶體，跟著 provider 的生命週期。
+- 歌詞：M4 定。
+- 音訊：沒有磁碟快取（brief §9），只有音訊後端在記憶體的緩衝。
+
 ## 測試策略
 
 - 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個檔在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。
