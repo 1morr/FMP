@@ -1,6 +1,5 @@
-/// 曲目（`GLOSSARY.md`）的身分：提供它的插件 id 加曲目 id。佇列、臨時播放、
-/// 持久化與系統媒體控制都拿它當鍵；找插件、寫 log 都從它來，不單獨傳
-/// 插件 id。
+/// 曲目（`GLOSSARY.md`）的身分：提供它的插件 id 加曲目 id，可以當 map 的鍵。
+/// 找插件、寫 log 都從它來，不單獨傳插件 id。
 class TrackRef {
   const TrackRef({required this.pluginId, required this.trackId});
 

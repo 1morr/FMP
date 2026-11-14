@@ -171,11 +171,11 @@ export async function search({ query }) {
   group('searchContractViolations', () {
     Track track({
       String pluginId = 'demo',
-      String id = 'a1',
+      String trackId = 'a1',
       String title = 'Lemon',
       Duration? duration,
     }) => Track(
-      ref: TrackRef(pluginId: pluginId, trackId: id),
+      ref: TrackRef(pluginId: pluginId, trackId: trackId),
       title: title,
       author: '',
       duration: duration,
@@ -198,11 +198,16 @@ export async function search({ query }) {
       expect(
         searchContractViolations('demo', [
           track(),
-          track(pluginId: 'other', id: '', title: ' ', duration: Duration.zero),
+          track(
+            pluginId: 'other',
+            trackId: '',
+            title: ' ',
+            duration: Duration.zero,
+          ),
         ]),
         [
           'track 1: plugin id is "other"',
-          'track 1: empty id',
+          'track 1: empty track id',
           'track 1: empty title',
           'track 1: duration 0:00:00.000000 is not positive',
         ],

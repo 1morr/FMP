@@ -55,9 +55,9 @@ class PluginHost {
   /// 載入成功的插件，順序同傳入的 bundles。
   late final List<Plugin> plugins;
 
-  /// 提供 [track] 的插件；沒有載入這個插件時是 null。
-  Plugin? pluginFor(TrackRef track) =>
-      plugins.where((p) => p.manifest.id == track.pluginId).firstOrNull;
+  /// 提供 [ref] 這首曲目的插件；沒有載入這個插件時是 null。
+  Plugin? pluginFor(TrackRef ref) =>
+      plugins.where((p) => p.manifest.id == ref.pluginId).firstOrNull;
 
   /// 關掉所有引擎與網路。之後不能再用。
   Future<void> close() async {
@@ -90,19 +90,19 @@ class Plugin {
     });
   }
 
-  /// 插件能力 `resolveStream`：把 [track] 解析成串流。[track] 要是這個插件
-  /// 的曲目（[PluginHost.pluginFor] 找到的），否則是程式錯誤，丟
+  /// 插件能力 `resolveStream`：把 [ref] 這首曲目解析成串流。[ref] 要是這個
+  /// 插件的曲目（[PluginHost.pluginFor] 找到的），否則是程式錯誤，丟
   /// [ArgumentError]。
-  Future<AudioStream> resolveStream(TrackRef track) async {
-    if (track.pluginId != manifest.id) {
+  Future<AudioStream> resolveStream(TrackRef ref) async {
+    if (ref.pluginId != manifest.id) {
       throw ArgumentError.value(
-        track,
-        'track',
+        ref,
+        'ref',
         'belongs to another plugin than ${manifest.id}',
       );
     }
     final result = await _invoke(PluginCapability.resolveStream, {
-      'trackId': track.trackId,
+      'trackId': ref.trackId,
     });
     return _parse(PluginCapability.resolveStream, () {
       final json = result as Map;

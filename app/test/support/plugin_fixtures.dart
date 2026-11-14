@@ -259,7 +259,7 @@ List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
   for (final (i, t) in tracks.indexed) ...[
     if (t.ref.pluginId != pluginId)
       'track $i: plugin id is "${t.ref.pluginId}"',
-    if (t.ref.trackId.isEmpty) 'track $i: empty id',
+    if (t.ref.trackId.isEmpty) 'track $i: empty track id',
     if (t.title.trim().isEmpty) 'track $i: empty title',
     if (t.duration case final d? when d <= Duration.zero)
       'track $i: duration $d is not positive',
