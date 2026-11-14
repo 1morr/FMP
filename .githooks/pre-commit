@@ -1,7 +1,7 @@
 #!/bin/sh
 # commit 前的檢查（docs/development.md〈開發環境與閘門〉）。啟用：git config core.hooksPath .githooks
 # - 改到 app/：跑新版的快速閘門（裡面含文件檢查）。
-# - 沒改到 app/、但改到文件或票：只跑文件檢查。
+# - 沒改到 app/、但改到文件或票：只跑文件檢查；改到 scripts/ 的檢查腳本時再跑它們的測試。
 # - 只改舊版：都不跑，舊版的緊急修正不受新版閘門影響。
 # --no-renames：把檔案搬出 app/ 時，預設只會列出新路徑。
 staged=$(git diff --cached --name-only --no-renames)
@@ -17,8 +17,16 @@ if echo "$staged" | grep -q '^app/'; then
   cd "$root/app" || exit 1
   exec dart run tool/check.dart --quick
 fi
-if echo "$staged" | grep -qE '^(docs/|\.scratch/|scripts/check_docs\.py$|scripts/tests/|AGENTS\.md$|ARCHITECTURE\.md$)'; then
-  cd "$root" || exit 1
+cd "$root" || exit 1
+if echo "$staged" | grep -qE '^(scripts/[^/]+\.py$|scripts/tests/)'; then
+  python3 scripts/check_docs.py || exit 1
+  python3 -m unittest discover -s scripts/tests >/dev/null 2>&1 || {
+    echo "pre-commit: scripts/tests 沒過，跑 python3 -m unittest discover -s scripts/tests 看是哪一條" >&2
+    exit 1
+  }
+  exit 0
+fi
+if echo "$staged" | grep -qE '^(docs/|\.scratch/|AGENTS\.md$|ARCHITECTURE\.md$|CHANGELOG\.md$)'; then
   exec python3 scripts/check_docs.py
 fi
 exit 0

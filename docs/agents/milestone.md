@@ -7,8 +7,8 @@
 在 brief 訪談之後、第一個里程碑開工之前，一個 session 做完。這個 session 不寫 spec、不拆票。
 
 1. 讀 brief 全文。〈待決〉裡會影響架構或順序的，先問使用者定下來。
-2. 寫 `ARCHITECTURE.md` 各節，照它檔頭的寫法；技術選型先查成熟產品與套件的現況，每個選型寫一篇 ADR，說明採用了誰的做法。
-3. 寫 `docs/roadmap.md`：里程碑表，每個里程碑一小節（目標、範圍要點、驗收的方向）。M0 是 tracer bullet；有 UI 的專案把設計稿排成一個只產出文件的階段。
+2. 寫 `ARCHITECTURE.md` 各節，照它檔頭的寫法；技術選型先查成熟產品與套件的現況，在那一節寫明採用了誰的做法；難回頭、不看脈絡會覺得奇怪、而且真的有取捨的選型另寫一篇 ADR。
+3. 寫 `docs/roadmap.md`：里程碑表，每個里程碑一小節（目標、範圍要點、驗收的方向）。M0 是 tracer bullet；有 UI 的專案把設計稿排成一個只產出文件的階段，在表裡佔一列（`AGENTS.md`〈UI〉）。
 4. 每節的草稿先給使用者看，確認後才寫入（`AGENTS.md`〈使用者確認〉）；定下的每個選擇在 `docs/decisions.md` 記一條。
 
 完成條件：brief 的每個功能都落在某個里程碑或 roadmap〈不排里程碑〉；`python3 scripts/check_docs.py` 通過；progress.md 加了一列，「下一步」是 `/to-tickets docs/roadmap.md 拆 M0 的票`。
@@ -19,7 +19,7 @@
 
 1. **spec**：把 roadmap 裡它的那一節，依最新的 brief、架構與上一個里程碑的結果細化成 `.scratch/<里程碑>/spec.md`，段落是〈目標〉〈範圍〉〈共同規則〉〈驗收〉〈票序〉。roadmap 那一節縮成一行連結，里程碑表的狀態改成「進行中」。文件不足以寫出 spec 時，問使用者並補進文件。
    - 〈驗收〉分兩組，各用 `###` 標題：**Agent 驗**是測試、指令輸出、截圖對得到的；**使用者試**是使用者親手用才知道的（手感、聲音、真實帳號、實機），每條寫明怎麼啟動、試什麼。沒有就寫「無」和理由。
-2. **票**：照 `/to-tickets` 提出切法，使用者同意後寫票，每張票寫明「讀：architecture〈節名〉、brief §y」與驗收條件。最後一張固定是驗收票 `NN-<里程碑>-acceptance`，被其他所有票擋。
+2. **票**：照 `/to-tickets` 提出切法，使用者同意後寫票，每張票照 `docs/agents/ticket-template.md` 寫明 `讀: architecture〈節名〉；brief §y` 與驗收條件。最後一張固定是驗收票 `NN-<里程碑>-acceptance`，被其他所有票擋。
 3. **收尾**：票序寫回 spec〈票序〉，progress.md 加一列 session 紀錄，「下一步」寫第一張票的指令。
 
 ## 驗收票
@@ -33,6 +33,13 @@
    - 不滿意的項目各開一張修復票（`NNb-<slug>`，排在驗收票之前），修完再請使用者試。
    - 使用者要 agent 代測：照做，並在 `docs/decisions.md` 記一條（使用者定），寫明哪幾項沒有人親手試過。
    - 使用者說可以了才往下。
-5. **封存**：照 progress.md〈寫法與封存〉。搬完逐列逐條比對，這個里程碑的每一列 session 紀錄、每一條決定都在 `docs/archive/<里程碑>.md` 裡。
+5. **封存**：建 `docs/archive/<里程碑>.md`，三段：
+   - `## Session 紀錄`：progress.md 裡這個里程碑的整張表連表頭搬過來，後面接 `python3 scripts/ticket_notes.py <里程碑的目錄名> --archive` 印的列。
+   - `## 決定`：`docs/decisions.md` 裡標著這個里程碑的條目搬過來，後面接同一個指令印的條目。
+   - `## 使用者試`：spec 的使用者試清單逐項寫結果；代測的寫誰測、哪幾項沒有人親手試過。
 
-完成條件：spec〈驗收〉每一條都有證據或使用者的回覆；每個發現都歸了位；progress.md 與 decisions.md 只剩下一個里程碑的。
+   `python3 scripts/ticket_notes.py <里程碑的目錄名> --changelog` 印的條目併進 `CHANGELOG.md` 的 `## [Unreleased]`，同一個分類的接在一起；同一個功能在這個里程碑裡先 Added 又 Changed 的，併成一條 Added。要不要發版先問使用者。
+
+   票檔留在 `.scratch/` 不動。commit 之前跑 `python3 scripts/docs_moved_lines.py HEAD docs/progress.md docs/decisions.md -- docs/archive/<里程碑>.md`。同一個 commit 把 `docs/roadmap.md` 里程碑表的狀態改成「已驗收，封存在 `docs/archive/<里程碑>.md`」、下一個里程碑標成進行中，progress.md 加一列，「下一步」寫 `/1morr:checkpoint <封存的里程碑>`。
+
+完成條件：spec〈驗收〉每一條都有證據或使用者的回覆；每個發現都歸了位；`docs_moved_lines.py` 印「遺失 0」；`ticket_notes.py --archive` 印的每一行都在封存檔裡，`--changelog` 印的每個功能都在 `CHANGELOG.md`；progress.md 與 decisions.md 只剩下一個里程碑的。

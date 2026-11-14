@@ -9,9 +9,10 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 - `ARCHITECTURE.md`：模組地圖、依賴規則、主要依賴、測試策略；〈待決〉是定了方向、細節未定的事。
 - `docs/development.md`：新版怎麼建置、在各平台實跑驗證、閘門怎麼跑。
 - `docs/roadmap.md`：里程碑的順序、狀態與閱讀指引；還沒開工的里程碑各有一小節，開工後縮成一行連到它的 spec；〈不排里程碑〉收沒人接的遺留。
-- `docs/progress.md`：進行中里程碑的 session 紀錄。每個 session 的起點與終點。
-- `docs/decisions.md`：進行中里程碑的決策紀錄，一條一行，標決定者；驗收後跟著封存。
-- `.scratch/<里程碑>/spec.md`：該里程碑的目標、範圍、共同規則、驗收（Agent 驗、使用者試）與票序；`issues/` 是票，執行單位，狀態在票的 `Status:` 行。
+- `docs/progress.md`：進行中里程碑裡不是做票的 session（訪談、規劃、開工、驗收）的紀錄；最後一列的「下一步」是下一個 session 的起點。
+- `docs/decisions.md`：進行中里程碑裡不是做票時定的決定，一條一行，標決定者；驗收後跟著封存。
+- `.scratch/<里程碑>/spec.md`：該里程碑的目標、範圍、共同規則、驗收（Agent 驗、使用者試）與票序；`issues/` 是票，執行單位，狀態在票的 `Status:` 行。做票的 session 紀錄與決定留在票上，`python3 scripts/ticket_notes.py <里程碑的目錄名>` 印出整個里程碑的。
+- `CHANGELOG.md`：新版的使用者拿到什麼、改了什麼，依功能記。做票時寫在票的 `變更：` 行，驗收票組進 `[Unreleased]`；舊版的發版說明由 `release.yml` 從 commit 產生，不寫這裡。
 - `GLOSSARY.md`、`docs/adr/`：名詞表與架構決定，由 `/grill-with-docs` 按需建立；命名一律用名詞表的詞。ADR 0001–0007 只描述舊版；新 ADR 的編號規則在 `docs/adr/template.md`。
 - `docs/design/`：新版的設計稿與設計系統（`DESIGN.md`、`PRODUCT.md`）。
 - `docs/legacy/`：舊版的文件，隨舊版凍結：`development.md`、`building.md`、`build-and-release.md`、`troubleshooting.md`，以及上一輪重寫前的審計快照 `audit/`。
@@ -25,11 +26,11 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 | 路徑 | 內容 |
 | --- | --- |
 | `app/` | 新版，獨立的 Flutter 套件，內部目錄照 architecture〈目錄結構〉；指令都在 `app/` 裡跑，閘門是 `dart run tool/check.dart`（完整版，四平台；前置條件見 docs/development.md〈開發環境與閘門〉），pre-commit 跑其中的 `--quick`；改 drift 資料庫的 schema 照 architecture〈測試策略〉（`dart run drift_dev make-migrations`，閘門會比對快照）；錄製插件契約測試的 fixture、跑 `live` 冒煙測試也照 architecture〈測試策略〉 |
-| `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`；只改到文件或票時跑 `python3 scripts/check_docs.py`。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
+| `.githooks/` | `pre-commit`：commit 改到 `app/` 時跑 `--quick`；只改到文件、票或 `scripts/` 時跑文件檢查。`commit-msg`：擋不合格的 commit message（docs/development.md〈Commit message〉）。clone 或新 worktree 後執行一次 `git config core.hooksPath .githooks` 啟用 |
 | `lib/`、`test/`、`tool/`、`android/`、`windows/`、`assets/`、根目錄 `pubspec.yaml` | 舊版，凍結；規則在 `lib/AGENTS.md` |
 | `docs/` | 新版的文件（見〈文件〉）；`docs/legacy/` 是舊版的 |
 | `.scratch/` | 里程碑的 spec 與票 |
-| `scripts/` | `check_docs.py`（文件檢查，`app/` 的快速閘門會跑它，要 Python 3）與它的測試；設計實驗在 `scripts/experiments/` |
+| `scripts/` | 文件檢查 `check_docs.py`、commit message 檢查、`ticket_notes.py`、`docs_moved_lines.py` 與它們的測試（`app/` 的快速閘門會跑，要 Python 3）；設計實驗在 `scripts/experiments/` |
 | `.github/workflows/` | `ci.yml`、`release.yml` 都屬於舊版 |
 | `.claude/skills/` | `verify-legacy-on-device`：舊版緊急修正的實機驗證 |
 
@@ -39,27 +40,28 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 - 做票時要推翻已定的決定（brief、`ARCHITECTURE.md`、ADR、spec、`docs/decisions.md` 裡的）：停下來問擁有者。同意後，同一個 commit 改文件，並記一條決定。
 - 問擁有者決定（對話裡，或 progress.md 的 `等使用者：`）：每題寫成沒讀過票也看得懂的話，依序是背景一句、選項、你的建議、不決定會卡住什麼；票號、函式名、章節號後面跟一句它是什麼。
 - 擁有者回「照建議」，只算同意這一則訊息裡列出來的那幾題。
-- 每個決定在 `docs/decisions.md` 佔一行並標**決定者**：`（使用者定）` 擁有者自己定的、`（使用者同意）` agent 提議而擁有者同意的、`（Agent 定）` 擁有者沒看過的。做票時在兩種做法之間選了一種，就是一個 `（Agent 定）` 的決定；`/1morr:checkpoint` 會把它們拿給擁有者看。
+- 每個決定佔一行並標**決定者**，做票時定的記在票上（見〈每個 session 的流程〉），其餘記在 `docs/decisions.md`：`（使用者定）` 擁有者自己定的、`（使用者同意）` agent 提議而擁有者同意的、`（Agent 定）` 擁有者沒看過的。做票時在兩種做法之間選了一種，就是一個 `（Agent 定）` 的決定；`/1morr:checkpoint` 會把它們拿給擁有者看。
 
 ## 每個 session 的流程
 
 工作單位是**票**：`.scratch/<里程碑>/issues/NN-slug.md`，由里程碑開工的 session 產生（見〈Skills〉）。一個 session 只做一張票，在自己的分支上做。
 
-1. 讀 `docs/progress.md`、`docs/decisions.md` 裡這個里程碑的決定、該里程碑的 spec，再讀票；只讀票列出的架構與 brief 章節，其他按需讀。
+1. 讀 `docs/progress.md`、`docs/decisions.md`、該里程碑的 spec，跑 `python3 scripts/ticket_notes.py <里程碑的目錄名>` 看先前的票定過什麼，再讀票；只讀票列出的架構與 brief 章節，其他按需讀。
 2. `/implement <票路徑>`：tdd、定期 typecheck、結尾 `/code-review <開工時的 commit>`、commit。
 3. 驗證：docs/development.md〈開發環境與閘門〉的全部檢查，也就是在 `app/` 跑 `dart run tool/check.dart` 完整版（涵蓋所有目標平台，含 test）；貼指令輸出。
 4. 影響架構的決定另寫 ADR（照〈擁有者確認〉）。
-5. 票的 `Status:` 改為 `done`、勾掉驗收條件、code-review 未處理的發現記到票的 `## Comments`；Comments 最後加一行 `Session 紀錄：<做了什麼，一句>`，做票時定的每個選擇各加一行 `決定：<一句>（<決定者>）`；commit。票的分支不改 progress.md 與 decisions.md：平行的票都改它們會互撞。
-6. 合併：在 main 上 `git merge --no-ff <票分支>`，merge commit 寫 `merge: ticket NN <slug>`；接著在 main 把票上那兩種行抄進去（progress.md 一列 session 紀錄含下一步、decisions.md 每個決定一條）並 commit，再 push main。協調者（`/1morr:ticket-coordinator`）開的 session 只在自己的分支 commit，這一步留給協調者。不開 PR；擁有者靠 progress.md 與里程碑驗收跟進度。
-7. 驗收票被其他所有票擋、不會平行，它自己在分支上改這兩個檔。
+5. 票的 `Status:` 改為 `done`、勾掉驗收條件、code-review 未處理的發現記到票的 `## Comments`；Comments 最後加一行 `Session 紀錄：<YYYY-MM-DD> <做了什麼，一句>`，做票時定的每個選擇各加一行 `決定：<一句>（<決定者>）`，使用者看得到的每個改動各加一行 `變更：<分類>｜<功能>｜<使用者看得懂的一句>`（分類是 Keep a Changelog 的 Added、Changed、Deprecated、Removed、Fixed、Security 之一；`<功能>` 沿用 `CHANGELOG.md` 與名詞表的名字；沒有寫 `變更：無`）；commit。票是這些紀錄唯一的來源，沒有人抄：做票的分支不改 progress.md、decisions.md 與 `CHANGELOG.md`，平行的票才不會互撞。
+6. 合併：在 main 上 `git merge --no-ff <票分支>`，merge commit 寫 `merge: ticket NN <slug>`，再 push main。協調者（`/1morr:ticket-coordinator`）開的 session 只在自己的分支 commit，這一步留給協調者。不開 PR；擁有者靠票上的紀錄與里程碑驗收跟進度。
+7. 事實編號、資料庫 migration 編號這類全專案遞增的號，票在分支上先用當時的下一號；合併時撞號，合併的人把後合併的那張改成下一個空號，連同引用它的地方。
+8. 驗收票被其他所有票擋、不會平行：它自己改 progress.md 與 decisions.md，封存時把各票的紀錄組進封存檔與 `CHANGELOG.md`（`docs/agents/milestone.md`〈驗收票〉）。
 
-完成標準：票上每個驗收條件打勾、全部檢查與 test 綠燈、Comments 有 `Session 紀錄：` 一行、已合併並 push main（協調者開的 session 到已 commit 為止）。缺一就還沒完成。
+完成標準：票上每個驗收條件打勾、全部檢查與 test 綠燈、Comments 有帶日期的 `Session 紀錄：` 與至少一行 `變更：`、已合併並 push main（協調者開的 session 到已 commit 為止）。缺一就還沒完成。
 
-**所有 session 的結尾**（做票、訪談、寫架構、里程碑開工都算）：告訴使用者下一步要在新 session 下的完整指令，寫 progress.md 的人把同一句寫進那一列的「下一步」。下一張票是 `/implement <票路徑>`，里程碑做完是 `/1morr:checkpoint <剛做完的里程碑>`（回顧上一段、和使用者對齊下一段；它結束時寫 `/to-tickets docs/roadmap.md 拆 <下一個里程碑> 的票`）；要使用者先決定才能繼續時，寫 `等使用者：<要決定什麼>`。
+**所有 session 的結尾**（做票、訪談、寫架構、里程碑開工都算）：告訴使用者下一步要在新 session 下的完整指令；不是做票的 session 在 progress.md 加一列，把同一句寫進「下一步」。下一張票是 `/implement <票路徑>`，里程碑做完是 `/1morr:checkpoint <剛做完的里程碑>`（回顧上一段、和使用者對齊下一段；它結束時寫 `/to-tickets docs/roadmap.md 拆 <下一個里程碑> 的票`）；要使用者先決定才能繼續時，寫 `等使用者：<要決定什麼>`。協調者開的 session 不知道下一張是哪張，只回報做完了。
 
 ## 事實與查證
 
-- 三個音源的端點、參數、簽名與風控行為，Flutter、套件與各平台框架的行為，只信兩處：`docs/research/facts-*.md` 的〈事實〉段，以及現查（context7、官方文件）。沒寫的先查再用，查到的補進對應主題的檔，給編號、附來源。
+- 三個音源的端點、參數、簽名與風控行為，Flutter、套件與各平台框架的行為，只信兩處：`docs/research/facts-*.md` 的〈事實〉段，以及現查（context7、官方文件）。沒寫的先查再用，查到的補進對應主題的檔，給編號、附來源；新開的檔加進 brief〈事實索引〉。
 - 程式碼、測試與註解要指向文件時，引 ADR 編號或事實編號；brief 的章節號只寫在文件與票裡，節才能搬動（`scripts/check_docs.py` 擋）。
 - 現況以指令為準：`git log`、`git status`、測試輸出。progress.md 與 repo 不符時以 repo 為準並修 progress.md。
 
@@ -67,7 +69,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 - 讀大檔案、查文件、跑實驗交給子代理回摘要。
 - brief 只讀任務指到的章節。四個檔有字元上限，`scripts/check_docs.py` 強制：本檔 8,000、`ARCHITECTURE.md` 15,000、progress.md 20,000、brief 30,000；超過時搬走或刪掉內容，不靠縮短措辭湊數。
-- 對話已長或一個任務碰了十幾個檔案：把進度與下一步寫進 progress.md，結束 session。
+- 對話已長或一個任務碰了十幾個檔案：把進度與下一步寫下來，結束 session。做票時寫在票的 `## Comments`，其他 session 寫進 progress.md。
 
 ## UI
 
@@ -105,6 +107,7 @@ GitHub `1morr/FMP` 的 issue 收外部回報，用 `gh` 處理；工作用的票
 - 需求與設計訪談：`/grill-with-docs`（邊問邊寫 `GLOSSARY.md` 與 ADR，照〈擁有者確認〉先給草稿），結論寫回 brief。
 - 里程碑開工（使用者在新 session 下 `/to-tickets docs/roadmap.md 拆 <里程碑> 的票`）、做驗收票 `NN-<里程碑>-acceptance`：先讀 `docs/agents/milestone.md`，照它的步驟做。之後的里程碑留在 roadmap，開工時才有 spec。
 - 做票：一張票一個 session，`/implement`；整批跑票：`/1morr:ticket-coordinator`。
+- 里程碑之間：`/1morr:checkpoint`；想看懂某樣東西現在怎麼運作：`/1morr:explain`；里程碑、票、決定的總覽頁：`/1morr:dashboard`。
 - 新功能與修 bug：`mattpocock-skills:tdd`。
 - 設計模組邊界（音源、播放、平台層之間）：`mattpocock-skills:codebase-design`。
 - 用實驗回答設計問題（平台框架行為、音源回應實測）：`mattpocock-skills:prototype`，決定寫回 brief，量到的數字寫進 `docs/research/`。實驗腳本留在 `scripts/experiments/`，換版本時要重量。

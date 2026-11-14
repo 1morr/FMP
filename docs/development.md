@@ -93,7 +93,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 ## 開發環境與閘門
 
-- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（`ARCHITECTURE.md`〈測試策略〉）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行；沒改到 `app/`、但改到 `docs/`、`.scratch/`、`scripts/check_docs.py`、`scripts/tests/`、`AGENTS.md` 或 `ARCHITECTURE.md` 時，hook 只跑 `python3 scripts/check_docs.py`（不跑它的測試）。
+- `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（`ARCHITECTURE.md`〈測試策略〉）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行；沒改到 `app/`、但改到 `scripts/` 的檢查腳本或它們的測試時，hook 跑 `python3 scripts/check_docs.py` 與 `python3 -m unittest discover -s scripts/tests`；只改到 `docs/`、`.scratch/`、`AGENTS.md`、`ARCHITECTURE.md` 或 `CHANGELOG.md` 時只跑 `python3 scripts/check_docs.py`。
 - `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見〈平台〉各平台的「閘門」），最後檢查插件打包產物是否最新（`plugin bundles (esbuild)`：在 `app/plugins/` 跑 `npm ci` 與 `npm run build -- --outdir <暫存目錄>`，含型別檢查，再和提交的各插件 `dist/` 逐位元組比對）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），iOS 模擬器與 Android 模擬器先開好，`winpc` 的桌面有人登入。每張票合併前跑完整版。
 - **共用裝置鎖**：完整版在 Mac 上的三個建置之後、`build windows` 之前跑 `lock shared devices`，四平台的 `integration_test` 跑完後跑 `unlock shared devices`；中間的步驟（`winpc` 的同步、建置與 integration_test，模擬器與 macOS 的 integration_test）持有鎖時才跑，沒拿到就判失敗。同一時間只有一個 worktree 的完整版在碰共用裝置。
   - 位置：`git rev-parse --path-format=absolute --git-common-dir` 底下（所有 worktree 共用的 `.git`）的 `fmp-device.lock`，持有者資訊在同目錄的 `fmp-device.lock.holder`（JSON：`worktree`、`pid`、`started`）。實作在 `app/tool/src/device_lock.dart`。
@@ -106,3 +106,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 - 插件：原始碼在 `app/plugins/<id>/src/`。改了之後在 `app/plugins/` 跑 `npm ci`（第一次）與 `npm run build`（`tsc --noEmit` 加 esbuild），把 `dist/plugin.js` 一起提交；新插件目錄另外要列進 `pubspec.yaml` 的 `assets`（`test/plugins/plugin_assets_test.dart` 守著）。宿主 API 的型別在 `app/plugins/host.d.ts`，和 Dart 端（`lib/plugins/src/`）一起改。npm 11 預設不跑 esbuild 的 postinstall，不影響建置（平台二進位由 optional dependency 裝好）。
 - GitHub Actions：新版平常不跑。`app-release.yml` 還沒建（M5）：預定由 `app-v*` tag 觸發，跑完整閘門後發佈。舊版的 `ci.yml` 照舊，M0 要確認它不受 `app/` 影響。
 - 環境：Flutter 3.47.5（Mac 與 `winpc`）、Xcode 27.1、iOS 27.1 模擬器、Android 模擬器 `Medium_Phone_API_37.0`、Node（開發插件與完整閘門用；2026-11-12 本機 26.12.0、npm 11.20.0，esbuild 0.28 要 Node ≥ 18）、rustup（Rust ≥ 1.95，fjs 在 Android 與 Windows 從原始碼編；`winpc` 的 default host 要是 msvc）。
+
+## Commit message
+
+Conventional Commits：`<type>(<scope>): <subject>`，英文祈使句、小寫開頭、無句號，標題不超過 72 字元。type 是 feat、fix、docs、style、refactor、perf、test、build、ci、chore、revert。`.githooks/commit-msg` 跑 `scripts/check_commit_msg.py` 擋不合格的；照收的例外：git 預設的合併與 revert 訊息，以及合併票用的 `merge: ticket NN <slug>`（正在合併時的訊息一律放行）。舊版的緊急修正也照這個格式。

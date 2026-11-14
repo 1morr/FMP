@@ -20,6 +20,10 @@
   大小與寫法
     - 字元上限（Python `len`）：AGENTS.md 8,000、ARCHITECTURE.md 15,000、docs/progress.md 20,000、docs/design-brief.md 30,000；不存在的檔不查
     - docs/design-brief.md、ARCHITECTURE.md 不寫票號（「票 12」「票12」）；程式碼區塊裡的不算
+  CHANGELOG.md（不存在就不查）
+    - 有 `## [Unreleased]`；`##` 標題是 `[Unreleased]` 或 `[<版號>] - YYYY-MM-DD`；版本底下的 `###` 是 Keep a Changelog 的六個分類：
+      Added、Changed、Deprecated、Removed、Fixed、Security
+    - 〈[Unreleased]〉裡每個頂格的條目在某個分類底下，以 `- **<功能>**：` 開頭（續行縮排）；已發版的段落只查標題
   docs/ 的結構
     - docs/ 第一層的每個檔與資料夾，名字都出現在指令檔（AGENTS.md，沒有就看 CLAUDE.md）裡；兩個都沒有就不查
     - docs/research/ 第一層：檔名裡有日期的，日期在最後（`<主題>-YYYY-MM-DD`）；`facts-*.md` 有〈事實〉段
@@ -33,7 +37,10 @@
     - 每張票在第一個 `##` 之前有一行 `Status:`
     - 還沒結束的里程碑（roadmap.md 的狀態不是「已驗收」「不做」開頭）每張票有 `## 驗收` 段，裡面至少一個勾選框
     - roadmap.md 標「進行中」的里程碑（表的「里程碑」欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
-      有一行以 `Session 紀錄：` 開頭，以 `決定：` 開頭的行都標一個決定者；spec 的〈驗收〉底下有 `### 使用者試`
+      有一行 `Session 紀錄：<YYYY-MM-DD> <做了什麼>`，以 `決定：` 開頭的行都標一個決定者、不超過 160 字元
+      （票是這兩種紀錄唯一的來源，封存時加上日期與票號仍在 200 字元內）；spec 的〈驗收〉底下有 `### 使用者試`
+    - 有 CHANGELOG.md 的 repo，上一條那些 done 的票還要至少一行 `變更：`：`變更：<分類>｜<功能>｜<一句>`（分類是上面六個之一），
+      或沒有使用者看得到的改動時 `變更：無`
 只用標準函式庫。
 """
 
@@ -78,6 +85,14 @@ MILESTONE_DIR = re.compile(r"^m\d+(\.\d+)?$")
 STATUS = re.compile(r"^\**Status:?\**:?\s*\S", re.I)
 DONE = re.compile(r"^\**Status:?\**:?\s*done\b", re.I)
 SESSION_NOTE, DECISION_NOTE = "Session 紀錄：", "決定："
+DATED_SESSION_NOTE = re.compile(r"^Session 紀錄：\d{4}-\d{2}-\d{2} \S")
+MAX_NOTE_CHARS = 160
+CHANGELOG, UNRELEASED = "CHANGELOG.md", "[Unreleased]"
+KINDS = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")
+CHANGE_NOTE, NO_CHANGE = "變更：", "變更：無"
+CHANGE = re.compile(r"^變更：(?:%s)｜[^｜]*\S[^｜]*｜\s*\S" % "|".join(KINDS))
+VERSION = re.compile(r"^\[[^\]\s]+\] - \d{4}-\d{2}-\d{2}(?:\s.*)?$")
+ENTRY = re.compile(r"^- \*\*[^*]+\*\*[：:]")
 ACCEPTANCE, USER_TRIAL = "驗收", "使用者試"
 ACCEPTANCE_SUFFIXES = ("-acceptance.md", "-close.md")
 CELL_SPLIT = re.compile(r"(?<!\\)\|")
@@ -200,6 +215,34 @@ def check_archive(root: Path) -> list:
                            f"沒有可試的寫「無」和理由")
         elif OLD_ARCHIVED not in by_title:
             out.append(f"{rel}：缺〈{ARCHIVED}〉段（這個里程碑沒有決定就留空段）")
+    return out
+
+
+def check_changelog(root: Path) -> list:
+    if not (root / CHANGELOG).is_file():
+        return []
+    out, version, kind, fenced, seen = [], None, None, False, False
+    for n, line in enumerate((root / CHANGELOG).read_text(encoding="utf-8").split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+        if fenced:
+            continue
+        if line.startswith("## "):
+            version, kind = line[3:].strip(), None
+            seen = seen or version == UNRELEASED
+            if version != UNRELEASED and not VERSION.match(version):
+                out.append(f"{CHANGELOG}:{n}：`##` 標題寫成 `## {UNRELEASED}` 或 `## [<版號>] - YYYY-MM-DD`")
+        elif line.startswith("### ") and version is not None:
+            kind = line[4:].strip()
+            if kind not in KINDS:
+                out.append(f"{CHANGELOG}:{n}：分類只能是 {'、'.join(KINDS)}")
+        elif version == UNRELEASED and line.startswith("- "):
+            if kind is None:
+                out.append(f"{CHANGELOG}:{n}：條目要放在某個分類底下（`### Added` 這類）")
+            elif not ENTRY.match(line):
+                out.append(f"{CHANGELOG}:{n}：條目寫成 `- **<功能>**：<一句>`，續行縮排；總覽頁靠 <功能> 把同一個功能的改動排在一起")
+    if not seen:
+        out.append(f"{CHANGELOG}：缺 `## {UNRELEASED}`，沒發版的條目放在它底下")
     return out
 
 
@@ -355,6 +398,7 @@ def check_scratch(root: Path) -> list:
     if not base.is_dir():
         return out
     active, listed = active_dirs(root), listed_dirs(root)
+    has_changelog = (root / CHANGELOG).is_file()
     for d in sorted(p for p in base.iterdir() if (p / "issues").is_dir()):
         rel = f"{SCRATCH}/{d.name}"
         if listed is not None and d.name.lower() not in listed:
@@ -382,11 +426,20 @@ def check_scratch(root: Path) -> list:
                 out.append(f"{rel}/issues/{t.name}：第一個 ## 之前要有一行 `Status:`")
             elif d.name in active and any(DONE.match(line) for line in head):
                 comments = text.split("\n## Comments", 1)
-                if len(comments) < 2 or not any(l.startswith(SESSION_NOTE) for l in comments[1].split("\n")):
-                    out.append(f"{rel}/issues/{t.name}：做完的票要在 `## Comments` 之後留一行「{SESSION_NOTE}<做了什麼>」，合併的人照它寫 progress.md")
-                for l in (comments[1].split("\n") if len(comments) == 2 else []):
+                noted = comments[1].split("\n") if len(comments) == 2 else []
+                where = f"{rel}/issues/{t.name}"
+                if not any(DATED_SESSION_NOTE.match(l) for l in noted):
+                    out.append(f"{where}：做完的票要在 `## Comments` 之後留一行「{SESSION_NOTE}<YYYY-MM-DD> <做了什麼>」，票是這條紀錄唯一的來源")
+                if has_changelog and not any(l.startswith(CHANGE_NOTE) for l in noted):
+                    out.append(f"{where}：做完的票要在 `## Comments` 之後留至少一行「{CHANGE_NOTE}」：每個使用者看得到的改動一行，沒有就寫「{NO_CHANGE}」")
+                for l in noted:
                     if l.startswith(DECISION_NOTE) and len(DECIDER.findall(l)) != 1:
-                        out.append(f"{rel}/issues/{t.name}：「{DECISION_NOTE}」那一行要標一個決定者：{DECIDER_LIST}")
+                        out.append(f"{where}：「{DECISION_NOTE}」那一行要標一個決定者：{DECIDER_LIST}")
+                    if l.startswith(DECISION_NOTE) and len(l) > MAX_NOTE_CHARS:
+                        out.append(f"{where}：「{DECISION_NOTE}」那一行 {len(l)} 字元，上限 {MAX_NOTE_CHARS}。細節寫在它上面的 Comments")
+                    if l.startswith(CHANGE_NOTE) and l.strip() != NO_CHANGE and not CHANGE.match(l):
+                        out.append(f"{where}：「{CHANGE_NOTE}」那一行寫成「{CHANGE_NOTE}<{'|'.join(KINDS)}>｜<功能>｜<一句>」，"
+                                   f"沒有使用者看得到的改動寫「{NO_CHANGE}」")
             if listed and d.name.lower() in listed and not listed[d.name.lower()].startswith(CLOSED):
                 criteria = next((lines for title, lines in sections(text) if title == ACCEPTANCE), None)
                 if criteria is None or not any(CHECKBOX.match(l) for _, l in criteria):
@@ -401,7 +454,7 @@ def run(root: Path) -> list:
             out += check((root / rel).read_text(encoding="utf-8"))
         else:
             out.append(f"找不到 {rel}")
-    return (out + check_archive(root) + check_adrs(root) + check_budgets(root) + check_current_state(root) + check_layout(root)
+    return (out + check_archive(root) + check_adrs(root) + check_changelog(root) + check_budgets(root) + check_current_state(root) + check_layout(root)
             + check_code_refs(root) + check_scratch(root))
 
 

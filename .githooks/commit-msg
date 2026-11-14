@@ -1,0 +1,6 @@
+#!/bin/sh
+# commit message 規則見 docs/development.md〈Commit message〉。
+for py in python3 python; do
+  "$py" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1 && exec "$py" scripts/check_commit_msg.py "$1"
+done
+echo "commit-msg: 找不到 Python 3，沒檢查 commit message" >&2

@@ -7,11 +7,17 @@
 import contextlib
 import importlib.util
 import io
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+# pre-commit hook 裡 git 會設絕對路徑的 GIT_DIR、GIT_INDEX_FILE：在暫存目錄跑的 git 繼承它們，就把假檔案寫進外面那個 repo 的
+# index、把它的 config 改成 core.bare = true。專案常用自己的 hook 跑這些測試，所以由測試自己清；測試只碰自己建的暫存 repo。
+for _name in [n for n in os.environ if n.startswith("GIT_")]:
+    del os.environ[_name]
 
 HERE = Path(__file__).resolve().parent
 SCRIPT = next(p for p in (HERE.parent / "scripts" / "check_docs.py", HERE.parent / "check_docs.py") if p.is_file())
@@ -572,21 +578,51 @@ class ScratchTest(Repo):
                 self.setUp()
                 self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent", status)
                 self.red("01-first.md：做完的票")
-                self.sub(".scratch/m1/issues/01-first.md", "## Comments\n", "## Comments\n\n- code-review 沒處理的發現。\n\nSession 紀錄：閘門就位。\n決定：改用另一個套件（使用者同意）。\n")
+                self.sub(".scratch/m1/issues/01-first.md", "## Comments\n", "## Comments\n\n- code-review 沒處理的發現。\n\nSession 紀錄：2026-01-04 閘門就位。\n決定：改用另一個套件（使用者同意）。\n")
                 self.clean()
+
+    def test_session_note_needs_a_date(self):
+        for note in ("Session 紀錄：閘門就位。", "Session 紀錄：1 月 4 日閘門就位。", "Session 紀錄：2026-01-04"):
+            with self.subTest(note):
+                self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + f"\n{note}\n")
+                self.red("01-first.md：做完的票")
+        self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + "\n隨便一句。\nSession 紀錄：2026-01-04 閘門就位，細節見上。\n")
+        self.clean()
+
+    def test_decision_line_on_a_done_ticket_has_a_length_limit(self):
+        done = TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n"
+        self.write(".scratch/m1/issues/01-first.md", done + "決定：" + "長" * 149 + "（Agent 定）\n")
+        self.red("01-first.md：「決定：」那一行 161 字元")
+        self.write(".scratch/m1/issues/01-first.md", done + "決定：" + "長" * 148 + "（Agent 定）\n" + "別的行不限長度" * 40 + "\n")
+        self.clean()
 
     def test_decision_line_on_a_done_ticket_needs_one_decider(self):
         self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent", "Status: done")
         for line in ("決定：改用另一個套件。", "決定：改用另一個套件（使用者定）（Agent 定）。"):
             with self.subTest(line):
-                self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + f"\nSession 紀錄：做完。\n{line}\n")
+                self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + f"\nSession 紀錄：2026-01-04 做完。\n{line}\n")
                 self.red("01-first.md：「決定：」那一行要標一個決定者")
-        self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：做完。\n- 這一行提到決定：但不是開頭。\n")
+        self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n- 這一行提到決定：但不是開頭。\n")
         self.clean()
+
+    def test_with_a_changelog_a_done_ticket_says_what_changed_for_the_user(self):
+        done = TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n"
+        self.write(".scratch/m1/issues/01-first.md", done)
+        self.clean()  # 沒有 CHANGELOG.md 的 repo 不要求
+        self.write("CHANGELOG.md", "# Changelog\n\n## [Unreleased]\n")
+        self.red("01-first.md：做完的票要在 `## Comments` 之後留至少一行「變更：」")
+        for line in ("變更：新增搜尋", "變更：Add｜搜尋｜可以搜。", "變更：Added｜搜尋", "變更：Added｜｜可以搜。", "變更：Added|搜尋|可以搜。"):
+            with self.subTest(line):
+                self.write(".scratch/m1/issues/01-first.md", done + line + "\n")
+                self.red("01-first.md：「變更：」那一行寫成")
+        for lines in ("變更：無", "變更：Added｜搜尋｜可以搜。\n變更：Fixed｜候選列｜整季缺時問得到。"):
+            with self.subTest(lines):
+                self.write(".scratch/m1/issues/01-first.md", done + lines + "\n- 這一行提到變更：但不是開頭。\n")
+                self.clean()
 
     def test_session_note_before_comments_does_not_count(self):
         self.sub(".scratch/m1/issues/01-first.md", "Status: ready-for-agent", "Status: done")
-        self.sub(".scratch/m1/issues/01-first.md", "## What to build\n", "## What to build\n\nSession 紀錄：寫錯地方。\n")
+        self.sub(".scratch/m1/issues/01-first.md", "## What to build\n", "## What to build\n\nSession 紀錄：2026-01-04 寫錯地方。\n")
         self.red("01-first.md：做完的票")
 
     def test_done_tickets_outside_the_active_milestone_are_not_checked(self):
@@ -596,6 +632,48 @@ class ScratchTest(Repo):
         self.write(".scratch/docs-cleanup/spec.md", SPEC)
         self.write(".scratch/docs-cleanup/issues/01-trim.md", TICKET.replace("ready-for-agent", "done"))
         self.row("docs-cleanup 文件瘦身")
+        self.clean()
+
+
+
+class ChangelogTest(Repo):
+    GOOD = ("# Changelog\n\n說明裡的清單不算條目：\n\n- 隨便一行\n\n## [Unreleased]\n\n升級說明可以是段落。\n\n### Added\n\n"
+            "- **搜尋**：可以搜作品，\n  續行縮排。\n  - 子項不查。\n\n### Fixed\n\n- **候選列**: 半形冒號也收。\n\n"
+            "## [0.1.0] - 2026-01-02\n\n- 已發版的段落只查標題\n\n### Changed\n\n- 舊條目不必有功能名\n\n## [0.0.1-rc1] - 2026-01-01 [YANKED]\n")
+
+    def test_a_repo_without_a_changelog_is_not_checked(self):
+        self.clean()
+
+    def test_keep_a_changelog_layout_passes(self):
+        self.write("CHANGELOG.md", self.GOOD)
+        self.clean()
+
+    def test_unreleased_section_is_required(self):
+        self.write("CHANGELOG.md", self.GOOD.replace("## [Unreleased]", "## [0.2.0] - 2026-01-03"))
+        self.red("CHANGELOG.md：缺 `## [Unreleased]`")
+
+    def test_version_headings(self):
+        for heading in ("## 0.1.0 - 2026-01-02", "## [0.1.0]", "## [0.1.0] 2026-01-02", "## 未發版"):
+            with self.subTest(heading):
+                self.write("CHANGELOG.md", self.GOOD.replace("## [0.1.0] - 2026-01-02", heading))
+                self.red("CHANGELOG.md:21：`##` 標題寫成")
+
+    def test_categories_are_the_six_of_keep_a_changelog(self):
+        self.write("CHANGELOG.md", self.GOOD.replace("### Fixed", "### 修正"))
+        self.red("CHANGELOG.md:17：分類只能是")
+        self.write("CHANGELOG.md", self.GOOD.replace("### Changed", "### Improved"))
+        self.red("CHANGELOG.md:25：分類只能是")
+
+    def test_unreleased_entries_name_a_feature_under_a_category(self):
+        for entry in ("- 修了搜尋", "- **搜尋** 可以搜", "- 搜尋：可以搜"):
+            with self.subTest(entry):
+                self.write("CHANGELOG.md", self.GOOD.replace("- **搜尋**：可以搜作品，", entry))
+                self.red("CHANGELOG.md:13：條目寫成 `- **<功能>**：<一句>`")
+        self.write("CHANGELOG.md", self.GOOD.replace("升級說明可以是段落。", "- **搜尋**：還沒有分類。"))
+        self.red("CHANGELOG.md:9：條目要放在某個分類底下")
+
+    def test_code_blocks_are_skipped(self):
+        self.write("CHANGELOG.md", self.GOOD.replace("升級說明可以是段落。", "```\n## 隨便\n### 隨便\n- 隨便\n```"))
         self.clean()
 
 
