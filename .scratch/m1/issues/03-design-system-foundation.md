@@ -1,6 +1,6 @@
 # 03: 設計系統基礎
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 讀: brief §11；`docs/design/DESIGN.md` §2、§3、§5.3、§10；`docs/design/system.html`；事實 T1；architecture〈依賴規則〉〈主要依賴〉；spec〈共同規則〉
 
@@ -14,11 +14,33 @@ App 改用 `material_ui`，並有照 `DESIGN.md` 的主題：中性色與功能�
 
 ## 驗收
 
-- [ ] `lib/` 沒有 `package:flutter/material.dart` 的 import；`material_ui` 的版本寫進 ARCHITECTURE〈主要依賴〉。
-- [ ] token 的數值和 `DESIGN.md` §2、§3 對得上，有測試讀主題比對幾個代表值（深淺色各一）。
-- [ ] 寬度分級的邊界（600、1200）與密度有單元測試；畫面拿得到，不自己判斷平台。
-- [ ] 依賴規則的兩條新規則：造違規證明會紅、改無關的命名證明不紅，ARCHITECTURE〈依賴規則〉已改。
-- [ ] 四平台實跑佔位畫面，深淺色各一張截圖。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] `lib/` 沒有 `package:flutter/material.dart` 的 import；`material_ui` 的版本寫進 ARCHITECTURE〈主要依賴〉。
+- [x] token 的數值和 `DESIGN.md` §2、§3 對得上，有測試讀主題比對幾個代表值（深淺色各一）。
+- [x] 寬度分級的邊界（600、1200）與密度有單元測試；畫面拿得到，不自己判斷平台。
+- [x] 依賴規則的兩條新規則：造違規證明會紅、改無關的命名證明不紅，ARCHITECTURE〈依賴規則〉已改。
+- [x] 四平台實跑佔位畫面，深淺色各一張截圖。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。（winpc 的 Dart VM 偶發崩潰，兩輪完整閘門的 Windows 步驟都因此失敗；同一個 commit 用閘門的同一組指令手動重跑，Windows 建置與兩個 integration_test 都通過，見 Comments）
 
 ## Comments
+
+依賴的公開簽名檢查：掃過所有依賴的 `lib/`，`flutter_riverpod` 已改用 `material_ui`；只有 `flutter_localizations` 用內建 Material（`GlobalMaterialLocalizations` 回傳內建的 `MaterialLocalizations`）。改用 `material_ui` 自帶的同名類別、移除 `flutter_localizations` 直接依賴後，沒有依賴在公開簽名收或回傳內建 Material 型別，不需要 `MaterialUiCompatibilityBridge`。`flutter_driver`、`leak_tracker_flutter_testing` 也用內建 Material，但只在測試工具鏈。
+
+code-review 未處理的發現：
+- 焦點外框（DESIGN.md §10：2px 強調色、offset 2）沒有 token，留給第一張做可聚焦元件的票（05 起）。
+- 字型沒指定 Windows 的 Segoe UI Variable 與 CJK 字型（DESIGN.md §3.1），用 Flutter 各平台的預設字型；Windows 上是 Segoe UI。
+- `ThemeData.platform` 以寫法認（規則不做型別解析）：`Theme.of(context).platform`、以它初始化的變數、名稱含 theme 的變數；把 `ThemeData` 存進名稱不含 theme 的參數或欄位再讀 `.platform` 擋不到。
+- `FormFactor` 在 `lib/` 還沒有呼叫端，外殼票 05 第一個用。
+- 判斷題，不改：密度的三元運算在 `FmpText.of`、`FmpRadii.of` 等處重複；三個 `ThemeExtension` 的 `copyWith` 回傳自己；無強調色時深色按鈕底的判斷寫在 `FmpColors.of` 而不是 `Accent`；程式註解引用設計稿的章節標題（沿用既有寫法）。
+
+winpc 的 Dart VM 不穩：frontend_server、build_runner、JIT 編譯器在 winpc 上都偶發 access violation，開工前的 commit（d555fb45）用 frontend_server 編 4 次也崩 1 次，所以不是這張票造成的。winpc 這兩天有兩次藍屏（BugCheck 0xA、0x1E），roadmap 已排在 07 開工前請擁有者檢查硬體。在那之前，Windows 的閘門步驟失敗時，先看 `app/build/winpc/*.log` 裡有沒有 `===== CRASH =====` 或 `END CFG`，有的話就重跑。
+
+Session 紀錄：2026-11-15 改用 `material_ui`、加設計系統 token 與 `platform/` 的寬度分級與密度、依賴規則補三條，四平台深淺色實跑；完整閘門除了 Windows 都綠，Windows 因 winpc 崩潰改手動重跑通過
+決定：token 是 `app/theme/` 的三個 ThemeExtension（`FmpColors`、`FmpText`、`FmpMetrics`），間距與動態是靜態常數，畫面經 `context.fmpColors` 等讀（Agent 定）
+決定：深色 label-2/3/4 照 `fmp.css` 用 rgba(238,236,247,…)（DESIGN.md 寫「白」）；title2 的字距照 DESIGN.md 用 -0.01em（CSS 沒有）（Agent 定）
+決定：依賴規則多一條：`lib/` 不得 import 內建 `material.dart`、`cupertino.dart`，防 IDE 自動 import 帶回來（Agent 定）
+決定：`domain/` 沿 `package:fmp/` 的 import 走整條鏈都不得出現 Flutter，鏈上純 Dart 的檔可以 import（Agent 定）
+決定：讀 `ThemeData.platform`（`Theme.of(context).platform`、theme 變數的 `.platform`）也算判斷平台，`platform/` 以外不得用（Agent 定）
+決定：移除 `flutter_localizations` 直接依賴，在地化改用 `material_ui` 的 `GlobalMaterialLocalizations`（Agent 定）
+決定：`platform/` 給的密度也設進 `ThemeData` 的 `visualDensity`、`materialTapTargetSize`，不讓 Material 依平台自己猜（Agent 定）
+決定：手機內容邊距取 16（設計稿寫 16–20，取下限）（Agent 定）
+變更：Changed｜外觀｜畫面改用新設計系統的配色與字級，深淺色跟著系統切換

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/ui/placeholder/placeholder_page.dart';
 
 /// Riverpod 3 預設會自動重試失敗的 provider（10 次、約 38 秒），連
@@ -24,7 +25,12 @@ class FmpApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final density = Density.current;
     return MaterialApp(
+      // 深淺色跟系統；設定頁的主題選項之後再接。
+      themeMode: ThemeMode.system,
+      theme: buildTheme(brightness: Brightness.light, density: density),
+      darkTheme: buildTheme(brightness: Brightness.dark, density: density),
       onGenerateTitle: (context) => context.t.app.name,
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,

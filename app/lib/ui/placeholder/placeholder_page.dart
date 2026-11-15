@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/redaction/redact.dart';
 import 'package:fmp/domain/audio_stream.dart';
@@ -32,24 +33,35 @@ class _PlaceholderPageState extends ConsumerState<PlaceholderPage> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final textTheme = Theme.of(context).textTheme;
+    final text = context.fmpText;
+    final colors = context.fmpColors;
+    final metrics = context.fmpMetrics;
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 24),
-            Text(t.app.name, style: textTheme.displayMedium),
-            const SizedBox(height: 8),
-            Text(t.placeholder.subtitle, style: textTheme.titleMedium),
+            const SizedBox(height: FmpSpace.s6),
+            Text(t.app.name, style: text.large),
+            const SizedBox(height: FmpSpace.s2),
+            Text(
+              t.placeholder.subtitle,
+              style: text.sub.copyWith(color: colors.label2),
+            ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(metrics.pagePadding),
               child: TextField(
                 controller: _query,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (_) => _search(),
                 decoration: InputDecoration(
                   hintText: t.placeholder.search.hint,
-                  border: const OutlineInputBorder(),
+                  hintStyle: TextStyle(color: colors.label3),
+                  filled: true,
+                  fillColor: colors.fill,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(metrics.radii.field),
+                    borderSide: BorderSide.none,
+                  ),
                   suffixIcon: IconButton(
                     tooltip: t.placeholder.search.hint,
                     icon: const Icon(Icons.search),
@@ -81,7 +93,9 @@ class _Results extends ConsumerWidget {
             ListTile(
               title: Text(
                 source.pluginName,
-                style: Theme.of(context).textTheme.titleSmall,
+                style: context.fmpText.head.copyWith(
+                  color: context.fmpColors.label2,
+                ),
               ),
             ),
             if (source.error case final error?)
@@ -113,10 +127,12 @@ class _TrackTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final duration = track.duration;
+    final text = context.fmpText;
     return ListTile(
       onTap: () => ref.read(playbackProvider.notifier).play(track),
-      title: Text(track.title),
+      title: Text(track.title, style: text.body),
       subtitle: Text(
+        style: text.sub.copyWith(color: context.fmpColors.label2),
         duration == null
             ? track.author
             : '${track.author} · ${formatDuration(duration)}',
@@ -136,18 +152,25 @@ class _PlaybackPanel extends ConsumerWidget {
     if (playback == null) return const SizedBox.shrink();
     final t = context.t;
     final stream = playback.stream;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+    final colors = context.fmpColors;
+    final metrics = context.fmpMetrics;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: metrics.pagePadding),
+      padding: const EdgeInsets.all(FmpSpace.s3),
+      decoration: BoxDecoration(
+        color: colors.cell,
+        borderRadius: BorderRadius.circular(metrics.radii.group),
+      ),
+      child: DefaultTextStyle.merge(
+        style: context.fmpText.foot.copyWith(color: colors.label2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               playback.track.title,
-              style: Theme.of(context).textTheme.titleSmall,
+              style: context.fmpText.head.copyWith(color: colors.label),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: FmpSpace.s1),
             _controls(context, ref, t, playback),
             // 播放失敗時也顯示，方便看是哪個 CDN。
             if (stream != null) ..._details(t, stream),
@@ -195,6 +218,7 @@ class _PlaybackPanel extends ConsumerWidget {
           Text(
             '${formatDuration(playback.position)} / '
             '${formatDuration(duration)}',
+            style: context.fmpText.foot.tabular,
           ),
       ],
     );

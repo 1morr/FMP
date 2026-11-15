@@ -48,8 +48,11 @@ app/
 
 - `ui` 只能依賴功能模組與 `domain`，不能直接碰 `data`、`plugins` 的內部，也不能碰平台套件。
 - 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件，例外是 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`；平台層以外不得用 `Platform.isXxx`（依平台選音訊後端也在平台層做）。
+- 平台層以外也不得用 `defaultTargetPlatform`，也不得讀預設等於它的 `ThemeData.platform`（測試以寫法認：`Theme.of(context).platform`、以它初始化的變數或名稱含 theme 的變數再讀 `.platform`）：畫面要的平台差異由 `platform/` 提供（寬度分級與密度在 `platform/form_factor.dart`），主題的密度也從那裡拿。
+- `domain/` 是純 Dart，不得 import Flutter（`dart:ui` 與依賴 Flutter 的套件），經其他模組間接帶進來也不行：從 `domain/` 沿 `package:fmp/` 的 import 往下走，整條鏈上不得出現 Flutter；鏈上都是純 Dart 的檔（例如 `core/` 的錯誤分類）可以 import。哪裡都能用的套件在依賴規則測試裡分成純 Dart 與依賴 Flutter 兩類。
+- 不用 Flutter 內建的 `package:flutter/material.dart`、`cupertino.dart`，改用 `material_ui`（事實 T1）。
 - 音源專屬的邏輯只能在 `app/plugins/` 裡；Dart 端不得出現音源識別碼的字面值分支（ADR 0038）。
-- 由一支掃 import 與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。已接上。
+- 由一支掃 `app/lib/` 的 import（含條件式 import）與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。已接上。
 - 模組的實際介面在 M0 用 codebase-design skill 細化。
 
 ## 主要依賴
@@ -59,6 +62,7 @@ app/
 | 用途 | 依賴 | 理由 |
 | --- | --- | --- |
 | 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
+| 元件與主題 | material_ui 1.11.0（帶進 cupertino_ui 1.1.6） | 取代 Flutter 內建、3.50 起 deprecated 的 Material（事實 T1）；設計系統的 token 是它的 `ThemeExtension`，在 `app/theme/` |
 | 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（〈測試策略〉）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio 5.11.1 | 插件請求都經宿主網路層（`plugins/src/host_network.dart`：網域白名單、log 與遮蔽；依音源限流與重試還沒做，〈風險與回寫點〉），只有 `plugins/` 能 import（依賴規則）；測試換掉 `HttpClientAdapter` |
@@ -68,7 +72,7 @@ app/
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
 | 玻璃 | liquid_glass_easy 5.2.0（實測的版本；加入的票照當時的 stable 重查） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
-| i18n | slang 4.19.2、slang_flutter 4.19.0；flutter_localizations（SDK） | 舊版用過 |
+| i18n | slang 4.19.2、slang_flutter 4.19.0 | 舊版用過；Flutter 元件的在地化用 `material_ui` 的 `GlobalMaterialLocalizations` |
 | log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
 | App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄與資料庫檔案由 `platform/` 經它取得（brief 事實 K13） |
 | JS 引擎 | fjs 3.3.2 | 四平台同一個 QuickJS-NG，能中斷、能設記憶體上限、支援 async（brief 事實 K11） |
