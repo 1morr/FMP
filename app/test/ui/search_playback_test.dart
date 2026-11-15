@@ -8,13 +8,14 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/plugins/plugins.dart';
-import 'package:fmp/ui/placeholder/placeholder_page.dart';
+import 'package:fmp/ui/search/search_page.dart';
 
 import '../support/fake_audio_backend.dart';
 import '../support/fake_http.dart';
 import '../support/fjs.dart';
+import '../support/shell.dart';
 
-/// 佔位畫面點一首曲目（票 10、11）：用提供它的插件解析串流並播放，顯示
+/// 搜尋頁裡的佔位搜尋點一首曲目（M0 票 10、11）：用提供它的插件解析串流並播放，顯示
 /// 播放狀態、音質、到期時間與遮蔽過的網址，能暫停、繼續；失敗時顯示錯誤
 /// 分類。插件寫在這裡，跑在真的引擎裡；音訊後端是假的。
 void main() {
@@ -97,6 +98,7 @@ void main() {
         ],
       ),
     );
+    await openSearch(tester);
     await tester.enterText(find.byType(TextField), 'q');
     await tester.runAsync(
       () => tester.testTextInput.receiveAction(TextInputAction.search),

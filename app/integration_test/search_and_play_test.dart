@@ -14,8 +14,9 @@ import 'package:integration_test/integration_test.dart';
 import '../test/support/fake_http.dart';
 import '../test/support/local_audio_server.dart';
 import '../test/support/no_network.dart';
+import '../test/support/shell.dart';
 
-/// M0 的主要流程（architecture〈測試策略〉）：在佔位畫面搜尋、點一首、播放、暫停、繼續。
+/// M0 的主要流程（architecture〈測試策略〉）：從外殼進搜尋頁，用佔位搜尋搜尋、點一首、播放、暫停、繼續。
 /// 在真的平台上跑 App 打包的 bilibili 插件（fjs 引擎）與這個平台的音訊後端
 /// （`platform/audio_backend.dart` 挑的原生播放器）。
 ///
@@ -124,8 +125,10 @@ void main() {
       expect(finder, findsWidgets);
     }
 
+    // 外殼依這個平台的視窗寬度換版面，搜尋的入口跟著不同（票 05）。
+    await openSearch(tester);
     await tester.enterText(find.byType(TextField), '晴天');
-    await tester.tap(find.byIcon(Icons.search));
+    await tester.testTextInput.receiveAction(TextInputAction.search);
     await waitFor(find.text('晴天 測試'));
     expect(find.text('Bilibili'), findsOneWidget);
     expect(find.text('測試作者 · 0:30'), findsOneWidget);

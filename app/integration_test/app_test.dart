@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
-import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/data/database.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/main.dart' as app;
 import 'package:fmp/platform/log_directory.dart';
+import 'package:fmp/ui/home/home_page.dart';
 import 'package:integration_test/integration_test.dart';
 
 import '../test/support/no_network.dart';
@@ -18,7 +18,7 @@ void main() {
   installNoNetworkGuard();
 
   testWidgets('the app opens its database, writes its log and starts on the '
-      'placeholder page', (tester) async {
+      'home page', (tester) async {
     // log 的時間到微秒，比對時往前留 1 秒。
     final startedAt = DateTime.now().toUtc().subtract(
       const Duration(seconds: 1),
@@ -27,9 +27,8 @@ void main() {
     await app.main();
     await tester.pumpAndSettle();
 
-    // 字串跟裝置語言走，所以用目前語言的翻譯比對。
-    expect(find.text(t.app.name), findsOneWidget);
-    expect(find.text(t.placeholder.subtitle), findsOneWidget);
+    // App 打開在外殼的首頁（票 05）。
+    expect(find.byType(HomePage), findsOneWidget);
 
     // 資料庫開在這個平台由 platform/ 給的檔案上（票 07）。
     final container = ProviderScope.containerOf(

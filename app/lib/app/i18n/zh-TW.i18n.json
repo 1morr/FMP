@@ -3,9 +3,7 @@
     "name": "FMP"
   },
   "placeholder": {
-    "subtitle": "新版開發中",
     "search": {
-      "hint": "搜尋",
       "empty": "沒有結果",
       "failed": "搜尋失敗",
       "network": "連不上網路",
@@ -32,6 +30,29 @@
       "unsupportedFormat": "這個平台播不了這條串流",
       "play": "播放",
       "pause": "暫停"
+    }
+  },
+  "shell": {
+    "nav": {
+      "label": "主導覽",
+      "home": "首頁",
+      "library": "音樂庫",
+      "queue": "佇列",
+      "settings": "設定",
+      "search": "搜尋",
+      "backTo": "回到$tab"
+    },
+    "search": {
+      "hint": "搜尋歌曲、歌手",
+      "clear": "清除"
+    },
+    "detail": {
+      "title": "正在播放",
+      "show": "顯示詳情面板",
+      "hide": "收起面板"
+    },
+    "library": {
+      "empty": "還沒有歌單"
     }
   }
 }

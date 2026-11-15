@@ -3,9 +3,7 @@
     "name": "FMP"
   },
   "placeholder": {
-    "subtitle": "新版开发中",
     "search": {
-      "hint": "搜索",
       "empty": "没有结果",
       "failed": "搜索失败",
       "network": "无法连接网络",
@@ -32,6 +30,29 @@
       "unsupportedFormat": "这个平台播放不了这条音频流",
       "play": "播放",
       "pause": "暂停"
+    }
+  },
+  "shell": {
+    "nav": {
+      "label": "主导航",
+      "home": "首页",
+      "library": "音乐库",
+      "queue": "队列",
+      "settings": "设置",
+      "search": "搜索",
+      "backTo": "回到$tab"
+    },
+    "search": {
+      "hint": "搜索歌曲、歌手",
+      "clear": "清除"
+    },
+    "detail": {
+      "title": "正在播放",
+      "show": "显示详情面板",
+      "hide": "收起面板"
+    },
+    "library": {
+      "empty": "还没有歌单"
     }
   }
 }

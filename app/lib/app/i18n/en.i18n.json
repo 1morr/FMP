@@ -3,9 +3,7 @@
     "name": "FMP"
   },
   "placeholder": {
-    "subtitle": "New version in development",
     "search": {
-      "hint": "Search",
       "empty": "No results",
       "failed": "Search failed",
       "network": "Can't connect to the network",
@@ -32,6 +30,29 @@
       "unsupportedFormat": "This platform can't play this stream",
       "play": "Play",
       "pause": "Pause"
+    }
+  },
+  "shell": {
+    "nav": {
+      "label": "Main navigation",
+      "home": "Home",
+      "library": "Library",
+      "queue": "Queue",
+      "settings": "Settings",
+      "search": "Search",
+      "backTo": "Back to $tab"
+    },
+    "search": {
+      "hint": "Search songs, artists",
+      "clear": "Clear"
+    },
+    "detail": {
+      "title": "Now Playing",
+      "show": "Show details",
+      "hide": "Hide details"
+    },
+    "library": {
+      "empty": "No playlists yet"
     }
   }
 }
