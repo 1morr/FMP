@@ -23,7 +23,7 @@ Blocked by: 03
 
 量測（第一步）：Windows 上 lite glass 模糊 5、10、18 的 raster p50 都是 3.5–3.9 ms、折射級 2.7–3.0 ms、實心 2.0 ms（3 次，`docs/research/glass-lite-blur-2026-11-15.md`）。模糊值不影響成本，lite 一律比折射級慢，所以「比折射級快」的值不存在；擁有者看過截圖與數字選 18。
 
-四平台實跑：示範畫面 `app/tool/glass_demo/main.dart`（用法在 docs/development.md〈平台〉），macOS（深色）、Windows、iOS 模擬器、Android 模擬器（淺色）三級各一張，截圖在 scratchpad 不進 repo。四個平台的折射級都看得到條紋在玻璃邊緣彎曲；切三個按鈕時畫面上 9 個玻璃一起換。和 `docs/design/system.html`〈材質：Liquid Glass〉三級並排比對：standard（模糊 18）與 minimal（實心、保留邊光與陰影）對得上；折射級的邊緣彎曲比設計稿的 SVG 版弱。
+四平台實跑：示範畫面 `app/tool/glass_demo/main.dart`（用法在 docs/development.md〈平台〉），macOS（深色）、Windows、iOS 模擬器、Android 模擬器（淺色）三級各一張，截圖在 scratchpad 不進 repo，在 7d283ada（折射依大小換算、內緣高光）建置後拍。四個平台的折射級都看得到條紋在玻璃邊緣彎曲；切三個按鈕時畫面上 9 個玻璃一起換。和 `docs/design/system.html`〈材質：Liquid Glass〉三級並排比對：standard（模糊 18）與 minimal（實心、保留邊光與陰影）對得上；折射級的邊緣彎曲比設計稿的 SVG 版弱。
 
 code-review 未處理的發現與給擁有者看的：
 - 「輕量」選項的說明「只有模糊，比較省效能」（DESIGN.md〈三級與平台〉）在 Windows 不成立，捲動時降到 standard 的退路在 Windows 也省不到效能；手機沒量。票 19 寫選項字串前要擁有者定說明怎麼改。
@@ -34,7 +34,7 @@ code-review 未處理的發現與給擁有者看的：
 - `system.html` 的兩處和現行文件不一致，沒改：側欄的折射預模糊寫 6px（DESIGN.md 只寫 ≥ 5，元件一律 5，外殼票 05 做側欄時再看）；「降低透明度」那段還寫跟系統（brief〈介面〉已定不跟）。
 - Windows 的 `shot.ps1 -Click` 偶爾第一下只把視窗拉到前景、沒點到（這次三輪裡有一輪），截圖前先多點一下。
 
-完整閘門：`dart run tool/check.dart` 除了 iOS 的兩個 integration_test 都綠；那兩個失敗是閘門跑到一半 iOS 模擬器被關掉（`No running ios simulator/emulator found`），持鎖開回 iPhone 18 Pro 模擬器後照 docs/development.md〈iOS 模擬器〉的閘門指令重跑 `app_test.dart`、`search_and_play_test.dart`，都通過。
+完整閘門（7d283ada，之後只改了票）：`dart run tool/check.dart` 除了 iOS 的兩個 integration_test 都綠；那兩個失敗是閘門跑到一半 iOS 模擬器被關掉（`No running ios simulator/emulator found`），持鎖開回 iPhone 18 Pro 模擬器後照 docs/development.md〈iOS 模擬器〉的閘門指令在同一個 commit 重跑 `app_test.dart`、`search_and_play_test.dart`，都通過。
 
 Session 紀錄：2026-11-15 Windows 量 lite 模糊 5／10／18 給擁有者定 18，加三級三變體的玻璃元件、「玻璃效果」狀態與依賴規則，四平台實跑示範畫面，閘門綠
 決定：「輕量」的模糊值用 18；lite 的成本和模糊值無關，看外觀選（使用者同意）
@@ -44,6 +44,5 @@ Session 紀錄：2026-11-15 Windows 量 lite 模糊 5／10／18 給擁有者定 
 決定：陰影像 CSS box-shadow 只畫在形狀外，不透進半透明玻璃，也不被 backdrop 讀到（Agent 定）
 決定：折射強度依位移量換算 `refractionIndex`，以 probe 的 dock（短邊約 60）用 1.1 為基準，小玻璃彎得少、clear 與大玻璃彎得多（Agent 定）
 決定：示範畫面放 `app/tool/glass_demo/`，不進 `lib/`、App 裡沒有入口；`build.ps1` 加 `-Target` 換入口（Agent 定）
-決定：設計稿 CSS 的 16 一併改 18；brief、ARCHITECTURE 的「降級時模糊不能比折射級大」改成「Windows 上 standard 比較慢，降級前先量」（Agent 定）
 決定：brief §11 與 ARCHITECTURE 的玻璃降級規則改為『Windows 上 standard 比折射級慢，降級前先在那個平台量』，設計稿 fmp.css 模糊 16 改 18（使用者同意）
 變更：無
