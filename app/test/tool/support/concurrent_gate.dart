@@ -93,9 +93,24 @@ class _SharedDeviceShell implements Shell {
   }) async {
     if (executable == 'flutter') {
       return jsonEncode([
-        {'id': 'sim', 'targetPlatform': 'ios', 'emulator': true},
         {'id': 'emu', 'targetPlatform': 'android-arm64', 'emulator': true},
       ]);
+    }
+    if (executable == 'xcrun') {
+      return jsonEncode({
+        'devices': {
+          'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [
+            {
+              'udid': 'sim',
+              'name': 'iPhone',
+              'state': 'Booted',
+              'isAvailable': true,
+              'deviceTypeIdentifier':
+                  'com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro',
+            },
+          ],
+        },
+      });
     }
     return _remoteLog; // ssh winpc Get-Content
   }
