@@ -12,7 +12,7 @@
 | 層 | 內容 |
 | --- | --- |
 | 折射 | SVG 位移貼圖做出凸面邊緣：邊緣寬 = min(短邊 × 0.42, 22pt)，越靠邊彎越多，中間是平的。位移量 min(56, 短邊 × 0.6)；紅、綠、藍三色位移量 1.06／1.00／0.94 倍，邊緣出現色散 |
-| 模糊與飽和 | 一般玻璃 `blur(16px) saturate(1.8)`；折射層預模糊 ≥ 5px，飽和 1.9 |
+| 模糊與飽和 | 一般玻璃 `blur(18px) saturate(1.8)`（standard 級，§1.4）；折射層預模糊 ≥ 5px，飽和 1.9 |
 | 填色 | 深 `rgba(30,29,38,.42)`；淺 `rgba(255,255,255,.46)` |
 | 邊緣高光 | 1px 斜向漸層（150°），左上最亮、右下次亮、中段透明 |
 | 頂部光暈 | 頂部放射漸層（`--glass-sheen`） |
@@ -39,7 +39,7 @@ Flutter 對應：一個玻璃元件（brief §11），三級全部藏在它後�
 | 稿上 `data-glass` | Flutter（`liquid_glass_easy`，brief §11） | 內容 | 平台 |
 | --- | --- | --- | --- |
 | `refract` | `LiquidGlassLens` | 完整構成 | iOS、Android、macOS、Windows（四平台都是 Impeller，brief 事實 K10、K21） |
-| `standard` | lite glass（`LiquidGlassStyle(liteGlass: true)`） | `blur(18px) saturate(1.8)`＋高光＋陰影，無折射 | 四平台都做得到；預設不用，留給效能不足時降級，以及使用者在「外觀 › 玻璃效果」選「輕量」時。降級時模糊半徑不能比折射級大：M0 實測 lite glass 用模糊 16 時比用模糊 5 的 lens 還慢（brief 事實 K21） |
+| `standard` | lite glass（`LiquidGlassStyle(liteGlass: true)`） | `blur(18px) saturate(1.8)`＋高光＋陰影，無折射 | 四平台都做得到；預設不用，留給效能不足時降級，以及使用者在「外觀 › 玻璃效果」選「輕量」時。模糊 18 由擁有者看過 Windows 量測後定（2026-11-15，M1 票 04）：lite glass 的成本和模糊值無關，而且在 Windows 比折射級慢（brief 事實 K21）。lite glass 沒有飽和度參數，`saturate(1.8)` 做不到 |
 | `minimal` | 自己畫的實心填色（不用套件） | 無 backdrop；填色換成實心 `--glass-solid`（深 `#24232C`、淺 `#F7F6FA`），保留高光與陰影，`::after` 光暈關閉；clear 變體換 `rgba(20,18,28,.72)`；thick 同樣實心 | 使用者在「外觀 › 玻璃效果」選「關閉」時 |
 
 - M0 票 05b 實測（`scripts/experiments/glass/`）：四個平台都做得到折射級；折射級浮在捲動中的 1500 首列表上方時，macOS、Windows 都沒有超過 16.7 ms 的幀，所以捲動時不降級（擁有者 2026-11-12）。玻璃元件要能在執行期切換級數：里程碑量效能（brief §15）時若掉幀，改成捲動時降到 standard。
