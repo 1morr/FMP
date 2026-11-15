@@ -15,6 +15,8 @@
 
 建置（`flutter build …`）只寫這個 worktree 的 `build/`，不必拿鎖。各平台的「實跑」是一口氣做完的寫法。
 
+玻璃元件的示範畫面（`app/tool/glass_demo/main.dart`，不在 `lib/`、App 裡沒有入口）：建置時加 `-t tool/glass_demo/main.dart`（Windows 是 `build.ps1 -Target tool/glass_demo/main.dart`），其餘照各平台的「實跑」；左上三個按鈕（邏輯座標中心 (58,70)、(150,70)、(242,70)）切「玻璃效果」的完整、輕量、關閉。看完用預設入口重建一次，別讓下一個實跑開到示範畫面。
+
 ### macOS
 
 框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）。
@@ -64,7 +66,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 經 SSH 操作，不 push（2026-11-11 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑。`sync.sh`、`run_task.sh` 沒持鎖時會自己經包裝指令拿鎖（〈開發環境與閘門〉），但只在那一支腳本的期間；一次實跑的同步、建置、截圖、取回截圖要連續做完，整串包在一個 `dart run tool/device_lock.dart -- bash -c 'tool/winpc/sync.sh && tool/winpc/run_task.sh fmpbuild … && tool/winpc/run_task.sh fmpshot … && scp winpc:C:/fmp-wt/shot.png <暫存目錄>/'` 裡（或用上面的互動持鎖），裡面的腳本認得這個 worktree 已持鎖，不會再等：
 
 1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
-2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
+2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`；`-Target <檔>` 換入口。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
 3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`-Type <文字>` 在截圖前按 Tab 聚焦第一個欄位、打字、按 Enter，`-Click x,y` 再點客戶區的邏輯座標（依視窗 DPI 換算），兩者動作前都重新拉一次前景；`-Click "x,y;x,y;…"` 依序點好幾下，每下等 `-ClickWait` 秒後另存一張 `shot-<n>.png`（n 從 1 起，和 `shot.png` 同目錄，例如用「點一首、暫停、空點一下、繼續」看暫停與繼續）；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。App 的 stdout、stderr 存到 `C:\fmp-wt\app-stdout.txt`、`app-stderr.txt`（Dart VM 中止時訊息印在這裡），關視窗後 `shot.log` 記 `exited_after_close`；看有沒有在關閉時崩潰，再對照事件記錄（`Get-WinEvent -FilterHashtable @{LogName="Application"; Id=1000}`，事實 W11）。完整閘門跑完後，`Debug\fmp.exe` 已被 `flutter test -d windows` 用 integration_test 的入口重建，實跑前先重跑一次步驟 2（2026-11-11：直接啟動閘門留下的 exe，畫面正常卻沒有建立資料庫檔）。
 4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `dart run tool/device_lock.dart -- ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉（持鎖做，別的 worktree 的閘門可能正在用它）。
 
