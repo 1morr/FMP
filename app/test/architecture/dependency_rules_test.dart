@@ -228,6 +228,39 @@ final platform = f.defaultTargetPlatform;
       }, Rule.flutterInDomain);
     });
 
+    test('domain/ reaching Flutter through another fmp module', () {
+      expectViolation({
+        'domain/track.dart': "import 'package:fmp/platform/form_factor.dart';",
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'domain/track.dart': "import '../core/log/log.dart';",
+      }, Rule.flutterInDomain);
+    });
+
+    test('a conditional import', () {
+      expectViolation({
+        'domain/clock.dart': '''
+import 'clock_stub.dart' if (dart.library.ui) 'package:flutter/scheduler.dart';
+''',
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'ui/home/home_page.dart': '''
+import 'package:flutter/widgets.dart'
+    if (dart.library.io) 'package:flutter/material.dart';
+''',
+      }, Rule.builtinDesignLibrary);
+    });
+
+    test('the platform of the Material theme outside platform/', () {
+      expectViolation({
+        'ui/home/home_page.dart': '''
+import 'package:material_ui/material_ui.dart';
+bool phone(BuildContext context) =>
+    Theme.of(context).platform == TargetPlatform.iOS;
+''',
+      }, Rule.targetPlatformOutsidePlatform);
+    });
+
     test("Flutter's built-in Material or Cupertino", () {
       expectViolation({
         'ui/home/home_page.dart': "import 'package:flutter/material.dart';",
@@ -235,6 +268,10 @@ final platform = f.defaultTargetPlatform;
       expectViolation({
         'app/app.dart':
             "import 'package:flutter/cupertino.dart' show CupertinoIcons;",
+      }, Rule.builtinDesignLibrary);
+      expectViolation({
+        'ui/home/home_page.dart':
+            "import 'package:flutter/src/material/colors.dart';",
       }, Rule.builtinDesignLibrary);
     });
 
@@ -377,6 +414,8 @@ import 'dart:async';
 import 'dart:collection' show UnmodifiableListView;
 import 'package:fmp/domain/track.dart';
 import 'package:riverpod/riverpod.dart';
+import 'queue_rules.dart';
+import 'stub.dart' if (dart.library.io) 'io.dart';
 ''',
       });
     });
@@ -390,6 +429,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 ''',
         'core/log/log.dart': "import 'package:flutter/foundation.dart';",
+        'ui/player/player_page.dart': '''
+import 'package:fmp/platform/form_factor.dart';
+String describe(Device device) => device.platform.name;
+final p = widget.platform;
+''',
       });
     });
 

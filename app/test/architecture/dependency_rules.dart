@@ -31,12 +31,14 @@ enum Rule {
   /// 只有 `platform/` 能用 `Platform.isXxx`。
   platformCheckOutsidePlatform,
 
-  /// 只有 `platform/` 能用 `defaultTargetPlatform`；畫面要的平台差異（寬度
-  /// 分級、密度）由 `platform/` 提供。
+  /// 只有 `platform/` 能用 `defaultTargetPlatform`（含等於它的
+  /// `Theme.of(context).platform`）；畫面要的平台差異（寬度分級、密度）由
+  /// `platform/` 提供。
   targetPlatformOutsidePlatform,
 
   /// `domain/` 是純 Dart：不能 import Flutter（`dart:ui` 與
-  /// [PackageScope.flutter] 的套件）。
+  /// [PackageScope.flutter] 的套件）；fmp 的其他模組可能帶進 Flutter，所以
+  /// `domain/` 也只能 import `domain/` 自己的檔。
   flutterInDomain,
 
   /// 不用 Flutter 內建的 `package:flutter/material.dart`、`cupertino.dart`
@@ -155,14 +157,22 @@ class _Visitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitImportDirective(ImportDirective node) {
-    _checkUri(node, node.uri.stringValue);
+    _checkDirective(node);
     super.visitImportDirective(node);
   }
 
   @override
   void visitExportDirective(ExportDirective node) {
-    _checkUri(node, node.uri.stringValue);
+    _checkDirective(node);
     super.visitExportDirective(node);
+  }
+
+  /// 主網址與條件式 import 的每個候選網址（`if (dart.library.ui) '…'`）。
+  void _checkDirective(NamespaceDirective node) {
+    _checkUri(node, node.uri.stringValue);
+    for (final configuration in node.configurations) {
+      _checkUri(node, configuration.uri.stringValue);
+    }
   }
 
   void _checkUri(AstNode node, String? raw) {
@@ -177,6 +187,13 @@ class _Visitor extends RecursiveAstVisitor<void> {
 
     if (package == 'fmp') {
       final target = segments.skip(1).join('/');
+      if (module == 'domain' && !target.startsWith('domain/')) {
+        _flag(
+          node,
+          Rule.flutterInDomain,
+          'domain/ is pure Dart; may only import domain/, not $target',
+        );
+      }
       if (module == 'ui' && target.startsWith('data/')) {
         _flag(node, Rule.uiReachesData, 'ui/ must not reach $target');
       }
@@ -190,8 +207,12 @@ class _Visitor extends RecursiveAstVisitor<void> {
       return;
     }
 
+    const designLibraries = {'material', 'cupertino'};
     if (package == 'flutter' &&
-        const {'material.dart', 'cupertino.dart'}.contains(segments.last)) {
+        (designLibraries.contains(segments[1].replaceAll('.dart', '')) ||
+            segments[1] == 'src' &&
+                segments.length > 2 &&
+                designLibraries.contains(segments[2]))) {
       _flag(
         node,
         Rule.builtinDesignLibrary,
@@ -275,6 +296,20 @@ class _Visitor extends RecursiveAstVisitor<void> {
   @override
   void visitPropertyAccess(PropertyAccess node) {
     final target = node.target;
+    // `Theme.of(context).platform` 預設就是 defaultTargetPlatform。
+    if (module != 'platform' &&
+        node.propertyName.name == 'platform' &&
+        target is MethodInvocation &&
+        target.methodName.name == 'of' &&
+        target.target is SimpleIdentifier &&
+        (target.target! as SimpleIdentifier).name == 'Theme') {
+      _flag(
+        node,
+        Rule.targetPlatformOutsidePlatform,
+        'only platform/ may read the platform; '
+        'get width class and density from platform/',
+      );
+    }
     if (target is PrefixedIdentifier) {
       // `io.Platform.isWindows`
       _checkPlatform(node, target.identifier.name, node.propertyName.name);

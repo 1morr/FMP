@@ -218,6 +218,7 @@ class _PlaybackPanel extends ConsumerWidget {
           Text(
             '${formatDuration(playback.position)} / '
             '${formatDuration(duration)}',
+            style: context.fmpText.foot.tabular,
           ),
       ],
     );

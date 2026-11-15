@@ -78,19 +78,15 @@ class FmpMetrics extends ThemeExtension<FmpMetrics> {
     required this.thumbnailSize,
   });
 
-  factory FmpMetrics.of(Density density) => density == Density.touch
-      ? FmpMetrics._(
-          radii: FmpRadii.of(density),
-          pagePadding: FmpSpace.s4,
-          minTarget: 44,
-          thumbnailSize: 48,
-        )
-      : FmpMetrics._(
-          radii: FmpRadii.of(density),
-          pagePadding: FmpSpace.s8,
-          minTarget: 28,
-          thumbnailSize: 36,
-        );
+  factory FmpMetrics.of(Density density) {
+    final touch = density == Density.touch;
+    return FmpMetrics._(
+      radii: FmpRadii.of(density),
+      pagePadding: touch ? FmpSpace.s4 : FmpSpace.s8,
+      minTarget: touch ? 44 : 28,
+      thumbnailSize: touch ? 48 : 36,
+    );
+  }
 
   final FmpRadii radii;
 

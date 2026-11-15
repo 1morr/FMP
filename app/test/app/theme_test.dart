@@ -104,6 +104,14 @@ void main() {
       _expectStyle(text.cap, size: 11, line: 14, weight: FontWeight.w400);
     });
 
+    test('numbers can use tabular figures', () {
+      final text = theme(Brightness.dark).extension<FmpText>()!;
+      expect(text.foot.tabular.fontFeatures, [
+        const FontFeature.tabularFigures(),
+      ]);
+      expect(text.foot.tabular.fontSize, text.foot.fontSize);
+    });
+
     test('body is the default text style', () {
       final textTheme = theme(Brightness.dark).textTheme;
       expect(textTheme.bodyMedium!.fontSize, 17);

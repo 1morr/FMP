@@ -96,3 +96,10 @@ TextStyle _style(
 /// 大標題與 title1／2：Bold、letter-spacing -0.01em。
 TextStyle _display(double size, double line) =>
     _style(size, line, FontWeight.w700).copyWith(letterSpacing: -0.01 * size);
+
+/// 數字用等寬字（`font-variant-numeric: tabular-nums`），時長、進度這類
+/// 會跳動的數字才不會左右晃。
+extension TabularFigures on TextStyle {
+  TextStyle get tabular =>
+      copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+}
