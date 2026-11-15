@@ -17,3 +17,5 @@ Blocked by: None
 - [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
+
+等使用者：Windows 測試機 `winpc`（192.168.50.76）從 07:17 起離線，ping 與 SSH 都不通，到 08:30 仍沒回來。票 02 的程式與 macOS、iOS、Android 驗證已做完，在分支 `1morr/t02`（協調者的 worktree t02），只差 Windows 實跑與完整閘門的 Windows 三步。選項：開機並登入桌面，協調者叫原 session 補做後合併；或這張票先不驗 Windows。建議開機補做。不處理的話票 02 不能 done、M1 隊列停在這裡（03 之後都排在它後面）。
