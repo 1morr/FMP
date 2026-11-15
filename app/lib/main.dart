@@ -8,10 +8,12 @@ import 'package:fmp/data/database.dart';
 import 'package:fmp/platform/audio_backend.dart';
 import 'package:fmp/platform/database_file.dart';
 import 'package:fmp/platform/log_directory.dart';
+import 'package:fmp/platform/orientation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   LocaleSettings.useDeviceLocaleSync();
+  await lockPhoneToPortrait();
   final log = await Log.open(
     await logDirectory(),
     minimumLevel: minimumLogLevel(release: kReleaseMode),

@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
-import 'package:fmp/ui/placeholder/placeholder_page.dart';
+import 'package:fmp/app/router.dart';
+import 'package:go_router/go_router.dart';
 
 /// Riverpod 3 預設會自動重試失敗的 provider（10 次、約 38 秒），連
 /// `UnmountedRefException` 也會重試（brief 事實 K5），所以全域關掉。
@@ -20,13 +21,27 @@ Widget buildRoot({List<Override> overrides = const []}) {
   );
 }
 
-class FmpApp extends StatelessWidget {
+class FmpApp extends StatefulWidget {
   const FmpApp({super.key});
+
+  @override
+  State<FmpApp> createState() => _FmpAppState();
+}
+
+class _FmpAppState extends State<FmpApp> {
+  final GoRouter _router = buildRouter();
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final density = Density.current;
-    return MaterialApp(
+    return MaterialApp.router(
+      routerConfig: _router,
       // 深淺色跟系統；設定頁的主題選項之後再接。
       themeMode: ThemeMode.system,
       theme: buildTheme(brightness: Brightness.light, density: density),
@@ -35,7 +50,6 @@ class FmpApp extends StatelessWidget {
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const PlaceholderPage(),
     );
   }
 }

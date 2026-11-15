@@ -7,108 +7,74 @@ import 'package:fmp/core/redaction/redact.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
-import 'package:fmp/ui/placeholder/placeholder_search.dart';
+import 'package:fmp/platform/form_factor.dart';
+import 'package:fmp/ui/search/placeholder_search.dart';
+import 'package:fmp/ui/search/search_field.dart';
+import 'package:fmp/ui/shell/shell_page.dart';
 
-/// M0 的佔位畫面：App 名稱、一個搜尋框、搜尋結果，點一首就播放；照設計稿
-/// 的畫面從 M1 開始。
-class PlaceholderPage extends ConsumerStatefulWidget {
-  const PlaceholderPage({super.key});
-
-  @override
-  ConsumerState<PlaceholderPage> createState() => _PlaceholderPageState();
-}
-
-class _PlaceholderPageState extends ConsumerState<PlaceholderPage> {
-  final _query = TextEditingController();
-
-  @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
-  }
-
-  void _search() =>
-      ref.read(placeholderSearchProvider.notifier).search(_query.text);
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final text = context.fmpText;
-    final colors = context.fmpColors;
-    final metrics = context.fmpMetrics;
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: FmpSpace.s6),
-            Text(t.app.name, style: text.large),
-            const SizedBox(height: FmpSpace.s2),
-            Text(
-              t.placeholder.subtitle,
-              style: text.sub.copyWith(color: colors.label2),
-            ),
-            Padding(
-              padding: EdgeInsets.all(metrics.pagePadding),
-              child: TextField(
-                controller: _query,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _search(),
-                decoration: InputDecoration(
-                  hintText: t.placeholder.search.hint,
-                  hintStyle: TextStyle(color: colors.label3),
-                  filled: true,
-                  fillColor: colors.fill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(metrics.radii.field),
-                    borderSide: BorderSide.none,
-                  ),
-                  suffixIcon: IconButton(
-                    tooltip: t.placeholder.search.hint,
-                    icon: const Icon(Icons.search),
-                    onPressed: _search,
-                  ),
-                ),
-              ),
-            ),
-            const _PlaybackPanel(),
-            const Expanded(child: _Results()),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Results extends ConsumerWidget {
-  const _Results();
+/// 搜尋頁：M1 先放 M0 的佔位搜尋（結果與播放面板），照稿的搜尋頁在之後的
+/// 票。搜尋欄依寬度放在外殼的 dock 或側欄；中寬度的細欄只有搜尋項目，欄位
+/// 在這一頁的頂端（`docs/design/DESIGN.md`〈中寬度〉）。
+class SearchPage extends ConsumerWidget {
+  const SearchPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    return switch (ref.watch(placeholderSearchProvider)) {
-      null => const SizedBox.shrink(),
-      AsyncData(:final value) => ListView(
-        children: [
-          for (final source in value) ...[
-            ListTile(
-              title: Text(
-                source.pluginName,
-                style: context.fmpText.head.copyWith(
-                  color: context.fmpColors.label2,
-                ),
+    final medium = FormFactor.of(context).widthClass == WidthClass.medium;
+    return ShellPage(
+      title: t.shell.nav.search,
+      children: [
+        if (medium) ...[
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: SearchField(placement: SearchFieldPlacement.page),
+          ),
+          const SizedBox(height: FmpSpace.s3),
+        ],
+        const _PlaybackPanel(),
+        ..._results(context, ref.watch(placeholderSearchProvider)),
+      ],
+    );
+  }
+
+  static List<Widget> _results(
+    BuildContext context,
+    AsyncValue<List<PluginResults>>? results,
+  ) {
+    final t = context.t;
+    return switch (results) {
+      null => const [],
+      AsyncData(:final value) => [
+        for (final source in value) ...[
+          ListTile(
+            title: Text(
+              source.pluginName,
+              style: context.fmpText.head.copyWith(
+                color: context.fmpColors.label2,
               ),
             ),
-            if (source.error case final error?)
-              ListTile(title: Text(_errorText(t, error)))
-            else if (source.tracks.isEmpty)
-              ListTile(title: Text(t.placeholder.search.empty))
-            else
-              for (final track in source.tracks) _TrackTile(track),
-          ],
+          ),
+          if (source.error case final error?)
+            ListTile(title: Text(_errorText(t, error)))
+          else if (source.tracks.isEmpty)
+            ListTile(title: Text(t.placeholder.search.empty))
+          else
+            for (final track in source.tracks) _TrackTile(track),
         ],
-      ),
-      AsyncError() => Center(child: Text(t.placeholder.search.failed)),
-      _ => const Center(child: CircularProgressIndicator()),
+      ],
+      AsyncError() => [
+        Padding(
+          padding: const EdgeInsets.all(FmpSpace.s6),
+          child: Center(child: Text(t.placeholder.search.failed)),
+        ),
+      ],
+      _ => const [
+        Padding(
+          padding: EdgeInsets.all(FmpSpace.s6),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
     };
   }
 
@@ -155,7 +121,6 @@ class _PlaybackPanel extends ConsumerWidget {
     final colors = context.fmpColors;
     final metrics = context.fmpMetrics;
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: metrics.pagePadding),
       padding: const EdgeInsets.all(FmpSpace.s3),
       decoration: BoxDecoration(
         color: colors.cell,

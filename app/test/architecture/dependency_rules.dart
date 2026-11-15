@@ -105,6 +105,8 @@ const packageScopes = <String, PackageScope>{
   'dio': PackageScope.pluginsOnly,
   'fjs': PackageScope.pluginsOnly,
   'liquid_glass_easy': PackageScope.glassOnly,
+  'go_router': PackageScope.flutter,
+  'path_parsing': PackageScope.anywhere,
 };
 
 /// 音源與歌詞源的識別碼，比對時不分大小寫。

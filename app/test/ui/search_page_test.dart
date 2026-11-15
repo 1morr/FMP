@@ -7,12 +7,13 @@ import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/plugins/plugins.dart';
-import 'package:fmp/ui/placeholder/placeholder_page.dart';
+import 'package:fmp/ui/search/search_page.dart';
 
 import '../support/fake_http.dart';
 import '../support/fjs.dart';
+import '../support/shell.dart';
 
-/// 佔位畫面的搜尋（票 08）：搜一次，每個能搜尋的插件列出結果或錯誤。
+/// 搜尋頁裡的佔位搜尋（M0 票 08）：搜一次，每個能搜尋的插件列出結果或錯誤。
 /// 插件是寫在這裡的小插件，跑在真的引擎裡；引擎的呼叫是真的非同步，
 /// 所以等結果時用 `runAsync`。
 void main() {
@@ -74,6 +75,7 @@ void main() {
       buildRoot(overrides: [pluginHostProvider.overrideWith((_) => host)]),
     );
 
+    await openSearch(tester);
     await tester.enterText(find.byType(TextField), '晴天');
     // 在真的 zone 裡送出：搜尋的 Future 跟著建在那裡，fjs 的回應才排得
     // 進來（在 widget 測試的假時間 zone 裡發起會一直停在載入中）。

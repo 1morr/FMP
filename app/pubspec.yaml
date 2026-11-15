@@ -13,12 +13,14 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.5.0
+  go_router: ^18.1.4
   just_audio: ^0.10.6
   liquid_glass_easy: ^5.2.0
   logger: ^2.8.0
   material_ui: ^1.11.0
   media_kit: ^1.2.6
   media_kit_libs_windows_audio: ^1.0.9
+  path_parsing: ^1.1.0
   path_provider: ^2.1.6
   slang: ^4.19.2
   slang_flutter: ^4.19.0

@@ -24,7 +24,7 @@
 ```text
 app/
   lib/
-    app/        組裝、路由、主題、玻璃元件（`app/glass/`）、i18n
+    app/        組裝、路由、主題、玻璃元件（`app/glass/`）、圖示（`app/icons/`）、i18n
     domain/     曲目、歌單、存取等級等模型（純 Dart）
     core/       log、遮蔽、錯誤分類
     plugins/    JS 引擎、宿主 API、宿主網路（只放行 manifest 宣告的網域）、插件管理
@@ -64,7 +64,8 @@ app/
 | --- | --- | --- |
 | 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
 | 元件與主題 | material_ui 1.11.0（帶進 cupertino_ui 1.1.6） | 取代 Flutter 內建、3.50 起 deprecated 的 Material（事實 T1）；設計系統的 token 是它的 `ThemeExtension`，在 `app/theme/` |
-| 路由 | go_router | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
+| 路由 | go_router 18.1.4 | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
+| 圖示 | path_parsing 1.1.0 | flutter.dev 官方、純 Dart，只解析 SVG 路徑字串；設計稿的線條圖示照原路徑畫（`app/icons/`），不加整套 SVG 渲染 |
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（〈測試策略〉）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio 5.11.1 | 插件請求都經宿主網路層（`plugins/src/host_network.dart`：網域白名單、log 與遮蔽；依音源限流與重試還沒做，〈風險與回寫點〉），只有 `plugins/` 能 import（依賴規則）；測試換掉 `HttpClientAdapter` |
 | 音訊 | just_audio 0.10.6（Android、iOS、macOS；帶進 audio_session 0.2.4）、media_kit 1.2.6 與 media_kit_libs_windows_audio 1.0.9（Windows） | brief §6、事實 K1；介面在 `playback/audio_backend.dart`，兩個實作在 `playback/backends/`，依平台挑在 `platform/audio_backend.dart`。just_audio 關掉 Dart 端的 header proxy，由原生播放器帶 header（事實 K25）；media_kit 的錯誤只在 mpv 的 log（事實 K26） |
