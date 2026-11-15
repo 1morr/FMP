@@ -41,6 +41,7 @@
 - **T2**【待重驗】Apple 平台的 flavor：scheme 名稱要等於小寫的 flavor 名；每個 target 都要有六個 build configuration，並在 Podfile 對應；Podfile、`Podfile.lock`、xcconfig、pbxproj 都要提交。出處：`archive:docs/adr/0036` §決定 10、`0037` §決定 5。可信度：上一版文件。
 - **T3**【待重驗】Apple 本機簽章設定檔放進 gitignore（Team ID 不進公開 repo）；`codesign -dvv` 看到 `TeamIdentifier=` 才算簽到。出處：archive 的 `.claude/skills/verify-on-device/references/macos.md`。可信度：上一版文件。
 - **T4**【待重驗】Windows 安裝檔：`inno_bundle` 不認 flavor，要手寫 `.iss`；安裝檔的 `AppId` 發佈後不能改；專案路徑超過 260 字元會報 `FTK1011`。出處：`archive:app/AGENTS.md`〈發版〉。可信度：上一版文件。
+- **T6** `xcrun simctl`（Xcode 27.2）：`simctl list devices --json` 的 `devices` 以 runtime 為鍵，每台有 `udid`、`name`、`state`（`Booted`、`Shutdown`）、`isAvailable`、`deviceTypeIdentifier`（iPhone 是 `com.apple.CoreSimulator.SimDeviceType.iPhone-…`、iPad 是 `…iPad-…`），用過的還有 `lastUsedAt`（UTC 的 ISO 8601，例如 `2026-11-15T10:13:45Z`），只列模擬器、不列連著的實機。`simctl bootstatus <udid> -b` 在裝置沒開時開機，印出開機進度、等到開好才結束，已開著時印 `Device already booted, nothing to do.` 立即結束，都回 0。`flutter test -d <udid>` 認得模擬器的 udid。`simctl shutdown` 讓模擬器的 `launchd_sim` 收到 SIGTERM，模擬器內的 log 記 `System shutdown initiated by kernel - launchd got a SIGTERM`；查是誰、什麼時候關的，用 `xcrun simctl spawn <udid> log show` 讀模擬器自己的 log（重開之後還留著），宿主的 unified log 只記得到同一秒有哪些 `simctl`、Orca 行程。出處：本機 `xcrun simctl help bootstatus`；M1 票 05c 的實測與 repro（`app/test/tool/full_gate_test.dart` 的 fixture 照實際輸出的形狀）。可信度：2026-11-15 本機實測。
 
 ### 2026-11-06 研究
 

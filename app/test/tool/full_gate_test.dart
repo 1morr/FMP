@@ -197,12 +197,12 @@ void main() {
     await runGate();
 
     final start = shell.ran.indexOf('adb start-server');
-    final androidLookup = shell.ran.lastIndexOf('flutter devices --machine');
+    final androidLookup = shell.ran.indexOf('flutter devices --machine');
     expect(start, isNonNegative);
     expect(start, lessThan(androidLookup));
     expect(
       start,
-      greaterThan(shell.ran.indexOf('flutter devices --machine')),
+      greaterThan(shell.ran.indexOf('xcrun simctl list devices --json')),
       reason: 'only for Android, after the iOS lookup',
     );
   });
@@ -218,21 +218,79 @@ void main() {
     expect(out.toString(), contains('ok   build android'));
   });
 
-  test('without a running iOS simulator the iOS integration test fails '
-      'instead of picking the physical iPhone', () async {
-    shell.outputs['flutter devices --machine'] = _devicesJson.replaceAll(
-      '"emulator": true, "sdk": "iOS 27.1"',
-      '"emulator": false, "sdk": "iOS 27.1"',
-    );
+  group('iOS simulator', () {
+    test('runs on the booted iPhone simulator, never the physical iPhone or '
+        'a booted iPad', () async {
+      shell.outputs['xcrun simctl list devices --json'] = _simctlJson(
+        booted: {'IPAD-UDID', 'SIM-UDID'},
+      );
 
-    final code = await runGate();
+      expect(await runGate(), 0);
 
-    expect(code, isNot(0));
-    expect(
-      out.toString(),
-      contains('FAIL integration_test ios: integration_test/app_test.dart'),
-    );
-    expect(shell.ran, isNot(contains(contains('REAL-IPHONE'))));
+      expect(
+        shell.ran.where(
+          (c) => c.contains('--no-uninstall') && c.contains('SIM'),
+        ),
+        [
+          'flutter test integration_test/app_test.dart -d SIM-UDID --no-uninstall',
+        ],
+      );
+      expect(shell.ran, isNot(contains(contains('IPAD-UDID'))));
+      expect(shell.ran, isNot(contains(contains('REAL-IPHONE'))));
+      expect(shell.ran, isNot(contains(startsWith('xcrun simctl bootstatus'))));
+    });
+
+    test('without a booted iPhone simulator (Orca shuts the previous one down '
+        'when its pane switches devices), the gate boots the most recently '
+        'used iPhone, says why, and runs on it', () async {
+      shell.outputs['xcrun simctl list devices --json'] = _simctlJson(
+        booted: {'IPAD-UDID'},
+      );
+
+      expect(await runGate(), 0);
+
+      final boot = shell.ranWithLock.indexWhere(
+        (r) => r.$1 == 'xcrun simctl bootstatus RECENT-UDID -b',
+      );
+      expect(boot, isNonNegative);
+      expect(
+        shell.ranWithLock[boot].$2,
+        isTrue,
+        reason: 'boots under the lock',
+      );
+      final run = shell.ran.indexOf(
+        'flutter test integration_test/app_test.dart -d RECENT-UDID '
+        '--no-uninstall',
+      );
+      expect(run, greaterThan(boot));
+      expect(
+        out.toString(),
+        allOf(
+          contains('No booted iPhone simulator'),
+          contains('booting iPhone Recent (RECENT-UDID)'),
+        ),
+      );
+    });
+
+    test('without any available iPhone simulator the iOS integration test '
+        'fails and says so', () async {
+      shell.outputs['xcrun simctl list devices --json'] = _simctlJson(
+        booted: {},
+        iPhones: false,
+      );
+
+      expect(await runGate(), isNot(0));
+
+      expect(
+        out.toString(),
+        allOf(
+          contains('No available iPhone simulator'),
+          contains('FAIL integration_test ios: integration_test/app_test.dart'),
+        ),
+      );
+      expect(shell.ran, isNot(contains(startsWith('xcrun simctl bootstatus'))));
+      expect(shell.ran, isNot(contains(contains('IPAD-UDID'))));
+    });
   });
 
   group('Windows', () {
@@ -312,13 +370,15 @@ void main() {
   });
 }
 
-/// 碰共用裝置的指令：`winpc` 的同步、排程工作、SSH、scp，adb，以及指定裝置
-/// 的 `flutter test`（macOS 上的 App、模擬器）。Mac 上的建置與查裝置清單不算。
+/// 碰共用裝置的指令：`winpc` 的同步、排程工作、SSH、scp，adb，開模擬器，以及
+/// 指定裝置的 `flutter test`（macOS 上的 App、模擬器）。Mac 上的建置與查裝置
+/// 清單不算。
 bool _touchesSharedDevice(String command) =>
     command.startsWith('tool/winpc/') ||
     command.startsWith('adb ') ||
     command.startsWith('ssh ') ||
     command.startsWith('scp ') ||
+    command.startsWith('xcrun simctl bootstatus ') ||
     (command.startsWith('flutter test ') && command.contains(' -d '));
 
 class _FakeShell implements Shell {
@@ -336,6 +396,7 @@ class _FakeShell implements Shell {
   /// `capture` 的輸出，依前綴比對。
   final outputs = <String, String>{
     'flutter devices --machine': _devicesJson,
+    'xcrun simctl list devices --json': _simctlJson(booted: {'SIM-UDID'}),
     'ssh winpc Get-Content': 'exit pubget=0\nexit build=0\n=== done\n',
   };
 
@@ -383,3 +444,62 @@ const _devicesJson = '''
    "targetPlatform": "darwin", "emulator": false, "sdk": "macOS 27.0.1"}
 ]
 ''';
+
+/// `xcrun simctl list devices --json` 的形狀（2026-11-15，Xcode 27.1），只留
+/// 閘門讀的欄位，名稱與 udid 改成假的。[booted] 裡的 udid 是開著的。iPad 與
+/// 不可用的 iPhone 最近用過，不能被選到；沒用過的裝置沒有 `lastUsedAt`。
+String _simctlJson({required Set<String> booted, bool iPhones = true}) {
+  String device(
+    String name,
+    String udid,
+    String type, {
+    String? lastUsedAt,
+    bool available = true,
+  }) =>
+      '{"name": "$name", "udid": "$udid", "isAvailable": $available, '
+      '"deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.$type", '
+      '"state": "${booted.contains(udid) ? 'Booted' : 'Shutdown'}"'
+      '${lastUsedAt == null ? '' : ', "lastUsedAt": "$lastUsedAt"'}}';
+
+  final iPhoneDevices = [
+    if (iPhones) ...[
+      device(
+        'iPhone Old',
+        'OLD-UDID',
+        'iPhone-17',
+        lastUsedAt: '2026-10-01T08:00:00Z',
+      ),
+      device(
+        'iPhone Sim',
+        'SIM-UDID',
+        'iPhone-18-Pro',
+        lastUsedAt: '2026-11-14T08:00:00Z',
+      ),
+      device(
+        'iPhone Recent',
+        'RECENT-UDID',
+        'iPhone-17e',
+        lastUsedAt: '2026-11-15T09:00:00Z',
+      ),
+      device('iPhone Never', 'NEVER-UDID', 'iPhone-Air'),
+      device(
+        'iPhone Gone',
+        'GONE-UDID',
+        'iPhone-17',
+        lastUsedAt: '2026-11-15T11:00:00Z',
+        available: false,
+      ),
+    ],
+  ];
+  final iPad = device(
+    'iPad Air',
+    'IPAD-UDID',
+    'iPad-Air-11-inch-M4',
+    lastUsedAt: '2026-11-15T10:00:00Z',
+  );
+  return '{"devices": {'
+      '"com.apple.CoreSimulator.SimRuntime.iOS-27-1": [$iPad], '
+      '"com.apple.CoreSimulator.SimRuntime.iOS-27-0": [${iPhoneDevices.join(', ')}], '
+      '"com.apple.CoreSimulator.SimRuntime.watchOS-12-0": []'
+      '}}';
+}
