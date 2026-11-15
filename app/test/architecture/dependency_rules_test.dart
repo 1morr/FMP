@@ -191,6 +191,53 @@ void pick(String id) {
       }, Rule.pluginPackageOutsidePlugins);
     });
 
+    test('defaultTargetPlatform outside platform/', () {
+      expectViolation({
+        'ui/home/home_page.dart': '''
+import 'package:flutter/foundation.dart';
+bool get phone => defaultTargetPlatform == TargetPlatform.iOS;
+''',
+      }, Rule.targetPlatformOutsidePlatform);
+    });
+
+    test('a prefixed defaultTargetPlatform outside platform/', () {
+      expectViolation({
+        'app/theme/theme.dart': '''
+import 'package:flutter/foundation.dart' as f;
+final platform = f.defaultTargetPlatform;
+''',
+      }, Rule.targetPlatformOutsidePlatform);
+    });
+
+    test('domain/ importing Flutter', () {
+      expectViolation({
+        'domain/track.dart': "import 'package:flutter/foundation.dart';",
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'domain/track.dart': "import 'package:material_ui/material_ui.dart';",
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'domain/playlist.dart':
+            "import 'package:flutter_riverpod/flutter_riverpod.dart' show Ref;",
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'domain/cover.dart': "import 'dart:ui' show Color;",
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'domain/cover.dart': "export 'package:flutter/painting.dart';",
+      }, Rule.flutterInDomain);
+    });
+
+    test("Flutter's built-in Material or Cupertino", () {
+      expectViolation({
+        'ui/home/home_page.dart': "import 'package:flutter/material.dart';",
+      }, Rule.builtinDesignLibrary);
+      expectViolation({
+        'app/app.dart':
+            "import 'package:flutter/cupertino.dart' show CupertinoIcons;",
+      }, Rule.builtinDesignLibrary);
+    });
+
     test('an unclassified package', () {
       expectViolation({
         'core/net.dart': "import 'package:left_pad/left_pad.dart';",
@@ -297,6 +344,66 @@ final printer = lg.LogfmtPrinter();
       });
     });
 
+    test('defaultTargetPlatform inside platform/', () {
+      expectClean({
+        'platform/form_factor.dart': '''
+import 'package:flutter/foundation.dart' as f;
+bool get touch => f.defaultTargetPlatform == f.TargetPlatform.android;
+TargetPlatform get p => defaultTargetPlatform;
+''',
+      });
+    });
+
+    test(
+      'names that only look like defaultTargetPlatform outside platform/',
+      () {
+        expectClean({
+          'ui/settings/settings_page.dart': '''
+import 'package:flutter/foundation.dart';
+/// Ask platform/ instead of reading [defaultTargetPlatform] here.
+// final p = defaultTargetPlatform;
+const label = 'defaultTargetPlatform';
+final defaultTargetPlatformLabel = TargetPlatform.android.name;
+String describe(TargetPlatform targetPlatform) => targetPlatform.name;
+''',
+        });
+      },
+    );
+
+    test('domain/ importing pure Dart', () {
+      expectClean({
+        'domain/queue.dart': '''
+import 'dart:async';
+import 'dart:collection' show UnmodifiableListView;
+import 'package:fmp/domain/track.dart';
+import 'package:riverpod/riverpod.dart';
+''',
+      });
+    });
+
+    test('Flutter outside domain/', () {
+      expectClean({
+        'ui/home/home_page.dart': '''
+import 'dart:ui' show Color;
+import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+''',
+        'core/log/log.dart': "import 'package:flutter/foundation.dart';",
+      });
+    });
+
+    test('other Flutter libraries and the material_ui package', () {
+      expectClean({
+        'ui/home/home_page.dart': '''
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+''',
+      });
+    });
+
     test('other Platform members outside platform/', () {
       expectClean({
         'core/env.dart': '''
@@ -309,7 +416,11 @@ final sep = Platform.pathSeparator;
 }
 
 const _packages = {
-  'flutter': PackageScope.anywhere,
+  'flutter': PackageScope.flutter,
+  'material_ui': PackageScope.flutter,
+  'cupertino_ui': PackageScope.flutter,
+  'flutter_riverpod': PackageScope.flutter,
+  'riverpod': PackageScope.anywhere,
   'fmp': PackageScope.anywhere,
   'drift': PackageScope.dataOnly,
   'audio_service': PackageScope.platformOnly,

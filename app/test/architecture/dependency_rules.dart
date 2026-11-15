@@ -31,6 +31,18 @@ enum Rule {
   /// 只有 `platform/` 能用 `Platform.isXxx`。
   platformCheckOutsidePlatform,
 
+  /// 只有 `platform/` 能用 `defaultTargetPlatform`；畫面要的平台差異（寬度
+  /// 分級、密度）由 `platform/` 提供。
+  targetPlatformOutsidePlatform,
+
+  /// `domain/` 是純 Dart：不能 import Flutter（`dart:ui` 與
+  /// [PackageScope.flutter] 的套件）。
+  flutterInDomain,
+
+  /// 不用 Flutter 內建的 `package:flutter/material.dart`、`cupertino.dart`
+  /// （3.50 起 deprecated），改用 `material_ui`、`cupertino_ui`（事實 T1）。
+  builtinDesignLibrary,
+
   /// Dart 端不能拿音源識別碼的字面值做分支（ADR 0038）；音源邏輯在
   /// `app/plugins/` 的插件裡。
   sourceIdBranch,
@@ -41,7 +53,12 @@ enum Rule {
 
 /// 套件可以在 `lib/` 的哪裡被 import。
 enum PackageScope {
+  /// 純 Dart 套件，哪裡都能用。
   anywhere,
+
+  /// Flutter 與依賴 Flutter 的套件：`domain/` 以外都能用
+  /// （[Rule.flutterInDomain]）。
+  flutter,
   dataOnly,
   platformOnly,
 
@@ -63,12 +80,12 @@ enum PackageScope {
 /// 擋下。drift 與音訊播放器先列著，因為它們的規則（architecture〈依賴規則〉）在加依賴前就定了。
 const packageScopes = <String, PackageScope>{
   'fmp': PackageScope.anywhere,
-  'flutter': PackageScope.anywhere,
-  'flutter_localizations': PackageScope.anywhere,
-  'flutter_riverpod': PackageScope.anywhere,
+  'flutter': PackageScope.flutter,
+  'material_ui': PackageScope.flutter,
+  'flutter_riverpod': PackageScope.flutter,
   'riverpod': PackageScope.anywhere,
   'slang': PackageScope.anywhere,
-  'slang_flutter': PackageScope.anywhere,
+  'slang_flutter': PackageScope.flutter,
   'drift': PackageScope.dataOnly,
   'sqlite3': PackageScope.dataOnly,
   'just_audio': PackageScope.audioBackend,
@@ -151,6 +168,9 @@ class _Visitor extends RecursiveAstVisitor<void> {
   void _checkUri(AstNode node, String? raw) {
     if (raw == null) return;
     final uri = Uri.parse('package:fmp/$path').resolve(raw);
+    if (uri.scheme == 'dart' && uri.path == 'ui' && module == 'domain') {
+      _flag(node, Rule.flutterInDomain, 'domain/ must not import dart:ui');
+    }
     if (uri.scheme != 'package') return;
     final segments = uri.pathSegments;
     final package = segments.first;
@@ -170,6 +190,15 @@ class _Visitor extends RecursiveAstVisitor<void> {
       return;
     }
 
+    if (package == 'flutter' &&
+        const {'material.dart', 'cupertino.dart'}.contains(segments.last)) {
+      _flag(
+        node,
+        Rule.builtinDesignLibrary,
+        'use package:material_ui or package:cupertino_ui instead of $uri',
+      );
+    }
+
     switch (packages[package]) {
       case null:
         _flag(
@@ -177,6 +206,12 @@ class _Visitor extends RecursiveAstVisitor<void> {
           Rule.unclassifiedPackage,
           'classify package:$package in packageScopes '
           '(test/architecture/dependency_rules.dart)',
+        );
+      case PackageScope.flutter when module == 'domain':
+        _flag(
+          node,
+          Rule.flutterInDomain,
+          'domain/ is pure Dart; must not import package:$package',
         );
       case PackageScope.dataOnly when module != 'data':
         _flag(
@@ -211,6 +246,24 @@ class _Visitor extends RecursiveAstVisitor<void> {
         );
       default:
     }
+  }
+
+  @override
+  void visitCommentReference(CommentReference node) {
+    // `[defaultTargetPlatform]` 這類文件註解的引用不是程式碼，不往下看。
+  }
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    if (node.name == 'defaultTargetPlatform' && module != 'platform') {
+      _flag(
+        node,
+        Rule.targetPlatformOutsidePlatform,
+        'only platform/ may read defaultTargetPlatform; '
+        'get width class and density from platform/',
+      );
+    }
+    super.visitSimpleIdentifier(node);
   }
 
   @override
