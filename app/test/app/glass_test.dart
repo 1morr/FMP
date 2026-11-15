@@ -61,6 +61,11 @@ void main() {
 
   const a = Key('a');
 
+  FmpColors colorsOf(Brightness brightness) => buildTheme(
+    brightness: brightness,
+    density: Density.touch,
+  ).extension<FmpColors>()!;
+
   test('the glass effect starts at full (refract)', () {
     expect(container.read(glassEffectProvider), GlassTier.refract);
   });
@@ -141,14 +146,50 @@ void main() {
     );
   });
 
+  testWidgets('clear glass bends harder than regular at the same size', (
+    tester,
+  ) async {
+    const b = Key('b');
+    await pump(
+      tester,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          glass(key: a),
+          glass(key: b, variant: GlassVariant.clear),
+        ],
+      ),
+    );
+    LiquidGlassStyle styleOf(Key key) =>
+        tester.widget<LiquidGlassLens>(inGlass(key, LiquidGlassLens)).style;
+    expect(styleOf(b).refractionIndex, greaterThan(styleOf(a).refractionIndex));
+    expect(styleOf(b).dispersion, greaterThan(styleOf(a).dispersion));
+  });
+
+  testWidgets('thick glass stays 28 px thick at standard', (tester) async {
+    container.read(glassEffectProvider.notifier).set(GlassTier.standard);
+    await pump(tester, glass(key: a, variant: GlassVariant.thick));
+    expect(
+      tester.widget<LiquidGlassLite>(inGlass(a, LiquidGlassLite)).blur,
+      28,
+    );
+  });
+
+  testWidgets('minimal thick glass is the solid glass colour', (tester) async {
+    container.read(glassEffectProvider.notifier).set(GlassTier.minimal);
+    await pump(tester, glass(key: a, variant: GlassVariant.thick));
+    expect(inGlass(a, BackdropFilter), findsNothing);
+    expect(solidFillOf(tester, a), colorsOf(Brightness.dark).glassSolid);
+  });
+
   testWidgets('minimal glass is the solid glass colour', (tester) async {
     container.read(glassEffectProvider.notifier).set(GlassTier.minimal);
     await pump(tester, glass(key: a));
     expect(inGlass(a, BackdropFilter), findsNothing);
-    expect(solidFillOf(tester, a), const Color(0xFF24232C));
+    expect(solidFillOf(tester, a), colorsOf(Brightness.dark).glassSolid);
 
     await pump(tester, glass(key: a), brightness: Brightness.light);
-    expect(solidFillOf(tester, a), const Color(0xFFF7F6FA));
+    expect(solidFillOf(tester, a), colorsOf(Brightness.light).glassSolid);
   });
 
   testWidgets('minimal clear glass is a dark translucent fill', (tester) async {
@@ -186,6 +227,6 @@ void main() {
           )
           .first,
     );
-    expect(text.style.color, const Color(0xFF15141A));
+    expect(text.style.color, colorsOf(Brightness.light).glassInk);
   });
 }

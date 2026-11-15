@@ -10,26 +10,94 @@ import 'package:material_ui/material_ui.dart';
 export 'package:fmp/app/glass/glass_effect.dart';
 
 /// 「輕量」（standard 級）regular 與 clear 玻璃的模糊值，高斯 sigma（邏輯像素）。
-/// 擁有者看過 Windows 的量測後定（票 04，`docs/research/` 的玻璃量測）。
+/// 擁有者看過 Windows 的量測後定；成本和模糊值無關（事實 K21）。
 const double standardBlur = 18;
 
 /// 玻璃的三個變體（`docs/design/DESIGN.md`〈三個變體〉）。
 enum GlassVariant {
   /// dock、頂列按鈕、側欄、播放膠囊。
-  regular,
+  regular(
+    _VariantSpec(
+      preBlur: 5,
+      saturation: 1.9,
+      maxDisplacement: 56,
+      displacementRatio: 0.6,
+      liteBlur: standardBlur,
+    ),
+  ),
 
   /// 播放頁與封面上的按鈕；字固定白，底下要有暗層才讀得清。
-  clear,
+  clear(
+    _VariantSpec(
+      preBlur: 0.6,
+      saturation: 1.5,
+      maxDisplacement: 70,
+      // 設計稿 `assets/glass.js` 的 clear：min(70, 短邊 × 0.75)。
+      displacementRatio: 0.75,
+      liteBlur: standardBlur,
+      ink: Color(0xFFFFFFFF),
+      minimalFill: Color.fromRGBO(20, 18, 28, .72),
+    ),
+  ),
 
   /// 承載文字的浮層：選單、sheet、對話框、警示框、提示。不折射，每一級
   /// 都一樣厚（minimal 時一樣是實心）。
-  thick,
+  thick(_VariantSpec(refracts: false, liteBlur: 28));
+
+  const GlassVariant(this._spec);
+
+  final _VariantSpec _spec;
 }
 
-/// 浮在內容上的玻璃（`docs/design/DESIGN.md`〈材質：Liquid Glass〉）。三級都藏在這個元件後面：
-/// 折射級是 `liquid_glass_easy` 的 `LiquidGlassLens`，standard 是它的 lite
-/// glass，minimal 是自己畫的實心填色（brief〈介面〉）。邊光、頂部光暈與陰影
-/// 三級共用，由這裡畫；套件只負責讀 backdrop。
+/// 一個變體在各級的參數（`docs/design/DESIGN.md`〈構成〉〈三個變體〉）；
+/// 填色在 [_Palette]，因為它跟深淺色走。
+class _VariantSpec {
+  const _VariantSpec({
+    this.refracts = true,
+    this.preBlur = 0,
+    this.saturation = 1,
+    this.maxDisplacement = 0,
+    this.displacementRatio = 0,
+    required this.liteBlur,
+    this.ink,
+    this.minimalFill,
+  });
+
+  /// false 時折射級也畫 lite glass。
+  final bool refracts;
+
+  /// 折射級的預模糊與飽和。
+  final double preBlur;
+  final double saturation;
+
+  /// 位移量 = min([maxDisplacement], 短邊 × [displacementRatio])，設計稿 SVG
+  /// `feDisplacementMap` 的 scale。
+  final double maxDisplacement;
+  final double displacementRatio;
+
+  /// lite glass 的模糊；lite glass 沒有飽和度參數，設計稿的 saturate 做不到
+  /// （事實 K21）。
+  final double liteBlur;
+
+  /// 固定的字色；null 用主題的玻璃字色。
+  final Color? ink;
+
+  /// minimal 的填色；null 用主題的玻璃實心色。
+  final Color? minimalFill;
+
+  double displacement(double shortSide) =>
+      math.min(maxDisplacement, shortSide * displacementRatio);
+}
+
+/// 位移量換成套件的 `refractionIndex`（套件沒有和 SVG 位移量一對一的參數）：
+/// 擁有者 M0 看過的 probe（`scripts/experiments/glass/`）在 dock 大小（短邊
+/// 約 60、位移量 36）用 1.1，其他位移量照比例。
+double _refractionIndex(double displacement) => 1 + 0.1 * displacement / 36;
+
+/// 浮在內容上的玻璃（`docs/design/DESIGN.md`〈材質：Liquid Glass〉）。三級都
+/// 藏在這個元件後面：折射級是 `liquid_glass_easy` 的 `LiquidGlassLens`，
+/// standard 是它的 lite glass，minimal 是自己畫的實心填色（brief〈介面〉）。
+/// 邊光、頂部光暈與陰影三級共用，由這裡畫；套件只負責讀 backdrop。
 ///
 /// 級數跟著 App 的「玻璃效果」（[glassEffectProvider]），[tier] 可以讓這個
 /// 實例再往下降。換級時版面不變，只有材質變。大小由 [child] 決定。
@@ -57,15 +125,14 @@ class Glass extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final effective = ref.watch(glassEffectProvider).atMost(tier);
     final palette = _Palette.of(Theme.of(context).brightness);
-    final solidFill = context.fmpColors.glassSolid;
-    final ink = variant == GlassVariant.clear
-        ? const Color(0xFFFFFFFF)
-        : context.fmpColors.glassInk;
+    final colors = context.fmpColors;
+    final spec = variant._spec;
+    final ink = spec.ink ?? colors.glassInk;
     final cornerRadius = radius ?? double.infinity;
 
     return CustomPaint(
       painter: _ShadowPainter(cornerRadius, palette.shadow),
-      child: ClipPath(
+      child: ClipRRect(
         clipper: _RRectClipper(cornerRadius),
         child: Stack(
           children: [
@@ -73,8 +140,8 @@ class Glass extends ConsumerWidget {
               child: LayoutBuilder(
                 builder: (context, box) => _backdrop(
                   effective,
-                  palette,
-                  solidFill,
+                  spec.minimalFill ?? colors.glassSolid,
+                  palette.fillOf(variant),
                   _clampRadius(cornerRadius, box.biggest),
                   box.biggest.shortestSide,
                 ),
@@ -85,11 +152,7 @@ class Glass extends ConsumerWidget {
               painter: effective == GlassTier.minimal
                   ? null
                   : _SheenPainter(cornerRadius, palette.sheen),
-              foregroundPainter: _RimPainter(
-                cornerRadius,
-                palette.rimA,
-                palette.rimB,
-              ),
+              foregroundPainter: _RimPainter(cornerRadius, palette),
               child: IconTheme.merge(
                 data: IconThemeData(color: ink),
                 child: DefaultTextStyle.merge(
@@ -106,50 +169,36 @@ class Glass extends ConsumerWidget {
 
   Widget _backdrop(
     GlassTier tier,
-    _Palette palette,
-    Color solidFill,
+    Color minimalFill,
+    Color fill,
     double cornerRadius,
     double shortSide,
   ) {
-    if (tier == GlassTier.minimal) {
-      return ColoredBox(
-        color: variant == GlassVariant.clear
-            ? const Color.fromRGBO(20, 18, 28, .72)
-            : solidFill,
-      );
-    }
+    if (tier == GlassTier.minimal) return ColoredBox(color: minimalFill);
+    final spec = variant._spec;
     final shape = lg.LiquidGlassShape.roundedRectangle(
       cornerRadius: cornerRadius,
     );
-    final fill = switch (variant) {
-      GlassVariant.regular => palette.fill,
-      GlassVariant.clear => palette.clearFill,
-      GlassVariant.thick => palette.fillStrong,
-    };
-    if (tier == GlassTier.standard || variant == GlassVariant.thick) {
-      // lite glass 沒有飽和度參數，設計稿的 saturate 做不到（票 04 Comments）。
+    if (tier == GlassTier.standard || !spec.refracts) {
       return lg.LiquidGlassLite(
         shape: shape,
         // 邊光由 _RimPainter 畫，關掉套件自己的。
         borderAlpha: 0,
-        blur: variant == GlassVariant.thick ? 28 : standardBlur,
+        blur: spec.liteBlur,
         color: fill,
       );
     }
-    // 折射：邊緣寬 min(短邊 × 0.42, 22)，位移量上限 regular 56、clear 70，
-    // 紅藍各偏 ±6% 的位移量（DESIGN.md〈構成〉〈三個變體〉）。
-    final clear = variant == GlassVariant.clear;
-    final displacement = clear
-        ? math.min(70, shortSide * 0.75)
-        : math.min(56, shortSide * 0.6);
+    // 邊緣寬 min(短邊 × 0.42, 22)；紅藍各偏 ±6% 的位移量。
+    final displacement = spec.displacement(shortSide);
     return lg.LiquidGlassLens(
       style: lg.LiquidGlassStyle(
         shape: shape,
         specular: const lg.LiquidGlassLight.specular(intensity: 0),
+        refractionIndex: _refractionIndex(displacement),
         refractionWidth: math.min(shortSide * 0.42, 22),
         dispersion: displacement * 0.06,
-        blur: clear ? 0.6 : 5,
-        saturation: clear ? 1.5 : 1.9,
+        blur: spec.preBlur,
+        saturation: spec.saturation,
         color: fill,
       ),
     );
@@ -218,6 +267,13 @@ class _Palette {
 
   final Color fill;
   final Color fillStrong;
+
+  Color fillOf(GlassVariant variant) => switch (variant) {
+    GlassVariant.regular => fill,
+    GlassVariant.clear => clearFill,
+    GlassVariant.thick => fillStrong,
+  };
+
   final Color clearFill;
   final Color rimA;
   final Color rimB;
@@ -233,13 +289,13 @@ RRect _rrect(Size size, double radius) => RRect.fromRectAndRadius(
   Radius.circular(_clampRadius(radius, size)),
 );
 
-class _RRectClipper extends CustomClipper<Path> {
+class _RRectClipper extends CustomClipper<RRect> {
   const _RRectClipper(this.radius);
 
   final double radius;
 
   @override
-  Path getClip(Size size) => Path()..addRRect(_rrect(size, radius));
+  RRect getClip(Size size) => _rrect(size, radius);
 
   @override
   bool shouldReclip(_RRectClipper oldClipper) => oldClipper.radius != radius;
@@ -312,14 +368,14 @@ class _SheenPainter extends CustomPainter {
       old.radius != radius || old.color != color;
 }
 
-/// 邊光：1px、150° 的斜向漸層，左上最亮、右下次亮、中段透明；外加 0.5px 的
-/// 內框線（`.lg::before` 與 `inset 0 0 0 .5px`）。
+/// 邊光：1px、150° 的斜向漸層，左上最亮、右下次亮、中段透明（`.lg::before`）；
+/// 外加 0.5px 的內框線與頂部 1px 的內緣高光（`docs/design/assets/fmp.css` 的
+/// `.lg` box-shadow：`inset 0 0 0 .5px`、`inset 0 1px 1px var(--glass-sheen)`）。
 class _RimPainter extends CustomPainter {
-  const _RimPainter(this.radius, this.rimA, this.rimB);
+  const _RimPainter(this.radius, this.palette);
 
   final double radius;
-  final Color rimA;
-  final Color rimB;
+  final _Palette palette;
 
   static const _angle = 150 * math.pi / 180;
 
@@ -327,6 +383,23 @@ class _RimPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
     final rrect = _rrect(size, radius);
+    // 內緣高光：形狀外面往下 1px 的影子，只留在形狀裡面的部分。
+    canvas
+      ..save()
+      ..clipRRect(rrect)
+      ..drawPath(
+        Path()
+          ..fillType = PathFillType.evenOdd
+          ..addRect((Offset.zero & size).inflate(4))
+          ..addRRect(rrect.shift(const Offset(0, 1))),
+        Paint()
+          ..color = palette.sheen
+          ..maskFilter = MaskFilter.blur(
+            BlurStyle.normal,
+            Shadow.convertRadiusToSigma(1),
+          ),
+      )
+      ..restore();
     canvas.drawRRect(
       rrect.deflate(.25),
       Paint()
@@ -341,6 +414,7 @@ class _RimPainter extends CustomPainter {
             (size.height * math.cos(_angle)).abs()) /
         2;
     final center = size.center(Offset.zero);
+    final (rimA, rimB) = (palette.rimA, palette.rimB);
     canvas.drawRRect(
       rrect.deflate(.5),
       Paint()
@@ -357,5 +431,5 @@ class _RimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RimPainter old) =>
-      old.radius != radius || old.rimA != rimA || old.rimB != rimB;
+      old.radius != radius || !identical(old.palette, palette);
 }
