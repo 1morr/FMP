@@ -45,4 +45,5 @@ Session 紀錄：2026-11-15 Windows 量 lite 模糊 5／10／18 給擁有者定 
 決定：折射強度依位移量換算 `refractionIndex`，以 probe 的 dock（短邊約 60）用 1.1 為基準，小玻璃彎得少、clear 與大玻璃彎得多（Agent 定）
 決定：示範畫面放 `app/tool/glass_demo/`，不進 `lib/`、App 裡沒有入口；`build.ps1` 加 `-Target` 換入口（Agent 定）
 決定：設計稿 CSS 的 16 一併改 18；brief、ARCHITECTURE 的「降級時模糊不能比折射級大」改成「Windows 上 standard 比較慢，降級前先量」（Agent 定）
+決定：brief §11 與 ARCHITECTURE 的玻璃降級規則改為『Windows 上 standard 比折射級慢，降級前先在那個平台量』，設計稿 fmp.css 模糊 16 改 18（使用者同意）
 變更：無
