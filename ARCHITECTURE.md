@@ -48,8 +48,8 @@ app/
 
 - `ui` 只能依賴功能模組與 `domain`，不能直接碰 `data`、`plugins` 的內部，也不能碰平台套件。
 - 只有 `data/` 能 import drift，只有 `platform/` 能 import 平台套件，例外是 `playback/backends/`（音訊後端的兩個實作）可 import `just_audio`、`media_kit`；平台層以外不得用 `Platform.isXxx`（依平台選音訊後端也在平台層做）。
-- 平台層以外也不得用 `defaultTargetPlatform`（含 `Theme.of(context).platform`）：畫面要的平台差異由 `platform/` 提供（寬度分級與密度在 `platform/form_factor.dart`），主題的密度也從那裡拿。
-- `domain/` 是純 Dart，不得 import Flutter（`dart:ui` 與依賴 Flutter 的套件），也只能 import `domain/` 自己的檔（其他模組可能帶進 Flutter）。哪裡都能用的套件在依賴規則測試裡分成純 Dart 與依賴 Flutter 兩類。
+- 平台層以外也不得用 `defaultTargetPlatform`，也不得讀預設等於它的 `ThemeData.platform`（測試以寫法認：`Theme.of(context).platform`、以它初始化的變數或名稱含 theme 的變數再讀 `.platform`）：畫面要的平台差異由 `platform/` 提供（寬度分級與密度在 `platform/form_factor.dart`），主題的密度也從那裡拿。
+- `domain/` 是純 Dart，不得 import Flutter（`dart:ui` 與依賴 Flutter 的套件），經其他模組間接帶進來也不行：從 `domain/` 沿 `package:fmp/` 的 import 往下走，整條鏈上不得出現 Flutter；鏈上都是純 Dart 的檔（例如 `core/` 的錯誤分類）可以 import。哪裡都能用的套件在依賴規則測試裡分成純 Dart 與依賴 Flutter 兩類。
 - 不用 Flutter 內建的 `package:flutter/material.dart`、`cupertino.dart`，改用 `material_ui`（事實 T1）。
 - 音源專屬的邏輯只能在 `app/plugins/` 裡；Dart 端不得出現音源識別碼的字面值分支（ADR 0038）。
 - 由一支掃 `app/lib/` 的 import（含條件式 import）與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。已接上。

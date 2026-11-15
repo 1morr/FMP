@@ -228,12 +228,21 @@ final platform = f.defaultTargetPlatform;
       }, Rule.flutterInDomain);
     });
 
-    test('domain/ reaching Flutter through another fmp module', () {
+    test('domain/ reaching Flutter through a chain of fmp imports', () {
       expectViolation({
-        'domain/track.dart': "import 'package:fmp/platform/form_factor.dart';",
+        'domain/track.dart': "import 'package:fmp/core/errors/app_error.dart';",
+        'core/errors/app_error.dart':
+            "import 'package:flutter/foundation.dart';",
       }, Rule.flutterInDomain);
       expectViolation({
-        'domain/track.dart': "import '../core/log/log.dart';",
+        'domain/queue.dart': "import '../core/a.dart';",
+        'core/a.dart': "import 'b.dart';",
+        'core/b.dart':
+            "import 'package:flutter_riverpod/flutter_riverpod.dart';",
+      }, Rule.flutterInDomain);
+      expectViolation({
+        'domain/cover.dart': "export 'package:fmp/core/color.dart';",
+        'core/color.dart': "import 'dart:ui' show Color;",
       }, Rule.flutterInDomain);
     });
 
@@ -257,6 +266,22 @@ import 'package:flutter/widgets.dart'
 import 'package:material_ui/material_ui.dart';
 bool phone(BuildContext context) =>
     Theme.of(context).platform == TargetPlatform.iOS;
+''',
+      }, Rule.targetPlatformOutsidePlatform);
+      expectViolation({
+        'ui/home/home_page.dart': '''
+import 'package:material_ui/material_ui.dart';
+bool phone(BuildContext context) {
+  final t = Theme.of(context);
+  return t.platform == TargetPlatform.iOS;
+}
+''',
+      }, Rule.targetPlatformOutsidePlatform);
+      expectViolation({
+        'ui/player/player_page.dart': '''
+import 'package:material_ui/material_ui.dart';
+TargetPlatform a(ThemeData theme) => theme.platform;
+TargetPlatform b(MyWidget widget) => widget.darkTheme.platform;
 ''',
       }, Rule.targetPlatformOutsidePlatform);
     });
@@ -417,6 +442,23 @@ import 'package:riverpod/riverpod.dart';
 import 'queue_rules.dart';
 import 'stub.dart' if (dart.library.io) 'io.dart';
 ''',
+      });
+    });
+
+    test('domain/ importing fmp files whose whole chain is pure Dart', () {
+      expectClean({
+        'domain/queue.dart': '''
+import 'package:fmp/core/errors/app_error.dart';
+import '../core/redaction/redact.dart';
+''',
+        'core/errors/app_error.dart': '''
+import 'dart:async';
+import 'package:fmp/core/errors/kinds.dart';
+''',
+        'core/errors/kinds.dart': "import 'app_error.dart';",
+        'core/redaction/redact.dart':
+            "import 'package:riverpod/riverpod.dart';",
+        'core/log/log.dart': "import 'package:flutter/foundation.dart';",
       });
     });
 

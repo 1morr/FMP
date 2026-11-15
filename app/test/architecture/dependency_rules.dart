@@ -31,14 +31,15 @@ enum Rule {
   /// 只有 `platform/` 能用 `Platform.isXxx`。
   platformCheckOutsidePlatform,
 
-  /// 只有 `platform/` 能用 `defaultTargetPlatform`（含等於它的
-  /// `Theme.of(context).platform`）；畫面要的平台差異（寬度分級、密度）由
+  /// 只有 `platform/` 能用 `defaultTargetPlatform`，也只有它能讀預設等於它的
+  /// `ThemeData.platform`（`Theme.of(context).platform`、存成變數或名稱含
+  /// theme 的變數再讀 `.platform`）；畫面要的平台差異（寬度分級、密度）由
   /// `platform/` 提供。
   targetPlatformOutsidePlatform,
 
   /// `domain/` 是純 Dart：不能 import Flutter（`dart:ui` 與
-  /// [PackageScope.flutter] 的套件）；fmp 的其他模組可能帶進 Flutter，所以
-  /// `domain/` 也只能 import `domain/` 自己的檔。
+  /// [PackageScope.flutter] 的套件），經 fmp 其他檔間接帶進來也不行：從
+  /// `domain/` 沿 `package:fmp/` 的 import 往下走，整條鏈上都不能出現 Flutter。
   flutterInDomain,
 
   /// 不用 Flutter 內建的 `package:flutter/material.dart`、`cupertino.dart`
@@ -130,25 +131,91 @@ List<Violation> checkDependencyRules(
   Map<String, String> files, {
   Map<String, PackageScope> packages = packageScopes,
 }) {
+  final units = {
+    for (final MapEntry(key: path, value: source) in files.entries)
+      path: parseString(content: source, throwIfDiagnostics: false),
+  };
+  final graph = _ImportGraph({
+    for (final e in units.entries) e.key: e.value.unit,
+  }, packages);
   final violations = <Violation>[];
-  files.forEach((path, source) {
-    final result = parseString(content: source, throwIfDiagnostics: false);
+  units.forEach((path, result) {
     result.unit.accept(
-      _Visitor(path, result.lineInfo, packages, violations.add),
+      _Visitor(path, result.lineInfo, packages, graph, violations.add),
     );
   });
   return violations;
 }
 
+/// import 或 export 的主網址與條件式 import 的每個候選網址
+/// （`if (dart.library.ui) '…'`），相對路徑解析成 `package:` 網址。
+Iterable<Uri> _directiveUris(String path, NamespaceDirective node) sync* {
+  for (final raw in [
+    node.uri.stringValue,
+    for (final c in node.configurations) c.uri.stringValue,
+  ]) {
+    if (raw != null) yield Uri.parse('package:fmp/$path').resolve(raw);
+  }
+}
+
+bool _isFlutter(Uri uri, Map<String, PackageScope> packages) =>
+    uri.scheme == 'dart'
+    ? uri.path == 'ui'
+    : uri.scheme == 'package' &&
+          packages[uri.pathSegments.first] == PackageScope.flutter;
+
+/// `lib/` 裡 fmp 檔之間的 import 關係，用來找從某個檔一路帶進 Flutter 的鏈。
+class _ImportGraph {
+  _ImportGraph(Map<String, CompilationUnit> units, this.packages) {
+    units.forEach((path, unit) {
+      final targets = <String>[];
+      for (final node in unit.directives.whereType<NamespaceDirective>()) {
+        for (final uri in _directiveUris(path, node)) {
+          if (uri.scheme == 'package' && uri.pathSegments.first == 'fmp') {
+            targets.add(uri.pathSegments.skip(1).join('/'));
+          } else if (_isFlutter(uri, packages)) {
+            _flutterImport[path] ??= uri.toString();
+          }
+        }
+      }
+      _imports[path] = targets;
+    });
+  }
+
+  final Map<String, PackageScope> packages;
+  final _imports = <String, List<String>>{};
+  final _flutterImport = <String, String>{};
+
+  /// 從 [start] 沿 fmp 的 import 走到 Flutter 的一條鏈（`[start, …, Flutter
+  /// 的網址]`）；整條都是純 Dart 時是 null。不在 `lib/` 裡的檔不往下走。
+  List<String>? chainToFlutter(String start) {
+    final visited = <String>{};
+    List<String>? walk(String path) {
+      if (!visited.add(path) || !_imports.containsKey(path)) return null;
+      if (_flutterImport[path] case final flutter?) return [path, flutter];
+      for (final next in _imports[path]!) {
+        if (walk(next) case final chain?) return [path, ...chain];
+      }
+      return null;
+    }
+
+    return walk(start);
+  }
+}
+
 class _Visitor extends RecursiveAstVisitor<void> {
-  _Visitor(this.path, this.lineInfo, this.packages, this.report)
+  _Visitor(this.path, this.lineInfo, this.packages, this.graph, this.report)
     : module = path.split('/').first;
 
   final String path;
   final String module;
   final LineInfo lineInfo;
   final Map<String, PackageScope> packages;
+  final _ImportGraph graph;
   final void Function(Violation) report;
+
+  /// 這個檔裡以 `Theme.of(…)` 初始化的變數名稱。
+  final _themeVariables = <String>{};
 
   void _flag(AstNode node, Rule rule, String message) {
     final line = lineInfo.getLocation(node.offset).lineNumber;
@@ -167,17 +234,13 @@ class _Visitor extends RecursiveAstVisitor<void> {
     super.visitExportDirective(node);
   }
 
-  /// 主網址與條件式 import 的每個候選網址（`if (dart.library.ui) '…'`）。
   void _checkDirective(NamespaceDirective node) {
-    _checkUri(node, node.uri.stringValue);
-    for (final configuration in node.configurations) {
-      _checkUri(node, configuration.uri.stringValue);
+    for (final uri in _directiveUris(path, node)) {
+      _checkUri(node, uri);
     }
   }
 
-  void _checkUri(AstNode node, String? raw) {
-    if (raw == null) return;
-    final uri = Uri.parse('package:fmp/$path').resolve(raw);
+  void _checkUri(AstNode node, Uri uri) {
     if (uri.scheme == 'dart' && uri.path == 'ui' && module == 'domain') {
       _flag(node, Rule.flutterInDomain, 'domain/ must not import dart:ui');
     }
@@ -187,12 +250,15 @@ class _Visitor extends RecursiveAstVisitor<void> {
 
     if (package == 'fmp') {
       final target = segments.skip(1).join('/');
+      // domain/ 裡的檔各自檢查自己的 import，這裡只往 domain/ 外面追。
       if (module == 'domain' && !target.startsWith('domain/')) {
-        _flag(
-          node,
-          Rule.flutterInDomain,
-          'domain/ is pure Dart; may only import domain/, not $target',
-        );
+        if (graph.chainToFlutter(target) case final chain?) {
+          _flag(
+            node,
+            Rule.flutterInDomain,
+            'domain/ is pure Dart; reaches Flutter via ${chain.join(' -> ')}',
+          );
+        }
       }
       if (module == 'ui' && target.startsWith('data/')) {
         _flag(node, Rule.uiReachesData, 'ui/ must not reach $target');
@@ -288,7 +354,49 @@ class _Visitor extends RecursiveAstVisitor<void> {
   }
 
   @override
+  void visitVariableDeclaration(VariableDeclaration node) {
+    if (_isThemeOf(node.initializer)) _themeVariables.add(node.name.lexeme);
+    super.visitVariableDeclaration(node);
+  }
+
+  static bool _isThemeOf(Expression? e) =>
+      e is MethodInvocation &&
+      e.methodName.name == 'of' &&
+      e.target is SimpleIdentifier &&
+      (e.target! as SimpleIdentifier).name == 'Theme';
+
+  /// 沒有型別資訊，以寫法認 `ThemeData`：`Theme.of(…)`、以它初始化的變數、
+  /// 名稱含 theme 的變數或屬性。
+  bool _looksLikeThemeData(Expression e) => switch (e) {
+    _ when _isThemeOf(e) => true,
+    SimpleIdentifier(:final name) =>
+      _themeVariables.contains(name) || name.toLowerCase().contains('theme'),
+    PrefixedIdentifier(:final identifier) =>
+      identifier.name.toLowerCase().contains('theme'),
+    PropertyAccess(:final propertyName) =>
+      propertyName.name.toLowerCase().contains('theme'),
+    _ => false,
+  };
+
+  /// `ThemeData.platform` 預設就是 defaultTargetPlatform。
+  void _checkThemePlatform(
+    AstNode node,
+    Expression target,
+    SimpleIdentifier member,
+  ) {
+    if (module == 'platform' || member.name != 'platform') return;
+    if (!_looksLikeThemeData(target)) return;
+    _flag(
+      node,
+      Rule.targetPlatformOutsidePlatform,
+      'only platform/ may read ThemeData.platform; '
+      'get width class and density from platform/',
+    );
+  }
+
+  @override
   void visitPrefixedIdentifier(PrefixedIdentifier node) {
+    _checkThemePlatform(node, node.prefix, node.identifier);
     _checkPlatform(node, node.prefix.name, node.identifier.name);
     super.visitPrefixedIdentifier(node);
   }
@@ -296,20 +404,7 @@ class _Visitor extends RecursiveAstVisitor<void> {
   @override
   void visitPropertyAccess(PropertyAccess node) {
     final target = node.target;
-    // `Theme.of(context).platform` 預設就是 defaultTargetPlatform。
-    if (module != 'platform' &&
-        node.propertyName.name == 'platform' &&
-        target is MethodInvocation &&
-        target.methodName.name == 'of' &&
-        target.target is SimpleIdentifier &&
-        (target.target! as SimpleIdentifier).name == 'Theme') {
-      _flag(
-        node,
-        Rule.targetPlatformOutsidePlatform,
-        'only platform/ may read the platform; '
-        'get width class and density from platform/',
-      );
-    }
+    if (target != null) _checkThemePlatform(node, target, node.propertyName);
     if (target is PrefixedIdentifier) {
       // `io.Platform.isWindows`
       _checkPlatform(node, target.identifier.name, node.propertyName.name);
