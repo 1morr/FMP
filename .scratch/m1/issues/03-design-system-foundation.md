@@ -1,6 +1,6 @@
 # 03: 設計系統基礎
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 讀: brief §11；`docs/design/DESIGN.md` §2、§3、§5.3、§10；`docs/design/system.html`；事實 T1；architecture〈依賴規則〉〈主要依賴〉；spec〈共同規則〉
 
@@ -19,7 +19,7 @@ App 改用 `material_ui`，並有照 `DESIGN.md` 的主題：中性色與功能�
 - [x] 寬度分級的邊界（600、1200）與密度有單元測試；畫面拿得到，不自己判斷平台。
 - [x] 依賴規則的兩條新規則：造違規證明會紅、改無關的命名證明不紅，ARCHITECTURE〈依賴規則〉已改。
 - [x] 四平台實跑佔位畫面，深淺色各一張截圖。
-- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。（winpc 的 Dart VM 偶發崩潰，兩輪完整閘門的 Windows 步驟都因此失敗；同一個 commit 用閘門的同一組指令手動重跑，Windows 建置與兩個 integration_test 都通過，見 Comments）
 
 ## Comments
 
@@ -32,7 +32,9 @@ code-review 未處理的發現：
 - `FormFactor` 在 `lib/` 還沒有呼叫端，外殼票 05 第一個用。
 - 判斷題，不改：密度的三元運算在 `FmpText.of`、`FmpRadii.of` 等處重複；三個 `ThemeExtension` 的 `copyWith` 回傳自己；無強調色時深色按鈕底的判斷寫在 `FmpColors.of` 而不是 `Accent`；程式註解引用設計稿的章節標題（沿用既有寫法）。
 
-Session 紀錄：2026-11-15 改用 `material_ui`、加設計系統 token 與 `platform/` 的寬度分級與密度、依賴規則補三條，四平台深淺色實跑，完整閘門綠
+winpc 的 Dart VM 不穩：frontend_server、build_runner、JIT 編譯器在 winpc 上都偶發 access violation，開工前的 commit（d555fb45）用 frontend_server 編 4 次也崩 1 次，所以不是這張票造成的。winpc 這兩天有兩次藍屏（BugCheck 0xA、0x1E），roadmap 已排在 07 開工前請擁有者檢查硬體。在那之前，Windows 的閘門步驟失敗時，先看 `app/build/winpc/*.log` 裡有沒有 `===== CRASH =====` 或 `END CFG`，有的話就重跑。
+
+Session 紀錄：2026-11-15 改用 `material_ui`、加設計系統 token 與 `platform/` 的寬度分級與密度、依賴規則補三條，四平台深淺色實跑；完整閘門除了 Windows 都綠，Windows 因 winpc 崩潰改手動重跑通過
 決定：token 是 `app/theme/` 的三個 ThemeExtension（`FmpColors`、`FmpText`、`FmpMetrics`），間距與動態是靜態常數，畫面經 `context.fmpColors` 等讀（Agent 定）
 決定：深色 label-2/3/4 照 `fmp.css` 用 rgba(238,236,247,…)（DESIGN.md 寫「白」）；title2 的字距照 DESIGN.md 用 -0.01em（CSS 沒有）（Agent 定）
 決定：依賴規則多一條：`lib/` 不得 import 內建 `material.dart`、`cupertino.dart`，防 IDE 自動 import 帶回來（Agent 定）
