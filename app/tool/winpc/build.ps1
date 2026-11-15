@@ -1,5 +1,6 @@
 # Runs inside the desktop session via scheduled task. ASCII only.
-param([string]$Mode = 'debug')
+# -Target: entry point other than lib/main.dart, e.g. tool/glass_demo/main.dart.
+param([string]$Mode = 'debug', [string]$Target = '')
 $wt = 'C:\fmp-wt\app'
 $log = 'C:\fmp-wt\build.log'
 Set-Location $wt
@@ -11,6 +12,7 @@ Set-Location $wt
 "exit slang=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
 & cmd /c "dart run build_runner build 2>&1" | Out-File $log -Append -Encoding ascii
 "exit codegen=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
-& cmd /c "flutter build windows --$Mode 2>&1" | Out-File $log -Append -Encoding ascii
+$t = if ($Target) { "-t $Target" } else { '' }
+& cmd /c "flutter build windows --$Mode $t 2>&1" | Out-File $log -Append -Encoding ascii
 "exit build=$LASTEXITCODE" | Out-File $log -Append -Encoding ascii
 "=== done $(Get-Date -Format s)" | Out-File $log -Append -Encoding ascii

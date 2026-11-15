@@ -14,6 +14,10 @@ enum Variant {
   lgwMinimal('lgw-minimal'),
   lgeLens('lge-lens'),
   lgeLite('lge-lite'),
+  // M1 ticket 04: lite glass at the blur values the owner is choosing from.
+  lgeLite5('lge-lite-5'),
+  lgeLite10('lge-lite-10'),
+  lgeLite18('lge-lite-18'),
   ownRefract('own-refract'),
   ownBlur('own-blur'),
   solid('solid');
@@ -79,17 +83,26 @@ class GlassSurface extends StatelessWidget {
         );
       case Variant.lgeLens:
       case Variant.lgeLite:
+      case Variant.lgeLite5:
+      case Variant.lgeLite10:
+      case Variant.lgeLite18:
+        final lite = variant != Variant.lgeLens;
         return SizedBox(
           width: width,
           height: height,
           child: lge.LiquidGlassLens(
             style: lge.LiquidGlassStyle(
               shape: lge.LiquidGlassShape(cornerRadius: radius),
-              blur: variant == Variant.lgeLite ? 16 : 5,
+              blur: switch (variant) {
+                Variant.lgeLite => 16,
+                Variant.lgeLite10 => 10,
+                Variant.lgeLite18 => 18,
+                _ => 5,
+              },
               saturation: 1.8,
               dispersion: 0.4,
               color: _fill.withValues(alpha: .25),
-              liteGlass: variant == Variant.lgeLite,
+              liteGlass: lite,
             ),
             child: content,
           ),

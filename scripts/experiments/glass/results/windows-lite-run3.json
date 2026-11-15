@@ -1,0 +1,124 @@
+{
+  "env": {
+    "platform": "windows",
+    "os": "\"Windows 10 Pro for Workstations\" 10.0 (Build 26200)",
+    "plain": true,
+    "buildMode": "profile",
+    "shaderFilterSupported": true,
+    "refractProgramLoaded": true,
+    "refreshRate": 160.0,
+    "devicePixelRatio": 1.5,
+    "logicalSize": [
+      1265.3333333333333,
+      682.6666666666666
+    ],
+    "a11y": {
+      "reduceTransparency(native)": false,
+      "highContrast": false,
+      "reduceMotion": false,
+      "disableAnimations": false
+    }
+  },
+  "variants": [
+    {
+      "variant": "lge-lens",
+      "frames": 1165,
+      "expectedFrames": 1280,
+      "buildMs": {
+        "p50": 0.179,
+        "p90": 0.495,
+        "p99": 1.129,
+        "max": 1.309
+      },
+      "rasterMs": {
+        "p50": 2.884,
+        "p90": 3.527,
+        "p99": 7.793,
+        "max": 16.467
+      },
+      "over16_7ms": 0,
+      "budgetMs": 6.25,
+      "overBudget": 30
+    },
+    {
+      "variant": "lge-lite-5",
+      "frames": 1918,
+      "expectedFrames": 1280,
+      "buildMs": {
+        "p50": 0.128,
+        "p90": 0.311,
+        "p99": 0.443,
+        "max": 0.691
+      },
+      "rasterMs": {
+        "p50": 3.593,
+        "p90": 4.067,
+        "p99": 4.815,
+        "max": 6.794
+      },
+      "over16_7ms": 0,
+      "budgetMs": 6.25,
+      "overBudget": 1
+    },
+    {
+      "variant": "lge-lite-10",
+      "frames": 1919,
+      "expectedFrames": 1280,
+      "buildMs": {
+        "p50": 0.132,
+        "p90": 0.305,
+        "p99": 0.466,
+        "max": 0.654
+      },
+      "rasterMs": {
+        "p50": 3.604,
+        "p90": 4.084,
+        "p99": 4.72,
+        "max": 7.461
+      },
+      "over16_7ms": 0,
+      "budgetMs": 6.25,
+      "overBudget": 1
+    },
+    {
+      "variant": "lge-lite-18",
+      "frames": 1922,
+      "expectedFrames": 1280,
+      "buildMs": {
+        "p50": 0.126,
+        "p90": 0.303,
+        "p99": 0.431,
+        "max": 0.933
+      },
+      "rasterMs": {
+        "p50": 3.611,
+        "p90": 4.108,
+        "p99": 4.737,
+        "max": 5.435
+      },
+      "over16_7ms": 0,
+      "budgetMs": 6.25,
+      "overBudget": 0
+    },
+    {
+      "variant": "solid",
+      "frames": 1989,
+      "expectedFrames": 1280,
+      "buildMs": {
+        "p50": 0.111,
+        "p90": 0.278,
+        "p99": 0.459,
+        "max": 1.132
+      },
+      "rasterMs": {
+        "p50": 1.961,
+        "p90": 2.624,
+        "p99": 3.216,
+        "max": 3.864
+      },
+      "over16_7ms": 0,
+      "budgetMs": 6.25,
+      "overBudget": 0
+    }
+  ]
+}

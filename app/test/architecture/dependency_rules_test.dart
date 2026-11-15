@@ -191,6 +191,21 @@ void pick(String id) {
       }, Rule.pluginPackageOutsidePlugins);
     });
 
+    test('the glass package outside the glass component', () {
+      expectViolation({
+        'ui/home/home_page.dart':
+            "import 'package:liquid_glass_easy/liquid_glass_easy.dart';",
+      }, Rule.glassPackageOutsideGlass);
+      expectViolation({
+        'app/theme/theme.dart':
+            "import 'package:liquid_glass_easy/liquid_glass_easy.dart' as lg;",
+      }, Rule.glassPackageOutsideGlass);
+      expectViolation({
+        'app/glass_effect_page.dart':
+            "export 'package:liquid_glass_easy/liquid_glass_easy.dart';",
+      }, Rule.glassPackageOutsideGlass);
+    });
+
     test('defaultTargetPlatform outside platform/', () {
       expectViolation({
         'ui/home/home_page.dart': '''
@@ -406,6 +421,16 @@ final printer = lg.LogfmtPrinter();
       });
     });
 
+    test('the glass package inside the glass component', () {
+      expectClean({
+        'app/glass/glass.dart': '''
+import 'package:liquid_glass_easy/liquid_glass_easy.dart'
+    as lg
+    show LiquidGlassLens;
+''',
+      });
+    });
+
     test('defaultTargetPlatform inside platform/', () {
       expectClean({
         'platform/form_factor.dart': '''
@@ -515,4 +540,5 @@ const _packages = {
   'logger': PackageScope.logFacade,
   'fjs': PackageScope.pluginsOnly,
   'dio': PackageScope.pluginsOnly,
+  'liquid_glass_easy': PackageScope.glassOnly,
 };

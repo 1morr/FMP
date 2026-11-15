@@ -24,7 +24,7 @@
 ```text
 app/
   lib/
-    app/        組裝、路由、主題、i18n
+    app/        組裝、路由、主題、玻璃元件（`app/glass/`）、i18n
     domain/     曲目、歌單、存取等級等模型（純 Dart）
     core/       log、遮蔽、錯誤分類
     plugins/    JS 引擎、宿主 API、宿主網路（只放行 manifest 宣告的網域）、插件管理
@@ -51,6 +51,7 @@ app/
 - 平台層以外也不得用 `defaultTargetPlatform`，也不得讀預設等於它的 `ThemeData.platform`（測試以寫法認：`Theme.of(context).platform`、以它初始化的變數或名稱含 theme 的變數再讀 `.platform`）：畫面要的平台差異由 `platform/` 提供（寬度分級與密度在 `platform/form_factor.dart`），主題的密度也從那裡拿。
 - `domain/` 是純 Dart，不得 import Flutter（`dart:ui` 與依賴 Flutter 的套件），經其他模組間接帶進來也不行：從 `domain/` 沿 `package:fmp/` 的 import 往下走，整條鏈上不得出現 Flutter；鏈上都是純 Dart 的檔（例如 `core/` 的錯誤分類）可以 import。哪裡都能用的套件在依賴規則測試裡分成純 Dart 與依賴 Flutter 兩類。
 - 不用 Flutter 內建的 `package:flutter/material.dart`、`cupertino.dart`，改用 `material_ui`（事實 T1）。
+- 只有玻璃元件 `app/glass/` 能 import `liquid_glass_easy`，畫面一律用 `Glass`（brief §11）。
 - 音源專屬的邏輯只能在 `app/plugins/` 裡；Dart 端不得出現音源識別碼的字面值分支（ADR 0038）。
 - 由一支掃 `app/lib/` 的 import（含條件式 import）與識別碼的 Dart 測試強制，並在測試檔內做雙向變異驗證；不自寫 analyzer lint 套件（flutter/flutter#187999）。已接上。
 - 模組的實際介面在 M0 用 codebase-design skill 細化。
@@ -71,7 +72,7 @@ app/
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image | |
-| 玻璃 | liquid_glass_easy 5.2.0（實測的版本；加入的票照當時的 stable 重查） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
+| 玻璃 | liquid_glass_easy 5.2.0（2026-11-15 加入時重查，仍是 pub.dev 的 stable） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
 | i18n | slang 4.19.2、slang_flutter 4.19.0 | 舊版用過；Flutter 元件的在地化用 `material_ui` 的 `GlobalMaterialLocalizations` |
 | log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
 | App 目錄 | path_provider 2.1.6 | flutter.dev 官方；log 目錄與資料庫檔案由 `platform/` 經它取得（brief 事實 K13） |
@@ -121,5 +122,5 @@ app/
 - Windows 的 libmpv 是舊快照（事實 W3）：遇到 Windows 獨有的播放失敗先懷疑它。
 - iOS 的中斷與 Now Playing（事實 I2、I5）：模擬器驗不到的部分記在票的 Comments。
 - audio_service 更新慢（事實 I5、K18：#1139 的 iOS 修正 2026-07 合併，至今沒發佈）：macOS 端壞了就改用自己的 platform channel 接 `MPNowPlayingInfoCenter`、`MPRemoteCommandCenter`（已實測可行，原型在 `scripts/experiments/macos-now-playing/probe_channel/`）。
-- `liquid_glass_easy` 主版本換得快（4.0.0 在 2026-08、5.0.0 在 2026-10）：升級前用 `scripts/experiments/glass/` 在四平台重量。套件壞了或停更，退回自己用 `BackdropFilter` + `ImageFilter.shader` 做折射（原型是同目錄 probe 的 `own-refract`，四平台實測可行；GLES 上不要翻 Y 軸，事實 K24）。手機的捲動幀時間 M0 量不到（iOS 只有模擬器、Android 模擬器沒有 GPU 加速），里程碑量效能時若掉幀，玻璃元件改成捲動時降到 standard（brief §11），降級時的模糊半徑不能比折射級大（事實 K21）。手機的幀時間要在實機或有 GPU 加速的模擬器量（例如舊版基準用的 `winpc` 模擬器）。
+- `liquid_glass_easy` 主版本換得快（4.0.0 在 2026-08、5.0.0 在 2026-10）：升級前用 `scripts/experiments/glass/` 在四平台重量。套件壞了或停更，退回自己用 `BackdropFilter` + `ImageFilter.shader` 做折射（原型是同目錄 probe 的 `own-refract`，四平台實測可行；GLES 上不要翻 Y 軸，事實 K24）。手機的捲動幀時間 M0 量不到（iOS 只有模擬器、Android 模擬器沒有 GPU 加速），里程碑量效能時若掉幀，玻璃元件改成捲動時降到 standard（brief §11）；standard 在 Windows 比折射級慢、成本和模糊值無關（事實 K21），降級前先在那個平台量。手機的幀時間要在實機或有 GPU 加速的模擬器量（例如舊版基準用的 `winpc` 模擬器）。
 - 實作時發現與 brief 不符：停下來問擁有者，改 brief 並在 `docs/decisions.md` 記一條。
