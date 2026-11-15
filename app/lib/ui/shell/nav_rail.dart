@@ -3,6 +3,7 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/window_chrome.dart';
+import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
@@ -48,10 +49,14 @@ class NavRail extends StatelessWidget {
         child: Padding(
           padding: touch
               ? const EdgeInsets.fromLTRB(6, 6, 6, 8)
-              : EdgeInsets.fromLTRB(6, lights ? 38 : 6, 6, 6),
+              : const EdgeInsets.fromLTRB(6, 0, 6, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 紅綠燈的位置（`.rail .lights`：上內距 14 加高 38），也是拖動
+              // 視窗的地方。
+              if (!touch)
+                WindowDragArea(child: SizedBox(height: lights ? 52 : 6)),
               item(Destination.search),
               item(Destination.home),
               item(Destination.library),

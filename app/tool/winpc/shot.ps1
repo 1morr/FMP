@@ -4,9 +4,12 @@
 # -Click "x,y": then left-click at x,y logical pixels of the client area (scaled by
 # the window DPI), wait -ClickWait s. Several clicks "x,y;x,y;...": each one is
 # followed by -ClickWait s and a screenshot <Out without .png>-<n>.png (n from 1).
+# -Size "w,h": before typing or clicking, resize the window to w x h logical pixels
+# (scaled by the window DPI, frame included); the log records the client size the
+# app ended up with, so a size under the minimum shows the clamp.
 # The app's stdout/stderr go to C:\fmp-wt\app-stdout.txt / app-stderr.txt (a Dart VM
 # abort prints there); after closing the window the log says exited_after_close.
-param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$Click = '', [int]$ClickWait = 8)
+param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$Click = '', [int]$ClickWait = 8, [string]$Size = '')
 $log = 'C:\fmp-wt\shot.log'
 "start" | Out-File $log -Encoding ascii
 Add-Type -AssemblyName System.Drawing
@@ -15,6 +18,7 @@ using System; using System.Runtime.InteropServices;
 public class W { 
  [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+ [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int cx, int cy, uint f);
@@ -68,6 +72,13 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
   Raise
   "foreground_is_fmp=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
   Start-Sleep -Milliseconds 800
+  if ($Size -ne '') {
+    $wh = $Size.Split(','); $k = [W]::GetDpiForWindow($h) / 96.0
+    [W]::SetWindowPos($h, [IntPtr]::Zero, 0, 0, [int]([int]$wh[0] * $k), [int]([int]$wh[1] * $k), 0x16) | Out-Null   # NOMOVE|NOZORDER|NOACTIVATE
+    Start-Sleep -Seconds 2
+    $c = New-Object W+RECT; [W]::GetClientRect($h, [ref]$c) | Out-Null
+    "size [$Size] client_logical=$([int](($c.R - $c.L) / $k))x$([int](($c.B - $c.T) / $k))" | Out-File $log -Append -Encoding ascii
+  }
   if ($Type -ne '') {
     Raise; "foreground_is_fmp_before_typing=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
     [W]::Key(0x09); Start-Sleep -Milliseconds 300

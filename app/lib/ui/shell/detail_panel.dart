@@ -1,6 +1,7 @@
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -39,14 +40,16 @@ class DetailPanel extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(
-                t.shell.detail.title,
-                style: TextStyle(
-                  fontSize: big ? 17 : 13,
-                  fontWeight: FontWeight.w700,
-                  color: colors.label,
+            child: WindowDragArea(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  t.shell.detail.title,
+                  style: TextStyle(
+                    fontSize: big ? 17 : 13,
+                    fontWeight: FontWeight.w700,
+                    color: colors.label,
+                  ),
                 ),
               ),
             ),

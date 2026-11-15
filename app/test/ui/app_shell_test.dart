@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
+import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/ui/home/home_page.dart';
 import 'package:fmp/ui/library/library_page.dart';
 import 'package:fmp/ui/queue/queue_page.dart';
+import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/detail_panel.dart';
@@ -96,6 +98,31 @@ void main() {
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
         '晴天',
       );
+    });
+
+    testWidgets('with the keyboard up the search field rides on top of it at '
+        'full width and the orb steps aside', (tester) async {
+      await start(tester, phone);
+      await tap(tester, find.byTooltip('搜尋'));
+      await tester.tap(find.byType(TextField));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+
+      final field = tester.getRect(
+        find.ancestor(
+          of: find.byType(SearchField),
+          matching: find.byType(Glass),
+        ),
+      );
+      expect(field.width, phone.width - 28);
+      expect(field.bottom, phone.height - 300 - 12);
+      expect(find.byTooltip('回到首頁').hitTestable(), findsNothing);
+
+      tester.view.resetViewInsets();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('回到首頁').hitTestable(), findsOneWidget);
     });
 
     testWidgets('system back leaves search for the tab underneath, goes '

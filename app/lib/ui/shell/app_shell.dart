@@ -7,6 +7,7 @@ import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
+import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/ui/search/search_query.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/detail_panel.dart';
@@ -179,6 +180,14 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
         ),
+        // 頂列的空白處拖動視窗（macOS）。
+        Positioned(
+          left: 0,
+          top: 0,
+          right: 0,
+          height: top0 + 58,
+          child: const WindowDragArea(),
+        ),
         Positioned(
           left: 8,
           top: top0 + 8,
@@ -238,6 +247,13 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: _content(
             EdgeInsets.fromLTRB(8, top0 + 66, 32, _transportInset),
           ),
+        ),
+        Positioned(
+          left: 0,
+          top: 0,
+          right: 0,
+          height: top0 + 58,
+          child: const WindowDragArea(),
         ),
         Positioned(
           left: 8,
