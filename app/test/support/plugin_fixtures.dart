@@ -241,7 +241,9 @@ Future<List<String>> checkContract(
           'resolveStream input needs a "trackId" string',
         );
       }
-      final stream = await plugin.resolveStream(trackId);
+      final stream = await plugin.resolveStream(
+        TrackRef(pluginId: plugin.manifest.id, trackId: trackId),
+      );
       return [
         ...resolveStreamContractViolations(stream),
         if (expect.containsKey('expiresAt') && stream.expiresAt == null)
@@ -255,8 +257,9 @@ Future<List<String>> checkContract(
 List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
   if (tracks.isEmpty) 'search returned no tracks',
   for (final (i, t) in tracks.indexed) ...[
-    if (t.source != pluginId) 'track $i: source is "${t.source}"',
-    if (t.id.isEmpty) 'track $i: empty id',
+    if (t.ref.pluginId != pluginId)
+      'track $i: plugin id is "${t.ref.pluginId}"',
+    if (t.ref.trackId.isEmpty) 'track $i: empty track id',
     if (t.title.trim().isEmpty) 'track $i: empty title',
     if (t.duration case final d? when d <= Duration.zero)
       'track $i: duration $d is not positive',

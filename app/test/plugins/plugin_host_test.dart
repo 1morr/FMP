@@ -101,8 +101,7 @@ void main() {
 
       expect(tracks, [
         const Track(
-          source: 'demo',
-          id: 'a1',
+          ref: TrackRef(pluginId: 'demo', trackId: 'a1'),
           title: 'Song A / 中文 query',
           author: 'Alice',
           duration: Duration(seconds: 61),
@@ -112,7 +111,7 @@ void main() {
     },
   );
 
-  test('pluginFor finds the plugin that provides a source', () {
+  test('pluginFor finds the plugin that provides a track', () {
     final h = PluginHost(
       bundles: [
         PluginBundle(
@@ -128,8 +127,10 @@ void main() {
     );
     hosts.add(h);
 
-    expect(h.pluginFor('two')?.manifest.id, 'two');
-    expect(h.pluginFor('three'), isNull);
+    TrackRef from(String pluginId) =>
+        TrackRef(pluginId: pluginId, trackId: 'x');
+    expect(h.pluginFor(from('two'))?.manifest.id, 'two');
+    expect(h.pluginFor(from('three')), isNull);
   });
 
   group('resolveStream', () {
@@ -140,6 +141,7 @@ void main() {
       }
     ''';
     final resolveManifest = manifest(capabilities: ['resolveStream']);
+    const a1 = TrackRef(pluginId: 'demo', trackId: 'a1');
 
     test('returns the stream the plugin resolves for the track id', () async {
       final h = host(
@@ -154,7 +156,7 @@ void main() {
       );
 
       expect(
-        await only(h).resolveStream('a1'),
+        await only(h).resolveStream(a1),
         AudioStream(
           url: Uri.parse('https://cdn.example.com/a.m4a?track=a1'),
           headers: const {'Referer': 'https://example.com'},
@@ -172,7 +174,7 @@ void main() {
       );
 
       expect(
-        await only(h).resolveStream('a1'),
+        await only(h).resolveStream(a1),
         AudioStream(url: Uri.parse('https://cdn.example.com/a.m4a')),
       );
     });
@@ -202,7 +204,7 @@ void main() {
       test('$name is a ParseFailure', () async {
         final h = host(resolving(result), manifestJson: resolveManifest);
         await expectLater(
-          only(h).resolveStream('a1'),
+          only(h).resolveStream(a1),
           throwsA(isA<ParseFailure>()),
         );
       });
@@ -210,9 +212,17 @@ void main() {
 
     test('a plugin that does not declare it is Unsupported', () async {
       final h = host(resolving("{ url: 'https://a.example/x' }"));
+      await expectLater(only(h).resolveStream(a1), throwsA(isA<Unsupported>()));
+    });
+
+    test('a track of another plugin is a program error', () async {
+      final h = host(
+        resolving("{ url: 'https://a.example/x' }"),
+        manifestJson: resolveManifest,
+      );
       await expectLater(
-        only(h).resolveStream('a1'),
-        throwsA(isA<Unsupported>()),
+        only(h).resolveStream(const TrackRef(pluginId: 'other', trackId: 'a1')),
+        throwsArgumentError,
       );
     });
   });

@@ -24,7 +24,11 @@ void main() {
   late FakeAudioBackend backend;
   late ProviderContainer container;
 
-  const playable = Track(source: 'songs', id: 'ok', title: 'Ok', author: 'A');
+  const playable = Track(
+    ref: TrackRef(pluginId: 'songs', trackId: 'ok'),
+    title: 'Ok',
+    author: 'A',
+  );
 
   setUpAll(loadFjsForTests);
   setUp(() async {
@@ -145,7 +149,11 @@ void main() {
   test('a stream the plugin cannot resolve fails with its error category '
       'and loads nothing', () async {
     await playback().play(
-      const Track(source: 'songs', id: 'gone', title: 'Gone', author: 'B'),
+      const Track(
+        ref: TrackRef(pluginId: 'songs', trackId: 'gone'),
+        title: 'Gone',
+        author: 'B',
+      ),
     );
 
     expect(current()!.status, PlaybackStatus.failed);
@@ -155,7 +163,11 @@ void main() {
 
   test('a track from a source with no plugin is Unsupported', () async {
     await playback().play(
-      const Track(source: 'nowhere', id: 'x', title: 'X', author: 'C'),
+      const Track(
+        ref: TrackRef(pluginId: 'nowhere', trackId: 'x'),
+        title: 'X',
+        author: 'C',
+      ),
     );
 
     expect(current()!.status, PlaybackStatus.failed);
@@ -293,8 +305,7 @@ void main() {
       await _until(() => backend.calls.isNotEmpty);
 
       const second = Track(
-        source: 'songs',
-        id: 'two',
+        ref: TrackRef(pluginId: 'songs', trackId: 'two'),
         title: 'Two',
         author: 'D',
       );

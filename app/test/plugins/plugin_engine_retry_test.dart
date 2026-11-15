@@ -56,6 +56,6 @@ void main() {
 
     await loadFjsForTests();
 
-    expect((await plugin.search('second')).single.id, 'second');
+    expect((await plugin.search('second')).single.ref.trackId, 'second');
   });
 }
