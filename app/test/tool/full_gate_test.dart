@@ -236,7 +236,6 @@ void main() {
         ],
       );
       expect(shell.ran, isNot(contains(contains('IPAD-UDID'))));
-      expect(shell.ran, isNot(contains(contains('REAL-IPHONE'))));
       expect(shell.ran, isNot(contains(startsWith('xcrun simctl bootstatus'))));
     });
 
@@ -269,6 +268,58 @@ void main() {
           contains('No booted iPhone simulator'),
           contains('booting iPhone Recent (RECENT-UDID)'),
         ),
+      );
+    });
+
+    test('each iOS test file looks for the iPhone again, so one shut down '
+        'between two files is booted again', () async {
+      shell.outputs['xcrun simctl list devices --json'] = _simctlJson(
+        booted: {},
+      );
+
+      expect(
+        await runGate(
+          tests: [
+            'integration_test/a_test.dart',
+            'integration_test/b_test.dart',
+          ],
+        ),
+        0,
+      );
+
+      expect(
+        shell.ran.where(
+          (c) =>
+              c.startsWith('xcrun simctl bootstatus') ||
+              c.contains('RECENT-UDID --no-uninstall'),
+        ),
+        [
+          'xcrun simctl bootstatus RECENT-UDID -b',
+          'flutter test integration_test/a_test.dart -d RECENT-UDID '
+              '--no-uninstall',
+          'xcrun simctl bootstatus RECENT-UDID -b',
+          'flutter test integration_test/b_test.dart -d RECENT-UDID '
+              '--no-uninstall',
+        ],
+      );
+    });
+
+    test('when booting the iPhone fails, the iOS integration test fails '
+        'without running', () async {
+      shell.outputs['xcrun simctl list devices --json'] = _simctlJson(
+        booted: {},
+      );
+      shell.failing.add('xcrun simctl bootstatus');
+
+      expect(await runGate(), isNot(0));
+
+      expect(
+        out.toString(),
+        contains('FAIL integration_test ios: integration_test/app_test.dart'),
+      );
+      expect(
+        shell.ran,
+        isNot(contains(contains('RECENT-UDID --no-uninstall'))),
       );
     });
 
@@ -445,7 +496,7 @@ const _devicesJson = '''
 ]
 ''';
 
-/// `xcrun simctl list devices --json` 的形狀（2026-11-15，Xcode 27.1），只留
+/// `xcrun simctl list devices --json` 的形狀（2026-11-15，Xcode 27.2），只留
 /// 閘門讀的欄位，名稱與 udid 改成假的。[booted] 裡的 udid 是開著的。iPad 與
 /// 不可用的 iPhone 最近用過，不能被選到；沒用過的裝置沒有 `lastUsedAt`。
 String _simctlJson({required Set<String> booted, bool iPhones = true}) {

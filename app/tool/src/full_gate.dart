@@ -15,7 +15,7 @@ import 'steps.dart';
 /// - 一次只給 `flutter test` 一個 integration_test 檔（docs/development.md〈平台〉 的怪癖）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
 ///   不刪模擬器上的 App 與資料。iOS 只用 iPhone，沒開著就開一台
-///   （[_bootedIPhone]）；Android 先 `adb start-server`。
+///   （[_ensureBootedIPhone]）；Android 先 `adb start-server`。
 /// - Windows 經 SSH 在 `winpc` 的桌面工作階段跑（docs/development.md〈平台〉〈Windows〉），
 ///   log 取回 [winpcLogs] 並印到 [out]。
 List<CheckStep> platformSteps({
@@ -28,6 +28,17 @@ List<CheckStep> platformSteps({
 }) {
   CheckStep flutter(String name, List<String> args) =>
       commandStep(name, shell, 'flutter', args, workingDirectory: app);
+
+  // 模擬器上的 integration_test：跑完不刪 App 與資料（docs/development.md〈平台〉）。
+  Future<bool> testOnEmulator(String file, String device) async =>
+      await shell.run('flutter', [
+        'test',
+        file,
+        '-d',
+        device,
+        '--no-uninstall',
+      ], workingDirectory: app) ==
+      0;
 
   CheckStep locked(CheckStep step) => CheckStep(step.name, () async {
     if (!deviceLock.isHeld) {
@@ -44,18 +55,16 @@ List<CheckStep> platformSteps({
       flutter('integration_test macos: $file', ['test', file, '-d', 'macos']),
     for (final file in integrationTests)
       CheckStep('integration_test ios: $file', () async {
-        final device = await _bootedIPhone(shell, app, out);
-        final args = ['test', file, '-d', device, '--no-uninstall'];
-        return await shell.run('flutter', args, workingDirectory: app) == 0;
+        // 每個檔都重查：模擬器可能在兩個檔之間被關掉。
+        final device = await _ensureBootedIPhone(shell, app, out);
+        return testOnEmulator(file, device);
       }),
     for (final file in integrationTests)
       CheckStep('integration_test android: $file', () async {
         // adb server 不在時以 ADB_MDNS=0 叫起來（brief 事實 K15），在跑時
         // 什麼都不做；先叫起來，`flutter devices` 才看得到模擬器。
         await shell.run('adb', ['start-server'], workingDirectory: app);
-        final device = await _androidEmulator(shell, app);
-        final args = ['test', file, '-d', device, '--no-uninstall'];
-        return await shell.run('flutter', args, workingDirectory: app) == 0;
+        return testOnEmulator(file, await _androidEmulator(shell, app));
       }),
     for (final file in integrationTests)
       CheckStep(
@@ -85,10 +94,14 @@ List<CheckStep> platformSteps({
 /// 從 `xcrun simctl list devices --json` 挑：它只列模擬器，不會挑到連著的
 /// 實體 iPhone；只挑 iPhone，iPad 開著也不用。沒有開著的 iPhone 時，開最近用過
 /// （`lastUsedAt`）的那台可用的 iPhone，在 [out] 印出原因，用
-/// `simctl bootstatus -b` 開機並等到開好（事實 T6）。模擬器會在閘門之外被
+/// `simctl bootstatus -b` 開機並等到開好（事實 T5）。模擬器會在閘門之外被
 /// 關掉，例如 Orca 的模擬器面板換裝置時會關掉前一台（docs/development.md
 /// 〈其他已知怪癖〉）。
-Future<String> _bootedIPhone(Shell shell, Directory app, StringSink out) async {
+Future<String> _ensureBootedIPhone(
+  Shell shell,
+  Directory app,
+  StringSink out,
+) async {
   final json = await shell.capture('xcrun', [
     'simctl',
     'list',
@@ -115,8 +128,11 @@ Future<String> _bootedIPhone(Shell shell, Directory app, StringSink out) async {
             udid: udid,
             name: name,
             booted: state == 'Booted',
-            lastUsedAt:
-                (device as Map<String, dynamic>)['lastUsedAt'] as String? ?? '',
+            lastUsedAt: switch ((device
+                as Map<String, dynamic>)['lastUsedAt']) {
+              final String at => DateTime.tryParse(at),
+              _ => null,
+            },
           ),
   ];
   for (final iPhone in iPhones) {
@@ -128,9 +144,10 @@ Future<String> _bootedIPhone(Shell shell, Directory app, StringSink out) async {
       'create one in Xcode (docs/development.md〈iOS 模擬器〉).',
     );
   }
-  // lastUsedAt 是 UTC 的 ISO 8601，字串順序就是時間順序；沒用過的是空字串。
+  // 沒用過的（沒有 lastUsedAt）排最後。
+  final never = DateTime.utc(0);
   final recent = iPhones.reduce(
-    (a, b) => b.lastUsedAt.compareTo(a.lastUsedAt) > 0 ? b : a,
+    (a, b) => (b.lastUsedAt ?? never).isAfter(a.lastUsedAt ?? never) ? b : a,
   );
   out.writeln(
     'No booted iPhone simulator (it may have been shut down outside the gate, '
