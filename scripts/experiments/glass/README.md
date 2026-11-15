@@ -86,6 +86,10 @@ Flutter 3.47.5 讀不到：`dart:ui` 的 `AccessibilityFeatures` 沒有這個欄
 
 切換方式：macOS 在「系統設定 › 輔助使用 › 顯示器 › 減少透明度」（`defaults write com.apple.universalaccess` 被系統擋，寫不進去）；iOS 模擬器在「設定 › 輔助使用 › 顯示與文字大小 › 減少透明度」（`simctl ui` 沒有這個選項）；Windows 直接改登錄值（等同「設定 › 個人化 › 色彩 › 透明效果」）。結果在 `results/<平台>-a11y-off.json`、`-a11y-on.json`。每次測完都已切回原本的值。Windows 另有 `UISettings.AdvancedEffectsEnabled`（WinRT，附變更事件），實驗沒有用它。設定變更的通知（iOS `reduceTransparencyStatusDidChangeNotification`、macOS `NSWorkspace.accessibilityDisplayOptionsDidChangeNotification`）沒有實測，probe 只在啟動時讀一次。
 
+## M1 票 04：「輕量」的模糊值（2026-11-15）
+
+probe 多三個候選 `lge-lite-5`、`lge-lite-10`、`lge-lite-18`（lite glass 模糊 5、10、18），在 Windows 跟 `lge-lens`、`solid` 一起跑 3 次（`VARIANTS=lge-lens,lge-lite-5,lge-lite-10,lge-lite-18,solid APP_ARGS=--plain ./run-windows.sh`，每次跑完把 `results/windows-partial-plain.json` 改名成 `windows-lite-run<n>.json`）。lite 的成本和模糊值無關、一律比 lens 慢；擁有者選 18。數字與分析在 `docs/research/glass-lite-blur-2026-11-15.md`。
+
 ## 檔案
 
 | 路徑 | 內容 |
@@ -99,6 +103,7 @@ Flutter 3.47.5 讀不到：`dart:ui` 的 `AccessibilityFeatures` 沒有這個欄
 | `results/windows.json`、`windows-sheet.jpg` | Windows 預設模式（含 `liquid_glass_widgets` 初始化）：白屏的證據 |
 | `results/windows-plain.json`、`windows-plain-sheet.jpg` | Windows `--plain`：上面表格的來源 |
 | `results/<平台>-a11y*.json` | 「降低透明度」的讀取結果 |
+| `results/windows-lite-run{1,2,3}.json`、`windows-lite-sheet.jpg` | M1 票 04：lite glass 模糊 5、10、18 的幀時間與第 1 次的對照圖 |
 
 ## 怎麼跑
 
