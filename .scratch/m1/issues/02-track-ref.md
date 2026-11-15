@@ -1,6 +1,6 @@
 # 02: 插件 id 與曲目 id 成對的型別
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 讀: brief §5.3；`GLOSSARY.md`〈曲目〉；`app/lib/domain/track.dart`；spec〈共同規則〉
 
@@ -13,8 +13,8 @@ Blocked by: None
 - [x] 新型別有相等與 hash，可以當 map 的鍵；有單元測試。
 - [x] `Track`、插件宿主找插件、`Playback`、log 的 `logId` 都改用它，沒有地方再單獨傳插件 id 字串。
 - [x] 依賴規則測試照過（Dart 端沒有音源識別碼的字面值）。
-- [ ] 四平台實跑搜尋並播放一首。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] 四平台實跑搜尋並播放一首。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
 
@@ -26,12 +26,12 @@ Blocked by: None
 
 ### 驗證
 
-- 三平台實跑（匿名，各搜一次 `lemon`、播第一首 `BV1tY411B7T9`，持共用裝置鎖；截圖留在暫存目錄）：
+- 四平台實跑（匿名，各搜一次 `lemon`、播第一首 `BV1tY411B7T9`，持共用裝置鎖；截圖留在暫存目錄）：
   - macOS：列出 B 站結果；第一次播放 AVPlayer 回 `NetworkError (code -1200: A TLS error…)`，CDN 是 `upos-hz-mirrorakam.akamaized.net`；隨後 `nscurl --ats-diagnostics` 對同一台主機全過。在同一個畫面再點一次（沒有重新搜尋）就播起來，讀回「播放中 0:08 / 4:18」。log 的曲目是 `bilibili/BV1tY411B7T9`，代表 `logId` 已經改由 `TrackRef` 產生。
   - iOS 模擬器：剪貼簿放 `lemon`，長按欄位叫出 Paste 貼上（單一 gesture 帶 60 個 move 點才算長按），讀回欄位是 `lemon` 才按搜尋；讀回「播放中 0:08 / 4:18」。先前試過一次 `orca emulator type`，硬體鍵盤的注音把字吃成組字中的注音，沒有送出搜尋。
   - Android 模擬器：`adb shell input text lemon`，讀回欄位是 `lemon` 才按搜尋；讀回「Playing 0:13 / 4:18」。
-  - Windows：沒有做。`winpc`（192.168.50.76）整個 session 都 ping 不到，ssh 回 `Host is down`。
-- 完整閘門（`dart run tool/check.dart`，commit 7950c40b）只有 Windows 三步紅，原因是 `winpc` 離線：
+  - Windows（`winpc`，擁有者開機後補做，合併 main 之後的 87284c2e）：`shot.ps1 -Type lemon -Click 200,262 -ClickWait 10`，`foreground_is_fmp_*` 全是 True；點第一首「在百万豪装录音棚大声听米津玄师《Lemon》【Hi-res】」，讀回「播放中 0:09 / 4:18」（mp4a.40.2 · 193 kbps）；log 有搜尋、`pagelist`、`playurl?bvid=BV1tY411B7T9` 三個請求，關閉時 `exited_after_close=True`。
+- 完整閘門（`dart run tool/check.dart`，commit 87284c2e，`winpc` 開機後重跑）全綠，exit 0：
 
 ```
 ok   i18n (slang)
@@ -46,18 +46,20 @@ ok   build macos
 ok   build ios
 ok   build android
 ok   lock shared devices
-FAIL build windows
+ok   build windows
 ok   integration_test macos: integration_test/app_test.dart
 ok   integration_test macos: integration_test/search_and_play_test.dart
 ok   integration_test ios: integration_test/app_test.dart
 ok   integration_test ios: integration_test/search_and_play_test.dart
 ok   integration_test android: integration_test/app_test.dart
 ok   integration_test android: integration_test/search_and_play_test.dart
-FAIL integration_test windows: integration_test/app_test.dart
-FAIL integration_test windows: integration_test/search_and_play_test.dart
+ok   integration_test windows: integration_test/app_test.dart
+ok   integration_test windows: integration_test/search_and_play_test.dart
 ok   unlock shared devices
 ok   plugin bundles (esbuild)
 ```
+
+  先前在 7950c40b 跑的那次，只有 Windows 三步紅（`winpc` 離線），其餘同上。
 
   `build windows` 停在 `sync.sh` 打包：`tar` 讀不到 `app/android/.kotlin/sessions/` 底下一個 Gradle 執行時才有的暫存檔；兩個 integration_test 是 `ssh: … Host is down`。
 
@@ -80,3 +82,4 @@ Session 紀錄：2026-11-15 曲目身分改成 `TrackRef`，宿主、播放與 l
 變更：無
 等使用者：`winpc`（跑 Windows 建置與測試的那台電腦）從 session 開始就連不上（ping 不通、ssh 回 Host is down）。選項：開機並登入桌面，讓接手的 session 補做 Windows 實跑與完整閘門；或者這張票先不管 Windows。建議開機補做。不處理的話，這張票不能改 done，也不能合併。
 決定：使用者已把 winpc 開機，補做 Windows 實跑與完整閘門（使用者定）
+Session 紀錄：2026-11-15 winpc 開機後合併 main、補做 Windows 實跑與完整閘門（全綠），票改 done
