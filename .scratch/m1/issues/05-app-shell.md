@@ -22,3 +22,14 @@ App 有照稿的外殼與路由：手機是導覽膠囊（首頁、音樂庫、�
 - [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
+Session 紀錄：2026-11-15 讀完稿與規格、問完兩題、加 go_router 18.1.4（pubspec），還沒寫外殼；額度用完中斷，下一個 session 照下面的計畫接著做
+決定：Windows 先用原生標題列，自繪另開 M1 票 05b；截圖比對時記為 05b 會補的已知差異（使用者定）
+決定：圖示照稿，把 kit.js 的路徑搬進 `app/` 的 FmpIcons，用 path_parsing 1.1.0 畫，用到哪個搬哪個（Agent 定）
+決定：桌面詳情面板只做框、標頭「正在播放」與收起，內容歸票 17；截圖比對時記為票 17 會補的已知差異（使用者定）
+決定：音樂庫空狀態只留圖示與「還沒有歌單」，不放新建、匯入的說明與按鈕（M3 才有）（Agent 定）
+接手計畫（還沒做）：
+- go_router `ShellRoute`：/home /library /queue /settings /search，NoTransitionPage，initialLocation /home；分頁用 go，進搜尋用 push（返回＝pop 回原分頁）；外殼的 PopScope 讓非首頁分頁按返回回首頁，首頁才離開。
+- 搜尋框共用 Riverpod 持有的 TextEditingController：手機在 dock（搜尋圓鈕展開成欄位，導覽收成左邊圓鈕、顯示進搜尋前的分頁；聚焦時欄位撐滿、圓鈕藏起），中寬度在搜尋頁頂端，寬級在側欄搜尋欄（聚焦即進 /search）。佔位搜尋與播放面板搬進 `ui/search/`，integration_test 改成先點「搜尋」再輸入。
+- 尺寸照 fmp.css：dock 高 160、導覽膠囊 W-100×62、圓鈕 62；細欄外框 72（平板 80）、項目高 50（58）；側欄外框 248、項目高 32、搜尋欄 30；詳情面板 320、標頭 52，中寬度由頂列 sidebarR 鈕叫出浮動面板（平板 360），寬級收起後同一顆鈕叫回；設定頁預設收起。
+- macOS：MainFlutterWindow 透明標題列＋fullSizeContentView、minSize 720×560，側欄／細欄頂端讓出紅綠燈的高度（由 `platform/` 提供是否要讓）；Windows：win32_window.cpp 處理 WM_GETMINMAXINFO（依 DPI 換算，含邊框）。
+- ARCHITECTURE〈主要依賴〉要補 go_router 18.1.4 與 path_parsing 1.1.0 兩列（寫入前照協調者指示先問）。
