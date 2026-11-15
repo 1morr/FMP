@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:fmp/platform/window_chrome.dart';
 
 /// 拖動視窗的區域。macOS 的標題列是透明的、疊在內容上，點擊會進 Flutter，
 /// 系統不會自己拖動視窗（`macos/Runner/MainFlutterWindow.swift`）；在這塊區域
@@ -15,7 +15,7 @@ class WindowDragArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (defaultTargetPlatform != TargetPlatform.macOS) {
+    if (!WindowChrome.insetTrafficLights) {
       return child ?? const SizedBox.expand();
     }
     return GestureDetector(

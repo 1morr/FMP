@@ -64,7 +64,7 @@ app/
 | --- | --- | --- |
 | 狀態管理 | flutter_riverpod 3.5.0（手寫 provider） | 舊版與上一輪都用；自動重試全域關閉（brief 事實 K5） |
 | 元件與主題 | material_ui 1.11.0（帶進 cupertino_ui 1.1.6） | 取代 Flutter 內建、3.50 起 deprecated 的 Material（事實 T1）；設計系統的 token 是它的 `ThemeExtension`，在 `app/theme/` |
-| 路由 | go_router 18.1.4 | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute`，18 起改用 material_ui |
+| 路由 | go_router 18.1.4 | flutter.dev 官方維護，舊版用過；外殼用 `ShellRoute` |
 | 圖示 | path_parsing 1.1.0 | flutter.dev 官方、純 Dart，只解析 SVG 路徑字串；設計稿的線條圖示照原路徑畫（`app/icons/`），不加整套 SVG 渲染 |
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（〈測試策略〉）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio 5.11.1 | 插件請求都經宿主網路層（`plugins/src/host_network.dart`：網域白名單、log 與遮蔽；依音源限流與重試還沒做，〈風險與回寫點〉），只有 `plugins/` 能 import（依賴規則）；測試換掉 `HttpClientAdapter` |

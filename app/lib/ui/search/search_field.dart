@@ -51,6 +51,15 @@ class _SearchFieldState extends ConsumerState<SearchField> {
   void initState() {
     super.initState();
     _focus.addListener(_focusChanged);
+    // 進搜尋頁之前就要求了焦點（中寬度按 ⌘K）：建出來後接手。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(searchFocusRequestProvider)) _takeFocus();
+    });
+  }
+
+  void _takeFocus() {
+    ref.read(searchFocusRequestProvider.notifier).consume();
+    _focus.requestFocus();
   }
 
   @override
@@ -73,7 +82,9 @@ class _SearchFieldState extends ConsumerState<SearchField> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(searchFocusRequestProvider, (_, _) => _focus.requestFocus());
+    ref.listen(searchFocusRequestProvider, (_, pending) {
+      if (pending) _takeFocus();
+    });
     final controller = ref.watch(searchQueryProvider);
     final t = context.t;
     final colors = context.fmpColors;

@@ -43,13 +43,13 @@ enum FmpIcons {
 
   final List<_Part>? _parts;
 
-  List<_Part> get _all =>
-      _parts ??
-      [
-        // 設定的齒輪由 kit.js 的 gearPath() 算出來。
-        _Part(_gearPath()),
-        const _Part('M9.2 12a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0 -5.6 0'),
-      ];
+  List<_Part> get _all => _parts ?? _gearParts;
+
+  /// 設定的齒輪由 kit.js 的 gearPath() 算出來，只算一次。
+  static final _gearParts = [
+    _Part(_gearPath()),
+    const _Part('M9.2 12a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0 -5.6 0'),
+  ];
 }
 
 /// 圖示的一筆：預設只描邊；[fill] 時填滿並用 [strokeWidth] 描邊。

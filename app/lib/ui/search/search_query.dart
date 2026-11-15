@@ -11,16 +11,20 @@ final searchQueryProvider = Provider<TextEditingController>((ref) {
   return controller;
 });
 
-/// 要搜尋欄取得焦點（例如桌面按 ⌘K）：每次加一，正顯示著的欄位跟著聚焦。
-final searchFocusRequestProvider = NotifierProvider<SearchFocusRequest, int>(
+/// 要搜尋欄取得焦點（例如桌面按 ⌘K）。中寬度的欄位在搜尋頁裡，按下時可能
+/// 還沒建出來，所以這是一個待辦：顯示著的欄位、或下一個建出來的欄位接手並
+/// 清掉它。
+final searchFocusRequestProvider = NotifierProvider<SearchFocusRequest, bool>(
   SearchFocusRequest.new,
 );
 
-class SearchFocusRequest extends Notifier<int> {
+class SearchFocusRequest extends Notifier<bool> {
   @override
-  int build() => 0;
+  bool build() => false;
 
-  void request() => state++;
+  void request() => state = true;
+
+  void consume() => state = false;
 }
 
 /// 用搜尋欄目前的文字搜尋。

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/glass/glass.dart';
@@ -184,6 +185,29 @@ void main() {
     });
   });
 
+  testWidgets('the search shortcut opens search and focuses its field, also '
+      'in the medium layout where the field lives on the search page', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    for (final size in [const Size(960, 720), desktop]) {
+      await start(tester, size);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchPage), findsOneWidget, reason: '$size');
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
+        isTrue,
+        reason: '$size',
+      );
+    }
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   group('wide', () {
     testWidgets('the sidebar reaches the four tabs, its field opens search, '
         'and the detail panel collapses', (tester) async {
@@ -205,6 +229,11 @@ void main() {
       await tap(tester, find.byType(TextField));
       expect(find.byType(SearchPage), findsOneWidget);
       await tap(tester, inSide('首頁'));
+      expect(find.byType(HomePage), findsOneWidget);
+
+      // 系統返回（例如平板的返回鍵）：非首頁的分頁回首頁。
+      await tap(tester, inSide('佇列'));
+      expect(await systemBack(tester), isTrue);
       expect(find.byType(HomePage), findsOneWidget);
 
       await tap(tester, find.byTooltip('收起面板'));

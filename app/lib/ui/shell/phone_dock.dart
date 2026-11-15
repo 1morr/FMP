@@ -42,6 +42,13 @@ class _PhoneDockState extends State<PhoneDock> {
   bool _fieldFocused = false;
 
   @override
+  void didUpdateWidget(PhoneDock old) {
+    super.didUpdateWidget(old);
+    // 欄位帶著焦點被拿掉時收不到失焦的通知。
+    if (widget.current != Destination.search) _fieldFocused = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final width = media.size.width;

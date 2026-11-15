@@ -11,16 +11,16 @@ abstract final class WindowChrome {
       defaultTargetPlatform == TargetPlatform.macOS;
 
   /// 快捷鍵的修飾鍵：macOS 是 ⌘，其他平台是 Ctrl。
-  static bool get usesCommandKey =>
+  static bool get _usesCommandKey =>
       defaultTargetPlatform == TargetPlatform.macOS ||
       defaultTargetPlatform == TargetPlatform.iOS;
 
   /// 修飾鍵＋[key] 的快捷鍵。
-  static SingleActivator shortcut(LogicalKeyboardKey key) => usesCommandKey
+  static SingleActivator shortcut(LogicalKeyboardKey key) => _usesCommandKey
       ? SingleActivator(key, meta: true)
       : SingleActivator(key, control: true);
 
   /// 快捷鍵寫給人看的樣子，例如「⌘K」「Ctrl K」。
   static String shortcutLabel(String key) =>
-      usesCommandKey ? '⌘$key' : 'Ctrl $key';
+      _usesCommandKey ? '⌘$key' : 'Ctrl $key';
 }

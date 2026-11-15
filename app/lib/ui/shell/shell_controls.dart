@@ -97,14 +97,12 @@ class PlainIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.size,
-    this.iconSize = 18,
   });
 
   final FmpIcons icon;
   final String tooltip;
   final VoidCallback onTap;
   final double size;
-  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +120,7 @@ class PlainIconButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(size / 2),
         ),
         alignment: Alignment.center,
-        child: FmpIcon(icon, size: iconSize, color: colors.label),
+        child: FmpIcon(icon, size: 18, color: colors.label),
       ),
     );
   }

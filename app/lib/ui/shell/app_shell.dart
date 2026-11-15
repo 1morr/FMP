@@ -161,7 +161,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget _medium(BuildContext context, bool touch) {
     final media = MediaQuery.of(context);
     final top0 = touch ? media.viewPadding.top : 0.0;
-    final bottom = touch ? math.max(8.0, media.viewPadding.bottom) : 8.0;
+    // 平板的細欄與浮動面板離底 20（讓出 home indicator）。
+    final bottom = touch ? math.max(20.0, media.viewPadding.bottom) : 8.0;
     final side = NavRail.widthOf(touch: touch) + 8;
     final panelWidth = DetailPanel.widthOf(touch: touch, floating: true);
     return Stack(
