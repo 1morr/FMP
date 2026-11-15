@@ -79,4 +79,4 @@ Session 紀錄：2026-11-15 曲目身分改成 `TrackRef`，宿主、播放與 l
 決定：`logId` 搬到 `TrackRef`（`<插件 id>/<曲目 id>`），`toString` 輸出相同（Agent 定）
 變更：無
 等使用者：`winpc`（跑 Windows 建置與測試的那台電腦）從 session 開始就連不上（ping 不通、ssh 回 Host is down）。選項：開機並登入桌面，讓接手的 session 補做 Windows 實跑與完整閘門；或者這張票先不管 Windows。建議開機補做。不處理的話，這張票不能改 done，也不能合併。
-
+決定：使用者已把 winpc 開機，補做 Windows 實跑與完整閘門（使用者定）
