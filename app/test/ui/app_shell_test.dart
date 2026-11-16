@@ -243,6 +243,16 @@ void main() {
       expect(find.byType(DetailPanel), findsOneWidget);
     });
 
+    testWidgets('the page title sits 24 clear of the sidebar', (tester) async {
+      await start(tester, desktop);
+      final title = find.descendant(
+        of: find.byType(HomePage),
+        matching: find.text('首頁'),
+      );
+      // 側欄外框右緣 256，頁面左內距 24（DESIGN.md〈桌面〉）。
+      expect(tester.getTopLeft(title).dx, 256 + 24);
+    });
+
     testWidgets('settings opens with the detail panel collapsed', (
       tester,
     ) async {
@@ -429,26 +439,35 @@ void main() {
       expect(calls.map((c) => c.method), ['zoom']);
     });
 
-    windowsTest('the top-right controls of the shell stay clear of the '
-        'buttons', (tester) async {
+    windowsTest('the top-bar button gives up the 138 the caption buttons '
+        'take', (tester) async {
+      for (final size in [const Size(960, 720), desktop]) {
+        await start(tester, size);
+        if (find.byTooltip('收起面板').evaluate().isNotEmpty) {
+          await tap(tester, find.byTooltip('收起面板'));
+        }
+        // 頂列 `.wtop` 的右端退到 138，玻璃鈕再內縮 16。
+        expect(
+          tester.getRect(find.byTooltip('顯示詳情面板')).right,
+          size.width - 138 - 16,
+          reason: '$size',
+        );
+      }
+    });
+
+    windowsTest('the detail panel starts its header below the caption '
+        'buttons, with the hide button back at its right end', (tester) async {
       await start(tester, desktop);
-      expect(
-        tester.getRect(find.byTooltip('收起面板')).right,
-        lessThan(1280 - 138),
-      );
-      await tap(tester, find.byTooltip('收起面板'));
-      expect(
-        tester.getRect(find.byTooltip('顯示詳情面板')).right,
-        lessThan(1280 - 138),
-      );
+      final docked = tester.getRect(find.byTooltip('收起面板'));
+      expect(docked.top, greaterThanOrEqualTo(32));
+      // 標頭右內距 10，和其他平台一樣。
+      expect(docked.right, 1280 - 10);
 
       await start(tester, const Size(960, 720));
-      expect(
-        tester.getRect(find.byTooltip('顯示詳情面板')).right,
-        lessThan(960 - 138),
-      );
       await tap(tester, find.byTooltip('顯示詳情面板'));
-      expect(tester.getRect(find.byTooltip('收起面板')).right, lessThan(960 - 138));
+      // 浮動面板從視窗鈕下方再 8 開始。
+      expect(tester.getRect(find.byType(DetailPanel)).top, 32 + 8);
+      expect(tester.getRect(find.byTooltip('收起面板')).right, 960 - 8 - 10);
     });
   });
 }

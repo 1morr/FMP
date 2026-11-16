@@ -217,7 +217,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
           Positioned(
-            top: top0 + 8,
+            // Windows 上從視窗鈕下方開始。
+            top: top0 + WindowChrome.captionButtonsHeight + 8,
             right: 8,
             bottom: bottom,
             width: panelWidth,
@@ -231,8 +232,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                 child: DetailPanel(
                   touch: touch,
                   floating: true,
-                  // 面板離視窗右緣 8。
-                  endInset: _captionInset(8),
                   onHide: () => setState(() => _floatingDetail = false),
                 ),
               ),
@@ -256,7 +255,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           right: open ? panelWidth : 0,
           bottom: 0,
           child: _content(
-            EdgeInsets.fromLTRB(8, top0 + 66, 32, _transportInset),
+            EdgeInsets.fromLTRB(24, top0 + 66, 32, _transportInset),
           ),
         ),
         Positioned(
@@ -285,8 +284,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: panelWidth,
             child: DetailPanel(
               touch: touch,
-              topInset: top0,
-              endInset: _captionInset(0),
+              // Windows 上標頭讓出視窗鈕那一列。
+              topInset: top0 + WindowChrome.captionButtonsHeight,
               onHide: () => _setDetail(false),
             ),
           )

@@ -22,6 +22,11 @@ abstract final class WindowChrome {
   /// 一顆視窗鈕的大小（`docs/design/DESIGN.md`〈桌面〉）。
   static const Size captionButtonSize = Size(46, 32);
 
+  /// 視窗鈕那一列的高度：貼著視窗頂端、在視窗鈕底下的面板（詳情面板）
+  /// 從這裡以下才開始放內容。
+  static double get captionButtonsHeight =>
+      captionButtons ? captionButtonSize.height : 0;
+
   /// 頂端貼著視窗右緣的東西要讓出的寬度：三顆視窗鈕。
   static double get captionButtonsWidth =>
       captionButtons ? 3 * captionButtonSize.width : 0;
