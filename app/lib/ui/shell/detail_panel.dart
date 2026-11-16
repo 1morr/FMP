@@ -16,6 +16,7 @@ class DetailPanel extends StatelessWidget {
     required this.touch,
     this.floating = false,
     this.topInset = 0,
+    this.endInset = 0,
   });
 
   /// 寬度：320，觸控浮動時 360。
@@ -29,6 +30,9 @@ class DetailPanel extends StatelessWidget {
   /// 貼齊視窗頂端時讓出的狀態列高度。
   final double topInset;
 
+  /// 標頭右端再讓出的寬度（Windows 的視窗鈕）。
+  final double endInset;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
@@ -36,7 +40,7 @@ class DetailPanel extends StatelessWidget {
     final big = touch && floating;
     final head = Container(
       height: big ? 60 : 52,
-      padding: EdgeInsets.fromLTRB(big ? 20 : 16, 8, 10, 0),
+      padding: EdgeInsets.fromLTRB(big ? 20 : 16, 8, 10 + endInset, 0),
       child: Row(
         children: [
           Expanded(

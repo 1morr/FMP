@@ -53,6 +53,12 @@
     },
     "library": {
       "empty": "No playlists yet"
+    },
+    "window": {
+      "minimize": "Minimize",
+      "maximize": "Maximize",
+      "restore": "Restore",
+      "close": "Close"
     }
   }
 }

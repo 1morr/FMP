@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:fmp/ui/shell/caption_buttons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/glass/glass.dart';
@@ -268,6 +269,186 @@ void main() {
       await start(tester, desktop);
       expect(find.text('⌘K'), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
+  group('windows caption buttons', () {
+    const channel = MethodChannel('fmp/window');
+    late List<MethodCall> calls;
+
+    setUp(() {
+      calls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return call.method == 'isMaximized' ? false : null;
+          });
+    });
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    /// 原生端經頻道送來的訊息。
+    Future<void> fromNative(
+      WidgetTester tester,
+      String method, [
+      Object? args,
+    ]) async {
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(MethodCall(method, args)),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// 在 Windows 上跑 [body]；平台覆寫要在測試本體裡還原。
+    void windowsTest(String description, WidgetTesterCallback body) =>
+        testWidgets(description, (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+          try {
+            await body(tester);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+
+    Finder button(String label) => find.descendant(
+      of: find.byType(CaptionButtons),
+      matching: find.bySemanticsLabel(label),
+    );
+
+    windowsTest('sit at the window top right, 46 by 32 each, in both desktop '
+        'layouts', (tester) async {
+      for (final size in [const Size(960, 720), desktop]) {
+        await start(tester, size);
+        final w = size.width;
+        expect(
+          tester.getRect(button('最小化')),
+          Rect.fromLTWH(w - 138, 0, 46, 32),
+          reason: '$size',
+        );
+        expect(
+          tester.getRect(button('最大化')),
+          Rect.fromLTWH(w - 92, 0, 46, 32),
+          reason: '$size',
+        );
+        expect(
+          tester.getRect(button('關閉')),
+          Rect.fromLTWH(w - 46, 0, 46, 32),
+          reason: '$size',
+        );
+      }
+    });
+
+    windowsTest('are not drawn on macOS', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await start(tester, desktop);
+      expect(find.byType(CaptionButtons), findsNothing);
+    });
+
+    windowsTest('minimize, maximize and close ask the window', (tester) async {
+      await start(tester, desktop);
+      for (final (label, method) in [
+        ('最小化', 'minimize'),
+        ('最大化', 'zoom'),
+        ('關閉', 'close'),
+      ]) {
+        calls.clear();
+        await tap(tester, button(label));
+        expect(calls.map((c) => c.method), [method], reason: label);
+      }
+    });
+
+    windowsTest('tell the window where the maximize button is, so Windows '
+        'can open Snap Layouts over it', (tester) async {
+      await start(tester, desktop);
+      final report = calls.lastWhere(
+        (c) => c.method == 'setMaximizeButtonRect',
+      );
+      // 量的是離視窗右上角的距離，視窗改變大小時不用重報。
+      expect(report.arguments, {
+        'right': 46.0,
+        'top': 0.0,
+        'width': 46.0,
+        'height': 32.0,
+      });
+    });
+
+    windowsTest('the maximize button turns into restore while the window is '
+        'maximized', (tester) async {
+      await start(tester, desktop);
+      await fromNative(tester, 'maximized', true);
+      expect(button('還原'), findsOneWidget);
+      expect(button('最大化'), findsNothing);
+      await fromNative(tester, 'maximized', false);
+      expect(button('最大化'), findsOneWidget);
+    });
+
+    windowsTest('the maximize button shows the hover and press that Windows '
+        'reports, since Flutter does not see the pointer there', (
+      tester,
+    ) async {
+      await start(tester, desktop);
+      CaptionButton maximize() => tester.widget<CaptionButton>(
+        find.ancestor(of: button('最大化'), matching: find.byType(CaptionButton)),
+      );
+      expect((maximize().hovered, maximize().pressed), (false, false));
+      await fromNative(tester, 'maximizeButton', {
+        'hovered': true,
+        'pressed': false,
+      });
+      expect((maximize().hovered, maximize().pressed), (true, false));
+      await fromNative(tester, 'maximizeButton', {
+        'hovered': true,
+        'pressed': true,
+      });
+      expect((maximize().hovered, maximize().pressed), (true, true));
+      await fromNative(tester, 'maximizeButton', {
+        'hovered': false,
+        'pressed': false,
+      });
+      expect((maximize().hovered, maximize().pressed), (false, false));
+    });
+
+    windowsTest('the empty top bar drags the window and double-clicking it '
+        'maximizes', (tester) async {
+      await start(tester, desktop);
+      const topBar = Offset(700, 30);
+      calls.clear();
+      await tester.dragFrom(topBar, const Offset(120, 80));
+      await tester.pumpAndSettle();
+      expect(calls.map((c) => c.method), ['startDrag']);
+
+      calls.clear();
+      await tester.tapAt(topBar);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(topBar);
+      await tester.pumpAndSettle();
+      expect(calls.map((c) => c.method), ['zoom']);
+    });
+
+    windowsTest('the top-right controls of the shell stay clear of the '
+        'buttons', (tester) async {
+      await start(tester, desktop);
+      expect(
+        tester.getRect(find.byTooltip('收起面板')).right,
+        lessThan(1280 - 138),
+      );
+      await tap(tester, find.byTooltip('收起面板'));
+      expect(
+        tester.getRect(find.byTooltip('顯示詳情面板')).right,
+        lessThan(1280 - 138),
+      );
+
+      await start(tester, const Size(960, 720));
+      expect(
+        tester.getRect(find.byTooltip('顯示詳情面板')).right,
+        lessThan(960 - 138),
+      );
+      await tap(tester, find.byTooltip('顯示詳情面板'));
+      expect(tester.getRect(find.byTooltip('收起面板')).right, lessThan(960 - 138));
     });
   });
 }

@@ -187,25 +187,6 @@ Win32Window::MessageHandler(HWND hwnd,
       }
       return 0;
 
-    case WM_GETMINMAXINFO: {
-      // Keep the client area at least 720x560 logical pixels (design brief,
-      // section "interface"). Windows wants the whole window including the
-      // frame and title bar, scaled for this window's DPI. ASCII only: the
-      // runner builds with /WX, and non-ASCII bytes trip C4819 on CJK locales.
-      UINT dpi = GetDpiForWindow(hwnd);
-      double scale_factor = dpi / 96.0;
-      RECT frame = {0, 0, Scale(720, scale_factor), Scale(560, scale_factor)};
-      AdjustWindowRectExForDpi(&frame,
-                               static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE)),
-                               FALSE,
-                               static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE)),
-                               dpi);
-      auto info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize.x = frame.right - frame.left;
-      info->ptMinTrackSize.y = frame.bottom - frame.top;
-      return 0;
-    }
-
     case WM_DPICHANGED: {
       auto newRectSize = reinterpret_cast<RECT*>(lparam);
       LONG newWidth = newRectSize->right - newRectSize->left;
