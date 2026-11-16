@@ -59,6 +59,8 @@ log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
 框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄、資料庫位置）、media_kit（libmpv；建置時從 GitHub 下載，事實 K26）。
 
+視窗：沒有原生標題列，最小化、最大化、關閉由 App 畫在右上；拿掉標題列、頂端拉邊緣、最大化鈕上的 Snap Layouts 與 `fmp/window` 頻道在 `app/windows/runner/window_frame.cpp`（事實 W12，不用套件的原因見事實 K29）。Snap Layouts 與頂端拉邊緣靠替換 Flutter 畫面子視窗的 window procedure，引擎改了子視窗的結構就會悄悄失效，這段原生碼沒有測試會發現。升級 Flutter 或 Windows 後，在 `winpc` 用真的滑鼠（人手或 SendInput，不能用跨行程送 `WM_NCHITTEST` 代替）檢查一次，每項讀回視窗矩形或截圖：拖曳頂列空白處，視窗跟著移動，放開後點側欄照常換頁；雙擊頂列空白處最大化、再雙擊還原；滑鼠停在最大化鈕上約 2 秒出 Snap Layouts，鈕本身有 hover 底色；點最大化鈕最大化、圖示換成還原，再點還原；從頂端、右邊緣、右下角拉大小，往小拉時客戶區停在 720×560 邏輯像素；最小化鈕、關閉鈕（關閉後行程結束）。
+
 log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.log" -Tail 20'`。
 
 資料庫：`logs/` 的上一層（App 支援目錄）的 `fmp.sqlite`。path_provider 連帶把 `jni` 列進 Windows 的 FFI 插件。

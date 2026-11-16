@@ -26,6 +26,8 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  frame_.Attach(GetHandle(), flutter_controller_->view()->GetNativeWindow(),
+                flutter_controller_->engine()->messenger());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -40,6 +42,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // Drops the channel before the engine it talks through goes away.
+  frame_.Detach();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -51,6 +55,13 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // The frame first: WM_NCCALCSIZE arrives while the window is created,
+  // before the Flutter controller exists.
+  if (std::optional<LRESULT> result =
+          frame_.HandleMessage(hwnd, message, wparam, lparam)) {
+    return *result;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

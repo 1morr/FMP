@@ -53,6 +53,12 @@
     },
     "library": {
       "empty": "還沒有歌單"
+    },
+    "window": {
+      "minimize": "最小化",
+      "maximize": "最大化",
+      "restore": "還原",
+      "close": "關閉"
     }
   }
 }

@@ -9,6 +9,7 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/ui/search/search_query.dart';
+import 'package:fmp/ui/shell/caption_buttons.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/detail_panel.dart';
 import 'package:fmp/ui/shell/nav_rail.dart';
@@ -122,7 +123,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: Scaffold(
           backgroundColor: context.fmpColors.bg,
           resizeToAvoidBottomInset: false,
-          body: shell,
+          body: WindowChrome.captionButtons
+              ? Stack(
+                  children: [
+                    Positioned.fill(child: shell),
+                    const Positioned(top: 0, right: 0, child: CaptionButtons()),
+                  ],
+                )
+              : shell,
         ),
       ),
     );
@@ -181,7 +189,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
         ),
-        // 頂列的空白處拖動視窗（macOS）。
+        // 頂列的空白處拖動視窗（macOS、Windows）。
         Positioned(
           left: 0,
           top: 0,
@@ -209,7 +217,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
           Positioned(
-            top: top0 + 8,
+            // Windows 上從視窗鈕下方開始。
+            top: top0 + WindowChrome.captionButtonsHeight + 8,
             right: 8,
             bottom: bottom,
             width: panelWidth,
@@ -246,7 +255,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           right: open ? panelWidth : 0,
           bottom: 0,
           child: _content(
-            EdgeInsets.fromLTRB(8, top0 + 66, 32, _transportInset),
+            EdgeInsets.fromLTRB(24, top0 + 66, 32, _transportInset),
           ),
         ),
         Positioned(
@@ -275,7 +284,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: panelWidth,
             child: DetailPanel(
               touch: touch,
-              topInset: top0,
+              // Windows 上標頭讓出視窗鈕那一列。
+              topInset: top0 + WindowChrome.captionButtonsHeight,
               onHide: () => _setDetail(false),
             ),
           )
@@ -285,12 +295,17 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  /// 頂端離視窗右緣 [fromRight] 的東西，右端還要再讓出多少給視窗鈕
+  /// （`docs/design/DESIGN.md`〈桌面〉：內容頂列右端讓出 138）。
+  static double _captionInset(double fromRight) =>
+      math.max(0, WindowChrome.captionButtonsWidth - fromRight);
+
   /// 頂列右端叫出詳情面板的玻璃鈕（`sidebarR`）。
   Widget _detailButton(bool touch, double top0, VoidCallback onTap) {
     return Positioned(
       // 頂列 `.wtop`：離頂 8（平板 6）、高 50（平板 52），右邊 8 再內縮 16。
       top: top0 + (touch ? 6 + (52 - 44) / 2 : 8 + (50 - 34) / 2),
-      right: 24,
+      right: 8 + _captionInset(8) + 16,
       child: GlassIconButton(
         icon: FmpIcons.sidebarR,
         tooltip: context.t.shell.detail.show,

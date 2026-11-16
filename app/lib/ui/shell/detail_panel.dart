@@ -26,7 +26,8 @@ class DetailPanel extends StatelessWidget {
   final bool touch;
   final bool floating;
 
-  /// 貼齊視窗頂端時讓出的狀態列高度。
+  /// 貼齊視窗頂端時，標頭上面讓出的高度：狀態列，或 Windows 的視窗鈕那一列。
+  /// 這一塊和標題一樣能拖動視窗。
   final double topInset;
 
   @override
@@ -66,7 +67,7 @@ class DetailPanel extends StatelessWidget {
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(height: topInset),
+        WindowDragArea(child: SizedBox(height: topInset)),
         head,
       ],
     );
