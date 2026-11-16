@@ -2,16 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Windows 的最小化、最大化（還原）、關閉（`docs/design/DESIGN.md`〈桌面〉的
-/// Windows 那一點）：各 46×32、圖示 16，貼在視窗右上；外殼只在
-/// `WindowChrome.captionButtons` 時放它。
+/// Windows 那一點）：各 [WindowChrome.captionButtonSize]、圖示 16，貼在視窗
+/// 右上；外殼只在 [WindowChrome.captionButtons] 時放它。
 class CaptionButtons extends ConsumerStatefulWidget {
   const CaptionButtons({super.key});
-
-  static const Size buttonSize = Size(46, 32);
 
   @override
   ConsumerState<CaptionButtons> createState() => _CaptionButtonsState();
@@ -25,9 +24,9 @@ class _CaptionButtonsState extends ConsumerState<CaptionButtons> {
     ref
         .read(windowControlsProvider.notifier)
         .reportMaximizeButton(
-          right: CaptionButtons.buttonSize.width,
+          right: WindowChrome.captionButtonSize.width,
           top: 0,
-          size: CaptionButtons.buttonSize,
+          size: WindowChrome.captionButtonSize,
         );
   }
 
@@ -137,12 +136,13 @@ class _CaptionButtonState extends State<CaptionButton> {
             setState(() => _pressed = false);
             widget.onTap();
           },
-          child: ColoredBox(
+          child: AnimatedContainer(
+            duration: FmpMotion.fast,
+            width: WindowChrome.captionButtonSize.width,
+            height: WindowChrome.captionButtonSize.height,
             color: fill ?? const Color(0x00000000),
-            child: SizedBox.fromSize(
-              size: CaptionButtons.buttonSize,
-              child: Center(child: FmpIcon(widget.icon, size: 16, color: ink)),
-            ),
+            alignment: Alignment.center,
+            child: FmpIcon(widget.icon, size: 16, color: ink),
           ),
         ),
       ),

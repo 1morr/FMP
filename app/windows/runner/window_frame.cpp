@@ -9,7 +9,8 @@ namespace {
 
 constexpr wchar_t kFrameProperty[] = L"FmpWindowFrame";
 
-// Smallest client area in logical pixels (design brief, "interface").
+// Smallest client area in logical pixels, the same as contentMinSize in
+// macos/Runner/MainFlutterWindow.swift.
 constexpr int kMinClientWidth = 720;
 constexpr int kMinClientHeight = 560;
 
@@ -24,6 +25,10 @@ int ResizeBorder(UINT dpi) {
 int ResizeBorderX(UINT dpi) {
   return GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
          GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+}
+
+void ToggleMaximize(HWND window) {
+  ShowWindow(window, IsZoomed(window) ? SW_RESTORE : SW_MAXIMIZE);
 }
 
 int Scale(double logical, UINT dpi) {
@@ -91,7 +96,7 @@ LRESULT CALLBACK WindowFrame::ContentProc(HWND content, UINT message,
   if (message == WM_NCHITTEST) {
     POINT screen = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
     if (frame->HitTestClient(frame->window_, screen) != HTCLIENT) {
-      // Let the main window answer (HTTOP or HTMAXBUTTON).
+      // Let the main window answer (a top resize code or HTMAXBUTTON).
       return HTTRANSPARENT;
     }
   }
@@ -103,12 +108,16 @@ LRESULT WindowFrame::HitTestClient(HWND window, POINT screen) const {
   POINT point = screen;
   ScreenToClient(window, &point);
   const UINT dpi = GetDpiForWindow(window);
+  RECT client;
+  GetClientRect(window, &client);
   if (!IsZoomed(window) && point.y >= 0 && point.y < ResizeBorder(dpi)) {
+    // The corners of the top band resize diagonally, like the side borders.
+    const int corner = ResizeBorderX(dpi);
+    if (point.x < corner) return HTTOPLEFT;
+    if (point.x >= client.right - corner) return HTTOPRIGHT;
     return HTTOP;
   }
   if (has_maximize_button_) {
-    RECT client;
-    GetClientRect(window, &client);
     const LONG right = client.right - Scale(button_right_, dpi);
     const LONG top = Scale(button_top_, dpi);
     const RECT button = {right - Scale(button_width_, dpi), top, right,
@@ -186,9 +195,7 @@ std::optional<LRESULT> WindowFrame::HandleMessage(HWND window, UINT message,
         if (pressed_) SetMaximizeButtonState(hovered_, false);
         return std::nullopt;
       }
-      if (pressed_) {
-        ShowWindow(window, IsZoomed(window) ? SW_RESTORE : SW_MAXIMIZE);
-      }
+      if (pressed_) ToggleMaximize(window);
       SetMaximizeButtonState(true, false);
       return 0;
 
@@ -238,7 +245,7 @@ void WindowFrame::HandleMethodCall(
     SendMessage(window_, WM_NCLBUTTONDOWN, HTCAPTION,
                 MAKELPARAM(cursor.x, cursor.y));
   } else if (method == "zoom") {
-    ShowWindow(window_, IsZoomed(window_) ? SW_RESTORE : SW_MAXIMIZE);
+    ToggleMaximize(window_);
     result->Success();
   } else if (method == "minimize") {
     ShowWindow(window_, SW_MINIMIZE);

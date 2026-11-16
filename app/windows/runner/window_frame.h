@@ -9,8 +9,8 @@
 #include <memory>
 #include <optional>
 
-// The main window without the native title bar (design doc, "desktop",
-// Windows). The app draws minimize / maximize / close itself
+// The main window without the native title bar (docs/design/DESIGN.md,
+// the Windows note of the desktop layout). The app draws minimize / maximize / close itself
 // (lib/ui/shell/caption_buttons.dart); this class keeps the window behaving
 // like a normal Windows window:
 //
@@ -18,7 +18,9 @@
 //   right and bottom resize borders (the Windows Terminal approach).
 // - The top few pixels of the client area resize the window, and the
 //   maximize button reports HTMAXBUTTON so Windows 11 opens Snap Layouts
-//   over it (fact W12). The Flutter view covers the client area, so its
+//   over it (fact W12). The top band is HTTOPLEFT / HTTOP / HTTOPRIGHT
+//   and also covers the top edge of the three buttons, as in Windows
+//   Terminal. The Flutter view covers the client area, so its
 //   WM_NCHITTEST answers HTTRANSPARENT there and the message falls through
 //   to the main window.
 // - Hover, press and click of the maximize button then arrive as non-client
@@ -53,8 +55,8 @@ class WindowFrame {
   static LRESULT CALLBACK ContentProc(HWND content, UINT message,
                                       WPARAM wparam, LPARAM lparam);
 
-  // Hit test of a point of the client area, in screen coordinates: HTTOP,
-  // HTMAXBUTTON or HTCLIENT.
+  // Hit test of a point of the client area, in screen coordinates: one of
+  // the top resize codes, HTMAXBUTTON or HTCLIENT.
   LRESULT HitTestClient(HWND window, POINT screen) const;
 
   void HandleMethodCall(

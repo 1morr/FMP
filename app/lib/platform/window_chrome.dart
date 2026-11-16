@@ -19,8 +19,12 @@ abstract final class WindowChrome {
   /// 空白處要能拖動視窗。
   static bool get drawsTitleBar => insetTrafficLights || captionButtons;
 
-  /// 頂端貼著視窗右緣的東西要讓出的寬度：三顆視窗鈕各 46。
-  static double get captionButtonsWidth => captionButtons ? 3 * 46 : 0;
+  /// 一顆視窗鈕的大小（`docs/design/DESIGN.md`〈桌面〉）。
+  static const Size captionButtonSize = Size(46, 32);
+
+  /// 頂端貼著視窗右緣的東西要讓出的寬度：三顆視窗鈕。
+  static double get captionButtonsWidth =>
+      captionButtons ? 3 * captionButtonSize.width : 0;
 
   /// 快捷鍵的修飾鍵：macOS 是 ⌘，其他平台是 Ctrl。
   static bool get _usesCommandKey =>
