@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:fmp/app/i18n/plural_rules.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
@@ -14,6 +15,7 @@ Duration? noRetry(int retryCount, Object error) => null;
 /// App 的根：`main` 直接 `runApp` 它，測試也從這裡起。[overrides] 放
 /// 啟動時才備好的東西，例如資料庫。
 Widget buildRoot({List<Override> overrides = const []}) {
+  configurePluralRules();
   return ProviderScope(
     retry: noRetry,
     overrides: overrides,

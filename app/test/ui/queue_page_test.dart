@@ -438,6 +438,26 @@ void main() {
       expect(current(), 'Song 21');
     });
 
+    desktopTest('the context menu works from the keyboard and closes on Esc', (
+      tester,
+    ) async {
+      await startDesktop(tester);
+
+      await tester.tap(find.text('Song 25'), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('移到下一首'), findsNothing);
+
+      // 第一項先拿到焦點；往下一項是「移到下一首」。
+      await tester.tap(find.text('Song 25'), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(order().sublist(20, 23), ['Song 21', 'Song 25', 'Song 22']);
+    });
+
     desktopTest('Enter plays the selected row, Delete removes it, Alt+Down '
         'moves it', (tester) async {
       await startDesktop(tester);

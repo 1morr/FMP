@@ -755,32 +755,3 @@ class QueueKeyHints extends StatelessWidget {
     );
   }
 }
-
-/// 右鍵選單的一項：左邊文字，右邊快捷鍵。
-class QueueMenuItem extends StatelessWidget {
-  const QueueMenuItem({
-    super.key,
-    required this.label,
-    this.shortcut,
-    this.destructive = false,
-  });
-
-  final String label;
-  final String? shortcut;
-  final bool destructive;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.fmpColors;
-    final color = destructive ? colors.danger : colors.label;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(label, style: TextStyle(color: color)),
-        ),
-        if (shortcut case final shortcut?)
-          Text(shortcut, style: TextStyle(fontSize: 12, color: colors.label2)),
-      ],
-    );
-  }
-}

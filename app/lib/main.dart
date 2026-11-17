@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/audio_backend_lifecycle.dart';
-import 'package:fmp/app/i18n/plural_rules.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
@@ -13,7 +12,6 @@ import 'package:fmp/platform/orientation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  configurePluralRules();
   LocaleSettings.useDeviceLocaleSync();
   await lockPhoneToPortrait();
   final log = await Log.open(

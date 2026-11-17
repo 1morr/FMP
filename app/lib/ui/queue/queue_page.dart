@@ -10,6 +10,7 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/queue/queue_layout.dart';
@@ -202,37 +203,31 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final index = _indexOf(id);
     if (index < 0) return;
     final current = queue.currentIndex;
-    final overlay =
-        Overlay.of(context).context.findRenderObject()! as RenderBox;
-    final action = await showMenu<_MenuAction>(
+    final action = await showGlassMenu<_MenuAction>(
       context: context,
-      position: RelativeRect.fromRect(
-        at & Size.zero,
-        Offset.zero & overlay.size,
-      ),
-      items: [
-        PopupMenuItem(
+      at: at,
+      entries: [
+        GlassMenuItem(
           value: _MenuAction.play,
-          child: QueueMenuItem(
-            label: t.playFromHere,
-            shortcut: WindowChrome.enterKeyLabel,
-          ),
+          label: t.playFromHere,
+          icon: FmpIcons.play,
+          shortcut: WindowChrome.enterKeyLabel,
         ),
-        PopupMenuItem(
+        GlassMenuItem(
           value: _MenuAction.moveToNext,
+          label: t.moveToNext,
+          icon: FmpIcons.nextUp,
           // 已經是正在播的或緊接在它後面時，沒有可移的。
           enabled:
               current == null || (index != current && index != current + 1),
-          child: QueueMenuItem(label: t.moveToNext),
         ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
+        const GlassMenuDivider(),
+        GlassMenuItem(
           value: _MenuAction.remove,
-          child: QueueMenuItem(
-            label: t.remove,
-            shortcut: 'Delete',
-            destructive: true,
-          ),
+          label: t.remove,
+          icon: FmpIcons.close,
+          shortcut: 'Delete',
+          destructive: true,
         ),
       ],
     );

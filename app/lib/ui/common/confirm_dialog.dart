@@ -56,7 +56,8 @@ class _ConfirmDialog extends StatelessWidget {
         width: touch ? 300 : 340,
         child: Glass(
           variant: GlassVariant.thick,
-          radius: context.fmpMetrics.radii.dialog,
+          // `.alert` 不分密度都是 26；桌面縮成 16 的是 `.dlg`。
+          radius: 26,
           child: Material(
             type: MaterialType.transparency,
             child: Semantics(
