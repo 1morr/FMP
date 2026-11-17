@@ -228,6 +228,17 @@ void main() {
     });
   });
 
+  test('after playback stopped, adding plays the added track', () async {
+    await queue().add([track('a'), track('b')]);
+    await queue().next();
+    await queue().remove(1);
+
+    await queue().add([track('c')]);
+
+    expect(playing(), 'c');
+    expect(currentInQueue(), 'c');
+  });
+
   test('clearing the queue stops playback', () async {
     await queue().add([track('a'), track('b')]);
 

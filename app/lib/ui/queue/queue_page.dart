@@ -496,7 +496,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(10, 0, 10, empty ? 6 : 6),
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

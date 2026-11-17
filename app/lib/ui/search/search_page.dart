@@ -143,6 +143,8 @@ Future<void> _showTrackMenu(
   Offset at,
 ) async {
   final t = context.t;
+  // 選單開著時結果列可能被新的搜尋換掉，先拿好佇列。
+  final queue = ref.read(queueProvider.notifier);
   final action = await showGlassMenu<_TrackAction>(
     context: context,
     at: at,
@@ -159,7 +161,6 @@ Future<void> _showTrackMenu(
       ),
     ],
   );
-  final queue = ref.read(queueProvider.notifier);
   switch (action) {
     case _TrackAction.playNext:
       await queue.playNext([track]);

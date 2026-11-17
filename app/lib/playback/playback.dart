@@ -248,6 +248,12 @@ class Playback extends Notifier<PlaybackState?> {
       // 解析中收到的是上一首的狀態；失敗後要等下一次 play。
       return;
     }
+    if (current.status == PlaybackStatus.loading &&
+        backend.status == AudioBackendStatus.completed) {
+      // 剛開始載入的串流不會已經播完，是上一首遲到的狀態；收下的話佇列
+      // 會再接一次下一首。
+      return;
+    }
     final status = switch (backend.status) {
       AudioBackendStatus.idle ||
       AudioBackendStatus.loading => PlaybackStatus.loading,

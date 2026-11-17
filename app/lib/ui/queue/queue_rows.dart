@@ -30,7 +30,7 @@ const _dimOpacity = .45;
 
 /// 觸控列表的一列（`.row`＋`quRow`）：封面、曲名、音源符號與作者、時長、
 /// ×、拖動把手。點整列從這首開始播；長按整列（除了 ×）也能拖。
-class QueueTouchRow extends ConsumerWidget {
+class QueueTouchRow extends StatelessWidget {
   const QueueTouchRow({
     super.key,
     required this.entry,
@@ -59,7 +59,7 @@ class QueueTouchRow extends ConsumerWidget {
   final VoidCallback onRemove;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = context.fmpColors;
     final text = context.fmpText;
     final track = entry.track;
@@ -397,8 +397,7 @@ class _QueueTableRowState extends ConsumerState<QueueTableRow> {
                           fontSize: 12,
                           color: colors.label3,
                           letterSpacing: 0,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
+                        ).tabular,
                       ),
               ),
               cover: Opacity(
@@ -471,8 +470,7 @@ class _QueueTableRowState extends ConsumerState<QueueTableRow> {
                     fontSize: 12,
                     letterSpacing: 0,
                     color: colors.label3,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  ).tabular,
                 ),
               ),
               actions: AnimatedOpacity(
@@ -591,8 +589,7 @@ class QueueFold extends StatelessWidget {
                     height: 18 / 13,
                     color: colors.label2,
                     letterSpacing: 0,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  ).tabular,
                 ),
               ],
             ),

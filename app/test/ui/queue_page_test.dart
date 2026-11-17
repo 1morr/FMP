@@ -305,15 +305,52 @@ void main() {
 
     testWidgets('the equalizer moves only while playing', (tester) async {
       await start(tester, phone);
-      expect(tester.widget<Equalizer>(find.byType(Equalizer)).playing, isFalse);
+      // 第一條的高度：跳動時隨時間變，停住時不變。
+      double bar() => tester
+          .getSize(
+            find
+                .descendant(
+                  of: find.byType(Equalizer),
+                  matching: find.byType(Container),
+                )
+                .first,
+          )
+          .height;
+      final still = bar();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(bar(), still);
 
       playback.set(
         PlaybackState(track: song(21), status: PlaybackStatus.playing),
       );
       await tester.pump();
+      final before = bar();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(bar(), isNot(before));
+    });
 
-      expect(find.byType(Equalizer), findsOneWidget);
-      expect(tester.widget<Equalizer>(find.byType(Equalizer)).playing, isTrue);
+    testWidgets('the equalizer holds still when motion is reduced', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await start(tester, phone);
+      playback.set(
+        PlaybackState(track: song(21), status: PlaybackStatus.playing),
+      );
+      await tester.pump();
+      final bar = find
+          .descendant(
+            of: find.byType(Equalizer),
+            matching: find.byType(Container),
+          )
+          .first;
+      final before = tester.getSize(bar).height;
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.getSize(bar).height, before);
     });
   });
 
@@ -458,8 +495,8 @@ void main() {
       expect(order().sublist(20, 23), ['Song 21', 'Song 25', 'Song 22']);
     });
 
-    desktopTest('Enter plays the selected row, Delete removes it, Alt+Down '
-        'moves it', (tester) async {
+    desktopTest('Enter plays the selected row, Alt+Down and Alt+Up move it, '
+        'Delete and Backspace remove it', (tester) async {
       await startDesktop(tester);
 
       await tester.tap(find.text('Song 24'));
@@ -476,10 +513,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(order().sublist(24, 27), ['Song 25', 'Song 27', 'Song 26']);
 
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pumpAndSettle();
+      expect(order().sublist(24, 27), ['Song 25', 'Song 26', 'Song 27']);
+
+      // 刪掉之後選取移到下一列，連按能一路刪；Backspace 也算。
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
       expect(order(), isNot(contains('Song 26')));
-      expect(order(), hasLength(29));
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pumpAndSettle();
+      expect(order(), isNot(contains('Song 27')));
+      expect(order(), hasLength(28));
     });
 
     desktopTest('double click plays from that row', (tester) async {
