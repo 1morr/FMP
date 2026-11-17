@@ -60,7 +60,8 @@ class _ShellButtonState extends State<ShellButton> {
   }
 }
 
-/// 頂列的玻璃圓鈕（`FMP.gbtn`）：觸控 44、滑鼠 34。
+/// 頂列的玻璃圓鈕（`FMP.gbtn`）：觸控 44、滑鼠 34。[onTap] 為 null 時停用
+/// （40% 透明、點不了）。
 class GlassIconButton extends StatelessWidget {
   const GlassIconButton({
     super.key,
@@ -72,7 +73,7 @@ class GlassIconButton extends StatelessWidget {
 
   final FmpIcons icon;
   final String tooltip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool touch;
 
   @override
@@ -82,10 +83,13 @@ class GlassIconButton extends StatelessWidget {
       onTap: onTap,
       tooltip: tooltip,
       label: tooltip,
-      builder: (context, _) => Glass(
-        child: SizedBox.square(
-          dimension: side,
-          child: Center(child: FmpIcon(icon, size: touch ? 20 : 17)),
+      builder: (context, _) => Opacity(
+        opacity: onTap == null ? .4 : 1,
+        child: Glass(
+          child: SizedBox.square(
+            dimension: side,
+            child: Center(child: FmpIcon(icon, size: touch ? 20 : 17)),
+          ),
         ),
       ),
     );

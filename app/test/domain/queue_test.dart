@@ -111,6 +111,27 @@ void main() {
     });
   });
 
+  group('moveToNext', () {
+    test('a later track lands right after current', () {
+      final queue = queueOf(['a', 'b', 'c', 'd'], current: 1).moveToNext(3);
+      expect(ids(queue), ['a', 'b', 'd', 'c']);
+      expect(current(queue), 'b');
+    });
+
+    test('a played track lands right after current and stays behind it', () {
+      final queue = queueOf(['a', 'b', 'c', 'd'], current: 2).moveToNext(0);
+      expect(ids(queue), ['b', 'c', 'a', 'd']);
+      expect(current(queue), 'c');
+      expect(queue.currentIndex, 1);
+    });
+
+    test('the current track and the track right after it stay put', () {
+      final queue = queueOf(['a', 'b', 'c'], current: 1);
+      expect(ids(queue.moveToNext(1)), ['a', 'b', 'c']);
+      expect(ids(queue.moveToNext(2)), ['a', 'b', 'c']);
+    });
+  });
+
   group('remove', () {
     test('removing another track keeps current', () {
       final queue = queueOf(['a', 'b', 'c'], current: 2).remove(0);

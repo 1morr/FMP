@@ -90,6 +90,16 @@ class Queue {
     );
   }
 
+  /// 把 [index] 的位置移到目前那首的下一個位置；它是目前那首時不動。
+  Queue moveToNext(int index) {
+    RangeError.checkValidIndex(index, entries, 'index');
+    final current = currentIndex!;
+    if (index == current) return this;
+    // 移走之前在目前那首前面的，目前那首會往前一格，緊接在它後面還是 current。
+    final to = index > current ? current + 1 : current;
+    return index == to ? this : move(index, to);
+  }
+
   /// 移除 [index] 的位置。移除的是目前那首時，原本的下一首成為目前那首；
   /// 它已是最後一首時，新的最後一首成為目前那首。
   Queue remove(int index) {

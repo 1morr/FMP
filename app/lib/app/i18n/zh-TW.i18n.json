@@ -89,6 +89,48 @@
     "actions": {
       "playNext": "下一首播放",
       "addToQueue": "加入佇列"
+    },
+    "tracks(plural, param=count)": {
+      "one": "$count 首",
+      "other": "$count 首"
+    },
+    "duration": {
+      "hoursMinutes": "$hours 小時 $minutes 分",
+      "minutes": "$minutes 分"
+    },
+    "played": "已播放 $count 首",
+    "upNext": "接下來",
+    "nowPlaying": "正在播放",
+    "clear": "清空佇列",
+    "remove": "從佇列移除",
+    "dragHandle": "拖動調整順序",
+    "playFromHere": "從這首開始播放",
+    "moveToNext": "移到下一首",
+    "clearConfirm": {
+      "title": "清空佇列？",
+      "message(plural, param=count)": {
+        "one": "會移除佇列裡全部 $count 首曲目並停止播放。歌單不受影響。",
+        "other": "會移除佇列裡全部 $count 首曲目並停止播放。歌單不受影響。"
+      },
+      "cancel": "取消",
+      "confirm": "清空"
+    },
+    "empty": {
+      "title": "佇列是空的",
+      "body": "從搜尋或歌單加入曲目，就會排在這裡",
+      "search": "去搜尋",
+      "library": "打開音樂庫"
+    },
+    "columns": {
+      "track": "曲目",
+      "source": "音源",
+      "duration": "時長"
+    },
+    "hints": {
+      "dragOr": "拖動或",
+      "reorder": "調整順序",
+      "remove": "移除",
+      "play": "播放"
     }
   }
 }

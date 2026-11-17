@@ -48,6 +48,7 @@ void main() {
       'build windows',
       for (final platform in ['macos', 'ios', 'android', 'windows']) ...[
         'integration_test $platform: integration_test/app_test.dart',
+        'integration_test $platform: integration_test/queue_test.dart',
         'integration_test $platform: integration_test/search_and_play_test.dart',
       ],
       'unlock shared devices',

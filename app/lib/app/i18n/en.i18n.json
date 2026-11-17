@@ -89,6 +89,48 @@
     "actions": {
       "playNext": "Play Next",
       "addToQueue": "Add to Queue"
+    },
+    "tracks(plural, param=count)": {
+      "one": "$count track",
+      "other": "$count tracks"
+    },
+    "duration": {
+      "hoursMinutes": "$hours hr $minutes min",
+      "minutes": "$minutes min"
+    },
+    "played": "$count played",
+    "upNext": "Up Next",
+    "nowPlaying": "Now playing",
+    "clear": "Clear Queue",
+    "remove": "Remove from Queue",
+    "dragHandle": "Drag to reorder",
+    "playFromHere": "Play from Here",
+    "moveToNext": "Move to Next",
+    "clearConfirm": {
+      "title": "Clear the queue?",
+      "message(plural, param=count)": {
+        "one": "This removes the track from the queue and stops playback. Playlists aren’t affected.",
+        "other": "This removes all $count tracks from the queue and stops playback. Playlists aren’t affected."
+      },
+      "cancel": "Cancel",
+      "confirm": "Clear"
+    },
+    "empty": {
+      "title": "The queue is empty",
+      "body": "Add tracks from search or a playlist and they’ll line up here",
+      "search": "Search",
+      "library": "Open Library"
+    },
+    "columns": {
+      "track": "Track",
+      "source": "Source",
+      "duration": "Time"
+    },
+    "hints": {
+      "dragOr": "Drag or",
+      "reorder": "to reorder",
+      "remove": "to remove",
+      "play": "to play"
     }
   }
 }

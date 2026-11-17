@@ -67,6 +67,9 @@ class QueueController extends Notifier<Queue> {
   /// 拖動排序，不打斷播放。
   void move(int from, int to) => state = state.move(from, to);
 
+  /// 把 [index] 那首移到目前那首後面，不打斷播放。
+  void moveToNext(int index) => state = state.moveToNext(index);
+
   /// 移除 [index] 那首。移除的是正在播的那首時接著播下一首；它已是最後
   /// 一首就停止。
   Future<void> remove(int index) async {
