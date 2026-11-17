@@ -5,7 +5,9 @@ import 'package:fmp/app/audio_backend_lifecycle.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
+import 'package:fmp/platform/app_data_directory.dart';
 import 'package:fmp/platform/audio_backend.dart';
+import 'package:fmp/platform/cover_image.dart';
 import 'package:fmp/platform/database_file.dart';
 import 'package:fmp/platform/log_directory.dart';
 import 'package:fmp/platform/orientation.dart';
@@ -14,14 +16,16 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   LocaleSettings.useDeviceLocaleSync();
   await lockPhoneToPortrait();
+  final data = await appDataDirectory();
+  if (scratchDataName.isNotEmpty) keepCoverCacheIn(data);
   final log = await Log.open(
-    await logDirectory(),
+    logDirectory(data),
     minimumLevel: minimumLogLevel(release: kReleaseMode),
     console: kDebugMode,
   );
   log.info('App started');
 
-  final database = AppDatabase.open(await databaseFile());
+  final database = AppDatabase.open(await databaseFile(data));
   // 查一次讓資料庫真的開起來；開不了就在啟動時失敗，不要等到第一次用。
   final version = await database.storedSchemaVersion();
   log.info('Database opened, schema version $version');

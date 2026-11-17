@@ -2,7 +2,9 @@
 # Default: launch -Exe in the desktop session, wait -Wait s, screenshot, close the app.
 # -AppPid <id>: screenshot the window of that running process instead and leave it open;
 # the real-run driver calls this from inside the app (docs/development.md, real runs).
-# Neither moves the cursor: the window is raised to the top before the copy.
+# It renders the window itself with PrintWindow(PW_RENDERFULLCONTENT), so the window is
+# neither raised nor focused and is captured even when covered.
+# Default mode raises the window to the top and copies its screen rect. Neither moves the cursor.
 # -Click "x,y": real-mouse exceptions only (docs/development.md, real runs): it MOVES
 # THE CURSOR. Left-click at x,y logical pixels of the client area (scaled by the
 # window DPI), wait -ClickWait s. Several clicks "x,y;x,y;...": each one is followed
@@ -32,6 +34,7 @@ public class W {
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X,Y; }
  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
@@ -70,9 +73,11 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
     [W]::SetForegroundWindow($h) | Out-Null
     [W]::AttachThreadInput($me, $ft, $false) | Out-Null
   }
-  Raise
-  "foreground_is_fmp=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
-  Start-Sleep -Milliseconds 800
+  if ($AppPid -eq 0) {
+    Raise
+    "foreground_is_fmp=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+    Start-Sleep -Milliseconds 800
+  }
   if ($Size -ne '') {
     $wh = $Size.Split(','); $k = [W]::GetDpiForWindow($h) / 96.0
     [W]::SetWindowPos($h, [IntPtr]::Zero, 0, 0, [int]([int]$wh[0] * $k), [int]([int]$wh[1] * $k), 0x16) | Out-Null   # NOMOVE|NOZORDER|NOACTIVATE
@@ -87,7 +92,14 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
     "rect $($r.L),$($r.T) ${w}x${hh}" | Out-File $log -Append -Encoding ascii
     $bmp = New-Object System.Drawing.Bitmap $w, $hh
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
+    if ($AppPid -ne 0) {
+      $hdc = $g.GetHdc()
+      $ok = [W]::PrintWindow($h, $hdc, 2)   # PW_RENDERFULLCONTENT
+      $g.ReleaseHdc($hdc)
+      "printwindow=$ok" | Out-File $log -Append -Encoding ascii
+    } else {
+      $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
+    }
     $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()
     "saved $path" | Out-File $log -Append -Encoding ascii
@@ -106,7 +118,7 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
     }
   }
   Shot $Out
-  [W]::SetWindowPos($h, [IntPtr](-2), 0, 0, 0, 0, 0x43) | Out-Null   # HWND_NOTOPMOST
+  if ($AppPid -eq 0) { [W]::SetWindowPos($h, [IntPtr](-2), 0, 0, 0, 0, 0x43) | Out-Null }   # HWND_NOTOPMOST
 }
 if ($AppPid -ne 0) { if ($p.HasExited -or $p.MainWindowHandle -eq 0 -or -not (Test-Path $Out)) { "no window or no shot" | Out-File $log -Append -Encoding ascii; exit 1 }; "done" | Out-File $log -Append -Encoding ascii; exit 0 }
 if (-not $p.HasExited) { $null = $p.CloseMainWindow(); Start-Sleep 6; "exited_after_close=$($p.HasExited) code=$($p.ExitCode)" | Out-File $log -Append -Encoding ascii; if (-not $p.HasExited) { $p.Kill() } }

@@ -171,6 +171,7 @@ Future<int> _local(
         target.device,
         if (target.emulator) '--no-uninstall',
         '--dart-define=FMP_REAL_RUN_HOST=${server.url}',
+        '--dart-define=FMP_SCRATCH_DATA=$scratchData',
       ],
       workingDirectory: app.path,
       environment: sharedDeviceEnvironment,
@@ -254,6 +255,10 @@ Future<int> _windows(Directory app, String file, Directory dir) async {
 }
 
 const _winpcDir = r'C:\fmp-wt\real_run';
+
+/// App 在實跑時用的隔離資料目錄名（`FMP_SCRATCH_DATA`）：放在裝置的系統暫存
+/// 目錄底下，驅動每次開 App 前清空，不碰 dev 版的資料。`test.ps1` 用同一個名字。
+const scratchData = 'fmp-real-run';
 
 /// 跑指令，退出碼非零時丟 [ProcessException]（含 stderr）。
 Future<void> _capture(String executable, List<String> arguments) =>
