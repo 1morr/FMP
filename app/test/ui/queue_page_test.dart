@@ -604,10 +604,9 @@ void main() {
     bool pressed(WidgetTester tester, String label) =>
         tester.widget<PlayModeToggle>(toggle(label)).on;
 
-    testWidgets('turning shuffle on puts the playing track first with the '
-        'shuffled rest under the fold, and off restores the order', (
-      tester,
-    ) async {
+    testWidgets('佇列畫面永遠是播放順序、摺線在正在播的那首下方：turning shuffle '
+        'on puts the playing track first with the shuffled rest under the '
+        'fold, and off restores the order', (tester) async {
       await start(tester, phone);
       final original = order();
 
@@ -671,6 +670,17 @@ void main() {
       expect(pressed(tester, '循環'), isFalse);
     });
 
+    testWidgets('on touch the toggle answers taps a little outside its 34 '
+        'high pill, up to 44', (tester) async {
+      await start(tester, phone);
+      final center = tester.getCenter(toggle('隨機'));
+
+      await tester.tapAt(center + const Offset(0, 20));
+      await tester.pumpAndSettle();
+
+      expect(pressed(tester, '隨機'), isTrue);
+    });
+
     testWidgets('an empty queue can still set shuffle and repeat', (
       tester,
     ) async {
@@ -723,6 +733,55 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    for (final platform in [TargetPlatform.windows, TargetPlatform.macOS]) {
+      desktopTest('on ${platform.name} a top-bar toggle reacts on the next '
+          'frame', (tester) async {
+        await start(tester, desktop, platform: platform);
+
+        await tester.tap(toggle('隨機'));
+        await tester.pump();
+
+        expect(pressed(tester, '隨機'), isTrue);
+      });
+    }
+
+    desktopTest('double-clicking the empty top bar over scrolled rows '
+        'maximizes the window and plays nothing', (tester) async {
+      const channel = MethodChannel('fmp/window');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      await start(tester, desktop, platform: TargetPlatform.windows);
+      // 打開時捲到正在播的那首，列從頂列底下捲過去。
+      expect(scrollPosition(tester).pixels, greaterThan(100));
+      const empty = Offset(500, 40);
+      expect(
+        find
+            .byType(QueueTableRow)
+            .evaluate()
+            .where(
+              (e) => tester.getRect(find.byWidget(e.widget)).contains(empty),
+            ),
+        isNotEmpty,
+        reason: 'a row lies under the empty top bar',
+      );
+
+      await tester.tapAt(empty);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(empty);
+      await tester.pumpAndSettle();
+
+      expect(calls, contains('zoom'));
+      expect(playback.played, isEmpty);
     });
 
     desktopTest('a narrow desktop window puts the toggles in the title row', (

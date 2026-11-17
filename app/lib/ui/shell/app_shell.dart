@@ -142,8 +142,17 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  Widget _content(EdgeInsets padding, ShellTopBar topBar) =>
-      ShellInsets(padding: padding, topBar: topBar, child: widget.child);
+  /// 內容區。[dragStrip] 是頂端拖動視窗的區域高；那裡只有頁面頂列的控制項
+  /// 收得到點擊（[ShellTopStripGate]）。
+  Widget _content(EdgeInsets padding, ShellTopBar topBar, {double? dragStrip}) {
+    final content = ShellInsets(
+      padding: padding,
+      topBar: topBar,
+      child: widget.child,
+    );
+    if (dragStrip == null || !WindowChrome.drawsTitleBar) return content;
+    return ShellTopStripGate(height: dragStrip, child: content);
+  }
 
   /// 頂列右端讓給詳情面板鈕（`_detailButton`）：鈕本身、右邊的 16 與鈕前
   /// 的 8；內容區右緣就是視窗右緣時才要（以視窗右緣算 [_captionInset]）。
@@ -239,93 +248,90 @@ class _AppShellState extends ConsumerState<AppShell> {
     final bottom = touch ? math.max(20.0, media.viewPadding.bottom) : 8.0;
     final side = NavRail.widthOf(touch: touch) + 8;
     final panelWidth = DetailPanel.widthOf(touch: touch, floating: true);
-    return Stack(
-      children: [
-        Positioned(
-          left: side,
-          top: 0,
-          right: 0,
-          bottom: 0,
-          child: _content(
-            EdgeInsets.fromLTRB(
-              24,
-              top0 + (touch ? 62 : 66),
-              32,
-              touch ? 150 : _transportInset,
-            ),
-            // `.wtop`：離頂 8、高 50（平板 6、52），左 24；右端讓出詳情面板鈕。
-            ShellTopBar(
-              top: top0 + (touch ? 6 : 8),
-              height: touch ? 52 : 50,
-              left: 24,
-              right: _detailButtonInset(touch),
-            ),
-          ),
-        ),
-        // 頂列的空白處拖動視窗（macOS、Windows）。
-        Positioned(
-          left: 0,
-          top: 0,
-          right: 0,
-          height: top0 + 58,
-          child: const WindowDragArea(),
-        ),
-        Positioned(
-          left: 8,
-          top: top0 + 8,
-          bottom: bottom,
-          width: NavRail.widthOf(touch: touch),
-          child: NavRail(current: _current, touch: touch, onSelect: _select),
-        ),
-        // 播放膠囊：離細欄 24（left 104，平板 112），叫出面板時右端讓到
-        // 面板左邊 24。
-        ..._transport(
-          left: side + 24,
-          right: _floatingDetail ? 8 + panelWidth + 24 : 24,
-          bottom: touch ? bottom : 16,
-          touch: touch,
-        ),
-        if (!_floatingDetail)
-          _detailButton(touch, top0, () {
-            setState(() => _floatingDetail = true);
-          })
-        else ...[
-          // 點外面關掉。
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _floatingDetail = false),
+    // 頂端 58 是拖動視窗的區域（macOS、Windows）；包在外面，裡面的按鈕先拿到點擊。
+    return WindowDragArea(
+      height: top0 + 58,
+      child: Stack(
+        children: [
+          Positioned(
+            left: side,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: _content(
+              EdgeInsets.fromLTRB(
+                24,
+                top0 + (touch ? 62 : 66),
+                32,
+                touch ? 150 : _transportInset,
+              ),
+              // `.wtop`：離頂 8、高 50（平板 6、52），左 24；右端讓出詳情面板鈕。
+              ShellTopBar(
+                top: top0 + (touch ? 6 : 8),
+                height: touch ? 52 : 50,
+                left: 24,
+                right: _detailButtonInset(touch),
+              ),
+              dragStrip: top0 + 58,
             ),
           ),
           Positioned(
-            // Windows 上從視窗鈕下方開始。
-            top: top0 + WindowChrome.captionButtonsHeight + 8,
-            right: 8,
+            left: 8,
+            top: top0 + 8,
             bottom: bottom,
-            width: panelWidth,
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.escape): () =>
-                    setState(() => _floatingDetail = false),
-              },
-              child: Focus(
-                autofocus: true,
-                child: DetailPanel(
-                  touch: touch,
-                  floating: true,
-                  onHide: () => setState(() => _floatingDetail = false),
+            width: NavRail.widthOf(touch: touch),
+            child: NavRail(current: _current, touch: touch, onSelect: _select),
+          ),
+          // 播放膠囊：離細欄 24（left 104，平板 112），叫出面板時右端讓到
+          // 面板左邊 24。
+          ..._transport(
+            left: side + 24,
+            right: _floatingDetail ? 8 + panelWidth + 24 : 24,
+            bottom: touch ? bottom : 16,
+            touch: touch,
+          ),
+          if (!_floatingDetail)
+            _detailButton(touch, top0, () {
+              setState(() => _floatingDetail = true);
+            })
+          else ...[
+            // 點外面關掉。
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _floatingDetail = false),
+              ),
+            ),
+            Positioned(
+              // Windows 上從視窗鈕下方開始。
+              top: top0 + WindowChrome.captionButtonsHeight + 8,
+              right: 8,
+              bottom: bottom,
+              width: panelWidth,
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.escape): () =>
+                      setState(() => _floatingDetail = false),
+                },
+                child: Focus(
+                  autofocus: true,
+                  child: DetailPanel(
+                    touch: touch,
+                    floating: true,
+                    onHide: () => setState(() => _floatingDetail = false),
+                  ),
                 ),
               ),
             ),
+          ],
+          _transportToast(
+            left: side + 24,
+            right: _floatingDetail ? 8 + panelWidth + 24 : 24,
+            bottom: touch ? bottom : 16,
+            touch: touch,
           ),
         ],
-        _transportToast(
-          left: side + 24,
-          right: _floatingDetail ? 8 + panelWidth + 24 : 24,
-          bottom: touch ? bottom : 16,
-          touch: touch,
-        ),
-      ],
+      ),
     );
   }
 
@@ -337,70 +343,68 @@ class _AppShellState extends ConsumerState<AppShell> {
     final transportBottom = touch
         ? math.max(20.0, media.viewPadding.bottom)
         : 16.0;
-    return Stack(
-      children: [
-        Positioned(
-          left: SideBar.width + 8,
-          top: 0,
-          right: open ? panelWidth : 0,
-          bottom: 0,
-          child: _content(
-            EdgeInsets.fromLTRB(24, top0 + 66, 32, _transportInset),
-            ShellTopBar(
-              top: top0 + (touch ? 6 : 8),
-              height: touch ? 52 : 50,
-              left: 24,
-              right: open ? 16 : _detailButtonInset(touch),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          top: 0,
-          right: 0,
-          height: top0 + 58,
-          child: const WindowDragArea(),
-        ),
-        Positioned(
-          left: 8,
-          top: top0 + 8,
-          bottom: math.max(8.0, media.viewPadding.bottom),
-          width: SideBar.width,
-          child: SideBar(
-            current: _current,
-            onSelect: _select,
-            onSearch: _openSearch,
-          ),
-        ),
-        // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
-        ..._transport(
-          left: SideBar.width + 8 + 24,
-          right: open ? panelWidth + 24 : 24,
-          bottom: transportBottom,
-          touch: touch,
-        ),
-        if (open)
+    // 頂端 58 是拖動視窗的區域（macOS、Windows）；包在外面，裡面的按鈕先拿到點擊。
+    return WindowDragArea(
+      height: top0 + 58,
+      child: Stack(
+        children: [
           Positioned(
+            left: SideBar.width + 8,
             top: 0,
-            right: 0,
+            right: open ? panelWidth : 0,
             bottom: 0,
-            width: panelWidth,
-            child: DetailPanel(
-              touch: touch,
-              // Windows 上標頭讓出視窗鈕那一列。
-              topInset: top0 + WindowChrome.captionButtonsHeight,
-              onHide: () => _setDetail(false),
+            child: _content(
+              EdgeInsets.fromLTRB(24, top0 + 66, 32, _transportInset),
+              ShellTopBar(
+                top: top0 + (touch ? 6 : 8),
+                height: touch ? 52 : 50,
+                left: 24,
+                right: open ? 16 : _detailButtonInset(touch),
+              ),
+              dragStrip: top0 + 58,
             ),
-          )
-        else
-          _detailButton(touch, top0, () => _setDetail(true)),
-        _transportToast(
-          left: SideBar.width + 8 + 24,
-          right: open ? panelWidth + 24 : 24,
-          bottom: transportBottom,
-          touch: touch,
-        ),
-      ],
+          ),
+          Positioned(
+            left: 8,
+            top: top0 + 8,
+            bottom: math.max(8.0, media.viewPadding.bottom),
+            width: SideBar.width,
+            child: SideBar(
+              current: _current,
+              onSelect: _select,
+              onSearch: _openSearch,
+            ),
+          ),
+          // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
+          ..._transport(
+            left: SideBar.width + 8 + 24,
+            right: open ? panelWidth + 24 : 24,
+            bottom: transportBottom,
+            touch: touch,
+          ),
+          if (open)
+            Positioned(
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: panelWidth,
+              child: DetailPanel(
+                touch: touch,
+                // Windows 上標頭讓出視窗鈕那一列。
+                topInset: top0 + WindowChrome.captionButtonsHeight,
+                onHide: () => _setDetail(false),
+              ),
+            )
+          else
+            _detailButton(touch, top0, () => _setDetail(true)),
+          _transportToast(
+            left: SideBar.width + 8 + 24,
+            right: open ? panelWidth + 24 : 24,
+            bottom: transportBottom,
+            touch: touch,
+          ),
+        ],
+      ),
     );
   }
 

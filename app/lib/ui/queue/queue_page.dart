@@ -363,7 +363,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           left: bar.left,
           right: bar.right,
           height: bar.height,
-          child: _topBar(context, layout, queue),
+          child: ShellTopBarArea(child: _topBar(context, layout, queue)),
         ),
       ],
     );

@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -82,5 +83,56 @@ class ShellPage extends StatelessWidget {
         ...children,
       ],
     );
+  }
+}
+
+/// 頁面自己的頂列（[ShellInsets.topBarOf] 的位置）：包住頂列上的控制項。
+/// 桌面的頂端是拖動視窗的區域，那裡只有落在這塊裡、真的點到控制項的點擊會
+/// 進頁面（[ShellTopStripGate]）；頂列的空白處與底下捲過去的內容都交給拖動區。
+class ShellTopBarArea extends SingleChildRenderObjectWidget {
+  const ShellTopBarArea({super.key, super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderTopBarArea();
+}
+
+class _RenderTopBarArea extends RenderProxyBox {}
+
+/// 包住外殼的內容區：離頂 [height] 以內，只有點到 [ShellTopBarArea] 裡的
+/// 控制項才往下傳，其他的不算點到內容，交給外面的拖動區（`WindowDragArea`）。
+/// 不畫自己的標題列的平台（手機、平板）不擋。
+class ShellTopStripGate extends SingleChildRenderObjectWidget {
+  const ShellTopStripGate({super.key, required this.height, super.child});
+
+  final double height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      RenderShellTopStripGate(height);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    RenderShellTopStripGate renderObject,
+  ) => renderObject.height = height;
+}
+
+class RenderShellTopStripGate extends RenderProxyBox {
+  RenderShellTopStripGate(this.height);
+
+  double height;
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    if (position.dy >= height || child == null) {
+      return super.hitTestChildren(result, position: position);
+    }
+    // 先試點一次：沒點到頂列的控制項就整個不算。
+    final probe = BoxHitTestResult();
+    if (!child!.hitTest(probe, position: position) ||
+        !probe.path.any((entry) => entry.target is _RenderTopBarArea)) {
+      return false;
+    }
+    return super.hitTestChildren(result, position: position);
   }
 }
