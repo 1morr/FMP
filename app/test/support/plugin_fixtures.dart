@@ -67,7 +67,8 @@ class PluginFixture {
   final Map<String, Object?> input;
 
   /// 這個案例另外要求的結果，鍵是各插件能力認得的期望（[checkContract]），
-  /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期。錄製、
+  /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期；search 的
+  /// `{"covers": true}`：每首曲目都有封面。錄製、
   /// 重播與 live 冒煙測試都套用；錄製時照原樣寫回。
   final Map<String, Object?> expect;
 
@@ -211,7 +212,7 @@ Future<List<String>> checkContract(
   Map<String, Object?> expect = const {},
 }) async {
   final known = switch (capability) {
-    PluginCapability.search => const <String>{},
+    PluginCapability.search => const {'covers'},
     PluginCapability.resolveStream => const {'expiresAt'},
   };
   final unknown = [
@@ -230,10 +231,14 @@ Future<List<String>> checkContract(
       if (query is! String) {
         throw const FormatException('search input needs a "query" string');
       }
-      return searchContractViolations(
-        plugin.manifest.id,
-        await plugin.search(query),
-      );
+      final tracks = await plugin.search(query);
+      return [
+        ...searchContractViolations(plugin.manifest.id, tracks),
+        if (expect.containsKey('covers'))
+          for (final (i, t) in tracks.indexed)
+            if (t.coverUrl == null)
+              'expected a cover on every track, track $i has none',
+      ];
     case PluginCapability.resolveStream:
       final trackId = input['trackId'];
       if (trackId is! String) {

@@ -197,10 +197,11 @@ interface SearchItem {
   title: string;
   author: string;
   duration: string;
+  pic: string;
 }
 
 function toTrack(item: unknown): PluginTrack {
-  const { bvid, title, author, duration } = item as SearchItem;
+  const { bvid, title, author, duration, pic } = item as SearchItem;
   if (typeof bvid !== 'string' || typeof title !== 'string') {
     throw new PluginError('parse_failure', 'search item without bvid or title');
   }
@@ -209,7 +210,15 @@ function toTrack(item: unknown): PluginTrack {
     title: plainText(title),
     author: typeof author === 'string' ? author : '',
     durationMs: parseDuration(duration),
+    coverUrl: coverUrl(pic),
   };
+}
+
+/** 搜尋結果的 `pic` 是 `//host/…` 或 `http://…`；一律改成 https（iOS 擋明文 http）。 */
+function coverUrl(pic: unknown): string | undefined {
+  if (typeof pic !== 'string') return undefined;
+  const match = /^(?:https?:)?\/\/(.+)$/.exec(pic);
+  return match ? `https://${match[1]}` : undefined;
 }
 
 /** 標題裡標關鍵字的 `<em class="keyword">` 與 HTML 實體。 */

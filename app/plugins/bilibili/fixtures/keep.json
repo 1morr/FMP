@@ -5,7 +5,8 @@
     "data.result.bvid",
     "data.result.title",
     "data.result.author",
-    "data.result.duration"
+    "data.result.duration",
+    "data.result.pic"
   ],
   "resolveStream": [
     "code",

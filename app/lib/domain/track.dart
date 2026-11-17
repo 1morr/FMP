@@ -32,6 +32,7 @@ class Track {
     required this.title,
     required this.author,
     this.duration,
+    this.coverUrl,
   });
 
   final TrackRef ref;
@@ -44,17 +45,21 @@ class Track {
   /// 插件不知道時是 null。
   final Duration? duration;
 
+  /// 封面圖的 http(s) 網址；插件沒給時是 null。
+  final String? coverUrl;
+
   @override
   bool operator ==(Object other) =>
       other is Track &&
       other.ref == ref &&
       other.title == title &&
       other.author == author &&
-      other.duration == duration;
+      other.duration == duration &&
+      other.coverUrl == coverUrl;
 
   @override
-  int get hashCode => Object.hash(ref, title, author, duration);
+  int get hashCode => Object.hash(ref, title, author, duration, coverUrl);
 
   @override
-  String toString() => 'Track($ref, $title, $author, $duration)';
+  String toString() => 'Track($ref, $title, $author, $duration, $coverUrl)';
 }

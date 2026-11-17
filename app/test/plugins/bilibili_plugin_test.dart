@@ -62,7 +62,15 @@ void main() {
     expect(bilibili().manifest.allowsHost('api.bilibili.com'), isTrue);
   });
 
-  test('search turns video results into tracks', () async {
+  test('the manifest declares the source mark in the source colour', () {
+    final mark = bilibili().manifest.mark!;
+    expect(mark.short, 'B站');
+    // `docs/design/DESIGN.md` §2.4 的 --src-bilibili。
+    expect(mark.color, 0xFFFB7299);
+    expect(mark.paths, isNotEmpty);
+  });
+
+  test('search turns video results into tracks, covers over https', () async {
     respond = (_) => FakeResponse.json(
       ok({
         'result': [
@@ -72,6 +80,7 @@ void main() {
             'title': '<em class="keyword">晴天</em> 翻唱 &amp; 練習 &quot;1&quot;',
             'author': '某 UP 主',
             'duration': '4:05',
+            'pic': '//i0.hdslb.com/bfs/archive/a.jpg',
           },
           {
             'type': 'video',
@@ -79,6 +88,7 @@ void main() {
             'title': '長影片',
             'author': '另一位',
             'duration': '1:02:03',
+            'pic': 'http://i1.hdslb.com/bfs/archive/b.jpg',
           },
           {
             'type': 'video',
@@ -97,12 +107,14 @@ void main() {
         title: '晴天 翻唱 & 練習 "1"',
         author: '某 UP 主',
         duration: Duration(minutes: 4, seconds: 5),
+        coverUrl: 'https://i0.hdslb.com/bfs/archive/a.jpg',
       ),
       Track(
         ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1yy411c7mE'),
         title: '長影片',
         author: '另一位',
         duration: Duration(hours: 1, minutes: 2, seconds: 3),
+        coverUrl: 'https://i1.hdslb.com/bfs/archive/b.jpg',
       ),
       Track(
         ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1zz411c7mF'),

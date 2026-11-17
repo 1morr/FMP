@@ -132,7 +132,7 @@ function parseResponse(res) {
   return body.data;
 }
 function toTrack(item) {
-  const { bvid, title, author, duration } = item;
+  const { bvid, title, author, duration, pic } = item;
   if (typeof bvid !== "string" || typeof title !== "string") {
     throw new PluginError("parse_failure", "search item without bvid or title");
   }
@@ -140,8 +140,14 @@ function toTrack(item) {
     id: bvid,
     title: plainText(title),
     author: typeof author === "string" ? author : "",
-    durationMs: parseDuration(duration)
+    durationMs: parseDuration(duration),
+    coverUrl: coverUrl(pic)
   };
+}
+function coverUrl(pic) {
+  if (typeof pic !== "string") return void 0;
+  const match = /^(?:https?:)?\/\/(.+)$/.exec(pic);
+  return match ? `https://${match[1]}` : void 0;
 }
 function plainText(html) {
   return html.replace(/<[^>]*>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
