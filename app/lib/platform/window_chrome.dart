@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 /// 判斷平台（architecture〈依賴規則〉）。
 abstract final class WindowChrome {
   /// macOS 的標題列透明、疊在內容上（`macos/Runner/MainFlutterWindow.swift`），
-  /// 側欄與細欄頂端要讓出紅綠燈的位置。
+  /// 側欄與細欄頂端要讓出紅綠燈的位置，燈位由 `TrafficLightsArea` 告訴原生端。
   static bool get insetTrafficLights =>
       defaultTargetPlatform == TargetPlatform.macOS;
 

@@ -2,10 +2,19 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
-  /// 紅綠燈第一顆按鈕的左上角，從視窗左上角量（docs/design/assets/fmp.css 的
-  /// `.rail .lights`：細欄離邊 8、內距 6、燈再內縮 7；頂 8 加上燈的上內距 14）。
-  /// 寬級的側欄稿上是 24，差 3pt；細欄比較窄，照它排三顆才不會超出。
-  private let trafficLightOrigin = NSPoint(x: 21, y: 22)
+  /// Dart 給的燈位（lib/platform/traffic_lights.dart）：第一顆按鈕照稿的左上角，從視窗
+  /// 左上量，以及燈所在那一列的左右緣。版面是寬級還是細欄由 Dart 決定，這裡不重抄斷點。
+  struct TrafficLightsSpot {
+    let origin: NSPoint
+    let minX: CGFloat
+    let maxX: CGFloat
+  }
+  /// 目前的燈位；nil 是畫面上沒有側欄或細欄，紅綠燈在系統原位。
+  private(set) var trafficLightsSpot: TrafficLightsSpot?
+  /// Dart 送過燈位了沒（null 也算）；還沒送之前三顆藏著。
+  private var trafficLightsTold = false
+  /// 系統原位（標題列高度與三顆按鈕的 origin），第一次排之前量下來，沒有燈位時放回去。
+  private var systemTrafficLights: (barHeight: CGFloat, origins: [NSPoint])?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -33,45 +42,120 @@ class MainFlutterWindow: NSWindow {
       case "zoom":
         self?.performZoom(nil)
         result(nil)
+      case "setTrafficLights":
+        let args = call.arguments as? [String: Double]
+        if let args, let x = args["x"], let y = args["y"], let minX = args["minX"],
+          let maxX = args["maxX"]
+        {
+          self?.setTrafficLights(
+            TrafficLightsSpot(origin: NSPoint(x: x, y: y), minX: minX, maxX: maxX))
+        } else {
+          self?.setTrafficLights(nil)
+        }
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
-      }
-    }
-
-    // 系統會在縮放與離開全螢幕時把按鈕放回原位，每次都重排。
-    for name in [NSWindow.didResizeNotification, NSWindow.didExitFullScreenNotification] {
-      NotificationCenter.default.addObserver(forName: name, object: self, queue: .main) {
-        [weak self] _ in self?.layoutTrafficLights()
       }
     }
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()
+    // Dart 畫完第一幀、給了燈位才露出來，別先在系統原位閃一下。
+    for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+      standardWindowButton(type)?.isHidden = true
+    }
+  }
+
+  private var observedTitlebarViews: [NSView] = []
+  private var titlebarFrameObservers: [NSObjectProtocol] = []
+  private var trafficLightsLayoutPending = false
+
+  /// 系統排標題列（`NSThemeFrame` 的 `_tileTitlebarAndRedisplay:`）時會把標題列容器
+  /// 與三顆按鈕放回原位：改標題（Flutter 在 applicationWillFinishLaunching 設一次）、
+  /// 縮放、切深淺色……都會走到這裡。與其像 Electron 一個個事件追，直接看著它們的
+  /// frame，一被移動就排回去（事實 M13）。
+  private func observeTitlebarFrames(_ views: [NSView]) {
+    guard !views.elementsEqual(observedTitlebarViews, by: ===) else { return }
+    titlebarFrameObservers.forEach(NotificationCenter.default.removeObserver)
+    observedTitlebarViews = views
+    titlebarFrameObservers = views.map { view in
+      view.postsFrameChangedNotifications = true
+      return NotificationCenter.default.addObserver(
+        forName: NSView.frameDidChangeNotification, object: view, queue: nil
+      ) { [weak self] _ in self?.scheduleTrafficLightsLayout() }
+    }
+  }
+
+  /// 通知是系統移動按鈕的當下發的，這時設正在移動的那顆會被它的重入保護吃掉
+  /// （`_NSThemeWidget setFrameOrigin:ignoreRentry:`），所以等這一輪 run loop 把
+  /// 標題列排完、畫面更新之前再排；同一輪的多個通知合成一次。common modes 讓拖拉
+  /// 縮放（event tracking mode）時也照排。
+  private func scheduleTrafficLightsLayout() {
+    guard !trafficLightsLayoutPending else { return }
+    trafficLightsLayoutPending = true
+    RunLoop.main.perform(inModes: [.common]) { [weak self] in
+      self?.trafficLightsLayoutPending = false
+      self?.layoutTrafficLights()
+    }
+  }
+
+  /// 收到 Dart 的燈位；nil 是這個畫面沒有側欄或細欄，三顆放回系統原位。
+  func setTrafficLights(_ spot: TrafficLightsSpot?) {
+    trafficLightsSpot = spot
+    trafficLightsTold = true
     layoutTrafficLights()
   }
 
-  /// 把紅綠燈移到 [trafficLightOrigin]：先把裝按鈕的標題列加高到放得下，再排
-  /// 三顆按鈕（Electron 的 trafficLightPosition 也是這樣做）。
+  /// 排紅綠燈：有燈位時先把裝按鈕的標題列加高到放得下，再排三顆按鈕（Electron 的
+  /// trafficLightPosition 也是這樣做）；原生按鈕比稿上的燈大，照稿放會比在那一列裡
+  /// 置中還靠右（右邊放不下）時改成置中。沒有燈位時放回系統原位。已經在位置上的不再
+  /// 設（容許系統對齊像素的誤差），自己發出的 frame 通知才不會一直排下去。
   private func layoutTrafficLights() {
-    guard !styleMask.contains(.fullScreen),
+    // 全螢幕時按鈕在系統的工具列視窗裡，不動；離開時系統重排標題列，frame 監看會排回來。
+    guard trafficLightsTold, !styleMask.contains(.fullScreen),
       let close = standardWindowButton(.closeButton),
       let mini = standardWindowButton(.miniaturizeButton),
       let zoom = standardWindowButton(.zoomButton),
       let container = close.superview?.superview
     else { return }
-    let height = close.frame.height
-    let barHeight = height + trafficLightOrigin.y * 2
+    let buttons = [close, mini, zoom]
+    if systemTrafficLights == nil {
+      systemTrafficLights = (container.frame.height, buttons.map { $0.frame.origin })
+    }
+    observeTitlebarFrames([container] + buttons)
+    let (barHeight, origins) = trafficLightsSpot.map { spot in
+      let size = close.frame.size
+      let barHeight = size.height + spot.origin.y * 2
+      let spacing = mini.frame.minX - close.frame.minX
+      let left = min(spot.origin.x, (spot.minX + spot.maxX - spacing * 2 - size.width) / 2)
+      return (
+        barHeight,
+        (0..<3).map { i in
+          NSPoint(x: left + CGFloat(i) * spacing, y: (barHeight - size.height) / 2)
+        }
+      )
+    } ?? systemTrafficLights!
     var frame = container.frame
     frame.size.height = barHeight
     frame.origin.y = self.frame.height - barHeight
-    container.frame = frame
-    let spacing = mini.frame.minX - close.frame.minX
-    for (i, button) in [close, mini, zoom].enumerated() {
-      button.setFrameOrigin(
-        NSPoint(
-          x: trafficLightOrigin.x + CGFloat(i) * spacing,
-          y: (barHeight - height) / 2))
+    if !container.frame.isClose(to: frame) { container.frame = frame }
+    for (button, origin) in zip(buttons, origins) {
+      if !button.frame.origin.isClose(to: origin) { button.setFrameOrigin(origin) }
+      if button.isHidden { button.isHidden = false }
     }
+  }
+}
+
+extension NSPoint {
+  fileprivate func isClose(to other: NSPoint) -> Bool {
+    abs(x - other.x) < 0.5 && abs(y - other.y) < 0.5
+  }
+}
+
+extension NSRect {
+  fileprivate func isClose(to other: NSRect) -> Bool {
+    origin.isClose(to: other.origin) && abs(width - other.width) < 0.5
+      && abs(height - other.height) < 0.5
   }
 }

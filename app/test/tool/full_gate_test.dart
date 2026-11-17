@@ -79,6 +79,35 @@ void main() {
     expect(lastBuild, lessThan(firstTest));
   });
 
+  test('builds the macOS native tests (RunnerTests) outside the lock, after '
+      'the macOS build, and runs them inside the Mac app holding the '
+      'lock', () async {
+    expect(await runGate(), 0);
+
+    const xcode =
+        '-workspace macos/Runner.xcworkspace -scheme Runner '
+        '-destination platform=macOS -derivedDataPath build/macos';
+    const build = 'xcodebuild build-for-testing $xcode';
+    const run =
+        'xcodebuild test-without-building $xcode '
+        '-only-testing:RunnerTests';
+    expect(
+      shell.ranWithLock,
+      containsAllInOrder([(build, false), (run, true)]),
+    );
+    expect(
+      shell.ran.indexOf(build),
+      greaterThan(shell.ran.indexOf('flutter build macos --debug')),
+    );
+    expect(
+      out.toString(),
+      allOf(
+        contains('ok   build macos native tests'),
+        contains('ok   native tests macos'),
+      ),
+    );
+  });
+
   group('shared-device lock', () {
     /// 違規：碰共用裝置、卻不在持鎖時跑的指令；一個共用裝置的指令都沒跑也
     /// 算（鎖沒拿到時步驟不執行，不能因此放過）。
@@ -430,6 +459,7 @@ bool _touchesSharedDevice(String command) =>
     command.startsWith('ssh ') ||
     command.startsWith('scp ') ||
     command.startsWith('xcrun simctl bootstatus ') ||
+    command.startsWith('xcodebuild test-without-building ') ||
     (command.startsWith('flutter test ') && command.contains(' -d '));
 
 class _FakeShell implements Shell {

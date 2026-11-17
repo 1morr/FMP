@@ -470,4 +470,69 @@ void main() {
       expect(tester.getRect(find.byTooltip('收起面板')).right, 960 - 8 - 10);
     });
   });
+
+  group('macos traffic lights', () {
+    const channel = MethodChannel('fmp/window');
+    late List<MethodCall> calls;
+
+    setUp(() {
+      calls = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return null;
+          });
+    });
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    List<Object?> sent() => [
+      for (final call in calls)
+        if (call.method == 'setTrafficLights') call.arguments,
+    ];
+
+    // 燈位照稿（docs/design/assets/fmp.css）：側欄 `.side .lights` 離側欄內容
+    // 左緣 8、細欄 `.rail .lights` 離細欄內容左緣 7，上內距都是 14；框是側欄
+    // 與細欄的內容寬（側欄 8＋內距 8 到 256−8、細欄 8＋內距 6 到 80−6）。
+    for (final (size, spot) in [
+      (desktop, {'x': 24.0, 'y': 22.0, 'minX': 16.0, 'maxX': 248.0}),
+      (
+        const Size(960, 720),
+        {'x': 21.0, 'y': 22.0, 'minX': 14.0, 'maxX': 74.0},
+      ),
+    ]) {
+      testWidgets('tells macOS where the lights go in the ${size.width} wide '
+          'layout', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        await start(tester, size);
+        expect(sent().last, spot);
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
+    testWidgets('moves the lights when the layout changes width', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await start(tester, desktop);
+      tester.view.physicalSize = const Size(960, 720);
+      await tester.pumpAndSettle();
+      expect(sent().last, {'x': 21.0, 'y': 22.0, 'minX': 14.0, 'maxX': 74.0});
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('other platforms have no traffic lights to place', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await start(tester, desktop);
+      expect(sent(), isEmpty);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
 }

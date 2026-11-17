@@ -34,18 +34,20 @@ void main() {
     expect(names(quick: true), quickSteps);
   });
 
-  test('the full gate runs the quick steps first, then builds and '
-      'integration tests on all four platforms, then checks the plugin '
-      'bundles', () {
+  test('the full gate runs the quick steps first, then builds, the macOS '
+      'native tests and integration tests on all four platforms, then checks '
+      'the plugin bundles', () {
     final full = names(quick: false);
 
     expect(full.take(quickSteps.length), quickSteps);
     expect(full.skip(quickSteps.length), [
       'build macos',
+      'build macos native tests',
       'build ios',
       'build android',
       'lock shared devices',
       'build windows',
+      'native tests macos',
       for (final platform in ['macos', 'ios', 'android', 'windows']) ...[
         'integration_test $platform: integration_test/app_test.dart',
         'integration_test $platform: integration_test/queue_test.dart',

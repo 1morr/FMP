@@ -106,6 +106,7 @@ app/
   - 聯網冒煙測試：`flutter test --run-skipped --tags live test/plugins/plugin_live_test.dart`（加 `--plain-name <id>` 只跑一個插件），每個插件的每個插件能力用第一個案例的 `input` 打一次真實音源，檢查同一套契約。
 - 插件宿主與插件的單元測試在 Mac 上跑真的 fjs 引擎（`loadFjsForTests()`，brief 事實 K19），網路換成 `test/support/fake_http.dart`。widget 測試裡會呼叫引擎的動作要在 `tester.runAsync` 裡發起，等結果時交替真實等待與 `pump`（事實 K19）。
 - 每個里程碑的主要流程有一條 `integration_test`，四個平台都跑。M0 的是 `integration_test/search_and_play_test.dart`（搜尋、點一首、播放、暫停、繼續），跑的是這個平台真的音訊後端。原生播放器的連線不經 Dart 的 `HttpOverrides`，所以它的串流網址指向 `test/support/local_audio_server.dart`：只聽 127.0.0.1 的假 CDN，回產生出來的無聲 WAV、支援 Range，少了 Referer 或瀏覽器的 User-Agent 就回 403（brief 事實 F22），播得起來就證明 header 帶到了。
+- 原生程式碼裡 Dart 看不到的行為（例如 macOS 紅綠燈的位置）用該平台的原生測試，跑在 App 裡讀真的視窗：macOS 是 `app/macos/RunnerTests`（XCTest），完整閘門跑 `xcodebuild test`。
 - drift 的 schema：每個版本的快照在 `app/drift_schemas/app_database/`，升級測試在 `app/test/drift/app_database/`。改 schema 時：改表、`schemaVersion` 加一、在 `app/` 跑 `dart run drift_dev make-migrations`（產生新快照、`generated/` 的各版本資料庫、`lib/data/database.steps.dart`），在 `AppDatabase.migration` 用 `stepByStep` 寫這一步；`migration_test.dart` 自動涵蓋每一對版本，改到既有欄位時照檔頭加資料完整性測試。閘門的 `schema snapshot (drift)` 比對目前的 schema 與最新快照，`migration_test.dart` 比對 `schemaVersion` 與最新快照的版本，忘了任一步都會紅。`*.g.dart` 不進 git，閘門的 `codegen (build_runner)` 先產生。
 - 聯網冒煙測試：每個音源每種插件能力最多一條，手動執行，不擋合併；用真實帳號時照 `AGENTS.md` 的最少操作規則。
 

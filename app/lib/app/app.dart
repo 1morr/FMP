@@ -5,6 +5,7 @@ import 'package:fmp/app/i18n/plural_rules.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
+import 'package:fmp/platform/traffic_lights.dart';
 import 'package:fmp/app/router.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,7 +20,7 @@ Widget buildRoot({List<Override> overrides = const []}) {
   return ProviderScope(
     retry: noRetry,
     overrides: overrides,
-    child: TranslationProvider(child: const FmpApp()),
+    child: TrafficLights(child: TranslationProvider(child: const FmpApp())),
   );
 }
 

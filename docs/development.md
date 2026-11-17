@@ -21,13 +21,13 @@
 
 框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）。
 
-視窗：標題列透明、內容延伸到它底下，紅綠燈移到側欄頂端，頂端空白處經 `fmp/window` 頻道拖動視窗、雙擊縮放（事實 M12）。移紅綠燈靠未公開的視圖結構，升級 macOS 後檢查一次：實跑後把視窗拉到 1280×800 與 960×720 截圖，紅綠燈要在側欄或細欄頂端的空白裡（不壓到邊框、不跑回視窗角落）；再從頂端空白處拖一下，`osascript -e 'tell application "System Events" to get position of window 1 of process "FMP Dev"'` 的位置要跟著變。Flutter 的手勢要真的滑鼠事件，`orca computer drag` 拖不動，改用 CGEvent 送 `leftMouseDown`／`leftMouseDragged`／`leftMouseUp`。
+視窗：標題列透明、內容延伸到它底下，紅綠燈移到側欄頂端（燈位由 Dart 的 `lib/platform/traffic_lights.dart` 經 `fmp/window` 告訴原生端：寬級照稿，細欄照稿放不下就在細欄內框裡置中，沒有側欄或細欄的畫面送「沒有燈位」、紅綠燈回系統原位），頂端空白處經 `fmp/window` 頻道拖動視窗、雙擊縮放（事實 M12）。紅綠燈的位置由 `macos/RunnerTests`（XCTest，跑在 App 裡讀真的視窗）守著：啟動後、改標題、切深淺色後都要在燈位，寬級與細欄兩種寬度都在側欄或細欄的內框裡，寬級照稿在 (24,22)，收到「沒有燈位」時三顆看得到、在系統原位；完整閘門跑它，單獨跑是先 `flutter build macos --debug`，再 `xcodebuild test -workspace macos/Runner.xcworkspace -scheme Runner -destination platform=macOS -only-testing:RunnerTests`，失敗的斷言加 `-resultBundlePath <檔>` 後用 `xcrun xcresulttool get test-results tests --path <檔>` 讀。移紅綠燈靠未公開的視圖結構（事實 M12、M13），升級 macOS 後再實跑檢查一次：啟動後不動視窗先截一張，再切到別的 App 又切回來、切系統深淺色、縮放、進出全螢幕，最後把視窗拉到 1280×800 與 960×720 各截一張，紅綠燈都要在側欄或細欄頂端的空白裡（不壓到邊框、不跑回視窗角落）。位置可用 System Events 讀 `position of button 1 of window 1 of process "FMP Dev"` 減去視窗位置：細欄是 (13,21)、寬級是 (23,21)（AX 的框比按鈕外擴 1pt），在原位是 (8,8)。再從頂端空白處拖一下，`osascript -e 'tell application "System Events" to get position of window 1 of process "FMP Dev"'` 的位置要跟著變。Flutter 的手勢要真的滑鼠事件，`orca computer drag` 拖不動，改用 CGEvent 送 `leftMouseDown`／`leftMouseDragged`／`leftMouseUp`。
 
 log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Support/com.personal.fmp.dev/logs/fmp.log`。
 
 資料庫：`logs/` 的上一層（App 支援目錄）的 `fmp.sqlite`。
 
-閘門：`flutter build macos --debug`；`flutter test integration_test/<檔> -d macos`（會在本機開一個 App 視窗）。
+閘門：`flutter build macos --debug`；原生測試先在鎖外 `xcodebuild build-for-testing -workspace macos/Runner.xcworkspace -scheme Runner -destination platform=macOS -derivedDataPath build/macos`，再持鎖 `xcodebuild test-without-building`（同樣的參數加 `-only-testing:RunnerTests`）；`flutter test integration_test/<檔> -d macos`（兩者都會在本機開一個 App 視窗）。
 
 實跑：`flutter build macos --debug`，再 `dart run tool/device_lock.dart -- bash -c 'open "build/macos/Build/Products/Debug/FMP Dev.app" && sleep 10 && orca computer get-app-state --app com.personal.fmp.dev > <暫存目錄>/macos.txt && osascript -e "quit app \"FMP Dev\""'`，讀回畫面（`macos.txt` 裡的截圖路徑要打開來看）。
 
@@ -101,8 +101,8 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 ## 開發環境與閘門
 
 - `dart run tool/check.dart --quick`（在 `app/` 裡跑）：產生 i18n、codegen（build_runner）、format、analyze、單元測試、schema 快照檢查（`ARCHITECTURE.md`〈測試策略〉）、文件閘門（`python3 scripts/check_docs.py` 與它的測試，在 repo 根目錄跑，要 Python 3；規則寫在腳本開頭）；commit 改到 `app/` 時由 `.githooks/pre-commit` 執行；沒改到 `app/`、但改到 `scripts/` 的檢查腳本或它們的測試時，hook 跑 `python3 scripts/check_docs.py` 與 `python3 -m unittest discover -s scripts/tests`；只改到 `docs/`、`.scratch/`、`AGENTS.md`、`ARCHITECTURE.md` 或 `CHANGELOG.md` 時只跑 `python3 scripts/check_docs.py`。
-- `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再在四平台跑 `integration_test`（指令見〈平台〉各平台的「閘門」），最後檢查插件打包產物是否最新（`plugin bundles (esbuild)`：在 `app/plugins/` 跑 `npm ci` 與 `npm run build -- --outdir <暫存目錄>`，含型別檢查，再和提交的各插件 `dist/` 逐位元組比對）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），Android 模擬器先開好，`winpc` 的桌面有人登入；iOS 至少要有一台可用的 iPhone 模擬器，沒開著時閘門會開最近用過的那台（〈iOS 模擬器〉）。每張票合併前跑完整版。
-- **共用裝置鎖**：完整版在 Mac 上的三個建置之後、`build windows` 之前跑 `lock shared devices`，四平台的 `integration_test` 跑完後跑 `unlock shared devices`；中間的步驟（`winpc` 的同步、建置與 integration_test，模擬器與 macOS 的 integration_test）持有鎖時才跑，沒拿到就判失敗。同一時間只有一個 worktree 的完整版在碰共用裝置。
+- `dart run tool/check.dart`（完整版）：quick 之後依序做 macOS、iOS 模擬器、Android 模擬器、Windows（SSH 同步工作樹到 `winpc`、以排程工作執行，不靠 push）的建置，再跑 macOS 的原生測試（`native tests macos`）與四平台的 `integration_test`（指令見〈平台〉各平台的「閘門」），最後檢查插件打包產物是否最新（`plugin bundles (esbuild)`：在 `app/plugins/` 跑 `npm ci` 與 `npm run build -- --outdir <暫存目錄>`，含型別檢查，再和提交的各插件 `dist/` 逐位元組比對）。前面的步驟失敗也照跑完，最後列出每一步的結果；步驟名稱帶平台，失敗時印成 `FAIL build ios`、`FAIL integration_test windows: integration_test/<檔>`，退出碼非零。前置條件：在 Mac 上跑（iOS 建置要 Xcode），Android 模擬器先開好，`winpc` 的桌面有人登入；iOS 至少要有一台可用的 iPhone 模擬器，沒開著時閘門會開最近用過的那台（〈iOS 模擬器〉）。每張票合併前跑完整版。
+- **共用裝置鎖**：完整版在 Mac 上的建置（三個平台與 macOS 的原生測試）之後、`build windows` 之前跑 `lock shared devices`，四平台的 `integration_test` 跑完後跑 `unlock shared devices`；中間的步驟（`winpc` 的同步、建置與 integration_test，macOS 的原生測試，模擬器與 macOS 的 integration_test）持有鎖時才跑，沒拿到就判失敗。同一時間只有一個 worktree 的完整版在碰共用裝置。
   - 位置：`git rev-parse --path-format=absolute --git-common-dir` 底下（所有 worktree 共用的 `.git`）的 `fmp-device.lock`，持有者資訊在同目錄的 `fmp-device.lock.holder`（JSON：`worktree`、`pid`、`started`）。實作在 `app/tool/src/device_lock.dart`。
   - 包裝指令：`dart run tool/device_lock.dart [--repo <目錄>] -- <指令> [參數…]`（在 `app/` 裡跑，照 util-linux `flock(1)` 包住一個指令的慣例）拿目前目錄所在 repo 的鎖、執行指令、指令結束就放鎖，退出碼是指令的退出碼（被訊號結束時是 128 + 訊號編號）；收到 SIGINT、SIGTERM、SIGHUP 時轉給指令。訊息印到 stderr。`--held` 只回答這個 worktree 是否持有這把鎖（是 0，否則 1）。
   - 腳本自己守：`tool/winpc/` 的每支 `*.sh` 一開頭 source `lock_guard.sh`，沒持鎖就經包裝指令重新執行自己（先拿鎖、必要時等）。`test/tool/device_lock_cli_test.dart` 檢查每支都在碰 `ssh`／`scp` 之前 source 它，新加的腳本也一樣。
@@ -125,6 +125,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 | 型別 | `flutter analyze`（Dart 的型別錯誤由 analyzer 報）；插件的 TypeScript 由完整版的 `plugin bundles (esbuild)` 跑 `tsc --noEmit` | 型別對不上 |
 | 單元測試 | `flutter test`（`--quick`） | 行為退化 |
 | 端到端冒煙 | `integration_test/` 的每個 `*_test.dart`，四平台各跑一次（`dart run tool/check.dart` 完整版） | 各模組都過、接起來卻跑不動 |
+| 原生測試 | macOS 的 `macos/RunnerTests`（XCTest；`dart run tool/check.dart` 完整版的 `native tests macos`） | Dart 看不到的原生行為退化，例如紅綠燈跑回原位 |
 | 密鑰掃描 | 待定，由 `.scratch/gates/issues/01-secret-scan.md` 補 | token、密碼被 commit 進公開 repo |
 | 依賴漏洞 | 待定，由 `.scratch/gates/issues/02-dependency-audit.md` 補 | 用到有已知漏洞的套件 |
 | 依賴更新 | 待定，由 `.scratch/gates/issues/03-dependency-updates.md` 補 | 依賴長期沒更新 |

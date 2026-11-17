@@ -3,6 +3,7 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/window_chrome.dart';
+import 'package:fmp/platform/traffic_lights.dart';
 import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/shell/destination.dart';
@@ -45,10 +46,15 @@ class SideBar extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 紅綠燈的位置（`.side .lights`：上內距 14 加高 40），也是拖動
-            // 視窗的地方。
-            WindowDragArea(
-              child: SizedBox(height: WindowChrome.insetTrafficLights ? 54 : 8),
+            // 紅綠燈的位置（`.side .lights`：上內距 14、左內縮 8，加高 40），
+            // 也是拖動視窗的地方。
+            TrafficLightsArea(
+              spot: const Offset(8, 14),
+              child: WindowDragArea(
+                child: SizedBox(
+                  height: WindowChrome.insetTrafficLights ? 54 : 8,
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
