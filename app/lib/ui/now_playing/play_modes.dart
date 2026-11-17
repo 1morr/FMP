@@ -16,7 +16,8 @@ String repeatLabel(Translations t, Repeat mode) => switch (mode) {
   Repeat.one => t.playMode.repeat.one,
 };
 
-FmpIcons _repeatIcon(Repeat mode) =>
+/// 循環的圖示：單曲循環是帶 1 的那個。
+FmpIcons repeatIcon(Repeat mode) =>
     mode == Repeat.one ? FmpIcons.repeat1 : FmpIcons.repeat;
 
 /// 佇列頁的隨機、循環兩顆切換鈕（`quTogs`）。[glass] 時包在頂列的玻璃膠囊
@@ -44,7 +45,7 @@ class PlayModeToggles extends ConsumerWidget {
       ),
       SizedBox(width: glass ? 2 : 6),
       PlayModeToggle(
-        icon: _repeatIcon(repeat),
+        icon: repeatIcon(repeat),
         label: repeatLabel(t, repeat),
         on: repeat != Repeat.off,
         glass: glass,
@@ -107,7 +108,7 @@ class PlayModeToggle extends StatelessWidget {
           } else {
             (background, foreground) = (colors.fill, colors.label);
           }
-          return AnimatedContainer(
+          final pill = AnimatedContainer(
             duration: FmpMotion.fast,
             height: height,
             padding: EdgeInsets.only(left: left, right: right),
@@ -132,6 +133,11 @@ class PlayModeToggle extends StatelessWidget {
               ],
             ),
           );
+          // 觸控的點擊區補到 44（`DESIGN.md`〈稿內不一致與實作注意〉），
+          // 看得到的膠囊照稿 34。
+          return touch
+              ? SizedBox(height: 44, child: Center(child: pill))
+              : pill;
         },
       ),
     );
@@ -172,7 +178,7 @@ class PlayModeIconButton extends ConsumerWidget {
       final repeat = ref.watch(queueProvider.select((queue) => queue.repeat));
       on = repeat != Repeat.off;
       (icon, label, onTap) = (
-        _repeatIcon(repeat),
+        repeatIcon(repeat),
         repeatLabel(t, repeat),
         controller.cycleRepeat,
       );

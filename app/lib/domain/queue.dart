@@ -229,29 +229,37 @@ class Queue {
   }
 
   /// 關隨機：恢復原順序，目前那首留在它在原順序裡的位置，從那裡繼續。
-  /// 隨機時拖動過或用「下一首播放」插進來的，照播放順序排在正在播的那首
-  /// 後面；正在播的就是其中一首時，這一組排在它前面最近一首原順序裡的
-  /// 曲目後面。
+  /// 隨機時拖動過或用「下一首播放」插進來的不回原位：還沒播的照播放順序
+  /// 排在正在播的那首後面，已經播過的（播放順序在它前面）排在它前面，仍算
+  /// 播過。正在播的就是其中一首時，這一組排在它前面最近一首原順序裡的曲目
+  /// 後面；沒有目前那首時全部算播過，排在最後。
   Queue unshuffle() {
     final original = _original;
     if (original == null) return this;
     final byId = {for (final entry in entries) entry.id: entry};
     final restored = [for (final id in original) byId[id]!];
-    final current = this.current;
-    final pinned = [
-      for (final entry in entries)
-        if (_pinned.contains(entry.id)) entry,
-    ];
-    final int at;
-    if (current == null) {
-      at = restored.length;
+    final index = currentIndex;
+    bool pinned(QueueEntry entry) => _pinned.contains(entry.id);
+    if (index == null) {
+      restored.addAll(entries.where(pinned));
     } else {
-      final anchor = entries
-          .take(currentIndex! + 1)
-          .lastWhere((e) => !_pinned.contains(e.id), orElse: () => current);
-      at = _pinned.contains(anchor.id) ? 0 : restored.indexOf(anchor) + 1;
+      final current = entries[index];
+      final played = entries.take(index).where(pinned).toList();
+      final upNext = entries.skip(index + 1).where(pinned).toList();
+      if (pinned(current)) {
+        final anchor = entries
+            .take(index)
+            .lastWhere((e) => !pinned(e), orElse: () => current);
+        final at = anchor == current ? 0 : restored.indexOf(anchor) + 1;
+        restored.insertAll(at, [...played, current, ...upNext]);
+      } else {
+        final at = restored.indexOf(current);
+        restored
+          ..insertAll(at + 1, upNext)
+          ..insertAll(at, played);
+      }
     }
-    restored.insertAll(at, pinned);
+    final current = this.current;
     return Queue._(
       List.unmodifiable(restored),
       current == null ? null : restored.indexOf(current),

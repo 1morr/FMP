@@ -11,6 +11,7 @@ import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -788,11 +789,7 @@ class QueueEndNote extends StatelessWidget {
           : const EdgeInsets.fromLTRB(20, 18, 20, 0),
       child: Row(
         children: [
-          FmpIcon(
-            repeat == Repeat.one ? FmpIcons.repeat1 : FmpIcons.repeat,
-            size: 16,
-            color: colors.label3,
-          ),
+          FmpIcon(repeatIcon(repeat), size: 16, color: colors.label3),
           const SizedBox(width: 6),
           Expanded(
             child: Text(

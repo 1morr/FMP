@@ -71,10 +71,22 @@ void main() {
     });
   });
 
+  group('隨機時，拖動排序直接改播放順序', () {
+    test('dragging while shuffled changes the play order right away and keeps '
+        'shuffle on', () {
+      final shuffled = queueOf(letters, current: 5).shuffle(Random(1));
+      final last = ids(shuffled).last;
+      final queue = shuffled.move(letters.length - 1, 1);
+      expect(queue.shuffled, isTrue);
+      expect(ids(queue)[1], last);
+      expect(current(queue.next()!), last);
+    });
+  });
+
   group('隨機時拖動過、或用「下一首播放」插進來的曲目，關掉隨機後排在正在播的'
       '那首後面，不回原位', () {
-    test('tracks inserted with play next while shuffled land right after the '
-        'current track when shuffle is turned off', () {
+    test('還沒播的那一半：tracks inserted with play next while shuffled land '
+        'right after the current track when shuffle is turned off', () {
       final queue = queueOf([
         'a',
         'b',
@@ -85,8 +97,9 @@ void main() {
       expect(current(queue), 'b');
     });
 
-    test('tracks dragged while shuffled leave their original place and land '
-        'right after the current track when shuffle is turned off', () {
+    test('還沒播的那一半：tracks dragged while shuffled leave their original '
+        'place and land right after the current track when shuffle is turned '
+        'off', () {
       final shuffled = queueOf([
         'a',
         'b',
@@ -100,8 +113,9 @@ void main() {
       expect(current(queue), 'b');
     });
 
-    test('a track dragged above the current track while shuffled still lands '
-        'right after it when shuffle is turned off', () {
+    test('已經播過的那一半（對 brief 的解讀）：a track dragged above the '
+        'current track while shuffled lands right before it when shuffle is '
+        'turned off, still played and not back in its place', () {
       final shuffled = queueOf([
         'a',
         'b',
@@ -111,12 +125,31 @@ void main() {
       ], current: 1).shuffle(Random(1));
       final eIndex = ids(shuffled).indexOf('e');
       final queue = shuffled.move(eIndex, 0).unshuffle();
-      expect(ids(queue), ['a', 'b', 'e', 'c', 'd']);
+      expect(ids(queue), ['a', 'e', 'b', 'c', 'd']);
       expect(current(queue), 'b');
     });
 
-    test('several pinned tracks keep their shuffled order after the current '
-        'track', () {
+    test('已經播過的那一半（對 brief 的解讀）：a track inserted with play next '
+        'and already played while shuffled lands right before the current '
+        'track and is not played again', () {
+      var queue = queueOf([
+        'a',
+        'b',
+        'c',
+        'd',
+      ], current: 0).shuffle(Random(1)).playNext([track('x')]);
+      queue = queue.next()!.next()!;
+      final playing = current(queue)!;
+      queue = queue.unshuffle();
+      expect(current(queue), playing);
+      final at = queue.currentIndex!;
+      expect(ids(queue)[at - 1], 'x');
+      expect(ids(queue).skip(at + 1), isNot(contains('x')));
+      expect(ids(queue).where((id) => id != 'x'), ['a', 'b', 'c', 'd']);
+    });
+
+    test('還沒播的那一半：several pinned tracks keep their shuffled order after '
+        'the current track', () {
       final queue = queueOf(['a', 'b', 'c', 'd'], current: 0)
           .shuffle(Random(1))
           .playNext([track('x')])
