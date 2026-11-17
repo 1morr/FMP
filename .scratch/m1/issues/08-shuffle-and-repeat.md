@@ -1,6 +1,6 @@
 # 08: 播放模式：隨機與循環
 
-Status: ready-for-agent
+Status: done
 Blocked by: 07
 讀: brief §6；`docs/design/queue.html`、`docs/design/player.html`；spec〈共同規則〉
 
@@ -17,16 +17,16 @@ Blocked by: 07
 
 ## 驗收
 
-- [ ] brief §6 關於隨機與循環的每一點各有一條單元測試，測試名稱寫明對到哪一點。
-- [ ] 佇列頁「隨機剛打開」的截圖和 `queue.html` 對得上。
-- [ ] 四平台實跑：開隨機、關隨機，讀回佇列頁的順序。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] brief §6 關於隨機與循環的每一點各有一條單元測試，測試名稱寫明對到哪一點。
+- [x] 佇列頁「隨機剛打開」的截圖和 `queue.html` 對得上。
+- [x] 四平台實跑：開隨機、關隨機，讀回佇列頁的順序。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
 決定：開隨機不跳提示；`queue.html`「剛打開隨機」拿掉那則 Toast 與「第一次打開跳提示」一句（使用者定）
-決定：播放膠囊的隨機、循環鈕也在這張票接上，和佇列頁的切換鈕同步（使用者同意）
-決定：隨機時「加入佇列」排在播放順序最後，原順序裡也在最後，同 Apple Music 的「最後播放」（使用者同意）
-決定：單曲循環只管自然播完重播；手動上一首、下一首照不循環走，到頭不繞回，照舊版 queue_manager（使用者同意）
+決定：播放膠囊的隨機、循環鈕也在這張票接上，和佇列頁的切換鈕同步（Agent 定）
+決定：隨機時「加入佇列」排在播放順序最後，原順序裡也在最後，同 Apple Music 的「最後播放」（Agent 定）
+決定：單曲循環只管自然播完重播；手動上一首、下一首照不循環走，到頭不繞回，照舊版 queue_manager（Agent 定）
 決定：名詞表加「隨機」「循環」「原順序」三條（使用者同意）
 決定：對 brief「隨機時拖動過、插進來的關掉後排在正在播的後面」的解讀：已播過的排在它前面、仍算播過，沒播的排在後面（Agent 定）
 決定：開隨機時播過的也一起打亂進接下來（稿：64 首打亂 63 首）；沒有目前那首時全部打亂（Agent 定）
@@ -38,3 +38,22 @@ Blocked by: 07
 決定：播放膠囊的隨機、循環開著時圖示下加 4 的點，同播放頁 `.pl-dctl`，沒有強調色時也分得出（Agent 定）
 決定：循環的型別叫 `Repeat`，避開 Flutter 的 `RepeatMode`；亂數經 `queueRandomProvider` 注入，測試用固定種子（Agent 定）
 決定：桌面頂列的拖動區改包在外殼外層、雙擊改用不佔住競技場的辨識器；頁面頂列用 `ShellTopBarArea` 標記，頂端 58 內只放行點到它的控制項（Agent 定）
+頂列晚 0.3 秒的根因：外殼把 `WindowDragArea`（頂端 58、全寬）疊在內容上、透明接收事件，它的雙擊辨識在第一下之後佔住手勢競技場，頁面頂列按鈕的單擊要等雙擊逾時才算數；外殼自己的鈕（詳情面板鈕、視窗鈕、側欄）疊在它上面，不受影響。修法改在外殼（`window_drag.dart`、`app_shell.dart`、`shell_page.dart`），之後用 `ShellTopBarArea` 的頁面頂列都適用；佇列頁頂列修前紅（Windows、macOS 各一條）
+四平台實跑（2026-11-17，真的 B 站，每平台匿名搜一次「lofi」，持共用裝置鎖；截圖在本機暫存目錄）：每個平台先截啟動後不動視窗的一張，再加幾首、進佇列頁、開隨機、切列表循環、關隨機，讀回順序
+- macOS（啟動 800×600 細欄，再拉到 1280×800 深色）：原順序 [梦核, 梦核, 周末午後*, 清晨, 半夜]；開隨機 → [周末午後*, 梦核, 半夜, 梦核, 清晨]，摺線「隨機順序 · 4 首」，膠囊隨機鈕下有點、上一首停用；列表循環後列末「…並重新打亂」；關隨機 → 回到原順序、正在播的第 3 首。CGEvent 雙擊頂列空白處放大、拖動頂列移動視窗；真滑鼠點頂列鈕立即切換
+- iOS 模擬器（iPhone 18 Pro 深色）：[梦核*, 周末, 下雪声, 梦核]；列表循環＋開隨機 → [梦核*, 下雪声, 梦核, 周末]，語意是可勾選（隨機 1、列表循環 1）；關隨機 → 原順序。這張和 `queue.html`「剛打開隨機」並排對過：頂列膠囊兩顆開著、正在播的在最上方、摺線「接下來 隨機順序 · n 首」
+- Android 模擬器（Medium Phone 淺色、英文）：[梦核*, 清晨, 周末]；開隨機 → [梦核*, 周末, 清晨]、「Up Next Shuffled · 2 tracks」；關隨機 → 原順序
+- Windows（winpc，啟動 1280×720 邏輯）：[梦核, 啪啪啪*, 清晨]；開隨機 → [啪啪啪*, 梦核, 清晨]（播過的一起打亂）；列表循環後關隨機 → 原順序、正在播的第 2 首。SendInput 雙擊頂列空白處最大化
+發現：macOS 放大後在頂端約 28pt（系統標題列）內雙擊不會還原，y=45 可以；開工時的 63d039d6 建出來一樣，系統的標題列雙擊動作是 Fill，像原生標題列和 Flutter 的縮放互相抵消；不在這張票修
+發現：Windows 這輪點搜尋結果播的那首串流開不了（`Playback failed: NetworkError (stream: Failed to open …)`），屬失敗處理（票 11）；macOS 切到新曲目時膠囊短暫顯示上一首的時長
+發現：同一個 worktree 已持鎖時再跑一次 `device_lock.dart -- sleep`，第二個行程不拿 OS 鎖；第一個結束後鎖沒人持有，第二個的 sleep 卻還在跑，看起來像還持著鎖
+發現：winpc 第一輪 build_runner 卡 20 分鐘（〈其他已知怪癖〉的 winpc Dart），結束行程後 `exit codegen=1`，重跑 `exit codegen=0`、`exit build=0`；`run_task.sh` 的 `/TR` 不能超過 261 字，長的 `-Click` 寫成 winpc 上的小腳本再跑
+code-review 未處理：判斷題的 smell：`PlayModeToggles` 放在 `ui/now_playing/` 但只有佇列頁用；`(shuffled, repeat)` 一起傳；`Repeat` 的 switch 散在名稱、圖示、列末說明；`Queue._with` 的 null 代表照舊，`shuffle`、`unshuffle`、`clear` 另外直接建；控制器測試的順序檢查和 domain 重疊
+code-review 未處理：`_pinned` 在重新打亂的新一輪不清掉，前一輪拖過、這一輪還沒播的關隨機時照樣排在正在播的後面
+閘門（app/ 在 1e2c7e59 之後沒再改）：第一輪 `dart run tool/check.dart` 完整版除了 macOS 的 `integration_test/queue_test.dart` 全綠（含 Windows 建置與三支 integration_test）；那支紅在一開始的搜尋結果 30 秒內沒出現，log 只有 `Failed to foreground app`，說不出原因；持鎖單獨重跑 4 次都 `All tests passed`
+閘門第二輪：macOS、iOS、Android 全綠（含 macOS `queue_test`）；Windows 紅在 `===== CRASH =====`、`exit codegen=-1073740791`（〈其他已知怪癖〉的 winpc Dart 當掉），缺 `database.g.dart` 連帶 `build windows`、`app_test`、`search_and_play_test` 紅，`queue_test` 綠。兩輪合起來每一步都在這份程式碼綠過
+Session 紀錄：2026-11-17 隨機與循環（domain、控制器、佇列頁切換鈕、列末說明、播放膠囊）、桌面頂列按鈕晚 0.3 秒的修正，四平台實跑開關隨機並讀回佇列頁
+變更：Added｜佇列｜佇列頁有「隨機」「循環」切換鈕：開隨機時正在播的那首移到最上方、其餘打亂，關掉恢復原本的順序；循環依序切換不循環、列表循環、單曲循環，列表最後一行說明最後一首播完後會怎樣
+變更：Added｜播放控制｜播放膠囊有隨機、循環鈕，和佇列頁同步，開著時圖示下有一個點
+變更：Added｜播放控制｜列表循環時最後一首播完回到第一首（隨機時重新打亂再播一輪），單曲循環時同一首播完重播
+變更：Fixed｜外殼｜桌面頂列上的按鈕點下立刻反應，不再晚約 0.3 秒；雙擊頂列空白處照常最大化
