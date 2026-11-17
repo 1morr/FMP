@@ -8,6 +8,8 @@ import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_drag.dart';
+import 'package:fmp/playback/playback.dart';
+import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/search/search_query.dart';
 import 'package:fmp/ui/shell/caption_buttons.dart';
 import 'package:fmp/ui/shell/destination.dart';
@@ -17,11 +19,15 @@ import 'package:fmp/ui/shell/phone_dock.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:fmp/ui/shell/side_bar.dart';
+import 'package:fmp/ui/toast/toast_layer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 桌面與中寬度內容底部讓給播放膠囊的高度（膠囊 64、離底 16，再留一點）。
 const double _transportInset = 120;
+
+/// 提示和它下面的迷你播放器或播放膠囊之間的距離。
+const double _toastGap = 12;
 
 /// App 的外殼（`docs/design/DESIGN.md`〈外殼〉）：導覽浮在 [child]（目前路由的頁面）
 /// 上面，依寬度分級換版面：窄是底部 dock，中是左側玻璃細欄，寬是左側玻璃
@@ -162,9 +168,50 @@ class _AppShellState extends ConsumerState<AppShell> {
             onLeaveSearch: _leaveSearch,
           ),
         ),
+        // 稿的 844 高框裡：有迷你播放器時離底 176，沒有時 112；安全區更高
+        // 時和 dock 一起上移。
+        Positioned.fill(
+          child: ToastLayer(
+            bottom:
+                (_hasTrack ? 176.0 : 112.0) +
+                math.max(0.0, media.viewPadding.bottom - 34),
+            stretch: true,
+            touch: true,
+          ),
+        ),
       ],
     );
   }
+
+  bool get _hasTrack => ref.watch(playbackProvider.select((s) => s != null));
+
+  /// 播放膠囊（有目前曲目時）。
+  List<Widget> _transport({
+    required double left,
+    required double right,
+    required double bottom,
+    required bool touch,
+  }) => [
+    if (_hasTrack)
+      Positioned(
+        left: left,
+        right: right,
+        bottom: bottom,
+        child: _Transport(touch: touch),
+      ),
+  ];
+
+  /// 播放膠囊上方的提示；疊在最上層，浮動面板開著時也按得到。
+  Widget _transportToast({required double bottom, required bool touch}) =>
+      Positioned.fill(
+        child: ToastLayer(
+          bottom: _hasTrack
+              ? bottom + TransportBar.heightOf(touch: touch) + _toastGap
+              : bottom + 8,
+          stretch: false,
+          touch: touch,
+        ),
+      );
 
   Widget _medium(BuildContext context, bool touch) {
     final media = MediaQuery.of(context);
@@ -204,6 +251,14 @@ class _AppShellState extends ConsumerState<AppShell> {
           width: NavRail.widthOf(touch: touch),
           child: NavRail(current: _current, touch: touch, onSelect: _select),
         ),
+        // 播放膠囊：離細欄 24（left 104，平板 112），叫出面板時右端讓到
+        // 面板左邊 24。
+        ..._transport(
+          left: side + 24,
+          right: _floatingDetail ? 8 + panelWidth + 24 : 24,
+          bottom: touch ? bottom : 16,
+          touch: touch,
+        ),
         if (!_floatingDetail)
           _detailButton(touch, top0, () {
             setState(() => _floatingDetail = true);
@@ -238,6 +293,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
         ],
+        _transportToast(bottom: touch ? bottom : 16, touch: touch),
       ],
     );
   }
@@ -247,6 +303,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     final top0 = touch ? media.viewPadding.top : 0.0;
     final open = _detailVisible;
     final panelWidth = DetailPanel.widthOf(touch: touch, floating: false);
+    final transportBottom = touch
+        ? math.max(20.0, media.viewPadding.bottom)
+        : 16.0;
     return Stack(
       children: [
         Positioned(
@@ -276,6 +335,13 @@ class _AppShellState extends ConsumerState<AppShell> {
             onSearch: _openSearch,
           ),
         ),
+        // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
+        ..._transport(
+          left: SideBar.width + 8 + 24,
+          right: open ? panelWidth + 24 : 24,
+          bottom: transportBottom,
+          touch: touch,
+        ),
         if (open)
           Positioned(
             top: 0,
@@ -291,6 +357,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           )
         else
           _detailButton(touch, top0, () => _setDetail(true)),
+        _transportToast(bottom: transportBottom, touch: touch),
       ],
     );
   }
@@ -313,5 +380,19 @@ class _AppShellState extends ConsumerState<AppShell> {
         touch: touch,
       ),
     );
+  }
+}
+
+/// 有目前曲目時的播放膠囊；位置與進度一起變，只有它跟著播放狀態重畫。
+class _Transport extends ConsumerWidget {
+  const _Transport({required this.touch});
+
+  final bool touch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(playbackProvider);
+    if (state == null) return const SizedBox.shrink();
+    return TransportBar(state: state, touch: touch);
   }
 }

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart' show DioException;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
@@ -8,6 +10,7 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
 
 import '../support/fake_audio_backend.dart';
@@ -16,8 +19,8 @@ import '../support/fjs.dart';
 import '../support/shell.dart';
 
 /// 搜尋頁裡的佔位搜尋點一首曲目（M0 票 10、11）：用提供它的插件解析串流並播放，顯示
-/// 播放狀態、音質、到期時間與遮蔽過的網址，能暫停、繼續；失敗時顯示錯誤
-/// 分類。插件寫在這裡，跑在真的引擎裡；音訊後端是假的。
+/// 播放狀態、音質、到期時間與遮蔽過的網址，能用播放膠囊暫停、繼續；失敗時
+/// 顯示錯誤分類，沒有網路時跳出提示。插件寫在這裡，跑在真的引擎裡；音訊後端是假的。
 void main() {
   late Directory logDir;
   late Log log;
@@ -44,10 +47,14 @@ void main() {
               return { tracks: [
                 { id: 'ok', title: 'Playable', author: 'Alice' },
                 { id: 'gone', title: 'Gone', author: 'Bob' },
+                { id: 'offline', title: 'Offline', author: 'Dan' },
               ] };
             }
             export async function resolveStream({ trackId }) {
               if (trackId === 'gone') throw new PluginError('not_found');
+              if (trackId === 'offline') {
+                await host.http.request({ url: 'https://api.example.com/play' });
+              }
               return {
                 url: 'https://cdn.example.com/' + trackId +
                   '.m4a?deadline=1767225600&upsig=SECRET123',
@@ -69,7 +76,13 @@ void main() {
         ),
       ],
       log: log,
-      httpAdapter: FakeHttp((_) => const FakeResponse(404)),
+      // 沒有網路：連不上 API。
+      httpAdapter: FakeHttp(
+        (request) => throw DioException.connectionError(
+          requestOptions: request,
+          reason: 'offline',
+        ),
+      ),
     );
   });
   tearDown(() async {
@@ -122,10 +135,17 @@ void main() {
     );
     expect(find.textContaining('SECRET123'), findsNothing);
 
-    // 播放出聲（票 11）：交給後端的是插件給的 header，能暫停、繼續。
+    // 播放出聲（票 11）：交給後端的是插件給的 header，能用外殼的播放膠囊
+    // 暫停、繼續。
     await waitFor(tester, find.text('播放中'));
     expect(backend.loaded.single.headers, {'Referer': 'https://example.com'});
-    expect(find.text('0:00 / 3:00'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(TransportBar),
+        matching: find.text('0:00 / 3:00'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byTooltip('暫停'));
     await tester.pump();
     expect(find.text('已暫停'), findsOneWidget);
@@ -143,6 +163,16 @@ void main() {
     await tester.runAsync(() async => tester.tap(find.text('Search only')));
     await waitFor(tester, find.text('這個音源不支援解析串流'));
     expect(find.text('這個音源不支援解析串流'), findsOneWidget);
+
+    // 沒有網路時播放：跳出網路錯誤的提示（brief〈錯誤、log 與診斷〉）。
+    // 捲到播放膠囊上方再點，免得點到膠囊。
+    await tester.drag(find.text('Playable'), const Offset(0, -300));
+    await tester.pump();
+    await tester.runAsync(() async => tester.tap(find.text('Offline')));
+    const offline = '沒有網路，「Offline」無法播放。音樂庫與佇列照常可用。';
+    await waitFor(tester, find.text(offline));
+    expect(find.text(offline), findsOneWidget);
+    expect(find.text('重試'), findsOneWidget);
 
     await tester.runAsync(() async {
       await host.close();

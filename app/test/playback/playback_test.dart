@@ -122,6 +122,54 @@ void main() {
     expect(backend.calls, ['load', 'play', 'pause', 'play']);
   });
 
+  group('playPause', () {
+    test('pauses what plays and resumes what is paused', () async {
+      await playback().play(playable);
+
+      await playback().playPause();
+      expect(current()!.status, PlaybackStatus.paused);
+      await playback().playPause();
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(backend.calls, ['load', 'play', 'pause', 'play']);
+    });
+
+    test('plays a finished track again from the start', () async {
+      await playback().play(playable);
+      backend.emit(
+        backend.state.copyWith(status: AudioBackendStatus.completed),
+      );
+
+      await playback().playPause();
+      expect(backend.calls, ['load', 'play', 'load', 'play']);
+      expect(current()!.status, PlaybackStatus.playing);
+    });
+
+    test('retries a track that failed', () async {
+      await playback().play(
+        const Track(
+          ref: TrackRef(pluginId: 'songs', trackId: 'gone'),
+          title: 'Gone',
+          author: 'B',
+        ),
+      );
+      expect(current()!.status, PlaybackStatus.failed);
+      final statuses = <PlaybackStatus>[];
+      container.listen(
+        playbackProvider,
+        (_, next) => statuses.add(next!.status),
+      );
+
+      await playback().playPause();
+      expect(statuses, [PlaybackStatus.resolving, PlaybackStatus.failed]);
+    });
+
+    test('does nothing before the first track', () async {
+      await playback().playPause();
+      expect(current(), isNull);
+      expect(backend.calls, isEmpty);
+    });
+  });
+
   test('the backend state drives buffering, position and completion', () async {
     await playback().play(playable);
 

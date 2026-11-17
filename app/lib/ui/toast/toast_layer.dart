@@ -1,0 +1,184 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/app/glass/glass.dart';
+import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/app/icons/fmp_icons.dart';
+import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/playback/playback.dart';
+import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
+import 'package:fmp/ui/toast/playback_toast.dart';
+import 'package:fmp/ui/toast/toast.dart';
+import 'package:material_ui/material_ui.dart';
+
+/// 外殼裡畫提示的那一層（`.toast`，`docs/design/DESIGN.md`〈對話框、sheet、
+/// 警示框、提示〉）：浮在迷你播放器或播放膠囊上方，厚玻璃，最小高 52（滑鼠
+/// 44）。也在這裡把播放失敗轉成提示。外殼用 [Positioned.fill] 放它，位置由
+/// [bottom] 與 [stretch] 決定。
+class ToastLayer extends ConsumerWidget {
+  const ToastLayer({
+    super.key,
+    required this.bottom,
+    required this.stretch,
+    required this.touch,
+  });
+
+  /// 提示底邊離這一層底邊的距離。
+  final double bottom;
+
+  /// 手機：左右各 12 撐滿；其他寬度置中、依文字長短，最寬 480。
+  final bool stretch;
+
+  /// 觸控密度的字級與圓角。
+  final bool touch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(playbackProvider, (previous, next) {
+      if (next == null || next.status != PlaybackStatus.failed) return;
+      if (previous?.status == PlaybackStatus.failed &&
+          previous?.track == next.track) {
+        return;
+      }
+      final manifest = ref.read(
+        pluginManifestProvider(next.track.ref.pluginId),
+      );
+      final toasts = ref.read(toastProvider.notifier);
+      toasts.show(
+        playbackFailedToast(
+          context.t,
+          next,
+          source: manifest?.name ?? next.track.ref.pluginId,
+          retry: () => ref.read(playbackProvider.notifier).play(next.track),
+        ),
+      );
+    });
+    final message = ref.watch(toastProvider);
+    return Stack(
+      children: [
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: bottom,
+          child: AnimatedSwitcher(
+            duration: FmpMotion.mid,
+            switchInCurve: FmpMotion.outCurve,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween(
+                  begin: const Offset(0, .3),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            ),
+            child: message == null
+                ? const SizedBox.shrink()
+                : Align(
+                    key: ObjectKey(message),
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: stretch ? double.infinity : 480,
+                      ),
+                      child: _Toast(
+                        message: message,
+                        stretch: stretch,
+                        touch: touch,
+                        onAction: () {
+                          ref.read(toastProvider.notifier).dismiss();
+                          message.action?.onTap();
+                        },
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Toast extends StatelessWidget {
+  const _Toast({
+    required this.message,
+    required this.stretch,
+    required this.touch,
+    required this.onAction,
+  });
+
+  final ToastMessage message;
+  final bool stretch;
+  final bool touch;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    final action = message.action;
+    final text = Text(
+      message.text,
+      style: context.fmpText.sub.copyWith(
+        fontSize: touch ? 13.5 : 13,
+        height: 18 / 13.5,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+        color: colors.glassInk,
+      ),
+    );
+    final body = Row(
+      mainAxisSize: stretch ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        if (message.icon case final icon?) ...[
+          FmpIcon(icon, size: 18, color: colors.glassInk),
+          const SizedBox(width: 8),
+        ],
+        if (stretch) Expanded(child: text) else Flexible(child: text),
+        if (action != null) ...[
+          const SizedBox(width: 10),
+          ShellButton(
+            onTap: onAction,
+            builder: (context, _) => Container(
+              height: 34,
+              padding: EdgeInsets.symmetric(horizontal: touch ? 20 : 14),
+              alignment: Alignment.center,
+              decoration: ShapeDecoration(
+                color: colors.accentSoft,
+                shape: const StadiumBorder(),
+              ),
+              child: Text(
+                action.label,
+                style: context.fmpText.sub.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                  color: colors.accent,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Glass(
+        variant: GlassVariant.thick,
+        radius: touch ? 26 : 22,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: touch ? 52 : 44),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, action == null ? 18 : 8, 8),
+            child: Align(
+              widthFactor: 1,
+              heightFactor: 1,
+              alignment: Alignment.centerLeft,
+              child: body,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

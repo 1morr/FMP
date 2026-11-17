@@ -27,9 +27,7 @@
       "paused": "Paused",
       "completed": "Finished",
       "failed": "Playback failed",
-      "unsupportedFormat": "This platform can't play this stream",
-      "play": "Play",
-      "pause": "Pause"
+      "unsupportedFormat": "This platform can't play this stream"
     }
   },
   "shell": {
@@ -59,6 +57,29 @@
       "maximize": "Maximize",
       "restore": "Restore",
       "close": "Close"
+    }
+  },
+  "nowPlaying": {
+    "play": "Play",
+    "pause": "Pause"
+  },
+  "toast": {
+    "retry": "Retry",
+    "playback": {
+      "network": "No internet, so “${title}” can’t play. Your library and queue still work.",
+      "rateLimited": "${source} is limiting requests. “${title}” can’t play right now.",
+      "loginRequired": "Log in to ${source} to play “${title}”.",
+      "credentialInvalid": "Your ${source} login has expired, so “${title}” can’t play.",
+      "verificationRequired": "${source} wants you to verify before playback can continue.",
+      "region": "“${title}” isn’t available in your region.",
+      "copyright": "“${title}” was taken down for copyright.",
+      "membership": "“${title}” needs a membership to play.",
+      "trialOnly": "Only a preview of “${title}” is available.",
+      "notFound": "Couldn’t find “${title}”. It may have been deleted.",
+      "parseFailure": "“${title}” can’t play: ${source} sent a response FMP doesn’t understand.",
+      "sourceUnsupported": "${source} doesn’t support playback, so “${title}” can’t play.",
+      "formatUnsupported": "This device can’t play the format of “${title}”.",
+      "failed": "“${title}” can’t play."
     }
   }
 }

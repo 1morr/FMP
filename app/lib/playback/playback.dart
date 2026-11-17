@@ -69,6 +69,17 @@ class PlaybackState {
   /// （程式錯誤）是 null，細節在 log。
   final AppError? error;
 
+  /// 要播或正在播：播放鈕顯示暫停。
+  bool get playing => switch (status) {
+    PlaybackStatus.resolving ||
+    PlaybackStatus.loading ||
+    PlaybackStatus.buffering ||
+    PlaybackStatus.playing => true,
+    PlaybackStatus.paused ||
+    PlaybackStatus.completed ||
+    PlaybackStatus.failed => false,
+  };
+
   @override
   String toString() =>
       'PlaybackState(${track.ref.logId}, ${status.name}, '
@@ -153,6 +164,23 @@ class Playback extends Notifier<PlaybackState?> {
 
   /// 沒播過時什麼都不做。
   Future<void> resume() async => _backendOrNull?.play();
+
+  /// 迷你播放器與播放膠囊的播放鈕：正在播就暫停、暫停中就繼續，播完或
+  /// 失敗的那首從頭再播一次；解析與載入中、還沒播過時什麼都不做。
+  Future<void> playPause() async {
+    final current = state;
+    if (current == null) return;
+    switch (current.status) {
+      case PlaybackStatus.playing || PlaybackStatus.buffering:
+        await pause();
+      case PlaybackStatus.paused:
+        await resume();
+      case PlaybackStatus.completed || PlaybackStatus.failed:
+        await play(current.track);
+      case PlaybackStatus.resolving || PlaybackStatus.loading:
+        break;
+    }
+  }
 
   bool _isCurrent(int generation) => ref.mounted && generation == _generation;
 

@@ -27,9 +27,7 @@
       "paused": "已暫停",
       "completed": "播完了",
       "failed": "播放失敗",
-      "unsupportedFormat": "這個平台播不了這條串流",
-      "play": "播放",
-      "pause": "暫停"
+      "unsupportedFormat": "這個平台播不了這條串流"
     }
   },
   "shell": {
@@ -59,6 +57,29 @@
       "maximize": "最大化",
       "restore": "還原",
       "close": "關閉"
+    }
+  },
+  "nowPlaying": {
+    "play": "播放",
+    "pause": "暫停"
+  },
+  "toast": {
+    "retry": "重試",
+    "playback": {
+      "network": "沒有網路，「${title}」無法播放。音樂庫與佇列照常可用。",
+      "rateLimited": "${source}限制了請求次數，「${title}」暫時無法播放。",
+      "loginRequired": "「${title}」要登入${source}才能播放。",
+      "credentialInvalid": "${source}的登入已失效，「${title}」無法播放。",
+      "verificationRequired": "${source}要求驗證才能繼續播放。",
+      "region": "「${title}」在目前的地區無法播放。",
+      "copyright": "「${title}」因版權已下架。",
+      "membership": "「${title}」需要會員才能播放。",
+      "trialOnly": "「${title}」只能試聽。",
+      "notFound": "找不到「${title}」，可能已被刪除。",
+      "parseFailure": "「${title}」無法播放：讀不懂${source}的回應。",
+      "sourceUnsupported": "${source}不支援播放，「${title}」無法播放。",
+      "formatUnsupported": "這個裝置播不了「${title}」的格式。",
+      "failed": "「${title}」無法播放。"
     }
   }
 }

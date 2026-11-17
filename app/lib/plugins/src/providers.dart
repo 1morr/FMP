@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/plugins/src/bundled_plugins.dart';
+import 'package:fmp/plugins/src/manifest.dart';
 import 'package:fmp/plugins/src/plugin_host.dart';
 
 /// App 的插件宿主，載入隨 App 打包的插件（[loadBundledPlugins]）。第一次
@@ -14,3 +15,15 @@ final pluginHostProvider = FutureProvider<PluginHost>((ref) async {
   ref.onDispose(host.close);
   return host;
 });
+
+/// id 是 `pluginId` 的插件的 manifest，畫面用它畫音源標識與音源名稱。宿主還沒
+/// 載入完、或沒有這個插件時是 null。
+final pluginManifestProvider = Provider.family<PluginManifest?, String>(
+  (ref, pluginId) => ref
+      .watch(pluginHostProvider)
+      .value
+      ?.plugins
+      .where((p) => p.manifest.id == pluginId)
+      .firstOrNull
+      ?.manifest,
+);
