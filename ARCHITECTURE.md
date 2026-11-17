@@ -98,7 +98,7 @@ app/
 
 ## 測試策略
 
-- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個檔在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。
+- 預設零聯網：`live` tag 預設跳過；`HttpOverrides` 讓任何真實連線直接報錯（`app/test/support/no_network.dart`）。`test/` 由 `flutter_test_config.dart` 裝；`integration_test/` 不吃那個設定，每個 `*_test.dart` 在 `main()` 裡呼叫 `installNoNetworkGuard()`，`test/architecture/integration_test_guard_test.dart` 守著。例外是實跑驅動：`integration_test/real_run/` 的 `*_run.dart` 打真的音源、不裝守門；檔名不是 `_test.dart`，完整閘門與 `flutter test integration_test` 都掃不到，只在手動實跑時指名執行（docs/development.md〈實跑驅動〉）。
 - `domain`、`playback`、`library` 用單元測試，音訊後端用 fake。
 - 每個插件套同一套契約測試，用 fixture 重播；錄製工具寫檔前經過遮蔽函式。已接上（工具在 `test/support/plugin_fixtures.dart`）：
   - `test/plugins/plugin_contract_test.dart` 掃 `app/plugins/` 底下每個插件，對 manifest 宣告的每個插件能力，重播 `plugins/<id>/fixtures/<插件能力>/*.json` 的每個案例（格式照 VCR 的 cassette：`input` 加一串請求與回應，見 `PluginFixture`）。案例可以加選填的 `expect`，要求插件能力的結果多滿足一條期望，例如 resolveStream 的 `{"expiresAt": true}`（串流要有有效期）；各插件能力認得哪些期望寫在 `checkContract`，認不得的會紅。錄製、重播與 live 冒煙測試都套用，錄製時照原樣寫回。請求以方法加遮蔽後的網址比對，每筆只用一次；沒有 fixture 的請求、沒用到的錄製請求、宣告了插件能力卻沒有案例或沒有 `keep.json` 的欄位清單都會紅。各插件能力的契約在 `checkContract` 的 switch，新增插件能力時編譯不過，提醒補契約。同一個測試檢查每份 fixture 都是遮蔽函式的不動點（沒有 cookie、token、簽名網址的值），回應內文只有 `keep.json` 列的欄位。

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/ui/search/search_page.dart';
+import 'package:fmp/ui/shell/destination.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 從外殼進搜尋頁，不管現在是哪種寬度：手機點搜尋圓鈕，中寬度點細欄的
@@ -22,4 +23,30 @@ Future<void> openSearch(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
   expect(find.byType(SearchPage), findsOneWidget);
+}
+
+/// 從外殼切到導覽的 [destination]，不管現在是哪種寬度：側欄、細欄、手機的
+/// 分頁列都點它的名稱；手機在搜尋頁時分頁列收成返回圓鈕（「回到<進搜尋前的
+/// 分頁>」），先點它回到分頁列。
+Future<void> openDestination(
+  WidgetTester tester,
+  Destination destination,
+) async {
+  final tab = find.text(destination.label(t));
+  if (tab.evaluate().isEmpty) {
+    final backTo = {
+      for (final tab in Destination.tabs) t.shell.nav.backTo(tab: tab.label(t)),
+    };
+    await tester.tap(
+      find.byWidgetPredicate((w) => w is Tooltip && backTo.contains(w.message)),
+    );
+    // 等分頁列從圓鈕變回來；變形中的分頁點不到。
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+  await tester.tap(tab.first);
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }

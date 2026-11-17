@@ -8,14 +8,35 @@
 
 完整閘門（〈開發環境與閘門〉）在每個平台跑 `integration_test/` 的每個 `*_test.dart`，一次一個檔；四平台共用的測試依賴是 `integration_test`（SDK）。各節的「閘門」是 `tool/check.dart` 實際下的指令，手動重跑單一平台時照抄。
 
-`winpc` 的 `C:\fmp-wt`、iOS 與 Android 模擬器、Mac 上的 `com.personal.fmp.dev` 是所有 worktree 共用的：`sync.sh` 每次都刪掉 `C:\fmp-wt\app` 再解開，模擬器與 Mac 上同一個 applicationId 只有一份。所以碰它們之前一律先拿共用裝置鎖（〈開發環境與閘門〉的共用裝置鎖）：完整閘門自己拿；手動實跑經包裝指令 `dart run tool/device_lock.dart -- <指令>`（在 `app/` 裡跑）。鎖以 worktree 為單位：同一個 worktree 已持有時，包裝指令與 `tool/winpc/` 的腳本直接執行，不會等自己。兩種用法：
+`winpc` 的 `C:\fmp-wt`、iOS 與 Android 模擬器、Mac 上的 `com.personal.fmp.dev` 是所有 worktree 共用的：`sync.sh` 每次都刪掉 `C:\fmp-wt\app` 再解開，模擬器與 Mac 上同一個 applicationId 只有一份。所以碰它們之前一律先拿共用裝置鎖（〈開發環境與閘門〉的共用裝置鎖）：完整閘門與實跑驅動（〈實跑驅動〉）自己拿；其他手動操作經包裝指令 `dart run tool/device_lock.dart -- <指令>`（在 `app/` 裡跑）。鎖以 worktree 為單位：同一個 worktree 已持有時，包裝指令與 `tool/winpc/` 的腳本直接執行，不會等自己。兩種用法：
 
 - 一口氣做完：把碰裝置的步驟（安裝、啟動、讀畫面、截圖、關 App、讀 log）包在同一個 `dart run tool/device_lock.dart -- bash -c '…'` 裡，整段持有鎖。分成好幾次包時，中間鎖會放掉，別的 worktree 的閘門可能插進來重裝。截圖與輸出存到 `<暫存目錄>`，放鎖之後再看。
 - 互動（要跨好幾輪讀畫面、操作）：先在背景持鎖，`dart run tool/device_lock.dart -- sleep 1200 &`，記下它的 pid；之後這個 worktree 裡的指令照常一條條下（不必再包）；做完 `kill <pid>` 放鎖。持鎖期間別的 worktree 都在等，用完就放，`sleep` 的秒數抓實際需要。同一個 worktree 自己跑完整閘門前也要先放掉，閘門不認背景的持有者，會等它。
 
-建置（`flutter build …`）只寫這個 worktree 的 `build/`，不必拿鎖。各平台的「實跑」是一口氣做完的寫法。
+建置（`flutter build …`）只寫這個 worktree 的 `build/`，不必拿鎖。各平台的「開 App」是一口氣做完的寫法。
 
 玻璃元件的示範畫面（`app/tool/glass_demo/main.dart`，不在 `lib/`、App 裡沒有入口）：建置時加 `-t tool/glass_demo/main.dart`（Windows 是 `build.ps1 -Target tool/glass_demo/main.dart`），其餘照各平台的「實跑」；左上三個按鈕（邏輯座標中心 (58,70)、(150,70)、(242,70)）切「玻璃效果」的完整、輕量、關閉。看完用預設入口重建一次，別讓下一個實跑開到示範畫面。
+
+### 實跑驅動
+
+實跑一律先用實跑驅動（2026-11-17 擁有者定，票 08b）：用 integration_test 在 Flutter 裡點擊與打字，系統游標不動，打真的音源，每一步用系統的截圖工具截 App 視窗、讀回畫面上的文字。平台工具（真滑鼠、模擬器指令）只用在 Flutter 看不到的原生行為，見下面的例外。四平台同一個情境檔、同一個指令：
+
+```sh
+dart run tool/real_run.dart -d <macos|ios|android|windows> [--out <目錄>] integration_test/real_run/search_and_play_run.dart
+```
+
+- 結果在 `<目錄>/<平台>/`（預設 `build/real_run/`）：每一步一張 `NN-<步驟>.png` 與讀回的 `NN-<步驟>.txt`，加上 `flutter test` 的輸出（Windows 是 `test-<檔名>.log` 與 `build.log`）；讀回的文字也印在輸出裡。退出碼是情境的結果。
+- 整段持有共用裝置鎖：這個 worktree 已持有時直接用，否則自己拿、跑完放。直接下這個指令，別包在 `device_lock.dart` 裡、也別在背景持鎖時跑：同一個 worktree 已持鎖時內層不拿 OS 鎖，外層先結束，鎖就沒人持有了（票 08）。要在同一把鎖裡前後加別的步驟（例如讀游標），整串放進一個 `device_lock.dart -- bash -c '…'`，外層等內層結束才結束。
+- 截圖用系統的工具，連系統畫的部分（紅綠燈、狀態列、Windows 視窗框）一起截，都不動游標：macOS `screencapture -l <視窗 id>`（視窗 id 由 App 的 pid 經 CoreGraphics 的視窗清單查，被蓋住也截得到）、iOS `xcrun simctl io <udid> screenshot`、Android `adb exec-out screencap -p`、Windows `shot.ps1 -AppPid`（把 App 視窗拉到最上層再截視窗矩形）。
+- 驅動走到一步（`RealRun.step`）先讓畫面畫完，向宿主要截圖，等回覆才往下做，截到的就是這一步。macOS、iOS、Android 的宿主是 `tool/real_run.dart` 在 127.0.0.1 開的截圖服務（`tool/src/real_run_host.dart`；Android 經 `adb reverse` 連回 Mac）；Windows 的 App 本身就在 `winpc` 的桌面工作階段，驅動直接跑 `shot.ps1 -AppPid` 截自己的視窗，檔案存在 `C:\fmp-wt\real_run\`，跑完 scp 回來。Windows 那條是先同步、建置（同完整閘門），再以排程工作跑 `test.ps1 -RealRunDir`。
+- 寫情境：照 `integration_test/real_run/search_and_play_run.dart` 寫 `integration_test/real_run/<情境>_run.dart`。`RealRun.launch` 開真的 App（`main.dart`、真的資料庫），等到首頁就先截 `01-launch`，那是啟動後還沒動過視窗的樣子（票 05d）；之後用 `tester` 點擊與打字，`run.waitFor` 等畫面，`run.step('<步驟>', within: …)` 截圖並讀回。換頁用 `test/support/shell.dart` 的 `openSearch`、`openDestination`，三種寬度都通。檔名不是 `_test.dart`，完整閘門不跑、也不裝零聯網守門（ARCHITECTURE〈測試策略〉），照 spec〈共同規則〉的聯網規則只搜一次、播一首，失敗重跑也算一次。
+- integration_test 開視窗時一樣會搶前景，`winpc` 上擁有者可能正在用（2026-11-17 實跑時遇到），先說一聲。
+
+例外，用真滑鼠或模擬器指令（用了在票的 Comments 記為什麼）：
+
+- 桌面的原生視窗行為：拖頂列、雙擊縮放、Snap Layouts、拉邊緣、紅綠燈。Windows 用 `SendInput`，macOS 用 CGEvent；`orca computer` 的點擊同樣會移游標。只在升級 Flutter 或系統時（〈macOS〉〈Windows〉的檢查清單），以及下一條。
+- integration_test 的點擊不經作業系統的命中判斷（Windows 的 `WM_NCHITTEST` 與自繪標題列、macOS 的標題列與紅綠燈），原生層把點擊吃掉時它照樣綠。所以改到頂列、標題列、側欄頂端或視窗外殼（`app_shell`、`window_drag`、`window_frame.cpp`、`MainFlutterWindow.swift` 這類）的票，實跑時仍用真滑鼠點一次頂端那幾顆按鈕並讀回結果；其他票不用（協調者定）。
+- 手機：系統手勢、軟鍵盤、系統媒體控制。用 simctl、adb、`orca emulator`，這些不動 Mac 的游標。
 
 ### macOS
 
@@ -29,7 +50,9 @@ log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Suppor
 
 閘門：`flutter build macos --debug`；原生測試先在鎖外 `xcodebuild build-for-testing -workspace macos/Runner.xcworkspace -scheme Runner -destination platform=macOS -derivedDataPath build/macos`，再持鎖 `xcodebuild test-without-building`（同樣的參數加 `-only-testing:RunnerTests`）；`flutter test integration_test/<檔> -d macos`（兩者都會在本機開一個 App 視窗）。
 
-實跑：`flutter build macos --debug`，再 `dart run tool/device_lock.dart -- bash -c 'open "build/macos/Build/Products/Debug/FMP Dev.app" && sleep 10 && orca computer get-app-state --app com.personal.fmp.dev > <暫存目錄>/macos.txt && osascript -e "quit app \"FMP Dev\""'`，讀回畫面（`macos.txt` 裡的截圖路徑要打開來看）。
+實跑：照〈實跑驅動〉，`dart run tool/real_run.dart -d macos <情境檔>`。
+
+開 App（擁有者試用、例外要手動操作）：`flutter build macos --debug`，再 `dart run tool/device_lock.dart -- bash -c 'open "build/macos/Build/Products/Debug/FMP Dev.app" && sleep 10 && orca computer get-app-state --app com.personal.fmp.dev > <暫存目錄>/macos.txt && osascript -e "quit app \"FMP Dev\""'`，讀回畫面（`macos.txt` 裡的截圖路徑要打開來看）。
 
 ### iOS 模擬器
 
@@ -41,7 +64,9 @@ log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下�
 
 閘門：`flutter build ios --simulator --debug`；`flutter test integration_test/<檔> -d <模擬器 udid> --no-uninstall`。`check.dart` 從 `xcrun simctl list devices --json` 挑第一台開著的 iPhone 模擬器（事實 T5；只列模擬器，不會挑連著的實體 iPhone；iPad 開著也不用）。沒有開著的 iPhone 時，印出 `No booted iPhone simulator … booting <名稱> (<udid>)`，以 `xcrun simctl bootstatus <udid> -b` 開最近用過（`lastUsedAt`）的那台可用的 iPhone、等到開好再跑；一台可用的 iPhone 都沒有時這一步失敗。iPhone 模擬器常在閘門之外被關掉（〈其他已知怪癖〉的 Orca 模擬器面板），所以閘門每個 iOS 檔跑之前都查一次。
 
-實跑：`flutter build ios --simulator --debug`，再 `dart run tool/device_lock.dart -- bash -c 'xcrun simctl install booted build/ios/iphonesimulator/Runner.app && xcrun simctl launch booted com.personal.fmp.dev && sleep 10 && xcrun simctl io booted screenshot <暫存目錄>/ios.png && orca emulator ax > <暫存目錄>/ios-ax.txt'`。`orca emulator ax` 讀的是 Orca 面板接上的裝置，先 `orca emulator attach <裝置>`：它會開機沒開的裝置，面板原本接著另一台 iOS 模擬器時還會把那台關掉（〈其他已知怪癖〉），所以面板換裝置也要包在鎖裡。雙螢幕的 iPhone Duo 截圖要加 `--display=1`，否則報 `Invalid argument`。
+實跑：照〈實跑驅動〉，`dart run tool/real_run.dart -d ios <情境檔>`（挑模擬器同「閘門」）。
+
+開 App（擁有者試用、例外要手動操作）：`flutter build ios --simulator --debug`，再 `dart run tool/device_lock.dart -- bash -c 'xcrun simctl install booted build/ios/iphonesimulator/Runner.app && xcrun simctl launch booted com.personal.fmp.dev && sleep 10 && xcrun simctl io booted screenshot <暫存目錄>/ios.png && orca emulator ax > <暫存目錄>/ios-ax.txt'`。`orca emulator ax` 讀的是 Orca 面板接上的裝置，先 `orca emulator attach <裝置>`：它會開機沒開的裝置，面板原本接著另一台 iOS 模擬器時還會把那台關掉（〈其他已知怪癖〉），所以面板換裝置也要包在鎖裡。雙螢幕的 iPhone Duo 截圖要加 `--display=1`，否則報 `Invalid argument`。
 
 ### Android 模擬器
 
@@ -53,7 +78,9 @@ log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
 閘門：`flutter build apk --debug`；`flutter test integration_test/<檔> -d <模擬器 id> --no-uninstall`。模擬器要先開好（`flutter emulators --launch Medium_Phone_API_37.0`），挑法同 iOS。`--no-uninstall` 讓測試跑完不刪 App 與資料。
 
-實跑：`flutter build apk --debug`，再 `dart run tool/device_lock.dart -- bash -c 'orca emulator install build/app/outputs/flutter-apk/app-debug.apk --reinstall && orca emulator launch com.personal.fmp.dev && sleep 20 && orca emulator ax > <暫存目錄>/android-ax.txt && adb exec-out screencap -p > <暫存目錄>/android.png'`。debug 版第一次啟動要十幾秒，太早讀只會看到啟動畫面。
+實跑：照〈實跑驅動〉，`dart run tool/real_run.dart -d android <情境檔>`（模擬器要先開好，挑法同「閘門」）。
+
+開 App（擁有者試用、例外要手動操作）：`flutter build apk --debug`，再 `dart run tool/device_lock.dart -- bash -c 'orca emulator install build/app/outputs/flutter-apk/app-debug.apk --reinstall && orca emulator launch com.personal.fmp.dev && sleep 20 && orca emulator ax > <暫存目錄>/android-ax.txt && adb exec-out screencap -p > <暫存目錄>/android.png'`。debug 版第一次啟動要十幾秒，太早讀只會看到啟動畫面。
 
 ### Windows（`winpc`）
 
@@ -67,11 +94,13 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 
 閘門：`check.dart` 依序跑 `tool/winpc/sync.sh`、`run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`，每個 integration_test 檔再跑一次 `run_task.sh fmptest C:/fmp-wt/test.ps1 -File integration_test/<檔>`（`test.ps1` 跑 `flutter test <檔> -d windows`，要先跑過 `build.ps1` 的 `pub get`、slang 與 build_runner）。每次執行前先刪遠端的 `build.log`／`test.log`，跑完經 SSH 讀回並存到 `app/build/winpc/`（`build.log`、`test-<檔名>.log`）。log 裡每個 `exit <階段>=<退出碼>` 都是 0 且有 `=== done` 才算通過；排程工作中途死掉時沒有 `=== done`。integration_test 會在擁有者的桌面開 App 視窗，和截圖一樣會搶前景。
 
+實跑：照〈實跑驅動〉，`dart run tool/real_run.dart -d windows <情境檔>`，它自己做下面的步驟 1、2 再跑情境。下面是手動開 App 與截圖（擁有者試用、升級後的檢查清單）的步驟。
+
 經 SSH 操作，不 push（2026-11-11 實測，`winpc` 是 Flutter 3.47.5）。腳本在 `app/tool/winpc/`，在 Mac 上跑。`sync.sh`、`run_task.sh` 沒持鎖時會自己經包裝指令拿鎖（〈開發環境與閘門〉），但只在那一支腳本的期間；一次實跑的同步、建置、截圖、取回截圖要連續做完，整串包在一個 `dart run tool/device_lock.dart -- bash -c 'tool/winpc/sync.sh && tool/winpc/run_task.sh fmpbuild … && tool/winpc/run_task.sh fmpshot … && scp winpc:C:/fmp-wt/shot.png <暫存目錄>/'` 裡（或用上面的互動持鎖），裡面的腳本認得這個 worktree 已持鎖，不會再等：
 
 1. 同步：`tool/winpc/sync.sh` 把 `app/`（含未追蹤、不含 gitignore 的檔）與三支 `.ps1` 打包，`scp` 到 `winpc` 的 `C:\fmp-wt` 解開。舊的 `C:\fmp-wt\app` 先刪，每次都是乾淨建置。
 2. 建置：`tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug`（或 `release`）。`run_task.sh` 用 `schtasks /IT` 建一次性排程工作，在桌面工作階段跑，等它結束再刪掉；`build.ps1` 跑 `flutter pub get`、`dart run slang`、`dart run build_runner build`、`flutter build windows`；`-Target <檔>` 換入口。讀 log：`ssh winpc 'Get-Content C:\fmp-wt\build.log -Tail 40' | iconv -c -f cp950 -t utf-8`。debug 約 77 秒、release 約 31 秒。
-3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App；`-Size w,h` 先把視窗調成 w×h 邏輯像素（含邊框，依 DPI 換算），`shot.log` 記下 App 實際的客戶區大小，設得比最小 720×560 小就看得到被擋住；`-Type <文字>` 在截圖前按 Tab 聚焦第一個欄位、打字、按 Enter（Tab 到不了的欄位加 `-TypeAt x,y` 改成先點那裡，`x,y;x,y` 點好幾下；寬版側欄的搜尋欄第一下只聚焦、第二下才進搜尋頁、進頁後要再點一下才打得進字，所以寫 `-TypeAt "130,36;130,36;130,36"`），`-Click x,y` 再點客戶區的邏輯座標（依視窗 DPI 換算），兩者動作前都重新拉一次前景；`-Click "x,y;x,y;…"` 依序點好幾下，每下等 `-ClickWait` 秒後另存一張 `shot-<n>.png`（n 從 1 起，和 `shot.png` 同目錄，例如用「點一首、暫停、空點一下、繼續」看暫停與繼續）；`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。App 的 stdout、stderr 存到 `C:\fmp-wt\app-stdout.txt`、`app-stderr.txt`（Dart VM 中止時訊息印在這裡），關視窗後 `shot.log` 記 `exited_after_close`；看有沒有在關閉時崩潰，再對照事件記錄（`Get-WinEvent -FilterHashtable @{LogName="Application"; Id=1000}`，事實 W11）。完整閘門跑完後，`Debug\fmp.exe` 已被 `flutter test -d windows` 用 integration_test 的入口重建，實跑前先重跑一次步驟 2（2026-11-11：直接啟動閘門留下的 exe，畫面正常卻沒有建立資料庫檔）。
+3. 啟動與截圖：`tool/winpc/run_task.sh fmpshot C:/fmp-wt/shot.ps1 -Exe C:/fmp-wt/app/build/windows/x64/runner/Debug/fmp.exe -Out C:/fmp-wt/shot.png`，再 `scp winpc:C:/fmp-wt/shot.png <暫存目錄>/`。`shot.ps1` 啟動 App、等 8 秒、把視窗拉到最上層再截視窗矩形、關掉 App，不動游標；`-Size w,h` 先把視窗調成 w×h 邏輯像素（含邊框，依 DPI 換算），`shot.log` 記下 App 實際的客戶區大小，設得比最小 720×560 小就看得到被擋住；`-AppPid <pid>` 改成截已經開著的那個行程的視窗、不關它（實跑驅動用，log 是 `shot-pid.log`）。點擊與打字交給實跑驅動；原本移游標的 `-Click`、`-TypeAt` 與 `-Type` 已刪（票 08b）。`C:\fmp-wt\shot.log` 有 `foreground_is_fmp=True` 才代表截到的是 App。App 的 stdout、stderr 存到 `C:\fmp-wt\app-stdout.txt`、`app-stderr.txt`（Dart VM 中止時訊息印在這裡），關視窗後 `shot.log` 記 `exited_after_close`；看有沒有在關閉時崩潰，再對照事件記錄（`Get-WinEvent -FilterHashtable @{LogName="Application"; Id=1000}`，事實 W11）。完整閘門跑完後，`Debug\fmp.exe` 已被 `flutter test -d windows` 用 integration_test 的入口重建，實跑前先重跑一次步驟 2（2026-11-11：直接啟動閘門留下的 exe，畫面正常卻沒有建立資料庫檔）。
 4. 清理：排程工作由 `run_task.sh` 刪掉；`ssh winpc 'Get-Process fmp -EA SilentlyContinue'` 確認 App 已關；整個工作樹用 `dart run tool/device_lock.dart -- ssh winpc 'Remove-Item -Recurse -Force C:\fmp-wt'` 清掉（持鎖做，別的 worktree 的閘門可能正在用它）。
 
 注意：

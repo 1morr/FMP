@@ -431,13 +431,14 @@ void main() {
   });
 
   test('integration tests are the *_test.dart files under integration_test/, '
-      'in a stable order', () {
+      'in a stable order; real-run scenarios (*_run.dart) are left out', () {
     final root = Directory.systemTemp.createTempSync('fmp_app_');
     addTearDown(() => root.deleteSync(recursive: true));
     for (final path in [
       'integration_test/search_test.dart',
       'integration_test/app_test.dart',
       'integration_test/support/robot.dart',
+      'integration_test/real_run/search_and_play_run.dart',
       'test/ui/page_test.dart',
     ]) {
       File('${root.path}/$path').createSync(recursive: true);
