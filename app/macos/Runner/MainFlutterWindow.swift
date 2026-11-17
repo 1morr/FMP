@@ -2,15 +2,14 @@ import Cocoa
 import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
-  /// 細欄的外框離視窗左邊 [railMinX]、寬 [railWidth]（docs/design/DESIGN.md 細欄：left 8、
-  /// 外框寬 72）。原生按鈕（macOS 27 是 14pt、間距 23）比稿上的燈（11px、間距 6）大，
-  /// 照稿的燈位排會凸出細欄，所以三顆在細欄裡水平置中；寬級的側欄更寬，用同一個位置，
-  /// 這裡才不必知道 Flutter 現在是哪一級。
-  private let railMinX: CGFloat = 8
-  private let railWidth: CGFloat = 72
-  /// 燈的上緣離視窗頂：細欄頂 8 加上燈的上內距 14（docs/design/assets/fmp.css 的
-  /// `.rail .lights`）。
-  private let trafficLightsTop: CGFloat = 22
+  /// Dart 給的燈位（lib/platform/traffic_lights.dart）：第一顆按鈕照稿的左上角，從視窗
+  /// 左上量，以及燈所在那一列的左右緣。版面是寬級還是細欄由 Dart 決定，這裡不重抄斷點。
+  private struct TrafficLightsSpot {
+    let origin: NSPoint
+    let minX: CGFloat
+    let maxX: CGFloat
+  }
+  private var trafficLightsSpot: TrafficLightsSpot?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -38,6 +37,15 @@ class MainFlutterWindow: NSWindow {
       case "zoom":
         self?.performZoom(nil)
         result(nil)
+      case "setTrafficLights":
+        if let args = call.arguments as? [String: Double],
+          let x = args["x"], let y = args["y"], let minX = args["minX"], let maxX = args["maxX"]
+        {
+          self?.trafficLightsSpot = TrafficLightsSpot(
+            origin: NSPoint(x: x, y: y), minX: minX, maxX: maxX)
+          self?.layoutTrafficLights()
+        }
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -46,7 +54,10 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()
-    layoutTrafficLights()
+    // Dart 畫完第一幀、給了燈位才露出來，別先在系統原位閃一下。
+    for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+      standardWindowButton(type)?.isHidden = true
+    }
   }
 
   private var observedTitlebarViews: [NSView] = []
@@ -83,11 +94,13 @@ class MainFlutterWindow: NSWindow {
   }
 
   /// 排紅綠燈：先把裝按鈕的標題列加高到放得下，再排三顆按鈕（Electron 的
-  /// trafficLightPosition 也是這樣做）。已經在位置上的不再設（容許系統對齊像素的
+  /// trafficLightPosition 也是這樣做）。原生按鈕比稿上的燈大，照稿放會比在那一列裡
+  /// 置中還靠右（右邊放不下）時改成置中。已經在位置上的不再設（容許系統對齊像素的
   /// 誤差），自己發出的 frame 通知才不會一直排下去。
   private func layoutTrafficLights() {
     // 全螢幕時按鈕在系統的工具列視窗裡，不動；離開時系統重排標題列，frame 監看會排回來。
     guard !styleMask.contains(.fullScreen),
+      let spot = trafficLightsSpot,
       let close = standardWindowButton(.closeButton),
       let mini = standardWindowButton(.miniaturizeButton),
       let zoom = standardWindowButton(.zoomButton),
@@ -95,17 +108,18 @@ class MainFlutterWindow: NSWindow {
     else { return }
     observeTitlebarFrames([container, close, mini, zoom])
     let size = close.frame.size
-    let barHeight = size.height + trafficLightsTop * 2
+    let barHeight = size.height + spot.origin.y * 2
     var frame = container.frame
     frame.size.height = barHeight
     frame.origin.y = self.frame.height - barHeight
     if !container.frame.isClose(to: frame) { container.frame = frame }
     let spacing = mini.frame.minX - close.frame.minX
     let rowWidth = spacing * 2 + size.width
-    let left = railMinX + (railWidth - rowWidth) / 2
+    let left = min(spot.origin.x, (spot.minX + spot.maxX - rowWidth) / 2)
     for (i, button) in [close, mini, zoom].enumerated() {
       let origin = NSPoint(x: left + CGFloat(i) * spacing, y: (barHeight - size.height) / 2)
       if !button.frame.origin.isClose(to: origin) { button.setFrameOrigin(origin) }
+      if button.isHidden { button.isHidden = false }
     }
   }
 }

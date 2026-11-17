@@ -3,21 +3,28 @@ import XCTest
 
 @testable import FMP_Dev
 
-/// 測試跑在 FMP Dev 裡（TEST_HOST），讀的是 App 真的那個視窗。
+/// 測試跑在 FMP Dev 裡（TEST_HOST），讀的是 App 真的那個視窗；燈位由 Dart 排完版面後
+/// 經 `fmp/window` 送來，所以動了視窗寬度要等它。
 class TrafficLightsTests: XCTestCase {
-  /// 細欄的外框離視窗左邊 8 到 80（docs/design/DESIGN.md：細欄 left 8、外框寬 72）。寬級
-  /// 側欄更寬，排得進細欄就排得進側欄。
-  private let railMinX: CGFloat = 8
-  private let railMaxX: CGFloat = 80
-  /// 燈的上緣離視窗頂 22：細欄頂 8 加上燈的上內距 14（docs/design/assets/fmp.css 的
-  /// `.rail .lights`）。
-  private let lightsTop: CGFloat = 22
+  /// 燈的上緣離視窗頂 22：側欄與細欄頂 8 加上燈的上內距 14（docs/design/assets/fmp.css
+  /// 的 `.side .lights`、`.rail .lights`）。
+  private static let lightsTop: CGFloat = 22
+  /// 側欄與細欄的內框，從視窗左緣量（docs/design/DESIGN.md：側欄 left 8、外框寬 248、
+  /// 內距 8；細欄 left 8、外框寬 72、內距 6）。
+  private static let sidebarBox: ClosedRange<CGFloat> = 16...248
+  private static let railBox: ClosedRange<CGFloat> = 14...74
+  /// 寬級照稿：第一顆離視窗左 24（側欄內框 16 加 `.side .lights` 的內縮 8）。
+  private static let sidebarLightsX: CGFloat = 24
+  /// 寬級是視窗寬 1200 以上，細欄是 600–1199（docs/design/DESIGN.md〈中寬度〉）。
+  private static let wideSize = NSSize(width: 1280, height: 800)
+  private static let railSize = NSSize(width: 960, height: 720)
 
-  /// App 啟動後、還沒有測試動過視窗時的按鈕位置。
+  /// App 啟動後、還沒有測試動過視窗時的按鈕位置（啟動時是 800 寬的細欄）。
   private static var framesAtLaunch: [NSRect] = []
 
   override class func setUp() {
     super.setUp()
+    waitUntil { !window.standardWindowButton(.closeButton)!.isHidden }
     framesAtLaunch = buttonFrames()
   }
 
@@ -35,38 +42,70 @@ class TrafficLightsTests: XCTestCase {
     }
   }
 
-  /// 燈位：三顆排成一列、上緣在 [lightsTop]，整列在細欄外框裡水平置中。
-  private func assertLightsAtSpot(
-    _ frames: [NSRect] = buttonFrames(), file: StaticString = #filePath, line: UInt = #line
-  ) {
-    for frame in frames {
-      XCTAssertEqual(frame.minY, lightsTop, "top of the row", file: file, line: line)
+  private static func isInside(_ box: ClosedRange<CGFloat>) -> Bool {
+    buttonFrames().allSatisfy {
+      box.contains($0.minX) && box.contains($0.maxX) && $0.minY == lightsTop
     }
-    let left = frames[0].minX - railMinX
-    let right = railMaxX - frames[2].maxX
-    XCTAssertGreaterThan(left, 0, "inside the rail's left edge", file: file, line: line)
-    XCTAssertGreaterThan(right, 0, "inside the rail's right edge", file: file, line: line)
-    XCTAssertEqual(left, right, "centred in the rail", file: file, line: line)
   }
 
-  /// 每個測試從燈位開始：改一下尺寸再改回來（縮放一直都會重排），測試只看
-  /// 它自己的事件會不會把燈放回原位。
-  override func setUp() {
-    super.setUp()
-    let window = Self.window
-    let frame = window.frame
-    window.setFrame(frame.insetBy(dx: 1, dy: 0), display: true)
-    window.setFrame(frame, display: true)
-    settle()
+  /// 讓 run loop 跑到 [condition] 成立（Dart 重排版面、送來燈位、原生端排好），最多
+  /// 5 秒；沒成立就交給後面的斷言報錯。
+  private static func waitUntil(_ condition: () -> Bool) {
+    let deadline = Date(timeIntervalSinceNow: 5)
+    while !condition() && Date() < deadline {
+      RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+    }
   }
 
-  /// 讓 run loop 跑完這一輪，系統的標題列重排與 App 排回燈位都做完。
-  private func settle() {
+  /// 讓 run loop 跑完這一輪：系統的標題列重排與 App 排回燈位都做完。
+  private static func settle() {
     RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.2))
   }
 
-  func testLightsSitAtTheirSpotAfterLaunch() {
-    assertLightsAtSpot(Self.framesAtLaunch)
+  private static func resize(to size: NSSize) {
+    let frame = window.frame
+    window.setFrame(
+      NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height),
+      display: true)
+  }
+
+  private func assertInside(
+    _ box: ClosedRange<CGFloat>, _ frames: [NSRect] = buttonFrames(),
+    file: StaticString = #filePath, line: UInt = #line
+  ) {
+    for frame in frames {
+      XCTAssertEqual(frame.minY, Self.lightsTop, "top of the row", file: file, line: line)
+      XCTAssertTrue(
+        box.contains(frame.minX) && box.contains(frame.maxX),
+        "\(frame) inside \(box)", file: file, line: line)
+    }
+  }
+
+  /// 每個測試從細欄的燈位開始。
+  override func setUp() {
+    super.setUp()
+    Self.resize(to: Self.railSize)
+    Self.waitUntil { Self.isInside(Self.railBox) }
+  }
+
+  func testLightsSitInTheRailAfterLaunch() {
+    assertInside(Self.railBox, Self.framesAtLaunch)
+  }
+
+  func testLightsFollowTheDesignInTheWideLayout() {
+    Self.resize(to: Self.wideSize)
+    Self.waitUntil { Self.buttonFrames()[0].minX == Self.sidebarLightsX }
+    assertInside(Self.sidebarBox)
+    XCTAssertEqual(
+      Self.buttonFrames()[0].origin, NSPoint(x: Self.sidebarLightsX, y: Self.lightsTop))
+  }
+
+  func testLightsFitInTheRailAfterTheWideLayout() {
+    Self.resize(to: Self.wideSize)
+    Self.waitUntil { Self.buttonFrames()[0].minX == Self.sidebarLightsX }
+    Self.resize(to: Self.railSize)
+    Self.waitUntil { Self.isInside(Self.railBox) }
+    assertInside(Self.railBox)
   }
 
   func testLightsStayAfterTitleChange() {
@@ -74,8 +113,8 @@ class TrafficLightsTests: XCTestCase {
     let title = window.title
     defer { window.title = title }
     window.title = "Another title"
-    settle()
-    assertLightsAtSpot()
+    Self.settle()
+    assertInside(Self.railBox)
   }
 
   func testLightsStayAfterAppearanceChange() {
@@ -83,19 +122,8 @@ class TrafficLightsTests: XCTestCase {
     defer { window.appearance = nil }
     for name in [NSAppearance.Name.darkAqua, .aqua] {
       window.appearance = NSAppearance(named: name)
-      settle()
-      assertLightsAtSpot()
-    }
-  }
-
-  func testLightsStayAfterResize() {
-    let window = Self.window
-    let frame = window.frame
-    defer { window.setFrame(frame, display: true) }
-    for width in [1280.0, 760.0] {
-      window.setFrame(NSRect(x: frame.minX, y: frame.minY, width: width, height: 640), display: true)
-      settle()
-      assertLightsAtSpot()
+      Self.settle()
+      assertInside(Self.railBox)
     }
   }
 }
