@@ -62,15 +62,32 @@ class PlaybackState {
 
   final Duration position;
 
-  /// 還不知道時是 null。
+  /// 音訊後端為這一首回報的長度；這一首載入完成之前、或還不知道時是 null。
+  /// 畫面用 [effectiveDuration]。
   final Duration? duration;
 
   /// [status] 是 [PlaybackStatus.failed] 時的錯誤分類；錯誤分類以外的例外
   /// （程式錯誤）是 null，細節在 log。
   final AppError? error;
 
-  /// 後端回報的長度，還不知道時用插件給的。
-  Duration? get effectiveDuration => duration ?? track.duration;
+  /// 畫面顯示的長度：後端回報的長度可信就用它（比插件給的整數秒準），否則用
+  /// 曲目自己的時長。可信是大於 0、而且和曲目的時長差在 [durationTolerance]
+  /// 內；曲目沒有時長時，大於 0 就用。AVPlayer 遇到 CDN 中途斷線會把長度截短
+  /// （事實 M14），還不知道時報 0（事實 I4）。
+  Duration? get effectiveDuration {
+    final reported = duration;
+    final own = track.duration;
+    if (reported == null || reported <= Duration.zero) return own;
+    if (own == null) return reported;
+    return (reported - own).abs() <= durationTolerance(own) ? reported : own;
+  }
+
+  /// 後端的長度和曲目時長最多差多少還算同一個：3 秒或 1%，取大的。
+  static Duration durationTolerance(Duration own) {
+    final percent = own ~/ 100;
+    const floor = Duration(seconds: 3);
+    return percent > floor ? percent : floor;
+  }
 
   /// 要播或正在播：播放鈕顯示暫停。
   bool get playing => switch (status) {
@@ -96,6 +113,9 @@ class Playback extends Notifier<PlaybackState?> {
   AudioBackend? _backendOrNull;
   StreamSubscription<AudioBackendState>? _subscription;
   int _generation = 0;
+
+  /// 後端已經載入完成的那一次 [play]；之前後端報的長度可能是上一首的。
+  int _loadedGeneration = -1;
   Timer? _stallTimer;
   bool _stallLogged = false;
   bool _zeroDurationLogged = false;
@@ -153,6 +173,7 @@ class Playback extends Notifier<PlaybackState?> {
       return;
     }
     if (!_isCurrent(generation)) return;
+    _loadedGeneration = generation;
     _onBackendState(_backend.state);
     try {
       await _backend.play();
@@ -284,7 +305,8 @@ class Playback extends Notifier<PlaybackState?> {
       stream: current.stream,
       status: status,
       position: backend.position,
-      duration: backend.duration,
+      // 這一首載入完成之前，後端報的可能還是上一首的長度。
+      duration: _loadedGeneration == _generation ? backend.duration : null,
       error: backend.error?.category,
     );
   }

@@ -37,3 +37,6 @@ Blocked by: None
 決定：後端介面加最小的 `seek`（兩個實作與 fake），不做進度條（Agent 定）
 進度（WIP commit）：已做 domain `SegmentBase`／`ByteRange`、宿主解析、bilibili 插件填 segmentBase、契約期望與重錄 fixture、`playback/backends/hls/`（sidx 解析、清單、本機伺服器）、just_audio 後端接 HLS、`createAudioBackend(log)`、`seek`、測試支援（`FragmentedMp4`、`LocalAudioServer` 斷線）。`integration_test/stream_duration_test.dart` 斷線那條：macOS、iOS 沒 HLS 紅（長度 0:35、3:50），接上 HLS 綠。
 待做：(1) 播放層顯示規則（後端長度只在這次載入完成後、>0、且與曲目時長差在 max(3 s, 1%) 內才用，否則用曲目時長；搜尋頁面板改用 effectiveDuration）＋單元測試（33:10、載入中報 0、遲到的舊長度三條，修前紅）並記成決定；(2) Android 模擬器、winpc 跑 stream_duration_test（這次 Android 模擬器沒開）；(3) `duration_run.dart` 加經 audioBackendProvider seek 到 33:20 並讀回位置前進，四平台實跑（含 01-launch）；(4) 寫 ADR 0040、0039 小節、事實 M14、M15、F24、M5（`application/octet-stream` 實測打不開）、macOS Release entitlements 加 network.server；(5) code-review、完整閘門、Session 紀錄與變更行。
+決定：顯示的時長：後端的長度在這一首載入完成後才收，大於 0 且與曲目時長差在 max(3 秒, 1%) 內才用它，否則用曲目時長（Agent 定）
+決定：搜尋頁的播放面板改用同一個顯示時長，不再直接讀後端的長度（Agent 定）
+M2 提醒：做試聽時，串流要能標明自己是片段（例如 resolveStream 回報片段長度或存取等級），那時顯示規則改成片段用播放器的時長；現在不預先設計（協調者轉述）。
