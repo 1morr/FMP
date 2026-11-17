@@ -11,6 +11,7 @@ import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/ui/common/format.dart';
+import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/search/placeholder_search.dart';
 import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
@@ -133,8 +134,8 @@ class _TrackTile extends ConsumerWidget {
 
 enum _TrackAction { playNext, addToQueue }
 
-/// 一首搜尋結果的選單：下一首播放、加入佇列。照稿的選單（手機的 sheet、
-/// 桌面的 `.gmenu`）在搜尋頁照稿時換掉。
+/// 一首搜尋結果的選單：下一首播放、加入佇列。手機照稿要換成底部 sheet，
+/// 在搜尋頁照稿時做。
 Future<void> _showTrackMenu(
   BuildContext context,
   WidgetRef ref,
@@ -142,18 +143,19 @@ Future<void> _showTrackMenu(
   Offset at,
 ) async {
   final t = context.t;
-  final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
-  final action = await showMenu<_TrackAction>(
+  final action = await showGlassMenu<_TrackAction>(
     context: context,
-    position: RelativeRect.fromRect(at & Size.zero, Offset.zero & overlay.size),
-    items: [
-      PopupMenuItem(
+    at: at,
+    entries: [
+      GlassMenuItem(
         value: _TrackAction.playNext,
-        child: Text(t.queue.actions.playNext),
+        label: t.queue.actions.playNext,
+        icon: FmpIcons.nextUp,
       ),
-      PopupMenuItem(
+      GlassMenuItem(
         value: _TrackAction.addToQueue,
-        child: Text(t.queue.actions.addToQueue),
+        label: t.queue.actions.addToQueue,
+        icon: FmpIcons.queue,
       ),
     ],
   );
