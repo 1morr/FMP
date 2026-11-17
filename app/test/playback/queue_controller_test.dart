@@ -297,7 +297,7 @@ void main() {
       await queue().add([track('a'), track('b')]);
       queue().cycleRepeat();
       queue().cycleRepeat();
-      expect(container.read(queueProvider).repeat, RepeatMode.one);
+      expect(container.read(queueProvider).repeat, Repeat.one);
 
       finishCurrent();
       await settle();

@@ -140,21 +140,21 @@ void main() {
       '兩者可以同時開', () {
     test('repeat starts off and is independent of shuffle', () {
       final queue = queueOf(['a', 'b']);
-      expect(queue.repeat, RepeatMode.off);
-      final both = queue.withRepeat(RepeatMode.all).shuffle(Random(1));
-      expect(both.repeat, RepeatMode.all);
+      expect(queue.repeat, Repeat.off);
+      final both = queue.withRepeat(Repeat.all).shuffle(Random(1));
+      expect(both.repeat, Repeat.all);
       expect(both.shuffled, isTrue);
-      expect(both.unshuffle().repeat, RepeatMode.all);
-      expect(both.withRepeat(RepeatMode.one).shuffled, isTrue);
+      expect(both.unshuffle().repeat, Repeat.all);
+      expect(both.withRepeat(Repeat.one).shuffled, isTrue);
     });
 
     test('shuffle and repeat can be set on an empty queue and stay on after '
         'clearing', () {
-      final queue = Queue.empty.withRepeat(RepeatMode.one).shuffle();
+      final queue = Queue.empty.withRepeat(Repeat.one).shuffle();
       expect(queue.shuffled, isTrue);
       final refilled = queue.add([track('a')]).clear();
       expect(refilled.shuffled, isTrue);
-      expect(refilled.repeat, RepeatMode.one);
+      expect(refilled.repeat, Repeat.one);
     });
 
     test('without repeat, there is no next after the last track', () {
@@ -165,11 +165,7 @@ void main() {
 
     test('list repeat goes from the last track back to the first, and from '
         'the first back to the last', () {
-      final last = queueOf([
-        'a',
-        'b',
-        'c',
-      ], current: 2).withRepeat(RepeatMode.all);
+      final last = queueOf(['a', 'b', 'c'], current: 2).withRepeat(Repeat.all);
       expect(last.hasNext, isTrue);
       expect(current(last.next()!), 'a');
       final first = last.jumpTo(0);
@@ -178,7 +174,7 @@ void main() {
     });
 
     test('single repeat does not wrap a manual next or previous', () {
-      final queue = queueOf(['a', 'b'], current: 1).withRepeat(RepeatMode.one);
+      final queue = queueOf(['a', 'b'], current: 1).withRepeat(Repeat.one);
       expect(queue.next(), isNull);
       expect(current(queue.previous()!), 'a');
       expect(queue.jumpTo(0).previous(), isNull);
@@ -188,9 +184,7 @@ void main() {
   group('隨機加列表循環時，整串播完後重新打亂再播一輪；只開隨機時，播完就停', () {
     test('shuffle with list repeat reshuffles everything for a new round '
         'after the last track', () {
-      var queue = queueOf(letters)
-          .withRepeat(RepeatMode.all)
-          .shuffle(Random(1));
+      var queue = queueOf(letters).withRepeat(Repeat.all).shuffle(Random(1));
       final firstRound = ids(queue);
       queue = queue.jumpTo(letters.length - 1);
       final finished = current(queue);
@@ -205,7 +199,7 @@ void main() {
     test('a new round never starts with the track that just finished', () {
       for (var seed = 0; seed < 50; seed++) {
         final queue = queueOf(['a', 'b'])
-            .withRepeat(RepeatMode.all)
+            .withRepeat(Repeat.all)
             .shuffle(Random(seed));
         final last = queue.jumpTo(1);
         expect(
@@ -225,11 +219,10 @@ void main() {
     });
 
     test('a reshuffled round still turns back into the original order', () {
-      final round = queueOf(['a', 'b', 'c', 'd'], current: 0)
-          .withRepeat(RepeatMode.all)
-          .shuffle(Random(1))
-          .jumpTo(3)
-          .next(Random(2))!;
+      final round = queueOf(
+        ['a', 'b', 'c', 'd'],
+        current: 0,
+      ).withRepeat(Repeat.all).shuffle(Random(1)).jumpTo(3).next(Random(2))!;
       final queue = round.unshuffle();
       expect(ids(queue), ['a', 'b', 'c', 'd']);
       expect(current(queue), current(round));
@@ -243,7 +236,7 @@ void main() {
         'a',
         'b',
         'c',
-      ], current: 2).withRepeat(RepeatMode.all).remove(2);
+      ], current: 2).withRepeat(Repeat.all).remove(2);
       expect(ids(queue), ['a', 'b']);
       expect(current(queue), 'a');
     });
@@ -251,7 +244,7 @@ void main() {
     test('with shuffle and list repeat, removing the current last track '
         'starts a reshuffled round', () {
       final shuffled = queueOf(letters)
-          .withRepeat(RepeatMode.all)
+          .withRepeat(Repeat.all)
           .shuffle(Random(1));
       final last = shuffled.jumpTo(letters.length - 1);
       final queue = last.remove(letters.length - 1, Random(2));

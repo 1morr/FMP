@@ -13,6 +13,7 @@ import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
+import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/queue/queue_layout.dart';
 import 'package:fmp/ui/queue/queue_rows.dart';
 import 'package:fmp/ui/shell/destination.dart';
@@ -245,6 +246,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 開、關隨機都會換掉正在播的那首的位置，畫面跟著捲到它。
+    ref.listen(queueProvider.select((queue) => queue.shuffled), (_, _) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _toCurrent(animate: true);
+      });
+    });
     final queue = ref.watch(queueProvider);
     final playing = ref.watch(
       playbackProvider.select((state) => state?.playing ?? false),
@@ -333,6 +340,16 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               ),
             ),
           ),
+          SliverPadding(
+            padding: horizontal,
+            sliver: SliverToBoxAdapter(
+              child: QueueEndNote(
+                repeat: queue.repeat,
+                shuffled: queue.shuffled,
+                table: layout.isTable,
+              ),
+            ),
+          ),
           SliverToBoxAdapter(child: SizedBox(height: insets.bottom)),
         ],
       );
@@ -372,11 +389,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           count: count,
           table: table,
         );
-      case UpNextFold(:final count, :final duration):
+      case UpNextFold(:final count, :final duration, :final shuffled):
         return QueueFold(
           key: const ValueKey('fold'),
           count: count,
           duration: duration,
+          shuffled: shuffled,
           table: table,
         );
       case TrackItem(:final index, :final entry):
@@ -502,6 +520,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                 children: [
                   titleBlock,
                   const Spacer(),
+                  const PlayModeToggles(glass: false),
+                  const SizedBox(width: 12),
                   FmpButton(
                     label: t.queue.clear,
                     icon: FmpIcons.trash,
@@ -523,7 +543,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
   }
 
-  /// 頂列（`.ptop`、`.wtop`）：左邊是大標題捲出去後淡入的小標題，右邊是清空。
+  /// 頂列（`.ptop`、`.wtop`）：左邊是大標題捲出去後淡入的小標題，右邊是
+  /// 隨機、循環與清空。
   Widget _topBar(BuildContext context, QueueLayout layout, Queue queue) {
     final colors = context.fmpColors;
     final t = context.t.queue;
@@ -568,21 +589,29 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           ),
         ),
         const Spacer(),
-        switch (layout) {
-          QueueLayout.phone || QueueLayout.tablet => GlassIconButton(
-            icon: FmpIcons.trash,
-            tooltip: t.clear,
-            touch: true,
-            onTap: clear,
-          ),
-          QueueLayout.wideTable => FmpButton(
-            label: t.clear,
-            icon: FmpIcons.trash,
-            size: FmpButtonSize.small,
-            onTap: clear,
-          ),
-          // 窄視窗的清空鈕在標題那一列。
-          QueueLayout.narrowTable => const SizedBox.shrink(),
+        ...switch (layout) {
+          QueueLayout.phone || QueueLayout.tablet => [
+            const PlayModeToggles(glass: true),
+            const SizedBox(width: 8),
+            GlassIconButton(
+              icon: FmpIcons.trash,
+              tooltip: t.clear,
+              touch: true,
+              onTap: clear,
+            ),
+          ],
+          QueueLayout.wideTable => [
+            const PlayModeToggles(glass: false),
+            const SizedBox(width: 12),
+            FmpButton(
+              label: t.clear,
+              icon: FmpIcons.trash,
+              size: FmpButtonSize.small,
+              onTap: clear,
+            ),
+          ],
+          // 窄視窗的隨機、循環與清空在標題那一列。
+          QueueLayout.narrowTable => const <Widget>[],
         },
       ],
     );

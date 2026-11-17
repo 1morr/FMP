@@ -114,7 +114,7 @@ class QueueController extends Notifier<Queue> {
 
   /// 一首自然播完：單曲循環重播它，否則接下一首。
   Future<void> _onCompleted() =>
-      state.repeat == RepeatMode.one ? _playCurrent() : next();
+      state.repeat == Repeat.one ? _playCurrent() : next();
 
   Future<void> _playCurrent() async {
     if (state.current case final entry?) await _playback.play(entry.track);

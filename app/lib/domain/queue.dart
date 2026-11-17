@@ -3,13 +3,13 @@ import 'dart:math';
 import 'package:fmp/domain/track.dart';
 
 /// 循環（brief〈播放〉）：不循環、列表循環、單曲循環。
-enum RepeatMode {
+enum Repeat {
   off,
   all,
   one;
 
   /// 切換鈕依序切到的下一個：不循環 → 列表 → 單曲 → 不循環。
-  RepeatMode get cycled => values[(index + 1) % values.length];
+  Repeat get cycled => values[(index + 1) % values.length];
 }
 
 /// 佇列裡的一個位置。同一首曲目可以排好幾次，靠 [id] 分開；[id] 在同一個
@@ -44,7 +44,7 @@ class Queue {
     this.entries,
     this.currentIndex,
     this._nextId, {
-    this.repeat = RepeatMode.off,
+    this.repeat = Repeat.off,
     this._original,
     this._pinned = const {},
   });
@@ -69,7 +69,7 @@ class Queue {
 
   /// 循環。單曲循環只管一首自然播完後重播（由 `playback/` 做），手動的
   /// 上一首、下一首照不循環走。
-  final RepeatMode repeat;
+  final Repeat repeat;
 
   /// 隨機開著。
   bool get shuffled => _original != null;
@@ -83,13 +83,13 @@ class Queue {
 
   /// 有下一首可以切：還沒到最後一首，或列表循環會繞回去。
   bool get hasNext => switch (currentIndex) {
-    final index? => index < entries.length - 1 || repeat == RepeatMode.all,
+    final index? => index < entries.length - 1 || repeat == Repeat.all,
     null => false,
   };
 
   /// 有上一首可以切：不在第一首，或列表循環會繞到最後一首。
   bool get hasPrevious => switch (currentIndex) {
-    final index? => index > 0 || repeat == RepeatMode.all,
+    final index? => index > 0 || repeat == Repeat.all,
     null => false,
   };
 
@@ -123,7 +123,7 @@ class Queue {
   }
 
   /// 換循環。
-  Queue withRepeat(RepeatMode mode) => Queue._(
+  Queue withRepeat(Repeat mode) => Queue._(
     entries,
     currentIndex,
     _nextId,
@@ -194,7 +194,7 @@ class Queue {
         index == current &&
         newCurrent == null &&
         remaining.isNotEmpty &&
-        repeat == RepeatMode.all;
+        repeat == Repeat.all;
     if (!wrapped) return queue;
     return shuffled ? queue._reshuffled(random) : queue.jumpTo(0);
   }
