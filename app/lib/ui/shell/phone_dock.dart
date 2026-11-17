@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/playback/playback.dart';
+import 'package:fmp/ui/now_playing/mini_player.dart';
 import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
@@ -13,11 +16,12 @@ import 'package:material_ui/material_ui.dart';
 /// 搜尋圓鈕都在這 160 裡，底部漸層淡出底色。
 const double phoneDockHeight = 160;
 
-/// 手機底部的 dock：左邊是導覽膠囊，右邊是搜尋圓鈕。捲動時不收合。
+/// 手機底部的 dock：上面是迷你播放器（沒有目前曲目時不出現，導覽留在
+/// 原位），下面左邊是導覽膠囊，右邊是搜尋圓鈕。捲動時不收合。
 ///
 /// 在搜尋頁時（[current] 是搜尋）換成搜尋模式：導覽收成左邊的圓鈕（顯示
 /// 進搜尋前的分頁 [lastTab]，點了回去），搜尋圓鈕展開成欄位。欄位聚焦（鍵盤
-/// 升起）時貼在鍵盤上方、撐滿寬度，圓鈕暫時藏起來。
+/// 升起）時貼在鍵盤上方、撐滿寬度，圓鈕與迷你播放器暫時藏起來。
 class PhoneDock extends StatefulWidget {
   const PhoneDock({
     super.key,
@@ -102,6 +106,21 @@ class _PhoneDockState extends State<PhoneDock> {
           height: phoneDockHeight,
           child: Stack(
             children: [
+              // 迷你播放器：362×56，left 14、top 24（390 寬時）。
+              Positioned(
+                left: side,
+                right: side,
+                top: 24,
+                height: 56,
+                child: IgnorePointer(
+                  ignoring: typing,
+                  child: AnimatedOpacity(
+                    duration: FmpMotion.mid,
+                    opacity: typing ? 0 : 1,
+                    child: const _MiniSlot(),
+                  ),
+                ),
+              ),
               // 左：導覽膠囊 ↔ 回到分頁的圓鈕。
               AnimatedPositioned(
                 duration: FmpMotion.morph,
@@ -179,6 +198,33 @@ class _PhoneDockState extends State<PhoneDock> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 有目前曲目時的迷你播放器；出現與消失時淡入淡出、往下滑 20
+/// （`.dock.no-mini .mini`）。
+class _MiniSlot extends ConsumerWidget {
+  const _MiniSlot();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(playbackProvider);
+    return AnimatedSwitcher(
+      duration: FmpMotion.mid,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 20 / 56),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: state == null
+          ? const SizedBox.shrink()
+          : MiniPlayer(key: const ValueKey('mini'), state: state),
     );
   }
 }

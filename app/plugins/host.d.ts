@@ -53,6 +53,8 @@ interface PluginTrack {
   /** 歌手或上傳者。 */
   author: string;
   durationMs?: number;
+  /** 封面圖的 http(s) 網址；宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。 */
+  coverUrl?: string;
 }
 
 /** 插件能力 search。 */

@@ -37,12 +37,14 @@ void main() {
     String id = 'demo',
     List<String> capabilities = const ['search'],
     List<String> domains = const ['api.example.com'],
+    Object? mark,
   }) => jsonEncode({
     'id': id,
     'name': 'Demo',
     'version': '1.0.0',
     'capabilities': capabilities,
     'domains': domains,
+    'mark': ?mark,
   });
 
   PluginHost host(
@@ -110,6 +112,36 @@ void main() {
       expect(http.requests.single.method, 'GET');
     },
   );
+
+  group('a track cover', () {
+    String searching(String cover) =>
+        '''
+      export async function search() {
+        return { tracks: [{ id: 'a1', title: 'A', author: 'B', coverUrl: $cover }] };
+      }
+    ''';
+
+    test('is the https or http URL the plugin gives', () async {
+      final tracks = await only(
+        host(searching("'https://img.example.com/a.jpg'")),
+      ).search('q');
+      expect(tracks.single.coverUrl, 'https://img.example.com/a.jpg');
+    });
+
+    test('is optional', () async {
+      final tracks = await only(host(searching('undefined'))).search('q');
+      expect(tracks.single.coverUrl, isNull);
+    });
+
+    for (final cover in ["'//img.example.com/a.jpg'", "'file:///a.jpg'", '1']) {
+      test('$cover is a ParseFailure', () async {
+        await expectLater(
+          only(host(searching(cover))).search('q'),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+  });
 
   test('pluginFor finds the plugin that provides a track', () {
     final h = PluginHost(
@@ -545,6 +577,89 @@ void main() {
 
     expect(c, isNotNull, reason: 'B failed after A closed the engine');
     expect(await c, isEmpty);
+  });
+
+  group('source mark', () {
+    Map<String, Object?> mark({Object? paths}) => {
+      'short': 'Dm',
+      'color': '#FB7299',
+      'paths':
+          paths ??
+          [
+            {
+              'pathData': 'M5 1.8 6.6 3.9',
+              'strokeColor': '#FB7299',
+              'strokeWidth': 1.5,
+            },
+            {'pathData': 'M1 1h14v14H1z', 'fillColor': '#ffffff'},
+          ],
+    };
+
+    PluginManifest? parsed(Object? markJson) {
+      final h = PluginHost(
+        bundles: [
+          PluginBundle(
+            manifest: manifest(mark: markJson),
+            code: '',
+          ),
+        ],
+        log: log,
+      );
+      hosts.add(h);
+      return h.plugins.firstOrNull?.manifest;
+    }
+
+    test('the manifest gives the short name, colour and the paths to draw', () {
+      final m = parsed(mark())!.mark!;
+
+      expect(m.short, 'Dm');
+      expect(m.color, 0xFFFB7299);
+      expect(m.paths, hasLength(2));
+      expect(m.paths[0].pathData, 'M5 1.8 6.6 3.9');
+      expect(m.paths[0].strokeColor, 0xFFFB7299);
+      expect(m.paths[0].strokeWidth, 1.5);
+      expect(m.paths[0].fillColor, isNull);
+      expect(m.paths[1].fillColor, 0xFFFFFFFF);
+      expect(m.paths[1].strokeColor, isNull);
+    });
+
+    test('a plugin without a mark has none', () {
+      expect(parsed(null)!.mark, isNull);
+    });
+
+    for (final (name, bad) in [
+      ('a colour that is not #RRGGBB', {...mark(), 'color': 'pink'}),
+      ('a missing short name', {...mark()}..remove('short')),
+      (
+        'path data that does not parse',
+        mark(
+          paths: [
+            {'pathData': 'M5 Q', 'fillColor': '#000000'},
+          ],
+        ),
+      ),
+      (
+        'a path with neither fill nor stroke',
+        mark(
+          paths: [
+            {'pathData': 'M1 1h2'},
+          ],
+        ),
+      ),
+      (
+        'a stroke without a width',
+        mark(
+          paths: [
+            {'pathData': 'M1 1h2', 'strokeColor': '#000000'},
+          ],
+        ),
+      ),
+      ('no paths', mark(paths: <Object>[])),
+    ]) {
+      test('a mark with $name skips the plugin', () {
+        expect(parsed(bad), isNull);
+      });
+    }
   });
 
   test(

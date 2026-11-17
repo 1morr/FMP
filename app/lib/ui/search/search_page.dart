@@ -8,6 +8,7 @@ import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/platform/form_factor.dart';
+import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/search/placeholder_search.dart';
 import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
@@ -107,8 +108,8 @@ class _TrackTile extends ConsumerWidget {
   }
 }
 
-/// 正在播的曲目：播放狀態、進度、暫停與繼續，以及它的串流的音質、到期時間
-/// 與遮蔽過的網址（brief〈錯誤、log 與診斷〉）。
+/// 正在播的曲目：播放狀態、進度，以及它的串流的音質、到期時間與遮蔽過的
+/// 網址（brief〈錯誤、log 與診斷〉）。暫停與繼續在外殼的迷你播放器與播放膠囊。
 class _PlaybackPanel extends ConsumerWidget {
   const _PlaybackPanel();
 
@@ -136,7 +137,7 @@ class _PlaybackPanel extends ConsumerWidget {
               style: context.fmpText.head.copyWith(color: colors.label),
             ),
             const SizedBox(height: FmpSpace.s1),
-            _controls(context, ref, t, playback),
+            _status(context, t, playback),
             // 播放失敗時也顯示，方便看是哪個 CDN。
             if (stream != null) ..._details(t, stream),
           ],
@@ -145,13 +146,11 @@ class _PlaybackPanel extends ConsumerWidget {
     );
   }
 
-  static Widget _controls(
+  static Widget _status(
     BuildContext context,
-    WidgetRef ref,
     Translations t,
     PlaybackState playback,
   ) {
-    final notifier = ref.read(playbackProvider.notifier);
     final status = switch (playback.status) {
       PlaybackStatus.resolving => t.placeholder.playback.resolving,
       PlaybackStatus.loading => t.placeholder.playback.loading,
@@ -161,23 +160,9 @@ class _PlaybackPanel extends ConsumerWidget {
       PlaybackStatus.completed => t.placeholder.playback.completed,
       PlaybackStatus.failed => _errorText(t, playback),
     };
-    final button = switch (playback.status) {
-      PlaybackStatus.playing || PlaybackStatus.buffering => IconButton(
-        tooltip: t.placeholder.playback.pause,
-        icon: const Icon(Icons.pause),
-        onPressed: notifier.pause,
-      ),
-      PlaybackStatus.paused => IconButton(
-        tooltip: t.placeholder.playback.play,
-        icon: const Icon(Icons.play_arrow),
-        onPressed: notifier.resume,
-      ),
-      _ => null,
-    };
     final duration = playback.duration;
     return Row(
       children: [
-        ?button,
         Expanded(child: Text(status)),
         if (playback.status != PlaybackStatus.failed && duration != null)
           Text(
@@ -238,13 +223,4 @@ String formatExpiry(DateTime at) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${at.year}-${two(at.month)}-${two(at.day)} '
       '${two(at.hour)}:${two(at.minute)}';
-}
-
-/// `m:ss`，一小時以上 `h:mm:ss`。
-String formatDuration(Duration d) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  final seconds = two(d.inSeconds % 60);
-  return d.inHours > 0
-      ? '${d.inHours}:${two(d.inMinutes % 60)}:$seconds'
-      : '${d.inMinutes}:$seconds';
 }

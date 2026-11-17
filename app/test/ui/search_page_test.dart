@@ -7,7 +7,7 @@ import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/plugins/plugins.dart';
-import 'package:fmp/ui/search/search_page.dart';
+import 'package:fmp/ui/common/format.dart';
 
 import '../support/fake_http.dart';
 import '../support/fjs.dart';

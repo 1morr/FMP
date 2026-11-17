@@ -274,6 +274,41 @@ export async function search({ query }) {
       );
     });
 
+    /// 回傳 [tracks] 的 search。
+    PluginBundle searching(List<Map<String, Object?>> tracks) => PluginBundle(
+      manifest: manifest,
+      code:
+          'export async function search() { '
+          'return ${jsonEncode({'tracks': tracks})}; }',
+    );
+
+    test('covers: a track without a cover turns red', () async {
+      expect(
+        await run(
+          searching([
+            {'id': '1', 'title': 'x', 'author': '', 'coverUrl': 'https://a/1'},
+            {'id': '2', 'title': 'y', 'author': ''},
+          ]),
+          PluginCapability.search,
+          const {'covers': true},
+        ),
+        ['expected a cover on every track, track 1 has none'],
+      );
+    });
+
+    test('covers: tracks that all have covers stay green', () async {
+      expect(
+        await run(
+          searching([
+            {'id': '1', 'title': 'x', 'author': '', 'coverUrl': 'https://a/1'},
+          ]),
+          PluginCapability.search,
+          const {'covers': true},
+        ),
+        isEmpty,
+      );
+    });
+
     test('an expectation the capability does not know turns red', () async {
       expect(
         await run(

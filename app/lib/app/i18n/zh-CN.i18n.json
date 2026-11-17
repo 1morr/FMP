@@ -27,9 +27,7 @@
       "paused": "已暂停",
       "completed": "播放完毕",
       "failed": "播放失败",
-      "unsupportedFormat": "这个平台播放不了这条音频流",
-      "play": "播放",
-      "pause": "暂停"
+      "unsupportedFormat": "这个平台播放不了这条音频流"
     }
   },
   "shell": {
@@ -59,6 +57,29 @@
       "maximize": "最大化",
       "restore": "还原",
       "close": "关闭"
+    }
+  },
+  "nowPlaying": {
+    "play": "播放",
+    "pause": "暂停"
+  },
+  "toast": {
+    "retry": "重试",
+    "playback": {
+      "network": "没有网络，「${title}」无法播放。音乐库与队列照常可用。",
+      "rateLimited": "${source}限制了请求次数，「${title}」暂时无法播放。",
+      "loginRequired": "「${title}」需要登录${source}才能播放。",
+      "credentialInvalid": "${source}的登录已失效，「${title}」无法播放。",
+      "verificationRequired": "${source}要求验证才能继续播放。",
+      "region": "「${title}」在当前地区无法播放。",
+      "copyright": "「${title}」因版权已下架。",
+      "membership": "「${title}」需要会员才能播放。",
+      "trialOnly": "「${title}」只能试听。",
+      "notFound": "找不到「${title}」，可能已被删除。",
+      "parseFailure": "「${title}」无法播放：读不懂${source}的响应。",
+      "sourceUnsupported": "${source}不支持播放，「${title}」无法播放。",
+      "formatUnsupported": "这台设备播不了「${title}」的格式。",
+      "failed": "「${title}」无法播放。"
     }
   }
 }

@@ -9,6 +9,8 @@ import 'package:fmp/core/log/log.dart';
 import 'package:fmp/platform/audio_backend.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/ui/now_playing/mini_player.dart';
+import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:integration_test/integration_test.dart';
 
 import '../test/support/fake_http.dart';
@@ -16,7 +18,7 @@ import '../test/support/local_audio_server.dart';
 import '../test/support/no_network.dart';
 import '../test/support/shell.dart';
 
-/// M0 的主要流程（architecture〈測試策略〉）：從外殼進搜尋頁，用佔位搜尋搜尋、點一首、播放、暫停、繼續。
+/// M0 的主要流程（architecture〈測試策略〉）：從外殼進搜尋頁，用佔位搜尋搜尋、點一首、播放，用外殼的播放控制暫停、繼續。
 /// 在真的平台上跑 App 打包的 bilibili 插件（fjs 引擎）與這個平台的音訊後端
 /// （`platform/audio_backend.dart` 挑的原生播放器）。
 ///
@@ -155,9 +157,32 @@ void main() {
       expect(request.headers['user-agent'], startsWith('Mozilla/'));
     }
 
-    await tester.tap(find.byTooltip('暫停'));
+    // 外殼的播放控制（票 06）：手機是迷你播放器，其他寬度是播放膠囊；讀回
+    // 曲名與 manifest 宣告的音源標識，用它暫停、繼續。
+    final controls = find.byWidgetPredicate(
+      (w) => w is MiniPlayer || w is TransportBar,
+    );
+    expect(controls, findsOneWidget);
+    expect(
+      find.descendant(of: controls, matching: find.text('晴天 測試')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: controls,
+        matching: find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.label == 'Bilibili',
+        ),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(of: controls, matching: find.byTooltip('暫停')),
+    );
     await waitFor(find.text('已暫停'));
-    await tester.tap(find.byTooltip('播放'));
+    await tester.tap(
+      find.descendant(of: controls, matching: find.byTooltip('播放')),
+    );
     await waitFor(find.text('播放中'));
   });
 }

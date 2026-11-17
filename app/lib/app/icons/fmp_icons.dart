@@ -53,6 +53,44 @@ enum FmpIcons {
       'M7.5 8.5h6.5a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1 -1.5 1.5h-6.5a1.5 1.5 0 0 1 -1.5 -1.5v-6.5a1.5 1.5 0 0 1 1.5 -1.5z',
     ),
     _Part('M8.5 6h8a1.5 1.5 0 0 1 1.5 1.5v8'),
+  ]),
+  play([
+    _Part(
+      'M8 5.2v13.6c0 .6.7 1 1.2.7l10.6-6.8c.5-.3.5-1 0-1.4L9.2 4.5C8.7 4.2 8 4.6 8 5.2z',
+      fill: true,
+      stroke: false,
+    ),
+  ]),
+  // rect x=6.2 y=4.8 w=4.2 h=14.4 rx=1.3，與 x=13.6 的同一個。
+  pause([
+    _Part(
+      'M7.5 4.8h1.6a1.3 1.3 0 0 1 1.3 1.3v11.8a1.3 1.3 0 0 1 -1.3 1.3h-1.6a1.3 1.3 0 0 1 -1.3 -1.3v-11.8a1.3 1.3 0 0 1 1.3 -1.3z'
+      'M14.9 4.8h1.6a1.3 1.3 0 0 1 1.3 1.3v11.8a1.3 1.3 0 0 1 -1.3 1.3h-1.6a1.3 1.3 0 0 1 -1.3 -1.3v-11.8a1.3 1.3 0 0 1 1.3 -1.3z',
+      fill: true,
+      stroke: false,
+    ),
+  ]),
+  warn([
+    _Part(
+      'M10.6 4.7 3.3 17.6c-.6 1.1.2 2.4 1.4 2.4h14.6c1.2 0 2-1.3 1.4-2.4L13.4 4.7c-.6-1.1-2.2-1.1-2.8 0z',
+    ),
+    _Part('M12 10v4'),
+    _Part('M11 16.9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0', fill: true, stroke: false),
+  ]),
+  wifi([
+    _Part(
+      'M4.5 10a11 11 0 0 1 15 0M7.5 13.2a6.6 6.6 0 0 1 9 0',
+      strokeWidth: 2.2,
+    ),
+    _Part(
+      'M10.4 16.8a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0',
+      fill: true,
+      stroke: false,
+    ),
+  ]),
+  shield([
+    _Part('M12 3.5 19 6.3v5.3c0 4.2-2.9 7.6-7 8.9-4.1-1.3-7-4.7-7-8.9V6.3z'),
+    _Part('m9 12 2.1 2.1L15.2 10'),
   ]);
 
   const FmpIcons(this._parts);
@@ -70,10 +108,18 @@ enum FmpIcons {
 
 /// 圖示的一筆：預設只描邊；[fill] 時填滿並用 [strokeWidth] 描邊。
 class _Part {
-  const _Part(this.d, {this.fill = false, this.strokeWidth});
+  const _Part(
+    this.d, {
+    this.fill = false,
+    this.stroke = true,
+    this.strokeWidth,
+  });
 
   final String d;
   final bool fill;
+
+  /// 稿上 `stroke="none"` 的實心形狀不描邊。
+  final bool stroke;
   final double? strokeWidth;
 }
 
@@ -144,13 +190,7 @@ class _IconPainter extends CustomPainter {
   static final _cache = <FmpIcons, List<Path>>{};
 
   static List<Path> _paths(FmpIcons icon) =>
-      _cache[icon] ??= [for (final part in icon._all) _parse(part.d)];
-
-  static Path _parse(String d) {
-    final proxy = _PathProxy();
-    writeSvgPathDataToPath(d, proxy);
-    return proxy.path;
-  }
+      _cache[icon] ??= [for (final part in icon._all) svgPath(part.d)];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -176,7 +216,7 @@ class _IconPainter extends CustomPainter {
             ..isAntiAlias = true,
         );
       }
-      canvas.drawPath(paths[i], stroke);
+      if (part.stroke) canvas.drawPath(paths[i], stroke);
     }
     canvas.restore();
   }
@@ -184,6 +224,13 @@ class _IconPainter extends CustomPainter {
   @override
   bool shouldRepaint(_IconPainter old) =>
       old.icon != icon || old.color != color || old.strokeWidth != strokeWidth;
+}
+
+/// SVG 路徑字串 [d] 轉成 [Path]；圖示與插件宣告的音源標識都用它。
+Path svgPath(String d) {
+  final proxy = _PathProxy();
+  writeSvgPathDataToPath(d, proxy);
+  return proxy.path;
 }
 
 class _PathProxy extends PathProxy {

@@ -107,7 +107,7 @@ class Plugin {
     return _parse(PluginCapability.resolveStream, () {
       final json = result as Map;
       final url = Uri.parse(json['url'] as String);
-      if (!url.isAbsolute || !const {'http', 'https'}.contains(url.scheme)) {
+      if (!_isWebUrl(url)) {
         throw const FormatException('url is not an absolute http(s) url');
       }
       final headers = json['headers'] as Map? ?? const {};
@@ -163,8 +163,16 @@ class Plugin {
       title: json['title'] as String,
       author: json['author'] as String,
       duration: ms == null ? null : Duration(milliseconds: (ms as num).round()),
+      coverUrl: switch (json['coverUrl']) {
+        null => null,
+        final String url when _isWebUrl(Uri.parse(url)) => url,
+        _ => throw const FormatException('coverUrl is not an http(s) URL'),
+      },
     );
   }
+
+  static bool _isWebUrl(Uri url) =>
+      url.isAbsolute && const {'http', 'https'}.contains(url.scheme);
 
   /// 呼叫插件匯出的 [capability] 函式，回傳它 resolve 的值。
   Future<Object?> _invoke(
