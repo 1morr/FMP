@@ -67,7 +67,8 @@ class PluginFixture {
   final Map<String, Object?> input;
 
   /// 這個案例另外要求的結果，鍵是各插件能力認得的期望（[checkContract]），
-  /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期；search 的
+  /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期，
+  /// `{"segmentBase": true}`：串流要給 init 與 sidx 的位置；search 的
   /// `{"covers": true}`：每首曲目都有封面。錄製、
   /// 重播與 live 冒煙測試都套用；錄製時照原樣寫回。
   final Map<String, Object?> expect;
@@ -213,7 +214,7 @@ Future<List<String>> checkContract(
 }) async {
   final known = switch (capability) {
     PluginCapability.search => const {'covers'},
-    PluginCapability.resolveStream => const {'expiresAt'},
+    PluginCapability.resolveStream => const {'expiresAt', 'segmentBase'},
   };
   final unknown = [
     for (final key in expect.keys)
@@ -253,6 +254,8 @@ Future<List<String>> checkContract(
         ...resolveStreamContractViolations(stream),
         if (expect.containsKey('expiresAt') && stream.expiresAt == null)
           'expected an expiresAt, got none',
+        if (expect.containsKey('segmentBase') && stream.segmentBase == null)
+          'expected a segmentBase, got none',
       ];
   }
 }

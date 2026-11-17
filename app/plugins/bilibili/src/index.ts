@@ -1,5 +1,5 @@
 // Bilibili 插件。插件能力：search（brief 事實 F20）、resolveStream（事實
-// F1、F4、F5、F6、F21）。
+// F1、F4、F5、F6、F21、F24）。
 //
 // 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
 // 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P，n ≥ 2（GLOSSARY.md：每個分 P
@@ -87,6 +87,7 @@ export async function resolveStream({
     expiresAtMs: deadlineMs(audio.url),
     codec: audio.codec,
     bitrate: audio.bandwidth,
+    segmentBase: audio.segmentBase,
   };
 }
 
@@ -112,24 +113,61 @@ interface DashAudio {
   url: string;
   bandwidth: number;
   codec?: string;
+  segmentBase?: { initialization: string; indexRange: string };
+}
+
+const BYTE_RANGE = /^\d+-\d+$/;
+
+/**
+ * 音訊軌的 init 與 sidx 位置（ADR 0040）：playurl 同時給 `SegmentBase`
+ * （`Initialization`、`indexRange`）與 `segment_base`（`initialization`、
+ * `index_range`）。讀不到或不像位元組範圍就不給，宿主照舊直接播網址。
+ */
+function segmentBaseOf(track: {
+  SegmentBase?: unknown;
+  segment_base?: unknown;
+}): DashAudio['segmentBase'] {
+  const camel = (track.SegmentBase ?? {}) as {
+    Initialization?: unknown;
+    indexRange?: unknown;
+  };
+  const snake = (track.segment_base ?? {}) as {
+    initialization?: unknown;
+    index_range?: unknown;
+  };
+  const initialization = camel.Initialization ?? snake.initialization;
+  const indexRange = camel.indexRange ?? snake.index_range;
+  if (
+    typeof initialization === 'string' &&
+    typeof indexRange === 'string' &&
+    BYTE_RANGE.test(initialization) &&
+    BYTE_RANGE.test(indexRange)
+  ) {
+    return { initialization, indexRange };
+  }
+  return undefined;
 }
 
 /** 頻寬最高的 DASH 音訊軌。 */
 function bestAudio(tracks: unknown): DashAudio {
   const audios: DashAudio[] = [];
   for (const track of Array.isArray(tracks) ? tracks : []) {
-    const { baseUrl, base_url, bandwidth, codecs } = (track ?? {}) as {
+    const fields = (track ?? {}) as {
       baseUrl?: unknown;
       base_url?: unknown;
       bandwidth?: unknown;
       codecs?: unknown;
+      SegmentBase?: unknown;
+      segment_base?: unknown;
     };
+    const { baseUrl, base_url, bandwidth, codecs } = fields;
     const url = typeof baseUrl === 'string' ? baseUrl : base_url;
     if (typeof url === 'string' && url !== '' && typeof bandwidth === 'number') {
       audios.push({
         url,
         bandwidth,
         codec: typeof codecs === 'string' ? codecs : undefined,
+        segmentBase: segmentBaseOf(fields),
       });
     }
   }

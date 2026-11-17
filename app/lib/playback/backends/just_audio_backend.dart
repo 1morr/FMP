@@ -4,6 +4,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/playback/audio_backend.dart';
 import 'package:fmp/playback/backends/backend_states.dart';
+import 'package:fmp/playback/backends/hls/hls_packager.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 
 /// Android、iOS、macOS 的音訊後端（brief〈播放〉、事實 K1）。
@@ -12,8 +13,13 @@ import 'package:just_audio/just_audio.dart' as ja;
 /// AVPlayer 的 `AVURLAssetHTTPHeaderFieldsKey`），不用 just_audio 預設的
 /// 本機 proxy：proxy 在 Dart 裡另開 HTTP 連線，繞過宿主的網路層，在 Android
 /// 與 Apple 平台還要放行明文 HTTP（brief 事實 K25）。
+///
+/// 給了 [hls] 時（Apple 平台，`platform/audio_backend.dart` 決定），有
+/// [AudioStream.segmentBase] 的串流改播 [HlsPackager] 產生的清單：AVPlayer
+/// 直接播單檔 fragmented MP4 時，CDN 中途斷線會讓它把長度截短、提早播完
+/// （ADR 0040）。包不了就照舊直接播網址，並呼叫 [onHlsUnavailable]。
 class JustAudioBackend implements AudioBackend {
-  JustAudioBackend() {
+  JustAudioBackend({this.hls, this.onHlsUnavailable}) {
     _subscriptions = [
       _player.playerStateStream.listen(
         (s) => _states.update(
@@ -39,6 +45,12 @@ class JustAudioBackend implements AudioBackend {
     ];
   }
 
+  final HlsPackager? hls;
+
+  /// HLS 包裝失敗、改直接播網址時呼叫；介面規定後端不寫 log，由組裝的
+  /// 平台層記。
+  final void Function(HlsUnavailable reason)? onHlsUnavailable;
+
   final _player = ja.AudioPlayer(useProxyForRequestHeaders: false);
   final _states = BackendStates();
   late final List<StreamSubscription<Object?>> _subscriptions;
@@ -61,9 +73,11 @@ class JustAudioBackend implements AudioBackend {
     _states.reset();
     _pendingLoads++;
     try {
+      final url = await _playableUrl(stream);
+      if (generation != _generation) return;
       final duration = await _player.setAudioSource(
         ja.AudioSource.uri(
-          stream.url,
+          url,
           headers: stream.headers.isEmpty ? null : stream.headers,
         ),
       );
@@ -82,6 +96,21 @@ class JustAudioBackend implements AudioBackend {
     }
   }
 
+  /// 有 [hls] 與索引位置時是本機的 HLS 清單，否則是串流的網址。
+  Future<Uri> _playableUrl(AudioStream stream) async {
+    final packager = hls;
+    if (packager == null || stream.segmentBase == null) return stream.url;
+    try {
+      return await packager.playlistFor(stream);
+    } on HlsUnavailable catch (reason) {
+      onHlsUnavailable?.call(reason);
+      return stream.url;
+    }
+  }
+
+  @override
+  Future<void> seek(Duration position) => _player.seek(position);
+
   @override
   Future<void> play() async {
     // just_audio 的 play() 要到暫停或播完才完成，這裡不等（事實 K25）。
@@ -98,6 +127,7 @@ class JustAudioBackend implements AudioBackend {
       await s.cancel();
     }
     await _player.dispose();
+    await hls?.close();
     await _states.close();
   }
 

@@ -89,7 +89,7 @@ void main() {
       log: log,
       httpAdapter: http,
     );
-    final backend = createAudioBackend();
+    final backend = createAudioBackend(log);
     addTearDown(() async {
       // 先停播放器再關伺服器；只有這一個播放器（事實 W5）。
       await tester.runAsync(() async {

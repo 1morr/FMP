@@ -12,7 +12,7 @@ class FakeAudioBackend implements AudioBackend {
   /// 依序載入過的串流。
   final loaded = <AudioStream>[];
 
-  /// 依序收到的呼叫：`load`、`play`、`pause`、`dispose`。
+  /// 依序收到的呼叫：`load`、`play`、`pause`、`seek <毫秒>`、`dispose`。
   final calls = <String>[];
 
   /// 設了就讓下一次 [load] 丟它（只丟一次）。
@@ -71,6 +71,12 @@ class FakeAudioBackend implements AudioBackend {
       throw error;
     }
     emit(state.copyWith(playing: true));
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    calls.add('seek ${position.inMilliseconds}');
+    emit(state.copyWith(position: position));
   }
 
   @override

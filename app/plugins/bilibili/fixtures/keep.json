@@ -16,6 +16,10 @@
     "data.dash.audio.baseUrl",
     "data.dash.audio.base_url",
     "data.dash.audio.bandwidth",
-    "data.dash.audio.codecs"
+    "data.dash.audio.codecs",
+    "data.dash.audio.SegmentBase.Initialization",
+    "data.dash.audio.SegmentBase.indexRange",
+    "data.dash.audio.segment_base.initialization",
+    "data.dash.audio.segment_base.index_range"
   ]
 }

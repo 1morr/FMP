@@ -29,3 +29,11 @@ Blocked by: None
 - [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
+根因（2026-11-18）：B 站 CDN 偶爾把長的音訊下載連線中途關掉（curl 一次斷在 25 MB、另一次 225 MB 傳完）；AVPlayer（macOS 27、iOS 27 模擬器）把斷線前接得上的那段當整個檔，`duration` 與可 seek 範圍變短（看過 33:10、20:53、6:00），播到那裡發 `DidPlayToEnd`、seek 超過也直接結束，重開同網址也一樣。檔案本身完整（mvhd、mehd、sidx 都對，`scripts/experiments/bilibili-m4s-duration/`）。ExoPlayer、mpv 會續傳。
+切歌閃舊時長：後端層測不到（macOS 換串流期間沒發舊長度，`stream_duration_test` 第一條修前就綠）；實跑看到的是載入中後端報 0（AVPlayer 的 NaN）讓畫面顯示 `0:00` 長達 38 秒。播放層顯示規則還沒改（見下面的待做）。
+決定：Apple 平台用 byte-range HLS 包裝修，不改用 mpv、不只修顯示（使用者同意）
+決定：ADR 0040 與 ADR 0039 的 segmentBase 補充照草稿寫入（使用者同意）；草稿在 session 暫存目錄，下一個 session 照 ADR 決定段重寫入 `docs/adr/0040-apple-plays-fmp4-through-hls.md`
+決定：App 還沒有拖進度的 UI，驗收改由實跑情境經播放層 seek（Agent 定）
+決定：後端介面加最小的 `seek`（兩個實作與 fake），不做進度條（Agent 定）
+進度（WIP commit）：已做 domain `SegmentBase`／`ByteRange`、宿主解析、bilibili 插件填 segmentBase、契約期望與重錄 fixture、`playback/backends/hls/`（sidx 解析、清單、本機伺服器）、just_audio 後端接 HLS、`createAudioBackend(log)`、`seek`、測試支援（`FragmentedMp4`、`LocalAudioServer` 斷線）。`integration_test/stream_duration_test.dart` 斷線那條：macOS、iOS 沒 HLS 紅（長度 0:35、3:50），接上 HLS 綠。
+待做：(1) 播放層顯示規則（後端長度只在這次載入完成後、>0、且與曲目時長差在 max(3 s, 1%) 內才用，否則用曲目時長；搜尋頁面板改用 effectiveDuration）＋單元測試（33:10、載入中報 0、遲到的舊長度三條，修前紅）並記成決定；(2) Android 模擬器、winpc 跑 stream_duration_test（這次 Android 模擬器沒開）；(3) `duration_run.dart` 加經 audioBackendProvider seek 到 33:20 並讀回位置前進，四平台實跑（含 01-launch）；(4) 寫 ADR 0040、0039 小節、事實 M14、M15、F24、M5（`application/octet-stream` 實測打不開）、macOS Release entitlements 加 network.server；(5) code-review、完整閘門、Session 紀錄與變更行。

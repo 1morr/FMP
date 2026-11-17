@@ -50,7 +50,8 @@ async function resolveStream({
     headers: { ...MEDIA_HEADERS },
     expiresAtMs: deadlineMs(audio.url),
     codec: audio.codec,
-    bitrate: audio.bandwidth
+    bitrate: audio.bandwidth,
+    segmentBase: audio.segmentBase
   };
 }
 async function partCid(bvid, page) {
@@ -69,16 +70,29 @@ async function partCid(bvid, page) {
   }
   return part.cid;
 }
+var BYTE_RANGE = /^\d+-\d+$/;
+function segmentBaseOf(track) {
+  const camel = track.SegmentBase ?? {};
+  const snake = track.segment_base ?? {};
+  const initialization = camel.Initialization ?? snake.initialization;
+  const indexRange = camel.indexRange ?? snake.index_range;
+  if (typeof initialization === "string" && typeof indexRange === "string" && BYTE_RANGE.test(initialization) && BYTE_RANGE.test(indexRange)) {
+    return { initialization, indexRange };
+  }
+  return void 0;
+}
 function bestAudio(tracks) {
   const audios = [];
   for (const track of Array.isArray(tracks) ? tracks : []) {
-    const { baseUrl, base_url, bandwidth, codecs } = track ?? {};
+    const fields = track ?? {};
+    const { baseUrl, base_url, bandwidth, codecs } = fields;
     const url = typeof baseUrl === "string" ? baseUrl : base_url;
     if (typeof url === "string" && url !== "" && typeof bandwidth === "number") {
       audios.push({
         url,
         bandwidth,
-        codec: typeof codecs === "string" ? codecs : void 0
+        codec: typeof codecs === "string" ? codecs : void 0,
+        segmentBase: segmentBaseOf(fields)
       });
     }
   }

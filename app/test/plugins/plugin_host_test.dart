@@ -199,6 +199,24 @@ void main() {
       );
     });
 
+    test('a single-file fragmented MP4 says where its index is', () async {
+      final h = host(
+        resolving('''{
+          url: 'https://cdn.example.com/a.m4s',
+          segmentBase: { initialization: '0-836', indexRange: '837-9432' },
+        }'''),
+        manifestJson: resolveManifest,
+      );
+
+      expect(
+        (await only(h).resolveStream(a1)).segmentBase,
+        const SegmentBase(
+          initialization: ByteRange(0, 836),
+          index: ByteRange(837, 9432),
+        ),
+      );
+    });
+
     test('headers, expiry, codec and bitrate are optional', () async {
       final h = host(
         resolving("{ url: 'https://cdn.example.com/a.m4a' }"),
@@ -226,6 +244,16 @@ void main() {
       (
         'a bitrate that is not finite',
         "{ url: 'https://a.example/x', bitrate: Infinity }",
+      ),
+      (
+        'a segment base without an index range',
+        "{ url: 'https://a.example/x', "
+            "segmentBase: { initialization: '0-836' } }",
+      ),
+      (
+        'a segment base range that is not first-last',
+        "{ url: 'https://a.example/x', "
+            "segmentBase: { initialization: '0-836', indexRange: '9432-837' } }",
       ),
       (
         'a header that is not a string',
