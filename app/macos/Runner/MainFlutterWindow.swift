@@ -4,12 +4,17 @@ import FlutterMacOS
 class MainFlutterWindow: NSWindow {
   /// Dart 給的燈位（lib/platform/traffic_lights.dart）：第一顆按鈕照稿的左上角，從視窗
   /// 左上量，以及燈所在那一列的左右緣。版面是寬級還是細欄由 Dart 決定，這裡不重抄斷點。
-  private struct TrafficLightsSpot {
+  struct TrafficLightsSpot {
     let origin: NSPoint
     let minX: CGFloat
     let maxX: CGFloat
   }
-  private var trafficLightsSpot: TrafficLightsSpot?
+  /// 目前的燈位；nil 是畫面上沒有側欄或細欄，紅綠燈在系統原位。
+  private(set) var trafficLightsSpot: TrafficLightsSpot?
+  /// Dart 送過燈位了沒（null 也算）；還沒送之前三顆藏著。
+  private var trafficLightsTold = false
+  /// 系統原位（標題列高度與三顆按鈕的 origin），第一次排之前量下來，沒有燈位時放回去。
+  private var systemTrafficLights: (barHeight: CGFloat, origins: [NSPoint])?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -38,12 +43,14 @@ class MainFlutterWindow: NSWindow {
         self?.performZoom(nil)
         result(nil)
       case "setTrafficLights":
-        if let args = call.arguments as? [String: Double],
-          let x = args["x"], let y = args["y"], let minX = args["minX"], let maxX = args["maxX"]
+        let args = call.arguments as? [String: Double]
+        if let args, let x = args["x"], let y = args["y"], let minX = args["minX"],
+          let maxX = args["maxX"]
         {
-          self?.trafficLightsSpot = TrafficLightsSpot(
-            origin: NSPoint(x: x, y: y), minX: minX, maxX: maxX)
-          self?.layoutTrafficLights()
+          self?.setTrafficLights(
+            TrafficLightsSpot(origin: NSPoint(x: x, y: y), minX: minX, maxX: maxX))
+        } else {
+          self?.setTrafficLights(nil)
         }
         result(nil)
       default:
@@ -93,31 +100,47 @@ class MainFlutterWindow: NSWindow {
     }
   }
 
-  /// 排紅綠燈：先把裝按鈕的標題列加高到放得下，再排三顆按鈕（Electron 的
-  /// trafficLightPosition 也是這樣做）。原生按鈕比稿上的燈大，照稿放會比在那一列裡
-  /// 置中還靠右（右邊放不下）時改成置中。已經在位置上的不再設（容許系統對齊像素的
-  /// 誤差），自己發出的 frame 通知才不會一直排下去。
+  /// 收到 Dart 的燈位；nil 是這個畫面沒有側欄或細欄，三顆放回系統原位。
+  func setTrafficLights(_ spot: TrafficLightsSpot?) {
+    trafficLightsSpot = spot
+    trafficLightsTold = true
+    layoutTrafficLights()
+  }
+
+  /// 排紅綠燈：有燈位時先把裝按鈕的標題列加高到放得下，再排三顆按鈕（Electron 的
+  /// trafficLightPosition 也是這樣做）；原生按鈕比稿上的燈大，照稿放會比在那一列裡
+  /// 置中還靠右（右邊放不下）時改成置中。沒有燈位時放回系統原位。已經在位置上的不再
+  /// 設（容許系統對齊像素的誤差），自己發出的 frame 通知才不會一直排下去。
   private func layoutTrafficLights() {
     // 全螢幕時按鈕在系統的工具列視窗裡，不動；離開時系統重排標題列，frame 監看會排回來。
-    guard !styleMask.contains(.fullScreen),
-      let spot = trafficLightsSpot,
+    guard trafficLightsTold, !styleMask.contains(.fullScreen),
       let close = standardWindowButton(.closeButton),
       let mini = standardWindowButton(.miniaturizeButton),
       let zoom = standardWindowButton(.zoomButton),
       let container = close.superview?.superview
     else { return }
-    observeTitlebarFrames([container, close, mini, zoom])
-    let size = close.frame.size
-    let barHeight = size.height + spot.origin.y * 2
+    let buttons = [close, mini, zoom]
+    if systemTrafficLights == nil {
+      systemTrafficLights = (container.frame.height, buttons.map { $0.frame.origin })
+    }
+    observeTitlebarFrames([container] + buttons)
+    let (barHeight, origins) = trafficLightsSpot.map { spot in
+      let size = close.frame.size
+      let barHeight = size.height + spot.origin.y * 2
+      let spacing = mini.frame.minX - close.frame.minX
+      let left = min(spot.origin.x, (spot.minX + spot.maxX - spacing * 2 - size.width) / 2)
+      return (
+        barHeight,
+        (0..<3).map { i in
+          NSPoint(x: left + CGFloat(i) * spacing, y: (barHeight - size.height) / 2)
+        }
+      )
+    } ?? systemTrafficLights!
     var frame = container.frame
     frame.size.height = barHeight
     frame.origin.y = self.frame.height - barHeight
     if !container.frame.isClose(to: frame) { container.frame = frame }
-    let spacing = mini.frame.minX - close.frame.minX
-    let rowWidth = spacing * 2 + size.width
-    let left = min(spot.origin.x, (spot.minX + spot.maxX - rowWidth) / 2)
-    for (i, button) in [close, mini, zoom].enumerated() {
-      let origin = NSPoint(x: left + CGFloat(i) * spacing, y: (barHeight - size.height) / 2)
+    for (button, origin) in zip(buttons, origins) {
       if !button.frame.origin.isClose(to: origin) { button.setFrameOrigin(origin) }
       if button.isHidden { button.isHidden = false }
     }

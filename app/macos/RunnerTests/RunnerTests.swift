@@ -126,4 +126,18 @@ class TrafficLightsTests: XCTestCase {
       assertInside(Self.railBox)
     }
   }
+
+  /// 沒有側欄或細欄的畫面，Dart 送「沒有燈位」：三顆看得到，回到系統原位（macOS 27 是
+  /// (9,9)，事實 M13）。
+  func testLightsShowInTheSystemSpotWithoutASidebarOrRail() {
+    let window = Self.window as! MainFlutterWindow
+    let spot = window.trafficLightsSpot
+    defer { window.setTrafficLights(spot) }
+    window.setTrafficLights(nil)
+    Self.settle()
+    for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+      XCTAssertFalse(window.standardWindowButton(type)!.isHidden, "\(type) visible")
+    }
+    XCTAssertEqual(Self.buttonFrames()[0].origin, NSPoint(x: 9, y: 9))
+  }
 }
