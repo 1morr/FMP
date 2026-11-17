@@ -29,6 +29,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
     required this.warn,
     required this.ok,
     required this.scrim,
+    required this.coverRing,
     required this.glassSolid,
     required this.glassInk,
     required this.glassInk2,
@@ -59,6 +60,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
           warn: const Color(0xFFFFC23D),
           ok: const Color(0xFF42D88A),
           scrim: const Color.fromRGBO(0, 0, 0, .5),
+          coverRing: const Color.fromRGBO(255, 255, 255, .08),
           glassSolid: const Color(0xFF24232C),
           glassInk: _white,
           glassInk2: const Color.fromRGBO(255, 255, 255, .66),
@@ -87,6 +89,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
           warn: const Color(0xFFB87800),
           ok: const Color(0xFF148A4C),
           scrim: const Color.fromRGBO(20, 16, 40, .28),
+          coverRing: const Color.fromRGBO(0, 0, 0, .07),
           glassSolid: const Color(0xFFF7F6FA),
           glassInk: _ink,
           glassInk2: const Color.fromRGBO(21, 20, 26, .62),
@@ -122,6 +125,9 @@ class FmpColors extends ThemeExtension<FmpColors> {
   final Color warn;
   final Color ok;
   final Color scrim;
+
+  /// 封面外緣 0.5 的細線（`--cover-ring`）。
+  final Color coverRing;
 
   /// 玻璃效果「關閉」與厚玻璃的實心底。
   final Color glassSolid;
@@ -164,6 +170,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
       warn: l(warn, other.warn),
       ok: l(ok, other.ok),
       scrim: l(scrim, other.scrim),
+      coverRing: l(coverRing, other.coverRing),
       glassSolid: l(glassSolid, other.glassSolid),
       glassInk: l(glassInk, other.glassInk),
       glassInk2: l(glassInk2, other.glassInk2),

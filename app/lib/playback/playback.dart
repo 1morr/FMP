@@ -69,6 +69,9 @@ class PlaybackState {
   /// （程式錯誤）是 null，細節在 log。
   final AppError? error;
 
+  /// 後端回報的長度，還不知道時用插件給的。
+  Duration? get effectiveDuration => duration ?? track.duration;
+
   /// 要播或正在播：播放鈕顯示暫停。
   bool get playing => switch (status) {
     PlaybackStatus.resolving ||

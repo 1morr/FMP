@@ -34,7 +34,7 @@ class MiniPlayer extends ConsumerWidget {
                 child: Spine(
                   progress: spineProgress(
                     state.position,
-                    state.duration ?? track.duration,
+                    state.effectiveDuration,
                   ),
                 ),
               ),

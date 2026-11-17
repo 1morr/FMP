@@ -201,17 +201,24 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
   ];
 
-  /// 播放膠囊上方的提示；疊在最上層，浮動面板開著時也按得到。
-  Widget _transportToast({required double bottom, required bool touch}) =>
-      Positioned.fill(
-        child: ToastLayer(
-          bottom: _hasTrack
-              ? bottom + TransportBar.heightOf(touch: touch) + _toastGap
-              : bottom + 8,
-          stretch: false,
-          touch: touch,
-        ),
-      );
+  /// 播放膠囊上方的提示，和膠囊同樣的左右範圍、在內容欄置中；疊在最上層，
+  /// 浮動面板開著時也按得到。
+  Widget _transportToast({
+    required double left,
+    required double right,
+    required double bottom,
+    required bool touch,
+  }) => Positioned.fill(
+    child: ToastLayer(
+      bottom: _hasTrack
+          ? bottom + TransportBar.heightOf(touch: touch) + _toastGap
+          : bottom + 8,
+      left: left,
+      right: right,
+      stretch: false,
+      touch: touch,
+    ),
+  );
 
   Widget _medium(BuildContext context, bool touch) {
     final media = MediaQuery.of(context);
@@ -293,7 +300,12 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
         ],
-        _transportToast(bottom: touch ? bottom : 16, touch: touch),
+        _transportToast(
+          left: side + 24,
+          right: _floatingDetail ? 8 + panelWidth + 24 : 24,
+          bottom: touch ? bottom : 16,
+          touch: touch,
+        ),
       ],
     );
   }
@@ -357,7 +369,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           )
         else
           _detailButton(touch, top0, () => _setDetail(true)),
-        _transportToast(bottom: transportBottom, touch: touch),
+        _transportToast(
+          left: SideBar.width + 8 + 24,
+          right: open ? panelWidth + 24 : 24,
+          bottom: transportBottom,
+          touch: touch,
+        ),
       ],
     );
   }

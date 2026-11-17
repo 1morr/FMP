@@ -20,10 +20,17 @@ class ToastLayer extends ConsumerWidget {
     required this.bottom,
     required this.stretch,
     required this.touch,
+    this.left = 12,
+    this.right = 12,
   });
 
   /// 提示底邊離這一層底邊的距離。
   final double bottom;
+
+  /// 提示可以佔的左右範圍；桌面與中寬度是播放膠囊的左右，提示在內容欄
+  /// 置中。
+  final double left;
+  final double right;
 
   /// 手機：左右各 12 撐滿；其他寬度置中、依文字長短，最寬 480。
   final bool stretch;
@@ -56,8 +63,8 @@ class ToastLayer extends ConsumerWidget {
     return Stack(
       children: [
         Positioned(
-          left: 12,
-          right: 12,
+          left: left,
+          right: right,
           bottom: bottom,
           child: AnimatedSwitcher(
             duration: FmpMotion.mid,

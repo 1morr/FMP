@@ -9,7 +9,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// 「1:36 / 4:12」：位置與長度；長度不知道時只寫位置。
 String playbackTime(PlaybackState state) {
-  final duration = state.duration ?? state.track.duration;
+  final duration = state.effectiveDuration;
   final position = formatDuration(state.position);
   return duration == null
       ? position

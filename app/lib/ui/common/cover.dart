@@ -19,7 +19,6 @@ class Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     final pixels = (size * MediaQuery.devicePixelRatioOf(context)).round();
     return SizedBox.square(
       dimension: size,
@@ -27,12 +26,7 @@ class Cover extends StatelessWidget {
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
-          border: Border.all(
-            color: dark
-                ? const Color.fromRGBO(255, 255, 255, .08)
-                : const Color.fromRGBO(0, 0, 0, .07),
-            width: .5,
-          ),
+          border: Border.all(color: colors.coverRing, width: .5),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(radius),

@@ -54,7 +54,7 @@ class TransportBar extends StatelessWidget {
                 child: Spine(
                   progress: spineProgress(
                     state.position,
-                    state.duration ?? track.duration,
+                    state.effectiveDuration,
                   ),
                 ),
               ),
@@ -128,7 +128,7 @@ class TransportBar extends StatelessWidget {
                                       maxLines: 1,
                                       style: text.cap
                                           .copyWith(
-                                            fontSize: 11,
+                                            fontSize: touch ? 12 : 11,
                                             letterSpacing: 0,
                                             color: colors.glassInk2,
                                           )

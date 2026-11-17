@@ -65,7 +65,7 @@ void main() {
   test('the manifest declares the source mark in the source colour', () {
     final mark = bilibili().manifest.mark!;
     expect(mark.short, 'B站');
-    // `docs/design/DESIGN.md` §2.4 的 --src-bilibili。
+    // 設計稿的 --src-bilibili（`docs/design/DESIGN.md`〈音源色由插件宣告〉）。
     expect(mark.color, 0xFFFB7299);
     expect(mark.paths, isNotEmpty);
   });
