@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/audio_backend.dart';
 import 'package:fmp/playback/playback.dart';
@@ -60,6 +62,7 @@ void main() {
         logProvider.overrideWithValue(log),
         pluginHostProvider.overrideWith((_) => host),
         audioBackendProvider.overrideWithValue(backend),
+        queueRandomProvider.overrideWithValue(Random(1)),
       ],
       retry: (_, _) => null,
     );
@@ -281,5 +284,100 @@ void main() {
     expect(container.read(queueProvider).isEmpty, isTrue);
     expect(container.read(playbackProvider), isNull);
     expect(backend.calls.last, 'pause');
+  });
+
+  /// 播放模式（brief〈播放〉的隨機與循環）接上播放；group 名稱引 brief 那一點。
+  group('播放模式', () {
+    List<String> order() => [
+      for (final e in container.read(queueProvider).entries)
+        e.track.ref.trackId,
+    ];
+
+    test('單曲循環：a finished track plays again', () async {
+      await queue().add([track('a'), track('b')]);
+      queue().cycleRepeat();
+      queue().cycleRepeat();
+      expect(container.read(queueProvider).repeat, RepeatMode.one);
+
+      finishCurrent();
+      await settle();
+
+      expect(currentInQueue(), 'a');
+      expect(playing(), 'a');
+      expect(loaded(), ['a.m4a', 'a.m4a']);
+    });
+
+    test('列表循環：the last finished track goes on to the first', () async {
+      await queue().add([track('a'), track('b')]);
+      queue().cycleRepeat();
+      await queue().next();
+
+      finishCurrent();
+      await settle();
+
+      expect(playing(), 'a');
+      expect(loaded(), ['a.m4a', 'b.m4a', 'a.m4a']);
+    });
+
+    test('開關隨機不打斷正在播的那首', () async {
+      await queue().add([track('a'), track('b'), track('c')]);
+      await queue().next();
+
+      queue().toggleShuffle();
+      expect(container.read(queueProvider).shuffled, isTrue);
+      expect(order().first, 'b');
+      queue().toggleShuffle();
+      expect(container.read(queueProvider).shuffled, isFalse);
+      expect(order(), ['a', 'b', 'c']);
+
+      expect(playing(), 'b');
+      expect(loaded(), ['a.m4a', 'b.m4a']);
+    });
+
+    test('隨機加列表循環：after the whole queue finishes, a reshuffled round '
+        'starts playing', () async {
+      await queue().add([track('a'), track('b'), track('c')]);
+      queue().cycleRepeat();
+      queue().toggleShuffle();
+
+      for (var i = 0; i < 3; i++) {
+        finishCurrent();
+        await settle();
+      }
+
+      final now = container.read(queueProvider);
+      expect(now.shuffled, isTrue);
+      expect(now.currentIndex, 0);
+      expect(playing(), now.current!.track.ref.trackId);
+      expect(loaded(), hasLength(4));
+    });
+
+    test('只開隨機：the last finished track stops there', () async {
+      await queue().add([track('a'), track('b'), track('c')]);
+      queue().toggleShuffle();
+
+      for (var i = 0; i < 3; i++) {
+        finishCurrent();
+        await settle();
+      }
+
+      expect(container.read(queueProvider).currentIndex, 2);
+      expect(
+        container.read(playbackProvider)!.status,
+        PlaybackStatus.completed,
+      );
+      expect(loaded(), hasLength(3));
+    });
+
+    test('列表循環時用 × 移除正在播的最後一首，接著播第一首', () async {
+      await queue().add([track('a'), track('b')]);
+      queue().cycleRepeat();
+      await queue().next();
+
+      await queue().remove(1);
+
+      expect(playing(), 'a');
+      expect(loaded(), ['a.m4a', 'b.m4a', 'a.m4a']);
+    });
   });
 }
