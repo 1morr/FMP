@@ -8,10 +8,10 @@ import 'steps.dart';
 /// 四個平台跑 [integrationTests]。步驟名稱帶平台，失敗時看得出是哪個平台、
 /// 哪一步。
 ///
-/// - 碰共用裝置的步驟（`winpc` 的同步與建置、四平台的 integration_test）
-///   夾在 `lock shared devices` 與 `unlock shared devices` 之間，持有
-///   [deviceLock] 時才跑；沒拿到鎖就判失敗、不執行。Mac 上的三個建置只寫
-///   這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
+/// - 碰共用裝置的步驟（`winpc` 的同步與建置、macOS 的原生測試、四平台的
+///   integration_test）夾在 `lock shared devices` 與 `unlock shared devices` 之間，持有
+///   [deviceLock] 時才跑；沒拿到鎖就判失敗、不執行。Mac 上的建置（三個平台與 macOS 的原生
+///   測試）只寫這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
 /// - 一次只給 `flutter test` 一個 integration_test 檔（docs/development.md〈平台〉 的怪癖）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
 ///   不刪模擬器上的 App 與資料。iOS 只用 iPhone，沒開著就開一台
@@ -48,9 +48,27 @@ List<CheckStep> platformSteps({
     return step.run();
   });
 
+  // 和 `flutter build macos` 共用 build/macos，build-for-testing 只補建測試目標。
+  const macosNativeTests = [
+    '-workspace',
+    'macos/Runner.xcworkspace',
+    '-scheme',
+    'Runner',
+    '-destination',
+    'platform=macOS',
+    '-derivedDataPath',
+    'build/macos',
+  ];
   final windows = _Winpc(app, shell, out, winpcLogs);
   final sharedDeviceSteps = [
     CheckStep('build windows', windows.build),
+    // macos/RunnerTests 跑在 Mac 的 App 裡，讀真的視窗（紅綠燈的位置，事實 M13）；
+    // 建置在鎖外（[macosNativeTests] 的 build-for-testing）。
+    commandStep('native tests macos', shell, 'xcodebuild', [
+      'test-without-building',
+      ...macosNativeTests,
+      '-only-testing:RunnerTests',
+    ], workingDirectory: app),
     for (final file in integrationTests)
       flutter('integration_test macos: $file', ['test', file, '-d', 'macos']),
     for (final file in integrationTests)
@@ -75,6 +93,10 @@ List<CheckStep> platformSteps({
 
   return [
     flutter('build macos', ['build', 'macos', '--debug']),
+    commandStep('build macos native tests', shell, 'xcodebuild', [
+      'build-for-testing',
+      ...macosNativeTests,
+    ], workingDirectory: app),
     flutter('build ios', ['build', 'ios', '--simulator', '--debug']),
     flutter('build android', ['build', 'apk', '--debug']),
     CheckStep('lock shared devices', () async {

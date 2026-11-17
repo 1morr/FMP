@@ -398,7 +398,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.personal.fmp.dev.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/fmp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/fmp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FMP Dev.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FMP Dev";
 			};
 			name = Debug;
 		};
@@ -412,7 +412,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.personal.fmp.dev.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/fmp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/fmp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FMP Dev.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FMP Dev";
 			};
 			name = Release;
 		};
@@ -426,7 +426,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.personal.fmp.dev.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/fmp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/fmp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FMP Dev.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FMP Dev";
 			};
 			name = Profile;
 		};
