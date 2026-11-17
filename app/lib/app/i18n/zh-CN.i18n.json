@@ -60,6 +60,8 @@
     }
   },
   "nowPlaying": {
+    "next": "下一首",
+    "previous": "上一首",
     "play": "播放",
     "pause": "暂停"
   },
@@ -80,6 +82,13 @@
       "sourceUnsupported": "${source}不支持播放，「${title}」无法播放。",
       "formatUnsupported": "这台设备播不了「${title}」的格式。",
       "failed": "「${title}」无法播放。"
+    }
+  },
+  "queue": {
+    "more": "更多",
+    "actions": {
+      "playNext": "下一首播放",
+      "addToQueue": "添加到队列"
     }
   }
 }

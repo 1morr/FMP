@@ -10,8 +10,8 @@ import 'package:material_ui/material_ui.dart';
 
 /// 手機的迷你播放器（`FMP.mini`，`docs/design/DESIGN.md`〈手機〉）：56 高的
 /// 玻璃膠囊，封面 40、標題、音源符號＋作者＋時間、播放與暫停，進度是書脊。
-/// 只顯示進度，拖動在播放頁。點整條打開播放頁、下一首鈕由之後的票接上
-/// （還沒有的功能不出現入口）。
+/// 下一首鈕照稿，沒有上一首。只顯示進度，拖動在播放頁。點整條打開播放頁
+/// 由之後的票接上（還沒有的功能不出現入口）。
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key, required this.state});
 
@@ -71,6 +71,7 @@ class MiniPlayer extends ConsumerWidget {
                       size: 42,
                       iconSize: 24,
                     ),
+                    const SkipButton(forward: true, size: 42, iconSize: 24),
                   ],
                 ),
               ),

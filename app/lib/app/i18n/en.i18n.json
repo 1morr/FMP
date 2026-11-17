@@ -60,6 +60,8 @@
     }
   },
   "nowPlaying": {
+    "next": "Next",
+    "previous": "Previous",
     "play": "Play",
     "pause": "Pause"
   },
@@ -80,6 +82,13 @@
       "sourceUnsupported": "${source} doesn’t support playback, so “${title}” can’t play.",
       "formatUnsupported": "This device can’t play the format of “${title}”.",
       "failed": "“${title}” can’t play."
+    }
+  },
+  "queue": {
+    "more": "More",
+    "actions": {
+      "playNext": "Play Next",
+      "addToQueue": "Add to Queue"
     }
   }
 }

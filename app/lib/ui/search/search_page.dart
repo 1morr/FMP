@@ -6,11 +6,14 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/redaction/redact.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
+import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/search/placeholder_search.dart';
 import 'package:fmp/ui/search/search_field.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 
 /// 搜尋頁：M1 先放 M0 的佔位搜尋（結果與播放面板），照稿的搜尋頁在之後的
@@ -95,16 +98,73 @@ class _TrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final duration = track.duration;
     final text = context.fmpText;
-    return ListTile(
-      onTap: () => ref.read(playbackProvider.notifier).play(track),
-      title: Text(track.title, style: text.body),
-      subtitle: Text(
-        style: text.sub.copyWith(color: context.fmpColors.label2),
-        duration == null
-            ? track.author
-            : '${track.author} · ${formatDuration(duration)}',
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showTrackMenu(context, ref, track, details.globalPosition),
+      child: ListTile(
+        onTap: () => ref.read(queueProvider.notifier).playNow(track),
+        title: Text(track.title, style: text.body),
+        subtitle: Text(
+          style: text.sub.copyWith(color: context.fmpColors.label2),
+          duration == null
+              ? track.author
+              : '${track.author} · ${formatDuration(duration)}',
+        ),
+        trailing: Builder(
+          builder: (context) => PlainIconButton(
+            icon: FmpIcons.more,
+            tooltip: context.t.queue.more,
+            size: 36,
+            onTap: () {
+              final box = context.findRenderObject()! as RenderBox;
+              _showTrackMenu(
+                context,
+                ref,
+                track,
+                box.localToGlobal(box.size.bottomRight(Offset.zero)),
+              );
+            },
+          ),
+        ),
       ),
     );
+  }
+}
+
+enum _TrackAction { playNext, addToQueue }
+
+/// 一首搜尋結果的選單：下一首播放、加入佇列。照稿的選單（手機的 sheet、
+/// 桌面的 `.gmenu`）在搜尋頁照稿時換掉。
+Future<void> _showTrackMenu(
+  BuildContext context,
+  WidgetRef ref,
+  Track track,
+  Offset at,
+) async {
+  final t = context.t;
+  final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
+  final action = await showMenu<_TrackAction>(
+    context: context,
+    position: RelativeRect.fromRect(at & Size.zero, Offset.zero & overlay.size),
+    items: [
+      PopupMenuItem(
+        value: _TrackAction.playNext,
+        child: Text(t.queue.actions.playNext),
+      ),
+      PopupMenuItem(
+        value: _TrackAction.addToQueue,
+        child: Text(t.queue.actions.addToQueue),
+      ),
+    ],
+  );
+  final queue = ref.read(queueProvider.notifier);
+  switch (action) {
+    case _TrackAction.playNext:
+      await queue.playNext([track]);
+    case _TrackAction.addToQueue:
+      await queue.add([track]);
+    case null:
+      break;
   }
 }
 
