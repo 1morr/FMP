@@ -147,7 +147,7 @@ function toTrack(item) {
 function coverUrl(pic) {
   if (typeof pic !== "string") return void 0;
   const match = /^(?:https?:)?\/\/(.+)$/.exec(pic);
-  return match ? `https://${match[1]}` : void 0;
+  return match ? `https://${match[1]}@160w_160h_1c.webp` : void 0;
 }
 function plainText(html) {
   return html.replace(/<[^>]*>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
