@@ -38,14 +38,15 @@ sealed class QueueItem {
   const QueueItem();
 
   /// 目前佇列依播放順序排成的項目：已播放標題、播過的、正在播的、
-  /// 摺線、接下來的。沒有播過的就沒有標題，沒有接下來的就沒有摺線。
+  /// 摺線、接下來的。沒有播過的就沒有標題，沒有接下來的就沒有摺線；沒有
+  /// 目前那首時全部都是播過的。
   static List<QueueItem> of(Queue queue) {
-    final current = queue.currentIndex;
-    if (current == null) return const [];
     final entries = queue.entries;
+    final current = queue.currentIndex ?? entries.length;
     return [
       if (current > 0) PlayedCaption(current),
-      for (var i = 0; i <= current; i++) TrackItem(i, entries[i]),
+      for (var i = 0; i <= current && i < entries.length; i++)
+        TrackItem(i, entries[i]),
       if (current < entries.length - 1)
         UpNextFold(
           entries.length - 1 - current,

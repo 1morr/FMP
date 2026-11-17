@@ -224,24 +224,54 @@ void main() {
 
       expect(container.read(playbackProvider), isNull);
       expect(backend.calls.last, 'pause');
-      expect(currentInQueue(), 'a');
+      expect(currentInQueue(), isNull);
     });
   });
 
-  test('adding to a queue that is not empty never moves or starts the '
-      'current track, even when nothing plays', () async {
+  test('after the playing last track is removed, adding plays the added '
+      'track', () async {
     await queue().add([track('a'), track('b')]);
     await queue().next();
     await queue().remove(1);
+    expect(container.read(queueProvider).current, isNull);
     expect(container.read(playbackProvider), isNull);
 
     await queue().add([track('c')]);
-    await queue().playNext([track('d')]);
+
+    expect(currentInQueue(), 'c');
+    expect(playing(), 'c');
+  });
+
+  test('with a current track that is paused, adding neither moves nor starts '
+      'it', () async {
+    await queue().add([track('a')]);
+    await container.read(playbackProvider.notifier).pause();
+
+    await queue().add([track('b')]);
+    await queue().playNext([track('c')]);
 
     expect(currentInQueue(), 'a');
-    expect(container.read(playbackProvider), isNull);
-    expect(loaded(), ['a.m4a', 'b.m4a']);
+    expect(container.read(playbackProvider)!.status, PlaybackStatus.paused);
+    expect(loaded(), ['a.m4a']);
   });
+
+  test(
+    'after the last track finished, adding neither moves nor starts it',
+    () async {
+      await queue().add([track('a')]);
+      finishCurrent();
+      await settle();
+
+      await queue().add([track('b')]);
+
+      expect(currentInQueue(), 'a');
+      expect(
+        container.read(playbackProvider)!.status,
+        PlaybackStatus.completed,
+      );
+      expect(loaded(), ['a.m4a']);
+    },
+  );
 
   test('clearing the queue stops playback', () async {
     await queue().add([track('a'), track('b')]);

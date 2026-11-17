@@ -217,9 +217,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           value: _MenuAction.moveToNext,
           label: t.moveToNext,
           icon: FmpIcons.nextUp,
-          // 已經是正在播的或緊接在它後面時，沒有可移的。
-          enabled:
-              current == null || (index != current && index != current + 1),
+          // 沒有目前那首、或已經是正在播的或緊接在它後面時，沒有可移的。
+          enabled: current != null && index != current && index != current + 1,
         ),
         const GlassMenuDivider(),
         GlassMenuItem(
@@ -299,7 +298,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       );
     } else {
       final items = QueueItem.of(queue);
-      final current = queue.currentIndex!;
+      // 沒有目前那首時當成在最後一首之後：全部都是播過的。
+      final current = queue.currentIndex ?? queue.entries.length;
       scroll = CustomScrollView(
         controller: _scroll,
         slivers: [

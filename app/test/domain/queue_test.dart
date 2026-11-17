@@ -145,10 +145,41 @@ void main() {
       expect(current(queue), 'c');
     });
 
-    test('removing the current last track makes the new last one current', () {
+    test('removing the current last track leaves no current track, the '
+        'rest played', () {
       final queue = queueOf(['a', 'b'], current: 1).remove(1);
       expect(ids(queue), ['a']);
-      expect(current(queue), 'a');
+      expect(queue.current, isNull);
+      expect(queue.isEmpty, isFalse);
+      expect(queue.hasNext, isFalse);
+      expect(queue.hasPrevious, isFalse);
+    });
+
+    test('without a current track, adding appends and makes the first added '
+        'track current', () {
+      final queue = queueOf([
+        'a',
+        'b',
+      ], current: 1).remove(1).add([track('c'), track('d')]);
+      expect(ids(queue), ['a', 'c', 'd']);
+      expect(current(queue), 'c');
+    });
+
+    test(
+      'without a current track, play next goes last and becomes current',
+      () {
+        final queue = queueOf([
+          'a',
+          'b',
+        ], current: 1).remove(1).playNext([track('x')]);
+        expect(ids(queue), ['a', 'x']);
+        expect(current(queue), 'x');
+      },
+    );
+
+    test('without a current track, move to next does nothing', () {
+      final queue = queueOf(['a', 'b', 'c'], current: 2).remove(2);
+      expect(ids(queue.moveToNext(0)), ['a', 'b']);
     });
 
     test('removing the only track empties the queue', () {

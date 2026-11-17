@@ -268,6 +268,24 @@ void main() {
       expect(container.read(queueProvider).currentIndex, 21);
     });
 
+    testWidgets('after the playing last track is removed, every row counts '
+        'as played', (tester) async {
+      await start(tester, phone, count: 3, current: 3);
+
+      await tester.tap(
+        find.descendant(
+          of: rowOf('Song 3'),
+          matching: find.byKey(const Key('queue-remove')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(current(), isNull);
+      expect(find.text('已播放 2 首'), findsOneWidget);
+      expect(find.text('接下來'), findsNothing);
+      expect(find.byType(Equalizer), findsNothing);
+    });
+
     testWidgets('the cross removes a track, and removing the playing one '
         'plays the next', (tester) async {
       await start(tester, phone);
