@@ -51,6 +51,30 @@ ADR 0038 定了音源用 JS 插件實作、介面依插件宣告的插件能力�
 
 實作的票在這裡補一小節：函式名、輸入、輸出、manifest 多了哪些欄位。
 
+### 音源標識（manifest 的 `mark`，M1 票 06）
+
+不是插件能力，是 manifest 的選填欄位；沒宣告時畫面不畫符號。宿主照宣告畫，Dart 端沒有音源分支。
+
+```json
+"mark": {
+  "short": "B站",
+  "color": "#FB7299",
+  "paths": [
+    {"pathData": "M5 1.8 6.6 3.9M11 1.8 9.4 3.9", "strokeColor": "#FB7299", "strokeWidth": 1.5},
+    {"pathData": "M4.4 3.9h7.2a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H4.4a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3z", "fillColor": "#FB7299"}
+  ]
+}
+```
+
+- `short`：簡稱，用在手機搜尋結果與歌單卡副標；全名是 manifest 的 `name`，螢幕閱讀器也讀它。
+- `color`：音源色，`#RRGGBB`。
+- `paths`：16×16 畫布上由下往上畫的路徑，至少一條。欄位名照 Android VectorDrawable：`pathData` 是 SVG 路徑字串；`fillColor`、`strokeColor` 是 `#RRGGBB`，至少給一個；有 `strokeColor` 就要給正的 `strokeWidth`。線頭與轉角一律圓角。`<rect rx>`、`<circle>` 要改寫成等價的路徑。用 path_parsing 畫，不加 SVG 渲染（ARCHITECTURE〈主要依賴〉）。
+- 格式不合時整個插件不載入，和 manifest 其他欄位一樣（2026-11-17 擁有者同意用路徑清單，不另放 SVG 檔）。
+
+### `search` 的曲目封面（M1 票 06）
+
+`PluginTrack` 多一個選填的 `coverUrl`：清單用的封面縮圖網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗。縮圖的尺寸由插件挑，夠 3x 螢幕上 40–52 點的封面用（bilibili 用圖床參數裁成 160 方形 webp，約 2 KB；原圖平均約 450 KB）；播放頁與曲目資訊要的大圖之後另外取。宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。契約測試的 search 案例可以加 `{"covers": true}`，要求每首都有封面。排序參數由票 14 補。
+
 ## 後果
 
 - 好的：清單短，插件頁（設計稿的 `plugins.html`）照這份列出支援與不支援；複製連結、排序不用另外宣告。

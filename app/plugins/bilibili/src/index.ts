@@ -217,7 +217,7 @@ function toTrack(item: unknown): PluginTrack {
 /**
  * 清單用的縮圖：搜尋結果的 `pic` 是 `//host/…` 或 `http://…` 的原圖（平均約
  * 450 KB），一律改成 https（iOS 擋明文 http），再加 B 站圖床的縮圖參數，裁成
- * 160 方形 webp（約 2 KB），3x 螢幕上 40–52 點的封面夠用。
+ * 160 方形 webp（約 2 KB），3x 螢幕上 40–52 點的封面夠用（事實 F23）。
  */
 function coverUrl(pic: unknown): string | undefined {
   if (typeof pic !== 'string') return undefined;

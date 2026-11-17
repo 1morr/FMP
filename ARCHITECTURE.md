@@ -72,7 +72,7 @@ app/
 | 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 已實測（brief 事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4） |
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
-| 圖片 | cached_network_image | |
+| 圖片 | cached_network_image 4.0.7、flutter_cache_manager 3.5.0 | 封面的磁碟快取；用到 path_provider 與 sqflite（Windows 用它的 JSON 紀錄），只在 `platform/` 用。快取只能限檔數與多久沒用，不能限位元組（〈快取〉） |
 | 玻璃 | liquid_glass_easy 5.2.0（2026-11-15 加入時重查，仍是 pub.dev 的 stable） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
 | i18n | slang 4.19.2、slang_flutter 4.19.0 | 舊版用過；Flutter 元件的在地化用 `material_ui` 的 `GlobalMaterialLocalizations` |
 | log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |
@@ -91,7 +91,7 @@ app/
 
 - 串流網址：只在記憶體，跟著正在播的那首與預載的下一首，不進資料庫，重啟後重新解析。要用網址前（載入、預載、暫停後繼續、seek）離過期不到 2 分鐘就先重新解析；插件沒給有效期的，失敗（含 403）時重新解析一次。
 - 排行榜：每個音源最後一份榜存 drift，帶抓取時間。首頁先顯示快取，超過 1 小時才在背景重抓，下拉刷新強制重抓；沒有網路時照樣顯示並寫抓取多久了（`docs/design/DESIGN.md` §6.7）。
-- 圖片：`cached_network_image` 的磁碟快取，上限 500 MB。封面網址由插件給，請求不經宿主網路層，和串流網址的網域檢查一起在 M1.5 處理。
+- 圖片：`cached_network_image` 的磁碟快取，上限 1000 個檔、30 天沒用就刪（套件只能限檔數；以 B 站原圖平均約 450 KB 換算約 500 MB，清單用的縮圖小得多）。封面網址由插件給，請求不經宿主網路層，和串流網址的網域檢查一起在 M1.5 處理。
 - 搜尋結果、曲目資訊：只在記憶體，跟著 provider 的生命週期。
 - 歌詞：M4 定。
 - 音訊：沒有磁碟快取（brief §9），只有音訊後端在記憶體的緩衝。
