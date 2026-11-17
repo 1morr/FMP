@@ -6,8 +6,10 @@ import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/now_playing/mini_player.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
@@ -34,6 +36,7 @@ void main() {
   late Log log;
   late PluginHost host;
   late _FakePlayback playback;
+  late _FakeQueue queue;
 
   setUp(() async {
     LocaleSettings.setLocaleSync(AppLocale.zhTw);
@@ -85,17 +88,20 @@ void main() {
     WidgetTester tester,
     Size size, {
     PlaybackState? initial,
+    Queue initialQueue = Queue.empty,
   }) async {
     tester.view
       ..physicalSize = size
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     playback = _FakePlayback(initial);
+    queue = _FakeQueue(initialQueue);
     await tester.pumpWidget(
       buildRoot(
         overrides: [
           pluginHostProvider.overrideWith((_) => host),
           playbackProvider.overrideWith(() => playback),
+          queueProvider.overrideWith(() => queue),
         ],
       ),
     );
@@ -106,6 +112,18 @@ void main() {
     playback.set(next);
     await tester.pumpAndSettle();
   }
+
+  Track other(String id) => Track(
+    ref: TrackRef(pluginId: 'demo', trackId: id),
+    title: id,
+    author: 'B',
+  );
+
+  /// 目前那首在中間：有上一首也有下一首。
+  final middle = Queue.empty.add([other('a'), track, other('b')]).jumpTo(1);
+
+  /// 只有一首：沒有上一首、下一首。
+  final single = Queue.empty.add([track]);
 
   /// 照 manifest 畫出來的音源標識，螢幕閱讀器讀音源名稱。
   final sourceMark = find.byWidgetPredicate(
@@ -169,6 +187,33 @@ void main() {
       expect(playback.playPauses, 2);
     });
 
+    testWidgets('skips to the next track', (tester) async {
+      await start(
+        tester,
+        phone,
+        initial: state(PlaybackStatus.playing),
+        initialQueue: middle,
+      );
+
+      await tester.tap(find.byTooltip('下一首'));
+      expect(queue.calls, ['next']);
+      expect(find.byTooltip('上一首'), findsNothing);
+    });
+
+    testWidgets('the next button is disabled on the last track', (
+      tester,
+    ) async {
+      await start(
+        tester,
+        phone,
+        initial: state(PlaybackStatus.playing),
+        initialQueue: single,
+      );
+
+      await tester.tap(find.byTooltip('下一首'), warnIfMissed: false);
+      expect(queue.calls, isEmpty);
+    });
+
     testWidgets('the spine follows the position', (tester) async {
       await start(
         tester,
@@ -215,6 +260,32 @@ void main() {
 
         await tester.tap(inBar(find.byTooltip('暫停')));
         expect(playback.playPauses, 1);
+      });
+
+      testWidgets('$name: skips back and forward', (tester) async {
+        await start(
+          tester,
+          size,
+          initial: state(PlaybackStatus.playing),
+          initialQueue: middle,
+        );
+
+        await tester.tap(find.byTooltip('上一首'));
+        await tester.tap(find.byTooltip('下一首'));
+        expect(queue.calls, ['previous', 'next']);
+      });
+
+      testWidgets('$name: skipping is disabled at the ends', (tester) async {
+        await start(
+          tester,
+          size,
+          initial: state(PlaybackStatus.playing),
+          initialQueue: single,
+        );
+
+        await tester.tap(find.byTooltip('上一首'), warnIfMissed: false);
+        await tester.tap(find.byTooltip('下一首'), warnIfMissed: false);
+        expect(queue.calls, isEmpty);
       });
     }
 
@@ -293,4 +364,21 @@ class _FakePlayback extends Playback {
 
   @override
   Future<void> play(Track track) async => played.add(track);
+}
+
+/// 佇列由測試給定；記下按了上一首、下一首。
+class _FakeQueue extends QueueController {
+  _FakeQueue(this._initial);
+
+  final Queue _initial;
+  final calls = <String>[];
+
+  @override
+  Queue build() => _initial;
+
+  @override
+  Future<void> next() async => calls.add('next');
+
+  @override
+  Future<void> previous() async => calls.add('previous');
 }

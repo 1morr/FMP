@@ -25,4 +25,14 @@ void main() {
       expect(WindowChrome.captionButtonsWidth, 0, reason: '$platform');
     }
   });
+
+  test('shortcut hints spell Alt and Enter as symbols only on Apple '
+      'platforms', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    expect(WindowChrome.altKeyLabel, '⌥');
+    expect(WindowChrome.enterKeyLabel, '⏎');
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    expect(WindowChrome.altKeyLabel, 'Alt');
+    expect(WindowChrome.enterKeyLabel, 'Enter');
+  });
 }

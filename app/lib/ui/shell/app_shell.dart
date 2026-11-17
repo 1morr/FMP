@@ -142,8 +142,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  Widget _content(EdgeInsets padding) =>
-      ShellInsets(padding: padding, child: widget.child);
+  Widget _content(EdgeInsets padding, ShellTopBar topBar) =>
+      ShellInsets(padding: padding, topBar: topBar, child: widget.child);
+
+  /// 頂列右端讓給詳情面板鈕（`_detailButton`）：鈕本身、右邊的 16 與鈕前
+  /// 的 8；內容區右緣就是視窗右緣時才要（以視窗右緣算 [_captionInset]）。
+  static double _detailButtonInset(bool touch) =>
+      8 + _captionInset(8) + 16 + (touch ? 44 : 34) + 8;
 
   Widget _phone(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -156,6 +161,13 @@ class _AppShellState extends ConsumerState<AppShell> {
               media.viewPadding.top + 62,
               20,
               phoneDockHeight + 20,
+            ),
+            // `.ptop`：狀態列下方、高 52、左右 16。
+            ShellTopBar(
+              top: media.viewPadding.top,
+              height: 52,
+              left: 16,
+              right: 16,
             ),
           ),
         ),
@@ -240,6 +252,13 @@ class _AppShellState extends ConsumerState<AppShell> {
               top0 + (touch ? 62 : 66),
               32,
               touch ? 150 : _transportInset,
+            ),
+            // `.wtop`：離頂 8、高 50（平板 6、52），左 24；右端讓出詳情面板鈕。
+            ShellTopBar(
+              top: top0 + (touch ? 6 : 8),
+              height: touch ? 52 : 50,
+              left: 24,
+              right: _detailButtonInset(touch),
             ),
           ),
         ),
@@ -327,6 +346,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           bottom: 0,
           child: _content(
             EdgeInsets.fromLTRB(24, top0 + 66, 32, _transportInset),
+            ShellTopBar(
+              top: top0 + (touch ? 6 : 8),
+              height: touch ? 52 : 50,
+              left: 24,
+              right: open ? 16 : _detailButtonInset(touch),
+            ),
           ),
         ),
         Positioned(

@@ -162,6 +162,16 @@ class Playback extends Notifier<PlaybackState?> {
     }
   }
 
+  /// 停止：暫停後端、沒有正在播的曲目（狀態回到 null）。解析或載入到一半
+  /// 的那首不會再開始播。
+  Future<void> stop() async {
+    ++_generation;
+    _stallTimer?.cancel();
+    _stallTimer = null;
+    state = null;
+    await _backendOrNull?.pause();
+  }
+
   /// 沒播過時什麼都不做。
   Future<void> pause() async => _backendOrNull?.pause();
 
@@ -236,6 +246,12 @@ class Playback extends Notifier<PlaybackState?> {
         current.status == PlaybackStatus.resolving ||
         current.status == PlaybackStatus.failed) {
       // 解析中收到的是上一首的狀態；失敗後要等下一次 play。
+      return;
+    }
+    if (current.status == PlaybackStatus.loading &&
+        backend.status == AudioBackendStatus.completed) {
+      // 剛開始載入的串流不會已經播完，是上一首遲到的狀態；收下的話佇列
+      // 會再接一次下一首。
       return;
     }
     final status = switch (backend.status) {

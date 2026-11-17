@@ -9,7 +9,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// 桌面與中寬度的播放膠囊（`.transport`，`docs/design/DESIGN.md`〈桌面〉
 /// 〈中寬度〉）：玻璃膠囊本身是書脊式進度條；三欄，左邊封面、標題、音源符號
-/// ＋作者，中間播放鈕，右邊時間。膠囊窄於 640 時收掉時間。上一首、下一首、
+/// ＋作者，中間上一首、播放、下一首，右邊時間。膠囊窄於 640 時收掉時間。
 /// 隨機、循環、歌詞、佇列、音量與拖動進度由之後的票接上（還沒有的功能不
 /// 出現入口）。
 class TransportBar extends StatelessWidget {
@@ -110,10 +110,22 @@ class TransportBar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 14),
+                        SkipButton(
+                          forward: false,
+                          size: touch ? 44 : 32,
+                          iconSize: 20,
+                        ),
+                        const SizedBox(width: 6),
                         PlayPauseButton(
                           playing: state.playing,
                           size: touch ? 50 : 38,
                           iconSize: 24,
+                        ),
+                        const SizedBox(width: 6),
+                        SkipButton(
+                          forward: true,
+                          size: touch ? 44 : 32,
+                          iconSize: 20,
                         ),
                         const SizedBox(width: 14),
                         Expanded(

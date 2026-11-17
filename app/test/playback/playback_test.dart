@@ -170,6 +170,33 @@ void main() {
     });
   });
 
+  test('a stale completion while the next stream loads is ignored', () async {
+    backend.holdLoad = Completer<void>();
+    final playing = playback().play(playable);
+    for (var i = 0; i < 100 && backend.calls.isEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(current()!.status, PlaybackStatus.loading);
+
+    backend.emit(backend.state.copyWith(status: AudioBackendStatus.completed));
+    expect(current()!.status, PlaybackStatus.loading);
+
+    backend.holdLoad!.complete();
+    await playing;
+    expect(current()!.status, PlaybackStatus.playing);
+  });
+
+  test('stopping while a stream resolves never starts it', () async {
+    final playing = playback().play(playable);
+    expect(current()!.status, PlaybackStatus.resolving);
+
+    await playback().stop();
+    await playing;
+
+    expect(current(), isNull);
+    expect(backend.calls, isNot(contains('load')));
+  });
+
   test('the backend state drives buffering, position and completion', () async {
     await playback().play(playable);
 

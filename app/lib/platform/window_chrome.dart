@@ -44,4 +44,8 @@ abstract final class WindowChrome {
   /// 快捷鍵寫給人看的樣子，例如「⌘K」「Ctrl K」。
   static String shortcutLabel(String key) =>
       _usesCommandKey ? '⌘$key' : 'Ctrl $key';
+
+  /// 快捷鍵提示裡的 Alt 與 Enter：macOS 寫符號 ⌥、⏎，其他平台寫 Alt、Enter。
+  static String get altKeyLabel => _usesCommandKey ? '⌥' : 'Alt';
+  static String get enterKeyLabel => _usesCommandKey ? '⏎' : 'Enter';
 }

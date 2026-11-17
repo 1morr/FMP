@@ -15,7 +15,8 @@ class ShellButton extends StatefulWidget {
     this.tooltip,
   });
 
-  final VoidCallback onTap;
+  /// null 時停用：點不了，螢幕閱讀器讀成停用；外觀由 [builder] 自己畫。
+  final VoidCallback? onTap;
   final Widget Function(BuildContext context, bool hovered) builder;
 
   /// 給螢幕閱讀器的名字；看得到的文字已經夠時留 null。
@@ -34,8 +35,9 @@ class _ShellButtonState extends State<ShellButton> {
 
   @override
   Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
     Widget child = MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
@@ -46,6 +48,7 @@ class _ShellButtonState extends State<ShellButton> {
     );
     child = Semantics(
       button: true,
+      enabled: enabled,
       selected: widget.selected,
       label: widget.label,
       child: child,
@@ -57,7 +60,8 @@ class _ShellButtonState extends State<ShellButton> {
   }
 }
 
-/// 頂列的玻璃圓鈕（`FMP.gbtn`）：觸控 44、滑鼠 34。
+/// 頂列的玻璃圓鈕（`FMP.gbtn`）：觸控 44、滑鼠 34。[onTap] 為 null 時停用
+/// （40% 透明、點不了）。
 class GlassIconButton extends StatelessWidget {
   const GlassIconButton({
     super.key,
@@ -69,7 +73,7 @@ class GlassIconButton extends StatelessWidget {
 
   final FmpIcons icon;
   final String tooltip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool touch;
 
   @override
@@ -79,10 +83,13 @@ class GlassIconButton extends StatelessWidget {
       onTap: onTap,
       tooltip: tooltip,
       label: tooltip,
-      builder: (context, _) => Glass(
-        child: SizedBox.square(
-          dimension: side,
-          child: Center(child: FmpIcon(icon, size: touch ? 20 : 17)),
+      builder: (context, _) => Opacity(
+        opacity: onTap == null ? .4 : 1,
+        child: Glass(
+          child: SizedBox.square(
+            dimension: side,
+            child: Center(child: FmpIcon(icon, size: touch ? 20 : 17)),
+          ),
         ),
       ),
     );
