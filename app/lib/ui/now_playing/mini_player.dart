@@ -22,56 +22,60 @@ class MiniPlayer extends ConsumerWidget {
     final colors = context.fmpColors;
     final text = context.fmpText;
     final track = state.track;
-    return Glass(
-      child: SizedBox(
-        height: 56,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Spine(
-                progress: spineProgress(
-                  state.position,
-                  state.duration ?? track.duration,
+    // 自成一個語意節點，螢幕閱讀器不把它和頁面的字併在一起。
+    return Semantics(
+      container: true,
+      child: Glass(
+        child: SizedBox(
+          height: 56,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Spine(
+                  progress: spineProgress(
+                    state.position,
+                    state.duration ?? track.duration,
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 8, right: 6),
-              child: Row(
-                children: [
-                  Cover(url: track.coverUrl, size: 40, radius: 9),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.body.copyWith(
-                            fontSize: 15,
-                            height: 19 / 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0,
-                            color: colors.glassInk,
+              Padding(
+                padding: const EdgeInsets.only(left: 8, right: 6),
+                child: Row(
+                  children: [
+                    Cover(url: track.coverUrl, size: 40, radius: 9),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            track.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.body.copyWith(
+                              fontSize: 15,
+                              height: 19 / 15,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0,
+                              color: colors.glassInk,
+                            ),
                           ),
-                        ),
-                        _Subtitle(state: state),
-                      ],
+                          _Subtitle(state: state),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  PlayPauseButton(
-                    playing: state.playing,
-                    size: 42,
-                    iconSize: 24,
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    PlayPauseButton(
+                      playing: state.playing,
+                      size: 42,
+                      iconSize: 24,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

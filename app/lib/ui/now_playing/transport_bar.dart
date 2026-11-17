@@ -42,104 +42,108 @@ class TransportBar extends StatelessWidget {
       letterSpacing: 0,
       color: colors.glassInk2,
     );
-    return Glass(
-      child: SizedBox(
-        height: height,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Spine(
-                progress: spineProgress(
-                  state.position,
-                  state.duration ?? track.duration,
+    // 自成一個語意節點，螢幕閱讀器不把它和頁面的字併在一起。
+    return Semantics(
+      container: true,
+      child: Glass(
+        child: SizedBox(
+          height: height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Spine(
+                  progress: spineProgress(
+                    state.position,
+                    state.duration ?? track.duration,
+                  ),
                 ),
               ),
-            ),
-            LayoutBuilder(
-              builder: (context, box) {
-                final compact = box.maxWidth < 640;
-                return Padding(
-                  padding: EdgeInsets.only(left: 10, right: touch ? 12 : 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Cover(
-                              url: track.coverUrl,
-                              size: touch ? 48 : 44,
-                              radius: 10,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: title,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      SourceMarkIcon(
-                                        pluginId: track.ref.pluginId,
-                                        size: touch ? 15 : 14,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Flexible(
-                                        child: Text(
-                                          track.author,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: sub,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+              LayoutBuilder(
+                builder: (context, box) {
+                  final compact = box.maxWidth < 640;
+                  return Padding(
+                    padding: EdgeInsets.only(left: 10, right: touch ? 12 : 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Cover(
+                                url: track.coverUrl,
+                                size: touch ? 48 : 44,
+                                radius: 10,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      PlayPauseButton(
-                        playing: state.playing,
-                        size: touch ? 50 : 38,
-                        iconSize: 24,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: compact
-                              ? null
-                              : Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: Text(
-                                    playbackTime(state),
-                                    maxLines: 1,
-                                    style: text.cap
-                                        .copyWith(
-                                          fontSize: 11,
-                                          letterSpacing: 0,
-                                          color: colors.glassInk2,
-                                        )
-                                        .tabular,
-                                  ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      track.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: title,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        SourceMarkIcon(
+                                          pluginId: track.ref.pluginId,
+                                          size: touch ? 15 : 14,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Flexible(
+                                          child: Text(
+                                            track.author,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: sub,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
+                        const SizedBox(width: 14),
+                        PlayPauseButton(
+                          playing: state.playing,
+                          size: touch ? 50 : 38,
+                          iconSize: 24,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: compact
+                                ? null
+                                : Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: Text(
+                                      playbackTime(state),
+                                      maxLines: 1,
+                                      style: text.cap
+                                          .copyWith(
+                                            fontSize: 11,
+                                            letterSpacing: 0,
+                                            color: colors.glassInk2,
+                                          )
+                                          .tabular,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

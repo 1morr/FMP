@@ -1,6 +1,8 @@
 # Launch fmp.exe in desktop session, wait, screenshot window to PNG, close app. ASCII only.
 # -Type <text>: after raising the window, press Tab (focus the first field), type
 # <text> as Unicode SendInput (bypasses the IME), press Enter, wait -TypeWait s.
+# -TypeAt "x,y": click there (client logical pixels) instead of pressing Tab, for a
+# field that Tab does not reach first; "x,y;x,y" clicks several times.
 # -Click "x,y": then left-click at x,y logical pixels of the client area (scaled by
 # the window DPI), wait -ClickWait s. Several clicks "x,y;x,y;...": each one is
 # followed by -ClickWait s and a screenshot <Out without .png>-<n>.png (n from 1).
@@ -9,7 +11,7 @@
 # app ended up with, so a size under the minimum shows the clamp.
 # The app's stdout/stderr go to C:\fmp-wt\app-stdout.txt / app-stderr.txt (a Dart VM
 # abort prints there); after closing the window the log says exited_after_close.
-param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$Click = '', [int]$ClickWait = 8, [string]$Size = '')
+param([string]$Exe, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Type = '', [int]$TypeWait = 10, [string]$TypeAt = '', [string]$Click = '', [int]$ClickWait = 8, [string]$Size = '')
 $log = 'C:\fmp-wt\shot.log'
 "start" | Out-File $log -Encoding ascii
 Add-Type -AssemblyName System.Drawing
@@ -81,7 +83,9 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
   }
   if ($Type -ne '') {
     Raise; "foreground_is_fmp_before_typing=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
-    [W]::Key(0x09); Start-Sleep -Milliseconds 300
+    if ($TypeAt -ne '') { foreach ($c in $TypeAt.Split(';')) { $xy = $c.Split(','); [W]::Click($h, [int]$xy[0], [int]$xy[1]) | Out-Null; Start-Sleep -Milliseconds 800 } }
+    else { [W]::Key(0x09) }
+    Start-Sleep -Milliseconds 300
     [W]::Text($Type); Start-Sleep -Milliseconds 300
     [W]::Key(0x0D)
     "typed [$Type], waiting $TypeWait s" | Out-File $log -Append -Encoding ascii

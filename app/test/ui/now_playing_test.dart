@@ -140,6 +140,24 @@ void main() {
       expect(inMini(sourceMark), findsOneWidget);
     });
 
+    testWidgets('is one node for screen readers, apart from the page', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, phone, initial: state(PlaybackStatus.playing));
+
+      expect(
+        find.descendant(
+          of: find.byType(MiniPlayer),
+          matching: find.bySemanticsLabel(
+            RegExp('晴天\nDemo Source\n某 UP 主\n· 1:36 / 4:12'),
+          ),
+        ),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
     testWidgets('pauses and resumes', (tester) async {
       await start(tester, phone, initial: state(PlaybackStatus.playing));
 
@@ -199,6 +217,22 @@ void main() {
         expect(playback.playPauses, 1);
       });
     }
+
+    testWidgets('is one node for screen readers, apart from the page', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, desktop, initial: state(PlaybackStatus.playing));
+
+      expect(
+        find.descendant(
+          of: find.byType(TransportBar),
+          matching: find.bySemanticsLabel(RegExp('^晴天\nDemo Source\n某 UP 主')),
+        ),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
 
     testWidgets('a narrow window drops the time', (tester) async {
       await start(
