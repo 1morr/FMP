@@ -80,7 +80,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 - 照 `docs/design/` 的定稿實作，要偏離先問擁有者。定稿之後才新增或大改的畫面，在那張票的第一步用 `impeccable:impeccable` 出設計，擁有者確認後才實作。
 - 做對比版：每一版在自己的 worktree 做，只讀 brief 與 `docs/design/DESIGN.md`，別的版本的設計稿留到擁有者比較時才打開。
-- UI 改動實跑驗證，附截圖或讀回的畫面文字。
+- UI 改動實跑驗證（照 docs/development.md〈實跑驅動〉），附截圖或讀回的畫面文字。
 
 ## 公開 repo 與擁有者的帳號
 

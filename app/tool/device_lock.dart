@@ -44,7 +44,7 @@ Future<void> main(List<String> args) async {
   final [executable, ...arguments] = rest.sublist(1);
   if (!await lock.heldByThisWorktree()) {
     await lock.acquire(stderr);
-    await _startAdbServer();
+    await startAdbServer();
   }
 
   final process = await Process.start(
@@ -68,17 +68,4 @@ Future<void> main(List<String> args) async {
   await lock.release();
   // 被訊號結束時 Dart 給負的訊號編號；照 shell 的慣例換成 128 + n。
   exit(code < 0 ? 128 - code : code);
-}
-
-/// 讓 adb server 以 `ADB_MDNS=0` 跑起來（brief 事實 K15）：server 不在時
-/// 啟動它，在跑時什麼都不做，不會打斷別的 session。Orca 等閘門外的工具叫起來
-/// 的 server 不帶這個變數，所以拿到鎖就先叫一次。沒裝 adb 時略過。
-Future<void> _startAdbServer() async {
-  try {
-    await Process.run('adb', [
-      'start-server',
-    ], environment: sharedDeviceEnvironment);
-  } on ProcessException {
-    // 這台機器沒有 adb：用不到 Android 模擬器。
-  }
 }
