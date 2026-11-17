@@ -1,6 +1,6 @@
 # 06: 迷你播放器、播放膠囊與 Toast
 
-Status: ready-for-agent
+Status: done
 Blocked by: 05
 讀: brief §11、§13；`docs/design/DESIGN.md` §5.1、§5.2、§6.4；`docs/design/shell.html`；architecture〈依賴規則〉；spec〈共同規則〉
 
@@ -17,10 +17,10 @@ Blocked by: 05
 - [x] Toast 入口有測試：錯誤分類對到文字與動作；沒有網路時播放顯示網路錯誤的 Toast。
 - [x] 音源標識讀 manifest 宣告的簡稱、顏色、符號（ADR 0039），Dart 端沒有音源專屬的分支；manifest 多的欄位寫回 ADR 0039〈各插件能力的介面〉。
 - [x] 四平台實跑：搜尋、播放一首，迷你播放器讀回曲名並能暫停、繼續。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。（Windows 的兩個 integration_test 還沒跑完，見 Comments 的閘門）
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。（Windows 的兩個 integration_test 在 winpc 重開後補跑，見 Comments 的閘門）
 
 ## Comments
-閘門：`dart run tool/check.dart` 完整版（51b3c78a，之後只改了票）除了 Windows 的兩個 integration_test 都綠，Windows build 也綠；跑 `integration_test/app_test.dart` 時 `winpc` 斷線（`ssh_dispatch_run_fatal … Operation timed out`，接著 `Host is down`），之後 30 多分鐘 ping 不通、SSH 連不上，查不了 Kernel-Power 事件，也沒辦法照 docs/development.md〈Windows〉的閘門指令重跑
+閘門：`dart run tool/check.dart` 完整版（51b3c78a，之後只改了票）除了 Windows 的兩個 integration_test 都綠，Windows build 也綠；跑 `integration_test/app_test.dart` 時 `winpc` 斷線（`ssh_dispatch_run_fatal … Operation timed out`，接著 `Host is down`），之後 30 多分鐘 ping 不通、SSH 連不上。擁有者開機後查到：13:24:41 Kernel-Power 41、13:24:54 藍屏 BugCheck `0x3B`（`0xc0000005`，minidump 在 `C:\WINDOWS\Minidump\`），6008 記上次非預期關機在 10:10:00。照 docs/development.md〈Windows〉的閘門指令持鎖補跑（`app/` 和 51b3c78a 相同）：第 1 輪 pub get、slang、codegen 都是 0，`integration_test/app_test.dart`（+2）與 `integration_test/search_and_play_test.dart`（+1）都 `All tests passed`、`exit test=0`、有 `=== done`；那輪的建置步驟是 rustc 編 `hashbrown` 失敗（MSB8066，沒有編譯錯誤訊息；同時段 powershell 在 clr.dll 存取違規）。第 2–4 輪建置都卡在 codegen 的 Dart `===== CRASH =====`（`exit codegen=78`／`-1073740791`，位址每次不同），是〈其他已知怪癖〉記的 winpc 不穩。Windows 建置在上面那輪完整閘門已是 `ok`，所以每一步都在這份程式碼綠過
 Session 紀錄：2026-11-17 迷你播放器、播放膠囊（書脊式進度）、單一 Toast 入口與播放失敗提示；manifest 的音源標識、曲目封面與磁碟快取；四平台實跑搜尋、播放、暫停、繼續
 決定：音源標識是 manifest 選填的 `mark`（簡稱、顏色、照 VectorDrawable 欄位名的路徑清單），用 path_parsing 畫、不加 SVG 渲染；寫回 ADR 0039（使用者同意）
 決定：曲目加選填的封面網址，B 站搜尋回傳封面，用 cached_network_image 4.0.7 顯示；這張票補上，不留給別張（使用者同意）
@@ -54,3 +54,5 @@ code-review 未處理：判斷題的 smell 沒改：`MiniPlayer`／`TransportBar
 變更：Added｜提示｜播放失敗時跳出提示說明原因，沒有網路這類可重試的情況有「重試」
 變更：Changed｜搜尋｜搜尋頁的播放面板不再有暫停、繼續鈕，改用迷你播放器或播放膠囊
 等使用者：`winpc`（跑 Windows 建置與測試的那台電腦）在完整閘門跑到 Windows 的 integration_test 時斷線，之後一直連不上（ping 不通、SSH 逾時）。選項：開機並登入桌面，讓接手的 session 在 51b3c78a 照 docs/development.md〈Windows〉的閘門指令補跑那兩個 integration_test（先查有沒有 Kernel-Power 重開事件）；或者這張票先不管 Windows。建議開機補跑。不處理的話，這張票不能改 done，也不能合併。
+決定：開機補跑 Windows 的 integration_test（使用者定）
+Session 紀錄：2026-11-17 winpc 重開後補跑 Windows 的兩個 integration_test（綠），票改 done
