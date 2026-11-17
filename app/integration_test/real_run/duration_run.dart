@@ -66,6 +66,24 @@ void main() {
     final controls = find.byWidgetPredicate(
       (w) => w is MiniPlayer || w is TransportBar,
     );
+
+    /// App 還沒有拖進度的畫面（播放頁的票），經音訊後端跳到 33:20：iOS 曾把
+    /// 這首報成 33:10 並在那裡結束（事實 M14）。讀回位置要往前走、還在播同一首。
+    Future<void> seekPast33Minutes(String title) async {
+      const target = Duration(minutes: 33, seconds: 20);
+      await tester.runAsync(
+        () => container.read(audioBackendProvider).seek(target),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(seconds: 8)),
+      );
+      final state = container.read(playbackProvider)!;
+      expect(state.track.title, title);
+      expect(state.status, PlaybackStatus.playing);
+      expect(state.position, greaterThan(target + const Duration(seconds: 2)));
+      await run.step('seek');
+    }
+
     for (final (index, name) in [(0, 'first'), (1, 'second'), (2, 'third')]) {
       final row = find.ancestor(
         of: more.at(index),
@@ -86,6 +104,7 @@ void main() {
         () => Future<void>.delayed(const Duration(seconds: 6)),
       );
       await run.step(name);
+      if (index == 0) await seekPast33Minutes(title);
     }
 
     expect(mismatches, isEmpty);
