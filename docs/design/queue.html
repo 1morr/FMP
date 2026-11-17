@@ -363,12 +363,12 @@ FMP.page({
     {
       title: '手機：隨機、拖動與臨時播放',
       frames: [
-        { kind: 'phone', label: '剛打開隨機', render: (ctx) => quPhone(ctx, { shuffle: true, repeat: 'all', overlay: FMP.toast('<span>已打亂接下來的 63 首；關掉隨機會恢復原本的順序</span>', { style: 'bottom:176px;padding-right:18px' }) }), after: (root) => quAfterPhone(root, { noScroll: true }) },
+        { kind: 'phone', label: '剛打開隨機', render: (ctx) => quPhone(ctx, { shuffle: true, repeat: 'all' }), after: (root) => quAfterPhone(root, { noScroll: true }) },
         { kind: 'phone', label: '拖動排序中', render: (ctx) => quPhone(ctx, { repeat: 'all', drag: true }), after: (root) => quAfterPhone(root) },
         { kind: 'phone', label: '臨時播放中', render: (ctx) => quPhone(ctx, { repeat: 'all', temp: true }), after: (root) => quAfterPhone(root, { temp: true }) },
       ],
       notes: '<h3>隨機（brief §6）</h3><ul>' +
-        '<li>打開隨機時，正在播的那首移到最上面，其他的打亂排在摺線下；摺線上寫「隨機順序」。第一次打開跳一則提示說明關掉會恢復原順序。</li>' +
+        '<li>打開隨機時，正在播的那首移到最上面，其他的打亂排在摺線下；摺線上寫「隨機順序」。不跳提示（擁有者 2026-11-17）。</li>' +
         '<li>關掉隨機：恢復原本的順序，從正在播的那首在原順序裡的位置繼續；畫面再捲到它。</li>' +
         '<li>隨機時拖動過、或用「下一首播放」插進來的曲目，關掉隨機後排在正在播放那首的後面，不回到原本的位置（擁有者 2026-11-11）。</li>' +
         '<li>用 × 移除正在播的那首：直接接著播下一首。</li>' +

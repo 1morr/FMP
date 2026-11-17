@@ -51,6 +51,7 @@ sealed class QueueItem {
         UpNextFold(
           entries.length - 1 - current,
           _total(entries.skip(current + 1)),
+          shuffled: queue.shuffled,
         ),
       for (var i = current + 1; i < entries.length; i++)
         TrackItem(i, entries[i]),
@@ -95,10 +96,11 @@ class TrackItem extends QueueItem {
   final QueueEntry entry;
 }
 
-/// 摺線與「接下來」：[count] 首、共 [duration]。
+/// 摺線與「接下來」：[count] 首、共 [duration]；隨機時接下來的是隨機順序。
 class UpNextFold extends QueueItem {
-  const UpNextFold(this.count, this.duration);
+  const UpNextFold(this.count, this.duration, {required this.shuffled});
 
   final int count;
   final Duration duration;
+  final bool shuffled;
 }

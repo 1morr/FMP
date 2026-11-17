@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
@@ -16,6 +17,8 @@ import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/library/library_page.dart';
+import 'package:fmp/ui/now_playing/play_modes.dart';
+import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/queue/queue_rows.dart';
 import 'package:fmp/ui/search/search_page.dart';
@@ -591,6 +594,210 @@ void main() {
           .abs(),
       lessThan(60),
     );
+  });
+
+  /// 隨機與循環的切換鈕（brief〈播放〉、`queue.html`〈手機：隨機、拖動與臨時
+  /// 播放〉）。
+  group('play modes', () {
+    Finder toggle(String label) =>
+        find.byWidgetPredicate((w) => w is PlayModeToggle && w.label == label);
+    bool pressed(WidgetTester tester, String label) =>
+        tester.widget<PlayModeToggle>(toggle(label)).on;
+
+    testWidgets('佇列畫面永遠是播放順序、摺線在正在播的那首下方：turning shuffle '
+        'on puts the playing track first with the shuffled rest under the '
+        'fold, and off restores the order', (tester) async {
+      await start(tester, phone);
+      final original = order();
+
+      await tester.tap(toggle('隨機'));
+      await tester.pumpAndSettle();
+
+      expect(pressed(tester, '隨機'), isTrue);
+      expect(order().first, 'Song 21');
+      expect(find.text('隨機順序 · 29 首 · 1 小時 27 分'), findsOneWidget);
+      expect(find.text('已播放 20 首'), findsNothing);
+      scrollPosition(tester).jumpTo(0);
+      await tester.pumpAndSettle();
+      final firstRow = find.byType(QueueTouchRow).first;
+      expect(
+        find.descendant(of: firstRow, matching: find.text('Song 21')),
+        findsOneWidget,
+      );
+
+      await tester.tap(toggle('隨機'));
+      await tester.pumpAndSettle();
+
+      expect(pressed(tester, '隨機'), isFalse);
+      expect(order(), original);
+      expect(current(), 'Song 21');
+      expect(find.text('9 首 · 27 分'), findsOneWidget);
+      expect(playback.played, isEmpty);
+    });
+
+    testWidgets('the repeat toggle cycles off, list and single, and the line '
+        'under the queue says what happens after the last track', (
+      tester,
+    ) async {
+      await start(tester, phone);
+      Future<void> scrollToEnd() async {
+        final position = scrollPosition(tester);
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+      }
+
+      await scrollToEnd();
+      expect(pressed(tester, '循環'), isFalse);
+      expect(find.text('循環關閉：最後一首播完就停止'), findsOneWidget);
+
+      await tester.tap(toggle('循環'));
+      await tester.pumpAndSettle();
+      expect(pressed(tester, '列表循環'), isTrue);
+      expect(find.text('列表循環開著：最後一首播完回到第 1 首'), findsOneWidget);
+
+      await tester.tap(toggle('隨機'));
+      await tester.pumpAndSettle();
+      await scrollToEnd();
+      expect(find.text('列表循環開著：最後一首播完回到第 1 首，並重新打亂'), findsOneWidget);
+
+      await tester.tap(toggle('列表循環'));
+      await tester.pumpAndSettle();
+      expect(pressed(tester, '單曲循環'), isTrue);
+      expect(find.text('單曲循環開著：一直重複正在播的那首'), findsOneWidget);
+
+      await tester.tap(toggle('單曲循環'));
+      await tester.pumpAndSettle();
+      expect(pressed(tester, '循環'), isFalse);
+    });
+
+    testWidgets('on touch the toggle answers taps a little outside its 34 '
+        'high pill, up to 44', (tester) async {
+      await start(tester, phone);
+      final center = tester.getCenter(toggle('隨機'));
+
+      await tester.tapAt(center + const Offset(0, 20));
+      await tester.pumpAndSettle();
+
+      expect(pressed(tester, '隨機'), isTrue);
+    });
+
+    testWidgets('an empty queue can still set shuffle and repeat', (
+      tester,
+    ) async {
+      await start(tester, phone, count: 0);
+
+      await tester.tap(toggle('隨機'));
+      await tester.tap(toggle('循環'));
+      await tester.pumpAndSettle();
+
+      expect(container.read(queueProvider).shuffled, isTrue);
+      expect(container.read(queueProvider).repeat, Repeat.all);
+    });
+
+    desktopTest('on the desktop the toggles sit in the top bar next to the '
+        'clear button and stay in sync with the transport capsule', (
+      tester,
+    ) async {
+      await start(tester, desktop, platform: TargetPlatform.windows);
+      playback.set(
+        PlaybackState(
+          track: container.read(queueProvider).current!.track,
+          // 暫停：播放中的等化器一直動，等不到畫面靜止。
+          status: PlaybackStatus.paused,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final clear = find.widgetWithText(FmpButton, '清空佇列');
+      expect(
+        (tester.getCenter(toggle('隨機')).dy - tester.getCenter(clear).dy).abs(),
+        lessThan(2),
+      );
+
+      final transportShuffle = find.descendant(
+        of: find.byType(TransportBar),
+        matching: find.bySemanticsLabel('隨機'),
+      );
+      await tester.tap(transportShuffle);
+      await tester.pumpAndSettle();
+      expect(pressed(tester, '隨機'), isTrue);
+
+      await tester.tap(toggle('循環'));
+      // 頂列疊著拖動視窗的區域，它的雙擊讓單擊等到雙擊逾時才算數。
+      await tester.pump(kDoubleTapTimeout);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(TransportBar),
+          matching: find.bySemanticsLabel('列表循環'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    for (final platform in [TargetPlatform.windows, TargetPlatform.macOS]) {
+      desktopTest('on ${platform.name} a top-bar toggle reacts on the next '
+          'frame', (tester) async {
+        await start(tester, desktop, platform: platform);
+
+        await tester.tap(toggle('隨機'));
+        await tester.pump();
+
+        expect(pressed(tester, '隨機'), isTrue);
+      });
+    }
+
+    desktopTest('double-clicking the empty top bar over scrolled rows '
+        'maximizes the window and plays nothing', (tester) async {
+      const channel = MethodChannel('fmp/window');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      await start(tester, desktop, platform: TargetPlatform.windows);
+      // 打開時捲到正在播的那首，列從頂列底下捲過去。
+      expect(scrollPosition(tester).pixels, greaterThan(100));
+      const empty = Offset(500, 40);
+      expect(
+        find
+            .byType(QueueTableRow)
+            .evaluate()
+            .where(
+              (e) => tester.getRect(find.byWidget(e.widget)).contains(empty),
+            ),
+        isNotEmpty,
+        reason: 'a row lies under the empty top bar',
+      );
+
+      await tester.tapAt(empty);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(empty);
+      await tester.pumpAndSettle();
+
+      expect(calls, contains('zoom'));
+      expect(playback.played, isEmpty);
+    });
+
+    desktopTest('a narrow desktop window puts the toggles in the title row', (
+      tester,
+    ) async {
+      await start(tester, narrowWindow, platform: TargetPlatform.macOS);
+      scrollPosition(tester).jumpTo(0);
+      await tester.pumpAndSettle();
+
+      expect(
+        (tester.getCenter(toggle('隨機')).dy -
+                tester.getCenter(find.byKey(const Key('queue-title'))).dy)
+            .abs(),
+        lessThan(60),
+      );
+    });
   });
 }
 

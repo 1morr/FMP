@@ -439,6 +439,21 @@ void main() {
       expect(calls.map((c) => c.method), ['zoom']);
     });
 
+    windowsTest('double-clicking a button in the top bar does not maximize', (
+      tester,
+    ) async {
+      await start(tester, desktop);
+      calls.clear();
+      final hide = tester.getCenter(find.byTooltip('收起面板'));
+      await tester.tapAt(hide);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(tester.getCenter(find.byTooltip('顯示詳情面板')));
+      await tester.pumpAndSettle();
+
+      expect(calls.map((c) => c.method), isNot(contains('zoom')));
+      expect(find.byType(DetailPanel), findsOneWidget);
+    });
+
     windowsTest('the top-bar button gives up the 138 the caption buttons '
         'take', (tester) async {
       for (final size in [const Size(960, 720), desktop]) {

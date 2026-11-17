@@ -11,6 +11,7 @@ import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -542,11 +543,15 @@ class QueueFold extends StatelessWidget {
     super.key,
     required this.count,
     required this.duration,
+    required this.shuffled,
     required this.table,
   });
 
   final int count;
   final Duration duration;
+
+  /// 隨機時寫「隨機順序 · n 首 · 時長」。
+  final bool shuffled;
   final bool table;
 
   @override
@@ -583,7 +588,10 @@ class QueueFold extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  queueTotalText(t, count, duration),
+                  [
+                    if (shuffled) t.queue.shuffledOrder,
+                    queueTotalText(t, count, duration),
+                  ].join(' · '),
                   style: TextStyle(
                     fontSize: size,
                     height: 18 / 13,
@@ -749,6 +757,53 @@ class QueueKeyHints extends StatelessWidget {
         kbd(WindowChrome.enterKeyLabel),
         Text(hints.play, style: style),
       ],
+    );
+  }
+}
+
+/// 列表最後一行（`.qu-end`）：照循環說最後一首播完會怎樣。
+class QueueEndNote extends StatelessWidget {
+  const QueueEndNote({
+    super.key,
+    required this.repeat,
+    required this.shuffled,
+    required this.table,
+  });
+
+  final Repeat repeat;
+  final bool shuffled;
+  final bool table;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    final end = context.t.queue.end;
+    final text = switch (repeat) {
+      Repeat.off => end.off,
+      Repeat.all => shuffled ? end.allShuffled : end.all,
+      Repeat.one => end.one,
+    };
+    return Padding(
+      padding: table
+          ? const EdgeInsets.fromLTRB(10, 16, 10, 0)
+          : const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Row(
+        children: [
+          FmpIcon(repeatIcon(repeat), size: 16, color: colors.label3),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                height: 18 / 13,
+                color: colors.label3,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
