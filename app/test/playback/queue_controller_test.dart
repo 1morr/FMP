@@ -228,15 +228,19 @@ void main() {
     });
   });
 
-  test('after playback stopped, adding plays the added track', () async {
+  test('adding to a queue that is not empty never moves or starts the '
+      'current track, even when nothing plays', () async {
     await queue().add([track('a'), track('b')]);
     await queue().next();
     await queue().remove(1);
+    expect(container.read(playbackProvider), isNull);
 
     await queue().add([track('c')]);
+    await queue().playNext([track('d')]);
 
-    expect(playing(), 'c');
-    expect(currentInQueue(), 'c');
+    expect(currentInQueue(), 'a');
+    expect(container.read(playbackProvider), isNull);
+    expect(loaded(), ['a.m4a', 'b.m4a']);
   });
 
   test('clearing the queue stops playback', () async {

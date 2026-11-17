@@ -27,16 +27,13 @@ class QueueController extends Notifier<Queue> {
 
   Playback get _playback => ref.read(playbackProvider.notifier);
 
-  /// 加入佇列：排在最後。沒在播時（佇列是空的，或移除最後一首後停了）
-  /// 開始播加入的第一首。
-  Future<void> add(List<Track> tracks) =>
-      _insert(state.entries.length, (queue) => queue.add(tracks));
+  /// 加入佇列：排在最後。佇列原本是空的就開始播第一首；不空時（播放中、
+  /// 暫停、停止或播完）不換目前那首、不自動播。
+  Future<void> add(List<Track> tracks) => _insert((queue) => queue.add(tracks));
 
-  /// 下一首播放：插在目前那首後面。沒在播時開始播插入的第一首。
-  Future<void> playNext(List<Track> tracks) => _insert(
-    state.currentIndex == null ? 0 : state.currentIndex! + 1,
-    (queue) => queue.playNext(tracks),
-  );
+  /// 下一首播放：插在目前那首後面。只有佇列原本是空的才開始播。
+  Future<void> playNext(List<Track> tracks) =>
+      _insert((queue) => queue.playNext(tracks));
 
   /// 馬上播 [track]：插在目前那首後面並播它，原本接下來的照舊。
   Future<void> playNow(Track track) {
@@ -93,14 +90,12 @@ class QueueController extends Notifier<Queue> {
     await _playback.stop();
   }
 
-  /// [insert] 把曲目放在 [at] 起的位置；沒在播就從 [at] 開始播。
-  Future<void> _insert(int at, Queue Function(Queue) insert) async {
-    final before = state.entries.length;
-    final idle = ref.read(playbackProvider) == null;
+  /// 重啟後佇列還在、不自動播（brief〈播放〉）時，加一首不能讓佇列跳離
+  /// 原本那首，所以只看佇列空不空，不看有沒有在播。
+  Future<void> _insert(Queue Function(Queue) insert) async {
+    final wasEmpty = state.isEmpty;
     state = insert(state);
-    if (!idle || state.entries.length == before) return;
-    state = state.jumpTo(at);
-    await _playCurrent();
+    if (wasEmpty && !state.isEmpty) await _playCurrent();
   }
 
   Future<void> _playCurrent() async {
