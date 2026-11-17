@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'src/device_lock.dart';
@@ -44,13 +43,7 @@ Future<void> main(List<String> args) async {
   final alreadyHeld = await lock.heldByThisWorktree();
   if (!alreadyHeld) {
     await lock.acquire(stderr);
-    await Process.run('adb', [
-      'start-server',
-    ], environment: sharedDeviceEnvironment).catchError(
-      // 這台機器沒有 adb：用不到 Android 模擬器。
-      (_) => ProcessResult(0, 0, '', ''),
-      test: (e) => e is ProcessException,
-    );
+    await startAdbServer();
   }
   int code;
   try {
@@ -102,6 +95,56 @@ const _platforms = {'macos', 'ios', 'android', 'windows'};
 
 const _shell = ProcessShell(environment: sharedDeviceEnvironment);
 
+/// 在 Mac 上跑情境的一個平台：`flutter test -d` 的裝置、截圖的方式；模擬器
+/// 跑完不刪 App 與資料（docs/development.md〈平台〉），Android 模擬器裡的
+/// 127.0.0.1 是它自己，要 `adb reverse` 把截圖服務的埠接回 Mac。
+typedef _Target = ({
+  String device,
+  CaptureWindow capture,
+  bool emulator,
+  bool reversePort,
+});
+
+Future<_Target> _target(Directory app, String platform) async {
+  switch (platform) {
+    case 'macos':
+      return (
+        device: 'macos',
+        capture: _captureMacWindow,
+        emulator: false,
+        reversePort: false,
+      );
+    case 'ios':
+      final udid = await ensureBootedIPhone(_shell, app, stdout);
+      return (
+        device: udid,
+        capture: (File file, int _) =>
+            _capture('xcrun', ['simctl', 'io', udid, 'screenshot', file.path]),
+        emulator: true,
+        reversePort: false,
+      );
+    default:
+      final id = await androidEmulator(_shell, app);
+      return (
+        device: id,
+        capture: (File file, int _) async {
+          final result = await Process.run(
+            'adb',
+            ['-s', id, 'exec-out', 'screencap', '-p'],
+            stdoutEncoding: null,
+            environment: sharedDeviceEnvironment,
+          );
+          if (result.exitCode != 0) {
+            throw ProcessException('adb', ['screencap'], '${result.stderr}');
+          }
+          file.writeAsBytesSync(result.stdout as List<int>);
+        },
+        emulator: true,
+        reversePort: true,
+      );
+  }
+}
+
 /// macOS、iOS、Android：Mac 上的截圖服務加 `flutter test -d`。
 Future<int> _local(
   Directory app,
@@ -109,51 +152,24 @@ Future<int> _local(
   String file,
   Directory dir,
 ) async {
-  final device = switch (platform) {
-    'macos' => 'macos',
-    'ios' => await ensureBootedIPhone(_shell, app, stdout),
-    _ => await androidEmulator(_shell, app),
-  };
+  final target = await _target(app, platform);
   final server = await RealRunCaptureServer.start(
     out: dir,
-    capture: switch (platform) {
-      'macos' => _captureMacWindow,
-      'ios' => (file, _) => _run('xcrun', [
-        'simctl',
-        'io',
-        device,
-        'screenshot',
-        file.path,
-      ]),
-      _ => (file, _) async {
-        final result = await Process.run(
-          'adb',
-          ['-s', device, 'exec-out', 'screencap', '-p'],
-          stdoutEncoding: null,
-          environment: sharedDeviceEnvironment,
-        );
-        if (result.exitCode != 0) {
-          throw ProcessException('adb', ['screencap'], '${result.stderr}');
-        }
-        file.writeAsBytesSync(result.stdout as List<int>);
-      },
-    },
+    capture: target.capture,
   );
-  // 模擬器裡的 127.0.0.1 是它自己；adb reverse 把那個埠接回 Mac。
-  final reverse = 'tcp:${server.port}';
-  if (platform == 'android') {
-    await _run('adb', ['-s', device, 'reverse', reverse, reverse]);
-  }
+  final port = 'tcp:${server.url.port}';
   try {
+    if (target.reversePort) {
+      await _capture('adb', ['-s', target.device, 'reverse', port, port]);
+    }
     final process = await Process.start(
       'flutter',
       [
         'test',
         file,
         '-d',
-        device,
-        // 模擬器上跑完不刪 App 與資料（docs/development.md〈平台〉）。
-        if (platform != 'macos') '--no-uninstall',
+        target.device,
+        if (target.emulator) '--no-uninstall',
         '--dart-define=FMP_REAL_RUN_HOST=${server.url}',
       ],
       workingDirectory: app.path,
@@ -174,8 +190,14 @@ Future<int> _local(
     return await process.exitCode;
   } finally {
     await server.close();
-    if (platform == 'android') {
-      await _run('adb', ['-s', device, 'reverse', '--remove', reverse]);
+    if (target.reversePort) {
+      await _shell.run('adb', [
+        '-s',
+        target.device,
+        'reverse',
+        '--remove',
+        port,
+      ], workingDirectory: app);
     }
   }
 }
@@ -208,7 +230,7 @@ function run(argv) {
   if (id.trim().isEmpty) {
     throw StateError('No on-screen window for pid $pid');
   }
-  await _run('screencapture', ['-x', '-o', '-l', id.trim(), file.path]);
+  await _capture('screencapture', ['-x', '-o', '-l', id.trim(), file.path]);
 }
 
 /// Windows：同步、建置，再跑情境；截圖與文字在 `winpc` 的 [_winpcDir]，
@@ -233,19 +255,6 @@ Future<int> _windows(Directory app, String file, Directory dir) async {
 
 const _winpcDir = r'C:\fmp-wt\real_run';
 
-Future<void> _run(String executable, List<String> arguments) async {
-  final result = await Process.run(
-    executable,
-    arguments,
-    environment: sharedDeviceEnvironment,
-    stderrEncoding: const Utf8Codec(allowMalformed: true),
-  );
-  if (result.exitCode != 0) {
-    throw ProcessException(
-      executable,
-      arguments,
-      '${result.stderr}',
-      result.exitCode,
-    );
-  }
-}
+/// 跑指令，退出碼非零時丟 [ProcessException]（含 stderr）。
+Future<void> _capture(String executable, List<String> arguments) =>
+    _shell.capture(executable, arguments, workingDirectory: Directory.current);

@@ -41,12 +41,16 @@ Future<void> openDestination(
       find.byWidgetPredicate((w) => w is Tooltip && backTo.contains(w.message)),
     );
     // 等分頁列從圓鈕變回來；變形中的分頁點不到。
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+    await _pumpFor(tester, const Duration(seconds: 1));
   }
   await tester.tap(tab.first);
-  for (var i = 0; i < 20; i++) {
+  await _pumpFor(tester, const Duration(seconds: 1));
+}
+
+/// 一直 pump 到過了 [duration]；integration_test 裡每一下真的等 50ms。不用
+/// `pumpAndSettle`：頁面上可能有不停的動畫。
+Future<void> _pumpFor(WidgetTester tester, Duration duration) async {
+  for (var i = 0; i * 50 < duration.inMilliseconds; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
 }

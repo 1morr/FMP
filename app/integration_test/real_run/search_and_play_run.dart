@@ -8,7 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../test/support/shell.dart';
-import 'real_run.dart';
+import 'driver.dart';
 
 /// 實跑的範例情境（票 08b）：啟動後不動視窗先截一張，匿名搜一次 B 站、播
 /// 一首（spec〈共同規則〉的聯網規則），進佇列頁讀回順序。之後的票照這個寫自己

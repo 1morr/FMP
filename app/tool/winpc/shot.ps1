@@ -3,12 +3,16 @@
 # -AppPid <id>: screenshot the window of that running process instead and leave it open;
 # the real-run driver calls this from inside the app (docs/development.md, real runs).
 # Neither moves the cursor: the window is raised to the top before the copy.
+# -Click "x,y": real-mouse exceptions only (docs/development.md, real runs): it MOVES
+# THE CURSOR. Left-click at x,y logical pixels of the client area (scaled by the
+# window DPI), wait -ClickWait s. Several clicks "x,y;x,y;...": each one is followed
+# by -ClickWait s and a screenshot <Out without .png>-<n>.png (n from 1).
 # -Size "w,h": before the screenshot, resize the window to w x h logical pixels
 # (scaled by the window DPI, frame included); the log records the client size the
 # app ended up with, so a size under the minimum shows the clamp.
 # The app's stdout/stderr go to C:\fmp-wt\app-stdout.txt / app-stderr.txt (a Dart VM
 # abort prints there); after closing the window the log says exited_after_close.
-param([string]$Exe, [int]$AppPid = 0, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Size = '')
+param([string]$Exe, [int]$AppPid = 0, [string]$Out = 'C:\fmp-wt\shot.png', [int]$Wait = 8, [string]$Size = '', [string]$Click = '', [int]$ClickWait = 8)
 $log = if ($AppPid -ne 0) { 'C:\fmp-wt\shot-pid.log' } else { 'C:\fmp-wt\shot.log' }
 "start" | Out-File $log -Encoding ascii
 Add-Type -AssemblyName System.Drawing
@@ -27,6 +31,20 @@ public class W {
  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+ [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X,Y; }
+ [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
+ [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+ [StructLayout(LayoutKind.Sequential)] public struct MI { public int dx; public int dy; public uint data; public uint flags; public uint time; public IntPtr extra; }
+ [StructLayout(LayoutKind.Explicit)] public struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public MI mi; }
+ [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] i, int size);
+ public static string Click(IntPtr h, int x, int y) {
+  double k = GetDpiForWindow(h) / 96.0; var p = new POINT(); p.X = (int)(x * k); p.Y = (int)(y * k);
+  ClientToScreen(h, ref p); SetCursorPos(p.X, p.Y);
+  var i = new INPUT[2]; i[0].type = 0; i[0].mi.flags = 2; i[1].type = 0; i[1].mi.flags = 4;
+  SendInput(2, i, Marshal.SizeOf(typeof(INPUT)));
+  return p.X + "," + p.Y;
+ }
 }
 "@
 [W]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null
@@ -42,7 +60,8 @@ $p.Refresh()
 "pid=$($p.Id) exited=$($p.HasExited) title=$($p.MainWindowTitle)" | Out-File $log -Append -Encoding ascii
 if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
   $h = $p.MainWindowHandle
-  [W]::ShowWindow($h, 9) | Out-Null
+  # Restore only a minimized window: SW_RESTORE would also un-maximize it.
+  if ([W]::IsIconic($h)) { [W]::ShowWindow($h, 9) | Out-Null }
   # raise: attach to foreground thread, TOPMOST round trip, SetForegroundWindow.
   function Raise {
     $fg = [W]::GetForegroundWindow(); $ft = [W]::GetWindowThreadProcessId($fg, [IntPtr]::Zero); $me = [W]::GetCurrentThreadId()
@@ -72,6 +91,19 @@ if (-not $p.HasExited -and $p.MainWindowHandle -ne 0) {
     $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()
     "saved $path" | Out-File $log -Append -Encoding ascii
+  }
+  if ($Click -ne '') {
+    $clicks = $Click.Split(';')
+    $n = 0
+    foreach ($c in $clicks) {
+      $n++
+      Raise; "foreground_is_fmp_before_click_$n=$([W]::GetForegroundWindow() -eq $h)" | Out-File $log -Append -Encoding ascii
+      $xy = $c.Split(',')
+      $at = [W]::Click($h, [int]$xy[0], [int]$xy[1])
+      "clicked [$c] at screen $at, waiting $ClickWait s" | Out-File $log -Append -Encoding ascii
+      Start-Sleep -Seconds $ClickWait
+      if ($clicks.Count -gt 1) { Shot ($Out -replace '\.png$', "-$n.png") }
+    }
   }
   Shot $Out
   [W]::SetWindowPos($h, [IntPtr](-2), 0, 0, 0, 0, 0x43) | Out-Null   # HWND_NOTOPMOST

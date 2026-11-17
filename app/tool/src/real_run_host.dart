@@ -14,9 +14,9 @@ typedef CaptureWindow = Future<void> Function(File file, int pid);
 /// - `POST /text?name=<步驟>`：內文（UTF-8）存成 `<out>/<步驟>.txt`。
 ///
 /// 步驟名只收英數字、`-`、`_`，開頭不是 `-`、`_`，其他回 400，不會寫出
-/// [out] 之外。
+/// `out` 之外。
 class RealRunCaptureServer {
-  RealRunCaptureServer._(this._server, this.out, this._capture) {
+  RealRunCaptureServer._(this._server, this._out, this._capture) {
     _server.listen(_handle);
   }
 
@@ -30,13 +30,11 @@ class RealRunCaptureServer {
   );
 
   final HttpServer _server;
-  final Directory out;
+  final Directory _out;
   final CaptureWindow _capture;
 
   /// 驅動連的位址，例如 `http://127.0.0.1:53124/`。
   Uri get url => Uri.parse('http://127.0.0.1:${_server.port}/');
-
-  int get port => _server.port;
 
   Future<void> close() => _server.close(force: true);
 
@@ -59,17 +57,17 @@ class RealRunCaptureServer {
             response.write('missing pid');
             return;
           }
-          out.createSync(recursive: true);
+          _out.createSync(recursive: true);
           try {
-            await _capture(File('${out.path}/$name.png'), pid);
+            await _capture(File('${_out.path}/$name.png'), pid);
           } on Object catch (error) {
             response.statusCode = HttpStatus.internalServerError;
             response.write('$error');
           }
         case ('POST', '/text'):
           final text = await utf8.decodeStream(request);
-          out.createSync(recursive: true);
-          File('${out.path}/$name.txt').writeAsStringSync(text);
+          _out.createSync(recursive: true);
+          File('${_out.path}/$name.txt').writeAsStringSync(text);
         default:
           response.statusCode = HttpStatus.notFound;
       }

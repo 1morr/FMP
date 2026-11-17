@@ -7,6 +7,19 @@ import 'dart:io';
 /// 已經在跑的 server。
 const sharedDeviceEnvironment = {'ADB_MDNS': '0'};
 
+/// 讓 adb server 以 `ADB_MDNS=0` 跑起來（brief 事實 K15）：server 不在時
+/// 啟動它，在跑時什麼都不做，不會打斷別的 session。Orca 等閘門外的工具叫起來
+/// 的 server 不帶這個變數，所以拿到共用裝置鎖就先叫一次。沒裝 adb 時略過。
+Future<void> startAdbServer() async {
+  try {
+    await Process.run('adb', [
+      'start-server',
+    ], environment: sharedDeviceEnvironment);
+  } on ProcessException {
+    // 這台機器沒有 adb：用不到 Android 模擬器。
+  }
+}
+
 /// 共用裝置鎖（docs/development.md〈開發環境與閘門〉）：`winpc` 的 `C:\fmp-wt`、iOS 與
 /// Android 模擬器、macOS 上的 `com.personal.fmp.dev` 同一時間只給一個
 /// worktree 用。

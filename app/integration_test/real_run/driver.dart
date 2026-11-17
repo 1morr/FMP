@@ -55,7 +55,7 @@ class RealRun {
     final file = '${(++_steps).toString().padLeft(2, '0')}-$name';
     // 讓這一幀真的畫上螢幕，動畫跑完一段，再請系統截圖。
     await _settle(const Duration(milliseconds: 800));
-    final lines = readBack(within);
+    final lines = readBack(tester, within);
     await tester.runAsync(() async {
       await _capture.shot(file);
       await _capture.text(file, '${lines.join('\n')}\n');
@@ -64,34 +64,6 @@ class RealRun {
     print('[real run] $file\n  ${lines.join('\n  ')}');
     return lines;
   }
-
-  /// 畫面上看得到的文字，照元件樹的順序一行一個：每個 [RichText]（[Text]
-  /// 也是畫成它）有大小、和視窗有交集才算；圖示字型的字（Unicode 私用區）
-  /// 略過。
-  List<String> readBack([Finder? within]) {
-    final paragraphs = within == null
-        ? find.byType(RichText)
-        : find.descendant(of: within, matching: find.byType(RichText));
-    final view = tester.view;
-    final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-    return [
-      for (final element in paragraphs.evaluate())
-        if (element.renderObject case final RenderBox box
-            when box.attached &&
-                box.hasSize &&
-                !box.size.isEmpty &&
-                MatrixUtils.transformRect(
-                  box.getTransformTo(null),
-                  Offset.zero & box.size,
-                ).overlaps(screen))
-          if ((element.widget as RichText).text.toPlainText().trim()
-              case final text when text.isNotEmpty && !_iconGlyphs(text))
-            text,
-    ];
-  }
-
-  static bool _iconGlyphs(String text) =>
-      text.runes.every((r) => r >= 0xE000 && r <= 0xF8FF);
 
   Future<void> _settle(Duration duration) async {
     final until = DateTime.now().add(duration);
@@ -103,6 +75,34 @@ class RealRun {
     } while (DateTime.now().isBefore(until));
   }
 }
+
+/// 畫面上看得到的文字，照元件樹的順序一行一個：每個 [RichText]（[Text]
+/// 也是畫成它）有大小、和視窗有交集才算；圖示字型的字（Unicode 私用區）
+/// 略過。[within] 只讀那一塊，省略時讀整個畫面。實跑每一步的讀回用它。
+List<String> readBack(WidgetTester tester, [Finder? within]) {
+  final paragraphs = within == null
+      ? find.byType(RichText)
+      : find.descendant(of: within, matching: find.byType(RichText));
+  final view = tester.view;
+  final screen = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+  return [
+    for (final element in paragraphs.evaluate())
+      if (element.renderObject case final RenderBox box
+          when box.attached &&
+              box.hasSize &&
+              !box.size.isEmpty &&
+              MatrixUtils.transformRect(
+                box.getTransformTo(null),
+                Offset.zero & box.size,
+              ).overlaps(screen))
+        if ((element.widget as RichText).text.toPlainText().trim()
+            case final text when text.isNotEmpty && !_iconGlyphs(text))
+          text,
+  ];
+}
+
+bool _iconGlyphs(String text) =>
+    text.runes.every((r) => r >= 0xE000 && r <= 0xF8FF);
 
 /// 截圖與文字交給誰（[RealRun] 的說明）。
 sealed class _Capture {
