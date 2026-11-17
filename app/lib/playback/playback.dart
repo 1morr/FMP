@@ -162,6 +162,16 @@ class Playback extends Notifier<PlaybackState?> {
     }
   }
 
+  /// 停止：暫停後端、沒有正在播的曲目（狀態回到 null）。解析或載入到一半
+  /// 的那首不會再開始播。
+  Future<void> stop() async {
+    ++_generation;
+    _stallTimer?.cancel();
+    _stallTimer = null;
+    state = null;
+    await _backendOrNull?.pause();
+  }
+
   /// 沒播過時什麼都不做。
   Future<void> pause() async => _backendOrNull?.pause();
 
