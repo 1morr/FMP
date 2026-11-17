@@ -48,6 +48,7 @@ Blocked by: 02、06
 code-review 未處理：選單貼邊往左、往上翻沒有測試；`'Delete'` 字面值寫在兩處，Alt 與 Enter 卻由 `WindowChrome` 給
 code-review 未處理：判斷題的 smell 沒改：`queue_rows.dart` 塞了觸控列、表格列、摺線、空狀態等多種東西；佇列總時長算在 `queue_layout.dart` 而不在 `Queue`；`playNow` 的規則湊在控制器；`SkipButton(forward:)` 旗標參數；`density == Density.touch` 散在多處；`app_shell.dart` 兩處幾乎一樣的 `ShellTopBar`；依 `QueueLayout` 的 switch 三處
 code-review 未處理：表格用 ⌥↑／⌥↓ 把選取的列移出畫面時，捲動不會跟著走
+閘門（e6131bda，只改佇列規則與控制器，照協調者指示不整輪重跑）：quick 全綠；`integration_test/queue_test.dart` 在 macOS、iOS 模擬器、Android 模擬器 `All tests passed`；Windows 照 docs/development.md〈Windows〉持鎖同步、建置（`exit build=0`）、跑 `queue_test`（`exit test=0`、有 `=== done`）
 Session 紀錄：2026-11-17 開工前檢查 winpc 硬體與四平台親耳聽；做佇列（domain 的 Queue、playback 的 QueueController）、佇列頁三種寬度、玻璃選單與確認框，四平台實跑真 B 站加兩首、下一首並讀回佇列頁
 決定：測試接縫四層：domain 的 Queue、playback 的控制器、佇列頁 widget 測試、integration_test（協調者代答）（Agent 定）
 決定：票 09 之前點搜尋結果一首＝插在正在播的後面並馬上播，佇列永遠含正在播的那首（協調者代答）（Agent 定）
