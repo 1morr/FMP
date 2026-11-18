@@ -4,6 +4,7 @@ library;
 
 export 'src/bundled_plugins.dart' show loadBundledPlugins;
 export 'src/manifest.dart'
-    show MarkPath, PluginCapability, PluginManifest, SourceMark;
-export 'src/plugin_host.dart' show Plugin, PluginBundle, PluginHost;
+    show MarkPath, PluginCapability, PluginManifest, SearchSort, SourceMark;
+export 'src/plugin_host.dart'
+    show Plugin, PluginBundle, PluginHost, SearchResults;
 export 'src/providers.dart' show pluginHostProvider, pluginManifestProvider;

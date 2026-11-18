@@ -103,13 +103,14 @@ void main() {
         }),
       );
 
-      expect(await bilibili().search('晴天 翻唱'), const [
+      expect((await bilibili().search('晴天 翻唱')).tracks, const [
         Track(
           ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1xx411c7mD'),
           title: '晴天 翻唱 & 練習 "1"',
           author: '某 UP 主',
           duration: Duration(minutes: 4, seconds: 5),
           coverUrl: 'https://i0.hdslb.com/bfs/archive/a.jpg@160w_160h_1c.webp',
+          url: 'https://www.bilibili.com/video/BV1xx411c7mD',
         ),
         Track(
           ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1yy411c7mE'),
@@ -117,11 +118,13 @@ void main() {
           author: '另一位',
           duration: Duration(hours: 1, minutes: 2, seconds: 3),
           coverUrl: 'https://i1.hdslb.com/bfs/archive/b.jpg@160w_160h_1c.webp',
+          url: 'https://www.bilibili.com/video/BV1yy411c7mE',
         ),
         Track(
           ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1zz411c7mF'),
           title: '時長不明',
           author: '第三位',
+          url: 'https://www.bilibili.com/video/BV1zz411c7mF',
         ),
       ]);
     },
@@ -136,6 +139,7 @@ void main() {
     expect(request.uri.path, '/x/web-interface/search/type');
     expect(request.uri.queryParameters, {
       'search_type': 'video',
+      'order': 'totalrank',
       'page': '1',
       'keyword': '晴天 翻唱',
     });
@@ -148,9 +152,81 @@ void main() {
     );
   });
 
+  group('search sorting and paging', () {
+    Future<Uri> searched({SearchSort? sort, int page = 1}) async {
+      respond = (_) => FakeResponse.json(ok({'result': <Object>[]}));
+      await bilibili().search('q', sort: sort, page: page);
+      return http.requests.last.uri;
+    }
+
+    test('the manifest offers relevance first, then view count and date', () {
+      expect(bilibili().manifest.searchSorts, [
+        SearchSort.relevance,
+        SearchSort.viewCount,
+        SearchSort.date,
+      ]);
+    });
+
+    for (final (sort, order) in [
+      (SearchSort.relevance, 'totalrank'),
+      (SearchSort.viewCount, 'click'),
+      (SearchSort.date, 'pubdate'),
+      (null, 'totalrank'),
+    ]) {
+      test('sort $sort asks for order=$order', () async {
+        expect((await searched(sort: sort)).queryParameters['order'], order);
+      });
+    }
+
+    test('the page number goes to the page parameter', () async {
+      expect((await searched(page: 3)).queryParameters['page'], '3');
+    });
+
+    for (final (name, numPages, page, isEnd) in [
+      ('before the last page', 5, 4, false),
+      ('on the last page', 5, 5, true),
+      ('past the last page', 5, 6, true),
+      ('without numPages', null, 1, true),
+    ]) {
+      test('isEnd is $isEnd $name', () async {
+        respond = (_) => FakeResponse.json(
+          ok({
+            'numPages': ?numPages,
+            'result': [
+              {'bvid': 'BV1xx411c7mD', 'title': 't'},
+            ],
+          }),
+        );
+        expect((await bilibili().search('q', page: page)).isEnd, isEnd);
+      });
+    }
+
+    test('an empty page is the end even when numPages says more', () async {
+      respond = (_) => FakeResponse.json(ok({'numPages': 9, 'result': []}));
+      expect((await bilibili().search('q')).isEnd, isTrue);
+    });
+
+    test('a result carries its play count and its video page', () async {
+      respond = (_) => FakeResponse.json(
+        ok({
+          'numPages': 2,
+          'result': [
+            {'bvid': 'BV1xx411c7mD', 'title': 'a', 'play': 12345},
+            {'bvid': 'BV1yy411c7mE', 'title': 'b', 'play': '1.2万'},
+            {'bvid': 'BV1zz411c7mF', 'title': 'c', 'play': -1},
+          ],
+        }),
+      );
+      final tracks = (await bilibili().search('q')).tracks;
+      expect(tracks.map((t) => t.playCount), [12345, null, null]);
+      expect(tracks.first.url, 'https://www.bilibili.com/video/BV1xx411c7mD');
+      expect(tracks.last.url, 'https://www.bilibili.com/video/BV1zz411c7mF');
+    });
+  });
+
   test('no results is an empty list', () async {
     respond = (_) => FakeResponse.json(ok({'numResults': 0}));
-    expect(await bilibili().search('zzzz'), isEmpty);
+    expect((await bilibili().search('zzzz')).tracks, isEmpty);
   });
 
   group('rate limiting becomes RateLimited', () {

@@ -19,7 +19,7 @@ import 'no_network.dart';
 ///
 /// ```json
 /// {
-///   "input": {"query": "lemon"},
+///   "input": {"query": "lemon", "sort": "viewCount", "page": 1},
 ///   "expect": {},
 ///   "recorded": "2026-11-12",
 ///   "interactions": [
@@ -63,13 +63,16 @@ class PluginFixture {
     );
   }
 
-  /// 插件能力的參數，和宿主傳給插件的一樣（例如 search 的 `query`）。
+  /// 插件能力的參數，和宿主傳給插件的一樣（例如 search 的 `query`，選填的
+  /// `sort` 是 manifest 的 `searchSorts` 宣告過的名字、`page` 是正整數）。
   final Map<String, Object?> input;
 
   /// 這個案例另外要求的結果，鍵是各插件能力認得的期望（[checkContract]），
   /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期，
   /// `{"segmentBase": true}`：串流要給 init 與 sidx 的位置；search 的
-  /// `{"covers": true}`：每首曲目都有封面。錄製、
+  /// `{"covers": true}`：每首曲目都有封面，`{"playCounts": true}`：每首都有
+  /// 播放數，`{"playCountsDescending": true}`：播放數由大到小（排序最多播放），`{"urls": true}`：每首都有網址，`{"more": true}`：結果的
+  /// `isEnd` 是 false（還有下一頁）。錄製、
   /// 重播與 live 冒煙測試都套用；錄製時照原樣寫回。
   final Map<String, Object?> expect;
 
@@ -213,7 +216,13 @@ Future<List<String>> checkContract(
   Map<String, Object?> expect = const {},
 }) async {
   final known = switch (capability) {
-    PluginCapability.search => const {'covers'},
+    PluginCapability.search => const {
+      'covers',
+      'playCounts',
+      'playCountsDescending',
+      'urls',
+      'more',
+    },
     PluginCapability.resolveStream => const {'expiresAt', 'segmentBase'},
   };
   final unknown = [
@@ -232,13 +241,48 @@ Future<List<String>> checkContract(
       if (query is! String) {
         throw const FormatException('search input needs a "query" string');
       }
-      final tracks = await plugin.search(query);
+      final sortName = input['sort'];
+      final SearchSort? sort;
+      if (sortName == null) {
+        sort = null;
+      } else {
+        sort = SearchSort.values.where((s) => s.name == sortName).firstOrNull;
+        if (sort == null || !plugin.manifest.searchSorts.contains(sort)) {
+          throw FormatException(
+            'search input "sort" must be one of the manifest\'s searchSorts, '
+            'got $sortName',
+          );
+        }
+      }
+      final page = input['page'] ?? 1;
+      if (page is! int || page < 1) {
+        throw const FormatException(
+          'search input "page" must be a positive integer',
+        );
+      }
+      final results = await plugin.search(query, sort: sort, page: page);
+      final tracks = results.tracks;
       return [
         ...searchContractViolations(plugin.manifest.id, tracks),
         if (expect.containsKey('covers'))
           for (final (i, t) in tracks.indexed)
             if (t.coverUrl == null)
               'expected a cover on every track, track $i has none',
+        if (expect.containsKey('playCounts'))
+          for (final (i, t) in tracks.indexed)
+            if (t.playCount == null)
+              'expected a play count on every track, track $i has none',
+        if (expect.containsKey('playCountsDescending'))
+          for (var i = 1; i < tracks.length; i++)
+            if ((tracks[i].playCount ?? 0) > (tracks[i - 1].playCount ?? 0))
+              'expected play counts from high to low, track $i has more '
+                  'plays than track ${i - 1}',
+        if (expect.containsKey('urls'))
+          for (final (i, t) in tracks.indexed)
+            if (t.url == null)
+              'expected a url on every track, track $i has none',
+        if (expect.containsKey('more') && results.isEnd)
+          'expected more pages, but the plugin says this is the last',
       ];
     case PluginCapability.resolveStream:
       final trackId = input['trackId'];
@@ -261,7 +305,8 @@ Future<List<String>> checkContract(
 }
 
 /// 插件能力 search 的契約（`app/plugins/host.d.ts`）：錄製的案例有結果，
-/// 每首曲目屬於這個插件、有 id 與標題，時長不知道就不給，給了就是正的。
+/// 每首曲目屬於這個插件、有 id 與標題，時長不知道就不給，給了就是正的；播放數
+/// 給了就不是負的。
 List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
   if (tracks.isEmpty) 'search returned no tracks',
   for (final (i, t) in tracks.indexed) ...[
@@ -271,6 +316,8 @@ List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
     if (t.title.trim().isEmpty) 'track $i: empty title',
     if (t.duration case final d? when d <= Duration.zero)
       'track $i: duration $d is not positive',
+    if (t.playCount case final n? when n < 0)
+      'track $i: play count $n is negative',
   ],
 ];
 

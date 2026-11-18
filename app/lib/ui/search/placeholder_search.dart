@@ -54,7 +54,7 @@ class PlaceholderSearch extends Notifier<AsyncValue<List<PluginResults>>?> {
     try {
       return PluginResults(
         plugin.manifest.name,
-        tracks: await plugin.search(query),
+        tracks: (await plugin.search(query)).tracks,
       );
     } on AppError catch (error) {
       return PluginResults(plugin.manifest.name, error: error);

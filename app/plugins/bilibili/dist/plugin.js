@@ -18,8 +18,18 @@ var ERROR_CODES = /* @__PURE__ */ new Map([
   [-10403, "unavailable_region"]
 ]);
 var COOKIE = browserCookie();
-async function search({ query }) {
-  const url = `${SEARCH_URL}?search_type=video&page=1&keyword=${encodeURIComponent(query)}`;
+var SEARCH_ORDER = {
+  relevance: "totalrank",
+  viewCount: "click",
+  date: "pubdate"
+};
+async function search({
+  query,
+  sort,
+  page = 1
+}) {
+  const order = SEARCH_ORDER[sort ?? "relevance"] ?? SEARCH_ORDER.relevance;
+  const url = `${SEARCH_URL}?search_type=video&order=${order}&page=${page}&keyword=${encodeURIComponent(query)}`;
   const res = await host.http.request({
     url,
     headers: {
@@ -29,7 +39,9 @@ async function search({ query }) {
   });
   const data = parseResponse(res);
   const results = Array.isArray(data?.result) ? data.result : [];
-  return { tracks: results.map(toTrack) };
+  const numPages = data?.numPages;
+  const isEnd = results.length === 0 || typeof numPages !== "number" || page >= numPages;
+  return { tracks: results.map(toTrack), isEnd };
 }
 async function resolveStream({
   trackId
@@ -146,7 +158,7 @@ function parseResponse(res) {
   return body.data;
 }
 function toTrack(item) {
-  const { bvid, title, author, duration, pic } = item;
+  const { bvid, title, author, duration, pic, play } = item;
   if (typeof bvid !== "string" || typeof title !== "string") {
     throw new PluginError("parse_failure", "search item without bvid or title");
   }
@@ -155,7 +167,9 @@ function toTrack(item) {
     title: plainText(title),
     author: typeof author === "string" ? author : "",
     durationMs: parseDuration(duration),
-    coverUrl: coverUrl(pic)
+    coverUrl: coverUrl(pic),
+    playCount: typeof play === "number" && Number.isFinite(play) && play >= 0 ? Math.round(play) : void 0,
+    url: `https://www.bilibili.com/video/${bvid}`
   };
 }
 function coverUrl(pic) {

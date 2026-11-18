@@ -38,6 +38,7 @@ void main() {
     List<String> capabilities = const ['search'],
     List<String> domains = const ['api.example.com'],
     Object? mark,
+    Object? searchSorts,
   }) => jsonEncode({
     'id': id,
     'name': 'Demo',
@@ -45,6 +46,7 @@ void main() {
     'capabilities': capabilities,
     'domains': domains,
     'mark': ?mark,
+    'searchSorts': ?searchSorts,
   });
 
   PluginHost host(
@@ -99,7 +101,7 @@ void main() {
       }
     ''', http: http);
 
-      final tracks = await only(h).search('中文 query');
+      final tracks = (await only(h).search('中文 query')).tracks;
 
       expect(tracks, [
         const Track(
@@ -122,14 +124,15 @@ void main() {
     ''';
 
     test('is the https or http URL the plugin gives', () async {
-      final tracks = await only(
+      final tracks = (await only(
         host(searching("'https://img.example.com/a.jpg'")),
-      ).search('q');
+      ).search('q')).tracks;
       expect(tracks.single.coverUrl, 'https://img.example.com/a.jpg');
     });
 
     test('is optional', () async {
-      final tracks = await only(host(searching('undefined'))).search('q');
+      final tracks = (await only(host(searching('undefined'))).search('q'))
+          .tracks;
       expect(tracks.single.coverUrl, isNull);
     });
 
@@ -137,6 +140,149 @@ void main() {
       test('$cover is a ParseFailure', () async {
         await expectLater(
           only(host(searching(cover))).search('q'),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+  });
+
+  group('search sorting and paging', () {
+    /// 把收到的參數原樣回成一首曲目的標題。
+    const echo = '''
+      export async function search(req) {
+        return { tracks: [{ id: 'a', title: JSON.stringify(req), author: 'x' }] };
+      }
+    ''';
+
+    Future<Map<String, Object?>> received(
+      PluginHost h, {
+      SearchSort? sort,
+      int page = 1,
+    }) async {
+      final results = await only(h).search('q', sort: sort, page: page);
+      return jsonDecode(results.tracks.single.title) as Map<String, Object?>;
+    }
+
+    PluginHost sortable([Object? sorts = const ['viewCount', 'relevance']]) =>
+        host(echo, manifestJson: manifest(searchSorts: sorts));
+
+    test('a declared sort goes to the plugin by name', () async {
+      expect(await received(sortable(), sort: SearchSort.viewCount), {
+        'query': 'q',
+        'sort': 'viewCount',
+        'page': 1,
+      });
+    });
+
+    test('a sort the manifest does not declare is not passed on', () async {
+      expect(
+        (await received(sortable(), sort: SearchSort.date)).keys,
+        unorderedEquals(['query', 'page']),
+      );
+      final plain = host(echo);
+      expect(
+        (await received(plain, sort: SearchSort.viewCount)).keys,
+        unorderedEquals(['query', 'page']),
+      );
+    });
+
+    test('the page number goes to the plugin', () async {
+      expect((await received(sortable(), page: 4))['page'], 4);
+    });
+
+    test('a page below 1 is an ArgumentError', () {
+      expect(
+        () => only(sortable()).search('q', page: 0),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test(
+      'the manifest keeps its order, drops duplicates and unknown names',
+      () {
+        final m = only(sortable(['date', 'bogus', 'relevance', 'date']))
+            .manifest;
+        expect(m.searchSorts, [SearchSort.date, SearchSort.relevance]);
+      },
+    );
+
+    test('a manifest without searchSorts declares none', () {
+      expect(only(host(echo)).manifest.searchSorts, isEmpty);
+    });
+
+    for (final bad in [
+      'viewCount',
+      [1],
+      {'a': 1},
+    ]) {
+      test('searchSorts $bad skips the plugin', () {
+        final h = host(echo, manifestJson: manifest(searchSorts: bad));
+        expect(h.plugins, isEmpty);
+      });
+    }
+  });
+
+  group('search results', () {
+    String returning(String result) =>
+        '''
+      export async function search() { return $result; }
+    ''';
+
+    Future<SearchResults> searchWith(String result) =>
+        only(host(returning(result))).search('q');
+
+    test('isEnd is what the plugin says', () async {
+      expect((await searchWith('{ tracks: [], isEnd: false }')).isEnd, isFalse);
+      expect((await searchWith('{ tracks: [], isEnd: true }')).isEnd, isTrue);
+    });
+
+    test('a plugin that does not say has no next page', () async {
+      expect((await searchWith('{ tracks: [] }')).isEnd, isTrue);
+    });
+
+    for (final bad in ["'no'", '0', '[]']) {
+      test('isEnd $bad is a ParseFailure', () async {
+        await expectLater(
+          searchWith('{ tracks: [], isEnd: $bad }'),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+
+    String withTrack(String fields) =>
+        "{ tracks: [{ id: 'a', title: 'A', author: 'B', $fields }] }";
+
+    test('a track keeps the play count and the page it is given', () async {
+      final track = (await searchWith(
+        withTrack("playCount: 1200, url: 'https://www.example.com/v/a'"),
+      )).tracks.single;
+      expect(track.playCount, 1200);
+      expect(track.url, 'https://www.example.com/v/a');
+    });
+
+    test('play count and url are optional', () async {
+      final track = (await searchWith(withTrack('x: 1'))).tracks.single;
+      expect(track.playCount, isNull);
+      expect(track.url, isNull);
+    });
+
+    for (final bad in ['-1', '1.5', "'12'", 'NaN', 'Infinity', 'true']) {
+      test('play count $bad is a ParseFailure', () async {
+        await expectLater(
+          searchWith(withTrack('playCount: $bad')),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+
+    for (final bad in [
+      "'//www.example.com/a'",
+      "'ftp://a.example.com/a'",
+      '1',
+    ]) {
+      test('url $bad is a ParseFailure', () async {
+        await expectLater(
+          searchWith(withTrack('url: $bad')),
           throwsA(isA<ParseFailure>()),
         );
       });
@@ -304,7 +450,7 @@ void main() {
     ''';
 
     Future<String> fetch(PluginHost h, String url) async =>
-        (await only(h).search(url)).single.title;
+        (await only(h).search(url)).tracks.single.title;
 
     test('passes any status code and body back to the plugin', () async {
       final http = FakeHttp((_) => const FakeResponse(412, 'banned'));
@@ -554,7 +700,7 @@ void main() {
     ''', callTimeout: const Duration(milliseconds: 500));
 
     await expectLater(only(h).search('hang'), throwsA(isA<ParseFailure>()));
-    expect(await only(h).search('ok'), isEmpty);
+    expect((await only(h).search('ok')).tracks, isEmpty);
     expect(
       await closeAndReadLog(),
       contains('search timed out after 500ms; restarting its engine'),
@@ -570,7 +716,7 @@ void main() {
     final hooked = _HookedLog(log);
     late final Plugin plugin;
     var failures = 0;
-    Future<List<Track>>? c;
+    Future<SearchResults>? c;
     hooked.onWarningOrError = (message) {
       final failed =
           message.contains('search timed out') ||
@@ -604,7 +750,7 @@ void main() {
     ]);
 
     expect(c, isNotNull, reason: 'B failed after A closed the engine');
-    expect(await c, isEmpty);
+    expect((await c)!.tracks, isEmpty);
   });
 
   group('source mark', () {

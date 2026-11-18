@@ -1,0 +1,27 @@
+{
+  "input": {
+    "query": "lemon",
+    "sort": "date"
+  },
+  "expect": {
+    "covers": true,
+    "playCounts": true,
+    "urls": true
+  },
+  "recorded": "2026-11-19",
+  "interactions": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.bilibili.com/x/web-interface/search/type?search_type=video&order=pubdate&page=1&keyword=lemon"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"code\":0,\"message\":\"OK\",\"data\":{\"numPages\":50,\"result\":[{\"author\":\"Urdu-storys-PK\",\"bvid\":\"BV1aAsQ6bEpr\",\"title\":\"Ghareeb <em class=\\\"keyword\\\">Lemon</em> Beta Ki Ammi Ki Dawa | Urdu Story Pk\",\"pic\":\"//i2.hdslb.com/bfs/archive/85e9f85b97bbe60c23310b7afa4ca6456b956736.jpg\",\"play\":0,\"duration\":\"1:46\"},{\"author\":\"_东方延续_\",\"bvid\":\"BV1BSsD6MEdL\",\"title\":\"<em class=\\\"keyword\\\">lemon</em>\",\"pic\":\"//i0.hdslb.com/bfs/archive/8647953c80d86a2fb97d836fa9a3a30d347d195a.jpg\",\"play\":0,\"duration\":\"4:6\"},{\"author\":\"_东方延续_\",\"bvid\":\"BV1yJsQ6mEcH\",\"title\":\"<em class=\\\"keyword\\\">lemon</em>\",\"pic\":\"//i2.hdslb.com/bfs/archive/f364d066a5344f6975271ba0bf9294f052aaddbd.jpg\",\"play\":6,\"duration\":\"0:24\"},{\"author\":\"病床组组长\",\"bvid\":\"BV1wzsU6MEsw\",\"title\":\"关于risu想用男声唱<em class=\\\"keyword\\\">lemon</em>但不会男高音只能用女高音唱完还崩溃了这件事\",\"pic\":\"//i1.hdslb.com/bfs/archive/20d8976f923f6c51dec727859f7fedc2c0c12864.jpg\",\"play\":99,\"duration\":\"4:31\"},{\"author\":\"疑车無据\",\"bvid\":\"BV15YsS6cEji\",\"title\":\"<em class=\\\"keyword\\\">lemon</em>柠檬ns模拟器更新了1.5 已完整汉化主要更新内容请看视频介绍获取方式请看简介大家一键三连支持谢谢\",\"pic\":\"//i1.hdslb.com/bfs/archive/48fb349aec81802bb54b8dd01e53f2044103a581.jpg\",\"play\":124,\"duration\":\"1:49\"},{\"author\":\"达观甲申神将晞女\",\"bvid\":\"BV14wsm6CEYf\",\"title\":\"【南町歌】<em class=\\\"keyword\\\">Lemon</em> Tree\",\"pic\":\"//i2.hdslb.com/bfs/archive/77b1b8cc627cb89066c2a4d8f279494cc0c01026.jpg\",\"play\":7,\"duration\":\"3:38\"},{\"author\":\"Lemon香港官方帳號\",\"bvid\":\"BV1GVsA6tEYa\",\"title\":\"【突發】深圳非法改裝玩到俾人拉？七個警察圍住我！會充公車輛嗎？ | <em class=\\\"keyword\\\">LEMON</em>檸檬 (2025/07/05)\",\"pic\":\"//i2.hdslb.com/bfs/archive/181e09da19f6b19097b13716176d639a6969999d.jpg\",\"play\":125,\"duration\":\"7:29\"},{\"author\":\"vin窝vin窝\",\"bvid\":\"BV1K2sm6CEQq\",\"title\":\"<em class=\\\"keyword\\\">Lemon</em> Tree   Gawr Gura AI COVER\",\"pic\":\"//i0.hdslb.com/bfs/archive/e1b79354b4f05c713a68856ca821c872b70b013b.jpg\",\"play\":320,\"duration\":\"1:33\"},{\"author\":\"纳码阿希老师\",\"bvid\":\"BV1s4s26BE9G\",\"title\":\"【GK实物介绍】如此纯真的花火是好女孩嘛？ <em class=\\\"keyword\\\">Lemon</em> Studio 花火样品展示\",\"pic\":\"//i1.hdslb.com/bfs/archive/7bafddec1f2ac4a559a6aa93e0e7dc3d433b004d.jpg\",\"play\":2831,\"duration\":\"1:33\"},{\"author\":\"Lemon_or_Demon\",\"bvid\":\"BV1LHsC65Ejy\",\"title\":\"你是大帅狼:)\",\"pic\":\"//i0.hdslb.com/bfs/archive/d40605ffb11ed674b9368140cb5862e05077bc90.jpg\",\"play\":314,\"duration\":\"0:45\"},{\"author\":\"丶一念一世界\",\"bvid\":\"BV1VpsC6CE4t\",\"title\":\"破·地狱X I 渡亡，念旧 I <em class=\\\"keyword\\\">Lemon</em> 粤语版\",\"pic\":\"//i2.hdslb.com/bfs/archive/9975993d0f93ce733054da42f57996d1cb7681d5.jpg\",\"play\":128,\"duration\":\"4:17\"},{\"author\":\"MioxCim\",\"bvid\":\"BV1f8s663Ezf\",\"title\":\"至今仍能与你在梦中相遇｜《<em class=\\\"keyword\\\">Lemon</em>》\",\"pic\":\"//i1.hdslb.com/bfs/archive/19193e791f55f7ee367030b6029280324e33fa0a.png\",\"play\":449,\"duration\":\"4:15\"},{\"author\":\"纯桀小草酱\",\"bvid\":\"BV1Yks66AEgd\",\"title\":\"新乐器！如何用碧云涛演奏<em class=\\\"keyword\\\">lemon</em> 留给B站的乐器不多了\",\"pic\":\"//i0.hdslb.com/bfs/archive/4480463e8b46c2bb776188feaaf9cfe854ca3370.jpg\",\"play\":1275,\"duration\":\"1:3\"},{\"author\":\"星诺StarLok\",\"bvid\":\"BV1yfs66HE8K\",\"title\":\"【三語翻唱】<em class=\\\"keyword\\\">Lemon</em> Cover by星諾&amp;D桑\",\"pic\":\"//i0.hdslb.com/bfs/archive/bc18893f26f1950ab6cfcd4ce91b09c70551e8c7.jpg\",\"play\":28,\"duration\":\"4:13\"},{\"author\":\"大魔王小森\",\"bvid\":\"BV11XsB6mEgZ\",\"title\":\"【洛克团舞】柠檬蜜瓜曲奇-菊花梨大量出没！！！\",\"pic\":\"//i2.hdslb.com/bfs/archive/035d74417b274224b31917a14ecbda8c02fb989b.jpg\",\"play\":3773,\"duration\":\"2:8\"},{\"author\":\"Lemon香港官方帳號\",\"bvid\":\"BV1VVsA6tEFj\",\"title\":\"【深圳Vlog】終於買電動車仔！預備做美團？點上牌？買什麼品牌最好？ | <em class=\\\"keyword\\\">LEMON</em>檸檬 (2025/06/13)\",\"pic\":\"//i2.hdslb.com/bfs/archive/8e357673ec0a1f41a4d502d2208d744cb09ca679.jpg\",\"play\":243,\"duration\":\"10:27\"},{\"author\":\"OJG_KATSU\",\"bvid\":\"BV1rjsP65E5E\",\"title\":\"<em class=\\\"keyword\\\">LEMON</em> MELON COOKIE / MORE MORE JUMP！ × 初音未来 [VRChat尝试跳舞]\",\"pic\":\"//i1.hdslb.com/bfs/archive/2b5e436bfc8d4f00aeaf6615b45e2dee85e7876e.jpg\",\"play\":160,\"duration\":\"0:25\"},{\"author\":\"Shuma_舒玛\",\"bvid\":\"BV1WdsB61EY4\",\"title\":\"【舞蹈】真韩国人跳<em class=\\\"keyword\\\">Lemon</em> Tang\",\"pic\":\"//i2.hdslb.com/bfs/archive/72dede0de9e0067d55a4a62f841f763b73794f4c.jpg\",\"play\":1023,\"duration\":\"0:21\"},{\"author\":\"纳码阿希老师\",\"bvid\":\"BV16wsz6rEQz\",\"title\":\"【GK实物介绍】如此清凉的白毛大姐姐你不爱嘛？<em class=\\\"keyword\\\">Lemon</em> Studio 白毛狐狸大姐姐 样品介绍\",\"pic\":\"//i1.hdslb.com/bfs/archive/ed0694426641d0b49ad601d174a65861a16dba0d.jpg\",\"play\":4683,\"duration\":\"1:40\"},{\"author\":\"悲悲小竹\",\"bvid\":\"BV1MpsA6HEDn\",\"title\":\"【Hearts2Hearts】柳河览YUHA“<em class=\\\"keyword\\\">Lemon</em> Tang”音银竖屏直拍｜260703\",\"pic\":\"//i0.hdslb.com/bfs/archive/23c7bbf4b9b416be43a2332758b402632028ec3c.jpg\",\"play\":89,\"duration\":\"3:29\"}]}}"
+      }
+    }
+  ]
+}

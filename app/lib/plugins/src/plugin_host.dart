@@ -68,6 +68,16 @@ class PluginHost {
   }
 }
 
+/// 插件能力 `search` 的一頁結果。
+class SearchResults {
+  const SearchResults({required this.tracks, required this.isEnd});
+
+  final List<Track> tracks;
+
+  /// 沒有下一頁了。插件沒給時當成 true，不分頁的插件不會被一直載入。
+  final bool isEnd;
+}
+
 /// 一個載入的插件。插件能力的方法在插件沒宣告該能力時丟 [Unsupported]；
 /// 插件或音源造成的失敗丟 [AppError]，宿主自己的程式錯誤（例如原生庫
 /// 載入失敗）照原樣丟出。
@@ -81,12 +91,32 @@ class Plugin {
   final Duration _timeout;
   Future<JsEngine>? _engine;
 
-  /// 插件能力 `search`：用 [query] 搜尋曲目。
-  Future<List<Track>> search(String query) async {
-    final result = await _invoke(PluginCapability.search, {'query': query});
+  /// 插件能力 `search`：用 [query] 搜尋曲目，取第 [page] 頁（從 1 起）。
+  /// [sort] 不在 [PluginManifest.searchSorts] 裡就不傳給插件，插件用自己的
+  /// 預設。[page] 小於 1 是程式錯誤，丟 [ArgumentError]。
+  Future<SearchResults> search(
+    String query, {
+    SearchSort? sort,
+    int page = 1,
+  }) async {
+    if (page < 1) throw ArgumentError.value(page, 'page', 'must be at least 1');
+    final result = await _invoke(PluginCapability.search, {
+      'query': query,
+      if (sort != null && manifest.searchSorts.contains(sort))
+        'sort': sort.name,
+      'page': page,
+    });
     return _parse(PluginCapability.search, () {
-      final tracks = (result as Map)['tracks'] as List;
-      return [for (final t in tracks) _track(t as Map)];
+      final json = result as Map;
+      final tracks = json['tracks'] as List;
+      return SearchResults(
+        tracks: [for (final t in tracks) _track(t as Map)],
+        isEnd: switch (json['isEnd']) {
+          null => true,
+          final bool end => end,
+          _ => throw const FormatException('isEnd is not a boolean'),
+        },
+      );
     });
   }
 
@@ -175,6 +205,18 @@ class Plugin {
         null => null,
         final String url when _isWebUrl(Uri.parse(url)) => url,
         _ => throw const FormatException('coverUrl is not an http(s) URL'),
+      },
+      playCount: switch (json['playCount']) {
+        null => null,
+        final num n when n.isFinite && n >= 0 && n == n.truncate() => n.toInt(),
+        _ => throw const FormatException(
+          'playCount is not a non-negative integer',
+        ),
+      },
+      url: switch (json['url']) {
+        null => null,
+        final String url when _isWebUrl(Uri.parse(url)) => url,
+        _ => throw const FormatException('url is not an http(s) URL'),
       },
     );
   }
