@@ -16,7 +16,8 @@ import 'driver.dart';
 
 /// 票 11 的實跑情境：串流壞掉時重新解析一次。匿名搜一次「lofi」、臨時播放
 /// 第一首；第一次載入換成本機假 CDN 的網址（一律回 403，像過期的網址），
-/// App 重新解析（再打一次真的 B 站）後播出聲、不跳提示。讀回畫面與 log。
+/// App 重新解析（再打一次真的 B 站）後播出聲、不跳提示。讀回畫面與 log；
+/// log 記的 CDN 主機是插件給的那條（網址是在後端裡換掉的）。
 /// 跑法見 docs/development.md〈實跑驅動〉：
 ///
 ///     dart run tool/real_run.dart -d macos integration_test/real_run/refresh_run.dart
@@ -73,7 +74,6 @@ void main() {
     // ignore: avoid_print -- 讀回的 log 留在實跑的輸出裡，寫進票的 Comments。
     print('[refresh log]\n  ${lines.join('\n  ')}');
     expect(lines.where((l) => l.contains('Playback failed')), hasLength(1));
-    expect(lines.where((l) => l.contains('from 127.0.0.1')), hasLength(1));
     expect(
       lines.where((l) => l.contains('Resolving the stream again')),
       hasLength(1),

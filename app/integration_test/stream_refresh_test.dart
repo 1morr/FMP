@@ -159,7 +159,9 @@ void main() {
 
     // log 每筆馬上寫進檔案（`Log.open`），不必先關。
     final text = File('${logDir.path}/${Log.fileName}').readAsStringSync();
-    expect(text, contains('Playback failed: NetworkError'));
+    // 錯誤分類各平台不同（Apple 把本機的 403 報成 -11849），重新解析不看
+    // 分類。
+    expect('Playback failed: '.allMatches(text), hasLength(1));
     expect(text, contains('from 127.0.0.1'));
     expect(text, contains('Resolving the stream again: bilibili/'));
   });
