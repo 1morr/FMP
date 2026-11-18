@@ -808,6 +808,191 @@ void main() {
       expect(backend.calls, ['load', 'load', 'play']);
     },
   );
+
+  group('preload (brief〈播放〉)', () {
+    const next = Track(
+      ref: TrackRef(pluginId: 'songs', trackId: 'next'),
+      title: 'Next',
+      author: 'N',
+    );
+    const expiring = Track(
+      ref: TrackRef(pluginId: 'songs', trackId: 'expiring'),
+      title: 'Expiring',
+      author: 'E',
+    );
+
+    test('the next track is resolved and handed to the backend once the '
+        'current one sounds, not before', () async {
+      backend.holdLoad = Completer();
+      final playing = playback().play(playable);
+      playback().preloadNext(next);
+      // 解析一首要經插件引擎，給它足夠的時間。
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(backend.preloads, isEmpty);
+
+      backend.holdLoad!.complete();
+      await playing;
+      await _until(() => backend.preloads.isNotEmpty);
+
+      expect(backend.preloads.single!.url.path, '/next.m4a');
+      expect(identical(backend.preloaded, backend.preloads.single), isTrue);
+    });
+
+    test('a track that sounds before its load returns still preloads the '
+        'next one', () async {
+      // just_audio 的 playing 跨來源保留：新的一條常在 setAudioSource 回來
+      // 之前就出聲。
+      playback().preloadNext(next);
+      backend.holdLoad = Completer();
+      final playing = playback().play(playable);
+      await _until(() => backend.calls.contains('load'));
+      backend.emit(
+        backend.state.copyWith(status: AudioBackendStatus.ready, playing: true),
+      );
+      backend.holdLoad!.complete();
+      await playing;
+
+      await _until(() => backend.preloads.isNotEmpty);
+      expect(backend.preloads.single!.url.path, '/next.m4a');
+    });
+
+    test('playing the preloaded track switches to it without resolving it '
+        'again', () async {
+      await playback().play(playable);
+      playback().preloadNext(next);
+      await _until(() => backend.preloads.isNotEmpty);
+      final statuses = <PlaybackStatus>[];
+      container.listen(playbackProvider, (_, s) => statuses.add(s!.status));
+      backend.calls.clear();
+
+      await playback().play(next);
+
+      expect(backend.calls, ['switch', 'play']);
+      expect(identical(current()!.stream, backend.preloads.single), isTrue);
+      expect(current()!.track, next);
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(statuses, isNot(contains(PlaybackStatus.resolving)));
+    });
+
+    test('when the backend moves on to the preloaded stream by itself, the '
+        'current track completes, and playing the next one keeps the sound '
+        'going', () async {
+      await playback().play(playable);
+      playback().preloadNext(next);
+      await _until(() => backend.preloads.isNotEmpty);
+      backend.calls.clear();
+
+      backend.advance();
+      // 播放層還沒換到下一首時，後端報的下一首的狀態不算這一首的。
+      expect(current()!.track, playable);
+      expect(current()!.status, PlaybackStatus.completed);
+
+      await playback().play(next);
+
+      expect(backend.calls, ['load current', 'play']);
+      expect(current()!.track, next);
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(current()!.duration, const Duration(minutes: 3));
+    });
+
+    test('a preloaded stream less than 2 minutes before it expires is '
+        'resolved again when played (architecture〈快取〉)', () async {
+      await playback().play(playable);
+      playback().preloadNext(expiring);
+      await _until(() => backend.preloads.isNotEmpty);
+      now = start.add(const Duration(minutes: 8, seconds: 1));
+      backend.calls.clear();
+
+      await playback().play(expiring);
+
+      expect(backend.calls, ['load', 'play']);
+      expect(identical(current()!.stream, backend.preloads.single), isFalse);
+    });
+
+    test(
+      'a waiting preload is resolved again 2 minutes before it expires',
+      () async {
+        // 預載時離「過期前 2 分鐘」只剩 100 毫秒。
+        now = start.add(
+          const Duration(minutes: 8) - const Duration(milliseconds: 100),
+        );
+        await playback().play(playable);
+        playback().preloadNext(expiring);
+        await _until(() => backend.preloads.isNotEmpty);
+        now = start.add(const Duration(minutes: 8));
+
+        await _until(() => backend.preloads.length == 2);
+
+        expect(identical(backend.preloads[0], backend.preloads[1]), isFalse);
+        expect(identical(backend.preloaded, backend.preloads[1]), isTrue);
+      },
+    );
+
+    test('a new next track replaces the preload, and no next track clears '
+        'it', () async {
+      await playback().play(playable);
+      playback().preloadNext(next);
+      await _until(() => backend.preloads.isNotEmpty);
+
+      playback().preloadNext(expiring);
+      await _until(() => backend.preloaded?.url.path == '/expiring.m4a');
+
+      playback().preloadNext(null);
+      await _until(() => backend.preloaded == null);
+      expect(backend.preloads.last, isNull);
+    });
+
+    test('a new next track takes the old preload off the backend right '
+        'away, so a natural end cannot play it, even when the new one fails '
+        'to resolve', () async {
+      const gone = Track(
+        ref: TrackRef(pluginId: 'songs', trackId: 'gone'),
+        title: 'Gone',
+        author: 'G',
+      );
+      await playback().play(playable);
+      playback().preloadNext(next);
+      await _until(() => backend.preloaded != null);
+
+      playback().preloadNext(gone);
+      await _until(() => backend.preloads.length == 2);
+
+      expect(backend.preloads.last, isNull);
+      expect(backend.preloaded, isNull);
+    });
+
+    test('a track loaded fresh gets the preload handed over again once it '
+        'sounds, without resolving the next track again', () async {
+      await playback().play(playable);
+      playback().preloadNext(next);
+      await _until(() => backend.preloads.isNotEmpty);
+
+      // 重新開別的串流，後端的清單整個換掉。
+      await playback().play(expiring);
+      await _until(() => backend.preloads.length == 2);
+
+      expect(identical(backend.preloads[0], backend.preloads[1]), isTrue);
+    });
+
+    test('a next track that fails to resolve is only logged; playing it '
+        'resolves as usual', () async {
+      const gone = Track(
+        ref: TrackRef(pluginId: 'songs', trackId: 'gone'),
+        title: 'Gone',
+        author: 'G',
+      );
+      await playback().play(playable);
+      playback().preloadNext(gone);
+      await pumpEventQueue(times: 50);
+      expect(backend.preloads, isEmpty);
+      expect(current()!.status, PlaybackStatus.playing);
+
+      await playback().play(gone);
+
+      expect(current()!.status, PlaybackStatus.failed);
+      expect(current()!.error, isA<NotFound>());
+    });
+  });
 }
 
 Future<void> _until(bool Function() condition) async {

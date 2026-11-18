@@ -117,6 +117,8 @@ final skipAvailableProvider = Provider<({bool previous, bool next})>((ref) {
 /// 一首播不了（[Playback] 已重新解析過一次）就跳下一首，臨時曲目回到佇列；
 /// 連續 [maxConsecutiveFailures] 首播不了、沒有下一首、或音源要求驗證時
 /// 停在那首。處理結果放 [playbackFailureProvider]。
+///
+/// 下一首會播哪首（[_upcoming]）一變就告訴 [Playback.preloadNext]，由它預載。
 class QueueController extends Notifier<Queue> {
   /// 連續幾首播不了；有一首開始播就歸零。
   int _failures = 0;
@@ -128,7 +130,11 @@ class QueueController extends Notifier<Queue> {
           previous?.status != PlaybackStatus.completed) {
         unawaited(_onCompleted());
       }
-      if (next?.status == PlaybackStatus.playing) _failures = 0;
+      if (next?.status == PlaybackStatus.playing) {
+        _failures = 0;
+        // 重啟後還原的佇列沒有改過，第一次出聲時才告訴播放層下一首。
+        if (previous?.status != PlaybackStatus.playing) _preloadUpcoming();
+      }
       if (next != null &&
           next.status == PlaybackStatus.failed &&
           previous?.status != PlaybackStatus.failed) {
@@ -151,11 +157,12 @@ class QueueController extends Notifier<Queue> {
       if (_positionToSave() case final position?) {
         ref.read(queueSaverProvider)?.positionChanged(position, now: true);
       }
+      _preloadUpcoming();
     });
-    listenSelf(
-      (_, queue) =>
-          ref.read(queueSaverProvider)?.queueChanged(queue, _positionToSave()),
-    );
+    listenSelf((_, queue) {
+      ref.read(queueSaverProvider)?.queueChanged(queue, _positionToSave());
+      _preloadUpcoming();
+    });
     return ref.read(savedQueueProvider)?.queue ?? Queue.empty;
   }
 
@@ -185,6 +192,18 @@ class QueueController extends Notifier<Queue> {
   }
 
   Playback get _playback => ref.read(playbackProvider.notifier);
+
+  /// 告訴播放層下一首會播哪首（[_upcoming]），讓它預載。
+  void _preloadUpcoming() => _playback.preloadNext(_upcoming());
+
+  /// 接下來會播的曲目：臨時播放時是要回去的佇列目前那首，單曲循環時是
+  /// 同一首（自然播完時重播），否則是佇列的下一首（[Queue.upcoming]）。
+  Track? _upcoming() {
+    final current = state.current;
+    if (current == null) return null;
+    if (_temporary != null || state.repeat == Repeat.one) return current.track;
+    return state.upcoming?.track;
+  }
 
   Random get _random => ref.read(queueRandomProvider);
 

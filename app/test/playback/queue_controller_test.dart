@@ -517,9 +517,15 @@ void main() {
     void at(Duration position) =>
         backend.emit(backend.state.copyWith(position: position));
 
-    /// 最後一次載入之後後端收到的呼叫。
-    List<String> sinceLastLoad() =>
-        backend.calls.sublist(backend.calls.lastIndexOf('load'));
+    /// 最後一次載入之後後端收到的呼叫，不含預載；換到預載的那條也算載入
+    /// （記成 `load`）。這一組測臨時播放，預載有沒有及時交給後端看時機。
+    List<String> sinceLastLoad() {
+      final calls = [
+        for (final call in backend.calls)
+          if (!call.startsWith('preload')) call == 'switch' ? 'load' : call,
+      ];
+      return calls.sublist(calls.lastIndexOf('load'));
+    }
 
     Future<void> finishTemporary() async {
       finishCurrent();
@@ -816,6 +822,129 @@ void main() {
       await finishTemporary();
 
       expect(playing(), 'a');
+    });
+  });
+
+  group('預載下一首（brief〈播放〉）', () {
+    String? preloaded() => backend.preloaded?.url.pathSegments.last;
+
+    Future<void> preloadedIs(String? file) => _until(() => preloaded() == file);
+
+    test(
+      'once a track sounds, the next track in the queue is preloaded',
+      () async {
+        await queue().add([track('a'), track('b'), track('c')]);
+        await settle();
+
+        await preloadedIs('b.m4a');
+        expect(backend.preloads, hasLength(1));
+      },
+    );
+
+    test('pressing next plays the preloaded track without resolving it '
+        'again', () async {
+      await queue().add([track('a'), track('b'), track('c')]);
+      await preloadedIs('b.m4a');
+      backend.calls.clear();
+
+      await queue().next();
+
+      expect(playing(), 'b');
+      expect(backend.calls.take(2), ['switch', 'play']);
+      expect(container.read(playbackProvider)!.status, PlaybackStatus.playing);
+      // 接著預載再下一首。
+      await preloadedIs('c.m4a');
+    });
+
+    test(
+      'pressing next onto the last track still switches to the preload',
+      () async {
+        await queue().add([track('a'), track('b')]);
+        await preloadedIs('b.m4a');
+        backend.calls.clear();
+
+        await queue().next();
+        await pumpEventQueue();
+
+        expect(playing(), 'b');
+        expect(backend.calls.first, 'switch');
+      },
+    );
+
+    test('a track finishing moves on to the preloaded one, keeping the sound '
+        'going', () async {
+      await queue().add([track('a'), track('b')]);
+      await preloadedIs('b.m4a');
+      backend.calls.clear();
+
+      backend.advance();
+      await _until(() => playing() == 'b');
+      await settle();
+
+      expect(currentInQueue(), 'b');
+      expect(backend.calls.take(2), ['load current', 'play']);
+      expect(container.read(playbackProvider)!.status, PlaybackStatus.playing);
+    });
+
+    test(
+      'moving a track, playing next and shuffling change the preload',
+      () async {
+        await queue().add([track('a'), track('b'), track('c'), track('d')]);
+        await preloadedIs('b.m4a');
+
+        queue().move(2, 1);
+        await preloadedIs('c.m4a');
+
+        await queue().playNext([track('x')]);
+        await preloadedIs('x.m4a');
+
+        queue().toggleShuffle();
+        final upcoming = container.read(queueProvider).upcoming!.track;
+        await preloadedIs('${upcoming.ref.trackId}.m4a');
+      },
+    );
+
+    test('nothing is preloaded after the last track; list repeat preloads '
+        'the first', () async {
+      await queue().add([track('a')]);
+      await settle();
+      await pumpEventQueue(times: 20);
+      expect(backend.preloads, isEmpty);
+
+      queue().cycleRepeat();
+      expect(container.read(queueProvider).repeat, Repeat.all);
+      await _until(() => backend.preloads.isNotEmpty);
+      expect(preloaded(), 'a.m4a');
+    });
+
+    test('repeat one preloads the same track again', () async {
+      await queue().add([track('a'), track('b')]);
+      await preloadedIs('b.m4a');
+
+      queue()
+        ..cycleRepeat()
+        ..cycleRepeat();
+      expect(container.read(queueProvider).repeat, Repeat.one);
+
+      await preloadedIs('a.m4a');
+    });
+
+    test('during temporary play the track to go back to is preloaded, and '
+        'going back switches to it and rewinds', () async {
+      await queue().add([track('a'), track('b')]);
+      await settle();
+      backend.emit(
+        backend.state.copyWith(position: const Duration(minutes: 1)),
+      );
+      await queue().playTemporarily(track('x'));
+      await settle();
+      await preloadedIs('a.m4a');
+      backend.calls.clear();
+
+      await queue().next();
+
+      expect(playing(), 'a');
+      expect(backend.calls.take(3), ['switch', 'seek 50000', 'play']);
     });
   });
 }

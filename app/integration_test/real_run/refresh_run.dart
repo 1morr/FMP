@@ -82,6 +82,8 @@ void main() {
 }
 
 /// 第一次載入改開 [refused]（假 CDN 一律回 403），之後照原樣交給 [_backend]。
+/// 換掉的那條不是播放層給的物件，它的狀態播放層不認（只認自己的串流）；
+/// 403 在載入時就丟錯，不靠狀態。
 class _FirstLoadRefused implements AudioBackend {
   _FirstLoadRefused(this._backend, this.refused);
 
@@ -105,6 +107,9 @@ class _FirstLoadRefused implements AudioBackend {
           )
         : stream,
   );
+
+  @override
+  Future<void> preload(AudioStream? stream) => _backend.preload(stream);
 
   @override
   Future<void> play() => _backend.play();
