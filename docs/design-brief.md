@@ -331,7 +331,7 @@ FMP 是 Flutter 音樂播放器（目前支援 Android + Windows），音源為 
 - 佇列與進度跨重啟保存，重啟後不自動播放；設定不提供開關。
 - 依插件給的有效期，在串流過期前重新解析。預載下一首：快到下一首時先解析它的串流，再讓音訊後端先緩衝開頭，切歌時不必等連線；「按下一首到出聲」的目標在 M1 量過四個平台後定（2026-11-14）。
 - 播放失敗時先降一級音質重試，再跳下一首；連續 3 首失敗就停止並提示。
-- 音訊後端：宿主自己的後端介面，Android、iOS、macOS 用 just_audio，Windows 用 media_kit（理由見事實 K1）。系統媒體控制：Android、iOS、macOS 用 audio_service（macOS 已實測，事實 M10、K18），Windows 用 `smtc_windows`。App 要出過聲才會成為 Now Playing App（事實 M10），所以重啟後要先在 App 裡按播放，系統媒體控制才接到 FMP。Apple 平台的 YouTube 一律選 m4a/AAC（事實 M5）。
+- 音訊後端：宿主自己的後端介面，Android、iOS、macOS 用 just_audio，Windows 用 media_kit（理由見事實 K1）。系統媒體控制：Android、iOS、macOS 用 audio_service（macOS 已實測，事實 M10、K18），Windows 用 runner 裡自己接的 SMTC（事實 W7）。App 要出過聲才會成為 Now Playing App（事實 M10），所以重啟後要先在 App 裡按播放，系統媒體控制才接到 FMP。Apple 平台的 YouTube 一律選 m4a/AAC（事實 M5）。
 - 第一版不做：倍速、輸出裝置選擇、gapless 保證。
 
 ## 7. 音樂庫與同步【決定】
