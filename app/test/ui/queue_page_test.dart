@@ -92,6 +92,7 @@ void main() {
     int count = 30,
     int current = 21,
     TargetPlatform? platform,
+    Track? temporary,
   }) async {
     debugDefaultTargetPlatformOverride = platform;
     tester.view
@@ -115,6 +116,23 @@ void main() {
     if (count > 0) {
       await queue.add([for (var i = 1; i <= count; i++) song(i)]);
       await queue.playAt(current - 1);
+    }
+    if (temporary != null) {
+      // 正在播的那首播到 1:36，臨時播放後回來時倒退 10 秒、從 1:26 繼續。
+      if (count > 0) {
+        playback.set(
+          PlaybackState(
+            track: song(current),
+            status: PlaybackStatus.paused,
+            position: const Duration(minutes: 1, seconds: 36),
+          ),
+        );
+      }
+      await queue.playTemporarily(temporary);
+      // 暫停：等化器停住，pumpAndSettle 才等得完。
+      playback.set(
+        PlaybackState(track: temporary, status: PlaybackStatus.paused),
+      );
     }
     playback.played.clear();
     final label = t.shell.nav.queue;
@@ -447,6 +465,141 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(SearchPage), findsOneWidget);
+    });
+  });
+
+  group('臨時播放', () {
+    const detour = Track(
+      ref: TrackRef(pluginId: 'demo', trackId: 'x'),
+      title: 'Detour',
+      author: 'Someone',
+      duration: Duration(minutes: 4, seconds: 5),
+    );
+    final card = find.byKey(const Key('queue-temporary'));
+
+    /// 卡片的下緣到 [button] 下緣的距離：卡片的高照量到的字算對了，就是
+    /// 底部內距，不會多出空白也不會溢出。
+    double gapBelow(WidgetTester tester, String button) =>
+        tester.getBottomLeft(card).dy -
+        tester.getBottomLeft(find.widgetWithText(FmpButton, button)).dy;
+
+    testWidgets('phone: the card sits above the track to go back to and says '
+        'where and from when playback goes back', (tester) async {
+      await start(tester, phone, temporary: detour);
+
+      expect(card, findsOneWidget);
+      expect(tester.getTopLeft(card).dy, greaterThan(62));
+      expect(
+        tester.getTopLeft(card).dy,
+        lessThan(tester.getTopLeft(find.text('Song 21')).dy),
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('Detour')),
+        findsOneWidget,
+      );
+      expect(find.text('不在佇列裡'), findsOneWidget);
+      expect(
+        find.textContaining(
+          '播完或切歌後回到下方第 21 首「Song 21」，從 1:26 繼續（倒退 10 秒）',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('回來時從 1:26 繼續', findRichText: true),
+        findsOneWidget,
+      );
+      // 正在播的不在佇列裡：佇列的列沒有等化器，只有卡片裡有。
+      expect(
+        find.descendant(of: rowOf('Song 21'), matching: find.byType(Equalizer)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: card, matching: find.byType(Equalizer)),
+        findsOneWidget,
+      );
+      expect(gapBelow(tester, '下一首播放'), moreOrLessEquals(24));
+    });
+
+    testWidgets('phone: 現在回到佇列 goes back right away', (tester) async {
+      await start(tester, phone, temporary: detour);
+
+      await tester.tap(find.widgetWithText(FmpButton, '現在回到佇列'));
+      await tester.pumpAndSettle();
+
+      expect(playback.played.map((t) => t.title), ['Song 21']);
+      expect(card, findsNothing);
+    });
+
+    testWidgets('phone: 下一首播放 puts the track after the one to go back to '
+        'and makes it the current one', (tester) async {
+      await start(tester, phone, temporary: detour);
+
+      await tester.tap(find.widgetWithText(FmpButton, '下一首播放'));
+      await tester.pumpAndSettle();
+
+      expect(order().sublist(19, 23), [
+        'Song 20',
+        'Song 21',
+        'Detour',
+        'Song 22',
+      ]);
+      expect(current(), 'Detour');
+      expect(playback.played, isEmpty);
+      expect(card, findsNothing);
+    });
+
+    testWidgets('phone: with nothing to go back to, the card only offers '
+        '下一首播放', (tester) async {
+      await start(tester, phone, current: 30, temporary: detour);
+      await container.read(queueProvider.notifier).remove(29);
+      await tester.pumpAndSettle();
+      scrollPosition(tester).jumpTo(scrollPosition(tester).maxScrollExtent);
+      await tester.pumpAndSettle();
+
+      expect(card, findsOneWidget);
+      expect(find.widgetWithText(FmpButton, '現在回到佇列'), findsNothing);
+      expect(find.textContaining('播完或切歌後', findRichText: true), findsNothing);
+      expect(gapBelow(tester, '下一首播放'), moreOrLessEquals(24));
+    });
+
+    desktopTest('desktop: the card has its actions at the top right and the '
+        'playback time', (tester) async {
+      await start(
+        tester,
+        desktop,
+        platform: TargetPlatform.windows,
+        temporary: detour,
+      );
+
+      expect(card, findsOneWidget);
+      expect(
+        find.textContaining(
+          '播完或按上一首／下一首，回到下方第 21 首「Song 21」，從 1:26 繼續（倒退 10 秒）',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('0:00 / 4:05')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('Demo Source')),
+        findsOneWidget,
+      );
+      final back = tester.getTopRight(find.widgetWithText(FmpButton, '現在回到佇列'));
+      expect(back.dx, greaterThan(tester.getCenter(card).dx));
+      // 卡片下緣到回去那行字的下緣是底部內距 12 加外距 8。
+      final line = find.textContaining('播完或按上一首', findRichText: true);
+      expect(
+        tester.getBottomLeft(card).dy - tester.getBottomLeft(line).dy,
+        moreOrLessEquals(20, epsilon: 1),
+      );
+      expect(
+        find.textContaining('回來時從 1:26 繼續', findRichText: true),
+        findsOneWidget,
+      );
     });
   });
 
@@ -812,7 +965,8 @@ class _FakePlayback extends Playback {
   void set(PlaybackState next) => state = next;
 
   @override
-  Future<void> play(Track track) async => played.add(track);
+  Future<void> play(Track track, {Duration from = Duration.zero}) async =>
+      played.add(track);
 
   @override
   Future<void> stop() async => stops++;

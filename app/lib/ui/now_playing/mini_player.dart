@@ -49,10 +49,8 @@ class MiniPlayer extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          NowPlayingTitle(
+                            title: track.title,
                             style: text.body.copyWith(
                               fontSize: 15,
                               height: 19 / 15,

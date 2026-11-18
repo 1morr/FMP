@@ -80,10 +80,8 @@ class TransportBar extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      track.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    NowPlayingTitle(
+                                      title: track.title,
                                       style: title,
                                     ),
                                     const SizedBox(height: 2),

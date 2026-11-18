@@ -1,3 +1,5 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
@@ -20,30 +22,80 @@ import 'package:fmp/ui/shell/shell_page.dart';
 /// 搜尋頁：M1 先放 M0 的佔位搜尋（結果與播放面板），照稿的搜尋頁在之後的
 /// 票。搜尋欄依寬度放在外殼的 dock 或側欄；中寬度的細欄只有搜尋項目，欄位
 /// 在這一頁的頂端（`docs/design/DESIGN.md`〈中寬度〉）。
-class SearchPage extends ConsumerWidget {
+///
+/// 點一首是臨時播放（brief〈播放〉）：觸控點一下；滑鼠單擊選取，雙擊或按
+/// ↩ 才播。
+class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends ConsumerState<SearchPage> {
+  final _focus = FocusNode(debugLabel: 'search results');
+
+  /// 滑鼠選取的那一首。
+  TrackRef? _selected;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _play(Track track) =>
+      ref.read(queueProvider.notifier).playTemporarily(track);
+
+  void _select(Track track) {
+    setState(() => _selected = track.ref);
+    _focus.requestFocus();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final key = event.logicalKey;
+    if (event is KeyUpEvent ||
+        (key != LogicalKeyboardKey.enter &&
+            key != LogicalKeyboardKey.numpadEnter)) {
+      return KeyEventResult.ignored;
+    }
+    final results = ref.read(placeholderSearchProvider)?.value ?? const [];
+    for (final source in results) {
+      for (final track in source.tracks) {
+        if (track.ref == _selected) {
+          _play(track);
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final medium = FormFactor.of(context).widthClass == WidthClass.medium;
-    return ShellPage(
-      title: t.shell.nav.search,
-      children: [
-        if (medium) ...[
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: SearchField(placement: SearchFieldPlacement.page),
-          ),
-          const SizedBox(height: FmpSpace.s3),
+    return Focus(
+      focusNode: _focus,
+      onKeyEvent: _onKey,
+      child: ShellPage(
+        title: t.shell.nav.search,
+        children: [
+          if (medium) ...[
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: SearchField(placement: SearchFieldPlacement.page),
+            ),
+            const SizedBox(height: FmpSpace.s3),
+          ],
+          const _PlaybackPanel(),
+          ..._results(context, ref.watch(placeholderSearchProvider)),
         ],
-        const _PlaybackPanel(),
-        ..._results(context, ref.watch(placeholderSearchProvider)),
-      ],
+      ),
     );
   }
 
-  static List<Widget> _results(
+  List<Widget> _results(
     BuildContext context,
     AsyncValue<List<PluginResults>>? results,
   ) {
@@ -65,7 +117,14 @@ class SearchPage extends ConsumerWidget {
           else if (source.tracks.isEmpty)
             ListTile(title: Text(t.placeholder.search.empty))
           else
-            for (final track in source.tracks) _TrackTile(track),
+            for (final track in source.tracks)
+              _TrackTile(
+                track,
+                pointer: FormFactor.of(context).density == Density.pointer,
+                selected: track.ref == _selected,
+                onSelect: () => _select(track),
+                onPlay: () => _play(track),
+              ),
         ],
       ],
       AsyncError() => [
@@ -90,20 +149,35 @@ class SearchPage extends ConsumerWidget {
   };
 }
 
+/// 一首搜尋結果。觸控點一下播放；滑鼠按下就選取（不等雙擊的判定），雙擊
+/// 播放，同佇列頁的表格。
 class _TrackTile extends ConsumerWidget {
-  const _TrackTile(this.track);
+  const _TrackTile(
+    this.track, {
+    required this.pointer,
+    required this.selected,
+    required this.onSelect,
+    required this.onPlay,
+  });
 
   final Track track;
+  final bool pointer;
+  final bool selected;
+  final VoidCallback onSelect;
+  final VoidCallback onPlay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final duration = track.duration;
     final text = context.fmpText;
-    return GestureDetector(
+    final tile = GestureDetector(
+      onDoubleTap: pointer ? onPlay : null,
       onSecondaryTapUp: (details) =>
           _showTrackMenu(context, ref, track, details.globalPosition),
       child: ListTile(
-        onTap: () => ref.read(queueProvider.notifier).playNow(track),
+        onTap: pointer ? null : onPlay,
+        selected: selected,
+        selectedTileColor: context.fmpColors.accentSoft,
         title: Text(track.title, style: text.body),
         subtitle: Text(
           style: text.sub.copyWith(color: context.fmpColors.label2),
@@ -128,6 +202,15 @@ class _TrackTile extends ConsumerWidget {
           ),
         ),
       ),
+    );
+    if (!pointer) return tile;
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons & (kPrimaryButton | kSecondaryButton) != 0) {
+          onSelect();
+        }
+      },
+      child: tile,
     );
   }
 }

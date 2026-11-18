@@ -63,7 +63,8 @@
     "next": "下一首",
     "previous": "上一首",
     "play": "播放",
-    "pause": "暫停"
+    "pause": "暫停",
+    "temporaryTag": "臨時"
   },
   "toast": {
     "retry": "重試",
@@ -138,6 +139,14 @@
       "all": "列表循環開著：最後一首播完回到第 1 首",
       "allShuffled": "列表循環開著：最後一首播完回到第 1 首，並重新打亂",
       "one": "單曲循環開著：一直重複正在播的那首"
+    },
+    "temporary": {
+      "title": "臨時播放",
+      "notInQueue": "不在佇列裡",
+      "returnTouch(rich)": "播完或切歌後回到下方第 $number 首「$title」，從 $position 繼續（倒退 $seconds 秒）",
+      "returnTable(rich)": "播完或按上一首／下一首，回到下方第 $number 首「$title」，從 $position 繼續（倒退 $seconds 秒）",
+      "returnRow": "回來時從 $position 繼續",
+      "backToQueue": "現在回到佇列"
     }
   },
   "playMode": {

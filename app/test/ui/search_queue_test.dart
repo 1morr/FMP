@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
@@ -15,8 +17,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../support/shell.dart';
 
-/// 搜尋結果放進佇列：點一首馬上播（插在正在播的後面），⋮ 與右鍵的選單有
-/// 「下一首播放」「加入佇列」。搜尋結果與佇列都換成假的。
+/// 搜尋結果：點一首臨時播放（觸控點一下；滑鼠單擊選取、雙擊或 ↩ 才播），
+/// ⋮ 與右鍵的選單有「下一首播放」「加入佇列」。搜尋結果與佇列都換成假的。
 void main() {
   late Directory logDir;
   late Log log;
@@ -56,11 +58,61 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('tapping a result plays it now', (tester) async {
+  testWidgets('tapping a result plays it temporarily', (tester) async {
     await start(tester, const Size(390, 844));
 
     await tester.tap(find.text('晴天'));
-    expect(queue.calls, ['playNow 1']);
+    expect(queue.calls, ['playTemporarily 1']);
+  });
+
+  group('with a mouse', () {
+    /// 桌面平台才是滑鼠密度；測試結束前要還原（框架在 tearDown 之前檢查）。
+    Future<void> withMouse(Future<void> Function() body) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await body();
+      debugDefaultTargetPlatformOverride = null;
+    }
+
+    testWidgets('a single click only selects the result', (tester) async {
+      await withMouse(() async {
+        await start(tester, const Size(1280, 800));
+
+        await tester.tap(find.text('晴天'));
+        await tester.pump(kDoubleTapTimeout);
+
+        expect(queue.calls, isEmpty);
+        expect(
+          tester.widget<ListTile>(find.widgetWithText(ListTile, '晴天')).selected,
+          isTrue,
+        );
+      });
+    });
+
+    testWidgets('a double click plays it temporarily', (tester) async {
+      await withMouse(() async {
+        await start(tester, const Size(1280, 800));
+
+        await tester.tap(find.text('晴天'));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.tap(find.text('晴天'));
+        await tester.pumpAndSettle();
+
+        expect(queue.calls, ['playTemporarily 1']);
+      });
+    });
+
+    testWidgets('↩ plays the selected result temporarily', (tester) async {
+      await withMouse(() async {
+        await start(tester, const Size(1280, 800));
+
+        await tester.tap(find.text('晴天'));
+        await tester.pump(kDoubleTapTimeout);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+
+        expect(queue.calls, ['playTemporarily 1']);
+      });
+    });
   });
 
   testWidgets('the more menu plays next or adds to the queue', (tester) async {
@@ -112,8 +164,8 @@ class _FakeQueue extends QueueController {
   Queue build() => Queue.empty;
 
   @override
-  Future<void> playNow(Track track) async =>
-      calls.add('playNow ${track.ref.trackId}');
+  Future<void> playTemporarily(Track track) async =>
+      calls.add('playTemporarily ${track.ref.trackId}');
 
   @override
   Future<void> playNext(List<Track> tracks) async =>

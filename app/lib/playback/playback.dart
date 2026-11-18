@@ -108,7 +108,7 @@ class PlaybackState {
 
 /// 前景播放一首曲目（M0 的 tracer bullet）：用提供它的插件解析串流、交給
 /// 音訊後端播放，並把後端的狀態轉成 [PlaybackState]。錯誤轉成錯誤分類並
-/// 寫 log。佇列、臨時播放與過期重新解析在 M1。
+/// 寫 log。佇列與臨時播放在 `queue_controller.dart`；過期重新解析在 M1。
 class Playback extends Notifier<PlaybackState?> {
   AudioBackend? _backendOrNull;
   StreamSubscription<AudioBackendState>? _subscription;
@@ -139,8 +139,9 @@ class Playback extends Notifier<PlaybackState?> {
     return _backendOrNull = backend;
   }
 
-  /// 播放 [track]，取代正在播的。連點時只有最後一首會播。
-  Future<void> play(Track track) async {
+  /// 播放 [track]，取代正在播的；給了 [from] 就從那裡開始（載入後先跳過去
+  /// 再播，不會先從開頭出聲）。連點時只有最後一首會播。
+  Future<void> play(Track track, {Duration from = Duration.zero}) async {
     final generation = ++_generation;
     _stallTimer?.cancel();
     _stallLogged = false;
@@ -175,11 +176,35 @@ class Playback extends Notifier<PlaybackState?> {
     if (!_isCurrent(generation)) return;
     _loadedGeneration = generation;
     _onBackendState(_backend.state);
+    if (from > Duration.zero) {
+      try {
+        await _backend.seek(from);
+      } catch (error, stackTrace) {
+        if (!_isCurrent(generation)) return;
+        _fail(track, stream, error, stackTrace, 'Seeking failed');
+        return;
+      }
+      if (!_isCurrent(generation)) return;
+    }
     try {
       await _backend.play();
     } catch (error, stackTrace) {
       if (!_isCurrent(generation)) return;
       _fail(track, stream, error, stackTrace, 'Starting playback failed');
+    }
+  }
+
+  /// 跳到 [position]；播放中就從那裡接著播。這一首還沒載入完（或還沒播過）
+  /// 時什麼都不做。
+  Future<void> seek(Duration position) async {
+    if (state == null || _loadedGeneration != _generation) return;
+    final generation = _generation;
+    final current = state!;
+    try {
+      await _backend.seek(position);
+    } catch (error, stackTrace) {
+      if (!_isCurrent(generation)) return;
+      _fail(current.track, current.stream, error, stackTrace, 'Seeking failed');
     }
   }
 

@@ -6,16 +6,19 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/domain/queue.dart';
+import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
+import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/queue/queue_layout.dart';
 import 'package:fmp/ui/queue/queue_rows.dart';
+import 'package:fmp/ui/queue/temporary_card.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
@@ -26,7 +29,8 @@ enum _MenuAction { play, moveToNext, remove }
 
 /// 佇列：外殼的一個分頁（`docs/design/queue.html`）。手機與平板是觸控列表，
 /// 桌面與窄視窗是表格；播放順序是播過的、正在播的、摺線、接下來的。
-/// 打開時捲到正在播的那首，點標題捲回去。
+/// 打開時捲到正在播的那首，點標題捲回去。臨時播放時正在播的不在佇列裡：
+/// 卡片插在要回去的那首上方，打開時捲到卡片。
 class QueuePage extends ConsumerStatefulWidget {
   const QueuePage({super.key});
 
@@ -51,6 +55,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   /// 表格選取的那一列，用 [QueueEntry.id] 認。
   int? _selectedId;
 
+  /// 量到之前臨時播放卡片的估計高，只用在第一個畫面的捲動範圍。
+  static const _cardEstimate = 200.0;
+
   QueueController get _queue => ref.read(queueProvider.notifier);
 
   @override
@@ -61,17 +68,24 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     // 第一個畫面就在正在播的那首：先用估計的大標題高度算，畫完再用量到的
     // 高度對一次。
     final queue = ref.read(queueProvider);
+    final temporary = ref.read(temporaryPlayProvider) != null;
     final layout = QueueLayout.of(FormFactor.of(context));
     final insets = ShellInsets.of(context);
     final content =
         insets.top +
         layout.headEstimate +
-        QueueItem.of(queue)
-            .fold(0.0, (sum, item) => sum + item.extent(layout)) +
+        QueueItem.of(queue, temporary: temporary).fold(
+          0.0,
+          (sum, item) => sum + item.extent(layout, card: _cardEstimate),
+        ) +
         insets.bottom;
-    final initial = _currentOffset(queue, layout, layout.headEstimate)
-        .clamp(0.0, math.max(0.0, content - MediaQuery.sizeOf(context).height))
-        .toDouble();
+    final initial =
+        _currentOffset(queue, layout, layout.headEstimate, temporary: temporary)
+            .clamp(
+              0.0,
+              math.max(0.0, content - MediaQuery.sizeOf(context).height),
+            )
+            .toDouble();
     _scrolled.value = initial > _titleGoneOffset;
     _scroll = ScrollController(initialScrollOffset: initial)
       ..addListener(() => _scrolled.value = _scroll.offset > _titleGoneOffset);
@@ -85,18 +99,55 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     super.dispose();
   }
 
-  /// 讓正在播的那列落在第三列（上面露出兩首播過的）要捲到哪裡。列表每一項
-  /// 的高都是定值，直接加起來，不必等遠處的列建出來。
-  double _currentOffset(Queue queue, QueueLayout layout, double head) {
-    final items = QueueItem.of(queue);
+  /// 讓正在播的那列落在第三列（上面露出兩首播過的）要捲到哪裡；臨時播放
+  /// 時是卡片，觸控版上面露出一首多一點（`docs/design/queue.html`）。列表
+  /// 每一項的高都是定值，直接加起來，不必等遠處的列建出來；卡片在目標的
+  /// 位置或之後，不必量。
+  double _currentOffset(
+    Queue queue,
+    QueueLayout layout,
+    double head, {
+    required bool temporary,
+  }) {
+    final items = QueueItem.of(queue, temporary: temporary);
     final at = items.indexWhere(
-      (item) => item is TrackItem && item.index == queue.currentIndex,
+      (item) => temporary
+          ? item is TemporaryCardItem
+          : item is TrackItem && item.index == queue.currentIndex,
     );
     if (at < 0) return 0;
     final before = items
         .take(at)
         .fold(0.0, (sum, item) => sum + item.extent(layout));
-    return math.max(0.0, head + before - 2 * layout.rowExtent);
+    final above = temporary && !layout.isTable
+        ? layout.rowExtent + 10
+        : 2 * layout.rowExtent;
+    return math.max(0.0, head + before - above);
+  }
+
+  /// 臨時播放卡片在 [width] 寬的列表裡的高。
+  double _cardExtent(
+    QueueLayout layout,
+    Queue queue,
+    TemporaryPlay temporary,
+    double width,
+  ) {
+    final entry = queue.current;
+    return QueueTemporaryCard.extent(
+      context,
+      table: layout.isTable,
+      width: width,
+      returnText: entry == null
+          ? null
+          : QueueTemporaryCard.returnText(
+              context,
+              table: layout.isTable,
+              returnTo: entry,
+              returnIndex: queue.currentIndex,
+              resumeAt: temporaryResumeAt(ref, temporary, entry),
+              rewind: ref.read(temporaryPlayRewindProvider),
+            ),
+    );
   }
 
   /// 捲到正在播的那首。
@@ -107,6 +158,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       ref.read(queueProvider),
       layout,
       _headHeight ?? layout.headEstimate,
+      temporary: ref.read(temporaryPlayProvider) != null,
     ).clamp(0.0, _scroll.position.maxScrollExtent).toDouble();
     if (animate) {
       _scroll.animateTo(
@@ -253,6 +305,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       });
     });
     final queue = ref.watch(queueProvider);
+    final temporary = ref.watch(temporaryPlayProvider);
     final playing = ref.watch(
       playbackProvider.select((state) => state?.playing ?? false),
     );
@@ -304,9 +357,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         ],
       );
     } else {
-      final items = QueueItem.of(queue);
+      final items = QueueItem.of(queue, temporary: temporary != null);
       // 沒有目前那首時當成在最後一首之後：全部都是播過的。
       final current = queue.currentIndex ?? queue.entries.length;
+      double extentOf(QueueItem item, double width) {
+        if (item is! TemporaryCardItem) return item.extent(layout);
+        return _cardExtent(layout, queue, temporary!, width);
+      }
+
       scroll = CustomScrollView(
         controller: _scroll,
         slivers: [
@@ -319,7 +377,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             padding: horizontal,
             sliver: SliverReorderableList(
               itemCount: items.length,
-              itemExtentBuilder: (index, _) => items[index].extent(layout),
+              itemExtentBuilder: (index, dimensions) =>
+                  extentOf(items[index], dimensions.crossAxisExtent),
               proxyDecorator: (child, index, animation) =>
                   queueLift(context, child),
               onReorderItem: (from, to) => _onReorder(items, from, to),
@@ -337,6 +396,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                 i,
                 current: current,
                 playing: playing,
+                temporary: temporary,
               ),
             ),
           ),
@@ -380,9 +440,18 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     int i, {
     required int current,
     required bool playing,
+    required TemporaryPlay? temporary,
   }) {
     final table = layout.isTable;
     switch (items[i]) {
+      case TemporaryCardItem():
+        return QueueTemporaryCard(
+          key: const ValueKey('temporary'),
+          temporary: temporary!,
+          returnTo: ref.read(queueProvider).current,
+          returnIndex: ref.read(queueProvider).currentIndex,
+          table: table,
+        );
       case PlayedCaption(:final count):
         return QueueCaption(
           key: const ValueKey('played'),
@@ -399,7 +468,15 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         );
       case TrackItem(:final index, :final entry):
         final id = entry.id;
-        final isCurrent = index == current;
+        // 臨時播放時正在播的不在佇列裡，目前那首是要回去的地方。
+        final isCurrent = index == current && temporary == null;
+        final returnNote = index == current && temporary != null
+            ? context.t.queue.temporary.returnRow(
+                position: formatDuration(
+                  temporaryResumeAt(ref, temporary, entry),
+                ),
+              )
+            : null;
         if (table) {
           return QueueTableRow(
             key: ValueKey(id),
@@ -410,6 +487,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             dimmed: index < current,
             selected: id == _selectedId,
             playing: isCurrent && playing,
+            returnNote: returnNote,
             onSelect: () => _select(id),
             onPlay: () => _queue.playAt(_indexOf(id)),
             onRemove: () => _remove(_indexOf(id)),
@@ -427,6 +505,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           separator:
               previous is TrackItem && !isCurrent && previous.index != current,
           playing: isCurrent && playing,
+          returnNote: returnNote,
           onPlay: () => _queue.playAt(_indexOf(id)),
           onRemove: () => _remove(_indexOf(id)),
         );

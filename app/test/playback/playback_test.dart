@@ -122,6 +122,44 @@ void main() {
     expect(backend.calls, ['load', 'play', 'pause', 'play']);
   });
 
+  group('seek', () {
+    test(
+      'playing from a position seeks after loading, before playing',
+      () async {
+        await playback().play(playable, from: const Duration(seconds: 80));
+
+        expect(backend.calls, ['load', 'seek 80000', 'play']);
+        expect(current()!.position, const Duration(seconds: 80));
+        expect(current()!.status, PlaybackStatus.playing);
+      },
+    );
+
+    test('seek moves the loaded track', () async {
+      await playback().play(playable);
+
+      await playback().seek(const Duration(seconds: 30));
+
+      expect(backend.calls, ['load', 'play', 'seek 30000']);
+      expect(current()!.position, const Duration(seconds: 30));
+    });
+
+    test('seek does nothing before the first track', () async {
+      await playback().seek(const Duration(seconds: 30));
+
+      expect(backend.calls, isEmpty);
+    });
+
+    test('a backend that cannot seek fails with its category', () async {
+      backend.failNextSeek = const AudioBackendError(NetworkError(), 'x');
+
+      await playback().play(playable, from: const Duration(seconds: 80));
+
+      expect(current()!.status, PlaybackStatus.failed);
+      expect(current()!.error, isA<NetworkError>());
+      expect(backend.calls, ['load', 'seek 80000']);
+    });
+  });
+
   group('playPause', () {
     test('pauses what plays and resumes what is paused', () async {
       await playback().play(playable);

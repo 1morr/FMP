@@ -63,7 +63,8 @@
     "next": "Next",
     "previous": "Previous",
     "play": "Play",
-    "pause": "Pause"
+    "pause": "Pause",
+    "temporaryTag": "Temp"
   },
   "toast": {
     "retry": "Retry",
@@ -138,6 +139,14 @@
       "all": "Repeat All is on: after the last track, back to track 1",
       "allShuffled": "Repeat All is on: after the last track, back to track 1, reshuffled",
       "one": "Repeat One is on: the playing track keeps repeating"
+    },
+    "temporary": {
+      "title": "Temporary play",
+      "notInQueue": "Not in the queue",
+      "returnTouch(rich)": "When it ends or you skip, back to #$number below, “$title”, from $position ($seconds s earlier)",
+      "returnTable(rich)": "When it ends or you press Previous or Next, back to #$number below, “$title”, from $position ($seconds s earlier)",
+      "returnRow": "Resumes from $position",
+      "backToQueue": "Back to Queue"
     }
   },
   "playMode": {

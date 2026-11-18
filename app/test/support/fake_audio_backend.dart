@@ -24,6 +24,9 @@ class FakeAudioBackend implements AudioBackend {
   /// 設了就讓下一次 [play] 丟它（只丟一次）。
   AudioBackendError? failNextPlay;
 
+  /// 設了就讓下一次 [seek] 丟它（只丟一次）。
+  AudioBackendError? failNextSeek;
+
   /// [load] 開好時回報的長度。
   Duration? loadedDuration = const Duration(minutes: 3);
 
@@ -76,6 +79,10 @@ class FakeAudioBackend implements AudioBackend {
   @override
   Future<void> seek(Duration position) async {
     calls.add('seek ${position.inMilliseconds}');
+    if (failNextSeek case final error?) {
+      failNextSeek = null;
+      throw error;
+    }
     emit(state.copyWith(position: position));
   }
 

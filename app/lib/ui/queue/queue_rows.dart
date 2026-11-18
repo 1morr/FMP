@@ -29,6 +29,25 @@ String queueTotalText(Translations t, int count, Duration duration) {
 
 const _dimOpacity = .45;
 
+/// 作者，臨時播放時要回去的那一列再接「 · 回來時從 1:26 繼續」（`.qu-ret`：
+/// 強調色、600）。
+InlineSpan _authorWithNote(BuildContext context, String author, String? note) =>
+    TextSpan(
+      text: author,
+      children: [
+        if (note != null) ...[
+          const TextSpan(text: ' · '),
+          TextSpan(
+            text: note,
+            style: TextStyle(
+              color: context.fmpColors.accent,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+
 /// 觸控列表的一列（`.row`＋`quRow`）：封面、曲名、音源符號與作者、時長、
 /// ×、拖動把手。點整列從這首開始播；長按整列（除了 ×）也能拖。
 class QueueTouchRow extends StatelessWidget {
@@ -42,9 +61,13 @@ class QueueTouchRow extends StatelessWidget {
     required this.playing,
     required this.onPlay,
     required this.onRemove,
+    this.returnNote,
   });
 
   final QueueEntry entry;
+
+  /// 臨時播放時要回去的那一列，副標在作者後面寫「回來時從 1:26 繼續」。
+  final String? returnNote;
 
   /// 在列表裡的位置，拖動排序用。
   final int flatIndex;
@@ -137,8 +160,12 @@ class QueueTouchRow extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 6),
                                       Expanded(
-                                        child: Text(
-                                          track.author,
+                                        child: Text.rich(
+                                          _authorWithNote(
+                                            context,
+                                            track.author,
+                                            returnNote,
+                                          ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: text.foot.copyWith(
@@ -317,9 +344,13 @@ class QueueTableRow extends ConsumerStatefulWidget {
     required this.onPlay,
     required this.onRemove,
     required this.onMenu,
+    this.returnNote,
   });
 
   final QueueEntry entry;
+
+  /// 臨時播放時要回去的那一列，副標在作者後面寫「回來時從 1:26 繼續」。
+  final String? returnNote;
 
   /// 在佇列裡的位置（編號是它加 1）。
   final int index;
@@ -428,8 +459,8 @@ class _QueueTableRowState extends ConsumerState<QueueTableRow> {
                       ),
                     ),
                     const SizedBox(height: 1),
-                    Text(
-                      track.author,
+                    Text.rich(
+                      _authorWithNote(context, track.author, widget.returnNote),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
