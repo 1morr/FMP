@@ -935,11 +935,28 @@ void main() {
       await _until(() => backend.preloads.isNotEmpty);
 
       playback().preloadNext(expiring);
-      await _until(() => backend.preloads.length == 2);
-      expect(backend.preloads.last!.url.path, '/expiring.m4a');
+      await _until(() => backend.preloaded?.url.path == '/expiring.m4a');
 
       playback().preloadNext(null);
-      await _until(() => backend.preloads.length == 3);
+      await _until(() => backend.preloaded == null);
+      expect(backend.preloads.last, isNull);
+    });
+
+    test('a new next track takes the old preload off the backend right '
+        'away, so a natural end cannot play it, even when the new one fails '
+        'to resolve', () async {
+      const gone = Track(
+        ref: TrackRef(pluginId: 'songs', trackId: 'gone'),
+        title: 'Gone',
+        author: 'G',
+      );
+      await playback().play(playable);
+      playback().preloadNext(next);
+      await _until(() => backend.preloaded != null);
+
+      playback().preloadNext(gone);
+      await _until(() => backend.preloads.length == 2);
+
       expect(backend.preloads.last, isNull);
       expect(backend.preloaded, isNull);
     });

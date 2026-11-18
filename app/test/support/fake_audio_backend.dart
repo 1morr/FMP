@@ -116,20 +116,28 @@ class FakeAudioBackend implements AudioBackend {
     preloaded = stream;
   }
 
-  /// 模擬原生播放器播完目前這條、自己接到預載的那條：先為目前這條發
-  /// completed，再發預載那條的 ready、照舊在播。沒有預載時只發 completed。
+  /// 模擬原生播放器播完目前這條、自己接到預載的那條，照真的後端
+  /// （`BackendStates.advancedTo`）的順序：先為目前這條發 completed，再發
+  /// 預載那條的 buffering（照舊在播、長度未知），再發 ready 與長度。沒有
+  /// 預載時只發 completed。
   void advance() {
     final next = preloaded;
     preloaded = null;
     if (next != null) _current = next;
     emit(state.copyWith(status: AudioBackendStatus.completed));
     if (next == null) return;
+    final playing = state.playing;
     emit(
       AudioBackendState(
         stream: next,
+        status: AudioBackendStatus.buffering,
+        playing: playing,
+      ),
+    );
+    emit(
+      state.copyWith(
         status: AudioBackendStatus.ready,
-        playing: state.playing,
-        duration: loadedDuration,
+        duration: () => loadedDuration,
       ),
     );
   }

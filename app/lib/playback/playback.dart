@@ -185,7 +185,7 @@ class Playback extends Notifier<PlaybackState?> {
   ({Track track, AudioStream stream})? _preload;
 
   /// [_preload] 交給後端時是第幾代：這一代重開過（換了一首）就要再交一次。
-  int? _preloadHandedIn;
+  int? _preloadHandedInGeneration;
 
   /// 正在解析的下一首與它的序號；序號換了，解析完的結果就不要了。
   Track? _preloading;
@@ -374,22 +374,28 @@ class Playback extends Notifier<PlaybackState?> {
     if (!_sounded || !_loaded) return;
     final wanted = _wantedNext;
     if (wanted == null) {
-      if (_preloadHandedIn == _generation) {
-        _preloadHandedIn = null;
+      if (_preloadHandedInGeneration == _generation) {
+        _preloadHandedInGeneration = null;
         _handToBackend(null);
       }
       return;
     }
     if (_preload case final p?
         when p.track == wanted && !_expiresSoon(p.stream)) {
-      if (_preloadHandedIn != _generation) {
-        _preloadHandedIn = _generation;
+      if (_preloadHandedInGeneration != _generation) {
+        _preloadHandedInGeneration = _generation;
         _log.info('Preloaded the next track: ${wanted.ref.logId}');
         _handToBackend(p.stream);
       }
       return;
     }
     if (_preloading == wanted) return;
+    if (_preloadHandedInGeneration == _generation) {
+      // 後端排著的是別首（或快過期的）：先撤掉，解析期間這一首播完也不會
+      // 接到它；解析失敗就不預載。
+      _preloadHandedInGeneration = null;
+      _handToBackend(null);
+    }
     unawaited(_resolvePreload(wanted));
   }
 
@@ -409,7 +415,7 @@ class Playback extends Notifier<PlaybackState?> {
     if (token != _preloadToken || !ref.mounted) return;
     _preloading = null;
     _preload = (track: track, stream: stream);
-    _preloadHandedIn = null;
+    _preloadHandedInGeneration = null;
     _scheduleRefresh(track, stream);
     _syncPreload();
   }
@@ -453,7 +459,7 @@ class Playback extends Notifier<PlaybackState?> {
     final preload = _preload;
     if (preload == null || preload.track != track) return null;
     _preload = null;
-    _preloadHandedIn = null;
+    _preloadHandedInGeneration = null;
     _preloadRefresh?.cancel();
     _preloadRefresh = null;
     if (_expiresSoon(preload.stream)) {
