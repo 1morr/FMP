@@ -1,6 +1,6 @@
 # 10: 佇列與進度跨重啟保存
 
-Status: ready-for-agent
+Status: done
 Blocked by: 08、09
 讀: brief §6、§9；architecture〈測試策略〉；`app/test/drift/app_database/`；M0 票 07、12 的 Comments；spec〈共同規則〉
 
@@ -16,10 +16,10 @@ Blocked by: 08、09
 - [x] schema 升級照流程（快照、`generated/`、`stepByStep`），閘門的 schema 檢查與升級測試通過；資料完整性測試的骨架就位，至少有一條。
 - [x] 保存與還原有測試：佇列、兩種順序、播放模式、正在播的那首與進度；臨時播放不保留；還原後不自動播放。
 - [x] 開資料庫失敗有測試，畫面有提示、App 照常能播放。
-- [ ] 四平台實跑：排佇列、播到一半、關掉重開，讀回停在原本那首與位置。
+- [x] 四平台實跑：排佇列、播到一半、關掉重開，讀回停在原本那首與位置。（Windows 是 07e78ae0 之前的程式碼，最終程式的重驗交給票 11，見 Comments）
 - [x] 完整閘門的 integration_test（例如 `app_test.dart` 跑 `app.main()`）不寫到擁有者 dev 版的資料庫與 log，照票 08b 實跑驅動的資料隔離做法（`FMP_SCRATCH_DATA`）；有測試守著（2026-11-18 協調者加，票 08b 的發現）。
 - [x] winpc 跑建置與測試時不跳出 PowerShell 主控台視窗（2026-11-18 協調者加，擁有者同意併進這張票）：`tool/winpc/run_task.sh` 建的 `schtasks /IT` 工作改成不顯示主控台（`conhost.exe --headless`、`-WindowStyle Hidden`、`wscript` 包一層，查證後選一種並說明），FMP 視窗照常開；log、`exit …`、`=== done`、`/TR` 261 字上限照舊。用完整閘門的 Windows 步驟驗，跑的期間在 winpc 每 200ms 列可見的頂層視窗，沒有 `ConsoleWindowClass`。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。（依 merge main 前全綠的那輪；最後一輪兩個 Windows 步驟紅在 winpc 的 MSB8066，見 Comments）
 
 ## Comments
 
@@ -77,6 +77,14 @@ ok   plugin bundles (esbuild)
 
 主控台輪詢（`<暫存目錄>/winwatch/watch.ps1`，在 winpc 桌面工作階段每約 210ms 列可見的頂層視窗，`ConsoleWindowClass` 與 `CASCADIA_HOSTING_WINDOW_CLASS` 都記）：最後一輪閘門 15:28:12–15:44:11 共 4511 圈，包含 `build windows` 與四個 Windows integration_test，0 筆主控台，FMP 視窗（`FLUTTER_RUNNER_WIN32_WINDOW fmp`）出現兩次；之前的 Windows 實跑 15:13–15:26 共 3692 圈，也是 0 筆。造違規（`/TR` 拿掉 `conhost.exe --headless`）時抓到 4 筆 `CASCADIA_HOSTING_WINDOW_CLASS`。
 
+### Windows 缺口
+
+照擁有者的決定收票，缺口如下：
+
+- 最終程式碼（`5cb14abc`）沒有在 Windows 上實跑關掉重開：Windows 的 persist_run、restore_run 只在 `07e78ae0`（保存的位置留到真的開始播）之前的程式碼過過一次，讀回 1:05、按播放從 1:05 接著播。
+- 最後一輪完整閘門的 `integration_test windows: app_test.dart`、`stream_duration_test.dart` 紅在 MSB8066，持鎖重跑兩次都一樣，之後 winpc 藍屏，沒再跑。merge main 前那輪四平台全綠。
+- winpc 今天藍屏三次（〈winpc 當機〉）。下一張跑 Windows 閘門的票（票 11）重驗。
+
 ### code-review 未處理的發現
 
 - 保存要靠 `QueueController` 建起來才會寫：App 裡迷你播放器與播放膠囊的上一首、下一首會讀 `queueProvider`，有曲目時一定建；沒有畫面讀它時不會存。
@@ -107,3 +115,4 @@ Session 紀錄：2026-11-18 佇列與進度跨重啟保存（schema v2、QueueSt
 變更：Added｜佇列｜上次的佇列讀不回來或資料庫檔壞掉時另存一份、從空佇列開始，啟動時提示「上次的佇列讀不回來，已另存一份」
 變更：Changed｜播放控制｜開始播一首時，跳到開始位置之前顯示載入中，不再短暫顯示停在開頭的暫停
 等使用者：winpc 今天藍屏三次（13:35 0xFC、14:08 0x20001、15:59 0x50），最終 commit 上的 Windows 實跑沒跑成，閘門有兩個 Windows 步驟紅在 MSB8066。選項：等擁有者處理 winpc 後重跑 Windows 的兩段實跑與這兩步；或依 merge main 前那輪全綠的閘門與稍早的 Windows 實跑收票。建議等 winpc 穩定再補跑，不決定的話「四平台實跑」與「全部檢查綠燈」兩條勾不了，票不能 done
+決定：照現有結果收票，Windows 的最終程式重驗交給下一張跑 Windows 閘門的票（票 11）（使用者定）
