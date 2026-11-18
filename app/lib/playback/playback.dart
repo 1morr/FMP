@@ -71,7 +71,7 @@ class PlaybackState {
   final AppError? error;
 
   /// 畫面顯示的長度：後端回報的長度可信就用它（比插件給的整數秒準），否則用
-  /// 曲目自己的時長。可信是大於 0、而且和曲目的時長差在 [durationTolerance]
+  /// 曲目自己的時長。可信是大於 0、而且和曲目的時長差在 3 秒或 1%（取大的）
   /// 內；曲目沒有時長時，大於 0 就用。AVPlayer 遇到 CDN 中途斷線會把長度截短
   /// （事實 M14），還不知道時報 0（事實 I4）。
   Duration? get effectiveDuration {
@@ -79,11 +79,11 @@ class PlaybackState {
     final own = track.duration;
     if (reported == null || reported <= Duration.zero) return own;
     if (own == null) return reported;
-    return (reported - own).abs() <= durationTolerance(own) ? reported : own;
+    return (reported - own).abs() <= _durationTolerance(own) ? reported : own;
   }
 
   /// 後端的長度和曲目時長最多差多少還算同一個：3 秒或 1%，取大的。
-  static Duration durationTolerance(Duration own) {
+  static Duration _durationTolerance(Duration own) {
     final percent = own ~/ 100;
     const floor = Duration(seconds: 3);
     return percent > floor ? percent : floor;

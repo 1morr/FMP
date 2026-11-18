@@ -67,6 +67,36 @@ void main() {
       (w) => w is MiniPlayer || w is TransportBar,
     );
 
+    /// 迷你播放器或播放膠囊畫出來的「位置 / 長度」，長度和曲目自己的時長差
+    /// 1 秒內（票的驗收）。讀畫面上的字，不讀狀態：元件改讀別的值也抓得到。
+    void expectShownLengthMatchesTrack() {
+      final own = container.read(playbackProvider)!.track.duration!;
+      final shown = [
+        for (final e
+            in find
+                .descendant(of: controls, matching: find.textContaining(' / '))
+                .evaluate())
+          switch (e.widget) {
+            Text(:final data?) => data,
+            Text(:final textSpan?) => textSpan.toPlainText(),
+            RichText(:final text) => text.toPlainText(),
+            _ => '',
+          },
+      ].map((t) => RegExp(r'/ ([\d:]+)$').firstMatch(t)?[1]).nonNulls;
+      expect(shown, isNotEmpty);
+      for (final text in shown) {
+        final length = text
+            .split(':')
+            .map(int.parse)
+            .fold(0, (seconds, part) => seconds * 60 + part);
+        expect(
+          (Duration(seconds: length) - own).abs(),
+          lessThanOrEqualTo(const Duration(seconds: 1)),
+          reason: 'shown $text, the track is $own',
+        );
+      }
+    }
+
     /// App 還沒有拖進度的畫面（播放頁的票），經音訊後端跳到 33:20：iOS 曾把
     /// 這首報成 33:10 並在那裡結束（事實 M14）。讀回位置要往前走、還在播同一首。
     Future<void> seekPast33Minutes(String title) async {
@@ -81,6 +111,7 @@ void main() {
       expect(state.track.title, title);
       expect(state.status, PlaybackStatus.playing);
       expect(state.position, greaterThan(target + const Duration(seconds: 2)));
+      expectShownLengthMatchesTrack();
       await run.step('seek');
     }
 
@@ -103,6 +134,7 @@ void main() {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(seconds: 6)),
       );
+      expectShownLengthMatchesTrack();
       await run.step(name);
       if (index == 0) await seekPast33Minutes(title);
     }

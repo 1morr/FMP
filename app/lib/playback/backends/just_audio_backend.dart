@@ -45,11 +45,12 @@ class JustAudioBackend implements AudioBackend {
     ];
   }
 
+  /// 由這個後端擁有：[dispose] 時一起關掉。
   final HlsPackager? hls;
 
   /// HLS 包裝失敗、改直接播網址時呼叫；介面規定後端不寫 log，由組裝的
   /// 平台層記。
-  final void Function(HlsUnavailable reason)? onHlsUnavailable;
+  final void Function(HlsUnavailable failure)? onHlsUnavailable;
 
   final _player = ja.AudioPlayer(useProxyForRequestHeaders: false);
   final _states = BackendStates();
@@ -102,8 +103,8 @@ class JustAudioBackend implements AudioBackend {
     if (packager == null || stream.segmentBase == null) return stream.url;
     try {
       return await packager.playlistFor(stream);
-    } on HlsUnavailable catch (reason) {
-      onHlsUnavailable?.call(reason);
+    } on HlsUnavailable catch (failure) {
+      onHlsUnavailable?.call(failure);
       return stream.url;
     }
   }

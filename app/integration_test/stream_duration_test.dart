@@ -20,13 +20,14 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   installNoNetworkGuard();
 
+  late Directory logDir;
   late Log log;
   late AudioBackend backend;
   final servers = <LocalAudioServer>[];
 
   Future<void> setUpBackend({FetchRange? fetchRange}) async {
-    final dir = Directory.systemTemp.createTempSync('fmp_it_duration_');
-    log = await Log.open(dir, minimumLevel: LogLevel.debug);
+    logDir = Directory.systemTemp.createTempSync('fmp_it_duration_');
+    log = await Log.open(logDir, minimumLevel: LogLevel.debug);
     backend = createAudioBackend(log, fetchRange: fetchRange);
   }
 
@@ -85,6 +86,42 @@ void main() {
         reason: seen.join('\n'),
       );
       expect(backend.state.duration?.inSeconds, 45);
+    });
+  });
+
+  testWidgets('a stream whose index cannot be read still plays from its URL', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final cdn = await LocalAudioServer.start(
+        length: const Duration(seconds: 30),
+      );
+      servers.add(cdn);
+      await setUpBackend(
+        fetchRange: (_, _, _) async => throw const SocketException('reset'),
+      );
+
+      await backend.load(
+        AudioStream(
+          url: cdn.url(),
+          segmentBase: const SegmentBase(
+            initialization: ByteRange(0, 43),
+            index: ByteRange(44, 99),
+          ),
+        ),
+      );
+      await backend.play();
+      await until((s) => playingPast(s, const Duration(milliseconds: 500)));
+
+      expect(backend.state.duration?.inSeconds, 30);
+      await log.close();
+      final written = File('${logDir.path}/${Log.fileName}').readAsStringSync();
+      // 只有 Apple 平台走 HLS 包裝（ADR 0040），包不了才寫這一筆。
+      expect(
+        written.contains('Playing the stream without HLS'),
+        Platform.isIOS || Platform.isMacOS,
+      );
+      log = await Log.open(logDir, minimumLevel: LogLevel.debug);
     });
   });
 

@@ -17,7 +17,7 @@ AudioBackend createAudioBackend(Log log, {FetchRange? fetchRange}) {
   if (!Platform.isIOS && !Platform.isMacOS) return JustAudioBackend();
   return JustAudioBackend(
     hls: HlsPackager(fetchRange: fetchRange),
-    onHlsUnavailable: (reason) =>
-        log.warning('Playing the stream without HLS: ${reason.reason}'),
+    onHlsUnavailable: (failure) =>
+        log.warning('Playing the stream without HLS: ${failure.reason}'),
   );
 }

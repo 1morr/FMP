@@ -44,11 +44,11 @@ just_audio 不開放，等於自己寫一個 Apple 播放器。
 ## 後果
 
 - 好的：Apple 平台的長度精確、seek 不受斷線影響；每個請求都短。
-- 壞的：每次載入多一個小的 Range 請求（約 10–30 KB）；多一條 Apple 專屬的路徑與一個本機伺服器；清單裡的簽名網址在 loopback 上可讀，靠隨機路徑擋。
+- 壞的：每次載入多一個小的 Range 請求（約 10–30 KB）；多一條 Apple 專屬的路徑與一個本機伺服器；清單裡的簽名網址在 loopback 上可讀，靠隨機路徑擋。抓索引的請求和 AVPlayer 一樣直接連 CDN，不經宿主的網路層：網域檢查跟串流網址一起在 M1.5 做；失敗時 log 只記例外的型別，不記網址。
 - 之後要注意：預載下一首（票 12）同時有兩份清單；串流過期重新解析（票 11）要產生新清單；背景播放（票 13）要確認 App 在背景時 AVPlayer 不需要再要清單（VOD 只要一次）；YouTube 若給得出同樣的兩個範圍，照填即可。
 
 ## 如何確認
 
 - 單元測試：sidx 解析、清單產生、宿主收 `segmentBase` 的格式檢查。
-- `integration_test/stream_duration_test.dart`：本機假 CDN 每個回應傳 1 MB 就斷，macOS 與 iOS 模擬器上這個後端的長度要對、seek 過斷點要繼續播；不走 HLS 時這條是紅的。
+- `integration_test/stream_duration_test.dart`：本機假 CDN 每個回應傳 256 KB 就斷，macOS 與 iOS 模擬器上這個後端的長度要對、seek 過斷點要繼續播；不走 HLS 時這條是紅的。
 - 契約測試：bilibili 的 resolveStream fixture 要有 `segmentBase`。
