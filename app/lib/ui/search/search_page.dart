@@ -12,7 +12,6 @@ import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/search/search.dart';
 import 'package:fmp/search/search_history.dart';
-import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/search/search_parts.dart';
@@ -373,9 +372,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       SearchSectionHeader(
         title: t.search.history.title,
         table: table,
-        trailing: FmpButton(
+        trailing: PlainTextButton(
           label: t.search.history.clear,
-          size: FmpButtonSize.small,
+          table: table,
           onTap: notifier.clear,
         ),
       ),

@@ -20,9 +20,14 @@ class GlassMenuItem<T> extends GlassMenuEntry<T> {
     this.shortcut,
     this.destructive = false,
     this.enabled = true,
+    this.checked,
   });
 
   final T value;
+
+  /// 單選清單（例如排序）的一項：true 在圖示的位置畫勾，false 留同樣的空位
+  /// 讓字對齊；null 是一般項目，照 [icon]。
+  final bool? checked;
   final String label;
   final FmpIcons? icon;
 
@@ -212,11 +217,17 @@ class _ItemState<T> extends State<_Item<T>> {
         ? colors.danger
         : colors.glassInk;
     final ink2 = lit && !touch ? colors.accentInk : colors.glassInk2;
-    final icon = item.icon == null
-        ? null
+    final iconSize = touch ? 20.0 : 15.0;
+    final glyph = switch (item.checked) {
+      true => FmpIcons.check,
+      false => null,
+      null => item.icon,
+    };
+    final icon = glyph == null
+        ? (item.checked == false ? SizedBox(width: iconSize) : null)
         : FmpIcon(
-            item.icon!,
-            size: touch ? 20 : 15,
+            glyph,
+            size: iconSize,
             color: item.destructive && !(lit && !touch) ? colors.danger : ink2,
           );
     final label = Expanded(

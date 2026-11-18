@@ -7,6 +7,7 @@
 #
 # macOS:   background | foreground | panel | press <previous|toggle|next>
 #          | seek <秒> | close-panel | key <play|next|previous>
+#          | resize <寬>x<高>（App 的視窗；System Events，不動游標）
 # iOS:     background | screen
 # Android: background | foreground | notification | session
 #          | tap <標籤[:標籤...]> | seek-bar <比例>
@@ -90,6 +91,11 @@ case "$platform:$action" in
   macos:seek) "$np/np-panel.sh" seek "$arg" ;;
   macos:close-panel) "$np/np-panel.sh" close; echo "closed" ;;
   macos:key) "$np/mediakey.sh" "$arg"; echo "media key $arg" ;;
+  macos:resize)
+    w=${arg%x*} h=${arg#*x}
+    osascript -e "tell application \"System Events\" to set size of window 1 of (first process whose unix id is $pid) to {$w, $h}"
+    echo "resized to ${w}x${h}"
+    ;;
 
   ios:background)
     xcrun simctl launch "$device" com.apple.Preferences >/dev/null

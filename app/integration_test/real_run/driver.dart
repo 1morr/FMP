@@ -74,8 +74,9 @@ class RealRun {
     PlaybackStatus status, {
     Duration timeout = const Duration(seconds: 30),
   }) async {
+    // 從最上層的 Navigator 拿：哪一頁在前面都在它底下。
     final container = ProviderScope.containerOf(
-      tester.element(find.byType(HomePage)),
+      tester.element(find.byType(Navigator).first),
     );
     final deadline = DateTime.now().add(timeout);
     while (container.read(playbackProvider)?.status != status &&

@@ -265,9 +265,11 @@ class SearchTableGrid extends StatelessWidget {
         gap,
         SizedBox(width: narrow ? 80 : 88, child: source),
         gap,
-        SizedBox(width: narrow ? 56 : 66, child: plays),
+        // 稿是播放數 66（窄 56）、時長 46；B 站有十幾小時的長片（14:23:26），
+        // 時長欄挪 8 過來才放得下一行，兩欄總寬不變。
+        SizedBox(width: narrow ? 48 : 58, child: plays),
         gap,
-        SizedBox(width: 46, child: duration),
+        SizedBox(width: 54, child: duration),
         gap,
       ],
     );

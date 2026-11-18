@@ -185,7 +185,7 @@
     },
     "actions": {
       "play": "Play",
-      "playHint": "Play now, leave the queue as is",
+      "playHint": "Queue stays as is",
       "addToQueueHint": "At the end of the queue",
       "copyLink": "Copy link",
       "openInBrowser": "Open in browser",

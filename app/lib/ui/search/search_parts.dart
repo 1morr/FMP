@@ -701,13 +701,14 @@ class _SortButton extends ConsumerWidget {
         final box = context.findRenderObject()! as RenderBox;
         final chosen = await showGlassMenu<SearchSort>(
           context: context,
-          at: box.localToGlobal(box.size.bottomLeft(Offset.zero)),
+          // 右緣對齊排序鈕（鈕在一排的最右邊，選單往左長）。
+          at: box.localToGlobal(box.size.bottomRight(Offset.zero)),
           entries: [
             for (final sort in sorts)
               GlassMenuItem(
                 value: sort,
                 label: sortLabel(t, sort),
-                icon: sort == current ? FmpIcons.check : null,
+                checked: sort == current,
               ),
           ],
         );
@@ -998,6 +999,43 @@ class GlassTextButton extends StatelessWidget {
               letterSpacing: 0,
               color: accent ? colors.accent : colors.glassInk,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 沒有底色的文字鈕（`.btn.btn-plain.btn-sm`）：搜尋紀錄的「清空」。
+class PlainTextButton extends StatelessWidget {
+  const PlainTextButton({
+    super.key,
+    required this.label,
+    required this.table,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool table;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    return ShellButton(
+      onTap: onTap,
+      label: label,
+      builder: (context, hovered) => Container(
+        height: table ? 28 : 32,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: table ? 12.5 : 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+            color: hovered ? colors.label2 : colors.label,
           ),
         ),
       ),
