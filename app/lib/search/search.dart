@@ -74,16 +74,6 @@ class SearchState {
   /// 畫面上的列不會因為載入下一頁而換位置。
   List<Track> get tracks => interleave(sources);
 
-  /// 每個音源都回來了、都沒出錯。
-  bool get settled => sources.every((s) => !s.loading && s.error == null);
-
-  /// 「找不到」只在每個音源都成功、都沒有結果時才成立（設計稿〈待確認〉4）。
-  bool get nothingFound =>
-      sources.isNotEmpty &&
-      settled &&
-      sources.every((s) => s.pages.isNotEmpty) &&
-      sources.every((s) => s.tracks.isEmpty);
-
   SearchState _replace(
     String pluginId,
     SourceResults Function(SourceResults) f,
@@ -94,6 +84,13 @@ class SearchState {
     sources: [for (final s in sources) s.manifest.id == pluginId ? f(s) : s],
   );
 }
+
+/// 「找不到」：[sources] 每個都回來了、都沒出錯、都沒有結果；只要有一個
+/// 出錯就不說找不到（設計稿〈待確認〉4）。畫面傳篩選後看得到的音源。
+bool nothingFoundIn(List<SourceResults> sources) =>
+    sources.isNotEmpty &&
+    sources.every((s) => !s.loading && s.error == null && s.pages.isNotEmpty) &&
+    sources.every((s) => s.tracks.isEmpty);
 
 /// [sources] 的結果一頁一輪、每輪依音源輪流排。
 /// 同一首（同一個曲目身分）出現在兩頁時只留先出現的那個。
@@ -160,9 +157,11 @@ class Search extends Notifier<SearchState?> {
     await _start(current.query, sort);
   }
 
-  /// 每個還有下一頁的音源載入下一頁（捲到底時）。
-  void loadMore() {
+  /// 每個還有下一頁的音源載入下一頁（捲到底時）；[only] 給了時只載它
+  /// （篩選到一個音源時，不替看不到的音源多打請求）。
+  void loadMore({String? only}) {
     for (final source in state?.sources ?? const <SourceResults>[]) {
+      if (only != null && source.manifest.id != only) continue;
       if (source.canLoadMore) _load(source.manifest.id, _generation);
     }
   }

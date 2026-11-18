@@ -41,7 +41,7 @@ Future<void> showTrackActions(
   final phone =
       form.widthClass == WidthClass.narrow && form.density == Density.touch;
   // 選單開著時畫面可能換掉（例如新的搜尋），先拿好要用的東西。
-  final run = _runner(context, ref);
+  final run = trackActionRunner(context, ref);
   final actions = trackActionsFor(track);
   final TrackAction? chosen;
   if (phone) {
@@ -63,11 +63,8 @@ typedef TrackActionRunner = Future<void> Function(
   List<Track> tracks,
 );
 
-/// 綁好 [ref] 的 [TrackActionRunner]：多選的動作列也用它。
-TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) =>
-    _runner(context, ref);
-
-TrackActionRunner _runner(BuildContext context, WidgetRef ref) {
+/// 綁好 [ref] 的 [TrackActionRunner]：選單與多選的動作列都用它。
+TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) {
   final t = context.t;
   final queue = ref.read(queueProvider.notifier);
   final toasts = ref.read(toastProvider.notifier);

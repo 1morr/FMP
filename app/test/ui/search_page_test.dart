@@ -278,12 +278,70 @@ void main() {
           ],
         ),
       );
-      expect(search.calls, isEmpty);
+      expect(search.loadMoreCalls, 0);
 
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -3000));
       await tester.pumpAndSettle();
-      expect(search.calls, contains('more'));
+      expect(search.loadMoreCalls, greaterThan(0));
     });
+  });
+
+  testWidgets('a first page too short to scroll still loads the next one', (
+    tester,
+  ) async {
+    await start(
+      tester,
+      desktop,
+      mouse: true,
+      state: SearchState(
+        query: '夜',
+        sources: [
+          SourceResults(
+            manifest: _songsManifest,
+            pages: [
+              [_track('1')],
+            ],
+          ),
+        ],
+      ),
+    );
+    expect(search.loadMoreCalls, greaterThan(0));
+    done();
+  });
+
+  testWidgets('when the next page fails the list does not claim it is all', (
+    tester,
+  ) async {
+    await start(
+      tester,
+      phone,
+      state: SearchState(
+        query: '夜',
+        sources: [
+          SourceResults(
+            manifest: _songsManifest,
+            pages: [
+              [_track('1')],
+            ],
+            error: const NetworkError(),
+          ),
+        ],
+      ),
+    );
+    expect(find.text('T1'), findsOneWidget);
+    expect(find.text('連不上網路。'), findsOneWidget);
+    expect(find.text('已載入全部'), findsNothing);
+  });
+
+  testWidgets('choosing the sort that is already checked does not search '
+      'again', (tester) async {
+    await start(tester, phone, state: _results());
+
+    await tester.tap(find.text('綜合排序'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('綜合排序').last);
+    await tester.pumpAndSettle();
+    expect(search.calls, isEmpty);
   });
 
   group('more menu', () {
@@ -539,6 +597,9 @@ class _FakeSearch extends Search {
   final SearchState? _initial;
   final calls = <String>[];
 
+  /// 載入下一頁另外記：畫面填不滿時會自己叫。
+  int loadMoreCalls = 0;
+
   @override
   SearchState? build() => _initial;
 
@@ -559,7 +620,7 @@ class _FakeSearch extends Search {
   }
 
   @override
-  void loadMore() => calls.add('more');
+  void loadMore({String? only}) => loadMoreCalls++;
 
   @override
   void retry(String pluginId) => calls.add('retry $pluginId');

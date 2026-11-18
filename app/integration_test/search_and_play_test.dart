@@ -168,19 +168,6 @@ void main() {
     expect(stream.url, streamUrl);
     expect(http.requests.last.uri.queryParameters['cid'], '4242');
 
-    // 進度在走：位置過了 1 秒（長度是假 CDN 的 30 秒）。
-    final deadline = DateTime.now().add(const Duration(seconds: 30));
-    while ((container.read(playbackProvider)?.position ?? Duration.zero) <
-            const Duration(seconds: 1) &&
-        DateTime.now().isBefore(deadline)) {
-      await tester.pump();
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
-      );
-    }
-    final playing = container.read(playbackProvider)!;
-    expect(playing.position, greaterThanOrEqualTo(const Duration(seconds: 1)));
-    expect(playing.effectiveDuration, const Duration(seconds: 30));
     expect(cdn.requests, isNotEmpty);
     for (final request in cdn.requests) {
       expect(request.headers['referer'], 'https://www.bilibili.com');
@@ -193,6 +180,13 @@ void main() {
       (w) => w is MiniPlayer || w is TransportBar,
     );
     expect(controls, findsOneWidget);
+    // 進度在走：外殼的控制上位置過了 1 秒（長度是假 CDN 的 30 秒）。
+    await waitFor(
+      find.descendant(
+        of: controls,
+        matching: find.textContaining(RegExp(r'0:0[1-9] / 0:30')),
+      ),
+    );
     expect(
       find.descendant(of: controls, matching: find.text('晴天 測試')),
       findsOneWidget,
@@ -206,13 +200,18 @@ void main() {
       ),
       findsOneWidget,
     );
+    // 暫停、繼續：鈕的說明跟著換。
     await tester.tap(
       find.descendant(of: controls, matching: find.byTooltip('暫停')),
     );
-    await waitForStatus(PlaybackStatus.paused);
+    await waitFor(
+      find.descendant(of: controls, matching: find.byTooltip('播放')),
+    );
     await tester.tap(
       find.descendant(of: controls, matching: find.byTooltip('播放')),
     );
-    await waitForStatus(PlaybackStatus.playing);
+    await waitFor(
+      find.descendant(of: controls, matching: find.byTooltip('暫停')),
+    );
   });
 }

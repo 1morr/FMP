@@ -93,7 +93,7 @@ void main() {
     final state = c.read(searchProvider)!;
     expect(titles(c), ['夜 - p1#1', '夜 - p1#2']);
     expect(state.sources.last.error, isA<RateLimited>());
-    expect(state.nothingFound, isFalse);
+    expect(nothingFoundIn(state.sources), isFalse);
 
     search.retry('busy');
     await _settle(c);
@@ -176,11 +176,8 @@ void main() {
       manifest: PluginManifest.parse(manifest('b')),
       error: const NetworkError(),
     );
-    expect(SearchState(query: 'q', sources: [empty]).nothingFound, isTrue);
-    expect(
-      SearchState(query: 'q', sources: [empty, failed]).nothingFound,
-      isFalse,
-    );
+    expect(nothingFoundIn([empty]), isTrue);
+    expect(nothingFoundIn([empty, failed]), isFalse);
   });
 
   test('results go round by round, alternating sources, without repeats', () {

@@ -49,11 +49,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 觸控的多選模式（長按一列進入）。
   bool _selecting = false;
 
+  /// 畫面上是結果（不是搜尋紀錄）；紀錄時不載入下一頁。
+  bool _showingResults = false;
+
   @override
   void initState() {
     super.initState();
     _dock = ref.read(dockHiddenProvider.notifier);
     _scroll.addListener(_maybeLoadMore);
+    _afterFrame(_maybeLoadMore);
   }
 
   @override
@@ -68,13 +72,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     super.dispose();
   }
 
-  /// 捲到離底不到 400 時載入下一頁（設計稿：捲到底自動載入）。
+  /// 捲到離底不到 400 時載入下一頁（設計稿：捲到底自動載入）；篩選到一個
+  /// 音源時只載它。第一頁填不滿畫面時沒得捲，畫完也檢查一次。
   void _maybeLoadMore() {
-    if (!_scroll.hasClients) return;
+    if (!_showingResults) return;
+    if (!_scroll.hasClients || !_scroll.position.hasContentDimensions) return;
     if (_scroll.position.extentAfter < 400) {
-      ref.read(searchProvider.notifier).loadMore();
+      ref
+          .read(searchProvider.notifier)
+          .loadMore(only: ref.read(searchFilterProvider));
     }
   }
+
+  void _afterFrame(VoidCallback f) =>
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) f();
+      });
 
   void _play(Track track) =>
       unawaited(trackActionRunner(context, ref)(TrackAction.play, [track]));
@@ -91,7 +104,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   // ---- 滑鼠的選取 ----
 
   void _pointerSelect(PointerDownEvent event, List<Track> tracks, int index) {
-    final ref_ = tracks[index].ref;
+    final picked = tracks[index].ref;
     final keys = HardwareKeyboard.instance;
     final toggle = WindowChrome.commandKeyPressed;
     setState(() {
@@ -112,18 +125,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         }
       }
       if (toggle) {
-        if (!_selected.remove(ref_)) _selected.add(ref_);
-        _anchor = ref_;
+        if (!_selected.remove(picked)) _selected.add(picked);
+        _anchor = picked;
         return;
       }
       // 右鍵按在已選取的列上：保留多選，選單作用在這一首。
-      if (event.buttons & kSecondaryButton != 0 && _selected.contains(ref_)) {
+      if (event.buttons & kSecondaryButton != 0 && _selected.contains(picked)) {
         return;
       }
       _selected
         ..clear()
-        ..add(ref_);
-      _anchor = ref_;
+        ..add(picked);
+      _anchor = picked;
     });
     // 同一下按下也讓搜尋欄失焦（點欄位外面），失焦把焦點交給頁面；等這個
     // frame 過了再拿，↩ 與 Esc 才進得來。
@@ -168,17 +181,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     if (!_selected.remove(track.ref)) _selected.add(track.ref);
   });
 
-  Future<void> _runSelection(SelectionAction action, List<Track> tracks) async {
+  Future<void> _runSelection(TrackAction action, List<Track> tracks) async {
     final chosen = [
       for (final t in tracks)
         if (_selected.contains(t.ref)) t,
     ];
     final run = trackActionRunner(context, ref);
     _clearSelection();
-    await run(switch (action) {
-      SelectionAction.playNext => TrackAction.playNext,
-      SelectionAction.addToQueue => TrackAction.addToQueue,
-    }, chosen);
+    await run(action, chosen);
   }
 
   @override
@@ -188,6 +198,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (_selected.isNotEmpty || _selecting) _clearSelection();
       if (_scroll.hasClients) _scroll.jumpTo(0);
     });
+    // 結果換了（新的一頁回來、換篩選）之後畫面可能還填不滿：畫完再看一次。
+    ref.listen(searchProvider, (_, _) => _afterFrame(_maybeLoadMore));
+    ref.listen(searchFilterProvider, (_, _) => _afterFrame(_maybeLoadMore));
     final controller = ref.watch(searchQueryProvider);
     return ListenableBuilder(
       listenable: controller,
@@ -203,6 +216,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final search = ref.watch(searchProvider);
     // 還沒送出過、或欄位裡的字和這次的搜尋不同（正在打新的字）時是紀錄。
     final history = search == null || typed != search.query;
+    // 從紀錄換到結果時，結果可能填不滿畫面：畫完看一次要不要載下一頁。
+    if (!history && !_showingResults) _afterFrame(_maybeLoadMore);
+    _showingResults = !history;
     final filter = ref.watch(searchFilterProvider);
     final visible = search == null
         ? const <SourceResults>[]
@@ -427,22 +443,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ];
     }
     final loading = search.starting || visible.any((s) => s.loading);
-    final nothing =
-        !loading &&
-        failed.isEmpty &&
-        visible.isNotEmpty &&
-        visible.every((s) => s.pages.isNotEmpty) &&
-        tracks.isEmpty;
-    if (nothing) return [SearchEmpty(query: search.query)];
+    if (nothingFoundIn(visible)) return [SearchEmpty(query: search.query)];
 
     final playback = ref.watch(playbackProvider);
     final current = playback?.track.ref;
     final playing = playback?.playing ?? false;
     final narrowTable = FormFactor.of(context).widthClass == WidthClass.medium;
     final allLoaded =
-        !loading &&
-        tracks.isNotEmpty &&
-        visible.every((s) => s.isEnd || s.error != null);
+        !loading && tracks.isNotEmpty && visible.every((s) => s.isEnd);
     return [
       SearchSectionHeader(
         title: t.search.online,

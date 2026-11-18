@@ -9,6 +9,7 @@ import 'package:fmp/search/search.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -712,7 +713,8 @@ class _SortButton extends ConsumerWidget {
               ),
           ],
         );
-        if (chosen != null) {
+        // 選打勾的那項（沒選過時是插件的預設）不重搜。
+        if (chosen != null && chosen != current) {
           await ref.read(searchProvider.notifier).sortBy(chosen);
         }
       },
@@ -799,9 +801,6 @@ class SearchKeyHints extends StatelessWidget {
   }
 }
 
-/// 多選時的動作（只列多選能做的事）。
-enum SelectionAction { playNext, addToQueue }
-
 /// 桌面與平板的浮動動作列（`.srh-dact`）：「已選擇 n 首｜下一首播放｜加入
 /// 佇列｜×」，玻璃膠囊、在內容欄置中。
 class SelectionActionBar extends StatelessWidget {
@@ -813,14 +812,14 @@ class SelectionActionBar extends StatelessWidget {
   });
 
   final int count;
-  final ValueChanged<SelectionAction> onAction;
+  final ValueChanged<TrackAction> onAction;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final colors = context.fmpColors;
-    Widget action(FmpIcons icon, String label, SelectionAction value) =>
+    Widget action(FmpIcons icon, String label, TrackAction value) =>
         ShellButton(
           onTap: () => onAction(value),
           label: label,
@@ -871,13 +870,13 @@ class SelectionActionBar extends StatelessWidget {
               action(
                 FmpIcons.nextUp,
                 t.queue.actions.playNext,
-                SelectionAction.playNext,
+                TrackAction.playNext,
               ),
               const SizedBox(width: 2),
               action(
                 FmpIcons.queue,
                 t.queue.actions.addToQueue,
-                SelectionAction.addToQueue,
+                TrackAction.addToQueue,
               ),
               Container(
                 width: 1,
@@ -904,42 +903,41 @@ class SelectionActionBar extends StatelessWidget {
 class PhoneSelectionBar extends StatelessWidget {
   const PhoneSelectionBar({super.key, required this.onAction});
 
-  final ValueChanged<SelectionAction> onAction;
+  final ValueChanged<TrackAction> onAction;
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final colors = context.fmpColors;
-    Widget action(FmpIcons icon, String label, SelectionAction value) =>
-        Expanded(
-          child: ShellButton(
-            onTap: () => onAction(value),
-            label: label,
-            builder: (context, pressed) => Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: pressed ? colors.glassPress : null,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FmpIcon(icon, size: 23, color: colors.glassInk),
-                  const SizedBox(height: 3),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0,
-                      color: colors.glassInk,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    Widget action(FmpIcons icon, String label, TrackAction value) => Expanded(
+      child: ShellButton(
+        onTap: () => onAction(value),
+        label: label,
+        builder: (context, pressed) => Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: pressed ? colors.glassPress : null,
+            borderRadius: BorderRadius.circular(28),
           ),
-        );
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FmpIcon(icon, size: 23, color: colors.glassInk),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                  color: colors.glassInk,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
     return Glass(
       radius: 32,
       child: SizedBox(
@@ -951,12 +949,12 @@ class PhoneSelectionBar extends StatelessWidget {
               action(
                 FmpIcons.nextUp,
                 t.queue.actions.playNext,
-                SelectionAction.playNext,
+                TrackAction.playNext,
               ),
               action(
                 FmpIcons.queue,
                 t.queue.actions.addToQueue,
-                SelectionAction.addToQueue,
+                TrackAction.addToQueue,
               ),
             ],
           ),
