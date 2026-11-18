@@ -3,34 +3,6 @@
     "name": "FMP",
     "mediaNotificationChannel": "播放控制"
   },
-  "placeholder": {
-    "search": {
-      "empty": "沒有結果",
-      "failed": "搜尋失敗",
-      "network": "連不上網路",
-      "rateLimited": "請求太頻繁，請稍後再試"
-    },
-    "stream": {
-      "quality": "音質：$value",
-      "expires": "到期：$value",
-      "url": "網址：$value",
-      "unknown": "未知",
-      "failed": "解析失敗",
-      "notFound": "找不到這首曲目",
-      "unavailable": "這首曲目目前無法播放",
-      "unsupported": "這個音源不支援解析串流"
-    },
-    "playback": {
-      "resolving": "正在解析…",
-      "loading": "載入中…",
-      "buffering": "緩衝中…",
-      "playing": "播放中",
-      "paused": "已暫停",
-      "completed": "播完了",
-      "failed": "播放失敗",
-      "unsupportedFormat": "這個平台播不了這條串流"
-    }
-  },
   "shell": {
     "nav": {
       "label": "主導覽",
@@ -162,6 +134,72 @@
       "off": "循環",
       "all": "列表循環",
       "one": "單曲循環"
+    }
+  },
+  "search": {
+    "history": {
+      "title": "搜尋紀錄",
+      "clear": "清空",
+      "remove": "刪除這筆紀錄"
+    },
+    "all": "全部",
+    "sort": {
+      "label": "排序：$sort",
+      "relevance": "綜合排序",
+      "viewCount": "最多播放",
+      "date": "最新發布"
+    },
+    "online": "線上結果",
+    "resultsTitle": {
+      "query": "「$query」",
+      "rest": " 的搜尋結果"
+    },
+    "plays": "$count次播放",
+    "error": {
+      "title": "$source 暫時無法搜尋",
+      "rateLimited": "請求太頻繁，被 $source 限流。",
+      "network": "連不上網路。",
+      "loginRequired": "這個音源要登入才能搜尋。",
+      "failed": "搜尋失敗。",
+      "othersShown": "其他音源照常顯示。",
+      "retry": "重試",
+      "retrySource": "重試 $source"
+    },
+    "empty": {
+      "title": "找不到「$query」",
+      "body": "沒有相符的曲目。試試少一點關鍵字，或檢查有沒有錯字。"
+    },
+    "allLoaded": "已載入全部",
+    "hints": {
+      "doubleClick": "雙擊",
+      "play": "臨時播放",
+      "multiSelect": "點選多選",
+      "rightClick": "右鍵",
+      "more": "更多"
+    },
+    "columns": {
+      "titleArtist": "標題／歌手",
+      "source": "音源",
+      "plays": "播放數",
+      "duration": "時長"
+    },
+    "actions": {
+      "play": "播放",
+      "playHint": "臨時播放，不動佇列",
+      "addToQueueHint": "加在佇列最後",
+      "copyLink": "複製連結",
+      "openInBrowser": "在瀏覽器開啟",
+      "linkCopied": "已複製連結",
+      "openFailed": "打不開瀏覽器"
+    },
+    "selection": {
+      "cancel": "取消",
+      "selectAll": "全選",
+      "selected(plural, param=count)": {
+        "one": "已選擇 $count 首",
+        "other": "已選擇 $count 首"
+      },
+      "clear": "取消選取（Esc）"
     }
   }
 }

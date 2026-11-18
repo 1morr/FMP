@@ -46,10 +46,12 @@ class GlassMenuDivider<T> extends GlassMenuEntry<T> {
 /// 在 [at]（全域座標）打開玻璃選單（`.gmenu`，`docs/design/DESIGN.md`
 /// 〈選單〉）：厚玻璃、跟主題走；觸控與滑鼠兩種密度照 `platform/` 的密度。
 /// 選了回傳那個項目的值，點外面或按 Esc 回傳 null。方向鍵移動、↩ 選取。
+/// [header] 是頂端的摘要（`.mh`：動作作用在哪首曲目），下面接一條細分隔。
 Future<T?> showGlassMenu<T>({
   required BuildContext context,
   required Offset at,
   required List<GlassMenuEntry<T>> entries,
+  Widget? header,
 }) {
   final touch = FormFactor.of(context).density == Density.touch;
   return showGeneralDialog<T>(
@@ -62,7 +64,7 @@ Future<T?> showGlassMenu<T>({
         FadeTransition(opacity: animation, child: child),
     pageBuilder: (context, _, _) => CustomSingleChildLayout(
       delegate: _MenuPosition(at),
-      child: _GlassMenu<T>(entries: entries, touch: touch),
+      child: _GlassMenu<T>(entries: entries, touch: touch, header: header),
     ),
   );
 }
@@ -95,10 +97,11 @@ class _MenuPosition extends SingleChildLayoutDelegate {
 }
 
 class _GlassMenu<T> extends StatelessWidget {
-  const _GlassMenu({required this.entries, required this.touch});
+  const _GlassMenu({required this.entries, required this.touch, this.header});
 
   final List<GlassMenuEntry<T>> entries;
   final bool touch;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +131,23 @@ class _GlassMenu<T> extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (header case final header?) ...[
+                      Padding(
+                        padding: touch
+                            ? const EdgeInsets.fromLTRB(14, 6, 14, 10)
+                            : const EdgeInsets.fromLTRB(8, 5, 8, 8),
+                        child: header,
+                      ),
+                      Container(
+                        height: 0.5,
+                        margin: EdgeInsets.only(
+                          bottom: touch ? 5 : 4,
+                          left: touch ? 0 : 8,
+                          right: touch ? 0 : 8,
+                        ),
+                        color: colors.glassInk.withValues(alpha: 0.14),
+                      ),
+                    ],
                     for (final (i, entry) in entries.indexed)
                       switch (entry) {
                         GlassMenuItem<T>() => _Item<T>(

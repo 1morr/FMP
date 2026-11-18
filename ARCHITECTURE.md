@@ -74,6 +74,7 @@ app/
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image 4.0.7、flutter_cache_manager 3.5.0 | 封面的磁碟快取；用到 path_provider 與 sqflite（Windows 用它的 JSON 紀錄），只在 `platform/` 用。快取只能限檔數與多久沒用，不能限位元組（〈快取〉） |
+| 開網址 | url_launcher 6.3.3 | flutter.dev 官方；選單的「在瀏覽器開啟」用系統瀏覽器開曲目網址，只在 `platform/` 用 |
 | 玻璃 | liquid_glass_easy 5.2.0（2026-11-15 加入時重查，仍是 pub.dev 的 stable） | 四平台都做得到折射級，擁有者看過對照圖並試過 prototype 後選定（brief §11、事實 K21）；standard 用它的 lite glass，minimal 自己畫；只在玻璃元件裡用。不讀系統的「降低透明度」，只看設定的「玻璃效果」（brief §11） |
 | i18n | slang 4.19.2、slang_flutter 4.19.0 | 舊版用過；Flutter 元件的在地化用 `material_ui` 的 `GlobalMaterialLocalizations` |
 | log | logger 2.8.0 | `AdvancedFileOutput` 依大小輪替、限制保留份數；只在 `core/log/` 用（brief 事實 K12） |

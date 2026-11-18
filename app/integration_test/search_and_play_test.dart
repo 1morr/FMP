@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
@@ -18,7 +19,7 @@ import '../test/support/local_audio_server.dart';
 import '../test/support/no_network.dart';
 import '../test/support/shell.dart';
 
-/// M0 的主要流程（architecture〈測試策略〉）：從外殼進搜尋頁，用佔位搜尋搜尋、點一首、播放，用外殼的播放控制暫停、繼續。
+/// M0 的主要流程（architecture〈測試策略〉）：從外殼進搜尋頁，用搜尋頁搜尋、點一首、播放，用外殼的播放控制暫停、繼續。
 /// 在真的平台上跑 App 打包的 bilibili 插件（fjs 引擎）與這個平台的音訊後端
 /// （`platform/audio_backend.dart` 挑的原生播放器）。
 ///
@@ -132,26 +133,54 @@ void main() {
     await tester.enterText(find.byType(TextField), '晴天');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await waitFor(find.text('晴天 測試'));
-    expect(find.text('Bilibili'), findsOneWidget);
-    expect(find.text('測試作者 · 0:30'), findsOneWidget);
-    expect(http.requests.single.uri.queryParameters['keyword'], '晴天');
+    // 音源名稱在篩選 chip 上，作者在列上。
+    expect(find.text('Bilibili'), findsWidgets);
+    expect(find.textContaining('測試作者'), findsWidgets);
+    final search = http.requests.single.uri.queryParameters;
+    expect(search['keyword'], '晴天');
+    expect(search['order'], 'totalrank');
+    expect(search['page'], '1');
 
     // 點一首（臨時播放，桌面是雙擊）：解析串流（票 10），交給原生播放器
     // 播放（票 11）。
     await playSearchResult(tester, find.text('晴天 測試'));
-    await waitFor(find.textContaining('kbps'));
-    expect(find.text('音質：mp4a.40.2 · 135 kbps'), findsOneWidget);
-    expect(
-      find.text(
-        '網址：${streamUrl.replace(query: 'deadline=1767225600&upsig=***')}',
-      ),
-      findsOneWidget,
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp).first),
     );
+    Future<void> waitForStatus(PlaybackStatus status) async {
+      final deadline = DateTime.now().add(const Duration(seconds: 30));
+      while (container.read(playbackProvider)?.status != status &&
+          DateTime.now().isBefore(deadline)) {
+        await tester.pump();
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+      }
+      expect(container.read(playbackProvider)?.status, status);
+      // 讓外殼的控制按新狀態重建（tooltip 換字）。
+      await tester.pump();
+    }
+
+    await waitForStatus(PlaybackStatus.playing);
+    final stream = container.read(playbackProvider)!.stream!;
+    expect(stream.codec, 'mp4a.40.2');
+    expect(stream.bitrate, 134695);
+    expect(stream.url, streamUrl);
     expect(http.requests.last.uri.queryParameters['cid'], '4242');
 
-    await waitFor(find.text('播放中'));
     // 進度在走：位置過了 1 秒（長度是假 CDN 的 30 秒）。
-    await waitFor(find.textContaining(RegExp(r'^0:0[1-9] / 0:30$')));
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
+    while ((container.read(playbackProvider)?.position ?? Duration.zero) <
+            const Duration(seconds: 1) &&
+        DateTime.now().isBefore(deadline)) {
+      await tester.pump();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+    }
+    final playing = container.read(playbackProvider)!;
+    expect(playing.position, greaterThanOrEqualTo(const Duration(seconds: 1)));
+    expect(playing.effectiveDuration, const Duration(seconds: 30));
     expect(cdn.requests, isNotEmpty);
     for (final request in cdn.requests) {
       expect(request.headers['referer'], 'https://www.bilibili.com');
@@ -180,10 +209,10 @@ void main() {
     await tester.tap(
       find.descendant(of: controls, matching: find.byTooltip('暫停')),
     );
-    await waitFor(find.text('已暫停'));
+    await waitForStatus(PlaybackStatus.paused);
     await tester.tap(
       find.descendant(of: controls, matching: find.byTooltip('播放')),
     );
-    await waitFor(find.text('播放中'));
+    await waitForStatus(PlaybackStatus.playing);
   });
 }

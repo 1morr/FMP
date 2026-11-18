@@ -48,4 +48,12 @@ abstract final class WindowChrome {
   /// 快捷鍵提示裡的 Alt 與 Enter：macOS 寫符號 ⌥、⏎，其他平台寫 Alt、Enter。
   static String get altKeyLabel => _usesCommandKey ? '⌥' : 'Alt';
   static String get enterKeyLabel => _usesCommandKey ? '⏎' : 'Enter';
+
+  /// 快捷鍵修飾鍵自己的樣子（⌘ 或 Ctrl），提示「⌘ 點選多選」用。
+  static String get commandKeyLabel => _usesCommandKey ? '⌘' : 'Ctrl';
+
+  /// 現在按著快捷鍵的修飾鍵（⌘ 或 Ctrl）：點選加減選取用。
+  static bool get commandKeyPressed => _usesCommandKey
+      ? HardwareKeyboard.instance.isMetaPressed
+      : HardwareKeyboard.instance.isControlPressed;
 }

@@ -1,30 +1,34 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
-import 'package:fmp/core/errors/app_error.dart';
-import 'package:fmp/core/redaction/redact.dart';
-import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
-import 'package:fmp/app/icons/fmp_icons.dart';
-import 'package:fmp/playback/playback.dart';
-import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/platform/form_factor.dart';
-import 'package:fmp/ui/common/format.dart';
-import 'package:fmp/ui/common/glass_menu.dart';
-import 'package:fmp/ui/search/placeholder_search.dart';
+import 'package:fmp/platform/window_chrome.dart';
+import 'package:fmp/playback/playback.dart';
+import 'package:fmp/search/search.dart';
+import 'package:fmp/search/search_history.dart';
+import 'package:fmp/ui/common/fmp_button.dart';
+import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/search/search_field.dart';
+import 'package:fmp/ui/search/search_parts.dart';
+import 'package:fmp/ui/search/search_query.dart';
+import 'package:fmp/ui/search/search_rows.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
+import 'package:material_ui/material_ui.dart';
 
-/// 搜尋頁：M1 先放 M0 的佔位搜尋（結果與播放面板），照稿的搜尋頁在之後的
-/// 票。搜尋欄依寬度放在外殼的 dock 或側欄；中寬度的細欄只有搜尋項目，欄位
-/// 在這一頁的頂端（`docs/design/DESIGN.md`〈中寬度〉）。
+/// 搜尋頁（`docs/design/search.html`）：搜尋欄沒有送出過的字時是搜尋紀錄，
+/// 送出後是每個音源的結果。手機與平板是觸控列表，桌面與窄視窗是表格（密度
+/// 跟裝置走，設計稿〈待確認〉28）。搜尋欄依寬度放在 dock、側欄或這一頁的
+/// 頂端（中寬度，`DESIGN.md`〈中寬度〉）。
 ///
-/// 點一首是臨時播放（brief〈播放〉）：觸控點一下；滑鼠單擊選取，雙擊或按
-/// ↩ 才播。
+/// 點一首是臨時播放（brief〈播放〉）：觸控點一下；滑鼠單擊選取，雙擊或按 ↩
+/// 才播。要放進佇列用 ⋮、右鍵或多選。
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
@@ -33,358 +37,500 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
+  final _scroll = ScrollController();
   final _focus = FocusNode(debugLabel: 'search results');
+  late final DockHidden _dock;
 
-  /// 滑鼠選取的那一首。
-  TrackRef? _selected;
+  /// 選取的曲目（滑鼠的選取，或觸控的多選）。
+  final _selected = <TrackRef>{};
+
+  /// ⇧ 點選一段的起點；也是 ↩ 要播的那首。
+  TrackRef? _anchor;
+
+  /// 觸控的多選模式（長按一列進入）。
+  bool _selecting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _dock = ref.read(dockHiddenProvider.notifier);
+    _scroll.addListener(_maybeLoadMore);
+  }
 
   @override
   void dispose() {
+    _scroll.dispose();
     _focus.dispose();
+    // 離開搜尋頁時把 dock 還給外殼；不能在卸載的途中改 provider。
+    if (_selecting) {
+      final dock = _dock;
+      unawaited(Future.microtask(() => dock.set(false)));
+    }
     super.dispose();
   }
 
-  void _play(Track track) =>
-      ref.read(queueProvider.notifier).playTemporarily(track);
+  /// 捲到離底不到 400 時載入下一頁（設計稿：捲到底自動載入）。
+  void _maybeLoadMore() {
+    if (!_scroll.hasClients) return;
+    if (_scroll.position.extentAfter < 400) {
+      ref.read(searchProvider.notifier).loadMore();
+    }
+  }
 
-  void _select(Track track) {
-    setState(() => _selected = track.ref);
+  void _play(Track track) =>
+      unawaited(trackActionRunner(context, ref)(TrackAction.play, [track]));
+
+  void _clearSelection() {
+    setState(() {
+      _selected.clear();
+      _anchor = null;
+      _selecting = false;
+    });
+    _dock.set(false);
+  }
+
+  // ---- 滑鼠的選取 ----
+
+  void _pointerSelect(PointerDownEvent event, List<Track> tracks, int index) {
+    final ref_ = tracks[index].ref;
+    final keys = HardwareKeyboard.instance;
+    final toggle = WindowChrome.commandKeyPressed;
+    setState(() {
+      if (keys.isShiftPressed && _anchor != null) {
+        final from = tracks.indexWhere((t) => t.ref == _anchor);
+        if (from >= 0) {
+          _selected
+            ..clear()
+            ..addAll([
+              for (
+                var i = math.min(from, index);
+                i <= math.max(from, index);
+                i++
+              )
+                tracks[i].ref,
+            ]);
+          return;
+        }
+      }
+      if (toggle) {
+        if (!_selected.remove(ref_)) _selected.add(ref_);
+        _anchor = ref_;
+        return;
+      }
+      // 右鍵按在已選取的列上：保留多選，選單作用在這一首。
+      if (event.buttons & kSecondaryButton != 0 && _selected.contains(ref_)) {
+        return;
+      }
+      _selected
+        ..clear()
+        ..add(ref_);
+      _anchor = ref_;
+    });
     // 同一下按下也讓搜尋欄失焦（點欄位外面），失焦把焦點交給頁面；等這個
-    // frame 過了再拿，↩ 才進得來。
+    // frame 過了再拿，↩ 與 Esc 才進得來。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focus.requestFocus();
     });
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+  KeyEventResult _onKey(FocusNode node, KeyEvent event, List<Track> tracks) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    if (event is KeyUpEvent ||
-        (key != LogicalKeyboardKey.enter &&
-            key != LogicalKeyboardKey.numpadEnter)) {
-      return KeyEventResult.ignored;
+    if (key == LogicalKeyboardKey.escape && _selected.isNotEmpty) {
+      _clearSelection();
+      return KeyEventResult.handled;
     }
-    final results = ref.read(placeholderSearchProvider)?.value ?? const [];
-    for (final source in results) {
-      for (final track in source.tracks) {
-        if (track.ref == _selected) {
-          _play(track);
-          return KeyEventResult.handled;
-        }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      final track = tracks.where((t) => t.ref == _anchor).firstOrNull;
+      if (track != null && _selected.contains(track.ref)) {
+        _play(track);
+        return KeyEventResult.handled;
       }
     }
     return KeyEventResult.ignored;
   }
 
+  // ---- 觸控的多選 ----
+
+  void _startSelecting(Track track) {
+    setState(() {
+      _selecting = true;
+      _selected
+        ..clear()
+        ..add(track.ref);
+    });
+    if (FormFactor.of(context).widthClass == WidthClass.narrow) {
+      _dock.set(true);
+    }
+  }
+
+  void _toggle(Track track) => setState(() {
+    if (!_selected.remove(track.ref)) _selected.add(track.ref);
+  });
+
+  Future<void> _runSelection(SelectionAction action, List<Track> tracks) async {
+    final chosen = [
+      for (final t in tracks)
+        if (_selected.contains(t.ref)) t,
+    ];
+    final run = trackActionRunner(context, ref);
+    _clearSelection();
+    await run(switch (action) {
+      SelectionAction.playNext => TrackAction.playNext,
+      SelectionAction.addToQueue => TrackAction.addToQueue,
+    }, chosen);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
-    final medium = FormFactor.of(context).widthClass == WidthClass.medium;
-    return Focus(
-      focusNode: _focus,
-      onKeyEvent: _onKey,
-      child: ShellPage(
-        title: t.shell.nav.search,
-        children: [
-          if (medium) ...[
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: SearchField(placement: SearchFieldPlacement.page),
+    // 換了搜尋（新的查詢或排序）就清掉選取，也捲回頂端。
+    ref.listen(searchProvider.select((s) => (s?.query, s?.sort)), (_, _) {
+      if (_selected.isNotEmpty || _selecting) _clearSelection();
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+    });
+    final controller = ref.watch(searchQueryProvider);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _build(context, controller.text.trim()),
+    );
+  }
+
+  Widget _build(BuildContext context, String typed) {
+    final form = FormFactor.of(context);
+    final table = form.density == Density.pointer;
+    final phone = form.widthClass == WidthClass.narrow;
+    final medium = form.widthClass == WidthClass.medium;
+    final search = ref.watch(searchProvider);
+    // 還沒送出過、或欄位裡的字和這次的搜尋不同（正在打新的字）時是紀錄。
+    final history = search == null || typed != search.query;
+    final filter = ref.watch(searchFilterProvider);
+    final visible = search == null
+        ? const <SourceResults>[]
+        : [
+            for (final s in search.sources)
+              if (filter == null || s.manifest.id == filter) s,
+          ];
+    final tracks = filter == null
+        ? (search?.tracks ?? const <Track>[])
+        : interleave(visible);
+    final insets = ShellInsets.of(context);
+    final horizontal = switch ((table, phone)) {
+      (true, _) => EdgeInsets.only(
+        left: math.max(0, insets.left - 10),
+        right: math.max(0, insets.right - 10),
+      ),
+      (false, true) => EdgeInsets.zero,
+      (false, false) => const EdgeInsets.only(left: 4, right: 24),
+    };
+
+    final head = <Widget>[
+      if (medium)
+        _mediumTop(context, table, showHints: !history && table)
+      else
+        _title(context, phone, history ? null : search.query, table),
+      if (!history)
+        SearchFilterBar(
+          search: search,
+          filter: filter,
+          table: table,
+          onFilter: ref.read(searchFilterProvider.notifier).select,
+          hints: !medium && table
+              ? SearchKeyHints(commandKey: WindowChrome.commandKeyLabel)
+              : null,
+        ),
+    ];
+    final body = history
+        ? _history(context, typed, table)
+        : _results(context, search, visible, tracks, table);
+
+    final scroll = CustomScrollView(
+      controller: _scroll,
+      slivers: [
+        SliverToBoxAdapter(child: SizedBox(height: insets.top)),
+        SliverPadding(
+          padding: horizontal,
+          sliver: SliverList.list(children: [...head, ...body]),
+        ),
+        SliverToBoxAdapter(child: SizedBox(height: insets.bottom + 80)),
+      ],
+    );
+
+    final playing = ref.watch(playbackProvider.select((s) => s != null));
+    final count = _selected.length;
+    Widget page = Stack(
+      children: [
+        Positioned.fill(child: scroll),
+        if (phone && _selecting) ...[
+          _phoneSelectionTop(context, tracks),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom:
+                30 +
+                math.max(0.0, MediaQuery.viewPaddingOf(context).bottom - 34),
+            child: PhoneSelectionBar(onAction: (a) => _runSelection(a, tracks)),
+          ),
+        ] else if (!phone && (table ? count >= 2 : _selecting && count > 0))
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: playing ? 94 : 24,
+            child: Center(
+              child: SelectionActionBar(
+                count: count,
+                onAction: (a) => _runSelection(a, tracks),
+                onClear: _clearSelection,
+              ),
             ),
-            const SizedBox(height: FmpSpace.s3),
-          ],
-          const _PlaybackPanel(),
-          ..._results(context, ref.watch(placeholderSearchProvider)),
+          ),
+      ],
+    );
+    if (table) {
+      page = Focus(
+        focusNode: _focus,
+        onKeyEvent: (node, event) => _onKey(node, event, tracks),
+        child: page,
+      );
+    }
+    return page;
+  }
+
+  /// 大標題：手機一律「搜尋」；桌面搜過之後是「『夜』的搜尋結果」。
+  Widget _title(BuildContext context, bool phone, String? query, bool table) {
+    final t = context.t;
+    final style = context.fmpText.large;
+    final colors = context.fmpColors;
+    final text = query == null || phone
+        ? Text(t.shell.nav.search, style: style)
+        : Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: t.search.resultsTitle.query(query: query)),
+                TextSpan(
+                  text: t.search.resultsTitle.rest,
+                  style: TextStyle(
+                    color: colors.label3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          );
+    return Padding(
+      padding: EdgeInsets.only(
+        left: table ? 10 : 20,
+        right: table ? 10 : 20,
+        bottom: table ? 14 : 10,
+      ),
+      child: Semantics(header: true, child: text),
+    );
+  }
+
+  /// 中寬度的頂端（`.srh-mf`、`.srh-mtop`）：細欄沒有搜尋欄，欄位在這裡；
+  /// 窄視窗的欄位右邊是快速鍵提示。
+  Widget _mediumTop(
+    BuildContext context,
+    bool table, {
+    required bool showHints,
+  }) {
+    const field = SearchField(placement: SearchFieldPlacement.page);
+    if (!table) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 16, 10),
+        child: field,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+      child: Row(
+        children: [
+          field,
+          const Spacer(),
+          if (showHints)
+            SearchKeyHints(commandKey: WindowChrome.commandKeyLabel),
         ],
       ),
     );
+  }
+
+  List<Widget> _history(BuildContext context, String typed, bool table) {
+    final t = context.t;
+    final items = ref.watch(searchHistoryProvider).value ?? const <String>[];
+    final shown = typed.isEmpty
+        ? items
+        : [
+            for (final q in items)
+              if (q.toLowerCase().contains(typed.toLowerCase())) q,
+          ];
+    // 沒有紀錄時只留大標題，欄位的提示文字已經說明能做什麼。
+    if (shown.isEmpty) return const [];
+    final notifier = ref.read(searchHistoryProvider.notifier);
+    return [
+      SearchSectionHeader(
+        title: t.search.history.title,
+        table: table,
+        trailing: FmpButton(
+          label: t.search.history.clear,
+          size: FmpButtonSize.small,
+          onTap: notifier.clear,
+        ),
+      ),
+      for (final (i, q) in shown.indexed)
+        SearchHistoryRow(
+          key: ValueKey('history $q'),
+          query: q,
+          typed: typed,
+          separator: i > 0,
+          table: table,
+          onTap: () => searchFor(ref, q),
+          onRemove: () => notifier.remove(q),
+        ),
+    ];
   }
 
   List<Widget> _results(
     BuildContext context,
-    AsyncValue<List<PluginResults>>? results,
+    SearchState search,
+    List<SourceResults> visible,
+    List<Track> tracks,
+    bool table,
   ) {
     final t = context.t;
-    return switch (results) {
-      null => const [],
-      AsyncData(:final value) => [
-        for (final source in value) ...[
-          ListTile(
-            title: Text(
-              source.pluginName,
-              style: context.fmpText.head.copyWith(
-                color: context.fmpColors.label2,
-              ),
-            ),
-          ),
-          if (source.error case final error?)
-            ListTile(title: Text(_errorText(t, error)))
-          else if (source.tracks.isEmpty)
-            ListTile(title: Text(t.placeholder.search.empty))
-          else
-            for (final track in source.tracks)
-              _TrackTile(
-                track,
+    final notifier = ref.read(searchProvider.notifier);
+    final failed = [
+      for (final s in visible)
+        if (s.error != null) s,
+    ];
+    final others = search.sources.length > 1;
+    Widget error(SourceResults s) => table
+        ? SearchErrorLine(
+            source: s,
+            othersShown: others && visible.length > 1,
+            onRetry: () => notifier.retry(s.manifest.id),
+          )
+        : SearchErrorCard(
+            source: s,
+            othersShown: others && visible.length > 1,
+            onRetry: () => notifier.retry(s.manifest.id),
+          );
+
+    // 只看一個出錯、還沒有結果的音源：整頁換成那張說明。
+    if (visible.length == 1 && failed.length == 1 && tracks.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(top: 60),
+          child: error(failed.single),
+        ),
+      ];
+    }
+    final loading = search.starting || visible.any((s) => s.loading);
+    final nothing =
+        !loading &&
+        failed.isEmpty &&
+        visible.isNotEmpty &&
+        visible.every((s) => s.pages.isNotEmpty) &&
+        tracks.isEmpty;
+    if (nothing) return [SearchEmpty(query: search.query)];
+
+    final playback = ref.watch(playbackProvider);
+    final current = playback?.track.ref;
+    final playing = playback?.playing ?? false;
+    final narrowTable = FormFactor.of(context).widthClass == WidthClass.medium;
+    final allLoaded =
+        !loading &&
+        tracks.isNotEmpty &&
+        visible.every((s) => s.isEnd || s.error != null);
+    return [
+      SearchSectionHeader(
+        title: t.search.online,
+        count: loading && tracks.isEmpty ? null : tracks.length,
+        table: table,
+      ),
+      if (table) SearchTableHeader(narrow: narrowTable),
+      for (final s in failed) error(s),
+      for (final (i, track) in tracks.indexed)
+        table
+            ? SearchTableRow(
                 // 測試與實跑靠它找第幾首（`test/support/shell.dart`）。
                 key: ValueKey(track.ref),
-                pointer: FormFactor.of(context).density == Density.pointer,
-                selected: track.ref == _selected,
-                onSelect: () => _select(track),
+                track: track,
+                index: i,
+                narrow: narrowTable,
+                isCurrent: track.ref == current,
+                playing: playing,
+                selected: _selected.contains(track.ref),
+                joinAbove: i > 0 && _selected.contains(tracks[i - 1].ref),
+                joinBelow:
+                    i < tracks.length - 1 &&
+                    _selected.contains(tracks[i + 1].ref),
+                onPointerDown: (event) => _pointerSelect(event, tracks, i),
                 onPlay: () => _play(track),
+                onMenu: (at) => showTrackActions(context, ref, track, at: at),
+              )
+            : SearchTouchRow(
+                key: ValueKey(track.ref),
+                track: track,
+                separator: i > 0,
+                isCurrent: track.ref == current,
+                playing: playing,
+                selecting: _selecting,
+                selected: _selected.contains(track.ref),
+                onTap: () => _selecting ? _toggle(track) : _play(track),
+                onLongPress: () =>
+                    _selecting ? _toggle(track) : _startSelecting(track),
+                onMore: (at) => showTrackActions(context, ref, track, at: at),
               ),
-        ],
-      ],
-      AsyncError() => [
-        Padding(
-          padding: const EdgeInsets.all(FmpSpace.s6),
-          child: Center(child: Text(t.placeholder.search.failed)),
-        ),
-      ],
-      _ => const [
-        Padding(
-          padding: EdgeInsets.all(FmpSpace.s6),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ],
-    };
-  }
-
-  static String _errorText(Translations t, AppError error) => switch (error) {
-    NetworkError() => t.placeholder.search.network,
-    RateLimited() => t.placeholder.search.rateLimited,
-    _ => t.placeholder.search.failed,
-  };
-}
-
-/// 一首搜尋結果。觸控點一下播放；滑鼠按下就選取（不等雙擊的判定），雙擊
-/// 播放，同佇列頁的表格。⋮ 在雙擊的範圍外，點下去不必等雙擊逾時。
-class _TrackTile extends ConsumerWidget {
-  const _TrackTile(
-    this.track, {
-    super.key,
-    required this.pointer,
-    required this.selected,
-    required this.onSelect,
-    required this.onPlay,
-  });
-
-  final Track track;
-  final bool pointer;
-  final bool selected;
-  final VoidCallback onSelect;
-  final VoidCallback onPlay;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final duration = track.duration;
-    final text = context.fmpText;
-    final colors = context.fmpColors;
-    Widget tile = ListTile(
-      onTap: pointer ? null : onPlay,
-      selected: selected,
-      title: Text(track.title, style: text.body),
-      subtitle: Text(
-        style: text.sub.copyWith(color: colors.label2),
-        duration == null
-            ? track.author
-            : '${track.author} · ${formatDuration(duration)}',
-      ),
-    );
-    if (pointer) {
-      tile = Listener(
-        onPointerDown: (event) {
-          if (event.buttons & (kPrimaryButton | kSecondaryButton) != 0) {
-            onSelect();
-          }
-        },
-        child: GestureDetector(onDoubleTap: onPlay, child: tile),
-      );
-    }
-    return GestureDetector(
-      onSecondaryTapUp: (details) =>
-          _showTrackMenu(context, ref, track, details.globalPosition),
-      child: ColoredBox(
-        color: selected ? colors.accentSoft : const Color(0x00000000),
-        child: Row(
-          children: [
-            Expanded(child: tile),
-            Padding(
-              padding: const EdgeInsets.only(right: FmpSpace.s3),
-              child: Builder(
-                builder: (context) => PlainIconButton(
-                  icon: FmpIcons.more,
-                  tooltip: context.t.queue.more,
-                  size: 36,
-                  onTap: () {
-                    final box = context.findRenderObject()! as RenderBox;
-                    _showTrackMenu(
-                      context,
-                      ref,
-                      track,
-                      box.localToGlobal(box.size.bottomRight(Offset.zero)),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum _TrackAction { playNext, addToQueue }
-
-/// 一首搜尋結果的選單：下一首播放、加入佇列。手機照稿要換成底部 sheet，
-/// 在搜尋頁照稿時做。
-Future<void> _showTrackMenu(
-  BuildContext context,
-  WidgetRef ref,
-  Track track,
-  Offset at,
-) async {
-  final t = context.t;
-  // 選單開著時結果列可能被新的搜尋換掉，先拿好佇列。
-  final queue = ref.read(queueProvider.notifier);
-  final action = await showGlassMenu<_TrackAction>(
-    context: context,
-    at: at,
-    entries: [
-      GlassMenuItem(
-        value: _TrackAction.playNext,
-        label: t.queue.actions.playNext,
-        icon: FmpIcons.nextUp,
-      ),
-      GlassMenuItem(
-        value: _TrackAction.addToQueue,
-        label: t.queue.actions.addToQueue,
-        icon: FmpIcons.queue,
-      ),
-    ],
-  );
-  switch (action) {
-    case _TrackAction.playNext:
-      await queue.playNext([track]);
-    case _TrackAction.addToQueue:
-      await queue.add([track]);
-    case null:
-      break;
-  }
-}
-
-/// 正在播的曲目：播放狀態、進度，以及它的串流的音質、到期時間與遮蔽過的
-/// 網址（brief〈錯誤、log 與診斷〉）。暫停與繼續在外殼的迷你播放器與播放膠囊。
-class _PlaybackPanel extends ConsumerWidget {
-  const _PlaybackPanel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final playback = ref.watch(playbackProvider);
-    if (playback == null) return const SizedBox.shrink();
-    final t = context.t;
-    final stream = playback.stream;
-    final colors = context.fmpColors;
-    final metrics = context.fmpMetrics;
-    return Container(
-      padding: const EdgeInsets.all(FmpSpace.s3),
-      decoration: BoxDecoration(
-        color: colors.cell,
-        borderRadius: BorderRadius.circular(metrics.radii.group),
-      ),
-      child: DefaultTextStyle.merge(
-        style: context.fmpText.foot.copyWith(color: colors.label2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              playback.track.title,
-              style: context.fmpText.head.copyWith(color: colors.label),
-            ),
-            const SizedBox(height: FmpSpace.s1),
-            _status(context, t, playback),
-            // 播放失敗時也顯示，方便看是哪個 CDN。
-            if (stream != null) ..._details(t, stream),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static Widget _status(
-    BuildContext context,
-    Translations t,
-    PlaybackState playback,
-  ) {
-    final status = switch (playback.status) {
-      PlaybackStatus.resolving => t.placeholder.playback.resolving,
-      PlaybackStatus.loading => t.placeholder.playback.loading,
-      PlaybackStatus.buffering => t.placeholder.playback.buffering,
-      PlaybackStatus.playing => t.placeholder.playback.playing,
-      PlaybackStatus.paused => t.placeholder.playback.paused,
-      PlaybackStatus.completed => t.placeholder.playback.completed,
-      PlaybackStatus.failed => _errorText(t, playback),
-    };
-    final duration = playback.effectiveDuration;
-    return Row(
-      children: [
-        Expanded(child: Text(status)),
-        if (playback.status != PlaybackStatus.failed && duration != null)
-          Text(
-            '${formatDuration(playback.position)} / '
-            '${formatDuration(duration)}',
-            style: context.fmpText.foot.tabular,
-          ),
-      ],
-    );
-  }
-
-  static List<Widget> _details(Translations t, AudioStream stream) {
-    final bitrate = stream.bitrate;
-    final quality = [
-      ?stream.codec,
-      if (bitrate != null) '${(bitrate / 1000).round()} kbps',
-    ].join(' · ');
-    final expiresAt = stream.expiresAt;
-    return [
-      Text(
-        t.placeholder.stream.quality(
-          value: quality.isEmpty ? t.placeholder.stream.unknown : quality,
-        ),
-      ),
-      Text(
-        t.placeholder.stream.expires(
-          value: expiresAt == null
-              ? t.placeholder.stream.unknown
-              : formatExpiry(expiresAt.toLocal()),
-        ),
-      ),
-      Text(
-        t.placeholder.stream.url(value: redact(stream.url.toString())),
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-      ),
+      if (loading)
+        for (var i = 0; i < (tracks.isEmpty ? 5 : 2); i++)
+          SearchSkeletonRow(index: i, table: table),
+      if (allLoaded) SearchFoot(t.search.allLoaded, table: table),
     ];
   }
 
-  /// 還沒有串流時是解析失敗，有了之後是播放失敗。
-  static String _errorText(Translations t, PlaybackState playback) {
-    final resolved = playback.stream != null;
-    return switch (playback.error) {
-      NotFound() => t.placeholder.stream.notFound,
-      Unavailable() => t.placeholder.stream.unavailable,
-      Unsupported() when resolved => t.placeholder.playback.unsupportedFormat,
-      Unsupported() => t.placeholder.stream.unsupported,
-      NetworkError() => t.placeholder.search.network,
-      RateLimited() => t.placeholder.search.rateLimited,
-      _ when resolved => t.placeholder.playback.failed,
-      _ => t.placeholder.stream.failed,
-    };
+  /// 手機多選時的頂列（`.ptop`）：「取消」「已選擇 n 首」「全選」。
+  Widget _phoneSelectionTop(BuildContext context, List<Track> tracks) {
+    final t = context.t;
+    final bar = ShellInsets.topBarOf(context);
+    return Positioned(
+      top: bar.top,
+      left: bar.left,
+      right: bar.right,
+      height: bar.height,
+      child: ShellTopBarArea(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              t.search.selection.selected(count: _selected.length),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+              ).copyWith(color: context.fmpColors.label),
+            ),
+            Row(
+              children: [
+                GlassTextButton(
+                  label: t.search.selection.cancel,
+                  onTap: _clearSelection,
+                ),
+                const Spacer(),
+                GlassTextButton(
+                  label: t.search.selection.selectAll,
+                  accent: true,
+                  onTap: () => setState(
+                    () => _selected.addAll([for (final t in tracks) t.ref]),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
-}
-
-/// 到期時間：`yyyy-MM-dd HH:mm`，照傳入的時區（畫面傳本地時間）。
-String formatExpiry(DateTime at) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${at.year}-${two(at.month)}-${two(at.day)} '
-      '${two(at.hour)}:${two(at.minute)}';
 }

@@ -3,34 +3,6 @@
     "name": "FMP",
     "mediaNotificationChannel": "Playback controls"
   },
-  "placeholder": {
-    "search": {
-      "empty": "No results",
-      "failed": "Search failed",
-      "network": "Can't connect to the network",
-      "rateLimited": "Too many requests, try again later"
-    },
-    "stream": {
-      "quality": "Quality: $value",
-      "expires": "Expires: $value",
-      "url": "URL: $value",
-      "unknown": "unknown",
-      "failed": "Couldn't resolve the stream",
-      "notFound": "Track not found",
-      "unavailable": "This track can't be played right now",
-      "unsupported": "This source can't resolve streams"
-    },
-    "playback": {
-      "resolving": "Resolving…",
-      "loading": "Loading…",
-      "buffering": "Buffering…",
-      "playing": "Playing",
-      "paused": "Paused",
-      "completed": "Finished",
-      "failed": "Playback failed",
-      "unsupportedFormat": "This platform can't play this stream"
-    }
-  },
   "shell": {
     "nav": {
       "label": "Main navigation",
@@ -162,6 +134,72 @@
       "off": "Repeat",
       "all": "Repeat All",
       "one": "Repeat One"
+    }
+  },
+  "search": {
+    "history": {
+      "title": "Recent searches",
+      "clear": "Clear",
+      "remove": "Remove this search"
+    },
+    "all": "All",
+    "sort": {
+      "label": "Sort: $sort",
+      "relevance": "Relevance",
+      "viewCount": "Most played",
+      "date": "Newest"
+    },
+    "online": "Online",
+    "resultsTitle": {
+      "query": "“$query”",
+      "rest": " results"
+    },
+    "plays": "$count plays",
+    "error": {
+      "title": "Can't search $source right now",
+      "rateLimited": "Too many requests; $source is rate limiting us.",
+      "network": "No internet connection.",
+      "loginRequired": "Sign in to search this source.",
+      "failed": "The search failed.",
+      "othersShown": "Other sources are shown as usual.",
+      "retry": "Retry",
+      "retrySource": "Retry $source"
+    },
+    "empty": {
+      "title": "No results for “$query”",
+      "body": "No matching tracks. Try fewer keywords, or check the spelling."
+    },
+    "allLoaded": "That's everything",
+    "hints": {
+      "doubleClick": "Double-click",
+      "play": "to play now",
+      "multiSelect": "click to select more",
+      "rightClick": "Right-click",
+      "more": "for more"
+    },
+    "columns": {
+      "titleArtist": "Title / Artist",
+      "source": "Source",
+      "plays": "Plays",
+      "duration": "Time"
+    },
+    "actions": {
+      "play": "Play",
+      "playHint": "Play now, leave the queue as is",
+      "addToQueueHint": "At the end of the queue",
+      "copyLink": "Copy link",
+      "openInBrowser": "Open in browser",
+      "linkCopied": "Link copied",
+      "openFailed": "Couldn't open the browser"
+    },
+    "selection": {
+      "cancel": "Cancel",
+      "selectAll": "Select all",
+      "selected(plural, param=count)": {
+        "one": "$count selected",
+        "other": "$count selected"
+      },
+      "clear": "Deselect (Esc)"
     }
   }
 }

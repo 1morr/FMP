@@ -3,34 +3,6 @@
     "name": "FMP",
     "mediaNotificationChannel": "播放控制"
   },
-  "placeholder": {
-    "search": {
-      "empty": "没有结果",
-      "failed": "搜索失败",
-      "network": "无法连接网络",
-      "rateLimited": "请求太频繁，请稍后再试"
-    },
-    "stream": {
-      "quality": "音质：$value",
-      "expires": "到期：$value",
-      "url": "网址：$value",
-      "unknown": "未知",
-      "failed": "解析失败",
-      "notFound": "找不到这首曲目",
-      "unavailable": "这首曲目目前无法播放",
-      "unsupported": "这个音源不支持解析音频流"
-    },
-    "playback": {
-      "resolving": "正在解析…",
-      "loading": "加载中…",
-      "buffering": "缓冲中…",
-      "playing": "播放中",
-      "paused": "已暂停",
-      "completed": "播放完毕",
-      "failed": "播放失败",
-      "unsupportedFormat": "这个平台播放不了这条音频流"
-    }
-  },
   "shell": {
     "nav": {
       "label": "主导航",
@@ -162,6 +134,72 @@
       "off": "循环",
       "all": "列表循环",
       "one": "单曲循环"
+    }
+  },
+  "search": {
+    "history": {
+      "title": "搜索记录",
+      "clear": "清空",
+      "remove": "删除这条记录"
+    },
+    "all": "全部",
+    "sort": {
+      "label": "排序：$sort",
+      "relevance": "综合排序",
+      "viewCount": "最多播放",
+      "date": "最新发布"
+    },
+    "online": "在线结果",
+    "resultsTitle": {
+      "query": "「$query」",
+      "rest": " 的搜索结果"
+    },
+    "plays": "$count次播放",
+    "error": {
+      "title": "$source 暂时无法搜索",
+      "rateLimited": "请求太频繁，被 $source 限流。",
+      "network": "连不上网络。",
+      "loginRequired": "这个音源要登录才能搜索。",
+      "failed": "搜索失败。",
+      "othersShown": "其他音源照常显示。",
+      "retry": "重试",
+      "retrySource": "重试 $source"
+    },
+    "empty": {
+      "title": "找不到「$query」",
+      "body": "没有相符的曲目。试试少一点关键词，或检查有没有错字。"
+    },
+    "allLoaded": "已加载全部",
+    "hints": {
+      "doubleClick": "双击",
+      "play": "临时播放",
+      "multiSelect": "点选多选",
+      "rightClick": "右键",
+      "more": "更多"
+    },
+    "columns": {
+      "titleArtist": "标题／歌手",
+      "source": "音源",
+      "plays": "播放数",
+      "duration": "时长"
+    },
+    "actions": {
+      "play": "播放",
+      "playHint": "临时播放，不动队列",
+      "addToQueueHint": "加在队列最后",
+      "copyLink": "复制链接",
+      "openInBrowser": "在浏览器打开",
+      "linkCopied": "已复制链接",
+      "openFailed": "打不开浏览器"
+    },
+    "selection": {
+      "cancel": "取消",
+      "selectAll": "全选",
+      "selected(plural, param=count)": {
+        "one": "已选择 $count 首",
+        "other": "已选择 $count 首"
+      },
+      "clear": "取消选择（Esc）"
     }
   }
 }

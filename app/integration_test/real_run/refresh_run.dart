@@ -7,6 +7,7 @@ import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/platform/app_data_directory.dart';
 import 'package:fmp/platform/log_directory.dart';
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -44,8 +45,8 @@ void main() {
     await run.step('search');
 
     await playSearchResult(tester, searchResultAt(0));
-    await run.waitFor(
-      find.text(t.placeholder.playback.playing),
+    await run.waitForStatus(
+      PlaybackStatus.playing,
       timeout: const Duration(seconds: 60),
     );
     await tester.runAsync(

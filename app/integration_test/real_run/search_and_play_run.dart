@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/ui/now_playing/mini_player.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
@@ -41,7 +42,7 @@ void main() {
     await run.waitFor(
       find.descendant(of: controls, matching: find.text(title)),
     );
-    await run.waitFor(find.text(t.placeholder.playback.playing));
+    await run.waitForStatus(PlaybackStatus.playing);
     await run.step('playing');
 
     // 佇列頁：點導覽的「佇列」。臨時播放的曲目不在佇列裡，佇列還是空的。

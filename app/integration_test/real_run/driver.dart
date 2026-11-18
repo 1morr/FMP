@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/main.dart' as app;
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:fmp/ui/home/home_page.dart';
 
 import '../../test/support/scratch_data.dart';
@@ -64,6 +66,23 @@ class RealRun {
       await _settle(const Duration(milliseconds: 100));
     }
     expect(finder, findsWidgets);
+  }
+
+  /// 一邊 pump 一邊真的等，直到播放狀態（`playbackProvider`）是 [status]；
+  /// 超過 [timeout] 就讓測試失敗。
+  Future<void> waitForStatus(
+    PlaybackStatus status, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomePage)),
+    );
+    final deadline = DateTime.now().add(timeout);
+    while (container.read(playbackProvider)?.status != status &&
+        DateTime.now().isBefore(deadline)) {
+      await _settle(const Duration(milliseconds: 100));
+    }
+    expect(container.read(playbackProvider)?.status, status);
   }
 
   /// 記下一步：截圖存成 `NN-<name>.png`，讀回的文字（[readBack]）存成
