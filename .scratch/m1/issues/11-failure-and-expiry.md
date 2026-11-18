@@ -1,6 +1,6 @@
 # 11: 失敗處理、串流過期重新解析與看門狗
 
-Status: ready-for-agent
+Status: done
 Blocked by: 06、07
 讀: brief §6、§13；architecture〈快取〉；事實 F5、I4、K4、K25、K26、W3、W4；M0 票 06、11 的 Comments；spec〈共同規則〉
 
@@ -20,8 +20,8 @@ M0 留下的一起做：
 - [x] 看門狗有測試：緩衝超過門檻走失敗處理。
 - [x] `classifyMpvLog` 只把致命錯誤當失敗，有測試；mpv 設定與 `audio_session` 已接上。
 - [x] 未捕捉的錯誤寫進 log，有測試。
-- [ ] 四平台實跑：用壞掉的串流（假 CDN 回 403）觸發一次重新解析，讀回 log 與畫面。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] 四平台實跑：用壞掉的串流（假 CDN 回 403）觸發一次重新解析，讀回 log 與畫面。（Windows 依擁有者 2026-11-18 的決定跳過，macOS、iOS、Android 收，見 Comments 的「Windows 跳過」）
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。（`--skip-windows`，同上）
 
 ## Comments
 
@@ -104,4 +104,6 @@ Session 紀錄：2026-11-18 失敗處理（重新解析一次、跳下一首、�
 變更：Changed｜播放控制｜重新取得串流時進度停在原處，不跳回 0:00
 變更：Fixed｜播放控制｜Windows 上播放器不影響聲音的錯誤（例如不能拖動進度）不再被當成播放失敗
 等使用者：winpc 17:47 藍屏（今天第四次）後停在登入畫面，Windows 的三段實跑（refresh、票 10 的 persist／restore）與閘門的 Windows 步驟都跑不起來。請擁有者登入 winpc；登入後下一個 session 持鎖重跑這三段與完整閘門。不處理的話「四平台實跑」「補驗票 10」「全部檢查綠燈」三條勾不了，票不能 done
-
+決定：暫時跳過所有 Windows，照三平台收，補驗在票 20（使用者定）
+決定：閘門加 `--skip-windows`：Windows 的步驟列成 SKIP 並註明原因、不算失敗，跳過寫在步驟上（`CheckStep.skipped`），其他步驟照跑（Agent 定）
+Windows 跳過：以下只在 Windows 生效或只差 Windows 沒實跑，單元測試照常跑過，補驗時各看：① mpv 設定 `vid=no`、`prefetch-playlist=yes`（`media_kit_backend.dart` 經 `NativePlayer.setProperty`）：log 有 `mpv options set: …`、沒有設定失敗的 warning，播放照常出聲；② `classifyMpvLog` 在真 mpv 0.36 上的分類（事實 W13）：播放中拖動進度等不致命的 `cplayer` 訊息不出現 `Playback failed`、不跳歌，假 CDN 回 403 時 log 有一次 `Playback failed: <分類>` 並記下實際分類；③ 重新解析的實跑（`dart run tool/real_run.dart -d windows integration_test/real_run/refresh_run.dart`）：第一次載入被拒、log 有 `Resolving the stream again: bilibili/…`、接著出聲、沒有無法播放的提示，看啟動後不動視窗的截圖；④ `audio_session` 在 Windows 不設：log 沒有 `Audio session configured for music`、也沒有因它而起的 `Uncaught error`；⑤ 未捕捉錯誤寫 log 在 Windows 的 release／debug 建置照常：啟動到播放的 log 沒有 `Uncaught` 開頭的錯誤；⑥ 票 10 的 `persist_run` 接 `restore_run`（同一個持鎖的 `bash -c`）：重開後停在原曲原位置，按播放從同一位置接著播，看截圖；⑦ 完整閘門的 Windows 六步（`build windows` 與 app、queue、search_and_play、stream_duration、stream_refresh 五個 integration_test）不帶 `--skip-windows` 全綠

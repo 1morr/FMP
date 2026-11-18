@@ -20,7 +20,9 @@ import 'steps.dart';
 ///   不刪模擬器上的 App 與資料。iOS 只用 iPhone，沒開著就開一台
 ///   （[ensureBootedIPhone]）；Android 先 `adb start-server`。
 /// - Windows 經 SSH 在 `winpc` 的桌面工作階段跑（docs/development.md〈平台〉〈Windows〉），
-///   log 取回 [winpcLogs] 並印到 [out]。
+///   log 取回 [winpcLogs] 並印到 [out]。[skipWindows] 時 Windows 的步驟（同步、
+///   建置、integration_test）都列成跳過、不碰 `winpc`（`--skip-windows`，
+///   docs/development.md〈開發環境與閘門〉）。
 List<CheckStep> platformSteps({
   required Directory app,
   required Shell shell,
@@ -28,7 +30,12 @@ List<CheckStep> platformSteps({
   required StringSink out,
   required Directory winpcLogs,
   required DeviceLock deviceLock,
+  bool skipWindows = false,
 }) {
+  CheckStep onWindows(String name, Future<bool> Function() run) => skipWindows
+      ? CheckStep.skipped(name, windowsSkipReason)
+      : CheckStep(name, run);
+
   const scratch = '--dart-define=FMP_SCRATCH_DATA=$integrationTestScratchData';
 
   CheckStep flutter(String name, List<String> args) =>
@@ -46,13 +53,15 @@ List<CheckStep> platformSteps({
       ], workingDirectory: app) ==
       0;
 
-  CheckStep locked(CheckStep step) => CheckStep(step.name, () async {
-    if (!deviceLock.isHeld) {
-      out.writeln('Skipped: the shared-device lock is not held.');
-      return false;
-    }
-    return step.run();
-  });
+  CheckStep locked(CheckStep step) => step.skipReason != null
+      ? step
+      : CheckStep(step.name, () async {
+          if (!deviceLock.isHeld) {
+            out.writeln('Skipped: the shared-device lock is not held.');
+            return false;
+          }
+          return step.run();
+        });
 
   // 和 `flutter build macos` 共用 build/macos，build-for-testing 只補建測試目標。
   const macosNativeTests = [
@@ -67,7 +76,7 @@ List<CheckStep> platformSteps({
   ];
   final windows = Winpc(app, shell, out, winpcLogs);
   final sharedDeviceSteps = [
-    CheckStep('build windows', windows.build),
+    onWindows('build windows', windows.build),
     // macos/RunnerTests 跑在 Mac 的 App 裡，讀真的視窗（紅綠燈的位置，事實 M13）；
     // 建置在鎖外（[macosNativeTests] 的 build-for-testing）。
     commandStep('native tests macos', shell, 'xcodebuild', [
@@ -97,7 +106,7 @@ List<CheckStep> platformSteps({
         return testOnEmulator(file, await androidEmulator(shell, app));
       }),
     for (final file in integrationTests)
-      CheckStep(
+      onWindows(
         'integration_test windows: $file',
         () => windows.integrationTest(
           file,
@@ -125,6 +134,11 @@ List<CheckStep> platformSteps({
     }),
   ];
 }
+
+/// `--skip-windows` 跳過的步驟在結果裡註明的原因。
+const windowsSkipReason =
+    '--skip-windows: winpc keeps crashing, Windows checks wait until it is '
+    'stable again';
 
 /// 閘門的 integration_test 用的隔離資料目錄名（`FMP_SCRATCH_DATA`），和實跑的
 /// 分開。

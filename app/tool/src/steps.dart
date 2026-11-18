@@ -3,18 +3,29 @@ import 'dart:io';
 
 /// 閘門的一步；回傳 true 代表通過。
 class CheckStep {
-  CheckStep(this.name, this.run);
+  CheckStep(this.name, this.run) : skipReason = null;
+
+  /// 這次不跑的一步：[runSteps] 不執行它、不算失敗，結果列成 SKIP 並印出
+  /// [skipReason]。
+  CheckStep.skipped(this.name, String reason)
+    : skipReason = reason,
+      run = (() async => true);
 
   final String name;
   final Future<bool> Function() run;
+  final String? skipReason;
 }
 
 /// 依序跑完每一步（前面失敗也照跑，一次看到全部問題），最後印出結果。
-/// 全部通過回 0，否則回 1。
+/// 跳過的步驟（[CheckStep.skipped]）不執行、不算失敗。全部通過回 0，否則回 1。
 Future<int> runSteps(List<CheckStep> steps, StringSink out) async {
   final failed = <String>[];
   for (final step in steps) {
     out.writeln('\n==> ${step.name}');
+    if (step.skipReason case final reason?) {
+      out.writeln('Skipped: $reason');
+      continue;
+    }
     bool ok;
     try {
       ok = await step.run();
@@ -27,7 +38,11 @@ Future<int> runSteps(List<CheckStep> steps, StringSink out) async {
 
   out.writeln();
   for (final step in steps) {
-    out.writeln('${failed.contains(step.name) ? 'FAIL' : 'ok  '} ${step.name}');
+    out.writeln(switch (step.skipReason) {
+      final reason? => 'SKIP ${step.name} ($reason)',
+      _ when failed.contains(step.name) => 'FAIL ${step.name}',
+      _ => 'ok   ${step.name}',
+    });
   }
   return failed.isEmpty ? 0 : 1;
 }
