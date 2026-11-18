@@ -212,6 +212,7 @@ class QueueController extends Notifier<Queue> {
   /// 臨時播放 [track]：在佇列之外播它，佇列不動。已在臨時播放中時只換
   /// 曲目，回去的地方仍是最早離開的那個位置。
   Future<void> playTemporarily(Track track) {
+    _failures = 0;
     final playback = ref.read(playbackProvider);
     final leaving = state.current;
     // 正在播的就是佇列的目前那首時，才記下它播到哪裡；失敗、已播完、還沒
@@ -259,13 +260,21 @@ class QueueController extends Notifier<Queue> {
 
   /// 從 [index] 那首開始播；臨時播放就結束。
   Future<void> playAt(int index) {
+    _failures = 0;
     _temporary = null;
     state = state.jumpTo(index);
     return _playCurrent();
   }
 
-  /// 下一首；沒有下一首時什麼都不做。臨時播放時是回到佇列。
-  Future<void> next() async {
+  /// 下一首；沒有下一首時什麼都不做。臨時播放時是回到佇列。使用者自己
+  /// 按的，連續失敗重新算。
+  Future<void> next() {
+    _failures = 0;
+    return _advance();
+  }
+
+  /// 往下一首走（播完、播不了跳過、按下一首）。
+  Future<void> _advance() async {
     if (_temporary != null) return returnToQueue();
     if (state.next(_random) case final queue?) {
       state = queue;
@@ -275,6 +284,7 @@ class QueueController extends Notifier<Queue> {
 
   /// 上一首；沒有上一首時什麼都不做。臨時播放時是回到佇列。
   Future<void> previous() async {
+    _failures = 0;
     if (_temporary != null) return returnToQueue();
     if (state.previous() case final queue?) {
       state = queue;
@@ -357,7 +367,7 @@ class QueueController extends Notifier<Queue> {
         .set(PlaybackFailure(failed, outcome, streak: streak));
     switch (outcome) {
       case FailureOutcome.skipped:
-        unawaited(Future.microtask(next));
+        unawaited(Future.microtask(_advance));
       case FailureOutcome.returnedToQueue:
         unawaited(Future.microtask(_endTemporary));
       case FailureOutcome.stopped || FailureOutcome.stayed:
@@ -370,7 +380,7 @@ class QueueController extends Notifier<Queue> {
   /// 它，否則接下一首。
   Future<void> _onCompleted() {
     if (_temporary != null) return _endTemporary();
-    return state.repeat == Repeat.one ? _playCurrent() : next();
+    return state.repeat == Repeat.one ? _playCurrent() : _advance();
   }
 
   /// 位置不是照著播放往前走：往回跳或一次跳超過 2 秒，當成拖了進度（seek）。

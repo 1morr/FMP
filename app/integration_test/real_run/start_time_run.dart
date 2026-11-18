@@ -53,7 +53,7 @@ void main() {
 
     final report = <String>[];
     addTearDown(() {
-      // ignore: avoid_print -- 量到的數字留在實跑的輸出裡，寫進票的 Comments。
+      // ignore: avoid_print -- 量到的數字留在實跑的輸出裡，整理進 docs/research/。
       print('[start time]\n  ${report.join('\n  ')}');
     });
 

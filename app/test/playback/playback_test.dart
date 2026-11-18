@@ -431,10 +431,8 @@ void main() {
 
     test('a stream that fails again after resolving it again fails with the '
         'backend\'s category', () async {
-      backend.failEveryLoad = const AudioBackendError(
-        NetworkError(),
-        'code 0: Source error',
-      );
+      backend.failLoadOf = (_) =>
+          const AudioBackendError(NetworkError(), 'code 0: Source error');
 
       await playback().play(playable);
 
@@ -495,16 +493,59 @@ void main() {
     });
 
     test('playing the track again gets a new attempt', () async {
-      backend.failEveryLoad = cdn403;
+      backend.failLoadOf = (_) => cdn403;
       await playback().play(playable);
       expect(current()!.status, PlaybackStatus.failed);
 
-      backend.failEveryLoad = null;
+      backend.failLoadOf = null;
       backend.failNextLoad = cdn403;
       await playback().play(playable);
 
       expect(current()!.status, PlaybackStatus.playing);
       expect(backend.loaded, hasLength(4));
+    });
+
+    test('a failure while paused resolves the stream again but stays '
+        'paused', () async {
+      await playback().play(playable);
+      backend.emit(
+        backend.state.copyWith(position: const Duration(minutes: 2)),
+      );
+      await playback().pause();
+      backend.calls.clear();
+
+      backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.failed,
+          error: () => cdn403,
+        ),
+      );
+      await _until(() => current()!.status == PlaybackStatus.paused);
+
+      expect(backend.calls, ['load', 'seek 120000']);
+      expect(current()!.position, const Duration(minutes: 2));
+    });
+
+    test('after playing well for 30 seconds, a later failure is resolved '
+        'again too', () async {
+      Future<void> fail() async => backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.failed,
+          error: () => cdn403,
+        ),
+      );
+      await playback().play(playable);
+      await fail();
+      await _until(() => current()!.status == PlaybackStatus.playing);
+
+      backend.emit(
+        backend.state.copyWith(position: const Duration(seconds: 31)),
+      );
+      await fail();
+      await _until(() => backend.loaded.length == 3);
+      await _until(() => current()!.status == PlaybackStatus.playing);
+
+      expect(current()!.status, PlaybackStatus.playing);
     });
 
     test('a plugin error is not resolved again', () async {
@@ -620,7 +661,7 @@ void main() {
     'a stream that failed to load is not later reported as stalled',
     () async {
       backend.holdLoad = Completer<void>();
-      backend.failEveryLoad = const AudioBackendError(NetworkError(), 'x');
+      backend.failLoadOf = (_) => const AudioBackendError(NetworkError(), 'x');
       final playing = playback().play(playable);
       await _until(() => backend.calls.isNotEmpty);
       // 載入中（stall 計時器在跑）時失敗。

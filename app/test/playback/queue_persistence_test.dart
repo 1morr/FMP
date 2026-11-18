@@ -280,19 +280,21 @@ void main() {
     await restart();
 
     // 沒有網路：載入失敗，重新解析一次也一樣。
-    backend.failEveryLoad = const AudioBackendError(NetworkError(), 'offline');
+    backend.failLoadOf = (_) =>
+        const AudioBackendError(NetworkError(), 'offline');
     await container.read(playbackProvider.notifier).playPause();
     await settle();
     expect(playback()?.status, PlaybackStatus.failed);
 
     // 再按一次（播放鈕；Toast 的重試也是 play 同一首）：從 0:42 開始。
-    backend.failEveryLoad = null;
+    backend.failLoadOf = null;
     await container.read(playbackProvider.notifier).playPause();
     await settle();
     expect(backend.calls, ['load', 'load', 'load', 'seek 42000', 'play']);
 
     // 開始播之後才換成真的位置；一首別的歌播起來之前，失敗不會把它蓋成 0。
-    backend.failEveryLoad = const AudioBackendError(NetworkError(), 'offline');
+    backend.failLoadOf = (_) =>
+        const AudioBackendError(NetworkError(), 'offline');
     await container.read(playbackProvider.notifier).play(track('a'));
     await settle();
     await restart();

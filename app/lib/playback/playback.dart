@@ -27,10 +27,10 @@ class StallTimeouts {
   final Duration playing;
 }
 
-/// 看門狗的門檻；數字照四平台量到的出聲時間（票 11 的 Comments）。
+/// 看門狗的門檻；數字照四平台量到的出聲時間（事實 F25）。
 final stallTimeoutsProvider = Provider<StallTimeouts>(
   (ref) => const StallTimeouts(
-    starting: Duration(seconds: 30),
+    starting: Duration(seconds: 45),
     playing: Duration(seconds: 15),
   ),
 );
@@ -155,8 +155,17 @@ class Playback extends Notifier<PlaybackState?> {
   /// 再按播放仍從這裡開始。
   ({Track track, Duration position})? _resumeFrom;
 
-  /// 這一次 [play] 已經為壞掉的串流重新解析過；再壞就是失敗。
+  /// 這一次 [play] 已經為壞掉的串流重新解析過；再壞就是失敗。重新解析後
+  /// 順利播了 [_healthyAfter]，額度就還回來。
   bool _resolvedAgain = false;
+
+  /// 播了這麼久沒出事，壞掉的串流又可以重新解析一次：長片播了一小時才
+  /// 過期或斷線時還救得回來，播一下就壞的串流也不會一直重來。
+  static const _healthyAfter = Duration(seconds: 30);
+
+  /// 這一次開始播（[_start]）從哪裡開始、要不要接著播。
+  Duration _startedFrom = Duration.zero;
+  bool _startAutoplay = true;
 
   /// 這一次開始播（[_start]）已經出過聲；看門狗用哪個門檻看它。
   bool _sounded = false;
@@ -216,6 +225,8 @@ class Playback extends Notifier<PlaybackState?> {
   }) async {
     final generation = ++_generation;
     _startingGeneration = generation;
+    _startedFrom = from;
+    _startAutoplay = autoplay;
     _sounded = false;
     _cancelWatchdog();
     _zeroDurationLogged = false;
@@ -245,22 +256,25 @@ class Playback extends Notifier<PlaybackState?> {
     );
 
     /// 這一步失敗了：串流壞掉就重新解析一次（等它做完），否則報失敗。
-    Future<void> failed(Object error, StackTrace stackTrace, String message) =>
-        _attemptFailed(
-          generation,
-          track,
-          stream,
-          error,
-          stackTrace,
-          message,
-          at: from,
-          autoplay: autoplay,
-        );
+    Future<void> retryOrFail(
+      Object error,
+      StackTrace stackTrace,
+      String message,
+    ) => _retryOrFail(
+      generation,
+      track,
+      stream,
+      error,
+      stackTrace,
+      message,
+      at: from,
+      autoplay: autoplay,
+    );
 
     try {
       await _backend.load(stream);
     } catch (error, stackTrace) {
-      return failed(error, stackTrace, 'Loading a stream failed');
+      return retryOrFail(error, stackTrace, 'Loading a stream failed');
     }
     if (!_isCurrent(generation)) return;
     _loadedGeneration = generation;
@@ -269,7 +283,7 @@ class Playback extends Notifier<PlaybackState?> {
       try {
         await _backend.seek(from);
       } catch (error, stackTrace) {
-        return failed(error, stackTrace, 'Seeking failed');
+        return retryOrFail(error, stackTrace, 'Seeking failed');
       }
       if (!_isCurrent(generation)) return;
     }
@@ -279,7 +293,7 @@ class Playback extends Notifier<PlaybackState?> {
       status: AudioBackendStatus.failed,
       :final error?,
     )) {
-      return failed(error, StackTrace.current, 'Loading a stream failed');
+      return retryOrFail(error, StackTrace.current, 'Loading a stream failed');
     }
     _startingGeneration = null;
     if (!autoplay) {
@@ -289,7 +303,7 @@ class Playback extends Notifier<PlaybackState?> {
     try {
       await _backend.play();
     } catch (error, stackTrace) {
-      return failed(error, stackTrace, 'Starting playback failed');
+      return retryOrFail(error, stackTrace, 'Starting playback failed');
     }
     if (_isCurrent(generation)) _resumeFrom = null;
   }
@@ -320,7 +334,7 @@ class Playback extends Notifier<PlaybackState?> {
     try {
       await _backend.seek(position);
     } catch (error, stackTrace) {
-      await _attemptFailed(
+      await _retryOrFail(
         generation,
         current.track,
         current.stream,
@@ -397,7 +411,7 @@ class Playback extends Notifier<PlaybackState?> {
   /// 第 [generation] 代的一步失敗了。串流壞掉（後端的錯誤、看門狗）而這次
   /// [play] 還沒重新解析過，就重新解析、從 [at] 接著（[autoplay] 時接著
   /// 播）；否則報失敗。
-  Future<void> _attemptFailed(
+  Future<void> _retryOrFail(
     int generation,
     Track track,
     AudioStream? stream,
@@ -489,7 +503,7 @@ class Playback extends Notifier<PlaybackState?> {
       // 開始播之前的失敗由 [_start] 接（後端多半同時丟錯）。
       if (_startingGeneration == _generation) return;
       unawaited(
-        _attemptFailed(
+        _retryOrFail(
           _generation,
           current.track,
           current.stream,
@@ -497,13 +511,17 @@ class Playback extends Notifier<PlaybackState?> {
           StackTrace.current,
           'Playback failed',
           at: current.position,
-          autoplay: true,
+          // 暫停中出錯就停在那裡，不自己開始播。
+          autoplay: current.playing,
         ),
       );
       return;
     }
     if (backend.status == AudioBackendStatus.ready && backend.playing) {
       _sounded = true;
+      if (_resolvedAgain && backend.position - _startedFrom >= _healthyAfter) {
+        _resolvedAgain = false;
+      }
     }
     _watchdog(backend);
     if (backend.status == AudioBackendStatus.ready &&
@@ -562,7 +580,7 @@ class Playback extends Notifier<PlaybackState?> {
         unawaited(_backendOrNull?.pause());
       }
       unawaited(
-        _attemptFailed(
+        _retryOrFail(
           generation,
           current.track,
           current.stream,
@@ -570,7 +588,8 @@ class Playback extends Notifier<PlaybackState?> {
           StackTrace.current,
           'Playback stalled',
           at: current.position,
-          autoplay: true,
+          // 正在開始播的照原本要不要播；播放中卡住的接著播。
+          autoplay: _startingGeneration == generation ? _startAutoplay : true,
         ),
       );
     });

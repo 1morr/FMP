@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -410,8 +411,8 @@ void main() {
       expect(failure()!.outcome, FailureOutcome.skipped);
     });
 
-    test('three failures in a row stop on the third, paused there, and the '
-        'failure says so', () async {
+    test('three failures in a row stop on the third, which stays failed, '
+        'and the failure says so', () async {
       await queue().add([
         track('gone1'),
         track('gone2'),
@@ -464,6 +465,22 @@ void main() {
 
       expect(failure()!.streak, 1);
       expect(playing(), 'e');
+    });
+
+    test('choosing a track yourself starts the count again', () async {
+      // 跳過兩首後，第三首（c）還在載入時使用者自己臨時播放一首壞的。
+      backend.holdLoad = Completer<void>();
+      await queue().add([track('gone1'), track('gone2'), track('c')]);
+      await _until(() => backend.calls.contains('load'));
+      expect(failure()!.streak, 2);
+
+      await queue().playTemporarily(track('gone9'));
+      await settleFailures();
+
+      expect(failure()!.state.track, track('gone9'));
+      expect(failure()!.streak, 1);
+      expect(failure()!.outcome, FailureOutcome.returnedToQueue);
+      backend.holdLoad!.complete();
     });
 
     test('the last track failing stays there: nothing to skip to', () async {
@@ -801,4 +818,12 @@ void main() {
       expect(playing(), 'a');
     });
   });
+}
+
+Future<void> _until(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) throw TimeoutException('until');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }

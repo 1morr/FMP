@@ -47,6 +47,8 @@ class ToastLayer extends ConsumerWidget {
       if (failure == null) return;
       final track = failure.state.track;
       final manifest = ref.read(pluginManifestProvider(track.ref.pluginId));
+      // 提示被點時這一層可能已經換掉，先抓好 router。
+      final router = GoRouter.of(context);
       ref
           .read(toastProvider.notifier)
           .show(
@@ -55,7 +57,7 @@ class ToastLayer extends ConsumerWidget {
               failure,
               source: manifest?.name ?? track.ref.pluginId,
               retry: () => ref.read(playbackProvider.notifier).play(track),
-              showQueue: () => context.go(Destination.queue.path),
+              showQueue: () => router.go(Destination.queue.path),
             ),
           );
     });
