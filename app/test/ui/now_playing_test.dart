@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
@@ -14,6 +15,8 @@ import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/now_playing/mini_player.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
+import 'package:fmp/ui/queue/queue_page.dart';
+import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/phone_dock.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -121,6 +124,20 @@ void main() {
 
   Future<void> set(WidgetTester tester, PlaybackState next) async {
     playback.set(next);
+    await tester.pumpAndSettle();
+  }
+
+  /// [next] 播不了，佇列的處理是 [outcome]（[playbackFailureProvider]）。
+  Future<void> fail(
+    WidgetTester tester,
+    PlaybackState next,
+    FailureOutcome outcome, {
+    int streak = 1,
+  }) async {
+    playback.set(next);
+    ProviderScope.containerOf(tester.element(find.byType(AppShell)))
+        .read(playbackFailureProvider.notifier)
+        .set(PlaybackFailure(next, outcome, streak: streak));
     await tester.pumpAndSettle();
   }
 
@@ -392,9 +409,10 @@ void main() {
           'offers a retry', (tester) async {
         await start(tester, size, initial: state(PlaybackStatus.playing));
 
-        await set(
+        await fail(
           tester,
           state(PlaybackStatus.failed, error: const NetworkError()),
+          FailureOutcome.stayed,
         );
         expect(find.text('沒有網路，「晴天」無法播放。音樂庫與佇列照常可用。'), findsOneWidget);
         await tester.tap(find.text('重試'));
@@ -406,13 +424,35 @@ void main() {
 
     testWidgets('goes away by itself', (tester) async {
       await start(tester, phone, initial: state(PlaybackStatus.playing));
-      await set(tester, state(PlaybackStatus.failed, error: const NotFound()));
-      expect(find.textContaining('找不到「晴天」'), findsOneWidget);
+      await fail(
+        tester,
+        state(PlaybackStatus.failed, error: const NotFound()),
+        FailureOutcome.skipped,
+      );
+      expect(find.text('找不到「晴天」，可能已被刪除。已跳下一首。'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 10));
       await tester.pumpAndSettle();
       expect(find.textContaining('找不到「晴天」'), findsNothing);
     });
+
+    for (final (name, size) in [('phone', phone), ('desktop', desktop)]) {
+      testWidgets('$name: stopping after three failures says so; 看佇列 opens '
+          'the queue page', (tester) async {
+        await start(tester, size, initial: state(PlaybackStatus.playing));
+
+        await fail(
+          tester,
+          state(PlaybackStatus.failed, error: const NotFound()),
+          FailureOutcome.stopped,
+          streak: 3,
+        );
+        expect(find.text('連續 3 首都無法播放，已停止。找不到「晴天」，可能已被刪除。'), findsOneWidget);
+        await tester.tap(find.text('看佇列'));
+        await tester.pumpAndSettle();
+        expect(find.byType(QueuePage), findsOneWidget);
+      });
+    }
   });
 }
 

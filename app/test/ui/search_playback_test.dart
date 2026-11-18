@@ -194,6 +194,10 @@ void main() {
         overrides: [
           pluginHostProvider.overrideWith((_) => host),
           audioBackendProvider.overrideWithValue(backend),
+          // 串流在 2026-01-01 到期；離到期還早，按繼續不會先重新解析。
+          playbackClockProvider.overrideWithValue(
+            () => DateTime.utc(2025, 12, 1),
+          ),
         ],
       ),
     );

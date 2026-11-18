@@ -7,9 +7,11 @@ import 'schema_gate.dart';
 import 'steps.dart';
 
 /// `tool/check.dart` 的步驟（docs/development.md〈開發環境與閘門〉）。[quick] 時只有 quick 的步驟；完整版
-/// 再接上四平台的建置與 integration_test（[platformSteps]）。
+/// 再接上四平台的建置與 integration_test（[platformSteps]）；[skipWindows] 時
+/// Windows 的步驟列成跳過。
 List<CheckStep> gateSteps({
   required bool quick,
+  bool skipWindows = false,
   required Directory app,
   required Shell shell,
   required StringSink out,
@@ -50,6 +52,7 @@ List<CheckStep> gateSteps({
         out: out,
         winpcLogs: Directory('${app.path}/build/winpc'),
         deviceLock: DeviceLock.forRepo(app),
+        skipWindows: skipWindows,
       ),
       pluginBundleStep(app: app, shell: shell, out: out),
     ],

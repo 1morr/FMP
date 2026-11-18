@@ -34,6 +34,24 @@ void main() {
     expect(out.toString(), contains('FAIL format'));
   });
 
+  test('a skipped step does not run, does not fail the gate, and is listed '
+      'as SKIP with its reason', () async {
+    final code = await runSteps([
+      step('format', ok: true),
+      CheckStep.skipped('build windows', 'winpc is down'),
+    ], out);
+
+    expect(code, 0);
+    expect(
+      out.toString(),
+      allOf(
+        contains('Skipped: winpc is down'),
+        contains('SKIP build windows (winpc is down)'),
+      ),
+    );
+    expect(out.toString(), isNot(contains('ok   build windows')));
+  });
+
   test('a step that throws counts as failed', () async {
     final code = await runSteps([
       CheckStep('doc gate', () async => throw StateError('broken')),

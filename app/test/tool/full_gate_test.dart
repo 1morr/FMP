@@ -34,6 +34,7 @@ void main() {
 
   List<CheckStep> steps({
     List<String> tests = const ['integration_test/app_test.dart'],
+    bool skipWindows = false,
   }) => platformSteps(
     app: app,
     shell: shell,
@@ -41,11 +42,13 @@ void main() {
     out: out,
     winpcLogs: logs,
     deviceLock: lock,
+    skipWindows: skipWindows,
   );
 
   Future<int> runGate({
     List<String> tests = const ['integration_test/app_test.dart'],
-  }) => runSteps(steps(tests: tests), out);
+    bool skipWindows = false,
+  }) => runSteps(steps(tests: tests, skipWindows: skipWindows), out);
 
   test('builds all four platforms, then runs integration tests on all four, '
       'one file per invocation', () async {
@@ -442,6 +445,55 @@ void main() {
         expect(out.toString(), contains('FAIL build windows'));
       },
     );
+
+    test('--skip-windows never touches winpc, lists the Windows steps as '
+        'SKIP with the reason, and passes when the rest is green', () async {
+      final code = await runGate(
+        tests: ['integration_test/a_test.dart', 'integration_test/b_test.dart'],
+        skipWindows: true,
+      );
+
+      expect(code, 0);
+      expect(
+        shell.ran.where(
+          (c) =>
+              c.startsWith('tool/winpc/') ||
+              c.startsWith('ssh ') ||
+              c.startsWith('scp '),
+        ),
+        isEmpty,
+      );
+      expect(
+        out.toString(),
+        allOf(
+          contains('SKIP build windows (--skip-windows: '),
+          contains(
+            'SKIP integration_test windows: integration_test/a_test.dart',
+          ),
+          contains(
+            'SKIP integration_test windows: integration_test/b_test.dart',
+          ),
+          contains(
+            'ok   integration_test android: integration_test/b_test.dart',
+          ),
+          contains('ok   native tests macos'),
+        ),
+      );
+      expect(out.toString(), isNot(contains('ok   build windows')));
+      expect(
+        shell.ran.where((c) => c.startsWith('flutter test')),
+        hasLength(6),
+        reason: 'macOS, iOS and Android still run both files',
+      );
+    });
+
+    test('--skip-windows still fails the gate when another platform '
+        'fails', () async {
+      shell.failing.add('flutter build apk');
+
+      expect(await runGate(skipWindows: true), isNot(0));
+      expect(out.toString(), contains('FAIL build android'));
+    });
 
     test('a failed sync fails the Windows build without running it', () async {
       shell.failing.add('tool/winpc/sync.sh');

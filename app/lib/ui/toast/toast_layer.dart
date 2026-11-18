@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/toast/playback_toast.dart';
 import 'package:fmp/ui/toast/toast.dart';
@@ -12,7 +15,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// 外殼裡畫提示的那一層（`.toast`，`docs/design/DESIGN.md`〈對話框、sheet、
 /// 警示框、提示〉）：浮在迷你播放器或播放膠囊上方，厚玻璃，最小高 52（滑鼠
-/// 44）。也在這裡把播放失敗轉成提示。外殼用 [Positioned.fill] 放它，位置由
+/// 44）。也在這裡把播放失敗（[playbackFailureProvider]）轉成提示。外殼用 [Positioned.fill] 放它，位置由
 /// [bottom] 與 [stretch] 決定。
 class ToastLayer extends ConsumerWidget {
   const ToastLayer({
@@ -40,24 +43,23 @@ class ToastLayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(playbackProvider, (previous, next) {
-      if (next == null || next.status != PlaybackStatus.failed) return;
-      if (previous?.status == PlaybackStatus.failed &&
-          previous?.track == next.track) {
-        return;
-      }
-      final manifest = ref.read(
-        pluginManifestProvider(next.track.ref.pluginId),
-      );
-      final toasts = ref.read(toastProvider.notifier);
-      toasts.show(
-        playbackFailedToast(
-          context.t,
-          next,
-          source: manifest?.name ?? next.track.ref.pluginId,
-          retry: () => ref.read(playbackProvider.notifier).play(next.track),
-        ),
-      );
+    ref.listen(playbackFailureProvider, (_, failure) {
+      if (failure == null) return;
+      final track = failure.state.track;
+      final manifest = ref.read(pluginManifestProvider(track.ref.pluginId));
+      // 提示被點時這一層可能已經換掉，先抓好 router。
+      final router = GoRouter.of(context);
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            playbackFailedToast(
+              context.t,
+              failure,
+              source: manifest?.name ?? track.ref.pluginId,
+              retry: () => ref.read(playbackProvider.notifier).play(track),
+              showQueue: () => router.go(Destination.queue.path),
+            ),
+          );
     });
     final message = ref.watch(toastProvider);
     return Stack(

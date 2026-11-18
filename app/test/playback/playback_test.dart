@@ -24,6 +24,10 @@ void main() {
   late FakeAudioBackend backend;
   late ProviderContainer container;
 
+  /// 假的時鐘：過期前重新解析看它（[playbackClockProvider]）。
+  final start = DateTime.utc(2027, 1, 15, 8);
+  late DateTime now;
+
   const playable = Track(
     ref: TrackRef(pluginId: 'songs', trackId: 'ok'),
     title: 'Ok',
@@ -44,15 +48,21 @@ void main() {
             'capabilities': ['search', 'resolveStream'],
             'domains': ['api.example.com'],
           }),
-          code: '''
+          code:
+              '''
             export async function search() { return { tracks: [] }; }
             export async function resolveStream({ trackId }) {
               if (trackId === 'gone') throw new PluginError('not_found');
-              return {
+              const stream = {
                 url: 'https://cdn.example.com/' + trackId + '.m4a',
                 headers: { Referer: 'https://example.com' },
                 codec: 'mp4a.40.2',
               };
+              // 有效期是 [start] 後 10 分鐘（事實 F5 的 deadline）。
+              if (trackId === 'expiring') {
+                stream.expiresAtMs = ${start.millisecondsSinceEpoch} + 600000;
+              }
+              return stream;
             }
           ''',
         ),
@@ -61,13 +71,18 @@ void main() {
       httpAdapter: FakeHttp((_) => const FakeResponse(404)),
     );
     backend = FakeAudioBackend();
+    now = start;
     container = ProviderContainer(
       overrides: [
         logProvider.overrideWithValue(log),
         pluginHostProvider.overrideWith((_) => host),
         audioBackendProvider.overrideWithValue(backend),
-        stallWarningAfterProvider.overrideWithValue(
-          const Duration(milliseconds: 200),
+        playbackClockProvider.overrideWithValue(() => now),
+        stallTimeoutsProvider.overrideWithValue(
+          const StallTimeouts(
+            starting: Duration(milliseconds: 300),
+            playing: Duration(milliseconds: 200),
+          ),
         ),
       ],
       retry: (_, _) => null,
@@ -149,14 +164,20 @@ void main() {
       expect(backend.calls, isEmpty);
     });
 
-    test('a backend that cannot seek fails with its category', () async {
+    test('a backend that cannot seek re-resolves and starts from the same '
+        'position', () async {
       backend.failNextSeek = const AudioBackendError(NetworkError(), 'x');
 
       await playback().play(playable, from: const Duration(seconds: 80));
 
-      expect(current()!.status, PlaybackStatus.failed);
-      expect(current()!.error, isA<NetworkError>());
-      expect(backend.calls, ['load', 'seek 80000']);
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(backend.calls, [
+        'load',
+        'seek 80000',
+        'load',
+        'seek 80000',
+        'play',
+      ]);
     });
   });
 
@@ -376,52 +397,251 @@ void main() {
     expect(current()!.error, isA<Unsupported>());
   });
 
-  test('a stream the backend cannot open fails with the backend\'s category '
-      'and logs the native detail', () async {
-    backend.failNextLoad = const AudioBackendError(
+  group('failure', () {
+    const cdn403 = AudioBackendError(
       NetworkError(),
-      'code 0: Source error',
+      'InvalidResponseCodeException: Response code: 403',
     );
 
-    await playback().play(playable);
+    test('a stream the CDN refuses (403) is resolved again once and plays '
+        'the new stream', () async {
+      final statuses = <PlaybackStatus>[];
+      container.listen(
+        playbackProvider,
+        (_, next) => statuses.add(next!.status),
+      );
+      backend.failNextLoad = cdn403;
 
-    expect(current()!.status, PlaybackStatus.failed);
-    expect(current()!.error, isA<NetworkError>());
-    expect(backend.calls, ['load']);
-    final log = await closeAndReadLog();
-    // 後端發出 failed 又丟錯，只記一次。
-    expect('Playback failed'.allMatches(log), hasLength(1));
-    expect(
-      log,
-      contains(
-        'Playback failed: NetworkError (code 0: Source error) '
-        'for songs/ok from cdn.example.com',
-      ),
-    );
+      await playback().play(playable);
+
+      expect(backend.calls, ['load', 'load', 'play']);
+      expect(current()!.status, PlaybackStatus.playing);
+      // 重新解析時不報失敗：提示與跳下一首只看最後的結果。
+      expect(statuses, isNot(contains(PlaybackStatus.failed)));
+      final log = await closeAndReadLog();
+      expect(
+        log,
+        contains(
+          'Playback failed: NetworkError (InvalidResponseCodeException: '
+          'Response code: 403) for songs/ok from cdn.example.com',
+        ),
+      );
+      expect(log, contains('INFO Resolving the stream again: songs/ok'));
+    });
+
+    test('a stream that fails again after resolving it again fails with the '
+        'backend\'s category', () async {
+      backend.failLoadOf = (_) =>
+          const AudioBackendError(NetworkError(), 'code 0: Source error');
+
+      await playback().play(playable);
+
+      expect(current()!.status, PlaybackStatus.failed);
+      expect(current()!.error, isA<NetworkError>());
+      expect(backend.calls, ['load', 'load']);
+      final log = await closeAndReadLog();
+      // 每次後端發出 failed 又丟錯，各記一次。
+      expect('Playback failed'.allMatches(log), hasLength(2));
+      expect('Resolving the stream again'.allMatches(log), hasLength(1));
+    });
+
+    test('a failure while playing resolves the stream again and goes on '
+        'from where it stopped', () async {
+      await playback().play(playable);
+      backend.emit(
+        backend.state.copyWith(position: const Duration(minutes: 2)),
+      );
+
+      backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.failed,
+          error: () => cdn403,
+        ),
+      );
+      await _until(() => current()!.status == PlaybackStatus.playing);
+
+      expect(backend.calls, ['load', 'play', 'load', 'seek 120000', 'play']);
+      expect(
+        await closeAndReadLog(),
+        contains('Playback failed: NetworkError (InvalidResponseCodeException'),
+      );
+    });
+
+    test('a second failure of the same track is final', () async {
+      await playback().play(playable);
+      Future<void> fail() async => backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.failed,
+          error: () => const AudioBackendError(Unsupported(), 'ao: no device'),
+        ),
+      );
+
+      await fail();
+      await _until(() => current()!.status == PlaybackStatus.playing);
+      await fail();
+
+      expect(current()!.status, PlaybackStatus.failed);
+      expect(current()!.error, isA<Unsupported>());
+      expect(backend.loaded, hasLength(2));
+      expect(
+        await closeAndReadLog(),
+        contains(
+          'Playback failed: Unsupported (ao: no device) '
+          'for songs/ok from cdn.example.com',
+        ),
+      );
+    });
+
+    test('playing the track again gets a new attempt', () async {
+      backend.failLoadOf = (_) => cdn403;
+      await playback().play(playable);
+      expect(current()!.status, PlaybackStatus.failed);
+
+      backend.failLoadOf = null;
+      backend.failNextLoad = cdn403;
+      await playback().play(playable);
+
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(backend.loaded, hasLength(4));
+    });
+
+    test('a failure while paused resolves the stream again but stays '
+        'paused', () async {
+      await playback().play(playable);
+      backend.emit(
+        backend.state.copyWith(position: const Duration(minutes: 2)),
+      );
+      await playback().pause();
+      backend.calls.clear();
+
+      backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.failed,
+          error: () => cdn403,
+        ),
+      );
+      await _until(() => current()!.status == PlaybackStatus.paused);
+
+      expect(backend.calls, ['load', 'seek 120000']);
+      expect(current()!.position, const Duration(minutes: 2));
+    });
+
+    test('after playing well for 30 seconds, a later failure is resolved '
+        'again too', () async {
+      Future<void> fail() async => backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.failed,
+          error: () => cdn403,
+        ),
+      );
+      await playback().play(playable);
+      await fail();
+      await _until(() => current()!.status == PlaybackStatus.playing);
+
+      backend.emit(
+        backend.state.copyWith(position: const Duration(seconds: 31)),
+      );
+      await fail();
+      await _until(() => backend.loaded.length == 3);
+      await _until(() => current()!.status == PlaybackStatus.playing);
+
+      expect(current()!.status, PlaybackStatus.playing);
+    });
+
+    test('a plugin error is not resolved again', () async {
+      final statuses = <PlaybackStatus>[];
+      container.listen(
+        playbackProvider,
+        (_, next) => statuses.add(next!.status),
+      );
+
+      await playback().play(
+        const Track(
+          ref: TrackRef(pluginId: 'songs', trackId: 'gone'),
+          title: 'Gone',
+          author: 'B',
+        ),
+      );
+
+      expect(statuses, [PlaybackStatus.resolving, PlaybackStatus.failed]);
+      expect(await closeAndReadLog(), isNot(contains('Resolving the stream')));
+    });
   });
 
-  test('a failure while playing is reported and logged', () async {
-    await playback().play(playable);
-
-    backend.emit(
-      backend.state.copyWith(
-        status: AudioBackendStatus.failed,
-        error: () => const AudioBackendError(Unsupported(), 'ao: no device'),
-      ),
+  group('expiry', () {
+    const expiring = Track(
+      ref: TrackRef(pluginId: 'songs', trackId: 'expiring'),
+      title: 'Expiring',
+      author: 'E',
     );
 
-    expect(current()!.status, PlaybackStatus.failed);
-    expect(current()!.error, isA<Unsupported>());
-    expect(
-      await closeAndReadLog(),
-      contains(
-        'Playback failed: Unsupported (ao: no device) '
-        'for songs/ok from cdn.example.com',
-      ),
-    );
+    Future<void> playThenPauseAt(Track track, Duration position) async {
+      await playback().play(track);
+      backend.emit(backend.state.copyWith(position: position));
+      await playback().pause();
+      backend.calls.clear();
+    }
+
+    test('resuming less than 2 minutes before the stream expires resolves '
+        'it again first and goes on from the same position', () async {
+      await playThenPauseAt(expiring, const Duration(minutes: 3));
+      now = start.add(const Duration(minutes: 8, seconds: 1));
+
+      await playback().resume();
+
+      expect(backend.calls, ['load', 'seek 180000', 'play']);
+      expect(backend.loaded, hasLength(2));
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(
+        await closeAndReadLog(),
+        contains('INFO Resolving the stream again before it expires'),
+      );
+    });
+
+    test('resuming earlier than that uses the stream as it is', () async {
+      await playThenPauseAt(expiring, const Duration(minutes: 3));
+      now = start.add(const Duration(minutes: 7, seconds: 59));
+
+      await playback().resume();
+
+      expect(backend.calls, ['play']);
+    });
+
+    test('seeking less than 2 minutes before expiry resolves it again and '
+        'stays paused at the new position', () async {
+      await playThenPauseAt(expiring, const Duration(minutes: 3));
+      now = start.add(const Duration(minutes: 9));
+
+      await playback().seek(const Duration(minutes: 1));
+
+      expect(backend.calls, ['load', 'seek 60000']);
+      expect(current()!.status, PlaybackStatus.paused);
+      expect(current()!.position, const Duration(minutes: 1));
+    });
+
+    test('seeking while playing near expiry goes on playing', () async {
+      await playback().play(expiring);
+      backend.calls.clear();
+      now = start.add(const Duration(minutes: 9));
+
+      await playback().seek(const Duration(minutes: 1));
+
+      expect(backend.calls, ['load', 'seek 60000', 'play']);
+      expect(current()!.status, PlaybackStatus.playing);
+    });
+
+    test('a stream without an expiry is never resolved ahead', () async {
+      await playThenPauseAt(playable, const Duration(minutes: 3));
+      now = start.add(const Duration(days: 1));
+
+      await playback().resume();
+      await playback().seek(const Duration(minutes: 1));
+
+      expect(backend.calls, ['play', 'seek 60000']);
+    });
   });
 
-  test('a backend that refuses to play fails with its category', () async {
+  test('a backend that refuses to play resolves the stream again', () async {
     backend.failNextPlay = const AudioBackendError(
       Unsupported(),
       'code 1: renderer',
@@ -429,8 +649,8 @@ void main() {
 
     await playback().play(playable);
 
-    expect(current()!.status, PlaybackStatus.failed);
-    expect(current()!.error, isA<Unsupported>());
+    expect(backend.calls, ['load', 'play', 'load', 'play']);
+    expect(current()!.status, PlaybackStatus.playing);
     expect(
       await closeAndReadLog(),
       contains('Playback failed: Unsupported (code 1: renderer)'),
@@ -441,7 +661,7 @@ void main() {
     'a stream that failed to load is not later reported as stalled',
     () async {
       backend.holdLoad = Completer<void>();
-      backend.failNextLoad = const AudioBackendError(NetworkError(), 'x');
+      backend.failLoadOf = (_) => const AudioBackendError(NetworkError(), 'x');
       final playing = playback().play(playable);
       await _until(() => backend.calls.isNotEmpty);
       // 載入中（stall 計時器在跑）時失敗。
@@ -469,34 +689,99 @@ void main() {
     },
   );
 
-  test(
-    'buffering longer than the stall threshold is logged once (fact W4)',
-    () async {
+  group('watchdog (fact W4)', () {
+    test('buffering while playing for longer than the threshold fails like '
+        'a broken stream: resolved again, from the same position', () async {
+      await playback().play(playable);
+      backend.emit(
+        backend.state.copyWith(
+          status: AudioBackendStatus.buffering,
+          position: const Duration(seconds: 42),
+        ),
+      );
+
+      await _until(() => backend.loaded.length == 2);
+      await _until(() => current()!.status == PlaybackStatus.playing);
+
+      expect(backend.calls, ['load', 'play', 'load', 'seek 42000', 'play']);
+      expect(
+        await closeAndReadLog(),
+        contains(
+          'WARNING Playback stalled: buffering for over 200 ms: songs/ok',
+        ),
+      );
+    });
+
+    test('stalling again after that is final, as a network error', () async {
+      await playback().play(playable);
+      backend.emit(
+        backend.state.copyWith(status: AudioBackendStatus.buffering),
+      );
+      await _until(() => current()!.status == PlaybackStatus.playing);
+      backend.emit(
+        backend.state.copyWith(status: AudioBackendStatus.buffering),
+      );
+
+      await _until(() => current()!.status == PlaybackStatus.failed);
+      expect(current()!.error, isA<NetworkError>());
+      // 不讓卡住的串流之後自己播出聲。
+      expect(backend.calls.last, 'pause');
+    });
+
+    test('buffering shorter than the threshold is a normal hiccup', () async {
       await playback().play(playable);
 
       backend.emit(
         backend.state.copyWith(status: AudioBackendStatus.buffering),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
       backend.emit(backend.state.copyWith(status: AudioBackendStatus.ready));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
 
-      final lines = (await closeAndReadLog())
-          .split('\n')
-          .where((l) => l.contains('Playback stalled'));
-      expect(lines, hasLength(1));
-      expect(lines.single, contains('WARNING Playback stalled: buffering'));
-    },
-  );
+      expect(backend.loaded, hasLength(1));
+      expect(current()!.status, PlaybackStatus.playing);
+      expect(await closeAndReadLog(), isNot(contains('Playback stalled')));
+    });
 
-  test('short buffering is not logged', () async {
-    await playback().play(playable);
+    test('a slow start within the start threshold is not cut short, though '
+        'it is longer than the playing one', () async {
+      backend.holdLoad = Completer<void>();
+      final playing = playback().play(playable);
+      await _until(() => backend.calls.isNotEmpty);
 
-    backend.emit(backend.state.copyWith(status: AudioBackendStatus.buffering));
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    backend.emit(backend.state.copyWith(status: AudioBackendStatus.ready));
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      backend.holdLoad!.complete();
+      await playing;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    expect(await closeAndReadLog(), isNot(contains('Playback stalled')));
+      expect(backend.loaded, hasLength(1));
+      expect(current()!.status, PlaybackStatus.playing);
+    });
+
+    test('a start that takes longer than the start threshold fails like a '
+        'broken stream', () async {
+      backend.holdLoad = Completer<void>();
+      unawaited(playback().play(playable));
+
+      await _until(() => backend.loaded.length == 2);
+      expect(
+        await closeAndReadLog(),
+        contains('WARNING Playback stalled: starting for over 300 ms'),
+      );
+      backend.holdLoad!.complete();
+    });
+
+    test('a paused stream that buffers is left alone', () async {
+      await playback().play(playable);
+      await playback().pause();
+
+      backend.emit(
+        backend.state.copyWith(status: AudioBackendStatus.buffering),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      expect(backend.loaded, hasLength(1));
+    });
   });
 
   test(

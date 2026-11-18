@@ -18,6 +18,9 @@ class FakeAudioBackend implements AudioBackend {
   /// 設了就讓下一次 [load] 丟它（只丟一次）。
   AudioBackendError? failNextLoad;
 
+  /// 設了就讓它回傳錯誤的串流都開不了（例如某一首的 CDN 一直回 403）。
+  AudioBackendError? Function(AudioStream stream)? failLoadOf;
+
   /// 設了就讓 [load] 等它完成才回來，用來測載入途中又點了別首。
   Completer<void>? holdLoad;
 
@@ -50,7 +53,7 @@ class FakeAudioBackend implements AudioBackend {
     loaded.add(stream);
     emit(const AudioBackendState(status: AudioBackendStatus.loading));
     await holdLoad?.future;
-    if (failNextLoad case final error?) {
+    if (failNextLoad ?? failLoadOf?.call(stream) case final error?) {
       failNextLoad = null;
       // 照真的後端：先發 failed 再丟錯。
       emit(

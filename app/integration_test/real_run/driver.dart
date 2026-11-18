@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/main.dart' as app;
+import 'package:fmp/playback/audio_backend.dart';
 import 'package:fmp/ui/home/home_page.dart';
 
 import '../../test/support/scratch_data.dart';
@@ -33,9 +34,11 @@ class RealRun {
   /// App 的資料用隔離的目錄（`FMP_SCRATCH_DATA`，[useScratchData]），開 App
   /// 前先清空，不碰 dev 版的資料庫、log 與快取；沒帶就不跑，免得刪到真的資料。
   /// [keepData] 時不清空，接著上一個情境留下的資料開，像重開 App。
+  /// [wrapAudioBackend] 包住這個平台的音訊後端（`runFmp`）。
   static Future<RealRun> launch(
     WidgetTester tester, {
     bool keepData = false,
+    AudioBackend Function(AudioBackend backend)? wrapAudioBackend,
   }) async {
     final run = RealRun._(tester, _Capture.fromEnvironment());
     await useScratchData(
@@ -44,7 +47,7 @@ class RealRun {
           'Real runs keep their data apart from the dev app: run this file '
           'with `dart run tool/real_run.dart` (docs/development.md〈實跑驅動〉).',
     );
-    await app.main();
+    await app.runFmp(wrapAudioBackend: wrapAudioBackend);
     await run.waitFor(find.byType(HomePage));
     await run.step('launch');
     return run;

@@ -110,6 +110,8 @@ const packageScopes = <String, PackageScope>{
   // 封面的磁碟快取：用到 path_provider 與 sqflite，只在 `platform/` 包一層。
   'cached_network_image': PackageScope.platformOnly,
   'flutter_cache_manager': PackageScope.platformOnly,
+  // just_audio 的 audio session 設定（`platform/audio_session.dart`）。
+  'audio_session': PackageScope.platformOnly,
 };
 
 /// 音源與歌詞源的識別碼，比對時不分大小寫。

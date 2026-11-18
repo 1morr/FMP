@@ -13,7 +13,13 @@ import 'package:fmp/playback/backends/media_kit_backend.dart';
 /// （ADR 0040）；包不了時寫一筆 warning，照舊直接播。[fetchRange] 換掉抓索引
 /// 的方式，給測試用。
 AudioBackend createAudioBackend(Log log, {FetchRange? fetchRange}) {
-  if (Platform.isWindows) return MediaKitBackend();
+  if (Platform.isWindows) {
+    return MediaKitBackend(
+      onMpvOptions: (error) => error == null
+          ? log.info('mpv options set: ${MediaKitBackend.mpvOptions}')
+          : log.warning('Setting mpv options failed', error: error),
+    );
+  }
   if (!Platform.isIOS && !Platform.isMacOS) return JustAudioBackend();
   return JustAudioBackend(
     hls: HlsPackager(fetchRange: fetchRange),

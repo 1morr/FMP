@@ -11,10 +11,17 @@ import 'package:media_kit/media_kit.dart' as mk;
 ///
 /// media_kit 的 `open()` 開不了也不會丟錯，錯誤只出現在 mpv 的 log
 /// （事實 W4），所以 [load] 等到長度出現、出錯或逾時才回來。
+///
+/// 建好時設 [mpvOptions]（事實 K4）；設完呼叫 [onMpvOptions]（失敗時帶著
+/// 錯誤，照預設設定繼續播）。介面規定後端不寫 log，由組裝的平台層記。
 class MediaKitBackend implements AudioBackend {
-  MediaKitBackend({this.loadTimeout = const Duration(seconds: 20)}) {
+  MediaKitBackend({
+    this.loadTimeout = const Duration(seconds: 20),
+    this.onMpvOptions,
+  }) {
     mk.MediaKit.ensureInitialized();
     _player = mk.Player();
+    _options = _setMpvOptions();
     final stream = _player.stream;
     _subscriptions = [
       // 事實 K4：先看 buffering 再看 playing。
@@ -49,8 +56,17 @@ class MediaKitBackend implements AudioBackend {
     ];
   }
 
-  /// 開啟串流最多等多久；逾時就當成一直在緩衝（交給呼叫端的記錄）。
+  /// 開啟串流最多等多久；逾時就當成一直在緩衝（交給呼叫端的看門狗）。
   final Duration loadTimeout;
+
+  final void Function(Object? error)? onMpvOptions;
+
+  /// 只播音訊時的 mpv 設定（事實 K4）：`vid=no` 不解碼影片軌（B 站的串流
+  /// 只有音訊，YouTube 退到 muxed 時省 200–400 MB），`prefetch-playlist=yes`
+  /// 讓播放清單的下一項先開（預載下一首用）。
+  static const mpvOptions = {'vid': 'no', 'prefetch-playlist': 'yes'};
+
+  late final Future<void> _options;
 
   late final mk.Player _player;
   final _states = BackendStates();
@@ -72,6 +88,18 @@ class MediaKitBackend implements AudioBackend {
   @override
   Stream<AudioBackendState> get states => _states.stream;
 
+  Future<void> _setMpvOptions() async {
+    try {
+      final native = _player.platform! as mk.NativePlayer;
+      for (final MapEntry(:key, :value) in mpvOptions.entries) {
+        await native.setProperty(key, value);
+      }
+      onMpvOptions?.call(null);
+    } catch (error) {
+      onMpvOptions?.call(error);
+    }
+  }
+
   AudioBackendState _withStatus(AudioBackendState s) {
     if (!_opened) return s;
     final mpv = _player.state;
@@ -87,6 +115,8 @@ class MediaKitBackend implements AudioBackend {
   @override
   Future<void> load(AudioStream stream) async {
     final generation = ++_generation;
+    await _options;
+    if (generation != _generation) return;
     if (_loaded case final previous? when !previous.isCompleted) {
       previous.complete(false);
     }
@@ -148,14 +178,26 @@ class MediaKitBackend implements AudioBackend {
 /// 它不轉發的 `ao`（音訊輸出裝置失敗，事實 W4）：
 /// - `ffmpeg` 的 `tcp:`、`stream`、`file`：開不了網址，算網路。
 /// - `ao`、`ad`、`vd`：輸出或解碼失敗，算不支援。
-/// - `cplayer` 等其他的：不知道是什麼，算解析失敗。
+/// - `cplayer`：只有讓這首播不下去的才算（事實 W13）：認不得格式、開不了
+///   音訊裝置、沒有可播的軌是不支援，其他 `fatal` 是解析失敗；其餘 error
+///   （例如「不能 seek」）聲音照常，不算。
 AppError? classifyMpvLog(String prefix, String level, String text) {
   if (level != 'error' && level != 'fatal') return null;
   return switch (prefix) {
     'ffmpeg' when text.startsWith('tcp:') => const NetworkError(),
     'stream' || 'file' => const NetworkError(),
     'ao' || 'ad' || 'vd' => const Unsupported(),
-    'cplayer' => const ParseFailure(),
+    'cplayer' when _fatalPlayerErrors.any(text.startsWith) =>
+      const Unsupported(),
+    'cplayer' when level == 'fatal' => const ParseFailure(),
     _ => null,
   };
 }
+
+/// mpv 0.36 的 `cplayer` 在 error 級寫、但這首就播不下去的訊息開頭（事實
+/// W13；`No video or audio streams selected` 是 fatal 級）。
+const _fatalPlayerErrors = [
+  'Failed to recognize file format',
+  'Could not open/initialize audio device',
+  'No video or audio streams selected',
+];
