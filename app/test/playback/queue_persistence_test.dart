@@ -4,9 +4,10 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/app/storage.dart';
+import 'package:fmp/app/storage_notice.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
-import 'package:fmp/data/queue_store.dart';
 import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/audio_backend.dart';
@@ -29,7 +30,9 @@ void main() {
   late PluginHost host;
   late FakeAudioBackend backend;
   late AppDatabase database;
+  late StorageNotice? notice;
   late ProviderContainer container;
+  final startedAt = DateTime.utc(2026, 11, 18, 9, 30, 15);
 
   Track track(String id) => Track(
     ref: TrackRef(pluginId: 'songs', trackId: id),
@@ -39,10 +42,18 @@ void main() {
     coverUrl: 'https://img.example.com/$id.webp',
   );
 
-  /// 照 `main`：開資料庫、讀回上次的佇列，再開 container。
+  File databaseFile() => File('${dir.path}/fmp.sqlite');
+
+  /// 照 `main`：開資料庫、讀回上次的佇列（[openStorage]），再開 container。
   Future<void> launch() async {
-    database = AppDatabase.open(File('${dir.path}/fmp.sqlite'));
-    final saved = await QueueStore(database).load(log);
+    final storage = await openStorage(
+      databaseFile(),
+      log,
+      now: () => startedAt,
+    );
+    database = storage.database!;
+    notice = storage.notice;
+    final saved = storage.saved;
     backend = FakeAudioBackend();
     container = ProviderContainer(
       overrides: [
@@ -261,15 +272,40 @@ void main() {
     expect(playback()?.position, Duration.zero);
   });
 
-  test('saved data that does not add up starts an empty queue', () async {
+  test('saved data that cannot be read back is kept in a copy, the queue '
+      'starts empty with a notice, and later saves leave the copy '
+      'alone', () async {
     await queue().add([track('a'), track('b')]);
     await settle();
     await container.read(queueSaverProvider)!.idle;
+    // 目前那首指向一個不存在的位置。
     await database.customStatement('DELETE FROM queue_entries');
+    await database.customStatement(
+      "INSERT INTO queue_entries VALUES (7, 0, NULL, 'songs', 'kept', "
+      "'Kept', 'K', NULL, NULL)",
+    );
 
     await restart();
 
+    expect(notice, StorageNotice.queueUnreadable);
     expect(current().isEmpty, isTrue);
     expect(playback(), isNull);
+    final backup = File('${databaseFile().path}.unreadable-20261118T093015Z');
+    expect(backup.existsSync(), isTrue);
+    final bytes = backup.readAsBytesSync();
+    // 另存的那份有讀不回來時的資料。
+    final copy = AppDatabase.open(backup);
+    expect((await copy.select(copy.queueEntries).get()).single.trackId, 'kept');
+    expect(await copy.select(copy.queueStates).get(), hasLength(1));
+    await copy.close();
+
+    // 之後照常保存，只寫原本的檔；下次開就讀回新的佇列、沒有提示。
+    await queue().add([track('c')]);
+    await settle();
+    await restart();
+
+    expect(notice, isNull);
+    expect(ids(current()), ['c']);
+    expect(backup.readAsBytesSync(), bytes);
   });
 }

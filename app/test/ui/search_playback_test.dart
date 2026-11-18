@@ -6,7 +6,7 @@ import 'package:dio/dio.dart' show DioException;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
-import 'package:fmp/app/database_status.dart';
+import 'package:fmp/app/storage_notice.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/playback/playback.dart';
@@ -141,7 +141,9 @@ void main() {
         overrides: [
           pluginHostProvider.overrideWith((_) => host),
           audioBackendProvider.overrideWithValue(backend),
-          databaseUnavailableProvider.overrideWithValue(true),
+          storageNoticeProvider.overrideWithValue(
+            StorageNotice.databaseUnavailable,
+          ),
         ],
       ),
     );
@@ -160,6 +162,28 @@ void main() {
 
     expect(find.text('播放中'), findsOneWidget);
     expect(backend.calls, ['load', 'play']);
+  });
+
+  testWidgets('when the last queue cannot be read back, a toast says a copy '
+      'was kept', (tester) async {
+    await tester.pumpWidget(
+      buildRoot(
+        overrides: [
+          pluginHostProvider.overrideWith((_) => host),
+          audioBackendProvider.overrideWithValue(FakeAudioBackend()),
+          storageNoticeProvider.overrideWithValue(
+            StorageNotice.queueUnreadable,
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('上次的佇列讀不回來，已另存一份'), findsOneWidget);
+    // 和其他沒有動作的提示一樣，4 秒後收起（再等淡出跑完）。
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('上次的佇列讀不回來，已另存一份'), findsNothing);
   });
 
   testWidgets('tapping a track plays it and shows its stream, or why it '

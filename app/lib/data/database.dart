@@ -48,6 +48,11 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// 把整個資料庫複製成 [file]（SQLite 的 `VACUUM INTO`：開著也能做出一致
+  /// 的副本）。[file] 已存在時丟例外，不覆寫。
+  Future<void> copyTo(File file) =>
+      customStatement('VACUUM INTO ?', [file.path]);
+
   @override
   int get schemaVersion => 2;
 

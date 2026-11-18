@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/audio_backend_lifecycle.dart';
-import 'package:fmp/app/database_status.dart';
+import 'package:fmp/app/storage.dart';
+import 'package:fmp/app/storage_notice.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
-import 'package:fmp/data/queue_store.dart';
 import 'package:fmp/platform/app_data_directory.dart';
 import 'package:fmp/platform/audio_backend.dart';
 import 'package:fmp/platform/cover_image.dart';
@@ -28,17 +28,16 @@ Future<void> main() async {
   );
   log.info('App started');
 
-  // 開不了就不保存，App 照常能搜尋、播放，啟動時提示一次。
-  final database = await AppDatabase.openOrNull(await databaseFile(data), log);
-  final saved = database == null ? null : await QueueStore(database).load(log);
+  // 開不了或讀不回來時照常能搜尋、播放，啟動時提示一次（openStorage）。
+  final storage = await openStorage(await databaseFile(data), log);
 
   runApp(
     buildRoot(
       overrides: [
         logProvider.overrideWithValue(log),
-        appDatabaseProvider.overrideWithValue(database),
-        databaseUnavailableProvider.overrideWithValue(database == null),
-        savedQueueProvider.overrideWithValue(saved),
+        appDatabaseProvider.overrideWithValue(storage.database),
+        savedQueueProvider.overrideWithValue(storage.saved),
+        storageNoticeProvider.overrideWithValue(storage.notice),
         audioBackendOverride(() => createAudioBackend(log)),
       ],
     ),

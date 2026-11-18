@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
 import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/track.dart';
@@ -33,61 +32,58 @@ class QueueStore {
   static const _stateId = 0;
 
   /// 讀回上次的佇列；沒存過時是 null。存的資料對不起來（例如檔案被改壞）
-  /// 時寫 log、回 null，從空佇列開始。
-  Future<SavedQueue?> load(Log log) async {
-    try {
-      final state = await (_database.select(
-        _database.queueStates,
-      )..where((s) => s.id.equals(_stateId))).getSingleOrNull();
-      if (state == null) return null;
-      final rows = await (_database.select(
-        _database.queueEntries,
-      )..orderBy([(e) => OrderingTerm.asc(e.playOrder)])).get();
-      final original = state.shuffled
-          ? ([
-              for (final row in rows)
-                if (row.originalOrder != null) row,
-            ]..sort((a, b) => a.originalOrder!.compareTo(b.originalOrder!)))
-          : null;
-      final queue = Queue.restore(
-        entries: [
-          for (final row in rows)
-            QueueEntry(
-              row.entryId,
-              Track(
-                ref: TrackRef(pluginId: row.pluginId, trackId: row.trackId),
-                title: row.title,
-                author: row.author,
-                duration: switch (row.durationMs) {
-                  final ms? => Duration(milliseconds: ms),
-                  null => null,
-                },
-                coverUrl: row.coverUrl,
-              ),
+  /// 時丟例外，由呼叫的人另存一份再清掉（`app/storage.dart`）。
+  Future<SavedQueue?> load() async {
+    final state = await (_database.select(
+      _database.queueStates,
+    )..where((s) => s.id.equals(_stateId))).getSingleOrNull();
+    if (state == null) return null;
+    final rows = await (_database.select(
+      _database.queueEntries,
+    )..orderBy([(e) => OrderingTerm.asc(e.playOrder)])).get();
+    final original = state.shuffled
+        ? ([
+            for (final row in rows)
+              if (row.originalOrder != null) row,
+          ]..sort((a, b) => a.originalOrder!.compareTo(b.originalOrder!)))
+        : null;
+    final queue = Queue.restore(
+      entries: [
+        for (final row in rows)
+          QueueEntry(
+            row.entryId,
+            Track(
+              ref: TrackRef(pluginId: row.pluginId, trackId: row.trackId),
+              title: row.title,
+              author: row.author,
+              duration: switch (row.durationMs) {
+                final ms? => Duration(milliseconds: ms),
+                null => null,
+              },
+              coverUrl: row.coverUrl,
             ),
-        ],
-        currentEntryId: state.currentEntryId,
-        nextEntryId: state.nextEntryId,
-        repeat: state.repeat,
-        original: original == null
-            ? null
-            : [for (final row in original) row.entryId],
-      );
-      return SavedQueue(
-        queue,
-        queue.current == null
-            ? Duration.zero
-            : Duration(milliseconds: state.positionMs),
-      );
-    } catch (error, stackTrace) {
-      log.error(
-        'Restoring the saved queue failed; starting with an empty queue',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return null;
-    }
+          ),
+      ],
+      currentEntryId: state.currentEntryId,
+      nextEntryId: state.nextEntryId,
+      repeat: state.repeat,
+      original: original == null
+          ? null
+          : [for (final row in original) row.entryId],
+    );
+    return SavedQueue(
+      queue,
+      queue.current == null
+          ? Duration.zero
+          : Duration(milliseconds: state.positionMs),
+    );
   }
+
+  /// 清掉存的佇列（讀不回來、已另存一份之後）。
+  Future<void> clear() => _database.transaction(() async {
+    await _database.delete(_database.queueEntries).go();
+    await _database.delete(_database.queueStates).go();
+  });
 
   /// 存整個佇列與 [position]。[entriesChanged] 是 false 時只存目前那首、
   /// 播放模式與進度，不重寫每個位置。
