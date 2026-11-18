@@ -68,13 +68,16 @@ void main() {
     final database = await databaseFile(data);
     database.writeAsStringSync('db');
     logDirectory(data).createSync(recursive: true);
+    // 換位置時還不建快取：開真的 App 的 integration_test 裝了零聯網守門，
+    // 沒顯示封面就不該碰 http client。
+    keepCoverCacheIn(data);
     // 套件建 Config 時就建一個 http client（不連線）；putFile 不下載，
     // 這個測試不會連網。
-    HttpOverrides.runZoned(
-      () => keepCoverCacheIn(data),
+    final cache = HttpOverrides.runZoned(
+      () => coverCache,
       createHttpClient: (_) => realHttpClient(),
     );
-    final cover = await coverCache.putFile(
+    final cover = await cache.putFile(
       'https://i0.hdslb.com/bfs/archive/cover.jpg',
       Uint8List.fromList([1, 2, 3]),
     );
