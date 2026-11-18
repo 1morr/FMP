@@ -116,11 +116,8 @@ void main() {
     }
 
     for (final (index, name) in [(0, 'first'), (1, 'second'), (2, 'third')]) {
-      final row = find.ancestor(
-        of: more.at(index),
-        matching: find.byType(ListTile),
-      );
-      final title = (tester.widget<ListTile>(row).title! as Text).data!;
+      final row = searchResultAt(index);
+      final title = searchResultTitle(tester, index);
       // 點一首是臨時播放（桌面雙擊）；連點三首是連續臨時播放。
       await playSearchResult(tester, row);
       await run.waitFor(

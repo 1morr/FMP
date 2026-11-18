@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/destination.dart';
@@ -25,6 +26,17 @@ Future<void> openSearch(WidgetTester tester) async {
   }
   expect(find.byType(SearchPage), findsOneWidget);
 }
+
+/// 搜尋結果第 [index] 首（從 0 數）的 [ListTile]：曲名是它的 `title`。
+/// 搜尋頁每一列以曲目身分（`ValueKey<TrackRef>`）為鍵；⋮ 在 ListTile 旁邊。
+Finder searchResultAt(int index) => find.descendant(
+  of: find.byWidgetPredicate((w) => w.key is ValueKey<TrackRef>).at(index),
+  matching: find.byType(ListTile),
+);
+
+/// [searchResultAt] 那一列的曲名。
+String searchResultTitle(WidgetTester tester, int index) =>
+    (tester.widget<ListTile>(searchResultAt(index)).title! as Text).data!;
 
 /// 臨時播放搜尋結果 [result]：觸控點一下，滑鼠雙擊（單擊只是選取，
 /// brief〈播放〉）。integration_test 依平台的密度不同，也用這個。

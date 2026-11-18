@@ -52,19 +52,8 @@ void main() {
     Finder until(bool Function() condition) =>
         find.byWidgetPredicate((w) => w is MaterialApp && condition());
 
-    String titleAt(int index) =>
-        (tester
-                    .widget<ListTile>(
-                      find.ancestor(
-                        of: more.at(index),
-                        matching: find.byType(ListTile),
-                      ),
-                    )
-                    .title!
-                as Text)
-            .data!;
-    final queued = titleAt(0);
-    final detour = titleAt(1);
+    final queued = searchResultTitle(tester, 0);
+    final detour = searchResultTitle(tester, 1);
 
     // 第 1 首加入佇列：佇列是空的，加入就開始播。
     await tester.tap(more.at(0));
@@ -91,10 +80,7 @@ void main() {
     await run.step('queue-playing');
 
     // 臨時播放第 2 首：播放控制標著「臨時」。
-    await playSearchResult(
-      tester,
-      find.ancestor(of: more.at(1), matching: find.byType(ListTile)),
-    );
+    await playSearchResult(tester, searchResultAt(1));
     await run.waitFor(
       find.descendant(of: controls, matching: find.text(detour)),
     );

@@ -102,6 +102,20 @@ void main() {
       });
     });
 
+    testWidgets('the more button opens its menu right away, without waiting '
+        'for a double click', (tester) async {
+      await withMouse(() async {
+        await start(tester, const Size(1280, 800));
+
+        await tester.tap(find.byTooltip('更多'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('加入佇列'), findsOneWidget);
+        await tester.pumpAndSettle();
+      });
+    });
+
     testWidgets('↩ plays the selected result temporarily', (tester) async {
       await withMouse(() async {
         await start(tester, const Size(1280, 800));

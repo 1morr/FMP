@@ -120,6 +120,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             for (final track in source.tracks)
               _TrackTile(
                 track,
+                // 測試與實跑靠它找第幾首（`test/support/shell.dart`）。
+                key: ValueKey(track.ref),
                 pointer: FormFactor.of(context).density == Density.pointer,
                 selected: track.ref == _selected,
                 onSelect: () => _select(track),
@@ -150,10 +152,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 }
 
 /// 一首搜尋結果。觸控點一下播放；滑鼠按下就選取（不等雙擊的判定），雙擊
-/// 播放，同佇列頁的表格。
+/// 播放，同佇列頁的表格。⋮ 在雙擊的範圍外，點下去不必等雙擊逾時。
 class _TrackTile extends ConsumerWidget {
   const _TrackTile(
     this.track, {
+    super.key,
     required this.pointer,
     required this.selected,
     required this.onSelect,
@@ -170,47 +173,58 @@ class _TrackTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final duration = track.duration;
     final text = context.fmpText;
-    final tile = GestureDetector(
-      onDoubleTap: pointer ? onPlay : null,
-      onSecondaryTapUp: (details) =>
-          _showTrackMenu(context, ref, track, details.globalPosition),
-      child: ListTile(
-        onTap: pointer ? null : onPlay,
-        selected: selected,
-        selectedTileColor: context.fmpColors.accentSoft,
-        title: Text(track.title, style: text.body),
-        subtitle: Text(
-          style: text.sub.copyWith(color: context.fmpColors.label2),
-          duration == null
-              ? track.author
-              : '${track.author} · ${formatDuration(duration)}',
-        ),
-        trailing: Builder(
-          builder: (context) => PlainIconButton(
-            icon: FmpIcons.more,
-            tooltip: context.t.queue.more,
-            size: 36,
-            onTap: () {
-              final box = context.findRenderObject()! as RenderBox;
-              _showTrackMenu(
-                context,
-                ref,
-                track,
-                box.localToGlobal(box.size.bottomRight(Offset.zero)),
-              );
-            },
-          ),
-        ),
+    final colors = context.fmpColors;
+    Widget tile = ListTile(
+      onTap: pointer ? null : onPlay,
+      selected: selected,
+      title: Text(track.title, style: text.body),
+      subtitle: Text(
+        style: text.sub.copyWith(color: colors.label2),
+        duration == null
+            ? track.author
+            : '${track.author} · ${formatDuration(duration)}',
       ),
     );
-    if (!pointer) return tile;
-    return Listener(
-      onPointerDown: (event) {
-        if (event.buttons & (kPrimaryButton | kSecondaryButton) != 0) {
-          onSelect();
-        }
-      },
-      child: tile,
+    if (pointer) {
+      tile = Listener(
+        onPointerDown: (event) {
+          if (event.buttons & (kPrimaryButton | kSecondaryButton) != 0) {
+            onSelect();
+          }
+        },
+        child: GestureDetector(onDoubleTap: onPlay, child: tile),
+      );
+    }
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showTrackMenu(context, ref, track, details.globalPosition),
+      child: ColoredBox(
+        color: selected ? colors.accentSoft : const Color(0x00000000),
+        child: Row(
+          children: [
+            Expanded(child: tile),
+            Padding(
+              padding: const EdgeInsets.only(right: FmpSpace.s3),
+              child: Builder(
+                builder: (context) => PlainIconButton(
+                  icon: FmpIcons.more,
+                  tooltip: context.t.queue.more,
+                  size: 36,
+                  onTap: () {
+                    final box = context.findRenderObject()! as RenderBox;
+                    _showTrackMenu(
+                      context,
+                      ref,
+                      track,
+                      box.localToGlobal(box.size.bottomRight(Offset.zero)),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -33,12 +33,8 @@ void main() {
 
     // 點第一首（臨時播放，桌面雙擊）：曲名出現在迷你播放器或播放膠囊，
     // 狀態到播放中。
-    final first = find.ancestor(
-      of: more.first,
-      matching: find.byType(ListTile),
-    );
-    final title = (tester.widget<ListTile>(first).title! as Text).data!;
-    await playSearchResult(tester, first);
+    final title = searchResultTitle(tester, 0);
+    await playSearchResult(tester, searchResultAt(0));
     final controls = find.byWidgetPredicate(
       (w) => w is MiniPlayer || w is TransportBar,
     );
