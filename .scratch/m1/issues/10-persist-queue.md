@@ -98,7 +98,7 @@ Session 紀錄：2026-11-18 佇列與進度跨重啟保存（schema v2、QueueSt
 決定：進度在換曲、暫停、seek、狀態改變時馬上存，播放中差 5 秒存一次；臨時播放存離開佇列時的位置、不倒退（協調者代答）（Agent 定）
 決定：存的佇列讀不回來時 VACUUM INTO 另存整個資料庫、清掉存的佇列，從空佇列開始並提示（協調者代答）（Agent 定）
 決定：資料庫檔壞了（只認 SQLITE_CORRUPT、SQLITE_NOTADB）就連同 -wal、-shm、-journal 改名另存、開新庫；其他開檔錯誤這次不保存（協調者代答）（Agent 定）
-決定：winpc 的排程工作用 conhost.exe --headless 啟動 PowerShell，不用 -WindowStyle Hidden 或 wscript（使用者同意）
+決定：winpc 的排程工作用 conhost.exe --headless 啟動 PowerShell，不用 -WindowStyle Hidden 或 wscript（Agent 定）
 決定：schema v2 兩張表：每個位置一列（原順序可為 null，拖動過、插進來的由它推得）、單列的狀態與進度（Agent 定）
 決定：啟動時在 runApp 前讀回，Playback 從「暫停、後端未載入」開始，按播放或 seek 後播放才解析並從保存的位置開始（Agent 定）
 決定：位置往回跳或一次跳超過 2 秒算拖了進度，馬上存（Agent 定）
