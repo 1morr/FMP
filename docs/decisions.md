@@ -41,3 +41,4 @@
 - 2026-11-15 流程（使用者同意）：同步 project-init：加 `scripts/next_step.py`，session 結尾改跑它；票上可留 `等使用者：`。`AGENTS.md`〈每個 session 的流程〉
 - 2026-11-15 流程（使用者同意）：新版缺的密鑰掃描、依賴漏洞、依賴更新三道閘門開成 `.scratch/gates/` 的 3 張票，排在 M1 之後。`docs/development.md`〈閘門〉
 - 2026-11-15 M1（使用者定）：桌面右側詳情面板的內容（封面、曲名、音源 chip、下一首、簡介）沒有票負責，併進票 17。
+- 2026-11-18 M1（使用者定）：winpc 今天藍屏四次（擁有者說跑 Windows 常讓它藍屏），Windows 的建置、integration_test 與實跑暫時全部跳過；票照 macOS、iOS、Android 收，Windows 的驗證等擁有者說恢復後一次補，清單在票 20。票 11
