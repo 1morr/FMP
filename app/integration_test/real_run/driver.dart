@@ -55,6 +55,12 @@ class RealRun {
     return run;
   }
 
+  /// 不開真的 App，只接上截圖：情境自己 `pumpWidget`（例如假的搜尋狀態、
+  /// 不聯網），每一步照樣用系統工具截圖並讀回。截畫面的各種狀態用，不是
+  /// 實跑的主要流程，沒有 `01-launch`。
+  static RealRun attach(WidgetTester tester) =>
+      RealRun._(tester, _Capture.fromEnvironment());
+
   /// 一邊 pump 一邊真的等，直到 [finder] 找得到東西；超過 [timeout] 就讓測試
   /// 失敗。不用 `pumpAndSettle`：畫面上可能有不停的動畫。
   Future<void> waitFor(
