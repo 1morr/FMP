@@ -153,7 +153,7 @@ const _listen = Duration(seconds: 15);
 /// 之後又報出更大的位置（[confirmed]）才算數。位置來自音訊後端，just_audio
 /// 長片約每 200 毫秒報一次，而且 ready 加播放中時它用時鐘外推位置，所以這是
 /// 「播放器開始走」的時間，不等於喇叭真的出聲（docs/research/
-/// next-time-2026-11-18.md）。
+/// next-time-2026-11-18.md）。播完接下一首從上一首的位置走到結尾算起。
 class _Times {
   _Times.watch(ProviderContainer container, Track track, {Track? endOf}) {
     _subscription = container.listen<PlaybackState?>(playbackProvider, (
@@ -161,11 +161,20 @@ class _Times {
       s,
     ) {
       final now = DateTime.now();
-      if (endOf != null &&
-          ended == null &&
-          previous?.track == endOf &&
-          (s?.track != endOf || s?.status == PlaybackStatus.completed)) {
-        ended = now;
+      // 上一首的位置走到結尾（差 250 毫秒內，位置約每 200 毫秒報一次），或
+      // 先報了播完、換了曲：原生自己接到下一首時，App 收到「播完」已經是
+      // 下一首開始之後，不能拿它當起點。
+      if (endOf != null && ended == null && previous?.track == endOf) {
+        final length = previous!.effectiveDuration;
+        final atEnd =
+            s?.track == endOf &&
+            length != null &&
+            s!.position >= length - const Duration(milliseconds: 250);
+        if (atEnd ||
+            s?.track != endOf ||
+            s?.status == PlaybackStatus.completed) {
+          ended = now;
+        }
       }
       if (s == null || s.track != track) return;
       switch (s.status) {
