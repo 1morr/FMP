@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "FMP"
+    "name": "FMP",
+    "mediaNotificationChannel": "Playback controls"
   },
   "placeholder": {
     "search": {

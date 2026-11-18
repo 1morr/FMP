@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "FMP"
+    "name": "FMP",
+    "mediaNotificationChannel": "播放控制"
   },
   "placeholder": {
     "search": {

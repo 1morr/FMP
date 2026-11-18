@@ -6,6 +6,7 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/traffic_lights.dart';
+import 'package:fmp/playback/media_controls.dart';
 import 'package:fmp/app/router.dart';
 import 'package:go_router/go_router.dart';
 
@@ -24,14 +25,14 @@ Widget buildRoot({List<Override> overrides = const []}) {
   );
 }
 
-class FmpApp extends StatefulWidget {
+class FmpApp extends ConsumerStatefulWidget {
   const FmpApp({super.key});
 
   @override
-  State<FmpApp> createState() => _FmpAppState();
+  ConsumerState<FmpApp> createState() => _FmpAppState();
 }
 
-class _FmpAppState extends State<FmpApp> {
+class _FmpAppState extends ConsumerState<FmpApp> {
   final GoRouter _router = buildRouter();
 
   @override
@@ -42,6 +43,8 @@ class _FmpAppState extends State<FmpApp> {
 
   @override
   Widget build(BuildContext context) {
+    // App 開著就讓系統媒體控制接著播放（沒有媒體控制時是 null）。
+    ref.watch(mediaControlsBindingProvider);
     final density = Density.current;
     return MaterialApp.router(
       routerConfig: _router,

@@ -13,9 +13,11 @@ import 'package:fmp/platform/audio_backend.dart';
 import 'package:fmp/platform/audio_session.dart';
 import 'package:fmp/platform/cover_image.dart';
 import 'package:fmp/platform/database_file.dart';
+import 'package:fmp/platform/media_controls.dart';
 import 'package:fmp/platform/log_directory.dart';
 import 'package:fmp/platform/orientation.dart';
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/media_controls.dart';
 import 'package:fmp/playback/queue_saver.dart';
 
 Future<void> main() => runFmp();
@@ -41,6 +43,11 @@ Future<void> runFmp({
 
   // 開不了或讀不回來時照常能搜尋、播放，啟動時提示一次（openStorage）。
   final storage = await openStorage(await databaseFile(data), log);
+  // 系統媒體控制（brief〈播放〉）；建不起來時照常播放。
+  final mediaControls = await createMediaControls(
+    log,
+    notificationChannelName: t.app.mediaNotificationChannel,
+  );
 
   runApp(
     buildRoot(
@@ -49,6 +56,7 @@ Future<void> runFmp({
         appDatabaseProvider.overrideWithValue(storage.database),
         savedQueueProvider.overrideWithValue(storage.saved),
         storageNoticeProvider.overrideWithValue(storage.notice),
+        mediaControlsProvider.overrideWithValue(mediaControls),
         audioBackendOverride(() {
           final backend = createAudioBackend(log);
           return wrapAudioBackend?.call(backend) ?? backend;

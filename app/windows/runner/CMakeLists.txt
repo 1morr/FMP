@@ -9,6 +9,7 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "main.cpp"
+  "media_controls.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "window_frame.cpp"
@@ -20,6 +21,11 @@ add_executable(${BINARY_NAME} WIN32
 # Apply the standard set of build settings. This can be removed for applications
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})
+
+# C++/WinRT (media_controls.cpp) falls back to <experimental/coroutine> in
+# C++17, which MSVC 14.5x (Visual Studio 2026) rejects; C++20 uses the
+# standard <coroutine>.
+target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
 
 # Add preprocessor definitions for the build version.
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION=\"${FLUTTER_VERSION}\"")
@@ -35,6 +41,8 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
+# Windows Runtime (the SMTC in media_controls.cpp).
+target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.

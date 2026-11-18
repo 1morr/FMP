@@ -28,6 +28,7 @@ bool FlutterWindow::OnCreate() {
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
   frame_.Attach(GetHandle(), flutter_controller_->view()->GetNativeWindow(),
                 flutter_controller_->engine()->messenger());
+  media_.Attach(GetHandle(), flutter_controller_->engine()->messenger());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -42,8 +43,9 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
-  // Drops the channel before the engine it talks through goes away.
+  // Drops the channels before the engine they talk through goes away.
   frame_.Detach();
+  media_.Detach();
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -59,6 +61,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // before the Flutter controller exists.
   if (std::optional<LRESULT> result =
           frame_.HandleMessage(hwnd, message, wparam, lparam)) {
+    return *result;
+  }
+  if (std::optional<LRESULT> result =
+          media_.HandleMessage(message, wparam, lparam)) {
     return *result;
   }
 

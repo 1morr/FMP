@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "media_controls.h"
 #include "win32_window.h"
 #include "window_frame.h"
 
@@ -32,6 +33,9 @@ class FlutterWindow : public Win32Window {
 
   // The window has no native title bar; see window_frame.h.
   WindowFrame frame_;
+
+  // The system media controls; see media_controls.h.
+  MediaControls media_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

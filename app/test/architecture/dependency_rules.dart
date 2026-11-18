@@ -112,6 +112,8 @@ const packageScopes = <String, PackageScope>{
   'flutter_cache_manager': PackageScope.platformOnly,
   // just_audio 的 audio session 設定（`platform/audio_session.dart`）。
   'audio_session': PackageScope.platformOnly,
+  // 系統媒體控制（`platform/media_controls.dart`，事實 K18）。
+  'audio_service': PackageScope.platformOnly,
 };
 
 /// 音源與歌詞源的識別碼，比對時不分大小寫。
