@@ -26,14 +26,17 @@ Future<MediaControls?> _create(Log log, String channelName) async {
   if (Platform.isWindows) return WindowsMediaControls.start(log);
   if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) return null;
   try {
+    final mediaKeys = Platform.isAndroid ? MediaKeyFix(log) : null;
     final controls = await AudioService.init(
-      builder: AudioServiceControls.new,
+      builder: () => AudioServiceControls(mediaKeys: mediaKeys),
       config: AudioServiceConfig(
         androidNotificationChannelId: 'com.personal.fmp.playback',
         androidNotificationChannelName: channelName,
       ),
       cacheManager: coverCache,
     );
+    // 服務在 init 時已建好；之後重建時 AudioServiceControls 會再裝。
+    await mediaKeys?.install();
     log.info('Media controls ready');
     return controls;
   } catch (error, stackTrace) {

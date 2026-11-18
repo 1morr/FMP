@@ -79,7 +79,7 @@ log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下�
 
 框架與套件：Flutter Android，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（ExoPlayer）、audio_service（系統媒體控制）。
 
-背景播放與系統媒體控制（audio_service 的 README〈Android setup〉）：`AndroidManifest.xml` 有 `WAKE_LOCK`、`FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_MEDIA_PLAYBACK` 三個權限、audio_service 的 `AudioService` 服務（`foregroundServiceType="mediaPlayback"`）與 `MediaButtonReceiver`；`MainActivity` 繼承 `AudioServiceActivity`，和前景服務共用 FlutterEngine，關掉畫面後 Dart 照常在背景播。通知頻道的名字在設定裡看得到，三種語言在 `app.mediaNotificationChannel`。媒體鍵的播放、暫停鍵都被當成切換（事實 A6）。讀回：`adb shell dumpsys media_session`、展開通知列後 `uiautomator dump`；播放中進度條一直動，uiautomator 等不到畫面靜止（`could not get idle state`），要先暫停再讀，`tool/real_run_system.sh` 照這樣做。
+背景播放與系統媒體控制（audio_service 的 README〈Android setup〉）：`AndroidManifest.xml` 有 `WAKE_LOCK`、`FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_MEDIA_PLAYBACK` 三個權限、audio_service 的 `AudioService` 服務（`foregroundServiceType="mediaPlayback"`）與 `MediaButtonReceiver`；`MainActivity` 繼承 `AudioServiceActivity`，和前景服務共用 FlutterEngine，關掉畫面後 Dart 照常在背景播。通知頻道的名字在設定裡看得到，三種語言在 `app.mediaNotificationChannel`。audio_service 把實體的播放鍵、暫停鍵都當成切換（事實 A6），`MediaKeyFix.java` 用反射改寫成直接播放、暫停（`MainActivity` 的 `fmp/media_keys` 頻道，Dart 端在服務建好後叫它）；release 的 R8 keep 規則在 `android/app/proguard-rules.pro`，升級 audio_service 時照 `test/platform/audio_service_internals_test.dart` 重查。讀回：`adb shell dumpsys media_session`、展開通知列後 `uiautomator dump`；播放中進度條一直動，uiautomator 等不到畫面靜止（`could not get idle state`），要先暫停再讀，`tool/real_run_system.sh` 照這樣做。
 
 log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 

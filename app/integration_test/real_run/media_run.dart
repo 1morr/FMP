@@ -85,6 +85,25 @@ void main() {
       print('[real run] $what: ${playback()}');
     }
 
+    /// 不 pump、只真的等 [duration]，期間 [condition] 一直成立。
+    Future<void> stays(
+      String what,
+      bool Function(PlaybackState? state) condition, {
+      Duration duration = const Duration(seconds: 3),
+    }) async {
+      final deadline = DateTime.now().add(duration);
+      while (DateTime.now().isBefore(deadline)) {
+        if (!condition(playback())) {
+          fail('Expected $what to hold; playback is ${playback()}');
+        }
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 200)),
+        );
+      }
+      // ignore: avoid_print -- 每一下的結果留在實跑的輸出裡。
+      print('[real run] $what: ${playback()}');
+    }
+
     bool playingTitle(PlaybackState? s, String title) =>
         s?.track.title == title && s?.status == PlaybackStatus.playing;
 
@@ -111,11 +130,21 @@ void main() {
       await until('paused by the media key', (s) {
         return s?.status == PlaybackStatus.paused;
       });
+      // 耳機、車機的「暫停」鍵在已暫停時不會開始播（事實 A6）。
+      await run.system('key-pause-again', 'dispatch', ['pause']);
+      await stays('still paused', (s) => s?.status == PlaybackStatus.paused);
       final shade = await run.system('notification', 'notification');
       expect(shade, contains(first));
 
       await run.system('play', 'tap', ['Play']);
       await until('playing', (s) => playingTitle(s, first));
+      // 「播放」鍵在播放中不會暫停、也不會重來。
+      final playingAt = playback()!.position;
+      await run.system('key-play-again', 'dispatch', ['play']);
+      await stays(
+        'still playing on',
+        (s) => playingTitle(s, first) && s!.position >= playingAt,
+      );
       await run.system('pause', 'tap', ['Play:Pause']);
       await until('paused', (s) => s?.status == PlaybackStatus.paused);
       await run.system('next', 'tap', ['Next:Next_track']);

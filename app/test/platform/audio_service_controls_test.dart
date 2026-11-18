@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/log/log.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/audio_service_controls.dart';
 import 'package:fmp/playback/media_controls.dart';
@@ -178,5 +182,51 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(commands, const [PauseCommand()]);
+  });
+
+  group('Android media key fix (fact A6)', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('fmp/media_keys');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    late Directory logDir;
+    late Log log;
+    late int installs;
+
+    setUp(() async {
+      logDir = Directory.systemTemp.createTempSync('fmp_media_keys_');
+      log = await Log.open(logDir, minimumLevel: LogLevel.debug);
+      installs = 0;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'install') installs++;
+        return true;
+      });
+      controls = AudioServiceControls(mediaKeys: MediaKeyFix(log));
+    });
+    tearDown(() async {
+      messenger.setMockMethodCallHandler(channel, null);
+      await log.close();
+      logDir.deleteSync(recursive: true);
+    });
+
+    test('is installed when a track shows up, again after nothing played '
+        '(the service may have been rebuilt), not on every update', () async {
+      controls.show(nowPlaying());
+      controls.show(nowPlaying(position: const Duration(seconds: 40)));
+      controls.show(nowPlaying(status: PlaybackStatus.paused));
+      await Future<void>.delayed(Duration.zero);
+      expect(installs, 1);
+
+      controls.show(null);
+      controls.show(nowPlaying());
+      await Future<void>.delayed(Duration.zero);
+      expect(installs, 2);
+    });
+
+    test('a missing native side does not throw', () async {
+      messenger.setMockMethodCallHandler(channel, null);
+
+      expect(await MediaKeyFix(log).install(), isFalse);
+    });
   });
 }
