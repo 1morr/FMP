@@ -65,7 +65,19 @@ enum PlaybackStatus {
   completed,
 
   /// 解析或播放失敗，原因在 [PlaybackState.error]。
-  failed,
+  failed;
+
+  /// 要播或正在播：播放鈕顯示暫停。
+  bool get wantsToPlay => switch (this) {
+    resolving || loading || buffering || PlaybackStatus.playing => true,
+    paused || completed || failed => false,
+  };
+}
+
+/// 位置不是照著播放往前走：往回跳或一次跳超過 2 秒，當成拖了進度（seek）。
+bool positionJumped(Duration from, Duration to) {
+  final moved = to - from;
+  return moved.isNegative || moved > const Duration(seconds: 2);
 }
 
 class PlaybackState {
@@ -114,15 +126,7 @@ class PlaybackState {
   }
 
   /// 要播或正在播：播放鈕顯示暫停。
-  bool get playing => switch (status) {
-    PlaybackStatus.resolving ||
-    PlaybackStatus.loading ||
-    PlaybackStatus.buffering ||
-    PlaybackStatus.playing => true,
-    PlaybackStatus.paused ||
-    PlaybackStatus.completed ||
-    PlaybackStatus.failed => false,
-  };
+  bool get playing => status.wantsToPlay;
 
   @override
   String toString() =>

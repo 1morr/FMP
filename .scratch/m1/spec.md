@@ -13,7 +13,7 @@
 - 插件能力（ADR 0039）：`search` 帶排序、`listParts`、`charts`、`trackInfo`，只做 bilibili；每個的介面由實作的票寫回 ADR 0039〈各插件能力的介面〉。
 - 播放核心：佇列、臨時播放（含一組分 P 當一首）、隨機與循環、佇列與進度跨重啟保存、串流過期前重新解析、預載下一首、失敗處理（重新解析一次 → 跳下一首 → 連續 3 首停止並提示）、看門狗。
 - 音訊後端介面加 seek 與預載下一首（`mattpocock-skills:codebase-design`）。
-- 背景播放與系統媒體控制：Android、iOS、macOS 用 audio_service，Windows 用 smtc_windows（brief §6）。
+- 背景播放與系統媒體控制：Android、iOS、macOS 用 audio_service，Windows 用 runner 裡自己接的 SMTC（brief §6；2026-11-19 擁有者同意，原本是 smtc_windows）。
 - 照稿切版：設計系統（改用 `material_ui`，事實 T1）、玻璃元件三級、App 外殼三種寬度、迷你播放器與播放膠囊、Toast、首頁（繼續聽、近期熱門）、搜尋頁、佇列頁、播放頁（封面、佇列、曲目資訊）、設定頁（外觀、臨時播放倒退秒數）。
 - 依賴規則補兩條：`platform/` 以外不得用 `defaultTargetPlatform`；`domain/` 不得 import Flutter。
 - ARCHITECTURE〈快取〉照做（開工時已寫入）。

@@ -125,4 +125,100 @@ void main() {
     expect(captured, 0);
     expect(out.listSync(recursive: true), isEmpty);
   });
+
+  group('system actions', () {
+    test('run on the host with the step\'s screenshot path; the output is '
+        'saved as the step\'s text and sent back', () async {
+      final asked = <(String, String, int, String)>[];
+      final server = await RealRunCaptureServer.start(
+        out: out,
+        capture: (_, _) async {},
+        system: (action, args, pid, shot) async {
+          asked.add((action, args.join(' '), pid, shot.path));
+          return 'state: playing\n';
+        },
+      );
+      addTearDown(server.close);
+
+      final (status, body) = await request(
+        'GET',
+        server.url.replace(
+          path: '/system',
+          queryParameters: {
+            'name': '05-notification',
+            'action': 'tap',
+            'arg': 'Pause',
+            'pid': '42',
+          },
+        ),
+      );
+
+      expect((status, body), (HttpStatus.ok, 'state: playing\n'));
+      expect(asked, [('tap', 'Pause', 42, '${out.path}/05-notification.png')]);
+      expect(
+        File('${out.path}/05-notification.txt').readAsStringSync(),
+        'state: playing\n',
+      );
+    });
+
+    test('a failing action is reported to the driver', () async {
+      final server = await RealRunCaptureServer.start(
+        out: out,
+        capture: (_, _) async {},
+        system: (_, _, _, _) async => throw StateError('no notification'),
+      );
+      addTearDown(server.close);
+
+      final (status, body) = await request(
+        'GET',
+        server.url.resolve('system?name=05-x&action=notification&pid=1'),
+      );
+
+      expect(status, HttpStatus.internalServerError);
+      expect(body, contains('no notification'));
+    });
+
+    test('actions and arguments outside plain words are refused, and so is '
+        'a host without system actions', () async {
+      var ran = 0;
+      final server = await RealRunCaptureServer.start(
+        out: out,
+        capture: (_, _) async {},
+        system: (_, _, _, _) async => '${ran++}',
+      );
+      addTearDown(server.close);
+      final bare = await RealRunCaptureServer.start(
+        out: out,
+        capture: (_, _) async {},
+      );
+      addTearDown(bare.close);
+
+      for (final (action, arg) in [
+        ('rm -rf', null),
+        ('tap', r'a;b'),
+        ('tap', r'$(x)'),
+        ('', null),
+      ]) {
+        final (status, _) = await request(
+          'GET',
+          server.url.replace(
+            path: '/system',
+            queryParameters: {
+              'name': '05-x',
+              'action': action,
+              'arg': ?arg,
+              'pid': '1',
+            },
+          ),
+        );
+        expect(status, HttpStatus.badRequest, reason: '$action $arg');
+      }
+      final (status, _) = await request(
+        'GET',
+        bare.url.resolve('system?name=05-x&action=background&pid=1'),
+      );
+      expect(status, HttpStatus.notFound);
+      expect(ran, 0);
+    });
+  });
 }

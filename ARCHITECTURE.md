@@ -69,7 +69,7 @@ app/
 | 資料庫與設定 | drift 2.35.4（帶進 sqlite3 3.9.1）；drift_dev 2.35.3、build_runner 2.17.1（dev） | schema 快照與升級測試（〈測試策略〉）；設定也存這裡，不用 shared_preferences。sqlite3 3.x 用 build hook 自帶 SQLite，不用 `sqlite3_flutter_libs`（brief 事實 K14）；沒用 `drift_flutter`，檔案位置由 `platform/` 給 |
 | HTTP | dio 5.11.1 | 插件請求都經宿主網路層（`plugins/src/host_network.dart`：網域白名單、log 與遮蔽；依音源限流與重試還沒做，〈風險與回寫點〉），只有 `plugins/` 能 import（依賴規則）；測試換掉 `HttpClientAdapter` |
 | 音訊 | just_audio 0.10.6（Android、iOS、macOS；帶進 audio_session 0.2.4）、media_kit 1.2.6 與 media_kit_libs_windows_audio 1.0.9（Windows） | brief §6、事實 K1；介面在 `playback/audio_backend.dart`，兩個實作在 `playback/backends/`，依平台挑在 `platform/audio_backend.dart`。just_audio 關掉 Dart 端的 header proxy，由原生播放器帶 header（事實 K25）；media_kit 的錯誤只在 mpv 的 log（事實 K26） |
-| 媒體控制 | audio_service（Android、iOS、macOS）、audio_session、smtc_windows | macOS 已實測（brief 事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4） |
+| 媒體控制 | audio_service 0.18.19（Android、iOS、macOS）；Windows 用 runner 裡自己的 C++（`windows/runner/media_controls.cpp`，經 `fmp/media` 頻道） | macOS 已實測（事實 M10、K18）；Windows 不在 audio_service 的平台內（事實 R4），smtc_windows 和 fjs 的 flutter_rust_bridge 版本衝突（事實 W7） |
 | 登入 WebView | flutter_inappwebview 6.1.5 | 唯一涵蓋四平台的穩定版（事實 R1） |
 | 憑證 | flutter_secure_storage 11.2.0 | brief §8 |
 | 圖片 | cached_network_image 4.0.7、flutter_cache_manager 3.5.0 | 封面的磁碟快取；用到 path_provider 與 sqflite（Windows 用它的 JSON 紀錄），只在 `platform/` 用。快取只能限檔數與多久沒用，不能限位元組（〈快取〉） |

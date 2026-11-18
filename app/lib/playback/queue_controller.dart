@@ -402,12 +402,10 @@ class QueueController extends Notifier<Queue> {
     return state.repeat == Repeat.one ? _playCurrent() : _advance();
   }
 
-  /// 位置不是照著播放往前走：往回跳或一次跳超過 2 秒，當成拖了進度（seek）。
-  static bool _jumped(PlaybackState? previous, PlaybackState? next) {
-    if (previous == null || next == null) return false;
-    final moved = next.position - previous.position;
-    return moved.isNegative || moved > const Duration(seconds: 2);
-  }
+  static bool _jumped(PlaybackState? previous, PlaybackState? next) =>
+      previous != null &&
+      next != null &&
+      positionJumped(previous.position, next.position);
 
   Future<void> _playCurrent() async {
     if (state.current case final entry?) await _playback.play(entry.track);

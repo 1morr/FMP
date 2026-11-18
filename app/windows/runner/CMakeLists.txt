@@ -21,6 +21,21 @@ add_executable(${BINARY_NAME} WIN32
 # that need different build settings.
 apply_standard_settings(${BINARY_NAME})
 
+# The system media controls (SMTC, media_controls.cpp) are off until they
+# have been compiled and tried on Windows (docs/development.md, Windows).
+# Off, the "fmp/media" channel has no handler and the app runs without
+# system media controls.
+option(FMP_WINDOWS_SMTC "Build the Windows system media controls" OFF)
+if(FMP_WINDOWS_SMTC)
+  target_sources(${BINARY_NAME} PRIVATE "media_controls.cpp")
+  target_compile_definitions(${BINARY_NAME} PRIVATE "FMP_WINDOWS_SMTC")
+  # C++/WinRT falls back to <experimental/coroutine> in C++17, which MSVC
+  # 14.5x (Visual Studio 2026) rejects; C++20 uses the standard <coroutine>.
+  target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
+  # Windows Runtime.
+  target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib")
+endif()
+
 # Add preprocessor definitions for the build version.
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION=\"${FLUTTER_VERSION}\"")
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_MAJOR=${FLUTTER_VERSION_MAJOR}")

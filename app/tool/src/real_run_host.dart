@@ -5,6 +5,16 @@ import 'dart:io';
 /// （docs/development.md〈實跑驅動〉）；失敗就丟例外。
 typedef CaptureWindow = Future<void> Function(File file, int pid);
 
+/// 在宿主上做一件系統的事（例如按 Home 鍵、讀通知、按媒體鍵），回傳讀回的
+/// 文字；[shot] 是這一步的截圖路徑，要截系統畫面的動作寫到那裡。失敗就丟
+/// 例外。實作在 `tool/real_run.dart`（`tool/real_run_system.sh`）。
+typedef SystemAction = Future<String> Function(
+  String action,
+  List<String> args,
+  int pid,
+  File shot,
+);
+
 /// 實跑時宿主這一端的截圖服務（docs/development.md〈實跑驅動〉）：只聽
 /// 127.0.0.1，驅動走到一步就來要截圖、交讀回的文字。
 ///
@@ -12,26 +22,33 @@ typedef CaptureWindow = Future<void> Function(File file, int pid);
 ///   `<out>/<步驟>.png`，截完才回 200，驅動等到回覆才往下做，截到的就是這一步
 ///   的畫面。截圖失敗回 500，內文是錯誤。
 /// - `POST /text?name=<步驟>`：內文（UTF-8）存成 `<out>/<步驟>.txt`。
+/// - `GET /system?name=<步驟>&action=<動作>[&arg=<參數>]&pid=<App 的 pid>`：
+///   用 [SystemAction] 做那件事，讀回的文字存成 `<out>/<步驟>.txt` 並當作
+///   回覆；失敗回 500。沒給 [SystemAction] 時回 404。動作與參數只收英數字與
+///   `_.:-`，其他回 400。
 ///
 /// 步驟名只收英數字、`-`、`_`，開頭不是 `-`、`_`，其他回 400，不會寫出
 /// `out` 之外。
 class RealRunCaptureServer {
-  RealRunCaptureServer._(this._server, this._out, this._capture) {
+  RealRunCaptureServer._(this._server, this._out, this._capture, this._system) {
     _server.listen(_handle);
   }
 
   static Future<RealRunCaptureServer> start({
     required Directory out,
     required CaptureWindow capture,
+    SystemAction? system,
   }) async => RealRunCaptureServer._(
     await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     out,
     capture,
+    system,
   );
 
   final HttpServer _server;
   final Directory _out;
   final CaptureWindow _capture;
+  final SystemAction? _system;
 
   /// 驅動連的位址，例如 `http://127.0.0.1:53124/`。
   Uri get url => Uri.parse('http://127.0.0.1:${_server.port}/');
@@ -39,6 +56,7 @@ class RealRunCaptureServer {
   Future<void> close() => _server.close(force: true);
 
   static final _stepName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
+  static final _word = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.:-]*$');
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
@@ -60,6 +78,32 @@ class RealRunCaptureServer {
           _out.createSync(recursive: true);
           try {
             await _capture(File('${_out.path}/$name.png'), pid);
+          } on Object catch (error) {
+            response.statusCode = HttpStatus.internalServerError;
+            response.write('$error');
+          }
+        case ('GET', '/system') when _system != null:
+          final query = request.uri.queryParameters;
+          final action = query['action'] ?? '';
+          final args = request.uri.queryParametersAll['arg'] ?? const [];
+          final pid = int.tryParse(query['pid'] ?? '');
+          if (!_word.hasMatch(action) ||
+              !args.every(_word.hasMatch) ||
+              pid == null) {
+            response.statusCode = HttpStatus.badRequest;
+            response.write('bad system action: "$action" $args');
+            return;
+          }
+          _out.createSync(recursive: true);
+          try {
+            final text = await _system(
+              action,
+              args,
+              pid,
+              File('${_out.path}/$name.png'),
+            );
+            File('${_out.path}/$name.txt').writeAsStringSync(text);
+            response.write(text);
           } on Object catch (error) {
             response.statusCode = HttpStatus.internalServerError;
             response.write('$error');

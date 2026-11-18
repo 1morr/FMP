@@ -167,6 +167,8 @@ Future<int> _local(
   final server = await RealRunCaptureServer.start(
     out: dir,
     capture: target.capture,
+    system: (action, args, pid, shot) =>
+        _system(app, platform, target.device, action, args, pid, shot),
   );
   final port = 'tcp:${server.url.port}';
   try {
@@ -212,6 +214,35 @@ Future<int> _local(
       ], workingDirectory: app);
     }
   }
+}
+
+/// 情境向宿主要做的系統動作（`RealRun.system`）：交給
+/// `tool/real_run_system.sh`，它依平台用 osascript、simctl、adb 做，不動
+/// Mac 的游標。回傳它印出的文字；失敗就丟例外。
+Future<String> _system(
+  Directory app,
+  String platform,
+  String device,
+  String action,
+  List<String> args,
+  int pid,
+  File shot,
+) async {
+  final result = await Process.run(
+    '${app.path}/tool/real_run_system.sh',
+    [platform, device, '$pid', shot.path, action, ...args],
+    workingDirectory: app.path,
+    environment: sharedDeviceEnvironment,
+  );
+  if (result.exitCode != 0) {
+    throw ProcessException(
+      'real_run_system.sh',
+      [action, ...args],
+      '${result.stdout}${result.stderr}',
+      result.exitCode,
+    );
+  }
+  return '${result.stdout}';
 }
 
 /// `screencapture -l <視窗 id>`：截那個視窗本身（被蓋住也截得到），連同系統畫的
