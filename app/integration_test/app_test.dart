@@ -12,6 +12,7 @@ import 'package:fmp/ui/home/home_page.dart';
 import 'package:integration_test/integration_test.dart';
 
 import '../test/support/no_network.dart';
+import '../test/support/scratch_data.dart';
 
 /// 在真的平台上啟動 App（architecture〈測試策略〉）。完整閘門在四個平台各跑一次。
 void main() {
@@ -25,20 +26,28 @@ void main() {
       const Duration(seconds: 1),
     );
 
+    // 資料放在閘門給的隔離目錄、先清空，不寫擁有者 dev 版的資料庫與 log
+    // （docs/development.md〈平台〉）。
+    await useScratchData(
+      howToRun:
+          'integration_test/app_test.dart starts the real app: pass '
+          '--dart-define=FMP_SCRATCH_DATA=fmp-integration-test so it does not '
+          "write the dev app's data (docs/development.md〈平台〉).",
+    );
     await app.main();
     await tester.pumpAndSettle();
 
     // App 打開在外殼的首頁（票 05）。
     expect(find.byType(HomePage), findsOneWidget);
 
-    // 資料庫開在這個平台由 platform/ 給的檔案上（票 07）。
+    // 資料庫開在隔離目錄裡由 platform/ 給的檔案上，是新建的（票 07、10）。
     final container = ProviderScope.containerOf(
       tester.element(find.byType(FmpApp)),
     );
-    final database = container.read(appDatabaseProvider);
-    expect(await database.storedSchemaVersion(), 1);
+    final database = container.read(appDatabaseProvider)!;
+    expect(await database.storedSchemaVersion(), database.schemaVersion);
 
-    // 這次啟動的那一行寫進了平台給的 log 目錄（之前的執行可能留下舊的行）。
+    // 這次啟動的那一行寫進了平台給的 log 目錄。
     final startedLine = await tester.runAsync(() async {
       final file = File(
         '${logDirectory(await appDataDirectory()).path}/${Log.fileName}',

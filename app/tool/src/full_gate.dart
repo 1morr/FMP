@@ -13,6 +13,9 @@ import 'steps.dart';
 ///   [deviceLock] 時才跑；沒拿到鎖就判失敗、不執行。Mac 上的建置（三個平台與 macOS 的原生
 ///   測試）只寫這個 worktree 的 `build/`，在鎖外先做，縮短持鎖時間。
 /// - 一次只給 `flutter test` 一個 integration_test 檔（docs/development.md〈平台〉 的怪癖）。
+/// - 每個 integration_test 都帶 `FMP_SCRATCH_DATA=`[integrationTestScratchData]：
+///   開真的 App 的測試把資料放在裝置的系統暫存目錄、先清空，不寫擁有者 dev 版的
+///   資料庫與 log（`test/support/scratch_data.dart`）。
 /// - iOS、Android 只挑模擬器，不碰連著的實機；加 `--no-uninstall`，跑完
 ///   不刪模擬器上的 App 與資料。iOS 只用 iPhone，沒開著就開一台
 ///   （[ensureBootedIPhone]）；Android 先 `adb start-server`。
@@ -26,6 +29,8 @@ List<CheckStep> platformSteps({
   required Directory winpcLogs,
   required DeviceLock deviceLock,
 }) {
+  const scratch = '--dart-define=FMP_SCRATCH_DATA=$integrationTestScratchData';
+
   CheckStep flutter(String name, List<String> args) =>
       commandStep(name, shell, 'flutter', args, workingDirectory: app);
 
@@ -37,6 +42,7 @@ List<CheckStep> platformSteps({
         '-d',
         device,
         '--no-uninstall',
+        scratch,
       ], workingDirectory: app) ==
       0;
 
@@ -70,7 +76,13 @@ List<CheckStep> platformSteps({
       '-only-testing:RunnerTests',
     ], workingDirectory: app),
     for (final file in integrationTests)
-      flutter('integration_test macos: $file', ['test', file, '-d', 'macos']),
+      flutter('integration_test macos: $file', [
+        'test',
+        file,
+        '-d',
+        'macos',
+        scratch,
+      ]),
     for (final file in integrationTests)
       CheckStep('integration_test ios: $file', () async {
         // 每個檔都重查：模擬器可能在兩個檔之間被關掉。
@@ -87,7 +99,10 @@ List<CheckStep> platformSteps({
     for (final file in integrationTests)
       CheckStep(
         'integration_test windows: $file',
-        () => windows.integrationTest(file),
+        () => windows.integrationTest(
+          file,
+          extra: ['-ScratchData', integrationTestScratchData],
+        ),
       ),
   ];
 
@@ -110,6 +125,10 @@ List<CheckStep> platformSteps({
     }),
   ];
 }
+
+/// 閘門的 integration_test 用的隔離資料目錄名（`FMP_SCRATCH_DATA`），和實跑的
+/// 分開。
+const integrationTestScratchData = 'fmp-integration-test';
 
 /// `integration_test/` 底下的 `*_test.dart`（含子目錄），相對於 [app]、排序。
 List<String> integrationTestFiles(Directory app) {

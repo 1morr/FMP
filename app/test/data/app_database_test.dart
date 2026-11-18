@@ -10,11 +10,11 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('fmp_db_test'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test('opens an empty database file at schema version 1', () async {
+  test('opens an empty database file at the current schema version', () async {
     final db = AppDatabase.open(File('${dir.path}/fmp.sqlite'));
     addTearDown(db.close);
 
-    expect(await db.storedSchemaVersion(), 1);
+    expect(await db.storedSchemaVersion(), db.schemaVersion);
   });
 
   test('reopens an existing database file', () async {
@@ -26,6 +26,6 @@ void main() {
     final second = AppDatabase.open(file);
     addTearDown(second.close);
 
-    expect(await second.storedSchemaVersion(), 1);
+    expect(await second.storedSchemaVersion(), second.schemaVersion);
   });
 }

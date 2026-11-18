@@ -68,6 +68,8 @@
   },
   "toast": {
     "retry": "重试",
+    "databaseUnavailable": "无法打开数据库，这次的队列与进度不会保存",
+    "queueUnreadable": "上次的队列读不回来，已另存一份",
     "playback": {
       "network": "没有网络，「${title}」无法播放。音乐库与队列照常可用。",
       "rateLimited": "${source}限制了请求次数，「${title}」暂时无法播放。",

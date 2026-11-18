@@ -6,6 +6,7 @@ import 'package:fmp/core/log/log.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/queue_saver.dart';
 import 'package:fmp/plugins/plugins.dart';
 
 /// App 的音訊後端。`main` 用 `platform/audio_backend.dart` 依平台建好再
@@ -116,6 +117,15 @@ class Playback extends Notifier<PlaybackState?> {
 
   /// 後端已經載入完成的那一次 [play]；之前後端報的長度可能是上一首的。
   int _loadedGeneration = -1;
+
+  /// 正在開始播的那一次 [play]：叫後端播之前（載入、跳到開始位置）一律算
+  /// 載入中，不報成停在開頭的暫停。
+  int? _startingGeneration;
+
+  /// 重啟後還原的那首要從哪裡開始。播它（播放鈕、Toast 的重試、佇列接回
+  /// 它）都從這裡開始，直到真的開始播了（任何一首）才丟掉：第一次播失敗時
+  /// 再按播放仍從這裡開始。
+  ({Track track, Duration position})? _resumeFrom;
   Timer? _stallTimer;
   bool _stallLogged = false;
   bool _zeroDurationLogged = false;
@@ -128,8 +138,22 @@ class Playback extends Notifier<PlaybackState?> {
       _subscription?.cancel();
       _stallTimer?.cancel();
     });
+    // 重啟後停在上次的那首與位置、不自動播（brief〈播放〉）：後端還沒載入，
+    // 按播放才解析並從這個位置開始。
+    final saved = ref.read(savedQueueProvider);
+    if (saved?.queue.current case final entry?) {
+      _resumeFrom = (track: entry.track, position: saved!.position);
+      return PlaybackState(
+        track: entry.track,
+        status: PlaybackStatus.paused,
+        position: saved.position,
+      );
+    }
     return null;
   }
+
+  /// 後端載入的是現在這一首；重啟後還原的那首還沒載入。
+  bool get _loaded => _loadedGeneration == _generation;
 
   /// 第一次播放時才建音訊後端：沒播過就不開原生播放器。
   AudioBackend get _backend {
@@ -140,9 +164,14 @@ class Playback extends Notifier<PlaybackState?> {
   }
 
   /// 播放 [track]，取代正在播的；給了 [from] 就從那裡開始（載入後先跳過去
-  /// 再播，不會先從開頭出聲）。連點時只有最後一首會播。
+  /// 再播，不會先從開頭出聲），沒給而它是重啟後還原的那首就從保存的位置
+  /// 開始（[_resumeFrom]）。連點時只有最後一首會播。
   Future<void> play(Track track, {Duration from = Duration.zero}) async {
+    if (from == Duration.zero && _resumeFrom?.track == track) {
+      from = _resumeFrom!.position;
+    }
     final generation = ++_generation;
+    _startingGeneration = generation;
     _stallTimer?.cancel();
     _stallLogged = false;
     _zeroDurationLogged = false;
@@ -186,20 +215,37 @@ class Playback extends Notifier<PlaybackState?> {
       }
       if (!_isCurrent(generation)) return;
     }
+    _startingGeneration = null;
     try {
       await _backend.play();
     } catch (error, stackTrace) {
       if (!_isCurrent(generation)) return;
       _fail(track, stream, error, stackTrace, 'Starting playback failed');
+      return;
     }
+    if (_isCurrent(generation)) _resumeFrom = null;
   }
 
   /// 跳到 [position]；播放中就從那裡接著播。這一首還沒載入完（或還沒播過）
   /// 時什麼都不做。
   Future<void> seek(Duration position) async {
-    if (state == null || _loadedGeneration != _generation) return;
+    final current = state;
+    if (current == null) return;
+    if (!_loaded) {
+      // 重啟後還原、還沒載入的那首：只改開始播的位置。
+      if (current.status == PlaybackStatus.paused) {
+        if (_resumeFrom?.track == current.track) {
+          _resumeFrom = (track: current.track, position: position);
+        }
+        state = PlaybackState(
+          track: current.track,
+          status: current.status,
+          position: position,
+        );
+      }
+      return;
+    }
     final generation = _generation;
-    final current = state!;
     try {
       await _backend.seek(position);
     } catch (error, stackTrace) {
@@ -221,8 +267,16 @@ class Playback extends Notifier<PlaybackState?> {
   /// 沒播過時什麼都不做。
   Future<void> pause() async => _backendOrNull?.pause();
 
-  /// 沒播過時什麼都不做。
-  Future<void> resume() async => _backendOrNull?.play();
+  /// 沒播過時什麼都不做；重啟後還原的那首從還原的位置開始播。
+  Future<void> resume() async {
+    final current = state;
+    if (current != null &&
+        current.status == PlaybackStatus.paused &&
+        !_loaded) {
+      return play(current.track);
+    }
+    await _backendOrNull?.play();
+  }
 
   /// 迷你播放器與播放膠囊的播放鈕：正在播就暫停、暫停中就繼續，播完或
   /// 失敗的那首從頭再播一次；解析與載入中、還沒播過時什麼都不做。
@@ -306,7 +360,11 @@ class Playback extends Notifier<PlaybackState?> {
       AudioBackendStatus.buffering =>
         backend.playing ? PlaybackStatus.buffering : PlaybackStatus.loading,
       AudioBackendStatus.ready =>
-        backend.playing ? PlaybackStatus.playing : PlaybackStatus.paused,
+        backend.playing
+            ? PlaybackStatus.playing
+            : _startingGeneration == _generation
+            ? PlaybackStatus.loading
+            : PlaybackStatus.paused,
       AudioBackendStatus.completed => PlaybackStatus.completed,
       AudioBackendStatus.failed => PlaybackStatus.failed,
     };

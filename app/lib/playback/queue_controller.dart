@@ -6,6 +6,7 @@ import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_saver.dart';
 
 /// 佇列與它的動作。畫面只經這裡改佇列；要播哪首由佇列的目前那首決定，
 /// 實際播放交給 [playbackProvider]。
@@ -77,8 +78,54 @@ class QueueController extends Notifier<Queue> {
           _temporary != null) {
         unawaited(Future.microtask(_endTemporary));
       }
+      final saver = ref.read(queueSaverProvider);
+      if (saver == null) return;
+      if (_positionToSave() case final position?) {
+        saver.positionChanged(
+          position,
+          now:
+              previous?.track != next?.track ||
+              previous?.status != next?.status ||
+              _jumped(previous, next),
+        );
+      }
     });
-    return Queue.empty;
+    // 臨時播放開始或結束：要存的位置換了（離開時的位置、或回到佇列）。
+    ref.listen(temporaryPlayProvider, (_, _) {
+      if (_positionToSave() case final position?) {
+        ref.read(queueSaverProvider)?.positionChanged(position, now: true);
+      }
+    });
+    listenSelf(
+      (_, queue) =>
+          ref.read(queueSaverProvider)?.queueChanged(queue, _positionToSave()),
+    );
+    return ref.read(savedQueueProvider)?.queue ?? Queue.empty;
+  }
+
+  /// 重啟後要回到的位置（brief〈播放〉）：目前那首正在播、暫停或還原時的
+  /// 位置；臨時播放時是離開佇列時的位置（不倒退）；播完、停止時從頭。
+  /// 還不知道時是 null，沿用上次存的：解析、載入中、失敗，以及播放還停在
+  /// 別首（剛結束臨時播放、剛換曲還沒開始播）時；換曲時從頭由
+  /// [QueueSaver.queueChanged] 處理。
+  Duration? _positionToSave() {
+    final entry = state.current;
+    if (entry == null) return Duration.zero;
+    if (_temporary case final temporary?) {
+      return temporary.resumeAt(entry, Duration.zero);
+    }
+    final playback = ref.read(playbackProvider);
+    if (playback == null) return Duration.zero;
+    if (playback.track != entry.track) return null;
+    return switch (playback.status) {
+      PlaybackStatus.resolving ||
+      PlaybackStatus.loading ||
+      PlaybackStatus.failed => null,
+      PlaybackStatus.completed => Duration.zero,
+      PlaybackStatus.buffering ||
+      PlaybackStatus.playing ||
+      PlaybackStatus.paused => playback.position,
+    };
   }
 
   Playback get _playback => ref.read(playbackProvider.notifier);
@@ -230,6 +277,13 @@ class QueueController extends Notifier<Queue> {
   Future<void> _onCompleted() {
     if (_temporary != null) return _endTemporary();
     return state.repeat == Repeat.one ? _playCurrent() : next();
+  }
+
+  /// 位置不是照著播放往前走：往回跳或一次跳超過 2 秒，當成拖了進度（seek）。
+  static bool _jumped(PlaybackState? previous, PlaybackState? next) {
+    if (previous == null || next == null) return false;
+    final moved = next.position - previous.position;
+    return moved.isNegative || moved > const Duration(seconds: 2);
   }
 
   Future<void> _playCurrent() async {
