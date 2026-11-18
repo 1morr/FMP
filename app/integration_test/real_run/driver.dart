@@ -83,6 +83,27 @@ class RealRun {
     return lines;
   }
 
+  /// 請宿主做一件系統的事（`tool/real_run_system.sh` 的 [action]，例如
+  /// `background`、`notification`、`tap Pause`），記成一步 `NN-<name>`：
+  /// 讀回的文字存成 `.txt`，要截系統畫面的動作存成 `.png`。不 pump：App 在
+  /// 背景時不出幀，pump 會卡住。只有 macOS、iOS、Android（Windows 跳過）。
+  Future<String> system(
+    String name,
+    String action, [
+    List<String> args = const [],
+  ]) async {
+    final file = '${(++_steps).toString().padLeft(2, '0')}-$name';
+    final text = await tester.runAsync(
+      () => _capture.system(file, action, args),
+    );
+    // ignore: avoid_print -- 讀回的文字也留在實跑的輸出裡。
+    print(
+      '[real run] $file ($action ${args.join(' ')})\n  '
+      '${text!.trim().split('\n').join('\n  ')}',
+    );
+    return text;
+  }
+
   Future<void> _settle(Duration duration) async {
     final until = DateTime.now().add(duration);
     do {
@@ -140,6 +161,7 @@ sealed class _Capture {
 
   Future<void> shot(String name);
   Future<void> text(String name, String body);
+  Future<String> system(String name, String action, List<String> args);
 }
 
 final class _HostCapture implements _Capture {
@@ -160,7 +182,21 @@ final class _HostCapture implements _Capture {
     body: body,
   );
 
-  Future<void> _send(String method, Uri uri, {String body = ''}) async {
+  @override
+  Future<String> system(String name, String action, List<String> args) => _send(
+    'GET',
+    host.replace(
+      path: '/system',
+      queryParameters: {
+        'name': name,
+        'action': action,
+        'arg': args,
+        'pid': '$pid',
+      },
+    ),
+  );
+
+  Future<String> _send(String method, Uri uri, {String body = ''}) async {
     final client = HttpClient();
     try {
       final request = await client.openUrl(method, uri);
@@ -170,6 +206,7 @@ final class _HostCapture implements _Capture {
       if (response.statusCode != HttpStatus.ok) {
         throw StateError('$method $uri: ${response.statusCode} $reply');
       }
+      return reply;
     } finally {
       client.close();
     }
@@ -210,4 +247,11 @@ final class _LocalCapture implements _Capture {
     dir.createSync(recursive: true);
     File('${dir.path}/$name.txt').writeAsStringSync(body);
   }
+
+  @override
+  Future<String> system(String name, String action, List<String> args) =>
+      throw UnsupportedError(
+        'System actions are not wired up on Windows yet (Windows is skipped '
+        'for now, docs/decisions.md).',
+      );
 }
