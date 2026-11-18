@@ -8,6 +8,9 @@ import '../../tool/src/steps.dart';
 
 /// 完整版閘門（docs/development.md〈開發環境與閘門〉）的平台步驟。外部指令經 [Shell]，這裡換成假的：
 /// 記下跑過的指令，依前綴決定結果與輸出。
+/// 每個 integration_test 都帶的隔離資料（不寫擁有者 dev 版的資料）。
+const _scratch = '--dart-define=FMP_SCRATCH_DATA=fmp-integration-test';
+
 void main() {
   final app = Directory('/repo/app');
   final out = StringBuffer();
@@ -57,12 +60,12 @@ void main() {
       'flutter build apk --debug',
     ]);
     expect(shell.ran.where((c) => c.startsWith('flutter test')), [
-      'flutter test integration_test/a_test.dart -d macos',
-      'flutter test integration_test/b_test.dart -d macos',
-      'flutter test integration_test/a_test.dart -d SIM-UDID --no-uninstall',
-      'flutter test integration_test/b_test.dart -d SIM-UDID --no-uninstall',
-      'flutter test integration_test/a_test.dart -d emulator-5554 --no-uninstall',
-      'flutter test integration_test/b_test.dart -d emulator-5554 --no-uninstall',
+      'flutter test integration_test/a_test.dart -d macos $_scratch',
+      'flutter test integration_test/b_test.dart -d macos $_scratch',
+      'flutter test integration_test/a_test.dart -d SIM-UDID --no-uninstall $_scratch',
+      'flutter test integration_test/b_test.dart -d SIM-UDID --no-uninstall $_scratch',
+      'flutter test integration_test/a_test.dart -d emulator-5554 --no-uninstall $_scratch',
+      'flutter test integration_test/b_test.dart -d emulator-5554 --no-uninstall $_scratch',
     ]);
     expect(
       out.toString(),
@@ -77,6 +80,25 @@ void main() {
     final lastBuild = shell.ran.lastIndexWhere((c) => c.contains(' build '));
     final firstTest = shell.ran.indexWhere((c) => c.startsWith('flutter test'));
     expect(lastBuild, lessThan(firstTest));
+  });
+
+  test('integration tests on all four platforms keep their data apart from '
+      "the owner's dev app", () async {
+    expect(await runGate(), 0);
+
+    final runs = shell.ran.where(
+      (c) => c.startsWith('flutter test') || c.contains('fmptest'),
+    );
+    expect(runs, hasLength(4));
+    for (final run in runs) {
+      expect(
+        run,
+        anyOf(
+          endsWith(' --dart-define=FMP_SCRATCH_DATA=fmp-integration-test'),
+          endsWith(' -ScratchData fmp-integration-test'),
+        ),
+      );
+    }
   });
 
   test('builds the macOS native tests (RunnerTests) outside the lock, after '
@@ -131,21 +153,24 @@ void main() {
             'tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug',
             true,
           ),
-          ('flutter test integration_test/app_test.dart -d macos', true),
+          (
+            'flutter test integration_test/app_test.dart -d macos $_scratch',
+            true,
+          ),
           (
             'flutter test integration_test/app_test.dart -d SIM-UDID '
-                '--no-uninstall',
+                '--no-uninstall $_scratch',
             true,
           ),
           ('adb start-server', true),
           (
             'flutter test integration_test/app_test.dart -d emulator-5554 '
-                '--no-uninstall',
+                '--no-uninstall $_scratch',
             true,
           ),
           (
             'tool/winpc/run_task.sh fmptest C:/fmp-wt/test.ps1 '
-                '-File integration_test/app_test.dart',
+                '-File integration_test/app_test.dart -ScratchData fmp-integration-test',
             true,
           ),
         ]),
@@ -197,9 +222,9 @@ void main() {
           'lock', () {
         for (final command in [
           'tool/winpc/sync.sh',
-          'flutter test integration_test/app_test.dart -d macos',
+          'flutter test integration_test/app_test.dart -d macos $_scratch',
           'flutter test integration_test/app_test.dart -d emulator-5554 '
-              '--no-uninstall',
+              '--no-uninstall $_scratch',
           'ssh winpc Get-Content -Raw C:\\fmp-wt\\test.log',
         ]) {
           expect(violations(unlockedAt((c) => c == command)), [
@@ -261,7 +286,7 @@ void main() {
           (c) => c.contains('--no-uninstall') && c.contains('SIM'),
         ),
         [
-          'flutter test integration_test/app_test.dart -d SIM-UDID --no-uninstall',
+          'flutter test integration_test/app_test.dart -d SIM-UDID --no-uninstall $_scratch',
         ],
       );
       expect(shell.ran, isNot(contains(contains('IPAD-UDID'))));
@@ -288,7 +313,7 @@ void main() {
       );
       final run = shell.ran.indexOf(
         'flutter test integration_test/app_test.dart -d RECENT-UDID '
-        '--no-uninstall',
+        '--no-uninstall $_scratch',
       );
       expect(run, greaterThan(boot));
       expect(
@@ -320,15 +345,15 @@ void main() {
         shell.ran.where(
           (c) =>
               c.startsWith('xcrun simctl bootstatus') ||
-              c.contains('RECENT-UDID --no-uninstall'),
+              c.contains('RECENT-UDID --no-uninstall $_scratch'),
         ),
         [
           'xcrun simctl bootstatus RECENT-UDID -b',
           'flutter test integration_test/a_test.dart -d RECENT-UDID '
-              '--no-uninstall',
+              '--no-uninstall $_scratch',
           'xcrun simctl bootstatus RECENT-UDID -b',
           'flutter test integration_test/b_test.dart -d RECENT-UDID '
-              '--no-uninstall',
+              '--no-uninstall $_scratch',
         ],
       );
     });
@@ -348,7 +373,7 @@ void main() {
       );
       expect(
         shell.ran,
-        isNot(contains(contains('RECENT-UDID --no-uninstall'))),
+        isNot(contains(contains('RECENT-UDID --no-uninstall $_scratch'))),
       );
     });
 
@@ -390,7 +415,7 @@ void main() {
         containsAll([
           'tool/winpc/run_task.sh fmpbuild C:/fmp-wt/build.ps1 -Mode debug',
           'tool/winpc/run_task.sh fmptest C:/fmp-wt/test.ps1 '
-              '-File integration_test/app_test.dart',
+              '-File integration_test/app_test.dart -ScratchData fmp-integration-test',
         ]),
       );
       expect(

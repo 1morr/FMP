@@ -68,6 +68,7 @@
   },
   "toast": {
     "retry": "重試",
+    "databaseUnavailable": "無法開啟資料庫，這次的佇列與進度不會保存",
     "playback": {
       "network": "沒有網路，「${title}」無法播放。音樂庫與佇列照常可用。",
       "rateLimited": "${source}限制了請求次數，「${title}」暫時無法播放。",

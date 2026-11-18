@@ -4,8 +4,9 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/main.dart' as app;
-import 'package:fmp/platform/app_data_directory.dart';
 import 'package:fmp/ui/home/home_page.dart';
+
+import '../../test/support/scratch_data.dart';
 
 /// 實跑驅動（docs/development.md〈實跑驅動〉）：在真的平台上開真的 App、打真的
 /// 音源，用 `tester` 在 Flutter 裡點擊與打字（系統游標不動），每一步請系統的
@@ -29,18 +30,20 @@ class RealRun {
   /// 開 App（`main.dart`，真的音源），等到首頁出現，先截一張
   /// `01-launch`：啟動後還沒動過視窗的樣子（票 05d）。
   ///
-  /// App 的資料用隔離的目錄（`FMP_SCRATCH_DATA`，[appDataDirectory]），開 App
+  /// App 的資料用隔離的目錄（`FMP_SCRATCH_DATA`，[useScratchData]），開 App
   /// 前先清空，不碰 dev 版的資料庫、log 與快取；沒帶就不跑，免得刪到真的資料。
-  static Future<RealRun> launch(WidgetTester tester) async {
+  /// [keepData] 時不清空，接著上一個情境留下的資料開，像重開 App。
+  static Future<RealRun> launch(
+    WidgetTester tester, {
+    bool keepData = false,
+  }) async {
     final run = RealRun._(tester, _Capture.fromEnvironment());
-    if (scratchDataName.isEmpty) {
-      throw StateError(
-        'Real runs keep their data apart from the dev app: run this file with '
-        '`dart run tool/real_run.dart` (docs/development.md〈實跑驅動〉).',
-      );
-    }
-    final data = await appDataDirectory();
-    if (data.existsSync()) data.deleteSync(recursive: true);
+    await useScratchData(
+      fresh: !keepData,
+      howToRun:
+          'Real runs keep their data apart from the dev app: run this file '
+          'with `dart run tool/real_run.dart` (docs/development.md〈實跑驅動〉).',
+    );
     await app.main();
     await run.waitFor(find.byType(HomePage));
     await run.step('launch');

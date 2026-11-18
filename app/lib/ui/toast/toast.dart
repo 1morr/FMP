@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/app/database_status.dart';
+import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 
 /// 一則提示（`.toast`，brief〈錯誤、log 與診斷〉）：一句話、可選的圖示，
@@ -22,7 +24,8 @@ class ToastAction {
 }
 
 /// App 唯一的提示入口：同時只有一則，新的取代舊的。沒有動作的 4 秒後收起，
-/// 有動作的留 8 秒讓人來得及按。
+/// 有動作的留 8 秒讓人來得及按。啟動時資料庫開不了（[databaseUnavailableProvider]），
+/// 第一則就是「這次不會保存」。
 final toastProvider = NotifierProvider<Toasts, ToastMessage?>(Toasts.new);
 
 class Toasts extends Notifier<ToastMessage?> {
@@ -34,7 +37,9 @@ class Toasts extends Notifier<ToastMessage?> {
   @override
   ToastMessage? build() {
     ref.onDispose(() => _timer?.cancel());
-    return null;
+    if (!ref.read(databaseUnavailableProvider)) return null;
+    _timer = Timer(plainDuration, dismiss);
+    return ToastMessage(t.toast.databaseUnavailable, icon: FmpIcons.warn);
   }
 
   void show(ToastMessage message) {

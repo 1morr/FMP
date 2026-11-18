@@ -68,6 +68,7 @@
   },
   "toast": {
     "retry": "Retry",
+    "databaseUnavailable": "Couldn't open the database. The queue and progress won't be saved this time.",
     "playback": {
       "network": "No internet, so “${title}” can’t play. Your library and queue still work.",
       "rateLimited": "${source} is limiting requests. “${title}” can’t play right now.",

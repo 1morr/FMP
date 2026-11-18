@@ -51,6 +51,46 @@ class Queue {
 
   static const empty = Queue._([], null, 0);
 
+  /// 從保存的狀態還原（`data/` 讀回時用）：[entries] 是播放順序，[original]
+  /// 是隨機時的原順序（[originalOrder]），其餘的位置算拖動過或插進來的；
+  /// 不隨機時是 null。對不起來（id 重複、目前那首或原順序裡有不存在的
+  /// 位置、[nextEntryId] 不比每個 id 大）就丟 [FormatException]。
+  factory Queue.restore({
+    required List<QueueEntry> entries,
+    required int? currentEntryId,
+    required int nextEntryId,
+    required Repeat repeat,
+    required List<int>? original,
+  }) {
+    final ids = [for (final entry in entries) entry.id];
+    final idSet = ids.toSet();
+    if (idSet.length != ids.length) {
+      throw const FormatException('Duplicate queue entry ids');
+    }
+    if (ids.any((id) => id >= nextEntryId)) {
+      throw const FormatException('A queue entry id is not below the next id');
+    }
+    final currentIndex = currentEntryId == null
+        ? null
+        : ids.indexOf(currentEntryId);
+    if (currentIndex == -1) {
+      throw const FormatException('The current queue entry is missing');
+    }
+    if (original != null &&
+        (original.toSet().length != original.length ||
+            !idSet.containsAll(original))) {
+      throw const FormatException('The original order does not match');
+    }
+    return Queue._(
+      List.unmodifiable(entries),
+      currentIndex,
+      nextEntryId,
+      repeat: repeat,
+      original: original == null ? null : List.unmodifiable(original),
+      pinned: original == null ? const {} : idSet.difference(original.toSet()),
+    );
+  }
+
   /// 播放順序，不能從外面改。
   final List<QueueEntry> entries;
 
@@ -73,6 +113,13 @@ class Queue {
 
   /// 隨機開著。
   bool get shuffled => _original != null;
+
+  /// 下一個加入的位置用的 [QueueEntry.id]；保存用，還原時交回 [Queue.restore]。
+  int get nextEntryId => _nextId;
+
+  /// 隨機時的原順序（[QueueEntry.id]），不含拖動過、用「下一首播放」插進來
+  /// 的位置；不隨機時是 null。保存用，還原時交回 [Queue.restore]。
+  List<int>? get originalOrder => _original;
 
   bool get isEmpty => entries.isEmpty;
 

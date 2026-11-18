@@ -6,6 +6,7 @@ import 'package:fmp/core/log/log.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/queue_saver.dart';
 import 'package:fmp/plugins/plugins.dart';
 
 /// App 的音訊後端。`main` 用 `platform/audio_backend.dart` 依平台建好再
@@ -128,8 +129,21 @@ class Playback extends Notifier<PlaybackState?> {
       _subscription?.cancel();
       _stallTimer?.cancel();
     });
+    // 重啟後停在上次的那首與位置、不自動播（brief〈播放〉）：後端還沒載入，
+    // 按播放才解析並從這個位置開始。
+    final saved = ref.read(savedQueueProvider);
+    if (saved?.queue.current case final entry?) {
+      return PlaybackState(
+        track: entry.track,
+        status: PlaybackStatus.paused,
+        position: saved!.position,
+      );
+    }
     return null;
   }
+
+  /// 後端載入的是現在這一首；重啟後還原的那首還沒載入。
+  bool get _loaded => _loadedGeneration == _generation;
 
   /// 第一次播放時才建音訊後端：沒播過就不開原生播放器。
   AudioBackend get _backend {
@@ -197,9 +211,20 @@ class Playback extends Notifier<PlaybackState?> {
   /// 跳到 [position]；播放中就從那裡接著播。這一首還沒載入完（或還沒播過）
   /// 時什麼都不做。
   Future<void> seek(Duration position) async {
-    if (state == null || _loadedGeneration != _generation) return;
+    final current = state;
+    if (current == null) return;
+    if (!_loaded) {
+      // 重啟後還原、還沒載入的那首：只改開始播的位置。
+      if (current.status == PlaybackStatus.paused) {
+        state = PlaybackState(
+          track: current.track,
+          status: current.status,
+          position: position,
+        );
+      }
+      return;
+    }
     final generation = _generation;
-    final current = state!;
     try {
       await _backend.seek(position);
     } catch (error, stackTrace) {
@@ -221,8 +246,16 @@ class Playback extends Notifier<PlaybackState?> {
   /// 沒播過時什麼都不做。
   Future<void> pause() async => _backendOrNull?.pause();
 
-  /// 沒播過時什麼都不做。
-  Future<void> resume() async => _backendOrNull?.play();
+  /// 沒播過時什麼都不做；重啟後還原的那首從還原的位置開始播。
+  Future<void> resume() async {
+    final current = state;
+    if (current != null &&
+        current.status == PlaybackStatus.paused &&
+        !_loaded) {
+      return play(current.track, from: current.position);
+    }
+    await _backendOrNull?.play();
+  }
 
   /// 迷你播放器與播放膠囊的播放鈕：正在播就暫停、暫停中就繼續，播完或
   /// 失敗的那首從頭再播一次；解析與載入中、還沒播過時什麼都不做。

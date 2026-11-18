@@ -6,6 +6,7 @@ import 'package:dio/dio.dart' show DioException;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
+import 'package:fmp/app/database_status.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/playback/playback.dart';
@@ -130,6 +131,35 @@ void main() {
 
     expect(find.text('0:00 / 59:33'), findsNWidgets(2));
     expect(find.textContaining('33:10'), findsNothing);
+  });
+
+  testWidgets('when the database cannot be opened, a toast says nothing will '
+      'be saved and tracks still play', (tester) async {
+    final backend = FakeAudioBackend();
+    await tester.pumpWidget(
+      buildRoot(
+        overrides: [
+          pluginHostProvider.overrideWith((_) => host),
+          audioBackendProvider.overrideWithValue(backend),
+          databaseUnavailableProvider.overrideWithValue(true),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('無法開啟資料庫，這次的佇列與進度不會保存'), findsOneWidget);
+
+    await openSearch(tester);
+    await tester.enterText(find.byType(TextField), 'q');
+    await tester.runAsync(
+      () => tester.testTextInput.receiveAction(TextInputAction.search),
+    );
+    await waitFor(tester, find.text('Playable'));
+    await tester.runAsync(() async => tester.tap(find.text('Playable')));
+    await waitFor(tester, find.text('播放中'));
+
+    expect(find.text('播放中'), findsOneWidget);
+    expect(backend.calls, ['load', 'play']);
   });
 
   testWidgets('tapping a track plays it and shows its stream, or why it '

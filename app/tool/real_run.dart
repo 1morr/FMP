@@ -256,7 +256,12 @@ Future<int> _windows(Directory app, String file, Directory dir) async {
   ], workingDirectory: app);
   final passed = await winpc.integrationTest(
     file,
-    extra: ['-RealRunDir', _winpcDir.replaceAll(r'\', '/')],
+    extra: [
+      '-RealRunDir',
+      _winpcDir.replaceAll(r'\', '/'),
+      '-ScratchData',
+      scratchData,
+    ],
   );
   final copied = await _shell.run('scp', [
     'winpc:${_winpcDir.replaceAll(r'\', '/')}/*',
@@ -268,7 +273,8 @@ Future<int> _windows(Directory app, String file, Directory dir) async {
 const _winpcDir = r'C:\fmp-wt\real_run';
 
 /// App 在實跑時用的隔離資料目錄名（`FMP_SCRATCH_DATA`）：放在裝置的系統暫存
-/// 目錄底下，驅動每次開 App 前清空，不碰 dev 版的資料。`test.ps1` 用同一個名字。
+/// 目錄底下，驅動每次開 App 前清空，不碰 dev 版的資料。Windows 經
+/// `test.ps1 -ScratchData` 帶過去。
 const scratchData = 'fmp-real-run';
 
 /// 跑指令，退出碼非零時丟 [ProcessException]（含 stderr）。
