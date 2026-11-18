@@ -121,7 +121,8 @@ void main() {
         matching: find.byType(ListTile),
       );
       final title = (tester.widget<ListTile>(row).title! as Text).data!;
-      await tester.tap(row);
+      // 點一首是臨時播放（桌面雙擊）；連點三首是連續臨時播放。
+      await playSearchResult(tester, row);
       await run.waitFor(
         find.descendant(of: controls, matching: find.text(title)),
       );

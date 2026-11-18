@@ -11,8 +11,8 @@ import '../../test/support/shell.dart';
 import 'driver.dart';
 
 /// 實跑的範例情境（票 08b）：啟動後不動視窗先截一張，匿名搜一次 B 站、播
-/// 一首（spec〈共同規則〉的聯網規則），進佇列頁讀回順序。之後的票照這個寫自己
-/// 的情境。跑法見 docs/development.md〈實跑驅動〉：
+/// 一首（spec〈共同規則〉的聯網規則；點一首是臨時播放），進佇列頁讀回。
+/// 之後的票照這個寫自己的情境。跑法見 docs/development.md〈實跑驅動〉：
 ///
 ///     dart run tool/real_run.dart -d macos integration_test/real_run/search_and_play_run.dart
 void main() {
@@ -31,13 +31,14 @@ void main() {
     await run.waitFor(more);
     await run.step('search');
 
-    // 點第一首：曲名出現在迷你播放器或播放膠囊，狀態到播放中。
+    // 點第一首（臨時播放，桌面雙擊）：曲名出現在迷你播放器或播放膠囊，
+    // 狀態到播放中。
     final first = find.ancestor(
       of: more.first,
       matching: find.byType(ListTile),
     );
     final title = (tester.widget<ListTile>(first).title! as Text).data!;
-    await tester.tap(first);
+    await playSearchResult(tester, first);
     final controls = find.byWidgetPredicate(
       (w) => w is MiniPlayer || w is TransportBar,
     );
@@ -47,10 +48,10 @@ void main() {
     await run.waitFor(find.text(t.placeholder.playback.playing));
     await run.step('playing');
 
-    // 佇列頁：點導覽的「佇列」，讀回順序，正在播的就是剛點的那首。
+    // 佇列頁：點導覽的「佇列」。臨時播放的曲目不在佇列裡，佇列還是空的。
     await openDestination(tester, Destination.queue);
     await run.waitFor(find.byType(QueuePage));
     final queue = await run.step('queue', within: find.byType(QueuePage));
-    expect(queue, contains(title));
+    expect(queue, contains(t.queue.empty.title));
   });
 }
