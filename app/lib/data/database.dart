@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:drift/isolate.dart' show DriftRemoteException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.steps.dart';
 import 'package:fmp/data/queue_tables.dart';
 import 'package:fmp/domain/queue.dart';
@@ -13,6 +13,13 @@ part 'database.g.dart';
 /// 整個 App 共用的資料庫。`main` 啟動時開好再 override 進來；沒有資料庫
 /// （開不了，或測試沒給）時是 null，什麼都不保存。
 final appDatabaseProvider = Provider<AppDatabase?>((ref) => null);
+
+/// SQLite 說資料庫檔本身壞了：結果碼 SQLITE_CORRUPT（11）或 SQLITE_NOTADB
+/// （26）。權限、磁碟滿這類其他開檔錯誤不算。
+bool isCorruptDatabase(Object error) {
+  final cause = error is DriftRemoteException ? error.remoteCause : error;
+  return cause is SqliteException && const {11, 26}.contains(cause.resultCode);
+}
 
 /// 新版的 drift 資料庫。檔案位置由 `platform/` 決定（architecture〈依賴規則〉），這裡只管
 /// schema 與升級。
@@ -24,29 +31,6 @@ class AppDatabase extends _$AppDatabase {
 
   /// 開在 [file] 上；SQLite 跑在背景 isolate，不卡 UI。
   AppDatabase.open(File file) : this(NativeDatabase.createInBackground(file));
-
-  /// 開在 [file] 上並確認開得起來（建立或升級跑完）；開不了就寫 log、回
-  /// null，App 照常跑、只是不保存。
-  static Future<AppDatabase?> openOrNull(File file, Log log) async {
-    final database = AppDatabase.open(file);
-    try {
-      final version = await database.storedSchemaVersion();
-      log.info('Database opened, schema version $version');
-      return database;
-    } catch (error, stackTrace) {
-      log.error(
-        'Opening the database failed; nothing will be saved this time',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      try {
-        await database.close();
-      } catch (_) {
-        // 本來就沒開起來，關不了也沒關係。
-      }
-      return null;
-    }
-  }
 
   /// 把整個資料庫複製成 [file]（SQLite 的 `VACUUM INTO`：開著也能做出一致
   /// 的副本）。[file] 已存在時丟例外，不覆寫。
