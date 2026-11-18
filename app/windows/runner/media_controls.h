@@ -20,13 +20,17 @@
 // keys) for the main window. smtc_windows is not used because its
 // flutter_rust_bridge version clashes with fjs (fact W7).
 //
+// Built only with the CMake option FMP_WINDOWS_SMTC (off by default until it
+// has been compiled and tried on Windows); without it the channel has no
+// handler and Dart runs without system media controls.
+//
 // The "fmp/media" channel (lib/platform/windows_media_controls.dart):
 //
-// - Dart -> runner: "metadata" {title, artist, thumbnail?} clears the
-//   display and sets it again (fact W6); "state" {status, positionMs,
-//   durationMs?, canPrevious, canNext} sets the playback status, the
-//   enabled buttons and the timeline; "clear" empties and disables the
-//   controls.
+// - Dart -> runner: "available" answers true; "metadata" {title, artist,
+//   thumbnail?} clears the display and sets it again (fact W6); "state"
+//   {status, positionMs, durationMs?, canPrevious, canNext} sets the
+//   playback status, the enabled buttons and the timeline; "clear" empties
+//   and disables the controls.
 // - Runner -> Dart: "command" {name, positionMs?} with name play, pause,
 //   next, previous or seek.
 //

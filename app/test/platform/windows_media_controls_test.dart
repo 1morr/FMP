@@ -21,6 +21,7 @@ void main() {
   late Log log;
   var logClosed = false;
   late List<MethodCall> calls;
+  late List<MethodCall> startCalls;
   late WindowsMediaControls controls;
   late List<MediaCommand> commands;
 
@@ -52,9 +53,11 @@ void main() {
     calls = [];
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
-      return null;
+      return call.method == 'available' ? true : null;
     });
-    controls = WindowsMediaControls(log);
+    controls = (await WindowsMediaControls.start(log))!;
+    startCalls = [...calls];
+    calls.clear();
     commands = [];
     controls.commands.listen(commands.add);
   });
@@ -75,6 +78,22 @@ void main() {
     );
     await Future<void>.delayed(Duration.zero);
   }
+
+  test('starts by asking the runner whether it has the controls', () {
+    expect(startCalls.map((c) => c.method), ['available']);
+  });
+
+  test('without the runner side (built with FMP_WINDOWS_SMTC off) it logs a '
+      'warning and gives no media controls', () async {
+    messenger.setMockMethodCallHandler(channel, null);
+
+    expect(await WindowsMediaControls.start(log), isNull);
+    await log.close();
+    logClosed = true;
+
+    final text = File('${logDir.path}/${Log.fileName}').readAsStringSync();
+    expect(text, contains('Windows media controls are not built in'));
+  });
 
   test('a new track sends its metadata, then the playback state', () async {
     controls.show(

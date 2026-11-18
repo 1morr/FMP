@@ -173,9 +173,14 @@ void main() {
       await run.system('close-panel', 'close-panel');
       await run.system('foreground', 'foreground');
       await run.step('back');
-    } else {
+    } else if (Platform.isIOS) {
       // iOS 模擬器：只截背景時的畫面（事實 I5，控制中心與鎖屏讀不到）。
       await run.system('home', 'screen');
+    } else {
+      fail(
+        'The system side of this scenario is not wired up on Windows yet '
+        '(Windows is skipped for now, docs/decisions.md 2026-11-18).',
+      );
     }
   });
 }

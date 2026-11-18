@@ -6,8 +6,10 @@
 
 #include <memory>
 
-#include "media_controls.h"
 #include "win32_window.h"
+#ifdef FMP_WINDOWS_SMTC
+#include "media_controls.h"
+#endif
 #include "window_frame.h"
 
 // A window that does nothing but host a Flutter view.
@@ -34,8 +36,10 @@ class FlutterWindow : public Win32Window {
   // The window has no native title bar; see window_frame.h.
   WindowFrame frame_;
 
+#ifdef FMP_WINDOWS_SMTC
   // The system media controls; see media_controls.h.
   MediaControls media_;
+#endif
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

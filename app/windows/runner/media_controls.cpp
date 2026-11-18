@@ -160,6 +160,12 @@ void MediaControls::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue>& call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
   const auto& method = call.method_name();
+  if (method == "available") {
+    // Dart asks once at startup whether this runner was built with the
+    // controls (FMP_WINDOWS_SMTC); the SMTC itself comes later.
+    result->Success(flutter::EncodableValue(true));
+    return;
+  }
   if (method != "metadata" && method != "state" && method != "clear") {
     result->NotImplemented();
     return;
@@ -215,13 +221,16 @@ void MediaControls::ShowState(const flutter::EncodableMap& arguments) {
   controls_.IsPreviousEnabled(GetBool(arguments, "canPrevious"));
   controls_.IsNextEnabled(GetBool(arguments, "canNext"));
 
+  // An unknown length cannot be seeked (MaxSeekTime 0), and the end is kept
+  // at the position so the timeline never runs past its end.
+  const int64_t position = GetInt(arguments, "positionMs").value_or(0);
   const int64_t duration = GetInt(arguments, "durationMs").value_or(0);
   media::SystemMediaTransportControlsTimelineProperties timeline;
   timeline.StartTime(Milliseconds(0));
   timeline.MinSeekTime(Milliseconds(0));
-  timeline.EndTime(Milliseconds(duration));
+  timeline.EndTime(Milliseconds(duration > position ? duration : position));
   timeline.MaxSeekTime(Milliseconds(duration));
-  timeline.Position(Milliseconds(GetInt(arguments, "positionMs").value_or(0)));
+  timeline.Position(Milliseconds(position));
   controls_.UpdateTimelineProperties(timeline);
 }
 

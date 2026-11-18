@@ -23,7 +23,7 @@ Future<MediaControls?> createMediaControls(
 Future<MediaControls?>? _created;
 
 Future<MediaControls?> _create(Log log, String channelName) async {
-  if (Platform.isWindows) return WindowsMediaControls(log);
+  if (Platform.isWindows) return WindowsMediaControls.start(log);
   if (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS) return null;
   try {
     final controls = await AudioService.init(

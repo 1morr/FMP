@@ -22,9 +22,38 @@ import 'package:fmp/playback/playback.dart';
 /// `next`、`previous` 或 `seek`（帶 `positionMs`），其他按鈕不理。
 ///
 /// runner 呼叫失敗時寫 warning，播放照常。
+///
+/// 那段 C++ 只在 CMake 選項 `FMP_WINDOWS_SMTC` 打開時編進 runner（還沒在
+/// Windows 上編譯與試過，預設關著）；所以先用 [start] 問 `available`，沒人接
+/// 就不啟用。
 class WindowsMediaControls implements MediaControls {
-  WindowsMediaControls(this._log) {
+  WindowsMediaControls._(this._log) {
     _channel.setMethodCallHandler(_fromRunner);
+  }
+
+  /// runner 有接 `fmp/media` 就回傳接好的系統媒體控制；沒接（建置時沒打開
+  /// `FMP_WINDOWS_SMTC`）或問失敗就寫一筆 warning、回傳 null。
+  static Future<WindowsMediaControls?> start(Log log) async {
+    try {
+      if (await _channel.invokeMethod<bool>('available') == true) {
+        return WindowsMediaControls._(log);
+      }
+    } on MissingPluginException {
+      log.warning(
+        'Windows media controls are not built in (FMP_WINDOWS_SMTC is off); '
+        'running without them',
+      );
+      return null;
+    } on PlatformException catch (error, stackTrace) {
+      log.warning(
+        'Asking for the Windows media controls failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+    log.warning('The runner has no Windows media controls');
+    return null;
   }
 
   static const _channel = MethodChannel('fmp/media');

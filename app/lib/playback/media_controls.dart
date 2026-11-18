@@ -81,16 +81,8 @@ class NowPlaying {
   final bool canPrevious;
   final bool canNext;
 
-  /// 系統顯示暫停鈕：要播或正在播（[PlaybackState.playing]）。
-  bool get playing => switch (status) {
-    PlaybackStatus.resolving ||
-    PlaybackStatus.loading ||
-    PlaybackStatus.buffering ||
-    PlaybackStatus.playing => true,
-    PlaybackStatus.paused ||
-    PlaybackStatus.completed ||
-    PlaybackStatus.failed => false,
-  };
+  /// 系統顯示暫停鈕：要播或正在播（[PlaybackStatus.wantsToPlay]）。
+  bool get playing => status.wantsToPlay;
 
   /// 位置以外都一樣。
   bool sameApartFromPosition(NowPlaying other) =>
@@ -169,12 +161,8 @@ class MediaControlsBinding {
   /// 往前（事實 W6），audio_service 那邊多送無妨。
   static const resendEvery = Duration(seconds: 5);
 
-  /// 播放中兩次回報之間位置往前超過這麼多，算拖了進度（同佇列的保存）。
-  static const _jump = Duration(seconds: 2);
-
   /// 最後送出的；送過 null 或還沒送過是 null。
   NowPlaying? _sent;
-  bool _cleared = true;
 
   /// 上一次看到的位置，認拖動進度用。
   Duration? _seenPosition;
@@ -182,10 +170,9 @@ class MediaControlsBinding {
   void _update() {
     final playback = _ref.read(playbackProvider);
     if (playback == null) {
-      _sent = null;
       _seenPosition = null;
-      if (!_cleared) _controls.show(null);
-      _cleared = true;
+      if (_sent != null) _controls.show(null);
+      _sent = null;
       return;
     }
     final skip = _ref.read(skipAvailableProvider);
@@ -203,12 +190,11 @@ class MediaControlsBinding {
       if (next.position == sent.position) return;
       // 系統在播放中自己把位置往前推；照常往前走的位置隔一陣子才送，
       // 暫停中改了位置或拖了進度馬上送。
-      final moved = next.position - (seen ?? next.position);
-      final jumped = !next.playing || moved.isNegative || moved > _jump;
+      final jumped =
+          !next.playing || positionJumped(seen ?? next.position, next.position);
       if (!jumped && next.position - sent.position < resendEvery) return;
     }
     _sent = next;
-    _cleared = false;
     _controls.show(next);
   }
 

@@ -1,28 +1,24 @@
 #!/usr/bin/env bash
-# Real-run system actions (docs/development.md〈實跑驅動〉): a scenario asks the
-# host for one through RealRun.system, tool/real_run.dart runs this script.
-# Prints what it reads back; exits non-zero on failure. Never moves the Mac
-# cursor: macOS goes through accessibility actions and synthetic media keys,
-# the simulators through simctl and adb.
+# 實跑的系統動作（docs/development.md〈實跑驅動〉）：情境經 RealRun.system 向宿主要，
+# tool/real_run.dart 跑這支腳本。印出讀回的文字，失敗時以非零結束。不動 Mac 的游標：
+# macOS 走輔助使用的動作與合成的媒體鍵，模擬器走 simctl 與 adb。
 #
-#   real_run_system.sh <platform> <device> <app pid> <screenshot path> <action> [arg]
+#   real_run_system.sh <平台> <裝置> <App 的 pid> <截圖路徑> <動作> [參數]
 #
 # macOS:   background | foreground | panel | press <previous|toggle|next>
-#          | seek <seconds> | close-panel | key <play|next|previous>
+#          | seek <秒> | close-panel | key <play|next|previous>
 # iOS:     background | screen
 # Android: background | foreground | notification | session
-#          | tap <label[:label...]> | seek-bar <fraction>
+#          | tap <標籤[:標籤...]> | seek-bar <比例>
 #          | dispatch <play|pause|play-pause|next|previous> | collapse
 #
-# Android's uiautomator cannot dump the screen while the media player moves
-# its seek bar ("could not get idle state"), so dump the notification while
-# paused: tap and seek-bar use a fresh dump when there is one and otherwise
-# the last one, whose buttons stay where they were (play and pause share a
-# spot). tap takes the content description of the button, case-insensitive,
-# with _ for a space and : between alternatives (Play:Pause, Next_track).
+# Android 的 uiautomator 在媒體播放器的進度條一直動時讀不到畫面（"could not get idle
+# state"），所以要先暫停再讀通知：tap 與 seek-bar 讀得到就用新讀的，讀不到就用上一次
+# 讀到的，按鈕的位置不變（播放、暫停是同一顆）。tap 給按鈕的 content-desc，不分大小寫，
+# 空白寫成 _，多個候選用 : 隔開（Play:Pause、Next_track）。
 #
-# The caller (tool/real_run.dart) already holds the shared device lock, so the
-# experiment scripts below run at once (their lock_guard.sh sees it held).
+# 呼叫的人（tool/real_run.dart）已經持有共用裝置鎖，下面的實驗腳本直接跑（它們的
+# lock_guard.sh 看得到鎖已持有）。
 set -euo pipefail
 
 platform=$1 device=$2 pid=$3 shot=$4 action=$5
@@ -30,11 +26,10 @@ arg=${6:-}
 here=$(cd "$(dirname "$0")" && pwd)
 np="$here/../../scripts/experiments/macos-now-playing"
 
-# The last dump that worked, for taps while playing.
+# 上一次讀到的畫面，播放中點按時用。
 last_dump="$(dirname "$shot")/.android-ui.xml"
 
-# The UI tree of the screen, kept as $last_dump; fails while the media player
-# plays (see the top).
+# 畫面的 UI 樹，另存成 $last_dump；播放中會失敗（見開頭）。
 dump_android() {
   local out
   for _ in 1 2 3; do
@@ -50,20 +45,20 @@ dump_android() {
   return 1
 }
 
-# Text and content descriptions of the dumped UI, one per line.
+# 讀到的 UI 裡每個文字與 content-desc，一行一個。
 ui_labels() {
   python3 -I -c '
 import re, sys
 xml = sys.stdin.read()
 for text, desc in re.findall(r"text=\"([^\"]*)\"[^>]*content-desc=\"([^\"]*)\"", xml):
     for label in (text, desc):
-        # Other notifications can show account names; leave them out.
+        # 別的通知可能顯示帳號名稱，略過。
         if label.strip() and "@" not in label:
             print(label)
 '
 }
 
-# Centre of the first node whose content-desc is one of the labels in $1.
+# content-desc 是 $1 其中一個標籤的第一個節點的中心點。
 node_centre() {
   python3 -I -c '
 import re, sys
@@ -121,7 +116,7 @@ case "$platform:$action" in
     adb -s "$device" exec-out screencap -p >"$shot"
     ;;
   android:session)
-    # The media session of this app: its metadata and playback state.
+    # 這個 App 的媒體工作階段：曲目資訊與播放狀態。
     adb -s "$device" shell dumpsys media_session |
       awk '/package=com.personal.fmp.dev/{on=1} on{print; n++} n>=25{exit}' |
       grep -v '@' || true
@@ -133,7 +128,7 @@ case "$platform:$action" in
     echo "tapped $arg at $x,$y"
     ;;
   android:seek-bar)
-    # Taps the notification's seek bar at a fraction of its width.
+    # 點通知進度條寬度的某個比例處。
     xml=$(dump_android 2>/dev/null || cat "$last_dump")
     read -r x1 y1 x2 y2 < <(python3 -I -c '
 import re, sys
@@ -147,7 +142,7 @@ print(*m.groups())
     echo "tapped the seek bar at $arg ($x,$y)"
     ;;
   android:dispatch)
-    # A media key to the active media session (headset buttons, Bluetooth).
+    # 送一個媒體鍵給目前的媒體工作階段（耳機鍵、藍牙）。
     adb -s "$device" shell cmd media_session dispatch "$arg"
     echo "media key $arg"
     ;;

@@ -216,9 +216,6 @@ Future<int> _local(
   }
 }
 
-/// `screencapture -l <視窗 id>`：截那個視窗本身（被蓋住也截得到），連同系統畫的
-/// 標題列與紅綠燈，不動游標也不搶前景。視窗 id 由 pid 經 CoreGraphics 的視窗清單
-/// 查：畫面上、一般層級（layer 0）、最前面那一個。
 /// 情境向宿主要做的系統動作（`RealRun.system`）：交給
 /// `tool/real_run_system.sh`，它依平台用 osascript、simctl、adb 做，不動
 /// Mac 的游標。回傳它印出的文字；失敗就丟例外。
@@ -248,6 +245,9 @@ Future<String> _system(
   return '${result.stdout}';
 }
 
+/// `screencapture -l <視窗 id>`：截那個視窗本身（被蓋住也截得到），連同系統畫的
+/// 標題列與紅綠燈，不動游標也不搶前景。視窗 id 由 pid 經 CoreGraphics 的視窗清單
+/// 查：畫面上、一般層級（layer 0）、最前面那一個。
 Future<void> _captureMacWindow(File file, int pid) async {
   const findWindow = r'''
 ObjC.import('CoreGraphics');

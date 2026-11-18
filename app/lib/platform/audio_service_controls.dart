@@ -36,7 +36,8 @@ class AudioServiceControls extends BaseAudioHandler implements MediaControls {
         null => null,
       },
     );
-    if (mediaItem.value != item) mediaItem.add(item);
+    // MediaItem 的 == 只比 id：同一首的長度後來才知道時也要送。
+    if (!_sameItem(mediaItem.value, item)) mediaItem.add(item);
     final controls = [
       if (nowPlaying.canPrevious) MediaControl.skipToPrevious,
       nowPlaying.playing ? MediaControl.pause : MediaControl.play,
@@ -63,6 +64,14 @@ class AudioServiceControls extends BaseAudioHandler implements MediaControls {
       ),
     );
   }
+
+  static bool _sameItem(MediaItem? a, MediaItem b) =>
+      a != null &&
+      a.id == b.id &&
+      a.title == b.title &&
+      a.artist == b.artist &&
+      a.duration == b.duration &&
+      a.artUri == b.artUri;
 
   @override
   Future<void> play() async => _commands.add(const PlayCommand());

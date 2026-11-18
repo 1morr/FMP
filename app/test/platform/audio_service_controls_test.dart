@@ -134,6 +134,18 @@ void main() {
     expect(items, hasLength(2));
   });
 
+  test('a length learned later for the same track updates the media item '
+      '(MediaItem == only compares the id)', () async {
+    final items = <MediaItem?>[];
+    controls.mediaItem.listen(items.add);
+    controls.show(nowPlaying(duration: null));
+    controls.show(nowPlaying(duration: const Duration(minutes: 3)));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(items, hasLength(3));
+    expect(controls.mediaItem.value!.duration, const Duration(minutes: 3));
+  });
+
   test('system buttons become commands', () async {
     await controls.play();
     await controls.pause();
