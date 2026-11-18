@@ -49,7 +49,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   void _select(Track track) {
     setState(() => _selected = track.ref);
-    _focus.requestFocus();
+    // 同一下按下也讓搜尋欄失焦（點欄位外面），失焦把焦點交給頁面；等這個
+    // frame 過了再拿，↩ 才進得來。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {

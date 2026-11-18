@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:fmp/ui/shell/caption_buttons.dart';
@@ -241,6 +242,25 @@ void main() {
       expect(find.byType(DetailPanel), findsNothing);
       await tap(tester, find.byTooltip('顯示詳情面板'));
       expect(find.byType(DetailPanel), findsOneWidget);
+    });
+
+    testWidgets('one mouse click on the sidebar field opens search with the '
+        'caret in the field, ready to type', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await start(tester, desktop);
+
+      await tester.tap(find.byType(TextField), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SearchPage), findsOneWidget);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.focusNode!.hasFocus, isTrue);
+      // 打字直接進欄位（不必再點一下）。
+      tester.testTextInput.enterText('夜');
+      await tester.pump();
+      expect(field.controller!.text, '夜');
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('the page title sits 24 clear of the sidebar', (tester) async {

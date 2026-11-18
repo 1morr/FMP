@@ -372,7 +372,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: SideBar(
               current: _current,
               onSelect: _select,
-              onSearch: _openSearch,
+              onSearch: _focusSearch,
             ),
           ),
           // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
