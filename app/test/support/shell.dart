@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/domain/track.dart';
+import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:material_ui/material_ui.dart';
@@ -23,6 +25,27 @@ Future<void> openSearch(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
   expect(find.byType(SearchPage), findsOneWidget);
+}
+
+/// 搜尋結果第 [index] 首（從 0 數）的 [ListTile]：曲名是它的 `title`。
+/// 搜尋頁每一列以曲目身分（`ValueKey<TrackRef>`）為鍵；⋮ 在 ListTile 旁邊。
+Finder searchResultAt(int index) => find.descendant(
+  of: find.byWidgetPredicate((w) => w.key is ValueKey<TrackRef>).at(index),
+  matching: find.byType(ListTile),
+);
+
+/// [searchResultAt] 那一列的曲名。
+String searchResultTitle(WidgetTester tester, int index) =>
+    (tester.widget<ListTile>(searchResultAt(index)).title! as Text).data!;
+
+/// 臨時播放搜尋結果 [result]：觸控點一下，滑鼠雙擊（單擊只是選取，
+/// brief〈播放〉）。integration_test 依平台的密度不同，也用這個。
+Future<void> playSearchResult(WidgetTester tester, Finder result) async {
+  await tester.tap(result);
+  if (FormFactor.of(tester.element(result)).density == Density.touch) return;
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.tap(result);
+  await tester.pump();
 }
 
 /// 從外殼切到導覽的 [destination]，不管現在是哪種寬度：側欄、細欄、手機的

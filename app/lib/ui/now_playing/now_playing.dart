@@ -77,8 +77,8 @@ class SkipButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final colors = context.fmpColors;
-    final queue = ref.watch(queueProvider);
-    final enabled = forward ? queue.hasNext : queue.hasPrevious;
+    final skip = ref.watch(skipAvailableProvider);
+    final enabled = forward ? skip.next : skip.previous;
     final label = forward ? t.nowPlaying.next : t.nowPlaying.previous;
     final controller = ref.read(queueProvider.notifier);
     return ShellButton(
@@ -107,6 +107,67 @@ class SkipButton extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 迷你播放器與播放膠囊在臨時播放時標題旁的「臨時」小標（`.qu-tag`）：
+/// 17 高、圓角 5，強調色底、11 號粗體。
+class TemporaryTag extends StatelessWidget {
+  const TemporaryTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    return Container(
+      height: 17,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.accentFill,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        context.t.nowPlaying.temporaryTag,
+        maxLines: 1,
+        style: TextStyle(
+          fontSize: 11,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+          color: colors.accentInk,
+        ),
+      ),
+    );
+  }
+}
+
+/// 標題與它後面的「臨時」小標（`.mi b`：flex、間距 6）：標題過長時截斷，
+/// 小標不截。
+class NowPlayingTitle extends ConsumerWidget {
+  const NowPlayingTitle({super.key, required this.title, required this.style});
+
+  final String title;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final temporary = ref.watch(
+      temporaryPlayProvider.select((value) => value != null),
+    );
+    final text = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    if (!temporary) return text;
+    return Row(
+      children: [
+        Flexible(child: text),
+        const SizedBox(width: 6),
+        const TemporaryTag(),
+      ],
     );
   }
 }

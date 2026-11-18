@@ -4,8 +4,10 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/domain/queue.dart';
+import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/audio_backend.dart';
 import 'package:fmp/playback/playback.dart';
@@ -166,21 +168,6 @@ void main() {
     await queue().next();
     expect(playing(), 'a');
     expect(loaded(), ['a.m4a']);
-  });
-
-  test('playNow inserts after the current track and plays it', () async {
-    await queue().add([track('a'), track('b')]);
-
-    await queue().playNow(track('x'));
-
-    expect(playing(), 'x');
-    expect(
-      [
-        for (final e in container.read(queueProvider).entries)
-          e.track.ref.trackId,
-      ],
-      ['a', 'x', 'b'],
-    );
   });
 
   test('playAt plays the chosen entry', () async {
@@ -378,6 +365,313 @@ void main() {
 
       expect(playing(), 'a');
       expect(loaded(), ['a.m4a', 'b.m4a', 'a.m4a']);
+    });
+  });
+
+  group('臨時播放（brief〈播放〉）', () {
+    TemporaryPlay? temporary() => container.read(temporaryPlayProvider);
+    List<String> ids() => [
+      for (final e in container.read(queueProvider).entries)
+        e.track.ref.trackId,
+    ];
+
+    /// 後端回報播到 [position]。
+    void at(Duration position) =>
+        backend.emit(backend.state.copyWith(position: position));
+
+    /// 最後一次載入之後後端收到的呼叫。
+    List<String> sinceLastLoad() =>
+        backend.calls.sublist(backend.calls.lastIndexOf('load'));
+
+    Future<void> finishTemporary() async {
+      finishCurrent();
+      await settle();
+    }
+
+    test(
+      'plays the track outside the queue and leaves the queue as it was',
+      () async {
+        await queue().add([track('a'), track('b')]);
+
+        await queue().playTemporarily(track('x'));
+
+        expect(playing(), 'x');
+        expect(ids(), ['a', 'b']);
+        expect(currentInQueue(), 'a');
+        expect(temporary()!.track.ref.trackId, 'x');
+      },
+    );
+
+    test('播完回到佇列原本那首，倒退 10 秒接著播', () async {
+      await queue().add([track('a'), track('b')]);
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await finishTemporary();
+
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+      expect(container.read(playbackProvider)!.status, PlaybackStatus.playing);
+      expect(temporary(), isNull);
+      expect(currentInQueue(), 'a');
+    });
+
+    test('下一首 returns to the queue track instead of moving on', () async {
+      await queue().add([track('a'), track('b')]);
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().next();
+      await settle();
+
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+      expect(temporary(), isNull);
+    });
+
+    test('上一首 returns to the queue track too', () async {
+      await queue().add([track('a'), track('b')]);
+      await queue().next();
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().previous();
+      await settle();
+
+      expect(playing(), 'b');
+      expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+    });
+
+    test('連續臨時播放 keeps the earliest queue position', () async {
+      await queue().add([track('a'), track('b')]);
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+      at(const Duration(seconds: 30));
+
+      await queue().playTemporarily(track('y'));
+      await settle();
+      expect(playing(), 'y');
+      expect(temporary()!.track.ref.trackId, 'y');
+
+      await finishTemporary();
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+    });
+
+    test('倒退秒數可設定', () async {
+      container
+          .read(temporaryPlayRewindProvider.notifier)
+          .set(const Duration(seconds: 5));
+      await queue().add([track('a')]);
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await finishTemporary();
+
+      expect(sinceLastLoad(), ['load', 'seek 85000', 'play']);
+    });
+
+    test('rewinding past the start plays from the start', () async {
+      await queue().add([track('a')]);
+      at(const Duration(seconds: 4));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await finishTemporary();
+
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'play']);
+    });
+
+    test('returning plays even when the queue was paused before', () async {
+      await queue().add([track('a')]);
+      at(const Duration(seconds: 90));
+      await container.read(playbackProvider.notifier).pause();
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await finishTemporary();
+
+      expect(playing(), 'a');
+      expect(container.read(playbackProvider)!.status, PlaybackStatus.playing);
+    });
+
+    test('卡片的「下一首播放」 puts the temporary track after the queue track '
+        'and keeps playing it as the current track', () async {
+      await queue().add([track('a'), track('b')]);
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      queue().queueTemporaryNext();
+
+      expect(ids(), ['a', 'x', 'b']);
+      expect(currentInQueue(), 'x');
+      expect(playing(), 'x');
+      expect(loaded(), ['a.m4a', 'x.m4a']);
+      expect(temporary(), isNull);
+
+      finishCurrent();
+      await settle();
+      expect(playing(), 'b');
+    });
+
+    test('removing the queue track to return to does not interrupt; it '
+        'returns to the track that took its place, from the start', () async {
+      await queue().add([track('a'), track('b')]);
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().remove(0);
+      expect(playing(), 'x');
+      expect(loaded(), ['a.m4a', 'x.m4a']);
+
+      await finishTemporary();
+      expect(playing(), 'b');
+      expect(sinceLastLoad(), ['load', 'play']);
+    });
+
+    test('adding while playing temporarily does not interrupt it, even with '
+        'no queue track to return to', () async {
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().add([track('a')]);
+      expect(playing(), 'x');
+      expect(loaded(), ['x.m4a']);
+
+      await finishTemporary();
+      expect(playing(), 'a');
+    });
+
+    test(
+      'with nothing in the queue to return to, a finished temporary '
+      'track ends temporary play there; adding then plays as usual',
+      () async {
+        await queue().playTemporarily(track('x'));
+        await settle();
+        expect(container.read(skipAvailableProvider), (
+          previous: false,
+          next: false,
+        ));
+
+        await finishTemporary();
+        expect(playing(), 'x');
+        expect(
+          container.read(playbackProvider)!.status,
+          PlaybackStatus.completed,
+        );
+        expect(temporary(), isNull);
+
+        await queue().add([track('a')]);
+        expect(playing(), 'a');
+      },
+    );
+
+    test('started after the queue finished, it goes back to the last track '
+        'from the start', () async {
+      await queue().add([track('a')]);
+      at(const Duration(minutes: 3));
+      finishCurrent();
+      await settle();
+
+      await queue().playTemporarily(track('x'));
+      await settle();
+      await finishTemporary();
+
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'play']);
+    });
+
+    test('skipping is on while there is a queue track to return to', () async {
+      await queue().add([track('a')]);
+      expect(container.read(skipAvailableProvider), (
+        previous: false,
+        next: false,
+      ));
+
+      await queue().playTemporarily(track('x'));
+
+      expect(container.read(skipAvailableProvider), (
+        previous: true,
+        next: true,
+      ));
+    });
+
+    test('playing a queue entry ends temporary play', () async {
+      await queue().add([track('a'), track('b')]);
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().playAt(1);
+
+      expect(playing(), 'b');
+      expect(temporary(), isNull);
+      expect(sinceLastLoad(), ['load', 'play']);
+    });
+
+    test('returnToQueue goes back right away', () async {
+      await queue().add([track('a')]);
+      at(const Duration(seconds: 90));
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().returnToQueue();
+      await settle();
+
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+    });
+
+    test('clearing the queue stops playback and ends temporary play', () async {
+      await queue().add([track('a')]);
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await queue().clear();
+
+      expect(container.read(playbackProvider), isNull);
+      expect(temporary(), isNull);
+    });
+
+    test('a temporary track that fails returns to the queue like a finished '
+        'one', () async {
+      await queue().add([track('a')]);
+      at(const Duration(seconds: 90));
+      backend.failNextLoad = const AudioBackendError(NetworkError(), 'x');
+
+      final statuses = <String>[];
+      container.listen(playbackProvider, (_, next) {
+        statuses.add('${next?.track.ref.trackId} ${next?.status.name}');
+      });
+
+      await queue().playTemporarily(track('x'));
+      // 失敗之後下一個 microtask 才回去。
+      await Future<void>.delayed(Duration.zero);
+      await settle();
+
+      expect(statuses, contains('x failed'));
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+      expect(temporary(), isNull);
+    });
+
+    test('單曲循環 does not repeat a temporary track', () async {
+      await queue().add([track('a')]);
+      queue()
+        ..cycleRepeat()
+        ..cycleRepeat();
+      await queue().playTemporarily(track('x'));
+      await settle();
+
+      await finishTemporary();
+
+      expect(playing(), 'a');
     });
   });
 }

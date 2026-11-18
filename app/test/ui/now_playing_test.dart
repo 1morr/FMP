@@ -7,6 +7,7 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/domain/queue.dart';
+import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
@@ -89,6 +90,7 @@ void main() {
     Size size, {
     PlaybackState? initial,
     Queue initialQueue = Queue.empty,
+    TemporaryPlay? temporary,
   }) async {
     tester.view
       ..physicalSize = size
@@ -102,11 +104,20 @@ void main() {
           pluginHostProvider.overrideWith((_) => host),
           playbackProvider.overrideWith(() => playback),
           queueProvider.overrideWith(() => queue),
+          temporaryPlayProvider.overrideWith(() => _FixedTemporary(temporary)),
         ],
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  /// 臨時播放 [track]，從 [from] 佇列的目前那首離開。
+  TemporaryPlay temporaryFrom(Queue from) => TemporaryPlay.start(
+    track,
+    previous: null,
+    leaving: from.current,
+    position: Duration.zero,
+  );
 
   Future<void> set(WidgetTester tester, PlaybackState next) async {
     playback.set(next);
@@ -214,6 +225,45 @@ void main() {
       expect(queue.calls, isEmpty);
     });
 
+    testWidgets('a temporary track has the 臨時 tag, and next goes back to '
+        'the queue even from its last track', (tester) async {
+      await start(
+        tester,
+        phone,
+        initial: state(PlaybackStatus.playing),
+        initialQueue: single,
+        temporary: temporaryFrom(single),
+      );
+
+      final mini = find.byType(MiniPlayer);
+      expect(
+        find.descendant(of: mini, matching: find.text('臨時')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('下一首'));
+      expect(queue.calls, ['next']);
+    });
+
+    testWidgets('a queue track has no 臨時 tag', (tester) async {
+      await start(tester, phone, initial: state(PlaybackStatus.playing));
+
+      expect(find.text('臨時'), findsNothing);
+    });
+
+    testWidgets('with nothing in the queue to go back to, next is disabled', (
+      tester,
+    ) async {
+      await start(
+        tester,
+        phone,
+        initial: state(PlaybackStatus.playing),
+        temporary: temporaryFrom(Queue.empty),
+      );
+
+      await tester.tap(find.byTooltip('下一首'), warnIfMissed: false);
+      expect(queue.calls, isEmpty);
+    });
+
     testWidgets('the spine follows the position', (tester) async {
       await start(
         tester,
@@ -270,6 +320,26 @@ void main() {
           initialQueue: middle,
         );
 
+        await tester.tap(find.byTooltip('上一首'));
+        await tester.tap(find.byTooltip('下一首'));
+        expect(queue.calls, ['previous', 'next']);
+      });
+
+      testWidgets('$name: a temporary track has the 臨時 tag and both skips '
+          'go back to the queue', (tester) async {
+        await start(
+          tester,
+          size,
+          initial: state(PlaybackStatus.playing),
+          initialQueue: single,
+          temporary: temporaryFrom(single),
+        );
+
+        final bar = find.byType(TransportBar);
+        expect(
+          find.descendant(of: bar, matching: find.text('臨時')),
+          findsOneWidget,
+        );
         await tester.tap(find.byTooltip('上一首'));
         await tester.tap(find.byTooltip('下一首'));
         expect(queue.calls, ['previous', 'next']);
@@ -363,7 +433,8 @@ class _FakePlayback extends Playback {
   Future<void> playPause() async => playPauses++;
 
   @override
-  Future<void> play(Track track) async => played.add(track);
+  Future<void> play(Track track, {Duration from = Duration.zero}) async =>
+      played.add(track);
 }
 
 /// 佇列由測試給定；記下按了上一首、下一首。
@@ -381,4 +452,14 @@ class _FakeQueue extends QueueController {
 
   @override
   Future<void> previous() async => calls.add('previous');
+}
+
+/// 臨時播放由測試給定。
+class _FixedTemporary extends TemporaryPlayHolder {
+  _FixedTemporary(this._initial);
+
+  final TemporaryPlay? _initial;
+
+  @override
+  TemporaryPlay? build() => _initial;
 }

@@ -63,7 +63,8 @@
     "next": "下一首",
     "previous": "上一首",
     "play": "播放",
-    "pause": "暂停"
+    "pause": "暂停",
+    "temporaryTag": "临时"
   },
   "toast": {
     "retry": "重试",
@@ -103,7 +104,7 @@
     "shuffledOrder": "随机顺序",
     "nowPlaying": "正在播放",
     "clear": "清空队列",
-    "remove": "從队列移除",
+    "remove": "从队列移除",
     "dragHandle": "拖动调整顺序",
     "playFromHere": "从这首开始播放",
     "moveToNext": "移到下一首",
@@ -138,6 +139,14 @@
       "all": "列表循环开着：最后一首播完回到第 1 首",
       "allShuffled": "列表循环开着：最后一首播完回到第 1 首，并重新打乱",
       "one": "单曲循环开着：一直重复正在播的那首"
+    },
+    "temporary": {
+      "title": "临时播放",
+      "notInQueue": "不在队列里",
+      "returnTouch(rich)": "播完或切歌后回到下方第 $number 首「$title」，从 $position 继续（倒退 $seconds 秒）",
+      "returnTable(rich)": "播完或按上一首／下一首，回到下方第 $number 首「$title」，从 $position 继续（倒退 $seconds 秒）",
+      "returnRow": "回来时从 $position 继续",
+      "backToQueue": "现在回到队列"
     }
   },
   "playMode": {

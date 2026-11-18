@@ -136,8 +136,9 @@ void main() {
     expect(find.text('測試作者 · 0:30'), findsOneWidget);
     expect(http.requests.single.uri.queryParameters['keyword'], '晴天');
 
-    // 點一首：解析串流（票 10），交給原生播放器播放（票 11）。
-    await tester.tap(find.text('晴天 測試'));
+    // 點一首（臨時播放，桌面是雙擊）：解析串流（票 10），交給原生播放器
+    // 播放（票 11）。
+    await playSearchResult(tester, find.text('晴天 測試'));
     await waitFor(find.textContaining('kbps'));
     expect(find.text('音質：mp4a.40.2 · 135 kbps'), findsOneWidget);
     expect(

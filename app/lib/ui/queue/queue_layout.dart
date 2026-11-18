@@ -39,14 +39,17 @@ sealed class QueueItem {
 
   /// 目前佇列依播放順序排成的項目：已播放標題、播過的、正在播的、
   /// 摺線、接下來的。沒有播過的就沒有標題，沒有接下來的就沒有摺線；沒有
-  /// 目前那首時全部都是播過的。
-  static List<QueueItem> of(Queue queue) {
+  /// 目前那首時全部都是播過的。[temporary]（臨時播放中）時目前那首是要
+  /// 回去的地方，臨時播放的卡片插在它上方；沒有目前那首時排在最後。
+  static List<QueueItem> of(Queue queue, {bool temporary = false}) {
     final entries = queue.entries;
     final current = queue.currentIndex ?? entries.length;
     return [
       if (current > 0) PlayedCaption(current),
-      for (var i = 0; i <= current && i < entries.length; i++)
+      for (var i = 0; i < current && i < entries.length; i++)
         TrackItem(i, entries[i]),
+      if (temporary) const TemporaryCardItem(),
+      if (current < entries.length) TrackItem(current, entries[current]),
       if (current < entries.length - 1)
         UpNextFold(
           entries.length - 1 - current,
@@ -63,10 +66,12 @@ sealed class QueueItem {
     (sum, entry) => sum + (entry.track.duration ?? Duration.zero),
   );
 
-  double extent(QueueLayout layout) => switch (this) {
+  /// 這一項的高；臨時播放卡片的高依寬度量，由畫面給 [cardExtent]。
+  double extent(QueueLayout layout, {double cardExtent = 0}) => switch (this) {
     PlayedCaption() => layout.capExtent,
     TrackItem() => layout.rowExtent,
     UpNextFold() => layout.foldExtent,
+    TemporaryCardItem() => cardExtent,
   };
 
   /// 全部曲目的時長加總；不知道時長的算 0。
@@ -103,4 +108,9 @@ class UpNextFold extends QueueItem {
   final int count;
   final Duration duration;
   final bool shuffled;
+}
+
+/// 臨時播放的卡片，插在要回去的那首上方；不能拖。
+class TemporaryCardItem extends QueueItem {
+  const TemporaryCardItem();
 }
