@@ -2,13 +2,47 @@ name: CI
 
 # 根目錄舊專案（凍結，只收緊急修正）的分析、測試與建置煙霧測試；最後的
 # `CI Result` 彙總所有 job 的結果。
+# 只在改到舊版的檔案時觸發（2026-11-19 擁有者定，docs/decisions.md）；新版
+# `app/` 的檢查在本機閘門。main 沒有要求這個 check，不觸發不會卡住推送。
 on:
   pull_request:
     branches:
       - main
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "tool/**"
+      - "android/**"
+      - "windows/**"
+      - "assets/**"
+      - "licenses/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - "dart_test.yaml"
+      - "slang.yaml"
+      - ".metadata"
+      - "THIRD_PARTY_LICENSES.md"
+      - ".github/workflows/ci.yml"
   push:
     branches:
       - main
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "tool/**"
+      - "android/**"
+      - "windows/**"
+      - "assets/**"
+      - "licenses/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - "dart_test.yaml"
+      - "slang.yaml"
+      - ".metadata"
+      - "THIRD_PARTY_LICENSES.md"
+      - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 permissions:
