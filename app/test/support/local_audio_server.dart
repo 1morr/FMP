@@ -13,6 +13,7 @@ import 'dart:typed_data';
 /// `Mozilla/` 開頭，例如 ExoPlayer 或 AVPlayer 自己的）也回 403，像 B 站
 /// 部分串流網址那樣（brief 事實 F22）。設了 [cutAfterBytes] 時，每個回應
 /// 傳到那麼多位元組就關掉連線，像 B 站 CDN 偶爾中途斷線（事實 F24）。
+/// [refuse] 對某個網址回真時回 403，像過期或簽名不對的串流網址。
 class LocalAudioServer {
   LocalAudioServer._(
     this._server,
@@ -22,6 +23,7 @@ class LocalAudioServer {
     this.requiredHeaders,
     this.requireBrowserUserAgent,
     this.cutAfterBytes,
+    this.refuse,
   ) {
     _server.listen(_handle);
   }
@@ -36,6 +38,7 @@ class LocalAudioServer {
     Map<String, String> requiredHeaders = const {},
     bool requireBrowserUserAgent = false,
     int? cutAfterBytes,
+    bool Function(Uri url)? refuse,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return LocalAudioServer._(
@@ -46,6 +49,7 @@ class LocalAudioServer {
       requiredHeaders,
       requireBrowserUserAgent,
       cutAfterBytes,
+      refuse,
     );
   }
 
@@ -56,10 +60,20 @@ class LocalAudioServer {
   final Map<String, String> requiredHeaders;
   final bool requireBrowserUserAgent;
   final int? cutAfterBytes;
+  final bool Function(Uri url)? refuse;
 
-  /// 收到的每個請求：方法、路徑與小寫 header 名稱對到值。
+  /// 收到的每個請求：方法、路徑、查詢字串、小寫 header 名稱對到值與回應的
+  /// 狀態碼。
   final requests =
-      <({String method, String path, Map<String, String> headers})>[];
+      <
+        ({
+          String method,
+          String path,
+          String query,
+          Map<String, String> headers,
+          int status,
+        })
+      >[];
 
   /// 音訊的網址；[query] 照原樣接在後面（例如假的簽名參數）。
   Uri url({String query = ''}) => Uri.parse(
@@ -71,11 +85,6 @@ class LocalAudioServer {
   Future<void> _handle(HttpRequest request) async {
     final headers = <String, String>{};
     request.headers.forEach((name, values) => headers[name] = values.join(','));
-    requests.add((
-      method: request.method,
-      path: request.uri.path,
-      headers: headers,
-    ));
     final response = request.response;
     var detached = false;
     try {
@@ -85,7 +94,7 @@ class LocalAudioServer {
           ) ||
           (requireBrowserUserAgent &&
               !(headers['user-agent'] ?? '').startsWith('Mozilla/'));
-      if (missing) {
+      if (missing || (refuse?.call(request.uri) ?? false)) {
         response.statusCode = HttpStatus.forbidden;
         return;
       }
@@ -137,6 +146,13 @@ class LocalAudioServer {
       }
       response.add(Uint8List.sublistView(_body, start, end + 1));
     } finally {
+      requests.add((
+        method: request.method,
+        path: request.uri.path,
+        query: request.uri.query,
+        headers: headers,
+        status: response.statusCode,
+      ));
       // 播放器常常讀到一半就斷線；那不是錯誤。
       if (!detached) await response.close().catchError((_) => null);
     }

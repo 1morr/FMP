@@ -67,11 +67,47 @@ void main() {
       expect(classifyMpvLog('vd', 'fatal', 'decode'), isA<Unsupported>());
     });
 
-    test('player errors are parse failures; unknown prefixes are ignored', () {
+    test('only the player errors that end playback are failures (fact '
+        'W13)', () {
       expect(
-        classifyMpvLog('cplayer', 'error', 'Failed to recognize file format'),
-        isA<ParseFailure>(),
+        classifyMpvLog('cplayer', 'error', 'Failed to recognize file format.'),
+        isA<Unsupported>(),
       );
+      expect(
+        classifyMpvLog(
+          'cplayer',
+          'error',
+          'Could not open/initialize audio device -> no sound.',
+        ),
+        isA<Unsupported>(),
+      );
+      expect(
+        classifyMpvLog(
+          'cplayer',
+          'fatal',
+          'No video or audio streams selected.',
+        ),
+        isA<Unsupported>(),
+      );
+      expect(classifyMpvLog('cplayer', 'fatal', 'other'), isA<ParseFailure>());
+    });
+
+    test('player errors that do not stop the sound are not failures', () {
+      expect(
+        classifyMpvLog('cplayer', 'error', 'Cannot seek in this stream.'),
+        isNull,
+      );
+      expect(
+        classifyMpvLog('cplayer', 'error', 'Track 2 is already selected.'),
+        isNull,
+      );
+      expect(
+        classifyMpvLog('cplayer', 'error', 'Disabling stream recording.'),
+        isNull,
+      );
+    });
+
+    test('unknown prefixes are ignored', () {
       expect(classifyMpvLog('lua', 'error', 'script'), isNull);
     });
   });

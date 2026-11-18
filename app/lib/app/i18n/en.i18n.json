@@ -84,8 +84,12 @@
       "parseFailure": "“${title}” can’t play: ${source} sent a response FMP doesn’t understand.",
       "sourceUnsupported": "${source} doesn’t support playback, so “${title}” can’t play.",
       "formatUnsupported": "This device can’t play the format of “${title}”.",
-      "failed": "“${title}” can’t play."
-    }
+      "failed": "“${title}” can’t play.",
+      "skipped": "${reason} Skipped to the next track.",
+      "returnedToQueue": "${reason} Back to the queue.",
+      "stopped": "${count} tracks in a row couldn’t play, so playback stopped. ${reason}"
+    },
+    "showQueue": "Show queue"
   },
   "queue": {
     "more": "More",

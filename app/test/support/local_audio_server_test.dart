@@ -86,4 +86,16 @@ void main() {
     expect(ascii.decode(wav.sublist(8, 16)), 'WAVEfmt ');
     expect(wav.length, 44 + 16000);
   });
+
+  test('refuses the urls it is told to, and records the status', () async {
+    await server.close();
+    server = await LocalAudioServer.start(
+      length: const Duration(seconds: 2),
+      refuse: (url) => url.queryParameters['sig'] == 'x',
+    );
+
+    expect(await get({}), startsWith('HTTP/1.1 403'));
+    expect(server.requests.single.query, 'deadline=1&sig=x');
+    expect(server.requests.single.status, 403);
+  });
 }

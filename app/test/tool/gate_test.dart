@@ -53,6 +53,7 @@ void main() {
         'integration_test $platform: integration_test/queue_test.dart',
         'integration_test $platform: integration_test/search_and_play_test.dart',
         'integration_test $platform: integration_test/stream_duration_test.dart',
+        'integration_test $platform: integration_test/stream_refresh_test.dart',
       ],
       'unlock shared devices',
       'plugin bundles (esbuild)',

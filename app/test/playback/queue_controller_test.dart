@@ -50,6 +50,12 @@ void main() {
           code: '''
             export async function search() { return { tracks: [] }; }
             export async function resolveStream({ trackId }) {
+              if (trackId.startsWith('gone')) {
+                throw new PluginError('not_found');
+              }
+              if (trackId.startsWith('verify')) {
+                throw new PluginError('verification_required');
+              }
               return { url: 'https://cdn.example.com/' + trackId + '.m4a' };
             }
           ''',
@@ -80,6 +86,7 @@ void main() {
   String? playing() => container.read(playbackProvider)?.track.ref.trackId;
   String? currentInQueue() =>
       container.read(queueProvider).current?.track.ref.trackId;
+  PlaybackFailure? failure() => container.read(playbackFailureProvider);
   List<String> loaded() => [
     for (final stream in backend.loaded) stream.url.pathSegments.last,
   ];
@@ -368,6 +375,120 @@ void main() {
     });
   });
 
+  group('失敗處理（brief〈播放〉）', () {
+    /// 等失敗後的處理（跳下一首、回佇列）做完：它在下一個 microtask 開始。
+    Future<void> settleFailures() async {
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+        await settle();
+      }
+    }
+
+    test('a track that cannot play is skipped: the next one plays and the '
+        'failure says so', () async {
+      await queue().add([track('gone'), track('b')]);
+      await settleFailures();
+
+      expect(currentInQueue(), 'b');
+      expect(playing(), 'b');
+      expect(failure()!.outcome, FailureOutcome.skipped);
+      expect(failure()!.state.track, track('gone'));
+      expect(failure()!.state.error, isA<NotFound>());
+    });
+
+    test('a stream the CDN keeps refusing (403) is resolved again once, then '
+        'skipped', () async {
+      backend.failLoadOf = (stream) => stream.url.path == '/a.m4a'
+          ? const AudioBackendError(NetworkError(), 'Response code: 403')
+          : null;
+
+      await queue().add([track('a'), track('b')]);
+      await settleFailures();
+
+      expect(loaded(), ['a.m4a', 'a.m4a', 'b.m4a']);
+      expect(playing(), 'b');
+      expect(failure()!.outcome, FailureOutcome.skipped);
+    });
+
+    test('three failures in a row stop on the third, paused there, and the '
+        'failure says so', () async {
+      await queue().add([
+        track('gone1'),
+        track('gone2'),
+        track('gone3'),
+        track('d'),
+      ]);
+      await settleFailures();
+
+      expect(currentInQueue(), 'gone3');
+      expect(container.read(playbackProvider)!.status, PlaybackStatus.failed);
+      expect(loaded(), isEmpty);
+      expect(failure()!.outcome, FailureOutcome.stopped);
+      expect(failure()!.streak, 3);
+      expect(failure()!.state.track, track('gone3'));
+    });
+
+    test('a track that plays resets the count', () async {
+      await queue().add([
+        track('gone1'),
+        track('gone2'),
+        track('ok'),
+        track('gone3'),
+        track('gone4'),
+        track('e'),
+      ]);
+      await settleFailures();
+      expect(playing(), 'ok');
+
+      finishCurrent();
+      await settleFailures();
+
+      expect(playing(), 'e');
+      expect(container.read(playbackProvider)!.status, PlaybackStatus.playing);
+      expect(failure()!.streak, 2);
+    });
+
+    test('after stopping, the next failure counts from one again', () async {
+      await queue().add([
+        track('gone1'),
+        track('gone2'),
+        track('gone3'),
+        track('gone4'),
+        track('e'),
+      ]);
+      await settleFailures();
+      expect(failure()!.outcome, FailureOutcome.stopped);
+
+      await queue().next();
+      await settleFailures();
+
+      expect(failure()!.streak, 1);
+      expect(playing(), 'e');
+    });
+
+    test('the last track failing stays there: nothing to skip to', () async {
+      await queue().add([track('a'), track('gone')]);
+      await queue().next();
+      await settleFailures();
+
+      expect(currentInQueue(), 'gone');
+      expect(failure()!.outcome, FailureOutcome.stayed);
+    });
+
+    test(
+      'a source asking for verification stops there instead of skipping',
+      () async {
+        await queue().add([track('verify'), track('b')]);
+        await settleFailures();
+
+        expect(currentInQueue(), 'verify');
+        expect(loaded(), isEmpty);
+        expect(failure()!.outcome, FailureOutcome.stayed);
+        expect(failure()!.state.error, isA<VerificationRequired>());
+      },
+    );
+  });
+
   group('臨時播放（brief〈播放〉）', () {
     TemporaryPlay? temporary() => container.read(temporaryPlayProvider);
     List<String> ids() => [
@@ -643,7 +764,10 @@ void main() {
         'one', () async {
       await queue().add([track('a')]);
       at(const Duration(seconds: 90));
-      backend.failNextLoad = const AudioBackendError(NetworkError(), 'x');
+      // 重新解析也開不了的串流。
+      backend.failLoadOf = (stream) => stream.url.path == '/x.m4a'
+          ? const AudioBackendError(NetworkError(), 'x')
+          : null;
 
       final statuses = <String>[];
       container.listen(playbackProvider, (_, next) {
@@ -656,9 +780,12 @@ void main() {
       await settle();
 
       expect(statuses, contains('x failed'));
+      expect(loaded(), ['a.m4a', 'x.m4a', 'x.m4a', 'a.m4a']);
       expect(playing(), 'a');
       expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
       expect(temporary(), isNull);
+      expect(failure()!.outcome, FailureOutcome.returnedToQueue);
+      expect(failure()!.state.track, track('x'));
     });
 
     test('單曲循環 does not repeat a temporary track', () async {

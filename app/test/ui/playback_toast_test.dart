@@ -5,7 +5,9 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/toast/playback_toast.dart';
+import 'package:fmp/ui/toast/toast.dart';
 
 /// 播放失敗的提示依錯誤分類給文字與動作（brief〈錯誤、log 與診斷〉、
 /// `docs/design/shell.html`〈手機：狀態〉）。文字以 zh-TW 為準。
@@ -124,13 +126,14 @@ void main() {
     ),
     ('a program error', failed(null), '「晴天」無法播放。', FmpIcons.warn, true),
   ]) {
-    test('$name: ${retry ? 'offers a retry' : 'no action'}', () {
+    test('$name, staying on it: ${retry ? 'offers a retry' : 'no action'}', () {
       var retried = 0;
       final toast = playbackFailedToast(
         t,
-        state,
+        PlaybackFailure(state, FailureOutcome.stayed, streak: 1),
         source: 'Demo',
         retry: () => retried++,
+        showQueue: () => fail('no queue action'),
       );
 
       expect(toast.text, text);
@@ -144,4 +147,52 @@ void main() {
       }
     });
   }
+
+  group('what the queue did', () {
+    ToastMessage toast(
+      FailureOutcome outcome, {
+      int streak = 1,
+      void Function()? showQueue,
+    }) => playbackFailedToast(
+      t,
+      PlaybackFailure(
+        failed(const Unavailable(UnavailableReason.membershipRequired)),
+        outcome,
+        streak: streak,
+      ),
+      source: 'Demo',
+      retry: () => fail('no retry'),
+      showQueue: showQueue ?? () => fail('no queue action'),
+    );
+
+    test('skipped: the reason, then that it moved on; no action', () {
+      final message = toast(FailureOutcome.skipped);
+
+      expect(message.text, '「晴天」需要會員才能播放。已跳下一首。');
+      expect(message.icon, FmpIcons.warn);
+      expect(message.action, isNull);
+    });
+
+    test('a temporary track: the reason, then back to the queue', () {
+      final message = toast(FailureOutcome.returnedToQueue);
+
+      expect(message.text, '「晴天」需要會員才能播放。已回到佇列。');
+      expect(message.action, isNull);
+    });
+
+    test('stopped after three in a row: says so first, then the last '
+        'reason, and offers the queue', () {
+      var shown = 0;
+      final message = toast(
+        FailureOutcome.stopped,
+        streak: 3,
+        showQueue: () => shown++,
+      );
+
+      expect(message.text, '連續 3 首都無法播放，已停止。「晴天」需要會員才能播放。');
+      expect(message.action!.label, '看佇列');
+      message.action!.onTap();
+      expect(shown, 1);
+    });
+  });
 }

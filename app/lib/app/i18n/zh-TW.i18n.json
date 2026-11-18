@@ -84,8 +84,12 @@
       "parseFailure": "「${title}」無法播放：讀不懂${source}的回應。",
       "sourceUnsupported": "${source}不支援播放，「${title}」無法播放。",
       "formatUnsupported": "這個裝置播不了「${title}」的格式。",
-      "failed": "「${title}」無法播放。"
-    }
+      "failed": "「${title}」無法播放。",
+      "skipped": "${reason}已跳下一首。",
+      "returnedToQueue": "${reason}已回到佇列。",
+      "stopped": "連續 ${count} 首都無法播放，已停止。${reason}"
+    },
+    "showQueue": "看佇列"
   },
   "queue": {
     "more": "更多",

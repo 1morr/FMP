@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/domain/track.dart';
@@ -44,6 +45,55 @@ class TemporaryPlayRewind extends Notifier<Duration> {
   void set(Duration value) => state = value;
 }
 
+/// 連續幾首播不了就停止（brief〈播放〉）。
+const maxConsecutiveFailures = 3;
+
+/// 一首播不了之後佇列怎麼處理。
+enum FailureOutcome {
+  /// 跳到下一首。
+  skipped,
+
+  /// 臨時播放的曲目播不了，回到佇列原本那首。
+  returnedToQueue,
+
+  /// 連續 [maxConsecutiveFailures] 首播不了，停在這首。
+  stopped,
+
+  /// 停在這首：沒有下一首可跳，或音源要求驗證（brief〈錯誤、log 與診斷〉：
+  /// 跳下一首也會被要求驗證）。
+  stayed,
+}
+
+/// 最近一次播放失敗與佇列的處理；畫面依它提示（Toast）。
+class PlaybackFailure {
+  const PlaybackFailure(this.state, this.outcome, {required this.streak});
+
+  /// 失敗的那首與原因（[PlaybackState.error]）。
+  final PlaybackState state;
+  final FailureOutcome outcome;
+
+  /// 連續第幾首播不了，含這一首。
+  final int streak;
+
+  @override
+  String toString() => 'PlaybackFailure($state, ${outcome.name}, $streak)';
+}
+
+/// 最近一次播放失敗；還沒失敗過是 null。只有 [QueueController] 改它，畫面
+/// 聽它出提示。
+final playbackFailureProvider =
+    NotifierProvider<PlaybackFailureHolder, PlaybackFailure?>(
+      PlaybackFailureHolder.new,
+    );
+
+/// [playbackFailureProvider] 的持有者；只給 [QueueController] 用。
+class PlaybackFailureHolder extends Notifier<PlaybackFailure?> {
+  @override
+  PlaybackFailure? build() => null;
+
+  void set(PlaybackFailure value) => state = value;
+}
+
 /// 上一首、下一首鈕能不能按。臨時播放時兩個都是回到佇列，佇列有目前那首
 /// （回得去）就能按。
 final skipAvailableProvider = Provider<({bool previous, bool next})>((ref) {
@@ -63,7 +113,14 @@ final skipAvailableProvider = Provider<({bool previous, bool next})>((ref) {
 /// 或按上一首、下一首就回到它，從離開的地方倒退
 /// [temporaryPlayRewindProvider] 接著播。臨時播放時改佇列（加入、拖動、
 /// 移除）都不打斷正在播的臨時曲目。
+///
+/// 一首播不了（[Playback] 已重新解析過一次）就跳下一首，臨時曲目回到佇列；
+/// 連續 [maxConsecutiveFailures] 首播不了、沒有下一首、或音源要求驗證時
+/// 停在那首。處理結果放 [playbackFailureProvider]。
 class QueueController extends Notifier<Queue> {
+  /// 連續幾首播不了；有一首開始播就歸零。
+  int _failures = 0;
+
   @override
   Queue build() {
     ref.listen(playbackProvider, (previous, next) {
@@ -71,12 +128,11 @@ class QueueController extends Notifier<Queue> {
           previous?.status != PlaybackStatus.completed) {
         unawaited(_onCompleted());
       }
-      // 臨時播放的那首播不了：提示（Toast）照常，然後照播完回到佇列。等這一輪
-      // 通知送完再回去，其他聽眾才收得到這次失敗。重試與跳過是之後的票。
-      if (next?.status == PlaybackStatus.failed &&
-          previous?.status != PlaybackStatus.failed &&
-          _temporary != null) {
-        unawaited(Future.microtask(_endTemporary));
+      if (next?.status == PlaybackStatus.playing) _failures = 0;
+      if (next != null &&
+          next.status == PlaybackStatus.failed &&
+          previous?.status != PlaybackStatus.failed) {
+        _onFailed(next);
       }
       final saver = ref.read(queueSaverProvider);
       if (saver == null) return;
@@ -270,6 +326,44 @@ class QueueController extends Notifier<Queue> {
       return;
     }
     await returnToQueue();
+  }
+
+  /// [failed] 播不了：決定跳下一首、回佇列或停下，記進
+  /// [playbackFailureProvider]，再去做。等這一輪通知送完再動播放，其他聽眾
+  /// 才收得到這次失敗。
+  void _onFailed(PlaybackState failed) {
+    final streak = ++_failures;
+    final temporary = _temporary != null;
+    final FailureOutcome outcome;
+    if (failed.error is VerificationRequired) {
+      outcome = FailureOutcome.stayed;
+    } else if (streak >= maxConsecutiveFailures) {
+      outcome = FailureOutcome.stopped;
+    } else if (temporary) {
+      outcome = state.current == null
+          ? FailureOutcome.stayed
+          : FailureOutcome.returnedToQueue;
+    } else if (failed.track == state.current?.track && state.hasNext) {
+      outcome = FailureOutcome.skipped;
+    } else {
+      outcome = FailureOutcome.stayed;
+    }
+    if (outcome != FailureOutcome.skipped &&
+        outcome != FailureOutcome.returnedToQueue) {
+      _failures = 0;
+    }
+    ref
+        .read(playbackFailureProvider.notifier)
+        .set(PlaybackFailure(failed, outcome, streak: streak));
+    switch (outcome) {
+      case FailureOutcome.skipped:
+        unawaited(Future.microtask(next));
+      case FailureOutcome.returnedToQueue:
+        unawaited(Future.microtask(_endTemporary));
+      case FailureOutcome.stopped || FailureOutcome.stayed:
+        // 停在這首；臨時曲目停下時就不回佇列了。
+        if (temporary && state.current == null) _temporary = null;
+    }
   }
 
   /// 一首自然播完：臨時播放的回到佇列（單曲循環也一樣），單曲循環重播
