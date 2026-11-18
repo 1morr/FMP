@@ -6,11 +6,11 @@ import '../../tool/src/device_lock.dart';
 import '../../tool/src/full_gate.dart';
 import '../../tool/src/steps.dart';
 
-/// 完整版閘門（docs/development.md〈開發環境與閘門〉）的平台步驟。外部指令經 [Shell]，這裡換成假的：
-/// 記下跑過的指令，依前綴決定結果與輸出。
 /// 每個 integration_test 都帶的隔離資料（不寫擁有者 dev 版的資料）。
 const _scratch = '--dart-define=FMP_SCRATCH_DATA=fmp-integration-test';
 
+/// 完整版閘門（docs/development.md〈開發環境與閘門〉）的平台步驟。外部指令經 [Shell]，這裡換成假的：
+/// 記下跑過的指令，依前綴決定結果與輸出。
 void main() {
   final app = Directory('/repo/app');
   final out = StringBuffer();

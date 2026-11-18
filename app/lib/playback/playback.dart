@@ -117,6 +117,10 @@ class Playback extends Notifier<PlaybackState?> {
 
   /// 後端已經載入完成的那一次 [play]；之前後端報的長度可能是上一首的。
   int _loadedGeneration = -1;
+
+  /// 正在開始播的那一次 [play]：叫後端播之前（載入、跳到開始位置）一律算
+  /// 載入中，不報成停在開頭的暫停。
+  int? _startingGeneration;
   Timer? _stallTimer;
   bool _stallLogged = false;
   bool _zeroDurationLogged = false;
@@ -157,6 +161,7 @@ class Playback extends Notifier<PlaybackState?> {
   /// 再播，不會先從開頭出聲）。連點時只有最後一首會播。
   Future<void> play(Track track, {Duration from = Duration.zero}) async {
     final generation = ++_generation;
+    _startingGeneration = generation;
     _stallTimer?.cancel();
     _stallLogged = false;
     _zeroDurationLogged = false;
@@ -200,6 +205,7 @@ class Playback extends Notifier<PlaybackState?> {
       }
       if (!_isCurrent(generation)) return;
     }
+    _startingGeneration = null;
     try {
       await _backend.play();
     } catch (error, stackTrace) {
@@ -339,7 +345,11 @@ class Playback extends Notifier<PlaybackState?> {
       AudioBackendStatus.buffering =>
         backend.playing ? PlaybackStatus.buffering : PlaybackStatus.loading,
       AudioBackendStatus.ready =>
-        backend.playing ? PlaybackStatus.playing : PlaybackStatus.paused,
+        backend.playing
+            ? PlaybackStatus.playing
+            : _startingGeneration == _generation
+            ? PlaybackStatus.loading
+            : PlaybackStatus.paused,
       AudioBackendStatus.completed => PlaybackStatus.completed,
       AudioBackendStatus.failed => PlaybackStatus.failed,
     };

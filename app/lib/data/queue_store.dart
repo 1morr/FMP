@@ -67,7 +67,7 @@ class QueueStore {
       currentEntryId: state.currentEntryId,
       nextEntryId: state.nextEntryId,
       repeat: state.repeat,
-      original: original == null
+      originalOrder: original == null
           ? null
           : [for (final row in original) row.entryId],
     );

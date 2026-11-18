@@ -80,8 +80,8 @@ void main() {
     final lines = await run.step('queue-playing');
     expect(lines, containsAll([first, second]));
 
-    // 等排著的寫入做完，記下存的位置給後半比對，然後就結束（App 被關掉）。
-    await tester.runAsync(() => container.read(queueSaverProvider)!.idle);
+    // 不等寫入做完、不暫停，播放中就結束（App 被關掉），像使用者直接關掉
+    // App。記下這時的位置給後半比對。
     final saved = container.read(queueProvider);
     final position = playback()!.position;
     await tester.runAsync(() async {
@@ -90,8 +90,11 @@ void main() {
         jsonEncode({
           'titles': [for (final e in saved.entries) e.track.title],
           'current': first,
-          // 播放中每差 5 秒寫一次（`QueueSaver.positionStep`）。
-          'atLeastMs': (position - QueueSaver.positionStep).inMilliseconds,
+          // 播放中每差 5 秒寫一次（`QueueSaver.positionStep`），最後一次可能還
+          // 在寫；多留 1 秒。
+          'atLeastMs':
+              (position - QueueSaver.positionStep - const Duration(seconds: 1))
+                  .inMilliseconds,
           'atMostMs': position.inMilliseconds,
         }),
       );

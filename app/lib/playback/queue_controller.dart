@@ -85,7 +85,8 @@ class QueueController extends Notifier<Queue> {
           position,
           now:
               previous?.track != next?.track ||
-              previous?.status != next?.status,
+              previous?.status != next?.status ||
+              _jumped(previous, next),
         );
       }
     });
@@ -103,8 +104,10 @@ class QueueController extends Notifier<Queue> {
   }
 
   /// 重啟後要回到的位置（brief〈播放〉）：目前那首正在播、暫停或還原時的
-  /// 位置；臨時播放時是離開佇列時的位置（不倒退）；播完、沒在播它時從頭。
-  /// 解析、載入中與失敗時還不知道（null），沿用上次存的。
+  /// 位置；臨時播放時是離開佇列時的位置（不倒退）；播完、停止時從頭。
+  /// 還不知道時是 null，沿用上次存的：解析、載入中、失敗，以及播放還停在
+  /// 別首（剛結束臨時播放、剛換曲還沒開始播）時；換曲時從頭由
+  /// [QueueSaver.queueChanged] 處理。
   Duration? _positionToSave() {
     final entry = state.current;
     if (entry == null) return Duration.zero;
@@ -112,9 +115,8 @@ class QueueController extends Notifier<Queue> {
       return temporary.resumeAt(entry, Duration.zero);
     }
     final playback = ref.read(playbackProvider);
-    if (playback == null || playback.track != entry.track) {
-      return Duration.zero;
-    }
+    if (playback == null) return Duration.zero;
+    if (playback.track != entry.track) return null;
     return switch (playback.status) {
       PlaybackStatus.resolving ||
       PlaybackStatus.loading ||
@@ -275,6 +277,13 @@ class QueueController extends Notifier<Queue> {
   Future<void> _onCompleted() {
     if (_temporary != null) return _endTemporary();
     return state.repeat == Repeat.one ? _playCurrent() : next();
+  }
+
+  /// 位置不是照著播放往前走：往回跳或一次跳超過 2 秒，當成拖了進度（seek）。
+  static bool _jumped(PlaybackState? previous, PlaybackState? next) {
+    if (previous == null || next == null) return false;
+    final moved = next.position - previous.position;
+    return moved.isNegative || moved > const Duration(seconds: 2);
   }
 
   Future<void> _playCurrent() async {

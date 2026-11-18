@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/storage.dart';
 import 'package:fmp/app/storage_notice.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
 import 'package:fmp/domain/queue.dart';
@@ -66,6 +68,8 @@ void main() {
       ],
       retry: (_, _) => null,
     );
+    // App 一開就有畫面讀佇列（迷你播放器的上一首、下一首），控制器跟著建起來。
+    container.read(queueProvider);
   }
 
   /// 等寫入做完，關掉 App 與資料庫，再開一次。
@@ -175,6 +179,99 @@ void main() {
     },
   );
 
+  test(
+    'seeking a restored track before playing moves where it will start',
+    () async {
+      await queue().add([track('a')]);
+      await settle();
+      playedTo(const Duration(seconds: 42));
+
+      await restart();
+      await container
+          .read(playbackProvider.notifier)
+          .seek(const Duration(minutes: 2));
+
+      expect(playback()?.position, const Duration(minutes: 2));
+      expect(backend.calls, isEmpty);
+      await container.read(playbackProvider.notifier).playPause();
+      await settle();
+      expect(backend.calls, ['load', 'seek 120000', 'play']);
+    },
+  );
+
+  test('seeking saves the new position right away', () async {
+    await queue().add([track('a')]);
+    await settle();
+    playedTo(const Duration(seconds: 10));
+    await container
+        .read(playbackProvider.notifier)
+        .seek(const Duration(seconds: 13));
+
+    await restart();
+
+    expect(playback()?.position, const Duration(seconds: 13));
+  });
+
+  test('the left position stays saved while going back to the queue track '
+      'until it plays again', () async {
+    await queue().add([track('a')]);
+    await settle();
+    playedTo(const Duration(minutes: 2));
+    await queue().playTemporarily(track('t'));
+    await settle();
+    // 回去那首卡在解析：重啟時還是離開的位置，不是 0。
+    final hold = backend.holdLoad = Completer<void>();
+    unawaited(queue().returnToQueue());
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    hold.complete();
+    await restart();
+
+    expect(playback()?.position, const Duration(minutes: 2));
+  });
+
+  test('starting a restored track from its position never saves the start '
+      'of the track on the way', () async {
+    await queue().add([track('a')]);
+    await settle();
+    playedTo(const Duration(seconds: 42));
+    await restart();
+    // 載入完、還沒跳到 0:42 就失敗了。
+    backend.failNextSeek = const AudioBackendError(NetworkError(), 'drop');
+    await container.read(playbackProvider.notifier).playPause();
+    await settle();
+
+    await restart();
+
+    expect(playback()?.position, const Duration(seconds: 42));
+  });
+
+  test(
+    'after a save fails, the next save writes the whole queue again',
+    () async {
+      await queue().add([track('a'), track('b')]);
+      await settle();
+      await container.read(queueSaverProvider)!.idle;
+      // 下一次寫佇列的位置失敗（整筆交易回滾）。
+      await database.customStatement(
+        'CREATE TEMP TRIGGER fail_once BEFORE INSERT ON queue_entries '
+        "BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+      );
+      await queue().add([track('c')]);
+      await container.read(queueSaverProvider)!.idle;
+      await database.customStatement('DROP TRIGGER fail_once');
+
+      // 只換目前那首；位置的順序和失敗那次一樣。
+      await queue().playAt(2);
+      await settle();
+      await restart();
+
+      expect(notice, isNull);
+      expect(ids(current()), ['a', 'b', 'c']);
+      expect(current().current?.track, track('c'));
+    },
+  );
+
   test('shuffle, repeat and both orders come back after a restart', () async {
     await queue().add([for (final id in 'abcdef'.split('')) track(id)]);
     await settle();
@@ -223,8 +320,10 @@ void main() {
     () async {
       await queue().add([track('a')]);
       await settle();
-      playedTo(const Duration(seconds: 5));
-      playedTo(const Duration(seconds: 9));
+      // 後端照著播放一秒一秒回報。
+      for (var second = 1; second <= 9; second++) {
+        playedTo(Duration(seconds: second));
+      }
 
       await restart();
 

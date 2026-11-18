@@ -202,4 +202,39 @@ void main() {
       throwsUnsupportedError,
     );
   });
+
+  group('restore', () {
+    QueueEntry entry(int id) => QueueEntry(id, track('t$id'));
+
+    Queue restore({
+      List<int> ids = const [0, 1],
+      int? current = 0,
+      int next = 2,
+      List<int>? originalOrder,
+    }) => Queue.restore(
+      entries: [for (final id in ids) entry(id)],
+      currentEntryId: current,
+      nextEntryId: next,
+      repeat: Repeat.off,
+      originalOrder: originalOrder,
+    );
+
+    test('rejects saved entries that share an id', () {
+      expect(() => restore(ids: [0, 0]), throwsFormatException);
+    });
+
+    test('rejects a current entry that is not in the queue', () {
+      expect(() => restore(current: 5), throwsFormatException);
+    });
+
+    test('rejects an entry id that the next added entry would reuse', () {
+      expect(() => restore(next: 1), throwsFormatException);
+    });
+
+    test('rejects an original order with entries that are not in the '
+        'queue or appear twice', () {
+      expect(() => restore(originalOrder: [0, 7]), throwsFormatException);
+      expect(() => restore(originalOrder: [0, 0]), throwsFormatException);
+    });
+  });
 }

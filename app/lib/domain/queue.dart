@@ -51,8 +51,8 @@ class Queue {
 
   static const empty = Queue._([], null, 0);
 
-  /// 從保存的狀態還原（`data/` 讀回時用）：[entries] 是播放順序，[original]
-  /// 是隨機時的原順序（[originalOrder]），其餘的位置算拖動過或插進來的；
+  /// 從保存的狀態還原（`data/` 讀回時用）：[entries] 是播放順序，
+  /// [originalOrder] 是隨機時的原順序，其餘的位置算拖動過或插進來的；
   /// 不隨機時是 null。對不起來（id 重複、目前那首或原順序裡有不存在的
   /// 位置、[nextEntryId] 不比每個 id 大）就丟 [FormatException]。
   factory Queue.restore({
@@ -60,7 +60,7 @@ class Queue {
     required int? currentEntryId,
     required int nextEntryId,
     required Repeat repeat,
-    required List<int>? original,
+    required List<int>? originalOrder,
   }) {
     final ids = [for (final entry in entries) entry.id];
     final idSet = ids.toSet();
@@ -76,6 +76,7 @@ class Queue {
     if (currentIndex == -1) {
       throw const FormatException('The current queue entry is missing');
     }
+    final original = originalOrder;
     if (original != null &&
         (original.toSet().length != original.length ||
             !idSet.containsAll(original))) {

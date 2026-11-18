@@ -37,15 +37,18 @@ class QueueSaver {
   /// 目前排著的寫入都做完。
   Future<void> get idle => _last;
 
-  /// 佇列變了：存整個佇列與 [position]（null 是沿用上次存的）。位置的順序
-  /// 沒變時只存目前那首、播放模式與進度。
+  /// 佇列變了：存整個佇列與 [position]。[position] 是 null（還不知道）時，
+  /// 目前那首沒換就沿用上次存的，換了就從頭。位置的順序沒變時只存目前那首、
+  /// 播放模式與進度。
   void queueChanged(Queue queue, Duration? position) {
     final previous = _savedQueue;
     final entriesChanged =
         previous == null ||
         !identical(previous.entries, queue.entries) ||
         !identical(previous.originalOrder, queue.originalOrder);
-    final at = position ?? _savedPosition ?? Duration.zero;
+    final sameCurrent = previous?.current?.id == queue.current?.id;
+    final at =
+        position ?? (sameCurrent ? _savedPosition : null) ?? Duration.zero;
     _savedQueue = queue;
     _savedPosition = at;
     _enqueue(() => _store.save(queue, at, entriesChanged: entriesChanged));
@@ -68,6 +71,8 @@ class QueueSaver {
       Object error,
       StackTrace stackTrace,
     ) {
+      // 整個佇列可能沒寫進去（交易已回滾）：下一次整份重寫，不只寫狀態那一列。
+      _savedQueue = null;
       _log.error(
         'Saving the queue failed',
         error: error,
