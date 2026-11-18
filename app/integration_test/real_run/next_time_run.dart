@@ -15,8 +15,8 @@ import 'driver.dart';
 /// 票 12 的量測情境：「按下一首到出聲」與「播完接下一首」。匿名搜一次
 /// 「lofi」，把畫出來的結果都加進佇列，第一首播 [_listen] 後按迷你播放器
 /// （或播放膠囊）的下一首，連按 [_presses] 次，各記下按下到開始載入
-/// （解析）、開始載入到出聲、按下到出聲；最後那首跳到結尾前 5 秒，記播完
-/// 到下一首出聲隔了多久。播不了的那首（CDN 拒絕）佇列會跳過，記成跳過、
+/// （解析）、開始載入到位置開始往前走、按下到位置開始往前走；最後那首跳到
+/// 結尾前 5 秒，記播完到下一首位置開始往前走隔了多久（量法見 [_Times]）。播不了的那首（CDN 拒絕）佇列會跳過，記成跳過、
 /// 不算樣本。跑法見 docs/development.md〈實跑驅動〉：
 ///
 ///     dart run tool/real_run.dart -d macos integration_test/real_run/next_time_run.dart
@@ -80,7 +80,18 @@ void main() {
     Future<void> listen() =>
         tester.runAsync(() => Future<void>.delayed(_listen));
 
-    Track upcoming() => container.read(queueProvider).upcoming!.track;
+    // 不用 `Queue.upcoming`：預載前的程式（票 12 之前）沒有它，同一支情境
+    // 要能量預載前後。
+    Track upcoming() {
+      final queue = container.read(queueProvider);
+      return queue.entries[queue.currentIndex! + 1].track;
+    }
+
+    // 等到 [times] 那首的位置開始往前走、而且之後還在增加。
+    Future<void> waitMoving(_Times times) => run.waitFor(
+      find.byWidgetPredicate((_) => times.confirmed),
+      timeout: const Duration(seconds: 30),
+    );
 
     // 加入佇列：佇列是空的，開始播第一首。
     await container.read(queueProvider.notifier).add(picks);
@@ -96,13 +107,14 @@ void main() {
       await tester.tap(next.first);
       final previous = current;
       current = await waitPlaying((t) => t != previous);
+      if (current == track) await waitMoving(times);
       times.close();
       report.add(
         current != track
             ? 'press $i: ${track.ref.logId} could not play, skipped'
             : 'press $i (${formatDuration(track.duration ?? Duration.zero)}): '
-                  'resolve ${times.resolve} ms, loading to sound '
-                  '${times.start} ms, next to sound ${times.total} ms',
+                  'resolve ${times.resolve} ms, loading to moving '
+                  '${times.start} ms, next to moving ${times.total} ms',
       );
       await listen();
       await run.step('next-$i');
@@ -117,12 +129,13 @@ void main() {
         .seek(length - const Duration(seconds: 5));
     final previous = current;
     current = await waitPlaying((t) => t != previous);
+    if (current == following) await waitMoving(times);
     times.close();
     report.add(
       current != following
           ? 'at the end: ${following.ref.logId} could not play, skipped'
-          : 'at the end: end of the previous to sound ${times.gap} ms '
-                '(resolve ${times.resolve} ms, loading to sound '
+          : 'at the end: end of the previous to moving ${times.gap} ms '
+                '(resolve ${times.resolve} ms, loading to moving '
                 '${times.start} ms)',
     );
     await run.step('at-the-end');
@@ -135,7 +148,12 @@ const _presses = 3;
 /// 每首先播多久再按下一首。
 const _listen = Duration(seconds: 15);
 
-/// 一次換曲的時間點，從 [playbackProvider] 的狀態變化記。
+/// 一次換曲的時間點，從 [playbackProvider] 的狀態變化記。「出聲」以新那首
+/// 的播放位置開始往前走為準：第一次在播放中報出大於 0 的位置（[moving]），
+/// 之後又報出更大的位置（[confirmed]）才算數。位置來自音訊後端，just_audio
+/// 長片約每 200 毫秒報一次，而且 ready 加播放中時它用時鐘外推位置，所以這是
+/// 「播放器開始走」的時間，不等於喇叭真的出聲（docs/research/
+/// next-time-2026-11-18.md）。
 class _Times {
   _Times.watch(ProviderContainer container, Track track, {Track? endOf}) {
     _subscription = container.listen<PlaybackState?>(playbackProvider, (
@@ -159,7 +177,14 @@ class _Times {
         case PlaybackStatus.playing:
           resolving ??= now;
           loading ??= now;
-          playing ??= now;
+          if (s.position > Duration.zero) {
+            if (moving == null) {
+              moving = now;
+              _firstPosition = s.position;
+            } else if (s.position > _firstPosition!) {
+              confirmed = true;
+            }
+          }
         default:
           break;
       }
@@ -167,12 +192,16 @@ class _Times {
   }
 
   late final ProviderSubscription<PlaybackState?> _subscription;
-  DateTime? tapped, ended, resolving, loading, playing;
+  DateTime? tapped, ended, resolving, loading, moving;
+  Duration? _firstPosition;
+
+  /// 第一次報出位置之後，位置又往前走了。
+  bool confirmed = false;
 
   void close() => _subscription.close();
 
   int get resolve => loading!.difference(tapped ?? ended!).inMilliseconds;
-  int get start => playing!.difference(loading!).inMilliseconds;
-  int get total => playing!.difference(tapped!).inMilliseconds;
-  int get gap => playing!.difference(ended!).inMilliseconds;
+  int get start => moving!.difference(loading!).inMilliseconds;
+  int get total => moving!.difference(tapped!).inMilliseconds;
+  int get gap => moving!.difference(ended!).inMilliseconds;
 }
