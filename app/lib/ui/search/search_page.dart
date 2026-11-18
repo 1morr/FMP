@@ -223,7 +223,7 @@ class _PlaybackPanel extends ConsumerWidget {
       PlaybackStatus.completed => t.placeholder.playback.completed,
       PlaybackStatus.failed => _errorText(t, playback),
     };
-    final duration = playback.duration;
+    final duration = playback.effectiveDuration;
     return Row(
       children: [
         Expanded(child: Text(status)),

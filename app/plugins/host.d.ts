@@ -84,4 +84,10 @@ interface ResolveStreamResponse {
   codec?: string;
   /** 位元率（bit/s）。 */
   bitrate?: number;
+  /**
+   * 串流是單檔 fragmented MP4 時，init（ftyp、moov）與 sidx 的位置：含頭尾的
+   * 位元組範圍 '<first>-<last>'，命名照 MPEG-DASH 的 SegmentBase（ADR 0040）。
+   * 不知道就不給；給了格式不對，整次解析算失敗。
+   */
+  segmentBase?: { initialization: string; indexRange: string };
 }

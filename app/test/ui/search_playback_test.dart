@@ -43,7 +43,12 @@ void main() {
         PluginBundle(
           manifest: manifest('songs', ['search', 'resolveStream']),
           code: '''
-            export async function search() {
+            export async function search({ query }) {
+              if (query === 'long') {
+                return { tracks: [
+                  { id: 'long', title: 'Long', author: 'Eve', durationMs: 3573000 },
+                ] };
+              }
               return { tracks: [
                 { id: 'ok', title: 'Playable', author: 'Alice' },
                 { id: 'gone', title: 'Gone', author: 'Bob' },
@@ -99,6 +104,33 @@ void main() {
       await tester.pump();
     }
   }
+
+  testWidgets('the panel and the transport bar show the track\'s own length '
+      'when the backend reports a much shorter one', (tester) async {
+    // AVPlayer 遇到 CDN 中途斷線時把長度截短（事實 M14）。
+    final backend = FakeAudioBackend()
+      ..loadedDuration = const Duration(minutes: 33, seconds: 10);
+    await tester.pumpWidget(
+      buildRoot(
+        overrides: [
+          pluginHostProvider.overrideWith((_) => host),
+          audioBackendProvider.overrideWithValue(backend),
+        ],
+      ),
+    );
+    await openSearch(tester);
+    await tester.enterText(find.byType(TextField), 'long');
+    await tester.runAsync(
+      () => tester.testTextInput.receiveAction(TextInputAction.search),
+    );
+    await waitFor(tester, find.text('Long'));
+
+    await tester.runAsync(() async => tester.tap(find.text('Long')));
+    await waitFor(tester, find.text('播放中'));
+
+    expect(find.text('0:00 / 59:33'), findsNWidgets(2));
+    expect(find.textContaining('33:10'), findsNothing);
+  });
 
   testWidgets('tapping a track plays it and shows its stream, or why it '
       'cannot play', (tester) async {

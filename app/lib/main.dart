@@ -35,7 +35,7 @@ Future<void> main() async {
       overrides: [
         logProvider.overrideWithValue(log),
         appDatabaseProvider.overrideWithValue(database),
-        audioBackendOverride(createAudioBackend),
+        audioBackendOverride(() => createAudioBackend(log)),
       ],
     ),
   );

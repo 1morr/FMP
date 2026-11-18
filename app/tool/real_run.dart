@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'src/blank_screenshot.dart';
 import 'src/device_lock.dart';
 import 'src/devices.dart';
 import 'src/real_run_host.dart';
@@ -52,6 +53,16 @@ Future<void> main(List<String> args) async {
         : await _local(app, platform, file, dir);
   } finally {
     if (!alreadyHeld) await lock.release();
+  }
+
+  // 測試綠、截圖白不算通過（票 06b：winpc 螢幕睡著時截到白圖）。
+  final blank = blankScreenshots(dir);
+  if (blank.isNotEmpty) {
+    stderr.writeln(
+      '\nBlank screenshots, the run does not count:\n'
+      '${blank.map((b) => '  $b').join('\n')}',
+    );
+    if (code == 0) code = 1;
   }
 
   stdout.writeln('\nReal run ($platform) saved to ${dir.path}:');

@@ -249,6 +249,10 @@ void main() {
                 'baseUrl': cdnUrl(cid, deadlineParam: deadlineParam),
                 'bandwidth': 132000,
                 'codecs': 'mp4a.40.2',
+                'SegmentBase': {
+                  'Initialization': '0-836',
+                  'indexRange': '837-9432',
+                },
               },
             ],
           },
@@ -281,9 +285,57 @@ void main() {
           expiresAt: DateTime.utc(2026),
           codec: 'mp4a.40.2',
           bitrate: 132000,
+          // 音訊軌是單檔 fragmented MP4，playurl 給了 init 與 sidx 的位置
+          // （ADR 0040）。
+          segmentBase: const SegmentBase(
+            initialization: ByteRange(0, 836),
+            index: ByteRange(837, 9432),
+          ),
         ),
       );
     });
+
+    for (final (name, audio, expected) in [
+      (
+        'the snake_case segment_base',
+        {
+          'segment_base': {
+            'initialization': '0-900',
+            'index_range': '901-2000',
+          },
+        },
+        const SegmentBase(
+          initialization: ByteRange(0, 900),
+          index: ByteRange(901, 2000),
+        ),
+      ),
+      ('no segment base', <String, Object?>{}, null),
+      (
+        'a segment base that is not two ranges',
+        {
+          'SegmentBase': {'Initialization': '0-836', 'indexRange': 'oops'},
+        },
+        null,
+      ),
+    ]) {
+      test('reads $name', () async {
+        respond = (url) => switch (url.path) {
+          '/x/player/pagelist' => pages(url),
+          _ => FakeResponse.json(
+            ok({
+              'dash': {
+                'audio': [
+                  {'baseUrl': cdnUrl(101), 'bandwidth': 132000, ...audio},
+                ],
+              },
+            }),
+          ),
+        };
+
+        final stream = await bilibili().resolveStream(bv('BV1xx411c7mD'));
+        expect(stream.segmentBase, expected);
+      });
+    }
 
     test('asks pagelist for the cid, then playurl for DASH audio', () async {
       respond = video;

@@ -123,6 +123,14 @@ class Plugin {
             : DateTime.fromMillisecondsSinceEpoch(expiresAtMs, isUtc: true),
         codec: json['codec'] as String?,
         bitrate: _whole(json['bitrate'], 'bitrate'),
+        segmentBase: switch (json['segmentBase']) {
+          null => null,
+          final Map base => SegmentBase(
+            initialization: ByteRange.parse(base['initialization'] as String),
+            index: ByteRange.parse(base['indexRange'] as String),
+          ),
+          _ => throw const FormatException('segmentBase is not an object'),
+        },
       );
     });
   }

@@ -5,8 +5,8 @@ import 'package:fmp/domain/audio_stream.dart';
 /// 用 just_audio，Windows 用 media_kit（`playback/backends/`）；依平台挑哪個
 /// 在 `platform/audio_backend.dart`。
 ///
-/// 一次只放一條串流。M0 只有載入、播放、暫停、狀態與錯誤；佇列、seek、
-/// 預載下一首在 M1。
+/// 一次只放一條串流：載入、播放、暫停、跳到某個位置、狀態與錯誤；預載
+/// 下一首在 M1。
 ///
 /// 實作負責把原生播放器的錯誤轉成錯誤分類（[AudioBackendError]），呼叫端
 /// 負責寫 log。[state] 與 [states] 從載入起才有意義；實作不寫 log，也不在
@@ -28,6 +28,9 @@ abstract interface class AudioBackend {
   Future<void> play();
 
   Future<void> pause();
+
+  /// 跳到 [position]，播放中就從那裡接著播。之後的 [state] 從那裡報位置。
+  Future<void> seek(Duration position);
 
   /// 停止並釋放原生播放器；之後不能再用。
   Future<void> dispose();

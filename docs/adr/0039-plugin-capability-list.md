@@ -75,6 +75,10 @@ ADR 0038 定了音源用 JS 插件實作、介面依插件宣告的插件能力�
 
 `PluginTrack` 多一個選填的 `coverUrl`：清單用的封面縮圖網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗。縮圖的尺寸由插件挑，夠 3x 螢幕上 40–52 點的封面用（bilibili 用圖床參數裁成 160 方形 webp，約 2 KB；原圖平均約 450 KB）；播放頁與曲目資訊要的大圖之後另外取。宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。契約測試的 search 案例可以加 `{"covers": true}`，要求每首都有封面。排序參數由票 14 補。（2026-11-17 擁有者同意在票 06 補封面；交出縮圖而不是原圖由協調者定。）
 
+### `resolveStream` 的 `segmentBase`（M1 票 06b）
+
+回應多一個選填的 `segmentBase`：`{"initialization": "0-836", "indexRange": "837-9432"}`，兩個都是含頭尾的位元組範圍 `<first>-<last>`，命名照 MPEG-DASH 的 `SegmentBase`（`Initialization@range`、`@indexRange`）。串流是單檔 fragmented MP4、而且插件拿得到這兩個範圍時才給；bilibili 照 playurl 的 `SegmentBase`（或 `segment_base`）填，讀不到就不給。宿主收進 `AudioStream.segmentBase`；給了但格式不對，整次解析算解析失敗。Apple 平台的音訊後端用它把串流包成 HLS（ADR 0040），其他平台不看。契約測試的 resolveStream 案例可以加 `{"segmentBase": true}`，要求串流給這兩個範圍。（2026-11-18 擁有者同意 ADR 0040 時一併同意。）
+
 ## 後果
 
 - 好的：清單短，插件頁（設計稿的 `plugins.html`）照這份列出支援與不支援；複製連結、排序不用另外宣告。

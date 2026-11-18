@@ -221,6 +221,95 @@ void main() {
     expect(current()!.status, PlaybackStatus.completed);
   });
 
+  group('the shown length', () {
+    const long = Track(
+      ref: TrackRef(pluginId: 'songs', trackId: 'long'),
+      title: 'Long',
+      author: 'A',
+      duration: Duration(minutes: 59, seconds: 33),
+    );
+    const other = Track(
+      ref: TrackRef(pluginId: 'songs', trackId: 'other'),
+      title: 'Other',
+      author: 'A',
+      duration: Duration(minutes: 3, seconds: 8),
+    );
+
+    test(
+      'is the track\'s own when the backend reports a much shorter one',
+      () async {
+        // AVPlayer 遇到 CDN 中途斷線時把長度截短（事實 M14）。
+        backend.loadedDuration = const Duration(minutes: 33, seconds: 10);
+        await playback().play(long);
+
+        expect(current()!.effectiveDuration, long.duration);
+      },
+    );
+
+    test(
+      'is the backend\'s when it is within a few seconds of the track\'s',
+      () async {
+        // 插件的時長是整數秒，後端的較準。
+        backend.loadedDuration = const Duration(minutes: 59, seconds: 32);
+        await playback().play(long);
+
+        expect(
+          current()!.effectiveDuration,
+          const Duration(minutes: 59, seconds: 32),
+        );
+      },
+    );
+
+    test('is the backend\'s when the track has none', () async {
+      backend.loadedDuration = const Duration(minutes: 4);
+      await playback().play(playable);
+
+      expect(current()!.effectiveDuration, const Duration(minutes: 4));
+    });
+
+    test('is the track\'s own while the backend reports zero', () async {
+      // AVPlayer 還不知道長度時，just_audio 報 0（事實 I4）。
+      backend.loadedDuration = Duration.zero;
+      await playback().play(long);
+      backend.emit(
+        backend.state.copyWith(status: AudioBackendStatus.buffering),
+      );
+
+      expect(current()!.effectiveDuration, long.duration);
+    });
+
+    test(
+      'never shows the previous track\'s length while the next one loads',
+      () async {
+        backend.loadedDuration = other.duration;
+        await playback().play(other);
+        backend.holdLoad = Completer<void>();
+        final playing = playback().play(long);
+        for (var i = 0; i < 100 && backend.loaded.length < 2; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+
+        // 上一首遲到的狀態，帶著它的長度。
+        backend.emit(
+          backend.state.copyWith(
+            status: AudioBackendStatus.ready,
+            duration: () => other.duration,
+          ),
+        );
+        expect(current()!.track, long);
+        expect(current()!.effectiveDuration, long.duration);
+
+        backend.loadedDuration = const Duration(minutes: 59, seconds: 32);
+        backend.holdLoad!.complete();
+        await playing;
+        expect(
+          current()!.effectiveDuration,
+          const Duration(minutes: 59, seconds: 32),
+        );
+      },
+    );
+  });
+
   test('a stream the plugin cannot resolve fails with its error category '
       'and loads nothing', () async {
     await playback().play(
