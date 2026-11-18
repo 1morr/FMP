@@ -62,21 +62,21 @@ M0 留下的一起做：
 
 ### 驗證
 
-完整閘門（`dart run tool/check.dart`，`13fdda45`）：
+最後閘門（`dart run tool/check.dart --skip-windows`，`21909d0e`，合併 main 之後），退出碼 0：
 
 ```
-ok   i18n (slang) … ok   doc gate tests（quick 全部 ok）
-ok   build macos / build macos native tests / build ios / build android
+ok   i18n (slang)、codegen、format、analyze、test、schema snapshot、doc gate、doc gate tests
+ok   build macos、build macos native tests、build ios、build android
 ok   lock shared devices
-FAIL build windows
+SKIP build windows (--skip-windows: winpc keeps crashing, Windows checks wait until it is stable again)
 ok   native tests macos
 ok   integration_test macos／ios／android：app_test、queue_test、search_and_play_test、stream_duration_test、stream_refresh_test（15 步全 ok）
-FAIL integration_test windows：上面五個都紅
+SKIP integration_test windows：上面五個（同一個原因）
 ok   unlock shared devices
 ok   plugin bundles (esbuild)
 ```
 
-Windows 六步都是同一個原因：排程工作 `fmpbuild` 一啟動就「就緒」、沒有 `C:\fmp-wt\build.log`（winpc 藍屏重開後停在登入畫面，見〈winpc〉），不是程式的問題，也沒建置到程式。
+之前那輪不帶旗標的完整閘門（`13fdda45`）除了 Windows 六步，其他全 ok；Windows 六步紅是因為 winpc 藍屏重開後停在登入畫面，排程工作 `fmpbuild` 一啟動就「就緒」，沒有建置到程式（見〈winpc〉）。
 
 Session 紀錄：2026-11-18 失敗處理（重新解析一次、跳下一首、連續 3 首停）、過期前重新解析、看門狗兩門檻（四平台量測定 45／15 秒）、mpv 設定、audio_session、未捕捉錯誤寫 log；mac、iOS、Android 實跑重新解析，Windows 因 winpc 藍屏後停在登入畫面沒跑成
 決定：測試接縫五層：playback、佇列、提示 widget、classifyMpvLog 與未捕捉錯誤單元測試、閘門的 403 integration_test（協調者代答）（Agent 定）
