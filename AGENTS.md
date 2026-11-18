@@ -15,8 +15,8 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 - `.scratch/<里程碑>/spec.md`：該里程碑的目標、範圍、共同規則、驗收（Agent 驗、使用者試）與票序；`issues/` 是票，執行單位，狀態在票的 `Status:` 行。做票的 session 紀錄與決定留在票上，`python3 scripts/ticket_notes.py <里程碑的目錄名>` 印出整個里程碑的。
 - `CHANGELOG.md`：新版的使用者拿到什麼、改了什麼，依功能記。做票時寫在票的 `變更：` 行，驗收票組進 `[Unreleased]`；舊版的發版說明由 `release.yml` 從 commit 產生，不寫這裡。
 - `GLOSSARY.md`、`docs/adr/`：名詞表與架構決定，由 `/grill-with-docs` 按需建立；命名一律用名詞表的詞。ADR 0001–0007 只描述舊版；新 ADR 的編號規則在 `docs/adr/template.md`。
-- `docs/design/`：新版的設計稿與設計系統（`DESIGN.md`、`PRODUCT.md`）。
-- `docs/legacy/`：舊版的文件，隨舊版凍結：`development.md`、`building.md`、`build-and-release.md`、`troubleshooting.md`，以及上一輪重寫前的審計快照 `audit/`。
+- `docs/design/`：新版的設計稿與設計系統。
+- `docs/legacy/`：舊版的文件與上一輪重寫前的審計快照，隨舊版凍結；檔案清單見 `docs/README.md`。
 - `docs/README.md`：`docs/` 的索引，給人看的；新增或搬動文件時同輪改它。
 - 上面這些檔名與位置是固定的，別的 skill 靠它們找檔。`docs/` 第一層每多一個檔或資料夾，就在這一段加一行說明它是什麼（`scripts/check_docs.py` 擋）。`docs/research/` 一層、不分資料夾：`facts-<主題>.md`、會更新的 `<主題>.md`、寫完就凍結的 `<主題>-<YYYY-MM-DD>.md`。
 
@@ -48,7 +48,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 工作單位是**票**：`.scratch/<里程碑>/issues/NN-slug.md`，由里程碑開工的 session 產生（見〈Skills〉）。一個 session 只做一張票，在自己的分支上做。
 
 1. 讀 `docs/progress.md`、`docs/decisions.md`、該里程碑的 spec，跑 `python3 scripts/ticket_notes.py <里程碑的目錄名>` 看先前的票定過什麼，再讀票；只讀票列出的架構與 brief 章節，其他按需讀。
-2. `/implement <票路徑>`：tdd、定期 typecheck、結尾 `/code-review <開工時的 commit>`、commit。
+2. `/implement <票路徑>`：tdd、定期 typecheck、結尾從開工時的 commit 起跑 `mattpocock-skills:code-review`、commit。
 3. 驗證：docs/development.md〈開發環境與閘門〉的全部檢查，也就是在 `app/` 跑 `dart run tool/check.dart` 完整版（涵蓋所有目標平台，含 test）；貼指令輸出。
 4. 影響架構的決定另寫 ADR（照〈擁有者確認〉）。
 5. 票的 `Status:` 改為 `done`、勾掉驗收條件、code-review 未處理的發現記到票的 `## Comments`；Comments 最後加一行 `Session 紀錄：<YYYY-MM-DD> <做了什麼，一句>`，做票時定的每個選擇各加一行 `決定：<一句>（<決定者>）`，使用者看得到的每個改動各加一行 `變更：<分類>｜<功能>｜<使用者看得懂的一句>`（分類是 Keep a Changelog 的 Added、Changed、Deprecated、Removed、Fixed、Security 之一；`<功能>` 沿用 `CHANGELOG.md` 與名詞表的名字；沒有寫 `變更：無`）；commit。票是這些紀錄唯一的來源，沒有人抄：做票的分支不改 progress.md、decisions.md 與 `CHANGELOG.md`，平行的票才不會互撞。
@@ -62,7 +62,7 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 1. 不是做票的 session 在 progress.md 加一列，「下一步」寫下一個 session 要下的完整指令：里程碑做完是 `/1morr:checkpoint <剛做完的里程碑>`（它結束時寫 `/to-tickets docs/roadmap.md 拆 <下一個里程碑> 的票`），拆完票是第一張票的 `/implement <票路徑>`。
 2. 要擁有者先決定才能繼續：做票的 session 在票的 `## Comments` 加一行 `等使用者：<要決定什麼>`，票不改 `done`；其他 session 寫進 progress.md 的「下一步」。擁有者回答後，接手的 session 在那一行下面記 `決定：<一句>（使用者定）`，那一題就結了。
-3. commit 之後跑 `python3 scripts/next_step.py`，輸出原樣貼給使用者。協調者開的 session 只回報做完了，下一步由協調者報。
+3. commit 之後跑 `python3 scripts/next_step.py`，照它的結果告訴使用者下一步：等擁有者決定的每一題用你的話講（寫法照〈擁有者確認〉），下一條指令照它印的放進 code block；它說的和你剛做的對不上時，說明差在哪。協調者開的 session 只回報做完了，下一步由協調者報。
 
 ## 事實與查證
 
@@ -78,9 +78,12 @@ Flutter 音樂播放器，音源是 Bilibili、YouTube、網易雲音樂。新�
 
 ## UI
 
-- 照 `docs/design/` 的定稿實作，要偏離先問擁有者。定稿之後才新增或大改的畫面，在那張票的第一步用 `impeccable:impeccable` 出設計，擁有者確認後才實作。
-- 做對比版：每一版在自己的 worktree 做，只讀 brief 與 `docs/design/DESIGN.md`，別的版本的設計稿留到擁有者比較時才打開。
 - UI 改動實跑驗證（照 docs/development.md〈實跑驅動〉），附截圖或讀回的畫面文字。
+- 排 roadmap、做對比版、做會新增畫面或改版面的票之前，先讀 `docs/agents/ui.md`：照 `docs/design/` 的定稿實作，偏離先問擁有者。
+
+## 視覺化
+
+這個專案用 `visual-explainer` 把圖和要擁有者選的事做成一頁，用在四處：寫架構的草稿、里程碑開工的計劃、開工時票對程式碼找到的問題、要畫出來才看得懂的二選一。到了這四處先讀 `docs/agents/visual.md`。
 
 ## 公開 repo 與擁有者的帳號
 
@@ -110,7 +113,7 @@ GitHub `1morr/FMP` 的 issue 收外部回報，用 `gh` 處理；工作用的票
 ## Skills
 
 - 需求與設計訪談：`/grill-with-docs`（邊問邊寫 `GLOSSARY.md` 與 ADR，照〈擁有者確認〉先給草稿），結論寫回 brief。
-- 里程碑開工（使用者在新 session 下 `/to-tickets docs/roadmap.md 拆 <里程碑> 的票`）、做驗收票 `NN-<里程碑>-acceptance`：先讀 `docs/agents/milestone.md`，照它的步驟做。之後的里程碑留在 roadmap，開工時才有 spec。
+- 里程碑開工（使用者在新 session 下 `/to-tickets docs/roadmap.md 拆 <里程碑> 的票`）、做驗收票 `NN-<里程碑>-acceptance`：先讀 `docs/agents/milestone.md`，照它的步驟做。
 - 做票：一張票一個 session，`/implement`；整批跑票：`/1morr:ticket-coordinator`。
 - 里程碑之間：`/1morr:checkpoint`；想看懂某樣東西現在怎麼運作：`/1morr:explain`；里程碑、票、決定的總覽頁：`/1morr:dashboard`。
 - 新功能與修 bug：`mattpocock-skills:tdd`。

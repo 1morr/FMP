@@ -2,7 +2,7 @@
 
     python next_step.py [repo 根目錄，預設目前目錄]
 
-每個 session 結尾跑它，把輸出原樣貼給使用者；使用者問「接下來做什麼」時也跑它。只讀不寫，永遠 exit 0。輸出三段，沒有內容的段不印：
+每個 session 結尾跑它，照它的結果告訴使用者下一步（指令照抄，等使用者決定的題用自己的話講）；使用者問「接下來做什麼」時也跑它。只讀不寫，永遠 exit 0。輸出三段，沒有內容的段不印：
 
     等你決定（2）
       - M1 票 03：<題目>（.scratch/m1/issues/03-x.md）
@@ -36,6 +36,7 @@ MILESTONES, SESSIONS, STEP = "里程碑", "Session 紀錄", "下一步"
 ACTIVE, CLOSED = "進行中", ("已驗收", "不做")
 WAITING, DECISION_NOTE = "等使用者：", "決定："
 COMMENTS = "\n## Comments"
+ITEM = re.compile(r"^\s*(?:[-*+]\s+)?")
 AFTER = re.compile(r"排在\s*`?([^\s`，。；、]+)`?\s*之後")
 STATUS = re.compile(r"^\**Status:?\**:?\s*(\S.*?)\s*$", re.I)
 BLOCKED = re.compile(r"^\**Blocked by:?\**:?\s*(.*)$", re.I)
@@ -72,9 +73,10 @@ def table(text: str, title: str) -> list:
 
 
 def open_questions(text: str) -> list:
-    """票的 `## Comments` 之後還沒回答的「等使用者：」：最後一行「決定：」之後的那幾題。"""
+    """票的 `## Comments` 之後還沒回答的「等使用者：」：最後一行「決定：」之後的那幾題。寫成清單（`- 等使用者：…`）或縮排的也認。"""
     out = []
     for line in text.split(COMMENTS, 1)[1].split("\n") if COMMENTS in text else []:
+        line = ITEM.sub("", line)
         if line.startswith(DECISION_NOTE):
             out = []
         elif line.startswith(WAITING) and line[len(WAITING):].strip():

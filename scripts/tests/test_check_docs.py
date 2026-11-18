@@ -443,7 +443,15 @@ class CodeRefsTest(Repo):
             subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True)
 
     def test_code_citing_a_section_number(self):
-        for text in ("// 見 plan §3.2", "# brief §4 的規則", "/* docs/plan.md § 11 */", "// ARCHITECTURE.md §2"):
+        for text in (
+            "// 見 plan §3.2",
+            "# brief §4 的規則",
+            "/* docs/plan.md § 11 */",
+            "// ARCHITECTURE.md §2",
+            "//! 依賴規則見 `docs/plan.md` §1.3。",
+            "//! 簡繁轉換（plan〈資料流〉 的後處理、§4.4）",
+            "// plan〈介面〉、brief〈桌面鍵盤操作〉 的 ← / →、§4.4 點組字的某一段",
+        ):
             with self.subTest(text):
                 self.setUp()
                 self.write("src/engine.rs", f"fn main() {{}}\n{text}\n")
@@ -451,7 +459,12 @@ class CodeRefsTest(Repo):
                 self.red("src/engine.rs:2：引用了 brief 或架構文檔的章節號")
 
     def test_citing_an_adr_or_a_fact_is_fine(self):
-        self.write("src/engine.rs", "// ADR 0003、事實 B3、architecture〈依賴規則〉；plan 與 brief 兩個字本身不算；§ 單獨出現也不算\n")
+        self.write(
+            "src/engine.rs",
+            "// ADR 0003、事實 B3、architecture〈依賴規則〉；plan 與 brief 兩個字本身不算；§ 單獨出現也不算\n"
+            "// plan〈學習與排位〉、`docs/research/learning-forgetting-sync.md` §2.2：研究筆記的節號可以引\n"
+            "// brief〈容錯〉 的取捨，量法在別處；這行很長很長很長很長很長很長很長很長很長很長，ADR 0007 §2\n",
+        )
         self.track()
         self.clean()
 
@@ -604,6 +617,15 @@ class ScratchTest(Repo):
                 self.red("01-first.md：「決定：」那一行要標一個決定者")
         self.write(".scratch/m1/issues/01-first.md", TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n- 這一行提到決定：但不是開頭。\n")
         self.clean()
+
+    def test_notes_written_as_list_items_count(self):
+        done = TICKET.replace("ready-for-agent", "done")
+        self.write(".scratch/m1/issues/01-first.md", done + "\n- Session 紀錄：2026-01-04 做完。\n  - 決定：" + "長" * 148 + "（Agent 定）\n")
+        self.clean()
+        self.write(".scratch/m1/issues/01-first.md", done + "\n- Session 紀錄：2026-01-04 做完。\n- 決定：改用另一個套件。\n")
+        self.red("01-first.md：「決定：」那一行要標一個決定者")
+        self.write(".scratch/m1/issues/01-first.md", done + "\n- Session 紀錄：2026-01-04 做完。\n- 等使用者：上限寫死還是做成設定？\n")
+        self.red("01-first.md：票做完了，Comments 裡的「等使用者：」還沒有回答")
 
     def test_with_a_changelog_a_done_ticket_says_what_changed_for_the_user(self):
         done = TICKET.replace("ready-for-agent", "done") + "\nSession 紀錄：2026-01-04 做完。\n"
