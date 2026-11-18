@@ -282,7 +282,7 @@ function bkDeskProgress(ctx) {
 function bkDeskResult(ctx) {
   const body = '<div style="display:flex;align-items:center;gap:12px;margin-top:2px"><span class="bk-hero" style="padding:0"><span class="ic ok" style="width:44px;height:44px">' + I('check') + '</span></span><div><div class="ty-head">匯入 <span class="bk-num">2,483</span> 筆，略過 <span class="bk-num">35</span> 筆</div><div class="ty-foot c2">完成於 2026-11-10 09:42</div></div></div>' +
     bkNext(true) + '<div class="ghead">各類結果</div>' + bkResultRows();
-  return bkDesk(ctx, bkDlg(4, '匯入完成', body, '<button class="btn btn-gray btn-sm">' + I('copy', 's16') + '複製結果</button><span style="flex:1"></span><button class="btn btn-primary">完成</button>'));
+  return bkDesk(ctx, bkDlg(4, '匯入完成', body, '<span style="flex:1"></span><button class="btn btn-primary">完成</button>'));
 }
 
 FMP.page({
@@ -329,7 +329,7 @@ FMP.page({
         { kind: 'desktop', label: '匯入進度', render: (ctx) => bkDeskProgress(ctx) },
         { kind: 'desktop', label: '結果', render: (ctx) => bkDeskResult(ctx) },
       ],
-      notes: '<ul><li>精靈是實心的對話框：內容多、要逐條讀，不放在玻璃上。</li><li>說明頁兩欄（會匯入｜略過與不含），下面是拖放區；把 .json 拖到視窗任何地方也會打開這個精靈。</li><li>結果頁多一顆「複製結果」，方便貼到 issue 回報。Esc 在匯入前等於取消，匯入中等於「在背景繼續」。</li></ul>',
+      notes: '<ul><li>精靈是實心的對話框：內容多、要逐條讀，不放在玻璃上。</li><li>說明頁兩欄（會匯入｜略過與不含），下面是拖放區（只在精靈裡；拖到視窗其他地方不會開精靈，2026-11-19）。</li><li>Esc 在匯入前等於取消，匯入中等於「在背景繼續」。</li></ul>',
     },
   ],
 });

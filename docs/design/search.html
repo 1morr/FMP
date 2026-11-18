@@ -275,7 +275,7 @@ function srhMenuHead(t, note) {
 function srhSheet(t, note) {
   return FMP.trackSheet(t, [
     ['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-',
-    ['lyrics', '匹配歌詞…'], ['link', '複製連結'],
+    ['link', '複製連結'],
   ], { sub: note ? t.artist + ' · ' + note : t.artist });
 }
 function srhMenu(t, style, o) {
@@ -283,7 +283,7 @@ function srhMenu(t, style, o) {
   const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
   return '<div class="lg gmenu" data-adapt role="menu" style="' + style + '">' + srhMenuHead(t, o.note) + '<div class="ms"></div>' +
     mi('play', '播放', o.desk ? '↩' : '', o.hl === 'play' ? 'hl' : '') + mi('nextUp', '下一首播放', '', o.hl === 'next' ? 'hl' : '') + mi('queue', '加入佇列') + mi('addlist', '加入歌單…', o.desk ? '⌘L' : '') +
-    '<div class="ms' + (o.desk ? '' : ' thick') + '"></div>' + mi('lyrics', '匹配歌詞…') + (o.link ? mi('link', '複製連結') : '') + '</div>';
+    (o.link ? '<div class="ms' + (o.desk ? '' : ' thick') + '"></div>' + mi('link', '複製連結') : '') + '</div>';
 }
 
 /* ---------------- desktop helpers ---------------- */
@@ -426,7 +426,7 @@ FMP.page({
           top: '<div class="ptop"><button class="lg srh-gtext" data-adapt>取消</button><span class="srh-seltitle">已選擇 3 首</span><span class="sp"></span><button class="lg srh-gtext acc" data-adapt>全選</button></div>',
           dockHtml: '<div class="lg srh-act" data-adapt><button>' + I('nextUp') + '下一首播放</button><button>' + I('queue') + '加入佇列</button><button>' + I('addlist') + '加入歌單</button></div>' }) },
       ],
-      notes: '<h3>規則</h3><ul><li>⋮ 從底部升起 sheet（手機上一首歌的「更多」都用它）：播放（臨時播放）、下一首播放、加入佇列、加入歌單…、匹配歌詞…、複製連結，右邊小字補充後果。頂端重複這首的封面、標題、音源與存取等級，確認動作套用在哪一首；多 P 影片寫明「6 個分 P 全部套用」。桌面照舊是右鍵選單。</li><li>「加入歌單…」開加入歌單對話框，裡面同時列本地歌單與這首所屬音源的遠端歌單（見加入歌單頁）。舊版另外的「加入遠端歌單」已合進去，不再單獨出現。未登入時對話框裡的遠端區塊提示登入。</li><li>長按一列進多選：頂列換成「取消」「已選擇 n 首」「全選」，搜尋欄位、導覽圓鈕與迷你播放器讓位給浮動的玻璃動作列（下一首播放、加入佇列、加入歌單）。點其他列加減選取。</li><li>多選時多 P 影片算一首，動作套用到全部分 P；分 P 列不能單獨勾選，要單一分 P 就展開後用它的 ⋮。</li></ul>',
+      notes: '<h3>規則</h3><ul><li>⋮ 從底部升起 sheet（手機上一首歌的「更多」都用它）：播放（臨時播放）、下一首播放、加入佇列、加入歌單…、複製連結，右邊小字補充後果。頂端重複這首的封面、標題、音源與存取等級，確認動作套用在哪一首；多 P 影片寫明「6 個分 P 全部套用」。桌面照舊是右鍵選單。</li><li>「加入歌單…」開加入歌單對話框，裡面同時列本地歌單與這首所屬音源的遠端歌單（見加入歌單頁）。舊版另外的「加入遠端歌單」已合進去，不再單獨出現。未登入時對話框裡的遠端區塊提示登入。</li><li>長按一列進多選：頂列換成「取消」「已選擇 n 首」「全選」，搜尋欄位、導覽圓鈕與迷你播放器讓位給浮動的玻璃動作列（下一首播放、加入佇列、加入歌單）。點其他列加減選取。</li><li>多選時多 P 影片算一首，動作套用到全部分 P；分 P 列不能單獨勾選，要單一分 P 就展開後用它的 ⋮。</li></ul>',
     },
     {
       title: '中寬度（平板、窄視窗）',
@@ -440,7 +440,7 @@ FMP.page({
         '<li>細欄裡的搜尋是一個項目，不是欄位：點它（或 ⌘K）進搜尋頁，欄位在頁面頂端，進來時自動聚焦。手機的底部搜尋膠囊、桌面側欄的欄位在中寬度都不存在。</li>' +
         '<li>欄位下一排是音源篩選 chip，排序鈕固定在同一排最右，位置和手機、桌面一致。平板的欄位用手機尺寸（40 高，帶清除鈕），窄視窗用桌面尺寸（30 高，寬約 360，帶 ⌘K 提示）。</li>' +
         '<li>平板鍵盤升起時欄位不動，因為它已經在頂端；不需要像手機那樣把欄位搬到鍵盤上方。捲動時欄位跟著內容捲走，和手機的結果列表一樣。</li>' +
-        '<li>平板每一列的 ⋮ 開從按鈕長出的選單（iPad popover 慣例），項目和手機的 sheet 相同：播放、下一首播放、加入佇列、加入歌單…、匹配歌詞…、複製連結，頂端帶這首的摘要。窄視窗照桌面，右鍵或 hover 的 ⋮ 開選單。</li>' +
+        '<li>平板每一列的 ⋮ 開從按鈕長出的選單（iPad popover 慣例），項目和手機的 sheet 相同：播放、下一首播放、加入佇列、加入歌單…、複製連結，頂端帶這首的摘要。窄視窗照桌面，右鍵或 hover 的 ⋮ 開選單。</li>' +
         '<li>窄視窗的表格縮小：欄位寬度略減，標題欄仍有 450pt 左右；快速鍵提示移到欄位右邊。多選與動作列照桌面，動作列置中在內容欄。</li></ul>',
     },
     {

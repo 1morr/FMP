@@ -489,7 +489,7 @@
       : id === 'plugins' && updates ? '<span class="cnt">' + updates + '</span>' : '';
     const cats = FMP.SETTINGS_CATS.map((c) => c === '-' ? '<div class="sx-sep"></div>' :
       '<button class="sx-i' + (o.cat === c[0] ? ' on' : '') + '"><span class="gicon">' + (c[1] === 'disk' ? SX_DISK : I(c[1])) + '</span><span>' + c[2] + '</span><span class="sp"></span>' + badge(c[0]) + '</button>').join('');
-    const content = '<div class="sx"><nav class="sx-cats" aria-label="設定分類"><div class="field">' + I('search') + '<span class="ph">搜尋設定</span></div>' + cats + '</nav>' +
+    const content = '<div class="sx"><nav class="sx-cats" aria-label="設定分類">' + cats + '</nav>' +
       '<div class="sx-pane scroll">' + o.content + '</div></div>';
     // o.mid: { device, w, h } puts the same two columns in the medium frame (rail instead of the sidebar)
     if (o.mid) return FMP.medium(ctx, Object.assign({}, o.mid, {

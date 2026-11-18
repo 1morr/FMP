@@ -133,7 +133,7 @@ function overlays(ctx) {
     FMP.toast('<span style="display:flex;align-items:center;gap:8px">' + I('check', 's18') + '<span>已加入「通勤路上」</span></span><button class="btn btn-plain">查看</button>', { style: 'bottom:14px;left:60px;right:60px' }) +
     '</div><div class="sys-note">提示只有一個入口（brief §13），依錯誤類別給文字與動作，例如「登入」「重試」。警示框、sheet、選單都是加厚的玻璃（填色比導覽重），因為它們上面有整段文字。確認框列出它作用的曲目，每首帶封面。</div>' +
     '<div class="sys-h" style="margin-top:22px">手機：一首歌的「更多」是底部 sheet</div><div style="position:relative;height:560px;max-width:390px;border-radius:18px;overflow:hidden;background:var(--bg)">' +
-    FMP.trackSheet(FMP.T.t08, [['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-', ['lyrics', '匹配歌詞…'], ['link', '複製連結'], '=', ['cloud', '從 B 站收藏夾移除', '寫回 B 站，會先確認', 'danger']]).replace('class="sheet-wrap"', 'class="sheet-wrap" style="position:absolute"') +
+    FMP.trackSheet(FMP.T.t08, [['play', '播放', '臨時播放，不動佇列'], ['nextUp', '下一首播放'], ['queue', '加入佇列', '加在佇列最後'], ['addlist', '加入歌單…'], '-', ['link', '複製連結'], '=', ['cloud', '從 B 站收藏夾移除', '寫回 B 站，會先確認', 'danger']]).replace('class="sheet-wrap"', 'class="sheet-wrap" style="position:absolute"') +
     '</div><div class="sys-note">選單和確認刻意不同形狀：手機上一首歌的「更多」從底部升起（拇指搆得到，頂端是曲目摘要），會寫到遠端的確認是置中的對話框。連點兩下不會從選單直接點進「移除」。頂列按鈕（例如歌單右上的 ⋯）的選單照 iOS 慣例從按鈕往下長；長按卡片是 iOS 的情境選單。桌面一律右鍵選單＋置中確認框。</div>' +
     '<div class="sys-h" style="margin-top:22px">刷新狀態列</div><div style="max-width:420px;border-radius:12px;overflow:hidden;background:var(--bg)">' +
     FMP.refreshLine({ text: '刷新中 · 已讀 128 / 214 首', pct: 60 }) + FMP.refreshLine({ state: 'err', text: '刷新失敗：B 站的登入已失效', action: '<button class="btn btn-plain">重新登入</button>' }) +

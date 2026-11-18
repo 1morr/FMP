@@ -337,7 +337,7 @@ function quMenu() {
   const mi = (icon, label, k, cls) => '<button class="mi ' + (cls || '') + '" role="menuitem">' + I(icon) + '<span>' + label + '</span>' + (k ? '<span class="k">' + k + '</span>' : '') + '</button>';
   return '<div class="lg gmenu" data-adapt role="menu" style="left:560px;top:420px">' +
     mi('play', '從這首開始播放', '⏎', 'hl') + mi('nextUp', '移到下一首') + '<div class="ms"></div>' +
-    mi('addlist', '加入歌單…') + mi('lyrics', '匹配歌詞…') + mi('info', '曲目資訊', '⌘I') + '<div class="ms"></div>' +
+    mi('addlist', '加入歌單…') + mi('info', '曲目資訊', '⌘I') + '<div class="ms"></div>' +
     mi('close', '從佇列移除', 'Delete', 'danger') + '</div>';
 }
 
@@ -416,7 +416,7 @@ FMP.page({
       notes: '<h3>規則</h3><ul>' +
         '<li>頂列右邊固定放隨機、循環與「清空佇列」，捲到哪裡都按得到；捲動後頂列左邊出現小標題「佇列」，點它捲回正在播放。</li>' +
         '<li>滑過的列顯示 × 與拖動把手；不滑過時隱藏，讓表格安靜。點一下選取（強調色框），雙擊或 ⏎ 從那首開始播，Delete 移除，⌥↑／⌥↓ 移動一格。</li>' +
-        '<li>右鍵選單：從這首開始播放、移到下一首、加入歌單、匹配歌詞、曲目資訊、從佇列移除（紅色，Delete）。選單是浮在內容上的控制層，所以是玻璃。</li>' +
+        '<li>右鍵選單：從這首開始播放、移到下一首、加入歌單、曲目資訊、從佇列移除（紅色，Delete）。選單是浮在內容上的控制層，所以是玻璃。</li>' +
         '<li>臨時播放的那塊在桌面一樣插在原本正在播的那首上方，動作放在右上；詳情面板與播放膠囊顯示臨時播放的曲目。</li>' +
         '<li>桌面的佇列另外會出現在播放頁右欄（見播放頁），那裡只列接下來的；完整的編輯（拖動、清空、右鍵）在這頁。</li></ul>',
     },
