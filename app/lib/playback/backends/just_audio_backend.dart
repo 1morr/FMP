@@ -32,9 +32,7 @@ class JustAudioBackend implements AudioBackend {
       }),
       _player.positionStream.listen((p) {
         // 載入中、跳到預載那項時報的可能還是上一條的位置。
-        if (_pendingLoads == 0 && !_switching) {
-          _states.update((state) => state.copyWith(position: p));
-        }
+        if (_pendingLoads == 0 && !_switching) _states.position(p);
       }),
       _player.durationStream.listen(
         (d) => _states.update(

@@ -96,4 +96,29 @@ void main() {
     expect(states.current.position, Duration.zero);
     expect(states.current.duration, isNull);
   });
+
+  test('after moving on by itself, positions the player still reports for '
+      'the finished stream are dropped until the next one reports its own', () {
+    states
+      ..reset(first)
+      ..update(
+        (s) => s.copyWith(
+          status: AudioBackendStatus.ready,
+          playing: true,
+          duration: () => const Duration(minutes: 49),
+        ),
+      )
+      ..position(const Duration(minutes: 49));
+
+    states
+      ..advancedTo(next)
+      // AVPlayer 實測：接過去後還報了一次上一條結尾再往後的位置。
+      ..position(const Duration(minutes: 49, milliseconds: 84));
+    expect(states.current.position, Duration.zero);
+
+    states.position(const Duration(milliseconds: 4));
+    expect(states.current.position, const Duration(milliseconds: 4));
+    states.position(const Duration(seconds: 2));
+    expect(states.current.position, const Duration(seconds: 2));
+  });
 }

@@ -39,7 +39,7 @@ class MediaKitBackend implements AudioBackend {
       stream.completed.listen((_) => _states.update(_withStatus)),
       stream.position.listen((p) {
         // 開好之前報的可能還是上一條的位置。
-        if (_opened) _states.update((s) => s.copyWith(position: p));
+        if (_opened) _states.position(p);
       }),
       stream.duration.listen((d) {
         if (_loaded case final loaded? when d > Duration.zero) {
