@@ -136,7 +136,7 @@ function stMainList() {
   ], true) +
   stFoot('新匯入的歌單用這個間隔；每張歌單可以在「編輯歌單」裡另外設定。') +
   stHead('儲存空間') + stGroup([
-    stCell({ icon: stGi('disk'), t: '圖片快取', s: '已用 182 MB，上限 500 MB', trail: '<button class="btn btn-gray btn-sm">清除</button>' }),
+    stCell({ icon: stGi('disk'), t: '圖片快取', s: '已用 182 MB，最多 1000 個檔、30 天沒用就刪', trail: '<button class="btn btn-gray btn-sm">清除</button>' }),
     stCell({ icon: stGi('lyrics'), t: '歌詞快取', s: '已用 2.4 MB · 1,284 首', trail: '<button class="btn btn-gray btn-sm">清除</button>' }),
   ], true) +
   stFoot('清除快取不影響歌單、佇列與歌詞配對；封面與歌詞會在需要時重新下載。') +
@@ -286,10 +286,9 @@ function stDeskLyrics(ctx) {
 
 function stDeskStorage(ctx) {
   const pane = sxH('儲存空間') +
-    '<p class="sx-lead">FMP 不下載曲目，佔空間的只有封面與歌詞的快取。</p>' +
+    '<p class="sx-lead">這裡先畫封面與歌詞的快取；下載與音訊快取的用量、上限與清除在 M3.5 補稿（2026-11-19）。</p>' +
     stHead('快取') + stGroup([
-      stCell({ icon: stGi('disk'), t: '圖片快取', s: '已用 182 MB，上限 500 MB', trail: '<span class="st-meter"><i style="width:36%"></i></span><button class="btn btn-gray btn-sm">清除…</button>' }),
-      stCell({ icon: stGi('updown'), t: '圖片快取上限', trail: '<span class="st-pop">500 MB' + stI('updown') + '</span>' }),
+      stCell({ icon: stGi('disk'), t: '圖片快取', s: '已用 182 MB，最多 1000 個檔、30 天沒用就刪', trail: '<span class="st-meter"><i style="width:36%"></i></span><button class="btn btn-gray btn-sm">清除…</button>' }),
       stCell({ icon: stGi('lyrics'), t: '歌詞快取', s: '已用 2.4 MB · 1,284 首', trail: '<button class="btn btn-gray btn-sm">清除…</button>' }),
     ], true) +
     stFoot('清除快取不影響歌單、佇列與歌詞配對；封面與歌詞會在需要時重新下載。') +
@@ -302,7 +301,7 @@ function stDeskStorage(ctx) {
 
 FMP.page({
   title: '設定',
-  intro: '<p>設定是第三個導覽項目；帳號與插件從這裡進入。分組照舊版，拿掉第一版不做的（下載、桌面歌詞、快捷鍵、開發者選項、字體）。外觀裡可以選強調色，預設不用（擁有者 2026-11-10）。佇列頁「自動捲到正在播放」已是固定行為，不放開關。</p><p>手機是 iOS 群組列表；桌面是 macOS 系統設定式的「分類欄＋內容」，右側詳情面板預設收起，頂列右端可以叫回。</p>',
+  intro: '<p>設定是第三個導覽項目；帳號與插件從這裡進入。分組照舊版，拿掉第一版不做的（桌面歌詞、快捷鍵、開發者選項、字體；下載 2026-11-19 改成第一版做，M3.5 補稿）。外觀裡可以選強調色，預設不用（擁有者 2026-11-10）。佇列頁「自動捲到正在播放」已是固定行為，不放開關。</p><p>手機是 iOS 群組列表；桌面是 macOS 系統設定式的「分類欄＋內容」，右側詳情面板預設收起，頂列右端可以叫回。</p>',
   sections: [
     {
       title: '手機：設定首頁',

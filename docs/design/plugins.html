@@ -112,9 +112,9 @@ const PG_P = {
 const pgI = (n, cls) => PG_P[n] ? '<svg class="i ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + PG_P[n] + '</svg>' : I(n, cls);
 
 /* demo manifests: versions, capabilities and domains are illustrative */
-const CAPS = [['search', 'search', '搜尋'], ['stream', 'wave', '解析串流'], ['parts', 'grid', '分 P'], ['login', 'user', '登入'], ['member', 'crown', '會員狀態'], ['readRemote', 'cloud', '讀取遠端歌單'], ['writeRemote', 'cloudUp', '寫入遠端歌單'], ['lyrics', 'lyrics', '歌詞']];
+const CAPS = [['search', 'search', '搜尋'], ['stream', 'wave', '解析串流'], ['parts', 'grid', '分 P'], ['charts', 'list', '排行榜'], ['trackInfo', 'info', '曲目資訊'], ['login', 'user', '登入'], ['member', 'crown', '會員狀態'], ['readRemote', 'cloud', '讀取遠端歌單'], ['writeRemote', 'cloudUp', '寫入遠端歌單'], ['lyrics', 'lyrics', '歌詞']];
 const PG = {
-  bilibili: { id: 'bilibili', name: 'Bilibili', kind: '音源', ver: '1.4.0', caps: ['search', 'stream', 'parts', 'login', 'member', 'readRemote', 'writeRemote'], dom: ['api.bilibili.com', 'passport.bilibili.com', '*.bilivideo.com', '*.hdslb.com'] },
+  bilibili: { id: 'bilibili', name: 'Bilibili', kind: '音源', ver: '1.4.0', caps: ['search', 'stream', 'parts', 'charts', 'trackInfo', 'login', 'member', 'readRemote', 'writeRemote'], dom: ['api.bilibili.com', 'passport.bilibili.com', '*.bilivideo.com', '*.hdslb.com'] },
   youtube: { id: 'youtube', name: 'YouTube', kind: '音源', ver: '1.2.0', next: '1.3.0', size: '640 KB', caps: ['search', 'stream', 'login', 'readRemote', 'writeRemote'], dom: ['www.youtube.com', 'youtubei.googleapis.com', '*.googlevideo.com'], add: ['music.youtube.com'], log: '搜尋可以只找 YouTube Music 的歌曲。', why: '搜尋 YouTube Music 的歌曲' },
   netease: { id: 'netease', name: '網易雲音樂', kind: '音源', ver: '1.3.1', next: '1.3.2', size: '512 KB', caps: ['search', 'stream', 'login', 'member', 'readRemote', 'writeRemote', 'lyrics'], dom: ['music.163.com', 'interface.music.163.com', '*.music.126.net'], log: '修正部分曲目解析串流失敗。' },
   lrclib: { id: 'lrclib', name: 'lrclib', kind: '歌詞源', ver: '1.0.2', caps: ['lyrics'], dom: ['lrclib.net'] },
@@ -289,7 +289,7 @@ FMP.page({
       frames: [
         { kind: 'phone', label: 'YouTube 插件詳情', render: (ctx) => pgDetail(ctx) },
       ],
-      notes: '<ul><li>八項插件能力全部列出，不支援的變灰寫「不支援」，讓使用者看懂為什麼某個音源沒有某個入口（例如 YouTube 沒有「會員狀態」，帳號卡就不顯示會員）。</li><li>允許的網域逐條列出；有更新時頂端的卡片先講更新內容與權限變化。</li><li>SHA-256 只顯示頭尾，可以複製全文。</li></ul>',
+      notes: '<ul><li>ADR 0039 的十項插件能力全部列出，不支援的變灰寫「不支援」，讓使用者看懂為什麼某個音源沒有某個入口（例如 YouTube 沒有「會員狀態」，帳號卡就不顯示會員）。</li><li>允許的網域逐條列出；有更新時頂端的卡片先講更新內容與權限變化。</li><li>SHA-256 只顯示頭尾，可以複製全文。</li></ul>',
     },
     {
       title: '手機：更新流程',
