@@ -21,7 +21,7 @@ iOS 的中斷與 Now Playing 模擬器驗不到的部分記在 Comments（事實
 
 ## Comments
 
-決定：Windows 的系統媒體控制不用 smtc_windows（和 fjs 的 flutter_rust_bridge 版本衝突，事實 W7），改在 runner 用 C++ 接 SMTC、經 `fmp/media` 頻道；brief §6、ARCHITECTURE〈主要依賴〉、spec 照草稿改（使用者同意）
+決定：Windows 媒體控制不用 smtc_windows（事實 W7），改在 runner 用 C++ 接 SMTC；brief §6、ARCHITECTURE〈主要依賴〉、spec 照擁有者選的做法改，改動在合併前經協調者轉給擁有者本人看過、同意保留（使用者同意）
 決定：測試接縫四層：綁定層（provider 加 fake 媒體控制）、audio_service 的 handler 對應、Windows 頻道的 Dart 端（mock messenger）、三平台實跑（Agent 定）
 決定：Now Playing 在換曲、狀態、長度、上下首能不能按改變，與暫停中改位置、拖進度時馬上送；照常播放時最多 5 秒重送位置（SMTC 不自己推進，事實 W6）（Agent 定）
 決定：系統的播放、暫停照 App 的播放鈕：播完或失敗的那首按播放從頭再播，解析、載入中按暫停不動；上下首照佇列，臨時播放時回佇列（Agent 定）
@@ -45,3 +45,4 @@ code-review 未處理：① 播放中往前拖不到 2 秒不算拖進度，Now 
 Session 紀錄：2026-11-19 背景播放與系統媒體控制：媒體控制介面與綁定、audio_service（Android、iOS、macOS，含 Android 媒體鍵修正）與 Windows 自己接的 SMTC（選項預設關）；三平台實跑背景播放，Android 通知與 macOS 面板驅動播放控制；完整閘門 --skip-windows 綠
 變更：Added｜背景播放｜App 在背景時繼續播放：手機切到別的 App 或鎖屏、桌面縮到 Dock；Android 播放時顯示媒體通知
 變更：Added｜系統媒體控制｜Android 通知與鎖屏、iOS 控制中心與鎖屏、macOS 選單列的「正在播放」顯示曲名、作者、封面與進度，可以播放、暫停、上下首、拖進度；耳機與鍵盤的媒體鍵也有作用，Android 耳機或車上的「暫停」在已暫停時不會開始播放（Windows 還沒有）
+之後改 brief／ARCHITECTURE 先用 AskUserQuestion 給擁有者看草稿，確認後才寫入；這次的三處改動是寫入後才補給擁有者看。
