@@ -121,6 +121,11 @@ class Playback extends Notifier<PlaybackState?> {
   /// 正在開始播的那一次 [play]：叫後端播之前（載入、跳到開始位置）一律算
   /// 載入中，不報成停在開頭的暫停。
   int? _startingGeneration;
+
+  /// 重啟後還原的那首要從哪裡開始。播它（播放鈕、Toast 的重試、佇列接回
+  /// 它）都從這裡開始，直到真的開始播了（任何一首）才丟掉：第一次播失敗時
+  /// 再按播放仍從這裡開始。
+  ({Track track, Duration position})? _resumeFrom;
   Timer? _stallTimer;
   bool _stallLogged = false;
   bool _zeroDurationLogged = false;
@@ -137,10 +142,11 @@ class Playback extends Notifier<PlaybackState?> {
     // 按播放才解析並從這個位置開始。
     final saved = ref.read(savedQueueProvider);
     if (saved?.queue.current case final entry?) {
+      _resumeFrom = (track: entry.track, position: saved!.position);
       return PlaybackState(
         track: entry.track,
         status: PlaybackStatus.paused,
-        position: saved!.position,
+        position: saved.position,
       );
     }
     return null;
@@ -158,8 +164,12 @@ class Playback extends Notifier<PlaybackState?> {
   }
 
   /// 播放 [track]，取代正在播的；給了 [from] 就從那裡開始（載入後先跳過去
-  /// 再播，不會先從開頭出聲）。連點時只有最後一首會播。
+  /// 再播，不會先從開頭出聲），沒給而它是重啟後還原的那首就從保存的位置
+  /// 開始（[_resumeFrom]）。連點時只有最後一首會播。
   Future<void> play(Track track, {Duration from = Duration.zero}) async {
+    if (from == Duration.zero && _resumeFrom?.track == track) {
+      from = _resumeFrom!.position;
+    }
     final generation = ++_generation;
     _startingGeneration = generation;
     _stallTimer?.cancel();
@@ -211,7 +221,9 @@ class Playback extends Notifier<PlaybackState?> {
     } catch (error, stackTrace) {
       if (!_isCurrent(generation)) return;
       _fail(track, stream, error, stackTrace, 'Starting playback failed');
+      return;
     }
+    if (_isCurrent(generation)) _resumeFrom = null;
   }
 
   /// 跳到 [position]；播放中就從那裡接著播。這一首還沒載入完（或還沒播過）
@@ -222,6 +234,9 @@ class Playback extends Notifier<PlaybackState?> {
     if (!_loaded) {
       // 重啟後還原、還沒載入的那首：只改開始播的位置。
       if (current.status == PlaybackStatus.paused) {
+        if (_resumeFrom?.track == current.track) {
+          _resumeFrom = (track: current.track, position: position);
+        }
         state = PlaybackState(
           track: current.track,
           status: current.status,
@@ -258,7 +273,7 @@ class Playback extends Notifier<PlaybackState?> {
     if (current != null &&
         current.status == PlaybackStatus.paused &&
         !_loaded) {
-      return play(current.track, from: current.position);
+      return play(current.track);
     }
     await _backendOrNull?.play();
   }

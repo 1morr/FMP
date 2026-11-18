@@ -272,6 +272,32 @@ void main() {
     },
   );
 
+  test('when the first play after a restart fails, playing again still '
+      'starts from the saved position, which stays saved', () async {
+    await queue().add([track('a')]);
+    await settle();
+    playedTo(const Duration(seconds: 42));
+    await restart();
+
+    // 沒有網路：載入失敗。
+    backend.failNextLoad = const AudioBackendError(NetworkError(), 'offline');
+    await container.read(playbackProvider.notifier).playPause();
+    await settle();
+    expect(playback()?.status, PlaybackStatus.failed);
+
+    // 再按一次（播放鈕；Toast 的重試也是 play 同一首）：從 0:42 開始。
+    await container.read(playbackProvider.notifier).playPause();
+    await settle();
+    expect(backend.calls, ['load', 'load', 'seek 42000', 'play']);
+
+    // 開始播之後才換成真的位置；一首別的歌播起來之前，失敗不會把它蓋成 0。
+    backend.failNextLoad = const AudioBackendError(NetworkError(), 'offline');
+    await container.read(playbackProvider.notifier).play(track('a'));
+    await settle();
+    await restart();
+    expect(playback()?.position, const Duration(seconds: 42));
+  });
+
   test('shuffle, repeat and both orders come back after a restart', () async {
     await queue().add([for (final id in 'abcdef'.split('')) track(id)]);
     await settle();
