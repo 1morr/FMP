@@ -69,7 +69,7 @@ class JustAudioBackend implements AudioBackend {
   /// 改清單（預載、換到預載的那項）一次一個，照呼叫的順序。
   final _edits = SerialEdits();
 
-  /// 正在跳到預載的那項：跳過去之前舊那項報的位置不算新那條的。
+  /// 正在跳到預載的那項：跳過去之前舊那項報的位置與項目位置都不算數。
   bool _switching = false;
 
   ja.PlayerState? _playerState;
@@ -128,18 +128,18 @@ class JustAudioBackend implements AudioBackend {
     // 不算進 [_pendingLoads]：換過去那一項開不了的錯誤從 errorStream 來
     // （AVPlayer 輪到它才報，事實 I4），要照常變成失敗。
     _states.reset(stream);
-    _switching = true;
     try {
       await _edits.run(() async {
         if (generation != _generation) return;
+        _switching = true;
         _items.moveTo(index);
         _fromPreload = true;
         try {
           await _player.seek(Duration.zero, index: index);
+          await _dropPlayed();
         } finally {
           _switching = false;
         }
-        await _dropPlayed();
       });
     } on ja.PlayerException catch (e) {
       if (generation != _generation) return;
@@ -184,7 +184,9 @@ class JustAudioBackend implements AudioBackend {
   /// 原生的位置變了：是自己接到預載的那項，就報播完並從它的開頭報起，
   /// 再移掉播過的。
   void _onIndex(int? index) {
-    if (index == null) return;
+    // 跳過去的期間原生還會報舊的位置（AVPlayer 2026-11-18 實測），那是
+    // [_switchTo] 自己在換，不是自己接過去。
+    if (index == null || _switching) return;
     final next = _items.moveTo(index);
     if (next == null) return;
     _fromPreload = true;
