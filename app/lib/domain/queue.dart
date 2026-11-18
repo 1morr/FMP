@@ -163,6 +163,15 @@ class Queue {
     return shuffled ? _reshuffled(random) : jumpTo(0);
   }
 
+  /// [next] 會到的那個位置，給預載用；沒有下一首，或隨機加列表循環在最後
+  /// 一首（下一輪要重新打亂，還不知道是哪首）時是 null。
+  QueueEntry? get upcoming {
+    if (!hasNext) return null;
+    final index = currentIndex!;
+    if (index < entries.length - 1) return entries[index + 1];
+    return shuffled ? null : entries.first;
+  }
+
   /// 上一首；沒有上一首時是 null。列表循環時第一首的上一首是最後一首。
   Queue? previous() {
     if (!hasPrevious) return null;

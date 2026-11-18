@@ -5,8 +5,10 @@ import 'package:fmp/domain/audio_stream.dart';
 /// 用 just_audio，Windows 用 media_kit（`playback/backends/`）；依平台挑哪個
 /// 在 `platform/audio_backend.dart`。
 ///
-/// 一次只放一條串流：載入、播放、暫停、跳到某個位置、狀態與錯誤；預載
-/// 下一首在 M1。
+/// 放目前這條串流（載入、播放、暫停、跳到某個位置、狀態與錯誤），加上
+/// 預載的下一條（[preload]）：原生播放器把它排在後面、自己決定什麼時候先
+/// 緩衝它的開頭，目前這條播完就接著播它，[load] 它時換過去、不重開（事實
+/// I4、K4）。
 ///
 /// 實作負責把原生播放器的錯誤轉成錯誤分類（[AudioBackendError]），呼叫端
 /// 負責寫 log。[state] 與 [states] 從載入起才有意義；實作不寫 log，也不在
@@ -19,10 +21,20 @@ abstract interface class AudioBackend {
   Stream<AudioBackendState> get states;
 
   /// 開啟 [stream]，請求時帶上它的 header；開好後停在開頭、不自動播放。
-  /// 取代原本放的串流。開不了時先把 [state] 改成 failed，再丟
+  /// 取代原本放的串流與預載。開不了時先把 [state] 改成 failed，再丟
   /// [AudioBackendError]。還沒開好就被下一次 [load] 取代時直接回來，不丟錯，
   /// 狀態歸下一次。
+  ///
+  /// [stream] 是預載的那條（同一個物件）時換過去、不重開；已經自己接過去、
+  /// 正在放它時什麼都不做（照舊在播就接著播）。
   Future<void> load(AudioStream stream);
+
+  /// 把 [stream] 排在目前這條後面，取代原本預載的；null 清掉預載。原生
+  /// 播放器自己決定什麼時候開始緩衝它。目前這條播完時接著播它：先為目前
+  /// 這條報一次 [AudioBackendStatus.completed]，之後的 [state] 是它的
+  /// （[AudioBackendState.stream]）。還沒有目前這條（沒載入、載入中、
+  /// 失敗）時什麼都不做。預載的串流開不了時這裡不報，換過去才報（事實 I4）。
+  Future<void> preload(AudioStream? stream);
 
   /// 開始或繼續播放。不等播完。
   Future<void> play();
@@ -59,12 +71,18 @@ enum AudioBackendStatus {
 
 class AudioBackendState {
   const AudioBackendState({
+    this.stream,
     this.status = AudioBackendStatus.idle,
     this.playing = false,
     this.position = Duration.zero,
     this.duration,
     this.error,
   });
+
+  /// 這個狀態屬於哪一條串流（[AudioBackend.load] 或 [AudioBackend.preload]
+  /// 收到的那個物件）；沒載入過是 null。呼叫端用 [identical] 比，認出遲到的
+  /// 舊狀態與自己接過去的預載。
+  final AudioStream? stream;
 
   final AudioBackendStatus status;
 
@@ -87,6 +105,7 @@ class AudioBackendState {
     Duration? Function()? duration,
     AudioBackendError? Function()? error,
   }) => AudioBackendState(
+    stream: stream,
     status: status ?? this.status,
     playing: playing ?? this.playing,
     position: position ?? this.position,
@@ -97,6 +116,7 @@ class AudioBackendState {
   @override
   bool operator ==(Object other) =>
       other is AudioBackendState &&
+      identical(other.stream, stream) &&
       other.status == status &&
       other.playing == playing &&
       other.position == position &&
@@ -104,7 +124,14 @@ class AudioBackendState {
       other.error == error;
 
   @override
-  int get hashCode => Object.hash(status, playing, position, duration, error);
+  int get hashCode => Object.hash(
+    identityHashCode(stream),
+    status,
+    playing,
+    position,
+    duration,
+    error,
+  );
 
   @override
   String toString() =>

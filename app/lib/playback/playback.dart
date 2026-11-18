@@ -30,7 +30,7 @@ class StallTimeouts {
 /// 看門狗的門檻；數字照四平台量到的出聲時間（事實 F25）。
 final stallTimeoutsProvider = Provider<StallTimeouts>(
   (ref) => const StallTimeouts(
-    starting: Duration(seconds: 45),
+    starting: Duration(seconds: 20),
     playing: Duration(seconds: 15),
   ),
 );
@@ -138,6 +138,11 @@ class PlaybackState {
 /// 位置接著播，這一首再壞才報 [PlaybackStatus.failed]；插件解析本身失敗
 /// 已經過網路層的重試，直接報。串流離過期不到 [refreshBeforeExpiry] 時，
 /// 暫停後繼續與 seek 先重新解析（architecture〈快取〉）。
+///
+/// 預載下一首（brief〈播放〉）：佇列用 [preloadNext] 說下一首是哪首，這一首
+/// 開始出聲後先解析它、交給後端排在後面（[AudioBackend.preload]）。播它時
+/// 用預載的串流，不再解析；後端已經自己接過去時聲音不斷。預載的串流離過期
+/// 不到 [refreshBeforeExpiry] 時不用它，等著的預載在那之前重新解析。
 class Playback extends Notifier<PlaybackState?> {
   AudioBackend? _backendOrNull;
   StreamSubscription<AudioBackendState>? _subscription;
@@ -172,6 +177,26 @@ class Playback extends Notifier<PlaybackState?> {
   Timer? _stallTimer;
   bool _zeroDurationLogged = false;
 
+  /// 佇列說的下一首（[preloadNext]）；沒有是 null。
+  Track? _wantedNext;
+
+  /// 解析好的下一首；播它時用這條串流（[_takePreload]），被新的取代、或
+  /// 播了就丟掉。
+  ({Track track, AudioStream stream})? _preload;
+
+  /// [_preload] 交給後端時是第幾代：這一代重開過（換了一首）就要再交一次。
+  int? _preloadHandedIn;
+
+  /// 正在解析的下一首與它的序號；序號換了，解析完的結果就不要了。
+  Track? _preloading;
+  int _preloadToken = 0;
+
+  /// 等著的預載在過期前 [refreshBeforeExpiry] 重新解析。
+  Timer? _preloadRefresh;
+
+  /// [_syncPreload] 已經排進 microtask。
+  bool _preloadSyncScheduled = false;
+
   Log get _log => ref.read(logProvider);
 
   @override
@@ -179,6 +204,7 @@ class Playback extends Notifier<PlaybackState?> {
     ref.onDispose(() {
       _subscription?.cancel();
       _stallTimer?.cancel();
+      _preloadRefresh?.cancel();
     });
     // 重啟後停在上次的那首與位置、不自動播（brief〈播放〉）：後端還沒載入，
     // 按播放才解析並從這個位置開始。
@@ -213,15 +239,22 @@ class Playback extends Notifier<PlaybackState?> {
       from = _resumeFrom!.position;
     }
     _resolvedAgain = false;
-    return _start(track, from: from, autoplay: true);
+    return _start(
+      track,
+      from: from,
+      autoplay: true,
+      preloaded: _takePreload(track),
+    );
   }
 
-  /// 解析 [track] 的串流、交給後端開、跳到 [from]；[autoplay] 時接著播，
-  /// 否則停在那裡暫停。每次呼叫是新的一代，舊的一代做到一半就放手。
+  /// 解析 [track] 的串流（給了 [preloaded] 就用它、不解析）、交給後端開、
+  /// 跳到 [from]；[autoplay] 時接著播，否則停在那裡暫停。每次呼叫是新的
+  /// 一代，舊的一代做到一半就放手。
   Future<void> _start(
     Track track, {
     required Duration from,
     required bool autoplay,
+    AudioStream? preloaded,
   }) async {
     final generation = ++_generation;
     _startingGeneration = generation;
@@ -230,24 +263,26 @@ class Playback extends Notifier<PlaybackState?> {
     _sounded = false;
     _cancelWatchdog();
     _zeroDurationLogged = false;
-    state = PlaybackState(
-      track: track,
-      status: PlaybackStatus.resolving,
-      position: from,
-    );
 
     final AudioStream stream;
-    try {
-      final host = await ref.read(pluginHostProvider.future);
-      final plugin = host.pluginFor(track.ref);
-      if (plugin == null) throw const Unsupported();
-      stream = await plugin.resolveStream(track.ref);
-    } catch (error, stackTrace) {
+    if (preloaded != null) {
+      stream = preloaded;
+      _log.info('Playing the preloaded stream: ${track.ref.logId}');
+    } else {
+      state = PlaybackState(
+        track: track,
+        status: PlaybackStatus.resolving,
+        position: from,
+      );
+      try {
+        stream = await _resolve(track);
+      } catch (error, stackTrace) {
+        if (!_isCurrent(generation)) return;
+        _fail(track, null, error, stackTrace, 'Resolving a stream failed');
+        return;
+      }
       if (!_isCurrent(generation)) return;
-      _fail(track, null, error, stackTrace, 'Resolving a stream failed');
-      return;
     }
-    if (!_isCurrent(generation)) return;
     state = PlaybackState(
       track: track,
       stream: stream,
@@ -279,6 +314,9 @@ class Playback extends Notifier<PlaybackState?> {
     if (!_isCurrent(generation)) return;
     _loadedGeneration = generation;
     _onBackendState(_backend.state);
+    // 載入回來之前就出聲的（just_audio 的 playing 跨來源保留），那時還不能
+    // 預載，現在補。
+    if (_sounded) _syncPreload();
     if (from > Duration.zero) {
       try {
         await _backend.seek(from);
@@ -306,6 +344,132 @@ class Playback extends Notifier<PlaybackState?> {
       return retryOrFail(error, stackTrace, 'Starting playback failed');
     }
     if (_isCurrent(generation)) _resumeFrom = null;
+  }
+
+  /// 用提供 [track] 的插件解析它的串流。
+  Future<AudioStream> _resolve(Track track) async {
+    final host = await ref.read(pluginHostProvider.future);
+    final plugin = host.pluginFor(track.ref);
+    if (plugin == null) throw const Unsupported();
+    return plugin.resolveStream(track.ref);
+  }
+
+  /// 佇列的下一首換成 [track]（null 是沒有下一首）。這一首出聲後才解析
+  /// 它、交給後端；換了就換掉預載。同一輪事件裡接著播的那首（例如按下一首
+  /// 時佇列先換再播）照舊用原本的預載：真的改動排到 microtask 才做。
+  void preloadNext(Track? track) {
+    if (track == _wantedNext) return;
+    _wantedNext = track;
+    if (_preloadSyncScheduled) return;
+    _preloadSyncScheduled = true;
+    scheduleMicrotask(() {
+      _preloadSyncScheduled = false;
+      if (ref.mounted) _syncPreload();
+    });
+  }
+
+  /// 這一首已經出聲時，讓後端排著的預載對上佇列的下一首：要的已經解析好
+  /// 而且沒快過期就交給後端，否則解析它；沒有下一首就清掉。
+  void _syncPreload() {
+    if (!_sounded || !_loaded) return;
+    final wanted = _wantedNext;
+    if (wanted == null) {
+      if (_preloadHandedIn == _generation) {
+        _preloadHandedIn = null;
+        _handToBackend(null);
+      }
+      return;
+    }
+    if (_preload case final p?
+        when p.track == wanted && !_expiresSoon(p.stream)) {
+      if (_preloadHandedIn != _generation) {
+        _preloadHandedIn = _generation;
+        _log.info('Preloaded the next track: ${wanted.ref.logId}');
+        _handToBackend(p.stream);
+      }
+      return;
+    }
+    if (_preloading == wanted) return;
+    unawaited(_resolvePreload(wanted));
+  }
+
+  Future<void> _resolvePreload(Track track) async {
+    final token = ++_preloadToken;
+    _preloading = track;
+    final AudioStream stream;
+    try {
+      stream = await _resolve(track);
+    } catch (error) {
+      if (token != _preloadToken || !ref.mounted) return;
+      _preloading = null;
+      // 插件宿主已經記過它的錯誤；播到它時照常解析。
+      _log.warning('Preloading the next track failed: ${track.ref.logId}');
+      return;
+    }
+    if (token != _preloadToken || !ref.mounted) return;
+    _preloading = null;
+    _preload = (track: track, stream: stream);
+    _preloadHandedIn = null;
+    _scheduleRefresh(track, stream);
+    _syncPreload();
+  }
+
+  /// 預載的 [stream] 在過期前 [refreshBeforeExpiry] 重新解析（architecture
+  /// 〈快取〉）；插件沒給有效期、或已經在那之內時不排。
+  void _scheduleRefresh(Track track, AudioStream stream) {
+    _preloadRefresh?.cancel();
+    _preloadRefresh = null;
+    final expiresAt = stream.expiresAt;
+    if (expiresAt == null) return;
+    final delay = expiresAt
+        .subtract(refreshBeforeExpiry)
+        .difference(ref.read(playbackClockProvider)());
+    if (delay <= Duration.zero) return;
+    _preloadRefresh = Timer(delay, () {
+      _preloadRefresh = null;
+      if (!ref.mounted || !identical(_preload?.stream, stream)) return;
+      if (_wantedNext != track) return;
+      _log.info(
+        'Resolving the preloaded stream again before it expires: '
+        '${track.ref.logId}',
+      );
+      unawaited(_resolvePreload(track));
+    });
+  }
+
+  void _handToBackend(AudioStream? stream) => unawaited(
+    _backend.preload(stream).catchError((Object error, StackTrace stackTrace) {
+      _log.warning(
+        'Handing the preload to the audio backend failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }),
+  );
+
+  /// 播 [track] 時能用的預載串流；用了就不再是預載。離過期不到
+  /// [refreshBeforeExpiry] 的不用（architecture〈快取〉），照常解析。
+  AudioStream? _takePreload(Track track) {
+    final preload = _preload;
+    if (preload == null || preload.track != track) return null;
+    _preload = null;
+    _preloadHandedIn = null;
+    _preloadRefresh?.cancel();
+    _preloadRefresh = null;
+    if (_expiresSoon(preload.stream)) {
+      _log.info(
+        'Resolving the stream again before it expires: ${track.ref.logId}',
+      );
+      return null;
+    }
+    return preload.stream;
+  }
+
+  bool _expiresSoon(AudioStream stream) {
+    final expiresAt = stream.expiresAt;
+    if (expiresAt == null) return false;
+    final now = ref.read(playbackClockProvider)();
+    return expiresAt.difference(now) < refreshBeforeExpiry;
   }
 
   /// 跳到 [position]；播放中就從那裡接著播。這一首還沒載入完（或還沒播過）
@@ -365,6 +529,7 @@ class Playback extends Notifier<PlaybackState?> {
   /// 的那首不會再開始播。
   Future<void> stop() async {
     ++_generation;
+    _sounded = false;
     _cancelWatchdog();
     state = null;
     await _backendOrNull?.pause();
@@ -479,6 +644,12 @@ class Playback extends Notifier<PlaybackState?> {
       // 解析中收到的是上一首的狀態；失敗後要等下一次 play。
       return;
     }
+    if (backend.stream case final other?
+        when current.stream != null && !identical(other, current.stream)) {
+      // 別條串流的狀態：上一首遲到的，或後端已經自己接到預載的那條、
+      // 還沒輪到播它。
+      return;
+    }
     if (current.status == PlaybackStatus.loading &&
         backend.status == AudioBackendStatus.completed) {
       // 剛開始載入的串流不會已經播完，是上一首遲到的狀態；收下的話佇列
@@ -517,8 +688,13 @@ class Playback extends Notifier<PlaybackState?> {
       );
       return;
     }
-    if (backend.status == AudioBackendStatus.ready && backend.playing) {
+    if (backend.status == AudioBackendStatus.ready &&
+        backend.playing &&
+        !_sounded) {
       _sounded = true;
+      _syncPreload();
+    }
+    if (backend.status == AudioBackendStatus.ready && backend.playing) {
       if (_resolvedAgain && backend.position - _startedFrom >= _healthyAfter) {
         _resolvedAgain = false;
       }

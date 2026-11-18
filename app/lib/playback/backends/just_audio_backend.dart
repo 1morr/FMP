@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/backends/backend_playlist.dart';
 import 'package:fmp/playback/backends/backend_states.dart';
 import 'package:fmp/playback/backends/hls/hls_packager.dart';
 import 'package:just_audio/just_audio.dart' as ja;
@@ -18,17 +19,17 @@ import 'package:just_audio/just_audio.dart' as ja;
 /// [AudioStream.segmentBase] 的串流改播 [HlsPackager] 產生的清單：AVPlayer
 /// 直接播單檔 fragmented MP4 時，CDN 中途斷線會讓它把長度截短、提早播完
 /// （ADR 0040）。包不了就照舊直接播網址，並呼叫 [onHlsUnavailable]。
+///
+/// 預載的那條是 just_audio 清單的第二項：原生播放器自己決定什麼時候緩衝它
+/// （事實 K31），目前這條播完就自己接過去；[load] 它時用 `seek(index:)`
+/// 跳過去、不重開（事實 I4）。換過去之後把播過的那項移掉，清單最多兩項。
 class JustAudioBackend implements AudioBackend {
   JustAudioBackend({this.hls, this.onHlsUnavailable}) {
     _subscriptions = [
-      _player.playerStateStream.listen(
-        (s) => _states.update(
-          (state) => state.copyWith(
-            status: _status(s.processingState),
-            playing: s.playing,
-          ),
-        ),
-      ),
+      _player.playerStateStream.listen((s) {
+        _playerState = s;
+        _states.update(_withPlayerState);
+      }),
       _player.positionStream.listen((p) {
         // 載入中報的可能還是上一條的位置。
         if (_pendingLoads == 0) {
@@ -36,8 +37,11 @@ class JustAudioBackend implements AudioBackend {
         }
       }),
       _player.durationStream.listen(
-        (d) => _states.update((state) => state.copyWith(duration: () => d)),
+        (d) => _states.update(
+          (state) => _withPlayerState(state.copyWith(duration: () => d)),
+        ),
       ),
+      _player.currentIndexStream.listen(_onIndex),
       _player.errorStream.listen((e) {
         // 載入中的錯誤由 setAudioSource 丟出，交給 load 處理。
         if (_pendingLoads == 0) _states.fail(_error(e));
@@ -62,6 +66,17 @@ class JustAudioBackend implements AudioBackend {
   /// 還沒回來的 [load] 數。
   int _pendingLoads = 0;
 
+  final _playlist = BackendPlaylist();
+
+  /// 改清單（預載、換到預載的那項）一次一個，照呼叫的順序。
+  Future<void> _edits = Future.value();
+
+  ja.PlayerState? _playerState;
+
+  /// 目前這條是從預載換過來的：AVPlayer 預載失敗時會吞掉錯誤，換過去後把
+  /// 它報成 ready、長度 0（事實 I4），所以長度還不知道或是 0 時算緩衝中。
+  bool _fromPreload = false;
+
   @override
   AudioBackendState get state => _states.current;
 
@@ -71,18 +86,25 @@ class JustAudioBackend implements AudioBackend {
   @override
   Future<void> load(AudioStream stream) async {
     final generation = ++_generation;
-    _states.reset();
+    switch (_playlist.planLoad(stream)) {
+      case AlreadyCurrent():
+        return;
+      case SwitchTo(:final index):
+        return _switchTo(stream, index, generation);
+      case Reopen():
+        break;
+    }
+    // 不等改到一半的清單：卡住的預載不能擋住新的載入（事實 I4）。
+    _playlist.clear();
+    _fromPreload = false;
+    _states.reset(stream);
     _pendingLoads++;
     try {
       final url = await _playableUrl(stream);
       if (generation != _generation) return;
-      final duration = await _player.setAudioSource(
-        ja.AudioSource.uri(
-          url,
-          headers: stream.headers.isEmpty ? null : stream.headers,
-        ),
-      );
+      final duration = await _player.setAudioSource(_source(url, stream));
       if (generation != _generation) return;
+      _playlist.opened(stream);
       _states.update((s) => s.copyWith(duration: () => duration));
     } on ja.PlayerException catch (e) {
       if (generation != _generation) return;
@@ -95,6 +117,100 @@ class JustAudioBackend implements AudioBackend {
     } finally {
       _pendingLoads--;
     }
+  }
+
+  /// 換到預載的那項（清單的第 [index] 項）：跳過去、移掉播過的，停在開頭。
+  Future<void> _switchTo(AudioStream stream, int index, int generation) async {
+    // 不算進 [_pendingLoads]：換過去那一項開不了的錯誤從 errorStream 來
+    // （AVPlayer 輪到它才報，事實 I4），要照常變成失敗。
+    _states.reset(stream);
+    try {
+      await _edit(() async {
+        if (generation != _generation) return;
+        _playlist.moved(index);
+        _fromPreload = true;
+        await _player.seek(Duration.zero, index: index);
+        await _dropPlayed();
+      });
+    } on ja.PlayerException catch (e) {
+      if (generation != _generation) return;
+      final error = _error(e);
+      _states.fail(error);
+      throw error;
+    }
+    if (generation != _generation) return;
+    _states.update(
+      (s) => _withPlayerState(
+        s.copyWith(
+          duration: () => _player.duration,
+          position: _player.position,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<void> preload(AudioStream? stream) => _edit(() async {
+    final edit = _playlist.preload(stream);
+    if (edit == null) return;
+    for (final index in edit.remove) {
+      await _player.removeAudioSourceAt(index);
+    }
+    final next = edit.append;
+    if (next == null) return;
+    // 包 HLS 要抓一次索引，預載時就先做好。
+    final url = await _playableUrl(next);
+    // 等的期間整個清單被新的載入換掉了。
+    if (!identical(_playlist.preloaded, next)) return;
+    await _player.addAudioSource(_source(url, next));
+  });
+
+  /// 原生的位置變了：是自己接到預載的那項，就報播完並從它的開頭報起，
+  /// 再移掉播過的。
+  void _onIndex(int? index) {
+    if (index == null) return;
+    final next = _playlist.moved(index);
+    if (next == null) return;
+    _fromPreload = true;
+    _states
+      ..advancedTo(next)
+      // 這一項的長度和上一項一樣時 durationStream 不會再發，直接讀。
+      ..update(
+        (s) => _withPlayerState(s.copyWith(duration: () => _player.duration)),
+      );
+    unawaited(_edit(_dropPlayed));
+  }
+
+  Future<void> _dropPlayed() async {
+    for (final index in _playlist.dropPlayed()) {
+      await _player.removeAudioSourceAt(index);
+    }
+  }
+
+  /// 排在前一個清單修改之後做 [change]；失敗不影響之後的修改。
+  Future<void> _edit(Future<void> Function() change) {
+    final done = _edits.then((_) => change());
+    _edits = done.then<void>((_) {}, onError: (Object _) {});
+    return done;
+  }
+
+  ja.AudioSource _source(Uri url, AudioStream stream) => ja.AudioSource.uri(
+    url,
+    headers: stream.headers.isEmpty ? null : stream.headers,
+  );
+
+  /// 套上原生最近一次的播放狀態。從預載換過來的那條長度還不知道或是 0
+  /// 時，ready 算緩衝中（事實 I4）。
+  AudioBackendState _withPlayerState(AudioBackendState state) {
+    final player = _playerState;
+    if (player == null) return state;
+    var status = _status(player.processingState);
+    if (_fromPreload &&
+        status == AudioBackendStatus.ready &&
+        (state.duration ?? Duration.zero) <= Duration.zero) {
+      status = AudioBackendStatus.buffering;
+    }
+    return state.copyWith(status: status, playing: player.playing);
   }
 
   /// 有 [hls] 與索引位置時是本機的 HLS 清單，否則是串流的網址。

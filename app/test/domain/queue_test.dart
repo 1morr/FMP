@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/track.dart';
@@ -82,6 +84,35 @@ void main() {
       expect(Queue.empty.current, isNull);
       expect(Queue.empty.hasNext, isFalse);
       expect(Queue.empty.hasPrevious, isFalse);
+    });
+  });
+
+  group('upcoming (the track next will play, for preloading)', () {
+    String? upcoming(Queue queue) => queue.upcoming?.track.ref.trackId;
+
+    test('is the following track', () {
+      expect(upcoming(queueOf(['a', 'b', 'c'])), 'b');
+    });
+
+    test('is nothing after the last track', () {
+      expect(upcoming(queueOf(['a', 'b'], current: 1)), isNull);
+    });
+
+    test('wraps to the first track with list repeat', () {
+      final queue = queueOf(['a', 'b'], current: 1).withRepeat(Repeat.all);
+      expect(upcoming(queue), 'a');
+    });
+
+    test('is unknown at the end of a shuffled list repeat: the next round is '
+        'shuffled again', () {
+      var queue = queueOf(['a', 'b', 'c']).withRepeat(Repeat.all);
+      queue = queue.shuffle(Random(1));
+      queue = queue.jumpTo(queue.entries.length - 1);
+      expect(queue.upcoming, isNull);
+    });
+
+    test('is nothing in an empty queue', () {
+      expect(Queue.empty.upcoming, isNull);
     });
   });
 

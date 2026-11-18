@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/playback/audio_backend.dart';
 
 /// 兩個音訊後端共用的狀態保管：合併原生播放器零散的事件、只在變了時發出，
@@ -30,9 +31,25 @@ class BackendStates {
     );
   }
 
-  /// 開始載入新串流：清掉上一條的位置、長度與錯誤。
-  void reset() =>
-      _set(const AudioBackendState(status: AudioBackendStatus.loading));
+  /// 開始載入 [stream]（或換到預載的它）：清掉上一條的位置、長度與錯誤。
+  void reset(AudioStream stream) => _set(
+    AudioBackendState(stream: stream, status: AudioBackendStatus.loading),
+  );
+
+  /// 原生播放器自己接到預載的 [next]：先為目前這條報一次播完，再從 [next]
+  /// 的開頭報起，照舊在播（介面 [AudioBackend.preload] 的約定）。之後的狀態
+  /// 由原生接著更新。
+  void advancedTo(AudioStream next) {
+    final playing = current.playing;
+    _set(current.copyWith(status: AudioBackendStatus.completed));
+    _set(
+      AudioBackendState(
+        stream: next,
+        status: AudioBackendStatus.buffering,
+        playing: playing,
+      ),
+    );
+  }
 
   void _set(AudioBackendState next) {
     if (next == current) return;
