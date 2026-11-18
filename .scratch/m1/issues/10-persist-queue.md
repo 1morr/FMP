@@ -18,6 +18,7 @@ Blocked by: 08、09
 - [ ] 開資料庫失敗有測試，畫面有提示、App 照常能播放。
 - [ ] 四平台實跑：排佇列、播到一半、關掉重開，讀回停在原本那首與位置。
 - [ ] 完整閘門的 integration_test（例如 `app_test.dart` 跑 `app.main()`）不寫到擁有者 dev 版的資料庫與 log，照票 08b 實跑驅動的資料隔離做法（`FMP_SCRATCH_DATA`）；有測試守著（2026-11-18 協調者加，票 08b 的發現）。
+- [ ] winpc 跑建置與測試時不跳出 PowerShell 主控台視窗（2026-11-18 協調者加，擁有者同意併進這張票）：`tool/winpc/run_task.sh` 建的 `schtasks /IT` 工作改成不顯示主控台（`conhost.exe --headless`、`-WindowStyle Hidden`、`wscript` 包一層，查證後選一種並說明），FMP 視窗照常開；log、`exit …`、`=== done`、`/TR` 261 字上限照舊。用完整閘門的 Windows 步驟驗，跑的期間在 winpc 每 200ms 列可見的頂層視窗，沒有 `ConsoleWindowClass`。
 - [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
