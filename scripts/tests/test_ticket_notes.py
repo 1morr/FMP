@@ -53,6 +53,13 @@ class TicketNotesTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(out, "M0 01 閘門（2026-01-04）\n  Session 紀錄：閘門就位。\n  決定：用 X 不用 Y（Agent 定）\n  決定：埠由系統挑（使用者同意）\n")
 
+    def test_notes_written_as_list_items_are_read_too(self):
+        self.ticket("m0/issues/01-gates.md", "閘門", "- Session 紀錄：2026-01-04 閘門就位。", "  - 決定：用 X 不用 Y（Agent 定）",
+                    "* 變更：Added｜閘門｜commit 前會跑檢查。", "- 這一行提到決定：但不是開頭。", "- 等使用者：埠要不要寫死？")
+        self.assertEqual(self.run_it("m0", str(self.repo))[1], "M0 01 閘門（2026-01-04）\n  Session 紀錄：閘門就位。\n  決定：用 X 不用 Y（Agent 定）\n"
+                         "  變更：Added｜閘門｜commit 前會跑檢查。\n  等使用者：埠要不要寫死？\n")
+        self.assertEqual(m.changelog(self.repo, "m0"), ["### Added", "- **閘門**：commit 前會跑檢查。"])
+
     def test_archive_lines_carry_date_milestone_and_ticket(self):
         self.ticket("m1.5/issues/02-b.md", "乙", "Session 紀錄：2026-01-05 做完 a | b。", "決定：用 X（Agent 定）")
         self.ticket("m1.5/issues/01-a.md", "甲", "Session 紀錄：2026-01-06 做完甲。")

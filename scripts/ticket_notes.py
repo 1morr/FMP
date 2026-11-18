@@ -4,6 +4,7 @@
     python ticket_notes.py <里程碑的目錄名> [repo 根目錄] --archive
     python ticket_notes.py <里程碑的目錄名> [repo 根目錄] --changelog
 
+四種行寫成清單（`- 決定：…`）或縮排的也認。
 不加參數：每張留了紀錄的票一段，第一行 `<里程碑> <票號> <標題>（<日期>）`，底下每條紀錄縮排兩格。做票前用它看先前的票定過什麼。
   還沒回答的 `等使用者：<題目>`（它後面沒有 `決定：` 行）也印，`--archive`、`--changelog` 不印。
 `--archive`：里程碑封存時用，印兩段照貼進 `docs/archive/<里程碑>.md`：
@@ -28,6 +29,7 @@ WAITING = "等使用者："
 KINDS = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")
 CHANGE = re.compile(r"^變更：(%s)｜([^｜]+)｜(.+)$" % "|".join(KINDS))
 COMMENTS = "## Comments"
+ITEM = re.compile(r"^\s*(?:[-*+]\s+)?")
 DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})\s+(.*)$")
 DECIDER = re.compile("（(使用者定|使用者同意|Agent 定)）")
 MILESTONE_DIR = re.compile(r"^m\d+(\.\d+)?$", re.I)
@@ -59,6 +61,7 @@ def ticket_notes(path: Path) -> dict:
     out = {"number": number.group(1) if number else path.stem, "title": re.sub(r"^\S+[:：]\s*", "", title), "date": "",
            "sessions": [], "decisions": [], "changes": [], "waiting": []}
     for line in text.split("\n" + COMMENTS, 1)[1].split("\n") if "\n" + COMMENTS in text else []:
+        line = ITEM.sub("", line)  # 寫成清單（`- 決定：…`）或縮排的也認
         if line.startswith(SESSION_NOTE):
             rest = line[len(SESSION_NOTE):].strip()
             dated = DATE.match(rest)

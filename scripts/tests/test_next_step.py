@@ -99,6 +99,11 @@ class NextStepTest(unittest.TestCase):
         self.assertIn("在等你回答", f["why"])
         self.assertTrue(m.render(f).startswith("等你決定（3）\n  - M1 票 01：上限"))
 
+    def test_a_question_written_as_a_list_item_is_listed(self):
+        self.ticket("m1/issues/01-a.md", "甲", notes="\n- 等使用者：要不要支援匯出？\n")
+        self.ticket("m1/issues/02-b.md", "乙", notes="\n  * 等使用者：答過的。\n  - 決定：不做（使用者定）\n見上面的等使用者：那一題，句子中間的不算。\n")
+        self.assertEqual(self.found()["waiting"], ["M1 票 01：要不要支援匯出？（.scratch/m1/issues/01-a.md）"])
+
     def test_a_waiting_ticket_is_skipped_for_one_that_can_go(self):
         self.ticket("m1/issues/01-a.md", "甲", notes="\n等使用者：上限寫死還是做成設定？\n")
         self.ticket("m1/issues/02-b.md", "乙")

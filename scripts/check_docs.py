@@ -30,7 +30,7 @@
     - docs/ 第一層的每個檔與資料夾，名字都出現在指令檔（AGENTS.md，沒有就看 CLAUDE.md）裡；兩個都沒有就不查
     - docs/research/ 第一層：檔名裡有日期的，日期在最後（`<主題>-YYYY-MM-DD`）；`facts-*.md` 有〈事實〉段
   程式碼
-    - git 追蹤的檔，除了 Markdown、docs/、.scratch/ 與本腳本和它的測試，不引用 brief 或架構文檔的章節號（「brief §4」「architecture §3」「plan §3.2」）；
+    - git 追蹤的檔，除了 Markdown、docs/、.scratch/ 與本腳本和它的測試，不引用 brief 或架構文檔的章節號（「brief §4」「architecture §3」「plan §3.2」，文件名和 § 之間隔了反引號或節名也算；研究筆記與 ADR 的節號可以引）；
       不是 git repo 就不查
   .scratch/
     - 有 issues/ 的目錄都列在 roadmap.md 的里程碑表（表的「里程碑」欄第一個詞，小寫後就是目錄名）；不是里程碑的工作（文件瘦身、審計）也佔一列
@@ -40,7 +40,8 @@
     - 還沒結束的里程碑（roadmap.md 的狀態不是「已驗收」「不做」開頭）每張票有 `## 驗收` 段，裡面至少一個勾選框
     - roadmap.md 標「進行中」的里程碑（表的「里程碑」欄第一個詞，小寫後就是目錄名），Status 是 done 的票在 `## Comments` 之後
       有一行 `Session 紀錄：<YYYY-MM-DD> <做了什麼>`，以 `決定：` 開頭的行都標一個決定者、不超過 160 字元
-      （票是這兩種紀錄唯一的來源，封存時加上日期與票號仍在 200 字元內）；spec 的〈驗收〉底下有 `### 使用者試`
+      （票是這兩種紀錄唯一的來源，封存時加上日期與票號仍在 200 字元內）；spec 的〈驗收〉底下有 `### 使用者試`。
+      `Session 紀錄：`、`決定：`、`變更：`、`等使用者：` 這四種行寫成清單（`- 決定：…`）或縮排的也認，長度從這幾個字算起
     - 上一條那些 done 的票，`## Comments` 之後沒有還沒回答的「等使用者：」行（它後面要有一行「決定：」）
     - 有 CHANGELOG.md 的 repo，上一條那些 done 的票還要至少一行 `變更：`：`變更：<分類>｜<功能>｜<一句>`（分類是上面六個之一），
       或沒有使用者看得到的改動時 `變更：無`
@@ -63,7 +64,9 @@ DECISIONS = "docs/decisions.md"
 BRIEF, ARCHITECTURE = "docs/design-brief.md", "ARCHITECTURE.md"
 BUDGETS = {"AGENTS.md": 8000, ARCHITECTURE: 15000, PROGRESS: 20000, BRIEF: 30000}
 TICKET_NUMBER = re.compile(r"票\s*\d")
-SECTION_REF = re.compile(r"(?:architecture|plan|brief)(?:\.md)?\s*§\s*\d", re.I)
+# 文件名到 `§<數字>` 之間可以隔反引號或節名（`plan〈資料流〉 的後處理、§4.4`），但不跨過別的 `.md` 或 ADR，
+# 研究筆記與 ADR 的節號可以引；只看 40 字內，免得同一行後面不相干的 § 被算進來。
+SECTION_REF = re.compile(r"(?:architecture|plan|brief)(?:\.md)?(?:(?!\.md|ADR)[^§\n]){0,40}§\s*\d", re.I)
 NOT_CODE = ("docs/", ".scratch/", "scripts/check_docs.py", "scripts/tests/test_check_docs.py")
 MAX_SCANNED_BYTES = 1_000_000
 INSTRUCTIONS = ("AGENTS.md", "CLAUDE.md")
@@ -108,6 +111,7 @@ CLOSED = ("已驗收", "不做")
 CHECKBOX = re.compile(r"^\s*[-*] \[[ xX]\]")
 DROPPED = re.compile(r"^\**Status:?\**:?\s*(?:wontfix|cancelled|canceled)", re.I)
 AFTER = re.compile(r"排在\s*`?([^\s`，。；、]+)`?\s*之後")
+ITEM = re.compile(r"^\s*(?:[-*+]\s+)?")
 DEVELOPMENT, GATE_SECTION, GATE_COLUMNS = "docs/development.md", "閘門", ("閘門", "指令或設定檔")
 GATE_ROWS = ("格式", "Lint", "型別", "單元測試", "端到端冒煙", "密鑰掃描", "依賴漏洞", "依賴更新")
 NOT_APPLICABLE = re.compile(r"^不適用[：:]\s*\S")
@@ -446,7 +450,7 @@ def check_scratch(root: Path) -> list:
                 out.append(f"{rel}/issues/{t.name}：第一個 ## 之前要有一行 `Status:`")
             elif d.name in active and any(DONE.match(line) for line in head):
                 comments = text.split("\n## Comments", 1)
-                noted = comments[1].split("\n") if len(comments) == 2 else []
+                noted = [bare(l) for l in comments[1].split("\n")] if len(comments) == 2 else []
                 where = f"{rel}/issues/{t.name}"
                 if open_questions(noted):
                     out.append(f"{where}：票做完了，Comments 裡的「{WAITING}」還沒有回答。在它後面加一行「{DECISION_NOTE}…（<決定者>）」")
@@ -467,6 +471,11 @@ def check_scratch(root: Path) -> list:
                 if criteria is None or not any(CHECKBOX.match(l) for _, l in criteria):
                     out.append(f"{rel}/issues/{t.name}：要有 `## {ACCEPTANCE}` 段，驗收條件寫成裡面的勾選框（照 docs/agents/ticket-template.md）")
     return out
+
+
+def bare(line: str) -> str:
+    """去掉行首的縮排和清單符號：`## Comments` 底下的紀錄常被寫成 `- 決定：…`，照樣要認得。"""
+    return ITEM.sub("", line)
 
 
 def unfinished(path: Path) -> bool:
