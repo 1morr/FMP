@@ -30,6 +30,7 @@ dart run tool/real_run.dart -d <macos|ios|android|windows> [--out <目錄>] inte
 - 截圖用系統的工具，連系統畫的部分（紅綠燈、狀態列、Windows 視窗框）一起截，都不動游標：macOS `screencapture -l <視窗 id>`（視窗 id 由 App 的 pid 經 CoreGraphics 的視窗清單查，被蓋住也截得到）、iOS `xcrun simctl io <udid> screenshot`、Android `adb exec-out screencap -p`、Windows `shot.ps1 -AppPid`（`PrintWindow` 加 `PW_RENDERFULLCONTENT` 請視窗把自己畫出來，不拉前景，被蓋住也截得到；2026-11-17 實測 Flutter 的畫面完整、不是黑的）。
 - 驅動走到一步（`RealRun.step`）先讓畫面畫完，向宿主要截圖，等回覆才往下做，截到的就是這一步。macOS、iOS、Android 的宿主是 `tool/real_run.dart` 在 127.0.0.1 開的截圖服務（`tool/src/real_run_host.dart`；Android 經 `adb reverse` 連回 Mac）；Windows 的 App 本身就在 `winpc` 的桌面工作階段，驅動直接跑 `shot.ps1 -AppPid` 截自己的視窗，檔案存在 `C:\fmp-wt\real_run\`，跑完 scp 回來。Windows 那條是先同步、建置（同完整閘門），再以排程工作跑 `test.ps1 -RealRunDir`。
 - 不碰 dev 版的資料：`tool/real_run.dart`（Windows 是 `test.ps1 -RealRunDir … -ScratchData fmp-real-run`）帶 `--dart-define=FMP_SCRATCH_DATA=fmp-real-run`，App 的資料庫、log 與封面快取整份改放裝置系統暫存目錄底下的 `fmp-real-run/`（`lib/platform/app_data_directory.dart`；macOS 是沙盒容器的 `Library/Caches/com.personal.fmp.dev/`、iOS 是 App 的 `tmp/`、Android 是 `cache/`、Windows 是 `%TEMP%`），`RealRun.launch` 開 App 前清空它，沒帶這個 define 就不跑。`RealRun.launch(tester, keepData: true)` 不清空，接著上一個情境留下的資料開，用來驗重開 App（例如 `persist_run.dart` 接 `restore_run.dart`，兩段包在同一個 `device_lock.dart -- bash -c '…'` 裡連著跑）。正式版與平常的 dev 版沒帶，照舊用 application support 目錄。
+- 系統那一側的動作（按 Home、讀通知、按通知或「正在播放」面板的鈕、送媒體鍵）：情境呼叫 `run.system('<步驟>', '<動作>', [參數])`，驅動向宿主的 `/system` 要，`tool/real_run.dart` 交給 `tool/real_run_system.sh` 用 osascript（輔助使用）、simctl、adb 做，都不動 Mac 的游標；讀回的文字存成 `NN-<步驟>.txt`，截系統畫面的動作存 `.png`。動作清單在腳本開頭；App 在背景時不出幀，這一步不 pump。Windows 還沒接（跳過中）。範例是 `media_run.dart`。
 - 寫情境：照 `integration_test/real_run/search_and_play_run.dart` 寫 `integration_test/real_run/<情境>_run.dart`（驅動在同目錄的 `driver.dart`；別的檔名不要以 `_run.dart` 結尾，那是情境的記號）。檔名短一點：Windows 的排程工作指令上限 261 字（〈Windows〉），範例用掉約 165。`RealRun.launch` 開真的 App（`main.dart`、真的資料庫），等到首頁就先截 `01-launch`，那是啟動後還沒動過視窗的樣子（票 05d）；之後用 `tester` 點擊與打字，`run.waitFor` 等畫面，`run.step('<步驟>', within: …)` 截圖並讀回。換頁用 `test/support/shell.dart` 的 `openSearch`、`openDestination`，三種寬度都通。檔名不是 `_test.dart`，完整閘門不跑、也不裝零聯網守門（ARCHITECTURE〈測試策略〉），照 spec〈共同規則〉的聯網規則只搜一次、播一首，失敗重跑也算一次。
 - integration_test 開視窗時一樣會搶前景，`winpc` 上擁有者可能正在用（2026-11-17 實跑時遇到），先說一聲。
 - `winpc` 的螢幕睡著時，`PrintWindow` 照樣回報成功，截到的卻是白圖（2026-11-18，票 06b）。`test.ps1 -RealRunDir` 跑情境期間在自己的執行緒上呼叫 `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`，跑完還原，不送滑鼠鍵盤輸入；工作階段鎖定時這招沒用，要請擁有者解鎖。查法：`ssh winpc query session` 看 console 是否「使用中」，有 `LogonUI` 行程就是鎖著。
@@ -42,7 +43,9 @@ dart run tool/real_run.dart -d <macos|ios|android|windows> [--out <目錄>] inte
 
 ### macOS
 
-框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）。
+框架與套件：Flutter macOS 桌面，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）、audio_service（系統媒體控制，事實 K18）。
+
+背景播放與系統媒體控制：縮到 Dock、切到別的 App 都照常播放，不用另加設定。選單列的「正在播放」與媒體鍵經 audio_service，封面由 Dart 端下載，靠 entitlements 已有的 `com.apple.security.network.client`。App 要出過聲才會成為 Now Playing App（事實 M10）。讀回與操作「正在播放」面板用 `scripts/experiments/macos-now-playing/np-panel.sh`（輔助使用，不動游標），實跑情境 `integration_test/real_run/media_run.dart` 經它按面板的鈕、拖進度並送媒體鍵。
 
 視窗：標題列透明、內容延伸到它底下，紅綠燈移到側欄頂端（燈位由 Dart 的 `lib/platform/traffic_lights.dart` 經 `fmp/window` 告訴原生端：寬級照稿，細欄照稿放不下就在細欄內框裡置中，沒有側欄或細欄的畫面送「沒有燈位」、紅綠燈回系統原位），頂端空白處經 `fmp/window` 頻道拖動視窗、雙擊縮放（事實 M12）。紅綠燈的位置由 `macos/RunnerTests`（XCTest，跑在 App 裡讀真的視窗）守著：啟動後、改標題、切深淺色後都要在燈位，寬級與細欄兩種寬度都在側欄或細欄的內框裡，寬級照稿在 (24,22)，收到「沒有燈位」時三顆看得到、在系統原位；完整閘門跑它，單獨跑是先 `flutter build macos --debug`，再 `xcodebuild test -workspace macos/Runner.xcworkspace -scheme Runner -destination platform=macOS -only-testing:RunnerTests`，失敗的斷言加 `-resultBundlePath <檔>` 後用 `xcrun xcresulttool get test-results tests --path <檔>` 讀。移紅綠燈靠未公開的視圖結構（事實 M12、M13），升級 macOS 後再實跑檢查一次：啟動後不動視窗先截一張，再切到別的 App 又切回來、切系統深淺色、縮放、進出全螢幕，最後把視窗拉到 1280×800 與 960×720 各截一張，紅綠燈都要在側欄或細欄頂端的空白裡（不壓到邊框、不跑回視窗角落）。位置可用 System Events 讀 `position of button 1 of window 1 of process "FMP Dev"` 減去視窗位置：細欄是 (13,21)、寬級是 (23,21)（AX 的框比按鈕外擴 1pt），在原位是 (8,8)。再從頂端空白處拖一下，`osascript -e 'tell application "System Events" to get position of window 1 of process "FMP Dev"'` 的位置要跟著變。Flutter 的手勢要真的滑鼠事件，`orca computer drag` 拖不動，改用 CGEvent 送 `leftMouseDown`／`leftMouseDragged`／`leftMouseUp`。
 
@@ -58,7 +61,9 @@ log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Suppor
 
 ### iOS 模擬器
 
-框架與套件：Flutter iOS，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）。
+框架與套件：Flutter iOS，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（AVPlayer）、audio_service（系統媒體控制）。
+
+背景播放與系統媒體控制：`ios/Runner/Info.plist` 的 `UIBackgroundModes` 有 `audio`（audio_service 的 README〈iOS setup〉；事實 I1），切到別的 App、鎖屏時照常播放。模擬器驗得到背景播放（實跑情境 `media_run.dart` 切到「設定」後讀播放位置）；控制中心、鎖屏的 Now Playing 與遠端指令模擬器讀不到、也送不了（`orca emulator button lock` 在模擬器上沒有作用），留給實機試；audio_service 在 iOS 不設 `playbackState`（事實 I5）。
 
 log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下的 `Library/Application Support/logs/fmp.log`。
 
@@ -72,7 +77,9 @@ log：`xcrun simctl get_app_container booted com.personal.fmp.dev data` 底下�
 
 ### Android 模擬器
 
-框架與套件：Flutter Android，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（ExoPlayer）。
+框架與套件：Flutter Android，平台套件：path_provider（log 目錄、資料庫位置）、just_audio（ExoPlayer）、audio_service（系統媒體控制）。
+
+背景播放與系統媒體控制（audio_service 的 README〈Android setup〉）：`AndroidManifest.xml` 有 `WAKE_LOCK`、`FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_MEDIA_PLAYBACK` 三個權限、audio_service 的 `AudioService` 服務（`foregroundServiceType="mediaPlayback"`）與 `MediaButtonReceiver`；`MainActivity` 繼承 `AudioServiceActivity`，和前景服務共用 FlutterEngine，關掉畫面後 Dart 照常在背景播。通知頻道的名字在設定裡看得到，三種語言在 `app.mediaNotificationChannel`。媒體鍵的播放、暫停鍵都被當成切換（事實 A6）。讀回：`adb shell dumpsys media_session`、展開通知列後 `uiautomator dump`；播放中進度條一直動，uiautomator 等不到畫面靜止（`could not get idle state`），要先暫停再讀，`tool/real_run_system.sh` 照這樣做。
 
 log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 
@@ -87,6 +94,8 @@ log：`adb shell run-as com.personal.fmp.dev cat files/logs/fmp.log`。
 ### Windows（`winpc`）
 
 框架與套件：Flutter Windows 桌面，平台套件：path_provider（log 目錄、資料庫位置）、media_kit（libmpv；建置時從 GitHub 下載，事實 K26）。
+
+系統媒體控制：不用套件，`app/windows/runner/media_controls.cpp` 用 C++/WinRT 接主視窗的 SMTC（`ISystemMediaTransportControlsInterop::GetForWindow`），經 `fmp/media` 頻道和 `lib/platform/windows_media_controls.dart` 來回（smtc_windows 和 fjs 的 flutter_rust_bridge 版本衝突，事實 W7）。runner 因此連 `windowsapp.lib`、以 C++20 編譯（C++17 下 C++/WinRT 退回 `<experimental/coroutine>`，VS 2026 不收）。2026-11-19 寫好時 `winpc` 停用，還沒在 Windows 編譯與實跑過，補驗清單在 M1 票 13 的 Comments。
 
 視窗：沒有原生標題列，最小化、最大化、關閉由 App 畫在右上；拿掉標題列、頂端拉邊緣、最大化鈕上的 Snap Layouts 與 `fmp/window` 頻道在 `app/windows/runner/window_frame.cpp`（事實 W12，不用套件的原因見事實 K29）。Snap Layouts 與頂端拉邊緣靠替換 Flutter 畫面子視窗的 window procedure，引擎改了子視窗的結構就會悄悄失效，這段原生碼沒有測試會發現。升級 Flutter 或 Windows 後，在 `winpc` 用真的滑鼠（人手或 SendInput，不能用跨行程送 `WM_NCHITTEST` 代替）檢查一次，每項讀回視窗矩形或截圖：拖曳頂列空白處，視窗跟著移動，放開後點側欄照常換頁；雙擊頂列空白處最大化、再雙擊還原；滑鼠停在最大化鈕上約 2 秒出 Snap Layouts，鈕本身有 hover 底色；點最大化鈕最大化、圖示換成還原，再點還原；從頂端、右邊緣、右下角拉大小，往小拉時客戶區停在 720×560 邏輯像素；最小化鈕、關閉鈕（關閉後行程結束）。
 

@@ -51,7 +51,7 @@
 
 ### iOS
 
-- **I1**【待重驗】Info.plist 沒有 `UIBackgroundModes: [audio]` 的話，App 一進背景，Dart 與 JS 就一起被凍結；這個 key 免費帳號也能用。出處：`archive:docs/adr/0037` §決定 4。可信度：上一版文件。
+- **I1** Info.plist 有 `UIBackgroundModes: [audio]` 時，App 切到背景照常播放：2026-11-19 iOS 27 模擬器上播 B 站、切到「設定」（`AppLifecycleState.paused`），10 秒後播放位置走了約 10 秒。【待重驗】上一版文件另記：沒有這個 key 的話，App 一進背景，Dart 與 JS 就一起被凍結；這個 key 免費帳號也能用。這次沒做拿掉 key 的對照。出處：`app/integration_test/real_run/media_run.dart`（M1 票 13）；`archive:docs/adr/0037` §決定 4。可信度：前半 2026-11-19 實測，【待重驗】是上一版文件。
 - **I2**【待重驗】`audio_session` 在 iOS 把每次中斷開始都報成 `unknown`；要等結束事件帶 `shouldResume` 才續播；別的 App 開始播放時只發開始、不發結束。just_audio 0.10.6 的 `handleInterruptions` 在 duck 結束時把音量乘 2，所以中斷要自己處理。出處：commit `f6b07480`、`archive:docs/adr/0037` §決定 8。可信度：上一版文件。
 - **I3**【待重驗】secure storage 在 iOS 預設 `unlocked`，鎖屏時讀不到（`-25308`）；解除安裝後 keychain 項目還在；換一個 Team 重簽後讀不到。出處：`archive:docs/adr/0037` §決定 6。可信度：上一版文件。
 - **I4** AVPlayer（just_audio 0.10.6，macOS 27.0.1、iOS 27 模擬器）佇列裡預載的下一項開不了（本機假 CDN 回 403）時，預載當下不報錯；輪到它時才從 just_audio 的 errorStream 報 -11849（`Operation Stopped`），和直接開一樣走重新解析。跳到已預載的項目用 just_audio 的 `seek(Duration.zero, index:)`，不要對同一網址重開（重開會丟掉引擎已在載入的那項，上一版在 iPhone 上因此多等 15 秒）。【待重驗】上一版文件另記兩點，這次沒重現：失敗的預載項目交接後被報成 ready、時長 0；一個卡住的項目會凍結之後所有的開檔（後端因此把預載換來、長度 0 的 ready 當成緩衝中，載入新的一條也不等改到一半的清單）。出處：`app/integration_test/preload_test.dart`（2026-11-18 三平台）；上一版 commits `49eb674a`、`ed1bc889`、`6c5d681b`。可信度：前半 2026-11-18 實測，【待重驗】那兩點是上一版文件。
