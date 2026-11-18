@@ -66,12 +66,12 @@ sealed class QueueItem {
     (sum, entry) => sum + (entry.track.duration ?? Duration.zero),
   );
 
-  /// 這一項的高；臨時播放卡片的高依寬度量，由畫面給 [card]。
-  double extent(QueueLayout layout, {double card = 0}) => switch (this) {
+  /// 這一項的高；臨時播放卡片的高依寬度量，由畫面給 [cardExtent]。
+  double extent(QueueLayout layout, {double cardExtent = 0}) => switch (this) {
     PlayedCaption() => layout.capExtent,
     TrackItem() => layout.rowExtent,
     UpNextFold() => layout.foldExtent,
-    TemporaryCardItem() => card,
+    TemporaryCardItem() => cardExtent,
   };
 
   /// 全部曲目的時長加總；不知道時長的算 0。

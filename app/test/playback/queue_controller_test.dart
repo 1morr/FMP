@@ -549,24 +549,43 @@ void main() {
       expect(playing(), 'a');
     });
 
-    test('with nothing in the queue to return to, the finished temporary '
-        'track stays and skipping is off', () async {
+    test(
+      'with nothing in the queue to return to, a finished temporary '
+      'track ends temporary play there; adding then plays as usual',
+      () async {
+        await queue().playTemporarily(track('x'));
+        await settle();
+        expect(container.read(skipAvailableProvider), (
+          previous: false,
+          next: false,
+        ));
+
+        await finishTemporary();
+        expect(playing(), 'x');
+        expect(
+          container.read(playbackProvider)!.status,
+          PlaybackStatus.completed,
+        );
+        expect(temporary(), isNull);
+
+        await queue().add([track('a')]);
+        expect(playing(), 'a');
+      },
+    );
+
+    test('started after the queue finished, it goes back to the last track '
+        'from the start', () async {
+      await queue().add([track('a')]);
+      at(const Duration(minutes: 3));
+      finishCurrent();
+      await settle();
+
       await queue().playTemporarily(track('x'));
       await settle();
-      expect(container.read(skipAvailableProvider), (
-        previous: false,
-        next: false,
-      ));
-
       await finishTemporary();
-      await queue().next();
 
-      expect(playing(), 'x');
-      expect(
-        container.read(playbackProvider)!.status,
-        PlaybackStatus.completed,
-      );
-      expect(temporary(), isNotNull);
+      expect(playing(), 'a');
+      expect(sinceLastLoad(), ['load', 'play']);
     });
 
     test('skipping is on while there is a queue track to return to', () async {

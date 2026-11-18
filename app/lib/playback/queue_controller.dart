@@ -75,7 +75,7 @@ class QueueController extends Notifier<Queue> {
       if (next?.status == PlaybackStatus.failed &&
           previous?.status != PlaybackStatus.failed &&
           _temporary != null) {
-        unawaited(Future.microtask(returnToQueue));
+        unawaited(Future.microtask(_endTemporary));
       }
     });
     return Queue.empty;
@@ -111,12 +111,14 @@ class QueueController extends Notifier<Queue> {
   Future<void> playTemporarily(Track track) {
     final playback = ref.read(playbackProvider);
     final leaving = state.current;
-    // 正在播的就是佇列的目前那首時，才記下它播到哪裡；失敗、還沒播過的從頭。
+    // 正在播的就是佇列的目前那首時，才記下它播到哪裡；失敗、已播完、還沒
+    // 播過的回來時從頭。
     final position =
         leaving != null &&
             playback != null &&
             playback.track == leaving.track &&
-            playback.status != PlaybackStatus.failed
+            playback.status != PlaybackStatus.failed &&
+            playback.status != PlaybackStatus.completed
         ? playback.position
         : Duration.zero;
     _temporary = TemporaryPlay.start(
@@ -142,7 +144,7 @@ class QueueController extends Notifier<Queue> {
   }
 
   /// 佇列頁臨時播放卡片的「下一首播放」：把臨時播放的曲目插在目前那首後面
-  /// 並成為目前那首，聲音不中斷；原本那首算播過（擁有者 2026-11-18）。
+  /// 並成為目前那首，聲音不中斷；原本那首算播過。
   void queueTemporaryNext() {
     final temporary = _temporary;
     if (temporary == null) return;
@@ -213,10 +215,20 @@ class QueueController extends Notifier<Queue> {
     if (!hadCurrent && _temporary == null) await _playCurrent();
   }
 
+  /// 臨時播放的那首播完或播不了：回到佇列；佇列沒有目前那首（回不去）就
+  /// 結束臨時播放，停在那首，之後加入佇列照常開始播。
+  Future<void> _endTemporary() async {
+    if (state.current == null) {
+      _temporary = null;
+      return;
+    }
+    await returnToQueue();
+  }
+
   /// 一首自然播完：臨時播放的回到佇列（單曲循環也一樣），單曲循環重播
   /// 它，否則接下一首。
   Future<void> _onCompleted() {
-    if (_temporary != null) return returnToQueue();
+    if (_temporary != null) return _endTemporary();
     return state.repeat == Repeat.one ? _playCurrent() : next();
   }
 

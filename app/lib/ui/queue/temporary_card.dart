@@ -19,13 +19,6 @@ import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 回到佇列時會從哪裡播，佇列頁的卡片與回去那一列的副標都寫它。
-Duration temporaryResumeAt(
-  WidgetRef ref,
-  TemporaryPlay temporary,
-  QueueEntry entry,
-) => temporary.resumeAt(entry, ref.watch(temporaryPlayRewindProvider));
-
 /// 佇列頁的「臨時播放」卡片（`docs/design/queue.html`：觸控 `.qu-temp`、表格
 /// `.qu-dtemp`）：插在要回去的那首上方，寫明回到哪裡、從哪裡繼續，兩個動作
 /// 「現在回到佇列」「下一首播放」。佇列沒有目前那首（回不去）時不寫回去的
@@ -187,6 +180,7 @@ class QueueTemporaryCard extends ConsumerWidget {
     final colors = context.fmpColors;
     final controller = ref.read(queueProvider.notifier);
     final playback = ref.watch(playbackProvider);
+    final rewind = ref.watch(temporaryPlayRewindProvider);
     final entry = returnTo;
     final text = entry == null
         ? null
@@ -195,8 +189,8 @@ class QueueTemporaryCard extends ConsumerWidget {
             table: table,
             returnTo: entry,
             returnIndex: returnIndex,
-            resumeAt: temporaryResumeAt(ref, temporary, entry),
-            rewind: ref.watch(temporaryPlayRewindProvider),
+            resumeAt: temporary.resumeAt(entry, rewind),
+            rewind: rewind,
           );
     final playing =
         playback != null &&
@@ -467,11 +461,7 @@ class _TableTrack extends ConsumerWidget {
   final String? time;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => LayoutBuilder(
-    builder: (context, box) => _build(context, ref, box.maxWidth),
-  );
-
-  Widget _build(BuildContext context, WidgetRef ref, double width) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.fmpColors;
     final sourceName = ref
         .watch(pluginManifestProvider(track.ref.pluginId))

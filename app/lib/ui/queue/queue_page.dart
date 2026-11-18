@@ -76,7 +76,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         layout.headEstimate +
         QueueItem.of(queue, temporary: temporary).fold(
           0.0,
-          (sum, item) => sum + item.extent(layout, card: _cardEstimate),
+          (sum, item) => sum + item.extent(layout, cardExtent: _cardEstimate),
         ) +
         insets.bottom;
     final initial =
@@ -130,6 +130,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     QueueLayout layout,
     Queue queue,
     TemporaryPlay temporary,
+    Duration rewind,
     double width,
   ) {
     final entry = queue.current;
@@ -144,8 +145,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               table: layout.isTable,
               returnTo: entry,
               returnIndex: queue.currentIndex,
-              resumeAt: temporaryResumeAt(ref, temporary, entry),
-              rewind: ref.read(temporaryPlayRewindProvider),
+              resumeAt: temporary.resumeAt(entry, rewind),
+              rewind: rewind,
             ),
     );
   }
@@ -306,6 +307,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     });
     final queue = ref.watch(queueProvider);
     final temporary = ref.watch(temporaryPlayProvider);
+    final rewind = ref.watch(temporaryPlayRewindProvider);
     final playing = ref.watch(
       playbackProvider.select((state) => state?.playing ?? false),
     );
@@ -362,7 +364,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       final current = queue.currentIndex ?? queue.entries.length;
       double extentOf(QueueItem item, double width) {
         if (item is! TemporaryCardItem) return item.extent(layout);
-        return _cardExtent(layout, queue, temporary!, width);
+        return _cardExtent(layout, queue, temporary!, rewind, width);
       }
 
       scroll = CustomScrollView(
@@ -394,9 +396,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                 layout,
                 items,
                 i,
+                queue: queue,
                 current: current,
                 playing: playing,
                 temporary: temporary,
+                rewind: rewind,
               ),
             ),
           ),
@@ -438,9 +442,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     QueueLayout layout,
     List<QueueItem> items,
     int i, {
+    required Queue queue,
     required int current,
     required bool playing,
     required TemporaryPlay? temporary,
+    required Duration rewind,
   }) {
     final table = layout.isTable;
     switch (items[i]) {
@@ -448,8 +454,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         return QueueTemporaryCard(
           key: const ValueKey('temporary'),
           temporary: temporary!,
-          returnTo: ref.read(queueProvider).current,
-          returnIndex: ref.read(queueProvider).currentIndex,
+          returnTo: queue.current,
+          returnIndex: queue.currentIndex,
           table: table,
         );
       case PlayedCaption(:final count):
@@ -472,9 +478,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         final isCurrent = index == current && temporary == null;
         final returnNote = index == current && temporary != null
             ? context.t.queue.temporary.returnRow(
-                position: formatDuration(
-                  temporaryResumeAt(ref, temporary, entry),
-                ),
+                position: formatDuration(temporary.resumeAt(entry, rewind)),
               )
             : null;
         if (table) {
