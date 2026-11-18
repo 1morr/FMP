@@ -21,6 +21,7 @@ M0 留下的一起做：
 - [ ] `classifyMpvLog` 只把致命錯誤當失敗，有測試；mpv 設定與 `audio_session` 已接上。
 - [ ] 未捕捉的錯誤寫進 log，有測試。
 - [ ] 四平台實跑：用壞掉的串流（假 CDN 回 403）觸發一次重新解析，讀回 log 與畫面。
+- [ ] 補驗票 10 在 Windows 的缺口（2026-11-18 協調者加，擁有者定票 10 照現有結果收）：在這張票的最終 commit 上跑 `integration_test/real_run/persist_run.dart` 與 `restore_run.dart` 的 Windows 實跑（重開後停在原位、按播放從同一位置接著播），看截圖；完整閘門的 Windows `app_test`、`stream_duration_test` 綠。票 10 最後一輪這兩步在藍屏後連續紅在 MSB8066（Rust 編譯），先清 winpc 上 fjs 的 Rust 建置快取再判斷是不是程式的問題。
 - [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
 
 ## Comments
