@@ -25,13 +25,14 @@
 dart run tool/real_run.dart -d <macos|ios|android|windows> [--out <目錄>] integration_test/real_run/search_and_play_run.dart
 ```
 
-- 結果在 `<目錄>/<平台>/`（預設 `build/real_run/`）：每一步一張 `NN-<步驟>.png` 與讀回的 `NN-<步驟>.txt`，加上 `flutter test` 的輸出（Windows 是 `test-<檔名>.log` 與 `build.log`）；讀回的文字也印在輸出裡。退出碼是情境的結果。
+- 結果在 `<目錄>/<平台>/`（預設 `build/real_run/`）：每一步一張 `NN-<步驟>.png` 與讀回的 `NN-<步驟>.txt`，加上 `flutter test` 的輸出（Windows 是 `test-<檔名>.log` 與 `build.log`）；讀回的文字也印在輸出裡。退出碼是情境的結果；情境綠但有截圖幾乎同一色（不到 32 種顏色，或 99.5% 是同一色）或讀不懂時也算失敗，並列出是哪幾張（`tool/src/blank_screenshot.dart`，票 06b）。
 - 整段持有共用裝置鎖：這個 worktree 已持有時直接用，否則自己拿、跑完放。同一個 worktree 已持鎖時內層不拿 OS 鎖，持鎖的外層一結束鎖就沒人持有（票 08），所以別在背景持鎖（`device_lock.dart -- sleep … &`）時跑它：`sleep` 可能先到期。要在同一把鎖裡前後加別的步驟（例如讀游標），整串放進一個 `device_lock.dart -- bash -c '…; dart run tool/real_run.dart …; …'`，外層等裡面全部結束才放鎖。
 - 截圖用系統的工具，連系統畫的部分（紅綠燈、狀態列、Windows 視窗框）一起截，都不動游標：macOS `screencapture -l <視窗 id>`（視窗 id 由 App 的 pid 經 CoreGraphics 的視窗清單查，被蓋住也截得到）、iOS `xcrun simctl io <udid> screenshot`、Android `adb exec-out screencap -p`、Windows `shot.ps1 -AppPid`（`PrintWindow` 加 `PW_RENDERFULLCONTENT` 請視窗把自己畫出來，不拉前景，被蓋住也截得到；2026-11-17 實測 Flutter 的畫面完整、不是黑的）。
 - 驅動走到一步（`RealRun.step`）先讓畫面畫完，向宿主要截圖，等回覆才往下做，截到的就是這一步。macOS、iOS、Android 的宿主是 `tool/real_run.dart` 在 127.0.0.1 開的截圖服務（`tool/src/real_run_host.dart`；Android 經 `adb reverse` 連回 Mac）；Windows 的 App 本身就在 `winpc` 的桌面工作階段，驅動直接跑 `shot.ps1 -AppPid` 截自己的視窗，檔案存在 `C:\fmp-wt\real_run\`，跑完 scp 回來。Windows 那條是先同步、建置（同完整閘門），再以排程工作跑 `test.ps1 -RealRunDir`。
 - 不碰 dev 版的資料：`tool/real_run.dart`（Windows 是 `test.ps1 -RealRunDir`）帶 `--dart-define=FMP_SCRATCH_DATA=fmp-real-run`，App 的資料庫、log 與封面快取整份改放裝置系統暫存目錄底下的 `fmp-real-run/`（`lib/platform/app_data_directory.dart`；macOS 是沙盒容器的 `Library/Caches/com.personal.fmp.dev/`、iOS 是 App 的 `tmp/`、Android 是 `cache/`、Windows 是 `%TEMP%`），`RealRun.launch` 開 App 前清空它，沒帶這個 define 就不跑。正式版與平常的 dev 版沒帶，照舊用 application support 目錄。
 - 寫情境：照 `integration_test/real_run/search_and_play_run.dart` 寫 `integration_test/real_run/<情境>_run.dart`（驅動在同目錄的 `driver.dart`；別的檔名不要以 `_run.dart` 結尾，那是情境的記號）。檔名短一點：Windows 的排程工作指令上限 261 字（〈Windows〉），範例用掉約 165。`RealRun.launch` 開真的 App（`main.dart`、真的資料庫），等到首頁就先截 `01-launch`，那是啟動後還沒動過視窗的樣子（票 05d）；之後用 `tester` 點擊與打字，`run.waitFor` 等畫面，`run.step('<步驟>', within: …)` 截圖並讀回。換頁用 `test/support/shell.dart` 的 `openSearch`、`openDestination`，三種寬度都通。檔名不是 `_test.dart`，完整閘門不跑、也不裝零聯網守門（ARCHITECTURE〈測試策略〉），照 spec〈共同規則〉的聯網規則只搜一次、播一首，失敗重跑也算一次。
 - integration_test 開視窗時一樣會搶前景，`winpc` 上擁有者可能正在用（2026-11-17 實跑時遇到），先說一聲。
+- `winpc` 的螢幕睡著時，`PrintWindow` 照樣回報成功，截到的卻是白圖（2026-11-18，票 06b）。`test.ps1 -RealRunDir` 跑情境期間在自己的執行緒上呼叫 `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`，跑完還原，不送滑鼠鍵盤輸入；工作階段鎖定時這招沒用，要請擁有者解鎖。查法：`ssh winpc query session` 看 console 是否「使用中」，有 `LogonUI` 行程就是鎖著。
 
 例外，用真滑鼠或模擬器指令（用了在票的 Comments 記為什麼）：
 
