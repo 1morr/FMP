@@ -491,6 +491,22 @@ void main() {
     );
 
     infoTest(
+      'the floating panel of a narrow window closes with Esc',
+      (tester) async {
+        await tester.tap(find.byTooltip('顯示詳情面板'));
+        await settle(tester);
+        expect(find.byType(DetailContent), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await settle(tester);
+
+        expect(find.byType(DetailContent), findsNothing);
+      },
+      size: const Size(960, 720),
+      platform: TargetPlatform.macOS,
+    );
+
+    infoTest(
       'quickly skipping through tracks only looks up the one it stays on',
       (tester) async {
         for (final n in [2, 3, 4]) {
