@@ -116,7 +116,7 @@ void main() {
 
   /// 臨時播放 [track]，從 [from] 佇列的目前那首離開。
   TemporaryPlay temporaryFrom(Queue from) => TemporaryPlay.start(
-    track,
+    [track],
     previous: null,
     leaving: from.current,
     position: Duration.zero,
