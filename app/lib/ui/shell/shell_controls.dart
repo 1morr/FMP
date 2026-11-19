@@ -30,9 +30,9 @@ class ShellButton extends StatefulWidget {
   final String? tooltip;
 
   /// 給了就能用鍵盤選到：Tab 移過來時畫焦點外框（[FocusRing]，圓角是這個
-  /// 值；圓形與膠囊給 999），Enter 或 Space 按下（Space 在 App 裡是播放／
-  /// 暫停，見 `PlaybackShortcuts`，鍵盤使用者按按鈕用 Enter）。null 時鍵盤
-  /// 選不到。
+  /// 值；圓形與膠囊給 999），Enter 按下（Space 在 App 裡是播放／暫停，見
+  /// `PlaybackShortcuts`，不按按鈕；對話框與選單裡照常按，見
+  /// [buttonShortcuts]）。null 時鍵盤選不到。
   final double? focusRadius;
 
   @override
@@ -53,6 +53,7 @@ class _ShellButtonState extends State<ShellButton> {
     );
     if (widget.focusRadius case final radius?) {
       child = FocusableActionDetector(
+        shortcuts: buttonShortcuts(context),
         enabled: enabled,
         mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
         onShowHoverHighlight: (value) => setState(() => _hovered = value),

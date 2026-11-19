@@ -425,6 +425,75 @@ void main() {
     );
   });
 
+  group('shared button keyboard', () {
+    infoTest(
+      'a focused text button is pressed with Enter; Space still plays and '
+      'pauses',
+      (tester) async {
+        answer = (_) async => throw const NetworkError();
+        await pumpFor(tester, trackInfoSettleDelay * 1.5);
+        final retry = find.byKey(const Key('detail-retry'));
+        expect(retry, findsOneWidget);
+        expect(asked[song(1).ref], 1);
+
+        FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.alwaysTraditional;
+        Focus.of(
+          tester.element(
+            find.descendant(of: retry, matching: find.byType(FocusRing)),
+          ),
+        ).requestFocus();
+        await tester.pump();
+        await tester.pump();
+        expect(
+          tester
+              .widget<FocusRing>(
+                find.descendant(of: retry, matching: find.byType(FocusRing)),
+              )
+              .visible,
+          isTrue,
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(playback.playPauses, 1);
+        expect(asked[song(1).ref], 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await settle(tester);
+        expect(asked[song(1).ref], 2);
+        expect(playback.playPauses, 1);
+        FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.automatic;
+      },
+      size: desktop,
+      platform: TargetPlatform.macOS,
+    );
+  });
+
+  infoTest(
+    'Space on the focused source capsule plays and pauses without opening '
+    'the track info',
+    (tester) async {
+      await openPlayer(tester, desktop: true);
+      final capsule = find.byKey(const Key('player-signature'));
+      Focus.of(
+        tester.element(
+          find.descendant(of: capsule, matching: find.byType(FocusRing)),
+        ),
+      ).requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await settle(tester);
+
+      expect(playback.playPauses, 1);
+      expect(row('Song 1'), findsNothing);
+    },
+    size: desktop,
+    platform: TargetPlatform.macOS,
+  );
+
   group('detail panel', () {
     infoTest(
       'shows the playing track, its source, the next three and, after a '
@@ -579,11 +648,13 @@ class _FakePlayback extends Playback {
   @override
   PlaybackState? build() => _initial;
 
+  int playPauses = 0;
+
   /// 換成正在播 [track]。
   void show(Track track) => state = _playing(track);
 
   @override
-  Future<void> playPause() async {}
+  Future<void> playPause() async => playPauses++;
 
   @override
   Future<void> seek(Duration position) async {}

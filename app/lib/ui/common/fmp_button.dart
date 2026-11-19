@@ -89,6 +89,7 @@ class _FmpButtonState extends State<FmpButton> {
       button: true,
       enabled: enabled,
       child: FocusableActionDetector(
+        shortcuts: buttonShortcuts(context),
         enabled: enabled,
         mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
         onShowHoverHighlight: (value) => setState(() => _hovered = value),
