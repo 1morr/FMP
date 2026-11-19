@@ -8,6 +8,24 @@ import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
+/// 鍵盤（←／→）與螢幕閱讀器調整進度時一次跳多少。
+const seekStep = Duration(seconds: 5);
+
+/// 進度條上的 [dx] 在 [width] 寬的條上是第幾成，夾在 0–1。
+double seekFraction(double dx, double width) =>
+    width <= 0 ? 0 : (dx / width).clamp(0.0, 1.0);
+
+/// [duration] 的 [fraction]（0–1）成。
+Duration durationAt(double fraction, Duration duration) =>
+    Duration(microseconds: (duration.inMicroseconds * fraction).round());
+
+/// [position] 夾在 0 到 [duration] 之間；不知道長度時只夾下限。
+Duration clampPosition(Duration position, Duration? duration) {
+  if (position < Duration.zero) return Duration.zero;
+  if (duration != null && position > duration) return duration;
+  return position;
+}
+
 /// 「1:36 / 4:12」：位置與長度；長度不知道時只寫位置。
 String playbackTime(PlaybackState state) {
   final duration = state.effectiveDuration;

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 外殼裡可點的一塊：滑鼠移上去時 [builder] 拿到 hover，鍵盤與螢幕閱讀器
@@ -14,6 +15,7 @@ class ShellButton extends StatefulWidget {
     this.label,
     this.selected = false,
     this.tooltip,
+    this.focusRadius,
   });
 
   /// null 時停用：點不了，螢幕閱讀器讀成停用；外觀由 [builder] 自己畫。
@@ -27,26 +29,53 @@ class ShellButton extends StatefulWidget {
   /// 只有圖示時給滑鼠 hover 與長按看的說明。
   final String? tooltip;
 
+  /// 給了就能用鍵盤選到：Tab 移過來時畫焦點外框（[FocusRing]，圓角是這個
+  /// 值；圓形與膠囊給 999），Enter 或 Space 按下（Space 在 App 裡是播放／
+  /// 暫停，見 `PlaybackShortcuts`，鍵盤使用者按按鈕用 Enter）。null 時鍵盤
+  /// 選不到。
+  final double? focusRadius;
+
   @override
   State<ShellButton> createState() => _ShellButtonState();
 }
 
 class _ShellButtonState extends State<ShellButton> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
-    Widget child = MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: widget.builder(context, _hovered),
-      ),
+    Widget child = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      child: widget.builder(context, _hovered),
     );
+    if (widget.focusRadius case final radius?) {
+      child = FocusableActionDetector(
+        enabled: enabled,
+        mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        onShowHoverHighlight: (value) => setState(() => _hovered = value),
+        onShowFocusHighlight: (value) => setState(() => _focused = value),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) => widget.onTap?.call(),
+          ),
+        },
+        child: FocusRing(
+          visible: _focused && enabled,
+          radius: radius,
+          child: child,
+        ),
+      );
+    } else {
+      child = MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: child,
+      );
+    }
     child = Semantics(
       button: true,
       enabled: enabled,
@@ -70,12 +99,16 @@ class GlassIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.touch,
+    this.variant = GlassVariant.regular,
   });
 
   final FmpIcons icon;
   final String tooltip;
   final VoidCallback? onTap;
   final bool touch;
+
+  /// 播放頁的色場上用清玻璃。
+  final GlassVariant variant;
 
   @override
   Widget build(BuildContext context) {
@@ -84,9 +117,11 @@ class GlassIconButton extends StatelessWidget {
       onTap: onTap,
       tooltip: tooltip,
       label: tooltip,
+      focusRadius: 999,
       builder: (context, _) => Opacity(
         opacity: onTap == null ? .4 : 1,
         child: Glass(
+          variant: variant,
           child: SizedBox.square(
             dimension: side,
             child: Center(child: FmpIcon(icon, size: touch ? 20 : 17)),

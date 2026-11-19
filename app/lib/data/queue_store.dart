@@ -61,6 +61,7 @@ class QueueStore {
                 null => null,
               },
               coverUrl: row.coverUrl,
+              coverLargeUrl: row.coverLargeUrl,
             ),
           ),
       ],
@@ -111,6 +112,7 @@ class QueueStore {
               author: entry.track.author,
               durationMs: Value(entry.track.duration?.inMilliseconds),
               coverUrl: Value(entry.track.coverUrl),
+              coverLargeUrl: Value(entry.track.coverLargeUrl),
             ),
         ]),
       );

@@ -38,6 +38,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
     required this.accentFill,
     required this.accentInk,
     required this.accentSoft,
+    this.accentChoice = Accent.none,
   });
 
   factory FmpColors.of(Brightness brightness, Accent accent) =>
@@ -70,6 +71,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
           accentFill: accent == Accent.none ? _paper : accent.tone500,
           accentInk: accent == Accent.none ? _ink : _white,
           accentSoft: accent.softDark,
+          accentChoice: accent,
         ),
         Brightness.light => FmpColors(
           bg: _white,
@@ -98,6 +100,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
           accentFill: accent.tone500,
           accentInk: _white,
           accentSoft: accent.softLight,
+          accentChoice: accent,
         ),
       };
 
@@ -143,6 +146,49 @@ class FmpColors extends ThemeExtension<FmpColors> {
   final Color accentInk;
   final Color accentSoft;
 
+  /// 使用者選的強調色（設定的「外觀」）。
+  final Accent accentChoice;
+
+  /// 封面色場上（播放頁本體，`player.html` 的 `.pl-m`）的 token：深淺色都
+  /// 一樣，字白、填色是白的半透明，強調色用亮的一階；沒有強調色時「開」的
+  /// 底是白、字是墨色。浮出的選單、sheet、對話框不用這份，照主題走。
+  FmpColors get onMedia {
+    final dark = FmpColors.of(Brightness.dark, accentChoice);
+    const white = _white;
+    Color w(double a) => white.withValues(alpha: a);
+    final none = accentChoice == Accent.none;
+    return FmpColors(
+      bg: dark.bg,
+      bgGrouped: dark.bgGrouped,
+      cell: dark.cell,
+      cell2: dark.cell2,
+      cellHover: w(.08),
+      label: white,
+      label2: w(.74),
+      label3: w(.52),
+      label4: w(.3),
+      sep: w(.14),
+      sepStrong: dark.sepStrong,
+      fill: w(.14),
+      fill2: w(.24),
+      danger: dark.danger,
+      warn: dark.warn,
+      ok: dark.ok,
+      // 從播放頁浮出的 sheet 照主題（`DESIGN.md`〈封面色只用在播放頁背景〉）。
+      scrim: scrim,
+      coverRing: dark.coverRing,
+      glassSolid: dark.glassSolid,
+      glassInk: white,
+      glassInk2: dark.glassInk2,
+      glassPress: dark.glassPress,
+      accent: accentChoice.tone300,
+      accentFill: none ? white : dark.accentFill,
+      accentInk: none ? _ink : dark.accentInk,
+      accentSoft: w(.12),
+      accentChoice: accentChoice,
+    );
+  }
+
   /// token 只由 [FmpColors.of] 產生，不逐欄覆寫。
   @override
   FmpColors copyWith() => this;
@@ -179,6 +225,7 @@ class FmpColors extends ThemeExtension<FmpColors> {
       accentFill: l(accentFill, other.accentFill),
       accentInk: l(accentInk, other.accentInk),
       accentSoft: l(accentSoft, other.accentSoft),
+      accentChoice: t < .5 ? accentChoice : other.accentChoice,
     );
   }
 }

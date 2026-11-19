@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
       customStatement('VACUUM INTO ?', [file.path]);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -50,6 +50,12 @@ class AppDatabase extends _$AppDatabase {
       },
       from2To3: (m, schema) async {
         await m.createTable(schema.searchHistoryEntries);
+      },
+      from3To4: (m, schema) async {
+        await m.addColumn(
+          schema.queueEntries,
+          schema.queueEntries.coverLargeUrl,
+        );
       },
     ),
   );

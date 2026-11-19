@@ -1,10 +1,17 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/cover_image.dart';
 import 'package:material_ui/material_ui.dart';
 
+/// 封面網址換成圖：預設是磁碟快取的 [coverImage]；測試與不聯網的實跑情境
+/// 換成記憶體裡的圖。
+final coverImageLoaderProvider = Provider<ImageProvider Function(String url)>(
+  (_) => coverImage,
+);
+
 /// 封面（`.cover`）：圓角方塊，沒有封面、載入中或載入失敗時是 `--cell-2`
 /// 的底；外緣一圈 0.5 的細線（`--cover-ring`）。
-class Cover extends StatelessWidget {
+class Cover extends ConsumerWidget {
   const Cover({
     super.key,
     required this.url,
@@ -17,8 +24,9 @@ class Cover extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.fmpColors;
+    final load = ref.watch(coverImageLoaderProvider);
     final pixels = (size * MediaQuery.devicePixelRatioOf(context)).round();
     return SizedBox.square(
       dimension: size,
@@ -36,7 +44,7 @@ class Cover extends StatelessWidget {
               null => null,
               final url => Image(
                 image: ResizeImage(
-                  coverImage(url),
+                  load(url),
                   width: pixels,
                   height: pixels,
                   policy: ResizeImagePolicy.fit,

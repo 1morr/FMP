@@ -209,5 +209,27 @@
       "appliesToAll": "Applies to all ${count} parts",
       "failed": "Couldn’t list the parts of “${title}”. ${reason}"
     }
+  },
+  "player": {
+    "open": "Open player",
+    "collapse": "Close",
+    "collapseShortcut": "Close ($key)",
+    "queue": "Queue",
+    "queueNote": "Drag to reorder here. Remove, clear and played tracks are in Queue in the sidebar.",
+    "nothingNext": "Nothing up next",
+    "progress": "Playback position",
+    "source": "Source: $name",
+    "context": {
+      "queue": "Queue · $number of $total",
+      "next": "Next: $title",
+      "temporary": "Temporary play",
+      "returnsTo": "Then back to #$number in the queue",
+      "stopsAfter": "Stops when it ends"
+    },
+    "pages": {
+      "label": "$page, page $number of $total",
+      "queue": "Queue",
+      "cover": "Cover"
+    }
   }
 }

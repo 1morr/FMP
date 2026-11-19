@@ -55,6 +55,8 @@ interface PluginTrack {
   durationMs?: number;
   /** 封面圖的 http(s) 網址；宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。 */
   coverUrl?: string;
+  /** 播放頁用的大封面網址，規則同 `coverUrl`；沒給時播放頁用 `coverUrl`。 */
+  coverLargeUrl?: string;
   /** 播放數，非負整數；不知道就不給。給了不合格的值，整次搜尋算解析失敗。 */
   playCount?: number;
   /**

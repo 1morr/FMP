@@ -33,6 +33,7 @@ class Track {
     required this.author,
     this.duration,
     this.coverUrl,
+    this.coverLargeUrl,
     this.playCount,
     this.partCount,
     this.url,
@@ -51,6 +52,12 @@ class Track {
   /// 封面圖的 http(s) 網址；插件沒給時是 null。
   final String? coverUrl;
 
+  /// 播放頁用的大封面的 http(s) 網址；插件沒給時是 null。
+  final String? coverLargeUrl;
+
+  /// 最大的那張封面：有大封面用它，沒有用縮圖（ADR 0039）。
+  String? get largestCoverUrl => coverLargeUrl ?? coverUrl;
+
   /// 播放數；插件不知道時是 null。
   final int? playCount;
 
@@ -68,6 +75,7 @@ class Track {
       other.author == author &&
       other.duration == duration &&
       other.coverUrl == coverUrl &&
+      other.coverLargeUrl == coverLargeUrl &&
       other.playCount == playCount &&
       other.partCount == partCount &&
       other.url == url;
@@ -79,6 +87,7 @@ class Track {
     author,
     duration,
     coverUrl,
+    coverLargeUrl,
     playCount,
     partCount,
     url,
@@ -86,5 +95,5 @@ class Track {
 
   @override
   String toString() =>
-      'Track($ref, $title, $author, $duration, $coverUrl, $playCount, $partCount, $url)';
+      'Track($ref, $title, $author, $duration, $coverUrl, $coverLargeUrl, $playCount, $partCount, $url)';
 }

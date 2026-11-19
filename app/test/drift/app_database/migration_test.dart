@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +7,8 @@ import 'package:fmp/data/database.dart';
 import 'generated/schema.dart';
 import 'generated/schema_v1.dart' as v1;
 import 'generated/schema_v2.dart' as v2;
+import 'generated/schema_v3.dart' as v3;
+import 'generated/schema_v4.dart' as v4;
 
 /// 升級測試。改 schema 的流程照 architecture〈測試策略〉；`generated/` 是
 /// `dart run drift_dev make-migrations` 依 `drift_schemas/` 的快照產生的
@@ -67,6 +69,37 @@ void main() {
         validateItems: (newDb) async {
           expect(await newDb.select(newDb.queueEntries).get(), isEmpty);
           expect(await newDb.select(newDb.queueStates).get(), isEmpty);
+        },
+      );
+    });
+
+    // v4 的 queue_entries 多一欄大封面：舊的列照舊讀得到，大封面是 null。
+    test('from 3 to 4', () async {
+      await verifier.testWithDataIntegrity(
+        oldVersion: 3,
+        newVersion: 4,
+        createOld: v3.DatabaseAtV3.new,
+        createNew: v4.DatabaseAtV4.new,
+        openTestedDatabase: AppDatabase.new,
+        createItems: (batch, oldDb) {
+          batch.insert(
+            oldDb.queueEntries,
+            const v3.QueueEntriesData(
+              entryId: 1,
+              playOrder: 0,
+              pluginId: 'songs',
+              trackId: 'a',
+              title: 'Title a',
+              author: 'Author a',
+              coverUrl: 'https://img.example.com/a.webp',
+            ),
+          );
+        },
+        validateItems: (newDb) async {
+          final row = await newDb.select(newDb.queueEntries).getSingle();
+          expect(row.trackId, 'a');
+          expect(row.coverUrl, 'https://img.example.com/a.webp');
+          expect(row.coverLargeUrl, isNull);
         },
       );
     });

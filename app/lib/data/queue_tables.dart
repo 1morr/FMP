@@ -21,6 +21,7 @@ class QueueEntries extends Table {
   TextColumn get author => text()();
   IntColumn get durationMs => integer().nullable()();
   TextColumn get coverUrl => text().nullable()();
+  TextColumn get coverLargeUrl => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {entryId};

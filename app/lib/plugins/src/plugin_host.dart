@@ -199,6 +199,7 @@ class Plugin {
       author: parent.author,
       duration: ms == null ? null : Duration(milliseconds: ms),
       coverUrl: parent.coverUrl,
+      coverLargeUrl: parent.coverLargeUrl,
       url: _webUrl(json['url'], 'url'),
     );
   }
@@ -240,6 +241,7 @@ class Plugin {
       author: json['author'] as String,
       duration: ms == null ? null : Duration(milliseconds: (ms as num).round()),
       coverUrl: _webUrl(json['coverUrl'], 'coverUrl'),
+      coverLargeUrl: _webUrl(json['coverLargeUrl'], 'coverLargeUrl'),
       playCount: switch (json['playCount']) {
         null => null,
         final num n when n.isFinite && n >= 0 && n == n.truncate() => n.toInt(),

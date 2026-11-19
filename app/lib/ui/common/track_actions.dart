@@ -33,18 +33,20 @@ List<TrackAction> trackActionsFor(Track track) => [
 /// 打開 [track] 的「更多」，選了就做：手機（窄、觸控）從底部升起 sheet，
 /// 平板是從按鈕長出的選單，桌面是右鍵選單（設計稿〈待確認〉20、31）。[at]
 /// 是選單的錨點（全域座標）。多 P 影片的摘要寫明動作套用到全部分 P。
+/// [actions] 換掉預設的那幾項（[trackActionsFor]），例如播放頁只放連結兩項。
 Future<void> showTrackActions(
   BuildContext context,
   WidgetRef ref,
   Track track, {
   required Offset at,
+  List<TrackAction>? actions,
 }) async {
   final form = FormFactor.of(context);
   final phone =
       form.widthClass == WidthClass.narrow && form.density == Density.touch;
   // 選單開著時畫面可能換掉（例如新的搜尋），先拿好要用的東西。
   final run = trackActionRunner(context, ref);
-  final actions = trackActionsFor(track);
+  actions ??= trackActionsFor(track);
   final note =
       hasParts(track, ref.read(pluginManifestProvider(track.ref.pluginId)))
       ? context.t.search.parts.appliesToAll(count: track.partCount!)

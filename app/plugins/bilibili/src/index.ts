@@ -348,6 +348,7 @@ function toTrack(item: unknown): PluginTrack {
     author: typeof author === 'string' ? author : '',
     durationMs: parseDuration(duration),
     coverUrl: coverUrl(pic),
+    coverLargeUrl: coverUrl(pic, '@720w_720h_1c.webp'),
     playCount:
       typeof play === 'number' && Number.isFinite(play) && play >= 0
         ? Math.round(play)
@@ -360,11 +361,15 @@ function toTrack(item: unknown): PluginTrack {
  * 清單用的縮圖：搜尋結果的 `pic` 是 `//host/…` 或 `http://…` 的原圖（平均約
  * 450 KB），一律改成 https（iOS 擋明文 http），再加 B 站圖床的縮圖參數，裁成
  * 160 方形 webp（約 2 KB），3x 螢幕上 40–52 點的封面夠用（事實 F23）。
+ * 播放頁的大封面用同一張原圖加 `@720w_720h_1c.webp`（約 30–40 KB）。
  */
-function coverUrl(pic: unknown): string | undefined {
+function coverUrl(
+  pic: unknown,
+  size = '@160w_160h_1c.webp',
+): string | undefined {
   if (typeof pic !== 'string') return undefined;
   const match = /^(?:https?:)?\/\/(.+)$/.exec(pic);
-  return match ? `https://${match[1]}@160w_160h_1c.webp` : undefined;
+  return match ? `https://${match[1]}${size}` : undefined;
 }
 
 /** 標題裡標關鍵字的 `<em class="keyword">` 與 HTML 實體。 */

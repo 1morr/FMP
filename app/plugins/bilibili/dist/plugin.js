@@ -228,14 +228,15 @@ function toTrack(item) {
     author: typeof author === "string" ? author : "",
     durationMs: parseDuration(duration),
     coverUrl: coverUrl(pic),
+    coverLargeUrl: coverUrl(pic, "@720w_720h_1c.webp"),
     playCount: typeof play === "number" && Number.isFinite(play) && play >= 0 ? Math.round(play) : void 0,
     url: `https://www.bilibili.com/video/${bvid}`
   };
 }
-function coverUrl(pic) {
+function coverUrl(pic, size = "@160w_160h_1c.webp") {
   if (typeof pic !== "string") return void 0;
   const match = /^(?:https?:)?\/\/(.+)$/.exec(pic);
-  return match ? `https://${match[1]}@160w_160h_1c.webp` : void 0;
+  return match ? `https://${match[1]}${size}` : void 0;
 }
 function plainText(html) {
   return html.replace(/<[^>]*>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");

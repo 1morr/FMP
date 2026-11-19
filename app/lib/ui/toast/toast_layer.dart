@@ -23,6 +23,7 @@ class ToastLayer extends ConsumerWidget {
     required this.bottom,
     required this.stretch,
     required this.touch,
+    this.reportsFailures = true,
     this.left = 12,
     this.right = 12,
   });
@@ -41,10 +42,14 @@ class ToastLayer extends ConsumerWidget {
   /// 觸控密度的字級與圓角。
   final bool touch;
 
+  /// 把播放失敗轉成提示。外殼的那一層一直掛著（被播放頁蓋住時也在），由它
+  /// 轉；播放頁上的那一層只畫，免得同一次失敗轉兩次。
+  final bool reportsFailures;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(playbackFailureProvider, (_, failure) {
-      if (failure == null) return;
+      if (failure == null || !reportsFailures) return;
       final track = failure.state.track;
       final manifest = ref.read(pluginManifestProvider(track.ref.pluginId));
       // 提示被點時這一層可能已經換掉，先抓好 router。

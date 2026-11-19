@@ -209,5 +209,27 @@
       "appliesToAll": "${count} 個分 P 全部套用",
       "failed": "列不出「${title}」的分 P。${reason}"
     }
+  },
+  "player": {
+    "open": "打開播放頁",
+    "collapse": "收起",
+    "collapseShortcut": "收起（$key）",
+    "queue": "佇列",
+    "queueNote": "在這裡可以拖動排序；移除、清空與播過的曲目在側欄的「佇列」。",
+    "nothingNext": "沒有接下來的曲目",
+    "progress": "播放進度",
+    "source": "音源：$name",
+    "context": {
+      "queue": "佇列 · 第 $number / $total 首",
+      "next": "下一首：$title",
+      "temporary": "臨時播放",
+      "returnsTo": "播完回到佇列第 $number 首",
+      "stopsAfter": "播完後停止"
+    },
+    "pages": {
+      "label": "畫面：$page，第 $number 頁，共 $total 頁",
+      "queue": "佇列",
+      "cover": "封面"
+    }
   }
 }
