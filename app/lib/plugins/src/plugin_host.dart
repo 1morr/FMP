@@ -293,13 +293,7 @@ class Plugin {
       duration: ms == null ? null : Duration(milliseconds: (ms as num).round()),
       coverUrl: _webUrl(json['coverUrl'], 'coverUrl'),
       coverLargeUrl: _webUrl(json['coverLargeUrl'], 'coverLargeUrl'),
-      playCount: switch (json['playCount']) {
-        null => null,
-        final num n when n.isFinite && n >= 0 && n == n.truncate() => n.toInt(),
-        _ => throw const FormatException(
-          'playCount is not a non-negative integer',
-        ),
-      },
+      playCount: _count(json['playCount'], 'playCount'),
       partCount: switch (json['partCount']) {
         null => null,
         final num n when n.isFinite && n >= 1 && n == n.truncate() => n.toInt(),

@@ -36,6 +36,7 @@ class FmpButton extends StatefulWidget {
     this.size = FmpButtonSize.normal,
     this.icon,
     this.height,
+    this.touchTarget = false,
   });
 
   final String label;
@@ -44,6 +45,10 @@ class FmpButton extends StatefulWidget {
   final FmpButtonSize size;
   final FmpIcons? icon;
   final double? height;
+
+  /// 觸控時把點擊區上下補到 44，看得到的膠囊照原本的高（`DESIGN.md`
+  /// 〈稿內不一致與實作注意〉第 2 點：`.btn-sm` 32）。
+  final bool touchTarget;
 
   @override
   State<FmpButton> createState() => _FmpButtonState();
@@ -102,42 +107,50 @@ class _FmpButtonState extends State<FmpButton> {
             onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
             onTapUp: (_) => setState(() => _pressed = false),
             onTapCancel: () => setState(() => _pressed = false),
-            child: Opacity(
-              opacity: enabled ? 1 : .38,
-              child: AnimatedScale(
-                scale: _pressed ? FmpMotion.pressScale : 1,
-                duration: FmpMotion.fast,
-                curve: FmpMotion.outCurve,
-                child: AnimatedContainer(
+            child: _padded(
+              context,
+              touch,
+              Opacity(
+                opacity: enabled ? 1 : .38,
+                child: AnimatedScale(
+                  scale: _pressed ? FmpMotion.pressScale : 1,
                   duration: FmpMotion.fast,
-                  height: widget.height ?? height,
-                  padding: EdgeInsets.symmetric(horizontal: padding),
-                  decoration: BoxDecoration(
-                    color: background,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (widget.icon case final icon?) ...[
-                        FmpIcon(icon, size: small ? 16 : 20, color: foreground),
-                        const SizedBox(width: 6),
-                      ],
-                      Flexible(
-                        child: Text(
-                          widget.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: fontSize,
-                            fontWeight: FontWeight.w600,
+                  curve: FmpMotion.outCurve,
+                  child: AnimatedContainer(
+                    duration: FmpMotion.fast,
+                    height: widget.height ?? height,
+                    padding: EdgeInsets.symmetric(horizontal: padding),
+                    decoration: BoxDecoration(
+                      color: background,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (widget.icon case final icon?) ...[
+                          FmpIcon(
+                            icon,
+                            size: small ? 16 : 20,
                             color: foreground,
-                            letterSpacing: 0,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Flexible(
+                          child: Text(
+                            widget.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: fontSize,
+                              fontWeight: FontWeight.w600,
+                              color: foreground,
+                              letterSpacing: 0,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -145,6 +158,15 @@ class _FmpButtonState extends State<FmpButton> {
           ),
         ),
       ),
+    );
+  }
+
+  /// `touchTarget` 時觸控的點擊區上下補到 44。
+  Widget _padded(BuildContext context, bool touch, Widget child) {
+    if (!touch || !widget.touchTarget) return child;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: context.fmpMetrics.minTarget),
+      child: Center(widthFactor: 1, child: child),
     );
   }
 }

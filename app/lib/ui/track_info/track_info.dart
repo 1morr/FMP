@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
@@ -6,14 +5,13 @@ import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/form_factor.dart';
-import 'package:fmp/platform/web_links.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
-import 'package:fmp/ui/toast/toast.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 打開 [track] 的曲目資訊（`docs/design/player.html`〈曲目資訊〉）：手機
@@ -358,9 +356,11 @@ class TrackInfoDetails extends ConsumerWidget {
           key: const Key('track-info-failed'),
           text: t.trackInfo.failed,
           action: FmpButton(
+            key: const Key('track-info-retry'),
             label: t.trackInfo.retry,
             size: FmpButtonSize.small,
             onTap: () => ref.invalidate(trackInfoProvider(track.ref)),
+            touchTarget: true,
           ),
         ),
     ];
@@ -416,7 +416,7 @@ class TrackInfoDetails extends ConsumerWidget {
             ),
           row,
         ],
-        if (track.url case final url?) ...[
+        if (track.url != null) ...[
           const SizedBox(height: 16),
           Row(
             children: [
@@ -425,7 +425,10 @@ class TrackInfoDetails extends ConsumerWidget {
                   key: const Key('track-info-open'),
                   label: t.trackInfo.openIn(source: source),
                   icon: FmpIcons.external,
-                  onTap: () => _open(context, ref, url),
+                  onTap: () => trackActionRunner(context, ref)(
+                    TrackAction.openInBrowser,
+                    [track],
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -434,7 +437,10 @@ class TrackInfoDetails extends ConsumerWidget {
                   key: const Key('track-info-copy'),
                   label: t.search.actions.copyLink,
                   icon: FmpIcons.copy,
-                  onTap: () => _copy(context, ref, url),
+                  onTap: () => trackActionRunner(context, ref)(
+                    TrackAction.copyLink,
+                    [track],
+                  ),
                 ),
               ),
             ],
@@ -442,24 +448,6 @@ class TrackInfoDetails extends ConsumerWidget {
         ],
       ],
     );
-  }
-
-  Future<void> _open(BuildContext context, WidgetRef ref, String url) async {
-    final toasts = ref.read(toastProvider.notifier);
-    final failed = ToastMessage(context.t.search.actions.openFailed);
-    if (!await ref.read(webLinksProvider).open(Uri.parse(url))) {
-      toasts.show(failed);
-    }
-  }
-
-  Future<void> _copy(BuildContext context, WidgetRef ref, String url) async {
-    final toasts = ref.read(toastProvider.notifier);
-    final copied = ToastMessage(
-      context.t.search.actions.linkCopied,
-      icon: FmpIcons.check,
-    );
-    await Clipboard.setData(ClipboardData(text: url));
-    toasts.show(copied);
   }
 }
 

@@ -22,7 +22,8 @@ const trackInfoSettleDelay = Duration(seconds: 1);
 /// 作者、音源 chip、播放數與評論數等、下一首（佇列接下來的 3 首）、簡介。
 /// 沒有目前曲目時只寫一句（擁有者 2026-11-20 同意）。
 ///
-/// 播放數、評論數、專輯與簡介來自插件能力 `trackInfo`：面板看得到時才查，
+/// 播放數、評論數、專輯與簡介來自插件能力 `trackInfo`：面板看得到時才查
+/// （收起、窄視窗沒叫出、被播放頁蓋住都不查），
 /// 換歌後停 [trackInfoSettleDelay] 還是同一首才發請求；同一首這次開 App
 /// 期間只查一次（`trackInfoProvider` 留在記憶體）。[touch] 是平板浮出的大號
 /// 面板（`.detail.touch`）。
@@ -40,6 +41,22 @@ class _DetailContentState extends ConsumerState<DetailContent> {
   TrackRef? _settled;
   Timer? _timer;
 
+  /// 面板在最上面那一頁：全螢幕播放頁或對話框蓋住外殼時是 false，不查。
+  bool _visible = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = ModalRoute.of(context)?.isCurrent ?? true;
+    if (visible == _visible) return;
+    _visible = visible;
+    if (visible) {
+      _settle(ref.read(playbackProvider)?.track.ref);
+    } else {
+      _timer?.cancel();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +69,7 @@ class _DetailContentState extends ConsumerState<DetailContent> {
 
   void _settle(TrackRef? track) {
     _timer?.cancel();
-    if (track == null || track == _settled) return;
+    if (track == null || track == _settled || !_visible) return;
     // 查過的直接用快取，不用等。
     // 棄用訊息指向的 `provider.exist` 在 riverpod 3.5.0 還沒有，先用 exists。
     // ignore: deprecated_member_use
@@ -277,6 +294,7 @@ class _Description extends StatelessWidget {
             label: t.trackInfo.retry,
             size: FmpButtonSize.small,
             onTap: onRetry,
+            touchTarget: true,
           ),
         ],
       );

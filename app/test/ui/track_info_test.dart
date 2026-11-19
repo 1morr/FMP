@@ -322,6 +322,11 @@ void main() {
       await settle(tester);
       expect(find.byKey(const Key('track-info-failed')), findsOneWidget);
       expect(row('時長'), findsOneWidget);
+      // 手機的點擊區補到 44（`DESIGN.md`〈稿內不一致與實作注意〉第 2 點）。
+      expect(
+        tester.getSize(find.byKey(const Key('track-info-retry'))).height,
+        greaterThanOrEqualTo(44),
+      );
 
       answer = (_) async => const TrackInfo(album: 'Back');
       await tester.tap(find.text('重試'));
@@ -503,6 +508,24 @@ void main() {
         expect(find.byType(DetailContent), findsNothing);
       },
       size: const Size(960, 720),
+      platform: TargetPlatform.macOS,
+    );
+
+    infoTest(
+      'the panel under the full-screen player does not look tracks up',
+      (tester) async {
+        await openPlayer(tester, desktop: true);
+        playback.show(song(2));
+        await pumpFor(tester, trackInfoSettleDelay * 2);
+
+        expect(asked.containsKey(song(2).ref), isFalse);
+
+        // 收起播放頁、面板又看得到時才查。
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await pumpFor(tester, trackInfoSettleDelay * 1.5);
+        expect(asked[song(2).ref], 1);
+      },
+      size: desktop,
       platform: TargetPlatform.macOS,
     );
 

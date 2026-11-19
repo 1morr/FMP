@@ -145,7 +145,7 @@ interface TrackInfoResponse {
 
 - 全部選填：插件給不了就不給，畫面不顯示那一列；宿主把空白的字串當成沒給、去掉頭尾空白。名字照 YouTube Data API `videos` 的 `snippet.publishedAt`、`snippet.description`、`statistics.likeCount`、`statistics.commentCount`；播放數沿用 `search` 的 `playCount`，時間沿用 `expiresAtMs` 的 unix 毫秒。
 - 計數要是非負整數、`publishedAtMs` 要是有限的整數、文字要是字串；不合格整次算解析失敗（`ParseFailure`，寫 warning）。
-- 時長、網址、分 P 數、作者、封面已經在曲目上，不在這裡重給。
+- 時長、網址、分 P 數、作者、封面已經在曲目上，不在這裡重給。manifest 只在 `capabilities` 多一個 `trackInfo`，沒有別的欄位。
 - Dart 端是 `Plugin.trackInfo(TrackRef ref)`，回 `TrackInfo`（`domain/`）；`ref` 不是這個插件的曲目是程式錯誤（同 `resolveStream`）。結果只在記憶體（ARCHITECTURE〈快取〉）。
 - bilibili（事實 F1）：打 `x/web-interface/wbi/view?bvid=<bvid>`，不簽 WBI；分 P（`<bvid>?p=<n>`）用同一支、回整支影片的資訊。`pubdate`（秒）→ `publishedAtMs`、`stat.view` → `playCount`、`stat.like` → `likeCount`、`stat.reply` → `commentCount`、`desc` → `description`；B 站沒有專輯，不給。
 - 契約測試：`trackInfo` 案例的 `input` 是 `{"trackId": "..."}`；形狀由宿主檢查，沒有期望時空的也合格。`expect` 可以加 `stats`（三個計數都有）、`published`、`description`。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋。（2026-11-20 擁有者同意。）
