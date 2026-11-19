@@ -5,9 +5,11 @@ import 'package:fmp/app/audio_backend_lifecycle.dart';
 import 'package:fmp/app/storage.dart';
 import 'package:fmp/app/storage_notice.dart';
 import 'package:fmp/app/uncaught_errors.dart';
+import 'package:fmp/app/i18n/language.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
+import 'package:fmp/data/settings_store.dart';
 import 'package:fmp/platform/app_data_directory.dart';
 import 'package:fmp/platform/audio_backend.dart';
 import 'package:fmp/platform/audio_session.dart';
@@ -28,7 +30,6 @@ Future<void> runFmp({
   AudioBackend Function(AudioBackend backend)? wrapAudioBackend,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
-  LocaleSettings.useDeviceLocaleSync();
   await lockPhoneToPortrait();
   final data = await appDataDirectory();
   if (scratchDataName.isNotEmpty) keepCoverCacheIn(data);
@@ -43,6 +44,8 @@ Future<void> runFmp({
 
   // 開不了或讀不回來時照常能搜尋、播放，啟動時提示一次（openStorage）。
   final storage = await openStorage(await databaseFile(data), log);
+  // 第一個畫面就照存的語言（設定「外觀 › 語言」）。
+  LanguageSetting.applySaved(storage.settings);
   // 系統媒體控制（brief〈播放〉）；建不起來時照常播放。
   final mediaControls = await createMediaControls(
     log,
@@ -55,6 +58,7 @@ Future<void> runFmp({
         logProvider.overrideWithValue(log),
         appDatabaseProvider.overrideWithValue(storage.database),
         savedQueueProvider.overrideWithValue(storage.saved),
+        savedSettingsProvider.overrideWithValue(storage.settings),
         storageNoticeProvider.overrideWithValue(storage.notice),
         mediaControlsProvider.overrideWithValue(mediaControls),
         audioBackendOverride(() {

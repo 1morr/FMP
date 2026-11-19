@@ -4,12 +4,15 @@ import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/now_playing/now_playing.dart';
+import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/track_info/track_info.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 播放的快捷鍵（`docs/design/DESIGN.md`〈無障礙〉的鍵盤）：Space 播放／暫停、
 /// ←／→ 倒退、快轉 [seekStep]、⌘←／⌘→（Windows 用 Ctrl）上一首、下一首、
-/// ⌘I（Windows 用 Ctrl+I）打開目前曲目的曲目資訊。掛在
+/// ⌘I（Windows 用 Ctrl+I）打開目前曲目的曲目資訊；也管 ⌘,（Windows 用
+/// Ctrl+,）打開設定，沒有目前曲目時也有作用。掛在
 /// App 的根，任何頁面都有作用，不看焦點在哪；焦點在輸入框裡（字要打得進去、
 /// 游標要能移）或在對話框與選單裡（那裡 Enter 確認）時不攔。
 ///
@@ -47,6 +50,11 @@ class _PlaybackShortcutsState extends ConsumerState<PlaybackShortcuts> {
     if (event is KeyUpEvent || !mounted) return false;
     final keyboard = HardwareKeyboard.instance;
     final repeat = event is KeyRepeatEvent;
+    if (!repeat &&
+        WindowChrome.shortcut(LogicalKeyboardKey.comma)
+            .accepts(event, keyboard)) {
+      return _openSettings();
+    }
     VoidCallback? action;
     if (!repeat && _plain(LogicalKeyboardKey.space).accepts(event, keyboard)) {
       action = _playPause;
@@ -85,7 +93,24 @@ class _PlaybackShortcutsState extends ConsumerState<PlaybackShortcuts> {
         context.findAncestorStateOfType<EditableTextState>() != null) {
       return true;
     }
-    return ModalRoute.of(context) is PopupRoute;
+    return _focusInPopup();
+  }
+
+  /// 焦點在對話框或選單裡。
+  static bool _focusInPopup() {
+    final context = FocusManager.instance.primaryFocus?.context;
+    return context != null &&
+        context.mounted &&
+        ModalRoute.of(context) is PopupRoute;
+  }
+
+  /// 打開設定（`docs/design/DESIGN.md`〈無障礙〉的 ⌘,）：從播放頁也換過去。
+  /// 輸入框裡照樣有作用（⌘, 在輸入框沒有別的意思）；對話框與選單開著時不攔。
+  bool _openSettings() {
+    final context = widget.navigatorKey.currentContext;
+    if (context == null || _focusInPopup()) return false;
+    GoRouter.of(context).go(Destination.settings.path);
+    return true;
   }
 
   void _trackInfo() {

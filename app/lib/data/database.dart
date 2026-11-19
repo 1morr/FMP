@@ -8,6 +8,7 @@ import 'package:fmp/data/chart_tables.dart';
 import 'package:fmp/data/database.steps.dart';
 import 'package:fmp/data/queue_tables.dart';
 import 'package:fmp/data/search_history_tables.dart';
+import 'package:fmp/data/settings_tables.dart';
 import 'package:fmp/domain/queue.dart';
 
 part 'database.g.dart';
@@ -34,6 +35,7 @@ bool isCorruptDatabase(Object error) {
     SearchHistoryEntries,
     ChartSnapshots,
     ChartEntries,
+    SettingEntries,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -48,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
       customStatement('VACUUM INTO ?', [file.path]);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -69,6 +71,9 @@ class AppDatabase extends _$AppDatabase {
       from4To5: (m, schema) async {
         await m.createTable(schema.chartSnapshots);
         await m.createTable(schema.chartEntries);
+      },
+      from5To6: (m, schema) async {
+        await m.createTable(schema.settingEntries);
       },
     ),
   );

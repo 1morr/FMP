@@ -8,6 +8,8 @@
 # macOS:   background | foreground | panel | press <previous|toggle|next>
 #          | seek <秒> | close-panel | key <play|next|previous>
 #          | resize <寬>x<高>（App 的視窗；System Events，不動游標）
+#          | shortcut <comma|字母>（App 拉到前景再送 ⌘＋鍵，經過主選單；System Events，
+#            不動游標）
 # iOS:     background | screen
 # Android: background | foreground | notification | session
 #          | tap <標籤[:標籤...]> | seek-bar <比例>
@@ -91,6 +93,16 @@ case "$platform:$action" in
   macos:seek) "$np/np-panel.sh" seek "$arg" ;;
   macos:close-panel) "$np/np-panel.sh" close; echo "closed" ;;
   macos:key) "$np/mediakey.sh" "$arg"; echo "media key $arg" ;;
+  macos:shortcut)
+    # 宿主只收字母數字的參數，標點用名字。
+    key=$arg
+    [ "$arg" = comma ] && key=,
+    osascript \
+      -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $pid) to true" \
+      -e "delay 0.3" \
+      -e "tell application \"System Events\" to keystroke \"$key\" using command down"
+    echo "pressed cmd+$arg"
+    ;;
   macos:resize)
     w=${arg%x*} h=${arg#*x}
     osascript -e "tell application \"System Events\" to set size of window 1 of (first process whose unix id is $pid) to {$w, $h}"
