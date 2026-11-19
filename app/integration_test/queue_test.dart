@@ -133,11 +133,18 @@ void main() {
     );
     Finder inControls(Finder f) => find.descendant(of: controls, matching: f);
 
+    // 不用 pumpAndSettle：正在播的那一列有跳動的等化器，要等到播完才停。
+    Future<void> pumpFor(Duration duration) async {
+      for (var i = 0; i * 50 < duration.inMilliseconds; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
+
     Future<void> addToQueue(int row) async {
       await tester.tap(find.byTooltip('更多').at(row));
-      await tester.pumpAndSettle();
+      await pumpFor(const Duration(milliseconds: 400));
       await tester.tap(find.text('加入佇列'));
-      await tester.pumpAndSettle();
+      await pumpFor(const Duration(milliseconds: 400));
     }
 
     await openSearch(tester);
@@ -149,11 +156,12 @@ void main() {
     await addToQueue(0);
     await waitFor(inControls(find.text('第一首')));
     await addToQueue(1);
-    await waitFor(find.text('播放中'));
+    // 正在播：外殼的控制上是暫停鈕。
+    await waitFor(inControls(find.byTooltip('暫停')));
 
     // 第一首（3 秒）播完，自動接第二首。
     await waitFor(inControls(find.text('第二首')), seconds: 45);
-    await waitFor(find.text('播放中'));
+    await waitFor(inControls(find.byTooltip('暫停')));
 
     // 佇列頁：第一首播過了，正在播第二首。
     GoRouter.of(tester.element(find.byType(AppShell)))
