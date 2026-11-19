@@ -53,7 +53,7 @@
 .st-tile .half .cv { position: absolute; top: 24px; width: 14px; height: 14px; border-radius: 3px; background: var(--label-4); }
 .st-row-hover { background: var(--cell-hover); }
 /* accent picker: "none" is the label colour; the chosen one gets a ring */
-.st-accs { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+.st-accs { display: inline-flex; align-items: center; gap: 18px; flex: none; }
 .st-acc { position: relative; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 .5px var(--sep-strong); cursor: pointer; }
 .st-acc.on::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; box-shadow: 0 0 0 2px var(--label); }
 .st-acc svg.i { width: 14px; height: 14px; color: var(--bg); stroke-width: 2.6; }
@@ -65,7 +65,7 @@
 .tablet .st-tiles { gap: 10px; padding: 14px 12px 12px; }
 .tablet .st-tile { flex: 1; min-width: 0; }
 .tablet .st-tile .pv { width: 100%; }
-.tablet .st-accs { gap: 14px; padding: 14px 12px 12px; flex-wrap: wrap; }
+.tablet .st-accs { gap: 18px; padding: 14px 12px 12px; flex-wrap: wrap; }
 .tablet .st-accb { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--label-2); }
 .tablet .st-accb.on { color: var(--label); font-weight: 600; }
 .tablet .gl small { text-wrap: balance; }
@@ -80,6 +80,8 @@ const I = FMP.icon;
 const ST_P = {
   disk: '<ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-11M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
   updown: '<path d="m8 9.5 4-4 4 4M8 14.5l4 4 4-4"/>',
+  /* glass effect: two offset rounded squares, the back one only where it shows */
+  layers: '<path d="M6.6 8.5h6.3a2.6 2.6 0 0 1 2.6 2.6v6.3a2.6 2.6 0 0 1 -2.6 2.6h-6.3a2.6 2.6 0 0 1 -2.6 -2.6v-6.3a2.6 2.6 0 0 1 2.6 -2.6z"/><path d="M8.5 8.5V6.6a2.6 2.6 0 0 1 2.6 -2.6h6.3a2.6 2.6 0 0 1 2.6 2.6v6.3a2.6 2.6 0 0 1 -2.6 2.6h-1.9"/>',
 };
 const stI = (n, cls) => ST_P[n] ? '<svg class="i ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + ST_P[n] + '</svg>' : I(n, cls);
 const stGi = (n) => '<span class="gicon st-gi">' + stI(n) + '</span>';
@@ -119,6 +121,7 @@ function stMainList() {
     stCell({ icon: stGi('appearance'), t: '主題', v: '跟隨系統', chev: 'updown' }),
     stCell({ icon: stGi('select'), t: '強調色', s: stAccName(), trail: '<span class="st-accs" role="radiogroup" aria-label="強調色">' + FMP.ACCENTS.map(([k, , c]) => stAccDot(k, c)).join('') + '</span>' }),
     stCell({ icon: stGi('language'), t: '語言', v: '跟隨系統', chev: 'updown' }),
+    stCell({ icon: stGi('layers'), t: '玻璃效果', v: '完整', chev: 'updown' }),
   ], true) +
   stFoot('預設「無」：選取與主要動作用文字的黑白。選了顏色後，開著的切換鈕、勾選、正在播放與主要按鈕換成那個顏色。') +
   stHead('播放') + stGroup([
@@ -250,6 +253,8 @@ function stDeskPlayback(ctx, mid) {
 function stDeskAppearance(ctx, mid) {
   const half = (th) => '<span class="half t-' + th + '"><i class="sb"></i><i class="ln" style="top:9px;width:40px"></i><i class="cv" style="left:40px"></i><i class="cv" style="left:58px"></i><i class="ac"></i></span>';
   const tile = (label, inner, on) => '<button class="st-tile' + (on ? ' on' : '') + '"><span class="pv">' + inner + '</span><span>' + label + '</span></button>';
+  /* glass effect: one radio row per choice, each with what it actually does (DESIGN.md 1.4) */
+  const glass = (t, s, on) => stCell({ t, s, trail: on ? '<span class="st-radio">' + I('check', 's18') + '</span>' : '<span style="width:18px"></span>' });
   const pane = sxH('外觀') +
     '<p class="sx-lead">字體跟隨系統，不另外提供選項。</p>' +
     stHead('主題') + '<div class="group"><div class="st-tiles">' +
@@ -263,7 +268,12 @@ function stDeskAppearance(ctx, mid) {
     stHead('語言') + stGroup([
       stCell({ t: '介面語言', s: '改了之後立即生效，不用重開', trail: '<span class="st-pop">跟隨系統（繁體中文）' + stI('updown') + '</span>' }),
     ]) +
-    stFoot('可選：跟隨系統、繁體中文、简体中文、English。');
+    stFoot('可選：跟隨系統、繁體中文、简体中文、English。') +
+    stHead('玻璃效果') + stGroup([
+      glass('完整', '折射、模糊與高光', true),
+      glass('輕量', '只有模糊，比較省效能'),
+      glass('關閉', '實心背景'),
+    ]);
   return stDesk(ctx, { cat: 'appearance', pane, mid });
 }
 
