@@ -198,8 +198,9 @@ class _SplitSettings extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(36, top, 36, insets.bottom),
       child: AnimatedSwitcher(
         key: const Key('settings-pane'),
-        // 換分類只淡入淡出，減少動態效果時也一樣（`DESIGN.md`〈動態〉）。
-        duration: FmpMotion.fast,
+        // 換分類是內容替換：out 280 交叉淡出，減少動態效果時照樣
+        // （`DESIGN.md`〈狀態變化對照〉）。
+        duration: FmpMotion.mid,
         switchInCurve: FmpMotion.outCurve,
         switchOutCurve: FmpMotion.outCurve,
         layoutBuilder: (current, previous) => Stack(
@@ -280,7 +281,11 @@ class _CategoryList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    final colors = context.fmpColors;
     final current = ref.watch(settingsCategoryProvider);
+    final motion = FmpMotion.selection(context);
+    final height = _CategoryItem.heightOf(touch: touch);
+    final gap = touch ? 2.0 : 1.0;
     return Semantics(
       label: t.settings.categories,
       container: true,
@@ -291,18 +296,45 @@ class _CategoryList extends ConsumerWidget {
               ? EdgeInsets.fromLTRB(8, top, 14, bottom)
               : EdgeInsets.fromLTRB(2, top, 12, bottom),
           children: [
-            for (final category in SettingsCategory.values)
-              Padding(
-                padding: EdgeInsets.only(bottom: touch ? 2 : 1),
-                child: _CategoryItem(
-                  category: category,
-                  selected: category == current,
-                  touch: touch,
-                  onTap: () => ref
-                      .read(settingsCategoryProvider.notifier)
-                      .select(category),
+            Stack(
+              children: [
+                // 選取膠囊滑到選中的那一列（spring；減少動態效果時 out 280、
+                // 不彈跳，`DESIGN.md`〈狀態變化對照〉的選取）。
+                AnimatedPositioned(
+                  key: const Key('settings-category-pill'),
+                  duration: motion.duration,
+                  curve: motion.curve,
+                  left: 0,
+                  right: 0,
+                  top: current.index * (height + gap),
+                  height: height,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.accentFill,
+                      borderRadius: BorderRadius.circular(
+                        _CategoryItem.radiusOf(touch: touch),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                Column(
+                  children: [
+                    for (final category in SettingsCategory.values)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: gap),
+                        child: _CategoryItem(
+                          category: category,
+                          selected: category == current,
+                          touch: touch,
+                          onTap: () => ref
+                              .read(settingsCategoryProvider.notifier)
+                              .select(category),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -323,32 +355,35 @@ class _CategoryItem extends StatelessWidget {
   final bool touch;
   final VoidCallback onTap;
 
+  static double heightOf({required bool touch}) => touch ? 44 : 32;
+  static double radiusOf({required bool touch}) => touch ? 12 : 8;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
     final ink = selected ? colors.accentInk : colors.label;
-    final radius = touch ? 12.0 : 8.0;
+    final radius = radiusOf(touch: touch);
+    // 選中的底是分類欄的選取膠囊，這裡只畫沒選時的 hover；字與圖示的顏色跟著
+    // 膠囊 out 280 換。
     return ShellButton(
       onTap: onTap,
       selected: selected,
       focusRadius: radius,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
-        height: touch ? 44 : 32,
+        height: heightOf(touch: touch),
         padding: touch
             ? const EdgeInsets.fromLTRB(8, 0, 10, 0)
             : const EdgeInsets.fromLTRB(6, 0, 8, 0),
         decoration: BoxDecoration(
-          color: selected
-              ? colors.accentFill
-              : hovered
-              ? colors.fill
-              : null,
+          color: hovered && !selected ? colors.fill : null,
           borderRadius: BorderRadius.circular(radius),
         ),
         child: Row(
           children: [
-            Container(
+            AnimatedContainer(
+              duration: FmpMotion.mid,
+              curve: FmpMotion.outCurve,
               width: touch ? 30 : 22,
               height: touch ? 30 : 22,
               decoration: BoxDecoration(
@@ -358,18 +393,26 @@ class _CategoryItem extends StatelessWidget {
                 borderRadius: BorderRadius.circular(touch ? 8 : 6),
               ),
               alignment: Alignment.center,
-              child: FmpIcon(category.icon, size: touch ? 18 : 14, color: ink),
+              child: TweenAnimationBuilder<Color?>(
+                tween: ColorTween(end: ink),
+                duration: FmpMotion.mid,
+                curve: FmpMotion.outCurve,
+                builder: (context, color, _) =>
+                    FmpIcon(category.icon, size: touch ? 18 : 14, color: color),
+              ),
             ),
             SizedBox(width: touch ? 12 : 9),
             Expanded(
-              child: Text(
-                category.label(context.t),
+              child: AnimatedDefaultTextStyle(
+                duration: FmpMotion.mid,
+                curve: FmpMotion.outCurve,
                 style: TextStyle(
                   fontSize: touch ? 16 : 13,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0,
                   color: ink,
                 ),
+                child: Text(category.label(context.t)),
               ),
             ),
           ],

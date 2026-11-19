@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
@@ -265,9 +267,7 @@ class SettingsCell extends StatelessWidget {
             const SizedBox(width: 12),
             SizedBox.square(
               dimension: 20,
-              child: selected
-                  ? FmpIcon(FmpIcons.check, size: 20, color: colors.accent)
-                  : null,
+              child: _SelectionCheck(selected: selected),
             ),
           ],
         ],
@@ -279,6 +279,34 @@ class SettingsCell extends StatelessWidget {
       selected: selected ?? false,
       focusRadius: 0,
       builder: (context, hovered) => row(hovered),
+    );
+  }
+}
+
+/// 單選列尾的勾：選中時 spring 長出來並淡入；減少動態效果時只淡入淡出
+/// （`DESIGN.md`〈狀態變化對照〉的選取）。
+class _SelectionCheck extends StatelessWidget {
+  const _SelectionCheck({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = FmpMotion.selection(context);
+    return AnimatedOpacity(
+      opacity: selected ? 1 : 0,
+      duration: motion.duration,
+      curve: FmpMotion.outCurve,
+      child: AnimatedScale(
+        scale: selected || FmpMotion.reduced(context) ? 1 : .5,
+        duration: motion.duration,
+        curve: motion.curve,
+        child: FmpIcon(
+          FmpIcons.check,
+          size: 20,
+          color: context.fmpColors.accent,
+        ),
+      ),
     );
   }
 }
@@ -303,6 +331,29 @@ class SettingsIconBox extends StatelessWidget {
   );
 }
 
+/// 值換了的時候舊的淡出、新的淡入（`DESIGN.md`〈狀態變化對照〉的內容替換：
+/// out 280 交叉淡出，減少動態效果時照樣）。[child] 的 key 要跟著值換。
+class SettingsSwap extends StatelessWidget {
+  const SettingsSwap({
+    super.key,
+    required this.child,
+    this.alignment = Alignment.center,
+  });
+
+  final Widget child;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: FmpMotion.mid,
+    switchInCurve: FmpMotion.outCurve,
+    switchOutCurve: FmpMotion.outCurve,
+    layoutBuilder: (current, previous) =>
+        Stack(alignment: alignment, children: [...previous, ?current]),
+    child: child,
+  );
+}
+
 /// 手機列尾的值加上下箭頭（`.gv` 與 `updown`）：點整列就地彈出選單。
 class SettingsValue extends StatelessWidget {
   const SettingsValue(this.text, {super.key, required this.style});
@@ -316,7 +367,14 @@ class SettingsValue extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(text, style: style.cellText.copyWith(color: colors.label2)),
+        SettingsSwap(
+          alignment: Alignment.centerRight,
+          child: Text(
+            text,
+            key: ValueKey(text),
+            style: style.cellText.copyWith(color: colors.label2),
+          ),
+        ),
         const SizedBox(width: 4),
         FmpIcon(
           FmpIcons.updown,
@@ -329,21 +387,23 @@ class SettingsValue extends StatelessWidget {
   }
 }
 
-/// 桌面與平板的彈出選單鈕（`.st-pop`）：目前的值加上下箭頭。觸控時點擊區
-/// 上下補到 44。
+/// 點擊區至少多大：觸控 44、滑鼠 28（`DESIGN.md`〈無障礙〉）。
+double _minTarget(BuildContext context, bool touch) =>
+    touch ? context.fmpMetrics.minTarget : 28;
+
+/// 桌面與平板的彈出選單鈕（`.st-pop`）：目前的值加上下箭頭，看起來 24 高，
+/// 點擊區上下補到觸控 44、滑鼠 28。
 class SettingsPopupButton extends StatelessWidget {
   const SettingsPopupButton({
     super.key,
     required this.label,
     required this.onTap,
     required this.touch,
-    this.semanticsLabel,
   });
 
   final String label;
   final VoidCallback onTap;
   final bool touch;
-  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -358,13 +418,17 @@ class SettingsPopupButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 1,
-              letterSpacing: 0,
-              color: colors.label,
+          SettingsSwap(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              key: ValueKey(label),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1,
+                letterSpacing: 0,
+                color: colors.label,
+              ),
             ),
           ),
           const SizedBox(width: 4),
@@ -374,22 +438,17 @@ class SettingsPopupButton extends StatelessWidget {
     );
     return ShellButton(
       onTap: onTap,
-      label: semanticsLabel,
       focusRadius: 7,
-      builder: (context, _) => touch
-          ? ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: context.fmpMetrics.minTarget,
-              ),
-              child: Center(widthFactor: 1, child: face),
-            )
-          : face,
+      builder: (context, _) => ConstrainedBox(
+        constraints: BoxConstraints(minHeight: _minTarget(context, touch)),
+        child: Center(widthFactor: 1, child: face),
+      ),
     );
   }
 }
 
-/// 桌面與平板的步進器（`.st-step`）：減、值、加。到了頭尾那一鈕停用。觸控
-/// 時兩鈕的點擊區補到 44。
+/// 桌面與平板的步進器（`.st-step`）：減、值、加。到了頭尾那一鈕停用。兩鈕
+/// 看起來 26×24，點擊區補到觸控 44、滑鼠 28。
 class SettingsStepper extends StatelessWidget {
   const SettingsStepper({
     super.key,
@@ -411,34 +470,26 @@ class SettingsStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
-    Widget button(FmpIcons icon, String label, VoidCallback? onTap) {
-      final glyph = SizedBox(
-        width: 26,
-        height: 24,
-        child: Center(
-          child: Opacity(
-            opacity: onTap == null ? .38 : 1,
-            child: FmpIcon(icon, size: 13, color: colors.label2),
+    final target = _minTarget(context, touch);
+    Widget button(FmpIcons icon, String label, VoidCallback? onTap) =>
+        ShellButton(
+          onTap: onTap,
+          label: label,
+          tooltip: touch ? null : label,
+          focusRadius: 7,
+          builder: (context, _) => SizedBox.square(
+            dimension: target,
+            child: Center(
+              child: Opacity(
+                opacity: onTap == null ? .38 : 1,
+                child: FmpIcon(icon, size: 13, color: colors.label2),
+              ),
+            ),
           ),
-        ),
-      );
-      return ShellButton(
-        onTap: onTap,
-        label: label,
-        tooltip: touch ? null : label,
-        focusRadius: 7,
-        builder: (context, _) => touch
-            ? SizedBox(
-                width: context.fmpMetrics.minTarget,
-                height: context.fmpMetrics.minTarget,
-                child: Center(child: glyph),
-              )
-            : glyph,
-      );
-    }
+        );
 
-    // 觸控版的點擊區比底色大：底色只畫在中間 24 高、兩鈕往內收的範圍。
-    final inset = touch ? (context.fmpMetrics.minTarget - 26) / 2 : 0.0;
+    // 點擊區比底色大：底色只畫在中間 24 高、照稿 26 寬的兩鈕加值的範圍。
+    final inset = (target - 26) / 2;
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -460,15 +511,19 @@ class SettingsStepper extends StatelessWidget {
           children: [
             button(FmpIcons.minus, decreaseLabel, onDecrease),
             ConstrainedBox(
-              constraints: BoxConstraints(minWidth: touch ? 46 - 2 * 9 : 46),
-              child: Text(
-                value,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  letterSpacing: 0,
-                  color: colors.label,
-                ).tabular,
+              // 值的欄照稿 46 寬，扣掉兩鈕點擊區多出來的。
+              constraints: BoxConstraints(minWidth: 46 - 2 * inset),
+              child: SettingsSwap(
+                child: Text(
+                  value,
+                  key: ValueKey(value),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    letterSpacing: 0,
+                    color: colors.label,
+                  ).tabular,
+                ),
               ),
             ),
             button(FmpIcons.plus, increaseLabel, onIncrease),
@@ -479,9 +534,53 @@ class SettingsStepper extends StatelessWidget {
   }
 }
 
-/// 強調色的一個色點（`.st-acc`）：選中的外面一圈 2 寬的字色環（離色點 2）。
-/// [labelBelow] 是桌面與平板色點下方的名字（`.st-accb`）。觸控時點擊區補到
-/// 44。
+/// 選中時出現的環（色點、主題預覽圖）：spring 從略小長到原大並淡入；減少動態
+/// 效果時只淡入淡出（`DESIGN.md`〈狀態變化對照〉的選取）。
+class SelectionRing extends StatelessWidget {
+  const SelectionRing({
+    super.key,
+    required this.selected,
+    required this.color,
+    required this.width,
+    required this.radius,
+  });
+
+  final bool selected;
+  final Color color;
+  final double width;
+
+  /// 環外緣的圓角；圓形給大於短邊一半的值。
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = FmpMotion.selection(context);
+    final reduced = FmpMotion.reduced(context);
+    return IgnorePointer(
+      child: AnimatedOpacity(
+        opacity: selected ? 1 : 0,
+        duration: motion.duration,
+        curve: FmpMotion.outCurve,
+        child: AnimatedScale(
+          scale: selected || reduced ? 1 : .85,
+          duration: motion.duration,
+          curve: motion.curve,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: color, width: width),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 強調色的一個色點（`.st-acc`）：選中的外面一圈 2 寬的字色環，離色點 4
+/// （稿的 `::after` inset -4 加 2px 陰影）。[labelBelow] 是桌面與平板色點下方
+/// 的名字（`.st-accb`）。點擊區至少觸控 44、滑鼠 28；環畫在色點的框外，不佔
+/// 版面。
 class AccentSwatch extends StatelessWidget {
   const AccentSwatch({
     super.key,
@@ -504,40 +603,43 @@ class AccentSwatch extends StatelessWidget {
   final bool touch;
   final String? labelBelow;
 
+  /// 色點的點擊框：觸控 44、滑鼠 28。
+  static double targetOf(BuildContext context, {required bool touch}) =>
+      _minTarget(context, touch);
+
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
-    // 色點加上選取環的外框：環在色點外 2–4。
-    final ringBox = size + 8;
     final dot = SizedBox.square(
-      dimension: ringBox,
-      child: Center(
-        child: AnimatedContainer(
-          duration: FmpMotion.fast,
-          curve: FmpMotion.outCurve,
-          width: ringBox,
-          height: ringBox,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? colors.label : const Color(0x00000000),
+      dimension: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -6,
+            top: -6,
+            right: -6,
+            bottom: -6,
+            child: SelectionRing(
+              selected: selected,
+              color: colors.label,
               width: 2,
+              radius: 999,
             ),
           ),
-          alignment: Alignment.center,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: colors.sepStrong, width: .5),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.sepStrong, width: .5),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
-    final target = touch ? context.fmpMetrics.minTarget : ringBox;
+    final target = targetOf(context, touch: touch);
     return ShellButton(
       onTap: onTap,
       label: label,
@@ -545,18 +647,25 @@ class AccentSwatch extends StatelessWidget {
       focusRadius: 999,
       builder: (context, _) {
         final hit = SizedBox.square(
-          dimension: target < ringBox ? ringBox : target,
+          dimension: target,
           child: Center(child: dot),
         );
-        if (labelBelow case final text?) {
-          return Column(
+        final text = labelBelow;
+        if (text == null) return hit;
+        return ConstrainedBox(
+          constraints: BoxConstraints(minWidth: target),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               hit,
-              SizedBox(height: touch ? 8 - (target - ringBox) / 2 : 6 - 4),
+              // 稿的色點到名字：觸控 8、滑鼠 6，扣掉點擊框比色點多出來的。
+              SizedBox(
+                height: math.max(0, (touch ? 8 : 6) - (target - size) / 2),
+              ),
               ExcludeSemantics(
-                child: Text(
-                  text,
+                child: AnimatedDefaultTextStyle(
+                  duration: FmpMotion.mid,
+                  curve: FmpMotion.outCurve,
                   style: TextStyle(
                     fontSize: touch ? 12 : 11.5,
                     height: 1.3,
@@ -564,12 +673,12 @@ class AccentSwatch extends StatelessWidget {
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     color: selected ? colors.label : colors.label2,
                   ),
+                  child: Text(text),
                 ),
               ),
             ],
-          );
-        }
-        return hit;
+          ),
+        );
       },
     );
   }

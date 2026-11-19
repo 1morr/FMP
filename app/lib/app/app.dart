@@ -65,8 +65,11 @@ class _FmpAppState extends ConsumerState<FmpApp> with WidgetsBindingObserver {
     final accent = ref.watch(accentProvider);
     return MaterialApp.router(
       routerConfig: _router,
-      // 設定「外觀 › 主題」與「強調色」。
+      // 設定「外觀 › 主題」與「強調色」；換的時候顏色照明暗翻轉 out 280
+      // 過去（`docs/design/DESIGN.md`〈動態〉）。
       themeMode: ref.watch(themeModeProvider),
+      themeAnimationDuration: FmpMotion.mid,
+      themeAnimationCurve: FmpMotion.outCurve,
       theme: buildTheme(
         brightness: Brightness.light,
         density: density,

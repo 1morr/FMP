@@ -23,7 +23,7 @@ final glassEffectProvider = NotifierProvider<GlassEffect, GlassTier>(
   GlassEffect.new,
 );
 
-class GlassEffect extends SavedSetting<GlassTier> {
+class GlassEffect extends EnumSetting<GlassTier> {
   @override
   String get key => 'appearance.glass';
 
@@ -32,9 +32,13 @@ class GlassEffect extends SavedSetting<GlassTier> {
   GlassTier get fallback => GlassTier.refract;
 
   @override
-  GlassTier? decode(String raw) =>
-      GlassTier.values.where((t) => t.name == raw).firstOrNull;
+  List<GlassTier> get values => GlassTier.values;
 
+  /// 照設定的選項名（完整、輕量、關閉）存，不跟玻璃元件的級名。
   @override
-  String encode(GlassTier value) => value.name;
+  String encode(GlassTier value) => switch (value) {
+    GlassTier.refract => 'full',
+    GlassTier.standard => 'lite',
+    GlassTier.minimal => 'off',
+  };
 }

@@ -20,13 +20,28 @@ class LanguageSetting extends SavedSetting<AppLocale?> {
   AppLocale? get fallback => null;
 
   @override
-  AppLocale? decode(String raw) => _decode(raw);
-
-  static AppLocale? _decode(String raw) =>
-      AppLocale.values.where((l) => l.languageTag == raw).firstOrNull;
+  ({AppLocale? value})? decode(String raw) => raw == _system
+      ? (value: null)
+      : switch (decodeChoice(raw)) {
+          final locale? => (value: locale),
+          null => null,
+        };
 
   @override
-  String encode(AppLocale? value) => value?.languageTag ?? _system;
+  String encode(AppLocale? value) => encodeChoice(value);
+
+  /// 存的寫法：每個語言明寫 BCP 47 的 tag，跟隨系統是 `system`。設定頁的
+  /// 語言選單也用它當值。
+  static String encodeChoice(AppLocale? choice) => switch (choice) {
+    null => _system,
+    AppLocale.zhTw => 'zh-TW',
+    AppLocale.zhCn => 'zh-CN',
+    AppLocale.en => 'en',
+  };
+
+  /// [encodeChoice] 的反向；`system` 與讀不懂的都是 null（跟隨系統）。
+  static AppLocale? decodeChoice(String raw) =>
+      AppLocale.values.where((l) => encodeChoice(l) == raw).firstOrNull;
 
   @override
   Future<void> set(AppLocale? value) {
@@ -39,7 +54,7 @@ class LanguageSetting extends SavedSetting<AppLocale?> {
   /// 那個語言。
   static void applySaved(Map<String, String> saved) =>
       applyLanguage(switch (saved[_key]) {
-        final raw? => _decode(raw),
+        final raw? => decodeChoice(raw),
         null => null,
       });
 }

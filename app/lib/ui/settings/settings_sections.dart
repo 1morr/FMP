@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass_effect.dart';
 import 'package:fmp/app/i18n/language.dart';
@@ -13,7 +11,7 @@ import 'package:fmp/ui/settings/settings_controls.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 設定的分類。M1 只有外觀與播放（還沒有的功能不出現入口，spec〈共同規則〉）；
+/// 設定的分類。現在只有外觀與播放：還沒有的功能不出現入口；
 /// 照 `settings.html` 分類欄的順序。
 enum SettingsCategory {
   appearance(FmpIcons.appearance),
@@ -106,7 +104,8 @@ Future<void> _pickTheme(BuildContext anchor, WidgetRef ref, bool touch) async {
   if (mode != null) await ref.read(themeModeProvider.notifier).set(mode);
 }
 
-/// 語言選單的值：`system` 或語言的 tag（選單回 null 是沒選）。
+/// 語言選單的值是存的寫法（[LanguageSetting.encodeChoice]）：跟隨系統也有
+/// 一個值，選單回 null 才是沒選。
 Future<void> _pickLanguage(
   BuildContext anchor,
   WidgetRef ref,
@@ -114,24 +113,20 @@ Future<void> _pickLanguage(
 ) async {
   final t = anchor.t;
   final current = ref.read(languageProvider);
-  const system = 'system';
-  final tag = await _menuBelow<String>(anchor, [
-    GlassMenuItem(
-      value: system,
-      label: t.settings.languageSystem,
-      checked: current == null,
-    ),
-    for (final locale in AppLocale.values)
+  final choice = await _menuBelow<String>(anchor, [
+    for (final locale in [null, ...AppLocale.values])
       GlassMenuItem(
-        value: locale.languageTag,
-        label: languageName(locale),
+        value: LanguageSetting.encodeChoice(locale),
+        label: locale == null
+            ? t.settings.languageSystem
+            : languageName(locale),
         checked: locale == current,
       ),
   ], touch: touch);
-  if (tag == null) return;
+  if (choice == null) return;
   await ref
       .read(languageProvider.notifier)
-      .set(AppLocale.values.where((l) => l.languageTag == tag).firstOrNull);
+      .set(LanguageSetting.decodeChoice(choice));
 }
 
 Future<void> _pickGlass(BuildContext anchor, WidgetRef ref, bool touch) async {
@@ -353,8 +348,6 @@ class AppearancePane extends ConsumerWidget {
               trailing: Builder(
                 builder: (anchor) => SettingsPopupButton(
                   label: languageValue,
-                  semanticsLabel:
-                      '${t.settings.interfaceLanguage}, $languageValue',
                   touch: touch,
                   onTap: () => _pickLanguage(anchor, ref, touch),
                 ),
@@ -443,11 +436,11 @@ class AccentSwatches extends ConsumerWidget {
     final current = ref.watch(accentProvider);
     // 手機列尾 26、gap 10；桌面 22、gap 14；平板 26、gap 14（`settings.html`）。
     final size = touch ? 26.0 : 22.0;
-    // 色點的框（含選取環）比色點大 8；觸控時點擊區補到 44，間距扣掉補的。
-    // 觸控時稿的間距（色點中心差 36、40）放不下 44 的點擊區，點擊區相鄰、
-    // 不重疊，看起來色點之間是 18（`DESIGN.md`〈無障礙〉）。
-    final box = touch ? context.fmpMetrics.minTarget : size + 8;
-    final gap = math.max(0.0, (labels ? 14.0 : 10.0) - (box - size));
+    // 點擊框觸控 44、滑鼠 28（`DESIGN.md`〈無障礙〉）。觸控時稿的間距（色點
+    // 中心差 36、40）放不下 44 的點擊區，點擊區相鄰、不重疊，看起來色點之間
+    // 是 18（2026-11-20 擁有者同意）；滑鼠版每欄之間照稿 14。
+    final box = AccentSwatch.targetOf(context, touch: touch);
+    final gap = touch ? 0.0 : 14.0;
     final swatches = [
       for (final accent in Accent.values)
         AccentSwatch(
@@ -554,6 +547,19 @@ class _ThemeTile extends StatelessWidget {
       ThemeMode.light => [Brightness.light],
       ThemeMode.dark => [Brightness.dark],
     };
+    final preview = ClipRRect(
+      borderRadius: BorderRadius.circular(9),
+      child: Row(
+        children: [
+          for (final brightness in halves)
+            Expanded(
+              child: _ThemePreviewHalf(
+                colors: FmpColors.of(brightness, accent),
+              ),
+            ),
+        ],
+      ),
+    );
     return ShellButton(
       onTap: onTap,
       label: label,
@@ -562,39 +568,42 @@ class _ThemeTile extends StatelessWidget {
       builder: (context, _) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedContainer(
-            duration: FmpMotion.fast,
-            curve: FmpMotion.outCurve,
+          Container(
             width: fill ? double.infinity : 112,
             height: 72,
-            decoration: BoxDecoration(
+            // 沒選的是 0.5 的細框，選中的再疊一圈 3 寬的強調色環（box-shadow）。
+            foregroundDecoration: BoxDecoration(
               borderRadius: BorderRadius.circular(9),
-              // 選中的是 3 寬的強調色環，沒選的是 0.5 的細框（box-shadow）。
-              boxShadow: [
-                BoxShadow(
-                  color: selected ? colors.accent : colors.sepStrong,
-                  spreadRadius: selected ? 3 : .5,
+              border: Border.all(
+                color: colors.sepStrong,
+                width: .5,
+                strokeAlign: BorderSide.strokeAlignOutside,
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(child: preview),
+                Positioned(
+                  left: -3,
+                  top: -3,
+                  right: -3,
+                  bottom: -3,
+                  child: SelectionRing(
+                    selected: selected,
+                    color: colors.accent,
+                    width: 3,
+                    radius: 12,
+                  ),
                 ),
               ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: Row(
-                children: [
-                  for (final brightness in halves)
-                    Expanded(
-                      child: _ThemePreviewHalf(
-                        colors: FmpColors.of(brightness, accent),
-                      ),
-                    ),
-                ],
-              ),
             ),
           ),
           const SizedBox(height: 7),
           ExcludeSemantics(
-            child: Text(
-              label,
+            child: AnimatedDefaultTextStyle(
+              duration: FmpMotion.mid,
+              curve: FmpMotion.outCurve,
               style: TextStyle(
                 fontSize: 12,
                 height: 1.3,
@@ -602,6 +611,7 @@ class _ThemeTile extends StatelessWidget {
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: colors.label,
               ),
+              child: Text(label),
             ),
           ),
         ],

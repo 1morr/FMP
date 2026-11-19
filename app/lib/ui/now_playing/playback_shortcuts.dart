@@ -93,18 +93,22 @@ class _PlaybackShortcutsState extends ConsumerState<PlaybackShortcuts> {
         context.findAncestorStateOfType<EditableTextState>() != null) {
       return true;
     }
-    return ModalRoute.of(context) is PopupRoute;
+    return _focusInPopup();
+  }
+
+  /// 焦點在對話框或選單裡。
+  static bool _focusInPopup() {
+    final context = FocusManager.instance.primaryFocus?.context;
+    return context != null &&
+        context.mounted &&
+        ModalRoute.of(context) is PopupRoute;
   }
 
   /// 打開設定（`docs/design/DESIGN.md`〈無障礙〉的 ⌘,）：從播放頁也換過去。
   /// 輸入框裡照樣有作用（⌘, 在輸入框沒有別的意思）；對話框與選單開著時不攔。
   bool _openSettings() {
     final context = widget.navigatorKey.currentContext;
-    final focus = FocusManager.instance.primaryFocus?.context;
-    if (context == null) return false;
-    if (focus != null && focus.mounted && ModalRoute.of(focus) is PopupRoute) {
-      return false;
-    }
+    if (context == null || _focusInPopup()) return false;
     GoRouter.of(context).go(Destination.settings.path);
     return true;
   }

@@ -84,12 +84,14 @@ void main() {
     expect(container.read(accentProvider), Accent.teal);
   });
 
-  test('the language is kept across a restart, and so is following the '
-      'system after choosing a language', () async {
+  test('the language is kept across a restart', () async {
     await container.read(languageProvider.notifier).set(AppLocale.en);
     await restart();
     expect(container.read(languageProvider), AppLocale.en);
+  });
 
+  test('going back to following the system is kept across a restart', () async {
+    await container.read(languageProvider.notifier).set(AppLocale.en);
     await container.read(languageProvider.notifier).set(null);
     await restart();
     expect(container.read(languageProvider), isNull);
@@ -112,13 +114,73 @@ void main() {
     );
   });
 
+  test('each choice is stored as its own fixed string, not a name in the '
+      'code', () async {
+    Future<String?> stored<T>(
+      NotifierProvider<SavedSetting<T>, T> provider,
+      String key,
+      T value,
+    ) async {
+      await container.read(provider.notifier).set(value);
+      return (await SettingsStore(database).load())[key];
+    }
+
+    final expected = <(Future<String?> Function(), String)>[
+      for (final (mode, raw) in [
+        (ThemeMode.light, 'light'),
+        (ThemeMode.dark, 'dark'),
+        (ThemeMode.system, 'system'),
+      ])
+        (() => stored(themeModeProvider, 'appearance.theme', mode), raw),
+      for (final (accent, raw) in [
+        (Accent.violet, 'violet'),
+        (Accent.indigo, 'indigo'),
+        (Accent.teal, 'teal'),
+        (Accent.none, 'none'),
+      ])
+        (() => stored(accentProvider, 'appearance.accent', accent), raw),
+      for (final (locale, raw) in [
+        (AppLocale.zhTw, 'zh-TW'),
+        (AppLocale.zhCn, 'zh-CN'),
+        (AppLocale.en, 'en'),
+        (null, 'system'),
+      ])
+        (() => stored(languageProvider, 'appearance.language', locale), raw),
+      for (final (tier, raw) in [
+        (GlassTier.standard, 'lite'),
+        (GlassTier.minimal, 'off'),
+        (GlassTier.refract, 'full'),
+      ])
+        (() => stored(glassEffectProvider, 'appearance.glass', tier), raw),
+      for (final (seconds, raw) in [
+        (0, '0'),
+        (3, '3'),
+        (5, '5'),
+        (15, '15'),
+        (30, '30'),
+        (10, '10'),
+      ])
+        (
+          () => stored(
+            temporaryPlayRewindProvider,
+            'playback.temporaryPlayRewindSeconds',
+            Duration(seconds: seconds),
+          ),
+          raw,
+        ),
+    ];
+    for (final (save, raw) in expected) {
+      expect(await save(), raw);
+    }
+  });
+
   test('a stored value this version does not know falls back to the '
       'default', () async {
     final store = SettingsStore(database);
     await store.write('appearance.theme', 'sepia');
     await store.write('appearance.accent', 'gold');
     await store.write('appearance.language', 'ja');
-    await store.write('appearance.glass', 'ultra');
+    await store.write('appearance.glass', 'refract');
     await store.write('playback.temporaryPlayRewindSeconds', '7');
     await restart();
 
@@ -129,6 +191,24 @@ void main() {
     expect(
       container.read(temporaryPlayRewindProvider),
       const Duration(seconds: 10),
+    );
+    await log.close();
+    final logged = File('${dir.path}/logs/${Log.fileName}').readAsStringSync();
+    for (final key in [
+      'appearance.theme',
+      'appearance.accent',
+      'appearance.language',
+      'appearance.glass',
+      'playback.temporaryPlayRewindSeconds',
+    ]) {
+      expect(
+        logged,
+        contains('WARNING Unknown stored value for the setting $key'),
+      );
+    }
+    log = await Log.open(
+      Directory('${dir.path}/logs'),
+      minimumLevel: LogLevel.debug,
     );
   });
 

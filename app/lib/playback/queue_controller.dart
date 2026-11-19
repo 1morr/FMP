@@ -57,10 +57,7 @@ class TemporaryPlayRewind extends SavedSetting<Duration> {
   Duration get fallback => const Duration(seconds: 10);
 
   @override
-  Duration? decode(String raw) => switch (int.tryParse(raw)) {
-    final seconds? => options.where((o) => o.inSeconds == seconds).firstOrNull,
-    null => null,
-  };
+  ({Duration value})? decode(String raw) => decodeAmong(options, raw);
 
   @override
   String encode(Duration value) => '${value.inSeconds}';

@@ -9,7 +9,7 @@ final themeModeProvider = NotifierProvider<ThemeModeSetting, ThemeMode>(
   ThemeModeSetting.new,
 );
 
-class ThemeModeSetting extends SavedSetting<ThemeMode> {
+class ThemeModeSetting extends EnumSetting<ThemeMode> {
   @override
   String get key => 'appearance.theme';
 
@@ -17,11 +17,14 @@ class ThemeModeSetting extends SavedSetting<ThemeMode> {
   ThemeMode get fallback => ThemeMode.system;
 
   @override
-  ThemeMode? decode(String raw) =>
-      ThemeMode.values.where((m) => m.name == raw).firstOrNull;
+  List<ThemeMode> get values => ThemeMode.values;
 
   @override
-  String encode(ThemeMode value) => value.name;
+  String encode(ThemeMode value) => switch (value) {
+    ThemeMode.system => 'system',
+    ThemeMode.light => 'light',
+    ThemeMode.dark => 'dark',
+  };
 }
 
 /// 設定「外觀 › 強調色」：預設無（`docs/design/DESIGN.md`〈強調色〉）。
@@ -29,7 +32,7 @@ final accentProvider = NotifierProvider<AccentSetting, Accent>(
   AccentSetting.new,
 );
 
-class AccentSetting extends SavedSetting<Accent> {
+class AccentSetting extends EnumSetting<Accent> {
   @override
   String get key => 'appearance.accent';
 
@@ -37,9 +40,13 @@ class AccentSetting extends SavedSetting<Accent> {
   Accent get fallback => Accent.none;
 
   @override
-  Accent? decode(String raw) =>
-      Accent.values.where((a) => a.name == raw).firstOrNull;
+  List<Accent> get values => Accent.values;
 
   @override
-  String encode(Accent value) => value.name;
+  String encode(Accent value) => switch (value) {
+    Accent.none => 'none',
+    Accent.violet => 'violet',
+    Accent.indigo => 'indigo',
+    Accent.teal => 'teal',
+  };
 }

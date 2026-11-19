@@ -10,7 +10,9 @@ import 'package:fmp/data/settings_store.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:fmp/ui/home/home_page.dart';
+import 'package:fmp/ui/settings/settings_controls.dart';
 import 'package:fmp/ui/settings/settings_page.dart';
+import 'package:fmp/ui/settings/settings_sections.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:material_ui/material_ui.dart';
@@ -139,23 +141,29 @@ void main() {
       expect(find.text('青綠'), findsOneWidget);
     });
 
-    testWidgets('the language menu switches every string at once, and '
-        'following the system picks zh-TW for a language outside the three', (
+    testWidgets('the language menu switches every string at once', (
       tester,
     ) async {
-      tester.platformDispatcher.localesTestValue = const [Locale('ja', 'JP')];
-      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
       await start(tester, phone);
 
       await tap(tester, find.text('語言'));
       await tap(tester, menuItem('English'));
+
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Settings'), findsWidgets);
+    });
+
+    testWidgets('choosing to follow the system goes back to the system '
+        'language', (tester) async {
+      tester.platformDispatcher.localesTestValue = const [Locale('zh', 'CN')];
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      LocaleSettings.setLocaleSync(AppLocale.en);
+      await start(tester, phone, saved: {'appearance.language': 'en'});
 
       await tap(tester, find.text('Language'));
       await tap(tester, menuItem('System'));
-      expect(find.text('外觀'), findsOneWidget);
-      expect(LocaleSettings.currentLocale, AppLocale.zhTw);
+
+      expect(find.text('外观'), findsOneWidget);
     });
 
     testWidgets('following the system, the app changes language when the '
@@ -220,7 +228,7 @@ void main() {
         saved: {
           'appearance.theme': 'dark',
           'appearance.accent': 'violet',
-          'appearance.glass': 'standard',
+          'appearance.glass': 'lite',
           'playback.temporaryPlayRewindSeconds': '5',
         },
       );
@@ -246,16 +254,23 @@ void main() {
       }
     });
 
-    testMac('the theme tiles and the glass rows apply at once', (tester) async {
+    testMac('a theme tile applies at once', (tester) async {
       await start(tester, desktop);
 
       await tap(tester, find.bySemanticsLabel('深色'));
+
       expect(brightness(tester), Brightness.dark);
+    });
+
+    testMac('the glass rows explain each choice and switch every glass '
+        'together', (tester) async {
+      await start(tester, desktop);
 
       for (final hint in ['折射、模糊與高光', '只有模糊，比較省效能', '實心背景']) {
         expect(find.text(hint), findsOneWidget, reason: hint);
       }
       await tap(tester, find.text('輕量'));
+
       expect(glassTiers(tester), {GlassTier.standard});
     });
 
@@ -338,11 +353,10 @@ void main() {
       await start(tester, tablet);
 
       expect(find.text('介面語言'), findsOneWidget);
-      final popup = find.descendant(
-        of: find.bySemanticsLabel(RegExp('介面語言')),
-        matching: find.byType(GestureDetector),
+      expect(
+        tester.getSize(find.byType(SettingsPopupButton)).height,
+        greaterThanOrEqualTo(44),
       );
-      expect(tester.getSize(popup.first).height, greaterThanOrEqualTo(44));
 
       await tap(tester, find.text('播放'));
       final plus = find.descendant(
@@ -379,6 +393,74 @@ void main() {
         }
       }
       expect(reached, {'播放', '深色', '青綠', '跟隨系統（', '實心背景'});
+    });
+
+    /// 按 Tab 直到 [label] 那一塊畫出焦點外框；[byText] 時以畫面上的字找，
+    /// 否則以螢幕閱讀器的名字找。
+    Future<bool> tabTo(
+      WidgetTester tester,
+      String label, {
+      bool byText = true,
+    }) async {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.automatic,
+      );
+      final target = byText ? find.text(label) : find.bySemanticsLabel(label);
+      for (var i = 0; i < 40; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final ring = find.ancestor(
+          of: target,
+          matching: find.byType(FocusRing),
+        );
+        final inside = find.descendant(
+          of: target,
+          matching: find.byType(FocusRing),
+        );
+        if ([
+          ...ring.evaluate(),
+          ...inside.evaluate(),
+        ].any((e) => (e.widget as FocusRing).visible)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    testMac('the stepper buttons draw the focus ring when reached by '
+        'keyboard', (tester) async {
+      await start(tester, desktop);
+      await tap(tester, find.text('播放'));
+
+      expect(await tabTo(tester, '增加', byText: false), isTrue);
+    });
+
+    testWidgets('a phone settings row draws the focus ring when reached by '
+        'keyboard', (tester) async {
+      await start(tester, phone);
+
+      expect(await tabTo(tester, '臨時播放結束後倒退'), isTrue);
+    });
+
+    testMac('on a desktop the stepper and the language popup take at least '
+        '28 tall clicks', (tester) async {
+      await start(tester, desktop);
+
+      expect(
+        tester.getSize(find.byType(SettingsPopupButton)).height,
+        greaterThanOrEqualTo(28),
+      );
+      await tap(tester, find.text('播放'));
+      final plus = find.descendant(
+        of: find.bySemanticsLabel('增加'),
+        matching: find.byType(GestureDetector),
+      );
+      final size = tester.getSize(plus.first);
+      expect(size.width, greaterThanOrEqualTo(28));
+      expect(size.height, greaterThanOrEqualTo(28));
     });
 
     testWidgets('on a phone the swatches take 44 square taps', (tester) async {
@@ -421,21 +503,94 @@ void main() {
       await start(tester, desktop, reduceMotion: true);
 
       await tester.tap(find.text('播放'));
-      await tester.pump(const Duration(milliseconds: 40));
+      await tester.pump(const Duration(milliseconds: 5));
 
-      final pane = find.byKey(const Key('settings-pane'));
-      expect(
-        find.descendant(of: pane, matching: find.byType(FadeTransition)),
-        findsWidgets,
+      // 窗格本身的過場（新的窗格外面包的那幾層）。
+      Finder around(Type type) => find.ancestor(
+        of: find.byType(PlaybackPane),
+        matching: find.descendant(
+          of: find.byKey(const Key('settings-pane')),
+          matching: find.byType(type),
+        ),
       );
-      expect(
-        find.descendant(of: pane, matching: find.byType(SlideTransition)),
-        findsNothing,
+      expect(around(FadeTransition), findsWidgets);
+      expect(around(SlideTransition), findsNothing);
+      expect(around(ScaleTransition), findsNothing);
+    });
+  });
+
+  group('motion', () {
+    /// [swatch] 色點的選取環現在的縮放與透明度。
+    (double, double) ring(WidgetTester tester, String swatch) {
+      final ring = find.descendant(
+        of: find.bySemanticsLabel(swatch),
+        matching: find.byType(SelectionRing),
       );
-      expect(
-        find.descendant(of: pane, matching: find.byType(ScaleTransition)),
-        findsNothing,
+      final scale = tester.widget<ScaleTransition>(
+        find.descendant(of: ring, matching: find.byType(ScaleTransition)),
       );
+      final fade = tester.widget<FadeTransition>(
+        find.descendant(of: ring, matching: find.byType(FadeTransition)),
+      );
+      return (scale.scale.value, fade.opacity.value);
+    }
+
+    testWidgets('a chosen swatch grows its ring with a spring', (tester) async {
+      await start(tester, phone);
+
+      await tester.tap(find.bySemanticsLabel('青綠'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final (midScale, midOpacity) = ring(tester, '青綠');
+      expect(midScale, inExclusiveRange(.85, 1.2));
+      expect(midOpacity, inExclusiveRange(0, 1));
+
+      await settle(tester);
+      expect(ring(tester, '青綠'), (1.0, 1.0));
+    });
+
+    testWidgets('with reduced motion a chosen swatch only fades its ring in', (
+      tester,
+    ) async {
+      await start(tester, phone, reduceMotion: true);
+
+      await tester.tap(find.bySemanticsLabel('青綠'));
+      await tester.pump();
+      // 系統開減少動態效果時 Flutter 把動畫縮成 5% 的時長（280 → 14ms）。
+      await tester.pump(const Duration(milliseconds: 5));
+      final (scale, opacity) = ring(tester, '青綠');
+      expect(scale, 1.0);
+      expect(opacity, inExclusiveRange(0, 1));
+    });
+
+    testMac('the category pill slides to the chosen category', (tester) async {
+      await start(tester, desktop);
+      final pill = find.byKey(const Key('settings-category-pill'));
+      final from = tester.getTopLeft(pill).dy;
+
+      await tester.tap(find.text('播放'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final mid = tester.getTopLeft(pill).dy;
+      await settle(tester);
+      final to = tester.getTopLeft(pill).dy;
+
+      expect(to, greaterThan(from));
+      expect(mid, inExclusiveRange(from, to + 8));
+    });
+
+    testMac('a new stepper value cross-fades with the old one', (tester) async {
+      await start(tester, desktop);
+      await tap(tester, find.text('播放'));
+
+      await tester.tap(find.bySemanticsLabel('增加'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('10 秒'), findsOneWidget);
+      expect(find.text('15 秒'), findsOneWidget);
+
+      await settle(tester);
+      expect(find.text('10 秒'), findsNothing);
     });
   });
 }
