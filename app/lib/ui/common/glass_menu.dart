@@ -21,9 +21,13 @@ class GlassMenuItem<T> extends GlassMenuEntry<T> {
     this.destructive = false,
     this.enabled = true,
     this.checked,
+    this.detail,
   });
 
   final T value;
+
+  /// 標題下面一行灰字，說明這個選項實際是什麼（例如「玻璃效果」的三級）。
+  final String? detail;
 
   /// 單選清單（例如排序）的一項：true 在圖示的位置畫勾，false 留同樣的空位
   /// 讓字對齊；null 是一般項目，照 [icon]。
@@ -47,6 +51,9 @@ class GlassMenuDivider<T> extends GlassMenuEntry<T> {
 
   final bool thick;
 }
+
+/// 選單的寬：觸控 252、滑鼠 236。要讓選單右緣對齊某個東西時用。
+double glassMenuWidth({required bool touch}) => touch ? 252 : 236;
 
 /// 在 [at]（全域座標）打開玻璃選單（`.gmenu`，`docs/design/DESIGN.md`
 /// 〈選單〉）：厚玻璃、跟主題走；觸控與滑鼠兩種密度照 `platform/` 的密度。
@@ -120,7 +127,7 @@ class _GlassMenu<T> extends StatelessWidget {
       namesRoute: true,
       explicitChildNodes: true,
       child: SizedBox(
-        width: touch ? 252 : 236,
+        width: glassMenuWidth(touch: touch),
         child: Glass(
           variant: GlassVariant.thick,
           radius: touch ? 22 : 14,
@@ -230,16 +237,38 @@ class _ItemState<T> extends State<_Item<T>> {
             size: iconSize,
             color: item.destructive && !(lit && !touch) ? colors.danger : ink2,
           );
-    final label = Expanded(
-      child: Text(
-        item.label,
-        style: context.fmpText.body.copyWith(
-          fontSize: touch ? 16 : 13,
-          height: touch ? 21 / 16 : 17 / 13,
-          letterSpacing: 0,
-          color: ink,
-        ),
+    final title = Text(
+      item.label,
+      style: context.fmpText.body.copyWith(
+        fontSize: touch ? 16 : 13,
+        height: touch ? 21 / 16 : 17 / 13,
+        letterSpacing: 0,
+        color: ink,
       ),
+    );
+    final label = Expanded(
+      child: switch (item.detail) {
+        null => title,
+        final detail => Padding(
+          padding: EdgeInsets.symmetric(vertical: touch ? 6 : 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              title,
+              Text(
+                detail,
+                style: TextStyle(
+                  fontSize: touch ? 13 : 11.5,
+                  height: touch ? 17 / 13 : 15 / 11.5,
+                  letterSpacing: 0,
+                  color: ink2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      },
     );
     final row = Row(
       children: [

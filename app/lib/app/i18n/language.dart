@@ -45,9 +45,14 @@ class LanguageSetting extends SavedSetting<AppLocale?> {
 }
 
 /// 把介面切成 [choice]；null（跟隨系統）時照系統的第一個語言（[appLocaleFor]）。
-void applyLanguage(AppLocale? choice) => LocaleSettings.setLocaleSync(
-  choice ?? appLocaleFor(WidgetsBinding.instance.platformDispatcher.locale),
-);
+void applyLanguage(AppLocale? choice) =>
+    LocaleSettings.setLocaleSync(choice ?? appLocaleFor(systemLocale()));
+
+/// 系統偏好的第一個語言。
+Locale systemLocale() {
+  final dispatcher = WidgetsBinding.instance.platformDispatcher;
+  return dispatcher.locales.firstOrNull ?? dispatcher.locale;
+}
 
 /// 跟隨系統時用哪個語言：繁體（`Hant`，或台灣、香港、澳門）是 zh-TW，其他
 /// 中文（`Hans`、中國、新加坡、沒寫地區）是 zh-CN，英文是 en；三語以外都用
