@@ -20,7 +20,10 @@ import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_queue.dart';
 import 'package:fmp/ui/player/player_swipe.dart';
 import 'package:fmp/ui/shell/caption_buttons.dart';
+import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
+import 'package:fmp/ui/toast/toast_layer.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 桌面與橫向兩欄的右欄要不要顯示佇列（頂列右端的「佇列」開關）：預設開，
@@ -42,8 +45,8 @@ class PlayerQueueShown extends Notifier<bool> {
 /// 左邊封面與控制，右邊佇列（頂列右端可關）。Esc、左上的收起或系統返回
 /// 回原頁；手機也能往下拉收起。沒有目前曲目時（佇列清空）自己收起。
 ///
-/// 歌詞（M4）、加入歌單（M3）、曲目資訊（票 17）、存取等級與音質（M2）、桌面的
-/// 音量（還沒有音量控制）不出現（spec〈共同規則〉）。
+/// 還沒有的功能不出現入口：歌詞、加入歌單、曲目資訊、存取等級與音質、桌面的
+/// 音量（還沒有音量控制）。
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
 
@@ -54,10 +57,15 @@ class PlayerPage extends ConsumerStatefulWidget {
 class _PlayerPageState extends ConsumerState<PlayerPage> {
   bool _closing = false;
 
-  void _close() {
+  Future<void> _close() async {
     if (_closing) return;
     _closing = true;
-    Navigator.of(context).maybePop();
+    final popped = await Navigator.of(context).maybePop();
+    // 播放頁是第一頁（例如直接開到 `/player`）時回首頁。
+    if (!popped && mounted) {
+      _closing = false;
+      context.go(Destination.home.path);
+    }
   }
 
   @override
@@ -75,7 +83,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final ambient = switch (shown) {
       null => AmbientColors.fallback,
       final t =>
-        ref.watch(ambientColorsProvider(t.coverLargeUrl ?? t.coverUrl)).value ??
+        ref.watch(ambientColorsProvider(t.largestCoverUrl)).value ??
             _lastAmbient ??
             AmbientColors.fallback,
     };
@@ -108,16 +116,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                           ? PlayerSwipe(
                               track: shown,
                               tablet: form.widthClass != WidthClass.narrow,
-                              topBar: _topBar(context, shown, touch: true),
+                              topBar: _topBar(shown, touch: true),
                               onClose: _close,
                             )
                           : _Columns(
                               track: shown,
                               touch: touch,
                               wide: form.widthClass == WidthClass.wide,
-                              topBar: _topBar(context, shown, touch: touch),
+                              topBar: _topBar(shown, touch: touch),
                             ),
                     ),
+                  // 提示（例如「已複製連結」、播放失敗）浮在控制上方；手機在
+                  // 音源膠囊上面，其他在視窗底部置中。
+                  Positioned.fill(
+                    child: ToastLayer(
+                      bottom: swipe
+                          ? MediaQuery.viewPaddingOf(context).bottom + 290
+                          : 24,
+                      stretch: form.widthClass == WidthClass.narrow,
+                      touch: touch,
+                      reportsFailures: false,
+                    ),
+                  ),
                   if (WindowChrome.insetTrafficLights && !swipe)
                     // 紅綠燈留在左上（`.side` 在 top 4、left 6，燈從 (8, 14) 起）。
                     const Positioned(
@@ -142,11 +162,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Track? _lastTrack;
   AmbientColors? _lastAmbient;
 
-  PlayerTopButtons _topBar(
-    BuildContext context,
-    Track track, {
-    required bool touch,
-  }) => PlayerTopButtons(track: track, touch: touch, onClose: _close);
+  PlayerTopButtons _topBar(Track track, {required bool touch}) =>
+      PlayerTopButtons(track: track, touch: touch, onClose: _close);
 }
 
 /// 頂列兩端的玻璃圓鈕（`.pl-top`／`.pl-dtop`）：左邊收起、右邊 ⋮；排法由
@@ -281,7 +298,7 @@ class PlayerCover extends StatelessWidget {
       ],
     ),
     child: Cover(
-      url: track.coverLargeUrl ?? track.coverUrl,
+      url: track.largestCoverUrl,
       size: size,
       radius: context.fmpMetrics.radii.coverLarge,
     ),
@@ -424,10 +441,11 @@ class _Columns extends ConsumerWidget {
     final page = Stack(
       children: [
         AnimatedPositioned(
-          duration: FmpMotion.morph,
-          curve: MediaQuery.disableAnimationsOf(context)
-              ? Curves.linear
-              : FmpMotion.morphCurve,
+          // 減少動態效果時直接到位（`DESIGN.md`〈動態〉）。
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : FmpMotion.morph,
+          curve: FmpMotion.morphCurve,
           left: left,
           top: leftTop,
           bottom: bottom,
@@ -443,7 +461,11 @@ class _Columns extends ConsumerWidget {
             right: 28,
             top: rightTop + (touch ? 24 : 0),
             bottom: 28,
-            child: PlayerQueue(column: true, touch: touch),
+            child: PlayerQueue(
+              column: true,
+              touch: touch,
+              note: wide && !touch,
+            ),
           ),
         Positioned(
           left: 0,

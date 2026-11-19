@@ -13,12 +13,14 @@ import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/player/player_background.dart';
 import 'package:fmp/ui/player/player_controls.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/player_queue.dart';
+import 'package:fmp/ui/queue/queue_rows.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 全螢幕播放頁（票 16，`docs/design/player.html`）：從迷你播放器或播放膠囊
@@ -71,13 +73,18 @@ void main() {
     logDir.deleteSync(recursive: true);
   });
 
-  /// 第 [n] 首（從 1 數）：四分零九秒，有網址。
-  Track song(int n, {bool url = true}) => Track(
+  /// 封面載入器被要過的網址。
+  final requestedCovers = <String>[];
+
+  /// 第 [n] 首（從 1 數）：四分零九秒，有網址。[covers] 時有縮圖與大封面。
+  Track song(int n, {bool url = true, bool covers = false}) => Track(
     ref: TrackRef(pluginId: 'demo', trackId: 's$n'),
     title: 'Song $n',
     author: 'Artist $n',
     duration: const Duration(minutes: 4, seconds: 9),
     url: url ? 'https://example.com/v/$n' : null,
+    coverUrl: covers ? 'https://example.com/c/$n/small' : null,
+    coverLargeUrl: covers ? 'https://example.com/c/$n/large' : null,
   );
 
   /// 照稿：64 首、正在播第 6 首、不循環。
@@ -145,6 +152,7 @@ void main() {
               .defaultBinaryMessenger
               .setMockMethodCallHandler(channel, null),
         );
+        requestedCovers.clear();
         final q = initialQueue ?? queueOf();
         playback = _FakePlayback(initial ?? playing(q.current!.track));
         queue = _FakeQueue(q);
@@ -157,6 +165,10 @@ void main() {
               temporaryPlayProvider.overrideWith(
                 () => _FixedTemporary(temporary),
               ),
+              coverImageLoaderProvider.overrideWithValue((url) {
+                requestedCovers.add(url);
+                return MemoryImage(_transparentPng);
+              }),
             ],
           ),
         );
@@ -457,6 +469,105 @@ void main() {
     }, initial: playing(song(6, url: false)));
   });
 
+  group('review follow-ups', () {
+    playerTest(
+      'the player shows the large cover and takes its colours from it',
+      (tester) async {
+        await openPlayer(tester);
+
+        expect(requestedCovers, contains('https://example.com/c/6/large'));
+        final big = tester.widgetList<Cover>(
+          find.descendant(
+            of: find.byType(PlayerCover),
+            matching: find.byType(Cover),
+          ),
+        );
+        expect(big.single.url, 'https://example.com/c/6/large');
+      },
+      initial: playing(song(6, covers: true)),
+    );
+
+    playerTest(
+      'the queue toggle stays off after closing and reopening',
+      (tester) async {
+        await openPlayer(tester, desktop: true);
+        await tester.tap(find.byKey(const Key('player-queue-toggle')));
+        await settle(tester);
+        expect(find.byType(PlayerQueue), findsNothing);
+
+        await closeByButton(tester);
+        await openPlayer(tester, desktop: true);
+        expect(find.byType(PlayerQueue), findsNothing);
+      },
+      size: desktop,
+      platform: TargetPlatform.macOS,
+    );
+
+    playerTest('pulling the cover pane down closes the player', (tester) async {
+      await openPlayer(tester);
+      await tester.drag(find.byType(PlayerCover), const Offset(0, 300));
+      await settle(tester);
+
+      expect(find.byType(PlayerPage), findsNothing);
+    });
+
+    playerTest('a short pull springs back and keeps the player open', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+      await tester.timedDrag(
+        find.byType(PlayerCover),
+        const Offset(0, 60),
+        const Duration(seconds: 1),
+      );
+      await settle(tester);
+
+      expect(find.byType(PlayerPage), findsOneWidget);
+    });
+
+    playerTest('dragging an upcoming row by its handle reorders the queue', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+      await tester.tap(find.byKey(const Key('player-dot-queue')));
+      await settle(tester);
+      final handle = find.descendant(
+        of: find.byType(PlayerQueue),
+        matching: find.byType(QueueDragHandle),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(handle.first));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 12; i++) {
+        await gesture.moveBy(const Offset(0, 10));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await settle(tester);
+
+      // 第 7 首（接下來的第一首）拖過兩列，排到第 9 首的位置。
+      expect(queue.calls, contains('move 6 8'));
+    }, semantics: true);
+
+    playerTest('copying the link shows the toast on the player', (
+      tester,
+    ) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (_) async => null);
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      await openPlayer(tester);
+      await tester.tap(find.byKey(const Key('player-more')));
+      await settle(tester);
+      await tester.tap(find.text(t.search.actions.copyLink));
+      await settle(tester);
+
+      expect(find.byType(PlayerPage), findsOneWidget);
+      expect(find.text(t.search.actions.linkCopied), findsOneWidget);
+    });
+  });
+
   group('safe area', () {
     playerTest('the status bar icons turn light over the cover field', (
       tester,
@@ -621,13 +732,7 @@ void main() {
         await settle(tester);
         expect(find.byType(PlayerCover), findsNothing);
         expect(find.byType(PlayerQueue), findsOneWidget);
-        expect(
-          find.descendant(
-            of: find.byType(PlayerPage),
-            matching: find.byType(AnimatedSwitcher),
-          ),
-          findsOneWidget,
-        );
+        expect(find.byKey(const Key('player-panes-fade')), findsOneWidget);
       },
       reduceMotion: true,
     );
@@ -693,6 +798,9 @@ class _FakeQueue extends QueueController {
   Future<void> playAt(int index) async => calls.add('playAt $index');
 
   @override
+  void move(int from, int to) => calls.add('move $from $to');
+
+  @override
   void toggleShuffle() {
     calls.add('toggleShuffle');
     super.toggleShuffle();
@@ -704,6 +812,11 @@ class _FakeQueue extends QueueController {
     super.cycleRepeat();
   }
 }
+
+/// 1×1 透明的 PNG：測試不載入真的封面。
+final _transparentPng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==',
+);
 
 /// 臨時播放由測試給定。
 class _FixedTemporary extends TemporaryPlayHolder {

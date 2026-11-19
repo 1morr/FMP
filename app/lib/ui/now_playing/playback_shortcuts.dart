@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 播放的快捷鍵（`docs/design/DESIGN.md`〈無障礙〉的鍵盤）：Space 播放／暫停、
-/// ←／→ 倒退、快轉 [step]、⌘←／⌘→（Windows 用 Ctrl）上一首、下一首。掛在
+/// ←／→ 倒退、快轉 [seekStep]、⌘←／⌘→（Windows 用 Ctrl）上一首、下一首。掛在
 /// App 的根，任何頁面都有作用，不看焦點在哪；焦點在輸入框裡（字要打得進去、
 /// 游標要能移）或在對話框與選單裡（那裡 Enter 確認）時不攔。
 ///
@@ -14,9 +15,6 @@ import 'package:material_ui/material_ui.dart';
 /// 按鈕要用 Enter 按下（`ShellButton.focusRadius`）。
 class PlaybackShortcuts extends ConsumerStatefulWidget {
   const PlaybackShortcuts({super.key, required this.child});
-
-  /// ←／→ 一次跳多少。
-  static const step = Duration(seconds: 5);
 
   final Widget child;
 
@@ -45,9 +43,9 @@ class _PlaybackShortcutsState extends ConsumerState<PlaybackShortcuts> {
     if (!repeat && _plain(LogicalKeyboardKey.space).accepts(event, keyboard)) {
       action = _playPause;
     } else if (_plain(LogicalKeyboardKey.arrowLeft).accepts(event, keyboard)) {
-      action = () => _seekBy(-PlaybackShortcuts.step);
+      action = () => _seekBy(-seekStep);
     } else if (_plain(LogicalKeyboardKey.arrowRight).accepts(event, keyboard)) {
-      action = () => _seekBy(PlaybackShortcuts.step);
+      action = () => _seekBy(seekStep);
     } else if (!repeat &&
         WindowChrome.shortcut(LogicalKeyboardKey.arrowLeft)
             .accepts(event, keyboard)) {
@@ -83,12 +81,9 @@ class _PlaybackShortcutsState extends ConsumerState<PlaybackShortcuts> {
   void _seekBy(Duration delta) {
     final state = ref.read(playbackProvider);
     if (state == null) return;
-    var target = state.position + delta;
-    if (target < Duration.zero) target = Duration.zero;
-    if (state.effectiveDuration case final duration? when target > duration) {
-      target = duration;
-    }
-    ref.read(playbackProvider.notifier).seek(target);
+    ref
+        .read(playbackProvider.notifier)
+        .seek(clampPosition(state.position + delta, state.effectiveDuration));
   }
 
   void _previous() {

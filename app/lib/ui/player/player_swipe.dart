@@ -122,6 +122,7 @@ class _PlayerSwipeState extends ConsumerState<PlayerSwipe> {
           }
         },
         child: AnimatedSwitcher(
+          key: const Key('player-panes-fade'),
           duration: FmpMotion.mid,
           child: KeyedSubtree(key: ValueKey(_pane), child: pane(_pane)),
         ),

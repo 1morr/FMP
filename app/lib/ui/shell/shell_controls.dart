@@ -32,7 +32,7 @@ class ShellButton extends StatefulWidget {
   /// 給了就能用鍵盤選到：Tab 移過來時畫焦點外框（[FocusRing]，圓角是這個
   /// 值；圓形與膠囊給 999），Enter 或 Space 按下（Space 在 App 裡是播放／
   /// 暫停，見 `PlaybackShortcuts`，鍵盤使用者按按鈕用 Enter）。null 時鍵盤
-  /// 選不到（已做完的頁面由票 19b 補）。
+  /// 選不到。
   final double? focusRadius;
 
   @override

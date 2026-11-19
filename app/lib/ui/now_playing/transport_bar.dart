@@ -10,14 +10,15 @@ import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/now_playing/spine.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 桌面與中寬度的播放膠囊（`.transport`，`docs/design/DESIGN.md`〈桌面〉
 /// 〈中寬度〉）：玻璃膠囊本身是書脊式進度條；三欄，左邊封面、標題、音源符號
 /// ＋作者（點了打開播放頁），中間隨機、上一首、播放、下一首、循環，右邊
-/// 時間。膠囊窄於 640 時收掉時間。歌詞、佇列、音量由之後的票接上（還沒有
-/// 的功能不出現入口）。
+/// 時間。膠囊窄於 640 時收掉時間。歌詞、佇列、音量還沒有，不出現
+/// 入口。
 ///
 /// 滑鼠版（[touch] 是假）可以改進度：點或拖膠囊的空白處、拖折線，放開才
 /// 跳過去。滑鼠移到空白處時游標變成左右箭頭、折線加粗、滑鼠的位置畫一條淡
@@ -50,16 +51,22 @@ class _TransportBarState extends ConsumerState<TransportBar> {
     return duration != null && duration > Duration.zero ? duration : null;
   }
 
-  double _fraction(Offset local, double width) =>
-      width <= 0 ? 0 : (local.dx / width).clamp(0.0, 1.0);
+  double _fraction(Offset local, double width) => seekFraction(local.dx, width);
 
-  Duration _at(double fraction, Duration duration) =>
-      Duration(microseconds: (duration.inMicroseconds * fraction).round());
+  @override
+  void didUpdateWidget(TransportBar old) {
+    super.didUpdateWidget(old);
+    // 換了一首：拖到一半的不算數（手勢跟著拆掉，不會再收到放開）。
+    if (old.state.track.ref != widget.state.track.ref) {
+      _drag = null;
+      _hover = null;
+    }
+  }
 
   void _seek(double fraction) {
     final duration = _duration;
     if (duration == null) return;
-    ref.read(playbackProvider.notifier).seek(_at(fraction, duration));
+    ref.read(playbackProvider.notifier).seek(durationAt(fraction, duration));
   }
 
   @override
@@ -88,49 +95,45 @@ class _TransportBarState extends ConsumerState<TransportBar> {
         _drag ?? spineProgress(state.position, state.effectiveDuration);
     final hint = _drag ?? _hover;
     final info = Semantics(
-      button: true,
       onTapHint: context.t.player.open,
-      child: GestureDetector(
+      child: ShellButton(
         key: const Key('transport-open'),
-        behavior: HitTestBehavior.opaque,
         onTap: () => context.push(playerPath),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Cover(url: track.coverUrl, size: touch ? 48 : 44, radius: 10),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    NowPlayingTitle(title: track.title, style: title),
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SourceMarkIcon(
-                          pluginId: track.ref.pluginId,
-                          size: touch ? 15 : 14,
+        focusRadius: 10,
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Cover(url: track.coverUrl, size: touch ? 48 : 44, radius: 10),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  NowPlayingTitle(title: track.title, style: title),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SourceMarkIcon(
+                        pluginId: track.ref.pluginId,
+                        size: touch ? 15 : 14,
+                      ),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          track.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: sub,
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            track.author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: sub,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -257,7 +260,7 @@ class _TransportBarState extends ConsumerState<TransportBar> {
               child: IgnorePointer(
                 child: _TimeBubble(
                   at: hint,
-                  time: formatDuration(_at(hint, _duration!)),
+                  time: formatDuration(durationAt(hint, _duration!)),
                 ),
               ),
             ),

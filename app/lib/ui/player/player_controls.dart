@@ -11,6 +11,7 @@ import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
@@ -49,7 +50,7 @@ class PlayerProgress extends ConsumerStatefulWidget {
   /// 位置時要往上移這麼多。
   /// 觸控 12（稿上音源膠囊與條只隔 14），點擊區其餘的高都在條下面、蓋住
   /// 時間那一行。
-  static double overhangOf(PlayerDensity density) => density.touch ? 12 : 7;
+  static double overhangOf(PlayerDensity density) => density.touch ? 12 : 9;
 
   @override
   ConsumerState<PlayerProgress> createState() => _PlayerProgressState();
@@ -60,19 +61,26 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
   double? _dragging;
   bool _hovered = false;
 
-  /// 點擊區的高：觸控補到 44（`DESIGN.md`〈無障礙〉），滑鼠 20。
-  static double hitHeightOf(PlayerDensity density) => density.touch ? 44 : 20;
+  /// 點擊區的高：觸控補到 44、滑鼠 28（`DESIGN.md`〈無障礙〉）。
+  static double hitHeightOf(PlayerDensity density) => density.touch ? 44 : 28;
 
   double get _hitHeight => hitHeightOf(widget.density);
 
-  double _fraction(Offset local, double width) =>
-      width <= 0 ? 0 : (local.dx / width).clamp(0, 1);
+  double _fraction(Offset local, double width) => seekFraction(local.dx, width);
 
-  void _seek(double fraction, Duration duration) {
-    final target = Duration(
-      microseconds: (duration.inMicroseconds * fraction).round(),
-    );
-    ref.read(playbackProvider.notifier).seek(target);
+  void _seek(double fraction, Duration duration) =>
+      ref.read(playbackProvider.notifier).seek(durationAt(fraction, duration));
+
+  @override
+  void initState() {
+    super.initState();
+    // 換了一首：拖到一半的不算數（手勢跟著拆掉，不會再收到放開）。
+    ref.listenManual(playbackProvider.select((state) => state?.track.ref), (
+      _,
+      _,
+    ) {
+      if (_dragging != null) setState(() => _dragging = null);
+    });
   }
 
   @override
@@ -85,9 +93,7 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
     final canSeek = duration != null && duration > Duration.zero;
     final position = state?.position ?? Duration.zero;
     final shown = switch ((_dragging, duration)) {
-      (final f?, final d?) => Duration(
-        microseconds: (d.inMicroseconds * f).round(),
-      ),
+      (final f?, final d?) => durationAt(f, d),
       _ => position,
     };
     final fraction = canSeek
@@ -154,20 +160,20 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
       label: t.player.progress,
       value: formatDuration(shown),
       increasedValue: canSeek
-          ? formatDuration(_clamp(shown + _step, duration))
+          ? formatDuration(clampPosition(shown + seekStep, duration))
           : null,
       decreasedValue: canSeek
-          ? formatDuration(_clamp(shown - _step, duration))
+          ? formatDuration(clampPosition(shown - seekStep, duration))
           : null,
       onIncrease: canSeek
           ? () => ref
                 .read(playbackProvider.notifier)
-                .seek(_clamp(position + _step, duration))
+                .seek(clampPosition(position + seekStep, duration))
           : null,
       onDecrease: canSeek
           ? () => ref
                 .read(playbackProvider.notifier)
-                .seek(_clamp(position - _step, duration))
+                .seek(clampPosition(position - seekStep, duration))
           : null,
       // 點擊區比畫出來的條高：上面多出 [PlayerProgress.overhangOf]，其餘在
       // 下面，時間疊在下面那截上。
@@ -216,14 +222,6 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
       ),
     );
   }
-
-  static const _step = Duration(seconds: 5);
-
-  static Duration _clamp(Duration value, Duration max) => value < Duration.zero
-      ? Duration.zero
-      : value > max
-      ? max
-      : value;
 }
 
 class _BarPainter extends CustomPainter {
@@ -433,8 +431,8 @@ class _ControlButton extends StatelessWidget {
 }
 
 /// 音源膠囊（招牌，`.pl-sig`，`docs/design/DESIGN.md`〈播放頁音源膠囊〉）：清
-/// 玻璃，音源符號＋全名。存取等級與音質（M2）、點開曲目資訊的 ›（票 17）還
-/// 沒有，不出現（spec〈共同規則〉）。
+/// 玻璃，音源符號＋全名。存取等級、音質與點開曲目資訊的 › 等那些功能做出來
+/// 才加，還沒有的不出現。
 class SignatureCapsule extends ConsumerWidget {
   const SignatureCapsule({super.key, required this.density});
 
@@ -471,7 +469,7 @@ class SignatureCapsule extends ConsumerWidget {
                       fontSize: density.signatureFont,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0,
-                      color: const Color(0xFFFFFFFF),
+                      color: context.fmpColors.label,
                     ),
                   ),
                 ),

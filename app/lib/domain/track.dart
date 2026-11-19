@@ -55,6 +55,9 @@ class Track {
   /// 播放頁用的大封面的 http(s) 網址；插件沒給時是 null。
   final String? coverLargeUrl;
 
+  /// 最大的那張封面：有大封面用它，沒有用縮圖（ADR 0039）。
+  String? get largestCoverUrl => coverLargeUrl ?? coverUrl;
+
   /// 播放數；插件不知道時是 null。
   final int? playCount;
 

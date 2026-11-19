@@ -23,11 +23,15 @@ class PlayerQueue extends ConsumerWidget {
     super.key,
     required this.column,
     required this.touch,
+    this.note = false,
     this.bottomPadding = 0,
   });
 
   final bool column;
   final bool touch;
+
+  /// 底下說明移除與清空在佇列頁（只有桌面稿有，`plDesk`）。
+  final bool note;
 
   /// 列表底下留白：手機的畫面下緣淡出（`mask`），最後一首要能捲上來。
   final double bottomPadding;
@@ -145,7 +149,7 @@ class PlayerQueue extends ConsumerWidget {
               onTap: () => controller.playAt(base + i),
             ),
           ),
-        if (column)
+        if (note)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(12),
