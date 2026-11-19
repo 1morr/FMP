@@ -428,11 +428,14 @@ class ChartColumnHeader extends StatelessWidget {
   }
 }
 
-/// [track] 是不是正在播的那首，和它有沒有出聲。
-(bool, bool) currentOf(WidgetRef ref, Track track) {
+/// [track] 是不是正在播的那首（`isCurrent`），和它有沒有出聲（`playing`）。
+({bool isCurrent, bool playing}) playingStateOf(WidgetRef ref, Track track) {
   final state = ref.watch(playbackProvider);
-  final current = state?.track.ref == track.ref;
-  return (current, current && (state?.playing ?? false));
+  final isCurrent = state?.track.ref == track.ref;
+  return (
+    isCurrent: isCurrent,
+    playing: isCurrent && (state?.playing ?? false),
+  );
 }
 
 /// 展開、收起的那幾列：平常高度跟著變（morph，不彈跳）；系統開「減少動態

@@ -29,6 +29,9 @@ void main() {
   late Map<String, FakeResponse Function()> respond;
   late Map<String, int> fetches;
 
+  /// 有的話，那個音源的回應等它完成才回來（看抓榜途中的狀態）。
+  late Map<String, Completer<void>> hold;
+
   setUpAll(loadFjsForTests);
   setUp(() async {
     logDir = Directory.systemTemp.createTempSync('fmp_charts_');
@@ -37,6 +40,7 @@ void main() {
     now = DateTime(2026, 11, 20, 9);
     fetches = {};
     respond = {};
+    hold = {};
   });
   tearDown(() async {
     await database.close();
@@ -74,9 +78,10 @@ void main() {
     });
   }
 
-  FakeResponse handle(RequestOptions request) {
+  Future<FakeResponse> handle(RequestOptions request) async {
     final id = request.uri.pathSegments.single;
     fetches[id] = (fetches[id] ?? 0) + 1;
+    await hold[id]?.future;
     return (respond[id] ?? () => chartOf(id))();
   }
 
@@ -228,6 +233,26 @@ void main() {
     expect(retried.error, isNull);
     expect(retried.chart!.tracks, hasLength(3));
     expect(fetches, {'one': 1, 'busy': 2});
+  });
+
+  test('retrying a source without a chart clears its failure while it '
+      'fetches', () async {
+    respond['one'] = () => const FakeResponse(429);
+    final c = open(['one']);
+    await show(c);
+    expect(c.read(chartsProvider).sources.single.error, isA<RateLimited>());
+
+    respond.remove('one');
+    hold['one'] = Completer();
+    final retry = c.read(chartsProvider.notifier).refresh(only: 'one');
+    await Future<void>.delayed(Duration.zero);
+    final during = c.read(chartsProvider).sources.single;
+    expect(during.loading, isTrue);
+    expect(during.error, isNull);
+
+    hold['one']!.complete();
+    await retry;
+    expect(c.read(chartsProvider).sources.single.chart, isNotNull);
   });
 
   test('never loaded and offline everywhere is one combined failure', () async {

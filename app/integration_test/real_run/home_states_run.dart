@@ -27,7 +27,8 @@ import 'driver.dart';
 /// 票 18 的首頁截圖（和 `docs/design/home.html` 並排比對用）：不聯網，排行榜、
 /// 佇列、播放狀態與封面都是假的（榜照稿 `HM_RANK.bilibili` 的示範資料；App
 /// 打包的 bilibili 插件只用來給 manifest），深淺色用測試綁定切。手機截打開、
-/// 展開、第一次打開、載入中、失敗、沒有網路（有快取、從沒載入過）；macOS
+/// 展開、第一次打開、載入中、失敗、沒有網路（有快取、從沒載入過）、有快取但
+/// 更新不了；macOS
 /// 截寬版（1280×800）詳情面板開著、收起並展開、載入中、失敗、沒有網路、滑過
 /// 一列，窄視窗（960×720）打開、失敗、沒有網路：
 ///
@@ -134,6 +135,9 @@ void main() {
       show(ready(error: const NetworkError(), age: const Duration(hours: 3)));
       await settle();
       await both('$width-offline-cached');
+      show(ready(error: const RateLimited(), age: const Duration(hours: 3)));
+      await settle();
+      await both('$width-stale-cached');
       show(SourceChart(manifest: manifest, error: const NetworkError()));
       await settle();
       await both('$width-offline-never');

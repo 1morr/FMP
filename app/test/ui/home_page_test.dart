@@ -93,6 +93,7 @@ void main() {
     WidgetTester tester,
     Size size, {
     List<SourceChart>? sources,
+    bool starting = false,
     Queue initialQueue = Queue.empty,
     TemporaryPlay? temporary,
     bool reduceMotion = false,
@@ -108,7 +109,11 @@ void main() {
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
       );
     }
-    charts = _FakeCharts(ChartsState(sources: sources ?? [ready('demo')]));
+    charts = _FakeCharts(
+      starting
+          ? const ChartsState(starting: true)
+          : ChartsState(sources: sources ?? [ready('demo')]),
+    );
     queue = _FakeQueue(initialQueue);
     await tester.pumpWidget(
       buildRoot(
@@ -190,6 +195,14 @@ void main() {
 
       expect(find.byType(ChartSkeletonRow), findsNWidgets(5));
       expect(find.text('Demo 排行榜 · 前 10 名'), findsOneWidget);
+    });
+
+    testWidgets('while the plugins are still loading the section shows '
+        'skeleton rows', (tester) async {
+      await start(tester, phone, starting: true);
+
+      expect(find.text('近期熱門'), findsOneWidget);
+      expect(find.byType(ChartSkeletonRow), findsNWidgets(5));
     });
 
     testWidgets('a source that failed without a saved chart shows why and '
@@ -419,6 +432,19 @@ void main() {
       expect(queue.calls.last, 'temporary demo3');
     });
 
+    testMac('arrow keys move the selection and Enter plays it', (tester) async {
+      await start(tester, desktop);
+      await tester.tap(find.text('Song demo1'));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+
+      expect(queue.calls, ['temporary demo2']);
+    });
+
     testMac('hovering a row turns the rank into a play button and shows '
         'more', (tester) async {
       await start(tester, desktop);
@@ -432,6 +458,16 @@ void main() {
 
       expect(find.byTooltip('播放'), findsOneWidget);
       expect(find.byTooltip('更多'), findsOneWidget);
+      // 滑鼠目標至少 28（DESIGN.md〈無障礙〉）。
+      final play = tester.getSize(
+        find
+            .descendant(
+              of: find.byTooltip('播放'),
+              matching: find.byType(SizedBox),
+            )
+            .first,
+      );
+      expect(play.shortestSide, greaterThanOrEqualTo(28));
     });
   });
 

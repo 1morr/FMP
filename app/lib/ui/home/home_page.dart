@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/charts/charts.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/playback/queue_controller.dart';
@@ -94,22 +96,41 @@ class _HomePageState extends ConsumerState<HomePage> {
     _focus.requestFocus();
   }
 
+  /// 畫面上看得到的榜上曲目，依 ↑／↓ 的順序：桌面一欄接一欄，窄視窗是選中的
+  /// 那張榜。
+  List<Track> _visibleTracks() {
+    final charts = ref.read(chartsProvider);
+    if (charts.sources.isEmpty) return const [];
+    final window = HomeLayout.of(FormFactor.of(context)) == HomeLayout.window;
+    final sources = window
+        ? [_chosenOf(charts, ref.read(homeChartSourceProvider))]
+        : charts.sources;
+    final shown = window || _expanded ? chartLength : chartPreview;
+    return [for (final s in sources) ...?s.chart?.tracks.take(shown)];
+  }
+
+  /// 桌面的鍵盤：↑／↓ 移動選取，↩ 臨時播放選取的那首。
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.enter) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    final selected = _selected;
-    if (selected == null) return KeyEventResult.ignored;
-    for (final s in ref.read(chartsProvider).sources) {
-      for (final track in s.chart?.tracks ?? const <Track>[]) {
-        if (track.ref == selected) {
-          _play(track);
-          return KeyEventResult.handled;
-        }
-      }
+    final tracks = _visibleTracks();
+    final at = tracks.indexWhere((t) => t.ref == _selected);
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.enter when at >= 0:
+        if (event is KeyDownEvent) _play(tracks[at]);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown when tracks.isNotEmpty:
+        setState(
+          () => _selected = tracks[math.min(at + 1, tracks.length - 1)].ref,
+        );
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowUp when tracks.isNotEmpty:
+        setState(() => _selected = tracks[math.max(at - 1, 0)].ref);
+        return KeyEventResult.handled;
+      default:
+        return KeyEventResult.ignored;
     }
-    return KeyEventResult.ignored;
   }
 
   @override
@@ -142,12 +163,16 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Text(context.t.shell.nav.home, style: context.fmpText.large),
         ),
       ),
-      if (charts.sources.isNotEmpty)
+      // 插件還在載入（還不知道有哪些音源）時先畫標題與骨架，載完不會把下面
+      // 的區塊往下推。
+      if (charts.starting)
+        _startingCharts(desk: !touch)
+      else if (charts.sources.isNotEmpty)
         switch (layout) {
           HomeLayout.phone => _oneAtATime(charts, twoColumns: false),
           HomeLayout.tablet => _oneAtATime(charts, twoColumns: true),
           HomeLayout.window => _windowCharts(charts),
-          HomeLayout.wide => _columns(charts, touch: false),
+          HomeLayout.wide => _columns(charts),
         },
       // 桌面寬版的詳情面板開著時已經列了下一首，首頁不重複（設計稿）。
       if (showContinue &&
@@ -241,16 +266,13 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 手機的小標題置中（`.ptitle`），桌面靠左（`.wt`）。
             child: Align(
               alignment: phone ? Alignment.center : Alignment.centerLeft,
-              child: Padding(
-                padding: EdgeInsets.zero,
-                child: Text(
-                  context.t.shell.nav.home,
-                  style: TextStyle(
-                    fontSize: phone ? 17 : 15,
-                    fontWeight: phone ? FontWeight.w600 : FontWeight.w700,
-                    letterSpacing: 0,
-                    color: context.fmpColors.label,
-                  ),
+              child: Text(
+                context.t.shell.nav.home,
+                style: TextStyle(
+                  fontSize: phone ? 17 : 15,
+                  fontWeight: phone ? FontWeight.w600 : FontWeight.w700,
+                  letterSpacing: 0,
+                  color: context.fmpColors.label,
                 ),
               ),
             ),
@@ -260,14 +282,44 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Widget _startingCharts({required bool desk}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ChartsHeading(desk: desk),
+      for (var i = 1; i <= chartPreview; i++)
+        ChartSkeletonRow(rank: i, desk: desk),
+    ],
+  );
+
+  /// 桌面密度的「從沒載入過、又沒有網路」：標題下一段合成的說明。
+  Widget _offlineBlock(Widget heading) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      heading,
+      ChartErrorBlock(
+        manifest: null,
+        error: null,
+        onRetry: () => unawaited(_charts.refresh()),
+      ),
+    ],
+  );
+
+  /// 桌面密度一個音源沒有榜、抓失敗時的說明，「重試」只重抓它。
+  Widget _failedBlock(SourceChart source, AppError error) => ChartErrorBlock(
+    manifest: source.manifest,
+    error: error,
+    onRetry: () => unawaited(_charts.refresh(only: source.manifest.id)),
+  );
+
   /// 選中的音源：選過、而且還在的那個；不然是第一個。
-  SourceChart _chosen(ChartsState charts) {
-    final id = ref.watch(homeChartSourceProvider);
-    return charts.sources.firstWhere(
-      (s) => s.manifest.id == id,
-      orElse: () => charts.sources.first,
-    );
-  }
+  SourceChart _chosen(ChartsState charts) =>
+      _chosenOf(charts, ref.watch(homeChartSourceProvider));
+
+  static SourceChart _chosenOf(ChartsState charts, String? id) =>
+      charts.sources.firstWhere(
+        (s) => s.manifest.id == id,
+        orElse: () => charts.sources.first,
+      );
 
   void _choose(String id) =>
       ref.read(homeChartSourceProvider.notifier).select(id);
@@ -319,12 +371,12 @@ class _HomePageState extends ConsumerState<HomePage> {
         body = Column(children: [caption, ...skeletons]);
       case ChartReady(:final tracks):
         Widget row(int i) {
-          final (current, playing) = currentOf(ref, tracks[i]);
+          final (:isCurrent, :playing) = playingStateOf(ref, tracks[i]);
           return HomeTouchRow(
             key: ValueKey(('chart', i, tracks[i].ref)),
             track: tracks[i],
             rank: i + 1,
-            isCurrent: current,
+            isCurrent: isCurrent,
             playing: playing,
             separator: i % chartPreview != 0,
             showDuration: !twoColumns,
@@ -364,6 +416,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 ChartMoreRow(
                   expanded: _expanded,
+                  count: tracks.length,
                   onTap: () => setState(() => _expanded = !_expanded),
                 ),
               ],
@@ -391,28 +444,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       desk: true,
       padding: EdgeInsets.fromLTRB(4, 14, 4, 0),
     );
-    if (charts.neverLoadedOffline) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          heading,
-          ChartErrorBlock(
-            manifest: null,
-            error: null,
-            onRetry: () => unawaited(_charts.refresh()),
-          ),
-        ],
-      );
-    }
+    if (charts.neverLoadedOffline) return _offlineBlock(heading);
     final view = ChartView.of(source);
     final Widget body;
     switch (view) {
       case ChartFailed(:final error):
-        body = ChartErrorBlock(
-          manifest: source.manifest,
-          error: error,
-          onRetry: () => unawaited(_charts.refresh(only: id)),
-        );
+        body = _failedBlock(source, error);
       case ChartLoading():
         body = _twoColumns([
           for (var i = 1; i <= chartLength; i++)
@@ -467,12 +504,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   );
 
   Widget _deskRow(Track track, int i, bool showDuration) {
-    final (current, playing) = currentOf(ref, track);
+    final (:isCurrent, :playing) = playingStateOf(ref, track);
     return ChartDeskRow(
       key: ValueKey(('chart', i, track.ref)),
       track: track,
       rank: i + 1,
-      isCurrent: current,
+      isCurrent: isCurrent,
       playing: playing,
       selected: track.ref == _selected,
       showDuration: showDuration,
@@ -485,21 +522,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 桌面：每個音源一欄，欄數跟著宣告 `charts` 的音源數（2026-11-20 擁有者
   /// 同意）；每欄先 5 名，一顆「顯示第 6–10 名」所有欄一起展開。欄夠寬時列
   /// 尾有時長。
-  Widget _columns(ChartsState charts, {required bool touch}) {
+  Widget _columns(ChartsState charts) {
     const heading = ChartsHeading(desk: true);
-    if (charts.neverLoadedOffline) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          heading,
-          ChartErrorBlock(
-            manifest: null,
-            error: null,
-            onRetry: () => unawaited(_charts.refresh()),
-          ),
-        ],
-      );
-    }
+    if (charts.neverLoadedOffline) return _offlineBlock(heading);
     final canExpand = charts.sources.any(
       (s) => (s.chart?.tracks.length ?? 0) > chartPreview,
     );
@@ -530,7 +555,12 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: FmpButton(
                 label: _expanded
                     ? context.t.home.showLess
-                    : context.t.home.showMore(from: chartPreview + 1, to: 10),
+                    : context.t.home.showMore(
+                        from: chartPreview + 1,
+                        to: charts.sources
+                            .map((s) => s.chart?.tracks.length ?? 0)
+                            .reduce(math.max),
+                      ),
                 trailingIcon: _expanded ? FmpIcons.chevU : FmpIcons.chevD,
                 size: FmpButtonSize.small,
                 onTap: () => setState(() => _expanded = !_expanded),
@@ -542,16 +572,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _column(SourceChart source, bool showDuration) {
-    final id = source.manifest.id;
     final view = ChartView.of(source);
     final Widget body;
     switch (view) {
       case ChartFailed(:final error):
-        body = ChartErrorBlock(
-          manifest: source.manifest,
-          error: error,
-          onRetry: () => unawaited(_charts.refresh(only: id)),
-        );
+        body = _failedBlock(source, error);
       case ChartLoading():
         body = Column(
           children: [

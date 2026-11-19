@@ -131,7 +131,7 @@ class HomeTouchRow extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      _SubLine(track: track, parts: parts, desk: false),
+                      TrackSubLine(track: track, parts: parts, desk: false),
                     ],
                   ),
                 ),
@@ -164,9 +164,10 @@ class HomeTouchRow extends ConsumerWidget {
   }
 }
 
-/// 第二行：音源符號、分 P 數、作者。
-class _SubLine extends StatelessWidget {
-  const _SubLine({
+/// 曲目列的第二行：音源符號、分 P 數（[parts]，不是多 P 影片時 null）、作者。
+class TrackSubLine extends StatelessWidget {
+  const TrackSubLine({
+    super.key,
     required this.track,
     required this.parts,
     required this.desk,
@@ -258,13 +259,19 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
     final parts = hasParts(track, manifest) ? track.partCount : null;
     final Widget lead;
     if (_hovered) {
+      // 滑鼠目標 28（`DESIGN.md`〈無障礙〉），比名次欄寬，往左凸出。
       lead = ShellButton(
         onTap: widget.onPlay,
         tooltip: t.search.actions.play,
         label: t.search.actions.play,
-        focusRadius: 4,
-        builder: (context, _) =>
-            FmpIcon(FmpIcons.play, size: 15, color: colors.label),
+        focusRadius: 6,
+        builder: (context, _) => SizedBox.square(
+          dimension: 28,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FmpIcon(FmpIcons.play, size: 15, color: colors.label),
+          ),
+        ),
       );
     } else if (widget.isCurrent) {
       lead = Equalizer(playing: widget.playing, label: t.queue.nowPlaying);
@@ -316,7 +323,8 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
                       SizedBox(
                         width: 14,
                         child: OverflowBox(
-                          maxWidth: 30,
+                          maxWidth: 28,
+                          maxHeight: 28,
                           alignment: Alignment.centerRight,
                           child: lead,
                         ),
@@ -350,7 +358,11 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
                               ),
                             ),
                             const SizedBox(height: 1),
-                            _SubLine(track: track, parts: parts, desk: true),
+                            TrackSubLine(
+                              track: track,
+                              parts: parts,
+                              desk: true,
+                            ),
                           ],
                         ),
                       ),
@@ -488,16 +500,24 @@ class ChartSkeletonRow extends StatelessWidget {
 /// 手機的「顯示第 6–10 名」／「收起」（`.hm-more`）：整列寬、高 48，字從
 /// 左縮 108 開始，上緣一條同樣左縮的分隔線。
 class ChartMoreRow extends StatelessWidget {
-  const ChartMoreRow({super.key, required this.expanded, required this.onTap});
+  const ChartMoreRow({
+    super.key,
+    required this.expanded,
+    required this.count,
+    required this.onTap,
+  });
 
   final bool expanded;
+
+  /// 榜上有幾名：「顯示第 6–[count] 名」。
+  final int count;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
     final t = context.t.home;
-    final label = expanded ? t.showLess : t.showMore(from: 6, to: 10);
+    final label = expanded ? t.showLess : t.showMore(from: 6, to: count);
     return ShellButton(
       onTap: onTap,
       label: label,

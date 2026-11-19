@@ -179,7 +179,15 @@ class Charts extends Notifier<ChartsState> {
   }
 
   Future<void> _fetch(String pluginId, int generation) async {
-    _update(pluginId, (s) => s._copyWith(loading: true));
+    // 沒有榜時清掉上次的失敗，畫面從說明卡回到骨架，看得出正在重試；有榜時
+    // 留著，背景重抓的途中照樣寫明榜是多久以前的。
+    _update(
+      pluginId,
+      (s) => s._copyWith(
+        loading: true,
+        error: s.chart == null ? () => null : null,
+      ),
+    );
     final Chart chart;
     try {
       final host = await ref.read(pluginHostProvider.future);

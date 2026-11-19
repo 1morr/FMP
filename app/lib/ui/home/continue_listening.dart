@@ -12,7 +12,6 @@ import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/format.dart';
-import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/home/chart_rows.dart';
 import 'package:fmp/ui/queue/queue_rows.dart' show queueTotalText;
@@ -317,25 +316,7 @@ class _DeskRowState extends State<_DeskRow> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        SourceMarkIcon(pluginId: track.ref.pluginId, size: 14),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            track.author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 15 / 12,
-                              letterSpacing: 0,
-                              color: colors.label2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    TrackSubLine(track: track, parts: null, desk: true),
                   ],
                 ),
               ),
