@@ -228,6 +228,8 @@ class _Stats extends StatelessWidget {
       padding: const EdgeInsets.only(top: 14),
       child: Wrap(
         spacing: 18,
+        // 數字比單位與專輯大一級，底端對齊才在同一條線上。
+        crossAxisAlignment: WrapCrossAlignment.end,
         runSpacing: 4,
         children: [for (final item in items) Text.rich(item, style: base)],
       ),
