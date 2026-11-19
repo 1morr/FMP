@@ -10,7 +10,6 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
-import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
@@ -124,15 +123,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       final name =
           container.read(pluginManifestProvider(track.ref.pluginId))?.name ??
           '';
-      toasts.show(
-        ToastMessage(
-          t.search.parts.failed(
-            title: track.title,
-            reason: partsErrorReason(t, error, name),
-          ),
-          icon: FmpIcons.warn,
-        ),
-      );
+      toasts.show(partsFailedToast(t, track, error, name));
       if (mounted) setState(() => _expanded.remove(track.ref));
     }
   }
@@ -558,9 +549,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         isCurrent: isCurrent,
         playing: playing,
         selected: _selected.contains(track.ref),
-        joinAbove: i > 0 && _selected.contains(tracks[i - 1].ref),
+        // 中間隔著展開的分 P 列時不相接。
+        joinAbove:
+            i > 0 &&
+            _selected.contains(tracks[i - 1].ref) &&
+            !_expanded.contains(tracks[i - 1].ref),
         joinBelow:
-            i < tracks.length - 1 && _selected.contains(tracks[i + 1].ref),
+            i < tracks.length - 1 &&
+            _selected.contains(tracks[i + 1].ref) &&
+            !expanded,
         onPointerDown: (event) => _pointerSelect(event, tracks, i),
         onPlay: () => _play(track),
         onMenu: (at) => showTrackActions(context, ref, track, at: at),

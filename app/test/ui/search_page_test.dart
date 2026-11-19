@@ -515,15 +515,23 @@ void main() {
       expect(queue.calls, ['add 1,v,v?p=2,v?p=3']);
     });
 
-    testWidgets('when the parts cannot be listed a toast says why and nothing '
-        'plays', (tester) async {
+    testWidgets('when the parts cannot be listed a toast says why: tapping '
+        'the video plays its first part only, queueing does nothing', (
+      tester,
+    ) async {
       await start(tester, phone, state: _partsResults());
       listParts = (_) async => throw const NetworkError();
 
       await tester.tap(find.text('深夜電台合集'));
       await tester.pumpAndSettle();
-      expect(queue.calls, isEmpty);
+      expect(queue.calls, ['playTemporarily v']);
       expect(find.text('列不出「深夜電台合集」的分 P。連不上網路。'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('更多').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入佇列'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['playTemporarily v']);
 
       listParts = (_) async => _parts;
       await tester.tap(find.byTooltip('展開分 P'));
@@ -536,6 +544,17 @@ void main() {
       await start(tester, desktop, state: _partsResults(), mouse: true);
 
       expect(find.text('3P'), findsOneWidget);
+      // 桌面選單的摘要放不下作者與補充，照稿只寫音源與補充。
+      await tester.tap(
+        find.text('深夜電台合集'),
+        buttons: kSecondaryButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('SG · 3 個分 P 全部套用'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byTooltip('展開分 P'), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
       expect(find.text('P3'), findsOneWidget);

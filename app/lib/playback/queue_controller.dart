@@ -396,8 +396,10 @@ class QueueController extends Notifier<Queue> {
       outcome = FailureOutcome.stayed;
     } else if (streak >= maxConsecutiveFailures) {
       outcome = FailureOutcome.stopped;
-    } else if (temporary && _temporary!.next != null) {
-      // 一組分 P 裡的一個播不了：跳到組內的下一個。
+    } else if (temporary &&
+        failed.track == _temporary!.track &&
+        _temporary!.next != null) {
+      // 一組分 P 裡正在播的那個播不了：跳到組內的下一個。
       outcome = FailureOutcome.skipped;
     } else if (temporary) {
       outcome = state.current == null

@@ -74,8 +74,8 @@ typedef TrackActionRunner = Future<void> Function(
 );
 
 /// 綁好 [ref] 的 [TrackActionRunner]：選單與多選的動作列都用它。多 P 影片
-/// 先列出分 P：播放是整組臨時播放，佇列的動作拆成每個分 P（擁有者
-/// 2026-11-19 同意）；列不出來就提示原因，什麼都不做。
+/// 先列出分 P：播放是整組臨時播放，佇列的動作拆成每個分 P。列不出來就提示
+/// 原因：播放退回只播這首（它就是第一個分 P），佇列的動作不做。
 TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) {
   final t = context.t;
   final container = ProviderScope.containerOf(context, listen: false);
@@ -98,15 +98,7 @@ TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) {
       try {
         all.addAll(await readParts(container, track));
       } on AppError catch (error) {
-        toasts.show(
-          ToastMessage(
-            t.search.parts.failed(
-              title: track.title,
-              reason: partsErrorReason(t, error, manifest?.name ?? ''),
-            ),
-            icon: FmpIcons.warn,
-          ),
-        );
+        toasts.show(partsFailedToast(t, track, error, manifest?.name ?? ''));
         return null;
       }
     }
@@ -116,8 +108,7 @@ TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) {
   return (action, tracks) async {
     switch (action) {
       case TrackAction.play:
-        final group = await expand([tracks.first]);
-        if (group == null) return;
+        final group = await expand([tracks.first]) ?? [tracks.first];
         if (group.length == 1) {
           await queue.playTemporarily(group.single);
         } else {
@@ -184,13 +175,24 @@ List<GlassMenuEntry<TrackAction>> _menuEntries(
 bool _isLink(TrackAction a) =>
     a == TrackAction.copyLink || a == TrackAction.openInBrowser;
 
-/// 列不出分 P 的原因：網路與限流說得出來，其他的不多說。
-String partsErrorReason(Translations t, AppError error, String source) =>
-    switch (error) {
+/// 列不出 [track] 的分 P 的提示：網路與限流說得出原因，其他的不多說。
+/// [source] 是音源名稱（manifest 的 `name`）。
+ToastMessage partsFailedToast(
+  Translations t,
+  Track track,
+  AppError error,
+  String source,
+) => ToastMessage(
+  t.search.parts.failed(
+    title: track.title,
+    reason: switch (error) {
       RateLimited() => t.search.error.rateLimited(source: source),
       NetworkError() => t.search.error.network,
       _ => '',
-    };
+    },
+  ),
+  icon: FmpIcons.warn,
+);
 
 /// 選單與 sheet 頂端的曲目摘要（`.gmenu .mh`、`.tsheet .th`）：封面、曲名、
 /// 音源符號＋簡稱 · 作者，讓人確認動作作用在哪一首。
@@ -206,7 +208,8 @@ class TrackSummary extends ConsumerWidget {
   final Track track;
   final bool touch;
 
-  /// 接在作者後面的補充，例如多 P 影片的「3 個分 P 全部套用」。
+  /// 補充，例如多 P 影片的「3 個分 P 全部套用」：手機 sheet 接在作者後面，
+  /// 選單放不下就取代作者（照稿）。
   final String? note;
 
   /// 手機 sheet 的大號（封面 52、曲名 17）。
@@ -250,7 +253,11 @@ class TrackSummary extends ConsumerWidget {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      [?short, track.author, ?note].join(' · '),
+                      [
+                        ?short,
+                        if (note == null || large) track.author,
+                        ?note,
+                      ].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
