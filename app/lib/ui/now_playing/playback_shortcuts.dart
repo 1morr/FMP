@@ -1,0 +1,106 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/platform/window_chrome.dart';
+import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_controller.dart';
+import 'package:material_ui/material_ui.dart';
+
+/// 播放的快捷鍵（`docs/design/DESIGN.md`〈無障礙〉的鍵盤）：Space 播放／暫停、
+/// ←／→ 倒退、快轉 [step]、⌘←／⌘→（Windows 用 Ctrl）上一首、下一首。掛在
+/// App 的根，任何頁面都有作用，不看焦點在哪；焦點在輸入框裡（字要打得進去、
+/// 游標要能移）或在對話框與選單裡（那裡 Enter 確認）時不攔。
+///
+/// Space 一律是播放／暫停（照 Spotify、Apple Music 桌面版），所以鍵盤選到的
+/// 按鈕要用 Enter 按下（`ShellButton.focusRadius`）。
+class PlaybackShortcuts extends ConsumerStatefulWidget {
+  const PlaybackShortcuts({super.key, required this.child});
+
+  /// ←／→ 一次跳多少。
+  static const step = Duration(seconds: 5);
+
+  final Widget child;
+
+  @override
+  ConsumerState<PlaybackShortcuts> createState() => _PlaybackShortcutsState();
+}
+
+class _PlaybackShortcutsState extends ConsumerState<PlaybackShortcuts> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (event is KeyUpEvent || !mounted) return false;
+    final keyboard = HardwareKeyboard.instance;
+    final repeat = event is KeyRepeatEvent;
+    VoidCallback? action;
+    if (!repeat && _plain(LogicalKeyboardKey.space).accepts(event, keyboard)) {
+      action = _playPause;
+    } else if (_plain(LogicalKeyboardKey.arrowLeft).accepts(event, keyboard)) {
+      action = () => _seekBy(-PlaybackShortcuts.step);
+    } else if (_plain(LogicalKeyboardKey.arrowRight).accepts(event, keyboard)) {
+      action = () => _seekBy(PlaybackShortcuts.step);
+    } else if (!repeat &&
+        WindowChrome.shortcut(LogicalKeyboardKey.arrowLeft)
+            .accepts(event, keyboard)) {
+      action = _previous;
+    } else if (!repeat &&
+        WindowChrome.shortcut(LogicalKeyboardKey.arrowRight)
+            .accepts(event, keyboard)) {
+      action = _next;
+    }
+    if (action == null || _focusWantsKeys()) return false;
+    if (ref.read(playbackProvider) == null) return false;
+    action();
+    return true;
+  }
+
+  /// 沒有修飾鍵的 [key]。
+  static SingleActivator _plain(LogicalKeyboardKey key) =>
+      SingleActivator(key, includeRepeats: true);
+
+  /// 焦點在輸入框、對話框或選單裡：鍵留給它們。
+  static bool _focusWantsKeys() {
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context == null || !context.mounted) return false;
+    if (context.widget is EditableText ||
+        context.findAncestorStateOfType<EditableTextState>() != null) {
+      return true;
+    }
+    return ModalRoute.of(context) is PopupRoute;
+  }
+
+  void _playPause() => ref.read(playbackProvider.notifier).playPause();
+
+  void _seekBy(Duration delta) {
+    final state = ref.read(playbackProvider);
+    if (state == null) return;
+    var target = state.position + delta;
+    if (target < Duration.zero) target = Duration.zero;
+    if (state.effectiveDuration case final duration? when target > duration) {
+      target = duration;
+    }
+    ref.read(playbackProvider.notifier).seek(target);
+  }
+
+  void _previous() {
+    if (!ref.read(skipAvailableProvider).previous) return;
+    ref.read(queueProvider.notifier).previous();
+  }
+
+  void _next() {
+    if (!ref.read(skipAvailableProvider).next) return;
+    ref.read(queueProvider.notifier).next();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

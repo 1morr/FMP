@@ -8,6 +8,7 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/traffic_lights.dart';
 import 'package:fmp/playback/media_controls.dart';
 import 'package:fmp/app/router.dart';
+import 'package:fmp/ui/now_playing/playback_shortcuts.dart';
 import 'package:go_router/go_router.dart';
 
 /// Riverpod 3 預設會自動重試失敗的 provider（10 次、約 38 秒），連
@@ -56,6 +57,7 @@ class _FmpAppState extends ConsumerState<FmpApp> {
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      builder: (context, child) => PlaybackShortcuts(child: child!),
     );
   }
 }
