@@ -8,7 +8,7 @@ import ObjectiveC
 /// 修正是 flutter/flutter#192522。
 ///
 /// 做法：在取出端檢查，拿到的尺寸不對就丟掉、回 nil，引擎的 `surfaceForSize:` 會新建一張。
-/// 靠的是引擎內部的類別與方法名，升 Flutter 時改了就裝不上（`installed` 是 false，
+/// 靠的是引擎內部的類別、方法與屬性名，升 Flutter 時改了就不裝（`installed` 是 false，
 /// `RunnerTests` 的 `WindowResizeTests` 會紅）；上游收錄修正後連同那組測試一起刪掉。
 enum BackBufferCacheSizeCheck {
   /// 有沒有裝上。
@@ -16,12 +16,14 @@ enum BackBufferCacheSizeCheck {
 
   private typealias RemoveSurface = @convention(c) (AnyObject, Selector, CGSize) -> AnyObject?
 
-  /// 在引擎建第一張畫布之前呼叫；重複呼叫不會重複裝。
+  /// 在引擎建第一張畫布之前呼叫一次。
   static func install() {
-    guard !installed,
-      let cacheClass = NSClassFromString("FlutterBackBufferCache"),
+    // 讀尺寸用 KVC，`FlutterSurface` 沒有 `size` 時會丟例外，所以先確認再裝。
+    guard let cacheClass = NSClassFromString("FlutterBackBufferCache"),
       let method = class_getInstanceMethod(
-        cacheClass, NSSelectorFromString("removeSurfaceForSize:"))
+        cacheClass, NSSelectorFromString("removeSurfaceForSize:")),
+      let surfaceClass = NSClassFromString("FlutterSurface") as? NSObject.Type,
+      surfaceClass.instancesRespond(to: NSSelectorFromString("size"))
     else { return }
     let selector = method_getName(method)
     let original = unsafeBitCast(method_getImplementation(method), to: RemoveSurface.self)
