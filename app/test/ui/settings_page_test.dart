@@ -393,6 +393,28 @@ void main() {
       expect(size.height, greaterThanOrEqualTo(44));
     });
 
+    testWidgets('with reduced motion a settings menu only fades in', (
+      tester,
+    ) async {
+      await start(tester, phone, reduceMotion: true);
+
+      await tester.tap(find.text('主題'));
+      await tester.pump(const Duration(milliseconds: 40));
+
+      final menu = find.ancestor(
+        of: find.text('淺色'),
+        matching: find.byType(FadeTransition),
+      );
+      expect(menu, findsWidgets);
+      for (final type in [SlideTransition, ScaleTransition]) {
+        expect(
+          find.ancestor(of: find.text('淺色'), matching: find.byType(type)),
+          findsNothing,
+          reason: '$type',
+        );
+      }
+    });
+
     testMac('with reduced motion switching categories only fades', (
       tester,
     ) async {
