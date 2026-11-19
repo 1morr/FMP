@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
@@ -45,8 +47,9 @@ class PlayerProgress extends ConsumerStatefulWidget {
 
   /// 這個元件的上緣在畫出來的條上方多遠（點擊區多出來的那截）：照稿放條的
   /// 位置時要往上移這麼多。
-  static double overhangOf(PlayerDensity density) =>
-      (_PlayerProgressState.hitHeightOf(density) - density.barHeight) / 2;
+  /// 觸控 12（稿上音源膠囊與條只隔 14），點擊區其餘的高都在條下面、蓋住
+  /// 時間那一行。
+  static double overhangOf(PlayerDensity density) => density.touch ? 12 : 7;
 
   @override
   ConsumerState<PlayerProgress> createState() => _PlayerProgressState();
@@ -132,6 +135,7 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
               height: _hitHeight,
               child: CustomPaint(
                 painter: _BarPainter(
+                  top: PlayerProgress.overhangOf(density),
                   fraction: fraction,
                   height: density.barHeight,
                   track: colors.fill2,
@@ -164,9 +168,16 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
                 .read(playbackProvider.notifier)
                 .seek(_clamp(position - _step, duration))
           : null,
-      // 點擊區比畫出來的條高：上下各多出 [overhangOf]，時間疊在下面那截上。
+      // 點擊區比畫出來的條高：上面多出 [PlayerProgress.overhangOf]，其餘在
+      // 下面，時間疊在下面那截上。
       child: SizedBox(
-        height: _hitHeight / 2 + density.barHeight / 2 + density.timeGap + 16,
+        height: math.max(
+          _hitHeight,
+          PlayerProgress.overhangOf(density) +
+              density.barHeight +
+              density.timeGap +
+              16,
+        ),
         child: Stack(
           children: [
             Positioned(
@@ -216,6 +227,7 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
 
 class _BarPainter extends CustomPainter {
   _BarPainter({
+    required this.top,
     required this.fraction,
     required this.height,
     required this.track,
@@ -223,6 +235,8 @@ class _BarPainter extends CustomPainter {
     required this.knob,
   });
 
+  /// 條的上緣離點擊區上緣多遠。
+  final double top;
   final double fraction;
   final double height;
   final Color track;
@@ -231,7 +245,6 @@ class _BarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final top = (size.height - height) / 2;
     final radius = Radius.circular(height / 2);
     final whole = Rect.fromLTWH(0, top, size.width, height);
     canvas.drawRRect(
@@ -245,7 +258,7 @@ class _BarPainter extends CustomPainter {
       ..drawRect(Rect.fromLTWH(0, top, x, height), Paint()..color = played)
       ..restore();
     if (!knob) return;
-    final center = Offset(x, size.height / 2);
+    final center = Offset(x, top + height / 2);
     canvas
       ..drawCircle(
         center.translate(0, 1),
@@ -259,6 +272,7 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BarPainter old) =>
+      old.top != top ||
       old.fraction != fraction ||
       old.height != height ||
       old.track != track ||

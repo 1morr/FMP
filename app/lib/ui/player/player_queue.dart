@@ -3,7 +3,9 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:fmp/ui/common/cover.dart';
+import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
@@ -234,11 +236,30 @@ class _RowState extends State<_Row> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                track.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t1,
+              Row(
+                children: [
+                  if (widget.playing) ...[
+                    Consumer(
+                      builder: (context, ref, _) => Equalizer(
+                        playing: ref.watch(
+                          playbackProvider.select(
+                            (state) => state?.playing ?? false,
+                          ),
+                        ),
+                        label: t.queue.nowPlaying,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: t1,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
               Row(
@@ -265,16 +286,13 @@ class _RowState extends State<_Row> {
           SizedBox(width: touch ? 12 : 10),
           Text(formatDuration(duration), style: t2.copyWith(height: 1).tabular),
         ],
+        // 把手一直在（`player.html` 的 `drag: true`）。
         if (index != null)
-          // 桌面滑過才顯示把手（`docs/design/DESIGN.md`〈桌面〉）。
-          Opacity(
-            opacity: touch || _hovered ? 1 : 0,
-            child: QueueDragHandle(
-              flatIndex: index,
-              width: touch ? 36 : 28,
-              iconSize: touch ? 20 : 16,
-              color: colors.label3,
-            ),
+          QueueDragHandle(
+            flatIndex: index,
+            width: touch ? 36 : 28,
+            iconSize: touch ? 20 : 16,
+            color: colors.label3,
           ),
       ],
     );

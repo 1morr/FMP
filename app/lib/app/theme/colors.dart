@@ -174,7 +174,8 @@ class FmpColors extends ThemeExtension<FmpColors> {
       danger: dark.danger,
       warn: dark.warn,
       ok: dark.ok,
-      scrim: dark.scrim,
+      // 從播放頁浮出的 sheet 照主題（`DESIGN.md`〈封面色只用在播放頁背景〉）。
+      scrim: scrim,
       coverRing: dark.coverRing,
       glassSolid: dark.glassSolid,
       glassInk: white,

@@ -442,6 +442,7 @@ class _PageDots extends StatelessWidget {
       // 點擊區高補到 44（`DESIGN.md`〈無障礙〉），看得到的點照稿 7。
       builder: (context, _) => Container(
         height: 44,
+        alignment: Alignment.center,
         padding: EdgeInsets.only(
           left: first ? 18 : 3.5,
           right: last ? 18 : 3.5,

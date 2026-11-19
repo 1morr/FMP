@@ -368,7 +368,15 @@ class _Columns extends ConsumerWidget {
         : (56.0, 300.0, 64.0);
     final top0 = touch ? media.viewPadding.top : 0.0;
     // 左欄：頂 70、底 30（平板頂 96）；右欄：頂 64、底 28（平板頂 90）。
-    final leftTop = top0 + (touch ? 72.0 : 70.0);
+    // 桌面照稿從頂 80 排起（`.pl-dcover`），窄視窗與平板在中間（`.pl-mlc`）。
+    final topAligned = wide && !touch;
+    final leftTop =
+        top0 +
+        (topAligned
+            ? 80.0
+            : touch
+            ? 72.0
+            : 70.0);
     final rightTop = top0 + (touch ? 66.0 : 64.0);
     final bottom = math.max(30.0, media.viewPadding.bottom);
     // 封面以外的高：曲名作者、音源膠囊、進度、控制與它們之間的距離。
@@ -420,7 +428,10 @@ class _Columns extends ConsumerWidget {
           top: leftTop,
           bottom: bottom,
           width: lw,
-          child: Center(child: column),
+          child: Align(
+            alignment: topAligned ? Alignment.topCenter : Alignment.center,
+            child: column,
+          ),
         ),
         if (queueShown)
           Positioned(

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/platform/cover_image.dart';
+import 'package:fmp/ui/common/cover.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 播放頁背景的三個封面色（`docs/design/DESIGN.md`〈封面色只用在播放頁背景〉
@@ -100,11 +100,6 @@ Color _shift(Color color, double amount) {
   if (lightness > 1 || lightness < 0) lightness = hsl.lightness - amount;
   return hsl.withLightness(lightness.clamp(0, 1)).toColor();
 }
-
-/// 封面網址換成圖：預設是磁碟快取的 [coverImage]，測試換成記憶體裡的圖。
-final coverImageLoaderProvider = Provider<ImageProvider Function(String url)>(
-  (_) => coverImage,
-);
 
 /// `url` 這張封面的三色；沒有封面或載入失敗時是 [AmbientColors.fallback]。
 /// 縮到 32 見方再取，夠分出主色。
