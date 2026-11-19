@@ -133,5 +133,5 @@ M0 留下的（票 12 歸屬）：
 
 - `osascript -e 'quit app "FMP Dev"'` 回 -128，原因沒查（M0 票 12 的觀察）；只影響 macOS 實跑指令的收尾。
 - 把 `ADB_MDNS=0` 放進擁有者的登入環境（含 Orca）：擁有者機器的設定，不是 repo 的事（M0 票 02b；docs/development.md〈其他已知怪癖〉）。
-- Flutter 從 3.47.5 升到 3.50（2026-11-11 發佈，內建 Material 從這版起 deprecated，事實 T1）：升級前照 ARCHITECTURE〈風險與回寫點〉用 inappwebview 的實驗重建 iOS、macOS，四平台重驗；M1 開工時決定不在設計系統的票裡升（`docs/decisions.md`）。
+- Flutter 從 3.47.5 升到 3.50（2026-11-11 發佈，內建 Material 從這版起 deprecated，事實 T1）：升級前照 ARCHITECTURE〈風險與回寫點〉用 inappwebview 的實驗重建 iOS、macOS，四平台重驗；M1 開工時決定不在設計系統的票裡升（`docs/decisions.md`）。升級時查 macOS 縮放閃退的上游修正 flutter/flutter#192522 收錄了沒，收錄就刪 `app/macos/Runner/BackBufferCacheSizeCheck.swift` 與 `RunnerTests` 的 `WindowResizeTests`（事實 M17，M1 票 16b）；3.50 不含它。
 - M0 各票 code-review 判「影響小」或票 12 判不做的小發現（約 35 項，列在各票的 Comments）：不另開票，之後的票碰到那段程式時順手改（2026-11-14 回顧）。

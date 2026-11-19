@@ -28,7 +28,7 @@ class TrafficLightsTests: XCTestCase {
     framesAtLaunch = buttonFrames()
   }
 
-  private static var window: NSWindow {
+  fileprivate static var window: NSWindow {
     NSApp.windows.first { $0 is MainFlutterWindow }!
   }
 
@@ -50,7 +50,7 @@ class TrafficLightsTests: XCTestCase {
 
   /// 讓 run loop 跑到 [condition] 成立（Dart 重排版面、送來燈位、原生端排好），最多
   /// 5 秒；沒成立就交給後面的斷言報錯。
-  private static func waitUntil(_ condition: () -> Bool) {
+  fileprivate static func waitUntil(_ condition: () -> Bool) {
     let deadline = Date(timeIntervalSinceNow: 5)
     while !condition() && Date() < deadline {
       RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
@@ -62,7 +62,7 @@ class TrafficLightsTests: XCTestCase {
     RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.2))
   }
 
-  private static func resize(to size: NSSize) {
+  fileprivate static func resize(to size: NSSize) {
     let frame = window.frame
     window.setFrame(
       NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height),
@@ -141,3 +141,37 @@ class TrafficLightsTests: XCTestCase {
     XCTAssertEqual(Self.buttonFrames()[0].origin, NSPoint(x: 9, y: 9))
   }
 }
+
+/// 視窗尺寸在很短的時間內 A→B→A 來回時，Flutter 的 `FlutterBackBufferCache` 會把 B 的畫布
+/// 交給要 A 的請求，Impeller 接著在 `Canvas::SetupRenderPass` 讀到空指標、App 閃退（事實
+/// M17）。App 啟動時裝的 `BackBufferCacheSizeCheck` 擋住它；Flutter 收錄上游修正後連同這組
+/// 測試一起刪掉。
+class WindowResizeTests: XCTestCase {
+  /// Flutter 畫出第一幀之前縮放不會等它畫新尺寸，碰不到這條路；等紅綠燈露出來（Dart 排完版面、
+  /// 送來燈位）再開始。
+  override class func setUp() {
+    super.setUp()
+    TrafficLightsTests.waitUntil {
+      !TrafficLightsTests.window.standardWindowButton(.closeButton)!.isHidden
+    }
+  }
+
+  /// 裝不上代表 Flutter 改了內部的類別或方法名，檢查已經失效，App 又會在縮放時閃退。
+  func testBackBufferCacheSizeCheckIsInstalled() {
+    XCTAssertTrue(
+      BackBufferCacheSizeCheck.installed,
+      "FlutterBackBufferCache.removeSurfaceForSize: not found; see fact M17")
+  }
+
+  /// 沒有檢查時，連續 1000 次來回每次都閃退（XCTest 報 `Crash: FMP Dev`）；停在細欄的尺寸，
+  /// 給後面的測試一樣的起點。
+  func testRapidBackAndForthResizesDoNotCrash() {
+    let rail = NSSize(width: 960, height: 720)
+    let wide = NSSize(width: 1280, height: 800)
+    for i in 0..<1000 {
+      TrafficLightsTests.resize(to: i % 2 == 0 ? wide : rail)
+    }
+    XCTAssertEqual(TrafficLightsTests.window.frame.size, rail)
+  }
+}
+

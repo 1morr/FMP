@@ -49,6 +49,8 @@ dart run tool/real_run.dart -d <macos|ios|android|windows> [--out <目錄>] inte
 
 視窗：標題列透明、內容延伸到它底下，紅綠燈移到側欄頂端（燈位由 Dart 的 `lib/platform/traffic_lights.dart` 經 `fmp/window` 告訴原生端：寬級照稿，細欄照稿放不下就在細欄內框裡置中，沒有側欄或細欄的畫面送「沒有燈位」、紅綠燈回系統原位），頂端空白處經 `fmp/window` 頻道拖動視窗、雙擊縮放（事實 M12）。紅綠燈的位置由 `macos/RunnerTests`（XCTest，跑在 App 裡讀真的視窗）守著：啟動後、改標題、切深淺色後都要在燈位，寬級與細欄兩種寬度都在側欄或細欄的內框裡，寬級照稿在 (24,22)，收到「沒有燈位」時三顆看得到、在系統原位；完整閘門跑它，單獨跑是先 `flutter build macos --debug`，再 `xcodebuild test -workspace macos/Runner.xcworkspace -scheme Runner -destination platform=macOS -only-testing:RunnerTests`，失敗的斷言加 `-resultBundlePath <檔>` 後用 `xcrun xcresulttool get test-results tests --path <檔>` 讀。移紅綠燈靠未公開的視圖結構（事實 M12、M13），升級 macOS 後再實跑檢查一次：啟動後不動視窗先截一張，再切到別的 App 又切回來、切系統深淺色、縮放、進出全螢幕，最後把視窗拉到 1280×800 與 960×720 各截一張，紅綠燈都要在側欄或細欄頂端的空白裡（不壓到邊框、不跑回視窗角落）。位置可用 System Events 讀 `position of button 1 of window 1 of process "FMP Dev"` 減去視窗位置：細欄是 (13,21)、寬級是 (23,21)（AX 的框比按鈕外擴 1pt），在原位是 (8,8)。再從頂端空白處拖一下，`osascript -e 'tell application "System Events" to get position of window 1 of process "FMP Dev"'` 的位置要跟著變。Flutter 的手勢要真的滑鼠事件，`orca computer drag` 拖不動，改用 CGEvent 送 `leftMouseDown`／`leftMouseDragged`／`leftMouseUp`。
 
+視窗縮放：Flutter 3.47.5 的引擎在視窗尺寸快速 A→B→A 來回時會拿到錯尺寸的畫布而閃退（事實 M17），`macos/Runner/BackBufferCacheSizeCheck.swift` 在建 Flutter 視圖前補上尺寸檢查，由 `RunnerTests` 的 `WindowResizeTests` 守著：檢查裝不上（Flutter 改了內部的類別或方法名）或連續來回 1000 次閃退就紅。升 Flutter 時查上游 flutter/flutter#192522 收錄了沒，收錄後刪掉那個檔與 `WindowResizeTests`。原生測試的案例記成 0.000 秒失敗、xcresult 寫 `Crash: FMP Dev`，是 App 閃退了：XCTest 換一個新行程跑剩下的案例，不是測試行程沒連上。堆疊在 `~/Library/Logs/DiagnosticReports/FMP Dev-*.ips`；同一個崩潰短時間內連發時 ReportCrash 會限流、不再寫檔，這時直接執行 `"build/macos/Build/Products/Debug/FMP Dev.app/Contents/MacOS/FMP Dev"`（照樣持鎖），看 stderr 與退出碼。
+
 log：`~/Library/Containers/com.personal.fmp.dev/Data/Library/Application Support/com.personal.fmp.dev/logs/fmp.log`。
 
 資料庫：`logs/` 的上一層（App 支援目錄）的 `fmp.sqlite`。
@@ -166,7 +168,7 @@ log：`ssh winpc 'Get-Content "$env:APPDATA\com.personal.fmp\FMP Dev\logs\fmp.lo
 | 型別 | `flutter analyze`（Dart 的型別錯誤由 analyzer 報）；插件的 TypeScript 由完整版的 `plugin bundles (esbuild)` 跑 `tsc --noEmit` | 型別對不上 |
 | 單元測試 | `flutter test`（`--quick`） | 行為退化 |
 | 端到端冒煙 | `integration_test/` 的每個 `*_test.dart`，四平台各跑一次（`dart run tool/check.dart` 完整版） | 各模組都過、接起來卻跑不動 |
-| 原生測試 | macOS 的 `macos/RunnerTests`（XCTest；`dart run tool/check.dart` 完整版的 `native tests macos`） | Dart 看不到的原生行為退化，例如紅綠燈跑回原位 |
+| 原生測試 | macOS 的 `macos/RunnerTests`（XCTest；`dart run tool/check.dart` 完整版的 `native tests macos`） | Dart 看不到的原生行為退化，例如紅綠燈跑回原位、快速縮放視窗閃退（事實 M17） |
 | 密鑰掃描 | 待定，由 `.scratch/gates/issues/01-secret-scan.md` 補 | token、密碼被 commit 進公開 repo |
 | 依賴漏洞 | 待定，由 `.scratch/gates/issues/02-dependency-audit.md` 補 | 用到有已知漏洞的套件 |
 | 依賴更新 | 待定，由 `.scratch/gates/issues/03-dependency-updates.md` 補 | 依賴長期沒更新 |

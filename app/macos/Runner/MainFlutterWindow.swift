@@ -17,6 +17,8 @@ class MainFlutterWindow: NSWindow {
   private var systemTrafficLights: (barHeight: CGFloat, origins: [NSPoint])?
 
   override func awakeFromNib() {
+    // 視窗快速來回縮放時引擎會拿錯尺寸的畫布而閃退，建 Flutter 視圖前先補上檢查（事實 M17）。
+    BackBufferCacheSizeCheck.install()
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
