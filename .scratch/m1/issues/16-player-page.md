@@ -1,6 +1,6 @@
 # 16: 播放頁
 
-Status: in-progress
+Status: done
 Blocked by: 06、08、09
 讀: brief §6、§11；`docs/design/DESIGN.md` §2.3、§6.6、§9；`docs/design/player.html`；spec〈共同規則〉
 
@@ -21,7 +21,7 @@ Blocked by: 06、08、09
 - [x] 桌面鍵盤（`DESIGN.md` §10）：Space 播放／暫停、←／→ 跳 5 秒、⌘←／⌘→ 上一首／下一首（Windows 用 Ctrl），在 App 任何頁面都有作用、輸入框有焦點時不攔；有 widget 測試（2026-11-19 擁有者同意，文件審查發現）。
 - [x] 無障礙照 `DESIGN.md` §10：這張新增的可聚焦元件有 2px 強調色焦點外框（offset 2）、手機點擊區補到 44（〈稿內不一致與實作注意〉第 2 點）、系統開「減少動態效果」時照 §3.4 改淡入淡出、不彈跳；各一條 widget 測試（2026-11-19 擁有者同意，文件審查發現）。
 - [x] 安全區：手機播放頁的封面色背景延伸到狀態列、動態島與 home indicator 後面，只有頂列、進度與控制列避開安全區（`MediaQuery` 的 `viewPadding`），不留空白邊；iPhone 模擬器（有動態島）與 Android 的截圖看得出來（2026-11-19 擁有者同意）。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版）。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版）：`--skip-windows`，只有 macOS 原生測試（RunnerTests）偶發崩潰，是 main 既有的，修復在票 16b；其餘步驟綠。
 
 ## Comments
 決定：桌面播放膠囊改進度與滑鼠移上去的提示併進這張票（使用者同意）
@@ -59,6 +59,7 @@ code-review 未處理：兩處都有的「封面＋曲名＋音源符號＋作�
 發現：macOS 原生測試 `testLightsShowInTheSystemSpotWithoutASidebarOrRail` 偶發崩潰（Impeller `Canvas::SetupRenderPass` 空指標，raster 執行緒）；交替各 10 次 main 紅 3、本分支紅 2，main 重建後連跑紅 3/10，`9010465d` 紅 2/7，不是這張票帶進來的
 發現：票 15 那次原生測試「test runner 沒連上」可能是閘門後段的 integration_test 重建 App、測試產物過期；手動重跑要先 `xcodebuild build-for-testing`
 等使用者：macOS 原生測試的偶發崩潰（main 本來就有）要不要開修復票，以及這張票的閘門能不能在 Comments 註明這一步是既有偶發後收；建議開修復票、照註明收，不決定這張票不能改 done
+決定：native tests macos 的 Impeller 崩潰是 main 既有偶發（交替各 10 次 main 紅 3、本分支紅 2），這張照常收，修復由票 16b 做（使用者定）
 發現：實跑驅動（integration_test 綁定）截到的 Android 狀態列圖示是深色，真的 App 是淺色；之後看狀態列顏色的實跑別信驅動的截圖
 Windows 跳過：播放頁四平台實跑（打開、拖進度、關掉佇列）、真滑鼠的膠囊 hover／點／拖（`capsule_hover_run.dart`，看游標變左右箭頭、時間泡泡、點與拖後的位置）、Ctrl←／Ctrl→ 與 Space 的實機按鍵、視窗鈕在播放頁右上且頂列右邊讓出 138；補驗在票 20
 變更：Added｜播放頁｜點迷你播放器或播放膠囊打開全螢幕播放頁：背景是封面的顏色，有大封面、曲名、音源、可拖的進度與播放控制（含隨機、循環）
