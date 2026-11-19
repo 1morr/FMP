@@ -60,6 +60,7 @@ void main() {
       PluginCapability.resolveStream,
       PluginCapability.listParts,
       PluginCapability.trackInfo,
+      PluginCapability.charts,
     });
     expect(bilibili().manifest.allowsHost('api.bilibili.com'), isTrue);
   });
@@ -559,6 +560,116 @@ void main() {
         bilibili().trackInfo(bv('BV1xx411c7mD')),
         throwsA(isA<RateLimited>()),
       );
+    });
+  });
+
+  group('charts', () {
+    Map<String, Object?> video(
+      String bvid, {
+      Object? title = '曲名',
+      Object? duration = 246,
+      Object? videos = 1,
+      Object? view = 947177,
+      Object? pic = 'http://i1.hdslb.com/bfs/archive/abc.jpg',
+    }) => {
+      'bvid': bvid,
+      'title': title,
+      'owner': {'name': 'UP 主'},
+      'duration': duration,
+      'videos': videos,
+      'pic': pic,
+      'stat': {'view': view},
+    };
+
+    test('the manifest declares charts with a title in every language', () {
+      final manifest = bilibili().manifest;
+      expect(manifest.capabilities, contains(PluginCapability.charts));
+      expect(manifest.chartTitle('zh-TW'), '音樂區排行榜');
+      expect(manifest.chartTitle('zh-CN'), '音乐区排行榜');
+      expect(manifest.chartTitle('en'), 'Music chart');
+    });
+
+    test('turns the music ranking into tracks in rank order', () async {
+      respond = (_) => FakeResponse.json(
+        ok({
+          'note': '',
+          'list': [
+            video('BV1Z1sA6vEN6', title: '主菜單&MVP 試聽', videos: 3),
+            video('BV1xx411c7mD'),
+          ],
+        }),
+      );
+
+      final tracks = await bilibili().charts();
+
+      expect(tracks.map((t) => t.ref.trackId), [
+        'BV1Z1sA6vEN6',
+        'BV1xx411c7mD',
+      ]);
+      final first = tracks.first;
+      expect(first.title, '主菜單&MVP 試聽');
+      expect(first.author, 'UP 主');
+      expect(first.duration, const Duration(seconds: 246));
+      expect(first.partCount, 3);
+      expect(first.playCount, 947177);
+      expect(
+        first.coverUrl,
+        'https://i1.hdslb.com/bfs/archive/abc.jpg@160w_160h_1c.webp',
+      );
+      expect(
+        first.coverLargeUrl,
+        'https://i1.hdslb.com/bfs/archive/abc.jpg@720w_720h_1c.webp',
+      );
+      expect(first.url, 'https://www.bilibili.com/video/BV1Z1sA6vEN6');
+      final request = http.requests.single.uri;
+      expect(request.path, '/x/web-interface/ranking/v2');
+      expect(request.queryParameters, {'rid': '1003', 'type': 'all'});
+    });
+
+    test('gives only the top limit of the hundred it gets', () async {
+      respond = (_) => FakeResponse.json(
+        ok({
+          'list': [for (var i = 0; i < 100; i++) video('BV$i')],
+        }),
+      );
+
+      final tracks = await bilibili().charts(limit: 10);
+
+      expect(tracks, hasLength(10));
+      expect(tracks.first.ref.trackId, 'BV0');
+    });
+
+    test('fields the API does not give usably are left out', () async {
+      respond = (_) => FakeResponse.json(
+        ok({
+          'list': [
+            video('BV1xx411c7mD', duration: 0, videos: 0, view: -1, pic: 3),
+          ],
+        }),
+      );
+
+      final track = (await bilibili().charts()).single;
+
+      expect(track.duration, isNull);
+      expect(track.partCount, isNull);
+      expect(track.playCount, isNull);
+      expect(track.coverUrl, isNull);
+    });
+
+    test('an entry without a bvid is a ParseFailure', () async {
+      respond = (_) => FakeResponse.json(
+        ok({
+          'list': [
+            {'title': 'x'},
+          ],
+        }),
+      );
+      await expectLater(bilibili().charts(), throwsA(isA<ParseFailure>()));
+    });
+
+    test('risk control (-352) is RateLimited', () async {
+      respond = (_) => FakeResponse.json({'code': -352, 'message': '风控校验失败'});
+      await expectLater(bilibili().charts(), throwsA(isA<RateLimited>()));
     });
   });
 

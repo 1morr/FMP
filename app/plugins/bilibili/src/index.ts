@@ -1,6 +1,6 @@
 // Bilibili 插件。插件能力：search（brief 事實 F20、F26、F27）、resolveStream
 // （事實 F1、F4、F5、F6、F21、F24）、listParts（事實 F1、F21、F27）、
-// trackInfo（事實 F1）。
+// trackInfo（事實 F1）、charts（事實 F28）。
 //
 // 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
 // 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P，n ≥ 2（GLOSSARY.md：每個分 P
@@ -14,6 +14,11 @@ const PLAYURL_URL = 'https://api.bilibili.com/x/player/playurl';
  * 也回 200（事實 F1）。
  */
 const VIEW_URL = 'https://api.bilibili.com/x/web-interface/wbi/view';
+/**
+ * 排行榜：`rid=1003` 是音樂區（網頁 /v/popular/rank/music 用的），匿名不簽
+ * WBI，一次回 100 筆（事實 F28）。
+ */
+const RANKING_URL = 'https://api.bilibili.com/x/web-interface/ranking/v2?rid=1003&type=all';
 /** 批次查影片資訊，搜尋結果的分 P 數從這裡來（brief 事實 F27）。 */
 const INFOS_URL = 'https://api.bilibili.com/x/v3/fav/resource/infos';
 /** infos 的 `resources` 裡 `:2` 是資源類型「影片」。 */
@@ -200,6 +205,46 @@ function count(value: unknown): number | undefined {
   return Number.isSafeInteger(value) && (value as number) >= 0
     ? (value as number)
     : undefined;
+}
+
+export async function charts({ limit }: ChartsRequest): Promise<ChartsResponse> {
+  const data = (await apiGet(RANKING_URL)) as { list?: unknown } | undefined;
+  const list = Array.isArray(data?.list) ? data.list : [];
+  return { tracks: list.slice(0, limit).map(rankedTrack) };
+}
+
+interface RankingItem {
+  bvid: unknown;
+  title: unknown;
+  owner?: { name?: unknown };
+  duration: unknown;
+  videos: unknown;
+  pic: unknown;
+  stat?: { view?: unknown };
+}
+
+/**
+ * 排行榜的一筆：標題是純文字（不像搜尋結果標關鍵字），時長是秒，`videos` 是
+ * 分 P 數（事實 F28）。
+ */
+function rankedTrack(item: unknown): PluginTrack {
+  const { bvid, title, owner, duration, videos, pic, stat } = (item ?? {}) as RankingItem;
+  if (typeof bvid !== 'string' || typeof title !== 'string') {
+    throw new PluginError('parse_failure', 'ranking item without bvid or title');
+  }
+  const seconds = count(duration);
+  const parts = count(videos);
+  return {
+    id: bvid,
+    title,
+    author: typeof owner?.name === 'string' ? owner.name : '',
+    durationMs: seconds === undefined || seconds === 0 ? undefined : seconds * 1000,
+    coverUrl: coverUrl(pic),
+    coverLargeUrl: coverUrl(pic, '@720w_720h_1c.webp'),
+    playCount: count(stat?.view),
+    partCount: parts === undefined || parts === 0 ? undefined : parts,
+    url: `https://www.bilibili.com/video/${bvid}`,
+  };
 }
 
 export async function resolveStream({

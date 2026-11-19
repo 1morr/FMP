@@ -173,3 +173,20 @@ interface TrackInfoResponse {
   /** 簡介，可以有多行。 */
   description?: string;
 }
+
+/**
+ * 插件能力 charts：這個插件的排行榜（GLOSSARY.md〈排行榜〉，ADR 0039），一個
+ * 插件一張、不需登入。榜名在 manifest 的 `chartTitle`。
+ */
+interface ChartsRequest {
+  /** 前幾名；宿主一律會給（首頁是 10）。 */
+  limit: number;
+}
+
+interface ChartsResponse {
+  /**
+   * 依名次，第一個是第 1 名；規則同 SearchResponse.tracks。給多了宿主只取前
+   * `limit` 名；空的或 id 重複，整次算解析失敗。
+   */
+  tracks: PluginTrack[];
+}

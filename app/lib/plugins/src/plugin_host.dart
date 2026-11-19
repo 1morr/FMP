@@ -222,6 +222,26 @@ class Plugin {
     });
   }
 
+  /// 插件能力 `charts`：這個插件的排行榜前 [limit] 名，依名次（ADR 0039）。
+  /// 插件給多了只取前 [limit] 名；空的、曲目 id 重複算解析失敗。[limit]
+  /// 小於 1 是程式錯誤，丟 [ArgumentError]。
+  Future<List<Track>> charts({int limit = 10}) async {
+    if (limit < 1) {
+      throw ArgumentError.value(limit, 'limit', 'must be at least 1');
+    }
+    final result = await _invoke(PluginCapability.charts, {'limit': limit});
+    return _parse(PluginCapability.charts, () {
+      final tracks = [
+        for (final t in (result as Map)['tracks'] as List) _track(t as Map),
+      ];
+      if (tracks.isEmpty) throw const FormatException('empty chart');
+      if (tracks.map((t) => t.ref).toSet().length != tracks.length) {
+        throw const FormatException('duplicate track ids');
+      }
+      return tracks.take(limit).toList();
+    });
+  }
+
   /// 選填的文字欄位，去掉頭尾空白；空的當成沒給。
   static String? _text(Object? value) => switch ((value as String?)?.trim()) {
     null || '' => null,

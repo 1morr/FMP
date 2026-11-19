@@ -2,8 +2,13 @@
   "id": "bilibili",
   "name": "Bilibili",
   "version": "0.1.0",
-  "capabilities": ["search", "resolveStream", "listParts", "trackInfo"],
+  "capabilities": ["search", "resolveStream", "listParts", "trackInfo", "charts"],
   "searchSorts": ["relevance", "viewCount", "date"],
+  "chartTitle": {
+    "en": "Music chart",
+    "zh-TW": "音樂區排行榜",
+    "zh-CN": "音乐区排行榜"
+  },
   "domains": ["api.bilibili.com"],
   "mark": {
     "short": "B站",

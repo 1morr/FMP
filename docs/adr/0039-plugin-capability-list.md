@@ -150,6 +150,25 @@ interface TrackInfoResponse {
 - bilibili（事實 F1）：打 `x/web-interface/wbi/view?bvid=<bvid>`，不簽 WBI；分 P（`<bvid>?p=<n>`）用同一支、回整支影片的資訊。`pubdate`（秒）→ `publishedAtMs`、`stat.view` → `playCount`、`stat.like` → `likeCount`、`stat.reply` → `commentCount`、`desc` → `description`；B 站沒有專輯，不給。
 - 契約測試：`trackInfo` 案例的 `input` 是 `{"trackId": "..."}`；形狀由宿主檢查，沒有期望時空的也合格。`expect` 可以加 `stats`（三個計數都有）、`published`、`description`。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋。（2026-11-20 擁有者同意。）
 
+### `charts`（M1 票 18）
+
+新插件能力 `charts`，manifest 多一個 `chartTitle`：
+
+```ts
+interface ChartsRequest { limit: number }          // 前 N 名，宿主傳 10
+interface ChartsResponse { tracks: PluginTrack[] } // 依名次，第一個是第 1 名
+```
+
+```json
+"chartTitle": {"en": "Music chart", "zh-TW": "音樂區排行榜", "zh-CN": "音乐区排行榜"}
+```
+
+- 一個插件一張榜、不需登入（GLOSSARY〈排行榜〉）。曲目的形狀與驗證規則同 `search` 的 `PluginTrack`（封面、大封面、播放數、分 P 數、網址都選填，給了不合格的值整次算解析失敗）。給多了宿主只取前 `limit` 名；空的、id 重複算解析失敗（`ParseFailure`，寫 warning）。
+- `chartTitle`：榜名，語言標籤（BCP 47）對文字，宣告 `charts` 時必填、要有 `en`；宿主照 App 的語言挑，沒有就用 `en`（照 Chrome 擴充的 `default_locale` 退回）。放 manifest 不放回應，因為載入中與失敗時也要顯示榜名（`docs/design/home.html`）。缺 `en`、不是物件或有空的榜名，整個插件不載入（同其他欄位）。
+- Dart 端是 `Plugin.charts({int limit = 10})`，回依名次的 `List<Track>`；`PluginManifest.chartTitle(languageTag)` 給榜名。榜存 drift（ARCHITECTURE〈快取〉）。
+- bilibili（事實 F28）：打 `x/web-interface/ranking/v2?rid=1003&type=all`（音樂區，舊版用的），不簽 WBI；回 100 筆，取前 `limit`。`owner.name` → 作者、`duration`（秒）→ 時長、`videos` → `partCount`、`stat.view` → `playCount`、`pic` 照 `search` 換成兩種封面、網址是 `https://www.bilibili.com/video/<bvid>`；0 的時長與分 P 數當成沒給。
+- 契約測試：`charts` 案例的 `input` 是 `{"limit": 10}`；契約是不是空的、每首屬於這個插件、有 id 與標題（同 `search`）；`expect` 沿用 `search` 的 `covers`、`largeCovers`、`playCounts`、`urls`、`partCounts`。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋。慣例參考 MusicFree 的 `getTopLists`，簡化成一張榜。（2026-11-20 擁有者同意。）
+
 ## 後果
 
 - 好的：清單短，插件頁（設計稿的 `plugins.html`）照這份列出支援與不支援；複製連結、排序不用另外宣告。

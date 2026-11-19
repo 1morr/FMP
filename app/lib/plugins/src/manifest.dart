@@ -5,7 +5,7 @@ import 'package:path_parsing/path_parsing.dart';
 /// 插件能力（`GLOSSARY.md`）：插件在 manifest 宣告做得到的事。新增能力時在
 /// 這裡加一個值，值的名稱就是 manifest 裡的字串，也是插件匯出的函式名；
 /// 宿主不認得的字串略過，舊版宿主讀得了新版插件的 manifest。
-enum PluginCapability { search, resolveStream, listParts, trackInfo }
+enum PluginCapability { search, resolveStream, listParts, trackInfo, charts }
 
 /// 搜尋的排序（ADR 0039）：值的名稱就是 manifest 與插件參數裡的字串，名字照
 /// YouTube Data API search.list 的 `order`。宿主不認得的字串略過。
@@ -32,6 +32,7 @@ enum SearchSort {
 ///   "version": "1.0.0",
 ///   "capabilities": ["search"],
 ///   "searchSorts": ["relevance", "viewCount", "date"],
+///   "chartTitle": {"en": "Music chart", "zh-TW": "音樂區排行榜"},
 ///   "domains": ["api.example.com", "*.cdn.example.com"],
 ///   "mark": {
 ///     "short": "Ex",
@@ -42,7 +43,8 @@ enum SearchSort {
 /// ```
 ///
 /// `mark` 是選填的音源標識（[SourceMark]，ADR 0039）。`searchSorts` 也是選填：
-/// 插件支援的搜尋排序，第一個是它的預設，沒宣告就不能排序。
+/// 插件支援的搜尋排序，第一個是它的預設，沒宣告就不能排序。`chartTitle` 是
+/// 排行榜的榜名，宣告 `charts` 時必填（[chartTitle]）。
 class PluginManifest {
   PluginManifest._({
     required this.id,
@@ -52,6 +54,7 @@ class PluginManifest {
     required this.domains,
     required this.mark,
     required this.searchSorts,
+    required this.chartTitles,
   });
 
   /// 解析 manifest；缺欄位、型別不對或格式不合時丟 [FormatException]。
@@ -90,14 +93,18 @@ class PluginManifest {
           for (final sort in SearchSort.values)
             if (sort.name == name) sort,
     };
+    final capabilities = {
+      for (final c in PluginCapability.values)
+        if (declared.contains(c.name)) c,
+    };
     return PluginManifest._(
       id: id,
       name: field<String>('name'),
       version: field<String>('version'),
-      capabilities: {
-        for (final c in PluginCapability.values)
-          if (declared.contains(c.name)) c,
-      },
+      capabilities: capabilities,
+      chartTitles: capabilities.contains(PluginCapability.charts)
+          ? _parseChartTitles(json['chartTitle'])
+          : const {},
       domains: List.unmodifiable(domains),
       searchSorts: List.unmodifiable(searchSorts),
       mark: switch (json['mark']) {
@@ -124,6 +131,15 @@ class PluginManifest {
   /// 音源標識；插件沒宣告時是 null，畫面就不畫。
   final SourceMark? mark;
 
+  /// 排行榜的榜名，語言標籤（BCP 47，例如 `zh-TW`）對榜名；沒宣告 `charts`
+  /// 時是空的。畫面用 [chartTitle] 挑。
+  final Map<String, String> chartTitles;
+
+  /// 排行榜的榜名，照 [languageTag] 挑，沒有這個語言就用 `en`（照 Chrome
+  /// 擴充的 `default_locale` 退回，ADR 0039）。沒宣告 `charts` 時是 null。
+  String? chartTitle(String languageTag) =>
+      chartTitles[languageTag] ?? chartTitles['en'];
+
   /// [host] 是否在 [domains] 裡（不分大小寫）。
   bool allowsHost(String host) {
     final h = host.toLowerCase();
@@ -134,6 +150,24 @@ class PluginManifest {
 }
 
 final _id = RegExp(r'^[a-z0-9_-]+$');
+
+/// `chartTitle`：語言標籤對不是空的榜名，要有 `en`。
+Map<String, String> _parseChartTitles(Object? json) {
+  if (json is! Map<String, dynamic>) {
+    throw const FormatException('manifest "chartTitle" must be an object');
+  }
+  final titles = <String, String>{};
+  for (final MapEntry(:key, :value) in json.entries) {
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('manifest "chartTitle" for "$key" must be text');
+    }
+    titles[key] = value;
+  }
+  if (!titles.containsKey('en')) {
+    throw const FormatException('manifest "chartTitle" needs an "en" title');
+  }
+  return Map.unmodifiable(titles);
+}
 
 /// 主機名稱，或 `*.` 加主機名稱；萬用字元只能在開頭，不帶連接埠。
 final _domain = RegExp(r'^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$');
