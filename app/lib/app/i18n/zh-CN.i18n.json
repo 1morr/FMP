@@ -20,7 +20,15 @@
     "detail": {
       "title": "正在播放",
       "show": "显示详情面板",
-      "hide": "收起面板"
+      "hide": "收起面板",
+      "empty": "目前没有播放的曲目",
+      "next": "下一首",
+      "description": "简介",
+      "noDescription": "这个音源没有提供简介。",
+      "plays": "次播放",
+      "comments": "条评论",
+      "albumBefore": "专辑《",
+      "albumAfter": "》"
     },
     "library": {
       "empty": "还没有歌单"
@@ -230,6 +238,27 @@
       "label": "画面：$page，第 $number 页，共 $total 页",
       "queue": "队列",
       "cover": "封面"
-    }
+    },
+    "sourceInfo": "音源：$name，打开曲目信息"
+  },
+  "trackInfo": {
+    "title": "曲目信息",
+    "titleShortcut": "曲目信息（$key）",
+    "close": "关闭",
+    "closeShortcut": "关闭（$key）",
+    "source": "音源",
+    "album": "专辑",
+    "published": "发布日期",
+    "duration": "时长",
+    "parts": "分 P",
+    "partsValue": "$count 个分 P",
+    "plays": "播放数",
+    "likes": "点赞",
+    "comments": "评论",
+    "description": "简介",
+    "loading": "正在加载更多信息…",
+    "failed": "更多信息没有加载",
+    "retry": "重试",
+    "openIn": "在 $source 打开"
   }
 }

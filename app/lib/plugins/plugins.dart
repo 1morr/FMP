@@ -7,4 +7,5 @@ export 'src/manifest.dart'
     show MarkPath, PluginCapability, PluginManifest, SearchSort, SourceMark;
 export 'src/plugin_host.dart'
     show Plugin, PluginBundle, PluginHost, SearchResults;
-export 'src/providers.dart' show pluginHostProvider, pluginManifestProvider;
+export 'src/providers.dart'
+    show pluginHostProvider, pluginManifestProvider, trackInfoProvider;

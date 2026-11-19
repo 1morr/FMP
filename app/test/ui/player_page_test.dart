@@ -444,13 +444,14 @@ void main() {
       ('desktop', desktop, TargetPlatform.macOS),
     ]) {
       playerTest(
-        '$name: ⋮ lists only copy link and open in browser',
+        '$name: ⋮ lists track info, copy link and open in browser',
         (tester) async {
           await openPlayer(tester, desktop: size == desktop);
 
           await tester.tap(find.byKey(const Key('player-more')));
           await settle(tester);
 
+          expect(find.text('曲目資訊'), findsOneWidget);
           expect(find.text('複製連結'), findsOneWidget);
           expect(find.text('在瀏覽器開啟'), findsOneWidget);
           expect(find.text('下一首播放'), findsNothing);
@@ -461,11 +462,16 @@ void main() {
       );
     }
 
-    playerTest('a track without a url has no ⋮', (tester) async {
+    playerTest('a track without a url has only track info in ⋮', (
+      tester,
+    ) async {
       await openPlayer(tester);
 
-      expect(find.byKey(const Key('player-collapse')), findsOneWidget);
-      expect(find.byKey(const Key('player-more')), findsNothing);
+      await tester.tap(find.byKey(const Key('player-more')));
+      await settle(tester);
+
+      expect(find.text('曲目資訊'), findsOneWidget);
+      expect(find.text('複製連結'), findsNothing);
     }, initial: playing(song(6, url: false)));
   });
 

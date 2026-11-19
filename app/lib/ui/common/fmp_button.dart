@@ -1,6 +1,7 @@
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
+import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 按鈕的變體（`docs/design/DESIGN.md`〈按鈕〉）。
@@ -51,6 +52,7 @@ class FmpButton extends StatefulWidget {
 class _FmpButtonState extends State<FmpButton> {
   bool _hovered = false;
   bool _pressed = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -76,55 +78,67 @@ class _FmpButtonState extends State<FmpButton> {
         colors.danger,
       ),
     };
+    // 鍵盤選得到：Tab 移過來畫焦點外框，Enter 按下（`DESIGN.md`〈無障礙〉；
+    // Space 在 App 裡是播放／暫停，見 `PlaybackShortcuts`）。
     return Semantics(
       button: true,
       enabled: enabled,
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onTap,
-          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
-          child: Opacity(
-            opacity: enabled ? 1 : .38,
-            child: AnimatedScale(
-              scale: _pressed ? FmpMotion.pressScale : 1,
-              duration: FmpMotion.fast,
-              curve: FmpMotion.outCurve,
-              child: AnimatedContainer(
+      child: FocusableActionDetector(
+        enabled: enabled,
+        mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        onShowHoverHighlight: (value) => setState(() => _hovered = value),
+        onShowFocusHighlight: (value) => setState(() => _focused = value),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) => widget.onTap?.call(),
+          ),
+        },
+        child: FocusRing(
+          visible: _focused && enabled,
+          radius: 999,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
+            onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            child: Opacity(
+              opacity: enabled ? 1 : .38,
+              child: AnimatedScale(
+                scale: _pressed ? FmpMotion.pressScale : 1,
                 duration: FmpMotion.fast,
-                height: widget.height ?? height,
-                padding: EdgeInsets.symmetric(horizontal: padding),
-                decoration: BoxDecoration(
-                  color: background,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.icon case final icon?) ...[
-                      FmpIcon(icon, size: small ? 16 : 20, color: foreground),
-                      const SizedBox(width: 6),
-                    ],
-                    Flexible(
-                      child: Text(
-                        widget.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: fontSize,
-                          fontWeight: FontWeight.w600,
-                          color: foreground,
-                          letterSpacing: 0,
+                curve: FmpMotion.outCurve,
+                child: AnimatedContainer(
+                  duration: FmpMotion.fast,
+                  height: widget.height ?? height,
+                  padding: EdgeInsets.symmetric(horizontal: padding),
+                  decoration: BoxDecoration(
+                    color: background,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (widget.icon case final icon?) ...[
+                        FmpIcon(icon, size: small ? 16 : 20, color: foreground),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: fontSize,
+                            fontWeight: FontWeight.w600,
+                            color: foreground,
+                            letterSpacing: 0,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

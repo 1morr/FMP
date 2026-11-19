@@ -23,6 +23,7 @@ import 'package:fmp/ui/shell/caption_buttons.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/toast/toast_layer.dart';
+import 'package:fmp/ui/track_info/track_info.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -45,8 +46,8 @@ class PlayerQueueShown extends Notifier<bool> {
 /// 左邊封面與控制，右邊佇列（頂列右端可關）。Esc、左上的收起或系統返回
 /// 回原頁；手機也能往下拉收起。沒有目前曲目時（佇列清空）自己收起。
 ///
-/// 還沒有的功能不出現入口：歌詞、加入歌單、曲目資訊、存取等級與音質、桌面的
-/// 音量（還沒有音量控制）。
+/// 還沒有的功能不出現入口：歌詞、加入歌單、存取等級與音質、桌面的音量（還沒有
+/// 音量控制）。
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({super.key});
 
@@ -193,28 +194,46 @@ class PlayerTopButtons {
     );
   }
 
-  /// ⋮：目前這首的「更多」，M1 只有複製連結與在瀏覽器開啟；曲目沒有網址時
-  /// 不出現。
-  Widget? more(BuildContext context, WidgetRef ref) {
-    if (track.url == null) return null;
-    return Builder(
-      builder: (context) => GlassIconButton(
-        key: const Key('player-more'),
-        icon: FmpIcons.more,
-        tooltip: context.t.queue.more,
-        touch: touch,
-        variant: GlassVariant.clear,
-        onTap: () {
-          final box = context.findRenderObject()! as RenderBox;
-          showTrackActions(
-            context,
-            ref,
-            track,
-            at: box.localToGlobal(box.size.bottomRight(Offset.zero)),
-            actions: const [TrackAction.copyLink, TrackAction.openInBrowser],
-          );
-        },
-      ),
+  /// ⋮：目前這首的「更多」，M1 是曲目資訊，曲目有網址時加複製連結與在瀏覽器
+  /// 開啟。
+  Widget more(BuildContext context, WidgetRef ref) => Builder(
+    builder: (context) => GlassIconButton(
+      key: const Key('player-more'),
+      icon: FmpIcons.more,
+      tooltip: context.t.queue.more,
+      touch: touch,
+      variant: GlassVariant.clear,
+      onTap: () {
+        final box = context.findRenderObject()! as RenderBox;
+        showTrackActions(
+          context,
+          ref,
+          track,
+          at: box.localToGlobal(box.size.bottomRight(Offset.zero)),
+          actions: [
+            TrackAction.trackInfo,
+            if (track.url != null) ...[
+              TrackAction.copyLink,
+              TrackAction.openInBrowser,
+            ],
+          ],
+        );
+      },
+    ),
+  );
+
+  /// 兩欄頂列的資訊鈕（`plG('info')`）：打開曲目資訊；桌面的提示寫 ⌘I。
+  Widget info(BuildContext context) {
+    final t = context.t;
+    return GlassIconButton(
+      key: const Key('player-info'),
+      icon: FmpIcons.info,
+      tooltip: touch
+          ? t.trackInfo.title
+          : t.trackInfo.titleShortcut(key: WindowChrome.shortcutLabel('I')),
+      touch: touch,
+      variant: GlassVariant.clear,
+      onTap: () => showTrackInfo(context, track),
     );
   }
 }
@@ -409,7 +428,6 @@ class _Columns extends ConsumerWidget {
     final left = queueShown ? lx : (size.width - lw) / 2;
     final barTop = touch ? top0 + 6 : 10.0;
     final barHeight = touch ? 52.0 : 40.0;
-    final more = topBar.more(context, ref);
     final column = SizedBox(
       width: lw,
       child: Column(
@@ -427,7 +445,11 @@ class _Columns extends ConsumerWidget {
             artistSize: touch ? 17 : 15,
             artistHeight: touch ? 22 / 17 : 20 / 15,
           ),
-          SizedBox(height: touch ? 14 : 18),
+          // 觸控時音源膠囊的點擊區往上多 14，從這段間距扣掉。
+          SizedBox(
+            height:
+                (touch ? 14 : 18) - SignatureCapsule.touchOverhangOf(density),
+          ),
           SignatureCapsule(density: density),
           SizedBox(
             height: (touch ? 12 : 19) - PlayerProgress.overhangOf(density),
@@ -487,7 +509,10 @@ class _Columns extends ConsumerWidget {
                     child: PlayerContext(),
                   ),
                 ),
-                if (more != null) ...[more, const SizedBox(width: 8)],
+                topBar.info(context),
+                const SizedBox(width: 8),
+                topBar.more(context, ref),
+                const SizedBox(width: 8),
                 _QueueToggle(touch: touch),
               ],
             ),

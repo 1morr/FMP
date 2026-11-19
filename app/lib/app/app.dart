@@ -57,7 +57,10 @@ class _FmpAppState extends ConsumerState<FmpApp> {
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      builder: (context, child) => PlaybackShortcuts(child: child!),
+      builder: (context, child) => PlaybackShortcuts(
+        navigatorKey: _router.routerDelegate.navigatorKey,
+        child: child!,
+      ),
     );
   }
 }
