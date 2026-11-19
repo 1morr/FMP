@@ -32,17 +32,22 @@ class ShellTopBar {
 
 /// 外殼告訴頁面內容要留的邊距：上面到大標題，下面讓出 dock 或播放膠囊。
 /// 內容照樣從玻璃底下捲過去，所以是捲動的 padding，不是裁切。也告訴頁面
-/// 自己的頂列放在哪裡（[ShellTopBar]）。
+/// 自己的頂列放在哪裡（[ShellTopBar]），以及常駐的詳情面板開著沒有。
 class ShellInsets extends InheritedWidget {
   const ShellInsets({
     super.key,
     required this.padding,
     required this.topBar,
+    this.detailPanelOpen = false,
     required super.child,
   });
 
   final EdgeInsets padding;
   final ShellTopBar topBar;
+
+  /// 桌面寬版常駐的詳情面板開著（中寬度浮出來的不算）：首頁的繼續聽只在它
+  /// 收起時出現（`docs/design/DESIGN.md`〈首頁〉）。
+  final bool detailPanelOpen;
 
   static ShellInsets? _of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ShellInsets>();
@@ -58,9 +63,15 @@ class ShellInsets extends InheritedWidget {
     return ShellTopBar(top: 0, height: 50, left: pad, right: pad);
   }
 
+  /// 不在外殼裡時當成沒有詳情面板。
+  static bool detailPanelOpenOf(BuildContext context) =>
+      _of(context)?.detailPanelOpen ?? false;
+
   @override
   bool updateShouldNotify(ShellInsets old) =>
-      old.padding != padding || old.topBar != topBar;
+      old.padding != padding ||
+      old.topBar != topBar ||
+      old.detailPanelOpen != detailPanelOpen;
 }
 
 /// 外殼裡的一頁：大標題，下面接著 [children]，整頁一起捲動。

@@ -161,10 +161,16 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   /// 內容區。[dragStrip] 是頂端拖動視窗的區域高；那裡只有頁面頂列的控制項
   /// 收得到點擊（[ShellTopStripGate]）。
-  Widget _content(EdgeInsets padding, ShellTopBar topBar, {double? dragStrip}) {
+  Widget _content(
+    EdgeInsets padding,
+    ShellTopBar topBar, {
+    double? dragStrip,
+    bool detailPanelOpen = false,
+  }) {
     final content = ShellInsets(
       padding: padding,
       topBar: topBar,
+      detailPanelOpen: detailPanelOpen,
       child: widget.child,
     );
     if (dragStrip == null || !WindowChrome.drawsTitleBar) return content;
@@ -378,6 +384,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 right: open ? 16 : _detailButtonInset(touch),
               ),
               dragStrip: top0 + 58,
+              detailPanelOpen: open,
             ),
           ),
           Positioned(

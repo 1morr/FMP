@@ -8,6 +8,8 @@ import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/search/search.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
+import 'package:fmp/ui/common/filter_chip_button.dart';
+import 'package:fmp/ui/common/source_error_card.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
@@ -100,95 +102,16 @@ class SearchErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final colors = context.fmpColors;
     final manifest = source.manifest;
-    final reason = [
-      searchErrorReason(t, source.error!, manifest.name),
-      if (othersShown) t.search.error.othersShown,
-    ].join();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: colors.fill,
-        borderRadius: BorderRadius.circular(context.fmpMetrics.radii.group),
-      ),
-      child: Row(
-        children: [
-          SizedBox.square(
-            dimension: 36,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colors.cell,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: SourceMarkIcon(pluginId: manifest.id, size: 18),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 17,
-                    height: 17,
-                    decoration: BoxDecoration(
-                      color: colors.bg,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: FmpIcon(
-                      FmpIcons.warn,
-                      size: 13,
-                      color: colors.warn,
-                      strokeWidth: 2.2,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  t.search.error.title(source: manifest.name),
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 20 / 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
-                    color: colors.label,
-                  ),
-                ),
-                Text(
-                  reason,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 17 / 13,
-                    letterSpacing: 0,
-                    color: colors.label2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          FmpButton(
-            label: t.search.error.retry,
-            icon: FmpIcons.refresh,
-            variant: FmpButtonVariant.tinted,
-            size: FmpButtonSize.small,
-            onTap: onRetry,
-          ),
-        ],
-      ),
+    return SourceErrorCard(
+      pluginId: manifest.id,
+      title: t.search.error.title(source: manifest.name),
+      reason: [
+        searchErrorReason(t, source.error!, manifest.name),
+        if (othersShown) t.search.error.othersShown,
+      ].join(),
+      retryLabel: t.search.error.retry,
+      onRetry: onRetry,
     );
   }
 }
@@ -519,7 +442,7 @@ class SearchFilterBar extends ConsumerWidget {
     ];
     final sorts = sortsOf(visible);
     final chips = [
-      _Chip(
+      FilterChipButton(
         label: t.search.all,
         on: filter == null,
         table: table,
@@ -527,7 +450,7 @@ class SearchFilterBar extends ConsumerWidget {
         onTap: () => onFilter(null),
       ),
       for (final s in sources)
-        _Chip(
+        FilterChipButton(
           label: s.manifest.name,
           pluginId: s.manifest.id,
           on: filter == s.manifest.id,
@@ -588,85 +511,6 @@ class SearchFilterBar extends ConsumerWidget {
           if (sort != null)
             Padding(padding: const EdgeInsets.only(right: 16), child: sort),
         ],
-      ),
-    );
-  }
-}
-
-/// 篩選 chip（`.chip`）：選中的是實心 `--label` 底；出錯的音源帶警示符號。
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.on,
-    required this.table,
-    required this.onTap,
-    this.pluginId,
-    this.count,
-    this.warn = false,
-  });
-
-  final String label;
-  final bool on;
-  final bool table;
-  final VoidCallback onTap;
-  final String? pluginId;
-  final int? count;
-  final bool warn;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.fmpColors;
-    final ink = on ? colors.bg : colors.label;
-    return Semantics(
-      selected: on,
-      child: ShellButton(
-        onTap: onTap,
-        label: label,
-        builder: (context, hovered) => Container(
-          height: table ? 26 : 32,
-          padding: EdgeInsets.symmetric(horizontal: table ? 11 : 13),
-          decoration: BoxDecoration(
-            color: on ? colors.label : (hovered ? colors.fill2 : colors.fill),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (pluginId case final id?) ...[
-                SourceMarkIcon(pluginId: id, size: table ? 13 : 15),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: table ? 12.5 : 14,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
-                  color: ink,
-                ),
-              ),
-              if (warn) ...[
-                const SizedBox(width: 6),
-                FmpIcon(
-                  FmpIcons.warn,
-                  size: table ? 14 : 16,
-                  color: on ? ink : colors.warn,
-                ),
-              ] else if (count case final count?) ...[
-                const SizedBox(width: 6),
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0,
-                    color: ink.withValues(alpha: .6),
-                  ).tabular,
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

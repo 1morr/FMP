@@ -42,5 +42,16 @@
     "data.stat.view",
     "data.stat.like",
     "data.stat.reply"
+  ],
+  "charts": [
+    "code",
+    "message",
+    "data.list.bvid",
+    "data.list.title",
+    "data.list.owner.name",
+    "data.list.duration",
+    "data.list.videos",
+    "data.list.pic",
+    "data.list.stat.view"
   ]
 }

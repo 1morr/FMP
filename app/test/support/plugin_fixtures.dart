@@ -228,6 +228,13 @@ Future<List<String>> checkContract(
     PluginCapability.resolveStream => const {'expiresAt', 'segmentBase'},
     PluginCapability.listParts => const <String>{},
     PluginCapability.trackInfo => const {'stats', 'published', 'description'},
+    PluginCapability.charts => const {
+      'covers',
+      'largeCovers',
+      'playCounts',
+      'urls',
+      'partCounts',
+    },
   };
   final unknown = [
     for (final key in expect.keys)
@@ -268,31 +275,12 @@ Future<List<String>> checkContract(
       final tracks = results.tracks;
       return [
         ...searchContractViolations(plugin.manifest.id, tracks),
-        if (expect.containsKey('covers'))
-          for (final (i, t) in tracks.indexed)
-            if (t.coverUrl == null)
-              'expected a cover on every track, track $i has none',
-        if (expect.containsKey('largeCovers'))
-          for (final (i, t) in tracks.indexed)
-            if (t.coverLargeUrl == null)
-              'expected a large cover on every track, track $i has none',
-        if (expect.containsKey('playCounts'))
-          for (final (i, t) in tracks.indexed)
-            if (t.playCount == null)
-              'expected a play count on every track, track $i has none',
+        ...trackExpectationViolations(tracks, expect),
         if (expect.containsKey('playCountsDescending'))
           for (var i = 1; i < tracks.length; i++)
             if ((tracks[i].playCount ?? 0) > (tracks[i - 1].playCount ?? 0))
               'expected play counts from high to low, track $i has more '
                   'plays than track ${i - 1}',
-        if (expect.containsKey('urls'))
-          for (final (i, t) in tracks.indexed)
-            if (t.url == null)
-              'expected a url on every track, track $i has none',
-        if (expect.containsKey('partCounts'))
-          for (final (i, t) in tracks.indexed)
-            if (t.partCount == null)
-              'expected a part count on every track, track $i has none',
         if (expect.containsKey('more') && results.isEnd)
           'expected more pages, but the plugin says this is the last',
       ];
@@ -347,7 +335,42 @@ Future<List<String>> checkContract(
         if (expect.containsKey('description') && info.description == null)
           missing('description'),
       ];
+    case PluginCapability.charts:
+      final limit = input['limit'];
+      if (limit is! int || limit < 1) {
+        throw const FormatException(
+          'charts input needs a positive integer "limit"',
+        );
+      }
+      final tracks = await plugin.charts(limit: limit);
+      return [
+        ...searchContractViolations(
+          plugin.manifest.id,
+          tracks,
+          capability: 'charts',
+        ),
+        ...trackExpectationViolations(tracks, expect),
+      ];
   }
+}
+
+/// search 與 charts 共用的曲目期望：每首都有封面、大封面、播放數、網址、分 P 數。
+List<String> trackExpectationViolations(
+  List<Track> tracks,
+  Map<String, Object?> expect,
+) {
+  List<String> every(String key, String what, bool Function(Track) has) => [
+    if (expect.containsKey(key))
+      for (final (i, t) in tracks.indexed)
+        if (!has(t)) 'expected $what on every track, track $i has none',
+  ];
+  return [
+    ...every('covers', 'a cover', (t) => t.coverUrl != null),
+    ...every('largeCovers', 'a large cover', (t) => t.coverLargeUrl != null),
+    ...every('playCounts', 'a play count', (t) => t.playCount != null),
+    ...every('urls', 'a url', (t) => t.url != null),
+    ...every('partCounts', 'a part count', (t) => t.partCount != null),
+  ];
 }
 
 /// 插件能力 listParts 的契約（`app/plugins/host.d.ts`）：分 P 不是空的、含傳入
@@ -362,11 +385,15 @@ List<String> listPartsContractViolations(String trackId, List<Track> parts) => [
     if (p.title.trim().isEmpty) 'part $i: empty title',
 ];
 
-/// 插件能力 search 的契約（`app/plugins/host.d.ts`）：錄製的案例有結果，
-/// 每首曲目屬於這個插件、有 id 與標題，時長不知道就不給，給了就是正的；播放數
-/// 給了就不是負的。
-List<String> searchContractViolations(String pluginId, List<Track> tracks) => [
-  if (tracks.isEmpty) 'search returned no tracks',
+/// 插件能力 search（與 charts）的契約（`app/plugins/host.d.ts`）：錄製的案例
+/// 有結果，每首曲目屬於這個插件、有 id 與標題，時長不知道就不給，給了就是正
+/// 的；播放數給了就不是負的。
+List<String> searchContractViolations(
+  String pluginId,
+  List<Track> tracks, {
+  String capability = 'search',
+}) => [
+  if (tracks.isEmpty) '$capability returned no tracks',
   for (final (i, t) in tracks.indexed) ...[
     if (t.ref.pluginId != pluginId)
       'track $i: plugin id is "${t.ref.pluginId}"',

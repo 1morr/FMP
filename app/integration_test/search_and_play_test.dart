@@ -136,7 +136,11 @@ void main() {
     // 音源名稱在篩選 chip 上，作者在列上。
     expect(find.text('Bilibili'), findsWidgets);
     expect(find.textContaining('測試作者'), findsWidgets);
-    final search = http.requests.single.uri.queryParameters;
+    // 首頁一打開也向 FakeHttp 要了排行榜（票 18，回 404），這裡只看搜尋。
+    final search = http.requests
+        .singleWhere((r) => r.uri.path == '/x/web-interface/search/type')
+        .uri
+        .queryParameters;
     expect(search['keyword'], '晴天');
     expect(search['order'], 'totalrank');
     expect(search['page'], '1');

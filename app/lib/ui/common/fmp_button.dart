@@ -15,6 +15,9 @@ enum FmpButtonVariant {
 
   /// 破壞性動作：danger 色 14% 的底。
   danger,
+
+  /// 沒有底的強調色字（`.btn-plain`），左右只留 8。
+  plain,
 }
 
 enum FmpButtonSize {
@@ -35,6 +38,7 @@ class FmpButton extends StatefulWidget {
     this.variant = FmpButtonVariant.gray,
     this.size = FmpButtonSize.normal,
     this.icon,
+    this.trailingIcon,
     this.height,
     this.touchTarget = false,
   });
@@ -44,6 +48,9 @@ class FmpButton extends StatefulWidget {
   final FmpButtonVariant variant;
   final FmpButtonSize size;
   final FmpIcons? icon;
+
+  /// 字後面的圖示（例如「顯示第 6–10 名 ⌄」、「佇列 ›」）。
+  final FmpIcons? trailingIcon;
   final double? height;
 
   /// 觸控時把點擊區上下補到 44，看得到的膠囊照原本的高（`DESIGN.md`
@@ -82,7 +89,11 @@ class _FmpButtonState extends State<FmpButton> {
         colors.danger.withValues(alpha: .14),
         colors.danger,
       ),
+      FmpButtonVariant.plain => (const Color(0x00000000), colors.accent),
     };
+    final sidePadding = widget.variant == FmpButtonVariant.plain
+        ? 8.0
+        : padding;
     // 鍵盤選得到：Tab 移過來畫焦點外框，Enter 按下（`DESIGN.md`〈無障礙〉；
     // Space 在 App 裡是播放／暫停，見 `PlaybackShortcuts`）。
     return Semantics(
@@ -120,7 +131,7 @@ class _FmpButtonState extends State<FmpButton> {
                   child: AnimatedContainer(
                     duration: FmpMotion.fast,
                     height: widget.height ?? height,
-                    padding: EdgeInsets.symmetric(horizontal: padding),
+                    padding: EdgeInsets.symmetric(horizontal: sidePadding),
                     decoration: BoxDecoration(
                       color: background,
                       borderRadius: BorderRadius.circular(999),
@@ -150,6 +161,15 @@ class _FmpButtonState extends State<FmpButton> {
                             ),
                           ),
                         ),
+                        if (widget.trailingIcon case final icon?) ...[
+                          const SizedBox(width: 6),
+                          FmpIcon(
+                            icon,
+                            size: small ? 16 : 20,
+                            strokeWidth: 2.2,
+                            color: foreground,
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -260,5 +260,38 @@
     "failed": "更多信息没有加载",
     "retry": "重试",
     "openIn": "在 $source 打开"
+  },
+  "home": {
+    "charts": "近期热门",
+    "chartSources": "排行榜音源",
+    "chartCaption": "$title · 前 $count 名",
+    "showMore": "显示第 $from–$to 名",
+    "showLess": "收起",
+    "offline": "没有网络",
+    "notUpdated": "$source 的榜更新不了",
+    "age": {
+      "minutes(plural, param=n)": {
+        "one": "这是 $n 分钟前的榜",
+        "other": "这是 $n 分钟前的榜"
+      },
+      "hours(plural, param=n)": {
+        "one": "这是 $n 小时前的榜",
+        "other": "这是 $n 小时前的榜"
+      },
+      "days(plural, param=n)": {
+        "one": "这是 $n 天前的榜",
+        "other": "这是 $n 天前的榜"
+      }
+    },
+    "error": {
+      "title": "$source 的榜加载不了",
+      "failed": "这个音源暂时给不了排行榜。",
+      "offlineTitle": "没有网络，排行榜加载不了",
+      "offlineBody": "连上网络后按重试。队列照常可用。"
+    },
+    "continueListening": "继续听",
+    "nowPlaying": "正在播放",
+    "temporary": "临时播放 · 播完回到队列第 $number 首",
+    "position": "第 $number / $total 首"
   }
 }

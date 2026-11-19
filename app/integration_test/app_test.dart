@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/app/app.dart';
+import 'package:fmp/charts/charts.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/data/database.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/main.dart' as app;
@@ -46,6 +48,23 @@ void main() {
     );
     final database = container.read(appDatabaseProvider)!;
     expect(await database.storedSchemaVersion(), database.schemaVersion);
+
+    // 首頁一打開就抓排行榜（票 18）。閘門不能真的打音源（每次閘門每個平台
+    // 都打會被限流、也不穩）：零聯網守門在送出前擋下，每個音源都是沒有網路、
+    // 沒有榜。其他 integration_test 的請求都進 FakeHttp。
+    await tester.runAsync(() async {
+      final deadline = DateTime.now().add(const Duration(seconds: 20));
+      while (container.read(chartsProvider).sources.any((s) => s.loading) &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+    });
+    final charts = container.read(chartsProvider).sources;
+    expect(charts, isNotEmpty);
+    for (final source in charts) {
+      expect(source.chart, isNull, reason: '${source.manifest.id} got a chart');
+      expect(source.error, isA<NetworkError>());
+    }
 
     // 這次啟動的那一行寫進了平台給的 log 目錄。
     final startedLine = await tester.runAsync(() async {

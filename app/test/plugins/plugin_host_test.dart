@@ -39,6 +39,7 @@ void main() {
     List<String> domains = const ['api.example.com'],
     Object? mark,
     Object? searchSorts,
+    Object? chartTitle,
   }) => jsonEncode({
     'id': id,
     'name': 'Demo',
@@ -47,6 +48,7 @@ void main() {
     'domains': domains,
     'mark': ?mark,
     'searchSorts': ?searchSorts,
+    'chartTitle': ?chartTitle,
   });
 
   PluginHost host(
@@ -559,6 +561,121 @@ void main() {
         );
       });
     }
+  });
+
+  group('charts', () {
+    const title = {'en': 'Hits', 'zh-TW': '熱門榜', 'zh-CN': '热门榜'};
+    final chartsManifest = manifest(
+      capabilities: ['charts'],
+      chartTitle: title,
+    );
+
+    Plugin ranking(String result) => only(
+      host('''
+      export async function charts({ limit }) {
+        return $result;
+      }
+    ''', manifestJson: chartsManifest),
+    );
+
+    test('returns the tracks in rank order with every field', () async {
+      final tracks = await ranking('''{ tracks: [
+        { id: 'a', title: 'First', author: 'X', durationMs: 61000,
+          coverUrl: 'https://img.example.com/a.webp',
+          coverLargeUrl: 'https://img.example.com/a-large.webp',
+          playCount: 9, partCount: 3, url: 'https://example.com/a' },
+        { id: 'b', title: 'Second', author: 'Y' },
+      ] }''').charts();
+
+      expect(tracks.map((t) => t.ref.trackId), ['a', 'b']);
+      final first = tracks.first;
+      expect(first.ref, const TrackRef(pluginId: 'demo', trackId: 'a'));
+      expect(first.title, 'First');
+      expect(first.author, 'X');
+      expect(first.duration, const Duration(seconds: 61));
+      expect(first.coverUrl, 'https://img.example.com/a.webp');
+      expect(first.coverLargeUrl, 'https://img.example.com/a-large.webp');
+      expect(first.playCount, 9);
+      expect(first.partCount, 3);
+      expect(first.url, 'https://example.com/a');
+    });
+
+    test('asks for the top 10 by default and passes another limit', () async {
+      const echo =
+          "{ tracks: [{ id: String(limit), title: 't', author: 'a' }] }";
+      expect((await ranking(echo).charts()).single.ref.trackId, '10');
+      expect((await ranking(echo).charts(limit: 3)).single.ref.trackId, '3');
+    });
+
+    test('keeps only the first limit tracks the plugin gives', () async {
+      final tracks = await ranking('''{ tracks: [
+        { id: 'a', title: 'a', author: '' },
+        { id: 'b', title: 'b', author: '' },
+        { id: 'c', title: 'c', author: '' },
+      ] }''').charts(limit: 2);
+
+      expect(tracks.map((t) => t.ref.trackId), ['a', 'b']);
+    });
+
+    test('a limit below 1 is an ArgumentError', () {
+      expect(
+        () => ranking('{ tracks: [] }').charts(limit: 0),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('a plugin that does not declare it is Unsupported', () async {
+      await expectLater(only(host('')).charts(), throwsA(isA<Unsupported>()));
+    });
+
+    final bad = {
+      'an empty chart': '{ tracks: [] }',
+      'duplicate ids':
+          "{ tracks: [{ id: 'a', title: 'a', author: '' }, "
+          "{ id: 'a', title: 'b', author: '' }] }",
+      'a negative play count':
+          "{ tracks: [{ id: 'a', title: 'a', author: '', playCount: -1 }] }",
+      'a cover that is not a web url': "{ tracks: [{ id: 'a', title: 'a', author: '', coverUrl: 'ftp://x' }] }",
+      'tracks that are not a list': "{ tracks: 'a' }",
+    };
+    for (final MapEntry(:key, :value) in bad.entries) {
+      test('$key is a ParseFailure', () async {
+        await expectLater(
+          ranking(value).charts(),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+
+    group('chartTitle', () {
+      test('picks the title for the language and falls back to en', () {
+        final m = only(host('', manifestJson: chartsManifest)).manifest;
+        expect(m.chartTitle('zh-TW'), '熱門榜');
+        expect(m.chartTitle('zh-CN'), '热门榜');
+        expect(m.chartTitle('en'), 'Hits');
+        expect(m.chartTitle('ja'), 'Hits');
+      });
+
+      test('a plugin without charts has no chart title', () {
+        expect(only(host('')).manifest.chartTitle('en'), isNull);
+      });
+
+      for (final MapEntry(:key, :value) in {
+        'missing': null,
+        'without en': {'zh-TW': '熱門榜'},
+        'with an empty title': {'en': ''},
+        'with a title that is not a string': {'en': 1},
+        'not an object': 'Hits',
+      }.entries) {
+        test('charts with a chartTitle $key skips the plugin', () {
+          final h = host(
+            '',
+            manifestJson: manifest(capabilities: ['charts'], chartTitle: value),
+          );
+          expect(h.plugins, isEmpty);
+        });
+      }
+    });
   });
 
   test('pluginFor finds the plugin that provides a track', () {

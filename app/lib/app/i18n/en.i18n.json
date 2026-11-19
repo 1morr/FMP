@@ -260,5 +260,38 @@
     "failed": "Couldn't load more info",
     "retry": "Retry",
     "openIn": "Open in $source"
+  },
+  "home": {
+    "charts": "Trending",
+    "chartSources": "Chart sources",
+    "chartCaption": "$title · Top $count",
+    "showMore": "Show $from–$to",
+    "showLess": "Show less",
+    "offline": "No connection",
+    "notUpdated": "Couldn't update the $source chart",
+    "age": {
+      "minutes(plural, param=n)": {
+        "one": "This chart is from $n minute ago",
+        "other": "This chart is from $n minutes ago"
+      },
+      "hours(plural, param=n)": {
+        "one": "This chart is from $n hour ago",
+        "other": "This chart is from $n hours ago"
+      },
+      "days(plural, param=n)": {
+        "one": "This chart is from $n day ago",
+        "other": "This chart is from $n days ago"
+      }
+    },
+    "error": {
+      "title": "Couldn't load the $source chart",
+      "failed": "This source can't give its chart right now.",
+      "offlineTitle": "No connection, so the charts can't load",
+      "offlineBody": "Connect and tap Retry. The queue still works."
+    },
+    "continueListening": "Continue listening",
+    "nowPlaying": "Now playing",
+    "temporary": "Temporary play · back to queue track $number after",
+    "position": "$number of $total"
   }
 }

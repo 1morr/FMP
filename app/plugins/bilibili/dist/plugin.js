@@ -3,6 +3,7 @@ var SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/type";
 var PAGELIST_URL = "https://api.bilibili.com/x/player/pagelist";
 var PLAYURL_URL = "https://api.bilibili.com/x/player/playurl";
 var VIEW_URL = "https://api.bilibili.com/x/web-interface/wbi/view";
+var RANKING_URL = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=1003&type=all";
 var INFOS_URL = "https://api.bilibili.com/x/v3/fav/resource/infos";
 var RESOURCE_TYPE_VIDEO = 2;
 var API_REFERER = "https://www.bilibili.com/";
@@ -124,6 +125,30 @@ async function trackInfo({
 }
 function count(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
+}
+async function charts({ limit }) {
+  const data = await apiGet(RANKING_URL);
+  const list = Array.isArray(data?.list) ? data.list : [];
+  return { tracks: list.slice(0, limit).map(rankedTrack) };
+}
+function rankedTrack(item) {
+  const { bvid, title, owner, duration, videos, pic, stat } = item ?? {};
+  if (typeof bvid !== "string" || typeof title !== "string") {
+    throw new PluginError("parse_failure", "ranking item without bvid or title");
+  }
+  const seconds = count(duration);
+  const parts = count(videos);
+  return {
+    id: bvid,
+    title,
+    author: typeof owner?.name === "string" ? owner.name : "",
+    durationMs: seconds === void 0 || seconds === 0 ? void 0 : seconds * 1e3,
+    coverUrl: coverUrl(pic),
+    coverLargeUrl: coverUrl(pic, "@720w_720h_1c.webp"),
+    playCount: count(stat?.view),
+    partCount: parts === void 0 || parts === 0 ? void 0 : parts,
+    url: `https://www.bilibili.com/video/${bvid}`
+  };
 }
 async function resolveStream({
   trackId
@@ -281,6 +306,7 @@ function browserCookie() {
   return `buvid3=${buvid3}; buvid4=${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}; b_nut=${nut}; _uuid=${buvid3}; buvid_fp=${buvid3}`;
 }
 export {
+  charts,
   listParts,
   resolveStream,
   search,
