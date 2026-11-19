@@ -136,8 +136,10 @@ void main() {
     await waitFor(find.text('晴天 測試'));
 
     await playSearchResult(tester, find.text('晴天 測試'));
-    await waitFor(find.text('播放中'));
-    await waitFor(find.textContaining(RegExp(r'^0:0[1-9] / 0:30$')));
+    // 正在播：外殼的控制上是暫停鈕，位置過了 1 秒（手機的迷你播放器把作者
+    // 與時間寫在同一行，不錨定開頭）。
+    await waitFor(find.byTooltip('暫停'));
+    await waitFor(find.textContaining(RegExp(r'0:0[1-9] / 0:30')));
 
     final playurl = [
       for (final r in http.requests)

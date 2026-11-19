@@ -20,9 +20,14 @@ class GlassMenuItem<T> extends GlassMenuEntry<T> {
     this.shortcut,
     this.destructive = false,
     this.enabled = true,
+    this.checked,
   });
 
   final T value;
+
+  /// 單選清單（例如排序）的一項：true 在圖示的位置畫勾，false 留同樣的空位
+  /// 讓字對齊；null 是一般項目，照 [icon]。
+  final bool? checked;
   final String label;
   final FmpIcons? icon;
 
@@ -46,10 +51,12 @@ class GlassMenuDivider<T> extends GlassMenuEntry<T> {
 /// 在 [at]（全域座標）打開玻璃選單（`.gmenu`，`docs/design/DESIGN.md`
 /// 〈選單〉）：厚玻璃、跟主題走；觸控與滑鼠兩種密度照 `platform/` 的密度。
 /// 選了回傳那個項目的值，點外面或按 Esc 回傳 null。方向鍵移動、↩ 選取。
+/// [header] 是頂端的摘要（`.mh`：動作作用在哪首曲目），下面接一條細分隔。
 Future<T?> showGlassMenu<T>({
   required BuildContext context,
   required Offset at,
   required List<GlassMenuEntry<T>> entries,
+  Widget? header,
 }) {
   final touch = FormFactor.of(context).density == Density.touch;
   return showGeneralDialog<T>(
@@ -62,7 +69,7 @@ Future<T?> showGlassMenu<T>({
         FadeTransition(opacity: animation, child: child),
     pageBuilder: (context, _, _) => CustomSingleChildLayout(
       delegate: _MenuPosition(at),
-      child: _GlassMenu<T>(entries: entries, touch: touch),
+      child: _GlassMenu<T>(entries: entries, touch: touch, header: header),
     ),
   );
 }
@@ -95,10 +102,11 @@ class _MenuPosition extends SingleChildLayoutDelegate {
 }
 
 class _GlassMenu<T> extends StatelessWidget {
-  const _GlassMenu({required this.entries, required this.touch});
+  const _GlassMenu({required this.entries, required this.touch, this.header});
 
   final List<GlassMenuEntry<T>> entries;
   final bool touch;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +136,23 @@ class _GlassMenu<T> extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (header case final header?) ...[
+                      Padding(
+                        padding: touch
+                            ? const EdgeInsets.fromLTRB(14, 6, 14, 10)
+                            : const EdgeInsets.fromLTRB(8, 5, 8, 8),
+                        child: header,
+                      ),
+                      Container(
+                        height: 0.5,
+                        margin: EdgeInsets.only(
+                          bottom: touch ? 5 : 4,
+                          left: touch ? 0 : 8,
+                          right: touch ? 0 : 8,
+                        ),
+                        color: colors.glassInk.withValues(alpha: 0.14),
+                      ),
+                    ],
                     for (final (i, entry) in entries.indexed)
                       switch (entry) {
                         GlassMenuItem<T>() => _Item<T>(
@@ -192,11 +217,17 @@ class _ItemState<T> extends State<_Item<T>> {
         ? colors.danger
         : colors.glassInk;
     final ink2 = lit && !touch ? colors.accentInk : colors.glassInk2;
-    final icon = item.icon == null
-        ? null
+    final iconSize = touch ? 20.0 : 15.0;
+    final glyph = switch (item.checked) {
+      true => FmpIcons.check,
+      false => null,
+      null => item.icon,
+    };
+    final icon = glyph == null
+        ? (item.checked == false ? SizedBox(width: iconSize) : null)
         : FmpIcon(
-            item.icon!,
-            size: touch ? 20 : 15,
+            glyph,
+            size: iconSize,
             color: item.destructive && !(lit && !touch) ? colors.danger : ink2,
           );
     final label = Expanded(

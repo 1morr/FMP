@@ -180,15 +180,16 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ),
         ),
-        Positioned.fill(
-          child: PhoneDock(
-            current: _current,
-            lastTab: _lastTab,
-            onTab: _select,
-            onSearch: _openSearch,
-            onLeaveSearch: _leaveSearch,
+        if (!ref.watch(dockHiddenProvider))
+          Positioned.fill(
+            child: PhoneDock(
+              current: _current,
+              lastTab: _lastTab,
+              onTab: _select,
+              onSearch: _openSearch,
+              onLeaveSearch: _leaveSearch,
+            ),
           ),
-        ),
         // 稿的 844 高框裡：有迷你播放器時離底 176，沒有時 112；安全區更高
         // 時和 dock 一起上移。
         Positioned.fill(
@@ -372,7 +373,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             child: SideBar(
               current: _current,
               onSelect: _select,
-              onSearch: _openSearch,
+              onSearch: _focusSearch,
             ),
           ),
           // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。

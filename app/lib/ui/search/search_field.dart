@@ -60,6 +60,11 @@ class _SearchFieldState extends ConsumerState<SearchField> {
   void _takeFocus() {
     ref.read(searchFocusRequestProvider.notifier).consume();
     _focus.requestFocus();
+    // 從側欄的欄位點進搜尋頁時，新頁的路由在 push 之後才拿焦點（它的
+    // focus scope）：下一個 frame 再要回來，游標留在欄位裡。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
   }
 
   @override
@@ -158,13 +163,19 @@ class _SearchFieldState extends ConsumerState<SearchField> {
           color: colors.glassInk.withValues(alpha: .08),
           borderRadius: BorderRadius.circular(9),
         ),
-        // 作用中時的強調色外框（稿是 inset box-shadow，不推擠內容）。
-        foregroundDecoration: widget.active || _focus.hasFocus
-            ? BoxDecoration(
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: colors.accent, width: 1.5),
-              )
-            : null,
+        // 作用中時的強調色外框（稿是 inset box-shadow，不推擠內容）。外框
+        // 一直都在、不作用時透明：換成 null 會讓 Container 少一層，整個
+        // TextField 重建，點擊的手勢與輸入連線跟著丟掉（點一下只聚焦、
+        // 進頁後打不進字）。
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: widget.active || _focus.hasFocus
+                ? colors.accent
+                : colors.accent.withValues(alpha: 0),
+            width: 1.5,
+          ),
+        ),
         child: row,
       ),
       SearchFieldPlacement.page => Container(

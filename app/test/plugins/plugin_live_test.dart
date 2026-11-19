@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/core/log/log.dart';
+import 'package:fmp/plugins/plugins.dart';
 
 import '../support/fjs.dart';
 import '../support/plugin_fixtures.dart';
@@ -57,5 +58,38 @@ void main() {
         expect(problems, isEmpty);
       });
     }
+    if (plugin.manifest.searchSorts.isEmpty) continue;
+    // 宣告了排序的插件：用第一個不是預設排序的 search 案例再打一次，確認
+    // 真實音源接受非預設的排序。
+    final sorted =
+        [
+          for (final file
+              in fixtureFiles(plugin)[PluginCapability.search] ?? [])
+            PluginFixture.parse(file.readAsStringSync()),
+        ].where(
+          (f) =>
+              f.input['sort'] != null &&
+              f.input['sort'] != plugin.manifest.searchSorts.first.name,
+        );
+    if (sorted.isEmpty) continue;
+    test('${plugin.id} search with a non-default sort against the real '
+        'source', () async {
+      final fixture = sorted.first;
+      final recording = liveRecording();
+      final problems = await runContract(
+        plugin.bundle,
+        PluginCapability.search,
+        fixture.input,
+        log: log,
+        httpAdapter: recording,
+        expect: fixture.expect,
+      );
+      // ignore: avoid_print -- 手動執行，印出打了什麼（已遮蔽）給人看。
+      print(
+        '${plugin.id} search ${fixture.input}:\n'
+        '${recording.summary}',
+      );
+      expect(problems, isEmpty);
+    });
   }
 }

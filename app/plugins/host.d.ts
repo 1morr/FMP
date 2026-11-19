@@ -55,15 +55,40 @@ interface PluginTrack {
   durationMs?: number;
   /** 封面圖的 http(s) 網址；宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。 */
   coverUrl?: string;
+  /** 播放數，非負整數；不知道就不給。給了不合格的值，整次搜尋算解析失敗。 */
+  playCount?: number;
+  /**
+   * 曲目在音源網站上的頁面，http(s) 的絕對網址；有網址才出現「複製連結」與
+   * 「在瀏覽器開啟」。給了不合格的值，整次搜尋算解析失敗。
+   */
+  url?: string;
 }
+
+/**
+ * 搜尋的排序（ADR 0039），名字照 YouTube Data API search.list 的 `order`：
+ * 綜合排序、最多播放、最新發布。
+ */
+type SearchSort = 'relevance' | 'viewCount' | 'date';
 
 /** 插件能力 search。 */
 interface SearchRequest {
   query: string;
+  /**
+   * 排序。宿主只傳 manifest 的 `searchSorts` 宣告過的值；沒給就用插件自己的
+   * 預設（`searchSorts` 的第一個）。
+   */
+  sort?: SearchSort;
+  /** 第幾頁，從 1 起；宿主一律會給，沒給當成 1。 */
+  page?: number;
 }
 
 interface SearchResponse {
   tracks: PluginTrack[];
+  /**
+   * true 表示沒有下一頁（照 MusicFree 插件搜尋的 `isEnd`）。沒給當成 true，
+   * 不分頁的插件不會被一直載入；給了不是 boolean，整次搜尋算解析失敗。
+   */
+  isEnd?: boolean;
 }
 
 /** 插件能力 resolveStream：把一首曲目解析成串流（GLOSSARY.md）。 */

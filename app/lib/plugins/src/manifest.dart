@@ -7,6 +7,19 @@ import 'package:path_parsing/path_parsing.dart';
 /// 宿主不認得的字串略過，舊版宿主讀得了新版插件的 manifest。
 enum PluginCapability { search, resolveStream }
 
+/// 搜尋的排序（ADR 0039）：值的名稱就是 manifest 與插件參數裡的字串，名字照
+/// YouTube Data API search.list 的 `order`。宿主不認得的字串略過。
+enum SearchSort {
+  /// 綜合排序。
+  relevance,
+
+  /// 最多播放。
+  viewCount,
+
+  /// 最新發布。
+  date,
+}
+
 /// 插件的 manifest（`app/plugins/<id>/manifest.json`）。
 ///
 /// 格式參考 Spotube 的 `plugin.json`（能力與權限分開宣告，ADR 0038）與
@@ -18,6 +31,7 @@ enum PluginCapability { search, resolveStream }
 ///   "name": "Example",
 ///   "version": "1.0.0",
 ///   "capabilities": ["search"],
+///   "searchSorts": ["relevance", "viewCount", "date"],
 ///   "domains": ["api.example.com", "*.cdn.example.com"],
 ///   "mark": {
 ///     "short": "Ex",
@@ -27,7 +41,8 @@ enum PluginCapability { search, resolveStream }
 /// }
 /// ```
 ///
-/// `mark` 是選填的音源標識（[SourceMark]，ADR 0039）。
+/// `mark` 是選填的音源標識（[SourceMark]，ADR 0039）。`searchSorts` 也是選填：
+/// 插件支援的搜尋排序，第一個是它的預設，沒宣告就不能排序。
 class PluginManifest {
   PluginManifest._({
     required this.id,
@@ -36,6 +51,7 @@ class PluginManifest {
     required this.capabilities,
     required this.domains,
     required this.mark,
+    required this.searchSorts,
   });
 
   /// 解析 manifest；缺欄位、型別不對或格式不合時丟 [FormatException]。
@@ -67,6 +83,13 @@ class PluginManifest {
       }
     }
     final declared = strings('capabilities').toSet();
+    // 依宣告的順序、去重、略過不認得的字串。
+    final searchSorts = <SearchSort>{
+      if (json.containsKey('searchSorts'))
+        for (final name in strings('searchSorts'))
+          for (final sort in SearchSort.values)
+            if (sort.name == name) sort,
+    };
     return PluginManifest._(
       id: id,
       name: field<String>('name'),
@@ -76,6 +99,7 @@ class PluginManifest {
           if (declared.contains(c.name)) c,
       },
       domains: List.unmodifiable(domains),
+      searchSorts: List.unmodifiable(searchSorts),
       mark: switch (json['mark']) {
         null => null,
         final Map<String, dynamic> mark => SourceMark._parse(mark),
@@ -93,6 +117,9 @@ class PluginManifest {
   /// 插件可以連的主機。`*.example.com` 涵蓋 `example.com` 的子網域，不含
   /// `example.com` 本身。
   final List<String> domains;
+
+  /// 插件支援的搜尋排序，第一個是它的預設；沒宣告是空的，就不能排序。
+  final List<SearchSort> searchSorts;
 
   /// 音源標識；插件沒宣告時是 null，畫面就不畫。
   final SourceMark? mark;

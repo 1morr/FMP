@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
@@ -130,5 +131,19 @@ class PlainIconButton extends StatelessWidget {
         child: FmpIcon(icon, size: 18, color: colors.label),
       ),
     );
+  }
+}
+
+/// 頁面要外殼藏起手機的 dock（導覽、搜尋欄與迷你播放器），讓位給頁面自己
+/// 的浮動動作列（搜尋結果多選時，`docs/design/search.html`〈更多與多選〉）。
+final dockHiddenProvider = NotifierProvider<DockHidden, bool>(DockHidden.new);
+
+class DockHidden extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool hidden) {
+    // 頁面卸載時才還 dock，整個 App 也可能正好一起收掉。
+    if (ref.mounted) state = hidden;
   }
 }

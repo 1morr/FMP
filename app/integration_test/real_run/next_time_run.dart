@@ -5,7 +5,7 @@ import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/common/format.dart';
-import 'package:fmp/ui/search/placeholder_search.dart';
+import 'package:fmp/search/search.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -40,8 +40,8 @@ void main() {
 
     final container = ProviderScope.containerOf(tester.element(more.first));
     final tracks = {
-      for (final results in container.read(placeholderSearchProvider)!.value!)
-        for (final track in results.tracks) track.ref: track,
+      for (final track in container.read(searchProvider)!.tracks)
+        track.ref: track,
     };
     // 只挑畫出來的列（列表是懶建的）。
     final rows = find.byWidgetPredicate((w) => w.key is ValueKey<TrackRef>);

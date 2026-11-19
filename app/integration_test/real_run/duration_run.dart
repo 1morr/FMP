@@ -124,8 +124,8 @@ void main() {
         find.descendant(of: controls, matching: find.text(title)),
       );
       // B 站 CDN 開頭偶爾要等十幾秒（看門狗會記警告）。
-      await run.waitFor(
-        find.text(t.placeholder.playback.playing),
+      await run.waitForStatus(
+        PlaybackStatus.playing,
         timeout: const Duration(seconds: 60),
       );
       // 播一陣子：後端在開始播之後才會更新長度（seekable 範圍、mpv 的 duration）。

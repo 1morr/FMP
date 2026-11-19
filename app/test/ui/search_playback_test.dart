@@ -5,13 +5,13 @@ import 'package:dio/dio.dart' show DioException;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/app.dart';
 import 'package:fmp/app/storage_notice.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/plugins/plugins.dart';
-import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/search/search_page.dart';
 
 import '../support/fake_audio_backend.dart';
@@ -106,7 +106,26 @@ void main() {
     }
   }
 
-  testWidgets('the panel and the transport bar show the track\'s own length '
+  /// 等到正在播（搜尋頁沒有狀態文字，讀播放狀態）。
+  Future<void> waitForPlaying(WidgetTester tester) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchPage)),
+    );
+    for (
+      var i = 0;
+      i < 500 &&
+          container.read(playbackProvider)?.status != PlaybackStatus.playing;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+    }
+    expect(container.read(playbackProvider)?.status, PlaybackStatus.playing);
+  }
+
+  testWidgets('the transport bar shows the track\'s own length '
       'when the backend reports a much shorter one', (tester) async {
     // AVPlayer 遇到 CDN 中途斷線時把長度截短（事實 M14）。
     final backend = FakeAudioBackend()
@@ -127,9 +146,9 @@ void main() {
     await waitFor(tester, find.text('Long'));
 
     await tester.runAsync(() async => tester.tap(find.text('Long')));
-    await waitFor(tester, find.text('播放中'));
+    await waitForPlaying(tester);
 
-    expect(find.text('0:00 / 59:33'), findsNWidgets(2));
+    expect(find.text('0:00 / 59:33'), findsOneWidget);
     expect(find.textContaining('33:10'), findsNothing);
   });
 
@@ -158,9 +177,8 @@ void main() {
     );
     await waitFor(tester, find.text('Playable'));
     await tester.runAsync(() async => tester.tap(find.text('Playable')));
-    await waitFor(tester, find.text('播放中'));
+    await waitForPlaying(tester);
 
-    expect(find.text('播放中'), findsOneWidget);
     expect(backend.calls, ['load', 'play']);
   });
 
@@ -184,94 +202,5 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('上次的佇列讀不回來，已另存一份'), findsNothing);
-  });
-
-  testWidgets('tapping a track plays it and shows its stream, or why it '
-      'cannot play', (tester) async {
-    final backend = FakeAudioBackend();
-    await tester.pumpWidget(
-      buildRoot(
-        overrides: [
-          pluginHostProvider.overrideWith((_) => host),
-          audioBackendProvider.overrideWithValue(backend),
-          // 串流在 2026-01-01 到期；離到期還早，按繼續不會先重新解析。
-          playbackClockProvider.overrideWithValue(
-            () => DateTime.utc(2025, 12, 1),
-          ),
-        ],
-      ),
-    );
-    await openSearch(tester);
-    await tester.enterText(find.byType(TextField), 'q');
-    await tester.runAsync(
-      () => tester.testTextInput.receiveAction(TextInputAction.search),
-    );
-    await waitFor(tester, find.text('Playable'));
-
-    await tester.runAsync(() async => tester.tap(find.text('Playable')));
-    await waitFor(tester, find.textContaining('音質'));
-
-    expect(find.text('音質：mp4a.40.2 · 135 kbps'), findsOneWidget);
-    expect(
-      find.text('到期：${formatExpiry(DateTime.utc(2026).toLocal())}'),
-      findsOneWidget,
-    );
-    // 網址照遮蔽規則顯示（brief〈錯誤、log 與診斷〉）。
-    expect(
-      find.text(
-        '網址：https://cdn.example.com/ok.m4a?deadline=1767225600&upsig=***',
-      ),
-      findsOneWidget,
-    );
-    expect(find.textContaining('SECRET123'), findsNothing);
-
-    // 播放出聲（票 11）：交給後端的是插件給的 header，能用外殼的播放膠囊
-    // 暫停、繼續。
-    await waitFor(tester, find.text('播放中'));
-    expect(backend.loaded.single.headers, {'Referer': 'https://example.com'});
-    expect(
-      find.descendant(
-        of: find.byType(TransportBar),
-        matching: find.text('0:00 / 3:00'),
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(find.byTooltip('暫停'));
-    await tester.pump();
-    expect(find.text('已暫停'), findsOneWidget);
-    await tester.tap(find.byTooltip('播放'));
-    await tester.pump();
-    expect(find.text('播放中'), findsOneWidget);
-    expect(backend.calls, ['load', 'play', 'pause', 'play']);
-
-    await tester.runAsync(() async => tester.tap(find.text('Gone')));
-    await waitFor(tester, find.text('找不到這首曲目'));
-    expect(find.text('找不到這首曲目'), findsOneWidget);
-    expect(find.textContaining('音質'), findsNothing);
-    expect(find.byTooltip('暫停'), findsNothing);
-
-    await tester.runAsync(() async => tester.tap(find.text('Search only')));
-    await waitFor(tester, find.text('這個音源不支援解析串流'));
-    expect(find.text('這個音源不支援解析串流'), findsOneWidget);
-
-    // 沒有網路時播放：跳出網路錯誤的提示（brief〈錯誤、log 與診斷〉）。
-    // 捲到播放膠囊上方再點，免得點到膠囊。
-    await tester.drag(find.text('Playable'), const Offset(0, -300));
-    await tester.pump();
-    await tester.runAsync(() async => tester.tap(find.text('Offline')));
-    const offline = '沒有網路，「Offline」無法播放。音樂庫與佇列照常可用。';
-    await waitFor(tester, find.text(offline));
-    expect(find.text(offline), findsOneWidget);
-    expect(find.text('重試'), findsOneWidget);
-
-    await tester.runAsync(() async {
-      await host.close();
-      await log.close();
-    });
-  });
-
-  test('formatExpiry', () {
-    expect(formatExpiry(DateTime(2026, 1, 2, 3, 4)), '2026-01-02 03:04');
-    expect(formatExpiry(DateTime(2026, 11, 12, 23, 59)), '2026-11-12 23:59');
   });
 }

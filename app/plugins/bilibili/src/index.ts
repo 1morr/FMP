@@ -1,4 +1,4 @@
-// Bilibili 插件。插件能力：search（brief 事實 F20）、resolveStream（事實
+// Bilibili 插件。插件能力：search（brief 事實 F20、F26）、resolveStream（事實
 // F1、F4、F5、F6、F21、F24）。
 //
 // 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
@@ -51,9 +51,21 @@ const ERROR_CODES = new Map<number, PluginErrorCode>([
 /** 匿名的瀏覽器指紋 cookie，引擎載入插件時產生一次（brief 事實 F20）。 */
 const COOKIE = browserCookie();
 
-export async function search({ query }: SearchRequest): Promise<SearchResponse> {
+/** 搜尋排序對到 B 站的 `order`（brief 事實 F26）。 */
+const SEARCH_ORDER: Record<SearchSort, string> = {
+  relevance: 'totalrank',
+  viewCount: 'click',
+  date: 'pubdate',
+};
+
+export async function search({
+  query,
+  sort,
+  page = 1,
+}: SearchRequest): Promise<SearchResponse> {
+  const order = SEARCH_ORDER[sort ?? 'relevance'] ?? SEARCH_ORDER.relevance;
   const url =
-    `${SEARCH_URL}?search_type=video&page=1` +
+    `${SEARCH_URL}?search_type=video&order=${order}&page=${page}` +
     `&keyword=${encodeURIComponent(query)}`;
   const res = await host.http.request({
     url,
@@ -62,9 +74,15 @@ export async function search({ query }: SearchRequest): Promise<SearchResponse> 
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
     },
   });
-  const data = parseResponse(res) as { result?: unknown[] } | undefined;
+  const data = parseResponse(res) as
+    | { result?: unknown[]; numPages?: unknown }
+    | undefined;
   const results = Array.isArray(data?.result) ? data.result : [];
-  return { tracks: results.map(toTrack) };
+  // 讀不到 numPages 時當成最後一頁，不會一直載入。
+  const numPages = data?.numPages;
+  const isEnd =
+    results.length === 0 || typeof numPages !== 'number' || page >= numPages;
+  return { tracks: results.map(toTrack), isEnd };
 }
 
 export async function resolveStream({
@@ -236,10 +254,11 @@ interface SearchItem {
   author: string;
   duration: string;
   pic: string;
+  play: unknown;
 }
 
 function toTrack(item: unknown): PluginTrack {
-  const { bvid, title, author, duration, pic } = item as SearchItem;
+  const { bvid, title, author, duration, pic, play } = item as SearchItem;
   if (typeof bvid !== 'string' || typeof title !== 'string') {
     throw new PluginError('parse_failure', 'search item without bvid or title');
   }
@@ -249,6 +268,11 @@ function toTrack(item: unknown): PluginTrack {
     author: typeof author === 'string' ? author : '',
     durationMs: parseDuration(duration),
     coverUrl: coverUrl(pic),
+    playCount:
+      typeof play === 'number' && Number.isFinite(play) && play >= 0
+        ? Math.round(play)
+        : undefined,
+    url: `https://www.bilibili.com/video/${bvid}`,
   };
 }
 

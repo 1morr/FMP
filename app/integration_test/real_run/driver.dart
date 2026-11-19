@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/main.dart' as app;
 import 'package:fmp/playback/audio_backend.dart';
+import 'package:fmp/playback/playback.dart';
 import 'package:fmp/ui/home/home_page.dart';
 
 import '../../test/support/scratch_data.dart';
@@ -53,6 +55,12 @@ class RealRun {
     return run;
   }
 
+  /// 不開真的 App，只接上截圖：情境自己 `pumpWidget`（例如假的搜尋狀態、
+  /// 不聯網），每一步照樣用系統工具截圖並讀回。截畫面的各種狀態用，不是
+  /// 實跑的主要流程，沒有 `01-launch`。
+  static RealRun attach(WidgetTester tester) =>
+      RealRun._(tester, _Capture.fromEnvironment());
+
   /// 一邊 pump 一邊真的等，直到 [finder] 找得到東西；超過 [timeout] 就讓測試
   /// 失敗。不用 `pumpAndSettle`：畫面上可能有不停的動畫。
   Future<void> waitFor(
@@ -64,6 +72,24 @@ class RealRun {
       await _settle(const Duration(milliseconds: 100));
     }
     expect(finder, findsWidgets);
+  }
+
+  /// 一邊 pump 一邊真的等，直到播放狀態（`playbackProvider`）是 [status]；
+  /// 超過 [timeout] 就讓測試失敗。
+  Future<void> waitForStatus(
+    PlaybackStatus status, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    // 從最上層的 Navigator 拿：哪一頁在前面都在它底下。
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(Navigator).first),
+    );
+    final deadline = DateTime.now().add(timeout);
+    while (container.read(playbackProvider)?.status != status &&
+        DateTime.now().isBefore(deadline)) {
+      await _settle(const Duration(milliseconds: 100));
+    }
+    expect(container.read(playbackProvider)?.status, status);
   }
 
   /// 記下一步：截圖存成 `NN-<name>.png`，讀回的文字（[readBack]）存成

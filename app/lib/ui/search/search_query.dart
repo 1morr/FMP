@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fmp/ui/search/placeholder_search.dart';
+import 'package:fmp/search/search.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 搜尋欄的文字。欄位依寬度放在不同地方（手機的 dock、中寬度的搜尋頁頂端、
@@ -27,7 +27,26 @@ class SearchFocusRequest extends Notifier<bool> {
   void consume() => state = false;
 }
 
-/// 用搜尋欄目前的文字搜尋。
+/// 用搜尋欄目前的文字搜尋（也記進搜尋紀錄）。
 void submitSearch(WidgetRef ref) => ref
-    .read(placeholderSearchProvider.notifier)
+    .read(searchProvider.notifier)
     .search(ref.read(searchQueryProvider).text);
+
+/// 用 [query] 搜尋並把它填進搜尋欄（點搜尋紀錄時）。
+void searchFor(WidgetRef ref, String query) {
+  ref.read(searchQueryProvider).text = query;
+  ref.read(searchProvider.notifier).search(query);
+}
+
+/// 音源篩選：只看哪個插件的結果，null 是全部。換搜尋時留著（設計稿：篩選
+/// 記住上一次的選擇），App 重開回到全部。
+final searchFilterProvider = NotifierProvider<SearchFilter, String?>(
+  SearchFilter.new,
+);
+
+class SearchFilter extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? pluginId) => state = pluginId;
+}

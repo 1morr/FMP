@@ -73,11 +73,35 @@ ADR 0038 定了音源用 JS 插件實作、介面依插件宣告的插件能力�
 
 ### `search` 的曲目封面（M1 票 06）
 
-`PluginTrack` 多一個選填的 `coverUrl`：清單用的封面縮圖網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗。縮圖的尺寸由插件挑，夠 3x 螢幕上 40–52 點的封面用（bilibili 用圖床參數裁成 160 方形 webp，約 2 KB；原圖平均約 450 KB）；播放頁與曲目資訊要的大圖之後另外取。宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。契約測試的 search 案例可以加 `{"covers": true}`，要求每首都有封面。排序參數由票 14 補。（2026-11-17 擁有者同意在票 06 補封面；交出縮圖而不是原圖由協調者定。）
+`PluginTrack` 多一個選填的 `coverUrl`：清單用的封面縮圖網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗。縮圖的尺寸由插件挑，夠 3x 螢幕上 40–52 點的封面用（bilibili 用圖床參數裁成 160 方形 webp，約 2 KB；原圖平均約 450 KB）；播放頁與曲目資訊要的大圖之後另外取。宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。契約測試的 search 案例可以加 `{"covers": true}`，要求每首都有封面。排序、分頁與播放數、網址由票 14 補（見下一節）。（2026-11-17 擁有者同意在票 06 補封面；交出縮圖而不是原圖由協調者定。）
 
 ### `resolveStream` 的 `segmentBase`（M1 票 06b）
 
 回應多一個選填的 `segmentBase`：`{"initialization": "0-836", "indexRange": "837-9432"}`，兩個都是含頭尾的位元組範圍 `<first>-<last>`，命名照 MPEG-DASH 的 `SegmentBase`（`Initialization@range`、`@indexRange`）。串流是單檔 fragmented MP4、而且插件拿得到這兩個範圍時才給；bilibili 照 playurl 的 `SegmentBase`（或 `segment_base`）填，讀不到就不給。宿主收進 `AudioStream.segmentBase`；給了但格式不對，整次解析算解析失敗。Apple 平台的音訊後端用它把串流包成 HLS（ADR 0040），其他平台不看。契約測試的 resolveStream 案例可以加 `{"segmentBase": true}`，要求串流給這兩個範圍。（2026-11-18 擁有者同意 ADR 0040 時一併同意。）
+
+### `search` 的排序、分頁與曲目欄位（M1 票 14）
+
+請求多兩個選填欄位，回應多一個，`PluginTrack` 多兩個：
+
+```ts
+interface SearchRequest { query: string; sort?: SearchSort; page?: number }
+interface SearchResponse { tracks: PluginTrack[]; isEnd?: boolean }
+type SearchSort = 'relevance' | 'viewCount' | 'date';
+// PluginTrack 多 playCount?: number、url?: string
+```
+
+- `sort`：綜合排序、最多播放、最新發布，名字照 YouTube Data API search.list 的 `order`。宿主只傳 manifest 宣告過的值，沒給就用插件自己的預設。
+- `page`：從 1 起，沒給是 1。
+- `isEnd`：照 MusicFree 插件搜尋的慣例，true 表示沒有下一頁。沒給當成 true，不分頁的插件不會被一直載入；給了不是 boolean，整次搜尋算解析失敗。
+- manifest 選填 `searchSorts`：插件支援哪幾種排序，第一個是預設；沒宣告就不能排序。宿主略過不認得的字串（同 `capabilities`）、去掉重複；宣告了但不是字串陣列，整個插件不載入（同其他欄位）。
+
+```json
+"searchSorts": ["relevance", "viewCount", "date"]
+```
+
+- `playCount`：播放數，非負整數；`url`：曲目在音源網站上的頁面，http 或 https 的絕對網址（有網址才出現「複製連結」與「在瀏覽器開啟」，見上面〈不是插件能力〉）。給了不合格的值，整次搜尋算解析失敗（同 `coverUrl`）。
+- bilibili（事實 F26）：`relevance`、`viewCount`、`date` 對到 `order=totalrank`、`click`、`pubdate`，沒給用 `totalrank`，一律帶 `order`；`page` 照傳；`isEnd` 看回應的 `data.numPages`（頁碼大於等於它）或這頁沒有結果，讀不到 `numPages` 時當成最後一頁；`playCount` 取每筆的 `play`（有限的非負數字才給）；`url` 是 `https://www.bilibili.com/video/<bvid>`。
+- 契約測試：search 案例的 `input` 可以加 `sort`（要是 manifest 宣告過的名字）與 `page`（正整數）；`expect` 可以加 `playCounts`、`urls`（每首都有）、`playCountsDescending`（播放數由大到小，驗最多播放的排序）、`more`（`isEnd` 要是 false）。宣告了 `searchSorts` 的插件，聯網冒煙測試多打一次非預設排序的案例。（2026-11-19 擁有者同意。）
 
 ## 後果
 

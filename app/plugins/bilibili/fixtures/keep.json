@@ -6,7 +6,9 @@
     "data.result.title",
     "data.result.author",
     "data.result.duration",
-    "data.result.pic"
+    "data.result.pic",
+    "data.result.play",
+    "data.numPages"
   ],
   "resolveStream": [
     "code",

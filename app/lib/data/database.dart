@@ -6,6 +6,7 @@ import 'package:drift/isolate.dart' show DriftRemoteException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/data/database.steps.dart';
 import 'package:fmp/data/queue_tables.dart';
+import 'package:fmp/data/search_history_tables.dart';
 import 'package:fmp/domain/queue.dart';
 
 part 'database.g.dart';
@@ -25,7 +26,7 @@ bool isCorruptDatabase(Object error) {
 /// schema 與升級。
 ///
 /// 改 schema 的流程（快照、[migration]、升級測試）照 architecture〈測試策略〉。
-@DriftDatabase(tables: [QueueEntries, QueueStates])
+@DriftDatabase(tables: [QueueEntries, QueueStates, SearchHistoryEntries])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
@@ -38,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
       customStatement('VACUUM INTO ?', [file.path]);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -46,6 +47,9 @@ class AppDatabase extends _$AppDatabase {
       from1To2: (m, schema) async {
         await m.createTable(schema.queueEntries);
         await m.createTable(schema.queueStates);
+      },
+      from2To3: (m, schema) async {
+        await m.createTable(schema.searchHistoryEntries);
       },
     ),
   );
