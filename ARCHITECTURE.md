@@ -30,6 +30,7 @@ app/
     plugins/    JS 引擎、宿主 API、宿主網路（只放行 manifest 宣告的網域）、插件管理
     playback/   佇列、臨時播放、音訊後端介面與兩個實作（實作在 `playback/backends/`）
     search/     跨插件搜尋、排序與分頁、搜尋紀錄
+    charts/     跨插件排行榜與它的快取（何時重抓）
     library/    本地歌單、匯入歌單、刷新、遠端寫入
     accounts/   帳號、登入、會員狀態
     lyrics/     歌詞匹配與顯示用的資料
