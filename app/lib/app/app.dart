@@ -1,8 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:fmp/app/i18n/language.dart';
 import 'package:fmp/app/i18n/plural_rules.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/app/theme/appearance.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/traffic_lights.dart';
@@ -33,13 +35,26 @@ class FmpApp extends ConsumerStatefulWidget {
   ConsumerState<FmpApp> createState() => _FmpAppState();
 }
 
-class _FmpAppState extends ConsumerState<FmpApp> {
+class _FmpAppState extends ConsumerState<FmpApp> with WidgetsBindingObserver {
   final GoRouter _router = buildRouter();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
     super.dispose();
+  }
+
+  /// 語言跟隨系統時，系統換語言就跟著換。
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (ref.read(languageProvider) == null) applyLanguage(null);
   }
 
   @override
@@ -47,12 +62,21 @@ class _FmpAppState extends ConsumerState<FmpApp> {
     // App 開著就讓系統媒體控制接著播放（沒有媒體控制時是 null）。
     ref.watch(mediaControlsBindingProvider);
     final density = Density.current;
+    final accent = ref.watch(accentProvider);
     return MaterialApp.router(
       routerConfig: _router,
-      // 深淺色跟系統；設定頁的主題選項之後再接。
-      themeMode: ThemeMode.system,
-      theme: buildTheme(brightness: Brightness.light, density: density),
-      darkTheme: buildTheme(brightness: Brightness.dark, density: density),
+      // 設定「外觀 › 主題」與「強調色」。
+      themeMode: ref.watch(themeModeProvider),
+      theme: buildTheme(
+        brightness: Brightness.light,
+        density: density,
+        accent: accent,
+      ),
+      darkTheme: buildTheme(
+        brightness: Brightness.dark,
+        density: density,
+        accent: accent,
+      ),
       onGenerateTitle: (context) => context.t.app.name,
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,

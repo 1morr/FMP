@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/core/errors/app_error.dart';
+import 'package:fmp/data/settings_store.dart';
 import 'package:fmp/domain/queue.dart';
 import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/domain/track.dart';
@@ -33,16 +34,36 @@ class TemporaryPlayHolder extends Notifier<TemporaryPlay?> {
   void set(TemporaryPlay? value) => state = value;
 }
 
-/// 臨時播放結束、回到佇列時倒退多少（brief〈播放〉，預設 10 秒）。設定頁的
-/// 入口與保存在設定的票。
+/// 臨時播放結束、回到佇列時倒退多少（brief〈播放〉，預設 10 秒），設定
+/// 「播放 › 臨時播放結束後倒退」。
 final temporaryPlayRewindProvider =
     NotifierProvider<TemporaryPlayRewind, Duration>(TemporaryPlayRewind.new);
 
-class TemporaryPlayRewind extends Notifier<Duration> {
-  @override
-  Duration build() => const Duration(seconds: 10);
+class TemporaryPlayRewind extends SavedSetting<Duration> {
+  /// 可選的秒數，由小到大，照舊版。
+  static const options = [
+    Duration.zero,
+    Duration(seconds: 3),
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+  ];
 
-  void set(Duration value) => state = value;
+  @override
+  String get key => 'playback.temporaryPlayRewindSeconds';
+
+  @override
+  Duration get fallback => const Duration(seconds: 10);
+
+  @override
+  Duration? decode(String raw) => switch (int.tryParse(raw)) {
+    final seconds? => options.where((o) => o.inSeconds == seconds).firstOrNull,
+    null => null,
+  };
+
+  @override
+  String encode(Duration value) => '${value.inSeconds}';
 }
 
 /// 連續幾首播不了就停止（brief〈播放〉）。

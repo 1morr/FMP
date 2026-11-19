@@ -4,23 +4,27 @@ import 'package:fmp/app/storage_notice.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/data/database.dart';
 import 'package:fmp/data/queue_store.dart';
+import 'package:fmp/data/settings_store.dart';
 import 'package:fmp/platform/database_file.dart';
 
-/// 啟動時開好的儲存：`main` 把三個值 override 進 `appDatabaseProvider`、
-/// `savedQueueProvider`、[storageNoticeProvider]。
+/// 啟動時開好的儲存：`main` 把四個值 override 進 `appDatabaseProvider`、
+/// `savedQueueProvider`、`savedSettingsProvider`、[storageNoticeProvider]。
 typedef Storage = ({
   AppDatabase? database,
   SavedQueue? saved,
+  Map<String, String> settings,
   StorageNotice? notice,
 });
 
 const Storage _unavailable = (
   database: null,
   saved: null,
+  settings: {},
   notice: StorageNotice.databaseUnavailable,
 );
 
-/// 開 [file] 上的資料庫、讀回上次的佇列。讀不回來的資料不靜靜蓋掉，先另存
+/// 開 [file] 上的資料庫、讀回上次的佇列與設定。設定讀不回來時用預設值，
+/// 不另存（設定只是偏好，重選就好）。讀不回來的資料不靜靜蓋掉，先另存
 /// 成 [unreadableBackupFile]（[now] 決定檔名），照 Firefox 把壞掉的
 /// `places.sqlite` 另存的慣例：
 ///
@@ -68,6 +72,7 @@ Future<Storage> openStorage(
     return (
       database: database,
       saved: null,
+      settings: const <String, String>{},
       notice: StorageNotice.queueUnreadable,
     );
   } catch (error, stackTrace) {
@@ -110,16 +115,22 @@ Future<AppDatabase> _open(File file, Log log) async {
   }
 }
 
-/// 讀回佇列；存的佇列對不起來就另存一份再清掉。資料庫檔壞了就丟出去。
+/// 讀回佇列與設定；存的佇列對不起來就另存一份再清掉。資料庫檔壞了就丟出去。
 Future<Storage> _restore(
   AppDatabase database,
   File file,
   Log log,
   DateTime Function() now,
 ) async {
+  final settings = await _loadSettings(database, log);
   final store = QueueStore(database);
   try {
-    return (database: database, saved: await store.load(), notice: null);
+    return (
+      database: database,
+      saved: await store.load(),
+      settings: settings,
+      notice: null,
+    );
   } catch (error, stackTrace) {
     if (isCorruptDatabase(error)) rethrow;
     log.error(
@@ -150,8 +161,24 @@ Future<Storage> _restore(
   return (
     database: database,
     saved: null,
+    settings: settings,
     notice: StorageNotice.queueUnreadable,
   );
+}
+
+/// 讀不回來時用預設值；資料庫檔壞了就丟出去。
+Future<Map<String, String>> _loadSettings(AppDatabase database, Log log) async {
+  try {
+    return await SettingsStore(database).load();
+  } catch (error, stackTrace) {
+    if (isCorruptDatabase(error)) rethrow;
+    log.error(
+      'Restoring the settings failed; using the defaults',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    return const {};
+  }
 }
 
 Future<void> _closeQuietly(AppDatabase database) async {
