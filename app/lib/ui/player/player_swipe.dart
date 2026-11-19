@@ -92,7 +92,7 @@ class _PlayerSwipeState extends ConsumerState<PlayerSwipe> {
             const SizedBox(width: 8),
             const Expanded(child: PlayerContext()),
             const SizedBox(width: 8),
-            more ?? const SizedBox(width: 44),
+            more,
           ],
         ),
       ),

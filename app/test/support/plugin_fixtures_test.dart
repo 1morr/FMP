@@ -414,6 +414,73 @@ export async function search({ query }) {
       });
     });
 
+    group('trackInfo', () {
+      final infoManifest = jsonEncode({
+        'id': 'demo',
+        'name': 'Demo',
+        'version': '1.0.0',
+        'capabilities': ['trackInfo'],
+        'domains': ['api.example.com'],
+      });
+
+      /// 回傳 [info] 的 trackInfo。
+      PluginBundle describing(Map<String, Object?> info) => PluginBundle(
+        manifest: infoManifest,
+        code:
+            'export async function trackInfo() { '
+            'return ${jsonEncode(info)}; }',
+      );
+
+      test('info with every expected field stays green', () async {
+        expect(
+          await run(
+            describing({
+              'publishedAtMs': 1,
+              'playCount': 1,
+              'likeCount': 0,
+              'commentCount': 2,
+              'description': 'd',
+            }),
+            PluginCapability.trackInfo,
+            const {'stats': true, 'published': true, 'description': true},
+          ),
+          isEmpty,
+        );
+      });
+
+      test('empty info is within the contract', () async {
+        expect(
+          await run(describing({}), PluginCapability.trackInfo, const {}),
+          isEmpty,
+        );
+      });
+
+      test('stats: a missing count turns red', () async {
+        expect(
+          await run(
+            describing({'playCount': 1, 'commentCount': 2}),
+            PluginCapability.trackInfo,
+            const {'stats': true},
+          ),
+          ['expected a likeCount, got none'],
+        );
+      });
+
+      test('published and description: missing ones turn red', () async {
+        expect(
+          await run(
+            describing({'description': ' '}),
+            PluginCapability.trackInfo,
+            const {'published': true, 'description': true},
+          ),
+          [
+            'expected a publishedAtMs, got none',
+            'expected a description, got none',
+          ],
+        );
+      });
+    });
+
     test('an expectation the capability does not know turns red', () async {
       expect(
         await run(

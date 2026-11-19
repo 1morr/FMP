@@ -29,3 +29,21 @@ String formatCount(int count, {(String, String)? chineseUnits}) {
   if (count < 1000000000) return short(count / 1000000, 'M');
   return short(count / 1000000000, 'B');
 }
+
+/// 完整的數字，每三位一個逗號（`3,120`；設計稿曲目資訊的寫法）。
+String formatGrouped(int count) {
+  final digits = count.abs().toString();
+  final buffer = StringBuffer(count < 0 ? '-' : '');
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  return buffer.toString();
+}
+
+/// 日期 `2026-03-14`（當地時間）。
+String formatDate(DateTime time) {
+  final local = time.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)}';
+}

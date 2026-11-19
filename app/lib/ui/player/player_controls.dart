@@ -14,6 +14,7 @@ import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
+import 'package:fmp/ui/track_info/track_info.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 播放頁裡跟密度走的尺寸：[touch] 是手機與平板（`.pl-prog`、`.pl-ctl`、
@@ -430,53 +431,75 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-/// 音源膠囊（招牌，`.pl-sig`，`docs/design/DESIGN.md`〈播放頁音源膠囊〉）：清
-/// 玻璃，音源符號＋全名。存取等級、音質與點開曲目資訊的 › 等那些功能做出來
-/// 才加，還沒有的不出現。
+/// 音源膠囊（`.pl-sig`，`DESIGN.md`〈播放頁音源膠囊〉）：清玻璃，音源符號加
+/// 全名；點它（或鍵盤選到按 Enter）打開曲目資訊。存取等級與音質在 M2。
+///
+/// 觸控時點擊區補到 44（`DESIGN.md`〈無障礙〉）：膠囊照稿 30 高、靠在點擊區
+/// 底邊，多出來的 [touchOverhangOf] 在膠囊上方（下方緊接進度條的點擊區）。
 class SignatureCapsule extends ConsumerWidget {
   const SignatureCapsule({super.key, required this.density});
 
   final PlayerDensity density;
 
+  /// 觸控時點擊區比看得到的膠囊高出來、在膠囊上方的那截；排版時從上面的間距
+  /// 扣掉。
+  static double touchOverhangOf(PlayerDensity density) =>
+      density.touch ? 44 - density.signatureHeight : 0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pluginId = ref.watch(
-      playbackProvider.select((state) => state?.track.ref.pluginId),
-    );
-    if (pluginId == null) return const SizedBox.shrink();
+    final track = ref.watch(playbackProvider.select((state) => state?.track));
+    if (track == null) return const SizedBox.shrink();
+    final pluginId = track.ref.pluginId;
     final name = ref.watch(pluginManifestProvider(pluginId))?.name ?? pluginId;
-    return Semantics(
-      label: context.t.player.source(name: name),
-      container: true,
-      excludeSemantics: true,
-      child: Glass(
-        variant: GlassVariant.clear,
-        child: SizedBox(
-          height: density.signatureHeight,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 9, right: 11),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SourceMarkIcon(pluginId: pluginId, size: 14),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: density.signatureFont,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0,
-                      color: context.fmpColors.label,
-                    ),
+    final capsule = Glass(
+      variant: GlassVariant.clear,
+      child: SizedBox(
+        height: density.signatureHeight,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 9, right: 11),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SourceMarkIcon(pluginId: pluginId, size: 14),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: density.signatureFont,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                    color: context.fmpColors.label,
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 4),
+              FmpIcon(
+                FmpIcons.chevR,
+                size: density.signatureFont + 2,
+                color: context.fmpColors.label2,
+              ),
+            ],
           ),
         ),
+      ),
+    );
+    final overhang = touchOverhangOf(density);
+    return ShellButton(
+      key: const Key('player-signature'),
+      onTap: () => showTrackInfo(context, track),
+      label: context.t.player.sourceInfo(name: name),
+      focusRadius: 999,
+      builder: (context, _) => ExcludeSemantics(
+        child: overhang == 0
+            ? capsule
+            : Padding(
+                padding: EdgeInsets.only(top: overhang),
+                child: capsule,
+              ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fmp/app/theme/theme.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 鍵盤焦點的外框（`docs/design/DESIGN.md`〈無障礙〉：`:focus-visible` 2px
@@ -59,3 +60,14 @@ class _RingPainter extends CustomPainter {
   bool shouldRepaint(_RingPainter old) =>
       old.color != color || old.radius != radius;
 }
+
+/// 鍵盤選到的按鈕的快捷鍵：Space 在 App 裡是播放／暫停（`PlaybackShortcuts`），
+/// 不再同時按下按鈕，按鈕用 Enter 按。對話框與選單裡 Space 不是播放鍵，照
+/// 框架預設按下按鈕。給 `FocusableActionDetector.shortcuts` 用。
+Map<ShortcutActivator, Intent>? buttonShortcuts(BuildContext context) =>
+    ModalRoute.of(context) is PopupRoute
+    ? null
+    : const {
+        SingleActivator(LogicalKeyboardKey.space):
+            DoNothingAndStopPropagationIntent(),
+      };

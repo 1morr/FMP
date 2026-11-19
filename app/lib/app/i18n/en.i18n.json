@@ -20,7 +20,15 @@
     "detail": {
       "title": "Now Playing",
       "show": "Show details",
-      "hide": "Hide details"
+      "hide": "Hide details",
+      "empty": "Nothing is playing",
+      "next": "Up next",
+      "description": "About",
+      "noDescription": "This source doesn't give a description.",
+      "plays": "plays",
+      "comments": "comments",
+      "albumBefore": "Album ",
+      "albumAfter": ""
     },
     "library": {
       "empty": "No playlists yet"
@@ -230,6 +238,27 @@
       "label": "$page, page $number of $total",
       "queue": "Queue",
       "cover": "Cover"
-    }
+    },
+    "sourceInfo": "Source: $name, open track info"
+  },
+  "trackInfo": {
+    "title": "Track info",
+    "titleShortcut": "Track info ($key)",
+    "close": "Close",
+    "closeShortcut": "Close ($key)",
+    "source": "Source",
+    "album": "Album",
+    "published": "Released",
+    "duration": "Length",
+    "parts": "Parts",
+    "partsValue": "$count parts",
+    "plays": "Plays",
+    "likes": "Likes",
+    "comments": "Comments",
+    "description": "About",
+    "loading": "Loading more info…",
+    "failed": "Couldn't load more info",
+    "retry": "Retry",
+    "openIn": "Open in $source"
   }
 }

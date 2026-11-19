@@ -16,11 +16,21 @@ import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/toast/toast.dart';
+import 'package:fmp/ui/track_info/track_info.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 一首曲目的「更多」能做的事（`docs/design/search.html`〈更多與多選〉）。
 /// 還沒有的功能（加入歌單、匹配歌詞）不出現。
-enum TrackAction { play, playNext, addToQueue, copyLink, openInBrowser }
+enum TrackAction {
+  play,
+  playNext,
+  addToQueue,
+
+  /// 打開曲目資訊（播放頁的 ⋮）。
+  trackInfo,
+  copyLink,
+  openInBrowser,
+}
 
 /// [track] 的動作：曲目有網址才有複製連結與在瀏覽器開啟（ADR 0039）。
 List<TrackAction> trackActionsFor(Track track) => [
@@ -120,6 +130,8 @@ TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) {
         if (await expand(tracks) case final all?) await queue.playNext(all);
       case TrackAction.addToQueue:
         if (await expand(tracks) case final all?) await queue.add(all);
+      case TrackAction.trackInfo:
+        if (context.mounted) await showTrackInfo(context, tracks.first);
       case TrackAction.copyLink:
         await Clipboard.setData(ClipboardData(text: tracks.first.url!));
         toasts.show(
@@ -137,6 +149,7 @@ String _label(Translations t, TrackAction action) => switch (action) {
   TrackAction.play => t.search.actions.play,
   TrackAction.playNext => t.queue.actions.playNext,
   TrackAction.addToQueue => t.queue.actions.addToQueue,
+  TrackAction.trackInfo => t.trackInfo.title,
   TrackAction.copyLink => t.search.actions.copyLink,
   TrackAction.openInBrowser => t.search.actions.openInBrowser,
 };
@@ -145,6 +158,7 @@ FmpIcons _icon(TrackAction action) => switch (action) {
   TrackAction.play => FmpIcons.play,
   TrackAction.playNext => FmpIcons.nextUp,
   TrackAction.addToQueue => FmpIcons.queue,
+  TrackAction.trackInfo => FmpIcons.info,
   TrackAction.copyLink => FmpIcons.link,
   TrackAction.openInBrowser => FmpIcons.external,
 };

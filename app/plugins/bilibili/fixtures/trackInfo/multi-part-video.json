@@ -1,0 +1,26 @@
+{
+  "input": {
+    "trackId": "BV1SQ4y1J7AA?p=2"
+  },
+  "expect": {
+    "stats": true,
+    "published": true,
+    "description": true
+  },
+  "recorded": "2026-11-20",
+  "interactions": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.bilibili.com/x/web-interface/wbi/view?bvid=BV1SQ4y1J7AA"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"code\":0,\"message\":\"OK\",\"data\":{\"pubdate\":1698939176,\"desc\":\"陈楚生有一种高贵的颓废，内敛的优雅，低调的叛逆，温柔的狂野，复杂的简单，含蓄的真诚，是坠入凡间的双面精灵\",\"stat\":{\"view\":376278,\"reply\":110,\"like\":3122}}}"
+      }
+    }
+  ]
+}

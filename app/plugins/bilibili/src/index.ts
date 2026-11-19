@@ -1,5 +1,6 @@
 // Bilibili 插件。插件能力：search（brief 事實 F20、F26、F27）、resolveStream
-// （事實 F1、F4、F5、F6、F21、F24）、listParts（事實 F1、F21、F27）。
+// （事實 F1、F4、F5、F6、F21、F24）、listParts（事實 F1、F21、F27）、
+// trackInfo（事實 F1）。
 //
 // 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
 // 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P，n ≥ 2（GLOSSARY.md：每個分 P
@@ -8,6 +9,11 @@
 const SEARCH_URL = 'https://api.bilibili.com/x/web-interface/search/type';
 const PAGELIST_URL = 'https://api.bilibili.com/x/player/pagelist';
 const PLAYURL_URL = 'https://api.bilibili.com/x/player/playurl';
+/**
+ * 影片資訊（發佈時間、簡介、播放數等）。匿名打 `view` 會 412，`wbi/view` 不簽
+ * 也回 200（事實 F1）。
+ */
+const VIEW_URL = 'https://api.bilibili.com/x/web-interface/wbi/view';
 /** 批次查影片資訊，搜尋結果的分 P 數從這裡來（brief 事實 F27）。 */
 const INFOS_URL = 'https://api.bilibili.com/x/v3/fav/resource/infos';
 /** infos 的 `resources` 裡 `:2` 是資源類型「影片」。 */
@@ -163,6 +169,37 @@ export async function listParts({
     .sort((a, b) => a.page - b.page)
     .map((p) => p.part);
   return { parts };
+}
+
+export async function trackInfo({
+  trackId,
+}: TrackInfoRequest): Promise<TrackInfoResponse> {
+  const match = TRACK_ID.exec(trackId);
+  if (match === null) {
+    throw new PluginError('not_found', `not a bilibili track id: ${trackId}`);
+  }
+  // 分 P 沒有自己的資訊，用整支影片的。
+  const data = (await apiGet(`${VIEW_URL}?bvid=${match[1]}`)) as
+    | { pubdate?: unknown; desc?: unknown; stat?: Record<string, unknown> }
+    | undefined;
+  const stat = data?.stat ?? {};
+  const pubdate = count(data?.pubdate);
+  // B 站沒有專輯。
+  return {
+    publishedAtMs: pubdate === undefined || pubdate === 0 ? undefined : pubdate * 1000,
+    playCount: count(stat.view),
+    likeCount: count(stat.like),
+    commentCount: count(stat.reply),
+    description:
+      typeof data?.desc === 'string' && data.desc.trim() !== '' ? data.desc : undefined,
+  };
+}
+
+/** 非負整數才算數，其他（缺、負數、字串）都當成沒給。 */
+function count(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) && (value as number) >= 0
+    ? (value as number)
+    : undefined;
 }
 
 export async function resolveStream({

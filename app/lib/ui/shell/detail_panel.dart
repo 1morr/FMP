@@ -2,11 +2,14 @@ import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/window_drag.dart';
+import 'package:fmp/ui/shell/detail_content.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 右側的實心詳情面板（`FMP.detailPanel`，`docs/design/DESIGN.md`〈桌面〉
-/// 〈中寬度〉）。現在只有標頭「正在播放」與收起鈕；內容在曲目資訊那張票。
+/// 〈中寬度〉）：標頭「正在播放」與收起鈕，內容是目前曲目的封面、曲名、音源
+/// chip、播放數等、下一首與簡介（[DetailContent]）。加入歌單（M3）、資訊／
+/// 歌詞分段（M4）、存取等級徽章（M2）還沒有。
 ///
 /// 寬級貼在視窗右邊（[floating] false）；中寬度浮在內容上，帶圓角與陰影。
 class DetailPanel extends StatelessWidget {
@@ -69,6 +72,7 @@ class DetailPanel extends StatelessWidget {
       children: [
         WindowDragArea(child: SizedBox(height: topInset)),
         head,
+        Expanded(child: DetailContent(touch: big)),
       ],
     );
     if (!floating) {

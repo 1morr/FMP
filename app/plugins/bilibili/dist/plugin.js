@@ -2,6 +2,7 @@
 var SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/type";
 var PAGELIST_URL = "https://api.bilibili.com/x/player/pagelist";
 var PLAYURL_URL = "https://api.bilibili.com/x/player/playurl";
+var VIEW_URL = "https://api.bilibili.com/x/web-interface/wbi/view";
 var INFOS_URL = "https://api.bilibili.com/x/v3/fav/resource/infos";
 var RESOURCE_TYPE_VIDEO = 2;
 var API_REFERER = "https://www.bilibili.com/";
@@ -102,6 +103,27 @@ async function listParts({
     };
   }).sort((a, b) => a.page - b.page).map((p) => p.part);
   return { parts };
+}
+async function trackInfo({
+  trackId
+}) {
+  const match = TRACK_ID.exec(trackId);
+  if (match === null) {
+    throw new PluginError("not_found", `not a bilibili track id: ${trackId}`);
+  }
+  const data = await apiGet(`${VIEW_URL}?bvid=${match[1]}`);
+  const stat = data?.stat ?? {};
+  const pubdate = count(data?.pubdate);
+  return {
+    publishedAtMs: pubdate === void 0 || pubdate === 0 ? void 0 : pubdate * 1e3,
+    playCount: count(stat.view),
+    likeCount: count(stat.like),
+    commentCount: count(stat.reply),
+    description: typeof data?.desc === "string" && data.desc.trim() !== "" ? data.desc : void 0
+  };
+}
+function count(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
 }
 async function resolveStream({
   trackId
@@ -261,5 +283,6 @@ function browserCookie() {
 export {
   listParts,
   resolveStream,
-  search
+  search,
+  trackInfo
 };

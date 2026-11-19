@@ -57,6 +57,23 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 中寬度浮出的詳情面板。
   bool _floatingDetail = false;
 
+  /// 浮出的詳情面板打開時拿焦點，Esc 才關得掉：焦點已經在別處時
+  /// `autofocus` 不會搶過來。
+  final _floatingDetailFocus = FocusNode(debugLabel: 'floating detail');
+
+  @override
+  void dispose() {
+    _floatingDetailFocus.dispose();
+    super.dispose();
+  }
+
+  void _openFloatingDetail() {
+    setState(() => _floatingDetail = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _floatingDetail) _floatingDetailFocus.requestFocus();
+    });
+  }
+
   Destination get _current => Destination.of(widget.location);
 
   static Destination _tabOrHome(Destination d) =>
@@ -292,9 +309,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             touch: touch,
           ),
           if (!_floatingDetail)
-            _detailButton(touch, top0, () {
-              setState(() => _floatingDetail = true);
-            })
+            _detailButton(touch, top0, _openFloatingDetail)
           else ...[
             // 點外面關掉。
             Positioned.fill(
@@ -315,7 +330,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                       setState(() => _floatingDetail = false),
                 },
                 child: Focus(
-                  autofocus: true,
+                  focusNode: _floatingDetailFocus,
                   child: DetailPanel(
                     touch: touch,
                     floating: true,

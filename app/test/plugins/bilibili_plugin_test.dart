@@ -59,6 +59,7 @@ void main() {
       PluginCapability.search,
       PluginCapability.resolveStream,
       PluginCapability.listParts,
+      PluginCapability.trackInfo,
     });
     expect(bilibili().manifest.allowsHost('api.bilibili.com'), isTrue);
   });
@@ -477,6 +478,85 @@ void main() {
       respond = (_) => const FakeResponse(412, 'banned');
       await expectLater(
         bilibili().listParts(parent),
+        throwsA(isA<RateLimited>()),
+      );
+    });
+  });
+
+  group('trackInfo', () {
+    Map<String, Object?> view({
+      Object? pubdate = 1698939176,
+      Object? desc = '影片簡介',
+      Object? stat = const {'view': 376272, 'like': 3122, 'reply': 110},
+    }) => {
+      'bvid': 'BV1xx411c7mD',
+      'pubdate': pubdate,
+      'desc': desc,
+      'stat': stat,
+    };
+
+    test('gives the publish date, counts and description of the video, '
+        'with no album', () async {
+      respond = (_) => FakeResponse.json(ok(view()));
+
+      final info = await bilibili().trackInfo(bv('BV1xx411c7mD'));
+
+      expect(
+        info.publishedAt,
+        DateTime.fromMillisecondsSinceEpoch(1698939176000, isUtc: true),
+      );
+      expect(info.playCount, 376272);
+      expect(info.likeCount, 3122);
+      expect(info.commentCount, 110);
+      expect(info.description, '影片簡介');
+      expect(info.album, isNull);
+      final request = http.requests.single.uri;
+      expect(request.path, '/x/web-interface/wbi/view');
+      expect(request.queryParameters, {'bvid': 'BV1xx411c7mD'});
+    });
+
+    test('a part asks about its whole video', () async {
+      respond = (_) => FakeResponse.json(ok(view()));
+      await bilibili().trackInfo(bv('BV1xx411c7mD?p=3'));
+      expect(http.requests.single.uri.queryParameters, {
+        'bvid': 'BV1xx411c7mD',
+      });
+    });
+
+    test('fields the API does not give usably are left out', () async {
+      respond = (_) => FakeResponse.json(
+        ok(view(pubdate: 0, desc: '', stat: {'view': -1, 'like': '3'})),
+      );
+
+      final info = await bilibili().trackInfo(bv('BV1xx411c7mD'));
+
+      expect(info.publishedAt, isNull);
+      expect(info.playCount, isNull);
+      expect(info.likeCount, isNull);
+      expect(info.commentCount, isNull);
+      expect(info.description, isNull);
+    });
+
+    test('a track id that is not a bilibili id is NotFound', () async {
+      await expectLater(
+        bilibili().trackInfo(bv('nope')),
+        throwsA(isA<NotFound>()),
+      );
+    });
+
+    test('a video that is gone (-404) is NotFound', () async {
+      respond = (_) =>
+          FakeResponse.json({'code': -404, 'message': '啥都木有', 'data': null});
+      await expectLater(
+        bilibili().trackInfo(bv('BV1xx411c7mD')),
+        throwsA(isA<NotFound>()),
+      );
+    });
+
+    test('HTTP 412 on view is RateLimited', () async {
+      respond = (_) => const FakeResponse(412, 'banned');
+      await expectLater(
+        bilibili().trackInfo(bv('BV1xx411c7mD')),
         throwsA(isA<RateLimited>()),
       );
     });

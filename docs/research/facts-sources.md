@@ -6,7 +6,7 @@
 
 ### Bilibili
 
-- **F1** 匿名請求 `/x/web-interface/view` 回 HTTP 412；`/x/web-interface/wbi/view` 與 `/x/player/pagelist` 回 200（2026-09-15）。出處：`legacy:lib/data/sources/bilibili_source.dart:77-83`。可信度：舊版程式碼。
+- **F1** 匿名請求 `/x/web-interface/view` 回 HTTP 412；`/x/web-interface/wbi/view` 與 `/x/player/pagelist` 回 200（2026-09-15）。`wbi/view?bvid=<bvid>` 不帶 `wts`、`w_rid` 也回 200（舊版從沒簽過）；帶事實 F21 的瀏覽器 header 與指紋 cookie，2026-11-19 匿名打 `BV1SQ4y1J7AA` 回 `code: 0`，`data` 有 `pubdate`（unix 秒）、`desc`（簡介）、`stat`（`view`、`like`、`reply`、`favorite`、`coin`、`share`、`danmaku`）、`pages`、`videos`，沒有專輯。出處：`legacy:lib/data/sources/bilibili_source.dart:77-83`；M1 票 17 的實測（curl）與錄製（`app/plugins/bilibili/fixtures/trackInfo/multi-part-video.json`）。可信度：`view` 的 412 是舊版程式碼；`wbi/view` 2026-11-19 實測。
 - **F2** 風控碼 `-352`、`-412`、`-509`、`-799` 與 HTTP 412、429 要當限流退避，換 buvid 指紋救不回來。節流針對匿名身分：2026-09-22 同時間窗匿名 23/40 被擋、帶登入 0/40；`curl`、`okhttp` 這類 UA 必被擋。出處：`legacy:lib/data/sources/bilibili_source.dart:923-940`、`legacy:lib/data/sources/bilibili_exception.dart:15-24`。可信度：舊版程式碼。
 - **F3** 認證失敗是 HTTP 200 加 JSON `code: -101/-111`，不是 401；cookie 刷新用 RSA-OAEP，刷新後仍 `-101` 才是憑證真的失效；QR 輪詢回 `86038` 表示過期。出處：`legacy:lib/services/account/bilibili_auth_interceptor.dart:10-14,78`。可信度：舊版程式碼。
 - **F4** 媒體與圖片 CDN 要 Referer（不帶結尾斜線）加瀏覽器的 User-Agent（事實 F22，舊版的媒體請求也一律帶瀏覽器 UA）；API 要 Referer（帶斜線）加 Origin；媒體請求不帶憑證。出處：`legacy:lib/data/sources/source_http_policy.dart:8-10,45,73-84,100-104`；M0 票 11 的實測（事實 F22）。可信度：舊版程式碼，媒體 header 的部分 2026-11-12 實測。
