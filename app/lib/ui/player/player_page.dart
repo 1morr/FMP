@@ -86,48 +86,52 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     final swipe =
         form.widthClass == WidthClass.narrow ||
         (touch && size.height > size.width);
-    return Theme(
-      data: theme.copyWith(
-        extensions: [colors, context.fmpText, context.fmpMetrics],
-      ),
-      child: CallbackShortcuts(
-        bindings: {const SingleActivator(LogicalKeyboardKey.escape): _close},
-        child: Focus(
-          autofocus: true,
-          child: Material(
-            type: MaterialType.transparency,
-            child: Stack(
-              children: [
-                Positioned.fill(child: PlayerBackground(colors: ambient)),
-                if (shown != null)
-                  Positioned.fill(
-                    child: swipe
-                        ? PlayerSwipe(
-                            track: shown,
-                            tablet: form.widthClass != WidthClass.narrow,
-                            topBar: _topBar(context, shown, touch: true),
-                            onClose: _close,
-                          )
-                        : _Columns(
-                            track: shown,
-                            touch: touch,
-                            wide: form.widthClass == WidthClass.wide,
-                            topBar: _topBar(context, shown, touch: touch),
-                          ),
-                  ),
-                if (WindowChrome.insetTrafficLights && !swipe)
-                  // 紅綠燈留在左上（`.side` 在 top 4、left 6，燈從 (8, 14) 起）。
-                  const Positioned(
-                    left: 6,
-                    top: 4,
-                    child: TrafficLightsArea(
-                      spot: Offset(8, 14),
-                      child: SizedBox(width: 80, height: 40),
+    // 色場上一律白字：狀態列圖示也用淺色。
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Theme(
+        data: theme.copyWith(
+          extensions: [colors, context.fmpText, context.fmpMetrics],
+        ),
+        child: CallbackShortcuts(
+          bindings: {const SingleActivator(LogicalKeyboardKey.escape): _close},
+          child: Focus(
+            autofocus: true,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Stack(
+                children: [
+                  Positioned.fill(child: PlayerBackground(colors: ambient)),
+                  if (shown != null)
+                    Positioned.fill(
+                      child: swipe
+                          ? PlayerSwipe(
+                              track: shown,
+                              tablet: form.widthClass != WidthClass.narrow,
+                              topBar: _topBar(context, shown, touch: true),
+                              onClose: _close,
+                            )
+                          : _Columns(
+                              track: shown,
+                              touch: touch,
+                              wide: form.widthClass == WidthClass.wide,
+                              topBar: _topBar(context, shown, touch: touch),
+                            ),
                     ),
-                  ),
-                if (WindowChrome.captionButtons)
-                  const Positioned(top: 0, right: 0, child: CaptionButtons()),
-              ],
+                  if (WindowChrome.insetTrafficLights && !swipe)
+                    // 紅綠燈留在左上（`.side` 在 top 4、left 6，燈從 (8, 14) 起）。
+                    const Positioned(
+                      left: 6,
+                      top: 4,
+                      child: TrafficLightsArea(
+                        spot: Offset(8, 14),
+                        child: SizedBox(width: 80, height: 40),
+                      ),
+                    ),
+                  if (WindowChrome.captionButtons)
+                    const Positioned(top: 0, right: 0, child: CaptionButtons()),
+                ],
+              ),
             ),
           ),
         ),
@@ -454,7 +458,13 @@ class _Columns extends ConsumerWidget {
             child: Row(
               children: [
                 topBar.collapse(context),
-                const Spacer(),
+                // 頂列中間寫播放來源（`DESIGN.md`〈播放頁音源膠囊〉的其他規則）。
+                const Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: PlayerContext(),
+                  ),
+                ),
                 if (more != null) ...[more, const SizedBox(width: 8)],
                 _QueueToggle(touch: touch),
               ],

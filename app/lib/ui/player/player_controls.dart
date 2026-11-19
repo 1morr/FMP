@@ -149,6 +149,7 @@ class _PlayerProgressState extends ConsumerState<PlayerProgress> {
       },
     );
     return Semantics(
+      key: const Key('player-progress'),
       slider: true,
       label: t.player.progress,
       value: formatDuration(shown),

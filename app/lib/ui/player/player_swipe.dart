@@ -430,7 +430,8 @@ class _PageDots extends StatelessWidget {
     required bool selected,
   }) {
     final width = 7 + 13 * on;
-    // 點之間 7（`.pl-dots` 的 gap）；兩端的點往外多給 18，點擊區寬一點。
+    // 每個點的點擊區 44×44（`DESIGN.md`〈無障礙〉）；看得到的點照稿 7 高、點之間
+    // 7（`.pl-dots` 的 gap），所以點靠在點擊區朝向另一個點的那一邊。
     final first = p == PlayerPane.values.first;
     final last = p == PlayerPane.values.last;
     return ShellButton(
@@ -439,14 +440,15 @@ class _PageDots extends StatelessWidget {
       label: label,
       selected: selected,
       focusRadius: 999,
-      // 點擊區高補到 44（`DESIGN.md`〈無障礙〉），看得到的點照稿 7。
       builder: (context, _) => Container(
+        width: 44,
         height: 44,
-        alignment: Alignment.center,
-        padding: EdgeInsets.only(
-          left: first ? 18 : 3.5,
-          right: last ? 18 : 3.5,
-        ),
+        alignment: first
+            ? Alignment.centerRight
+            : last
+            ? Alignment.centerLeft
+            : Alignment.center,
+        padding: EdgeInsets.only(left: first ? 0 : 3.5, right: last ? 0 : 3.5),
         child: Container(
           width: width,
           height: 7,
