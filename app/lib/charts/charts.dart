@@ -81,9 +81,13 @@ class Charts extends Notifier<ChartsState> {
   /// 每次 [build] 加一；上一輪留下的非同步結果不寫進這一輪的狀態。
   int _generation = 0;
 
+  /// 正在抓的音源與它的抓榜工作；再要抓同一個音源時等這個，不重複抓。
+  final _inFlight = <String, Future<void>>{};
+
   @override
   ChartsState build() {
     final generation = ++_generation;
+    _inFlight.clear();
     _restored = Future.value();
     final hostValue = ref.watch(pluginHostProvider);
     final host = hostValue.value;
@@ -130,12 +134,20 @@ class Charts extends Notifier<ChartsState> {
           ),
       ],
     );
+    // 首頁可能在插件載入完之前就叫過 [refreshStale]（那時還沒有音源），這裡
+    // 補抓一次；之後首頁再叫時，正在抓的不會重複抓。
+    unawaited(_fetchStale());
   }
 
   /// 首頁每次出現時叫：沒有榜、或榜比 [chartStaleAfter] 舊的音源在背景重抓。
-  /// 正在抓的不重複抓。
+  /// 正在抓的不重複抓。插件還沒載入完時不用再叫：載入完、讀回快取後自己會
+  /// 抓一次。
   Future<void> refreshStale() async {
     await _restored;
+    await _fetchStale();
+  }
+
+  Future<void> _fetchStale() async {
     final now = ref.read(chartsClockProvider)();
     await _fetchWhere(
       (s) => switch (s.chart) {
@@ -146,7 +158,7 @@ class Charts extends Notifier<ChartsState> {
   }
 
   /// 不管新舊都重抓：[only] 給了只抓那個音源（重試），沒給抓全部（下拉
-  /// 刷新）。正在抓的不重複抓。
+  /// 刷新）。正在抓的不重複抓，等它抓完。
   Future<void> refresh({String? only}) async {
     await _restored;
     await _fetchWhere((s) => only == null || s.manifest.id == only);
@@ -155,8 +167,14 @@ class Charts extends Notifier<ChartsState> {
   Future<void> _fetchWhere(bool Function(SourceChart) which) {
     final generation = _generation;
     return Future.wait([
-      for (final s in state.sources)
-        if (!s.loading && which(s)) _fetch(s.manifest.id, generation),
+      for (final s in state.sources.where(which))
+        if (_inFlight[s.manifest.id] case final running?)
+          running
+        else
+          _inFlight[s.manifest.id] = _fetch(s.manifest.id, generation)
+              .whenComplete(() {
+                if (generation == _generation) _inFlight.remove(s.manifest.id);
+              }),
     ]);
   }
 

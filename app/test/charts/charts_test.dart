@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -236,6 +237,37 @@ void main() {
     final state = await show(open(['one', 'two']));
 
     expect(state.neverLoadedOffline, isTrue);
+  });
+
+  test('asked while the plugins are still loading, it fetches once they '
+      'load', () async {
+    final loaded = Completer<PluginHost>();
+    final c = ProviderContainer(
+      overrides: [
+        logProvider.overrideWithValue(log),
+        pluginHostProvider.overrideWith((_) => loaded.future),
+        appDatabaseProvider.overrideWithValue(database),
+        chartsClockProvider.overrideWithValue(() => now),
+      ],
+    );
+    addTearDown(c.dispose);
+    c.listen(chartsProvider, (_, _) {});
+    await c.read(chartsProvider.notifier).refreshStale();
+    expect(c.read(chartsProvider).starting, isTrue);
+
+    final host = PluginHost(
+      bundles: [PluginBundle(manifest: manifest('one'), code: plugin('one'))],
+      log: log,
+      httpAdapter: FakeHttp(handle),
+    );
+    addTearDown(host.close);
+    loaded.complete(host);
+    await Future.doWhile(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      return c.read(chartsProvider).sources.firstOrNull?.chart == null;
+    }).timeout(const Duration(seconds: 5));
+
+    expect(fetches['one'], 1);
   });
 
   test('without a database the chart lives only in memory', () async {
