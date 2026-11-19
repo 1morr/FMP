@@ -127,6 +127,29 @@ interface PluginPart { id: string; title: string; durationMs?: number; url?: str
 - bilibili（事實 F21、F27）：`listParts` 打 `x/player/pagelist?bvid=<bvid>`，每筆 `page` 是分 P 序號、`part` 是標題（空字串時用 `P<n>`）、`duration` 是秒（有限的非負數字才給）；網址是 `https://www.bilibili.com/video/<bvid>`，n ≥ 2 加 `?p=<n>`；依 `page` 排序。搜尋結果本身沒有分 P 數，所以 `search` 拿到這頁結果後，每頁最多多打一次批次請求 `x/v3/fav/resource/infos?resources=<aid>:2,...&platform=web`，用回應每筆的 `bvid` 對回 `page` 當 `partCount`。這個請求失敗（任何插件錯誤、HTTP 不是 200、`code` 不是 0、回應形狀不對）或被限流時，搜尋照常回來，只是這頁沒有 `partCount`。
 - 契約測試：`checkContract` 的 `listParts` 案例，`input` 是 `{"trackId": "..."}`；契約是列出的分 P 不是空的、含傳入的那首、`id` 不重複、每個都有標題。search 案例的 `expect` 可以加 `partCounts`（每首都有 `partCount`）。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋 `listParts`。（2026-11-19 擁有者同意。）
 
+### `trackInfo`（M1 票 17）
+
+新插件能力 `trackInfo`：
+
+```ts
+interface TrackInfoRequest { trackId: string }
+interface TrackInfoResponse {
+  album?: string;          // 專輯名稱
+  publishedAtMs?: number;  // 發佈時間，unix 毫秒
+  playCount?: number;      // 播放數
+  likeCount?: number;      // 點讚數
+  commentCount?: number;   // 評論數
+  description?: string;    // 簡介
+}
+```
+
+- 全部選填：插件給不了就不給，畫面不顯示那一列；宿主把空白的字串當成沒給、去掉頭尾空白。名字照 YouTube Data API `videos` 的 `snippet.publishedAt`、`snippet.description`、`statistics.likeCount`、`statistics.commentCount`；播放數沿用 `search` 的 `playCount`，時間沿用 `expiresAtMs` 的 unix 毫秒。
+- 計數要是非負整數、`publishedAtMs` 要是有限的整數、文字要是字串；不合格整次算解析失敗（`ParseFailure`，寫 warning）。
+- 時長、網址、分 P 數、作者、封面已經在曲目上，不在這裡重給。
+- Dart 端是 `Plugin.trackInfo(TrackRef ref)`，回 `TrackInfo`（`domain/`）；`ref` 不是這個插件的曲目是程式錯誤（同 `resolveStream`）。結果只在記憶體（ARCHITECTURE〈快取〉）。
+- bilibili（事實 F1）：打 `x/web-interface/wbi/view?bvid=<bvid>`，不簽 WBI；分 P（`<bvid>?p=<n>`）用同一支、回整支影片的資訊。`pubdate`（秒）→ `publishedAtMs`、`stat.view` → `playCount`、`stat.like` → `likeCount`、`stat.reply` → `commentCount`、`desc` → `description`；B 站沒有專輯，不給。
+- 契約測試：`trackInfo` 案例的 `input` 是 `{"trackId": "..."}`；形狀由宿主檢查，沒有期望時空的也合格。`expect` 可以加 `stats`（三個計數都有）、`published`、`description`。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋。（2026-11-20 擁有者同意。）
+
 ## 後果
 
 - 好的：清單短，插件頁（設計稿的 `plugins.html`）照這份列出支援與不支援；複製連結、排序不用另外宣告。
