@@ -801,8 +801,8 @@ class SearchPartTouchRow extends StatelessWidget {
   }
 }
 
-/// 表格展開後的一個分 P（`.srh-tr.pt`）：高 34，序號欄空著，標題縮排對齊
-/// 父列的曲名（左 46），只有「P2」、分 P 標題與時長。雙擊只臨時播放這一段，
+/// 表格展開後的一個分 P（`.srh-tr.pt`）：高 34，序號欄空著，「P2」縮排到
+/// 父列的展開箭頭下（左 46），再隔 10 是分 P 標題，最後是時長。雙擊只臨時播放這一段，
 /// 右鍵或 ⋮ 開它自己的選單；分 P 不參與選取。
 class SearchPartTableRow extends StatefulWidget {
   const SearchPartTableRow({
@@ -875,6 +875,7 @@ class _SearchPartTableRowState extends State<SearchPartTableRow> {
                       ).tabular,
                     ),
                   ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       widget.part.title,
