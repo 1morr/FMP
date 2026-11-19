@@ -458,6 +458,17 @@ void main() {
   });
 
   group('safe area', () {
+    playerTest('the status bar icons turn light over the cover field', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+
+      expect(
+        SystemChrome.latestStyle?.statusBarIconBrightness,
+        Brightness.light,
+      );
+    }, padding: const EdgeInsets.only(top: 59, bottom: 34));
+
     playerTest(
       'the background fills the screen while the controls stay inside the '
       'safe area',
