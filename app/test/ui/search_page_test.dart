@@ -16,6 +16,7 @@ import 'package:fmp/platform/web_links.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/search/search.dart';
+import 'package:fmp/search/parts.dart';
 import 'package:fmp/search/search_history.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/search/search_page.dart';
@@ -39,6 +40,9 @@ void main() {
   late _FakeQueue queue;
   late _FakeSearch search;
   late _FakeLinks links;
+
+  /// 列分 P（插件能力 `listParts`）的結果；預設是 [_parts]。
+  late Future<List<Track>> Function(Track) listParts;
 
   setUp(() async {
     LocaleSettings.setLocaleSync(AppLocale.zhTw);
@@ -77,6 +81,7 @@ void main() {
     queue = _FakeQueue();
     search = _FakeSearch(state);
     links = _FakeLinks();
+    listParts = (_) async => _parts;
     await tester.pumpWidget(
       buildRoot(
         overrides: [
@@ -85,6 +90,7 @@ void main() {
           queueProvider.overrideWith(() => queue),
           searchProvider.overrideWith(() => search),
           webLinksProvider.overrideWithValue(links),
+          partsProvider.overrideWith((ref, track) => listParts(track)),
         ],
       ),
     );
@@ -438,6 +444,136 @@ void main() {
     expect(find.byType(PhoneDock), findsOneWidget);
   });
 
+  group('B 站多 P（分 P）', () {
+    testWidgets('a video with parts shows how many; the arrow lists the parts '
+        'and hides them again', (tester) async {
+      await start(tester, phone, state: _partsResults());
+
+      expect(find.text('3P'), findsOneWidget);
+      expect(find.byTooltip('展開分 P'), findsOneWidget);
+      expect(find.text('深夜電台 Vol.2'), findsNothing);
+
+      await tester.tap(find.byTooltip('展開分 P'));
+      await tester.pumpAndSettle();
+      expect(find.text('P1'), findsOneWidget);
+      expect(find.text('深夜電台 Vol.2'), findsOneWidget);
+      expect(find.text('24:38'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('收起分 P'));
+      await tester.pumpAndSettle();
+      expect(find.text('深夜電台 Vol.2'), findsNothing);
+    });
+
+    testWidgets('tapping the video plays the whole group; tapping a part '
+        'plays only that part', (tester) async {
+      await start(tester, phone, state: _partsResults());
+
+      await tester.tap(find.text('深夜電台合集'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['playGroup v,v?p=2,v?p=3']);
+
+      await tester.tap(find.byTooltip('展開分 P'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('深夜電台 Vol.2'));
+      await tester.pumpAndSettle();
+      expect(queue.calls.last, 'playTemporarily v?p=2');
+    });
+
+    testWidgets("the video's menu says it applies to every part and queues "
+        "each part; a part's own menu queues only it", (tester) async {
+      await start(tester, phone, state: _partsResults());
+
+      await tester.tap(find.byTooltip('更多').last);
+      await tester.pumpAndSettle();
+      expect(find.text('SG · 鹿野青 · 3 個分 P 全部套用'), findsOneWidget);
+      await tester.tap(find.text('加入佇列'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['add v,v?p=2,v?p=3']);
+
+      await tester.tap(find.byTooltip('展開分 P'));
+      await tester.pumpAndSettle();
+      // ⋮ 依序是夜行列車、影片、P1、P2。
+      await tester.tap(find.byTooltip('更多').at(3));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('下一首播放'));
+      await tester.pumpAndSettle();
+      expect(queue.calls.last, 'playNext v?p=2');
+    });
+
+    testWidgets('picking several counts a video as one and queues all its '
+        'parts', (tester) async {
+      await start(tester, phone, state: _partsResults());
+
+      await tester.longPress(find.text('夜行列車'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('深夜電台合集'));
+      await tester.pumpAndSettle();
+      expect(find.text('已選擇 2 首'), findsOneWidget);
+
+      await tester.tap(find.text('加入佇列'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['add 1,v,v?p=2,v?p=3']);
+    });
+
+    testWidgets('when the parts cannot be listed a toast says why: tapping '
+        'the video plays its first part only, queueing does nothing', (
+      tester,
+    ) async {
+      await start(tester, phone, state: _partsResults());
+      listParts = (_) async => throw const NetworkError();
+
+      await tester.tap(find.text('深夜電台合集'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['playTemporarily v']);
+      expect(find.text('列不出「深夜電台合集」的分 P。連不上網路。'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('更多').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入佇列'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['playTemporarily v']);
+
+      listParts = (_) async => _parts;
+      await tester.tap(find.byTooltip('展開分 P'));
+      await tester.pumpAndSettle();
+      expect(find.text('深夜電台 Vol.2'), findsOneWidget);
+    });
+
+    testWidgets('on the desktop the arrow sits before the title; a double '
+        'click plays the group or one part', (tester) async {
+      await start(tester, desktop, state: _partsResults(), mouse: true);
+
+      expect(find.text('3P'), findsOneWidget);
+      // 桌面選單的摘要放不下作者與補充，照稿只寫音源與補充。
+      await tester.tap(
+        find.text('深夜電台合集'),
+        buttons: kSecondaryButton,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('SG · 3 個分 P 全部套用'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('展開分 P'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(find.text('P3'), findsOneWidget);
+
+      await tester.tap(find.text('深夜電台 Vol.3'), kind: PointerDeviceKind.mouse);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('深夜電台 Vol.3'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['playTemporarily v?p=3']);
+
+      await tester.tap(find.text('深夜電台合集'), kind: PointerDeviceKind.mouse);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('深夜電台合集'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(queue.calls.last, 'playGroup v,v?p=2,v?p=3');
+      done();
+    });
+  });
+
   group('desktop table', () {
     testWidgets('a click selects, a double click or ↩ plays, and a missing '
         'play count shows a dash', (tester) async {
@@ -528,11 +664,16 @@ void main() {
   });
 }
 
-String _manifest(String id, String short, {List<String>? sorts}) => jsonEncode({
+String _manifest(
+  String id,
+  String short, {
+  List<String>? sorts,
+  bool parts = false,
+}) => jsonEncode({
   'id': id,
   'name': id.toUpperCase(),
   'version': '1.0.0',
-  'capabilities': ['search'],
+  'capabilities': ['search', if (parts) 'listParts'],
   'domains': ['api.example.com'],
   'searchSorts': ?sorts,
   'mark': {
@@ -545,7 +686,12 @@ String _manifest(String id, String short, {List<String>? sorts}) => jsonEncode({
 });
 
 final _songs = (
-  source: _manifest('songs', 'SG', sorts: ['relevance', 'viewCount']),
+  source: _manifest(
+    'songs',
+    'SG',
+    sorts: ['relevance', 'viewCount'],
+    parts: true,
+  ),
 );
 final _busy = (source: _manifest('busy', 'BS'));
 final _songsManifest = PluginManifest.parse(_songs.source);
@@ -557,6 +703,7 @@ Track _track(
   int? playCount,
   String? url,
   Duration? duration,
+  int? partCount,
 }) => Track(
   ref: TrackRef(pluginId: 'songs', trackId: id),
   title: title == 'T' ? 'T$id' : title,
@@ -564,6 +711,47 @@ Track _track(
   playCount: playCount,
   url: url,
   duration: duration,
+  partCount: partCount,
+);
+
+/// 一支三個分 P 的影片：搜尋結果是它（曲目 id 是第一個分 P 的），
+/// [_parts] 是列出來的分 P。
+final _video = _track(
+  'v',
+  title: '深夜電台合集',
+  partCount: 3,
+  duration: const Duration(hours: 1, minutes: 12, seconds: 40),
+);
+final _parts = [
+  _track(
+    'v',
+    title: '深夜電台 Vol.1',
+    duration: const Duration(minutes: 24, seconds: 10),
+  ),
+  _track(
+    'v?p=2',
+    title: '深夜電台 Vol.2',
+    duration: const Duration(minutes: 23, seconds: 52),
+  ),
+  _track(
+    'v?p=3',
+    title: '深夜電台 Vol.3',
+    duration: const Duration(minutes: 24, seconds: 38),
+  ),
+];
+
+/// 搜「夜」的結果：一首普通的、一支多 P 影片。
+SearchState _partsResults() => SearchState(
+  query: '夜',
+  sources: [
+    SourceResults(
+      manifest: _songsManifest,
+      isEnd: true,
+      pages: [
+        [_track('1', title: '夜行列車'), _video],
+      ],
+    ),
+  ],
 );
 
 /// 搜「夜」的結果：第一首有播放數與網址，第二首都沒有。
@@ -637,6 +825,10 @@ class _FakeQueue extends QueueController {
   @override
   Future<void> playTemporarily(Track track) async =>
       calls.add('playTemporarily ${track.ref.trackId}');
+
+  @override
+  Future<void> playGroupTemporarily(List<Track> group, {int start = 0}) async =>
+      calls.add('playGroup ${_ids(group)}');
 
   @override
   Future<void> playNext(List<Track> tracks) async =>

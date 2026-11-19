@@ -6,10 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/search/parts.dart';
 import 'package:fmp/search/search.dart';
 import 'package:fmp/search/search_history.dart';
 import 'package:fmp/ui/common/track_actions.dart';
@@ -19,6 +23,7 @@ import 'package:fmp/ui/search/search_query.dart';
 import 'package:fmp/ui/search/search_rows.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
+import 'package:fmp/ui/toast/toast.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 搜尋頁（`docs/design/search.html`）：搜尋欄沒有送出過的字時是搜尋紀錄，
@@ -28,6 +33,9 @@ import 'package:material_ui/material_ui.dart';
 ///
 /// 點一首是臨時播放（brief〈播放〉）：觸控點一下；滑鼠單擊選取，雙擊或按 ↩
 /// 才播。要放進佇列用 ⋮、右鍵或多選。
+///
+/// 多 P 影片（[hasParts]）可以展開列出分 P：點父列把整組當成一首臨時播放，
+/// 點分 P 只播那一段；選單與多選的佇列動作拆成每個分 P（[trackActionRunner]）。
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
@@ -51,6 +59,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 畫面上是結果（不是搜尋紀錄）；紀錄時不載入下一頁。
   bool _showingResults = false;
+
+  /// 展開了分 P 的多 P 影片。
+  final _expanded = <TrackRef>{};
 
   @override
   void initState() {
@@ -91,6 +102,31 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   void _play(Track track) =>
       unawaited(trackActionRunner(context, ref)(TrackAction.play, [track]));
+
+  /// 只臨時播放一個分 P。
+  void _playPart(Track part) =>
+      unawaited(ref.read(queueProvider.notifier).playTemporarily(part));
+
+  /// 展開或收起 [track] 的分 P；列不出來就收起並提示原因。
+  Future<void> _toggleParts(Track track) async {
+    if (_expanded.contains(track.ref)) {
+      setState(() => _expanded.remove(track.ref));
+      return;
+    }
+    setState(() => _expanded.add(track.ref));
+    final container = ProviderScope.containerOf(context, listen: false);
+    final toasts = ref.read(toastProvider.notifier);
+    final t = context.t;
+    try {
+      await readParts(container, track);
+    } on AppError catch (error) {
+      final name =
+          container.read(pluginManifestProvider(track.ref.pluginId))?.name ??
+          '';
+      toasts.show(partsFailedToast(t, track, error, name));
+      if (mounted) setState(() => _expanded.remove(track.ref));
+    }
+  }
 
   void _clearSelection() {
     setState(() {
@@ -196,6 +232,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     // 換了搜尋（新的查詢或排序）就清掉選取，也捲回頂端。
     ref.listen(searchProvider.select((s) => (s?.query, s?.sort)), (_, _) {
       if (_selected.isNotEmpty || _selecting) _clearSelection();
+      if (_expanded.isNotEmpty) setState(_expanded.clear);
       if (_scroll.hasClients) _scroll.jumpTo(0);
     });
     // 結果換了（新的一頁回來、換篩選）之後畫面可能還填不滿：畫完再看一次。
@@ -459,42 +496,129 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ),
       if (table) SearchTableHeader(narrow: narrowTable),
       for (final s in failed) error(s),
-      for (final (i, track) in tracks.indexed)
-        table
-            ? SearchTableRow(
-                // 測試與實跑靠它找第幾首（`test/support/shell.dart`）。
-                key: ValueKey(track.ref),
-                track: track,
-                index: i,
-                narrow: narrowTable,
-                isCurrent: track.ref == current,
-                playing: playing,
-                selected: _selected.contains(track.ref),
-                joinAbove: i > 0 && _selected.contains(tracks[i - 1].ref),
-                joinBelow:
-                    i < tracks.length - 1 &&
-                    _selected.contains(tracks[i + 1].ref),
-                onPointerDown: (event) => _pointerSelect(event, tracks, i),
-                onPlay: () => _play(track),
-                onMenu: (at) => showTrackActions(context, ref, track, at: at),
-              )
-            : SearchTouchRow(
-                key: ValueKey(track.ref),
-                track: track,
-                separator: i > 0,
-                isCurrent: track.ref == current,
-                playing: playing,
-                selecting: _selecting,
-                selected: _selected.contains(track.ref),
-                onTap: () => _selecting ? _toggle(track) : _play(track),
-                onLongPress: () =>
-                    _selecting ? _toggle(track) : _startSelecting(track),
-                onMore: (at) => showTrackActions(context, ref, track, at: at),
-              ),
+      for (final (i, track) in tracks.indexed) ...[
+        _row(context, tracks, i, table, narrowTable, current, playing),
+        ..._partRows(context, track, table, narrowTable, current, playing),
+      ],
       if (loading)
         for (var i = 0; i < (tracks.isEmpty ? 5 : 2); i++)
           SearchSkeletonRow(index: i, table: table),
       if (allLoaded) SearchFoot(t.search.allLoaded, table: table),
+    ];
+  }
+
+  /// [track] 已經列出來的分 P；還沒列過（或列失敗）是 null。不替沒展開過的
+  /// 影片打請求。
+  List<Track>? _knownParts(Track track) {
+    // 棄用訊息指向的 `provider.exist` 在 riverpod 3.5.0 還沒有，先用 exists。
+    // ignore: deprecated_member_use
+    if (!ref.exists(partsProvider(track))) return null;
+    return ref.watch(partsProvider(track)).value;
+  }
+
+  /// 結果的第 [i] 首（表格列或觸控列）。多 P 影片收起時，正在播的是它的
+  /// 任一個分 P 就標成目前的曲目；展開時由分 P 列標。
+  Widget _row(
+    BuildContext context,
+    List<Track> tracks,
+    int i,
+    bool table,
+    bool narrowTable,
+    TrackRef? current,
+    bool playing,
+  ) {
+    final track = tracks[i];
+    final parts = hasParts(
+      track,
+      ref.watch(pluginManifestProvider(track.ref.pluginId)),
+    );
+    final expanded = parts && _expanded.contains(track.ref);
+    final loadingParts = expanded && ref.watch(partsProvider(track)).isLoading;
+    final isCurrent = expanded
+        ? false
+        : track.ref == current ||
+              (parts &&
+                  (_knownParts(track)?.any((p) => p.ref == current) ?? false));
+    if (table) {
+      return SearchTableRow(
+        // 測試與實跑靠它找第幾首（`test/support/shell.dart`）。
+        key: ValueKey(track.ref),
+        track: track,
+        index: i,
+        narrow: narrowTable,
+        isCurrent: isCurrent,
+        playing: playing,
+        selected: _selected.contains(track.ref),
+        // 中間隔著展開的分 P 列時不相接。
+        joinAbove:
+            i > 0 &&
+            _selected.contains(tracks[i - 1].ref) &&
+            !_expanded.contains(tracks[i - 1].ref),
+        joinBelow:
+            i < tracks.length - 1 &&
+            _selected.contains(tracks[i + 1].ref) &&
+            !expanded,
+        onPointerDown: (event) => _pointerSelect(event, tracks, i),
+        onPlay: () => _play(track),
+        onMenu: (at) => showTrackActions(context, ref, track, at: at),
+        partCount: parts ? track.partCount : null,
+        expanded: expanded,
+        loadingParts: loadingParts,
+        onToggleParts: () => _toggleParts(track),
+      );
+    }
+    return SearchTouchRow(
+      key: ValueKey(track.ref),
+      track: track,
+      separator: i > 0,
+      isCurrent: isCurrent,
+      playing: playing,
+      selecting: _selecting,
+      selected: _selected.contains(track.ref),
+      onTap: () => _selecting ? _toggle(track) : _play(track),
+      onLongPress: () => _selecting ? _toggle(track) : _startSelecting(track),
+      onMore: (at) => showTrackActions(context, ref, track, at: at),
+      partCount: parts ? track.partCount : null,
+      expanded: expanded,
+      loadingParts: loadingParts,
+      onToggleParts: () => _toggleParts(track),
+    );
+  }
+
+  /// 展開的多 P 影片底下的分 P 列。
+  List<Widget> _partRows(
+    BuildContext context,
+    Track track,
+    bool table,
+    bool narrowTable,
+    TrackRef? current,
+    bool playing,
+  ) {
+    if (!_expanded.contains(track.ref)) return const [];
+    final parts = ref.watch(partsProvider(track)).value ?? const <Track>[];
+    return [
+      for (final (i, part) in parts.indexed)
+        table
+            ? SearchPartTableRow(
+                // 第一個分 P 和父列是同一首曲目，鍵要分開。
+                key: ValueKey(('part', part.ref)),
+                part: part,
+                number: i + 1,
+                narrow: narrowTable,
+                isCurrent: part.ref == current,
+                onPlay: () => _playPart(part),
+                onMenu: (at) => showTrackActions(context, ref, part, at: at),
+              )
+            : SearchPartTouchRow(
+                key: ValueKey(('part', part.ref)),
+                part: part,
+                number: i + 1,
+                isCurrent: part.ref == current,
+                playing: playing,
+                selecting: _selecting,
+                onTap: () => _playPart(part),
+                onMore: (at) => showTrackActions(context, ref, part, at: at),
+              ),
     ];
   }
 

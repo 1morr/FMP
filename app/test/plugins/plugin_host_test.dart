@@ -289,6 +289,149 @@ void main() {
     }
   });
 
+  group('search part counts', () {
+    Future<SearchResults> searchWith(String fields) => only(
+      host('''
+      export async function search() {
+        return { tracks: [{ id: 'a', title: 'A', author: 'B', $fields }] };
+      }
+    '''),
+    ).search('q');
+
+    test('a track keeps the part count it is given', () async {
+      final track = (await searchWith('partCount: 51')).tracks.single;
+      expect(track.partCount, 51);
+    });
+
+    test('part count is optional', () async {
+      expect((await searchWith('x: 1')).tracks.single.partCount, isNull);
+    });
+
+    for (final bad in ['0', '-1', '1.5', "'2'", 'NaN', 'Infinity', 'true']) {
+      test('part count $bad is a ParseFailure', () async {
+        await expectLater(
+          searchWith('partCount: $bad'),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+  });
+
+  group('listParts', () {
+    final partsManifest = manifest(capabilities: ['listParts']);
+    const parent = Track(
+      ref: TrackRef(pluginId: 'demo', trackId: 'v1'),
+      title: 'Whole video',
+      author: 'Uploader',
+      duration: Duration(minutes: 90),
+      coverUrl: 'https://img.example.com/v1.jpg',
+      playCount: 500,
+      partCount: 2,
+      url: 'https://www.example.com/v/v1',
+    );
+
+    Plugin listing(String result) => only(
+      host('''
+      export async function listParts({ trackId }) {
+        return $result;
+      }
+    ''', manifestJson: partsManifest),
+    );
+
+    const twoParts = '''{ parts: [
+      { id: 'v1', title: 'One', durationMs: 60000, url: 'https://www.example.com/v/v1' },
+      { id: 'v1?p=2', title: 'Two', durationMs: 120000.4, url: 'https://www.example.com/v/v1?p=2' },
+    ] }''';
+
+    test('turns each part into a track of the same plugin, in order', () async {
+      final parts = await listing(twoParts).listParts(parent);
+
+      expect([for (final p in parts) p.ref.trackId], ['v1', 'v1?p=2']);
+      expect([for (final p in parts) p.ref.pluginId], ['demo', 'demo']);
+      expect([for (final p in parts) p.title], ['One', 'Two']);
+      expect(
+        [for (final p in parts) p.duration],
+        [const Duration(minutes: 1), const Duration(minutes: 2)],
+      );
+      expect(
+        [for (final p in parts) p.url],
+        ['https://www.example.com/v/v1', 'https://www.example.com/v/v1?p=2'],
+      );
+    });
+
+    test('a part keeps its own title, duration and url, but the '
+        "parent's author and cover", () async {
+      final part = (await listing(twoParts).listParts(parent)).last;
+
+      expect(part.author, 'Uploader');
+      expect(part.coverUrl, 'https://img.example.com/v1.jpg');
+      expect(part.playCount, isNull);
+      expect(part.partCount, isNull);
+    });
+
+    test('duration and url are optional for a part', () async {
+      final part = (await listing(
+        "{ parts: [{ id: 'v1', title: 'One' }] }",
+      ).listParts(parent)).single;
+
+      expect(part.duration, isNull);
+      expect(part.url, isNull);
+    });
+
+    test('gets the id of the track it lists the parts of', () async {
+      final h = host('''
+      export async function listParts({ trackId }) {
+        return { parts: [{ id: trackId, title: 'T' }] };
+      }
+    ''', manifestJson: partsManifest);
+
+      final parts = await only(h).listParts(parent);
+
+      expect(parts.single.ref.trackId, 'v1');
+    });
+
+    test('a track of another plugin is an ArgumentError', () async {
+      const other = Track(
+        ref: TrackRef(pluginId: 'other', trackId: 'v1'),
+        title: 'T',
+        author: 'A',
+      );
+      await expectLater(
+        listing(twoParts).listParts(other),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('a plugin that does not declare it is Unsupported', () async {
+      final h = host('', manifestJson: manifest());
+      await expectLater(only(h).listParts(parent), throwsA(isA<Unsupported>()));
+    });
+
+    final bad = {
+      'no parts': '{ parts: [] }',
+      'duplicate ids':
+          "{ parts: [{ id: 'a', title: 'A' }, { id: 'a', title: 'B' }] }",
+      'a relative url': "{ parts: [{ id: 'a', title: 'A', url: '/v/a' }] }",
+      'a non-web url':
+          "{ parts: [{ id: 'a', title: 'A', url: 'ftp://x.example.com/a' }] }",
+      'a url that is not a string':
+          "{ parts: [{ id: 'a', title: 'A', url: 1 }] }",
+      'a title that is not a string': '{ parts: [{ id: \'a\', title: 1 }] }',
+      'an id that is not a string': "{ parts: [{ id: 1, title: 'A' }] }",
+      'a duration that is not a number':
+          "{ parts: [{ id: 'a', title: 'A', durationMs: 'x' }] }",
+      'parts that is not a list': "{ parts: 'x' }",
+    };
+    for (final MapEntry(:key, :value) in bad.entries) {
+      test('$key is a ParseFailure', () async {
+        await expectLater(
+          listing(value).listParts(parent),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+  });
+
   test('pluginFor finds the plugin that provides a track', () {
     final h = PluginHost(
       bundles: [

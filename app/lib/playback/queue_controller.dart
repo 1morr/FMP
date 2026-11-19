@@ -94,13 +94,16 @@ class PlaybackFailureHolder extends Notifier<PlaybackFailure?> {
   void set(PlaybackFailure value) => state = value;
 }
 
-/// 上一首、下一首鈕能不能按。臨時播放時兩個都是回到佇列，佇列有目前那首
-/// （回得去）就能按。
+/// 上一首、下一首鈕能不能按。臨時播放時是在組內移動，走出組的兩端就回到
+/// 佇列，所以組內還有、或佇列有目前那首（回得去）就能按。
 final skipAvailableProvider = Provider<({bool previous, bool next})>((ref) {
   final queue = ref.watch(queueProvider);
-  if (ref.watch(temporaryPlayProvider) != null) {
+  if (ref.watch(temporaryPlayProvider) case final temporary?) {
     final back = queue.current != null;
-    return (previous: back, next: back);
+    return (
+      previous: back || temporary.previous != null,
+      next: back || temporary.next != null,
+    );
   }
   return (previous: queue.hasPrevious, next: queue.hasNext);
 });
@@ -111,7 +114,8 @@ final skipAvailableProvider = Provider<({bool previous, bool next})>((ref) {
 ///
 /// 臨時播放（[temporaryPlayProvider]）時佇列的目前那首是要回去的地方：播完
 /// 或按上一首、下一首就回到它，從離開的地方倒退
-/// [temporaryPlayRewindProvider] 接著播。臨時播放時改佇列（加入、拖動、
+/// [temporaryPlayRewindProvider] 接著播；臨時播放一組分 P 時，播完、上一首、
+/// 下一首先在組內移動，整組播完或走出兩端才回去。臨時播放時改佇列（加入、拖動、
 /// 移除）都不打斷正在播的臨時曲目。
 ///
 /// 一首播不了（[Playback] 已重新解析過一次）就跳下一首，臨時曲目回到佇列；
@@ -196,10 +200,12 @@ class QueueController extends Notifier<Queue> {
   /// 告訴播放層下一首會播哪首（[_upcoming]），讓它預載。
   void _preloadUpcoming() => _playback.preloadNext(_upcoming());
 
-  /// 接下來會播的曲目：臨時播放時是要回去的佇列目前那首，單曲循環時是
-  /// 同一首（自然播完時重播），否則是佇列的下一首（[Queue.upcoming]）。
+  /// 接下來會播的曲目：臨時播放時是組內的下一個，已是最後一個就是要回去的
+  /// 佇列目前那首；單曲循環時是同一首（自然播完時重播），否則是佇列的下一首
+  /// （[Queue.upcoming]）。
   Track? _upcoming() {
     final current = state.current;
+    if (_temporary?.next case final part?) return part.track;
     if (current == null) return null;
     if (_temporary != null || state.repeat == Repeat.one) return current.track;
     return state.upcoming?.track;
@@ -230,7 +236,12 @@ class QueueController extends Notifier<Queue> {
 
   /// 臨時播放 [track]：在佇列之外播它，佇列不動。已在臨時播放中時只換
   /// 曲目，回去的地方仍是最早離開的那個位置。
-  Future<void> playTemporarily(Track track) {
+  Future<void> playTemporarily(Track track) => playGroupTemporarily([track]);
+
+  /// 把一組分 P [group] 整組當成一首臨時播放，從第 [start] 個開始：組內播完
+  /// 一個接下一個，上一首、下一首在組內移動，整組播完才回佇列。其餘同
+  /// [playTemporarily]。
+  Future<void> playGroupTemporarily(List<Track> group, {int start = 0}) {
     _failures = 0;
     final playback = ref.read(playbackProvider);
     final leaving = state.current;
@@ -244,13 +255,21 @@ class QueueController extends Notifier<Queue> {
             playback.status != PlaybackStatus.completed
         ? playback.position
         : Duration.zero;
-    _temporary = TemporaryPlay.start(
-      track,
+    final temporary = TemporaryPlay.start(
+      group,
+      start: start,
       previous: _temporary,
       leaving: leaving,
       position: position,
     );
-    return _playback.play(track);
+    _temporary = temporary;
+    return _playback.play(temporary.track);
+  }
+
+  /// 臨時播放換到組內的 [part]（上一個或下一個分 P）。
+  Future<void> _playPart(TemporaryPlay part) {
+    _temporary = part;
+    return _playback.play(part.track);
   }
 
   /// 結束臨時播放、回到佇列的目前那首，倒退後接著播。佇列沒有目前那首時
@@ -266,14 +285,15 @@ class QueueController extends Notifier<Queue> {
     );
   }
 
-  /// 佇列頁臨時播放卡片的「下一首播放」：把臨時播放的曲目插在目前那首後面
-  /// 並成為目前那首，聲音不中斷；原本那首算播過。
+  /// 佇列頁臨時播放卡片的「下一首播放」：把臨時播放的曲目（一組分 P 時是
+  /// 正在播的與組內還沒播的）插在目前那首後面，正在播的成為目前那首，聲音
+  /// 不中斷；原本那首算播過。
   void queueTemporaryNext() {
     final temporary = _temporary;
     if (temporary == null) return;
     _temporary = null;
     final hadCurrent = state.current != null;
-    final inserted = state.playNext([temporary.track]);
+    final inserted = state.playNext(temporary.group.sublist(temporary.index));
     state = hadCurrent ? inserted.jumpTo(inserted.currentIndex! + 1) : inserted;
   }
 
@@ -292,19 +312,27 @@ class QueueController extends Notifier<Queue> {
     return _advance();
   }
 
-  /// 往下一首走（播完、播不了跳過、按下一首）。
+  /// 往下一首走（播完、播不了跳過、按下一首）。臨時播放時先走組內的下一
+  /// 個，沒有了才回佇列。
   Future<void> _advance() async {
-    if (_temporary != null) return returnToQueue();
+    if (_temporary case final temporary?) {
+      if (temporary.next case final part?) return _playPart(part);
+      return returnToQueue();
+    }
     if (state.next(_random) case final queue?) {
       state = queue;
       await _playCurrent();
     }
   }
 
-  /// 上一首；沒有上一首時什麼都不做。臨時播放時是回到佇列。
+  /// 上一首；沒有上一首時什麼都不做。臨時播放時是組內的上一個，已是第一個
+  /// 就回到佇列。
   Future<void> previous() async {
     _failures = 0;
-    if (_temporary != null) return returnToQueue();
+    if (_temporary case final temporary?) {
+      if (temporary.previous case final part?) return _playPart(part);
+      return returnToQueue();
+    }
     if (state.previous() case final queue?) {
       state = queue;
       await _playCurrent();
@@ -368,6 +396,11 @@ class QueueController extends Notifier<Queue> {
       outcome = FailureOutcome.stayed;
     } else if (streak >= maxConsecutiveFailures) {
       outcome = FailureOutcome.stopped;
+    } else if (temporary &&
+        failed.track == _temporary!.track &&
+        _temporary!.next != null) {
+      // 一組分 P 裡正在播的那個播不了：跳到組內的下一個。
+      outcome = FailureOutcome.skipped;
     } else if (temporary) {
       outcome = state.current == null
           ? FailureOutcome.stayed
@@ -395,10 +428,13 @@ class QueueController extends Notifier<Queue> {
     }
   }
 
-  /// 一首自然播完：臨時播放的回到佇列（單曲循環也一樣），單曲循環重播
-  /// 它，否則接下一首。
+  /// 一首自然播完：臨時播放的接組內的下一個，整組播完才回到佇列（單曲循環
+  /// 也一樣）；單曲循環重播它，否則接下一首。
   Future<void> _onCompleted() {
-    if (_temporary != null) return _endTemporary();
+    if (_temporary case final temporary?) {
+      if (temporary.next case final part?) return _playPart(part);
+      return _endTemporary();
+    }
     return state.repeat == Repeat.one ? _playCurrent() : _advance();
   }
 

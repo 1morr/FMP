@@ -25,6 +25,9 @@ String playCountText(BuildContext context, int count) {
 /// 觸控列表的一列（`.row`，`docs/design/DESIGN.md`〈曲目列〉）：封面 48、
 /// 曲名、音源符號＋簡稱 · 作者 · 播放數、時長、⋮。點一下臨時播放，長按進
 /// 多選；多選時左邊是勾選圈，點一下加減選取。
+///
+/// 多 P 影片（[partCount] 不是 null）在簡稱後面標分 P 數，時長後面是展開
+/// 箭頭（`search.html`〈B 站多 P 展開〉）；展開時整列帶淺底。
 class SearchTouchRow extends ConsumerWidget {
   const SearchTouchRow({
     super.key,
@@ -37,9 +40,21 @@ class SearchTouchRow extends ConsumerWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onMore,
+    this.partCount,
+    this.expanded = false,
+    this.loadingParts = false,
+    this.onToggleParts,
   });
 
   final Track track;
+
+  /// 多 P 影片的分 P 數；不是多 P 影片時是 null。
+  final int? partCount;
+  final bool expanded;
+
+  /// 展開了、分 P 還在列（箭頭換成轉圈）。
+  final bool loadingParts;
+  final VoidCallback? onToggleParts;
 
   /// 上緣畫 0.5 的分隔線（左縮 76）。
   final bool separator;
@@ -63,12 +78,18 @@ class SearchTouchRow extends ConsumerWidget {
         .watch(pluginManifestProvider(track.ref.pluginId))
         ?.mark
         ?.short;
-    final sub = [
-      ?short,
+    final rest = [
       track.author,
       if (track.playCount case final count?)
         t.search.plays(count: playCountText(context, count)),
     ];
+    final sub = [?short, ...rest];
+    final subStyle = TextStyle(
+      fontSize: 13,
+      height: 17 / 13,
+      letterSpacing: 0,
+      color: colors.label2,
+    );
     return Semantics(
       selected: selecting ? selected : null,
       child: GestureDetector(
@@ -88,6 +109,7 @@ class SearchTouchRow extends ConsumerWidget {
             Container(
               constraints: const BoxConstraints(minHeight: 60),
               padding: const EdgeInsets.only(left: 16, right: 6),
+              color: expanded ? colors.fill : null,
               child: Row(
                 children: [
                   if (selecting) ...[
@@ -142,17 +164,20 @@ class SearchTouchRow extends ConsumerWidget {
                               size: 15,
                             ),
                             const SizedBox(width: 6),
+                            if (partCount case final count?) ...[
+                              if (short != null) ...[
+                                Text(short, style: subStyle),
+                                const SizedBox(width: 6),
+                              ],
+                              PartBadge(count: count),
+                              const SizedBox(width: 6),
+                            ],
                             Expanded(
                               child: Text(
-                                sub.join(' · '),
+                                (partCount == null ? sub : rest).join(' · '),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  height: 17 / 13,
-                                  letterSpacing: 0,
-                                  color: colors.label2,
-                                ),
+                                style: subStyle,
                               ),
                             ),
                           ],
@@ -171,6 +196,13 @@ class SearchTouchRow extends ConsumerWidget {
                       ).tabular,
                     ),
                   ],
+                  if (partCount != null && !selecting)
+                    PartsToggle(
+                      expanded: expanded,
+                      loading: loadingParts,
+                      onTap: onToggleParts!,
+                      touch: true,
+                    ),
                   if (selecting)
                     const SizedBox(width: 10)
                   else
@@ -338,9 +370,20 @@ class SearchTableRow extends ConsumerStatefulWidget {
     required this.onPointerDown,
     required this.onPlay,
     required this.onMenu,
+    this.partCount,
+    this.expanded = false,
+    this.loadingParts = false,
+    this.onToggleParts,
   });
 
   final Track track;
+
+  /// 多 P 影片的分 P 數（標題前是展開箭頭、後面是分 P 數）；不是多 P 影片
+  /// 時是 null。
+  final int? partCount;
+  final bool expanded;
+  final bool loadingParts;
+  final VoidCallback? onToggleParts;
 
   /// 在結果裡的位置（序號是它加 1）。
   final int index;
@@ -441,21 +484,40 @@ class _SearchTableRowState extends ConsumerState<SearchTableRow> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 17 / 13,
-                            letterSpacing: 0,
-                            color: widget.isCurrent
-                                ? colors.accent
-                                : colors.label,
-                            fontWeight: widget.isCurrent
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                          ),
+                        Row(
+                          children: [
+                            if (widget.partCount != null) ...[
+                              PartsToggle(
+                                expanded: widget.expanded,
+                                loading: widget.loadingParts,
+                                onTap: widget.onToggleParts!,
+                                touch: false,
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Flexible(
+                              child: Text(
+                                track.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 17 / 13,
+                                  letterSpacing: 0,
+                                  color: widget.isCurrent
+                                      ? colors.accent
+                                      : colors.label,
+                                  fontWeight: widget.isCurrent
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (widget.partCount case final count?) ...[
+                              const SizedBox(width: 6),
+                              PartBadge(count: count),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 1),
                         Text(
@@ -510,6 +572,343 @@ class _SearchTableRowState extends ConsumerState<SearchTableRow> {
                     size: 28,
                     onTap: () => widget.onMenu(_anchorOf(context)),
                   ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 分 P 數（`.part`）：高 17、圓角 5 的灰底小標「3P」。
+class PartBadge extends StatelessWidget {
+  const PartBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    return Container(
+      height: 17,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.fill2,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        context.t.search.parts.count(count: count),
+        style: TextStyle(
+          fontSize: 11,
+          height: 1,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+          color: colors.label2,
+        ),
+      ),
+    );
+  }
+}
+
+/// 展開、收起分 P 的箭頭：觸控列表在時長後面（`.c3`，20 的 ⌄／⌃），表格在
+/// 標題前面（`.xp`，20 見方、圓角 6 的 ›／⌄）。展開後還在列分 P 時轉圈。
+class PartsToggle extends StatelessWidget {
+  const PartsToggle({
+    super.key,
+    required this.expanded,
+    required this.loading,
+    required this.onTap,
+    required this.touch,
+  });
+
+  final bool expanded;
+  final bool loading;
+  final VoidCallback onTap;
+  final bool touch;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    final t = context.t.search.parts;
+    final label = expanded ? t.collapse : t.expand;
+    final size = touch ? 20.0 : 14.0;
+    final Widget icon = loading
+        ? SizedBox.square(
+            dimension: size - 4,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.8,
+              color: colors.label3,
+            ),
+          )
+        : FmpIcon(
+            touch
+                ? (expanded ? FmpIcons.chevU : FmpIcons.chevD)
+                : (expanded ? FmpIcons.chevD : FmpIcons.chevR),
+            size: size,
+            strokeWidth: touch ? 1.8 : 2.2,
+            color: touch ? colors.label3 : colors.label2,
+          );
+    final button = ShellButton(
+      onTap: onTap,
+      tooltip: label,
+      label: label,
+      builder: (context, hovered) => touch
+          // 圖示 20，左右各留一點讓手指點得到（列的間距是 12）。
+          ? SizedBox(width: 32, height: 44, child: Center(child: icon))
+          : Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: hovered ? colors.fill : null,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: icon,
+            ),
+    );
+    if (touch) return button;
+    // 表格的箭頭在列的雙擊範圍裡：一般的點擊要等雙擊逾時才算數，這裡按下
+    // 就認領，點下立刻展開。鍵盤與螢幕閱讀器照舊走 ShellButton。
+    return RawGestureDetector(
+      gestures: {
+        _EagerTap: GestureRecognizerFactoryWithHandlers<_EagerTap>(
+          _EagerTap.new,
+          (recognizer) => recognizer.onTap = onTap,
+        ),
+      },
+      child: button,
+    );
+  }
+}
+
+/// 按下就贏得手勢競技場的點擊：和祖先的雙擊辨識器搶時不用等它逾時。
+class _EagerTap extends TapGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
+}
+
+/// 觸控列表展開後的一個分 P（`.srh-part`）：高 48，縮排到標題（左 76），
+/// 「P2」、分 P 標題（15）、時長、⋮。點一下只臨時播放這一段；多選時不能
+/// 單獨勾選（設計稿〈更多與多選〉），點了沒反應。
+class SearchPartTouchRow extends StatelessWidget {
+  const SearchPartTouchRow({
+    super.key,
+    required this.part,
+    required this.number,
+    required this.isCurrent,
+    required this.playing,
+    required this.selecting,
+    required this.onTap,
+    required this.onMore,
+  });
+
+  final Track part;
+
+  /// 第幾個分 P，從 1 起。
+  final int number;
+  final bool isCurrent;
+  final bool playing;
+  final bool selecting;
+  final VoidCallback onTap;
+  final void Function(Offset at) onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    final t = context.t;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: selecting ? null : onTap,
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 76,
+            right: 0,
+            height: .5,
+            child: ColoredBox(color: colors.sep),
+          ),
+          Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.only(left: 76, right: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 26,
+                  child: Text(
+                    t.search.parts.number(n: number),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0,
+                      color: colors.label3,
+                    ).tabular,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (isCurrent) ...[
+                  Equalizer(playing: playing, label: t.queue.nowPlaying),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: Text(
+                    part.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      height: 21 / 15,
+                      letterSpacing: 0,
+                      color: isCurrent ? colors.accent : colors.label,
+                      fontWeight: isCurrent ? FontWeight.w600 : null,
+                    ),
+                  ),
+                ),
+                if (part.duration case final duration?) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    formatDuration(duration),
+                    style: TextStyle(
+                      fontSize: 13,
+                      letterSpacing: 0,
+                      color: colors.label3,
+                    ).tabular,
+                  ),
+                ],
+                if (selecting)
+                  const SizedBox(width: 10)
+                else
+                  Builder(
+                    builder: (context) => PlainIconButton(
+                      icon: FmpIcons.more,
+                      tooltip: t.queue.more,
+                      size: 44,
+                      onTap: () => onMore(_anchorOf(context)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 表格展開後的一個分 P（`.srh-tr.pt`）：高 34，序號欄空著，「P2」縮排到
+/// 父列的展開箭頭下（左 46），再隔 10 是分 P 標題，最後是時長。雙擊只臨時播放這一段，
+/// 右鍵或 ⋮ 開它自己的選單；分 P 不參與選取。
+class SearchPartTableRow extends StatefulWidget {
+  const SearchPartTableRow({
+    super.key,
+    required this.part,
+    required this.number,
+    required this.narrow,
+    required this.isCurrent,
+    required this.onPlay,
+    required this.onMenu,
+  });
+
+  final Track part;
+  final int number;
+  final bool narrow;
+  final bool isCurrent;
+  final VoidCallback onPlay;
+  final void Function(Offset at) onMenu;
+
+  @override
+  State<SearchPartTableRow> createState() => _SearchPartTableRowState();
+}
+
+class _SearchPartTableRowState extends State<SearchPartTableRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    final t = context.t;
+    final small = TextStyle(
+      fontSize: 12,
+      letterSpacing: 0,
+      color: colors.label2,
+    );
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapUp: (details) => widget.onMenu(details.globalPosition),
+        child: Container(
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: _hovered ? colors.cellHover : null,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: SearchTableGrid(
+            narrow: widget.narrow,
+            wrapMiddle: (middle) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: widget.onPlay,
+              child: middle,
+            ),
+            number: const SizedBox.shrink(),
+            title: Padding(
+              padding: const EdgeInsets.only(left: 46),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    child: Text(
+                      t.search.parts.number(n: widget.number),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0,
+                        color: colors.label3,
+                      ).tabular,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.part.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        letterSpacing: 0,
+                        color: widget.isCurrent ? colors.accent : colors.label,
+                        fontWeight: widget.isCurrent ? FontWeight.w600 : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            source: const SizedBox.shrink(),
+            plays: const SizedBox.shrink(),
+            duration: Text(
+              widget.part.duration == null
+                  ? ''
+                  : formatDuration(widget.part.duration!),
+              textAlign: TextAlign.right,
+              style: small.tabular,
+            ),
+            more: Opacity(
+              opacity: _hovered ? 1 : 0,
+              child: Builder(
+                builder: (context) => PlainIconButton(
+                  icon: FmpIcons.more,
+                  tooltip: t.queue.more,
+                  size: 28,
+                  onTap: () => widget.onMenu(_anchorOf(context)),
                 ),
               ),
             ),

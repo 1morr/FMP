@@ -103,6 +103,23 @@ type SearchSort = 'relevance' | 'viewCount' | 'date';
 - bilibili（事實 F26）：`relevance`、`viewCount`、`date` 對到 `order=totalrank`、`click`、`pubdate`，沒給用 `totalrank`，一律帶 `order`；`page` 照傳；`isEnd` 看回應的 `data.numPages`（頁碼大於等於它）或這頁沒有結果，讀不到 `numPages` 時當成最後一頁；`playCount` 取每筆的 `play`（有限的非負數字才給）；`url` 是 `https://www.bilibili.com/video/<bvid>`。
 - 契約測試：search 案例的 `input` 可以加 `sort`（要是 manifest 宣告過的名字）與 `page`（正整數）；`expect` 可以加 `playCounts`、`urls`（每首都有）、`playCountsDescending`（播放數由大到小，驗最多播放的排序）、`more`（`isEnd` 要是 false）。宣告了 `searchSorts` 的插件，聯網冒煙測試多打一次非預設排序的案例。（2026-11-19 擁有者同意。）
 
+### `listParts` 與搜尋結果的分 P 數（M1 票 15）
+
+新插件能力 `listParts`，`PluginTrack` 多一個選填的 `partCount`：
+
+```ts
+interface ListPartsRequest { trackId: string }
+interface ListPartsResponse { parts: PluginPart[] }
+interface PluginPart { id: string; title: string; durationMs?: number; url?: string }
+// PluginTrack 多 partCount?: number
+```
+
+- `listParts`：列出 `trackId` 所屬影片的全部分 P，依順序；`trackId` 可以是任一分 P 的 id。每個分 P 是一首曲目（GLOSSARY），`id` 格式照 brief §5.3（`<bvid>` 是 P1，`<bvid>?p=<n>` 是第 n 個，n ≥ 2）。
+- 宿主轉成曲目時，曲名、時長、網址用分 P 自己的，作者與封面（`coverUrl`）沿用傳入的父曲目（同舊版 `VideoPage.toTrack`）；`playCount`、`partCount` 不沿用。`parts` 是空的、`id` 重複、`url` 不是 http 或 https 的絕對網址、型別不對，都算解析失敗（`ParseFailure`，寫 warning）。Dart 端是 `Plugin.listParts(Track parent)`，`parent` 不是這個插件的曲目是程式錯誤（同 `resolveStream`）。
+- `partCount`：這首曲目所屬影片的分 P 數，正整數；不知道就不給。大於 1 且插件宣告了 `listParts` 時，畫面標分 P 數、可以展開；給了不合格的值（0、負數、非整數、非數字），整次搜尋算解析失敗（同 `playCount`）。Dart 的 `Track` 多 `partCount`（插件不知道時是 null）。
+- bilibili（事實 F21、F27）：`listParts` 打 `x/player/pagelist?bvid=<bvid>`，每筆 `page` 是分 P 序號、`part` 是標題（空字串時用 `P<n>`）、`duration` 是秒（有限的非負數字才給）；網址是 `https://www.bilibili.com/video/<bvid>`，n ≥ 2 加 `?p=<n>`；依 `page` 排序。搜尋結果本身沒有分 P 數，所以 `search` 拿到這頁結果後，每頁最多多打一次批次請求 `x/v3/fav/resource/infos?resources=<aid>:2,...&platform=web`，用回應每筆的 `bvid` 對回 `page` 當 `partCount`。這個請求失敗（任何插件錯誤、HTTP 不是 200、`code` 不是 0、回應形狀不對）或被限流時，搜尋照常回來，只是這頁沒有 `partCount`。
+- 契約測試：`checkContract` 的 `listParts` 案例，`input` 是 `{"trackId": "..."}`；契約是列出的分 P 不是空的、含傳入的那首、`id` 不重複、每個都有標題。search 案例的 `expect` 可以加 `partCounts`（每首都有 `partCount`）。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋 `listParts`。（2026-11-19 擁有者同意。）
+
 ## 後果
 
 - 好的：清單短，插件頁（設計稿的 `plugins.html`）照這份列出支援與不支援；複製連結、排序不用另外宣告。

@@ -34,6 +34,7 @@ class Track {
     this.duration,
     this.coverUrl,
     this.playCount,
+    this.partCount,
     this.url,
   });
 
@@ -53,6 +54,9 @@ class Track {
   /// 播放數；插件不知道時是 null。
   final int? playCount;
 
+  /// 這首曲目所屬影片的分 P 數（正整數）；插件不知道時是 null。
+  final int? partCount;
+
   /// 曲目在音源網站上的頁面（http(s) 絕對網址）；插件沒給時是 null。
   final String? url;
 
@@ -65,13 +69,22 @@ class Track {
       other.duration == duration &&
       other.coverUrl == coverUrl &&
       other.playCount == playCount &&
+      other.partCount == partCount &&
       other.url == url;
 
   @override
-  int get hashCode =>
-      Object.hash(ref, title, author, duration, coverUrl, playCount, url);
+  int get hashCode => Object.hash(
+    ref,
+    title,
+    author,
+    duration,
+    coverUrl,
+    playCount,
+    partCount,
+    url,
+  );
 
   @override
   String toString() =>
-      'Track($ref, $title, $author, $duration, $coverUrl, $playCount, $url)';
+      'Track($ref, $title, $author, $duration, $coverUrl, $playCount, $partCount, $url)';
 }

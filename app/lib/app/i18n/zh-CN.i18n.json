@@ -200,6 +200,14 @@
         "other": "已选择 $count 首"
       },
       "clear": "取消选择（Esc）"
+    },
+    "parts": {
+      "count": "${count}P",
+      "expand": "展开分 P",
+      "collapse": "收起分 P",
+      "number": "P${n}",
+      "appliesToAll": "${count} 个分 P 全部套用",
+      "failed": "列不出「${title}」的分 P。${reason}"
     }
   }
 }

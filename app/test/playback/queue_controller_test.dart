@@ -823,6 +823,152 @@ void main() {
 
       expect(playing(), 'a');
     });
+
+    group('一組分 P（brief〈播放〉：整組當成一首）', () {
+      final parts = [track('p1'), track('p2'), track('p3')];
+
+      test('播完一個分 P 接著播下一個，播完整組才回佇列原本那首、倒退後接著播', () async {
+        await queue().add([track('a'), track('b')]);
+        at(const Duration(seconds: 90));
+        await queue().playGroupTemporarily(parts);
+        await settle();
+        expect(playing(), 'p1');
+
+        await finishTemporary();
+        expect(playing(), 'p2');
+        expect(temporary()!.track.ref.trackId, 'p2');
+        await finishTemporary();
+        expect(playing(), 'p3');
+        expect(ids(), ['a', 'b']);
+        expect(currentInQueue(), 'a');
+
+        await finishTemporary();
+        expect(playing(), 'a');
+        expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+        expect(temporary(), isNull);
+      });
+
+      test('組內的下一首、上一首在組內移動，到了兩端才回佇列', () async {
+        await queue().add([track('a'), track('b')]);
+        await queue().next();
+        at(const Duration(seconds: 90));
+        await queue().playGroupTemporarily(parts);
+        await settle();
+
+        await queue().next();
+        await settle();
+        expect(playing(), 'p2');
+        await queue().next();
+        await settle();
+        expect(playing(), 'p3');
+        await queue().previous();
+        await settle();
+        expect(playing(), 'p2');
+        await queue().previous();
+        await settle();
+        expect(playing(), 'p1');
+        expect(temporary(), isNotNull);
+
+        await queue().previous();
+        await settle();
+        expect(playing(), 'b');
+        expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+        expect(temporary(), isNull);
+      });
+
+      test('最後一個分 P 按下一首回到佇列', () async {
+        await queue().add([track('a')]);
+        at(const Duration(seconds: 90));
+        await queue().playGroupTemporarily(parts, start: 2);
+        await settle();
+        expect(playing(), 'p3');
+
+        await queue().next();
+        await settle();
+        expect(playing(), 'a');
+        expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+      });
+
+      test('沒有佇列可回時，上一首、下一首只在組內能按', () async {
+        await queue().playGroupTemporarily(parts);
+        await settle();
+        expect(container.read(skipAvailableProvider), (
+          previous: false,
+          next: true,
+        ));
+
+        await queue().next();
+        await queue().next();
+        await settle();
+        expect(container.read(skipAvailableProvider), (
+          previous: true,
+          next: false,
+        ));
+      });
+
+      test('組內一個分 P 播不了就跳下一個分 P，佇列不動', () async {
+        await queue().add([track('a')]);
+        backend.failLoadOf = (stream) => stream.url.path == '/p1.m4a'
+            ? const AudioBackendError(NetworkError(), 'p1')
+            : null;
+
+        await queue().playGroupTemporarily(parts);
+        await Future<void>.delayed(Duration.zero);
+        await settle();
+
+        expect(playing(), 'p2');
+        expect(temporary()!.track.ref.trackId, 'p2');
+        expect(failure()!.outcome, FailureOutcome.skipped);
+        expect(currentInQueue(), 'a');
+      });
+
+      test('最後一個分 P 播不了就回到佇列', () async {
+        await queue().add([track('a')]);
+        at(const Duration(seconds: 90));
+        backend.failLoadOf = (stream) => stream.url.path == '/p3.m4a'
+            ? const AudioBackendError(NetworkError(), 'p3')
+            : null;
+
+        await queue().playGroupTemporarily(parts, start: 2);
+        await Future<void>.delayed(Duration.zero);
+        await settle();
+
+        expect(playing(), 'a');
+        expect(failure()!.outcome, FailureOutcome.returnedToQueue);
+        expect(temporary(), isNull);
+      });
+
+      test('卡片的「下一首播放」把正在播的與組內還沒播的分 P 排在原本那首後面，'
+          '聲音不中斷', () async {
+        await queue().add([track('a'), track('b')]);
+        await queue().playGroupTemporarily(parts);
+        await settle();
+        await queue().next();
+        await settle();
+        backend.calls.clear();
+
+        queue().queueTemporaryNext();
+
+        expect(ids(), ['a', 'p2', 'p3', 'b']);
+        expect(currentInQueue(), 'p2');
+        expect(temporary(), isNull);
+        expect(backend.calls.where((c) => c == 'load'), isEmpty);
+      });
+
+      test('連續臨時播放：組內時再臨時播放別首，回去的仍是最早的佇列位置', () async {
+        await queue().add([track('a')]);
+        at(const Duration(seconds: 90));
+        await queue().playGroupTemporarily(parts);
+        await settle();
+
+        await queue().playTemporarily(track('x'));
+        await settle();
+        await finishTemporary();
+
+        expect(playing(), 'a');
+        expect(sinceLastLoad(), ['load', 'seek 80000', 'play']);
+      });
+    });
   });
 
   group('預載下一首（brief〈播放〉）', () {
@@ -945,6 +1091,20 @@ void main() {
 
       expect(playing(), 'a');
       expect(backend.calls.take(3), ['switch', 'seek 50000', 'play']);
+    });
+
+    test('playing a group of parts preloads the next part, and the last part '
+        'preloads the queue track to go back to', () async {
+      await queue().add([track('a')]);
+      await settle();
+      await queue().playGroupTemporarily([track('p1'), track('p2')]);
+      await settle();
+      await preloadedIs('p2.m4a');
+
+      await queue().next();
+      await settle();
+      expect(playing(), 'p2');
+      await preloadedIs('a.m4a');
     });
   });
 }

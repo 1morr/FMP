@@ -53,11 +53,12 @@ void main() {
     'data': data,
   };
 
-  test('the manifest declares search and resolveStream on the API host', () {
+  test('the manifest declares its capabilities on the API host', () {
     expect(bilibili().manifest.id, 'bilibili');
     expect(bilibili().manifest.capabilities, {
       PluginCapability.search,
       PluginCapability.resolveStream,
+      PluginCapability.listParts,
     });
     expect(bilibili().manifest.allowsHost('api.bilibili.com'), isTrue);
   });
@@ -224,6 +225,102 @@ void main() {
     });
   });
 
+  group('search part counts', () {
+    /// 搜尋回兩支影片（aid 11、22）；批次查詢 [infos] 回 `data`。
+    FakeResponse Function(Uri url) searching(FakeResponse Function() infos) =>
+        (url) => url.path == '/x/v3/fav/resource/infos'
+        ? infos()
+        : FakeResponse.json(
+            ok({
+              'numPages': 1,
+              'result': [
+                {'aid': 11, 'bvid': 'BV1xx411c7mD', 'title': 'a'},
+                {'aid': 22, 'bvid': 'BV1yy411c7mE', 'title': 'b'},
+              ],
+            }),
+          );
+
+    FakeResponse info(List<Map<String, Object?>> data) =>
+        FakeResponse.json(ok(data));
+
+    test('one batch request per page gives each track its part count, '
+        'matched by bvid', () async {
+      respond = searching(
+        () => info([
+          // 順序和搜尋結果相反：要用 bvid 對，不是位置。
+          {'bvid': 'BV1yy411c7mE', 'page': 1},
+          {'bvid': 'BV1xx411c7mD', 'page': 51},
+        ]),
+      );
+
+      final tracks = (await bilibili().search('q')).tracks;
+
+      expect(tracks.map((t) => t.partCount), [51, 1]);
+      final batch = http.requests.where(
+        (r) => r.uri.path == '/x/v3/fav/resource/infos',
+      );
+      expect(batch, hasLength(1));
+      expect(batch.single.uri.queryParameters, {
+        'resources': '11:2,22:2',
+        'platform': 'web',
+      });
+      expect(batch.single.headers['Referer'], 'https://www.bilibili.com/');
+      expect(batch.single.headers['Origin'], 'https://www.bilibili.com');
+    });
+
+    test('a result the batch does not return, or returns a bad page '
+        'count for, has none', () async {
+      respond = searching(
+        () => info([
+          {'bvid': 'BV1yy411c7mE', 'page': 0},
+        ]),
+      );
+      final tracks = (await bilibili().search('q')).tracks;
+      expect(tracks.map((t) => t.partCount), [null, null]);
+    });
+
+    test('an empty page asks for no batch', () async {
+      respond = (_) => FakeResponse.json(ok({'result': <Object>[]}));
+      await bilibili().search('q');
+      expect(http.requests, hasLength(1));
+    });
+
+    for (final (name, response) in [
+      ('HTTP 412', const FakeResponse(412, 'banned')),
+      ('HTTP 503', const FakeResponse(503, 'busy')),
+      (
+        'a risk-control code',
+        FakeResponse.json({'code': -352, 'message': 'x'}),
+      ),
+      ('another API code', FakeResponse.json({'code': -400, 'message': 'x'})),
+      ('a body that is not JSON', const FakeResponse(200, '<html>')),
+      ('data that is not a list', FakeResponse.json(ok({'page': 3}))),
+    ]) {
+      test('$name on the batch still returns the results, without part '
+          'counts', () async {
+        respond = searching(() => response);
+
+        final results = await bilibili().search('q');
+
+        expect(results.tracks.map((t) => t.ref.trackId), [
+          'BV1xx411c7mD',
+          'BV1yy411c7mE',
+        ]);
+        expect(results.tracks.map((t) => t.partCount), [null, null]);
+      });
+    }
+
+    test('no connection on the batch still returns the results', () async {
+      respond = (url) => url.path == '/x/v3/fav/resource/infos'
+          ? throw DioException.connectionError(
+              requestOptions: http.requests.last,
+              reason: 'offline',
+            )
+          : searching(() => info([]))(url);
+      expect((await bilibili().search('q')).tracks, hasLength(2));
+    });
+  });
+
   test('no results is an empty list', () async {
     respond = (_) => FakeResponse.json(ok({'numResults': 0}));
     expect((await bilibili().search('zzzz')).tracks, isEmpty);
@@ -291,6 +388,97 @@ void main() {
     );
     await expectLater(bilibili().search('q'), throwsA(isA<NetworkError>()));
   });
+  group('listParts', () {
+    const parent = Track(
+      ref: TrackRef(pluginId: 'bilibili', trackId: 'BV1xx411c7mD'),
+      title: '合集',
+      author: 'UP 主',
+      coverUrl: 'https://i0.hdslb.com/bfs/archive/a.jpg@160w_160h_1c.webp',
+      partCount: 3,
+    );
+
+    Map<String, Object?> part(int page, Object? title, Object? duration) => {
+      'cid': 100 + page,
+      'page': page,
+      'part': title,
+      'duration': duration,
+    };
+
+    test('turns each part of the video into a track, whichever part '
+        'it is asked for', () async {
+      respond = (_) => FakeResponse.json(
+        ok([part(1, '第一段', 60), part(2, '第二段', 61.5), part(3, '', 0)]),
+      );
+      final other = Track(
+        ref: bv('BV1xx411c7mD?p=2'),
+        title: parent.title,
+        author: parent.author,
+        coverUrl: parent.coverUrl,
+      );
+
+      final parts = await bilibili().listParts(other);
+
+      expect(parts.map((t) => t.ref.trackId), [
+        'BV1xx411c7mD',
+        'BV1xx411c7mD?p=2',
+        'BV1xx411c7mD?p=3',
+      ]);
+      expect(parts.map((t) => t.title), ['第一段', '第二段', 'P3']);
+      expect(parts.map((t) => t.duration), [
+        const Duration(minutes: 1),
+        const Duration(seconds: 61, milliseconds: 500),
+        Duration.zero,
+      ]);
+      expect(parts.map((t) => t.url), [
+        'https://www.bilibili.com/video/BV1xx411c7mD',
+        'https://www.bilibili.com/video/BV1xx411c7mD?p=2',
+        'https://www.bilibili.com/video/BV1xx411c7mD?p=3',
+      ]);
+      expect(parts.map((t) => t.author).toSet(), {'UP 主'});
+      expect(http.requests.single.uri.queryParameters, {
+        'bvid': 'BV1xx411c7mD',
+      });
+    });
+
+    test('lists the parts by page number, whatever order the API '
+        'gives them in', () async {
+      respond = (_) => FakeResponse.json(
+        ok([part(3, 'c', 3), part(1, 'a', 1), part(2, 'b', 2)]),
+      );
+      final parts = await bilibili().listParts(parent);
+      expect(parts.map((t) => t.title), ['a', 'b', 'c']);
+    });
+
+    test('a part without a usable duration has none', () async {
+      respond = (_) => FakeResponse.json(
+        ok([part(1, 'a', null), part(2, 'b', -5), part(3, 'c', '9')]),
+      );
+      final parts = await bilibili().listParts(parent);
+      expect(parts.map((t) => t.duration), [null, null, null]);
+    });
+
+    test('a track id that is not a bilibili id is NotFound', () async {
+      final bad = Track(ref: bv('nope'), title: 't', author: 'a');
+      await expectLater(bilibili().listParts(bad), throwsA(isA<NotFound>()));
+    });
+
+    test('a pagelist that is not a list is a ParseFailure', () async {
+      respond = (_) => FakeResponse.json(ok({'page': 1}));
+      await expectLater(
+        bilibili().listParts(parent),
+        throwsA(isA<ParseFailure>()),
+      );
+    });
+
+    test('HTTP 412 on pagelist is RateLimited', () async {
+      respond = (_) => const FakeResponse(412, 'banned');
+      await expectLater(
+        bilibili().listParts(parent),
+        throwsA(isA<RateLimited>()),
+      );
+    });
+  });
+
   group('resolveStream', () {
     // 2026-01-01 00:00:00 UTC。
     const deadline = 1767225600;

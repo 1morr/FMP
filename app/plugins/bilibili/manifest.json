@@ -2,7 +2,7 @@
   "id": "bilibili",
   "name": "Bilibili",
   "version": "0.1.0",
-  "capabilities": ["search", "resolveStream"],
+  "capabilities": ["search", "resolveStream", "listParts"],
   "searchSorts": ["relevance", "viewCount", "date"],
   "domains": ["api.bilibili.com"],
   "mark": {

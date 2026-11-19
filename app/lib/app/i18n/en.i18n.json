@@ -200,6 +200,14 @@
         "other": "$count selected"
       },
       "clear": "Deselect (Esc)"
+    },
+    "parts": {
+      "count": "${count}P",
+      "expand": "Show parts",
+      "collapse": "Hide parts",
+      "number": "P${n}",
+      "appliesToAll": "Applies to all ${count} parts",
+      "failed": "Couldn’t list the parts of “${title}”. ${reason}"
     }
   }
 }

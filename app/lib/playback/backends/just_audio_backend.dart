@@ -72,6 +72,9 @@ class JustAudioBackend implements AudioBackend {
   /// 正在跳到預載的那項：跳過去之前舊那項報的位置與項目位置都不算數。
   bool _switching = false;
 
+  /// 自己接到預載那項之後，移掉播過那項的修改；做完之前不 seek（[seek]）。
+  Future<void> _droppingAfterAdvance = Future.value();
+
   ja.PlayerState? _playerState;
 
   /// 目前這條是從預載換過來的。上一版文件記 AVPlayer 會把失敗的預載項目
@@ -196,7 +199,9 @@ class JustAudioBackend implements AudioBackend {
       ..update(
         (s) => _withPlayerState(s.copyWith(duration: () => _player.duration)),
       );
-    unawaited(_edits.run(_dropPlayed));
+    final dropping = _edits.run(_dropPlayed);
+    _droppingAfterAdvance = dropping.catchError((Object _) {});
+    unawaited(dropping);
   }
 
   Future<void> _dropPlayed() async {
@@ -238,8 +243,14 @@ class JustAudioBackend implements AudioBackend {
     }
   }
 
+  /// 自己接到預載那項後，移掉播過那項還沒做完就 seek，AVPlayer 會停在開頭、
+  /// 位置不再前進（事實 K34）；先等它做完。不等其他清單修改：預載要包 HLS
+  /// 時得抓索引，seek 不該卡在它後面。
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async {
+    await _droppingAfterAdvance;
+    await _player.seek(position);
+  }
 
   @override
   Future<void> play() async {

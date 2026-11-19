@@ -1,5 +1,5 @@
-// Bilibili 插件。插件能力：search（brief 事實 F20、F26）、resolveStream（事實
-// F1、F4、F5、F6、F21、F24）。
+// Bilibili 插件。插件能力：search（brief 事實 F20、F26、F27）、resolveStream
+// （事實 F1、F4、F5、F6、F21、F24）、listParts（事實 F1、F21、F27）。
 //
 // 曲目 id 照 B 站影片頁網址的慣例（`/video/<bvid>?p=<分 P>`）：`<bvid>` 是
 // 第一個分 P，`<bvid>?p=<n>` 是第 n 個分 P，n ≥ 2（GLOSSARY.md：每個分 P
@@ -8,6 +8,10 @@
 const SEARCH_URL = 'https://api.bilibili.com/x/web-interface/search/type';
 const PAGELIST_URL = 'https://api.bilibili.com/x/player/pagelist';
 const PLAYURL_URL = 'https://api.bilibili.com/x/player/playurl';
+/** 批次查影片資訊，搜尋結果的分 P 數從這裡來（brief 事實 F27）。 */
+const INFOS_URL = 'https://api.bilibili.com/x/v3/fav/resource/infos';
+/** infos 的 `resources` 裡 `:2` 是資源類型「影片」。 */
+const RESOURCE_TYPE_VIDEO = 2;
 
 /** API 請求的 Referer 帶結尾斜線、加 Origin（brief 事實 F4）。 */
 const API_REFERER = 'https://www.bilibili.com/';
@@ -82,7 +86,83 @@ export async function search({
   const numPages = data?.numPages;
   const isEnd =
     results.length === 0 || typeof numPages !== 'number' || page >= numPages;
-  return { tracks: results.map(toTrack), isEnd };
+  const tracks = results.map(toTrack);
+  const partCounts = await fetchPartCounts(results);
+  return {
+    tracks: tracks.map((t) => {
+      const partCount = partCounts.get(t.id);
+      return partCount === undefined ? t : { ...t, partCount };
+    }),
+    isEnd,
+  };
+}
+
+/**
+ * 這頁搜尋結果的分 P 數，bvid 對分 P 數；搜尋結果自己沒有（事實 F27），每頁
+ * 一次批次請求。這個請求失敗或被限流時，搜尋照常回來、這頁沒有分 P 數：
+ * 分 P 數只是附帶的資訊，不該讓搜尋跟著失敗。
+ */
+async function fetchPartCounts(results: unknown[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const aids = results
+    .map((r) => (r as { aid?: unknown }).aid)
+    .filter((aid): aid is number => Number.isSafeInteger(aid) && (aid as number) > 0);
+  if (aids.length === 0) return counts;
+  try {
+    const resources = aids.map((aid) => `${aid}:${RESOURCE_TYPE_VIDEO}`).join(',');
+    const data = await apiGet(`${INFOS_URL}?resources=${resources}&platform=web`);
+    if (!Array.isArray(data)) {
+      throw new PluginError('parse_failure', 'infos without a list');
+    }
+    for (const info of data as { bvid?: unknown; page?: unknown }[]) {
+      const { bvid, page } = info ?? {};
+      if (typeof bvid === 'string' && Number.isSafeInteger(page) && (page as number) >= 1) {
+        counts.set(bvid, page as number);
+      }
+    }
+  } catch (e) {
+    if (!(e instanceof PluginError)) throw e;
+    // 宿主 API 沒有 log（host.d.ts），這裡不記；這頁就沒有分 P 數。
+  }
+  return counts;
+}
+
+export async function listParts({
+  trackId,
+}: ListPartsRequest): Promise<ListPartsResponse> {
+  const match = TRACK_ID.exec(trackId);
+  if (match === null) {
+    throw new PluginError('not_found', `not a bilibili track id: ${trackId}`);
+  }
+  const bvid = match[1] as string;
+  const data = await apiGet(`${PAGELIST_URL}?bvid=${bvid}`);
+  if (!Array.isArray(data)) {
+    throw new PluginError('parse_failure', 'pagelist without a list');
+  }
+  const parts = (data as { page?: unknown; part?: unknown; duration?: unknown }[])
+    .map((p) => {
+      const { page, part, duration } = p ?? {};
+      if (typeof page !== 'number' || !Number.isSafeInteger(page) || page < 1) {
+        throw new PluginError('parse_failure', 'pagelist part without a page');
+      }
+      return {
+        page,
+        part: {
+          id: page === 1 ? bvid : `${bvid}?p=${page}`,
+          title: typeof part === 'string' && part !== '' ? part : `P${page}`,
+          durationMs:
+            typeof duration === 'number' && Number.isFinite(duration) && duration >= 0
+              ? Math.round(duration * 1000)
+              : undefined,
+          url:
+            `https://www.bilibili.com/video/${bvid}` +
+            (page === 1 ? '' : `?p=${page}`),
+        } satisfies PluginPart,
+      };
+    })
+    .sort((a, b) => a.page - b.page)
+    .map((p) => p.part);
+  return { parts };
 }
 
 export async function resolveStream({
