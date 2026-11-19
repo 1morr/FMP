@@ -468,6 +468,99 @@ void main() {
     }
   });
 
+  group('trackInfo', () {
+    final infoManifest = manifest(capabilities: ['trackInfo']);
+    const ref = TrackRef(pluginId: 'demo', trackId: 'v1');
+
+    Plugin describing(String result) => only(
+      host('''
+      export async function trackInfo({ trackId }) {
+        return $result;
+      }
+    ''', manifestJson: infoManifest),
+    );
+
+    test('returns every field the plugin gives', () async {
+      final info = await describing('''{
+        album: 'Night Train',
+        publishedAtMs: 1698939176000,
+        playCount: 376272,
+        likeCount: 3122,
+        commentCount: 110,
+        description: 'Line one\\nLine two',
+      }''').trackInfo(ref);
+
+      expect(info.album, 'Night Train');
+      expect(
+        info.publishedAt,
+        DateTime.fromMillisecondsSinceEpoch(1698939176000, isUtc: true),
+      );
+      expect(info.playCount, 376272);
+      expect(info.likeCount, 3122);
+      expect(info.commentCount, 110);
+      expect(info.description, 'Line one\nLine two');
+    });
+
+    test('every field is optional', () async {
+      final info = await describing('{}').trackInfo(ref);
+
+      expect(info.album, isNull);
+      expect(info.publishedAt, isNull);
+      expect(info.playCount, isNull);
+      expect(info.likeCount, isNull);
+      expect(info.commentCount, isNull);
+      expect(info.description, isNull);
+    });
+
+    test('blank text counts as not given and text is trimmed', () async {
+      final info = await describing(
+        r"{ album: '  ', description: '\n About this track \n' }",
+      ).trackInfo(ref);
+
+      expect(info.album, isNull);
+      expect(info.description, 'About this track');
+    });
+
+    test('gets the id of the track it describes', () async {
+      final info = await describing('{ album: trackId }').trackInfo(ref);
+
+      expect(info.album, 'v1');
+    });
+
+    test('a track of another plugin is an ArgumentError', () async {
+      await expectLater(
+        describing('{}')
+            .trackInfo(const TrackRef(pluginId: 'other', trackId: 'v1')),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('a plugin that does not declare it is Unsupported', () async {
+      final h = host('', manifestJson: manifest());
+      await expectLater(only(h).trackInfo(ref), throwsA(isA<Unsupported>()));
+    });
+
+    final bad = {
+      'a negative play count': '{ playCount: -1 }',
+      'a fractional like count': '{ likeCount: 1.5 }',
+      'a comment count that is not a number': "{ commentCount: '3' }",
+      'an infinite play count': '{ playCount: Infinity }',
+      'a publish time that is not a number': "{ publishedAtMs: '2026' }",
+      'a fractional publish time': '{ publishedAtMs: 1.5 }',
+      'an album that is not a string': '{ album: 1 }',
+      'a description that is not a string': '{ description: [] }',
+      'a result that is not an object': "'x'",
+    };
+    for (final MapEntry(:key, :value) in bad.entries) {
+      test('$key is a ParseFailure', () async {
+        await expectLater(
+          describing(value).trackInfo(ref),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+  });
+
   test('pluginFor finds the plugin that provides a track', () {
     final h = PluginHost(
       bundles: [

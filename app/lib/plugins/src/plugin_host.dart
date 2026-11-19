@@ -6,6 +6,7 @@ import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/core/log/log.dart';
 import 'package:fmp/domain/audio_stream.dart';
 import 'package:fmp/domain/track.dart';
+import 'package:fmp/domain/track_info.dart';
 import 'package:fmp/plugins/src/host_network.dart';
 import 'package:fmp/plugins/src/js_engine.dart';
 import 'package:fmp/plugins/src/manifest.dart';
@@ -190,6 +191,56 @@ class Plugin {
       return tracks;
     });
   }
+
+  /// 插件能力 `trackInfo`：[ref] 這首曲目的曲目資訊（ADR 0039）。插件給不了
+  /// 的欄位是 null；空白的文字也當成沒給。[ref] 要是這個插件的曲目，否則是
+  /// 程式錯誤，丟 [ArgumentError]。
+  Future<TrackInfo> trackInfo(TrackRef ref) async {
+    if (ref.pluginId != manifest.id) {
+      throw ArgumentError.value(
+        ref,
+        'ref',
+        'belongs to another plugin than ${manifest.id}',
+      );
+    }
+    final result = await _invoke(PluginCapability.trackInfo, {
+      'trackId': ref.trackId,
+    });
+    return _parse(PluginCapability.trackInfo, () {
+      final json = result as Map;
+      final publishedAtMs = _integer(json['publishedAtMs'], 'publishedAtMs');
+      return TrackInfo(
+        album: _text(json['album']),
+        publishedAt: publishedAtMs == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(publishedAtMs, isUtc: true),
+        playCount: _count(json['playCount'], 'playCount'),
+        likeCount: _count(json['likeCount'], 'likeCount'),
+        commentCount: _count(json['commentCount'], 'commentCount'),
+        description: _text(json['description']),
+      );
+    });
+  }
+
+  /// 選填的文字欄位，去掉頭尾空白；空的當成沒給。
+  static String? _text(Object? value) => switch ((value as String?)?.trim()) {
+    null || '' => null,
+    final text => text,
+  };
+
+  /// 選填的整數欄位；不是有限的整數就丟 [FormatException]。
+  static int? _integer(Object? value, String name) => switch (value) {
+    null => null,
+    final num n when n.isFinite && n == n.truncate() => n.toInt(),
+    _ => throw FormatException('$name is not an integer'),
+  };
+
+  /// 選填的計數欄位：非負整數。
+  static int? _count(Object? value, String name) =>
+      switch (_integer(value, name)) {
+        final int n when n < 0 => throw FormatException('$name is negative'),
+        final n => n,
+      };
 
   Track _part(Map<dynamic, dynamic> json, Track parent) {
     final ms = _whole(json['durationMs'], 'durationMs');

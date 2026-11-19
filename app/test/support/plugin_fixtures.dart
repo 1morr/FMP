@@ -227,6 +227,7 @@ Future<List<String>> checkContract(
     },
     PluginCapability.resolveStream => const {'expiresAt', 'segmentBase'},
     PluginCapability.listParts => const <String>{},
+    PluginCapability.trackInfo => const {'stats', 'published', 'description'},
   };
   final unknown = [
     for (final key in expect.keys)
@@ -325,6 +326,27 @@ Future<List<String>> checkContract(
         ),
       );
       return listPartsContractViolations(trackId, parts);
+    case PluginCapability.trackInfo:
+      final trackId = input['trackId'];
+      if (trackId is! String) {
+        throw const FormatException('trackInfo input needs a "trackId" string');
+      }
+      final info = await plugin.trackInfo(
+        TrackRef(pluginId: plugin.manifest.id, trackId: trackId),
+      );
+      // 形狀由宿主檢查；每個欄位都選填，所以沒有期望時空的也合格。
+      String missing(String field) => 'expected a $field, got none';
+      return [
+        if (expect.containsKey('published') && info.publishedAt == null)
+          missing('publishedAtMs'),
+        if (expect.containsKey('stats')) ...[
+          if (info.playCount == null) missing('playCount'),
+          if (info.likeCount == null) missing('likeCount'),
+          if (info.commentCount == null) missing('commentCount'),
+        ],
+        if (expect.containsKey('description') && info.description == null)
+          missing('description'),
+      ];
   }
 }
 

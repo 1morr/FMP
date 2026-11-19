@@ -146,3 +146,30 @@ interface ListPartsResponse {
   /** 依分 P 的順序；不能是空的。作者與封面由宿主沿用傳入曲目的。 */
   parts: PluginPart[];
 }
+
+/**
+ * 插件能力 trackInfo：一首曲目的曲目資訊（GLOSSARY.md，ADR 0039）。欄位名
+ * 照 YouTube Data API videos 的 snippet.publishedAt、description 與
+ * statistics.likeCount、commentCount；播放數同 PluginTrack.playCount。
+ */
+interface TrackInfoRequest {
+  /** 搜尋等插件能力回傳的 PluginTrack.id。 */
+  trackId: string;
+}
+
+/**
+ * 每個欄位都選填：給不了就不給，畫面不顯示那一列；空白的字串宿主當成沒給。
+ * 時長、網址、作者、封面在 PluginTrack 上，不在這裡重給。
+ */
+interface TrackInfoResponse {
+  /** 專輯名稱。 */
+  album?: string;
+  /** 發佈時間（unix 毫秒），整數。 */
+  publishedAtMs?: number;
+  /** 播放數、點讚數、評論數：非負整數。 */
+  playCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  /** 簡介，可以有多行。 */
+  description?: string;
+}

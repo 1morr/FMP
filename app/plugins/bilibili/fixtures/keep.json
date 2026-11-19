@@ -33,5 +33,14 @@
     "data.page",
     "data.part",
     "data.duration"
+  ],
+  "trackInfo": [
+    "code",
+    "message",
+    "data.pubdate",
+    "data.desc",
+    "data.stat.view",
+    "data.stat.like",
+    "data.stat.reply"
   ]
 }
