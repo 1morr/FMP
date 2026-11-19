@@ -70,7 +70,7 @@ class PluginFixture {
   /// 這個案例另外要求的結果，鍵是各插件能力認得的期望（[checkContract]），
   /// 例如 resolveStream 的 `{"expiresAt": true}`：串流要有有效期，
   /// `{"segmentBase": true}`：串流要給 init 與 sidx 的位置；search 的
-  /// `{"covers": true}`：每首曲目都有封面，`{"playCounts": true}`：每首都有
+  /// `{"covers": true}`：每首曲目都有封面，`{"largeCovers": true}`：每首都有大封面，`{"playCounts": true}`：每首都有
   /// 播放數，`{"playCountsDescending": true}`：播放數由大到小（排序最多播放），`{"urls": true}`：每首都有網址，`{"more": true}`：結果的
   /// `isEnd` 是 false（還有下一頁），`{"partCounts": true}`：每首都有分 P 數。錄製、
   /// 重播與 live 冒煙測試都套用；錄製時照原樣寫回。
@@ -218,6 +218,7 @@ Future<List<String>> checkContract(
   final known = switch (capability) {
     PluginCapability.search => const {
       'covers',
+      'largeCovers',
       'playCounts',
       'playCountsDescending',
       'urls',
@@ -270,6 +271,10 @@ Future<List<String>> checkContract(
           for (final (i, t) in tracks.indexed)
             if (t.coverUrl == null)
               'expected a cover on every track, track $i has none',
+        if (expect.containsKey('largeCovers'))
+          for (final (i, t) in tracks.indexed)
+            if (t.coverLargeUrl == null)
+              'expected a large cover on every track, track $i has none',
         if (expect.containsKey('playCounts'))
           for (final (i, t) in tracks.indexed)
             if (t.playCount == null)

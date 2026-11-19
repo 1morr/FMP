@@ -42,6 +42,7 @@ void main() {
     author: 'Author $id',
     duration: const Duration(minutes: 3),
     coverUrl: 'https://img.example.com/$id.webp',
+    coverLargeUrl: 'https://img.example.com/$id-large.webp',
   );
 
   File databaseFile() => File('${dir.path}/fmp.sqlite');
@@ -198,6 +199,18 @@ void main() {
       expect(backend.calls, ['load', 'seek 120000', 'play']);
     },
   );
+
+  test("a track's large cover comes back after a restart", () async {
+    await queue().add([track('a')]);
+    await settle();
+
+    await restart();
+
+    expect(
+      current().current?.track.coverLargeUrl,
+      'https://img.example.com/a-large.webp',
+    );
+  });
 
   test('seeking saves the new position right away', () async {
     await queue().add([track('a')]);
@@ -410,7 +423,7 @@ void main() {
     await database.customStatement('DELETE FROM queue_entries');
     await database.customStatement(
       "INSERT INTO queue_entries VALUES (7, 0, NULL, 'songs', 'kept', "
-      "'Kept', 'K', NULL, NULL)",
+      "'Kept', 'K', NULL, NULL, NULL)",
     );
 
     await restart();

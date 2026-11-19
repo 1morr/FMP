@@ -146,6 +146,40 @@ void main() {
     }
   });
 
+  group('a track large cover', () {
+    String searching(String cover) =>
+        '''
+      export async function search() {
+        return { tracks: [{ id: 'a1', title: 'A', author: 'B', coverLargeUrl: $cover }] };
+      }
+    ''';
+
+    test('is the https or http URL the plugin gives', () async {
+      final tracks = (await only(
+        host(searching("'https://img.example.com/a-large.jpg'")),
+      ).search('q')).tracks;
+      expect(
+        tracks.single.coverLargeUrl,
+        'https://img.example.com/a-large.jpg',
+      );
+    });
+
+    test('is optional', () async {
+      final tracks = (await only(host(searching('undefined'))).search('q'))
+          .tracks;
+      expect(tracks.single.coverLargeUrl, isNull);
+    });
+
+    for (final cover in ["'//img.example.com/a.jpg'", "'file:///a.jpg'", '1']) {
+      test('$cover is a ParseFailure', () async {
+        await expectLater(
+          only(host(searching(cover))).search('q'),
+          throwsA(isA<ParseFailure>()),
+        );
+      });
+    }
+  });
+
   group('search sorting and paging', () {
     /// 把收到的參數原樣回成一首曲目的標題。
     const echo = '''
@@ -325,6 +359,7 @@ void main() {
       author: 'Uploader',
       duration: Duration(minutes: 90),
       coverUrl: 'https://img.example.com/v1.jpg',
+      coverLargeUrl: 'https://img.example.com/v1-large.jpg',
       playCount: 500,
       partCount: 2,
       url: 'https://www.example.com/v/v1',
@@ -360,11 +395,12 @@ void main() {
     });
 
     test('a part keeps its own title, duration and url, but the '
-        "parent's author and cover", () async {
+        "parent's author and covers", () async {
       final part = (await listing(twoParts).listParts(parent)).last;
 
       expect(part.author, 'Uploader');
       expect(part.coverUrl, 'https://img.example.com/v1.jpg');
+      expect(part.coverLargeUrl, 'https://img.example.com/v1-large.jpg');
       expect(part.playCount, isNull);
       expect(part.partCount, isNull);
     });

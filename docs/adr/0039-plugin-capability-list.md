@@ -73,7 +73,14 @@ ADR 0038 定了音源用 JS 插件實作、介面依插件宣告的插件能力�
 
 ### `search` 的曲目封面（M1 票 06）
 
-`PluginTrack` 多一個選填的 `coverUrl`：清單用的封面縮圖網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗。縮圖的尺寸由插件挑，夠 3x 螢幕上 40–52 點的封面用（bilibili 用圖床參數裁成 160 方形 webp，約 2 KB；原圖平均約 450 KB）；播放頁與曲目資訊要的大圖之後另外取。宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。契約測試的 search 案例可以加 `{"covers": true}`，要求每首都有封面。排序、分頁與播放數、網址由票 14 補（見下一節）。（2026-11-17 擁有者同意在票 06 補封面；交出縮圖而不是原圖由協調者定。）
+`PluginTrack` 多一個選填的 `coverUrl`：清單用的封面縮圖網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗。縮圖的尺寸由插件挑，夠 3x 螢幕上 40–52 點的封面用（bilibili 用圖床參數裁成 160 方形 webp，約 2 KB；原圖平均約 450 KB）；播放頁的大圖見下一節。宿主不經網路層直接載入（ARCHITECTURE〈快取〉）。契約測試的 search 案例可以加 `{"covers": true}`，要求每首都有封面。排序、分頁與播放數、網址由票 14 補（見下一節）。（2026-11-17 擁有者同意在票 06 補封面；交出縮圖而不是原圖由協調者定。）
+
+### `search` 的大封面（M1 票 16）
+
+`PluginTrack` 多一個選填的 `coverLargeUrl`：播放頁用的大封面網址，http 或 https 的絕對網址，給了別的值整次搜尋算解析失敗（同 `coverUrl`）。尺寸由插件挑，夠 3x 螢幕上 300–380 點的封面用。沒給時播放頁用 `coverUrl`。Dart 的 `Track` 多 `coverLargeUrl`；`listParts` 的分 P 和 `coverUrl` 一樣沿用父曲目的。宿主不經網路層直接載入，封面色（播放頁背景）也從這張取。佇列的資料庫存它（schema v4），升級前存的佇列沒有。
+
+- bilibili（事實 F23）：同一張原圖加 `@720w_720h_1c.webp`，約 30–40 KB；圖床不會把比原圖小的放大，再大沒有幫助。
+- 契約測試：search 案例的 `expect` 可以加 `largeCovers`（每首都有）。（2026-11-19 擁有者同意。）
 
 ### `resolveStream` 的 `segmentBase`（M1 票 06b）
 
@@ -115,7 +122,7 @@ interface PluginPart { id: string; title: string; durationMs?: number; url?: str
 ```
 
 - `listParts`：列出 `trackId` 所屬影片的全部分 P，依順序；`trackId` 可以是任一分 P 的 id。每個分 P 是一首曲目（GLOSSARY），`id` 格式照 brief §5.3（`<bvid>` 是 P1，`<bvid>?p=<n>` 是第 n 個，n ≥ 2）。
-- 宿主轉成曲目時，曲名、時長、網址用分 P 自己的，作者與封面（`coverUrl`）沿用傳入的父曲目（同舊版 `VideoPage.toTrack`）；`playCount`、`partCount` 不沿用。`parts` 是空的、`id` 重複、`url` 不是 http 或 https 的絕對網址、型別不對，都算解析失敗（`ParseFailure`，寫 warning）。Dart 端是 `Plugin.listParts(Track parent)`，`parent` 不是這個插件的曲目是程式錯誤（同 `resolveStream`）。
+- 宿主轉成曲目時，曲名、時長、網址用分 P 自己的，作者與封面（`coverUrl`、`coverLargeUrl`）沿用傳入的父曲目（同舊版 `VideoPage.toTrack`）；`playCount`、`partCount` 不沿用。`parts` 是空的、`id` 重複、`url` 不是 http 或 https 的絕對網址、型別不對，都算解析失敗（`ParseFailure`，寫 warning）。Dart 端是 `Plugin.listParts(Track parent)`，`parent` 不是這個插件的曲目是程式錯誤（同 `resolveStream`）。
 - `partCount`：這首曲目所屬影片的分 P 數，正整數；不知道就不給。大於 1 且插件宣告了 `listParts` 時，畫面標分 P 數、可以展開；給了不合格的值（0、負數、非整數、非數字），整次搜尋算解析失敗（同 `playCount`）。Dart 的 `Track` 多 `partCount`（插件不知道時是 null）。
 - bilibili（事實 F21、F27）：`listParts` 打 `x/player/pagelist?bvid=<bvid>`，每筆 `page` 是分 P 序號、`part` 是標題（空字串時用 `P<n>`）、`duration` 是秒（有限的非負數字才給）；網址是 `https://www.bilibili.com/video/<bvid>`，n ≥ 2 加 `?p=<n>`；依 `page` 排序。搜尋結果本身沒有分 P 數，所以 `search` 拿到這頁結果後，每頁最多多打一次批次請求 `x/v3/fav/resource/infos?resources=<aid>:2,...&platform=web`，用回應每筆的 `bvid` 對回 `page` 當 `partCount`。這個請求失敗（任何插件錯誤、HTTP 不是 200、`code` 不是 0、回應形狀不對）或被限流時，搜尋照常回來，只是這頁沒有 `partCount`。
 - 契約測試：`checkContract` 的 `listParts` 案例，`input` 是 `{"trackId": "..."}`；契約是列出的分 P 不是空的、含傳入的那首、`id` 不重複、每個都有標題。search 案例的 `expect` 可以加 `partCounts`（每首都有 `partCount`）。聯網冒煙測試照「每個插件能力用第一個案例」涵蓋 `listParts`。（2026-11-19 擁有者同意。）

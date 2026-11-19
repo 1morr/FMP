@@ -309,6 +309,25 @@ export async function search({ query }) {
       );
     });
 
+    test('largeCovers: a track without a large cover turns red', () async {
+      expect(
+        await run(
+          searching([
+            {
+              'id': '1',
+              'title': 'x',
+              'author': '',
+              'coverLargeUrl': 'https://a/1',
+            },
+            {'id': '2', 'title': 'y', 'author': ''},
+          ]),
+          PluginCapability.search,
+          const {'largeCovers': true},
+        ),
+        ['expected a large cover on every track, track 1 has none'],
+      );
+    });
+
     test('partCounts: a track without a part count turns red', () async {
       expect(
         await run(

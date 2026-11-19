@@ -5,6 +5,7 @@
   },
   "expect": {
     "covers": true,
+    "largeCovers": true,
     "playCounts": true,
     "urls": true,
     "more": true,
