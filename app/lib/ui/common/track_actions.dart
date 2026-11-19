@@ -4,12 +4,14 @@ import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/web_links.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/search/parts.dart';
 import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/source_mark.dart';
@@ -30,7 +32,7 @@ List<TrackAction> trackActionsFor(Track track) => [
 
 /// 打開 [track] 的「更多」，選了就做：手機（窄、觸控）從底部升起 sheet，
 /// 平板是從按鈕長出的選單，桌面是右鍵選單（設計稿〈待確認〉20、31）。[at]
-/// 是選單的錨點（全域座標）。
+/// 是選單的錨點（全域座標）。多 P 影片的摘要寫明動作套用到全部分 P。
 Future<void> showTrackActions(
   BuildContext context,
   WidgetRef ref,
@@ -43,14 +45,22 @@ Future<void> showTrackActions(
   // 選單開著時畫面可能換掉（例如新的搜尋），先拿好要用的東西。
   final run = trackActionRunner(context, ref);
   final actions = trackActionsFor(track);
+  final note =
+      hasParts(track, ref.read(pluginManifestProvider(track.ref.pluginId)))
+      ? context.t.search.parts.appliesToAll(count: track.partCount!)
+      : null;
   final TrackAction? chosen;
   if (phone) {
-    chosen = await _showSheet(context, track, actions);
+    chosen = await _showSheet(context, track, actions, note);
   } else {
     chosen = await showGlassMenu<TrackAction>(
       context: context,
       at: at,
-      header: TrackSummary(track: track, touch: form.density == Density.touch),
+      header: TrackSummary(
+        track: track,
+        touch: form.density == Density.touch,
+        note: note,
+      ),
       entries: _menuEntries(context, actions, form.density == Density.pointer),
     );
   }
@@ -63,20 +73,60 @@ typedef TrackActionRunner = Future<void> Function(
   List<Track> tracks,
 );
 
-/// 綁好 [ref] 的 [TrackActionRunner]：選單與多選的動作列都用它。
+/// 綁好 [ref] 的 [TrackActionRunner]：選單與多選的動作列都用它。多 P 影片
+/// 先列出分 P：播放是整組臨時播放，佇列的動作拆成每個分 P（擁有者
+/// 2026-11-19 同意）；列不出來就提示原因，什麼都不做。
 TrackActionRunner trackActionRunner(BuildContext context, WidgetRef ref) {
   final t = context.t;
+  final container = ProviderScope.containerOf(context, listen: false);
   final queue = ref.read(queueProvider.notifier);
   final toasts = ref.read(toastProvider.notifier);
   final links = ref.read(webLinksProvider);
+
+  /// 多 P 影片換成它的全部分 P，其他照原樣、順序不變；列不出來就提示原因、
+  /// 回 null。
+  Future<List<Track>?> expand(List<Track> tracks) async {
+    final all = <Track>[];
+    for (final track in tracks) {
+      final manifest = container.read(
+        pluginManifestProvider(track.ref.pluginId),
+      );
+      if (!hasParts(track, manifest)) {
+        all.add(track);
+        continue;
+      }
+      try {
+        all.addAll(await readParts(container, track));
+      } on AppError catch (error) {
+        toasts.show(
+          ToastMessage(
+            t.search.parts.failed(
+              title: track.title,
+              reason: partsErrorReason(t, error, manifest?.name ?? ''),
+            ),
+            icon: FmpIcons.warn,
+          ),
+        );
+        return null;
+      }
+    }
+    return all;
+  }
+
   return (action, tracks) async {
     switch (action) {
       case TrackAction.play:
-        await queue.playTemporarily(tracks.first);
+        final group = await expand([tracks.first]);
+        if (group == null) return;
+        if (group.length == 1) {
+          await queue.playTemporarily(group.single);
+        } else {
+          await queue.playGroupTemporarily(group);
+        }
       case TrackAction.playNext:
-        await queue.playNext(tracks);
+        if (await expand(tracks) case final all?) await queue.playNext(all);
       case TrackAction.addToQueue:
-        await queue.add(tracks);
+        if (await expand(tracks) case final all?) await queue.add(all);
       case TrackAction.copyLink:
         await Clipboard.setData(ClipboardData(text: tracks.first.url!));
         toasts.show(
@@ -134,6 +184,14 @@ List<GlassMenuEntry<TrackAction>> _menuEntries(
 bool _isLink(TrackAction a) =>
     a == TrackAction.copyLink || a == TrackAction.openInBrowser;
 
+/// 列不出分 P 的原因：網路與限流說得出來，其他的不多說。
+String partsErrorReason(Translations t, AppError error, String source) =>
+    switch (error) {
+      RateLimited() => t.search.error.rateLimited(source: source),
+      NetworkError() => t.search.error.network,
+      _ => '',
+    };
+
 /// 選單與 sheet 頂端的曲目摘要（`.gmenu .mh`、`.tsheet .th`）：封面、曲名、
 /// 音源符號＋簡稱 · 作者，讓人確認動作作用在哪一首。
 class TrackSummary extends ConsumerWidget {
@@ -142,10 +200,14 @@ class TrackSummary extends ConsumerWidget {
     required this.track,
     required this.touch,
     this.large = false,
+    this.note,
   });
 
   final Track track;
   final bool touch;
+
+  /// 接在作者後面的補充，例如多 P 影片的「3 個分 P 全部套用」。
+  final String? note;
 
   /// 手機 sheet 的大號（封面 52、曲名 17）。
   final bool large;
@@ -188,7 +250,7 @@ class TrackSummary extends ConsumerWidget {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      [?short, track.author].join(' · '),
+                      [?short, track.author, ?note].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -215,6 +277,7 @@ Future<TrackAction?> _showSheet(
   BuildContext context,
   Track track,
   List<TrackAction> actions,
+  String? note,
 ) => showGeneralDialog<TrackAction>(
   context: context,
   barrierDismissible: true,
@@ -230,15 +293,16 @@ Future<TrackAction?> _showSheet(
   ),
   pageBuilder: (context, _, _) => Align(
     alignment: Alignment.bottomCenter,
-    child: _TrackSheet(track: track, actions: actions),
+    child: _TrackSheet(track: track, actions: actions, note: note),
   ),
 );
 
 class _TrackSheet extends StatelessWidget {
-  const _TrackSheet({required this.track, required this.actions});
+  const _TrackSheet({required this.track, required this.actions, this.note});
 
   final Track track;
   final List<TrackAction> actions;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -302,6 +366,7 @@ class _TrackSheet extends StatelessWidget {
                         track: track,
                         touch: true,
                         large: true,
+                        note: note,
                       ),
                     ),
                     for (final a in queue) item(a),

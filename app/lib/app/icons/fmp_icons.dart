@@ -129,6 +129,8 @@ enum FmpIcons {
     _Part('M12 8v4.2l2.8 1.6'),
   ]),
   chevD([_Part('m5 9 7 7 7-7')]),
+  chevU([_Part('m5 15 7-7 7 7')]),
+  chevR([_Part('m9 5 7 7-7 7')]),
   sort([
     _Part('M7.5 4v16M4 16.5 7.5 20l3.5-3.5M16.5 20V4M13 7.5 16.5 4 20 7.5'),
   ]),
