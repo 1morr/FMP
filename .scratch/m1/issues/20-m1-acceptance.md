@@ -1,7 +1,7 @@
 # 20: M1 驗收與封存
 
 Status: ready-for-agent
-Blocked by: 01–19、05b、05c、05d、06b、08b、16b、18b、19b、19c
+Blocked by: 01–19、05b、05c、05d、06b、08b、16b、18b、19b、19c、19d
 讀: `docs/agents/milestone.md`〈驗收票〉；spec〈驗收〉；`python3 scripts/ticket_notes.py m1`
 
 ## What to build
