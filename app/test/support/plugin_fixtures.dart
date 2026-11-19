@@ -72,7 +72,7 @@ class PluginFixture {
   /// `{"segmentBase": true}`：串流要給 init 與 sidx 的位置；search 的
   /// `{"covers": true}`：每首曲目都有封面，`{"playCounts": true}`：每首都有
   /// 播放數，`{"playCountsDescending": true}`：播放數由大到小（排序最多播放），`{"urls": true}`：每首都有網址，`{"more": true}`：結果的
-  /// `isEnd` 是 false（還有下一頁）。錄製、
+  /// `isEnd` 是 false（還有下一頁），`{"partCounts": true}`：每首都有分 P 數。錄製、
   /// 重播與 live 冒煙測試都套用；錄製時照原樣寫回。
   final Map<String, Object?> expect;
 
@@ -222,8 +222,10 @@ Future<List<String>> checkContract(
       'playCountsDescending',
       'urls',
       'more',
+      'partCounts',
     },
     PluginCapability.resolveStream => const {'expiresAt', 'segmentBase'},
+    PluginCapability.listParts => const <String>{},
   };
   final unknown = [
     for (final key in expect.keys)
@@ -281,6 +283,10 @@ Future<List<String>> checkContract(
           for (final (i, t) in tracks.indexed)
             if (t.url == null)
               'expected a url on every track, track $i has none',
+        if (expect.containsKey('partCounts'))
+          for (final (i, t) in tracks.indexed)
+            if (t.partCount == null)
+              'expected a part count on every track, track $i has none',
         if (expect.containsKey('more') && results.isEnd)
           'expected more pages, but the plugin says this is the last',
       ];
@@ -301,8 +307,33 @@ Future<List<String>> checkContract(
         if (expect.containsKey('segmentBase') && stream.segmentBase == null)
           'expected a segmentBase, got none',
       ];
+    case PluginCapability.listParts:
+      final trackId = input['trackId'];
+      if (trackId is! String) {
+        throw const FormatException('listParts input needs a "trackId" string');
+      }
+      final parts = await plugin.listParts(
+        Track(
+          ref: TrackRef(pluginId: plugin.manifest.id, trackId: trackId),
+          title: '',
+          author: '',
+        ),
+      );
+      return listPartsContractViolations(trackId, parts);
   }
 }
+
+/// 插件能力 listParts 的契約（`app/plugins/host.d.ts`）：分 P 不是空的、含傳入
+/// 的那首、id 不重複（宿主已檢查）、每個都有標題。
+List<String> listPartsContractViolations(String trackId, List<Track> parts) => [
+  if (parts.isEmpty) 'listParts returned no parts',
+  if (parts.isNotEmpty && !parts.any((p) => p.ref.trackId == trackId))
+    'listParts did not include the track it was asked about ($trackId)',
+  if (parts.map((p) => p.ref).toSet().length != parts.length)
+    'listParts returned duplicate ids',
+  for (final (i, p) in parts.indexed)
+    if (p.title.trim().isEmpty) 'part $i: empty title',
+];
 
 /// 插件能力 search 的契約（`app/plugins/host.d.ts`）：錄製的案例有結果，
 /// 每首曲目屬於這個插件、有 id 與標題，時長不知道就不給，給了就是正的；播放數

@@ -309,6 +309,92 @@ export async function search({ query }) {
       );
     });
 
+    test('partCounts: a track without a part count turns red', () async {
+      expect(
+        await run(
+          searching([
+            {'id': '1', 'title': 'x', 'author': '', 'partCount': 3},
+            {'id': '2', 'title': 'y', 'author': ''},
+          ]),
+          PluginCapability.search,
+          const {'partCounts': true},
+        ),
+        ['expected a part count on every track, track 1 has none'],
+      );
+    });
+
+    test('partCounts: tracks that all have part counts stay green', () async {
+      expect(
+        await run(
+          searching([
+            {'id': '1', 'title': 'x', 'author': '', 'partCount': 1},
+          ]),
+          PluginCapability.search,
+          const {'partCounts': true},
+        ),
+        isEmpty,
+      );
+    });
+
+    group('listParts', () {
+      final partsManifest = jsonEncode({
+        'id': 'demo',
+        'name': 'Demo',
+        'version': '1.0.0',
+        'capabilities': ['listParts'],
+        'domains': ['api.example.com'],
+      });
+
+      /// 回傳 [parts] 的 listParts。
+      PluginBundle listing(List<Map<String, Object?>> parts) => PluginBundle(
+        manifest: partsManifest,
+        code:
+            'export async function listParts() { '
+            'return ${jsonEncode({'parts': parts})}; }',
+      );
+
+      test('parts that include the asked track stay green', () async {
+        expect(
+          await run(
+            listing([
+              {'id': 't', 'title': 'one'},
+              {'id': 't?p=2', 'title': 'two'},
+            ]),
+            PluginCapability.listParts,
+            const {},
+          ),
+          isEmpty,
+        );
+      });
+
+      test('parts without the asked track turn red', () async {
+        expect(
+          await run(
+            listing([
+              {'id': 'x', 'title': 'one'},
+            ]),
+            PluginCapability.listParts,
+            const {},
+          ),
+          ['listParts did not include the track it was asked about (t)'],
+        );
+      });
+
+      test('a part without a title turns red', () async {
+        expect(
+          await run(
+            listing([
+              {'id': 't', 'title': 'one'},
+              {'id': 't?p=2', 'title': ' '},
+            ]),
+            PluginCapability.listParts,
+            const {},
+          ),
+          ['part 1: empty title'],
+        );
+      });
+    });
+
     test('an expectation the capability does not know turns red', () async {
       expect(
         await run(

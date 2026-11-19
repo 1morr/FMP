@@ -1,0 +1,21 @@
+{
+  "input": {
+    "trackId": "BV1SQ4y1J7AA"
+  },
+  "recorded": "2026-11-19",
+  "interactions": [
+    {
+      "request": {
+        "method": "GET",
+        "url": "https://api.bilibili.com/x/player/pagelist?bvid=BV1SQ4y1J7AA"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"code\":0,\"message\":\"OK\",\"data\":[{\"page\":1,\"part\":\"1 远山如昨 - 陈楚生\",\"duration\":211},{\"page\":2,\"part\":\"2 有没有人告诉你 - 陈楚生\",\"duration\":327},{\"page\":3,\"part\":\"3 思念一个荒废的名字 - 陈楚生\",\"duration\":282},{\"page\":4,\"part\":\"4 那个远方 - 陈楚生\",\"duration\":277},{\"page\":5,\"part\":\"5 一个人的冬天 - 陈楚生\",\"duration\":316},{\"page\":6,\"part\":\"6 风起时，想你 - 陈楚生\",\"duration\":223},{\"page\":7,\"part\":\"7 行走的鱼 (Live) - 宝石Gem、李玖哲、陈楚生\",\"duration\":295},{\"page\":8,\"part\":\"8 原来的我 - 陈楚生\",\"duration\":131},{\"page\":9,\"part\":\"9 姑娘 - 陈楚生\",\"duration\":292},{\"page\":10,\"part\":\"10 山楂花 - 陈楚生\",\"duration\":236},{\"page\":11,\"part\":\"11 光明 (Live) - 陈楚生、八三夭阿璞\",\"duration\":314},{\"page\":12,\"part\":\"12 红日 (Live) - 俞灏明、陈楚生、张远、王栎鑫\",\"duration\":206},{\"page\":13,\"part\":\"13 爱人错过 (Live) - 蔡国庆、品冠、陈楚生、王栎鑫\",\"duration\":280},{\"page\":14,\"part\":\"14 卡拉永远ok (Live) - 陈楚生、宝石Gem、马伯骞\",\"duration\":280},{\"page\":15,\"part\":\"15 半边山半边海 - 王铮亮、陈楚生\",\"duration\":267},{\"page\":16,\"part\":\"16 活该 - 陈楚生、陆虎、苏醒AllenSu、王铮亮、王栎鑫、张远\",\"duration\":253},{\"page\":17,\"part\":\"17 经过 - 陈楚生、何洁\",\"duration\":245},{\"page\":18,\"part\":\"18 爱的尽头 - 陈楚生\",\"duration\":360},{\"page\":19,\"part\":\"19 我等待的 - 陈楚生\",\"duration\":338},{\"page\":20,\"part\":\"20 招摇 - 陈楚生、胡莎莎\",\"duration\":276},{\"page\":21,\"part\":\"21 给从前的自己 - 陈楚生、陆虎\",\"duration\":281},{\"page\":22,\"part\":\"22 瘾 - 陈楚生\",\"duration\":278},{\"page\":23,\"part\":\"23 晓得 - 陈楚生\",\"duration\":226},{\"page\":24,\"part\":\"24 白石洲 - 陈楚生\",\"duration\":232},{\"page\":25,\"part\":\"25 恍惚 - 陈楚生\",\"duration\":271},{\"page\":26,\"part\":\"26 晚礼服 - 陈楚生\",\"duration\":283},{\"page\":27,\"part\":\"27 我知道你离我不远 - 陈楚生\",\"duration\":267},{\"page\":28,\"part\":\"28 不熄 - 陈楚生、张远\",\"duration\":269},{\"page\":29,\"part\":\"29 我们 - 陈楚生\",\"duration\":318},{\"page\":30,\"part\":\"30 荒废光年 - 陈楚生\",\"duration\":260},{\"page\":31,\"part\":\"31 你应该藏在心里 - 陈楚生\",\"duration\":232},{\"page\":32,\"part\":\"32 爱情是否依然 - 陈楚生\",\"duration\":314},{\"page\":33,\"part\":\"33 错过 - 陈楚生\",\"duration\":291},{\"page\":34,\"part\":\"34 离群的鹿 - 陈楚生\",\"duration\":272},{\"page\":35,\"part\":\"35 某某 - 陈楚生\",\"duration\":258},{\"page\":36,\"part\":\"36 西涌客栈 - 陈楚生\",\"duration\":245},{\"page\":37,\"part\":\"37 我在何地 - 陈楚生\",\"duration\":234},{\"page\":38,\"part\":\"38 涂鸦森林 - 陈楚生\",\"duration\":234},{\"page\":39,\"part\":\"39 相忘于江湖 - 陈楚生\",\"duration\":259},{\"page\":40,\"part\":\"40 落日旅馆 - 陈楚生\",\"duration\":235},{\"page\":41,\"part\":\"41 简单而炽热的难忘 - 陈楚生\",\"duration\":245},{\"page\":42,\"part\":\"42 对立回忆 - 陈楚生\",\"duration\":266},{\"page\":43,\"part\":\"43 少年 (Live) - 王栎鑫、苏醒AllenSu、陈楚生、张远、陆虎\",\"duration\":277},{\"page\":44,\"part\":\"44 再见 - 陈楚生\",\"duration\":252},{\"page\":45,\"part\":\"45 我的世界 - 陈楚生\",\"duration\":192},{\"page\":46,\"part\":\"46 一夜 - 陈楚生\",\"duration\":228},{\"page\":47,\"part\":\"47 趋光号 - 陈楚生\",\"duration\":299},{\"page\":48,\"part\":\"48 隔壁阿丑 - 陈楚生\",\"duration\":322},{\"page\":49,\"part\":\"49 港湾 - 陈楚生\",\"duration\":279},{\"page\":50,\"part\":\"50 D夫人 - 陈楚生\",\"duration\":253},{\"page\":51,\"part\":\"51 浮光 - 陈楚生\",\"duration\":315}]}"
+      }
+    }
+  ]
+}

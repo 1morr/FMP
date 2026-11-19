@@ -8,7 +8,10 @@
     "data.result.duration",
     "data.result.pic",
     "data.result.play",
-    "data.numPages"
+    "data.numPages",
+    "data.result.aid",
+    "data.bvid",
+    "data.page"
   ],
   "resolveStream": [
     "code",
@@ -23,5 +26,12 @@
     "data.dash.audio.SegmentBase.indexRange",
     "data.dash.audio.segment_base.initialization",
     "data.dash.audio.segment_base.index_range"
+  ],
+  "listParts": [
+    "code",
+    "message",
+    "data.page",
+    "data.part",
+    "data.duration"
   ]
 }

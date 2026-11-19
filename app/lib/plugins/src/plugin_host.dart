@@ -165,6 +165,44 @@ class Plugin {
     });
   }
 
+  /// 插件能力 `listParts`：列出 [parent] 所屬影片的全部分 P，依順序，每個分 P
+  /// 是一首曲目。曲名、時長、網址用分 P 自己的，作者與封面沿用 [parent]；
+  /// 播放數與分 P 數不沿用。[parent] 要是這個插件的曲目，否則是程式錯誤，丟
+  /// [ArgumentError]。
+  Future<List<Track>> listParts(Track parent) async {
+    if (parent.ref.pluginId != manifest.id) {
+      throw ArgumentError.value(
+        parent,
+        'parent',
+        'belongs to another plugin than ${manifest.id}',
+      );
+    }
+    final result = await _invoke(PluginCapability.listParts, {
+      'trackId': parent.ref.trackId,
+    });
+    return _parse(PluginCapability.listParts, () {
+      final parts = (result as Map)['parts'] as List;
+      if (parts.isEmpty) throw const FormatException('no parts');
+      final tracks = [for (final part in parts) _part(part as Map, parent)];
+      if (tracks.map((t) => t.ref).toSet().length != tracks.length) {
+        throw const FormatException('duplicate part ids');
+      }
+      return tracks;
+    });
+  }
+
+  Track _part(Map<dynamic, dynamic> json, Track parent) {
+    final ms = _whole(json['durationMs'], 'durationMs');
+    return Track(
+      ref: TrackRef(pluginId: manifest.id, trackId: json['id'] as String),
+      title: json['title'] as String,
+      author: parent.author,
+      duration: ms == null ? null : Duration(milliseconds: ms),
+      coverUrl: parent.coverUrl,
+      url: _webUrl(json['url'], 'url'),
+    );
+  }
+
   /// 把插件能力的回傳值轉成 Dart 的型別。形狀不對（型別、格式、數字或時間
   /// 超出範圍）時寫 log、丟 [ParseFailure]。FormatException 只記訊息：
   /// `Uri.parse` 的例外會帶整個（簽名過的）網址。
@@ -201,11 +239,7 @@ class Plugin {
       title: json['title'] as String,
       author: json['author'] as String,
       duration: ms == null ? null : Duration(milliseconds: (ms as num).round()),
-      coverUrl: switch (json['coverUrl']) {
-        null => null,
-        final String url when _isWebUrl(Uri.parse(url)) => url,
-        _ => throw const FormatException('coverUrl is not an http(s) URL'),
-      },
+      coverUrl: _webUrl(json['coverUrl'], 'coverUrl'),
       playCount: switch (json['playCount']) {
         null => null,
         final num n when n.isFinite && n >= 0 && n == n.truncate() => n.toInt(),
@@ -213,13 +247,21 @@ class Plugin {
           'playCount is not a non-negative integer',
         ),
       },
-      url: switch (json['url']) {
+      partCount: switch (json['partCount']) {
         null => null,
-        final String url when _isWebUrl(Uri.parse(url)) => url,
-        _ => throw const FormatException('url is not an http(s) URL'),
+        final num n when n.isFinite && n >= 1 && n == n.truncate() => n.toInt(),
+        _ => throw const FormatException('partCount is not a positive integer'),
       },
+      url: _webUrl(json['url'], 'url'),
     );
   }
+
+  /// 選填的 http(s) 絕對網址欄位。
+  static String? _webUrl(Object? value, String name) => switch (value) {
+    null => null,
+    final String url when _isWebUrl(Uri.parse(url)) => url,
+    _ => throw FormatException('$name is not an http(s) URL'),
+  };
 
   static bool _isWebUrl(Uri url) =>
       url.isAbsolute && const {'http', 'https'}.contains(url.scheme);

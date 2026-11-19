@@ -2,6 +2,8 @@
 var SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/type";
 var PAGELIST_URL = "https://api.bilibili.com/x/player/pagelist";
 var PLAYURL_URL = "https://api.bilibili.com/x/player/playurl";
+var INFOS_URL = "https://api.bilibili.com/x/v3/fav/resource/infos";
+var RESOURCE_TYPE_VIDEO = 2;
 var API_REFERER = "https://www.bilibili.com/";
 var API_ORIGIN = "https://www.bilibili.com";
 var FNVAL_DASH = "16";
@@ -41,7 +43,65 @@ async function search({
   const results = Array.isArray(data?.result) ? data.result : [];
   const numPages = data?.numPages;
   const isEnd = results.length === 0 || typeof numPages !== "number" || page >= numPages;
-  return { tracks: results.map(toTrack), isEnd };
+  const tracks = results.map(toTrack);
+  const partCounts = await fetchPartCounts(results);
+  return {
+    tracks: tracks.map((t) => {
+      const partCount = partCounts.get(t.id);
+      return partCount === void 0 ? t : { ...t, partCount };
+    }),
+    isEnd
+  };
+}
+async function fetchPartCounts(results) {
+  const counts = /* @__PURE__ */ new Map();
+  const aids = results.map((r) => r.aid).filter((aid) => Number.isSafeInteger(aid) && aid > 0);
+  if (aids.length === 0) return counts;
+  try {
+    const resources = aids.map((aid) => `${aid}:${RESOURCE_TYPE_VIDEO}`).join(",");
+    const data = await apiGet(`${INFOS_URL}?resources=${resources}&platform=web`);
+    if (!Array.isArray(data)) {
+      throw new PluginError("parse_failure", "infos without a list");
+    }
+    for (const info of data) {
+      const { bvid, page } = info ?? {};
+      if (typeof bvid === "string" && Number.isSafeInteger(page) && page >= 1) {
+        counts.set(bvid, page);
+      }
+    }
+  } catch (e) {
+    if (!(e instanceof PluginError)) throw e;
+  }
+  return counts;
+}
+async function listParts({
+  trackId
+}) {
+  const match = TRACK_ID.exec(trackId);
+  if (match === null) {
+    throw new PluginError("not_found", `not a bilibili track id: ${trackId}`);
+  }
+  const bvid = match[1];
+  const data = await apiGet(`${PAGELIST_URL}?bvid=${bvid}`);
+  if (!Array.isArray(data)) {
+    throw new PluginError("parse_failure", "pagelist without a list");
+  }
+  const parts = data.map((p) => {
+    const { page, part, duration } = p ?? {};
+    if (typeof page !== "number" || !Number.isSafeInteger(page) || page < 1) {
+      throw new PluginError("parse_failure", "pagelist part without a page");
+    }
+    return {
+      page,
+      part: {
+        id: page === 1 ? bvid : `${bvid}?p=${page}`,
+        title: typeof part === "string" && part !== "" ? part : `P${page}`,
+        durationMs: typeof duration === "number" && Number.isFinite(duration) && duration >= 0 ? Math.round(duration * 1e3) : void 0,
+        url: `https://www.bilibili.com/video/${bvid}` + (page === 1 ? "" : `?p=${page}`)
+      }
+    };
+  }).sort((a, b) => a.page - b.page).map((p) => p.part);
+  return { parts };
 }
 async function resolveStream({
   trackId
@@ -198,6 +258,7 @@ function browserCookie() {
   return `buvid3=${buvid3}; buvid4=${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}; b_nut=${nut}; _uuid=${buvid3}; buvid_fp=${buvid3}`;
 }
 export {
+  listParts,
   resolveStream,
   search
 };

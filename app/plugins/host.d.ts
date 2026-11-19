@@ -58,6 +58,12 @@ interface PluginTrack {
   /** 播放數，非負整數；不知道就不給。給了不合格的值，整次搜尋算解析失敗。 */
   playCount?: number;
   /**
+   * 這首曲目所屬影片的分 P 數，正整數；不知道就不給。大於 1 且插件宣告了
+   * `listParts` 時，畫面標分 P 數、可以展開（ADR 0039）。給了不合格的值，整次
+   * 搜尋算解析失敗。
+   */
+  partCount?: number;
+  /**
    * 曲目在音源網站上的頁面，http(s) 的絕對網址；有網址才出現「複製連結」與
    * 「在瀏覽器開啟」。給了不合格的值，整次搜尋算解析失敗。
    */
@@ -115,4 +121,26 @@ interface ResolveStreamResponse {
    * 不知道就不給；給了格式不對，整次解析算失敗。
    */
   segmentBase?: { initialization: string; indexRange: string };
+}
+
+/** 插件能力 listParts：列出一首曲目所屬影片的全部分 P。 */
+interface ListPartsRequest {
+  /** 影片裡任一個分 P 的 PluginTrack.id。 */
+  trackId: string;
+}
+
+/** 一個分 P，宿主把它當成一首獨立的曲目（GLOSSARY.md）。 */
+interface PluginPart {
+  /** 分 P 的曲目 id，格式同 PluginTrack.id；不能和同一回應裡的其他分 P 重複。 */
+  id: string;
+  /** 分 P 的標題。 */
+  title: string;
+  durationMs?: number;
+  /** 分 P 在音源網站上的頁面，http(s) 的絕對網址。 */
+  url?: string;
+}
+
+interface ListPartsResponse {
+  /** 依分 P 的順序；不能是空的。作者與封面由宿主沿用傳入曲目的。 */
+  parts: PluginPart[];
 }
