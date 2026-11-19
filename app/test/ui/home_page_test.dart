@@ -389,6 +389,8 @@ void main() {
       await _settle(tester);
       expect(find.text('Song demo6'), findsOneWidget);
       expect(find.text('Song other6'), findsOneWidget);
+      // 第 10 名的兩位數不折成兩行（名次欄只有 14 寬）。
+      expect(tester.getSize(find.text('10').first).height, lessThan(20));
     });
 
     testMac('continue listening shows only with the detail panel '

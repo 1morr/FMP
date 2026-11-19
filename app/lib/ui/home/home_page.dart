@@ -184,6 +184,37 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Stack(
       children: [
         Positioned.fill(child: scroll),
+        // `.edge-top`：捲動後頂列底下淡出內容，小標題不壓在列上。照「玻璃效果
+        // 關閉」那版的實心漸層畫，不做模糊。
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: bar.top + bar.height + 24,
+          child: IgnorePointer(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _scrolled,
+              builder: (context, scrolled, _) => AnimatedOpacity(
+                opacity: scrolled ? 1 : 0,
+                duration: FmpMotion.mid,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        context.fmpColors.bg,
+                        context.fmpColors.bg,
+                        context.fmpColors.bg.withValues(alpha: 0),
+                      ],
+                      stops: const [0, .7, 1],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         Positioned(
           top: bar.top,
           left: bar.left,
@@ -207,10 +238,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: AnimatedOpacity(
             opacity: scrolled ? 1 : 0,
             duration: FmpMotion.mid,
+            // 手機的小標題置中（`.ptitle`），桌面靠左（`.wt`）。
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: phone ? Alignment.center : Alignment.centerLeft,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: phone ? 6 : 0),
+                padding: EdgeInsets.zero,
                 child: Text(
                   context.t.shell.nav.home,
                   style: TextStyle(

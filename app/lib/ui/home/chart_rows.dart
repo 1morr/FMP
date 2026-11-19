@@ -284,6 +284,8 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
         : _hovered
         ? colors.cellHover
         : null;
+    // ⋮ 底下的實心色：列的底色疊在頁面底色上，半透明的選取色也蓋得住時長。
+    final cover = Color.alphaBlend(background ?? colors.cellHover, colors.bg);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -310,9 +312,11 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
                 children: [
                   Row(
                     children: [
+                      // 名次靠右；兩位數比 14 寬時往左凸出，同稿的 grid。
                       SizedBox(
                         width: 14,
-                        child: Align(
+                        child: OverflowBox(
+                          maxWidth: 30,
                           alignment: Alignment.centerRight,
                           child: lead,
                         ),
@@ -369,23 +373,20 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
                       ],
                     ],
                   ),
-                  // ⋮ 只在滑過時浮在列尾（蓋住時長），曲名的寬度不變。
+                  // ⋮ 只在滑過時浮在列尾（蓋住時長），曲名的寬度不變；左邊
+                  // 12 漸層接列的底色，時長整個被蓋住。
                   if (_hovered || widget.selected)
                     Positioned(
                       right: -4,
                       top: 9,
-                      child: DecoratedBox(
+                      child: Container(
+                        padding: const EdgeInsets.only(left: 12),
                         decoration: BoxDecoration(
-                          color: background ?? colors.cellHover,
+                          gradient: LinearGradient(
+                            colors: [cover.withValues(alpha: 0), cover],
+                            stops: const [0, 12 / 40],
+                          ),
                           borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: background ?? colors.cellHover,
-                              offset: const Offset(-14, 0),
-                              blurRadius: 10,
-                              spreadRadius: -2,
-                            ),
-                          ],
                         ),
                         child: Builder(
                           builder: (context) => PlainIconButton(
@@ -442,15 +443,19 @@ class ChartSkeletonRow extends StatelessWidget {
         children: [
           SizedBox(
             width: desk ? 14 : 20,
-            child: Text(
-              '$rank',
-              textAlign: desk ? TextAlign.right : TextAlign.center,
-              style: TextStyle(
-                fontSize: desk ? 12 : 15,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-                color: colors.label4,
-              ).tabular,
+            child: OverflowBox(
+              maxWidth: 30,
+              alignment: desk ? Alignment.centerRight : Alignment.center,
+              child: Text(
+                '$rank',
+                textAlign: desk ? TextAlign.right : TextAlign.center,
+                style: TextStyle(
+                  fontSize: desk ? 12 : 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                  color: colors.label4,
+                ).tabular,
+              ),
             ),
           ),
           SizedBox(width: desk ? 9 : 12),
@@ -466,6 +471,7 @@ class ChartSkeletonRow extends StatelessWidget {
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 bar(desk ? 11 : 13, w),
                 SizedBox(height: desk ? 6 : 7),

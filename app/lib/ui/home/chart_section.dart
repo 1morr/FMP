@@ -192,7 +192,10 @@ class ChartCaption extends ConsumerWidget {
         style: style,
       );
     }
-    return Padding(padding: padding, child: line);
+    return Padding(
+      padding: padding,
+      child: Align(alignment: Alignment.centerLeft, child: line),
+    );
   }
 }
 
