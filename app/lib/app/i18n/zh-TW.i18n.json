@@ -260,5 +260,38 @@
     "failed": "更多資訊沒有載入",
     "retry": "重試",
     "openIn": "在 $source 打開"
+  },
+  "home": {
+    "charts": "近期熱門",
+    "chartSources": "排行榜音源",
+    "chartCaption": "$title · 前 $count 名",
+    "showMore": "顯示第 $from–$to 名",
+    "showLess": "收起",
+    "offline": "沒有網路",
+    "notUpdated": "$source 的榜更新不了",
+    "age": {
+      "minutes(plural, param=n)": {
+        "one": "這是 $n 分鐘前的榜",
+        "other": "這是 $n 分鐘前的榜"
+      },
+      "hours(plural, param=n)": {
+        "one": "這是 $n 小時前的榜",
+        "other": "這是 $n 小時前的榜"
+      },
+      "days(plural, param=n)": {
+        "one": "這是 $n 天前的榜",
+        "other": "這是 $n 天前的榜"
+      }
+    },
+    "error": {
+      "title": "$source 的榜載入不了",
+      "failed": "這個音源暫時給不了排行榜。",
+      "offlineTitle": "沒有網路，排行榜載入不了",
+      "offlineBody": "連上網路後按重試。佇列照常可用。"
+    },
+    "continueListening": "繼續聽",
+    "nowPlaying": "正在播放",
+    "temporary": "臨時播放 · 播完回到佇列第 $number 首",
+    "position": "第 $number / $total 首"
   }
 }

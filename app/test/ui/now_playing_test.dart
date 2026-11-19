@@ -111,7 +111,8 @@ void main() {
         ],
       ),
     );
-    await tester.pumpAndSettle();
+    // 不用 pumpAndSettle：播放中時首頁「繼續聽」的等化器一直在動。
+    await _settle(tester);
   }
 
   /// 臨時播放 [track]，從 [from] 佇列的目前那首離開。
@@ -502,4 +503,11 @@ class _FixedTemporary extends TemporaryPlayHolder {
 
   @override
   TemporaryPlay? build() => _initial;
+}
+
+/// 等畫面上的過場跑完（1 秒）；不等一直在動的等化器。
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }

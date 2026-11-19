@@ -265,10 +265,10 @@ void main() {
 
     testWidgets('the page title sits 24 clear of the sidebar', (tester) async {
       await start(tester, desktop);
-      final title = find.descendant(
-        of: find.byType(HomePage),
-        matching: find.text('首頁'),
-      );
+      // 第一個是大標題；頂列另有一個捲動後才淡入的小標題。
+      final title = find
+          .descendant(of: find.byType(HomePage), matching: find.text('首頁'))
+          .first;
       // 側欄外框右緣 256，頁面左內距 24（DESIGN.md〈桌面〉）。
       expect(tester.getTopLeft(title).dx, 256 + 24);
     });

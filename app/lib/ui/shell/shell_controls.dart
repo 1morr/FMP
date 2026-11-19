@@ -133,7 +133,8 @@ class GlassIconButton extends StatelessWidget {
   }
 }
 
-/// 實心面上的圖示鈕（`.ibtn`）：hover 時填色。
+/// 實心面上的圖示鈕（`.ibtn`）：hover 時填色。[focusable] 時鍵盤選得到、畫
+/// 焦點外框（[ShellButton.focusRadius]）。
 class PlainIconButton extends StatelessWidget {
   const PlainIconButton({
     super.key,
@@ -141,12 +142,14 @@ class PlainIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.size,
+    this.focusable = false,
   });
 
   final FmpIcons icon;
   final String tooltip;
   final VoidCallback onTap;
   final double size;
+  final bool focusable;
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +158,7 @@ class PlainIconButton extends StatelessWidget {
       onTap: onTap,
       tooltip: tooltip,
       label: tooltip,
+      focusRadius: focusable ? 999 : null,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         width: size,

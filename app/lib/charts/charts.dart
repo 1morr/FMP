@@ -84,10 +84,12 @@ class Charts extends Notifier<ChartsState> {
   @override
   ChartsState build() {
     final generation = ++_generation;
-    final host = ref.watch(pluginHostProvider).value;
+    _restored = Future.value();
+    final hostValue = ref.watch(pluginHostProvider);
+    final host = hostValue.value;
     if (host == null) {
-      _restored = Future.value();
-      return const ChartsState(starting: true);
+      // 插件載入不了（log 由宿主那邊寫）時沒有音源，整區不出現。
+      return ChartsState(starting: !hostValue.hasError);
     }
     final sources = [
       for (final plugin in host.plugins)
@@ -117,7 +119,7 @@ class Charts extends Notifier<ChartsState> {
             );
       }
     }
-    if (generation != _generation) return;
+    if (!ref.mounted || generation != _generation) return;
     state = ChartsState(
       sources: [
         for (final s in state.sources)
@@ -160,20 +162,37 @@ class Charts extends Notifier<ChartsState> {
 
   Future<void> _fetch(String pluginId, int generation) async {
     _update(pluginId, (s) => s._copyWith(loading: true));
-    final host = await ref.read(pluginHostProvider.future);
-    final plugin = host.plugins.firstWhere((p) => p.manifest.id == pluginId);
     final Chart chart;
     try {
+      final host = await ref.read(pluginHostProvider.future);
+      final plugin = host.plugins.firstWhere((p) => p.manifest.id == pluginId);
       chart = Chart(
         tracks: await plugin.charts(limit: chartLength),
         fetchedAt: ref.read(chartsClockProvider)(),
       );
-    } on AppError catch (error) {
-      if (generation != _generation) return;
-      _update(pluginId, (s) => s._copyWith(loading: false, error: () => error));
+    } catch (error, stackTrace) {
+      if (!ref.mounted || generation != _generation) return;
+      final AppError reason;
+      if (error is AppError) {
+        reason = error;
+      } else {
+        // 錯誤分類以外的例外是程式錯誤，畫面說載入不了，細節留在 log。
+        ref
+            .read(logProvider)
+            .error(
+              'Fetching the $pluginId chart failed',
+              error: error,
+              stackTrace: stackTrace,
+            );
+        reason = const ParseFailure();
+      }
+      _update(
+        pluginId,
+        (s) => s._copyWith(loading: false, error: () => reason),
+      );
       return;
     }
-    if (generation != _generation) return;
+    if (!ref.mounted || generation != _generation) return;
     _update(
       pluginId,
       (s) => s._copyWith(chart: chart, loading: false, error: () => null),

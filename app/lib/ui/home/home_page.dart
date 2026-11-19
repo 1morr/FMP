@@ -1,12 +1,562 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/app/icons/fmp_icons.dart';
+import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/charts/charts.dart';
+import 'package:fmp/domain/track.dart';
+import 'package:fmp/platform/form_factor.dart';
+import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/ui/common/fmp_button.dart';
+import 'package:fmp/ui/common/track_actions.dart';
+import 'package:fmp/ui/home/chart_rows.dart';
+import 'package:fmp/ui/home/chart_section.dart';
+import 'package:fmp/ui/home/continue_listening.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// 首頁：外殼的一個分頁。內容在之後的票，現在只有大標題。
-class HomePage extends StatelessWidget {
+/// 首頁的四種版面（`docs/design/home.html`）：手機與平板是觸控列表，窄視窗
+/// 與桌面是桌面密度；手機、平板、窄視窗一次看一張榜（chip 切換），桌面每個
+/// 音源一欄。
+enum HomeLayout {
+  phone,
+  tablet,
+  window,
+  wide;
+
+  static HomeLayout of(FormFactor form) => switch (form.widthClass) {
+    WidthClass.narrow => phone,
+    WidthClass.medium => form.density == Density.touch ? tablet : window,
+    WidthClass.wide => wide,
+  };
+}
+
+/// 首頁：App 打開在這裡（brief〈第一版的功能〉）。區塊照重要性排：近期熱門
+/// （每個宣告 `charts` 的音源一張榜，[chartsProvider]）、繼續聽；沒有內容的
+/// 區塊連標題一起不出現。最近更新的匯入歌單在 M3，第一次打開的提示也跟著
+/// 匯入在 M3 才放（2026-11-20 擁有者同意），這裡都不畫。
+///
+/// 每次出現時沒有榜或榜超過 1 小時的音源在背景重抓（ARCHITECTURE〈快取〉）；
+/// 觸控版下拉強制重抓。點榜上一首是臨時播放：觸控點一下，滑鼠單擊選取、
+/// 雙擊或 ↩ 才播（brief〈播放〉）。
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      ShellPage(title: context.t.shell.nav.home);
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  /// 捲過這個位置，大標題就讓進頂列的小標題。
+  static const _titleGoneOffset = 40.0;
+
+  final _scroll = ScrollController();
+  final _scrolled = ValueNotifier(false);
+  final _focus = FocusNode(debugLabel: 'home charts');
+
+  /// 手機與桌面的榜展開到第 10 名。
+  bool _expanded = false;
+
+  /// 滑鼠選取的那首；↩ 播它。
+  TrackRef? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(
+      () => _scrolled.value = _scroll.offset > _titleGoneOffset,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(ref.read(chartsProvider.notifier).refreshStale());
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _scrolled.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  Charts get _charts => ref.read(chartsProvider.notifier);
+
+  void _play(Track track) =>
+      unawaited(trackActionRunner(context, ref)(TrackAction.play, [track]));
+
+  void _menu(Track track, Offset at) =>
+      unawaited(showTrackActions(context, ref, track, at: at));
+
+  void _select(Track track) {
+    setState(() => _selected = track.ref);
+    _focus.requestFocus();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.enter) {
+      return KeyEventResult.ignored;
+    }
+    final selected = _selected;
+    if (selected == null) return KeyEventResult.ignored;
+    for (final s in ref.read(chartsProvider).sources) {
+      for (final track in s.chart?.tracks ?? const <Track>[]) {
+        if (track.ref == selected) {
+          _play(track);
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = HomeLayout.of(FormFactor.of(context));
+    final insets = ShellInsets.of(context);
+    final bar = ShellInsets.topBarOf(context);
+    final charts = ref.watch(chartsProvider);
+    final showContinue = hasContinueListening(ref.watch(queueProvider));
+    final touch = layout == HomeLayout.phone || layout == HomeLayout.tablet;
+
+    final horizontal = switch (layout) {
+      HomeLayout.phone => EdgeInsets.zero,
+      HomeLayout.tablet => const EdgeInsets.only(left: 4, right: 24),
+      // 列與標題各自內縮 4（`.hm-dr`、`.ty-large`），大標題和其他頁一樣離
+      // 內容區左緣 [ShellInsets] 的距離。
+      _ => EdgeInsets.only(left: insets.left - 4, right: insets.right - 4),
+    };
+    final titlePadding = switch (layout) {
+      HomeLayout.phone ||
+      HomeLayout.tablet => const EdgeInsets.symmetric(horizontal: 20),
+      _ => const EdgeInsets.symmetric(horizontal: 4),
+    };
+
+    final sections = <Widget>[
+      Padding(
+        padding: titlePadding,
+        child: Semantics(
+          header: true,
+          child: Text(context.t.shell.nav.home, style: context.fmpText.large),
+        ),
+      ),
+      if (charts.sources.isNotEmpty)
+        switch (layout) {
+          HomeLayout.phone => _oneAtATime(charts, twoColumns: false),
+          HomeLayout.tablet => _oneAtATime(charts, twoColumns: true),
+          HomeLayout.window => _windowCharts(charts),
+          HomeLayout.wide => _columns(charts, touch: false),
+        },
+      // 桌面寬版的詳情面板開著時已經列了下一首，首頁不重複（設計稿）。
+      if (showContinue &&
+          !(layout == HomeLayout.wide &&
+              ShellInsets.detailPanelOpenOf(context)))
+        Padding(
+          padding: EdgeInsets.only(top: touch ? 0 : 8),
+          child: ContinueListening(desk: !touch),
+        ),
+    ];
+
+    Widget scroll = ListView(
+      controller: _scroll,
+      // 內容不滿一頁時也拉得動，下拉刷新才用得了。
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(top: insets.top, bottom: insets.bottom),
+      children: [
+        for (final section in sections)
+          Padding(padding: horizontal, child: section),
+      ],
+    );
+    if (touch) {
+      scroll = RefreshIndicator(
+        edgeOffset: insets.top - 24,
+        color: context.fmpColors.label2,
+        backgroundColor: context.fmpColors.cell,
+        onRefresh: _charts.refresh,
+        child: scroll,
+      );
+    } else {
+      scroll = Focus(focusNode: _focus, onKeyEvent: _onKey, child: scroll);
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(child: scroll),
+        Positioned(
+          top: bar.top,
+          left: bar.left,
+          right: bar.right,
+          height: bar.height,
+          child: _topBar(context, layout),
+        ),
+      ],
+    );
+  }
+
+  /// 頂列（`.ptop`、`.wtop`）只有大標題捲出去後淡入的小標題；首頁沒有需要
+  /// 常駐的動作（設計稿：頂列不放按鈕）。
+  Widget _topBar(BuildContext context, HomeLayout layout) {
+    final phone = layout == HomeLayout.phone;
+    return IgnorePointer(
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _scrolled,
+        builder: (context, scrolled, _) => ExcludeSemantics(
+          excluding: !scrolled,
+          child: AnimatedOpacity(
+            opacity: scrolled ? 1 : 0,
+            duration: FmpMotion.mid,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: phone ? 6 : 0),
+                child: Text(
+                  context.t.shell.nav.home,
+                  style: TextStyle(
+                    fontSize: phone ? 17 : 15,
+                    fontWeight: phone ? FontWeight.w600 : FontWeight.w700,
+                    letterSpacing: 0,
+                    color: context.fmpColors.label,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 選中的音源：選過、而且還在的那個；不然是第一個。
+  SourceChart _chosen(ChartsState charts) {
+    final id = ref.watch(homeChartSourceProvider);
+    return charts.sources.firstWhere(
+      (s) => s.manifest.id == id,
+      orElse: () => charts.sources.first,
+    );
+  }
+
+  void _choose(String id) =>
+      ref.read(homeChartSourceProvider.notifier).select(id);
+
+  /// 手機與平板：chip 一次看一張榜。手機先 5 名、就地展開到 10 名；平板 10
+  /// 名直接排成兩欄、不放時長（設計稿〈待確認〉34）。
+  Widget _oneAtATime(ChartsState charts, {required bool twoColumns}) {
+    final source = _chosen(charts);
+    final id = source.manifest.id;
+    final children = <Widget>[const ChartsHeading(desk: false)];
+    if (charts.neverLoadedOffline) {
+      children.add(OfflineChartsCard(onRetry: _charts.refresh));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      );
+    }
+    children.add(
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: ChartChips(
+          sources: charts.sources,
+          selected: id,
+          desk: false,
+          onSelect: _choose,
+        ),
+      ),
+    );
+    final view = ChartView.of(source);
+    final caption = ChartCaption(
+      source: source,
+      desk: false,
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 4),
+    );
+    final Widget body;
+    switch (view) {
+      case ChartFailed(:final error):
+        body = ChartErrorCard(
+          manifest: source.manifest,
+          error: error,
+          othersShown: charts.sources.length > 1,
+          onRetry: () => unawaited(_charts.refresh(only: id)),
+        );
+      case ChartLoading():
+        final skeletons = [
+          for (var i = 1; i <= chartPreview; i++)
+            ChartSkeletonRow(rank: i, desk: false),
+        ];
+        body = Column(children: [caption, ...skeletons]);
+      case ChartReady(:final tracks):
+        Widget row(int i) {
+          final (current, playing) = currentOf(ref, tracks[i]);
+          return HomeTouchRow(
+            key: ValueKey(('chart', i, tracks[i].ref)),
+            track: tracks[i],
+            rank: i + 1,
+            isCurrent: current,
+            playing: playing,
+            separator: i % chartPreview != 0,
+            showDuration: !twoColumns,
+            onTap: () => _play(tracks[i]),
+            onMore: (at) => _menu(tracks[i], at),
+          );
+        }
+
+        final first = [
+          for (var i = 0; i < tracks.length && i < chartPreview; i++) row(i),
+        ];
+        final rest = [
+          for (var i = chartPreview; i < tracks.length; i++) row(i),
+        ];
+        if (twoColumns) {
+          body = Column(
+            children: [
+              caption,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: Column(children: first)),
+                  Expanded(child: Column(children: rest)),
+                ],
+              ),
+            ],
+          );
+        } else {
+          body = Column(
+            children: [
+              caption,
+              ...first,
+              if (rest.isNotEmpty) ...[
+                ExpandingRows(
+                  expanded: _expanded,
+                  child: Column(children: rest),
+                ),
+                ChartMoreRow(
+                  expanded: _expanded,
+                  onTap: () => setState(() => _expanded = !_expanded),
+                ),
+              ],
+            ],
+          );
+        }
+    }
+    children.add(
+      AnimatedSwitcher(
+        duration: FmpMotion.fast,
+        child: KeyedSubtree(key: ValueKey(id), child: body),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+
+  /// 窄視窗：桌面密度的 chip 一次看一張榜，10 名排成兩欄（左 1–5、右 6–10）。
+  Widget _windowCharts(ChartsState charts) {
+    final source = _chosen(charts);
+    final id = source.manifest.id;
+    const heading = ChartsHeading(
+      desk: true,
+      padding: EdgeInsets.fromLTRB(4, 14, 4, 0),
+    );
+    if (charts.neverLoadedOffline) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          heading,
+          ChartErrorBlock(
+            manifest: null,
+            error: null,
+            onRetry: () => unawaited(_charts.refresh()),
+          ),
+        ],
+      );
+    }
+    final view = ChartView.of(source);
+    final Widget body;
+    switch (view) {
+      case ChartFailed(:final error):
+        body = ChartErrorBlock(
+          manifest: source.manifest,
+          error: error,
+          onRetry: () => unawaited(_charts.refresh(only: id)),
+        );
+      case ChartLoading():
+        body = _twoColumns([
+          for (var i = 1; i <= chartLength; i++)
+            ChartSkeletonRow(rank: i, desk: true),
+        ]);
+      case ChartReady(:final tracks):
+        body = LayoutBuilder(
+          builder: (context, constraints) {
+            final column = (constraints.maxWidth - 12) / 2;
+            return _twoColumns([
+              for (final (i, track) in tracks.indexed)
+                _deskRow(track, i, column >= ChartDeskRow.durationFrom),
+            ]);
+          },
+        );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        heading,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+          child: ChartChips(
+            sources: charts.sources,
+            selected: id,
+            desk: true,
+            onSelect: _choose,
+          ),
+        ),
+        if (view is! ChartFailed)
+          ChartCaption(
+            source: source,
+            desk: true,
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+          ),
+        AnimatedSwitcher(
+          duration: FmpMotion.fast,
+          child: KeyedSubtree(key: ValueKey(id), child: body),
+        ),
+      ],
+    );
+  }
+
+  /// 左 1–5、右 6–10，欄間 12。
+  Widget _twoColumns(List<Widget> rows) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(child: Column(children: rows.take(chartPreview).toList())),
+      const SizedBox(width: 12),
+      Expanded(child: Column(children: rows.skip(chartPreview).toList())),
+    ],
+  );
+
+  Widget _deskRow(Track track, int i, bool showDuration) {
+    final (current, playing) = currentOf(ref, track);
+    return ChartDeskRow(
+      key: ValueKey(('chart', i, track.ref)),
+      track: track,
+      rank: i + 1,
+      isCurrent: current,
+      playing: playing,
+      selected: track.ref == _selected,
+      showDuration: showDuration,
+      onSelect: () => _select(track),
+      onPlay: () => _play(track),
+      onMenu: (at) => _menu(track, at),
+    );
+  }
+
+  /// 桌面：每個音源一欄，欄數跟著宣告 `charts` 的音源數（2026-11-20 擁有者
+  /// 同意）；每欄先 5 名，一顆「顯示第 6–10 名」所有欄一起展開。欄夠寬時列
+  /// 尾有時長。
+  Widget _columns(ChartsState charts, {required bool touch}) {
+    const heading = ChartsHeading(desk: true);
+    if (charts.neverLoadedOffline) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          heading,
+          ChartErrorBlock(
+            manifest: null,
+            error: null,
+            onRetry: () => unawaited(_charts.refresh()),
+          ),
+        ],
+      );
+    }
+    final canExpand = charts.sources.any(
+      (s) => (s.chart?.tracks.length ?? 0) > chartPreview,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        heading,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final count = charts.sources.length;
+            final column = (constraints.maxWidth - 12 * (count - 1)) / count;
+            final showDuration = column >= ChartDeskRow.durationFrom;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final (i, source) in charts.sources.indexed) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(child: _column(source, showDuration)),
+                ],
+              ],
+            );
+          },
+        ),
+        if (canExpand)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Center(
+              child: FmpButton(
+                label: _expanded
+                    ? context.t.home.showLess
+                    : context.t.home.showMore(from: chartPreview + 1, to: 10),
+                trailingIcon: _expanded ? FmpIcons.chevU : FmpIcons.chevD,
+                size: FmpButtonSize.small,
+                onTap: () => setState(() => _expanded = !_expanded),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _column(SourceChart source, bool showDuration) {
+    final id = source.manifest.id;
+    final view = ChartView.of(source);
+    final Widget body;
+    switch (view) {
+      case ChartFailed(:final error):
+        body = ChartErrorBlock(
+          manifest: source.manifest,
+          error: error,
+          onRetry: () => unawaited(_charts.refresh(only: id)),
+        );
+      case ChartLoading():
+        body = Column(
+          children: [
+            for (var i = 1; i <= chartPreview; i++)
+              ChartSkeletonRow(rank: i, desk: true),
+          ],
+        );
+      case ChartReady(:final tracks, :final error):
+        body = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (error != null)
+              ChartCaption(
+                source: source,
+                desk: true,
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
+              ),
+            for (final (i, track) in tracks.indexed.take(chartPreview))
+              _deskRow(track, i, showDuration),
+            ExpandingRows(
+              expanded: _expanded,
+              child: Column(
+                children: [
+                  for (final (i, track) in tracks.indexed.skip(chartPreview))
+                    _deskRow(track, i, showDuration),
+                ],
+              ),
+            ),
+          ],
+        );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ChartColumnHeader(manifest: source.manifest),
+        body,
+      ],
+    );
+  }
 }
