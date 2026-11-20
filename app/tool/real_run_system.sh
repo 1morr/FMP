@@ -10,6 +10,8 @@
 #          | resize <寬>x<高>（App 的視窗；System Events，不動游標）
 #          | shortcut <comma|字母>（App 拉到前景再送 ⌘＋鍵，經過主選單；System Events，
 #            不動游標）
+#          | press-key <tab|shift-tab>（App 拉到前景再送一下真的按鍵，經過輸入法；
+#            System Events，不動游標）
 # iOS:     background | screen
 # Android: background | foreground | notification | session
 #          | tap <標籤[:標籤...]> | seek-bar <比例>
@@ -102,6 +104,18 @@ case "$platform:$action" in
       -e "delay 0.3" \
       -e "tell application \"System Events\" to keystroke \"$key\" using command down"
     echo "pressed cmd+$arg"
+    ;;
+  macos:press-key)
+    case $arg in
+      tab) using='' ;;
+      shift-tab) using=' using shift down' ;;
+      *) echo "unknown key: $arg" >&2; exit 2 ;;
+    esac
+    osascript \
+      -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $pid) to true" \
+      -e "delay 0.3" \
+      -e "tell application \"System Events\" to key code 48$using"
+    echo "pressed $arg"
     ;;
   macos:resize)
     w=${arg%x*} h=${arg#*x}

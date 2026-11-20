@@ -9,6 +9,7 @@ import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:fmp/ui/now_playing/spine.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 手機的迷你播放器（`FMP.mini`，`docs/design/DESIGN.md`〈手機〉）：56 高的
@@ -26,64 +27,61 @@ class MiniPlayer extends ConsumerWidget {
     final text = context.fmpText;
     final track = state.track;
     // 自成一個語意節點，螢幕閱讀器不把它和頁面的字併在一起。
-    return Semantics(
-      container: true,
+    return ShellButton(
+      key: const Key('mini-player'),
       onTap: () => context.push(playerPath),
-      onTapHint: context.t.player.open,
-      child: GestureDetector(
-        key: const Key('mini-player'),
-        behavior: HitTestBehavior.opaque,
-        onTap: () => context.push(playerPath),
-        child: Glass(
-          child: SizedBox(
-            height: 56,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Spine(
-                    progress: spineProgress(
-                      state.position,
-                      state.effectiveDuration,
-                    ),
+      tapHint: context.t.player.open,
+      focusRadius: 999,
+      builder: (context, _) => Glass(
+        child: SizedBox(
+          height: 56,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Spine(
+                  progress: spineProgress(
+                    state.position,
+                    state.effectiveDuration,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8, right: 6),
-                  child: Row(
-                    children: [
-                      Cover(url: track.coverUrl, size: 40, radius: 9),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            NowPlayingTitle(
-                              title: track.title,
-                              style: text.body.copyWith(
-                                fontSize: 15,
-                                height: 19 / 15,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0,
-                                color: colors.glassInk,
-                              ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 8, right: 6),
+                child: Row(
+                  children: [
+                    Cover(url: track.coverUrl, size: 40, radius: 9),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          NowPlayingTitle(
+                            title: track.title,
+                            style: text.body.copyWith(
+                              fontSize: 15,
+                              height: 19 / 15,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0,
+                              color: colors.glassInk,
                             ),
-                            _Subtitle(state: state),
-                          ],
-                        ),
+                          ),
+                          _Subtitle(state: state),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      PlayPauseButton(
-                        playing: state.playing,
-                        size: 42,
-                        iconSize: 24,
-                      ),
-                      const SkipButton(forward: true, size: 42, iconSize: 24),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 10),
+                    // 稿是 42，點擊區補到 44（`DESIGN.md`〈無障礙〉）。
+                    PlayPauseButton(
+                      playing: state.playing,
+                      size: 44,
+                      iconSize: 24,
+                    ),
+                    const SkipButton(forward: true, size: 44, iconSize: 24),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

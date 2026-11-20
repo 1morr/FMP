@@ -12,18 +12,28 @@ class ShellButton extends StatefulWidget {
     super.key,
     required this.onTap,
     required this.builder,
+    this.onLongPress,
     this.label,
+    this.tapHint,
     this.selected = false,
     this.tooltip,
     this.focusRadius,
+    this.focusInset = false,
+    this.hitPadding,
   });
 
   /// null 時停用：點不了，螢幕閱讀器讀成停用；外觀由 [builder] 自己畫。
   final VoidCallback? onTap;
   final Widget Function(BuildContext context, bool hovered) builder;
 
+  /// 觸控長按（例如搜尋結果進入多選）；鍵盤沒有對應。
+  final VoidCallback? onLongPress;
+
   /// 給螢幕閱讀器的名字；看得到的文字已經夠時留 null。
   final String? label;
+
+  /// 螢幕閱讀器說點了會怎樣（例如「打開播放頁」）；和點擊在同一個節點上。
+  final String? tapHint;
   final bool selected;
 
   /// 只有圖示時給滑鼠 hover 與長按看的說明。
@@ -35,6 +45,13 @@ class ShellButton extends StatefulWidget {
   /// [buttonShortcuts]）。null 時鍵盤選不到。
   final double? focusRadius;
 
+  /// 外框畫在框裡面（[FocusRing.inset]），滿版的列表列用。
+  final bool focusInset;
+
+  /// 看得到的部分四周補的透明點擊區（`DESIGN.md`〈無障礙〉：觸控 44、滑鼠
+  /// 28）：點得到、螢幕閱讀器的框也包含它，焦點外框仍畫在看得到的部分外面。
+  final EdgeInsets? hitPadding;
+
   @override
   State<ShellButton> createState() => _ShellButtonState();
 }
@@ -43,16 +60,43 @@ class _ShellButtonState extends State<ShellButton> {
   bool _hovered = false;
   bool _focused = false;
 
+  /// 外框只畫在焦點真的在這顆的時候：裡面還有可聚焦的按鈕（例如迷你播放器
+  /// 的播放鈕）時，焦點移進去外層就不畫。
+  late final _focus = FocusNode(debugLabel: 'ShellButton')
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
-    Widget child = GestureDetector(
+    Widget child = widget.builder(context, _hovered);
+    if (widget.focusRadius case final radius?) {
+      child = FocusRing(
+        visible: _focused && enabled && _focus.hasPrimaryFocus,
+        radius: radius,
+        inset: widget.focusInset,
+        child: child,
+      );
+    }
+    if (widget.hitPadding case final padding?) {
+      child = Padding(padding: padding, child: child);
+    }
+    child = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,
-      child: widget.builder(context, _hovered),
+      onLongPress: widget.onLongPress,
+      child: child,
     );
-    if (widget.focusRadius case final radius?) {
+    if (widget.focusRadius != null) {
       child = FocusableActionDetector(
+        focusNode: _focus,
         shortcuts: buttonShortcuts(context),
         enabled: enabled,
         mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
@@ -63,11 +107,7 @@ class _ShellButtonState extends State<ShellButton> {
             onInvoke: (_) => widget.onTap?.call(),
           ),
         },
-        child: FocusRing(
-          visible: _focused && enabled,
-          radius: radius,
-          child: child,
-        ),
+        child: child,
       );
     } else {
       child = MouseRegion(
@@ -77,9 +117,13 @@ class _ShellButtonState extends State<ShellButton> {
         child: child,
       );
     }
+    // 自成一個節點：直接放在外殼的 Stack 裡時（搜尋圓鈕、詳情面板鈕），不然
+    // 名字與點擊會併進外層整個畫面的節點，螢幕閱讀器的框蓋住全螢幕。
     child = Semantics(
+      container: true,
       button: true,
       enabled: enabled,
+      onTapHint: widget.tapHint,
       selected: widget.selected,
       label: widget.label,
       child: child,

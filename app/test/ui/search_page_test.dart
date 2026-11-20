@@ -22,7 +22,11 @@ import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/search/search_page.dart';
 import 'package:fmp/ui/search/search_parts.dart';
 import 'package:fmp/ui/shell/phone_dock.dart';
+import 'package:fmp/ui/common/focus_ring.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../support/a11y.dart';
 
 import '../support/shell.dart';
 
@@ -107,6 +111,179 @@ void main() {
 
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(SearchPage)));
+
+  /// 無障礙（`docs/design/DESIGN.md`〈無障礙〉）：結果（含展開的分 P）與
+  /// 搜尋紀錄，各種寬度。
+  group('accessibility', () {
+    Future<void> withHistory(WidgetTester tester) async {
+      final history = container(tester).read(searchHistoryProvider.notifier);
+      await history.record('鹿野青');
+      await history.record('夜行列車');
+      await tester.pumpAndSettle();
+    }
+
+    for (final (name, size, mouse) in [
+      ('phone', phone, false),
+      ('tablet', tablet, false),
+      ('13-inch iPad', const Size(1376, 1032), false),
+      ('desktop', desktop, true),
+    ]) {
+      testWidgets('$name: every control has a name, takes keyboard focus, '
+          'and is at least 44 on touch or 28 with a mouse', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await start(tester, size, state: _partsResults(), mouse: mouse);
+        await tester.tap(find.byTooltip('展開分 P'));
+        await tester.pumpAndSettle();
+        await expectAccessible(tester, touch: !mouse);
+
+        await tester.enterText(find.byType(TextField), '');
+        await withHistory(tester);
+        expect(find.text('搜尋紀錄'), findsOneWidget);
+        await expectAccessible(tester, touch: !mouse);
+        semantics.dispose();
+        done();
+      });
+    }
+
+    testWidgets('phone: Tab walks the chips, the sort, the rows with their '
+        'parts and more buttons, one focus ring at a time', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, phone, state: _partsResults());
+      await tester.tap(find.byTooltip('展開分 P'));
+      await tester.pumpAndSettle();
+
+      final visited = await tabThrough(tester, 12);
+      expect(
+        visited,
+        containsAllInOrder(<Matcher>[
+          startsWith('全部'),
+          startsWith('SONGS'),
+          startsWith('排序'),
+          startsWith('夜行列車'),
+          equals('更多'),
+          startsWith('深夜電台合集'),
+          equals('收起分 P'),
+          equals('更多'),
+          startsWith('P1'),
+        ]),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('desktop: with only history on the page, Tab never stops on '
+        'the empty results table', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, desktop, mouse: true);
+      await withHistory(tester);
+
+      // 每一站都要有外框（輸入框除外）；停在空的表格上會是 0 個。
+      final visited = await tabThrough(tester, 12);
+      expect(visited, contains(startsWith('夜行列車')));
+      semantics.dispose();
+      done();
+    });
+
+    testWidgets('phone: the chip row is 44 tall while the chips look 32', (
+      tester,
+    ) async {
+      await start(tester, phone, state: _results());
+
+      final chip = find.ancestor(
+        of: find.text('全部'),
+        matching: find.byType(ShellButton),
+      );
+      expect(tester.getSize(chip).height, 44);
+      expect(
+        tester
+            .getSize(
+              find.descendant(of: chip, matching: find.byType(Container)).first,
+            )
+            .height,
+        32,
+      );
+    });
+
+    /// 按 Tab 直到表格有鍵盤焦點。
+    Future<void> tabIntoTable(WidgetTester tester) async {
+      for (var i = 0; i < 20; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (FocusManager.instance.primaryFocus?.debugLabel ==
+            'search results') {
+          return;
+        }
+      }
+      fail('Tab never reached the results table');
+    }
+
+    bool ringed(WidgetTester tester, int index) => tester
+        .widget<FocusRing>(
+          find.descendant(
+            of: searchResultAt(index),
+            matching: find.byWidgetPredicate(
+              (w) => w is FocusRing && w.radius == 8,
+            ),
+          ),
+        )
+        .visible;
+
+    testWidgets('desktop: Tab into the table selects the first row and rings '
+        'it; Down moves on and Enter plays', (tester) async {
+      await start(tester, desktop, state: _results(), mouse: true);
+
+      await tabIntoTable(tester);
+      expect(ringed(tester, 0), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(ringed(tester, 1), isTrue);
+      expect(ringed(tester, 0), isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['playTemporarily 2']);
+      done();
+    });
+
+    testWidgets("desktop: Tab reaches the selected row's more button and "
+        'Enter opens the menu; Shift+F10 opens it too', (tester) async {
+      await start(tester, desktop, state: _results(), mouse: true);
+      await tabIntoTable(tester);
+
+      // 其餘可聚焦的東西之後，Tab 走到選取那列的 ⋮（只有它的 ⋮ 可聚焦）。
+      bool onMore() =>
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<PlainIconButton>()
+              ?.tooltip ==
+          '更多';
+      for (var i = 0; i < 10 && !onMore(); i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+      expect(onMore(), isTrue);
+      expect(
+        find.descendant(
+          of: searchResultAt(0),
+          matching: find.byWidgetPredicate((w) => w is FocusRing && w.visible),
+        ),
+        findsOneWidget,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('加入佇列'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('加入佇列'), findsNothing);
+
+      await tabIntoTable(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('加入佇列'));
+      await tester.pumpAndSettle();
+      expect(queue.calls, ['add 1']);
+      done();
+    });
+  });
 
   group('search history', () {
     testWidgets('lists past searches; a tap searches again, × removes one, '

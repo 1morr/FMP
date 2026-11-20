@@ -57,6 +57,7 @@ class PlayPauseButton extends ConsumerWidget {
       onTap: () => ref.read(playbackProvider.notifier).playPause(),
       tooltip: label,
       label: label,
+      focusRadius: 999,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         width: size,
@@ -107,6 +108,7 @@ class SkipButton extends ConsumerWidget {
           : controller.previous,
       tooltip: label,
       label: label,
+      focusRadius: 999,
       builder: (context, hovered) => Opacity(
         opacity: enabled ? 1 : 0.4,
         child: AnimatedContainer(

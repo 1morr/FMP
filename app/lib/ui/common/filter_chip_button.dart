@@ -6,8 +6,8 @@ import 'package:material_ui/material_ui.dart';
 
 /// 篩選 chip（`.chip`，搜尋的音源篩選與首頁的榜音源）：選中的是實心
 /// `--label` 底；出錯的音源帶警示符號。觸控 32 高（[height] 可換），滑鼠 26。
-/// [touchTarget] 時點擊區上下補到 44（`DESIGN.md`〈稿內不一致與實作注意〉第 2
-/// 點），會多佔版面。鍵盤選得到，Enter 選它。
+/// [touchTarget] 時點擊區上下補到觸控 44、滑鼠 28（`DESIGN.md`〈稿內不一致與
+/// 實作注意〉第 2 點、〈無障礙〉），會多佔版面。鍵盤選得到，Enter 選它。
 class FilterChipButton extends StatelessWidget {
   const FilterChipButton({
     super.key,
@@ -45,8 +45,13 @@ class FilterChipButton extends StatelessWidget {
         onTap: onTap,
         label: label,
         focusRadius: 999,
+        hitPadding: touchTarget && visual < context.fmpMetrics.minTarget
+            ? EdgeInsets.symmetric(
+                vertical: (context.fmpMetrics.minTarget - visual) / 2,
+              )
+            : null,
         builder: (context, hovered) {
-          Widget chip = Container(
+          final chip = Container(
             height: visual,
             padding: EdgeInsets.symmetric(horizontal: table ? 11 : 13),
             decoration: BoxDecoration(
@@ -91,13 +96,6 @@ class FilterChipButton extends StatelessWidget {
               ],
             ),
           );
-          if (touchTarget && !table && visual < 44) {
-            // 看得到的 chip 照原本的高，透明的點擊區上下補到 44。
-            chip = Padding(
-              padding: EdgeInsets.symmetric(vertical: (44 - visual) / 2),
-              child: chip,
-            );
-          }
           return chip;
         },
       ),

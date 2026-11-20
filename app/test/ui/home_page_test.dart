@@ -19,6 +19,7 @@ import 'package:fmp/ui/common/filter_chip_button.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:fmp/ui/home/chart_rows.dart';
 import 'package:fmp/ui/queue/queue_page.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 首頁（`docs/design/home.html`）：近期熱門的各種狀態、繼續聽、四種版面與
@@ -585,6 +586,76 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
 
       expect(queue.calls, ['temporary demo2']);
+    });
+
+    testMac('Tab into the chart selects the first row and draws the focus '
+        'ring on it; a click selects without one', (tester) async {
+      await start(tester, desktop);
+      bool ringed(String title) => find
+          .descendant(
+            of: find.ancestor(
+              of: find.text(title),
+              matching: find.byType(ChartDeskRow),
+            ),
+            matching: find.byWidgetPredicate(
+              (w) => w is FocusRing && w.visible,
+            ),
+          )
+          .evaluate()
+          .isNotEmpty;
+
+      for (
+        var i = 0;
+        i < 20 &&
+            FocusManager.instance.primaryFocus?.debugLabel != 'home charts';
+        i++
+      ) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+      expect(ringed('Song demo1'), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(ringed('Song demo2'), isTrue);
+      expect(ringed('Song demo1'), isFalse);
+
+      await tester.tap(find.text('Song demo3'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(ringed('Song demo3'), isFalse);
+    });
+
+    testMac('the keyboard opens the selected row menu: Shift+F10, or Tab to '
+        'its more button and Enter', (tester) async {
+      await start(tester, desktop);
+      await tester.tap(find.text('Song demo1'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(find.text('加入佇列'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('加入佇列'), findsNothing);
+
+      // 選取的列露出 ⋮，Tab 走得到；Enter 打開選單，不是播放選取的那首。
+      bool onMore() =>
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<PlainIconButton>()
+              ?.tooltip ==
+          '更多';
+      for (var i = 0; i < 20 && !onMore(); i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+      expect(onMore(), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('加入佇列'), findsOneWidget);
+      expect(queue.calls, isEmpty);
     });
 
     testMac('hovering a row turns the rank into a play button and shows '

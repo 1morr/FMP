@@ -102,6 +102,7 @@ class _RailItem extends StatelessWidget {
     return ShellButton(
       onTap: onTap,
       selected: selected,
+      focusRadius: touch ? 17 : 13,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         height: touch ? 58 : 50,

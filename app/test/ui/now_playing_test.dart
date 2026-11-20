@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,7 +20,16 @@ import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
 import 'package:fmp/ui/shell/phone_dock.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
+import 'package:fmp/ui/shell/side_bar.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+
+import '../support/a11y.dart';
+import '../support/shell.dart';
+
+import 'package:fmp/ui/shell/destination.dart';
 
 /// 外殼的播放控制（`docs/design/DESIGN.md`〈手機〉〈桌面〉）：手機的迷你播放器、
 /// 桌面與中寬度的播放膠囊，顯示目前曲目與書脊式進度，能暫停、繼續；
@@ -163,6 +174,154 @@ void main() {
   double played(WidgetTester tester, Finder capsule) =>
       tester.getSize(find.byKey(const Key('spine-played'))).width /
       tester.getSize(capsule).width;
+
+  /// 外殼的無障礙（`docs/design/DESIGN.md`〈無障礙〉）：開在空狀態的音樂庫，
+  /// 畫面上只有外殼的控制，各種寬度一起檢查。
+  group('accessibility', () {
+    const ipad13 = Size(1376, 1032);
+
+    Future<void> startShell(
+      WidgetTester tester,
+      Size size, {
+      TargetPlatform? platform,
+    }) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      await start(
+        tester,
+        size,
+        initial: state(PlaybackStatus.paused),
+        initialQueue: middle,
+      );
+      await openDestination(tester, Destination.library);
+      await tester.pumpAndSettle();
+    }
+
+    for (final (name, size, platform) in [
+      ('phone', phone, null),
+      ('tablet', tablet, null),
+      ('13-inch iPad', ipad13, null),
+      ('desktop', desktop, TargetPlatform.macOS),
+      ('narrow desktop window', const Size(960, 720), TargetPlatform.macOS),
+    ]) {
+      testWidgets('$name: every control has a name, takes keyboard focus, and '
+          'is at least 44 on touch or 28 with a mouse', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await startShell(tester, size, platform: platform);
+
+        await expectAccessible(tester, touch: platform == null);
+        semantics.dispose();
+        debugDefaultTargetPlatformOverride = null;
+      });
+    }
+
+    testWidgets('phone: Tab walks the mini player, its buttons, the tabs and '
+        'the search orb, one focus ring at a time', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await startShell(tester, phone);
+
+      final visited = await tabThrough(tester, 9);
+      expect(
+        visited,
+        containsAllInOrder(<Matcher>[
+          startsWith('晴天'),
+          equals('播放'),
+          equals('下一首'),
+          equals('首頁'),
+          equals('音樂庫'),
+          equals('佇列'),
+          equals('設定'),
+          equals('搜尋'),
+        ]),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('phone: screen readers hear that tapping the mini player '
+        'opens the player, on the same node as the tap', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await startShell(tester, phone);
+
+      final mini = find.semantics.byLabel(RegExp('^晴天')).evaluate().single;
+      final data = mini.getSemanticsData();
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(mini.hintOverrides?.onTapHint, t.player.open);
+      semantics.dispose();
+    });
+
+    testWidgets('phone: the search orb is a node of its own size for screen '
+        'readers, not the whole screen', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await startShell(tester, phone);
+
+      final orb = find.semantics.byLabel('搜尋').evaluate().single;
+      expect(orb.rect.size, const Size(62, 62));
+      semantics.dispose();
+    });
+
+    testWidgets('desktop: Tab walks the capsule, the sidebar and the panel, '
+        'also out of a page with nothing to focus', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await startShell(tester, desktop, platform: TargetPlatform.macOS);
+
+      final visited = await tabThrough(tester, 14);
+      for (final label in [
+        '隨機', '上一首', '播放', '下一首', '循環', //
+        '首頁', '音樂庫', '佇列', '設定', '收起面板',
+      ]) {
+        expect(visited, contains(label));
+      }
+      semantics.dispose();
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('a mouse click does not draw a focus ring', (tester) async {
+      await startShell(tester, desktop, platform: TargetPlatform.macOS);
+
+      await tester.tap(
+        find.descendant(of: find.byType(SideBar), matching: find.text('佇列')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pumpAndSettle();
+      expect(visibleFocusRings(), 0);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('13-inch iPad: sidebar items take 44 tall while their '
+        'highlight stays 32', (tester) async {
+      await startShell(tester, ipad13);
+
+      final item = find.ancestor(
+        of: find.descendant(
+          of: find.byType(SideBar),
+          matching: find.text('首頁'),
+        ),
+        matching: find.byType(ShellButton),
+      );
+      expect(tester.getSize(item).height, 44);
+      final highlight = find.descendant(
+        of: item,
+        matching: find.byType(AnimatedContainer),
+      );
+      expect(tester.getSize(highlight.first).height, 32);
+    });
+
+    testWidgets('the capsule reads its empty part as a playback position '
+        'slider that steps 5 seconds', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await startShell(tester, desktop, platform: TargetPlatform.macOS);
+
+      final slider = find.semantics.byLabel('播放進度');
+      final data = slider.evaluate().single.getSemanticsData();
+      expect(data.flagsCollection.isSlider, isTrue);
+      expect(data.value, '1:36');
+      expect(data.increasedValue, '1:41');
+      tester.semantics.performAction(slider, SemanticsAction.increase);
+      expect(playback.seeks, [const Duration(minutes: 1, seconds: 41)]);
+      semantics.dispose();
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
 
   group('phone mini player', () {
     testWidgets('is not there without a current track', (tester) async {
@@ -457,16 +616,20 @@ void main() {
   });
 }
 
-/// 狀態由測試設定的播放；記下按了幾次播放鈕、要求播了哪些曲目。
+/// 狀態由測試設定的播放；記下按了幾次播放鈕、要求播了哪些曲目、跳到哪裡。
 class _FakePlayback extends Playback {
   _FakePlayback(this._initial);
 
   final PlaybackState? _initial;
   int playPauses = 0;
   final played = <Track>[];
+  final seeks = <Duration>[];
 
   @override
   PlaybackState? build() => _initial;
+
+  @override
+  Future<void> seek(Duration position) async => seeks.add(position);
 
   void set(PlaybackState next) => state = next;
 

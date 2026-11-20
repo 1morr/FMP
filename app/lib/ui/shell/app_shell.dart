@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
@@ -143,17 +144,29 @@ class _AppShellState extends ConsumerState<AppShell> {
         bindings: {
           WindowChrome.shortcut(LogicalKeyboardKey.keyK): _focusSearch,
         },
-        child: Scaffold(
-          backgroundColor: context.fmpColors.bg,
-          resizeToAvoidBottomInset: false,
-          body: WindowChrome.captionButtons
-              ? Stack(
-                  children: [
-                    Positioned.fill(child: shell),
-                    const Positioned(top: 0, right: 0, child: CaptionButtons()),
-                  ],
-                )
-              : shell,
+        child: Actions(
+          actions: {
+            NextFocusIntent: _SkipEmptyPage<NextFocusIntent>(forward: true),
+            PreviousFocusIntent: _SkipEmptyPage<PreviousFocusIntent>(
+              forward: false,
+            ),
+          },
+          child: Scaffold(
+            backgroundColor: context.fmpColors.bg,
+            resizeToAvoidBottomInset: false,
+            body: WindowChrome.captionButtons
+                ? Stack(
+                    children: [
+                      Positioned.fill(child: shell),
+                      const Positioned(
+                        top: 0,
+                        right: 0,
+                        child: CaptionButtons(),
+                      ),
+                    ],
+                  )
+                : shell,
+          ),
         ),
       ),
     );
@@ -337,6 +350,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 },
                 child: Focus(
                   focusNode: _floatingDetailFocus,
+                  // 只為了接 Esc；整塊面板對螢幕閱讀器不是一個可聚焦的東西。
+                  includeSemantics: false,
                   child: DetailPanel(
                     touch: touch,
                     floating: true,
@@ -394,6 +409,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: SideBar.width,
             child: SideBar(
               current: _current,
+              touch: touch,
               onSelect: _select,
               onSearch: _focusSearch,
             ),
@@ -463,5 +479,41 @@ class _Transport extends ConsumerWidget {
     final state = ref.watch(playbackProvider);
     if (state == null) return const SizedBox.shrink();
     return TransportBar(state: state, touch: touch);
+  }
+}
+
+/// Tab 不停在沒有可聚焦東西的頁面（例如空狀態、還沒搜過的搜尋頁）：頁面在
+/// 外殼裡自己的路由，那個焦點範圍是空的時，框架的 Tab 會停在它上面（看不到
+/// 外框），從它再按也一直把焦點還給它自己，走不到外殼的導覽與播放控制。這裡
+/// 照框架預設（`NextFocusAction`）走一格，落在空的頁面就在外殼那一層再走一
+/// 格。一律接手：Actions 找到最近的動作就停，停用的動作不會讓給上層的預設，
+/// Tab 會整個失效。
+class _SkipEmptyPage<T extends Intent> extends Action<T> {
+  _SkipEmptyPage({required this.forward});
+
+  final bool forward;
+
+  static FocusScopeNode? get _emptyPage {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus is FocusScopeNode &&
+            focus.enclosingScope != null &&
+            focus.traversalDescendants.isEmpty
+        ? focus
+        : null;
+  }
+
+  bool _step(FocusNode from) =>
+      forward ? from.nextFocus() : from.previousFocus();
+
+  @override
+  Object? invoke(T intent) {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null) return false;
+    final moved = _step(_emptyPage?.enclosingScope ?? focus);
+    // 焦點在 microtask 裡才換過去；換完落在空的頁面上就再走一格。
+    scheduleMicrotask(() {
+      if (_emptyPage case final page?) _step(page.enclosingScope!);
+    });
+    return moved;
   }
 }

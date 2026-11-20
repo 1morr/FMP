@@ -12,6 +12,7 @@ import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/search/search_rows.dart' show PartBadge;
 import 'package:fmp/ui/shell/shell_controls.dart';
+import 'package:fmp/ui/common/table_focus.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 首頁觸控列表的一列（`docs/design/home.html` 的 `.row`）：名次（[rank]，
@@ -228,6 +229,8 @@ class ChartDeskRow extends ConsumerStatefulWidget {
     required this.onSelect,
     required this.onPlay,
     required this.onMenu,
+    this.menuAnchor,
+    this.focused = false,
   });
 
   final Track track;
@@ -239,6 +242,13 @@ class ChartDeskRow extends ConsumerStatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onPlay;
   final void Function(Offset at) onMenu;
+
+  /// 鍵盤開選單（Shift+F10、選單鍵）時從這列的左下角長出來
+  /// （`table_focus.dart`）。
+  final GlobalKey? menuAnchor;
+
+  /// 榜有鍵盤焦點、選取的是這列：畫焦點外框。
+  final bool focused;
 
   /// 欄寬到這裡才放時長（`.hm-col` 的 container query）。
   static const durationFrom = 280.0;
@@ -305,113 +315,120 @@ class _ChartDeskRowState extends ConsumerState<ChartDeskRow> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onDoubleTap: widget.onPlay,
+          excludeFromSemantics: true,
           onSecondaryTapUp: (details) => widget.onMenu(details.globalPosition),
           child: Semantics(
             selected: widget.selected,
-            child: Container(
-              height: 46,
-              padding: const EdgeInsets.only(left: 4, right: 6),
-              decoration: BoxDecoration(
-                color: background,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Stack(
-                children: [
-                  Row(
-                    children: [
-                      // 名次靠右；兩位數比 14 寬時往左凸出，同稿的 grid。
-                      SizedBox(
-                        width: 14,
-                        child: OverflowBox(
-                          maxWidth: 28,
-                          maxHeight: 28,
-                          alignment: Alignment.centerRight,
-                          child: lead,
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Cover(
-                        url: track.coverUrl,
-                        size: 32,
-                        radius: context.fmpMetrics.radii.thumbnail,
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              track.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 17 / 13,
-                                letterSpacing: 0,
-                                color: widget.isCurrent
-                                    ? colors.accent
-                                    : colors.label,
-                                fontWeight: widget.isCurrent
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            TrackSubLine(
-                              track: track,
-                              parts: parts,
-                              desk: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (widget.showDuration) ...[
-                        const SizedBox(width: 9),
+            child: FocusableTableRow(
+              focused: widget.focused,
+              radius: 8,
+              anchorKey: widget.menuAnchor,
+              onActivate: widget.onPlay,
+              child: Container(
+                height: 46,
+                padding: const EdgeInsets.only(left: 4, right: 6),
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  children: [
+                    Row(
+                      children: [
+                        // 名次靠右；兩位數比 14 寬時往左凸出，同稿的 grid。
                         SizedBox(
-                          width: 36,
-                          child: Text(
-                            track.duration == null
-                                ? ''
-                                : formatDuration(track.duration!),
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 12,
-                              letterSpacing: 0,
-                              color: colors.label3,
-                            ).tabular,
+                          width: 14,
+                          child: OverflowBox(
+                            maxWidth: 28,
+                            maxHeight: 28,
+                            alignment: Alignment.centerRight,
+                            child: lead,
                           ),
                         ),
+                        const SizedBox(width: 9),
+                        Cover(
+                          url: track.coverUrl,
+                          size: 32,
+                          radius: context.fmpMetrics.radii.thumbnail,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                track.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 17 / 13,
+                                  letterSpacing: 0,
+                                  color: widget.isCurrent
+                                      ? colors.accent
+                                      : colors.label,
+                                  fontWeight: widget.isCurrent
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              TrackSubLine(
+                                track: track,
+                                parts: parts,
+                                desk: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (widget.showDuration) ...[
+                          const SizedBox(width: 9),
+                          SizedBox(
+                            width: 36,
+                            child: Text(
+                              track.duration == null
+                                  ? ''
+                                  : formatDuration(track.duration!),
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 12,
+                                letterSpacing: 0,
+                                color: colors.label3,
+                              ).tabular,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                  // ⋮ 只在滑過時浮在列尾（蓋住時長），曲名的寬度不變；左邊
-                  // 12 漸層接列的底色，時長整個被蓋住。
-                  if (_hovered || widget.selected)
-                    Positioned(
-                      right: -4,
-                      top: 9,
-                      child: Container(
-                        padding: const EdgeInsets.only(left: 12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [cover.withValues(alpha: 0), cover],
-                            stops: const [0, 12 / 40],
+                    ),
+                    // ⋮ 只在滑過時浮在列尾（蓋住時長），曲名的寬度不變；左邊
+                    // 12 漸層接列的底色，時長整個被蓋住。
+                    if (_hovered || widget.selected)
+                      Positioned(
+                        right: -4,
+                        top: 9,
+                        child: Container(
+                          padding: const EdgeInsets.only(left: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [cover.withValues(alpha: 0), cover],
+                              stops: const [0, 12 / 40],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Builder(
-                          builder: (context) => PlainIconButton(
-                            icon: FmpIcons.more,
-                            tooltip: t.queue.more,
-                            size: 28,
-                            focusable: true,
-                            onTap: () => widget.onMenu(anchorOf(context)),
+                          child: Builder(
+                            builder: (context) => PlainIconButton(
+                              icon: FmpIcons.more,
+                              tooltip: t.queue.more,
+                              size: 28,
+                              focusable: true,
+                              onTap: () => widget.onMenu(anchorOf(context)),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

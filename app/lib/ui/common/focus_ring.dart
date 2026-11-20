@@ -14,9 +14,14 @@ class FocusRing extends StatelessWidget {
     required this.visible,
     required this.radius,
     required this.child,
+    this.inset = false,
   });
 
   final bool visible;
+
+  /// 畫在 [child] 的框裡面、離邊 2：滿版的列表列（左右貼著畫面邊緣，畫在
+  /// 外面會被裁掉、上下壓到隔壁列）用。
+  final bool inset;
 
   /// [child] 自己的圓角；圓形或膠囊給大於短邊一半的值（例如 999）。
   final double radius;
@@ -29,24 +34,25 @@ class FocusRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) => CustomPaint(
     foregroundPainter: visible
-        ? _RingPainter(context.fmpColors.accent, radius)
+        ? _RingPainter(context.fmpColors.accent, radius, inset)
         : null,
     child: child,
   );
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter(this.color, this.radius);
+  _RingPainter(this.color, this.radius, this.inset);
 
   final Color color;
   final double radius;
+  final bool inset;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 線的中心在離框 offset + width / 2 的地方。
-    const out = FocusRing.offset + FocusRing.width / 2;
+    // 線的中心在離框 offset + width / 2 的地方（[inset] 時往裡）。
+    final out = (FocusRing.offset + FocusRing.width / 2) * (inset ? -1 : 1);
     final rect = (Offset.zero & size).inflate(out);
-    final r = math.min(radius + out, rect.shortestSide / 2);
+    final r = math.max(0.0, math.min(radius + out, rect.shortestSide / 2));
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, Radius.circular(r)),
       Paint()
@@ -58,7 +64,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RingPainter old) =>
-      old.color != color || old.radius != radius;
+      old.color != color || old.radius != radius || old.inset != inset;
 }
 
 /// 鍵盤選到的按鈕的快捷鍵：Space 在 App 裡是播放／暫停（`PlaybackShortcuts`），

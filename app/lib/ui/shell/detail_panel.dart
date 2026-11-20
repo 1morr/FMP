@@ -63,6 +63,7 @@ class DetailPanel extends StatelessWidget {
             tooltip: t.shell.detail.hide,
             onTap: onHide,
             size: touch ? 44 : 32,
+            focusable: true,
           ),
         ],
       ),

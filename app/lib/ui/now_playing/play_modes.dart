@@ -95,6 +95,12 @@ class PlayModeToggle extends StatelessWidget {
       toggled: on,
       child: ShellButton(
         onTap: onTap,
+        focusRadius: 999,
+        // 觸控的點擊區補到 44（`DESIGN.md`〈稿內不一致與實作注意〉），
+        // 看得到的膠囊照稿 34。
+        hitPadding: touch
+            ? EdgeInsets.symmetric(vertical: (44 - height) / 2)
+            : null,
         builder: (context, hovered) {
           final Color? background;
           final Color foreground;
@@ -133,11 +139,7 @@ class PlayModeToggle extends StatelessWidget {
               ],
             ),
           );
-          // 觸控的點擊區補到 44（`DESIGN.md`〈稿內不一致與實作注意〉），
-          // 看得到的膠囊照稿 34。
-          return touch
-              ? SizedBox(height: 44, child: Center(child: pill))
-              : pill;
+          return pill;
         },
       ),
     );
@@ -191,6 +193,7 @@ class PlayModeIconButton extends ConsumerWidget {
         onTap: onTap,
         tooltip: label,
         label: label,
+        focusRadius: 999,
         builder: (context, hovered) => AnimatedContainer(
           duration: FmpMotion.fast,
           width: size,

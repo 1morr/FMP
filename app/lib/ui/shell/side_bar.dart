@@ -19,6 +19,7 @@ class SideBar extends StatelessWidget {
     required this.current,
     required this.onSelect,
     required this.onSearch,
+    this.touch = false,
   });
 
   /// 外框寬度（內容 232 加左右 8）。
@@ -30,6 +31,10 @@ class SideBar extends StatelessWidget {
   /// 點搜尋欄或送出時：進搜尋頁。
   final VoidCallback onSearch;
 
+  /// 觸控（13 吋 iPad 橫放）：項目的點擊區補到 44，項目之間空出 12
+  /// （`DESIGN.md`〈無障礙〉，擁有者 2026-11-20 同意）。
+  final bool touch;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
@@ -37,6 +42,7 @@ class SideBar extends StatelessWidget {
       destination: d,
       label: d.label(t),
       selected: d == current,
+      touch: touch,
       onTap: () => onSelect(d),
     );
     return Glass(
@@ -57,7 +63,11 @@ class SideBar extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
+              // 觸控時欄位的點擊區 44 高，上下各吃掉 6、8 的間距（欄位看得到
+              // 的 30 高位置不變）。
+              padding: touch
+                  ? const EdgeInsets.fromLTRB(4, 0, 4, 2)
+                  : const EdgeInsets.fromLTRB(4, 6, 4, 10),
               child: SearchField(
                 placement: SearchFieldPlacement.sidebar,
                 active: current == Destination.search,
@@ -80,7 +90,7 @@ class SideBar extends StatelessWidget {
             ),
             const Spacer(),
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: EdgeInsets.only(top: touch ? 2 : 8),
               child: item(Destination.settings),
             ),
           ],
@@ -95,12 +105,14 @@ class _NavItem extends StatelessWidget {
     required this.destination,
     required this.label,
     required this.selected,
+    required this.touch,
     required this.onTap,
   });
 
   final Destination destination;
   final String label;
   final bool selected;
+  final bool touch;
   final VoidCallback onTap;
 
   @override
@@ -109,6 +121,9 @@ class _NavItem extends StatelessWidget {
     return ShellButton(
       onTap: onTap,
       selected: selected,
+      focusRadius: 8,
+      // 觸控的點擊區上下各補 6 到 44，看得到的底色照稿 32。
+      hitPadding: touch ? const EdgeInsets.symmetric(vertical: 6) : null,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         height: 32,

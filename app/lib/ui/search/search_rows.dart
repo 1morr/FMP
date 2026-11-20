@@ -9,6 +9,7 @@ import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -92,11 +93,12 @@ class SearchTouchRow extends ConsumerWidget {
     );
     return Semantics(
       selected: selecting ? selected : null,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+      child: ShellButton(
         onTap: onTap,
         onLongPress: onLongPress,
-        child: Stack(
+        focusRadius: 10,
+        focusInset: true,
+        builder: (context, _) => Stack(
           children: [
             if (separator)
               Positioned(
@@ -211,6 +213,7 @@ class SearchTouchRow extends ConsumerWidget {
                         icon: FmpIcons.more,
                         tooltip: t.queue.more,
                         size: 44,
+                        focusable: true,
                         onTap: () => onMore(_anchorOf(context)),
                       ),
                     ),
@@ -365,6 +368,8 @@ class SearchTableRow extends ConsumerStatefulWidget {
     required this.isCurrent,
     required this.playing,
     required this.selected,
+    this.focused = false,
+    this.menuAnchor,
     required this.joinAbove,
     required this.joinBelow,
     required this.onPointerDown,
@@ -391,6 +396,12 @@ class SearchTableRow extends ConsumerStatefulWidget {
   final bool isCurrent;
   final bool playing;
   final bool selected;
+
+  /// 表格有鍵盤焦點、這列是選取的起點：畫焦點外框（`table_focus.dart`）。
+  final bool focused;
+
+  /// 鍵盤開選單時從這列的左下角長出來。
+  final GlobalKey? menuAnchor;
 
   /// 上下也是選取的列：相接的那邊不圓角。
   final bool joinAbove;
@@ -448,129 +459,142 @@ class _SearchTableRowState extends ConsumerState<SearchTableRow> {
         },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
+          // 右鍵的偵測不給螢幕閱讀器一個點了沒反應的動作。
+          excludeFromSemantics: true,
           onSecondaryTapUp: (details) => widget.onMenu(details.globalPosition),
-          child: Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: widget.selected
-                  ? colors.accentSoft
-                  : _hovered
-                  ? colors.cellHover
-                  : null,
-              borderRadius: BorderRadius.vertical(
-                top: widget.joinAbove ? Radius.zero : r,
-                bottom: widget.joinBelow ? Radius.zero : r,
+          child: FocusableTableRow(
+            focused: widget.focused,
+            radius: 8,
+            anchorKey: widget.menuAnchor,
+            onActivate: widget.onPlay,
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: widget.selected
+                    ? colors.accentSoft
+                    : _hovered
+                    ? colors.cellHover
+                    : null,
+                borderRadius: BorderRadius.vertical(
+                  top: widget.joinAbove ? Radius.zero : r,
+                  bottom: widget.joinBelow ? Radius.zero : r,
+                ),
               ),
-            ),
-            child: SearchTableGrid(
-              narrow: widget.narrow,
-              wrapMiddle: (middle) => GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onDoubleTap: widget.onPlay,
-                child: middle,
-              ),
-              number: Align(alignment: Alignment.centerRight, child: number),
-              title: Row(
-                children: [
-                  Cover(
-                    url: track.coverUrl,
-                    size: 36,
-                    radius: context.fmpMetrics.radii.thumbnail,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            if (widget.partCount != null) ...[
-                              PartsToggle(
-                                expanded: widget.expanded,
-                                loading: widget.loadingParts,
-                                onTap: widget.onToggleParts!,
-                                touch: false,
-                              ),
-                              const SizedBox(width: 6),
-                            ],
-                            Flexible(
-                              child: Text(
-                                track.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  height: 17 / 13,
-                                  letterSpacing: 0,
-                                  color: widget.isCurrent
-                                      ? colors.accent
-                                      : colors.label,
-                                  fontWeight: widget.isCurrent
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
+              child: SearchTableGrid(
+                narrow: widget.narrow,
+                wrapMiddle: (middle) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: widget.onPlay,
+                  child: middle,
+                ),
+                number: Align(alignment: Alignment.centerRight, child: number),
+                title: Row(
+                  children: [
+                    Cover(
+                      url: track.coverUrl,
+                      size: 36,
+                      radius: context.fmpMetrics.radii.thumbnail,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              if (widget.partCount != null) ...[
+                                PartsToggle(
+                                  expanded: widget.expanded,
+                                  loading: widget.loadingParts,
+                                  onTap: widget.onToggleParts!,
+                                  touch: false,
+                                ),
+                                // 箭頭的點擊區右邊多 4，和曲名仍隔 6。
+                                const SizedBox(width: 2),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  track.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 17 / 13,
+                                    letterSpacing: 0,
+                                    color: widget.isCurrent
+                                        ? colors.accent
+                                        : colors.label,
+                                    fontWeight: widget.isCurrent
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (widget.partCount case final count?) ...[
-                              const SizedBox(width: 6),
-                              PartBadge(count: count),
+                              if (widget.partCount case final count?) ...[
+                                const SizedBox(width: 6),
+                                PartBadge(count: count),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          track.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: small.copyWith(height: 15 / 12),
-                        ),
-                      ],
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            track.author,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: small.copyWith(height: 15 / 12),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              source: Row(
-                children: [
-                  SourceMarkIcon(pluginId: track.ref.pluginId, size: 15),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      ref
-                              .watch(pluginManifestProvider(track.ref.pluginId))
-                              ?.mark
-                              ?.short ??
-                          name ??
-                          '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: small.copyWith(color: colors.label),
+                  ],
+                ),
+                source: Row(
+                  children: [
+                    SourceMarkIcon(pluginId: track.ref.pluginId, size: 15),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        ref
+                                .watch(
+                                  pluginManifestProvider(track.ref.pluginId),
+                                )
+                                ?.mark
+                                ?.short ??
+                            name ??
+                            '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: small.copyWith(color: colors.label),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              // 沒有播放數時寫「—」，不留白（`DESIGN.md`〈曲目列〉）。
-              plays: Text(
-                track.playCount == null
-                    ? '—'
-                    : playCountText(context, track.playCount!),
-                textAlign: TextAlign.right,
-                style: small.tabular,
-              ),
-              duration: Text(
-                track.duration == null ? '' : formatDuration(track.duration!),
-                textAlign: TextAlign.right,
-                style: small.tabular,
-              ),
-              more: Opacity(
-                opacity: _hovered || widget.selected ? 1 : 0,
-                child: Builder(
-                  builder: (context) => PlainIconButton(
-                    icon: FmpIcons.more,
-                    tooltip: t.queue.more,
-                    size: 28,
-                    onTap: () => widget.onMenu(_anchorOf(context)),
+                  ],
+                ),
+                // 沒有播放數時寫「—」，不留白（`DESIGN.md`〈曲目列〉）。
+                plays: Text(
+                  track.playCount == null
+                      ? '—'
+                      : playCountText(context, track.playCount!),
+                  textAlign: TextAlign.right,
+                  style: small.tabular,
+                ),
+                duration: Text(
+                  track.duration == null ? '' : formatDuration(track.duration!),
+                  textAlign: TextAlign.right,
+                  style: small.tabular,
+                ),
+                more: Opacity(
+                  opacity: _hovered || widget.selected ? 1 : 0,
+                  child: Builder(
+                    builder: (context) => PlainIconButton(
+                      icon: FmpIcons.more,
+                      tooltip: t.queue.more,
+                      size: 28,
+                      // 選取的列 ⋮ 一直露出，Tab 從表格走得到、Enter 打開。
+                      focusable: widget.selected,
+                      onTap: () => widget.onMenu(_anchorOf(context)),
+                    ),
                   ),
                 ),
               ),
@@ -655,9 +679,12 @@ class PartsToggle extends StatelessWidget {
       onTap: onTap,
       tooltip: label,
       label: label,
+      focusRadius: touch ? 999 : 6,
+      // 滑鼠的點擊區四周補到 28（`DESIGN.md`〈無障礙〉）。
+      hitPadding: touch ? null : const EdgeInsets.all(4),
       builder: (context, hovered) => touch
-          // 圖示 20，左右各留一點讓手指點得到（列的間距是 12）。
-          ? SizedBox(width: 32, height: 44, child: Center(child: icon))
+          // 圖示 20，點擊區 44 見方（稿 32 寬，`DESIGN.md`〈無障礙〉）。
+          ? SizedBox(width: 44, height: 44, child: Center(child: icon))
           : Container(
               width: 20,
               height: 20,
@@ -722,10 +749,11 @@ class SearchPartTouchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
     final t = context.t;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return ShellButton(
       onTap: selecting ? null : onTap,
-      child: Stack(
+      focusRadius: 10,
+      focusInset: true,
+      builder: (context, _) => Stack(
         children: [
           Positioned(
             top: 0,
@@ -789,6 +817,7 @@ class SearchPartTouchRow extends StatelessWidget {
                       icon: FmpIcons.more,
                       tooltip: t.queue.more,
                       size: 44,
+                      focusable: true,
                       onTap: () => onMore(_anchorOf(context)),
                     ),
                   ),
@@ -828,6 +857,7 @@ class SearchPartTableRow extends StatefulWidget {
 
 class _SearchPartTableRowState extends State<SearchPartTableRow> {
   bool _hovered = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -843,6 +873,7 @@ class _SearchPartTableRowState extends State<SearchPartTableRow> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        excludeFromSemantics: true,
         onSecondaryTapUp: (details) => widget.onMenu(details.globalPosition),
         child: Container(
           height: 34,
@@ -901,14 +932,24 @@ class _SearchPartTableRowState extends State<SearchPartTableRow> {
               textAlign: TextAlign.right,
               style: small.tabular,
             ),
-            more: Opacity(
-              opacity: _hovered ? 1 : 0,
-              child: Builder(
-                builder: (context) => PlainIconButton(
-                  icon: FmpIcons.more,
-                  tooltip: t.queue.more,
-                  size: 28,
-                  onTap: () => widget.onMenu(_anchorOf(context)),
+            // 分 P 不參與選取，鍵盤靠 Tab 走到它的 ⋮ 開選單；有焦點時也露出。
+            more: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              includeSemantics: false,
+              onFocusChange: (focused) => setState(() => _focused = focused),
+              child: Opacity(
+                opacity: _hovered || _focused ? 1 : 0,
+                // 看不到時螢幕閱讀器照樣找得到這列的選單。
+                alwaysIncludeSemantics: true,
+                child: Builder(
+                  builder: (context) => PlainIconButton(
+                    icon: FmpIcons.more,
+                    tooltip: t.queue.more,
+                    size: 28,
+                    focusable: true,
+                    onTap: () => widget.onMenu(_anchorOf(context)),
+                  ),
                 ),
               ),
             ),

@@ -17,6 +17,7 @@ import 'package:fmp/ui/home/chart_rows.dart';
 import 'package:fmp/ui/home/chart_section.dart';
 import 'package:fmp/ui/home/continue_listening.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
+import 'package:fmp/ui/common/table_focus.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 首頁的四種版面（`docs/design/home.html`）：手機與平板是觸控列表，窄視窗
@@ -57,6 +58,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   final _scroll = ScrollController();
   final _scrolled = ValueNotifier(false);
   final _focus = FocusNode(debugLabel: 'home charts');
+  final _menuAnchor = GlobalKey(debugLabel: 'home menu anchor');
+  late final KeyboardFocus _keyboard;
 
   /// 手機與桌面的榜展開到第 10 名。
   bool _expanded = false;
@@ -67,6 +70,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
+    _keyboard = KeyboardFocus(_focus)..addListener(_onKeyboardFocus);
     _scroll.addListener(
       () => _scrolled.value = _scroll.offset > _titleGoneOffset,
     );
@@ -79,6 +83,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   void dispose() {
     _scroll.dispose();
     _scrolled.dispose();
+    _keyboard.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -109,13 +114,33 @@ class _HomePageState extends ConsumerState<HomePage> {
     return [for (final s in sources) ...?s.chart?.tracks.take(shown)];
   }
 
-  /// 桌面的鍵盤：↑／↓ 移動選取，↩ 臨時播放選取的那首。
+  /// 用鍵盤移進榜時，還沒選取就選第一首，焦點外框才有地方畫
+  /// （`table_focus.dart`）。
+  void _onKeyboardFocus() {
+    if (_keyboard.value && _selected == null) {
+      _selected = _visibleTracks().firstOrNull?.ref;
+    }
+    setState(() {});
+  }
+
+  /// 桌面的鍵盤：↑／↓ 移動選取，↩ 臨時播放選取的那首，Shift+F10 或選單鍵
+  /// 打開它的選單（`table_focus.dart`）。焦點在頁面裡的按鈕（⋮、chip）時
+  /// 按鍵是那顆鈕的。
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+    if ((event is! KeyDownEvent && event is! KeyRepeatEvent) ||
+        !node.hasPrimaryFocus) {
       return KeyEventResult.ignored;
     }
     final tracks = _visibleTracks();
     final at = tracks.indexWhere((t) => t.ref == _selected);
+    if (isMenuKey(event) && at >= 0) {
+      if (event is KeyDownEvent) {
+        if (menuAnchorOf(_menuAnchor) case final point?) {
+          _menu(tracks[at], point);
+        }
+      }
+      return KeyEventResult.handled;
+    }
     switch (event.logicalKey) {
       case LogicalKeyboardKey.enter when at >= 0:
         if (event is KeyDownEvent) _play(tracks[at]);
@@ -202,7 +227,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: scroll,
       );
     } else {
-      scroll = Focus(focusNode: _focus, onKeyEvent: _onKey, child: scroll);
+      // 只為了接榜的按鍵；對螢幕閱讀器，可聚焦的是一列一列。
+      scroll = Focus(
+        focusNode: _focus,
+        onKeyEvent: _onKey,
+        includeSemantics: false,
+        // 還沒有榜時不是 Tab 停點：沒有列可畫外框。
+        skipTraversal: _visibleTracks().isEmpty,
+        child: scroll,
+      );
     }
 
     return Stack(
@@ -553,6 +586,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       isCurrent: isCurrent,
       playing: playing,
       selected: track.ref == _selected,
+      menuAnchor: track.ref == _selected ? _menuAnchor : null,
+      focused: track.ref == _selected && _keyboard.value,
       showDuration: showDuration,
       onSelect: () => _select(track),
       onPlay: () => _play(track),

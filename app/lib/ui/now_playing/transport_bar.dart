@@ -78,6 +78,9 @@ class _TransportBarState extends ConsumerState<TransportBar> {
     final track = state.track;
     final height = TransportBar.heightOf(touch: touch);
     final seekable = !touch && _duration != null;
+    // 螢幕閱讀器調進度一次 [seekStep]（同播放頁的進度條）。
+    final forward = clampPosition(state.position + seekStep, _duration);
+    final back = clampPosition(state.position - seekStep, _duration);
     final title = text.body.copyWith(
       fontSize: touch ? 15 : 13,
       height: touch ? 19 / 15 : null,
@@ -94,47 +97,45 @@ class _TransportBarState extends ConsumerState<TransportBar> {
     final progress =
         _drag ?? spineProgress(state.position, state.effectiveDuration);
     final hint = _drag ?? _hover;
-    final info = Semantics(
-      onTapHint: context.t.player.open,
-      child: ShellButton(
-        key: const Key('transport-open'),
-        onTap: () => context.push(playerPath),
-        focusRadius: 10,
-        builder: (context, _) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Cover(url: track.coverUrl, size: touch ? 48 : 44, radius: 10),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  NowPlayingTitle(title: track.title, style: title),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SourceMarkIcon(
-                        pluginId: track.ref.pluginId,
-                        size: touch ? 15 : 14,
+    final info = ShellButton(
+      key: const Key('transport-open'),
+      onTap: () => context.push(playerPath),
+      tapHint: context.t.player.open,
+      focusRadius: 10,
+      builder: (context, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Cover(url: track.coverUrl, size: touch ? 48 : 44, radius: 10),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                NowPlayingTitle(title: track.title, style: title),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SourceMarkIcon(
+                      pluginId: track.ref.pluginId,
+                      size: touch ? 15 : 14,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        track.author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: sub,
                       ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          track.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: sub,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
     final glass = Glass(
@@ -154,32 +155,49 @@ class _TransportBarState extends ConsumerState<TransportBar> {
                   ),
                 ),
                 // 空白處：內容沒接住的點擊、拖動與滑鼠移動落到這一層。
+                // 螢幕閱讀器把這一層當成進度滑桿（同播放頁的進度條），不是
+                // 一塊沒有名字的點擊區；鍵盤用 ←／→（`PlaybackShortcuts`）。
                 if (seekable)
                   Positioned.fill(
-                    child: MouseRegion(
-                      key: const Key('transport-seek'),
-                      cursor: SystemMouseCursors.resizeLeftRight,
-                      onHover: (event) => setState(
-                        () => _hover = _fraction(event.localPosition, width),
-                      ),
-                      onExit: (_) => setState(() => _hover = null),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapUp: (details) =>
-                            _seek(_fraction(details.localPosition, width)),
-                        onHorizontalDragStart: (details) => setState(
-                          () => _drag = _fraction(details.localPosition, width),
+                    child: Semantics(
+                      container: true,
+                      slider: true,
+                      label: context.t.player.progress,
+                      value: formatDuration(state.position),
+                      increasedValue: formatDuration(forward),
+                      decreasedValue: formatDuration(back),
+                      onIncrease: () =>
+                          ref.read(playbackProvider.notifier).seek(forward),
+                      onDecrease: () =>
+                          ref.read(playbackProvider.notifier).seek(back),
+                      child: MouseRegion(
+                        key: const Key('transport-seek'),
+                        cursor: SystemMouseCursors.resizeLeftRight,
+                        onHover: (event) => setState(
+                          () => _hover = _fraction(event.localPosition, width),
                         ),
-                        onHorizontalDragUpdate: (details) => setState(
-                          () => _drag = _fraction(details.localPosition, width),
+                        onExit: (_) => setState(() => _hover = null),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          excludeFromSemantics: true,
+                          onTapUp: (details) =>
+                              _seek(_fraction(details.localPosition, width)),
+                          onHorizontalDragStart: (details) => setState(
+                            () =>
+                                _drag = _fraction(details.localPosition, width),
+                          ),
+                          onHorizontalDragUpdate: (details) => setState(
+                            () =>
+                                _drag = _fraction(details.localPosition, width),
+                          ),
+                          onHorizontalDragEnd: (_) {
+                            final f = _drag;
+                            setState(() => _drag = null);
+                            if (f != null) _seek(f);
+                          },
+                          onHorizontalDragCancel: () =>
+                              setState(() => _drag = null),
                         ),
-                        onHorizontalDragEnd: (_) {
-                          final f = _drag;
-                          setState(() => _drag = null);
-                          if (f != null) _seek(f);
-                        },
-                        onHorizontalDragCancel: () =>
-                            setState(() => _drag = null),
                       ),
                     ),
                   ),
