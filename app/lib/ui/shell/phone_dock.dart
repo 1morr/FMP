@@ -134,23 +134,24 @@ class _PhoneDockState extends State<PhoneDock> {
                   opacity: typing ? 0 : 1,
                   child: IgnorePointer(
                     ignoring: typing,
-                    child: Glass(
-                      child: searching
-                          ? _BackOrb(
-                              tab: widget.lastTab,
-                              label: t.shell.nav.backTo(
-                                tab: widget.lastTab.label(t),
-                              ),
-                              onTap: widget.onLeaveSearch,
-                            )
-                          : _FixedWidth(
+                    // 圓鈕包在按鈕裡，焦點外框才畫在玻璃外面、不被裁掉。
+                    child: searching
+                        ? _BackOrb(
+                            tab: widget.lastTab,
+                            label: t.shell.nav.backTo(
+                              tab: widget.lastTab.label(t),
+                            ),
+                            onTap: widget.onLeaveSearch,
+                          )
+                        : Glass(
+                            child: _FixedWidth(
                               width: wideWidth,
                               child: _TabBar(
                                 current: widget.current,
                                 onTab: widget.onTab,
                               ),
                             ),
-                    ),
+                          ),
                   ),
                 ),
               ),
@@ -170,21 +171,24 @@ class _PhoneDockState extends State<PhoneDock> {
                     ? wideWidth
                     : orb,
                 height: typing ? 56 : orb,
-                child: Glass(
-                  child: searching
-                      ? _FixedWidth(
+                child: searching
+                    ? Glass(
+                        child: _FixedWidth(
                           width: typing ? width - side * 2 : wideWidth,
                           child: SearchField(
                             placement: SearchFieldPlacement.dock,
                             onFocusChanged: (focused) =>
                                 setState(() => _fieldFocused = focused),
                           ),
-                        )
-                      : ShellButton(
-                          onTap: widget.onSearch,
-                          tooltip: t.shell.nav.search,
-                          label: t.shell.nav.search,
-                          builder: (context, _) => const Center(
+                        ),
+                      )
+                    : ShellButton(
+                        onTap: widget.onSearch,
+                        tooltip: t.shell.nav.search,
+                        label: t.shell.nav.search,
+                        focusRadius: 999,
+                        builder: (context, _) => const Glass(
+                          child: Center(
                             child: FmpIcon(
                               FmpIcons.search,
                               size: 25,
@@ -192,7 +196,7 @@ class _PhoneDockState extends State<PhoneDock> {
                             ),
                           ),
                         ),
-                ),
+                      ),
               ),
             ],
           ),
@@ -257,8 +261,10 @@ class _BackOrb extends StatelessWidget {
     onTap: onTap,
     tooltip: label,
     label: label,
-    builder: (context, _) =>
-        Center(child: FmpIcon(tab.icon, size: 25, strokeWidth: 1.7)),
+    focusRadius: 999,
+    builder: (context, _) => Glass(
+      child: Center(child: FmpIcon(tab.icon, size: 25, strokeWidth: 1.7)),
+    ),
   );
 }
 
@@ -333,6 +339,8 @@ class _TabBarState extends State<_TabBar> {
                         child: ShellButton(
                           onTap: () => _press(tab),
                           selected: tab == widget.current,
+                          // 同選取膠囊（`.tab-ind`）的圓角。
+                          focusRadius: 27,
                           builder: (context, _) => _Tab(
                             icon: tab.icon,
                             label: tab.label(t),

@@ -28,6 +28,10 @@ import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/side_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/a11y.dart';
+
+import 'package:fmp/ui/common/focus_ring.dart';
+
 /// 佇列頁（`docs/design/queue.html`）：手機的觸控列表打開時捲到正在播的那首，
 /// 能拖動排序、移除、清空（要確認）；桌面的表格用滑鼠與鍵盤操作。佇列用
 /// 真的 [QueueController]，播放換成假的。
@@ -950,6 +954,132 @@ void main() {
             .abs(),
         lessThan(60),
       );
+    });
+  });
+
+  /// 無障礙（`docs/design/DESIGN.md`〈無障礙〉）。
+  group('accessibility', () {
+    for (final (name, size, platform) in [
+      ('phone', phone, null),
+      ('tablet', const Size(820, 1180), null),
+      ('13-inch iPad', const Size(1376, 1032), null),
+      ('desktop', desktop, TargetPlatform.macOS),
+      ('narrow desktop window', narrowWindow, TargetPlatform.macOS),
+    ]) {
+      desktopTest('$name: every control has a name, takes keyboard focus, '
+          'and is at least 44 on touch or 28 with a mouse', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await start(tester, size, platform: platform);
+
+        await expectAccessible(tester, touch: platform == null);
+        // 捲回頂端，大標題與清空鈕也看一次。
+        scrollPosition(tester).jumpTo(0);
+        await tester.pumpAndSettle();
+        await expectAccessible(tester, touch: platform == null);
+        semantics.dispose();
+      });
+    }
+
+    testWidgets('phone: Tab reaches the rows and their remove buttons with a '
+        'focus ring, and Enter plays the row', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, phone);
+
+      final visited = await tabThrough(tester, 4);
+      expect(visited, contains(startsWith('Song')));
+      expect(visited, contains('從佇列移除'));
+      while (!(FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<QueueTouchRow>() !=
+          null)) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+      final row = FocusManager.instance.primaryFocus!.context!
+          .findAncestorWidgetOfExactType<QueueTouchRow>()!;
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(current(), row.entry.track.title);
+      semantics.dispose();
+    });
+
+    /// 按 Tab 直到表格有鍵盤焦點（外框畫在某一列上）。
+    Future<void> tabIntoTable(WidgetTester tester) async {
+      for (var i = 0; i < 20; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        if (FocusManager.instance.primaryFocus?.debugLabel == 'queue table') {
+          return;
+        }
+      }
+      fail('Tab never reached the queue table');
+    }
+
+    bool ringed(WidgetTester tester, String title) => tester
+        .widget<FocusRing>(
+          find.descendant(of: rowOf(title), matching: find.byType(FocusRing)),
+        )
+        .visible;
+
+    desktopTest('desktop: Tab into the table selects the playing row and '
+        'rings it; Up and Down move the selection', (tester) async {
+      await start(tester, desktop, platform: TargetPlatform.macOS);
+
+      await tabIntoTable(tester);
+      expect(ringed(tester, 'Song 21'), isTrue);
+      expect(visibleFocusRings(), 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(ringed(tester, 'Song 22'), isTrue);
+      expect(ringed(tester, 'Song 21'), isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(ringed(tester, 'Song 20'), isTrue);
+
+      // ↩ 播放選取的那列，同滑鼠點選之後。
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(current(), 'Song 20');
+    });
+
+    desktopTest('desktop: Shift+F10 or the menu key opens the menu of the '
+        'selected row', (tester) async {
+      await start(tester, desktop, platform: TargetPlatform.macOS);
+      await tabIntoTable(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(find.text('移到下一首'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('移到下一首'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('從佇列移除').last);
+      await tester.pumpAndSettle();
+      expect(order(), isNot(contains('Song 22')));
+    });
+
+    desktopTest('desktop: a click selects a row without a focus ring, and its '
+        'actions stay out while it is selected', (tester) async {
+      await start(tester, desktop, platform: TargetPlatform.macOS);
+
+      await tester.tap(find.text('Song 24'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(visibleFocusRings(), 0);
+      final actions = find.descendant(
+        of: rowOf('Song 24'),
+        matching: find.byWidgetPredicate(
+          (w) => w is AnimatedOpacity && w.opacity == 1,
+        ),
+      );
+      expect(actions, findsOneWidget);
     });
   });
 }

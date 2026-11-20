@@ -152,6 +152,9 @@ class _Toast extends StatelessWidget {
           const SizedBox(width: 10),
           ShellButton(
             onTap: onAction,
+            focusRadius: 999,
+            // 觸控的點擊區補到 44，看得到的膠囊照稿 34。
+            hitPadding: touch ? const EdgeInsets.symmetric(vertical: 5) : null,
             builder: (context, _) => Container(
               height: 34,
               padding: EdgeInsets.symmetric(horizontal: touch ? 20 : 14),

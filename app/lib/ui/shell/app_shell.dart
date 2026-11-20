@@ -171,7 +171,15 @@ class _AppShellState extends ConsumerState<AppShell> {
       padding: padding,
       topBar: topBar,
       detailPanelOpen: detailPanelOpen,
-      child: widget.child,
+      child: Actions(
+        actions: {
+          NextFocusIntent: _LeaveEmptyPage<NextFocusIntent>(forward: true),
+          PreviousFocusIntent: _LeaveEmptyPage<PreviousFocusIntent>(
+            forward: false,
+          ),
+        },
+        child: widget.child,
+      ),
     );
     if (dragStrip == null || !WindowChrome.drawsTitleBar) return content;
     return ShellTopStripGate(height: dragStrip, child: content);
@@ -337,6 +345,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 },
                 child: Focus(
                   focusNode: _floatingDetailFocus,
+                  // 只為了接 Esc；整塊面板對螢幕閱讀器不是一個可聚焦的東西。
+                  includeSemantics: false,
                   child: DetailPanel(
                     touch: touch,
                     floating: true,
@@ -394,6 +404,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: SideBar.width,
             child: SideBar(
               current: _current,
+              touch: touch,
               onSelect: _select,
               onSearch: _focusSearch,
             ),
@@ -463,5 +474,28 @@ class _Transport extends ConsumerWidget {
     final state = ref.watch(playbackProvider);
     if (state == null) return const SizedBox.shrink();
     return TransportBar(state: state, touch: touch);
+  }
+}
+
+/// Tab 離開沒有可聚焦東西的頁面（例如空狀態）：頁面在外殼裡自己的路由，那個
+/// 焦點範圍是空的時，框架的 Tab 一直把焦點還給它自己，走不到外殼的導覽與
+/// 播放控制。這時改成在外殼那一層往下（或往上）走一格；其他時候照框架預設
+/// （`NextFocusAction`）。一律接手：Actions 找到最近的動作就停，停用的動作
+/// 不會讓給上層的預設，Tab 會整個失效。
+class _LeaveEmptyPage<T extends Intent> extends Action<T> {
+  _LeaveEmptyPage({required this.forward});
+
+  final bool forward;
+
+  @override
+  Object? invoke(T intent) {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null) return false;
+    final empty =
+        focus is FocusScopeNode &&
+        focus.enclosingScope != null &&
+        focus.traversalDescendants.isEmpty;
+    final from = empty ? focus.enclosingScope! : focus;
+    return forward ? from.nextFocus() : from.previousFocus();
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
@@ -5,6 +7,7 @@ import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/ui/search/search_query.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 搜尋欄放在哪裡，決定它的樣子（`docs/design/search.html`、`shell.html`）。
@@ -104,6 +107,15 @@ class _SearchFieldState extends ConsumerState<SearchField> {
       SearchFieldPlacement.page when touch => (16, 18, 8),
       SearchFieldPlacement.page => (13, 18, 8),
     };
+    // 看得到的欄位高，與點得到的高（`DESIGN.md`〈無障礙〉：觸控 44、滑鼠
+    // 28）：輸入框撐滿點擊區，點欄位的上下空白也會聚焦，螢幕閱讀器的框也是
+    // 這麼大。觸控比欄位高的部分是透明的，上下各一半。
+    final visual = switch (placement) {
+      SearchFieldPlacement.dock => 44.0,
+      SearchFieldPlacement.sidebar => 30.0,
+      SearchFieldPlacement.page => touch ? 40.0 : 30.0,
+    };
+    final hit = touch ? math.max(visual, 44.0) : visual;
     final field = TextField(
       controller: controller,
       focusNode: _focus,
@@ -112,7 +124,9 @@ class _SearchFieldState extends ConsumerState<SearchField> {
       onTap: widget.onTap,
       style: TextStyle(fontSize: fontSize, color: ink),
       cursorColor: colors.accent,
+      textAlignVertical: TextAlignVertical.center,
       decoration: InputDecoration.collapsed(
+        constraints: BoxConstraints(minHeight: hit),
         hintText: t.shell.search.hint,
         hintStyle: TextStyle(
           fontSize: fontSize,
@@ -129,9 +143,10 @@ class _SearchFieldState extends ConsumerState<SearchField> {
         fill: colors.glassInk.withValues(alpha: .18),
         color: colors.glassInk,
       ),
+      // 點擊區 44（`DESIGN.md`〈無障礙〉；稿 28），看得到的圓點照稿。
       SearchFieldPlacement.page when touch => _ClearButton(
         controller: controller,
-        tapSize: 28,
+        tapSize: 44,
         dot: 18,
         icon: 11,
         fill: colors.fill2,
@@ -156,40 +171,80 @@ class _SearchFieldState extends ConsumerState<SearchField> {
         padding: const EdgeInsets.only(left: 20, right: 8),
         child: row,
       ),
-      SearchFieldPlacement.sidebar => Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 9),
-        decoration: BoxDecoration(
-          color: colors.glassInk.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        // 作用中時的強調色外框（稿是 inset box-shadow，不推擠內容）。外框
-        // 一直都在、不作用時透明：換成 null 會讓 Container 少一層，整個
-        // TextField 重建，點擊的手勢與輸入連線跟著丟掉（點一下只聚焦、
-        // 進頁後打不進字）。
-        foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: widget.active || _focus.hasFocus
-                ? colors.accent
-                : colors.accent.withValues(alpha: 0),
-            width: 1.5,
+      SearchFieldPlacement.sidebar => _Field(
+        visual: visual,
+        hit: hit,
+        padding: 9,
+        pill: Container(
+          decoration: BoxDecoration(
+            color: colors.glassInk.withValues(alpha: .08),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          // 作用中時的強調色外框（稿是 inset box-shadow，不推擠內容）。外框
+          // 一直都在、不作用時透明：換成 null 會讓 Container 少一層，整個
+          // TextField 重建，點擊的手勢與輸入連線跟著丟掉（點一下只聚焦、
+          // 進頁後打不進字）。
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: widget.active || _focus.hasFocus
+                  ? colors.accent
+                  : colors.accent.withValues(alpha: 0),
+              width: 1.5,
+            ),
           ),
         ),
-        child: row,
+        row: row,
       ),
-      SearchFieldPlacement.page => Container(
-        height: touch ? 40 : 30,
+      SearchFieldPlacement.page => SizedBox(
         width: touch ? null : 360,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: colors.fill,
-          borderRadius: BorderRadius.circular(touch ? 12 : 8),
+        child: _Field(
+          visual: visual,
+          hit: hit,
+          padding: 12,
+          pill: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.fill,
+              borderRadius: BorderRadius.circular(touch ? 12 : 8),
+            ),
+          ),
+          row: row,
         ),
-        child: row,
       ),
     };
   }
+}
+
+/// 欄位：[visual] 高的底（[pill]）在 [hit] 高的點擊區正中，[row] 撐滿點擊區。
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.visual,
+    required this.hit,
+    required this.padding,
+    required this.pill,
+    required this.row,
+  });
+
+  final double visual;
+  final double hit;
+  final double padding;
+  final Widget pill;
+  final Widget row;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: hit,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned(left: 0, right: 0, height: visual, child: pill),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: padding),
+          child: row,
+        ),
+      ],
+    ),
+  );
 }
 
 /// 有字時才出現的清除鈕：圓點裡一個 ×，點擊區 [tapSize]。
@@ -216,28 +271,25 @@ class _ClearButton extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         if (controller.text.isEmpty) return SizedBox(width: tapSize);
-        return Tooltip(
-          message: context.t.shell.search.clear,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: controller.clear,
-            child: SizedBox.square(
-              dimension: tapSize,
-              child: Center(
-                child: Container(
-                  width: dot,
-                  height: dot,
-                  decoration: BoxDecoration(
-                    color: fill,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: FmpIcon(
-                    FmpIcons.close,
-                    size: icon,
-                    color: color,
-                    strokeWidth: 2.6,
-                  ),
+        final label = context.t.shell.search.clear;
+        return ShellButton(
+          tooltip: label,
+          label: label,
+          onTap: controller.clear,
+          focusRadius: 999,
+          builder: (context, _) => SizedBox.square(
+            dimension: tapSize,
+            child: Center(
+              child: Container(
+                width: dot,
+                height: dot,
+                decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+                alignment: Alignment.center,
+                child: FmpIcon(
+                  FmpIcons.close,
+                  size: icon,
+                  color: color,
+                  strokeWidth: 2.6,
                 ),
               ),
             ),

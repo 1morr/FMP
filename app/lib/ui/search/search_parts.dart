@@ -3,6 +3,7 @@ import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/search/search.dart';
@@ -34,8 +35,12 @@ class SearchSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
     return Padding(
+      // 觸控的 [trailing]（「清空」）點擊區四周各多 6，從這裡的間距扣，
+      // 標題與「清空」的位置不變。
       padding: table
           ? const EdgeInsets.fromLTRB(10, 22, 10, 6)
+          : trailing != null
+          ? const EdgeInsets.fromLTRB(20, 12, 14, 0)
           : const EdgeInsets.fromLTRB(20, 18, 20, 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -359,6 +364,8 @@ class SearchHistoryRow extends StatelessWidget {
     return ShellButton(
       onTap: onTap,
       label: query,
+      focusRadius: table ? 8 : 10,
+      focusInset: !table,
       builder: (context, hovered) => Container(
         constraints: BoxConstraints(minHeight: table ? 36 : 50),
         decoration: BoxDecoration(
@@ -400,6 +407,7 @@ class SearchHistoryRow extends StatelessWidget {
                     icon: FmpIcons.close,
                     tooltip: context.t.search.history.remove,
                     size: table ? 28 : 44,
+                    focusable: true,
                     onTap: onRemove,
                   ),
                   SizedBox(width: table ? 4 : 6),
@@ -447,6 +455,7 @@ class SearchFilterBar extends ConsumerWidget {
         on: filter == null,
         table: table,
         count: table ? search.tracks.length : null,
+        touchTarget: true,
         onTap: () => onFilter(null),
       ),
       for (final s in sources)
@@ -457,6 +466,7 @@ class SearchFilterBar extends ConsumerWidget {
           table: table,
           warn: s.error != null,
           count: table ? s.tracks.length : null,
+          touchTarget: true,
           onTap: () => onFilter(s.manifest.id),
         ),
     ];
@@ -468,6 +478,8 @@ class SearchFilterBar extends ConsumerWidget {
             table: table,
           );
     if (table) {
+      // chip 與排序鈕的點擊區補到 28，比看得到的 26 高 2（擁有者 2026-11-20
+      // 同意）。
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(
@@ -483,8 +495,10 @@ class SearchFilterBar extends ConsumerWidget {
         ),
       );
     }
+    // chip 與排序鈕的點擊區 44 吃掉原本上 2、下 6 的間距，整排 40 → 44
+    // （擁有者 2026-11-20 同意）。
     return Padding(
-      padding: const EdgeInsets.only(top: 2, bottom: 6),
+      padding: EdgeInsets.zero,
       child: Row(
         children: [
           Expanded(
@@ -540,8 +554,15 @@ class _SortButton extends ConsumerWidget {
     final t = context.t;
     final colors = context.fmpColors;
     final label = sortLabel(t, current);
+    final visual = table ? 26.0 : 32.0;
     return ShellButton(
       label: t.search.sort.label(sort: label),
+      focusRadius: 999,
+      hitPadding: targetPadding(
+        double.infinity,
+        visual,
+        context.fmpMetrics.minTarget,
+      ),
       onTap: () async {
         final box = context.findRenderObject()! as RenderBox;
         final chosen = await showGlassMenu<SearchSort>(
@@ -563,7 +584,7 @@ class _SortButton extends ConsumerWidget {
         }
       },
       builder: (context, hovered) => Container(
-        height: table ? 26 : 32,
+        height: visual,
         padding: const EdgeInsets.only(left: 10, right: 8),
         decoration: BoxDecoration(
           color: hovered ? colors.cellHover : null,
@@ -663,10 +684,14 @@ class SelectionActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final colors = context.fmpColors;
+    final touch = FormFactor.of(context).density == Density.touch;
     Widget action(FmpIcons icon, String label, TrackAction value) =>
         ShellButton(
           onTap: () => onAction(value),
           label: label,
+          focusRadius: 999,
+          // 觸控的點擊區上下補到 44，剛好是整條玻璃的高。
+          hitPadding: touch ? const EdgeInsets.symmetric(vertical: 6) : null,
           builder: (context, hovered) => Container(
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -731,7 +756,9 @@ class SelectionActionBar extends StatelessWidget {
               PlainIconButton(
                 icon: FmpIcons.close,
                 tooltip: t.search.selection.clear,
-                size: 32,
+                // 觸控的點擊區 44（`DESIGN.md`〈無障礙〉），滑鼠照稿 32。
+                size: touch ? 44 : 32,
+                focusable: true,
                 onTap: onClear,
               ),
             ],
@@ -757,6 +784,7 @@ class PhoneSelectionBar extends StatelessWidget {
       child: ShellButton(
         onTap: () => onAction(value),
         label: label,
+        focusRadius: 28,
         builder: (context, pressed) => Container(
           height: 56,
           decoration: BoxDecoration(
@@ -827,6 +855,7 @@ class GlassTextButton extends StatelessWidget {
     return ShellButton(
       onTap: onTap,
       label: label,
+      focusRadius: 22,
       builder: (context, _) => Glass(
         radius: 22,
         child: Container(
@@ -867,6 +896,12 @@ class PlainTextButton extends StatelessWidget {
     return ShellButton(
       onTap: onTap,
       label: label,
+      focusRadius: 6,
+      // 觸控的點擊區補到 44：上下各 6（字 32 高）、左右各 6（「清空」兩個字
+      // 加內距約 32 寬）。
+      hitPadding: table
+          ? null
+          : const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
       builder: (context, hovered) => Container(
         height: table ? 28 : 32,
         padding: const EdgeInsets.symmetric(horizontal: 2),

@@ -154,32 +154,59 @@ class _TransportBarState extends ConsumerState<TransportBar> {
                   ),
                 ),
                 // 空白處：內容沒接住的點擊、拖動與滑鼠移動落到這一層。
+                // 螢幕閱讀器把這一層當成進度滑桿（同播放頁的進度條），不是
+                // 一塊沒有名字的點擊區；鍵盤用 ←／→（`PlaybackShortcuts`）。
                 if (seekable)
                   Positioned.fill(
-                    child: MouseRegion(
-                      key: const Key('transport-seek'),
-                      cursor: SystemMouseCursors.resizeLeftRight,
-                      onHover: (event) => setState(
-                        () => _hover = _fraction(event.localPosition, width),
+                    child: Semantics(
+                      container: true,
+                      slider: true,
+                      label: context.t.player.progress,
+                      value: formatDuration(state.position),
+                      increasedValue: formatDuration(
+                        clampPosition(state.position + seekStep, _duration),
                       ),
-                      onExit: (_) => setState(() => _hover = null),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapUp: (details) =>
-                            _seek(_fraction(details.localPosition, width)),
-                        onHorizontalDragStart: (details) => setState(
-                          () => _drag = _fraction(details.localPosition, width),
+                      decreasedValue: formatDuration(
+                        clampPosition(state.position - seekStep, _duration),
+                      ),
+                      onIncrease: () => ref
+                          .read(playbackProvider.notifier)
+                          .seek(
+                            clampPosition(state.position + seekStep, _duration),
+                          ),
+                      onDecrease: () => ref
+                          .read(playbackProvider.notifier)
+                          .seek(
+                            clampPosition(state.position - seekStep, _duration),
+                          ),
+                      child: MouseRegion(
+                        key: const Key('transport-seek'),
+                        cursor: SystemMouseCursors.resizeLeftRight,
+                        onHover: (event) => setState(
+                          () => _hover = _fraction(event.localPosition, width),
                         ),
-                        onHorizontalDragUpdate: (details) => setState(
-                          () => _drag = _fraction(details.localPosition, width),
+                        onExit: (_) => setState(() => _hover = null),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          excludeFromSemantics: true,
+                          onTapUp: (details) =>
+                              _seek(_fraction(details.localPosition, width)),
+                          onHorizontalDragStart: (details) => setState(
+                            () =>
+                                _drag = _fraction(details.localPosition, width),
+                          ),
+                          onHorizontalDragUpdate: (details) => setState(
+                            () =>
+                                _drag = _fraction(details.localPosition, width),
+                          ),
+                          onHorizontalDragEnd: (_) {
+                            final f = _drag;
+                            setState(() => _drag = null);
+                            if (f != null) _seek(f);
+                          },
+                          onHorizontalDragCancel: () =>
+                              setState(() => _drag = null),
                         ),
-                        onHorizontalDragEnd: (_) {
-                          final f = _drag;
-                          setState(() => _drag = null);
-                          if (f != null) _seek(f);
-                        },
-                        onHorizontalDragCancel: () =>
-                            setState(() => _drag = null),
                       ),
                     ),
                   ),

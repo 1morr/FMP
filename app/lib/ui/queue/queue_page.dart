@@ -12,6 +12,7 @@ import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
+import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
@@ -44,6 +45,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
   final _headKey = GlobalKey();
   final _focus = FocusNode(debugLabel: 'queue table');
+  late final KeyboardFocus _keyboard;
+  final _menuAnchor = GlobalKey(debugLabel: 'queue menu anchor');
   final _scrolled = ValueNotifier(false);
   late final ScrollController _scroll;
   bool _initialized = false;
@@ -59,6 +62,12 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   static const _cardEstimate = 200.0;
 
   QueueController get _queue => ref.read(queueProvider.notifier);
+
+  @override
+  void initState() {
+    super.initState();
+    _keyboard = KeyboardFocus(_focus)..addListener(_onKeyboardFocus);
+  }
 
   @override
   void didChangeDependencies() {
@@ -95,6 +104,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   void dispose() {
     _scroll.dispose();
     _scrolled.dispose();
+    _keyboard.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -224,14 +234,38 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
   }
 
+  /// 用鍵盤移進表格時，還沒選取就選正在播的那首（沒有就第一首），外框才有
+  /// 地方畫（`table_focus.dart`）。
+  void _onKeyboardFocus() {
+    if (_keyboard.value && _selectedId == null) {
+      final queue = ref.read(queueProvider);
+      if (queue.entries.isNotEmpty) {
+        _selectedId = queue.entries[queue.currentIndex ?? 0].id;
+      }
+    }
+    setState(() {});
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is KeyUpEvent || _selectedId == null) {
+    // 焦點在頁面裡的按鈕（例如清空佇列）時，↩ 是按那顆鈕，不是播選取的列。
+    if (event is KeyUpEvent || _selectedId == null || !node.hasPrimaryFocus) {
       return KeyEventResult.ignored;
     }
     final index = _indexOf(_selectedId!);
     if (index < 0) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.enter ||
+    final entries = ref.read(queueProvider).entries;
+    final alt = HardwareKeyboard.instance.isAltPressed;
+    if (isMenuKey(event)) {
+      final at = anchorOf(_menuAnchor);
+      if (at != null) _showMenu(_selectedId!, at);
+    } else if (!alt && key == LogicalKeyboardKey.arrowUp) {
+      if (index > 0) setState(() => _selectedId = entries[index - 1].id);
+    } else if (!alt && key == LogicalKeyboardKey.arrowDown) {
+      if (index < entries.length - 1) {
+        setState(() => _selectedId = entries[index + 1].id);
+      }
+    } else if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
       _queue.playAt(index);
     } else if (key == LogicalKeyboardKey.delete ||
@@ -432,7 +466,14 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       ],
     );
     if (layout.isTable) {
-      page = Focus(focusNode: _focus, onKeyEvent: _onKey, child: page);
+      // 整頁只為了接表格的按鍵；對螢幕閱讀器，可聚焦的是一列一列
+      // （`FocusableTableRow`）。
+      page = Focus(
+        focusNode: _focus,
+        onKeyEvent: _onKey,
+        includeSemantics: false,
+        child: page,
+      );
     }
     return page;
   }
@@ -490,6 +531,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             isCurrent: isCurrent,
             dimmed: index < current,
             selected: id == _selectedId,
+            focused: id == _selectedId && _keyboard.value,
+            menuAnchor: id == _selectedId ? _menuAnchor : null,
             playing: isCurrent && playing,
             returnNote: returnNote,
             onSelect: () => _select(id),
@@ -528,14 +571,23 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final text = context.fmpText;
     final t = context.t;
     final empty = queue.isEmpty;
-    final title = GestureDetector(
+    final min = context.fmpMetrics.minTarget;
+    final title = ShellButton(
       key: const Key('queue-title'),
-      behavior: HitTestBehavior.opaque,
       onTap: empty ? null : () => _toCurrent(animate: true),
-      child: Semantics(
-        header: true,
-        button: !empty,
-        child: Text(t.shell.nav.queue, style: text.large),
+      focusRadius: 6,
+      // 點擊區至少 [FmpMetrics.minTarget] 見方（平板的字比 44 窄），字靠左。
+      builder: (context, _) => ConstrainedBox(
+        constraints: BoxConstraints(minWidth: min, minHeight: min),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Semantics(
+            header: true,
+            child: Text(t.shell.nav.queue, style: text.large),
+          ),
+        ),
       ),
     );
     final total = empty
@@ -609,6 +661,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
                     label: t.queue.clear,
                     icon: FmpIcons.trash,
                     size: FmpButtonSize.small,
+                    touchTarget: true,
                     onTap: empty ? null : _confirmClear,
                   ),
                 ],
@@ -639,29 +692,38 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           valueListenable: _scrolled,
           builder: (context, scrolled, _) => IgnorePointer(
             ignoring: !scrolled,
-            child: ExcludeSemantics(
+            child: ExcludeFocus(
               excluding: !scrolled,
-              child: AnimatedOpacity(
-                opacity: scrolled ? 1 : 0,
-                duration: FmpMotion.mid,
-                child: GestureDetector(
-                  key: const Key('queue-small-title'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _toCurrent(animate: true),
-                  child: Semantics(
-                    button: true,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: phone ? 6 : 0,
-                        vertical: 12,
+              child: ExcludeSemantics(
+                excluding: !scrolled,
+                child: AnimatedOpacity(
+                  opacity: scrolled ? 1 : 0,
+                  duration: FmpMotion.mid,
+                  child: ShellButton(
+                    key: const Key('queue-small-title'),
+                    onTap: () => _toCurrent(animate: true),
+                    focusRadius: 8,
+                    // 點擊區至少 [FmpMetrics.minTarget] 見方（平板的字比 44 窄）。
+                    builder: (context, _) => ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: context.fmpMetrics.minTarget,
+                        minHeight: context.fmpMetrics.minTarget,
                       ),
-                      child: Text(
-                        context.t.shell.nav.queue,
-                        style: TextStyle(
-                          fontSize: phone ? 17 : 15,
-                          fontWeight: phone ? FontWeight.w600 : FontWeight.w700,
-                          color: colors.label,
-                          letterSpacing: 0,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: phone ? 6 : 0,
+                          vertical: 12,
+                        ),
+                        child: Text(
+                          context.t.shell.nav.queue,
+                          style: TextStyle(
+                            fontSize: phone ? 17 : 15,
+                            fontWeight: phone
+                                ? FontWeight.w600
+                                : FontWeight.w700,
+                            color: colors.label,
+                            letterSpacing: 0,
+                          ),
                         ),
                       ),
                     ),
@@ -690,6 +752,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
               label: t.clear,
               icon: FmpIcons.trash,
               size: FmpButtonSize.small,
+              touchTarget: true,
               onTap: clear,
             ),
           ],

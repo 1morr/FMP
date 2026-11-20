@@ -11,6 +11,7 @@ import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/source_mark.dart';
+import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
@@ -92,10 +93,11 @@ class QueueTouchRow extends StatelessWidget {
       color: isCurrent ? colors.accent : colors.label,
       fontWeight: isCurrent ? FontWeight.w600 : null,
     );
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return ShellButton(
       onTap: onPlay,
-      child: Container(
+      focusRadius: 10,
+      focusInset: true,
+      builder: (context, _) => Container(
         color: isCurrent ? colors.accentSoft : null,
         child: Stack(
           children: [
@@ -195,8 +197,10 @@ class QueueTouchRow extends StatelessWidget {
                     key: const Key('queue-remove'),
                     onTap: onRemove,
                     label: context.t.queue.remove,
+                    focusRadius: 999,
+                    // 稿是 40 寬，點擊區補到 44（`DESIGN.md`〈無障礙〉）。
                     builder: (context, hovered) => SizedBox(
-                      width: 40,
+                      width: 44,
                       height: 44,
                       child: Center(
                         child: FmpIcon(
@@ -344,8 +348,16 @@ class QueueTableRow extends ConsumerStatefulWidget {
     required this.onPlay,
     required this.onRemove,
     required this.onMenu,
+    this.focused = false,
+    this.menuAnchor,
     this.returnNote,
   });
+
+  /// 表格有鍵盤焦點、選取的是這列：畫焦點外框（`table_focus.dart`）。
+  final bool focused;
+
+  /// 鍵盤開選單時從這列的左下角長出來。
+  final GlobalKey? menuAnchor;
 
   final QueueEntry entry;
 
@@ -386,7 +398,8 @@ class _QueueTableRowState extends ConsumerState<QueueTableRow> {
         : _hovered
         ? colors.cellHover
         : null;
-    final showActions = _hovered;
+    // 選取的列一直露出操作，不必滑鼠移上去。
+    final showActions = _hovered || widget.selected;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -400,131 +413,147 @@ class _QueueTableRowState extends ConsumerState<QueueTableRow> {
         },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
+          // 右鍵的偵測不給螢幕閱讀器一個點了沒反應的動作。
+          excludeFromSemantics: true,
           onDoubleTap: widget.onPlay,
           onSecondaryTapDown: (details) =>
               widget.onMenu(details.globalPosition),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            foregroundDecoration: widget.selected
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.accent, width: 1.5),
-                  )
-                : null,
-            child: _TableGrid(
-              number: Align(
-                alignment: Alignment.centerRight,
-                child: widget.isCurrent
-                    ? Equalizer(
-                        playing: widget.playing,
-                        label: context.t.queue.nowPlaying,
-                      )
-                    : Text(
-                        '${widget.index + 1}',
+          child: FocusableTableRow(
+            focused: widget.focused,
+            radius: 8,
+            anchorKey: widget.menuAnchor,
+            onActivate: widget.onPlay,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              foregroundDecoration: widget.selected
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.accent, width: 1.5),
+                    )
+                  : null,
+              child: _TableGrid(
+                number: Align(
+                  alignment: Alignment.centerRight,
+                  child: widget.isCurrent
+                      ? Equalizer(
+                          playing: widget.playing,
+                          label: context.t.queue.nowPlaying,
+                        )
+                      : Text(
+                          '${widget.index + 1}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colors.label3,
+                            letterSpacing: 0,
+                          ).tabular,
+                        ),
+                ),
+                cover: Opacity(
+                  opacity: dim,
+                  child: Cover(
+                    url: track.coverUrl,
+                    size: 36,
+                    radius: context.fmpMetrics.radii.thumbnail,
+                  ),
+                ),
+                meta: Opacity(
+                  opacity: dim,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        track.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: colors.label3,
+                          fontSize: 13,
+                          height: 17 / 13,
                           letterSpacing: 0,
-                        ).tabular,
+                          color: widget.isCurrent
+                              ? colors.accent
+                              : colors.label,
+                          fontWeight: widget.isCurrent ? FontWeight.w600 : null,
+                        ),
                       ),
-              ),
-              cover: Opacity(
-                opacity: dim,
-                child: Cover(
-                  url: track.coverUrl,
-                  size: 36,
-                  radius: context.fmpMetrics.radii.thumbnail,
-                ),
-              ),
-              meta: Opacity(
-                opacity: dim,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 17 / 13,
-                        letterSpacing: 0,
-                        color: widget.isCurrent ? colors.accent : colors.label,
-                        fontWeight: widget.isCurrent ? FontWeight.w600 : null,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text.rich(
-                      _authorWithNote(context, track.author, widget.returnNote),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 15 / 12,
-                        letterSpacing: 0,
-                        color: colors.label2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              source: Opacity(
-                opacity: dim,
-                child: Row(
-                  children: [
-                    SourceMarkIcon(pluginId: track.ref.pluginId, size: 14),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        sourceName ?? '',
+                      const SizedBox(height: 1),
+                      Text.rich(
+                        _authorWithNote(
+                          context,
+                          track.author,
+                          widget.returnNote,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
+                          height: 15 / 12,
                           letterSpacing: 0,
                           color: colors.label2,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              duration: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  track.duration == null ? '' : formatDuration(track.duration!),
-                  style: TextStyle(
-                    fontSize: 12,
-                    letterSpacing: 0,
-                    color: colors.label3,
-                  ).tabular,
+                source: Opacity(
+                  opacity: dim,
+                  child: Row(
+                    children: [
+                      SourceMarkIcon(pluginId: track.ref.pluginId, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          sourceName ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            letterSpacing: 0,
+                            color: colors.label2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              actions: AnimatedOpacity(
-                opacity: showActions ? 1 : 0,
-                duration: FmpMotion.fast,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    PlainIconButton(
-                      icon: FmpIcons.close,
-                      tooltip: context.t.queue.remove,
-                      onTap: widget.onRemove,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 2),
-                    QueueDragHandle(
-                      flatIndex: widget.flatIndex,
-                      width: 26,
-                      iconSize: 16,
+                duration: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    track.duration == null
+                        ? ''
+                        : formatDuration(track.duration!),
+                    style: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 0,
                       color: colors.label3,
-                    ),
-                  ],
+                    ).tabular,
+                  ),
+                ),
+                actions: AnimatedOpacity(
+                  opacity: showActions ? 1 : 0,
+                  duration: FmpMotion.fast,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      PlainIconButton(
+                        icon: FmpIcons.close,
+                        tooltip: context.t.queue.remove,
+                        onTap: widget.onRemove,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 2),
+                      QueueDragHandle(
+                        flatIndex: widget.flatIndex,
+                        width: 26,
+                        iconSize: 16,
+                        color: colors.label3,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

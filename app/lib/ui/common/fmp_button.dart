@@ -110,19 +110,20 @@ class _FmpButtonState extends State<FmpButton> {
             onInvoke: (_) => widget.onTap?.call(),
           ),
         },
-        child: FocusRing(
-          visible: _focused && enabled,
-          radius: 999,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onTap,
-            onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-            onTapUp: (_) => setState(() => _pressed = false),
-            onTapCancel: () => setState(() => _pressed = false),
-            child: _padded(
-              context,
-              touch,
-              Opacity(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          // 焦點外框畫在看得到的膠囊外面，不是補出來的點擊區外面。
+          child: _padded(
+            context,
+            touch,
+            FocusRing(
+              visible: _focused && enabled,
+              radius: 999,
+              child: Opacity(
                 opacity: enabled ? 1 : .38,
                 child: AnimatedScale(
                   scale: _pressed ? FmpMotion.pressScale : 1,

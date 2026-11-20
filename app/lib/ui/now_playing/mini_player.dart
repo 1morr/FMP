@@ -9,6 +9,7 @@ import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/now_playing/now_playing.dart';
 import 'package:fmp/ui/now_playing/spine.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 手機的迷你播放器（`FMP.mini`，`docs/design/DESIGN.md`〈手機〉）：56 高的
@@ -28,13 +29,12 @@ class MiniPlayer extends ConsumerWidget {
     // 自成一個語意節點，螢幕閱讀器不把它和頁面的字併在一起。
     return Semantics(
       container: true,
-      onTap: () => context.push(playerPath),
       onTapHint: context.t.player.open,
-      child: GestureDetector(
+      child: ShellButton(
         key: const Key('mini-player'),
-        behavior: HitTestBehavior.opaque,
         onTap: () => context.push(playerPath),
-        child: Glass(
+        focusRadius: 999,
+        builder: (context, _) => Glass(
           child: SizedBox(
             height: 56,
             child: Stack(
@@ -73,12 +73,13 @@ class MiniPlayer extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      // 稿是 42，點擊區補到 44（`DESIGN.md`〈無障礙〉）。
                       PlayPauseButton(
                         playing: state.playing,
-                        size: 42,
+                        size: 44,
                         iconSize: 24,
                       ),
-                      const SkipButton(forward: true, size: 42, iconSize: 24),
+                      const SkipButton(forward: true, size: 44, iconSize: 24),
                     ],
                   ),
                 ),

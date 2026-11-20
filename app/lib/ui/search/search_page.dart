@@ -16,6 +16,7 @@ import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/search/parts.dart';
 import 'package:fmp/search/search.dart';
 import 'package:fmp/search/search_history.dart';
+import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/search/search_parts.dart';
@@ -46,6 +47,11 @@ class SearchPage extends ConsumerStatefulWidget {
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _scroll = ScrollController();
   final _focus = FocusNode(debugLabel: 'search results');
+  late final KeyboardFocus _keyboard;
+  final _menuAnchor = GlobalKey(debugLabel: 'search menu anchor');
+
+  /// 上一次畫出來的結果（表格的鍵盤選取用）。
+  List<Track> _shown = const [];
   late final DockHidden _dock;
 
   /// 選取的曲目（滑鼠的選取，或觸控的多選）。
@@ -67,6 +73,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void initState() {
     super.initState();
     _dock = ref.read(dockHiddenProvider.notifier);
+    _keyboard = KeyboardFocus(_focus)..addListener(_onKeyboardFocus);
     _scroll.addListener(_maybeLoadMore);
     _afterFrame(_maybeLoadMore);
   }
@@ -74,6 +81,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   void dispose() {
     _scroll.dispose();
+    _keyboard.dispose();
     _focus.dispose();
     // 離開搜尋頁時把 dock 還給外殼；不能在卸載的途中改 provider。
     if (_selecting) {
@@ -181,9 +189,47 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     });
   }
 
+  /// 用鍵盤移進表格時，還沒選取就選第一首，外框才有地方畫
+  /// （`table_focus.dart`）。
+  void _onKeyboardFocus() {
+    if (_keyboard.value && _anchor == null && _shown.isNotEmpty) {
+      _selectOnly(_shown.first.ref);
+    }
+    setState(() {});
+  }
+
+  void _selectOnly(TrackRef track) {
+    _selected
+      ..clear()
+      ..add(track);
+    _anchor = track;
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event, List<Track> tracks) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
+    // 焦點在頁面裡的按鈕（chip、⋮）時，↩ 與方向鍵是那顆鈕的，不是表格的。
+    if (!node.hasPrimaryFocus) return KeyEventResult.ignored;
+    final at = tracks.indexWhere((t) => t.ref == _anchor);
+    if (isMenuKey(event) && at >= 0) {
+      final point = anchorOf(_menuAnchor);
+      if (point != null) {
+        showTrackActions(context, ref, tracks[at], at: point);
+      }
+      return KeyEventResult.handled;
+    }
+    final keys = HardwareKeyboard.instance;
+    if (!keys.isShiftPressed &&
+        !keys.isAltPressed &&
+        (key == LogicalKeyboardKey.arrowUp ||
+            key == LogicalKeyboardKey.arrowDown) &&
+        tracks.isNotEmpty) {
+      final next = key == LogicalKeyboardKey.arrowUp
+          ? math.max(0, at - 1)
+          : math.min(tracks.length - 1, at + 1);
+      setState(() => _selectOnly(tracks[next].ref));
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.escape && _selected.isNotEmpty) {
       _clearSelection();
       return KeyEventResult.handled;
@@ -339,8 +385,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ],
     );
     if (table) {
+      _shown = tracks;
+      // 整頁只為了接表格的按鍵；對螢幕閱讀器，可聚焦的是一列一列
+      // （`FocusableTableRow`）。
       page = Focus(
         focusNode: _focus,
+        includeSemantics: false,
         onKeyEvent: (node, event) => _onKey(node, event, tracks),
         child: page,
       );
@@ -391,8 +441,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }) {
     const field = SearchField(placement: SearchFieldPlacement.page);
     if (!table) {
+      // 觸控欄位的點擊區 44 比看得到的 40 高，多的 4 從下面的間距扣。
       return const Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 16, 10),
+        padding: EdgeInsets.fromLTRB(20, 0, 16, 6),
         child: field,
       );
     }
@@ -549,6 +600,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         isCurrent: isCurrent,
         playing: playing,
         selected: _selected.contains(track.ref),
+        focused: track.ref == _anchor && _keyboard.value,
+        menuAnchor: track.ref == _anchor ? _menuAnchor : null,
         // 中間隔著展開的分 P 列時不相接。
         joinAbove:
             i > 0 &&
