@@ -49,7 +49,12 @@ class MiniPlayer extends ConsumerWidget {
                 padding: const EdgeInsets.only(left: 8, right: 6),
                 child: Row(
                   children: [
-                    Cover(url: track.coverUrl, size: 40, radius: 9),
+                    Cover(
+                      url: track.coverUrl,
+                      size: 40,
+                      radius: 9,
+                      crossFade: true,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(

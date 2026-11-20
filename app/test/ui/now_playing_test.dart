@@ -29,6 +29,7 @@ import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/a11y.dart';
+import '../support/motion.dart';
 import '../support/shell.dart';
 
 import 'package:fmp/ui/shell/destination.dart';
@@ -590,14 +591,6 @@ void main() {
       await tester.pump(halfway);
     }
 
-    void reduceMotion(WidgetTester tester) {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-    }
-
     // 中寬度浮動面板：右邊離視窗 8，寬 320；播放膠囊右端讓到面板左邊 24。
     const openLeft = 960 - 8 - 320.0;
     const capsuleOpen = openLeft - 24;
@@ -708,6 +701,91 @@ void main() {
       expect(find.byType(DetailPanel), findsNothing);
       debugDefaultTargetPlatformOverride = null;
     });
+  });
+
+  /// 小元件出現（`docs/design/DESIGN.md`〈狀態變化對照〉）：out 280 淡入並
+  /// 從下面滑上來不超過 20；減少動態效果時只淡入，照樣 280。
+  group('appearing', () {
+    const halfway = Duration(milliseconds: 100);
+
+    double opacityAbove(WidgetTester tester, Finder finder) => tester
+        .widgetList<FadeTransition>(
+          find.ancestor(of: finder, matching: find.byType(FadeTransition)),
+        )
+        .fold(1.0, (value, fade) => value * fade.opacity.value);
+
+    /// 出現到一半時 [finder] 的位置比到位時低多少、透明度多少。
+    Future<({double drop, double opacity})> halfwayIn(
+      WidgetTester tester,
+      Finder finder,
+      Future<void> Function() show,
+    ) async {
+      await show();
+      await tester.pump();
+      await tester.pump(halfway);
+      final top = tester.getRect(finder).top;
+      final opacity = opacityAbove(tester, finder);
+      await _settle(tester);
+      return (drop: top - tester.getRect(finder).top, opacity: opacity);
+    }
+
+    for (final (name, size, widget) in [
+      ('phone mini player', phone, MiniPlayer),
+      ('medium capsule', const Size(960, 720), TransportBar),
+      ('desktop capsule', desktop, TransportBar),
+    ]) {
+      testWidgets('$name: fades in rising from below when a track starts', (
+        tester,
+      ) async {
+        await start(tester, size);
+        final at = await halfwayIn(
+          tester,
+          find.byType(widget),
+          () async => playback.set(state(PlaybackStatus.playing)),
+        );
+        expect(at.opacity, inExclusiveRange(0, 1));
+        expect(at.drop, inExclusiveRange(0, 20));
+      });
+
+      testWidgets('$name: with reduced motion only fades in, over its full '
+          'duration', (tester) async {
+        reduceMotion(tester);
+        await start(tester, size);
+        final at = await halfwayIn(
+          tester,
+          find.byType(widget),
+          () async => playback.set(state(PlaybackStatus.playing)),
+        );
+        expect(at.opacity, inExclusiveRange(0, 1));
+        expect(at.drop, 0);
+      });
+    }
+
+    for (final reduced in [false, true]) {
+      testWidgets(
+        'toast: fades in${reduced ? ' without moving, with reduced '
+                  'motion' : ' rising from below'}',
+        (tester) async {
+          if (reduced) reduceMotion(tester);
+          await start(tester, phone, initial: state(PlaybackStatus.playing));
+          final message = find.textContaining('找不到「晴天」');
+          final at = await halfwayIn(tester, message, () async {
+            playback.set(state(PlaybackStatus.failed, error: const NotFound()));
+            ProviderScope.containerOf(tester.element(find.byType(AppShell)))
+                .read(playbackFailureProvider.notifier)
+                .set(
+                  PlaybackFailure(
+                    state(PlaybackStatus.failed, error: const NotFound()),
+                    FailureOutcome.skipped,
+                    streak: 1,
+                  ),
+                );
+          });
+          expect(at.opacity, inExclusiveRange(0, 1));
+          expect(at.drop, reduced ? 0 : inExclusiveRange(0, 20));
+        },
+      );
+    }
   });
 
   group('toast', () {

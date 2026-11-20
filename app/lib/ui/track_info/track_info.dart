@@ -13,11 +13,12 @@ import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 打開 [track] 的曲目資訊（`docs/design/player.html`〈曲目資訊〉）：手機
 /// （窄、觸控）從底部升起 sheet，平板與桌面是置中的對話框（`DESIGN.md`
-/// 〈中寬度〉）。跟著 App 的主題，不跟播放頁的色場。系統開「減少動態效果」時
-/// 只淡入淡出（`DESIGN.md`〈動態〉）。
+/// 〈中寬度〉）。跟著 App 的主題，不跟播放頁的色場。sheet 照
+/// [showBottomSheetRoute] 升起（減少動態效果時只淡入淡出），對話框淡入。
 ///
 /// 曲目上已有的（音源、時長、分 P 數、網址）馬上列出，插件能力 `trackInfo`
 /// 的欄位載入後補上；給不了的欄位不顯示（ADR 0039）。
@@ -25,42 +26,27 @@ Future<void> showTrackInfo(BuildContext context, Track track) {
   final form = FormFactor.of(context);
   final touch = form.density == Density.touch;
   final phone = form.widthClass == WidthClass.narrow && touch;
-  final reduce = MediaQuery.disableAnimationsOf(context);
-  return showGeneralDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: context.fmpColors.scrim,
-    transitionDuration: phone && !reduce ? FmpMotion.mid : FmpMotion.fast,
-    transitionBuilder: (context, animation, _, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: FmpMotion.outCurve,
-      );
-      if (!phone || reduce) {
-        return FadeTransition(
-          key: const Key('track-info-fade'),
-          opacity: curved,
-          child: child,
-        );
-      }
-      return SlideTransition(
-        key: const Key('track-info-slide'),
-        position: Tween(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(curved),
+  if (phone) {
+    return showBottomSheetRoute<void>(
+      context,
+      builder: (_) => _TrackInfoSheet(track: track),
+    );
+  }
+  return Navigator.of(context, rootNavigator: true).push(
+    PreservedDialogRoute<void>(
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: context.fmpColors.scrim,
+      transitionDuration: FmpMotion.fast,
+      transitionBuilder: (context, animation, _, child) => FadeTransition(
+        key: const Key('track-info-fade'),
+        opacity: CurvedAnimation(parent: animation, curve: FmpMotion.outCurve),
         child: child,
-      );
-    },
-    pageBuilder: (context, _, _) => phone
-        ? Align(
-            alignment: Alignment.bottomCenter,
-            child: _TrackInfoSheet(track: track),
-          )
-        : Center(
-            child: _TrackInfoDialog(track: track, touch: touch),
-          ),
+      ),
+      pageBuilder: (context, _, _) => Center(
+        child: _TrackInfoDialog(track: track, touch: touch),
+      ),
+    ),
   );
 }
 
@@ -508,12 +494,10 @@ class _Note extends StatelessWidget {
       child: Row(
         children: [
           if (busy) ...[
-            SizedBox.square(
-              dimension: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: colors.glassInk2,
-              ),
+            Spinner(
+              size: 14,
+              color: colors.glassInk2,
+              trackColor: colors.glassInk2.withValues(alpha: .3),
             ),
             const SizedBox(width: 8),
           ],

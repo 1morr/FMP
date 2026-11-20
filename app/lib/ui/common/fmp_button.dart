@@ -2,6 +2,7 @@ import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
+import 'package:fmp/ui/common/motion.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 按鈕的變體（`docs/design/DESIGN.md`〈按鈕〉）。
@@ -125,10 +126,9 @@ class _FmpButtonState extends State<FmpButton> {
               radius: 999,
               child: Opacity(
                 opacity: enabled ? 1 : .38,
-                child: AnimatedScale(
-                  scale: _pressed ? FmpMotion.pressScale : 1,
-                  duration: FmpMotion.fast,
-                  curve: FmpMotion.outCurve,
+                child: PressScale(
+                  pressed: _pressed,
+                  scale: FmpMotion.pressScale,
                   child: AnimatedContainer(
                     duration: FmpMotion.fast,
                     height: widget.height ?? height,

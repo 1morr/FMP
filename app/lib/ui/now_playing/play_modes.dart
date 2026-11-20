@@ -194,6 +194,7 @@ class PlayModeIconButton extends ConsumerWidget {
         tooltip: label,
         label: label,
         focusRadius: 999,
+        pressScale: FmpMotion.iconPressScale,
         builder: (context, hovered) => AnimatedContainer(
           duration: FmpMotion.fast,
           width: size,

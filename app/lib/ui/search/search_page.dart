@@ -28,6 +28,8 @@ import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:fmp/ui/toast/toast.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/expanding_rows.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 搜尋頁（`docs/design/search.html`）：搜尋欄沒有送出過的字時是搜尋紀錄，
 /// 送出後是每個音源的結果。手機與平板是觸控列表，桌面與窄視窗是表格（密度
@@ -46,7 +48,21 @@ class SearchPage extends ConsumerStatefulWidget {
   ConsumerState<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends ConsumerState<SearchPage> {
+class _SearchPageState extends ConsumerState<SearchPage>
+    with SingleTickerProviderStateMixin {
+  /// 結果第一次回來（骨架換成結果）的交叉淡出：out 280，減少動態效果時照樣
+  /// （`DESIGN.md`〈狀態變化對照〉的內容替換）。
+  late final _arrival = AnimationController(
+    vsync: this,
+    duration: FmpMotion.mid,
+    value: 1,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  late final _arrivalFade = CurvedAnimation(
+    parent: _arrival,
+    curve: FmpMotion.outCurve,
+  );
+
   final _scroll = ScrollController();
   final _focus = FocusNode(debugLabel: 'search results');
   late final KeyboardFocus _keyboard;
@@ -80,6 +96,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   void dispose() {
+    _arrivalFade.dispose();
+    _arrival.dispose();
     _scroll.dispose();
     _keyboard.dispose();
     _focus.dispose();
@@ -297,7 +315,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (_scroll.hasClients) _scroll.jumpTo(0);
     });
     // 結果換了（新的一頁回來、換篩選）之後畫面可能還填不滿：畫完再看一次。
-    ref.listen(searchProvider, (_, _) => _afterFrame(_maybeLoadMore));
+    ref.listen(searchProvider, (previous, next) {
+      _afterFrame(_maybeLoadMore);
+      final filter = ref.read(searchFilterProvider);
+      if (_tracksOf(previous, filter).isEmpty &&
+          _tracksOf(next, filter).isNotEmpty) {
+        _arrival.forward(from: 0);
+      }
+    });
     ref.listen(searchFilterProvider, (_, _) => _afterFrame(_maybeLoadMore));
     final controller = ref.watch(searchQueryProvider);
     return ListenableBuilder(
@@ -386,26 +411,43 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     Widget page = Stack(
       children: [
         Positioned.fill(child: scroll),
-        if (phone && _selecting) ...[
-          _phoneSelectionTop(context, tracks),
+        if (phone && _selecting) _phoneSelectionTop(context, tracks),
+        // 多選的動作列出現與消失：從底部滑上來（`DESIGN.md`〈狀態變化對照〉
+        // 的小元件），手機的 dock 同時往下離開（外殼）。
+        if (phone)
           Positioned(
+            // 多選頂列插在前面時，動作列的過場不能被錯配到它身上。
+            key: const ValueKey('selection bar slot'),
             left: 14,
             right: 14,
             bottom:
                 30 +
                 math.max(0.0, MediaQuery.viewPaddingOf(context).bottom - 34),
-            child: PhoneSelectionBar(onAction: (a) => _runSelection(a, tracks)),
-          ),
-        ] else if (!phone && (table ? count >= 2 : _selecting && count > 0))
+            child: AppearSwitcher(
+              child: _selecting
+                  ? PhoneSelectionBar(
+                      key: const ValueKey('selection bar'),
+                      onAction: (a) => _runSelection(a, tracks),
+                    )
+                  : null,
+            ),
+          )
+        else
           Positioned(
+            key: const ValueKey('selection bar slot'),
             left: 0,
             right: 0,
             bottom: playing ? 94 : 24,
             child: Center(
-              child: SelectionActionBar(
-                count: count,
-                onAction: (a) => _runSelection(a, tracks),
-                onClear: _clearSelection,
+              child: AppearSwitcher(
+                child: (table ? count >= 2 : _selecting && count > 0)
+                    ? SelectionActionBar(
+                        key: const ValueKey('selection bar'),
+                        count: count,
+                        onAction: (a) => _runSelection(a, tracks),
+                        onClear: _clearSelection,
+                      )
+                    : null,
               ),
             ),
           ),
@@ -523,6 +565,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ];
   }
 
+  /// 還沒有結果時的骨架列數。
+  static const _startSkeletons = 5;
+
   List<Widget> _results(
     BuildContext context,
     SearchState search,
@@ -574,11 +619,19 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (table) SearchTableHeader(narrow: narrowTable),
       for (final s in failed) error(s),
       for (final (i, track) in tracks.indexed) ...[
-        _row(context, tracks, i, table, narrowTable, current, playing),
+        SkeletonCrossFade(
+          key: ValueKey(('arrival', track.ref)),
+          fade: _arrivalFade,
+          // 剛回來的前幾列底下是原本的骨架，一起交叉淡出。
+          skeleton: i < _startSkeletons
+              ? SearchSkeletonRow(index: i, table: table)
+              : null,
+          child: _row(context, tracks, i, table, narrowTable, current, playing),
+        ),
         ..._partRows(context, track, table, narrowTable, current, playing),
       ],
       if (loading)
-        for (var i = 0; i < (tracks.isEmpty ? 5 : 2); i++)
+        for (var i = 0; i < (tracks.isEmpty ? _startSkeletons : 2); i++)
           SearchSkeletonRow(index: i, table: table),
       if (allLoaded) SearchFoot(t.search.allLoaded, table: table),
     ];
@@ -664,7 +717,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  /// 展開的多 P 影片底下的分 P 列。
+  /// 多 P 影片底下的分 P 列：展開與收起用首頁同一個展開元件（高度跟著
+  /// 變，減少動態效果時只淡入淡出）；不是多 P 影片沒有。
   List<Widget> _partRows(
     BuildContext context,
     Track track,
@@ -673,8 +727,31 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     TrackRef? current,
     bool playing,
   ) {
-    if (!_expanded.contains(track.ref)) return const [];
-    final parts = ref.watch(partsProvider(track)).value ?? const <Track>[];
+    final manifest = ref.watch(pluginManifestProvider(track.ref.pluginId));
+    if (!hasParts(track, manifest)) return const [];
+    final expanded = _expanded.contains(track.ref);
+    final parts = expanded
+        ? ref.watch(partsProvider(track)).value ?? const <Track>[]
+        : const <Track>[];
+    return [
+      ExpandingRows(
+        key: ValueKey(('parts', track.ref)),
+        expanded: expanded && parts.isNotEmpty,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: _partRowsOf(parts, table, narrowTable, current, playing),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _partRowsOf(
+    List<Track> parts,
+    bool table,
+    bool narrowTable,
+    TrackRef? current,
+    bool playing,
+  ) {
     return [
       for (final (i, part) in parts.indexed)
         table

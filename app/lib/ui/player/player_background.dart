@@ -33,7 +33,7 @@ class _PlayerBackgroundState extends State<PlayerBackground>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animate = !MediaQuery.disableAnimationsOf(context);
+    final animate = !FmpMotion.reduced(context);
     if (animate && !_ticker.isActive) {
       _ticker.start();
     } else if (!animate && _ticker.isActive) {

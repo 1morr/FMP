@@ -24,6 +24,7 @@ import 'package:fmp/ui/shell/side_bar.dart';
 import 'package:fmp/ui/toast/toast_layer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 桌面與中寬度內容底部讓給播放膠囊的高度（膠囊 64、離底 16，再留一點）。
 const double _transportInset = 120;
@@ -309,16 +310,22 @@ class _AppShellState extends ConsumerState<AppShell>
             ),
           ),
         ),
-        if (!ref.watch(dockHiddenProvider))
-          Positioned.fill(
-            child: PhoneDock(
-              current: _current,
-              lastTab: _lastTab,
-              onTab: _select,
-              onSearch: _openSearch,
-              onLeaveSearch: _leaveSearch,
-            ),
+        // 頁面要 dock 讓位時（搜尋多選）往下淡出，回來時反過來（小元件的
+        // 出現與消失，減少動態效果時只淡入淡出）。
+        Positioned.fill(
+          child: AppearSwitcher(
+            child: ref.watch(dockHiddenProvider)
+                ? null
+                : PhoneDock(
+                    key: const ValueKey('dock'),
+                    current: _current,
+                    lastTab: _lastTab,
+                    onTab: _select,
+                    onSearch: _openSearch,
+                    onLeaveSearch: _leaveSearch,
+                  ),
           ),
+        ),
         // 稿的 844 高框裡：有迷你播放器時離底 176，沒有時 112；安全區更高
         // 時和 dock 一起上移。
         Positioned.fill(
@@ -343,13 +350,12 @@ class _AppShellState extends ConsumerState<AppShell>
     required double bottom,
     required bool touch,
   }) => [
-    if (_hasTrack)
-      Positioned(
-        left: left,
-        right: right,
-        bottom: bottom,
-        child: _Transport(touch: touch),
-      ),
+    Positioned(
+      left: left,
+      right: right,
+      bottom: bottom,
+      child: _Transport(touch: touch),
+    ),
   ];
 
   /// 播放膠囊上方的提示，和膠囊同樣的左右範圍、在內容欄置中；疊在最上層，
@@ -627,8 +633,16 @@ class _Transport extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(playbackProvider);
-    if (state == null) return const SizedBox.shrink();
-    return TransportBar(state: state, touch: touch);
+    // 出現與消失比照手機的迷你播放器（`DESIGN.md`〈狀態變化對照〉的小元件）。
+    return AppearSwitcher(
+      child: state == null
+          ? null
+          : TransportBar(
+              key: const ValueKey('transport'),
+              state: state,
+              touch: touch,
+            ),
+    );
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/cover_image.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 封面網址換成圖：預設是磁碟快取的 [coverImage]；測試與不聯網的實跑情境
 /// 換成記憶體裡的圖。
@@ -10,18 +11,26 @@ final coverImageLoaderProvider = Provider<ImageProvider Function(String url)>(
 );
 
 /// 封面（`.cover`）：圓角方塊，沒有封面、載入中或載入失敗時是 `--cell-2`
-/// 的底；外緣一圈 0.5 的細線（`--cover-ring`）。
+/// 的底；外緣一圈 0.5 的細線（`--cover-ring`）。圖載入後 out 160 淡入，已經在
+/// 記憶體裡的直接出現（`DESIGN.md`〈狀態變化對照〉的圖片載入）。
 class Cover extends ConsumerWidget {
   const Cover({
     super.key,
     required this.url,
     required this.size,
     required this.radius,
+    this.crossFade = false,
   });
 
   final String? url;
   final double size;
   final double radius;
+
+  /// 換成另一張封面時 out 280 交叉淡出（換歌時的迷你播放器、播放膠囊、
+  /// 播放頁、詳情面板）；減少動態效果時照樣。清單裡的列不用。
+  final bool crossFade;
+
+  static const imageFadeKey = Key('cover-image-fade');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,25 +49,50 @@ class Cover extends ConsumerWidget {
           borderRadius: BorderRadius.circular(radius),
           child: ColoredBox(
             color: colors.cell2,
-            child: switch (url) {
-              null => null,
-              final url => Image(
-                image: ResizeImage(
-                  load(url),
-                  width: pixels,
-                  height: pixels,
-                  policy: ResizeImagePolicy.fit,
-                ),
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                excludeFromSemantics: true,
-                // 有 errorBuilder 時失敗不報成 Flutter 錯誤；留著底色。
-                errorBuilder: (_, _, _) => const SizedBox.expand(),
-              ),
-            },
+            child: crossFade
+                ? PreservedSwitcher(
+                    key: const Key('cover-cross-fade'),
+                    layout: (current, previous) => Stack(
+                      fit: StackFit.expand,
+                      children: [...previous, ?current],
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey(url),
+                      child: _image(load, pixels) ?? const SizedBox.expand(),
+                    ),
+                  )
+                : _image(load, pixels),
           ),
         ),
       ),
     );
   }
+
+  Widget? _image(ImageProvider Function(String url) load, int pixels) =>
+      switch (url) {
+        null => null,
+        final url => Image(
+          image: ResizeImage(
+            load(url),
+            width: pixels,
+            height: pixels,
+            policy: ResizeImagePolicy.fit,
+          ),
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          gaplessPlayback: !crossFade,
+          excludeFromSemantics: true,
+          frameBuilder: (context, child, frame, synchronous) => synchronous
+              ? child
+              : PreservedFade(
+                  key: imageFadeKey,
+                  opacity: frame == null ? 0 : 1,
+                  duration: FmpMotion.fast,
+                  child: child,
+                ),
+          // 有 errorBuilder 時失敗不報成 Flutter 錯誤；留著底色。
+          errorBuilder: (_, _, _) => const SizedBox.expand(),
+        ),
+      };
 }

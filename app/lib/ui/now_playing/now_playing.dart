@@ -58,6 +58,7 @@ class PlayPauseButton extends ConsumerWidget {
       tooltip: label,
       label: label,
       focusRadius: 999,
+      pressScale: FmpMotion.iconPressScale,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         width: size,
@@ -109,6 +110,7 @@ class SkipButton extends ConsumerWidget {
       tooltip: label,
       label: label,
       focusRadius: 999,
+      pressScale: FmpMotion.iconPressScale,
       builder: (context, hovered) => Opacity(
         opacity: enabled ? 1 : 0.4,
         child: AnimatedContainer(

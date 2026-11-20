@@ -465,15 +465,10 @@ void main() {
       // 交叉淡出的中途：骨架與兩欄的榜都在，各自半透明。
       expect(find.byType(ChartSkeletonRow), findsNWidgets(10));
       expect(find.text('· Other 排行榜'), findsOneWidget);
-      final fading = tester.widget<FadeTransition>(
-        find
-            .ancestor(
-              of: find.byType(ChartSkeletonRow).first,
-              matching: find.byType(FadeTransition),
-            )
-            .first,
+      expect(
+        opacityAbove(tester, find.byType(ChartSkeletonRow).first),
+        inExclusiveRange(0, 1),
       );
-      expect(fading.opacity.value, inExclusiveRange(0, 1));
 
       await _settle(tester);
       expect(find.byType(ChartSkeletonRow), findsNothing);
@@ -706,6 +701,60 @@ void main() {
     expect(find.text('3:52'), findsNothing);
   });
 
+  /// 同一個音源的榜從骨架換成內容時 out 280 交叉淡出，減少動態效果時照樣
+  /// （`DESIGN.md`〈狀態變化對照〉的內容替換）。
+  group('skeleton to chart', () {
+    SourceChart loading(String id) => SourceChart(manifest: manifestOf(id));
+
+    Future<void> expectCrossFade(WidgetTester tester) async {
+      charts.show(ChartsState(sources: [ready('demo')]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 140));
+      expect(
+        opacityAbove(tester, find.byType(ChartSkeletonRow).first),
+        inExclusiveRange(0, 1),
+      );
+      expect(
+        opacityAbove(tester, find.text('Song demo1')),
+        inExclusiveRange(0, 1),
+      );
+      await _settle(tester);
+      expect(find.byType(ChartSkeletonRow), findsNothing);
+      expect(opacityAbove(tester, find.text('Song demo1')), 1);
+    }
+
+    for (final reduced in [false, true]) {
+      final suffix = reduced ? ' (reduced motion)' : '';
+      testWidgets('phone: the loading source cross-fades into its chart'
+          '$suffix', (tester) async {
+        await start(
+          tester,
+          phone,
+          sources: [loading('demo')],
+          reduceMotion: reduced,
+        );
+        await expectCrossFade(tester);
+      });
+
+      testMac('wide: one loading source cross-fades into its two columns, '
+          'the column head staying put$suffix', (tester) async {
+        await start(
+          tester,
+          desktop,
+          sources: [loading('demo')],
+          reduceMotion: reduced,
+        );
+        await expectCrossFade(tester);
+      });
+
+      testMac('wide: plugins still loading cross-fade into the one source '
+          '$suffix', (tester) async {
+        await start(tester, desktop, starting: true, reduceMotion: reduced);
+        await expectCrossFade(tester);
+      });
+    }
+  });
+
   group('accessibility', () {
     testMac('a source chip draws the focus ring when reached by keyboard', (
       tester,
@@ -836,3 +885,10 @@ Future<void> _settle(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
 }
+
+/// [finder] 外面所有淡入淡出相乘的透明度。
+double opacityAbove(WidgetTester tester, Finder finder) => tester
+    .widgetList<FadeTransition>(
+      find.ancestor(of: finder, matching: find.byType(FadeTransition)),
+    )
+    .fold(1.0, (value, fade) => value * fade.opacity.value);

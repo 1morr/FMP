@@ -22,13 +22,13 @@ GoRouter buildRouter() => GoRouter(
   routes: [
     GoRoute(
       path: playerPath,
-      pageBuilder: (context, state) => CustomTransitionPage(
+      pageBuilder: (context, state) => _PreservedTransitionPage(
         key: state.pageKey,
         transitionDuration: FmpMotion.morph,
         reverseTransitionDuration: FmpMotion.mid,
         child: const PlayerPage(),
         transitionsBuilder: (context, animation, _, child) {
-          if (MediaQuery.disableAnimationsOf(context)) {
+          if (FmpMotion.reduced(context)) {
             return FadeTransition(opacity: animation, child: child);
           }
           return SlideTransition(
@@ -69,3 +69,77 @@ Widget _pageOf(Destination destination) => switch (destination) {
   Destination.settings => const SettingsPage(),
   Destination.search => const SearchPage(),
 };
+
+/// 過場的 controller 用 `AnimationBehavior.preserve` 的頁：減少動態效果時的
+/// 淡入淡出照原本的時長（預設的 controller 縮成 5%，事實 K35）。
+class _PreservedTransitionPage<T> extends CustomTransitionPage<T> {
+  const _PreservedTransitionPage({
+    required super.child,
+    required super.transitionsBuilder,
+    super.transitionDuration,
+    super.reverseTransitionDuration,
+    super.key,
+  });
+
+  @override
+  Route<T> createRoute(BuildContext context) => _PreservedPageRoute<T>(this);
+}
+
+class _PreservedPageRoute<T> extends PageRoute<T> {
+  _PreservedPageRoute(_PreservedTransitionPage<T> page) : super(settings: page);
+
+  _PreservedTransitionPage<T> get _page =>
+      settings as _PreservedTransitionPage<T>;
+
+  @override
+  bool get barrierDismissible => _page.barrierDismissible;
+
+  @override
+  Color? get barrierColor => _page.barrierColor;
+
+  @override
+  String? get barrierLabel => _page.barrierLabel;
+
+  @override
+  Duration get transitionDuration => _page.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration => _page.reverseTransitionDuration;
+
+  @override
+  bool get maintainState => _page.maintainState;
+
+  @override
+  bool get fullscreenDialog => _page.fullscreenDialog;
+
+  @override
+  bool get opaque => _page.opaque;
+
+  @override
+  AnimationController createAnimationController() => AnimationController(
+    duration: transitionDuration,
+    reverseDuration: reverseTransitionDuration,
+    debugLabel: debugLabel,
+    vsync: navigator!,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => Semantics(
+    scopesRoute: true,
+    explicitChildNodes: true,
+    child: _page.child,
+  );
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => _page.transitionsBuilder(context, animation, secondaryAnimation, child);
+}

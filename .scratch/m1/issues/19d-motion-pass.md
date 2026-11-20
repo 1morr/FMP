@@ -41,3 +41,9 @@ Blocked by: 19c
 ## Comments
 決定：盤點出的「稿上有寫沒照做」與「減少動態效果沒跟著改」全修，讀這個設定收成一個共用入口（使用者定）
 決定：新增的動畫只做圖片與內容替換、出現與消失、清單增減三組；sheet 跟手指拖先不做（使用者定）
+等使用者：無（session 因額度中斷，下一個 session 接著做，見下一行）
+進度（2026-11-20，未完成）：已做 A 全部（按下縮放、sheet morph 520、Spinner、點點 spring、導覽字色）、C 全部（共用入口、膠囊、搜尋變形、sheet、迷你播放器、提示；播放頁路由與換畫面也改成保留時長）、B 的封面載入淡入、換歌封面交叉淡出、首頁與搜尋的骨架交叉淡出、分 P 改用 `ExpandingRows`、多選動作列與 dock 進出、播放膠囊淡入；共用元件在 `app/lib/ui/common/motion.dart`（全用 `AnimationBehavior.preserve`），測試用 `test/support/motion.dart` 的 `reduceMotion`（改 platformDispatcher，5% 縮短真的生效）。還沒做：佇列移除一首收起高度＋淡出、清空後空狀態淡入、佇列頂列小標題在減少動態效果時直接消失（19c 留下）、事實 K35（AnimationBehavior：normal 在 disableAnimations 時縮成 5%，來源 api.flutter.dev/flutter/animation/AnimationBehavior.html）寫進 `docs/research/facts-packages.md`、設定頁 `FmpMotion.selection` 的隱式動畫在減少動態效果時仍會被縮成 5%（要不要改待查）、macOS＋iOS 模擬器實跑截圖（含系統開減少動態效果截淡入中途、跑完關回）、完整閘門 `--skip-windows`、code-review、Status 與紀錄行。
+決定：減少動態效果時仍要動的動畫一律用 `AnimationBehavior.preserve`（官方文件寫的 API），不改 binding（協調者轉達）（Agent 定）
+決定：按下縮 0.92 的圖示鈕是 `GlassIconButton`、`PlainIconButton`、播放／上一首／下一首、隨機循環圖示鈕與播放頁控制鈕；dock 的大圓鈕不縮（Agent 定）
+決定：sheet 收起也用 morph 520（曲線反過來）；桌面曲目資訊對話框照舊淡入 160，改成保留時長（Agent 定）
+決定：播放頁路由與減少動態效果時的換畫面同樣改保留時長（同一個 5% 問題，票面沒列）（Agent 定）

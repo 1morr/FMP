@@ -12,6 +12,7 @@ import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/toast/playback_toast.dart';
 import 'package:fmp/ui/toast/toast.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 外殼裡畫提示的那一層（`.toast`，`docs/design/DESIGN.md`〈對話框、sheet、
 /// 警示框、提示〉）：浮在迷你播放器或播放膠囊上方，厚玻璃，最小高 52（滑鼠
@@ -73,21 +74,11 @@ class ToastLayer extends ConsumerWidget {
           left: left,
           right: right,
           bottom: bottom,
-          child: AnimatedSwitcher(
-            duration: FmpMotion.mid,
-            switchInCurve: FmpMotion.outCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween(
-                  begin: const Offset(0, .3),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              ),
-            ),
+          // 出現與消失：淡入並往上 16，減少動態效果時只淡入淡出。
+          child: AppearSwitcher(
+            rise: 16,
             child: message == null
-                ? const SizedBox.shrink()
+                ? null
                 : Align(
                     key: ObjectKey(message),
                     alignment: Alignment.bottomCenter,

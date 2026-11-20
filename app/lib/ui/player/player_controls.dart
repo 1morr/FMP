@@ -395,6 +395,7 @@ class _ControlButton extends StatelessWidget {
       tooltip: label,
       label: label,
       focusRadius: 999,
+      pressScale: FmpMotion.iconPressScale,
       builder: (context, hovered) => Opacity(
         opacity: enabled ? 1 : .4,
         child: AnimatedContainer(

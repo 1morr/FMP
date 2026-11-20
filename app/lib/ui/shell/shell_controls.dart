@@ -3,6 +3,7 @@ import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
+import 'package:fmp/ui/common/motion.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 外殼裡可點的一塊：滑鼠移上去時 [builder] 拿到 hover，鍵盤與螢幕閱讀器
@@ -20,6 +21,7 @@ class ShellButton extends StatefulWidget {
     this.focusRadius,
     this.focusInset = false,
     this.hitPadding,
+    this.pressScale,
   });
 
   /// null 時停用：點不了，螢幕閱讀器讀成停用；外觀由 [builder] 自己畫。
@@ -52,6 +54,10 @@ class ShellButton extends StatefulWidget {
   /// 28）：點得到、螢幕閱讀器的框也包含它，焦點外框仍畫在看得到的部分外面。
   final EdgeInsets? hitPadding;
 
+  /// 按下時看得到的部分縮到這個比例（圖示鈕 [FmpMotion.iconPressScale]，
+  /// `DESIGN.md`〈狀態變化對照〉的按下）；null 時不縮。
+  final double? pressScale;
+
   @override
   State<ShellButton> createState() => _ShellButtonState();
 }
@@ -59,6 +65,11 @@ class ShellButton extends StatefulWidget {
 class _ShellButtonState extends State<ShellButton> {
   bool _hovered = false;
   bool _focused = false;
+  bool _pressed = false;
+
+  void _press(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
 
   /// 外框只畫在焦點真的在這顆的時候：裡面還有可聚焦的按鈕（例如迷你播放器
   /// 的播放鈕）時，焦點移進去外層就不畫。
@@ -85,8 +96,24 @@ class _ShellButtonState extends State<ShellButton> {
         child: child,
       );
     }
+    if (widget.pressScale case final scale?) {
+      child = PressScale(
+        pressed: _pressed && enabled,
+        scale: scale,
+        child: child,
+      );
+    }
     if (widget.hitPadding case final padding?) {
       child = Padding(padding: padding, child: child);
+    }
+    if (widget.pressScale != null) {
+      // 按下就縮，不等點擊判定；補出來的點擊區也算。
+      child = Listener(
+        onPointerDown: (_) => _press(true),
+        onPointerUp: (_) => _press(false),
+        onPointerCancel: (_) => _press(false),
+        child: child,
+      );
     }
     child = GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -163,6 +190,7 @@ class GlassIconButton extends StatelessWidget {
       tooltip: tooltip,
       label: tooltip,
       focusRadius: 999,
+      pressScale: FmpMotion.iconPressScale,
       builder: (context, _) => Opacity(
         opacity: onTap == null ? .4 : 1,
         child: Glass(
@@ -203,6 +231,7 @@ class PlainIconButton extends StatelessWidget {
       tooltip: tooltip,
       label: tooltip,
       focusRadius: focusable ? 999 : null,
+      pressScale: FmpMotion.iconPressScale,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         width: size,

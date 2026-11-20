@@ -21,8 +21,12 @@ import 'package:fmp/ui/shell/side_bar.dart';
 import 'package:fmp/app/theme/theme.dart';
 
 import '../support/a11y.dart';
+import '../support/motion.dart';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fmp/app/theme/appearance.dart';
+import 'package:fmp/app/theme/accent.dart';
 
 /// App 外殼的路由與導覽（`docs/design/DESIGN.md`〈外殼〉）：打開在首頁，四個
 /// 分頁與搜尋都到得了，返回行為照手機的分頁慣例。三種寬度各用一個視窗大小。
@@ -149,6 +153,94 @@ void main() {
       expect(find.byType(HomePage), findsOneWidget);
 
       expect(await systemBack(tester), isFalse);
+    });
+  });
+
+  /// 手機 dock 的動態（`docs/design/DESIGN.md`〈狀態變化對照〉）：選取的字色
+  /// out 280；減少動態效果時選取膠囊不滑不放大、只淡入淡出，進出搜尋時導覽
+  /// 不變形、只淡入淡出。
+  group('phone dock motion', () {
+    const halfway = Duration(milliseconds: 140);
+
+    Color labelColor(WidgetTester tester, String label) =>
+        tester.widget<Text>(inDock(label)).style!.color!;
+
+    Finder indicator(String name) => find.byKey(Key('tab-indicator-$name'));
+
+    /// [finder] 外面所有淡入淡出相乘的透明度。
+    double opacityAbove(WidgetTester tester, Finder finder) => tester
+        .widgetList<FadeTransition>(
+          find.ancestor(of: finder, matching: find.byType(FadeTransition)),
+        )
+        .fold(1.0, (value, fade) => value * fade.opacity.value);
+
+    testWidgets('the selected tab label turns the accent color over out 280', (
+      tester,
+    ) async {
+      await start(tester, phone);
+      // 沒有強調色時淺色的強調色就是墨色，看不出過渡。
+      await ProviderScope.containerOf(tester.element(find.byType(PhoneDock)))
+          .read(accentProvider.notifier)
+          .set(Accent.violet);
+      await tester.pumpAndSettle();
+      final colors = tester.element(find.byType(PhoneDock)).fmpColors;
+      await tester.tap(inDock('佇列'));
+      await tester.pump();
+      await tester.pump(halfway);
+      final mid = labelColor(tester, '佇列');
+      expect(mid, isNot(colors.glassInk));
+      expect(mid, isNot(colors.accent));
+      await tester.pumpAndSettle();
+      expect(labelColor(tester, '佇列'), colors.accent);
+      expect(labelColor(tester, '首頁'), colors.glassInk);
+    });
+
+    testWidgets('with reduced motion the selection pill neither slides nor '
+        'grows: the old one fades out where it was, the new one fades in', (
+      tester,
+    ) async {
+      reduceMotion(tester);
+      await start(tester, phone);
+      final homeRect = tester.getRect(indicator('home'));
+      await tester.tap(inDock('佇列'));
+      await tester.pump();
+      await tester.pump(halfway);
+      expect(tester.getRect(indicator('home')), homeRect);
+      expect(opacityAbove(tester, indicator('home')), inExclusiveRange(0, 1));
+      expect(opacityAbove(tester, indicator('queue')), inExclusiveRange(0, 1));
+      // 不放大：膠囊外面沒有縮放（dock 自己的位移不算）。
+      expect(
+        tester
+            .widgetList<Transform>(
+              find.ancestor(
+                of: indicator('queue'),
+                matching: find.byType(Transform),
+              ),
+            )
+            .map((t) => t.transform.getMaxScaleOnAxis()),
+        everyElement(1),
+      );
+      await tester.pumpAndSettle();
+      expect(opacityAbove(tester, indicator('home')), 0);
+      expect(opacityAbove(tester, indicator('queue')), 1);
+    });
+
+    testWidgets('with reduced motion entering search cross-fades the dock '
+        'instead of morphing it', (tester) async {
+      reduceMotion(tester);
+      await start(tester, phone);
+      await tester.tap(find.byTooltip('搜尋'));
+      await tester.pump();
+      await tester.pump(halfway);
+      // 舊的導覽膠囊與新的返回圓鈕同時在、各自原本的大小，正在交叉淡出。
+      final back = find.byTooltip('回到首頁');
+      expect(back, findsOneWidget);
+      expect(inDock('首頁'), findsOneWidget);
+      expect(tester.getSize(back).width, 62);
+      expect(opacityAbove(tester, back), inExclusiveRange(0, 1));
+      expect(opacityAbove(tester, inDock('首頁')), inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+      expect(inDock('首頁'), findsNothing);
     });
   });
 

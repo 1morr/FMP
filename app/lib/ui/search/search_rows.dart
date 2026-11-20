@@ -12,6 +12,7 @@ import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 播放數的短寫法，照目前的語言（萬、億或 K、M）。
 String playCountText(BuildContext context, int count) {
@@ -660,12 +661,10 @@ class PartsToggle extends StatelessWidget {
     final label = expanded ? t.collapse : t.expand;
     final size = touch ? 20.0 : 14.0;
     final Widget icon = loading
-        ? SizedBox.square(
-            dimension: size - 4,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.8,
-              color: colors.label3,
-            ),
+        ? Spinner(
+            key: const Key('parts-spinner'),
+            size: size - 4,
+            strokeWidth: 1.8,
           )
         : FmpIcon(
             touch
