@@ -85,7 +85,7 @@ void main() {
     ('wide', const Size(1280, 800), true),
   ]) {
     testWidgets('$name: the library and the empty queue put the icon at the '
-        'same fixed height', (tester) async {
+        'same fixed height and centre', (tester) async {
       if (mouse) debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         tester.view
@@ -101,11 +101,14 @@ void main() {
         final expected =
             ShellInsets.of(context).top +
             EmptyState.topOf(FormFactor.of(context));
-        expect(tester.getRect(box()).top, expected);
+        final library = tester.getRect(box());
+        expect(library.top, expected);
 
         await openDestination(tester, Destination.queue);
         expect(find.byType(QueuePage), findsOneWidget);
         expect(tester.getRect(box()).top, expected);
+        // 左右也不動：兩頁都在整個內容區置中。
+        expect(tester.getRect(box()).center.dx, library.center.dx);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }

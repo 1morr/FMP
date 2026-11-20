@@ -10,6 +10,7 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/ui/common/inert.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/search/search_query.dart';
 import 'package:fmp/ui/shell/caption_buttons.dart';
@@ -59,10 +60,10 @@ class _AppShellState extends ConsumerState<AppShell>
   /// 中寬度浮出的詳情面板。
   bool _floatingDetail = false;
 
-  /// 詳情面板叫出與收起的過場（`docs/design/DESIGN.md` §3.4 的 morph）：0 收起、
+  /// 詳情面板叫出與收起的過場（`docs/design/DESIGN.md`〈動態〉的 morph）：0 收起、
   /// 1 打開。寬級的常駐面板一個、中寬度的浮動面板一個。減少動態效果時照樣
   /// 跑完整長度（[AnimationBehavior.preserve]；預設會縮成 1/20，淡入淡出就
-  /// 看不到了），只是不位移（[_follow]、[_panelMotion]）。
+  /// 看不到了），只是不位移（[_panelLerp]、[_panelMotion]）。
   late final _dockMotion = AnimationController(
     vsync: this,
     duration: FmpMotion.morph,
@@ -123,7 +124,7 @@ class _AppShellState extends ConsumerState<AppShell>
   void didUpdateWidget(AppShell old) {
     super.didUpdateWidget(old);
     if (_current != Destination.search) _lastTab = _current;
-    // 換分頁直接換（§3.4〈狀態變化對照〉刻意不動）：進出設定頁時面板跟著
+    // 換分頁直接換（`DESIGN.md`〈狀態變化對照〉刻意不動）：進出設定頁時面板跟著
     // 那一頁記得的開合，不跑過場。
     if (Destination.of(old.location) != _current) {
       _dockMotion.value = _detailVisible ? 1 : 0;
@@ -258,7 +259,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   /// 面板過場的進度 [t] 換成 [closed] 到 [open] 之間的值；減少動態效果時
   /// 版面直接到 [opened] 那一端，只有面板自己淡入淡出。
-  double _follow(
+  double _panelLerp(
     double t,
     double closed,
     double open, {
@@ -282,13 +283,7 @@ class _AppShellState extends ConsumerState<AppShell>
       opacity: reduced || fade ? t.clamp(0.0, 1.0) : 1,
       child: Transform.translate(
         offset: Offset(reduced ? 0 : (1 - t) * slide, 0),
-        child: IgnorePointer(
-          ignoring: !opened,
-          child: ExcludeFocus(
-            excluding: !opened,
-            child: ExcludeSemantics(excluding: !opened, child: child),
-          ),
-        ),
+        child: Inert(inert: !opened, child: child),
       ),
     );
   }
@@ -394,7 +389,12 @@ class _AppShellState extends ConsumerState<AppShell>
     final opened = _floatingDetail;
     // 播放膠囊：離細欄 24（left 104，平板 112），叫出面板時右端讓到面板
     // 左邊 24，跟著面板的過場。
-    final transportRight = _follow(t, 24, 8 + panelWidth + 24, opened: opened);
+    final transportRight = _panelLerp(
+      t,
+      24,
+      8 + panelWidth + 24,
+      opened: opened,
+    );
     final panelShown = !_floatMotion.isDismissed;
     // 頂端 58 是拖動視窗的區域（macOS、Windows）；包在外面，裡面的按鈕先拿到點擊。
     return WindowDragArea(
@@ -506,7 +506,7 @@ class _AppShellState extends ConsumerState<AppShell>
         ? math.max(20.0, media.viewPadding.bottom)
         : 16.0;
     // 面板佔掉的寬度：內容欄的右緣、播放膠囊右端都從這裡算。
-    final taken = _follow(t, 0, panelWidth, opened: open);
+    final taken = _panelLerp(t, 0, panelWidth, opened: open);
     // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
     final transportRight = taken + 24;
     // 頂端 58 是拖動視窗的區域（macOS、Windows）；包在外面，裡面的按鈕先拿到點擊。
@@ -525,7 +525,12 @@ class _AppShellState extends ConsumerState<AppShell>
                 top: top0 + (touch ? 6 : 8),
                 height: touch ? 52 : 50,
                 left: 24,
-                right: _follow(t, _detailButtonInset(touch), 16, opened: open),
+                right: _panelLerp(
+                  t,
+                  _detailButtonInset(touch),
+                  16,
+                  opened: open,
+                ),
               ),
               dragStrip: top0 + 58,
               detailPanelOpen: open,
@@ -600,19 +605,13 @@ class _AppShellState extends ConsumerState<AppShell>
       // 頂列 `.wtop`：離頂 8（平板 6）、高 50（平板 52），右邊 8 再內縮 16。
       top: top0 + (touch ? 6 + (52 - 44) / 2 : 8 + (50 - 34) / 2),
       right: 8 + _captionInset(8) + 16,
-      child: IgnorePointer(
-        ignoring: inert,
-        child: ExcludeFocus(
-          excluding: inert,
-          child: ExcludeSemantics(
-            excluding: inert,
-            child: GlassIconButton(
-              icon: FmpIcons.sidebarR,
-              tooltip: context.t.shell.detail.show,
-              onTap: onTap,
-              touch: touch,
-            ),
-          ),
+      child: Inert(
+        inert: inert,
+        child: GlassIconButton(
+          icon: FmpIcons.sidebarR,
+          tooltip: context.t.shell.detail.show,
+          onTap: onTap,
+          touch: touch,
         ),
       ),
     );

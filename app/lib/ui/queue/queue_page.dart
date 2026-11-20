@@ -13,6 +13,7 @@ import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/ui/common/empty_state.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
+import 'package:fmp/ui/common/inert.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
 import 'package:fmp/ui/common/format.dart';
@@ -705,41 +706,33 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       children: [
         ValueListenableBuilder<bool>(
           valueListenable: _scrolled,
-          builder: (context, scrolled, _) => IgnorePointer(
-            ignoring: !scrolled,
-            child: ExcludeFocus(
-              excluding: !scrolled,
-              child: ExcludeSemantics(
-                excluding: !scrolled,
-                child: AnimatedOpacity(
-                  opacity: scrolled ? 1 : 0,
-                  duration: FmpMotion.mid,
-                  child: ShellButton(
-                    key: const Key('queue-small-title'),
-                    onTap: () => _toCurrent(animate: true),
-                    focusRadius: 8,
-                    // 點擊區至少 [FmpMetrics.minTarget] 見方（平板的字比 44 窄）。
-                    builder: (context, _) => ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: context.fmpMetrics.minTarget,
-                        minHeight: context.fmpMetrics.minTarget,
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: phone ? 6 : 0,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          context.t.shell.nav.queue,
-                          style: TextStyle(
-                            fontSize: phone ? 17 : 15,
-                            fontWeight: phone
-                                ? FontWeight.w600
-                                : FontWeight.w700,
-                            color: colors.label,
-                            letterSpacing: 0,
-                          ),
-                        ),
+          builder: (context, scrolled, _) => Inert(
+            inert: !scrolled,
+            child: AnimatedOpacity(
+              opacity: scrolled ? 1 : 0,
+              duration: FmpMotion.mid,
+              child: ShellButton(
+                key: const Key('queue-small-title'),
+                onTap: () => _toCurrent(animate: true),
+                focusRadius: 8,
+                // 點擊區至少 [FmpMetrics.minTarget] 見方（平板的字比 44 窄）。
+                builder: (context, _) => ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: context.fmpMetrics.minTarget,
+                    minHeight: context.fmpMetrics.minTarget,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: phone ? 6 : 0,
+                      vertical: 12,
+                    ),
+                    child: Text(
+                      context.t.shell.nav.queue,
+                      style: TextStyle(
+                        fontSize: phone ? 17 : 15,
+                        fontWeight: phone ? FontWeight.w600 : FontWeight.w700,
+                        color: colors.label,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),

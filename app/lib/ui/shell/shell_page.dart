@@ -106,11 +106,8 @@ class ShellPage extends StatelessWidget {
             ],
           ),
         ),
-        if (empty case final empty?)
-          SliverPadding(
-            padding: EdgeInsets.only(left: padding.left, right: padding.right),
-            sliver: empty,
-          ),
+        // 和佇列、搜尋頁一樣在整個內容區置中，換頁時圖示不左右移。
+        ?empty,
         SliverToBoxAdapter(child: SizedBox(height: padding.bottom)),
       ],
     );

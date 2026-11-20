@@ -555,6 +555,51 @@ void main() {
       expect(fill(), tester.element(showDetail()).fmpColors.fill);
     });
 
+    windowsTest('medium: the flat button fills darker while pressed', (
+      tester,
+    ) async {
+      await start(tester, medium);
+      Color? fill() {
+        final box = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: showDetail(),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        return (box.decoration as BoxDecoration?)?.color;
+      }
+
+      final press = await tester.startGesture(tester.getCenter(showDetail()));
+      await tester.pumpAndSettle();
+      expect(fill(), tester.element(showDetail()).fmpColors.fill2);
+      await press.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(DetailPanel), findsOneWidget);
+    });
+
+    windowsTest('medium: with reduced motion the flat button still fades out '
+        'when the panel opens', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await start(tester, medium);
+      final fade = find.ancestor(
+        of: showDetail(),
+        matching: find.byType(FadeTransition),
+      );
+      await tester.tap(showDetail());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 140));
+      expect(
+        tester.widget<FadeTransition>(fade.first).opacity.value,
+        inExclusiveRange(0, 1),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<FadeTransition>(fade.first).opacity.value, 0);
+    });
+
     windowsTest('medium: pressing or double-clicking the flat button neither '
         'drags nor maximizes the window', (tester) async {
       await start(tester, medium);

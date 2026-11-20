@@ -4,6 +4,7 @@ import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_controls.dart';
+import 'package:fmp/ui/common/inert.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -168,46 +169,84 @@ class _CaptionButtonState extends State<CaptionButton> {
 }
 
 /// 視窗鈕列的「顯示詳情面板」：外觀同 [CaptionButton]（46×32、圖示 16、hover
-/// 整格填淡色），但和頂列其他控制項一樣 Tab 走得到、有焦點外框（貼著視窗
-/// 頂端，外框畫在格子裡面）與 tooltip。淡出時點不到、Tab 不到。
-class _ShowDetailButton extends StatelessWidget {
+/// 整格填淡色、按下填深一點），但和頂列其他控制項一樣 Tab 走得到、有焦點外框
+/// （貼著視窗頂端，外框畫在格子裡面）與 tooltip。面板打開時淡出（out 280，
+/// 減少動態效果時照樣淡出，見 [AnimationBehavior.preserve]），淡出時點不到、
+/// Tab 不到。
+class _ShowDetailButton extends StatefulWidget {
   const _ShowDetailButton({required this.onTap, required this.visible});
 
   final VoidCallback onTap;
   final bool visible;
 
   @override
+  State<_ShowDetailButton> createState() => _ShowDetailButtonState();
+}
+
+class _ShowDetailButtonState extends State<_ShowDetailButton>
+    with SingleTickerProviderStateMixin {
+  // 不用 AnimatedOpacity：它的 controller 在減少動態效果時縮成 1/20，等於
+  // 直接消失；稿上小元件這時仍要淡入淡出。
+  late final _fade = AnimationController(
+    vsync: this,
+    duration: FmpMotion.mid,
+    value: widget.visible ? 1 : 0,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  late final _opacity = CurvedAnimation(
+    parent: _fade,
+    curve: FmpMotion.outCurve,
+  );
+  bool _pressed = false;
+
+  @override
+  void didUpdateWidget(_ShowDetailButton old) {
+    super.didUpdateWidget(old);
+    if (widget.visible != old.visible) {
+      widget.visible ? _fade.forward() : _fade.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _opacity.dispose();
+    _fade.dispose();
+    super.dispose();
+  }
+
+  void _press(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
     final label = context.t.shell.detail.show;
-    return AnimatedOpacity(
-      duration: FmpMotion.mid,
-      curve: FmpMotion.outCurve,
-      opacity: visible ? 1 : 0,
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: ExcludeFocus(
-          excluding: !visible,
-          child: ExcludeSemantics(
-            excluding: !visible,
-            child: ShellButton(
-              onTap: onTap,
-              tooltip: label,
-              label: label,
-              focusRadius: 0,
-              focusInset: true,
-              builder: (context, hovered) => AnimatedContainer(
-                duration: FmpMotion.fast,
-                width: WindowChrome.captionButtonSize.width,
-                height: WindowChrome.captionButtonSize.height,
-                color: hovered ? colors.fill : const Color(0x00000000),
-                alignment: Alignment.center,
-                child: FmpIcon(
-                  FmpIcons.sidebarR,
-                  size: 16,
-                  color: colors.label2,
-                ),
-              ),
+    return FadeTransition(
+      opacity: _opacity,
+      child: Inert(
+        inert: !widget.visible,
+        child: Listener(
+          onPointerDown: (_) => _press(true),
+          onPointerUp: (_) => _press(false),
+          onPointerCancel: (_) => _press(false),
+          child: ShellButton(
+            onTap: widget.onTap,
+            tooltip: label,
+            label: label,
+            focusRadius: 0,
+            focusInset: true,
+            builder: (context, hovered) => AnimatedContainer(
+              duration: FmpMotion.fast,
+              width: WindowChrome.captionButtonSize.width,
+              height: WindowChrome.captionButtonSize.height,
+              color: _pressed
+                  ? colors.fill2
+                  : hovered
+                  ? colors.fill
+                  : const Color(0x00000000),
+              alignment: Alignment.center,
+              child: FmpIcon(FmpIcons.sidebarR, size: 16, color: colors.label2),
             ),
           ),
         ),
