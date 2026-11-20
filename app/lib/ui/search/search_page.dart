@@ -401,6 +401,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       page = Focus(
         focusNode: _focus,
         includeSemantics: false,
+        // 沒有結果（搜尋紀錄、找不到）時不是 Tab 停點：沒有列可畫外框。
+        skipTraversal: tracks.isEmpty,
         onKeyEvent: (node, event) => _onKey(node, event, tracks),
         child: page,
       );

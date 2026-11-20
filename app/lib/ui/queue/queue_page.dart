@@ -472,6 +472,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         focusNode: _focus,
         onKeyEvent: _onKey,
         includeSemantics: false,
+        // 佇列是空的時不是 Tab 停點：沒有列可畫外框。
+        skipTraversal: queue.isEmpty,
         child: page,
       );
     }

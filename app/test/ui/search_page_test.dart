@@ -170,6 +170,19 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('desktop: with only history on the page, Tab never stops on '
+        'the empty results table', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, desktop, mouse: true);
+      await withHistory(tester);
+
+      // 每一站都要有外框（輸入框除外）；停在空的表格上會是 0 個。
+      final visited = await tabThrough(tester, 12);
+      expect(visited, contains(startsWith('夜行列車')));
+      semantics.dispose();
+      done();
+    });
+
     testWidgets('phone: the chip row is 44 tall while the chips look 32', (
       tester,
     ) async {

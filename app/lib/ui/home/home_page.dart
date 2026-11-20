@@ -232,6 +232,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         focusNode: _focus,
         onKeyEvent: _onKey,
         includeSemantics: false,
+        // 還沒有榜時不是 Tab 停點：沒有列可畫外框。
+        skipTraversal: _visibleTracks().isEmpty,
         child: scroll,
       );
     }

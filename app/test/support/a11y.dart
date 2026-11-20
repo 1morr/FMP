@@ -59,8 +59,8 @@ class _FocusableTapTargetGuideline extends AccessibilityGuideline {
   }
 }
 
-/// 按 Tab 走 [steps] 步，每一步都要畫出剛好一個焦點外框；輸入框（有自己的
-/// 游標與外框）與沒有東西可聚焦的頁面本身（[FocusScopeNode]）除外。回傳
+/// 按 Tab 走 [steps] 步，每一步都要畫出剛好一個焦點外框（輸入框除外，它有
+/// 自己的游標與外框）：停在看不到外框的地方（例如空的頁面本身）就失敗。回傳
 /// 每一步有焦點的語意標籤，給測試對到期望的控制。
 Future<List<String>> tabThrough(WidgetTester tester, int steps) async {
   final visited = <String>[];
@@ -82,7 +82,7 @@ Future<List<String>> tabThrough(WidgetTester tester, int steps) async {
         .length;
     expect(
       rings,
-      editing || focus is FocusScopeNode ? 0 : 1,
+      editing ? 0 : 1,
       reason: 'Tab #${i + 1} focused ${_labelOf(context)}',
     );
     visited.add(_labelOf(context));
