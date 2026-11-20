@@ -1,6 +1,7 @@
 import 'package:fmp/app/i18n/strings.g.dart';
 import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/ui/common/empty_state.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -11,39 +12,13 @@ class LibraryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.fmpColors;
     return ShellPage(
       title: context.t.shell.nav.library,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 120 - FmpSpace.s4),
-          child: Column(
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(
-                  color: colors.fill,
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                alignment: Alignment.center,
-                child: FmpIcon(
-                  FmpIcons.library,
-                  size: 34,
-                  color: colors.label2,
-                ),
-              ),
-              const SizedBox(height: FmpSpace.s2),
-              Text(
-                context.t.shell.library.empty,
-                style: context.fmpText.title2,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ],
+      empty: EmptyState(
+        icon: FmpIcons.library,
+        title: context.t.shell.library.empty,
+        titleStyle: context.fmpText.title2,
+      ),
     );
   }
 }

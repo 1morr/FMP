@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
+import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/core/errors/app_error.dart';
 import 'package:fmp/domain/track.dart';
@@ -16,6 +17,7 @@ import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/search/parts.dart';
 import 'package:fmp/search/search.dart';
 import 'package:fmp/search/search_history.dart';
+import 'package:fmp/ui/common/empty_state.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/common/track_actions.dart';
 import 'package:fmp/ui/search/search_field.dart';
@@ -349,8 +351,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               : null,
         ),
     ];
+    // 找不到（`.srh-empty`）：每個音源都成功、都沒有結果時。
+    final empty = !history && nothingFoundIn(visible)
+        ? EmptyState(
+            icon: FmpIcons.search,
+            title: context.t.search.empty.title(query: search.query),
+            titleStyle: context.fmpText.title3.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+            body: context.t.search.empty.body,
+          )
+        : null;
     final body = history
         ? _history(context, typed, table)
+        : empty != null
+        ? const <Widget>[]
         : _results(context, search, visible, tracks, table);
 
     final scroll = CustomScrollView(
@@ -361,6 +376,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           padding: horizontal,
           sliver: SliverList.list(children: [...head, ...body]),
         ),
+        ?empty,
         SliverToBoxAdapter(child: SizedBox(height: insets.bottom + 80)),
       ],
     );
@@ -543,8 +559,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ];
     }
     final loading = search.starting || visible.any((s) => s.loading);
-    if (nothingFoundIn(visible)) return [SearchEmpty(query: search.query)];
-
     final playback = ref.watch(playbackProvider);
     final current = playback?.track.ref;
     final playing = playback?.playing ?? false;

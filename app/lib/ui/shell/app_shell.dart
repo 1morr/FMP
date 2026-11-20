@@ -10,6 +10,7 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_drag.dart';
 import 'package:fmp/playback/playback.dart';
+import 'package:fmp/ui/common/inert.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/search/search_query.dart';
 import 'package:fmp/ui/shell/caption_buttons.dart';
@@ -47,7 +48,8 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell>
+    with TickerProviderStateMixin {
   /// 進搜尋前最後在的分頁：手機搜尋模式的左圓鈕顯示它。
   late Destination _lastTab = _tabOrHome(Destination.of(widget.location));
 
@@ -58,21 +60,59 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 中寬度浮出的詳情面板。
   bool _floatingDetail = false;
 
+  /// 詳情面板叫出與收起的過場（`docs/design/DESIGN.md`〈動態〉的 morph）：0 收起、
+  /// 1 打開。寬級的常駐面板一個、中寬度的浮動面板一個。減少動態效果時照樣
+  /// 跑完整長度（[AnimationBehavior.preserve]；預設會縮成 1/20，淡入淡出就
+  /// 看不到了），只是不位移（[_panelLerp]、[_panelMotion]）。
+  late final _dockMotion = AnimationController(
+    vsync: this,
+    duration: FmpMotion.morph,
+    value: _detailVisible ? 1 : 0,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  late final _floatMotion = AnimationController(
+    vsync: this,
+    duration: FmpMotion.morph,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+
+  /// 收起時曲線反過來用，兩個方向都是先快後慢、停得很輕。
+  late final _dock = CurvedAnimation(
+    parent: _dockMotion,
+    curve: FmpMotion.morphCurve,
+    reverseCurve: FmpMotion.morphCurve.flipped,
+  );
+  late final _float = CurvedAnimation(
+    parent: _floatMotion,
+    curve: FmpMotion.morphCurve,
+    reverseCurve: FmpMotion.morphCurve.flipped,
+  );
+
   /// 浮出的詳情面板打開時拿焦點，Esc 才關得掉：焦點已經在別處時
   /// `autofocus` 不會搶過來。
   final _floatingDetailFocus = FocusNode(debugLabel: 'floating detail');
 
   @override
   void dispose() {
+    _dock.dispose();
+    _float.dispose();
+    _dockMotion.dispose();
+    _floatMotion.dispose();
     _floatingDetailFocus.dispose();
     super.dispose();
   }
 
   void _openFloatingDetail() {
     setState(() => _floatingDetail = true);
+    _floatMotion.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _floatingDetail) _floatingDetailFocus.requestFocus();
     });
+  }
+
+  void _closeFloatingDetail() {
+    setState(() => _floatingDetail = false);
+    _floatMotion.reverse();
   }
 
   Destination get _current => Destination.of(widget.location);
@@ -84,6 +124,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   void didUpdateWidget(AppShell old) {
     super.didUpdateWidget(old);
     if (_current != Destination.search) _lastTab = _current;
+    // 換分頁直接換（`DESIGN.md`〈狀態變化對照〉刻意不動）：進出設定頁時面板跟著
+    // 那一頁記得的開合，不跑過場。
+    if (Destination.of(old.location) != _current) {
+      _dockMotion.value = _detailVisible ? 1 : 0;
+    }
   }
 
   void _select(Destination d) {
@@ -114,13 +159,16 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool get _detailVisible =>
       _current == Destination.settings ? _settingsDetailOpen : _detailOpen;
 
-  void _setDetail(bool open) => setState(() {
-    if (_current == Destination.settings) {
-      _settingsDetailOpen = open;
-    } else {
-      _detailOpen = open;
-    }
-  });
+  void _setDetail(bool open) {
+    setState(() {
+      if (_current == Destination.settings) {
+        _settingsDetailOpen = open;
+      } else {
+        _detailOpen = open;
+      }
+    });
+    open ? _dockMotion.forward() : _dockMotion.reverse();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,10 +206,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ? Stack(
                     children: [
                       Positioned.fill(child: shell),
-                      const Positioned(
+                      Positioned(
                         top: 0,
                         right: 0,
-                        child: CaptionButtons(),
+                        // 中寬度的「顯示詳情面板」是視窗鈕列的第四顆。
+                        child: CaptionButtons(
+                          onShowDetail: form.widthClass == WidthClass.medium
+                              ? _openFloatingDetail
+                              : null,
+                          showDetailVisible: !_floatingDetail,
+                        ),
                       ),
                     ],
                   )
@@ -194,6 +248,45 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// 的 8；內容區右緣就是視窗右緣時才要（以視窗右緣算 [_captionInset]）。
   static double _detailButtonInset(bool touch) =>
       8 + _captionInset(8) + 16 + (touch ? 44 : 34) + 8;
+
+  /// 中寬度頂列右端讓出的寬度：Windows 讓給四顆視窗鈕（含詳情面板鈕）與鈕前
+  /// 的 8，其他平台讓給玻璃鈕。
+  static double _mediumTopBarInset(bool touch) => WindowChrome.captionButtons
+      ? WindowChrome.captionButtonsWidth +
+            WindowChrome.captionButtonSize.width +
+            8
+      : _detailButtonInset(touch);
+
+  /// 面板過場的進度 [t] 換成 [closed] 到 [open] 之間的值；減少動態效果時
+  /// 版面直接到 [opened] 那一端，只有面板自己淡入淡出。
+  double _panelLerp(
+    double t,
+    double closed,
+    double open, {
+    required bool opened,
+  }) => FmpMotion.reduced(context)
+      ? (opened ? open : closed)
+      : closed + (open - closed) * t;
+
+  /// 過場中的面板：叫出時到位才收得到點擊與焦點，收起的過場裡已經是不在
+  /// 的樣子（點不到、Tab 不到、螢幕閱讀器讀不到）。
+  Widget _panelMotion({
+    required bool opened,
+    required double t,
+    required double slide,
+    required bool fade,
+    required Widget child,
+  }) {
+    final reduced = FmpMotion.reduced(context);
+    return Opacity(
+      key: const Key('detail-panel-motion'),
+      opacity: reduced || fade ? t.clamp(0.0, 1.0) : 1,
+      child: Transform.translate(
+        offset: Offset(reduced ? 0 : (1 - t) * slide, 0),
+        child: Inert(inert: !opened, child: child),
+      ),
+    );
+  }
 
   Widget _phone(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -279,12 +372,30 @@ class _AppShellState extends ConsumerState<AppShell> {
   );
 
   Widget _medium(BuildContext context, bool touch) {
+    return AnimatedBuilder(
+      animation: _float,
+      builder: (context, _) => _mediumFrame(context, touch, _float.value),
+    );
+  }
+
+  /// 中寬度的版面，浮動面板過場到 [t]。
+  Widget _mediumFrame(BuildContext context, bool touch, double t) {
     final media = MediaQuery.of(context);
     final top0 = touch ? media.viewPadding.top : 0.0;
     // 平板的細欄與浮動面板離底 20（讓出 home indicator）。
     final bottom = touch ? math.max(20.0, media.viewPadding.bottom) : 8.0;
     final side = NavRail.widthOf(touch: touch) + 8;
     final panelWidth = DetailPanel.widthOf(touch: touch, floating: true);
+    final opened = _floatingDetail;
+    // 播放膠囊：離細欄 24（left 104，平板 112），叫出面板時右端讓到面板
+    // 左邊 24，跟著面板的過場。
+    final transportRight = _panelLerp(
+      t,
+      24,
+      8 + panelWidth + 24,
+      opened: opened,
+    );
+    final panelShown = !_floatMotion.isDismissed;
     // 頂端 58 是拖動視窗的區域（macOS、Windows）；包在外面，裡面的按鈕先拿到點擊。
     return WindowDragArea(
       height: top0 + 58,
@@ -307,7 +418,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 top: top0 + (touch ? 6 : 8),
                 height: touch ? 52 : 50,
                 left: 24,
-                right: _detailButtonInset(touch),
+                right: _mediumTopBarInset(touch),
               ),
               dragStrip: top0 + 58,
             ),
@@ -319,51 +430,57 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: NavRail.widthOf(touch: touch),
             child: NavRail(current: _current, touch: touch, onSelect: _select),
           ),
-          // 播放膠囊：離細欄 24（left 104，平板 112），叫出面板時右端讓到
-          // 面板左邊 24。
           ..._transport(
             left: side + 24,
-            right: _floatingDetail ? 8 + panelWidth + 24 : 24,
+            right: transportRight,
             bottom: touch ? bottom : 16,
             touch: touch,
           ),
-          if (!_floatingDetail)
-            _detailButton(touch, top0, _openFloatingDetail)
-          else ...[
-            // 點外面關掉。
+          // Windows 的叫出鈕在視窗鈕那一列（[CaptionButtons]）。
+          if (!WindowChrome.captionButtons && !_floatMotion.isCompleted)
+            _detailButton(touch, top0, _openFloatingDetail, inert: opened),
+          // 點外面關掉。
+          if (opened)
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _floatingDetail = false),
+                onTap: _closeFloatingDetail,
               ),
             ),
+          if (panelShown)
             Positioned(
               // Windows 上從視窗鈕下方開始。
               top: top0 + WindowChrome.captionButtonsHeight + 8,
               right: 8,
               bottom: bottom,
               width: panelWidth,
-              child: CallbackShortcuts(
-                bindings: {
-                  const SingleActivator(LogicalKeyboardKey.escape): () =>
-                      setState(() => _floatingDetail = false),
-                },
-                child: Focus(
-                  focusNode: _floatingDetailFocus,
-                  // 只為了接 Esc；整塊面板對螢幕閱讀器不是一個可聚焦的東西。
-                  includeSemantics: false,
-                  child: DetailPanel(
-                    touch: touch,
-                    floating: true,
-                    onHide: () => setState(() => _floatingDetail = false),
+              // 從視窗右緣外滑進來。
+              child: _panelMotion(
+                opened: opened,
+                t: t,
+                slide: panelWidth + 8,
+                fade: true,
+                child: CallbackShortcuts(
+                  bindings: {
+                    const SingleActivator(LogicalKeyboardKey.escape):
+                        _closeFloatingDetail,
+                  },
+                  child: Focus(
+                    focusNode: _floatingDetailFocus,
+                    // 只為了接 Esc；整塊面板對螢幕閱讀器不是一個可聚焦的東西。
+                    includeSemantics: false,
+                    child: DetailPanel(
+                      touch: touch,
+                      floating: true,
+                      onHide: _closeFloatingDetail,
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
           _transportToast(
             left: side + 24,
-            right: _floatingDetail ? 8 + panelWidth + 24 : 24,
+            right: transportRight,
             bottom: touch ? bottom : 16,
             touch: touch,
           ),
@@ -373,6 +490,14 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _wide(BuildContext context, bool touch) {
+    return AnimatedBuilder(
+      animation: _dock,
+      builder: (context, _) => _wideFrame(context, touch, _dock.value),
+    );
+  }
+
+  /// 寬級的版面，常駐面板過場到 [t]：面板寬度跟著動，內容欄與播放膠囊一起讓。
+  Widget _wideFrame(BuildContext context, bool touch, double t) {
     final media = MediaQuery.of(context);
     final top0 = touch ? media.viewPadding.top : 0.0;
     final open = _detailVisible;
@@ -380,6 +505,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final transportBottom = touch
         ? math.max(20.0, media.viewPadding.bottom)
         : 16.0;
+    // 面板佔掉的寬度：內容欄的右緣、播放膠囊右端都從這裡算。
+    final taken = _panelLerp(t, 0, panelWidth, opened: open);
+    // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
+    final transportRight = taken + 24;
     // 頂端 58 是拖動視窗的區域（macOS、Windows）；包在外面，裡面的按鈕先拿到點擊。
     return WindowDragArea(
       height: top0 + 58,
@@ -388,7 +517,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           Positioned(
             left: SideBar.width + 8,
             top: 0,
-            right: open ? panelWidth : 0,
+            right: taken,
             bottom: 0,
             child: _content(
               EdgeInsets.fromLTRB(24, top0 + 66, 32, _transportInset),
@@ -396,7 +525,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                 top: top0 + (touch ? 6 : 8),
                 height: touch ? 52 : 50,
                 left: 24,
-                right: open ? 16 : _detailButtonInset(touch),
+                right: _panelLerp(
+                  t,
+                  _detailButtonInset(touch),
+                  16,
+                  opened: open,
+                ),
               ),
               dragStrip: top0 + 58,
               detailPanelOpen: open,
@@ -414,31 +548,37 @@ class _AppShellState extends ConsumerState<AppShell> {
               onSearch: _focusSearch,
             ),
           ),
-          // 播放膠囊：左右各離側欄與詳情面板 24（left 280、right 344）。
           ..._transport(
             left: SideBar.width + 8 + 24,
-            right: open ? panelWidth + 24 : 24,
+            right: transportRight,
             bottom: transportBottom,
             touch: touch,
           ),
-          if (open)
+          if (!_dockMotion.isCompleted)
+            _detailButton(touch, top0, () => _setDetail(true), inert: open),
+          if (!_dockMotion.isDismissed)
             Positioned(
               top: 0,
               right: 0,
               bottom: 0,
               width: panelWidth,
-              child: DetailPanel(
-                touch: touch,
-                // Windows 上標頭讓出視窗鈕那一列。
-                topInset: top0 + WindowChrome.captionButtonsHeight,
-                onHide: () => _setDetail(false),
+              // 面板跟著讓出的寬度從右緣推進來（寬度不變，內容不重排）。
+              child: _panelMotion(
+                opened: open,
+                t: t,
+                slide: panelWidth,
+                fade: false,
+                child: DetailPanel(
+                  touch: touch,
+                  // Windows 上標頭讓出視窗鈕那一列。
+                  topInset: top0 + WindowChrome.captionButtonsHeight,
+                  onHide: () => _setDetail(false),
+                ),
               ),
-            )
-          else
-            _detailButton(touch, top0, () => _setDetail(true)),
+            ),
           _transportToast(
             left: SideBar.width + 8 + 24,
-            right: open ? panelWidth + 24 : 24,
+            right: transportRight,
             bottom: transportBottom,
             touch: touch,
           ),
@@ -452,17 +592,27 @@ class _AppShellState extends ConsumerState<AppShell> {
   static double _captionInset(double fromRight) =>
       math.max(0, WindowChrome.captionButtonsWidth - fromRight);
 
-  /// 頂列右端叫出詳情面板的玻璃鈕（`sidebarR`）。
-  Widget _detailButton(bool touch, double top0, VoidCallback onTap) {
+  /// 頂列右端叫出詳情面板的玻璃鈕（`sidebarR`）。面板的過場中它還在原位：
+  /// 打開時被面板蓋過去，收起時面板滑開就露出來；面板打開時（含過場中，
+  /// [inert]）點不到、Tab 不到、螢幕閱讀器讀不到。
+  Widget _detailButton(
+    bool touch,
+    double top0,
+    VoidCallback onTap, {
+    required bool inert,
+  }) {
     return Positioned(
       // 頂列 `.wtop`：離頂 8（平板 6）、高 50（平板 52），右邊 8 再內縮 16。
       top: top0 + (touch ? 6 + (52 - 44) / 2 : 8 + (50 - 34) / 2),
       right: 8 + _captionInset(8) + 16,
-      child: GlassIconButton(
-        icon: FmpIcons.sidebarR,
-        tooltip: context.t.shell.detail.show,
-        onTap: onTap,
-        touch: touch,
+      child: Inert(
+        inert: inert,
+        child: GlassIconButton(
+          icon: FmpIcons.sidebarR,
+          tooltip: context.t.shell.detail.show,
+          onTap: onTap,
+          touch: touch,
+        ),
       ),
     );
   }

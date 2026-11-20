@@ -19,7 +19,9 @@ import 'package:fmp/ui/now_playing/mini_player.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/shell/app_shell.dart';
+import 'package:fmp/ui/shell/detail_panel.dart';
 import 'package:fmp/ui/shell/phone_dock.dart';
+import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:fmp/ui/shell/side_bar.dart';
@@ -560,6 +562,151 @@ void main() {
       );
       expect(find.text('1:36 / 4:12'), findsNothing);
       expect(find.text('晴天'), findsOneWidget);
+    });
+  });
+
+  /// 詳情面板叫出與收起（`docs/design/DESIGN.md` §3.4 的 morph）：中寬度從
+  /// 右邊滑入並淡入，寬版面板寬度跟著動、內容欄與播放膠囊一起讓；減少動態
+  /// 效果時只淡入淡出。
+  group('detail panel motion', () {
+    const medium = Size(960, 720);
+    const halfway = Duration(milliseconds: 260);
+
+    Finder motion() => find.byKey(const Key('detail-panel-motion'));
+    Rect panel(WidgetTester tester) => tester.getRect(find.byType(DetailPanel));
+    double opacity(WidgetTester tester) =>
+        tester.widget<Opacity>(motion()).opacity;
+    double capsuleRight(WidgetTester tester) =>
+        tester.getRect(find.byType(TransportBar)).right;
+
+    Future<void> desktopStart(WidgetTester tester, Size size) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await start(tester, size, initial: state(PlaybackStatus.paused));
+    }
+
+    Future<void> tapHalfway(WidgetTester tester, String tooltip) async {
+      await tester.tap(find.byTooltip(tooltip));
+      await tester.pump();
+      await tester.pump(halfway);
+    }
+
+    void reduceMotion(WidgetTester tester) {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+    }
+
+    // 中寬度浮動面板：右邊離視窗 8，寬 320；播放膠囊右端讓到面板左邊 24。
+    const openLeft = 960 - 8 - 320.0;
+    const capsuleOpen = openLeft - 24;
+    const capsuleClosed = 960 - 24.0;
+
+    testWidgets('medium: the floating panel slides in from the right and '
+        'fades in, the capsule giving way along with it; hiding reverses it', (
+      tester,
+    ) async {
+      await desktopStart(tester, medium);
+      await tapHalfway(tester, '顯示詳情面板');
+      expect(panel(tester).left, inExclusiveRange(openLeft, 960));
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      expect(
+        capsuleRight(tester),
+        inExclusiveRange(capsuleOpen, capsuleClosed),
+      );
+
+      await _settle(tester);
+      expect(panel(tester).left, openLeft);
+      expect(opacity(tester), 1);
+      expect(capsuleRight(tester), capsuleOpen);
+
+      await tapHalfway(tester, '收起面板');
+      expect(panel(tester).left, inExclusiveRange(openLeft, 960));
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      expect(
+        capsuleRight(tester),
+        inExclusiveRange(capsuleOpen, capsuleClosed),
+      );
+
+      await _settle(tester);
+      expect(find.byType(DetailPanel), findsNothing);
+      expect(capsuleRight(tester), capsuleClosed);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    // 寬版常駐面板：寬 320 貼右；內容欄（macOS 上包在拖動區的閘裡）右緣是
+    // 面板左緣，播放膠囊離它 24。
+    const wideOpenLeft = 1280 - 320.0;
+    double contentRight(WidgetTester tester) =>
+        tester.getRect(find.byType(ShellTopStripGate)).right;
+
+    testWidgets('wide: hiding the docked panel narrows it away while the '
+        'content and the capsule widen with it; showing reverses it', (
+      tester,
+    ) async {
+      await desktopStart(tester, desktop);
+      expect(panel(tester).left, wideOpenLeft);
+      expect(contentRight(tester), wideOpenLeft);
+      expect(capsuleRight(tester), wideOpenLeft - 24);
+
+      await tapHalfway(tester, '收起面板');
+      expect(panel(tester).left, inExclusiveRange(wideOpenLeft, 1280));
+      expect(contentRight(tester), panel(tester).left);
+      expect(
+        capsuleRight(tester),
+        inExclusiveRange(wideOpenLeft - 24, 1280 - 24),
+      );
+
+      await _settle(tester);
+      expect(find.byType(DetailPanel), findsNothing);
+      expect(contentRight(tester), 1280);
+      expect(capsuleRight(tester), 1280 - 24);
+
+      await tapHalfway(tester, '顯示詳情面板');
+      expect(panel(tester).left, inExclusiveRange(wideOpenLeft, 1280));
+      expect(contentRight(tester), panel(tester).left);
+
+      await _settle(tester);
+      expect(panel(tester).left, wideOpenLeft);
+      expect(contentRight(tester), wideOpenLeft);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('switching to settings, which starts collapsed, does not '
+        'animate the panel', (tester) async {
+      await desktopStart(tester, desktop);
+      await tester.tap(
+        find.descendant(of: find.byType(SideBar), matching: find.text('設定')),
+      );
+      await tester.pump();
+      await tester.pump(halfway);
+      expect(find.byType(DetailPanel), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('with reduced motion the panel only fades, in both layouts', (
+      tester,
+    ) async {
+      reduceMotion(tester);
+      await desktopStart(tester, medium);
+      await tapHalfway(tester, '顯示詳情面板');
+      expect(panel(tester).left, openLeft);
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      await _settle(tester);
+      await tapHalfway(tester, '收起面板');
+      expect(panel(tester).left, openLeft);
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      await _settle(tester);
+      expect(find.byType(DetailPanel), findsNothing);
+
+      await desktopStart(tester, desktop);
+      await tapHalfway(tester, '收起面板');
+      expect(panel(tester).left, wideOpenLeft);
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      await _settle(tester);
+      expect(find.byType(DetailPanel), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 

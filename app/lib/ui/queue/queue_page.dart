@@ -11,7 +11,9 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/ui/common/empty_state.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
+import 'package:fmp/ui/common/inert.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
 import 'package:fmp/ui/common/format.dart';
@@ -375,21 +377,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             padding: horizontal,
             sliver: SliverToBoxAdapter(child: head),
           ),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: insets.bottom),
-              child: layout.isTable
-                  ? Center(child: _empty(context))
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 120),
-                        child: _empty(context),
-                      ),
-                    ),
-            ),
-          ),
+          _empty(context),
+          SliverToBoxAdapter(child: SizedBox(height: insets.bottom)),
         ],
       );
     } else {
@@ -561,10 +550,35 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
   }
 
-  Widget _empty(BuildContext context) => QueueEmpty(
-    onSearch: () => context.push(Destination.search.path),
-    onLibrary: () => context.go(Destination.library.path),
-  );
+  /// 空佇列（`.qu-empty`）：圖示、說明、「去搜尋」與「打開音樂庫」。
+  Widget _empty(BuildContext context) {
+    final t = context.t.queue.empty;
+    return EmptyState(
+      icon: FmpIcons.queue,
+      iconStrokeWidth: 1.6,
+      title: t.title,
+      body: t.body,
+      action: SizedBox(
+        width: 220,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FmpButton(
+              label: t.search,
+              icon: FmpIcons.search,
+              variant: FmpButtonVariant.primary,
+              onTap: () => context.push(Destination.search.path),
+            ),
+            const SizedBox(height: 10),
+            FmpButton(
+              label: t.library,
+              onTap: () => context.go(Destination.library.path),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// 大標題（可點，捲回正在播的那首）與它下面的「n 首 · 時長」；表格版另有
   /// 快捷鍵提示與表頭。
@@ -692,41 +706,33 @@ class _QueuePageState extends ConsumerState<QueuePage> {
       children: [
         ValueListenableBuilder<bool>(
           valueListenable: _scrolled,
-          builder: (context, scrolled, _) => IgnorePointer(
-            ignoring: !scrolled,
-            child: ExcludeFocus(
-              excluding: !scrolled,
-              child: ExcludeSemantics(
-                excluding: !scrolled,
-                child: AnimatedOpacity(
-                  opacity: scrolled ? 1 : 0,
-                  duration: FmpMotion.mid,
-                  child: ShellButton(
-                    key: const Key('queue-small-title'),
-                    onTap: () => _toCurrent(animate: true),
-                    focusRadius: 8,
-                    // 點擊區至少 [FmpMetrics.minTarget] 見方（平板的字比 44 窄）。
-                    builder: (context, _) => ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: context.fmpMetrics.minTarget,
-                        minHeight: context.fmpMetrics.minTarget,
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: phone ? 6 : 0,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          context.t.shell.nav.queue,
-                          style: TextStyle(
-                            fontSize: phone ? 17 : 15,
-                            fontWeight: phone
-                                ? FontWeight.w600
-                                : FontWeight.w700,
-                            color: colors.label,
-                            letterSpacing: 0,
-                          ),
-                        ),
+          builder: (context, scrolled, _) => Inert(
+            inert: !scrolled,
+            child: AnimatedOpacity(
+              opacity: scrolled ? 1 : 0,
+              duration: FmpMotion.mid,
+              child: ShellButton(
+                key: const Key('queue-small-title'),
+                onTap: () => _toCurrent(animate: true),
+                focusRadius: 8,
+                // 點擊區至少 [FmpMetrics.minTarget] 見方（平板的字比 44 窄）。
+                builder: (context, _) => ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: context.fmpMetrics.minTarget,
+                    minHeight: context.fmpMetrics.minTarget,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: phone ? 6 : 0,
+                      vertical: 12,
+                    ),
+                    child: Text(
+                      context.t.shell.nav.queue,
+                      style: TextStyle(
+                        fontSize: phone ? 17 : 15,
+                        fontWeight: phone ? FontWeight.w600 : FontWeight.w700,
+                        color: colors.label,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
