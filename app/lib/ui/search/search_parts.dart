@@ -254,48 +254,6 @@ class SearchSkeletonRow extends StatelessWidget {
   }
 }
 
-/// 找不到（`.srh-empty`）：每個音源都成功、都沒有結果時。
-class SearchEmpty extends StatelessWidget {
-  const SearchEmpty({super.key, required this.query});
-
-  final String query;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final colors = context.fmpColors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 90, 40, 0),
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: colors.fill,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: FmpIcon(FmpIcons.search, size: 30, color: colors.label3),
-          ),
-          Text(
-            t.search.empty.title(query: query),
-            textAlign: TextAlign.center,
-            style: context.fmpText.title3.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            t.search.empty.body,
-            textAlign: TextAlign.center,
-            style: context.fmpText.sub.copyWith(color: colors.label2),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 結果最後的一行字（`.srh-foot`）：「已載入全部」。
 class SearchFoot extends StatelessWidget {
   const SearchFoot(this.text, {super.key, required this.table});

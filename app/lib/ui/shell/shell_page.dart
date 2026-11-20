@@ -74,24 +74,44 @@ class ShellInsets extends InheritedWidget {
       old.detailPanelOpen != detailPanelOpen;
 }
 
-/// 外殼裡的一頁：大標題，下面接著 [children]，整頁一起捲動。
+/// 外殼裡的一頁：大標題，下面接著 [children]，整頁一起捲動；沒有內容時
+/// [empty] 是接在大標題後面的空狀態（`EmptyState`，一個 sliver）。
 class ShellPage extends StatelessWidget {
-  const ShellPage({super.key, required this.title, this.children = const []});
+  const ShellPage({
+    super.key,
+    required this.title,
+    this.children = const [],
+    this.empty,
+  });
 
   final String title;
   final List<Widget> children;
+  final Widget? empty;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: ShellInsets.of(context),
-      children: [
-        Semantics(
-          header: true,
-          child: Text(title, style: context.fmpText.large),
+    final padding = ShellInsets.of(context);
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: padding.copyWith(bottom: 0),
+          sliver: SliverList.list(
+            children: [
+              Semantics(
+                header: true,
+                child: Text(title, style: context.fmpText.large),
+              ),
+              const SizedBox(height: FmpSpace.s4),
+              ...children,
+            ],
+          ),
         ),
-        const SizedBox(height: FmpSpace.s4),
-        ...children,
+        if (empty case final empty?)
+          SliverPadding(
+            padding: EdgeInsets.only(left: padding.left, right: padding.right),
+            sliver: empty,
+          ),
+        SliverToBoxAdapter(child: SizedBox(height: padding.bottom)),
       ],
     );
   }

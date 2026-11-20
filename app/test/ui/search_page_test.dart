@@ -20,7 +20,10 @@ import 'package:fmp/search/parts.dart';
 import 'package:fmp/search/search_history.dart';
 import 'package:fmp/ui/common/format.dart';
 import 'package:fmp/ui/search/search_page.dart';
+import 'package:fmp/platform/form_factor.dart';
+import 'package:fmp/ui/common/empty_state.dart';
 import 'package:fmp/ui/search/search_parts.dart';
+import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:fmp/ui/shell/phone_dock.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
@@ -430,6 +433,48 @@ void main() {
       expect(find.text('找不到「夜」'), findsOneWidget);
       expect(find.text('線上結果'), findsNothing);
     });
+
+    // 空狀態的圖示和音樂庫、佇列在同一個高度（`EmptyState.topOf`），取的是
+    // 搜尋頁放得下頁首與篩選列、再留 120 的位置。
+    for (final (name, size, mouse) in [
+      ('phone', phone, false),
+      ('tablet', tablet, false),
+      ('13-inch iPad', const Size(1376, 1032), false),
+      ('medium window', const Size(960, 720), true),
+      ('desktop', desktop, true),
+    ]) {
+      testWidgets('$name: nothing found puts the icon at the shared empty '
+          'state height, 120 clear of the filter bar', (tester) async {
+        await start(
+          tester,
+          size,
+          mouse: mouse,
+          state: SearchState(
+            query: '夜',
+            sources: [
+              SourceResults(
+                manifest: _songsManifest,
+                pages: const [[]],
+                isEnd: true,
+              ),
+            ],
+          ),
+        );
+        final box = find.byKey(EmptyState.iconKey);
+        final context = tester.element(box);
+        final icon = tester.getRect(box);
+        expect(
+          icon.top,
+          ShellInsets.of(context).top +
+              EmptyState.topOf(FormFactor.of(context)),
+        );
+        expect(
+          icon.top - tester.getRect(find.byType(SearchFilterBar)).bottom,
+          moreOrLessEquals(120, epsilon: 1),
+        );
+        done();
+      });
+    }
 
     testWidgets('skeleton rows hold the place while sources are loading', (
       tester,

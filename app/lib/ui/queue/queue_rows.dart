@@ -9,7 +9,6 @@ import 'package:fmp/plugins/plugins.dart';
 import 'package:fmp/ui/common/cover.dart';
 import 'package:fmp/ui/common/equalizer.dart';
 import 'package:fmp/ui/common/format.dart';
-import 'package:fmp/ui/common/fmp_button.dart';
 import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
@@ -663,78 +662,6 @@ class QueueFold extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// 空佇列（`.qu-empty`）：圖示、說明、「去搜尋」與「打開音樂庫」。
-class QueueEmpty extends StatelessWidget {
-  const QueueEmpty({
-    super.key,
-    required this.onSearch,
-    required this.onLibrary,
-  });
-
-  final VoidCallback onSearch;
-  final VoidCallback onLibrary;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.fmpColors;
-    final text = context.fmpText;
-    final t = context.t.queue.empty;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: colors.fill,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            alignment: Alignment.center,
-            child: FmpIcon(
-              FmpIcons.queue,
-              size: 34,
-              strokeWidth: 1.6,
-              color: colors.label2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            t.title,
-            textAlign: TextAlign.center,
-            style: text.title3.copyWith(color: colors.label),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            t.body,
-            textAlign: TextAlign.center,
-            style: text.sub.copyWith(color: colors.label2),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: 220,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FmpButton(
-                  label: t.search,
-                  icon: FmpIcons.search,
-                  variant: FmpButtonVariant.primary,
-                  onTap: onSearch,
-                ),
-                const SizedBox(height: 10),
-                FmpButton(label: t.library, onTap: onLibrary),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

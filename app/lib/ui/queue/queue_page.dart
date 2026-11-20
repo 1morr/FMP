@@ -11,6 +11,7 @@ import 'package:fmp/platform/form_factor.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/playback/playback.dart';
 import 'package:fmp/playback/queue_controller.dart';
+import 'package:fmp/ui/common/empty_state.dart';
 import 'package:fmp/ui/common/glass_menu.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/common/confirm_dialog.dart';
@@ -375,21 +376,8 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             padding: horizontal,
             sliver: SliverToBoxAdapter(child: head),
           ),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: insets.bottom),
-              child: layout.isTable
-                  ? Center(child: _empty(context))
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 120),
-                        child: _empty(context),
-                      ),
-                    ),
-            ),
-          ),
+          _empty(context),
+          SliverToBoxAdapter(child: SizedBox(height: insets.bottom)),
         ],
       );
     } else {
@@ -561,10 +549,35 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     }
   }
 
-  Widget _empty(BuildContext context) => QueueEmpty(
-    onSearch: () => context.push(Destination.search.path),
-    onLibrary: () => context.go(Destination.library.path),
-  );
+  /// 空佇列（`.qu-empty`）：圖示、說明、「去搜尋」與「打開音樂庫」。
+  Widget _empty(BuildContext context) {
+    final t = context.t.queue.empty;
+    return EmptyState(
+      icon: FmpIcons.queue,
+      iconStrokeWidth: 1.6,
+      title: t.title,
+      body: t.body,
+      action: SizedBox(
+        width: 220,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FmpButton(
+              label: t.search,
+              icon: FmpIcons.search,
+              variant: FmpButtonVariant.primary,
+              onTap: () => context.push(Destination.search.path),
+            ),
+            const SizedBox(height: 10),
+            FmpButton(
+              label: t.library,
+              onTap: () => context.go(Destination.library.path),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// 大標題（可點，捲回正在播的那首）與它下面的「n 首 · 時長」；表格版另有
   /// 快捷鍵提示與表頭。
