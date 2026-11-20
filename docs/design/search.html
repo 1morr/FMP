@@ -67,9 +67,10 @@
 .srh-hist .row .hi { color: var(--label-3); width: 22px; display: grid; place-items: center; }
 .srh-hist .row .t1 { font-size: 17px; }
 .srh-hist .row { --sep-inset: 50px; }
-.srh-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 90px 40px 0; gap: 8px; }
-.srh-empty .big { width: 64px; height: 64px; border-radius: 32px; background: var(--fill); display: grid; place-items: center; color: var(--label-3); margin-bottom: 8px; }
-.srh-empty .big svg.i { width: 30px; height: 30px; }
+/* 空狀態：圖示頂端離大標題頂端 215（DESIGN.md §6.5 空狀態），三頁同高 */
+.srh-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 124px 40px 0; gap: 8px; }
+.srh-empty .big { width: 72px; height: 72px; border-radius: 22px; background: var(--fill); display: grid; place-items: center; color: var(--label-2); margin-bottom: 10px; }
+.srh-empty .big svg.i { width: 34px; height: 34px; }
 .srh-empty .ty-title3 { font-weight: 700; }
 .srh-sk { display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 16px; }
 .srh-sk i { display: block; background: var(--fill); border-radius: 6px; }
