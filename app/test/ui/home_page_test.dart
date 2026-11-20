@@ -385,6 +385,14 @@ void main() {
     });
   });
 
+  /// 骨架排成兩欄：第 6 名在第 1 名右邊、同一行。
+  void expectSkeletonInTwoColumns(WidgetTester tester) {
+    Offset rank(int n) =>
+        tester.getTopLeft(find.widgetWithText(ChartSkeletonRow, '$n'));
+    expect(rank(6).dy, rank(1).dy);
+    expect(rank(6).dx, greaterThan(rank(1).dx));
+  }
+
   group('wide', () {
     final playing = Queue.empty.add([track('q1'), track('q2')]).jumpTo(0);
 
@@ -433,10 +441,7 @@ void main() {
       );
 
       expect(find.byType(ChartSkeletonRow), findsNWidgets(10));
-      Offset rank(int n) =>
-          tester.getTopLeft(find.widgetWithText(ChartSkeletonRow, '$n'));
-      expect(rank(6).dy, rank(1).dy);
-      expect(rank(6).dx, greaterThan(rank(1).dx));
+      expectSkeletonInTwoColumns(tester);
       expect(find.text('· Demo 排行榜'), findsOneWidget);
     });
 
@@ -446,10 +451,7 @@ void main() {
 
       expect(find.text('近期熱門'), findsOneWidget);
       expect(find.byType(ChartSkeletonRow), findsNWidgets(10));
-      Offset rank(int n) =>
-          tester.getTopLeft(find.widgetWithText(ChartSkeletonRow, '$n'));
-      expect(rank(6).dy, rank(1).dy);
-      expect(rank(6).dx, greaterThan(rank(1).dx));
+      expectSkeletonInTwoColumns(tester);
     });
 
     testMac('when the plugins finish loading with two sources the skeleton '

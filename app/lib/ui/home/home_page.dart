@@ -290,51 +290,52 @@ class _HomePageState extends ConsumerState<HomePage> {
     ],
   );
 
-  /// 寬版：插件還在載入時照一個音源的版面畫骨架（兩欄 10 列，M1 只有 B 站，
-  /// 啟動時不會先一欄再兩欄）；載完換成真的版面，內容替換照 `DESIGN.md`
-  /// 〈狀態變化對照〉交叉淡出（減少動態效果時照樣）。
-  Widget _wideCharts(ChartsState charts) {
-    final Widget content;
-    if (charts.starting) {
-      content = Column(
+  /// 寬版：一個音源時 10 名排成兩欄，兩個以上時每個音源一欄。插件還在載入、
+  /// 還不知道有幾個音源時照一個音源的版面畫骨架（兩欄 10 列），目前只有一個
+  /// 音源宣告 `charts`，啟動時不會先一欄再兩欄。載完是兩個以上的音源時，欄頂
+  /// 以下照 `DESIGN.md`〈狀態變化對照〉的內容替換交叉淡出（減少動態效果時
+  /// 照樣）；同一個版面裡骨架換成榜不在這裡淡。
+  Widget? _wideCharts(ChartsState charts) {
+    if (!charts.starting && charts.sources.isEmpty) return null;
+    final Widget body;
+    if (charts.neverLoadedOffline) {
+      body = _offlineError();
+    } else if (charts.starting) {
+      body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const ChartsHeading(desk: true),
-          const ChartColumnHeader.placeholder(),
-          _twoColumnSkeleton(),
-        ],
+        children: [const ChartColumnHeader.placeholder(), _twoColumnSkeleton()],
       );
-    } else if (charts.sources.isEmpty) {
-      content = const SizedBox(width: double.infinity);
+    } else if (charts.sources case [final source]) {
+      body = _singleSourceChart(source);
     } else {
-      content = _columns(charts);
+      body = _columns(charts);
     }
-    return AnimatedSwitcher(
-      duration: FmpMotion.mid,
-      switchInCurve: FmpMotion.outCurve,
-      switchOutCurve: FmpMotion.outCurve,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
-        children: [...previous, ?current],
-      ),
-      child: KeyedSubtree(
-        key: ValueKey(('wide charts', charts.starting)),
-        child: content,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ChartsHeading(desk: true),
+        AnimatedSwitcher(
+          duration: FmpMotion.mid,
+          switchInCurve: FmpMotion.outCurve,
+          switchOutCurve: FmpMotion.outCurve,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...previous, ?current],
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(('wide charts', charts.sources.length > 1)),
+            child: body,
+          ),
+        ),
+      ],
     );
   }
 
   /// 桌面密度的「從沒載入過、又沒有網路」：標題下一段合成的說明。
-  Widget _offlineBlock(Widget heading) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      heading,
-      ChartErrorBlock(
-        manifest: null,
-        error: null,
-        onRetry: () => unawaited(_charts.refresh()),
-      ),
-    ],
+  Widget _offlineError() => ChartErrorBlock(
+    manifest: null,
+    error: null,
+    onRetry: () => unawaited(_charts.refresh()),
   );
 
   /// 桌面密度一個音源沒有榜、抓失敗時的說明，「重試」只重抓它。
@@ -477,7 +478,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       desk: true,
       padding: EdgeInsets.fromLTRB(4, 14, 4, 0),
     );
-    if (charts.neverLoadedOffline) return _offlineBlock(heading);
+    if (charts.neverLoadedOffline) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [heading, _offlineError()],
+      );
+    }
     final view = ChartView.of(source);
     final body = _twoColumnChart(source, view);
     return Column(
@@ -554,36 +560,34 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 桌面：兩個以上的音源時每個音源一欄，每欄先 5 名，一顆「顯示第 6–10 名」
-  /// 所有欄一起展開；只有一個音源時 10 名排成兩欄、不用展開（2026-11-20
-  /// 擁有者定，票 18b）。欄夠寬時列尾有時長。
+  /// 桌面只有一個音源：欄頂（音源符號＋榜名）橫跨整寬，10 名排成兩欄、不用
+  /// 展開（2026-11-20 擁有者定）；有榜但這次更新不了時欄頂下寫明多久以前。
+  Widget _singleSourceChart(SourceChart source) {
+    final view = ChartView.of(source);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ChartColumnHeader(manifest: source.manifest),
+        if (view is ChartReady && view.error != null)
+          ChartCaption(
+            source: source,
+            desk: true,
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
+          ),
+        _twoColumnChart(source, view),
+      ],
+    );
+  }
+
+  /// 桌面兩個以上的音源：每個音源一欄，每欄先 5 名，一顆「顯示第 6–10 名」
+  /// 所有欄一起展開。欄夠寬時列尾有時長。
   Widget _columns(ChartsState charts) {
-    const heading = ChartsHeading(desk: true);
-    if (charts.neverLoadedOffline) return _offlineBlock(heading);
-    if (charts.sources case [final source]) {
-      final view = ChartView.of(source);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          heading,
-          ChartColumnHeader(manifest: source.manifest),
-          if (view is ChartReady && view.error != null)
-            ChartCaption(
-              source: source,
-              desk: true,
-              padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
-            ),
-          _twoColumnChart(source, view),
-        ],
-      );
-    }
     final canExpand = charts.sources.any(
       (s) => (s.chart?.tracks.length ?? 0) > chartPreview,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        heading,
         LayoutBuilder(
           builder: (context, constraints) {
             final count = charts.sources.length;
