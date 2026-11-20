@@ -105,7 +105,12 @@ class _TransportBarState extends ConsumerState<TransportBar> {
       builder: (context, _) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Cover(url: track.coverUrl, size: touch ? 48 : 44, radius: 10),
+          Cover(
+            url: track.coverUrl,
+            size: touch ? 48 : 44,
+            radius: 10,
+            crossFade: true,
+          ),
           const SizedBox(width: 10),
           Flexible(
             child: Column(

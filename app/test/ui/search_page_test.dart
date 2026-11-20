@@ -30,8 +30,11 @@ import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/a11y.dart';
+import '../support/motion.dart';
 
 import '../support/shell.dart';
+
+import 'package:fmp/app/theme/theme.dart';
 
 /// 照稿的搜尋頁（`docs/design/search.html`）：搜尋紀錄、結果、單一音源出錯、
 /// 找不到、排序、⋮ 選單、多選與桌面表格。搜尋的狀態與佇列換成假的，畫面
@@ -490,6 +493,39 @@ void main() {
       expect(find.byType(SearchSkeletonRow), findsNWidgets(5));
     });
 
+    for (final reduced in [false, true]) {
+      testWidgets('the skeleton cross-fades into the results when they '
+          'arrive${reduced ? ', also with reduced motion' : ''}', (
+        tester,
+      ) async {
+        if (reduced) reduceMotion(tester);
+        await start(
+          tester,
+          phone,
+          state: SearchState(
+            query: '夜',
+            sources: [SourceResults(manifest: _songsManifest, loading: true)],
+          ),
+        );
+        search.set(_results());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 140));
+        double opacityOf(Finder finder) => tester
+            .widgetList<FadeTransition>(
+              find.ancestor(of: finder, matching: find.byType(FadeTransition)),
+            )
+            .fold(1.0, (v, f) => v * f.opacity.value);
+        expect(opacityOf(find.text('夜行列車')), inExclusiveRange(0, 1));
+        expect(
+          opacityOf(find.byType(SearchSkeletonRow).first),
+          inExclusiveRange(0, 1),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(SearchSkeletonRow), findsNothing);
+        expect(opacityOf(find.text('夜行列車')), 1);
+      });
+    }
+
     testWidgets('scrolling to the end loads the next page', (tester) async {
       await start(
         tester,
@@ -606,6 +642,37 @@ void main() {
       expect(links.opened, [Uri.parse('https://example.com/1')]);
     });
 
+    testWidgets('the track sheet rises on the morph curve over 520ms; with '
+        'reduced motion it only fades, over its full duration', (tester) async {
+      await start(tester, phone, state: _results());
+      await tester.tap(find.byTooltip('更多').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 260));
+      final slide = tester
+          .widget<SlideTransition>(find.byKey(const Key('sheet-slide')))
+          .position
+          .value;
+      expect(
+        slide.dy,
+        moreOrLessEquals(1 - FmpMotion.morphCurve.transform(.5)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(195, 100));
+      await tester.pumpAndSettle();
+
+      reduceMotion(tester);
+      await tester.pump();
+      await tester.tap(find.byTooltip('更多').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const Key('sheet-slide')), findsNothing);
+      final fade = tester.widget<FadeTransition>(
+        find.byKey(const Key('sheet-fade')),
+      );
+      expect(fade.opacity.value, inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('a track without a link, like one restored from the saved '
         'queue, has no copy link or open in browser', (tester) async {
       await start(tester, phone, state: _results());
@@ -643,6 +710,78 @@ void main() {
       expect(find.text('加入佇列'), findsOneWidget);
       expect(find.text('臨時播放，不動佇列'), findsNothing);
     });
+  });
+
+  /// 多選的動作列從底部滑入、手機的 dock 反向往下離開（`DESIGN.md`〈狀態
+  /// 變化對照〉的小元件）；減少動態效果時只淡入淡出。
+  group('selection bar motion', () {
+    const halfway = Duration(milliseconds: 100);
+
+    double opacityOf(WidgetTester tester, Finder finder) => tester
+        .widgetList<FadeTransition>(
+          find.ancestor(of: finder, matching: find.byType(FadeTransition)),
+        )
+        .fold(1.0, (v, f) => v * f.opacity.value);
+
+    for (final reduced in [false, true]) {
+      final suffix = reduced ? ' (reduced motion: fades only)' : '';
+      testWidgets('phone: the action bar rises in while the dock sinks away'
+          '$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone, state: _results());
+        final dockTop = tester.getRect(find.byType(PhoneDock)).top;
+        final press = await tester.startGesture(
+          tester.getCenter(find.text('晴天')),
+        );
+        // 長按到認得為止，之後才開始算動畫的時間。
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 1));
+        await press.up();
+        await tester.pump();
+        final barSettledTop = () async {
+          await tester.pump(halfway);
+          final bar = find.byType(PhoneSelectionBar);
+          final top = tester.getRect(bar).top;
+          expect(opacityOf(tester, bar), inExclusiveRange(0, 1));
+          expect(
+            opacityOf(tester, find.byType(PhoneDock)),
+            inExclusiveRange(0, 1),
+          );
+          final dockDrop = tester.getRect(find.byType(PhoneDock)).top - dockTop;
+          if (reduced) {
+            expect(dockDrop, 0);
+          } else {
+            expect(dockDrop, inExclusiveRange(0, 20));
+          }
+          return top;
+        }();
+        final midTop = await barSettledTop;
+        await tester.pumpAndSettle();
+        expect(find.byType(PhoneDock), findsNothing);
+        final rise =
+            midTop - tester.getRect(find.byType(PhoneSelectionBar)).top;
+        expect(rise, reduced ? 0 : inExclusiveRange(0, 20));
+      });
+
+      testWidgets('desktop: the action bar rises in when a second track is '
+          'picked$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, desktop, state: _results(), mouse: true);
+        await tester.tap(find.text('夜行列車'), kind: PointerDeviceKind.mouse);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.tap(find.text('晴天'), kind: PointerDeviceKind.mouse);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        await tester.pump(halfway);
+        final bar = find.byType(SelectionActionBar);
+        expect(opacityOf(tester, bar), inExclusiveRange(0, 1));
+        final midTop = tester.getRect(bar).top;
+        await tester.pump(kDoubleTapTimeout);
+        await tester.pumpAndSettle();
+        final rise = midTop - tester.getRect(bar).top;
+        expect(rise, reduced ? 0 : inExclusiveRange(0, 20));
+        done();
+      });
+    }
   });
 
   testWidgets('on a phone a long press starts picking several tracks, which '
@@ -685,6 +824,49 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('深夜電台 Vol.2'), findsNothing);
     });
+
+    for (final reduced in [false, true]) {
+      testWidgets(
+        reduced
+            ? 'with reduced motion the parts only fade in, over the full 280ms'
+            : 'the parts grow open on the morph curve, like the home charts',
+        (tester) async {
+          if (reduced) reduceMotion(tester);
+          await start(tester, phone, state: _partsResults());
+          await tester.tap(find.byTooltip('展開分 P'));
+          // 列分 P 的 future 完成，再到展開的一半。
+          await tester.pump();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 120));
+          final rows = find.byKey(
+            const Key('expanding-rows-size'),
+            skipOffstage: false,
+          );
+          final part = find.text('深夜電台 Vol.2');
+          if (reduced) {
+            expect(rows, findsNothing);
+            final opacity = tester
+                .widgetList<FadeTransition>(
+                  find.ancestor(
+                    of: part,
+                    matching: find.byType(FadeTransition),
+                  ),
+                )
+                .fold(1.0, (v, f) => v * f.opacity.value);
+            expect(opacity, inExclusiveRange(0, 1));
+          } else {
+            final height = tester.getSize(rows.first).height;
+            await tester.pumpAndSettle();
+            expect(
+              height,
+              inExclusiveRange(0, tester.getSize(rows.first).height),
+            );
+          }
+          await tester.pumpAndSettle();
+          expect(part, findsOneWidget);
+        },
+      );
+    }
 
     testWidgets('tapping the video plays the whole group; tapping a part '
         'plays only that part', (tester) async {
@@ -1034,6 +1216,8 @@ class _FakeSearch extends Search {
 
   @override
   void retry(String pluginId) => calls.add('retry $pluginId');
+
+  void set(SearchState next) => state = next;
 }
 
 class _FakeQueue extends QueueController {

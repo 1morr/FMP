@@ -11,6 +11,7 @@ import 'package:fmp/ui/search/search_field.dart';
 import 'package:fmp/ui/shell/destination.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 手機 dock 的高度（`docs/design/DESIGN.md`〈手機〉）：迷你播放器、導覽膠囊與
 /// 搜尋圓鈕都在這 160 裡，底部漸層淡出底色。
@@ -42,6 +43,9 @@ class PhoneDock extends StatefulWidget {
   State<PhoneDock> createState() => _PhoneDockState();
 }
 
+/// 迷你播放器、導覽膠囊與搜尋離螢幕左右的距離。
+const _side = 14.0;
+
 class _PhoneDockState extends State<PhoneDock> {
   bool _fieldFocused = false;
 
@@ -55,7 +59,6 @@ class _PhoneDockState extends State<PhoneDock> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final width = media.size.width;
     final keyboard = media.viewInsets.bottom;
     final searching = widget.current == Destination.search;
     final typing = searching && _fieldFocused && keyboard > 0;
@@ -64,12 +67,7 @@ class _PhoneDockState extends State<PhoneDock> {
         ? keyboard
         : math.max(0.0, media.viewPadding.bottom - 34);
     final colors = context.fmpColors;
-    final t = context.t;
-
-    const top = 88.0;
-    const side = 14.0;
-    const orb = 62.0;
-    final wideWidth = width - 100;
+    final reduced = FmpMotion.reduced(context);
 
     return Stack(
       children: [
@@ -80,9 +78,9 @@ class _PhoneDockState extends State<PhoneDock> {
           bottom: 0,
           height: phoneDockHeight + lift,
           child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: FmpMotion.mid,
+            child: PreservedFade(
               opacity: typing ? 0 : 1,
+              duration: FmpMotion.mid,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -108,126 +106,145 @@ class _PhoneDockState extends State<PhoneDock> {
             children: [
               // 迷你播放器：362×56，left 14、top 24（390 寬時）。
               Positioned(
-                left: side,
-                right: side,
+                left: _side,
+                right: _side,
                 top: 24,
                 height: 56,
                 child: IgnorePointer(
                   ignoring: typing,
-                  child: AnimatedOpacity(
-                    duration: FmpMotion.mid,
+                  child: PreservedFade(
                     opacity: typing ? 0 : 1,
+                    duration: FmpMotion.mid,
                     child: const _MiniSlot(),
                   ),
                 ),
               ),
-              // 左：導覽膠囊 ↔ 回到分頁的圓鈕。
-              AnimatedPositioned(
-                duration: FmpMotion.morph,
-                curve: FmpMotion.morphCurve,
-                left: side,
-                top: top,
-                width: searching ? orb : wideWidth,
-                height: orb,
-                child: AnimatedOpacity(
-                  duration: FmpMotion.mid,
-                  opacity: typing ? 0 : 1,
-                  child: IgnorePointer(
-                    ignoring: typing,
-                    // 圓鈕包在按鈕裡，焦點外框才畫在玻璃外面、不被裁掉。
-                    child: searching
-                        ? _BackOrb(
-                            tab: widget.lastTab,
-                            label: t.shell.nav.backTo(
-                              tab: widget.lastTab.label(t),
-                            ),
-                            onTap: widget.onLeaveSearch,
-                          )
-                        : Glass(
-                            child: _FixedWidth(
-                              width: wideWidth,
-                              child: _TabBar(
-                                current: widget.current,
-                                onTab: widget.onTab,
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-              // 右：搜尋圓鈕 ↔ 搜尋欄。
-              AnimatedPositioned(
-                duration: FmpMotion.morph,
-                curve: FmpMotion.morphCurve,
-                left: typing
-                    ? side
-                    : searching
-                    ? side + orb + 10
-                    : width - side - orb,
-                top: typing ? phoneDockHeight - 76 + 8 : top,
-                width: typing
-                    ? width - side * 2
-                    : searching
-                    ? wideWidth
-                    : orb,
-                height: typing ? 56 : orb,
-                child: searching
-                    ? Glass(
-                        child: _FixedWidth(
-                          width: typing ? width - side * 2 : wideWidth,
-                          child: SearchField(
-                            placement: SearchFieldPlacement.dock,
-                            onFocusChanged: (focused) =>
-                                setState(() => _fieldFocused = focused),
-                          ),
-                        ),
-                      )
-                    : ShellButton(
-                        onTap: widget.onSearch,
-                        tooltip: t.shell.nav.search,
-                        label: t.shell.nav.search,
-                        focusRadius: 999,
-                        builder: (context, _) => const Glass(
-                          child: Center(
-                            child: FmpIcon(
-                              FmpIcons.search,
-                              size: 25,
-                              strokeWidth: 1.7,
-                            ),
-                          ),
-                        ),
+              // 減少動態效果：進出搜尋時導覽不變形，兩種樣子交叉淡出。
+              if (reduced)
+                Positioned.fill(
+                  child: PreservedSwitcher(
+                    fit: StackFit.expand,
+                    child: Stack(
+                      key: ValueKey(searching),
+                      children: _slots(
+                        context,
+                        typing: typing,
+                        move: Duration.zero,
                       ),
-              ),
+                    ),
+                  ),
+                )
+              else
+                ..._slots(context, typing: typing, move: FmpMotion.morph),
             ],
           ),
         ),
       ],
     );
   }
+
+  /// 左邊（導覽膠囊 ↔ 回到分頁的圓鈕）與右邊（搜尋圓鈕 ↔ 搜尋欄）；位置與
+  /// 大小變了用 [move] 動過去。
+  List<Widget> _slots(
+    BuildContext context, {
+    required bool typing,
+    required Duration move,
+  }) {
+    final media = MediaQuery.of(context);
+    final width = media.size.width;
+    final searching = widget.current == Destination.search;
+    final t = context.t;
+    const top = 88.0;
+    const side = _side;
+    const orb = 62.0;
+    final wideWidth = width - 100;
+    return [
+      // 左：導覽膠囊 ↔ 回到分頁的圓鈕。
+      AnimatedPositioned(
+        duration: move,
+        curve: FmpMotion.morphCurve,
+        left: side,
+        top: top,
+        width: searching ? orb : wideWidth,
+        height: orb,
+        child: PreservedFade(
+          opacity: typing ? 0 : 1,
+          duration: FmpMotion.mid,
+          child: IgnorePointer(
+            ignoring: typing,
+            // 圓鈕包在按鈕裡，焦點外框才畫在玻璃外面、不被裁掉。
+            child: searching
+                ? _BackOrb(
+                    tab: widget.lastTab,
+                    label: t.shell.nav.backTo(tab: widget.lastTab.label(t)),
+                    onTap: widget.onLeaveSearch,
+                  )
+                : Glass(
+                    child: _FixedWidth(
+                      width: wideWidth,
+                      child: _TabBar(
+                        current: widget.current,
+                        onTab: widget.onTab,
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ),
+      // 右：搜尋圓鈕 ↔ 搜尋欄。
+      AnimatedPositioned(
+        duration: move,
+        curve: FmpMotion.morphCurve,
+        left: typing
+            ? side
+            : searching
+            ? side + orb + 10
+            : width - side - orb,
+        top: typing ? phoneDockHeight - 76 + 8 : top,
+        width: typing
+            ? width - side * 2
+            : searching
+            ? wideWidth
+            : orb,
+        height: typing ? 56 : orb,
+        child: searching
+            ? Glass(
+                child: _FixedWidth(
+                  width: typing ? width - side * 2 : wideWidth,
+                  child: SearchField(
+                    placement: SearchFieldPlacement.dock,
+                    onFocusChanged: (focused) =>
+                        setState(() => _fieldFocused = focused),
+                  ),
+                ),
+              )
+            : ShellButton(
+                onTap: widget.onSearch,
+                tooltip: t.shell.nav.search,
+                label: t.shell.nav.search,
+                focusRadius: 999,
+                builder: (context, _) => const Glass(
+                  child: Center(
+                    child: FmpIcon(FmpIcons.search, size: 25, strokeWidth: 1.7),
+                  ),
+                ),
+              ),
+      ),
+    ];
+  }
 }
 
 /// 有目前曲目時的迷你播放器；出現與消失時淡入淡出、往下滑 20
-/// （`.dock.no-mini .mini`）。
+/// （`.dock.no-mini .mini`），減少動態效果時只淡入淡出。
 class _MiniSlot extends ConsumerWidget {
   const _MiniSlot();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(playbackProvider);
-    return AnimatedSwitcher(
-      duration: FmpMotion.mid,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween(
-            begin: const Offset(0, 20 / 56),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      ),
+    return AppearSwitcher(
       child: state == null
-          ? const SizedBox.shrink()
+          ? null
           : MiniPlayer(key: const ValueKey('mini'), state: state),
     );
   }
@@ -296,6 +313,7 @@ class _TabBarState extends State<_TabBar> {
     final t = context.t;
     final colors = context.fmpColors;
     final selected = Destination.tabs.indexOf(widget.current);
+    final reduced = FmpMotion.reduced(context);
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -306,7 +324,20 @@ class _TabBarState extends State<_TabBar> {
           final tabWidth = (box.maxWidth - pad * 2) / Destination.tabs.length;
           return Stack(
             children: [
-              if (selected >= 0)
+              // 減少動態效果：膠囊不滑、不放大，舊的在原地淡出、新的淡入。
+              if (reduced)
+                for (final (i, tab) in Destination.tabs.indexed)
+                  Positioned(
+                    left: pad + tabWidth * i,
+                    top: 4,
+                    width: tabWidth,
+                    height: 54,
+                    child: PreservedFade(
+                      opacity: i == selected ? 1 : 0,
+                      child: _Indicator(key: Key('tab-indicator-${tab.name}')),
+                    ),
+                  )
+              else if (selected >= 0)
                 AnimatedPositioned(
                   duration: FmpMotion.spring,
                   curve: FmpMotion.springCurve,
@@ -327,7 +358,7 @@ class _TabBarState extends State<_TabBar> {
                       ),
                       child: child,
                     ),
-                    child: const _Indicator(),
+                    child: const _Indicator(key: Key('tab-indicator')),
                   ),
                 ),
               Padding(
@@ -341,12 +372,17 @@ class _TabBarState extends State<_TabBar> {
                           selected: tab == widget.current,
                           // 同選取膠囊（`.tab-ind`）的圓角。
                           focusRadius: 27,
-                          builder: (context, _) => _Tab(
-                            icon: tab.icon,
-                            label: tab.label(t),
-                            color: tab == widget.current
+                          // 選取的字色 out 280（`.tab` 的 color 過渡）。
+                          builder: (context, _) => PreservedTweenBuilder<Color>(
+                            value: tab == widget.current
                                 ? colors.accent
                                 : colors.glassInk,
+                            lerp: (a, b, t) => Color.lerp(a, b, t)!,
+                            builder: (context, color, _) => _Tab(
+                              icon: tab.icon,
+                              label: tab.label(t),
+                              color: color,
+                            ),
                           ),
                         ),
                       ),
@@ -362,7 +398,7 @@ class _TabBarState extends State<_TabBar> {
 }
 
 class _Indicator extends StatelessWidget {
-  const _Indicator();
+  const _Indicator({super.key});
 
   @override
   Widget build(BuildContext context) => DecoratedBox(

@@ -69,7 +69,7 @@ sealed class QueueItem {
   /// 這一項的高；臨時播放卡片的高依寬度量，由畫面給 [cardExtent]。
   double extent(QueueLayout layout, {double cardExtent = 0}) => switch (this) {
     PlayedCaption() => layout.capExtent,
-    TrackItem() => layout.rowExtent,
+    TrackItem() || RemovedTrackItem() => layout.rowExtent,
     UpNextFold() => layout.foldExtent,
     TemporaryCardItem() => cardExtent,
   };
@@ -113,4 +113,27 @@ class UpNextFold extends QueueItem {
 /// 臨時播放的卡片，插在要回去的那首上方；不能拖。
 class TemporaryCardItem extends QueueItem {
   const TemporaryCardItem();
+}
+
+/// 剛從佇列拿掉的那首在畫面上的殘影：收起高度並淡出的途中留在原本的位置，
+/// 不在佇列裡（[QueueItem.entryIndexAfterReorder] 不算它）、點不到、螢幕
+/// 閱讀器讀不到。[index] 是它被拿掉前在佇列裡的位置；[before]、[after] 是
+/// 它原本緊接在前、在後的那首（[QueueEntry.id]），用來插回原位（「已播放」
+/// 標題與摺線可能跟著變，不能記第幾項）。
+class RemovedTrackItem extends QueueItem {
+  const RemovedTrackItem(
+    this.index,
+    this.entry, {
+    required this.dimmed,
+    this.before,
+    this.after,
+  });
+
+  final int index;
+  final QueueEntry entry;
+
+  /// 拿掉前是播過的（變淡）。
+  final bool dimmed;
+  final int? before;
+  final int? after;
 }

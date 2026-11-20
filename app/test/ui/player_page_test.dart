@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -22,6 +24,10 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/player_queue.dart';
 import 'package:fmp/ui/queue/queue_rows.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/now_playing/transport_bar.dart';
+import 'package:fmp/ui/shell/detail_panel.dart';
+
+import '../support/motion.dart' as motion;
 
 /// 全螢幕播放頁（票 16，`docs/design/player.html`）：從迷你播放器或播放膠囊
 /// 打開，進度、控制、播放來源、佇列、⋮、安全區、紅綠燈與無障礙。播放與佇列
@@ -105,6 +111,13 @@ void main() {
     }
   }
 
+  /// [finder] 外面所有淡入淡出相乘的透明度。
+  double opacityAbove(WidgetTester tester, Finder finder) => tester
+      .widgetList<FadeTransition>(
+        find.ancestor(of: finder, matching: find.byType(FadeTransition)),
+      )
+      .fold(1.0, (value, fade) => value * fade.opacity.value);
+
   /// 在 [platform]、[size] 的視窗裡打開 App（首頁、有目前曲目），跑 [body]。
   /// 平台要在測試結束前設回去，不然框架的檢查會擋。
   void playerTest(
@@ -133,11 +146,7 @@ void main() {
           );
         addTearDown(tester.view.reset);
         if (reduceMotion) {
-          tester.platformDispatcher.accessibilityFeaturesTestValue =
-              const FakeAccessibilityFeatures(disableAnimations: true);
-          addTearDown(
-            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-          );
+          motion.reduceMotion(tester);
         }
         windowCalls = [];
         const channel = MethodChannel('fmp/window');
@@ -438,6 +447,151 @@ void main() {
     );
   });
 
+  /// 頁面點點（`DESIGN.md`〈狀態變化對照〉的選取）：點一個點換頁時寬度用
+  /// spring，滑動時跟著位置走；減少動態效果時 out 280、不彈跳。
+  group('page dots', () {
+    double width(WidgetTester tester, String pane) => tester
+        .getSize(
+          find
+              .descendant(
+                of: find.byKey(Key('player-dot-$pane')),
+                matching: find.byType(Container),
+              )
+              .last,
+        )
+        .width;
+
+    /// 點 [pane] 的點後每一幀那個點的寬度，到 [total] 為止。
+    Future<List<double>> widthsAfterTap(
+      WidgetTester tester,
+      String pane, {
+      Duration total = const Duration(milliseconds: 600),
+    }) async {
+      await tester.tap(find.byKey(Key('player-dot-$pane')));
+      await tester.pump();
+      final widths = <double>[];
+      for (var t = 0; t < total.inMilliseconds; t += 20) {
+        await tester.pump(const Duration(milliseconds: 20));
+        widths.add(width(tester, pane));
+      }
+      return widths;
+    }
+
+    playerTest('tapping a dot stretches it on the spring, past 20 and back', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+      final widths = await widthsAfterTap(tester, 'queue');
+      expect(widths.reduce(math.max), greaterThan(20.1));
+      expect(widths.last, 20);
+      expect(width(tester, 'cover'), 7);
+    });
+
+    playerTest('swiping, the dots follow the finger between the pages', (
+      tester,
+    ) async {
+      await openPlayer(tester);
+      final gesture = await tester.startGesture(const Offset(100, 300));
+      await gesture.moveBy(const Offset(40, 0));
+      await gesture.moveBy(const Offset(155, 0));
+      await tester.pump();
+      // 拉了大約半頁：兩個點都在 7 和 20 之間。
+      expect(width(tester, 'queue'), inExclusiveRange(9, 18));
+      expect(width(tester, 'cover'), inExclusiveRange(9, 18));
+      await gesture.up();
+      await settle(tester);
+    });
+
+    playerTest(
+      'with reduced motion tapping a dot widens it over out 280 without '
+      'overshooting',
+      (tester) async {
+        await openPlayer(tester);
+        final widths = await widthsAfterTap(tester, 'queue');
+        expect(widths.first, inExclusiveRange(7, 20));
+        expect(widths.reduce(math.max), 20);
+        expect(widths[(280 ~/ 20) - 1], moreOrLessEquals(20, epsilon: .01));
+      },
+      reduceMotion: true,
+    );
+  });
+
+  /// 換歌時封面交叉淡出（`DESIGN.md`〈狀態變化對照〉的內容替換）：迷你播放
+  /// 器、播放膠囊、播放頁、詳情面板；減少動態效果時照樣。
+  group('cover cross-fade', () {
+    /// [scope] 裡的封面在換歌途中：舊的與新的同時在，舊的半透明。
+    void expectCrossFading(WidgetTester tester, Finder scope) {
+      final fades = find.descendant(
+        of: find.descendant(
+          of: scope,
+          matching: find.byKey(const Key('cover-cross-fade')),
+        ),
+        matching: find.byType(FadeTransition),
+      );
+      final values = [
+        for (final f in tester.widgetList<FadeTransition>(fades))
+          f.opacity.value,
+      ];
+      expect(
+        values.where((v) => v > 0 && v < 1),
+        isNotEmpty,
+        reason: '$values',
+      );
+      expect(
+        find
+            .descendant(of: scope, matching: find.byType(Image))
+            .evaluate()
+            .length,
+        greaterThanOrEqualTo(2),
+      );
+    }
+
+    /// 換到 [n]：新封面解碼好（真的非同步）才開始交叉淡出，再到一半。
+    Future<void> changeSongHalfway(WidgetTester tester, [int n = 7]) async {
+      playback.set(playing(song(n, covers: true)));
+      await tester.pump();
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 140));
+    }
+
+    for (final reduced in [false, true]) {
+      final suffix = reduced ? ' (reduced motion)' : '';
+      playerTest(
+        'phone: the mini player and the player cover cross-fade$suffix',
+        (tester) async {
+          await changeSongHalfway(tester);
+          expectCrossFading(tester, find.byKey(const Key('mini-player')));
+          await settle(tester);
+          await openPlayer(tester);
+          await changeSongHalfway(tester, 8);
+          expectCrossFading(tester, find.byType(PlayerCover));
+          await settle(tester);
+        },
+        initial: playing(song(6, covers: true)),
+        reduceMotion: reduced,
+      );
+
+      playerTest(
+        'desktop: the capsule and the detail panel covers cross-fade$suffix',
+        (tester) async {
+          await changeSongHalfway(tester);
+          expectCrossFading(tester, find.byType(TransportBar));
+          expectCrossFading(tester, find.byType(DetailPanel));
+          await settle(tester);
+        },
+        size: desktop,
+        platform: TargetPlatform.macOS,
+        initial: playing(song(6, covers: true)),
+        reduceMotion: reduced,
+      );
+    }
+  });
+
   group('more menu', () {
     for (final (name, size, platform) in [
       ('phone', phone, TargetPlatform.iOS),
@@ -712,11 +866,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         expect(
-          find.ancestor(
-            of: find.byType(PlayerPage),
-            matching: find.byType(FadeTransition),
-          ),
-          findsWidgets,
+          opacityAbove(tester, find.byType(PlayerPage)),
+          inExclusiveRange(0, 1),
         );
         expect(
           find.ancestor(
@@ -731,10 +882,17 @@ void main() {
         expect(find.byType(PlayerCover), findsOneWidget);
 
         await tester.tap(find.byKey(const Key('player-dot-queue')));
+        await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
-        // 淡入淡出到一半：兩個畫面同時在。
-        expect(find.byType(PlayerCover), findsOneWidget);
-        expect(find.byType(PlayerQueue), findsOneWidget);
+        // 淡入淡出到一半：兩個畫面同時在、都半透明。
+        expect(
+          opacityAbove(tester, find.byType(PlayerCover)),
+          inExclusiveRange(0, 1),
+        );
+        expect(
+          opacityAbove(tester, find.byType(PlayerQueue)),
+          inExclusiveRange(0, 1),
+        );
         await settle(tester);
         expect(find.byType(PlayerCover), findsNothing);
         expect(find.byType(PlayerQueue), findsOneWidget);
@@ -773,6 +931,8 @@ class _FakePlayback extends Playback {
   PlaybackState? build() => _initial;
 
   void clear() => state = null;
+
+  void set(PlaybackState next) => state = next;
 
   @override
   Future<void> playPause() async => playPauses++;

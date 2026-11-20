@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fmp/main.dart' as app;
 import 'package:fmp/playback/audio_backend.dart';
@@ -128,6 +129,28 @@ class RealRun {
       '${text!.trim().split('\n').join('\n  ')}',
     );
     return text;
+  }
+
+  /// 等 [duration]（真的時間），期間一直出幀。
+  Future<void> wait(Duration duration) => _settle(duration);
+
+  /// 截動畫中途：放慢 [slow] 倍做 [action]，等 [after] 截 `[name]-mid`，恢復
+  /// 速度等它跑完再截 `[name]`。280ms × 30 = 8.4 秒、520ms × 30 = 15.6 秒；
+  /// [step] 自己再等 0.8 秒，兩種曲線都是前段走得快，所以早一點截。
+  Future<void> slowly(
+    String name,
+    Future<void> Function() action, {
+    Duration after = const Duration(milliseconds: 300),
+    Finder? within,
+    double slow = 30,
+  }) async {
+    timeDilation = slow;
+    await action();
+    await wait(after);
+    await step('$name-mid', within: within);
+    timeDilation = 1;
+    await wait(const Duration(seconds: 1));
+    await step(name, within: within);
   }
 
   Future<void> _settle(Duration duration) async {

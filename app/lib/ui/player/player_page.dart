@@ -320,6 +320,7 @@ class PlayerCover extends StatelessWidget {
       url: track.largestCoverUrl,
       size: size,
       radius: context.fmpMetrics.radii.coverLarge,
+      crossFade: true,
     ),
   );
 }
@@ -464,7 +465,7 @@ class _Columns extends ConsumerWidget {
       children: [
         AnimatedPositioned(
           // 減少動態效果時直接到位（`DESIGN.md`〈動態〉）。
-          duration: MediaQuery.disableAnimationsOf(context)
+          duration: FmpMotion.reduced(context)
               ? Duration.zero
               : FmpMotion.morph,
           curve: FmpMotion.morphCurve,

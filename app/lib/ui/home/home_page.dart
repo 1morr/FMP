@@ -19,6 +19,8 @@ import 'package:fmp/ui/home/continue_listening.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:fmp/ui/common/table_focus.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/expanding_rows.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 首頁的四種版面（`docs/design/home.html`）：手機與平板是觸控列表，窄視窗
 /// 與桌面是桌面密度；手機、平板、窄視窗一次看一張榜（chip 切換），桌面每個
@@ -251,7 +253,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: IgnorePointer(
             child: ValueListenableBuilder<bool>(
               valueListenable: _scrolled,
-              builder: (context, scrolled, _) => AnimatedOpacity(
+              builder: (context, scrolled, _) => PreservedFade(
                 opacity: scrolled ? 1 : 0,
                 duration: FmpMotion.mid,
                 child: DecoratedBox(
@@ -292,7 +294,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         valueListenable: _scrolled,
         builder: (context, scrolled, _) => ExcludeSemantics(
           excluding: !scrolled,
-          child: AnimatedOpacity(
+          child: PreservedFade(
             opacity: scrolled ? 1 : 0,
             duration: FmpMotion.mid,
             // 手機的小標題置中（`.ptitle`），桌面靠左（`.wt`）。
@@ -334,9 +336,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (charts.neverLoadedOffline) {
       body = _offlineError();
     } else if (charts.starting) {
-      body = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [const ChartColumnHeader.placeholder(), _twoColumnSkeleton()],
+      body = _singleSourceLayout(
+        header: const ChartColumnHeader.placeholder(),
+        view: const ChartLoading(),
+        body: _twoColumnSkeleton(),
       );
     } else if (charts.sources case [final source]) {
       body = _singleSourceChart(source);
@@ -347,14 +350,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const ChartsHeading(desk: true),
-        AnimatedSwitcher(
-          duration: FmpMotion.mid,
-          switchInCurve: FmpMotion.outCurve,
-          switchOutCurve: FmpMotion.outCurve,
-          layoutBuilder: (current, previous) => Stack(
-            alignment: Alignment.topCenter,
-            children: [...previous, ?current],
-          ),
+        PreservedSwitcher(
           child: KeyedSubtree(
             key: ValueKey(('wide charts', charts.sources.length > 1)),
             child: body,
@@ -491,12 +487,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           );
         }
     }
-    children.add(
-      AnimatedSwitcher(
-        duration: FmpMotion.fast,
-        child: KeyedSubtree(key: ValueKey(id), child: body),
-      ),
-    );
+    children.add(_contentSwap(view, body, source: id));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: children,
@@ -538,10 +529,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             desk: true,
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
           ),
-        AnimatedSwitcher(
-          duration: FmpMotion.fast,
-          child: KeyedSubtree(key: ValueKey(id), child: body),
-        ),
+        _contentSwap(view, body, source: id),
       ],
     );
   }
@@ -599,20 +587,42 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 展開（2026-11-20 擁有者定）；有榜但這次更新不了時欄頂下寫明多久以前。
   Widget _singleSourceChart(SourceChart source) {
     final view = ChartView.of(source);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ChartColumnHeader(manifest: source.manifest),
-        if (view is ChartReady && view.error != null)
-          ChartCaption(
-            source: source,
-            desk: true,
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
-          ),
-        _twoColumnChart(source, view),
-      ],
+    return _singleSourceLayout(
+      header: ChartColumnHeader(manifest: source.manifest),
+      view: view,
+      caption: view is ChartReady && view.error != null
+          ? ChartCaption(
+              source: source,
+              desk: true,
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
+            )
+          : null,
+      body: _twoColumnChart(source, view),
     );
   }
+
+  /// 一個音源的寬版：插件載入中（[header] 是沒有字的欄頂）與載完同一個
+  /// 結構，骨架換成榜時欄頂不動、下面交叉淡出。
+  Widget _singleSourceLayout({
+    required Widget header,
+    required ChartView view,
+    required Widget body,
+    Widget? caption,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [header, ?caption, _contentSwap(view, body)],
+  );
+
+  /// 同一個音源的榜從骨架換成內容（或失敗的說明）時 out 280 交叉淡出，減少
+  /// 動態效果時照樣（`DESIGN.md`〈狀態變化對照〉的內容替換）。[source] 給了
+  /// 時，換音源（chip）也交叉淡出。
+  Widget _contentSwap(ChartView view, Widget body, {String? source}) =>
+      PreservedSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey(('chart view', source, view.runtimeType)),
+          child: body,
+        ),
+      );
 
   /// 桌面兩個以上的音源：每個音源一欄，每欄先 5 名，一顆「顯示第 6–10 名」
   /// 所有欄一起展開。欄夠寬時列尾有時長。
@@ -703,7 +713,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ChartColumnHeader(manifest: source.manifest),
-        body,
+        _contentSwap(view, body),
       ],
     );
   }

@@ -39,13 +39,13 @@ class _EqualizerState extends State<Equalizer>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _sync(reduceMotion: MediaQuery.disableAnimationsOf(context));
+    _sync(reduceMotion: FmpMotion.reduced(context));
   }
 
   @override
   void didUpdateWidget(Equalizer old) {
     super.didUpdateWidget(old);
-    _sync(reduceMotion: MediaQuery.disableAnimationsOf(context));
+    _sync(reduceMotion: FmpMotion.reduced(context));
   }
 
   @override
@@ -64,8 +64,7 @@ class _EqualizerState extends State<Equalizer>
   @override
   Widget build(BuildContext context) {
     final color = context.fmpColors.accent;
-    final animating =
-        widget.playing && !MediaQuery.disableAnimationsOf(context);
+    final animating = widget.playing && !FmpMotion.reduced(context);
     return Semantics(
       label: widget.label,
       child: ExcludeSemantics(

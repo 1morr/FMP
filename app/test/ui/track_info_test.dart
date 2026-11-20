@@ -20,6 +20,8 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/shell/detail_content.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/motion.dart' as motion;
+
 /// 曲目資訊（票 17，`docs/design/player.html`〈曲目資訊〉）：從音源膠囊、⋮、
 /// 兩欄頂列的資訊鈕與 ⌘I 打開；缺的欄位不顯示；無障礙。以及桌面詳情面板
 /// （`docs/design/shell.html` 的 `.detail`）的內容與它什麼時候查曲目資訊。
@@ -126,11 +128,7 @@ void main() {
           ..devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         if (reduceMotion) {
-          tester.platformDispatcher.accessibilityFeaturesTestValue =
-              const FakeAccessibilityFeatures(disableAnimations: true);
-          addTearDown(
-            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-          );
+          motion.reduceMotion(tester);
         }
         const channel = MethodChannel('fmp/window');
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -193,7 +191,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('player-signature')));
       await tester.pump();
-      expect(find.byKey(const Key('track-info-slide')), findsOneWidget);
+      expect(find.byKey(const Key('sheet-slide')), findsOneWidget);
       await settle(tester);
 
       expect(row('Song 1'), findsOneWidget);
@@ -232,7 +230,7 @@ void main() {
         await tester.tap(find.byKey(const Key('player-info')));
         await tester.pump();
         expect(find.byKey(const Key('track-info-fade')), findsOneWidget);
-        expect(find.byKey(const Key('track-info-slide')), findsNothing);
+        expect(find.byKey(const Key('sheet-slide')), findsNothing);
         await settle(tester);
         expect(row('Night Train'), findsOneWidget);
 
@@ -386,16 +384,19 @@ void main() {
       expect(row('Night Train'), findsOneWidget);
     });
 
-    infoTest('with reduced motion the sheet fades in instead of sliding up', (
-      tester,
-    ) async {
+    infoTest('with reduced motion the sheet fades in over its full duration '
+        'instead of sliding up', (tester) async {
       await openPlayer(tester);
 
       await tester.tap(find.byKey(const Key('player-signature')));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byKey(const Key('track-info-fade')), findsOneWidget);
-      expect(find.byKey(const Key('track-info-slide')), findsNothing);
+      expect(find.byKey(const Key('sheet-slide')), findsNothing);
+      final fade = tester.widget<FadeTransition>(
+        find.byKey(const Key('sheet-fade')),
+      );
+      expect(fade.opacity.value, inExclusiveRange(0, 1));
     }, reduceMotion: true);
 
     infoTest(

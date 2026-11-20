@@ -1,6 +1,6 @@
 # 19d: 動態補齊：對稿修正、減少動態效果、補上會突然跳出來的動畫
 
-Status: ready-for-agent
+Status: done
 Blocked by: 19c
 讀: `docs/design/DESIGN.md` §3.4（含〈狀態變化對照〉，2026-11-20 新增）、§10；`docs/agents/ui.md` 的「動態」那條；`docs/design/assets/fmp.css`（`.spinner`、`.tab`、按下縮放）、`docs/design/player.html`（頁面點點）、`docs/design/system.html`（減少動態效果）；`app/lib/ui/` 的 motion token（`motion.dart`）；spec〈共同規則〉
 
@@ -32,12 +32,38 @@ Blocked by: 19c
 
 ## 驗收
 
-- [ ] A 每項一條 widget 測試（按下縮放、sheet 時長與曲線、spinner 轉速與減少動態效果時放慢、點點 spring、字色過渡）。
-- [ ] C：共用入口有測試，各處改用它（搜不到直接呼叫 `disableAnimationsOf` 的地方，入口本身除外）；導覽膠囊、搜尋變形、⋮ sheet、迷你播放器、提示在減少動態效果時各一條測試。
-- [ ] B 每組一條在動畫中途檢查的 widget 測試（透明度或高度在中間值），減少動態效果時照表退化。
-- [ ] macOS 加一個手機平台實跑：換歌、搜尋多選、展開分 P、佇列移除各截一張動畫中途的圖；系統開減少動態效果再截導覽換頁與 sheet。
-- [ ] 全部檢查綠燈（`dart run tool/check.dart` 完整版；winpc 恢復前 `--skip-windows`）。
+- [x] A 每項一條 widget 測試（按下縮放、sheet 時長與曲線、spinner 轉速與減少動態效果時放慢、點點 spring、字色過渡）。
+- [x] C：共用入口有測試，各處改用它（搜不到直接呼叫 `disableAnimationsOf` 的地方，入口本身除外）；導覽膠囊、搜尋變形、⋮ sheet、迷你播放器、提示在減少動態效果時各一條測試。
+- [x] B 每組一條在動畫中途檢查的 widget 測試（透明度或高度在中間值），減少動態效果時照表退化。
+- [x] macOS 加一個手機平台實跑：換歌、搜尋多選、展開分 P、佇列移除各截一張動畫中途的圖；系統開減少動態效果再截導覽換頁與 sheet。
+- [x] 全部檢查綠燈（`dart run tool/check.dart` 完整版；winpc 恢復前 `--skip-windows`）。
 
 ## Comments
 決定：盤點出的「稿上有寫沒照做」與「減少動態效果沒跟著改」全修，讀這個設定收成一個共用入口（使用者定）
 決定：新增的動畫只做圖片與內容替換、出現與消失、清單增減三組；sheet 跟手指拖先不做（使用者定）
+決定：減少動態效果時仍要動的動畫一律用 `AnimationBehavior.preserve`（官方文件寫的 API），不改 binding（協調者轉達）（Agent 定）
+決定：按下縮 0.92 的圖示鈕是 `GlassIconButton`、`PlainIconButton`、播放／上一首／下一首、隨機循環圖示鈕與播放頁控制鈕；dock 的大圓鈕不縮（Agent 定）
+決定：sheet 收起也用 morph 520（曲線反過來）；桌面曲目資訊對話框照舊淡入 160，改成保留時長（Agent 定）
+決定：播放頁路由與減少動態效果時的換畫面同樣改保留時長（同一個 5% 問題，票面沒列）（Agent 定）
+決定：佇列移除一首時資料先改、動畫後補：按 × 立刻從佇列拿掉，畫面留一個點不到、讀不到的殘影收起淡出；連著移除時各自收完（協調者轉達）（Agent 定）
+決定：殘影記原本前後相鄰那首的 id 插回原位（「已播放」標題消失時第幾項會偏）；移除到空時殘影照樣收起、空狀態同時淡入（Agent 定）
+決定：拖動排序途中收完的殘影先留著（高 0、全透明），放手後才拿掉：列表的項目數一變框架就取消拖動（Agent 定）
+決定：換歌時的封面等新封面第一個 frame 解碼好（`precacheImage`）才交叉淡出，記憶體快取命中直接換，載入失敗才淡到底色（協調者轉達）（Agent 定）
+決定：設定頁的勾、選取環、值與窗格的交叉淡出、捲動後的小標題，首頁小標題與頂端漸層、dock 打字時的淡出、佇列列尾的動作都改保留時長：同一個 5% 問題，〈狀態變化對照〉要照樣淡（Agent 定）
+決定：設定頁分類膠囊在減少動態效果時的 out 280 位移、首頁榜展開的高度動畫仍用隱式動畫（減少動態效果時直接到位）：表上這兩種在減少動態效果時不要求動（Agent 定）
+決定：`PreservedSwitcher` 正在離開的那份點不到、Tab 不到、讀不到（dock 與多選動作列離開的 280ms 內）（Agent 定）
+決定：搜尋結果第一次回來時前 5 列壓著原本的骨架交叉淡出，後面的列淡入；載入下一頁的 2 列骨架不淡（Agent 定）
+決定：多選動作列與手機 dock 共用小元件的出現與消失（`AppearSwitcher`：out 280、淡入＋位移 20，提示 16）；播放膠囊第一次出現同一套（Agent 定）
+決定：實跑情境三支：`motion_run`（聯網，搜一次、播兩首）、`motion_states_run`（不聯網補拍，那支截壞要重跑時用）、`reduced_run`（系統開減少動態效果）（Agent 定）
+決定：macOS 的 `motion_run` 分 P 與佇列移除兩張截壞（頂列吃掉點擊、截太晚）、iOS 的 `motion_run` 第二次加入佇列點到還在升起的 sheet 而失敗；照規則不再打 B 站，兩個平台的這幾步改用 `motion_states_run` 補拍（Agent 定）
+Session 紀錄：2026-11-20 動態補齊：保留時長的共用動畫元件、按下縮放、sheet morph、spinner、點點、字色、封面與骨架交叉淡出、多選與 dock 進出、佇列殘影；macOS＋iOS 實跑、Android 移除動畫截中途
+閘門：2026-11-20 `dart run tool/check.dart --skip-windows` 全綠（macOS、iOS、Android 的建置、原生測試與 integration_test）；Windows 跳過：winpc 尚未恢復，建置與 integration_test 等擁有者說恢復後在票 20 一起補
+code-review 未處理：Fowler 判斷題：殘影列傳一串空 callback（可抽只負責顯示的列）、測試裡用 `morphCurve.transform(.5)` 算期望值、`panel_run` 的 wait 沒換成 `RealRun.wait`；import 排序沒有 lint 守，不動
+變更：Changed｜外殼｜圖示鈕與播放控制按下時縮小一點；載入中的轉圈改成設計稿的樣子
+變更：Changed｜外殼｜手機導覽選到的項目字色漸變；迷你播放器、播放膠囊、提示出現與消失時淡入並滑上來
+變更：Changed｜外殼｜系統開「減少動態效果」時，導覽選取、進出搜尋、sheet、迷你播放器、提示、詳情面板都改成照原本時長淡入淡出，不再直接跳過
+變更：Changed｜播放頁｜點頁面點點換頁時點點用彈性拉長；手機的曲目選單與曲目資訊從底部升起變得更順
+變更：Changed｜播放控制｜換歌時封面在新封面載好後交叉淡出；封面載入後淡入
+變更：Changed｜首頁｜排行榜從載入中換成內容時交叉淡出
+變更：Changed｜搜尋｜搜尋結果回來時從骨架交叉淡出；多選時動作列從底部滑入、導覽往下讓開；分 P 展開與收起和首頁一樣有高度動畫
+變更：Changed｜佇列｜移除一首時那列收起並淡出（曲目馬上就不在佇列裡）；清空後空狀態淡入

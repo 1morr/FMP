@@ -11,6 +11,7 @@ import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/player/player_queue.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 左右滑的畫面，依序排（`player.html` 的 `PL_PAGES`，歌詞那頁 M4 才有）。
 enum PlayerPane { queue, cover }
@@ -71,7 +72,7 @@ class _PlayerSwipeState extends ConsumerState<PlayerSwipe> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final width = media.size.width;
-    final reduce = MediaQuery.disableAnimationsOf(context);
+    final reduce = FmpMotion.reduced(context);
     const density = PlayerDensity(touch: true);
     final tablet = widget.tablet;
     // 平板：一條置中的欄，寬度上限 560（`.pl-mcol`）。
@@ -121,9 +122,8 @@ class _PlayerSwipeState extends ConsumerState<PlayerSwipe> {
             _goTo(PlayerPane.cover, reduce: true);
           }
         },
-        child: AnimatedSwitcher(
+        child: PreservedSwitcher(
           key: const Key('player-panes-fade'),
-          duration: FmpMotion.mid,
           child: KeyedSubtree(key: ValueKey(_pane), child: pane(_pane)),
         ),
       );
@@ -281,7 +281,12 @@ class _QueuePane extends StatelessWidget {
     final colors = context.fmpColors;
     final mini = Row(
       children: [
-        Cover(url: track.coverUrl, size: tablet ? 64 : 56, radius: 9),
+        Cover(
+          url: track.coverUrl,
+          size: tablet ? 64 : 56,
+          radius: 9,
+          crossFade: true,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -363,9 +368,10 @@ class _QueuePane extends StatelessWidget {
 }
 
 /// 頁面點點（`.pl-dots`）：目前那頁拉長成 20 的白膠囊，其他 7 的半透明圓點；
-/// 滑動時寬度跟著手指在兩頁之間變。不是玻璃。點一個點換到那頁；螢幕閱讀器
-/// 讀「封面，第 2 頁，共 2 頁」。
-class _PageDots extends StatelessWidget {
+/// 滑動時寬度跟著手指在兩頁之間變，點一個點換頁時寬度用 spring 拉長（減少
+/// 動態效果時 out 280、不彈跳）。不是玻璃。螢幕閱讀器讀「封面，第 2 頁，
+/// 共 2 頁」。
+class _PageDots extends StatefulWidget {
   const _PageDots({
     required this.controller,
     required this.pane,
@@ -378,28 +384,87 @@ class _PageDots extends StatelessWidget {
   final ValueChanged<PlayerPane> onSelect;
 
   @override
+  State<_PageDots> createState() => _PageDotsState();
+}
+
+class _PageDotsState extends State<_PageDots>
+    with SingleTickerProviderStateMixin {
+  /// 點了點以後的換頁：寬度從 [_from] 照選取的動法動到 [_to]，這段時間不看
+  /// 頁面的位置。
+  late final _jump = AnimationController(
+    vsync: this,
+    value: 1,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  Curve _curve = FmpMotion.springCurve;
+  double _from = 0;
+  double _to = 0;
+
+  @override
+  void dispose() {
+    _jump.dispose();
+    super.dispose();
+  }
+
+  double get _position {
+    final controller = widget.controller;
+    if (controller == null) return widget.pane.index.toDouble();
+    return controller.hasClients && controller.position.haveDimensions
+        ? controller.page ?? widget.pane.index.toDouble()
+        : PlayerPane.cover.index.toDouble();
+  }
+
+  void _select(PlayerPane p) {
+    final motion = FmpMotion.selection(context);
+    _from = _jump.isAnimating ? _jumpPosition : _position;
+    _to = p.index.toDouble();
+    _curve = motion.curve;
+    _jump
+      ..duration = motion.duration
+      ..forward(from: 0);
+    widget.onSelect(p);
+  }
+
+  /// 換頁途中（還沒到的話）的位置，接著從這裡再動。
+  double get _jumpPosition =>
+      _from + (_to - _from) * _curve.transform(_jump.value).clamp(0.0, 1.0);
+
+  /// 在 [position] 時 [p] 那個點有多「在」：1 是在這頁，0 是離它一頁以上。
+  static double _onAt(double position, PlayerPane p) =>
+      1 - (position - p.index).abs().clamp(0.0, 1.0);
+
+  @override
   Widget build(BuildContext context) {
-    final controller = this.controller;
-    if (controller == null) return _dots(context, pane.index.toDouble());
     return AnimatedBuilder(
-      animation: controller,
+      animation: Listenable.merge([_jump, ?widget.controller]),
       builder: (context, _) {
-        final position =
-            controller.hasClients && controller.position.haveDimensions
-            ? controller.page ?? pane.index.toDouble()
-            : PlayerPane.cover.index.toDouble();
-        return _dots(context, position);
+        if (!_jump.isAnimating) {
+          final position = _position;
+          return _dots(context, position.round(), (p) => _onAt(position, p));
+        }
+        // 每個點自己從原本的寬度動到目標寬度：spring 超過 1 時目標那個點拉得
+        // 比 20 長一點再縮回來。
+        final t = _curve.transform(_jump.value);
+        return _dots(context, _to.round(), (p) {
+          final from = _onAt(_from, p);
+          return from + (_onAt(_to, p) - from) * t;
+        });
       },
     );
   }
 
-  Widget _dots(BuildContext context, double position) {
+  /// [current] 是選取的那頁；[on] 是每個點有多「在」（spring 途中可以超過
+  /// 0–1）。
+  Widget _dots(
+    BuildContext context,
+    int current,
+    double Function(PlayerPane p) on,
+  ) {
     final t = context.t;
     final names = {
       PlayerPane.queue: t.player.pages.queue,
       PlayerPane.cover: t.player.pages.cover,
     };
-    final current = position.round();
     return SizedBox(
       height: 44,
       child: Row(
@@ -409,8 +474,7 @@ class _PageDots extends StatelessWidget {
             _dot(
               context,
               p,
-              // 1 是在這頁，0 是離它一頁以上。
-              1 - (position - p.index).abs().clamp(0.0, 1.0),
+              on(p),
               label: t.player.pages.label(
                 page: names[p]!,
                 number: p.index + 1,
@@ -437,7 +501,7 @@ class _PageDots extends StatelessWidget {
     final last = p == PlayerPane.values.last;
     return ShellButton(
       key: Key('player-dot-${p.name}'),
-      onTap: () => onSelect(p),
+      onTap: () => _select(p),
       label: label,
       selected: selected,
       focusRadius: 999,
@@ -454,7 +518,8 @@ class _PageDots extends StatelessWidget {
           width: width,
           height: 7,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFFFF).withValues(alpha: .38 + .62 * on),
+            color: const Color(0xFFFFFFFF)
+                .withValues(alpha: (.38 + .62 * on).clamp(0.0, 1.0)),
             borderRadius: BorderRadius.circular(4),
           ),
         ),

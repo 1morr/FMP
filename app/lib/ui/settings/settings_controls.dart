@@ -4,6 +4,7 @@ import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 設定頁的群組列表（`.group`／`.gcell`，`docs/design/settings.html`）兩種
 /// 密度的尺寸：觸控（手機、平板的窗格）與滑鼠（`.desk`）。
@@ -293,10 +294,9 @@ class _SelectionCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final motion = FmpMotion.selection(context);
-    return AnimatedOpacity(
+    return PreservedFade(
       opacity: selected ? 1 : 0,
       duration: motion.duration,
-      curve: FmpMotion.outCurve,
       child: AnimatedScale(
         scale: selected || FmpMotion.reduced(context) ? 1 : .5,
         duration: motion.duration,
@@ -344,14 +344,8 @@ class SettingsSwap extends StatelessWidget {
   final AlignmentGeometry alignment;
 
   @override
-  Widget build(BuildContext context) => AnimatedSwitcher(
-    duration: FmpMotion.mid,
-    switchInCurve: FmpMotion.outCurve,
-    switchOutCurve: FmpMotion.outCurve,
-    layoutBuilder: (current, previous) =>
-        Stack(alignment: alignment, children: [...previous, ?current]),
-    child: child,
-  );
+  Widget build(BuildContext context) =>
+      PreservedSwitcher(alignment: alignment, child: child);
 }
 
 /// 手機列尾的值加上下箭頭（`.gv` 與 `updown`）：點整列就地彈出選單。
@@ -557,10 +551,9 @@ class SelectionRing extends StatelessWidget {
     final motion = FmpMotion.selection(context);
     final reduced = FmpMotion.reduced(context);
     return IgnorePointer(
-      child: AnimatedOpacity(
+      child: PreservedFade(
         opacity: selected ? 1 : 0,
         duration: motion.duration,
-        curve: FmpMotion.outCurve,
         child: AnimatedScale(
           scale: selected || reduced ? 1 : .85,
           duration: motion.duration,

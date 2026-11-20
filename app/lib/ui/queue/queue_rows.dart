@@ -14,6 +14,7 @@ import 'package:fmp/ui/common/table_focus.dart';
 import 'package:fmp/ui/now_playing/play_modes.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 「n 首」或「n 首 · 4 小時 37 分」；不知道任何時長時只寫首數。
 String queueTotalText(Translations t, int count, Duration duration) {
@@ -532,7 +533,7 @@ class _QueueTableRowState extends ConsumerState<QueueTableRow> {
                     ).tabular,
                   ),
                 ),
-                actions: AnimatedOpacity(
+                actions: PreservedFade(
                   opacity: showActions ? 1 : 0,
                   duration: FmpMotion.fast,
                   child: Row(

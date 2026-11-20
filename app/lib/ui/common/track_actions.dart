@@ -18,6 +18,7 @@ import 'package:fmp/ui/common/source_mark.dart';
 import 'package:fmp/ui/toast/toast.dart';
 import 'package:fmp/ui/track_info/track_info.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 一首曲目的「更多」能做的事（`docs/design/search.html`〈更多與多選〉）。
 /// 還沒有的功能（加入歌單、匹配歌詞）不出現。
@@ -295,29 +296,15 @@ class TrackSummary extends ConsumerWidget {
 }
 
 /// 手機的曲目 sheet（`FMP.trackSheet`，`.sheet.lg.tsheet`）：浮動的厚玻璃，
-/// 從底部升起，背後 `--scrim`。點外面或往下滑收起。
+/// 照 [showBottomSheetRoute] 從底部升起，背後 `--scrim`。點外面或往下滑收起。
 Future<TrackAction?> _showSheet(
   BuildContext context,
   Track track,
   List<TrackAction> actions,
   String? note,
-) => showGeneralDialog<TrackAction>(
-  context: context,
-  barrierDismissible: true,
-  barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-  barrierColor: context.fmpColors.scrim,
-  transitionDuration: FmpMotion.mid,
-  transitionBuilder: (context, animation, _, child) => SlideTransition(
-    position: Tween(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animation, curve: FmpMotion.outCurve)),
-    child: child,
-  ),
-  pageBuilder: (context, _, _) => Align(
-    alignment: Alignment.bottomCenter,
-    child: _TrackSheet(track: track, actions: actions, note: note),
-  ),
+) => showBottomSheetRoute<TrackAction>(
+  context,
+  builder: (_) => _TrackSheet(track: track, actions: actions, note: note),
 );
 
 class _TrackSheet extends StatelessWidget {

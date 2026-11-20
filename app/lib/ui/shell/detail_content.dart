@@ -146,6 +146,7 @@ class _DetailContentState extends ConsumerState<DetailContent> {
                 url: track.largestCoverUrl,
                 size: box.maxWidth,
                 radius: 12,
+                crossFade: true,
               ),
             ),
           ),

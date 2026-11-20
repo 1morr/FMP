@@ -443,35 +443,3 @@ class ChartColumnHeader extends StatelessWidget {
     playing: isCurrent && (state?.playing ?? false),
   );
 }
-
-/// 展開、收起的那幾列：平常高度跟著變（morph，不彈跳）；系統開「減少動態
-/// 效果」時只淡入淡出（`docs/design/DESIGN.md`〈動態〉）。
-class ExpandingRows extends StatelessWidget {
-  const ExpandingRows({super.key, required this.expanded, required this.child});
-
-  final bool expanded;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final shown = expanded ? child : const SizedBox(width: double.infinity);
-    if (MediaQuery.disableAnimationsOf(context)) {
-      return AnimatedSwitcher(
-        duration: FmpMotion.mid,
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.topCenter,
-          children: [...previous, ?current],
-        ),
-        child: KeyedSubtree(key: ValueKey(expanded), child: shown),
-      );
-    }
-    return ClipRect(
-      child: AnimatedSize(
-        duration: FmpMotion.morph,
-        curve: FmpMotion.morphCurve,
-        alignment: Alignment.topCenter,
-        child: shown,
-      ),
-    );
-  }
-}

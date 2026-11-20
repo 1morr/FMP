@@ -29,8 +29,12 @@ import 'package:fmp/ui/shell/side_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../support/a11y.dart';
+import '../support/motion.dart';
+import '../support/shell.dart';
 
 import 'package:fmp/ui/common/focus_ring.dart';
+import 'package:fmp/ui/shell/destination.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 佇列頁（`docs/design/queue.html`）：手機的觸控列表打開時捲到正在播的那首，
 /// 能拖動排序、移除、清空（要確認）；桌面的表格用滑鼠與鍵盤操作。佇列用
@@ -375,11 +379,7 @@ void main() {
     testWidgets('the equalizer holds still when motion is reduced', (
       tester,
     ) async {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
+      reduceMotion(tester);
       await start(tester, phone);
       playback.set(
         PlaybackState(track: song(21), status: PlaybackStatus.playing),
@@ -394,6 +394,201 @@ void main() {
       final before = tester.getSize(bar).height;
       await tester.pump(const Duration(milliseconds: 300));
       expect(tester.getSize(bar).height, before);
+    });
+  });
+
+  /// 清單增減（`DESIGN.md`〈狀態變化對照〉）：移除一首時那列 out 280 收起
+  /// 高度並淡出（減少動態效果時只淡出），清空後空狀態淡入；頂列小標題在
+  /// 減少動態效果時照樣淡入淡出。
+  group('list motion', () {
+    const halfway = Duration(milliseconds: 140);
+
+    double opacityOf(WidgetTester tester, Finder finder) => tester
+        .widgetList(
+          find.ancestor(
+            of: finder,
+            matching: find.byWidgetPredicate(
+              (w) => w is FadeTransition || w is SliverFadeTransition,
+            ),
+          ),
+        )
+        .fold(
+          1.0,
+          (v, w) =>
+              v *
+              switch (w) {
+                FadeTransition(:final opacity) => opacity.value,
+                SliverFadeTransition(:final opacity) => opacity.value,
+                _ => 1.0,
+              },
+        );
+
+    for (final reduced in [false, true]) {
+      final suffix = reduced ? ' (reduced motion: fades only)' : '';
+      testWidgets('removing a track folds its row away while it fades'
+          '$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone);
+        final below = find.text('Song 24');
+        final belowTop = tester.getRect(below).top;
+        final height = tester.getRect(rowOf('Song 23')).height;
+        await tester.tap(
+          find.descendant(
+            of: rowOf('Song 23'),
+            matching: find.byKey(const Key('queue-remove')),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(halfway);
+        expect(opacityOf(tester, find.text('Song 23')), inExclusiveRange(0, 1));
+        final moved = belowTop - tester.getRect(below).top;
+        if (reduced) {
+          expect(moved, 0);
+        } else {
+          expect(moved, inExclusiveRange(0, height));
+        }
+        await tester.pumpAndSettle();
+        expect(order(), isNot(contains('Song 23')));
+        expect(tester.getRect(below).top, belowTop - height);
+      });
+
+      testWidgets('the track leaves the queue at once, before its row has '
+          'folded away; leaving the page right then keeps it removed'
+          '$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone);
+        await tester.tap(
+          find.descendant(
+            of: rowOf('Song 23'),
+            matching: find.byKey(const Key('queue-remove')),
+          ),
+        );
+        // 同一個 pump 內：佇列已經沒有它，殘影還在畫面上。
+        expect(order(), isNot(contains('Song 23')));
+        await tester.pump();
+        expect(find.text('Song 23'), findsOneWidget);
+        await openDestination(tester, Destination.home);
+        expect(order(), isNot(contains('Song 23')));
+        expect(order(), hasLength(29));
+      });
+
+      testWidgets('the folding row stays where it was, even when the played '
+          'caption above it goes away$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone, count: 3, current: 2);
+        await tester.tap(
+          find.descendant(
+            of: rowOf('Song 1'),
+            matching: find.byKey(const Key('queue-remove')),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(halfway);
+        expect(
+          tester.getRect(find.text('Song 1')).top,
+          lessThan(tester.getRect(find.text('Song 2')).top),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Song 1'), findsNothing);
+      });
+
+      testWidgets('removing another track and dragging while a row is still '
+          'folding act on the right tracks$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone);
+        Future<void> removeRow(String title) => tester.tap(
+          find.descendant(
+            of: rowOf(title),
+            matching: find.byKey(const Key('queue-remove')),
+          ),
+        );
+        await removeRow('Song 23');
+        await tester.pump();
+        await tester.pump(halfway);
+        // 殘影螢幕閱讀器讀不到（點也點不到，同一個 Inert）。
+        final semantics = tester.ensureSemantics();
+        expect(find.bySemanticsLabel(RegExp('Song 23')), findsNothing);
+        semantics.dispose();
+        expect(order(), hasLength(29));
+        await removeRow('Song 25');
+        await tester.pump();
+        expect(order(), isNot(contains('Song 25')));
+        expect(order(), hasLength(28));
+        // 先移除的那首照樣收完，不會因為又移除一首就瞬間不見。
+        expect(find.text('Song 23'), findsOneWidget);
+        // 等 Song 23 收完（Song 25 還在收）。
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(find.text('Song 23'), findsNothing);
+        expect(find.text('Song 25'), findsOneWidget);
+        // 殘影（Song 25）還在收起時把它上面的 Song 24 往上拖一列：拖的是
+        // 對的那首、落在對的位置。
+        await dragBy(
+          tester,
+          find.descendant(
+            of: rowOf('Song 24'),
+            matching: find.byType(QueueDragHandle),
+          ),
+          -70,
+        );
+        expect(order().sublist(20, 24), [
+          'Song 21',
+          'Song 24',
+          'Song 22',
+          'Song 26',
+        ]);
+        expect(order(), hasLength(28));
+      });
+
+      testWidgets('removing the last track folds its row while the empty '
+          'state fades in$suffix', (tester) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone, count: 1, current: 1);
+        await tester.tap(
+          find.descendant(
+            of: rowOf('Song 1'),
+            matching: find.byKey(const Key('queue-remove')),
+          ),
+        );
+        expect(order(), isEmpty);
+        await tester.pump();
+        await tester.pump(halfway);
+        expect(opacityOf(tester, find.text('Song 1')), inExclusiveRange(0, 1));
+        expect(opacityOf(tester, find.text('佇列是空的')), inExclusiveRange(0, 1));
+        await tester.pumpAndSettle();
+        expect(find.text('Song 1'), findsNothing);
+      });
+
+      testWidgets('after clearing, the empty state fades in$suffix', (
+        tester,
+      ) async {
+        if (reduced) reduceMotion(tester);
+        await start(tester, phone);
+        await tester.tap(find.byTooltip('清空佇列'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('清空'));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(halfway);
+        expect(opacityOf(tester, find.text('佇列是空的')), inExclusiveRange(0, 1));
+        await tester.pumpAndSettle();
+        expect(opacityOf(tester, find.text('佇列是空的')), 1);
+      });
+    }
+
+    testWidgets('with reduced motion the small title still fades in when the '
+        'large one scrolls away', (tester) async {
+      reduceMotion(tester);
+      await start(tester, phone);
+      scrollPosition(tester).jumpTo(0);
+      await tester.pumpAndSettle();
+      scrollPosition(tester).jumpTo(scrollPosition(tester).maxScrollExtent);
+      await tester.pump();
+      await tester.pump(halfway);
+      expect(
+        opacityOf(tester, find.byKey(const Key('queue-small-title'))),
+        inExclusiveRange(0, 1),
+      );
+      await tester.pumpAndSettle();
     });
   });
 
@@ -1079,7 +1274,7 @@ void main() {
       final actions = find.descendant(
         of: rowOf('Song 24'),
         matching: find.byWidgetPredicate(
-          (w) => w is AnimatedOpacity && w.opacity == 1,
+          (w) => w is PreservedFade && w.opacity == 1,
         ),
       );
       expect(actions, findsOneWidget);
