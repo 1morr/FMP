@@ -21,7 +21,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// 首頁的四種版面（`docs/design/home.html`）：手機與平板是觸控列表，窄視窗
 /// 與桌面是桌面密度；手機、平板、窄視窗一次看一張榜（chip 切換），桌面每個
-/// 音源一欄。
+/// 音源一欄，只有一個音源時照窄視窗把 10 名排成兩欄。
 enum HomeLayout {
   phone,
   tablet,
@@ -97,7 +97,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   /// 畫面上看得到的榜上曲目，依 ↑／↓ 的順序：桌面一欄接一欄，窄視窗是選中的
-  /// 那張榜。
+  /// 那張榜；排成兩欄的榜照名次（5 的下一個是右欄的 6）。
   List<Track> _visibleTracks() {
     final charts = ref.read(chartsProvider);
     if (charts.sources.isEmpty) return const [];
@@ -105,7 +105,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final sources = window
         ? [_chosenOf(charts, ref.read(homeChartSourceProvider))]
         : charts.sources;
-    final shown = window || _expanded ? chartLength : chartPreview;
+    final shown = sources.length == 1 || _expanded ? chartLength : chartPreview;
     return [for (final s in sources) ...?s.chart?.tracks.take(shown)];
   }
 
@@ -165,15 +165,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       // 插件還在載入（還不知道有哪些音源）時先畫標題與骨架，載完不會把下面
       // 的區塊往下推。
-      if (charts.starting)
-        _startingCharts(desk: !touch)
-      else if (charts.sources.isNotEmpty)
-        switch (layout) {
-          HomeLayout.phone => _oneAtATime(charts, twoColumns: false),
-          HomeLayout.tablet => _oneAtATime(charts, twoColumns: true),
-          HomeLayout.window => _windowCharts(charts),
-          HomeLayout.wide => _columns(charts),
-        },
+      ?switch (layout) {
+        HomeLayout.wide => _wideCharts(charts),
+        _ when charts.starting => _startingCharts(desk: !touch),
+        _ when charts.sources.isEmpty => null,
+        HomeLayout.phone => _oneAtATime(charts, twoColumns: false),
+        HomeLayout.tablet => _oneAtATime(charts, twoColumns: true),
+        HomeLayout.window => _windowCharts(charts),
+      },
       // 桌面寬版的詳情面板開著時已經列了下一首，首頁不重複（設計稿）。
       if (showContinue &&
           !(layout == HomeLayout.wide &&
@@ -291,17 +290,52 @@ class _HomePageState extends ConsumerState<HomePage> {
     ],
   );
 
+  /// 寬版：一個音源時 10 名排成兩欄，兩個以上時每個音源一欄。插件還在載入、
+  /// 還不知道有幾個音源時照一個音源的版面畫骨架（兩欄 10 列），目前只有一個
+  /// 音源宣告 `charts`，啟動時不會先一欄再兩欄。載完是兩個以上的音源時，欄頂
+  /// 以下照 `DESIGN.md`〈狀態變化對照〉的內容替換交叉淡出（減少動態效果時
+  /// 照樣）；同一個版面裡骨架換成榜不在這裡淡。
+  Widget? _wideCharts(ChartsState charts) {
+    if (!charts.starting && charts.sources.isEmpty) return null;
+    final Widget body;
+    if (charts.neverLoadedOffline) {
+      body = _offlineError();
+    } else if (charts.starting) {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [const ChartColumnHeader.placeholder(), _twoColumnSkeleton()],
+      );
+    } else if (charts.sources case [final source]) {
+      body = _singleSourceChart(source);
+    } else {
+      body = _columns(charts);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ChartsHeading(desk: true),
+        AnimatedSwitcher(
+          duration: FmpMotion.mid,
+          switchInCurve: FmpMotion.outCurve,
+          switchOutCurve: FmpMotion.outCurve,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...previous, ?current],
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(('wide charts', charts.sources.length > 1)),
+            child: body,
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 桌面密度的「從沒載入過、又沒有網路」：標題下一段合成的說明。
-  Widget _offlineBlock(Widget heading) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      heading,
-      ChartErrorBlock(
-        manifest: null,
-        error: null,
-        onRetry: () => unawaited(_charts.refresh()),
-      ),
-    ],
+  Widget _offlineError() => ChartErrorBlock(
+    manifest: null,
+    error: null,
+    onRetry: () => unawaited(_charts.refresh()),
   );
 
   /// 桌面密度一個音源沒有榜、抓失敗時的說明，「重試」只重抓它。
@@ -444,28 +478,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       desk: true,
       padding: EdgeInsets.fromLTRB(4, 14, 4, 0),
     );
-    if (charts.neverLoadedOffline) return _offlineBlock(heading);
-    final view = ChartView.of(source);
-    final Widget body;
-    switch (view) {
-      case ChartFailed(:final error):
-        body = _failedBlock(source, error);
-      case ChartLoading():
-        body = _twoColumns([
-          for (var i = 1; i <= chartLength; i++)
-            ChartSkeletonRow(rank: i, desk: true),
-        ]);
-      case ChartReady(:final tracks):
-        body = LayoutBuilder(
-          builder: (context, constraints) {
-            final column = (constraints.maxWidth - 12) / 2;
-            return _twoColumns([
-              for (final (i, track) in tracks.indexed)
-                _deskRow(track, i, column >= ChartDeskRow.durationFrom),
-            ]);
-          },
-        );
+    if (charts.neverLoadedOffline) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [heading, _offlineError()],
+      );
     }
+    final view = ChartView.of(source);
+    final body = _twoColumnChart(source, view);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -493,6 +513,27 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  /// 桌面密度一張榜的 10 名排成兩欄（窄視窗、只有一個音源的桌面）；沒有榜時
+  /// 失敗是說明（只重試它），載入中是兩欄骨架。欄夠寬時列尾有時長。
+  Widget _twoColumnChart(SourceChart source, ChartView view) => switch (view) {
+    ChartFailed(:final error) => _failedBlock(source, error),
+    ChartLoading() => _twoColumnSkeleton(),
+    ChartReady(:final tracks) => LayoutBuilder(
+      builder: (context, constraints) {
+        final column = (constraints.maxWidth - 12) / 2;
+        return _twoColumns([
+          for (final (i, track) in tracks.indexed)
+            _deskRow(track, i, column >= ChartDeskRow.durationFrom),
+        ]);
+      },
+    ),
+  };
+
+  Widget _twoColumnSkeleton() => _twoColumns([
+    for (var i = 1; i <= chartLength; i++)
+      ChartSkeletonRow(rank: i, desk: true),
+  ]);
+
   /// 左 1–5、右 6–10，欄間 12。
   Widget _twoColumns(List<Widget> rows) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,19 +560,34 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 桌面：每個音源一欄，欄數跟著宣告 `charts` 的音源數（2026-11-20 擁有者
-  /// 同意）；每欄先 5 名，一顆「顯示第 6–10 名」所有欄一起展開。欄夠寬時列
-  /// 尾有時長。
+  /// 桌面只有一個音源：欄頂（音源符號＋榜名）橫跨整寬，10 名排成兩欄、不用
+  /// 展開（2026-11-20 擁有者定）；有榜但這次更新不了時欄頂下寫明多久以前。
+  Widget _singleSourceChart(SourceChart source) {
+    final view = ChartView.of(source);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ChartColumnHeader(manifest: source.manifest),
+        if (view is ChartReady && view.error != null)
+          ChartCaption(
+            source: source,
+            desk: true,
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
+          ),
+        _twoColumnChart(source, view),
+      ],
+    );
+  }
+
+  /// 桌面兩個以上的音源：每個音源一欄，每欄先 5 名，一顆「顯示第 6–10 名」
+  /// 所有欄一起展開。欄夠寬時列尾有時長。
   Widget _columns(ChartsState charts) {
-    const heading = ChartsHeading(desk: true);
-    if (charts.neverLoadedOffline) return _offlineBlock(heading);
     final canExpand = charts.sources.any(
       (s) => (s.chart?.tracks.length ?? 0) > chartPreview,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        heading,
         LayoutBuilder(
           builder: (context, constraints) {
             final count = charts.sources.length;
