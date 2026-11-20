@@ -4,13 +4,25 @@ import 'package:fmp/app/icons/fmp_icons.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:fmp/platform/window_chrome.dart';
 import 'package:fmp/platform/window_controls.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Windows 的最小化、最大化（還原）、關閉（`docs/design/DESIGN.md`〈桌面〉的
 /// Windows 那一點）：各 [WindowChrome.captionButtonSize]、圖示 16，貼在視窗
 /// 右上；外殼只在 [WindowChrome.captionButtons] 時放它。
+///
+/// 中寬度另有第四顆「顯示詳情面板」（[onShowDetail]），同款平面鈕，緊貼在
+/// 最小化左邊；面板打開時淡出（[showDetailVisible]），位置留著。
 class CaptionButtons extends ConsumerStatefulWidget {
-  const CaptionButtons({super.key});
+  const CaptionButtons({
+    super.key,
+    this.onShowDetail,
+    this.showDetailVisible = true,
+  });
+
+  /// 叫出詳情面板；null 時沒有第四顆（寬版的叫出鈕在頂列）。
+  final VoidCallback? onShowDetail;
+  final bool showDetailVisible;
 
   @override
   ConsumerState<CaptionButtons> createState() => _CaptionButtonsState();
@@ -38,6 +50,11 @@ class _CaptionButtonsState extends ConsumerState<CaptionButtons> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (widget.onShowDetail case final onShowDetail?)
+          _ShowDetailButton(
+            onTap: onShowDetail,
+            visible: widget.showDetailVisible,
+          ),
         CaptionButton(
           icon: FmpIcons.minus,
           label: t.minimize,
@@ -143,6 +160,55 @@ class _CaptionButtonState extends State<CaptionButton> {
             color: fill ?? const Color(0x00000000),
             alignment: Alignment.center,
             child: FmpIcon(widget.icon, size: 16, color: ink),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 視窗鈕列的「顯示詳情面板」：外觀同 [CaptionButton]（46×32、圖示 16、hover
+/// 整格填淡色），但和頂列其他控制項一樣 Tab 走得到、有焦點外框（貼著視窗
+/// 頂端，外框畫在格子裡面）與 tooltip。淡出時點不到、Tab 不到。
+class _ShowDetailButton extends StatelessWidget {
+  const _ShowDetailButton({required this.onTap, required this.visible});
+
+  final VoidCallback onTap;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.fmpColors;
+    final label = context.t.shell.detail.show;
+    return AnimatedOpacity(
+      duration: FmpMotion.mid,
+      curve: FmpMotion.outCurve,
+      opacity: visible ? 1 : 0,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: ExcludeFocus(
+          excluding: !visible,
+          child: ExcludeSemantics(
+            excluding: !visible,
+            child: ShellButton(
+              onTap: onTap,
+              tooltip: label,
+              label: label,
+              focusRadius: 0,
+              focusInset: true,
+              builder: (context, hovered) => AnimatedContainer(
+                duration: FmpMotion.fast,
+                width: WindowChrome.captionButtonSize.width,
+                height: WindowChrome.captionButtonSize.height,
+                color: hovered ? colors.fill : const Color(0x00000000),
+                alignment: Alignment.center,
+                child: FmpIcon(
+                  FmpIcons.sidebarR,
+                  size: 16,
+                  color: colors.label2,
+                ),
+              ),
+            ),
           ),
         ),
       ),

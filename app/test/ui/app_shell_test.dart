@@ -15,7 +15,13 @@ import 'package:fmp/ui/settings/settings_page.dart';
 import 'package:fmp/ui/shell/detail_panel.dart';
 import 'package:fmp/ui/shell/nav_rail.dart';
 import 'package:fmp/ui/shell/phone_dock.dart';
+import 'package:fmp/ui/shell/shell_controls.dart';
+import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:fmp/ui/shell/side_bar.dart';
+import 'package:fmp/app/theme/theme.dart';
+
+import '../support/a11y.dart';
+
 import 'package:material_ui/material_ui.dart';
 
 /// App 外殼的路由與導覽（`docs/design/DESIGN.md`〈外殼〉）：打開在首頁，四個
@@ -474,20 +480,122 @@ void main() {
       expect(find.byType(DetailPanel), findsOneWidget);
     });
 
-    windowsTest('the top-bar button gives up the 138 the caption buttons '
-        'take', (tester) async {
-      for (final size in [const Size(960, 720), desktop]) {
-        await start(tester, size);
-        if (find.byTooltip('收起面板').evaluate().isNotEmpty) {
-          await tap(tester, find.byTooltip('收起面板'));
-        }
-        // 頂列 `.wtop` 的右端退到 138，玻璃鈕再內縮 16。
-        expect(
-          tester.getRect(find.byTooltip('顯示詳情面板')).right,
-          size.width - 138 - 16,
-          reason: '$size',
+    windowsTest('wide: the top-bar glass button gives up the 138 the '
+        'caption buttons take', (tester) async {
+      await start(tester, desktop);
+      await tap(tester, find.byTooltip('收起面板'));
+      // 頂列 `.wtop` 的右端退到 138，玻璃鈕再內縮 16。
+      expect(
+        tester.getRect(find.byTooltip('顯示詳情面板')).right,
+        desktop.width - 138 - 16,
+      );
+      expect(find.byType(GlassIconButton), findsWidgets);
+      expect(
+        find.descendant(
+          of: find.byType(CaptionButtons),
+          matching: find.byTooltip('顯示詳情面板'),
+        ),
+        findsNothing,
+      );
+    });
+
+    const medium = Size(960, 720);
+    Finder showDetail() => find.descendant(
+      of: find.byType(CaptionButtons),
+      matching: find.byTooltip('顯示詳情面板'),
+    );
+
+    windowsTest('medium: showing the detail panel is a fourth flat caption '
+        'button left of minimize, not a glass button in the top bar', (
+      tester,
+    ) async {
+      await start(tester, medium);
+      expect(
+        tester.getRect(showDetail()),
+        const Rect.fromLTWH(960 - 184, 0, 46, 32),
+      );
+      expect(
+        find.ancestor(
+          of: find.byTooltip('顯示詳情面板'),
+          matching: find.byType(GlassIconButton),
+        ),
+        findsNothing,
+      );
+      // 內容頂列的右端讓出四顆鈕與鈕前的 8。
+      final bar = ShellInsets.topBarOf(tester.element(find.byType(HomePage)));
+      expect(bar.right, 184 + 8);
+
+      await tap(tester, showDetail());
+      expect(find.byType(DetailPanel), findsOneWidget);
+      // 面板開著時這顆淡出，點不到。
+      expect(showDetail().hitTestable(), findsNothing);
+      await tap(tester, find.byTooltip('收起面板'));
+      expect(find.byType(DetailPanel), findsNothing);
+      expect(showDetail().hitTestable(), findsOneWidget);
+    });
+
+    windowsTest('medium: the flat button fills on hover like the other '
+        'caption buttons', (tester) async {
+      await start(tester, medium);
+      Color? fill() {
+        final box = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: showDetail(),
+            matching: find.byType(AnimatedContainer),
+          ),
         );
+        return (box.decoration as BoxDecoration?)?.color;
       }
+
+      expect(fill(), const Color(0x00000000));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: tester.getCenter(showDetail()));
+      await tester.pumpAndSettle();
+      expect(fill(), tester.element(showDetail()).fmpColors.fill);
+    });
+
+    windowsTest('medium: pressing or double-clicking the flat button neither '
+        'drags nor maximizes the window', (tester) async {
+      await start(tester, medium);
+      calls.clear();
+      await tester.dragFrom(
+        tester.getCenter(showDetail()),
+        const Offset(120, 80),
+      );
+      await tester.pumpAndSettle();
+      // 拖出點擊範圍就不算按下。
+      expect(find.byType(DetailPanel), findsNothing);
+      final center = tester.getCenter(showDetail());
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 80));
+      await tester.tapAt(center);
+      await tester.pumpAndSettle();
+      expect(
+        calls.map((c) => c.method),
+        isNot(anyOf(contains('startDrag'), contains('zoom'))),
+      );
+    });
+
+    windowsTest('medium: Tab reaches the flat button', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await start(tester, medium);
+      expect(await tabThrough(tester, 16), contains('顯示詳情面板'));
+      semantics.dispose();
+    });
+
+    windowsTest('macOS keeps the glass button in the medium top bar', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await start(tester, medium);
+      expect(
+        find.ancestor(
+          of: find.byTooltip('顯示詳情面板'),
+          matching: find.byType(GlassIconButton),
+        ),
+        findsOneWidget,
+      );
     });
 
     windowsTest('the detail panel starts its header below the caption '
@@ -498,8 +606,8 @@ void main() {
       // 標頭右內距 10，和其他平台一樣。
       expect(docked.right, 1280 - 10);
 
-      await start(tester, const Size(960, 720));
-      await tap(tester, find.byTooltip('顯示詳情面板'));
+      await start(tester, medium);
+      await tap(tester, showDetail());
       // 浮動面板從視窗鈕下方再 8 開始。
       expect(tester.getRect(find.byType(DetailPanel)).top, 32 + 8);
       expect(tester.getRect(find.byTooltip('收起面板')).right, 960 - 8 - 10);
