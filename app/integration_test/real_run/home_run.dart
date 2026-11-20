@@ -10,7 +10,8 @@ import 'package:integration_test/integration_test.dart';
 import 'driver.dart';
 
 /// 票 18 的實跑：開 App 後首頁抓一次 B 站排行榜（匿名，spec〈共同規則〉的
-/// 聯網規則），截到榜；點第 1 名臨時播放（觸控點一下、桌面雙擊），讀回播放
+/// 聯網規則），截到榜（macOS 先把視窗拉到寬版 1280×800，只有一個音源時 10 名
+/// 排成兩欄，票 18b）；點第 1 名臨時播放（觸控點一下、桌面雙擊），讀回播放
 /// 控制與播放狀態。跑法見 docs/development.md〈實跑驅動〉：
 ///
 ///     dart run tool/real_run.dart -d macos integration_test/real_run/home_run.dart
@@ -25,6 +26,9 @@ void main() {
       (w) => w is HomeTouchRow || w is ChartDeskRow,
     );
     await run.waitFor(rows, timeout: const Duration(seconds: 30));
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      await run.system('resize-wide', 'resize', ['1280x800']);
+    }
     final home = await run.step('chart');
     expect(home, contains(t.home.charts));
 
