@@ -50,8 +50,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   late final KeyboardFocus _keyboard;
   final _menuAnchor = GlobalKey(debugLabel: 'search menu anchor');
 
-  /// 上一次畫出來的結果（表格的鍵盤選取用）。
-  List<Track> _shown = const [];
   late final DockHidden _dock;
 
   /// 選取的曲目（滑鼠的選取，或觸控的多選）。
@@ -192,10 +190,24 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 用鍵盤移進表格時，還沒選取就選第一首，外框才有地方畫
   /// （`table_focus.dart`）。
   void _onKeyboardFocus() {
-    if (_keyboard.value && _anchor == null && _shown.isNotEmpty) {
-      _selectOnly(_shown.first.ref);
+    final tracks = _tracksOf(
+      ref.read(searchProvider),
+      ref.read(searchFilterProvider),
+    );
+    if (_keyboard.value && _anchor == null && tracks.isNotEmpty) {
+      _selectOnly(tracks.first.ref);
     }
     setState(() {});
+  }
+
+  /// 畫面上的結果：全部音源交錯，或篩選的那一個（同 [build]）。
+  List<Track> _tracksOf(SearchState? search, String? filter) {
+    if (search == null) return const [];
+    if (filter == null) return search.tracks;
+    return interleave([
+      for (final s in search.sources)
+        if (s.manifest.id == filter) s,
+    ]);
   }
 
   void _selectOnly(TrackRef track) {
@@ -208,11 +220,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   KeyEventResult _onKey(FocusNode node, KeyEvent event, List<Track> tracks) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    // 焦點在頁面裡的按鈕（chip、⋮）時，↩ 與方向鍵是那顆鈕的，不是表格的。
+    if (key == LogicalKeyboardKey.escape && _selected.isNotEmpty) {
+      _clearSelection();
+      return KeyEventResult.handled;
+    }
+    // 焦點在頁面裡的按鈕（chip、⋮）時，↩、方向鍵與選單鍵是那顆鈕的，不是
+    // 表格的；Esc 在頁面裡哪裡都清掉選取。
     if (!node.hasPrimaryFocus) return KeyEventResult.ignored;
     final at = tracks.indexWhere((t) => t.ref == _anchor);
     if (isMenuKey(event) && at >= 0) {
-      final point = anchorOf(_menuAnchor);
+      final point = menuAnchorOf(_menuAnchor);
       if (point != null) {
         showTrackActions(context, ref, tracks[at], at: point);
       }
@@ -228,10 +245,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ? math.max(0, at - 1)
           : math.min(tracks.length - 1, at + 1);
       setState(() => _selectOnly(tracks[next].ref));
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.escape && _selected.isNotEmpty) {
-      _clearSelection();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.enter ||
@@ -309,9 +322,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             for (final s in search.sources)
               if (filter == null || s.manifest.id == filter) s,
           ];
-    final tracks = filter == null
-        ? (search?.tracks ?? const <Track>[])
-        : interleave(visible);
+    final tracks = _tracksOf(search, filter);
     final insets = ShellInsets.of(context);
     final horizontal = switch ((table, phone)) {
       (true, _) => EdgeInsets.only(
@@ -385,7 +396,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ],
     );
     if (table) {
-      _shown = tracks;
       // 整頁只為了接表格的按鍵；對螢幕閱讀器，可聚焦的是一列一列
       // （`FocusableTableRow`）。
       page = Focus(

@@ -237,6 +237,18 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('phone: screen readers hear that tapping the mini player '
+        'opens the player, on the same node as the tap', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await startShell(tester, phone);
+
+      final mini = find.semantics.byLabel(RegExp('^晴天')).evaluate().single;
+      final data = mini.getSemanticsData();
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(mini.hintOverrides?.onTapHint, t.player.open);
+      semantics.dispose();
+    });
+
     testWidgets('phone: the search orb is a node of its own size for screen '
         'readers, not the whole screen', (tester) async {
       final semantics = tester.ensureSemantics();

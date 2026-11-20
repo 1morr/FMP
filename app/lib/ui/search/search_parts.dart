@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/glass/glass.dart';
 import 'package:fmp/app/i18n/strings.g.dart';
@@ -497,35 +499,32 @@ class SearchFilterBar extends ConsumerWidget {
     }
     // chip 與排序鈕的點擊區 44 吃掉原本上 2、下 6 的間距，整排 40 → 44
     // （擁有者 2026-11-20 同意）。
-    return Padding(
-      padding: EdgeInsets.zero,
-      child: Row(
-        children: [
-          Expanded(
-            child: ShaderMask(
-              blendMode: BlendMode.dstIn,
-              shaderCallback: (rect) => LinearGradient(
-                colors: const [Color(0xFF000000), Color(0x00000000)],
-                stops: [(rect.width - 20) / rect.width, 1],
-              ).createShader(rect),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.only(left: 20, right: 8),
-                child: Row(
-                  children: [
-                    for (final (i, chip) in chips.indexed) ...[
-                      if (i > 0) const SizedBox(width: 8),
-                      chip,
-                    ],
+    return Row(
+      children: [
+        Expanded(
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (rect) => LinearGradient(
+              colors: const [Color(0xFF000000), Color(0x00000000)],
+              stops: [(rect.width - 20) / rect.width, 1],
+            ).createShader(rect),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(left: 20, right: 8),
+              child: Row(
+                children: [
+                  for (final (i, chip) in chips.indexed) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    chip,
                   ],
-                ),
+                ],
               ),
             ),
           ),
-          if (sort != null)
-            Padding(padding: const EdgeInsets.only(right: 16), child: sort),
-        ],
-      ),
+        ),
+        if (sort != null)
+          Padding(padding: const EdgeInsets.only(right: 16), child: sort),
+      ],
     );
   }
 }
@@ -558,10 +557,8 @@ class _SortButton extends ConsumerWidget {
     return ShellButton(
       label: t.search.sort.label(sort: label),
       focusRadius: 999,
-      hitPadding: targetPadding(
-        double.infinity,
-        visual,
-        context.fmpMetrics.minTarget,
+      hitPadding: EdgeInsets.symmetric(
+        vertical: math.max(0, (context.fmpMetrics.minTarget - visual) / 2),
       ),
       onTap: () async {
         final box = context.findRenderObject()! as RenderBox;

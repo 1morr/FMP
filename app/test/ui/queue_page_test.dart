@@ -988,12 +988,15 @@ void main() {
       final visited = await tabThrough(tester, 4);
       expect(visited, contains(startsWith('Song')));
       expect(visited, contains('從佇列移除'));
-      while (!(FocusManager.instance.primaryFocus?.context
+      bool onRow() =>
+          FocusManager.instance.primaryFocus?.context
               ?.findAncestorWidgetOfExactType<QueueTouchRow>() !=
-          null)) {
+          null;
+      for (var i = 0; i < 20 && !onRow(); i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
       }
+      expect(onRow(), isTrue);
       final row = FocusManager.instance.primaryFocus!.context!
           .findAncestorWidgetOfExactType<QueueTouchRow>()!;
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);

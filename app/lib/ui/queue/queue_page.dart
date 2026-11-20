@@ -257,7 +257,7 @@ class _QueuePageState extends ConsumerState<QueuePage> {
     final entries = ref.read(queueProvider).entries;
     final alt = HardwareKeyboard.instance.isAltPressed;
     if (isMenuKey(event)) {
-      final at = anchorOf(_menuAnchor);
+      final at = menuAnchorOf(_menuAnchor);
       if (at != null) _showMenu(_selectedId!, at);
     } else if (!alt && key == LogicalKeyboardKey.arrowUp) {
       if (index > 0) setState(() => _selectedId = entries[index - 1].id);

@@ -14,6 +14,7 @@ class ShellButton extends StatefulWidget {
     required this.builder,
     this.onLongPress,
     this.label,
+    this.tapHint,
     this.selected = false,
     this.tooltip,
     this.focusRadius,
@@ -30,6 +31,9 @@ class ShellButton extends StatefulWidget {
 
   /// 給螢幕閱讀器的名字；看得到的文字已經夠時留 null。
   final String? label;
+
+  /// 螢幕閱讀器說點了會怎樣（例如「打開播放頁」）；和點擊在同一個節點上。
+  final String? tapHint;
   final bool selected;
 
   /// 只有圖示時給滑鼠 hover 與長按看的說明。
@@ -119,6 +123,7 @@ class _ShellButtonState extends State<ShellButton> {
       container: true,
       button: true,
       enabled: enabled,
+      onTapHint: widget.tapHint,
       selected: widget.selected,
       label: widget.label,
       child: child,
@@ -226,11 +231,3 @@ class DockHidden extends Notifier<bool> {
     if (ref.mounted) state = hidden;
   }
 }
-
-/// [width]×[height] 看得到的控制補到點擊區至少 [min] 見方要的透明四周
-/// （[ShellButton.hitPadding]）；已經夠大的那一邊不補。
-EdgeInsets targetPadding(double width, double height, double min) =>
-    EdgeInsets.symmetric(
-      horizontal: width < min ? (min - width) / 2 : 0,
-      vertical: height < min ? (min - height) / 2 : 0,
-    );

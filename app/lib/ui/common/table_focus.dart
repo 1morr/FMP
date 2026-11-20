@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:material_ui/material_ui.dart';
@@ -12,28 +13,41 @@ bool isMenuKey(KeyEvent event) =>
     (event.logicalKey == LogicalKeyboardKey.f10 &&
         HardwareKeyboard.instance.isShiftPressed);
 
-/// [node] 有焦點、而且是鍵盤移過來的（`:focus-visible` 的語意）時為真；
-/// 滑鼠點出來的焦點不畫外框。
+/// [node] 有焦點、而且最後一下輸入是鍵盤（`:focus-visible` 的語意）時為真：
+/// 按下滑鼠或手指就不算，即使焦點是點出來的。框架的 highlight mode 在滑鼠
+/// 之後仍是 traditional，所以自己看最後一下輸入。
 class KeyboardFocus extends ValueNotifier<bool> {
   KeyboardFocus(this.node) : super(false) {
     node.addListener(_update);
-    FocusManager.instance.addHighlightModeListener(_onMode);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
+    HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   final FocusNode node;
+  bool _lastInputWasKey = false;
 
-  void _onMode(FocusHighlightMode _) => _update();
-
-  void _update() {
-    value =
-        node.hasPrimaryFocus &&
-        FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+  void _onPointer(PointerEvent event) {
+    if (event is PointerDownEvent && _lastInputWasKey) {
+      _lastInputWasKey = false;
+      _update();
+    }
   }
+
+  bool _onKey(KeyEvent event) {
+    if (event is KeyDownEvent && !_lastInputWasKey) {
+      _lastInputWasKey = true;
+      _update();
+    }
+    return false;
+  }
+
+  void _update() => value = node.hasPrimaryFocus && _lastInputWasKey;
 
   @override
   void dispose() {
     node.removeListener(_update);
-    FocusManager.instance.removeHighlightModeListener(_onMode);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+    HardwareKeyboard.instance.removeHandler(_onKey);
     super.dispose();
   }
 }
@@ -100,7 +114,7 @@ class _FocusableTableRowState extends State<FocusableTableRow> {
 }
 
 /// [key] 標的那一點的螢幕座標（[FocusableTableRow.anchorKey]）。
-Offset? anchorOf(GlobalKey key) {
+Offset? menuAnchorOf(GlobalKey key) {
   final box = key.currentContext?.findRenderObject();
   if (box is! RenderBox || !box.attached) return null;
   return box.localToGlobal(Offset.zero);

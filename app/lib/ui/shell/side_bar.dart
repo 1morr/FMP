@@ -122,7 +122,8 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       selected: selected,
       focusRadius: 8,
-      hitPadding: touch ? targetPadding(232, 32, 44) : null,
+      // 觸控的點擊區上下各補 6 到 44，看得到的底色照稿 32。
+      hitPadding: touch ? const EdgeInsets.symmetric(vertical: 6) : null,
       builder: (context, hovered) => AnimatedContainer(
         duration: FmpMotion.fast,
         height: 32,
