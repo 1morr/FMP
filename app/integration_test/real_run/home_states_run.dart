@@ -29,8 +29,9 @@ import 'driver.dart';
 /// 打包的 bilibili 插件只用來給 manifest），深淺色用測試綁定切。手機截打開、
 /// 展開、第一次打開、載入中、失敗、沒有網路（有快取、從沒載入過）、有快取但
 /// 更新不了；macOS
-/// 截寬版（1280×800）詳情面板開著、收起並展開、載入中、失敗、沒有網路、滑過
-/// 一列，窄視窗（960×720）打開、失敗、沒有網路：
+/// 先截一張還沒動過視窗的樣子（App 預設的大小），再截寬版（1280×800）詳情
+/// 面板開著、收起、插件載入中、載入中、失敗、沒有網路、滑過一列（只有一個
+/// 音源，10 名排成兩欄，票 18b），窄視窗（960×720）打開、失敗、沒有網路：
 ///
 ///     dart run tool/real_run.dart -d macos --out build/real_run-home-states integration_test/real_run/home_states_run.dart
 void main() {
@@ -149,22 +150,22 @@ void main() {
     );
 
     if (mac) {
-      await run.system('resize-wide', 'resize', ['1280x800']);
+      // 啟動後還沒動過視窗（票 05d 的 `01-launch`；這裡是假的榜，不聯網）。
       playing();
       show(ready());
       await settle();
+      await both('open');
+      await run.system('resize-wide', 'resize', ['1280x800']);
+      await settle();
       await both('wide');
-      // 稿的第二張：收起詳情面板、展開到 10 名。
+      // 稿的第二張：收起詳情面板（只有一個音源時 10 名已經排成兩欄）。
       await tester.tap(find.byTooltip(t.shell.detail.hide));
       await settle();
-      await tester.tap(find.text(t.home.showMore(from: 6, to: 10)));
-      await settle();
-      await both('wide-expanded-hidden');
+      await both('wide-hidden');
       await tester.drag(scroll.first, const Offset(0, -400));
       await settle();
       await both('wide-continue');
       await tester.drag(scroll.first, const Offset(0, 400));
-      await tester.tap(find.text(t.home.showLess));
       await tester.tap(find.byTooltip(t.shell.detail.show));
       await settle();
       // 滑過第 2 名：名次變播放鈕、尾端浮出 ⋮（Flutter 裡的滑鼠，不動游標）。
@@ -175,6 +176,10 @@ void main() {
       await both('wide-hover');
       await mouse.moveTo(Offset.zero);
       await mouse.removePointer();
+      // 插件還在載入：照一個音源的版面畫兩欄 10 列骨架（票 18b）。
+      charts.show(const ChartsState(starting: true));
+      await settle();
+      await both('wide-starting');
       await states('wide');
 
       await run.system('resize-medium', 'resize', ['960x720']);

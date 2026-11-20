@@ -381,13 +381,17 @@ class ChartErrorBlock extends StatelessWidget {
 
 /// 桌面一欄的欄頂（`.hm-ch`）：音源符號＋全名「· 榜名」，底下一條細線。
 class ChartColumnHeader extends StatelessWidget {
-  const ChartColumnHeader({super.key, required this.manifest});
+  const ChartColumnHeader({super.key, required PluginManifest this.manifest});
 
-  final PluginManifest manifest;
+  /// 還不知道是哪個音源（插件載入中的骨架）：只有細線，高度相同。
+  const ChartColumnHeader.placeholder({super.key}) : manifest = null;
+
+  final PluginManifest? manifest;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.fmpColors;
+    final manifest = this.manifest;
     return Container(
       height: 30,
       margin: const EdgeInsets.only(bottom: 4),
@@ -395,35 +399,37 @@ class ChartColumnHeader extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.sep, width: .5)),
       ),
-      child: Row(
-        children: [
-          SourceMarkIcon(pluginId: manifest.id, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            manifest.name,
-            style: TextStyle(
-              fontSize: 12.5,
-              height: 16 / 12.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-              color: colors.label,
+      child: manifest == null
+          ? null
+          : Row(
+              children: [
+                SourceMarkIcon(pluginId: manifest.id, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  manifest.name,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 16 / 12.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                    color: colors.label,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '· ${chartTitleOf(context, manifest)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 0,
+                      color: colors.label3,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              '· ${chartTitleOf(context, manifest)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                letterSpacing: 0,
-                color: colors.label3,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

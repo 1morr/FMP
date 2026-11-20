@@ -15,6 +15,7 @@ import 'package:fmp/domain/temporary_play.dart';
 import 'package:fmp/domain/track.dart';
 import 'package:fmp/playback/queue_controller.dart';
 import 'package:fmp/plugins/plugins.dart';
+import 'package:fmp/ui/common/filter_chip_button.dart';
 import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:fmp/ui/home/chart_rows.dart';
 import 'package:fmp/ui/queue/queue_page.dart';
@@ -406,6 +407,145 @@ void main() {
       expect(tester.getSize(find.text('10').first).height, lessThan(20));
     });
 
+    // 只有一個音源宣告 `charts` 時照中寬度把 10 名排成兩欄（票 18b）。
+    testMac('one source shows its 10 as 1–5 and 6–10 side by side without '
+        'chips or an expand button', (tester) async {
+      await start(tester, desktop);
+
+      expect(find.text('Demo'), findsOneWidget);
+      expect(find.text('· Demo 排行榜'), findsOneWidget);
+      final first = tester.getTopLeft(rowTitled('Song demo1'));
+      final sixth = tester.getTopLeft(rowTitled('Song demo6'));
+      expect(sixth.dy, first.dy);
+      expect(sixth.dx, greaterThan(first.dx));
+      expect(find.text('Song demo10'), findsOneWidget);
+      expect(find.text('顯示第 6–10 名'), findsNothing);
+      expect(find.byType(FilterChipButton), findsNothing);
+    });
+
+    testMac('one source loading shows 10 skeleton rows in two columns', (
+      tester,
+    ) async {
+      await start(
+        tester,
+        desktop,
+        sources: [SourceChart(manifest: manifestOf('demo'), loading: true)],
+      );
+
+      expect(find.byType(ChartSkeletonRow), findsNWidgets(10));
+      Offset rank(int n) =>
+          tester.getTopLeft(find.widgetWithText(ChartSkeletonRow, '$n'));
+      expect(rank(6).dy, rank(1).dy);
+      expect(rank(6).dx, greaterThan(rank(1).dx));
+      expect(find.text('· Demo 排行榜'), findsOneWidget);
+    });
+
+    testMac('while the plugins are still loading the skeleton is 10 rows in '
+        'two columns, as for one source', (tester) async {
+      await start(tester, desktop, starting: true);
+
+      expect(find.text('近期熱門'), findsOneWidget);
+      expect(find.byType(ChartSkeletonRow), findsNWidgets(10));
+      Offset rank(int n) =>
+          tester.getTopLeft(find.widgetWithText(ChartSkeletonRow, '$n'));
+      expect(rank(6).dy, rank(1).dy);
+      expect(rank(6).dx, greaterThan(rank(1).dx));
+    });
+
+    testMac('when the plugins finish loading with two sources the skeleton '
+        'cross-fades into one column per source', (tester) async {
+      await start(tester, desktop, starting: true);
+
+      charts.show(ChartsState(sources: [ready('demo'), ready('other')]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // 交叉淡出的中途：骨架與兩欄的榜都在，各自半透明。
+      expect(find.byType(ChartSkeletonRow), findsNWidgets(10));
+      expect(find.text('· Other 排行榜'), findsOneWidget);
+      final fading = tester.widget<FadeTransition>(
+        find
+            .ancestor(
+              of: find.byType(ChartSkeletonRow).first,
+              matching: find.byType(FadeTransition),
+            )
+            .first,
+      );
+      expect(fading.opacity.value, inExclusiveRange(0, 1));
+
+      await _settle(tester);
+      expect(find.byType(ChartSkeletonRow), findsNothing);
+      expect(find.text('Song other1'), findsOneWidget);
+    });
+
+    testMac('one source that failed without a saved chart says why and '
+        'retries itself', (tester) async {
+      await start(
+        tester,
+        desktop,
+        sources: [
+          SourceChart(manifest: manifestOf('demo'), error: const RateLimited()),
+        ],
+      );
+
+      expect(find.text('Demo 的榜載入不了'), findsOneWidget);
+      await tester.tap(find.text('重試 Demo'));
+      expect(charts.refreshes, ['demo']);
+    });
+
+    testMac('one source with a saved chart it could not update keeps both '
+        'columns and says how old it is', (tester) async {
+      await start(
+        tester,
+        desktop,
+        sources: [
+          ready(
+            'demo',
+            age: const Duration(hours: 3),
+            error: const NetworkError(),
+          ),
+        ],
+      );
+
+      expect(find.text('沒有網路 · 這是 3 小時前的榜'), findsOneWidget);
+      final first = tester.getTopLeft(rowTitled('Song demo1'));
+      final sixth = tester.getTopLeft(rowTitled('Song demo6'));
+      expect(sixth.dy, first.dy);
+    });
+
+    testMac('one source never loaded and offline is one block that retries '
+        'everything', (tester) async {
+      await start(
+        tester,
+        desktop,
+        sources: [
+          SourceChart(
+            manifest: manifestOf('demo'),
+            error: const NetworkError(),
+          ),
+        ],
+      );
+
+      expect(find.text('沒有網路，排行榜載入不了'), findsOneWidget);
+      expect(find.byType(ChartSkeletonRow), findsNothing);
+      await tester.tap(find.text('重試'));
+      expect(charts.refreshes, [null]);
+    });
+
+    testMac('with one source the arrow keys go from 5 across to 6 and back', (
+      tester,
+    ) async {
+      await start(tester, desktop);
+      await tester.tap(find.text('Song demo5'));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+
+      expect(queue.calls, ['temporary demo6', 'temporary demo5']);
+    });
+
     testMac('continue listening shows only with the detail panel '
         'collapsed', (tester) async {
       await start(tester, desktop, initialQueue: playing);
@@ -581,6 +721,8 @@ class _FakeCharts extends Charts {
 
   @override
   ChartsState build() => _initial;
+
+  void show(ChartsState next) => state = next;
 
   @override
   Future<void> refreshStale() async => staleChecks++;
