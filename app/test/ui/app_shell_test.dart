@@ -26,7 +26,6 @@ import '../support/motion.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fmp/app/theme/appearance.dart';
-import 'package:fmp/app/theme/accent.dart';
 
 /// App 外殼的路由與導覽（`docs/design/DESIGN.md`〈外殼〉）：打開在首頁，四個
 /// 分頁與搜尋都到得了，返回行為照手機的分頁慣例。三種寬度各用一個視窗大小。
@@ -671,11 +670,7 @@ void main() {
 
     windowsTest('medium: with reduced motion the flat button still fades out '
         'when the panel opens', (tester) async {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
+      reduceMotion(tester);
       await start(tester, medium);
       final fade = find.ancestor(
         of: showDetail(),

@@ -78,9 +78,9 @@ class _PhoneDockState extends State<PhoneDock> {
           bottom: 0,
           height: phoneDockHeight + lift,
           child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: FmpMotion.mid,
+            child: PreservedFade(
               opacity: typing ? 0 : 1,
+              duration: FmpMotion.mid,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -112,9 +112,9 @@ class _PhoneDockState extends State<PhoneDock> {
                 height: 56,
                 child: IgnorePointer(
                   ignoring: typing,
-                  child: AnimatedOpacity(
-                    duration: FmpMotion.mid,
+                  child: PreservedFade(
                     opacity: typing ? 0 : 1,
+                    duration: FmpMotion.mid,
                     child: const _MiniSlot(),
                   ),
                 ),
@@ -123,10 +123,7 @@ class _PhoneDockState extends State<PhoneDock> {
               if (reduced)
                 Positioned.fill(
                   child: PreservedSwitcher(
-                    layout: (current, previous) => Stack(
-                      fit: StackFit.expand,
-                      children: [...previous, ?current],
-                    ),
+                    fit: StackFit.expand,
                     child: Stack(
                       key: ValueKey(searching),
                       children: _slots(
@@ -170,9 +167,9 @@ class _PhoneDockState extends State<PhoneDock> {
         top: top,
         width: searching ? orb : wideWidth,
         height: orb,
-        child: AnimatedOpacity(
-          duration: FmpMotion.mid,
+        child: PreservedFade(
           opacity: typing ? 0 : 1,
+          duration: FmpMotion.mid,
           child: IgnorePointer(
             ignoring: typing,
             // 圓鈕包在按鈕裡，焦點外框才畫在玻璃外面、不被裁掉。

@@ -17,6 +17,7 @@ import 'package:fmp/ui/shell/destination.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/motion.dart' as motion;
 import '../support/shell.dart';
 
 /// 設定頁（`docs/design/settings.html`）：手機的群組列表與桌面、中寬度的
@@ -49,11 +50,7 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     if (reduceMotion) {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
+      motion.reduceMotion(tester);
     }
     await tester.pumpWidget(
       buildRoot(overrides: [savedSettingsProvider.overrideWithValue(saved)]),
@@ -516,6 +513,12 @@ void main() {
       expect(around(FadeTransition), findsWidgets);
       expect(around(SlideTransition), findsNothing);
       expect(around(ScaleTransition), findsNothing);
+      // 照樣淡 280：預設的過場在減少動態效果時會縮成 5%，這裡要還在半途。
+      await tester.pump(const Duration(milliseconds: 135));
+      final opacity = tester
+          .widgetList<FadeTransition>(around(FadeTransition))
+          .fold(1.0, (v, f) => v * f.opacity.value);
+      expect(opacity, inExclusiveRange(0, 1));
     });
   });
 

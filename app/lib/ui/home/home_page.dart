@@ -253,7 +253,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: IgnorePointer(
             child: ValueListenableBuilder<bool>(
               valueListenable: _scrolled,
-              builder: (context, scrolled, _) => AnimatedOpacity(
+              builder: (context, scrolled, _) => PreservedFade(
                 opacity: scrolled ? 1 : 0,
                 duration: FmpMotion.mid,
                 child: DecoratedBox(
@@ -294,7 +294,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         valueListenable: _scrolled,
         builder: (context, scrolled, _) => ExcludeSemantics(
           excluding: !scrolled,
-          child: AnimatedOpacity(
+          child: PreservedFade(
             opacity: scrolled ? 1 : 0,
             duration: FmpMotion.mid,
             // 手機的小標題置中（`.ptitle`），桌面靠左（`.wt`）。

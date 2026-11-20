@@ -27,6 +27,7 @@ import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 enum _MenuAction { play, moveToNext, remove }
 
@@ -41,7 +42,30 @@ class QueuePage extends ConsumerStatefulWidget {
   ConsumerState<QueuePage> createState() => _QueuePageState();
 }
 
-class _QueuePageState extends ConsumerState<QueuePage> {
+class _QueuePageState extends ConsumerState<QueuePage>
+    with TickerProviderStateMixin {
+  /// 移除一首的過場（`DESIGN.md`〈狀態變化對照〉的清單移除一項）：那首
+  /// 立刻從佇列拿掉（播放、下一首與保存馬上看到），畫面上留一個殘影
+  /// out 280 收起高度並淡出；減少動態效果時只淡出。連著移除好幾首時各自
+  /// 收完，依移除的順序排（[QueueEntry.id] 為鍵）。
+  final _ghosts = <int, _Ghost>{};
+
+  /// 正在拖動排序：列表的項目數一變，框架就取消這次拖動，所以拖動期間收完
+  /// 的殘影先留著（高 0、全透明），放手後才拿掉。
+  bool _reordering = false;
+
+  /// 清空後空狀態淡入（out 280，減少動態效果時照樣）。
+  late final _emptyFade = AnimationController(
+    vsync: this,
+    duration: FmpMotion.mid,
+    value: 1,
+    animationBehavior: AnimationBehavior.preserve,
+  );
+  late final _emptyCurve = CurvedAnimation(
+    parent: _emptyFade,
+    curve: FmpMotion.outCurve,
+  );
+
   /// 捲過這個位置，大標題就讓進頂列的小標題。
   static const _titleGoneOffset = 40.0;
 
@@ -104,6 +128,11 @@ class _QueuePageState extends ConsumerState<QueuePage> {
 
   @override
   void dispose() {
+    for (final ghost in _ghosts.values) {
+      ghost.dispose();
+    }
+    _emptyCurve.dispose();
+    _emptyFade.dispose();
     _scroll.dispose();
     _scrolled.dispose();
     _keyboard.dispose();
@@ -215,14 +244,145 @@ class _QueuePageState extends ConsumerState<QueuePage> {
   }
 
   void _remove(int index) {
-    final entries = ref.read(queueProvider).entries;
+    final queue = ref.read(queueProvider);
+    final entries = queue.entries;
+    final entry = entries[index];
+    final temporary = ref.read(temporaryPlayProvider) != null;
+    final shown = _itemsOf(
+      queue,
+      temporary: temporary,
+    ).whereType<TrackItem>().toList();
+    final at = shown.indexWhere((item) => item.entry.id == entry.id);
+    final before = at > 0 ? shown[at - 1].entry.id : null;
+    final after = at >= 0 && at + 1 < shown.length
+        ? shown[at + 1].entry.id
+        : null;
     // 移除選取的那列後，選取移到下一列（沒有就上一列），連按 Delete 能一路刪。
-    if (entries[index].id == _selectedId) {
+    if (entry.id == _selectedId) {
       final next = index + 1 < entries.length ? index + 1 : index - 1;
-      setState(() => _selectedId = next >= 0 ? entries[next].id : null);
+      _selectedId = next >= 0 ? entries[next].id : null;
     }
+    final current = queue.currentIndex ?? entries.length;
+    _ghosts.remove(entry.id)?.dispose();
+    final ghost = _Ghost(
+      RemovedTrackItem(
+        index,
+        entry,
+        dimmed: index < current,
+        before: before,
+        after: after,
+      ),
+      vsync: this,
+    );
+    setState(() => _ghosts[entry.id] = ghost);
     _queue.remove(index);
+    ghost.controller.forward().whenCompleteOrCancel(() {
+      if (!_reordering) _dropFinishedGhosts();
+    });
   }
+
+  /// 拿掉收完的殘影。
+  void _dropFinishedGhosts() {
+    if (!mounted) return;
+    final done = [
+      for (final MapEntry(:key, :value) in _ghosts.entries)
+        if (value.controller.isCompleted) key,
+    ];
+    if (done.isEmpty) return;
+    setState(() {
+      for (final id in done) {
+        _ghosts.remove(id)!.dispose();
+      }
+    });
+  }
+
+  /// 列表的項目：佇列排出來的，加上收起中的殘影（插回各自原本的位置）。
+  List<QueueItem> _itemsOf(Queue queue, {required bool temporary}) {
+    final items = QueueItem.of(queue, temporary: temporary);
+    if (queue.isEmpty) return items;
+    for (final ghost in _ghosts.values) {
+      final removed = ghost.item;
+      int indexOf(int? id) => id == null
+          ? -1
+          : items.indexWhere(
+              (item) => item is TrackItem && item.entry.id == id,
+            );
+      // 插在原本後面那首之前；它也不在了就插在原本前面那首之後，都不在就
+      // 放最前。
+      final after = indexOf(removed.after);
+      final before = indexOf(removed.before);
+      items.insert(
+        after >= 0
+            ? after
+            : before >= 0
+            ? before + 1
+            : 0,
+        removed,
+      );
+    }
+    return items;
+  }
+
+  /// 收起中的殘影：列照原本的高排、上緣對齊，被裁掉的部分跟著淡出；點不到、
+  /// 讀不到。
+  Widget _ghostRow(
+    QueueLayout layout,
+    RemovedTrackItem removed, {
+    required int flatIndex,
+    required bool separator,
+  }) {
+    final extent = removed.extent(layout);
+    final row = layout.isTable
+        ? QueueTableRow(
+            entry: removed.entry,
+            index: removed.index,
+            flatIndex: flatIndex,
+            isCurrent: false,
+            dimmed: removed.dimmed,
+            selected: false,
+            focused: false,
+            playing: false,
+            onSelect: () {},
+            onPlay: () {},
+            onRemove: () {},
+            onMenu: (_) {},
+          )
+        : QueueTouchRow(
+            entry: removed.entry,
+            flatIndex: flatIndex,
+            isCurrent: false,
+            dimmed: removed.dimmed,
+            separator: separator,
+            playing: false,
+            onPlay: () {},
+            onRemove: () {},
+          );
+    return FadeTransition(
+      key: ValueKey(('removed', removed.entry.id)),
+      opacity: ReverseAnimation(_ghosts[removed.entry.id]!.curve),
+      child: Inert(
+        inert: true,
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topCenter,
+            minHeight: extent,
+            maxHeight: extent,
+            child: row,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// [removed] 收起中這一刻的高；減少動態效果時不收、只淡出。
+  double _ghostExtent(QueueLayout layout, RemovedTrackItem removed) {
+    final extent = removed.extent(layout);
+    if (FmpMotion.reduced(context)) return extent;
+    return extent * (1 - (_ghosts[removed.entry.id]?.curve.value ?? 1));
+  }
+
+  Listenable get _ghostMotion =>
+      Listenable.merge([for (final g in _ghosts.values) g.controller]);
 
   void _select(int id) {
     setState(() => _selectedId = id);
@@ -341,6 +501,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         if (mounted) _toCurrent(animate: true);
       });
     });
+    ref.listen(queueProvider.select((queue) => queue.isEmpty), (was, empty) {
+      if (was == false && empty) _emptyFade.forward(from: 0);
+    });
     final queue = ref.watch(queueProvider);
     final temporary = ref.watch(temporaryPlayProvider);
     final rewind = ref.watch(temporaryPlayRewindProvider);
@@ -377,68 +540,105 @@ class _QueuePageState extends ConsumerState<QueuePage> {
             padding: horizontal,
             sliver: SliverToBoxAdapter(child: head),
           ),
-          _empty(context),
+          // 移除到空的：剛拿掉的那幾首照樣收起，空狀態同時淡入。
+          if (_ghosts.isNotEmpty)
+            SliverPadding(
+              padding: horizontal,
+              sliver: SliverToBoxAdapter(
+                child: AnimatedBuilder(
+                  animation: _ghostMotion,
+                  builder: (context, _) => Column(
+                    children: [
+                      for (final ghost in _ghosts.values)
+                        SizedBox(
+                          height: _ghostExtent(layout, ghost.item),
+                          child: _ghostRow(
+                            layout,
+                            ghost.item,
+                            flatIndex: 0,
+                            separator: false,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          SliverFadeTransition(opacity: _emptyCurve, sliver: _empty(context)),
           SliverToBoxAdapter(child: SizedBox(height: insets.bottom)),
         ],
       );
     } else {
-      final items = QueueItem.of(queue, temporary: temporary != null);
+      final items = _itemsOf(queue, temporary: temporary != null);
       // 沒有目前那首時當成在最後一首之後：全部都是播過的。
       final current = queue.currentIndex ?? queue.entries.length;
       double extentOf(QueueItem item, double width) {
+        if (item is RemovedTrackItem) return _ghostExtent(layout, item);
         if (item is! TemporaryCardItem) return item.extent(layout);
         return _cardExtent(layout, queue, temporary!, rewind, width);
       }
 
-      scroll = CustomScrollView(
-        controller: _scroll,
-        slivers: [
-          SliverToBoxAdapter(child: SizedBox(height: insets.top)),
-          SliverPadding(
-            padding: horizontal,
-            sliver: SliverToBoxAdapter(child: head),
-          ),
-          SliverPadding(
-            padding: horizontal,
-            sliver: SliverReorderableList(
-              itemCount: items.length,
-              itemExtentBuilder: (index, dimensions) =>
-                  extentOf(items[index], dimensions.crossAxisExtent),
-              proxyDecorator: (child, index, animation) =>
-                  queueLift(context, child),
-              onReorderItem: (from, to) => _onReorder(items, from, to),
-              findChildIndexCallback: (key) {
-                if (key is! ValueKey<int>) return null;
-                final at = items.indexWhere(
-                  (item) => item is TrackItem && item.entry.id == key.value,
-                );
-                return at < 0 ? null : at;
-              },
-              itemBuilder: (context, i) => _item(
-                context,
-                layout,
-                items,
-                i,
-                queue: queue,
-                current: current,
-                playing: playing,
-                temporary: temporary,
-                rewind: rewind,
+      // 收起中每一幀重排列高。
+      scroll = AnimatedBuilder(
+        animation: _ghostMotion,
+        builder: (context, _) => CustomScrollView(
+          controller: _scroll,
+          slivers: [
+            SliverToBoxAdapter(child: SizedBox(height: insets.top)),
+            SliverPadding(
+              padding: horizontal,
+              sliver: SliverToBoxAdapter(child: head),
+            ),
+            SliverPadding(
+              padding: horizontal,
+              sliver: SliverReorderableList(
+                itemCount: items.length,
+                itemExtentBuilder: (index, dimensions) =>
+                    extentOf(items[index], dimensions.crossAxisExtent),
+                proxyDecorator: (child, index, animation) =>
+                    queueLift(context, child),
+                onReorderItem: (from, to) => _onReorder(items, from, to),
+                onReorderStart: (_) => _reordering = true,
+                onReorderEnd: (_) {
+                  _reordering = false;
+                  // 放下的這一幀之後再拿掉，免得和這次排序的重建撞在一起。
+                  WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => _dropFinishedGhosts(),
+                  );
+                },
+                findChildIndexCallback: (key) {
+                  if (key is! ValueKey<int>) return null;
+                  final at = items.indexWhere(
+                    (item) => item is TrackItem && item.entry.id == key.value,
+                  );
+                  return at < 0 ? null : at;
+                },
+                itemBuilder: (context, i) => _item(
+                  context,
+                  layout,
+                  items,
+                  i,
+                  queue: queue,
+                  current: current,
+                  playing: playing,
+                  temporary: temporary,
+                  rewind: rewind,
+                ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: horizontal,
-            sliver: SliverToBoxAdapter(
-              child: QueueEndNote(
-                repeat: queue.repeat,
-                shuffled: queue.shuffled,
-                table: layout.isTable,
+            SliverPadding(
+              padding: horizontal,
+              sliver: SliverToBoxAdapter(
+                child: QueueEndNote(
+                  repeat: queue.repeat,
+                  shuffled: queue.shuffled,
+                  table: layout.isTable,
+                ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(child: SizedBox(height: insets.bottom)),
-        ],
+            SliverToBoxAdapter(child: SizedBox(height: insets.bottom)),
+          ],
+        ),
       );
     }
 
@@ -504,50 +704,84 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           shuffled: shuffled,
           table: table,
         );
-      case TrackItem(:final index, :final entry):
-        final id = entry.id;
-        // 臨時播放時正在播的不在佇列裡，目前那首是要回去的地方。
-        final isCurrent = index == current && temporary == null;
-        final returnNote = index == current && temporary != null
-            ? context.t.queue.temporary.returnRow(
-                position: formatDuration(temporary.resumeAt(entry, rewind)),
-              )
-            : null;
-        if (table) {
-          return QueueTableRow(
-            key: ValueKey(id),
-            entry: entry,
-            index: index,
-            flatIndex: i,
-            isCurrent: isCurrent,
-            dimmed: index < current,
-            selected: id == _selectedId,
-            focused: id == _selectedId && _keyboard.value,
-            menuAnchor: id == _selectedId ? _menuAnchor : null,
-            playing: isCurrent && playing,
-            returnNote: returnNote,
-            onSelect: () => _select(id),
-            onPlay: () => _queue.playAt(_indexOf(id)),
-            onRemove: () => _remove(_indexOf(id)),
-            onMenu: (position) => _showMenu(id, position),
-          );
-        }
-        final previous = i > 0 ? items[i - 1] : null;
-        return QueueTouchRow(
-          key: ValueKey(id),
-          entry: entry,
+      case final TrackItem item:
+        return _trackRow(
+          context,
+          layout,
+          items,
+          i,
+          item,
+          current: current,
+          playing: playing,
+          temporary: temporary,
+          rewind: rewind,
+        );
+      case final RemovedTrackItem removed:
+        return _ghostRow(
+          layout,
+          removed,
           flatIndex: i,
-          isCurrent: isCurrent,
-          dimmed: index < current,
-          // 正在播的列上下不畫分隔線。
-          separator:
-              previous is TrackItem && !isCurrent && previous.index != current,
-          playing: isCurrent && playing,
-          returnNote: returnNote,
-          onPlay: () => _queue.playAt(_indexOf(id)),
-          onRemove: () => _remove(_indexOf(id)),
+          separator: i > 0 && items[i - 1] is TrackItem,
         );
     }
+  }
+
+  /// 佇列的一首（表格列或觸控列）；[i] 是它在列表裡第幾項。
+  Widget _trackRow(
+    BuildContext context,
+    QueueLayout layout,
+    List<QueueItem> items,
+    int i,
+    TrackItem item, {
+    required int current,
+    required bool playing,
+    required TemporaryPlay? temporary,
+    required Duration rewind,
+  }) {
+    final table = layout.isTable;
+    final TrackItem(:index, :entry) = item;
+    final id = entry.id;
+    // 臨時播放時正在播的不在佇列裡，目前那首是要回去的地方。
+    final isCurrent = index == current && temporary == null;
+    final returnNote = index == current && temporary != null
+        ? context.t.queue.temporary.returnRow(
+            position: formatDuration(temporary.resumeAt(entry, rewind)),
+          )
+        : null;
+    if (table) {
+      return QueueTableRow(
+        key: ValueKey(id),
+        entry: entry,
+        index: index,
+        flatIndex: i,
+        isCurrent: isCurrent,
+        dimmed: index < current,
+        selected: id == _selectedId,
+        focused: id == _selectedId && _keyboard.value,
+        menuAnchor: id == _selectedId ? _menuAnchor : null,
+        playing: isCurrent && playing,
+        returnNote: returnNote,
+        onSelect: () => _select(id),
+        onPlay: () => _queue.playAt(_indexOf(id)),
+        onRemove: () => _remove(_indexOf(id)),
+        onMenu: (position) => _showMenu(id, position),
+      );
+    }
+    final previous = i > 0 ? items[i - 1] : null;
+    return QueueTouchRow(
+      key: ValueKey(id),
+      entry: entry,
+      flatIndex: i,
+      isCurrent: isCurrent,
+      dimmed: index < current,
+      // 正在播的列上下不畫分隔線。
+      separator:
+          previous is TrackItem && !isCurrent && previous.index != current,
+      playing: isCurrent && playing,
+      returnNote: returnNote,
+      onPlay: () => _queue.playAt(_indexOf(id)),
+      onRemove: () => _remove(_indexOf(id)),
+    );
   }
 
   /// 空佇列（`.qu-empty`）：圖示、說明、「去搜尋」與「打開音樂庫」。
@@ -708,9 +942,9 @@ class _QueuePageState extends ConsumerState<QueuePage> {
           valueListenable: _scrolled,
           builder: (context, scrolled, _) => Inert(
             inert: !scrolled,
-            child: AnimatedOpacity(
+            // 減少動態效果時照樣淡入淡出（預設的會縮成 5%，等於直接消失）。
+            child: PreservedFade(
               opacity: scrolled ? 1 : 0,
-              duration: FmpMotion.mid,
               child: ShellButton(
                 key: const Key('queue-small-title'),
                 onTap: () => _toCurrent(animate: true),
@@ -769,5 +1003,26 @@ class _QueuePageState extends ConsumerState<QueuePage> {
         },
       ],
     );
+  }
+}
+
+/// 一個收起中的殘影與它的過場。
+class _Ghost {
+  _Ghost(this.item, {required TickerProvider vsync})
+    : controller = AnimationController(
+        vsync: vsync,
+        duration: FmpMotion.mid,
+        animationBehavior: AnimationBehavior.preserve,
+      ) {
+    curve = CurvedAnimation(parent: controller, curve: FmpMotion.outCurve);
+  }
+
+  final RemovedTrackItem item;
+  final AnimationController controller;
+  late final CurvedAnimation curve;
+
+  void dispose() {
+    curve.dispose();
+    controller.dispose();
   }
 }

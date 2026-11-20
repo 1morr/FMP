@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +45,30 @@ void main() {
       )
       .scale
       .value;
+
+  /// 讀「減少動態效果」的共用入口（`DESIGN.md`〈狀態變化對照〉：只經它讀）：
+  /// 跟著系統設定，選取的動法在減少動態效果時是 out 280、不彈跳。
+  testWidgets('the reduce motion entry follows the system setting', (
+    tester,
+  ) async {
+    late BuildContext context;
+    Widget probe() => Builder(
+      builder: (c) {
+        context = c;
+        return const SizedBox();
+      },
+    );
+    await pump(tester, probe());
+    expect(FmpMotion.reduced(context), isFalse);
+    expect(FmpMotion.selection(context).curve, FmpMotion.springCurve);
+
+    reduceMotion(tester);
+    await tester.pump();
+    expect(FmpMotion.reduced(context), isTrue);
+    final selection = FmpMotion.selection(context);
+    expect(selection.duration, FmpMotion.mid);
+    expect(selection.curve, FmpMotion.outCurve);
+  });
 
   group('press', () {
     Future<void> pressHalfway(WidgetTester tester, Finder target) async {
@@ -164,6 +191,92 @@ void main() {
     expect(opacity(), 1);
   });
 
+  /// 換歌時的封面（`Cover.crossFade`）：新封面解碼出第一個 frame 才交叉淡出，
+  /// 之前舊封面完整留著；新封面載入失敗才淡到預設底。
+  group('cover change', () {
+    late Map<String, _PendingImage> images;
+
+    Future<void> showCover(WidgetTester tester, String url) =>
+        tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              coverImageLoaderProvider.overrideWithValue((url) => images[url]!),
+            ],
+            child: MaterialApp(
+              theme: buildTheme(
+                brightness: Brightness.light,
+                density: Density.touch,
+              ),
+              home: Center(
+                child: Cover(url: url, size: 40, radius: 9, crossFade: true),
+              ),
+            ),
+          ),
+        );
+
+    /// 畫著 [image] 的那張圖外面所有淡入淡出相乘的透明度；不在畫面上是 null。
+    double? opacityOf(WidgetTester tester, _PendingImage image) {
+      final found = find.byWidgetPredicate(
+        (w) =>
+            w is Image &&
+            w.image is ResizeImage &&
+            (w.image as ResizeImage).imageProvider == image,
+      );
+      if (found.evaluate().isEmpty) return null;
+      return tester
+          .widgetList<FadeTransition>(
+            find.ancestor(of: found, matching: find.byType(FadeTransition)),
+          )
+          .fold<double>(1, (v, f) => v * f.opacity.value);
+    }
+
+    Future<void> showLoadedA(WidgetTester tester) async {
+      // 在測試本體裡建：Completer 的 future 跟著建它的 zone 排工作，setUp 裡
+      // 建的錯誤傳遞走真的 microtask，fake async 的 pump 跑不到。
+      images = {'a': _PendingImage(), 'b': _PendingImage()};
+      await tester.runAsync(() => images['a']!.load());
+      await showCover(tester, 'a');
+      await tester.pumpAndSettle();
+      expect(opacityOf(tester, images['a']!), 1);
+    }
+
+    testWidgets('the old cover stays whole until the new one has a frame, '
+        'then they cross-fade', (tester) async {
+      await showLoadedA(tester);
+      await showCover(tester, 'b');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(opacityOf(tester, images['a']!), 1);
+
+      await tester.runAsync(() => images['b']!.load());
+      // 第一個 frame 到了、換過去，下一幀才開始淡。
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 140));
+      expect(opacityOf(tester, images['a']!), inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+      expect(opacityOf(tester, images['a']!), isNull);
+      expect(opacityOf(tester, images['b']!), 1);
+    });
+
+    testWidgets('when the new cover fails, the old one fades to the plain '
+        'fill', (tester) async {
+      await showLoadedA(tester);
+      await showCover(tester, 'b');
+      await tester.pump();
+      expect(opacityOf(tester, images['a']!), 1);
+
+      images['b']!.fail();
+      // 失敗回報、換成底色，下一幀才開始淡。
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 140));
+      expect(opacityOf(tester, images['a']!), inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+      expect(opacityOf(tester, images['a']!), isNull);
+      expect(find.byType(Image), findsNothing);
+    });
+  });
+
   group('reduced motion keeps fades', () {
     testWidgets('a fade still takes its full duration', (tester) async {
       reduceMotion(tester);
@@ -203,3 +316,25 @@ void main() {
 final _png = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
 );
+
+/// 由測試決定什麼時候載好（[load]）或失敗（[fail]）的圖。
+class _PendingImage extends ImageProvider<_PendingImage> {
+  final _info = Completer<ImageInfo>();
+
+  Future<void> load() async {
+    if (_info.isCompleted) return;
+    _info.complete(ImageInfo(image: await decodeImageFromList(_png)));
+  }
+
+  void fail() => _info.completeError(StateError('cover failed'));
+
+  @override
+  Future<_PendingImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _PendingImage key,
+    ImageDecoderCallback decode,
+  ) => OneFrameImageStreamCompleter(_info.future);
+}

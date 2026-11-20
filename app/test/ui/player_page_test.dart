@@ -27,6 +27,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fmp/ui/now_playing/transport_bar.dart';
 import 'package:fmp/ui/shell/detail_panel.dart';
 
+import '../support/motion.dart' as motion;
+
 /// 全螢幕播放頁（票 16，`docs/design/player.html`）：從迷你播放器或播放膠囊
 /// 打開，進度、控制、播放來源、佇列、⋮、安全區、紅綠燈與無障礙。播放與佇列
 /// 換成記下呼叫的假的，不聯網（曲目沒有封面網址）。
@@ -144,11 +146,7 @@ void main() {
           );
         addTearDown(tester.view.reset);
         if (reduceMotion) {
-          tester.platformDispatcher.accessibilityFeaturesTestValue =
-              const FakeAccessibilityFeatures(disableAnimations: true);
-          addTearDown(
-            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-          );
+          motion.reduceMotion(tester);
         }
         windowCalls = [];
         const channel = MethodChannel('fmp/window');
@@ -548,9 +546,16 @@ void main() {
       );
     }
 
-    Future<void> changeSongHalfway(WidgetTester tester) async {
-      playback.set(playing(song(7, covers: true)));
+    /// 換到 [n]：新封面解碼好（真的非同步）才開始交叉淡出，再到一半。
+    Future<void> changeSongHalfway(WidgetTester tester, [int n = 7]) async {
+      playback.set(playing(song(n, covers: true)));
       await tester.pump();
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
       await tester.pump(const Duration(milliseconds: 140));
     }
 
@@ -563,9 +568,7 @@ void main() {
           expectCrossFading(tester, find.byKey(const Key('mini-player')));
           await settle(tester);
           await openPlayer(tester);
-          playback.set(playing(song(8, covers: true)));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 140));
+          await changeSongHalfway(tester, 8);
           expectCrossFading(tester, find.byType(PlayerCover));
           await settle(tester);
         },

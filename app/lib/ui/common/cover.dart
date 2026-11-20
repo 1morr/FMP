@@ -50,49 +50,119 @@ class Cover extends ConsumerWidget {
           child: ColoredBox(
             color: colors.cell2,
             child: crossFade
-                ? PreservedSwitcher(
-                    key: const Key('cover-cross-fade'),
-                    layout: (current, previous) => Stack(
-                      fit: StackFit.expand,
-                      children: [...previous, ?current],
-                    ),
-                    child: KeyedSubtree(
-                      key: ValueKey(url),
-                      child: _image(load, pixels) ?? const SizedBox.expand(),
-                    ),
+                ? _CrossFadeCover(
+                    url: url,
+                    provider: (url) => _provider(load, url, pixels),
+                    image: (url) => _image(load, pixels, url: url),
                   )
-                : _image(load, pixels),
+                : _image(load, pixels, url: url),
           ),
         ),
       ),
     );
   }
 
-  Widget? _image(ImageProvider Function(String url) load, int pixels) =>
-      switch (url) {
-        null => null,
-        final url => Image(
-          image: ResizeImage(
-            load(url),
-            width: pixels,
-            height: pixels,
-            policy: ResizeImagePolicy.fit,
-          ),
-          fit: BoxFit.cover,
-          width: size,
-          height: size,
-          gaplessPlayback: !crossFade,
-          excludeFromSemantics: true,
-          frameBuilder: (context, child, frame, synchronous) => synchronous
-              ? child
-              : PreservedFade(
-                  key: imageFadeKey,
-                  opacity: frame == null ? 0 : 1,
-                  duration: FmpMotion.fast,
-                  child: child,
-                ),
-          // 有 errorBuilder 時失敗不報成 Flutter 錯誤；留著底色。
-          errorBuilder: (_, _, _) => const SizedBox.expand(),
-        ),
-      };
+  ImageProvider _provider(
+    ImageProvider Function(String url) load,
+    String url,
+    int pixels,
+  ) => ResizeImage(
+    load(url),
+    width: pixels,
+    height: pixels,
+    policy: ResizeImagePolicy.fit,
+  );
+
+  Widget? _image(
+    ImageProvider Function(String url) load,
+    int pixels, {
+    required String? url,
+  }) => switch (url) {
+    null => null,
+    final url => Image(
+      image: _provider(load, url, pixels),
+      fit: BoxFit.cover,
+      width: size,
+      height: size,
+      gaplessPlayback: !crossFade,
+      excludeFromSemantics: true,
+      frameBuilder: (context, child, frame, synchronous) => synchronous
+          ? child
+          : PreservedFade(
+              key: imageFadeKey,
+              opacity: frame == null ? 0 : 1,
+              duration: FmpMotion.fast,
+              child: child,
+            ),
+      // 有 errorBuilder 時失敗不報成 Flutter 錯誤；留著底色。
+      errorBuilder: (_, _, _) => const SizedBox.expand(),
+    ),
+  };
+}
+
+/// 換歌時的封面：新封面解碼出第一個 frame 才 out 280 交叉淡出（之前舊封面
+/// 完整留著，不先淡到底色）；已經在記憶體裡的直接換；新封面載入失敗才淡到
+/// 底色。減少動態效果時照樣。
+class _CrossFadeCover extends StatefulWidget {
+  const _CrossFadeCover({
+    required this.url,
+    required this.provider,
+    required this.image,
+  });
+
+  final String? url;
+  final ImageProvider Function(String url) provider;
+  final Widget? Function(String? url) image;
+
+  @override
+  State<_CrossFadeCover> createState() => _CrossFadeCoverState();
+}
+
+class _CrossFadeCoverState extends State<_CrossFadeCover> {
+  /// 畫面上的那張；等新的那張的第一個 frame 時還是舊的。
+  late String? _shown = widget.url;
+
+  /// 每換一次網址加一；等到的結果不是最新那次的就丟掉。
+  int _generation = 0;
+
+  @override
+  void didUpdateWidget(_CrossFadeCover old) {
+    super.didUpdateWidget(old);
+    if (widget.url != old.url) _wait(widget.url);
+  }
+
+  void _wait(String? url) {
+    final generation = ++_generation;
+    if (url == null) {
+      _shown = null;
+      return;
+    }
+    final provider = widget.provider(url);
+    // 已經解碼在記憶體裡：直接換，接下來的 build 就畫它（key 是同步拿到的）。
+    var cached = false;
+    provider.obtainKey(createLocalImageConfiguration(context)).then((key) {
+      cached = PaintingBinding.instance.imageCache.statusForKey(key).keepAlive;
+    });
+    if (cached) {
+      _shown = url;
+      return;
+    }
+    var failed = false;
+    precacheImage(provider, context, onError: (_, _) => failed = true).then((
+      _,
+    ) {
+      if (!mounted || generation != _generation) return;
+      setState(() => _shown = failed ? null : url);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => PreservedSwitcher(
+    key: const Key('cover-cross-fade'),
+    fit: StackFit.expand,
+    child: KeyedSubtree(
+      key: ValueKey(_shown),
+      child: widget.image(_shown) ?? const SizedBox.expand(),
+    ),
+  );
 }

@@ -19,7 +19,8 @@ import 'package:fmp/ui/common/focus_ring.dart';
 import 'package:fmp/ui/player/player_page.dart';
 import 'package:fmp/ui/shell/detail_content.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:fmp/app/theme/theme.dart';
+
+import '../support/motion.dart' as motion;
 
 /// 曲目資訊（票 17，`docs/design/player.html`〈曲目資訊〉）：從音源膠囊、⋮、
 /// 兩欄頂列的資訊鈕與 ⌘I 打開；缺的欄位不顯示；無障礙。以及桌面詳情面板
@@ -127,11 +128,7 @@ void main() {
           ..devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         if (reduceMotion) {
-          tester.platformDispatcher.accessibilityFeaturesTestValue =
-              const FakeAccessibilityFeatures(disableAnimations: true);
-          addTearDown(
-            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-          );
+          motion.reduceMotion(tester);
         }
         const channel = MethodChannel('fmp/window');
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -385,28 +382,6 @@ void main() {
       await tester.tapAt(Offset(box.center.dx, box.top + 4));
       await settle(tester);
       expect(row('Night Train'), findsOneWidget);
-    });
-
-    infoTest('phone: the sheet rises on the morph curve over 520ms', (
-      tester,
-    ) async {
-      await openPlayer(tester);
-
-      await tester.tap(find.byKey(const Key('player-signature')));
-      await tester.pump();
-      Offset slide() => tester
-          .widget<SlideTransition>(find.byKey(const Key('sheet-slide')))
-          .position
-          .value;
-      await tester.pump(const Duration(milliseconds: 260));
-      expect(
-        slide().dy,
-        moreOrLessEquals(1 - FmpMotion.morphCurve.transform(.5)),
-      );
-      await tester.pump(const Duration(milliseconds: 40));
-      expect(slide().dy, greaterThan(0), reason: 'still rising after 300ms');
-      await tester.pump(const Duration(milliseconds: 220));
-      expect(slide().dy, 0);
     });
 
     infoTest('with reduced motion the sheet fades in over its full duration '

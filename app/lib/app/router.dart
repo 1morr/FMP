@@ -9,6 +9,7 @@ import 'package:fmp/ui/shell/destination.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fmp/app/theme/theme.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 全螢幕播放頁的路徑：疊在外殼上面（不在 `ShellRoute` 裡），蓋住導覽與
 /// 播放膠囊。
@@ -70,8 +71,8 @@ Widget _pageOf(Destination destination) => switch (destination) {
   Destination.search => const SearchPage(),
 };
 
-/// 過場的 controller 用 `AnimationBehavior.preserve` 的頁：減少動態效果時的
-/// 淡入淡出照原本的時長（預設的 controller 縮成 5%，事實 K35）。
+/// 過場照原本時長的頁（[PreservedRouteTransition]）：減少動態效果時播放頁照樣
+/// 淡入淡出。
 class _PreservedTransitionPage<T> extends CustomTransitionPage<T> {
   const _PreservedTransitionPage({
     required super.child,
@@ -85,7 +86,8 @@ class _PreservedTransitionPage<T> extends CustomTransitionPage<T> {
   Route<T> createRoute(BuildContext context) => _PreservedPageRoute<T>(this);
 }
 
-class _PreservedPageRoute<T> extends PageRoute<T> {
+class _PreservedPageRoute<T> extends PageRoute<T>
+    with PreservedRouteTransition<T> {
   _PreservedPageRoute(_PreservedTransitionPage<T> page) : super(settings: page);
 
   _PreservedTransitionPage<T> get _page =>
@@ -114,15 +116,6 @@ class _PreservedPageRoute<T> extends PageRoute<T> {
 
   @override
   bool get opaque => _page.opaque;
-
-  @override
-  AnimationController createAnimationController() => AnimationController(
-    duration: transitionDuration,
-    reverseDuration: reverseTransitionDuration,
-    debugLabel: debugLabel,
-    vsync: navigator!,
-    animationBehavior: AnimationBehavior.preserve,
-  );
 
   @override
   Widget buildPage(

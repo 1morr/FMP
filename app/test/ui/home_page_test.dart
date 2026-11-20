@@ -22,6 +22,8 @@ import 'package:fmp/ui/queue/queue_page.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../support/motion.dart' as motion;
+
 /// 首頁（`docs/design/home.html`）：近期熱門的各種狀態、繼續聽、四種版面與
 /// 無障礙。排行榜的狀態由測試直接給（抓榜與快取在 `test/charts/`），插件只
 /// 用來給 manifest，不會被呼叫。
@@ -105,11 +107,7 @@ void main() {
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     if (reduceMotion) {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
+      motion.reduceMotion(tester);
     }
     charts = _FakeCharts(
       starting

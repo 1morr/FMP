@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fmp/app/theme/theme.dart';
+import 'package:fmp/ui/common/inert.dart';
 import 'package:material_ui/material_ui.dart';
 
 // 「減少動態效果」時仍要動的動畫（`docs/design/DESIGN.md`〈狀態變化對照〉的
@@ -75,21 +76,21 @@ class PreservedSwitcher extends StatefulWidget {
     this.duration = FmpMotion.mid,
     this.curve = FmpMotion.outCurve,
     this.transition = fadeTransition,
-    this.layout = topStackLayout,
+    this.alignment = Alignment.topCenter,
+    this.fit = StackFit.loose,
   });
 
   final Widget? child;
   final Duration duration;
   final Curve curve;
   final SwitcherTransition transition;
-  final Widget Function(Widget? current, List<Widget> previous) layout;
+
+  /// 新舊疊在一起時怎麼對齊（[Stack.alignment]）、要不要撐滿（[Stack.fit]）。
+  final AlignmentGeometry alignment;
+  final StackFit fit;
 
   static Widget fadeTransition(Widget child, Animation<double> animation) =>
       FadeTransition(opacity: animation, child: child);
-
-  /// 新舊疊在一起、靠上置中，高度取比較高的那個。
-  static Widget topStackLayout(Widget? current, List<Widget> previous) =>
-      Stack(alignment: Alignment.topCenter, children: [...previous, ?current]);
 
   @override
   State<PreservedSwitcher> createState() => _PreservedSwitcherState();
@@ -159,18 +160,28 @@ class _PreservedSwitcherState extends State<PreservedSwitcher>
     super.dispose();
   }
 
+  /// 正在離開的點不到、Tab 不到、螢幕閱讀器讀不到；Inert 一直包著，換成
+  /// 離開時才不會重建。
   Widget? _build(_Entry entry) => switch (entry.widget) {
     null => null,
     final child => KeyedSubtree(
       key: ObjectKey(entry),
-      child: widget.transition(child, entry.animation),
+      child: Inert(
+        inert: !identical(entry, _current),
+        child: widget.transition(child, entry.animation),
+      ),
     ),
   };
 
   @override
-  Widget build(BuildContext context) => widget.layout(_build(_current), [
-    for (final entry in _previous) ?_build(entry),
-  ]);
+  Widget build(BuildContext context) => Stack(
+    alignment: widget.alignment,
+    fit: widget.fit,
+    children: [
+      for (final entry in _previous) ?_build(entry),
+      ?_build(_current),
+    ],
+  );
 }
 
 /// 小元件出現與消失（迷你播放器、播放膠囊、提示、多選動作列）：out 280，
@@ -203,8 +214,7 @@ class AppearSwitcher extends StatelessWidget {
           child: child,
         ),
       ),
-      layout: (current, previous) =>
-          Stack(alignment: alignment, children: [...previous, ?current]),
+      alignment: alignment,
       child: child,
     );
   }
@@ -322,19 +332,9 @@ class _SpinnerPainter extends CustomPainter {
       old.strokeWidth != strokeWidth;
 }
 
-/// 從邊緣升起的浮層（sheet、對話框）的路由：過場的 controller 用
-/// `AnimationBehavior.preserve`，減少動態效果時的淡入淡出才真的有時長
-/// （showGeneralDialog 的 controller 會縮成 5%）。
-class PreservedDialogRoute<T> extends RawDialogRoute<T> {
-  PreservedDialogRoute({
-    required super.pageBuilder,
-    required super.transitionBuilder,
-    required super.transitionDuration,
-    super.barrierDismissible,
-    super.barrierLabel,
-    super.barrierColor,
-  });
-
+/// 路由過場的 controller 用 `AnimationBehavior.preserve`：減少動態效果時的
+/// 淡入淡出才真的有時長（預設的 controller 縮成 5%，事實 K35）。
+mixin PreservedRouteTransition<T> on TransitionRoute<T> {
   @override
   AnimationController createAnimationController() => AnimationController(
     duration: transitionDuration,
@@ -343,6 +343,20 @@ class PreservedDialogRoute<T> extends RawDialogRoute<T> {
     vsync: navigator!,
     animationBehavior: AnimationBehavior.preserve,
   );
+}
+
+/// 從邊緣升起的浮層（sheet、對話框）的路由（showGeneralDialog 的路由加上
+/// [PreservedRouteTransition]）。
+class PreservedDialogRoute<T> extends RawDialogRoute<T>
+    with PreservedRouteTransition<T> {
+  PreservedDialogRoute({
+    required super.pageBuilder,
+    required super.transitionBuilder,
+    required super.transitionDuration,
+    super.barrierDismissible,
+    super.barrierLabel,
+    super.barrierColor,
+  });
 }
 
 /// 手機從底部升起的 sheet（曲目 ⋮、曲目資訊）：morph 520 從底邊滑入；減少

@@ -8,6 +8,7 @@ import 'package:fmp/ui/settings/settings_sections.dart';
 import 'package:fmp/ui/shell/shell_controls.dart';
 import 'package:fmp/ui/shell/shell_page.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:fmp/ui/common/motion.dart';
 
 /// 桌面與中寬度選中的分類：這次開 App 期間記住，換頁回來還在。
 final settingsCategoryProvider =
@@ -166,11 +167,7 @@ class _WhenScrolled extends StatelessWidget {
     valueListenable: scrolled,
     builder: (context, scrolled, child) => ExcludeSemantics(
       excluding: !scrolled,
-      child: AnimatedOpacity(
-        opacity: scrolled ? 1 : 0,
-        duration: FmpMotion.mid,
-        child: child,
-      ),
+      child: PreservedFade(opacity: scrolled ? 1 : 0, child: child!),
     ),
     child: child,
   );
@@ -196,17 +193,11 @@ class _SplitSettings extends ConsumerWidget {
     final top = insets.top - (touch ? 0 : 4);
     final pane = SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(36, top, 36, insets.bottom),
-      child: AnimatedSwitcher(
+      child: PreservedSwitcher(
         key: const Key('settings-pane'),
         // 換分類是內容替換：out 280 交叉淡出，減少動態效果時照樣
         // （`DESIGN.md`〈狀態變化對照〉）。
-        duration: FmpMotion.mid,
-        switchInCurve: FmpMotion.outCurve,
-        switchOutCurve: FmpMotion.outCurve,
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.topLeft,
-          children: [...previous, ?current],
-        ),
+        alignment: Alignment.topLeft,
         child: KeyedSubtree(
           key: ValueKey(category),
           child: switch (category) {
