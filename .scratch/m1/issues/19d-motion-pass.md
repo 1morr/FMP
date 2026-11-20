@@ -57,6 +57,7 @@ Blocked by: 19c
 決定：實跑情境三支：`motion_run`（聯網，搜一次、播兩首）、`motion_states_run`（不聯網補拍，那支截壞要重跑時用）、`reduced_run`（系統開減少動態效果）（Agent 定）
 決定：macOS 的 `motion_run` 分 P 與佇列移除兩張截壞（頂列吃掉點擊、截太晚）、iOS 的 `motion_run` 第二次加入佇列點到還在升起的 sheet 而失敗；照規則不再打 B 站，兩個平台的這幾步改用 `motion_states_run` 補拍（Agent 定）
 Session 紀錄：2026-11-20 動態補齊：保留時長的共用動畫元件、按下縮放、sheet morph、spinner、點點、字色、封面與骨架交叉淡出、多選與 dock 進出、佇列殘影；macOS＋iOS 實跑、Android 移除動畫截中途
+閘門：2026-11-20 `dart run tool/check.dart --skip-windows` 全綠（macOS、iOS、Android 的建置、原生測試與 integration_test）；Windows 跳過：winpc 尚未恢復，建置與 integration_test 等擁有者說恢復後在票 20 一起補
 code-review 未處理：Fowler 判斷題：殘影列傳一串空 callback（可抽只負責顯示的列）、測試裡用 `morphCurve.transform(.5)` 算期望值、`panel_run` 的 wait 沒換成 `RealRun.wait`；import 排序沒有 lint 守，不動
 變更：Changed｜外殼｜圖示鈕與播放控制按下時縮小一點；載入中的轉圈改成設計稿的樣子
 變更：Changed｜外殼｜手機導覽選到的項目字色漸變；迷你播放器、播放膠囊、提示出現與消失時淡入並滑上來
